@@ -1,8 +1,8 @@
 From: James Morris <jmorris@intercode.com.au>
-Subject: LSM networking components for 2.5.42 (intro)
-Date: Wed, 16 Oct 2002 00:33:18 +1000 (EST)
+Subject: [PATCH] LSM networking: netdevice hooks for 2.5.42 (1/7)
+Date: Wed, 16 Oct 2002 00:34:31 +1000 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Mutt.LNX.4.44.0210152333530.27676-100000@blackbird.intercode.com.au>
+Message-ID: <Mutt.LNX.4.44.0210160026270.27676-100000@blackbird.intercode.com.au>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@oss.sgi.com, <linux-security-module@wirex.com>
@@ -11,65 +11,115 @@ To: "David S. Miller" <davem@redhat.com>, <kuznet@ms2.inr.ac.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Following this email will be seven patches which provide LSM networking 
-components for the 2.5.42 kernel:
-
-1. Netdevice hooks
-2. skb hooks
-3. Socket hooks
-4. IPv4 hooks
-5. Netlink hooks
-6. Unix domain hooks
-7. TCP hooks
-
-These represent all of the current LSM networking features, split 
-into cumulative patches.
-
-In a nutshell, LSM (Linux Security Modules) is a general purpose framework 
-for access control, allowing various security projects (e.g. SELinux, LIDS 
-etc.) to be implemented without needing to patch the kernel.
-
-The basic concept of LSM is 'mediated access to kernel objects', which
-roughly translates to placing void pointers into key structs which can be
-used to store security state, then adding a series of hooks which
-maintain per-object security state and allow access decisions to be made.  
-It is up to the security module to implement policies for maintaining
-security state and which access hooks to choose (i.e. LSM aims to be
-mechanism, not policy).
-
-Much more information on LSM and its design can be found at the LSM web 
-site: http://lsm.immunix.org/ , notably the Usenix and OLS papers.
-
-The networking components were largely modeled on the requirements of
-SELinux, which is itself a somewhat generic mandatory access control
-system.  Specific aims for the networking in LSM are to provide support
-for: general access control, the SELinux extended socket API, and labeled
-networking.  Several additional projects are believed to be under 
-development which make significant use of the networking components, 
-although SELinux is the best currently available example.
-
-The performance impact of LSM has been examined using macro (Webstone) and
-micro (lmbench) benchmarks on a dual SMP system.  The last set of data,
-which was generated around the time of the last kernel summit, indicates
-that there is no measurable impact on networking at 100Mbps LAN speeds
-(the variations were basically noise).
-
-At 1Gbps, the Webstone throughput figures showed a 1-2% impact, although
-it's not clear how much of this is the specific result of the networking
-hooks (i.e. non-networking LSM hooks were probably also contributing).  
-The bw_tcp microbenchmark showed an impact of 0.3-0.6% at gigabit speed.
-
-Some changes (notably, the recent addition some TCP hooks) have been made
-to LSM since these tests, and the tests can be run again if needed.
-There's also the issue of the new flow cache code, which will probably
-require changes to some of the LSM networking hooks.
-
-The LSM developers are open to suggestions for optimizations and 
-improvements, and can be reached reliably at the lsm address on the cc 
-list above.
-
-
-- James
--- 
-James Morris
-<jmorris@intercode.com.au>
+diff -urN -X dontdiff linux-2.5.42.orig/include/linux/netdevice.h linux-2.5.42.w1/include/linux/netdevice.h
+--- linux-2.5.42.orig/include/linux/netdevice.h	Wed Oct  9 22:39:39 2002
++++ linux-2.5.42.w1/include/linux/netdevice.h	Tue Oct 15 20:19:42 2002
+@@ -437,6 +437,7 @@
+ 	/* this will get initialized at each interface type init routine */
+ 	struct divert_blk	*divert;
+ #endif /* CONFIG_NET_DIVERT */
++	void			*security;
+ };
+ 
+ 
+diff -urN -X dontdiff linux-2.5.42.orig/include/linux/security.h linux-2.5.42.w1/include/linux/security.h
+--- linux-2.5.42.orig/include/linux/security.h	Sat Oct 12 15:09:43 2002
++++ linux-2.5.42.w1/include/linux/security.h	Tue Oct 15 20:19:42 2002
+@@ -616,6 +616,20 @@
+  *	deallocate security struct for this semaphore
+  *	@sma contains the semaphore structure.
+  *
++ * Security hooks for network devices.
++ * @netdev_unregister:
++ *	Update the module's state when a network device is unregistered,
++ *	deallocating the dev->security field if it was previously allocated.
++ *	@dev contains the network device
++ *
++ * These are the hooks for network device operations.  Since it would be quite
++ * invasive to provide hooks in every location where a network device might be
++ * probed or initialized, there are no separate hooks for allocation or
++ * initialization.  Security modules can allocate and initialize the
++ * dev->security field on the first access to the device, but should be careful
++ * to use nonblocking allocation.
++ * 
++ *
+  * @ptrace:
+  *	Check permission before allowing the @parent process to trace the
+  *	@child process.
+@@ -830,6 +844,8 @@
+ 	void (*task_kmod_set_label) (void);
+ 	void (*task_reparent_to_init) (struct task_struct * p);
+ 
++	void (*netdev_unregister) (struct net_device * dev);
++	
+ 	int (*ipc_permission) (struct kern_ipc_perm * ipcp, short flag);
+ 
+ 	int (*msg_queue_alloc_security) (struct msg_queue * msq);
+diff -urN -X dontdiff linux-2.5.42.orig/net/core/dev.c linux-2.5.42.w1/net/core/dev.c
+--- linux-2.5.42.orig/net/core/dev.c	Wed Oct  9 22:39:39 2002
++++ linux-2.5.42.w1/net/core/dev.c	Tue Oct 15 20:19:42 2002
+@@ -105,6 +105,7 @@
+ #include <linux/init.h>
+ #include <linux/kmod.h>
+ #include <linux/module.h>
++#include <linux/security.h>
+ #if defined(CONFIG_NET_RADIO) || defined(CONFIG_NET_PCMCIA_RADIO)
+ #include <linux/wireless.h>		/* Note : will define WIRELESS_EXT */
+ #include <net/iw_handler.h>
+@@ -2592,6 +2593,8 @@
+ 	free_divert_blk(dev);
+ #endif
+ 
++	security_ops->netdev_unregister(dev);
++
+ 	if (dev->features & NETIF_F_DYNALLOC) {
+ #ifdef NET_REFCNT_DEBUG
+ 		if (atomic_read(&dev->refcnt) != 1)
+diff -urN -X dontdiff linux-2.5.42.orig/security/capability.c linux-2.5.42.w1/security/capability.c
+--- linux-2.5.42.orig/security/capability.c	Sat Oct 12 15:09:44 2002
++++ linux-2.5.42.w1/security/capability.c	Tue Oct 15 20:19:42 2002
+@@ -714,6 +714,11 @@
+ 	return;
+ }
+ 
++static void cap_netdev_unregister (struct net_device *dev)
++{
++	return;
++}
++
+ static int cap_register (const char *name, struct security_operations *ops)
+ {
+ 	return -EINVAL;
+@@ -828,6 +833,8 @@
+ 	.sem_alloc_security =		cap_sem_alloc_security,
+ 	.sem_free_security =		cap_sem_free_security,
+ 
++	.netdev_unregister =		cap_netdev_unregister,
++	
+ 	.register_security =		cap_register,
+ 	.unregister_security =		cap_unregister,
+ };
+diff -urN -X dontdiff linux-2.5.42.orig/security/dummy.c linux-2.5.42.w1/security/dummy.c
+--- linux-2.5.42.orig/security/dummy.c	Sat Oct 12 15:09:44 2002
++++ linux-2.5.42.w1/security/dummy.c	Tue Oct 15 20:19:42 2002
+@@ -529,6 +529,11 @@
+ 	return;
+ }
+ 
++static void dummy_netdev_unregister (struct net_device *dev)
++{
++	return;
++}
++
+ static int dummy_register (const char *name, struct security_operations *ops)
+ {
+ 	return -EINVAL;
+@@ -643,6 +648,8 @@
+ 	.sem_alloc_security =		dummy_sem_alloc_security,
+ 	.sem_free_security =		dummy_sem_free_security,
+ 
++	.netdev_unregister =		dummy_netdev_unregister,
++	
+ 	.register_security =		dummy_register,
+ 	.unregister_security =		dummy_unregister,
+ };
