@@ -1,29 +1,35 @@
-From: Catalin BOIE <util@deuroconsult.ro>
-Subject: Re: [LARTC] [ANNOUNCE] sch_ooo - Out-of-order packet queue discipline
-Date: Tue, 22 Jun 2004 20:52:01 +0300 (EEST)
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] skfddi - fix warning
+Date: Tue, 22 Jun 2004 10:51:46 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.60.0406222051240.17140@hosting.rdsbv.ro>
-References: <Pine.LNX.4.58.0404021023140.18886@hosting.rdsbv.ro>
- <20040622084607.4996569f@dell_ss3.pdx.osdl.net>
+Message-ID: <20040622105146.56e92d80@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org,
-        linux-kernel@vger.kernel.org, lartc@mailman.ds9a.nl
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040622084607.4996569f@dell_ss3.pdx.osdl.net>
+To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 22 Jun 2004, Stephen Hemminger wrote:
+The conversion to ANSI, caused a warning because the mulitcast code needs
+a cast.  dmi->dmi_addr is a u8 array, and fddi_addr is just a wrapper around a u8 array.
 
-> Maybe the delay and ooo scheduler should be merged, the both do sort of
-> the same thing.
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-Yes, it's true.
-I can work on a patch if you want.
 
----
-Catalin(ux aka Dino) BOIE
-catab at deuroconsult.ro
-http://kernel.umbrella.ro/
+diff -Nru a/drivers/net/skfp/skfddi.c b/drivers/net/skfp/skfddi.c
+--- a/drivers/net/skfp/skfddi.c	2004-06-22 10:47:41 -07:00
++++ b/drivers/net/skfp/skfddi.c	2004-06-22 10:47:41 -07:00
+@@ -909,7 +909,10 @@
+ 				dmi = dev->mc_list;
+ 
+ 				for (i = 0; i < dev->mc_count; i++) {
+-					mac_add_multicast(smc, dmi->dmi_addr, 1);
++					mac_add_multicast(smc, 
++							  (struct fddi_addr *)dmi->dmi_addr, 
++							  1);
++
+ 					PRINTK(KERN_INFO "ENABLE MC ADDRESS:");
+ 					PRINTK(" %02x %02x %02x ",
+ 					       dmi->dmi_addr[0],
