@@ -1,25 +1,35 @@
-From: Cheng Jin <chengjin@cs.caltech.edu>
-Subject: ifconfig TX/RX errors
-Date: Fri, 8 Nov 2002 14:59:01 -0800 (PST)
+From: Krishna Kumar <krkumar@us.ibm.com>
+Subject: [PATCH] memory leak in ndisc_router_discovery
+Date: Fri, 8 Nov 2002 15:02:15 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.33L0.0211081456190.25749-100000@fast2.cs.caltech.edu>
+Message-ID: <200211082302.gA8N2Fv16472@eng2.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
+To: kuznet@ms2.inr.ac.ru, davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi, all
+Hi Alexey & Dave,
 
-What does a large number of RX/TX errors from ifconfig output generally
-mean?  Does it also include drop/overruns/frame errors?
+There is a bug in router advertisement handling code, where the reference
+(and memory) to the inet6_dev pointer can get leaked. Following is the patch
+to fix it (patch against 2.5.46) :
 
-Is it an indication of bad packet on the link layer, which  probably means
-faulty hardware?  I am assuming any kind of buffer overflow statistics are
-kept under drop or overruns?
+thanks,
 
-Thanks a lot,
+- KK
 
-Cheng
-Lab # 626 395 8820
+diff -ruN linux.org/net/ipv6/ndisc.c linux/net/ipv6/ndisc.c
+--- linux.org/net/ipv6/ndisc.c	Fri Nov  7 10:02:11 2002
++++ linux/net/ipv6/ndisc.c	Fri Nov  8 14:37:27 2002
+@@ -871,6 +871,7 @@
+ 	}
+ 
+ 	if (!ndisc_parse_options(opt, optlen, &ndopts)) {
++		in6_dev_put(in6_dev);
+ 		if (net_ratelimit())
+ 			ND_PRINTK2(KERN_WARNING
+ 				   "ICMP6 RA: invalid ND option, ignored.\n");
