@@ -1,106 +1,148 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Asynchronous crypto layer.
-Date: Sat, 30 Oct 2004 21:40:50 +0400
+From: Daniele Venzano <webvenza@libero.it>
+Subject: Re: [PATCH] WOL for sis900
+Date: Sat, 30 Oct 2004 21:00:01 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041030214050.7e23d7b8@zanzibar.2ka.mipt.ru>
-References: <1099030958.4944.148.camel@uganda>
-	<Xine.LNX.4.44.0410291342350.22168-100000@thoron.boston.redhat.com>
-	<20041030091932.6a74bdae@zanzibar.2ka.mipt.ru>
-	<Pine.LNX.4.61.0410301805360.14888@maxipes.logix.cz>
-Reply-To: johnpol@2ka.mipt.ru
+Message-ID: <20041030185959.GA7088@renditai.milesteg.arr>
+References: <4183B6B0.7010906@gmx.de> <4183BDB3.8000302@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, cryptoapi@lists.logix.cz
+Content-Type: multipart/mixed; boundary="J2SCkAp4GZ/dPZZf"
+Cc: Malte =?iso-8859-1?Q?Schr=F6der?= <MalteSch@gmx.de>,
+        Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Michal Ludvig <michal@logix.cz>
-In-Reply-To: <Pine.LNX.4.61.0410301805360.14888@maxipes.logix.cz>
+To: NetDev <netdev@oss.sgi.com>
+Content-Disposition: inline
+In-Reply-To: <4183BDB3.8000302@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 30 Oct 2004 18:57:20 +0200 (CEST)
-Michal Ludvig <michal@logix.cz> wrote:
 
-> On Sat, 30 Oct 2004, Evgeniy Polyakov wrote:
-> 
-> > On Fri, 29 Oct 2004 13:44:24 -0400 (EDT)
-> > James Morris <jmorris@redhat.com> wrote:
-> > 
-> > > On Fri, 29 Oct 2004, Evgeniy Polyakov wrote:
-> > > 
-> > > > I'm pleased to announce asynchronous crypto layer for Linux kernel 2.6.
-> > > 
-> > > Could you please resend as a patch against the latest bk snapshot?
-> > > 
-> > > i.e. output of 'diff -purN tree-a tree-b'
-> > > 
-> > 
-> > Attached following patches:
-> > 
-> > Kconfig.connector.patch
-> > Kconfig.crypto.patch
-> > Makefile.connector.patch
-> > Makefile.crypto.patch
-> > acrypto.patch
-> > connector.patch
-> 
-> Hi Evgeniy,
-> 
-> I have compiled and booted with your patches. Not too much 
-> playing around so far. Anyway some quick observations:
+--J2SCkAp4GZ/dPZZf
+Content-Type: text/plain; charset=iso-8859-1
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+X-MIME-Autoconverted: from 8bit to quoted-printable by oss.sgi.com id i9UJ2U0M004794
 
-I've wrote mega block device which can work(without hang) only 
-with 10mb "disks", but what did you expect from midnight hack after
-several Staropramen's :)
-Give me several minutes to complete async_provider.c and I will post
-numbers, which I expect will be the same for both sync and async
-driver since I do not have neither SMP(which should benefit I believe) 
-nor crypto card here.
+On Sat, Oct 30, 2004 at 12:13:39PM -0400, Jeff Garzik wrote:
+> Malte Schr=F6der wrote:
+> >Hello,
+> >I have applied the patch from http://lkml.org/lkml/2003/7/16/88 manual=
+ly=20
+> >to 2.6.7 (also works on 2.6.{8,9}) and have been using it since then.
+> >Attached is a diff against 2.6.9.
+>=20
+> 2) Please use ethtool to enable/disable WOL.  No need for a module opti=
+on.
 
-> - "rmmod simple_lb" hangs because:
-> | <6>You are removing crypto load balancer simple_lb which is current and 
-> | default.
-> | There is no other crypto load balancers. Removing is delayed untill new 
-> | load balancer is registered.
-> Of course I can't re-add it because the module is still there. In this 
-> case rmmod should fail with a gentle message (-EBUSY) instead of hang. Or 
-> let it go if not in use.
+Attached is a first try at this wol via ethtool thing. I don't think to
+have got it right, but here it is.
 
-acrypto module has parameter force_lb_remove which if is set allows to remove
-last crypto load balancer.
-But ut has atricky moment - since any crypto_session_alloc() may occur 
-asyncronously then we can not say if there are any load balancer users
-without some locks. Currently if there is no any crypto load balancer, then
-acrypto will catch BUG_ON().
-I will think of it some more.
+I tried to test WoL on my laptop, obvioulsy it didn't work, but I don't
+even know if I have the hardware support for it.
+On this page:
+http://www.sis.com/products/connectivity/900.htm
+it says that the magic packet feature is optional.
 
-> - In the kernel config ACRYPTO depends on CONNECTOR, but is above it in 
-> the menuconfig.
-> 
-> - I would choose a different directory strucrure. Instead of 
-> drivers/acrypto and drivers/connector I'd put the device-independent 
-> parrts info e.g. crypto/acrypto and the drivers (e.g. Fcrypt or PadLock) 
-> into drivers/crypto.
+I would really like to have some way to check if WoL is supported by the
+hardware before thinking to include this. I didn't find any
+documentation of some use for this.
 
-connector is independent module - it is used instead of ioctl for 
-diagnostic. So I think it should live in drivers/connector.
-I do not have any objection against your tree schema for crypto stuff.
+Finally, I have never realized the sorry state of sis900 wrt ethtool,
+I'll try to get some more support...
 
-> - For other interested: concatenated patch with some very minor tweaks is 
-> at http://www.logix.cz/michal/dl/acrypto/acrypto.diff
-> My changes are in mludvig.diff in the same directory.
-> It applies cleanly to BitKeeper tree as well.
+The attached patch is against clean 2.6.9 and is NOT for inclusion.
 
-I totally agree with your changes, thank you.
-Note: KERN_EMERG was put into dprintk to allow netconsole send this data 
-by default.
+--=20
+------------------------------
+Daniele Venzano
+Web: http://teg.homeunix.org
+
+--J2SCkAp4GZ/dPZZf
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="sis900_wol_ethtool.diff"
+
+Index: sis900.c
+===================================================================
+--- sis900.c	(revision 13)
++++ sis900.c	(working copy)
+@@ -120,6 +120,7 @@
+ } mii_chip_table[] = {
+ 	{ "SiS 900 Internal MII PHY", 		0x001d, 0x8000, LAN },
+ 	{ "SiS 7014 Physical Layer Solution", 	0x0016, 0xf830, LAN },
++	{ "Altimata AC101LF PHY",               0x0022, 0x5520, LAN },
+ 	{ "AMD 79C901 10BASE-T PHY",  		0x0000, 0x6B70, LAN },
+ 	{ "AMD 79C901 HomePNA PHY",		0x0000, 0x6B90, HOME},
+ 	{ "ICS LAN PHY",			0x0015, 0xF440, LAN },
+@@ -1903,8 +1904,41 @@
+ 	strcpy (info->bus_info, pci_name(sis_priv->pci_dev));
+ }
  
-> Michal Ludvig
-> -- 
-> * A mouse is a device used to point at the xterm you want to type in.
-> * Personal homepage - http://www.logix.cz/michal
++static int sis900_set_wol(struct net_device *net_dev, struct ethtool_wolinfo *wol)
++{
++	struct sis900_private *sis_priv = net_dev->priv;
++	long ioaddr = net_dev->base_addr;
++	u32 cfgpmcsr;
++	
++	if (wol->wolopts & WAKE_MAGIC) {
++		pci_read_config_dword(sis_priv->pci_dev, CFGPMCSR, &cfgpmcsr);
++		cfgpmcsr |= PME_EN;
++		pci_write_config_dword(sis_priv->pci_dev, CFGPMCSR, cfgpmcsr);
++		outl(inl(ioaddr + pmctrl) | MAGICPKT | ALGORITHM, ioaddr + pmctrl);
++	} else if (wol->wolopts) {
++		return -EINVAL;
++	} else {
++		pci_read_config_dword(sis_priv->pci_dev, CFGPMCSR, &cfgpmcsr);
++		cfgpmcsr |= ~PME_EN;
++		pci_write_config_dword(sis_priv->pci_dev, CFGPMCSR, cfgpmcsr);
++		outl(inl(ioaddr + pmctrl) & ~MAGICPKT, ioaddr + pmctrl);
++	}
++
++	return 0;
++}
++
++static void sis900_get_wol(struct net_device *net_dev, struct ethtool_wolinfo *wol)
++{
++	long ioaddr = net_dev->base_addr;
++
++	if (inl(ioaddr + pmctrl) & MAGICPKT, ioaddr + pmctrl)
++		wol->wolopts |= WAKE_MAGIC;
++}
++
+ static struct ethtool_ops sis900_ethtool_ops = {
+ 	.get_drvinfo =		sis900_get_drvinfo,
++	.get_wol =		sis900_get_wol,
++	.set_wol =		sis900_set_wol,	
+ };
+ 
+ /**
+Index: sis900.h
+===================================================================
+--- sis900.h	(revision 13)
++++ sis900.h	(working copy)
+@@ -140,6 +140,25 @@
+ 	EEREQ = 0x00000400, EEDONE = 0x00000200, EEGNT = 0x00000100
+ };
+ 
++/* Wake-on-LAN support. */
++enum sis900_power_management_control_register_bits {
++	LINKLOSS  = 0x00000001,
++	LINKON    = 0x00000002,
++	MAGICPKT  = 0x00000400,
++	ALGORITHM = 0x00000800,
++	FRM1EN    = 0x00100000,
++	FRM2EN    = 0x00200000,
++	FRM3EN    = 0x00400000,
++	FRM1ACS   = 0x01000000,
++	FRM2ACS   = 0x02000000,
++	FRM3ACS   = 0x04000000,
++	WAKEALL   = 0x40000000,
++	GATECLK   = 0x80000000
++};
++
++#define CFGPMCSR 0x44
++#define PME_EN 0x100
++
+ /* Management Data I/O (mdio) frame */
+ #define MIIread         0x6000
+ #define MIIwrite        0x5002
 
-
-	Evgeniy Polyakov
-
-Only failure makes us experts. -- Theo de Raadt
+--J2SCkAp4GZ/dPZZf--
