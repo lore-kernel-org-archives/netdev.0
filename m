@@ -1,93 +1,86 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: [PATCH] remove magic number for netdev alignment
-Date: Thu, 4 Mar 2004 14:15:53 -0800
+From: Leann Ogasawara <ogasawara@osdl.org>
+Subject: [PATCH 2.6.4-rc2] sysfs simple class support for netlink
+Date: Thu, 04 Mar 2004 15:02:36 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040304141553.0080a1ba.rddunlap@osdl.org>
+Message-ID: <1078441356.11562.18.camel@ibm-d.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik <jgarzik@pobox.com>
+Cc: Hanna Linder <hannal@us.ibm.com>, Greg KH <greg@kroah.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev <netdev@oss.sgi.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
-Please apply to 2.6.current.
+Hi All,
 
---
-~Randy
+Patch adds sysfs simple class support for netlink character device
+(Major 36).  Feedback appreciated.  Thanks,
 
+Leann
 
-// Linux 2.6.3
-// remove magic number of '31' for net_device and private alignment;
-
-diffstat:=
- drivers/net/net_init.c    |   13 ++++++++-----
- include/linux/netdevice.h |    7 ++++++-
- 2 files changed, 14 insertions(+), 6 deletions(-)
-
-
-diff -Naurp ./drivers/net/net_init.c~netpriv ./drivers/net/net_init.c
---- ./drivers/net/net_init.c~netpriv	2004-02-17 19:57:14.000000000 -0800
-+++ ./drivers/net/net_init.c	2004-03-04 14:15:17.000000000 -0800
-@@ -79,8 +79,9 @@ struct net_device *alloc_netdev(int size
+===== net/netlink/netlink_dev.c 1.19 vs edited =====
+--- 1.19/net/netlink/netlink_dev.c	Tue Aug 26 09:25:41 2003
++++ edited/net/netlink/netlink_dev.c	Thu Mar  4 12:42:44 2004
+@@ -27,6 +27,7 @@
+ #include <linux/init.h>
+ #include <linux/devfs_fs_kernel.h>
+ #include <linux/smp_lock.h>
++#include <linux/device.h>
  
- 	/* ensure 32-byte alignment of both the device and private area */
+ #include <asm/bitops.h>
+ #include <asm/system.h>
+@@ -34,6 +35,7 @@
  
--	alloc_size = (sizeof(struct net_device) + 31) & ~31;
--	alloc_size += sizeof_priv + 31;
-+	alloc_size = (sizeof(struct net_device) + NETDEV_ALIGN_CONST)
-+			& ~NETDEV_ALIGN_CONST;
-+	alloc_size += sizeof_priv + NETDEV_ALIGN_CONST;
+ static long open_map;
+ static struct socket *netlink_user[MAX_LINKS];
++static struct class_simple *netlink_class;
  
- 	p = kmalloc (alloc_size, GFP_KERNEL);
- 	if (!p) {
-@@ -90,7 +91,8 @@ struct net_device *alloc_netdev(int size
+ /*
+  *	Device operations
+@@ -229,17 +231,26 @@
+ 		return -EIO;
+ 	}
  
- 	memset(p, 0, alloc_size);
- 
--	dev = (struct net_device *)(((long)p + 31) & ~31);
-+	dev = (struct net_device *)(((long)p + NETDEV_ALIGN_CONST)
-+				& ~NETDEV_ALIGN_CONST);
- 	dev->padded = (char *)dev - (char *)p;
- 
- 	if (sizeof_priv)
-@@ -109,7 +111,7 @@ static struct net_device *init_alloc_dev
- 	int alloc_size;
- 
- 	/* ensure 32-byte alignment of the private area */
--	alloc_size = sizeof (*dev) + sizeof_priv + 31;
-+	alloc_size = sizeof (*dev) + sizeof_priv + NETDEV_ALIGN_CONST;
- 
- 	dev = (struct net_device *) kmalloc (alloc_size, GFP_KERNEL);
- 	if (dev == NULL)
-@@ -121,7 +123,8 @@ static struct net_device *init_alloc_dev
- 	memset(dev, 0, alloc_size);
- 
- 	if (sizeof_priv)
--		dev->priv = (void *) (((long)(dev + 1) + 31) & ~31);
-+		dev->priv = (void *) (((long)(dev + 1) + NETDEV_ALIGN_CONST)
-+				& ~NETDEV_ALIGN_CONST);
- 
- 	return dev;
- }
-diff -Naurp ./include/linux/netdevice.h~netpriv ./include/linux/netdevice.h
---- ./include/linux/netdevice.h~netpriv	2004-02-17 19:59:32.000000000 -0800
-+++ ./include/linux/netdevice.h	2004-03-04 14:13:42.000000000 -0800
-@@ -478,9 +478,14 @@ struct net_device
- 	int padded;
- };
- 
-+#define	NETDEV_ALIGN		32
-+#define	NETDEV_ALIGN_CONST	(NETDEV_ALIGN - 1)
++	netlink_class = class_simple_create(THIS_MODULE, "netlink");
++	if (IS_ERR(netlink_class)) {
++		printk (KERN_ERR "Error creating netlink class.\n");
++		unregister_chrdev(NETLINK_MAJOR, "netlink");
++		return PTR_ERR(netlink_class);
++	}
 +
- static inline void *netdev_priv(struct net_device *dev)
+ 	devfs_mk_dir("netlink");
+ 
+ 	/*  Someone tell me the official names for the uppercase ones  */
+ 	for (i = 0; i < ARRAY_SIZE(entries); i++) {
+ 		devfs_mk_cdev(MKDEV(NETLINK_MAJOR, entries[i].minor),
+ 			S_IFCHR|S_IRUSR|S_IWUSR, "netlink/%s", entries[i].name);
++		class_simple_device_add(netlink_class, MKDEV(NETLINK_MAJOR, entries[i].minor), NULL, "%s", entries[i].name);
+ 	}
+ 
+ 	for (i = 0; i < 16; i++) {
+ 		devfs_mk_cdev(MKDEV(NETLINK_MAJOR, i + 16),
+ 			S_IFCHR|S_IRUSR|S_IWUSR, "netlink/tap%d", i);
++		class_simple_device_add(netlink_class, MKDEV(NETLINK_MAJOR, i + 16), NULL, "tap%d", i);
+ 	}
+ 
+ 	return 0;
+@@ -249,11 +260,16 @@
  {
--	return (char *)dev + ((sizeof(struct net_device) + 31) & ~31);
-+	return (char *)dev + ((sizeof(struct net_device)
-+					+ NETDEV_ALIGN_CONST)
-+				& ~NETDEV_ALIGN_CONST);
+ 	int i;
+ 
+-	for (i = 0; i < ARRAY_SIZE(entries); i++)
++	for (i = 0; i < ARRAY_SIZE(entries); i++) {
+ 		devfs_remove("netlink/%s", entries[i].name);
+-	for (i = 0; i < 16; i++)
++		class_simple_device_remove(MKDEV(NETLINK_MAJOR, entries[i].minor));
++	}
++	for (i = 0; i < 16; i++) {
+ 		devfs_remove("netlink/tap%d", i);
++		class_simple_device_remove(MKDEV(NETLINK_MAJOR, i + 16));
++	}
+ 	devfs_remove("netlink");
++	class_simple_destroy(netlink_class);
+ 	unregister_chrdev(NETLINK_MAJOR, "netlink");
  }
  
- #define SET_MODULE_OWNER(dev) do { } while (0)
