@@ -1,50 +1,33 @@
-From: Michal Ludvig <mludvig@suse.cz>
-Subject: [PATCH] pfkey_send_new_mapping()
-Date: Thu, 01 Apr 2004 14:23:10 +0200
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: fealnx oopses (with [PATCH])
+Date: Thu, 1 Apr 2004 14:28:57 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <406C09AE.1030407@suse.cz>
+Message-ID: <20040401142857.A21268@electric-eye.fr.zoreil.com>
+References: <200403261214.58127.vda@port.imtp.ilyichevsk.odessa.ua> <406B2FB5.9080302@pobox.com> <20040401002325.A9022@electric-eye.fr.zoreil.com> <200404011409.37628.vda@port.imtp.ilyichevsk.odessa.ua>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010900040305060608070900"
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com,
+        Andreas Henriksson <andreas@fjortis.info>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
+Content-Disposition: inline
+In-Reply-To: <200404011409.37628.vda@port.imtp.ilyichevsk.odessa.ua>; from vda@port.imtp.ilyichevsk.odessa.ua on Thu, Apr 01, 2004 at 02:09:37PM +0300
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------010900040305060608070900
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua> :
+[...]
+> Yes, this thing improved life for me (from oopses
+> to uninterruptible excessive work in interrupt).
+> My RX coding was on top of it, so I think this should
+> be applied.
 
-Hi,
+<bozo>
+The patch includes an unneeded 'return' removal which will choke (it is
+already done in the Tx patch sent by Jeff).
+</bozo>
 
-this is a fix for an obvious typo in $SUBJ. Please apply.
+Should I rediff and send directly to Jeff ?
 
-Michal Ludvig
--- 
-SUSE Labs                    mludvig@suse.cz | Cray is the only computer
-(+420) 296.545.373        http://www.suse.cz | that runs an endless loop
-Personal homepage http://www.logix.cz/michal | in just four hours.
-
---------------010900040305060608070900
-Content-Type: text/plain;
- name="kernel-newmap-dst.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="kernel-newmap-dst.diff"
-
-diff -rup linux-2.6.4/net/key/af_key.c linux-2.6.4/net/key/af_key.c
---- linux-2.6.4/net/key/af_key.c	2004-04-01 10:00:32.000000000 +0200
-+++ linux-2.6.4/net/key/af_key.c	2004-04-01 10:08:57.000000000 +0200
-@@ -2636,7 +2636,7 @@ static int pfkey_send_new_mapping(struct
- 	addr->sadb_address_len = 
- 		(sizeof(struct sadb_address)+sockaddr_size)/
- 			sizeof(uint64_t);
--	addr->sadb_address_exttype = SADB_EXT_ADDRESS_SRC;
-+	addr->sadb_address_exttype = SADB_EXT_ADDRESS_DST;
- 	addr->sadb_address_proto = 0;
- 	addr->sadb_address_reserved = 0;
- 	if (x->props.family == AF_INET) {
-
---------------010900040305060608070900--
+--
+Ueimor
