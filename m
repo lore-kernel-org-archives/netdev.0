@@ -1,27 +1,25 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Fw: Oops in register_proc_table (2.6.1-mm4)
-Date: Mon, 19 Jan 2004 21:18:00 -0800
+Subject: Re: [PATCH 2/4] irda check error on memcpy_fromiovec (resend)
+Date: Mon, 19 Jan 2004 21:16:06 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040119211800.582e4c3a.davem@redhat.com>
-References: <20040116104709.2163912c.akpm@osdl.org>
-	<20040117173202.76119237.akpm@osdl.org>
+Message-ID: <20040119211606.302fa1ae.davem@redhat.com>
+References: <20040117014005.GA14291@bougret.hpl.hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, thomas.schlichter@web.de
+Cc: jt@bougret.hpl.hp.com, netdev@oss.sgi.com, chrisw@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20040117173202.76119237.akpm@osdl.org>
+To: jt@hpl.hp.com
+In-Reply-To: <20040117014005.GA14291@bougret.hpl.hp.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 17 Jan 2004 17:32:02 -0800
-Andrew Morton <akpm@osdl.org> wrote:
+On Fri, 16 Jan 2004 17:40:05 -0800
+Jean Tourrilhes <jt@bougret.hpl.hp.com> wrote:
 
-> It seems that ipv6 is registering something under /proc/net/ipv6/route
-> which has a bad ctl_table.procname.  I don't know what it is - the ipv6
-> sysctl code overpowered my attention span.
+> 	Oups, I must have missed the first edition. I've added this is
+> my patch queue in case Dave doesn't pick it up, but as you can see I
+> now have a bit of backlog :
+> 	http://www.hpl.hp.com/personal/Jean_Tourrilhes/IrDA/IrDA.html
 
-I believe the patches posted by Krishna and Yoshfuji today should
-cure this.  I've integrated those into my tree and will push to
-Linus in a bit.
+Don't sweat it, I just sucked it into my tree.
