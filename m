@@ -1,28 +1,21 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] snmp6 stats as %lu
-Date: Thu, 03 Apr 2003 08:11:01 -0800 (PST)
+From: Patty Crazon <pattycrazon2003@go.com>
+Subject: Re:
+Date: Thu, 03 Apr 2003 10:27:24 -0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030403.081101.64240524.davem@redhat.com>
-References: <20030402122755.5dc3f022.rddunlap@osdl.org>
-	<20030403.044822.00469453.davem@redhat.com>
-	<20030403080244.6bb772e3.rddunlap@osdl.org>
+Message-ID: <200304031622.h33GMDDH015493@oss.sgi.com>
+Reply-To: pattycrazon2003@go.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: multipart/mixed; boundary="e2494246-b307-4d0f-85c8-e732c84cf34a"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: rddunlap@osdl.org
-In-Reply-To: <20030403080244.6bb772e3.rddunlap@osdl.org>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: "Randy.Dunlap" <rddunlap@osdl.org>
-   Date: Thu, 3 Apr 2003 08:02:44 +0000
 
-   On Thu, 03 Apr 2003 04:48:22 -0800 (PST) "David S. Miller" <davem@redhat.com> wrote:
-   
-   | Looks like an oversight to me, both should use the unsigned format.
-   
-   Here's the patch, on top of the seq_file conversion.
+This is a multi-part message in MIME format
+--e2494246-b307-4d0f-85c8-e732c84cf34a
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-Applied, thanks Randy.
+R  
+--e2494246-b307-4d0f-85c8-e732c84cf34a--
