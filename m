@@ -1,33 +1,34 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: ipt_physdev.c alignment problems on parisc64
-Date: Sun, 21 Sep 2003 17:53:25 -0700
+Subject: Re: [PATCH] (4/6) ipvs -- use reader locks and refcounts correctly.
+Date: Sun, 21 Sep 2003 17:53:58 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030921175325.0ca95fff.davem@redhat.com>
-References: <200309022116.41697.bdschuym@pandora.be>
-	<200309172317.38348.bdschuym@pandora.be>
-	<20030918194802.6726d53c.davem@redhat.com>
-	<200309201332.13167.bdschuym@pandora.be>
+Message-ID: <20030921175358.329774aa.davem@redhat.com>
+References: <20030920010010.7ed69543.davem@redhat.com>
+	<Pine.LNX.4.44.0309202338250.2193-200000@penguin.linux-vs.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: laforge@netfilter.org, hno@marasystems.com, acme@conectiva.com.br,
-        netfilter-devel@lists.netfilter.org, netdev@oss.sgi.com
+Cc: shemminger@osdl.org, lvs-users@LinuxVirtualServer.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Bart De Schuymer <bdschuym@pandora.be>
-In-Reply-To: <200309201332.13167.bdschuym@pandora.be>
+To: Wensong Zhang <wensong@linux-vs.org>
+In-Reply-To: <Pine.LNX.4.44.0309202338250.2193-200000@penguin.linux-vs.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 20 Sep 2003 13:32:12 +0200
-Bart De Schuymer <bdschuym@pandora.be> wrote:
+On Sat, 20 Sep 2003 23:39:10 +0800 (CST)
+Wensong Zhang <wensong@linux-vs.org> wrote:
 
-> On Friday 19 September 2003 04:48, David S. Miller wrote:
-> > Don't use an alignment attribute, just put the member of
-> > the struct at the very beginning and use "unsigned int"
-> > at a time op+comparisons.
-> >
-> > How about that?
+> On Sat, 20 Sep 2003, David S. Miller wrote:
 > 
-> Fine with me.
+> > On Thu, 18 Sep 2003 00:44:16 +0800 (CST)
+> > Wensong Zhang <wensong@linux-vs.org> wrote:
+> > 
+> > > So, maybe we just apply the simple patch with making the lock local and 
+> > > tagging user pointers.
+> > 
+> > Can someone put such a patch together for me?
+> > 
+> 
+> Please see the attached patch.
 
-Patch applied, thanks Bart.
+Applied, thanks Wensong.
