@@ -1,54 +1,31 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: rtnetlink interface state monitoring problems.
-Date: Mon, 21 Oct 2002 09:02:48 -0400 (EDT)
+Subject: Re: tulip NAPI patch that works with 2.4.20-pre9 or so?
+Date: Mon, 21 Oct 2002 09:10:29 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.30.0210210852130.17911-100000@shell.cyberus.ca>
-References: <27964.1035199084@passion.cambridge.redhat.com>
+Message-ID: <Pine.GSO.4.30.0210210909250.17911-100000@shell.cyberus.ca>
+References: <Pine.GSO.4.30.0210210826440.17911-100000@shell.cyberus.ca>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: <linux-kernel@vger.kernel.org>, <netdev@oss.sgi.com>
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+   "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Woodhouse <dwmw2@infradead.org>
-In-Reply-To: <27964.1035199084@passion.cambridge.redhat.com>
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <Pine.GSO.4.30.0210210826440.17911-100000@shell.cyberus.ca>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
 
-On Mon, 21 Oct 2002, David Woodhouse wrote:
+On Mon, 21 Oct 2002, jamal wrote:
 
-> I'm playing with userspace applications which want to monitor the status of
-> IrDA and Bluetooth devices. Rather than polling for the interface state
-> (this is a handheld device and polling wastes CPU and battery), I want to
-> use netlink.
 >
-> I have two problems:
->
->  1. I appear to need CAP_NET_ADMIN to bind to the netlink groups which give
-> 	me this  information. I can poll for it just fine, but need
-> 	elevated privs to be notified. Why is this, and is there a workaround?
->
+> Theres a 2419 patch that should work for you at:
+> http://www.cyberus.ca/~hadi/tulip-2419-napi-nifd.gz
+> Now if you wanna get adventorous why not pick:
+> http://www.cyberus.ca/~hadi/tulip-feed.tgz
 
-Alexey should be able to give you a better comment.
-If you can get the status via ioctl there should be no reason why you
-shouldnt get it via netlink. The change maybe a little involved
-(look at:net/netlink/af_netlink.c::netlink_bind()) since
-there are some valid reasons to block non-admin from receiving certain
-messages. I think the LSM people may have been trying to do this, cant
-remember details.
-
->  2. Even root doesn't get notification of state changes for Bluetooth
-> 	interfaces, because they're not treated as 'normal' network devices
-> 	like IrDA devices are. I can see the logic behind that -- by why
-> 	is it done differently from IrDA? Is there a way to get notification
-> 	of BT interface state changes?
-
-I cant see anything on netlink and irda; i am also not very familiar with
-either IrDA or Bluetooth.
-Regardless,  you dont need to be a net device to use netlink. Its a
-messaging system and you can use it both within the kernel as well as
-kernel<->userspace. If you get stuck writting the interface ping me
-privately.
+Make sure you turn off FEEDB in tulip.h (thats new stuff which
+hasnt hit the press yet).
 
 cheers,
 jamal
