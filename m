@@ -1,51 +1,45 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: generic 802.11 stack
-Date: Sun, 12 Sep 2004 20:09:08 -0400
-Sender: acx100-devel-admin@lists.sourceforge.net
-Message-ID: <4144E524.1050306@pobox.com>
-References: <200408312111.02438.vda@port.imtp.ilyichevsk.odessa.ua> <200409090815.40358.vkondra@mail.ru> <41408D8A.5010307@atheros.com> <200409122103.21770.vkondra@mail.ru>
-Reply-To: acx100-devel@lists.sourceforge.net
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] NETIF_F_LLTX for devices 2
+Date: Sun, 12 Sep 2004 17:10:45 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040912171045.2d54c11a.davem@davemloft.net>
+References: <E1C4wYe-0005qT-00@gondolin.me.apana.org.au>
+	<20040908072408.GI27886@wotan.suse.de>
+	<1094629677.1089.155.camel@jzny.localdomain>
+	<20040908134713.1bcd46d3.davem@davemloft.net>
+	<1094823215.1121.129.camel@jzny.localdomain>
+	<20040911142116.GL4431@wotan.suse.de>
+	<1094933731.2343.109.camel@jzny.localdomain>
+	<20040911174535.2acbb957.davem@davemloft.net>
+	<20040912100114.GB11484@havoc.gtf.org>
+	<20040912102529.GA27096@wotan.suse.de>
+	<20040912161604.GA23366@havoc.gtf.org>
+	<1095010469.2344.215.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: greg chesson <greg@atheros.com>,  netdev@oss.sgi.com,
- "David S. Miller" <davem@davemloft.net>,
-  acx100-devel@lists.sourceforge.net,  hadi@cyberus.ca,
- jkmaline@cc.hut.fi,  prism54-devel@prism54.org,  sam@errno.com,
- vda@port.imtp.ilyichevsk.odessa.ua
-Return-path: <acx100-devel-admin@lists.sourceforge.net>
-To: Vladimir Kondratiev <vkondra@mail.ru>
-In-Reply-To: <200409122103.21770.vkondra@mail.ru>
-Errors-To: acx100-devel-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
-	<mailto:acx100-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:acx100-devel@lists.sourceforge.net>
-List-Help: <mailto:acx100-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
-	<mailto:acx100-devel-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
+Cc: jgarzik@pobox.com, ak@suse.de, herbert@gondor.apana.org.au,
+        netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: hadi@cyberus.ca
+In-Reply-To: <1095010469.2344.215.camel@jzny.localdomain>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Vladimir Kondratiev wrote:
-> To inform about status:
-> I started to work on idea of 802.11 generic stack. I start from code by Dave. 
-> This far I fixed it to compile for 2.6 (Makefile and couple of syntax 
-> errors).
-> I am going to implement minimum functionality, at this stage I will somehow 
-> publish the project. Anyone can suggest what it the right solution for 
-> hosting? Sourceforge? Something else?
+On 12 Sep 2004 13:34:30 -0400
+jamal <hadi@cyberus.ca> wrote:
 
+> On Sun, 2004-09-12 at 12:16, Jeff Garzik wrote:
+> 
+> > 
+> > Thanks, but still need a patch for return value constants, otherwise you
+> > are compounding rather than addressing a current problem.
+> 
+> Something along the lines of attached patch?
+> Francois needs to update the doc and you need someone to get the
+> janitors enthusiastic (i just updated e1000)
 
-I can put it into the wireless-2.6 queue, which is where I would prefer 
-that work on a generic 802.11 stack went.
+Looks beautiful.  I added this patch and did the tg3 bits
+in my local tree as well.
 
-	Jeff
-
-
-
-
--------------------------------------------------------
-This SF.Net email is sponsored by: YOU BE THE JUDGE. Be one of 170
-Project Admins to receive an Apple iPod Mini FREE for your judgement on
-who ports your project to Linux PPC the best. Sponsored by IBM. 
-Deadline: Sept. 13. Go here: http://sf.net/ppc_contest.php
+Thanks Jamal.
