@@ -1,174 +1,75 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [RFT][PATCH] Convert bluetooth to dynamic net_device.
-Date: Mon, 11 Aug 2003 11:53:34 -0700
+From: Mark Huth <mhuth@mvista.com>
+Subject: Re: [Bonding-devel] Re: [SET 2][PATCH 2/8][bonding] Propagating master's
+  settings toslaves
+Date: Mon, 11 Aug 2003 14:27:04 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030811115334.4bd4521a.shemminger@osdl.org>
+Message-ID: <3F380A28.10902@mvista.com>
+References: <E791C176A6139242A988ABA8B3D9B38A014C9474@hasmsx403.iil.intel.com> <200308111720.38472.shmulik.hen@intel.com> <1060612481.1034.15.camel@jzny.localdomain> <200308111925.38278.shmulik.hen@intel.com> <3F37C7C3.7070807@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: shmulik.hen@intel.com, hadi@cyberus.ca,
+   Laurent DENIEL
+ <laurent.deniel@thalesatm.com>,
+   bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Maxim Krasnyansky <maxk@qualcomm.com>,
-   "David S. Miller"
- <davem@redhat.com>
+To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Convert Bluetooth networking to dynamic allocation of network devices.
-This will allow fixing races with rmmod and sysfs access.
-The patch is against 2.6.0-test3 and correctly loads/unloads but
-since I don't have bluetooth hardware can't test it more.
-
-Since the initialization code changed slightly, I would like to have
-someone do a basic sanity test before it is merged.
 
 
-diff -Nru a/net/bluetooth/bnep/bnep.h b/net/bluetooth/bnep/bnep.h
---- a/net/bluetooth/bnep/bnep.h	Mon Aug 11 11:42:08 2003
-+++ b/net/bluetooth/bnep/bnep.h	Mon Aug 11 11:42:08 2003
-@@ -168,11 +168,11 @@
- 	u64    mc_filter;
- 	
- 	struct socket    *sock;
--	struct net_device dev;
-+	struct net_device *dev;
- 	struct net_device_stats stats;
- };
- 
--int bnep_net_init(struct net_device *dev);
-+void bnep_net_setup(struct net_device *dev);
- int bnep_sock_init(void);
- int bnep_sock_cleanup(void);
- 
-diff -Nru a/net/bluetooth/bnep/core.c b/net/bluetooth/bnep/core.c
---- a/net/bluetooth/bnep/core.c	Mon Aug 11 11:42:08 2003
-+++ b/net/bluetooth/bnep/core.c	Mon Aug 11 11:42:08 2003
-@@ -180,7 +180,7 @@
- 		s->mc_filter = 0;
- 
- 		/* Always send broadcast */
--		set_bit(bnep_mc_hash(s->dev.broadcast), (ulong *) &s->mc_filter);
-+		set_bit(bnep_mc_hash(s->dev->broadcast), (ulong *) &s->mc_filter);
- 
- 		/* Add address ranges to the multicast hash */
- 		for (; n > 0; n--) {
-@@ -293,7 +293,7 @@
- 
- static inline int bnep_rx_frame(struct bnep_session *s, struct sk_buff *skb)
- {
--	struct net_device *dev = &s->dev;
-+	struct net_device *dev = s->dev;
- 	struct sk_buff *nskb;
- 	u8 type;
- 
-@@ -451,7 +451,7 @@
- static int bnep_session(void *arg)
- {
- 	struct bnep_session *s = arg;
--	struct net_device *dev = &s->dev;
-+	struct net_device *dev = s->dev;
- 	struct sock *sk = s->sock->sk;
- 	struct sk_buff *skb;
- 	wait_queue_t wait;
-@@ -501,7 +501,7 @@
- 	__bnep_unlink_session(s);
- 
- 	up_write(&bnep_session_sem);
--	kfree(s);
-+	kfree(dev);
- 	return 0;
- }
- 
-@@ -517,10 +517,13 @@
- 	baswap((void *) dst, &bt_sk(sock->sk)->dst);
- 	baswap((void *) src, &bt_sk(sock->sk)->src);
- 
--	s = kmalloc(sizeof(struct bnep_session), GFP_KERNEL);
--	if (!s) 
--		return -ENOMEM;
--	memset(s, 0, sizeof(struct bnep_session));
-+	/* session struct allocated as private part of net_device */
-+	dev = alloc_netdev(sizeof(struct bnep_session),
-+			   (*req->device) ? req->device : "bnep%d",
-+			   bnep_net_setup);
-+	if (!dev) 
-+		return ENOMEM;
-+
- 
- 	down_write(&bnep_session_sem);
- 
-@@ -530,20 +533,15 @@
- 		goto failed;
- 	}
- 
--	dev = &s->dev;
--	
--	if (*req->device)
--		strcpy(dev->name, req->device);
--	else
--		strcpy(dev->name, "bnep%d");
-+	s = dev->priv;
- 
--	memset(dev->broadcast, 0xff, ETH_ALEN);
--	
- 	/* This is rx header therefore addresses are swapped.
- 	 * ie eh.h_dest is our local address. */
- 	memcpy(s->eh.h_dest,   &src, ETH_ALEN);
- 	memcpy(s->eh.h_source, &dst, ETH_ALEN);
-+	memcpy(dev->dev_addr, s->eh.h_dest, ETH_ALEN);
- 
-+	s->dev = dev;
- 	s->sock  = sock;
- 	s->role  = req->role;
- 	s->state = BT_CONNECTED;
-@@ -569,8 +567,6 @@
- 	s->proto_filter[2].end   = htons(0x86DD);
- #endif
- 	
--	dev->init = bnep_net_init;
--	dev->priv = s;
- 	err = register_netdev(dev);
- 	if (err) {
- 		goto failed;
-@@ -592,7 +588,7 @@
- 
- failed:
- 	up_write(&bnep_session_sem);
--	kfree(s);
-+	kfree(dev);
- 	return err;
- }
- 
-@@ -624,7 +620,7 @@
- static void __bnep_copy_ci(struct bnep_conninfo *ci, struct bnep_session *s)
- {
- 	memcpy(ci->dst, s->eh.h_source, ETH_ALEN);
--	strcpy(ci->device, s->dev.name);
-+	strcpy(ci->device, s->dev->name);
- 	ci->flags = s->flags;
- 	ci->state = s->state;
- 	ci->role  = s->role;
-diff -Nru a/net/bluetooth/bnep/netdev.c b/net/bluetooth/bnep/netdev.c
---- a/net/bluetooth/bnep/netdev.c	Mon Aug 11 11:42:08 2003
-+++ b/net/bluetooth/bnep/netdev.c	Mon Aug 11 11:42:08 2003
-@@ -226,11 +226,10 @@
- 	return 0;
- }
- 
--int bnep_net_init(struct net_device *dev)
-+void bnep_net_setup(struct net_device *dev)
- {
--	struct bnep_session *s = dev->priv;
- 
--	memcpy(dev->dev_addr, s->eh.h_dest, ETH_ALEN);
-+	memset(dev->broadcast, 0xff, ETH_ALEN);
- 	dev->addr_len = ETH_ALEN;
- 
- 	ether_setup(dev);
-@@ -245,6 +244,4 @@
- 
- 	dev->watchdog_timeo  = HZ * 2;
- 	dev->tx_timeout      = bnep_net_timeout;
--
--	return 0;
- }
+Jeff Garzik wrote:
+
+> The answer is, like life, it's a balance.
+>
+> As a general rule, we do prefer to move all code possible out of the 
+> Linux kernel.  We have even created "initramfs", which for 2.7, will 
+> be used as a vehicle to move code from the kernel to userspace, that 
+> previously had to be in the kernel only because it was a task that 
+> "had to be performed at boot time".
+>
+> However, one must consider
+> (1) does moving code to userspace create any security holes?
+> (2) does moving code to userspace dramatically increase the number of 
+> context switches?
+> (3) does moving code to userspace violate some atomicity that being 
+> inside the kernel guarantees?
+>
+> In practice, #3 is the showstopper that occurs most often.
+>
+> This is why I push for a "bonding-utils" package from Jay.... because 
+> of the general rule above:  put it into userspace, where possible.
+>
+>     Jeff
+
+Yes, the answer is balance - the complicated, but non-time critical 
+things should go into applications.  However, we need to retain a basic 
+ability to perform the failover according to pre-configured rules within 
+the kernel.  Many of our customers use bonding to provide a redundant 
+network path through the wires and switches for what turn out to be 
+heavily network dependant applications.  In many cases, the systems do 
+not have a local disk, and everything is obtained via say an NFS mount. 
+ When the MAC breaks, you may not be able to run userland!
+
+In HA systems at this level, guarding against the failure of a redundant 
+hardware component, we find that it is very helpful for the kernel to be 
+able to perform a variety of simple, pre-programmed operations without 
+resort to userland - this keeps the interacting fault domains smaller. 
+ Sure, the decisons about how to configure the behaviors - that is the 
+policies - belong in applications.  But the response to an event which 
+triggers the actions may well _need_ to be in the kernel.
+
+While the issue may not be so much one of speed - the applications may 
+well respond in an adequate manner, depending on design and load - the 
+issue of the amount of the system that must work for recovery is quite 
+important when trying to push system availabilities into the mythical 5 
+9's plus region.  For an application to run, the system has to be able 
+to fork and exec, access the file system, allocate memory, etc.  Sure, 
+through careful configuration it is possible to reduce the transient 
+resources required (run a pre-loaded/locked daemon, make sure the files 
+are locally cached, etc) then the configuration and testing are 
+complicated.  It worked fine in the lab, because a resource we didn't 
+realize was critical, never got pushed out of the dcache, for example.
+
+Mark Huth
