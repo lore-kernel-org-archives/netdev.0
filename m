@@ -1,86 +1,53 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PKT_SCHED]: Allow using nfmark as key in U32 classifier.
-Date: 28 Dec 2004 08:59:57 -0500
-Message-ID: <1104242397.1090.94.camel@jzny.localdomain>
-References: <200412270715.iBR7Fffe026855@hera.kernel.org>
-	 <20041227121658.GI7884@postel.suug.ch>
-	 <1104240053.1100.53.camel@jzny.localdomain>
-	 <20041228134022.GA32419@postel.suug.ch>
-Reply-To: hadi@cyberus.ca
+From: Jamal Hadi Salim <hadi@znyx.com>
+Subject: 2.4.x patchlet
+Date: 28 Dec 2004 09:04:45 -0500
+Message-ID: <1104242685.1090.97.camel@jzny.localdomain>
+Reply-To: hadi@znyx.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Content-Type: multipart/mixed; boundary="=-gDswNaKcgwzQsr1L9zpL"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20041228134022.GA32419@postel.suug.ch>
+To: "David S. Miller" <davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2004-12-28 at 08:40, Thomas Graf wrote:
-> * jamal <1104240053.1100.53.camel@jzny.localdomain> 2004-12-28 08:20
 
-> > You mean meta match. 
-> 
-> Yes, I was thinking about implementing it as action, any objections?
-> 
+--=-gDswNaKcgwzQsr1L9zpL
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain
 
 
-If you implement the mothership match changes we discussed then it
-should go as a match (as opposed to action). As an action its yet
-another deferal for later cleanup.
-So my preference is to get the changes we discussed then this meta
-match.
-I could whip out meta action for setting values if you are gonna work
-on the match piece.
-
-> > >  We
-> > > should really stop to add more stuff to specific classifiers which have
-> > > to be removed once we have metamatch. I've made a proposal on paper
-> > > just need some more time to cook up a patch.
-> > 
-> > I have cycles now. Are you working on this or should i invest some of my
-> > cycles in it? Lets fix this once and for all.
-> 
-> I don't care, I'm still testing the patchset to make classifer changes
-> consistent again. A few big changes to tcindex/route classifier need
-> extensive testing.
-> 
-
-If you have started working on it i would prefer you make the changes.
-BTW, I am talking about the top level match changes we discussed.
-
-> My thoughts on meta match:
->   
->   A match consists of a header, lvalue, rvalue and stats. The header
->   contains the handle, the requested operand (eq,lt,gt) and a flag to
->   invert the meaning of the match. A value consists of a type and data
->   where type specifies the actual metadata to be used. A few upper bits
->   of the type specify the kind, i.e. wether it's numeric or a
->   bytestring. Only values with matching upper bits can be compared.
->   Additionally a mask and shift operator can be configured. Why so
->   complicated? Comparing two kernel meta values can useful, realdev
->   == indev when classyfing on tunnels, comparing backlogs, etc. Device
->   matches should be made available as both numeric and bytestring match
->   to have a fastpath when ifindex is stable and a slower path which is
->   more flexible to changes.
-
-Sounds reasonable at the high level. I am not sure i got the stats part.
-
-Can you write out the BNF. Heres what i was thinking for meta action:
-
-tc <OPERATION> action metaset [index ID] METAVARS
-OPERATION:= ADD|DEL|GET|DUMP
-METAVARS:= <[INDEV] [FWMARK] [TCINDEX] [PRIO] [CLASSID]>
-INDEV = indev <devname>
-FWMARK:= fwmark <value>
-TCINDEX := tcindex <value>
-PRIO := prio <value>
-CLASSID := classid <class>
-
-I notice you throw in some  mask and shift operator - not sure if i
-could make use of it here.
+Removes annoying compile of newer tools when done on 2.4.x
 
 cheers,
 jamal
+
+--=-gDswNaKcgwzQsr1L9zpL
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename=arp-eth-patchlet
+Content-Type: text/plain; name=arp-eth-patchlet; charset=ISO-8859-1
+
+--- 2429-pre3/include/linux/if_ether.h	2003-08-25 07:44:44.000000000 -0400
++++ 2429-pre3-bk1/include/linux/if_ether.h	2004-12-27 10:51:46.000000000 -0500
+@@ -61,6 +61,8 @@
+ #define ETH_P_IPV6	0x86DD		/* IPv6 over bluebook		*/
+ #define ETH_P_PPP_DISC	0x8863		/* PPPoE discovery messages     */
+ #define ETH_P_PPP_SES	0x8864		/* PPPoE session messages	*/
++#define ETH_P_MPLS_UC	0x8847		/* MPLS Unicast traffic         */
++#define ETH_P_MPLS_MC	0x8848		/* MPLS Multicast traffic       */
+ #define ETH_P_ATMMPOA	0x884c		/* MultiProtocol Over ATM	*/
+ #define ETH_P_ATMFATE	0x8884		/* Frame-based ATM Transport
+ 					 * over Ethernet
+--- 2429-pre3/include/linux/if_arp.h	2004-08-07 19:26:06.000000000 -0400
++++ 2429-pre3-bk1/include/linux/if_arp.h	2004-12-27 11:30:20.000000000 -0500
+@@ -40,6 +40,7 @@
+ #define ARPHRD_METRICOM	23		/* Metricom STRIP (new IANA id)	*/
+ #define	ARPHRD_IEEE1394	24		/* IEEE 1394 IPv4 - RFC 2734	*/
+ #define ARPHRD_EUI64	27		/* EUI-64                       */
++#define ARPHRD_INFINIBAND	32		/* InfiniBand                   */
+ 
+ /* Dummy types for non ARP hardware */
+ #define ARPHRD_SLIP	256
+
+--=-gDswNaKcgwzQsr1L9zpL--
