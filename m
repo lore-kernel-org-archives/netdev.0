@@ -1,54 +1,27 @@
-From: akepner@sgi.com
-Subject: [PATCH 2/2] net/tg3.c: use mmiowb in tg3_poll
-Date: Tue, 12 Oct 2004 16:39:32 -0700 (PDT)
+From: Ben Greear <greearb@candelatech.com>
+Subject: probable bug in pktgen
+Date: Tue, 12 Oct 2004 17:01:47 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.33.0410121634350.31839-100000@localhost.localdomain>
+Message-ID: <416C706B.5030300@candelatech.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
+To: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+While testing my own pktgen code I noticed that I can cause spectacular
+crashes by setting the 'multiskb' to > 1 and using VLAN interfaces.  I
+believe this is because the virtual device changes the skb->dev pointer
+when it xmits, and then pktgen tries to send exactly this pkt again,
+even though the skb->dev is now hosed up.
 
-Returning from tg3_poll() without flushing the PIO write which 
-reenables interrupts can result in lower cpu utilization and higher 
-throughput. So use a memory barrier, mmiowb(), instead of flushing the 
-write with a PIO read.
+Unfortunately, my patch will not do the kernel pktgen much good, but
+next time someone is hacking there, maybe they can fix it :)
 
-Signed-off-by: Arthur Kepner <akepner@sgi.com>
----
+Ben
 
---- linux.2/drivers/net/tg3.c	2004-10-12 14:00:40.000000000 -0700
-+++ linux/drivers/net/tg3.c	2004-10-12 14:13:02.000000000 -0700
-@@ -417,6 +417,20 @@
- 	tg3_cond_int(tp);
- }
- 
-+/* tg3_restart_ints
-+ *  similar to tg3_enable_ints, but it can return without flushing the 
-+ *  PIO write which reenables interrupts
-+ */
-+static void tg3_restart_ints(struct tg3 *tp)
-+{
-+	tw32(TG3PCI_MISC_HOST_CTRL,
-+		(tp->misc_host_ctrl & ~MISC_HOST_CTRL_MASK_PCI_INT));
-+	tw32_mailbox(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW, 0x00000000);
-+	mmiowb();
-+
-+	tg3_cond_int(tp);
-+}
-+
- static inline void tg3_netif_stop(struct tg3 *tp)
- {
- 	netif_poll_disable(tp->dev);
-@@ -2788,7 +2802,7 @@
- 	if (done) {
- 		spin_lock_irqsave(&tp->lock, flags);
- 		__netif_rx_complete(netdev);
--		tg3_enable_ints(tp);
-+		tg3_restart_ints(tp);
- 		spin_unlock_irqrestore(&tp->lock, flags);
- 	}
- 
- 
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
