@@ -1,33 +1,28 @@
-From: "David S. Miller" <davem@redhat.com>
+From: kuznet@ms2.inr.ac.ru
 Subject: Re: MOD_{INC,SEC}_USE_COUNT() in net/ipv{4,6}
-Date: Wed, 09 Apr 2003 18:00:04 -0700 (PDT)
+Date: Thu, 10 Apr 2003 06:54:38 +0400 (MSD)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030409.180004.08009488.davem@redhat.com>
-References: <20030409.204157.51648508.yoshfuji@linux-ipv6.org>
+Message-ID: <200304100254.GAA06560@sex.inr.ac.ru>
+References: <20030409.180004.08009488.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, usagi@linux-ipv6.org
+Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com, usagi@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20030409.204157.51648508.yoshfuji@linux-ipv6.org>
+To: davem@redhat.com (David S. Miller)
+In-Reply-To: <20030409.180004.08009488.davem@redhat.com> from "David S. Miller" at Apr 9, 3 06:00:04 pm
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-   Date: Wed, 09 Apr 2003 20:41:57 +0900 (JST)
+Hello!
 
-   This patch (against 2.5.67) converts MOD_{INC,DEC}_USE_COUNT in 
-   net/ipv{4,6} to try_module_get() and module_put().
+>    This patch (against 2.5.67) converts MOD_{INC,DEC}_USE_COUNT in 
+>    net/ipv{4,6} to try_module_get() and module_put().
+> 
+> Applied, but
 
-Applied, but let's recognize that ipv6 is totally broken
-in this area.
+Why not to delete this things instead? Calls of these functions from
+inside of module is completely meaningless.
 
-The try_module_get()'s, in order to work, would need to happen
-at a higher layer (socket ops or similar).  But even this is
-broken, module unloading of ipv6 needs to be done via some kind
-of callback scheme, the simple counter mechanism that modules
-use now is inappropriate for things like ipv6 which already keeps
-track of it's own references internally and only it knows how to
-interlock properly to cleanly check for module references and to
-shut down the whole module.
+I remember I put them there just to mimic behaviour of another devices,
+but it was just a mistake.
+
+Alexey
