@@ -1,23 +1,23 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] (3/6) ipvs -- use list_for_each_entry macro's
-Date: Sat, 20 Sep 2003 01:06:16 -0700
+Subject: Re: [PATCH] (5/6) ipvs -- use time_before/after
+Date: Sat, 20 Sep 2003 01:07:16 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030920010616.2ff3c3d0.davem@redhat.com>
-References: <20030916141750.53bbb04e.shemminger@osdl.org>
+Message-ID: <20030920010716.74e6bad8.davem@redhat.com>
+References: <20030916142227.6dddd19d.shemminger@osdl.org>
+	<Pine.LNX.4.44.0309180039350.15676-100000@penguin.linux-vs.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: wensong@linux-vs.org, lvs-users@LinuxVirtualServer.org, netdev@oss.sgi.com
+Cc: shemminger@osdl.org, lvs-users@LinuxVirtualServer.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20030916141750.53bbb04e.shemminger@osdl.org>
+To: Wensong Zhang <wensong@linux-vs.org>
+In-Reply-To: <Pine.LNX.4.44.0309180039350.15676-100000@penguin.linux-vs.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 16 Sep 2003 14:17:50 -0700
-Stephen Hemminger <shemminger@osdl.org> wrote:
+On Thu, 18 Sep 2003 00:40:34 +0800 (CST)
+Wensong Zhang <wensong@linux-vs.org> wrote:
 
-> There are many places where list_for_each_entry macro can be used in IPVS
-> code.
+> It's a good change. Dave, please apply it to your repository.
 
-Looks fine to me, applied thanks.
+Done.
