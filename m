@@ -1,85 +1,63 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
 Subject: Re: TOE brain dump
-Date: 05 Aug 2003 11:19:09 -0600
+Date: 05 Aug 2003 11:25:57 -0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <m1u18wuinm.fsf@frodo.biederman.org>
+Message-ID: <m1ptjkuica.fsf@frodo.biederman.org>
 References: <20030802140444.E5798@almesberger.net> <3F2BF5C7.90400@us.ibm.com>
 	<3F2C0C44.6020002@pobox.com> <20030802184901.G5798@almesberger.net>
 	<m1fzkiwnru.fsf@frodo.biederman.org>
 	<20030804162433.L5798@almesberger.net>
+	<20030804122632.65ba2122.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, Nivedita Singhvi <niv@us.ibm.com>,
-   netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Cc: Werner Almesberger <werner@almesberger.net>
+	  jgarzik@pobox.com,
+   niv@us.ibm.com, netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Werner Almesberger <werner@almesberger.net>
-In-Reply-To: <20030804162433.L5798@almesberger.net>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030804122632.65ba2122.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Werner Almesberger <werner@almesberger.net> writes:
+"David S. Miller" <davem@redhat.com> writes:
 
-> Eric W. Biederman wrote:
-> > The optimized for low latency cases seem to have a strong
-> > market in clusters.
+> On Mon, 4 Aug 2003 16:24:33 -0300
+> Werner Almesberger <werner@almesberger.net> wrote:
 > 
-> Clusters have captive, no, _desperate_ customers ;-) And it
-> seems that people are just as happy putting MPI as their
-> transport on top of all those link-layer technologies.
-
-MPI is not a transport.  It an interface like the Berkeley sockets
-layer.  The semantics it wants right now are usually mapped to
-TCP/IP when used on an IP network.  Though I suspect SCTP might
-be a better fit.  
-
-But right now nothing in the IP stack is a particularly good fit.
-
-Right now there is a very strong feeling among most of the people
-using and developing on clusters that by and large what they are doing
-is not of interest to the general kernel community, and so has no
-chance of going in.   So you see hack piled on top of hack piled on
-top of hack.
-
-Mostly I think the that is less true, at least if they can stand the
-process of severe code review and cleaning up their code.  If we can
-put in code to scale the kernel to 64 processors.  NIC drivers for
-fast interconnects and a few similar tweaks can't hurt either.  
-
-But of course to get through the peer review process people need
-to understand what they are doing.
-
-> > There is one place in low latency communications that I can think
-> > of where TCP/IP is not the proper solution.  For low latency
-> > communication the checksum is at the wrong end of the packet.
+> > Eric W. Biederman wrote:
+> > > There is one place in low latency communications that I can think
+> > > of where TCP/IP is not the proper solution.  For low latency
+> > > communication the checksum is at the wrong end of the packet.
+> > 
+> > That's one of the few things ATM's AAL5 got right.
 > 
-> That's one of the few things ATM's AAL5 got right. But in the end,
-> I think it doesn't really matter. At 1 Gbps, an MTU-sized packet
-> flies by within 13 us. At 10 Gbps, it's only 1.3 us. At that point,
-> you may well treat it as an atomic unit.
+> Let's recall how long the IFF_TRAILERS hack from BSD :-)
 
-So store and forward of packets in a 3 layer switch hierarchy, at 1.3 us
-per copy. 1.3us to the NIC + 1.3us to the first switch chip + 1.3us to the
-second switch chip + 1.3us to the top level switch chip + 1.3us to a middle layer
-switch chip + 1.3us to the receiving NIC + 1.3us the receiver.
+Putting the variable length headers on the end of a packet?  Or
+was that something other than RFC893?
 
-1.3us * 7 = 9.1us to deliver a packet to the other side.  That is
-still quite painful.  Right now I can get better latencies over any of
-the cluster interconnects.  I think 5 us is the current low end, with
-the high end being about 1 us.
+I think IPv6 solves that much more cleanly by simply deleting them.
 
-Quite often in MPI when a message is sent the program cannot continue
-until the reply is received.  Possibly this is a fundamental problem
-with the application programming model, encouraging applications to
-be latency sensitive.  But it is a well established API and
-programming paradigm so it has to be lived with.
+> > But in the end, I think it doesn't really matter.
+> 
+> I tend to agree on this one.
+> 
+> And on the transmit side if you have more than 1 pending TX frame, you
+> can always be prefetching the next one into the fifo so that by the
+> time the medium is ready all the checksum bits have been done.
 
-All of this is pretty much the reverse of the TOE case.  Things are
-latency sensitive because real work needs to be done.  And the more
-latency you have the slower that work gets done.  
+For large data transmissions that happens.
+ 
+> In fact I'd be surprised if current generation 1g/10g cards are not
+> doing something like this.
 
-A lot of the NICs which are used for MPI tend to be smart for two
-reasons.  1) So they can do source routing. 2) So they can safely
-export some of their interface to user space, so in the fast path
-they can bypass the kernel.
+Well at this point before I propose anything concrete I suspect I need
+to profile some actual application and see how things go.  But from a
+very latency sensitive perspective, I would be surprised if the
+problem goes away with faster technology.
+
+For now I am happy just to insert the peculiar thought that latency
+across the entire cluster/lan is of great importance to some
+applications.
 
 Eric
