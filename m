@@ -1,29 +1,38 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Reproducible panics with tulip
-Date: Fri, 18 Mar 2005 22:52:29 +0100
-Message-ID: <20050318215229.GA24509@electric-eye.fr.zoreil.com>
-References: <1111178167.1147.9.camel@localhost.localdomain>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] TCP BIC not binary searching correctly
+Date: Fri, 18 Mar 2005 14:05:47 -0800
+Message-ID: <20050318140547.1ca66106@dxpl.pdx.osdl.net>
+References: <20050318135713.1171df83@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com
-To: Alexander Nyberg <alexn@dsv.su.se>
-Content-Disposition: inline
-In-Reply-To: <1111178167.1147.9.camel@localhost.localdomain>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "Marcelo W. Tosatti" <marcelo.tosatti@cyclades.com.br>, netdev@oss.sgi.com
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050318135713.1171df83@dxpl.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Alexander Nyberg <alexn@dsv.su.se> :
-[rpciod and friends complain from page allocation failure]
+2.4 version of same fix as 2.6.11.
 
-You could try to increase /proc/sys/vm/min_free_kbytes but it may just
-fix the symptoms. You probably want to disable netpoll as the computer
-is getting low on network buffers: it should clean the output a lot...
+The problem is that BIC is supposed to reset the cwnd to the last loss value
+rather than ssthresh when loss is detected.  The correct code (from the BIC
+TCP code for Web100) is in this patch.
 
-[...]
-> Warning: kfree_skb on hard IRQ c46c3950
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-... however this one may stick.
-
---
-Ueimor
+diff -Nru a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+--- a/net/ipv4/tcp_input.c	2005-03-18 14:03:44 -08:00
++++ b/net/ipv4/tcp_input.c	2005-03-18 14:03:44 -08:00
+@@ -1642,7 +1642,10 @@
+ static void tcp_undo_cwr(struct tcp_opt *tp, int undo)
+ {
+ 	if (tp->prior_ssthresh) {
+-		tp->snd_cwnd = max(tp->snd_cwnd, tp->snd_ssthresh<<1);
++		if (tcp_is_bic(tp))
++			tp->snd_cwnd = max(tp->snd_cwnd, tp->bictcp.last_max_cwnd);
++		else
++			tp->snd_cwnd = max(tp->snd_cwnd, tp->snd_ssthresh<<1);
+ 
+ 		if (undo && tp->prior_ssthresh > tp->snd_ssthresh) {
+ 			tp->snd_ssthresh = tp->prior_ssthresh;
