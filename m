@@ -1,33 +1,44 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] select appropriate skb size in tcp_sendmsg when TSO is used
-Date: Wed, 27 Oct 2004 11:41:11 +1000
+From: deliver_photo@yahoo.co.jp
+Subject: =?iso-2022-jp?B?g2aDioNvg4qBW1Bob3RvIINMg4ODk4N5gVuDk4m/immQXI2egt0=?=
+Date: Wed, 27 Oct 2004 11:28:24 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041027014111.GA5548@gondor.apana.org.au>
-References: <OF96546AB5.ACE12043-ONC1256F33.0027BC6B-C1256F33.002D4A6E@de.ibm.com> <E1CKE5P-0005SP-00@gondolin.me.apana.org.au> <20041020163510.6d13e9c7.davem@davemloft.net> <20041026111912.GA18095@gondor.apana.org.au> <20041026235126.GA4733@gondor.apana.org.au> <417EE3BB.6040902@pobox.com> <20041027000724.GA4869@gondor.apana.org.au> <20041026170344.262bb3ec.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, thomas.spatzier@de.ibm.com, netdev@oss.sgi.com
+Message-ID: <20041027022824.7F896588045@mail.zl8.jp>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20041026170344.262bb3ec.davem@davemloft.net>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 26, 2004 at 05:03:44PM -0700, David S. Miller wrote:
->
-> Yes and no.  SG support requires TX csum support.  See the tests we
-> make at register_netdev() time.
-> 
-> So as long as you enforce that rule, which I believe you are,
-> things are fine.
 
-That's right, the patch will turn off SG whenever TX csum is turned off.
-And if you try to turn SG on while TX csum is off, it'll return EINVAL.
+デリバリーPhotoです。
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+登録日より３日以内の方ですね。
+
+キャンペーン価格でのお申し込み承りました。
+
+振込口座は、
+
+三井住友銀行
+江坂（エサカ）支店
+普通口座
+１０９６６６６
+ラインネット
+
+振込金額　１８０００円
+
+お振込みの際はあなたの払込ＩＤ番号「 0146221090 」を振込み人名義としてください。
+
+http://www.eyc.jp/~gazou/gallery.php?id=bmV0ZGV2QG9zcy5zZ2kuY29t
+
+それではよろしくお願いいたします。
+
+利用料金は登録された日から３日以内にお振込下さい。
+
+＜利用規約＞
+http://www.eyc.jp/~gazou/kiyaku.html
+
+※当サイトでは「電子消費者契約法」に基づき、有料申込み契約締結前に明確な料金表示を行い申込者の購入ボタン操作により契約を締結する方式をとっております。
+
+-----------------------------
+デリバリーPhoto事務局 
+deliver_photo@yahoo.co.jp
+-----------------------------
