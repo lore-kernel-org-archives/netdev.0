@@ -1,33 +1,65 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [IPV6] Fix memory leaks in TCP error path
-Date: Sat, 6 Nov 2004 11:31:07 +1100
-Message-ID: <20041106003107.GA14649@gondor.apana.org.au>
-References: <20041105084904.GA8253@gondor.apana.org.au> <20041105161820.5c9bd53b.davem@davemloft.net>
+From: "Ravinandan Arakali" <ravinandan.arakali@s2io.com>
+Subject: RE: Please ignore the corrupt patches sent earlier.
+Date: Fri, 5 Nov 2004 16:30:33 -0800
+Message-ID: <003201c4c397$d4885900$9810100a@S2IOtech.com>
+References: <418BE6EC.3060103@pobox.com>
+Reply-To: <ravinandan.arakali@s2io.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <romieu@fr.zoreil.com>, <netdev@oss.sgi.com>, <leonid.grossman@s2io.com>,
+        <rapuru.sriram@s2io.com>, <alicia.pena@s2io.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20041105161820.5c9bd53b.davem@davemloft.net>
+To: "'Jeff Garzik'" <jgarzik@pobox.com>,
+        "'koushik'" <raghavendra.koushik@s2io.com>
+In-Reply-To: <418BE6EC.3060103@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 05, 2004 at 04:18:20PM -0800, David S. Miller wrote:
-> 
-> This patch actually adds a leak with the way xfrm_lookup() is currently
-> coded.
->
-> This means that to cover all cases you have to have the dst_release()
-> there in that "if (xfrm_lookup()<0)" code path in order to handle
-> case #2 above.
+Jeff,
+Thanks for the excellent suggestion. We have used this method to send all
+the 12 patches. Note that since our mail server went down and came back
+up during this process, the mail containing patch3 has appeared twice. 
+Pls ignore the duplicate.
 
-Not quite.  kfree_skb will release the dst for you.
+Thanks,
+Ravi
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+-----Original Message-----
+From: Jeff Garzik [mailto:jgarzik@pobox.com]
+Sent: Friday, November 05, 2004 12:48 PM
+To: koushik
+Cc: romieu@fr.zoreil.com; netdev@oss.sgi.com; leonid.grossman@s2io.com;
+ravinandan.arakali@s2io.com; rapuru.sriram@s2io.com;
+alicia.pena@s2io.com
+Subject: Re: Please ignore the corrupt patches sent earlier.
+
+
+koushik wrote:
+> Hi All,
+> 	I had sent five of my patches with the new mail client, but it seems to have introduced 
+> some series of '-' charecters at the end. So please ignore all those 5 mails, I will be sending
+> the series of 12 patches again (hopefully for the last time :-)).
+
+
+FWIW, I have found that use of "cat email-01.txt | sendmail -t" on a 
+Unix system is the easiest way to send a large number of patches.
+
+You simply have to provide a minimal email header, a blank line, and 
+then the patch content itself, in a single text file.
+
+Example:
+
+$ cat > email-01.txt
+To: jgarzik@pobox.com
+CC: netdev@oss.sgi.com
+From: koushik <raghavendra.koushik@s2io.com>
+Subject: [patch 2.6.10-rc1-bk14 1/12] s2io: do something
+
+EOF
+
+$ cat patch-description >> email-01.txt
+$ cat patch >> email-01.txt
+$ sendmail -t < email-01.txt
