@@ -1,33 +1,30 @@
-From: Peter Bieringer <pb@bieringer.de>
-Subject: (usagi-users 02392) Is there already a doc available for the new IPsec code?
-Date: Mon, 02 Jun 2003 23:12:08 +0200
-Message-ID: <36990000.1054588328@worker.muc.bieringer.de>
-Reply-To: usagi-users@linux-ipv6.org
+From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Subject: Re: Is there already a doc available for the new IPsec code?
+Date: Mon, 2 Jun 2003 18:58:15 -0300
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20030602215815.GL9312@conectiva.com.br>
+References: <36990000.1054588328@worker.muc.bieringer.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Maillist USAGI-users <usagi-users@linux-ipv6.org>
-Return-path: <usagi-users-admin@linux-ipv6.org>
-To: Maillist netdev <netdev@oss.sgi.com>
+Cc: Maillist netdev <netdev@oss.sgi.com>,
+   Maillist USAGI-users <usagi-users@linux-ipv6.org>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Peter Bieringer <pb@bieringer.de>
 Content-Disposition: inline
-List-Software: fml [fml 4.0.3 release (20011202/4.0.3)]
-List-Post: <mailto:usagi-users@linux-ipv6.org>
-List-Owner: <mailto:usagi-users-admin@linux-ipv6.org>
-List-Help: <mailto:usagi-users-ctl@linux-ipv6.org?body=help>
-List-Unsubscribe: <mailto:usagi-users-ctl@linux-ipv6.org?body=unsubscribe>
+In-Reply-To: <36990000.1054588328@worker.muc.bieringer.de>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Em Mon, Jun 02, 2003 at 11:12:08PM +0200, Peter Bieringer escreveu:
+> Hi,
+> 
+> i want to play a little bit with the new IPsec code.
+> 
+> Is there already a doc available how to use it (config file of IKE daemon,
+> etc., e.g. compared against the FreeS/WAN code).
+> 
+> Thank you very much for input,
 
-i want to play a little bit with the new IPsec code.
+Look at Bert Hubert's LART
 
-Is there already a doc available how to use it (config file of IKE daemon,
-etc., e.g. compared against the FreeS/WAN code).
-
-Thank you very much for input,
-
-        Peter
--- 
-Dr. Peter Bieringer                     http://www.bieringer.de/pb/
-GPG/PGP Key 0x958F422D               mailto: pb at bieringer dot de 
-Deep Space 6 Co-Founder and Core Member  http://www.deepspace6.net/
+- Arnaldo
