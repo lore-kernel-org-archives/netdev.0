@@ -1,44 +1,149 @@
-From: Petr Baudis <pasky@pasky.ji.cz>
-Subject: Re: Linux problems with hundreds of interfaces/routes
-Date: Fri, 27 Sep 2002 17:14:13 +0200
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] IPv6: Refine IPv6 Address Validation Timer
+Date: Sat, 28 Sep 2002 00:16:17 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20020927151413.GA6548@pasky.ji.cz>
-References: <20020927114309.GR2655@pasky.ji.cz> <200209271449.SAA21026@sex.inr.ac.ru>
+Message-ID: <20020928.001617.91124319.yoshfuji@linux-ipv6.org>
+References: <20020927.181256.112824147.yoshfuji@linux-ipv6.org>
+	<20020927.022515.78074730.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Petr Baudis <pasky@xs26.net>, pekkas@netcore.fi, netdev@oss.sgi.com,
-   xs26-dev@xs26.net
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, usagi@linux-ipv6.org,
+   kuznet@ms2.inr.ac.ru
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
-Content-Disposition: inline
-In-Reply-To: <200209271449.SAA21026@sex.inr.ac.ru>
+To: davem@redhat.com
+In-Reply-To: <20020927.022515.78074730.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Dear diary, on Fri, Sep 27, 2002 at 04:49:00PM CEST, I got a letter,
-where kuznet@ms2.inr.ac.ru told me, that...
-> Hello!
+In article <20020927.022515.78074730.davem@redhat.com> (at Fri, 27 Sep 2002 02:25:15 -0700 (PDT)), "David S. Miller" <davem@redhat.com> says:
 
-Hello,
-
-> > 2002/09/27 11:11:03 ZEBRA: netlink-listen error: No buffer space available, type=RTM_NEWROUTE(24), seq=426, pid=0
+>    @@ -1626,24 +1635,32 @@
+>     		for (ifp=inet6_addr_lst[i]; ifp; ifp=ifp->lst_next) {
+>     			unsigned long age;
+>     
+>    -			if (ifp->flags & IFA_F_PERMANENT)
+>    +			spin_lock(&ifp->lock);
+>    +			if (ifp->flags & IFA_F_PERMANENT) {
+>    +				spin_unlock(&ifp->lock);
+>     				continue;
+>    +			}
 > 
-> This means that you exceeded limit on size of neighbour table,
-> which is quite predictable when you have lots of interfaces.
-> Tune neighbour table size, it is net/ipv6/neigh/default/gc_thresh3 mostly.
+> This is completely unnecessary.  Nobody modifies the
+> IFA_F_PERMANENT flag after the addr entry has been added
+> to the hash table and this runs under the addrconf hash
+> lock already.
 
-Thanks a lot, that fixed the issue! I personally did some research about how
-to raise that, but didn't found anything.. I hope that google will get this
-post and rank it high ;-).
+Thanks for comment.
+So, is this reasonable?
 
--- 
+Index: net/ipv6/addrconf.c
+===================================================================
+RCS file: /cvsroot/usagi/usagi-backport/linux24/net/ipv6/addrconf.c,v
+retrieving revision 1.1.1.1
+retrieving revision 1.1.1.1.4.4
+diff -u -r1.1.1.1 -r1.1.1.1.4.4
+--- net/ipv6/addrconf.c	2002/08/20 09:47:02	1.1.1.1
++++ net/ipv6/addrconf.c	2002/09/27 15:02:57	1.1.1.1.4.4
+@@ -26,6 +26,8 @@
+  *						packets.
+  *	yoshfuji@USAGI			:       Fixed interval between DAD
+  *						packets.
++ *	YOSHIFUJI Hideaki @USAGI	:	improved accuracy of
++ *						address validation timer.
+  */
  
-				Petr "Pasky" Baudis
+ #include <linux/config.h>
+@@ -93,6 +95,7 @@
+ void addrconf_verify(unsigned long);
  
-* ELinks maintainer                * IPv6 guy (XS26 co-coordinator)
-* IRCnet operator                  * FreeCiv AI occassional hacker
-.
-<Beeth> Girls are like internet domain names, the ones I like are already taken.
-<honx> Well, you can still get one from a strange country :-P
-.
-Public PGP key && geekcode && homepage: http://pasky.ji.cz/~pasky/
+ static struct timer_list addr_chk_timer = { function: addrconf_verify };
++static spinlock_t addrconf_verify_lock = SPIN_LOCK_UNLOCKED;
+ 
+ static int addrconf_ifdown(struct net_device *dev, int how);
+ 
+@@ -1616,9 +1619,15 @@
+ void addrconf_verify(unsigned long foo)
+ {
+ 	struct inet6_ifaddr *ifp;
+-	unsigned long now = jiffies;
++	unsigned long now, next;
+ 	int i;
+ 
++	spin_lock_bh(&addrconf_verify_lock);
++	now = jiffies;
++	next = now + ADDR_CHECK_FREQUENCY;
++
++	del_timer(&addr_chk_timer);
++
+ 	for (i=0; i < IN6_ADDR_HSIZE; i++) {
+ 
+ restart:
+@@ -1629,21 +1638,27 @@
+ 			if (ifp->flags & IFA_F_PERMANENT)
+ 				continue;
+ 
++			spin_lock(&ifp->lock);
+ 			age = (now - ifp->tstamp) / HZ;
+ 
+-			if (age > ifp->valid_lft) {
++			if (age >= ifp->valid_lft) {
++				spin_unlock(&ifp->lock);
+ 				in6_ifa_hold(ifp);
+ 				write_unlock(&addrconf_hash_lock);
+ 				ipv6_del_addr(ifp);
+ 				goto restart;
+-			} else if (age > ifp->prefered_lft) {
++			} else if (age >= ifp->prefered_lft) {
++				/* jiffies - ifp->tsamp > age >= ifp->prefered_lft */
+ 				int deprecate = 0;
+ 
+-				spin_lock(&ifp->lock);
+ 				if (!(ifp->flags&IFA_F_DEPRECATED)) {
+ 					deprecate = 1;
+ 					ifp->flags |= IFA_F_DEPRECATED;
+ 				}
++
++				if (time_before(ifp->tstamp + ifp->valid_lft * HZ, next))
++					next = ifp->tstamp + ifp->valid_lft * HZ;
++
+ 				spin_unlock(&ifp->lock);
+ 
+ 				if (deprecate) {
+@@ -1654,12 +1669,24 @@
+ 					in6_ifa_put(ifp);
+ 					goto restart;
+ 				}
++			} else {
++				/* ifp->prefered_lft <= ifp->valid_lft */
++				if (time_before(ifp->tstamp + ifp->prefered_lft * HZ, next))
++					next = ifp->tstamp + ifp->prefered_lft * HZ;
++				spin_unlock(&ifp->lock);
+ 			}
+ 		}
+ 		write_unlock(&addrconf_hash_lock);
+ 	}
+ 
+-	mod_timer(&addr_chk_timer, jiffies + ADDR_CHECK_FREQUENCY);
++	if (time_before(now + HZ/2, jiffies)) {
++		ADBG((KERN_WARNING 
++		      "addrconf_verify(): too slow; jiffies - now = %ld\n",
++		      (long)jiffies - (long)now));
++	}
++	addr_chk_timer.expires = time_before(next, jiffies + HZ) ? jiffies + HZ : next;
++	add_timer(&addr_chk_timer);
++	spin_unlock_bh(&addrconf_verify_lock);
+ }
+ 
+ static int
+@@ -2033,8 +2060,7 @@
+ 	proc_net_create("if_inet6", 0, iface_proc_info);
+ #endif
+ 	
+-	addr_chk_timer.expires = jiffies + ADDR_CHECK_FREQUENCY;
+-	add_timer(&addr_chk_timer);
++	addrconf_verify(0);
+ 	rtnetlink_links[PF_INET6] = inet6_rtnetlink_table;
+ #ifdef CONFIG_SYSCTL
+ 	addrconf_sysctl.sysctl_header =
