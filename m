@@ -1,36 +1,40 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: [patch] clean up tcp_sk(), 2.6.0
-Date: Tue, 30 Dec 2003 17:32:30 +0100
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20031230163230.GA12553@elte.hu>
+From: Amir Noam <amir.noam@intel.com>
+Subject: Re: major bonding bug?
+Date: Tue, 30 Dec 2003 18:45:14 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <200312301845.14275.amir.noam@intel.com>
+References: <E6F7D288B394A64585E67497E5126BA601F991CE@hasmsx403.iil.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: "David S. Miller" <davem@redhat.com>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "Marom, Noam" <noam.marom@intel.com>, <netdev@oss.sgi.com>,
+        <fubar@us.ibm.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "Jeff Garzik" <jgarzik@pobox.com>, "Hen, Shmulik" <shmulik.hen@intel.com>
+In-Reply-To: <E6F7D288B394A64585E67497E5126BA601F991CE@hasmsx403.iil.intel.com>
 Content-Disposition: inline
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Tuesday 30 December 2003 06:31 pm, Jeff Garzik wrote:
+> hmmm...
+>
+>
+> It looks like a lot of code now depends on global variable
+> "bond_mode".
 
-i recently wasted a few hours on a bug where i used "tcp_sk(sock)"
-instead of "tcp_sk(sock->sk)" - the former, while being blatantly
-incorrect, compiles just fine on 2.6.0. The patch below is equivalent to
-the define but is also type-safe. Compiles cleanly & boots fine on
-2.6.0.
+Actually, this has always been the case in the bonding module.
 
-	Ingo
+> This looks very wrong...  bonding mode should be per-interface, not
+> global to the entire driver.  What happens when a user wants
+> BOND_MODE_ROUNDROBIN on bond0, and BOND_MODE_TLB on bond1?
 
---- linux/include/linux/tcp.h.orig
-+++ linux/include/linux/tcp.h
-@@ -386,7 +386,10 @@ struct tcp_sock {
- 	struct tcp_opt	  tcp;
- };
- 
--#define tcp_sk(__sk) (&((struct tcp_sock *)__sk)->tcp)
-+static inline struct tcp_opt * tcp_sk(const struct sock *__sk)
-+{
-+	return &((struct tcp_sock *)__sk)->tcp;
-+}
- 
- #endif
- 
+We agree that it looks very wrong, and this is in fact one of the 
+features we've been working on lately. It is not a trivial fix, 
+since, as you've noted, a lot of the code depends on the bond 
+settings being global. We plan to start releasing patches to address 
+this issue very soon (probably even starting tomorrow).
+
+-- 
+Amir
