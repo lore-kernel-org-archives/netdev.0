@@ -1,171 +1,42 @@
-From: Jacek Konieczny <jajcus@pld.org.pl>
-Subject: "new style" netdevice allocation patch for TUN driver (2.4.18 kernel)
-Date: Thu, 1 Aug 2002 15:35:06 +0200
+From: Alan Robertson <alanr@unix.sh>
+Subject: SIOCGIFBRDADDR?
+Date: Thu, 01 Aug 2002 08:04:21 -0600
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <41914.6897191696$1028209004@news.gmane.org>
-Reply-To: jajcus@bnet.pl
+Message-ID: <3D493FE5.4090102@unix.sh>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, underley@underley.eu.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Kevin Dwyer <kevin@pheared.net>
 Return-path: <owner-netdev@oss.sgi.com>
-To: maxk@qualcomm.com, vtun@office.satix.net
-Content-Disposition: inline
+To: netdev@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I had a lot of problem with tun devices created with both openvpn and
-vtund. When I wanted to shut down my system when the devices were in
-use (eg. TCP connection established on tun0 interface), even if the
-tunneling daemon was killed, it stopped while trying to deconfigure
-network. And "unregister_netdevice: waiting for tun0 to become free"
-message was displayed again and again. I tried to resolve this problem
-using Google, but I have only found out, that this is behaviour of 2.4
-kernels, and that it is proper. After further investigation, in kernel
-sources, I found out, that there are "old style" and "new style" network
-devices, and that only the "old style" devices have this problem.
-I had similar problem with VLAN devices some time ago, so I checked VLAN
-driver sources too. As I suspected, it was "new style" device now.
-The patch below is my try to make tun device "new style" too. It seems
-to work for me, but I am not sure if it is 100% proper. This is patch
-against 2.4.18 sources.
+Hi,
 
-Sorry, for spamming all those addresses, but I am not sure which one is
-correct. Driver on URL given in MAINTAINERS file seems to be a bit
-outdated.
+Some folks using the linux-ha (heartbeat) software have been running into 
+some network-related problems, and Alan Cox suggested that you folks could 
+help us out.
 
-Greets,
-	Jacek
+One of the ways you can configure linux-ha protocols is to send broadcast 
+packets.  In this case, our software needs to get the broadcast address from 
+the OS, so we can proceed.  We currently use the SIOCGIFBRDADDR ioctl to do 
+this for us.  This has worked pretty well for us for quite some time, but 
+recently some users have run into some problems.
+
+It appears that if one configures an interface using ifconfig, then the 
+SIOCGIFBRDADDR ioctl works quite nicely to determine the broadcast address 
+of an interface.
+
+However, if one uses the iproute2 tools to configure the interface, then it 
+appears that the SIOCGIFBRDADDR ioctl returns bogus results on that interface.
+
+Is this supposed to be the case?
+
+Is there a different method we're supposed to use instead of SIOCGIFBRDADDR?
 
 
---- linux/drivers/net/tun.c.orig	Sun Sep 30 21:26:07 2001
-+++ linux/drivers/net/tun.c	Thu Aug  1 14:41:12 2002
-@@ -20,6 +20,14 @@
-  *    Modifications for 2.3.99-pre5 kernel.
-  */
- 
-+/*
-+ *  01.08.2002
-+ *  Jacek Konieczny <jajcus@pld.org.pl>
-+ *    Modifications for "new style" device allocation
-+ *    (fixes "wating for tunX to become free" problem)
-+ */
-+
-+
- #define TUN_VER "1.4"
- 
- #include <linux/config.h>
-@@ -159,6 +167,17 @@
- 	return 0;
- }
- 
-+void tun_net_destruct(struct net_device *dev)
-+{
-+	if (dev) {
-+		if (dev->priv) {
-+			kfree(dev->priv);
-+			dev->priv=NULL;
-+			MOD_DEC_USE_COUNT;
-+		}
-+	}
-+}
-+
- /* Character device part */
- 
- /* Poll */
-@@ -204,14 +223,14 @@
- 	skb_reserve(skb, 2);
- 	copy_from_user(skb_put(skb, len), ptr, len); 
- 
--	skb->dev = &tun->dev;
-+	skb->dev = tun->dev;
- 	switch (tun->flags & TUN_TYPE_MASK) {
- 	case TUN_TUN_DEV:
- 		skb->mac.raw = skb->data;
- 		skb->protocol = pi.proto;
- 		break;
- 	case TUN_TAP_DEV:
--		skb->protocol = eth_type_trans(skb, &tun->dev);
-+		skb->protocol = eth_type_trans(skb, tun->dev);
- 		break;
- 	};
- 
-@@ -310,7 +329,7 @@
- 			schedule();
- 			continue;
- 		}
--		netif_start_queue(&tun->dev);
-+		netif_start_queue(tun->dev);
- 
- 		if (!verify_area(VERIFY_WRITE, buf, count))
- 			ret = tun_put_user(tun, skb, buf, count);
-@@ -357,8 +376,6 @@
- 		init_waitqueue_head(&tun->read_wait);
- 
- 		tun->owner = -1;
--		tun->dev.init = tun_net_init;
--		tun->dev.priv = tun;
- 
- 		err = -EINVAL;
- 
-@@ -377,17 +394,21 @@
- 		if (*ifr->ifr_name)
- 			name = ifr->ifr_name;
- 
--		if ((err = dev_alloc_name(&tun->dev, name)) < 0)
--			goto failed;
--		if ((err = register_netdevice(&tun->dev)))
--			goto failed;
--	
--		MOD_INC_USE_COUNT;
-+		dev = dev_alloc(name, &err);
-+		if (!dev) goto failed;
-+		
-+		tun->dev=dev;
-+		dev->init = tun_net_init;
-+		dev->priv = tun;
-+		dev->destructor = tun_net_destruct;
-+		dev->features |= NETIF_F_DYNALLOC;
-+		tun->name = dev->name;
- 
--		tun->name = tun->dev.name;
--	}
-+	        err=register_netdevice(dev);
-+		if (err<0) goto failed;
- 
--	DBG(KERN_INFO "%s: tun_set_iff\n", tun->name);
-+		MOD_INC_USE_COUNT;
-+	}
- 
- 	if (ifr->ifr_flags & IFF_NO_PI)
- 		tun->flags |= TUN_NO_PI;
-@@ -402,6 +423,7 @@
- 	return 0;
- 
- failed:
-+	kfree(dev);
- 	kfree(tun);
- 	return err;
- }
-@@ -532,10 +554,8 @@
- 	skb_queue_purge(&tun->readq);
- 
- 	if (!(tun->flags & TUN_PERSIST)) {
--		dev_close(&tun->dev);
--		unregister_netdevice(&tun->dev);
--		kfree(tun);
--		MOD_DEC_USE_COUNT;
-+		dev_close(tun->dev);
-+		unregister_netdevice(tun->dev);
- 	}
- 
- 	rtnl_unlock();
---- linux/include/linux/if_tun.h.orig	Tue Jun 12 04:15:27 2001
-+++ linux/include/linux/if_tun.h	Thu Aug  1 14:33:40 2002
-@@ -40,7 +40,7 @@
- 	wait_queue_head_t	read_wait;
- 	struct sk_buff_head	readq;
- 
--	struct net_device	dev;
-+	struct net_device	*dev;
- 	struct net_device_stats	stats;
- 
- 	struct fasync_struct    *fasync;
+	Thanks!
+
+	-- Alan Robertson
+	   alanr@unix.sh
+	   http://linux-ha.org/
