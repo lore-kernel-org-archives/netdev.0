@@ -1,70 +1,42 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH]snmp6 64-bit counter support in proc.c
-Date: Thu, 22 Jan 2004 05:27:47 +0900 (JST)
+From: Max Krasnyansky <maxk@qualcomm.com>
+Subject: Re: [PATCH 1/5] tun check error on memcpy_fromiovec
+Date: Wed, 21 Jan 2004 12:49:23 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040122.052747.15334487.yoshfuji@linux-ipv6.org>
-References: <OF1837C6DA.A9CB8829-ON87256E22.006C142B@us.ibm.com>
+Message-ID: <1074718162.1707.194.camel@localhost>
+References: <20031208202302.C30587@build.pdx.osdl.net>
+	 <20031219103457.GD1213@mail.sternwelten.at>
+	 <20040116164512.C19034@osdlab.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, mashirle@us.ibm.com, kuznet@ms2.inr.ac.ru,
-        netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Cc: maximilian attems <janitor@sternwelten.at>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: xma@us.ibm.com
-In-Reply-To: <OF1837C6DA.A9CB8829-ON87256E22.006C142B@us.ibm.com>
+To: Chris Wright <chrisw@osdl.org>
+In-Reply-To: <20040116164512.C19034@osdlab.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <OF1837C6DA.A9CB8829-ON87256E22.006C142B@us.ibm.com> (at Wed, 21 Jan 2004 11:45:30 -0800), Shirley Ma <xma@us.ibm.com> says:
-
-> > So I'm going to let this sit for another day or two so people can voice
-> any
-> objections they may have.
+On Fri, 2004-01-16 at 16:45, Chris Wright wrote:
+> * maximilian attems (janitor@sternwelten.at) wrote:
+> > hey chris,
+> > 
+> > after applying your 4 patches on top of linux-2.6.0 
+> > + experimental net, 
+> > found 2 last unchecked memcpy_fromiovec in tun.c
+> > patch bellow fixes the second call, 
+> > the first is beyond me, please complete this patch :)
+> > compile tested
 > 
-> Did you hear different voices? If not could you please check in this patch?
+> I specifically left those alone.  They have a semi-bogus verify_area()
+> call that is trying to insure the memcpy_fromiovec won't EFAULT.  I'd
+> prefer to remove them and simply do memcpy checking.
 
-I'm not against holding in u64, 
-but I rebember that Linus did not liked that.
-Is it okay?
+Folks,
 
-BTW,
+Please don't add extra unneeded checks or fix stuff that does not need
+to be fixed. Verify area is not bogus. We need to know total length of
+the iovec so we might as well check it in the same loop and not bother
+with checking later. 
 
-diff -urN linux-2.6.1/net/ipv6/proc.c linux-2.6.1-ipv6mib2-64/net/ipv6/proc.c
-:
- struct snmp6_item
- {
-        char *name;
-+       int   size;
-        int   offset;
- };
-:
-+               if (size == 4) {
-+                       res += *((__u32 *)
-+                               (((void *)per_cpu_ptr(mib[0], i)) + offt));
-+                       res += *((__u32 *)
-+                               (((void *)per_cpu_ptr(mib[1], i)) + offt));
-+               } else if (size == 8) {
-+                       res += *((__u64 *)
-+                               (((void *)per_cpu_ptr(mib[0], i)) + offt));
-+                       res += *((__u32 *)
-                                  ~~~~~__u64?
-+                               (((void *)per_cpu_ptr(mib[1], i)) + offt));
-+               }
-
-I don't understand who really requires the "size" field.
-The size is always 8, isn't it?
-Am I missing sonething?
-
-I'd prefer:
-		if (size == sizeof(u32)) {
-			:
-                } else if (size == sizeof(u64) {
-		        :
-		}
-
-> I am going to submit another patch about new IPv6 MIBs system & interface
-> statistics counters for your review, which depends on this one.
-
-Please be sure not to change the interface when you submit the next patch.
-
---yoshfuji
+Thanks
+Max
