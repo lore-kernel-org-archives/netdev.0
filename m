@@ -1,64 +1,69 @@
-From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
-Subject: Re: [PATCH] (1/11) Irda dongle module owner support
-Date: Mon, 6 Oct 2003 16:23:34 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031006232334.GA9277@bougret.hpl.hp.com>
-References: <20031002152026.4bfd2c67.shemminger@osdl.org>
-Reply-To: jt@hpl.hp.com
+From: Kevin Dwyer <kevin@pheared.net>
+Subject: Re: Strange UDP binding behavior (SO_BINDTODEVICE)
+Date: Mon, 6 Oct 2003 21:06:00 -0400
+Sender: linux-ha-admin@lists.linux-ha.org
+Message-ID: <20031006210600.37da62c9.kevin@pheared.net>
+References: <20031005130154.5bd9d182.kevin@pheared.net>
+	<3F81F1CD.8050803@Carter.net>
+Reply-To: linux-ha@lists.linux-ha.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>, irda-users@lists.sourceforge.net,
-        netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20031002152026.4bfd2c67.shemminger@osdl.org>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="pgp-sha1";
+ boundary="Signature=_Mon__6_Oct_2003_21_06_00_-0400_8.KgV4SaTS2UuHQX"
+Cc: netdev@oss.sgi.com, linux-ha@lists.linux-ha.org
+Return-path: <linux-ha-admin@lists.linux-ha.org>
+To: Casey Carter <Casey@Carter.net>
+In-Reply-To: <3F81F1CD.8050803@Carter.net>
+Errors-To: linux-ha-admin@lists.linux-ha.org
+List-Unsubscribe: <http://lists.linux-ha.org/mailman/listinfo/linux-ha>,
+	<mailto:linux-ha-request@lists.linux-ha.org?subject=unsubscribe>
+List-Post: <mailto:linux-ha@lists.linux-ha.org>
+List-Help: <mailto:linux-ha-request@lists.linux-ha.org?subject=help>
+List-Subscribe: <http://lists.linux-ha.org/mailman/listinfo/linux-ha>,
+	<mailto:linux-ha-request@lists.linux-ha.org?subject=subscribe>
+List-Archive: <http://lists.linux-ha.org/pipermail/linux-ha/>
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 02, 2003 at 03:20:26PM -0700, Stephen Hemminger wrote:
-> IRDA dongle interface needed to be converted to have an owner field
-> to avoid races on module unload.
-> 
-> Eliminated the use of hashbin locking because the dongle control
-> code needed to do it's own locking to avoid races.   This also closed
-> the race between find and insert. 
-> 
-> The find/insert hashbin race may be a general problem with all the IRDA
-> hashbin stuff. IMHO the hashbin stuff should be replaced, it is full
-> of dead incomplete code and done better by the list macros.
+--Signature=_Mon__6_Oct_2003_21_06_00_-0400_8.KgV4SaTS2UuHQX
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: 7bit
 
-	Hi,
+On Mon, 06 Oct 2003 17:50:53 -0500
+Casey Carter <Casey@Carter.net> wrote:
 
-	More testing on 2.6.0-test6-bk8 on my SMP box...
-	After modprobing irport, a modprobe of the actisys module
-hangs forever.
+> This is not a bug, it's a feature!  It is possible to use multiple 
+> sockets with the same port number bound to different interfaces (where
+> "no interface" is one possible choice).  The UDP packet delivery code 
+> favors the socket that is bound to the interface through which packets
+> are received. So, if I am only interested in packets for port 6666 on 
+> eth1, then I am prioritized ahead of the socket bound to "no
+> interface" port 6666.  
 
-	Conditions : irport was not yet attached/up. I had irdadump
-running and an irda-usb active, and I had just rmmod sir_dev.
-	I can see that modprobe is taking 100% cpu :
----------------------------------------
- 1786 pts/1    R      4:11 modprobe actisys
----------------------------------------
-	I can't kill it !
-	No messages in the log.
----------------------------------------
-# cat /proc/modules 
-actisys 4032 1 - Loading 0xd0859000
-irport 12672 0 - Live 0xd0884000
-irda 182260 5 actisys,irport,irnet,irda_usb, Live 0xd08d3000
----------------------------------------
+Well, I would buy that as reasonable, acceptable behavior, but I think
+the reverse is true.
 
-	After a clean reboot, I just tried to modprobe actisys even
-before modprobing irport. Same result :
---------------------------------
-# cat /proc/modules 
-actisys 4032 1 - Loading 0xd0859000
-irda 182260 1 actisys, Live 0xd08d3000
---------------------------------
+We are binding specifically to say, eth0 on port 694.  Someone comes
+along and binds to "no interface" on port 694 and trumps our socket. 
+Isn't that the opposite of what you describe?
 
-	Any tip for debugging that ?
+-- 
+- kpd
+"If at first you don't succeed, redefine success." - Anonymous
 
-	Thanks...
+--Signature=_Mon__6_Oct_2003_21_06_00_-0400_8.KgV4SaTS2UuHQX
+Content-Type: application/pgp-signature
 
-	Jean
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.3 (GNU/Linux)
+
+iD8DBQE/ghF7N4rbBhHCVDkRArTxAJ9R2pv9Z9CReHsjc7ME1Eaf5GvhZQCgkOtA
+z18NlcvJg0aSBETQPQ0VxXk=
+=RLiO
+-----END PGP SIGNATURE-----
+
+--Signature=_Mon__6_Oct_2003_21_06_00_-0400_8.KgV4SaTS2UuHQX--
+_______________________________________________
+Linux-HA mailing list
+Linux-HA@lists.linux-ha.org
+http://lists.linux-ha.org/mailman/listinfo/linux-ha
