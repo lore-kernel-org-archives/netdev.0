@@ -1,50 +1,40 @@
-From: =?iso-8859-1?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH Linux-2.6.7-bk19] prism54 freq to
-	channel incorrect for 5GHz
-Date: Wed, 07 Jul 2004 09:49:11 +0200
-Sender: prism54-devel-bounces@prism54.org
-Message-ID: <hvhdskl0js.fsf@rasputin.ws.nextra.no>
-References: <200407070831.47896.margitsw@t-online.de>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] Add nl_open to libnetlink
+Date: Wed, 7 Jul 2004 21:03:15 +1000
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040707110315.GA26100@gondor.apana.org.au>
+References: <20040703094632.GA14235@gondor.apana.org.au> <20040705160500.208591b5@localhost> <20040706140550.2d483dc8@dell_ss3.pdx.osdl.net> <20040707130950.0112edf6@localhost> <20040707140533.41c66c03@localhost> <20040707155602.4698121a@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@oss.sgi.com, jgarzik@pobox.com, prism54-devel@prism54.org
-Return-path: <prism54-devel-bounces@prism54.org>
-To: margitsw@t-online.de (Margit Schubert-While)
-In-Reply-To: <200407070831.47896.margitsw@t-online.de> (Margit
-	Schubert-While's message of "Wed, 7 Jul 2004 08:31:47 +0200")
-List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
-List-Archive: <http://prism54.org/pipermail/prism54-devel>
-List-Post: <mailto:prism54-devel@prism54.org>
-List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
-List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
-Errors-To: prism54-devel-bounces@prism54.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Content-Disposition: inline
+In-Reply-To: <20040707155602.4698121a@localhost>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-margitsw@t-online.de (Margit Schubert-While) writes:
+On Wed, Jul 07, 2004 at 03:56:02PM +0900, Masahide NAKAMURA wrote:
+> 
+> I've updated the patch and it can build with 2.6.7 kernel headers.
+> Can you check it?
+> 
+> http://www.linux-ipv6.org/~nakam/ipxfrm-20040707_2.diff
 
-> Note that AFAIK, the 5GHz WLAN channels start at 34 (5.17 GHz)
-> (but I am not sure)
+Thanks.
 
-802.11a defines all channels 0..200, i.e. all center frequencies from
-5 to 6 GHz.  But I don't know any country which allows usage of the 5 GHz=20
-band below 5150 MHz, and the lowest channel should be at least 20 MHz
-from the band edge, so 34 is probably the lowest channel that legally
-can be used anywhere (and I believe 36 is the lowest allowed in the US?)
+Could you please change the output of ip xfrm policy/state so that
+it can be fed directly back in? For example the output of ip ro ls
+can be fed back into ip ro add.
 
-> and I don't know the top limit (except that
-> it is <=3D 6GHz). Maybe somebody can shed light on this.
+Could you please also make it understand ip x p instead of ip x policy?
 
-The highest available frequency (in Europe at least) is 5875 MHz.
-Which would make 171 the highest available channel (given a 20 MHz
-minimum distance from the center frequency to the band edge).
+And there seems to be something wrong with the keys in the output of
+ip x state.  There are too many f's for it to be right.
 
-> Apparently Japan is doing something in the 10GHz band -
-> will have to look for details.
-
-That would require a new PHY standard.
-
-
-Bj=F8rn
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
