@@ -1,86 +1,74 @@
 From: Felix Radensky <felix@allot.com>
-Subject: Re: Ethernet bridge performance
-Date: Sun, 10 Aug 2003 10:32:43 +0300
+Subject: Re: e100 "Ferguson" release
+Date: Sun, 10 Aug 2003 12:00:12 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F35F51B.7080301@allot.com>
-References: <3F3217E7.2080903@allot.com> <3F3284EA.5050406@candelatech.com>
- <3F328A0F.3040005@allot.com> <16178.41976.3643.584516@robur.slu.se>
- <1060284094.1024.36.camel@jzny.localdomain>
+Message-ID: <3F36099C.7090002@allot.com>
+References: <C6F5CF431189FA4CBAEC9E7DD5441E01022292A4@orsmsx402.jf.intel.com>
+ <20030805152418.GB6695@gtf.org>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
- boundary="Boundary_(ID_UirtBd6b6YWS5joOM6NHtg)"
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+ boundary="Boundary_(ID_NRV+4kR+TEKMqsKNRaPtwQ)"
+Cc: "Feldman, Scott" <scott.feldman@intel.com>,
    Ben Greear <greearb@candelatech.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
+To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---Boundary_(ID_UirtBd6b6YWS5joOM6NHtg)
+--Boundary_(ID_NRV+4kR+TEKMqsKNRaPtwQ)
 Content-type: text/plain; charset=us-ascii; format=flowed
 Content-transfer-encoding: 7BIT
 
-Hi, Jamal
+Hi, Jeff, Scott
 
-I guess you were not reading my first posting
-very carefully :)
+Are you planning to fix this before 2.4.22-final ?
 
-2.4.22 has NAPI capable e1000 driver and I've
-compiled the driver with NAPI support.
-
-So running non-NAPI driver is not my problem.
+Thanks.
 
 Felix.
 
-jamal wrote:
+Jeff Garzik wrote:
 
->Actually seems his biggest problem is he is not running
->the NAPI driver
->
->cheers,
->jamal
->
->On Thu, 2003-08-07 at 15:09, Robert Olsson wrote:
+>On Tue, Aug 05, 2003 at 08:19:25AM -0700, Feldman, Scott wrote:
 >  
 >
->>Felix Radensky writes:
->> > Thanks for your help, Ben. What is skb-recycle patch
->> > and where can I find it ?
->> 
->> It's experimental and not updated for almost a year and current 
->> implementation does not add anything to SMP. Got some idea how
->> to improve this... but try to keep to slab as long as possible 
->> it has been improved.
+>>>I've also noticed that the number of hard_start_xmit failures 
+>>>in e1000 has increased significantly in version 5.1.13-k1. In 
+>>>version 5.0.43-k1 the number of failures was much smaller.
+>>>      
+>>>
+>>Interesting.  Felix, would you undo the change[1] below in 5.1.13-k1 and
+>>see what happens?  With the change below, 5.1.13 would be more
+>>aggressive on Tx cleanup, so we'll be quicker waking the queue than
+>>before. 
 >>
->> Routing/bridging on SMP has affinty problem. If you are passing
->> skb's say from eth0 to eth1 and they are bound on different CPU's
->> you get cache boucing since the TX-interrupts come on another CPU.
+>>-scott
 >>
->> In a recent test with pktgen:
->> 300 kpps with TX interrupts on same CPU as sender.
->> 198 kpps with TX intr on different CPU as sender.
+>>        for(i = 0; i < E1000_MAX_INTR; i++)
+>>-               if(!e1000_clean_rx_irq(adapter) &&
+>>+               if(!e1000_clean_rx_irq(adapter) &
+>>                   !e1000_clean_tx_irq(adapter))
+>>                        break;
 >>
->> Recycling tries to address this but current implementation fails
->> as said.
->>
->> But you are probably hit by something else... Check were the drops 
->> happens qdisc?. NIC ring RX/TX size, Number of interrupts. ksoftird 
->> priority, link HW_FLOW control, checksumming, affinity etc. 
->>
->> 
->> Cheers.
->>						--ro
->>
->>
+>>[1] Something still bothers me about this new form where we're mixing a
+>>bit-wise operator with logical operands.  Should this bother me?
 >>    
 >>
 >
+>It doesn't matter to the compiler if you make it explicit:
+>
+>	unsigned int rx_work = e1000_clean_rx_irq();
+>	unsigned int tx_work = e1000_clean_tx_irq();
+>	if (!rx_work && !tx_work)
+>		break;
+>
+>
 >  
 >
 
 
---Boundary_(ID_UirtBd6b6YWS5joOM6NHtg)
+--Boundary_(ID_NRV+4kR+TEKMqsKNRaPtwQ)
 Content-type: text/html; charset=us-ascii
 Content-transfer-encoding: 7BIT
 
@@ -90,66 +78,55 @@ Content-transfer-encoding: 7BIT
   <title></title>
 </head>
 <body>
-Hi, Jamal<br>
+Hi, Jeff, Scott<br>
 <br>
-I guess you were not reading my first posting <br>
-very carefully :)<br>
+Are you planning to fix this before 2.4.22-final ?<br>
 <br>
-2.4.22 has NAPI capable e1000 driver and I've<br>
-compiled the driver with NAPI support. <br>
-<br>
-So running non-NAPI driver is not my problem.<br>
+Thanks.<br>
 <br>
 Felix.<br>
 <br>
-jamal wrote:<br>
-<blockquote type="cite"
- cite="mid1060284094.1024.36.camel@jzny.localdomain">
-  <pre wrap="">Actually seems his biggest problem is he is not running
-the NAPI driver
-
-cheers,
-jamal
-
-On Thu, 2003-08-07 at 15:09, Robert Olsson wrote:
+Jeff Garzik wrote:<br>
+<blockquote type="cite" cite="mid20030805152418.GB6695@gtf.org">
+  <pre wrap="">On Tue, Aug 05, 2003 at 08:19:25AM -0700, Feldman, Scott wrote:
   </pre>
   <blockquote type="cite">
-    <pre wrap="">Felix Radensky writes:
- &gt; Thanks for your help, Ben. What is skb-recycle patch
- &gt; and where can I find it ?
- 
- It's experimental and not updated for almost a year and current 
- implementation does not add anything to SMP. Got some idea how
- to improve this... but try to keep to slab as long as possible 
- it has been improved.
+    <blockquote type="cite">
+      <pre wrap="">I've also noticed that the number of hard_start_xmit failures 
+in e1000 has increased significantly in version 5.1.13-k1. In 
+version 5.0.43-k1 the number of failures was much smaller.
+      </pre>
+    </blockquote>
+    <pre wrap="">Interesting.  Felix, would you undo the change[1] below in 5.1.13-k1 and
+see what happens?  With the change below, 5.1.13 would be more
+aggressive on Tx cleanup, so we'll be quicker waking the queue than
+before. 
 
- Routing/bridging on SMP has affinty problem. If you are passing
- skb's say from eth0 to eth1 and they are bound on different CPU's
- you get cache boucing since the TX-interrupts come on another CPU.
+-scott
 
- In a recent test with pktgen:
- 300 kpps with TX interrupts on same CPU as sender.
- 198 kpps with TX intr on different CPU as sender.
+        for(i = 0; i &lt; E1000_MAX_INTR; i++)
+-               if(!e1000_clean_rx_irq(adapter) &amp;&amp;
++               if(!e1000_clean_rx_irq(adapter) &amp;
+                   !e1000_clean_tx_irq(adapter))
+                        break;
 
- Recycling tries to address this but current implementation fails
- as said.
-
- But you are probably hit by something else... Check were the drops 
- happens qdisc?. NIC ring RX/TX size, Number of interrupts. ksoftird 
- priority, link HW_FLOW control, checksumming, affinity etc. 
-
- 
- Cheers.
-						--ro
-
-
+[1] Something still bothers me about this new form where we're mixing a
+bit-wise operator with logical operands.  Should this bother me?
     </pre>
   </blockquote>
   <pre wrap=""><!---->
+It doesn't matter to the compiler if you make it explicit:
+
+	unsigned int rx_work = e1000_clean_rx_irq();
+	unsigned int tx_work = e1000_clean_tx_irq();
+	if (!rx_work &amp;&amp; !tx_work)
+		break;
+
+
   </pre>
 </blockquote>
 <br>
 </body>
 </html>
 
---Boundary_(ID_UirtBd6b6YWS5joOM6NHtg)--
+--Boundary_(ID_NRV+4kR+TEKMqsKNRaPtwQ)--
