@@ -1,48 +1,45 @@
-From: Matt Mackall <mpm@selenic.com>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: [PATCH] support for large number of network devices.
-Date: Wed, 14 Jan 2004 01:13:03 -0600
+Date: Tue, 13 Jan 2004 23:18:25 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040114071303.GG28521@waste.org>
-References: <20040113154610.38f5934c.shemminger@osdl.org> <20040113155921.342db463.davem@redhat.com> <20040113161303.20f1159d.shemminger@osdl.org>
+Message-ID: <20040113231825.700e534f.davem@redhat.com>
+References: <20040113154610.38f5934c.shemminger@osdl.org>
+	<40048BFD.4010303@candelatech.com>
+	<20040113163828.64ec4743.shemminger@osdl.org>
+	<4004A194.3030602@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20040113161303.20f1159d.shemminger@osdl.org>
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <4004A194.3030602@candelatech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 13, 2004 at 04:13:03PM -0800, Stephen Hemminger wrote:
-> On Tue, 13 Jan 2004 15:59:21 -0800
-> "David S. Miller" <davem@redhat.com> wrote:
-> 
-> > On Tue, 13 Jan 2004 15:46:10 -0800
-> > Stephen Hemminger <shemminger@osdl.org> wrote:
-> > 
-> > > When using pseudo network devices, and really big machines; there is
-> > > sometimes a need to have a lot of network devices.  This replaces the
-> > > existing 2.6.1 limit of 100 entries an was O(n^2)
-> > > with a algorithm that will handle up to 32768 entries with O(n) behaviour.
-> > > 
-> > > Does need a temporary page, but that shouldn't be a big deal.
-> > > It has the same semantics, it will find the first empty name and use it.
-> > 
-> > I think your code has different semantics than exist currently.
-> > 
-> > For example, let's use the example of asking for "slip%d" then "eth%d".
-> > The existing code would hand out "slip0" then "eth0", but your code would
-> > deliver "slip0" then "eth1" which is not correct.
-> > 
-> > Or did I miss something clever in your algorithm?
-> 
-> 	It uses the output format string for the sscanf match, and since
-> 	sscanf formats have to match. 	sscanf("eth0", "slip%d", &i) returns 0
-> 	so eth0 would be skipped
+On Tue, 13 Jan 2004 17:55:32 -0800
+Ben Greear <greearb@candelatech.com> wrote:
 
-Unfortunately sscanf("eth0-not-allocated", "eth%d", &i) fools it.
-Which may or may not be worth worrying about.
+> Stephen Hemminger wrote:
+> > I have a patch for name hashing, but don't know if it's needed.
+> > Even without it I can add 9 thousand bridge entries,
+> > and each one takes longer to start the command than add the entry now. 
+> 
+> Check out the af_packet code.  At least some branches do a
+> device lookup by name for each transmitted packet.  One
+> method is:  packet_sendmsg_spkt
+> 
+> packet_sendmsg gets by index, which could also be hashed...
+> 
+> At one time ifconfig -a was almost un-usable with large numbers
+> of devices, but I think it has been improved.  I haven't tried on
+> large numbers of devices lately...
 
--- 
- Matt Mackall : http://www.selenic.com : Linux development and consulting
+I found some other fast-path'ish cases of dev_get_by_name(), one of which
+is atalk_rcv()'s handling of IP over DDP packets.
+
+I didn't even search around for __dev_get() and dev_get_by_index() cases.
+There are probably some more there.
+
+Therefore, I think it's wise to just do this right from the start and use a hash.
+Stephen can you test up and submit the netdev name hash patch you have?
