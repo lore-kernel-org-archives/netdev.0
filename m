@@ -1,74 +1,51 @@
-From: Nivedita Singhvi <niv@us.ibm.com>
-Subject: [Fwd: [Bug 1994] New: pinging endpoint through IPSec tunnel crashes
- target]
-Date: Sun, 01 Feb 2004 10:30:05 -0800
+From: Carl-Daniel Hailfinger <c-d.hailfinger.kernel.2004@gmx.net>
+Subject: Re: forcedeth: Compilation fails for kernel 2.4.24
+Date: Sun, 01 Feb 2004 19:34:21 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <401D45AD.8010105@us.ibm.com>
+Message-ID: <401D46AD.2040009@gmx.net>
+References: <401D2F80.20007@dim.uchile.cl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev <netdev@oss.sgi.com>
+To: "Pablo R. Dartnell" <dartnell@dim.uchile.cl>
+In-Reply-To: <401D2F80.20007@dim.uchile.cl>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Anyone?
+Hi Pablo,
 
-thanks,
-Nivedita
+Pablo R. Dartnell wrote:
+> Hi,
+> 
+> Let me tell you first that I am not a programmer, so I am afraid all I
+> can tell you here is plainly what happened, but not why or what could
+> fix it. I found these addresses at the web page:
+> http://www.hailfinger.org/carldani/linux/patches/forcedeth/,
+> and I thought I should let you know what happened when trying to compile
+> the 2.4.24 kernel with the "forcedeth_2_4_patch_v22.txt" patch applied.
 
--------- Original Message --------
-Subject: [Bug 1994] New: pinging endpoint through IPSec tunnel crashes target
-Date: Sun, 1 Feb 2004 09:59:04 -0800
-From: bugme-daemon@osdl.org
-To: niv@us.ibm.com
+Your report gives all necessary details.
 
-http://bugme.osdl.org/show_bug.cgi?id=1994
+> Here are the last few lines of output when running "make modules_install":
+> [...]
+> forcedeth.c: In function `probe_nic':
+> forcedeth.c:1321: warning: implicit declaration of function
+> `SET_NETDEV_DEV'
+> forcedeth.c:1321: structure has no member named `dev'
 
-            Summary: pinging endpoint through IPSec tunnel crashes target
-     Kernel Version: 2.6.1
-             Status: NEW
-           Severity: blocking
-              Owner: niv@us.ibm.com
-          Submitter: casteyde.christian@free.fr
+The problem is known and there are two possible solutions:
+1. Apply patch-2.4.25-pre8.gz from
+ftp://ftp.kernel.org/pub/linux/kernel/v2.4/testing/
+2. Send me some mail requesting the necessary compatibility headers
+
+Basically, forcedeth 0.22 and later versions need either a 2.6 series
+kernel or 2.4.25-pre7 or later. That allowed me to remove much of the
+compatibility cruft.
 
 
-Distribution:
-Slackware 9.1 + vanilla 2.6.1 kernel compiled from source + pppd 2.4.2
-
-Hardware Environment:
-K7 2GHz + ne2k Ethernet cards + ppp + pppoe + netfilter + ipv4 ipsec
-
-Software Environment:
-kame tools for ipsec, pppd 2.4.2 + pppoe plugin for Internet connection
-
-Problem Description:
-I tried to build an experimental IPSec tunnel with manual keying,
-to forward traffic from dummy network of computer A to dummy network
-of computer B, which are interconnected by a real network.
-
-I therefore mount dummy0 on both computers (192.168.20.1 and 192.168.20.2),
-activated IP forwarding on both, relax firewall rules, and set up
-IPv4 IPSec tunnel between both computer to relay packets from 192.168.20.x
-through my Internet connection.
-My ipsec.conf file defines IPSec policy as shown :
-
-spdadd 192.168.20.1 192.168.20.2 any -P out ipsec
-         esp/tunnel/xx.yy.zzz.tt-uu.170.31.3/require
-         ah/tunnel/xx.yy.zzz.tt-uu.170.31.3/require;
-
-spdadd 192.168.20.2 192.168.20.1 any -P in ipsec
-         esp/tunnel/xx.yy.zzz.tt-uu.170.31.3/require
-         ah/tunnel/xx.yy.zzz.tt-uu.170.31.3/require;
-
-(real IP adresses masked).
-
-Then ping 192.168.20.1 crashes the pinged machine.
-Oops not available (system freeze under X11).
-
-Steps to reproduce:
-Build an IPSec tunnel and ping the remote machine
-as described upper.
-
-------- You are receiving this mail because: -------
-You are the assignee for the bug, or are watching the assignee.
+HTH,
+Carl-Daniel
+-- 
+http://www.hailfinger.org/
