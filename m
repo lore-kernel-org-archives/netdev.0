@@ -1,28 +1,21 @@
-From: "Colin LEROY" <colin@colino.net>
-Subject: Re: wireless-2.6 queue opened
-Date: Fri, 4 Jun 2004 11:13:24 +0200
+From: John Heffner <jheffner@psc.edu>
+Subject: OT: randomly unsubscribed
+Date: Fri, 4 Jun 2004 09:04:40 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <026001c44a14$30cd9fc0$3cc8a8c0@epro.dom>
+Message-ID: <Pine.NEB.4.33.0406040858260.4315-100000@dexter.psc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@oss.sgi.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <jgarzik@pobox.com>
+To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+I can't find an admin address for this list, sorry about the off-topic
+post.
 
-Just a quick question about the generic 802.11 stack. Is USB support planned for
-this?
+I'm getting randomly and silently unsubscribed from this list.  It's
+happened three or four times now in the past few months.  Could the list
+admin look in to this?
 
-I'm asking, because I read on the web that adding USB support to hostap would be
-a lot of work:
-http://sisyphus.iocaine.com/pipermail/hostap/2004-March/006076.html
-
--- 
-Colin
-  This message represents the official view of the voices
-  in my head.
+Thanks,
+  -John
