@@ -1,44 +1,51 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [patch 2.6.11-rc4-netdev1 0/5] r8169: intro
-Date: Tue, 22 Feb 2005 00:51:25 +0100
-Message-ID: <20050221235125.GD26248@electric-eye.fr.zoreil.com>
+Subject: [patch 2.6.11-rc4-netdev1 1/5] r8169: fix rx skb allocation error logging
+Date: Tue, 22 Feb 2005 00:53:01 +0100
+Message-ID: <20050221235301.GA31723@electric-eye.fr.zoreil.com>
+References: <20050221235125.GD26248@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com, jdmason@us.ibm.com
 To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
+In-Reply-To: <20050221235125.GD26248@electric-eye.fr.zoreil.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-1 - The upcoming messages contain a serie of patches which fixes minor issues
-    or moderately clean the code.
+Fix rx skb allocation error logging
 
-2 - The current 2.6.11-rc4 r8169 driver would benefit from several patches
-    availables in your -netdev serie:
-    - the extra netif_poll_enable() in rtl8169_close()
-      -> without it the driver can not stand an open/traffic/close/open
-         sequence ("interrupt 0005 taken in poll" and the story is over);
+Signed arithmetic is not required as rtl8169_rx_fill() return belongs
+to the [0; NUM_RX_DESC] interval.
 
-    - the endianness changes for vlan
-      -> without it a big-endian host can't reach a little endian host
-         I tested it through:
-         - (old code; little endian) <-> (new code; little endian)
-           -> ok 
-         - (new code; big endian)    <-> (new code; little endian)
-           -> ok 
+Signed-off-by: Jon Mason <jdmason@us.ibm.com>
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 
-    - the endianness changes for Rx csum
-      -> this one hits big-endian hosts as well but the fix is more trivial
-         and it does not bite too hard.
+diff -puN drivers/net/r8169.c~r8169-400 drivers/net/r8169.c
+--- a/drivers/net/r8169.c~r8169-400	2005-02-17 21:50:09.820173216 +0100
++++ b/drivers/net/r8169.c	2005-02-17 22:00:00.210450784 +0100
+@@ -2156,8 +2156,8 @@ static int
+ rtl8169_rx_interrupt(struct net_device *dev, struct rtl8169_private *tp,
+ 		     void __iomem *ioaddr)
+ {
+-	unsigned int cur_rx, rx_left, count;
+-	int delta;
++	unsigned int cur_rx, rx_left;
++	unsigned int delta, count;
+ 
+ 	assert(dev != NULL);
+ 	assert(tp != NULL);
+@@ -2225,10 +2225,8 @@ rtl8169_rx_interrupt(struct net_device *
+ 	tp->cur_rx = cur_rx;
+ 
+ 	delta = rtl8169_rx_fill(tp, dev, tp->dirty_rx, tp->cur_rx);
+-	if (delta < 0) {
++	if (!delta && count)
+ 		printk(KERN_INFO "%s: no Rx buffer allocated\n", dev->name);
+-		delta = 0;
+-	}
+ 	tp->dirty_rx += delta;
+ 
+ 	/*
 
-    Imho it would be safe to push the whole queue for inclusion in 2.6.11
-    but the changes above are enough if you simply want the smallest set
-    of changes to improve the behavior of the driver.
-
-The driver is however not perfect as I can still trigger the pesky
-"interrupt xyz taken in poll" error when asking for a change of mtu at
-the wrong time.
-
---
-Ueimor
+_
