@@ -1,69 +1,31 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] net/802/fc.c: #if 0 fc_type_trans
-Date: Sun, 6 Mar 2005 21:57:54 +0100
-Message-ID: <20050306205754.GO5070@stusta.de>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: [patch 01/26] list_for_each: net-ipv6-ip6_fib.c
+Date: Mon, 07 Mar 2005 06:00:38 +0900 (JST)
+Message-ID: <20050307.060038.16434779.yoshfuji@linux-ipv6.org>
+References: <20050306103238.86F181E46E@trashy.coderock.org>
+	<20050307.014040.48352532.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
-To: davem@davemloft.net
-Content-Disposition: inline
+Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com, janitor@sternwelten.at,
+        yoshfuji@linux-ipv6.org
+To: domen@coderock.org
+In-Reply-To: <20050307.014040.48352532.yoshfuji@linux-ipv6.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The only user of fc_type_trans (drivers/net/fc/iph5526.c) is BROKEN in 
-2.6 and removed in -mm.
+In article <20050307.014040.48352532.yoshfuji@linux-ipv6.org> (at Mon, 07 Mar 2005 01:40:40 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> >  
+> > -#define FOR_WALKERS(w) for ((w)=fib6_walker_list.next; (w) != &fib6_walker_list; (w)=(w)->next)
+> > +#define FOR_WALKERS(w) list_for_each((w), &fib6_walker_list)
+> >  
+> >  static __inline__ u32 fib6_new_sernum(void)
+> >  {
+>
+> Please don't. fib6_walker_list is not for fib6_walker_t but list_head.
 
----
+Sorry, I meant: list_for_each is not for fib6_walker_t but list_head.
 
- include/linux/fcdevice.h |    2 --
- net/802/fc.c             |    2 ++
- 2 files changed, 2 insertions(+), 2 deletions(-)
-
---- linux-2.6.11-mm1-full/include/linux/fcdevice.h.old	2005-03-06 21:40:36.000000000 +0100
-+++ linux-2.6.11-mm1-full/include/linux/fcdevice.h	2005-03-06 21:41:07.000000000 +0100
-@@ -24,12 +24,10 @@
- #define _LINUX_FCDEVICE_H
- 
- 
- #include <linux/if_fc.h>
- 
- #ifdef __KERNEL__
--extern unsigned short	fc_type_trans(struct sk_buff *skb, struct net_device *dev); 
--
- extern struct net_device *alloc_fcdev(int sizeof_priv);
- #endif
- 
- #endif	/* _LINUX_FCDEVICE_H */
---- linux-2.6.11-mm1-full/net/802/fc.c.old	2005-03-06 21:41:12.000000000 +0100
-+++ linux-2.6.11-mm1-full/net/802/fc.c	2005-03-06 21:41:35.000000000 +0100
-@@ -94,12 +94,13 @@
- 	return arp_find(fch->daddr, skb);
- #else
- 	return 0;
- #endif
- }
- 
-+#if 0
- unsigned short
- fc_type_trans(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct fch_hdr *fch = (struct fch_hdr *)skb->data;
- 	struct fcllc *fcllc;
- 
-@@ -127,12 +128,13 @@
- 		skb_pull(skb, sizeof (struct fcllc));
- 		return fcllc->ethertype;
- 	}
- 
- 	return ntohs(ETH_P_802_2);
- }
-+#endif  /*  0  */
- 
- static void fc_setup(struct net_device *dev)
- {
- 	dev->hard_header	= fc_header;
- 	dev->rebuild_header	= fc_rebuild_header;
-                 
+--yoshfuji
