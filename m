@@ -1,40 +1,54 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] etherdevice.h -- make constant args
-Date: Thu, 8 Apr 2004 11:06:53 -0700
+Subject: [PATCH] dummy -- support hardware address
+Date: Thu, 8 Apr 2004 11:08:34 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040408110653.003174e3@dell_ss3.pdx.osdl.net>
+Message-ID: <20040408110834.2fd1bd25@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Jeff Garzik <jgarzik@pobox.com>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Rather than forcing cast in some new validation code in the bridge;
-please fix a couple of inline functions should have "const" on args.
+Dummy device comes in handy for testing, but it always has address
+of all zero's which isn't a valid ethernet address.  This generates
+a simple fake address and allows changing the address.
 
-diff -Nru a/include/linux/etherdevice.h b/include/linux/etherdevice.h
---- a/include/linux/etherdevice.h	Thu Apr  8 11:03:52 2004
-+++ b/include/linux/etherdevice.h	Thu Apr  8 11:03:52 2004
-@@ -40,7 +40,9 @@
- 					 unsigned char *haddr);
- 
- extern struct net_device *alloc_etherdev(int sizeof_priv);
--static inline void eth_copy_and_sum (struct sk_buff *dest, unsigned char *src, int len, int base)
-+static inline void eth_copy_and_sum (struct sk_buff *dest, 
-+				     const unsigned char *src, 
-+				     int len, int base)
- {
- 	memcpy (dest->data, src, len);
+diff -Nru a/drivers/net/dummy.c b/drivers/net/dummy.c
+--- a/drivers/net/dummy.c	Thu Apr  8 11:03:02 2004
++++ b/drivers/net/dummy.c	Thu Apr  8 11:03:02 2004
+@@ -86,6 +86,15 @@
+ 	return dev->priv;
  }
-@@ -55,7 +57,7 @@
-  *
-  * Return true if the address is valid.
-  */
--static inline int is_valid_ether_addr( u8 *addr )
-+static inline int is_valid_ether_addr( const u8 *addr )
- {
- 	const char zaddr[6] = {0,};
  
++
++static int dummy_set_address(struct net_device *dev, void *p)
++{
++	struct sockaddr *sa = p;
++
++	memcpy(dev->dev_addr, sa->sa_data, dev->addr_len);
++	return 0;
++}
++
+ static struct net_device **dummies;
+ 
+ /* Number of dummy devices to be set up by this module. */
+@@ -101,6 +110,16 @@
+ 
+ 	if (!dev_dummy)
+ 		return -ENOMEM;
++
++	/* Generate intial fake hardware address */
++	dev_dummy->dev_addr[0] = 0x00;
++	dev_dummy->dev_addr[1] = 0xdd;
++	dev_dummy->dev_addr[2] = 0xdd;
++	dev_dummy->dev_addr[3] = index >> 16;
++	dev_dummy->dev_addr[4] = index >> 8;
++	dev_dummy->dev_addr[5] = index;
++
++	dev_dummy->set_mac_address = dummy_set_address;
+ 
+ 	if ((err = register_netdev(dev_dummy))) {
+ 		free_netdev(dev_dummy);
