@@ -1,37 +1,26 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: Re: [PATCH] fix tcp_default_win_scale.
-Date: Wed, 7 Jul 2004 15:41:13 -0400 (EDT)
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <Pine.NEB.4.33.0407071519540.19720-100000@dexter.psc.edu>
-References: <20040707110653.7c49bef1@dell_ss3.pdx.osdl.net>
+From: bert hubert <ahu@ds9a.nl>
+Subject: Re: [PATCH] mark CSZ scheduler as broken
+Date: Wed, 7 Jul 2004 22:32:45 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040707203245.GA9617@outpost.ds9a.nl>
+References: <20040707111936.760586b0@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@redhat.com>, bert hubert <ahu@ds9a.nl>,
-	<jamie@shareable.org>, <netdev@oss.sgi.com>,
-	<linux-net@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-Return-path: <linux-net-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
 To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040707110653.7c49bef1@dell_ss3.pdx.osdl.net>
+Content-Disposition: inline
+In-Reply-To: <20040707111936.760586b0@dell_ss3.pdx.osdl.net>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 7 Jul 2004, Stephen Hemminger wrote:
+On Wed, Jul 07, 2004 at 11:19:36AM -0700, Stephen Hemminger wrote:
+> Since the configuration help for CSZ is broken, and other documentation
+> says it just doesn't work.  Why not mark it as broken to make it obvious?
 
-> I do not argue with that the correct thing to do is to use window scaling
-> and find/fix the poor sop's stuck behind busted networks.
->
-> But: isn't it better to have just one sysctl parameter set (tcp_rmem)
-> and set the window scale as needed rather than increasing the already
-> bewildering array of dials and knobs?  I can't see why it would be advantageous
-> to set a window scale of 7 if the largest possible window ever offered
-> is limited to a smaller value?
+For all I care we can zonk it - even Alexey is unclear about its workings or
+use. More of a research project then something we should ship.
 
-
-I personally agree with this.  One can imagine cases where it would be
-useful to have a control on window scale, but the added complexity is
-probably not worth it.
-
-  -John
-
-
-
-
+-- 
+http://www.PowerDNS.com      Open source, database driven DNS Software 
+http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
