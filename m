@@ -1,91 +1,110 @@
-From: David Dillow <dave@thedillows.org>
-Subject: [RFC 2.6.10 14/22] typhoon: add inbound offload result processing
-Date: Thu, 30 Dec 2004 03:48:36 -0500
-Message-ID: <20041230035000.23@ori.thedillows.org>
-References: <20041230035000.22@ori.thedillows.org>
-Cc: linux-kernel@vger.kernel.org, dave@thedillows.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261587AbUL3I7x@vger.kernel.org>
-To: netdev@oss.sgi.com
-Sender: linux-kernel-owner@vger.kernel.org
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH PKT_SCHED 0/17]: tc action cleanup + fixes
+Date: Thu, 30 Dec 2004 13:34:52 +0100
+Message-ID: <41D3F5EC.9050808@trash.net>
+References: <41D3785F.3040909@trash.net> <1104382562.1048.39.camel@jzny.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Maillist netdev <netdev@oss.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: hadi@cyberus.ca
+In-Reply-To: <1104382562.1048.39.camel@jzny.localdomain>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2004/12/30 00:54:09-05:00 dave@thedillows.org 
-#   Add inbound packet crypto result processing to the Typhoon driver.
-#   
-#   Signed-off-by: David Dillow <dave@thedillows.org>
-# 
-# drivers/net/typhoon.c
-#   2004/12/30 00:53:50-05:00 dave@thedillows.org +42 -0
-#   Add inbound packet crypto result processing to the Typhoon driver.
-#   
-#   Signed-off-by: David Dillow <dave@thedillows.org>
-# 
-diff -Nru a/drivers/net/typhoon.c b/drivers/net/typhoon.c
---- a/drivers/net/typhoon.c	2004-12-30 01:09:23 -05:00
-+++ b/drivers/net/typhoon.c	2004-12-30 01:09:23 -05:00
-@@ -131,6 +131,7 @@
- #include <asm/checksum.h>
- #include <linux/version.h>
- #include <linux/dma-mapping.h>
-+#include <net/xfrm.h>
- 
- #include "typhoon.h"
- #include "typhoon-firmware.h"
-@@ -1681,6 +1682,43 @@
- 	return 0;
- }
- 
-+static inline void
-+typhoon_ipsec_rx(struct sk_buff *skb, u16 results)
-+{
-+#define CHECK_OFFLOAD(good, bad) \
-+	do { if(results & (good|bad)) { \
-+		unsigned int tmp = XFRM_OFFLOAD_CONF | XFRM_OFFLOAD_AUTH; \
-+		tmp |= (results & good) ?  XFRM_OFFLOAD_AUTH_OK : \
-+					   XFRM_OFFLOAD_AUTH_FAIL; \
-+		if(skb_put_xfrm_result(skb, tmp, i)) \
-+				return; \
-+		i++; \
-+	} } while(0)
-+
-+	/* We have no way to determine what the order of the SAs were on
-+	 * the wire, just the 1st AH seen, the 1st ESP seen, etc.
-+	 *
-+	 * We just walk the stack, and pretend that AH SAs get decypted
-+	 * so that if we get the order wrong, the worst case scenerio is
-+	 * that we indicate the failure on the wrong SA, since we'll need
-+	 * to match all SAs against the policy.
-+	 *
-+	 * We get a "ESP good" indication for null auth hash on ESP.
-+	 */
-+	/* XXX think more about security indications -- can I craft a
-+	 * packet to do bad things -- maybe a NULL auth ESP packet,
-+	 * and a failed AH packet?
-+	 */
-+	int i = 0;
-+
-+	CHECK_OFFLOAD(TYPHOON_RX_AH1_GOOD, TYPHOON_RX_AH1_FAIL);
-+	CHECK_OFFLOAD(TYPHOON_RX_ESP1_GOOD, TYPHOON_RX_ESP1_FAIL);
-+	CHECK_OFFLOAD(TYPHOON_RX_AH2_GOOD, TYPHOON_RX_AH2_FAIL);
-+	CHECK_OFFLOAD(TYPHOON_RX_ESP2_GOOD, TYPHOON_RX_ESP2_FAIL);
-+
-+#undef CHECK_OFFLOAD
-+}
-+
- static int
- typhoon_rx(struct typhoon *tp, struct basic_ring *rxRing, volatile u32 * ready,
- 	   volatile u32 * cleared, int budget)
-@@ -1745,6 +1783,10 @@
- 			new_skb->ip_summed = CHECKSUM_UNNECESSARY;
- 		} else
- 			new_skb->ip_summed = CHECKSUM_NONE;
-+
-+		if((rx->rxStatus & TYPHOON_RX_IPSEC) &&
-+				!(rx->rxStatus & TYPHOON_RX_IP_FRAG))
-+			typhoon_ipsec_rx(new_skb, rx->ipsecResults);
- 
- 		spin_lock(&tp->state_lock);
- 		if(tp->vlgrp != NULL && rx->rxStatus & TYPHOON_RX_VLAN)
+jamal wrote:
+> Patrick,
+> Thanks for this cleanup.
+> 
+> Questions/comments:
+> 
+> 1)compiler or style issue?
+> 
+> You have a few of fixes from
+> 
+> a)
+>  if (..){
+> 	single statement here;
+> }
+>  
+> to:
+> if (..)
+> 	single statement here;
+> 
+> I always add an extra pair of brace
+> for lazy reasons (in the back of my mind: incase i want to add another
+> statement ;->).
+
+Just cleanup, I prefer not to waste too many lines. Saving
+space increases readability.
+
+> 
+> b)Other things which i have seen compilers whine about in the past of
+> the form:
+> 
+> a missing cast
+> -       a->priv = (void *) p;
+> +       a->priv = p;
+
+No need to cast a pointer to void *, except if a->priv
+was of some different type.
+
+> 
+> or unitialized vars:
+> -       struct tcf_pedit *p = NULL;
+> +       struct tcf_pedit *p;
+
+p is assigned another value before the first use, so
+initializing to NULL is not neccessary.
+
+> 2) You are not the first to not like the 
+> if (constant != variable_here) 
+> 
+> Should be noted that i am dyxlesic and this has saved 
+> me a few times (I would say the most common errata for me, weird as that
+> may sound). Dont have a problem with the changes you made
+> (dont need the protection at this stage;->).
+
+The compiler warns about assignments in comparisions nowadays.
+
+> 3) Is there any reason in which some cases you fixed things to be:
+> 
+> return_type
+> functionname() eg
+> -static int
+> -gact_net_rand(struct tcf_gact *p) {
+> +static int gact_net_rand(struct tcf_gact *p)
+> 
+> and in some cases you leave them to be of the form:
+> return_type functionname()
+
+Just saving empty lines. I didn't try to be consistent with
+this, In case I changed it the other way around it's usually
+to keep all arguments on one line without exceeding 80 chars.
+
+> 
+> 4) Some of those messages are actually still useful and dont really
+> harm to leave around for a little while longer;
+> -       if (tb[TCA_PEDIT_PARMS - 1] == NULL) {
+> -               printk("BUG: tcf_pedit_init called with NULL params\n");
+> 
+> I realize the fixes you have to return -ENOMEN/NOENT etc are an
+> improvement but a little ascii puking wont harm for somebody writting
+> a user space app until we get better netlink error propagation
+> in place.
+
+Agreed for some messages, but those should be DEBUGs. Anyway,
+I didn't want to judge for every message and possible convert
+it, so I deleted all printks that got replaced by error codes.
+
+> I will look closely at one or two of those fixes in the morning;
+> majority look good on first quick scan (most things were needed during
+> development or are artifacts of that period and are safe to rid of now).
+
+Thanks, I'll continue later today and send another batch
+tonight.
+
+Regards
+Patrick
