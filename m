@@ -1,69 +1,35 @@
-From: Bob Wirka <bobwirka@rtcworks.com>
-Subject: Re: Network Driver and NFS Root
-Date: Tue, 19 Oct 2004 11:52:38 -0500
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: unregister_netdevice 2.6.9
+Date: Wed, 20 Oct 2004 02:26:22 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41754656.2060202@rtcworks.com>
-References: <417040C2.6070408@rtcworks.com>
+Message-ID: <20041020.022622.27982693.yoshfuji@linux-ipv6.org>
+References: <Pine.LNX.4.58LT.0410191738420.2725@lt.wsisiz.edu.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <417040C2.6070408@rtcworks.com>
+To: lukasz@trabinski.net
+In-Reply-To: <Pine.LNX.4.58LT.0410191738420.2725@lt.wsisiz.edu.pl>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-First, thanks for the responses to my earlier post. I appreciate it.
+In article <Pine.LNX.4.58LT.0410191738420.2725@lt.wsisiz.edu.pl> (at Tue, 19 Oct 2004 17:58:58 +0200 (CEST)), Lukasz Trabinski <lukasz@trabinski.net> says:
 
-The ethernet driver code is now executing at boot time; adding either 
-'__initcall(init_fcn)' or 'init_module(init_fcn)' will cause the kernel 
-to call 'init_fcn'. That's the good news.
+> After shutdown/reboot :
+> 
+> unregister_netdevice: waiting for xxxx to become free. Usage count = 1
+:
+> whreis xxxx is name of sit device, created via script
 
-The bad news is that the initializatin code causes a kernel oops when 
-accessing the 'net_device' structure that is passed to it by the kernel 
-(as a pointer). When the code either reads or writes to the 'net_device' 
-structure you get:
+Is your box acting as router, or host?
+% sysctl -a |grep ipv6|grep forwarding
 
-Unable to handle kernel paging request at virtual address 00010f24
+What is happend if you let the interface down and delete it before
+becore rebooting?
 
-Can anyone shed some light on this? I've printed out the value of the 
-'net_device' pointer, and it's not a null pointer.
+Thanks.
 
-Thanks,
-
-Bob Wirka
-Realtime Control Works
-
----------------ORIGINAL POST----------------------------
-
-Bob Wirka wrote:
-
-> Hello,
->
-> I'm trying to build a kernel that mounts a NFS root file system. This 
-> is an embedded system; it uses an SMSC LAN91C111 network chip that is 
-> hardwired to I/O addres 0x300 and IRQ 5. I've been using the driver 
-> (as supplied by SMSC) as a module, and it works fine. Now I'm trying 
-> to incorporate it into the kernel build so that I can mount an NFS 
-> file system when the system boots.
->
-> I've added the source code to the kernel tree, and modified the 
-> Makefile(s) and Config.in files so that the driver <<appears>> to be 
-> compiled into the kernel. The kernel will load, but the chip is not 
-> initialized and the NFS fails.
->
-> Since I don't know how to pass the io address and irq number to the 
-> kernel, I've hard-coded them into the driver's init function (which I 
-> don't see being called).
->
-> If someone could point me in the right direction, I'd appreciate it.
->
-> Thank you,
->
-> Bob Wirka
-> Realtime Control Works
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-net" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
