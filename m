@@ -1,68 +1,33 @@
 From: Andi Kleen <ak@muc.de>
-Subject: Re: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit Proposed Topics
-Date: 29 Mar 2005 17:20:08 +0200
-Message-ID: <20050329152008.GD63268@muc.de>
-References: <424346FE.20704@cs.wisc.edu> <20050324233921.GZ14202@opteron.random> <20050325034341.GV32638@waste.org> <20050327035149.GD4053@g5.random> <20050327054831.GA15453@waste.org> <1111905181.4753.15.camel@mylaptop> <20050326224621.61f6d917.davem@davemloft.net> <Pine.LNX.4.61.0503272245350.30885@chimarrao.boston.redhat.com> <m1zmwn21hk.fsf@muc.de> <1112027284.5531.27.camel@mulgrave>
+Subject: Re: [RFC] TCP congestion schedulers
+Date: 29 Mar 2005 17:25:38 +0200
+Message-ID: <20050329152538.GF63268@muc.de>
+References: <20050309210442.3e9786a6.davem@davemloft.net> <4230288F.1030202@ev-en.org> <20050310182629.1eab09ec.davem@davemloft.net> <20050311120054.4bbf675a@dxpl.pdx.osdl.net> <20050311201011.360c00da.davem@davemloft.net> <20050314151726.532af90d@dxpl.pdx.osdl.net> <m13bur5qyo.fsf@muc.de> <Pine.LNX.4.58.0503211605300.6729@dexter.psc.edu> <20050322074122.GA64595@muc.de> <20050328155117.7c5de370@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Rik van Riel <riel@redhat.com>, Dmitry Yusupov <dmitry_yus@yahoo.com>,
-        mpm@selenic.com, andrea@suse.de, michaelc@cs.wisc.edu,
-        open-iscsi@googlegroups.com, ksummit-2005-discuss@thunk.org,
-        netdev@oss.sgi.com
+Cc: John Heffner <jheffner@psc.edu>, baruch@ev-en.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-Date: Tue, 29 Mar 2005 17:20:08 +0200
-To: James Bottomley <James.Bottomley@HansenPartnership.com>
+Date: Tue, 29 Mar 2005 17:25:38 +0200
+To: Stephen Hemminger <shemminger@osdl.org>
 Content-Disposition: inline
-In-Reply-To: <1112027284.5531.27.camel@mulgrave>
+In-Reply-To: <20050328155117.7c5de370@dxpl.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 28, 2005 at 10:28:04AM -0600, James Bottomley wrote:
-> On Mon, 2005-03-28 at 18:12 +0200, Andi Kleen wrote:
-> > This does not work because mempools assume you can sleep,
-> > and in most NIC drivers you cant while doing RX refill.
-> > The NIC drivers can be rewritten to do this refilling in
-> > a workqueue. But it is not clear it is useful anyways because
-> > Linux failing to allocate a buffer is no different from
-> > the network overflowing the hardware queue of the network
-> > device, which Linux cannot do anything about. 
-> 
-> Actually, not in 2.6 ... we had the same issue in SCSI using mempools
-> for sglist allocation.  All of the mempool alocation paths now take gfp_
-> flags, so you can specify GFP_ATOMIC for interrupt context.
+> Running on 2 Cpu Opteron using netperf loopback mode shows that the change is
+> very small when averaged over 10 runs. Overall there is 
+> a .28% decrease in CPU usage and a .96% loss in throughput.  But both those
+> values are less than twice standard deviation which was .4% for the CPU measurements
+> and .8% for the performance measurements.  I can't see it as a worth
+> bothering unless there is some big money benchmark on the line, in which case
+> it would make more sense to look at other optimizations of the loopback
+> path.
 
-Just does not work when you are actually short of memory.
+Opteron has no problems with indirect calls, IA64 seems to be different
+though.
 
-Just think a second on how a mempool works: In the extreme
-case when it cannot allocate system memory anymore it has
-to wait for someone else to free a memory block into the mempool,
-then pass it on to the next allocator etc. Basically 
-it is a direct bypass pipeline for memory to pass memory
-directly from one high priority user to another. This only
-works with sleeping. Otherwise you could not handle an arbitary
-number of users with a single mempool.
-
-So to get a reliable mempool you have to sleep on allocation.
-
-> The object isn't to make the queues *reliable* it's to ensure the system
-> can make forward progress.  So all we're trying to ensure is that the
-> sockets used to service storage have some probability of being able to
-> send and receive packets during low memory.
-
-For that it is enough to make the sender reliable. Retransmit
-takes care of the rest.
-
-> In your scenario, if we're out of memory and the system needs several
-> ACK's to the swap device for pages to be released to the system, I don't
-> see how we make forward progress since without a reserved resource to
-> allocate from how does the ack make it up the stack to the storage
-> driver layer?
-
-Typically because the RX ring of the driver has some packets left.
-
-Also since TCP is very persistent and there is some memory
-activity left you will have at least occasionally a time slot
-where a GFP_ATOMIC allocation can succeed.
+But when you see noticeable differences even on a Opteron I find
+it somewhat worrying.
 
 -Andi
