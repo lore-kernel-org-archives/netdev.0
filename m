@@ -1,52 +1,53 @@
-From: Mitchell Blank Jr <mitch@sfgoth.com>
-Subject: Re: [RFC] add rtnl semaphore to linux-atm
-Date: Fri, 3 Oct 2003 23:56:29 -0700
+From: Sander <sander@humilis.net>
+Subject: Re: e1000 -> 82540EM on linux 2.6.0-test[45] very slow in one direction
+Date: Sat, 4 Oct 2003 08:49:52 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031004065629.GA94203@gaz.sfgoth.com>
-References: <200310011134.h91BYPkT003172@ginger.cmf.nrl.navy.mil> <20031001054226.126cea7b.davem@redhat.com> <20031003022615.GA42593@gaz.sfgoth.com> <20031003065824.713627c6.davem@redhat.com> <20031003214541.GA73152@gaz.sfgoth.com> <20031003221640.19aa485f.davem@redhat.com> <20031004055526.GG73152@gaz.sfgoth.com>
+Message-ID: <20031004064952.GA27027@favonius>
+References: <E3A930D59AFC3345AEBA35189102A8A6193289@orsmsx404.jf.intel.com>
+Reply-To: sander@humilis.net
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: chas3@users.sourceforge.net, chas@cmf.nrl.navy.mil, netdev@oss.sgi.com
+Cc: ookhoi@humilis.net, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: "Leech, Christopher" <christopher.leech@intel.com>
 Content-Disposition: inline
-In-Reply-To: <20031004055526.GG73152@gaz.sfgoth.com>
+In-Reply-To: <E3A930D59AFC3345AEBA35189102A8A6193289@orsmsx404.jf.intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Mitchell Blank Jr wrote:
-> I'm just trying to make the point that the spinlock (or rwlock, whatever)
-> can't be held when we call atm_dev->{open,close}() since they can sleep.
-> Which is why we need to do the three-step process I described in the
-> earlier email.
+Leech, Christopher wrote (ao):
+> > Btw, I had to compile the e1000 driver as a module. Compiled in it
+> > doesn't work, as is stated on the intel support page:
+> 
+> > This is not clear from the kernel config help. A patch against
+> > 2.6.0-test6 is attached (I don't know how to only give n/m as an
+> > option).
+> 
+> This patch is not necessary or desired. The version of e1000 that ships
+> with the kernel source should work fine statically linked, and the
+> comment on the Intel support web page applies to the separate download
+> of the e1000 source. If you download the driver source from Intel and
+> do the work to add it into a kernel source tree yourself, Intel customer
+> support may not help you when you have problems.
+> 
+> If you are having problems compiling in the version of e1000 that ships
+> with the kernel, please report it on netdev and we'll try and help.
 
-Actually I guess there's two ways of doing it... so instead of
+I'm sorry for the patch. The problem I had with e1000 compiled into the
+kernel was that the interface resets every 60(?) seconds, and there was
+no network connection. After a google search I came onto the intel
+support page, saw the module-only text, tried e1000 as a module and it
+worked. This all is with the e1000 driver which is in the 2.6.0-test6
+kernel, which I thought was the intel provided driver.
+The server is co-located now, so I'm sorry to say that I can't try
+again to give more details.
 
-Method 1:
-  1. Take rwlock for writing
-  2. Search for {dev,vpi,vci} tuple.  If found, fail - otherwise add it
-     as "inactive"
-  3. Drop rwlock
-  4. Take semaphore
-  5. Call atm_dev->open()
-  6. Drop semaphore
-  7. Take rwlock for writing
-  8. If open succeeded clear "inactive" flag.  If failed remove entry
-  9. Drop rwlock
+> > Btw2, can somebody please explain what the option E1000_NAPI does?
+> 
+> NAPI is a network driver polling mode interface.  It enables a form of
+> software managed interrupt moderation, and may result in better
+> performance under some traffic patterns (specifically sustained high
+> packet rate reception).
 
-Method 2:
-  1. Take semaphore
-  2. Take rwlock for reading
-  3. Search for tuple, if found fail
-  4. Drop rwlock
-  5. Call atm_dev->open
-  6. Take rwlock for writing
-  7. Add tuple to list
-  8. Drop rwlock
-  9. Drop semaphore
-
-The second method has the advantage that you don't need the "inactive"
-flag.  On the other hand, you have to wait for the semaphore before
-you can return EADDRINUSE.
-
--Mitch
+Aha, tnx. Can you please provide a patch to get this text in the 2.6
+help?
