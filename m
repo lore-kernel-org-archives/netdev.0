@@ -1,29 +1,73 @@
-From: Miles Bader <miles@lsi.nec.co.jp>
-Subject: Re: [2.6 patch] appletalk: remove an unused function
-Date: Fri, 29 Oct 2004 11:56:11 +0900
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [IPSEC] Make ah4/esp4/ipcomp depend on INET
+Date: Fri, 29 Oct 2004 13:39:00 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <buohdoegrlg.fsf@mctpc71.ucom.lsi.nec.co.jp>
-References: <20041028221046.GI3207@stusta.de>
-	<20041028162643.2ee7e30e.davem@davemloft.net>
-Reply-To: Miles Bader <miles@gnu.org>
+Message-ID: <20041029033900.GA23206@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Adrian Bunk <bunk@stusta.de>, acme@conectiva.com.br, netdev@oss.sgi.com,
-        linux-kernel@vger.kernel.org
+Content-Type: multipart/mixed; boundary="wRRV7LY7NUeQGEoC"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20041028162643.2ee7e30e.davem@davemloft.net> (David S.
- Miller's message of "Thu, 28 Oct 2004 16:26:43 -0700")
+To: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-"David S. Miller" <davem@davemloft.net> writes:
-> This is a patch of a patch, I doubt it will apply cleanly ;-)
 
-Note if you run it through gpg/pgp decoding it will output the real
-patch (my mail client does this automatically, so the comments saying
-the patches were screwed up were very confusing at first!).
+--wRRV7LY7NUeQGEoC
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
--Miles
+Hi Dave:
+
+As it is someone could disable INET and still enable ah4/esp4/ipcomp.
+This patch adds the dependency on INET to prevent this.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Cheers,
 -- 
-Run away!  Run away!
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--wRRV7LY7NUeQGEoC
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
+
+===== net/ipv4/Kconfig 1.20 vs edited =====
+--- 1.20/net/ipv4/Kconfig	2004-10-27 05:32:28 +10:00
++++ edited/net/ipv4/Kconfig	2004-10-29 13:34:38 +10:00
+@@ -301,6 +301,7 @@
+ 
+ config INET_AH
+ 	tristate "IP: AH transformation"
++	depends on INET
+ 	select XFRM
+ 	select CRYPTO
+ 	select CRYPTO_HMAC
+@@ -313,6 +314,7 @@
+ 
+ config INET_ESP
+ 	tristate "IP: ESP transformation"
++	depends on INET
+ 	select XFRM
+ 	select CRYPTO
+ 	select CRYPTO_HMAC
+@@ -326,6 +328,7 @@
+ 
+ config INET_IPCOMP
+ 	tristate "IP: IPComp transformation"
++	depends on INET
+ 	select XFRM
+ 	select INET_TUNNEL
+ 	select CRYPTO
+@@ -338,6 +341,7 @@
+ 
+ config INET_TUNNEL
+ 	tristate "IP: tunnel transformation"
++	depends on INET
+ 	select XFRM
+ 	---help---
+ 	  Support for generic IP tunnel transformation, which is required by
+
+--wRRV7LY7NUeQGEoC--
