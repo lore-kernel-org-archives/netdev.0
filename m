@@ -1,35 +1,33 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [Bug 3440] New: eth0 freezes: "NETDEV WATCHDOG: eth0: transmit timed out "
-Date: Wed, 22 Sep 2004 22:22:27 +0200
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: bad TSO performance in 2.6.9-rc2-BK
+Date: Wed, 22 Sep 2004 13:28:16 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040922202227.GA23275@electric-eye.fr.zoreil.com>
-References: <20040922092713.18711d2d@dell_ss3.pdx.osdl.net> <BJEDLIFMBCLIGJJBNCLJGECPCPAA.per.sil@gmx.it>
+Message-ID: <20040922132816.1553292c.davem@davemloft.net>
+References: <20040920063012.GL2825@krispykreme>
+	<20040920203021.GD4242@wotan.suse.de>
+	<20040921155835.18aee381.davem@davemloft.net>
+	<20040922140000.GD27432@wotan.suse.de>
+	<20040922111209.7887df53.davem@davemloft.net>
+	<20040922195515.GA2619@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@osdl.org>, john.ronciak@intel.com,
-        ganesh.venkatesan@intel.com, scott.feldman@intel.com,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: ak@suse.de, anton@samba.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Perolo Silantico <per.sil@gmx.it>
-Content-Disposition: inline
-In-Reply-To: <BJEDLIFMBCLIGJJBNCLJGECPCPAA.per.sil@gmx.it>
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <20040922195515.GA2619@wotan.suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Perolo Silantico <per.sil@gmx.it> :
-> Same behaviour for drivers:
->   - 8139too (kernel 2.6.8.1 and 2.6.8)
->   - e100 (kernel 2.6.8)
->   - eepro100 (kernel 2.6.8.1)
-> 
-> I have tried with all these drivers. Therefore it seemed to me, that
-> this is not related to any specific driver. But to be sure, I will
-> grab a 3com 905C from another server and try with that one and will
-> try with the PCNet32 too.
+On Wed, 22 Sep 2004 21:55:15 +0200
+Andi Kleen <ak@suse.de> wrote:
 
-Can you give a try to 2.6.7 for the 8139 setup ?
+> I must add that this is a CSA e1000 (directly integrated into
+> the chipset and doesn't use PCI) and TSO doesn't seem to be 
+> bring any advantage. On 2.6.5 the performance is the same
+> with both TSO on or off.
 
-A dmesg from a working 2.4.x may help figure some difference.
-
---
-Ueimor
+That's expected.  It decreases the cpu and bus load, but if
+those are capable of running the card full tilt already TSO
+buys you nothing except spare cpu and memory cycles for
+other work on your system.
