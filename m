@@ -1,36 +1,46 @@
-From: "Maciej W. Rozycki" <macro@linux-mips.org>
-Subject: [patch] 2.[46]: Set ARP hw type correctly for BOOTP over FDDI
-Date: Thu, 12 Aug 2004 14:06:13 +0200 (CEST)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58L.0408121209020.6600@blysk.ds.pg.gda.pl>
+From: Adrian Bunk <bunk@fs.tum.de>
+Subject: Re: 2.6: DECNET compile errors with SYSCTL=n
+Date: Thu, 12 Aug 2004 18:06:27 +0200
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040812160627.GM13377@fs.tum.de>
+References: <20040811224015.GP26174@fs.tum.de> <20040812.094206.42261287.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@redhat.com, SteveW@ACM.org, emserrat@geocities.com,
+	linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S268599AbUHLQHs@vger.kernel.org>
+To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
+Content-Disposition: inline
+In-Reply-To: <20040812.094206.42261287.yoshfuji@linux-ipv6.org>
 List-Id: netdev.vger.kernel.org
 
-Hello,
+On Thu, Aug 12, 2004 at 09:42:06AM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ wrote:
+> Hello.
+> 
+> In article <20040811224015.GP26174@fs.tum.de> (at Thu, 12 Aug 2004 00:40:15 +0200), Adrian Bunk <bunk@fs.tum.de> says:
+> 
+> > I'm getting the following compile errors in 2.6.8-rc4-mm1 (but it 
+> > doesn't seem to be specific to -mm) with CONFIG_SYSCTL=n:
+> > 
+> > <--  snip  -->
+> > 
+> > ...
+> >   LD      .tmp_vmlinux1
+> > net/built-in.o(.text+0x1685e9): In function `dn_route_output_slow':
+> > : undefined reference to `dn_dev_get_default'
+> :
+> 
+> Please try this patch. Thanks.
+>...
 
- Using the Ethernet ARP hw type for FDDI networks is mandated by RFC 1390
-(STD 36) and that code is already used by Linux elsewhere, but not for
-BOOTP requests sent for IPv4 autoconfiguration.  Here is a patch for both
-2.4 and 2.6 that fixes the problem for me.  Please apply.
+Thanks, I can confirm it fixes the compilation.
 
-  Maciej
+cu
+Adrian
 
-Signed-off-by: Maciej W. Rozycki <macro@linux-mips.org>
+-- 
 
-patch-ipconfig-fddi-0
-diff -up --recursive --new-file linux.macro/net/ipv4/ipconfig.c linux/net/ipv4/ipconfig.c
---- linux.macro/net/ipv4/ipconfig.c	2003-11-17 04:00:34.000000000 +0000
-+++ linux/net/ipv4/ipconfig.c	2004-08-12 00:03:32.000000000 +0000
-@@ -689,6 +689,8 @@ static void __init ic_bootp_send_if(stru
- 		b->htype = dev->type;
- 	else if (dev->type == ARPHRD_IEEE802_TR) /* fix for token ring */
- 		b->htype = ARPHRD_IEEE802;
-+	else if (dev->type == ARPHRD_FDDI)
-+		b->htype = ARPHRD_ETHER;
- 	else {
- 		printk("Unknown ARP type 0x%04x for device %s\n", dev->type, dev->name);
- 		b->htype = dev->type; /* can cause undefined behavior */
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
