@@ -1,39 +1,56 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] Prevent crash on ip_conntrack removal
-Date: Sun, 29 Aug 2004 22:06:36 +0200
+From: Florian Schirmer <jolt@tuxbox.org>
+Subject: [PATCH][0/4] b44: Cleanup and bcm47xx support
+Date: Sun, 29 Aug 2004 22:17:57 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4132374C.8000003@trash.net>
-References: <412A8FB5.4080700@trash.net>	<OFE08A3DF5.09BCA1C4-ON88256EFA.00806C05-88256EFA.0080E98F@us.ibm.com>	<20040828231529.051a73cc.davem@davemloft.net>	<4132303C.2060807@trash.net> <20040829125708.5aa70469.davem@davemloft.net>
+Message-ID: <200408292218.00756.jolt@tuxbox.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: multipart/signed;
+  boundary="nextPart2614505.sLF7dPDoeK";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: dlstevens@us.ibm.com, davem@redhat.com, laforge@netfilter.org,
-        netdev@oss.sgi.com, netdev-bounce@oss.sgi.com,
-        netfilter-devel@lists.netfilter.org, okir@suse.de
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20040829125708.5aa70469.davem@davemloft.net>
+To: Pekka Pietikainen <pp@ee.oulu.fi>, jgarzik@pobox.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
+--nextPart2614505.sLF7dPDoeK
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
->On Sun, 29 Aug 2004 21:36:28 +0200
->Patrick McHardy <kaber@trash.net> wrote:
->
->>Attached. The first patch still crashed, we need to prevent new
->>fragments from getting queued after the queue is flushed until the
->>hook in unregistered.
->>    
->>
->
->While we're doing this, is your patch similar to one of the two
->original ones that Olaf Kirch posted?  I want to give him proper
->attribution, in whatever form is reasonable, that's all.
->  
->
-It is based on his second patch. He didn't sign off, otherwise I just
-would have kept his Signed-off-by: line.
+Hi,
 
-Regards
-Patrick
+here is the second try to add bcm47xx support to the b44 driver. Changes si=
+nce=20
+the first version:
+
+=2D Splitted the patch into logical hunks
+=2D Ignore carrier lost errors (buggy hardware)
+=2D Added CAM read support
+=2D Read MAC from CAM instead of hardcoding a dummy MAC into the driver
+=2D Use a special PHY address (0x30) to indicate that there is no PHY (this=
+ is=20
+compatible with the Broadcom et and 4401 driver)
+=2D Added MDIO value calculation based on the backplane speed
+
+Comments welcome!
+
+Regards,
+   Florian
+
+
+--nextPart2614505.sLF7dPDoeK
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (GNU/Linux)
+
+iD8DBQBBMjn4XRF2vHoIlBsRAqt5AJ0TC4k2iZ+Fp26TqKAiaWX3bE9kKgCfRoar
+zG5U7bJnHBbTiBSnk0f1z2M=
+=kqcU
+-----END PGP SIGNATURE-----
+
+--nextPart2614505.sLF7dPDoeK--
