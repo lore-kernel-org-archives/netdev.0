@@ -1,41 +1,38 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [RFT] r8169 changes in 2.6.x
-Date: Tue, 28 Dec 2004 01:16:46 +0100
-Message-ID: <20041228001646.GA29512@electric-eye.fr.zoreil.com>
+From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Subject: Re: [PATCH][INET] move inet_sock into inet_opt and rename it to inet_sock
+Date: Mon, 27 Dec 2004 23:06:57 -0200
+Message-ID: <200412272306.58203.acme@conectiva.com.br>
+References: <41CE198B.7040005@conectiva.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Luca Bortot <l.bortot@inet.it>, netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262007AbUL1AST@vger.kernel.org>
-To: linux-kernel@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: davem@davemloft.net
+In-Reply-To: <41CE198B.7040005@conectiva.com.br>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The r8169 changes which Jeff kindly hosted in -netdev are now in
-2.6.10-bk1.
+Em S=E1b 25 Dez 2004 23:53, voc=EA escreveu:
+> Hi David,
+>
+> 	Now that 2.6.10 is out, please take a look if this is acceptable,
+> the following patches will deal with udp_sock, tcp_sock, etc.
+>
+> 	This is the start of the series of patches that will introduce
+> struct connection_sock, reducing the memory used by non connected
+> protocols, such as UDP.
+>
+> 	It is available at:
+>
+> bk://kernel.bkbits.net/acme/connection_sock-2.6
 
-This release should definitely improve the buzzword compliance of
-the r8169 driver as it now features tx/rx ip chechsumming, tso,
-vlan, netconsole and a more complete ethtool support.
+Dave, wait a while, I've just tried it with current BK, after Linus merge=
+d
+your 2.6.11 netdev queue and it breaks with things like Stephen's TCP
+ephemeral port changesets...
 
-Though available in -mm, large frames support is not included in
-2.6.10-bk so far. It is available on top of 2.6.10-bk1 via:
-- http://www.fr.zoreil.com/~romieu/misc/20041228-2.6.10-bk1-r8169.c-test.patch
-  (single patch)
-or:
-- http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.10-bk1/r8169/patches/
-  (a serie of smaller patches for review)
-Large frames roughly means 7200 bytes frames at most.
-
-Test results for regressions/improvements/stability will be welcome.
-
-
-A backport is available for 2.4.x (x >= 28) at:
-- http://www.fr.zoreil.com/~romieu/misc/20041209-2.4.28-r8169.c-test.patch
-or:
-- http://www.fr.zoreil.com/linux/kernel/2.4.x/2.4.28/r8169/patches
-
-Thank you for your attention.
-
---
-Ueimor
+- Arnaldo
