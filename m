@@ -1,32 +1,65 @@
-From: Luke Kenneth Casson Leighton <lkcl@lkcl.net>
-Subject: Re: 2.6.9-rc2-mm4-VP-S7 - ksoftirq and selinux oddity
-Date: Fri, 8 Oct 2004 12:37:10 +0100
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041008113710.GC5551@lkcl.net>
-References: <200410070542.i975gkHV031259@turing-police.cc.vt.edu> <1097157367.13339.38.camel@moss-spartans.epoch.ncsc.mil> <20041008093154.GA5089@lkcl.net> <1097234322.16641.3.camel@moss-spartans.epoch.ncsc.mil>
+From: Maciej Soltysiak <solt2@dns.toxicfilms.tv>
+Subject: [PATCH] Update tcp_tso_win_divisor sysctl information in ip-sysctl.txt
+Date: Fri, 8 Oct 2004 14:10:45 +0200
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <1886784988.20041008141045@dns.toxicfilms.tv>
+Reply-To: Maciej Soltysiak <solt2@dns.toxicfilms.tv>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
-        lkml <linux-kernel@vger.kernel.org>, SELinux@tycho.nsa.gov,
-        Ingo Molnar <mingo@redhat.com>, netdev@oss.sgi.com,
-        linux-net@vger.kernel.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Smalley <sds@epoch.ncsc.mil>
-Content-Disposition: inline
-In-Reply-To: <1097234322.16641.3.camel@moss-spartans.epoch.ncsc.mil>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed;
+ boundary="----------1E1F21573E4DE261"
+Cc: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S269878AbUJHMMw@vger.kernel.org>
+To: netdev@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 08, 2004 at 07:18:42AM -0400, Stephen Smalley wrote:
-> On Fri, 2004-10-08 at 05:31, Luke Kenneth Casson Leighton wrote:
-> >  an alternative possible solution is to get the packet _out_ from
-> >  the interrupt context and have the aux pid comm exe information added.
-> 
-> No, the network permission checks are intentionally layered to match the
-> network protocol implementation.  There is a process-to-socket check
-> performed in process context when the data is received from the socket
-> by an actual process, but there is also the socket-to-netif/node/port
-> check performed in softirq context when the packet is received on the
-> socket from the network.
- 
- ah.  oh well!
+------------1E1F21573E4DE261
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+
+Hi,
+
+I noticed that newly added tcp_tso_win_divisor did not go
+with a description to ip-sysctl.txt
+
+This patch updates this information.
+
+Regards,
+Maciej
+
+diff -u linux.orig/Documentation/networking/ip-sysctl.txt linux/Documentation/networking/ip-sysctl.txt
+--- linux.orig/Documentation/networking/ip-sysctl.txt   2004-10-08 13:27:36.000000000 +0200
++++ linux/Documentation/networking/ip-sysctl.txt        2004-10-08 13:28:56.000000000 +0200
+@@ -355,6 +355,12 @@
+        conections.
+        Default: 7
+
++tcp_tso_win_divisor - INTEGER
++       This allows control over what percentage of the congestion window
++       can be consumed by a single TSO frame.
++       The setting of this parameter is a choice between burstiness and
++       building larger TSO frames.
++       Default: 8
+
+ tcp_frto - BOOLEAN
+        Enables F-RTO, an enhanced recovery algorithm for TCP retransmission
+
+------------1E1F21573E4DE261
+Content-Type: application/octet-stream; name="ip-sysctl.txt.diff"
+Content-transfer-encoding: base64
+Content-Disposition: attachment; filename="ip-sysctl.txt.diff"
+
+ZGlmZiAtdSBsaW51eC5vcmlnL0RvY3VtZW50YXRpb24vbmV0d29ya2luZy9pcC1zeXNjdGwu
+dHh0IGxpbnV4L0RvY3VtZW50YXRpb24vbmV0d29ya2luZy9pcC1zeXNjdGwudHh0Ci0tLSBs
+aW51eC5vcmlnL0RvY3VtZW50YXRpb24vbmV0d29ya2luZy9pcC1zeXNjdGwudHh0ICAgMjAw
+NC0xMC0wOCAxMzoyNzozNi4wMDAwMDAwMDAgKzAyMDAKKysrIGxpbnV4L0RvY3VtZW50YXRp
+b24vbmV0d29ya2luZy9pcC1zeXNjdGwudHh0ICAgICAgICAyMDA0LTEwLTA4IDEzOjI4OjU2
+LjAwMDAwMDAwMCArMDIwMApAQCAtMzU1LDYgKzM1NSwxMiBAQAogICAgICAgIGNvbmVjdGlv
+bnMuCiAgICAgICAgRGVmYXVsdDogNwoKK3RjcF90c29fd2luX2Rpdmlzb3IgLSBJTlRFR0VS
+CisgICAgICAgVGhpcyBhbGxvd3MgY29udHJvbCBvdmVyIHdoYXQgcGVyY2VudGFnZSBvZiB0
+aGUgY29uZ2VzdGlvbiB3aW5kb3cKKyAgICAgICBjYW4gYmUgY29uc3VtZWQgYnkgYSBzaW5n
+bGUgVFNPIGZyYW1lLgorICAgICAgIFRoZSBzZXR0aW5nIG9mIHRoaXMgcGFyYW1ldGVyIGlz
+IGEgY2hvaWNlIGJldHdlZW4gYnVyc3RpbmVzcyBhbmQKKyAgICAgICBidWlsZGluZyBsYXJn
+ZXIgVFNPIGZyYW1lcy4KKyAgICAgICBEZWZhdWx0OiA4CgogdGNwX2ZydG8gLSBCT09MRUFO
+CiAgICAgICAgRW5hYmxlcyBGLVJUTywgYW4gZW5oYW5jZWQgcmVjb3ZlcnkgYWxnb3JpdGht
+IGZvciBUQ1AgcmV0cmFuc21pc3Npb24K
+------------1E1F21573E4DE261--
