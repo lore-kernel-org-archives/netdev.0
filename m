@@ -1,69 +1,73 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 2.6]: Fix oops in ipt action error path
-Date: 09 Dec 2004 07:14:32 -0500
-Message-ID: <1102594472.1048.50.camel@jzny.localdomain>
-References: <41B7892E.1080706@trash.net>
-Reply-To: hadi@cyberus.ca
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: [PATCH] remove FCS from pktgen bandwidth calculation
+Date: Thu, 9 Dec 2004 14:48:50 +0100
+Message-ID: <16824.22466.897897.238619@robur.slu.se>
+References: <20041208201116.GA10691@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <41B7892E.1080706@trash.net>
+To: Lennert Buytenhek <buytenh@wantstofly.org>
+In-Reply-To: <20041208201116.GA10691@xi.wantstofly.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2004-12-08 at 18:07, Patrick McHardy wrote:
-> This patch fixes an oops when the ipt action is used with a
-> non-existant iptables target. It tries to log
-> t->u.kernel.target->name, u.kernel.target is part of a union
-> and as long as the target wasn't successfully loaded contains
-> the name of the target, using it as a pointer results in a
-> crash.
-> 
-> Oops captured in UML:
-> 
-> EIP: 0023:[<a01056e1>] CPU: 0 Not tainted ESP: 002b:a14b7514 EFLAGS: 
-> 00010297
->     Not tainted
-> EAX: 414d4e56 EBX: 0000000a ECX: 414d4e56 EDX: fffffffe
-> ESI: a036acba EDI: 00000000 EBP: a036b09f DS: 002b ES: 002b
-> Call Trace:
->  [<a004b96d>] notifier_call_chain+0x2d/0x50
->  [<a0101186>] bust_spinlocks+0x46/0x50
->  [<a0035cc1>] panic+0x71/0x120
->  [<a01056e1>] vsnprintf+0x331/0x4d0
->  [<a001ad6a>] segv+0x1fa/0x230
->  [<a01056e1>] vsnprintf+0x331/0x4d0
->  [<a01eaeb4>] sigemptyset+0x24/0x40
->  [<a0018c65>] change_signals+0x65/0x90
->  [<a001b1c0>] segv_handler+0xe0/0xf0
->  [<a01056e1>] vsnprintf+0x331/0x4d0
->  [<a001eccd>] sig_handler_common_tt+0x8d/0x120
->  [<a001b1f7>] sig_handler+0x17/0x20
->  [<a01ead88>] __restore+0x0/0x8
->  [<a01056e1>] vsnprintf+0x331/0x4d0
->  [<a01058ab>] vscnprintf+0x2b/0x40
->  [<a0036df2>] vprintk+0xb2/0x320
->  [<a0036d37>] printk+0x17/0x20
->  [<a0163653>] tcf_ipt_init+0x533/0x750
->  [<a015ea22>] tcf_action_init_1+0x92/0x1a0
->  [<a0069219>] kmem_cache_alloc+0x39/0x60
->  [<a01eaeb4>] sigemptyset+0x24/0x40
->  [<a015ebd7>] tcf_action_init+0xa7/0x140
-> ...
-> 
-> Not very important right now since ipt support isn't merged in iproute
-> yet, but still should be fixed for 2.6.10.
-> 
 
-I think it is valid to apply now; 
-Thanks Patrick. If you have more cleanups on ipt, please shoot them in
-as well. 
-I am going to resend the ipt iproute2 patch to Stephen now that he is
-awake.
- 
-cheers,
-jamal
+
+OK! We strictly define statistics to be based on the data we deliver
+to hard_xmit. Feel free to change the current kernel version... while
+we wait for 2.7 :-)
+
+					--ro
+
+Lennert Buytenhek writes:
+ > Hi,
+ > 
+ > This patch stops pktgen from counting the FCS in the 'total number of
+ > bytes transmitted' and 'bits per second' calculations.
+ > 
+ > 
+ > cheers,
+ > Lennert
+ > 
+ > 
+ > --- pktgen.c.orig	2004-11-28 22:27:50.000000000 +0100
+ > +++ pktgen.c	2004-12-08 21:09:00.511175266 +0100
+ > @@ -2564,7 +2564,6 @@
+ >  static void show_results(struct pktgen_dev *pkt_dev, int nr_frags)
+ >  {
+ >         __u64 total_us, bps, mbps, pps, idle;
+ > -       int size = pkt_dev->cur_pkt_size + 4; /* incl 32bit ethernet CRC */
+ >         char *p = pkt_dev->result;
+ >  
+ >         total_us = pkt_dev->stopped_at - pkt_dev->started_at;
+ > @@ -2576,7 +2575,7 @@
+ >  
+ >         p += sprintf(p, "OK: %llu(c%llu+d%llu) usec, %llu (%dbyte,%dfrags)\n",
+ >                      total_us, (unsigned long long)(total_us - idle), idle,
+ > -                    pkt_dev->sofar, size, nr_frags);
+ > +                    pkt_dev->sofar, pkt_dev->cur_pkt_size, nr_frags);
+ >  
+ >         pps = pkt_dev->sofar * USEC_PER_SEC;
+ >         
+ > @@ -2588,7 +2587,7 @@
+ >  
+ >         do_div(pps, total_us);
+ >         
+ > -       bps = pps * 8 * size;
+ > +       bps = pps * 8 * pkt_dev->cur_pkt_size;
+ >  
+ >         mbps = bps;
+ >         do_div(mbps, 1000000);
+ > @@ -2777,7 +2776,7 @@
+ >  			pkt_dev->last_ok = 1;    
+ >  			pkt_dev->sofar++;
+ >  			pkt_dev->seq_num++;
+ > -			pkt_dev->tx_bytes += (pkt_dev->cur_pkt_size + 4); /* count csum */
+ > +			pkt_dev->tx_bytes += pkt_dev->cur_pkt_size;
+ >  			
+ >  		} else if (ret == NETDEV_TX_LOCKED 
+ >  			   && (odev->features & NETIF_F_LLTX)) {
+ > 
