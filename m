@@ -1,57 +1,45 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] Clean up fib_hash datastructures
-Date: 22 Sep 2004 08:12:34 -0400
+From: Andi Kleen <ak@suse.de>
+Subject: Re: bad TSO performance in 2.6.9-rc2-BK
+Date: Wed, 22 Sep 2004 16:00:00 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1095855154.1047.70.camel@jzny.localdomain>
-References: <20040918203319.24004d6e.davem@davemloft.net>
-	 <1095645106.1048.190.camel@jzny.localdomain>
-	 <20040919195351.0b3560e6.davem@davemloft.net>
-	 <1095686672.1049.301.camel@jzny.localdomain>
-	 <20040920121123.70baf895.davem@davemloft.net>
-	 <20040921034212.GA28462@gondor.apana.org.au>
-	 <20040920231805.3f18479c.davem@davemloft.net>
-	 <20040921090423.GE8058@wotan.suse.de>
-	 <20040921093252.GA32545@gondor.apana.org.au>
-	 <1095764621.1049.14.camel@jzny.localdomain>
-	 <1095809938.2340.19.camel@localhost.localdomain>
-	 <1095822637.1048.23.camel@jzny.localdomain>
-	 <1095854181.2342.2.camel@localhost.localdomain>
-Reply-To: hadi@cyberus.ca
+Message-ID: <20040922140000.GD27432@wotan.suse.de>
+References: <20040920063012.GL2825@krispykreme> <20040920203021.GD4242@wotan.suse.de> <20040921155835.18aee381.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <ak@suse.de>, anton@samba.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Steve Blake <slblake@petri-meat.com>
-In-Reply-To: <1095854181.2342.2.camel@localhost.localdomain>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20040921155835.18aee381.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2004-09-22 at 07:56, Steven Blake wrote:
-> On Tue, 2004-09-21 at 23:10, jamal wrote:
+On Tue, Sep 21, 2004 at 03:58:35PM -0700, David S. Miller wrote:
+> On Mon, 20 Sep 2004 22:30:21 +0200
+> Andi Kleen <ak@suse.de> wrote:
 > 
-> > On Tue, 2004-09-21 at 19:38, Steven Blake wrote:
-> > 
-> > > RFC 1812 was written before TOS routes were pulled out of OSPFv2 (due to
-> > > too fee independent implementations).  No one implements FIB lookup as
-> > > described in RFC 1812 in the core.  What people do implement is PBR, as
-> > > well as DSCP-based nexthop selection for MPLS DIFF-TE (RFC 3564).
-> > 
-> > What about edge?
+> > I see the same problem here, but it's even worse. I only get 150-200KB/s
+> > sending data with scp from a fast machine with e1000 with a gigabit link. 
+> > netperf also gives only 250KB/s. 
 > 
-> I've seen no evidence that any HW-based router is doing this.
-
-None of the chips i have come across had it - what about NPF, are they
-putting this in their specs?
-
-> > The PBR nh selection is a post routing policy though. Do you see it 
-> > valuable to have DSCP replace TOS for lookup? 
+> So I re-enabled TSO support in the loopback driver to try and
+> reproduce this, but I can't.
 > 
-> No.  No protocol is distributing DSCP-based routes.
-> 
+> There has been a lot of churn in this area so please make sure you
+> are using the latest sources, all of my current TSO fixes are in
+> Linus's BK tree.
 
-Ok, sounds like we can write an obituary for TOS based routing.
-RIP.
+I tried it with rc2bk8 again and the performance is much better (22MB/s) 
+that what I got earlier with 2.6.8rc2, but still far below what 2.6.5 gets 
+on the same hardware (68MB/s) 
 
-cheers,
-jamal
+Both tests with netperf over e1000.
+
+> And, take the patch below and do a loopback bandwidth test before
+> and after the patch is applied.  Do things slow down when loopback
+> has TSO enabled just as it does for your gigabit interfaces?
+
+Without TSO ~755MB/s, with TSO ~600-620MB/s (results seem to be a bit
+variable). 
+
+-Andi
