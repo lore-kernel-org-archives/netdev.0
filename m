@@ -1,33 +1,29 @@
-From: James Morris <jmorris@redhat.com>
-Subject: Re: TCP crashes when cycling loopback interface.
-Date: Fri, 22 Oct 2004 23:23:10 -0400 (EDT)
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH 2.6.9] address family not supported for sendmsg()
+Date: Fri, 22 Oct 2004 22:29:03 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Xine.LNX.4.44.0410222322460.19110-100000@thoron.boston.redhat.com>
-References: <20041023012018.GA15257@gondor.apana.org.au>
+Message-ID: <20041022222903.0871a216.davem@davemloft.net>
+References: <20041022.153137.99739029.yoshfuji@linux-ipv6.org>
+	<Pine.LNX.4.44.0410222004070.18616-100000@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20041023012018.GA15257@gondor.apana.org.au>
+To: Suresh Krishnan <suresh.krishnan@ericsson.ca>
+In-Reply-To: <Pine.LNX.4.44.0410222004070.18616-100000@localhost.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 23 Oct 2004, Herbert Xu wrote:
+On Fri, 22 Oct 2004 20:07:01 -0400 (EDT)
+Suresh Krishnan <suresh.krishnan@ericsson.ca> wrote:
 
-> > KERNEL: assertion (!skb_queue_empty(&sk->sk_write_queue)) failed at net/ipv4/tcp_timer.c (322)
-> 
-> James, are you still getting this crash?
+> Hi Dave/Yoshifuji,
+>   I agree that the case you pointed out is tricky. I am fine with either 
+> EAFNOSUPPORT or EINVAL. But the POSIX and SUSv3 man pages specify EINVAL 
+> as a error only when the sum of iov_len values overflows ssize_t.
 
-Yes.
+I now think EAFNOSUPPORT is fine.
 
-> If so can you please apply this patch and see if it trips? If it
-> does then your problem has been found and fixed.
-
-Did not seem to trip during a crash in 2.6.9-mm1
-
-
-- James
--- 
-James Morris
-<jmorris@redhat.com>
+Please resend your patch to me under private cover so I
+can apply it Suresh, thanks.
