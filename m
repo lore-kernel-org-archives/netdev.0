@@ -1,8 +1,8 @@
 From: David Dillow <dave@thedillows.org>
-Subject: [RFC BK 1/22] xfrm offload v2: Add direction information to xfrm_state
-Date: Mon, 10 Jan 2005 10:36:59 -0500
-Message-ID: <20040110014300.10@ori.thedillows.org>
-References: <20040110014300.01@ori.thedillows.org>
+Subject: [RFC BK 21/22] xfrm offload v2: typhoon: add callbacks to support crypto offload
+Date: Mon, 10 Jan 2005 10:37:03 -0500
+Message-ID: <20040110014300.30@ori.thedillows.org>
+References: <20040110014300.29@ori.thedillows.org>
 Cc: dave@thedillows.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
@@ -13,148 +13,101 @@ List-Id: netdev.vger.kernel.org
 # This is a BitKeeper generated diff -Nru style patch.
 #
 # ChangeSet
-#   2005/01/09 23:59:53-05:00 dave@thedillows.org 
-#   Add direction information to xfrm_state. This will be needed to
-#   offload xfrm processing to the NIC.
+#   2005/01/10 01:08:03-05:00 dave@thedillows.org 
+#   Export the xfrm offload callbacks, and let the world know we
+#   support IPSEC offload.
+#   
+#   While we're at it, allow this to controlled by ethtool.
 #   
 #   Signed-off-by: David Dillow <dave@thedillows.org>
 # 
-# net/xfrm/xfrm_state.c
-#   2005/01/09 23:59:35-05:00 dave@thedillows.org +5 -0
-#   Add direction information to xfrm_state. This will be needed to
-#   offload xfrm processing to the NIC.
+# drivers/net/typhoon.c
+#   2005/01/10 01:07:47-05:00 dave@thedillows.org +23 -4
+#   Export the xfrm offload callbacks, and let the world know we
+#   support IPSEC offload.
+#   
+#   While we're at it, allow this to controlled by ethtool.
 #   
 #   Signed-off-by: David Dillow <dave@thedillows.org>
 # 
-# net/ipv6/xfrm6_state.c
-#   2005/01/09 23:59:35-05:00 dave@thedillows.org +10 -0
-#   Place holder for adding IPv6 direction mapping routine.
-# 
-# net/ipv4/xfrm4_state.c
-#   2005/01/09 23:59:35-05:00 dave@thedillows.org +9 -0
-#   Add direction information to xfrm_state. This will be needed to
-#   offload xfrm processing to the NIC.
-#   
-#   Signed-off-by: David Dillow <dave@thedillows.org>
-# 
-# include/net/xfrm.h
-#   2005/01/09 23:59:35-05:00 dave@thedillows.org +10 -0
-#   Add direction information to xfrm_state. This will be needed to
-#   offload xfrm processing to the NIC.
-#   
-#   Signed-off-by: David Dillow <dave@thedillows.org>
-# 
-diff -Nru a/include/net/xfrm.h b/include/net/xfrm.h
---- a/include/net/xfrm.h	2005-01-10 01:20:40 -05:00
-+++ b/include/net/xfrm.h	2005-01-10 01:20:40 -05:00
-@@ -146,6 +146,9 @@
- 	/* Private data of this transformer, format is opaque,
- 	 * interpreted by xfrm_type methods. */
- 	void			*data;
+diff -Nru a/drivers/net/typhoon.c b/drivers/net/typhoon.c
+--- a/drivers/net/typhoon.c	2005-01-10 01:16:31 -05:00
++++ b/drivers/net/typhoon.c	2005-01-10 01:16:31 -05:00
+@@ -33,9 +33,12 @@
+ 	*) Waiting for a command response takes 8ms due to non-preemptable
+ 		polling. Only significant for getting stats and creating
+ 		SAs, but an ugly wart never the less.
++	*) Inbound IPSEC packets of the form outer ESP transport, inner
++		ESP tunnel seems to fail the hash on the inner ESP
++	*) Inbound IPSEC packets of the form outer AH transport, inner
++		AH tunnel seems to fail the hash on the outer AH
+ 
+ 	TODO:
+-	*) Doesn't do IPSEC offloading. Yet. Keep yer pants on, it's coming.
+ 	*) Add more support for ethtool (especially for NIC stats)
+ 	*) Allow disabling of RX checksum offloading
+ 	*) Fix MAC changing to work while the interface is up
+@@ -100,8 +103,8 @@
+ #define PKT_BUF_SZ		1536
+ 
+ #define DRV_MODULE_NAME		"typhoon"
+-#define DRV_MODULE_VERSION 	"1.5.7"
+-#define DRV_MODULE_RELDATE	"05/01/07"
++#define DRV_MODULE_VERSION 	"1.5.7-ipsec"
++#define DRV_MODULE_RELDATE	"05/01/10"
+ #define PFX			DRV_MODULE_NAME ": "
+ #define ERR_PFX			KERN_ERR PFX
+ 
+@@ -1411,6 +1414,8 @@
+ 	.get_tso		= ethtool_op_get_tso,
+ 	.set_tso		= ethtool_op_set_tso,
+ 	.get_ringparam		= typhoon_get_ringparam,
++	.get_ipsec		= ethtool_op_get_ipsec,
++	.set_ipsec		= ethtool_op_set_ipsec,
+ };
+ 
+ static int
+@@ -2258,6 +2263,9 @@
+ 	tp->card_state = Running;
+ 	smp_wmb();
+ 
++	if(dev->features & NETIF_F_IPSEC)
++		xfrm_accel_add(dev);
 +
-+	/* Intended direction of this state, used for offloading */
-+	u8			dir;
- };
- 
- enum {
-@@ -157,6 +160,12 @@
- 	XFRM_STATE_DEAD
- };
- 
-+enum {
-+	XFRM_STATE_DIR_UNKNOWN,
-+	XFRM_STATE_DIR_IN,
-+	XFRM_STATE_DIR_OUT,
-+};
-+
- struct xfrm_type;
- struct xfrm_dst;
- struct xfrm_policy_afinfo {
-@@ -194,6 +203,7 @@
- 	struct xfrm_state	*(*find_acq)(u8 mode, u32 reqid, u8 proto, 
- 					     xfrm_address_t *daddr, xfrm_address_t *saddr, 
- 					     int create);
-+	u8			(*direction)(struct xfrm_state *xfrm);
- };
- 
- extern int xfrm_state_register_afinfo(struct xfrm_state_afinfo *afinfo);
-diff -Nru a/net/ipv4/xfrm4_state.c b/net/ipv4/xfrm4_state.c
---- a/net/ipv4/xfrm4_state.c	2005-01-10 01:20:40 -05:00
-+++ b/net/ipv4/xfrm4_state.c	2005-01-10 01:20:40 -05:00
-@@ -106,12 +106,21 @@
- 	return x0;
- }
- 
-+static u8
-+__xfrm4_direction(struct xfrm_state *x)
-+{
-+	if (inet_addr_type(x->id.daddr.a4) == RTN_LOCAL)
-+		return XFRM_STATE_DIR_IN;
-+	return XFRM_STATE_DIR_OUT;
-+}
-+
- static struct xfrm_state_afinfo xfrm4_state_afinfo = {
- 	.family			= AF_INET,
- 	.lock			= RW_LOCK_UNLOCKED,
- 	.init_tempsel		= __xfrm4_init_tempsel,
- 	.state_lookup		= __xfrm4_state_lookup,
- 	.find_acq		= __xfrm4_find_acq,
-+	.direction		= __xfrm4_direction,
- };
- 
- void __init xfrm4_state_init(void)
-diff -Nru a/net/ipv6/xfrm6_state.c b/net/ipv6/xfrm6_state.c
---- a/net/ipv6/xfrm6_state.c	2005-01-10 01:20:40 -05:00
-+++ b/net/ipv6/xfrm6_state.c	2005-01-10 01:20:40 -05:00
-@@ -116,12 +116,22 @@
- 	return x0;
- }
- 
-+static u8
-+__xfrm6_direction(struct xfrm_state *x)
-+{
-+	/* XXX This needs to be implemented by someone who knows
-+	 * IPv6 better then I.
-+	 */
-+	return XFRM_STATE_DIR_UNKNOWN;
-+}
-+
- static struct xfrm_state_afinfo xfrm6_state_afinfo = {
- 	.family			= AF_INET6,
- 	.lock			= RW_LOCK_UNLOCKED,
- 	.init_tempsel		= __xfrm6_init_tempsel,
- 	.state_lookup		= __xfrm6_state_lookup,
- 	.find_acq		= __xfrm6_find_acq,
-+	.direction		= __xfrm6_direction,
- };
- 
- void __init xfrm6_state_init(void)
-diff -Nru a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
---- a/net/xfrm/xfrm_state.c	2005-01-10 01:20:40 -05:00
-+++ b/net/xfrm/xfrm_state.c	2005-01-10 01:20:40 -05:00
-@@ -189,6 +189,7 @@
- 		x->lft.soft_packet_limit = XFRM_INF;
- 		x->lft.hard_byte_limit = XFRM_INF;
- 		x->lft.hard_packet_limit = XFRM_INF;
-+		x->dir = XFRM_STATE_DIR_UNKNOWN;
- 		spin_lock_init(&x->lock);
+ 	iowrite32(TYPHOON_INTR_ENABLE_ALL, ioaddr + TYPHOON_REG_INTR_ENABLE);
+ 	iowrite32(TYPHOON_INTR_NONE, ioaddr + TYPHOON_REG_INTR_MASK);
+ 	typhoon_post_pci_writes(ioaddr);
+@@ -2332,6 +2340,14 @@
+ 		typhoon_clean_tx(tp, &tp->txLoRing, &indexes->txLoCleared);
  	}
- 	return x;
-@@ -407,6 +408,8 @@
- 	if (unlikely(afinfo == NULL))
- 		return -EAFNOSUPPORT;
  
-+	x->dir = afinfo->direction(x);
++	if(tp->dev->features & NETIF_F_IPSEC)
++		xfrm_accel_flush(tp->dev);
 +
- 	spin_lock_bh(&xfrm_state_lock);
- 
- 	x1 = afinfo->state_lookup(&x->id.daddr, x->id.spi, x->id.proto);
-@@ -454,6 +457,8 @@
- 	afinfo = xfrm_state_get_afinfo(x->props.family);
- 	if (unlikely(afinfo == NULL))
- 		return -EAFNOSUPPORT;
++	/* tp->card_state != Running, so nothing will change this out
++         * from under us.
++         */
++	tp->offload &= ~TYPHOON_OFFLOAD_IPSEC;
 +
-+	x->dir = afinfo->direction(x);
+ 	return 0;
+ }
  
- 	spin_lock_bh(&xfrm_state_lock);
- 	x1 = afinfo->state_lookup(&x->id.daddr, x->id.spi, x->id.proto);
+@@ -3215,6 +3231,9 @@
+ 	dev->set_mac_address	= typhoon_set_mac_address;
+ 	dev->vlan_rx_register	= typhoon_vlan_rx_register;
+ 	dev->vlan_rx_kill_vid	= typhoon_vlan_rx_kill_vid;
++	dev->xfrm_state_add	= typhoon_xfrm_state_add;
++	dev->xfrm_state_del	= typhoon_xfrm_state_del;
++	dev->xfrm_bundle_add	= typhoon_xfrm_bundle_add;
+ 	SET_ETHTOOL_OPS(dev, &typhoon_ethtool_ops);
+ 
+ 	/* We can handle scatter gather, up to 16 entries, and
+@@ -3222,7 +3241,7 @@
+ 	 */
+ 	dev->features |= NETIF_F_SG | NETIF_F_IP_CSUM;
+ 	dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
+-	dev->features |= NETIF_F_TSO;
++	dev->features |= NETIF_F_TSO | NETIF_F_IPSEC;
+ 
+ 	if(register_netdev(dev) < 0)
+ 		goto error_out_reset;
