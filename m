@@ -1,8 +1,9 @@
-From: Eric Lemoine <eric.lemoine@gmail.com>
+From: Roland Dreier <roland@topspin.com>
 Subject: Re: LLTX and netif_stop_queue
-Date: Mon, 3 Jan 2005 16:48:00 +0100
-Message-ID: <5cac192f05010307484f23bca5@mail.gmail.com>
+Date: Mon, 03 Jan 2005 07:57:14 -0800
+Message-ID: <52brc68q05.fsf@topspin.com>
 References: <52llbwoaej.fsf@topspin.com>
+	<20041217214432.07b7b21e.davem@davemloft.net>
 	<1103484675.1050.158.camel@jzny.localdomain>
 	<5cac192f04122210491d64d4b6@mail.gmail.com>
 	<20041222202919.057b8331.davem@davemloft.net>
@@ -13,14 +14,15 @@ References: <52llbwoaej.fsf@topspin.com>
 	<5cac192f0501021530672a908a@mail.gmail.com>
 	<1104764660.1048.578.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Andi Kleen <ak@suse.de>,
-	openib-general@openib.org, Patrick McHardy <kaber@trash.net>,
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, Eric Lemoine <eric.lemoine@gmail.com>,
+	Andi Kleen <ak@suse.de>, openib-general@openib.org,
+	Patrick McHardy <kaber@trash.net>,
 	"David S. Miller" <davem@davemloft.net>
 Return-path: <openib-general-bounces@openib.org>
 To: hadi@cyberus.ca
-In-Reply-To: <1104764660.1048.578.camel@jzny.localdomain>
+In-Reply-To: <1104764660.1048.578.camel@jzny.localdomain> (jamal's message
+	of "03 Jan 2005 10:04:21 -0500")
 List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
 	<mailto:openib-general-request@openib.org?subject=unsubscribe>
 List-Archive: <http://openib.org/pipermail/openib-general>
@@ -32,34 +34,15 @@ Sender: openib-general-bounces@openib.org
 Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-On 03 Jan 2005 10:04:21 -0500, jamal <hadi@cyberus.ca> wrote:
-> this piece:
-> -----
-> +
-> +                       /* And release queue */
-> +                       spin_unlock(&dev->queue_lock);
->                 }
-> ---------
-> 
-> Isnt there a possibility (higher as you increase number of processors)
-> that you will spin for a long time in _the driver_ waiting for the queue
-> lock?
+    jamal> Andi or anyone else - has anyone really done perfomance
+    jamal> analysis of LLTX (with anything other than loopback) and
+    jamal> shown it has any value? Maybe time to just shoot the damn
+    jamal> thing.
 
-I don't see how LLTX is different from non-LLTX wrt the time spent
-spinning on queue_lock. What am i missing?
+For the IPoIB driver, it seems to be worth a couple percent.  It's
+hard to get really consistent results but on my pair of test systems,
+TCP throughput with netperf goes up by about 30 Mbps out of roughly
+1900 Mbps total.  It's probably not worth the complexity in the net
+core if all drivers only get that level of improvement.
 
-> 
-> Maybe we need a flag "the queue lock" is already been grabbed passed
-> to the driver. LLTX is a good  alias but insufficient (if you run your
-> driver in an old kernels which support LLTX but not the idea of locking
-> the queue for you).
-> 
-> Andi or anyone else - has anyone really done perfomance analysis of LLTX
-> (with anything other than loopback) and shown it has any value? Maybe
-> time to just shoot the damn thing.
-
-I do not like LLTX too much either as I can't see a cleaner way to get
-rid of that packet reordering race condition.
-
--- 
-Eric
+ - Roland
