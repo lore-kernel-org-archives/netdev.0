@@ -1,47 +1,52 @@
-From: Tommi Virtanen <tv@debian.org>
-Subject: Re: [PATCH] Change MAC without bringing interface down
-Date: Mon, 18 Aug 2003 17:24:55 +0300
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
+Date: Mon, 18 Aug 2003 07:19:28 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030818142455.GA1793@lapdog>
-References: <20030818091312.GA4889@lapdog> <20030818041911.358c3437.davem@redhat.com>
+Message-ID: <20030818071928.163a4957.davem@redhat.com>
+References: <20030728213933.F81299@coredump.scriptkiddie.org>
+	<200308171516090038.0043F977@192.168.128.16>
+	<1061127715.21885.35.camel@dhcp23.swansea.linux.org.uk>
+	<200308171555280781.0067FB36@192.168.128.16>
+	<1061134091.21886.40.camel@dhcp23.swansea.linux.org.uk>
+	<200308171759540391.00AA8CAB@192.168.128.16>
+	<1061137577.21885.50.camel@dhcp23.swansea.linux.org.uk>
+	<200308171827130739.00C3905F@192.168.128.16>
+	<1061141045.21885.74.camel@dhcp23.swansea.linux.org.uk>
+	<20030817224849.GB734@alpha.home.local>
+	<20030817223118.3cbc497c.davem@redhat.com>
+	<20030818133957.3d3d51d2.skraw@ithnet.com>
+	<20030818044419.0bc24d14.davem@redhat.com>
+	<20030818143401.1352d158.skraw@ithnet.com>
+	<20030818053007.7852ca77.davem@redhat.com>
+	<20030818145316.3a81f70c.skraw@ithnet.com>
+	<20030818055555.248f2a01.davem@redhat.com>
+	<20030818151755.47096672.skraw@ithnet.com>
+	<20030818061420.6255f3d9.davem@redhat.com>
+	<20030818162310.4106c8c6.skraw@ithnet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: willy@w.ods.org, alan@lxorguk.ukuu.org.uk, carlosev@newipnet.com,
+   lamont@scriptkiddie.org, davidsen@tmr.com, bloemsaa@xs4all.nl,
+   marcelo@conectiva.com.br, netdev@oss.sgi.com, linux-net@vger.kernel.org,
+   layes@loran.com, torvalds@osdl.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20030818041911.358c3437.davem@redhat.com>
+To: Stephan von Krawczynski <skraw@ithnet.com>
+In-Reply-To: <20030818162310.4106c8c6.skraw@ithnet.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 18, 2003 at 04:19:11AM -0700, David S. Miller wrote:
-> On Mon, 18 Aug 2003 12:13:12 +0300
-> > 	1. makes eth_header_cache_update also update the source MAC in
-> > 	   hh_cache.
-> > 
-> > 	2. adds a NETDEV_CHANGEADDR notifier in net/core/neighbour.c
-> > 	   that walks through all the neighbour entries and updates
-> > 	   the hh_cache's for all the neighbour entries related to
-> > 	   given device.
-> I would suggest to fix this by instead flushing the hh
-> entries (just like neigh_destroy() does).
+On Mon, 18 Aug 2003 16:23:10 +0200
+Stephan von Krawczynski <skraw@ithnet.com> wrote:
 
-	This may be a dumb question, but how do I do that?
+> > Both 2.0 and 2.2 answer on all interfaces for ARP requests
+> > by default just like 2.4 does.
+> 
+> Try it. Proven wrong. See above.
 
-	If I set them to neigh_blackhole, like neigh_destroy() does,
-	e.g. already running gets -ENETDOWN. That's now true and it's
-	not nice. I'm having trouble seeing how to "disable" the
-	neighbour entry, so it won't be used again.
+Ok then.
 
-	If I use neigh_suspect() in an attempt to mark the entry as
-	"expired", I see traffic using the "old" MAC as source after a
-	while. Apparently, it gets confirmed and then the old MAC
-	is used again.
+It still doesn't change the essence of this conversation.  Changing
+things would break a lot of people's setups.
 
-> This way, we don't have to fix up every single header cache
-> implementation, that's painful :(
-
-	I agree with that, though I am only interested in ethernet ;)
-
--- 
-:(){ :|:&};:
+See the other posting from someone about IPMP (IP multipathing).
