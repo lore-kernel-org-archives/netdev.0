@@ -1,8 +1,8 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (4/4) acenic - don't spin forever in hard_start_xmit
-Date: Mon, 20 Sep 2004 10:47:24 -0700
+Subject: [PATCH] (2/4) acenic - eliminate MAX_SKB_FRAGS #if
+Date: Mon, 20 Sep 2004 10:45:35 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040920104724.2a5d2b47@dell_ss3.pdx.osdl.net>
+Message-ID: <20040920104535.4c6ce363@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -12,46 +12,71 @@ To: Jes Sorensen <jes@wildopensource.com>, Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-If driver is stuck due to ring full and hardware or link error, don't spin
-forever in the hard_start_xmit routine.
+Since MAX_SKB_FRAGS is defined in both 2.4 and 2.6, it makes sense
+to eliminate this old #if code.
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
 diff -Nru a/drivers/net/acenic.c b/drivers/net/acenic.c
---- a/drivers/net/acenic.c	2004-09-20 10:47:22 -07:00
-+++ b/drivers/net/acenic.c	2004-09-20 10:47:22 -07:00
-@@ -2499,6 +2499,7 @@
- 	struct ace_regs __iomem *regs = ap->regs;
- 	struct tx_desc *desc;
- 	u32 idx, flagsize;
-+	unsigned long maxjiff = jiffies + 3*HZ;
+--- a/drivers/net/acenic.c	2004-09-20 10:46:46 -07:00
++++ b/drivers/net/acenic.c	2004-09-20 10:46:46 -07:00
+@@ -2523,10 +2523,7 @@
+ 	if (tx_ring_full(ap, ap->tx_ret_csm, idx))
+ 		goto overflow;
  
- restart:
- 	idx = ap->tx_prd;
-@@ -2602,7 +2603,7 @@
+-#if MAX_SKB_FRAGS
+-	if (!skb_shinfo(skb)->nr_frags)
+-#endif
+-	{
++	if (!skb_shinfo(skb)->nr_frags)	{
+ 		dma_addr_t mapping;
+ 		u32 vlan_tag = 0;
+ 
+@@ -2548,9 +2545,7 @@
+ 			flagsize |= BD_FLG_COAL_NOW;
+ 
+ 		ace_load_tx_bd(ap, desc, mapping, flagsize, vlan_tag);
+-	}
+-#if MAX_SKB_FRAGS
+-	else {
++	} else {
+ 		dma_addr_t mapping;
+ 		u32 vlan_tag = 0;
+ 		int i, len = 0;
+@@ -2605,7 +2600,6 @@
+ 			ace_load_tx_bd(ap, desc, mapping, flagsize, vlan_tag);
+ 		}
  	}
+-#endif
  
- 	dev->trans_start = jiffies;
--	return 0;
-+	return NETDEV_TX_OK;
+  	wmb();
+  	ap->tx_prd = idx;
+diff -Nru a/drivers/net/acenic.h b/drivers/net/acenic.h
+--- a/drivers/net/acenic.h	2004-09-20 10:46:46 -07:00
++++ b/drivers/net/acenic.h	2004-09-20 10:46:46 -07:00
+@@ -10,11 +10,6 @@
+  */
+ #define USE_TX_COAL_NOW	 0
  
- overflow:
- 	/*
-@@ -2621,8 +2622,15 @@
- 	 * Alternative is to return with 1 not throttling queue. In this
- 	 * case loop becomes longer, no more useful effects.
- 	 */
--	barrier();
--	goto restart;
-+	if (time_before(jiffies, maxjiff)) {
-+		barrier();
-+		cpu_relax();
-+		goto restart;
-+	}
-+	
-+	/* The ring is stuck full. */
-+	printk(KERN_WARNING "%s: Transmit ring stuck full\n", dev->name);
-+	return NETDEV_TX_BUSY;
+-#ifndef MAX_SKB_FRAGS
+-#define MAX_SKB_FRAGS 0
+-#endif
+-
+-
+ /*
+  * Addressing:
+  *
+@@ -712,13 +707,7 @@
  }
  
+ #define tx_free(ap) 		tx_space((ap)->tx_ret_csm, (ap)->tx_prd, ap)
+-
+-#if MAX_SKB_FRAGS
+ #define tx_ring_full(ap, csm, prd)	(tx_space(ap, csm, prd) <= TX_RESERVED)
+-#else
+-#define tx_ring_full			0
+-#endif
+-
  
+ static inline void set_aceaddr(aceaddr *aa, dma_addr_t addr)
+ {
