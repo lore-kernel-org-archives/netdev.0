@@ -1,107 +1,59 @@
-From: Rafal Maszkowski <rzm@icm.edu.pl>
-Subject: 2.2.20pre2: ipv6_route entries shifted
-Date: Tue, 18 Jun 2002 21:11:11 +0200
+From: Kis-Szabo Andras <kisza@pannongsm.hu>
+Subject: Re: net/ipv6/exthdrs.c
+Date: 19 Jun 2002 11:30:39 +0200
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <20020618211111.A28253@burza.icm.edu.pl>
+Message-ID: <1024478965.882.2.camel@arwen>
+References: <200206181903.XAA13710@sex.inr.ac.ru>
+	<1024435482.1332.10.camel@arwen>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@oss.sgi.com>
 Return-path: <owner-netdev@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: kuznet@ms2.inr.ac.ru
+In-Reply-To: <1024435482.1332.10.camel@arwen>
 List-Id: netdev.vger.kernel.org
 
-On a 6BONE router (SparcStation 10) I typically have same 3000
-/proc/;net/ipv6_route entries.  Usually few tens of them miss 1 or 2 byte=
-s at
-the beginning of lines, the total amount of all shifts may be about 70 by=
-tes.
-The whole table read few times and grepped to show one of the tunnel inte=
-rfaces
-is below. All readouts where done during few minutes, 3 readouts in the m=
-iddle
-during some 20 seconds.
 
-fe8010000700150000000000000000 7e 00000000000000000000000000000000 00 000=
-00000000000000000000000000000 00000100 00000000 0000028
-c 00240001 supernet
-3ffe8010000700150000000000000000 40 00000000000000000000000000000000 00 3=
-ffe8010000700150000000000000002 00000400 00000000 00000
-000 00000003 supernet
-800000000000000000000000000000 0a 00000000000000000000000000000000 00 000=
-00000000000000000000000000000 00000100 00000000 0000000
-0 00240001 supernet
-ff000000000000000000000000000000 08 00000000000000000000000000000000 00 0=
-0000000000000000000000000000000 00000100 00000000 00000
-000 00040001 supernet
+Hello,
 
-root@6bone-gw:~ftp/pub/ipv6/conf,0# cat /proc/net/ipv6_route | grep super=
-ne
-3ffe8010000700150000000000000000 7e 00000000000000000000000000000000 00 0=
-0000000000000000000000000000000 00000100 00000000 0000028c 00240001 super=
-net
-3ffe8010000700150000000000000000 40 00000000000000000000000000000000 00 3=
-ffe8010000700150000000000000002 00000400 00000000 00000000 00000003 super=
-net
-fe800000000000000000000000000000 0a 00000000000000000000000000000000 00 0=
-0000000000000000000000000000000 00000100 000000000000000 00240001 superne=
-t
-000000000000000000000000000000 08 00000000000000000000000000000000 00 000=
-00000000000000000000000000000 00000100 00000000 00000000 00040001 superne=
-t
-root@6bone-gw:~ftp/pub/ipv6/conf,0# cat /proc/net/ipv6_route | grep super=
-ne
-3ffe8010000700150000000000000000 7e 00000000000000000000000000000000 00 0=
-0000000000000000000000000000000 00000100 00000000 0000028c 00240001 super=
-net
-3ffe8010000700150000000000000000 40 00000000000000000000000000000000 00 3=
-ffe8010000700150000000000000002 00000400 00000000 00000000 00000003 super=
-net
-fe800000000000000000000000000000 0a 00000000000000000000000000000000 00 0=
-0000000000000000000000000000000 00000100 000000000000000 00240001 superne=
-t
-ff000000000000000000000000000000 08 00000000000000000000000000000000 00 0=
-0000000000000000000000000000000 00000100 00000000 00000000 00040001 super=
-net
-root@6bone-gw:~ftp/pub/ipv6/conf,0# cat /proc/net/ipv6_route | grep super=
-ne
-3ffe8010000700150000000000000000 7e 00000000000000000000000000000000 00 0=
-0000000000000000000000000000000 00000100 00000000 0000028c 00240001 super=
-net
-3ffe8010000700150000000000000000 40 00000000000000000000000000000000 00 3=
-ffe8010000700150000000000000002 00000400 00000000 00000000 00000003 super=
-net
-fe800000000000000000000000000000 0a 00000000000000000000000000000000 00 0=
-0000000000000000000000000000000 00000100 000000000000000 00240001 superne=
-t
-000000000000000000000000000000 08 00000000000000000000000000000000 00 000=
-00000000000000000000000000000 00000100 00000000 00000000 00040001 superne=
-t
+> > Is there any plan to add the ESP header to the ipv6_ext_hdr() function (as a
+> > known header)?
+> No, ESP is not a normal extension header, it terminates parse.
+> So, ipv6_skip_headers cannot skip it.
+The same behaviour as in NONE, but the NONE is listed and the ESP is
+not. (But it is not a problem to me, I just asked something :) )
 
-root@6bone-gw:~ftp/pub/ipv6/conf,0# cat /proc/net/ipv6_route | grep super=
-ne
-3ffe8010000700150000000000000000 7e 00000000000000000000000000000000 00 0=
-0000000000000000000000000000000 00000100 00000000 0000028c 00240001 super=
-net
-3ffe8010000700150000000000000000 40 00000000000000000000000000000000 00 3=
-ffe8010000700150000000000000002 00000400 00000000 00000000 00000003 super=
-net
-fe800000000000000000000000000000 0a 00000000000000000000000000000000 00 0=
-0000000000000000000000000000000 00000100 00000000 00000000 00240001 super=
-net
-ff000000000000000000000000000000 08 00000000000000000000000000000000 00 0=
-0000000000000000000000000000000 00000100 00000000 00000000 00040001 super=
-net
+> BTW the same is with netfilter. I do not see how are you going to use it. :-)
+The ESP belongs to the headers, it is a member of a possible chain.
+- header match - i had to search for the ESP, too
+- ESP match - it has a public SPI value, which can be used in rules
+- general iteration, skipped together with the NONE.
+It terminates the header chain, but the existance of the ESP header and
+its SPI value are usefull information.
 
-I do not see so fast changes in the routing itself so I suspect is only s=
-ome
-readout error - maybe in /proc. I do not exclude possibility of memory er=
-rors
-but in this case I would expect the errors to happen not only at the begi=
-nnings
-Of lines.
+> > (It requires changes in this file and in the icmp.c at the first round.)
+> I am afraid this will simply break the function.
+Yes, i am afraid You're right. :(
+Adding the ESP to the headers will break the icmp code. :(
 
-R.
---=20
-Avec mes souvenirs/J'ai allum=E9 le feu
-Mes chagrins, mes plaisirs/Je n'ai plus besoin d'eux!
+> This may be right even not depending on this issue. Goals are different:
+> the function in exthdrs.c does the best efforts to guess what protocol
+> is, the function in netfilter should be paranoid.
+I added a similar function (exactly the same but with the ESP) to decide
+about the nexthdr value and a new header parser/evaluator with strict
+size/pointer checks.
+Last week one of our user sent a direct request to eliminate the
+duplicated functions - so He pushed me to send the original question to
+this forum.
+
+Thanks for the answers, I 'wrote up them'.
+
+Regards,
+
+	kisza
+
+-- 
+    Andras Kis-Szabo       Security Development, Design and Audit
+-------------------------/        Zorp, NetFilter and IPv6
+ kisza@SecurityAudit.hu /-----Member of the BUTE-MIS-SEARCHlab------>
