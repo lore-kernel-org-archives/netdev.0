@@ -1,18 +1,31 @@
-From: <garloff@suse.de>
-Subject: Re: does it belong to you?
-Date: Sun, 27 Jun 2004 04:30:32 +0200
+From: "chas williams (contractor)" <chas@cmf.nrl.navy.mil>
+Subject: Re: CodingStyle: while ((a=b))
+Date: Sun, 27 Jun 2004 00:07:08 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <cmu-sieve-15060-1088303432-1@imap-dhs>
-References: <20040627021917.52F5A74714C@Cantor.suse.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
+Message-ID: <200406270407.i5R4763K011324@ginger.cmf.nrl.navy.mil>
+References: <20040627012504.GB14444@taniwha.stupidest.org>
+Reply-To: chas3@users.sourceforge.net
+Cc: "David S. Miller" <davem@redhat.com>, shemminger@osdl.org,
+        netdev@oss.sgi.com, Linus Torvalds <torvalds@osdl.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
-In-Reply-To: <20040627021917.52F5A74714C@Cantor.suse.de>
+To: Chris Wedgwood <cw@f00f.org>
+In-reply-to: Your message of "Sat, 26 Jun 2004 18:25:04 PDT."
+             <20040627012504.GB14444@taniwha.stupidest.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I'm out of office and may not
-respond to your mail in a timely
-manner until the 12th of July.
+In message <20040627012504.GB14444@taniwha.stupidest.org>,Chris Wedgwood writes:
+>I'm not sure this has ever been a problem in the past has it?
+
+as a counter example, tired eyes (and the compiler!) cant tell
+the difference between:
+
+	while ((a = b))
+	if ((a = b))
+
+and
+
+	while ((a == b))
+	if ((a == b))
+
+so i just tend to shy away from assignments in conditions.
