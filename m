@@ -1,30 +1,36 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] fix esp6 extension headers handling
-Date: Sat, 07 Jun 2003 02:22:41 -0700 (PDT)
+Subject: Re: [patch]: ipv6 tunnel for MIPv6
+Date: Sat, 07 Jun 2003 03:30:59 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030607.022241.98862720.davem@redhat.com>
-References: <3EDF3EB4.8010105@tml.hut.fi>
-	<873cioqxch.wl@karaba.org>
-	<87wufzxe8p.wl@karaba.org>
+Message-ID: <20030607.033059.48393210.davem@redhat.com>
+References: <20030603.213458.112594590.davem@redhat.com>
+	<Pine.LNX.4.44.0306041454460.26066-200000@rhea.tcs.hut.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, usagi@linux-ipv6.org
+Cc: kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org, netdev@oss.sgi.com,
+   ajtuomin@morphine.tml.hut.fi, lpetande@morphine.tml.hut.fi,
+   jagana@us.ibm.com, kumarkr@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: mk@linux-ipv6.org
-In-Reply-To: <87wufzxe8p.wl@karaba.org>
+To: vnuorval@tcs.hut.fi
+In-Reply-To: <Pine.LNX.4.44.0306041454460.26066-200000@rhea.tcs.hut.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Mitsuru KANDA / 神田 充 <mk@linux-ipv6.org>
-   Date: Sat, 07 Jun 2003 03:17:10 +0900
-
-   The attached diff fixes esp6 extension headers handling bug 
-   which reported by Henrik.
+   From: Ville Nuorvala <vnuorval@tcs.hut.fi>
+   Date: Wed, 4 Jun 2003 15:40:02 +0300 (EEST)
    
-   I introduced ip6_find_1stfragopt() instead of get_offset().
-   
-   # ip6_found_nexthdr() is just renamed ip6_find_1stfragopt()
-   # in order to represent collect functionality.
+   The revised version is attached to this mail,
 
-Patch applied, thank you.
+Looks ok, but sorry two things need to be fixed up first:
+
+1) Doesn't apply anymore, I think it's because of the
+   struct sock member renames, just replace sk->foo
+   with sk->sk_foo
+
+2) Just export all those routines from net/ipv6/ipv6_syms.c
+   always, remove the ifdefs.
+
+I promise to apply it after you fix this stuff up :)))
+
+Thank you.
