@@ -1,49 +1,49 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: "David S. Miller" <davem@davemloft.net>
 Subject: Re: [PATCH] arp_queue: serializing unlink + kfree_skb
-Date: Fri, 4 Feb 2005 12:20:53 +1100
-Message-ID: <20050204012053.GA8949@gondor.apana.org.au>
-References: <20050131102920.GC4170@suse.de> <E1CvZo6-0001Bz-00@gondolin.me.apana.org.au> <20050203142705.GA11318@krispykreme.ozlabs.ibm.com> <20050203203010.GA7081@gondor.apana.org.au> <20050203141901.5ce04c92.davem@davemloft.net> <20050203235044.GA8422@gondor.apana.org.au> <20050203164922.2627a112.davem@davemloft.net>
+Date: Thu, 3 Feb 2005 17:23:57 -0800
+Message-ID: <20050203172357.670c3402.davem@davemloft.net>
+References: <20050131102920.GC4170@suse.de>
+	<E1CvZo6-0001Bz-00@gondolin.me.apana.org.au>
+	<20050203142705.GA11318@krispykreme.ozlabs.ibm.com>
+	<20050203203010.GA7081@gondor.apana.org.au>
+	<20050203141901.5ce04c92.davem@davemloft.net>
+	<20050203235044.GA8422@gondor.apana.org.au>
+	<20050203164922.2627a112.davem@davemloft.net>
+	<20050204012053.GA8949@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: anton@samba.org, okir@suse.de, netdev@oss.sgi.com,
         linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20050203164922.2627a112.davem@davemloft.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050204012053.GA8949@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 03, 2005 at 04:49:22PM -0800, David S. Miller wrote:
-> 
-> If we see the count dropped to "1", whoever set it to "1" made
-> sure that all outstanding memory operations (including things
-> like __skb_unlink()) are globally visible before the
-> atomic_dec_and_test() which put the thing to "1" from "2".
-> (and we did use atomic_dec_and_test() since the refcount was
->  not "1")  Example, assuming skb->users is "2":
-> 
-> 	cpu 0			cpu 1
-> 				__skb_unlink()
-> 				kfree_skb()
-> 	kfree_skb()
-> 
-> If cpu 0 sees the count at "1", it will always see the
-> __skb_unlink() as well.
+On Fri, 4 Feb 2005 12:20:53 +1100
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-This is true if CPU 0 reads the count before reading skb->list.
-Without a memory barrier, atomic_read and reading skb->list can
-be reordered.  Put it another way, reading skb->list could return
-a cached value that was read from the main memory prior to the
-atomic_read.
+> This is true if CPU 0 reads the count before reading skb->list.
+> Without a memory barrier, atomic_read and reading skb->list can
+> be reordered.  Put it another way, reading skb->list could return
+> a cached value that was read from the main memory prior to the
+> atomic_read.
+> 
+> So in order for CPU 0 to always see an up-to-date value of skb->list,
+> it needs to do an smp_rmb() between the atomic_read and reading
+> skb->list.
 
-So in order for CPU 0 to always see an up-to-date value of skb->list,
-it needs to do an smp_rmb() between the atomic_read and reading
-skb->list.
+You're absolutely right.  Ok, so we do need to change kfree_skb().
+I believe even with the memory barrier, the atomic_read() optimization
+is still worth it.  atomic ops on sparc64 take a minimum of 40 some odd
+cycles on UltraSPARC-III and later, whereas the memory barrier will
+take up a single cycle most of the time.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+So it'll look something like:
+
+	if (atomic_read(&skb->users) == 1)
+		smb_rmb();
+	else if (!atomic_dec_and_test(&skb->users))
+		return;
+	__kfree_skb(skb);
