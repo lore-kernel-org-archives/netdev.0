@@ -1,46 +1,37 @@
-From: Matthew Wilcox <willy@debian.org>
-Subject: Re: [PATCH] netdev_ops
-Date: Wed, 9 Jul 2003 18:25:25 +0100
+From: "Kevin P. Fleming" <kpfleming@cox.net>
+Subject: How to begin debugging ACPI/network driver interrupt problem?
+Date: Wed, 09 Jul 2003 10:34:06 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030709172525.GZ1939@parcelfarce.linux.theplanet.co.uk>
-References: <20030708163042.GL23597@parcelfarce.linux.theplanet.co.uk> <3F0B2D30.4020102@candelatech.com> <20030708212551.GL1939@parcelfarce.linux.theplanet.co.uk> <20030708.150835.78728697.davem@redhat.com> <20030709161520.GW1939@parcelfarce.linux.theplanet.co.uk> <3F0C4CA8.7090502@candelatech.com>
+Message-ID: <3F0C520E.2080809@cox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Matthew Wilcox <willy@debian.org>, netdev@oss.sgi.com,
-   "David S. Miller" <davem@redhat.com>,
-   Arnaldo Carvalho de Melo <acme@conectiva.com.br>,
-   Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-Content-Disposition: inline
-In-Reply-To: <3F0C4CA8.7090502@candelatech.com>
+To: acpi-support@lists.sourceforge.net, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 09, 2003 at 10:11:04AM -0700, Ben Greear wrote:
-> Considering any number of things may change in the future, what do
-> you think of adding a global 'nettool-version' method.  That could
-> allow user-space code to take appropriate action if something ever
-> changes in a non-compatible way....
+I've got a system here using an MSI KT266-based motherboard that's 
+been running 2.5.X successfully for months now. However, 2.5.73/74 
+have introduced a problem that (so far) I have only been able to cure 
+by either not compiling in ACPI or using acpi=off on the kernel 
+command line.
 
-This patch makes only user-invisible changes.  I'm trying to establish a
-base for further cleanups (eg, acme wants to look at unifying the wireless
-ops and the existing net_device function pointers into netdev_ops).
-I don't really have a position on adding a nettool-version ioctl or
-whatever, but I'm not sure it would make sense to have that as a netdev
-method.
+The system three NICs:
 
-> Also, for the strings (labels) passed back to user space, is there any
-> documentation for suggested values for these strings?  Even though we
-> can't be completely type-safe, if there were suggested values in
-> a comment in the code, it could help a great deal for any code trying to
-> parse them for multiple different drivers/nics.
+eth0 is a National Semiconductor DP83815
+eth1 is a National Semiconductor DP83820
+eth2 is a Lite-On 82C168
 
-I didn't see any documentation; I just read the code.  The only drivers
-I noticed supporting the GSTRINGS subcommand are 8139cp, 8139too, e100
-and e1000.
+All three NICs work fine. However, on the newer kernels, with ACPI 
+compiled in, during initialization of eth0 the kernel generates "IRQ 
+17 and nobody cared!" messages and disables IRQ 17, which causes eth0 
+to be useless :-)
 
--- 
-"It's not Hollywood.  War is real, war is primarily not about defeat or
-victory, it is about death.  I've seen thousands and thousands of dead bodies.
-Do you think I want to have an academic debate on this subject?" -- Robert Fisk
+With older kernels, or ACPI not turned on, eth0 still gets assigned 
+IRQ 17, and works just fine. IRQ 17 is not shared with any other devices.
+
+I don't think I can handle the additional message traffic of these two 
+mailing lists, so I haven't subscribed... If anyone can suggest a 
+course of action for how to debug this problem, please cc me on any 
+responses.
