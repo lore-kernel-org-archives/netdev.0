@@ -1,41 +1,51 @@
-From: Francois-Xavier Kowalski <francois-xavier_kowalski@hp.com>
-Subject: feature request: get ipv6 address from interface name (SIOCGIFNAME)
-Date: Mon, 29 Apr 2002 11:48:39 +0200
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <3CCD16F7.1070303@hp.com>
-Reply-To: francois-xavier_kowalski@hp.com
+From: Gabriel Paues <gabriel@sics.se>
+Subject: dst_entry and friends
+Date: Mon, 29 Apr 2002 12:14:48 +0200
+Sender: owner-netdev@oss.sgi.com
+Message-ID: <3CCD1D18.F33EAEE8@sics.se>
+References: <15561.20004.964497.762468@robur.slu.se>
+Reply-To: gabriel@sics.se
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1;
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Francois-Xavier 'FiX' KOWALSKI" <francois-xavier_kowalski@hp.com>
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Linux Networking Development ML <linux-net@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Return-path: <owner-netdev@oss.sgi.com>
+To: netdev@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello,
+Hi!
 
-I am currently writing some user-space stuff that require to get the
-IP address from the Eternet interface name (because the interface name
-is the one linked to the physical device).
+I'm working on my Masters Thesis which aims at making a label switched
+environment. I know there are protocols for doing that but I am supposed to do
+it at IPv6-level (by altering the IPv6-stack) thus making Linux route on
+different criteria than the usual routing table.
 
-ipv4 let the a the ability to retrieve a single address using the
-itocl(SIOCGIFNAME) command.
+This is what i want to do:
+If the flowlabel in the IPv6 header is set to some value except zero then skip
+the whole routing behaviour and check for the flowlabel in an internal table,
+and get the out-device and new flowlabel from that table and send the packet.
+otherwise:
+Just do as usual
 
-So I am wondering if the fact that this feature is left un-implemented
-in ipv6 is intentionnal or not.  The currently implemented ipv6 ioctl
-commands only allow to set values, but not to retrieve them.
+My idea is to use netfilter and in the PRE_ROUTING-hook check the flowlabel for
+values other than zero, and set the dst_entry in the skbuff to something with
+its input-function to ip6_output. I dont know if I should allocate this
+fabricated dst_entry myself or if I should scan the list of already existing
+ones. By setting the input-function-pointer to ip6_output i will skip the whole
+routing behaviour in a snap. The same goes for the hook LOCAL_OUT where i want
+to skip ip6_maybe_reroute function and go directly to ip6_output.
 
-BTW, I have also noted that a single IPv4 address can be retrieved
-using the ioctl(SIOCGIFNAME), whereas the ip(7) command gives the
-ability to add several IP addresses per interface (not speaking of the
-old "eth0:1" notiation, which is said to be deprecated).
+This might sound like a quite destructive concept, but the whole thing is that
+my teacher thought those "small hacks"  could be done in notime, whle I have
+discovered that thats not the case.
 
-Thanks in advance for any help / explanation or pointer.
+Do you know of any easier way of doing this? And if not, how do I get hold of a
+dst_entry when I know what netdevice that should be the output? I have had a
+look in rt6_device_match function in route.c and think that it does more or
+less what I want to do.
 
-Regards
+I would be grateful if some Linux Ipv6-implementation guru would read this and
+try to understand what I'm trying to do... :-)
 
-=46iX
---=20
-=46ran=E7ois-Xavier 'FiX' KOWALSKI
+Sincerily
 
-
+Gabriel
