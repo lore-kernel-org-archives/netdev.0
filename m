@@ -1,49 +1,111 @@
-From: =?ISO-8859-1?Q?Dennis_J=F8rgensen?= <postmaster@q.nospam.kampsax.k-net.dk>
-Subject: Trivial fix for wrong error message from icmp.c (2.6.0-test4)
-Date: Thu, 04 Sep 2003 02:26:42 +0200
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] more sdla fixes
+Date: Thu, 4 Sep 2003 14:42:48 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F5686C2.6090600@q.nospam.kampsax.k-net.dk>
+Message-ID: <20030904144248.0599cdaf.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Jeff Garzik <jgarzik@pobox.com>, "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello
+Since sdla.c now has locking instead of cli/sti, it shouldn't be
+completely busted on SMP.
 
+Also, the frad interface registration needed to be done once
+(and check the result), and undone on module unload.
 
-I see this message a lot in my logs:
-
-192.38.215.157 sent an invalid ICMP type 11, code 0 error to a=20
-broadcast: 192.38.215.255 on eth0
-
-but thats my own ip, the following fix makes 2.6.0-test4 report the same=20
-ip as 2.4.20 did.
-
-Should I post this somewhere else/to someone else, please let me know, I=20
-couldn't find a FAQ for the list.
-
-
-Regards
-
-  Dennis J=F8rgensen
- (not on the list)
-
-
---- linux-2.6.0-test4.org/net/ipv4/icmp.c       2003-08-28=20
-01:13:59.000000000 +0200
-+++ linux-2.6.0-test4/net/ipv4/icmp.c   2003-08-28 02:12:56.000000000 +02=
-00
-@@ -661,7 +661,7 @@
-                        printk(KERN_WARNING "%u.%u.%u.%u sent an invalid=20
-ICMP "
-                                            "type %u, code %u "
-                                            "error to a broadcast:=20
-%u.%u.%u.%u on %s\n",
--                              NIPQUAD(iph->saddr),
-+                              NIPQUAD(skb->nh.iph->saddr),
-                               icmph->type, icmph->code,
-                               NIPQUAD(iph->daddr),
-                               skb->dev->name);
+diff -Nru a/drivers/net/wan/Kconfig b/drivers/net/wan/Kconfig
+--- a/drivers/net/wan/Kconfig	Thu Sep  4 14:41:49 2003
++++ b/drivers/net/wan/Kconfig	Thu Sep  4 14:41:49 2003
+@@ -465,7 +465,7 @@
+ 
+ config SDLA
+ 	tristate "SDLA (Sangoma S502/S508) support"
+-	depends on DLCI && ISA && BROKEN_ON_SMP
++	depends on DLCI && ISA
+ 	help
+ 	  Say Y here if you need a driver for the Sangoma S502A, S502E, and
+ 	  S508 Frame Relay Access Devices. These are multi-protocol cards, but
+diff -Nru a/drivers/net/wan/sdla.c b/drivers/net/wan/sdla.c
+--- a/drivers/net/wan/sdla.c	Thu Sep  4 14:41:49 2003
++++ b/drivers/net/wan/sdla.c	Thu Sep  4 14:41:49 2003
+@@ -1634,12 +1634,26 @@
+ 	dev->mtu		= SDLA_MAX_MTU;
+ }
+ 
++static int frad_registered;
++
+ struct net_device * __init sdla_init(void)
+ {
+ 	struct net_device *dev;
+ 	struct frad_local *flp;
+ 	int err = -ENOMEM;
+ 
++	if (!frad_registered) {
++		err = register_frad(devname);
++		if (err) {
++			printk(KERN_ERR "%s: frad registration failed %d\n",
++			       devname, err);
++			return ERR_PTR(err);
++		}
++		frad_registered = 1;
++		printk("%s.\n", version);
++	}
++		
++
+ 	dev = alloc_netdev(sizeof(struct frad_local), "sdla0", setup_sdla);
+ 	if (!dev)
+ 		goto out;
+@@ -1678,39 +1692,35 @@
+ 	return ERR_PTR(err);
+ }
+ 
+-int __init sdla_c_setup(void)
+-{
+-	printk("%s.\n", version);
+-	register_frad(devname);
+-	return 0;
+-}
+-
+ #ifdef MODULE
+ static struct net_device *sdla0;
+-#endif /* MODULE */
+ 
+ static int __init init_sdla(void)
+ {
+ 	int result = 0;
+ 
+-	sdla_c_setup();
+-#ifdef MODULE
+ 	sdla0 = sdla_init();
+ 	if (IS_ERR(sdla0))
+ 		result = PTR_ERR(sdla0);
+-#endif
++
+ 	return result;
+ }
+ 
+ static void __exit exit_sdla(void)
+ {
+-#ifdef MODULE
++	struct frad_local *flp;
++
+ 	unregister_netdev(sdla0);
+ 	if (sdla0->irq)
+ 		free_irq(sdla0->irq, sdla0);
++
++	flp = sdla0->priv;
++	del_timer_sync(&flp->timer);
+ 	free_netdev(sdla0);
+-#endif
++	
++	unregister_frad(devname);
+ }
++#endif
+ 
+ MODULE_LICENSE("GPL");
+ 
