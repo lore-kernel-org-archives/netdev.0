@@ -1,31 +1,48 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 0/6 linux-2.6.9-rc1/linux-2.4.28-pre2]
- prism54 patches resend
-Date: Sun, 05 Sep 2004 16:09:49 -0400
-Sender: prism54-devel-bounces@prism54.org
-Message-ID: <413B728D.7000902@pobox.com>
-References: <200409051158.59976.margitsw@t-online.de>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] Do less atomic count changes in dev_queue_xmit
+Date: Mon, 6 Sep 2004 08:03:41 +1000
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040905220341.GA13217@gondor.apana.org.au>
+References: <20040904135439.GA23934@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, prism54-devel@prism54.org
-Return-path: <prism54-devel-bounces@prism54.org>
-To: Margit Schubert-While <margitsw@t-online.de>
-In-Reply-To: <200409051158.59976.margitsw@t-online.de>
-List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
-List-Archive: <http://prism54.org/pipermail/prism54-devel>
-List-Post: <mailto:prism54-devel@prism54.org>
-List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
-List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
-Errors-To: prism54-devel-bounces@prism54.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@redhat.com, netdev@oss.sgi.com, akepner@sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Andi Kleen <ak@suse.de>
+Content-Disposition: inline
+In-Reply-To: <20040904135439.GA23934@wotan.suse.de>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-applied 2.4 sync-up patch, and the series 1-6 to 2.4 and 2.6.
+On Sat, Sep 04, 2004 at 01:54:39PM +0000, Andi Kleen wrote:
+> 
+> diff -u linux-2.6.8/net/core/dev.c-o linux-2.6.8/net/core/dev.c
+> --- linux-2.6.8/net/core/dev.c-o	2004-09-04 13:10:47.000000000 +0000
+> +++ linux-2.6.8/net/core/dev.c	2004-09-04 13:47:16.765722813 +0000
+> @@ -1249,14 +1249,14 @@
+>  	return 0;
+>  }
+>  
+> -#define HARD_TX_LOCK_BH(dev, cpu) {			\
+> +#define HARD_TX_LOCK(dev, cpu) {			\
+>  	if ((dev->features & NETIF_F_LLTX) == 0) {	\
+>  		spin_lock_bh(&dev->xmit_lock);		\
 
-only patch #1 went into net-drivers-2.[46] for immediate queueing, the 
-rest went into netdev-2.[46] (and thus -mm) for further testing of new 
-features.
+You can remove the _bh here as well.
 
-	Jeff
+> @@ -1358,12 +1361,11 @@
+>  	   Either shot noqueue qdisc, it is even simpler 8)
+>  	 */
+>  	if (dev->flags & IFF_UP) {
+> -		int cpu = get_cpu();
+> +		int cpu = smp_processor_id(); /* ok because BHs are off */
+
+Hmm this means that the loopback xmit function will now execute with
+BH/preempt turned off.  Is this what we want?
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
