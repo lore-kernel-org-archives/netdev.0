@@ -1,54 +1,39 @@
-From: Andrea Arcangeli <andrea@novell.com>
-Subject: Re: gettimeofday scalability
-Date: Tue, 5 Oct 2004 21:35:45 +0200
+From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Subject: Re: PATCH: [SKBUFF] introduce skb_link_header_size(skb)
+Date: Tue, 05 Oct 2004 16:45:33 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041005193545.GI26820@dualathlon.random>
-References: <4162CD76.4070204@draigBrady.com> <20041005185553.GG26820@dualathlon.random> <4162F311.4050009@draigBrady.com>
+Message-ID: <4162F9DD.2070705@conectiva.com.br>
+References: <4162F28B.2050308@conectiva.com.br> <20041005193352.GA19714@rei.reeler.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, Ingo Molnar <mingo@elte.hu>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: P@draigBrady.com
-Content-Disposition: inline
-In-Reply-To: <4162F311.4050009@draigBrady.com>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20041005193352.GA19714@rei.reeler.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 05, 2004 at 08:16:33PM +0100, P@draigBrady.com wrote:
-> Andrea Arcangeli wrote:
-> >On Tue, Oct 05, 2004 at 05:36:06PM +0100, P@draigBrady.com wrote:
-> >
-> >>So can anyone summarise the relative merits of these locking
-> >>mechanisms, before I start benchmarking?
-> >
-> >
-> >frlock/seqlock (2.4/2.6 respectively) is the way to go, no write
-> >starvation, and zero cacheline bouncing. 
+
+
+Thomas Graf wrote:
+> * Arnaldo Carvalho de Melo <4162F28B.2050308@conectiva.com.br> 2004-10-05 16:14
 > 
-> Cheers.
+>>+static inline int skb_link_header_size(const struct sk_buff *skb)
+>>+{
+>>+	return skb->nh.raw - skb->mac.raw;
+>>+}
 > 
-> Perhaps the confusing comment wrt brlock at the
-> top of seqlock.h can be changed so?
+> 
+> The patch is valid and I think it is right to do so but this may lead to
+> wrong results when skb->mac.raw is set to 0x0 F.e in classifiers. Maybe
+> add a comment to warn about it?
 
-I guess so.
+I never looked at classifiers code, suggest a comment and I'll stick it
+there.
 
-> This is all in kernel space.
+Thanks for commenting on the patch.
 
-vsyscalls are in userspace, but you will not notice the difference.
+Regards,
 
-Or do you mean your code is in kernel space? vsyscalls would run from
-kernel space too, but then you can use gettimeofday by hand with seqlock
-and it won't be any different.
-
-> However Stephen's suggestion of reading the tsc in user space
-> may be a runner, as I just care about relative times.
-
-Stephen's suggestion will lead to your app breaking on asymmetric TSC on
-SMP if you're not careful, if you use the vsyscall on a correct kernel
-(like x86-64) you won't take that risk (HPETS avoids that, slower than
-the tsc but the only safe one). Otherwise you've to use process affinity
-+ tsc, only with cpu binding you're safe. Some big app uses TSC but only
-optionally, so you can turn it on/off depending on the hardware (on
-x86-64 this obsoleted by vgettimeofday, that's a x86-only hack).
-
-hope this helps ;)
+- Arnaldo
