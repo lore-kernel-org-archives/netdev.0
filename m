@@ -1,70 +1,61 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: Patch resubmission: RFC2863 operstatus for 2.5.50
-Date: Wed, 04 Dec 2002 12:42:06 -0500
+From: "Create Digital Photo Albums" <CreateDigitalPhotoAlbums2003@yahoo.co.uk>
+Subject: Create Digital Brochures
+Date: Wed, 04 Dec 2002 11:50:58 +0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3DEE3E6E.30407@pobox.com>
-References: <Pine.GSO.4.30.0212040806590.2731-100000@shell.cyberus.ca>
+Message-ID: <031b53c57d4b$3657b5c2$1ca44da7@ansyfn>
+Reply-To: "Create Digital Photo Albums" <CreateDigitalPhotoAlbums2003@yahoo.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stefan Rompf <srompf@isg.de>, "David S. Miller" <davem@redhat.com>,
-   netdev@oss.sgi.com
+Content-Type: text/html; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-In-Reply-To: <Pine.GSO.4.30.0212040806590.2731-100000@shell.cyberus.ca>
+To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> Stefans curtrent patch makes the info available via netlink.
+<html><head><title>Easily Create 3D, Page-Turning eBooks, eBrochures, eCa=
+talogs, ePresentations and More!</title>
+<meta http-equiv=3D"Content-Type" content=3D"text/html;"></head>
+<body bgcolor=3D"#ffffff">
+<div align=3D"center">
+<a href=3D"http://3dpageturningebook.com">
+<img src=3D"http://image777.com/girl_laptop.gif" alt=3D"http://3dpageturn=
+ingebook.com=20
 
-He has two patches:  link change notification, and RFC2863 operstatus. 
-I agree with the first one and support its inclusion; the second one I 
-question its need.
+Create Professional 3D Page-Turning:=20
 
-(just for context, I am referring to message <3DED2EA9.D812C881@isg.de> 
-dated Dec 3)
+eBooks=20
+eBrochures=20
+eCatalogs=20
+eMagazines=20
+Newsletters=20
+Presentations=20
+Photo Albums=20
+Much, Much More!=20
 
+Save on Printing, Postage and Advertising Costs!=20
 
-> What dont you like about it Jeff? Take a quick look at RFC2863
-> and scan for IfAdminStatus and IfOperStatus. The modelling RFC2863
-> has is pretty good and thats what Stefan has followed (after we weeded
-> a few crappy pieces off the RFC; we discussed on netdev).
+Download FREE Version of Digital Page Author Now!" border=3D"0">
+</a>
+<center>
+<center><font size=3D"1" face=3D"Arial" color=3D"#000066">
+*FREE Version is FULLY FUNCTIONAL, NEVER EXPIRES and has a 4 page (2 page=
+ spread) limit.<br>
+Copyright =A9 2002 - Affiliate ID #1376 - Email ID #11B<br></font></cente=
+r>
 
-I had looked at ifAdminStatus and ifOperStatus before I posted :)
+<form action=3D"http://3dpageturningebook.com/unsubscribe.asp" method=3D"=
+post">
+<center><!http://3dpageturningebook.com/9273mSmn8-331rPjW7933HJAN1-726yCO=
+W4695wFGU5-997Lgzp7328oBRD5-010aBqy0852HLNb4-257l76>
+<font size=3D"1" face=3D"Arial" color=3D"#000066">=20
+You received this message because you have opted-in to our mailings or <b=
+r>we have acquired your e-mail address through one=20
 
-My argument is, _after_ Stefan's link state patch is applied, why do we 
-need the additional patch?  [this question is meant to be delivered in 
-an honest, not snide way...]
-
-For ifAdminStatus, you have "up", "down", and "testing" states.  Since 
-we have no concept of a testing state, if we eliminate that we have "up" 
-and "down", two states we can obviously handle.
-
-For ifOperStatus, we have "up", "down" and "testing", which are 
-applicable (or not) to Linux as with ifAdminStatus.  Further we have 
-states "dormant", "unknown", "notPresent", "lowerLayerDown".  I'll 
-discuss each of these in detail.
-
-"dormant" - not used in Stefan's patch, which I agree with.
-"unknown" - only used in Stefan's patch before interface is first up'd, 
-which is IMO inaccurate.  Accurate use of "up" and "down", to me, 
-implies -no- use of "unknown" state.  Because as soon as we are 
-initialized, all ethernet details are known, thus "down" is more 
-applicable.  The Linux net stack's atomicity is such that leaking an 
-"unknown" state would be a bug, too.
-"notPresent" - analagous to Linux's netif_device_xxx, and Stefan's patch 
-acknowledges this.  However, the use of netif_device_xxx in drivers is 
-really only used when the hardware is suspended.  If hardware goes away, 
-the interface goes away too, almost immediately.
-"lowerLayerDown" - not used in Stefan's patch, which I agree with.
-
-So, Stefan's 2nd patch really only adds "unknown" and "notPresent" 
-states to current behavior -- and the applicability of those states to 
-Linux is IMO questionable.
-
-Questions/comments requested.
-
-Regards,
-
-	Jeff
+of our affiliates or partners.  <br>
+<input size=3D"35" name=3D"e" value=3D"netdev@oss.sgi.com
+"> &nbsp;<input type=3D"submit" value=3D"Unsubscribe">
+<input type=3D"hidden" name=3D"c" value=3D"unsub">
+<br>If you wish to remove this e-mail address from our mailing list, plea=
+se cick the Unsubscribe button.</font>
+</center></form>
+</center></body></html>
