@@ -1,28 +1,32 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [BK PATCH] 2.6 SCTP updates
-Date: Sat, 24 Jul 2004 22:27:31 -0700
+Subject: Re: [PATCH] pkt_cls.h incompatiables
+Date: Sat, 24 Jul 2004 22:28:53 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040724222731.0ed048ef.davem@redhat.com>
-References: <Pine.LNX.4.58.0407231708440.4570@localhost.localdomain>
+Message-ID: <20040724222853.752137d6.davem@redhat.com>
+References: <20040722134522.4e7e0b07@dell_ss3.pdx.osdl.net>
+	<20040722.200426.99255296.yoshfuji@linux-ipv6.org>
+	<1090593676.1128.25.camel@jzny.localdomain>
+	<20040723.110007.27520072.yoshfuji@linux-ipv6.org>
+	<1090612669.1218.47.camel@jzny.localdomain>
+	<20040723135945.7f50b02c.davem@redhat.com>
+	<1090630154.1134.6.camel@jzny.localdomain>
+	<1090675993.1161.11.camel@jzny.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, lksctp-developers@lists.sourceforge.net
+Cc: yoshfuji@linux-ipv6.org, shemminger@osdl.org, arekm@pld-linux.org,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Sridhar Samudrala <sri@us.ibm.com>
-In-Reply-To: <Pine.LNX.4.58.0407231708440.4570@localhost.localdomain>
+To: hadi@cyberus.ca
+In-Reply-To: <1090675993.1161.11.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 23 Jul 2004 17:18:11 -0700 (PDT)
-Sridhar Samudrala <sri@us.ibm.com> wrote:
+On 24 Jul 2004 09:33:52 -0400
+jamal <hadi@cyberus.ca> wrote:
 
-> Please do a
-> 	bk pull http://linux-lksctp.bkbits.net/lksctp-2.5.work
-> 
-> to get the following SCTP updates to 2.6.8-rc2.
+> Dont apply yet, i need to run my regression tests when i get back.
+> In the minimal back out Stephens change.
 
-Pulled, thanks Sridhar.  Will there be a 2.4.x version of
-any of these SCTP changes?
-
-Thanks again.
+Ok, I'll keep this in my inbox until you give the word.
+Thanks.
