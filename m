@@ -1,9 +1,8 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (7/11) bridge -- expose timer_residue function for use by
- sysfs
-Date: Fri, 21 May 2004 16:39:11 -0700
+Subject: [PATCH] (6/11) bridge -- read forwarding table chunk at a time.
+Date: Fri, 21 May 2004 16:39:07 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040521163911.10e1a07d@dell_ss3.pdx.osdl.net>
+Message-ID: <20040521163907.725b5be5@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -13,83 +12,207 @@ To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Move the local function timer_residue to br_timer_value so it can
-be used by both ioctl and sysfs code.
+Change how the read of forwarding table works.  Instead of copying
+entries to user one at a time, use an intermediate kernel buffer and
+do up to a page at a chunk.
+
+This gets rid of some awkward code dealing with entries getting deleted
+during the copy.  And allows same function to be used by later sysfs
+hook.
  
-diff -Nru a/net/bridge/br_ioctl.c b/net/bridge/br_ioctl.c
---- a/net/bridge/br_ioctl.c	2004-05-20 10:22:21 -07:00
-+++ b/net/bridge/br_ioctl.c	2004-05-20 10:22:21 -07:00
-@@ -20,13 +20,6 @@
- #include <asm/uaccess.h>
+diff -Nru a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+--- a/net/bridge/br_fdb.c	2004-05-20 09:59:49 -07:00
++++ b/net/bridge/br_fdb.c	2004-05-20 09:59:49 -07:00
+@@ -16,11 +16,10 @@
+ #include <linux/kernel.h>
+ #include <linux/init.h>
+ #include <linux/spinlock.h>
+-#include <linux/if_bridge.h>
+ #include <linux/times.h>
++#include <linux/netdevice.h>
+ #include <linux/etherdevice.h>
+ #include <asm/atomic.h>
+-#include <asm/uaccess.h>
  #include "br_private.h"
  
--/* Report time remaining in user HZ  */
--static unsigned long timer_residue(const struct timer_list *timer)
+ static kmem_cache_t *br_fdb_cache;
+@@ -54,17 +53,6 @@
+ 		&& time_before_eq(fdb->ageing_timer + hold_time(br), jiffies);
+ }
+ 
+-static inline void copy_fdb(struct __fdb_entry *ent, 
+-				const struct net_bridge_fdb_entry *f)
 -{
--	return timer_pending(timer) 
--		? jiffies_to_clock_t(timer->expires - jiffies) : 0;
+-	memset(ent, 0, sizeof(struct __fdb_entry));
+-	memcpy(ent->mac_addr, f->addr.addr, ETH_ALEN);
+-	ent->port_no = f->dst?f->dst->port_no:0;
+-	ent->is_local = f->is_local;
+-	ent->ageing_timer_value = f->is_static ? 0 
+-		: jiffies_to_clock_t(jiffies - f->ageing_timer);
 -}
 -
- /* called with RTNL */
- static int get_bridge_ifindices(int *indices, int num)
+ static __inline__ int br_mac_hash(const unsigned char *mac)
  {
-@@ -139,10 +132,10 @@
- 		b.root_port = br->root_port;
- 		b.stp_enabled = br->stp_enabled;
- 		b.ageing_time = jiffies_to_clock_t(br->ageing_time);
--		b.hello_timer_value = timer_residue(&br->hello_timer);
--		b.tcn_timer_value = timer_residue(&br->tcn_timer);
--		b.topology_change_timer_value = timer_residue(&br->topology_change_timer);
--		b.gc_timer_value = timer_residue(&br->gc_timer);
-+		b.hello_timer_value = br_timer_value(&br->hello_timer);
-+		b.tcn_timer_value = br_timer_value(&br->tcn_timer);
-+		b.topology_change_timer_value = br_timer_value(&br->topology_change_timer);
-+		b.gc_timer_value = br_timer_value(&br->gc_timer);
- 	        rcu_read_unlock();
+ 	unsigned long x;
+@@ -214,68 +202,48 @@
+ 		kmem_cache_free(br_fdb_cache, ent);
+ }
  
- 		if (copy_to_user((void *)args[1], &b, sizeof(b)))
-@@ -237,9 +230,9 @@
- 		p.state = pt->state;
- 		p.top_change_ack = pt->topology_change_ack;
- 		p.config_pending = pt->config_pending;
--		p.message_age_timer_value = timer_residue(&pt->message_age_timer);
--		p.forward_delay_timer_value = timer_residue(&pt->forward_delay_timer);
--		p.hold_timer_value = timer_residue(&pt->hold_timer);
-+		p.message_age_timer_value = br_timer_value(&pt->message_age_timer);
-+		p.forward_delay_timer_value = br_timer_value(&pt->forward_delay_timer);
-+		p.hold_timer_value = br_timer_value(&pt->hold_timer);
+-int br_fdb_get_entries(struct net_bridge *br,
+-		       unsigned char *_buf,
+-		       int maxnum,
+-		       int offset)
++/*
++ * Fill buffer with forwarding table records in 
++ * the API format.
++ */
++int br_fdb_fillbuf(struct net_bridge *br, void *buf,
++		   unsigned long maxnum, unsigned long skip)
+ {
+-	int i;
+-	int num;
+-	struct __fdb_entry *walk;
++	struct __fdb_entry *fe = buf;
++	int i, num = 0;
++	struct hlist_node *h;
++	struct net_bridge_fdb_entry *f;
  
- 		rcu_read_unlock();
+-	num = 0;
+-	walk = (struct __fdb_entry *)_buf;
++	memset(buf, 0, maxnum*sizeof(struct __fdb_entry));
  
-diff -Nru a/net/bridge/br_private.h b/net/bridge/br_private.h
---- a/net/bridge/br_private.h	2004-05-20 10:22:21 -07:00
-+++ b/net/bridge/br_private.h	2004-05-20 10:22:21 -07:00
-@@ -208,5 +208,6 @@
- /* br_stp_timer.c */
- extern void br_stp_timer_init(struct net_bridge *br);
- extern void br_stp_port_timer_init(struct net_bridge_port *p);
-+extern unsigned long br_timer_value(const struct timer_list *timer);
+ 	read_lock_bh(&br->hash_lock);
+-	for (i=0;i<BR_HASH_SIZE;i++) {
+-		struct hlist_node *h;
+-		
+-		hlist_for_each(h, &br->hash[i]) {
+-			struct net_bridge_fdb_entry *f
+-				= hlist_entry(h, struct net_bridge_fdb_entry, hlist);
+-			struct __fdb_entry ent;
+-
++	for (i = 0; i < BR_HASH_SIZE; i++) {
++		hlist_for_each_entry(f, h, &br->hash[i], hlist) {
+ 			if (num >= maxnum)
+ 				goto out;
  
- #endif
-diff -Nru a/net/bridge/br_stp_timer.c b/net/bridge/br_stp_timer.c
---- a/net/bridge/br_stp_timer.c	2004-05-20 10:22:21 -07:00
-+++ b/net/bridge/br_stp_timer.c	2004-05-20 10:22:21 -07:00
-@@ -14,6 +14,7 @@
-  */
+ 			if (has_expired(br, f)) 
+ 				continue;
  
- #include <linux/kernel.h>
-+#include <linux/times.h>
- #include <linux/smp_lock.h>
+-			if (offset) {
+-				offset--;
++			if (skip) {
++				--skip;
+ 				continue;
+ 			}
  
- #include "br_private.h"
-@@ -178,3 +179,10 @@
- 	br_timer_init(&p->hold_timer, br_hold_timer_expired,
- 		      (unsigned long) p);
- }	
+-			copy_fdb(&ent, f);
+-
+-			atomic_inc(&f->use_count);
+-			read_unlock_bh(&br->hash_lock);
+-			
+-			if (copy_to_user(walk, &ent, sizeof(struct __fdb_entry)))
+-				return -EFAULT;
+-
+-			read_lock_bh(&br->hash_lock);
+-			
+-			/* entry was deleted during copy_to_user */
+-			if (atomic_dec_and_test(&f->use_count)) {
+-				kmem_cache_free(br_fdb_cache, f);
+-				num = -EAGAIN;
+-				goto out;
+-			}
+-
+-			/* entry changed address hash while copying */
+-			if (br_mac_hash(f->addr.addr) != i) {
+-				num = -EAGAIN;
+-				goto out;
+-			}
+-
+-			num++;
+-			walk++;
++			/* convert from internal format to API */
++			memcpy(fe->mac_addr, f->addr.addr, ETH_ALEN);
++			fe->port_no = f->dst->port_no;
++			fe->is_local = f->is_local;
++			if (!f->is_static)
++				fe->ageing_timer_value = jiffies_to_clock_t(jiffies - f->ageing_timer);
++			++fe;
++			++num;
+ 		}
+ 	}
+ 
+  out:
+ 	read_unlock_bh(&br->hash_lock);
 +
-+/* Report ticks left (in USER_HZ) used for API */
-+unsigned long br_timer_value(const struct timer_list *timer)
+ 	return num;
+ }
+ 
+diff -Nru a/net/bridge/br_ioctl.c b/net/bridge/br_ioctl.c
+--- a/net/bridge/br_ioctl.c	2004-05-20 09:59:49 -07:00
++++ b/net/bridge/br_ioctl.c	2004-05-20 09:59:49 -07:00
+@@ -52,6 +52,39 @@
+ 	}
+ }
+ 
++/*
++ * Format up to a page worth of forwarding table entries
++ * userbuf -- where to copy result
++ * maxnum  -- maximum number of entries desired
++ *            (limited to a page for sanity)
++ * offset  -- number of records to skip
++ */
++static int get_fdb_entries(struct net_bridge *br, void __user *userbuf, 
++			   unsigned long maxnum, unsigned long offset)
 +{
-+	return timer_pending(timer)
-+		? jiffies_to_clock_t(timer->expires - jiffies) : 0;
++	int num;
++	void *buf;
++	size_t size = maxnum * sizeof(struct __fdb_entry);
++
++	if (size > PAGE_SIZE) {
++		size = PAGE_SIZE;
++		maxnum = PAGE_SIZE/sizeof(struct __fdb_entry);
++	}
++
++	buf = kmalloc(size, GFP_USER);
++	if (!buf)
++		return -ENOMEM;
++	
++	num = br_fdb_fillbuf(br, buf, maxnum, offset);
++	if (num > 0) {
++		if (copy_to_user(userbuf, buf, num*sizeof(struct __fdb_entry)))
++			num = -EFAULT;
++	}
++	kfree(buf);
++
++	return num;
 +}
++
+ int br_dev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ {
+ 	struct net_bridge *br = netdev_priv(dev);
+@@ -270,7 +303,8 @@
+ 	}
+ 
+ 	case BRCTL_GET_FDB_ENTRIES:
+-		return br_fdb_get_entries(br, (void *)args[1], args[2], args[3]);
++		return get_fdb_entries(br, (void __user *)args[1], 
++				       args[2], args[3]);
+ 	}
+ 
+ 	return -EOPNOTSUPP;
+diff -Nru a/net/bridge/br_private.h b/net/bridge/br_private.h
+--- a/net/bridge/br_private.h	2004-05-20 09:59:49 -07:00
++++ b/net/bridge/br_private.h	2004-05-20 09:59:49 -07:00
+@@ -135,10 +135,8 @@
+ extern struct net_bridge_fdb_entry *br_fdb_get(struct net_bridge *br,
+ 					unsigned char *addr);
+ extern void br_fdb_put(struct net_bridge_fdb_entry *ent);
+-extern int  br_fdb_get_entries(struct net_bridge *br,
+-			unsigned char *_buf,
+-			int maxnum,
+-			int offset);
++extern int br_fdb_fillbuf(struct net_bridge *br, void *buf, 
++			  unsigned long count, unsigned long off);
+ extern int br_fdb_insert(struct net_bridge *br,
+ 			 struct net_bridge_port *source,
+ 			 const unsigned char *addr,
