@@ -1,40 +1,103 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 2/2][AX25] make ax25_queue_xmit a net_device parameter
-Date: 04 Apr 2005 16:11:36 -0400
-Message-ID: <1112645495.1078.40.camel@jzny.localdomain>
-References: <20050404195030.GJ640@conectiva.com.br>
-Reply-To: hadi@cyberus.ca
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: Re: [PATCH] network configs: disconnect network options from drivers
+Date: Mon, 04 Apr 2005 13:48:48 -0700
+Message-ID: <4251A830.5030905@osdl.org>
+References: <20050330234709.1868eee5.randy.dunlap@verizon.net> <20050331185226.GA8146@mars.ravnborg.org> <424C5745.7020501@osdl.org> <20050331203010.GA8034@mars.ravnborg.org> <4250B4C5.2000200@osdl.org> <20050404195051.GA12364@mars.ravnborg.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Ralf Baechle <ralf@linux-mips.org>, netdev <netdev@oss.sgi.com>
+Cc: ioe-lkml@axxeo.de, matthew@wil.cx, lkml <linux-kernel@vger.kernel.org>,
+        netdev@oss.sgi.com, hadi@cyberus.ca, cfriesen@nortel.com,
+        tgraf@suug.ch
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-In-Reply-To: <20050404195030.GJ640@conectiva.com.br>
+To: Sam Ravnborg <sam@ravnborg.org>
+In-Reply-To: <20050404195051.GA12364@mars.ravnborg.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi Sam-
 
-You probably wanna set skb->input_dev in ax25_type_trans() as well
-something like:
-skb->input_dev = skb->dev = dev
+Sam Ravnborg wrote:
+> On Sun, Apr 03, 2005 at 08:30:13PM -0700, Randy.Dunlap wrote:
+> 
+>>Any comments on this new version?
+> 
+> The new Networking menu looks unstructured.
+> And the net/Kconfig file contains a lot of config snippets that does not
+> belong there.
+> So I took a stamp on it with focus on:
+> - Move config bits to appropriate places, creating several new Kconfig
+>   files
+Very Good.
 
-cheers,
-jamal
+> - Made uses of menus more consistent at least on first and second level
+Very Good again.
 
-On Mon, 2005-04-04 at 15:50, Arnaldo Carvalho de Melo wrote:
-> Hi David, Ralf,
+> - Move submenu to the top
+> - Rename top menu to "Networking" and located it just before
+>  "File systems"
+
+I still prefer Networking to come before Device Drivers FWIW.
+Just makes some kind of hierarchical sense to me.
+
+> The patch became much larger. The win is that the top-level
+> net/Kconfig contains much less cruft.
 > 
-> 	I'm trying to get back to the work of reducing the number of direct
-> references to skb->{h,nh,raw}, that eventually will become just a void
-> pointer.
+> Many of the 56 lines added are due to the additional files.
+> I did not (on purpose) change any functionality.
 > 
-> 	Available at:
+> Only bit that I am worried about is the statement in SCTP:
+> 	depends on IPV6 || IPV6=n
 > 
-> bk://kernel.bkbits.net/acme/sk_buff-2.6
+> That looked like a noop to me. It had the sideeffect that SCTP
+> menu entries where idented an extra level which was not desireable
+> with currect layout.
+
+Yeah, I was having several identation problems.
+
+> Comments appreciated.
+
+Nice job overall.  Especially nice to move ATM, bridge, DECNET,
+ECONET, etc., to their own Kconfig files so that they are more
+manageable.
+
+I propose that the new file net/atm/Kconfig be sourced somewhere.
+
+I'll look at it more to see if I have any other comments.
+
+> Patch on top of rc2.
 > 
-> Regards,
+> Signed-off-by: Sam Ravnborg <sam@ravnborg.org>
+> ---
 > 
-> - Arnaldo
+> 
+> 	Sam
+> 	
+>  drivers/Kconfig               |    5 
+>  drivers/net/Kconfig           |    5 
+>  drivers/net/appletalk/Kconfig |   28 ++
+>  net/8021q/Kconfig             |   21 +
+>  net/Kconfig                   |  541 +++---------------------------------------
+>  net/atm/Kconfig               |   77 +++++
+>  net/bridge/Kconfig            |   32 ++
+>  net/bridge/netfilter/Kconfig  |    1 
+>  net/core/Kconfig              |   67 +++++
+>  net/decnet/Kconfig            |   24 +
+>  net/econet/Kconfig            |   34 ++
+>  net/ipv4/netfilter/Kconfig    |    5 
+>  net/ipv6/Kconfig              |   20 +
+>  net/ipx/Kconfig               |   33 ++
+>  net/lapb/Kconfig              |   24 +
+>  net/packet/Kconfig            |   26 ++
+>  net/sched/Kconfig             |   40 +++
+>  net/sctp/Kconfig              |    5 
+>  net/unix/Kconfig              |   22 +
+>  net/wanrouter/Kconfig         |   31 ++
+>  net/x25/Kconfig               |   35 ++
+>  21 files changed, 567 insertions(+), 509 deletions(-)
+
+Thanks!
+
+-- 
+~Randy
