@@ -1,15 +1,15 @@
-From: "David S. Miller" <davem@redhat.com>
+From: Andi Kleen <ak@suse.de>
 Subject: Re: 100 network limit
-Date: Thu, 28 Aug 2003 16:41:43 -0700
+Date: Fri, 29 Aug 2003 02:03:41 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030828164143.536d8d8a.davem@redhat.com>
+Message-ID: <20030829020341.706356e7.ak@suse.de>
 References: <20030828180019.GH12541@krispykreme>
 	<20030828210855.58759b69.ak@suse.de>
 	<3F4E783F.6080707@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: ak@suse.de, anton@samba.org, netdev@oss.sgi.com
+Cc: anton@samba.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Ben Greear <greearb@candelatech.com>
 In-Reply-To: <3F4E783F.6080707@candelatech.com>
@@ -19,18 +19,13 @@ List-Id: netdev.vger.kernel.org
 On Thu, 28 Aug 2003 14:46:39 -0700
 Ben Greear <greearb@candelatech.com> wrote:
 
-> Since you can rename devices, that might not work.  A long time ago
-> I hashed the devices, both by name and by index...that gives good
-> lookup performance, at least.  As for create-time issues, that is
-> definately slow path, and even searching linearly 4 or 8k devices is
-> not a big deal (in my opinion).  So, why not make the hard-coded 100
-> limit be more like 8196 or something really large?  (It could still
-> be adjustable if needed.)
+> 
+> Since you can rename devices, that might not work. 
 
-Right, it's also not going to fix the locking problems.
+When someone renames eth1 to eth2 and the bitmap  doesn't have eth2 set and selects it 
+then you can just retry, searching for further free bits.
 
-I would suggest two things:
+When someone renames eth2 to eth1 the rename code should just clear the bit
+of eth2 before the rename.
 
-1) Ben's hashing patch for lookups.
-
-2) RCU'ing read access to the device list.
+-Andi
