@@ -1,39 +1,30 @@
-From: Martin Pool <mbp@samba.org>
-Subject: Re: FIN_WAIT1 / TCP_CORK / 2.2 -- reproducible bug and test case
-Date: Wed, 18 Sep 2002 12:09:29 +1000
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: Info: NAPI performance at "low" loads
+Date: Tue, 17 Sep 2002 19:06:41 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20020918020927.GB2285@samba.org>
-References: <20020918020346.GA2285@samba.org> <20020917.185801.76605813.davem@redhat.com>
+Message-ID: <20020917.190641.84134530.davem@redhat.com>
+References: <3D87A4A2.6050403@mandrakesoft.com>
+	<20020917.144911.43656989.davem@redhat.com>
+	<3D87E0C2.6040004@mandrakesoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ak@muc.de, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, Alan.Cox@linux.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@digeo.com, manfred@colorfullife.com, netdev@oss.sgi.com,
+   linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20020917.185801.76605813.davem@redhat.com>
+To: jgarzik@mandrakesoft.com
+In-Reply-To: <3D87E0C2.6040004@mandrakesoft.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 17 Sep 2002, "David S. Miller" <davem@redhat.com> wrote:
-> 
-> Which 2.2.x kernel exactly?  
+   From: Jeff Garzik <jgarzik@mandrakesoft.com>
+   Date: Tue, 17 Sep 2002 22:11:14 -0400
+   
+   You're looking at at least one extra get-irq-status too, at least in the 
+   classical 10/100 drivers I'm used to seeing...
+   
+How so?  The number of ones done in the e1000 NAPI code are the same
+(read register until no interesting status bits remain set, same as
+pre-NAPI e1000 driver).
 
-The person who originally reported the bug to me tried .16 and .18,
-and I just reproduced it on .21, which was the most recent when I
-started investigating.  
-
-I can try .22 or a .pre if you think it's already fixed somewhere.
-
-> You don't specify this.
-
-(Actually it was in the corked_demo.c comment header.)
-
-> If it's old, please try to reproduce with more recent 2.2.x
-> kernels, and even more importantly make sure 2.4.x does not
-> exhibit this behavior.
-
-I can't reproduce it on 2.4.18 or .19.  It looked to me like
-tcp_snd_test() and related stuff had been substantially rewritten.
-
--- 
-Martin 
+For tg3 it's a cheap memory read from the status block not a PIO.
