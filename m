@@ -1,49 +1,96 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [ANNOUNCE] iproute2 2.6.11-050330
-Date: Fri, 1 Apr 2005 12:07:27 -0800
-Message-ID: <20050401120727.62700e8c@dxpl.pdx.osdl.net>
+From: Stephen Smalley <sds@tycho.nsa.gov>
+Subject: [PATCH] Fix SELinux for removal of i_sock
+Date: Fri, 01 Apr 2005 15:06:37 -0500
+Message-ID: <1112385997.14481.192.camel@moss-spartans.epoch.ncsc.mil>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: lartc@mailman.ds9a.nl, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>, James Morris <jmorris@redhat.com>,
+        lkml <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com,
+        matthew@wil.cx
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-An updated version of the iproute2 utilities is available at:
-http://developer.osdl.org/dev/iproute2/download/iproute2-2.6.11-050330.tar.gz
+Hi,
 
-It supports the latest features from 2.6, but is backwards compatiable
-with 2.4.
+This patch against -bk eliminates the use of i_sock by SELinux as it
+appears to have been removed recently, breaking the build of SELinux in
+-bk.  Simply replacing the i_sock test with an S_ISSOCK test would be
+unsafe in the SELinux code, as the latter will also return true for the
+inodes of socket files in the filesystem, not just the actual socket
+objects IIUC.  Hence this patch reworks the SELinux code to avoid the
+need to apply such a test in the first place, part of which was
+obsoleted anyway by earlier changes to SELinux.  Please apply.
 
-This update includes several bugfixes and build clean from
-the previous version (2.6.11-050314):
+Signed-off-by:  Stephen Smalley <sds@tycho.nsa.gov>
+Signed-off-by:  James Morris <jmorris@redhat.com>
 
-[Jamal Hadi Salim]
-	* Proper verison of iptables headers (from 1.3.1)
-	* Set revision file in m_ipt
-	* Fix action_util naming in mirred
-	* don't call ll_init_map in mirred
+ security/selinux/hooks.c |   21 +++------------------
+ 1 files changed, 3 insertions(+), 18 deletions(-)
 
-[Thomas Graf]
+===== security/selinux/hooks.c 1.93 vs edited =====
+--- 1.93/security/selinux/hooks.c	2005-03-28 17:21:19 -05:00
++++ edited/security/selinux/hooks.c	2005-04-01 15:01:58 -05:00
+@@ -877,18 +877,8 @@ static int inode_doinit_with_dentry(stru
+ 	isec->initialized = 1;
+ 
+ out:
+-	if (inode->i_sock) {
+-		struct socket *sock = SOCKET_I(inode);
+-		if (sock->sk) {
+-			isec->sclass = socket_type_to_security_class(sock->sk->sk_family,
+-			                                             sock->sk->sk_type,
+-			                                             sock->sk->sk_protocol);
+-		} else {
+-			isec->sclass = SECCLASS_SOCKET;
+-		}
+-	} else {
++	if (isec->sclass == SECCLASS_FILE)
+ 		isec->sclass = inode_mode_to_security_class(inode->i_mode);
+-	}
+ 
+ 	if (hold_sem)
+ 		up(&isec->sem);
+@@ -2979,18 +2969,15 @@ out:
+ static void selinux_socket_post_create(struct socket *sock, int family,
+ 				       int type, int protocol, int kern)
+ {
+-	int err;
+ 	struct inode_security_struct *isec;
+ 	struct task_security_struct *tsec;
+ 
+-	err = inode_doinit(SOCK_INODE(sock));
+-	if (err < 0)
+-		return;
+ 	isec = SOCK_INODE(sock)->i_security;
+ 
+ 	tsec = current->security;
+ 	isec->sclass = socket_type_to_security_class(family, type, protocol);
+ 	isec->sid = kern ? SECINITSID_KERNEL : tsec->sid;
++	isec->initialized = 1;
+ 
+ 	return;
+ }
+@@ -3158,14 +3145,12 @@ static int selinux_socket_accept(struct 
+ 	if (err)
+ 		return err;
+ 
+-	err = inode_doinit(SOCK_INODE(newsock));
+-	if (err < 0)
+-		return err;
+ 	newisec = SOCK_INODE(newsock)->i_security;
+ 
+ 	isec = SOCK_INODE(sock)->i_security;
+ 	newisec->sclass = isec->sclass;
+ 	newisec->sid = isec->sid;
++	newisec->initialized = 1;
+ 
+ 	return 0;
+ }
 
-	* Warn about wildcard deletions and provide IFA_ADDRESS upon
-	  deletions to enforce prefix length validation for IPv4.
-	* Fix netlink message alignment when the last routing attribute added
-	  has a data length not aligned to RTA_ALIGNTO.
-	
-[Masahide NAKAMURA]
-	
-	* ipv6 xfrm allocspi and monitor support.
-	
-[Stephen Hemminger]
-	* include/linux/netfilter_ipv4/ip_tables.h dont include compiler.h
-	  because it isn't needed and not on all systems
-	* Update rtnetlink.h and pkt_cls.h to be stripped versions
-	  of headers from 2.6.12-rc1
-	* switch to stack for netem tables
-	* add -force option to batch mode
-	* handle midline comments in batch mode
-	* sum per cpu fields in lnstat correctly
+
+-- 
+Stephen Smalley <sds@tycho.nsa.gov>
+National Security Agency
