@@ -1,48 +1,32 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: "Badness" again
-Date: Fri, 14 Jan 2005 23:20:30 -0500
-Message-ID: <41E89A0E.5020207@pobox.com>
-References: <41E83B8D.8020003@pobox.com> <20050114215833.GA12981@gondor.apana.org.au> <41E844AC.6040200@pobox.com> <20050115002638.GA13849@gondor.apana.org.au>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [RFC] locking changes for lec.c
+Date: Fri, 14 Jan 2005 20:33:51 -0800
+Message-ID: <20050114203351.14effe19.davem@davemloft.net>
+References: <20050114135612.0edc180d.davem@davemloft.net>
+	<200501150232.j0F2Wovr010942@ginger.cmf.nrl.navy.mil>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: YOSHIFUJI Hideaki / ???????????? <yoshfuji@linux-ipv6.org>,
-        "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Cc: chas@cmf.nrl.navy.mil, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050115002638.GA13849@gondor.apana.org.au>
+To: chas3@users.sourceforge.net
+In-Reply-To: <200501150232.j0F2Wovr010942@ginger.cmf.nrl.navy.mil>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> On Fri, Jan 14, 2005 at 05:16:12PM -0500, Jeff Garzik wrote:
-> 
->>Blah.  Any other suggestions for debugging this thing?
-> 
-> 
-> Yes I have a better theory now :)
-> 
-> All your "badness" messages start with a call to udpv6_sendmsg().
-> That function calls ip6_dst_lookup() to get its dst entry.  Note
-> that udpv6_sendmsg() does not hold a lock on the sk at all.  However,
-> ip6_dst_lookup() uses __sk_dst_check() which is only safe if you can
-> either guarantee single-threadedness or if you hold sk_dst_lock.
-> 
-> Neither is true here and therefore we may have a situation where
-> the cached dst is released twice.  In fact I tracked down the
-> address closest to the "badness" messages and it belongs to
-> one of your domain's name servers.  That means the requests were
-> probably made by named, which is multi-threaded.
-> 
-> So please give this patch a spin and see if it makes things any
-> better.  I've verified that no callers to ip6_dst_lookup() holds
-> sk_dst_lock so it's safe (but possibly redundant in cases where
-> they hold locks on the sk itself) to use sk_dst_check().
+On Fri, 14 Jan 2005 21:32:51 -0500
+"chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil> wrote:
 
-Running with this patch now, we'll see how it goes.  Thanks.
+> In message <20050114135612.0edc180d.davem@davemloft.net>,"David S. Miller" writes:
+> >Can HW interrupt paths ever call into this ARP stuff?
+> >If not, probably should just use BH disabled locking
+> >instead of the heavy handed IRQ disabling locks.
+> 
+> yes, lec_push() could be run in hw interrupt context from one of of the
+> atm drivers recv path.  in fact, this is the path where i "noticed" the
+> race condition.
 
-FWIW I also see ICMP code paths in the tracebacks (but that may be 
-"second message" noise).
-
-	Jeff
+Ok.  As a future thought, if you make the ATM driver receive path
+NAPI in style or run always from softint processing, you can
+undo all the IRQ based locking.
