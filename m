@@ -1,61 +1,48 @@
-From: Peter Bieringer <pb@bieringer.de>
-Subject: Re: (usagi-users 03187) Re: netfilter6: ICMPv6 type 143 doesn't
- match
-Date: Sun, 09 Jan 2005 18:41:38 +0100
-Message-ID: <097631C1DDA76BD36ECBEFFD@gate.muc.bieringer.de>
-References: <6050E336B1A0D7D8E70C66F3@t1mobil.muc.aerasec.de>
- 	<200412270417.iBR4HZRG021429@toshiba.co.jp>
- <20041227.100205.102356251.yoshfuji@linux-ipv6.org>
- <EA4274721EC980393BB13B5E@worker.muc.bieringer.de>
+From: Paul Gortmaker <penguin@muskoka.com>
+Subject: [PATCH 2.6.10]  smc-ultra.c verbose driver
+Date: Sun, 09 Jan 2005 20:39:00 -0500
+Message-ID: <41E1DCB4.1090902@muskoka.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: yasuyuki.kozakai@toshiba.co.jp, netdev@oss.sgi.com, laforge@gnumonks.org,
-        kaber@trash.net, netfilter-devel@lists.netfilter.org
+Content-Type: multipart/mixed;
+ boundary="------------090906020400050704050108"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: usagi-users@linux-ipv6.org
-In-Reply-To: <EA4274721EC980393BB13B5E@worker.muc.bieringer.de>
-Content-Disposition: inline
+To: Jeff Garzik <jgarzik@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+This is a multi-part message in MIME format.
+--------------090906020400050704050108
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+
+In keeping with the idea of a quiet boot time with less dmesg clutter,
+the smc-ultra driver should not be printing about the absence of PnP
+cards every time it goes probing -- e.g. if you have a non-PnP card
+installed, you get the message twice...
+
+Signed-off-by: Paul Gortmaker <p_gortmaker@yahoo.com>
 
 
---On Saturday, January 08, 2005 12:45:14 PM +0100 Peter Bieringer
-<pb@bieringer.de> wrote:
 
-> 12:40:48.484375 fe80::****:**** > ff02::1: HBH (rtalert: 0x0000)
-> (padn)[icmp6 sum ok] icmp6: multicast listener query max resp delay: 2000
-> addr: :: [hlim 1] (len 36)
->         0x0000:  6000 0000 0024 0001 fe80 0000 0000 0000  `....$..........
->         0x0010:  0000 0000 **** **** ff02 0000 0000 0000  ................
->         0x0020:  0000 0000 0000 0001 3a00 0502 0000 0100  ........:.......
->         0x0030:  8200 a03a 07d0 0000 0000 0000 0000 0000  ...:............
->         0x0040:  0000 0000 0000 0000 027d 0000            .........}..
+--------------090906020400050704050108
+Content-Type: text/plain;
+ name="2.6.10-smc-ultra_diff0"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="2.6.10-smc-ultra_diff0"
 
-> 12:42:42.046741 fe80::200:**ff:fe**:**** > ff02::16: HBH (rtalert: 0x0000)
-> (padn)[icmp6 sum ok] icmp6: type-#143 [hlim 1] (len 56)
->         0x0000:  6000 0000 0038 0001 fe80 0000 0000 0000  `....8..........
->         0x0010:  0200 **ff fe** **** ff02 0000 0000 0000  .....*..........
->         0x0020:  0000 0000 0000 0016 3a00 0502 0000 0100  ........:.......
->         0x0030:  8f00 a1d9 0000 0002 0300 0000 ff02 0000  ................
->         0x0040:  0000 0000 0000 0000 0001 0002 0300 0000  ................
->         0x0050:  ff05 0000 0000 0000 0000 0000 0001 0003  ................
+--- linux-200/drivers/net/smc-ultra.c~	Sat Aug 14 01:38:37 2004
++++ linux-200/drivers/net/smc-ultra.c	Sun Jan  9 20:33:06 2005
+@@ -156,8 +156,6 @@
+ 	/* Look for any installed ISAPnP cards */
+ 	if (isapnp_present() && (ultra_probe_isapnp(dev) == 0))
+ 		return 0;
+-
+-	printk(KERN_NOTICE "smc-ultra.c: No ISAPnP cards found, trying standard ones...\n");
+ #endif
+ 
+ 	for (i = 0; ultra_portlist[i]; i++) {
 
-> I would be glad, if someone can more dig into and provide me patches for
-> kernel and probably also for tcpdump.
-
-I mentioned "tcpdump" here also because I played with tcpdump filters
-around and found that while tcpdump displays "icmp6" packet, the filter
-"icmp6" won't work at all, only the "ip6" filter matches.
-
-Understandable, because the next protocol is "00" (hop-by-hop), but I don't
-know whether this is well enough. My opinion is that tcpdump should be
-improved to be more smarter (if possible).
-
-        Peter
--- 
-Dr. Peter Bieringer                     http://www.bieringer.de/pb/
-GPG/PGP Key 0x958F422D               mailto: pb at bieringer dot de 
-Deep Space 6 Co-Founder and Core Member  http://www.deepspace6.net/
+--------------090906020400050704050108--
