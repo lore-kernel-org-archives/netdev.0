@@ -1,50 +1,41 @@
-From: "Gary N Spiess" <Gary.Spiess@Intermec.com>
+From: Mark Smith <random@72616e646f6d20323030342d30342d31360a.nosense.org>
 Subject: Re: [PATCH] natsemi update 1/4 Use assigned MAC address
-Date: Mon, 07 Jun 2004 16:12:49 -0500
+Date: Tue, 8 Jun 2004 07:12:52 +0930
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200406071612490431.1B7F4FE7@136.179.85.112>
-References: <200406041451590078.0BC23855@136.179.85.112>
- <40C31C71.6000101@colorfullife.com>
- <200406071258550931.1ACDCC8B@136.179.85.112>
- <20040607111638.663de0a6@dell_ss3.pdx.osdl.net>
+Message-ID: <20040608071252.77f9d69e.random@72616e646f6d20323030342d30342d31360a.nosense.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8bit
-Cc: manfred@colorfullife.com, netdev@oss.sgi.com, jgarzik@pobox.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <20040607111638.663de0a6@dell_ss3.pdx.osdl.net>
-To: shemminger@osdl.org
+To: manfred@colorfullife.com, Gary.Spiess@Intermec.com, shemminger@osdl.org
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Stephen,
+Hi Manfred, Gary, Stephen,
 
-Scrap patch 1 of 4, we don't need or want it.  (I'm feeling so sheepish.)
+"But: I'm not sure that the change is required. What about just
+setting the mac to 0, and the actual mac address is set from user
+space? It's possible to set the mac address with"
 
-Thanks, Gary
+Could I suggest if this is the solution implemented, setting the
+first octet of the MAC address to 0x02, as in a Locally Assigned
+MAC address ?
 
-*********** REPLY SEPARATOR  ***********
+If an interface with an all zero's MAC address is added to a
+bridge, running the Spanning Tree Protocol (STP), it will always
+attempt to take over as the root bridge, unless STP root bridge
+priorities are being used. This would disrupt traffic on the
+attached LAN.
 
-On 6/7/2004 at 11:16 AM Stephen Hemminger wrote:
+Ideally, assigning "zero" a MAC address which has almost no
+chance of disrupting STP or any other protocol could be useful.
+Maybe fe:ff:ff:ff:ff:ff ?
 
->On Mon, 07 Jun 2004 12:58:55 -0500
->"Gary N Spiess" <Gary.Spiess@Intermec.com> wrote:
->
->> Jeff,
->> 
->> I agree with all comments.  Regarding the total elimination of this
->patch ...
->> 
->> Only our bootrom knows the MAC address that should be used, and it
->appends it to the bootargs.  If there is a way for the userspace to take a
->peek at the bootargs (or a similar mechanism), we can use the ifconfig
->method to assign the MAC address instead of changing the driver.  I'd
->prefer it.
->
->/proc/cmdline??
+I think this would fit in with the "be conservative in what you
+send, liberal in what you receive" philosophy.
 
+Regards,
+Mark.
 
- oooooooooooooooooooooooooooooooooooooooooooooooooo
- Gary Spiess (Gary.Spiess@Intermec.com)
- MobileLan Wireless Products Group, Intermec Technology Corp
- voice: 319 369-3580  fax: 319 369-3804
+ps, please CC on any replies, I'm not subscribed to the list yet.
