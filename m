@@ -1,40 +1,73 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Bug in ipv6_ifa_notify?
-Date: Mon, 8 Nov 2004 18:34:42 +1100
-Message-ID: <20041108073441.GA2200@gondor.apana.org.au>
-References: <20041108061529.GA1774@gondor.apana.org.au>
+From: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
+Subject: Re: [PATCH] Use nfmark as a key for u32 classifier
+Date: Mon, 8 Nov 2004 12:06:50 +0200 (EET)
+Message-ID: <Pine.LNX.4.61.0411081204290.9229@webhosting.rdsbv.ro>
+References: <Pine.LNX.4.61.0411051317330.23651@webhosting.rdsbv.ro>
+ <1099669841.1026.18.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        Arnaldo Carvalho de Melo <acme@conectiva.com.br>,
-        YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, netdev@oss.sgi.com
-Content-Disposition: inline
-In-Reply-To: <20041108061529.GA1774@gondor.apana.org.au>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: linux-net@vger.kernel.org, lartc@mailman.ds9a.nl,
+	netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: jamal <hadi@cyberus.ca>
+In-Reply-To: <1099669841.1026.18.camel@jzny.localdomain>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 08, 2004 at 05:15:29PM +1100, herbert wrote:
-> 
-> Now the question is is it possible to get dupliate RTM_NEWADDR
-> notifications?
+> I think this is an ok midterm solution and should be applied.
+Thanks.
 
-Actually, it's easier than that.
+> One comment Catalin: Can you resend the patch  make this a selectable
+> choice via kconfig?
+Yes, of course.
+Also, as a bonus, I will add a mask. Something like this:
+tc filter add dev eth0 protocol ip parent 1:0 prio 5 u32 \
+ 	match mark 0x0090 0xffff \
+                           ^^^^^^
+ 	flowid 1:90
 
-RTM_DELADDR will call ip6_del_rt which will free the rt using
-dst_free.  Since it is still referenced it gets put on the gc
-list.  The next RTM_NEWADDR will put it back in the table.
->From this point onwards anything that gets linked after it will
-be on the gc list!
+It's ok?
 
-Jeff/Arnaldo, could you please try shutting down an interface with
-IPv6 addresses and bringing it back up a few times? This might be
-the trigger we are looking for.
+> Eventually  - we should kill this + the indev choices on u32 and move it
+> up one so that we can have all filters capable of following filters from
+> other classifiers. As a matter of fact we already have this feature but
+> it is a little on the inefficient side at the moment.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+It will be very good. It will add the missing flexibility.
+I'll try to cook up something.
+
+>
+> cheers,
+> jamal
+>
+> On Fri, 2004-11-05 at 06:38, Catalin(ux aka Dino) BOIE wrote:
+>> Hello!
+>>
+>> I am glad to announce a patch for u32 to allow matches on nfmark.
+>> The patch is non intrusive (few lines).
+>>
+>> Why I did this? Because fw classifier cannot be used together with u32.
+>> For example, now, you cannot match a mark of 0x90 and a destination
+>> port of 80. I know you can do it with iptables to do the marking, but if
+>> you use Jamal actions to apply mark to policed packets, you need this.
+>>
+>> All stuff can be found at http://kernel.umbrella.ro/ also.
+>>
+>> Dave, please consider adding this patch.
+>>
+>> Stephen, if Dave accepts the patch, please apply the iproute2 patch. Thank
+>> you.
+>>
+>> Signed-off-by: Catalin(ux aka Dino) BOIE <catab at umbrella.ro>
+>>
+>> Thank you for you time.
+>> ---
+>> Catalin(ux aka Dino) BOIE
+>> catab at deuroconsult.ro
+>> http://kernel.umbrella.ro/
+>
+
+---
+Catalin(ux aka Dino) BOIE
+catab at deuroconsult.ro
+http://kernel.umbrella.ro/
