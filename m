@@ -1,58 +1,47 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Asynchronous crypto layer.
-Date: Sat, 30 Oct 2004 12:34:49 +0400
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041030123449.5568d03f@zanzibar.2ka.mipt.ru>
-References: <1099030958.4944.148.camel@uganda>
-	<Xine.LNX.4.44.0410291342350.22168-100000@thoron.boston.redhat.com>
-	<20041030091932.6a74bdae@zanzibar.2ka.mipt.ru>
-Reply-To: johnpol@2ka.mipt.ru
+From: Pekka Enberg <penberg@cs.helsinki.fi>
+Subject: Re: net: generic netdev_ioaddr
+Date: Sat, 30 Oct 2004 12:52:26 +0300
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <1099129946.10961.9.camel@localhost>
+References: <1099044244.9566.0.camel@localhost>
+	 <20041029131607.GU24336@parcelfarce.linux.theplanet.co.uk>
+	 <courier.418290EC.00002E85@courier.cs.helsinki.fi>
+	 <m3y8hpbaf9.fsf@defiant.pm.waw.pl>
+	 <20041029193827.GV24336@parcelfarce.linux.theplanet.co.uk>
+	 <m3u0sdb53f.fsf@defiant.pm.waw.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: James Morris <jmorris@redhat.com>, netdev@oss.sgi.com,
-        cryptoapi@lists.logix.cz
-Return-path: <netdev-bounce@oss.sgi.com>
-To: johnpol@2ka.mipt.ru
-In-Reply-To: <20041030091932.6a74bdae@zanzibar.2ka.mipt.ru>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: Al Viro <viro@parcelfarce.linux.theplanet.co.uk>,
+	davem@davemloft.net, netdev@oss.sgi.com,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S263662AbUJ3JvK@vger.kernel.org>
+To: Krzysztof Halasa <khc@pm.waw.pl>
+In-Reply-To: <m3u0sdb53f.fsf@defiant.pm.waw.pl>
 List-Id: netdev.vger.kernel.org
 
-On Sat, 30 Oct 2004 09:19:32 +0400
-Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+Hi,
 
-> On Fri, 29 Oct 2004 13:44:24 -0400 (EDT)
-> James Morris <jmorris@redhat.com> wrote:
+Al Viro <viro@parcelfarce.linux.theplanet.co.uk> writes:
+> > What uses ->base_addr from the data returned by SIOCGIFMAP?
+
+On Fri, 2004-10-29 at 23:13 +0200, Krzysztof Halasa wrote:
 > 
-> > On Fri, 29 Oct 2004, Evgeniy Polyakov wrote:
-> > 
-> > > I'm pleased to announce asynchronous crypto layer for Linux kernel 2.6.
-> > 
-> > Could you please resend as a patch against the latest bk snapshot?
-> > 
-> > i.e. output of 'diff -purN tree-a tree-b'
-> > 
+> ifconfig I think:
+
+[snip] 
+
+> With this driver it happens to be MMIO address.
 > 
-> Attached following patches:
-> 
-> Kconfig.connector.patch
-> Kconfig.crypto.patch
-> Makefile.connector.patch
-> Makefile.crypto.patch
-> acrypto.patch
-> connector.patch
-> 
-> Any other files are examples and do not included here.
+> I understand presenting this value to users might have some value:
+> it can help determine the physical port/card for a given netdev.
+> But it should be something like a description text set by the driver
+> (ie. containing PCI bus/device, or even ISA address for ISA non-PnP
+> card, possibly with other information).
 
-Forget Kconfig for acrypto.
+It seems that the user can also setup dev->base_addr with "netdev="
+kernel parameter before a driver starts probing (for example
+drivers/net/appletalk/cops.c). Should we get rid of "netdev=" too and
+push preconfiguring down to the drivers that actually use it?
 
-> > 
-> > - James
-> > -- 
-> > James Morris
-> > <jmorris@redhat.com>
-
-
-	Evgeniy Polyakov
-
-Only failure makes us experts. -- Theo de Raadt
+		Pekka
