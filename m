@@ -1,74 +1,82 @@
-From: Andersson =?iso-8859-1?Q?Bj=F6rn?= <Bjorn.Andersson@ebc.ericsson.se>
-Subject: VLAN patches
-Date: Mon, 30 Sep 2002 10:23:44 +0200
+From: Eric Lemoine <Eric.Lemoine@sun.com>
+Subject: Re: udp weirdness
+Date: Mon, 30 Sep 2002 10:49:03 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3D980A10.8B06F2C2@ebc.ericsson.se>
+Message-ID: <20020930084903.GA359@hookipa>
+References: <20020927150412.GI30392@mea-ext.zmailer.org> <Pine.GSO.4.30.0209291044490.8253-200000@shell.cyberus.ca>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------71FD21E476E442E5A0CDA059"
+Content-Type: text/plain; charset=us-ascii
+Cc: shell.cyberus.ca@shell.cyberus.ca, Eric Lemoine <Eric.Lemoine@ens-lyon.fr>,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <Pine.GSO.4.30.0209291044490.8253-200000@shell.cyberus.ca>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------71FD21E476E442E5A0CDA059
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-X-MIME-Autoconverted: from 8bit to quoted-printable by albatross.wise.edt.ericsson.se id g8U8NjKV001031
+> Ok, understood. Actually we already seem to have enobufs being returned.
+> 
+> Eric,
+> Does the attached patch fix it? Not tested or even compiled.
+> Someone going to change the manpages?
 
-Hi,
-I hope you are the right receiver of 8021q-patches.
-We are running SuSe 8.0, i.e kernel 2.4.18.
+protinfo.af_inet.recverr is a flag (1-bit variable) to enable the
+"extended reliable error message passing"; I dont see any reason 
+for modifying it here. Setting this flag is the user's responsability, 
+isn't it?
 
-- When addding several egress-mappings we get stuck in an eternal
-loop if they end up in the same hash-bucket, see vlan_dev.c.path.
+My patch would look like this:
 
-- If we try to remove a vlan with VID 0, ifconfig stops working
-completly.
-We fixed it with vlan.c.patch.
+--- ip_output.c.old     Mon Sep 30 10:34:07 2002
++++ ip_output.c Mon Sep 30 10:40:08 2002
+@@ -604,7 +604,7 @@
+                              skb->dst->dev, output_maybe_reroute);
+                if (err) {
+                        if (err > 0)
+-                               err = sk->protinfo.af_inet.recverr ? net_xmit_errno(err) : 0;
++                               err = (err == NET_XMIT_DROP || sk->protinfo.af_inet.recverr ) ? net_xmit_errno(err) : 0;
+                        if (err)
+                                goto error;
+                }
+@@ -714,7 +714,7 @@
+        err = NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL,
+rt->u.dst.dev,
+                      output_maybe_reroute);
+        if (err > 0)
+-               err = sk->protinfo.af_inet.recverr ? net_xmit_errno(err) : 0;
++               err = (err == NET_XMIT_DROP || sk->protinfo.af_inet.recverr ) ? net_xmit_errno(err) : 0;
+        if (err)
+                goto error;
+ out:
 
-
---=20
-* Bj=F6rn Andersson                   bjorn.andersson@ebc.ericsson.se *
-* Ericsson Enterprise AB            NA/EBC/BEES/DNCC                *
-* Nacka Strand                      tel: +46-8-422 3512             *
-* 13 189 Stockholm, Sweden          fax: +46-8-422 1010             *
---------------71FD21E476E442E5A0CDA059
-Content-Type: text/plain; charset=us-ascii;
- name="vlan.c.patch"
-Content-Disposition: inline;
- filename="vlan.c.patch"
-Content-Transfer-Encoding: 7bit
-
---- linux-2.4.18.SuSE/net/8021q/vlan.c.orig	Wed Mar 27 13:57:17 2002
-+++ linux-2.4.18.SuSE/net/8021q/vlan.c	Wed Sep 18 13:19:13 2002
-@@ -207,7 +207,7 @@
- #endif
- 
- 	/* sanity check */
--	if ((vlan_id >= VLAN_VID_MASK) || (vlan_id <= 0))
-+	if ((vlan_id >= VLAN_VID_MASK) || (vlan_id < 0))
- 		return -EINVAL;
- 
- 	spin_lock_bh(&vlan_group_lock);
-
---------------71FD21E476E442E5A0CDA059
-Content-Type: text/plain; charset=us-ascii;
- name="vlan_dev.c.patch"
-Content-Disposition: inline;
- filename="vlan_dev.c.patch"
-Content-Transfer-Encoding: 7bit
-
---- linux-2.4.18.SuSE/net/8021q/vlan_dev.c.orig	Wed Mar 27 13:57:17 2002
-+++ linux-2.4.18.SuSE/net/8021q/vlan_dev.c	Wed Sep 18 13:19:52 2002
-@@ -570,6 +570,7 @@
- 					dev_put(dev);
- 					return 0;
- 				}
-+				mp = mp->next;
- 			}
- 
- 			/* Create a new mapping then. */
-
---------------71FD21E476E442E5A0CDA059--
+> --- linux/net/ipv4/ip_output.c	2002/09/29 10:43:10	1.1
+> +++ linux/net/ipv4/ip_output.c	2002/09/29 10:43:10
+> @@ -603,8 +603,11 @@
+>  		err = NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL, 
+>  			      skb->dst->dev, output_maybe_reroute);
+>  		if (err) {
+> -			if (err > 0)
+> -				err = sk->protinfo.af_inet.recverr ? net_xmit_errno(err) : 0;
+> +			if (err > 0) {
+> +				err = net_xmit_errno(err);
+> +				if (err && sk->protinfo.af_inet.recverr)
+> +				       sk->protinfo.af_inet.recverr = err;
+> +			}
+>  			if (err)
+>  				goto error;
+>  		}
+> @@ -713,8 +716,11 @@
+>  
+>  	err = NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL, rt->u.dst.dev,
+>  		      output_maybe_reroute);
+> -	if (err > 0)
+> -		err = sk->protinfo.af_inet.recverr ? net_xmit_errno(err) : 0;
+> +	if (err > 0) {
+> +		err = net_xmit_errno(err);
+> +		if (err && sk->protinfo.af_inet.recverr)
+> +		       	 sk->protinfo.af_inet.recverr = err;
+> +	}
+>  	if (err)
+>  		goto error;
+>  out:
