@@ -1,42 +1,44 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: IPv6 dead in -bk11
-Date: Tue, 02 Nov 2004 23:01:56 +0900 (JST)
-Message-ID: <20041102.230156.71928163.yoshfuji@linux-ipv6.org>
-References: <418781EF.7020100@pobox.com>
-	<20041102.225343.06193184.yoshfuji@linux-ipv6.org>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [NET] Fix neighbour tbl->entries race
+Date: 02 Nov 2004 09:13:43 -0500
+Message-ID: <1099404823.1021.15.camel@jzny.localdomain>
+References: <20041102112651.GA8633@gondor.apana.org.au>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, akpm@osdl.org,
-        davem@davemloft.net, yoshfuji@linux-ipv6.org
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jgarzik@pobox.com
-In-Reply-To: <20041102.225343.06193184.yoshfuji@linux-ipv6.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20041102112651.GA8633@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20041102.225343.06193184.yoshfuji@linux-ipv6.org> (at Tue, 02 Nov 2004 22:53:43 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
-
-> In article <418781EF.7020100@pobox.com> (at Tue, 02 Nov 2004 07:47:43 -0500), Jeff Garzik <jgarzik@pobox.com> says:
+On Tue, 2004-11-02 at 06:26, Herbert Xu wrote:
+> Hi Dave:
 > 
-> > 
-> > IPv6 works 100% for my workstations in 2.6.10-rc2-bk2, but fails in 
-> > 2.6.10-rc2-bk11:
-> > 
-> > 	[jgarzik@sata g]$ ping6 www.kame.net
-> > 	connect: Network is unreachable
+> This patch turns neigh_table's entries counter into an atomic_t.  This
+> is needed since tbl->entries is updated with no locks held.  This is
+> no big deal in practice since it'll be off by a few entries at most
+> which is way less than any of the neighbour thresholds.
 > 
-> Please send me:
->  % ifconfig -a
->  % netstat -nr --inet6
->  % ip -6 addr
->  % ip -6 route
->  % ip -6 neigh
 
-and,
- % grep 6_ /proc/slabinfo
+Is this still the same logic:
 
-Thanks.
+-------------
+-               if (!neigh_forced_gc(tbl) &&
+-                   tbl->entries > tbl->gc_thresh3)
+-                       goto out;
++               neigh_forced_gc(tbl);
++               if (atomic_read(&tbl->entries) > tbl->gc_thresh3)
++                       goto out_entries;
 
---yoshfuji
+-------
+
+In previous code it seems you should short-circuit if
+neigh_forced_gc(tbl) returns non-zero. why do you have to break that
+if statement?
+
+cheers,
+jamal
