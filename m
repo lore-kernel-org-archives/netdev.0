@@ -1,38 +1,45 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [leo@yuriev.ru: [PATCH] ethernet-bridge: update skb->priority
- in case forwarded frame has VLAN-header]
-Date: Mon, 7 Mar 2005 10:50:36 -0800
-Message-ID: <20050307105036.4a7e4fea@dxpl.pdx.osdl.net>
-References: <20050305141225.GA5180@xi.wantstofly.org>
-	<20050307100744.429e100a@dxpl.pdx.osdl.net>
-	<422C9A92.6040902@trash.net>
+Subject: Re: r8169: panic on 2.6.11
+Date: Mon, 7 Mar 2005 10:59:36 -0800
+Message-ID: <20050307105936.12bca470@dxpl.pdx.osdl.net>
+References: <20050304132804.270cf05b@dxpl.pdx.osdl.net>
+	<20050304145317.772859da@dxpl.pdx.osdl.net>
+	<20050304230214.GC1148@electric-eye.fr.zoreil.com>
+	<200503041728.54026.jdmason@us.ibm.com>
+	<20050304154903.7b7e0fb1@dxpl.pdx.osdl.net>
+	<20050305003735.GE1148@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Ben Greear <greearb@candelatech.com>, netdev@oss.sgi.com
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <422C9A92.6040902@trash.net>
+Cc: Jon Mason <jdmason@us.ibm.com>, netdev@oss.sgi.com
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20050305003735.GE1148@electric-eye.fr.zoreil.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 07 Mar 2005 19:16:50 +0100
-Patrick McHardy <kaber@trash.net> wrote:
+On Sat, 5 Mar 2005 01:37:35 +0100
+Francois Romieu <romieu@fr.zoreil.com> wrote:
 
-> Stephen Hemminger wrote:
-> >>
-> >>This small patch does this. Currently vlan_TCI-priority directly
-> >>mapped to skb->priority, but this looks enough.
-> > 
-> > I don't see why the VLAN code doesn't handle this itself. I don't like special
-> > case layer violations because it becomes a slippery slope with more and
-> > more additions.
+> Stephen Hemminger <shemminger@osdl.org> :
+> [...]
+> > Added this and took out "too much work at interrupt message"
 > 
-> The patch is meant for bridges briging vlan frames without doing
-> vlan themselves. I agree with you, from the bridge point of view
-> a vlan header is just as outside of its scope as an IP header,
-> that's why I proposed to put it in an ebtables target and make
-> it useable for vlan and IP.
+> Ok (leaks but see below).
+> 
+> > And got this (before it died):
+> > 
+> > eth0: status=803ff0 opts=803ff0 opts2=0 addr=0:106ad012
+>                            ^^^^^^
+> 3ff0 would be a ~16k packet. The high weight byte is
+> missing: the descriptor would be strictly somewhere between
+> the first descriptor and the last descriptor for the packet.
+> 
+> opts=80xxxx -> FIFO overflow (*bulb flashes*)
+> 
+> The code does not look pretty there.
 
-That's much better. 
-Leave the protocol violations to netfilter modules where they belong ;-)
+
+Doesn't come up because it gets that bit set in the normal case.
+
+eth0: Rx ERROR status=328440ff!!!
