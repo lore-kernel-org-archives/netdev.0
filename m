@@ -1,43 +1,48 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH]: altq HFSC port
-Date: Mon, 26 Jan 2004 19:40:26 +0100
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <40155F1A.7070507@trash.net>
-References: <Pine.GSO.4.42.0401261228290.22399-200000@stinky.trash.net> <1075128375.1746.392.camel@jzny.localdomain>
+From: "David S. Miller" <davem@redhat.com>
+Subject: FIX (was Re: Demonstration code on how to trigger tcp6_sock leak)
+Date: Mon, 26 Jan 2004 12:30:42 -0800 (PST)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040126.123042.104046496.davem@redhat.com>
+References: <20040124131307.GB2666@bender.home.hensema.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org,
-	"David S. Miller" <davem@redhat.com>
-Return-path: <linux-net-owner@vger.kernel.org>
-To: hadi@cyberus.ca
-In-Reply-To: <1075128375.1746.392.camel@jzny.localdomain>
+Cc: netdev@oss.sgi.com, acme@conectiva.com.br, yoshfuji@linux-ipv6.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: erik@hensema.net
+In-Reply-To: <20040124131307.GB2666@bender.home.hensema.net>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> This is probably the most contentious issue (given say current SCO
-> stoopidty).
-> Have you talked to the original author on this? I think granting you
-> written consent to move to GPL may be sufficient.
 
-I talked to the original authors and they removed the advertising
-clause
-(http://orange.kame.net/dev/cvsweb.cgi/kame/kame/sys/altq/altq_hfsc.c),
-but they didn't want to release the code under the GPL. Various posts on
-linux-kernel indicate that combining GPL code with BSD code without
-advertising clause makes the end-product automatically be subject to the
-GPL, even without consent of the authors. I basically meant to ask if
-this is true.
+Ok, I've figured out the bug.  Arnaldo only fixed one of the
+two incorrect calls to sk_add_node() which should both be
+__sk_add_node().
 
-> 
-> cheers,
-> jamal
-> 
-> PS:- i will look at the code and give you some feedback.
-> 
+Erik give this a spin.
 
-I'm looking forward to it.
-
-Best regards,
-Patrick
-
+# This is a BitKeeper generated patch for the following project:
+# Project Name: Linux kernel tree
+# This patch format is intended for GNU patch command version 2.5 or higher.
+# This patch includes the following deltas:
+#	           ChangeSet	1.1520  -> 1.1521 
+#	 net/ipv6/tcp_ipv6.c	1.76    -> 1.77   
+#
+# The following is the BitKeeper ChangeSet Log
+# --------------------------------------------
+# 04/01/26	davem@nuts.ninka.net	1.1521
+# [IPV6]: Fix TCP socket leak, do not grab socket reference when adding to main hashes.
+# --------------------------------------------
+#
+diff -Nru a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+--- a/net/ipv6/tcp_ipv6.c	Mon Jan 26 12:34:20 2004
++++ b/net/ipv6/tcp_ipv6.c	Mon Jan 26 12:34:20 2004
+@@ -485,7 +485,7 @@
+ 
+ unique:
+ 	BUG_TRAP(sk_unhashed(sk));
+-	sk_add_node(sk, &head->chain);
++	__sk_add_node(sk, &head->chain);
+ 	sk->sk_hashent = hash;
+ 	sock_prot_inc_use(sk->sk_prot);
+ 	write_unlock_bh(&head->lock);
