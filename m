@@ -1,31 +1,36 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH]snmp6 64-bit counter support in proc.c
-Date: Fri, 5 Dec 2003 12:31:33 -0800
+Subject: Re: [ROUTE] PMTU only works on half the time
+Date: Fri, 5 Dec 2003 12:43:09 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031205123133.3743fe39.davem@redhat.com>
-References: <200312021240.PAA01536@yakov.inr.ac.ru>
-	<200312051214.48076.mashirle@us.ibm.com>
+Message-ID: <20031205124309.1490a2f4.davem@redhat.com>
+References: <20031202163902.2deb43a7.davem@redhat.com>
+	<Pine.LNX.4.44.0312032345190.1168-100000@u.domain.uli>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, xma@us.ibm.com
+Cc: herbert@gondor.apana.org.au, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Shirley Ma <mashirle@us.ibm.com>
-In-Reply-To: <200312051214.48076.mashirle@us.ibm.com>
+To: Julian Anastasov <ja@ssi.bg>
+In-Reply-To: <Pine.LNX.4.44.0312032345190.1168-100000@u.domain.uli>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 5 Dec 2003 12:14:47 -0800
-Shirley Ma <mashirle@us.ibm.com> wrote:
+On Thu, 4 Dec 2003 00:03:20 +0200 (EET)
+Julian Anastasov <ja@ssi.bg> wrote:
 
-> I add this because there are some 64-bit counters in the new IPv6 MIBs. 
-> This patch has been tested agaist linux-2.6.0-test9, and cleanly applied to 
-> linux-2.6.0-test11.
+> - ip_rt_redirect now supports RTO_ONLINK
+> 
+> - ip_rt_frag_needed now supports RTO_ONLINK and all oif!=0
 
-"sizeof(unsigned long)" evaluates to 8 on 64-bit systems,
-yet you assume it always evaluated to 4 as on 32-bit systems.
+Let's discuss what RTO_ONLINK means :)
 
-Maybe it would be wiser to explicitly use 'u32' and 'u64' for
-the types of the snmp counters?
+It means, "Do not route this packet".  It goes to the local subnet
+and that's the end of the story.  Therefore there are no PMTU nor
+redirects to handle when this TOS bit is set.
 
-This has always been a sore area.
+RTO_ONLINK is set by these two cases:
+
+1) ARP 
+2) RAW/UDP sockets when MSG_DONTROUTE is specified by the user.
+
+So this patch still needs some work.
