@@ -1,40 +1,59 @@
-From: Werner Almesberger <wa@almesberger.net>
-Subject: TCP connection passing, version 1
-Date: Thu, 31 Oct 2002 04:59:09 -0300
+From: Peter Bieringer <pb@bieringer.de>
+Subject: Re: [PATCH] IPv6: Privacy Extensions for Stateless Address
+ Autoconfiguration in IPv6
+Date: Thu, 31 Oct 2002 08:50:43 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021031045909.A15756@almesberger.net>
-References: <20021031000249.A20233@almesberger.net>
+Message-ID: <13640000.1036050643@localhost>
+References: <20021031.124459.66300488.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="==========1729506916=========="
+Cc: usagi@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
-In-Reply-To: <20021031000249.A20233@almesberger.net>; from wa@almesberger.net on Thu, Oct 31, 2002 at 12:02:49AM -0300
+To: "YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=" <yoshfuji@linux-ipv6.org>,
+   netdev@oss.sgi.com
+In-Reply-To: <20021031.124459.66300488.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-A little update:
+--==========1729506916==========
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-http://www.almesberger.net/tcpcp/tcpcp-1.tar.gz
+Hi,
 
-This one gets timestamps right, but needs to change a few things
-in the rest of TCP. I've also added a Web server demo application.
+btw: many credits for your hard work to split the big USAGI extension
+into by kernel developers acceptable parts! How many percent are
+already proceeded?
 
-- Werner
 
------------------------------------ CHANGES -----------------------------------
+--On Thursday, October 31, 2002 12:44:59 PM +0900 "YOSHIFUJI Hideaki
+/ =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=" <yoshfuji@linux-ipv6.org>
+wrote:
 
-Version 1 (31-OCT-2002)
------------------------
+> This patch is against linux-2.5.44+bk2 snapshot.
 
-- tcpcp_hooks now try to load the tcpcp module
-- added ts_offset to struct tcp_opt and related structures, so that tcpcp can
-  adjust local timestamps on a per-socket basis
-- added app/sendcp, a simple Web server with connection passing
-- /proc/sys/net/ipv4/sysctl_privileged was not created when using tcpcp as a
-  module
+Do you plan also to release a patch for 2.4.20+?
 
--- 
-  _________________________________________________________________________
- / Werner Almesberger, Buenos Aires, Argentina         wa@almesberger.net /
-/_http://www.almesberger.net/____________________________________________/
+Thank you very much,
+        Peter
+---
+Dr. Peter Bieringer
+mailto: pb at bieringer dot de
+http://www.bieringer.de/pb/
+Key 0x958F422D : B501 24F4 9418 23E2 C0F3  F833 7B57 AA7B 958F 422D
+--==========1729506916==========
+Content-Type: application/pgp-signature
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.0 (GNU/Linux)
+
+iD8DBQE9wODVe1eqe5WPQi0RAjaHAJ9MEjxkggU+T0Nm304Fd1N8BgjxzwCg6NvN
+PEhqzoLLinEs1sh3Haxu68c=
+=2V3j
+-----END PGP SIGNATURE-----
+
+--==========1729506916==========--
