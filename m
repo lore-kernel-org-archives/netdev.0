@@ -1,30 +1,40 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [RFC] change format of LSM hooks
-Date: Wed, 16 Oct 2002 12:07:24 -0700
+From: "Thompson, Ian" <Ian_Thompson@adaptec.com>
+Subject: ARP problem?
+Date: Wed, 16 Oct 2002 15:54:27 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021016190724.GB25475@kroah.com>
-References: <20021015194545.GC15864@kroah.com> <20021015.124502.130514745.davem@redhat.com> <20021015201209.GE15864@kroah.com> <20021015.131037.96602290.davem@redhat.com> <20021015202828.GG15864@kroah.com> <20021016000706.GI16966@kroah.com> <20021016081539.GF20421@kroah.com> <20021016185927.GA25475@kroah.com>
+Message-ID: <E156A23F1885D4119ED800B0D0498A9F02128B94@aimexc07.adaptec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+	charset="iso-8859-1"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, linux-security-module@wirex.com,
-   linux-kernel@vger.kernel.org
-Content-Disposition: inline
-In-Reply-To: <20021016185927.GA25475@kroah.com>
+To: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 16, 2002 at 11:59:28AM -0700, Greg KH wrote:
-> 
-> Ok, here's a working version (I'm typing from it right now), with all of
-> the capability logic working again.  This does make the
-> security/built-in.o file this size with CONFIG_SECURITY=y
-> 
->    text    data     bss     dec     hex filename
->    1611       0       0    1611     64b security/built-in.o
 
-That should have said CONFIG_SECURITY=n
+Hi,
 
-Sorry for any confusion.
+I'm seeing some odd behavior in RedHat 7.3 when handling ARP packets.  I
+have two Intel NIC cards, eth0 and eth1, in one machine, connected to the
+same switch.  eth0 is set to IP0 and has MAC addr M0, and eth1 is at IP1 and
+MAC M1.  Now, if another machine connected to the switch sends an ARP
+broadcast asking who is at IP0, I see two replies on the wire -- IP0 is at
+M0, and IP0 is at M1.  This result seems contradictory to me; could it be
+some sort of feature that I'm not aware of?  If so, can I disable it?
 
-greg k-h
+I am trying to devlop some code to support an active failover case, so I
+want two seperate devices on the same physical network.  I have seen the
+same result even if IP0 and IP1 are on different subnets, or even if one is
+a class A and the other is a class C address.  
+
+I'm sorry if this has already been discussed -- I haven't seen much relating
+to it in the archives.
+
+TIA,
+-ian
+
+---
+Ian Thompson               Firmware Engineer
+Adaptec, Inc               Storage Networking Group
+408.957.4909               408.957.6800 (fax)
+ian_thompson@adaptec.com
