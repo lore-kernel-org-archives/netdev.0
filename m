@@ -1,33 +1,32 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] unexport xfrm_policy_delete
-Date: Tue, 18 Jan 2005 11:29:32 +0100
-Message-ID: <20050118102932.GD4274@stusta.de>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: sis900: eth0: NULL pointer encountered in Rx ring, skipping
+Date: Tue, 18 Jan 2005 11:21:39 +0100
+Message-ID: <20050118102139.GA9507@xi.wantstofly.org>
+References: <20050118101358.GA9335@xi.wantstofly.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261212AbVARK3g@vger.kernel.org>
+Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20050118101358.GA9335@xi.wantstofly.org>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I haven't found any way how xfrm_policy_delete could be called from 
-modular code in 2.6.11-rc1-mm1.
+On Tue, Jan 18, 2005 at 11:13:58AM +0100, Lennert Buytenhek wrote:
 
-Unless I'm wrong or a patch for a modular usage is pending, I'm 
-therefore suggesting this patch for removing the EXPORT_SYMBOL.
+> I can make one of my machines, which has an on-board sis900 NIC, lose
+> network connectivity within seconds by doing something like
+> "nc -l -p 6666 > /dev/null" and then blasting some data towards it.  When
+> this happens, syslog fills up with these messages:
+> 
+> 	eth0: NULL pointer encountered in Rx ring, skipping
+
+Just before it starts spewing these it says:
+
+	eth0: Memory squeeze,deferring packet.
+
+So apparently it just doesn't deal with OOM very well.
 
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
-
---- linux-2.6.11-rc1-mm1-full/net/xfrm/xfrm_policy.c.old	2005-01-18 11:11:34.000000000 +0100
-+++ linux-2.6.11-rc1-mm1-full/net/xfrm/xfrm_policy.c	2005-01-18 11:11:39.000000000 +0100
-@@ -549,8 +549,6 @@
- 	}
- }
- 
--EXPORT_SYMBOL(xfrm_policy_delete);
--
- int xfrm_sk_policy_insert(struct sock *sk, int dir, struct xfrm_policy *pol)
- {
- 	struct xfrm_policy *old_pol;
+--L
