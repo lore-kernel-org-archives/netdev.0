@@ -1,30 +1,34 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [IPSEC]: Kill nested read lock by deleting xfrm_init_tempsel
-Date: Wed, 6 Apr 2005 12:21:55 +1000
-Message-ID: <20050406022155.GA12952@gondor.apana.org.au>
-References: <20050328233917.GB15369@gondor.apana.org.au> <424B40C2.90304@trash.net> <20050331004658.GA26395@gondor.apana.org.au> <20050331212325.5e996432.davem@davemloft.net> <20050402004956.GA24339@gondor.apana.org.au> <20050401172007.7296eced.davem@davemloft.net> <20050402020947.GA24998@gondor.apana.org.au> <42501E51.3000401@trash.net> <20050405103918.GA24863@gondor.apana.org.au> <4252EEA2.5020107@trash.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-        jmorris@redhat.com, yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
+Subject: Re: [PATCH] NETLINK_UESTABLISHED notifier event
+Date: Wed, 06 Apr 2005 12:45:58 +1000
+Message-ID: <E1DJ0YI-0003PR-00@gondolin.me.apana.org.au>
+References: <1112730889.16753.17.camel@beastie>
+Cc: netdev@oss.sgi.com, davem@davemloft.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <4252EEA2.5020107@trash.net>
+To: dmitry_yus@yahoo.com (Dmitry Yusupov)
+In-Reply-To: <1112730889.16753.17.camel@beastie>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 05, 2005 at 10:01:38PM +0200, Patrick McHardy wrote:
+Dmitry Yusupov <dmitry_yus@yahoo.com> wrote:
 > 
-> Good idea, I didn't think of this. This patch is without replacement of
-> xfrm_init_tempsel(), it caused an "unused function" warning and, as I
-> mentioned before, I still need the function.
+> * new event for unicast connections NETLINK_UESTABLISHED.
 
-Thanks.  Just one more issue that I can think of, the check should
-only be done when tmpl->id.spi != 0.  Otherwise the presence of
-valid states with differing state selectors will prevent new
-sessions from starting up.
+Huh? In the patch you're actually sending the notification
+when the socket stops listening to multicast traffic.
+
+Please document why we need this in greater detail too.
+
+> * netlink alloc_skb() now uses sk_allocation instead of hard-coded
+> GFP_KERNEL
+
+Why? We never set it to anything else for netlink.
+
+> * since netlink event described via proto and pid,
+> netlink_getsockbypid() is exported, so netlink user can identify socket.
+
+Please submit the users for kernel inclusion first.
 
 Cheers,
 -- 
