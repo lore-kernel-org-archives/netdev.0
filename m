@@ -1,71 +1,57 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH] PKT_SCHED: Fix double locking in tcindex destroy path
-Date: Fri, 10 Dec 2004 02:49:18 +0100
-Message-ID: <20041210014918.GT1371@postel.suug.ch>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] PKT_SCHED: Prevent destroying via RTM_DELTFILTER while
+ classifying
+Date: Fri, 10 Dec 2004 03:08:10 +0100
+Message-ID: <41B9050A.1060401@trash.net>
+References: <20041210014322.GS1371@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20041210014322.GS1371@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-tcindex's destroy uses its own delete functions to destroy its
-configuration. The delete function (correctly) takes the qdisc_tree_lock
-to prevent list walkings from happening while removing from the list.
-The qdisc_tree_lock is already held if we're comming via the destroy
-path and thus a double locking takes place.
+Thomas Graf wrote:
 
-Patch not needed for 2.4 since both destroy paths are unlocked but will
-be needed if we add them.
+>The classify function of every cls is invoked under BH and 
+>dev->queue_lock spinlock from dev_xmit. Hence to serialize destroying
+>the destroy function must be called under the spinlock as well. There
+>are 2 paths in which a classifier can be destroyed:
+>
+>1) via the qdisc destroy cb calling tcf_destroy under
+>   qdisc_tree_lock from __qdisc_destroy (rcu callback)
+>      
+>2) via RTM_DELTFILTER in cls_api.c under no locks at all.
+>
+>The first path seems ok, the initial qdisc destroy attempt is called
+>under the spinlock and thus serialized with the classify while
+>the list unlinking takes place and dev_xmit takes care of
+>the RCU callback, hence classify and all the callbacks needed
+>from process context cannot be found anymore.
+>
+>The second path needs the spinlock to avoid destroying while
+>a classification is in progress. 2.4 probably needs the same fix,
+>I will cook one up if so.
+>  
+>
+This is not correct. The classifier is unlinked in tc_ctl_tfilter
+before it is destroyed, so it is not visible for classification anymore.
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
+        if (fh == 0) {
+                if (n->nlmsg_type == RTM_DELTFILTER && t->tcm_handle == 0) {
+                        qdisc_lock_tree(dev);
+                        *back = tp->next;
+                        qdisc_unlock_tree(dev);
 
---- linux-2.6.10-rc2-bk13.orig/net/sched/cls_tcindex.c	2004-11-30 14:01:12.000000000 +0100
-+++ linux-2.6.10-rc2-bk13/net/sched/cls_tcindex.c	2004-12-10 02:20:51.000000000 +0100
-@@ -160,7 +160,8 @@
- }
- 
- 
--static int tcindex_delete(struct tcf_proto *tp, unsigned long arg)
-+static int
-+__tcindex_delete(struct tcf_proto *tp, unsigned long arg, int already_locked)
- {
- 	struct tcindex_data *p = PRIV(tp);
- 	struct tcindex_filter_result *r = (struct tcindex_filter_result *) arg;
-@@ -182,9 +183,11 @@
- 
- found:
- 		f = *walk;
--		tcf_tree_lock(tp); 
-+		if (!already_locked)
-+			tcf_tree_lock(tp);
- 		*walk = f->next;
--		tcf_tree_unlock(tp);
-+		if (!already_locked)
-+			tcf_tree_unlock(tp);
- 	}
- 	tcf_unbind_filter(tp, &r->res);
- #ifdef CONFIG_NET_CLS_POLICE
-@@ -195,6 +198,10 @@
- 	return 0;
- }
- 
-+static int tcindex_delete(struct tcf_proto *tp, unsigned long arg)
-+{
-+	return __tcindex_delete(tp, arg, 0);
-+}
- 
- /*
-  * There are no parameters for tcindex_init, so we overload tcindex_change
-@@ -384,7 +391,7 @@
- static int tcindex_destroy_element(struct tcf_proto *tp,
-     unsigned long arg, struct tcf_walker *walker)
- {
--	return tcindex_delete(tp,arg);
-+	return __tcindex_delete(tp,arg, 1);
- }
- 
- 
+                        tfilter_notify(skb, n, tp, fh, RTM_DELTFILTER);
+                        tcf_destroy(tp);
+                        err = 0;
+                        goto errout;
+                }
+
+Regards
+Patrick
