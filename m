@@ -1,25 +1,36 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: AX.25 cb lookup patch
-Date: Tue, 9 Nov 2004 22:05:44 -0800
-Message-ID: <20041109220544.5841b9b7.davem@davemloft.net>
-References: <20041109033617.GB621@linux-mips.org>
+Subject: Re: PROBLEM: IProute hangs after running traffic shaping scripts
+Date: Tue, 9 Nov 2004 22:13:04 -0800
+Message-ID: <20041109221304.7f9c17af.davem@davemloft.net>
+References: <418B4C7C.8000402@crocom.com.pl>
+	<418EA032.7050507@trash.net>
+	<418ECE85.9090203@trash.net>
+	<20041108135431.GE31969@postel.suug.ch>
+	<418F9AD0.1040701@trash.net>
+	<20041108183300.GF31969@postel.suug.ch>
+	<418FCD0A.4040202@trash.net>
+	<20041109161816.425ad7d6.davem@davemloft.net>
+	<41916369.7020901@trash.net>
+	<41916709.8020402@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: tgraf@suug.ch, spam@crocom.com.pl, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ralf Baechle <ralf@linux-mips.org>
-In-Reply-To: <20041109033617.GB621@linux-mips.org>
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <41916709.8020402@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 9 Nov 2004 04:36:18 +0100
-Ralf Baechle <ralf@linux-mips.org> wrote:
+On Wed, 10 Nov 2004 01:55:37 +0100
+Patrick McHardy <kaber@trash.net> wrote:
 
-> Ax AX.25 connection is identified only by it's source and destination,
-> not by the device it's routed through, so fix the connection block
-> lookup to ignore the device of a connection.  This fixes dying connections
-> in case of an AX.25 routing flap.
+> This is the final patch:
+ ...
+> #   [PKT_SCHED]: Unlink inner qdiscs immediately in qdisc_destroy
 
-Applied, thanks Ralf.
+I understand how this work now.  Thanks for the
+explanation and updated patch.
+
+Applied.
