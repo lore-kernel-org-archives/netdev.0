@@ -1,8 +1,8 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (1/17)  protocol sendmsg/revmsg prototype
-Date: Fri, 9 Jan 2004 13:26:58 -0800
+Subject: [PATCH] (2/17) ipv4/ipv6 - size_t for send/recvmsg
+Date: Fri, 9 Jan 2004 13:39:50 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040109132658.01aa28dd@linux.local>
+Message-ID: <20040109133950.52e423fd@linux.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -12,159 +12,317 @@ To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-When sendmsg (or recvmsg) system call is processed, the total size of
-the message is calculated as unsigned (size_t), but then passed through as integer in the protocol switch table. This leads to possible problems
-when protocols only check size > pmtu and size could potentially be negative.
+Convert sendmsg/recvmsg from size as int to size as size_t.
+Remove comment in UDP that addresses this very issue.
 
-The protocols work around this (mostly) today by checking for
-less than zero or recasting, but the right thing is to change
-protocol switch to pass it through as size_t. This doesn't change the
-user ABI for sendmsg/recvmsg.
-
-The first patch changes the prototype, and causes all the protocols to
-generate warnings that are cleared up in the next sixteen.
-
-This was found by Chris Wright who raised it a potential DOS attack point.
-
-diff -Nru a/include/linux/net.h b/include/linux/net.h
---- a/include/linux/net.h	Mon Dec  8 16:19:31 2003
-+++ b/include/linux/net.h	Mon Dec  8 16:19:31 2003
-@@ -120,9 +120,9 @@
- 	int		(*getsockopt)(struct socket *sock, int level,
- 				      int optname, char __user *optval, int __user *optlen);
- 	int		(*sendmsg)   (struct kiocb *iocb, struct socket *sock,
--				      struct msghdr *m, int total_len);
-+				      struct msghdr *m, size_t total_len);
- 	int		(*recvmsg)   (struct kiocb *iocb, struct socket *sock,
--				      struct msghdr *m, int total_len,
-+				      struct msghdr *m, size_t total_len,
- 				      int flags);
- 	int		(*mmap)	     (struct file *file, struct socket *sock,
- 				      struct vm_area_struct * vma);
-@@ -151,13 +151,13 @@
- 				 struct socket **res);
- extern void	     sock_release(struct socket *sock);
- extern int   	     sock_sendmsg(struct socket *sock, struct msghdr *msg,
--				  int len);
-+				  size_t len);
- extern int	     sock_recvmsg(struct socket *sock, struct msghdr *msg,
--				  int size, int flags);
-+				  size_t size, int flags);
- extern int	     sock_readv_writev(int type, struct inode *inode,
- 				       struct file *file,
- 				       const struct iovec *iov, long count,
--				       long size);
-+				       size_t size);
- extern int 	     sock_map_fd(struct socket *sock);
- extern struct socket *sockfd_lookup(int fd, int *err);
- #define		     sockfd_put(sock) fput(sock->file)
-@@ -216,9 +216,9 @@
- 			 char *optval, int optlen), (sock, level, optname, optval, optlen)) \
- SOCKCALL_WRAP(name, getsockopt, (struct socket *sock, int level, int optname, \
- 			 char *optval, int *optlen), (sock, level, optname, optval, optlen)) \
--SOCKCALL_WRAP(name, sendmsg, (struct kiocb *iocb, struct socket *sock, struct msghdr *m, int len), \
-+SOCKCALL_WRAP(name, sendmsg, (struct kiocb *iocb, struct socket *sock, struct msghdr *m, size_t len), \
- 	      (iocb, sock, m, len)) \
--SOCKCALL_WRAP(name, recvmsg, (struct kiocb *iocb, struct socket *sock, struct msghdr *m, int len, int flags), \
-+SOCKCALL_WRAP(name, recvmsg, (struct kiocb *iocb, struct socket *sock, struct msghdr *m, size_t len, int flags), \
- 	      (iocb, sock, m, len, flags)) \
- SOCKCALL_WRAP(name, mmap, (struct file *file, struct socket *sock, struct vm_area_struct *vma), \
- 	      (file, sock, vma)) \
-diff -Nru a/include/net/sock.h b/include/net/sock.h
---- a/include/net/sock.h	Mon Dec  8 16:19:31 2003
-+++ b/include/net/sock.h	Mon Dec  8 16:19:31 2003
-@@ -418,10 +418,10 @@
- 					int optname, char *optval, 
- 					int *option);  	 
- 	int			(*sendmsg)(struct kiocb *iocb, struct sock *sk,
--					   struct msghdr *msg, int len);
-+					   struct msghdr *msg, size_t len);
- 	int			(*recvmsg)(struct kiocb *iocb, struct sock *sk,
- 					   struct msghdr *msg,
--					int len, int noblock, int flags, 
-+					size_t len, int noblock, int flags, 
- 					int *addr_len);
- 	int			(*sendpage)(struct sock *sk, struct page *page,
- 					int offset, size_t size, int flags);
-@@ -624,9 +624,9 @@
- extern int			sock_no_setsockopt(struct socket *, int, int,
- 						   char *, int);
- extern int                      sock_no_sendmsg(struct kiocb *, struct socket *,
--						struct msghdr *, int);
-+						struct msghdr *, size_t);
- extern int                      sock_no_recvmsg(struct kiocb *, struct socket *,
--						struct msghdr *, int, int);
-+						struct msghdr *, size_t, int);
- extern int			sock_no_mmap(struct file *file,
- 					     struct socket *sock,
- 					     struct vm_area_struct *vma);
-diff -Nru a/net/core/sock.c b/net/core/sock.c
---- a/net/core/sock.c	Mon Dec  8 16:19:31 2003
-+++ b/net/core/sock.c	Mon Dec  8 16:19:31 2003
-@@ -966,13 +966,13 @@
- }
+diff -Nru a/include/net/inet_common.h b/include/net/inet_common.h
+--- a/include/net/inet_common.h	Fri Jan  9 13:38:06 2004
++++ b/include/net/inet_common.h	Fri Jan  9 13:38:06 2004
+@@ -23,11 +23,11 @@
+ extern int			inet_recvmsg(struct kiocb *iocb,
+ 					     struct socket *sock, 
+ 					     struct msghdr *ubuf, 
+-					     int size, int flags);
++					     size_t size, int flags);
+ extern int			inet_sendmsg(struct kiocb *iocb,
+ 					     struct socket *sock, 
+ 					     struct msghdr *msg, 
+-					     int size);
++					     size_t size);
+ extern int			inet_shutdown(struct socket *sock, int how);
+ extern unsigned int		inet_poll(struct file * file, struct socket *sock, struct poll_table_struct *wait);
+ extern int			inet_setsockopt(struct socket *sock, int level,
+diff -Nru a/include/net/tcp.h b/include/net/tcp.h
+--- a/include/net/tcp.h	Fri Jan  9 13:38:06 2004
++++ b/include/net/tcp.h	Fri Jan  9 13:38:06 2004
+@@ -752,7 +752,7 @@
+ extern int		    	tcp_v4_tw_remember_stamp(struct tcp_tw_bucket *tw);
  
- int sock_no_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *m,
--		    int flags)
-+		    size_t len)
- {
- 	return -EOPNOTSUPP;
- }
+ extern int			tcp_sendmsg(struct kiocb *iocb, struct sock *sk,
+-					    struct msghdr *msg, int size);
++					    struct msghdr *msg, size_t size);
+ extern ssize_t			tcp_sendpage(struct socket *sock, struct page *page, int offset, size_t size, int flags);
  
- int sock_no_recvmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *m,
--		    int len, int flags)
-+		    size_t len, int flags)
- {
- 	return -EOPNOTSUPP;
- }
-diff -Nru a/net/socket.c b/net/socket.c
---- a/net/socket.c	Mon Dec  8 16:19:31 2003
-+++ b/net/socket.c	Mon Dec  8 16:19:31 2003
-@@ -523,7 +523,8 @@
- 	sock->file=NULL;
- }
+ extern int			tcp_ioctl(struct sock *sk, 
+@@ -846,7 +846,7 @@
+ extern void			tcp_set_keepalive(struct sock *sk, int val);
+ extern int			tcp_recvmsg(struct kiocb *iocb, struct sock *sk,
+ 					    struct msghdr *msg,
+-					    int len, int nonblock, 
++					    size_t len, int nonblock, 
+ 					    int flags, int *addr_len);
  
--static inline int __sock_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg, int size)
-+static inline int __sock_sendmsg(struct kiocb *iocb, struct socket *sock, 
-+				 struct msghdr *msg, size_t size)
- {
- 	struct sock_iocb *si = kiocb_to_siocb(iocb);
- 	int err;
-@@ -540,7 +541,7 @@
- 	return sock->ops->sendmsg(iocb, sock, msg, size);
- }
+ extern int			tcp_listen_start(struct sock *sk);
+diff -Nru a/include/net/udp.h b/include/net/udp.h
+--- a/include/net/udp.h	Fri Jan  9 13:38:06 2004
++++ b/include/net/udp.h	Fri Jan  9 13:38:06 2004
+@@ -68,7 +68,7 @@
+ 			    struct sockaddr *usin, int addr_len);
  
--int sock_sendmsg(struct socket *sock, struct msghdr *msg, int size)
-+int sock_sendmsg(struct socket *sock, struct msghdr *msg, size_t size)
- {
- 	struct kiocb iocb;
- 	int ret;
-@@ -553,7 +554,8 @@
- }
+ extern int	udp_sendmsg(struct kiocb *iocb, struct sock *sk,
+-			    struct msghdr *msg, int len);
++			    struct msghdr *msg, size_t len);
+ 
+ extern int	udp_rcv(struct sk_buff *skb);
+ extern int	udp_ioctl(struct sock *sk, int cmd, unsigned long arg);
+diff -Nru a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+--- a/net/ipv4/af_inet.c	Fri Jan  9 13:38:06 2004
++++ b/net/ipv4/af_inet.c	Fri Jan  9 13:38:06 2004
+@@ -731,7 +731,7 @@
  
  
--static inline int __sock_recvmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg, int size, int flags)
-+static inline int __sock_recvmsg(struct kiocb *iocb, struct socket *sock, 
-+				 struct msghdr *msg, size_t size, int flags)
- {
- 	int err;
- 	struct sock_iocb *si = kiocb_to_siocb(iocb);
-@@ -571,7 +573,8 @@
- 	return sock->ops->recvmsg(iocb, sock, msg, size, flags);
- }
- 
--int sock_recvmsg(struct socket *sock, struct msghdr *msg, int size, int flags)
-+int sock_recvmsg(struct socket *sock, struct msghdr *msg, 
+ int inet_recvmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg,
+-		 int size, int flags)
 +		 size_t size, int flags)
  {
- 	struct kiocb iocb;
- 	int ret;
-@@ -668,7 +671,7 @@
+ 	struct sock *sk = sock->sk;
+ 	int addr_len = 0;
+@@ -746,7 +746,7 @@
+ 
+ 
+ int inet_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg,
+-		 int size)
++		 size_t size)
+ {
+ 	struct sock *sk = sock->sk;
+ 
+diff -Nru a/net/ipv4/raw.c b/net/ipv4/raw.c
+--- a/net/ipv4/raw.c	Fri Jan  9 13:38:06 2004
++++ b/net/ipv4/raw.c	Fri Jan  9 13:38:06 2004
+@@ -324,7 +324,7 @@
  }
  
- int sock_readv_writev(int type, struct inode * inode, struct file * file,
--		      const struct iovec * iov, long count, long size)
-+		      const struct iovec * iov, long count, size_t size)
+ static int raw_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+-		       int len)
++		       size_t len)
  {
- 	struct msghdr msg;
- 	struct socket *sock;
+ 	struct inet_opt *inet = inet_sk(sk);
+ 	struct ipcm_cookie ipc;
+@@ -335,17 +335,6 @@
+ 	u8  tos;
+ 	int err;
+ 
+-	/* This check is ONLY to check for arithmetic overflow
+-	   on integer(!) len. Not more! Real check will be made
+-	   in ip_build_xmit --ANK
+-
+-	   BTW socket.c -> af_*.c -> ... make multiple
+-	   invalid conversions size_t -> int. We MUST repair it f.e.
+-	   by replacing all of them with size_t and revise all
+-	   the places sort of len += sizeof(struct iphdr)
+-	   If len was ULONG_MAX-10 it would be cathastrophe  --ANK
+-	 */
+-
+ 	err = -EMSGSIZE;
+ 	if (len < 0 || len > 0xFFFF)
+ 		goto out;
+@@ -523,10 +512,10 @@
+  */
+ 
+ int raw_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+-		int len, int noblock, int flags, int *addr_len)
++		size_t len, int noblock, int flags, int *addr_len)
+ {
+ 	struct inet_opt *inet = inet_sk(sk);
+-	int copied = 0;
++	size_t copied = 0;
+ 	int err = -EOPNOTSUPP;
+ 	struct sockaddr_in *sin = (struct sockaddr_in *)msg->msg_name;
+ 	struct sk_buff *skb;
+diff -Nru a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+--- a/net/ipv4/tcp.c	Fri Jan  9 13:38:06 2004
++++ b/net/ipv4/tcp.c	Fri Jan  9 13:38:06 2004
+@@ -1029,7 +1029,7 @@
+ }
+ 
+ int tcp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+-		int size)
++		size_t size)
+ {
+ 	struct iovec *iov;
+ 	struct tcp_opt *tp = tcp_sk(sk);
+@@ -1498,7 +1498,7 @@
+  */
+ 
+ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+-		int len, int nonblock, int flags, int *addr_len)
++		size_t len, int nonblock, int flags, int *addr_len)
+ {
+ 	struct tcp_opt *tp = tcp_sk(sk);
+ 	int copied = 0;
+diff -Nru a/net/ipv4/udp.c b/net/ipv4/udp.c
+--- a/net/ipv4/udp.c	Fri Jan  9 13:38:06 2004
++++ b/net/ipv4/udp.c	Fri Jan  9 13:38:06 2004
+@@ -478,7 +478,7 @@
+ }
+ 
+ int udp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+-		int len)
++		size_t len)
+ {
+ 	struct inet_opt *inet = inet_sk(sk);
+ 	struct udp_opt *up = udp_sk(sk);
+@@ -493,18 +493,7 @@
+ 	int err;
+ 	int corkreq = up->corkflag || msg->msg_flags&MSG_MORE;
+ 
+-	/* This check is ONLY to check for arithmetic overflow
+-	   on integer(!) len. Not more! Real check will be made
+-	   in ip_append_* --ANK
+-
+-	   BTW socket.c -> af_*.c -> ... make multiple
+-	   invalid conversions size_t -> int. We MUST repair it f.e.
+-	   by replacing all of them with size_t and revise all
+-	   the places sort of len += sizeof(struct iphdr)
+-	   If len was ULONG_MAX-10 it would be cathastrophe  --ANK
+-	 */
+-
+-	if (len < 0 || len > 0xFFFF)
++	if (len > 0xFFFF)
+ 		return -EMSGSIZE;
+ 
+ 	/* 
+@@ -782,7 +771,7 @@
+  */
+ 
+ int udp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+-		int len, int noblock, int flags, int *addr_len)
++		size_t len, int noblock, int flags, int *addr_len)
+ {
+ 	struct inet_opt *inet = inet_sk(sk);
+   	struct sockaddr_in *sin = (struct sockaddr_in *)msg->msg_name;
+diff -Nru a/net/ipv6/raw.c b/net/ipv6/raw.c
+--- a/net/ipv6/raw.c	Fri Jan  9 13:38:06 2004
++++ b/net/ipv6/raw.c	Fri Jan  9 13:38:06 2004
+@@ -345,13 +345,15 @@
+  *	we return it, otherwise we block.
+  */
+ 
+-static int rawv6_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg, int len,
++static int rawv6_recvmsg(struct kiocb *iocb, struct sock *sk,
++		  struct msghdr *msg, size_t len,
+ 		  int noblock, int flags, int *addr_len)
+ {
+ 	struct ipv6_pinfo *np = inet6_sk(sk);
+ 	struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)msg->msg_name;
+ 	struct sk_buff *skb;
+-	int copied, err;
++	size_t copied;
++	int err;
+ 
+ 	if (flags & MSG_OOB)
+ 		return -EOPNOTSUPP;
+@@ -527,7 +529,8 @@
+ 	IP6_INC_STATS(Ip6OutDiscards);
+ 	return err; 
+ }
+-static int rawv6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg, int len)
++static int rawv6_sendmsg(struct kiocb *iocb, struct sock *sk,
++		   struct msghdr *msg, size_t len)
+ {
+ 	struct ipv6_txoptions opt_space;
+ 	struct sockaddr_in6 * sin6 = (struct sockaddr_in6 *) msg->msg_name;
+diff -Nru a/net/ipv6/udp.c b/net/ipv6/udp.c
+--- a/net/ipv6/udp.c	Fri Jan  9 13:38:06 2004
++++ b/net/ipv6/udp.c	Fri Jan  9 13:38:06 2004
+@@ -366,12 +366,14 @@
+  * 	return it, otherwise we block.
+  */
+ 
+-static int udpv6_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg, int len,
++static int udpv6_recvmsg(struct kiocb *iocb, struct sock *sk, 
++		  struct msghdr *msg, size_t len,
+ 		  int noblock, int flags, int *addr_len)
+ {
+ 	struct ipv6_pinfo *np = inet6_sk(sk);
+   	struct sk_buff *skb;
+-  	int copied, err;
++	size_t copied;
++  	int err;
+ 
+   	if (addr_len)
+   		*addr_len=sizeof(struct sockaddr_in6);
+@@ -774,7 +776,8 @@
+ 	return err;
+ }
+ 
+-static int udpv6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg, int len)
++static int udpv6_sendmsg(struct kiocb *iocb, struct sock *sk, 
++		  struct msghdr *msg, size_t len)
+ {
+ 	struct ipv6_txoptions opt_space;
+ 	struct udp_opt *up = udp_sk(sk);
+@@ -841,7 +844,7 @@
+ 	/* Rough check on arithmetic overflow,
+ 	   better check is made in ip6_build_xmit
+ 	   */
+-	if (len < 0 || len > INT_MAX - sizeof(struct udphdr))
++	if (len > INT_MAX - sizeof(struct udphdr))
+ 		return -EMSGSIZE;
+ 	
+ 	if (up->pending) {
+diff -Nru a/net/sctp/socket.c b/net/sctp/socket.c
+--- a/net/sctp/socket.c	Fri Jan  9 13:38:06 2004
++++ b/net/sctp/socket.c	Fri Jan  9 13:38:06 2004
+@@ -90,7 +90,7 @@
+ static inline void sctp_set_owner_w(struct sctp_chunk *chunk);
+ static void sctp_wfree(struct sk_buff *skb);
+ static int sctp_wait_for_sndbuf(struct sctp_association *, long *timeo_p,
+-				int msg_len);
++				size_t msg_len);
+ static int sctp_wait_for_packet(struct sock * sk, int *err, long *timeo_p);
+ static int sctp_wait_for_connect(struct sctp_association *, long *timeo_p);
+ static int sctp_wait_for_accept(struct sock *sk, long timeo);
+@@ -943,7 +943,7 @@
+ SCTP_STATIC int sctp_msghdr_parse(const struct msghdr *, sctp_cmsgs_t *);
+ 
+ SCTP_STATIC int sctp_sendmsg(struct kiocb *iocb, struct sock *sk,
+-			     struct msghdr *msg, int msg_len)
++			     struct msghdr *msg, size_t msg_len)
+ {
+ 	struct sctp_opt *sp;
+ 	struct sctp_endpoint *ep;
+@@ -965,7 +965,7 @@
+ 	struct list_head *pos;
+ 	int msg_flags = msg->msg_flags;
+ 
+-	SCTP_DEBUG_PRINTK("sctp_sendmsg(sk: %p, msg: %p, msg_len: %d)\n",
++	SCTP_DEBUG_PRINTK("sctp_sendmsg(sk: %p, msg: %p, msg_len: %u)\n",
+ 			  sk, msg, msg_len);
+ 
+ 	err = 0;
+@@ -1021,7 +1021,7 @@
+ 		associd = sinfo->sinfo_assoc_id;
+ 	}
+ 
+-	SCTP_DEBUG_PRINTK("msg_len: %d, sinfo_flags: 0x%x\n",
++	SCTP_DEBUG_PRINTK("msg_len: %u, sinfo_flags: 0x%x\n",
+ 			  msg_len, sinfo_flags);
+ 
+ 	/* MSG_EOF or MSG_ABORT cannot be set on a TCP-style socket. */
+@@ -1377,7 +1377,7 @@
+ static struct sk_buff *sctp_skb_recv_datagram(struct sock *, int, int, int *);
+ 
+ SCTP_STATIC int sctp_recvmsg(struct kiocb *iocb, struct sock *sk,
+-			     struct msghdr *msg, int len, int noblock,
++			     struct msghdr *msg, size_t len, int noblock,
+ 			     int flags, int *addr_len)
+ {
+ 	struct sctp_ulpevent *event = NULL;
+@@ -4157,14 +4157,14 @@
+ 
+ /* Helper function to wait for space in the sndbuf.  */
+ static int sctp_wait_for_sndbuf(struct sctp_association *asoc, long *timeo_p,
+-				int msg_len)
++				size_t msg_len)
+ {
+ 	struct sock *sk = asoc->base.sk;
+ 	int err = 0;
+ 	long current_timeo = *timeo_p;
+ 	DEFINE_WAIT(wait);
+ 
+-	SCTP_DEBUG_PRINTK("wait_for_sndbuf: asoc=%p, timeo=%ld, msg_len=%d\n",
++	SCTP_DEBUG_PRINTK("wait_for_sndbuf: asoc=%p, timeo=%ld, msg_len=%u\n",
+ 	                  asoc, (long)(*timeo_p), msg_len);
+ 
+ 	/* Increment the association's refcnt.  */
