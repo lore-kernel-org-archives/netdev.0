@@ -1,62 +1,51 @@
-From: Peter Williams <peterw@aurema.com>
-Subject: Re: MSEC_TO_JIFFIES is messed up...
-Date: Thu, 13 May 2004 09:33:48 +1000
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: PATCH: bonding might sleep with lock held
+Date: Wed, 12 May 2004 19:15:33 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40A2B45C.7070206@aurema.com>
-References: <20040512020700.6f6aa61f.akpm@osdl.org>	<20040512181903.GG13421@kroah.com>	<40A26FFA.4030701@pobox.com> <20040512193349.GA14936@elte.hu>	<200405121947.i4CJlJm5029666@turing-police.cc.vt.edu> <Pine.LNX.4.58.0405121255170.11950@bigblue.dev.mdolabs.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Valdis.Kletnieks@vt.edu, Andrew Morton <akpm@osdl.org>,
-        Netdev <netdev@oss.sgi.com>, Greg KH <greg@kroah.com>,
-        Ingo Molnar <mingo@elte.hu>, Jeff Garzik <jgarzik@pobox.com>,
-        linux-kernel@vger.kernel.org
+Message-ID: <200405130215.i4D2FX52016740@death.nxdomain.ibm.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Davide Libenzi <davidel@xmailserver.org>
-In-Reply-To: <Pine.LNX.4.58.0405121255170.11950@bigblue.dev.mdolabs.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Davide Libenzi wrote:
-> On Wed, 12 May 2004 Valdis.Kletnieks@vt.edu wrote:
-> 
-> 
->>On Wed, 12 May 2004 21:33:49 +0200, Ingo Molnar said:
->>
->>>* Jeff Garzik <jgarzik@pobox.com> wrote:
->>>
->>>
->>>>>Woah, that's new.  And wrong.  The code in include/asm-i386/param.h that
->>>>>says:
->>>>>	# define JIFFIES_TO_MSEC(x)     (x)
->>>>>	# define MSEC_TO_JIFFIES(x)     (x)
->>>>>
->>>>>Is not correct.  Look at kernel/sched.c for verification of this :)
->>>>
->>>>
->>>>Yes, that is _massively_ broken.
->>>
->>>why is it wrong?
->>
->>If the kernel jiffie is anything other than exactly 1 msec, you're screwed... 
-> 
-> 
-> I believe they were talking about include/asm-i386/param.h
->                                           ^^^^^^^^
 
-There's sometimes a need to change HZ on i386 systems.  Specifically, 
-some IDE drives are unable to safely use DMA (this is documented in one 
-of the Kconfig files).  Without DMA for the IDE drives many systems 
-experience (a lot of) missed interrupts which can lead to (among other 
-things) lost ticks and very erratic and unpredictable behaviour from 
-input devices such as the mouse.
+	In 802.3ad mode, the bond_close() function will eventually call
+dev_remove_pack() with a lock held.  In turn, dev_remove_pack() calls
+synchronize_net() which eventually might sleep in wait_for_completion().
+Probably not good.
 
-Also, if defined in terms of HZ only one definition of these macros 
-would be required rather than one for each architecture.
+	This patch replaces dev_remove_pack() with __dev_remove_pack()
+and adds a synchronize_net() call outside the lock.  The patch is
+against 2.6.5, but applied to 2.6.6 for me.
 
-Peter
--- 
-Dr Peter Williams, Chief Scientist                peterw@aurema.com
-Aurema Pty Limited                                Tel:+61 2 9698 2322
-PO Box 305, Strawberry Hills NSW 2012, Australia  Fax:+61 2 9699 9174
-79 Myrtle Street, Chippendale NSW 2008, Australia http://www.aurema.com
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+
+
+diff -urN linux-2.6.5-virgin/drivers/net/bonding/bond_main.c linux-2.6.5/drivers/net/bonding/bond_main.c
+--- linux-2.6.5-virgin/drivers/net/bonding/bond_main.c	2004-05-11 17:33:50.977235256 -0700
++++ linux-2.6.5/drivers/net/bonding/bond_main.c	2004-05-11 17:35:42.538275400 -0700
+@@ -3495,7 +3495,7 @@
+ /* unregister to receive lacpdus on a bond */
+ static void bond_unregister_lacpdu(struct bonding *bond)
+ {
+-	dev_remove_pack(&(BOND_AD_INFO(bond).ad_pkt_type));
++	__dev_remove_pack(&(BOND_AD_INFO(bond).ad_pkt_type));
+ }
+ 
+ /*-------------------------- Device entry points ----------------------------*/
+@@ -3580,6 +3580,12 @@
+ 
+ 	write_unlock_bh(&bond->lock);
+ 
++	/*
++	 * Sync outside the lock after __dev_remove_pack() in
++	 * bond_unregister_lacpdu()
++	 */
++	synchronize_net();
++
+ 	/* del_timer_sync must run without holding the bond->lock
+ 	 * because a running timer might be trying to hold it too
+ 	 */
