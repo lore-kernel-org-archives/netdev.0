@@ -1,53 +1,66 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: 100 network limit
-Date: Thu, 28 Aug 2003 20:45:22 -0700
+From: "John Zeng" <zrzeng@linuxforum.net>
+Subject: Please help, Two simple questions regarding Linux TCP codes
+Date: Fri, 29 Aug 2003 16:34:06 +0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F4ECC52.5000406@candelatech.com>
-References: <20030828180019.GH12541@krispykreme>	<20030828210855.58759b69.ak@suse.de>	<3F4E783F.6080707@candelatech.com> <20030828164143.536d8d8a.davem@redhat.com>
+Message-ID: <001901c36e08$4fa4cce0$0301a8c0@homepc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain;
+	charset="gb2312"
 Content-Transfer-Encoding: 7bit
-Cc: ak@suse.de, anton@samba.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030828164143.536d8d8a.davem@redhat.com>
+To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> On Thu, 28 Aug 2003 14:46:39 -0700
-> Ben Greear <greearb@candelatech.com> wrote:
-> 
-> 
->>Since you can rename devices, that might not work.  A long time ago
->>I hashed the devices, both by name and by index...that gives good
->>lookup performance, at least.  As for create-time issues, that is
->>definately slow path, and even searching linearly 4 or 8k devices is
->>not a big deal (in my opinion).  So, why not make the hard-coded 100
->>limit be more like 8196 or something really large?  (It could still
->>be adjustable if needed.)
-> 
-> 
-> Right, it's also not going to fix the locking problems.
-> 
-> I would suggest two things:
-> 
-> 1) Ben's hashing patch for lookups.
-> 
-> 2) RCU'ing read access to the device list.
-> 
+Hi, all,
 
-I'm at least mostly on vacation for a week or so...  Here is a pointer
-to the old patch I did..but it's ~2.5 years old.  If anyone wants
-to get it working with recent code, please be my guest.
+I am a pretty newbie in Linux TCP codes,
+now I know the overall operation of the Linux TCP codes,
+but some details has really confused me for a long time,
+would anyone there please kindly help me? thank you very much.
 
-Otherwise, I'll try to get something together in a few weeks.
+-------------------------------------
+Q.1) in tcp_input.c, there is a function called tcp_check_reno_reordering(),
+   as following:
+static void tcp_check_reno_reordering(struct tcp_opt *tp, int addend)
+{
+    u32 holes;
 
-http://www.cs.helsinki.fi/linux/linux-kernel/2001-00/1227.html
+    holes = max(tp->lost_out, 1U);
+    holes = min(holes, tp->packets_out);
 
-Take it easy,
-Ben
+    if (tp->sacked_out + holes > tp->packets_out) {
+        tp->sacked_out = tp->packets_out - holes;
+        tcp_update_reordering(tp, tp->packets_out+addend, 0);
+    }
+}
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+In my imagination, only when segments are duplicated in the network,
+will the statement "tp->sacked_out + holes > tp->packets_out" be true.
+but because the function name shows that it is related to reordering,
+I must have missed some important points,
+could you please tell me what is the situation? i.e. in what reordering
+circumstances will "tp->sacked_out + holes > tp->packets_out" be true?
+-------------------------------
+
+Q.2)what is the rationale behind of the function _tcp_grow_window()?
+  to be more specific, what is the rationale of the while loop?
+  i.e. why can we judge that when "truesize <= skb->len" is true,
+  we can increase the window by 2*tp->ack.rcv_mss?
+
+static int __tcp_grow_window(struct sock *sk, struct tcp_opt *tp, struct
+sk_buff *skb)
+{
+    /* Optimize this! */
+    int truesize = tcp_win_from_space(skb->truesize)/2;
+    int window = tcp_full_space(sk)/2;
+
+    while (tp->rcv_ssthresh <= window) {
+        if (truesize <= skb->len)
+            return 2*tp->ack.rcv_mss;
+
+        truesize >>= 1;
+        window >>= 1;
+    }
+    return 0;
+}
