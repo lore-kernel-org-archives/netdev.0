@@ -1,75 +1,110 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: [patches] invalid nh.raw use after free
-Date: Wed, 16 Jul 2003 02:41:00 +0300 (EEST)
+From: Krishna Kumar <krkumar@us.ibm.com>
+Subject: Re: [PATCH 1/4] Prefix List against 2.5.73
+Date: Tue, 15 Jul 2003 17:11:51 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0307160233540.14682-400000@u.domain.uli>
+Message-ID: <3F149847.2000408@us.ibm.com>
+References: <200307150117.FAA06705@dub.inr.ac.ru> <3F14492C.30708@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="1607745702-670464987-1058312460=:14682"
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org, davem@redhat.com,
+   netdev@oss.sgi.com, linux-net@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: Krishna Kumar <krkumar@us.ibm.com>
+In-Reply-To: <3F14492C.30708@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-  Send mail to mime@docserver.cac.washington.edu for more info.
+ > I proposechanging the values of IFA_PERM/TENT/DEPRE/SECOND, etc,
 
---1607745702-670464987-1058312460=:14682
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+On the other hand, to maintain compatibility with existing apps (ip command),
+I can change the new values instead. So now the same ip util program will
+display the correct flag values for the address and then display the remaining
+flags which are the O/M flags.
 
+I will send patch for this tomorrow.
 
-	Hello,
+Thanks,
 
-	The attached patches fix similar bug to many places (I'm not
-sure if there are more instances), where pointers remain to refer to 
-freed skbs. For 2.5 and 2.4.
+- KK
 
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
-
---1607745702-670464987-1058312460=:14682
-Content-Type: TEXT/PLAIN; charset=US-ASCII; name="ipip_old_iph-1.diff"
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.44.0307160241000.14682@u.domain.uli>
-Content-Description: ipip
-Content-Disposition: attachment; filename="ipip_old_iph-1.diff"
-
-LS0tIGxpbnV4L25ldC9pcHY0L2lwaXAuYy5vbGRfaXBoCVNhdCBKdWwgMTIg
-MTE6MDk6MjkgMjAwMw0KKysrIGxpbnV4L25ldC9pcHY0L2lwaXAuYwlXZWQg
-SnVsIDE2IDAyOjE4OjQxIDIwMDMNCkBAIC02MTYsNiArNjE2LDcgQEANCiAJ
-CQlza2Jfc2V0X293bmVyX3cobmV3X3NrYiwgc2tiLT5zayk7DQogCQlkZXZf
-a2ZyZWVfc2tiKHNrYik7DQogCQlza2IgPSBuZXdfc2tiOw0KKwkJb2xkX2lw
-aCA9IHNrYi0+bmguaXBoOw0KIAl9DQogDQogCXNrYi0+bmgucmF3ID0gc2ti
-X3B1c2goc2tiLCBzaXplb2Yoc3RydWN0IGlwaGRyKSk7DQo=
---1607745702-670464987-1058312460=:14682
-Content-Type: TEXT/PLAIN; charset=US-ASCII; name="ip_gre_old_iph-1.diff"
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.44.0307160241001.14682@u.domain.uli>
-Content-Description: ip_gre
-Content-Disposition: attachment; filename="ip_gre_old_iph-1.diff"
-
-LS0tIGxpbnV4L25ldC9pcHY0L2lwX2dyZS5jLm9sZF9pcGgJU2F0IEp1bCAx
-MiAxMTowOToyOSAyMDAzDQorKysgbGludXgvbmV0L2lwdjQvaXBfZ3JlLmMJ
-V2VkIEp1bCAxNiAwMjoxMjo1NiAyMDAzDQpAQCAtODE2LDYgKzgxNiw3IEBA
-DQogCQkJc2tiX3NldF9vd25lcl93KG5ld19za2IsIHNrYi0+c2spOw0KIAkJ
-ZGV2X2tmcmVlX3NrYihza2IpOw0KIAkJc2tiID0gbmV3X3NrYjsNCisJCW9s
-ZF9pcGggPSBza2ItPm5oLmlwaDsNCiAJfQ0KIA0KIAlza2ItPm5oLnJhdyA9
-IHNrYl9wdXNoKHNrYiwgZ3JlX2hsZW4pOw0K
---1607745702-670464987-1058312460=:14682
-Content-Type: TEXT/PLAIN; charset=US-ASCII; name="sit_iph6-1.diff"
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.44.0307160241002.14682@u.domain.uli>
-Content-Description: sit
-Content-Disposition: attachment; filename="sit_iph6-1.diff"
-
-LS0tIGxpbnV4L25ldC9pcHY2L3NpdC5jLm9sZF9pcGg2CVNhdCBKdWwgMTIg
-MTE6MDk6MjkgMjAwMw0KKysrIGxpbnV4L25ldC9pcHY2L3NpdC5jCVdlZCBK
-dWwgMTYgMDI6MjM6MDYgMjAwMw0KQEAgLTU1MCw2ICs1NTAsNyBAQA0KIAkJ
-CXNrYl9zZXRfb3duZXJfdyhuZXdfc2tiLCBza2ItPnNrKTsNCiAJCWRldl9r
-ZnJlZV9za2Ioc2tiKTsNCiAJCXNrYiA9IG5ld19za2I7DQorCQlpcGg2ID0g
-c2tiLT5uaC5pcHY2aDsNCiAJfQ0KIA0KIAlza2ItPm5oLnJhdyA9IHNrYl9w
-dXNoKHNrYiwgc2l6ZW9mKHN0cnVjdCBpcGhkcikpOw0K
---1607745702-670464987-1058312460=:14682--
+> Hi Alexey,
+> 
+>>> +    IFA_IFFLAGS,
+>>
+>>
+>> What's about ifa_flags? There is some space there, and the things
+>> kept there now: TENTATIVE/DEPRECATED et al. are close relatives
+>> of O/M.
+> 
+> 
+>  > > Alexey, O/M are not flags for addresses, but for interfaces.
+> 
+>  > > > But tell me, please, what is the difference between new _address_
+>  > > > attribute IFA_IFFLAGS and already existing address attrbute 
+> ifa_flags?
+> 
+> Conceptually these are different, one for address and one for interface. 
+> But I also
+> agree to your point that these can both be enclosed within one attribute 
+> to return.
+> If we agree to do it in this way, then we have to change the values of 
+> either of
+> the two sets of #defines (if_flags & ifa_flags since they intersect). I 
+> propose
+> changing the values of IFA_PERM/TENT/DEPRE/SECOND, etc, for no other 
+> reason other
+> than the MANAGED/OTHER flags has values copied off from the RA (bitwise 
+> values of
+> the icmpv6_nd_ra field of RA). It might make more meaning to keep 0x80 
+> for field 'M'
+> which is the first bit of the field, but let me know if this is not 
+> acceptable.
+> 
+>> This does not pass through Occam's razor. Why not to give a filter to 
+>> plain
+>> RTM_GETROUTE? We did not implement filtering not because we do not want,
+>> but because we (me, is more appropriate) are lazy.
+> 
+> 
+> OK, I can change that to give a filter. Is it OK to add the filter to 
+> rtm_flags ?
+> I was thinking of adding RTM_F_PREFIX, and rt6_dump_route() can pass 
+> this information
+> to rt6_fill_node() which does filtering of routes based on whether this 
+> flag is set
+> or not. Did I understand you correctly here ?
+> 
+>> Also, I am not sure that the interface should include things sort of
+>>
+>> +    if ((addr_type & (IPV6_ADDR_LINKLOCAL | IPV6_ADDR_LOOPBACK |
+>> +            IPV6_ADDR_MULTICAST)) != 0 ||
+>> +            addr_type == IPV6_ADDR_ANY)
+>>
+> 
+> I can remove the check completely and introduce a new flag RTF_PREFIX_RT 
+> to distinguish
+> between various route types.
+> 
+> Are these modifications OK ?
+> 
+> Thanks,
+> 
+> - KK
+> 
+>> For kernel all they are direct routes, if the application wants to apply
+>> some policy not formulated in terms of filters for RTM_GETROUTE, let it
+>> to filter itself. Moreover, I used to emphasize that user of rtnetlink
+>> should not believe to reliability of kernel filtering. It is just 
+>> necessary
+>> measure to guarantee that a new application, which is aware of a new
+>> attribute, will behave correctly with older kernels, which are not aware
+>> of this attribute. Not a requirement, of course.
+>>
+>> Anyway, if you want to apply such specific policy, you can add a flag
+>> to rtm_flags, which would say: RTM_F_OFFICIALLY_PREFIX and base filtering
+>> on this flag, when it is given.
+>>
+>> Alexey
+>>
+> 
