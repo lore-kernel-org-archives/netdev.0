@@ -1,21 +1,47 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: pcmcia ether drivers can't be unloaded
-Date: Thu, 22 Jul 2004 10:28:43 -0700
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [IPCOMP6] Fix ICMP type check
+Date: Thu, 22 Jul 2004 21:34:29 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040722102843.1e8f505c@dell_ss3.pdx.osdl.net>
+Message-ID: <20040722113429.GA15083@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Greg KH <greg@kroah.com>
+Content-Type: multipart/mixed; boundary="lrZ03NoBR/3+SXJZ"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>, "David S. Miller" <davem@redhat.com>
+To: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-It looks like pcmica modular ether (example orinoco) can never be manually unloaded because
-module refcount is always 1. This comes from the owner field in the pcmcia_driver.owner
-being set.
 
-One fix is to not set owner field but then there is a hot plug/module remove
-race. But the right fix seems to fix up pcmcia to be a true bus in the driver
-model and have the same hotplug as other buses; usb and pci don't have the problem.
+--lrZ03NoBR/3+SXJZ
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+Hi Dave:
+
+It looks like IPCOMP was missed when the same problem was fixed in AH/ESP.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--lrZ03NoBR/3+SXJZ
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="1.1806"
+
+diff -Nru a/net/ipv6/ipcomp6.c b/net/ipv6/ipcomp6.c
+--- a/net/ipv6/ipcomp6.c	2004-07-16 20:46:17 +10:00
++++ b/net/ipv6/ipcomp6.c	2004-07-16 20:46:17 +10:00
+@@ -240,7 +240,7 @@
+ 	struct ipv6_comp_hdr *ipcomph = (struct ipv6_comp_hdr*)(skb->data+offset);
+ 	struct xfrm_state *x;
+ 
+-	if (type != ICMPV6_DEST_UNREACH || type != ICMPV6_PKT_TOOBIG)
++	if (type != ICMPV6_DEST_UNREACH && type != ICMPV6_PKT_TOOBIG)
+ 		return;
+ 
+ 	spi = ntohl(ntohs(ipcomph->cpi));
+
+--lrZ03NoBR/3+SXJZ--
