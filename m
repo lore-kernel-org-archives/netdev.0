@@ -1,34 +1,63 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@wide.ad.jp>
+From: Antti Tuominen <ajtuomin@morphine.tml.hut.fi>
 Subject: Re: [PATCH] Mobile IPv6 for 2.5.40 (request for kernel inclusion)
-Date: Wed, 02 Oct 2002 18:46:07 +0900 (JST)
+Date: Wed, 2 Oct 2002 14:04:17 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021002.184607.73791540.yoshfuji@wide.ad.jp>
-References: <20021002092111.GB17010@morphine.tml.hut.fi>
+Message-ID: <20021002110416.GC17010@morphine.tml.hut.fi>
+References: <20021002.183113.16291158.yoshfuji@wide.ad.jp> <Pine.LNX.4.44.0210021232110.27910-100000@netcore.fi> <20021002.184418.121132248.yoshfuji@wide.ad.jp>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
-   linux-kernel@vger.kernel.org, torvalds@transmeta.com
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8bit
+Cc: pekkas@netcore.fi, davem@redhat.com, kuznet@ms2.inr.ac.ru,
+   netdev@oss.sgi.com, linux-kernel@vger.kernel.org, torvalds@transmeta.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ajtuomin@morphine.tml.hut.fi
-In-Reply-To: <20021002092111.GB17010@morphine.tml.hut.fi>
+To: "YOSHIFUJI Hideaki / 吉藤英明" <yoshfuji@wide.ad.jp>
+Content-Disposition: inline
+In-Reply-To: <20021002.184418.121132248.yoshfuji@wide.ad.jp>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20021002092111.GB17010@morphine.tml.hut.fi> (at Wed, 2 Oct 2002 12:21:11 +0300), Antti Tuominen <ajtuomin@morphine.tml.hut.fi> says:
+On Wed, Oct 02, 2002 at 06:44:18PM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@?(B wrote:
+> In article <Pine.LNX.4.44.0210021232110.27910-100000@netcore.fi> (at Wed, 2 Oct 2002 12:33:21 +0300 (EEST)), Pekka Savola <pekkas@netcore.fi> says:
+> 
+> > On Wed, 2 Oct 2002, YOSHIFUJI Hideaki / [iso-2022-jp] 吉藤英明 wrote:
+> > > In article <Pine.LNX.4.44.0210021224350.27873-100000@netcore.fi> (at Wed, 2 Oct 2002 12:25:37 +0300 (EEST)), Pekka Savola <pekkas@netcore.fi> says:
+> > > 
+> > > > I believe MIPL implements an old version of MIPv6 (draft -15 or so).
+> > > > 
+> > > > Or do you support -18 ?
+> > > 
+> > > We believe we should do -18, not -15 at all.
+> > 
+> > Well, www.mipl.mediapoli.com front page at least refers to -15, but you 
+> > should know better :-)
+> 
+> I meant, we should go with -18 (or later).  
+> (If the MIPL supports only -15,) -15 is too old.
 
-> Diff against latest BK bits can be downloaded from:
-> 	http://www.mipl.mediapoli.com/download/linux-2.5+mipv6.diff
+We do support Draft 18 in our development code (tested last week at
+ETSI IPv6 Plugtest and mostly working), but since Draft 15 was the
+last implementable draft (no _draft_ issues, compared to large number
+of inconcistencies and contradictions in draft 18) and we've had time
+to test the code properly, we decided to submit working code over
+latest code.
 
-% wget http://www.mipl.mediapoli.com/download/linux-2.5+mipv6.diff
---18:45:25--  http://www.mipl.mediapoli.com/download/linux-2.5+mipv6.diff
-           => `linux-2.5+mipv6.diff'
-Resolving www.mipl.mediapoli.com... done.
-Connecting to www.mipl.mediapoli.com[212.68.2.195]:80... connected.
-HTTP request sent, awaiting response... 403 Forbidden
-18:45:25 ERROR 403: Forbidden.
+Draft 15 based code is tested and works.  To get Mobile IPv6 in the
+kernel we felt that it is more important to have solid, tested code
+rather than our latest devel code for the submission.  Of course we
+are committed to providing the latest draft revision compliant code
+immediately when it's available.  But we don't feel draft 18 is the
+answer since draft 19 will soon be out and should address rest of the
+126 issues raised about drafts 16, 17 and 18.
+
+If the kernel maintainers feel differently, we are happy to provide
+you with our latest code implementing most of draft 18.
+
+
+Regards,
+
+Antti
 
 -- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Antti J. Tuominen, Gyldenintie 8A 11, 00200 Helsinki, Finland.
+Research assistant, Institute of Digital Communications at HUT
+work: ajtuomin@tml.hut.fi; home: tuominen@iki.fi
