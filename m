@@ -1,62 +1,54 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [patch] [rft] Re: of 2.6.2-rc2-mm2 and r8169
-Date: Tue, 10 Feb 2004 00:57:18 +0100
+From: Carl-Daniel Hailfinger <c-d.hailfinger.kernel.2004@gmx.net>
+Subject: Re: A small forcedeth driver issue
+Date: Tue, 10 Feb 2004 01:04:22 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040210005718.A10307@electric-eye.fr.zoreil.com>
-References: <20040130014108.09c964fd.akpm@osdl.org> <20040201100340.GA12436@neuffer.info> <20040207001756.A26645@electric-eye.fr.zoreil.com> <20040207115054.GC5704@neuffer.info> <20040207132124.A7344@electric-eye.fr.zoreil.com> <20040208064859.GA29384@neuffer.info>
+Message-ID: <40282006.2090508@gmx.net>
+References: <200402092252.22540.kenneth.krekula@kiruna.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Michael Neuffer <neuffer@neuffer.info>
-Content-Disposition: inline
-In-Reply-To: <20040208064859.GA29384@neuffer.info>; from neuffer@neuffer.info on Sun, Feb 08, 2004 at 07:48:59AM +0100
+To: Kenneth Krekula <kenneth.krekula@kiruna.se>
+In-Reply-To: <200402092252.22540.kenneth.krekula@kiruna.se>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The patch below compiles but I don't know if it will apply against
-current -mm. Complain if it's broken and I'll clean it once I have got some
-sleep.
+Kenneth Krekula wrote:
+> Hi.
+> 
+> I have a NForce1 motherboard and have tested the forcedeth driver with
+> the Mandrake 10 betas. The driver works very well (thanks for the great
+> work!!) and I only have a small issue:
+> 
+> If I have been using the driver in Mandrake 10 beta 2, and reboot into
+> Win XP or Mandrake Linux 9.2 (with the NVIdia NForce drivers) the
+> network just fails.
 
-Idea behind the change: assume that there is no invocation of the r8169 irq
-handler while the asic fills all the available rx buffers. When it is
-finally called, the rx irq handler will not be stopped by a descriptor
-which is owned by the r8169 asic. The skb refill logic is only called once
-the handler has stopped looping over the ring and the rx handler will happily
-process skb entries that were just NULLed -> Oops
+I assume it works fine if you reboot into Linux with forcedeth again, right?
 
---- drivers/net/r8169.c	2004-02-10 00:20:48.000000000 +0100
-+++ drivers/net/r8169.c	2004-02-10 00:26:18.000000000 +0100
-@@ -1471,17 +1471,20 @@ static void
- rtl8169_rx_interrupt(struct net_device *dev, struct rtl8169_private *tp,
- 		     void *ioaddr)
- {
--	int cur_rx, delta;
-+	int delta, rx_left;
- 
- 	assert(dev != NULL);
- 	assert(tp != NULL);
- 	assert(ioaddr != NULL);
- 
--	cur_rx = tp->cur_rx % NUM_RX_DESC;
-+	rx_left = tp->cur_rx - tp->dirty_rx;
- 
--	while (!(le32_to_cpu(tp->RxDescArray[cur_rx].status) & OWNbit)) {
-+	while (rx_left > 0) {
-+		int cur_rx = tp->cur_rx % NUM_RX_DESC;
- 		u32 status = le32_to_cpu(tp->RxDescArray[cur_rx].status);
- 
-+		if (status & OWNbit)
-+			break;
- 		if (status & RxRES) {
- 			printk(KERN_INFO "%s: Rx ERROR!!!\n", dev->name);
- 			tp->stats.rx_errors++;
-@@ -1517,7 +1520,7 @@ rtl8169_rx_interrupt(struct net_device *
- 		}
- 		
- 		tp->cur_rx++; 
--		cur_rx = tp->cur_rx % NUM_RX_DESC;
-+		rx_left--;
- 	}
- 
- 	delta = rtl8169_rx_fill(tp, dev, tp->dirty_rx, tp->cur_rx);
+
+> However, if I shut off the power switch and wait for some seconds, I
+> can power on and boot into Win XP, Mandrake 9.2.
+> 
+> I don't know if this is a known issue or not.
+
+Yes, it's a known issue. Basically, forcedeth does not shutdown the
+hardware completely, but this should not matter if it is reinitialized
+correctly during the next boot. forcedeth can reinitialize hardware even
+if it wasn't shutdown completely. The windows driver, however, lacks this
+feature and therefore fails.
+
+There are two ways to deal with the issue:
+- get a better windows driver (more recent versions from Nvidia *should* work)
+- wait a few weeks until I get access to some nforce hardware and can fix
+this.
+
+I do not want to change the shutdown procedure without testing it on real
+hardware. The last time I did that, I got a complete lockup.
+
+
+HTH,
+Carl-Daniel
+-- 
+http://www.hailfinger.org/
