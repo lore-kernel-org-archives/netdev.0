@@ -1,35 +1,25 @@
-From: Jason Lunz <lunz@falooley.org>
-Subject: Re: [PATCH, untested] Support for PPPOE on SMP
-Date: Wed, 25 Jun 2003 16:01:04 +0000 (UTC)
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: Re: [PATCH] IPV6: DAD has to be destined to solicited node mulitcast
+ address
+Date: Wed, 25 Jun 2003 23:43:15 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <slrnbfjhqh.h0q.lunz@stoli.localnet>
-References: <20030625072602.529AF2C0B9@lists.samba.org>
+Message-ID: <Pine.LNX.4.44.0306252342360.20992-100000@netcore.fi>
+References: <20030626.040150.28947784.yoshfuji@linux-ipv6.org>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Cc: davem@redhat.com, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20030626.040150.28947784.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-rusty@rustcorp.com.au said:
-> I don't understand the unbalanced dev_put in net_rx_action(), BTW.
+On Thu, 26 Jun 2003, YOSHIFUJI Hideaki / [iso-2022-jp] 吉藤英明 wrote:
+> +			printk(KERN_DEBUG "ICMP6 NS: bad DAD packet (wrong destination\n");
 
-It's tricky. There are two paths an skb can take into net_rx_action(),
-napi and non-napi. The non-napi path uses dev_hold/dev_put on both
-skb->dev and a virtual per-cpu struct net_device, the backlog_dev.
+s/destination/destination)/
 
-In a non-napi skb receive, the driver uses netif_rx() to hand the skb up
-to the net core. netif_rx does a dev_hold on skb->dev, puts the skb on
-the current cpu's softnet_data queue, and uses netif_rx_schedule to
-schedule that softnet-data's ->backlog_dev to be polled.  In the
-process, __netif_rx_schedule does a dev_hold(backlog_dev).
-
-So the queue of ready net_devices processed by net_rx_action may contain
-actual struct net_devices (napi) or the virtual ->backlog_dev
-net_device. In the former case, net_rx_action's dev_put balances the
-dev_hold done when the driver called __netif_rx_schedule(). In the
-latter case, net_rx_action's dev_put balances the dev_hold of the
-backlog_dev done when netif_rx called __netif_rx_schedule().
-
-I hope that makes some kind of sense. It took a while to figure out, but
-I saved my notes. :)
-
-Jason
+-- 
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
