@@ -1,21 +1,21 @@
 From: chas williams <chas@cmf.nrl.navy.mil>
 Subject: Re: [PATCH][ATM][3/3] assorted changes for atm
-Date: Fri, 20 Jun 2003 16:53:05 -0400
+Date: Fri, 20 Jun 2003 17:32:30 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200306202055.h5KKt9sG018696@ginger.cmf.nrl.navy.mil>
-References: <20030617.103145.26534124.davem@redhat.com>
+Message-ID: <200306202134.h5KLYXsG019262@ginger.cmf.nrl.navy.mil>
+References: <200306202055.h5KKt9sG018696@ginger.cmf.nrl.navy.mil>
 Reply-To: chas3@users.sourceforge.net
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
-In-reply-to: Your message of "Tue, 17 Jun 2003 10:31:45 PDT."
-             <20030617.103145.26534124.davem@redhat.com>
+In-reply-to: Your message of "Fri, 20 Jun 2003 16:53:05 EDT."
+             <200306202055.h5KKt9sG018696@ginger.cmf.nrl.navy.mil>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-here is yet another version of the vcc sklist conversion.  thanks
-to acme@conectiva.com.br for pointing out my brain damage about
-testing the iterator during list traversal.
+ok, one more time.  maybe i could post the complete patch this time.
+
+[atm]: move vcc's to global sk-based linked list
 
 # This is a BitKeeper generated patch for the following project:
 # Project Name: Linux kernel tree
@@ -35,6 +35,7 @@ testing the iterator during list traversal.
 #	 net/atm/signaling.c	1.14    -> 1.15   
 #	 net/atm/resources.h	1.7     -> 1.8    
 #	       net/atm/mpc.c	1.20    -> 1.21   
+#	include/linux/atmdev.h	1.18    -> 1.19   
 #	 net/atm/resources.c	1.13    -> 1.14   
 #	      net/atm/clip.c	1.17    -> 1.18   
 #	drivers/atm/fore200e.c	1.18    -> 1.19   
@@ -47,8 +48,8 @@ testing the iterator during list traversal.
 # --------------------------------------------
 #
 diff -Nru a/drivers/atm/atmtcp.c b/drivers/atm/atmtcp.c
---- a/drivers/atm/atmtcp.c	Fri Jun 20 16:53:20 2003
-+++ b/drivers/atm/atmtcp.c	Fri Jun 20 16:53:20 2003
+--- a/drivers/atm/atmtcp.c	Fri Jun 20 17:33:36 2003
++++ b/drivers/atm/atmtcp.c	Fri Jun 20 17:33:36 2003
 @@ -153,9 +153,10 @@
  
  static int atmtcp_v_ioctl(struct atm_dev *dev,unsigned int cmd,void *arg)
@@ -185,8 +186,8 @@ diff -Nru a/drivers/atm/atmtcp.c b/drivers/atm/atmtcp.c
  	return 0;
  }
 diff -Nru a/drivers/atm/eni.c b/drivers/atm/eni.c
---- a/drivers/atm/eni.c	Fri Jun 20 16:53:20 2003
-+++ b/drivers/atm/eni.c	Fri Jun 20 16:53:20 2003
+--- a/drivers/atm/eni.c	Fri Jun 20 17:33:36 2003
++++ b/drivers/atm/eni.c	Fri Jun 20 17:33:36 2003
 @@ -1887,10 +1887,11 @@
  
  static int get_ci(struct atm_vcc *vcc,short *vpi,int *vci)
@@ -303,8 +304,8 @@ diff -Nru a/drivers/atm/eni.c b/drivers/atm/eni.c
  		struct eni_free *fe = eni_dev->free_list+i;
  		unsigned long offset;
 diff -Nru a/drivers/atm/fore200e.c b/drivers/atm/fore200e.c
---- a/drivers/atm/fore200e.c	Fri Jun 20 16:53:20 2003
-+++ b/drivers/atm/fore200e.c	Fri Jun 20 16:53:20 2003
+--- a/drivers/atm/fore200e.c	Fri Jun 20 17:33:36 2003
++++ b/drivers/atm/fore200e.c	Fri Jun 20 17:33:36 2003
 @@ -1069,18 +1069,23 @@
  static struct atm_vcc* 
  fore200e_find_vcc(struct fore200e* fore200e, struct rpd* rpd)
@@ -429,8 +430,8 @@ diff -Nru a/drivers/atm/fore200e.c b/drivers/atm/fore200e.c
  	return len;
      }
 diff -Nru a/drivers/atm/he.c b/drivers/atm/he.c
---- a/drivers/atm/he.c	Fri Jun 20 16:53:20 2003
-+++ b/drivers/atm/he.c	Fri Jun 20 16:53:20 2003
+--- a/drivers/atm/he.c	Fri Jun 20 17:33:36 2003
++++ b/drivers/atm/he.c	Fri Jun 20 17:33:36 2003
 @@ -79,7 +79,6 @@
  #include <linux/sonet.h>
  
@@ -559,8 +560,8 @@ diff -Nru a/drivers/atm/he.c b/drivers/atm/he.c
  
  	}
 diff -Nru a/drivers/atm/idt77252.c b/drivers/atm/idt77252.c
---- a/drivers/atm/idt77252.c	Fri Jun 20 16:53:20 2003
-+++ b/drivers/atm/idt77252.c	Fri Jun 20 16:53:20 2003
+--- a/drivers/atm/idt77252.c	Fri Jun 20 17:33:36 2003
++++ b/drivers/atm/idt77252.c	Fri Jun 20 17:33:36 2003
 @@ -2403,37 +2403,43 @@
  static int
  idt77252_find_vcc(struct atm_vcc *vcc, short *vpi, int *vci)
@@ -616,9 +617,58 @@ diff -Nru a/drivers/atm/idt77252.c b/drivers/atm/idt77252.c
  	return 0;
  }
  
+diff -Nru a/include/linux/atmdev.h b/include/linux/atmdev.h
+--- a/include/linux/atmdev.h	Fri Jun 20 17:33:36 2003
++++ b/include/linux/atmdev.h	Fri Jun 20 17:33:36 2003
+@@ -293,7 +293,6 @@
+ 	struct k_atm_aal_stats *stats;	/* pointer to AAL stats group */
+ 	wait_queue_head_t sleep;	/* if socket is busy */
+ 	struct sock	*sk;		/* socket backpointer */
+-	struct atm_vcc	*prev,*next;
+ 	/* SVC part --- may move later ------------------------------------- */
+ 	short		itf;		/* interface number */
+ 	struct sockaddr_atmsvc local;
+@@ -320,8 +319,6 @@
+ 					/* (NULL) */
+ 	const char	*type;		/* device type name */
+ 	int		number;		/* device index */
+-	struct atm_vcc	*vccs;		/* VCC table (or NULL) */
+-	struct atm_vcc	*last;		/* last VCC (or undefined) */
+ 	void		*dev_data;	/* per-device data */
+ 	void		*phy_data;	/* private PHY date */
+ 	unsigned long	flags;		/* device flags (ATM_DF_*) */
+@@ -390,6 +387,9 @@
+ 	unsigned long	atm_options;	/* ATM layer options */
+ };
+ 
++extern struct hlist_head vcc_sklist;
++extern rwlock_t vcc_sklist_lock;
++
+ #define ATM_SKB(skb) (((struct atm_skb_data *) (skb)->cb))
+ 
+ struct atm_dev *atm_dev_register(const char *type,const struct atmdev_ops *ops,
+@@ -397,7 +397,8 @@
+ struct atm_dev *atm_dev_lookup(int number);
+ void atm_dev_deregister(struct atm_dev *dev);
+ void shutdown_atm_dev(struct atm_dev *dev);
+-void bind_vcc(struct atm_vcc *vcc,struct atm_dev *dev);
++void vcc_insert_socket(struct sock *sk);
++void vcc_remove_socket(struct sock *sk);
+ 
+ 
+ /*
+@@ -436,7 +437,7 @@
+ }
+ 
+ 
+-static inline void atm_dev_release(struct atm_dev *dev)
++static inline void atm_dev_put(struct atm_dev *dev)
+ {
+ 	atomic_dec(&dev->refcnt);
+ 
 diff -Nru a/net/atm/atm_misc.c b/net/atm/atm_misc.c
---- a/net/atm/atm_misc.c	Fri Jun 20 16:53:20 2003
-+++ b/net/atm/atm_misc.c	Fri Jun 20 16:53:20 2003
+--- a/net/atm/atm_misc.c	Fri Jun 20 17:33:36 2003
++++ b/net/atm/atm_misc.c	Fri Jun 20 17:33:36 2003
 @@ -47,15 +47,21 @@
  
  static int check_ci(struct atm_vcc *vcc,short vpi,int vci)
@@ -681,8 +731,8 @@ diff -Nru a/net/atm/atm_misc.c b/net/atm/atm_misc.c
  }
  
 diff -Nru a/net/atm/clip.c b/net/atm/clip.c
---- a/net/atm/clip.c	Fri Jun 20 16:53:20 2003
-+++ b/net/atm/clip.c	Fri Jun 20 16:53:20 2003
+--- a/net/atm/clip.c	Fri Jun 20 17:33:36 2003
++++ b/net/atm/clip.c	Fri Jun 20 17:33:36 2003
 @@ -737,7 +737,8 @@
  	set_bit(ATM_VF_META,&vcc->flags);
  	set_bit(ATM_VF_READY,&vcc->flags);
@@ -694,8 +744,8 @@ diff -Nru a/net/atm/clip.c b/net/atm/clip.c
  	vcc->pop = NULL; /* crash */
  	vcc->push_oam = NULL; /* crash */
 diff -Nru a/net/atm/common.c b/net/atm/common.c
---- a/net/atm/common.c	Fri Jun 20 16:53:20 2003
-+++ b/net/atm/common.c	Fri Jun 20 16:53:20 2003
+--- a/net/atm/common.c	Fri Jun 20 17:33:36 2003
++++ b/net/atm/common.c	Fri Jun 20 17:33:36 2003
 @@ -157,6 +157,29 @@
  #endif
  
@@ -888,8 +938,8 @@ diff -Nru a/net/atm/common.c b/net/atm/common.c
  			spin_lock(&atm_dev_lock);
  		}
 diff -Nru a/net/atm/common.h b/net/atm/common.h
---- a/net/atm/common.h	Fri Jun 20 16:53:20 2003
-+++ b/net/atm/common.h	Fri Jun 20 16:53:20 2003
+--- a/net/atm/common.h	Fri Jun 20 17:33:36 2003
++++ b/net/atm/common.h	Fri Jun 20 17:33:36 2003
 @@ -10,8 +10,8 @@
  #include <linux/poll.h> /* for poll_table */
  
@@ -910,8 +960,8 @@ diff -Nru a/net/atm/common.h b/net/atm/common.h
  
  int atmpvc_init(void);
 diff -Nru a/net/atm/lec.c b/net/atm/lec.c
---- a/net/atm/lec.c	Fri Jun 20 16:53:20 2003
-+++ b/net/atm/lec.c	Fri Jun 20 16:53:20 2003
+--- a/net/atm/lec.c	Fri Jun 20 17:33:36 2003
++++ b/net/atm/lec.c	Fri Jun 20 17:33:36 2003
 @@ -48,7 +48,7 @@
  
  #include "lec.h"
@@ -932,8 +982,8 @@ diff -Nru a/net/atm/lec.c b/net/atm/lec.c
          vcc->proto_data = dev_lec[i];
  	set_bit(ATM_VF_META,&vcc->flags);
 diff -Nru a/net/atm/mpc.c b/net/atm/mpc.c
---- a/net/atm/mpc.c	Fri Jun 20 16:53:20 2003
-+++ b/net/atm/mpc.c	Fri Jun 20 16:53:20 2003
+--- a/net/atm/mpc.c	Fri Jun 20 17:33:36 2003
++++ b/net/atm/mpc.c	Fri Jun 20 17:33:36 2003
 @@ -28,7 +28,7 @@
  
  #include "lec.h"
@@ -954,8 +1004,8 @@ diff -Nru a/net/atm/mpc.c b/net/atm/mpc.c
  	set_bit(ATM_VF_READY,&vcc->flags);
  
 diff -Nru a/net/atm/proc.c b/net/atm/proc.c
---- a/net/atm/proc.c	Fri Jun 20 16:53:20 2003
-+++ b/net/atm/proc.c	Fri Jun 20 16:53:20 2003
+--- a/net/atm/proc.c	Fri Jun 20 17:33:36 2003
++++ b/net/atm/proc.c	Fri Jun 20 17:33:36 2003
 @@ -334,9 +334,8 @@
  
  static int atm_pvc_info(loff_t pos,char *buf)
@@ -1090,8 +1140,8 @@ diff -Nru a/net/atm/proc.c b/net/atm/proc.c
  	return 0;
  }
 diff -Nru a/net/atm/pvc.c b/net/atm/pvc.c
---- a/net/atm/pvc.c	Fri Jun 20 16:53:20 2003
-+++ b/net/atm/pvc.c	Fri Jun 20 16:53:20 2003
+--- a/net/atm/pvc.c	Fri Jun 20 17:33:36 2003
++++ b/net/atm/pvc.c	Fri Jun 20 17:33:36 2003
 @@ -17,10 +17,6 @@
  #include "resources.h"		/* devs and vccs */
  #include "common.h"		/* common for PVCs and SVCs */
@@ -1122,8 +1172,8 @@ diff -Nru a/net/atm/pvc.c b/net/atm/pvc.c
  
  
 diff -Nru a/net/atm/resources.c b/net/atm/resources.c
---- a/net/atm/resources.c	Fri Jun 20 16:53:20 2003
-+++ b/net/atm/resources.c	Fri Jun 20 16:53:20 2003
+--- a/net/atm/resources.c	Fri Jun 20 17:33:36 2003
++++ b/net/atm/resources.c	Fri Jun 20 17:33:36 2003
 @@ -23,11 +23,6 @@
  #include "addr.h"
  
@@ -1235,8 +1285,8 @@ diff -Nru a/net/atm/resources.c b/net/atm/resources.c
  EXPORT_SYMBOL(shutdown_atm_dev);
 -EXPORT_SYMBOL(bind_vcc);
 diff -Nru a/net/atm/resources.h b/net/atm/resources.h
---- a/net/atm/resources.h	Fri Jun 20 16:53:20 2003
-+++ b/net/atm/resources.h	Fri Jun 20 16:53:20 2003
+--- a/net/atm/resources.h	Fri Jun 20 17:33:36 2003
++++ b/net/atm/resources.h	Fri Jun 20 17:33:36 2003
 @@ -14,8 +14,6 @@
  extern spinlock_t atm_dev_lock;
  
@@ -1247,8 +1297,8 @@ diff -Nru a/net/atm/resources.h b/net/atm/resources.h
  
  
 diff -Nru a/net/atm/signaling.c b/net/atm/signaling.c
---- a/net/atm/signaling.c	Fri Jun 20 16:53:20 2003
-+++ b/net/atm/signaling.c	Fri Jun 20 16:53:20 2003
+--- a/net/atm/signaling.c	Fri Jun 20 17:33:36 2003
++++ b/net/atm/signaling.c	Fri Jun 20 17:33:36 2003
 @@ -200,26 +200,22 @@
  }
  
@@ -1318,8 +1368,8 @@ diff -Nru a/net/atm/signaling.c b/net/atm/signaling.c
  	set_bit(ATM_VF_READY,&vcc->flags);
  	wake_up(&sigd_sleep);
 diff -Nru a/net/atm/svc.c b/net/atm/svc.c
---- a/net/atm/svc.c	Fri Jun 20 16:53:20 2003
-+++ b/net/atm/svc.c	Fri Jun 20 16:53:20 2003
+--- a/net/atm/svc.c	Fri Jun 20 17:33:36 2003
++++ b/net/atm/svc.c	Fri Jun 20 17:33:36 2003
 @@ -88,18 +88,21 @@
  
  static int svc_release(struct socket *sock)
