@@ -1,22 +1,25 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 2.5.70] e100 initialize fields prior to register_netdevice
-Date: Thu, 29 May 2003 20:09:08 -0400
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] change delete bridge to work with new unregister
+Date: Thu, 29 May 2003 20:02:41 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3ED6A124.1060704@pobox.com>
-References: <Pine.LNX.4.44.0305291643550.23177-100000@localhost.localdomain>
+Message-ID: <20030529.200241.108806909.davem@redhat.com>
+References: <20030529102407.3d3cfefd.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>,
-   "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Feldman, Scott" <scott.feldman@intel.com>
-In-Reply-To: <Pine.LNX.4.44.0305291643550.23177-100000@localhost.localdomain>
+To: shemminger@osdl.org
+In-Reply-To: <20030529102407.3d3cfefd.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Your patch doesn't apply at all, even with 'patch -l'.
+   From: Stephen Hemminger <shemminger@osdl.org>
+   Date: Thu, 29 May 2003 10:24:07 -0700
 
-I backed out Stephen's patch, and will be looking for a fix from you ;-)
-
-	Jeff
+   The changes in 2.5.70 for unregister cause deleteing a bridge device to
+   hang, because the last reference to the bridge was being dropped after
+   calling unregister_netdev.  Doing the unregister under lock, instead
+   of by holding a reference fixes that.
+   
+Applied, thanks.
