@@ -1,69 +1,41 @@
-From: jaganav@us.ibm.com
-Subject: RE: Linux support for RDMA
-Date: Fri,  1 Apr 2005 20:59:46 -0500
-Message-ID: <1112407186.424dfc92dc37a@imap.linux.ibm.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [IPSEC]: Kill nested read lock by deleting xfrm_init_tempsel
+Date: Sat, 2 Apr 2005 12:09:47 +1000
+Message-ID: <20050402020947.GA24998@gondor.apana.org.au>
+References: <20050214221200.GA18465@gondor.apana.org.au> <20050214221433.GB18465@gondor.apana.org.au> <20050214221607.GC18465@gondor.apana.org.au> <424864CE.5060802@trash.net> <20050328233917.GB15369@gondor.apana.org.au> <424B40C2.90304@trash.net> <20050331004658.GA26395@gondor.apana.org.au> <20050331212325.5e996432.davem@davemloft.net> <20050402004956.GA24339@gondor.apana.org.au> <20050401172007.7296eced.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: Asgeir Eiriksson <asgeir@chelsio.com>, "H. Peter Anvin" <hpa@zytor.com>,
-        Roland Dreier <roland@topspin.com>, open-iscsi@googlegroups.com,
-        "David S. Miller" <davem@davemloft.net>, mpm@selenic.com,
-        andrea@suse.de, michaelc@cs.wisc.edu,
-        James.Bottomley@HansenPartnership.com, ksummit-2005-discuss@thunk.org,
-        netdev@oss.sgi.com, Benjamin LaHaise <bcrl@kvack.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: kaber@trash.net, kuznet@ms2.inr.ac.ru, jmorris@redhat.com,
+        yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Dmitry Yusupov <dima@neterion.com>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20050401172007.7296eced.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Quoting Dmitry Yusupov <dima@neterion.com>:
-
-> On Fri, 2005-04-01 at 15:50 -0800, Asgeir Eiriksson wrote:
-> > Venkat
-> > 
-> > Your assessment of the IB vs. Ethernet latencies isn't necessarily
-> > correct.
-> > - you already have available low latency 10GE switches (< 1us
-> > port-to-port)
-> > - you already have available low latency (cut-through processing) 10GE
-> > TOE engines
-> > 
-> > The Veritest verified 10GE TOE end-to-end latency is < 10us today
-> > (end-to-end being from a Linux user-space-process to a Linux
-> > user-space-process through a switch; full report with detail of the
-> > setup is available at
-> > http://www.chelsio.com/technology/Chelsio10GbE_Fujitsu.pdf)
-> > 
-> > For comparison: the published IB latency numbers are around 5us today
-> > and those use a polling receiver, and those don't include a context
-> > switch(es) as does the Ethernet number quoted above.
+On Fri, Apr 01, 2005 at 05:20:07PM -0800, David S. Miller wrote:
+> On Sat, 2 Apr 2005 10:49:56 +1000
+> Herbert Xu <herbert@gondor.apana.org.au> wrote:
 > 
-> yep. I should agree in here. On 10Gbps network latencies numbers are
-> around 5-15us. Even with non-TOE card, I managed to get 13us latency
-> with regular TCP/IP stack.
+> > The second patch creates a dead lock since it does a nested read
+> > lock.  The solution is simply to get rid of xfrm_init_tempsel
+> > and call the afinfo version directly.
 > 
-> [root@localhost root]# ./nptcp -a -t -l 256 -u 98304 -i 256 -p 5100 -P - h
-> 17.1.1.227
-> Latency: 0.000013
-> Now starting main loop
->   0:       256 bytes    7 times -->  131.37 Mbps in 0.000015 sec
->   1:       512 bytes   65 times -->  239.75 Mbps in 0.000016 sec
-> 
-> Dima
+> read locks nest even in the presence of pending writers
 
-When I mentioned about latency, the measurement is from
-end-to-end (i.e. from app to app) but not just the
-switching or port to port latencies.
+Doh! I should've read the code first :)
 
-With IB, I have seen the best numbers ranging from
-5 to 7 us and which is far better than ethernet today 
-(15 to 35us) with the network we have. I am not
-denyig the fact that ethernet is trying to close the 
-gap here but IB has got a relative advantage now.
+It's still a valid clean-up patch though.
 
-Good to see you have got 5us in one case but what were
-the switch and adapter latencies in this case.
+There is another reason why it won't dead lock.  We don't actually
+ever hold the write lock on afinfo :) Is there any reason why we
+dont't just use xfrm_state_afinfo_lock instead of afinfo->lock?
 
-Thanks
-Venkat
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
