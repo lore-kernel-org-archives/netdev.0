@@ -1,49 +1,22 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [BUG] overflow in net/ipv4/route.c rt_check_expire()
-Date: Sat, 02 Apr 2005 18:21:05 +1000
-Message-ID: <E1DHdsP-0003Lr-00@gondolin.me.apana.org.au>
-References: <424DD78D.7070001@cosmosbay.com>
-Cc: davem@davemloft.net, netdev@oss.sgi.com, Robert.Olsson@data.slu.se
+From: Meelis Roos <mroos@linux.ee>
+Subject: Re: RFC:  Redirect-Device
+Date: Sat, 02 Apr 2005 11:41:11 +0300
+Message-ID: <E1DHeBr-0002mb-2L@rhn.tartu-labor>
+References: <1112303627.1073.71.camel@jzny.localdomain>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: dada1@cosmosbay.com (Eric Dumazet)
-In-Reply-To: <424DD78D.7070001@cosmosbay.com>
+To: hadi@cyberus.ca, netdev@oss.sgi.com
+In-Reply-To: <1112303627.1073.71.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Eric Dumazet <dada1@cosmosbay.com> wrote:
-> 
-> OK this patch includes everything...
-> 
->  - Locking abstraction
->  - rt_check_expire() fixes
->  - New gc_interval_ms sysctl to be able to have timer gc_interval < 1 second
->  - New gc_debug sysctl to let sysadmin tune gc
->  - Less memory used by hash table (spinlocks moved to a smaller table)
->  - sizing of spinlocks table depends on NR_CPUS
->  - hash table allocated using alloc_large_system_hash() function
->  - header fix for /proc/net/stat/rt_cache
+j> I must be missing something: What is it that this device can do that the
+j> mirred action cant do? 
 
-This patch is doing too many things.  How about splitting it up?
+I know what I am missing here: documentation. There is very basic
+documentation about tc qdisc+class+filter level and almost nothing on the
+newer features. Without good documentation only some developers
+understand it.
 
-For instance the spin lock stuff is pretty straightforward and
-should be in its own patch.
-
-The benefits of the GC changes are not obvious to me.  rt_check_expire
-is simply meant to kill off old entries.  It's not really meant to be
-used to free up entries when the table gets full.
-
-rt_garbage_collect on the other hand is designed to free entries
-when it is needed.  Eric raised the point that rt_garbage_collect
-is pretty expensive.  So what about amortising its cost a bit more?
-
-For instance, we can set a new threshold that's lower than gc_thresh
-and perform GC on the chain being inserted in rt_intern_hash if we're
-above that threshold.
-
-Cheers,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Meelis Roos
