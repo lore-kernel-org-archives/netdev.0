@@ -1,49 +1,65 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: V2.4 policy router operates faster/better than V2.6
-Date: Thu, 20 Jan 2005 18:01:17 +0100
-Message-ID: <16879.58333.266843.335475@robur.slu.se>
-References: <Pine.LNX.4.44.0501071416060.5818-100000@localhost.localdomain>
-	<200501191950.08567.jeremy.guthrie@berbee.com>
-	<16879.38457.4576.598144@robur.slu.se>
-	<200501200837.40734.jeremy.guthrie@berbee.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [RFC] batched tc to improve change throughput
+Date: Thu, 20 Jan 2005 09:06:28 -0800
+Message-ID: <20050120090628.29205d59@dxpl.pdx.osdl.net>
+References: <20050117160539.GD26856@postel.suug.ch>
+	<1105979807.1078.16.camel@jzny.localdomain>
+	<20050117165626.GE26856@postel.suug.ch>
+	<1106002197.1046.19.camel@jzny.localdomain>
+	<20050118134406.GR26856@postel.suug.ch>
+	<1106058592.1035.95.camel@jzny.localdomain>
+	<20050118145830.GS26856@postel.suug.ch>
+	<1106144009.1047.989.camel@jzny.localdomain>
+	<20050119165421.GB26856@postel.suug.ch>
+	<1106232168.1041.125.camel@jzny.localdomain>
+	<20050120153559.GG26856@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Robert Olsson <Robert.Olsson@data.slu.se>
+Cc: jamal <hadi@cyberus.ca>, Patrick McHardy <kaber@trash.net>,
+        netdev@oss.sgi.com, Werner Almesberger <werner@almesberger.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jeremy.guthrie@berbee.com
-In-Reply-To: <200501200837.40734.jeremy.guthrie@berbee.com>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050120153559.GG26856@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Thu, 20 Jan 2005 16:35:59 +0100
+Thomas Graf <tgraf@suug.ch> wrote:
 
-Jeremy M. Guthrie writes:
-
- > >  > 1024 buffers on the RX of eth3.
- > >  >
- > >  > echo 86400 > /proc/sys/net/ipv4/route/secret_interval
- > >  > echo 524288 > /proc/sys/net/ipv4/route/gc_thresh
- > >
- > >  rhash_entries?
- > I left that at 2.4 million.
- > 
- > >  > It appears to be cruising right along now.
-
-
- >  size   IN: hit     tot    mc no_rt bcast madst masrc  OUT: hit     tot     mc 
- > GC: tot ignored goal_miss ovrf HASH: in_search out_search
- > 524291     74169     779     0     0     0     0     0         2       0 
- > 1610369017     516       0         0    0           43612          0
- > 524287     74830     777     0     0     0     0     0         6       0      
- > 0     498       0         0    0           40504          1
- > 524285     77458     949     0     0     0     0     0         4       0      
- > 0     619       0         0    0           42731          1
+> * jamal <1106232168.1041.125.camel@jzny.localdomain> 2005-01-20 09:42
+> > I like it. Assuming we can have arbitrary hierachies; you just show one
+> > level - but that may be just the example at hand. Given that should be
+> > able to meet the layout requirements that Lennert alluded to earlier.
+> 
+> It doesn't include any context code, the BNF:
+> 
+> PARSER    := TOPNODE*
+> TOPNODE   := NODELIST DESC LONG_DESC
+> NODELIST  := NODE*
+> NODE      := DESC [ NODELIST ] [ ARGUMENT ] [ ATTRS ] [ END_POINT ]
+> END_POINT := possible end of command
+> ATTRS     := ATTR*
+> ATTR      := KEY [ VALUE ]
+> ARGUMENT  := VALUE [ DESC ]
+> 
+> Not sure if this helps, I attached a complete module below.
+> 
 
 
- Linear search is under control and number of dst entries very high but very
- constant at the cost of calling GC a number of times second. But I don't 
- understand why we do not see any GC ignored. Did you ever write to gc_min_interval 
- in proc? Never seen rtstat's like this but it seems to do the job.
 
-						  --ro
+Go for it!
+
+A couple additional suggestions.  It would be great to get a useful API
+to for 'tc' that is one step above actual low level netlink stuff.
+
+And it would be great to reuse some existing scripting language grammar
+and parsing library infrastructure.
+
+
+Don't feel constrained to C on this. If using C++ or even something like
+phython or ruby would be better go ahead; but please no Perl.
+
+-- 
+Stephen Hemminger	<shemminger@osdl.org>
