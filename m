@@ -1,7 +1,7 @@
 From: Chris Wright <chrisw@osdl.org>
-Subject: [PATCH 3/8] Use SLAB_PANIC when creating critical slab cache
-Date: Sun, 14 Nov 2004 12:21:47 -0800
-Message-ID: <20041114122147.A2357@build.pdx.osdl.net>
+Subject: [PATCH 4/8] Use SLAB_PANIC when creating critical slab cache
+Date: Sun, 14 Nov 2004 12:22:38 -0800
+Message-ID: <20041114122238.B2357@build.pdx.osdl.net>
 References: <20041114121837.X2357@build.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -18,22 +18,19 @@ Use SLAB_PANIC when creating a critical slab cache.
 
 Signed-off-by: Chris Wright <chrisw@osdl.org>
 
-===== net/decnet/dn_route.c 1.29 vs edited =====
---- 1.29/net/decnet/dn_route.c	2004-11-09 16:44:25 -08:00
-+++ edited/net/decnet/dn_route.c	2004-11-10 17:48:58 -08:00
-@@ -1778,12 +1778,9 @@ void __init dn_route_init(void)
- 	int i, goal, order;
+===== net/ipv4/inetpeer.c 1.9 vs edited =====
+--- 1.9/net/ipv4/inetpeer.c	2004-02-23 15:09:14 -08:00
++++ edited/net/ipv4/inetpeer.c	2004-10-29 14:17:33 -07:00
+@@ -126,11 +126,8 @@ void __init inet_initpeers(void)
  
- 	dn_dst_ops.kmem_cachep = kmem_cache_create("dn_dst_cache",
--						   sizeof(struct dn_route),
--						   0, SLAB_HWCACHE_ALIGN,
--						   NULL, NULL);
+ 	peer_cachep = kmem_cache_create("inet_peer_cache",
+ 			sizeof(struct inet_peer),
+-			0, SLAB_HWCACHE_ALIGN,
++			0, SLAB_HWCACHE_ALIGN|SLAB_PANIC,
+ 			NULL, NULL);
 -
--	if (!dn_dst_ops.kmem_cachep)
--		panic("DECnet: Failed to allocate dn_dst_cache\n");
-+						  sizeof(struct dn_route), 0,
-+						  SLAB_HWCACHE_ALIGN|SLAB_PANIC,
-+						  NULL, NULL);
+-	if (!peer_cachep)
+-		panic("cannot create inet_peer_cache");
  
- 	init_timer(&dn_route_timer);
- 	dn_route_timer.function = dn_dst_check_expire;
+ 	/* All the timers, started at system startup tend
+ 	   to synchronize. Perturb it a bit.
