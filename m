@@ -1,38 +1,41 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH 2.6] pci.ids for e1000
-Date: Tue, 30 Sep 2003 16:32:51 -0700
+From: Martin Diehl <lists@mdiehl.de>
+Subject: Re: [irda-users] Re: [PATCH] (0/16) intro to IRDA patches for
+ 2.6.0-test6
+Date: Wed, 1 Oct 2003 01:25:34 +0200 (CEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030930233251.GA21422@kroah.com>
-References: <3F621965.4070106@wanadoo.es>
+Message-ID: <Pine.LNX.4.44.0310010122110.1388-100000@notebook.home.mdiehl.de>
+References: <20030930230049.GA22339@bougret.hpl.hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, linux-kernel <linux-kernel@vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Stephen Hemminger <shemminger@osdl.org>,
+        "David S. Miller" <davem@redhat.com>, <netdev@oss.sgi.com>,
+        <irda-users@lists.sourceforge.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Xose Vazquez Perez <xose@wanadoo.es>
-Content-Disposition: inline
-In-Reply-To: <3F621965.4070106@wanadoo.es>
+To: Jean Tourrilhes <jt@bougret.hpl.hp.com>
+In-Reply-To: <20030930230049.GA22339@bougret.hpl.hp.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 12, 2003 at 09:07:17PM +0200, Xose Vazquez Perez wrote:
-> Jeff Garzik wrote:
+On Tue, 30 Sep 2003, Jean Tourrilhes wrote:
+
+> On Tue, Sep 30, 2003 at 03:25:30PM -0700, Stephen Hemminger wrote:
+> > These patches are a replacement for the moderate one chunk I sent out yesterday.
+> > They continue in the same vein of revising how IRDA devices are allocated.
+> > The new thing is the introduction of alloc_irdadev and changing over the places
+> > I used alloc_netdev to that.
+> > 
+> > Mostly they are trivial, but smsc-ircc2 got changed to get rid of check_region
+> > usage as well.
+> > 
+> > David, please apply after Jean gives his approval.
 > 
-> > The general idea is to keep 2.4, 2.6, and pciids.sf.net in sync.
-> 
-> is there sync between 2.4, 2.6, and pciids.sf.net ?  ;-)
-> 
-> Linus and Marcelo should not accept patches against pci.ids,
-> all updates should go to pciids.sf.net. And every X time
-> to do a sync with 2.4 and 2.6.
+> 	The self destruct patch is absolutely needed, and I like very
+> much the alloc_irdadev work.
+> 	Please go ahead, I'll test them in parallel.
+> 	Thanks !
 
-I'd love to see a volunteer to try to sync these files up and routinely
-send updates to the pci maintainers of the different kernel trees.
+I hadn't yet time for testing but since you were asking: I do also like 
+the alloc_irdadev/free_netdev approach and the sir_dev part looks good to 
+me, i.e. no leaking there. Thanks Stephen!
 
-Anyone?
-
-I also agree with David, it's completly acceptable for drivers to add
-their ids to this file when they are added to the kernel tree.
-
-thanks,
-
-greg k-h
+Martin
