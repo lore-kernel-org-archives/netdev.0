@@ -1,106 +1,140 @@
-From: Surakshan Mendis <surakshan@surasoft.com>
-Subject: Re: Fw: [Bugme-new] [Bug 3765] New: Network link down, when
-	writting to sata disk AND network in use
-Date: Thu, 18 Nov 2004 14:33:04 +0800
-Message-ID: <1100759584.11758.0.camel@localhost>
-References: <20041117211822.243aa8bd.akpm@osdl.org>
+From: Ross Kendall Axe <ross.axe@blueyonder.co.uk>
+Subject: Re: [PATCH] linux 2.9.10-rc1: Fix oops in unix_dgram_sendmsg when
+ using SELinux and SOCK_SEQPACKET
+Date: Thu, 18 Nov 2004 07:25:38 +0000
+Message-ID: <419C4E72.5050307@blueyonder.co.uk>
+References: <Xine.LNX.4.44.0411172222160.2531-100000@thoron.boston.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, bugtracker@surasoft.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20041117211822.243aa8bd.akpm@osdl.org>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigFA96D0167C4E289837EFC6F4"
+Cc: netdev@oss.sgi.com, Stephen Smalley <sds@epoch.ncsc.mil>,
+	lkml <linux-kernel@vger.kernel.org>,
+	Chris Wright <chrisw@osdl.org>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262661AbUKRH0G@vger.kernel.org>
+To: James Morris <jmorris@redhat.com>
+In-Reply-To: <Xine.LNX.4.44.0411172222160.2531-100000@thoron.boston.redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Yes quite strange.
-I've reproduced the issue again after doing the following
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigFA96D0167C4E289837EFC6F4
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-a) disconnecting extra fan, disconnecting extra HDD, disconnecting
-cd/dvd rom drives. In fact it was probably consume power less than ever.
+James Morris wrote:
+> On Thu, 18 Nov 2004, Ross Kendall Axe wrote:
+> 
+> 
+>>Ross Kendall Axe wrote:
+>>
+>>>A possibility that hadn't occurred to me was using sendto to send packets
+>>>without connecting. Is this supposed to work? If so, then my patch is
+>>>indeed inappropriate. If not, then that needs fixing also.
+>>>
+>>
+>>Well, my reading of socket(2) suggests that it's _not_ supposed to work.
+> 
+> 
+> sendto() on a non connected socket should fail with ENOTCONN.
+> 
+> 
+>>This patch causes sendmsg on SOCK_SEQPACKET unix domain sockets to return
+>>EISCONN or ENOTSUPP as appropriate if the 'to' address is specified.
+> 
+> 
+> For sendto():
+> 
+> The address must be ignored on a connected mode socket (i.e. in this 
+> case).
+> 
+> According to the send(2) man page, we may return EISCONN if the address
+> and addr length are not NULL and zero.  I think that the man page is
+> incorrect.  Posix says that EISCONN means "A destination address was
+> specified and the socket is already connected", not "A destination address
+> was specified and the socket is connected mode".  i.e. we should only 
+> return EISCONN if the socket is in a connected state.
+> 
 
-b) I moved the sata cable to a different connector, same issue. Can't do
-much with onboard network card, since its onboard..
+The man page then goes on to say "the error ENOTCONN is returned when the 
+socket was not actually connected". Admittedly, this is not what my patch 
+does; it returns ENOTSUPP, as do SOCK_STREAM sockets.
 
-I'm perplexed why the link goes up and down like this.
-The syslog doesn't indiciate more than link is up and link is down.
+> I'm not sure if we should return any error at all if an address is 
+> supplied to sendto() on SOCK_SEQPACKET.  We're only required to ignore it.
+> 
+> I would say that we should return an error as it is likely a progamming 
+> mistake in the application and we should let them know.
 
-Network is stable when no activity on the sata drive. 
-Network goes does when there is activity on the drive AND I do something
-network related, just getting a large ftp directory listing in mozilla
-triggers the "Link is down".
+This was, after all, the point of the patch. Well, that and closing the 
+security hole opened by my earlier patch :-)
 
-As I said before this only happens when the drive is in use as well
+> 
+> However, as mentioned above, I don't think EISCONN is appropriate in this 
+> case.  EINVAL might be better.
+> 
 
-Surakshan
+I would say that ENOTSUPP all the time would be more sensible. However, my
+choice of error codes was determined by the ones used by SOCK_STREAM.
+SOCK_SEQPACKET and SOCK_STREAM should use the same error codes, I would 
+say. Further, they should use the codes specified by POSIX.
 
-On Wed, 2004-11-17 at 21:18 -0800, Andrew Morton wrote:
 > 
-> Well this is novel.  I'd be suspecting a hardware problem.  Are you sure
-> the power supply isn't overloaded, or in need of replacement?
-> 
-> 
-> Begin forwarded message:
-> 
-> Date: Wed, 17 Nov 2004 21:13:36 -0800
-> From: bugme-daemon@osdl.org
-> To: bugme-new@lists.osdl.org
-> Subject: [Bugme-new] [Bug 3765] New: Network link down, when writting to sata disk AND network in use
+>>It also causes recvmsg to return EINVAL on unconnected sockets. This
+>>behaviour is consistent with SOCK_STREAM sockets.
 > 
 > 
-> http://bugme.osdl.org/show_bug.cgi?id=3765
+> This seems incorrect too, Posix says to use ENOTCONN.
+
+That seems eminently sensible. Again, I was just cut-n'-pasting from
+SOCK_STREAM. If these error codes are wrong, then SOCK_STREAM also needs
+fixing.
+
 > 
->            Summary: Network link down, when writting to sata disk AND
->                     network in use
->     Kernel Version: linux-kernel 2.6.9
->             Status: NEW
->           Severity: high
->              Owner: other_other@kernel-bugs.osdl.org
->          Submitter: bugtracker@surasoft.com
+> There is a non SELinux-related bug lurking in this code.
+
+IMHO, there never was an SELinux bug here. SELinux merely exposed an 
+existing bug.
+
+> I got this oops
+> when trying to kill a modified version of seqpacket-crash which keeps
+> sending in a loop and uses sendto() and an address with SOCK_SEQPACKET.
 > 
+
+I'm unable to reproduce that, or the bug you mention in your other 
+message. Care to send us your code?
+
 > 
-> Distribution: Gentoo
-> 
-> Hardware Environment: 
-> P4 2.66ghz
-> Motherboard: ASUS P4PE (with onboard lan)
-> Promise Sata150 TX4 PCI (sata expansion card)
-> 
-> Software Environment: 
-> Kernel 2.6.9
-> - onboard LAN: driver in use
-> - "Broadcom 4400 ethernet support" compiled into kernel
-> 
-> - Promise Sata150 TX4 PCI (sata expansion card)
-> - Driver "Promise SATA TX2/TX4 support" compiled into kernel
-> - 200GB Western Digital SATA drive attached to PCI sata card
-> 
-> Problem Description:
-> If data is being copied to the SATA drive (eg from another DISK which is on
-> motherboard IDE controller) AND I start a network data transfer where data is
-> goung through the Broadcom lan the following occurs (from kernel log)
-> 
-> Nov 18 11:43:10 synapse b44: eth0: Link is down.
-> Nov 18 11:43:15 synapse b44: eth0: Link is up at 100 Mbps, full duplex.
-> Nov 18 11:43:15 synapse b44: eth0: Flow control is on for TX and on for RX.
-> Nov 18 11:43:19 synapse b44: eth0: Link is down.
-> Nov 18 11:43:21 synapse b44: eth0: Link is up at 100 Mbps, full duplex. 
-> 
-> Link keeps going up and down, as long as there's data movment from the SATA
-> drive, and a network movement (network download doesn't have to be saving to the
->  sata drive)
-> 
-> I've disabled APCI, problem persits.
-> 
-> Steps to reproduce:
-> 1. copy data to Sata drive CONNECTED to PCI controller
-> 2. Download file from network via onboard LAN, doesn't matter which drive you
-> save it
-> 3. Onboards lan "link" goes up and down, causing disruption to network useage.
-> 
-> ------- You are receiving this mail because: -------
-> You are on the CC list for the bug, or are watching someone who is.
-> 
-> 
+> - James
+
+
+I think that af_unix.c needs a bit of cleaning up. All of the functions 
+are named as being stream vs dgram, even when the issue is connectionless 
+vs connection-oriented. For example, unix_connectionless_connect would 
+make a lot more sense than unix_dgram_connect. sendmsg and recvmsg are the 
+worst since they require a mixture of SOCK_STREAM and SOCK_DGRAM 
+semantics. It would be nice to rewite unix_dgram_recvmsg and 
+unix_stream_recvmsg as four helper functions dealing with the 
+connectionless, connection-oriented, datagram and stream operations and 
+then have 3 wrapper functions (one for each socket type) calling the 
+appropriate helpers. This is all strictly IMHO, of course.
+
+Ross
+
+
+--------------enigFA96D0167C4E289837EFC6F4
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+Comment: Using GnuPG with Thunderbird - http://enigmail.mozdev.org
+
+iD8DBQFBnE559bR4xmappRARAtfvAJwIitwnMWlUhuwv/CPP0N8nlDlUfACfUrE8
+QXR2N7qu6sN8E3ebYRTcD1k=
+=xPML
+-----END PGP SIGNATURE-----
+
+--------------enigFA96D0167C4E289837EFC6F4--
