@@ -1,31 +1,35 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [PATCH/RFC] disallow vlan devices on top of a logical bridge device
-Date: 30 Aug 2003 23:16:00 +0200
+From: AntiVir@zeus.unive.it
+Subject: AntiVir ALERT [your mail: "Thank you!"]
+Date: Sun, 31 Aug 2003 03:46:38 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <m3ad9qx2wf.fsf@defiant.pm.waw.pl>
-References: <200308301504.03241.bdschuym@pandora.be>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S.Miller" <davem@redhat.com>,
-   Stephen Hemminger <shemminger@osdl.org>,
-   Ben Greear <greearb@candelatech.com>, netdev@oss.sgi.com
+Message-ID: <200308310146.h7V1kcsv002912@zeus.unive.it>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Bart De Schuymer <bdschuym@pandora.be>
-In-Reply-To: <200308301504.03241.bdschuym@pandora.be>
+To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Bart De Schuymer <bdschuym@pandora.be> writes:
+* * * * * * * * * * * * * * * AntiVir ALERT * * * * * * * * * * * * * * *
+This version of AntiVir is licensed and full featured.
 
-> The patch below disables making vlan devices on top of bridge
-> devices, f.e. br0.12 would be impossible.
-> I'm no vlan expert, but I don't see the use for this
+AntiVir has detected the following in a mail from your address:
 
-There could be some - I'm not using such setup, but I can imagine
-doing trunk bridging.
-This is sometimes used with dumb (non-VLAN but 1518 bytes-capable)
-switches. With Linux, it might be used as well, especially if someone
-wants STP to manage trunks and not VLANs (with many VLANs it may
-make perfect sense)
--- 
-Krzysztof Halasa, B*FH
+        Worm/Sobig.F	
+
+The mail was not delivered.
+
+Please remove any potential malicious software from your computer before
+sending a new mail with attachments.
+
+Mail-Info:
+--8<--
+ From: <netdev@oss.sgi.com>
+ To: <pregadio@unive.it>
+ Date: Sun, 31 Aug 2003 10:46:41 +0900
+ Subject: Thank you!
+--8<--
+
+
+--
+AntiVir for UNIX
+Copyright (C) 1994-2002 by H+BEDV Datentechnik GmbH. All rights reserved.
+For more information see http://www.antivir.de/ or http://www.hbedv.com/
