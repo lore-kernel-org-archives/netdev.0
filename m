@@ -1,53 +1,48 @@
-From: "Michael T Kerrisk" <mtk-lists@gmx.net>
-Subject: Strangeness when write()-ing zero-length datagrams
-Date: Mon, 9 Aug 2004 16:38:13 +0200 (MEST)
+From: bert hubert <ahu@ds9a.nl>
+Subject: Re: Strangeness when write()-ing zero-length datagrams
+Date: Mon, 9 Aug 2004 17:40:57 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <19357.1092062293@www39.gmx.net>
+Message-ID: <20040809154057.GA30659@outpost.ds9a.nl>
+References: <19357.1092062293@www39.gmx.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Michael T Kerrisk <mtk-lists@gmx.net>
+Content-Disposition: inline
+In-Reply-To: <19357.1092062293@www39.gmx.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Godday,
+On Mon, Aug 09, 2004 at 04:38:13PM +0200, Michael T Kerrisk wrote:
+> Godday,
+> 
+> On Linux 2.4.26 and 2.6.7, if we connect a datagram socket and 
+> then use write() to send 0 bytes, a datagram is NOT generated 
+> (this happens in both the Unix and Internet domains).  
+> Datagrams are generated in this case for send() and sendto() 
+> though.
 
-On Linux 2.4.26 and 2.6.7, if we connect a datagram socket and=20
-then use write() to send 0 bytes, a datagram is NOT generated=20
-(this happens in both the Unix and Internet domains). =20
-Datagrams are generated in this case for send() and sendto()=20
-though. =20
+Some postings were made about this some time ago, it appears SUS has an
+opinion on zero byte writes:
 
-As far as I can work out, this occurs because of the=20
-following code in net/socket.c::sock_write/sock_aio_write():
+If nbyte is 0, write() will return 0 and have no other results if the file
+is a regular file; otherwise, the results are unspecified.
+http://www.opengroup.org/onlinepubs/007908799/xsh/write.html
 
-    if(size=3D=3D0)        /* Match SYS5 behaviour */
-        return 0;
+The send(2) manpage states:
 
-Is the Linux behaviour intended?  It seems counterintuitive,=20
-and it does not match what I see on other systems:
+The send() function is identical to sendto() with a null pointer dest_len
+argument, and to write() if no flags are used.
 
-Solaris 8 does not behave like Linux in this case -=96 a zero=20
-length datagram is sent and read by the receiver (tested for=20
-Internet and Unix domain sockets).
+Which means that a zero byte send() without flags is unspecified.
 
-Tru64 5.1 is the same as Solaris 8 (tested for Internet and=20
-Unix domain sockets)
+Also note that it is hard if impossible to usefully inform userspace of the
+reception of a zery byte packet - returning 0 from recvfrom may also mean an
+'orderly shutdown'.
 
-HP-UX 11 is the same as Solaris 8 (tested for Internet and=20
-Unix domain sockets)
+Do you actually have a need for zero byte packets?
 
-FreeBSD 4.9 and 5.1 are the same as Solaris 8 (tested for=20
-Internet and Unix domain sockets)
-
-Cheers,
-
-Michael
-
---=20
-Michael Kerrisk
-mtk-lists@gmx.net
-
-NEU: WLAN-Router f=FCr 0,- EUR* - auch f=FCr DSL-Wechsler!
-GMX DSL =3D superg=FCnstig & kabellos http://www.gmx.net/de/go/dsl
+-- 
+http://www.PowerDNS.com      Open source, database driven DNS Software 
+http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
