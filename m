@@ -1,32 +1,56 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
+From: William Lee Irwin III <wli@holomorphy.com>
 Subject: Re: MSEC_TO_JIFFIES is messed up...
-Date: Wed, 12 May 2004 18:07:33 -0400
+Date: Wed, 12 May 2004 15:18:23 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040512220733.GB16658@fieldses.org>
-References: <20040512020700.6f6aa61f.akpm@osdl.org> <20040512181903.GG13421@kroah.com> <40A26FFA.4030701@pobox.com> <20040512193349.GA14936@elte.hu> <Pine.LNX.4.58.0405121247011.11950@bigblue.dev.mdolabs.com> <20040512200305.GA16078@elte.hu> <Pine.LNX.4.58.0405121400360.11950@bigblue.dev.mdolabs.com> <20040512213913.GA16658@fieldses.org> <jevfj1nwe1.fsf@sykes.suse.de>
+Message-ID: <20040512221823.GK1397@holomorphy.com>
+References: <40A26FFA.4030701@pobox.com> <20040512193349.GA14936@elte.hu> <200405121947.i4CJlJm5029666@turing-police.cc.vt.edu> <Pine.LNX.4.58.0405121255170.11950@bigblue.dev.mdolabs.com> <200405122007.i4CK7GPQ020444@turing-police.cc.vt.edu> <20040512202807.GA16849@elte.hu> <20040512203500.GA17999@elte.hu> <20040512205028.GA18806@elte.hu> <20040512140729.476ace9e.akpm@osdl.org> <20040512211748.GB20800@elte.hu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Davide Libenzi <davidel@xmailserver.org>, Ingo Molnar <mingo@elte.hu>,
-        Jeff Garzik <jgarzik@pobox.com>, Greg KH <greg@kroah.com>,
-        Andrew Morton <akpm@osdl.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Netdev <netdev@oss.sgi.com>
+Cc: Andrew Morton <akpm@osdl.org>, Valdis.Kletnieks@vt.edu,
+        davidel@xmailserver.org, jgarzik@pobox.com, greg@kroah.com,
+        linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andreas Schwab <schwab@suse.de>
+To: Ingo Molnar <mingo@elte.hu>
 Content-Disposition: inline
-In-Reply-To: <jevfj1nwe1.fsf@sykes.suse.de>
+In-Reply-To: <20040512211748.GB20800@elte.hu>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 12, 2004 at 11:55:18PM +0200, Andreas Schwab wrote:
-> "J. Bruce Fields" <bfields@fieldses.org> writes:
-> 
-> > If gcc really optimizes that to just the identity function, then surely
-> > that's a gcc bug?  Multiplication is left-associative, so i * 1000 /
-> > 1000 = (i * 1000) / 1000, but (i * 1000) should be zero for any i
-> > divisible by i^(sizeof(int) - 12).
-> 
-> Signed integer overflow is undefined in C, so the compiler is allowed to
-> assume it does not happen.
+On Wed, May 12, 2004 at 11:17:48PM +0200, Ingo Molnar wrote:
+> ok. -A3 attached, it does the roundup in the msec->jiffies conversion. 
+> (not the other way around though, and that's fine.)
 
-Ugh, right, got it.--b.
+I'm assuming -A3 is current, then:
+
+Optimize the cases where HZ is a divisor of 1000 or vice-versa in
+JIFFIES_TO_MSECS() and MSECS_TO_JIFFIES() by allowing the nonvanishing(!)
+integral ratios to appear as a parenthesized expressions eligible for
+constant folding optimizations.
+
+
+-- wli
+
+
+Index: linux-2.5/include/linux/time.h
+===================================================================
+--- linux-2.5.orig/include/linux/time.h	2004-05-12 15:04:10.000000000 -0700
++++ linux-2.5/include/linux/time.h	2004-05-12 15:12:49.000000000 -0700
+@@ -184,12 +184,12 @@
+  * Avoid unnecessary multiplications/divisions in the
+  * two most common HZ cases:
+  */
+-#if HZ == 1000
+-# define JIFFIES_TO_MSECS(x)	(x)
+-# define MSECS_TO_JIFFIES(x)	(x)
+-#elif HZ == 100
+-# define JIFFIES_TO_MSECS(x)	((x) * 10)
+-# define MSECS_TO_JIFFIES(x)	(((x) + 9) / 10)
++#if HZ <= 1000 && !(1000 % HZ)
++# define JIFFIES_TO_MSECS(j)	((1000/HZ)*(j))
++# define MSECS_TO_JIFFIES(m)	(((m) + (1000/HZ) - 1)/(1000/HZ))
++#elif HZ > 1000 && !(HZ % 1000)
++# define JIFFIES_TO_MSECS(j)	(((j) + (HZ/1000) - 1)/(HZ/1000))
++# define MSECS_TO_JIFFIES(m)	((m)*(HZ/1000))
+ #else
+ # define JIFFIES_TO_MSECS(x)	(((x) * 1000) / HZ)
+ # define MSECS_TO_JIFFIES(x)	(((x) * HZ + 999) / 1000)
