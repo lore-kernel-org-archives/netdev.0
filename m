@@ -1,56 +1,27 @@
-From: =?iso-8859-1?Q?J=F6rn?= Engel <joern@wohnheim.fh-wedel.de>
-Subject: Re: The ultimate TOE design
-Date: Fri, 17 Sep 2004 15:38:09 +0200
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: [XFRM] Make XFRM core subsystem af-independent
+Date: Fri, 17 Sep 2004 23:11:27 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040917133809.GD28745@wohnheim.fh-wedel.de>
-References: <Pine.LNX.4.61.0409152102050.23011@fogarty.jakma.org> <1095275660.20569.0.camel@localhost.localdomain> <4148A90F.80003@pobox.com> <20040915140123.14185ede.davem@davemloft.net> <20040915210818.GA22649@havoc.gtf.org> <20040915141346.5c5e5377.davem@davemloft.net> <5.1.0.14.2.20040916192213.04240008@171.71.163.14> <1095337159.22739.7.camel@localhost.localdomain> <20040916133301.GA15562@wotan.suse.de> <5.1.0.14.2.20040917083305.04f4d008@171.71.163.14>
+Message-ID: <20040917.231127.114842301.yoshfuji@linux-ipv6.org>
+References: <20040917.205038.61628907.yoshfuji@linux-ipv6.org>
+	<E1C8I2m-0005BS-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>, Andi Kleen <ak@suse.de>,
-        Jeff Garzik <jgarzik@pobox.com>,
-        "David S. Miller" <davem@davemloft.net>, paul@clubi.ie,
-        netdev@oss.sgi.com, leonid.grossman@s2io.com,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Lincoln Dale <ltd@cisco.com>
-Content-Disposition: inline
-In-Reply-To: <5.1.0.14.2.20040917083305.04f4d008@171.71.163.14>
+To: herbert@gondor.apana.org.au
+In-Reply-To: <E1C8I2m-0005BS-00@gondolin.me.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 17 September 2004 08:37:17 +1000, Lincoln Dale wrote:
->=20
-> sure -- ok -- that gets you the main processor.
-> now add to that a Northbridge (perhaps AMD doesnt need that but i'm sur=
-e it=20
-> still does), Southbridge, DDR-SDRAM, ancilliary chips for doing MAC, PH=
-Y,=20
-> ...
->=20
-> couple that with the voltage of PCI where you're likely to need=20
-> step-up/step-down circuits (which aren't 100% efficient themselves), yo=
-u're=20
-> still going to get very close to the limit, if not over it.
->=20
-> ... and after all that, the Geode is really designed to be an embedded=20
-> processor.
-> Jeff was implying using garden-variety processors which seem to have la=
-rge=20
-> heatsinks, not to mention cooling fans, not to mention quite significan=
-t=20
-> heat generation.
->=20
-> we're not _quite_ at the stage of being able to take garden-variety=20
-> processors and build-your-own-blade-server using PCI _just_ yet. :-)
+In article <E1C8I2m-0005BS-00@gondolin.me.apana.org.au> (at Fri, 17 Sep 2004 22:40:52 +1000), Herbert Xu <herbert@gondor.apana.org.au> says:
 
-FWIW, I've already been working with complete systems that suck their
-power from PCI.  They do exist, just not in the grocery store next
-door.
+> Please provide ip_route_output_key() as an inline wrapper around
+> ip_route_output_flow() so that its users don't have to change.
 
-J=F6rn
+No.  Because I've succesfully changed all users (AFAIK),
+there's no need to keep it.
+And, I believe the name "ip_route_output_key()" itself was the bug.
 
---=20
-Das Aufregende am Schreiben ist es, eine Ordnung zu schaffen, wo
-vorher keine existiert hat.
--- Doris Lessing
+--yoshfuji
