@@ -1,81 +1,115 @@
-From: =?ISO-2022-JP?B?GyRCJGIkQyRIR0EkJCRGISobKEI=?= <chan@mag.vig-seet.to>
-Subject: =?ISO-2022-JP?B?GyRCJSslYSVpO0UzXSQxJEEkYyRDJD8hJiEmISYheRsoQg==?=
-Date: Fri, 11 Mar 2005 10:48:24 +0900 (KST)
-Message-ID: <20050311014824.5ECB05212B@misty.ori-g.net>
-To: netdev@oss.sgi.com
+From: Andrew Morton <akpm@osdl.org>
+Subject: Fw: Log full of "ing_filter:  fixed  ippp2 out ippp2"
+Date: Thu, 10 Mar 2005 17:49:15 -0800
+Message-ID: <20050310174915.3148c9a8.akpm@osdl.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Kimmo Sundqvist <kimmo.sundqvist@mbnet.fi>
 To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-☆゜・。。・゜☆☆゜・。闇ルート特集メルマガ。・゜☆☆゜・。。・゜☆
-　　　　　　　　　　　　　　　
-・‥‥…━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-　　　●●●『究極の一人エッチをするには・・・』
- 　　　　　　　　声が聞こえる！中が見える！●●●
+Can you check to see if 2.6.11 is still doing this?
 
- 　   ストーカーが部屋の中にカメラを仕掛けた！！
-　    　　　完全動画で○○○○○娘の乱れた私生活○見え♪
- 　　
-　　　　　  http://hanamitu.polty.cc/?g374tojofp
-・‥‥…━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
- 　   男の子の為のチカン特集！
-　　　女の子の為のオナニー特集！
- 　　
-□□■□□☆□□■□□☆□□■□□☆□□■□□☆□□■□□☆□□■
-□■□■□□□■□■□□□■□■□□□■□■□□□■□■□□□■□
- 
-　　　 ┌──────────────────────┐
-　　　 ★★★★　　　　　　１．レズビアンの企画　　　　　　　★★★★
-　　　 └──────────────────────┘
+Begin forwarded message:
 
-　　　  ●●●●●●●さらけ出された肉欲●●●●●●●
+Date: Wed, 9 Mar 2005 22:07:41 +0200
+From: Kimmo Sundqvist <kimmo.sundqvist@mbnet.fi>
+To: linux-kernel@vger.kernel.org
+Subject: Log full of "ing_filter:  fixed  ippp2 out ippp2"
 
-　  　視られることが快感の女の子たちがいろんな場所で大ハプニング♪
-　　  最初は恥ずかしがっていた彼女たちも次第にコーフンしてきて
- 　　 どんどん淫らに…
- 
-　　　　●●●●●●●フェチな妄想かなえます●●●●●●●
- 
-  　   首筋、背中、ムネ、お尻…あなたはどんなパーツが好き？
-　　　 女の子のいろんな部分にこだわった画像が盛りだくさん♪
-　　　 今回Ｘマス企画として、女の子が身体を張っての出張レポ♪
-　　　 日頃の溜まった妄想を思う存分吐き出しちゃってください☆
- 
-    　 http://hanamitu.polty.cc/?g374tojofp
 
- -------------------------------------------------------------------
- 　　　┌──────────────────────────┐
- 　　　★★★★　　　　　２．ますます充実！大人気コーナー 　　　　★★★★
- 　　　└──────────────────────────┘
+Hello
 
- 　　■女子○生のナマ姿
-　　　　…可愛い女子○生たちが大胆に制服の下のありのままの姿をさらけだします
-　　　　　
-　　 ■Mな願望
-　　　　…ドロドロに汚れるまで奉仕させられる女たちの一部始終を厳選公開！！
- 
-　　 ■コスチュームの裏の裏
-　　　　…ナースやスッチー、和服にチャイナドレスなど、憧れのコスプレ目白押し☆
- 
-         http://hanamitu.polty.cc/?g374tojofp
-　　　　　
- □□□□□□□□□□□□□□□□□□□□□□□□□□□□□□□□□
- -------------------------------------------------------------------
- 　　　★★★★★★★★＜メルサちゃんより＞★★★★★★★★
- -------------------------------------------------------------------
-　　 ■このマガジンメールの掲載情報の利用に関しては、
-　　　　各人が自分の責任で行なっていただくこを前提としています。
-　　　　掲載情報に関してのお問合せや損害に対してはいかなる責任も
-　　　　負いかねますので、予めご了承下さい。
- 
-　　　　掲載された記事の一部または全部を許可なく転載することを禁止致します。
- -------------------------------------------------------------------
- 　－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－
-　　 ※購読解除方法
-　　　　購読解除はお手数ですが、下記のアドレスよりログインし、ご自身でお手続き下さい。
+Please cc all replies to me.
 
-          http://mag.vig-seet.to/melsa/
- 　－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－　　　
+After upgrading my little NATting firewall/router from 2.6.7-ck4 to 
+2.6.10-gentoo-r6 my /var/log/messages is 15MB in size and most of it looks 
+like the text below.  All traffic to the Internet seems to cause this.  
+
+"cat /var/log/messages | uniq | uniqmessages" results in a 3MB file.  I use 
+syslog-ng.
+
+Iptables setup script further down.
+
+Mar  9 21:58:15 shadowgate ing_filter:  fixed  ippp2 out ippp2
+Mar  9 21:58:15 shadowgate ing_filter:  fixed  ippp2 out ippp2
+Mar  9 21:58:15 shadowgate ing_filter:  fixed  ippp2 out ippp2
+Mar  9 21:58:15 shadowgate ing_filter:  fixed  ippp2 out ippp2
+Mar  9 21:58:15 shadowgate ing_filter:  fixed  ippp2 out ippp2
+Mar  9 21:58:16 shadowgate ing_filter:  fixed  ippp2 out ippp2
+Mar  9 21:58:16 shadowgate ing_filter:  fixed  ippp2 out ippp2
+Mar  9 21:58:16 shadowgate ing_filter:  fixed  ippp2 out ippp2
+Mar  9 21:58:16 shadowgate ing_filter:  fixed  ippp2 out ippp2
+Mar  9 21:58:16 shadowgate ing_filter:  fixed  ippp2 out ippp2
+Mar  9 21:58:16 shadowgate ing_filter:  fixed  ippp2 out ippp2
+Mar  9 21:58:16 shadowgate ing_filter:  fixed  ippp2 out ippp2
+Mar  9 21:58:17 shadowgate ing_filter:  fixed  ippp2 out ippp2
+Mar  9 21:58:17 shadowgate ing_filter:  fixed  ippp2 out ippp2
+Mar  9 21:58:17 shadowgate ing_filter:  fixed  ippp2 out ippp2
+Mar  9 21:58:17 shadowgate ing_filter:  fixed  ippp2 out ippp2
+Mar  9 21:58:17 shadowgate ing_filter:  fixed  ippp2 out ippp2
+Mar  9 21:58:17 shadowgate ing_filter:  fixed  ippp2 out ippp2
+Mar  9 21:58:17 shadowgate ing_filter:  fixed  ippp2 out ippp2
+Mar  9 21:58:17 shadowgate ing_filter:  fixed  ippp2 out ippp2
+Mar  9 21:58:17 shadowgate ing_filter:  fixed  ippp2 out ippp2
+Mar  9 21:58:17 shadowgate ing_filter:  fixed  ippp2 out ippp2
+Mar  9 21:58:17 shadowgate ing_filter:  fixed  ippp2 out ippp2
+Mar  9 21:58:17 shadowgate ing_filter:  fixed  ippp2 out ippp2
+Mar  9 21:58:17 shadowgate ing_filter:  fixed  ippp2 out ippp2
+Mar  9 21:58:17 shadowgate ing_filter:  fixed  ippp2 out ippp2
+
+My firewall setup looks like:
+
+IPTABLES=/sbin/iptables
+MODPROBE=/sbin/modprobe
+DEPMOD=/sbin/depmod
+
+EXTIF="ippp2"
+INTIF="eth0"
+KAKKOSIF="eth1"
+
+$DEPMOD -a
+
+$MODPROBE ip_tables
+
+#$MODPROBE ip_conntrack
+#In the kernel
+
+$MODPROBE ip_conntrack_ftp
+$MODPROBE iptable_nat
+$MODPROBE ip_nat_ftp
+
+echo "1" > /proc/sys/net/ipv4/ip_forward
+echo "1" > /proc/sys/net/ipv4/ip_dynaddr
+#echo "1" > /proc/sys/net/ipv4/conf/all/proxy_arp
+
+$IPTABLES -P INPUT ACCEPT
+$IPTABLES -F INPUT
+$IPTABLES -P OUTPUT ACCEPT
+$IPTABLES -F OUTPUT
+$IPTABLES -P FORWARD DROP
+$IPTABLES -F FORWARD
+
+$IPTABLES -t nat -F
+
+/sbin/iptables -A FORWARD -i eth1 -o eth0 -j ACCEPT
+/sbin/iptables -A FORWARD -i eth0 -o eth1 -j ACCEPT
+
+$IPTABLES -A FORWARD -i $EXTIF -o $KAKKOSIF -m state --state \
+ESTABLISHED,RELATED -j ACCEPT   # RJ-45
+
+$IPTABLES -A FORWARD -i $EXTIF -o $INTIF -m state --state \
+ESTABLISHED,RELATED  -j ACCEPT # BNC segment
+
+$IPTABLES -A FORWARD -i $KAKKOSIF -o $EXTIF -j ACCEPT   # RJ-45
+$IPTABLES -A FORWARD -i $INTIF -o $EXTIF -j ACCEPT        # BNC segment
+$IPTABLES -t nat -A POSTROUTING -o $EXTIF -j MASQUERADE
+$IPTABLES -A FORWARD -j LOG
+exit 0
+
+-Kimmo S.
