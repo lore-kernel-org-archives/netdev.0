@@ -1,29 +1,59 @@
-From: James Morris <jmorris@intercode.com.au>
-Subject: Re: [PATCH] IPV6: Fixed fragment check in ip6_output.c:ip6_fragment()
-Date: Fri, 27 Jun 2003 11:21:43 +1000 (EST)
+From: David Dillow <dave@thedillows.org>
+Subject: [PATCH] Typhoon net driver fixes for 2.4
+Date: 27 Jun 2003 00:52:45 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Mutt.LNX.4.44.0306271120580.15380-100000@excalibur.intercode.com.au>
-References: <20030626.205540.83592923.yoshfuji@linux-ipv6.org>
+Message-ID: <1056689565.8692.38.camel@ori.thedillows.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Cc: davem@redhat.com, <netdev@oss.sgi.com>, <miyazawa@linux-ipv6.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20030626.205540.83592923.yoshfuji@linux-ipv6.org>
+To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 26 Jun 2003, YOSHIFUJI Hideaki / [iso-2022-jp] 吉藤英明 wrote:
-
-> Hello.
-> 
-> MTU / alignment check in ip6_fragment() was wrong;
-> first_len was not correct.
-
-Applied to bk://kernel.bkbits.net/jmorris/net-2.5
-
-
-- James
--- 
-James Morris
-<jmorris@intercode.com.au>
+# This is a BitKeeper generated patch for the following project:
+# Project Name: Linux kernel tree
+# This patch format is intended for GNU patch command version 2.5 or higher.
+# This patch includes the following deltas:
+#	           ChangeSet	1.1028  -> 1.1029 
+#	drivers/net/typhoon.c	1.2     -> 1.5    
+#
+# The following is the BitKeeper ChangeSet Log
+# --------------------------------------------
+# 03/06/27	dave@thedillows.org	1.1029
+# Fix misreporting of card type and spurious "already scheduled" messages.
+# --------------------------------------------
+#
+diff -Nru a/drivers/net/typhoon.c b/drivers/net/typhoon.c
+--- a/drivers/net/typhoon.c	Fri Jun 27 00:37:07 2003
++++ b/drivers/net/typhoon.c	Fri Jun 27 00:37:07 2003
+@@ -85,8 +85,8 @@
+ #define PKT_BUF_SZ		1536
+ 
+ #define DRV_MODULE_NAME		"typhoon"
+-#define DRV_MODULE_VERSION 	"1.0"
+-#define DRV_MODULE_RELDATE	"03/02/14"
++#define DRV_MODULE_VERSION 	"1.4.1"
++#define DRV_MODULE_RELDATE	"03/06/26"
+ #define PFX			DRV_MODULE_NAME ": "
+ #define ERR_PFX			KERN_ERR PFX
+ 
+@@ -150,7 +150,7 @@
+ #define TYPHOON_CRYPTO_DES		1
+ #define TYPHOON_CRYPTO_3DES		2
+ #define	TYPHOON_CRYPTO_VARIABLE		4
+-#define TYPHOON_FIBER			5
++#define TYPHOON_FIBER			8
+ 
+ enum typhoon_cards {
+ 	TYPHOON_TX = 0, TYPHOON_TX95, TYPHOON_TX97, TYPHOON_SVR,
+@@ -1798,7 +1798,7 @@
+ 	u32 intr_status;
+ 
+ 	intr_status = readl(ioaddr + TYPHOON_REG_INTR_STATUS);
+-	if(!intr_status)
++	if(!(intr_status & TYPHOON_INTR_HOST_INT))
+ 		return;
+ 
+ 	writel(intr_status, ioaddr + TYPHOON_REG_INTR_STATUS);
