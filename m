@@ -1,33 +1,42 @@
-From: James Morris <jmorris@redhat.com>
+From: Bill Davidsen <davidsen@tmr.com>
 Subject: Re: [Coverity] Untrusted user data in kernel
-Date: Fri, 17 Dec 2004 10:38:46 -0500 (EST)
-Message-ID: <Xine.LNX.4.44.0412171038140.14229-100000@thoron.boston.redhat.com>
-References: <20041217151031.GA27170@atrey.karlin.mff.cuni.cz>
+Date: Fri, 17 Dec 2004 10:47:37 -0500
+Message-ID: <41C2FF99.3020908@tmr.com>
+References: <41C26DD1.7070006@trash.net> <Xine.LNX.4.44.0412170144410.12579-100000@thoron.boston.redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Bryan Fulton <bryan@coverity.com>, <linux-kernel@vger.kernel.org>,
-        <netdev@oss.sgi.com>, <netfilter-devel@lists.netfilter.org>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Pavel Machek <pavel@ucw.cz>
-In-Reply-To: <20041217151031.GA27170@atrey.karlin.mff.cuni.cz>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>,
+	Bryan Fulton <bryan@coverity.com>, netdev@oss.sgi.com,
+	netfilter-devel@lists.netfilter.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261360AbULQPr7@vger.kernel.org>
+To: James Morris <jmorris@redhat.com>
+In-Reply-To: <Xine.LNX.4.44.0412170144410.12579-100000@thoron.boston.redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 17 Dec 2004, Pavel Machek wrote:
-
-> Hi!
+James Morris wrote:
+> On Fri, 17 Dec 2004, Patrick McHardy wrote:
 > 
-> > This at least needs CAP_NET_ADMIN.
 > 
-> Hmm, but that means that CAP_NET_ADMIN implies all other capabilities,
-> unless you fix this.
+>>James Morris wrote:
+>>
+>>
+>>>This at least needs CAP_NET_ADMIN.
+>>>
+>>
+>>It is already checked in do_ip6t_set_ctl(). Otherwise anyone could
+>>replace iptables rules :)
+> 
+> 
+> That's what I meant, you need the capability to do anything bad :-)
 
-I'm not saying it doesn't need to be fixed, but that it is not exploitable 
-by unprivileged users.
+Are you saying that processes with capability don't make mistakes? This 
+isn't a bug related to untrusted users doing privileged operations, it's 
+a case of using unchecked user data.
 
 
-- James
 -- 
-James Morris
-<jmorris@redhat.com>
+    -bill davidsen (davidsen@tmr.com)
+"The secret to procrastination is to put things off until the
+  last possible moment - but no longer"  -me
