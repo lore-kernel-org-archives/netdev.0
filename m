@@ -1,32 +1,28 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] IPv6: Don't Process ND Messages with Invalid Options
-Date: Thu, 26 Sep 2002 14:31:31 -0700 (PDT)
+From: "Patrick R. McManus" <mcmanus@ducksong.com>
+Subject: netlink sockets and rtm_newlink messages
+Date: Thu, 26 Sep 2002 18:38:53 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20020926.143131.52117281.davem@redhat.com>
-References: <20020925.133031.538200492.yoshfuji@linux-ipv6.org>
+Message-ID: <20020926223853.GA4062@ducksong.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org, usagi@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20020925.133031.538200492.yoshfuji@linux-ipv6.org>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-   Date: Wed, 25 Sep 2002 13:30:31 +0900 (JST)
+hello -
 
-   Linux happened to process invalid ND messages with invalid options
-   such as
-    - length of ND options is 0
-    - length of ND options is not enough
-   Specification says that such messages must be silently discarded.
-   This patch parses/checks ND options before it changes state of
-   neighbour / address etc. and ignores such messages.
-   
-   Following patch is against linux-2.4.19.
+I've got a little userspace app that listens to a netlink socket and
+filters for messages of type RTM_NEWLINK to check for interfaces going
+up or down (checking ifi_flags to make that determination)..
 
-Patch applied to 2.4.x and 2.5.x, thanks a lot.
+the only stumbling point is that I each time I do something like
+"ifconfig eth4 down" my app reads 2 identical RTM_NEWLINK messages
+instead of one (same behavior on up case too.)
 
-Let us hope more patches like this one are coming :-)
+any thoughts on why? I didn't really know how to interpret sockaddr
+nl.nl_groups.. 1 seems to give me the same duplicates as ~0.. 0 gives me nothing.
+
+
+-Pat
