@@ -1,41 +1,68 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH][ATM]: fix sparse checker warnings
-Date: Mon, 28 Jun 2004 20:16:28 -0400
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: 2.6.6: IPv6 initialisation bug
+Date: Tue, 29 Jun 2004 09:59:03 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040629001628.GB23878@havoc.gtf.org>
-References: <200406262245.i5QMjn65009470@ginger.cmf.nrl.navy.mil> <20040626225230.GA12698@taniwha.stupidest.org> <20040626162641.00786ed6.davem@redhat.com>
+Message-ID: <20040629.095903.58985982.yoshfuji@linux-ipv6.org>
+References: <20040628010200.A15067@flint.arm.linux.org.uk>
+	<20040629.020627.76560474.yoshfuji@linux-ipv6.org>
+	<20040628184758.C9214@flint.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Chris Wedgwood <cw@f00f.org>, chas@cmf.nrl.navy.mil, shemminger@osdl.org,
-        netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20040626162641.00786ed6.davem@redhat.com>
+To: rmk+lkml@arm.linux.org.uk
+In-Reply-To: <20040628184758.C9214@flint.arm.linux.org.uk>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jun 26, 2004 at 04:26:41PM -0700, David S. Miller wrote:
-> On Sat, 26 Jun 2004 15:52:30 -0700
-> Chris Wedgwood <cw@f00f.org> wrote:
-> 
-> > > +++ b/net/atm/br2684.c	2004-06-22 14:04:02 -07:00
-> > > @@ -562,7 +562,7 @@
-> > >  	atmvcc->push = br2684_push;
-> > >  	skb_queue_head_init(&copy);
-> > >  	skb_migrate(&atmvcc->sk->sk_receive_queue, &copy);
-> > 
-> > > - -	while ((skb = skb_dequeue(&copy))) {
-> > > +	while ((skb = skb_dequeue(&copy)) != NULL) {
-> > 
-> > I know it's a matter of style, but I really hate the 'assignment in
-> > conditional' warning sparse spews out, especially when many people,
-> > myself included really do write while ((a = b)) --- the extra
-> > parentheses as a compromise to keep gcc quiet.
-> 
-> I think warning for the ((a=b)) case is annoying but not annoying
-> enough to fight against it :)
+In article <20040628184758.C9214@flint.arm.linux.org.uk> (at Mon, 28 Jun 2004 18:47:58 +0100), Russell King <rmk+lkml@arm.linux.org.uk> says:
 
-FWIW I take a tangential position on the issue:
+> On Tue, Jun 29, 2004 at 02:06:27AM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@?(B wrote:
+> > In article <20040628010200.A15067@flint.arm.linux.org.uk> (at Mon, 28 Jun 2004 01:02:01 +0100), Russell King <rmk+lkml@arm.linux.org.uk> says:
+> > 
+> > > Ok, I've just tried 2.6.7 out on my root-NFS'd firewall with IPv6 built
+> > > in, and it doesn't work because of the problem I described below.
+> > :
+> > > What's the solution?
+> > 
+> > Bring lo up before bring others up.
+> > What does prevent you from doing this?
+> > (Do we need some bits to do this automatically?)
+> 
+> When you use root-NFS, the kernel itself brings up the interfaces,
+> and IPv6 immediately comes in and tries to configure itself to them,
+> trying to create the routes.
+> 
+> Unfortunately, the kernel doesn't bring up lo first because it
+> doesn't know to do that.
 
-it causes a fuckton of code churn
+Okay, would you try the following patch, please?
+
+
+D: Bring loopback device up first
+
+Signed-Off-By: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+
+===== net/ipv4/ipconfig.c 1.38 vs edited =====
+--- 1.38/net/ipv4/ipconfig.c	2004-06-23 09:06:18 +09:00
++++ edited/net/ipv4/ipconfig.c	2004-06-29 09:53:36 +09:00
+@@ -183,7 +183,14 @@
+ 
+ 	last = &ic_first_dev;
+ 	rtnl_shlock();
++
++	/* bring loopback device up first */
++	if (dev_change_flags(&loopback_dev, loopback_dev.flags | IFF_UP) < 0)
++		printk(KERN_ERR "IP-Config: Failed to open %s\n", loopback_dev.name);
++
+ 	for (dev = dev_base; dev; dev = dev->next) {
++		if (dev == &loopback_dev)
++			continue;
+ 		if (user_dev_name[0] ? !strcmp(dev->name, user_dev_name) :
+ 		    (!(dev->flags & IFF_LOOPBACK) &&
+ 		     (dev->flags & (IFF_POINTOPOINT|IFF_BROADCAST)) &&
+
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
