@@ -1,74 +1,46 @@
 From: Simon Kirby <sim@netnation.com>
 Subject: Re: Route cache performance under stress
-Date: Sun, 8 Jun 2003 23:47:19 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030609064719.GA20613@netnation.com>
-References: <20030608234926.GA9453@netnation.com> <001001c32e19$81bc7ea0$4a00000a@badass>
+Date: Sun, 8 Jun 2003 23:52:11 -0700
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20030609065211.GB20613@netnation.com>
+References: <20030608.224446.78724665.davem@redhat.com> <001501c32e4b$35d67d60$4a00000a@badass> <20030608.230332.48514434.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "'Florian Weimer'" <fw@deneb.enyo.de>, netdev@oss.sgi.com,
-   linux-net@vger.kernel.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: CIT/Paul <xerox@foonet.net>
+Cc: xerox@foonet.net, fw@deneb.enyo.de, netdev@oss.sgi.com,
+	linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: "David S. Miller" <davem@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <001001c32e19$81bc7ea0$4a00000a@badass>
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <20030608.230332.48514434.davem@redhat.com>
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jun 08, 2003 at 07:55:58PM -0400, CIT/Paul wrote:
+On Sun, Jun 08, 2003 at 11:03:32PM -0700, David S. Miller wrote:
 
-> A denial of service attack going on, OR you just have millions of hosts
-> going through the router (if you were an ISP).  Anything with seeminly
-> Random source ips (something like juno-z.101f.c will generate worst case
-> scenario for forwarding packets) will cause the cache to constantly
-> Add new entries at pretty much the rate of the attack.. This can stifle
-> just about any linux router with a measly 10 megabits/second of traffic
-> unless
-> The router is tuned up to a large degree (NAPI, certain nics, route
-> cache timings, etc.) and even then it can still be destroyed no matter
-> what
-> The cpu is with less than 100,000 packets per second and in mosts cases
-> less than 30k.. That's why it's just no acceptable for companies using
-> it as a replacement for say a cisco 7200 VXR series (npe300,400 nsf-1,
-> etc.) which can do 300K+ packet per second of routing (and yes it can
-> even route juno-z.101f.c at 300kpps, I have tested it).   Linux has no
-> problem doing 300kpps from a single source to a single destination
-> provided you have NAPI or ITR or something limiting the interrupts.. The
-> overhead is the route cache and the related systems that use it and also
-> netfilter is very slow :/  One of these days they will fix it..... If
+>    I'd love to test this out.. If it could do full gigabit line rate with
+>    random ips that would be soooooooo nice :>
 
-Whoa, wait a second.
+Agreed. :)
 
-You got a 7200 VXR to do 300kpps?  I would have liked to see that.
-We couldn't get our 7206 VXR routers to do anything more than about 12
-Mbit/second of small packets, which I believe is about 40,000 packets
-per second.  This is with CEF disabled, because it ended up duplicating
-packets and doing some other strange things with CEF enabled.
+> It isn't impossible with the current design, that I am
+> quire sure of.
+> 
+> Here is a simple idea, make the routing cache miss case steal
+> an entry sitting at the end of the hash chain this new one will
+> map to.  It only steals entries which have not been recently used.
 
-Also, I remember trying with a bucketload of netfilter rules and finding
-that the performance difference was hardly noticeable.
+I just asked whether this was possible in a previous email, but you must
+have missed it.  I am seeing a lot of memory management stuff in
+profiles, so I think recycling routing cache entries (if only when the
+table is full and the garbage collector would otherwise need to run)
+would be very helpful.
 
-Linux can route small packets with random src/dst at much faster than 10
-Mbit/sec.  It depeends on the hardware as you say, but it shouldn't ever
-be that slow on reasonable hardware.
+Is it possible to get a good guess of what cache entry to recycle without
+walking for a while or without some kind of LRU?
 
-I remember back even in 1998 with the 2.0 kernel (before the route cache
-existed) on a Celeron 300A with eepro100 cards (eepro100 driver, no
-interrupt coalescing, definitely no NAPI) was cable of routing at least
-20 Mbit/second of SYN packets from random sources.  In fact, I remember
-it happily choking some old 3Com switches we had at the time.
+> The big problem area on SMP is fib_validate_source.  I'm sure some
+> clear thinking can wipe that off the profiles too.
 
-I recently saw 90 Mbit/second of additional traffic (small packets with
-random sources) going through our routers (now single Athlon 1800MP (MP
-for APIC), tg3, NAPI, BGP routing tables), and they didn't seem to care. 
-It's definitely not yet perfect, but it's not bad.  The hashing fixes for
-large routing tables which Dave M. recently posted has made the situation
-much better -- it was very broken before.  What did your routing table
-look like when you were doing tests?
-
-I have fiddled with the route cache garbage collection parameters a bit,
-but I haven't really been able to reduce the CPU usage by much at all. 
-Really, though, shouldn't the route cache overhead be fairly small in
-comparison to everything else involved in forwarding?
+Not running the important stuff with SMP yet, so I don't care about this
+at the moment. O:)
 
 Simon-
