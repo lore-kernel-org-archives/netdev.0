@@ -1,8 +1,8 @@
 From: "Laudney Ren" <laudney@21cn.com>
 Subject: T/TCP for Linux major update again.
-Date: Sun, 19 May 2002 20:59:51 +0800
+Date: Sun, 19 May 2002 21:0:35 +0800
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <Qm979480794458.19193@receive10.inner-21cn.com>
+Message-ID: <RR979480794383.19193@receive10.inner-21cn.com>
 Reply-To: laudney@21cn.com
 Mime-Version: 1.0
 Content-Type: text/plain;
