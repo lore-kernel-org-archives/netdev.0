@@ -1,98 +1,31 @@
-From: akepner@sgi.com
-Subject: [RFC] using mmiowb() in dev->poll() method
-Date: Wed, 6 Oct 2004 11:24:19 -0700 (PDT)
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 2/2] [SKBUFF] introduce tr_hdr(skb)
+Date: Wed, 6 Oct 2004 20:58:36 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.33.0410061116160.15729-100000@localhost.localdomain>
+Message-ID: <20041006185835.GB19714@rei.reeler.org>
+References: <41643C40.8070605@conectiva.com.br>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <davem@redhat.com>, <jgarzik@pobox.com>
+To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Content-Disposition: inline
+In-Reply-To: <41643C40.8070605@conectiva.com.br>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+* Arnaldo Carvalho de Melo <41643C40.8070605@conectiva.com.br> 2004-10-06 15:41
+> -		trh = (struct trh_hdr *)skb_push(skb, sizeof(*trh));
+> +		skb->mac.raw = skb_push(skb, sizeof(*trh));
+> +		trh = tr_hdr(skb);
+>  		trh->ac = AC;
+>  		trh->fc = LLC_FRAME;
+>  		if (sa)
+> @@ -51,7 +52,6 @@
+>  			memcpy(trh->daddr, da, dev->addr_len);
+>  			tr_source_route(skb, trh, dev);
+>  		}
+> -		skb->mac.raw = skb->data;
 
-A recent patch which defines an I/O space memory write barrier 
-(http://marc.theaimsgroup.com/?l=linux-kernel&m=109649911100740&w=2.)
-allows for significant performance improvement in the tg3 driver. 
-Although I've only experimented with tg3, the same thing should work 
-for other drivers which use NAPI. 
-
-This would mean a slight change to the semantics of the driver's 
-polling method, however, which is why I'm sending this patch for 
-comments now. The patch below is only an example, and it's not 
-intended to be applied in its present form. But once the mmiowb() 
-patch gets in, something similar to the following patch could be 
-considered. 
-
-Currently, returning 0 from "dev->poll()" indicates that the 
-PIO write which enables interrupts has been flushed to the NIC 
-(or at least that's my understanding.) The change below allows 
-"dev->poll()" to return with that PIO write pending, but not 
-necessarily flushed. This allows a potentially expensive PIO 
-flush to be avoided. I've found that this can significantly 
-reduce CPU utilization and improve throughput. 
-
-On my test system (Altix - using only 1 of 4 CPUs, 1GHz Itanium 2, 
-Broadcom 5704 NIC) I got the following the results for one workload 
-with and without this patch:
-
-                   CPU Utilization [%]        Throughput [MB/sec]
-                   -------------------        -------------------
-2.6.5                     100                       110
-2.6.5+patch                80                       124
-
-That's the best case performance improvement, but there's no case 
-where performance suffers from this change.
-
-8<--------------------- tg3_poll.mmiowb.patch ---------------------
-
---- linux.orig/drivers/net/tg3.c	2004-10-06 09:26:04.000000000 -0700
-+++ linux/drivers/net/tg3.c	2004-10-06 10:22:38.000000000 -0700
-@@ -345,6 +345,9 @@
- #define tr16(reg)		readw(tp->regs + (reg))
- #define tr8(reg)		readb(tp->regs + (reg))
- 
-+#define mmiowb()		sn_mmiob() /* XXX this goes away once mmiowb() 
-+				            * is available for all arches */
-+
- static void tg3_write_mem(struct tg3 *tp, u32 off, u32 val)
- {
- 	unsigned long flags;
-@@ -395,6 +398,20 @@
- 	tg3_cond_int(tp);
- }
- 
-+/* tg3_restart_ints()
-+ * similar to tg3_enable_ints(), but it can return before the write which 
-+ * will enable interrupts has reached the card.
-+ */
-+static void tg3_restart_ints(struct tg3 *tp)
-+{
-+	tw32(TG3PCI_MISC_HOST_CTRL,
-+		(tp->misc_host_ctrl & ~MISC_HOST_CTRL_MASK_PCI_INT));
-+	tw32_mailbox(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW, 0x00000000);
-+	mmiowb(); 
-+
-+	tg3_cond_int(tp);
-+}
-+
- static inline void tg3_netif_stop(struct tg3 *tp)
- {
- 	netif_poll_disable(tp->dev);
-@@ -2489,7 +2506,7 @@
- 	if (done) {
- 		spin_lock_irqsave(&tp->lock, flags);
- 		__netif_rx_complete(netdev);
--		tg3_enable_ints(tp);
-+		tg3_restart_ints(tp);
- 		spin_unlock_irqrestore(&tp->lock, flags);
- 	}
- 
-
-8<-----------------------------------------------------------------
-
-Comments?
-
--- 
-Arthur
+Are you sure the bevhaviour is the same? There is an skb_pull
+in tr_source_route so skb->data gets modified. 
