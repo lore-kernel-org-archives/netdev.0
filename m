@@ -1,34 +1,35 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: in-driver QoS
-Date: Mon, 7 Jun 2004 16:00:11 +0200
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] common code for generating tcp_info
+Date: Mon, 07 Jun 2004 07:48:18 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040607140011.GC28639@wotan.suse.de>
-References: <200406062128.47070.vkondra@mail.ru>
+Message-ID: <1086619698.4113.22.camel@localhost.localdomain>
+References: <20040604153749.5d8a13b9@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David S Miller <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Vladimir Kondratiev <vkondra@mail.ru>
-Content-Disposition: inline
-In-Reply-To: <200406062128.47070.vkondra@mail.ru>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20040604153749.5d8a13b9@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> Any ideas how to modify stack to support multiple Tx queues?
+On Fri, 2004-06-04 at 15:37, Stephen Hemminger wrote:
 
-It already has that kind of in the form of arbitary qdiscs. The trick
-will be only to do all queueing in the qdisc and keep the hardware
-queue length as small as possible. I think today's drivers can
-do that already by just plugging the queue most of the time,
-unless they really want a packet.
+> diff -Nru a/net/ipv4/tcp_diag.c b/net/ipv4/tcp_diag.c
+> --- a/net/ipv4/tcp_diag.c	2004-06-04 15:35:55 -07:00
+> +++ b/net/ipv4/tcp_diag.c	2004-06-04 15:35:55 -07:00
+> +void tcp_get_info(struct sock *sk, struct tcp_info *info)
 
-Disadvantage will be more use of CPU time to refill driver
-queues, but at the relatively slow WLAN speeds that shouldn't 
-be a big issue.
+What is the appropriate text to update tcp.h?
 
-BTW the standard qdisc pfifo_fast already has three queues,
-selected by the old TOS.  That may even be good enough for you
-already. Users can fine tune it by using firewall rules
-that change the TOS for specific protocols etc.
-
--Andi
+	/* The syn_wait_lock is necessary only to avoid tcp_get_info having
+	 * to grab the main lock sock while browsing the listening hash
+	 * (otherwise it's deadlock prone).
+	 * This lock is acquired in read mode only from tcp_get_info() and
+	 * it's acquired in write mode _only_ from code that is actively
+	 * changing the syn_wait_queue. All readers that are holding
+	 * the master sock lock don't need to grab this lock in read mode
+	 * too as the syn_wait_queue writes are always protected from
+	 * the main sock lock.
+	 */
