@@ -1,33 +1,45 @@
-From: Phil Oester <kernel@linuxace.com>
-Subject: Re: Memory leak in 2.6.11-rc1?
-Date: Thu, 27 Jan 2005 17:41:39 -0800
-Message-ID: <20050128014139.GA16371@linuxace.com>
-References: <20050123023248.263daca9.akpm@osdl.org> <20050123200315.A25351@flint.arm.linux.org.uk> <20050124114853.A16971@flint.arm.linux.org.uk> <20050125193207.B30094@flint.arm.linux.org.uk> <20050127082809.A20510@flint.arm.linux.org.uk> <20050127004732.5d8e3f62.akpm@osdl.org> <16888.58622.376497.380197@robur.slu.se> <20050127164918.C3036@flint.arm.linux.org.uk> <20050127123326.2eafab35.davem@davemloft.net> <20050128001701.D22695@flint.arm.linux.org.uk>
+From: Scott Feldman <sfeldma@pobox.com>
+Subject: Re: [ANN] removal of certain net drivers coming soon: eepro100,
+	xircom_tulip_cb, iph5526
+Date: Thu, 27 Jan 2005 17:58:37 -0800
+Message-ID: <1106877517.18167.311.camel@localhost.localdomain>
+References: <41F952F4.7040804@pobox.com>
+	 <20050127225725.F3036@flint.arm.linux.org.uk>
+	 <20050127153114.72be03e2.davem@davemloft.net>
+	 <20050128001430.C22695@flint.arm.linux.org.uk>
+	 <20050127164843.08bdb307.davem@davemloft.net>
+Reply-To: sfeldma@pobox.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>, Robert.Olsson@data.slu.se,
-        akpm@osdl.org, torvalds@osdl.org, alexn@dsv.su.se, kas@fi.muni.cz,
-        linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Content-Disposition: inline
-In-Reply-To: <20050128001701.D22695@flint.arm.linux.org.uk>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Russell King <rmk+lkml@arm.linux.org.uk>, jgarzik@pobox.com,
+	linux-kernel@vger.kernel.org, netdev@oss.sgi.com, greg@kroah.com,
+	akpm@osdl.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261382AbVA1B5F@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050127164843.08bdb307.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 28, 2005 at 12:17:01AM +0000, Russell King wrote:
-> On Thu, Jan 27, 2005 at 12:33:26PM -0800, David S. Miller wrote:
-> > So they won't be listed in /proc/net/rt_cache (since they've been
-> > removed from the lookup table) but they will be accounted for in
-> > /proc/net/stat/rt_cache until the final release is done on the
-> > routing cache object and it can be completely freed up.
-> > 
-> > Do you happen to be using IPV6 in any way by chance?
+On Thu, 2005-01-27 at 16:48, David S. Miller wrote:
+> On Fri, 28 Jan 2005 00:14:30 +0000
+> Russell King <rmk+lkml@arm.linux.org.uk> wrote:
 > 
-> Yes.  Someone suggested this evening that there may have been a recent
-> change to do with some IPv6 refcounting which may have caused this
-> problem.  Is that something you can confirm?
+> > The fact of the matter is that eepro100.c works on ARM, e100.c doesn't.
+> > There's a message from me back on 30th June 2004 at about 10:30 BST on
+> > this very list which generated almost no interest from anyone...
+> 
+> I see.  Since eepro100 just uses a fixed set of RX buffers in the
+> ring (ie. the DMA links are never changed) it works.
 
-FWIW, I do not use IPv6, and it is not compiled into the kernel.
+eepro100 does a copy if pkt_len < rx_copybreak, otherwise it send up the
+skb and allocates and links a new one in it's place (see
+speedo_rx_link).
 
-Phil
+So I would say e100 and eepro100 are the same for >= rx_copybreak.  Why
+does one work and not the other?  Is it because the RFD is aligned in
+eepro100?
+
+Russell, what happens with modprobe eepro100 rx_copybreak=0?
+
+-scott
