@@ -1,148 +1,97 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 2.6] 2.6.0-test11 - more rtl8169
-Date: Tue, 2 Dec 2003 01:06:49 +0100
+From: "Francois Baligant" <francois@baligant.net>
+Subject: 2.6.0-test11: dst_cache_overflow causing unresponsive box
+Date: Tue, 2 Dec 2003 02:32:17 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031202010649.A27879@electric-eye.fr.zoreil.com>
-References: <1070212415.1607.17.camel@oxygenium> <20031201020453.A16405@electric-eye.fr.zoreil.com>
+Message-ID: <072501c3b874$2542ae70$15fea8c0@fortress>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="Kj7319i9nmIyA2yE"
-Cc: =?unknown-8bit?Q?Fernando_Alencar_Mar=F3stica?= <famarost@unimep.br>,
-        Brad House <brad@mcve.com>, jgarzik@pobox.com
+Content-Type: multipart/alternative; boundary="----=_NextPart_000_0722_01C3B87C.80FBB1A0"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
-In-Reply-To: <20031201020453.A16405@electric-eye.fr.zoreil.com>; from romieu@fr.zoreil.com on Mon, Dec 01, 2003 at 02:04:53AM +0100
+To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+This is a multi-part message in MIME format...
 
---Kj7319i9nmIyA2yE
-Content-Type: text/plain; charset=us-ascii
+------=_NextPart_000_0722_01C3B87C.80FBB1A0
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 Content-Disposition: inline
 
-Francois Romieu <romieu@fr.zoreil.com> :
-[...]
-> Btw, there is a flaw in r8169-dma-api-rx-buffers.patch so don't bother
-> testing it. I'll do it again tomorrow.
+We have a problem with a box running 2.6.0-test11-mjb1 and supporting aroun=
+d 90k simultaneous TCP connection. After a few hours/days of running,
+when a lots of clients connects/disconnects, the console will start to disp=
+lay:
 
-Attached patch should fix it.
-
-Executive summary:
-
-o Pure 2.6.0-test11:
-
-Get:
-http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.0-test11/r8169-blob.tar.bz2 
-debuntarzipe and apply/compile/test in following order:
-r8169-dma-api-tx.patch
-r8169-dma-api-rx-buffers.patch       <-+ Do not test these two patches
-r8169-dma-api-rx-buffers-ahum.patch  <-+ separately
-r8169-start-xmit-fixes.patch
-r8169-dma-api-tx-buffers.patch
-r8169-rx_copybreak.patch
-r8169-mac-phy-version.patch
-r8169-init_one.patch
-r8169-timer.patch
-r8169-hw_start.patch
-r8169-missing-tx-stats.patch
-r8169-intr_mask.patch
-r8169-suspend.patch
-
-The same directory contains each patch alone as well.
-
-o 2.6.0-test11 + 2.6.0-test9-bk25-netdrvr-exp1
-
-Get:
-http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.0-test11-netdrv/r8169-blob.tar.bz2 
-Same thing as above with:
-r8169-mac-phy-version.patch
-r8169-init_one.patch
-r8169-timer.patch
-r8169-hw_start.patch
-r8169-missing-tx-stats.patch
-r8169-intr_mask.patch
-r8169-suspend.patch
-r8169-dma-api-rx-buffers-ahum.patch
-
-Applying r8169-dma-api-rx-buffers-ahum.patch before
-r8169-mac-phy-version.patch generates a few offsets but works as well.
-
---
-Ueimor
-
---Kj7319i9nmIyA2yE
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="r8169-dma-api-rx-buffers-ahum.patch"
+dst cache overflow
+NET: 1860 messages suppressed.
+dst cache overflow
+NET: 1858 messages suppressed.
 
 
-Brown paper bag time: the Rx descriptors are contiguous and EORbit only
-marks the last descriptor in the array. OWNbit implicitly marks the end
-of the Rx descriptors segment which is owned by the nic.
+>From there, the box is completely unresponsive, apparently eating all its C=
+PU in trying to shrink the routing cache. Only solution is reboot.
 
+Current sysctl:
+net.ipv4.route.max_size =3D 655360 # I know we shouldn't rise it that high =
+but it's only cure for now.. it lasts a bit longer like this
+net.ipv4.route.gc_min_interval =3D 2
+net.ipv4.route.gc_interval =3D 10
+net.ipv4.route.gc_timeout =3D 30
 
- drivers/net/r8169.c |   20 ++++++--------------
- 1 files changed, 6 insertions(+), 14 deletions(-)
+rtstat:
+ size   IN: hit     tot    mc no_rt bcast madst masrc  OUT: hit     tot    =
+ mc GC: tot ignored goal_miss ovrf HASH: in_search out_search
+139566     12393     123     0     0     0     0     0       184      21   =
+   0     143     142         0    0           26039        375
+138876     13080     136     0     0     0     0     0       159      19   =
+   0     155     154         0    0           27153        277
+139006     12317     125     0     0     0     0     0       180      28   =
+   0     153     153         0    0           25810        377
+139138     13799     140     0     0     0     0     0       159      16   =
+   0     156     156         0    0           28375        331
+139275     11610     128     0     0     0     0     0       177      27   =
+   0     154     153         0    0           23977        343
+139383     12679     124     0     0     0     0     0       173      17   =
+   0     141     140         0    0           26717        398
+139256     11946     135     0     0     0     0     0       166      17   =
+   0     152     151         0    0           24874        304
+139353     11646     109     0     0     0     0     0       174      14   =
+   0     122     122         0    0           24165        320
+138257     12702     116     0     0     0     0     0       180      16   =
+   0     131     130         0    0           26324        358
+138369     12897     115     0     0     0     0     0       166      20   =
+   0     134     134         0    0           26819        339
+138553     11309     133     0     0     0     0     0       158      33   =
+   0     165     165         0    0           21270        389
+138172     17232     182     0     0     0     0     0       125      44   =
+   0     225     225         0    0           29702        375
+138420     17407     182     0     0     0     0     0       165      73   =
+   0     254     253         0    0           29946        548
+138833     17052     257     0     0     0     0     0       195     126   =
+   0     382     381         0    0           29715        812
+139051     16606     224     0     0     0     0     0       238      97   =
+   0     320     319         0    0           28559        721
+139217     18115     176     0     0     0     0     0       268      51   =
+   0     224     224         0    0           32983        527
+139326     17531     178     0     0     0     0     0       291      44   =
+   0     220     220         0    0           33320        445
+139422     15244     140     0     0     0     0     0       357      20   =
+   0     160     160         0    0           29934        415
+139548     13123     142     0     0     0     0     0       281      12   =
+   0     154     154         0    0           26430        351
+139684     13290     142     0     0     0     0     0       235      10   =
+   0     152     151         0    0           27341        309
 
-diff -puN drivers/net/r8169.c~r8169-dma-api-rx-buffers-ahum drivers/net/r8169.c
---- linux-2.6.0-test11/drivers/net/r8169.c~r8169-dma-api-rx-buffers-ahum	2003-12-02 00:22:41.000000000 +0100
-+++ linux-2.6.0-test11-fr/drivers/net/r8169.c	2003-12-02 00:22:41.000000000 +0100
-@@ -283,6 +283,8 @@ enum _DescStatusBit {
- 	LSbit = 0x10000000,
- };
- 
-+#define RsvdMask	0x3fffc000
-+
- struct TxDesc {
- 	u32 status;
- 	u32 vlan_tag;
-@@ -1121,7 +1123,7 @@ rtl8169_hw_start(struct net_device *dev)
- static inline void rtl8169_make_unusable_by_asic(struct RxDesc *desc)
- {
- 	desc->buf_addr = 0xdeadbeef;
--	desc->status = EORbit; 
-+	desc->status &= ~(OWNbit | RsvdMask);
- }
- 
- static void rtl8169_free_rx_skb(struct pci_dev *pdev, struct sk_buff **sk_buff,
-@@ -1141,7 +1143,7 @@ static inline void rtl8169_return_to_asi
- static inline void rtl8169_give_to_asic(struct RxDesc *desc, dma_addr_t mapping)
- {
- 	desc->buf_addr = mapping;
--	desc->status = OWNbit + RX_BUF_SIZE;
-+	desc->status |= OWNbit + RX_BUF_SIZE;
- }
- 
- static int rtl8169_alloc_rx_skb(struct pci_dev *pdev, struct net_device *dev,
-@@ -1209,11 +1211,6 @@ static inline void rtl8169_mark_as_last_
- 	desc->status |= EORbit;
- }
- 
--static inline void rtl8169_unmark_as_last_descriptor(struct RxDesc *desc)
--{
--	desc->status &= ~EORbit;
--}
--
- static int rtl8169_init_ring(struct net_device *dev)
- {
- 	struct rtl8169_private *tp = dev->priv;
-@@ -1460,14 +1457,9 @@ rtl8169_rx_interrupt(struct net_device *
- 	}
- 
- 	delta = rtl8169_rx_fill(tp, dev, tp->dirty_rx, tp->cur_rx);
--	if (delta > 0) {
--		u32 old_last = (tp->dirty_rx - 1) % NUM_RX_DESC;
--
-+	if (delta > 0)
- 		tp->dirty_rx += delta;
--		rtl8169_mark_as_last_descriptor(tp->RxDescArray +
--						(tp->dirty_rx - 1)%NUM_RX_DESC);
--		rtl8169_unmark_as_last_descriptor(tp->RxDescArray + old_last);
--	} else if (delta < 0)
-+	else if (delta < 0)
- 		printk(KERN_INFO "%s: no Rx buffer allocated\n", dev->name);
- 
- 	/*
+  OBJS ACTIVE  USE OBJ SIZE  SLABS OBJ/SLAB CACHE SIZE NAME=20=20=20=20=20=
+=20=20=20=20=20=20=20=20=20=20=20=20=20=20
+142340 142296  99%    0.38K  14234       10     56936K ip_dst_cache
 
-_
+Are we tuning the rt_cache in a wrong way ?
 
---Kj7319i9nmIyA2yE--
+regards,
+Francois
+
+Francois Baligant - http://www.pingouin.be
+Change the numbers, change your Life!
+------=_NextPart_000_0722_01C3B87C.80FBB1A0--
