@@ -1,56 +1,141 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: kernel 2.6.7 -> page allocation failure. order:1, mode:0x20
- (netfilter?)
-Date: Sun, 25 Jul 2004 17:59:45 -0700
+From: Paul Gortmaker <p_gortmaker@yahoo.com>
+Subject: [PATCH] Remove obsolete code in 8390 driver
+Date: Mon, 26 Jul 2004 01:25:00 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040725175945.15999990.akpm@osdl.org>
-References: <40FB93FE.90308@ovibes.net>
-	<20040720024741.GF27487@obroa-skai.de.gnumonks.org>
+Message-ID: <410495AC.5040108@yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: sebest@ovibes.net, linux-kernel@vger.kernel.org,
-        netfilter-devel@lists.netfilter.org, netdev@oss.sgi.com
+Content-Type: multipart/mixed;
+ boundary="------------040100050904050704010802"
+Cc: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Harald Welte <laforge@netfilter.org>
-In-Reply-To: <20040720024741.GF27487@obroa-skai.de.gnumonks.org>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Harald Welte <laforge@netfilter.org> wrote:
->
-> what's worrying me is the part above... how would skb_checksum_help
->  directly end up in copy_from_user()?
+This is a multi-part message in MIME format.
+--------------040100050904050704010802
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-That'll be leftover gunk on the stack.  Enabling frame pointers makes that
-go away.
+The 8390 drivers had provision for using a single Tx buffer,
+which was educational back in the day when it served as an
+example driver, but it really hasn't been used and can go
+away which will make future maintenance easier.  Patch
+against vanilla 2.6.7.
 
->  > swapper: page allocation failure. order:1, mode:0x20
->  > [<c013d770>] __alloc_pages+0x2da/0x34a
->  > [<c013d805>] __get_free_pages+0x25/0x3f
->  > [<c0140e28>] kmem_getpages+0x2b/0xdc
->  > [<c0141bfc>] kfree_skbmem+0x24/0x2c
->  > [<c0141c5d>] cache_grow+0xe5/0x2a4
->  > [<c0141f8a>] cache_grow+0x146/0x2a4
->  > [<c0295917>] cache_alloc_refill+0x1cf/0x29f
->  > [<c014262a>] __kmalloc+0x85/0x8c
->  > [<c02681f1>] tcp_transmit_skb+0x411/0x68a
->  > [<c0296621>] alloc_skb+0x47/0xe0
->  > [<c026875e>] tcp_write_xmit+0x16d/0x2d6
->  > [<c01da1ac>] skb_copy+0x33/0xde
->  > [<c026ca5b>] copy_from_user+0x42/0x6e
-> 
->  Does anybody have a clue what's going on?
+Thanks,
+Paul.
 
-Networking tried to do an atomic 1-order allocation and there were no
-1-order pages available in the free page pools.  It's pretty much
-unavoidable, and the caller simply needs to handle it - presumably by
-dropping the packet.
 
-Its frequency can be reduced by increasing /proc/sys/vm/min_free_kbytes.
+--------------040100050904050704010802
+Content-Type: text/plain;
+ name="2.6.7-8390-no-1Tx-diff0"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="2.6.7-8390-no-1Tx-diff0"
 
-It can be eliminated by using GFP_KERNEL.  It can be hugely reduced by
-sticking to 0-order allocations.
+diff -ur linux/drivers/net/8390.c linux-8390/drivers/net/8390.c
+--- linux/drivers/net/8390.c	Sun May  9 19:33:36 2004
++++ linux-8390/drivers/net/8390.c	Mon Jul 26 01:15:39 2004
+@@ -41,6 +41,7 @@
+ 			  module by all drivers that require it.
+   Alan Cox		: Spinlocking work, added 'BUG_83C690'
+   Paul Gortmaker	: Separate out Tx timeout code from Tx path.
++  Paul Gortmaker	: Remove old unused single Tx buffer code.
+ 
+   Sources:
+   The National Semiconductor LAN Databook, and the 3Com 3c503 databook.
+@@ -289,8 +290,6 @@
+ 
+ 	send_length = ETH_ZLEN < length ? length : ETH_ZLEN;
+     
+-#ifdef EI_PINGPONG
+-
+ 	/*
+ 	 * We have two Tx slots available for use. Find the first free
+ 	 * slot, and then perform some sanity checks. With two Tx bufs,
+@@ -309,7 +308,7 @@
+ 	}
+ 	else if (ei_local->tx2 == 0) 
+ 	{
+-		output_page = ei_local->tx_start_page + TX_1X_PAGES;
++		output_page = ei_local->tx_start_page + TX_PAGES/2;
+ 		ei_local->tx2 = send_length;
+ 		if (ei_debug  &&  ei_local->tx1 > 0)
+ 			printk(KERN_DEBUG "%s: idle transmitter, tx1=%d, lasttx=%d, txing=%d.\n",
+@@ -366,28 +365,6 @@
+ 	else
+ 		netif_start_queue(dev);
+ 
+-#else	/* EI_PINGPONG */
+-
+-	/*
+-	 * Only one Tx buffer in use. You need two Tx bufs to come close to
+-	 * back-to-back transmits. Expect a 20 -> 25% performance hit on
+-	 * reasonable hardware if you only use one Tx buffer.
+-	 */
+-
+-	if (length == send_length)
+-		ei_block_output(dev, length, skb->data, ei_local->tx_start_page);
+-	else {
+-		memset(scratch, 0, ETH_ZLEN);
+-		memcpy(scratch, skb->data, skb->len);
+-		ei_block_output(dev, ETH_ZLEN, scratch, ei_local->tx_start_page);
+-	}
+-	ei_local->txing = 1;
+-	NS8390_trigger_send(dev, send_length, ei_local->tx_start_page);
+-	dev->trans_start = jiffies;
+-	netif_stop_queue(dev);
+-
+-#endif	/* EI_PINGPONG */
+-
+ 	/* Turn 8390 interrupts back on. */
+ 	ei_local->irqlock = 0;
+ 	outb_p(ENISR_ALL, e8390_base + EN0_IMR);
+@@ -590,8 +567,6 @@
+     
+ 	outb_p(ENISR_TX, e8390_base + EN0_ISR); /* Ack intr. */
+ 
+-#ifdef EI_PINGPONG
+-
+ 	/*
+ 	 * There are two Tx buffers, see which one finished, and trigger
+ 	 * the send of another one if it exists.
+@@ -633,13 +608,6 @@
+ 	}
+ //	else printk(KERN_WARNING "%s: unexpected TX-done interrupt, lasttx=%d.\n",
+ //			dev->name, ei_local->lasttx);
+-
+-#else	/* EI_PINGPONG */
+-	/*
+-	 *  Single Tx buffer: mark it free so another packet can be loaded.
+-	 */
+-	ei_local->txing = 0;
+-#endif
+ 
+ 	/* Minimize Tx latency: update the statistics after we restart TXing. */
+ 	if (status & ENTSR_COL)
+diff -ur linux/drivers/net/8390.h linux-8390/drivers/net/8390.h
+--- linux/drivers/net/8390.h	Tue Jun 15 22:20:42 2004
++++ linux-8390/drivers/net/8390.h	Mon Jul 26 01:10:51 2004
+@@ -12,17 +12,7 @@
+ #include <linux/ioport.h>
+ #include <linux/skbuff.h>
+ 
+-#define TX_2X_PAGES 12
+-#define TX_1X_PAGES 6
+-
+-/* Should always use two Tx slots to get back-to-back transmits. */
+-#define EI_PINGPONG
+-
+-#ifdef EI_PINGPONG
+-#define TX_PAGES TX_2X_PAGES
+-#else
+-#define TX_PAGES TX_1X_PAGES
+-#endif
++#define TX_PAGES 12	/* Two Tx slots */
+ 
+ #define ETHER_ADDR_LEN 6
+ 
 
-I wouldn't worry about this unless someone is seeing a lot of them (a
-significant number of packets are getting dropped)
+--------------040100050904050704010802--
