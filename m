@@ -1,8 +1,8 @@
 From: David Dillow <dave@thedillows.org>
-Subject: [RFC BK 20/22] xfrm offload v2: typhoon: add management of outbound bundles
+Subject: [RFC BK 16/22] xfrm offload v2: typhoon: collect crypto offload capabilities
 Date: Mon, 10 Jan 2005 10:37:02 -0500
-Message-ID: <20040110014300.29@ori.thedillows.org>
-References: <20040110014300.28@ori.thedillows.org>
+Message-ID: <20040110014300.25@ori.thedillows.org>
+References: <20040110014300.24@ori.thedillows.org>
 Cc: dave@thedillows.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
@@ -13,208 +13,126 @@ List-Id: netdev.vger.kernel.org
 # This is a BitKeeper generated diff -Nru style patch.
 #
 # ChangeSet
-#   2005/01/10 01:05:38-05:00 dave@thedillows.org 
-#   Add the offloading of outbound bundles.
+#   2005/01/10 00:57:15-05:00 dave@thedillows.org 
+#   Collect some information about the Typhoon's offload capabilities,
+#   and store it for future use.
 #   
-#   This is a tricky business, because there are restrictions on
-#   the types and order of the xfrms we can offload. Some combinations
-#   also yield incorrect results, so we have to reduce the amount of
-#   offloading we do in those cases.
+#   Signed-off-by: David Dillow <dave@thedillows.org>
+# 
+# drivers/net/typhoon.h
+#   2005/01/10 00:56:57-05:00 dave@thedillows.org +14 -0
+#   Add the reply message format for the crypto capability query command.
 #   
 #   Signed-off-by: David Dillow <dave@thedillows.org>
 # 
 # drivers/net/typhoon.c
-#   2005/01/10 01:05:20-05:00 dave@thedillows.org +167 -0
-#   Add the offloading of outbound bundles.
-#   
-#   This is a tricky business, because there are restrictions on
-#   the types and order of the xfrms we can offload. Some combinations
-#   also yield incorrect results, so we have to reduce the amount of
-#   offloading we do in those cases.
+#   2005/01/10 00:56:57-05:00 dave@thedillows.org +56 -0
+#   Collect some information about the Typhoon's offload capabilities,
+#   and store it for future use.
 #   
 #   Signed-off-by: David Dillow <dave@thedillows.org>
 # 
 diff -Nru a/drivers/net/typhoon.c b/drivers/net/typhoon.c
---- a/drivers/net/typhoon.c	2005-01-10 01:16:43 -05:00
-+++ b/drivers/net/typhoon.c	2005-01-10 01:16:43 -05:00
-@@ -358,6 +358,12 @@
- #define TSO_OFFLOAD_ON		0
- #endif
+--- a/drivers/net/typhoon.c	2005-01-10 01:17:33 -05:00
++++ b/drivers/net/typhoon.c	2005-01-10 01:17:33 -05:00
+@@ -304,6 +304,12 @@
+ 	u16			wol_events;
+ 	u32			offload;
  
-+/* We need room for a maximum of 5 dst_entries -- the longest chain of
-+ * headers we support for offloading is (inner -> outer):
-+ * ESP AH IP2 ESP AH IP1 -- and IP2 is part of the second ESP dst
-+ * (tunnel mode)
-+ */
-+#define TYPHOON_MAX_HEADERS	5
- #define IPSEC_NUM_DESCRIPTORS	1
- 
- struct typhoon_xfrm_offload {
-@@ -2584,6 +2590,167 @@
- 					"offload (%d)\n", tp->name, -err);
- 	}
- 	spin_unlock_bh(&tp->offload_lock);
-+}
++	u16			tx_sa_max;
++	u16			rx_sa_max;
++	u16			tx_sa_avail;
++	u16			rx_sa_avail;
++	int			sa_count;
 +
-+static int inline
-+typhoon_bundle_list(struct dst_entry *bundle, struct dst_entry *dst_list[],
-+						int max_entries)
-+{
-+	/* While putting the bundle into the dst_list so we can iterate it
-+	 * in reverse, scan for problematic offload sequences. Skip over
-+	 * the last xfrm in the sequence, so that we still offload as much
-+	 * as possible.
-+	 *
-+	 * This list was generated using runtime 03.001.002, but the
-+	 * problems are still present in 03.001.008. I have not re-investigated
-+	 * the problems to determine if the symptoms have changed.
-+	 *
-+	 * inner AH tunnel, outer AH transport
-+	 *	--> 3XP seems to put the inner hash at the wrong location
-+	 * inner AH tunnel, outer ESP tunnel
-+	 *	--> 3XP corrupts outer hash, maybe wrong place?
-+	 * inner AH transport, outer ESP tunnel
-+	 *	--> 3XP seems to encrypt the wrong portion of the packet
-+	 * inner ESP transport, outer AH tunnel
-+	 *	--> 3XP lockup, requires reset
-+	 *
-+	 * No problematic offloads start with ESP in tunnel mode, so pretend
-+	 * that was the last one we looked at.
-+	 */
-+	int last_was_ah = 0, last_was_tunnel = 1;
-+	struct dst_entry *dst = bundle;
-+	struct xfrm_state *x;
-+	int start = max_entries;
-+	int bundle_size = 0;
-+	int proto, problem;
-+
-+	while(bundle) {
-+		x = bundle->xfrm;
-+		proto = x ? x->type->proto : IPPROTO_IP;
-+
-+		problem = 0;
-+		if(proto == IPPROTO_AH && !x->props.mode &&
-+				(last_was_ah && last_was_tunnel))
-+			problem = 1;
-+		else if(proto == IPPROTO_AH && x->props.mode &&
-+				!(last_was_ah || last_was_tunnel))
-+			problem = 1;
-+		else if(proto == IPPROTO_ESP && x->props.mode && last_was_ah)
-+			problem = 1;
-+
-+		if(problem) {
-+			/* We hit a snag -- forget about the xfrms we've
-+			 * seen before the current one.
-+			 */
-+			bundle_size = 1;
-+			dst = bundle;
-+		} else {
-+			bundle_size++;
-+			if(bundle_size > max_entries)
-+				dst = dst->child;
-+		}
-+
-+		last_was_ah = (proto == IPPROTO_AH);
-+		last_was_tunnel = x ? x->props.mode : 0;
-+		bundle = bundle->child;
-+	}
-+
-+	if(bundle_size < max_entries)
-+		start = bundle_size;
-+
-+	bundle_size = 0;
-+	while(dst) {
-+		dst_list[--start] = dst;
-+		dst = dst->child;
-+		bundle_size++;
-+	}
-+
-+	return bundle_size;
-+}
-+
-+static void
-+typhoon_xfrm_bundle_add(struct net_device *dev, struct dst_entry *bundle)
-+{
-+	/* Walk from the outermost dst back up the chain, offloading
-+	 * until we hit something we cannot deal with.
-+	 */
-+	struct typhoon *tp = netdev_priv(dev);
-+	struct xfrm_state *x;
-+	struct xfrm_offload *xol;
-+	struct typhoon_xfrm_offload *txo;
-+	struct dst_entry *dst_list[TYPHOON_MAX_HEADERS];
-+	struct dst_entry *dst;
-+	int list_size;
-+	int i, proto;
-+	int level = 0;
-+	int last = -1;
-+
-+	smp_rmb();
-+	if(tp->card_state != Running)
-+		return;
-+
-+	list_size = typhoon_bundle_list(bundle, dst_list, TYPHOON_MAX_HEADERS);
-+
-+	for(i = 0; i < list_size; i++) {
-+		dst = dst_list[i];
-+		x = dst->xfrm;
-+
-+		/* Only support IPv4 */
-+		if(dst->ops->family != AF_INET)
-+			goto cannot_offload;
-+
-+		proto = x ? x->type->proto : IPPROTO_IP;
-+
-+		switch(proto) {
-+		case IPPROTO_IP:
-+		case IPPROTO_IPIP:
-+			if(last == IPPROTO_IP || last == IPPROTO_IPIP)
-+				goto cannot_offload;
-+			if(level)
-+				level++;
-+			last = proto;
-+			continue;
-+		case IPPROTO_ESP:
-+			if(last != IPPROTO_AH)
-+				level++;
-+			break;
-+		case IPPROTO_AH:
-+			level++;
-+			break;
-+		default:
-+			goto cannot_offload;
-+		}
-+
-+		last = proto;
-+
-+		/* We only support two layers of IPSEC, seperated by
-+		 * an IP header. Given AH3 IP3 AH2 IP2 AH1 IP1, only
-+		 * offload AH1 and AH2, etc.
-+		 */
-+		if(level > 2)
-+			goto cannot_offload;
-+
-+		if(dst->xfrm_offload)
-+			continue;
-+
-+		xol = xfrm_offload_get(x, dev);
-+		if(!xol) {
-+			xol = typhoon_offload_ipsec(tp, x);
-+			if(xol)
-+				xfrm_offload_hold(xol);
-+		}
-+
-+		if(!xol)
-+			goto cannot_offload;
-+
-+		dst->xfrm_offload = xol;
-+		txo = xfrm_offload_priv(xol);
-+		if(txo->tunnel)
-+			last = IPPROTO_IPIP;
-+	}
-+
-+cannot_offload:
-+	return;
+ 	/* unused stuff (future use) */
+ 	int			capabilities;
+ 	struct transmit_ring 	txHiRing;
+@@ -2104,6 +2110,53 @@
+ 	return 0;
  }
  
- static void
++static inline int
++typhoon_ipsec_init(struct typhoon *tp)
++{
++	struct cmd_desc xp_cmd;
++	struct resp_desc xp_resp;
++	struct ipsec_info_desc *info = (struct ipsec_info_desc *) &xp_resp;
++	u16 last_tx, last_rx, last_cap;
++	int err;
++
++	last_tx = tp->tx_sa_max;
++	last_rx = tp->rx_sa_max;
++	last_cap = tp->capabilities;
++
++	INIT_COMMAND_WITH_RESPONSE(&xp_cmd, TYPHOON_CMD_READ_IPSEC_INFO);
++	err = typhoon_issue_command(tp, 1, &xp_cmd, 1, &xp_resp);
++	if(err < 0)
++		goto out;
++
++	/* We're not up yet, so no need to lock this -- we cannot modify
++	 * these fields yet.
++	 */
++	tp->tx_sa_avail = tp->tx_sa_max = le16_to_cpu(info->tx_sa_max);
++	tp->rx_sa_avail = tp->rx_sa_max = le16_to_cpu(info->rx_sa_max);
++	tp->sa_count = 0;
++
++	/* Typhoon2 was originally going to have variable crypto capabilities,
++	 * subject to registration with 3Com. It appears they have decided
++	 * to just enable 3DES as well.
++	 */
++	if(tp->capabilities & TYPHOON_CRYPTO_VARIABLE) {
++		tp->capabilities &= ~TYPHOON_CRYPTO_VARIABLE;
++		tp->capabilities |= TYPHOON_CRYPTO_DES | TYPHOON_CRYPTO_3DES;
++	}
++
++	if(last_tx != tp->tx_sa_max || last_rx != tp->rx_sa_max ||
++					last_cap != tp->capabilities) {
++		printk(KERN_INFO "%s: IPSEC offload %s%s %d Tx %d Rx\n",
++			tp->name,
++			tp->capabilities & TYPHOON_CRYPTO_DES ? "DES " : "",
++			tp->capabilities & TYPHOON_CRYPTO_3DES ? "3DES" : "",
++			tp->tx_sa_max, tp->rx_sa_max);
++	}
++
++out:
++	return err;
++}
++
+ static int
+ typhoon_start_runtime(struct typhoon *tp)
+ {
+@@ -2126,6 +2179,9 @@
+ 		err = -EIO;
+ 		goto error_out;
+ 	}
++
++	if(typhoon_ipsec_init(tp))
++		goto error_out;
+ 
+ 	INIT_COMMAND_NO_RESPONSE(&xp_cmd, TYPHOON_CMD_SET_MAX_PKT_SIZE);
+ 	xp_cmd.parm1 = cpu_to_le16(PKT_BUF_SZ);
+diff -Nru a/drivers/net/typhoon.h b/drivers/net/typhoon.h
+--- a/drivers/net/typhoon.h	2005-01-10 01:17:33 -05:00
++++ b/drivers/net/typhoon.h	2005-01-10 01:17:33 -05:00
+@@ -487,6 +487,20 @@
+ 	u32 unused2;
+ } __attribute__ ((packed));
+ 
++/* TYPHOON_CMD_READ_IPSEC_INFO response descriptor
++ */
++struct ipsec_info_desc {
++	u8  flags;
++	u8  numDesc;
++	u16 cmd;
++	u16 seqNo;
++	u16 des_enabled;
++	u16 tx_sa_max;
++	u16 rx_sa_max;
++	u16 tx_sa_count;
++	u16 rx_sa_count;
++} __attribute__ ((packed));
++
+ /* TYPHOON_CMD_SET_OFFLOAD_TASKS bits (cmd.parm2 (Tx) & cmd.parm3 (Rx))
+  * This is all for IPv4.
+  */
