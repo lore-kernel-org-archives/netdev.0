@@ -1,7 +1,7 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (22/23) sk98: diag code changes
-Date: Thu, 11 Nov 2004 16:09:55 -0800
-Message-ID: <20041111160955.4570b327@zqx3.pdx.osdl.net>
+Subject: [PATCH] (7/23) sk98: basic ethtool support
+Date: Thu, 11 Nov 2004 15:55:03 -0800
+Message-ID: <20041111155503.6e0349b8@zqx3.pdx.osdl.net>
 References: <4192C60A.1050205@designassembly.de>
 	<20041111154225.5cf85567@zqx3.pdx.osdl.net>
 Mime-Version: 1.0
@@ -17,199 +17,381 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Cleanup DIAG support code.
-  * Use type safe structure assignment rather than memcpy
-  * PCI device number is available in pci_dev don't need to go
-    string parsing to find it.
-  * Compile correctly if SK_DIAG_SUPPORT not defined
+The basic stuff comes from the newer code from SysKonnect, but I redid
+it using ethtool_ops and a cleaner way of doing the stats (from e100)
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-diff -Nru a/drivers/net/sk98lin/h/skdrv2nd.h b/drivers/net/sk98lin/h/skdrv2nd.h
---- a/drivers/net/sk98lin/h/skdrv2nd.h	2004-11-11 14:17:16 -08:00
-+++ b/drivers/net/sk98lin/h/skdrv2nd.h	2004-11-11 14:17:16 -08:00
-@@ -364,10 +364,8 @@
- 	SK_TIMER        ModTimer; /* just some timer */
- };
- 
--#ifdef SK_DIAG_SUPPORT
- #define	DIAG_ACTIVE		1
- #define	DIAG_NOTACTIVE		0
--#endif
- 
- /****************************************************************************
-  * Per board structure / Adapter Context structure:
+diff -Nru a/drivers/net/sk98lin/Makefile b/drivers/net/sk98lin/Makefile
+--- a/drivers/net/sk98lin/Makefile	2004-11-03 14:28:47 -08:00
++++ b/drivers/net/sk98lin/Makefile	2004-11-03 14:28:47 -08:00
+@@ -13,6 +13,7 @@
+ obj-$(CONFIG_SK98LIN) += sk98lin.o
+ sk98lin-objs    :=	\
+ 		skge.o		\
++		skethtool.o	\
+ 		skdim.o		\
+ 		skaddr.o	\
+ 		skgehwt.o	\
+diff -Nru a/drivers/net/sk98lin/skethtool.c b/drivers/net/sk98lin/skethtool.c
+--- /dev/null	Wed Dec 31 16:00:00 196900
++++ b/drivers/net/sk98lin/skethtool.c	2004-11-03 14:28:47 -08:00
+@@ -0,0 +1,330 @@
++/******************************************************************************
++ *
++ * Name:        skethtool.c
++ * Project:     GEnesis, PCI Gigabit Ethernet Adapter
++ * Version:     $Revision: 1.7 $
++ * Date:        $Date: 2004/09/29 13:32:07 $
++ * Purpose:     All functions regarding ethtool handling
++ *
++ ******************************************************************************/
++
++/******************************************************************************
++ *
++ *	(C)Copyright 1998-2002 SysKonnect GmbH.
++ *	(C)Copyright 2002-2004 Marvell.
++ *
++ *	Driver for Marvell Yukon/2 chipset and SysKonnect Gigabit Ethernet 
++ *      Server Adapters.
++ *
++ *	Author: Ralph Roesler (rroesler@syskonnect.de)
++ *	        Mirko Lindner (mlindner@syskonnect.de)
++ *
++ *	Address all question to: linux@syskonnect.de
++ *
++ *	The technical manual for the adapters is available from SysKonnect's
++ *	web pages: www.syskonnect.com
++ *	
++ *	This program is free software; you can redistribute it and/or modify
++ *	it under the terms of the GNU General Public License as published by
++ *	the Free Software Foundation; either version 2 of the License, or
++ *	(at your option) any later version.
++ *
++ *	The information in this file is provided "AS IS" without warranty.
++ *
++ *****************************************************************************/
++
++#include "h/skdrv1st.h"
++#include "h/skdrv2nd.h"
++#include "h/skversion.h"
++
++#include <linux/ethtool.h>
++#include <linux/timer.h>
++
++/******************************************************************************
++ *
++ * Defines
++ *
++ *****************************************************************************/
++
++#define SUPP_COPPER_ALL (SUPPORTED_10baseT_Half  | SUPPORTED_10baseT_Full  | \
++                         SUPPORTED_100baseT_Half | SUPPORTED_100baseT_Full | \
++                         SUPPORTED_1000baseT_Half| SUPPORTED_1000baseT_Full| \
++                         SUPPORTED_TP)
++
++#define ADV_COPPER_ALL  (ADVERTISED_10baseT_Half  | ADVERTISED_10baseT_Full  | \
++                         ADVERTISED_100baseT_Half | ADVERTISED_100baseT_Full | \
++                         ADVERTISED_1000baseT_Half| ADVERTISED_1000baseT_Full| \
++                         ADVERTISED_TP)
++
++#define SUPP_FIBRE_ALL  (SUPPORTED_1000baseT_Full | \
++                         SUPPORTED_FIBRE          | \
++                         SUPPORTED_Autoneg)
++
++#define ADV_FIBRE_ALL   (ADVERTISED_1000baseT_Full | \
++                         ADVERTISED_FIBRE          | \
++                         ADVERTISED_Autoneg)
++
++
++/******************************************************************************
++ *
++ * Local Functions
++ *
++ *****************************************************************************/
++
++/*****************************************************************************
++ *
++ * 	getSettings - retrieves the current settings of the selected adapter
++ *
++ * Description:
++ *	The current configuration of the selected adapter is returned.
++ *	This configuration involves a)speed, b)duplex and c)autoneg plus
++ *	a number of other variables.
++ *
++ * Returns:    always 0
++ *
++ */
++static int getSettings(struct net_device *dev, struct ethtool_cmd *ecmd)
++{
++	const DEV_NET *pNet = netdev_priv(dev);
++	int port = pNet->PortNr;
++	const SK_AC *pAC = pNet->pAC;
++	const SK_GEPORT *pPort = &pAC->GIni.GP[port];
++
++	static int DuplexAutoNegConfMap[9][3]= {
++		{ -1                     , -1         , -1              },
++		{ 0                      , -1         , -1              },
++		{ SK_LMODE_HALF          , DUPLEX_HALF, AUTONEG_DISABLE },
++		{ SK_LMODE_FULL          , DUPLEX_FULL, AUTONEG_DISABLE },
++		{ SK_LMODE_AUTOHALF      , DUPLEX_HALF, AUTONEG_ENABLE  },
++		{ SK_LMODE_AUTOFULL      , DUPLEX_FULL, AUTONEG_ENABLE  },
++		{ SK_LMODE_AUTOBOTH      , DUPLEX_FULL, AUTONEG_ENABLE  },
++		{ SK_LMODE_AUTOSENSE     , -1         , -1              },
++		{ SK_LMODE_INDETERMINATED, -1         , -1              }
++	};
++	static int SpeedConfMap[6][2] = {
++		{ 0                       , -1         },
++		{ SK_LSPEED_AUTO          , -1         },
++		{ SK_LSPEED_10MBPS        , SPEED_10   },
++		{ SK_LSPEED_100MBPS       , SPEED_100  },
++		{ SK_LSPEED_1000MBPS      , SPEED_1000 },
++		{ SK_LSPEED_INDETERMINATED, -1         }
++	};
++	static int AdvSpeedMap[6][2] = {
++		{ 0                       , -1         },
++		{ SK_LSPEED_AUTO          , -1         },
++		{ SK_LSPEED_10MBPS        , ADVERTISED_10baseT_Half   | ADVERTISED_10baseT_Full },
++		{ SK_LSPEED_100MBPS       , ADVERTISED_100baseT_Half  | ADVERTISED_100baseT_Full },
++		{ SK_LSPEED_1000MBPS      , ADVERTISED_1000baseT_Half | ADVERTISED_1000baseT_Full},
++		{ SK_LSPEED_INDETERMINATED, -1         }
++	};
++
++	ecmd->phy_address = port;
++	ecmd->speed       = SpeedConfMap[pPort->PLinkSpeedUsed][1];
++	ecmd->duplex      = DuplexAutoNegConfMap[pPort->PLinkModeStatus][1];
++	ecmd->autoneg     = DuplexAutoNegConfMap[pPort->PLinkModeStatus][2];
++	ecmd->transceiver = XCVR_INTERNAL;
++
++	if (pAC->GIni.GICopperType) {
++		ecmd->port        = PORT_TP;
++		ecmd->supported   = (SUPP_COPPER_ALL|SUPPORTED_Autoneg);
++		if (pAC->GIni.GIGenesis) {
++			ecmd->supported &= ~(SUPPORTED_10baseT_Half);
++			ecmd->supported &= ~(SUPPORTED_10baseT_Full);
++			ecmd->supported &= ~(SUPPORTED_100baseT_Half);
++			ecmd->supported &= ~(SUPPORTED_100baseT_Full);
++		} else {
++			if (pAC->GIni.GIChipId == CHIP_ID_YUKON) {
++				ecmd->supported &= ~(SUPPORTED_1000baseT_Half);
++			} 
++#ifdef CHIP_ID_YUKON_FE
++			if (pAC->GIni.GIChipId == CHIP_ID_YUKON_FE) {
++				ecmd->supported &= ~(SUPPORTED_1000baseT_Half);
++				ecmd->supported &= ~(SUPPORTED_1000baseT_Full);
++			}
++#endif
++		}
++		if (pAC->GIni.GP[0].PLinkSpeed != SK_LSPEED_AUTO) {
++			ecmd->advertising = AdvSpeedMap[pPort->PLinkSpeed][1];
++			if (pAC->GIni.GIChipId == CHIP_ID_YUKON) {
++				ecmd->advertising &= ~(SUPPORTED_1000baseT_Half);
++			} 
++		} else {
++			ecmd->advertising = ecmd->supported;
++		}
++
++		if (ecmd->autoneg == AUTONEG_ENABLE) 
++			ecmd->advertising |= ADVERTISED_Autoneg;
++	} else {
++		ecmd->port        = PORT_FIBRE;
++		ecmd->supported   = SUPP_FIBRE_ALL;
++		ecmd->advertising = ADV_FIBRE_ALL;
++	}
++	return 0;
++}
++
++/*****************************************************************************
++ *
++ *	setSettings - configures the settings of a selected adapter
++ *
++ * Description:
++ *	Possible settings that may be altered are a)speed, b)duplex or 
++ *	c)autonegotiation.
++ *
++ * Returns:
++ *	0:	everything fine, no error
++ *	<0:	the return value is the error code of the failure 
++ */
++static int setSettings(struct net_device *dev, struct ethtool_cmd *ecmd)
++{
++	DEV_NET *pNet = netdev_priv(dev);
++	SK_AC *pAC = pNet->pAC;
++	u32 instance;
++	char buf[4];
++	int len = 1;
++
++	if (ecmd->speed != SPEED_10 && ecmd->speed != SPEED_100 
++	    && ecmd->speed != SPEED_1000)
++		return -EINVAL;
++
++	if (ecmd->duplex != DUPLEX_HALF && ecmd->duplex != DUPLEX_FULL)
++		return -EINVAL;
++
++	if (ecmd->autoneg != AUTONEG_DISABLE && ecmd->autoneg != AUTONEG_ENABLE)
++		return -EINVAL;
++
++	if (ecmd->autoneg == AUTONEG_DISABLE)
++		*buf = (ecmd->duplex == DUPLEX_FULL) 
++			? SK_LMODE_FULL : SK_LMODE_HALF;
++	else
++		*buf = (ecmd->duplex == DUPLEX_FULL) 
++			? SK_LMODE_AUTOFULL : SK_LMODE_AUTOHALF;
++	
++	instance = 1 + (pAC->RlmtNets == 2) + pNet->PortNr;
++	if (SkPnmiSetVar(pAC, pAC->IoBase, OID_SKGE_LINK_MODE, 
++			   &buf, &len, instance, pNet->NetNr) != SK_PNMI_ERR_OK)
++		return -EINVAL;
++
++	switch(ecmd->speed) {
++	case SPEED_1000:
++		*buf = SK_LSPEED_1000MBPS;
++		break;
++	case SPEED_100:
++		*buf = SK_LSPEED_100MBPS;
++		break;
++	case SPEED_10:
++		*buf = SK_LSPEED_10MBPS;
++	}
++
++	if (SkPnmiSetVar(pAC, pAC->IoBase, OID_SKGE_SPEED_MODE, 
++			 &buf, &len, instance, pNet->NetNr) != SK_PNMI_ERR_OK)
++		return -EINVAL;
++
++	return 0;
++}
++
++/*****************************************************************************
++ *
++ * 	getDriverInfo - returns generic driver and adapter information
++ *
++ * Description:
++ *	Generic driver information is returned via this function, such as
++ *	the name of the driver, its version and and firmware version.
++ *	In addition to this, the location of the selected adapter is 
++ *	returned as a bus info string (e.g. '01:05.0').
++ *	
++ * Returns:	N/A
++ *
++ */
++static void getDriverInfo(struct net_device *dev, struct ethtool_drvinfo *info)
++{
++	const DEV_NET	*pNet = netdev_priv(dev);
++	const SK_AC *pAC = pNet->pAC;
++	char vers[32];
++
++	snprintf(vers, sizeof(vers)-1, VER_STRING "(v%d.%d)",
++		(pAC->GIni.GIPciHwRev >> 4) & 0xf, pAC->GIni.GIPciHwRev & 0xf);
++
++	strlcpy(info->driver, DRIVER_FILE_NAME, sizeof(info->driver));
++	strcpy(info->version, vers);
++	strcpy(info->fw_version, "N/A");
++	strlcpy(info->bus_info, pAC->PciDev->slot_name, ETHTOOL_BUSINFO_LEN);
++}
++
++/*
++ * Ethtool statistics support.
++ */
++static const char StringsStats[][ETH_GSTRING_LEN] = {
++	"rx_packets",	"tx_packets",
++	"rx_bytes",	"tx_bytes",
++	"rx_errors",	"tx_errors",	
++	"rx_dropped",	"tx_dropped",
++	"multicasts",	"collisions",	
++	"rx_length_errors",		"rx_buffer_overflow_errors",
++	"rx_crc_errors",		"rx_frame_errors",
++	"rx_too_short_errors",		"rx_too_long_errors",
++	"rx_carrier_extension_errors",	"rx_symbol_errors",
++	"rx_llc_mac_size_errors",	"rx_carrier_errors",	
++	"rx_jabber_errors",		"rx_missed_errors",
++	"tx_abort_collision_errors",	"tx_carrier_errors",
++	"tx_buffer_underrun_errors",	"tx_heartbeat_errors",
++	"tx_window_errors",
++};
++
++static int getStatsCount(struct net_device *dev)
++{
++	return ARRAY_SIZE(StringsStats);
++}
++
++static void getStrings(struct net_device *dev, u32 stringset, u8 *data)
++{
++	switch(stringset) {
++	case ETH_SS_STATS:
++		memcpy(data, *StringsStats, sizeof(StringsStats));
++		break;
++	}
++}
++
++static void getEthtoolStats(struct net_device *dev,
++			    struct ethtool_stats *stats, u64 *data)
++{
++	const DEV_NET	*pNet = netdev_priv(dev);
++	const SK_AC *pAC = pNet->pAC;
++	const SK_PNMI_STRUCT_DATA *pPnmiStruct = &pAC->PnmiStruct;
++
++	*data++ = pPnmiStruct->Stat[0].StatRxOkCts;
++	*data++ = pPnmiStruct->Stat[0].StatTxOkCts;
++	*data++ = pPnmiStruct->Stat[0].StatRxOctetsOkCts;
++	*data++ = pPnmiStruct->Stat[0].StatTxOctetsOkCts;
++	*data++ = pPnmiStruct->InErrorsCts;
++	*data++ = pPnmiStruct->Stat[0].StatTxSingleCollisionCts;
++	*data++ = pPnmiStruct->RxNoBufCts;
++	*data++ = pPnmiStruct->TxNoBufCts;
++	*data++ = pPnmiStruct->Stat[0].StatRxMulticastOkCts;
++	*data++ = pPnmiStruct->Stat[0].StatTxSingleCollisionCts;
++	*data++ = pPnmiStruct->Stat[0].StatRxRuntCts;
++	*data++ = pPnmiStruct->Stat[0].StatRxFifoOverflowCts;
++	*data++ = pPnmiStruct->Stat[0].StatRxFcsCts;
++	*data++ = pPnmiStruct->Stat[0].StatRxFramingCts;
++	*data++ = pPnmiStruct->Stat[0].StatRxShortsCts;
++	*data++ = pPnmiStruct->Stat[0].StatRxTooLongCts;
++	*data++ = pPnmiStruct->Stat[0].StatRxCextCts;
++	*data++ = pPnmiStruct->Stat[0].StatRxSymbolCts;
++	*data++ = pPnmiStruct->Stat[0].StatRxIRLengthCts;
++	*data++ = pPnmiStruct->Stat[0].StatRxCarrierCts;
++	*data++ = pPnmiStruct->Stat[0].StatRxJabberCts;
++	*data++ = pPnmiStruct->Stat[0].StatRxMissedCts;
++	*data++ = pAC->stats.tx_aborted_errors;
++	*data++ = pPnmiStruct->Stat[0].StatTxCarrierCts;
++	*data++ = pPnmiStruct->Stat[0].StatTxFifoUnderrunCts;
++	*data++ = pPnmiStruct->Stat[0].StatTxCarrierCts;
++	*data++ = pAC->stats.tx_window_errors;
++}
++
++struct ethtool_ops SkGeEthtoolOps = {
++	.get_settings		= getSettings,
++	.set_settings		= setSettings,
++	.get_drvinfo		= getDriverInfo,
++	.get_strings		= getStrings,
++	.get_stats_count	= getStatsCount,
++	.get_ethtool_stats	= getEthtoolStats,
++};
 diff -Nru a/drivers/net/sk98lin/skge.c b/drivers/net/sk98lin/skge.c
---- a/drivers/net/sk98lin/skge.c	2004-11-11 14:17:16 -08:00
-+++ b/drivers/net/sk98lin/skge.c	2004-11-11 14:17:16 -08:00
-@@ -219,7 +219,6 @@
- static int	XmitFrameSG(SK_AC*, TX_PORT*, struct sk_buff*);
+--- a/drivers/net/sk98lin/skge.c	2004-11-03 14:28:47 -08:00
++++ b/drivers/net/sk98lin/skge.c	2004-11-03 14:28:47 -08:00
+@@ -255,6 +255,7 @@
+ /* global variables *********************************************************/
+ struct SK_NET_DEVICE *SkGeRootDev = NULL;
+ static SK_BOOL DoPrintInterfaceChange = SK_TRUE;
++extern  struct ethtool_ops SkGeEthtoolOps;
  
- #ifdef SK_DIAG_SUPPORT
--static SK_U32   ParseDeviceNbrFromSlotName(const char *SlotName);
- static int      SkDrvInitAdapter(SK_AC *pAC, int devNbr);
- static int      SkDrvDeInitAdapter(SK_AC *pAC, int devNbr);
+ /* local variables **********************************************************/
+ static uintptr_t TxQueueAddr[SK_MAX_MACS][2] = {{0x680, 0x600},{0x780, 0x700}};
+@@ -4951,6 +4952,7 @@
  #endif
-@@ -460,8 +459,9 @@
- 	pAC->Pnmi.pDriverFileName    = DRIVER_FILE_NAME;
- 	pAC->Pnmi.pDriverReleaseDate = DRIVER_REL_DATE;
+ 	dev->flags &= 		~IFF_RUNNING;
+ 	SET_NETDEV_DEV(dev, &pdev->dev);
++	SET_ETHTOOL_OPS(dev, &SkGeEthtoolOps);
  
--	memset(&pAC->PnmiBackup, 0, sizeof(SK_PNMI_STRUCT_DATA));
--	memcpy(&pAC->PnmiBackup, &pAC->PnmiStruct, sizeof(SK_PNMI_STRUCT_DATA));
-+#ifdef SK_DIAG_SUPPORT
-+	pAC->PnmiBackup = pAC->PnmiStruct;
-+#endif
+ #ifdef SK_ZEROCOPY
+ #ifdef USE_SK_TX_CHECKSUM
+@@ -5030,6 +5032,8 @@
+ 		dev->do_ioctl           = &SkGeIoctl;
+ 		dev->change_mtu         = &SkGeChangeMtu;
+ 		dev->flags             &= ~IFF_RUNNING;
++		SET_NETDEV_DEV(dev, &pdev->dev);
++		SET_ETHTOOL_OPS(dev, &SkGeEthtoolOps);
  
- #ifdef USE_SK_RX_CHECKSUM
- 	pAC->RxPort[0].UseRxCsum = SK_TRUE;
-@@ -1565,7 +1565,6 @@
- struct net_device	*dev)
- {
- 	DEV_NET		*pNet = netdev_priv(dev);
--	DEV_NET		*newPtrNet;
- 	SK_AC		*pAC = pNet->pAC;
- 
- 	unsigned long	Flags;		/* for spin lock */
-@@ -1579,6 +1578,7 @@
- #ifdef SK_DIAG_SUPPORT
- 	if (pAC->DiagModeActive == DIAG_ACTIVE) {
- 		if (pAC->DiagFlowCtrl == SK_FALSE) {
-+			DEV_NET		*newPtrNet;
- 			/* 
- 			** notify that the interface which has been closed
- 			** by operator interaction must not be started up 
-@@ -1662,10 +1662,9 @@
- 	SK_DBG_MSG(NULL, SK_DBGMOD_DRV, SK_DBGCAT_DRV_ENTRY,
- 		("SkGeClose: done "));
- 
--	SK_MEMSET(&(pAC->PnmiBackup), 0, sizeof(SK_PNMI_STRUCT_DATA));
--	SK_MEMCPY(&(pAC->PnmiBackup), &(pAC->PnmiStruct), 
--			sizeof(SK_PNMI_STRUCT_DATA));
--
-+#ifdef SK_DIAG_SUPPORT
-+	pAC->PnmiBackup = pAC->PnmiStruct;
-+#endif
- 	pAC->MaxPorts--;
- 
- 	return (0);
-@@ -3103,7 +3102,6 @@
- DEV_NET		*pNet;
- SK_AC		*pAC;
- void		*pMemBuf;
--struct pci_dev  *pdev = NULL;
- SK_GE_IOCTL	Ioctl;
- unsigned int	Err = 0;
- int		Size = 0;
-@@ -3185,7 +3183,6 @@
- 			Err = -EFAULT;
- 			goto fault_diag;
- 		}
--		pdev = pAC->PciDev;
- 		Length = 3 * sizeof(SK_U32);  /* Error, Bus and Device */
- 		/* 
- 		** While coding this new IOCTL interface, only a few lines of code
-@@ -3194,8 +3191,8 @@
- 		** should be used...
- 		*/
- 		* ((SK_U32 *)pMemBuf) = 0;
--		* ((SK_U32 *)pMemBuf + 1) = pdev->bus->number;
--		* ((SK_U32 *)pMemBuf + 2) = ParseDeviceNbrFromSlotName(pdev->slot_name);
-+		* ((SK_U32 *)pMemBuf + 1) = pAC->PciDev->bus->number;
-+		* ((SK_U32 *)pMemBuf + 2) = PCI_SLOT(pAC->PciDev->devfn);
- 		if(copy_to_user(Ioctl.pData, pMemBuf, Length) ) {
- 			Err = -EFAULT;
- 			goto fault_diag;
-@@ -4676,8 +4673,7 @@
- 	DEV_NET *pNet = netdev_priv(pAc->dev[0]);
- 	SK_AC   *pAC  = pNet->pAC;
- 
--	SK_MEMCPY(&(pAc->PnmiBackup), &(pAc->PnmiStruct), 
--			sizeof(SK_PNMI_STRUCT_DATA));
-+	pAc->PnmiBackup = pAC->PnmiStruct;
- 
- 	pAC->DiagModeActive = DIAG_ACTIVE;
- 	if (pAC->BoardLevel > SK_INIT_DATA) {
-@@ -4718,8 +4714,7 @@
- int SkDrvLeaveDiagMode(
- SK_AC   *pAc)   /* pointer to adapter control context */
- { 
--	SK_MEMCPY(&(pAc->PnmiStruct), &(pAc->PnmiBackup), 
--			sizeof(SK_PNMI_STRUCT_DATA));
-+	pAc->PnmiStruct = pAc->PnmiBackup;
- 	pAc->DiagModeActive    = DIAG_NOTACTIVE;
- 	pAc->Pnmi.DiagAttached = SK_DIAG_IDLE;
-         if (pAc->WasIfUp[0] == SK_TRUE) {
-@@ -4735,61 +4730,6 @@
- 	return(0);
- }
- 
--/*****************************************************************************
-- *
-- *	ParseDeviceNbrFromSlotName - Evaluate PCI device number
-- *
-- * Description:
-- * 	This function parses the PCI slot name information string and will
-- *	retrieve the devcie number out of it. The slot_name maintianed by
-- *	linux is in the form of '02:0a.0', whereas the first two characters 
-- *	represent the bus number in hex (in the sample above this is 
-- *	pci bus 0x02) and the next two characters the device number (0x0a).
-- *
-- * Returns:
-- *	SK_U32: The device number from the PCI slot name
-- */ 
--
--static SK_U32 ParseDeviceNbrFromSlotName(
--const char *SlotName)   /* pointer to pci slot name eg. '02:0a.0' */
--{
--	char	*CurrCharPos	= (char *) SlotName;
--	int	FirstNibble	= -1;
--	int	SecondNibble	= -1;
--	SK_U32	Result		=  0;
--
--	while (*CurrCharPos != '\0') {
--		if (*CurrCharPos == ':') { 
--			while (*CurrCharPos != '.') {
--				CurrCharPos++;  
--				if (	(*CurrCharPos >= '0') && 
--					(*CurrCharPos <= '9')) {
--					if (FirstNibble == -1) {
--						/* dec. value for '0' */
--						FirstNibble = *CurrCharPos - 48;
--					} else {
--						SecondNibble = *CurrCharPos - 48;
--					}  
--				} else if (	(*CurrCharPos >= 'a') && 
--						(*CurrCharPos <= 'f')  ) {
--					if (FirstNibble == -1) {
--						FirstNibble = *CurrCharPos - 87; 
--					} else {
--						SecondNibble = *CurrCharPos - 87; 
--					}
--				} else {
--					Result = 0;
--				}
--			}
--
--			Result = FirstNibble;
--			Result = Result << 4; /* first nibble is higher one */
--			Result = Result | SecondNibble;
--		}
--		CurrCharPos++;   /* next character */
--	}
--	return (Result);
--}
- 
- /****************************************************************************
-  *
-diff -Nru a/drivers/net/sk98lin/skproc.c b/drivers/net/sk98lin/skproc.c
---- a/drivers/net/sk98lin/skproc.c	2004-11-11 14:17:16 -08:00
-+++ b/drivers/net/sk98lin/skproc.c	2004-11-11 14:17:16 -08:00
-@@ -76,7 +76,7 @@
- 		Size = SK_PNMI_STRUCT_SIZE;
- #ifdef SK_DIAG_SUPPORT
- 		if (pAC->BoardLevel == SK_INIT_DATA) {
--			SK_MEMCPY(&(pAC->PnmiStruct), &(pAC->PnmiBackup), sizeof(SK_PNMI_STRUCT_DATA));
-+			pAC->PnmiStruct = pAC->PnmiBackup;
- 			if (pAC->DiagModeActive == DIAG_NOTACTIVE) {
- 				pAC->Pnmi.DiagAttached = SK_DIAG_IDLE;
- 			}
+ #ifdef SK_ZEROCOPY
+ #ifdef USE_SK_TX_CHECKSUM
