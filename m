@@ -1,35 +1,26 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: Re: TCP receiver's window calculation problem
-Date: Fri, 25 Jun 2004 09:43:32 -0400 (EDT)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.NEB.4.33.0406250932560.2996-100000@dexter.psc.edu>
-References: <Pine.LNX.4.44.0406241331590.1272-100000@orchestra.cs.caltech.edu>
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: TCP congestion control article
+Date: Fri, 25 Jun 2004 09:11:58 -0700
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20040625091158.2e84ed3a.davem@redhat.com>
+References: <20040625123953.1d42b556.buffer@antifork.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "netdev@oss.sgi.com" <netdev@oss.sgi.com>,
-        "fast-support@cs.caltech.edu" <fast-support@cs.caltech.edu>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Cheng Jin <chengjin@cs.caltech.edu>
-In-Reply-To: <Pine.LNX.4.44.0406241331590.1272-100000@orchestra.cs.caltech.edu>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: "Angelo Dell'Aera" <buffer@antifork.org>
+In-Reply-To: <20040625123953.1d42b556.buffer@antifork.org>
 List-Id: netdev.vger.kernel.org
 
-On Thu, 24 Jun 2004, Cheng Jin wrote:
+On Fri, 25 Jun 2004 12:39:53 +0200
+"Angelo Dell'Aera" <buffer@antifork.org> wrote:
 
-> The receiver is set to use a 9000 MTU, but the sender uses a 1500-byte
-> MTU, which is not really a pathological case.  It would have made more
-> sense for the receiver to allocate skbs of the right size as incoming
-> packets are received.
+> I just want to point out to you a really interesting article published
+> by  two  members   of  my  research  group.  The   paper  is  entitled
+> "Performance  Evaluation and  Comparison  of Westwood+,  New Reno  and
+> Vegas TCP  Congestion Control" and  it aims at evaluating  these three
+> algorithms in really different scenarios.
 
-Some drivers are apparently optimized for this case.  I have not confirmed
-this.
-
-
-> Is it due to effciency reasons that the skbs are just fixed in size
-> according to the set MTU on the interface card? I suppose that the
-> receiver has no real way of knowing the right MTU size at the sender.
-
-I haven't looked too hard in to this.  Any device driver people want to
-chime in?
-
-  -John
+Would be interesting to compare with BITCP which we have enabled
+by default now in current 2.6.x kernels.
