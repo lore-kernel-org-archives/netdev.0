@@ -1,49 +1,39 @@
-From: "Elvia Blount" <swaziland.Engel@hotmail.com>
-Subject: Your info was approved
-Date: Sat, 03 Jul 2004 22:45:42 +0600
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: bk16 changes to cbq
+Date: Sat, 3 Jul 2004 10:16:46 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <dhjjxbhkrbupioecyhgnpamt@hotmail.com>
-Reply-To: "Elvia Blount" <swaziland.Engel@hotmail.com>
+Message-ID: <20040703101646.52ae1e01.davem@redhat.com>
+References: <1088861810.1039.298.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="--00556815697837892640"
-Cc: netdev@oss.sgi.com, call39d@oss.sgi.com, netdev-bounce@oss.sgi.com,
-        ralf@oss.sgi.com, kdb@oss.sgi.com, todd@oss.sgi.com, holt@oss.sgi.com,
-        andrews@oss.sgi.com, lockmeter@oss.sgi.com, blair@oss.sgi.com,
-        craig@oss.sgi.com, daniel@oss.sgi.com, devfs@oss.sgi.com,
-        linux-xfs@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, shemminger@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ogl-sample-cvs@oss.sgi.com
+To: hadi@cyberus.ca
+In-Reply-To: <1088861810.1039.298.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----00556815697837892640
-Content-Type: text/html;
-	charset="iso-0685-6"
-Content-Transfer-Encoding: quoted-printable
-X-MIME-Autoconverted: from 8bit to quoted-printable by oss.sgi.com id i63GkMgi027655
+On 03 Jul 2004 09:36:50 -0400
+jamal <hadi@cyberus.ca> wrote:
 
-<html>
-I am sorry that it took so long to review your application but<br>
-you were finally approved with 2.6% fixed ra te.  But first, to <br>
-ensure the best results, we=92ll need some more information.<p>
+> -               if (q->wd_expires && !netif_queue_stopped(sch->dev)) {
+> +               if (q->wd_expires) {
+>                         long delay = PSCHED_US2JIFFIE(q->wd_expires);
+>                         if (delay <= 0)
+>                                 delay = 1;
+> 
+> What i remember is this (4-5 years back) used to cure a bug - cant
+> remember the details unfortunately, but Alexey may remember.
+> I am hoping removal of the above line implies that those conditions dont
+> exist anymore? 
 
-We ask that you please take, a moment to fill out the final<br>
-details we need to complete the process: <a href=3D"http://rd.yahoo.com/p=
-ostmortem/*http://www.finance-store.biz/j8/jj.php?n5n=3D63">AQ: More Info=
-</a><p>
+The test is racy with drivers, on the very next line the
+driver could take a TX completion interrupt and unplug the
+queue invalidating the test entirely.
 
-Thank you and we appreciate your business!<p>
+If the test proves wrong, that's OK because we'll try again
+at the top level of packet queue dispatch.
 
-Regards,<br>
-Elvia Blount<br>
-<p>
-<br>
-<br>
-<br>
-
-<a href=3D"http://rd.yahoo.com/acrylic/*http://www.&DOMAIN/r1/index.html"=
->Not interested</a><br>
-</html>
-
-----00556815697837892640--
+There was a good explaination of Stephen's patch
+on netdev when he posted it.
