@@ -1,100 +1,115 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: tunnel xmit and h.raw
-Date: Fri, 3 Oct 2003 03:00:27 +0300 (EEST)
+From: "Feldman, Scott" <scott.feldman@intel.com>
+Subject: [e1000 2.6] hang on ZEROCOPY/TSO when hitting no-Tx-resources
+ condition
+Date: Thu, 2 Oct 2003 18:06:27 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0310030252070.1394-100000@u.domain.uli>
+Message-ID: <Pine.LNX.4.44.0310021744320.4238-100000@localhost.localdomain>
+Reply-To: "Feldman, Scott" <scott.feldman@intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, "Feldman, Scott" <scott.feldman@intel.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-	Hello,
+* Critical bug fix: under heavy Tx stress using ZEROCOPY or TSO, if we
+  ran out of Tx descriptors, we didn't calculate for the context
+  descritor used as the first of the ZEROCOPY/TSO send, nor do we clean
+  up the context desriptor bits in the case where the send isn't going
+  to fit, where we need to undo the mappings.  This bug was introduced
+  with the 5.2.16 patch set which included a workaround for a hang
+  on 82544 over PCI-X.  This workaround cause the check for no-Tx-
+  rosource logic to change, and this bug slipped in.
 
-	Is the following change needed? May be yes for all kernels
-where the nearest skb_shared checks are actual.
+------------
 
-# This is a BitKeeper generated patch for the following project:
-# Project Name: Linux kernel tree
-# This patch format is intended for GNU patch command version 2.5 or higher.
-# This patch includes the following deltas:
-#	           ChangeSet	1.1356  -> 1.1357 
-#	   net/ipv4/ip_gre.c	1.30    -> 1.31   
-#	      net/ipv6/sit.c	1.28    -> 1.29   
-#	     net/ipv4/ipip.c	1.32    -> 1.33   
-#
-# The following is the BitKeeper ChangeSet Log
-# --------------------------------------------
-# 03/10/03	ja@ssi.bg	1.1357
-# [IPV4/IPV6]: tunnel xmit must load skb->h.raw after all reallocations
-# --------------------------------------------
-#
-diff -Nru a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
---- a/net/ipv4/ip_gre.c	Fri Oct  3 02:43:29 2003
-+++ b/net/ipv4/ip_gre.c	Fri Oct  3 02:43:29 2003
-@@ -803,8 +803,6 @@
- 			tunnel->err_count = 0;
+diff -Naurp net-drivers-2.5/drivers/net/e1000/e1000_main.c net-drivers-2.5/drivers/net/e1000.mod/e1000_main.c
+--- net-drivers-2.5/drivers/net/e1000/e1000_main.c	2003-10-02 17:34:04.000000000 -0700
++++ net-drivers-2.5/drivers/net/e1000.mod/e1000_main.c	2003-10-02 17:38:35.000000000 -0700
+@@ -30,7 +30,7 @@
+ 
+ /* Change Log
+  *
+- * 5.2.18	9/13/03
++ * 5.2.20	9/30/03
+  *   o Bug fix: SERDES devices might be connected to a back-plane
+  *     switch that doesn't support auto-neg, so add the capability
+  *     to force 1000/Full.
+@@ -39,6 +39,9 @@
+  *     Jumbo Frames or with the reduced FIFO in 82547.
+  *   o Better propagation of error codes. [Janice Girouard 
+  *     (janiceg@us.ibm.com)].
++ *   o Bug fix: hang under heavy Tx stress when running out of Tx
++ *     descriptors; wasn't clearing context descriptor when backing
++ *     out of send because of no-resource condition.
+  *
+  * 5.2.16	8/8/03
+  *   o Added support for new controllers: 82545GM, 82546GB, 82541/7_B1
+@@ -61,7 +64,7 @@
+ 
+ char e1000_driver_name[] = "e1000";
+ char e1000_driver_string[] = "Intel(R) PRO/1000 Network Driver";
+-char e1000_driver_version[] = "5.2.19-k1";
++char e1000_driver_version[] = "5.2.20-k1";
+ char e1000_copyright[] = "Copyright (c) 1999-2003 Intel Corporation.";
+ 
+ /* e1000_pci_tbl - PCI Device ID Table
+@@ -1501,6 +1504,7 @@ e1000_tx_map(struct e1000_adapter *adapt
+ 	unsigned int first)
+ {
+ 	struct e1000_desc_ring *tx_ring = &adapter->tx_ring;
++	struct e1000_tx_desc *tx_desc;
+ 	struct e1000_buffer *buffer_info;
+ 	unsigned int len = skb->len, max_per_txd = E1000_MAX_DATA_PER_TXD;
+ 	unsigned int offset = 0, size, count = 0, i;
+@@ -1596,17 +1600,29 @@ e1000_tx_map(struct e1000_adapter *adapt
+ 		}
  	}
  
--	skb->h.raw = skb->nh.raw;
--
- 	max_headroom = LL_RESERVED_SPACE(tdev) + gre_hlen;
+-	if(E1000_DESC_UNUSED(&adapter->tx_ring) < count) {
++	if(E1000_DESC_UNUSED(&adapter->tx_ring) < count + 2) {
  
- 	if (skb_headroom(skb) < max_headroom || skb_cloned(skb) || skb_shared(skb)) {
-@@ -823,6 +821,7 @@
- 		old_iph = skb->nh.iph;
+ 		/* There aren't enough descriptors available to queue up
+-		 * this send, so undo the mapping and abort the send. 
+-		 * We could have done the check before we mapped the skb,
+-		 * but because of all the workarounds (above), it's too
+-		 * difficult to predict how many we're going to need.*/
+-		i = first;
++		 * this send (need: count + 1 context desc + 1 desc gap
++		 * to keep tail from touching head), so undo the mapping
++		 * and abort the send.  We could have done the check before
++		 * we mapped the skb, but because of all the workarounds
++		 * (above), it's too difficult to predict how many we're
++		 * going to need.*/
++		i = adapter->tx_ring.next_to_use;
++
++		if(i == first) {
++			/* Cleanup after e1000_tx_[csum|tso] scribbling
++			 * on descriptors. */
++			tx_desc = E1000_TX_DESC(*tx_ring, first);
++			tx_desc->buffer_addr = 0;
++			tx_desc->lower.data = 0;
++			tx_desc->upper.data = 0;
++		}
+ 
+ 		while(count--) {
+ 			buffer_info = &tx_ring->buffer_info[i];
++
+ 			if(buffer_info->dma) {
+ 				pci_unmap_page(adapter->pdev,
+ 					       buffer_info->dma,
+@@ -1614,9 +1630,12 @@ e1000_tx_map(struct e1000_adapter *adapt
+ 					       PCI_DMA_TODEVICE);
+ 				buffer_info->dma = 0;
+ 			}
++
+ 			if(++i == tx_ring->count) i = 0;
+ 		}
+ 
++		adapter->tx_ring.next_to_use = first;
++
+ 		return 0;
  	}
  
-+	skb->h.raw = skb->nh.raw;
- 	skb->nh.raw = skb_push(skb, gre_hlen);
- 	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
- 	dst_release(skb->dst);
-diff -Nru a/net/ipv4/ipip.c b/net/ipv4/ipip.c
---- a/net/ipv4/ipip.c	Fri Oct  3 02:43:29 2003
-+++ b/net/ipv4/ipip.c	Fri Oct  3 02:43:29 2003
-@@ -596,8 +596,6 @@
- 			tunnel->err_count = 0;
- 	}
- 
--	skb->h.raw = skb->nh.raw;
--
- 	/*
- 	 * Okay, now see if we can stuff it in the buffer as-is.
- 	 */
-@@ -619,6 +617,7 @@
- 		old_iph = skb->nh.iph;
- 	}
- 
-+	skb->h.raw = skb->nh.raw;
- 	skb->nh.raw = skb_push(skb, sizeof(struct iphdr));
- 	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
- 	dst_release(skb->dst);
-diff -Nru a/net/ipv6/sit.c b/net/ipv6/sit.c
---- a/net/ipv6/sit.c	Fri Oct  3 02:43:29 2003
-+++ b/net/ipv6/sit.c	Fri Oct  3 02:43:29 2003
-@@ -530,8 +530,6 @@
- 			tunnel->err_count = 0;
- 	}
- 
--	skb->h.raw = skb->nh.raw;
--
- 	/*
- 	 * Okay, now see if we can stuff it in the buffer as-is.
- 	 */
-@@ -553,6 +551,7 @@
- 		iph6 = skb->nh.ipv6h;
- 	}
- 
-+	skb->h.raw = skb->nh.raw;
- 	skb->nh.raw = skb_push(skb, sizeof(struct iphdr));
- 	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
- 	dst_release(skb->dst);
-
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
