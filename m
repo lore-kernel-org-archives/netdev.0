@@ -1,31 +1,99 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: on the wire behaviour of TSO on/off is supposed to be the same
- yes?
-Date: Mon, 24 Jan 2005 13:22:23 -0800
-Message-ID: <41F5670F.4000209@hp.com>
-References: <41F1516D.5010101@hp.com> <200501211358.53783.jdmason@us.ibm.com>	<41F163AD.5070400@hp.com>	<20050121124441.76cbbfb9.davem@davemloft.net>	<41F17B7E.2020002@hp.com>	<20050121141820.7d59a2d1.davem@davemloft.net>	<41F186A8.9030805@hp.com>	<20050121204948.034b2510.davem@davemloft.net>	<41F55B93.6040603@hp.com> <20050124124353.2f760e1a.davem@davemloft.net>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH 2.6.10] tg3: Fix TSO for 5750
+Date: Mon, 24 Jan 2005 13:51:36 -0800
+Message-ID: <B1508D50A0692F42B217C22C02D84972020F3D42@NT-IRVA-0741.brcm.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/mixed;
+ boundary="----_=_NextPart_001_01C5025E.E0AE0639"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <20050124124353.2f760e1a.davem@davemloft.net>
+Content-class: urn:content-classes:message
+To: "David S. Miller" <davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> Becuase we disable TSO on any packet loss whatsoever, we can predict
-> exactly what the CWND will be at the time a packet is sent.
+This is a multi-part message in MIME format.
 
-I'd heard someone else mention that, but wasn't sure. Now I know I guess.  I can 
-see how that would simplify things considerably, although it may have some 
-non-technical implications...
+------_=_NextPart_001_01C5025E.E0AE0639
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: quoted-printable
 
-> When we take away that invariant, which we do want to do, we'll need
-> to tweak how this works.
+- Fix TSO for 5750 chips by setting tcp checksum field to 0 for TSO =
+packets
+- Add TG3_FLG2_HW_TSO flag for 5750 and newer chips that use the same =
+TSO
+scheme
 
-OK.  BTW, how "hard" is it to reference chunks of a big buffer and send them? 
-Particularly in a situation where there is TSO which implies SG and CKO.
+Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-rick
+------_=_NextPart_001_01C5025E.E0AE0639
+Content-Type: application/octet-stream;
+ name=tg3_tso.patch
+Content-Transfer-Encoding: base64
+Content-Description: tg3_tso.patch
+Content-Disposition: attachment;
+ filename=tg3_tso.patch
+
+ZGlmZiAtTnJ1IDIvdGczLmMgMy90ZzMuYwotLS0gMi90ZzMuYwkyMDA1LTAxLTE5IDE1OjUxOjM1
+LjAwMDAwMDAwMCAtMDgwMAorKysgMy90ZzMuYwkyMDA1LTAxLTIzIDEzOjM3OjE2LjAwMDAwMDAw
+MCAtMDgwMApAQCAtMzEwMywxMSArMzEwMywxOSBAQAogCiAJCXNrYi0+bmguaXBoLT5jaGVjayA9
+IDA7CiAJCXNrYi0+bmguaXBoLT50b3RfbGVuID0gbnRvaHMobXNzICsgaXBfdGNwX2xlbiArIHRj
+cF9vcHRfbGVuKTsKLQkJc2tiLT5oLnRoLT5jaGVjayA9IH5jc3VtX3RjcHVkcF9tYWdpYyhza2It
+Pm5oLmlwaC0+c2FkZHIsCi0JCQkJCQkgICAgICBza2ItPm5oLmlwaC0+ZGFkZHIsCi0JCQkJCQkg
+ICAgICAwLCBJUFBST1RPX1RDUCwgMCk7CisJCWlmICh0cC0+dGczX2ZsYWdzMiAmIFRHM19GTEcy
+X0hXX1RTTykgeworCQkJc2tiLT5oLnRoLT5jaGVjayA9IDA7CisJCQliYXNlX2ZsYWdzICY9IH5U
+WERfRkxBR19UQ1BVRFBfQ1NVTTsKKwkJfQorCQllbHNlIHsKKwkJCXNrYi0+aC50aC0+Y2hlY2sg
+PQorCQkJCX5jc3VtX3RjcHVkcF9tYWdpYyhza2ItPm5oLmlwaC0+c2FkZHIsCisJCQkJCQkgICBz
+a2ItPm5oLmlwaC0+ZGFkZHIsCisJCQkJCQkgICAwLCBJUFBST1RPX1RDUCwgMCk7CisJCX0KIAot
+CQlpZiAoR0VUX0FTSUNfUkVWKHRwLT5wY2lfY2hpcF9yZXZfaWQpID09IEFTSUNfUkVWXzU3MDUp
+IHsKKwkJaWYgKCh0cC0+dGczX2ZsYWdzMiAmIFRHM19GTEcyX0hXX1RTTykgfHwKKwkJICAgIChH
+RVRfQVNJQ19SRVYodHAtPnBjaV9jaGlwX3Jldl9pZCkgPT0gQVNJQ19SRVZfNTcwNSkpIHsKIAkJ
+CWlmICh0Y3Bfb3B0X2xlbiB8fCBza2ItPm5oLmlwaC0+aWhsID4gNSkgewogCQkJCWludCB0c2Zs
+YWdzOwogCkBAIC0zMTc0LDcgKzMxODIsNyBAQAogCQkJCXdvdWxkX2hpdF9od2J1ZyA9IGVudHJ5
+ICsgMTsKIAkJCX0KIAotCQkJaWYgKEdFVF9BU0lDX1JFVih0cC0+cGNpX2NoaXBfcmV2X2lkKSA9
+PSBBU0lDX1JFVl81NzUwKQorCQkJaWYgKHRwLT50ZzNfZmxhZ3MyICYgVEczX0ZMRzJfSFdfVFNP
+KQogCQkJCXRnM19zZXRfdHhkKHRwLCBlbnRyeSwgbWFwcGluZywgbGVuLAogCQkJCQkgICAgYmFz
+ZV9mbGFncywgKGkgPT0gbGFzdCl8KG1zcyA8PCAxKSk7CiAJCQllbHNlCkBAIC00NzY2LDcgKzQ3
+NzQsNyBAQAogCXVuc2lnbmVkIGxvbmcgY3B1X2Jhc2UsIGNwdV9zY3JhdGNoX2Jhc2UsIGNwdV9z
+Y3JhdGNoX3NpemU7CiAJaW50IGVyciwgaTsKIAotCWlmIChHRVRfQVNJQ19SRVYodHAtPnBjaV9j
+aGlwX3Jldl9pZCkgPT0gQVNJQ19SRVZfNTc1MCkKKwlpZiAodHAtPnRnM19mbGFnczIgJiBURzNf
+RkxHMl9IV19UU08pCiAJCXJldHVybiAwOwogCiAJaWYgKEdFVF9BU0lDX1JFVih0cC0+cGNpX2No
+aXBfcmV2X2lkKSA9PSBBU0lDX1JFVl81NzA1KSB7CkBAIC01MjAwLDcgKzUyMDgsNyBAQAogCX0K
+IAogI2lmIFRHM19UU09fU1VQUE9SVCAhPSAwCi0JaWYgKEdFVF9BU0lDX1JFVih0cC0+cGNpX2No
+aXBfcmV2X2lkKSA9PSBBU0lDX1JFVl81NzUwKQorCWlmICh0cC0+dGczX2ZsYWdzMiAmIFRHM19G
+TEcyX0hXX1RTTykKIAkJcmRtYWNfbW9kZSB8PSAoMSA8PCAyNyk7CiAjZW5kaWYKIApAQCAtNTM1
+MCw3ICs1MzU4LDcgQEAKIAl0dzMyKFJDVkRCRElfTU9ERSwgUkNWREJESV9NT0RFX0VOQUJMRSB8
+IFJDVkRCRElfTU9ERV9JTlZfUklOR19TWik7CiAJdHczMihTTkREQVRBSV9NT0RFLCBTTkREQVRB
+SV9NT0RFX0VOQUJMRSk7CiAjaWYgVEczX1RTT19TVVBQT1JUICE9IDAKLQlpZiAoR0VUX0FTSUNf
+UkVWKHRwLT5wY2lfY2hpcF9yZXZfaWQpID09IEFTSUNfUkVWXzU3NTApCisJaWYgKHRwLT50ZzNf
+ZmxhZ3MyICYgVEczX0ZMRzJfSFdfVFNPKQogCQl0dzMyKFNORERBVEFJX01PREUsIFNORERBVEFJ
+X01PREVfRU5BQkxFIHwgMHg4KTsKICNlbmRpZgogCXR3MzIoU05EQkRJX01PREUsIFNOREJESV9N
+T0RFX0VOQUJMRSB8IFNOREJESV9NT0RFX0FUVE5fRU5BQkxFKTsKQEAgLTc4NTksNiArNzg2Nyw5
+IEBACiAJdHAtPnBjaV9oZHJfdHlwZSAgICAgPSAoY2FjaGVsaW5lX3N6X3JlZyA+PiAxNikgJiAw
+eGZmOwogCXRwLT5wY2lfYmlzdCAgICAgICAgID0gKGNhY2hlbGluZV9zel9yZWcgPj4gMjQpICYg
+MHhmZjsKIAorCWlmIChHRVRfQVNJQ19SRVYodHAtPnBjaV9jaGlwX3Jldl9pZCkgPT0gQVNJQ19S
+RVZfNTc1MCkKKwkJdHAtPnRnM19mbGFnczIgfD0gVEczX0ZMRzJfSFdfVFNPOworCiAJaWYgKHBj
+aV9maW5kX2NhcGFiaWxpdHkodHAtPnBkZXYsIFBDSV9DQVBfSURfRVhQKSAhPSAwKQogCQl0cC0+
+dGczX2ZsYWdzMiB8PSBURzNfRkxHMl9QQ0lfRVhQUkVTUzsKIApAQCAtODc1NCwxMSArODc2NSwx
+MyBAQAogCX0KIAogI2lmIFRHM19UU09fU1VQUE9SVCAhPSAwCi0JaWYgKEdFVF9BU0lDX1JFVih0
+cC0+cGNpX2NoaXBfcmV2X2lkKSA9PSBBU0lDX1JFVl81NzAwIHx8CisJaWYgKHRwLT50ZzNfZmxh
+Z3MyICYgVEczX0ZMRzJfSFdfVFNPKSB7CisJCXRwLT50ZzNfZmxhZ3MyIHw9IFRHM19GTEcyX1RT
+T19DQVBBQkxFOworCX0KKwllbHNlIGlmIChHRVRfQVNJQ19SRVYodHAtPnBjaV9jaGlwX3Jldl9p
+ZCkgPT0gQVNJQ19SRVZfNTcwMCB8fAogCSAgICBHRVRfQVNJQ19SRVYodHAtPnBjaV9jaGlwX3Jl
+dl9pZCkgPT0gQVNJQ19SRVZfNTcwMSB8fAogCSAgICB0cC0+cGNpX2NoaXBfcmV2X2lkID09IENI
+SVBSRVZfSURfNTcwNV9BMCB8fAotCSAgICAoKHRwLT50ZzNfZmxhZ3MgJiBURzNfRkxBR19FTkFC
+TEVfQVNGKSAhPSAwICYmCi0JICAgICBHRVRfQVNJQ19SRVYodHAtPnBjaV9jaGlwX3Jldl9pZCkg
+IT0gQVNJQ19SRVZfNTc1MCkpIHsKKwkgICAgKHRwLT50ZzNfZmxhZ3MgJiBURzNfRkxBR19FTkFC
+TEVfQVNGKSAhPSAwKSB7CiAJCXRwLT50ZzNfZmxhZ3MyICY9IH5URzNfRkxHMl9UU09fQ0FQQUJM
+RTsKIAl9IGVsc2UgewogCQl0cC0+dGczX2ZsYWdzMiB8PSBURzNfRkxHMl9UU09fQ0FQQUJMRTsK
+ZGlmZiAtTnJ1IDIvdGczLmggMy90ZzMuaAotLS0gMi90ZzMuaAkyMDA1LTAxLTE5IDE0OjI1OjIw
+LjAwMDAwMDAwMCAtMDgwMAorKysgMy90ZzMuaAkyMDA1LTAxLTIzIDEzOjM3OjIwLjAwMDAwMDAw
+MCAtMDgwMApAQCAtMjEwNSw2ICsyMTA1LDcgQEAKICNkZWZpbmUgVEczX0ZMRzJfUEhZX1NFUkRF
+UwkJMHgwMDAwMjAwMAogI2RlZmluZSBURzNfRkxHMl9DQVBBQ0lUSVZFX0NPVVBMSU5HCTB4MDAw
+MDQwMDAKICNkZWZpbmUgVEczX0ZMRzJfRkxBU0gJCQkweDAwMDA4MDAwCisjZGVmaW5lIFRHM19G
+TEcyX0hXX1RTTwkJCTB4MDAwMTAwMDAKIAogCXUzMgkJCQlzcGxpdF9tb2RlX21heF9yZXFzOwog
+I2RlZmluZSBTUExJVF9NT0RFXzU3MDRfTUFYX1JFUQkJMwo=
+
+------_=_NextPart_001_01C5025E.E0AE0639--
