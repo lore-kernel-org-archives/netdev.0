@@ -1,49 +1,33 @@
-From: Jim Keniston <jkenisto@us.ibm.com>
-Subject: Re: [PATCH 1/4] Net device error logging, revised
-Date: Wed, 03 Sep 2003 13:56:23 -0700
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <3F565577.3A98BA17@us.ibm.com>
-References: <3F4A8027.6FE3F594@us.ibm.com> <20030826183221.GB3167@kroah.com> <3F4BEE68.A6C862C2@us.ibm.com> <3F4BF265.5050101@pobox.com> <3F4C046D.77CF7E03@us.ibm.com> <3F562590.60101@pobox.com>
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] [bdschuym@pandora.be: Re: ipt_physdev.c alignment
+ problems on parisc64]
+Date: Wed, 3 Sep 2003 20:05:17 -0700
+Sender: netfilter-devel-admin@lists.netfilter.org
+Message-ID: <20030903200517.5b031fa4.davem@redhat.com>
+References: <20030903162022.GI6405@conectiva.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Greg KH <greg@kroah.com>, LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@oss.sgi.com>,
-	"Feldman, Scott" <scott.feldman@intel.com>,
-	Larry Kessler <kessler@us.ibm.com>,
-	Randy Dunlap <rddunlap@osdl.org>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Andrew Morton <akpm@osdl.org>
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
+Cc: bdschuym@pandora.be, netfilter-devel@lists.netfilter.org,
+        netdev@oss.sgi.com
+Return-path: <netfilter-devel-admin@lists.netfilter.org>
+To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+In-Reply-To: <20030903162022.GI6405@conectiva.com.br>
+Errors-To: netfilter-devel-admin@lists.netfilter.org
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: <https://lists.netfilter.org/pipermail/netfilter-devel/>
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> 
-> Jim Keniston wrote:
-> > Jeff Garzik wrote:
-> ...
-> >>A separate "NETIF_MSG_ALL" test is not needed, because msg_enable is a
-> >>bitmask.  A msg_enable of 0xffffffff will naturally create a NETIF_MSG_ALL.
-> >
-> >
-> > But how do you code a netdev_* call where you ALWAYS want the message (including
-> > netdev_printk-style prefix) logged, regardless of the value of msg_enable?  That's
-> > what NETIF_MSG_ALL is for (and why it might be better called NETIF_MSG_ALWAYS)...
-> 
-> I understand the purpose of NETIF_MSG_ALL; re-read what I said.  You
-> don't need a separate _test_, as your implementation includes.  Defining
-> NETIF_MSG_ALL to 0xffffffff will naturally create the effect you seek.
->
+On Wed, 3 Sep 2003 13:20:23 -0300
+Arnaldo Carvalho de Melo <acme@conectiva.com.br> wrote:
 
-So the test becomes
-	if (netdev->msg_enable & msglevel) { /* log message */ }
-If netdev->msg_enable == 0, the message is suppressed even if msglevel == NETIF_MSG_ALL.
-I had intended that "ALL" would override the msg_enable setting (even 0), but we can do
-it this way as well.
+> 	Yes, it makes ipt_pysdev.c compile on parisc, Dave, could you please
+> apply it? Or perhaps wait for the netfilter patches, your call.
 
-> ...
-> 
->         Jeff
-
-Jim
+As I mentioned in another email, this patch can't be used, it
+breaks in mixed 32/64 bit environments.
