@@ -1,48 +1,32 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: Re: bad TSO performance in 2.6.9-rc2-BK
-Date: Tue, 28 Sep 2004 08:53:03 -0400 (EDT)
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 2.6] generic network statistics (was Re: [6/6]: jenkins hash for neigh / Statistics)
+Date: Tue, 28 Sep 2004 15:33:34 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.NEB.4.33.0409280841400.23114-100000@dexter.psc.edu>
-References: <4159117A.4010904@us.ibm.com>
+Message-ID: <20040928133334.GW31616@rei.reeler.org>
+References: <20040925005623.2faf8faf.davem@davemloft.net> <E1CBu70-00010X-00@gondolin.me.apana.org.au> <20040927121403.767e2308.davem@davemloft.net> <20040927222613.GE3236@sunbeam.de.gnumonks.org> <20040927160636.7741d973.davem@davemloft.net> <1096327658.1729.19.camel@localhost.localdomain> <16729.9326.93269.422940@robur.slu.se> <20040928111906.GB29961@sunbeam.de.gnumonks.org> <1096375700.8659.235.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@davemloft.net>, Andi Kleen <ak@suse.de>,
-        <andy.grover@gmail.com>, <anton@samba.org>, <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Harald Welte <laforge@gnumonks.org>,
+        Robert Olsson <Robert.Olsson@data.slu.se>,
+        Stephen Hemminger <shemminger@osdl.org>,
+        "David S. Miller" <davem@davemloft.net>, herbert@gondor.apana.org.au,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Nivedita Singhvi <niv@us.ibm.com>
-In-Reply-To: <4159117A.4010904@us.ibm.com>
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1096375700.8659.235.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 28 Sep 2004, Nivedita Singhvi wrote:
+> Speaking of generic stats; i have a patch netlink ready which may need
+> some extensions. I did post it  a while back on netdev but didnt get
+> feedback.
 
-> John Heffner wrote:
-> >
-> > More specifically, I think it is an interaction with delayed ack (acking
-> > less than 1 virtual segment), and the small cwnd.  This works for me, but
-> > I'm not sure that aren't some lurking problems still.
->
-> In terms of what goes out over the wire from the
-> sender, there is (or should be) no difference between
-> the TSO and non-TSO case. The sequence of regular sized
-> packets should be the same, and the only difference
-> might be the delays between the frames, at most.
->
-> So the sequence of acks coming back from the
-> receiver should be the same, TSO and non-TSO case.
-> If we've sent out say 44 1500MTU frames, we should
-> probably see 22 acks back, roughly (acking every
-> second packet if delayed acks are on) in both
-> the TSO and non-TSO case.
-
-I was referring to a problem I saw that had really terrible performance
-(around 1 Mbit).  It would send out one virtual segment, and all but the
-last of its real segments would be acked.  The receiver will wait for the
-delayed ack timer to go off before acking the last segment, and the sender
-will wait for that last segment to be acked before sending out the next
-virtual segment if the cwnd is equal to 1 virtual segment.
-
-Dave's patch seems to correct this problem for me, but I'm not convinced
-this state could never occur.
-
-  -John
+The code looks good and I couldn't spot any errors but I'm not
+sure if the locking in gen_copy_[x]stats is a good thing.
+Shouldn't that be done earlier by the caller? This prevents
+corruption but it allows duplicated TLVs in an skb. I suggest
+to make the caller have a lock on his data and only allow one
+dumper at the same time until the dump is complete, or at least
+provide a lockless variant for callers doing the locking on
+their own.
