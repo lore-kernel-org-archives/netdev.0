@@ -1,9 +1,9 @@
 From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
  <yoshfuji@linux-ipv6.org>
-Subject: [PATCH] IPV4: convert /proc/net/mcfilter to seq_file
-Date: Tue, 01 Jul 2003 01:57:52 +0900 (JST)
+Subject: [PATCH] IPV6: convert /proc/net/anycast6 to seq_file
+Date: Tue, 01 Jul 2003 02:59:41 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030701.015752.117028166.yoshfuji@linux-ipv6.org>
+Message-ID: <20030701.025941.105202597.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -15,230 +15,231 @@ List-Id: netdev.vger.kernel.org
 
 Hello.
 
-This patch, depends on "[PATCH] IPV4: convert /proc/net/igmp to 
-seq_file patch," converts /proc/net/mcfilter to seq_file.
+This converts /proc/net/anycast6 to seq_file.
 
 Thanks.
 
---- linux-2.5/include/net/ip.h.orig	Tue Jul  1 01:45:32 2003
-+++ linux-2.5/include/net/ip.h	Tue Jul  1 01:46:12 2003
-@@ -80,7 +80,6 @@
- extern void		ip_mc_dropsocket(struct sock *);
- extern void		ip_mc_dropdevice(struct net_device *dev);
- extern int		igmp_mc_proc_init(void);
--extern int		ip_mcf_procinfo(char *, char **, off_t, int);
+Index: linux-2.5/net/ipv6/af_inet6.c
+===================================================================
+RCS file: /home/cvs/linux-2.5/net/ipv6/af_inet6.c,v
+retrieving revision 1.46
+diff -u -r1.46 af_inet6.c
+--- linux-2.5/net/ipv6/af_inet6.c	9 Jun 2003 17:26:52 -0000	1.46
++++ linux-2.5/net/ipv6/af_inet6.c	30 Jun 2003 16:36:55 -0000
+@@ -85,7 +85,8 @@
+ extern void udp6_proc_exit(void);
+ extern int ipv6_misc_proc_init(void);
+ extern void ipv6_misc_proc_exit(void);
+-extern int anycast6_get_info(char *, char **, off_t, int);
++extern int ac6_proc_init(void);
++extern void ac6_proc_exit(void);
+ extern int if6_proc_init(void);
+ extern void if6_proc_exit(void);
+ #endif
+@@ -799,7 +800,7 @@
+ 	if (ipv6_misc_proc_init())
+ 		goto proc_misc6_fail;
  
- /*
-  *	Functions provided by ip.c
---- linux-2.5/net/ipv4/igmp.c.orig	Tue Jul  1 01:45:32 2003
-+++ linux-2.5/net/ipv4/igmp.c	Tue Jul  1 01:46:12 2003
-@@ -2247,74 +2247,177 @@
- 	.llseek		=	seq_lseek,
- 	.release	=	seq_release_private,
- };
--#endif
+-	if (!proc_net_create("anycast6", 0, anycast6_get_info))
++	if (ac6_proc_init())
+ 		goto proc_anycast6_fail;
+ 	if (if6_proc_init())
+ 		goto proc_if6_fail;
+@@ -825,7 +826,7 @@
  
--int ip_mcf_procinfo(char *buffer, char **start, off_t offset, int length)
+ #ifdef CONFIG_PROC_FS
+ proc_if6_fail:
+-	proc_net_remove("anycast6");
++	ac6_proc_exit();
+ proc_anycast6_fail:
+ 	ipv6_misc_proc_exit();
+ proc_misc6_fail:
+@@ -863,7 +864,7 @@
+ 	sock_unregister(PF_INET6);
+ #ifdef CONFIG_PROC_FS
+ 	if6_proc_exit();
+- 	proc_net_remove("anycast6");
++	ac6_proc_exit();
+  	ipv6_misc_proc_exit();
+  	udp6_proc_exit();
+  	tcp6_proc_exit();
+Index: linux-2.5/net/ipv6/anycast.c
+===================================================================
+RCS file: /home/cvs/linux-2.5/net/ipv6/anycast.c,v
+retrieving revision 1.3
+diff -u -r1.3 anycast.c
+--- linux-2.5/net/ipv6/anycast.c	22 May 2003 07:38:17 -0000	1.3
++++ linux-2.5/net/ipv6/anycast.c	30 Jun 2003 16:36:55 -0000
+@@ -29,6 +29,7 @@
+ #include <linux/route.h>
+ #include <linux/init.h>
+ #include <linux/proc_fs.h>
++#include <linux/seq_file.h>
+ 
+ #include <net/sock.h>
+ #include <net/snmp.h>
+@@ -435,56 +436,159 @@
+ 
+ 
+ #ifdef CONFIG_PROC_FS
+-int anycast6_get_info(char *buffer, char **start, off_t offset, int length)
 -{
 -	off_t pos=0, begin=0;
+-	struct ifacaddr6 *im;
 -	int len=0;
--	int first = 1;
-+struct igmp_mcf_iter_state {
++struct ac6_iter_state {
  	struct net_device *dev;
-+	struct in_device *idev;
-+	struct ip_mc_list *im;
+-	
+-	read_lock(&dev_base_lock);
+-	for (dev = dev_base; dev; dev = dev->next) {
+-		struct inet6_dev *idev;
++	struct inet6_dev *idev;
 +};
  
--	read_lock(&dev_base_lock);
--	for(dev=dev_base; dev; dev=dev->next) {
--		struct in_device *in_dev = in_dev_get(dev);
--		struct ip_mc_list *imc;
-+#define igmp_mcf_seq_private(seq)	((struct igmp_mcf_iter_state *)&seq->private)
+-		if ((idev = in6_dev_get(dev)) == NULL)
+-			continue;
++#define ac6_seq_private(seq)	((struct ac6_iter_state *)&seq->private)
  
--		if (in_dev == NULL)
-+static inline struct ip_sf_list *igmp_mcf_get_first(struct seq_file *seq)
+-		read_lock_bh(&idev->lock);
+-		for (im = idev->ac_list; im; im = im->aca_next) {
+-			int i;
++static inline struct ifacaddr6 *ac6_get_first(struct seq_file *seq)
 +{
-+	struct ip_sf_list *psf = NULL;
-+	struct ip_mc_list *im = NULL;
-+	struct igmp_mcf_iter_state *state = igmp_mcf_seq_private(seq);
-+
-+	for (state->dev = dev_base, state->idev = NULL, state->im = NULL;
-+	     state->dev; 
++	struct ifacaddr6 *im = NULL;
++	struct ac6_iter_state *state = ac6_seq_private(seq);
+ 
+-			len += sprintf(buffer+len,"%-4d %-15s ", dev->ifindex, dev->name);
++	for (state->dev = dev_base, state->idev = NULL;
++	     state->dev;
 +	     state->dev = state->dev->next) {
-+		struct in_device *idev;
-+		idev = in_dev_get(state->dev);
-+		if (unlikely(idev == NULL))
- 			continue;
++		struct inet6_dev *idev;
++		idev = in6_dev_get(state->dev);
++		if (!idev)
++			continue;
 +		read_lock_bh(&idev->lock);
-+		im = idev->mc_list;
-+		if (likely(im != NULL)) {
-+			spin_lock_bh(&im->lock);
-+			psf = im->sources;
-+			if (likely(psf != NULL)) {
-+				state->im = im;
-+				state->idev = idev;
-+				break;
-+			}
-+			spin_unlock_bh(&im->lock);
++		im = idev->ac_list;
++		if (im) {
++			state->idev = idev;
++			break;
 +		}
 +		read_unlock_bh(&idev->lock);
 +	}
-+	return psf;
++	return im;
 +}
  
--		read_lock(&in_dev->lock);
+-			for (i=0; i<16; i++)
+-				len += sprintf(buffer+len, "%02x", im->aca_addr.s6_addr[i]);
++static struct ifacaddr6 *ac6_get_next(struct seq_file *seq, struct ifacaddr6 *im)
++{
++	struct ac6_iter_state *state = ac6_seq_private(seq);
+ 
+-			len += sprintf(buffer+len, " %5d\n", im->aca_users);
 -
--		for (imc=in_dev->mc_list; imc; imc=imc->next) {
--			struct ip_sf_list *psf;
-+static struct ip_sf_list *igmp_mcf_get_next(struct seq_file *seq, struct ip_sf_list *psf)
-+{
-+	struct igmp_mcf_iter_state *state = igmp_mcf_seq_private(seq);
- 
--			spin_lock_bh(&imc->lock);
--			for (psf=imc->sources; psf; psf=psf->sf_next) {
--				if (first) {
--					len += sprintf(buffer+len, "%3s %6s "
--						"%10s %10s %6s %6s\n", "Idx",
--						"Device", "MCA", "SRC", "INC",
--						"EXC");
--					first = 0;
--				}
--				len += sprintf(buffer+len, "%3d %6.6s 0x%08x "
--					"0x%08x %6lu %6lu\n", dev->ifindex,
--					dev->name, ntohl(imc->multiaddr),
--					ntohl(psf->sf_inaddr),
--					psf->sf_count[MCAST_INCLUDE],
--					psf->sf_count[MCAST_EXCLUDE]);
--				pos=begin+len;
--				if(pos<offset)
--				{
--					len=0;
--					begin=pos;
--				}
--				if(pos>offset+length) {
--					spin_unlock_bh(&imc->lock);
--					read_unlock(&in_dev->lock);
--					in_dev_put(in_dev);
--					goto done;
--				}
-+	psf = psf->sf_next;
-+	while (!psf) {
-+		spin_unlock_bh(&state->im->lock);
-+		state->im = state->im->next;
-+		while (!state->im) {
-+			if (likely(state->idev != NULL)) {
-+				read_unlock_bh(&state->idev->lock);
-+				in_dev_put(state->idev);
- 			}
--			spin_unlock_bh(&imc->lock);
-+			state->dev = state->dev->next;
-+			if (!state->dev) {
-+				state->idev = NULL;
-+				goto out;
-+			}
-+			state->idev = in_dev_get(state->dev);
-+			if (!state->idev)
-+				continue;
-+			read_lock_bh(&state->idev->lock);
-+			state->im = state->idev->mc_list;
+-			pos=begin+len;
+-			if (pos < offset) {
+-				len=0;
+-				begin=pos;
+-			}
+-			if (pos > offset+length) {
+-				read_unlock_bh(&idev->lock);
+-				in6_dev_put(idev);
+-				goto done;
+-			}
++	im = im->aca_next;
++	while (!im) {
++		if (likely(state->idev != NULL)) {
++			read_unlock_bh(&state->idev->lock);
++			in6_dev_put(state->idev);
  		}
--		read_unlock(&in_dev->lock);
--		in_dev_put(in_dev);
-+		if (!state->im)
+-		read_unlock_bh(&idev->lock);
+-		in6_dev_put(idev);
++		state->dev = state->dev->next;
++		if (!state->dev) {
++			state->idev = NULL;
 +			break;
-+		spin_lock_bh(&state->im->lock);
-+		psf = state->im->sources;
-+	}
-+out:
-+	return psf;
++		}
++		state->idev = in6_dev_get(state->dev);
++		if (!state->idev)
++			continue;
++		read_lock_bh(&state->idev->lock);
++		im = state->idev->ac_list;
+ 	}
++	return im;
 +}
-+
-+static struct ip_sf_list *igmp_mcf_get_idx(struct seq_file *seq, loff_t pos)
+ 
+-done:
++static struct ifacaddr6 *ac6_get_idx(struct seq_file *seq, loff_t pos)
 +{
-+	struct ip_sf_list *psf = igmp_mcf_get_first(seq);
-+	if (psf)
-+		while (pos && (psf = igmp_mcf_get_next(seq, psf)) != NULL)
++	struct ifacaddr6 *im = ac6_get_first(seq);
++	if (im)
++		while (pos && (im = ac6_get_next(seq, im)) != NULL)
 +			--pos;
-+	return pos ? NULL : psf;
++	return pos ? NULL : im;
 +}
 +
-+static void *igmp_mcf_seq_start(struct seq_file *seq, loff_t *pos)
++static void *ac6_seq_start(struct seq_file *seq, loff_t *pos)
 +{
 +	read_lock(&dev_base_lock);
-+	return *pos ? igmp_mcf_get_idx(seq, *pos) : (void *)1;
++	return *pos ? ac6_get_idx(seq, *pos) : ac6_get_first(seq);
 +}
 +
-+static void *igmp_mcf_seq_next(struct seq_file *seq, void *v, loff_t *pos)
++static void *ac6_seq_next(struct seq_file *seq, void *v, loff_t *pos)
 +{
-+	struct ip_sf_list *psf;
-+	if (v == (void *)1)
-+		psf = igmp_mcf_get_first(seq);
-+	else
-+		psf = igmp_mcf_get_next(seq, v);
++	struct ifacaddr6 *im;
++	im = ac6_get_next(seq, v);
 +	++*pos;
-+	return psf;
++	return im;
 +}
 +
-+static void igmp_mcf_seq_stop(struct seq_file *seq, void *v)
++static void ac6_seq_stop(struct seq_file *seq, void *v)
 +{
-+	struct igmp_mcf_iter_state *state = igmp_mcf_seq_private(seq);
-+	if (likely(state->im != NULL))
-+		spin_unlock_bh(&state->im->lock);
++	struct ac6_iter_state *state = ac6_seq_private(seq);
 +	if (likely(state->idev != NULL)) {
-+		read_unlock_bh(&state->idev->lock);
-+		in_dev_put(state->idev);
- 	}
--done:
++		read_unlock_bh(state->idev->lock);
++		in6_dev_put(state->idev);
++	}
  	read_unlock(&dev_base_lock);
 +}
 +
-+static int igmp_mcf_seq_show(struct seq_file *seq, void *v)
++static int ac6_seq_show(struct seq_file *seq, void *v)
 +{
-+	struct ip_sf_list *psf = (struct ip_sf_list *)v;
-+	struct igmp_mcf_iter_state *state = igmp_mcf_seq_private(seq);
++	struct ifacaddr6 *im = (struct ifacaddr6 *)v;
++	struct ac6_iter_state *state = ac6_seq_private(seq);
  
 -	*start=buffer+(offset-begin);
 -	len-=(offset-begin);
 -	if(len>length)
 -		len=length;
--	if(len<0)
+-	if (len<0)
 -		len=0;
 -	return len;
-+	if (v == (void *)1) {
-+		seq_printf(seq, 
-+			   "%3s %6s "
-+			   "%10s %10s %6s %6s\n", "Idx",
-+			   "Device", "MCA",
-+			   "SRC", "INC", "EXC");
-+	} else {
-+		seq_printf(seq,
-+			   "%3d %6.6s 0x%08x "
-+			   "0x%08x %6lu %6lu\n", 
-+			   state->dev->ifindex, state->dev->name, 
-+			   ntohl(state->im->multiaddr),
-+			   ntohl(psf->sf_inaddr),
-+			   psf->sf_count[MCAST_INCLUDE],
-+			   psf->sf_count[MCAST_EXCLUDE]);
-+	}
++	seq_printf(seq,
++		   "%-4d %-15s "
++		   "%04x%04x%04x%04x%04x%04x%04x%04x "
++		   "%5d\n",
++		   state->dev->ifindex, state->dev->name,
++		   NIP6(im->aca_addr),
++		   im->aca_users);
 +	return 0;
-+}
-+
-+static struct seq_operations igmp_mcf_seq_ops = {
-+	.start	=	igmp_mcf_seq_start,
-+	.next	=	igmp_mcf_seq_next,
-+	.stop	=	igmp_mcf_seq_stop,
-+	.show	=	igmp_mcf_seq_show,
+ }
+ 
++static struct seq_operations ac6_seq_ops = {
++	.start	=	ac6_seq_start,
++	.next	=	ac6_seq_next,
++	.stop	=	ac6_seq_stop,
++	.show	=	ac6_seq_show,
 +};
 +
-+static int igmp_mcf_seq_open(struct inode *inode, struct file *file)
++static int ac6_seq_open(struct inode *inode, struct file *file)
 +{
 +	struct seq_file *seq;
 +	int rc = -ENOMEM;
-+	struct igmp_mcf_iter_state *s = kmalloc(sizeof(*s), GFP_KERNEL);
++	struct ac6_iter_state *s = kmalloc(sizeof(*s), GFP_KERNEL);
 +
 +	if (!s)
 +		goto out;
-+	rc = seq_open(file, &igmp_mcf_seq_ops);
++
++	rc = seq_open(file, &ac6_seq_ops);
 +	if (rc)
 +		goto out_kfree;
 +
@@ -250,39 +251,33 @@ Thanks.
 +out_kfree:
 +	kfree(s);
 +	goto out;
- }
- 
--#ifdef CONFIG_PROC_FS
-+static struct file_operations igmp_mcf_seq_fops = {
++}
++
++static struct file_operations ac6_seq_fops = {
 +	.owner		=	THIS_MODULE,
-+	.open		=	igmp_mcf_seq_open,
++	.open		=	ac6_seq_open,
 +	.read		=	seq_read,
 +	.llseek		=	seq_lseek,
 +	.release	=	seq_release_private,
 +};
 +
- int __init igmp_mc_proc_init(void)
- {
- 	struct proc_dir_entry *p;
-@@ -2322,6 +2425,10 @@
- 	p = create_proc_entry("igmp", S_IRUGO, proc_net);
- 	if (p)
- 		p->proc_fops = &igmp_mc_seq_fops;
++int __init ac6_proc_init(void)
++{
++	struct proc_dir_entry *p;
 +
-+	p = create_proc_entry("mcfilter", S_IRUGO, proc_net);
++	p = create_proc_entry("anycast6", S_IRUGO, proc_net);
 +	if (p)
-+		p->proc_fops = &igmp_mcf_seq_fops;
- 	return 0;
- }
++		p->proc_fops = &ac6_seq_fops;
++	return 0;
++}
++
++void ac6_proc_exit(void)
++{
++	proc_net_remove("anycast6");
++}
  #endif
---- linux-2.5/net/ipv4/ip_output.c.orig	Tue Jul  1 01:45:32 2003
-+++ linux-2.5/net/ipv4/ip_output.c	Tue Jul  1 01:46:12 2003
-@@ -1316,5 +1316,4 @@
- #ifdef CONFIG_IP_MULTICAST
- 	igmp_mc_proc_init();
- #endif
--	proc_net_create("mcfilter", 0, ip_mcf_procinfo);
- }
++
+
 
 -- 
 Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
