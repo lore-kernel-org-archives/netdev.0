@@ -1,20 +1,15 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 2.4.26] add prism54 to 2.4 tree
-Date: Tue, 27 Jul 2004 13:09:29 -0400
+From: margitsw@t-online.de (Margit Schubert-While)
+Subject: [PATCH Linux-2.6.8-rc1] prism54 Fix initialization
+	with older firmware
+Date: Tue, 27 Jul 2004 19:26:44 +0200
 Sender: prism54-devel-bounces@prism54.org
-Message-ID: <41068C49.9070406@pobox.com>
-References: <20040715005140.GH14482@ruslug.rutgers.edu>
-	<20040720132453.GA2348@dmt.cyclades>
-	<20040721093406.GB9141@ruslug.rutgers.edu>
+Message-ID: <200407271926.45038.margitsw@t-online.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@oss.sgi.com>,
-	Marcelo Tosatti <marcelo.tosatti@cyclades.com>,
-	prism54-devel@prism54.org
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_UBpBBZ4K8ECFHYG"
+Cc: netdev@oss.sgi.com, prism54-devel@prism54.org
 Return-path: <prism54-devel-bounces@prism54.org>
-To: "Luis R. Rodriguez" <mcgrof@ruslug.rutgers.edu>
-In-Reply-To: <20040721093406.GB9141@ruslug.rutgers.edu>
+To: jgarzik@pobox.com
 List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
 	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
 List-Archive: <http://prism54.org/pipermail/prism54-devel>
@@ -25,9 +20,56 @@ List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
 Errors-To: prism54-devel-bounces@prism54.org
 List-Id: netdev.vger.kernel.org
 
-Sure, it is now queued for Marcelo.
 
-Note that it won't be sent to him until the current Release Candidate 
-cycle is completed.
+--Boundary-00=_UBpBBZ4K8ECFHYG
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-	Jeff
+Regardless of Luis's comments, we should not try to tamper with this.
+Please apply.
+Forthcoming fixes may well be able to do better. However, until
+more information is known, the fix is correct.
+The version OID will be evaluated in a later fix (for info only).
+
+Margit
+
+
+
+
+
+--Boundary-00=_UBpBBZ4K8ECFHYG
+Content-Type: text/x-diff;
+  charset="us-ascii";
+  name="outputpow.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="outputpow.patch"
+
+diff -Naur linux-2.6.8-01/drivers/net/wireless/prism54/oid_mgt.c linux-2.6.8-04/drivers/net/wireless/prism54/oid_mgt.c
+--- linux-2.6.8-01/drivers/net/wireless/prism54/oid_mgt.c	2004-07-15 17:21:42.000000000 +0200
++++ linux-2.6.8-04/drivers/net/wireless/prism54/oid_mgt.c	2004-07-22 09:50:20.000000000 +0200
+@@ -613,7 +613,9 @@
+ 	DOT11_OID_DEFKEYID,
+ 	DOT11_OID_DOT1XENABLE,
+ 	OID_INL_DOT11D_CONFORMANCE,
++	/* Do not initialize this - fw < 1.0.4.3 rejects it
+ 	OID_INL_OUTPUTPOWER,
++	*/
+ };
+ 
+ /* update the MAC addr. */
+
+--Boundary-00=_UBpBBZ4K8ECFHYG
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Prism54-devel mailing list
+Prism54-devel@prism54.org
+http://prism54.org/mailman/listinfo/prism54-devel
+
+--Boundary-00=_UBpBBZ4K8ECFHYG--
