@@ -1,40 +1,85 @@
-From: Davide Libenzi <davidel@xmailserver.org>
+From: "Martin J. Bligh" <mbligh@aracnet.com>
 Subject: Re: networking bugs and bugme.osdl.org
-Date: Fri, 27 Jun 2003 07:56:16 -0700 (PDT)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.55.0306270749020.4137@bigblue.dev.mcafeelabs.com>
-References: <20030626.223002.21926109.davem@redhat.com><18330000.1056692768@[10.10.2.4]>
- <20030626.224739.88478624.davem@redhat.com> <21740000.1056724453@[10.10.2.4]>
+Date: Fri, 27 Jun 2003 08:00:30 -0700
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <25450000.1056726028@[10.10.2.4]>
+References: <20030626.223002.21926109.davem@redhat.com> <18330000.1056692768@[10.10.2.4]> <20030626.224739.88478624.davem@redhat.com> <20030627075914.GO28900@mea-ext.zmailer.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@redhat.com>,
-   Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-   linux-net@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "Martin J. Bligh" <mbligh@aracnet.com>
-In-Reply-To: <21740000.1056724453@[10.10.2.4]>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
+	netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Matti Aarnio <matti.aarnio@zmailer.org>,
+	"David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030627075914.GO28900@mea-ext.zmailer.org>
+Content-Disposition: inline
 List-Id: netdev.vger.kernel.org
 
-On Fri, 27 Jun 2003, Martin J. Bligh wrote:
+> I have recently pondered usage of Request Tracker  for this
+> kind of tasks.   The problem with "post to the list" is that
+> sometimes things slip thru without anybody catching them.
+> 
+> Integrating  linux-kernel  and  RT ...   urgh..  result would
+> be quite ugly.  (Flame wars and out-of-topic threads going on
+> as requests...)
 
-> No. If you don't want to participate, that's fine, but I'm not going
-> to prevent other people from doing so.
->
-> If you want me to forward the bugs to any given list, I'll do that.
-> If you want to just tell people to file them to a list, that's fine too.
-> But I won't destroy the generic model just because you don't like it.
+Yeah, that is tricky ... see below.
+ 
+>> This way not that "someone", but "everyone" on the lists
+>> can participate and contribute to responding to the bug.
+> 
+> That needs merely message arriving to the list.
 
-A bug tracking system stick you on a bug and makes all this to look like
-real work, that's why maybe David does not like it :) Kidding ;) The good
-of a bug tracking system against the mailing list is that bugs do survive
-in a bug tracking system, while they usually vanish for normal underlooked
-posts. Many ppl posting bugs are not members of the mailing list and they
-are not usually setting up a repost timer if the bug does not get
-answered. I believe that it should be both ways. Posts on the mailing list
-helps main maintainers to lower the load by allowing others to take on
-bugs, while the bug tracking helps unresolved bugs to stick.
+That's easy. I actually already hand filter the bugs, and forward to
+linux-kernel those that seem to have enough information in to be useful
+to people, and aren't already fixed.
 
+There's also a mailing list for seeing every new bug that people can 
+sign up for if they want (send me private email). 
 
+> Ok, responding so that the response appears also
+> at the bug db is another story.
 
-- Davide
+That is possible to do - there's patches to Bugzilla that implement an
+email interface, but it has some problems like the one you pointed out
+above. One possiblility is to make people manually do something to the
+email for each reply, but that's rather ugly. 
+
+Hopefully we can discuss this more at OLS this year, and get a plan 
+going forward that people are happy with. I'm well aware that Bugzilla
+is not the perefect tool, but I think it's better than what we had 
+before (yeah, I know some of us disagree), and is easy to change.
+I'd rather start with something simple, and evolve it to the needs of
+the community than try dumping something complex onto people up front.
+
+> Bugzilla could be adapted to this use:
+>   - Bugs are to be assigned to, e.g.   linux-net/netdev   list
+>   - Everybody can comment on them at bugme (after signing on)
+>   - Only some meta-admin (and original bug creator) can
+>     alter status (e.g. mark as RESOLVED)
+> 
+> Having plenty of bugme group admins (half a dozen or so) to do
+> the initial bugzilla assigment work, those people taking the task
+> seriously, and everybody of them going en masse to assign arrived
+> things.  That way people can have time off - as long as they
+> coordinate among themselves.
+
+Yup, that's easy to set up if you like. Or we can do it as a new list
+if you prefer.
+
+> In addition to assinging an OWNER to the bug, there should be
+> automatic assignment of   linux-net  or  netdev   as  Cc,  IMO...
+> That will handle the "publish widely" issue that DaveM is
+> complaining about.
+
+There's a QA field we can hack into doing that easily, but I want to
+ensure people are happy auto-cc'ing lists before I do it. Or I can
+forward the relevant ones by hand if you prefer. If it's going to piss 
+people off more than it makes them happy, it's not worth it though.
+
+Moreover, the bugme default owner doesn't have to be the code maintainer,
+so if Dave wants someone else to do the "bug shuffling" stuff, that's
+another way to go.
+
+M.
