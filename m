@@ -1,26 +1,34 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: IPsec xfrm resolution
-Date: Sun, 20 Mar 2005 16:51:23 +0100
-Message-ID: <423D9BFB.2090309@trash.net>
-References: <20050209085251.GA9030@gondor.apana.org.au>	<420B9DF1.3020704@trash.net>	<20050210202810.GA1609@gondor.apana.org.au>	<42144C3F.2060501@trash.net>	<20050217091137.GA9476@gondor.apana.org.au>	<42152841.5000707@trash.net>	<20050218100854.GA19427@gondor.apana.org.au>	<4216D6B4.5070901@trash.net>	<20050219092314.GA8153@gondor.apana.org.au> <20050317203231.1b649f60.davem@davemloft.net>
+Subject: Re: [RFC] Using Fwmark as SPD filter.
+Date: Sun, 20 Mar 2005 17:10:21 +0100
+Message-ID: <423DA06D.6070603@trash.net>
+References: <E1DCazI-0003sx-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050317203231.1b649f60.davem@davemloft.net>
+Cc: Ludo Stellingwerff <ludo@protactive.nl>, netdev@oss.sgi.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1DCazI-0003sx-00@gondolin.me.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
+Herbert Xu wrote:
+> Ludo Stellingwerff <ludo@protactive.nl> wrote:
+> 
+>>In general, is this work a waste of time or am I hitting something here?
+> 
+> 
+> Yes you're hitting the right spot :)
+> 
+> This is a planned feature.  We just need to fix the bundle structure
+> so that they live in the flow cache instead of the policy to make this
+> workable.
 
-> Anyways, in truth I'm being very picky :-)  Is there any prototype
-> or beginnings of these ideas anywhere?
-
-Not yet, I've put it on hold after clashing with Herbert's MTU work.
-I'll have a few free days this week where I will continue to work
-on this.
+Agreed. I had a look at putting the bundles in the flow cache, it seems
+to me this needs the xfrm resolution first since resolving the bundle
+would be done in flow cache resolver and we can't sleep in there.
+Once that's done it looks like a simple task.
 
 Regards
 Patrick
