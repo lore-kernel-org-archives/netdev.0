@@ -1,20 +1,24 @@
-From: Rick Jones <rick.jones2@hp.com>
+From: Stephen Hemminger <shemminger@osdl.org>
 Subject: Re: 2.6.10 TCP troubles -- suggested patch
-Date: Fri, 11 Feb 2005 14:54:27 -0800
-Message-ID: <420D37A3.6020209@hp.com>
+Date: Fri, 11 Feb 2005 15:04:20 -0800
+Message-ID: <20050211150420.74737b2e@dxpl.pdx.osdl.net>
 References: <0525M9211@server5.heliogroup.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, shemminger@osdl.org,
-        romieu@fr.zoreil.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
+Cc: "David S. Miller" <davem@davemloft.net>, romieu@fr.zoreil.com,
+        kuznet@ms2.inr.ac.ru, Nivedita Singhvi<niv@us.ibm.com>,
+        Rick Jones
+ <rick.jones2@hp.com>, netdev@oss.sgi.com
 To: Hubert Tonneau <hubert.tonneau@fullpliant.org>
 In-Reply-To: <0525M9211@server5.heliogroup.fr>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hubert Tonneau wrote:
+On Fri, 11 Feb 2005 21:55:49 GMT
+Hubert Tonneau <hubert.tonneau@fullpliant.org> wrote:
+
 > Sorry, it still does not work, unless I made a mistake:
 > Linux 2.6.9 takes 15 seconds to copy 105 MB to Mac OSX
 > Linux 2.6.10 with the TCP patch below still takes 325 seconds to do the same.
@@ -22,79 +26,37 @@ Hubert Tonneau wrote:
 > You can pick the new tcpdump report, created through:
 > tcpdump -i eth1 ip host 10.107.96.230 -w /tmp/dump-2.6.10-tcp2
 > at http://fullpliant.org/pliant/browse/file/archive/dump-2.6.10-tcp2.gz
-> 
-> Here is the connection summary:
-> 
-> Dell PowerEdge 2600 (dual Xeon with hyper threading) running libsmbclient
-> on Linux 2.6.x, IP for eth1 (Intel pro 1000) is 10.107.96.7 (full
-> duplex, flow control is enabled)
->      |
->      |
-> gigabit switch
->      |
->      |
-> 100 Mbps switch
->      |
->      |
-> Mac running Samba server on OSX,
-> IP is 10.107.96.230
 
-"Cooking" the trace with tcpdump -ttt to give the relative timestamdps makes 
-things look like Mac OSX has an ACK avoidance heuristic in it?  I figured there 
-was one in their OX <= 9 stack that came from a third-party, wasn't sure if they 
-put that into their OSX stack - IIRC that one is not from the third-party.
+Still not setting Push sufficiently to keep MacOSX happy.
 
-FWIW, there are two or three other stacks that have ACK avoidance heuristics as 
-well, it isn't an OSX only thing.
+13:40:35.027124 IP 10.107.96.230.netbios-ssn > 10.107.96.7.32801: P 924:975(51) ack 67344 win 50728 
+13:40:35.027186 IP 10.107.96.230.netbios-ssn > 10.107.96.7.32801: . ack 67344 win 65535 
+13:40:35.027328 IP 10.107.96.230.netbios-ssn > 10.107.96.7.32801: P 975:1026(51) ack 67344 win 65535 
+13:40:35.027363 IP 10.107.96.7.32801 > 10.107.96.230.netbios-ssn: . 67344:68792(1448) ack 1026 win 1460 
+13:40:35.027367 IP 10.107.96.7.32801 > 10.107.96.230.netbios-ssn: . 68792:70240(1448) ack 1026 win 1460 
+13:40:35.027370 IP 10.107.96.7.32801 > 10.107.96.230.netbios-ssn: . 70240:71688(1448) ack 1026 win 1460 
+13:40:35.027373 IP 10.107.96.7.32801 > 10.107.96.230.netbios-ssn: . 71688:73136(1448) ack 1026 win 1460 
+13:40:35.027375 IP 10.107.96.7.32801 > 10.107.96.230.netbios-ssn: . 73136:74584(1448) ack 1026 win 1460 
+13:40:35.027378 IP 10.107.96.7.32801 > 10.107.96.230.netbios-ssn: . 74584:76032(1448) ack 1026 win 1460 
+13:40:35.027381 IP 10.107.96.7.32801 > 10.107.96.230.netbios-ssn: . 76032:77480(1448) ack 1026 win 1460 
+13:40:35.027384 IP 10.107.96.7.32801 > 10.107.96.230.netbios-ssn: . 77480:78928(1448) ack 1026 win 1460 
+13:40:35.027387 IP 10.107.96.7.32801 > 10.107.96.230.netbios-ssn: . 78928:80376(1448) ack 1026 win 1460 
+13:40:35.027390 IP 10.107.96.7.32801 > 10.107.96.230.netbios-ssn: . 80376:81824(1448) ack 1026 win 1460 
+13:40:35.027393 IP 10.107.96.7.32801 > 10.107.96.230.netbios-ssn: . 81824:83272(1448) ack 1026 win 1460 
+13:40:35.027397 IP 10.107.96.7.32801 > 10.107.96.230.netbios-ssn: P 83272:83980(708) ack 1026 win 1460 
 
-000780 10.107.96.230.139 > 10.107.96.7.32801: P 753:822(69) ack 1556 win 65535 
-<nop,nop,timestamp 1709240657 534173> NBT Packet (DF)
-000579 10.107.96.7.32801 > 10.107.96.230.139: . 1556:3004(1448) ack 822 win 1460 
-<nop,nop,timestamp 534175 1709240657> NBT Packet (DF)
-000027 10.107.96.7.32801 > 10.107.96.230.139: . 3004:4452(1448) ack 822 win 1460 
-<nop,nop,timestamp 534175 1709240657> NBT Packet (DF)
-000005 10.107.96.7.32801 > 10.107.96.230.139: . 4452:5900(1448) ack 822 win 1460 
-<nop,nop,timestamp 534175 1709240657> NBT Packet (DF)
-074685 10.107.96.230.139 > 10.107.96.7.32801: . ack 5900 win 62268 
-<nop,nop,timestamp 1709240657 534175> (DF)
+okay burst with push
 
-delack above
+13:40:35.034930 IP 10.107.96.230.netbios-ssn > 10.107.96.7.32801: P 1179:1230(51) ack 133132 win 65535 
+13:40:35.035304 IP 10.107.96.7.32801 > 10.107.96.230.netbios-ssn: . 133132:134580(1448) ack 1230 win 1460 
+13:40:35.035312 IP 10.107.96.7.32801 > 10.107.96.230.netbios-ssn: . 134580:136028(1448) ack 1230 win 1460
 
-000012 10.107.96.7.32801 > 10.107.96.230.139: . 5900:7348(1448) ack 822 win 1460 
-<nop,nop,timestamp 534249 1709240657> NBT Packet (DF)
-000003 10.107.96.7.32801 > 10.107.96.230.139: . 7348:8796(1448) ack 822 win 1460 
-<nop,nop,timestamp 534249 1709240657> NBT Packet (DF)
-000002 10.107.96.7.32801 > 10.107.96.230.139: . 8796:10244(1448) ack 822 win 
-1460 <nop,nop,timestamp 534249 1709240657> NBT Packet (DF)
-000002 10.107.96.7.32801 > 10.107.96.230.139: . 10244:11692(1448) ack 822 win 
-1460 <nop,nop,timestamp 534249 1709240657> NBT Packet (DF)
-200024 10.107.96.230.139 > 10.107.96.7.32801: . ack 11692 win 56476 
-<nop,nop,timestamp 1709240658 534249> (DF)
+Big gap... because of missing P
 
-and again above.
-
-000010 10.107.96.7.32801 > 10.107.96.230.139: . 11692:13140(1448) ack 822 win 
-1460 <nop,nop,timestamp 534449 1709240658> NBT Packet (DF)
-000004 10.107.96.7.32801 > 10.107.96.230.139: . 13140:14588(1448) ack 822 win 
-1460 <nop,nop,timestamp 534449 1709240658> NBT Packet (DF)
-000002 10.107.96.7.32801 > 10.107.96.230.139: P 14588:16036(1448) ack 822 win 
-1460 <nop,nop,timestamp 534449 1709240658> NBT Packet (DF)
-000022 10.107.96.7.32801 > 10.107.96.230.139: . 16036:17484(1448) ack 822 win 
-1460 <nop,nop,timestamp 534449 1709240658> NBT Packet (DF)
-000004 10.107.96.7.32801 > 10.107.96.230.139: P 17484:18192(708) ack 822 win 
-1460 <nop,nop,timestamp 534449 1709240658> NBT Packet (DF)
-000994 10.107.96.230.139 > 10.107.96.7.32801: . ack 18192 win 65535 
-<nop,nop,timestamp 1709240658 534449> (DF)
-0
-
-And then other cases where the ACK seems to take a rather long time to arrive, 
-seems to correlate a bit with slowly increasing numbers of segments before the 
-ACK is sent, and something along the lines of a 200 millisecond delayed ACK timer.
-
-In some cases at least if the sender does not completely fill cwnd the ACKs will 
-be delayed.  And IIRC under 2.6.10 with TSO enabled, the sender does not always 
-fill cwnd.
-
-hth,
-
-rick jones
+13:40:35.219175 IP 10.107.96.230.netbios-ssn > 10.107.96.7.32801: . ack 136028 win 63716 
+13:40:35.219193 IP 10.107.96.7.32801 > 10.107.96.230.netbios-ssn: . 136028:137476(1448) ack 1230 win 1460 
+13:40:35.219197 IP 10.107.96.7.32801 > 10.107.96.230.netbios-ssn: . 137476:138924(1448) ack 1230 win 1460 
+13:40:35.419193 IP 10.107.96.230.netbios-ssn > 10.107.96.7.32801: . ack 138924 win 60820 
+13:40:35.419202 IP 10.107.96.7.32801 > 10.107.96.230.netbios-ssn: . 138924:140372(1448) ack 1230 win 1460 
+13:40:35.419205 IP 10.107.96.7.32801 > 10.107.96.230.netbios-ssn: . 140372:141820(1448) ack 1230 win 1460 
+13:40:35.419207 IP 10.107.96.7.32801 > 10.107.96.230.netbios-ssn: . 141820:143268(1448) ack 1230 win 1460 
