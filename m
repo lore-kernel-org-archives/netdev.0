@@ -1,136 +1,148 @@
-From: Klaus Rechert <klaus@rechert.de>
-Subject: 8139too problems
-Date: Tue, 06 Apr 2004 16:23:01 +0200
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: [NET] net driver updates
+Date: Tue, 06 Apr 2004 11:30:09 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4072BD45.6050907@rechert.de>
+Message-ID: <4072CD01.6070408@pobox.com>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------080706000502090501090600"
+ boundary="------------080600040902090101010001"
+Cc: Linux Kernel <linux-kernel@vger.kernel.org>, Andrew Morton <akpm@osdl.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Netdev <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------080706000502090501090600
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+--------------080600040902090101010001
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
 
-Hi,
 
-i have problems with my 8139c card on a toshiba tecra 8000 since linux-2.6.
-lspci -vvv attached.
+With upstream 2.6.x having been frozen for a while (and will be until 
+end of week or so), a bunch of net driver updates have accumulated.
 
-Call Trace:
- [<c01b8cab>] kobject_register+0x5b/0x60
- [<c01fdafa>] bus_add_driver+0x4a/0xb0
- [<c01fdf7f>] driver_register+0x2f/0x40
- [<c01c312c>] pci_register_driver+0x5c/0x90
- [<ccca901b>] rtl8139_init_module+0x1b/0x27 [8139too]
- [<c0137739>] sys_init_module+0x119/0x230
- [<c010936b>] syscall_call+0x7/0xb
+Even though the shortlog output is attached, here's an even shorter summary:
+* acenic converted to PCI API (yay!).  Please test.
+* new 10gige driver, s2io
+* Francois work on r8169, epic100, sis190: PCI DMA, NAPI, other minor 
+fixes and cleanups
+* 8139cp, pcnet32 updates
+* other minor stuff
 
+BK repository:
+	http://gkernel.bkbits.net/netdev-2.6
 
-Cheers
-    Klaus
+Patch:
+ftp://ftp.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/2.6.5-netdev2.patch.bz2
 
-
-
---------------080706000502090501090600
+--------------080600040902090101010001
 Content-Type: text/plain;
- name="lspci"
-Content-Transfer-Encoding: 7bit
+ name="changelog.txt"
 Content-Disposition: inline;
- filename="lspci"
-
-00:00.0 Host bridge: Intel Corp. 440BX/ZX/DX - 82443BX/ZX/DX Host bridge (AGP disabled) (rev 03)
-	Subsystem: Toshiba America Info Systems: Unknown device 0001
-	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
-	Status: Cap- 66Mhz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort+ >SERR- <PERR+
-	Latency: 64
-	Region 0: Memory at e0000000 (32-bit, prefetchable) [size=256M]
-
-00:04.0 VGA compatible controller: Neomagic Corporation NM2200 [MagicGraph 256AV] (rev 12) (prog-if 00 [VGA])
-	Subsystem: Toshiba America Info Systems: Unknown device 0001
-	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
-	Status: Cap+ 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-	Latency: 64 (4000ns min, 63750ns max)
-	Interrupt: pin A routed to IRQ 11
-	Region 0: Memory at df000000 (32-bit, prefetchable) [size=16M]
-	Region 1: Memory at ff800000 (32-bit, non-prefetchable) [size=4M]
-	Region 2: Memory at ff700000 (32-bit, non-prefetchable) [size=1M]
-	Capabilities: <available only to root>
-
-00:05.0 Bridge: Intel Corp. 82371AB/EB/MB PIIX4 ISA (rev 02)
-	Control: I/O+ Mem+ BusMaster+ SpecCycle+ MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
-	Status: Cap- 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-	Latency: 0
-
-00:05.1 IDE interface: Intel Corp. 82371AB/EB/MB PIIX4 IDE (rev 01) (prog-if 80 [Master])
-	Control: I/O+ Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
-	Status: Cap- 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-	Latency: 64
-	Region 4: I/O ports at 1000 [size=16]
-
-00:05.2 USB Controller: Intel Corp. 82371AB/EB/MB PIIX4 USB (rev 01) (prog-if 00 [UHCI])
-	Control: I/O+ Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
-	Status: Cap- 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-	Latency: 64
-	Interrupt: pin D routed to IRQ 11
-	Region 4: I/O ports at ffe0 [size=32]
-
-00:05.3 Bridge: Intel Corp. 82371AB/EB/MB PIIX4 ACPI (rev 02)
-	Control: I/O+ Mem+ BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
-	Status: Cap- 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-	Interrupt: pin ? routed to IRQ 9
-
-00:09.0 Communication controller: Toshiba America Info Systems FIR Port (rev 23)
-	Subsystem: Toshiba America Info Systems: Unknown device 0001
-	Control: I/O+ Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
-	Status: Cap- 66Mhz- UDF- FastB2B- ParErr- DEVSEL=slow >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-	Latency: 64
-	Interrupt: pin A routed to IRQ 11
-	Region 0: I/O ports at ff80 [size=32]
-
-00:0b.0 CardBus bridge: Toshiba America Info Systems ToPIC97 (rev 05)
-	Subsystem: Toshiba America Info Systems: Unknown device 0001
-	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
-	Status: Cap- 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=slow >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-	Latency: 0
-	Interrupt: pin A routed to IRQ 11
-	Region 0: Memory at 10000000 (32-bit, non-prefetchable) [size=4K]
-	Bus: primary=00, secondary=01, subordinate=04, sec-latency=0
-	Memory window 0: 10400000-107ff000 (prefetchable)
-	Memory window 1: 10800000-10bff000
-	I/O window 0: 00004000-000040ff
-	I/O window 1: 00004400-000044ff
-	BridgeCtl: Parity- SERR- ISA- VGA- MAbort- >Reset- 16bInt+ PostWrite+
-	16-bit legacy interface ports at 0001
-
-00:0b.1 CardBus bridge: Toshiba America Info Systems ToPIC97 (rev 05)
-	Subsystem: Toshiba America Info Systems: Unknown device 0001
-	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
-	Status: Cap- 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=slow >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-	Latency: 0
-	Interrupt: pin B routed to IRQ 11
-	Region 0: Memory at 10001000 (32-bit, non-prefetchable) [size=4K]
-	Bus: primary=00, secondary=05, subordinate=08, sec-latency=0
-	Memory window 0: 10c00000-10fff000 (prefetchable)
-	Memory window 1: 11000000-113ff000
-	I/O window 0: 00004800-000048ff
-	I/O window 1: 00004c00-00004cff
-	BridgeCtl: Parity- SERR- ISA- VGA- MAbort- >Reset- 16bInt- PostWrite+
-	16-bit legacy interface ports at 0001
-
-05:00.0 Ethernet controller: Abocom Systems Inc RTL8139 [FE2000VX] CardBus Fast Ethernet Attached Port Adapter (rev 10)
-	Subsystem: Abocom Systems Inc RTL8139 [FE2000VX] CardBus Fast Ethernet Attached Port Adapter
-	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
-	Status: Cap+ 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-	Latency: 64 (8000ns min, 16000ns max)
-	Interrupt: pin A routed to IRQ 11
-	Region 0: I/O ports at 4800 [size=256]
-	Region 1: Memory at 11000000 (32-bit, non-prefetchable) [size=512]
-	Capabilities: <available only to root>
+ filename="changelog.txt"
+Content-Transfer-Encoding: quoted-printable
+X-MIME-Autoconverted: from 8bit to quoted-printable by oss.sgi.com id i36FWNKO006318
 
 
---------------080706000502090501090600--
+Andrew Morton:
+  o s2io.h: gcc-3.5 build fix
+
+Christoph Hellwig:
+  o convert acenic to pci_driver API
+  o kill acient compat cruft from acenic
+
+Daniel Ritz:
+  o netdev_priv for xirc2ps_cs, nmclan_cs
+
+Domen Puncer:
+  o lmc header file not needed
+
+Don Fry:
+  o pcnet32 add led blink capability
+  o pcnet32 correct name display
+  o pcnet32 all printk under netif_msg
+  o pcnet32.c add support for 79C976
+
+Fran=E7ois Romieu:
+  o [netdrvr r8169] TX irq handler looping fix
+  o [netdrvr r8169] DAC changes
+  o [netdrvr r8169] Barrier against compiler optimization
+  o [netdrvr r8169] ethtool driver info
+  o [netdrvr r8169] DMA api resync
+  o [netdrvr sis190] more RX path work
+  o [netdrvr sis190] don't use one huge buffer for all RX skb's
+  o [netdrvr sis190] add dirty_rx to private structure
+  o [netdrvr sis190] separate out RX skb alloc, fill
+  o [netdrvr sis190] add helpers
+  o [netdrvr sis190] sis190_open() fixes/updates
+  o [netdrvr sis190] add pci-disable-device
+  o [netdrvr sis190] fix endianness issues
+  o [netdrvr epic100] napi fixes
+  o [netdrvr epic100] napi 3/3 - transmit path
+  o [netdrvr epic100] napi 2/3 - receive path
+  o [netdrvr epic100] napi 1/3 - just shuffle some code around
+  o [netdrvr epic100] minor cleanups
+  o [netdrvr r8169] Rx wrap bug
+  o [netdrvr r8169] fix TX race
+  o [netdrvr r8169] fix phy initialization loop init
+  o [netdrvr r8169] fix rx counter masking bug
+  o [netdrvr r8169] fix oops by removing __devinitdata marker
+  o 2.6.1-rc1-mm1 - typo of death in the r8169 driver
+  o [netdrvr r8169] Stats fix (Fernando Alencar Mar=C3=B3tica <famarost@u=
+nimep.br>)
+  o [netdrvr r8169] Endianness update (original idea from Alexandra N. Ko=
+ssovsky)
+  o [netdrvr r8169] fix RX
+  o [netdrvr r8169] Suspend/resume code (Fernando Alencar Mar=C3=B3tica)
+  o [netdrvr r8169] Modification of the interrupt mask (RealTek)
+  o [netdrvr r8169] Driver forgot to update the transmitted bytes counter
+  o [netdrvr r8169] Merge of changes from Realtek
+  o [netdrvr r8169] Merge of timer related changes from Realtek
+  o [netdrvr r8169] Merge of changes done by Realtek to rtl8169_init_one(=
+)
+  o [netdrvr r8169] Add {mac/phy}_version
+  o [netdrvr r8169] Rx copybreak for small packets
+  o [netdrvr r8169] Conversion of Tx data buffers to PCI DMA
+  o [netdrvr r8169] rtl8169_start_xmit fixes
+  o [netdrvr r8169] Conversion of Rx data buffers to PCI DMA
+  o [netdrvr r8169] Conversion of Rx/Tx descriptors to consistent DMA
+
+Hirofumi Ogawa:
+  o 8139too: more useful debug info for tx_timeout
+
+Jeff Garzik:
+  o [netdrvr natsemi] correct DP83816 IntrHoldoff register offset
+  o [netdrvr 8139cp] better dev->close() handling, and misc related stuff
+  o [netdrvr 8139cp] complete 64-bit DMA (PCI DAC) support
+  o [netdrvr 8139cp] use netdev_priv()
+  o [netdrvr 8139cp] minor cleanups
+  o [NET] define HAVE_NETDEV_PRIV back-compat hook
+  o [netdrvr 8139cp] locking cleanups
+  o [netdrvr s2io] NAPI build fixes
+  o [netdrvr 8139cp] rearrange priv struct, add cacheline-align markers
+  o [net/fc iph5526] s/rx_dropped/tx_dropped/ in TX routines
+  o [netdrvr s2io] correct an incorrect cleanup I made
+  o [netdrvr] Add S2IO 10gige network driver
+  o Remove unused compatibility-defines include wan/lmc/lmc_ver.h
+  o Manually merge with upstream
+
+Jeff Muizelaar:
+  o tc35815 cleanup
+
+Leana Ogasawara:
+  o dgrs: add missing iounmaps
+
+Luiz Fernando N. Capitulino:
+  o com20020-isa.c warning fix
+
+Pavel Machek:
+  o Support newer revisions of broadcoms in b44.c
+
+Randy Dunlap:
+  o remove magic '31' for netdev priv. alignment
+
+Scott Feldman:
+  o Update MAINTAINERS with new e100/e1000/ixgb maintainers
+
+
+--------------080600040902090101010001--
