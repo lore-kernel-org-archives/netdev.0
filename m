@@ -1,33 +1,39 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: routing bug report for 2.4
-Date: Sat, 28 Jun 2003 23:38:11 +0300 (EEST)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0306282332380.1804-100000@u.domain.uli>
-References: <3EFDE0BC.8040803@candelatech.com>
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: networking bugs and bugme.osdl.org
+Date: Sat, 28 Jun 2003 15:03:28 -0700 (PDT)
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20030628.150328.74739742.davem@redhat.com>
+References: <1056755336.5459.16.camel@dhcp22.swansea.linux.org.uk>
+	<20030627.172123.78713883.davem@redhat.com>
+	<1056827972.6295.28.camel@dhcp22.swansea.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <3EFDE0BC.8040803@candelatech.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: greearb@candelatech.com, davidel@xmailserver.org,
+	mbligh@aracnet.com, linux-kernel@vger.kernel.org,
+	linux-net@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: alan@lxorguk.ukuu.org.uk
+In-Reply-To: <1056827972.6295.28.camel@dhcp22.swansea.linux.org.uk>
 List-Id: netdev.vger.kernel.org
 
+   From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+   Date: 28 Jun 2003 20:19:32 +0100
 
-	Hello,
+   On Sad, 2003-06-28 at 01:21, David S. Miller wrote:
+   > I respond to private reports with "please send this to the lists,
+   > what if I were on vacation for the next month?"  I never actually
+   > process or analyze such reports.
+   
+   Which means you miss stuff.
 
-On Sat, 28 Jun 2003, Ben Greear wrote:
+Not my problem Alan.  If the user gives a crap about their report
+mattering, they'll do what I ask them to do.  If users send their
+report to the wrong place, it will get lost, just like if their
+cat their report into /dev/null.  I have no reason to feel bad about
+the information getting lost.
 
-> What results do you get?  And did you set up policy based routing?
+If it's too much for them to do as I ask, it's too much for
+me to consider their report.
 
-	I now see, the kernel sends "who-has local_IP" when you
-use 'ping -I device local_IP'. If this is considered bad we can extend
-the checks when fib_lookup fails:
-
-- check for UP state (is it needed? return ENETDOWN?)
-- check if target IP is local and select "lo" instead of oif
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+Bug reporting, just like patch submission, is a 2 way street.
