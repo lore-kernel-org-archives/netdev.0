@@ -1,25 +1,26 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH 2.5.70] net-sysfs parent ref count
-Date: Wed, 11 Jun 2003 23:58:23 -0700 (PDT)
+Subject: Re: [PATCH 2.5.70+] Cleanup net-sysfs show and change functions
+Date: Thu, 12 Jun 2003 00:00:33 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030611.235823.91336972.davem@redhat.com>
-References: <20030610133508.3d0bfffc.shemminger@osdl.org>
+Message-ID: <20030612.000033.45899350.davem@redhat.com>
+References: <20030610133854.42713231.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: shemminger@osdl.org
-In-Reply-To: <20030610133508.3d0bfffc.shemminger@osdl.org>
+In-Reply-To: <20030610133854.42713231.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
    From: Stephen Hemminger <shemminger@osdl.org>
-   Date: Tue, 10 Jun 2003 13:35:08 -0700
+   Date: Tue, 10 Jun 2003 13:38:54 -0700
 
-   When creating network sysfs entries, we grab an extra reference to
-   the parent.  Not a big deal now, since it just gets blown away on
-   unregister anyway, but when kobject reference counts are used for
-   release, things break.
-
+   This cleans up the network sysfs code to use helper functions to unify
+   the show/change functions, by using common code in functions rather
+   than template macros.
+   
+   The function always checks for dead devices, so I/O will fail.
+   
 Applied, thanks.
