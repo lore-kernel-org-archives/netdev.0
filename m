@@ -1,87 +1,39 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Fw: non-fatal oops with EIP at skb_release_data, available for
- debugging
-Date: Fri, 4 Mar 2005 22:20:52 -0800
-Message-ID: <20050304222052.2f41771f.akpm@osdl.org>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: r8169: panic on 2.6.11
+Date: Fri, 04 Mar 2005 22:34:16 -0800
+Message-ID: <422952E8.6010801@osdl.org>
+References: <20050304132804.270cf05b@dxpl.pdx.osdl.net> <20050304154903.7b7e0fb1@dxpl.pdx.osdl.net> <20050305003735.GE1148@electric-eye.fr.zoreil.com> <200503042303.50055.jdmason@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Alessandro Suardi <alessandro.suardi@gmail.com>
-To: netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
+To: Jon Mason <jdmason@us.ibm.com>
+In-Reply-To: <200503042303.50055.jdmason@us.ibm.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+The packet burst is 10 million 64 byte packets. Could be the sender
+or switch causing merging, but I suspect the r8169 on the slow receiver.
 
-We did a put_page() on a zero-ref page.
-
-
-Begin forwarded message:
-
-Date: Fri, 4 Mar 2005 21:48:18 +0100
-From: Alessandro Suardi <alessandro.suardi@gmail.com>
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-Subject: non-fatal oops with EIP at skb_release_data, available for debugging
-
-
-This is my K7-800, 256MB RAM machine running as
- ed2k/bittorrent 24/7 box... metacity died, but the
- windows are still alive (and working) so if someone
- wants to get more info about it, just ping me...
-
-[root@donkey ~]# cat /proc/version
-Linux version 2.6.11-rc3-bk8 (asuardi@donkey) (gcc version 3.4.2
-20041017 (Red Hat 3.4.2-6.fc3)) #1 Sat Feb 12 00:01:28 CET 2005
-[root@donkey ~]# lsmod
-Module                  Size  Used by
-loop                   15368  -
-nls_iso8859_1           3840  -
-parport_pc             29444  -
-parport                24704  -
-8139too                24896  -
-floppy                 57392  -
-
->From the dmesg ring:
-
-kernel BUG at include/linux/mm.h:343!
-invalid operand: 0000 [#1]
-PREEMPT
-Modules linked in: loop nls_iso8859_1 parport_pc parport 8139too floppy
-CPU:    0
-EIP:    0060:[<c02da6a2>]    Not tainted VLI
-EFLAGS: 00210256   (2.6.11-rc3-bk8)
-EIP is at skb_release_data+0x92/0xa0
-eax: 00000000   ebx: 00000000   ecx: cca36f80   edx: c11a97c0
-esi: c4205f20   edi: c4205f20   ebp: cd149dcc   esp: cd149dc4
-ds: 007b   es: 007b   ss: 0068
-Process metacity (pid: 2109, threadinfo=cd148000 task=ce8935d0)
-Stack: c4205f20 00000000 cd149dd8 c02da6bb c6e9a0c0 cd149df8 c02da737 c5134250
-       00000000 c4205f20 c5134250 c4205f20 c5134250 cd149e4c c02feba6 00000000
-       00000040 cc68c454 00000000 00000001 cc68c444 cd148000 00000001 00000000
-Call Trace:
- [<c0102b2a>] show_stack+0x7a/0x90
- [<c0102cad>] show_registers+0x14d/0x1c0
- [<c0102ea4>] die+0xe4/0x180
- [<c01032e3>] do_invalid_op+0xa3/0xb0
- [<c01027a7>] error_code+0x2b/0x30
- [<c02da6bb>] kfree_skbmem+0xb/0x20
- [<c02da737>] __kfree_skb+0x67/0xf0
- [<c02feba6>] tcp_recvmsg+0x5f6/0x710
- [<c02da1e6>] sock_common_recvmsg+0x46/0x60
- [<c02d6bbe>] sock_aio_read+0xee/0x100
- [<c014e427>] do_sync_read+0x97/0xf0
- [<c014e511>] vfs_read+0x91/0x120
- [<c014e7ed>] sys_read+0x3d/0x70
- [<c01025a9>] sysenter_past_esp+0x52/0x75
-Code: c9 e9 03 e5 e5 ff 8d 76 00 5b 5e c9 c3 89 d0 e8 c5 f2 e5 ff eb
-cf 89 f0 e8 0c ff ff ff 5b 8b 86 98 00 00 00 5e c9 e9 de e4 e5 ff <0f>
-0b 57 01 ab c5 35 c0 eb a5 8d 74 26 00 55 89 e5 53 89 c3 e8
-
-Thanks,
- 
---alessandro
-
-  "There is no distance that I don't see
-  I do have a will - No limit to my reach"
-  
-    (Wallflowers, "Empire In My Mind")
+Details are:
+# cat /proc/net/pktgen/eth0
+Params: count 10000000  min_pkt_size: 60  max_pkt_size: 60
+      frags: 0  delay: 0  clone_skb: 1000000  ifname: eth0
+      flows: 0 flowlen: 0
+      dst_min: 172.2.251.143  dst_max:
+      src_min:   src_max:
+      src_mac: 00:0D:60:53:08:18  dst_mac: 00:09:5B:BD:B1:F9
+      udp_src_min: 9  udp_src_max: 9  udp_dst_min: 9  udp_dst_max: 9
+      src_mac_count: 0  dst_mac_count: 0
+      Flags:
+Current:
+      pkts-sofar: 10000000  errors: 6374336
+      started: 1109979805822722us  stopped: 1109979815051630us idle: 
+166364us
+      seq_num: 10000011  cur_dst_mac_offset: 0  cur_src_mac_offset: 0
+      cur_saddr: 0x670114ac  cur_daddr: 0x8ffb02ac
+      cur_udp_dst: 9  cur_udp_src: 9
+      flows: 0
+Result: OK: 9228908(c9062544+d166364) usec, 10000000 (60byte,0frags)
+   1083551pps 520Mb/sec (520104480bps) errors: 6374336
