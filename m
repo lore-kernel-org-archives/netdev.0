@@ -1,53 +1,91 @@
-From: Shirley Ma <xma@us.ibm.com>
-Subject: Re: [PATCH]snmp6 64-bit counter support in proc.c
-Date: Fri, 23 Jan 2004 10:06:00 -0800
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: multicast loop with include filters fix [PATCH]
+Date: Fri, 23 Jan 2004 13:27:40 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OF976F8756.BBF13C4C-ON87256E24.00635170-88256E24.00636F93@us.ibm.com>
+Message-ID: <OF047517E8.F84E09DF-ON88256E24.006FFBA6@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	Boundary="0__=08BBE4B7DFF0D7E08f9e8a93df938690918c08BBE4B7DFF0D7E0"
-Cc: Krishna Kumar <kumarkr@us.ibm.com>, kuznet@ms2.inr.ac.ru,
-        mashirle@us.ibm.com, netdev@oss.sgi.com
+Content-Type: multipart/mixed;
+	Boundary="0__=07BBE4B7DFFC7D368f9e8a93df938690918c07BBE4B7DFFC7D36"
+Cc: netdev@oss.sgi.com, stevenh@xsmail.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---0__=08BBE4B7DFF0D7E08f9e8a93df938690918c08BBE4B7DFF0D7E0
+--0__=07BBE4B7DFFC7D368f9e8a93df938690918c07BBE4B7DFFC7D36
+Content-type: multipart/alternative;
+	Boundary="1__=07BBE4B7DFFC7D368f9e8a93df938690918c07BBE4B7DFFC7D36"
+
+--1__=07BBE4B7DFFC7D368f9e8a93df938690918c07BBE4B7DFFC7D36
 Content-type: text/plain; charset=US-ASCII
 
 
 
 
 
-> correctness > performance
+Dave,
+      I had a stupid typo in the v6 side of this patch, which
+reverses the sense of the check; here's a patch to fix the patch.
+Sorry about that.
 
-OK, I am fixing the reader and will resubmit it when next release is
-available.
+                        +-DLS
 
-Thanks
-Shirley Ma
-IBM Linux Technology Center
-15300 SW Koll Parkway
-Beaverton, OR 97006-6063
-Phone: (503) 578-7638
-FAX:      (503) 578-3228
---0__=08BBE4B7DFF0D7E08f9e8a93df938690918c08BBE4B7DFF0D7E0
+--- linux-2.6.2-rc1F1/net/ipv6/mcast.c.orig     2004-01-23 12:10:55.615139688 -0800
++++ linux-2.6.2-rc1F1/net/ipv6/mcast.c    2004-01-23 12:11:15.477120208 -0800
+@@ -918,7 +918,7 @@
+                        break;
+            }
+            if (mc) {
+-                 if (ipv6_addr_any(src_addr)) {
++                 if (!ipv6_addr_any(src_addr)) {
+                        struct ip6_sf_list *psf;
+
+                        spin_lock_bh(&mc->mca_lock);
+
+(See attached file: mldfix.patch)
+--1__=07BBE4B7DFFC7D368f9e8a93df938690918c07BBE4B7DFFC7D36
 Content-type: text/html; charset=US-ASCII
 Content-Disposition: inline
 
 <html><body>
-<p>&gt; correctness &gt; performance<br>
+<p>Dave,<br>
+	I had a stupid typo in the v6 side of this patch, which<br>
+reverses the sense of the check; here's a patch to fix the patch.<br>
+Sorry about that.<br>
 <br>
-OK, I am fixing the reader and will resubmit it when next release is available.<br>
+				+-DLS<br>
 <br>
-Thanks<br>
-Shirley Ma<br>
-IBM Linux Technology Center<br>
-15300 SW Koll Parkway<br>
-Beaverton, OR 97006-6063<br>
-Phone: (503) 578-7638<br>
-FAX:      (503) 578-3228<br>
+--- linux-2.6.2-rc1F1/net/ipv6/mcast.c.orig	2004-01-23 12:10:55.615139688 -0800<br>
++++ linux-2.6.2-rc1F1/net/ipv6/mcast.c	2004-01-23 12:11:15.477120208 -0800<br>
+@@ -918,7 +918,7 @@<br>
+ 				break;<br>
+ 		}<br>
+ 		if (mc) {<br>
+-			if (ipv6_addr_any(src_addr)) {<br>
++			if (!ipv6_addr_any(src_addr)) {<br>
+ 				struct ip6_sf_list *psf;<br>
+ <br>
+ 				spin_lock_bh(&amp;mc-&gt;mca_lock);<br>
+<br>
+<i>(See attached file: mldfix.patch)</i><br>
 </body></html>
---0__=08BBE4B7DFF0D7E08f9e8a93df938690918c08BBE4B7DFF0D7E0--
+
+--1__=07BBE4B7DFFC7D368f9e8a93df938690918c07BBE4B7DFFC7D36--
+
+
+--0__=07BBE4B7DFFC7D368f9e8a93df938690918c07BBE4B7DFFC7D36
+Content-type: application/octet-stream;
+	name="mldfix.patch"
+Content-Disposition: attachment; filename="mldfix.patch"
+Content-ID: <10__=07BBE4B7DFFC7D368f9e8a93df938@us.ibm.com>
+Content-transfer-encoding: base64
+
+LS0tIGxpbnV4LTIuNi4yLXJjMUYxL25ldC9pcHY2L21jYXN0LmMub3JpZwkyMDA0LTAxLTIzIDEy
+OjEwOjU1LjYxNTEzOTY4OCAtMDgwMAorKysgbGludXgtMi42LjItcmMxRjEvbmV0L2lwdjYvbWNh
+c3QuYwkyMDA0LTAxLTIzIDEyOjExOjE1LjQ3NzEyMDIwOCAtMDgwMApAQCAtOTE4LDcgKzkxOCw3
+IEBACiAJCQkJYnJlYWs7CiAJCX0KIAkJaWYgKG1jKSB7Ci0JCQlpZiAoaXB2Nl9hZGRyX2FueShz
+cmNfYWRkcikpIHsKKwkJCWlmICghaXB2Nl9hZGRyX2FueShzcmNfYWRkcikpIHsKIAkJCQlzdHJ1
+Y3QgaXA2X3NmX2xpc3QgKnBzZjsKIAogCQkJCXNwaW5fbG9ja19iaCgmbWMtPm1jYV9sb2NrKTsK
+
+
+--0__=07BBE4B7DFFC7D368f9e8a93df938690918c07BBE4B7DFFC7D36--
