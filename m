@@ -1,39 +1,36 @@
-From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
-Subject: Re: 2.4.20-pre11: PCI Wavelan card loses connection
-Date: Mon, 13 Jan 2003 09:24:35 -0800
+From: kuznet@ms2.inr.ac.ru
+Subject: Re: SCTP path mtu support needs some ip layer support.
+Date: Mon, 13 Jan 2003 23:48:10 +0300 (MSK)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030113172435.GC20409@bougret.hpl.hp.com>
-References: <200301130821.h0D8Kis26772@Port.imtp.ilyichevsk.odessa.ua>
-Reply-To: jt@hpl.hp.com
+Message-ID: <200301132048.XAA09194@sex.inr.ac.ru>
+References: <3E1CCD72.6020100@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Cc: davem@redhat.com, sri@us.ibm.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
-Content-Disposition: inline
-In-Reply-To: <200301130821.h0D8Kis26772@Port.imtp.ilyichevsk.odessa.ua>
+To: jgrimm2@us.ibm.com (Jon Grimm)
+In-Reply-To: <3E1CCD72.6020100@us.ibm.com> from "Jon Grimm" at Jan 8, 3 07:16:34 pm
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 13, 2003 at 10:20:14AM +0200, Denis Vlasenko wrote:
-> I bought a PCI wireless card, a DLink-520 (I think, I forgot exactly
-> (it's at home), anyway, lspci dump is below).
-> 
-> We (my father and me) made a fairly long helical aerial.
-> We are trying to communicate over ~15 km with a small wireless cell.
-> (~10 hosts, one AP).
-> 
-> We can successfully associate with it, signal is weak as expected.
-> But after a short while our eth0 seems to 'fall off the net'
-> and while it looks like we can send packets, we see no incoming data
-> at all.
-> 
-> Since I have almost zero wireless experience, I'll be happy if someone
-> with said experience can read further and say what bites us.
+Hello!
 
-	Personally, I never managed to get this hardware to work at
-all. And Orinoco is known to have problems with PrismII cards. Please
-use the HostAP or linux-wlan-ng driver.
-	Good luck...
+> Well, I personally like having the flexibility to do either.  So, we'll 
+> take you up on your offer to allow control over DF.
 
-	Jean
+Beware! To all that I can say, clearing DF on some packets compromises
+path mtu discovery. If you need to have cleared DF on some packets in a flow,
+this means in fact, that path mtu discovery is not supported at protocol level
+at all.
+
+So, I would like to ask you to consult SCTP designers. If the thing which
+you have said is true this means they desinged a crippled protocol.
+
+Support of pmtu discovery as described in rfc means possibility of semantic
+fragmentation to retransmit any data bits. If SCTP is not ablet to do this,
+then you should not support pmtu discovery at all like most of people make
+for UDP or to follow UDP pattern, fragmenting frames when their size exceeds
+mtu. It is not necessary to cripple ip_queue_xmit calling conventions
+to make this, just add a flag to socket to clear DF on oversized
+frames.
+
+Alexey
