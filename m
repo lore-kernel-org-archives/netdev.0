@@ -1,37 +1,47 @@
-From: Phil Oester <kernel@theoesters.com>
-Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
-Date: Mon, 28 Jul 2003 10:09:59 -0700
+From: "Weng, Wending" <WWending@oerlikon.ca>
+Subject: multicast IP datagram forwarding bug and fix
+Date: Mon, 28 Jul 2003 13:20:31 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030728100959.A13335@ns1.theoesters.com>
-References: <20030727165831.05904792.davem@redhat.com> <200307280211590888.10957DD9@192.168.128.16> <20030727171403.6e5bcc58.davem@redhat.com> <200307280235210263.10AADFF8@192.168.128.16> <20030727173600.475d95fb.davem@redhat.com> <200307280253090799.10BB2DF0@192.168.128.16> <20030727175557.1d624b36.davem@redhat.com> <200307280323020667.10D68954@192.168.128.16> <20030727183547.784b6ab5.davem@redhat.com> <200307281243530385.12D80171@192.168.128.16>
+Message-ID: <AE20493C16DE7F46BC29B257C8D708D3157500@mail.oerlikon.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>, marcelo@conectiva.com.br,
-   netdev@oss.sgi.com, linux-net@vger.kernel.org, torvalds@osdl.org,
-   linux-kernel@vger.kernel.org
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Carlos Velasco <carlosev@newipnet.com>
-Content-Disposition: inline
-In-Reply-To: <200307281243530385.12D80171@192.168.128.16>; from carlosev@newipnet.com on Mon, Jul 28, 2003 at 12:43:53PM +0200
+content-class: urn:content-classes:message
+To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-What I think David fails to realize is that in the real world, people
-use the hidden patch on a regular basis.  It is the simplest way to
-achieve what we want to in a server farm consisting of hundreds of
-servers.  It also involves the least overhead.  
-
-And NO - I do not use IPVS.  I use one of the many hardware based
-loadbalancers which work flawlessly with the hidden flag.
-
-Those in ivory towers can pontificate endlessly about how one 'should'
-fix the arp problem.  Those in the trenches will do it the easy way.
-
-Phil Oester
-
-> On 27/07/2003 at 18:35 David S. Miller wrote:
+> Hi,
 > 
-> >I don't deny that it fixes your problem, that is not what
-> >we're talking about.  We're talking about how one should
-> >fix the problem, and I'm trying to show you why "hidden"
-> >patch is not the answer to that.
+>    LINUX doesn't forward multicast IP datagram if it has option(s), there is is a bug in the module ipmr.c, function
+> ipmr_forward_finish, below is the current version of this function:
+> 
+> static inline int ipmr_forward_finish(struct sk_buff *skb)
+> {
+>         struct dst_entry *dst = skb->dst;
+> 
+>         if (skb->len <= dst->pmtu)
+>                 return dst->output(skb);
+>         else
+>                 return ip_fragment(skb, dst->output);
+> }
+> 
+> it forgets to recalculate the checksum in case the option is modified.
+> 
+> The following code works properly:
+> 
+> static inline int ipmr_forward_finish(struct sk_buff *skb)
+> {
+>         struct dst_entry *dst = skb->dst;
+> 
+>         ip_forward_options (skb); /* this line recalculates checksum if needed. */
+> 
+>         if (skb->len <= dst->pmtu)
+>                 return dst->output(skb);
+>         else
+>                 return ip_fragment(skb, dst->output);
+> }
+> 
+> Wending Weng
