@@ -1,107 +1,93 @@
-From: Ville Nuorvala <vnuorval@tcs.hut.fi>
-Subject: Re: [PATCH|RFC] IPv6: have a proxy discard link-local traffic
-Date: Thu, 15 Jan 2004 10:46:26 +0200 (EET)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] (1/5) replay netdev notifier events on registration
+Date: Thu, 15 Jan 2004 00:42:55 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0401150843320.28594@rhea.tcs.hut.fi>
-References: <Pine.LNX.4.44.0401150745390.9658-100000@netcore.fi>
+Message-ID: <20040115004255.62dc8b95.davem@redhat.com>
+References: <20040113105843.0d1351cb.shemminger@osdl.org>
+	<20040113163631.1a9c1a59.davem@redhat.com>
+	<20040114164416.753a62fc.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: yoshfuji@linux-ipv6.org, davem@redhat.com, usagi-core@linux-ipv6.org,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, chas@cmf.nrl.navy.mil
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Pekka Savola <pekkas@netcore.fi>
-In-Reply-To: <Pine.LNX.4.44.0401150745390.9658-100000@netcore.fi>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20040114164416.753a62fc.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 15 Jan 2004, Pekka Savola wrote:
+On Wed, 14 Jan 2004 16:44:16 -0800
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> > The current proxy ND implementation in the kernel only captures multicast
-> > NS messages. A unicast NS (i.e. a NUD probe) won't be captured by the
-> > proxy, in stead it tries to _route_ it to the proxied node.
->
-> Practically all ND packets should be proxied, I think.
+> Possible problems:
+> qeth: s390 driver -- bug, code is narcissistic and thinks it only gets
+> 	notified about it's own devices.
+> 
+> atm/mpc: only looks for "lec" devices, don't know if they could exist
+> 	before it starts.
 
-Currently the specification (RFC 2461) only talks about NS packets, but I
-agree. It seems logical for a proxy to handle all ND messages.
+These are both hard errors and potential bogus pointer derefences, they both
+assume the type of dev->priv.  The atm/mpc case has a netdev->name==NULL
+test which is a funny relic :-)
 
-Whats the status of RFC 2461bis? Can we still ask for further
-clarifications about the proxy behavior?
+Both these cases ought to be fixed.  However, the atm/mpc case poses an issue,
+how to identify "my" devices?  We've established that the textual name is
+basically arbitrary and not a reliable key.  Currently I see only two
+possible reliable solutions, but I like neither of them:
 
-> [...]
-> > The traditional proxy described in RFC 2461 is a router, what Thaler
-> > describes is closer to a bridge. The protocol described in Thaler's draft
-> > can't rely on routing for what it is doing, in stead it must AFAICS bypass
-> > the routing altogether, either inside the kernel, or by pushing the
-> > traffic through user space.
->
-> No, Thaler's ND proxy is *not* a bridge; functionally, it's quite
-> close, but from the implementation perspective, it's not.  All the
-> communication terminates (at the IP layer) at the ND proxy (and that's
-> why the TTL won't decrease, because practically the same request is
-> replicated on the other links with TTL=255).  Therefore, it can act as
-> a "router"  between two physical links, and the users of the links can
-> still use e.g. link-local addresses.
+1) Device driver doing this needs to keep own list of net devices it
+   has created.  Then it's notifiier code does something like:
 
-I was talking about it from the functional point of view (and I didn't
-actually call it a bridge ;)
+	if (!find_in_mpoa_devlist(dev))
+		return NOTIFY_DONE;
 
-My reasoning here is that Thaler's proxy passes IPv6 packets (except ND
-etc) unchanged from one physical link to another, therefore it isn't a
-router, but closer to a bridge.
+2) Add a type cookie or similar to the generic netdev, only devices
+   which need to identify themselves in these generic kind of cases
+   add identifier values there, so currently that would be MPOA and
+   QETH, then the code goes:
 
-The point is just that. We can't use the *routing* functionality to pass
-the packet from one physical segment to another.
+	if (dev->type_cookie == NETDEV_TYPE_MPOA)
+		return NOTIFY_DONE;
 
-As I mentioned routing link-locals isn't possible, neither is routing of
-multicast packets (at this moment), a router just forwards a packet to one
-interface, not all of them, and last but not least, a router decreases the
-hop limit of a forwarded packet.
+But as stated I think both of these ideas absolutely stink.
 
-This means we need some other mechanism than *routing* to achieve the
-functionality in Thaler's draft.
+... wait...
 
-> ND proxy doesn't "route" between physical segments, because by
-> definition, all the physical segments share a subnet, and there are no
-> specifics. On the other hand, it duplicates all ICMPv6 ND packets
-> across the links (unless there is a mapping in a cache), and expands
-> the IP layer subnet (even, the link-local address domain!) to span
-> multiple links.
+Ok, I have an idea, consider this.  We add a netdev->notifier()
+method.  We create a new routine to net/core/dev.c:
 
-Exactly! Thaler's proxy doesn't route traffic, the MIPv6 proxy does. They
-are not the same thing. My change allows a router (MIPv6 HA) to
-correctly signal that it can't *route* a link-local packet.
+static void run_netdev_notifiers(int event, struct net_device *dev)
+{
+	notifier_call_chain(&netdev_chain, event, dev);
 
-There are IMO two different uses of proxy ND, which are quite different
-from each other:
+	if (dev->notifier)
+		dev->notifier(dev, event);
+}
 
-We have the Thaler proxy, with its "bridge" like behavior. It acts as a
-proxy for *any* address on the subnet (if needed), and passes IP packets
-between the interfaces unchanged.
+Then replace all the notifier_call_chain(&netdev_chain, ...) calls
+in net/core/dev.c with invocations of run_netdev_notifiers().
 
-Then we have the router (for example HA) acting as a proxy for a
-*particular* node (for example MN) *routing* packets to it.
+I believe we can (and thus should) add an ASSERT_RTNL() to this new
+run_netdev_notifiers() functions, although I'm not %100 sure.
 
-> Proxying link-locals break fully ND proxying.  I grant you that it may
-> not work out of the box at the moment (because it hasn't been
-> implemented! :-) but we shouldn't be making steps in the wrong
-> direction here.. :-)
+What do you think Stephen?
 
-AFAICS a Thaler proxy would forward the packet using some other path than
-ip6_forward(), therefore it wouldn't trigger the ICMP error message.
+> Unrelated problems:
+> ddp: registers for notifier before it is initialized
 
-I'm not sure how proxy ARP is done in Linux, but I don't know if the
-current proxy ND code is of any use for Thaler proxy.
+Just moving it down to the end of atalk_init() should fix this?
+Actually, I don't really see any potential problem here.
 
-The proxied addresses are explicitly stored in the nd_tbl and the proxy
-relies on routing to get the packets delivered to the proxied node. This
-is exactly what a HA should do, but it doesn't fit well into the Thaler
-model.
+> ipmr: no locking for add/delete
 
-Regards,
-Ville
---
-Ville Nuorvala
-Research Assistant, Institute of Digital Communications,
-Helsinki University of Technology
-email: vnuorval@tcs.hut.fi, phone: +358 (0)9 451 5257
+Not a problem, RTNL semaphore is held.
+
+> ipfwadm: no module owner on /proc interface
+
+Please elaborate.  I don't see the ipfwadm netdev event notifier
+messing with procfs stuff, or is this happen at a level or two of
+indirection somewhere else?
+
+> The following are okay:
+
+Thanks for the audit.
