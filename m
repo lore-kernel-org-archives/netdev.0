@@ -1,34 +1,35 @@
-From: Matti Aarnio <matti.aarnio@zmailer.org>
-Subject: Re: [VLAN] VLAN patches
-Date: Mon, 30 Sep 2002 11:52:29 +0300
+From: Martin Pool <mbp@samba.org>
+Subject: Re: FIN_WAIT1 / TCP_CORK / 2.2 -- reproducible bug and test case
+Date: Mon, 30 Sep 2002 19:59:10 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20020930085229.GT30392@mea-ext.zmailer.org>
-References: <3D980A10.8B06F2C2@ebc.ericsson.se>
+Message-ID: <20020930095909.GA8063@toey.sourcefrog.net>
+References: <20020926054721.GA6039@samba.org> <200209261309.RAA17837@sex.inr.ac.ru> <20020926.134608.31605412.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: kuznet@ms2.inr.ac.ru, ak@muc.de, netdev@oss.sgi.com, Alan.Cox@linux.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andersson =?iso-8859-1?Q?Bj=F6rn?=
-	<Bjorn.Andersson@ebc.ericsson.se>
+To: "David S. Miller" <davem@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <3D980A10.8B06F2C2@ebc.ericsson.se>
+In-Reply-To: <20020926.134608.31605412.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 30, 2002 at 10:23:44AM +0200, Andersson Bj=F6rn wrote:
-> Hi,
-> I hope you are the right receiver of 8021q-patches.
-> We are running SuSe 8.0, i.e kernel 2.4.18.
+On 26 Sep 2002, "David S. Miller" <davem@redhat.com> wrote:
+>    From: kuznet@ms2.inr.ac.ru
+>    Date: Thu, 26 Sep 2002 17:09:11 +0400 (MSD)
+> 
+>    I do not understand why tcp_push_pending_frames() was not used
+>    there... maybe, there was some reason not to use it.
+>    
+>    Dave, do you not remember this?
 
-  NETDEV isn't right place.  I resent your letter to:
-          vlan@Scry.WANfear.com
+So where does this leave us?  
 
-  (which is strictly posting-by-subscribers-only / others-via-moderator
-   list...)
+Was the patch we came up with correct?  It looks reasonable to me, but
+I don't know the stack well enough to be sure.  I think it would be
+nice if it could be fixed in 2.2.
 
-> --=20
-> * Bj=F6rn Andersson                   bjorn.andersson@ebc.ericsson.se=
- *
+Let me know if there's anything I can do by way of testing, etc.
 
-/Matti Aarnio
+-- 
+Martin 
