@@ -1,50 +1,37 @@
-From: Alessandro Suardi <alessandro.suardi@oracle.com>
-Subject: Re: analysis of TCP window size issues still around - several reports
- / SACK involved?
-Date: Wed, 07 Jul 2004 23:25:38 +0200
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: pskb change in dst->output
+Date: Thu, 8 Jul 2004 07:28:05 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40EC6A52.70207@oracle.com>
-References: <32886.63.170.215.71.1088564087.squirrel@www.osdl.org> <20040629222751.392f0a82.davem@redhat.com> <20040630152750.2d01ca51@dell_ss3.pdx.osdl.net> <20040630153049.3ca25b76.davem@redhat.com> <20040701133738.301b9e46@dell_ss3.pdx.osdl.net> <20040701140406.62dfbc2a.davem@redhat.com> <20040702013225.GA24707@conectiva.com.br> <20040706093503.GA8147@outpost.ds9a.nl> <20040706131955.3a3c6c8b.davem@redhat.com> <20040706202708.GA1385@outpost.ds9a.nl>
+Message-ID: <20040707212805.GA29899@gondor.apana.org.au>
+References: <20040707130652.GA26822@gondor.apana.org.au> <Xine.LNX.4.44.0407071013080.26759-100000@thoron.boston.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, acme@conectiva.com.br,
-        shemminger@osdl.org, netdev@oss.sgi.com, phyprabab@yahoo.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: bert hubert <ahu@ds9a.nl>
-In-Reply-To: <20040706202708.GA1385@outpost.ds9a.nl>
+To: James Morris <jmorris@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <Xine.LNX.4.44.0407071013080.26759-100000@thoron.boston.redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-bert hubert wrote:
-> On Tue, Jul 06, 2004 at 01:19:55PM -0700, David S. Miller wrote:
+On Wed, Jul 07, 2004 at 10:58:21AM -0400, James Morris wrote:
 > 
+> >  All of the dst->output functions already assumed that they have
+> > exclusive access to the skb. This is justified because all callers to
+> > dst_output() makes sure that the packet is neither shared nor cloned.
 > 
->>rather it do this, so that diagnosing dumps are easier.  If tcpdump
->>tries to be too clever, scaling the window, then I might end up
->>chasing down a tcpdump bug rather than a TCP one :-)
-> 
-> 
-> True - it might want to print '43 (*128=5706)' or something like that.
-> 
-> 
->>What would be more interesting is to get the tcpdump trace from the
->>other side of this connection.  This is crucial, as it will show how
->>and in what way exactly the window scale options and/or window fields
->>are being edited by a firewall or other device and thus causing
->>the problems.
-> 
-> 
-> I have an appointment with Alessandro tomorrow evening at 11PM CEST to do
-> just that.
+> Cloned skbs are regularly passed to dst_output(), thus we need to use the 
+> double pointer for skb_checksum_help() in case the skb is replaced.
 
-Sorry about being slightly late - I read the thread from my VPN
-  link (which does work), now I'm turning it off and will email
-  Bert with my actual IP address and my connection.
+OK.  Can you please tell me which caller of dst_output() passes
+a cloned skb to it?
 
-Thanks,
+I need to know this because if this is the case, we need fix the various
+IPsec output functions to copy the skb.
 
---alessandro
-
-  "Practice is more important than theory. A _lot_ more important."
-     (Linus Torvalds on lkml, 1 June 2004)
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
