@@ -1,11 +1,10 @@
 From: "chas williams (contractor)" <chas@cmf.nrl.navy.mil>
-Subject: [PATCH][ATM]: [drivers] use msleep() instead of schedule_timeout() (from Nishanth Aravamudan <nacc@us.ibm.com>)
-Date: Tue, 21 Sep 2004 16:29:19 -0400
+Subject: [PATCH]  [ATM]: [he] make code more readable with list_for_each_entry (from Domen Puncer <domen@coderock.org>)
+Date: Tue, 21 Sep 2004 16:30:23 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200409212029.i8LKTINv010576@ginger.cmf.nrl.navy.mil>
+Message-ID: <200409212030.i8LKUMug010619@ginger.cmf.nrl.navy.mil>
 Reply-To: chas3@users.sourceforge.net
-Cc: davem@redhat.com, Nishanth Aravamudan <nacc@us.ibm.com>,
-        kernel-janitors@lists.osdl.org
+Cc: davem@redhat.com, Domen Puncer <domen@coderock.org>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
@@ -13,78 +12,38 @@ List-Id: netdev.vger.kernel.org
 
 dave,
 
-this patch (from nacc@us.ibm.com) replaces assorted schedule_timeout()'s
-with msleep()'s.  please apply to 2.6.
+please apply to 2.6.
 
 thanks!
 
 # This is a BitKeeper generated diff -Nru style patch.
 #
 # ChangeSet
-#   2004/09/17 20:30:30-04:00 chas@relax.cmf.nrl.navy.mil 
-#   [ATM]: [drivers] use msleep() instead of schedule_timeout() (from Nishanth Aravamudan <nacc@us.ibm.com>)
+#   2004/09/17 21:09:56-04:00 chas@relax.cmf.nrl.navy.mil 
+#   [ATM]: [he] make code more readable with list_for_each_entry (from Domen Puncer <domen@coderock.org>)
 # 
-diff -Nru a/drivers/atm/firestream.c b/drivers/atm/firestream.c
---- a/drivers/atm/firestream.c	2004-09-21 12:48:17 -04:00
-+++ b/drivers/atm/firestream.c	2004-09-21 12:48:17 -04:00
-@@ -1704,8 +1704,7 @@
- 		}
- 
- 		/* Try again after 10ms. */
--		set_current_state(TASK_UNINTERRUPTIBLE);
--		schedule_timeout ((HZ+99)/100);
-+		msleep(10);
- 	}
- 
- 	if (!to) {
+# drivers/atm/he.c
+#   2004/09/17 21:08:45-04:00 chas@relax.cmf.nrl.navy.mil +2 -3
+# 
 diff -Nru a/drivers/atm/he.c b/drivers/atm/he.c
---- a/drivers/atm/he.c	2004-09-21 12:48:17 -04:00
-+++ b/drivers/atm/he.c	2004-09-21 12:48:17 -04:00
-@@ -2596,9 +2596,8 @@
+--- a/drivers/atm/he.c	2004-09-21 13:48:06 -04:00
++++ b/drivers/atm/he.c	2004-09-21 13:48:06 -04:00
+@@ -1963,7 +1963,7 @@
+ 	struct he_tpd *tpd;
+ 	int slot, updated = 0;
+ #ifdef USE_TPD_POOL
+-	struct list_head *p;
++	struct he_tpd *__tpd;
+ #endif
  
- 		while (((tx_inuse = atomic_read(&vcc->sk->sk_wmem_alloc)) > 0) &&
- 		       (retry < MAX_RETRY)) {
--			set_current_state(TASK_UNINTERRUPTIBLE);
--			(void) schedule_timeout(sleep);
--			if (sleep < HZ)
-+			msleep(sleep);
-+			if (sleep < 250)
- 				sleep = sleep * 2;
- 
- 			++retry;
-diff -Nru a/drivers/atm/idt77252.c b/drivers/atm/idt77252.c
---- a/drivers/atm/idt77252.c	2004-09-21 12:48:17 -04:00
-+++ b/drivers/atm/idt77252.c	2004-09-21 12:48:17 -04:00
-@@ -2516,7 +2516,7 @@
- 	struct vc_map *vc = vcc->dev_data;
- 	unsigned long flags;
- 	unsigned long addr;
--	int timeout;
-+	unsigned long timeout;
- 
- 	down(&card->mutex);
- 
-@@ -2566,9 +2566,9 @@
- 		}
- 		spin_unlock_irqrestore(&vc->lock, flags);
- 
--		timeout = 5 * HZ;
-+		timeout = 5 * 1000;
- 		while (atomic_read(&vc->scq->used) > 0) {
--			timeout = schedule_timeout(timeout);
-+			timeout = msleep_interruptible(timeout);
- 			if (!timeout)
- 				break;
- 		}
-diff -Nru a/drivers/atm/lanai.c b/drivers/atm/lanai.c
---- a/drivers/atm/lanai.c	2004-09-21 12:48:17 -04:00
-+++ b/drivers/atm/lanai.c	2004-09-21 12:48:17 -04:00
-@@ -813,7 +813,7 @@
- 			DPRINTK("read, write = %d, %d\n", read, write);
- 			break;
- 		}
--		schedule_timeout(HZ / 25);
-+		msleep(4);
- 	}
- 	/* 15.2.2 - clear out all tx registers */
- 	cardvcc_write(lvcc, 0, vcc_txreadptr);
+ 	/* 2.1.6 transmit buffer return queue */
+@@ -1978,8 +1978,7 @@
+ 			TBRQ_MULTIPLE(he_dev->tbrq_head) ? " MULTIPLE" : "");
+ #ifdef USE_TPD_POOL
+ 		tpd = NULL;
+-		list_for_each(p, &he_dev->outstanding_tpds) {
+-			struct he_tpd *__tpd = list_entry(p, struct he_tpd, entry);
++		list_for_each_entry(__tpd, &he_dev->outstanding_tpds, entry) {
+ 			if (TPD_ADDR(__tpd->status) == TBRQ_TPD(he_dev->tbrq_head)) {
+ 				tpd = __tpd;
+ 				list_del(&__tpd->entry);
