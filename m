@@ -1,57 +1,77 @@
-From: Kai Makisara <Kai.Makisara@kolumbus.fi>
-Subject: e1000 lockup in linux 2.6.9-rc2
-Date: Mon, 20 Sep 2004 23:53:15 +0300 (EEST)
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: e1000 lockup in linux 2.6.9-rc2
+Date: Mon, 20 Sep 2004 13:56:06 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0409202339050.2170@kai.makisara.local>
+Message-ID: <20040920135606.7a0885df.davem@davemloft.net>
+References: <Pine.LNX.4.58.0409202339050.2170@kai.makisara.local>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: ganesh.venkatesan@intel.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, ganesh.venkatesan@intel.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Kai Makisara <Kai.Makisara@kolumbus.fi>
+In-Reply-To: <Pine.LNX.4.58.0409202339050.2170@kai.makisara.local>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-When I started large data transfers in 100 Mb/s network, my computer very 
-soon locked totally (i.e., not responding to network, keyboard and mouse 
-dead). This had not happened for several days with 2.6.9-rc2 when the 
-network activity had been light (1 Mb/s DSL).
+On Mon, 20 Sep 2004 23:53:15 +0300 (EEST)
+Kai Makisara <Kai.Makisara@kolumbus.fi> wrote:
 
-Some experimentation showed that the lockups were caused by this patch 
-fragment in 2.6.9-rc2:
+> When I started large data transfers in 100 Mb/s network, my computer very 
+> soon locked totally (i.e., not responding to network, keyboard and mouse 
+> dead). This had not happened for several days with 2.6.9-rc2 when the 
+> network activity had been light (1 Mb/s DSL).
+> 
+> Some experimentation showed that the lockups were caused by this patch 
+> fragment in 2.6.9-rc2:
 
-diff -u b/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
---- b/drivers/net/e1000/e1000_main.c	2004-08-24 00:04:05 -07:00
-+++ b/drivers/net/e1000/e1000_main.c	2004-09-12 22:34:24 -07:00
-@@ -499,7 +499,9 @@
- 	if(pci_using_dac)
- 		netdev->features |= NETIF_F_HIGHDMA;
+Please make sure you have this patch in your
+tree, it should fix your problem:
+
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2004/09/13 12:58:04-07:00 ak@muc.de 
+#   [NET]: Fix missing spin lock in lltx path.
+#   
+#   This fixes a silly missing spin lock in the relock path. For some 
+#   reason it seems to still work when you don't have spinlock debugging
+#   enabled.
+#   
+#   Please apply.
+#   
+#   Thanks to Arjan's spinlock debug kernel for finding it.
+#   
+#   Signed-off-by: Andi Kleen <ak@muc.de>
+#   Signed-off-by: David S. Miller <davem@davemloft.net>
+# 
+# net/sched/sch_generic.c
+#   2004/09/13 12:57:46-07:00 ak@muc.de +3 -1
+#   [NET]: Fix missing spin lock in lltx path.
+#   
+#   This fixes a silly missing spin lock in the relock path. For some 
+#   reason it seems to still work when you don't have spinlock debugging
+#   enabled.
+#   
+#   Please apply.
+#   
+#   Thanks to Arjan's spinlock debug kernel for finding it.
+#   
+#   Signed-off-by: Andi Kleen <ak@muc.de>
+#   Signed-off-by: David S. Miller <davem@davemloft.net>
+# 
+diff -Nru a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+--- a/net/sched/sch_generic.c	2004-09-20 13:36:19 -07:00
++++ b/net/sched/sch_generic.c	2004-09-20 13:36:19 -07:00
+@@ -148,8 +148,10 @@
+ 					spin_lock(&dev->queue_lock);
+ 					return -1;
+ 				}
+-				if (ret == NETDEV_TX_LOCKED && nolock)
++				if (ret == NETDEV_TX_LOCKED && nolock) {
++					spin_lock(&dev->queue_lock);
+ 					goto collision; 
++				}
+ 			}
  
--
-+ 	/* hard_start_xmit is safe against parallel locking */
-+ 	netdev->features |= NETIF_F_LLTX; 
-+ 
- 	adapter->en_mng_pt = e1000_enable_mng_pass_thru(&adapter->hw);
- 
- 	/* before reading the EEPROM, reset the controller to 
-
-The computer has Intel D875PBZLK motherboard with 1 GB memory and 2.6 GHz 
-Pentium4 (HT). An SMP kernel has been used. lspci -vv gives the following 
-information about the NIC:
-
-0000:02:01.0 Ethernet controller: Intel Corp. 82547EI Gigabit Ethernet Controller (LOM)
-        Subsystem: Intel Corp.: Unknown device 3025
-        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
-        Status: Cap+ 66Mhz+ UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-        Latency: 0 (63750ns min), cache line size 10
-        Interrupt: pin A routed to IRQ 185
-        Region 0: Memory at ff8e0000 (32-bit, non-prefetchable)
-        Region 2: I/O ports at 9c00 [size=32]
-        Capabilities: [dc] Power Management version 2
-                Flags: PMEClk- DSI+ D1- D2- AuxCurrent=0mA PME(D0+,D1-,D2-,D3hot+,D3cold+)
-                Status: D0 PME-Enable- DSel=0 DScale=1 PME-
-
-(This kernel has MSI enabled and thus IRQ is 185. The hangup did occur 
-also without MSI.)
-
--- 
-Kai
+ 			/* NETDEV_TX_BUSY - we need to requeue */
