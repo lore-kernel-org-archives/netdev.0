@@ -1,33 +1,22 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [PATCH] Make xfrm subsystem optional
-Date: Sat, 14 Jun 2003 20:32:32 +0200
+From: "John S. Denker" <jsd@monmouth.com>
+Subject: decorum
+Date: Sat, 14 Jun 2003 14:49:45 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030614183232.GB23546@wotan.suse.de>
-References: <20030614093630.GB16993@wotan.suse.de> <20030614.023843.78709528.davem@redhat.com> <20030614101851.GA24170@wotan.suse.de> <20030614.042636.74749587.davem@redhat.com>
+Message-ID: <3EEB6E49.8040406@monmouth.com>
+References: <20030614093630.GB16993@wotan.suse.de> <20030614.023843.78709528.davem@redhat.com> <20030614101851.GA24170@wotan.suse.de> <20030614.042636.74749587.davem@redhat.com> <20030614183232.GB23546@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ak@suse.de, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20030614.042636.74749587.davem@redhat.com>
+To: netdev@oss.sgi.com
+In-Reply-To: <20030614183232.GB23546@wotan.suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jun 14, 2003 at 04:26:36AM -0700, David S. Miller wrote:
->    From: Andi Kleen <ak@suse.de>
->    Date: Sat, 14 Jun 2003 12:18:51 +0200
->    
->    Allocating it at first lookup would be racy (would need a nasty
->    spinlock at least). It may be possible at first policy setup, but
->    it's not guaranteed you can still get two 32K continuous areas. You
->    could fall back to vmalloc I guess.
-> 
-> Andi, you're getting rediculious.  Add a xfrm_whatever_init() call
-> and allocate the table there.
+Could we please have less ad-hominem invective
+and less profanity on this list?
 
-Did you actually read what I wrote? Allocating on init is useless
-from the bloat perspective because it's 100% equivalent to an BSS 
-allocation.
+If you have a good point to make, making it
+politely costs you nothing.
 
--Andi
+You know who you are.
