@@ -1,102 +1,34 @@
-From: Kyle McMartin <kyle@debian.org>
-Subject: [PATCH] IPsec: add support for Twofish and Serpent
-Date: Thu, 14 Aug 2003 12:48:19 -0400
+From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Subject: Re: [PATCH] (2/11) netrom - shorten destroy timeout
+Date: Thu, 14 Aug 2003 14:23:13 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030814164819.GA18948@imladris.debian.net>
+Message-ID: <20030814172312.GC1785@conectiva.com.br>
+References: <20030813153920.68d52970.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="LQksG6bCIzRHxTLp"
-Cc: netdev@oss.sgi.com, davem@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@redhat.com>, Jeroen Vreeken <pe1rxq@amsat.org>,
+   netdev@oss.sgi.com, linux-hams@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jmorris@intercode.com.au
+To: Stephen Hemminger <shemminger@osdl.org>
 Content-Disposition: inline
+In-Reply-To: <20030813153920.68d52970.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Em Wed, Aug 13, 2003 at 03:39:20PM -0700, Stephen Hemminger escreveu:
+> 
+> From: Jeroen Vreeken <pe1rxq@amsat.org>
+> 
+> Expire sockets faster on close
+> 
+> diff -Nru a/net/netrom/af_netrom.c b/net/netrom/af_netrom.c
+> --- a/net/netrom/af_netrom.c	Wed Aug 13 11:58:31 2003
+> +++ b/net/netrom/af_netrom.c	Wed Aug 13 11:58:31 2003
+> @@ -269,7 +269,7 @@
+>  	    atomic_read(&sk->sk_rmem_alloc)) {
+>  		/* Defer: outstanding buffers */
+>  		init_timer(&sk->sk_timer);
+> -		sk->sk_timer.expires  = jiffies + 10 * HZ;
+> +		sk->sk_timer.expires  = jiffies + 2 * HZ;
 
---LQksG6bCIzRHxTLp
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-
-This patch adds support for the use of twofish and serpent as
-ESP algorithms. The ESP index numbers given are in accordance
-with RFC2407, draft-ietf-ipsec-ciph-aes-cbc-00 (before Rijndael
-was selected), and KAME which assigns 253 to twofishcbc.
-
-Support for using twofish was requested on linux-kernel, and
-since I noticed serpent was missing too, included that as well.
-
-Regards,
--- 
-Kyle McMartin <kyle@debian.org>
-1024D/191FCD8A - 331A 9468 C04D 3A76 5C56  BA68 7EB7 92DF 191F CD8A
-2048R/F515317D -   68 A9 0D 28 1B DF 8D 42  0F CC AF 98 A8 D5 A4 04
-
---LQksG6bCIzRHxTLp
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="pfkeyv2.diff"
-
---- linux-2.6.0-test3-mm2/include/linux/pfkeyv2.h.old	2003-08-14 10:11:32.000000000 -0400
-+++ linux-2.6.0-test3-mm2/include/linux/pfkeyv2.h	2003-08-14 11:30:46.000000000 -0400
-@@ -284,7 +284,10 @@
- #define SADB_X_EALG_BLOWFISHCBC		7
- #define SADB_EALG_NULL			11
- #define SADB_X_EALG_AESCBC		12
--#define SADB_EALG_MAX			12
-+#define SADB_EALG_MAX                   253 /* last EALG */
-+/* private allocations should use 249-255 (RFC2407) */
-+#define SADB_X_EALG_SERPENTCBC  252     /* draft-ietf-ipsec-ciph-aes-cbc-00 */
-+#define SADB_X_EALG_TWOFISHCBC  253     /* draft-ietf-ipsec-ciph-aes-cbc-00 */
- 
- /* Compression algorithms */
- #define SADB_X_CALG_NONE		0
-
---LQksG6bCIzRHxTLp
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="xfrm_algo.diff"
-
---- linux-2.6.0-test3-mm2/net/xfrm/xfrm_algo.c.old	2003-08-14 10:15:04.000000000 -0400
-+++ linux-2.6.0-test3-mm2/net/xfrm/xfrm_algo.c	2003-08-14 11:06:20.000000000 -0400
-@@ -217,6 +217,40 @@
- 		.sadb_alg_maxbits = 256
- 	}
- },
-+{
-+        .name = "serpent",
-+
-+        .uinfo = {
-+                .encr = {
-+                        .blockbits = 128,
-+                        .defkeybits = 128,
-+                }
-+        },
-+
-+        .desc = {
-+                .sadb_alg_id = SADB_X_EALG_SERPENTCBC,
-+                .sadb_alg_ivlen = 8,
-+                .sadb_alg_minbits = 128,
-+                .sadb_alg_maxbits = 256,
-+        }
-+},
-+{
-+        .name = "twofish",
-+                 
-+        .uinfo = {
-+                .encr = {
-+                        .blockbits = 128,
-+                        .defkeybits = 128,
-+                }
-+        },
-+
-+        .desc = {
-+                .sadb_alg_id = SADB_X_EALG_TWOFISHCBC,
-+                .sadb_alg_ivlen = 8,
-+                .sadb_alg_minbits = 128,
-+                .sadb_alg_maxbits = 256
-+        }
-+},
- };
- 
- static struct xfrm_algo_desc calg_list[] = {
-
---LQksG6bCIzRHxTLp--
+has this to be a magic fixed number? sysctl?
