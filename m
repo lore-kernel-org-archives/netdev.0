@@ -1,58 +1,39 @@
-From: "bunty " <bunty123_4@rediffmail.com>
-Subject: unable to call ntohs function in kernel module
-Date: 3 Dec 2004 10:20:29 -0000
-Message-ID: <20041203102029.23445.qmail@webmail25.rediffmail.com>
-Reply-To: "bunty " <bunty123_4@rediffmail.com>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: Steps for netdev-2.6 inclusion?
+Date: Fri, 3 Dec 2004 10:33:39 +0000
+Message-ID: <20041203103339.GB10799@infradead.org>
+References: <41AE7143.80505@linux.intel.com> <41AEB3B8.2000406@pobox.com> <41AF7708.3030804@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="Next_1102069228---0-203.199.83.147-23428"
-Cc: netdev@oss.sgi.com
-Return-path: <kernelnewbies-bounce@nl.linux.org>
-To: kernelnewbies@nl.linux.org
-Sender: kernelnewbies-bounce@nl.linux.org
-Errors-to: kernelnewbies-bounce@nl.linux.org
-List-help: <mailto:ecartis@nl.linux.org?Subject=help>
-List-unsubscribe: <mailto:kernelnewbies-request@nl.linux.org?Subject=unsubscribe>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:kernelnewbies-request@nl.linux.org?Subject=subscribe>
-List-owner: <mailto:ecartis-owner@nl.linux.org>
-List-post: <mailto:kernelnewbies@nl.linux.org>
-List-archive: <http://mail.nl.linux.org/kernelnewbies/>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, Netdev <netdev@oss.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: James Ketrenos <jketreno@linux.intel.com>
+Content-Disposition: inline
+In-Reply-To: <41AF7708.3030804@linux.intel.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
- This is a multipart mime message
+On Thu, Dec 02, 2004 at 02:11:52PM -0600, James Ketrenos wrote:
+> Jeff Garzik wrote:
+> 
+> >It's fairly easy, just email me and netdev the patch for inclusion, 
+> >and it'll get reviewed.
+> 
+> Should I break the patch into the three components (ipw2100, ipw2200, 
+> and ieee80211) ? or just one huge patch?  Not sure what you and others 
+> would prefer.
 
+Please split it in three parts.  And most importantly integrate your
+ieee80211 code with the hostap code in Jeff's queue, we really don't
+want two copies of it.
 
---Next_1102069228---0-203.199.83.147-23428
-Content-type: text/plain;
-	charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+> The firmware doesn't have to be downloaded from Sourceforge, but it does 
+> need to exist on the system, just as iwconfig needs to exist if you want 
+> to be able to configure your wireless card.  The user can get the 
+> firmware from Sourceforge, or have it installed by their distribution or 
+> package management system, have it on their Knoppix CD, etc. 
 
-hello,=0AWhat i observed about noths with respect to Fedora core 1 kernel i=
-s that if i write a simple network C program i can call ntohl, ntohs,htonl,=
-htons from netinet/in.h but same if i call from kernel module why it gives =
-ntohs unresolved symbol error?=0AAlso if try to include netinet/in.h it wil=
-l give me errors at compile time.=0A=0Aregards,=0Aparag.=0A
---Next_1102069228---0-203.199.83.147-23428
-Content-type: text/html;
-	charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
-
-<P>=0Ahello,<BR>=0AWhat i observed about noths with respect to Fedora core =
-1 kernel is that if i write a simple network C program i can call ntohl, nt=
-ohs,htonl,htons from netinet/in.h but same if i call from kernel module why=
- it gives ntohs unresolved symbol error?<BR>=0AAlso if try to include netin=
-et/in.h it will give me errors at compile time.<BR>=0A<BR>=0Aregards,<BR>=
-=0Aparag.<BR>=0A=0A</P>=0A<br><br>=0A<A target=3D"_blank" HREF=3D"http://cl=
-ients.rediff.com/signature/track_sig.asp"><IMG SRC=3D"http://ads.rediff.com=
-/RealMedia/ads/adstream_nx.cgi/www.rediffmail.com/inbox.htm@Bottom" BORDER=
-=3D0 VSPACE=3D0 HSPACE=3D0></a>=0A
---Next_1102069228---0-203.199.83.147-23428--
-
-
---
-Kernelnewbies: Help each other learn about the Linux kernel.
-Archive:       http://mail.nl.linux.org/kernelnewbies/
-FAQ:           http://kernelnewbies.org/faq/
+The problem is again that the license for it is horrible multi page
+legaleese.  Please change it to a simple license that allows completely
+free redistribution and modification of the binaries.
