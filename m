@@ -1,61 +1,46 @@
-From: Christian Kujau <evil@g-house.de>
-Subject: Re: 2.6.7-rc3: waiting for eth0 to become free
-Date: Thu, 10 Jun 2004 00:48:46 +0200
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] e1000 - get rid of tx_lock
+Date: Thu, 10 Jun 2004 00:50:21 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40C793CE.6000609@g-house.de>
-References: <1086722310.1682.1.camel@teapot.felipe-alfaro.com>	 <20040608124215.291a7072@dell_ss3.pdx.osdl.net>	 <1086725369.1806.1.camel@teapot.felipe-alfaro.com>	 <20040608140200.2ddaa6f4@dell_ss3.pdx.osdl.net> <1086794282.1706.2.camel@teapot.felipe-alfaro.com>
+Message-ID: <20040610005021.A10503@electric-eye.fr.zoreil.com>
+References: <20040608102729.620dd1fc@dell_ss3.pdx.osdl.net> <20040609144120.1655eee0@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: NetDev Mailinglist <netdev@oss.sgi.com>,
-        Kernel Mailinglist <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeb Cramer <cramerj@intel.com>, John Ronciak <john.ronciak@intel.com>,
+        Ganesh Venkatesan <ganesh.venkatesan@intel.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Felipe Alfaro Solana <felipe_alfaro@linuxmail.org>
-In-Reply-To: <1086794282.1706.2.camel@teapot.felipe-alfaro.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20040609144120.1655eee0@dell_ss3.pdx.osdl.net>; from shemminger@osdl.org on Wed, Jun 09, 2004 at 02:41:20PM -0700
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+Stephen Hemminger <shemminger@osdl.org> :
+> The e1000 driver has an tx_lock which unneeded.  It is only used to protect
+> the start/stop queue flags which are already handled by doing atomic bit
+> operations.
 
-Felipe Alfaro Solana <felipe_alfaro@linuxmail.org> wrote:
-|>What is happening is that some subsystem is holding a reference to the
-device (calling dev_hold())
-|>but not cleaning up (calling dev_put).  It can be a hard to track
-which of the many
-|>things routing, etc are not being cleared properly.  Look for routes
-that still
-|>get stuck (ip route) and neighbor cache entries.  Most of these end up
-being
-|>protocol bugs.
-|
-|
-| The two attached patches, one for net/ipv4/route.c, the other for net/
-| ipv6/route.c fix all my problems when running "cardctl eject" while a
-| program mantains an open network socket (ESTABLISHED).
-|
-| Both patches apply cleanly against 2.6.7-rc3 and 2.6.7-rc3-mm1.
-| I'm not completely sure what has changed in 2.6.7-rc3 that is breaking
-| cardctl for me, as it Just Worked(TM) fine in 2.6.7-rc2.
+I am not terribly used to this code but as far as I can read it, the lock
+avoids that the condition which leads to netif_stop_queue() in the xmit
+thread changes (due to an irq) "just before" netif_stop_queue() is actually
+called. 
 
-do you know, by any chance, if this error is dependent to eth0 only or
-could help for my error message too:
+So, if the lock is removed, I would be tempted to have the xmit thread
+issue an smp_rmb() and revalidate that it was fine to netif_stop_queue().
 
-unregister_netdevice: waiting for ppp0 to become free. Usage count = 1
+Otherwise, one could have:
 
-happened just a few hours ago (2.6.7-rc3), i had to reboot the box
-anyway, but pppd was not able to die (even with kill -9)
+[e1000_xmit_frame]
+	if (E1000_DESC_UNUSED(&adapter->tx_ring) < count + 2 ) {
+	<- at the same time on a different CPU ->
+	[...]
+	e1000_clean_tx_irq::netif_wake_queue() // Plenty of room has been made
+	[...]
+	<- back to e1000_xmit_frame() ->
+		netif_stop_queue
+		return 1; 
+	}
 
-Christian.
-- --
-BOFH excuse #258:
 
-That's easy to fix, but I can't be bothered.
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-Comment: Using GnuPG with Thunderbird - http://enigmail.mozdev.org
-
-iD8DBQFAx5PN+A7rjkF8z0wRAuR+AJ41024qDMPVWYlVeofUZ6N50E3oRwCfeqhs
-/GxxIqmDbClJXw/i2WNhJt4=
-=lHgP
------END PGP SIGNATURE-----
+--
+Ueimor
