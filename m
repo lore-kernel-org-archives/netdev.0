@@ -1,29 +1,24 @@
-From: "David S. Miller" <davem@redhat.com>
+From: kuznet@ms2.inr.ac.ru
 Subject: Re: automatic keying works! Re: off by one error in 3des cbc keying
-Date: Mon, 18 Nov 2002 12:10:47 -0800 (PST)
+Date: Mon, 18 Nov 2002 23:20:13 +0300 (MSK)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021118.121047.99725598.davem@redhat.com>
-References: <20021118195618.GA22603@outpost.ds9a.nl>
-	<200211182004.XAA12908@sex.inr.ac.ru>
+Message-ID: <200211182020.XAA22559@sex.inr.ac.ru>
+References: <20021118.121047.99725598.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
 Cc: ahu@ds9a.nl, gem@asplinux.ru, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
-In-Reply-To: <200211182004.XAA12908@sex.inr.ac.ru>
+To: davem@redhat.com (David S. Miller)
+In-Reply-To: <20021118.121047.99725598.davem@redhat.com> from "David S. Miller" at Nov 18, 2 12:10:47 pm
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: kuznet@ms2.inr.ac.ru
-   Date: Mon, 18 Nov 2002 23:04:47 +0300 (MSK)
-   
-   > I did turn on CONFIG_XFRM_USER, does it conflict with PF_KEY?
-   
-   Yes, their interaction is still... mmm... not polished.
-   Build both xfrm_user and af_key as modules and load only one for now.
-   
-You added xfrm netlink support to libipsec?
+Hello!
 
-If not, the only thing which should get in the way is that there
-are two key managers registered but that should "just work" :)
+> If not, the only thing which should get in the way is that there
+> are two key managers registered but that should "just work" :)
+
+At the moment km_acquire stops after the first manager accepts the acquisition.
+Both of them always accept, so that guy how stands first in the list,
+wins, another sees nothing.
+
+Alexey
