@@ -1,63 +1,60 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [ANNOUNCE] NF-HIPAC: High Performance Packet Classification
-Date: Thu, 26 Sep 2002 08:03:32 -0400 (EDT)
+From: "Gautier Harmel" <Gautier.Harmel@qosmos.net>
+Subject: TR : Bug with NIC card Adlink PCI 8214 (Intel 82559 based) under linux
+Date: Thu, 26 Sep 2002 15:03:28 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.30.0209260739030.29224-100000@shell.cyberus.ca>
-References: <20020926.020602.75761707.davem@redhat.com>
+Message-ID: <003401c2655d$1ede6350$0d02a8c0@bananier>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: <ratz@drugphish.ch>, <ak@suse.de>, <niv@us.ibm.com>,
-   <linux-kernel@vger.kernel.org>, <netdev@oss.sgi.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20020926.020602.75761707.davem@redhat.com>
+To: <linux.nics@intel.com>, <netdev@oss.sgi.com>,
+   <linux-kernel@vger.kernel.org>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi,
+ 
+I found bug using the Adlink PCI8214 nic card based on an Intel 82559
+under Linux.
+ 
+This bug occurs under a Linux 2.4.17 (e100 driver version 2.1.15 found
+on the Intel web site) using the bridge functionality.
+I didn't try using an earlier version of linux kernel.
+ 
+I used LKCD (linux kernel crash debugger) to further investigate what
+happens.
+Here are my conclusions :
+ 
+1)    the bug occurs in skb_checksum_help function (linux/net/core.dev.c
+file)
+2)       the disassembly code involved is:
+     7c7:   0f 0b                   ud2a   
+     7c9:   89 c8                   mov    %ecx,%eax
+     7cb:   c1 e1 10                shl    $0x10,%ecx
+     7ce:   25 00 00 ff ff          and    $0xffff0000,%eax
+     7d3:   01 c8                   add    %ecx,%eax
+     7d5:   15 ff ff 00 00          adc    $0xffff,%eax
+     7da:   f7 d0                   not    %eax
+     7dc:   c1 e8 10                shr    $0x10,%eax
+     7df:   66 89 04 3e             mov    %ax,(%esi,%edi,1)
+     7e3:   89 d8                   mov    %ebx,%eax
+     7e5:   c6 43 6b 00             movb   $0x0,0x6b(%ebx)
+ 
+3)    I think that this assembly code is the following line in
+skb_checksum_help:
+(*u16*)(skb->h.raw + skb->csum) = csum_fold(csum); (line 933)
+ 
+ 
+Maybe skb->h.raw is a bad pointer ???
+ 
+Thanks for help
+ 
+Please CC me in your answer, while I didn't subscribe to any of the
+mailing list
+ 
+Jerome Tollet
+Jerome.tollet@qosmos.net
 
-It would be nice if people would start ccing networking related
-discussions to netdev. I missed the first part of the discussion
-but i take it the NF-HIPAC posted a patch.. BTW, I emailed the authors
-when i read the paper but never heard back.
-What i wanted the authors was to compare against one of the tc
-classifiers not iptables.
 
-On Thu, 26 Sep 2002, David S. Miller wrote:
-
-> You are talking about a lot of independant things, but I'm going
-> to defer my contributions until we have actual code people can
-> start plugging netfilter into if they want.
->
-
-I hacked some code using the traffic control framework around OLS time;
-there are a lot of ideas i havent incorporated yet. Too many hacks, too
-little time ;-> I think this is what i may have showed Roberto on my
-laptop over a drink.
-I probably wouldnt have put this code out if my complaints about
-netfilter werent ignored.
-And you know what happens when you start writting poetry, I ended worrying
-more than just about the performance problems of iptables; for example
-the code i have now makes it easy to extend the path a packet takes using
-simple policies.
-The code i have is based around tc framework. One thing i liked about
-netfilter is the idea of targets being separate modules; so the code i
-have infact makes uses of netfilter targets.
-I plan on revisiting this code at some point, maybe this weekend now that
-i am reminded of it ;->
-Take a look:
-http://www.cyberus.ca/~hadi/patches/action.DESCRIPTION
-
-> About using syslog to record messages, that is doomed to failure,
-> implement log messages via netlink and use that to log the events
-> instead.
->
-
-Agreed, you need a netlink to syslog converter.
-Netlink is king -- all the policies in the above code are netlink
-controlled. All events are also netlink transported. You dont have to send
-every little message you see; netlink allows you to batch and you could
-easily do a nagle like algorithm. Next steps are a distributed version
-of netlink..
-
-cheers,
-jamal
+[[HTML alternate version deleted]]
