@@ -1,74 +1,61 @@
-From: Adrian Bunk <bunk@fs.tum.de>
-Subject: Re: SCTP config 2.5.70(-bk)
-Date: Tue, 3 Jun 2003 15:03:08 +0200
+From: Martin Josefsson <gandalf@wlug.westbo.se>
+Subject: Re: fix TCP roundtrip time update code
+Date: 03 Jun 2003 19:41:11 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030603130308.GC27168@fs.tum.de>
-References: <5.1.0.14.2.20030602094232.00aeda18@pop.t-online.de>
+Message-ID: <1054662070.701.6.camel@tux.rsn.bth.se>
+References: <200306031552.h53FqknC023999@napali.hpl.hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, linux-kernel@vger.kernel.org,
+   linux-ia64@linuxia64.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Margit Schubert-While <margitsw@t-online.de>,
-   lksctp-developers@lists.sourceforge.net
-Content-Disposition: inline
-In-Reply-To: <5.1.0.14.2.20030602094232.00aeda18@pop.t-online.de>
+To: davidm@hpl.hp.com
+In-Reply-To: <200306031552.h53FqknC023999@napali.hpl.hp.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 02, 2003 at 09:53:04AM +0200, Margit Schubert-While wrote:
+(trimmed CC line and added netdev)
 
-> CONFIG_IPV6_SCTP__   is always being set to "y" even though
-> not selected (CONFIG_IPV6 not set)
+On Tue, 2003-06-03 at 17:52, David Mosberger wrote:
+> One of those very-hard-to-track-down, trivial-to-fix kind of problems:
+> without this patch, TCP roundtrip time measurements will corrupt the
+> routing cache's RTT estimates under heavy network load (the bug causes
+> RTAX_RTT to go negative, but since its type is u32, you end up with a
+> huge positive value...).  From there on, later TCP connections quickly
+> will go south.
+> 
+> The typo was introduced 8 months ago in v1.29 of the file by the patch
+> entitled "Cleanup DST metrics and abstrct MSS/PMTU further".
 
-First, this doesn't do any harm since CONFIG_IPV6_SCTP__ alone doensn't 
-result in anything getting compiled.
+I tested this patch and it looks like it has cured my mysterious TCP
+stalls.
 
-But besides, it seems a bit broken.
+without patch:
 
->From net/sctp/Kconfig:
+    cache  mtu 1500 rtt 479411ms rttvar 953813ms cwnd 46 advmss 1460
 
-<--  snip  -->
+I see that before and during the stall if not using this patch.
+(rtt is never above 20ms accoring to ping)
 
-...
+With the patch I see normal rtt and rttvar times.
+Havn't seen a stall yet (~30 kernelcompiles with distcc over a sometimes
+congested link), will continue testing.
 
-config IPV6_SCTP__
-        tristate
-        default y if IPV6=n
-        default IPV6 if IPV6
-
-config IP_SCTP
-        tristate "The SCTP Protocol (EXPERIMENTAL)"
-        depends on IPV6_SCTP__
-...
-
-<--  snip  -->
-
-
-Semantically equivalent is the following for IPV6_SCTP__:
-
-config IPV6_SCTP__
-        tristate
-        default y if IPV6=n || IPV6=y
-	default m if IPV6=m
-
-
-If it was intended to disallow a static IP_SCTP with a modular IPV6 it 
-doesn't work: It's perfectly allowed to set IPV6=n and IP_SCTP=y and 
-later compile and install a modular IPV6 for the same kernel.
-
-
-Could someone from the SCTP developers comment on the intentions behind 
-IPV6_SCTP__ ?
-
-
-> Margit
-
-cu
-Adrian
+> ===== net/ipv4/tcp_input.c 1.36 vs edited =====
+> --- 1.36/net/ipv4/tcp_input.c	Mon Apr 28 09:27:57 2003
+> +++ edited/net/ipv4/tcp_input.c	Tue Jun  3 08:19:36 2003
+> @@ -556,8 +556,8 @@
+>  			if (m >= dst_metric(dst, RTAX_RTTVAR))
+>  				dst->metrics[RTAX_RTTVAR-1] = m;
+>  			else
+> -				dst->metrics[RTAX_RTT-1] -=
+> -					(dst->metrics[RTAX_RTT-1] - m)>>2;
+> +				dst->metrics[RTAX_RTTVAR-1] -=
+> +					(dst->metrics[RTAX_RTTVAR-1] - m)>>2;
+>  		}
+>  
+>  		if (tp->snd_ssthresh >= 0xFFFF) {
 
 -- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+/Martin
