@@ -1,8 +1,8 @@
 From: Don Fry <brazilnut@us.ibm.com>
-Subject: [PATCH 2.6.6-bk8] pcnet32: fix bogus carrier errors with 79c973
-Date: Mon, 24 May 2004 12:33:07 -0700 (PDT)
+Subject: [PATCH 2.4.27-pre3] pcnet32: fix bogus carrier errors with 79c973
+Date: Mon, 24 May 2004 12:35:02 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200405241933.i4OJX8024523@DYN318364BLD.beaverton.ibm.com>
+Message-ID: <200405241935.i4OJZ3a24539@DYN318364BLD.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -19,8 +19,8 @@ as errors, and caused 975 and 976 to hard hang when reading bcr34.
 My thanks to Bruce Penrod for his help in finding the cause of this
 bug.
 
---- linux-2.6.6-bk8/drivers/net/limit.pcnet32.c	Sat May 22 15:16:50 2004
-+++ linux-2.6.6-bk8/drivers/net/pcnet32.c	Mon May 24 11:24:22 2004
+--- linux-2.4.27-pre3/drivers/net/limit.pcnet32.c	Mon May 24 11:35:30 2004
++++ linux-2.4.27-pre3/drivers/net/pcnet32.c	Mon May 24 11:35:41 2004
 @@ -22,8 +22,8 @@
   *************************************************************************/
  
@@ -79,7 +79,7 @@ bug.
      }
  
      if (!(csr0 & 0x0004)) {	/* If not stopped */
-@@ -1751,6 +1763,9 @@
+@@ -1750,6 +1762,9 @@
  		    /* There was an major error, log it. */
  		    int err_status = le32_to_cpu(lp->tx_ring[entry].misc);
  		    lp->stats.tx_errors++;
@@ -89,7 +89,7 @@ bug.
  		    if (err_status & 0x04000000) lp->stats.tx_aborted_errors++;
  		    if (err_status & 0x08000000) lp->stats.tx_carrier_errors++;
  		    if (err_status & 0x10000000) lp->stats.tx_window_errors++;
-@@ -2116,39 +2131,33 @@
+@@ -2109,39 +2124,33 @@
      spin_unlock_irqrestore(&lp->lock, flags);
  }
  
