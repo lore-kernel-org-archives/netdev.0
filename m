@@ -1,53 +1,33 @@
-From: Mitchell Blank Jr <mitch@sfgoth.com>
-Subject: Re: Recent select() handling change breaks Poptop
-Date: Mon, 6 Dec 2004 21:48:40 -0800
-Message-ID: <20041207054840.GD61527@gaz.sfgoth.com>
-References: <20041207003525.GA22933@linuxace.com> <20041207025218.GB61527@gaz.sfgoth.com> <20041207045302.GA23746@linuxace.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Hard freeze with 2.6.10-rc3 and QoS, worked fine with 2.6.9
+Date: Tue, 07 Dec 2004 07:35:06 +0100
+Message-ID: <41B54F1A.6050905@trash.net>
+References: <1102380430.6103.6.camel@buffy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@osdl.org, linux-net@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Phil Oester <kernel@linuxace.com>
-Content-Disposition: inline
-In-Reply-To: <20041207045302.GA23746@linuxace.com>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261770AbULGGf3@vger.kernel.org>
+To: Thomas Cataldo <tomc@compaqnet.fr>
+In-Reply-To: <1102380430.6103.6.camel@buffy>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-(adding netdev to cc:)
+Thomas Cataldo wrote:
 
-Phil Oester wrote:
-> >   2. a "tcpdump -nvv" of its udp traffic (ideally captured from a seperate
-> >      server, but from the server would probably be OK too)
-> 
-> PPTP uses TCP 1723 and GRE (proto 47), so there is no udp traffic involved.
-> I suspect the change was made to all datagram traffic with the assumption 
-> that UDP was the only protocol impacted.  Perhaps GRE was not considered?
+>Hi,
+>
+>Tonight I upgraded to 2.6.10-rc3. Everything was fine until I started
+>wondershaper to setup my Qos rules :
+>
+>wondershaper eth0 255 16
+>
+>And the machine freezed hard. No magic sysrq working, no oops in my
+>logs.
+>  
+>
+Please try to find out which line causes the lockup. Are you
+using the same config options as with 2.6.9 ?
 
-Yeah, it looks like the problem for sure.  The patch modifies the
-structure "inet_dgram_ops" to use udp_poll(), but looking farther down:
-
-static struct inet_protosw inetsw_array[] =
-[...]
-                .type =       SOCK_DGRAM,
-                .protocol =   IPPROTO_UDP,
-                .prot =       &udp_prot,
-                .ops =        &inet_dgram_ops,
-[...]
-               .type =       SOCK_RAW,
-               .protocol =   IPPROTO_IP,        /* wild card */
-               .prot =       &raw_prot,
-               .ops =        &inet_dgram_ops,
-[...]
-
-so it looks like udp_poll() will end up getting used for both SOCK_DGRAM
-and SOCK_RAW inet sockets; obviously Poptop is using the latter and failing
-as a result.  No need for the strace/tcpdump data I guess.
-
-The fix is to just make a copy of the inet_dgram_ops called inet_udp_ops
-and make the udp_poll() change only in that one (and obviously change the
-SOCK_DGRAM case there to use &inet_udp_ops).  I don't have time right this
-second to spin a patch, but could you try that out and see if it fixes
-your problem.
-
--Mitch
+Regards
+Patrick
