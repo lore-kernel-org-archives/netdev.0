@@ -1,35 +1,51 @@
 From: Daniele Venzano <webvenza@libero.it>
-Subject: Re: [PATCH 5/5] sis900 printk and stack usage audit
-Date: Sun, 12 Dec 2004 09:27:20 +0100
-Message-ID: <20041212082720.GD3084@picchio.gall.it>
-References: <20041208104721.GA31707@picchio.gall.it> <20041208111010.GF31707@picchio.gall.it> <41BB4662.7010105@pobox.com>
+Subject: [PATCH 0/5] sis900 debugging and revision code
+Date: Sun, 12 Dec 2004 13:18:52 +0100
+Message-ID: <20041212121852.GA16325@gateway.milesteg.arr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: NetDev <netdev@oss.sgi.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="/04w6evG8XlLl3ft"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+To: NetDev <netdev@oss.sgi.com>, Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <41BB4662.7010105@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Dec 11, 2004 at 02:11:30PM -0500, Jeff Garzik wrote:
-> Daniele Venzano wrote:
-> >Change comment to reflect changes in parameters od sis630_set_eq
-> 
-> OK, but not applied due to comments on previous patches
 
-Dropped, since I dropped patch 4/5.
-In the end I'll do new patches for the debugging stuff following netif
-standard (I didn't know of those :-( ) and rediff the chipset revision
-stuff.
+--/04w6evG8XlLl3ft
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-I hope to send these two or three patches later on today.
+New set of patches, following Jeff comments on my previous posts.
+Patches are tested and are against latest netdev-2.6 tree
 
-Thanks, bye.
+After applying all these patches you get:
+- sis900 debug output filtered with netif_msg macros
+- ethtool support for changing debug output
+- Correct printk() logging level
+- simplification of chip revision code
+
+As usual they are available also from:
+http://teg.homeunix.org/sis900.html
 
 -- 
 -----------------------------
 Daniele Venzano
 Web: http://teg.homeunix.org
+
+
+--/04w6evG8XlLl3ft
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (GNU/Linux)
+
+iD8DBQFBvDcs2rmHZCWzV+0RArG+AJ9IqbeS7uY0SCP9cqxH60eQQKnY3wCgr3nU
+7y1VayxoWHUAdOLTib1nKpk=
+=3y+R
+-----END PGP SIGNATURE-----
+
+--/04w6evG8XlLl3ft--
