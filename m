@@ -1,81 +1,30 @@
-From: Steve Modica <modica@sgi.com>
-Subject: Re: RST business
-Date: Thu, 22 Apr 2004 09:11:42 -0500
+From: Florian Weimer <fw@deneb.enyo.de>
+Subject: Re: tcp vulnerability?  haven't seen anything on it here...
+Date: Fri, 23 Apr 2004 12:31:02 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4087D29E.6010907@sgi.com>
-References: <40875F2F.7010204@swapped.cc>
+Message-ID: <87smevrno9.fsf@deneb.enyo.de>
+References: <Pine.LNX.4.44.0404221030240.2738-100000@paix.pilosoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
-        Michael Rozhavsky <mike@minantech.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Alex Pankratov <ap@swapped.cc>
-In-Reply-To: <40875F2F.7010204@swapped.cc>
+To: alex@pilosoft.com
+In-Reply-To: <Pine.LNX.4.44.0404221030240.2738-100000@paix.pilosoft.com> (alex@pilosoft.com's
+ message of "Thu, 22 Apr 2004 10:37:42 -0400 (EDT)")
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-If one of the potential causes for RST is that SEQ/ACK synchronization 
-has been lost, then you can't do this.
+alex@pilosoft.com writes:
 
-Alex Pankratov wrote:
-> 
-> Looking at the hype around 'TCP vulnerability' the following
-> occured to me, and I wonder if it makes any sense -
-> 
-> A host may recieve legitimate RST packet only in response to
-> something that it has previously sent (let's call it a 'trigger').
-> 
-> SEQ/ACK values in RST packet are correlated to SEQ/ACK of the
-> trigger. If the correlation is not there, then RST packet is
-> most certainly spoofed and should be dropped even if its SEQ
-> falls into host's rcpt window.
-> 
-> In other words, it seems to be possible to stregthen ingress
-> RST checking (and thus better protect against blind RST attacks)
-> while maintaining _full RFC compliance_. Here's a how-to sketch.
-> 
->     RFC 793 (page 35) states that for the connection in
->     non-established state -
-> 
->     If the incoming segment has an ACK field, the reset takes its
->     sequence number from the ACK field of the segment, otherwise
->     the reset has sequence number zero and the ACK field is set to
->     the sum of the sequence number and segment length of the incoming
->     segment.
-> 
-> Hence the second RST check (after standard window check) is
-> 
->     if (! pkt->seq)
->         check if we've recently sent a segment without
->         an ACK with (pkt->ack - pkt->seq) bytes in it
->     else
->         check if we've recently sent a segment with ACK
->         of (pkt->seq) and with (pkt->ack - pkt->seq)
->         bytes in it
-> 
-> If RST passes the check, it's accepted. Otherwise checks continue.
-> 
->     RFC 793 (page 36) states that for the connection in
->     established state -
-> 
->     .. elicit only an empty
->     acknowledgment segment containing the current send-sequence number
->     and an acknowledgment indicating the next sequence number expected
->     to be received ..
-> 
-> At this point seeing a RST means that
-> (a) remote host is an ESTABLISHED state
-> (b) we sent a segment that it considers not to be a part of the
->     current connection
-> 
-> And (b) is something that we can always check since we're now sure
-> about (a).
-> 
-> The above obviously requires keeping some sort of 'outbound history',
-> plus (b) involves some non-trivial logic, which however seems to be
-> doable from the first glance.
-> 
-> Comments ?
-> 
-> Alex
+> Not quite. With a SYN you have to respond with exactly the same sequence 
+> number as attacking host in order to establish connection. With RST, your 
+> sequence number needs to be +- rwin in order to kill the connection. That 
+> significantly reduces search space.
+
+Don't forget that you can tear down a connection by sending a SYN in
+the correct window as well.
+
+-- 
+Current mail filters: many dial-up/DSL/cable modem hosts, and the
+following domains: atlas.cz, bigpond.com, postino.it, tiscali.co.uk,
+tiscali.cz, tiscali.it, voila.fr.
