@@ -1,8 +1,8 @@
 From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: [PATCH] ipx: remove MOD_{INC,DEC}_USE_COUNT
-Date: Sun, 27 Apr 2003 12:03:02 -0300
+Subject: [PATCH] llc: remove MOD_{INC,DEC}_USE_COUNT
+Date: Sun, 27 Apr 2003 12:18:25 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030427150302.GC15637@conectiva.com.br>
+Message-ID: <20030427151825.GD15637@conectiva.com.br>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Linux Networking Development Mailing List <netdev@oss.sgi.com>
@@ -18,7 +18,7 @@ Hi David,
 
 bk://kernel.bkbits.net/acme/net-2.5
 
-	Now there are two outstanding changesets in this tree.
+	Now there are three outstanding changesets in this tree.
 
 - Arnaldo
 
@@ -28,139 +28,113 @@ You can import this changeset into BK by piping this whole message to:
 ===================================================================
 
 
-ChangeSet@1.1124, 2003-04-27 11:03:43-03:00, acme@conectiva.com.br
-  o ipx: remove MOD_{INC,DEC}_USE_COUNT
+ChangeSet@1.1125, 2003-04-27 12:04:25-03:00, acme@conectiva.com.br
+  o llc: remove MOD_{INC,DEC}_USE_COUNT
   
-  Now the core networking infrastructure will (finally) do that for the net protocol
-  families, its just a matter of setting the ->owner field in the registered struct
-  net_proto_family to THIS_MODULE.
+  Now the core networking infrastructure will (finally) do that for the net
+  protocol families, its just a matter of setting the ->owner field in the
+  registered struct net_proto_family to THIS_MODULE.
 
 
- af_ipx.c |   28 ++++------------------------
- 1 files changed, 4 insertions(+), 24 deletions(-)
+ llc_if.c   |    9 ++-------
+ llc_main.c |    6 +-----
+ 2 files changed, 3 insertions(+), 12 deletions(-)
 
 
-diff -Nru a/net/ipx/af_ipx.c b/net/ipx/af_ipx.c
---- a/net/ipx/af_ipx.c	Sun Apr 27 11:56:18 2003
-+++ b/net/ipx/af_ipx.c	Sun Apr 27 11:56:18 2003
-@@ -95,18 +95,6 @@
- atomic_t ipx_sock_nr;
- #endif
+diff -Nru a/net/llc/llc_if.c b/net/llc/llc_if.c
+--- a/net/llc/llc_if.c	Sun Apr 27 12:14:09 2003
++++ b/net/llc/llc_if.c	Sun Apr 27 12:14:09 2003
+@@ -43,16 +43,15 @@
+ 	/* verify this SAP is not already open; if so, return error */
+ 	struct llc_sap *sap;
  
--static void ipxcfg_set_auto_create(char val)
--{
--	if (ipxcfg_auto_create_interfaces != val) {
--		if (val)
--			MOD_INC_USE_COUNT;
--		else
--			MOD_DEC_USE_COUNT;
--
--		ipxcfg_auto_create_interfaces = val;
--	}
--}
--
- static void ipxcfg_set_auto_select(char val)
+-	MOD_INC_USE_COUNT;
+ 	sap = llc_sap_find(lsap);
+ 	if (sap) { /* SAP already exists */
+ 		sap = NULL;
+-		goto err;
++		goto out;
+ 	}
+ 	/* sap requested does not yet exist */
+ 	sap = llc_sap_alloc();
+ 	if (!sap)
+-		goto err;
++		goto out;
+ 	/* allocated a SAP; initialize it and clear out its memory pool */
+ 	sap->laddr.lsap = lsap;
+ 	sap->rcv_func	= func;
+@@ -61,9 +60,6 @@
+ 	llc_sap_save(sap);
+ out:
+ 	return sap;
+-err:
+-	MOD_DEC_USE_COUNT;
+-	goto out;
+ }
+ 
+ /**
+@@ -76,7 +72,6 @@
+ void llc_sap_close(struct llc_sap *sap)
  {
- 	ipxcfg_auto_select_primary = val;
-@@ -373,7 +361,6 @@
- 	if (intrfc->if_dev)
- 		dev_put(intrfc->if_dev);
- 	kfree(intrfc);
+ 	llc_free_sap(sap);
 -	MOD_DEC_USE_COUNT;
  }
  
- static void ipxitf_down(struct ipx_interface *intrfc)
-@@ -949,7 +936,6 @@
- 		intrfc->if_sklist 	= NULL;
- 		atomic_set(&intrfc->refcnt, 1);
- 		spin_lock_init(&intrfc->if_sklist_lock);
--		MOD_INC_USE_COUNT;
- 	}
- 
- 	return intrfc;
-@@ -1272,7 +1258,7 @@
- 		case SIOCAIPXITFCRT: 
- 			if (get_user(val, (unsigned char *) arg))
- 				return -EFAULT;
--			ipxcfg_set_auto_create(val);
-+			ipxcfg_auto_create_interfaces = val;
- 			break;
- 
- 		case SIOCAIPXPRISLT: 
-@@ -1690,13 +1676,12 @@
- 	struct ipx_opt *ipx = NULL;
- 	struct sock *sk;
+ /**
+diff -Nru a/net/llc/llc_main.c b/net/llc/llc_main.c
+--- a/net/llc/llc_main.c	Sun Apr 27 12:14:09 2003
++++ b/net/llc/llc_main.c	Sun Apr 27 12:14:09 2003
+@@ -224,9 +224,8 @@
+ {
+ 	struct sock *sk = sk_alloc(family, priority, 1, NULL);
  
 -	MOD_INC_USE_COUNT;
- 	switch (sock->type) {
- 		case SOCK_DGRAM:
- 			sk = sk_alloc(PF_IPX, GFP_KERNEL, 1, NULL);
-                 	ret = -ENOMEM;
- 			if (!sk)
--				goto decmod;
-+				goto out;
- 			ipx = ipx_sk(sk) = kmalloc(sizeof(*ipx), GFP_KERNEL);
- 			if (!ipx)
- 				goto outsk;
-@@ -1713,7 +1698,7 @@
- 			 */
- 		case SOCK_STREAM:       /* Allow higher levels to piggyback */
- 		default:
--			goto decmod;
-+			goto out;
- 	}
- #ifdef IPX_REFCNT_DEBUG
-         atomic_inc(&ipx_sock_nr);
-@@ -1727,8 +1712,6 @@
- 	return ret;
+ 	if (!sk)
+-		goto decmod;
++		goto out;
+ 	if (llc_sk_init(sk))
+ 		goto outsk;
+ 	sock_init_data(NULL, sk);
+@@ -240,8 +239,6 @@
  outsk:
  	sk_free(sk);
+ 	sk = NULL;
 -decmod:
 -	MOD_DEC_USE_COUNT;
  	goto out;
  }
  
-@@ -1745,10 +1728,6 @@
- 	__set_bit(SOCK_DEAD, &sk->flags);
- 	sock->sk = NULL;
- 	ipx_destroy_socket(sk);
--
--	if (sock->type == SOCK_DGRAM)
--		MOD_DEC_USE_COUNT;
--
- out:
- 	return 0;
+@@ -279,7 +276,6 @@
+ 	}
+ #endif
+ 	sock_put(sk);
+-	MOD_DEC_USE_COUNT;
  }
-@@ -2252,6 +2231,7 @@
- static struct net_proto_family ipx_family_ops = {
- 	.family		= PF_IPX,
- 	.create		= ipx_create,
-+	.owner		= THIS_MODULE,
- };
  
- static struct proto_ops SOCKOPS_WRAPPED(ipx_dgram_ops) = {
+ /**
 
 ===================================================================
 
 
 This BitKeeper patch contains the following changesets:
-1.1124
+1.1125
 ## Wrapped with gzip_uu ##
 
 
-M'XL( )+OJSX  ^U5VT[;0!!]]G[%2+RT*G'VYENJ(-HD*A$4$)!G:W'6B8OM
-M1?8F*:K[[QT[%5":%A7Q6'OED7?N.^?8>S"K=35P5%)HL@='IK8#)S&E3FRV
-M5FYB"O>Z0L6%,:CH+TVA^Q^/^Z6V/>YZ!#7GRB9+6.NJ'CC,%?<[]NY6#YR+
-MR:?9R8<+0H9#&"U5N="7VL)P2*RIUBJ?UX?*+G-3NK9295UHV^5L[DT;3BG'
-MVV.!H)[?,)_*H$G8G#$EF9Y3+D-?DK;\PZ=E_QI%4,D#)H1D02-$Z'$R!N8R
-MQB50T:>RSP-@;$#%0(H>/BF%G5'A'8,>)1_A=3L8D00,9+=?!U#IPJPU?#X;
-MQ]^FIZ/]\63T/9Y=3N+1V>ST"NUPG9H-V*6&Q%0:<!H;4]UDY0*R,JU4;:M5
-M8E>HV61Y#F_2K%1Y?O<6Y@:=E(745)TW.L)M9:Q)3(Y!4U5D>:;K?<AL#5]6
-MM04%A;)65V!2J+6U;8[6LW=@-B5NIYG.YYBUVZST(JO16,]A6P+&Q!1QER+N
-MHM_AL<'5T?0RQO9F)Q.7'$,[C9"</^"#]/[Q(H0J2@Z>&0F6TL<#[JLT1N$F
-MCR<3>2%.)A)^$X@@O:9*:3\(H]#W=J-@9[ MQ"05G#<4(T8=[)]:/H_^EQ7Z
-M!Q+L+E0(Q@+*>-@(R?VHXP(2X D3./\[$R3TN/Q/A=>C0@>:,^A5FVXALL]_
-MP\\+V#&.0F#XP1.!#PS?/-X*Q@,/Y?2G=!P'XR?I(E8KK#&IM+(ZSDKL(E6)
-MKF$(..3WZ(?PZ_S]*.K\MQ+]G05V!V9E6ZN ^9UV*Y\J!07>2AF")%/./=D:
-CN=U1.L[P\<'L/_QFDJ5.;NI5,?2BB&J=2O(#7'#HQ,$&    
+M'XL( ,'SJSX  ^U674_;,!1]KG_%E7C9-)KZ,PF=BA@M&A4,$-#GRCA.FY'$
+M*'%;L67_?4ZBL5'81E$?R8<M7=OG'ON>$V4')J4N^AVI,HUVX-B4MM]1)M?*
+M)DOI*9-Y-X4;N#3&#?3F)M.]PY->KFV7>@*YD0MIU1R6NBC['>*QAXB]O]/]
+MSN71Y\GIITN$!@,8SF4^TU?:PF" K"F6,HW* VGGJ<D]6\B\S+1M<E8/4RN*
+M,76W( '#PJ^(CWE0*1(1(CG1$:8\]#FJZ1^LTWZ,PC"G >&8<58Q%HH0C8!X
+MA% !F/4P[]$ ".UCWJ>BBUD?8W@6%3Y0Z&)T"-O=P1 I,)"FJ@^%SLQ2PY?S
+MT?3[^&RX.SH:_IA.KHZFP_/)V;6;YYXSLP([UZ!,H<%58V6*VR2?09+'A2QM
+ML5!VX49629K"NSC)99K>OX?(N$720FR*9K5;Z+#N"F.-,BG$,DO21)>[D-@2
+MOBY*"Q(R::TNP,10:FOK'/7*[KY9Y2X<)SJ-7-8ZZ* */4M*-UU'T)*H4TR;
+M!-,&_=X=&UP?CZ^F;GN3TR,/G0#CF!!T\5L?J+OAA1"6&.T_7[#*4>BY@ZW?
+M:2:3W%-M300CF#%!><4HIZ0BD8QIC"-!@PA'FFX$U\I+8$YP)3@.Q8OH)/$S
+M9,A>&%8J(M'-C8I\PC!3A&T ]B<5%O* -.Y;GUF;<)L$-P$C& O:M!5WQ<>-
+M%2E>-R+!_S5B\&;$+1JQ$<LY=(M5\SAC73S1S2O,.>(^$#02V+7CINUT9HX)
+MF(7]Z.*BB8OUN,^!H5&P!T\%W/KN91+>Q/)H*?.H<$4_6"I/+1?64]_^!D8(
+M"2GEC+%*[#'JMR+V-Q4Q@:YX$_'V1-Q^?/\AXK:$KY$QK8M:=[4DQVWW2+%.
+A#4!=%]):L[_^A-1<J]MRD0TPE[X*!$,_ <\0_E9V"0  
  
