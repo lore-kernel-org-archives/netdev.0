@@ -1,30 +1,38 @@
-From: bert hubert <ahu@ds9a.nl>
+From: Pekka Savola <pekkas@netcore.fi>
 Subject: Re: RFC:  Redirect-Device
-Date: Fri, 1 Apr 2005 11:01:16 +0200
-Message-ID: <20050401090116.GA21361@outpost.ds9a.nl>
-References: <424C6089.1080507@candelatech.com> <1112303627.1073.71.camel@jzny.localdomain> <424C6B10.6030200@candelatech.com> <1112306031.1073.109.camel@jzny.localdomain> <424C7813.4000101@candelatech.com> <20050331143531.30f4eb8f.davem@davemloft.net> <424C7F96.4070002@candelatech.com> <1112311618.1090.20.camel@jzny.localdomain> <424C8E2C.70302@candelatech.com>
+Date: Fri, 1 Apr 2005 12:28:44 +0300 (EEST)
+Message-ID: <Pine.LNX.4.61.0504011222140.10960@netcore.fi>
+References: <424C6089.1080507@candelatech.com> <Pine.LNX.4.61.0504010801170.6417@netcore.fi>
+ <424CDBA9.80703@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hadi@cyberus.ca, "David S. Miller" <davem@davemloft.net>,
-        netdev <netdev@oss.sgi.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Ben Greear <greearb@candelatech.com>
-Content-Disposition: inline
-In-Reply-To: <424C8E2C.70302@candelatech.com>
+In-Reply-To: <424CDBA9.80703@candelatech.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 31, 2005 at 03:56:28PM -0800, Ben Greear wrote:
+On Thu, 31 Mar 2005, Ben Greear wrote:
+>> Is there something in your problem statement I'm missing?
+>
+> That would be similar to what I'm doing, but I'm not really trying
+> to tunnel anything.  I am trying to duplicate the behaviour of two
+> ethernet interfaces connected by an external cross-over cable, and I'm
+> trying to duplicate it at the network-device interface level so that
+> common tools (and my own tools) can treat these virtual interfaces
+> just like ethernet interfaces.
 
-> >I think you are more comfortable with using netdevices and ioctls and
-> >/proc. 
-> 
-> Definately.  Ever tried to sniff a socket with ethereal? :)
+Oh ok, what you seem to want is some kind of "Ethernet loopback++", 
+but the "looped" packets should come back from a virtual interface 
+instead of the same interface?
 
-On loopback, all the time. I'm probably dense but I don't understand what
-problem you've solved with this interface. Could you elaborate a bit?
+Btw, does the kernel support traditional loopback, so that at the last 
+stage, just before sending a packet on the wire, it would be pushed 
+back.
 
 -- 
-http://www.PowerDNS.com      Open source, database driven DNS Software 
-http://netherlabs.nl              Open and Closed source services
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
