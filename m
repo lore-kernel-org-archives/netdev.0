@@ -1,60 +1,60 @@
-From: Peter Chubb <peterc@gelato.unsw.edu.au>
-Subject: Fix fallout from tg3_readphy() value is zero on error
-Date: Fri, 21 Jan 2005 12:52:31 +1100
-Message-ID: <16880.24671.640491.852938@berry.gelato.unsw.EDU.AU>
+From: James Morris <jmorris@redhat.com>
+Subject: [KJ] Re: [PATCH 21/39] net/ipconfig: replace schedule_timeout() with
+ msleep()
+Date: Thu, 20 Jan 2005 21:36:42 -0500 (EST)
+Message-ID: <Xine.LNX.4.44.0501202135280.4666-100000@thoron.boston.redhat.com>
+References: <20050120235749.GJ2600@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, mchan@broadcom.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@davemloft.net
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed; boundary="===============92462092264671125=="
+Cc: netdev@oss.sgi.com, kernel-janitors@lists.osdl.org,
+   yoshfuji@linux-ipv6.org, kuznet@ms2.inr.ac.ru, kaber@coreworks.de,
+   davem@davemloft.net
+Return-path: <kernel-janitors-bounces@lists.osdl.org>
+To: Nishanth Aravamudan <nacc@us.ibm.com>
+In-Reply-To: <20050120235749.GJ2600@us.ibm.com>
+List-Unsubscribe: <http://lists.osdl.org/mailman/listinfo/kernel-janitors>,
+	<mailto:kernel-janitors-request@lists.osdl.org?subject=unsubscribe>
+List-Archive: <http://lists.osdl.org/pipermail/kernel-janitors>
+List-Post: <mailto:kernel-janitors@lists.osdl.org>
+List-Help: <mailto:kernel-janitors-request@lists.osdl.org?subject=help>
+List-Subscribe: <http://lists.osdl.org/mailman/listinfo/kernel-janitors>,
+	<mailto:kernel-janitors-request@lists.osdl.org?subject=subscribe>
+Sender: kernel-janitors-bounces@lists.osdl.org
+Errors-To: kernel-janitors-bounces@lists.osdl.org
 List-Id: netdev.vger.kernel.org
 
+--===============92462092264671125==
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 
-After DaveM's patch to make the `default' value returned by
-tg3_readphy() to be zero, the attached patch fixes the few cases where
-a zero changes the previous behaviur, and deletes a couple of
-initialisation to zero that are no longer necessary.
+On Thu, 20 Jan 2005, Nishanth Aravamudan wrote:
+
+> Hi,
+> 
+> Please consider applying.
+> 
+> Description: Use msleep() instead of schedule_timeout() to guarantee the task
+> delays as expected. Change the units of the two constants to be msecs and secs
+> respectively.
+
+Looks fine to me.
 
 
-===== drivers/net/tg3.c 1.228 vs edited =====
---- 1.228/drivers/net/tg3.c	2005-01-20 06:37:04 +00:00
-+++ edited/drivers/net/tg3.c	2005-01-21 01:10:21 +00:00
-@@ -634,7 +634,8 @@ static int tg3_wait_macro_done(struct tg
- 	while (limit--) {
- 		u32 tmp32;
- 
--		tg3_readphy(tp, 0x16, &tmp32);
-+		if (tg3_readphy(tp, 0x16, &tmp32) < 0)
-+			continue;
- 		if ((tmp32 & 0x1000) == 0)
- 			break;
- 	}
-@@ -1379,7 +1380,8 @@ static int tg3_phy_copper_begin(struct t
- 
- 				udelay(10);
- 				tg3_readphy(tp, MII_BMSR, &tmp);
--				tg3_readphy(tp, MII_BMSR, &tmp);
-+				if (tg3_readphy(tp, MII_BMSR, &tmp) < 0)
-+					continue;
- 				if (!(tmp & BMSR_LSTATUS)) {
- 					udelay(40);
- 					break;
-@@ -1558,7 +1560,6 @@ static int tg3_setup_copper_phy(struct t
- 		}
- 	}
- 
--	bmsr = 0;
- 	for (i = 0; i < 100; i++) {
- 		tg3_readphy(tp, MII_BMSR, &bmsr);
- 		tg3_readphy(tp, MII_BMSR, &bmsr);
-@@ -1582,7 +1583,6 @@ static int tg3_setup_copper_phy(struct t
- 					     &current_speed,
- 					     &current_duplex);
- 
--		bmcr = 0;
- 		for (i = 0; i < 200; i++) {
- 			tg3_readphy(tp, MII_BMCR, &bmcr);
- 			tg3_readphy(tp, MII_BMCR, &bmcr);
+- James
+-- 
+James Morris
+<jmorris@redhat.com>
+
+
+
+--===============92462092264671125==
+Content-Type: text/plain; charset="iso-8859-1"
+MIME-Version: 1.0
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
+
+_______________________________________________
+Kernel-janitors mailing list
+Kernel-janitors@lists.osdl.org
+http://lists.osdl.org/mailman/listinfo/kernel-janitors
+
+--===============92462092264671125==--
