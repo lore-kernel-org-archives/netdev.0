@@ -1,36 +1,64 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [patch 2.6.9 4/11] b44: Add MODULE_VERSION
-Date: Wed, 20 Oct 2004 14:36:39 -0400
+From: Lee Revell <rlrevell@joe-job.com>
+Subject: Re: [PATCH] Make netif_rx_ni preempt-safe
+Date: Wed, 20 Oct 2004 15:53:21 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041020143639.R8775@tuxdriver.com>
-References: <20041020141146.C8775@tuxdriver.com> <20041020141753.G8775@tuxdriver.com>
+Message-ID: <1098302001.2268.5.camel@krustophenia.net>
+References: <1098230132.23628.28.camel@krustophenia.net>
+	 <200410201811.44419.vda@port.imtp.ilyichevsk.odessa.ua>
+	 <1098290858.1429.70.camel@krustophenia.net>
+	 <200410202214.31791.vda@port.imtp.ilyichevsk.odessa.ua>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, Andrew Morton <akpm@osdl.org>,
+        linux-kernel <linux-kernel@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-kernel@gondor.apana.org.au, maxk@qualcomm.com,
+        irda-users@lists.sourceforge.net,
+        Linux Network Development <netdev@oss.sgi.com>,
+        Alain Schroeder <alain@parkautomat.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, linux-kernel@vger.kernel.org, jgarzik@pobox.com,
-        davem@davemloft.net
-Content-Disposition: inline
-In-Reply-To: <20041020141753.G8775@tuxdriver.com>; from linville@tuxdriver.com on Wed, Oct 20, 2004 at 02:17:53PM -0400
+To: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
+In-Reply-To: <200410202214.31791.vda@port.imtp.ilyichevsk.odessa.ua>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Add MODULE_VERSION to b44 driver.
+On Wed, 2004-10-20 at 15:14, Denis Vlasenko wrote:
+> On Wednesday 20 October 2004 19:47, Lee Revell wrote:
+> > On Wed, 2004-10-20 at 11:11, Denis Vlasenko wrote:
+> > > 0x57 == 87 bytes is too big for inline.
+> > 
+> > Ugh.  So the only fix is not to inline it?
+> 
+> Yes.
+> 
+> You can make it conditionally inline/non-inline
+> depending on SMP/preempt if you feel masochistic today :),
+> but last time I asked davem thought that it is over the top.
 
-Signed-off-by: John W. Linville <linville@tuxdriver.com>
----
+I agree, not worth the trouble.  This would actually depend only on
+PREEMPT and not SMP.
 
- drivers/net/b44.c |    1 +
- 1 files changed, 1 insertion(+)
+OK, third try.
 
-Re-send -- forgot Signed-off-by line...
+Signed-Off-By: Lee Revell <rlrevell@joe-job.com>
 
---- linux-2.6.9/drivers/net/b44.c.orig
-+++ linux-2.6.9/drivers/net/b44.c
-@@ -79,6 +79,7 @@ MODULE_DESCRIPTION("Broadcom 4400 10/100
- MODULE_LICENSE("GPL");
- MODULE_PARM(b44_debug, "i");
- MODULE_PARM_DESC(b44_debug, "B44 bitmapped debugging message enable value");
-+MODULE_VERSION(DRV_MODULE_VERSION);
- 
- static int b44_debug = -1;	/* -1 == use B44_DEF_MSG_ENABLE as value */
+--- include/linux/netdevice.h~	2004-10-20 15:51:00.000000000 -0400
++++ include/linux/netdevice.h	2004-10-20 15:51:54.000000000 -0400
+@@ -694,11 +694,14 @@
+ /* Post buffer to the network code from _non interrupt_ context.
+  * see net/core/dev.c for netif_rx description.
+  */
+-static inline int netif_rx_ni(struct sk_buff *skb)
++static int netif_rx_ni(struct sk_buff *skb)
+ {
+-       int err = netif_rx(skb);
++       int err;
++       preempt_disable();
++       err = netif_rx(skb);
+        if (softirq_pending(smp_processor_id()))
+                do_softirq();
++       preempt_enable();
+        return err;
+ }
  
