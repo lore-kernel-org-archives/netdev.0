@@ -1,127 +1,66 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [IPSEC] Implement DSCP decapsulation
-Date: Thu, 16 Sep 2004 22:39:39 +1000
+From: "Leonid Grossman" <leonid.grossman@s2io.com>
+Subject: RE: The ultimate TOE design
+Date: Thu, 16 Sep 2004 06:10:42 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040916123939.GA3403@gondor.apana.org.au>
+Message-ID: <200409161310.i8GDAnqG005123@guinness.s2io.com>
+References: <20040916062033.GB12915@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="BXVAT5kNtrzKuDFl"
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "'John Heffner'" <jheffner@psc.edu>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-        James Morris <jmorris@redhat.com>, netdev@oss.sgi.com
-Content-Disposition: inline
+To: "'Andi Kleen'" <ak@suse.de>, "'David S. Miller'" <davem@davemloft.net>
+In-Reply-To: <20040916062033.GB12915@wotan.suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
---BXVAT5kNtrzKuDFl
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-Hi:
-
-This patch adds DSCP decapsulation for IPsec.  This is enabled by
-a per-state flag which is off by default.  Leaving it off by default
-maintains compatibility and is also good for performance reasons.
-
-I decided to not implement a toggle on the output path since not
-encapsulating the DSCP can and should be done by netfilter.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---BXVAT5kNtrzKuDFl
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
-
-===== include/linux/pfkeyv2.h 1.10 vs edited =====
---- 1.10/include/linux/pfkeyv2.h	2004-04-20 04:42:38 +10:00
-+++ edited/include/linux/pfkeyv2.h	2004-09-16 21:58:42 +10:00
-@@ -245,6 +245,7 @@
  
- /* Security Association flags */
- #define SADB_SAFLAGS_PFS	1
-+#define SADB_SAFLAGS_DECAP_DSCP	0x40000000
- #define SADB_SAFLAGS_NOECN	0x80000000
- 
- /* Security Association states */
-===== include/linux/xfrm.h 1.25 vs edited =====
---- 1.25/include/linux/xfrm.h	2004-07-12 20:00:21 +10:00
-+++ edited/include/linux/xfrm.h	2004-09-16 21:58:42 +10:00
-@@ -190,6 +190,7 @@
- 	__u8				replay_window;
- 	__u8				flags;
- #define XFRM_STATE_NOECN	1
-+#define XFRM_STATE_DECAP_DSCP	2
- };
- 
- struct xfrm_usersa_id {
-===== include/net/inet_ecn.h 1.11 vs edited =====
---- 1.11/include/net/inet_ecn.h	2004-09-16 21:58:08 +10:00
-+++ edited/include/net/inet_ecn.h	2004-09-16 22:32:25 +10:00
-@@ -78,6 +78,12 @@
- 	iph->tos &= ~INET_ECN_MASK;
- }
- 
-+static inline void ipv4_copy_dscp(struct iphdr *outer, struct iphdr *inner)
-+{
-+	u32 dscp = ipv4_get_dsfield(outer) & ~INET_ECN_MASK;
-+	ipv4_change_dsfield(inner, INET_ECN_MASK, dscp);
-+}
-+
- struct ipv6hdr;
- 
- static inline void IP6_ECN_set_ce(struct ipv6hdr *iph)
-===== net/ipv4/xfrm4_input.c 1.12 vs edited =====
---- 1.12/net/ipv4/xfrm4_input.c	2004-09-09 21:48:58 +10:00
-+++ edited/net/ipv4/xfrm4_input.c	2004-09-16 22:03:27 +10:00
-@@ -101,6 +101,8 @@
- 			if (skb_cloned(skb) &&
- 			    pskb_expand_head(skb, 0, 0, GFP_ATOMIC))
- 				goto drop;
-+			if (x->props.flags & XFRM_STATE_DECAP_DSCP)
-+				ipv4_copy_dscp(iph, skb->h.ipiph);
- 			if (!(x->props.flags & XFRM_STATE_NOECN))
- 				ipip_ecn_decapsulate(skb);
- 			skb->mac.raw = memmove(skb->data - skb->mac_len,
-===== net/ipv6/xfrm6_input.c 1.22 vs edited =====
---- 1.22/net/ipv6/xfrm6_input.c	2004-09-16 21:58:08 +10:00
-+++ edited/net/ipv6/xfrm6_input.c	2004-09-16 22:03:04 +10:00
-@@ -88,6 +88,8 @@
- 			if (skb_cloned(skb) &&
- 			    pskb_expand_head(skb, 0, 0, GFP_ATOMIC))
- 				goto drop;
-+			if (x->props.flags & XFRM_STATE_DECAP_DSCP)
-+				ipv6_copy_dscp(skb->nh.ipv6h, skb->h.ipv6h);
- 			if (!(x->props.flags & XFRM_STATE_NOECN))
- 				ipip6_ecn_decapsulate(skb);
- 			skb->mac.raw = memmove(skb->data - skb->mac_len,
-===== net/key/af_key.c 1.69 vs edited =====
---- 1.69/net/key/af_key.c	2004-09-12 21:51:42 +10:00
-+++ edited/net/key/af_key.c	2004-09-16 21:58:43 +10:00
-@@ -683,6 +683,8 @@
- 	sa->sadb_sa_flags = 0;
- 	if (x->props.flags & XFRM_STATE_NOECN)
- 		sa->sadb_sa_flags |= SADB_SAFLAGS_NOECN;
-+	if (x->props.flags & XFRM_STATE_DECAP_DSCP)
-+		sa->sadb_sa_flags |= SADB_SAFLAGS_DECAP_DSCP;
- 
- 	/* hard time */
- 	if (hsc & 2) {
-@@ -965,6 +967,8 @@
- 	x->props.replay_window = sa->sadb_sa_replay;
- 	if (sa->sadb_sa_flags & SADB_SAFLAGS_NOECN)
- 		x->props.flags |= XFRM_STATE_NOECN;
-+	if (sa->sadb_sa_flags & SADB_SAFLAGS_DECAP_DSCP)
-+		x->props.flags |= XFRM_STATE_DECAP_DSCP;
- 
- 	lifetime = (struct sadb_lifetime*) ext_hdrs[SADB_EXT_LIFETIME_HARD-1];
- 	if (lifetime != NULL) {
 
---BXVAT5kNtrzKuDFl--
+> -----Original Message-----
+> From: Andi Kleen [mailto:ak@suse.de] 
+> Sent: Wednesday, September 15, 2004 11:21 PM
+> To: David S. Miller
+> Cc: John Heffner; netdev@oss.sgi.com; leonid.grossman@s2io.com
+> Subject: Re: The ultimate TOE design
+> 
+> On Wed, Sep 15, 2004 at 02:46:24PM -0700, David S. Miller wrote:
+> > On Wed, 15 Sep 2004 17:36:18 -0400 (EDT) John Heffner 
+> > <jheffner@psc.edu> wrote:
+> > 
+> > > The other (much nicer) solution to case (b) is to just 
+> USE A BIGGER MTU.
+> > > 1500 bytes is ridiculously small.  Even with a 9k MTU, 
+> the benefits 
+> > > of TOE or TSO are nearly vanishing.  Those who say they 
+> require high 
+> > > performance, but are unwilling to buy or produce networking gear 
+> > > with an MTU larger than 1500 bytes probably deserve what they get.
+> > 
+> > TSO gives a kind of virtual 64K MTU, FWIW.  But I do see your point.
+> 
+> We still need to solve the same problem for RX though.
+> 
+> -Andi
+
+Ditto.
+
+We can dream about benefits of huge MTUs, but the reality is that moving
+beyond 9k MTU is years away. Reasons - mainly infrastructure, plus MTU above
+~10k may loose checksum protection (granted, this depends whether the errors
+are simple or complex, and also this may not be a showstopper for some
+people).
+Even 9k MTU is very far from being universally accepted, eight years after
+our Alteon spec went out :-).
+TSO works great for the transmit side (even for 9k MTU, the impact is not
+insignificant), but RX problem that Andi is talking about is a major issue
+for a lot of users.
+
+I don't have hard data yet, but the expectations are that the effect of
+doing "RX side TSO" will be close to having 64k RX MTU - I'll publish some
+numbers once we bring up first Unix drivers with this feature and do some
+measurements.
+
+Leonid
+
+> 
