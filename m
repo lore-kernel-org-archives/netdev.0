@@ -1,35 +1,51 @@
-From: "George Georgalis" <george@galis.org>
-Subject: Re: kernel-2.6.8.1 EIP is at velocity_netdev_event+0x16/0x50
-Date: Sun, 15 Aug 2004 22:16:48 -0400
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: neigh_create/inetdev_destroy race?
+Date: Sun, 15 Aug 2004 19:14:50 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040816021648.GA12929@trot.local>
-References: <20040815095814.GA32195@trot.local> <20040815110625.GA2829@electric-eye.fr.zoreil.com> <20040815155457.GB32195@trot.local> <20040815184937.GA9105@electric-eye.fr.zoreil.com> <20040815192155.GG32195@trot.local> <20040815194011.GB9105@electric-eye.fr.zoreil.com>
+Message-ID: <20040815191450.77532d5d.davem@redhat.com>
+References: <20040813090314.448c971d@dell_ss3.pdx.osdl.net>
+	<20040813093838.6961c0d4.davem@redhat.com>
+	<20040813215602.GA15870@gondor.apana.org.au>
+	<20040813151923.3311b4f0.davem@redhat.com>
+	<20040814003428.GA17760@gondor.apana.org.au>
+	<20040813173924.6d05be15.davem@redhat.com>
+	<20040814005411.GA18350@gondor.apana.org.au>
+	<20040814012513.GA721@gondor.apana.org.au>
+	<20040814013030.GA2042@gondor.apana.org.au>
+	<20040814050848.GA11874@gondor.apana.org.au>
+	<20040814062703.GA4806@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org, alan@lxorguk.ukuu.org.uk
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Content-Disposition: inline
-In-Reply-To: <20040815194011.GB9105@electric-eye.fr.zoreil.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040814062703.GA4806@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Aug 15, 2004 at 09:40:11PM +0200, Francois Romieu wrote:
->George Georgalis <george@galis.org> :
->[...]
->> still no build...
->> 
->> kernel-2.6.8.1 +
->>    27253 Aug 15 14:31 ../20040815-2.6.8-via-velocity-test.patch
->
->The patch has been updated. Same location.
+On Sat, 14 Aug 2004 16:27:03 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-Perfect, as long as it actually works. ;-)
+> Is there any thing that prevents the following scenario from occuring?
+> 
+> CPU0					CPU1
+> neigh_create
+> 					inet_del_ifa
+> 						notifier_call_chain
+> 							neigh_ifdown
+> 						inetdev_destroy
+> 	arp_constructor
+> 		neigh->parms =
+> 			in_dev->arp_parms
+> 							in_dev->dead = 1
+> 							in_dev->dev->ip_ptr =
+> 								NULL
+> 							neigh_parms_release
+> 	n->parms->neigh_setup => BUG
 
-// George
+Is there anything other than hostess_sv11.c, sealevel.c, and shaper.c
+which are using n->parms->neigh_setup at all?
 
-
--- 
-George Georgalis, Architect and administrator, Linux services. IXOYE
-http://galis.org/george/  cell:646-331-2027  mailto:george@galis.org
-Key fingerprint = 5415 2738 61CF 6AE1 E9A7  9EF0 0186 503B 9831 1631
+This seems to be a very obscure special case hack, which perhaps we
+can removee entirely.
