@@ -1,59 +1,70 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: tcp vulnerability?  haven't seen anything on it here...
-Date: Thu, 22 Apr 2004 14:26:43 -0700 (PDT)
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] r8169 NAPI addition
+Date: Fri, 23 Apr 2004 01:18:34 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0404221409570.12585@localhost.localdomain>
-References: <40869267.30408@nortelnetworks.com> <Pine.LNX.4.53.0404211153550.1169@chaos>
- <4086A077.2000705@nortelnetworks.com> <20040421170340.GB24201@wohnheim.fh-wedel.de>
- <20040421132047.026ab7f2.davem@redhat.com>
+Message-ID: <20040423011834.A3232@electric-eye.fr.zoreil.com>
+References: <20040420234524.A1374@electric-eye.fr.zoreil.com> <OF877F55DF.2DDFA7D4-ON87256E7E.005842ED-86256E7E.005967E0@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=X-UNKNOWN
-Content-Transfer-Encoding: quoted-printable
-Cc: =?ISO-8859-1?Q?J=F6rn?= Engel <joern@wohnheim.fh-wedel.de>,
-        cfriesen@nortelnetworks.com, netdev@oss.sgi.com,
-        linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040421132047.026ab7f2.davem@redhat.com>
+To: Jon D Mason <jonmason@us.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <OF877F55DF.2DDFA7D4-ON87256E7E.005842ED-86256E7E.005967E0@us.ibm.com>; from jonmason@us.ibm.com on Thu, Apr 22, 2004 at 10:20:58AM -0600
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 21 Apr 2004, David S. Miller wrote:
+Jon D Mason <jonmason@us.ibm.com> :
+[...]
+--- r8169.c	2004-04-18 22:51:33.000000000 -0500
++++ r8169.c	2004-04-22 08:08:57.526577048 -0500
+[...]
+@@ -1692,6 +1737,31 @@ static struct net_device_stats *rtl8169_
+ 	return &tp->stats;
+ }
+ 
++#ifdef CONFIG_R8169_NAPI
++static int rtl8169_poll(struct net_device *dev, int *budget)
++{
++	u32 status, work_done = 0, work_to_do = min(*budget, dev->quota);
++	struct rtl8169_private *tp = dev->priv;
++	void *ioaddr = tp->mmio_addr;
++	
++	work_done = rtl8169_rx_interrupt(dev, tp, ioaddr);
++	
++	*budget -= work_done;
++	dev->quota -= work_done;
++	
++	if ((work_done < work_to_do) || !netif_running(dev)) {
 
-> On Wed, 21 Apr 2004 19:03:40 +0200
-> J=F6rn Engel <joern@wohnheim.fh-wedel.de> wrote:
->
-> > Heise.de made it appear, as if the only news was that with tcp
-> > windows, the propability of guessing the right sequence number is not
-> > 1:2^32 but something smaller.  They said that 64k packets would be
-> > enough, so guess what the window will be.
->
-> Yes, that is their major discovery.  You need to guess the ports
-> and source/destination addresses as well, which is why I don't
-> consider this such a serious issue personally.
->
-> It is mitigated if timestamps are enabled, because that becomes
-> another number you have to guess.
+Packets are received here.
+Tx interrupt is issued.
+--> Interrupts status register is completely cleared by the irq handler <--
+There are pending Rx packets.
+r8169_poll() is not activated by the irq handler.
 
-I am not sure if enabling timestamps will help.
->From RFC1323,
-  It is recommended that RST segments NOT carry timestamps, and that RST
-  segments be acceptable regardless of their timestamp. Old duplicate RST
-  segments should be exceedingly unlikely, and their cleanup function sho=
-uld
-  take precedence over timestamps.
+-> Pending Rx packets may wait long.
 
-It looks like linux follows this recommendataion.
-tcp_input.c: tcp_rcv_established()
-        if (tcp_fast_parse_options(skb, th, tp) && tp->saw_tstamp &&
-            tcp_paws_discard(tp, skb)) {
-                if (!th->rst) {
-                        NET_INC_STATS_BH(PAWSEstabRejected);
-                        tcp_send_dupack(sk, skb);
-                        goto discard;
-                }
-                /* Reset is accepted even if it did not pass PAWS. */
-        }
++		netif_rx_complete(dev);
++		status = RTL_R16(IntrStatus);
++		if (!status) {
++			RTL_W16(IntrMask, rtl8169_intr_mask);
++			status = RTL_R16(IntrMask);
++		}	
 
-Thanks
-Sridhar
+The previous lines imply that if, according to IntrStatus, there is pending
+Rx work but no pending Tx work, the Rx interrupts are kept disabled.
+
+If I am not mistaken (1:55 AM here), either 1) you do not clear the RX
+related bits of IntrStatus in r8169_interrupt() but you clear it in
+rtl8169_poll() and you add local_irq_{en/dis}able() to rtl8169_poll()
+(ala 8139cp.c) or 2) you modify r8169_interrupt() so that it can signal
+to rtl8169_poll() that it cleared itself the Rx bits of IntrStatus whereas
+rtl8169_poll() was running (ala epic100-netdev).
+
+If you hesitate, go for 1). 2) works but I have not benchmarketed it yet :o)
+
+If you have doubts regarding your Tx part, feel free to send any code.
+
+--
+Ueimor
