@@ -1,26 +1,50 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH 2.6] netem - add correlated random number support
-Date: Wed, 25 Aug 2004 16:52:38 -0700
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [NET]: Device mtu/txqlen/ifmap via rtnetlink.
+Date: Thu, 26 Aug 2004 02:29:03 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040825165238.6a7c3678.davem@redhat.com>
-References: <20040825105339.30210e84@dell_ss3.pdx.osdl.net>
-	<20040825110108.6a79216a@dell_ss3.pdx.osdl.net>
-	<20040825161535.62f07a8c@dell_ss3.pdx.osdl.net>
+Message-ID: <412D832F.2070003@pobox.com>
+References: <200408260506.i7Q56Ebq022683@hera.kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: Netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040825161535.62f07a8c@dell_ss3.pdx.osdl.net>
+To: tgraf@suug.ch, davem@redhat.com
+In-Reply-To: <200408260506.i7Q56Ebq022683@hera.kernel.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 25 Aug 2004 16:15:35 -0700
-Stephen Hemminger <shemminger@osdl.org> wrote:
+Linux Kernel Mailing List wrote:
+> @@ -246,6 +268,30 @@
+>  
+>  	err = -EINVAL;
+>  
+> +	if (ifm->ifi_flags)
+> +		dev_change_flags(dev, ifm->ifi_flags);
+> +
+> +	if (ida[IFLA_MAP - 1]) {
+> +		if (!dev->set_config) {
+> +			err = -EOPNOTSUPP;
+> +			goto out;
+> +		}
+> +
+> +		if (!netif_device_present(dev)) {
+> +			err = -ENODEV;
+> +			goto out;
+> +		}
+> +		
+> +		if (ida[IFLA_MAP - 1]->rta_len != RTA_LENGTH(sizeof(struct ifmap)))
+> +			goto out;
+> +		
+> +		err = dev->set_config(dev, (struct ifmap *)
+> +				RTA_DATA(ida[IFLA_MAP - 1]));
+> +
+> +		if (err)
+> +			goto out;
+> +	}
+> +
 
-> Dave, this applies after "(4/4) netem - change parameters shouldn't destroy child qdisc"
-> but before the patch to add loadable distributions, sorry for the confusion.
 
-Just making sure you understand that I've rejected that whole
-patch set because of the netem options structure breakage issue.
+Why are new calls to deprecated hook ->set_config() being added?
+
+	Jeff
