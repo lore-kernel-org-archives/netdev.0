@@ -1,41 +1,38 @@
-From: Martin Josefsson <gandalf@wlug.westbo.se>
-Subject: Re: Route cache performance tests
-Date: 17 Jun 2003 22:17:14 +0200
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <1055881034.3199.43.camel@tux.rsn.bth.se>
-References: <20030616.160856.35828947.davem@redhat.com>
-	 <20030616232750.GD18484@netnation.com>
-	 <20030616234937.GE18484@netnation.com>
-	 <20030617.085921.28790392.davem@redhat.com>
-	 <16111.18107.699689.704597@robur.slu.se>
-	 <20030617200721.GA25773@netnation.com>
+From: Janice M Girouard <janiceg@us.ibm.com>
+Subject: Re: patch for common networking error messages
+Date: Tue, 17 Jun 2003 15:24:20 -0500
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <3EEF78F4.2070604@us.ibm.com>
+References: <3EEF66AA.3000509@us.ibm.com>	<3EEF6A9D.6050303@pobox.com>	<3EEF7030.6030303@us.ibm.com> <20030617.125040.58438649.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-	"David S. Miller" <davem@redhat.com>, ralph+d@istop.com,
-	hadi@shell.cyberus.ca, xerox@foonet.net, fw@deneb.enyo.de,
-	netdev@oss.sgi.com, linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Simon Kirby <sim@netnation.com>
-In-Reply-To: <20030617200721.GA25773@netnation.com>
+Cc: jgarzik@pobox.com, shemminger@osdl.org, Valdis.Kletnieks@vt.edu,
+   girouard@us.ibm.com, stekloff@us.ibm.com, lkessler@us.ibm.com,
+   linux-kernel@vger.kernel.org, netdev@oss.sgi.com, niv@us.ibm.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@redhat.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2003-06-17 at 22:07, Simon Kirby wrote:
 
-> >  Also think Simon used only /32 routes... I took "real" Internet-routing
-> >  and made a script so it can be used for experiments. I can make it available.
-> 
-> Yes, I found that area less interesting since Dave M. fixed the hash
-> buckets.  But yes, the prefix scanning will slow it down some.
-> 
-> Whoa.  Uhm.  A lot.  I should compare with 2.4 again to see what's going
-> on here.
+ From David S. Miller:
 
->  size   IN: hit     tot    mc no_rt bcast madst masrc  OUT: hit     tot     mc GC: tot ignored goal_miss ovrf
-> 17929        13  214343     0     0     0     0 163822         0       0      0   50521   50519         0    0
+And when we have 1GHZ memory busses and 10GHz cpus tomorrow,
+what does this say for 1gbit and 10gbit cards?
 
-Did you have rp_filter enabled? Looks like it.
+Such schemes are fundamentally flawed.
 
--- 
-/Martin
+Bottom line..   I was asking for input, and I received it.  It's valid 
+to say... look at the statistics.  I really like the concept of driving 
+events through netlink, but querying statistics works.  
+
+
+p.s.  It's been my experience that the memory system is the main 
+bottleneck when trying to support a heavy network load.  When the 10 
+Gigabit card emerges, and it's here today, the memory system will be 
+pressed to support it, especially if you're not using zerocopy and 
+you're thinking of using more than one card.  Perhaps if RDMA is 
+capabilities are added to Linux, then things might be different.
+
+So.. when do you think RDMA will show up on Linx?
