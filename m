@@ -1,61 +1,44 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] PKT_SCHED: Fix cls indev validation
-Date: 20 Dec 2004 09:16:55 -0500
-Message-ID: <1103552215.1048.333.camel@jzny.localdomain>
-References: <20041219203050.GK17998@postel.suug.ch>
-	 <41C68CEF.3030803@trash.net>
-Reply-To: hadi@cyberus.ca
+From: Paul Jakma <paul@clubi.ie>
+Subject: Re: [patch 4/10] s390: network driver.
+Date: Mon, 20 Dec 2004 14:16:47 +0000 (UTC)
+Message-ID: <Pine.LNX.4.61.0412201413240.5211@sheen.jakma.org>
+References: <OF28701C56.81E1D26E-ONC1256F6B.00513EDD-C1256F6B.0052AF84@de.ibm.com>
+  <1103484552.1046.155.camel@jzny.localdomain>  <41C600D7.70005@tpack.net>
+ <1103497516.1046.231.camel@jzny.localdomain> <41C612BC.5070909@tpack.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, "David S. Miller" <davem@davemloft.net>,
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: hadi@cyberus.ca, Thomas Spatzier <thomas.spatzier@de.ibm.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Hasso Tepper <hasso@estpak.ee>,
+        Herbert Xu <herbert@gondor.apana.org.au>, jgarzik@pobox.com,
         netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <41C68CEF.3030803@trash.net>
+To: Tommy Christensen <tommy.christensen@tpack.net>
+In-Reply-To: <41C612BC.5070909@tpack.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2004-12-20 at 03:27, Patrick McHardy wrote:
+On Mon, 20 Dec 2004, Tommy Christensen wrote:
 
-> There are lots of places where this is possible, just look
-> at all the silly checks in the action code:
-> 
->     sprintf(act_name, "%s", (char*)RTA_DATA(kind));
->     if (RTA_PAYLOAD(kind) >= IFNAMSIZ) {
-> 
+>> For a routing protocol that actually is notified that the link 
+>> went down, it should probably flush those socket buffer at that 
+>> point.
 
-Hehe. I am sure thats a cutnpaste(LinuxWay) from some code in the kernel
-probably sch_api.c (or maybe the code it was cutnpasted has been fixed
-in the last 3 years ;->).
-That needs fixing. Who is sending the patch?
+Or why not return an error, as soon as possible on the socket, eg 
+ENOBUFS, and discard anything in the queue before that. Make it 
+configurable via a sockopt if you think it'd harm ordinary apps 
+(though, anything that cant deal with ENOBUFS is broken already, 
+really..) or make it apply only to nonblock sockets.
 
-> > Puts the indev validation into its own function to allow
-> > parameter validation before any changes are made. Changes
-> > the sanity check from >= IFNAMSIZ to > IFNAMSIZ to correctly
-> > handle 0 terminated strings and replaces the dangerous sprintf
-> > with a memcpy bound to the TLV size. Providing a indev TLV
-> > for kernels without CONFIG_NET_CLS_IND support will now lead
-> > to EOPPNOTSUPP.
-> 
-> Why special-case indev ? Neither u32 nor fw make any attempt
-> to clean up after errors in their init functions, so instead
-> of fixing a single attribute they need to do proper cleanup,
-> than we can just continue to validate indev when changing it.
-> Returning EOPNOTSUPP makes sense, of course.
-> 
+>   responsibility of the application to flush the socket on
+>   link-down events (by down'ing the interface?).
 
-Indev is going to die - no need in investing a lot of effort in it.
+That seems more complex than needs be, for userspace at least.
 
-> I'm also against keeping all those printks when touching the
-> code. Its ok when writing new code, but I don't see why this
-> code, unlike everything else, needs to report errors in the
-> ringbuffer instead of returning meaningful error codes.
-> 
-
-Its not that expensive since done on config path. But agree when proper
-codes exist its not needed.
-
-cheers,
-jamal
+regards,
+-- 
+Paul Jakma	paul@clubi.ie	paul@jakma.org	Key ID: 64A2FF6A
+Fortune:
+"Paul Lynde to block..."
+-- a contestant on "Hollywood Squares"
