@@ -1,41 +1,35 @@
-From: Chris Adams <cmadams@hiwaay.net>
-Subject: Re: Problem with Compaq NC3131 dual eth card
-Date: Tue, 6 Jan 2004 22:18:46 -0600
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040107041845.GA1446903@hiwaay.net>
-References: <C6F5CF431189FA4CBAEC9E7DD5441E0102CBDDAF@orsmsx402.jf.intel.com>
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [RFC] IPv4 Netfilter hook priorities for SELinux
+Date: Tue, 6 Jan 2004 21:36:42 -0800
+Sender: netfilter-devel-admin@lists.netfilter.org
+Message-ID: <20040106213642.3b30f4bc.davem@redhat.com>
+References: <20040106191311.GH934@obroa-skai.de.gnumonks.org>
+	<Xine.LNX.4.44.0401061503180.8482-100000@thoron.boston.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
-In-Reply-To: <C6F5CF431189FA4CBAEC9E7DD5441E0102CBDDAF@orsmsx402.jf.intel.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: laforge@netfilter.org, netdev@oss.sgi.com,
+        netfilter-devel@lists.netfilter.org, sds@epoch.ncsc.mil
+Return-path: <netfilter-devel-admin@lists.netfilter.org>
+To: James Morris <jmorris@redhat.com>
+In-Reply-To: <Xine.LNX.4.44.0401061503180.8482-100000@thoron.boston.redhat.com>
+Errors-To: netfilter-devel-admin@lists.netfilter.org
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: <https://lists.netfilter.org/pipermail/netfilter-devel/>
 List-Id: netdev.vger.kernel.org
 
-Once upon a time, Feldman, Scott <scott.feldman@intel.com> said:
-> You're EEPROM image is invalid - looks like it's all 0xFFs - verify with
-> ethtool -e ethX.  The first three words of the EEPROM should be the MAC
-> address.  e100 errors out because it wants a valid MAC address.
+On Tue, 6 Jan 2004 15:05:10 -0500 (EST)
+James Morris <jmorris@redhat.com> wrote:
 
-Yep, all 1s.
-
-> > Is my card defective or is this a compatibility problem?  Is 
-> > there a way to fix this?
+> Ok, here is the patch with support for IPv4 and IPv6.  I've not added 
+> anything for ARP yet as SELinux does not have any ARP controls at this 
+> stage (and probably won't in the near future).
 > 
-> Get another nic or reprogram the EEPROM in this one.
-<snip>
+> Please apply.
 
-I looked at some other Intel NICs here and kind of winged it; I
-reprogrammed both EEPROMs, made up a couple of MACs, and it is working
-now.
-
-Thanks.  Not bad for a $20 card picked up at a general surplus store
-here.  It was still sealed in the box (Compaq labels on both box flaps,
-sealed static bag, etc.), so it must have come that way from Compaq.
-Maybe they had a bad batch and surplused them instead of fixing them?
-Now I might have to go back and pick up some more! :-)
--- 
-Chris Adams <cmadams@hiwaay.net>
-Systems and Network Administrator - HiWAAY Internet Services
-I don't speak for anybody but myself - that's enough trouble.
+Applied, thanks guys.
