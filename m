@@ -1,34 +1,43 @@
-From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH] use local_softirq_pending instead of softirq_pending in netif_rx_ni
-Date: Sun, 14 Nov 2004 11:38:46 +0100
-Message-ID: <20041114103846.GA32024@lst.de>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Options for forcedeth Linux kernel module
+Date: Sun, 14 Nov 2004 12:53:00 +0100
+Message-ID: <20041114115300.GA32451@electric-eye.fr.zoreil.com>
+References: <200411131913.iADJDZ321996@sun80.thp.Uni-Koeln.DE> <41971E3B.40605@stud.feec.vutbr.cz> <200411141028.iAEASVL27021@sun80.thp.Uni-Koeln.DE>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Cc: Michal Schmidt <xschmi00@stud.feec.vutbr.cz>, netdev@oss.sgi.com,
+        c-d.hailfinger.kernel.2004@gmx.net, manfred@colorfullife.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
+To: Andreas Sindermann <sinder@thp.Uni-Koeln.DE>
 Content-Disposition: inline
+In-Reply-To: <200411141028.iAEASVL27021@sun80.thp.Uni-Koeln.DE>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Some architectures can optimize local_softirq_pending much better than
-softirq_pending(smp_processor_id()), and for all others the former is
-just a macro expanding to the later.
+Andreas Sindermann <sinder@thp.Uni-Koeln.DE> :
+[...]
+> Thanks for your answer! I tried ethtool but without success. The
+> mii-tool doesn't seem to be delivered with Suse 9.2 and I can't find
+> the sources right now on the net. Here what I tried with ethtool:
+> 
+> linux3:~ # ethtool  -s eth0 speed 100 duplex full autoneg off
+> Cannot get current device settings: Operation not supported
+>   not setting speed
+>   not setting duplex
+>   not setting autoneg
+[...]
+> So unfortunately ethtool doesn't seem to work properly for me at the
+> moment.
 
-Also this is the last use of softirq_pending() in common code, once this
-is in we can soon kill the notation of beeing able to query other cpus
-softirq pending count.
+At least in 2.6.10-rc1-bk20 + 2.6.10-rc1-bk14-netdev1, the driver does
+not provide a set_settings() method in its ethtool_ops structure. It
+does not use generic_mii_ioctl() or support SIOC#MII### either.
+So neither ethtool nor mii-tool will allow you to set the required
+option.
 
+Otoh it seems that phy_init() contains most of the code one needs to
+glue to have mii-tool/ethtool support.
 
---- 1.174/net/core/dev.c	2004-11-10 01:12:00 +01:00
-+++ edited/net/core/dev.c	2004-11-14 11:35:19 +01:00
-@@ -1470,7 +1470,7 @@ int netif_rx_ni(struct sk_buff *skb)
- 
- 	preempt_disable();
- 	err = netif_rx(skb);
--	if (softirq_pending(smp_processor_id()))
-+	if (local_softirq_pending())
- 		do_softirq();
- 	preempt_enable();
- 
+--
+Ueimor
