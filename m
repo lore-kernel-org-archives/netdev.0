@@ -1,33 +1,51 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: bad TSO performance in 2.6.9-rc2-BK
-Date: Fri, 24 Sep 2004 10:40:38 +1000
+From: Pablo Neira <pablo@eurodev.net>
+Subject: [NETLINK] hlist initilization
+Date: Fri, 24 Sep 2004 03:05:56 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040924004038.GA5252@gondor.apana.org.au>
-References: <20040923161141.4ea9be4c.davem@davemloft.net> <E1CAdCy-0001FM-00@gondolin.me.apana.org.au> <20040923164149.5368d291.davem@davemloft.net> <20040924001225.GA5051@gondor.apana.org.au>
+Message-ID: <415372F4.1010400@eurodev.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ak@suse.de, niv@us.ibm.com, andy.grover@gmail.com, anton@samba.org,
-        netdev@oss.sgi.com
+Content-Type: multipart/mixed;
+ boundary="------------060603070007000300000509"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20040924001225.GA5051@gondor.apana.org.au>
+To: netdev@oss.sgi.com, "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 24, 2004 at 10:12:25AM +1000, herbert wrote:
-> 
-> How about this? We always to treat TSO frames as one packet.  We
-> continue to obey the congestion window by starting with a TSO MSS
-> that is small enough.  We increase the TSO MSS as the congestion
-> window goes up.
-> 
-> That should work, no?
+This is a multi-part message in MIME format.
+--------------060603070007000300000509
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Probably not.  There many things (such as snd_cwnd) in the stack
-that doesn't work properly when the mss changes drastically like this.
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Hi Davem,
+
+This patch adds proper initialization for hlist. It applies to 
+af_netlink.c with the workqueue patch reverted.
+
+Signed-off-by: Pablo Neira Ayuso <pablo@eurodev.net>
+
+regards,
+Pablo
+
+--------------060603070007000300000509
+Content-Type: text/x-patch;
+ name="hlist-initialize.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="hlist-initialize.patch"
+
+===== net/netlink/af_netlink.c 1.55 vs edited =====
+--- 1.55/net/netlink/af_netlink.c	Thu Sep 23 20:27:46 2004
++++ edited/net/netlink/af_netlink.c	Sat Oct 23 19:09:17 2004
+@@ -1191,6 +1191,10 @@
+ static int __init netlink_proto_init(void)
+ {
+ 	struct sk_buff *dummy_skb;
++	int i;
++
++	for(i=0; i<MAX_LINKS; i++)
++		INIT_HLIST_HEAD(&nl_table[i]);
+ 
+ 	if (sizeof(struct netlink_skb_parms) > sizeof(dummy_skb->cb)) {
+ 		printk(KERN_CRIT "netlink_init: panic\n");
+
+--------------060603070007000300000509--
