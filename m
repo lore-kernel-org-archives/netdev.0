@@ -1,67 +1,46 @@
-From: Mitchell Blank Jr <mitch@sfgoth.com>
-Subject: Re: [RFC] add rtnl semaphore to linux-atm
-Date: Thu, 2 Oct 2003 19:26:15 -0700
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: Fw: [BUG/PATCH] CONFIG_NET_HW_FLOWCONTROL and SMP
+Date: Thu, 02 Oct 2003 13:47:40 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031003022615.GA42593@gaz.sfgoth.com>
-References: <200310011134.h91BYPkT003172@ginger.cmf.nrl.navy.mil> <20031001054226.126cea7b.davem@redhat.com>
+Message-ID: <3F7C64BC.7030701@pobox.com>
+References: <20030929123734.5bd97a47.akpm@osdl.org>	<16248.41796.797321.700866@robur.slu.se>	<3F78A691.1040406@pobox.com> <16252.17618.866515.952549@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: chas3@users.sourceforge.net, chas@cmf.nrl.navy.mil, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, dfages@arkoon.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20031001054226.126cea7b.davem@redhat.com>
+To: Robert Olsson <Robert.Olsson@data.slu.se>, Andrew Morton <akpm@osdl.org>
+In-Reply-To: <16252.17618.866515.952549@robur.slu.se>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> Although, unless VCC connect can potentially sleep, it might
-> be better to keep exporting the rwlock and take it as a reader
-> instead of grabbing the rtnl semaphore.
+Robert Olsson wrote:
+> 
+> Jeff Garzik writes:
+>  > 
+>  > If someone had a NAPI patch for tulip, we could remove HW_FLOWCONTROL 
+>  > option altogether :)
+> 
+> Hello!
+> Here is something for 2.6.0-test6:
+> 
+> * ifdef's to keep current non-NAPI tulip intact
+> 
+> * Port based on Alexey's orig NAPI tulip design
+>   (Only RX handled by dev->poll)
+> 
+> * tulip HW_FLOW removed
+> 
+> * NAPI and HW-mitigation options in Kconfig
 
-VCC connect can definately sleep - a good example is
-drirvers/usb/misc/speedtch.c but there are probably other ones.
 
-My personal recommendations:
-  * There should be a per-atm-device semaphore held across calls into the
-    driver's ->open, ->close, ->change_qos and maybe a couple other things
-    to serialize those operations (for the sake of keeping the drivers
-    sane - there's no reason there should be multiple operations pending)
+Looks great to me.  I'll give it some testing here, and 99% likely will 
+apply it.
 
-  * The ATM layer shouldn't need to keep any other sorts of locks across
-    calls into atm_dev->open or such.  To avoid race conditions the ATM
-    code needs to:
-      1. Take whatever internal spinlock it needs
-      2. Add the itf/vpi/vci tuple to whatever datastructure we're holding
-         the vcc list in - but mark it as "inactive" so we don't find it
-	 while others are searching the list.  Obviously the open will
-	 fail if we find a matching tuple (whether or not it was active)
-      3. Drop the spinlock
-      4. Take the per-device semaphore
-      5. Call atmdev->open
-      6. Drop the per-device semaphore
-      7. Re-take the internal spinlock
-      8. If open succeeded now mark the vcc as "active".  If the open failed
-         just delete it
-      9. Drop the internal spinlock
+Andrew, would you be willing to merge this into -mm for some 
+simultaneous netwide testing?
 
-    To do a close the method is similar:
-      1. Take the internal spinlock
-      2. Find the tuple, mark it as inactive
-      3. Drop the spinlock
-      4. Take the per-device semaphore
-      5. Call atmdev->close
-      6. Drop the per-device semaphore
-      7. Re-take the internal spinlock
-      8. Delete vcc from the list
-      9. Drop the internal spinlock
+FWIW, I seem to recall that the older NAPI patch you sent didn't apply 
+for some reason.  But forget about that, this one looks good.
 
-    Then ->open and ->close can sleep like they need to but won't block
-    other accesses to the list in the mean time.
-
-  * If ATM_ITF_ANY is a pain to fix it should just be removed - it's
-    basically a misfeature and is probably never used by anybody.  I've
-    already posted a patch to linux-atm-general that basically does this
-    (it changes "ATM_ITF_ANY" to mean "first interface we find")
-
--Mitch
+	Jeff
