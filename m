@@ -1,31 +1,18 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [BK PATCH 2.6] repost, fix sysctl breakage during network
- device renaming, for ipv4
-Date: Sat, 18 Oct 2003 00:01:31 -0700
+Subject: Re: [PATCH][2.6] fix compilation w/o CONFIG_XFRM
+Date: Sat, 18 Oct 2003 00:02:44 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031018000131.52a13c98.davem@redhat.com>
-References: <20030901164624.GA26886@callisto.yi.org>
-	<20030901094127.6a0f6878.davem@redhat.com>
-	<20030901165559.GA27099@callisto.yi.org>
-	<20030901113143.1ba34464.davem@redhat.com>
-	<20031017213235.GA5278@callisto.yi.org>
+Message-ID: <20031018000244.2a92b64f.davem@redhat.com>
+References: <Pine.LNX.4.53.0310180300500.2831@montezuma.fsmlabs.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Dan Aloni <da-x@gmx.net>
-In-Reply-To: <20031017213235.GA5278@callisto.yi.org>
+To: Zwane Mwaikambo <zwane@arm.linux.org.uk>
+In-Reply-To: <Pine.LNX.4.53.0310180300500.2831@montezuma.fsmlabs.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 17 Oct 2003 23:32:35 +0200
-Dan Aloni <da-x@gmx.net> wrote:
 
-> Here is the patch. I've compiled and tested it.
-
-But not with ipv6 modular :-)  Please add the necessary
-module symbol export for net_sysctl_strdup() and resubmit
-the patch.
-
-Thank you.
+Patch applied, thanks Zwane.
