@@ -1,29 +1,31 @@
-From: "Feldman, Scott" <scott.feldman@intel.com>
-Subject: RE: NIC on 2.4.19 SMP (mii-diag output)
-Date: Sat, 26 Oct 2002 21:59:30 -0700
+From: Cheng Jin <chengjin@cs.caltech.edu>
+Subject: struct sock size limit?
+Date: Sat, 26 Oct 2002 22:44:03 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <288F9BF66CD9D5118DF400508B68C44604758C6A@orsmsx113.jf.intel.com>
+Message-ID: <Pine.LNX.4.33L0.0210262236120.4401-100000@fast2.cs.caltech.edu>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Jeff Garzik <jgarzik@pobox.com>, Linux-net <linux-net@vger.kernel.org>,
-   netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'Paul Hernandez'" <ph@digitalquake.com>,
-   Donald Becker
-	 <becker@scyld.com>,
-   Felipe W Damasio <felipewd@terra.com.br>
+To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Paul wrote: 
-> Just tried 2.4.20-pre11 and all NIC issues seem to be 
-> resolved. Both eepro100 and e100 drivers work correctly.
+Hi,
 
-Just for kicks, go back to 2.4.19.SuSE-SMP, but this time disable ACPI.
-(Set acpi=off in the kernel parameters SuSE's bootloader).  Do the nics
-work?
+I have been adding members to struct sock (by changing struct tcp_opt) in
+linux 2.4.18-3 kernel.  I haven't had problems with the kernel until
+today.   When I added a few more bytes (~ 20 bytes) on top of my old
+addition (around 80 bytes), the kernel would crash calling udp_sendmsg
+(syslogd initialization).  I suspect that there may be some kind of size
+limit with struct sock/tcp_opt.  The TCP connected state is checked
+from within udp_sendmsg (no idea why that is so).
 
-We've seen issues on some of these newer systems with multiple IO-APICS
-where the interrupts get masked off when ACPI is enabled. 
+I searched around on google, but didn't find anything on struct sock or
+struct tcp_opt.  Does anyone know whether the size of struct sock/tcp_opt
+is capped?
 
--scott
+Thanks a lot,
+
+Cheng
+
+Lab # 626 395 8820
