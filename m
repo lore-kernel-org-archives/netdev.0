@@ -1,33 +1,41 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] [NET] Save space for sk_alloc_slab() failure message.
-Date: Thu, 17 Mar 2005 10:31:06 -0800
-Message-ID: <20050317103106.009e6b2a.davem@davemloft.net>
-References: <20050318.033039.116005935.yoshfuji@linux-ipv6.org>
+From: Jesper Juhl <juhl-lkml@dif.dk>
+Subject: [PATCH] net/socket.c : remove redundant NULL pointer check before
+ kfree()
+Date: Thu, 17 Mar 2005 20:34:05 +0100 (CET)
+Message-ID: <Pine.LNX.4.62.0503172028030.2512@dragon.hyggekrogen.localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: netdev@oss.sgi.com
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20050318.033039.116005935.yoshfuji@linux-ipv6.org>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Orest Zborowski <obz@Kodak.COM>,
+	Ross Biro <bir7@leland.Stanford.Edu>,
+	"Fred N. van Kempen" <waltje@uWalt.NL.Mugnet.ORG>,
+	"David S. Miller" <davem@davemloft.net>, linux-net@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: netdev@oss.sgi.com
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 18 Mar 2005 03:30:39 +0900 (JST)
-YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
 
-> (Almost) all callers of sk_alloc_slab() handle its failure like this:
-> 
->   if (sk_alloc_slab(&prot, "sock")) {
->     sk_alloc_slab_error(&prot);	/* except for sctp */
->     goto out;
->   }
-> 
-> So, why don't we move sk_alloc_slab_error() into sk_alloc_slab()
-> for simplification and save text segment?
-> 
-> Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+kfree() handles NULL pointers just fine, checking first is pointless.
 
-Looks great, patch applied.
 
-Thanks.
+Signed-off-by: Jesper Juhl <juhl-lkml@dif.dk>
+
+--- linux-2.6.11-mm4-orig/net/socket.c	2005-03-16 15:45:42.000000000 +0100
++++ linux-2.6.11-mm4/net/socket.c	2005-03-17 20:25:36.000000000 +0100
+@@ -993,8 +993,7 @@ static int sock_fasync(int fd, struct fi
+ 	sock = SOCKET_I(filp->f_dentry->d_inode);
+ 
+ 	if ((sk=sock->sk) == NULL) {
+-		if (fna)
+-			kfree(fna);
++		kfree(fna);
+ 		return -EINVAL;
+ 	}
+ 
+
+
+
+
+(Please CC me on replies to lists other than linux-kernel)
+
+
