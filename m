@@ -1,125 +1,48 @@
-From: mcgrof@ruslug.rutgers.edu (Luis R. Rodriguez)
-Subject: [PATCH] prism54: fix wpa_supplicant frequency
-	parsing
-Date: Sun, 22 Aug 2004 11:15:21 -0400
-Sender: prism54-devel-bounces@prism54.org
-Message-ID: <20040822151521.GB22126@ruslug.rutgers.edu>
+From: jamal <hadi@cyberus.ca>
+Subject: Billing 1: WAS (Re: [PATCH 2/4] deferred drop, __parent
+	workaround, reshape_fail , netdev@oss.sgi.com ,
+Date: 22 Aug 2004 11:17:15 -0400
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <1093187835.1042.95.camel@jzny.localdomain>
+References: <411C0FCE.9060906@crocetta.org>
+	 <1092401484.1043.30.camel@jzny.localdomain>
+	 <20040816072032.GH15418@sunbeam2>
+	 <1092661235.2874.71.camel@jzny.localdomain> <4120D068.2040608@crocetta.org>
+	 <1092743526.1038.47.camel@jzny.localdomain>  <41220AEA.20409@crocetta.org>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1500878883=="
-Cc: Netdev <netdev@oss.sgi.com>, Jouni Malinen <jkmaline@cc.hut.fi>,
-	prism54-devel@prism54.org
-Return-path: <prism54-devel-bounces@prism54.org>
-To: Jeff Garzik <jgarzik@pobox.com>
-List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
-List-Archive: <http://prism54.org/pipermail/prism54-devel>
-List-Post: <mailto:prism54-devel@prism54.org>
-List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
-List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
-Mime-version: 1.0
-Errors-To: prism54-devel-bounces@prism54.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Harald Welte <laforge@netfilter.org>, devik@cdi.cz, netdev@oss.sgi.com,
+        netfilter-devel@lists.netfilter.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: sandr8 <sandr8_NOSPAM_@crocetta.org>
+In-Reply-To: <41220AEA.20409@crocetta.org>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Apologies for latency - was busy at (my real) work.
 
---===============1500878883==
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="Ycz6tD7Th1CMF4v7"
-Content-Disposition: inline
+Let me break this email into several ones since it is getting long.
 
+On Tue, 2004-08-17 at 09:40, sandr8 wrote:
 
---Ycz6tD7Th1CMF4v7
-Content-Type: multipart/mixed; boundary="4ZLFUWh1odzi/v6L"
-Content-Disposition: inline
+> something like enqueue(dev) that will indirectly call dev->qdisc->enqueue
+> and handle in that single place that stuff that does not fit well in 
+> net/core/dev.c
 
+Enqueue of _root_ qdisc is the place to do it.
+Maybe even dev.c calls to it. Lets defer this to the next email.
 
---4ZLFUWh1odzi/v6L
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Let me say this:
+I am happy with Haralds billing patch which is already in as is.
+In other words, although there is an accounting discrepancy it is not
+that big.
+What does that mean? unbilling is not something to rush in and patch in
+if its going to have an impact on other pieces. It doesnt matter whether
+it goes in in 2.6.20 or doesnt even go in as far as i am concerned. 
+However this shouldnt dicourage you because you have actually opened an
+issue we need to resolve. So please keep up the discussions.
 
-
-Jeff,
-
-the attached patch fixes wpa_supplicant frequency parsing as it relies
-on frequency and not channel. With this patch both channel and frequency
-are shown in a scan (iwlist eth0 scan). This patch goes on top of my previo=
-us set
-of patches (and before that ontop of Margit's patches, which you have
-not yet committed). This goes for 2.6 and 2.4.=20
-
-2004-08-22      Luis R. Rodriguez <mcgrof@ruslug.rutgers.edu>
-
-This work fixes wpa_supplicant frequency parsing. iwlist eth0
-scan will now show channel and frequency.
-
-* isl_ioctl (prism54_get_freq): use fwrq->e=3D6 as default
-
-* isl_ioctl (prism54_translate_bss): no need now of=20
-  channel_of_freq, and use fwrq->e=3D6 as default
-
-	Luis
-
---=20
-GnuPG Key fingerprint =3D 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
-
---4ZLFUWh1odzi/v6L
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="freq.diff"
-Content-Transfer-Encoding: quoted-printable
-
-diff -Naurp linux-2.6.8.1/drivers/net/wireless/prism54/isl_ioctl.c linux-2.=
-6.8.1-prism54/drivers/net/wireless/prism54/isl_ioctl.c
---- linux-2.6.8.1/drivers/net/wireless/prism54/isl_ioctl.c	2004-08-18 14:15=
-:13.000000000 -0400
-+++ linux-2.6.8.1-prism54/drivers/net/wireless/prism54/isl_ioctl.c	2004-08-=
-22 09:08:37.000000000 -0400
-@@ -303,7 +303,7 @@ prism54_get_freq(struct net_device *ndev
- 	fwrq->i =3D r.u;
- 	rvalue |=3D mgt_get_request(priv, DOT11_OID_FREQUENCY, 0, NULL, &r);
- 	fwrq->m =3D r.u;
--	fwrq->e =3D 3;
-+	fwrq->e =3D 6;
-=20
- 	return rvalue;
- }
-@@ -604,8 +604,8 @@ prism54_translate_bss(struct net_device=20
- 	current_ev =3D iwe_stream_add_point(current_ev, end_buf, &iwe, NULL);
-=20
- 	/* Add frequency. (short) bss->channel is the frequency in MHz */
--	iwe.u.freq.m =3D channel_of_freq(bss->channel);
--	iwe.u.freq.e =3D 0;
-+	iwe.u.freq.m =3D bss->channel;
-+	iwe.u.freq.e =3D 6;
- 	iwe.cmd =3D SIOCGIWFREQ;
- 	current_ev =3D
- 	    iwe_stream_add_event(current_ev, end_buf, &iwe, IW_EV_FREQ_LEN);
-
---4ZLFUWh1odzi/v6L--
-
---Ycz6tD7Th1CMF4v7
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-
-iD8DBQFBKLiJat1JN+IKUl4RAlL9AJwIPCZlXTDsTwAui5q1FQlAKH6WbQCcC+QX
-2drL/YlkzJw0TAnJMQmEOm0=
-=0euk
------END PGP SIGNATURE-----
-
---Ycz6tD7Th1CMF4v7--
-
---===============1500878883==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Prism54-devel mailing list
-Prism54-devel@prism54.org
-http://prism54.org/mailman/listinfo/prism54-devel
-
---===============1500878883==--
+cheers,
+jamal
