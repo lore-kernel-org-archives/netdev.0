@@ -1,38 +1,106 @@
-From: "Mala Anand" <manand@us.ibm.com>
-Subject: Re: [Lse-tech] Re: (RFC): SKB Initialization
-Date: Mon, 26 Aug 2002 08:04:05 -0500
+From: "Xiaoliang \(David\) Wei" <weixl@caltech.edu>
+Subject: Re: packet re-ordering on SMP machines.
+Date: Mon, 26 Aug 2002 16:03:36 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <47608.8238218383$1030367780@news.gmane.org>
+Message-ID: <009701c24d54$d27304a0$f1fa010a@weixl>
+References: <Pine.GSO.4.30.0208252046250.675-100000@shell.cyberus.ca> <3D69AFE7.6020902@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: 8bit
-Cc: netdev@oss.sgi.com, Robert Olsson <Robert.Olsson@data.slu.se>,
-   "Bill Hartner" <bhartner@us.ibm.com>, <linux-kernel@vger.kernel.org>
+Cc: <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>, davem@redhat.com
+To: "Ben Greear" <greearb@candelatech.com>, "jamal" <hadi@cyberus.ca>,
+   "Cheng Jin" <chengjin@cs.caltech.edu>, "Cheng Hu" <chenghu@cs.caltech.edu>,
+   "Steven Low" <slow@cs.caltech.edu>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
->>I think the skbinit patch and recycling skbs are mutually exclusive.
+Hi Ben and Jamal,
+       Are you guys sure that getdayoftime per packet is a big overhead on
+Gbps connection?
+       Do you compare the performance with getdayoftime per packet and
+without? I guess RFC 1323 specifies that each packet should have a timestamp
+(although not from getdayoftime).
+       Also, what's your testbed's configuration, Ben? (I guess if we can
+use faster hardware to overcome this effect...)
+      Thank you:)
 
->I would say they are more orthogonal than mutually exclusive.
->Although ou still need to prove that relocating the code actually helps in
->real life. On paper it looks good.
-Troy Wilson (who works with me) posted SPECweb99 results using my
-skbinit patch to lkml on Friday:
- http://www.uwsg.iu.edu/hypermail/linux/kernel/0208.2/1470.html
-I know you don't subscribe to lkml. Have you seen these results?
-On Numa machine it showed around 3% improvement using SPECweb99.
+     ps: I am working on some high speed TCP experiment and may want to make
+getdayoftime every packet...
+
+-David
+Xiaoliang (David) Wei             Graduate Student in CS@Caltech
+http://www.cs.caltech.edu/~weixl
+====================================================
+----- Original Message -----
+From: "Ben Greear" <greearb@candelatech.com>
+To: "jamal" <hadi@cyberus.ca>
+Cc: <netdev@oss.sgi.com>
+Sent: Sunday, August 25, 2002 9:34 PM
+Subject: Re: packet re-ordering on SMP machines.
 
 
-Regards,
-    Mala
-
-
-   Mala Anand
-   IBM Linux Technology Center - Kernel Performance
-   E-mail:manand@us.ibm.com
-   http://www-124.ibm.com/developerworks/opensource/linuxperf
-   http://www-124.ibm.com/developerworks/projects/linuxperf
-   Phone:838-8088; Tie-line:678-8088
+>
+> jamal wrote:
+>
+> > That doesnt sound impressive at all. I know it's about .8 of wire rate
+> > but you should be able to exceed that.
+> > Robert was generating in the range of 800Kpps with that NIC if i recall
+> > corectly
+>
+> I had only tested 1514 byte pkts, so I was getting around 880Mbps,
+> which is pretty good as far as I know.
+>
+> I see about 255 kpps when sending 64 byte pkts to myself.  Still
+> dropping about 1 in 4000 packets at this speed.  I think most of Robert's
+> tests didn't involve actually doing something with the received packet
+> though, and I am inspecting it for latency, sequence number, etc.
+>
+> I'm even doing a __get_timeofday() call to calculate the latency...need
+> to find a faster way to do that...
+>
+> If I only allocate/scan 1 per 100 packets (ie alloc one packet and send it
+100 times),
+> then I get a more respectable 365kpps.  Robert's patch should definately
+help!
+>
+> > Also if you have SMP, tie each onto a CPU.
+>
+> That's with the irq_afinity thing in proc, right?
+>
+> > Additionaly get the skb recycler patch from Robert, it should improve
+> > things even more.
+>
+> Do you happen to have a URL for this?
+>
+> Actually, the various network tweaks are relatively hard to find
+> (at least to find the most up-to-date coppies).  It would be great if
+> there was a place where they were all concentrated.
+>
+> >
+> >
+> >>Also, I see the hard_start_xmit call failing 5876 times out of 2719493
+> >>calls (for example).  The code that calls the method looks like this:
+> >>
+> >
+> >
+> > I dont have access to that NIC. But a stoopid question: Have you tried
+> > increasing the transmit queue via ifconfig? 1000 packets is reasonable
+> > for gige.
+>
+> I upped it, but it didn't stop the errors.  The NIC is still performing,
+> so it may not be a real problem...
+>
+> Thanks for the info,
+> Ben
+>
+> --
+> Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
+> President of Candela Technologies Inc      http://www.candelatech.com
+> ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+>
+>
+>
+>
+>
