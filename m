@@ -1,44 +1,52 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Fw: [BUG] alignment problem in net/core/flow.c:flow_key_compare
-Date: Thu, 18 Mar 2004 16:29:03 -0800
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: [BUG] alignment problem in net/core/flow.c:flow_key_compare
+Date: Fri, 19 Mar 2004 11:55:11 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040318162903.59192d13.akpm@osdl.org>
+Message-ID: <20040319.115511.32395995.yoshfuji@linux-ipv6.org>
+References: <20040318162903.59192d13.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, akpm@osdl.org, mru@kth.se
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: davem@redhat.com
+In-Reply-To: <20040318162903.59192d13.akpm@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+In article <20040318162903.59192d13.akpm@osdl.org> (at Thu, 18 Mar 2004 16:29:03 -0800), Andrew Morton <akpm@osdl.org> says:
 
-This is in 2.6.4:
+> The solutions I see are either to force the alignment of struct flowi
+> to 64 bits, or to use 32-bit access in flow_key_compare.
 
-Begin forwarded message:
+Here's the patch.
 
-Date: Thu, 18 Mar 2004 11:53:02 +0100
-From: mru@kth.se (M=E5ns Rullg=E5rd)
-To: linux-kernel@vger.kernel.org
-Subject: [BUG] alignment problem in net/core/flow.c:flow_key_compare
+===== include/net/flow.h 1.10 vs edited =====
+--- 1.10/include/net/flow.h	Thu Jan 15 17:18:43 2004
++++ edited/include/net/flow.h	Fri Mar 19 11:45:54 2004
+@@ -10,6 +10,12 @@
+ #include <linux/in6.h>
+ #include <asm/atomic.h>
+ 
++#if (BITS_PER_LONG == 64)
++#define FLOWI_ALIGN_BYTES 8
++#else
++#define FLOWI_ALIGN_BYTES 4
++#endif
++
+ struct flowi {
+ 	int	oif;
+ 	int	iif;
+@@ -77,7 +83,7 @@
+ #define fl_icmp_type	uli_u.icmpt.type
+ #define fl_icmp_code	uli_u.icmpt.code
+ #define fl_ipsec_spi	uli_u.spi
+-};
++} __attribute__((__aligned__(FLOWI_ALIGN_BYTES)));
+ 
+ #define FLOW_DIR_IN	0
+ #define FLOW_DIR_OUT	1
 
-
-There is a problem with alignment in the flow_key_compare function in
-net/core/flow.c.  It takes arguments of type struct flowi * and casts
-them to flow_compare_t *, which is 64 bits on 64-bit machines.  It
-then proceeds to read and compare 64-bit values from these pointers.
-The problem is that struct flowi only requires 32-bit alignment, so
-these reads cause numerous unaligned exceptions.  On average, I get
-nearly 1000 unaligned exceptions per second.
-
-The solutions I see are either to force the alignment of struct flowi
-to 64 bits, or to use 32-bit access in flow_key_compare.
-
---=20
-M=E5ns Rullg=E5rd
-mru@kth.se
--
-To unsubscribe from this list: send the line "unsubscribe linux-kernel" i=
-n
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-Please read the FAQ at  http://www.tux.org/lkml/
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
