@@ -1,76 +1,62 @@
-From: Colin Leroy <colin@colino.net>
-Subject: RFC: workaround quality bug in zd1201 hardware
-Date: Wed, 23 Mar 2005 15:26:12 +0100
-Message-ID: <20050323152612.66dce7e2@jack.colino.net>
+From: Nishanth Aravamudan <nacc@us.ibm.com>
+Subject: Re: [patch 14/26] net/slip: replace schedule_timeout() with msleep()
+Date: Wed, 23 Mar 2005 09:28:38 -0800
+Message-ID: <20050323172838.GA2679@us.ibm.com>
+References: <20050306103322.857041F203@trashy.coderock.org> <4240B152.4080904@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: domen@coderock.org, netdev@oss.sgi.com
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <4240B152.4080904@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Tue, Mar 22, 2005 at 06:59:14PM -0500, Jeff Garzik wrote:
+> domen@coderock.org wrote:
+> >Use msleep() instead of schedule_timeout() to guarantee
+> >the task delays as expected. While the original code does use
+> >TASK_INTERRUPTIBLE, it does not check for signals, so I believe msleep() 
+> >is more
+> >appropriate.
+> >
+> >Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
+> >Signed-off-by: Domen Puncer <domen@coderock.org>
+> >---
+> >
+> >
+> > kj-domen/drivers/net/slip.c |    7 +++----
+> > 1 files changed, 3 insertions(+), 4 deletions(-)
+> >
+> >diff -puN drivers/net/slip.c~msleep-drivers_net_slip drivers/net/slip.c
+> >--- kj/drivers/net/slip.c~msleep-drivers_net_slip	2005-03-05 
+> >16:10:49.000000000 +0100
+> >+++ kj-domen/drivers/net/slip.c	2005-03-05 16:10:49.000000000 +0100
+> >@@ -75,6 +75,7 @@
+> > #include <linux/if_arp.h>
+> > #include <linux/if_slip.h>
+> > #include <linux/init.h>
+> >+#include <linux/delay.h>
+> > #include "slip.h"
+> > #ifdef CONFIG_INET
+> > #include <linux/ip.h>
+> >@@ -1395,10 +1396,8 @@ static void __exit slip_exit(void)
+> > 	/* First of all: check for active disciplines and hangup them.
+> > 	 */
+> > 	do {
+> >-		if (busy) {
+> >-			set_current_state(TASK_INTERRUPTIBLE);
+> >-			schedule_timeout(HZ / 10);
+> >-		}
+> >+		if (busy)
+> >+			msleep(100);
+> 
+> msleep_interruptible
 
-I saw in zd1201.c that there's a hardware bug related to quality
-statistics:
- /* Unfortunatly the quality and noise reported is useless. 
-    they seem to be accumulators that increase until you
-    read them, unless we poll on a fixed interval we can't
-    use them
-  */
+I'm fine with changing this; what should the code do if a signal causes
+an early return? I switched to msleep() in my patch because the current
+code did nothing and that seemed buggy to me.
 
-Given that I couldn't find any spec for the zd1201, I tried the
-following patch to see if we could cheat by updating commsquality while
-scanning. The idea is to use the values we find during scan and copy
-them to zd->iwstats; this can be useful because there are a lots of
-tools out there that perform scanning periodically (netapplet,
-NetworkManager, ...).
-
-Unfortunately this doesn't work perfectly, because it looks like the
-scale is different when reporting AP quality on scanning and
-"normal" quality.
-
-Maybe this can be made useful with a simple conversion ?
-If anyone that has more knowledge on 802.11b than I have could give me
-an hint, it'd be appreciated.
-
-Thanks!
-Signed-off-by: Colin Leroy <colin@colino.net>
---- a/drivers/usb/net/zd1201.c	2005-03-23 15:17:12.000000000 +0100
-+++ b/drivers/usb/net/zd1201.c	2005-03-23 15:17:50.000000000 +0100
-@@ -1160,6 +1160,7 @@
- 		return -EIO;
- 
- 	for(i=8; i<zd->rxlen; i+=62) {
-+		const char *ap_essid;
- 		iwe.cmd = SIOCGIWAP;
- 		iwe.u.ap_addr.sa_family = ARPHRD_ETHER;
- 		memcpy(iwe.u.ap_addr.sa_data, zd->rxdata+i+6, 6);
-@@ -1169,6 +1170,7 @@
- 		iwe.u.data.length = zd->rxdata[i+16];
- 		iwe.u.data.flags = 1;
- 		cev = iwe_stream_add_point(cev, end_buf, &iwe, zd->rxdata+i+18);
-+		ap_essid = zd->rxdata+i+18;
- 
- 		iwe.cmd = SIOCGIWMODE;
- 		if (zd->rxdata[i+14]&0x01)
-@@ -1204,6 +1206,17 @@
- 		iwe.u.qual.noise= zd->rxdata[i+2]/10-100;
- 		iwe.u.qual.level = (256+zd->rxdata[i+4]*100)/255-100;
- 		iwe.u.qual.updated = 7;
-+
-+		if (ap_essid && zd->essid && !strcmp(ap_essid, zd->essid)) {
-+			/* hack: work around hardware bug, update current 
-+			 * link quality using the scan result. 
-+			 */
-+			zd->iwstats.qual.qual = iwe.u.qual.qual;
-+			zd->iwstats.qual.level = iwe.u.qual.level;
-+			zd->iwstats.qual.noise = iwe.u.qual.noise;
-+			zd->iwstats.qual.updated = 2;
-+		}
-+
- 		cev = iwe_stream_add_event(cev, end_buf, &iwe, IW_EV_QUAL_LEN);
- 	}
- 
+Thanks for the feedback,
+Nish
