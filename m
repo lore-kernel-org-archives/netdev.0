@@ -1,7 +1,7 @@
 From: maximilian attems <janitor@sternwelten.at>
-Subject: [patch 5/6] sata_promise remove duplicate msleep() definition
-Date: Sun, 31 Oct 2004 15:45:10 +0100
-Message-ID: <20041031144510.GF28667@stro.at>
+Subject: [patch 6/6] libata remove msleep_libata()
+Date: Sun, 31 Oct 2004 15:45:24 +0100
+Message-ID: <20041031144524.GG28667@stro.at>
 References: <20040923221303.GB13244@us.ibm.com> <20040923221303.GB13244@us.ibm.com> <5.1.0.14.2.20040924074745.00b1cd40@pop.t-online.de> <415CD9D9.2000607@pobox.com> <20041030222228.GB1456@stro.at> <41841886.2080609@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -18,27 +18,72 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-remove now duplicate define.
-driver already includes delay.
+
+
+
+remove msleep_libata(), now that msleep() is backported.
+also remove duplicate msleep() definition.
+delay.h is already included.
 
 Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
 
 
+
 ---
 
- linux-2.4.28-rc1-max/drivers/scsi/sata_promise.c |    2 --
- 1 files changed, 2 deletions(-)
+ linux-2.4.28-rc1-max/drivers/scsi/libata-core.c |   23 -----------------------
+ linux-2.4.28-rc1-max/include/linux/libata.h     |    1 -
+ 2 files changed, 24 deletions(-)
 
-diff -puN drivers/scsi/sata_promise.c~remove-msleep-drivers_scsi_sata_promise drivers/scsi/sata_promise.c
---- linux-2.4.28-rc1/drivers/scsi/sata_promise.c~remove-msleep-drivers_scsi_sata_promise	2004-10-31 13:59:39.000000000 +0100
-+++ linux-2.4.28-rc1-max/drivers/scsi/sata_promise.c	2004-10-31 14:00:12.000000000 +0100
-@@ -42,8 +42,6 @@
- #define DRV_NAME	"sata_promise"
- #define DRV_VERSION	"1.00"
+diff -puN drivers/scsi/libata-core.c~remove-libata_msleep drivers/scsi/libata-core.c
+--- linux-2.4.28-rc1/drivers/scsi/libata-core.c~remove-libata_msleep	2004-10-31 14:06:49.000000000 +0100
++++ linux-2.4.28-rc1-max/drivers/scsi/libata-core.c	2004-10-31 14:08:41.000000000 +0100
+@@ -67,28 +67,6 @@ MODULE_DESCRIPTION("Library module for A
+ MODULE_LICENSE("GPL");
  
--#define msleep libata_msleep	/* 2.4-specific */
+ /**
+- *	msleep - sleep for a number of milliseconds
+- *	@msecs: number of milliseconds to sleep
+- *
+- *	Issues schedule_timeout call for the specified number
+- *	of milliseconds.
+- *
+- *	LOCKING:
+- *	None.
+- */
 -
- enum {
- 	PDC_PKT_SUBMIT		= 0x40, /* Command packet pointer addr */
- 	PDC_INT_SEQMASK		= 0x40,	/* Mask of asserted SEQ INTs */
+-static void msleep(unsigned long msecs)
+-{
+-	set_current_state(TASK_UNINTERRUPTIBLE);
+-	schedule_timeout(msecs_to_jiffies(msecs) + 1);
+-}
+-
+-void libata_msleep(unsigned long msecs)
+-{
+-	msleep(msecs);
+-}
+-
+-/**
+  *	ata_tf_load - send taskfile registers to host controller
+  *	@ap: Port to which output is sent
+  *	@tf: ATA taskfile register set
+@@ -3697,7 +3675,6 @@ EXPORT_SYMBOL_GPL(ata_scsi_queuecmd);
+ EXPORT_SYMBOL_GPL(ata_scsi_error);
+ EXPORT_SYMBOL_GPL(ata_scsi_detect);
+ EXPORT_SYMBOL_GPL(ata_add_to_probe_list);
+-EXPORT_SYMBOL_GPL(libata_msleep);
+ EXPORT_SYMBOL_GPL(ata_scsi_release);
+ EXPORT_SYMBOL_GPL(ata_host_intr);
+ EXPORT_SYMBOL_GPL(ata_dev_classify);
+diff -puN include/linux/libata.h~remove-libata_msleep include/linux/libata.h
+--- linux-2.4.28-rc1/include/linux/libata.h~remove-libata_msleep	2004-10-31 14:06:49.000000000 +0100
++++ linux-2.4.28-rc1-max/include/linux/libata.h	2004-10-31 14:09:08.000000000 +0100
+@@ -416,7 +416,6 @@ extern void ata_qc_complete(struct ata_q
+ extern void ata_eng_timeout(struct ata_port *ap);
+ extern void ata_add_to_probe_list (struct ata_probe_ent *probe_ent);
+ extern int ata_std_bios_param(Disk * disk, kdev_t dev, int *ip);
+-extern void libata_msleep(unsigned long msecs);
+ 
+ 
+ static inline unsigned int ata_tag_valid(unsigned int tag)
 _
