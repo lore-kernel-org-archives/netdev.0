@@ -1,83 +1,151 @@
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Subject: Re: [PATCH 2.6] ixgb: fix ixgb_intr looping checks
-Date: Tue, 2 Nov 2004 12:50:27 -0800 (PST)
-Message-ID: <Pine.LNX.4.44.0411021249470.26075-100000@isotope.jf.intel.com>
-References: <Pine.LNX.4.44.0411021152220.24843-100000@isotope.jf.intel.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [NET] Fix neighbour tbl->entries race
+Date: Wed, 3 Nov 2004 08:02:59 +1100
+Message-ID: <20041102210259.GA12642@gondor.apana.org.au>
+References: <20041102112651.GA8633@gondor.apana.org.au> <1099404823.1021.15.camel@jzny.localdomain> <20041102203720.GA12108@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: jgarzik@pobox.com, <akpm@osdl.org>, <netdev@oss.sgi.com>
+Content-Type: multipart/mixed; boundary="vtzGhvizbBRQ85DL"
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jesse Brandeburg <jesse.brandeburg@intel.com>
-In-Reply-To: <Pine.LNX.4.44.0411021152220.24843-100000@isotope.jf.intel.com>
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <20041102203720.GA12108@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-whoops! including jeff this time...
 
-On Tue, 2 Nov 2004, Jesse Brandeburg wrote:
+--vtzGhvizbBRQ85DL
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
+On Wed, Nov 03, 2004 at 07:37:20AM +1100, herbert wrote:
+> On Tue, Nov 02, 2004 at 09:13:43AM -0500, jamal wrote:
+>
+> > In previous code it seems you should short-circuit if
+> > neigh_forced_gc(tbl) returns non-zero. why do you have to break that
+> > if statement?
+> 
+> The previous logic is slightly incorrect in that even if neigh_forced_gc
+> succeeded in removing some entries, the total number of entries may still
+> be above the threshold 3.
 
-Hey Jeff, we have a little problem with a patch that got accepted into
--mm
-and is now in netdev, but never got copied to netdev mailing list.
+Actually, after thinking about this a bit more, the short-circuit
+is indeed correct.  The logic is that if we freed up at least one
+spot in the hash table then we ought to be able to take it.
 
-This thread:
-http://marc.theaimsgroup.com/?t=3D109149508900004&r=3D1&w=3D2
+In fact, we can make it a bit more effective/fair by checking the
+previous entries count as well.
 
-the last comment is entirely correct, we need to update the comment.=A0
-this patch reverts the patch to ixgb that akpm added to do two for loops,
-as we actually did intend to do the boolean '&' check, and both the
-functions *should* be called every time through the loop.
+Here is an updated patch.
 
-Here is a patch that we would like applied, it undoes the change we don't
-like, it was checked to apply cleanly against the netdev-2.6 tree this
-morning, and reviewed by the team.
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-It also keeps the 10Gig (ixgb) driver consistent with our 1gig (e1000)
-code.
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
-This patch undoes a change that we believe will impact performance
-adversely, by creating possibly too long a delay between servicing
-completions. The comment pretty much explains it.=A0 We need to call both
-cleanup routines each pass through the loop, this time we have a comment
-explaining why.
+--vtzGhvizbBRQ85DL
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+===== include/net/neighbour.h 1.24 vs edited =====
+--- 1.24/include/net/neighbour.h	2004-10-22 14:51:12 +10:00
++++ edited/include/net/neighbour.h	2004-11-03 07:56:07 +11:00
+@@ -189,7 +189,7 @@
+ 	struct timer_list 	gc_timer;
+ 	struct timer_list 	proxy_timer;
+ 	struct sk_buff_head	proxy_queue;
+-	int			entries;
++	atomic_t		entries;
+ 	rwlock_t		lock;
+ 	unsigned long		last_rand;
+ 	struct neigh_parms	*parms_list;
+===== net/core/neighbour.c 1.54 vs edited =====
+--- 1.54/net/core/neighbour.c	2004-10-06 04:37:37 +10:00
++++ edited/net/core/neighbour.c	2004-11-03 07:57:32 +11:00
+@@ -254,18 +254,21 @@
+ {
+ 	struct neighbour *n = NULL;
+ 	unsigned long now = jiffies;
++	int entries;
+ 
+-	if (tbl->entries > tbl->gc_thresh3 ||
+-	    (tbl->entries > tbl->gc_thresh2 &&
++	entries = atomic_inc_return(&tbl->entries) - 1;
++	if (entries >= tbl->gc_thresh3 ||
++	    (entries >= tbl->gc_thresh2 &&
+ 	     time_after(now, tbl->last_flush + 5 * HZ))) {
+ 		if (!neigh_forced_gc(tbl) &&
+-		    tbl->entries > tbl->gc_thresh3)
+-			goto out;
++		    entries >= tbl->gc_thresh3 &&
++		    atomic_read(&tbl->entries) > tbl->gc_thresh3)
++			goto out_entries;
+ 	}
+ 
+ 	n = kmem_cache_alloc(tbl->kmem_cachep, SLAB_ATOMIC);
+ 	if (!n)
+-		goto out;
++		goto out_entries;
+ 
+ 	memset(n, 0, tbl->entry_size);
+ 
+@@ -281,12 +284,15 @@
+ 
+ 	NEIGH_CACHE_STAT_INC(tbl, allocs);
+ 	neigh_glbl_allocs++;
+-	tbl->entries++;
+ 	n->tbl		  = tbl;
+ 	atomic_set(&n->refcnt, 1);
+ 	n->dead		  = 1;
+ out:
+ 	return n;
++
++out_entries:
++	atomic_dec(&tbl->entries);
++	goto out;
+ }
+ 
+ static struct neighbour **neigh_hash_alloc(unsigned int entries)
+@@ -427,7 +433,7 @@
+ 
+ 	write_lock_bh(&tbl->lock);
+ 
+-	if (tbl->entries > (tbl->hash_mask + 1))
++	if (atomic_read(&tbl->entries) > (tbl->hash_mask + 1))
+ 		neigh_hash_grow(tbl, (tbl->hash_mask + 1) << 1);
+ 
+ 	hash_val = tbl->hash(pkey, dev) & tbl->hash_mask;
+@@ -608,7 +614,7 @@
+ 	NEIGH_PRINTK2("neigh %p is destroyed.\n", neigh);
+ 
+ 	neigh_glbl_allocs--;
+-	neigh->tbl->entries--;
++	atomic_dec(&neigh->tbl->entries);
+ 	kmem_cache_free(neigh->tbl->kmem_cachep, neigh);
+ }
+ 
+@@ -1394,7 +1400,7 @@
+ 	del_timer_sync(&tbl->proxy_timer);
+ 	pneigh_queue_purge(&tbl->proxy_queue);
+ 	neigh_ifdown(tbl, NULL);
+-	if (tbl->entries)
++	if (atomic_read(&tbl->entries))
+ 		printk(KERN_CRIT "neighbour leakage\n");
+ 	write_lock(&neigh_tbl_lock);
+ 	for (tp = &neigh_tables; *tp; tp = &(*tp)->next) {
+@@ -1951,7 +1957,7 @@
+ 
+ 	seq_printf(seq, "%08x  %08lx %08lx %08lx  %08lx %08lx  %08lx  "
+ 			"%08lx %08lx  %08lx %08lx\n",
+-		   tbl->entries,
++		   atomic_read(&tbl->entries),
+ 
+ 		   st->allocs,
+ 		   st->destroys,
 
---- netdev-2.6/drivers/net/ixgb/ixgb_main.c=A0=A0=A0=A0 2004-10-15
-10:39:56.000000000 -0700
-+++ netdev-2.6/drivers/net/ixgb/ixgb_main.c.new 2004-10-15
-11:09:42.000000000 -0700
-@@ -1613,13 +1613,14 @@ static irqreturn_t ixgb_intr(int irq, vo
-=A0=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 __netif_rx_schedule(netdev);
-=A0=A0=A0=A0=A0=A0=A0 }
-=A0#else
--=A0=A0=A0=A0=A0=A0 for (i =3D 0; i < IXGB_MAX_INTR; i++)
--=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 if (ixgb_clean_rx_irq(adapter) =
-=3D=3D FALSE)
--=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 break;
--=A0=A0=A0=A0=A0=A0 for (i =3D 0; i < IXGB_MAX_INTR; i++)
--=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 if (ixgb_clean_tx_irq(adapter) =
-=3D=3D FALSE)
-+=A0=A0=A0=A0=A0=A0 /* yes, that is actually a & and it is meant to make =
-sure that
-+=A0=A0=A0=A0=A0=A0=A0 * every pass through this for loop checks both rec=
-eive and
-+=A0=A0=A0=A0=A0=A0=A0 * transmit queues for completed descriptors, inten=
-ded to
-+=A0=A0=A0=A0=A0=A0=A0 * avoid starvation issues and assist tx/rx fairnes=
-s. */
-+=A0=A0=A0=A0=A0=A0 for(i =3D 0; i < IXGB_MAX_INTR; i++)
-+=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 if(!ixgb_clean_rx_irq(adapter) =
-&
-+=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 =A0=A0 !ixgb_clean_tx_irq(adapt=
-er))
-=A0=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 break;
--
-=A0=A0=A0=A0=A0=A0=A0 /* if RAIDC:EN =3D=3D 1 and ICR:RXDMT0 =3D=3D 1, we=
- need to
-=A0=A0=A0=A0=A0=A0=A0=A0 * set IMS:RXDMT0 to 1 to restart the RBD timer (=
-POLL)
-=A0=A0=A0=A0=A0=A0=A0=A0 */
+--vtzGhvizbBRQ85DL--
