@@ -1,54 +1,55 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] remove comx drivers from tree
-Date: Fri, 14 May 2004 13:32:02 -0400
+From: Marc Herbert <marc.herbert@free.fr>
+Subject: TcpOutSegs way too optimistic (netstat -s)
+Date: Sat, 15 May 2004 00:11:28 +0200 (CEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40A50292.3070601@pobox.com>
-References: <20040507111725.GA11575@lst.de>
+Message-ID: <Pine.LNX.4.58.0405150007090.8193@fcat>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Linux Kernel <linux-kernel@vger.kernel.org>,
-        Andrew Morton <akpm@osdl.org>, Krzysztof Halasa <khc@pm.waw.pl>,
-        Pete Popov <ppopov@mvista.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Christoph Hellwig <hch@lst.de>
-In-Reply-To: <20040507111725.GA11575@lst.de>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Christoph Hellwig wrote:
-> the drivers have been broken since pre-2.4.0, like referencing a symbol
-> that was made procfs-internal in 2.3.x, haven't received maintainer
-> updates for about the same period and MOD_{INC,DEC}_USE_COUNT usage that
-> pretty much unfixable (inside warts of _horrible_ procfs abuse).
-> 
-> I'd say just kill them.
 
-I have applied this to my netdev-2.6 tree, and so it should show up in 
--mm sometime.
+TcpOutSegs is currently incremented even when
+"tp->af_specific->queue_xmit(skb, 0)" fails (think about a full qdisc
+for instance).
 
-  drivers/net/wan/Kconfig           |  113 -
-  drivers/net/wan/Makefile          |    8
-  drivers/net/wan/comx-hw-comx.c    | 1449 -------------------
-  drivers/net/wan/comx-hw-locomx.c  |  495 ------
-  drivers/net/wan/comx-hw-mixcom.c  |  959 ------------
-  drivers/net/wan/comx-hw-munich.c  | 2853 
---------------------------------------
-  drivers/net/wan/comx-proto-fr.c   | 1013 -------------
-  drivers/net/wan/comx-proto-lapb.c |  550 -------
-  drivers/net/wan/comx-proto-ppp.c  |  268 ---
-  drivers/net/wan/comx.c            | 1127 ---------------
-  drivers/net/wan/comx.h            |  231 ---
-  drivers/net/wan/comxhw.h          |  112 -
-  12 files changed, 9178 deletions(-)
-
-Even though it is quite moldy, I want to give people some time to object 
-before I remove it upstream.
+See fix below.
 
 
-BTW, I plan to remove rcpci driver at the suggestion of Pete Popov, as 
-well.  It seems it's another "hasn't really worked since late 2.3.x 
-days" driver, and nobody really has the hardware from this defunct 
-company anymore, apparently.
 
-	Jeff
+===== net/ipv4/tcp_output.c 1.19 vs edited =====
+--- 1.19/net/ipv4/tcp_output.c	Fri May 14 22:32:18 2004
++++ edited/net/ipv4/tcp_output.c	Fri May 14 23:19:37 2004
+@@ -276,13 +276,7 @@
+ 		if (skb->len != tcp_header_size)
+ 			tcp_event_data_sent(tp, skb, sk);
+
+-		TCP_INC_STATS(TcpOutSegs);
+-
+ 		err = tp->af_specific->queue_xmit(skb, 0);
+-		if (err <= 0)
+-			return err;
+-
+-		tcp_enter_cwr(tp);
+
+ 		/* NET_XMIT_CN is special. It does not guarantee,
+ 		 * that this packet is lost. It tells that device
+@@ -290,7 +284,15 @@
+ 		 * drops some packets of the same priority and
+ 		 * invokes us to send less aggressively.
+ 		 */
+-		return err == NET_XMIT_CN ? 0 : err;
++		if(err == NET_XMIT_CN)
++			err = 0;
++		if (!err)
++			TCP_INC_STATS(TcpOutSegs);
++
++		if (err > 0)
++			tcp_enter_cwr(tp);
++
++		return err;
+ 	}
+ 	return -ENOBUFS;
+ #undef SYSCTL_FLAG_TSTAMPS
