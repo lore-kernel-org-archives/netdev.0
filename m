@@ -1,26 +1,30 @@
-From: "David S. Miller" <davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [IP6IP6] Handle ECN correctly
-Date: Wed, 8 Sep 2004 21:40:23 -0700
+Date: Thu, 9 Sep 2004 14:43:36 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040908214023.08dec350.davem@davemloft.net>
-References: <20040909034508.GA19547@gondor.apana.org.au>
+Message-ID: <20040909044336.GA19999@gondor.apana.org.au>
+References: <20040909034508.GA19547@gondor.apana.org.au> <20040908214023.08dec350.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, vnourval@tcs.hut.fi, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040909034508.GA19547@gondor.apana.org.au>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20040908214023.08dec350.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 9 Sep 2004 13:45:08 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
-
-> This patch adds ECN encapsulation/decapsulation to ip6_tunnel.c.
+On Wed, Sep 08, 2004 at 09:40:23PM -0700, David S. Miller wrote:
 > 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> How are those TTL encap fixes coming along? ;-)
 
-Applied, thanks Herbert.
+It went so well that you've already merged it :)
 
-How are those TTL encap fixes coming along? ;-)
+It's the last change on net/ipv*/xfrm*_output.c.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
