@@ -1,102 +1,69 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: [PATCH]Add IPv6 MIBs counters in MLD (mcast.c)
-Date: Wed, 31 Mar 2004 13:26:43 -0800
+From: Andrea Arcangeli <andrea@suse.de>
+Subject: Re: route cache DoS testing and softirqs
+Date: Wed, 31 Mar 2004 23:28:17 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200403311326.43647.mashirle@us.ibm.com>
-References: <OF3E88B8EA.382D75F6-ON87256E5C.00272BAC-88256E5C.0027A5ED@us.ibm.com>
+Message-ID: <20040331212817.GQ2143@dualathlon.random>
+References: <20040329222926.GF3808@dualathlon.random> <200403302005.AAA00466@yakov.inr.ac.ru> <20040330211450.GI3808@dualathlon.random> <20040330133000.098761e2.davem@redhat.com> <20040330213742.GL3808@dualathlon.random> <20040331171023.GA4543@in.ibm.com> <16491.4593.718724.277551@robur.slu.se> <20040331203750.GB4543@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_TezaA6gCPmb2vM/"
-Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org, xma@us.ibm.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+        "David S. Miller" <davem@redhat.com>, kuznet@ms2.inr.ac.ru,
+        linux-kernel@vger.kernel.org, netdev@oss.sgi.com, paulmck@us.ibm.com,
+        akpm@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
-In-Reply-To: <OF3E88B8EA.382D75F6-ON87256E5C.00272BAC-88256E5C.0027A5ED@us.ibm.com>
+To: Dipankar Sarma <dipankar@in.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <20040331203750.GB4543@in.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Thu, Apr 01, 2004 at 02:07:50AM +0530, Dipankar Sarma wrote:
+> On Wed, Mar 31, 2004 at 08:46:09PM +0200, Robert Olsson wrote:
+> Content-Description: message body text
+> > Before run
+> > 
+> > total    droppped tsquz    throttl  bh_enbl  ksoftird irqexit  other   
+> > 00000000 00000000 00000000 00000000 000000e8 0000017e 00030411 00000000
+> > 00000000 00000000 00000000 00000000 000000ae 00000277 00030349 00000000
+> > 
+> > After DoS (See description from previous mail)
+> > 
+> > total    droppped tsquz    throttl  bh_enbl  ksoftird irqexit  other    
+> > 00164c55 00000000 000021de 00000000 000000fc 0000229f 0003443c 00000000
+> > 001695e7 00000000 0000224d 00000000 00000162 0000236f 000342f7 00000000
+> > 
+> > So the major part of softirq's are run from irqexit and therefor out of 
+> > scheduler control. This even with RX polling (eth0, eth2) We still have 
+> > some TX interrupts plus timer interrupts now at 1000Hz. Which probably 
+> > reduces the number of softirq's that ksoftirqd runs.
+> 
+> So, NAPI or not we get userland stalls due to packetflooding.
 
---Boundary-00=_TezaA6gCPmb2vM/
-Content-Type: text/plain;
-  charset="iso-2022-jp"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+indeed, the most of the softirq load happens within irqs even with NAPI
+as we were talking about, so Alexey and DaveM were wrong about the
+hardirq load being non significant.
 
-Here is the patch against linux 2.6.4 kernel. Please review it.
+Maybe the problem is simply that NAPI should be tuned more aggressively,
+it may have to poll for a longer time before giving up.
 
-Thanks
-Shirley Ma
-IBM Linux Technology Center
+> Looking at some of the old patches we discussed privately, it seems
+> this is what was done earlier -
+> 
+> 1. Use rcu-softirq.patch which provides call_rcu_bh() for softirqs
+>    only.
 
+this is the one I prefer if it performs.
 
---Boundary-00=_TezaA6gCPmb2vM/
-Content-Type: text/x-diff;
-  charset="iso-2022-jp";
-  name="linux-2.6.4-mld-ipv6mib.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename="linux-2.6.4-mld-ipv6mib.patch"
+> 2. Limit non-ksoftirqd softirqs - get a measure of userland stall (using
+>    an api rcu_grace_period(cpu)) and if it is too long, expire
+>    the timeslice of the current process  and start sending everything to 
+>    ksoftirqd.
 
-diff -urN linux-2.6.4/net/ipv6/mcast.c linux-2.6.4-mld/net/ipv6/mcast.c
---- linux-2.6.4/net/ipv6/mcast.c	2004-03-10 18:55:43.000000000 -0800
-+++ linux-2.6.4-mld/net/ipv6/mcast.c	2004-03-31 12:05:11.767673936 -0800
-@@ -1317,6 +1317,7 @@
- 	struct inet6_dev *idev = in6_dev_get(skb->dev);
- 	int err;
- 
-+	IP6_INC_STATS(Ip6OutRequests);
- 	payload_len = skb->tail - (unsigned char *)skb->nh.ipv6h -
- 		sizeof(struct ipv6hdr);
- 	mldlen = skb->tail - skb->h.raw;
-@@ -1326,8 +1327,12 @@
- 		IPPROTO_ICMPV6, csum_partial(skb->h.raw, mldlen, 0));
- 	err = NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL, skb->dev,
- 		dev_queue_xmit);
--	if (!err)
-+	if (!err) {
- 		ICMP6_INC_STATS(idev,Icmp6OutMsgs);
-+		IP6_INC_STATS(Ip6OutMcastPkts);
-+	} else
-+		IP6_INC_STATS(Ip6OutDiscards);
-+
- 	if (likely(idev != NULL))
- 		in6_dev_put(idev);
- }
-@@ -1608,6 +1613,7 @@
- 		     IPV6_TLV_ROUTERALERT, 2, 0, 0,
- 		     IPV6_TLV_PADN, 0 };
- 
-+	IP6_INC_STATS(Ip6OutRequests);
- 	snd_addr = addr;
- 	if (type == ICMPV6_MGM_REDUCTION) {
- 		snd_addr = &all_routers;
-@@ -1620,8 +1626,10 @@
- 
- 	skb = sock_alloc_send_skb(sk, LL_RESERVED_SPACE(dev) + full_len, 1, &err);
- 
--	if (skb == NULL)
-+	if (skb == NULL) {
-+		IP6_INC_STATS(Ip6OutDiscards);
- 		return;
-+	}
- 
- 	skb_reserve(skb, LL_RESERVED_SPACE(dev));
- 	if (dev->hard_header) {
-@@ -1664,13 +1672,16 @@
- 		else
- 			ICMP6_INC_STATS(idev, Icmp6OutGroupMembResponses);
- 		ICMP6_INC_STATS(idev, Icmp6OutMsgs);
--	}
-+		IP6_INC_STATS(Ip6OutMcastPkts);
-+	} else
-+		IP6_INC_STATS(Ip6OutDiscards);
- 
- 	if (likely(idev != NULL))
- 		in6_dev_put(idev);
- 	return;
- 
- out:
-+	IP6_INC_STATS(Ip6OutDiscards);
- 	kfree_skb(skb);
- }
- 
+yep, this may be desiderable eventually just to be fair with tasks, but
+I believe it's partly an orthogonal with the rcu grace period length.
 
---Boundary-00=_TezaA6gCPmb2vM/--
+> By reducing the softirq time at the back of a hardirq or local_bh_enable(),
+> we should be able to bring a bit more fairness. I am working on the
+> patches, will test and publish later. 
+
+I consider this as the approch number 2 too.
