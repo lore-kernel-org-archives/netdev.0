@@ -1,49 +1,39 @@
-From: Mariusz Mazur <mmazur@kernel.pl>
-Subject: Re: iproute2 and kernel headers
-Date: Sun, 8 Aug 2004 11:38:08 +0200
+From: bert hubert <ahu@ds9a.nl>
+Subject: Re: [PATCH 2.6] vlan ioctl propagation (rev.2)
+Date: Sun, 8 Aug 2004 12:14:21 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200408081138.09082.mmazur@kernel.pl>
-References: <20040805005019.GA11538@bougret.hpl.hp.com> <20040806093920.045b379e@dell_ss3.pdx.osdl.net> <1091847950.1800.6.camel@jzny.localdomain>
+Message-ID: <20040808101421.GA22507@outpost.ds9a.nl>
+References: <20040806091305.4d405664@dell_ss3.pdx.osdl.net> <20040806132145.675fd17d.davem@redhat.com> <20040806143928.711d92eb@dell_ss3.pdx.osdl.net> <20040807211036.GA7970@outpost.ds9a.nl> <4115AE4C.2060608@aarnet.edu.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-2"
-Content-Transfer-Encoding: quoted-printable
-Cc: Stephen Hemminger <shemminger@osdl.org>, jt@hpl.hp.com,
-        jt@bougret.hpl.hp.com, "David S. Miller" <davem@redhat.com>,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@osdl.org>,
+        "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1091847950.1800.6.camel@jzny.localdomain>
+To: Glen Turner <glen.turner@aarnet.edu.au>
 Content-Disposition: inline
+In-Reply-To: <4115AE4C.2060608@aarnet.edu.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On sobota 07 sierpie=F1 2004 16:04, jamal wrote:
-> > > 	By the way, one of the consequence of versioning the API is
-> > > that I tend to do most API changes in batches. The idea is that I w=
-ant
-> > > to minimise the number of API versions, because I have to test the
-> > > tools and drivers with each of them, and I have finite time.
->
-> There should really be no reason you have to change versions. It should
-> be the last resort. You can use tricks like data structure augmentation
-> and and new TLV types to go for a long time and still be backward (as
-> well as forward) compatible. When you are no longer capable of doing
-> these tricks, then it would make sense upping the version.
-> There also should be rules for evolution reasons against having data
-> structures which cross kernel/userspace from having things like
-> lookatme[0] elements.
+On Sun, Aug 08, 2004 at 02:08:36PM +0930, Glen Turner wrote:
 
-If I understand correctly how the new linux-abi headers are supposed to w=
-ork -=20
-this is the way to go (meaning - new versions of linux-abi should not bre=
-ak=20
-old stuff if they don't have to).
+>    while (virtual_interface(interface_name)) {
+>      virtual_to_real(interface_name, &interface_name);
+>    }
+> 
+> This is the sort of nasty detail than operating systems are meant to
+> abstract away from application code.
 
+What I'm saying is that even userspace should not offer this abstraction.
+Remember the past confusion over "ifconfig eth0:1 down" ?
 
---=20
-In the year eighty five ten
-God is gonna shake his mighty head
-He'll either say,
-"I'm pleased where man has been"
-Or tear it down, and start again
+But I'm more than prepared to follow DaveM's lead here, I just want to be
+sure people think about this change.
+
+Regards,
+
+bert 
+
+-- 
+http://www.PowerDNS.com      Open source, database driven DNS Software 
+http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
