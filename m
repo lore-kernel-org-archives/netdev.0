@@ -1,16 +1,15 @@
 From: spartacus@mailpuppy.com
 Subject: $2,000+/month GUARANTEED! At no COST to YOU!
-Date: Sat, 8 Feb 2003 13:44:09 -0500
+Date: 8 Feb 2003 21:47:55 +0200
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <HA06PJ00.BYJ@ganga.ispatial.net>
+Message-ID: <MIBMAILfb81IfpT8vWy00002253@mibmail.MIBNET.LOCAL>
 Return-path: <linux-net-owner@vger.kernel.org>
-To: application.status@ieee.org, webmaster@linux-m68k.org,
-	vassilii@tarunz.org, linux-net@vger.kernel.org,
-	majordomo@vger.kernel.org, netdev@oss.sgi.com,
-	majordomo@oss.sgi.com, chexum@shadow.banki.hu, tao@acc.umu.se,
-	marcelo@conectiva.com.br, torvalds@transmeta.com,
+To: linux-net@vger.kernel.org, majordomo@vger.kernel.org,
+	netdev@oss.sgi.com, majordomo@oss.sgi.com, chexum@shadow.banki.hu,
+	tao@acc.umu.se, marcelo@conectiva.com.br, torvalds@transmeta.com,
 	postmaster@vger.kernel.org, majordomo@eax.com, linuxjobs@eax.com,
-	root@chaos.analogic.com
+	root@chaos.analogic.com, da_smith@bostonworks.com,
+	jbutler@bostonworks.com, tzannos@bostonworks.com
 List-Id: netdev.vger.kernel.org
 
 
