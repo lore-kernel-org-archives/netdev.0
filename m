@@ -1,44 +1,34 @@
-From: Don Fry <brazilnut@us.ibm.com>
-Subject: [patch 2.6.3] pcnet32 non-mii link state fix
-Date: Tue, 24 Feb 2004 17:02:10 -0800 (PST)
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] hp100 -- fixes for new probing.
+Date: Tue, 24 Feb 2004 17:07:00 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200402250102.i1P12Ak20519@DYN318364BLD.beaverton.ibm.com>
+Message-ID: <20040224170700.11adc3cc@dell_ss3.pdx.osdl.net>
+References: <20040223094925.344bc73d@dell_ss3.pdx.osdl.net>
+	<20040224233602.36835.qmail@web14004.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: tsbogend@alpha.franken.de, jgarzik@pobox.com, netdev@oss.sgi.com
+To: Cacophonix <cacophonix@yahoo.com>
+In-Reply-To: <20040224233602.36835.qmail@web14004.mail.yahoo.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-s patch correctly returns the link state of an adapter which does not
-have an MII.  Tested by myself and the patch author Thomas Munck Steenholdt
-<tmus@tmus.dk>.  (This version has the correct file name)
+Does fix the problem?  it checks for card before proceeding in hp100_isa_probe
 
---- linux-2.6.3/drivers/net/x.pcnet32.c	Tue Feb 24 16:39:18 2004
-+++ linux-2.6.3/drivers/net/pcnet32.c	Tue Feb 24 16:41:49 2004
-@@ -526,13 +526,17 @@
- {
-     struct pcnet32_private *lp = dev->priv;
-     unsigned long flags;
--    int r = 1;
-+    int r;
+diff -Nru a/drivers/net/hp100.c b/drivers/net/hp100.c
+--- a/drivers/net/hp100.c	Tue Feb 24 17:05:54 2004
++++ b/drivers/net/hp100.c	Tue Feb 24 17:05:54 2004
+@@ -333,6 +333,11 @@
  
-+    spin_lock_irqsave(&lp->lock, flags);
-     if (lp->mii) {
--	spin_lock_irqsave(&lp->lock, flags);
- 	r = mii_link_ok(&lp->mii_if);
--	spin_unlock_irqrestore(&lp->lock, flags);
-+    } else {
-+	ulong ioaddr = dev->base_addr;	/* card base I/O address */
-+	r = (lp->a.read_bcr(ioaddr, 4) != 0xc0);
-     }
-+    spin_unlock_irqrestore(&lp->lock, flags);
-+
-     return r;
- }
+ 	if (!request_region(addr, HP100_REGION_SIZE, "hp100"))
+ 		goto err;
++	
++	if (hp100_inw(HW_ID) != HP100_HW_ID_CASCADE) {
++		release_region(addr, HP100_REGION_SIZE);
++		goto err;
++	}
  
-
--- 
-Don Fry
-brazilnut@us.ibm.com
+ 	sig = hp100_read_id(addr);
+ 	release_region(addr, HP100_REGION_SIZE);
