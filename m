@@ -1,74 +1,30 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] unclamp tcp receive window if doing dynamic receive sizing
-Date: Mon, 7 Jun 2004 13:30:56 -0700
+From: =?GB2312?B?wu3A9sD2?= <ma@cnhlt.com>
+Subject: =?GB2312?B?s6S+w8rV0uajoQ==?=
+Date: Tue, 8 Jun 2004 01:02:34 +0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040607133056.5ab9e72d@dell_ss3.pdx.osdl.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Message-ID: <200406072042.i57Kgggj005696@oss.sgi.com>
+Reply-To: hlt98@eyou.com
+Content-Type: text/plain;charset="GB2312"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-When running tests over higher speed links, the new 2.6 Dynamic Receiver Sizing
-code doesn't increase the window large enough.  The problem is that the window
-clamp restricts the allowed window to the socket receive buffer size (85k)
 
-Easiest fix is to not restrict window clamp if we want to dynamic receiver stuff.
-This is what web100 did.
-
-Thanks to John Heffner for finding this.
-
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+  您想获得长久、巨大的收益吗？购买"好利通酒店订房系统
+(可作为最高级的酒店订房网站)是最佳选择。即买即可创收，
+该系统可订全国近两百个城市一千三百多家酒店的超低价房
+（可随时增加酒店），操作简便，一人就能轻松实现网上经营
+管理，收益丰盛（酒店给予您丰厚佣金和广告费）。
+  一次决定，长久受益!
+  系统展示：www.cnhlt.com/sale66 
+    有意者，请与我们联系，详谈，谢谢！ 
+                 
  
-diff -Nru a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
---- a/net/ipv4/tcp_input.c	2004-06-07 12:45:49 -07:00
-+++ b/net/ipv4/tcp_input.c	2004-06-07 12:45:49 -07:00
-@@ -300,7 +300,6 @@
- static void tcp_init_buffer_space(struct sock *sk)
- {
- 	struct tcp_opt *tp = tcp_sk(sk);
--	int maxwin;
- 
- 	if (!(sk->sk_userlocks & SOCK_RCVBUF_LOCK))
- 		tcp_fixup_rcvbuf(sk);
-@@ -309,22 +308,24 @@
- 
- 	tp->rcvq_space.space = tp->rcv_wnd;
- 
--	maxwin = tcp_full_space(sk);
-+	if (!sysctl_tcp_moderate_rcvbuf) {
-+		int maxwin = tcp_full_space(sk);
- 
--	if (tp->window_clamp >= maxwin) {
--		tp->window_clamp = maxwin;
-+		if (tp->window_clamp >= maxwin) {
-+			tp->window_clamp = maxwin;
- 
--		if (sysctl_tcp_app_win && maxwin > 4 * tp->advmss)
--			tp->window_clamp = max(maxwin -
--					       (maxwin >> sysctl_tcp_app_win),
--					       4 * tp->advmss);
-+			if (sysctl_tcp_app_win && maxwin > 4 * tp->advmss)
-+				tp->window_clamp = max(maxwin -
-+						       (maxwin >> sysctl_tcp_app_win),
-+						       4 * tp->advmss);
-+		}
-+
-+		/* Force reservation of one segment. */
-+		if (sysctl_tcp_app_win &&
-+		    tp->window_clamp > 2 * tp->advmss &&
-+		    tp->window_clamp + tp->advmss > maxwin)
-+			tp->window_clamp = max(2 * tp->advmss, maxwin - tp->advmss);
- 	}
--
--	/* Force reservation of one segment. */
--	if (sysctl_tcp_app_win &&
--	    tp->window_clamp > 2 * tp->advmss &&
--	    tp->window_clamp + tp->advmss > maxwin)
--		tp->window_clamp = max(2 * tp->advmss, maxwin - tp->advmss);
- 
- 	tp->rcv_ssthresh = min(tp->rcv_ssthresh, tp->window_clamp);
- 	tp->snd_cwnd_stamp = tcp_time_stamp;
+    
+                 
+                 深圳市好利通公司 市场部
+                 网址http://www.cnhlt.com 
+                 联系人：马丽丽
+                 邮箱：hlt98@eyou.com    
+                 电话: 0755-26088102,26088102
