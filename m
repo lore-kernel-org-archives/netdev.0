@@ -1,80 +1,56 @@
-From: Guillaume Thouvenin <guillaume.thouvenin@bull.net>
-Subject: Re: [Lse-tech] Re: A common layer for Accounting packages
-Date: Tue, 01 Mar 2005 14:53:56 +0100
-Message-ID: <1109685236.8594.75.camel@frecb000711.frec.bull.fr>
-References: <4221E548.4000008@ak.jp.nec.com>
-	 <20050227140355.GA23055@logos.cnet> <42227AEA.6050002@ak.jp.nec.com>
-	 <1109575236.8549.14.camel@frecb000711.frec.bull.fr>
-	 <20050227233943.6cb89226.akpm@osdl.org>
-	 <1109592658.2188.924.camel@jzny.localdomain>
-	 <20050228132051.GO31837@postel.suug.ch>
-	 <1109598010.2188.994.camel@jzny.localdomain>
-	 <20050228135307.GP31837@postel.suug.ch>
-	 <1109599803.2188.1014.camel@jzny.localdomain>
-	 <20050228142551.GQ31837@postel.suug.ch>
-	 <1109604693.1072.8.camel@jzny.localdomain>
-	 <20050228191759.6f7b656e@zanzibar.2ka.mipt.ru>
-	 <1109665299.8594.55.camel@frecb000711.frec.bull.fr>
-	 <42247051.7070303@ak.jp.nec.com>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: e1000 problem with NAPI?
+Date: Tue, 1 Mar 2005 14:59:31 +0100
+Message-ID: <20050301135931.GA14610@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, hadi@cyberus.ca,
-        Thomas Graf <tgraf@suug.ch>, Andrew Morton <akpm@osdl.org>,
-        marcelo.tosatti@cyclades.com, "David S. Miller" <davem@redhat.com>,
-        jlan@sgi.com, LSE-Tech <lse-tech@lists.sourceforge.net>,
-        lkml <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com,
-        elsa-devel <elsa-devel@lists.sourceforge.net>
-To: Kaigai Kohei <kaigai@ak.jp.nec.com>
-In-Reply-To: <42247051.7070303@ak.jp.nec.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: hadi@cyberus.ca, robert.olsson@data.slu.se
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2005-03-01 at 22:38 +0900, Kaigai Kohei wrote:
-> > I tested without user space listeners and the cost is negligible. I will
-> > test with a user space listeners and see the results. I'm going to run
-> > the test this week after improving the mechanism that switch on/off the
-> > sending of the message.
-> 
-> I'm also trying to mesure the process-creation/destruction performance on following three environment.
-> Archtechture: i686 / Distribution: Fedora Core 3
-> * Kernel Preemption is DISABLE
-> * SMP kernel but UP-machine / Not Hyper Threading
-> [1] 2.6.11-rc4-mm1 normal
-> [2] 2.6.11-rc4-mm1 with PAGG based Process Accounting Module
-> [3] 2.6.11-rc4-mm1 with fork-connector notification (it's enabled)
-> 
-> When 367th-fork() was called after fork-connector notification, kernel was locked up.
-> (User-Space-Listener has been also run until 366th-fork() notification was received)
+Hi all,
 
-I don't see this limit on my computer. I'm currently running the lmbench
-with a new fork connector patch (one that enable/disable fork connector)
-on an SMP computer. I will send results and the new patch tomorrow
-because the test takes a while...
+I'm seeing some strange issues with an e1000 NIC.  I'm flooding it
+with tinygrams from a packet generator and then abruptly stop the
+generator.  The last few packets from the burst don't come through
+until after two seconds.  Sometimes there are multiple trailing
+bursts, each of them separated by two seconds.
 
-I'm using a small patch provided by Evgeniy and not included in the
-2.6.11-rc4-mm1 tree.
+For example:  (The low 24 bits of the destination address are set
+to the packet sequence number by the generator.)
 
-Best regards,
-Guillaume
+14:44:19.649874 IP 10.10.0.0 > 1.4.10.11: [|tcp]
+14:44:19.649878 IP 10.10.0.0 > 1.4.10.12: [|tcp]
+14:44:19.649882 IP 10.10.0.0 > 1.4.10.13: [|tcp]
+14:44:19.649887 IP 10.10.0.0 > 1.4.10.14: [|tcp]
+14:44:19.649891 IP 10.10.0.0 > 1.4.10.15: [|tcp]
+14:44:19.649895 IP 10.10.0.0 > 1.4.10.16: [|tcp]
+14:44:19.649899 IP 10.10.0.0 > 1.4.10.17: [|tcp]
+14:44:21.650293 IP 10.10.0.0 > 1.4.10.18: [|tcp]		<=== delayed
+14:44:21.650303 IP 10.10.0.0 > 1.4.10.19: [|tcp]
+14:44:21.650308 IP 10.10.0.0 > 1.4.10.20: [|tcp]
+14:44:21.650312 IP 10.10.0.0 > 1.4.10.21: [|tcp]
+14:44:21.650316 IP 10.10.0.0 > 1.4.10.22: [|tcp]
+14:44:21.650320 IP 10.10.0.0 > 1.4.10.23: [|tcp]
+14:44:21.650324 IP 10.10.0.0 > 1.4.10.24: [|tcp]
+14:44:21.650328 IP 10.10.0.0 > 1.4.10.25: [|tcp]
+14:44:21.650332 IP 10.10.0.0 > 1.4.10.26: [|tcp]
 
---- orig/connector.c
-+++ mod/connector.c
-@@ -168,12 +168,11 @@
-        group = NETLINK_CB((skb)).groups;
-        msg = (struct cn_msg *)NLMSG_DATA(nlh);
+I wrote the packet generator code myself (ixp2400 platform), but I've
+verified that the packets do leave the generator back-to-back.  What's
+also strange is that when these trailing bursts come in, the interface
+statistics counters do not change -- the packets in the trailing bursts
+have already been counted by the time they show up in tcpdump.
 
--       if (msg->len != nlh->nlmsg_len - sizeof(*msg) - sizeof(*nlh)) {
-+       if (NLMSG_SPACE(msg->len + sizeof(*msg)) != nlh->nlmsg_len) {
-                printk(KERN_ERR "skb does not have enough length: "
--                               "requested msg->len=%u[%u], nlh->nlmsg_len=%u[%u], skb->len=%u[must be %u].\n",
--                               msg->len, NLMSG_SPACE(msg->len),
--                               nlh->nlmsg_len, nlh->nlmsg_len - sizeof(*nlh),
--                               skb->len, msg->len + sizeof(*msg));
-+                               "requested msg->len=%u[%u], nlh->nlmsg_len=%u, skb->len=%u.\n",
-+                               msg->len, NLMSG_SPACE(msg->len + sizeof(*msg)),
-+                               nlh->nlmsg_len, skb->len);
-                kfree_skb(skb);
-                return -EINVAL;
-        }
+Jamal suspects a NAPI 'rotting packet' issue, which doesn't sound all
+that unlikely.  (Oh, this is kernel 2.6.10-something with e1000 driver
+version "5.5.4-k2-NAPI".)
+
+Ideas?
+
+
+cheers,
+Lennert
