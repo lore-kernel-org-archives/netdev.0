@@ -1,43 +1,24 @@
-From: Fabio Massimo Di Nitto <fabbione@fabbione.net>
-Subject: Re: ipv6 stack seems to forget to send ACKs
-Date: Thu, 9 Jan 2003 08:29:19 +0100 (CET)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] proc.txt document fix of error_burst and error_cost
+Date: Thu, 09 Jan 2003 00:14:21 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.51.0301090822001.19862@trider-g7.ext.fabbione.net>
-References: <20030108130850.GQ22951@wiggy.net>
- <Pine.LNX.4.51.0301081849550.564@diapolon.int.fabbione.net>
- <78180000.1042055993@localhost.localdomain> <20030108224339.GO22951@wiggy.net>
+Message-ID: <20030109.001421.60144885.davem@redhat.com>
+References: <Pine.LNX.4.44.0211071755470.5001-200000@laptop1.agatha>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew McGregor <andrew@indranet.co.nz>, netdev@oss.sgi.com,
-   linux-kernel@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Wichert Akkerman <wichert@wiggy.net>
-In-Reply-To: <20030108224339.GO22951@wiggy.net>
+To: blueflux@koffein.net
+In-Reply-To: <Pine.LNX.4.44.0211071755470.5001-200000@laptop1.agatha>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+   From: Oskar Andreasson <blueflux@koffein.net>
+   Date: Thu, 7 Nov 2002 18:00:35 +0100 (CET)
+   
+   The patch should apply against both 2.4.19 and 2.5.45 without problems.
+   
+   Is there anything wrong with it, or may it be included? Suggestions? 
 
-On Wed, 8 Jan 2003, Wichert Akkerman wrote:
-
-> Previously Andrew McGregor wrote:
-> > Probably on the server's side it got an ICMP Host Unreachable or two as
-> > some router updated its tables, and decided to close the connection.
->
-> The fact that this problem does not seem to occur when using a window
-> XP client seems to contradict the suggestions that it may be a router
-> problem.
->
-> Wichert.
->
->
-
-Is the WinXP client located in the same place where you are?
-
->From my side the ISP that is giving me problems is xs26.net
-at 2 different points. One is flapping and one is the link between them
-and another ISP (i can't even reach it now) where pkts get seriously
-delayed (from 100ms to more than 350ms) probably due to a slow link.
-But what is seriously annoying is that xs26.net keeps announcing a network
-that it can't reach, fscking the entire routing.
-
-Fabio
+Patch applied, thanks.
