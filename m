@@ -1,8 +1,8 @@
 From: Shmuel Hen <shmulik.hen@intel.com>
-Subject: [PATCH 3/6][8021q][2.6] Use VLAN tag set functionality in 8021q module
-Date: Thu, 22 Jan 2004 18:00:13 +0200
+Subject: [PATCH 2/6][8021q][2.6] Export VLAN tag get/set functionality
+Date: Thu, 22 Jan 2004 17:59:52 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200401221800.14862.shmulik.hen@intel.com>
+Message-ID: <200401221759.54838.shmulik.hen@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
@@ -13,114 +13,164 @@ Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Make the regular/HW accelerated xmit functions in the 8021q module
-use the new set VLAN tag functionality to reduce code duplication.
+Enable intermediate network drivers like bonding to get or set a
+VLAN tag in an skb without a need to know about how tagging is done
+according to a network adapter's capabilities.
 
 
-diff -Nuarp a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
---- a/net/8021q/vlan_dev.c	Wed Jan 21 16:56:13 2004
-+++ b/net/8021q/vlan_dev.c	Wed Jan 21 16:56:15 2004
-@@ -445,6 +445,7 @@ int vlan_dev_hard_start_xmit(struct sk_b
- 	 */
- 
- 	if (veth->h_vlan_proto != __constant_htons(ETH_P_8021Q)) {
-+		int orig_headroom = skb_headroom(skb);
- 		unsigned short veth_TCI;
- 
- 		/* This is not a VLAN frame...but we can fix that! */
-@@ -454,33 +455,7 @@ int vlan_dev_hard_start_xmit(struct sk_b
- 		printk(VLAN_DBG "%s: proto to encap: 0x%hx (hbo)\n",
- 			__FUNCTION__, htons(veth->h_vlan_proto));
- #endif
--
--		if (skb_headroom(skb) < VLAN_HLEN) {
--			struct sk_buff *sk_tmp = skb;
--			skb = skb_realloc_headroom(sk_tmp, VLAN_HLEN);
--			kfree_skb(sk_tmp);
--			if (skb == NULL) {
--				stats->tx_dropped++;
--				return 0;
--			}
--			VLAN_DEV_INFO(dev)->cnt_inc_headroom_on_tx++;
--		} else {
--			if (!(skb = skb_unshare(skb, GFP_ATOMIC))) {
--				printk(KERN_ERR "vlan: failed to unshare skbuff\n");
--				stats->tx_dropped++;
--				return 0;
--			}
--		}
--		veth = (struct vlan_ethhdr *)skb_push(skb, VLAN_HLEN);
--
--		/* Move the mac addresses to the beginning of the new header. */
--		memmove(skb->data, skb->data + VLAN_HLEN, 12);
--
--		/* first, the ethernet type */
--		/* put_unaligned(__constant_htons(ETH_P_8021Q), &veth->h_vlan_proto); */
--		veth->h_vlan_proto = __constant_htons(ETH_P_8021Q);
--
--		/* Now, construct the second two bytes. This field looks something
-+		/* Construct the second two bytes. This field looks something
- 		 * like:
- 		 * usr_priority: 3 bits	 (high bits)
- 		 * CFI		 1 bit
-@@ -489,10 +464,16 @@ int vlan_dev_hard_start_xmit(struct sk_b
- 		veth_TCI = VLAN_DEV_INFO(dev)->vlan_id;
- 		veth_TCI |= vlan_dev_get_egress_qos_mask(dev, skb);
- 
--		veth->h_vlan_TCI = htons(veth_TCI);
--	}
-+		skb = __vlan_put_tag(skb, veth_TCI);
+diff -Nuarp a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+--- a/include/linux/if_vlan.h	Wed Jan 21 16:56:09 2004
++++ b/include/linux/if_vlan.h	Wed Jan 21 16:56:11 2004
+@@ -200,6 +200,152 @@ static inline int vlan_hwaccel_receive_s
+ {
+ 	return __vlan_hwaccel_rx(skb, grp, vlan_tag, 1);
+ }
++
++/**
++ * __vlan_put_tag - regular VLAN tag inserting
++ * @skb: skbuff to tag
++ * @tag: VLAN tag to insert
++ *
++ * Inserts the VLAN tag into @skb as part of the payload
++ * Returns a VLAN tagged skb. If a new skb is created, @skb is freed.
++ * 
++ * Following the skb_unshare() example, in case of error, the calling function
++ * doesn't have to worry about freeing the original skb.
++ */
++static inline struct sk_buff *__vlan_put_tag(struct sk_buff *skb, unsigned short tag)
++{
++	struct vlan_ethhdr *veth;
++
++	if (skb_headroom(skb) < VLAN_HLEN) {
++		struct sk_buff *sk_tmp = skb;
++		skb = skb_realloc_headroom(sk_tmp, VLAN_HLEN);
++		kfree_skb(sk_tmp);
 +		if (!skb) {
-+			stats->tx_dropped++;
-+			return 0;
++			printk(KERN_ERR "vlan: failed to realloc headroom\n");
++			return NULL;
 +		}
- 
--	skb->dev = VLAN_DEV_INFO(dev)->real_dev;
-+		if (orig_headroom < VLAN_HLEN) {
-+			VLAN_DEV_INFO(dev)->cnt_inc_headroom_on_tx++;
++	} else {
++		skb = skb_unshare(skb, GFP_ATOMIC);
++		if (!skb) {
++			printk(KERN_ERR "vlan: failed to unshare skbuff\n");
++			return NULL;
 +		}
 +	}
- 
- #ifdef VLAN_DEBUG
- 	printk(VLAN_DBG "%s: about to send skb: %p to dev: %s\n",
-@@ -506,10 +487,7 @@ int vlan_dev_hard_start_xmit(struct sk_b
- 	stats->tx_packets++; /* for statics only */
- 	stats->tx_bytes += skb->len;
- 
--	skb->protocol = __constant_htons(ETH_P_8021Q);
--	skb->mac.raw -= VLAN_HLEN;
--	skb->nh.raw -= VLAN_HLEN;
--
-+	skb->dev = VLAN_DEV_INFO(dev)->real_dev;
- 	dev_queue_xmit(skb);
- 
- 	return 0;
-@@ -518,17 +496,22 @@ int vlan_dev_hard_start_xmit(struct sk_b
- int vlan_dev_hwaccel_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct net_device_stats *stats = vlan_dev_get_stats(dev);
--	struct vlan_skb_tx_cookie *cookie;
-+	unsigned short veth_TCI;
 +
-+	/* Construct the second two bytes. This field looks something
-+	 * like:
-+	 * usr_priority: 3 bits	 (high bits)
-+	 * CFI		 1 bit
-+	 * VLAN ID	 12 bits (low bits)
-+	 */
-+	veth_TCI = VLAN_DEV_INFO(dev)->vlan_id;
-+	veth_TCI |= vlan_dev_get_egress_qos_mask(dev, skb);
-+	skb = __vlan_hwaccel_put_tag(skb, veth_TCI);
++	veth = (struct vlan_ethhdr *)skb_push(skb, VLAN_HLEN);
++
++	/* Move the mac addresses to the beginning of the new header. */
++	memmove(skb->data, skb->data + VLAN_HLEN, 2 * VLAN_ETH_ALEN);
++
++	/* first, the ethernet type */
++	veth->h_vlan_proto = __constant_htons(ETH_P_8021Q);
++
++	/* now, the tag */
++	veth->h_vlan_TCI = htons(tag);
++
++	skb->protocol = __constant_htons(ETH_P_8021Q);
++	skb->mac.raw -= VLAN_HLEN;
++	skb->nh.raw -= VLAN_HLEN;
++
++	return skb;
++}
++
++/**
++ * __vlan_hwaccel_put_tag - hardware accelerated VLAN inserting
++ * @skb: skbuff to tag
++ * @tag: VLAN tag to insert
++ *
++ * Puts the VLAN tag in @skb->cb[] and lets the device do the rest
++ */
++static inline struct sk_buff *__vlan_hwaccel_put_tag(struct sk_buff *skb, unsigned short tag)
++{
++	struct vlan_skb_tx_cookie *cookie;
++
++	cookie = VLAN_TX_SKB_CB(skb);
++	cookie->magic = VLAN_TX_COOKIE_MAGIC;
++	cookie->vlan_tag = tag;
++
++	return skb;
++}
++
++#define HAVE_VLAN_PUT_TAG
++
++/**
++ * vlan_put_tag - inserts VLAN tag according to device features
++ * @skb: skbuff to tag
++ * @tag: VLAN tag to insert
++ *
++ * Assumes skb->dev is the target that will xmit this frame.
++ * Returns a VLAN tagged skb.
++ */
++static inline struct sk_buff *vlan_put_tag(struct sk_buff *skb, unsigned short tag)
++{
++	if (skb->dev->features & NETIF_F_HW_VLAN_TX) {
++		return __vlan_hwaccel_put_tag(skb, tag);
++	} else {
++		return __vlan_put_tag(skb, tag);
++	}
++}
++
++/**
++ * __vlan_get_tag - get the VLAN ID that is part of the payload
++ * @skb: skbuff to query
++ * @tag: buffer to store vlaue
++ * 
++ * Returns error if the skb is not of VLAN type
++ */
++static inline int __vlan_get_tag(struct sk_buff *skb, unsigned short *tag)
++{
++	struct vlan_ethhdr *veth = (struct vlan_ethhdr *)skb->data;
++
++	if (veth->h_vlan_proto != __constant_htons(ETH_P_8021Q)) {
++		return -EINVAL;
++	}
++
++	*tag = ntohs(veth->h_vlan_TCI);
++
++	return 0;
++}
++
++/**
++ * __vlan_hwaccel_get_tag - get the VLAN ID that is in @skb->cb[]
++ * @skb: skbuff to query
++ * @tag: buffer to store vlaue
++ * 
++ * Returns error if @skb->cb[] is not set correctly
++ */
++static inline int __vlan_hwaccel_get_tag(struct sk_buff *skb, unsigned short *tag)
++{
++	struct vlan_skb_tx_cookie *cookie;
++
++	cookie = VLAN_TX_SKB_CB(skb);
++	if (cookie->magic == VLAN_TX_COOKIE_MAGIC) {
++		*tag = cookie->vlan_tag;
++		return 0;
++	} else {
++		*tag = 0;
++		return -EINVAL;
++	}
++}
++
++#define HAVE_VLAN_GET_TAG
++
++/**
++ * vlan_get_tag - get the VLAN ID from the skb
++ * @skb: skbuff to query
++ * @tag: buffer to store vlaue
++ * 
++ * Returns error if the skb is not VLAN tagged
++ */
++static inline int vlan_get_tag(struct sk_buff *skb, unsigned short *tag)
++{
++	if (skb->dev->features & NETIF_F_HW_VLAN_TX) {
++		return __vlan_hwaccel_get_tag(skb, tag);
++	} else {
++		return __vlan_get_tag(skb, tag);
++	}
++}
++
+ #endif /* __KERNEL__ */
  
- 	stats->tx_packets++;
- 	stats->tx_bytes += skb->len;
- 
- 	skb->dev = VLAN_DEV_INFO(dev)->real_dev;
--	cookie = VLAN_TX_SKB_CB(skb);
--	cookie->magic = VLAN_TX_COOKIE_MAGIC;
--	cookie->vlan_tag = (VLAN_DEV_INFO(dev)->vlan_id |
--			    vlan_dev_get_egress_qos_mask(dev, skb));
--
- 	dev_queue_xmit(skb);
- 
- 	return 0;
+ /* VLAN IOCTLs are found in sockios.h */
