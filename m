@@ -1,129 +1,59 @@
-From: Geoffrey Lee <glee@gnupilgrims.org>
-Subject: [PATCH] connect() return value.
-Date: Sat, 10 Aug 2002 20:24:41 +1000
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RFC] Options for ECN target
+Date: Sat, 10 Aug 2002 10:21:56 -0400 (EDT)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <20020810102441.GA1126@anakin.wychk.org>
+Message-ID: <Pine.GSO.4.30.0208101019130.3494-100000@shell.cyberus.ca>
+References: <20020806083541.L11828@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="gKMricLos+KVdGMg"
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: <netfilter-devel@lists.netfilter.org>, <netdev@oss.sgi.com>
 Return-path: <owner-netdev@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: Harald Welte <laforge@gnumonks.org>
+In-Reply-To: <20020806083541.L11828@sunbeam.de.gnumonks.org>
 List-Id: netdev.vger.kernel.org
 
 
---gKMricLos+KVdGMg
-Content-Type: text/plain; charset=big5
-Content-Disposition: inline
 
-Hi,
+The last 3 options are dangerous; although i am pretty sure it is too
+late to complain about it since you have released the code at least once.
+When ECN nonces comes into effect, it may become a non-issue (but would
+still make interesting effect).
+suggestion: get rid of them.
 
+cheers,
+jamal
 
-I posted this on linux-kernel but didn't get a reply.
+On Tue, 6 Aug 2002, Harald Welte wrote:
 
-Anyway here's a patch for it.
-
-
-
-Problem:
-
-(1)
-
-While you try to connect() to port 0 on ipv4 / ipv6, it happily does it.
-This doesn't seem to be correct, as I remember port 0 is reserved.
-For reference FreeBSD / Solaris / OSF return -EADDRNOTAVAIL for this.
-
-This is what my patch fixes, for ipv4 and ipv6 for both tcp and udp,
-I don't know what should be done for the other protocols that is 
-supported.
-
-
-(2)
-
-connect() doesn't return -EINTR on signal, rather it exits the signal
-handler after processing it and returns an error if an error occurred
-for the connection or does the connect to completion. The Linux man page 
-implies that we don't ever return an -EINTR on Linux, but I don't know what 
-is the correct behavior.  For reference, FreeBSD / Solaris / OSF return
--EINTR for an interrupted connect().
-
-The patch also addresses this. However, it is noted on OSF that even
-though connect() returns with -EINTR if the connection succeeds you can
-still send and receive through that socket.
-
-
-(Please CC:, not on list. Thanks).
-
-	-- G.
-	
-
---gKMricLos+KVdGMg
-Content-Type: text/plain; charset=big5
-Content-Disposition: attachment; filename=network-patch
-
-diff -ruNp linux-2.4.19/net/ipv4/tcp_ipv4.c linux-2.4.19-glee/net/ipv4/tcp_ipv4.c
---- linux-2.4.19/net/ipv4/tcp_ipv4.c	2002-08-03 19:26:04.000000000 +1000
-+++ linux-2.4.19-glee/net/ipv4/tcp_ipv4.c	2002-08-10 19:34:24.000000000 +1000
-@@ -763,6 +763,9 @@ int tcp_v4_connect(struct sock *sk, stru
- 	if (usin->sin_family != AF_INET)
- 		return(-EAFNOSUPPORT);
- 
-+	if (usin->sin_port == 0)
-+		return(-EADDRNOTAVAIL);
-+
- 	nexthop = daddr = usin->sin_addr.s_addr;
- 	if (sk->protinfo.af_inet.opt && sk->protinfo.af_inet.opt->srr) {
- 		if (daddr == 0)
-diff -ruNp linux-2.4.19/net/ipv4/udp.c linux-2.4.19-glee/net/ipv4/udp.c
---- linux-2.4.19/net/ipv4/udp.c	2002-08-03 19:26:04.000000000 +1000
-+++ linux-2.4.19-glee/net/ipv4/udp.c	2002-08-10 19:34:52.000000000 +1000
-@@ -723,6 +723,9 @@ int udp_connect(struct sock *sk, struct 
- 	if (usin->sin_family != AF_INET) 
- 	  	return -EAFNOSUPPORT;
- 
-+	if (usin->sin_port == 0)
-+		return -EADDRNOTAVAIL;
-+
- 	sk_dst_reset(sk);
- 
- 	oif = sk->bound_dev_if;
-diff -ruNp linux-2.4.19/net/ipv6/tcp_ipv6.c linux-2.4.19-glee/net/ipv6/tcp_ipv6.c
---- linux-2.4.19/net/ipv6/tcp_ipv6.c	2002-08-03 19:26:04.000000000 +1000
-+++ linux-2.4.19-glee/net/ipv6/tcp_ipv6.c	2002-08-10 19:35:57.000000000 +1000
-@@ -539,6 +539,9 @@ static int tcp_v6_connect(struct sock *s
- 	if (usin->sin6_family != AF_INET6) 
- 		return(-EAFNOSUPPORT);
- 
-+	if (usin->sin6_port == 0)
-+		return -EADDRNOTAVAIL;
-+
- 	fl.fl6_flowlabel = 0;
- 	if (np->sndflow) {
- 		fl.fl6_flowlabel = usin->sin6_flowinfo&IPV6_FLOWINFO_MASK;
-diff -ruNp linux-2.4.19/net/ipv6/udp.c linux-2.4.19-glee/net/ipv6/udp.c
---- linux-2.4.19/net/ipv6/udp.c	2002-08-03 19:26:04.000000000 +1000
-+++ linux-2.4.19-glee/net/ipv6/udp.c	2002-08-10 19:36:22.000000000 +1000
-@@ -231,6 +231,9 @@ int udpv6_connect(struct sock *sk, struc
- 	if (usin->sin6_family != AF_INET6) 
- 	  	return -EAFNOSUPPORT;
- 
-+	if (usin->sin6_port == 0)
-+		return -EADDRNOTAVAIL;
-+
- 	fl.fl6_flowlabel = 0;
- 	if (np->sndflow) {
- 		fl.fl6_flowlabel = usin->sin6_flowinfo&IPV6_FLOWINFO_MASK;
-diff -ruNp linux-2.4.19/net/socket.c linux-2.4.19-glee/net/socket.c
---- linux-2.4.19/net/socket.c	2002-08-03 19:26:04.000000000 +1000
-+++ linux-2.4.19-glee/net/socket.c	2002-08-10 19:37:23.000000000 +1000
-@@ -1118,6 +1118,9 @@ asmlinkage long sys_connect(int fd, stru
- out_put:
- 	sockfd_put(sock);
- out:
-+	if (signal_pending(current))
-+		return -EINTR;
-+
- 	return err;
- }
- 
-
---gKMricLos+KVdGMg--
+>
+> There is one question left: How much flexibility do we want to give the user?
+>
+> The ECN target currently allows:
+>
+> --ecn-tcp-remove	Remove CWR+ECE bits from TCP header. Should be used
+> 			on TCP syn packets to prevent ECN negotiation
+>
+> --ecn-ip-ect [0..3] 	Allows arbitrary setting of the ECT codepoint
+> --ecn-tcp-cwr [0|1]	Allows setting or clearing the TCP CWR bit
+> --ecn-tcp-ece [0|1]	Allows setting or clearing the TCP ECE bit
+>
+>
+> The first option is necessarry and is the primary use of the target.
+> The last three options are more experimental and would allow somebody
+> to play with 'simulated congestion' by setting the ECT in IP, etc.
+>
+> However, this is potentially very dangerous and I'm not sure if it was
+> a good idea to give this power directly to the user.
+>
+> Do you suggest removing the last three options and just keep the
+> --ecn-tcp-remove ?
+>
+> Thanks for your assistance,
+>
+> --
+> Live long and prosper
+> - Harald Welte / laforge@gnumonks.org               http://www.gnumonks.org/
+> ============================================================================
+> GCS/E/IT d- s-: a-- C+++ UL++++$ P+++ L++++$ E--- W- N++ o? K- w--- O- M+
+> V-- PS++ PE-- Y++ PGP++ t+ 5-- !X !R tv-- b+++ !DI !D G+ e* h--- r++ y+(*)
+>
