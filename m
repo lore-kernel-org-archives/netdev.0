@@ -1,29 +1,39 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: iproute2 fwmark feature request
-Date: Tue, 18 Jan 2005 13:17:57 +0100
-Message-ID: <20050118121757.GN26856@postel.suug.ch>
-References: <41ECC61E.7060908@cardvn.net>
+From: "Hollenbeck, Scott" <shollenbeck@verisign.com>
+Subject: RE: tunneling in linux (was: Re: [PATCH][RFC] etherip: Ethernet-i
+	n-IPv4 tunneling)
+Date: Tue, 18 Jan 2005 07:54:01 -0500
+Message-ID: <046F43A8D79C794FA4733814869CDF07057840@dul1wnexmb01.vcorp.ad.vrsn.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain
+Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>,
+        "'Pekka Savola'"
+	 <pekkas@netcore.fi>,
+        "'shemminger@osdl.org'" <shemminger@osdl.org>,
+        "'Russ Housley'" <housley@vigilsec.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Nguyen Dinh Nam <64vn@cardvn.net>
-Content-Disposition: inline
-In-Reply-To: <41ECC61E.7060908@cardvn.net>
+To: "'Lennert Buytenhek'" <buytenh@wantstofly.org>,
+        "'jamal'"
+	 <hadi@cyberus.ca>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Nguyen Dinh Nam <41ECC61E.7060908@cardvn.net> 2005-01-18 15:17
-> There are 2^32 values for fwmark, it's a hugh number.
-> netfilter deal with it better than iproute2, particularly, there is an 
-> optional mask to apply to the fwmark before comparing it with some value 
-> (mark module of iptables). It's very helpful because we can use that 32 
-> bits to store several sub values at the same time.
-> So it'll be cool if the syntax is
-> SELECTOR := [ from PREFIX ] [ to PREFIX ] [ tos TOS ] [ fwmark 
-> FWMARK[/MASK] ]
+> > BTW, in one of your emails i
+> > noticed you cced the authors of that RFC - did they 
+> respond? Whats their
+> > deployment experiences?
+> 
+> The @rsa.. address bounces, the other address is still in the CC list
+> and I didn't hear from him yet :-)
 
-http://oss.sgi.com/archives/netdev/2005-01/msg00548.html
+The correct current address for Russ is housley@vigilsec.com.  I've cc'd him
+here.
 
-Wait 2-3 weeks and it will be all finished.
+So what do you want to hear?  As the RFC says, etherIP documents work that
+Russ and I did at Xerox during the early 1990s.  It was developed and
+deployed for use in conjunction with the Xerox Encryption Unit (XEU), a
+layer 2 (Ethernet/802.3) network encryption device.  As the XEU was never a
+big seller etherIP never really got "out there", either, but it certainly
+worked in the environment for which it was intended.
+
+-Scott-
