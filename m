@@ -1,41 +1,67 @@
-From: viro@parcelfarce.linux.theplanet.co.uk
-Subject: Re: [PATCH] Fix readw/writew warnings in drivers/net/wireless/hermes.h
-Date: Mon, 11 Oct 2004 14:33:02 +0100
+From: Harald Welte <laforge@netfilter.org>
+Subject: Re: [PATCH 2.6] ip_nat_ftp - manip at the right place
+Date: Sat, 11 Sep 2004 23:57:46 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041011133302.GV23987@parcelfarce.linux.theplanet.co.uk>
-References: <Pine.LNX.4.61.0410110702590.7899@linaeum.absolutedigital.net> <1a50bd3704101105046e66538c@mail.gmail.com> <20041011123137.GB28100@zax> <200410111518.39001.petkov@uni-muenster.de>
+Message-ID: <20040911215746.GF19871@obroa-skai.de.gnumonks.org>
+References: <Pine.LNX.4.58.0409111042580.1315@u.domain.uli>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Gibson <hermes@gibson.dropbear.id.au>,
-        Ricky lloyd <ricky.lloyd@gmail.com>,
-        Jan Dittmer <j.dittmer@portrix.net>,
-        Cal Peake <cp@absolutedigital.net>,
-        Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        NetDev Mailing List <netdev@oss.sgi.com>, proski@gnu.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="MZf7D3rAEoQgPanC"
+Cc: Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>,
+        netdev@oss.sgi.com, Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Borislav Petkov <petkov@uni-muenster.de>
+To: Julian Anastasov <ja@ssi.bg>
 Content-Disposition: inline
-In-Reply-To: <200410111518.39001.petkov@uni-muenster.de>
+In-Reply-To: <Pine.LNX.4.58.0409111042580.1315@u.domain.uli>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 11, 2004 at 03:18:38PM +0200, Borislav Petkov wrote:
-> that in a great detail. As a result, the right thing to do here is, I think, to declare all addrs void __iomem*.
-> Which leaves a question: while compiling the following code fragment:
-> 
-> <sound/pci/ymfpci/ymfpci_main.c>
->   static inline u8 snd_ymfpci_readb(ymfpci_t *chip, u32 offset)
->   {
->           return readb(chip->reg_area_virt + offset);
->   }
-> 
-> gcc complains as so:
-> 
-> sound/pci/ymfpci/ymfpci_main.c: In function `snd_ymfpci_readb':
-> sound/pci/ymfpci/ymfpci_main.c:57: warning: passing arg 1 of `readb' makes pointer from integer without a cast
-> 
-> Do we have to cast here or use the new interface?
 
-Make ->reg_area_virt void __iomem *.  *However*, ALSA folks said that they
-have already done iomem annotations in their tree, so that's an area best
-left alone until they merge.
+--MZf7D3rAEoQgPanC
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Sat, Sep 11, 2004 at 10:53:53AM +0300, Julian Anastasov wrote:
+> 	Hello,
+>=20
+> 	This is a resend/resync for v2.6.9-rc1-bk17: change the
+> way the ip_nat_ftp helper manipulates the packets:
+>=20
+> - no manips =3D> no fixup
+>=20
+> - check the direction, do manip once and at the same time when the
+> headers are changed
+
+I agree with this change, but shouldn't we make it consistently over all
+NAT helpers?  In case you didn't check yet, and assuming that this is
+applicable to other helpers as well:  Please include patches for other
+protocol helpers as well.
+
+Thanks!
+
+> Signed-off-by: Julian Anastasov <ja@ssi.bg>
+--=20
+- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+  "Fragmentation is like classful addressing -- an interesting early
+   architectural error that shows how much experimentation was going
+   on while IP was being designed."                    -- Paul Vixie
+
+--MZf7D3rAEoQgPanC
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQFBQ3TaXaXGVTD0i/8RAmTxAJ9ktGTt1eOru0wIrLid2gEjMRFJBwCgpNx0
+pnQyfK2GmkS3WA73Nvpu/SE=
+=CJnS
+-----END PGP SIGNATURE-----
+
+--MZf7D3rAEoQgPanC--
