@@ -1,8 +1,8 @@
 From: Don Fry <brazilnut@us.ibm.com>
-Subject: [PATCH 2 2.4.27] pcnet32: recover after rx hang.
-Date: Mon, 9 Aug 2004 16:15:39 -0700
+Subject: [PATCH 3 2.4.27] pcnet32: cleanup IRQ limitation
+Date: Mon, 9 Aug 2004 16:16:35 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040809231539.GC13717@us.ibm.com>
+Message-ID: <20040809231635.GD13717@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
@@ -11,145 +11,97 @@ Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This patch fixes a receive hang that occasionally occurs after a Tx
-FIFO underrun.  The receive dma remains in a hung state sometimes.  The
-transmit operations continue to occur, but no receive activity.
+Cleanup pcnet32 IRQ handling based on suggestions from Ralf Baechle
+<ralf@linux-mips.org> and Brian Murphy <brian@murphy.dk>
 
-This was reproduced on several ppc64 systems and the fix has been
-verified there.  The patch has been tested as well on an ia32 system,
-which did not experience the hang because it did not have fifo underruns,
-which is a preqrequisite for the hang.  The memory barriers decreased the
-frequency of occurrence.  The final change to reset the chip instead of
-just stopping it eliminated the last hangs.
+Tested by myself and Brian Murphy.
 
-Signed-off by: brazilnut@us.ibm.com
+Signed-off-by: Don Fry <brazilnut@us.ibm.com>
 
---- linux-2.4.27/drivers/net/large.pcnet32.c	Mon Aug  9 15:41:31 2004
-+++ linux-2.4.27/drivers/net/pcnet32.c	Mon Aug  9 15:41:42 2004
+--- linux-2.4.27/drivers/net/hung.pcnet32.c	Mon Aug  9 15:41:42 2004
++++ linux-2.4.27/drivers/net/pcnet32.c	Mon Aug  9 15:41:52 2004
 @@ -22,8 +22,8 @@
   *************************************************************************/
  
  #define DRV_NAME	"pcnet32"
--#define DRV_VERSION	"1.30d"
--#define DRV_RELDATE	"06.01.2004"
-+#define DRV_VERSION	"1.30e"
-+#define DRV_RELDATE	"06.11.2004"
+-#define DRV_VERSION	"1.30e"
+-#define DRV_RELDATE	"06.11.2004"
++#define DRV_VERSION	"1.30f"
++#define DRV_RELDATE	"06.16.2004"
  #define PFX		DRV_NAME ": "
  
  static const char *version =
-@@ -246,6 +246,7 @@ static int full_duplex[MAX_UNITS];
-  *	   assisted by Bruce Penrod <bmpenrod@endruntechnologies.com>.
+@@ -247,6 +247,9 @@ static int full_duplex[MAX_UNITS];
   * v1.30c  25 May 2004 Don Fry added netif_wake_queue after pcnet32_restart.
   * v1.30d  01 Jun 2004 Don Fry discard oversize rx packets.
-+ * v1.30e  11 Jun 2004 Don Fry recover after fifo error and rx hang.
+  * v1.30e  11 Jun 2004 Don Fry recover after fifo error and rx hang.
++ * v1.30f  16 Jun 2004 Don Fry cleanup IRQ to allow 0 and 1 for PCI,
++ * 	   expanding on suggestions from Ralf Baechle <ralf@linux-mips.org>,
++ * 	   and Brian Murphy <brian@murphy.dk>.
   */
  
  
-@@ -1531,13 +1532,15 @@ pcnet32_purge_tx_ring(struct net_device 
-     int i;
+@@ -362,7 +365,7 @@ struct pcnet32_private {
  
-     for (i = 0; i < TX_RING_SIZE; i++) {
-+	lp->tx_ring[i].status = 0;	/* CPU owns buffer */
-+	wmb();	/* Make sure adapter sees owner change */
- 	if (lp->tx_skbuff[i]) {
- 	    pci_unmap_single(lp->pci_dev, lp->tx_dma_addr[i],
- 		    lp->tx_skbuff[i]->len, PCI_DMA_TODEVICE);
- 	    dev_kfree_skb_any(lp->tx_skbuff[i]);
--	    lp->tx_skbuff[i] = NULL;
--	    lp->tx_dma_addr[i] = 0;
- 	}
-+	lp->tx_skbuff[i] = NULL;
-+	lp->tx_dma_addr[i] = 0;
+ static void pcnet32_probe_vlbus(void);
+ static int  pcnet32_probe_pci(struct pci_dev *, const struct pci_device_id *);
+-static int  pcnet32_probe1(unsigned long, unsigned int, int, struct pci_dev *);
++static int  pcnet32_probe1(unsigned long, int, struct pci_dev *);
+ static int  pcnet32_open(struct net_device *);
+ static int  pcnet32_init_ring(struct net_device *);
+ static int  pcnet32_start_xmit(struct sk_buff *, struct net_device *);
+@@ -959,7 +962,7 @@ pcnet32_probe_vlbus(void)
+ 	if (request_region(ioaddr, PCNET32_TOTAL_SIZE, "pcnet32_probe_vlbus")) {
+ 	    /* check if there is really a pcnet chip on that ioaddr */
+ 	    if ((inb(ioaddr + 14) == 0x57) && (inb(ioaddr + 15) == 0x57)) {
+-		pcnet32_probe1(ioaddr, 0, 0, NULL);
++		pcnet32_probe1(ioaddr, 0, NULL);
+ 	    } else {
+ 		release_region(ioaddr, PCNET32_TOTAL_SIZE);
+ 	    }
+@@ -1000,7 +1003,7 @@ pcnet32_probe_pci(struct pci_dev *pdev, 
+ 	return -EBUSY;
      }
+ 
+-    return pcnet32_probe1(ioaddr, pdev->irq, 1, pdev);
++    return pcnet32_probe1(ioaddr, 1, pdev);
  }
  
-@@ -1566,21 +1569,23 @@ pcnet32_init_ring(struct net_device *dev
- 	    skb_reserve (rx_skbuff, 2);
- 	}
  
-+	rmb();
- 	if (lp->rx_dma_addr[i] == 0)
- 	    lp->rx_dma_addr[i] = pci_map_single(lp->pci_dev, rx_skbuff->tail,
- 		    PKT_BUF_SZ-2, PCI_DMA_FROMDEVICE);
- 	lp->rx_ring[i].base = (u32)le32_to_cpu(lp->rx_dma_addr[i]);
- 	lp->rx_ring[i].buf_length = le16_to_cpu(2-PKT_BUF_SZ);
-+	wmb();	/* Make sure owner changes after all others are visible */
- 	lp->rx_ring[i].status = le16_to_cpu(0x8000);
-     }
-     /* The Tx buffer address is filled in as needed, but we do need to clear
-      * the upper ownership bit. */
-     for (i = 0; i < TX_RING_SIZE; i++) {
-+	lp->tx_ring[i].status = 0;	/* CPU owns buffer */
-+	wmb();	/* Make sure adapter sees owner change */
- 	lp->tx_ring[i].base = 0;
--	lp->tx_ring[i].status = 0;
- 	lp->tx_dma_addr[i] = 0;
-     }
--    wmb(); /* Make sure all changes are visible */
- 
-     lp->init_block.tlen_rlen = le16_to_cpu(TX_RING_LEN_BITS | RX_RING_LEN_BITS);
-     for (i = 0; i < 6; i++)
-@@ -1589,9 +1594,14 @@ pcnet32_init_ring(struct net_device *dev
- 	    offsetof(struct pcnet32_private, rx_ring));
-     lp->init_block.tx_ring = (u32)le32_to_cpu(lp->dma_addr +
- 	    offsetof(struct pcnet32_private, tx_ring));
-+    wmb();	/* Make sure all changes are visible */
-     return 0;
- }
- 
-+/* the pcnet32 has been issued a stop or reset.  Wait for the stop bit
-+ * then flush the pending transmit operations, re-initialize the ring,
-+ * and tell the chip to initialize.
-+ */
- static void
- pcnet32_restart(struct net_device *dev, unsigned int csr0_bits)
+@@ -1009,8 +1012,7 @@ pcnet32_probe_pci(struct pci_dev *pdev, 
+  *  pdev will be NULL when called from pcnet32_probe_vlbus.
+  */
+ static int __devinit
+-pcnet32_probe1(unsigned long ioaddr, unsigned int irq_line, int shared,
+-		struct pci_dev *pdev)
++pcnet32_probe1(unsigned long ioaddr, int shared, struct pci_dev *pdev)
  {
-@@ -1599,6 +1609,15 @@ pcnet32_restart(struct net_device *dev, 
-     unsigned long ioaddr = dev->base_addr;
-     int i;
+     struct pcnet32_private *lp;
+     dma_addr_t lp_dma_addr;
+@@ -1271,11 +1273,8 @@ pcnet32_probe1(unsigned long ioaddr, uns
+     a->write_csr(ioaddr, 2, (lp->dma_addr + offsetof(struct pcnet32_private,
+ 		    init_block)) >> 16);
  
-+    /* wait for stop */
-+    for (i=0; i<100; i++)
-+	if (lp->a.read_csr(ioaddr, 0) & 0x0004)
-+	   break;
-+
-+    if (i >= 100 && netif_msg_drv(lp))
-+	printk(KERN_ERR "%s: pcnet32_restart timed out waiting for stop.\n",
-+		dev->name);
-+
-     pcnet32_purge_tx_ring(dev);
-     if (pcnet32_init_ring(dev))
- 	return;
-@@ -1735,7 +1754,7 @@ pcnet32_interrupt(int irq, void *dev_id,
-     spin_lock(&lp->lock);
+-    if (irq_line) {
+-	dev->irq = irq_line;
+-    }
+-
+-    if (dev->irq >= 2) {
++    if (pdev) {		/* use the IRQ provided by PCI */
++	dev->irq = pdev->irq;
+ 	if (pcnet32_debug & NETIF_MSG_PROBE)
+ 	    printk(" assigned IRQ %d.\n", dev->irq);
+     } else {
+@@ -1363,8 +1362,7 @@ pcnet32_open(struct net_device *dev)
+     int rc;
+     unsigned long flags;
  
-     rap = lp->a.read_rap(ioaddr);
--    while ((csr0 = lp->a.read_csr (ioaddr, 0)) & 0x8600 && --boguscnt >= 0) {
-+    while ((csr0 = lp->a.read_csr (ioaddr, 0)) & 0x8f00 && --boguscnt >= 0) {
- 	if (csr0 == 0xffff) {
- 	    break;			/* PCMCIA remove happened */
- 	}
-@@ -1857,15 +1876,16 @@ pcnet32_interrupt(int irq, void *dev_id,
- 	}
- 
- 	if (must_restart) {
--	    /* stop the chip to clear the error condition, then restart */
--	    lp->a.write_csr (ioaddr, 0, 0x0004);
-+	    /* reset the chip to clear the error condition, then restart */
-+	    lp->a.reset(ioaddr);
-+	    lp->a.write_csr(ioaddr, 4, 0x0915);
- 	    pcnet32_restart(dev, 0x0002);
- 	    netif_wake_queue(dev);
- 	}
+-    if (dev->irq == 0 ||
+-	request_irq(dev->irq, &pcnet32_interrupt,
++    if (request_irq(dev->irq, &pcnet32_interrupt,
+ 		    lp->shared_irq ? SA_SHIRQ : 0, dev->name, (void *)dev)) {
+ 	return -EAGAIN;
      }
- 
--    /* Clear any other interrupt, and set interrupt enable. */
--    lp->a.write_csr (ioaddr, 0, 0x7940);
-+    /* Set interrupt enable. */
-+    lp->a.write_csr (ioaddr, 0, 0x0040);
-     lp->a.write_rap (ioaddr,rap);
- 
-     if (netif_msg_intr(lp))
 
 -- 
 Don Fry
