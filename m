@@ -1,27 +1,37 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: Re: IPv6 Programming
-Date: Thu, 19 Dec 2002 13:41:45 +0900 (JST)
+From: "Adauto" <abcd@e-mail.nwx.com.br>
+Subject: Mailing Canada
+Date: Thu, 19 Dec 2002 10:04:57 -0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021219.134145.53383055.yoshfuji@linux-ipv6.org>
-References: <20021219043628.876C33EDEC@server2.fastmail.fm>
+Message-ID: <200212191200.gBJC0V3v008830@oss.sgi.com>
+Reply-To: "Adauto" <abcd@e-mail.nwx.com.br>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/html; charset="ISO-8859-1"
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: aravind1001@speedpost.net
-In-Reply-To: <20021219043628.876C33EDEC@server2.fastmail.fm>
+To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20021219043628.876C33EDEC@server2.fastmail.fm> (at Thu, 19 Dec 2002 00:36:28 -0400), "Aravind Ceyardass" <aravind1001@speedpost.net> says:
+Ol=E1,
 
-> New to IPv6 on Linux. I would like to know which version of Linux has got
-> the header files for
-> IPv6 programming?
+Voc=EA conhece algu=E9m que vende cadastro de e-mails da Argentina ou M=E9=
+xico
+ou Canad=E1 ou outras partes do mundo para fazer mala direta?<br>Caso n=E3=
+o
+conhece n=E3o =E9 necess=E1rio responder essa mensagem.<br><br>
 
-It depends on what you mean by "IPv6 programming," but anyway,
-glibc 2.1.3 or later, preferably, glibc 2.2.x or later.
+Obrigado Adauto<br><br>
 
---yoshfuji
+e-mail  e-mail@e-mail.nwx.com.br <br><br>
+
+
+Hi,
+
+Do you know who sells a mailing list to direct marketing from
+Argentina,Mexico and canada? Or from others parts os the world?<br> If yo=
+u
+do not know,is not necessary to answer this message.<br><br>
+
+Thank you Adauto<br><br>
+
+e-mail  e-mail@e-mail.nwx.com.br
