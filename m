@@ -1,51 +1,44 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: patch: tunnels not setting inputdev
-Date: Sun, 02 Jan 2005 01:24:08 +0100
-Message-ID: <41D73F28.3090206@trash.net>
-References: <1104513392.1048.316.camel@jzny.localdomain>	 <41D5941C.8060001@trash.net> <1104523892.1047.338.camel@jzny.localdomain>	 <41D6CB87.8040205@trash.net> <1104622406.1049.450.camel@jzny.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
-        Wichert Akkerman <wichert@wiggy.net>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1104622406.1049.450.camel@jzny.localdomain>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+From: "Zhenyu Wu" <y030729@njupt.edu.cn>
+Subject: A Question On CBQ
+Date: Sun, 02 Jan 2005 11:17:09 +0800
+Message-ID: <304635829.27548@njupt.edu.cn>
+Reply-To: "Zhenyu Wu" <y030729@njupt.edu.cn>
+Content-Type: text/plain
+Cc: lartc@mailman.ds9a.nl, tgraf@suug.ch
+Return-path: <lartc-admin@mailman.ds9a.nl>
+To: netdev@oss.sgi.com
+Sender: lartc-admin@mailman.ds9a.nl
+Errors-To: lartc-admin@mailman.ds9a.nl
+List-Help: <mailto:lartc-request@mailman.ds9a.nl?subject=help>
+List-Post: <mailto:lartc@mailman.ds9a.nl>
+List-Subscribe: <http://mailman.ds9a.nl/mailman/listinfo/lartc>,
+	<mailto:lartc-request@mailman.ds9a.nl?subject=subscribe>
+List-Unsubscribe: <http://mailman.ds9a.nl/mailman/listinfo/lartc>,
+	<mailto:lartc-request@mailman.ds9a.nl?subject=unsubscribe>
+List-Archive: <http://mailman.ds9a.nl/pipermail/lartc/>
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> I want to understand the repurcasssions instead of blindly setting. Let
-> users complain, thats why the printk exists. For example what does
-> input_dev mean for netbios or a 802.3ad interface? You already saw one,
-> xfrm, where there was no need to reset.
+Hello,
 
-What's special about netbios ? For 802.3ad, I would expect input_dev
-to hold the virtual device through which the packet entered the stack,
-just what iptables -i would match. For xfrm - there is no need but its
-also not wrong.
+As it is well know that CBQ is the class based queue. But i am confused on the
+word "class" now, especially it is used in Diffserv. IMO, different classes should
+mean that there are different kinds of traffics, so the class should be difined by
+the parameters (such as bandwidth, priority..) the traffic wanted. That is, using
+cbq we can define different kinds of traffics which need different bandwidth at
+the gateway, am i right??
 
->>I can't see the problem with
->>redirected packets, just set skb->input_dev = skb->dev in
->>netif_receive_skb, this should have exactly the same effect as
->>setting it in the drivers or the mirred action.
-> 
-> in some cases the pointers are swapped. You cant just blindly
-> set skb->input_dev = skb->dev at the input - that would be violating the
-> intent; think reinjecting packets (and look at mirred as a sample of
-> apps to come that do this).
+Then, in diffserv the traffic is identified by the DSCP, right? From Floyd's paper
+Link-sharing and Resource Management Models for Packet Networks, we can see if
+there are two classes of traffic such as class A and class B, and each of them has
+traffics video and ftp, then how the two different FTP are identified in diffserv,
+by their DSCP? IMO, at first, according to the bandwidth the traffic needed, the
+traffic is classified into class A or class B, then at each class the traffic is
+identified by their DSCP.
 
-I don't know your intent, but I assumed it was to match the incoming
-interface as the networking stack sees it. Why would the pointers be
-swapped ? Please give me an example. mirred does:
+Eagerly waiting for your reply!
+Happy New Year!
 
-         skb2->dev = dev;
-         skb2->input_dev = skb->dev;
 
-So on input input_dev is the incoming interface of the original packet,
-on output it is the outgoing interface of the original packet. Doesn't
-make much sense to me, the original packet came the same way both times.
-
-Regards
-Patrick
+_______________________________________________
+LARTC mailing list / LARTC@mailman.ds9a.nl
+http://mailman.ds9a.nl/mailman/listinfo/lartc HOWTO: http://lartc.org/
