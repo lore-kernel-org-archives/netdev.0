@@ -1,57 +1,39 @@
-From: Dan Siemon <dan@coverfire.com>
-Subject: Re: [RFC] batched tc to improve change throughput
-Date: Tue, 22 Feb 2005 16:40:40 -0500
-Message-ID: <1109108440.5712.17.camel@ganymede>
-References: <1106576005.1652.1292.camel@jzny.localdomain>
-	 <20050124150634.GT23931@postel.suug.ch>
-	 <1106747313.1107.7.camel@jzny.localdomain>
-	 <1108134446.5523.22.camel@ganymede>
-	 <1108215923.1126.132.camel@jzny.localdomain>
-	 <1108246033.7554.18.camel@ganymede> <20050212223204.GG31837@postel.suug.ch>
-	 <1108340618.14978.66.camel@ganymede>
-	 <20050214142710.GI31837@postel.suug.ch> <1108499294.5465.22.camel@ganymede>
-	 <20050215204723.GM31837@postel.suug.ch>
+From: Andi Kleen <ak@muc.de>
+Subject: Re: Intel and TOE in the news
+Date: 22 Feb 2005 22:43:45 +0100
+Message-ID: <20050222214345.GA51890@muc.de>
+References: <20050222180711.GA84438@muc.de> <200502222052.j1MKqaDD022407@guinness.s2io.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, netdev@oss.sgi.com
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050215204723.GM31837@postel.suug.ch>
+Content-Type: text/plain; charset=us-ascii
+Cc: "'Stephen Hemminger'" <shemminger@osdl.org>, hadi@cyberus.ca,
+        "'rick jones'" <rick.jones2@hp.com>, netdev@oss.sgi.com,
+        "'Alex Aizman'" <alex@neterion.com>
+Date: Tue, 22 Feb 2005 22:43:45 +0100
+To: Leonid Grossman <leonid.grossman@neterion.com>
+Content-Disposition: inline
+In-Reply-To: <200502222052.j1MKqaDD022407@guinness.s2io.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Sorry, for the tardy response.
+> TSO case is probably different - TSO hardware just sets PSH on the last
+> fragment only (and only if the flag was set on the original large tx
+> packet). Receiver doesn't really know if the sender is TSO-capable or not
+> and will ACK the same way - will it not?
+> Anyway, with LRO we do change rx packet count so affecting parts of TCP that
+> depend on packet count is indeed a concern; I guess we'll find out soon
+> enough whether there are real issues with the approach :-)
 
-On Tue, 2005-15-02 at 21:47 +0100, Thomas Graf wrote:
-> I see, well I can extend my objects, I'm even willing to change the
-> architecture if needed. The only requirements from my side is to
-> keep the generic caching header to allow putting these objects into
-> generic caches and keep it simple to readd commit/rollback extesions
-> later on.
-> 
-> What is exactly required to make it GObject aware? I've never worked
-> with GOBject so far. Basically a qdisc looks like this at the moment:
-> 
-> struct rtnl_qdisc
-> {
-> 	NLHDR_COMMON;		/* common fields required by cache */
-> 	NL_TCA_GENERIC(q);	/* generic tc fields (parent, handle, ifindex ...) */
-> 	void *opts;		/* qdisc specific options (e.g.  rtnl_sch_fifo) */
-> };
-> 
-> The NLHDR_COMMON must stay first, the ordering of the others doesn't
-> matter.
+Linux doesn't depend on packet count; it keeps an estimate called rcv_mss
+about the biggest seen packet size and acks every 2*rcv_mss worth of data.
 
-That could be a problem.  The GObject struct must be at the start so
-that all sub-classes can be operated on with the g_object_ functions.
-The only way to make these objects work with your caching scheme would
-be to make a sub-class of GObject with the caching information.  This
-would have the benefit of adding ref counting etc.
+Your scheme would likely result in acking every two of your large packets
+as soon as the connection is out of "quickack" mode. So there would
+be on wire differences. 
 
-The following URL will give you a bit of background on GObject.
-http://www.le-hacker.org/papers/gobject/
+> > Linux TCP RX path didn't care about PSH last time I checked. 
 
--- 
-OpenPGP key: http://www.coverfire.com/files/pubkey.txt
-Key fingerprint: FB0A 2D8A A1E9 11B6 6CA3  0C53 742A 9EA8 891C BD98
+Actually it does for measuring the rcv_mss for very small MTUs. 
+Shouldn't matter in practice though.
+
+-Andi
