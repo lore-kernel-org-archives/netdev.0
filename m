@@ -1,33 +1,23 @@
-From: Roger Luethi <rl@hellgate.ch>
-Subject: [1/3][PATCH 2.6] via-rhine: fix mc_filter on big-endian arch
-Date: Sun, 6 Jun 2004 18:53:28 +0200
+From: Andi Kleen <ak@suse.de>
+Subject: Re: Fwd: in-driver QoS
+Date: Tue, 8 Jun 2004 00:58:25 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040606165328.GA13733@k3.hellgate.ch>
+Message-ID: <20040607225825.GA30647@wotan.suse.de>
+References: <200406072217.31924.vkondra@mail.ru> <40C4C42F.2040006@pobox.com> <200406072328.23836.vkondra@mail.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, Jeff Garzik <jgarzik@pobox.com>,
+        James Ketrenos <jketreno@linux.jf.intel.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>
+To: Vladimir Kondratiev <vkondra@mail.ru>
 Content-Disposition: inline
+In-Reply-To: <200406072328.23836.vkondra@mail.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-A.J. from VIA Networking Technologies noticed that via-rhine is using
-cpu_to_le32() when preparing mc_filter hashes. This breaks Rhine hardware
-multicast filters on big-endian architectures.
+> I know very little about ATM, but it have QoS, both diff serv and int serv. 
+> May be it is worth to borrow from it?
 
-Please apply.
+ATM and IP diffserv just use the qdisc framework in the kernel.
 
-Signed-off-by: Roger Luethi <rl@hellgate.ch>
-
---- 2.6-bk/drivers/net/via-rhine.c.orig	2004-06-06 18:03:21.323194221 +0200
-+++ 2.6-bk/drivers/net/via-rhine.c	2004-06-06 18:05:22.137319854 +0200
-@@ -1782,7 +1782,7 @@
- 		     i++, mclist = mclist->next) {
- 			int bit_nr = ether_crc(ETH_ALEN, mclist->dmi_addr) >> 26;
- 
--			mc_filter[bit_nr >> 5] |= cpu_to_le32(1 << (bit_nr & 31));
-+			mc_filter[bit_nr >> 5] |= 1 << (bit_nr & 31);
- 		}
- 		writel(mc_filter[0], ioaddr + MulticastFilter0);
- 		writel(mc_filter[1], ioaddr + MulticastFilter1);
+-Andi
