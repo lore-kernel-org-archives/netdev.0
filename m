@@ -1,28 +1,31 @@
-From: "Seong Moon" <seong@etri.re.kr>
-Subject: IP, MAC address duplication detection ?
-Date: Thu, 27 Mar 2003 10:43:21 +0900
+From: "www.telasirene.com.ar" <ventas@telasirene.com.ar>
+Subject: www.telasirene.com.ar
+Date: Wed, 26 Mar 2003 23:36:21 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <003401c2f402$3fbc4450$28acfe81@seong>
+Message-ID: <63342003342723621207@telasirene.com.ar>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi, there.
-
-In Linux box, How can I detect IP/MAC address duplication?
-I'm using kernel-2.4.18 but the kernel does not seem to have
-gratuitous arp implementation. Is it right?
-
-I know I can detect IP address duplication by arping program
-But I want to implment a following mechanism.
-
-When the linux machine bootstraps or one of the nework interfaces
-is assigned a MAC/IP address, the linux box can detect the duplication
-of newly assigned MAC/IP address. How can I do this ?
-
-thanks.
+www.telasirene.com.ar
+Telas Artesanales, Creaciones y Dise=F1os exclusivos, Vea las excelentes =
+fotos en Oportunidades en Stock
+Renueve su Casa u Oficina.
+E X P O R T A M O S
+ventas@telasirene.com.ar
+Buenos Aires - ARGENTINA - LLAMENOS AL Tel/Fax:(54-11)4768-0469
+Exclusive designs and creations, Especially designer for architects and d=
+ecorators.
+  =20
+Por secci=F3n 301, p=E1rrafo (a)(2)(C) de S.1618. Bajo el decreto S.1618 =
+titulo 3ro. Aprobado por el 105 congreso base de las normativas Internaci=
+onales sobre SPAM, un E-mail no podr=E1 ser considerado SPAM mientras inc=
+luya una forma de ser removido.Si usted desea ser removido de nuestra bas=
+e de datos en forma definitiva por favor responda a este e-mail indicando=
+ "Remover" en el subject.=20
+N o  s e  p r e o c u p e,  p o r q u e   n o   r e c i b i r a   o t r o=
+   e - m a i l   d e   n u e s t r a   p a r t e.
