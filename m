@@ -1,50 +1,40 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
-Date: 21 Sep 2004 07:47:45 -0400
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [PATCH] Clean up fib_hash datastructures
+Date: Tue, 21 Sep 2004 14:07:53 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1095767265.1049.58.camel@jzny.localdomain>
-References: <E1C8way-0000aH-00@gondolin.me.apana.org.au>
-	 <20040919120249.GA5963@gondor.apana.org.au> <414DF11C.1080505@eurodev.net>
-	 <20040919215915.GB9573@gondor.apana.org.au>
-	 <1095633569.1047.107.camel@jzny.localdomain>
-	 <20040919231734.GA10124@gondor.apana.org.au>
-	 <1095647944.1046.206.camel@jzny.localdomain>
-	 <20040920025802.GA11567@gondor.apana.org.au>
-	 <1095683660.1047.254.camel@jzny.localdomain> <414F1E12.6010808@eurodev.net>
-	 <20040920215906.GA26266@gondor.apana.org.au>
-Reply-To: hadi@cyberus.ca
+Message-ID: <20040921120753.GA20236@wotan.suse.de>
+References: <20040918203319.24004d6e.davem@davemloft.net> <1095645106.1048.190.camel@jzny.localdomain> <20040919195351.0b3560e6.davem@davemloft.net> <1095686672.1049.301.camel@jzny.localdomain> <20040920121123.70baf895.davem@davemloft.net> <20040921034212.GA28462@gondor.apana.org.au> <20040920231805.3f18479c.davem@davemloft.net> <20040921090423.GE8058@wotan.suse.de> <20040921093252.GA32545@gondor.apana.org.au> <1095764621.1049.14.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Pablo Neira <pablo@eurodev.net>, "David S. Miller" <davem@redhat.com>,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, Andi Kleen <ak@suse.de>,
+        "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040920215906.GA26266@gondor.apana.org.au>
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1095764621.1049.14.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2004-09-20 at 17:59, Herbert Xu wrote:
-
-> > jamal wrote:
-> >
-> > >Agreed.
-> > >For a test i typically have something adding say 10K items (actions in
-> > >my case, but could be ipsec policies) and then try to dump them. On my
-> > >xeon i get an overrun after about 6K items are dumped.
+On Tue, Sep 21, 2004 at 07:03:41AM -0400, jamal wrote:
+> On Tue, 2004-09-21 at 05:32, Herbert Xu wrote:
 > 
-> Good.  That's something we can look at easily.  Dumping is meant to
-> be self-controlling as each packet naturally stops the next one from
-> being sent until the user has done a recvmsg.
+> > If we were doing this from scratch then we should do that.  But as it
+> > is we must keep the TOS code for compatibility.
+> 
+> Important for marketing to be able to claim _full_ RFC 1812 compliance.
+> Kepp the TOS!
+> I know it sounds silly, but there are a lot more foolish people out
+> there addicted to glossyware.
 
-A get which results in a huge response (cant think of anything that
-fits there - I have some stuff i havent released yet which applies) will
-also have the same. Note by "large" implies it will overflow socket
-buffer (and a setsock to increase the size will delay the problem from
-happening).
-Note, that an overrun in a dump results in lost messages. Maybe we can
-detect that and reset the cb pointers appropriately? Have to look at the
-code.
+I didn't know you were addicted to glossyware, jamal ;-)
 
-cheers,
-jamal
+You could still do routing by TOS, all you would need to do is to 
+set up a netfilter rule that checks the TOS and set an fwmark, then
+route based on that.
+
+The only thing you lose is ICMP redirect routes per TOS.
+I'm not sure it is worth keeping. And making the FIB scale
+better would likely look far better in the glossyware than
+that. 
+
+-Andi
