@@ -1,46 +1,79 @@
 From: Nishanth Aravamudan <nacc@us.ibm.com>
-Subject: Re: [patch 05/18]  net/s2io: replace 	schedule_timeout() with msleep()
-Date: Mon, 1 Nov 2004 11:14:50 -0800
-Message-ID: <20041101191450.GC1730@us.ibm.com>
-References: <E1CO1vc-00022t-N2@sputnik> <4184C7EE.5070107@pobox.com> <20041101183118.GA1730@us.ibm.com> <41867A5E.4040301@pobox.com>
+Subject: [PATCH] linux/ibmtr.h: add constants for appropriate delays
+Date: Mon, 1 Nov 2004 11:22:10 -0800
+Message-ID: <20041101192210.GD1730@us.ibm.com>
+References: <E1CO1wB-0002eM-If@sputnik> <4184C66B.8040501@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: janitor@sternwelten.at, netdev@oss.sgi.com
+Cc: kernel-janitors@lists.osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <41867A5E.4040301@pobox.com>
+In-Reply-To: <4184C66B.8040501@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 01, 2004 at 01:03:10PM -0500, Jeff Garzik wrote:
-> Nishanth Aravamudan wrote:
-> >On Sun, Oct 31, 2004 at 06:09:34AM -0500, Jeff Garzik wrote:
+On Sun, Oct 31, 2004 at 06:03:07AM -0500, Jeff Garzik wrote:
+> janitor@sternwelten.at wrote:
+> >Any comments would be appreciated.
 > >
-> >>janitor@sternwelten.at wrote:
-> >>
-> >>>@@ -2846,11 +2838,10 @@ static int s2io_ethtool_idnic(struct net
-> >>>		sp->id_timer.data = (unsigned long) sp;
-> >>>	}
-> >>>	mod_timer(&sp->id_timer, jiffies);
-> >>>-	set_current_state(TASK_INTERRUPTIBLE);
-> >>>	if (data)
-> >>>-		schedule_timeout(data * HZ);
-> >>>+		msleep_interruptible(data * 1000);
-> >>
-> >>
-> >>clearly wants ssleep() here
+> >Description: Use msleep() / msleep_interruptible() [as appropriate]
+> >instead of schedule_timeout() to guarantee the task delays as expected.
 > >
+> >Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
+> >Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
 > >
-> >Even though ssleep() is in TASK_UNINTERRUPTIBLE? In cases where the
-> >existing code used TASK_INTERRUPTIBLE, but was sleeping in terms of
-> >seconds, I left it as msleep_interruptible, since ssleep_interruptible()
-> >doesn't exist.
-> 
-> Right:  create ssleep_interruptible()  :)
+> >---
+> >
+> > linux-2.6.10-rc1-max/drivers/net/tokenring/ibmtr.c |   11 +++++------
+> > 1 files changed, 5 insertions(+), 6 deletions(-)
 
-Ok, will do :) I wasn't sure by your e-mail whether you meant to use
-ssleep() or create ssleep_interruptible(). Patch will follow shortly.
+<snip>
 
--Nish
+> >-		schedule_timeout(TR_RST_TIME); /* wait 50ms */
+> >+		msleep(jiffies_to_msecs(TR_RST_TIME)); /* wait 50ms */
+
+<snip>
+
+> >-	current->state=TASK_UNINTERRUPTIBLE;
+> >-	schedule_timeout(TR_RST_TIME); /* wait 50ms */
+> >+	msleep(jiffies_to_msecs(TR_RST_TIME));		/* wait 50ms */
+
+<snip>
+
+> >-		current->state=TASK_INTERRUPTIBLE;
+> >-		i=schedule_timeout(TR_RETRY_INTERVAL); /* wait 30 seconds */
+> >-		if(i!=0) break; /*prob. a signal, like the i>24*HZ case 
+> >above */
+> >+		if(msleep_interruptible(jiffies_to_msecs(TR_RETRY_INTERVAL)))
+> >+			break; /*prob. a signal, like the i>24*HZ case above 
+
+<snip>
+
+> It makes more sense to convert the constants to msecs in the source 
+> code, instead of converting them at runtime.
+
+This required changing both the .h and .c files, the first of which is
+attached below.
+
+Description: Adds constant definitions for timeout variables in terms of
+milliseconds to avoid run-time constant conversion.
+
+Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
+
+--- 2.6.10-rc1-vanilla/include/linux/ibmtr.h	2004-10-30 15:34:03.000000000 -0700
++++ 2.6.10-rc1/include/linux/ibmtr.h	2004-11-01 11:13:41.000000000 -0800
+@@ -6,8 +6,10 @@
+ 
+ /* ported to the Alpha architecture 02/20/96 (just used the HZ macro) */
+ 
+-#define TR_RETRY_INTERVAL	(30*HZ)	/* 500 on PC = 5 s */
+-#define TR_RST_TIME		(HZ/20) /* 5 on PC = 50 ms */
++#define TR_RETRY_INTERVAL	(30*HZ)	/* 500 on PC = 5 s (in jiffies) */
++#define TR_RETRY_INTERVAL	(30000) /* 500 on PC = 5 s */
++#define TR_RST_TIME		(HZ/20) /* 5 on PC = 50 ms (in jiffies) */
++#define TR_RST_TIME_MS		(50)    /* 5 on PC = 50 ms */
+ #define TR_BUSY_INTERVAL	(HZ/5)	/* 5 on PC = 200 ms */
+ #define TR_SPIN_INTERVAL	(3*HZ)	/* 3 seconds before init timeout */
+ 
