@@ -1,44 +1,40 @@
 From: jamal <hadi@cyberus.ca>
-Subject: RE: [Bonding-devel] Re: [bonding] Add basic support for dynamic
-	configuration of bond interfaces
-Date: 13 Jan 2004 09:17:20 -0500
+Subject: Re: [bonding] Add basic support for dynamic configuration of bond
+	interfaces
+Date: 11 Jan 2004 13:30:51 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1074003440.1037.429.camel@jzny.localdomain>
-References: <Pine.LNX.4.44.0401122032480.6491-100000@humbolt.us.dell.com>
+Message-ID: <1073845851.1115.297.camel@jzny.localdomain>
+References: <E6F7D288B394A64585E67497E5126BA601F991D1@hasmsx403.iil.intel.com>
+	 <200401111628.07930.amir.noam@intel.com>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Feldman, Scott" <scott.feldman@intel.com>,
-        Jeff Garzik <jgarzik@pobox.com>, "Noam, Amir" <amir.noam@intel.com>,
-        Jay Vosburgh <fubar@us.ibm.com>, bonding-devel@lists.sourceforge.net,
+Cc: Jeff Garzik <jgarzik@pobox.com>, bonding-devel@lists.sourceforge.net,
         netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Matt Domsch <Matt_Domsch@dell.com>
-In-Reply-To: <Pine.LNX.4.44.0401122032480.6491-100000@humbolt.us.dell.com>
+To: Amir Noam <amir.noam@intel.com>
+In-Reply-To: <200401111628.07930.amir.noam@intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Sun, 2004-01-11 at 09:28, Amir Noam wrote:
 
-I think this would be fine if you have some simple policy
-maybe upto 5 variables. Its simplicty gives it a lot of value.
-However, once you start getting into more demanding setups with lotsa
-table based configs this is quickly going to turn into a configuration
-nightmare. What we should shoot for with netlink is to make it
-as stoopid-proof as well - although not too stoopid proof to be
-dangerous.  
+> 
+> > I would suggest a simple character device (misc_register), and let
+> > the userland application configure settings unrelated to a single
+> > object.
+> 
+> I was trying to follow the example of several other network modules 
+> (e.g. vlan, dlci, bridge) that use a socket level ioctl hook to 
+> handle such deviceless commands.
+> 
+> Do you think that a char device is preferrable, given that other 
+> similar modules use a socket ioctl hook?
+
+I think a netlink interface would be the better alternative.
+The L2C netlink socket protocol would be appropriate for bonding
+at least for 2.6.x. Bridging, VLAN should also move to this.
 
 cheers,
 jamal
-
-On Mon, 2004-01-12 at 21:34, Matt Domsch wrote:
-> > Could sysfs be used for the bonding UI?  Seems like a natural fit.
-> > Something like:
-> > # echo "some params" >/sys/class/net/add_bond
-> > # echo "byebye" >/sys/class/net/bond0/del_bond
-> 
-> FWIW, this is exactly what we're doing with the efivars module to create 
-> and destroy EFI Variables now, and appears to be a sane approach.
-> 
-> Thanks,
-> Matt
