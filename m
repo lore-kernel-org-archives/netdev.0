@@ -1,77 +1,73 @@
-From: Bart De Schuymer <bdschuym@pandora.be>
-Subject: Re: [PATCH, RFC] Add bridged IPv6 packet filtering
-Date: Tue, 31 Aug 2004 20:28:42 +0200
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Message-ID: <200408312028.42742.bdschuym@pandora.be>
-References: <200408281713.29192.bdschuym@pandora.be>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Fw: [Bugme-new] [Bug 3320] New: 2.6 kernel trigger happy to load
+ ipv6 module
+Date: Tue, 31 Aug 2004 11:52:41 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040831115241.1cc516d3.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@oss.sgi.com>,
-	netfilter-devel <netfilter-devel@lists.netfilter.org>
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: "David S.Miller" <davem@redhat.com>
-In-Reply-To: <200408281713.29192.bdschuym@pandora.be>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Saturday 28 August 2004 17:13, Bart De Schuymer wrote:
-Hi,
 
-How should I proceed to get any response in this matter? Should I be 
-contacting someone else? I'm no authority on IPv6, so I would like an 
-informed opinion...
-Mapping the IPv6 hooks onto the bridge hooks was really easy, because there is 
-no NAT stuff to mess things up. This is not a complicated patch. Also, if the 
-bridge-nf code causes a malfunction in ip6tables, this can be undone by 
-simply setting /proc/sys/net/bridge/bridge-nf-call-ip6tables 0 untill a 
-solution is available.
 
-cheers,
-Bart
+Begin forwarded message:
 
-> Hello,
->
-> The patch below adds bridged IPv6 packet filtering.
->
-> One thing I was unclear of what to do: before giving an IPv6 packet to
-> ip6tables the IPv6 sanity checks are done (copied from ipv6_rcv()).
-> These checks include this code snippet:
->
-> if (hdr->nexthdr == NEXTHDR_HOP) {
-> 	skb->h.raw = (u8*)(hdr+1);
-> 	if (ipv6_parse_hopopts(skb, offsetof(struct ipv6hdr, nexthdr)) < 0) {
-> 		IP6_INC_STATS_BH(IPSTATS_MIB_INHDRERRORS);
-> 		return 0;
-> 	}
-> 	hdr = skb->nh.ipv6h;
-> }
->
-> If it's necessary to call ipv6_parse_hopopts() then this function will need
-> to be exported. Note that we only need ip6tables to behave correctly. So,
-> is this function call needed to let ip6tables behave properly?
-> Also, what happens if skb->h.raw = (u8*)(hdr+1); is executed once
-> inside the bridge-nf code and later all the IPv6 checks are done again
-> in ipv6_rcv() ? This can happen if the IPv6 packet is destined for the
-> bridge box or if it's used as a router too.
->
-> In short, I'd like to know which IPv6 sanity checks are absolutely
-> necessary for ip6tables and if there are any implications if those checks
-> are done twice.
->
-> This patch has been tested by Scott MacKay <scottmackay@yahoo.com>.
->
-> cheers,
-> Bart
->
-> --- linux-2.6.8.1/include/linux/netfilter_ipv6.h.old	Sun Aug 22 18:49:47
-<snip>
+Date: Tue, 31 Aug 2004 09:07:28 -0700
+From: bugme-daemon@osdl.org
+To: bugme-new@lists.osdl.org
+Subject: [Bugme-new] [Bug 3320] New: 2.6 kernel trigger happy to load ipv6 module
+
+
+http://bugme.osdl.org/show_bug.cgi?id=3320
+
+           Summary: 2.6 kernel trigger happy to load ipv6 module
+    Kernel Version: 2.6.8.1
+            Status: NEW
+          Severity: normal
+             Owner: other_modules@kernel-bugs.osdl.org
+         Submitter: alex@milivojevic.org
+
+
+Distribution: Fedora Core 2
+Hardware Environment: i386
+Software Environment: kernel-2.6.8.1 modutils-2.4.26-16
+Problem Description:
+Seems that triggering of automatic module loading has changed since 2.4 kernels.
+ ipv6 module gets automatically loaded even in situations when it isn't really
+needed.  It seems that ipv6 module will get loaded as soon as IPv6 aware
+application binds a port (most of standard daemons with standard configurations
+in most (all? some?) distributions).  I haven't checked if IPv6 aware client
+application will trigger autoloading of ipv6 module.  This is very different
+behaviour than in 2.4 that never autoloads ipv6 module (scripts in
+/etc/sysconfig/network-scripts were supposed to load it manually if IPv6 was to
+be configured on the box).  Because of this, all network interfaces get
+autoconfigured IPv6 addresses even when user doesn't want/need them (link local
+for Ethernet interfaces, and loopback gets ::1).  I've noticed this first on
+Fedora Core 1 after I upgraded kernel from 2.4 series to 2.6 series (I believe
+it was either one of 2.6.0-rc or maybe final 2.6.0, not sure).  At first I
+tought it was a problem with network initialization scripts in
+/etc/sysconfig/network-scripts.  However, after I reinvestigated the problem
+(now in Fedora Core 2 with 2.6.5 up to 2.6.8.1), I found that it is triggered by
+2.6 kernel.  For some people this might present security issue.  Most firewall
+configurations are not written with IPv6 in mind.  Depending of
+firewall/services configuration on particular host this can open new vector of
+attack for malicious user.  An example would be if firewall rules prevent IPv4
+access to (potentially with security flaw and still unpatched) service on WAN
+and loopback interfaces, but allow access from LAN.  If attacker gains "regular"
+user access to the machine, he can exploit flaw in the service by connecting to
+it using IPv6 over loopback.  Somebody with more imagination than me could
+probably find more dangeraous vector.  I don't know much about IPv6, so I don't
+know if and how automatically assigned link local addresses could be used to
+bypass IPv4-only firewall from WAN/LAN.
+
+Steps to reproduce:
+No steps needed (at least on Fedora Core with 2.6 kernel).  Just run lsmod or
+ifconfig, and you'll see that ipv6 is loaded, and IPv6 addresses automatically
+assigned to interfaces.
+
+------- You are receiving this mail because: -------
+You are on the CC list for the bug, or are watching someone who is.
