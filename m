@@ -1,37 +1,59 @@
-From: mcgrof@studorgs.rutgers.edu (Luis R. Rodriguez)
-Subject: Re: generic 802.11 stack
-Date: Tue, 14 Sep 2004 19:55:12 -0400
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: [PATCH] IPV6: missing xfrm_loock() in icmpv6_{send,echo_reply}()
+Date: Wed, 15 Sep 2004 09:04:24 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040914235512.GJ7839@ruslug.rutgers.edu>
-References: <200408312111.02438.vda@port.imtp.ilyichevsk.odessa.ua> <4145352F.4040807@pobox.com> <20040913162153.33ff37ec.davem@davemloft.net> <200409140819.25787.vkondra@mail.ru> <20040913223500.66c06cde.davem@davemloft.net>
+Message-ID: <20040915.090424.59114323.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vladimir Kondratiev <vkondra@mail.ru>, jgarzik@pobox.com, greg@atheros.com,
-        netdev@oss.sgi.com, acx100-devel@lists.sourceforge.net,
-        hadi@cyberus.ca, jkmaline@cc.hut.fi, prism54-devel@prism54.org,
-        sam@errno.com, vda@port.imtp.ilyichevsk.odessa.ua
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org, miyazawa@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20040913223500.66c06cde.davem@davemloft.net>
+To: davem@davemloft.net
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 13, 2004 at 10:35:00PM -0700, David S. Miller wrote:
-> On Tue, 14 Sep 2004 08:14:56 +0300
-> Vladimir Kondratiev <vkondra@mail.ru> wrote:
-> 
-> > Fine. Let it be this way. It may take for me some time till I can sumbit 
-> > something, I want that it will kind of work with minimum functionality.
-> 
-> Ok, good luck Vladimir :-)
+Hello.
 
-Vladimir,
+net/ipv6/icmp.c was not converted in xfrm_lookup() extraction patch.
+This patch converts it; adding the missing call to xfrm_lookup in
+icmpv6_{send,echo_reply}().
 
-How about dual-licensing this work as GPL/BSD? I believe the BSD teams might
-benefit from this work.
+Signed-off-by: Kazunori Miyazawa <kazunori@miyazawa.org>
+Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 
-	Luis
+Thanks.
+
+===== net/ipv6/icmp.c 1.58 vs edited =====
+--- 1.58/net/ipv6/icmp.c	2004-08-24 06:29:43 +09:00
++++ edited/net/ipv6/icmp.c	2004-09-15 08:53:05 +09:00
+@@ -372,6 +372,8 @@
+ 	err = ip6_dst_lookup(sk, &dst, &fl);
+ 	if (err)
+ 		goto out;
++	if ((err = xfrm_lookup(&dst, &fl, sk, 0)) < 0)
++		goto out_dst_release;
+ 
+ 	if (hlimit < 0) {
+ 		if (ipv6_addr_is_multicast(&fl.fl6_dst))
+@@ -458,6 +460,8 @@
+ 	err = ip6_dst_lookup(sk, &dst, &fl);
+ 	if (err)
+ 		goto out;
++	if ((err = xfrm_lookup(&dst, &fl, sk, 0)) < 0)
++		goto out_dst_release;
+ 
+ 	if (hlimit < 0) {
+ 		if (ipv6_addr_is_multicast(&fl.fl6_dst))
+@@ -489,6 +493,7 @@
+ out_put: 
+ 	if (likely(idev != NULL))
+ 		in6_dev_put(idev);
++out_dst_release:
+ 	dst_release(dst);
+ out: 
+ 	icmpv6_xmit_unlock();
+
 
 -- 
-GnuPG Key fingerprint = 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
