@@ -1,7 +1,7 @@
 From: domen@coderock.org
-Subject: [patch 01/19] list_for_each: net-ipv6-ip6_fib.c
-Date: Wed, 12 Jan 2005 00:10:08 +0100
-Message-ID: <20050111231008.B3A551F225@trashy.coderock.org>
+Subject: [patch 02/19] list_for_each: drivers-net-tulip-de4x5.c
+Date: Wed, 12 Jan 2005 00:10:11 +0100
+Message-ID: <20050111231011.DB77A1F225@trashy.coderock.org>
 Cc: netdev@oss.sgi.com, domen@coderock.org, janitor@sternwelten.at
 Return-path: <netdev-bounce@oss.sgi.com>
 To: jgarzik@pobox.com
@@ -23,19 +23,22 @@ Signed-off-by: Domen Puncer <domen@coderock.org>
 ---
 
 
- kj-domen/net/ipv6/ip6_fib.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
+ kj-domen/drivers/net/tulip/de4x5.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff -puN net/ipv6/ip6_fib.c~list-for-each-drivers_net_ipv6_ip6_fib net/ipv6/ip6_fib.c
---- kj/net/ipv6/ip6_fib.c~list-for-each-drivers_net_ipv6_ip6_fib	2005-01-10 17:59:48.000000000 +0100
-+++ kj-domen/net/ipv6/ip6_fib.c	2005-01-10 17:59:48.000000000 +0100
-@@ -99,7 +99,7 @@ struct fib6_walker_t fib6_walker_list = 
- 	.next	= &fib6_walker_list, 
- };
+diff -puN drivers/net/tulip/de4x5.c~list-for-each-drivers_net_tulip_de4x5 drivers/net/tulip/de4x5.c
+--- kj/drivers/net/tulip/de4x5.c~list-for-each-drivers_net_tulip_de4x5	2005-01-10 17:59:48.000000000 +0100
++++ kj-domen/drivers/net/tulip/de4x5.c	2005-01-10 17:59:48.000000000 +0100
+@@ -2143,9 +2143,9 @@ srom_search(struct net_device *dev, stru
+     u_long iobase = 0;                     /* Clear upper 32 bits in Alphas */
+     int i, j, cfrv;
+     struct de4x5_private *lp = netdev_priv(dev);
+-    struct list_head *walk = &pdev->bus_list;
++    struct list_head *walk;
  
--#define FOR_WALKERS(w) for ((w)=fib6_walker_list.next; (w) != &fib6_walker_list; (w)=(w)->next)
-+#define FOR_WALKERS(w) list_for_each((w), &fib6_walker_list)
+-    for (walk = walk->next; walk != &pdev->bus_list; walk = walk->next) {
++    list_for_each(walk, &pdev->bus_list) {
+ 	struct pci_dev *this_dev = pci_dev_b(walk);
  
- static __inline__ u32 fib6_new_sernum(void)
- {
+ 	/* Skip the pci_bus list entry */
 _
