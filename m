@@ -1,39 +1,42 @@
-From: Karsten Desler <kdesler@soohrt.org>
-Subject: Re: _High_ CPU usage while routing (mostly) small UDP packets
-Date: Tue, 7 Dec 2004 14:14:45 +0100
-Message-ID: <20041207131445.GA1622@soohrt.org>
-References: <E1CbSf8-00047p-00@calista.eckenfels.6bone.ka-ip.net> <20041207002012.GB30674@quickstop.soohrt.org> <1102387595.1088.48.camel@jzny.localdomain> <20041207025456.GA525@soohrt.org> <1102389533.1089.51.camel@jzny.localdomain> <20041207032438.GA7767@soohrt.org> <1102390241.1093.59.camel@jzny.localdomain> <20041207040235.GA10501@soohrt.org> <20041207102132.GA28588@quickstop.soohrt.org> <1102422845.1089.105.camel@jzny.localdomain>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH] rtnetlink & address family problem
+Date: Tue, 7 Dec 2004 14:17:06 +0100
+Message-ID: <20041207131706.GB1371@postel.suug.ch>
+References: <41B0A5B4.6060108@suse.cz> <20041206140214.GA749@postel.suug.ch> <1102386461.1093.26.camel@jzny.localdomain> <20041207124922.GA1371@postel.suug.ch> <1102424568.1089.120.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-        Bernd Eckenfels <ecki-news2004-05@lina.inka.de>,
-        "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
-        linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Michal Ludvig <mludvig@suse.cz>, Andrew Morton <akpm@osdl.org>,
+        Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com,
+        Jan Kara <jack@suse.cz>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: jamal <hadi@cyberus.ca>
 Content-Disposition: inline
-In-Reply-To: <1102422845.1089.105.camel@jzny.localdomain>
+In-Reply-To: <1102424568.1089.120.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* jamal wrote:
-> > # sar -I 169 5 5
-> > 11:20:05         INTR    intr/s
-> > 11:20:10          169  10401.40
+> > I don't think it is wrong myself but I understand if someone does. If
+> > one sends a GETADDR request for PF_INET6 one might expect to either
+> > receive all ipv6 addresses or none and to only receive all addresess
+> > of any type if PF_UNSPEC was specified.
+> > 
 > 
-> That doesnt seem to be too high. 
+> Thats debatable.
+> Its user space that issues the flushing after a response from the
+> kernel. It happens to be flushing IPV4 addresses.
+> Thats why your filter in ip is the answer. 
 
-To recap: 169 is a fibre e1000, eth1 is one of two ports on a dualport
-e1000 copper nic. eth1 is still running at about 4k int/s.
+Agreed.
 
-14:12:18         INTR    intr/s
-14:12:23          169  34012.80
-14:12:28          169  33977.60
-14:12:33          169  34218.16
-14:12:38          169  34060.60
-14:12:43          169  34252.60
-Average:          169  34104.40
+> BTW, did the gnet_stats patches to iproute2 ever get merged?
 
-Cheers,
- Karsten
+Not sure, I will check that.
+
+> If you have cycles, can you please look at that hang being reported
+> using older tc with 2.6.10-rc3?
+
+It's not really related to the gnet_stats code.  stats_lock isn't set
+in the action code when using an older iproute2. I haven't tested this
+case because it was marked as broken anyway. I compiled an older version
+of iproute2 and will look into it today.
