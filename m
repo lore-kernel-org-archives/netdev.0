@@ -1,54 +1,35 @@
 From: Nick Palmer <nick@sluggardy.net>
 Subject: Re: select implementation not POSIX compliant?
-Date: Fri, 13 Aug 2004 13:12:56 -0700
+Date: Fri, 13 Aug 2004 13:13:38 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <411D20C8.1080400@sluggardy.net>
-References: <20040811194018.GA3971@steel.home>
+Message-ID: <411D20F2.3030101@sluggardy.net>
+References: <20040811194018.GA3971@steel.home> <1092256397.512046f64c822@system.cs.fsu.edu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com
+Cc: Alex Riesen <fork0@users.sourceforge.net>,
+        linux-kernel <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Alex Riesen <fork0@users.sourceforge.net>
-In-Reply-To: <20040811194018.GA3971@steel.home>
+To: khandelw@cs.fsu.edu
+In-Reply-To: <1092256397.512046f64c822@system.cs.fsu.edu>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Alex Riesen wrote:
-> On linux-kernel, Nick Palmer wrote:
->>The application
->>expects that a close call on a socket that another thread is
->>blocking in select and/or recvmsg on will cause select and/or
->>recvmsg to return with an error. Linux does not seem to do this.
-> 
-> 
-> It works always for stream sockets and does not at all (even with
-> shutdown, even using poll(2) or read(2) instead of select) for dgram
-> sockets.
-> 
-> What domain (inet, local) are your sockets in?
+khandelw@cs.fsu.edu wrote:
+ > select should work for any type of socket. Its based on the type of file
+ > descriptor not whether it is stream/dgram.
 
-inet.
+Agreed, but as Alex Riesen has shown with his test case, the behavior
+differs based on the type of socket. This doesn't seem quite right, but
+was not my original point.
 
-> What type (stream, dgram)?
+ > so why should recvmsg return error???? upon closing the socket in 
+other thread?
+ > wouldn't the socket linger around for some time...
 
-We use both, though the breakage I was trying to fix was with a dgram 
-socket.
+Only if SO_LINGER is on, and then only for the linger time. I would
+expect recvmsg to set errno to EINTR or EINVAL indicating that the recv
+message was interrupted or is no longer valid since the socket has
+closed. This is not the case. Instead it returns 0, and doesn't set errno.
 
-You are correct that it does not work for dgram sockets at all! I had 
-not noticed the difference between the two in the test case I wrote, 
-since I hadn't tested streams. Thanks for pointing that out. Note that 
-shutdown will cause a dgram socket to exit from a recv* call though, as 
-this is the workaround I am using right now. On Solaris close will do 
-the job. However when the recv from ends it returns 0, but does not set 
-errno, which indicates that there may be more data that can be retrieved 
-with another call to recv. On Solaris both shutdown and close cause 
-errno to be set.
-
-There is no way then to cause a select on a dgram socket to break out at 
-all short of kludging some dgram packet transmission to cause it to happen.
-
-Yech!
-
-Thanks for looking into the issue more,
 -Nick
