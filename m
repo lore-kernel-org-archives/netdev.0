@@ -1,92 +1,38 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [patch 2.6.11] e1000: avoid sleeping in watchdog timer context
-Date: Mon, 14 Mar 2005 16:25:15 -0500
-Message-ID: <20050314212510.GA12573@tuxdriver.com>
+From: cliff white <cliffw@osdl.org>
+Subject: Constant errors with pktgen
+Date: Mon, 14 Mar 2005 13:34:04 -0800
+Message-ID: <20050314133404.2528647f@es175>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, jgarzik@pobox.com, cramerj@intel.com,
-        john.ronciak@intel.com, ganesh.venkatesan@intel.com
-To: linux-kernel@vger.kernel.org
-Content-Disposition: inline
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: Robert.Olsson@data.slu.se, netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Move bulk of e1000_watchdog to a workqueue to make it safe to call
-functions which can sleep.
 
-Signed-off-by: John W. Linville <linville@tuxdriver.com>
----
-The e1000 driver uses a timer to invoke e1000_watchdog().
-e1000_watchdog() calls e1000_check_for_link() which can call
-e1000_config_dsp_after_link_change().  This in turn can call
-msec_delay().  msec_delay() is, of course, simply a wrapper for
-msleep().
+Robert.
 
-Since a timer does not have a process context, sleeping is impossible.
-Attempting to do so causes a crash.
+I am doing some wrapper scripts for pktgen for some testing purposes.
 
-The fix is to move the body of e1000_watchdog() to the newly defined
-e1000_watchdog_task().  This is invoked via the workqueue interface
-from the new version of e1000_watchdog().
+My test rig is two machines with an e100 card, connected by crossover cable.
 
- drivers/net/e1000/e1000.h      |    1 +
- drivers/net/e1000/e1000_main.c |   15 +++++++++++++--
- 2 files changed, 14 insertions(+), 2 deletions(-)
+When i run pktgen, the error counter == packet count, always. 
 
---- linux-2.6.11/drivers/net/e1000/e1000.h.orig	2005-03-14 16:06:53.000000000 -0500
-+++ linux-2.6.11/drivers/net/e1000/e1000.h	2005-03-14 16:16:37.436364543 -0500
-@@ -203,6 +203,7 @@ struct e1000_adapter {
- 	spinlock_t stats_lock;
- 	atomic_t irq_sem;
- 	struct work_struct tx_timeout_task;
-+	struct work_struct watchdog_task;
- 	uint8_t fc_autoneg;
- 
- 	struct timer_list blink_timer;
---- linux-2.6.11/drivers/net/e1000/e1000_main.c.orig	2005-03-14 16:09:42.991007873 -0500
-+++ linux-2.6.11/drivers/net/e1000/e1000_main.c	2005-03-14 16:16:37.438364260 -0500
-@@ -142,6 +142,7 @@ static void e1000_clean_rx_ring(struct e
- static void e1000_set_multi(struct net_device *netdev);
- static void e1000_update_phy_info(unsigned long data);
- static void e1000_watchdog(unsigned long data);
-+static void e1000_watchdog_task(struct e1000_adapter *adapter);
- static void e1000_82547_tx_fifo_stall(unsigned long data);
- static int e1000_xmit_frame(struct sk_buff *skb, struct net_device *netdev);
- static struct net_device_stats * e1000_get_stats(struct net_device *netdev);
-@@ -574,6 +575,9 @@ e1000_probe(struct pci_dev *pdev,
- 	adapter->watchdog_timer.function = &e1000_watchdog;
- 	adapter->watchdog_timer.data = (unsigned long) adapter;
- 
-+	INIT_WORK(&adapter->watchdog_task,
-+		(void (*)(void *))e1000_watchdog_task, adapter);
-+
- 	init_timer(&adapter->phy_info_timer);
- 	adapter->phy_info_timer.function = &e1000_update_phy_info;
- 	adapter->phy_info_timer.data = (unsigned long) adapter;
-@@ -1529,13 +1533,20 @@ e1000_82547_tx_fifo_stall(unsigned long 
- 
- /**
-  * e1000_watchdog - Timer Call-back
-- * @data: pointer to netdev cast into an unsigned long
-+ * @data: pointer to adapter cast into an unsigned long
-  **/
--
- static void
- e1000_watchdog(unsigned long data)
- {
- 	struct e1000_adapter *adapter = (struct e1000_adapter *) data;
-+
-+	/* Do the rest outside of interrupt context */
-+	schedule_work(&adapter->watchdog_task);
-+}
-+
-+static void
-+e1000_watchdog_task(struct e1000_adapter *adapter)
-+{
- 	struct net_device *netdev = adapter->netdev;
- 	struct e1000_desc_ring *txdr = &adapter->tx_ring;
- 	uint32_t link;
+Adding printk's, i see the error is coming from this bit past line 2688:
+----------
+
+                now = getCurUs();
+                if (now > pkt_dev->next_tx_us) {
+                        /* TODO: this code is slightly wonky.  */
+                        pkt_dev->errors++;
+                        pkt_dev->next_tx_us = now - pkt_dev->delay_us;
+                        pkt_dev->next_tx_ns = 0;
+                }
+----------------
+Any suggestions? More info if needed..
+cliffw
+
 -- 
-John W. Linville
-linville@tuxdriver.com
+"Ive always gone through periods where I bolt upright at four in the morning; 
+now at least theres a reason." -Michael Feldman
