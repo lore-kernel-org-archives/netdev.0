@@ -1,47 +1,116 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: 2.6.7 tulip performance (with NAPI)
-Date: Thu, 07 Oct 2004 11:09:14 -0700
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] Prevent netpoll hanging when link is down
+Date: Thu, 7 Oct 2004 11:28:46 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4165864A.2010805@candelatech.com>
-References: <41633174.7070805@candelatech.com>	<16740.17875.574967.11417@robur.slu.se>	<41646587.7070401@candelatech.com>	<41649425.1010102@candelatech.com> <20041006180826.4a092c71.davem@davemloft.net>
+Message-ID: <20041007112846.5c85b2d9.davem@davemloft.net>
+References: <20041006232544.53615761@jack.colino.net>
+	<20041006214322.GG31237@waste.org>
+	<20041007075319.6b31430d@jack.colino.net>
+	<20041006234912.66bfbdcc.davem@davemloft.net>
+	<20041007160532.60c3f26b@pirandello>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Robert.Olsson@data.slu.se, netdev@oss.sgi.com
+Cc: mpm@selenic.com, akpm@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20041006180826.4a092c71.davem@davemloft.net>
+To: Colin Leroy <colin@colino.net>
+In-Reply-To: <20041007160532.60c3f26b@pirandello>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> On Wed, 06 Oct 2004 17:56:05 -0700
-> Ben Greear <greearb@candelatech.com> wrote:
-> 
-> 
->>It may be that other programs would like to use the notify_queue_woken hook, so
->>if this were ever to hit the kernel proper, might want to make this a linked list
->>of callbacks instead of a simple pointer.
-> 
-> 
-> This sort of suggests that pktgen may be better implemented
-> via a kind of special queueing discipline.  Just an idea.
+On Thu, 7 Oct 2004 16:05:32 +0200
+Colin Leroy <colin@colino.net> wrote:
 
-Care to elaborate?  From what I can tell, the default code wakes
-up the soft-irq thread when the NIC queue has available space again.  I
-suppose that that will in turn wake up the sockets waiting to write
-to that NIC again.  To me, it seemed more efficient, if perhaps less
-flexible, to have the queue-has-space callback to directly wake the
-writer thread(s).
+> First, my newbie question: is it possible to deadlock a spinlock on a
+> Uniprocessor kernel ? For example, there's something I find suspect in
+> netpoll/sungem interaction:
+> 
 
-I do wonder how this would work with virtual interfaces, such as 802.1Q
-vlans, which have no queues.  I could make the pktgen hook aware of the
-VLAN <-> ethX relationship, or could have the callback generate callbacks for
-all associated VLANs, but neither seems very elegant or scalable.
+Oh yes, it appears that netpoll doesn't support NETIF_F_LLTX locking,
+crap :(
 
-How does the existing (non pktgen) architecture work for VLAN devices
-and stopping/starting the queues in the underlying devices?
+When a device has NETIF_F_LLTX set, it means that the driver's
+dev->hard_start_xmit() routine is what takes the xmit_lock, not
+the caller one level up.
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Andi Kleen didn't fix up netpoll when he did his LLTX changes, oops.
+
+So, netpoll needs to have the NETIF_F_LLTX stuff added to it.
+Basically:
+
+1) If NETIF_F_LLTX is clear, same as before
+2) If NETIF_F_LLTX is set:
+	a) Do not take xmit_lock
+	b) Check ->hard_start_xmit() return value,
+	   if it is NETDEV_TX_LOCKED, then
+	   spin_trylock(&dev->xmit_lock) failed
+           in ->hard_start_xmit()
+
+The best example is in net/sched/sch_generic.c:qdisc_restart()
+
+		unsigned nolock = (dev->features & NETIF_F_LLTX);
+		/*
+		 * When the driver has LLTX set it does its own locking
+		 * in start_xmit. No need to add additional overhead by
+		 * locking again. These checks are worth it because
+		 * even uncongested locks can be quite expensive.
+		 * The driver can do trylock like here too, in case
+		 * of lock congestion it should return -1 and the packet
+		 * will be requeued.
+		 */
+		if (!nolock) {
+			if (!spin_trylock(&dev->xmit_lock)) {
+			collision:
+				/* So, someone grabbed the driver. */
+				
+				/* It may be transient configuration error,
+				   when hard_start_xmit() recurses. We detect
+				   it by checking xmit owner and drop the
+				   packet when deadloop is detected.
+				*/
+				if (dev->xmit_lock_owner == smp_processor_id()) {
+					kfree_skb(skb);
+					if (net_ratelimit())
+						printk(KERN_DEBUG "Dead loop on netdevice %s, fix it urgently!\n", dev->name);
+					return -1;
+				}
+				__get_cpu_var(netdev_rx_stat).cpu_collision++;
+				goto requeue;
+			}
+			/* Remember that the driver is grabbed by us. */
+			dev->xmit_lock_owner = smp_processor_id();
+		}
+		
+		{
+			/* And release queue */
+			spin_unlock(&dev->queue_lock);
+
+			if (!netif_queue_stopped(dev)) {
+				int ret;
+				if (netdev_nit)
+					dev_queue_xmit_nit(skb, dev);
+
+				ret = dev->hard_start_xmit(skb, dev);
+				if (ret == NETDEV_TX_OK) { 
+					if (!nolock) {
+						dev->xmit_lock_owner = -1;
+						spin_unlock(&dev->xmit_lock);
+					}
+					spin_lock(&dev->queue_lock);
+					return -1;
+				}
+				if (ret == NETDEV_TX_LOCKED && nolock) {
+					spin_lock(&dev->queue_lock);
+					goto collision; 
+				}
+			}
+
+			/* NETDEV_TX_BUSY - we need to requeue */
+			/* Release the driver */
+			if (!nolock) { 
+				dev->xmit_lock_owner = -1;
+				spin_unlock(&dev->xmit_lock);
+			} 
+			spin_lock(&dev->queue_lock);
+			q = dev->qdisc;
+		}
