@@ -1,57 +1,55 @@
-From: Nenad Corbic <ncorbic@sangoma.com>
-Subject: Re: [PATCH] wan: remove multi-line string literal
-Date: Mon, 22 Sep 2003 10:15:15 -0400
+From: chas williams <chas@cmf.nrl.navy.mil>
+Subject: [PATCH][ATM]: [he] possibly using corrupted structure (from felipewd@terra.com.br)
+Date: Mon, 22 Sep 2003 10:52:52 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F6F03F3.7020200@sangoma.com>
-References: <20030919112746.3df80578.rddunlap@osdl.org> <20030920003144.74b5d2b3.davem@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Randy.Dunlap" <rddunlap@osdl.org>, netdev@oss.sgi.com
+Message-ID: <200309221452.h8MEqokT005989@ginger.cmf.nrl.navy.mil>
+Reply-To: chas3@users.sourceforge.net
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello David,
+please apply to both 2.4 and 2.6.  --thanks
 
-   I have been putting all the patches you sent on a side.
-I still didn't start working on 2.6.X kernel drivers.
-We are absolutely swamped here and have no time
-for them yet.
-
-I will probably starting to work on them
-in a week or so.
-
-I still owe you split up patches for
-2.4.X kernels :)
-
-Regards,
-
-Nenad
-
-David S. Miller wrote:
-> On Fri, 19 Sep 2003 11:27:46 -0700
-> "Randy.Dunlap" <rddunlap@osdl.org> wrote:
-> 
-> 
->>Please apply to 2.6.0-test5-current.
-> 
-> 
-> Applied.
-> 
-> How response is ncorbic@sangoma.com ever for these patches?
-> If he never responds, just direct the patches to Jeff or myself
-> in the future.  If ncorbic wants to actively maintain this stuff
-> he'll have to start replying. :)
-> 
-> 
-
-
--- 
-+------------------------------------------------------------+
-| Nenad Corbic, B.Eng          | Tel:   905-474-1990 x113    |
-| Senior Linux Developer,      | Fax:   905-474-9223         |
-| Network Engineer             | Email: ncorbic@sangoma.com  |
-| Sangoma Technologies Inc     | Web:   www.sangoma.com      |
-+------------------------------------------------------------+
+# This is a BitKeeper generated patch for the following project:
+# Project Name: Linux kernel tree
+# This patch format is intended for GNU patch command version 2.5 or higher.
+# This patch includes the following deltas:
+#	           ChangeSet	1.1445  -> 1.1446 
+#	    drivers/atm/he.c	1.24    -> 1.25   
+#
+# The following is the BitKeeper ChangeSet Log
+# --------------------------------------------
+# 03/09/22	chas@relax.cmf.nrl.navy.mil	1.1446
+# [ATM]: [he] possibly using corrupted structure (from felipewd@terra.com.br)
+# --------------------------------------------
+#
+diff -Nru a/drivers/atm/he.c b/drivers/atm/he.c
+--- a/drivers/atm/he.c	Mon Sep 22 10:51:28 2003
++++ b/drivers/atm/he.c	Mon Sep 22 10:51:28 2003
+@@ -2864,8 +2864,10 @@
+ 			if (!capable(CAP_NET_ADMIN))
+ 				return -EPERM;
+ 
+-			copy_from_user(&reg, (struct he_ioctl_reg *) arg,
+-						sizeof(struct he_ioctl_reg));
++			if (copy_from_user(&reg, (struct he_ioctl_reg *) arg,
++						sizeof(struct he_ioctl_reg)))
++				return -EFAULT;
++			
+ 			spin_lock_irqsave(&he_dev->global_lock, flags);
+ 			switch (reg.type) {
+ 				case HE_REGTYPE_PCI:
+@@ -2889,8 +2891,9 @@
+ 			}
+ 			spin_unlock_irqrestore(&he_dev->global_lock, flags);
+ 			if (err == 0)
+-				copy_to_user((struct he_ioctl_reg *) arg, &reg,
+-							sizeof(struct he_ioctl_reg));
++				if (copy_to_user((struct he_ioctl_reg *) arg, &reg,
++							sizeof(struct he_ioctl_reg)))
++					return -EFAULT;
+ 			break;
+ 		default:
+ #ifdef CONFIG_ATM_HE_USE_SUNI
