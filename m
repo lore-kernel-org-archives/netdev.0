@@ -1,195 +1,111 @@
-From: Pekka Pietikainen <pp@ee.oulu.fi>
-Subject: Re: changing MTU on b44 breaks eth0
-Date: Tue, 4 Nov 2003 13:15:55 +0200
+From: kuznet@ms2.inr.ac.ru
+Subject: Re: Fw: issues with SO_PRIORITY and IP_TOS
+Date: Tue, 4 Nov 2003 15:33:03 +0300 (MSK)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031104111555.GA26860@ee.oulu.fi>
-References: <1067888106.3366.20.camel@bluez.bueche.ch> <20031103205335.GA7668@ee.oulu.fi> <20031103151618.79704b30.davem@redhat.com>
+Message-ID: <200311041233.PAA15518@yakov.inr.ac.ru>
+References: <20031030120140.678b721b.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: charles@bueche.ch, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jmorris@redhat.com, cfriesen@nortelnetworks.com, hadi@znyx.com,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20031103151618.79704b30.davem@redhat.com>
+To: davem@redhat.com (David S. Miller)
+In-Reply-To: <20031030120140.678b721b.davem@redhat.com> from "David S. Miller" at ïËÔ 30, 2003 12:01:40 
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 03, 2003 at 03:16:18PM -0800, David S. Miller wrote:
-> I think Jeff should merge this upstrea, but I really disagree
-> with the CONFIG_PM ifdefs for the power-management support.
-Fine with me (patch with CONFIG_PM removed included)
+Hello!
 
-Oh btw., when trying out whether the new code even compiles/loads
-I got the following in rmmod, does it look like something caused
-by generic code or should I look for a reason in b44? :-)
-(This is 2.6.0-test9-bk6).
+[cced to Jamal]
 
-kernel BUG at net/core/dev.c:2882!
-invalid operand: 0000 [#1]
-CPU:    0
-EIP:    0060:[<c024d66d>]    Tainted: P  
-EFLAGS: 00010297
-EIP is at free_netdev+0x2d/0x40
-eax: ddfd6800   ebx: ddfd6800   ecx: 1f2e9da0   edx: 00000003
-esi: dff5d000   edi: dff5d054   ebp: de743ec4   esp: de743ec4
-ds: 007b   es: 007b   ss: 0068
-Process rmmod (pid: 18966, threadinfo=de742000 task=c797b320)
-Stack: de743edc e090011d ddfd6800 dff5d000 e0902544 00000000 de743eec
-c01c8c09 
-       dff5d000 dff5d054 de743f04 c0210dd0 dff5d054 dff5d080 e0902590
-e0902590 
-       de743f18 c0210e02 dff5d054 e0902544 c02fb458 de743f2c c0211039
-e0902544 
-Call Trace:
- [<e090011d>] b44_remove_one+0x3d/0x60 [b44]
- [<c01c8c09>] pci_device_remove+0x39/0x40
- [<c0210dd0>] device_release_driver+0x60/0x70
- [<c0210e02>] driver_detach+0x22/0x40
- [<c0211039>] bus_remove_driver+0x39/0x70
- [<c0211434>] driver_unregister+0x14/0x26
- [<c01c8dc7>] pci_unregister_driver+0x17/0x30
- [<e09002c2>] b44_cleanup+0x12/0x14 [b44]
- [<c0136313>] sys_delete_module+0x113/0x190
- [<c014d8cf>] do_munmap+0x14f/0x1b0
- [<c014d973>] sys_munmap+0x43/0x60
- [<c010b2dd>] sysenter_past_esp+0x52/0x71
+> I've always been confused about all of the weird things
+> we do to handle DSCP et al. when masking the TOS bits all
+> over the place.
 
-Code: 0f 0b 42 0b ab 48 2e c0 eb de c9 e9 93 6e ef ff 8d 76 00 55 
+TOS bits are masked only in one place: when doing routing by TOS,
+implemented by some existing routing engines sort of OSPF. No bits
+but TOS bits are used for these things.
 
-Trying to reproduce on a fresh non-nvidia-tainted -bk8 rmmod initially worked,
-then I did /sbin/modprobe b44; /sbin/ifup eth0; /sbin/rmmod b44
-managed to trigger another race:
 
-eth0: no IPv6 routers present
-Unable to handle kernel paging request at virtual address 706647ef
- printing eip:
-c0254415
-*pde = 00000000
-Oops: 0000 [#1]
-CPU:    0
-EIP:    0060:[<c0254415>]    Not tainted
-EFLAGS: 00010216
-EIP is at rtnetlink_fill_ifinfo+0x2a5/0x480
-eax: 706647e3   ebx: df037800   ecx: 00000ee4   edx: c68fa09c
-esi: 00000000   edi: df037805   ebp: dff8deb4   esp: dff8de88
-ds: 007b   es: 007b   ss: 0068
-Process events/0 (pid: 3, threadinfo=dff8c000 task=c151cc80)
-Stack: c689fd80 00000004 00000004 dff8dea4 00000ee4 00000f60 c68fa000
-000005dc 
-       c689fd80 ffffffff 00000011 dff8dee4 c02548ac c689fd80 df037800
-00000011 
-       00000000 00000000 ffffffff df037800 c0335c00 df037800 00000006
-dff8def8 
-Call Trace:
- [<c02548ac>] rtmsg_ifinfo+0x5c/0xd0
- [<c0254d95>] rtnetlink_event+0x35/0x62
- [<c012e47d>] notifier_call_chain+0x2d/0x50
- [<c024d580>] netdev_wait_allrefs+0xc0/0x110
- [<c024d6dc>] netdev_run_todo+0x10c/0x1f0
- [<c010a33f>] __down_failed+0xb/0x14
- [<c013100b>] worker_thread+0x1bb/0x2a0
- [<c0254fc0>] linkwatch_event+0x0/0x30
- [<c011e410>] default_wake_function+0x0/0x30
- [<c010b206>] ret_from_fork+0x6/0x14
- [<c011e410>] default_wake_function+0x0/0x30
- [<c0130e50>] worker_thread+0x0/0x2a0
- [<c01092a9>] kernel_thread_helper+0x5/0xc
+> Alexey, what is going on here?
 
-Code: 8b 50 0c b9 ff ff ff ff 31 c0 83 c2 08 89 d7 f2 ae f7 d1 49 
+#1. Setting priority derived from TOS is different thing, it is
+just to make life more convenient for old and still existing
+applications: telnet, ftp, ssh, which set TOS bits in some way, which
+used to be reasonable. Actually, even not four bits but only two bits
+are used.
 
---- /usr/src/linux-2.6.0-0.test9.1.67/drivers/net/b44.c	2003-10-25 21:43:30.000000000 +0300
-+++ linux-2.6.0-test9/drivers/net/b44.c	2003-11-04 12:32:13.403426192 +0200
-@@ -25,8 +25,8 @@
- 
- #define DRV_MODULE_NAME		"b44"
- #define PFX DRV_MODULE_NAME	": "
--#define DRV_MODULE_VERSION	"0.91"
--#define DRV_MODULE_RELDATE	"Oct 3, 2003"
-+#define DRV_MODULE_VERSION	"0.92"
-+#define DRV_MODULE_RELDATE	"Nov 4, 2003"
- 
- #define B44_DEF_MSG_ENABLE	  \
- 	(NETIF_MSG_DRV		| \
-@@ -942,6 +942,8 @@
- 	b44_init_hw(bp);
- 	spin_unlock_irq(&bp->lock);
- 
-+	b44_enable_ints(bp);
-+	
- 	return 0;
- }
- 
-@@ -1558,6 +1560,8 @@
- 		netif_wake_queue(bp->dev);
- 		spin_unlock_irq(&bp->lock);
- 
-+		b44_enable_ints(bp);
-+		
- 		return 0;
- 	}
- 	case ETHTOOL_GPAUSEPARAM: {
-@@ -1601,6 +1605,8 @@
- 		}
- 		spin_unlock_irq(&bp->lock);
- 
-+		b44_enable_ints(bp);
-+		
- 		return 0;
- 	}
- 	};
-@@ -1852,11 +1858,53 @@
- 	}
- }
- 
-+static int b44_suspend(struct pci_dev *pdev, u32 state)
-+{
-+	struct net_device *dev = pci_get_drvdata(pdev);
-+	struct b44 *bp = dev->priv;
-+
-+        if (!netif_running(dev))
-+                 return 0;
-+
-+	del_timer_sync(&bp->timer);
-+
-+	spin_lock_irq(&bp->lock); 
-+
-+	b44_halt(bp);
-+	netif_carrier_off(bp->dev); 
-+	netif_device_detach(bp->dev);
-+	b44_free_rings(bp);
-+
-+	spin_unlock_irq(&bp->lock);
-+	return 0;
-+}
-+
-+static int b44_resume(struct pci_dev *pdev)
-+{
-+	struct net_device *dev = pci_get_drvdata(pdev);
-+	struct b44 *bp = dev->priv;
-+
-+	if (!netif_running(dev))
-+		return 0;
-+
-+	spin_lock_irq(&bp->lock);
-+
-+	b44_init_rings(bp);
-+	b44_init_hw(bp);
-+	netif_device_attach(bp->dev);
-+	spin_unlock_irq(&bp->lock);
-+
-+	b44_enable_ints(bp);
-+	return 0;
-+}
-+
- static struct pci_driver b44_driver = {
- 	.name		= DRV_MODULE_NAME,
- 	.id_table	= b44_pci_tbl,
- 	.probe		= b44_init_one,
- 	.remove		= __devexit_p(b44_remove_one),
-+        .suspend        = b44_suspend,
-+        .resume         = b44_resume,
- };
- 
- static int __init b44_init(void)
--- 
-Pekka Pietikainen
+#2. If the host is inside diffserv environment all these things just
+have no effects and make no sense. That's why we do not change anything
+(except for disabling access to ECN bits).
+
+
+> reasons.  Firstly, if we're using the old bit fields it should be the 
+> precedence bits that are used for the skb priority rather than the tos 
+> field. Secondly, the whole precedence/tos thing has been obsoleted by 
+> the 6-bit DSCP field, of which the first 3 bits are supposed to be 
+> backwards compatible with the old precedence field.  Shouldn't we 
+> properly handle that?
+
+See above #1. Precedence bits used to be _non-sense_ in the past and their use
+outside of context of setup of your routers (in pre-DS world) or outide
+context of diffserv does not make sense.
+
+What's about "backward-compatibility", it sounds funny, DS is made compatible
+with Cisco use precedence and this has nothing to do with end users
+(where socket options make sense), precedence bits are rewritten by routers
+for their own use.
+
+
+> Secondly, for vlan priority tagging there are only 3 bits available. 
+> This means that practically speaking anyone using vlan priorities needs 
+> to limit themselves to priorities 0-7.
+
+Thirdly. :-)
+
+Technically speaking, direct access of user to such things is prohibited
+in any case. So, use proper classifiers to do right mappings.
+
+
+> Currently, for me to send a packet with IP precedence bits set to a 
+> nonzero value *and* vlan priority set to the same value, I have to do 
+> the following:
+> 
+> int opt = PRIORITY << 5;
+> setsockopt(mysocks[i], SOL_IP, IP_TOS, &opt, sizeof(opt));
+> opt = PRIORITY;
+> setsockopt(mysocks[i], SOL_SOCKET, SO_PRIORITY, &opt, sizeof(opt));
+
+This is right.
+
+
+> This is kind of ugly.
+
+Hmm.. This is kinda nice. IP_TOS sets real TOS bits without any funny
+shifts and masks, but with some reasonable access control, SO_PRIORITY
+sets priority. TOS and PRIORITY are not related.
+
+
+>	  I propose adding a new IP socket option, IP_DSCP, 
+> which would let you set the 6-bit DSCP value (which is then shifted by 
+> two bits in the kernel to generate the 8-bit value for the header 
+> field).  
+
+I do not even think that IP_DSCP makes sense in diffserv environment.
+Packets are marked according to DS rules, not according to desire
+of particular user.
+
+Anyway, the thing which you suggest is equal to IP_TOS in this part.
+
+
+>	The high-order 3 bits would then be automatically used to set 
+> the socket priority to make a vlan egress mapping simple.
+
+Not even subject to discuss... In old current world it is just wrong,
+in new world it is even wronger.
+
+If DSCP is used for prioritizing, it is used via proper classifiers,
+not via some rules hardcoded to kernel.
+
+Alexey
