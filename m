@@ -1,37 +1,118 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [2.6 patch] net/sched/: possible cleanups
-Date: 15 Dec 2004 09:03:12 -0500
-Message-ID: <1103119392.1078.67.camel@jzny.localdomain>
-References: <20041215012754.GH12937@stusta.de>
-	 <20041215112741.GJ8493@postel.suug.ch>
+Subject: Re: [2.6 patch] net/netlink/af_netlink.c: possible cleanups
+Date: 15 Dec 2004 09:07:03 -0500
+Message-ID: <1103119623.1077.71.camel@jzny.localdomain>
+References: <20041215004604.GH23151@stusta.de>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Adrian Bunk <bunk@stusta.de>, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20041215112741.GJ8493@postel.suug.ch>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: Alan Cox <alan@redhat.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, netdev@oss.sgi.com,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262350AbULOOHh@vger.kernel.org>
+To: Adrian Bunk <bunk@stusta.de>
+In-Reply-To: <20041215004604.GH23151@stusta.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-This is fine. The new architecture doesnt require classifiers explicitly
-call those function. Rest also looks fine to me. Good effort Adrian.
+I think this should be left alone for now; what we need to do is
+deprecate NETLINK_DEV incase someone is still using it.
+Else we could get rid of it totaly including what Adrian is deleting
+below. Any users of NETLINK_DEV? Maybe deleting the feature will get
+someone whining? ;->
 
 cheers,
 jamal
 
-On Wed, 2004-12-15 at 06:27, Thomas Graf wrote:
-> * Adrian Bunk <20041215012754.GH12937@stusta.de> 2004-12-15 02:27
+On Tue, 2004-12-14 at 19:46, Adrian Bunk wrote:
+> The patch below contains the following possible cleanups:
+> - make the needlessly global function netlink_getsockbypid static
+> - remove the EXPORT_SYMBOL'ed but unused functions netlink_attach and 
+>   netlink_detach
 > 
-> > -extern int tcf_act_police_locate(struct rtattr *rta, struct rtattr *est,struct tc_action *,int , int );
-> > -extern int tcf_act_police_dump(struct sk_buff *, struct tc_action *, int, int);
-> > -extern int tcf_act_police(struct sk_buff **skb, struct tc_action *a);
+> Please review whether these changes are correct or whether they conflict 
+> with pending patches.
 > 
-> This looks like a police compat API for action policers but I think it's
-> fine, Jamal?
 > 
-> The other changes all make sense to me.
+> diffstat output:
+>  include/linux/netlink.h  |    3 ---
+>  net/netlink/af_netlink.c |   28 +---------------------------
+>  2 files changed, 1 insertion(+), 30 deletions(-)
+> 
+> 
+> Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> 
+> --- linux-2.6.10-rc3-mm1-full/include/linux/netlink.h.old	2004-12-14 21:43:16.000000000 +0100
+> +++ linux-2.6.10-rc3-mm1-full/include/linux/netlink.h	2004-12-14 21:44:27.000000000 +0100
+> @@ -116,8 +116,6 @@
+>  #define NETLINK_CREDS(skb)	(&NETLINK_CB((skb)).creds)
+>  
+> 
+> -extern int netlink_attach(int unit, int (*function)(int,struct sk_buff *skb));
+> -extern void netlink_detach(int unit);
+>  extern int netlink_post(int unit, struct sk_buff *skb);
+>  extern struct sock *netlink_kernel_create(int unit, void (*input)(struct sock *sk, int len));
+>  extern void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err);
+> @@ -129,7 +127,6 @@
+>  extern int netlink_unregister_notifier(struct notifier_block *nb);
+>  
+>  /* finegrained unicast helpers: */
+> -struct sock *netlink_getsockbypid(struct sock *ssk, u32 pid);
+>  struct sock *netlink_getsockbyfilp(struct file *filp);
+>  int netlink_attachskb(struct sock *sk, struct sk_buff *skb, int nonblock, long timeo);
+>  void netlink_detachskb(struct sock *sk, struct sk_buff *skb);
+> --- linux-2.6.10-rc3-mm1-full/net/netlink/af_netlink.c.old	2004-12-14 21:43:31.000000000 +0100
+> +++ linux-2.6.10-rc3-mm1-full/net/netlink/af_netlink.c	2004-12-14 21:44:34.000000000 +0100
+> @@ -546,7 +546,7 @@
+>  	}
+>  }
+>  
+> -struct sock *netlink_getsockbypid(struct sock *ssk, u32 pid)
+> +static struct sock *netlink_getsockbypid(struct sock *ssk, u32 pid)
+>  {
+>  	int protocol = ssk->sk_protocol;
+>  	struct sock *sock;
+> @@ -1210,30 +1210,6 @@
+>   *	Backward compatibility.
+>   */	
+>   
+> -int netlink_attach(int unit, int (*function)(int, struct sk_buff *skb))
+> -{
+> -	struct sock *sk = netlink_kernel_create(unit, NULL);
+> -	if (sk == NULL)
+> -		return -ENOBUFS;
+> -	nlk_sk(sk)->handler = function;
+> -	write_lock_bh(&nl_emu_lock);
+> -	netlink_kernel[unit] = sk->sk_socket;
+> -	write_unlock_bh(&nl_emu_lock);
+> -	return 0;
+> -}
+> -
+> -void netlink_detach(int unit)
+> -{
+> -	struct socket *sock;
+> -
+> -	write_lock_bh(&nl_emu_lock);
+> -	sock = netlink_kernel[unit];
+> -	netlink_kernel[unit] = NULL;
+> -	write_unlock_bh(&nl_emu_lock);
+> -
+> -	sock_release(sock);
+> -}
+> -
+>  int netlink_post(int unit, struct sk_buff *skb)
+>  {
+>  	struct socket *sock;
+> @@ -1522,7 +1498,5 @@
+>  EXPORT_SYMBOL(netlink_unregister_notifier);
+>  
+>  #if defined(CONFIG_NETLINK_DEV) || defined(CONFIG_NETLINK_DEV_MODULE)
+> -EXPORT_SYMBOL(netlink_attach);
+> -EXPORT_SYMBOL(netlink_detach);
+>  EXPORT_SYMBOL(netlink_post);
+>  #endif
+> 
+> 
 > 
