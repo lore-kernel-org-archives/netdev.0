@@ -1,54 +1,28 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] ax25_route.c: remove an unused function
-Date: Fri, 29 Oct 2004 02:20:45 +0200
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCHSET 0/6] PKT_SCHED: Generic classifier routines / cls_fw cleanup
+Date: Fri, 29 Oct 2004 02:21:13 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041029002045.GO29142@stusta.de>
-References: <20041028230032.GU3207@stusta.de>
+Message-ID: <20041029002113.GY12289@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-hams@vger.kernel.org, davem@davemloft.net, netdev@oss.sgi.com,
-        linux-kernel@vger.kernel.org
+Cc: netdev@oss.sgi.com, hadi@cyberus.ca
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ralf@linux-mips.org
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20041028230032.GU3207@stusta.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-[ this time without the problems due to a digital signature... ]
+Dave,
 
-The patch below removes an unused function from net/ax25/ax25_route.c
+The following patchset is basically what we discussed before
+but without the tcf_filter bits because it's not really worth
+it. It will save us ~100 lines of code per classifier.
 
+I tested the already splitted patchset this time :->
 
-diffstat output:
- net/ax25/ax25_route.c |   16 ----------------
- 1 files changed, 16 deletions(-)
+Jamal, I tried to test the action stuff as good as possible, but
+can you give it a run with your test scripts?
 
+I will submit a 2.4 version for patch 6 in a few minutes.
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
-
---- linux-2.6.10-rc1-mm1-full/net/ax25/ax25_route.c.old	2004-10-28 23:50:25.000000000 +0200
-+++ linux-2.6.10-rc1-mm1-full/net/ax25/ax25_route.c	2004-10-28 23:50:41.000000000 +0200
-@@ -41,22 +41,6 @@
- 
- static ax25_route *ax25_get_route(ax25_address *, struct net_device *);
- 
--/*
-- * small macro to drop non-digipeated digipeaters and reverse path
-- */
--static inline void ax25_route_invert(ax25_digi *in, ax25_digi *out)
--{
--	int k;
--
--	for (k = 0; k < in->ndigi; k++)
--		if (!in->repeated[k])
--			break;
--
--	in->ndigi = k;
--
--	ax25_digi_invert(in, out);
--}
--
- void ax25_rt_device_down(struct net_device *dev)
- {
- 	ax25_route *s, *t, *ax25_rt;
+Cheers
