@@ -1,28 +1,48 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: ipv6 tunnel stops accepting input
-Date: Wed, 12 Jan 2005 07:36:37 +1100
-Message-ID: <E1CoSkn-00058Z-00@gondolin.me.apana.org.au>
-References: <20050111125826.GA25169@wiggy.net>
+From: "Arthur D. Kepner" <akepner@sgi.com>
+Subject: Re: [PATCH bk-2.6.10] tg3:align IP headers from 5701 in PCI-X mode
+Date: Tue, 11 Jan 2005 12:49:05 -0600 (CST)
+Message-ID: <Pine.LNX.4.21.0501111242590.14715-100000@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: wichert@wiggy.net (Wichert Akkerman)
-In-Reply-To: <20050111125826.GA25169@wiggy.net>
+To: "David S. Miller" <davem@davemloft.net>, jgarzik@pobox.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Wichert Akkerman <wichert@wiggy.net> wrote:
-> 
-> but once I do a ping6 from my machine to the outside world:
-> 
-> 13:39:53.264393 IP home.wiggy.net > ipv6-tb.xs4all.net: tunnel29.ipv6.xs4all.nl > irc.ipv6.xs4all.nl: icmp6: echo request seq 1
-> 13:39:53.299071 IP ipv6-tb.xs4all.net > home.wiggy.net: irc.ipv6.xs4all.nl > tunnel29.ipv6.xs4all.nl: icmp6: echo reply seq 1
-> 
-> the tunnel suddenly accepts incoming traffic:
 
-Do you have any netfilter rules?
+(Resend. Local clock was off and my archived reply appears to have 
+been generated prior to the message to which I was responding.... )
+
+On Mon, 10 Jan 2005, David S. Miller wrote:
+
+> Let's just do this all the time for this case, adding new config
+> options for stuff like this does nothing more than create confusion.
+
+OK, you mean like the following?
+
+diffstats:
+ tg3.c |    6 +++++-
+ 1 files changed, 5 insertions(+), 1 deletion(-) 
+
+Signed-off-by: Arthur Kepner <akepner@sgi.com>
+
+===== drivers/net/tg3.c 1.222 vs edited =====
+--- 1.222/drivers/net/tg3.c	2004-11-15 15:53:08 -08:00
++++ edited/drivers/net/tg3.c	2005-01-10 13:35:33 -08:00
+@@ -2702,7 +2702,11 @@ static int tg3_rx(struct tg3 *tp, int bu
+ 
+ 		len = ((desc->idx_len & RXD_LEN_MASK) >> RXD_LEN_SHIFT) - 4; /* omit crc */
+ 
+-		if (len > RX_COPY_THRESHOLD) {
++		if (len > RX_COPY_THRESHOLD 
++			&& tp->rx_offset == 2
++			/* rx_offset != 2 iff this is a 5701 card running
++			 * in PCI-X mode [see tg3_get_invariants()] */
++		) {
+ 			int skb_size;
+ 
+ 			skb_size = tg3_alloc_rx_skb(tp, opaque_key,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Arthur
