@@ -1,90 +1,46 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Fw: [Bugme-new] [Bug 3784] New: Kernel Panic on huge portrange TCP
- scan (using nmap portscanner).
-Date: Sat, 20 Nov 2004 13:27:49 -0800
-Message-ID: <20041120132749.5001bef1.akpm@osdl.org>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: Assertions when lowering tcp_tso_win_divisor
+Date: Sat, 20 Nov 2004 15:19:54 -0800 (PST)
+Message-ID: <Pine.LNX.4.58.0411201503510.6242@w-sridhar.beaverton.ibm.com>
+References: <Pine.LNX.4.58.0411160931080.31882@w-sridhar.beaverton.ibm.com>
+ <E1CUAQ2-0002jT-00@gondolin.me.apana.org.au> <20041116163106.3b62a39a.davem@davemloft.net>
+ <Pine.LNX.4.58.0411191755160.2567@w-sridhar.beaverton.ibm.com>
+ <20041119223527.1f243d6e.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: herbert@gondor.apana.org.au, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20041119223527.1f243d6e.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Fri, 19 Nov 2004, David S. Miller wrote:
 
+> On Fri, 19 Nov 2004 18:00:21 -0800 (PST)
+> Sridhar Samudrala <sri@us.ibm.com> wrote:
+>
+> > Unfortunately as we cannot upgrade to 2.6.10-rc2
+>
+> This doesn't work.  You cannot expect upstream maintainers
+> to work with you if you're not willing to or able to
+> try things out with the latest kernels.
+>
+> I have an inkling as to the reason why you're restricted
+> in this way, which is that you're limited to some vendor's
+> kernel.  Am I right?
 
-Begin forwarded message:
+Yes. You are right. It is a vendor kernel based on 2.6.9 along
+with some vendor specific kernel patches.
+I agree that it is not always possible to support older kernels
+and i was not expecting you to do that.
+I tried to do this myself by identifying the tso related patches
+that went in after 2.6.9 and just wanted to find out if i missed
+any other patches that may have fixed the tso related assertions.
 
-Date: Sat, 20 Nov 2004 13:14:27 -0800
-From: bugme-daemon@osdl.org
-To: bugme-new@lists.osdl.org
-Subject: [Bugme-new] [Bug 3784] New: Kernel Panic on huge portrange TCP scan (using nmap portscanner).
+We will try to see if this problem can be reproduced with
+2.6.10-rc2.
 
-
-http://bugme.osdl.org/show_bug.cgi?id=3784
-
-           Summary: Kernel Panic on huge portrange TCP scan (using nmap
-                    portscanner).
-    Kernel Version: Linux version 2.6.9 (slawek@ivision) (gcc version 3.3.4)
-                    #1 Sat
-            Status: NEW
-          Severity: normal
-             Owner: shemminger@osdl.org
-         Submitter: czkaw@poczta.fm
-
-
-Distribution: Slackware 10.0 
-Hardware Environment:  
-  processor       : 0 
-vendor_id       : AuthenticAMD 
-cpu family      : 6 
-model           : 10 
-model name      : AMD Athlon(tm) XP 2500+ 
-stepping        : 0 
-cpu MHz         : 1837.442 
-cache size      : 512 KB 
-fdiv_bug        : no 
-hlt_bug         : no 
-f00f_bug        : no 
-coma_bug        : no 
-fpu             : yes 
-fpu_exception   : yes 
-cpuid level     : 1 
-wp              : yes 
-flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov 
-pat pse36 mmx fxsr sse syscall mmxext 3dnowext 3dnow 
-bogomips        : 3629.05 
- 
-Software Environment: 
- 
- Linux ivision 2.6.9 #1 Sat Nov 20 20:38:14 CET 2004 i686 unknown unknown 
-GNU/Linux 
- 
-Gnu C                  3.3.4 
-Gnu make               3.80 
-binutils               2.15.90.0.3 
-util-linux             2.12a 
-mount                  2.12a 
-module-init-tools      3.0 
-e2fsprogs              1.35 
-reiserfsprogs          3.6.17 
-reiser4progs           line 
-Linux C Library        2.3.2 
-Dynamic linker (ldd)   2.3.2 
-Linux C++ Library      5.0.6 
-Procps                 3.2.1 
-Net-tools              1.60 
-Kbd                    1.12 
-Sh-utils               5.2.1 
-Modules Loaded  (none) 
- 
-Problem Description: I've got Kernel Panic when i run 'nmap localhost -p 
-1-60000'. It says : Kernel BUG at net/ipv4/tcp_output.c:227. 
- 
-Steps to reproduce: Install nmap 3.50 ( http://www.insecure.org/nmap/ ) and 
-scan with it 60000 ports on localhost 'nmap localhost -p 1-60000' localhost 
-should be 127.0.0.1 ( lo interface )
-
-------- You are receiving this mail because: -------
-You are on the CC list for the bug, or are watching someone who is.
+Thanks
+Sridhar
