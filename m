@@ -1,35 +1,109 @@
-From: James Ketrenos <jketreno@linux.intel.com>
-Subject: Re: [PATCH] ieee80211 subsystem
-Date: Tue, 08 Feb 2005 17:33:26 -0600
-Message-ID: <42094C46.9040701@linux.intel.com>
-References: <4203C32A.70402@linux.intel.com> <20050208042950.GD8366@jm.kir.nu> <420885B6.7090606@linux.intel.com> <42094A6D.9080508@pobox.com>
+From: Jean Tourrilhes <jt@hpl.hp.com>
+Subject: [PATCH 2.4] SIOCSIFNAME wildcard support (re-resend)
+Date: Tue, 8 Feb 2005 16:27:47 -0800
+Message-ID: <20050209002747.GA9792@bougret.hpl.hp.com>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jouni Malinen <jkmaline@cc.hut.fi>, netdev@oss.sgi.com
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <42094A6D.9080508@pobox.com>
+Content-Type: text/plain; charset=us-ascii
+To: Marcelo Tosatti <marcelo.tosatti@cyclades.com>, netdev@oss.sgi.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
+	Hi all,
 
-> Just to keep everything moving, my recommendation would be to move the 
-> code to net/*, and resend the patch (with whatever changes you have 
-> made to date).
->
-> That way you, and others, can review and work on the tree in parallel.
->
-> I'm worried that your list of todo items (based on responses so far) 
-> is already so long that I won't hear from you for another year ;-)  We 
-> need to get the wireless-2.6 tree active again, and avoid 
-> bottlenecks.  We need "release early, release often."
+	Just to make sure everybody seen it twice...
 
-I've allocated a couple hours tomorrow to merge in all the comments to 
-date and get them pushed to my bk tree (bk://ipw.bkbits.net/ipw-2.6 is 
-where I've been staging all of the ipw work)
+	Jean
 
-So, I'll send a new patch out tomorrow with what I have to date.
+----- Forwarded message from jt -----
 
-James
+Subject: [PATCH 2.4] SIOCSIFNAME wildcard support (resend)
+E-mail: jt@hpl.hp.com
+
+	Hi Marcelo,
+
+	I did not receive any feedback on this e-mail, so I assume it
+was lost on the way. Would you mind pushing that in 2.4.x ?
+	Thanks...
+
+	Jean
+
+----- Forwarded message from jt -----
+
+Subject: [PATCH 2.4] SIOCSIFNAME wildcard support
+E-mail: jt@hpl.hp.com
+
+	Hi Marcelo,
+
+	This patch adds wildcard support for the SIOCSIFNAME ioctl,
+like what was done in 2.6.1. SIOCSIFNAME allow a user space tool to
+change network interface names (such as nameif, ifrename, or ip link),
+this patch allow those tools to specify a pattern, such as "eth%d" or
+"wlan%d", and the kernel use the lowest available slot.
+	The reason I'm sending you this patch is that I've got some
+2.4.X users who requested the feature...
+	This patch was initially done for 2.4.23, and I rediffed and
+retested with 2.4.29. It's somewhat different from the patch Stephen
+and me added to 2.6.1, because the netdev init code is different and
+also this patch is more conservative.
+
+	Have fun...
+
+	Jean
+
+-------------------------------------------------------------
+
+diff -u -p linux/net/core/dev.j1.c linux/net/core/dev.c
+--- linux/net/core/dev.j1.c	Wed Dec  3 14:29:21 2003
++++ linux/net/core/dev.c	Wed Dec  3 18:55:27 2003
+@@ -2179,10 +2179,26 @@ static int dev_ifsioc(struct ifreq *ifr,
+ 		case SIOCSIFNAME:
+ 			if (dev->flags&IFF_UP)
+ 				return -EBUSY;
+-			if (__dev_get_by_name(ifr->ifr_newname))
+-				return -EEXIST;
+-			memcpy(dev->name, ifr->ifr_newname, IFNAMSIZ);
+-			dev->name[IFNAMSIZ-1] = 0;
++			/* Check if name contains a wildcard */
++			if (strchr(ifr->ifr_newname, '%')) {
++				char format[IFNAMSIZ + 1];
++				int ret;
++				memcpy(format, ifr->ifr_newname, IFNAMSIZ);
++				format[IFNAMSIZ-1] = 0;
++				/* Find a free name based on format.
++				 * dev_alloc_name() replaces "%d" with at max
++				 * 2 digits, so no name overflow. - Jean II */
++				ret = dev_alloc_name(dev, format);
++				if (ret < 0)
++					return ret;
++				/* Copy the new name back to caller. */
++				strncpy(ifr->ifr_newname, dev->name, IFNAMSIZ);
++			} else {
++				if (__dev_get_by_name(ifr->ifr_newname))
++					return -EEXIST;
++				memcpy(dev->name, ifr->ifr_newname, IFNAMSIZ);
++				dev->name[IFNAMSIZ-1] = 0;
++			}
+ 			notifier_call_chain(&netdev_chain, NETDEV_CHANGENAME, dev);
+ 			return 0;
+ 
+@@ -2315,6 +2331,7 @@ int dev_ioctl(unsigned int cmd, void *ar
+ 		 *	- return a value
+ 		 */
+ 		 
++		case SIOCSIFNAME:
+ 		case SIOCGMIIPHY:
+ 		case SIOCGMIIREG:
+ 			if (!capable(CAP_NET_ADMIN))
+@@ -2350,7 +2367,6 @@ int dev_ioctl(unsigned int cmd, void *ar
+ 		case SIOCDELMULTI:
+ 		case SIOCSIFHWBROADCAST:
+ 		case SIOCSIFTXQLEN:
+-		case SIOCSIFNAME:
+ 		case SIOCSMIIREG:
+ 		case SIOCBONDENSLAVE:
+ 		case SIOCBONDRELEASE:
