@@ -1,80 +1,55 @@
-From: Harald Welte <laforge@gnumonks.org>
-Subject: Re: packet re-ordering on SMP machines.
-Date: Sun, 15 Sep 2002 10:42:01 +0200
+From: Ben Greear <greearb@candelatech.com>
+Subject: unregister_netdevice, usage count = 0
+Date: Sun, 15 Sep 2002 10:33:22 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20020915104201.D3810@sunbeam.de.gnumonks.org>
-References: <20020827142004.C4358@wotan.suse.de> <200208271306.RAA19164@sex.inr.ac.ru> <20020827151317.A3389@wotan.suse.de>
+Message-ID: <3D84C462.7020104@candelatech.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="QgTrJPeCZfhZbFCN"
-Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
-Content-Disposition: inline
-In-Reply-To: <20020827151317.A3389@wotan.suse.de>; from ak@suse.de on Tue, Aug 27, 2002 at 03:13:17PM +0200
+To: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---QgTrJPeCZfhZbFCN
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
 
-On Tue, Aug 27, 2002 at 03:13:17PM +0200, Andi Kleen wrote:
->=20
-> On Tue, Aug 27, 2002 at 05:06:30PM +0400, A.N.Kuznetsov wrote:
-> > Hello!
-> >=20
-> > > Of course. The only problem is that the clock can be non mononotonous=
-=20
-> > > sometimes and not be in sync with gettimeofday, but at least the kern=
-el=20
-> > > users of packet timestamps do not care.
-> >=20
-> > What kernel users? Where did you find them? :-)
->=20
-> Hmm, I thought TCP used it, but it seems to use jiffies directly.
->=20
-> Ok, no kernel users then. Not sure about sunrpc and out of tree stuff
-> like SCTP.
+For one reason or another, when trying to unload the e1000 NAPI'fied
+drive from 2.4.20-pre7, I see this error repeatedly:
 
-The iptables ULOG target passes the skb receive timestamp to userspace, whe=
-re
-it is (depending on local ulogd configuration) written in logging/accounting
-databases. (ULOG is in the kernel tree).=20=20
+unregister_netdevice: waiting for eth2 to become free. Usage count = 0
 
-The issue is that ULOG is batching multiple packets (or parts of packets) i=
-nto
-one netlink message sent to userspace.  If userspace would make a timestamp,
-it would be very inaccurate.
+So, I'm wondering if the code in dev.c, line 2688:
 
-There is at least one more iptables extension (out of the kernel tree) using
-it - but I wouldn't consider this as important.
 
-> -Andi
+	now = warning_time = jiffies;
+	while (atomic_read(&dev->refcnt) != 1) {
+		if ((jiffies - now) > 1*HZ) {
+			/* Rebroadcast unregister notification */
+			notifier_call_chain(&netdev_chain, NETDEV_UNREGISTER, dev);
+		}
+		current->state = TASK_INTERRUPTIBLE;
+		schedule_timeout(HZ/4);
+		current->state = TASK_RUNNING;
+		if ((jiffies - warning_time) > 10*HZ) {
+			printk(KERN_EMERG "unregister_netdevice: waiting for %s to "
+					"become free. Usage count = %d\n",
+					dev->name, atomic_read(&dev->refcnt));
+			warning_time = jiffies;
+		}
+	}
+	dev_put(dev);
 
---=20
-Live long and prosper
-- Harald Welte / laforge@gnumonks.org               http://www.gnumonks.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-GCS/E/IT d- s-: a-- C+++ UL++++$ P+++ L++++$ E--- W- N++ o? K- w--- O- M+=
-=20
-V-- PS++ PE-- Y++ PGP++ t+ 5-- !X !R tv-- b+++ !DI !D G+ e* h--- r++ y+(*)
+Should be like this instead:
 
---QgTrJPeCZfhZbFCN
-Content-Type: application/pgp-signature
-Content-Disposition: inline
+	while (atomic_read(&dev->refcnt) > 1) {
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.0.6 (GNU/Linux)
-Comment: For info see http://www.gnupg.org
 
-iD8DBQE9hEfZXaXGVTD0i/8RAsZQAKCp+oE1Ud5bJlFstlyTGQBL/O4gVgCfTCTU
-iWjRjN0Vuhzf4CdqoZFbv2A=
-=e38Z
------END PGP SIGNATURE-----
+Now, off to see if I can track down the real problem...
 
---QgTrJPeCZfhZbFCN--
+Ben
+
+
+
+-- 
+Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
+President of Candela Technologies Inc      http://www.candelatech.com
+ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
