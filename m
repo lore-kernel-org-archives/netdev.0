@@ -1,291 +1,107 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH]  802.1Q VLAN
-Date: Mon, 25 Oct 2004 13:51:43 -0700
+From: Brian Haley <Brian.Haley@hp.com>
+Subject: Re: [PATCH, TAKE 2] [IPV6] XFRM: extract xfrm_lookup() from ip6_dst_lookup()
+ (is Re: [PATCH][IPv6] separation xfrm_lookup from ip6_dst_lookup)
+Date: Mon, 25 Oct 2004 17:27:44 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <417D675F.3000909@candelatech.com>
-References: <41797696.9070905@candelatech.com>	<20041022214611.GA4948@electric-eye.fr.zoreil.com> <41798506.1030909@candelatech.com>
+Message-ID: <417D6FD0.7010903@hp.com>
+References: <20040730171205.114f22ba.kazunori@miyazawa.org>	<20040801195135.16734846.davem@redhat.com> <20040828.014935.131415609.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------000309000109080400000304"
-Cc: "Linux 802.1Q VLAN" <vlan@candelatech.com>,
-        Francois Romieu <romieu@fr.zoreil.com>
+ boundary="------------080602020509050608080305"
+Cc: davem@davemloft.net, netdev@oss.sgi.com, kazunori@miyazawa.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
-In-Reply-To: <41798506.1030909@candelatech.com>
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20040828.014935.131415609.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------000309000109080400000304
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+--------------080602020509050608080305
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: quoted-printable
+X-MIME-Autoconverted: from 8bit to quoted-printable by oss.sgi.com id i9PLULtE023143
 
 
-Ok, I believe I have fixed all the suggestions offered by Francois (thanks!).
+YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
 
-Please see what you think of this updated patch.  The changes have
-been compile tested...and will pass some data in just a few minutes to
-make sure nothing funny happens...
+> Here's the updated patch.
+
+<snip>
+
+Hi,
+
+I finally tracked-down the patch that fixed the IPv6 routing header=20
+problems I'd been seeing :)  But I think you missed one code path from=20
+the original patch Kazunori posted in tcp_v6_xmit(), which I think is=20
+only called from the ND code.
+
+Attached is a patch that fixes that and also brings the rt0_hdr struct=20
+in-line with RFC 3542 by removing the "bitmap" field.
 
 Thanks,
-Ben
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+-Brian
 
+--
+Brian Haley, HP Linux and Open Source Lab
 
---------------000309000109080400000304
+--------------080602020509050608080305
 Content-Type: text/plain;
- name="vlan.patch"
-Content-Transfer-Encoding: 7bit
+ name="rt0.diffs"
 Content-Disposition: inline;
- filename="vlan.patch"
+ filename="rt0.diffs"
+Content-Transfer-Encoding: base64
 
---- linux-2.6.9/net/8021q/vlan_dev.c	2004-10-18 14:55:07.000000000 -0700
-+++ linux-2.6.9.p4s/net/8021q/vlan_dev.c	2004-10-25 13:38:32.779294920 -0700
-@@ -1,4 +1,4 @@
--/*
-+/* -*- linux-c -*-
-  * INET		802.1Q VLAN
-  *		Ethernet-type device handling.
-  *
-@@ -484,13 +484,26 @@
- 	       veth->h_vlan_proto, veth->h_vlan_TCI, veth->h_vlan_encapsulated_proto);
- #endif
- 
--	stats->tx_packets++; /* for statics only */
--	stats->tx_bytes += skb->len;
--
- 	skb->dev = VLAN_DEV_INFO(dev)->real_dev;
--	dev_queue_xmit(skb);
- 
--	return 0;
-+	{
-+		/* Please note, dev_queue_xmit consumes the pkt regardless of the
-+		 * error value.  So, will copy the skb first and free if successful.
-+		 */
-+		struct sk_buff* skb2 = skb_get(skb);
-+		int rv = dev_queue_xmit(skb2);
-+		if (rv == 0) {
-+			/* Was success, need to free the skb reference since we bumped up the
-+			 * user count above.
-+			 */
-+
-+			stats->tx_packets++; /* for statics only */
-+			stats->tx_bytes += skb->len;
-+
-+			kfree_skb(skb);
-+		}
-+		return rv;
-+	}
- }
- 
- int vlan_dev_hwaccel_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
-@@ -622,7 +635,45 @@
- 	return -EINVAL;
- }
- 
-+
-+int vlan_dev_get_realdev_name(const char *dev_name, char* result)
-+{
-+	struct net_device *dev = dev_get_by_name(dev_name);
-+	int rv = 0;
-+	if (dev) {
-+		if (dev->priv_flags & IFF_802_1Q_VLAN) {
-+			strncpy(result, VLAN_DEV_INFO(dev)->real_dev->name, 23);
-+			rv = 0;
-+		} else {
-+			rv = -EINVAL;
-+		}
-+		dev_put(dev);
-+	} else {
-+		rv = -ENODEV;
-+	}
-+	return rv;
-+}
-+
-+int vlan_dev_get_vid(const char *dev_name, unsigned short* result)
-+{
-+	struct net_device *dev = dev_get_by_name(dev_name);
-+	int rv = 0;
-+	if (dev) {
-+		if (dev->priv_flags & IFF_802_1Q_VLAN) {
-+			*result = VLAN_DEV_INFO(dev)->vlan_id;
-+			rv = 0;
-+		} else {
-+			rv = -EINVAL;
-+		}
-+		dev_put(dev);
-+	} else {
-+		rv = -ENODEV;
-+	}
-+	return rv;
-+}
-+
-+
- int vlan_dev_set_mac_address(struct net_device *dev, void *addr_struct_p)
- {
- 	struct sockaddr *addr = (struct sockaddr *)(addr_struct_p);
---- linux-2.6.9/net/8021q/vlan.c	2004-10-18 14:54:55.000000000 -0700
-+++ linux-2.6.9.p4s/net/8021q/vlan.c	2004-10-22 12:14:24.000000000 -0700
-@@ -1,4 +1,4 @@
--/*
-+/* -*- linux-c -*-
-  * INET		802.1Q VLAN
-  *		Ethernet-type device handling.
-  *
-@@ -646,15 +646,9 @@
- static int vlan_ioctl_handler(void __user *arg)
- {
- 	int err = 0;
-+	unsigned short vid = 0;
- 	struct vlan_ioctl_args args;
- 
--	/* everything here needs root permissions, except aguably the
--	 * hack ioctls for sending packets.  However, I know _I_ don't
--	 * want users running that on my network! --BLG
--	 */
--	if (!capable(CAP_NET_ADMIN))
--		return -EPERM;
--
- 	if (copy_from_user(&args, arg, sizeof(struct vlan_ioctl_args)))
- 		return -EFAULT;
- 
-@@ -668,24 +662,32 @@
- 
- 	switch (args.cmd) {
- 	case SET_VLAN_INGRESS_PRIORITY_CMD:
-+		if (!capable(CAP_NET_ADMIN))
-+			return -EPERM;
- 		err = vlan_dev_set_ingress_priority(args.device1,
- 						    args.u.skb_priority,
- 						    args.vlan_qos);
- 		break;
- 
- 	case SET_VLAN_EGRESS_PRIORITY_CMD:
-+		if (!capable(CAP_NET_ADMIN))
-+			return -EPERM;
- 		err = vlan_dev_set_egress_priority(args.device1,
- 						   args.u.skb_priority,
- 						   args.vlan_qos);
- 		break;
- 
- 	case SET_VLAN_FLAG_CMD:
-+		if (!capable(CAP_NET_ADMIN))
-+			return -EPERM;
- 		err = vlan_dev_set_vlan_flag(args.device1,
- 					     args.u.flag,
- 					     args.vlan_qos);
- 		break;
- 
- 	case SET_VLAN_NAME_TYPE_CMD:
-+		if (!capable(CAP_NET_ADMIN))
-+			return -EPERM;
- 		if ((args.u.name_type >= 0) &&
- 		    (args.u.name_type < VLAN_NAME_TYPE_HIGHEST)) {
- 			vlan_name_type = args.u.name_type;
-@@ -695,17 +697,9 @@
- 		}
- 		break;
- 
--		/* TODO:  Figure out how to pass info back...
--		   case GET_VLAN_INGRESS_PRIORITY_IOCTL:
--		   err = vlan_dev_get_ingress_priority(args);
--		   break;
--
--		   case GET_VLAN_EGRESS_PRIORITY_IOCTL:
--		   err = vlan_dev_get_egress_priority(args);
--		   break;
--		*/
--
- 	case ADD_VLAN_CMD:
-+		if (!capable(CAP_NET_ADMIN))
-+			return -EPERM;
- 		/* we have been given the name of the Ethernet Device we want to
- 		 * talk to:  args.dev1	 We also have the
- 		 * VLAN ID:  args.u.VID
-@@ -718,13 +712,52 @@
- 		break;
- 
- 	case DEL_VLAN_CMD:
-+		if (!capable(CAP_NET_ADMIN))
-+			return -EPERM;
- 		/* Here, the args.dev1 is the actual VLAN we want
- 		 * to get rid of.
- 		 */
- 		err = unregister_vlan_device(args.device1);
- 		break;
- 
-+	case GET_VLAN_INGRESS_PRIORITY_CMD:
-+		/* TODO:  Implement
-+		   err = vlan_dev_get_ingress_priority(args);
-+		   if (copy_to_user((void*)arg, &args,
-+		        sizeof(struct vlan_ioctl_args))) {
-+		        err = -EFAULT;
-+		   }
-+		*/
-+		err = -EINVAL;
-+		break;
-+	case GET_VLAN_EGRESS_PRIORITY_CMD:
-+		/* TODO:  Implement
-+		   err = vlan_dev_get_egress_priority(args.device1, &(args.args);
-+		   if (copy_to_user((void*)arg, &args,
-+		        sizeof(struct vlan_ioctl_args))) {
-+		        err = -EFAULT;
-+		   }
-+		*/
-+		err = -EINVAL;
-+		break;
-+	case GET_VLAN_REALDEV_NAME_CMD:
-+		err = vlan_dev_get_realdev_name(args.device1, args.u.device2);
-+		if (copy_to_user((void*)arg, &args,
-+				 sizeof(struct vlan_ioctl_args))) {
-+			err = -EFAULT;
-+		}
-+		break;
-+
-+	case GET_VLAN_VID_CMD:
-+		err = vlan_dev_get_vid(args.device1, &vid);
-+		args.u.VID = vid;
-+		if (copy_to_user((void*)arg, &args,
-+				 sizeof(struct vlan_ioctl_args))) {
-+                      err = -EFAULT;
-+		}
-+		break;
-+
- 	default:
- 		/* pass on to underlying device instead?? */
- 		printk(VLAN_DBG "%s: Unknown VLAN CMD: %x \n",
---- linux-2.6.9/net/8021q/vlan.h	2004-10-18 14:54:37.000000000 -0700
-+++ linux-2.6.9.p4s/net/8021q/vlan.h	2004-10-22 12:14:24.000000000 -0700
-@@ -66,7 +66,9 @@
- int vlan_dev_set_ingress_priority(char* dev_name, __u32 skb_prio, short vlan_prio);
- int vlan_dev_set_egress_priority(char* dev_name, __u32 skb_prio, short vlan_prio);
- int vlan_dev_set_vlan_flag(char* dev_name, __u32 flag, short flag_val);
-+int vlan_dev_get_realdev_name(const char* dev_name, char* result);
-+int vlan_dev_get_vid(const char* dev_name, unsigned short* result);
- void vlan_dev_set_multicast_list(struct net_device *vlan_dev);
- 
- #endif /* !(__BEN_VLAN_802_1Q_INC__) */
---- linux-2.6.9/include/linux/if_vlan.h	2004-10-18 14:53:43.000000000 -0700
-+++ linux-2.6.9.p4s/include/linux/if_vlan.h	2004-10-22 15:05:52.000000000 -0700
-@@ -1,4 +1,4 @@
--/*
-+/* -*- linux-c -*-
-  * VLAN		An implementation of 802.1Q VLAN tagging.
-  *
-  * Authors:	Ben Greear <greearb@candelatech.com>
-@@ -366,7 +366,9 @@
- 	GET_VLAN_INGRESS_PRIORITY_CMD,
- 	GET_VLAN_EGRESS_PRIORITY_CMD,
- 	SET_VLAN_NAME_TYPE_CMD,
--	SET_VLAN_FLAG_CMD
-+	SET_VLAN_FLAG_CMD,
-+	GET_VLAN_REALDEV_NAME_CMD, /* If this works, you know it's a VLAN device, btw */
-+	GET_VLAN_VID_CMD /* Get the VID of this VLAN (specified by name) */
- };
- 
- enum vlan_name_types {
-
---------------000309000109080400000304--
+U2lnbmVkLW9mZi1ieTogQnJpYW4uSGFsZXlAaHAuY29tCgotLS0gbGludXgtMi42Ljkub3Jp
+Zy9pbmNsdWRlL2xpbnV4L2lwdjYuaAkyMDA0LTEwLTE4IDE3OjU0OjM5LjAwMDAwMDAwMCAt
+MDQwMAorKysgbGludXgtMi42LjkucnQwL2luY2x1ZGUvbGludXgvaXB2Ni5oCTIwMDQtMTAt
+MjIgMTc6MTU6NTIuMDAwMDAwMDAwIC0wNDAwCkBAIC02OCw3ICs2OCw3IEBACiAKIHN0cnVj
+dCBydDBfaGRyIHsKIAlzdHJ1Y3QgaXB2Nl9ydF9oZHIJcnRfaGRyOwotCV9fdTMyCQkJYml0
+bWFwOwkJLyogc3RyaWN0L2xvb3NlIGJpdCBtYXAgKi8KKwlfX3UzMgkJCXJlc2VydmVkOwog
+CXN0cnVjdCBpbjZfYWRkcgkJYWRkclswXTsKIAogI2RlZmluZSBydDBfdHlwZQkJcnRfaGRy
+LnR5cGUKLS0tIGxpbnV4LTIuNi45Lm9yaWcvbmV0L2lwdjYvbmV0ZmlsdGVyL2lwNnRfcnQu
+YwkyMDA0LTEwLTIyIDE2OjA5OjMyLjAwMDAwMDAwMCAtMDQwMAorKysgbGludXgtMi42Ljku
+cnQwL25ldC9pcHY2L25ldGZpbHRlci9pcDZ0X3J0LmMJMjAwNC0xMC0yMiAxNzoxNDo1NS40
+MTA4MDA2MTcgLTA0MDAKQEAgLTE1OSw4ICsxNTksOCBAQAogICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgKChydGluZm8tPmhkcmxlbiA9PSBoZHJsZW4pIF4KICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICEhKHJ0aW5mby0+aW52ZmxhZ3MgJiBJUDZUX1JUX0lOVl9MRU4pKSkp
+OwogICAgICAgIERFQlVHUCgicmVzICUwMlggJTAyWCAlMDJYICIsIAotICAgICAgIAkJKHJ0
+aW5mby0+ZmxhZ3MgJiBJUDZUX1JUX1JFUyksICgoc3RydWN0IHJ0MF9oZHIgKilyb3V0ZSkt
+PmJpdG1hcCwKLSAgICAgICAJCSEoKHJ0aW5mby0+ZmxhZ3MgJiBJUDZUX1JUX1JFUykgJiYg
+KCgoc3RydWN0IHJ0MF9oZHIgKilyb3V0ZSktPmJpdG1hcCkpKTsKKyAgICAgICAJCShydGlu
+Zm8tPmZsYWdzICYgSVA2VF9SVF9SRVMpLCAoKHN0cnVjdCBydDBfaGRyICopcm91dGUpLT5y
+ZXNlcnZlZCwKKyAgICAgICAJCSEoKHJ0aW5mby0+ZmxhZ3MgJiBJUDZUX1JUX1JFUykgJiYg
+KCgoc3RydWN0IHJ0MF9oZHIgKilyb3V0ZSktPnJlc2VydmVkKSkpOwogCiAgICAgICAgcmV0
+ID0gKHJvdXRlICE9IE5VTEwpCiAgICAgICAgCQkmJgpAQCAtMTc2LDcgKzE3Niw3IEBACiAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAoKHJ0aW5mby0+cnRfdHlwZSA9PSByb3V0ZS0+
+dHlwZSkgXgogICAgICAgICAgICAgICAgICAgICAgICAgICAgISEocnRpbmZvLT5pbnZmbGFn
+cyAmIElQNlRfUlRfSU5WX1RZUCkpKQogCQkmJgotICAgICAgIAkJISgocnRpbmZvLT5mbGFn
+cyAmIElQNlRfUlRfUkVTKSAmJiAoKChzdHJ1Y3QgcnQwX2hkciAqKXJvdXRlKS0+Yml0bWFw
+KSk7CisgICAgICAgCQkhKChydGluZm8tPmZsYWdzICYgSVA2VF9SVF9SRVMpICYmICgoKHN0
+cnVjdCBydDBfaGRyICopcm91dGUpLT5yZXNlcnZlZCkpOwogCiAJREVCVUdQKCIjJWQgIixy
+dGluZm8tPmFkZHJucik7CiAgICAgICAgdGVtcCA9IGxlbiA9IHB0ciA9IDA7Ci0tLSBsaW51
+eC0yLjYuOS5vcmlnL25ldC9pcHY2L3RjcF9pcHY2LmMJMjAwNC0xMC0xOCAxNzo1NDozMi4w
+MDAwMDAwMDAgLTA0MDAKKysrIGxpbnV4LTIuNi45LnJ0MC9uZXQvaXB2Ni90Y3BfaXB2Ni5j
+CTIwMDQtMTAtMjIgMTc6MTM6NDMuMzg2Mzg3NDM3IC0wNDAwCkBAIC0xODAyLDYgKzE4MDIs
+NyBAQAogCXN0cnVjdCBpcHY2X3BpbmZvICpucCA9IGluZXQ2X3NrKHNrKTsKIAlzdHJ1Y3Qg
+Zmxvd2kgZmw7CiAJc3RydWN0IGRzdF9lbnRyeSAqZHN0OworCXN0cnVjdCBpbjZfYWRkciAq
+ZmluYWxfcCA9IE5VTEwsIGZpbmFsOwogCiAJbWVtc2V0KCZmbCwgMCwgc2l6ZW9mKGZsKSk7
+CiAJZmwucHJvdG8gPSBJUFBST1RPX1RDUDsKQEAgLTE4MTUsNyArMTgxNiw5IEBACiAKIAlp
+ZiAobnAtPm9wdCAmJiBucC0+b3B0LT5zcmNydCkgewogCQlzdHJ1Y3QgcnQwX2hkciAqcnQw
+ID0gKHN0cnVjdCBydDBfaGRyICopIG5wLT5vcHQtPnNyY3J0OworCQlpcHY2X2FkZHJfY29w
+eSgmZmluYWwsICZmbC5mbDZfZHN0KTsKIAkJaXB2Nl9hZGRyX2NvcHkoJmZsLmZsNl9kc3Qs
+IHJ0MC0+YWRkcik7CisJCWZpbmFsX3AgPSAmZmluYWw7CiAJfQogCiAJZHN0ID0gX19za19k
+c3RfY2hlY2soc2ssIG5wLT5kc3RfY29va2llKTsKQEAgLTE4MjgsNiArMTgzMSw5IEBACiAJ
+CQlyZXR1cm4gZXJyOwogCQl9CiAKKwkJaWYgKGZpbmFsX3ApCisJCQlpcHY2X2FkZHJfY29w
+eSgmZmwuZmw2X2RzdCwgZmluYWxfcCk7CisKIAkJaWYgKChlcnIgPSB4ZnJtX2xvb2t1cCgm
+ZHN0LCAmZmwsIHNrLCAwKSkgPCAwKSB7CiAJCQlzay0+c2tfcm91dGVfY2FwcyA9IDA7CiAJ
+CQlkc3RfcmVsZWFzZShkc3QpOwotLS0gbGludXgtMi42Ljkub3JpZy9uZXQvaXB2Ni9leHRo
+ZHJzLmMJMjAwNC0xMC0xOCAxNzo1MzowNy4wMDAwMDAwMDAgLTA0MDAKKysrIGxpbnV4LTIu
+Ni45LnJ0MC9uZXQvaXB2Ni9leHRoZHJzLmMJMjAwNC0xMC0yMiAxNzoxNDoxMi40MTM3MzA4
+MzEgLTA0MDAKQEAgLTQwNCw4ICs0MDQsNyBAQAogCiAJbWVtY3B5KG9wdC0+c3JjcnQsIGhk
+ciwgc2l6ZW9mKCpoZHIpKTsKIAlpcnRoZHIgPSAoc3RydWN0IHJ0MF9oZHIqKW9wdC0+c3Jj
+cnQ7Ci0JLyogT2Jzb2xldGUgZmllbGQsIE1CWiwgd2hlbiBvcmlnaW5hdGVkIGJ5IHVzICov
+Ci0JaXJ0aGRyLT5iaXRtYXAgPSAwOworCWlydGhkci0+cmVzZXJ2ZWQgPSAwOwogCW9wdC0+
+c3JjcnQtPnNlZ21lbnRzX2xlZnQgPSBuOwogCWZvciAoaT0wOyBpPG47IGkrKykKIAkJbWVt
+Y3B5KGlydGhkci0+YWRkcitpLCBydGhkci0+YWRkcisobi0xLWkpLCAxNik7Cg==
+--------------080602020509050608080305--
