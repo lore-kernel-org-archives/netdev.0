@@ -1,56 +1,138 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: assertion (dev->qdisc_list == NULL) failed at net/sched/sch_generic.c(530)
-Date: Wed, 24 Sep 2003 21:49:16 +0200
+From: Jeroen Vreeken <pe1rxq@amsat.org>
+Subject: [PATCH] fix sock_raw behaviour
+Date: Wed, 24 Sep 2003 23:45:44 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030924194916.GH21544@rei.reeler.org>
-References: <20030924161152.GA8683@vana.vc.cvut.cz>
+Message-ID: <20030924234544.A10634@jeroen.pe1rxq.ampr.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@redhat.com, netdev@oss.sgi.com
+Content-Type: multipart/mixed; boundary="AWniW0JNca5xppdA"
+Content-Transfer-Encoding: 8bit
+Cc: linux-hams@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Petr Vandrovec <vandrove@vc.cvut.cz>
-Content-Disposition: inline
-In-Reply-To: <20030924161152.GA8683@vana.vc.cvut.cz>
+To: ralf@linux-mips.org, "David S . Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi
 
-> # insmod vmnet; netifup vmnet1; ifconfig vmnet1 1.2.3.4 up
-> /dev/vmnet: open called by PID 7413 (vmnet-netifup)
-> /dev/vmnet: port on hub 1 successfully opened
-> # ifconfig vmnet1 down
-> # rmmod vmnet
-> KERNEL: assertion (dev->qdisc_list == NULL) failed at net/sched/sch_generic.c(530)
+--AWniW0JNca5xppdA
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
 
-The following patch should solve the issue. I'm not sure yet
-whetever it's a good idea to apply the patch to the tree, but
-as every dev has a qdisc even if CONFIG_NET_SCHED is not set,
-it would make sense.
+Hi,
 
-	Thomas
+The attached patch fixes the behaviour of SOCK_RAW sockets in 2.6.0test5
+Address and port matching is now being done.
+A locking problem is also solved.
+And in the recv function the source address is reported back instead of the
+destination.
+(This was solved earlier in 2.2.x but appearantly didn't make it into 2.4
+and further.)
 
+Jeroen
 
-Index: net/sched/sch_generic.c
-===================================================================
-RCS file: /cvs/tgr/linux-26/net/sched/sch_generic.c,v
-retrieving revision 1.1.1.1.2.1
-diff -u -r1.1.1.1.2.1 sch_generic.c
---- net/sched/sch_generic.c	21 Sep 2003 02:11:22 -0000	1.1.1.1.2.1
-+++ net/sched/sch_generic.c	24 Sep 2003 19:36:19 -0000
-@@ -398,7 +398,6 @@
+--AWniW0JNca5xppdA
+Content-Type: application/octet-stream; charset=us-ascii
+Content-Disposition: attachment; filename="sock-raw.diff"
+
+--- linux-2.6.0-test5/net/ax25/af_ax25.c.org	2003-09-23 23:26:17.000000000 +0200
++++ linux-2.6.0-test5/net/ax25/af_ax25.c	2003-09-24 23:33:32.000000000 +0200
+@@ -231,42 +231,29 @@
+ /*
+  *	Look for any matching address - RAW sockets can bind to arbitrary names
+  */
+-struct sock *ax25_addr_match(ax25_address *addr)
++void ax25_send_to_raw(ax25_address *addr, struct sk_buff *skb, int proto)
+ {
+-	struct sock *sk = NULL;
++	struct sock *sk;
+ 	ax25_cb *s;
++	struct sk_buff *copy;
+ 	struct hlist_node *node;
  
- 	dev = qdisc->dev;
+ 	spin_lock_bh(&ax25_list_lock);
+ 	ax25_for_each(s, node, &ax25_list) {
+ 		if (s->sk != NULL && ax25cmp(&s->source_addr, addr) == 0 &&
+-		    s->sk->sk_type == SOCK_RAW) {
++		    s->sk->sk_type == SOCK_RAW &&
++		    s->sk->sk_protocol == proto &&
++		    (!s->ax25_dev || s->ax25_dev->dev == skb->dev)) {
+ 			sk = s->sk;
+-			lock_sock(sk);
+-			break;
++			bh_lock_sock(sk);
++			if (atomic_read(&sk->sk_rmem_alloc) <= sk->sk_rcvbuf &&
++			    (copy = skb_clone(skb, GFP_ATOMIC)) != NULL)
++				if (sock_queue_rcv_skb(sk, copy) != 0)
++					kfree_skb(copy);
++			bh_unlock_sock(sk);
+ 		}
+ 	}
+-
+ 	spin_unlock_bh(&ax25_list_lock);
+-
+-	return sk;
+-}
+-
+-void ax25_send_to_raw(struct sock *sk, struct sk_buff *skb, int proto)
+-{
+-	struct sk_buff *copy;
+-	struct hlist_node *node;
+-
+-	sk_for_each_from(sk, node)
+-		if (sk->sk_type == SOCK_RAW &&
+-		    sk->sk_protocol == proto &&
+-		    atomic_read(&sk->sk_rmem_alloc) <= sk->sk_rcvbuf) {
+-			if ((copy = skb_clone(skb, GFP_ATOMIC)) == NULL)
+-				return;
+-
+-			if (sock_queue_rcv_skb(sk, copy) != 0)
+-				kfree_skb(copy);
+-		}
+ }
  
--#ifdef CONFIG_NET_SCHED
- 	if (dev) {
- 		struct Qdisc *q, **qp;
- 		for (qp = &qdisc->dev->qdisc_list; (q=*qp) != NULL; qp = &q->next) {
-@@ -411,7 +410,6 @@
- #ifdef CONFIG_NET_ESTIMATOR
- 	qdisc_kill_estimator(&qdisc->stats);
- #endif
--#endif
- 	if (ops->reset)
- 		ops->reset(qdisc);
- 	if (ops->destroy)
+ /*
+@@ -1633,16 +1620,16 @@
+ 	if (msg->msg_namelen != 0) {
+ 		struct sockaddr_ax25 *sax = (struct sockaddr_ax25 *)msg->msg_name;
+ 		ax25_digi digi;
+-		ax25_address dest;
++		ax25_address src;
+ 
+-		ax25_addr_parse(skb->mac.raw+1, skb->data-skb->mac.raw-1, NULL, &dest, &digi, NULL, NULL);
++		ax25_addr_parse(skb->mac.raw+1, skb->data-skb->mac.raw-1, &src, NULL, &digi, NULL, NULL);
+ 
+ 		sax->sax25_family = AF_AX25;
+ 		/* We set this correctly, even though we may not let the
+ 		   application know the digi calls further down (because it
+ 		   did NOT ask to know them).  This could get political... **/
+ 		sax->sax25_ndigis = digi.ndigi;
+-		sax->sax25_call   = dest;
++		sax->sax25_call   = src;
+ 
+ 		if (sax->sax25_ndigis != 0) {
+ 			int ct;
+--- linux-2.6.0-test5/include/net/ax25.h.org	2003-09-24 23:21:27.000000000 +0200
++++ linux-2.6.0-test5/include/net/ax25.h	2003-09-24 23:21:55.000000000 +0200
+@@ -227,8 +227,7 @@
+ struct sock *ax25_find_listener(ax25_address *, int, struct net_device *, int);
+ struct sock *ax25_get_socket(ax25_address *, ax25_address *, int);
+ extern ax25_cb *ax25_find_cb(ax25_address *, ax25_address *, ax25_digi *, struct net_device *);
+-extern struct sock *ax25_addr_match(ax25_address *);
+-extern void ax25_send_to_raw(struct sock *, struct sk_buff *, int);
++extern void ax25_send_to_raw(ax25_address *, struct sk_buff *, int);
+ extern void ax25_destroy_socket(ax25_cb *);
+ extern ax25_cb *ax25_create_cb(void);
+ extern void ax25_fillin_cb(ax25_cb *, ax25_dev *);
+--- linux-2.6.0-test5/include/net/ax25.h.org	2003-09-24 23:21:27.000000000 +0200
++++ linux-2.6.0-test5/include/net/ax25.h	2003-09-24 23:21:55.000000000 +0200
+@@ -227,8 +227,7 @@
+ struct sock *ax25_find_listener(ax25_address *, int, struct net_device *, int);
+ struct sock *ax25_get_socket(ax25_address *, ax25_address *, int);
+ extern ax25_cb *ax25_find_cb(ax25_address *, ax25_address *, ax25_digi *, struct net_device *);
+-extern struct sock *ax25_addr_match(ax25_address *);
+-extern void ax25_send_to_raw(struct sock *, struct sk_buff *, int);
++extern void ax25_send_to_raw(ax25_address *, struct sk_buff *, int);
+ extern void ax25_destroy_socket(ax25_cb *);
+ extern ax25_cb *ax25_create_cb(void);
+ extern void ax25_fillin_cb(ax25_cb *, ax25_dev *);
+
+--AWniW0JNca5xppdA--
