@@ -1,57 +1,43 @@
-From: Jeff Garzik <jgarzik@pobox.com>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Subject: Re: TOE brain dump
-Date: Sat, 02 Aug 2003 15:08:52 -0400
+Date: 02 Aug 2003 21:57:44 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F2C0C44.6020002@pobox.com>
-References: <20030802140444.E5798@almesberger.net> <3F2BF5C7.90400@us.ibm.com>
+Message-ID: <1059857864.20305.14.camel@dhcp22.swansea.linux.org.uk>
+References: <20030802140444.E5798@almesberger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Werner Almesberger <werner@almesberger.net>, netdev@oss.sgi.com,
-   linux-kernel@vger.kernel.org
+Cc: netdev@oss.sgi.com,
+   Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Nivedita Singhvi <niv@us.ibm.com>
-In-Reply-To: <3F2BF5C7.90400@us.ibm.com>
+To: Werner Almesberger <werner@almesberger.net>
+In-Reply-To: <20030802140444.E5798@almesberger.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-My own brain dump:
+On Sad, 2003-08-02 at 18:04, Werner Almesberger wrote:
+>  - last but not least, keeping TOE firmware up to date with the
+>    TCP/IP stack in the mainstream kernel will require - for each
+>    such TOE device - a significant and continuous effort over a
+>    long period of time
 
-If one wants to go straight from disk to network, why is anyone 
-bothering to involve the host CPU and host memory bus at all?  Memory 
-bandwidth and PCI bus bandwidth are still bottlenecks, no much how much 
-of the net stack you offload.
+or even the protocol and protocol refinements..
 
+>  - instead of putting a different stack on the TOE, a
+>    general-purpose processor (probably with some enhancements,
+>    and certainly with optimized data paths) is added to the NIC
 
-Regardless of how fast your network zooms packets, you've gotta keep 
-that pipeline full to make use of it.  And you've gotta do something 
-intelligent with it, which in TCP's case involves the host CPU quite a 
-bit.  TCP is sufficiently complex, for a reason.  It has to handle all 
-manner of disturbingly slow and disturbing fast net connections, all 
-jabbering at the same time.  TCP is a "one size fits all" solution, but 
-it doesn't work well for everyone.
+Like say an opteron in the 2nd socket on the motherboard
 
-The "TCP Offload Everything" people really need to look at what data 
-your users want to push, at such high speeds.  It's obviously not over a 
-WAN...  so steer users away from TCP, to an IP protocol that is tuned 
-for your LAN needs, and more friendly to some sort of h/w offloading 
-solution.
+> Benefits:
+> 
+>  - putting the CPU next to the NIC keeps data paths short, and
+>    allows for all kinds of optimizations (e.g. a pipelined
+>    memory architecture)
 
-A "foo over ipv6" protocol that was designed for h/w offloading from the 
-start, would be a far better idea than full TCP offload will ever be.
+It moves the cost it doesnt make it vanish
 
-In any case, when you approach these high speeds, you really must take a 
-good look at the other end of the pipeline:  what are you serving at 
-10Gb/s, 20Gb/s, 40Gb/s?  For some time, I think the answer will be 
-"highly specialized stuff"  At some point, Intel networking gear will be 
-able to transfer more bits per second than there exist atoms on planet 
-Earth :)  Garbage in, garbage out.
-
-So, fix the other end of the pipeline too, otherwise this fast network 
-stuff is flashly but pointless.  If you want to serve up data from disk, 
-then start creating PCI cards that have both Serial ATA and ethernet 
-connectors on them :)  Cut out the middleman of the host CPU and host 
-memory bus instead of offloading portions of TCP that do not need to be 
-offloaded.
-
-	Jeff
+If I read you right you are arguing for a second processor running
+Linux.with its own independant memory bus. AMD make those already its
+called AMD64. I don't know anyone thinking at that level about
+partitioning one as an I/O processor.
