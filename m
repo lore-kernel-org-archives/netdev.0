@@ -1,56 +1,51 @@
-From: Stephan von Krawczynski <skraw@ithnet.com>
+From: Dominik Kubla <dominik.kubla@sciobyte.com>
 Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
-Date: Mon, 18 Aug 2003 15:40:24 +0200
+Date: Mon, 18 Aug 2003 15:40:23 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030818154024.4c607783.skraw@ithnet.com>
-References: <20030728213933.F81299@coredump.scriptkiddie.org>
-	<200308171509570955.003E4FEC@192.168.128.16>
-	<200308171516090038.0043F977@192.168.128.16>
-	<1061127715.21885.35.camel@dhcp23.swansea.linux.org.uk>
-	<200308171555280781.0067FB36@192.168.128.16>
-	<1061134091.21886.40.camel@dhcp23.swansea.linux.org.uk>
-	<200308171759540391.00AA8CAB@192.168.128.16>
-	<1061137577.21885.50.camel@dhcp23.swansea.linux.org.uk>
-	<200308171827130739.00C3905F@192.168.128.16>
-	<1061141045.21885.74.camel@dhcp23.swansea.linux.org.uk>
-	<20030817224849.GB734@alpha.home.local>
-	<20030817223118.3cbc497c.davem@redhat.com>
-	<20030818133957.3d3d51d2.skraw@ithnet.com>
-	<20030818044419.0bc24d14.davem@redhat.com>
-	<20030818143401.1352d158.skraw@ithnet.com>
-	<20030818053007.7852ca77.davem@redhat.com>
-	<20030818145316.3a81f70c.skraw@ithnet.com>
-	<20030818055555.248f2a01.davem@redhat.com>
-	<1061213027.16017.2220.camel@jzny.localdomain>
-	<20030818062102.170c56e3.davem@redhat.com>
+Message-ID: <200308181540.23709.dominik.kubla@sciobyte.com>
+References: <20030728213933.F81299@coredump.scriptkiddie.org> <20030818044419.0bc24d14.davem@redhat.com> <20030818143401.1352d158.skraw@ithnet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, willy@w.ods.org, alan@lxorguk.ukuu.org.uk,
-   carlosev@newipnet.com, lamont@scriptkiddie.org, davidsen@tmr.com,
-   bloemsaa@xs4all.nl, marcelo@conectiva.com.br, netdev@oss.sgi.com,
-   linux-net@vger.kernel.org, layes@loran.com, torvalds@osdl.org,
-   linux-kernel@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: willy@w.ods.org, alan@lxorguk.ukuu.org.uk, carlosev@newipnet.com,
+   lamont@scriptkiddie.org, davidsen@tmr.com, bloemsaa@xs4all.nl,
+   marcelo@conectiva.com.br, netdev@oss.sgi.com, linux-net@vger.kernel.org,
+   layes@loran.com, torvalds@osdl.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030818062102.170c56e3.davem@redhat.com>
+To: Stephan von Krawczynski <skraw@ithnet.com>,
+   "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030818143401.1352d158.skraw@ithnet.com>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 18 Aug 2003 06:21:02 -0700
-"David S. Miller" <davem@redhat.com> wrote:
+Am Montag, 18. August 2003 14:34 schrieb Stephan von Krawczynski:
 
-> On 18 Aug 2003 09:23:48 -0400
-> jamal <hadi@cyberus.ca> wrote:
-> 
-> > Ok, heres a neat little feature requst: someone create arp rewrite rules
-> > with ARPtable so we can have do MAC address aliasing.
-> 
-> What you ask for is in 2.6.x already, I'm more than happy to put a
-> backport it to 2.4.x too as it is a netfilter module that stands by
-> itself.
+> David, this is the wrong way round. Others'/my question was not about t=
+he
+> implementation and technical considerations leading to it (bottom up), =
+but
+> pure and simple (and top down): what is the _positive_ outcome of this
+> implementation compared to others? We are always talking of setups that
+> seem to be more complicated because of the current situation. So one wo=
+uld
+> expect that there are advantages that make up the discussed disadvantag=
+es.
+> And since I obviously don't have the knowledge to see them, I'd like to
+> learn and therefore ask: what are the advantages on the _users_ side?
 
-Is netfilter completely SMP safe currently?
+Very simple: no need for any IPMP crap on Linux. It just works.  And that=
+ puts=20
+"answered" on all questions that were ever raised regarding that issue.
 
 Regards,
-Stephan
+  Dominik
+--=20
+ScioByte GmbH                     | ScioByte Information Technologies AG
+Fritz-Erler-Strasse 6             | Innere G=FCterstrasse 4
+55129 Mainz (Germany)             | 6304 Zug (Switzerland)
+Phone: +49 700 724 629 83         | Phone: +41 41 710 30 18
+Fax:   +49 700 724 629 84         |
+
+GnuPG: 1024D/717F16BB A384 F5F1 F566 5716 5485  27EF 3B00 C007 717F 16BB
