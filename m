@@ -1,64 +1,68 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: [PATCH] IPv6: Fix Length of Authentication Extension Header
-Date: Sun, 05 Jan 2003 02:48:23 +0900 (JST)
+From: Donald Becker <becker@scyld.com>
+Subject: Re: SIOCADDMULTI for unicast broken
+Date: Sat, 4 Jan 2003 13:24:26 -0500 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030105.024823.61168301.yoshfuji@linux-ipv6.org>
+Message-ID: <Pine.LNX.4.44.0301041307320.29812-100000@beohost.scyld.com>
+References: <20030104122619.R48869@shell.cyberus.ca>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, kuznet@ms2.inr.ac.ru, usagi@linux-ipv6.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Ben Greear <greearb@candelatech.com>, Jeff Garzik <jgarzik@pobox.com>,
+   <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+To: jamal <hadi@cyberus.ca>
+In-Reply-To: <20030104122619.R48869@shell.cyberus.ca>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
+On Sat, 4 Jan 2003, jamal wrote:
+> On Sat, 4 Jan 2003, Donald Becker wrote:
+> > On Fri, 3 Jan 2003, jamal wrote:
+> > > Q: Is this a hack?
+> > > A: Yes, indeed it is. wrong API is the main culprit.
 
-This patch fixes calculation of length of IPv6 Authentication Extension
-Header.
+I disagree: it's a hack usable by the very few people that need it.
+Defining an API would add little-used complexity.
 
-RFC2402: 2.2 Payload Length
-:
-This 8-bit field specifies the length of AH in 32-bit words (4-byte
-units), minus "2".  ...
+> > > How common are NICS such as the 21x4x that can be programmed to do
+> > > perfect hashing and accept multiple MAC addresses in hardware?
+> >
+> > Not very common.  I mentioned the 21*4* explicitly because few other
+> > common chips implement this feature.
+> > The Digital design implemented it because of DECnet, which is long dead.
+> 
+> Side, unrelated question:
+> for h/ware multicast filtered multicast addresses: What is the common
+> practise to handle the corner case where a hardware multicast address
+> is filled up.
 
-This is against linux-2.4.20, 2.5.54. 
-(2.2.x series have similar bug, too.)
+This is good example of why an API is a bad idea: there is no general
+case.  The Tulip has 16 filter addresses, but...
+  Oh, not all chips handled by the Tulip driver.  Macronix does.  Asix
+    doesn't. ADMtek doesn't.  PNIC chips do.
+  You need one slot for the broadcast address on a few chip versions
+    with a bug.  (I do this unconditionally.)
+  You cannot use the multicast hash filter.
 
-Thanks in advance.
+"Only in the month after the full moon falls on a Tuesday."
 
--------------------------------------------------------------------
-Patch-Name: Fix Length of Authentication Extension Header
-Patch-Id: FIX_2_4_20_EXTHDRS_AUTHHDRLEN-20030105
-Patch-Author: YOSHIFUJI Hideaki / USAGI Project <yoshfuji@linux-ipv6.org>
-Credit: Noriaki Takamiya / USAGI Project <takamiya@linux-ipv6.org>
-Reference: RFC2402
--------------------------------------------------------------------
-Index: net/ipv6/exthdrs.c
-===================================================================
-RCS file: /cvsroot/usagi/usagi-backport/linux24/net/ipv6/exthdrs.c,v
-retrieving revision 1.1.1.1
-retrieving revision 1.1.1.1.46.1
-diff -u -r1.1.1.1 -r1.1.1.1.46.1
---- net/ipv6/exthdrs.c	20 Aug 2002 09:47:02 -0000	1.1.1.1
-+++ net/ipv6/exthdrs.c	4 Jan 2003 17:19:03 -0000	1.1.1.1.46.1
-@@ -402,7 +402,13 @@
- 	if (!pskb_may_pull(skb, (skb->h.raw-skb->data)+8))
- 		goto fail;
- 
--	len = (skb->h.raw[1]+1)<<2;
-+	/*
-+	 * RFC2402 2.2 Payload Length
-+	 * The 8-bit field specifies the length of AH in 32-bit words 
-+	 * (4-byte units), minus "2".
-+	 * -- Noriaki Takamiya @USAGI Project
-+	 */
-+	len = (skb->h.raw[1]+2)<<2;
- 
- 	if (len&7)
- 		goto fail;
+> Take an example of the tulip using perfect hashing when
+> all the 16 entries are exhausted and the host still wants to subscribe
+> to 100 other multicast groups... should we put the nic into promisc
+> multicast?
+
+Yes.  This is the DECnet case.
+
+> didnt know that. I guess i was lucky not to have used the tulip when i
+> got bitten by this. So, Donald, other than tulip what other NICs can do
+> this?
+
+Mostly gigabit Ethernet chips.  There are a few FE chips that allow
+setting the multicast hash address to also filter physical addresses,
+but imperfect filters result in the same extra cdoe as using promiscuous
+mode.
 
 -- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Donald Becker				becker@scyld.com
+Scyld Computing Corporation		http://www.scyld.com
+410 Severn Ave. Suite 210		Scyld Beowulf cluster system
+Annapolis MD 21403			410-990-9993
