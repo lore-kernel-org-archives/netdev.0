@@ -1,42 +1,63 @@
-From: "Tom Lendacky" <toml@us.ibm.com>
-Subject: IPSec: setkey -DP freezes machine
-Date: Thu, 27 Feb 2003 15:59:13 -0600
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OF2046BAB2.15FCD4CE-ON86256CDA.006CD0E3-86256CDA.0078C74D@pok.ibm.com>
+From: Greg Daley <greg.daley@eng.monash.edu.au>
+Subject: Re: anyone ever done multicast AF_UNIX sockets?
+Date: Fri, 28 Feb 2003 09:21:38 +1100
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <3E5E8F72.2080206@eng.monash.edu.au>
+References: <3E5E7081.6020704@nortelnetworks.com>
+Reply-To: greg.daley@eng.monash.edu.au
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@redhat.com, kuznet@ms2.inr.ac.ru
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7BIT
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+	linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Chris Friesen <cfriesen@nortelnetworks.com>
 List-Id: netdev.vger.kernel.org
 
-I found the reason for the hang problem when issuing the "setkey -DP"
-command while racoon is running.  The racoon program sets a socket option
-on the socket(s) it listens on.  The socket options are effectively "in
-bypass" and "out bypass" for the IP_IPSEC_POLICY option name.  The
-af_key.c/pfkey_compile_policy function is ultimately invoked to create an
-xfrm_policy structure.  The xfrm_policy structure's family value is not set
-(since this information is not available to pfkey_compile_policy).  The
-xfrm_policy structure is then added to the xfrm_policy_list[] array by
-calling xfrm_policy.c/xfrm_sk_policy_insert.
+Hi Chris,
 
-When the "setkey -DP" command is issued, the list of policies is walked and
-translated from the xfrm_policy structure to sadb_ messages by
-af_key.c/pfkey_xfrm_policy2msg.  A change was added in 2.5.61 so that if
-the xfrm_policy family is not AF_INET or AF_INET6 then BUG() is executed.
-Since it is zero, BUG() is executed.
+Please check out the uml_switch
+written by jeff dike for Mser Mode Linux.
 
-This can be fixed in xfrm_state.c/xfrm_user_policy by assigning the socket
-family (the sock structure is an argument provided to xfrm_user_policy) to
-the xfrm_policy family before calling xfrm_sk_policy_insert.  But, in the
-case of IP_XFRM_POLICY the xfrm_user.c, xfrm_compile_policy function sets
-the xfrm_policy family.  And in the future, other "compile_policy"
-functions may be added.
+It is a user-space program which emultates
+an ethernet switch (or hub).  It emulates
+link-layer multicast on UNIX domain sockets.
 
-So for the fix, would it be preferable to have the xfrm_policy family
-always be assigned the socket family value or should it retain the current
-setting and only be set to the socket family value if the current value is
-0 (AF_UNSPEC)?
+Greg Daley
 
-Tom
+Chris Friesen wrote:
+> 
+> It is fairly common to want to distribute information between a single 
+> sender and multiple receivers on a single box.
+> 
+> Multicast IP sockets are one possibility, but then you have additional 
+> overhead in the IP stack.
+> 
+> Unix sockets are more efficient and give notification if the listener is 
+> not present, but the problem then becomes that you must do one syscall 
+> for each listener.
+> 
+> So, here's my main point--has anyone ever considered the concept of 
+> multicast AF_UNIX sockets?
+> 
+> The main features would be:
+> --ability to associate/disassociate a socket with a multicast address
+> --ability to associate/disassociate with all multicast addresses 
+> (possibly through some kind of raw socket thing, or maybe a simple 
+> wildcard multicast address)
+> --on process death all sockets owned by that process are disassociated 
+> from any multicast addresses that they were associated with
+> --on sending a packet to a multicast address and there are no sockets 
+> associated with it, return -1 with errno=ECONNREFUSED
+> 
+> The association/disassociation could be done using the setsockopt() 
+> calls the same as with udp sockets, everything else would be the same 
+> from a userspace perspective.
+> 
+> Any thoughts?  How hard would this be to put in?
+> 
+> Chris
+> 
+> 
+
+
