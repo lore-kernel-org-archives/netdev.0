@@ -1,8 +1,8 @@
 From: akpm@osdl.org
-Subject: [patch 1/3] gcc-3.5: netlink
-Date: Thu, 5 Feb 2004 21:35:54 -0800
+Subject: [patch 3/3] gcc-3.5: pppoe
+Date: Thu, 5 Feb 2004 21:36:06 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200402060535.i165ZsN01650@mail.osdl.org>
+Message-ID: <200402060536.i165a6N01687@mail.osdl.org>
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: davem@redhat.com
@@ -11,26 +11,26 @@ List-Id: netdev.vger.kernel.org
 
 
 
-Fix illegal lvalue with gcc-3.5
-
+drivers/net/pppoe.c: In function `pppoe_create':
+drivers/net/pppoe.c:519: error: invalid lvalue in assignment                    
 
 
 ---
 
- net/netlink/af_netlink.c |    2 +-
+ drivers/net/pppoe.c |    2 +-
  1 files changed, 1 insertion(+), 1 deletion(-)
 
-diff -puN net/netlink/af_netlink.c~gcc-35-netlink net/netlink/af_netlink.c
---- 25/net/netlink/af_netlink.c~gcc-35-netlink	2004-01-25 13:16:12.000000000 -0800
-+++ 25-akpm/net/netlink/af_netlink.c	2004-01-25 13:18:09.000000000 -0800
-@@ -230,7 +230,7 @@ static int netlink_create(struct socket 
- 	sock_init_data(sock,sk);
- 	sk_set_owner(sk, THIS_MODULE);
+diff -puN drivers/net/pppoe.c~gcc-35-pppoe drivers/net/pppoe.c
+--- 25/drivers/net/pppoe.c~gcc-35-pppoe	2004-01-28 23:12:52.000000000 -0800
++++ 25-akpm/drivers/net/pppoe.c	2004-01-28 23:12:52.000000000 -0800
+@@ -516,7 +516,7 @@ static int pppoe_create(struct socket *s
+ 	sk->sk_protocol	   = PX_PROTO_OE;
+ 	sk->sk_destruct	   = pppoe_sk_free;
  
--	nlk = nlk_sk(sk) = kmalloc(sizeof(*nlk), GFP_KERNEL);
-+	nlk = sk->sk_protinfo = kmalloc(sizeof(*nlk), GFP_KERNEL);
- 	if (!nlk) {
- 		sk_free(sk);
- 		return -ENOMEM;
+-	po = pppox_sk(sk) = kmalloc(sizeof(*po), GFP_KERNEL);
++	po = sk->sk_protinfo = kmalloc(sizeof(*po), GFP_KERNEL);
+ 	if (!po)
+ 		goto frees;
+ 	memset(po, 0, sizeof(*po));
 
 _
