@@ -1,132 +1,315 @@
-From: Kalin KOZHUHAROV <kalin@ThinRope.net>
-Subject: Re: Iptables-1.2.9/10 compile failure with linux 2.6.7 headers
-Date: Sat, 19 Jun 2004 03:36:11 +0900
+From: David Greaves <david@dgreaves.com>
+Subject: Re: 2.6.6 e1000 NETDEV WATCHDOG: eth0: transmit timed out
+Date: Fri, 18 Jun 2004 19:44:10 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40D3361B.5020304@ThinRope.net>
-References: <40D313DC.7000202@blue-labs.org>	<200406181721.47968.andrew@walrond.org>	<40D31EA6.5030207@ThinRope.net> <20040619.021818.04202102.yoshfuji@linux-ipv6.org>
+Message-ID: <40D337FA.1080404@dgreaves.com>
+References: <40CDD68C.8070509@dgreaves.com>	<20040615155111.26d6b809@dell_ss3.pdx.osdl.net>	<40D0280B.2030308@dgreaves.com>	<Pine.LNX.4.60.0406180953240.1089@jlaas2.data.slu.se> <20040618111124.3a2681b5@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: andrew@walrond.org, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-        netfilter-devel@lists.netfilter.org
+Cc: Jens Laas <jens.laas@data.slu.se>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20040619.021818.04202102.yoshfuji@linux-ipv6.org>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20040618111124.3a2681b5@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-YOSHIFUJI Hideaki wrote:
-> In article <40D31EA6.5030207@ThinRope.net> (at Sat, 19 Jun 2004 01:56:06 +0900), Kalin KOZHUHAROV <kalin@ThinRope.net> says:
-> 
-> 
->>Yes, I confirm with linux-2.6.7 and iptables-1.2.9 I got:
->>gcc -march=athlon-xp -m3dnow -msse -mfpmath=sse -mmmx -O3 -pipe -Iinclude -Wall -Wunused -I/usr/src/linux/include  -DIPTABLES_VERSION=\"1.2.9\"  -fPIC -o extensions/libipt_stealth_sh.o -c extensions/libipt_stealth.c
->>distcc[6323] ERROR: compile on localhost failed
->>In file included from include/libiptc/libiptc.h:6,
->>                 from include/iptables.h:5,
->>                 from extensions/libipt_stealth.c:10:
->>/usr/src/linux/include/linux/netfilter_ipv4/ip_tables.h:255: warning: no semicolon at end of struct or union
->>/usr/src/linux/include/linux/netfilter_ipv4/ip_tables.h:255: error: syntax error before '*' token
->>/usr/src/linux/include/linux/netfilter_ipv4/ip_tables.h:259: error: syntax error before '}' token
->>/usr/src/linux/include/linux/netfilter_ipv4/ip_tables.h:339: warning: type defaults to `int' in declaration of `DECLARE_MUTEX'
->>/usr/src/linux/include/linux/netfilter_ipv4/ip_tables.h:339: warning: parameter names (without types) in function declaration
->>/usr/src/linux/include/linux/netfilter_ipv4/ip_tables.h:339: warning: `DECLARE_MUTEX' declared `static' but never defined
->>make: *** [extensions/libipt_stealth_sh.o] Error 1
->>
->>Last time I recompiled it with 2.6.6 it was ok. The compiled version still seems to work with 2.6.7 for now.
-> 
-> 
-> Please try this. Thanks
-> 
-> ===== include/linux/netfilter.h 1.9 vs edited =====
-> --- 1.9/include/linux/netfilter.h	2004-06-07 12:15:03 +09:00
-> +++ edited/include/linux/netfilter.h	2004-06-19 02:10:55 +09:00
-> @@ -10,6 +10,7 @@
->  #include <linux/wait.h>
->  #include <linux/list.h>
->  #endif
-> +#include <linux/compiler.h>
->  
->  /* Responses from hook functions. */
->  #define NF_DROP 0
-> ===== include/linux/netfilter_arp/arp_tables.h 1.3 vs edited =====
-> --- 1.3/include/linux/netfilter_arp/arp_tables.h	2004-06-04 09:52:00 +09:00
-> +++ edited/include/linux/netfilter_arp/arp_tables.h	2004-06-19 02:08:09 +09:00
-> @@ -16,7 +16,7 @@
->  #include <linux/if_arp.h>
->  #include <linux/skbuff.h>
->  #endif
-> -
-> +#include <linux/compiler.h>
->  #include <linux/netfilter_arp.h>
->  
->  #define ARPT_FUNCTION_MAXNAMELEN 30
-> ===== include/linux/netfilter_ipv4/ip_tables.h 1.7 vs edited =====
-> --- 1.7/include/linux/netfilter_ipv4/ip_tables.h	2004-06-07 12:15:03 +09:00
-> +++ edited/include/linux/netfilter_ipv4/ip_tables.h	2004-06-19 02:08:39 +09:00
-> @@ -22,6 +22,7 @@
->  #include <linux/ip.h>
->  #include <linux/skbuff.h>
->  #endif
-> +#include <linux/compiler.h>
->  #include <linux/netfilter_ipv4.h>
->  
->  #define IPT_FUNCTION_MAXNAMELEN 30
-> @@ -336,8 +337,8 @@
->  /*
->   *	Main firewall chains definitions and global var's definitions.
->   */
-> -static DECLARE_MUTEX(ipt_mutex);
->  #ifdef __KERNEL__
-> +static DECLARE_MUTEX(ipt_mutex);
->  
->  #include <linux/init.h>
->  extern void ipt_init(void) __init;
-> ===== include/linux/netfilter_ipv6/ip6_tables.h 1.6 vs edited =====
-> --- 1.6/include/linux/netfilter_ipv6/ip6_tables.h	2004-06-07 12:15:04 +09:00
-> +++ edited/include/linux/netfilter_ipv6/ip6_tables.h	2004-06-19 02:09:29 +09:00
-> @@ -22,6 +22,7 @@
->  #include <linux/ipv6.h>
->  #include <linux/skbuff.h>
->  #endif
-> +#include <linux/compiler.h>
->  #include <linux/netfilter_ipv6.h>
->  
->  #define IP6T_FUNCTION_MAXNAMELEN 30
-> @@ -106,7 +107,9 @@
->  	u_int64_t pcnt, bcnt;			/* Packet and byte counters */
->  };
->  
-> +#ifdef __KERNEL__
->  static DECLARE_MUTEX(ip6t_mutex);
-> +#endif
->  
->  /* Values for "flag" field in struct ip6t_ip6 (general ip6 structure). */
->  #define IP6T_F_PROTO		0x01	/* Set if rule cares about upper 
-> 
-As far as I understand from this patch, this should be applied to the system headers...
-I thought `diff -Nru A B` was the format of choice in LKML...
+Stephen Hemminger wrote:
 
-Anyway, thank you for the patch, but I am not thinking to patch linux-headers, as I like to refer to them as something more or less stable (As opposed to the current kernel).
+>To get to the root of these problems, could you:
+>
+>* Give full lspci -v output for the boards in question.
+>  
+>
+ash:
+00:07.0 Ethernet controller: Intel Corp.: Unknown device 1076
+        Subsystem: Intel Corp.: Unknown device 1176
+        Flags: bus master, 66Mhz, medium devsel, latency 32, IRQ 11
+        Memory at e3020000 (32-bit, non-prefetchable) [size=128K]
+        Memory at e3000000 (32-bit, non-prefetchable) [size=128K]
+        I/O ports at b400 [size=64]
+        Expansion ROM at <unassigned> [disabled] [size=128K]
+        Capabilities: [dc] Power Management version 2
+        Capabilities: [e4] PCI-X non-bridge device.
+        Capabilities: [f0] Message Signalled Interrupts: 64bit+ 
+Queue=0/0 Enable-
 
-And just out of curiosity, I did:
+>* Are you using any special queuing or shaping (output of "tc qdisc ls")
+>  
+>
+no
+root@ash:~ # tc qdisc ls
+RTNETLINK answers: Invalid argument
+Dump terminated
 
-include $ patch --dry-run -p2 </tmp/test.diff 
-patching file linux/netfilter.h
-patching file linux/netfilter_arp/arp_tables.h
-patching file linux/netfilter_ipv4/ip_tables.h
-Hunk #2 FAILED at 337.
-1 out of 2 hunks FAILED -- saving rejects to file linux/netfilter_ipv4/ip_tables.h.rej
-patching file linux/netfilter_ipv6/ip6_tables.h
-Hunk #2 FAILED at 107.
-1 out of 2 hunks FAILED -- saving rejects to file linux/netfilter_ipv6/ip6_tables.h.rej
+>* You could try the following, which dumps out the state of the transmit ring
+>  in case of error. and tries to see if it is one of the other watchdog hooks in
+>  this driver.
+>  
+>
+patched :)
 
-My system has linux-headers-2.4.21 installed.
+Test
 
-As I said in my other mail here, I will stick with `make KERNEL_DIR=/usr` for now.
+root@ash:/usr/src/linux # ifdown eth0 ; modprobe -r e1000;modprobe 
+e1000; ifup eth0ifdown: interface eth0 not configured
+root@ash:/usr/src/linux # ping 10.0.1.1
+PING 10.0.1.1 (10.0.1.1): 56 data bytes
+64 bytes from 10.0.1.1: icmp_seq=0 ttl=64 time=0.3 ms
+64 bytes from 10.0.1.1: icmp_seq=1 ttl=64 time=0.1 ms
+64 bytes from 10.0.1.1: icmp_seq=2 ttl=64 time=0.1 ms
+64 bytes from 10.0.1.1: icmp_seq=3 ttl=64 time=0.2 ms
 
-Kalin.
+--- 10.0.1.1 ping statistics ---
+4 packets transmitted, 4 packets received, 0% packet loss
+round-trip min/avg/max = 0.1/0.1/0.3 ms
+root@ash:/usr/src/linux # ping -s 1500 10.0.1.1
+PING 10.0.1.1 (10.0.1.1): 1500 data bytes
+1508 bytes from 10.0.1.1: icmp_seq=0 ttl=64 time=0.3 ms
+1508 bytes from 10.0.1.1: icmp_seq=1 ttl=64 time=0.4 ms
+1508 bytes from 10.0.1.1: icmp_seq=2 ttl=64 time=0.3 ms
 
--- 
-||///_ o  *****************************
-||//'_/>     WWW: http://ThinRope.net/
+--- 10.0.1.1 ping statistics ---
+3 packets transmitted, 3 packets received, 0% packet loss
+round-trip min/avg/max = 0.3/0.3/0.4 ms
+root@ash:/usr/src/linux # ping -s 3000 10.0.1.1
+PING 10.0.1.1 (10.0.1.1): 3000 data bytes
+3008 bytes from 10.0.1.1: icmp_seq=0 ttl=64 time=0.4 ms
+3008 bytes from 10.0.1.1: icmp_seq=3 ttl=64 time=0.3 ms
+
+--- 10.0.1.1 ping statistics ---
+7 packets transmitted, 2 packets received, 71% packet loss
+round-trip min/avg/max = 0.3/0.3/0.4 ms
+
+messages: (the 'after 5000 jiffies' is mine)
+Jun 18 19:37:43 ash kernel: Copyright (c) 1999-2004 Intel Corporation.
+Jun 18 19:37:44 ash kernel: e1000: eth0: e1000_probe: Intel(R) PRO/1000 
+Network Co
+nnection
+Jun 18 19:37:46 ash kernel: e1000: eth0: e1000_watchdog: NIC Link is Up 
+1000 Mbps
+Full Duplex
+
+Jun 18 19:38:18 ash kernel: eth0: may be hung last tx was 2457 ticks
+
+Jun 18 19:38:20 ash kernel: eth0: may be hung last tx was 4457 ticks
+Jun 18 19:38:22 ash kernel: eth0: may be hung last tx was 6457 ticks
+Jun 18 19:38:24 ash kernel: eth0: may be hung last tx was 8457 ticks
+Jun 18 19:38:26 ash kernel: NETDEV WATCHDOG: eth0: transmit timed out 
+after 5000 j
+iffies
+Jun 18 19:38:26 ash kernel: eth0: transmit timeout from queuing
+Jun 18 19:38:26 ash kernel: eth0: may be hung last tx was 10457 ticks
+Jun 18 19:38:26 ash kernel: eth0: state=0x7 transmit ring size=4096 
+count=256 to_u
+se=66 to_clean=59
+Jun 18 19:38:26 ash kernel:  0: skb=00000000 dma=0 length=42 time=+29527 
+watch=0
+Jun 18 19:38:26 ash kernel:  1: skb=00000000 dma=0 length=98 time=+29527 
+watch=1
+Jun 18 19:38:26 ash kernel:  2: skb=00000000 dma=0 length=98 time=+28526 
+watch=2
+Jun 18 19:38:26 ash kernel:  3: skb=00000000 dma=0 length=98 time=+27525 
+watch=3
+Jun 18 19:38:26 ash kernel:  4: skb=00000000 dma=0 length=98 time=+26524 
+watch=4
+Jun 18 19:38:26 ash kernel:  5: skb=00000000 dma=0 length=42 time=+24528 
+watch=5
+Jun 18 19:38:26 ash kernel:  6: skb=00000000 dma=0 length=0 
+time=+20324251 watch=7
+Jun 18 19:38:26 ash kernel:  7: skb=00000000 dma=0 length=110 
+time=+24510 watch=0
+Jun 18 19:38:26 ash kernel:  8: skb=00000000 dma=0 length=0 
+time=+20324251 watch=9
+Jun 18 19:38:26 ash kernel:  9: skb=00000000 dma=0 length=110 
+time=+24510 watch=0
+Jun 18 19:38:26 ash kernel:  10: skb=00000000 dma=0 length=0 
+time=+20324251 watch=
+11
+Jun 18 19:38:26 ash kernel:  11: skb=00000000 dma=0 length=110 
+time=+24510 watch=0
+Jun 18 19:38:26 ash kernel:  12: skb=00000000 dma=0 length=0 
+time=+20324251 watch=
+13
+Jun 18 19:38:26 ash kernel:  13: skb=00000000 dma=0 length=110 
+time=+24510 watch=0
+Jun 18 19:38:26 ash kernel:  14: skb=00000000 dma=0 length=0 
+time=+20324251 watch=
+15
+Jun 18 19:38:26 ash kernel:  15: skb=00000000 dma=0 length=110 
+time=+24510 watch=0
+Jun 18 19:38:26 ash kernel:  16: skb=00000000 dma=0 length=0 
+time=+20324251 watch=
+17
+Jun 18 19:38:26 ash kernel:  17: skb=00000000 dma=0 length=257 
+time=+24510 watch=0
+Jun 18 19:38:26 ash kernel:  18: skb=00000000 dma=0 length=0 
+time=+20324251 watch=
+19
+Jun 18 19:38:26 ash kernel:  19: skb=00000000 dma=0 length=110 
+time=+22510 watch=0
+Jun 18 19:38:26 ash kernel:  20: skb=00000000 dma=0 length=0 
+time=+20324251 watch=
+21
+Jun 18 19:38:26 ash kernel:  21: skb=00000000 dma=0 length=110 
+time=+22510 watch=0
+Jun 18 19:38:26 ash kernel:  22: skb=00000000 dma=0 length=0 
+time=+20324251 watch=
+23
+Jun 18 19:38:26 ash kernel:  23: skb=00000000 dma=0 length=110 
+time=+22510 watch=0
+Jun 18 19:38:26 ash kernel:  24: skb=00000000 dma=0 length=0 
+time=+20324251 watch=
+25
+Jun 18 19:38:26 ash kernel:  25: skb=00000000 dma=0 length=110 
+time=+22510 watch=0
+Jun 18 19:38:26 ash kernel:  26: skb=00000000 dma=0 length=0 
+time=+20324251 watch=
+27
+Jun 18 19:38:26 ash kernel:  27: skb=00000000 dma=0 length=110 
+time=+22510 watch=0
+Jun 18 19:38:26 ash kernel:  28: skb=00000000 dma=0 length=0 
+time=+20324251 watch=
+29
+Jun 18 19:38:26 ash kernel:  29: skb=00000000 dma=0 length=110 
+time=+22510 watch=0
+Jun 18 19:38:26 ash kernel:  30: skb=00000000 dma=0 length=0 
+time=+20324251 watch=
+31
+Jun 18 19:38:26 ash kernel:  31: skb=00000000 dma=0 length=110 
+time=+22510 watch=0
+Jun 18 19:38:26 ash kernel:  32: skb=00000000 dma=0 length=0 
+time=+20324251 watch=
+33
+Jun 18 19:38:26 ash kernel:  33: skb=00000000 dma=0 length=110 
+time=+22510 watch=0
+Jun 18 19:38:26 ash kernel:  34: skb=00000000 dma=0 length=0 
+time=+20324251 watch=
+35
+Jun 18 19:38:26 ash kernel:  35: skb=00000000 dma=0 length=110 
+time=+22510 watch=0
+Jun 18 19:38:26 ash kernel:  36: skb=00000000 dma=0 length=0 
+time=+20324251 watch=
+37
+Jun 18 19:38:26 ash kernel:  37: skb=00000000 dma=0 length=110 
+time=+22510 watch=0
+Jun 18 19:38:26 ash kernel:  38: skb=00000000 dma=0 length=1514 
+time=+21082 watch=
+38
+Jun 18 19:38:26 ash kernel:  39: skb=00000000 dma=0 length=62 
+time=+21082 watch=39
+Jun 18 19:38:26 ash kernel:  40: skb=00000000 dma=0 length=0 
+time=+20324251 watch=
+41
+Jun 18 19:38:26 ash kernel:  41: skb=00000000 dma=0 length=110 
+time=+20510 watch=0
+Jun 18 19:38:26 ash kernel:  42: skb=00000000 dma=0 length=0 
+time=+20324251 watch=
+43
+Jun 18 19:38:26 ash kernel:  43: skb=00000000 dma=0 length=110 
+time=+20510 watch=0
+Jun 18 19:38:26 ash kernel:  44: skb=00000000 dma=0 length=0 
+time=+20324251 watch=
+45
+Jun 18 19:38:26 ash kernel:  45: skb=00000000 dma=0 length=110 
+time=+20510 watch=0
+Jun 18 19:38:26 ash kernel:  46: skb=00000000 dma=0 length=0 
+time=+20324251 watch=
+47
+Jun 18 19:38:26 ash kernel:  47: skb=00000000 dma=0 length=110 
+time=+20510 watch=0
+Jun 18 19:38:26 ash kernel:  48: skb=00000000 dma=0 length=0 
+time=+20324251 watch=
+49
+Jun 18 19:38:26 ash kernel:  49: skb=00000000 dma=0 length=110 
+time=+20510 watch=0
+Jun 18 19:38:26 ash kernel:  50: skb=00000000 dma=0 length=1514 
+time=+20081 watch=
+50
+Jun 18 19:38:26 ash kernel:  51: skb=00000000 dma=0 length=62 
+time=+20081 watch=51
+Jun 18 19:38:26 ash kernel:  52: skb=00000000 dma=0 length=1514 
+time=+19080 watch=
+52
+Jun 18 19:38:26 ash kernel:  53: skb=00000000 dma=0 length=62 
+time=+19080 watch=53
+Jun 18 19:38:26 ash kernel:  54: skb=00000000 dma=0 length=1514 
+time=+11459 watch=
+54
+Jun 18 19:38:26 ash kernel:  55: skb=00000000 dma=0 length=1514 
+time=+11458 watch=
+55
+Jun 18 19:38:26 ash kernel:  56: skb=00000000 dma=0 length=82 
+time=+11458 watch=56
+Jun 18 19:38:26 ash kernel:  57: skb=00000000 dma=0 length=1514 
+time=+10457 watch=
+57
+Jun 18 19:38:26 ash kernel:  58: skb=00000000 dma=0 length=1514 
+time=+10457 watch=
+58
+Jun 18 19:38:26 ash kernel:  59: skb=f0740420 dma=934467074 length=82 
+time=+10457
+watch=59
+Jun 18 19:38:26 ash kernel:  60: skb=d6e91420 dma=397015042 length=1514 
+time=+9456
+ watch=60
+Jun 18 19:38:26 ash kernel:  61: skb=f07406a0 dma=935571458 length=1514 
+time=+9456
+ watch=61
+Jun 18 19:38:26 ash kernel:  62: skb=f3fcde20 dma=26358274 length=82 
+time=+9456 wa
+tch=62
+Jun 18 19:38:26 ash kernel:  63: skb=f0740ba0 dma=397012994 length=1514 
+time=+8455
+ watch=63
+Jun 18 19:38:26 ash kernel:  64: skb=d6e914c0 dma=935573506 length=1514 
+time=+8455
+ watch=64
+Jun 18 19:38:26 ash kernel:  65: skb=f0740600 dma=937204738 length=82 
+time=+8455 w
+atch=65
+Jun 18 19:38:26 ash kernel:  66: skb=00000000 dma=0 length=0 
+time=+20324251 watch=
+0
+<snip many duplicate lines>
+Jun 18 19:38:26 ash kernel: eth0: link lost but ring is full
+Jun 18 19:38:26 ash kernel: eth0: state=0x16 transmit ring size=4096 
+count=256 to_
+use=9 to_clean=2
+Jun 18 19:38:26 ash kernel:  0: skb=00000000 dma=0 length=1514 time=+1 
+watch=0
+Jun 18 19:38:26 ash kernel:  1: skb=00000000 dma=0 length=1514 time=+1 
+watch=1
+Jun 18 19:38:26 ash kernel:  2: skb=f0740060 dma=26400258 length=82 
+time=+1 watch=
+2
+Jun 18 19:38:26 ash kernel:  3: skb=f0740ec0 dma=594843650 length=1514 
+time=+1 wat
+ch=3
+Jun 18 19:38:26 ash kernel:  4: skb=d6e91a60 dma=594841602 length=1514 
+time=+1 wat
+ch=4
+Jun 18 19:38:26 ash kernel:  5: skb=f0740560 dma=937203714 length=82 
+time=+1 watch
+=5
+Jun 18 19:38:26 ash kernel:  6: skb=d6e919c0 dma=426745858 length=1514 
+time=+1 wat
+ch=6
+Jun 18 19:38:26 ash kernel:  7: skb=d6e91880 dma=426747906 length=1514 
+time=+1 wat
+ch=7
+Jun 18 19:38:26 ash kernel:  8: skb=f65ca920 dma=934469122 length=82 
+time=+1 watch
+=8
+Jun 18 19:38:26 ash kernel:  9: skb=00000000 dma=0 length=0 
+time=+20324352 watch=0
+Jun 18 19:38:26 ash kernel:  10: skb=00000000 dma=0 length=0 
+time=+20324352 watch=
+0
+<snip many many lines>
+=0
+Jun 18 19:38:26 ash kernel:  255: skb=00000000 dma=0 length=0 
+time=+20324352 watch
+
+
+David
