@@ -1,63 +1,42 @@
-From: Henrik Petander <lpetande@morphine.tml.hut.fi>
-Subject: Re: [PATCHSET] Mobile IPv6 for 2.5.43
-Date: Thu, 31 Oct 2002 12:44:00 +0200 (EET)
+From: BJ Cran <s9905155@sms.ed.ac.uk>
+Subject: ipv4 /proc/net/route bug in 2.4 and 2.5 kernels
+Date: Thu, 31 Oct 2002 12:13:05 +0000 (GMT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.44.0210311232310.18909-100000@morphine.tml.hut.fi>
-References: <20021031.174442.846937513.takamiya@po.ntts.co.jp>
+Message-ID: <1036066385.3dc11e51d11ab@sms.ed.ac.uk>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: ajtuomin@morphine.tml.hut.fi, <davem@redhat.com>, <kuznet@ms2.inr.ac.ru>,
-   <netdev@oss.sgi.com>, <linux-kernel@vger.kernel.org>, <yoshfuji@wide.ad.jp>,
-   <pekkas@netcore.fi>, <torvalds@transmeta.com>, <jagana@us.ibm.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Noriaki Takamiya <takamiya@po.ntts.co.jp>
-In-Reply-To: <20021031.174442.846937513.takamiya@po.ntts.co.jp>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Noriaki,
+Hi,
 
-On Thu, 31 Oct 2002, Noriaki Takamiya wrote:
+I've discovered a bug in the 2.4 and 2.5 kernels relating to the
+information in /proc.   The values reported in /proc/net/route are wrong -
+the main error is the MTU field which should be MSS, and should be the
+MTU-40.  The route command has the header fixed, but still gets the value
+from /proc, and so reports the wrong value of
+40.
 
-> Hi,
->
->   This is Takamiya, a member of USAGI Project.
->   Your work is very cool.
+I'm currently using 2.5.43, and have tracked it down to line 1031 in
+net/ipv4/fib_semantics.c in function fib_node_seq_show.  It appears that
+fi->fib_advmss is 0, because when I change the '+40' to '+45' that is the
+value which appears in the MTU field in /proc/net/route, and in the MSS
+field when running '/sbin/route -e'.
+
+Also, on line 191 of net/ipv4/ip_proc.c (in function fib_seq_show), I
+think the 'MTU' should be 'MSS' according to the comments in route.c, and
+to make the output of the route command and the proc entry consistent.
+
+I've also posted this bug report to the lkml, but haven't had any reply.
+ I realise that it isn't a priority with more serious bugs in 2.5 needing
+fixed, but it would be nice to get the information correct, especially
+since
+this bug has been around since the 2.4-pre kernels.
+
 Thanks.
 
->
->   Please note that we're preparing for checking to what extent this
->   patch is compliant to the Internet draft of MIPv6.
-
-We are interested in seeing the results, especially if the tests are based
-on the draft19, which ought to be published soon based on the discussions
-in the mobile-ip mailing list.
-
->
-> (2) Avoiding Netfilter Hooks
-> 	In your imprementation HA uses netfilter to intercept packets
-> 	sent to MN. We think it is costy so we have a suggestion to
-> 	use FIB structure to forward packets to MN. Bacause we think
-> 	forwarding packets from HA to MN is FORWARDING, not FILTERING.
-> 	We think the kernel maintainers may prefer such a manner using
-> 	FIB structure for forwarding.
-
-We are using standard routing in HA to route packets intercepted by HA to
-MN through a tunnel device.  However, HA needs to also act as a neighbor
-discovery proxy for MN and not tunnel any ND packets destined to MN, but
-reply to them on the bahalf of MN. We use the netfilter hook to check for
-ND packets with global addresses that would be otherwise tunneled and feed
-them directly to the local processing code.
-
-Thanks,
-
-Henrik Petander
-
-		----------------------------------
-		Henrik Petander
-		Helsinki University of Technology,
-		GO/Core Project
-		Henrik.Petander@hut.fi
-		Office: +358 (0)9 451 5846
-		GSM: +358 (0)40 741 5248
-		----------------------------------
+--
+Bruce Cran
