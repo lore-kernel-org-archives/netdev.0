@@ -1,29 +1,43 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Bogus return status in drivers/net/tg3.c
-Date: Fri, 19 Dec 2003 21:54:42 -0800
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [EXPERIMENTAL PATCH] 2.4 tulip jumbo frames
+Date: Fri, 19 Dec 2003 22:22:34 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031219215442.1947cdb1.davem@redhat.com>
-References: <20031219233231.A2420@electric-eye.fr.zoreil.com>
-	<20031219214455.28f22d60.davem@redhat.com>
-	<3FE3E2D7.7070004@pobox.com>
+Message-ID: <3FE3EAAA.6020608@candelatech.com>
+References: <20031209160632.D1345@sygehus.dk> <3FD5FC36.5090405@pobox.com> <20031209223214.A1855@sygehus.dk> <3FD64EC9.6010203@candelatech.com> <20031209224906.M53356@sygehus.dk> <20031219153242.B1390@sygehus.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <3FE3E2D7.7070004@pobox.com>
+To: Rask Ingemann Lambertsen <rask@sygehus.dk>
+In-Reply-To: <20031219153242.B1390@sygehus.dk>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 20 Dec 2003 00:49:11 -0500
-Jeff Garzik <jgarzik@pobox.com> wrote:
+Rask Ingemann Lambertsen wrote:
+> On Wed, Dec 10, 2003 at 12:40:02AM +0100, Rask Ingemann Lambertsen wrote:
+> 
+> 
+>>That said, even checking CONFIG_VLAN_8021Q is probably flawed too, because 
+>>ideally, even when building a kernel without VLAN support, you should be able 
+>>to use the bridging support in a VLAN environment. IMHO. I mean, if this is 
+>>not the case, please remind me why we need VLAN patches in the first place 
+>>since setting an MTU of 1496 bytes works with every Ethernet board and driver.
+> 
+> 
+> Further, why is it not the responsibility of vconfig to ensure that the MTU
+> of the VLAN device is 4 lower than that of the underlying, "bare" Ethernet
+> device?
 
-> Up to you.  Either way I want to make sure it goes into 
-> net-drivers-2.5-exp, which has your current tg3-2.5 tree up until now.
+Because correctly patched drivers can have eth0 with MTU 1500 and vlan eth0.5 with
+MTU of 1500 as well.  I do not want to add artificial policy in vconfig or the
+kernel,though of course users can hack up the MTU settings manually as
+desired...
 
-I'm concerned how difficult it will be for you to push the
-net-drivers-2.5-exp tree into 2.6.x any time soon.
+Ben
 
-Let's create a no lose situation :)  I'll toss it into my tree and
-you toss it into your's and this way it'll get in somehow.
+
+-- 
+Ben Greear <greearb@candelatech.com>          <Ben_Greear@excite.com>
+President of Candela Technologies Inc      http://www.candelatech.com
+ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
