@@ -1,37 +1,54 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (5/17) ddp -- size_t for send/recvmsg
-Date: Fri, 9 Jan 2004 13:44:36 -0800
+Subject: [PATCH[ (6/15) atm -- size_t in send/recvmsg
+Date: Fri, 9 Jan 2004 13:48:12 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040109134436.6aa8fe1f@linux.local>
+Message-ID: <20040109134812.6fa874c8@linux.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, acme@conectiva.com.br
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: "David S. Miller" <davem@redhat.com>,
+        Chas Williams
+ <chas@cmf.nrl.navy.mil>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Change send/recvmsg to match prototype change in sock.h
+Convert ATM for unsigned length send/recvmsg to match new prototype.
 
-diff -Nru a/net/appletalk/ddp.c b/net/appletalk/ddp.c
---- a/net/appletalk/ddp.c	Mon Dec  8 16:19:43 2003
-+++ b/net/appletalk/ddp.c	Mon Dec  8 16:19:43 2003
-@@ -1552,7 +1552,7 @@
- }
+diff -Nru a/net/atm/common.c b/net/atm/common.c
+--- a/net/atm/common.c	Mon Dec  8 16:19:46 2003
++++ b/net/atm/common.c	Mon Dec  8 16:19:46 2003
+@@ -463,7 +463,7 @@
  
- static int atalk_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg,
--			 int len)
-+			 size_t len)
+ 
+ int vcc_recvmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg,
+-		int size, int flags)
++		size_t size, int flags)
  {
  	struct sock *sk = sock->sk;
- 	struct atalk_sock *at = at_sk(sk);
-@@ -1712,7 +1712,7 @@
- }
+ 	struct atm_vcc *vcc;
+@@ -503,7 +503,7 @@
  
- static int atalk_recvmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg,
--			 int size, int flags)
-+			 size_t size, int flags)
+ 
+ int vcc_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *m,
+-		int total_len)
++		size_t total_len)
  {
  	struct sock *sk = sock->sk;
- 	struct sockaddr_at *sat = (struct sockaddr_at *)msg->msg_name;
+ 	DEFINE_WAIT(wait);
+diff -Nru a/net/atm/common.h b/net/atm/common.h
+--- a/net/atm/common.h	Mon Dec  8 16:19:46 2003
++++ b/net/atm/common.h	Mon Dec  8 16:19:46 2003
+@@ -14,9 +14,9 @@
+ int vcc_release(struct socket *sock);
+ int vcc_connect(struct socket *sock, int itf, short vpi, int vci);
+ int vcc_recvmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg,
+-		int size, int flags);
++		size_t size, int flags);
+ int vcc_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *m,
+-		int total_len);
++		size_t total_len);
+ unsigned int vcc_poll(struct file *file, struct socket *sock, poll_table *wait);
+ int vcc_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg);
+ int vcc_setsockopt(struct socket *sock, int level, int optname, char *optval,
