@@ -1,42 +1,64 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+From: Russell King <rmk+lkml@arm.linux.org.uk>
 Subject: Re: 2.6.6: IPv6 initialisation bug
-Date: Tue, 29 Jun 2004 02:06:27 +0900 (JST)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040629.020627.76560474.yoshfuji@linux-ipv6.org>
-References: <20040628010200.A15067@flint.arm.linux.org.uk>
+Date: Mon, 28 Jun 2004 18:47:58 +0100
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040628184758.C9214@flint.arm.linux.org.uk>
+References: <20040628010200.A15067@flint.arm.linux.org.uk> <20040629.020627.76560474.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: rmk+lkml@arm.linux.org.uk
-In-Reply-To: <20040628010200.A15067@flint.arm.linux.org.uk>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S265099AbUF1RsG@vger.kernel.org>
+To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@?(B" <yoshfuji@linux-ipv6.org>
+Content-Disposition: inline
+In-Reply-To: <20040629.020627.76560474.yoshfuji@linux-ipv6.org>; from yoshfuji@linux-ipv6.org on Tue, Jun 29, 2004 at 02:06:27AM +0900
 List-Id: netdev.vger.kernel.org
 
-In article <20040628010200.A15067@flint.arm.linux.org.uk> (at Mon, 28 Jun 2004 01:02:01 +0100), Russell King <rmk+lkml@arm.linux.org.uk> says:
+On Tue, Jun 29, 2004 at 02:06:27AM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@?(B wrote:
+> In article <20040628010200.A15067@flint.arm.linux.org.uk> (at Mon, 28 Jun 2004 01:02:01 +0100), Russell King <rmk+lkml@arm.linux.org.uk> says:
+> 
+> > Ok, I've just tried 2.6.7 out on my root-NFS'd firewall with IPv6 built
+> > in, and it doesn't work because of the problem I described below.
+> :
+> > What's the solution?
+> 
+> Bring lo up before bring others up.
+> What does prevent you from doing this?
+> (Do we need some bits to do this automatically?)
 
-> Ok, I've just tried 2.6.7 out on my root-NFS'd firewall with IPv6 built
-> in, and it doesn't work because of the problem I described below.
-:
-> What's the solution?
+When you use root-NFS, the kernel itself brings up the interfaces,
+and IPv6 immediately comes in and tries to configure itself to them,
+trying to create the routes.
 
-Bring lo up before bring others up.
-What does prevent you from doing this?
-(Do we need some bits to do this automatically?)
+Unfortunately, the kernel doesn't bring up lo first because it
+doesn't know to do that.
 
+> > Is there a good reason why IPv6 uses the loopback device for local
+> > routes?
+> 
+> IPv6 creates kernel routes for local addresses on lo to receive
+> packets for local address.
+> 
+> Well, someone probably wants to have
+> static local routes on ethX + temprary (cache) local routes on lo
+> (as IPv4 does; correct me if I'm wrong.)
 
-> Is there a good reason why IPv6 uses the loopback device for local
-> routes?
+This would be preferable I think - it certainly would stop systems
+exploding when you take lo down for whatever reason, even temporarily.
+Currently, if you do that, all your IPv6 local routes die off and
+you're left trying to forward your own local address out various
+itnerfaces.
 
-IPv6 creates kernel routes for local addresses on lo to receive
-packets for local address.
+> But this won't work because IPv6 does DAD when we make some interface up.
+> We need lo anyway.
 
-Well, someone probably wants to have
-static local routes on ethX + temprary (cache) local routes on lo
-(as IPv4 does; correct me if I'm wrong.)
+Sorry, I don't understand how this has a bearing on which device the
+local routes are attached to.
 
-But this won't work because IPv6 does DAD when we make some interface up.
-We need lo anyway.
+How come IPv4 can be happy having local routes attached to the
+individual interface, yet IPv6 can't be?
 
---yoshfuji
+-- 
+Russell King
+ Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
+ maintainer of:  2.6 PCMCIA      - http://pcmcia.arm.linux.org.uk/
+                 2.6 Serial core
