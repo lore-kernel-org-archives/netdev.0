@@ -1,234 +1,196 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (08/12) Probe2 -- 3c507
+Subject: [PATCH] (2/12) Probe2 -- de620
 Date: Tue, 14 Oct 2003 15:34:10 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200310142234.h9EMYA930170@mail.osdl.org>
+Message-ID: <200310142234.h9EMYAK30148@mail.osdl.org>
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: jgarzik@pobox.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Originally by Al Viro (NE19-3c507)
-	* switched 3c507 to dynamic allocation
-	* 3c507: embedded ->priv
-	* 3c507: fixed clobbering on autoprobe
-	* NB: 3c507.c buggers port 0x100 without claiming it.  Most likely it
-	  should be doing request_region() there.
-Updated to apply agains jgarzik/net-drivers-2.5-exp
+Rework de620 driver to new dynamic allocation
+Originally by Al Viro.
+	* switched de620 to dynamic allocation
+	* de620: embedded ->priv
+	* de620: fixed IO before request_region()
 
-diff -Nru a/drivers/net/3c507.c b/drivers/net/3c507.c
---- a/drivers/net/3c507.c	Tue Oct 14 14:27:21 2003
-+++ b/drivers/net/3c507.c	Tue Oct 14 14:27:21 2003
-@@ -74,10 +74,6 @@
- #define debug net_debug
+Updated to ~jgarzik/net-drivers-2.5-exp
+
+diff -urN 00-probe/drivers/net/de620.c 01-de620/drivers/net/de620.c
+--- 00-probe/drivers/net/de620.c	2003-09-27 17:50:20.000000000 -0700
++++ 01-de620/drivers/net/de620.c	2003-09-29 15:48:30.000000000 -0700
+@@ -226,7 +226,6 @@
+ 
+ /* Initialization */
+ static int	adapter_init(struct net_device *);
+-int		de620_probe(struct net_device *);
+ static int	read_eeprom(struct net_device *);
  
  
--/* A zero-terminated list of common I/O addresses to be probed. */
--static unsigned int netcard_portlist[] __initdata =
--	{ 0x300, 0x320, 0x340, 0x280, 0};
--
- /*
-   			Details of the i82586.
- 
-@@ -286,8 +282,6 @@
- 
- /* Index to functions, as function prototypes. */
- 
--extern int el16_probe(struct net_device *dev);	/* Called from Space.c */
--
- static int	el16_probe1(struct net_device *dev, int ioaddr);
- static int	el16_open(struct net_device *dev);
- static int	el16_send_packet(struct sk_buff *skb, struct net_device *dev);
-@@ -301,6 +295,10 @@
- static void init_82586_mem(struct net_device *dev);
- static struct ethtool_ops netdev_ethtool_ops;
- 
-+static int io = 0x300;
-+static int irq;
-+static int mem_start;
-+
- 
- /* Check for a network adaptor of this type, and return '0' iff one exists.
- 	If dev->base_addr == 0, probe all likely locations.
-@@ -309,23 +307,50 @@
- 	device and return success.
- 	*/
- 
--int __init el16_probe(struct net_device *dev)
-+struct net_device * __init el16_probe(int unit)
+@@ -814,11 +813,16 @@
+  *
+  * Check if there is a DE-620 connected
+  */
+-int __init de620_probe(struct net_device *dev)
++struct net_device * __init de620_probe(int unit)
  {
--	int base_addr = dev->base_addr;
+-	static struct net_device_stats de620_netstats;
 -	int i;
-+	struct net_device *dev = alloc_etherdev(sizeof(struct net_local));
-+	static unsigned ports[] = { 0x300, 0x320, 0x340, 0x280, 0};
-+	unsigned *port;
-+	int err = -ENODEV;
+ 	byte checkbyte = 0xa5;
++	struct net_device *dev;
++	int err = -ENOMEM;
++	int i;
 +
++	dev = alloc_etherdev(sizeof(struct net_device_stats));
 +	if (!dev)
-+		return ERR_PTR(-ENODEV);
-+
-+	if (unit >= 0) {
-+		sprintf(dev->name, "eth%d", unit);
-+		netdev_boot_setup_check(dev);
-+		io = dev->base_addr;
-+		irq = dev->irq;
-+		mem_start = dev->mem_start & 15;
-+	}
++		goto out;
  
  	SET_MODULE_OWNER(dev);
  
--	if (base_addr > 0x1ff)	/* Check a single specified location. */
--		return el16_probe1(dev, base_addr);
--	else if (base_addr != 0)
--		return -ENXIO;		/* Don't probe at all. */
--
--	for (i = 0; netcard_portlist[i]; i++)
--		if (el16_probe1(dev, netcard_portlist[i]) == 0)
--			return 0;
-+	if (io > 0x1ff) 	/* Check a single specified location. */
-+		err = el16_probe1(dev, io);
-+	else if (io != 0)
-+		err = -ENXIO;		/* Don't probe at all. */
-+	else {
-+			for (port = ports; *port; port++) {
-+					err = el16_probe1(dev, io);
-+					if (!err)
-+						break;
-+			}
+@@ -831,11 +835,23 @@
+ 	dev->base_addr = io;
+ 	dev->irq       = irq;
+ 
++	/* allow overriding parameters on command line */
++	if (unit >= 0) {
++		sprintf(dev->name, "eth%d", unit);
++		netdev_boot_setup_check(dev);
 +	}
- 
--	return -ENODEV;
-+	if (err)
-+		goto out;
-+	err = register_netdev(dev);
-+	if (err)
-+		goto out1;
-+	return dev;
-+out1:
-+	free_irq(dev->irq, dev);
-+	release_region(dev->base_addr, EL16_IO_EXTENT);
-+out:
-+	free_netdev(dev);
-+	return ERR_PTR(err);
- }
- 
- static int __init el16_probe1(struct net_device *dev, int ioaddr)
-@@ -383,8 +408,8 @@
- 		printk(" %02x", dev->dev_addr[i]);
- 	}
- 
--	if ((dev->mem_start & 0xf) > 0)
--		net_debug = dev->mem_start & 7;
-+	if (mem_start)
-+		net_debug = mem_start & 7;
- 
- #ifdef MEM_BASE
- 	dev->mem_start = MEM_BASE;
-@@ -416,27 +441,18 @@
- 	if (net_debug)
++	
+ 	if (de620_debug)
  		printk(version);
  
+ 	printk(KERN_INFO "D-Link DE-620 pocket adapter");
+ 
++	if (!request_region(dev->base_addr, 3, "de620")) {
++		printk(" io 0x%3lX, which is busy.\n", dev->base_addr);
++		err = -EBUSY;
++		goto out1;
++	}
++
+ 	/* Initially, configure basic nibble mode, so we can read the EEPROM */
+ 	NIC_Cmd = DEF_NIC_CMD;
+ 	de620_set_register(dev, W_EIP, EIPRegister);
+@@ -846,12 +862,8 @@
+ 
+ 	if ((checkbyte != 0xa5) || (read_eeprom(dev) != 0)) {
+ 		printk(" not identified in the printer port\n");
+-		return -ENODEV;
+-	}
+-
+-	if (!request_region(dev->base_addr, 3, "de620")) {
+-		printk(KERN_ERR "io 0x%3lX, which is busy.\n", dev->base_addr);
+-		return -EBUSY;
++		err = -ENODEV;
++		goto out2;
+ 	}
+ 
+ 	/* else, got it! */
+@@ -870,10 +882,6 @@
+ 	else
+ 		printk(" UTP)\n");
+ 
 -	/* Initialize the device structure. */
--	lp = dev->priv = kmalloc(sizeof(struct net_local), GFP_KERNEL);
--	if (dev->priv == NULL) {
--		retval = -ENOMEM;
--		goto out;
--	}
--	memset(dev->priv, 0, sizeof(struct net_local));
-+	lp = dev->priv;
-+ 	memset(lp, 0, sizeof(*lp));
- 	spin_lock_init(&lp->lock);
+-	dev->priv = &de620_netstats;
+-
+-	memset(dev->priv, 0, sizeof(struct net_device_stats));
+ 	dev->get_stats 		= get_stats;
+ 	dev->open 		= de620_open;
+ 	dev->stop 		= de620_close;
+@@ -884,8 +892,6 @@
+ 	
+ 	/* base_addr and irq are already set, see above! */
  
--	dev->open		= el16_open;
--	dev->stop		= el16_close;
-+ 	dev->open = el16_open;
-+ 	dev->stop = el16_close;
- 	dev->hard_start_xmit = el16_send_packet;
- 	dev->get_stats	= el16_get_stats;
- 	dev->tx_timeout = el16_tx_timeout;
- 	dev->watchdog_timeo = TX_TIMEOUT;
- 	dev->ethtool_ops = &netdev_ethtool_ops;
+-	ether_setup(dev);
 -
--	ether_setup(dev);	/* Generic ethernet behaviour */
--
--	dev->flags&=~IFF_MULTICAST;	/* Multicast doesn't work */
--
-+ 	dev->flags &= ~IFF_MULTICAST;	/* Multicast doesn't work */
- 	return 0;
- out:
- 	release_region(ioaddr, EL16_IO_EXTENT);
-@@ -899,9 +915,7 @@
- };
+ 	/* dump eeprom */
+ 	if (de620_debug) {
+ 		printk("\nEEPROM contents:\n");
+@@ -899,7 +905,17 @@
+ 		printk("SCR = 0x%02x\n", nic_data.SCR);
+ 	}
  
- #ifdef MODULE
--static struct net_device dev_3c507;
--static int io = 0x300;
--static int irq;
-+static struct net_device *dev_3c507;
- MODULE_PARM(io, "i");
- MODULE_PARM(irq, "i");
- MODULE_PARM_DESC(io, "EtherLink16 I/O base address");
-@@ -911,26 +925,18 @@
- {
- 	if (io == 0)
- 		printk("3c507: You should not use auto-probing with insmod!\n");
--	dev_3c507.base_addr = io;
--	dev_3c507.irq       = irq;
--	dev_3c507.init	    = el16_probe;
--	if (register_netdev(&dev_3c507) != 0) {
--		printk("3c507: register_netdev() returned non-zero.\n");
--		return -EIO;
--	}
 -	return 0;
-+	dev_3c507 = el16_probe(-1);
-+	return IS_ERR(dev_3c507) ? PTR_ERR(dev_3c507) : 0;
++	err = register_netdev(dev);
++	if (err)
++		goto out2;
++	return dev;
++
++out2:
++	release_region(dev->base_addr, 3);
++out1:
++	free_netdev(dev);
++out:
++	return ERR_PTR(err);
+ }
+ 
+ /**********************************
+@@ -994,20 +1010,21 @@
+  *
+  */
+ #ifdef MODULE
+-static struct net_device de620_dev;
++static struct net_device *de620_dev;
+ 
+ int init_module(void)
+ {
+-	de620_dev.init = de620_probe;
+-	if (register_netdev(&de620_dev) != 0)
+-		return -EIO;
++	de620_dev = de620_probe(-1);
++	if (IS_ERR(de620_dev))
++		return PTR_ERR(de620_dev);
+ 	return 0;
  }
  
- void
- cleanup_module(void)
+ void cleanup_module(void)
  {
--	unregister_netdev(&dev_3c507);
--	kfree(dev_3c507.priv);
--	dev_3c507.priv = NULL;
--
--	/* If we don't do this, we can't re-insmod it later. */
--	free_irq(dev_3c507.irq, &dev_3c507);
--	release_region(dev_3c507.base_addr, EL16_IO_EXTENT);
-+	struct net_device *dev = dev_3c507;
-+	unregister_netdev(dev);
-+	free_irq(dev->irq, dev);
-+	release_region(dev->base_addr, EL16_IO_EXTENT);
-+	free_netdev(dev);
+-	unregister_netdev(&de620_dev);
+-	release_region(de620_dev.base_addr, 3);
++	unregister_netdev(de620_dev);
++	release_region(de620_dev->base_addr, 3);
++	free_netdev(de620_dev);
  }
  #endif /* MODULE */
  MODULE_LICENSE("GPL");
-diff -Nru a/drivers/net/Space.c b/drivers/net/Space.c
---- a/drivers/net/Space.c	Tue Oct 14 14:27:21 2003
-+++ b/drivers/net/Space.c	Tue Oct 14 14:27:21 2003
-@@ -60,7 +60,7 @@
- extern int el1_probe(struct net_device *);
- extern int wavelan_probe(struct net_device *);
- extern int arlan_probe(struct net_device *);
--extern int el16_probe(struct net_device *);
-+extern struct net_device *el16_probe(int unit);
- extern int elmc_probe(struct net_device *);
- extern int skmca_probe(struct net_device *);
- extern struct net_device *elplus_probe(int unit);
-@@ -271,13 +271,13 @@
- #ifdef CONFIG_ARLAN		/* Aironet */
- 	{arlan_probe, 0},
- #endif
--#ifdef CONFIG_EL16		/* 3c507 */
--	{el16_probe, 0},
--#endif
+diff -urN 00-probe/drivers/net/Space.c 01-de620/drivers/net/Space.c
+--- 00-probe/drivers/net/Space.c	2003-09-29 15:44:32.000000000 -0700
++++ 01-de620/drivers/net/Space.c	2003-09-29 15:48:30.000000000 -0700
+@@ -97,7 +97,7 @@
+ extern struct net_device *ltpc_probe(void);
+   
+ /* Detachable devices ("pocket adaptors") */
+-extern int de620_probe(struct net_device *);
++extern struct net_device *de620_probe(int unit);
+ 
+ /* Fibre Channel adapters */
+ extern int iph5526_probe(struct net_device *dev);
+@@ -296,7 +296,7 @@
  	{NULL, 0},
  };
  
- static struct devprobe2 isa_probes2[] __initdata = {
-+#ifdef CONFIG_EL16		/* 3c507 */
-+	{el16_probe, 0},
-+#endif
- #ifdef CONFIG_ELPLUS		/* 3c505 */
- 	{elplus_probe, 0},
+-static struct devprobe parport_probes[] __initdata = {
++static struct devprobe2 parport_probes[] __initdata = {
+ #ifdef CONFIG_DE620		/* D-Link DE-620 adapter */
+ 	{de620_probe, 0},
  #endif
+@@ -387,8 +387,7 @@
+ 	    probe_list(dev, mips_probes) == 0 ||
+ 	    probe_list(dev, eisa_probes) == 0 ||
+ 	    probe_list(dev, mca_probes) == 0 ||
+-	    probe_list(dev, isa_probes) == 0 ||
+-	    probe_list(dev, parport_probes) == 0) 
++	    probe_list(dev, isa_probes) == 0)
+ 		err = register_netdev(dev);
+ 
+ 	if (err)
+@@ -404,7 +403,7 @@
+ 	if (base_addr == 1)
+ 		return;
+ 
+-	return;	/* nothing yet */
++	probe_list2(unit, parport_probes, base_addr == 0);
+ }
+ 
+ #ifdef CONFIG_TR
