@@ -1,37 +1,83 @@
-From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
-Subject: Re: [PATCH] (4/4) convert irlan to seq_file interface
-Date: Tue, 19 Aug 2003 17:41:28 -0700
+From: MMS <mms@broadcom.com>
+Subject: Virus Alert <MMS1>
+Date: Tue, 19 Aug 2003 20:11:49 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030820004128.GA11382@bougret.hpl.hp.com>
-References: <20030818122702.67e9162d.shemminger@osdl.org> <20030818232554.A7779@electric-eye.fr.zoreil.com> <20030818150514.310f6f5d.shemminger@osdl.org> <20030819002637.B7779@electric-eye.fr.zoreil.com> <20030820003648.A23942@electric-eye.fr.zoreil.com>
-Reply-To: jt@hpl.hp.com
+Message-ID: <135C3966222784-01@MMS1>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>, irda-users@lists.sourceforge.net,
-   netdev@oss.sgi.com
+Content-Type: multipart/mixed;
+ boundary="_-==135C397F3642==-_"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>,
-   Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20030820003648.A23942@electric-eye.fr.zoreil.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 20, 2003 at 12:36:48AM +0200, Francois Romieu wrote:
-> Apply on top of Stephen's serie [1-4]. Compile ok.
-> 
-> Style: separate data from code.
 
-	By the way, I've totally lost track of who does what. If David
-Miller doesn't process your patch, send it to me and I'll push it
-through the usual channels.
-	If any of you guys have issues setting up a testbed, either
-with real IrDA hardware or a serial cross-over cable, please
-yell. Testing is one of my hot button, and I don't want to give much
-excuse ;-)
-	By the way, I'm on vacation starting this thursday, I'll be
-back in september.
+--_-==135C397F3642==-_
+Content-Type: text/plain;
+ charset=iso-8859-1
+Content-Disposition: inline
 
-	Have fun...
+A recent email you sent was not delivered.  The original email headers
+are attached with this email.  Broadcom E-Mail policy does not allow
+attachments with .vbs, .scr, .pif, .exe, and .com extensions due to the
+number of email viruses spread through this fashion.  Even within .zip
+files these attachments are not allowed.  If you need to deliver a file
+of this type, rename it either by changing the extension or adding a
+".txt" and let the recipient know to change it back.  Please note that
+renaming a .zip file that contains any of the attachments mentioned
+above will not work.
+Attention:
 
-	Jean
+An email you recently sent to a recipient within Broadcom.com contained
+a VIRUS.
+
+The infected message was quarantined and not delivered to the intended
+recipient(s). 
+
+Please run an antivirus program immediately to scan your desktop for
+known viruses.  After you have ensured that your desktop is virus-free,
+you can resend the message.
+
+If you need assistance, please contact your mail administrator or help
+desk.   
+
+If you are a Broadcom employee, instructions are already being emailed
+to you so that you may know how to eradicate these viruses from your
+workstation and/or receive additional support from our helpdesk in doing
+so.
+
+Click the attachment below to view the headers of the email in question
+which is the reason for this notification. 
+
+Information regarding the virus that was intercepted is as follows : 
+
+ Virus Scanner found the 
+ W32/Sobig.f@MM virus
+   in the attached file: wicked_scr.scr
+
+
+MMS1
+
+
+--_-==135C397F3642==-_
+Content-Type: message/rfc822
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+Received: from 216.54.134.34 by mms1.broadcom.com with ESMTP (Broadcom
+ SMTP Relay (MMS v5.5.3)); Tue, 19 Aug 2003 20:11:40 -0700
+From: netdev@oss.sgi.com
+To: investorkits@broadcom.com
+Subject: Re: Thank you!
+Date: Tue, 19 Aug 2003 20:16:10 --0700
+X-MailScanner: Found to be clean
+Importance: Normal
+X-Mailer: Microsoft Outlook Express 6.00.2600.0000
+X-MSMail-Priority: Normal
+X-Priority: 3 (Normal)
+MIME-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+
+
+--_-==135C397F3642==-_--
