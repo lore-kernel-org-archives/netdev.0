@@ -1,35 +1,265 @@
-From: Christian Schmid <webmaster@rapidforum.com>
-Subject: Re: Bug-hunting
-Date: Wed, 23 Feb 2005 11:28:24 +0100
-Message-ID: <421C5AC8.70601@rapidforum.com>
-References: <421B4AB7.9030003@rapidforum.com>	<20050222104448.31373a99.davem@davemloft.net>	<421B8563.9030608@rapidforum.com>	<20050222115114.0d0e568e.davem@davemloft.net>	<421BBE7B.1050009@rapidforum.com> <20050222193000.404ae6d2.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050222193000.404ae6d2.davem@davemloft.net>
+From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
+Subject: [PATCH]  [ATM]: [fore200e] rewrite to eliminate pci_find_device() but preserve sbus support
+Date: Wed, 23 Feb 2005 09:17:18 -0500
+Message-ID: <200502231417.j1NEHIZ2012625@ginger.cmf.nrl.navy.mil>
+Cc: davem@redhat.com
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I would have to write a test-program first. This needs time. Before I spend hours into coding this, 
-first just tell me how I can raise the global-limit from around 600-700 MB to 1500 MB.
+this patch correctly removes the pci_find_device() used by the fore200e
+driver.  the __init/__exit remains a bit clunky since we need to preserve
+sbus support.
 
-David S. Miller wrote:
-> On Wed, 23 Feb 2005 00:21:31 +0100
-> Christian Schmid <webmaster@rapidforum.com> wrote:
-> 
-> 
->>To reproduce this, you would have to create a server which is sending data to 4000 non-blocking 
->>sockets. It doesnt matter what you send. You should realize a slow-down the more sockets you use. 
->>You need Gigabit for this to appear.
-> 
-> 
-> Please send us the exact test programs to run, not some general
-> description of what "one should do" to reproduce the problem.
-> 
-> This is exactly what is stalling this bug getting diagnosed properly
-> and fixed.
-> 
-> 
+please apply to 2.6.
+
+thanks!
+
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2005/02/22 16:14:44-05:00 chas@relax.cmf.nrl.navy.mil 
+#   [ATM]: [fore200e] rewrite to eliminate pci_find_device() but preserve sbus support
+#
+#   Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
+# 
+# drivers/atm/fore200e.h
+#   2005/02/22 16:14:25-05:00 chas@relax.cmf.nrl.navy.mil +1 -1
+#   [ATM]: [fore200e] rewrite to eliminate pci_find_device() but preserve sbus support
+#
+#   Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
+# 
+# drivers/atm/fore200e.c
+#   2005/02/22 16:14:25-05:00 chas@relax.cmf.nrl.navy.mil +107 -47
+#   [ATM]: [fore200e] rewrite to eliminate pci_find_device() but preserve sbus support
+#
+#   Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
+# 
+diff -Nru a/drivers/atm/fore200e.c b/drivers/atm/fore200e.c
+--- a/drivers/atm/fore200e.c	2005-02-23 09:08:38 -05:00
++++ b/drivers/atm/fore200e.c	2005-02-23 09:08:38 -05:00
+@@ -114,7 +114,7 @@
+ static const struct atmdev_ops   fore200e_ops;
+ static const struct fore200e_bus fore200e_bus[];
+ 
+-static struct fore200e* fore200e_boards = NULL;
++static LIST_HEAD(fore200e_boards);
+ 
+ 
+ MODULE_AUTHOR("Christophe Lizzi - credits to Uwe Dannowski and Heikki Vatiainen");
+@@ -637,39 +637,6 @@
+ }
+ 
+ 
+-static struct fore200e* __init
+-fore200e_pca_detect(const struct fore200e_bus* bus, int index)
+-{
+-    struct fore200e* fore200e;
+-    struct pci_dev*  pci_dev = NULL;
+-    int              count = index;
+-    
+-    do {
+-	pci_dev = pci_find_device(PCI_VENDOR_ID_FORE, PCI_DEVICE_ID_FORE_PCA200E, pci_dev);
+-	if (pci_dev == NULL)
+-	    return NULL;
+-    } while (count--);
+-
+-    if (pci_enable_device(pci_dev))
+-	return NULL;
+-    
+-    fore200e = fore200e_kmalloc(sizeof(struct fore200e), GFP_KERNEL);
+-    if (fore200e == NULL)
+-	return NULL;
+-
+-    fore200e->bus       = bus;
+-    fore200e->bus_dev   = pci_dev;    
+-    fore200e->irq       = pci_dev->irq;
+-    fore200e->phys_base = pci_resource_start(pci_dev, 0);
+-
+-    sprintf(fore200e->name, "%s-%d", bus->model_name, index - 1);
+-
+-    pci_set_master(pci_dev);
+-
+-    return fore200e;
+-}
+-
+-
+ static int __init
+ fore200e_pca_prom_read(struct fore200e* fore200e, struct prom_data* prom)
+ {
+@@ -2768,20 +2735,107 @@
+     return 0;
+ }
+ 
++
++static int __devinit
++fore200e_pca_detect(struct pci_dev *pci_dev, const struct pci_device_id *pci_ent)
++{
++    const struct fore200e_bus* bus = (struct fore200e_bus*) pci_ent->driver_data;
++    struct fore200e* fore200e;
++    int err = 0;
++    static int index = 0;
++
++    if (pci_enable_device(pci_dev)) {
++	err = -EINVAL;
++	goto out;
++    }
++    
++    fore200e = fore200e_kmalloc(sizeof(struct fore200e), GFP_KERNEL);
++    if (fore200e == NULL) {
++	err = -ENOMEM;
++	goto out_disable;
++    }
++
++    fore200e->bus       = bus;
++    fore200e->bus_dev   = pci_dev;    
++    fore200e->irq       = pci_dev->irq;
++    fore200e->phys_base = pci_resource_start(pci_dev, 0);
++
++    sprintf(fore200e->name, "%s-%d", bus->model_name, index - 1);
++
++    pci_set_master(pci_dev);
++
++    printk(FORE200E "device %s found at 0x%lx, IRQ %s\n",
++	   fore200e->bus->model_name, 
++	   fore200e->phys_base, fore200e_irq_itoa(fore200e->irq));
++
++    sprintf(fore200e->name, "%s-%d", bus->model_name, index);
++
++    err = fore200e_init(fore200e);
++    if (err < 0) {
++	fore200e_shutdown(fore200e);
++	goto out_free;
++    }
++
++    ++index;
++    pci_set_drvdata(pci_dev, fore200e);
++
++out:
++    return err;
++
++out_free:
++    kfree(fore200e);
++out_disable:
++    pci_disable_device(pci_dev);
++    goto out;
++}
++
++
++static void __devexit fore200e_pca_remove_one(struct pci_dev *pci_dev)
++{
++    struct fore200e *fore200e;
++
++    fore200e = pci_get_drvdata(pci_dev);
++
++    list_del(&fore200e->entry);
++
++    fore200e_shutdown(fore200e);
++    kfree(fore200e);
++    pci_disable_device(pci_dev);
++}
++
++
++#ifdef CONFIG_ATM_FORE200E_PCA
++static struct pci_device_id fore200e_pca_tbl[] = {
++    { PCI_VENDOR_ID_FORE, PCI_DEVICE_ID_FORE_PCA200E, PCI_ANY_ID, PCI_ANY_ID,
++      0, 0, (unsigned long) &fore200e_bus[0] },
++    { 0, }
++};
++
++MODULE_DEVICE_TABLE(pci, fore200e_pca_tbl);
++
++static struct pci_driver fore200e_pca_driver = {
++    .name =     "fore_200e",
++    .probe =    fore200e_pca_detect,
++    .remove =   __devexit_p(fore200e_pca_remove_one),
++    .id_table = fore200e_pca_tbl,
++};
++#endif
++
++
+ static int __init
+ fore200e_module_init(void)
+ {
+     const struct fore200e_bus* bus;
+     struct       fore200e*     fore200e;
+-    int                        index, link;
++    int                        index;
+ 
+     printk(FORE200E "FORE Systems 200E-series ATM driver - version " FORE200E_VERSION "\n");
+ 
+     /* for each configured bus interface */
+-    for (link = 0, bus = fore200e_bus; bus->model_name; bus++) {
++    for (bus = fore200e_bus; bus->model_name; bus++) {
+ 
+ 	/* detect all boards present on that bus */
+-	for (index = 0; (fore200e = bus->detect(bus, index)); index++) {
++	for (index = 0; bus->detect && (fore200e = bus->detect(bus, index)); index++) {
+ 	    
+ 	    printk(FORE200E "device %s found at 0x%lx, IRQ %s\n",
+ 		   fore200e->bus->model_name, 
+@@ -2795,15 +2849,18 @@
+ 		break;
+ 	    }
+ 
+-	    link++;
+-
+-	    fore200e->next  = fore200e_boards;
+-	    fore200e_boards = fore200e;
++	    list_add(&fore200e->entry, &fore200e_boards);
+ 	}
+     }
+ 
+-    if (link)
+-        return 0;
++#ifdef CONFIG_ATM_FORE200E_PCA
++    if (!pci_module_init(&fore200e_pca_driver))
++	return 0;
++#endif
++
++    if (!list_empty(&fore200e_boards))
++	return 0;
++
+     return -ENODEV;
+ }
+ 
+@@ -2811,11 +2868,14 @@
+ static void __exit
+ fore200e_module_cleanup(void)
+ {
+-    while (fore200e_boards) {
+-        struct fore200e* fore200e = fore200e_boards;
++    struct fore200e *fore200e, *next;
++
++#ifdef CONFIG_ATM_FORE200E_PCA
++    pci_unregister_driver(&fore200e_pca_driver);
++#endif
+ 
++    list_for_each_entry_safe(fore200e, next, &fore200e_boards, entry) {
+ 	fore200e_shutdown(fore200e);
+-	fore200e_boards = fore200e->next;
+ 	kfree(fore200e);
+     }
+     DPRINTK(1, "module being removed\n");
+@@ -3150,7 +3210,7 @@
+       fore200e_pca_dma_sync_for_device,
+       fore200e_pca_dma_chunk_alloc,
+       fore200e_pca_dma_chunk_free,
+-      fore200e_pca_detect,
++      NULL,
+       fore200e_pca_configure,
+       fore200e_pca_map,
+       fore200e_pca_reset,
+diff -Nru a/drivers/atm/fore200e.h b/drivers/atm/fore200e.h
+--- a/drivers/atm/fore200e.h	2005-02-23 09:08:38 -05:00
++++ b/drivers/atm/fore200e.h	2005-02-23 09:08:38 -05:00
+@@ -841,7 +841,7 @@
+ /* per-device data */
+ 
+ typedef struct fore200e {
+-    struct       fore200e*     next;                   /* next device                        */
++    struct       list_head     entry;                  /* next device                        */
+     const struct fore200e_bus* bus;                    /* bus-dependent code and data        */
+     union        fore200e_regs regs;                   /* bus-dependent registers            */
+     struct       atm_dev*      atm_dev;                /* ATM device                         */
