@@ -1,42 +1,38 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [RFC] Yield in netlink_broadcast when congested
-Date: Sun, 17 Oct 2004 15:08:38 +0200
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [PATCH 2.4.28-pre4-bk3] forcedeth: Gigabit ethernet support and media detection changes
+Date: Sun, 17 Oct 2004 14:38:07 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041017130838.GW21977@postel.suug.ch>
-References: <20041017110807.GV21977@postel.suug.ch> <E1CJAMU-0006eR-00@gondolin.me.apana.org.au>
+Message-ID: <20041017133807.GA21964@infradead.org>
+References: <Pine.LNX.4.44.0410171216490.29815-100000@dbl.q-ag.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: pablo@eurodev.net, hadi@cyberus.ca, davem@davemloft.net,
+Cc: jgarzik@pobox.com, marcelo.tosatti@cyclades.com, blazara@nvidia.com,
         netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+To: Manfred Spraul <manfred@colorfullife.com>
 Content-Disposition: inline
-In-Reply-To: <E1CJAMU-0006eR-00@gondolin.me.apana.org.au>
+In-Reply-To: <Pine.LNX.4.44.0410171216490.29815-100000@dbl.q-ag.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> Having 7 listeners in the same process isn't really the killer application
-> I was looking for :)
-
-Agreed, my statement was no offense, I'm totally fine with your
-path and I think it suits us well.
-
-> > Therefore I guess this is fine for now, the problem might appear again
-> > if someone finally writes the netlink daemon to solve the locking
-> > problems.
+On Sun, Oct 17, 2004 at 12:27:21PM +0200, Manfred Spraul wrote:
+> Backport of the 0.29 forcedeth driver to 2.4.
+> Changes:
+> - lots of bugfixes.
+> - completely rewritten PHY initialization and media detection
+> - gigabit ethernet support
 > 
-> I don't think I understand what you are referring to.  Could you
-> please elaborte?
+> The actual backport was done by Jane Liu from NVIDIA:
+> 
+> - all occurrences of msleep changed to mdelay
 
-Although NLM_F_ATOMIC exists it's not a good way to lock certain
-sets of netlink requests which must be atomic. Currently there is no
-locking implemented in any application as far as i know, f.e. iproute2
-looks up an ifindex and uses it w/o locking so the link could
-be renamed or removed in between. If we ever implement the ietf
-netconf protocol we would also require to provide locking functionality.
+that sounds wrong - mdelay spins instead of sleeping.  Better provide
+a msleep backport.
 
-For that reason, the idea of a netlink daemon was mentioned a few
-times which would act as a gate and implement the required locking
-in userspace. This daemon could easly lead to multiple listeners
-in a single process. Nevertheless, I guess we can ignore it for now as
-it's hypothetical.
+> - SET_NETDEV_DEV calls removed
+
+doesn't recent 2.4 have a noop variant of it?
+
+> - module_param call changed to MODULE_PARM
+
+Didn't rusty backport module_param to 2.4 a while ago?
