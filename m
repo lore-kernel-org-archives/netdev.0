@@ -1,31 +1,43 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: [PATCH] OpenBSD Networking-related randomization port
-Date: Tue, 1 Feb 2005 15:22:45 -0800
-Message-ID: <20050201232245.GB17460@waste.org>
-References: <1106932637.3778.92.camel@localhost.localdomain> <20050128100229.5c0e4ea1@dxpl.pdx.osdl.net> <1106937110.3864.5.camel@localhost.localdomain> <20050128105217.1dc5ef42@dxpl.pdx.osdl.net> <1106944492.3864.30.camel@localhost.localdomain> <1106945266.7776.41.camel@laptopd505.fenrus.org> <200501290915.j0T9FkVY012948@turing-police.cc.vt.edu> <20050131165025.GN18316@stusta.de> <200501311942.j0VJgIYs016952@turing-police.cc.vt.edu> <1107201800.3754.125.camel@localhost.localdomain>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 2.6.11-rc2] wireless: Make Atmel driver use SET_NETDEV_DEV
+Date: Tue, 01 Feb 2005 20:33:52 -0500
+Message-ID: <42002E00.6000101@pobox.com>
+References: <1107294126.17332.16.camel@dcbw.boston.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Valdis.Kletnieks@vt.edu, Adrian Bunk <bunk@stusta.de>,
-        Arjan van de Ven <arjan@infradead.org>,
-        Stephen Hemminger <shemminger@osdl.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Chris Wright <chrisw@osdl.org>, netdev@oss.sgi.com,
-        Hank Leininger <hlein@progressive-comp.com>
-To: Lorenzo Hern?ndez Garc?a-Hierro <lorenzo@gnu.org>
-Content-Disposition: inline
-In-Reply-To: <1107201800.3754.125.camel@localhost.localdomain>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, jgarzik@redhat.com, simon@thekelleys.org.uk
+To: Dan Williams <dcbw@redhat.com>
+In-Reply-To: <1107294126.17332.16.camel@dcbw.boston.redhat.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 31, 2005 at 09:03:19PM +0100, Lorenzo Hern?ndez Garc?a-Hierro wrote:
-> Arjan, I will give it a further look, is there anything you want to
-> comment about it before I start?
+Dan Williams wrote:
+> Make the Atmel wireless driver use SET_NETDEV_DEV to get the correct
+> entries in sysfs.  Seems like somebody meant to do this but it got lost.
+> atmel_cs.c was previously fixed to pass in the correct struct device *
+> via handle_to_dev() but the driver never actually used it.
 > 
-> I will re-code it to put the helper functions in random.c.
+> Signed-off-by: Dan Williams <dcbw@redhat.com>
+> 
+> --- a/drivers/net/wireless/atmel.c	2005-01-27 20:26:46.000000000 -0500
+> +++ b/drivers/net/wireless/atmel.c	2005-02-01 16:15:55.000000000 -0500
+> @@ -1579,6 +1579,8 @@
+>  	dev->irq = irq;
+>  	dev->base_addr = port;
+>  	
+> +	SET_NETDEV_DEV(dev, sys_dev);
+> +	
+>  	if ((rc = request_irq(dev->irq, service_interrupt, SA_SHIRQ, dev->name, dev))) {
+>  		printk(KERN_ERR "%s: register interrupt %d failed, rc %d\n", dev->name, irq, rc );
+>  		goto err_out_free;
+> 
+> 
 
-Do it against -mm, please, there are something like 30 patches against
-random.c there already. And please cc: me on any changes there.
+Can you please resend all your patches with _just_ the patch inline, 
+rather than both inline and attached?
 
--- 
-Mathematics is the supreme nostalgia of our time.
+Your emails break my scripts, since the scripts try to apply both.
+
+	Jeff
