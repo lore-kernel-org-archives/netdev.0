@@ -1,401 +1,188 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] netif_rx: receive path optimization
-Date: Wed, 30 Mar 2005 13:28:15 -0800
-Message-ID: <20050330132815.605c17d0@dxpl.pdx.osdl.net>
+From: "Dale Farnsworth" <dale@farnsworth.org>
+Subject: Re: mv643xx(16/20): Limit MTU to 1500 bytes unless connected at GigE speed
+Date: Wed, 30 Mar 2005 14:46:45 -0700
+Message-ID: <20050330214645.GA12409@xyzzy>
+References: <20050328233807.GA28423@xyzzy> <20050328235758.GP29098@xyzzy> <424B076E.4080508@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
+To: Jeff Garzik <jgarzik@pobox.com>, Netdev <netdev@oss.sgi.com>
+Content-Disposition: inline
+In-Reply-To: <424B076E.4080508@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This patch cleans up the netif_rx and related code in the network
-receive core.
+On Wed, Mar 30, 2005 at 08:09:18PM +0000, Jeff Garzik wrote:
+> Explanation?
+> 
+> I see no inherent reason to disallow jumbo frames at slower speeds.
 
-     - Eliminate vestiges of fastroute.
-       The leftover statistics no longer needed.
+Neither do I, but Marvell chips aren't always reasonable.
 
-     - Get rid of high/med/low threshold return from netif_rx.
-       Drivers rarely check return value of netif_rx, and those
-       that do can handle the DROP vs SUCCESS return
+I guess my comments in the code:
+	/* Chip only supports jumbo frames at 1Gb/S */
+and
+	/* Jumbo frames are not supported when connected at less than 1Gb/S */
+may have been a bit too terse. :)
 
-     - Remove dead code for RAND_LINE and OFFLINE_SAMPLE
+I expanded on the comments and rebuilt the repository.  The new version
+of this patch is included below.  (No code has changed, only comments.)
+I have found no other mention of this limitation in the Marvell
+documentation other than what is found below.
 
-     - Get rid of weight_p since setting sysctl has no effect.
-       Increase default weight of netif_rx path because it can receive
-       packets from multiple devices and loopback.
+Thanks,
+-Dale
 
-     - Separate out max packets per softirq vs. max queued packets.
-       Today, netdev_max_burst is used for both. Add new parameter
-       that is for the per-cpu max queued packets.
 
-     - Increase queue defaults to meet modern CPU speeds.
-       Make max_backlog be about 1ms, and max_queue be about 10ms
+mv643xx: Limit MTU to 1500 bytes unless connected at GigE speed
 
-     - Switch to pure drop tail when queue fills.
-       Better for TCP performance under load to drop a few packets
-       then go into full discard mode.
+It's weird, but the user manual says that jumbo frames are not
+supported at less than 1Gb/S.  From the description of the MRU
+field of the PSCR:
 
-This needs more testing on range of hardware before possible inclusion
-in 2.6.13. Will split out to finer grain patches then.
+        The Maximal Receive Packet Size:
+        0 = Accept packets up to 1518 bytes in length
+        1 = Accept packets up to 1522 bytes in length
+        2 = Accept packets up to 1558 bytes in length
+        3 = Accept packets up to 9022 bytes in length
+        4 = Accept packets up to 9192 bytes in length
+        5 = Accept packets up to 9700 bytes in length
+        6-7 = Reserved
 
-diff -Nru a/include/linux/netdevice.h b/include/linux/netdevice.h
---- a/include/linux/netdevice.h	2005-03-30 13:17:14 -08:00
-+++ b/include/linux/netdevice.h	2005-03-30 13:17:14 -08:00
-@@ -164,12 +164,6 @@
- 	unsigned total;
- 	unsigned dropped;
- 	unsigned time_squeeze;
--	unsigned throttled;
--	unsigned fastroute_hit;
--	unsigned fastroute_success;
--	unsigned fastroute_defer;
--	unsigned fastroute_deferred_out;
--	unsigned fastroute_latency_reduction;
- 	unsigned cpu_collision;
- };
+        Note:   Modes 3-5 are supported only when operating in 1000 Mbps.
+                Receiving 9700 byte frames is supported only during 1000 
+                Mbps operation.  Receiving frames over 2KB during 100 Mbps
+                operation may result in overrun/underrun in some cases.
+
+In this patch, we only permit jumbo frames when connecting/connected
+at 1Gb/S.
+
+Signed-off-by: Dale Farnsworth <dale@farnsworth.org>
+
+Index: linux-2.5-enet/drivers/net/mv643xx_eth.c
+===================================================================
+--- linux-2.5-enet.orig/drivers/net/mv643xx_eth.c
++++ linux-2.5-enet/drivers/net/mv643xx_eth.c
+@@ -371,6 +371,7 @@
+ 	struct mv643xx_private *mp = netdev_priv(dev);
+ 	unsigned int port_num = mp->port_num;
+ 	int tx_curr_desc, rx_curr_desc;
++	int rx_buffer_size_index;
  
-diff -Nru a/include/linux/sysctl.h b/include/linux/sysctl.h
---- a/include/linux/sysctl.h	2005-03-30 13:17:14 -08:00
-+++ b/include/linux/sysctl.h	2005-03-30 13:17:14 -08:00
-@@ -242,6 +242,7 @@
- 	NET_CORE_MOD_CONG=16,
- 	NET_CORE_DEV_WEIGHT=17,
- 	NET_CORE_SOMAXCONN=18,
-+	NET_CORE_MAX_QUEUE=19,
- };
+ 	/* Assignment of Tx CTRP of given queue */
+ 	tx_curr_desc = mp->tx_curr_desc_q;
+@@ -398,14 +399,16 @@
+ 	mv643xx_eth_read(MV643XX_ETH_PORT_SERIAL_CONTROL_REG(port_num));
+ 	mv643xx_eth_write(MV643XX_ETH_PORT_SERIAL_CONTROL_REG(port_num), 0);
  
- /* /proc/sys/net/ethernet */
-diff -Nru a/net/core/dev.c b/net/core/dev.c
---- a/net/core/dev.c	2005-03-30 13:17:14 -08:00
-+++ b/net/core/dev.c	2005-03-30 13:17:14 -08:00
-@@ -115,18 +115,6 @@
- #endif	/* CONFIG_NET_RADIO */
- #include <asm/current.h>
+-	/* Increase the Rx side buffer size if supporting GigE */
+-	if (mp->port_serial_control & MV643XX_ETH_SET_GMII_SPEED_TO_1000)
+-		mv643xx_eth_write(MV643XX_ETH_PORT_SERIAL_CONTROL_REG(port_num),
+-				  (mp->port_serial_control & 0xfff1ffff) |
+-				  (0x5 << 17));
++	/* Adjust Rx side buffer size based on mtu */
++	if (dev->mtu <= 1500)
++		rx_buffer_size_index = 1;
+ 	else
+-		mv643xx_eth_write(MV643XX_ETH_PORT_SERIAL_CONTROL_REG(port_num),
+-				  mp->port_serial_control);
++		rx_buffer_size_index = 5;
++	mp->port_serial_control &= 0xfff1ffff;
++	mp->port_serial_control |= rx_buffer_size_index << 17;
++
++	mv643xx_eth_write(MV643XX_ETH_PORT_SERIAL_CONTROL_REG(port_num),
++			  mp->port_serial_control);
  
--/* This define, if set, will randomly drop a packet when congestion
-- * is more than moderate.  It helps fairness in the multi-interface
-- * case when one of them is a hog, but it kills performance for the
-- * single interface case so it is off now by default.
-- */
--#undef RAND_LIE
--
--/* Setting this will sample the queue lengths and thus congestion
-- * via a timer instead of as each packet is received.
-- */
--#undef OFFLINE_SAMPLE
--
+ 	mv643xx_eth_write(MV643XX_ETH_PORT_SERIAL_CONTROL_REG(port_num),
+ 			  mp->port_serial_control |
+@@ -1289,13 +1292,13 @@
+ 		printk(KERN_INFO "%s: TX timeout  ", dev->name);
+ 
+ 	/* Do the reset outside of interrupt context */
+-	schedule_work(&mp->tx_timeout_task);
++	schedule_work(&mp->reset_task);
+ }
+ 
  /*
-  *	The list of packet types we will receive (as opposed to discard)
-  *	and the routines to invoke.
-@@ -159,11 +147,6 @@
- static struct list_head ptype_base[16];	/* 16 way hashed list */
- static struct list_head ptype_all;		/* Taps */
- 
--#ifdef OFFLINE_SAMPLE
--static void sample_queue(unsigned long dummy);
--static struct timer_list samp_timer = TIMER_INITIALIZER(sample_queue, 0, 0);
--#endif
--
- /*
-  * The @dev_base list is protected by @dev_base_lock and the rtln
-  * semaphore.
-@@ -215,7 +198,7 @@
-  *	Device drivers call our routines to queue packets here. We empty the
-  *	queue in the local softnet handler.
+  * Actual routine to reset the adapter when a timeout on Tx has occurred
   */
--DEFINE_PER_CPU(struct softnet_data, softnet_data) = { 0, };
-+DEFINE_PER_CPU(struct softnet_data, softnet_data);
- 
- #ifdef CONFIG_SYSFS
- extern int netdev_sysfs_init(void);
-@@ -1338,70 +1321,11 @@
- 			Receiver routines
-   =======================================================================*/
- 
--int netdev_max_backlog = 300;
--int weight_p = 64;            /* old backlog weight */
--/* These numbers are selected based on intuition and some
-- * experimentatiom, if you have more scientific way of doing this
-- * please go ahead and fix things.
-- */
--int no_cong_thresh = 10;
--int no_cong = 20;
--int lo_cong = 100;
--int mod_cong = 290;
--
--DEFINE_PER_CPU(struct netif_rx_stats, netdev_rx_stat) = { 0, };
--
--
--static void get_sample_stats(int cpu)
--{
--#ifdef RAND_LIE
--	unsigned long rd;
--	int rq;
--#endif
--	struct softnet_data *sd = &per_cpu(softnet_data, cpu);
--	int blog = sd->input_pkt_queue.qlen;
--	int avg_blog = sd->avg_blog;
--
--	avg_blog = (avg_blog >> 1) + (blog >> 1);
--
--	if (avg_blog > mod_cong) {
--		/* Above moderate congestion levels. */
--		sd->cng_level = NET_RX_CN_HIGH;
--#ifdef RAND_LIE
--		rd = net_random();
--		rq = rd % netdev_max_backlog;
--		if (rq < avg_blog) /* unlucky bastard */
--			sd->cng_level = NET_RX_DROP;
--#endif
--	} else if (avg_blog > lo_cong) {
--		sd->cng_level = NET_RX_CN_MOD;
--#ifdef RAND_LIE
--		rd = net_random();
--		rq = rd % netdev_max_backlog;
--			if (rq < avg_blog) /* unlucky bastard */
--				sd->cng_level = NET_RX_CN_HIGH;
--#endif
--	} else if (avg_blog > no_cong)
--		sd->cng_level = NET_RX_CN_LOW;
--	else  /* no congestion */
--		sd->cng_level = NET_RX_SUCCESS;
--
--	sd->avg_blog = avg_blog;
--}
--
--#ifdef OFFLINE_SAMPLE
--static void sample_queue(unsigned long dummy)
--{
--/* 10 ms 0r 1ms -- i don't care -- JHS */
--	int next_tick = 1;
--	int cpu = smp_processor_id();
--
--	get_sample_stats(cpu);
--	next_tick += jiffies;
--	mod_timer(&samp_timer, next_tick);
--}
--#endif
-+/* Reasonablly fast CPU can process 1 packet per us */
-+int netdev_max_backlog = 1000;
-+int netdev_max_queue   = 10000;
- 
-+DEFINE_PER_CPU(struct netif_rx_stats, netdev_rx_stat);
- 
- /**
-  *	netif_rx	-	post buffer to the network code
-@@ -1414,16 +1338,12 @@
-  *
-  *	return values:
-  *	NET_RX_SUCCESS	(no congestion)
-- *	NET_RX_CN_LOW   (low congestion)
-- *	NET_RX_CN_MOD   (moderate congestion)
-- *	NET_RX_CN_HIGH  (high congestion)
-  *	NET_RX_DROP     (packet was dropped)
-  *
-  */
- 
- int netif_rx(struct sk_buff *skb)
+-static void mv643xx_eth_tx_timeout_task(struct net_device *dev)
++static void mv643xx_eth_reset_task(struct net_device *dev)
  {
--	int this_cpu;
- 	struct softnet_data *queue;
+ 	netif_device_detach(dev);
+ 	mv643xx_eth_port_reset(dev);
+@@ -1536,6 +1539,19 @@
+ 			netif_wake_queue(dev);
+ 			/* Start TX queue */
+ 			mv643xx_eth_write(MV643XX_ETH_TRANSMIT_QUEUE_COMMAND_REG(port_num), 1);
++			/*
++			 * The mv643xx user manuals (in the PSCR MRU field
++			 * description) say that jumbo frames are not reliable
++			 * at 10Mb/S or 100Mb/S, so we disallow them.
++			 */
++			if (cmd.speed != SPEED_1000 && dev->mtu > 1500) {
++				dev->mtu = 1500;
++				mp->port_serial_control &= 0xfff1ffff;
++				mp->port_serial_control |= 1 << 17;
++
++				/* Do the reset outside of interrupt context */
++				schedule_work(&mp->reset_task);
++			}
+ 
+ 		} else if (!mii_link_ok(&mp->mii) && netif_carrier_ok(dev)) {
+ 			netif_stop_queue(dev);
+@@ -2220,10 +2236,26 @@
+ {
+ 	struct mv643xx_private *mp = netdev_priv(dev);
  	unsigned long flags;
++	int max_mtu;
++	u32 port_status;
  
-@@ -1439,43 +1359,25 @@
- 	 * short when CPU is congested, but is still operating.
- 	 */
- 	local_irq_save(flags);
--	this_cpu = smp_processor_id();
- 	queue = &__get_cpu_var(softnet_data);
+ 	spin_lock_irqsave(&mp->lock, flags);
  
- 	__get_cpu_var(netdev_rx_stat).total++;
--	if (queue->input_pkt_queue.qlen <= netdev_max_backlog) {
--		if (queue->input_pkt_queue.qlen) {
--			if (queue->throttle)
--				goto drop;
--
--enqueue:
--			dev_hold(skb->dev);
--			__skb_queue_tail(&queue->input_pkt_queue, skb);
--#ifndef OFFLINE_SAMPLE
--			get_sample_stats(this_cpu);
--#endif
--			local_irq_restore(flags);
--			return queue->cng_level;
--		}
-+	if (likely(queue->input_pkt_queue.qlen <= netdev_max_queue)) {
-+		if (unlikely(queue->input_pkt_queue.qlen == 0))
-+			netif_rx_schedule(&queue->backlog_dev);
+-	if ((new_mtu > 9500) || (new_mtu < 64)) {
++	/*
++	 * The mv643xx user manuals (in the PSCR MRU field
++	 * description) say that jumbo frames are not reliable
++	 * at 10Mb/S or 100Mb/S, so we disallow them.
++	 */
++	port_status =
++		mv643xx_eth_read(MV643XX_ETH_PORT_STATUS_REG(mp->port_num));
++	if ((port_status & (MV643XX_ETH_PORT_STATUS_LINK_UP |
++			    MV643XX_ETH_PORT_STATUS_GMII_1000)) ==
++			   (MV643XX_ETH_PORT_STATUS_LINK_UP))
++		max_mtu = 1500;
++	else
++		max_mtu = 9500;
 +
-+		dev_hold(skb->dev);
-+		__skb_queue_tail(&queue->input_pkt_queue, skb);
-+		local_irq_restore(flags);
- 
--		if (queue->throttle)
--			queue->throttle = 0;
--
--		netif_rx_schedule(&queue->backlog_dev);
--		goto enqueue;
--	}
-+		return NET_RX_SUCCESS;
-+	} else {
-+		__get_cpu_var(netdev_rx_stat).dropped++;
-+		local_irq_restore(flags);
- 
--	if (!queue->throttle) {
--		queue->throttle = 1;
--		__get_cpu_var(netdev_rx_stat).throttled++;
-+		kfree_skb(skb);
-+		return NET_RX_DROP;
++	if ((new_mtu > max_mtu) || (new_mtu < 64)) {
+ 		spin_unlock_irqrestore(&mp->lock, flags);
+ 		return -EINVAL;
  	}
--
--drop:
--	__get_cpu_var(netdev_rx_stat).dropped++;
--	local_irq_restore(flags);
--
--	kfree_skb(skb);
--	return NET_RX_DROP;
- }
+@@ -2517,9 +2549,9 @@
+ #endif
+ #endif
  
- int netif_rx_ni(struct sk_buff *skb)
-@@ -1754,8 +1656,6 @@
- 	smp_mb__before_clear_bit();
- 	netif_poll_enable(backlog_dev);
+-	/* Configure the timeout task */
+-	INIT_WORK(&mp->tx_timeout_task,
+-		  (void (*)(void *))mv643xx_eth_tx_timeout_task, dev);
++	/* Configure the reset task */
++	INIT_WORK(&mp->reset_task,
++		  (void (*)(void *))mv643xx_eth_reset_task, dev);
  
--	if (queue->throttle)
--		queue->throttle = 0;
- 	local_irq_enable();
- 	return 0;
- }
-@@ -2024,20 +1924,18 @@
- {
- }
+ 	spin_lock_init(&mp->lock);
  
-+/* Output softnet statistics.
-+ * For compatiablity include zero's for old deprecated values
-+ * for throttling and fastroute statistics.
-+ */
- static int softnet_seq_show(struct seq_file *seq, void *v)
- {
- 	struct netif_rx_stats *s = v;
+Index: linux-2.5-enet/drivers/net/mv643xx_eth.h
+===================================================================
+--- linux-2.5-enet.orig/drivers/net/mv643xx_eth.h
++++ linux-2.5-enet/drivers/net/mv643xx_eth.h
+@@ -512,7 +512,7 @@
+ 	unsigned int tx_desc_area_size;
+ 	struct sk_buff **tx_skb;
  
- 	seq_printf(seq, "%08x %08x %08x %08x %08x %08x %08x %08x %08x\n",
--		   s->total, s->dropped, s->time_squeeze, s->throttled,
--		   s->fastroute_hit, s->fastroute_success, s->fastroute_defer,
--		   s->fastroute_deferred_out,
--#if 0
--		   s->fastroute_latency_reduction
--#else
--		   s->cpu_collision
--#endif
--		  );
-+		   s->total, s->dropped, s->time_squeeze, 
-+		   0, 0, 0, 0, 0,
-+		   s->cpu_collision);
- 	return 0;
- }
+-	struct work_struct tx_timeout_task;
++	struct work_struct reset_task;
  
-@@ -3279,21 +3177,13 @@
- 
- 		queue = &per_cpu(softnet_data, i);
- 		skb_queue_head_init(&queue->input_pkt_queue);
--		queue->throttle = 0;
--		queue->cng_level = 0;
--		queue->avg_blog = 10; /* arbitrary non-zero */
- 		queue->completion_queue = NULL;
- 		INIT_LIST_HEAD(&queue->poll_list);
- 		set_bit(__LINK_STATE_START, &queue->backlog_dev.state);
--		queue->backlog_dev.weight = weight_p;
-+		queue->backlog_dev.weight = 128;
- 		queue->backlog_dev.poll = process_backlog;
- 		atomic_set(&queue->backlog_dev.refcnt, 1);
- 	}
--
--#ifdef OFFLINE_SAMPLE
--	samp_timer.expires = jiffies + (10 * HZ);
--	add_timer(&samp_timer);
--#endif
- 
- 	dev_boot_phase = 0;
- 
-diff -Nru a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
---- a/net/core/sysctl_net_core.c	2005-03-30 13:17:14 -08:00
-+++ b/net/core/sysctl_net_core.c	2005-03-30 13:17:14 -08:00
-@@ -13,12 +13,8 @@
- #ifdef CONFIG_SYSCTL
- 
- extern int netdev_max_backlog;
--extern int weight_p;
--extern int no_cong_thresh;
--extern int no_cong;
--extern int lo_cong;
--extern int mod_cong;
--extern int netdev_fastroute;
-+extern int netdev_max_queue;
-+
- extern int net_msg_cost;
- extern int net_msg_burst;
- 
-@@ -27,7 +23,6 @@
- extern __u32 sysctl_wmem_default;
- extern __u32 sysctl_rmem_default;
- 
--extern int sysctl_core_destroy_delay;
- extern int sysctl_optmem_max;
- extern int sysctl_somaxconn;
- 
-@@ -83,14 +78,6 @@
- 		.proc_handler	= &proc_dointvec
- 	},
- 	{
--		.ctl_name	= NET_CORE_DEV_WEIGHT,
--		.procname	= "dev_weight",
--		.data		= &weight_p,
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= &proc_dointvec
--	},
--	{
- 		.ctl_name	= NET_CORE_MAX_BACKLOG,
- 		.procname	= "netdev_max_backlog",
- 		.data		= &netdev_max_backlog,
-@@ -99,33 +86,9 @@
- 		.proc_handler	= &proc_dointvec
- 	},
- 	{
--		.ctl_name	= NET_CORE_NO_CONG_THRESH,
--		.procname	= "no_cong_thresh",
--		.data		= &no_cong_thresh,
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= &proc_dointvec
--	},
--	{
--		.ctl_name	= NET_CORE_NO_CONG,
--		.procname	= "no_cong",
--		.data		= &no_cong,
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= &proc_dointvec
--	},
--	{
--		.ctl_name	= NET_CORE_LO_CONG,
--		.procname	= "lo_cong",
--		.data		= &lo_cong,
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= &proc_dointvec
--	},
--	{
--		.ctl_name	= NET_CORE_MOD_CONG,
--		.procname	= "mod_cong",
--		.data		= &mod_cong,
-+		.ctl_name	= NET_CORE_MAX_QUEUE,
-+		.procname	= "netdev_max_queue",
-+		.data		= &netdev_max_queue,
- 		.maxlen		= sizeof(int),
- 		.mode		= 0644,
- 		.proc_handler	= &proc_dointvec
+ 	/*
+ 	 * Former struct mv643xx_eth_priv members start here
