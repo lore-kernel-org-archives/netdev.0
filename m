@@ -1,64 +1,36 @@
-From: Stephen Hemminger <shemminger@osdl.org>
+From: Mitchell Blank Jr <mitch@sfgoth.com>
 Subject: Re: do_gettimeofday
-Date: Thu, 2 Oct 2003 12:56:25 -0700
+Date: Thu, 2 Oct 2003 13:46:36 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031002125625.72b8c0a7.shemminger@osdl.org>
-References: <3F7C6F3B.6070502@sgi.com>
+Message-ID: <20031002204636.GB30579@gaz.sfgoth.com>
+References: <3F7C6F3B.6070502@sgi.com> <20031002125625.72b8c0a7.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Steve Modica <modica@sgi.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Steve Modica <modica@sgi.com>
-In-Reply-To: <3F7C6F3B.6070502@sgi.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20031002125625.72b8c0a7.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 02 Oct 2003 13:32:27 -0500
-Steve Modica <modica@sgi.com> wrote:
+Stephen Hemminger wrote:
+> Two problems:
+> 	a. xtime is limited to HZ resolution which is insufficient for more advanced
+> 	   packet schedulers and rtt estimation.
+> 	b. unlocked access to xtime is unsafe because it is not atomic!
+> 
+> ATM is busted if it does this.
 
-> We've been doing some experiments here with large numbers of adapters on a 64p Linux system. 
-> 
-> When running 8 threads and 8 cpus, the do_gettimeofday code starts to use a lot of time.
-> 
-> It turns out that if a driver does not timestamp an incoming packet, the upper layer will stamp it for you in
-> PSCHED_GET_TIME(stamp).  What happens then is multiple cpus start fighting over the cacheline for the system clock and things get bad. 
-> 
-> One possible solution to this is to have the driver do the stamp using xtime. A number of ATM drivers do this now. In testing, it helps a lot.
-> 
-> Here's a sample diff for the tg3.c driver:
-> 
-> ===========================================================================
-> Index: linux/linux/drivers/net/tg3.c
-> ===========================================================================
->  
-> --- /usr/tmp/TmpDir.8948-0/linux/linux/drivers/net/tg3.c_1.23   Thu Oct  2 13:30:21 2003
-> +++ linux/linux/drivers/net/tg3.c       Wed Oct  1 14:27:54 2003
-> @@ -2019,6 +2019,7 @@
->                         skb->ip_summed = CHECKSUM_NONE;
->   
->                 skb->protocol = eth_type_trans(skb, tp->dev);
-> +               skb->stamp = xtime;
->  #if TG3_VLAN_TAG_USED
->                 if (tp->vlgrp != NULL &&
->                     desc->type_flags & RXD_FLAG_VLAN) {
-> 
-> 
-> It's been suggested that we make this tuneable so it's easy to enable and disable. There was concern as to whether xtime would be accurate enough for all possible uses of ->stamp.  
-> 
-> Does anyone have any comments on this?
+It got fixed in 2.5 (when skb->stamp got changed to nanosecond resolution
+so it broke the compile to do it the old way)  You can use LXR to see all
+of the xtime users as of 2.6.0-test2:
+  http://lxr.linux.no/ident?v=2.6.0-test2&i=xtime
 
-Two problems:
-	a. xtime is limited to HZ resolution which is insufficient for more advanced
-	   packet schedulers and rtt estimation.
-	b. unlocked access to xtime is unsafe because it is not atomic!
+The reason that ATM _had_ been using xtime was not for performance.  When
+the ATM code was originally written (during the 1.X kernels) all network
+drivers used xtime directly.  At some point the network drivers were
+mass-updated to use do_gettimeofday() but ATM had not been merged into
+the main tree yet so it missed the conversion.
 
-ATM is busted if it does this.
-
-gettimeofday on 2.6 should be cheap for many systems because of the lockless
-seqlock.  Unfortunately, some architectures (not sure about ia64) have problems
-with TSC synchronization which make life messy.   
-
-It might be possible to introduce a per-cpu monotonic clock that is lockless
-for use in network code, but that is a moderately painful undertaking which
-is beyond the scope of getting 2.6.0 out.
+-Mitch
