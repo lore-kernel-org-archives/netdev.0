@@ -1,56 +1,30 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [3/4] [IPSEC] Add route element to xfrm_dst
-Date: Mon, 14 Mar 2005 12:52:16 +0100
-Message-ID: <42357AF0.4080205@trash.net>
-References: <20050214221006.GA18415@gondor.apana.org.au> <20050214221200.GA18465@gondor.apana.org.au> <20050214221433.GB18465@gondor.apana.org.au>
+From: Steve Hill <steve@services.navaho.net>
+Subject: Re: More IPSEC trouble
+Date: Mon, 14 Mar 2005 12:12:27 +0000 (GMT)
+Message-ID: <Pine.LNX.4.61.0503141211170.18067@sorbus2.navaho>
+References: <E1D9Ymg-0001x0-00@gondolin.me.apana.org.au>
+ <Pine.LNX.4.61.0503111453320.18067@sorbus2.navaho> <42323125.20706@trash.net>
+ <20050312013515.GA17539@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@redhat.com>,
-        YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Patrick McHardy <kaber@trash.net>, netdev@oss.sgi.com,
+        "David S. Miller" <davem@davemloft.net>
 To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050214221433.GB18465@gondor.apana.org.au>
+In-Reply-To: <20050312013515.GA17539@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> This patch adds a pointer to the route corresponding to the specific
-> flow over the SA of an xfrm_dst that's being used.
-> 
-> It also sets the next pointer of each xfrm_dst to the one above it.
-> This allows to traverse the list upwards from the bottom.
+On Sat, 12 Mar 2005, Herbert Xu wrote:
 
-Looking at this again, I noticed a problem:
+> Since tunnel_check_size only looks at the state to determine whether
+> it's tunnel mode, it doesn't need to hold the lock at all.
+>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-> +		if (remote != fl_tunnel.fl4_dst) {
-> +			fl_tunnel.fl4_src = local;
-> +			fl_tunnel.fl4_dst = remote;
-> +			err = xfrm_dst_lookup((struct xfrm_dst **)&rt,
-> +					      &fl_tunnel, AF_INET);
-> +			if (err)
-> +				goto error;
-> +		} else
-> +			dst_hold(&rt->u.dst);
->  	}
-> +
->  	dst_prev->child = &rt->u.dst;
-> +	dst->path = &rt->u.dst;
-> +
-> +	*dst_p = dst;
-> +	dst = dst_prev;
-> +
-> +	dst_prev = *dst_p;
->  	i = 0;
-> -	for (dst_prev = dst; dst_prev != &rt->u.dst; dst_prev = dst_prev->child) {
-> +	for (; dst_prev != &rt->u.dst; dst_prev = dst_prev->child) {
+I can confirm this fixes the problem - tested under 2.6.10.
 
-Since the tunnel dst is not necessarily the last in the bundle anymore,
-we might miss to initialize some dsts, for example with ipcomp/tunnel +
-esp/transport. If we have nested tunnels we'll fiddle with entries in
-the routing cache.
 
-Regards
-Patrick
+- Steve Hill (BSc)
+Senior Software Developer                        Email: steve@navaho.co.uk
+Navaho Technologies Ltd.                           Tel: +44-870-7034015
