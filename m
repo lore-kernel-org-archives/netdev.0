@@ -1,49 +1,48 @@
-From: Florian Weimer <fw@deneb.enyo.de>
-Subject: Re: Route cache performance under stress
-Date: Tue, 17 Jun 2003 22:58:31 +0200
+From: Simon Kirby <sim@netnation.com>
+Subject: Re: Route cache performance tests
+Date: Tue, 17 Jun 2003 14:07:01 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <87ptlc4e14.fsf@deneb.enyo.de>
-References: <20030608234926.GA9453@netnation.com>
-	<001001c32e19$81bc7ea0$4a00000a@badass>
-	<20030609064719.GA20613@netnation.com>
-	<Pine.LNX.4.51.0306090918400.11389@ns.istop.com>
-	<20030609163010.GA11509@netnation.com>
+Message-ID: <20030617210700.GE25773@netnation.com>
+References: <20030616.160856.35828947.davem@redhat.com> <20030616232750.GD18484@netnation.com> <20030616234937.GE18484@netnation.com> <20030617.085921.28790392.davem@redhat.com> <16111.18107.699689.704597@robur.slu.se> <20030617200721.GA25773@netnation.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: ralph+d@istop.com, "netdev@oss.sgi.com" <netdev@oss.sgi.com>,
-   "linux-net@vger.kernel.org" <linux-net@vger.kernel.org>
+Cc: "David S. Miller" <davem@redhat.com>, ralph+d@istop.com,
+   hadi@shell.cyberus.ca, xerox@foonet.net, fw@deneb.enyo.de,
+   netdev@oss.sgi.com, linux-net@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Simon Kirby <sim@netnation.com>
-In-Reply-To: <20030609163010.GA11509@netnation.com> (Simon Kirby's message
- of "Mon, 9 Jun 2003 09:30:10 -0700")
+To: Robert Olsson <Robert.Olsson@data.slu.se>
+Content-Disposition: inline
+In-Reply-To: <20030617200721.GA25773@netnation.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Simon Kirby <sim@netnation.com> writes:
+On Tue, Jun 17, 2003 at 01:07:21PM -0700, Simon Kirby wrote:
 
-> What Zebra quirks?
+> Whoa.  Uhm.  A lot.  I should compare with 2.4 again to see what's going
+> on here.
+> 
+> 60.0042 seconds passed, avg forwarding rate: 50759.683 pps
 
-Zebra doesn't send BGP keepalives while updating the kernel's view of
-the routing table.  If a configuration change results massive routing
-table updates (e.g. changed LOCAL_PREF), it's quite likely that you
-BGP peering sessions terminate because of a timeout.
+Ummmm, yeah, 2.5.71 is quite a bit slower than 2.4.21.  I applied
+Alexey's 2.5.71 rtcache fixes to 2.4.21 (changing "fl" to "key" in
+the scoring function), and now I see:
 
-Other "quirks" are just things that don't work as they should (mostly
-Cisco incompatibilities, sometimes genuine bugs in route-map support
-etc.).
+60.0065 seconds passed, avg forwarding rate: 135379.152 pps
 
-It's not dramatic in most cases, but like any complex technology, it
-takes some time to get used to.
+If reboot and don't fill the routing table:
 
-(Disclaimer: I'm not a Zebra user. 8-)
+60.0104 seconds passed, avg forwarding rate: 259027.200 pps
 
-> And I wouldn't exactly call it difficult to "squeeze" performance out of
-> a PC when the 7206 VXRs have a 200 MHz processor.
+This is with standard juno (pseudo-random sources).
 
-You missed the NPE-G1 part.
+This is with CONFIG_IP_MULTIPLE_TABLES still on, too.  I'll turn that off
+and do some profiles.  The only weird thing I'm seeing while doing this
+is that the route cache table continues to grow slowly, and the pps
+slowly falls off over a few minutes.  "ip route flush cache" restores
+performance again.  I'll verify this is not happening in 2.5.
 
-cisco 7204VXR (NPE-G1) processor (revision A) with 245760K/16384K bytes of memory.
-SB-1 CPU at 700Mhz, Implementation 1, Rev 0.2, 512KB L2 Cache
+Simon-
 
-Probably still slow by x86 standards, and with a rather small cache,
-but it's sufficient for a few kpps, I guess...
+[        Simon Kirby        ][        Network Operations        ]
+[     sim@netnation.com     ][   NetNation Communications Inc.  ]
+[  Opinions expressed are not necessarily those of my employer. ]
