@@ -1,126 +1,54 @@
-From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
+From: Jeff Garzik <jgarzik@pobox.com>
 Subject: Re: [RFC] Wireless extensions rethink
-Date: Thu, 17 Jun 2004 12:13:38 -0700
+Date: Thu, 17 Jun 2004 15:52:39 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040617191338.GD32216@bougret.hpl.hp.com>
-References: <40D08769.3070106@home.nl> <20040616204248.GA23617@bougret.hpl.hp.com> <40D0BD5B.201@pobox.com> <20040616223316.GA29618@bougret.hpl.hp.com> <40D0D265.3070804@pobox.com> <20040617174717.GA30460@bougret.hpl.hp.com> <40D1E185.2010201@pobox.com> <40D1E24C.8090802@pobox.com> <20040617185815.GB32216@bougret.hpl.hp.com> <40D1EAD9.6090403@pobox.com>
-Reply-To: jt@hpl.hp.com
+Message-ID: <40D1F687.6030307@pobox.com>
+References: <1087377197.25912.54.camel@sfeldma-mobl2.dsl-verizon.net> <40D08769.3070106@home.nl> <20040616204248.GA23617@bougret.hpl.hp.com> <40D0BD5B.201@pobox.com> <20040616223316.GA29618@bougret.hpl.hp.com> <40D0D265.3070804@pobox.com> <20040617174717.GA30460@bougret.hpl.hp.com> <40D1E185.2010201@pobox.com> <20040617185605.GA32216@bougret.hpl.hp.com> <40D1EC54.8000904@pobox.com> <20040617193154.GE32216@bougret.hpl.hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, Gertjan van Wingerde <gwingerde@home.nl>,
-        sfeldma@pobox.com, jkmaline@cc.hut.fi
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Gertjan van Wingerde <gwingerde@home.nl>, sfeldma@pobox.com,
+        netdev@oss.sgi.com, jkmaline@cc.hut.fi
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <40D1EAD9.6090403@pobox.com>
+To: jt@hpl.hp.com
+In-Reply-To: <20040617193154.GE32216@bougret.hpl.hp.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 17, 2004 at 03:02:49PM -0400, Jeff Garzik wrote:
-> Jean Tourrilhes wrote:
-> >On Thu, Jun 17, 2004 at 02:26:20PM -0400, Jeff Garzik wrote:
-> >
-> >>Note that the above is only a first step.  Through the standard Linux 
-> >>development process -- evolution -- each hook can be pared down to 
-> >>precisely what each call needs.  The above allows for a quick transition 
-> >>of drivers, while keeping them working.
-> >>
-> >>	Jeff
-> >
-> >
-> >	Have you looked at the patch I sent you ? In which way does it
-> >fails to meet your need ?
-> 
-> 
-> The three major problems I listed in a previous email are still 
-> present...
+Jean Tourrilhes wrote:
+> 	And guess what, I'm helping you in the process. Look back at
+> all the e-mail I sent to the various thread on the subject, and you
+> will clearly see that I'm constructive and giving suggestion on how to
+> do best in this process. I even provide patches.
+> 	I don't understand why you are so opposed to my suggestions,
+> and what more you expect from me.
+[...]
+> 	Converging wireless into Linux since 1996. Welcome to the club ;-)
 
-	Are we talking of the same patch ? I'm talking of this patch :
-http://marc.theaimsgroup.com/?l=linux-netdev&m=108749580004668&w=2
-	I reattached the patch below. It's short enough.
+hehe  :)
 
->  Also there is a fourth -- WE doesn't work 100% when you have 
-> a 32-bit userland and a 64-bit kernel.
+I'm _not_ blaming you for anything.  You have certainly contributed a 
+lot.  I've enjoyed working with you in the past, today, and hopefully 
+into the future as well.  I _am_ listening.  But I think we have a 
+fundamental disagreement:
 
-	Since when ? What made you change your mind ?
-	Please check :
-http://marc.theaimsgroup.com/?l=linux-netdev&m=107894322418086&w=2
+I feel strongly (as you see :)) that the type-opaque interface has got 
+to go, and that means breaking backwards compatibility in the driver API.
 
-> 	Jeff
+The iw_handler interface breaks rules of C that we shouldn't be 
+breaking.  Today's kernel includes boatloads of reference-counted 
+kobjects, with strict definitions of lifetime rules.  This has exposed 
+endless bugs and caused a lot of pain, but overall it's a good thing to 
+clean all that up.  Interfaces that store offsets into driver-local 
+structures (iw_handler_def) violate these lifetime rules by simply 
+assuming you always have access to the structure of choice.
 
-	Jean
+We want to design driver interfaces that make it tough for the driver 
+writer to screw up.  Excluding yourself, myself, and others on this 
+list, I think we all know that driver writers can't code their way out 
+of a paper bag.  A properly designed interface lets the compiler flag 
+incorrect code at the first possible opportunity.  Current WE __does__ 
+get the job done (kudos), but it simply doesn't afford that kind of 
+protection.
 
------------------------------------------------------------
-
---- linux/include/net/iw_handler.j1.h	Thu Jun 17 10:16:22 2004
-+++ linux/include/net/iw_handler.h	Thu Jun 17 10:17:24 2004
-@@ -301,6 +301,9 @@ typedef int (*iw_handler)(struct net_dev
-  */
- struct iw_handler_def
- {
-+	/* Wireless Ops definitions */
-+	struct wireless_ops *	wireless_ops;
-+
- 	/* Number of handlers defined (more precisely, index of the
- 	 * last defined handler + 1) */
- 	__u16			num_standard;
---- linux/net/core/wireless.j1.c	Thu Jun 17 10:08:45 2004
-+++ linux/net/core/wireless.c	Thu Jun 17 10:28:59 2004
-@@ -343,8 +343,14 @@ static inline iw_handler get_handler(str
- 	if(dev->wireless_handlers == NULL)
- 		return NULL;
- 
--	/* Try as a standard command */
- 	index = cmd - SIOCIWFIRST;
-+
-+	/* Try as wireless_ops */
-+	if((index < (SIOCIWFIRSTPRIV - SIOCIWFIRST)) &&
-+	   (dev->wireless_handlers->wireless_ops != NULL))
-+		return &iw_process_wireless_ops;
-+
-+	/* Try as a standard command */
- 	if(index < dev->wireless_handlers->num_standard)
- 		return dev->wireless_handlers->standard[index];
- 
-@@ -1372,3 +1378,41 @@ EXPORT_SYMBOL(iw_handler_set_spy);
- EXPORT_SYMBOL(iw_handler_set_thrspy);
- EXPORT_SYMBOL(wireless_send_event);
- EXPORT_SYMBOL(wireless_spy_update);
-+
-+/*********************** WIRELESS OPS SUPPORT ***********************/
-+/*
-+ * Documentation to be added by Jeff ;-)
-+ */
-+
-+/*------------------------------------------------------------------*/
-+/*
-+ * Generic Wireless Handler to process Wireless Ops
-+ */
-+int iw_process_wireless_ops(struct net_device *	dev,
-+			    struct iw_request_info *info,
-+			    union iwreq_data *	wrqu,
-+			    char *		extra)
-+{
-+	struct wireless_ops *	ops;
-+
-+	/* Already verified != NULL in get_handler() */
-+	ops = dev->wireless_handlers->wireless_ops;
-+
-+	/* Just do it */
-+	switch(info->cmd)
-+	{
-+	case SIOCSIWESSID:
-+		/* Set ESSID */
-+		if(ops->set_essid != NULL)
-+			return ops->set_essid(dev, extra, wrqu->essid.length,
-+					      wrqu->essid.flags);
-+	case SIOCGIWESSID:
-+		/* Get ESSID */
-+		if(ops->get_essid != NULL)
-+			return ops->get_essid(dev, extra, &wrqu->essid.length,
-+					      &wrqu->essid.flags);
-+	default:
-+	}
-+	return -EOPNOTSUPP;
-+}
-+
+	Jeff
