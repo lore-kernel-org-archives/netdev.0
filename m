@@ -1,53 +1,43 @@
-From: CaT <cat@zip.com.au>
-Subject: 2.4.21+ - IPv6 over IPv4 tunneling b0rked
-Date: Fri, 11 Jul 2003 01:43:03 +1000
+From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Subject: Re: [[RFT] convert appletalk over to new protocol
+Date: Thu, 10 Jul 2003 03:20:11 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030710154302.GE1722@zip.com.au>
+Message-ID: <20030710062010.GC11670@conectiva.com.br>
+References: <20030709131300.660c052f.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, pekkas@netcore.fi
+Cc: "David S. Miller" <davem@redhat.com>, Jay Schulist <jschlst@samba.org>,
+   netdev@oss.sgi.com, linux-atalk@lists.netspace.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org, linux-kernel@vger.kernel.org
+To: Stephen Hemminger <shemminger@osdl.org>
 Content-Disposition: inline
+In-Reply-To: <20030709131300.660c052f.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-With 2.4.21-pre2 I can get a nice tunnel going over my ppp connection
-and as such get ipv6 connectivity. I think went to 2.4.21 and then to
-2.4.22-pre4 and bringing up the tunnel fails as follows:
+Em Wed, Jul 09, 2003 at 01:13:00PM -0700, Stephen Hemminger escreveu:
+> This fixes appletalk ddp protocol to address a couple of issues:
+> 	- routing code was holding a reference to device without doing ref counting.
+> 	- packet interface was old style
+> 	   - add shared buffer checks
+> 	   - add pullup's where needed
+> 	   - change checksum to handle fragmented sk_buff's
+> 	- clean up comments to match above changes.
+> 
+> I don't have real appletalk test infrastructure, and given the checksum change it should
+> be tested against real Apple hardware.  It does build, and loads/unloads fine.  I can
+> bring up the netatalk stuff without problem but have nothing to talk to it.
 
-[01:37:04] root@nessie:/usr/src/linux>> ifup --verbose sit1
-Configuring interface sit1=sit1 (inet6)
-run-parts /etc/network/if-pre-up.d
-ip tunnel add sit1 mode sit remote 138.25.6.14
-ip link set sit1 up
-ip addr add 3ffe:8001:000c:ffff::37/127 dev sit1
- ip route add ::/0 via 3ffe:8001:000c:ffff::36 
-RTNETLINK answers: Invalid argument
+I'll take a look, but I missed the sock_hold/put stuff from a first look, it
+is OK by now when adding and removing from a lista of socks due to the hlist
+conversion work, but needs to be done in routines that search a list of socks
+and return a sock.
 
-Basically nothing gets through. Any attempts to ping/connect past my
-gw fail and pinging the external gw results in packets coming back from
-my gw (though with the eth0 IP addy) as if I were pinging it instead.
+I do have a good Appletalk test bed, with m68k and ppc macs, but I'll only will
+be able to test this next wednesday, as I'll be on a business trip starting
+tomorrow.
 
-ie:
+Good work as far as I quickly glanced, will review it further and provide
+comments, probably in the next days.
 
-15 [01:41:34] hogarth@theirongiant:/home/hogarth>> ping6 3ffe:8001:000c:ffff::36PING 3ffe:8001:000c:ffff::36(3ffe:8001:c:ffff::36) from 3ffe:8002:1005::2 : 56 data bytes
-64 bytes from 3ffe:8002:1005::1: icmp_seq=1 ttl=64 time=0.159 ms
-64 bytes from 3ffe:8002:1005::1: icmp_seq=2 ttl=64 time=0.118 ms
-64 bytes from 3ffe:8002:1005::1: icmp_seq=3 ttl=64 time=0.109 ms
-64 bytes from 3ffe:8002:1005::1: icmp_seq=4 ttl=64 time=0.116 ms
-64 bytes from 3ffe:8002:1005::1: icmp_seq=5 ttl=64 time=0.114 ms
-
---- 3ffe:8001:000c:ffff::36 ping statistics ---
-5 packets transmitted, 5 received, 0% loss, time 3999ms
-rtt min/avg/max/mdev = 0.109/0.123/0.159/0.019 ms
-
-Mind you, the same exact config works beautifully under 2.4.21-pre2.
-
-If there are any patches you want me to try or help in any other way
-(as far as debugging goes anyways :) then holler. :)
-
--- 
-"How can I not love the Americans? They helped me with a flat tire the
-other day," he said.
-	- http://www.toledoblade.com/apps/pbcs.dll/artikkel?SearchID=73139162287496&Avis=TO&Dato=20030624&Kategori=NEWS28&Lopenr=106240111&Ref=AR
+- Arnaldo
