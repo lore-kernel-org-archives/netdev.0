@@ -1,50 +1,24 @@
-From: Jeff Garzik <jgarzik@pobox.com>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: [NET]: Device mtu/txqlen/ifmap via rtnetlink.
-Date: Thu, 26 Aug 2004 02:29:03 -0400
+Date: Wed, 25 Aug 2004 23:33:30 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <412D832F.2070003@pobox.com>
+Message-ID: <20040825233330.15a82d29.davem@redhat.com>
 References: <200408260506.i7Q56Ebq022683@hera.kernel.org>
+	<412D832F.2070003@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@oss.sgi.com>
+Cc: tgraf@suug.ch, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: tgraf@suug.ch, davem@redhat.com
-In-Reply-To: <200408260506.i7Q56Ebq022683@hera.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <412D832F.2070003@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Linux Kernel Mailing List wrote:
-> @@ -246,6 +268,30 @@
->  
->  	err = -EINVAL;
->  
-> +	if (ifm->ifi_flags)
-> +		dev_change_flags(dev, ifm->ifi_flags);
-> +
-> +	if (ida[IFLA_MAP - 1]) {
-> +		if (!dev->set_config) {
-> +			err = -EOPNOTSUPP;
-> +			goto out;
-> +		}
-> +
-> +		if (!netif_device_present(dev)) {
-> +			err = -ENODEV;
-> +			goto out;
-> +		}
-> +		
-> +		if (ida[IFLA_MAP - 1]->rta_len != RTA_LENGTH(sizeof(struct ifmap)))
-> +			goto out;
-> +		
-> +		err = dev->set_config(dev, (struct ifmap *)
-> +				RTA_DATA(ida[IFLA_MAP - 1]));
-> +
-> +		if (err)
-> +			goto out;
-> +	}
-> +
+On Thu, 26 Aug 2004 02:29:03 -0400
+Jeff Garzik <jgarzik@pobox.com> wrote:
 
+> Why are new calls to deprecated hook ->set_config() being added?
 
-Why are new calls to deprecated hook ->set_config() being added?
-
-	Jeff
+Because it's the only way to %100 implement ifconfig
+using netlink.
