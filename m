@@ -1,37 +1,37 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: abysmal e1000 performance (DITR)
-Date: Mon, 7 Jun 2004 16:57:30 +0200
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] common code for generating tcp_info
+Date: Mon, 7 Jun 2004 09:16:08 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <16580.33370.535347.85788@robur.slu.se>
-References: <1085700138.30156.1322.camel@tubarao>
+Message-ID: <20040607091608.07924826@dell_ss3.pdx.osdl.net>
+References: <20040604153749.5d8a13b9@dell_ss3.pdx.osdl.net>
+	<1086619698.4113.22.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: tharbaugh@lnxi.com
-In-Reply-To: <1085700138.30156.1322.camel@tubarao>
+To: Joe Perches <joe@perches.com>, David S Miller <davem@redhat.com>
+In-Reply-To: <1086619698.4113.22.camel@localhost.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+The comment was out of date, keep moving, nothing to see here...
 
-Thayne Harbaugh writes:
-
- > This is a patch to include system load when calculating the DITR.  It
- > only allows the diff/goc ratio to factor into the DITR when the 1 minute
- > load average is above .50.  It appears to work quite well and prevents
- > throttling when the load is below .50 and allows throttling when the
- > load is in excess of .50.
-
- Hello!
-
- The experience we had from decorrelating network traffic for use with variable
- interrupt delays etc was that no average based scheme worked at the packet 
- resolution we wanted. 
-
- The only useful measure we found was using the number of packets received 
- on the RX-ring. You see this used in tulip driver to get a dynamic RX 
- interrupt delay. 
-
- Cheers.
-						--ro
+diff -Nru a/include/linux/tcp.h b/include/linux/tcp.h
+--- a/include/linux/tcp.h	2004-06-07 09:15:59 -07:00
++++ b/include/linux/tcp.h	2004-06-07 09:15:59 -07:00
+@@ -351,11 +351,11 @@
+ 	__u8	urg_mode;	/* In urgent mode		*/
+ 	__u32	snd_up;		/* Urgent pointer		*/
+ 
+-	/* The syn_wait_lock is necessary only to avoid tcp_get_info having
++	/* The syn_wait_lock is necessary only to avoid proc interface having
+ 	 * to grab the main lock sock while browsing the listening hash
+ 	 * (otherwise it's deadlock prone).
+-	 * This lock is acquired in read mode only from tcp_get_info() and
+-	 * it's acquired in write mode _only_ from code that is actively
++	 * This lock is acquired in read mode only from listening_get_next()
++	 * and it's acquired in write mode _only_ from code that is actively
+ 	 * changing the syn_wait_queue. All readers that are holding
+ 	 * the master sock lock don't need to grab this lock in read mode
+ 	 * too as the syn_wait_queue writes are always protected from
