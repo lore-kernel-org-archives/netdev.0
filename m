@@ -1,76 +1,111 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH 2.4 NETLINK]: Unhash sockets correctly
-Date: Wed, 16 Feb 2005 19:54:17 +0100
-Message-ID: <421396D9.2030405@trash.net>
+From: Jeff Moyer <jmoyer@redhat.com>
+Subject: Re: serious netpoll bug w/NAPI
+Date: Wed, 16 Feb 2005 14:26:37 -0500
+Message-ID: <16915.40557.591071.224381@segfault.boston.redhat.com>
+References: <20050208201634.03074349.davem@davemloft.net>
+	<20050209183219.GA2366@waste.org>
+	<20050209164658.409f8950.davem@davemloft.net>
+	<20050210011104.GF2366@waste.org>
+	<16914.31886.665975.522710@segfault.boston.redhat.com>
+	<20050216050722.GC3358@waste.org>
+Reply-To: jmoyer@redhat.com
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------050500020804090602010302"
-Cc: Maillist netdev <netdev@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+To: Matt Mackall <mpm@selenic.com>
+In-Reply-To: <20050216050722.GC3358@waste.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------050500020804090602010302
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+==> Regarding Re: serious netpoll bug w/NAPI; Matt Mackall <mpm@selenic.com> adds:
 
-Hi Dave,
+mpm> On Tue, Feb 15, 2005 at 05:49:50PM -0500, Jeff Moyer wrote:
+>> ==> Regarding Re: serious netpoll bug w/NAPI; Matt Mackall <mpm@selenic.com> adds:
+>> 
+>> Sorry, Matt, I'm just now getting to this.
+>> 
+mpm> On Wed, Feb 09, 2005 at 04:46:58PM -0800, David S. Miller wrote:
+>> >> On Wed, 9 Feb 2005 10:32:19 -0800 Matt Mackall <mpm@selenic.com> wrote:
+>> >> 
+>> >> > On closer inspection, there's a couple other related failure cases >
+>> >> with the new ->poll logic in netpoll. I'm afraid it looks like >
+>> >> CONFIG_NETPOLL will need to guard ->poll() with a per-device spinlock >
+>> >> on netpoll-enabled devices.
+>> >> > 
+>> >> > This will mean putting a pointer to struct netpoll in struct >
+>> >> net_device (which I should have done in the first place) and will take >
+>> >> a few patches to sort out.
+>> >> 
+>> >> Will this ->poll() guarding lock be acquired only in the netpoll code or
+>> >> system-wide?  If the latter, this introduced an incredible performance
+>> >> regression for devices using the LLTX locking scheme (ie. the most
+>> >> important high-performance gigabit drivers in the tree use this).
+>> 
+mpm> The lock will only be taken in net_rx_action iff netpoll is enabled
+mpm> for the given device. Lock contention should be basically nil.
+>> 
+mpm> Here's my current patch (on top of -mm), which I'm struggling to find
+mpm> an appropriate test box for (my dual box with NAPI got pressed into
+mpm> service as a web server a couple weeks ago). I've attached the other
+mpm> two patches it relies on as well.
+>> 
+mpm> --------------
+>> 
+mpm> Introduce a per-client poll lock and flag. The lock assures we never
+mpm> have more than one caller in dev->poll(). The flag provides recursion
+mpm> avoidance on UP where the lock disappears.
+>> 
+>> ,----
+>> |  /*
+>> | - * Check whether delayed processing was scheduled for our current CPU,
+>> | - * and then manually invoke NAPI polling to pump data off the card.
+>> | + * Check whether delayed processing was scheduled for our NIC. If so,
+>> | + * we attempt to grab the poll lock and use ->poll() to pump the card.
+>> | + * If this fails, either we've recursed in ->poll() or it's already
+>> | + * running on another CPU.
+>> | + *
+>> | + * Note: we don't mask interrupts with this lock because we're using
+>> | + * trylock here and interrupts are already disabled in the softirq
+>> | + * case. Further, we test the poll_flag to avoid recursion on UP
+>> | + * systems where the lock doesn't exist.
+>> |   *
+>> |   * In cases where there is bi-directional communications, reading only
+>> |   * one message at a time can lead to packets being dropped by the
+>> | @@ -74,13 +80,9 @@
+>> |  static void poll_napi(struct netpoll *np)
+>> |  {
+>> |  	int budget = 16;
+>> | -	unsigned long flags;
+>> | -	struct softnet_data *queue;
+>> |  
+>> | -	spin_lock_irqsave(&netpoll_poll_lock, flags);
+>> | -	queue = &__get_cpu_var(softnet_data);
+>> |  	if (test_bit(__LINK_STATE_RX_SCHED, &np->dev->state) &&
+>> | -	    !list_empty(&queue->poll_list)) {
+>> | +	    !np->poll_flag && spin_trylock(&np->poll_lock)) {
+>> |  		np->rx_flags |= NETPOLL_RX_DROP;
+>> |  		atomic_inc(&trapped);
+>> |  
+>> | @@ -88,8 +90,8 @@
+>> |  
+>> |  		atomic_dec(&trapped);
+>> |  		np->rx_flags &= ~NETPOLL_RX_DROP;
+>> | +		spin_unlock(&np->poll_lock);
+>> |  	}
+>> | -	spin_unlock_irqrestore(&netpoll_poll_lock, flags);
+>> |  }
+>> 
+>> Okay, I've only taken a quick glance at this, but I don't quite understand
+>> why it's safe to take out the check for the per-cpu queue.  Realize that an
+>> interrupt may have been serviced on another processor, and a NAPI poll may
+>> have been scheduled there.
 
-this patch fixes a nasty bug introduced by the pid-hash backport.
-Sockets are only unhashed if they are contained in the first hash
-bucket. This leads to leaking sockets and, over time, to bind
-conflicts which confuse iproute and result in sporadic failure.
+mpm> Because dev->np->poll_lock now serializes all access to ->poll (when
+mpm> netpoll is enabled on said device).
 
-Regards
-Patrick
+Ahh, yes.  This does look like the right approach.  I'll see if I can
+reproduce and test this here.
 
-
---------------050500020804090602010302
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
-
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2005/02/16 19:32:38+01:00 kaber@coreworks.de 
-#   [NETLINK]: Unhash sockets correctly
-#   
-#   netlink_remove() only unhashes sockets contained in the
-#   first hash bucket. This leads to leaking sockets and,
-#   over time, to bind conflicts which confuse iproute.
-#   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-# 
-# net/netlink/af_netlink.c
-#   2005/02/16 19:32:36+01:00 kaber@coreworks.de +2 -1
-#   [NETLINK]: Unhash sockets correctly
-#   
-#   netlink_remove() only unhashes sockets contained in the
-#   first hash bucket. This leads to leaking sockets and,
-#   over time, to bind conflicts which confuse iproute.
-#   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-# 
-diff -Nru a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
---- a/net/netlink/af_netlink.c	2005-02-16 19:32:51 +01:00
-+++ b/net/netlink/af_netlink.c	2005-02-16 19:32:51 +01:00
-@@ -327,10 +327,11 @@
- 	struct sock **skp;
- 	struct netlink_table *table = &nl_table[sk->protocol];
- 	struct nl_pid_hash *hash = &table->hash;
-+	u32 pid = nlk_sk(sk)->pid;
- 
- 	netlink_table_grab();
- 	hash->entries--;
--	for (skp = hash->table; *skp; skp = &((*skp)->next)) {
-+	for (skp = nl_pid_hashfn(hash, pid); *skp; skp = &((*skp)->next)) {
- 		if (*skp == sk) {
- 			*skp = sk->next;
- 			__sock_put(sk);
-
---------------050500020804090602010302--
+-Jeff
