@@ -1,36 +1,73 @@
-From: Richard Dawe <rich@phekda.gotadsl.co.uk>
-Subject: Re: [PATCH 5/5] r8169: ethtool hardware statistics support
-Date: Sat, 12 Mar 2005 12:32:05 +0000
-Message-ID: <4232E145.5030005@phekda.gotadsl.co.uk>
-References: <20050309113626.6708c93e@dxpl.pdx.osdl.net>
+From: Daniele Venzano <venza@brownhat.org>
+Subject: Maintainer change for the sis900 driver
+Date: Sat, 12 Mar 2005 13:42:21 +0100
+Message-ID: <20050312124221.GA2368@gateway.milesteg.arr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@oss.sgi.com
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20050309113626.6708c93e@dxpl.pdx.osdl.net>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="Pd0ReVV5GZGQvF3a"
+To: Jeff Garzik <jgarzik@pobox.com>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        NetDev <netdev@oss.sgi.com>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello.
 
-Stephen Hemminger wrote:
-> Add ethtool support for dumping the chip statistics. There aren't lots
-> of statistics available, but this is what is available according to the RealTek
-> documentation.
-[snip]
+--Pd0ReVV5GZGQvF3a
+Content-Type: multipart/mixed; boundary="6c2NcOVqGQ03X4Wi"
+Content-Disposition: inline
 
-Works fine for me on my Athlon64 laptop with a 8169 with built-in PHY.
 
-Did some rsync'ing and some broadcast pings. Statistics looked sane. 
-Also tried stopping networking ("/etc/init.d/network stop") and checked 
-that all the stats had been reset to zero.
+--6c2NcOVqGQ03X4Wi
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Thanks, bye, Rich =]
+The attached patch updates the sis900 record of MAINTAINERS file.
+
+Signed-off-by: Daniele Venzano <venza@brownhat.org>
 
 -- 
-Richard Dawe [ http://homepages.nildram.co.uk/~phekda/richdawe/ ]
+-----------------------------
+Daniele Venzano
+Web: http://www.brownhat.org
 
-"You can't evaluate a man by logic alone."
-   -- McCoy, "I, Mudd", Star Trek
+
+--6c2NcOVqGQ03X4Wi
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="sis900_maintainer.diff"
+
+--- a/MAINTAINERS	2005-03-12 11:40:46.000000000 +0100
++++ b/MAINTAINERS	2005-03-12 11:44:39.000000000 +0100
+@@ -2017,10 +2017,11 @@
+ S:	Maintained
+ 
+ SIS 900/7016 FAST ETHERNET DRIVER
+-P:	Ollie Lho
+-M:	ollie@sis.com.tw
++P:	Daniele Venzano
++M:	venza@brownhat.org
++W:	http://www.brownhat.org/sis900.html
+ L:	linux-net@vger.kernel.org
+-S:	Supported
++S:	Maintained
+ 
+ SIS FRAMEBUFFER DRIVER
+ P:	Thomas Winischhofer
+
+--6c2NcOVqGQ03X4Wi--
+
+--Pd0ReVV5GZGQvF3a
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (GNU/Linux)
+
+iD8DBQFCMuOt2rmHZCWzV+0RAtK3AJ9ksAjE51pz+JxA3hyZAhlbU+DcPACfSWeF
+Tj+GrgfJj/hVHHy84hTKAFQ=
+=+yWa
+-----END PGP SIGNATURE-----
+
+--Pd0ReVV5GZGQvF3a--
