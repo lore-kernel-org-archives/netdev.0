@@ -1,60 +1,67 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: IMQ again WAS(Re: iptables breakage WAS(Re: dummy
-	as	IMQ	replacement
-Date: 28 Mar 2005 09:20:14 -0500
-Message-ID: <1112019614.1090.1068.camel@jzny.localdomain>
-References: <1107123123.8021.80.camel@jzny.localdomain>
-	 <1111462263.1109.6.camel@jzny.localdomain> <42408998.5000202@dsl.pipex.com>
-	 <1111550254.1089.21.camel@jzny.localdomain>
-	 <4241C478.5030309@dsl.pipex.com>
-	 <1111607112.1072.48.camel@jzny.localdomain>
-	 <4241D764.2030306@dsl.pipex.com>
-	 <1111612042.1072.53.camel@jzny.localdomain>
-	 <4241F1D2.9050202@dsl.pipex.com>  <4241F7F0.2010403@dsl.pipex.com>
-	 <1111625608.1037.16.camel@jzny.localdomain> <424212F7.10106@dsl.pipex.com>
-	 <1111663947.1037.24.camel@jzny.localdomain>
-	 <1111665450.1037.27.camel@jzny.localdomain>
-	 <4242DFB5.9040802@dsl.pipex.com>
-	 <1111749220.1092.457.camel@jzny.localdomain>
-	 <42446DB2.9070809@dsl.pipex.com>
-	 <1111781443.1092.631.camel@jzny.localdomain>
-	 <4244802C.7020202@dsl.pipex.com>
-	 <1111788760.1090.712.camel@jzny.localdomain>
-	 <42470AF9.8050402@dsl.pipex.com>  <424808F7.50101@dsl.pipex.com>
-	 <1112
-Reply-To: hadi@cyberus.ca
+From: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
+Subject: [PATCH] rtnl_unlock/lock in sch_api.c
+Date: Mon, 28 Mar 2005 17:25:51 +0300 (EEST)
+Message-ID: <Pine.LNX.4.62.0503281720430.20453@webhosting.rdsbv.ro>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Harald Welte <laforge@gnumonks.org>, Patrick McHardy <kaber@trash.net>,
-        Remus <rmocius@auste.elnet.lt>, netdev <netdev@oss.sgi.com>,
-        Nguyen Dinh Nam <nguyendinhnam@gmail.com>, Andre Tomt <andre@tomt.net>,
-        syrius.ml@no-log.org, Damion de Soto <damion@snapgear.com>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-1646943047-1742722255-1112019951=:20453"
+Cc: davem@davemloft.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andy Furniss <andy.furniss@dsl.pipex.com>
-In-Reply-To: <424810C5.7080707@dsl.pipex.com>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2005-03-28 at 09:12, Andy Furniss wrote:
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-> 
-> Hmm - it works on ingress and all I really wanted to do was
-> 
+---1646943047-1742722255-1112019951=:20453
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
 
-Yes but you installed ingress qdisc ;->
+Hello!
 
-> tc filter add dev eth0 parent 0: protocol ip prio 10 u32 match ip src 
-> 0/0 action mirred egress redirect dev dummy0
-> 
+Trying to load a custom module (same for teql but I didn't tried it)
+whan the qdisc module is not loaded, makes tc hang.
+This is because qdisc_create aquires rtnl_sem and then tries to load a 
+module that tries to register_netdev (that tries to aquire the same 
+rtnl_sem).
+Applying this patch makes the problem go away.
 
-Likewise you need to install egress qdisc
+Signed-off-by: Catalin(ux aka Dino) BOIE <catab at umbrella.ro>
 
-Alexey did warn about making default qdisc visible - that people would
-come back and ask for more ;->
-If we are going to allow this then i think we should make ingress also
-on by default (so the install before use doesnt apply there either).
+Please apply.
 
-cheers,
-jamal
+Thanks!
+
+---
+Catalin(ux aka Dino) BOIE
+catab at deuroconsult.ro
+http://kernel.umbrella.ro/
+---1646943047-1742722255-1112019951=:20453
+Content-Type: TEXT/PLAIN; charset=US-ASCII; name=rt_unlock_in_sch_api.patch
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.LNX.4.62.0503281725510.20453@webhosting.rdsbv.ro>
+Content-Description: 
+Content-Disposition: attachment; filename=rt_unlock_in_sch_api.patch
+
+LS0tIGxpbnV4L25ldC9zY2hlZC9zY2hfYXBpLmMub3JpZwkyMDA1LTAzLTI4
+IDE2OjMyOjU3LjAwMDAwMDAwMCArMDMwMA0KKysrIGxpbnV4L25ldC9zY2hl
+ZC9zY2hfYXBpLmMJMjAwNS0wMy0yOCAxNjozODoxNy4wMDAwMDAwMDAgKzAz
+MDANCkBAIC00MDQsMTggKzQwNCwyOCBAQCBxZGlzY19jcmVhdGUoc3RydWN0
+IG5ldF9kZXZpY2UgKmRldiwgdTMyDQogCXN0cnVjdCBRZGlzY19vcHMgKm9w
+czsNCiAJaW50IHNpemU7DQogDQorCWVyciA9IC1FSU5WQUw7DQogCW9wcyA9
+IHFkaXNjX2xvb2t1cF9vcHMoa2luZCk7DQogI2lmZGVmIENPTkZJR19LTU9E
+DQotCWlmIChvcHM9PU5VTEwgJiYgdGNhW1RDQV9LSU5ELTFdICE9IE5VTEwp
+IHsNCisJaWYgKG9wcyA9PSBOVUxMICYmIGtpbmQgIT0gTlVMTCkgew0KIAkJ
+Y2hhciBuYW1lW0lGTkFNU0laXTsNCiAJCWlmIChydGF0dHJfc3RybGNweShu
+YW1lLCBraW5kLCBJRk5BTVNJWikgPCBJRk5BTVNJWikgew0KKwkJCS8qIE11
+c3QgZHJvcCBydG5sIHNlbSBiZWNhdXNlIHJlcXVlc3RfbW9kdWxlDQorCQkJ
+ICogY2FuIHRyeSB0byBhcXVpcmUgcnRubCBzZW0gKHNlZSB0ZXFsIGZvcg0K
+KwkJCSAqIGV4YW1wbGUpDQorCQkJICovDQorCQkJcnRubF91bmxvY2soKTsN
+CiAJCQlyZXF1ZXN0X21vZHVsZSgic2NoXyVzIiwgbmFtZSk7DQorCQkJcnRu
+bF9sb2NrKCk7DQogCQkJb3BzID0gcWRpc2NfbG9va3VwX29wcyhraW5kKTsN
+CisJCQlpZiAob3BzICE9IE5VTEwpIHsNCisJCQkJbW9kdWxlX3B1dChvcHMt
+Pm93bmVyKTsNCisJCQkJZXJyID0gLUVBR0FJTjsNCisJCQl9DQogCQl9DQog
+CX0NCiAjZW5kaWYNCiANCi0JZXJyID0gLUVJTlZBTDsNCiAJaWYgKG9wcyA9
+PSBOVUxMKQ0KIAkJZ290byBlcnJfb3V0Ow0KIA0K
+
+---1646943047-1742722255-1112019951=:20453--
