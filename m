@@ -1,37 +1,28 @@
-From: Jouni Malinen <jkmaline@cc.hut.fi>
-Subject: Re: Additional 802.11 net stack code posted
-Date: Thu, 3 Jun 2004 20:45:13 -0700
+From: "Colin LEROY" <colin@colino.net>
+Subject: Re: wireless-2.6 queue opened
+Date: Fri, 4 Jun 2004 11:13:24 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040604034513.GD7537@jm.kir.nu>
-References: <40BECAFC.7040405@pobox.com>
+Message-ID: <026001c44a14$30cd9fc0$3cc8a8c0@epro.dom>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev@oss.sgi.com>
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <40BECAFC.7040405@pobox.com>
+To: <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 03, 2004 at 02:53:48AM -0400, Jeff Garzik wrote:
+Hi,
 
-> One of things that a proper "802.11 stack" should be is tie closely into 
-> the core net stack, so that translation to/from 802.3 isn't going on all 
-> the time.  One wants to create, receive, and "understand" native 802.11 
-> frames, and provide a sane management infrastructure.
+Just a quick question about the generic 802.11 stack. Is USB support planned for
+this?
 
-Yes, indeed. When working outside the kernel tree, it was somewhat
-difficult to do this kind of changes, but this is certainly one of my
-goals, too, and now would be a good time to get the implementation
-together.
-
-> To that end, I ask that wireless hackers please study stub 802.11 code 
-> that DaveM wrote
-
-Thanks! I will need to do some experimenting with this code, so this
-will take some time. Based on the quick browse through the files, there
-are number of things I have been missing before..
+I'm asking, because I read on the web that adding USB support to hostap would be
+a lot of work:
+http://sisyphus.iocaine.com/pipermail/hostap/2004-March/006076.html
 
 -- 
-Jouni Malinen                                            PGP id EFC895FA
+Colin
+  This message represents the official view of the voices
+  in my head.
