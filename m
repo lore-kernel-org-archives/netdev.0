@@ -1,64 +1,37 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Resend: Re: PATCH: IPSEC acquire in presence of multiple managers
-Date: 26 Mar 2005 13:35:31 -0500
-Message-ID: <1111862131.1092.872.camel@jzny.localdomain>
-References: <1111795927.1089.749.camel@jzny.localdomain>
+Subject: Re: PATCH: IPSEC acquire in presence of multiple managers
+Date: 26 Mar 2005 13:41:27 -0500
+Message-ID: <1111862486.1090.880.camel@jzny.localdomain>
+References: <E1DF15m-0006JT-00@gondolin.me.apana.org.au>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-e22SSWKSAh37oPfJ/ciQ"
-Cc: "David S. Miller" <davem@redhat.com>,
-        Masahide NAKAMURA <nakam@linux-ipv6.org>,
-        Shinta Sugimoto <shinta.sugimoto@ericsson.com>,
-        netdev <netdev@oss.sgi.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@redhat.com>, nakam@linux-ipv6.org,
+        shinta.sugimoto@ericsson.com, netdev <netdev@oss.sgi.com>,
+        Patrick McHardy <kaber@trash.net>
 To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <1111795927.1089.749.camel@jzny.localdomain>
+In-Reply-To: <E1DF15m-0006JT-00@gondolin.me.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---=-e22SSWKSAh37oPfJ/ciQ
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+You could say i am obssesed by this aquire message - I dont know why;->
 
+I noticed in the absence of a responsive KM, the acquires are sent
+forever. Is it 30 seconds and may be degenerating to 60 seconds?
+In the meantime my ping is sitting there not giving me back the prompt.
+I suspect this is so as to make it reliable and maybe aggrevated by the
+fact i can now passively monitor with ip xfrm mon.
 
-Apologies, The last patch had some a glitch in the filename. Dave please
-apply this one instead
+Shouldnt there be a _configurable_ timer and number of retries?
+all attempts of reliability at least put an upper limit.
+Perhaps the km states could be extended a little? i.e instead of
+just ACQUIRING maybe some intermidiate states are needed (sort of like
+neighbor discovery or ARP). And when it looks hopeless you just stop.
+
+Is there a standard maybe that defines such behavior?
 
 cheers,
 jamal
-
---=-e22SSWKSAh37oPfJ/ciQ
-Content-Disposition: attachment; filename=acq_p
-Content-Type: text/plain; name=acq_p; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-
---- a/net/xfrm/xfrm_state.c	2005/03/25 17:44:43	1.1
-+++ b/net/xfrm/xfrm_state.c	2005/03/25 18:55:33
-@@ -774,16 +774,20 @@
- 		wake_up(&km_waitq);
- }
- 
-+/*
-+ * We send to all registered managers regardless of failure
-+ * We are happy with one success
-+*/
- int km_query(struct xfrm_state *x, struct xfrm_tmpl *t, struct xfrm_policy *pol)
- {
--	int err = -EINVAL;
-+	int err = -EINVAL, acqret = -EINVAL;
- 	struct xfrm_mgr *km;
- 
- 	read_lock(&xfrm_km_lock);
- 	list_for_each_entry(km, &xfrm_km_list, list) {
--		err = km->acquire(x, t, pol, XFRM_POLICY_OUT);
--		if (!err)
--			break;
-+		acqret = km->acquire(x, t, pol, XFRM_POLICY_OUT);
-+		if (!acqret)
-+			err = acqret;
- 	}
- 	read_unlock(&xfrm_km_lock);
- 	return err;
-
---=-e22SSWKSAh37oPfJ/ciQ--
