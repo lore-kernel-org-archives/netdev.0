@@ -1,50 +1,151 @@
-From: Jouni Malinen <jkmaline@cc.hut.fi>
-Subject: Re: [Prism54-devel] Re: Prism54 wpa update
-Date: Wed, 30 Jun 2004 08:45:24 -0700
+From: Manfred Spraul <manfred@colorfullife.com>
+Subject: Re: [PATCH] Gigabit Ethernet support for forcedeth
+Date: Wed, 30 Jun 2004 18:11:04 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040630154523.GA7294@jm.kir.nu>
-References: <20040629192101.GB14482@ruslug.rutgers.edu> <20040630014930.GB7153@jm.kir.nu> <20040630151346.GE14482@ruslug.rutgers.edu>
+Message-ID: <40E2E618.5020601@colorfullife.com>
+References: <40E25328.8020102@colorfullife.com> <40E25944.8010200@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Luis R. Rodriguez" <mcgrof@studorgs.rutgers.edu>,
-        Netdev <netdev@oss.sgi.com>, prism54-devel@prism54.org
-Content-Disposition: inline
-In-Reply-To: <20040630151346.GE14482@ruslug.rutgers.edu>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <40E25944.8010200@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 30, 2004 at 11:13:46AM -0400, Luis R. Rodriguez wrote:
-> > algorithm like WEP. IEEE 802.1X is authentication protocol which can be
-> > used with IEEE 802.1X EAPOL-Key frames to distribute WEP keys _or_ with
-> > WPA to generate keying material for WPA 4-Way Handshake that will
-> > generate the data encryption keys.
-> 
-> Yes, sorry, what I was trying to distinguish was using WPA using either
-> PSK or 802.1x for 4-way handshake. I did not know there were two 802.1x key
-> mechanisms though, as you point out. Wherever I said just TKIP I meant over TKIP
-> using a PSK. I believe the second mode of 802.1x can be used with this
-> chipset, not sure of the first though (to distribute WEP keys).
+Jeff Garzik wrote:
 
-I kind of though so, too, but the configuration did not match this at
-all.. WPA-PSK and WPA-EAP(IEEE 802.1X/RADIUS) should use the same
-settings for IEEE 802.11 auth alg and MLME auto level.
+> Manfred Spraul wrote:
+>
+>> -#define FORCEDETH_VERSION        "0.25"
+>> +#define FORCEDETH_VERSION        "0.28"
+>
+>
+> does this mean that .26 and .27 will be submitted as separate patches?
+>
+I think they were internal patches from Carl-Daniel. I think one of them 
+was for wol support, the other one a bugfix.
 
-> > DOT11_AUTHENABLE should be set to DOT11_AUTH_OS for WPA modes (i.e., not
-> > _SK or _BOTH like you had in some cases). DOT11_AUTH_SK can only be used
-> > with static WEP configuration (i.e., not with WPA or with IEEE 802.1X
-> > when using dynamic WEP key generation). DOT11_AUTH_BOTH is likewise only
-> > reasonable for static WEP configuration since it includes _SK as an
-> > option. 
-> 
-> OS stands for Open System here. Are you sure of this? I'll ask around, just to
-> confirm too.
+> what is the goal for a 1.0.0 version?
+>
+At least
+- wol support
+- ethtool support
 
-Yes, I'm sure. See IEEE 802.11 standard for details. Open System auth
-alg is required for WPA. Shared keys auth alg uses WEP, so the only to
-use it is to have pre-shared WEP keys. I don't remember whether FullMAC
-version of PrismGT driver has a separate mode for WPA, but if not, this
-oid needs to be OS. It certainly cannot be SK.
+> These days I try to encourage moving to a 1.0 version once things seem 
+> to be working and stable.
+>
+Ok.
 
--- 
-Jouni Malinen                                            PGP id EFC895FA
+>>  /* limited to 1 packet until we understand NV_TX_LASTPACKET */
+>> -#define TX_LIMIT_STOP    10
+>> -#define TX_LIMIT_START    5
+>> +#define TX_LIMIT_STOP    63
+>> +#define TX_LIMIT_START    62
+>
+>
+> what's with the "limited to 1 packet" comment?
+>
+It's probably stale, I must check my docs. I'll remove it after some 
+more testing.
+
+>>  #define RX_NIC_BUFSIZE        (DEFAULT_MTU + 64)
+>
+>
+> definition of DEFAULT_MTU is a bit silly ... why not just use 
+> ETH_DATA_LEN?
+>
+Ok, I'll fix that.
+
+>> -    u16 tx_flags;
+>> +    u32 tx_flags;
+>>  };
+>
+>
+> has this driver been tested with the case where ethtool is used to 
+> force the media to a specific speed (such as 100mbit full duplex)?
+>
+The driver doesn't support ethtool, so this was not tested.
+I have tested it with a cross-over cable to a natsemi nic and then 
+forced link speeds on the natsemi nic with ethtool.
+
+>>  
+>> -        prd = &np->tx_ring[i];
+>> +        Flags = cpu_to_le32(np->tx_ring[i].FlagLen);
+>
+>
+> shouldn't this be le32_to_cpu() ?
+>
+Ups. You are right. I'll fix it and send you an updated patch.
+
+>> +    dprintk(KERN_INFO "%s: reconfiguration for multicast lists.\n",
+>> +        dev->name);
+>>      nv_start_rx(dev);
+>>      spin_unlock_irq(&np->lock);
+>
+>
+> some of these dprintk() would be more appropriate as verbose printks 
+> enabled and disabled using netif_msg_xxx bitmaps.
+>
+I agree - dprintk on is too verbose and dprintk off is too quiet. I'll 
+fix it in another patch.
+
+>> -    /* 4) continue setup */
+>> +    /* 4) give hw rings */
+>> +    writel((u32) np->ring_addr, base + NvRegRxRingPhysAddr);
+>> +    writel((u32) (np->ring_addr + RX_RING*sizeof(struct ring_desc)), 
+>> base + NvRegTxRingPhysAddr);
+>> +    writel( ((RX_RING-1) << NVREG_RINGSZ_RXSHIFT) + ((TX_RING-1) << 
+>> NVREG_RINGSZ_TXSHIFT),
+>> +        base + NvRegRingSizes);
+>
+>
+> your driver needs to call pci_set_dma_mask() and 
+> pci_set_consistent_dma_mask().
+>
+I'll add that.
+
+>> +        np->tx_flags = NV_TX2_LASTPACKET|NV_TX2_VALID;
+>> +        if (id->driver_data & DEV_NEED_LASTPACKET1)
+>> +            np->tx_flags |= NV_TX2_LASTPACKET1;
+>> +    }
+>
+>
+> would it be faster to simply ensure that np->tx_flags is fixed-endian?
+>
+Not really: the only use is
+ring_flags = cpu_to_le32( (skb->len-1) | tx_flags);
+Pre-swapping it would change that to
+ring_flags = cpu_to_le32(skb->len-1) | np->tx_flags;
+
+>> +    if (i == 32) {
+>> +        /* PHY in isolate mode? No phy attached and user wants to
+>> +         * test loopback? Very odd, but can be correct.
+>> +         */
+>> +        printk(KERN_INFO "%s: open: Could not find a valid PHY.\n",
+>> +                pci_name(pci_dev));
+>> +    }
+>
+>
+> I recommend trying phy 0 after phy 31, _iff_ the scan found nothing.
+>
+A phy with id 0 is in isolate mode. It must be reconfigured before it 
+can be used, and this is not yet handled.
+
+>>  
+>>  MODULE_PARM(max_interrupt_work, "i");
+>>  MODULE_PARM_DESC(max_interrupt_work, "forcedeth maximum events 
+>> handled per interrupt");
+>> - +
+>>  MODULE_AUTHOR("Manfred Spraul <manfred@colorfullife.com>");
+>>  MODULE_DESCRIPTION("Reverse Engineered nForce ethernet driver");
+>>  MODULE_LICENSE("GPL");
+>
+>
+> module_param() use would be nice :)
+>
+Ok.
+
+--
+    Manfred
