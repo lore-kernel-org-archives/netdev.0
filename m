@@ -1,88 +1,65 @@
-From: Andy Furniss <andy.furniss@dsl.pipex.com>
-Subject: Re: iptables breakage WAS(Re: dummy as IMQ replacement
-Date: Tue, 22 Mar 2005 21:09:44 +0000
-Message-ID: <42408998.5000202@dsl.pipex.com>
-References: <1107123123.8021.80.camel@jzny.localdomain>	 <0fcf01c5077f$579e4b80$6e69690a@RIMAS>	 <1107174142.8021.121.camel@jzny.localdomain>	 <00c301c524b4$938cd240$6e69690a@RIMAS>	 <1110379135.1091.143.camel@jzny.localdomain>	 <1110416767.1111.76.camel@jzny.localdomain>	 <025501c52552$2dbf87c0$6e69690a@RIMAS>	 <1110453757.1108.87.camel@jzny.localdomain> <423B7BCB.10400@dsl.pipex.com>	 <1111410890.1092.195.camel@jzny.localdomain>	 <423F41AD.3010902@dsl.pipex.com>	 <1111444869.1072.51.camel@jzny.localdomain>	 <423F71C2.8040802@dsl.pipex.com> <1111462263.1109.6.camel@jzny.localdomain>
+From: cliff white <cliffw@osdl.org>
+Subject: Re: netif_rx packet dumping
+Date: Tue, 22 Mar 2005 13:55:33 -0800
+Message-ID: <20050322135533.55313a42@es175>
+References: <20050303123811.4d934249@dxpl.pdx.osdl.net>
+	<20050303125556.6850cfe5.davem@davemloft.net>
+	<1109884688.1090.282.camel@jzny.localdomain>
+	<20050303132143.7eef517c@dxpl.pdx.osdl.net>
+	<1109885065.1098.285.camel@jzny.localdomain>
+	<20050303133237.5d64578f.davem@davemloft.net>
+	<20050303135416.0d6e7708@dxpl.pdx.osdl.net>
+	<Pine.LNX.4.58.0503031657300.22311@tesla.psc.edu>
+	<1109888811.1092.352.camel@jzny.localdomain>
+	<20050303151606.3587394f@dxpl.pdx.osdl.net>
+	<4227A23C.5050300@ev-en.org>
+	<1109907956.1092.476.camel@jzny.localdomain>
+	<42282098.8010506@ev-en.org>
+	<1110203711.1088.1393.camel@jzny.localdomain>
+	<422DCB14.1040805@ev-en.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Harald Welte <laforge@gnumonks.org>, Patrick McHardy <kaber@trash.net>,
-        Remus <rmocius@auste.elnet.lt>, netdev@oss.sgi.com,
-        Nguyen Dinh Nam <nguyendinhnam@gmail.com>, Andre Tomt <andre@tomt.net>,
-        syrius.ml@no-log.org, Damion de Soto <damion@snapgear.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1111462263.1109.6.camel@jzny.localdomain>
+To: Baruch Even <baruch@ev-en.org>, netdev@oss.sgi.com
+In-Reply-To: <422DCB14.1040805@ev-en.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> Andy,
-> Thanks for all your efforts.
-> I will be back on my regular setup by tommorow evening and should be
-> able to hopefuly test this. I am going to try:
+On Tue, 08 Mar 2005 15:56:04 +0000
+Baruch Even <baruch@ev-en.org> wrote:
+
+> jamal wrote:
+> > On Fri, 2005-03-04 at 03:47, Baruch Even wrote:
+> > 
+> >>jamal wrote:
+> > 
+> > 
+[snip]
 > 
-> - latest iproute2 with 1.3.x ipt changes
-> - i am just gonna jump to iptables 1.3.x - we are going to ignore 1.2.11
-> and below 
-> - kernel 2.6.11.5 patches with stats
+> > So if i was you i would repeat 1.2 with the fix from 1.1 as well as
+> > tying the NIC to one CPU. And it would be a good idea to present more
+> > detailed results - not just tcp windows fluctuating (you may not need
+> > them for the paper, but would be useful to see for debugging purposes
+> > other parameters).
 > 
-> Issues seen so far - the following dont work:
+> I'd be happy to hear what other benchmarks you would like to see, I 
+> currently intend to add some ack processing time analysis and oprofile 
+> information. With possibly showing the size of the ingress queue as a 
+> measure as well.
 > 
-> a) tc filter add dev eth0 parent ffff: protocol ip prio 10 u32 \
-> match u32 0 0 flowid 1:1 action ipt -j MARK --set-mark
-> [Actually did you test this?]
+> Making it as thorough as possible is one of my goals. Input is always 
+> welcome.
 
-Not without the 1 - If I do I get
-
-++ /usr/sbin/tc filter add dev eth0 parent ffff: protocol ip prio 10 u32 
-match u32 0 0 flowid 1:1 action ipt -j MARK --set-mark
-ipt: option `--set-mark' requires an argument
-tablename: mangle hook: NF_IP_PRE_ROUTING
-         target: MARK set 0x0  index 0
-RTNETLINK answers: Invalid argument
-We have an error talking to the kernel
-
-With the one -
-
-++ /usr/sbin/tc filter add dev eth0 parent ffff: protocol ip prio 10 u32 
-match u32 0 0 flowid 1:1 action ipt -j MARK --set-mark 1
-tablename: mangle hook: NF_IP_PRE_ROUTING
-         target: MARK set 0x1  index 0
-RTNETLINK answers: Invalid argument
-We have an error talking to the kernel
+I am collecting network benchmarks/test in hope of doing some testing here at OSDL.
+Would love to run your benchmark, if you wished to share.
+cliffw
 
 > 
-> b) above with mirred as the next action fails in user space
-
-Yes -
-
-++ /usr/sbin/tc filter add dev eth0 parent ffff: protocol ip prio 10 u32 
-match u32 0 0 flowid 1:1 action ipt -j MARK --set-mark 1 action mirred 
-egress redirect dev dummy0
-tablename: mangle hook: NF_IP_PRE_ROUTING
-         target: MARK set 0x1  index 0
-bad action type mirred
-Usage: ... gact <ACTION> [RAND] [INDEX]
-Where: ACTION := reclassify | drop | continue | pass RAND := random 
-<RANDTYPE> <ACTION> <VAL>RANDTYPE := netrand | determVAL : = value not 
-exceeding 10000INDEX := index value used
-bad action parsing
-parse_action: bad value (5:mirred)!
-Illegal "action"
-
-I notice if I grep iproute for "bad action type" it's in m_gact.c which 
-does not contain the word mirred to test at all.
-
+> Baruch
 > 
-> c) a) with a simple "action ok" is also rejected by the kernel
-> with "Invalid argument"
 
-Yes.
 
-> 
-> Did i miss anything else?
-
-Don't think so - I can get a and c to work with older iptables and headers.
-
-Andy.
+-- 
+"Ive always gone through periods where I bolt upright at four in the morning; 
+now at least theres a reason." -Michael Feldman
