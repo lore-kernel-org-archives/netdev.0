@@ -1,28 +1,32 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Realtek 8169 Lock-ups
-Date: Wed, 14 Jan 2004 00:04:27 +0100
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] Mark SIOCSIFNAME as compatible ioctl
+Date: Tue, 13 Jan 2004 15:01:44 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040114000427.A21899@electric-eye.fr.zoreil.com>
-References: <1073507006.5151.61.camel@localhost> <20040107232034.A22930@electric-eye.fr.zoreil.com> <1073596694.6378.6.camel@localhost> <4001080D.3090401@pobox.com> <20040111124957.A18068@electric-eye.fr.zoreil.com> <20040113000357.D5983@electric-eye.fr.zoreil.com>
+Message-ID: <20040113150144.1f8e214c.davem@redhat.com>
+References: <20040108070413.GA31778@averell>
+	<20040109020456.045b447e.davem@redhat.com>
+	<20040109165627.2e0845af.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dpollock@acm.org, damouse@ntlworld.com, brad@mainstreetsoftworks.com,
-        kinetik@orcon.net.nz
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: ak@muc.de, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
-In-Reply-To: <20040113000357.D5983@electric-eye.fr.zoreil.com>; from romieu@fr.zoreil.com on Tue, Jan 13, 2004 at 12:03:57AM +0100
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <20040109165627.2e0845af.ak@suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Re,
+On Fri, 9 Jan 2004 16:56:27 +0100
+Andi Kleen <ak@suse.de> wrote:
 
-  latest pile of r8169 related patches against 2.6.1-bk1 available at:
-http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.1-bk1-a
+> On Fri, 9 Jan 2004 02:04:56 -0800
+> "David S. Miller" <davem@redhat.com> wrote:
+> 
+> > How can we mark it compatible?  It needs the stuff dev_ifname32() in
+> > fs/compat_ioctl.c does for SIOCGIFNAME doesn't it?
+> 
+> It takes two strings. This should be compatible:
 
-Credits go to damouse@ntlworld.com for a bug removal in r8169-init_one.patch.
+You're absolutely right Andi, thanks.
 
-No change of behavior expected for SMP so far.
-
---
-Ueimor
+Patch applied.
