@@ -1,44 +1,49 @@
 From: maximilian attems <janitor@sternwelten.at>
-Subject: Re: [patch 2.4] back port msleep(), msleep_interruptible()
-Date: Sun, 31 Oct 2004 15:43:53 +0100
-Message-ID: <20041031144353.GA28667__29994.8798878633$1099234018$gmane$org@stro.at>
+Subject: [patch 2/6] libata remove duplicate definition msecs_to_jiffies()
+Date: Sun, 31 Oct 2004 15:44:42 +0100
+Message-ID: <20041031144442.GC28667@stro.at>
 References: <20040923221303.GB13244@us.ibm.com> <20040923221303.GB13244@us.ibm.com> <5.1.0.14.2.20040924074745.00b1cd40@pop.t-online.de> <415CD9D9.2000607@pobox.com> <20041030222228.GB1456@stro.at> <41841886.2080609@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Margit Schubert-While <margitsw@t-online.de>,
-	Nishanth Aravamudan <nacc@us.ibm.com>, hvr@gnu.org,
-	mcgrof@studorgs.rutgers.edu, kernel-janitors@lists.osdl.org,
-	netdev@oss.sgi.com, Domen Puncer <domen@coderock.org>,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261631AbUJaOoI@vger.kernel.org>
+        Nishanth Aravamudan <nacc@us.ibm.com>, hvr@gnu.org,
+        mcgrof@studorgs.rutgers.edu, kernel-janitors@lists.osdl.org,
+        netdev@oss.sgi.com, Domen Puncer <domen@coderock.org>,
+        linux-kernel@vger.kernel.org
+Return-path: <netdev-bounce@oss.sgi.com>
 To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
 In-Reply-To: <41841886.2080609@pobox.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 30 Oct 2004, Jeff Garzik wrote:
-
-> I'm pretty sure more than one of these symbols clashes with a symbol 
-> defined locally in a driver.  I like the patch but we can't apply it 
-> until the impact on existing code is evaluated.
-> 
-> 	Jeff
-
-current 2.4 has no ssleep() nor jiffies_to_usecs() nor jiffies_to_msecs()
-users. so no namespace conflicts on them.
-
-i found a strange unsupported "msleep" syscall in
-./arch/parisc/hpux/sys_hpux.c
-
-left this one appart, i resend the msleep patch + 5 cleanup patches.
-they remove duplicate msleep() or msecs_to_jiffies() definitions.
-they are all compile tested, but the one touching drivers/char/shwdt.c
-please show me if i forgot something.
-
---
-maks
-kernel janitor  	http://janitor.kernelnewbies.org/
 
 
-ps dropped  prism54-devel@prism54.org from cc as this ml rejects my mails.
+remove duplicate definition of msecs_to_jiffies().
+already includes delay.h
+
+Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
+
+
+---
+
+ linux-2.4.28-rc1-max/include/linux/libata.h |    5 -----
+ 1 files changed, 5 deletions(-)
+
+diff -puN include/linux/libata.h~remove-msecs_to_jiffies-libata.h include/linux/libata.h
+--- linux-2.4.28-rc1/include/linux/libata.h~remove-msecs_to_jiffies-libata.h	2004-10-31 13:33:52.000000000 +0100
++++ linux-2.4.28-rc1-max/include/linux/libata.h	2004-10-31 13:36:16.000000000 +0100
+@@ -419,11 +419,6 @@ extern int ata_std_bios_param(Disk * dis
+ extern void libata_msleep(unsigned long msecs);
+ 
+ 
+-static inline unsigned long msecs_to_jiffies(unsigned long msecs)
+-{
+-	return ((HZ * msecs + 999) / 1000);
+-}
+-
+ static inline unsigned int ata_tag_valid(unsigned int tag)
+ {
+ 	return (tag < ATA_MAX_QUEUE) ? 1 : 0;
+_
