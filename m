@@ -1,39 +1,28 @@
-From: Aaron Sethman <androsyn@ratbox.org>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: qfe problems on x86
-Date: Tue, 23 Apr 2002 07:19:25 -0400 (EDT)
+Date: Tue, 23 Apr 2002 03:54:53 -0700 (PDT)
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <Pine.LNX.4.44.0204230714530.7811-100000@simon.ratbox.org>
+Message-ID: <20020423.035453.96160070.davem@redhat.com>
 References: <20020423.034450.102874103.davem@redhat.com>
+	<Pine.LNX.4.44.0204230714530.7811-100000@simon.ratbox.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: linux-net@vger.kernel.org
 Return-path: <linux-net-owner@vger.kernel.org>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20020423.034450.102874103.davem@redhat.com>
+To: androsyn@ratbox.org
+In-Reply-To: <Pine.LNX.4.44.0204230714530.7811-100000@simon.ratbox.org>
 List-Id: netdev.vger.kernel.org
 
-I'm *certain* this is a switch, albeit a cheap, unmanaged one, I've got
-other devices hanging off of it that are just happy at 100MB/full duplex
-right now. Also I am not forcing it to full duplex, this is what it is
-trying to do on its own.
+   From: Aaron Sethman <androsyn@ratbox.org>
+   Date: Tue, 23 Apr 2002 07:19:25 -0400 (EDT)
 
-Regards,
+   I'm *certain* this is a switch, albeit a cheap, unmanaged one, I've got
+   other devices hanging off of it that are just happy at 100MB/full duplex
+   right now. Also I am not forcing it to full duplex, this is what it is
+   trying to do on its own.
+   
+It means it cannot negotiate this with the switch for some reason.
 
-Aaron
-
-On Tue, 23 Apr 2002, David S. Miller wrote:
-
->    From: Aaron Sethman <androsyn@ratbox.org>
->    Date: Tue, 23 Apr 2002 07:04:24 -0400 (EDT)
->
->    Its attached to a D-Link mini switch(your average $20 piece of junk).
->
-> If it is $20 it isn't a switch, I can assure you
-> this. :-)  More seriously, please be sure its' a switch.
->
-> 99 out of 100 reports about not getting full duplex turn
-> out to be the person is attached to a 100baseT hub, not
-> a switch.
->
->
-
+Does trying to force full duplex using 'ethtool' have any
+effect?
