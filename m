@@ -1,16 +1,15 @@
 From: "Rudolf Ladyzhenskii" <Rudolf.ladyzhenskii@opennw.com>
 Subject: RE: Required resources on network driver programming
 Date: Tue, 21 Dec 2004 08:34:10 +1100
-Message-ID: <a351964842ab19a53c7f27f1346884b341c74577@opennw.com>
+Message-ID: <a351964842ab19a53c7f27f1346884b341c745a1@opennw.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
 Cc: <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "linux lover" <linux_lover2004@yahoo.com>, <linux-net@vger.kernel.org>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: "linux lover" <linux_lover2004@yahoo.com>,
+	<linux-net@vger.kernel.org>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hi,
@@ -53,3 +52,4 @@ __________________________________
 Do you Yahoo!? 
 Send holiday email and support a worthy cause. Do good. 
 http://celebrity.mail.yahoo.com
+
