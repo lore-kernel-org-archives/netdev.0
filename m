@@ -1,48 +1,63 @@
-From: Simon Kirby <sim@netnation.com>
-Subject: Re: Route cache performance under stress
-Date: Mon, 9 Jun 2003 00:36:44 -0700
+From: "CIT/Paul" <xerox@foonet.net>
+Subject: RE: Route cache performance under stress
+Date: Mon, 9 Jun 2003 04:10:55 -0400
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20030609073644.GE20613@netnation.com>
-References: <001501c32e4b$35d67d60$4a00000a@badass> <20030608.230332.48514434.davem@redhat.com> <20030609065211.GB20613@netnation.com> <20030608.235622.38700262.davem@redhat.com>
+Message-ID: <000401c32e5e$a707b6d0$4a00000a@badass>
+References: <20030609071330.GD20613@netnation.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: xerox@foonet.net, fw@deneb.enyo.de, netdev@oss.sgi.com,
-	linux-net@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "'David S. Miller'" <davem@redhat.com>, <hadi@shell.cyberus.ca>,
+	<fw@deneb.enyo.de>, <netdev@oss.sgi.com>,
+	<linux-net@vger.kernel.org>
 Return-path: <linux-net-owner@vger.kernel.org>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20030608.235622.38700262.davem@redhat.com>
+To: "'Simon Kirby'" <sim@netnation.com>
+In-Reply-To: <20030609071330.GD20613@netnation.com>
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jun 08, 2003 at 11:56:22PM -0700, David S. Miller wrote:
+I've got juno-z.101f.c to send 500,000 pps at 300+mbit on our dual p3
+1.26 ghz routers.. I can't even send 50mbit of this though one of my
+routers
+Without it using 100% of both cpus because of the route cache.. It goes
+up to 500,000 entries if I let it and it adds 80,000 new entries per
+second and they are all cache misses.. I'd be glad to show you the setup
+sometime :) I showed it to jamal and we tested some stuff.
 
-> We have to walk the entire destination hash chain _ANYWAYS_ to verify
-> that a matching entry has not been put into the cache while we were
-> procuring the new one.  During this walk we can also choose a
-> candidate rtcache entry to free.
+Paul xerox@foonet.net http://www.httpd.net
 
-Ah, neat.  I should try reading this stuff. :)
 
-> Something like the patch at the end of this email, doesn't compile
-> it's just a work in progress.  The trick is picking TIMEOUT1 and
-> TIMEOUT2 :)
+-----Original Message-----
+From: Simon Kirby [mailto:sim@netnation.com] 
+Sent: Monday, June 09, 2003 3:14 AM
+To: CIT/Paul
+Cc: 'David S. Miller'; hadi@shell.cyberus.ca; fw@deneb.enyo.de;
+netdev@oss.sgi.com; linux-net@vger.kernel.org
+Subject: Re: Route cache performance under stress
+
+
+On Mon, Jun 09, 2003 at 02:28:30AM -0400, CIT/Paul wrote:
+
+> OK so let's try this.. If you can show me a linux router can can route
+
+> 100mbps or more of juno-z.101f.c attack without dropping packets I 
+> will be thoroughly impressed  :)
 > 
-> Another point is that the default ip_rt_gc_min_interval is
-> absolutely horrible for DoS like attacks.  When DoS traffic
-> can fill the rtcache multiple times per second, using a GC
-> interval of 5 seconds is the worst possible choice. :)
+> I am willing to test out any code/patches and settings that you can 
+> think of and post some results..
 
-Yes, I've reduced the gc_min_interval to 1, and it has been that way for
-some time.  BTW, you may be interested in this old email from Alexey:
+I'll see if I can set up a test bed this week.  I think we should
+already be able to do close to this, but I'll let the numbers will do
+the talking. :)
 
-http://www.tux.org/hypermail/linux-kernel/1999week05/1113.html
+In the tests I've been doing so far, I've been dropping responses (in
+the INPUT chain), so I haven't been testing the forwarding through of
+packets (though it is testing the routing input).  I'll see if I can set
+up a router, target, and DoS box.
 
-(This was back when the GC was limited so much that legitimate traffic
-was overflowing the table.  DoS attacks must have been really effective
-then. :))
+I haven't been able to get juno-z.101f.c to saturate 100 Mbit/sec
+outgoing, but I've only tried it on eepro100 boxes.  Has anybody got it
+to send more?  Mmm, need more tg3 cards...
 
 Simon-
 
-[        Simon Kirby        ][        Network Operations        ]
-[     sim@netnation.com     ][   NetNation Communications Inc.  ]
-[  Opinions expressed are not necessarily those of my employer. ]
