@@ -1,56 +1,87 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: [PATCH 7/7] netpoll: avoid kfree_skb on packets with destructo
-Date: Thu, 3 Mar 2005 13:32:28 -0800
-Message-ID: <20050303213228.GU3120@waste.org>
-References: <7.454130102@selenic.com> <8.454130102@selenic.com> <20050303130031.066f0862.davem@davemloft.net>
+From: mcgrof@ruslug.rutgers.edu (Luis R. Rodriguez)
+Subject: (no subject)
+Date: Thu, 3 Mar 2005 16:36:08 -0500
+Message-ID: <20050303213608.GU3936@ruslug.rutgers.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com, jmoyer@redhat.com
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20050303130031.066f0862.davem@davemloft.net>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed; boundary="===============1152892038=="
+Cc: netdev@oss.sgi.com, jgarzik <jgarzik@pobox.com>,
+	prism54-devel@prism54.org
+To: "Randy.Dunlap" <rddunlap@osdl.org>
+List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
+List-Archive: <http://prism54.org/pipermail/prism54-devel>
+List-Post: <mailto:prism54-devel@prism54.org>
+List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
+List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
+Mime-version: 1.0
+Sender: prism54-devel-bounces@prism54.org
+Errors-To: prism54-devel-bounces@prism54.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 03, 2005 at 01:00:31PM -0800, David S. Miller wrote:
-> On Thu, 03 Mar 2005 14:46:32 -0600
-> Matt Mackall <mpm@selenic.com> wrote:
-> 
-> > Packets that have destructors should not be zapped here as that might
-> > produce additional printk warnings via netconsole.
-> > 
-> > Signed-off-by: Matt Mackall <mpm@selenic.com>
-> 
-> Then where will they be freed, eh? :-)
-> 
-> This patch adds an SKB leak.  Since you've NULL'd out the list, any
-> SKB skipped will never be freed up at all.
 
-Doh. Plain as day. How's this look?
-
-Packets that have destructors should not be zapped here as that might
-produce additional printk warnings via netconsole.
-
-Signed-off-by: Matt Mackall <mpm@selenic.com>
-
-Index: np/net/core/netpoll.c
-===================================================================
---- np.orig/net/core/netpoll.c	2005-03-03 14:16:29.579809668 -0600
-+++ np/net/core/netpoll.c	2005-03-03 15:26:38.826754614 -0600
-@@ -192,7 +192,10 @@ static void zap_completion_queue(void)
- 		while (clist != NULL) {
- 			struct sk_buff *skb = clist;
- 			clist = clist->next;
--			__kfree_skb(skb);
-+			if(skb->destructor)
-+				dev_kfree_skb_any(skb); /* put this one back */
-+			else
-+				__kfree_skb(skb);
- 		}
- 	}
- 
+--===============1152892038==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="BERr2LqgA7m/bZG/"
+Content-Disposition: inline
 
 
--- 
-Mathematics is the supreme nostalgia of our time.
+--BERr2LqgA7m/bZG/
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+prism54-devel@prism54.org
+Bcc:=20
+Subject:=20
+Reply-To:=20
+
+prism54-devel@prism54.org
+Bcc:=20
+Subject: Re: [PATCH] prism54: fix printk format warnings
+Reply-To:=20
+In-Reply-To: <20050301212137.57f9532f.rddunlap@osdl.org>
+X-Operating-System: 2.4.18-1-686
+Organization: Rutgers University Student Linux Users Group
+
+On Tue, Mar 01, 2005 at 09:21:37PM -0800, Randy.Dunlap wrote:
+>=20
+> prism54 build shows some printk format complaints:
+> (sparc64 build warning)
+
+Patch applied to prism54 tree, thanks. Jeff, feel free to apply to you tree=
+, I won't be
+sending you an update for a while.. WPA advancements have been slow and
+still need a lot of testing.
+
+	Luis
+
+--=20
+GnuPG Key fingerprint =3D 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
+
+--BERr2LqgA7m/bZG/
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQFCJ4NIat1JN+IKUl4RAoReAJ0SrjDQDpoX8PCMzXVJDAKnTfc6ZwCdEYcp
+2N7CR+tkMHnCBq45xrwl5ag=
+=8Mi7
+-----END PGP SIGNATURE-----
+
+--BERr2LqgA7m/bZG/--
+
+--===============1152892038==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Prism54-devel mailing list
+Prism54-devel@prism54.org
+http://prism54.org/mailman/listinfo/prism54-devel
+
+--===============1152892038==--
