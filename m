@@ -1,46 +1,33 @@
-From: Adrian Bunk <bunk@fs.tum.de>
-Subject: 2.6: rxrpc compile errors with SYSCTL=n
-Date: Thu, 12 Aug 2004 00:32:25 +0200
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040811223225.GN26174@fs.tum.de>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 2.6.8-rc3-mm1 1/2] 8139too: Rx fifo/overflow recovery
+Date: Thu, 12 Aug 2004 00:32:43 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040811223243.GA8584@electric-eye.fr.zoreil.com>
+References: <20040805234336.A15407@electric-eye.fr.zoreil.com> <411A70CB.8060101@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, davem@redhat.com, netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S268281AbUHKWch@vger.kernel.org>
-To: David Howells <dhowells@redhat.com>
+Cc: Andrew Morton <akpm@osdl.org>, Pasi Sjoholm <ptsjohol@cc.jyu.fi>,
+        Hector Martin <hector@marcansoft.com>,
+        OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
+In-Reply-To: <411A70CB.8060101@pobox.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I'm getting tons of the following compile errors in 2.6.8-rc4-mm1 (but 
-it doesn't seem to be specific to -mm) with CONFIG_SYSCTL=n:
+Jeff Garzik <jgarzik@pobox.com> :
+[...]
+> You _want_ to update those registers on every packet.  Otherwise the 
+> crappy 8139 chip breaks.
 
-<--  snip  -->
+The affected users noticed a clear difference when the update was in
+the no-packet branch instead of the packet processing loop. Btw the
+excerpt of the documentation outlined by Hirofumi san suggests that
+this update makes sense.
 
-...
-  LD      .tmp_vmlinux1
-net/built-in.o(.text+0x154127): In function `__rxrpc_call_acks_timeout':
-: undefined reference to `rxrpc_kdebug'
-net/built-in.o(.text+0x154167): In function `__rxrpc_call_rcv_timeout':
-: undefined reference to `rxrpc_kdebug'
-net/built-in.o(.text+0x1541a7): In function `__rxrpc_call_ackr_timeout':
-: undefined reference to `rxrpc_kdebug'
-net/built-in.o(.text+0x15421e): In function `rxrpc_create_call':
-: undefined reference to `rxrpc_ktrace'
-net/built-in.o(.text+0x154242): In function `rxrpc_create_call':
-: undefined reference to `rxrpc_ktrace'
-net/built-in.o(.text+0x154272): In function `rxrpc_create_call':
-: undefined reference to `rxrpc_ktrace'
-...
-make: *** [.tmp_vmlinux1] Error 1
+Any objection/suggestion regarding a patch which would allow the update
+in both branches ?
 
-<--  snip  -->
-
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+--
+Ueimor
