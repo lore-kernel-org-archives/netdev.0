@@ -1,22 +1,71 @@
-From: "CASINO DIITROYA !!!" <casinodiitroya@globo.com>
-Subject: $$ CASINO !!!
-Date: Wed, 4 Dec 2002 21:59:34 -0800
+From: Bryan Vallestero <bryanphp@mail.com>
+Subject: Join Me For Free.......... Earn and Learn
+Date: Thu, 05 Dec 2002 14:06:50 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200212050559.gB55xYuR017542@oss.sgi.com>
+Message-ID: <POSTMASTERBPcZi71mr0000058a@www.frentree.com>
+Reply-To: dvallestero@yahoo.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=unknown-8bit
-Content-Transfer-Encoding: Quoted-Printable
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: PARQUIEJO.DII.TROYA@oss.sgi.com
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hello,
 
-Saudações do CasinoDiitroya, o principal cassino na Internet 
-Você poderá jogar jogos de cassino como em Las Vegas, ganhar dinheiro de verdade instantaneamente, aqui mesmo no seu computador ligado na Internet. Os prêmios serão efetuados em seu cartão de crédito ou por cheques internacionais enviados pelo correio. Todos os novos jogadores recebem US$30 bônus com sua primeira compra das fichas de jogo por se juntarem CasinoDiitroya. Você também pode jogar DE GRAÇA. Neste fascinante ambiente de realidade virtual, você poderá bater um papo com outros jogadores, convidar seus amigos e fazer outros novos.A Nova tecnologia permite que você receba o direito do CasinoDiitroya, neste e-mail, não precisando ir para o Web site e fazer o download.Experimente a emoção de jogar e ganhar com dinheiro de verdade em seu computador. Para se juntar a todas as pessoas que estão tendo momentos agradáveis no CasinoDiitroya, dê um duplo clique no documento atachado e instale-o (escolha "Open it" ou "Run it" quando pronto) e siga as instruções. Você também pod!
- 
- erá salvá-lo no disco, lembre-se da localização de onde você está salvando, e entre novamente no diretório onde você o salvou e clique no arquivo para instalá-lo. Duplo clique no documento atachado para instalar seu FREE software e ter grandes momentos. 
-Atenciosamente, 
-CasinoDiitroya
-http://www.casinolux.com/~113z/dload/casinolux.exe
+My name is Bryan Vallestero. I want to invite you to my own online opportunity. 
+ I don't want to be skeptical with you. I want to share my own online opportunity 
+that I had found in internet. I know internet business is common. It has so many 
+internet business up today and I know everyone of us was afraid to join because 
+maybe it was only scam, but it has internet business that is true to thier words 
+and has real services.This internet  business is based in USA and I lived outside 
+USA. 
+
+When I recieved this kind of letter I don't believe that it was true or maybe 
+the sender is only a night fly scam artist. . At first, I am afraid to join because 
+I doubt that maybe it was only a scam. Even I had a doubt I'm still to join as 
+a FREE MEMBER, I know I am  only a free member and it was nothing to worry about. 
+Then after a few days I recieve my postlaunch report and I visit and found out 
+that I had already my network. I am always check my postlaunch report and check 
+thier legalities and thier websites. I try to email my upline sponsors and I 
+had noticed that they are not an autoresponders. 
+
+After a month I am joining thier club and now I am happy to my own online opportunity. 
+I shared this opportunity to my friends and all of them are happy too and success 
+to thier lives.So do you want to become one of us? If you want more details with 
+my opportunity just send an email to<<brynephp@HotPOP.com>> with the subject 
+ "Join Me for Free" and put your lastname and firstname in the body of your message.
+
+Also copy this statement:
+
+"By submitting a request for Free DHS Membership, I am agree to recieve my postlaunch 
+report from DHS".
+
+As a Free member you can enjoy lots of benefits and even start earning. It has 
+NO COST, NO RISK, NO OBLIGATION, No COMMITMENT, and you can cancel your membership 
+anytime you want.
+
+You have nothing to loose and definitely a lot to gain.
+
+Test drive our program and we will show you how to do the business. We even build 
+up downlines for you. You can watch your downline grow and have the opportunity 
+to earn from them.
+
+
+I hope that this opportunity can give you success to your life.
+
+Wishing you success,
+Bryan Vallestero
+
+Removal Instruction:
+
+Send email to <<<<bryanphp@philwebinc.com>>> with the subject "Remove Me" if 
+you wish to be remove from my mailing list and to no longer receive emails from 
+me.
+Or just don't reply in this mail and your email address will be deactivated in 
+our list. 
+
+
+
  
