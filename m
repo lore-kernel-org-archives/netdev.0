@@ -1,52 +1,60 @@
-From: Anand Kumria <wildfire@progsoc.org>
-Subject: Re: 2.4.21+ - IPv6 over IPv4 tunneling b0rked
-Date: Mon, 14 Jul 2003 00:49:17 +1000
+From: Roland Dreier <roland@topspin.com>
+Subject: Re: TCP IP Offloading Interface
+Date: 13 Jul 2003 09:22:32 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <berrfo$mo3$1@main.gmane.org>
-References: <20030711.005542.04973601.yoshfuji@linux-ipv6.org> <Pine.LNX.4.44.0307101906160.18224-100000@netcore.fi>
+Message-ID: <52u19qwg53.fsf@topspin.com>
+References: <ODEIIOAOPGGCDIKEOPILCEMBCMAA.alan@storlinksemi.com>
+	<20030713004818.4f1895be.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset=us-ascii
+Cc: "Alan Shih" <alan@storlinksemi.com>, linux-kernel@vger.kernel.org,
+   linux-net@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030713004818.4f1895be.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 11 Jul 2003 02:08:20 +1000, Pekka Savola wrote:
+    David> TOE is evil, read this:
 
-> On Fri, 11 Jul 2003, YOSHIFUJI Hideaki / [iso-2022-jp] 吉藤英明
-> wrote:
->> In article <20030710154302.GE1722@zip.com.au> (at Fri, 11 Jul 2003
->> 01:43:03 +1000), CaT <cat@zip.com.au> says:
->> 
->> > With 2.4.21-pre2 I can get a nice tunnel going over my ppp connection
->> > and as such get ipv6 connectivity. I think went to 2.4.21 and then to
->> > 2.4.22-pre4 and bringing up the tunnel fails as follows:
->> :
->> > ip addr add 3ffe:8001:000c:ffff::37/127 dev sit1
->> >  ip route add ::/0 via 3ffe:8001:000c:ffff::36
->> > RTNETLINK answers: Invalid argument
->> 
->> This is not bug, but rather misconfiguration; you cannot use prefix::,
->> which is mandatory subnet routers anycast address, as unicast address.
+    David> http://www.usenix.org/events/hotos03/tech/full_papers/mogul/mogul.pdf
 
-I'm the other end of this link, so I'm wondering how this is a
-misconfiguration. RFC3513 2.6.1 suggests to me that
-3ffe:8001:c:ffff::36/127 is the router address (my end) and the other
-side should be 3ffe:8001:c:ffff::37/127.
+    David> TOE is exactly suboptimal for the very things performance
+    David> matters, high connection rates.
 
-> While technically correct, I'm still not sure if this is (pragmatically)
-> the correct approach.  It's OK to set a default route to go to the
-> subnet routers anycast address (so, setting a route to prefix:: should
-> not give you EINVAL).
-> 
+    David> Your return is also absolutely questionable.  Servers
+    David> "serve" data and we offload all of the send side TCP
+    David> processing that can reasonably be done (segmentation,
+    David> checksumming).
 
-Both Yoshifuji and yourself suggested that /127 isn't the way to go and
-that this is something v6ops ought to take up. I had a quick look at the
-v6ops IETF group and nothing struck me.
+    David> I've never seen an impartial benchmark showing that TCP
+    David> send side performance goes up as a result of using TOE
+    David> vs. the usual segmentation + checksum offloading offered
+    David> today.
 
-What would you recommend I look at to see why /127 is a bad idea or /64
-is a better idea than /127?
+    David> On receive side, clever RX buffer flipping tricks are the
+    David> way to go and require no protocol changes and nothing gross
+    David> like TOE or weird buffer ownership protocols like RDMA
+    David> requires.
 
-Thanks,
-Anand
+    David> I've made postings showing how such a scheme can work using
+    David> a limited flow cache on the networking card.  I don't have
+    David> a reference handy, but I suppose someone else does.
+
+Your ideas are certainly very interesting, and I would be happy to see
+hardware that supports flow identification.  But the Usenix paper
+you're citing completely disagrees with you!  For example, Mogul writes:
+
+ "Nevertheless, copy-avoidance designs have not been widely adopted,
+  due to significant limitations. For example, when network maximum
+  segment size (MSS) values are smaller than VM page sizes, which is
+  often the case, page-remapping techniques are insufficient (and
+  page-remapping often imposes overheads of its own.)"
+
+In fact, his conclusion is:
+
+ "However, as hardware trends change the feasibility and economics of
+  network-based storage connections, RDMA will become a significant
+  and appropriate justification for TOEs."
+
+ - Roland
