@@ -1,50 +1,26 @@
-From: Nivedita Singhvi <niv@us.ibm.com>
-Subject: Re: [Question] SMP for Linux
-Date: Fri, 18 Oct 2002 17:20:06 -0700
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] IPv6: Source Address of MLD Message
+Date: Fri, 18 Oct 2002 18:09:33 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3DB0A536.A8FB364A@us.ibm.com>
-References: <000b01c276fe$46626720$3701020a@CONCORDIA>
+Message-ID: <20021018.180933.80085592.davem@redhat.com>
+References: <20021018.125215.922751890.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: "'Robert Olsson'" <Robert.Olsson@data.slu.se>, netdev@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, usagi@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: J_Fraser@bit-net.com
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20021018.125215.922751890.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jon Fraser wrote:
+   From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+   Date: Fri, 18 Oct 2002 12:52:15 +0900 (JST)
 
->         bound = interrupts for both cards bound to one cpu
->         float   = no smp affinity
->         split = card 0 bound to cpu 0, card 1 bound to cpu 1
-> 
-> The results, in kpps:
-> 
->                   bound   float   split
->                         cpu %    cpu%    cpu%
->                 -----------------------
-> 1 flow           290     270     290
->                         99%x1    65%x2   99%x1
-> 
-> 2 flows          270     380     450
->                  99%x1   82%x2  96%x2
+   draft-ietf-magma-mld-source-02.txt clarifies that the source address of
+   MLD Report / Done Message MUST be unspecified address when a link-local
+   address is not available.  This patch follows this clarification.
+   
+   This patch is against 2.4.20-pre10.
 
-
-This is approximately what one should expect, correct? If
-you have only one task (flow), then the float case will be
-slower than the bound/split case (as long as the CPU isnt the
-bottleneck), because you'll have an increasing number of 
-cacheline misses. When you have two or more flows, the 
-general order in which things improve would be the bound, 
-float and then split cases. The fact that the float case is 
-halfway between the other two is indicative of how expensive
-the cacheline being on the other CPU is.
-
-In the float case, it would be nice if we could see the interrupt 
-distribution between the CPU's. Would you happen to have the 
-/proc/interrupt info?
-
-
-thanks,
-Nivedita
+Patch is applied, thanks.
