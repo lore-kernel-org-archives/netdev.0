@@ -1,41 +1,62 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [RFT 1/3] 8139: safer spin loop for get_statistics
-Date: Thu, 17 Mar 2005 00:21:52 +0100
-Message-ID: <20050316232152.GA27664@electric-eye.fr.zoreil.com>
-References: <20050316150429.375845f1@dxpl.pdx.osdl.net>
+From: Jesper Juhl <juhl-lkml@dif.dk>
+Subject: [PATCH] net, ipv6: remove redundant NULL checks before kfree in
+ ip6_flowlabel.c
+Date: Thu, 17 Mar 2005 00:36:35 +0100 (CET)
+Message-ID: <Pine.LNX.4.62.0503170027390.2558@dragon.hyggekrogen.localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20050316150429.375845f1@dxpl.pdx.osdl.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@davemloft.net>, Pekka Savola <pekkas@netcore.fi>,
+        netdev@oss.sgi.com, linux-net@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger <shemminger@osdl.org> :
-[...]
-> diff -Nru a/drivers/net/8139cp.c b/drivers/net/8139cp.c
-> --- a/drivers/net/8139cp.c	2005-03-16 14:54:48 -08:00
-> +++ b/drivers/net/8139cp.c	2005-03-16 14:54:48 -08:00
-[...]
-> -	while (work-- > 0) {
-> +	for (i = 0; i < 1000; i++) {
->  		if ((cpr32(StatsAddr) & DumpStats) == 0)
->  			break;
-> -		cpu_relax();
-> +		udelay(10);
->  	}
 
-I am tempted to remove some stuff:
+kfree() has no problems dealing with NULL pointers, so wrapping checks for 
+null round calls to it is redundant. This patch gets rid of two such 
+checks in net/ipv6/ip6_flowlabel.c
 
-	while (cpr32(StatsAddr) & DumpStats) {
-		if (msleep_interruptible(1))
-			break;
-	}
+I considered also rewriting the 
+        if (fl)
+                fl_free(fl);
+bit as simply fl_free(fl) as well, but that if() potentially saves two 
+calls to kfree() inside fl_free as well as the call to fl_free itself, so 
+I guess that's worth the if().
 
-May be we could remove "cpr32(StatsAddr);" too as any posted write will
-be commited in the loop anyway.
+Please consider applying.
 
---
-Ueimor
+
+Signed-off-by: Jesper Juhl <juhl-lkml@dif.dk>
+
+diff -up linux-2.6.11-mm4-orig/net/ipv6/ip6_flowlabel.c linux-2.6.11-mm4/net/ipv6/ip6_flowlabel.c
+--- linux-2.6.11-mm4-orig/net/ipv6/ip6_flowlabel.c	2005-03-02 08:37:50.000000000 +0100
++++ linux-2.6.11-mm4/net/ipv6/ip6_flowlabel.c	2005-03-17 00:23:30.000000000 +0100
+@@ -87,8 +87,7 @@ static struct ip6_flowlabel * fl_lookup(
+ 
+ static void fl_free(struct ip6_flowlabel *fl)
+ {
+-	if (fl->opt)
+-		kfree(fl->opt);
++	kfree(fl->opt);
+ 	kfree(fl);
+ }
+ 
+@@ -553,8 +552,7 @@ release:
+ done:
+ 	if (fl)
+ 		fl_free(fl);
+-	if (sfl1)
+-		kfree(sfl1);
++	kfree(sfl1);
+ 	return err;
+ }
+ 
+
+
+
+-- 
+Jesper Juhl
+
+PS. Please CC me on replies from lists other than linux-kernel
