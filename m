@@ -1,36 +1,29 @@
-From: "Sebastian Piecha" <spi@gmxpro.de>
-Subject: Re: oops in skbuff.c
-Date: Fri, 17 Oct 2003 14:17:25 +0200
+From: Mike_Phillips@URSCorp.com
+Subject: Re: [PATCH] (5/6) ibmtr -- probe2
+Date: Fri, 17 Oct 2003 10:34:54 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F8FF9F5.24611.8F1E08C@localhost>
-References: <3F8EF7B3.25278.5010BC6@localhost>
+Message-ID: <OF2CF9F939.3E58DC8A-ON84256DC2.004A4CEF-84256DC2.004A9B73@urscorp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
+Content-Type: text/plain; charset=us-ascii
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com, netdev-bounce@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: James Morris <jmorris@redhat.com>, LK-net <linux-net@vger.kernel.org>,
-        <netdev@oss.sgi.com>
-In-reply-to: <Xine.LNX.4.44.0310161512210.6059-100000@thoron.boston.redhat.com>
-Content-description: Mail message body
+To: Stephen Hemminger <shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 16 Oct 2003 at 15:15, James Morris wrote:
 
-> On Thu, 16 Oct 2003, Sebastian Piecha wrote:
-> 
-> >  panics. Copying more than 4 GB to the samba share also lets the 
-> > kernel panic with an OOPS.
-> 
-> Does the above cause a panic for the 2.6-test kernels?
-> Do you have netfilter enabled, and if so, any iptables modules loaded?
-> 
-> 
-I did a mistake. iptables is installed but no rules added. I'll 
-remove iptables and rerun the check.
+>>
+>> > typedef struct ibmtr_dev_t {
+>> > +    struct tok_info         ti;         /* must be first! */
+>>
+>> Why must this be first ?? Sounds like an alignment issue, we shouldn't
+>> assume some is aligned correctly just because it's the first entry.
 
---
-Mit freundlichen Gruessen/Best regards,
-Sebastian Piecha
+>Because ibmtr_cs calls ibmtr_probe1 function which does:
+>            struct tok_info *ti = dev->priv;
+>and dereferences it in a couple of places.
 
-EMail: spi@gmxpro.de
+Huh ?? All the patch did was move the definition of ti to the start of the
+struct ibmtr_dev_t
+
+Mike
