@@ -1,44 +1,34 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: [PATCH] IPSEC: typo in xfrm_sk_clone_policy()
-Date: Wed, 12 Mar 2003 16:17:49 +0900 (JST)
+From: Marcin Kaminski <maxiu@man.poznan.pl>
+Subject: socket(PF_INET6, SOCK_RAW, IPPROTO_ICMPV6)
+Date: Wed, 12 Mar 2003 13:17:47 +0100 (CET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030312.161749.123173528.yoshfuji@linux-ipv6.org>
+Message-ID: <Pine.GSO.4.44.0303121313240.17866-100000@rose.man.poznan.pl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, usagi@linux-ipv6.org
+Content-Type: TEXT/PLAIN; charset=iso-8859-2
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com, kuznet@ms2.inr.ac.ru
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello.
+Hi
 
-I think following patch fixes a typo in xfrm_sk_clone_policy()
-which results in infinite loop if sk->policy[0] or sk->policy[1] is true.
+I've found, that on my system (2.2.22) RAW sockets for IPv6 works
+different than for IPv4.
+When I create socket like:
+    interfaceSocket =3D socket(PF_INET, SOCK_RAW, IPPROTO_ICMP);
+I receive ICMPv4 packets with IP header, but when I use
+    interfaceSocket =3D socket(PF_INET6, SOCK_RAW, IPPROTO_ICMPV6);
+I receive ICMPv6 packets WITHOUT IPv6 header.
+What should I do in order to get full packet?
+Man pages of raw(7) tell:
 
-Patch is for 2.5.64.
+For receiving the IP header is always included in the packet.
 
-Thanks.
+But it is not true for IPv6 :(
 
-Index: include/net/xfrm.h
-===================================================================
-RCS file: /cvsroot/usagi/usagi-backport/linux25/include/net/xfrm.h,v
-retrieving revision 1.1.1.7
-diff -u -r1.1.1.7 xfrm.h
---- include/net/xfrm.h	16 Feb 2003 04:09:06 -0000	1.1.1.7
-+++ include/net/xfrm.h	12 Mar 2003 07:06:20 -0000
-@@ -335,7 +335,7 @@
- static inline int xfrm_sk_clone_policy(struct sock *sk)
- {
- 	if (unlikely(sk->policy[0] || sk->policy[1]))
--		return xfrm_sk_clone_policy(sk);
-+		return __xfrm_sk_clone_policy(sk);
- 	return 0;
- }
- 
-
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+With regards
+- Marcin Kaminski --------------------------------- maxiu -
+--- software developer ------------------- 6net project ---
+----- network administrator -------- Best Group admin -----
+------- Pozna=F1 Supercomputing and Networking Center -------
