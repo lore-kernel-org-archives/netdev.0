@@ -1,42 +1,59 @@
-From: Shmulik Hen <shmulik.hen@intel.com>
-Subject: Re: Fw: [Kernel-janitors] old ioctl definitions in 2.5
-Date: Tue, 16 Sep 2003 16:31:48 +0300
+From: Harald Welte <laforge@netfilter.org>
+Subject: Re: ipt_physdev.c alignment problems on parisc64
+Date: Tue, 16 Sep 2003 16:06:21 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200309161631.48653.shmulik.hen@intel.com>
-References: <E791C176A6139242A988ABA8B3D9B38A02A464A9@hasmsx403.iil.intel.com>
-Reply-To: shmulik.hen@intel.com
+Message-ID: <20030916140621.GE810@obroa-skai.de.gnumonks.org>
+References: <200309022116.41697.bdschuym@pandora.be> <20030905153152.GA3623@obroa-skai.de.gnumonks.org> <20030908191400.5ef59ab6.davem@redhat.com> <200309132159.37834.bdschuym@pandora.be> <20030915155903.12a3f95d.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: <rddunlap@osdl.org>, <netdev@oss.sgi.com>, <janitor@sternwelten.at>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="RpqchZ26BWispMcB"
+Cc: Bart De Schuymer <bdschuym@pandora.be>, acme@conectiva.com.br,
+   netfilter-devel@lists.netfilter.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Jay Vosburgh" <fubar@us.ibm.com>, "David S. Miller" <davem@redhat.com>
-In-Reply-To: <E791C176A6139242A988ABA8B3D9B38A02A464A9@hasmsx403.iil.intel.com>
+To: "David S. Miller" <davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20030915155903.12a3f95d.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 16 September 2003 04:11 am, Jay Vosburgh wrote:
-> >On Mon, 15 Sep 2003 16:57:26 -0700
-> >
-> >Jay Vosburgh <fubar@us.ibm.com> wrote:
-> >>      My only concern is a matter of timing; we're right at the
-> >> end of synchronizing the 2.4 and 2.6 bonding sources.  Once
-> >> that's settled (hopefully in a few days, the last patch set for
-> >> 2.4 came in this morning), then removing them from that header
-> >> and the bonding code should be fine.
-> >
-> >No problem.  Just push the change to Jeff then after you're
-> >done merging stuff around, ok?
->
->         Will do.
 
-I'm on the verge of finishing my cleanup set re-do. Now that Amir sent 
-all the synching stuff, I could put that one in as well, and it would 
-fit on both 2.4 and 2.6.
+--RpqchZ26BWispMcB
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
--- 
-| Shmulik Hen   Advanced Network Services  |
-| Israel Design Center, Jerusalem          |
-| LAN Access Division, Platform Networking |
-| Intel Communications Group, Intel corp.  |
+On Mon, Sep 15, 2003 at 03:59:03PM -0700, David S. Miller wrote:
+
+> I have to reject the fix for this problem again.
+>=20
+> You can't change the struct exported to userspace in any way
+> without breaking the tools.  I tried to explain this in the
+> first revision of your change.
+
+But ipt_physdev is a 2.6ism, thus we can still introduce any
+incompatibility... For me it's enough to be compatible within 2.4 or
+within 2.6.x (once 2.6.0 is out).
+
+--=20
+- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+  "Fragmentation is like classful addressing -- an interesting early
+   architectural error that shows how much experimentation was going
+   on while IP was being designed."                    -- Paul Vixie
+
+--RpqchZ26BWispMcB
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.2 (GNU/Linux)
+
+iD8DBQE/ZxjdXaXGVTD0i/8RAvwEAJ4htvS6D4AkjvQ7jP73ip6fNWIIWwCgkWvh
+p5vr4UEckgkef/6IvUVH/vA=
+=l7fr
+-----END PGP SIGNATURE-----
+
+--RpqchZ26BWispMcB--
