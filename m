@@ -1,91 +1,37 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: 2.6.9 SMP: via-rhine cannot be upped
-Date: Wed, 27 Oct 2004 09:16:01 -0700
+Subject: Re: [PATCH] sk98lin: Driver update v7.09
+Date: Wed, 27 Oct 2004 10:25:19 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041027091601.476ee3ca@guest-251-240.pdx.osdl.net>
-References: <200410271000.24390.vda@port.imtp.ilyichevsk.odessa.ua>
+Message-ID: <20041027102519.0fc3c7a9@guest-251-240.pdx.osdl.net>
+References: <417907C1.6050407@syskonnect.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-        Jeff Garzik
- <jgarzik@pobox.com>
+Cc: netdev@oss.sgi.com, jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
-In-Reply-To: <200410271000.24390.vda@port.imtp.ilyichevsk.odessa.ua>
+To: Mirko Lindner <mlindner@syskonnect.de>
+In-Reply-To: <417907C1.6050407@syskonnect.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 27 Oct 2004 10:00:24 +0300
-Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua> wrote:
+On Fri, 22 Oct 2004 15:14:41 +0200
+Mirko Lindner <mlindner@syskonnect.de> wrote:
 
-> [sorry, threading will be broken]
+> Hi dev-list,
+> Hi Jeff,
 > 
-> >>I have an onboard VIA eth:
-> >>
-> >># lspci
-> >>00:12.0 Ethernet controller: VIA Technologies, Inc. VT6102 [Rhine-II] (rev 74)
-> >>
-> >>It cannot be upped:
-> >>
-> >># ip l set dev if up
-> >>SIOCSIFFLAGS: Function not implemented
-> >># ifconfig if up
-> >>SIOCSIFFLAGS: Function not implemented
-> >># busybox ip l set dev if up
-> >>SIOCSIFFLAGS: Function not implemented
-> >
-> >My suspicion is that the eth0 device is not actually the VIA driver
-> >at all. Since your config builds many drivers directly into the kernel,
-> >probably one of the others created an eth0 device.  There is no
-> >guarantee of initialization order about which device gets created first
-> >(at least the way network devices are done in 2.6). 
-> >
-> >You should investigate if there are multiple devices present
-> >(ifconfig -a or ls /sys/class/net).  Perhaps one of the other drivers
-> >does not correctly handle the case of hardware not being present
-> >and leaves a ghost behind..
-> >
-> >One way to find out would be to look at:
-> >	/sys/class/net/eth0/device/vendor
-> >	/sys/class/net/eth0/device/device
-> >	/sys/class/net/eth0/device/subsystem_vendor
-> >	/sys/class/net/eth0/device/subsystem_device
+> here is the new version (v7.09) from our sk98lin driver for Kernel 2.6. 
+> Sorry for this huge patch but this version has a lot of new functions 
+> and changes. The driver was tested by our Test & Verification group and 
+> our OEM customers and include all kernel changes during the latest 
+> kernel release.
 > 
-> Thanks! This was an excellent advice.
+> Please send me an email if you like a version of the driver for kernel 
+> 2.4 or if you have any problems or questions.
 > 
-> 2.6.9-smp did get right the device as Via Rhine, but IRQ is 16
-> now! This must be source of my problems.
-> 
-> I had to check dmesg in the first place instead of
-> mailing lkml...
+> The new patch for BK version 2.6.9 bk6 can be find at:
+> http://www.syskonnect.de/support/temp/sk98lin_v7.09_2.6.9-bk6_patch
 
-So the summary is the via-rhine could not get irq so it
-was not any attempt bring it up would fail.
-
-> +eth0: VIA Rhine II at 0xe400, 00:0a:e6:7c:dd:79, IRQ 16.
-...
-> +eth0: could not install IRQ handler
-> +prism54: probe of 0000:00:0c.0 failed with error -5
-
-The failure -ENOSYS comes from:
-
-int setup_irq(unsigned int irq, struct irqaction * new)
-{
-        struct irq_desc *desc = irq_desc + irq;
-        struct irqaction *old, **p;
-        unsigned long flags;
-        int shared = 0;
-
-        if (desc->handler == &no_irq_type)
-                return -ENOSYS;
-
-Looks like IRQ 16 is not a valid interrupt source.  Since SMP
-kernel needs an APIC (an UP doesn't). 
-
-+PCI->APIC IRQ transform: (B0,I12,P0) -> 16
-
-Maybe either your motherboard APIC support doesn't work, or
-ACPI is confused.
-
-Do you really need to run SMP kernels on this board?
+Since you won't...
+I'll break this up in pieces (and merge in my changes), and get
+rid of the UglyReDefineTheWorld style.
