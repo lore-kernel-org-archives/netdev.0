@@ -1,86 +1,329 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [RFC] MASQUERADE / policy routing ("Route send us somewhere
- else")
-Date: Tue, 31 Aug 2004 15:33:22 +0300 (EEST)
+From: Andi Kleen <ak@muc.de>
+Subject: [PATCH] Extend lock less TX to real devices
+Date: Tue, 31 Aug 2004 14:38:20 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0408311446240.4022-100000@l>
-References: <20040831111508.GA2327@gondor.apana.org.au>
+Message-ID: <m38ybvjxdv.fsf@averell.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@davemloft.net>, <laforge@netfilter.org>,
-        <netfilter-devel@lists.netfilter.org>, <rusty@rustcorp.com.au>,
-        <netdev@oss.sgi.com>, <kuznet@ms2.inr.ac.ru>
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040831111508.GA2327@gondor.apana.org.au>
+To: davem@redhat.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
+        akepner@sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-	Hello,
+This patch extends the recently added NETIF_F_LLTX to real devices.
+A lot of modern network drivers have a single big lock around their 
+hard_start_xmit, and it doesn't make sense to take the xmit lock too.
+They also have enough locking to handle setting of multicast lists
+properly.
 
-On Tue, 31 Aug 2004, Herbert Xu wrote:
+Now they can set NETIF_F_LLTX and get one lock less.  For drivers
+that don't set this flag nothing changes.
 
-> On Tue, Aug 31, 2004 at 01:54:21PM +0300, Julian Anastasov wrote:
-> >
-> > 	Yes, 2.2 worked somehow, until some users wanted more
-> > control from the routing. Now ip_fw_compat_masq.c has such call,
-> > it can be fast in some setups with small number of IPs but may
-> > be now there some setups using nfmark for selecting maddr from
-> > ISP-specific routing tables. I'm not sure we can avoid the routing
-> > and the cache pollution, we have to live with the old behavoir, not
-> > the current one.
->
-> You're right.  However, we can still do this without performing
-> another routing lookup.  The information is already there in the
-> fib rule.  We just didn't bother writing it down in the route for
-> forwarded packets.
+I added support for trylocking instead of spinning like sch_generic
+does - for that the driver has to return -1, then the packet is requeued.
+The check for a local device deadlock is lost for this case, 
+but that doesn't seem to be a big loss (I've never seen this printk 
+ever get triggered)
 
-	I do not see where the public IP is, what you mean? As the
-mpath route does not have preferred src IP (usually when many ISPs
-are used) the kernel uses inet_select_addr to select one, in similar
-way as you are trying to do. But the difference is that it is now
-cached and by using nfmark we have more options not to reach this
-mpath route on next lookups.
+The patch looks bigger than it really is because i moved some code
+around and converted the macros into inlines. 
 
-	One example: the GWs used in the nexthops can be internal
-addresses, in such cases inet_select_addr gets the first local (scope
-global) public IP address because the target IP is not always part
-from the GW's subnet. You can not rely on any information present
-in the mpath route and to assume anything about maddr without specific
-lookup, additional one.
+I also did an additional micro optimization: on a preemptive kernel
+dev_queue_xmit would change the local atomic count several times
+in the hot path. This patch changes it to disable preemption only once,
+to hopefully make it a bit faster.
 
-> So if we add a new field for the preferred source address to
-> struct rtable then we can avoid the lookup.
+I changed the lltx handling to not change xmit_lock_owner.
+Without a lock it is not safe anyways and it will prevent
+another cache line from bouncing.
 
-	What is this? Sort of 'nexthop via GW1 dev eth0 snat MADDR1' ?
-This is the same as to use SNAT target. Similar thing worked very
-well in 2.2 kernels (nat XXX) but only for unipath routes.
+With only this patch nothing changes because no driver uses
+the new flag yet.
 
-> BTW, I'd still like to know the problem with the original oif key.
+-Andi
 
-	The old way to provide oif as key adds one additional
-cache entry per every normal input route. Another issue is that
-providing oif key can hit wrong route in some setups - not the
-first match which we usually hit with oif=0. But for the usual
-cases it works.
-
-> It's basically saying that if you can find the correct route using
-> the other keys (daddr/tos/mark) then all is well, if you can't
-> (dev != out) then we'll use the best address on the outgoing
-> interface.
-
-	ip_route_output + inet_select_addr in 50% of the cases
-for mpath route with 2 NHs?
-
-	inet_select_addr is ok to use only when nfmark is not used,
-it is even used now for multipath routes in the usual case when
-prefsrc is not defined. But with the routing you have more control
-on what to select as maddr. So, I'm for the old way which can
-work for more setups and against inet_select_addr which can break 
-existing ones.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+diff -u linux-2.6.8-work/net/core/dev.c-o linux-2.6.8-work/net/core/dev.c
+--- linux-2.6.8-work/net/core/dev.c-o	2004-08-05 04:31:12.000000000 +0200
++++ linux-2.6.8-work/net/core/dev.c	2004-08-31 13:25:35.000000000 +0200
+@@ -1255,19 +1255,24 @@
+ 	return 0;
+ }
+ 
+-#define HARD_TX_LOCK_BH(dev, cpu) {			\
+-	if ((dev->features & NETIF_F_LLTX) == 0) {	\
+-		spin_lock_bh(&dev->xmit_lock);		\
+-		dev->xmit_lock_owner = cpu;		\
+-	}						\
+-}
++/* Preemption must be off here. A driver setting LLTX has to 
++   use interrupt safe locking. */
+ 
+-#define HARD_TX_UNLOCK_BH(dev) {			\
+-	if ((dev->features & NETIF_F_LLTX) == 0) {	\
+-		dev->xmit_lock_owner = -1;		\
+-		spin_unlock_bh(&dev->xmit_lock);	\
+-	}						\
+-}
++static inline int hard_tx_lock(struct net_device *dev) 
++{ 
++	if (dev->features & NETIF_F_LLTX)
++		return 1; 
++	spin_lock(&dev->xmit_lock);
++	dev->xmit_lock_owner = smp_processor_id(); 
++} 
++
++static inline void hard_tx_unlock(struct net_device *dev) 
++{ 
++	if (dev->features & NETIF_F_LLTX) 
++		return; 
++	dev->xmit_lock_owner = -1;
++	spin_unlock(&dev->xmit_lock);	
++} 
+ 
+ static inline void qdisc_run(struct net_device *dev)
+ {
+@@ -1319,7 +1324,15 @@
+ 	      	if (skb_checksum_help(&skb, 0))
+ 	      		goto out_kfree_skb;
+ 
+-	rcu_read_lock();
++	/* 
++	 * Various locks need a _bh disable and there are CPU local
++	 * data structures too. Instead of changing the preempt count
++	 * with each lock just grab it here once for the whole
++	 * function. This also gives the require atomicity for the RCU
++	 * use below.
++	 */ 
++	local_bh_disable();
++
+ 	/* Updates of qdisc are serialized by queue_lock. 
+ 	 * The struct Qdisc which is pointed to by qdisc is now a 
+ 	 * rcu structure - it may be accessed without acquiring 
+@@ -1339,18 +1352,17 @@
+ #endif
+ 	if (q->enqueue) {
+ 		/* Grab device queue */
+-		spin_lock_bh(&dev->queue_lock);
++		spin_lock(&dev->queue_lock);
+ 
+ 		rc = q->enqueue(skb, q);
+ 
+ 		qdisc_run(dev);
+ 
+-		spin_unlock_bh(&dev->queue_lock);
+-		rcu_read_unlock();
++		spin_unlock(&dev->queue_lock);
+ 		rc = rc == NET_XMIT_BYPASS ? NET_XMIT_SUCCESS : rc;
+ 		goto out;
+ 	}
+-	rcu_read_unlock();
++
+ 
+ 	/* The device has no queue. Common case for software devices:
+ 	   loopback, all the sorts of tunnels...
+@@ -1363,32 +1375,27 @@
+ 
+ 	   Check this and shot the lock. It is not prone from deadlocks.
+ 	   Either shot noqueue qdisc, it is even simpler 8)
++
++	   BHs are still disabled here
+ 	 */
+ 	if (dev->flags & IFF_UP) {
+-		int cpu = get_cpu();
+-
+-		if (dev->xmit_lock_owner != cpu) {
+-
+-			HARD_TX_LOCK_BH(dev, cpu);
+-			put_cpu();
+-
++		if (hard_tx_lock(dev)) { 
+ 			if (!netif_queue_stopped(dev)) {
+ 				if (netdev_nit)
+ 					dev_queue_xmit_nit(skb, dev);
+ 
+ 				rc = 0;
+ 				if (!dev->hard_start_xmit(skb, dev)) {
+-					HARD_TX_UNLOCK_BH(dev);
++					hard_tx_unlock(dev);
+ 					goto out;
+ 				}
+ 			}
+-			HARD_TX_UNLOCK_BH(dev);
++			hard_tx_unlock(dev);
+ 			if (net_ratelimit())
+ 				printk(KERN_CRIT "Virtual device %s asks to "
+ 				       "queue packet!\n", dev->name);
+ 			goto out_enetdown;
+ 		} else {
+-			put_cpu();
+ 			/* Recursion is detected! It is possible,
+ 			 * unfortunately */
+ 			if (net_ratelimit())
+@@ -1401,6 +1408,7 @@
+ out_kfree_skb:
+ 	kfree_skb(skb);
+ out:
++	local_bh_enable();
+ 	return rc;
+ }
+ 
+diff -u linux-2.6.8-work/net/core/pktgen.c-o linux-2.6.8-work/net/core/pktgen.c
+--- linux-2.6.8-work/net/core/pktgen.c-o	2004-08-05 04:31:12.000000000 +0200
++++ linux-2.6.8-work/net/core/pktgen.c	2004-08-15 17:51:22.000000000 +0200
+@@ -629,8 +629,9 @@
+ 		}
+ 
+ 		nr_frags = skb_shinfo(skb)->nr_frags;
+-		   
+-		spin_lock_bh(&odev->xmit_lock);
++
++		if (!(odev->features & NETIF_F_LLTX))
++			spin_lock_bh(&odev->xmit_lock);
+ 		if (!netif_queue_stopped(odev)) {
+ 
+ 			atomic_inc(&skb->users);
+@@ -655,8 +656,8 @@
+ 			last_ok = 0;
+ 		}
+ 		
+-
+-		spin_unlock_bh(&odev->xmit_lock);
++		if (!(odev->features & NETIF_F_LLTX))
++			spin_unlock_bh(&odev->xmit_lock);
+ 
+ 		if (info->ipg) {
+ 			/* Try not to busy-spin if we have larger sleep times.
+diff -u linux-2.6.8-work/net/sched/sch_generic.c-o linux-2.6.8-work/net/sched/sch_generic.c
+--- linux-2.6.8-work/net/sched/sch_generic.c-o	2004-08-13 03:44:03.000000000 +0200
++++ linux-2.6.8-work/net/sched/sch_generic.c	2004-08-31 13:13:36.000000000 +0200
+@@ -68,6 +68,34 @@
+ 	write_unlock_bh(&qdisc_tree_lock);
+ }
+ 
++static int qdisc_coll(struct net_device *dev, struct sk_buff *skb)
++{
++	/* So, someone grabbed the driver. */
++	
++	/* It may be transient configuration error,
++	   when hard_start_xmit() recurses. We detect
++	   it by checking xmit owner and drop the
++	   packet when deadloop is detected.
++	*/
++	if (dev->xmit_lock_owner == smp_processor_id()) {
++		kfree_skb(skb);
++		if (net_ratelimit())
++			printk(KERN_DEBUG "Dead loop on netdevice %s, fix it urgently!\n", dev->name);
++		return -1;
++	}
++	__get_cpu_var(netdev_rx_stat).cpu_collision++;
++	return 0;
++}
++
++static inline void qdisc_unlock_driver(struct net_device *dev)
++{
++	if (!(dev->features & NETIF_F_LLTX)) { 
++		dev->xmit_lock_owner = -1;
++		spin_unlock(&dev->xmit_lock);
++	}
++	spin_lock(&dev->queue_lock);
++}
++
+ /* 
+    dev->queue_lock serializes queue accesses for this device
+    AND dev->qdisc pointer itself.
+@@ -97,50 +125,49 @@
+ 
+ 	/* Dequeue packet */
+ 	if ((skb = q->dequeue(q)) != NULL) {
+-		if (spin_trylock(&dev->xmit_lock)) {
++		/* 
++		 * When the driver has LLTX set it does its own locking 
++		 * in start_xmit. No need to add additional overhead by
++		 * locking again. These checks are worth it because
++		 * even uncongested locks can be quite expensive.
++		 */
++		if ((dev->features & NETIF_F_LLTX) == 0) { 
++			if (!spin_trylock(&dev->xmit_lock)) {
++				if (qdisc_coll(dev, skb) < 0) 
++					return -1;
++				goto out; 
++				
++			}
+ 			/* Remember that the driver is grabbed by us. */
+ 			dev->xmit_lock_owner = smp_processor_id();
+-
+-			/* And release queue */
+-			spin_unlock(&dev->queue_lock);
+-
+-			if (!netif_queue_stopped(dev)) {
+-				if (netdev_nit)
+-					dev_queue_xmit_nit(skb, dev);
+-
+-				if (dev->hard_start_xmit(skb, dev) == 0) {
+-					dev->xmit_lock_owner = -1;
+-					spin_unlock(&dev->xmit_lock);
+-
+-					spin_lock(&dev->queue_lock);
+-					return -1;
++		}
++		
++		/* And release queue */
++		spin_unlock(&dev->queue_lock);
++		
++		if (!netif_queue_stopped(dev)) {
++			int ret;
++
++			if (netdev_nit)
++				dev_queue_xmit_nit(skb, dev);
++			
++			ret = dev->hard_start_xmit(skb, dev);
++			if (ret <= 0) { 
++				qdisc_unlock_driver(dev);
++				/* requeue in case of lock collision */
++				if (ret < 0) {
++					__get_cpu_var(netdev_rx_stat).cpu_collision++;
++					goto out; 
+ 				}
+-			}
+-
+-			/* Release the driver */
+-			dev->xmit_lock_owner = -1;
+-			spin_unlock(&dev->xmit_lock);
+-			spin_lock(&dev->queue_lock);
+-			q = dev->qdisc;
+-		} else {
+-			/* So, someone grabbed the driver. */
+-
+-			/* It may be transient configuration error,
+-			   when hard_start_xmit() recurses. We detect
+-			   it by checking xmit owner and drop the
+-			   packet when deadloop is detected.
+-			 */
+-			if (dev->xmit_lock_owner == smp_processor_id()) {
+-				kfree_skb(skb);
+-				if (net_ratelimit())
+-					printk(KERN_DEBUG "Dead loop on netdevice %s, fix it urgently!\n", dev->name);
+ 				return -1;
+ 			}
+-			__get_cpu_var(netdev_rx_stat).cpu_collision++;
+ 		}
+ 
++		qdisc_unlock_driver(dev);
++		q = dev->qdisc;
++
+ 		/* Device kicked us out :(
+-		   This is possible in three cases:
++		   This is possible in four cases:
+ 
+ 		   0. driver is locked
+ 		   1. fastroute is enabled
+@@ -149,6 +176,7 @@
+ 		   3. device is buggy (ppp)
+ 		 */
+ 
++	out:
+ 		q->ops->requeue(skb, q);
+ 		netif_schedule(dev);
+ 		return 1;
