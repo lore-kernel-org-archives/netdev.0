@@ -1,135 +1,77 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] UDP select handling of bad checksums.
-Date: Mon, 22 Nov 2004 10:09:07 -0800
-Message-ID: <20041122100907.2ab81f18@dxpl.pdx.osdl.net>
-References: <20041102162454.3f153ff0@dxpl.pdx.osdl.net>
-	<20041103005253.GA77817@gaz.sfgoth.com>
+From: =?ISO-8859-2?Q?Micha=B3_Margula?= <alchemyx@uznam.net.pl>
+Subject: Re: Fw: [Bugme-new] [Bug 3747] New: HTB causes machine lockups
+Date: Mon, 22 Nov 2004 19:10:11 +0100
+Message-ID: <41A22B83.2050002@uznam.net.pl>
+References: <20041115122059.4cfcd213.akpm@osdl.org> <20041115233806.GC31969@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Mitchell Blank Jr <mitch@sfgoth.com>, netdev@oss.sgi.com,
-        linux-net@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-2; format=flowed
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@oss.sgi.com, Andrew Morton <akpm@osdl.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20041103005253.GA77817@gaz.sfgoth.com>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20041115233806.GC31969@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Alternate workaround for blocking usage of select() by UDP applications.
-The problem is Linux optimizes the UDP receive checksum path so that checksum
-validation is not performed until the application read. This is a performance win
-but can cause applications that do select with blocking file descriptors to get false
-positives if the received message has a checksum error.
-There is a long running thread about this on LKML.
+Thomas Graf napisa=B3(a):
 
-This patch makes these applications work, but keeps the one-pass performance gain
-for those applications smart enough to use non-blocking file descriptors with
-select/poll. There is still a possibility to get a false positive if application does
-select on non-blocking fd then makes it blocking before doing the receive, but that
-is unlikely.
+>Did you ever experience the same problems with other classful qdiscs suc=
+h as
+>CBQ? Would it be possible for you to run a similar CBQ setup on a dummy =
+device
+>and see if it happens as well? Is anything going on at the time of the
+>deadlocks like an interface going down etc.?
+>
+> =20
+>
+At the moment I can't make such CBQ configuration, because I have no=20
+free time, too much work. But in about few weeks I am going to convert=20
+that box 2.6.x kernels. After that if hangs don't stop, we can think=20
+about converting that to CBQ, ok?
 
-Tested by injecting bad packets with SOCK_RAW.
+And by the way, today I got that in my logs:
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+Nov 22 17:50:01 sauron kernel: Unable to handle kernel NULL pointer=20
+dereference at virtual address 00000000
+Nov 22 17:50:01 sauron kernel:  printing eip:
+Nov 22 17:50:01 sauron kernel: f89cb555
+Nov 22 17:50:01 sauron kernel: *pde =3D 00000000
+Nov 22 17:50:01 sauron kernel: Oops: 0000
+Nov 22 17:50:01 sauron kernel: CPU:    3
+Nov 22 17:50:01 sauron kernel: EIP:   =20
+0010:[cls_u32:__insmod_cls_u32_O/lib/modules/2.4.26/kernel/net/sched/cls_=
++-146091/96]   =20
+Not tainted
+Nov 22 17:50:01 sauron kernel: EFLAGS: 00010202
+Nov 22 17:50:01 sauron kernel: eax: 000000b0   ebx: 00000000   ecx:=20
+c02f9888   edx: 000000b0
+Nov 22 17:50:01 sauron kernel: esi: f04a7dd8   edi: f4eb5068   ebp:=20
+f4eb5068   esp: f04a7d90
+Nov 22 17:50:01 sauron kernel: ds: 0018   es: 0018   ss: 0018
+Nov 22 17:50:01 sauron kernel: Process tc (pid: 6600, stackpage=3Df04a700=
+0)
+Nov 22 17:50:01 sauron kernel: Stack: f4eb5000 00000930 c57fd824=20
+c57fd800 f4eb5068 00000000 f4eb5060 c02021c5
+Nov 22 17:50:01 sauron kernel:        f4eb5000 f04a7dd8 e6eb8880=20
+c92aab00 c57fd800 c92aab00 c57fd818 dc9a8e90
+Nov 22 17:50:01 sauron kernel:        f7ceb000 0000092f 00000000=20
+00000000 00000001 c02020b4 e6eb8880 c57fd800
+Nov 22 17:50:01 sauron kernel: Call Trace:    [tc_dump_tclass+221/304]=20
+[qdisc_class_dump+0/52] [netlink_dump+130/464] [skb_free_datagram+29/36]=20
+[netlink_recvmsg+190/300]
+Nov 22 17:50:01 sauron kernel:   [netlink_recvmsg+229/300]=20
+[sock_recvmsg+61/188] [sys_recvmsg+356/516] [handle_mm_fault+92/188]=20
+[schedule+1115/1312] [pipe_write+518/616]
+Nov 22 17:50:01 sauron kernel:   [sys_socketcall+501/512]=20
+[system_call+51/56]
+Nov 22 17:50:01 sauron kernel:
+Nov 22 17:50:01 sauron kernel: Code: 8b 03 0f 18 00 39 fb 75 c2 83 44 24=20
+10 08 83 c5 08 ff 44 24
+Nov 22 17:50:01 sauron kernel:  <6>HTB init, kernel part version 3.16
 
-diff -Nru a/include/net/udp.h b/include/net/udp.h
---- a/include/net/udp.h	2004-11-19 10:37:56 -08:00
-+++ b/include/net/udp.h	2004-11-19 10:37:56 -08:00
-@@ -71,6 +71,8 @@
- extern int	udp_rcv(struct sk_buff *skb);
- extern int	udp_ioctl(struct sock *sk, int cmd, unsigned long arg);
- extern int	udp_disconnect(struct sock *sk, int flags);
-+extern unsigned int udp_poll(struct file *file, struct socket *sock,
-+			     poll_table *wait);
- 
- DECLARE_SNMP_STAT(struct udp_mib, udp_statistics);
- #define UDP_INC_STATS(field)		SNMP_INC_STATS(udp_statistics, field)
-diff -Nru a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
---- a/net/ipv4/af_inet.c	2004-11-19 10:37:56 -08:00
-+++ b/net/ipv4/af_inet.c	2004-11-19 10:37:56 -08:00
-@@ -809,7 +809,7 @@
- 	.socketpair =	sock_no_socketpair,
- 	.accept =	sock_no_accept,
- 	.getname =	inet_getname,
--	.poll =		datagram_poll,
-+	.poll =		udp_poll,
- 	.ioctl =	inet_ioctl,
- 	.listen =	sock_no_listen,
- 	.shutdown =	inet_shutdown,
-diff -Nru a/net/ipv4/udp.c b/net/ipv4/udp.c
---- a/net/ipv4/udp.c	2004-11-19 10:37:56 -08:00
-+++ b/net/ipv4/udp.c	2004-11-19 10:37:56 -08:00
-@@ -1303,6 +1303,52 @@
-   	return 0;
- }
- 
-+/**
-+ * 	udp_poll - wait for a UDP event.
-+ *	@file - file struct
-+ *	@sock - socket
-+ *	@wait - poll table
-+ *
-+ *	This is same as datagram poll, except for the special case of 
-+ *	blocking sockets. If application is using a blocking fd
-+ *	and a packet with checksum error is in the queue;
-+ *	then it could get return from select indicating data available
-+ *	but then block when reading it. Add special case code
-+ *	to work around these arguably broken applications.
-+ */
-+unsigned int udp_poll(struct file *file, struct socket *sock, poll_table *wait)
-+{
-+	unsigned int mask = datagram_poll(file, sock, wait);
-+	struct sock *sk = sock->sk;
-+	
-+	/* Check for false positives due to checksum errors */
-+	if ( (mask & POLLRDNORM) &&
-+	     !(file->f_flags & O_NONBLOCK) &&
-+	     !(sk->sk_shutdown & RCV_SHUTDOWN)){
-+		struct sk_buff_head *rcvq = &sk->sk_receive_queue;
-+		struct sk_buff *skb;
-+
-+		spin_lock_irq(&rcvq->lock);
-+		while ((skb = skb_peek(rcvq)) != NULL) {
-+			if (udp_checksum_complete(skb)) {
-+				UDP_INC_STATS_BH(UDP_MIB_INERRORS);
-+				__skb_unlink(skb, rcvq);
-+				kfree_skb(skb);
-+			} else {
-+				skb->ip_summed = CHECKSUM_UNNECESSARY;
-+				break;
-+			}
-+		}
-+		spin_unlock_irq(&rcvq->lock);
-+
-+		/* nothing to see, move along */
-+		if (skb == NULL)
-+			mask &= ~(POLLIN | POLLRDNORM);
-+	}
-+
-+	return mask;
-+	
-+}
- 
- struct proto udp_prot = {
-  	.name =		"UDP",
-@@ -1516,6 +1562,7 @@
- EXPORT_SYMBOL(udp_port_rover);
- EXPORT_SYMBOL(udp_prot);
- EXPORT_SYMBOL(udp_sendmsg);
-+EXPORT_SYMBOL(udp_poll);
- 
- #ifdef CONFIG_PROC_FS
- EXPORT_SYMBOL(udp_proc_register);
-diff -Nru a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
---- a/net/ipv6/af_inet6.c	2004-11-19 10:37:56 -08:00
-+++ b/net/ipv6/af_inet6.c	2004-11-19 10:37:56 -08:00
-@@ -501,7 +501,7 @@
- 	.socketpair =	sock_no_socketpair,		/* a do nothing	*/
- 	.accept =	sock_no_accept,			/* a do nothing	*/
- 	.getname =	inet6_getname, 
--	.poll =		datagram_poll,			/* ok		*/
-+	.poll =		udp_poll,			/* ok		*/
- 	.ioctl =	inet6_ioctl,			/* must change  */
- 	.listen =	sock_no_listen,			/* ok		*/
- 	.shutdown =	inet_shutdown,			/* ok		*/
+And my HTB rules stopped working.
+
+--=20
+Micha=B3 Margula, alchemyx@uznam.net.pl, http://alchemyx.uznam.net.pl/
+"W =BFyciu pi=EAkne s=B1 tylko chwile" [Ryszard Riedel]
