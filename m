@@ -1,47 +1,44 @@
-From: Horst von Brand <vonbrand@inf.utfsm.cl>
+From: Lincoln Dale <ltd@cisco.com>
 Subject: Re: RFC: per-socket statistics on received/dropped packets
-Date: Wed, 12 Jun 2002 08:11:45 -0400
+Date: Wed, 12 Jun 2002 22:28:15 +1000
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <ae7dvs$vc7$2@main.gmane.org>
-References: <greearb@candelatech.com>
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Message-ID: <ae7f16$3mu$2@main.gmane.org>
+References: <Message from Ben Greear <greearb@candelatech.com>
+ <3D06E9A0.5060801@candelatech.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"; format=flowed
+Cc: Ben Greear <greearb@candelatech.com>, linux-kernel@vger.kernel.org,
+   netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: Message from Ben Greear <greearb@candelatech.com>
-   of "Tue, 11 Jun 2002 23:26:40 MST." <3D06E9A0.5060801@candelatech.com>
+To: Horst von Brand <vonbrand@inf.utfsm.cl>,
+   "David S. Miller" <davem@redhat.com>
+In-Reply-To: <200206121211.g5CCBjZt030139@pincoya.inf.utfsm.cl>
 List-Id: netdev.vger.kernel.org
 
-[Cc:'s stripped]
+At 08:11 AM 12/06/2002 -0400, Horst von Brand wrote:
+>General dislike for adding features of _extremely_ limited (debugging!) use?
 
-Ben Greear <greearb@candelatech.com> said:
-> Pekka Savola wrote:
-> > Just to chime in my support (not that I don't think anyone needs it), I 
-> > think socket-based counters are An Extremely Bad Idea.  
+i would imagine that every installation of Squid on linux is interested in 
+having _realistic transaction logs_ of exactly how much data was received 
+and transmitted on a TCP connection.
 
-[...]
+i know of many many folk who use transaction logs from HTTP caches for 
+volume-based billing.
+right now, those bills are anywhere between 10% to 25% incorrect.
 
-> If they are useful to some people, and have zero performance affect on others
-> (due to being a configurable kernel feature), then what is your
-> complaint?
+you call that "extremely limited"?
 
-That it adds code, which impacts _everybody_ futzing around in that area,
-specially if it is a configurable option (this means multiplying the
-possible configurations to be tested).
 
-> I see two reasons left to dislike this feature:
-> 
-> 1)  General increase in #ifdef'd code.  This actually seems like
->     a pretty good argument, but I haven't seen anyone mention it
->     specifically.
+of course, i am doing exactly what Dave said to do -- maintaining my own 
+out-of-kernel patch -- but its a pain, i'm sure it will soon conflict with 
+stuff and is a damn shame - it isn't much code, but Dave seems pretty 
+steadfast that he isn't interested.
 
-Right.
+damn shame that.  i think the information is on par with 
+getsockopt(..,TCP_INFO,..) in terms of usefulness yet TCP_INFO is there in 
+the kernel.
 
-> 2)  General dislike for a feature that one personally has no use for.
->     Seems to be Dave's main (professed) excuse.
 
-General dislike for adding features of _extremely_ limited (debugging!) use?
--- 
-Dr. Horst H. von Brand                   User #22616 counter.li.org
-Departamento de Informatica                     Fono: +56 32 654431
-Universidad Tecnica Federico Santa Maria              +56 32 654239
-Casilla 110-V, Valparaiso, Chile                Fax:  +56 32 797513
+cheers,
+
+lincoln.
