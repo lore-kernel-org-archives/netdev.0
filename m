@@ -1,117 +1,21 @@
-From: Eric Lemoine <eric.lemoine@gmail.com>
-Subject: Re: [PATCH] Allow setting dev->weight using ip(8)
-Date: Mon, 30 Aug 2004 16:33:01 +0200
+From: Christoph Hellwig <hch@lst.de>
+Subject: Re: [PATCH] Wake up km_waitq after changing policies
+Date: Mon, 30 Aug 2004 17:27:28 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <5cac192f0408300733477c6c9@mail.gmail.com>
-References: <5cac192f040830035669628d1@mail.gmail.com> <1093868860.1075.573.camel@jzny.localdomain>
-Reply-To: Eric Lemoine <eric.lemoine@gmail.com>
+Message-ID: <20040830152728.GA19086@lst.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_68_24429255.1093876381135"
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1093868860.1075.573.camel@jzny.localdomain>
+To: davem@redhat.com, herbert@gondor.apana.org.au, kuznet@ms2.inr.ac.ru
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-------=_Part_68_24429255.1093876381135
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Back in Juni 2003 Herbert submitted a patch with that subject [1], but
+Dave rejected in with the rationale that Alexey is working on a better
+solution.  So far nothing has happened on this front, is any solution in
+sight?
 
-> > For my own testing purposes, I often need to modify dev->weight. So I
-> > patched the kernel and iproute2 to be able to modify dev->weight using
-> > ip(8). After all, one can modify tx_queue_len so why not weight?
-> >
-> > Two kernel patches attached: one using the ioctl framework and another
-> > using the rtnetlink framework. Warning: the attached rtnetlink patch
-> > is a superset of Thomas Graf's rtnetlink patch for setting mtu and
-> > tx_queue_len.
-> >
-> > PS: both patches are against 2.6.5-rc3-ben0 but should apply to any 2.6.
- 
-> Looks sane.
-> Not sure if you should encourage ioctl though ;->
 
-iproute still uses ioctl at that time, doesn't it?
-
-> Out of curiosity, what/when do you change weight? I think its valuable
-> to do so, just curious.
-
-With weight one can have the NIC fetch rx descriptors while the rx
-interrupt remains disabled. This further means that under high input
-load, one single rx interrupt can result in more than RX_RING_SIZE rx
-packets polled. Using this + tx polling, I could observe a system
-fully loaded by the network with no interrupts at all.
-
-> missing user space/ip patch btw.
-
-I attached a patch to iproute-2.6.8. To make the patch compile I had
-to tinker with the Makefile - it seems that KERNEL_INCLUDE does no
-longer serve any purpose, except for ATM maybe.
-
--- 
-Eric
-
-------=_Part_68_24429255.1093876381135
-Content-Type: application/octet-stream; name="patch-ioctl_dev_weight-iproute-2-6-8"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="patch-ioctl_dev_weight-iproute-2-6-8"
-
-LS0tIGlwL2lwbGluay5jLm9sZAkyMDA0LTA4LTMwIDE1OjMyOjIwLjM2MTc4MTA2NCArMDIwMAor
-KysgaXAvaXBsaW5rLmMJMjAwNC0wOC0zMCAxNTo0NToyMy43MDE4MjYwMzkgKzAyMDAKQEAgLTQ0
-LDYgKzQ0LDcgQEAKIAlmcHJpbnRmKHN0ZGVyciwgIgkgICAgICAgICAgICAgICAgICAgICBwcm9t
-aXNjIHsgb24gfCBvZmYgfSB8XG4iKTsKIAlmcHJpbnRmKHN0ZGVyciwgIgkgICAgICAgICAgICAg
-ICAgICAgICB0cmFpbGVycyB7IG9uIHwgb2ZmIH0gfFxuIik7CiAJZnByaW50ZihzdGRlcnIsICIJ
-ICAgICAgICAgICAgICAgICAgICAgdHhxdWV1ZWxlbiBQQUNLRVRTIHxcbiIpOworCWZwcmludGYo
-c3RkZXJyLCAiCSAgICAgICAgICAgICAgICAgICAgIHdlaWdodCBQQUNLRVRTIHxcbiIpOwogCWZw
-cmludGYoc3RkZXJyLCAiCSAgICAgICAgICAgICAgICAgICAgIG5hbWUgTkVXTkFNRSB8XG4iKTsK
-IAlmcHJpbnRmKHN0ZGVyciwgIgkgICAgICAgICAgICAgICAgICAgICBhZGRyZXNzIExMQUREUiB8
-IGJyb2FkY2FzdCBMTEFERFIgfFxuIik7CiAJZnByaW50ZihzdGRlcnIsICIJICAgICAgICAgICAg
-ICAgICAgICAgbXR1IE1UVSB9XG4iKTsKQEAgLTE3NCw2ICsxNzUsMjggQEAKIAlyZXR1cm4gMDsg
-CiB9CiAKK3N0YXRpYyBpbnQgc2V0X3dlaWdodChjaGFyICpkZXYsIGludCB3ZWlnaHQpCit7CisJ
-c3RydWN0IGlmcmVxIGlmcjsKKwlpbnQgczsKKworCXMgPSBnZXRfY3RsX2ZkKCk7CisJaWYgKHMg
-PCAwKQorCQlyZXR1cm4gLTE7CisKKwltZW1zZXQoJmlmciwgMCwgc2l6ZW9mKGlmcikpOworCXN0
-cmNweShpZnIuaWZyX25hbWUsIGRldik7CisJaWZyLmlmcl93ZWlnaHQgPSB3ZWlnaHQ7CisJaWYg
-KGlvY3RsKHMsIFNJT0NTSUZXRUlHSFQsICZpZnIpIDwgMCkgeworCQlwZXJyb3IoIlNJT0NTSUZX
-RUlHSFQiKTsKKwkJY2xvc2Uocyk7CisJCXJldHVybiAtMTsKKwl9CisJY2xvc2Uocyk7CisKKwly
-ZXR1cm4gMDsKK30KKwogc3RhdGljIGludCBnZXRfYWRkcmVzcyhjaGFyICpkZXYsIGludCAqaHR5
-cGUpCiB7CiAJc3RydWN0IGlmcmVxIGlmcjsKQEAgLTI1Nyw2ICsyODAsNyBAQAogCV9fdTMyIGZs
-YWdzID0gMDsKIAlpbnQgcWxlbiA9IC0xOwogCWludCBtdHUgPSAtMTsKKwlpbnQgd2VpZ2h0ID0g
-LTE7CiAJY2hhciAqbmV3YWRkciA9IE5VTEw7CiAJY2hhciAqbmV3YnJkID0gTlVMTDsKIAlzdHJ1
-Y3QgaWZyZXEgaWZyMCwgaWZyMTsKQEAgLTI5NCw2ICszMTgsMTIgQEAKIAkJCQlkdXBhcmcoIm10
-dSIsICphcmd2KTsKIAkJCWlmIChnZXRfaW50ZWdlcigmbXR1LCAqYXJndiwgMCkpCiAJCQkJaW52
-YXJnKCJJbnZhbGlkIFwibXR1XCIgdmFsdWVcbiIsICphcmd2KTsKKwkJfSBlbHNlIGlmIChtYXRj
-aGVzKCphcmd2LCAid2VpZ2h0IikgPT0gMCkgeworCQkJTkVYVF9BUkcoKTsKKwkJCWlmICh3ZWln
-aHQgIT0gLTEpCisJCQkJZHVwYXJnKCJ3ZWlnaHQiLCAqYXJndik7CisJCQlpZiAoZ2V0X2ludGVn
-ZXIoJndlaWdodCwgKmFyZ3YsIDApKQorCQkJCWludmFyZygiSW52YWxpZCBcIndlaWdodFwiIHZh
-bHVlXG4iLCAqYXJndik7CiAJCX0gZWxzZSBpZiAoc3RyY21wKCphcmd2LCAibXVsdGljYXN0Iikg
-PT0gMCkgewogCQkJTkVYVF9BUkcoKTsKIAkJCW1hc2sgfD0gSUZGX01VTFRJQ0FTVDsKQEAgLTM5
-NSw2ICs0MjUsMTAgQEAKIAkJaWYgKHNldF9tdHUoZGV2LCBtdHUpIDwgMCkKIAkJCXJldHVybiAt
-MTsgCiAJfQorCWlmICh3ZWlnaHQgIT0gLTEpIHsKKwkJaWYgKHNldF93ZWlnaHQoZGV2LCB3ZWln
-aHQpIDwgMCkKKwkJCXJldHVybiAtMTsKKwl9CiAJaWYgKG5ld2FkZHIgfHwgbmV3YnJkKSB7CiAJ
-CWlmIChuZXdicmQpIHsKIAkJCWlmIChzZXRfYWRkcmVzcygmaWZyMSwgMSkgPCAwKQotLS0gaXAv
-aXBhZGRyZXNzLmMub2xkCTIwMDQtMDgtMzAgMTU6NDU6MzYuODExNDkyMDgwICswMjAwCisrKyBp
-cC9pcGFkZHJlc3MuYwkyMDA0LTA4LTMwIDE2OjE0OjEwLjcyMjgzMTQxOSArMDIwMApAQCAtNDAs
-NiArNDAsNyBAQAogCWludCBmYW1pbHk7CiAJaW50IG9uZWxpbmU7CiAJaW50IHNob3dxdWV1ZTsK
-KwlpbnQgc2hvd3dlaWdodDsKIAlpbmV0X3ByZWZpeCBwZng7CiAJaW50IHNjb3BlLCBzY29wZW1h
-c2s7CiAJaW50IGZsYWdzLCBmbGFnbWFzazsKQEAgLTEyNiw2ICsxMjcsMjggQEAKIAkJcHJpbnRm
-KCJxbGVuICVkIiwgaWZyLmlmcl9xbGVuKTsKIH0KIAordm9pZCBwcmludF93ZWlnaHQoY2hhciAq
-bmFtZSkKK3sKKwlzdHJ1Y3QgaWZyZXEgaWZyOworCWludCBzOworCisJcyA9IHNvY2tldChBRl9J
-TkVULCBTT0NLX1NUUkVBTSwgMCk7CisJaWYgKHMgPCAwKQorCQlyZXR1cm47CisKKwltZW1zZXQo
-JmlmciwgMCwgc2l6ZW9mKGlmcikpOworCXN0cmNweShpZnIuaWZyX25hbWUsIG5hbWUpOworCWlm
-IChpb2N0bChzLCBTSU9DR0lGV0VJR0hULCAmaWZyKSA8IDApIHsKKwkJcGVycm9yKCJTSU9DR0lG
-V0VJR0hUIik7CisJCWNsb3NlKHMpOworCQlyZXR1cm47CisJfQorCWNsb3NlKHMpOworCisJaWYg
-KGlmci5pZnJfd2VpZ2h0KQorCQlwcmludGYoIiB3ZWlnaHQgJWQiLCBpZnIuaWZyX3dlaWdodCk7
-Cit9CisKIGludCBwcmludF9saW5raW5mbyhzdHJ1Y3Qgc29ja2FkZHJfbmwgKndobywgc3RydWN0
-IG5sbXNnaGRyICpuLCB2b2lkICphcmcpCiB7CiAJRklMRSAqZnAgPSAoRklMRSopYXJnOwpAQCAt
-MTkxLDYgKzIxNCw5IEBACiAJaWYgKGZpbHRlci5zaG93cXVldWUpCiAJCXByaW50X3F1ZXVlbGVu
-KChjaGFyKilSVEFfREFUQSh0YltJRkxBX0lGTkFNRV0pKTsKIAkKKwlpZiAoZmlsdGVyLnNob3d3
-ZWlnaHQpCisJCXByaW50X3dlaWdodCgoY2hhciopUlRBX0RBVEEodGJbSUZMQV9JRk5BTUVdKSk7
-CisKIAlpZiAoIWZpbHRlci5mYW1pbHkgfHwgZmlsdGVyLmZhbWlseSA9PSBBRl9QQUNLRVQpIHsK
-IAkJU1BSSU5UX0JVRihiMSk7CiAJCWZwcmludGYoZnAsICIlcyIsIF9TTF8pOwpAQCAtNDk2LDYg
-KzUyMiw3IEBACiAKIAlpcGFkZHJfcmVzZXRfZmlsdGVyKG9uZWxpbmUpOwogCWZpbHRlci5zaG93
-cXVldWUgPSAxOworCWZpbHRlci5zaG93d2VpZ2h0ID0gMTsKIAogCWlmIChmaWx0ZXIuZmFtaWx5
-ID09IEFGX1VOU1BFQykKIAkJZmlsdGVyLmZhbWlseSA9IHByZWZlcnJlZF9mYW1pbHk7Cg==
-------=_Part_68_24429255.1093876381135--
+http://www.uwsg.iu.edu/hypermail/linux/net/0306.1/0261.html
