@@ -1,36 +1,84 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
-Date: Mon, 18 Aug 2003 20:21:00 -0700
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: [bk patches] 2.4 net driver updates
+Date: Tue, 19 Aug 2003 00:29:17 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F41979C.3070408@candelatech.com>
-References: <Pine.LNX.3.96.1030818171100.2101C-100000@gatekeeper.tmr.com>
+Message-ID: <20030819042917.GA1402@gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, Willy Tarreau <willy@w.ods.org>,
-   alan@lxorguk.ukuu.org.uk, carlosev@newipnet.com, lamont@scriptkiddie.org,
-   bloemsaa@xs4all.nl, marcelo@conectiva.com.br, netdev@oss.sgi.com,
-   linux-net@vger.kernel.org, layes@loran.com, torvalds@osdl.org,
-   linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Bill Davidsen <davidsen@tmr.com>
-In-Reply-To: <Pine.LNX.3.96.1030818171100.2101C-100000@gatekeeper.tmr.com>
+To: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Bill Davidsen wrote:
+(pending for Marcelo, for 2.4.23-pre1)
 
-> Okay, I'll show my ignorance and ask... the Documentation for arp_filter
-> says source routing must be used. Is there some flag I'm missing, or a way
-> to avoid having a rule per address, or is the 8 bit rule number larger in
-> 2.6, or ??? Or is having a lot of IPs on one machine not an imaginable
-> case?
 
-Last response I got was that one would have to hack the netlink api to get
-a bigger index because the design (and rfc, unfortunately) describe the
-field as only 8 bits.  I never did hear a response to my comment that this
-was inadequate in this age of vlans...
+BK users:
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+	bk pull bk://kernel.bkbits.net/jgarzik/net-drivers-2.4
+		or
+	bk pull http://gkernel.bkbits.net/net-drivers-2.4
+
+Patch:
+
+ftp://ftp.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.4/2.4.22-rc2-netdrvr1.patch.bz2
+
+This will update the following files:
+
+ drivers/net/8139cp.c            |    4 
+ drivers/net/8139too.c           |   10 
+ drivers/net/bonding/bond_main.c |   17 -
+ drivers/net/bonding/bonding.h   |    2 
+ drivers/net/net_init.c          |    3 
+ drivers/net/tulip/tulip_core.c  |    1 
+ drivers/net/wireless/airo.c     |  568 ++++++++++++++++++++++------------------
+ include/linux/netdevice.h       |    2 
+ 8 files changed, 342 insertions(+), 265 deletions(-)
+
+through these ChangeSets:
+
+<sziwan@hell.org.pl> (03/08/18 1.1064.1.13)
+   [netdrvr 8139too] fix resume behavior,
+   by correctly saving/restoring pci state.
+
+<matthewn@snapgear.com> (03/08/18 1.1064.1.12)
+   [netdrvr 8139cp] fix h/w vlan offload
+   
+   It wants big endian vlan tags.  IEEE, or just weird?
+
+<javier@tudela.mad.ttd.net> (03/08/18 1.1064.1.11)
+   [wireless airo] Replaces task queues by simpler kernel_thread
+
+<javier@tudela.mad.ttd.net> (03/08/18 1.1064.1.10)
+   [wireless airo] Fixes unregistering of PCI cards
+
+<ionut@badula.org> (03/08/17 1.1064.1.9)
+   [netdrvr tulip] add pci id for 3com 3CSOHO100B-TX
+
+<amir.noam@intel.com> (03/08/07 1.1064.1.8)
+   [netdrvr bonding] embed stats struct inside bonding private struct
+   
+   Simplification: Don't allocate the stats struct via kmalloc,
+   embed it inside it's parent bonding_t.
+
+<amir.noam@intel.com> (03/08/07 1.1064.1.7)
+   [net] export alloc_netdev
+
+<achirica@telefonica.net> (03/08/07 1.1064.1.6)
+   [PATCH] Fix adhoc config
+
+<achirica@telefonica.net> (03/08/07 1.1064.1.5)
+   [PATCH] Safer unload code
+
+<achirica@telefonica.net> (03/08/07 1.1064.1.4)
+   [PATCH] MIC support with newer firmware
+
+<achirica@telefonica.net> (03/08/07 1.1064.1.3)
+   [PATCH] Missing lines for Wireless Extensions 16
+
+<achirica@telefonica.net> (03/08/07 1.1064.1.2)
+   [netdrvr airo] MAC type changed to unsigned
+
+<achirica@telefonica.net> (03/08/07 1.1064.1.1)
+   [netdrvr airo] Missing defines (only for documentation)
