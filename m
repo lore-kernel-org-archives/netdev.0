@@ -1,40 +1,54 @@
-From: "Woodruff, Robert J" <robert.j.woodruff@intel.com>
-Subject: RE: Re: [PATCH][v5][0/24] Latest IB patch queue
-Date: Tue, 4 Jan 2005 09:58:59 -0800
-Message-ID: <1AC79F16F5C5284499BB9591B33D6F00032CA55B@orsmsx408>
+From: Dave Dillow <dave@thedillows.org>
+Subject: Re: Ethtool offload patch
+Date: Tue, 04 Jan 2005 14:04:31 -0500
+Message-ID: <1104865471.9860.16.camel@dillow.idleaire.com>
+References: <1104396895.5845.1.camel@ori.thedillows.org>
+	 <20050104094423.2d404759.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
-	openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-Content-class: urn:content-classes:message
-To: "Roland Dreier" <roland@topspin.com>,
-	"Karen Shaeffer" <shaeffer@neuralscape.com>
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050104094423.2d404759.davem@davemloft.net>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-=20
+On Tue, 2005-01-04 at 12:44, David S. Miller wrote:
+> On Thu, 30 Dec 2004 03:54:55 -0500
+> David Dillow <dave@thedillows.org> wrote:
+> 
+> > The attached patch allows the ethtool userspace tool to query and
+> > control IPSEC crypto offload.
+> 
+> Aren't you going to need something much more sophisticated
+> than a boolean on/off value?  How can I tell the driver
+> "offload 3DES ESP, but not AH at all" or something like
+> that?
 
-    Karen> I am interested in Infiniband with x86_64 Opterons.
+Sure, but this was quicker. :)
 
-Roland>OK, the current code should work well for you -- x86_64 is
-probably
-Roland>the most-tested architecture.
+Actually, I thought that would be better suited to the xfrm_user/pf_key
+interfaces, perhaps using a flag on the SA that says "do not offload
+me", or perhaps the opposite. I'd probably want to add a flag to
+indicate which ones were actually offloaded as well so "ip xfrm state"
+could give an overview of what is currently offloaded.
 
-I have tested on X86_64 EM64T systems. I have a 4 node cluster that I
-ran
-some MPI tests on top of IpoIB over the holidays and it ran without=20
-any problems. I know that others have also tested on x86_64 Opteron,=20
-so it should work fine for that arch.=20
+I know you just got back from vacation, so when you get a chance, I'd
+welcome comments on the patch series -- I did most of it simply, just to
+see how it would perform. There is (obviously) still work to do -- I
+need to figure out how to determine if an IPv6 address is local, and it
+may be nice to have some sort of LRU list to offload the most active SAs
+when resources get low on the card.
 
-woody
+The current version I'm testing includes the changes suggested on the
+board (change afinfo->map_direction() and remove xfrm_bundle_list), as
+well as a change to call dev->xfrm_state_add() and
+dev->xfrm_bundle_add() from process context, so I can get rid of the
+GFP_ATOMIC allocations.
+
+I'll have that out as soon as I can test and rediff everything, but in
+the meantime, is the whole idea fatally flawed?
+-- 
+Dave Dillow <dave@thedillows.org>
