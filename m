@@ -1,34 +1,64 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: V2.4 policy router operates faster/better than V2.6
-Date: Thu, 20 Jan 2005 22:53:30 +0100
-Message-ID: <16880.10330.49064.721090@robur.slu.se>
-References: <Pine.LNX.4.44.0501071416060.5818-100000@localhost.localdomain>
-	<200501200837.40734.jeremy.guthrie@berbee.com>
-	<16879.58333.266843.335475@robur.slu.se>
-	<200501201114.49517.jeremy.guthrie@berbee.com>
+From: Grant Grundler <iod00d@hp.com>
+Subject: Re: [PATCH]: was Re: LLTX and netif_stop_queue
+Date: Thu, 20 Jan 2005 13:56:50 -0800
+Message-ID: <20050120215650.GB14521@esmail.cup.hp.com>
+References: <5cac192f0501030907c755135@mail.gmail.com>
+	<20050103171227.GD7370@esmail.cup.hp.com>
+	<1104812294.1085.53.camel@jzny.localdomain>
+	<20050119144711.3fdd3d93.davem@davemloft.net>
+	<20050119151853.259de49a@dxpl.pdx.osdl.net>
+	<20050119164640.6c67bdfa.davem@davemloft.net>
+	<52r7kgu5n5.fsf@topspin.com>
+	<20050119230526.393a5184.davem@davemloft.net>
+	<1106229084.5812.40.camel@tsc-6.cph.tpack.net>
+	<20050120133420.317bea31.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Robert Olsson <Robert.Olsson@data.slu.se>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: jeremy.guthrie@berbee.com
-In-Reply-To: <200501201114.49517.jeremy.guthrie@berbee.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: netdev@oss.sgi.com, eric.lemoine@gmail.com, hadi@cyberus.ca,
+	ak@suse.de, openib-general@openib.org,
+	Tommy Christensen <tommy.christensen@tpack.net>, kaber@trash.net,
+	shemminger@osdl.org
+Return-path: <openib-general-bounces@openib.org>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20050120133420.317bea31.davem@davemloft.net>
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, Jan 20, 2005 at 01:34:20PM -0800, David S. Miller wrote:
+> Even worse is that this breaks the acenic driver too because
+> it does this:
+> 
+> 	unsigned long maxjiff = jiffies + 3*HZ;
+> 
+> 	if (time_before(jiffies, maxjiff)) {
+> 		barrier();
+> 		cpu_relax();
+> 		goto restart;
+> 	}
+> 
+> in it's ->hard_start_xmit() routine.
+> 
+> I was auditing spin_lock_irq() usage in ->hard_start_xmit()
+> routines when I caught this.
+> 
+> This one isn't impossible to fix though.  We can replace the
+> jiffies games with a udelay/mdelay and a "maxloop" variable.
+> Any takers?
 
-Jeremy M. Guthrie writes:
+I saw the next mail suggesting to revert the changes because of more fallout.
 
- > >  >    mc GC: tot ignored goal_miss ovrf HASH: in_search out_search
- > >  > 524287     74830     777     0     0     0     0     0         6       0
- > >  > 0     498       0         0    0           40504          1
+But if/when acenic needs changes like those proposed above, I can implement
+and test proposed changes if folks have the patience to wait a week or so.
+acenic is no where on my "official HP supported NICs" list but I happen
+to have the HW/infrastructure to test them.
 
- > When does GC normally ignore?
-
- At a min ip_rt_gc_min_interval       = HZ / 2;
-
- From what I understand your GC runs more often than that.
- Do your understand? Test is in rt_garbage_collect()
-
-					    --ro
+grant
