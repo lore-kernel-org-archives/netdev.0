@@ -1,99 +1,63 @@
-From: =?ISO-8859-15?Q?Mika_Penttil=E4?= <mika.penttila@kolumbus.fi>
-Subject: Re: 2.4.21+ - IPv6 over IPv4 tunneling b0rked
-Date: Fri, 11 Jul 2003 18:16:09 +0300
+From: James Morris <jmorris@intercode.com.au>
+Subject: Re: [PATCH - RFC] [1/2] 2.6 must-fix list - kernel error reporting
+Date: Sat, 12 Jul 2003 01:37:44 +1000 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F0ED4B9.9000105@kolumbus.fi>
-References: <Pine.LNX.4.44.0307111446250.27865-100000@netcore.fi>	 <1057925366.896.24.camel@hades>  <3F0EB227.50403@kolumbus.fi>	 <1057930712.895.32.camel@hades>  <3F0EC96D.6080102@kolumbus.fi> <1057933954.695.6.camel@hades>
+Message-ID: <Mutt.LNX.4.44.0307120135120.21806-100000@excalibur.intercode.com.au>
+References: <3F0DB9A5.23723BE1@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Pekka Savola <pekkas@netcore.fi>, Andre Tomt <andre@tomt.net>,
-   linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: LKML <linux-kernel@vger.kernel.org>, <netdev@oss.sgi.com>,
+   Andrew Morton <akpm@osdl.org>, "David S. Miller" <davem@redhat.com>,
+   Jeff Garzik <jgarzik@pobox.com>, Alan Cox <alan@lxorguk.ukuu.org.uk>,
+   Randy Dunlap <rddunlap@osdl.org>, <kuznet@ms2.inr.ac.ru>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Mika Liljeberg <mika.liljeberg@welho.com>
+To: Jim Keniston <jkenisto@us.ibm.com>
+In-Reply-To: <3F0DB9A5.23723BE1@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Thu, 10 Jul 2003, Jim Keniston wrote:
 
-
-Mika Liljeberg wrote:
-
->Nope, since the tunnel interface will have 2002::/16. It seems to work
->with the attached patch (against 2.4.21-ac4). A small fix to sit was
->required as well. Look:
->  
->
-ok, forgot that...looks ok to me.
-
---Mika
-
-
->hades:~# ifconfig 6to4
->6to4      Link encap:IPv6-in-IPv4
->          inet6 addr: ::213.243.180.94/128 Scope:Compat
->          inet6 addr: 2002:d5f3:b45e::1/16 Scope:Global
->          UP RUNNING NOARP  MTU:1480  Metric:1
->          RX packets:4 errors:0 dropped:0 overruns:0 frame:0
->          TX packets:4 errors:0 dropped:0 overruns:0 carrier:0
->          collisions:0 txqueuelen:0
->          RX bytes:416 (416.0 b)  TX bytes:496 (496.0 b)
->
->hades:~# ip -6 route list
->::/96 via :: dev 6to4  metric 256  mtu 1480 advmss 1420
->2002::/16 dev 6to4  proto kernel  metric 256  mtu 1480 advmss 1420
->fe80::/64 dev eth0  proto kernel  metric 256  mtu 1500 advmss 1440
->fe80::/64 dev 6to4  proto kernel  metric 256  mtu 1480 advmss 1420
->ff00::/8 dev eth0  proto kernel  metric 256  mtu 1500 advmss 1440
->ff00::/8 dev 6to4  proto kernel  metric 256  mtu 1480 advmss 1420
->default via 2002:c058:6301:: dev 6to4  metric 1024  mtu 1480 advmss 1420
->hades:~# ping6 -c4 -n www.ipv6.org
->PING www.ipv6.org(2001:6b0:1:ea:a00:20ff:fe8f:708f) 56 data bytes
->64 bytes from 2001:6b0:1:ea:a00:20ff:fe8f:708f: icmp_seq=1 ttl=250 time=207 ms
->64 bytes from 2001:6b0:1:ea:a00:20ff:fe8f:708f: icmp_seq=2 ttl=250 time=206 ms
->64 bytes from 2001:6b0:1:ea:a00:20ff:fe8f:708f: icmp_seq=3 ttl=250 time=177 ms
->64 bytes from 2001:6b0:1:ea:a00:20ff:fe8f:708f: icmp_seq=4 ttl=250 time=78.5 ms
->
->--- www.ipv6.org ping statistics ---
->4 packets transmitted, 4 received, 0% packet loss, time 3030ms
->rtt min/avg/max/mdev = 78.547/167.637/207.698/52.821 ms
->
->Anyone see any problems with this?
->
->	MikaL
->
->  
->
->------------------------------------------------------------------------
->
->--- route.c.org	2003-07-11 16:41:55.000000000 +0300
->+++ route.c	2003-07-11 16:42:16.000000000 +0300
->@@ -743,7 +743,7 @@
-> 			   some exceptions. --ANK
-> 			 */
-> 			err = -EINVAL;
->-			if (!(gwa_type&IPV6_ADDR_UNICAST))
->+			if (!(gwa_type&(IPV6_ADDR_UNICAST|IPV6_ADDR_ANYCAST)))
-> 				goto out;
+> James Morris wrote:
+> > 
+> > On Tue, 8 Jul 2003, Jim Keniston wrote:
+> > 
+> > +       kerror_nl = netlink_kernel_create(NETLINK_KERROR, kerror_netlink_rcv);
+> > +       if (kerror_nl == NULL)
+> > +               panic("kerror_init: cannot initialize kerror_nl\n");
+> > 
+> > You can simply use NULL instead of passing the dummy kerror_netlink_rcv
+> > function.
 > 
-> 			grt = rt6_lookup(gw_addr, NULL, rtmsg->rtmsg_ifindex, 1);
->--- sit.c.org	2003-07-11 16:57:53.000000000 +0300
->+++ sit.c	2003-07-11 17:17:42.000000000 +0300
->@@ -495,10 +495,13 @@
-> 			addr_type = ipv6_addr_type(addr6);
-> 		}
-> 
->-		if ((addr_type & IPV6_ADDR_COMPATv4) == 0)
->-			goto tx_error_icmp;
->+		if ((addr_type & IPV6_ADDR_COMPATv4))
->+			dst = addr6->s6_addr32[3];
->+		else
->+			dst = try_6to4(addr6);
-> 
->-		dst = addr6->s6_addr32[3];
->+		if (!dst)
->+			goto tx_error_icmp;
-> 	}
-> 
-> 	if (ip_route_output(&rt, dst, tiph->saddr, RT_TOS(tos), tunnel->parms.link)) {
->  
->
+> That begs the question: do we trust that nobody but the kernel will send
+> packets to a NETLINK_KERROR socket?  Ordinary users can't, but any root
+> application can.  Without kerror_netlink_rcv(), such packets don't get
+> dequeued.
+
+Indeed, the kernel socket buffer fills up.
+
+I think this needs to be addressed in the netlink code, per the patch 
+below.
+
+Comments?
+
+
+- James
+-- 
+James Morris
+<jmorris@intercode.com.au>
+
+diff -NurX dontdiff linux-2.5.75.orig/net/netlink/af_netlink.c linux-2.5.75.w1/net/netlink/af_netlink.c
+--- linux-2.5.75.orig/net/netlink/af_netlink.c	2003-06-26 12:43:45.000000000 +1000
++++ linux-2.5.75.w1/net/netlink/af_netlink.c	2003-07-12 01:23:49.708254261 +1000
+@@ -430,6 +430,10 @@
+ 		goto no_dst;
+ 	nlk = nlk_sk(sk);
+ 
++	/* Don't bother queuing skb if kernel socket has no input function */
++        if (nlk->pid == 0 && !nlk->data_ready)
++        	goto no_dst;
++
+ #ifdef NL_EMULATE_DEV
+ 	if (nlk->handler) {
+ 		skb_orphan(skb);
