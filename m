@@ -1,39 +1,56 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: acenic lockup
-Date: Thu, 8 May 2003 02:21:11 +0400 (MSD)
+From: James Morris <jmorris@intercode.com.au>
+Subject: Re: [PATCH] IPv4 IPComp
+Date: Thu, 8 May 2003 10:53:55 +1000 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200305072221.CAA00973@mops.inr.ac.ru>
-References: <20030507.123421.133894691.davem@redhat.com>
+Message-ID: <Mutt.LNX.4.44.0305081052060.22346-100000@excalibur.intercode.com.au>
+References: <87znlymypm.wl@karaba.org>
 Mime-Version: 1.0
-Cc: anton@samba.org, jes@trained-monkey.org, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Cc: davem@redhat.com, <kuznet@ms2.inr.ac.ru>, <netdev@oss.sgi.com>,
+   <usagi-core@linux-ipv6.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com (David S. Miller)
-In-Reply-To: <20030507.123421.133894691.davem@redhat.com> from "David S. Miller" at May 7, 3 12:34:21 pm
+To: Mitsuru KANDA / =?ISO-2022-JP?B?GyRCP0BFRBsoQiAbJEI9PBsoQg==?= <mk@linux-ipv6.org>
+In-Reply-To: <87znlymypm.wl@karaba.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
+On Thu, 8 May 2003, Mitsuru KANDA / [ISO-2022-JP] 神田 充 wrote:
 
-> However, what does kick device back into working state?
+> 
+> Hello,
+> 
+> In ipcomp_input():
+> 
+> The original IP header(iph) is stored(copied) in tmp_iph.
+> 
+> But after skb_pull(), tmp_iph is copied back to 
+> same place where the original IP header exists in skb->nh.raw.
+> 
+> I believe the attached diff is to fix it for correct behavior 
+> which you intend.
+> 
+> Could you check it?
 
-Usually it is a link problem and device will recover after
-link is restored. This happens here.
+This looks correct.
 
-If it is some PCI failure or something went wrong in hardware,
-the device will stop forever, I guess. And I guess this happens
-with the same frequency as memory parity errors i.e. not so much. :-)
+Dave, please apply.
 
 
-> Do we make shamans dance when this message hits the logs
-> and pray for the best? :-) 
+- James
+-- 
+James Morris
+<jmorris@intercode.com.au>
 
-Sort of. I was about to dance for a while when saw creepy
-"ethX: BUG, tx ring is full" from tulip, which has the same bogus
-netif_wake_queue(). :-)
 
-Well, full reset is difficult thing with lock-free acenic.
-Seems, it has to throttle card, wake up something at process context,
-to disable irq there and to reset nic like it happens at ifconfig down
-(or even module unload in face of hard hardware failure?)
-
-Alexey
+--- bk.pending/net/ipv4/ipcomp.c	Mon May  5 15:12:29 2003
++++ bk.w1/net/ipv4/ipcomp.c	Thu May  8 09:59:01 2003
+@@ -94,7 +94,9 @@
+ 	memcpy(&tmp_iph, iph, iph->ihl * 4);
+ 	nexthdr = *(u8 *)skb->data;
+ 	skb_pull(skb, sizeof(struct ipcomp_hdr));
++	skb->nh.raw += sizeof(struct ipcomp_hdr);
+ 	memcpy(skb->nh.raw, &tmp_iph, tmp_iph.iph.ihl * 4);
++	iph = skb->nh.iph;
+ 	iph->tot_len = htons(ntohs(iph->tot_len) - sizeof(struct ipcomp_hdr));
+ 	iph->protocol = nexthdr;
+ 	skb->h.raw = skb->data;
