@@ -1,17 +1,31 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 2.6.9-rc4-bk3-netdev3 1/3] r8169: always clean Tx desc
-Date: Tue, 19 Oct 2004 11:29:25 -0400
+From: Aidas Kasparas <a.kasparas@gmc.lt>
+Subject: Re: [Ipsec-tools-devel] Re: [PATCH 2.6]: Check against correct policy
+ list in ip_forward/ip6_forward
+Date: Tue, 19 Oct 2004 18:31:23 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <417532D5.1020300@pobox.com>
-References: <20041018230823.GB19990@electric-eye.fr.zoreil.com>
+Message-ID: <4175334B.3000504@gmc.lt>
+References: <4172943B.8050904@trash.net> <20041017212317.GA28615@gondor.apana.org.au> <4172F1AB.4020305@trash.net> <20041017231258.GA29294@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: Patrick McHardy <kaber@trash.net>, "David S. Miller" <davem@redhat.com>,
+        netdev@oss.sgi.com, ipsec-tools-devel@lists.sourceforge.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20041018230823.GB19990@electric-eye.fr.zoreil.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20041017231258.GA29294@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-applied 1-3
+
+
+Herbert Xu wrote:
+> 
+> So let's just fix racoon.
+> 
+
+I'm sorry, what is wrong with racoon?
+
+-- 
+Aidas Kasparas
+IT administrator
+GM Consult Group, UAB
