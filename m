@@ -1,55 +1,27 @@
-From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
-Subject: [PATCH]  [ATM]: [idt77252] vfree() checking cleanups
-  [ATM]: [idt77252] vfree() checking cleanups
-Date: Tue, 18 Jan 2005 14:10:19 -0500
-Message-ID: <200501181910.j0IJAJi5022407@ginger.cmf.nrl.navy.mil>
-Cc: davem@redhat.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [2.6 patch] unexport xfrm_policy_delete
+Date: Tue, 18 Jan 2005 12:38:09 -0800
+Message-ID: <20050118123809.3a051164.davem@davemloft.net>
+References: <20050118102932.GD4274@stusta.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261409AbVARUms@vger.kernel.org>
+To: Adrian Bunk <bunk@stusta.de>
+In-Reply-To: <20050118102932.GD4274@stusta.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-please apply to 2.6.
+On Tue, 18 Jan 2005 11:29:32 +0100
+Adrian Bunk <bunk@stusta.de> wrote:
 
-thanks!
+> I haven't found any way how xfrm_policy_delete could be called from 
+> modular code in 2.6.11-rc1-mm1.
+> 
+> Unless I'm wrong or a patch for a modular usage is pending, I'm 
+> therefore suggesting this patch for removing the EXPORT_SYMBOL.
 
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2005/01/14 08:57:04-05:00 chas@relax.cmf.nrl.navy.mil 
-#   [ATM]: [idt77252] vfree() checking cleanups
-#   
-#   Signed-off by: James Lamanna <jlamanna@gmail.com>
-#   Signed-off-by: Domen Puncer <domen@coderock.org>
-#   Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
-# 
-# drivers/atm/idt77252.c
-#   2005/01/14 08:56:46-05:00 chas@relax.cmf.nrl.navy.mil +3 -6
-#   [ATM]: [idt77252] vfree() checking cleanups
-#   
-#   Signed-off by: James Lamanna <jlamanna@gmail.com>
-#   Signed-off-by: Domen Puncer <domen@coderock.org>
-#   Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
-# 
-diff -Nru a/drivers/atm/idt77252.c b/drivers/atm/idt77252.c
---- a/drivers/atm/idt77252.c	2005-01-14 09:02:26 -05:00
-+++ b/drivers/atm/idt77252.c	2005-01-14 09:02:26 -05:00
-@@ -3136,14 +3136,11 @@
- 		}
- 	}
- 
--	if (card->soft_tst)
--		vfree(card->soft_tst);
-+	vfree(card->soft_tst);
- 
--	if (card->scd2vc)
--		vfree(card->scd2vc);
-+	vfree(card->scd2vc);
- 
--	if (card->vcs)
--		vfree(card->vcs);
-+	vfree(card->vcs);
- 
- 	if (card->raw_cell_hnd) {
- 		pci_free_consistent(card->pcidev, 2 * sizeof(u32),
+Looks good to me, applied.
+
+Thanks Adrian.
