@@ -1,32 +1,33 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC] Yield in netlink_broadcast when congested
-Date: Sun, 17 Oct 2004 17:39:57 +1000
+Subject: Re: r8169: page allocation failure
+Date: Sun, 17 Oct 2004 17:47:52 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041017073957.GA21632@gondor.apana.org.au>
-References: <20041016113006.GA12843@gondor.apana.org.au> <20041016235137.GE19714@rei.reeler.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pablo Neira <pablo@eurodev.net>, hadi@cyberus.ca,
-        "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Message-ID: <E1CJ5lg-0005eC-00@gondolin.me.apana.org.au>
+References: <20041016204848.GB21849@electric-eye.fr.zoreil.com>
+Cc: jkillius@arcor.de, netdev@oss.sgi.com, davem@davemloft.net,
+        jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-Content-Disposition: inline
-In-Reply-To: <20041016235137.GE19714@rei.reeler.org>
+To: romieu@fr.zoreil.com (Francois Romieu)
+In-Reply-To: <20041016204848.GB21849@electric-eye.fr.zoreil.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Oct 17, 2004 at 01:51:37AM +0200, Thomas Graf wrote:
-> > So here is my proposal: if we detect signs of impending congestion
-> > in netlink_broadcast(), and that we're in a sleepable context, then
-> > we yield().
+Francois Romieu <romieu@fr.zoreil.com> wrote:
 > 
-> Up to how many receivers does that work? We would still see the
-> effect if too many receivers are registered, right?
+>> Oct 16 19:27:00 gate [<c022d975>]
+>> Oct 16 19:27:00 gate [<c022ddb2>]
+> 
+> c022d8d0 T tcp_set_skb_tso_segs
+> c022d920 t tcp_fragment
+> c022dc70 t __pskb_trim_head
 
-Assuming the scheduler is fair then every listener should get their
-time slice to receive the messages.
+Good catch.  tcp_fragment's behaviour is broken when TSO is present.
+We can start with a list of n 1-mss fragments and tcp_fragment will
+end up allocating a continuous skb of n-1 mss bytes.
 
-Cheers,
+It should instead allocate a new skb of 1 mss.  I'll work on it.
+
+Thanks,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
