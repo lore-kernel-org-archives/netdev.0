@@ -1,47 +1,26 @@
-From: jamal <hadi@cyberus.ca>
+From: Patrick McHardy <kaber@trash.net>
 Subject: Re: Hard freeze with 2.6.10-rc3 and QoS, worked fine with 2.6.9
-Date: 08 Dec 2004 10:06:45 -0500
-Message-ID: <1102518405.1025.8.camel@jzny.localdomain>
-References: <20041206224441.628e7885.akpm@osdl.org>
-	 <1102422544.1088.98.camel@jzny.localdomain> <41B5E188.5050800@trash.net>
-	 <20041207170748.GF1371@postel.suug.ch> <41B5E722.2080600@trash.net>
-	 <1102480044.1050.9.camel@jzny.localdomain>
-	 <1102480913.1049.24.camel@jzny.localdomain> <41B68E5D.2080009@trash.net>
-	 <1102509111.1051.54.camel@jzny.localdomain>
-	 <20041208143212.GL1371@postel.suug.ch>
-	 <20041208145925.GM1371@postel.suug.ch>
-Reply-To: hadi@cyberus.ca
+Date: Wed, 08 Dec 2004 17:57:07 +0100
+Message-ID: <41B73263.4040706@trash.net>
+References: <1102380430.6103.6.camel@buffy>	 <20041206224441.628e7885.akpm@osdl.org>	 <1102422544.1088.98.camel@jzny.localdomain> <41B5E188.5050800@trash.net>	 <20041207170748.GF1371@postel.suug.ch> <41B5E722.2080600@trash.net>	 <20041207213053.6bb602c1.davem@davemloft.net> <1102507470.1051.27.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>, Andrew Morton <akpm@osdl.org>,
-        Thomas Cataldo <tomc@compaqnet.fr>, linux-kernel@vger.kernel.org,
-        netdev@oss.sgi.com, "David S. Miller" <davem@davemloft.net>
+Cc: "David S. Miller" <davem@davemloft.net>, tgraf@suug.ch, akpm@osdl.org,
+        tomc@compaqnet.fr, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20041208145925.GM1371@postel.suug.ch>
+To: hadi@cyberus.ca
+In-Reply-To: <1102507470.1051.27.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Thanks for your efforts Thomas.
+jamal wrote:
 
-cheers,
-jamal
-
-On Wed, 2004-12-08 at 09:59, Thomas Graf wrote:
-> * Thomas Graf <20041208143212.GL1371@postel.suug.ch> 2004-12-08 15:32
-> > iproute-2.6.9 was sucessful with all kernels. I couldn't test with the
-> > old 2.4.7 iproute2 yet since the syntax has changed and I need to adopt
-> > the tests first. I will create better tests and run it on patrick's
-> > patch when I get home.
-> 
-> I've updated the tests and all were successful:
-> 
->                                tc-2.6.9-tgr       tc-2.4.7
-> 2.6.10-rc2-bk13*                    Y                Y
-> 2.6.10-rc2-bk13-no-act*             Y                Y
-> 2.4.28-rc1-bk1                      Y                Y
-> 
-> * including tcf_police patch
-> 
+>I can almost guarantee that one or more of those tests i outlined would
+>fail. So i would suggest a revert until the testing has been done.
+>
+Please be more specific than an "almost guarantee" that
+"one or more tests" may fail when asking to revert a patch
+that fixes an easily triggerable crash. For example, point
+to the code that makes you think it might fail.
