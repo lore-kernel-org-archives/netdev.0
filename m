@@ -1,10 +1,10 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH PKT_SCHED 13/17]: Clean up tcf_ipt_init
-Date: Thu, 30 Dec 2004 04:40:39 +0100
-Message-ID: <41D378B7.9020407@trash.net>
+Subject: [PATCH PKT_SCHED 14/17]: Clean up pedit action
+Date: Thu, 30 Dec 2004 04:40:56 +0100
+Message-ID: <41D378C8.9070808@trash.net>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------090008040607010802060306"
+ boundary="------------010800010105060800030209"
 Cc: Maillist netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: jamal <hadi@cyberus.ca>
@@ -13,213 +13,200 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------090008040607010802060306
+--------------010800010105060800030209
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
 
-Clean up tcf_ipt_init:
-
-- Return proper error codes
-- Check size of TCA_IPT_INDEX attribute
-- Remove useless cast
-- Rip out totally broken override bits
-- Consolidate error path
-
-The override part leaks memory, does not uninit the old
-iptables target, needs GFP_ATOMIC allocations because a
-lock is held and fails anyway. It think sharing code with
-normal initialization obfuscates both parts, so I ripped
-it out for now.
+Clean up pedit action, same as for gact and ipt.
 
 
---------------090008040607010802060306
+--------------010800010105060800030209
 Content-Type: text/x-patch;
- name="13.diff"
+ name="14.diff"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="13.diff"
+ filename="14.diff"
 
 # This is a BitKeeper generated diff -Nru style patch.
 #
 # ChangeSet
-#   2004/12/30 03:29:42+01:00 kaber@coreworks.de 
-#   [PKT_SCHED]: Clean up tcf_ipt_init
-#   
-#   - Return proper error codes
-#   - Check size of TCA_IPT_INDEX attribute
-#   - Remove useless cast
-#   - Rip out totally broken override bits
-#   - Consolidate error path
+#   2004/12/30 03:44:02+01:00 kaber@coreworks.de 
+#   [PKT_SCHED]: Clean up pedit action
 #   
 #   Signed-off-by: Patrick McHardy <kaber@trash.net>
 # 
-# net/sched/ipt.c
-#   2004/12/30 03:29:35+01:00 kaber@coreworks.de +30 -56
-#   [PKT_SCHED]: Clean up tcf_ipt_init
-#   
-#   - Return proper error codes
-#   - Check size of TCA_IPT_INDEX attribute
-#   - Remove useless cast
-#   - Rip out totally broken override bits
-#   - Consolidate error path
+# net/sched/pedit.c
+#   2004/12/30 03:43:55+01:00 kaber@coreworks.de +25 -41
+#   [PKT_SCHED]: Clean up pedit action
 #   
 #   Signed-off-by: Patrick McHardy <kaber@trash.net>
 # 
-diff -Nru a/net/sched/ipt.c b/net/sched/ipt.c
---- a/net/sched/ipt.c	2004-12-30 04:01:51 +01:00
-+++ b/net/sched/ipt.c	2004-12-30 04:01:51 +01:00
-@@ -60,12 +60,10 @@
- 	struct ipt_target *target;
- 	int ret = 0;
- 	struct ipt_entry_target *t = p->t;
--	target = __ipt_find_target_lock(t->u.user.name, &ret);
+diff -Nru a/net/sched/pedit.c b/net/sched/pedit.c
+--- a/net/sched/pedit.c	2004-12-30 04:01:56 +01:00
++++ b/net/sched/pedit.c	2004-12-30 04:01:56 +01:00
+@@ -54,36 +54,30 @@
  
--	if (!target) {
--		printk("init_targ: Failed to find %s\n", t->u.user.name);
--		return -1;
--	}
-+	target = __ipt_find_target_lock(t->u.user.name, &ret);
-+	if (!target)
-+		return -ENOENT;
- 
- 	DPRINTK("init_targ: found %s\n", target->name);
- 	/* we really need proper ref counting
-@@ -105,33 +103,31 @@
- 	u32 hook = 0;
- 
- 	if (rtattr_parse(tb, TCA_IPT_MAX, RTA_DATA(rta), RTA_PAYLOAD(rta)) < 0)
--		return -1;
-+		return -EINVAL;
- 
--	if (tb[TCA_IPT_INDEX - 1]) {
-+	if (tb[TCA_IPT_INDEX - 1] &&
-+	    RTA_PAYLOAD(tb[TCA_IPT_INDEX - 1]) >= sizeof(index))
- 		index = *(u32 *) RTA_DATA(tb[TCA_IPT_INDEX - 1]);
--		DPRINTK("ipt index %d\n", index);
--	}
- 
- 	if (index && (p = tcf_hash_lookup(index)) != NULL) {
--		a->priv = (void *) p;
-+		a->priv = p;
- 		spin_lock(&p->lock);
- 		if (bind) {
- 			p->bindcnt += 1;
- 			p->refcnt += 1;
- 		}
--		if (ovr) {
--			goto override;
--		}
-+		if (ovr)
-+			ret = -EOPNOTSUPP;
- 		spin_unlock(&p->lock);
- 		return ret;
- 	}
- 
- 	if (tb[TCA_IPT_TARG - 1] == NULL || tb[TCA_IPT_HOOK - 1] == NULL)
--		return -1;
-+		return -EINVAL;
- 
- 	p = kmalloc(sizeof(*p), GFP_KERNEL);
- 	if (p == NULL)
--		return -1;
-+		return -ENOMEM;
- 	memset(p, 0, sizeof(*p));
- 	p->refcnt = 1;
- 	ret = 1;
-@@ -140,45 +136,30 @@
- 	if (bind)
- 		p->bindcnt = 1;
- 
--override:
-+ /* override: */
- 	hook = *(u32 *) RTA_DATA(tb[TCA_IPT_HOOK - 1]);
- 
- 	t = (struct ipt_entry_target *) RTA_DATA(tb[TCA_IPT_TARG - 1]);
- 
-+	ret = -ENOMEM;
- 	p->t = kmalloc(t->u.target_size, GFP_KERNEL);
--	if (p->t == NULL) {
--		if (ovr) {
--			printk("ipt policy messed up \n");
--			spin_unlock(&p->lock);
--			return -1;
--		}
--		kfree(p);
--		return -1;
--	}
--
-+	if (p->t == NULL)
-+		goto err1;
- 	memcpy(p->t, RTA_DATA(tb[TCA_IPT_TARG - 1]), t->u.target_size);
-+
- 	DPRINTK(" target NAME %s size %d data[0] %x data[1] %x\n",
- 		t->u.user.name, t->u.target_size, t->data[0], t->data[1]);
- 
- 	p->tname = kmalloc(IFNAMSIZ, GFP_KERNEL);
--
--	if (p->tname == NULL) {
--		if (ovr) {
--			printk("ipt policy messed up 2 \n");
--			spin_unlock(&p->lock);
--			return -1;
--		}
--		kfree(p->t);
--		kfree(p);
--		return -1;
--	} else {
-+	if (p->tname == NULL)
-+		goto err2;
-+	else {
- 		int csize = IFNAMSIZ - 1;
- 
- 		memset(p->tname, 0, IFNAMSIZ);
- 		if (tb[TCA_IPT_TABLE - 1]) {
--			if (strlen((char *) RTA_DATA(tb[TCA_IPT_TABLE - 1])) <
--			    csize)
--				csize = strlen(RTA_DATA(tb[TCA_IPT_TABLE - 1]));
-+			if (RTA_PAYLOAD(tb[TCA_IPT_TABLE - 1]) < csize)
-+				csize = RTA_PAYLOAD(tb[TCA_IPT_TABLE - 1]);
- 			strncpy(p->tname, RTA_DATA(tb[TCA_IPT_TABLE - 1]),
- 				csize);
- 			DPRINTK("table name %s\n", p->tname);
-@@ -187,22 +168,8 @@
- 		}
- 	}
- 
--	if (init_targ(p) < 0) {
--		if (ovr) {
--			printk("ipt policy messed up 2 \n");
--			spin_unlock(&p->lock);
--			return -1;
--		}
--		kfree(p->tname);
--		kfree(p->t);
--		kfree(p);
--		return -1;
--	}
--
--	if (ovr) {
--		spin_unlock(&p->lock);
--		return -1;
--	}
-+	if ((ret = init_targ(p)) < 0)
-+		goto err3;
- 
- 	p->index = index ? : tcf_hash_new_index();
- 
-@@ -223,6 +190,13 @@
- 	a->priv = p;
- 	return ret;
- 
-+err3:
-+	kfree(p->tname);
-+err2:
-+	kfree(p->t);
-+err1:
-+	kfree(p);
-+	return -1;
- }
  
  static int
+-tcf_pedit_init(struct rtattr *rta, struct rtattr *est, struct tc_action *a,int ovr, int bind)
++tcf_pedit_init(struct rtattr *rta, struct rtattr *est, struct tc_action *a,
++               int ovr, int bind)
+ {
+ 	struct rtattr *tb[TCA_PEDIT_MAX];
+ 	struct tc_pedit *parm;
+ 	int size = 0;
+ 	int ret = 0;
+-	struct tcf_pedit *p = NULL;
++	struct tcf_pedit *p;
+ 
+ 	if (rtattr_parse(tb, TCA_PEDIT_MAX, RTA_DATA(rta), RTA_PAYLOAD(rta)) < 0)
+ 		return -1;
+-
+-	if (NULL == a || NULL == tb[TCA_PEDIT_PARMS - 1]) {
++	if (a == NULL || tb[TCA_PEDIT_PARMS - 1] == NULL) {
+ 		printk("BUG: tcf_pedit_init called with NULL params\n");
+ 		return -1;
+ 	}
+ 
+ 	parm = RTA_DATA(tb[TCA_PEDIT_PARMS - 1]);
+-
+ 	p = tcf_hash_check(parm, a, ovr, bind);
+-
+-	if (NULL == p) { /* new */
+-
++	if (p == NULL) { /* new */
+ 		if (!parm->nkeys)
+ 			return -1;
+-
+-		size = sizeof (*p)+ (parm->nkeys*sizeof(struct tc_pedit_key));
+-
+-		p = tcf_hash_create(parm,est,a,size,ovr,bind);
+-
+-		if (NULL == p)
++		size = sizeof(*p) + parm->nkeys * sizeof(struct tc_pedit_key);
++		p = tcf_hash_create(parm, est, a, size, ovr, bind);
++		if (p == NULL)
+ 			return -1;
+ 		ret = 1;
+ 		goto override;
+@@ -94,7 +88,8 @@
+ 		p->flags = parm->flags;
+ 		p->nkeys = parm->nkeys;
+ 		p->action = parm->action;
+-		memcpy(p->keys,parm->keys,parm->nkeys*(sizeof(struct tc_pedit_key)));
++		memcpy(p->keys, parm->keys,
++		       parm->nkeys * sizeof(struct tc_pedit_key));
+ 	}
+ 
+ 	return ret;
+@@ -103,27 +98,22 @@
+ static int
+ tcf_pedit_cleanup(struct tc_action *a, int bind)
+ {
+-	struct tcf_pedit *p;
+-	p = PRIV(a,pedit);
++	struct tcf_pedit *p = PRIV(a,pedit);
++
+ 	if (NULL != p)
+-		return	tcf_hash_release(p, bind);
++		return tcf_hash_release(p, bind);
+ 	return 0;
+ }
+ 
+-/*
+-**
+-*/
+ static int
+ tcf_pedit(struct sk_buff **pskb, struct tc_action *a)
+ {
+-	struct tcf_pedit *p;
++	struct tcf_pedit *p = PRIV(a, pedit);
+ 	struct sk_buff *skb = *pskb;
+ 	int i, munged = 0;
+ 	u8 *pptr;
+ 
+-	p = PRIV(a,pedit);
+-
+-	if (NULL == p) {
++	if (p == NULL) {
+ 		printk("BUG: tcf_pedit called with NULL params\n");
+ 		return -1; /* change to something symbolic */
+ 	}
+@@ -141,11 +131,11 @@
+ 
+ 	p->tm.lastuse = jiffies;
+ 
+-	if (0 < p->nkeys) {
++	if (p->nkeys > 0) {
+ 		struct tc_pedit_key *tkey = p->keys;
+ 
+ 		for (i = p->nkeys; i > 0; i--, tkey++) {
+-			u32 *ptr ;
++			u32 *ptr;
+ 
+ 			int offset = tkey->off;
+ 			if (tkey->offmask) {
+@@ -168,7 +158,6 @@
+ 				goto bad;
+ 			}
+ 
+-
+ 			ptr = (u32 *)(pptr+offset);
+ 			/* just do it, baby */
+ 			*ptr = ((*ptr & tkey->mask) ^ tkey->val);
+@@ -196,29 +185,24 @@
+ {
+ 	unsigned char *b = skb->tail;
+ 	struct tc_pedit *opt;
+-	struct tcf_pedit *p;
++	struct tcf_pedit *p = PRIV(a, pedit);
+ 	struct tcf_t t;
+ 	int s; 
+ 		
+-
+-	p = PRIV(a,pedit);
+-
+-	if (NULL == p) {
++	if (p == NULL) {
+ 		printk("BUG: tcf_pedit_dump called with NULL params\n");
+ 		goto rtattr_failure;
+ 	}
+ 
+-	s = sizeof (*opt)+(p->nkeys*sizeof(struct tc_pedit_key));
++	s = sizeof(*opt) + p->nkeys * sizeof(struct tc_pedit_key);
+ 
+-	/* netlink spinlocks held above us - must use ATOMIC
+-	 * */
++	/* netlink spinlocks held above us - must use ATOMIC */
+ 	opt = kmalloc(s, GFP_ATOMIC);
+ 	if (opt == NULL)
+ 		return -ENOBUFS;
+-
+ 	memset(opt, 0, s);
+ 
+-	memcpy(opt->keys,p->keys,p->nkeys*(sizeof(struct tc_pedit_key)));
++	memcpy(opt->keys, p->keys, p->nkeys * sizeof(struct tc_pedit_key));
+ 	opt->index = p->index;
+ 	opt->nkeys = p->nkeys;
+ 	opt->flags = p->flags;
+@@ -239,15 +223,15 @@
+ 			(unsigned int)key->off,
+ 			(unsigned int)key->val,
+ 			(unsigned int)key->mask);
+-												}
+-											}
++		}
++	}
+ #endif
+ 
+ 	RTA_PUT(skb, TCA_PEDIT_PARMS, s, opt);
+ 	t.install = jiffies_to_clock_t(jiffies - p->tm.install);
+ 	t.lastuse = jiffies_to_clock_t(jiffies - p->tm.lastuse);
+ 	t.expires = jiffies_to_clock_t(p->tm.expires);
+-	RTA_PUT(skb, TCA_PEDIT_TM, sizeof (t), &t);
++	RTA_PUT(skb, TCA_PEDIT_TM, sizeof(t), &t);
+ 	return skb->len;
+ 
+ rtattr_failure:
 
---------------090008040607010802060306--
+--------------010800010105060800030209--
