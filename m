@@ -1,30 +1,34 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: linux-2.6.9 eepro100 warning
-Date: Mon, 25 Oct 2004 15:27:49 +0900 (JST)
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [NET]: TSO requires SG, enforce this at device registry.
+Date: Mon, 25 Oct 2004 02:28:24 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041025.152749.00307602.yoshfuji@linux-ipv6.org>
-References: <200410232313.AA00003@prism.kumin.ne.jp>
-	<417C9A4E.3030909@pobox.com>
+Message-ID: <417C9D08.6030903@pobox.com>
+References: <200410221715.i9MHFlIu021927@hera.kernel.org>	<417C9431.6030505@pobox.com> <20041024225700.4a22a968.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: nakasima@kumin.ne.jp, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-        yoshfuji@linux-ipv6.org
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jgarzik@pobox.com
-In-Reply-To: <417C9A4E.3030909@pobox.com>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20041024225700.4a22a968.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <417C9A4E.3030909@pobox.com> (at Mon, 25 Oct 2004 02:16:46 -0400), Jeff Garzik <jgarzik@pobox.com> says:
+David S. Miller wrote:
+> On Mon, 25 Oct 2004 01:50:41 -0400
+> Jeff Garzik <jgarzik@pobox.com> wrote:
+> 
+> 
+>>1) Given current driver implementations of ethtool ioctls, sysadmin is 
+>>free to create a combination of bits that are IMHO a bug.  One can argue 
+>>that this is an extension of "root can shoot himself in the foot", so 
+>>who knows.
+> 
+> 
+> I made a followon posting proposing ethtool changes which
+> would enforce the rules there too, did you see it?
 
-> Note that eepro100 driver will be deleted soon.
 
-I'm afraid that e100 does not work well on some systems (e.g. my ThinkPad
-T30 on 2.4.x) while eepro100 does.
-(I also know there're systems which does not work well
-with eepro100 but e100.)
+Sorry, I didn't see it.  URL or grep string?
 
-Has all of such kind of issues been solved?
-
---yoshfuji
+	Jeff
