@@ -1,89 +1,29 @@
-From: Catalin BOIE <util@deuroconsult.ro>
-Subject: Re: [PATCH 2.6] update to network emulation QOS scheduler
-Date: Wed, 7 Jul 2004 10:01:30 +0300 (EEST)
-Sender: lartc-admin@mailman.ds9a.nl
-Message-ID: <Pine.LNX.4.60.0407070957070.2496@hosting.rdsbv.ro>
-References: <20040701113312.43cfe6c5@dell_ss3.pdx.osdl.net>
- <20040702134437.5891e998@dell_ss3.pdx.osdl.net>  <1088824432.1043.271.camel@jzny.localdomain>
-  <20040706090906.4ff6fb73@dell_ss3.pdx.osdl.net> <1089164179.1039.26.camel@jzny.localdomain>
+From: Chris Wedgwood <cw@f00f.org>
+Subject: Re: [PATCH] fix tcp_default_win_scale.
+Date: Wed, 7 Jul 2004 00:50:27 -0700
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20040707075027.GC17205@taniwha.stupidest.org>
+References: <20040629222751.392f0a82.davem@redhat.com> <20040630152750.2d01ca51@dell_ss3.pdx.osdl.net> <20040630153049.3ca25b76.davem@redhat.com> <20040701133738.301b9e46@dell_ss3.pdx.osdl.net> <20040701140406.62dfbc2a.davem@redhat.com> <20040702013225.GA24707@conectiva.com.br> <20040706093503.GA8147@outpost.ds9a.nl> <20040706114741.1bf98bbe@dell_ss3.pdx.osdl.net> <20040706132426.097f71e6.davem@redhat.com> <20040706231600.GA18181@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Stephen Hemminger <shemminger@osdl.org>,
-	"David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
-	lartc@mailman.ds9a.nl
-Return-path: <lartc-admin@mailman.ds9a.nl>
-To: jamal <hadi@cyberus.ca>
-In-Reply-To: <1089164179.1039.26.camel@jzny.localdomain>
-Errors-To: lartc-admin@mailman.ds9a.nl
-List-Help: <mailto:lartc-request@mailman.ds9a.nl?subject=help>
-List-Post: <mailto:lartc@mailman.ds9a.nl>
-List-Subscribe: <http://mailman.ds9a.nl/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=subscribe>
-List-Unsubscribe: <http://mailman.ds9a.nl/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=unsubscribe>
-List-Archive: <http://mailman.ds9a.nl/pipermail/lartc/>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@redhat.com>,
+	Stephen Hemminger <shemminger@osdl.org>, ahu@ds9a.nl,
+	acme@conectiva.com.br, netdev@oss.sgi.com,
+	alessandro.suardi@oracle.com, phyprabab@yahoo.com,
+	linux-net@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Andi Kleen <ak@suse.de>
+Content-Disposition: inline
+In-Reply-To: <20040706231600.GA18181@wotan.suse.de>
 List-Id: netdev.vger.kernel.org
 
-On Wed, 6 Jul 2004, jamal wrote:
+On Wed, Jul 07, 2004 at 01:16:00AM +0200, Andi Kleen wrote:
 
-> On Tue, 2004-07-06 at 12:09, Stephen Hemminger wrote:
->
->> Your examples made me think about this more.  The netfilter seem best
->> suited to things that effect the flow of packets (dropping, reordering,
->> even corrupting), and the qdisc seems best when the timing needs to change.
->
-> Some of the attributes you are trying to control need queueing; no doubt
-> the best spot to do queueing is on a qdisc. Delays, and reordering for
-> example are ideal. Rate control as well fits here. There are other
-> qdiscs which have done a really good job at rate control hence my
-> arguement against you doing it - you will either not do a better job at
-> it or if you do a good job you will be replicating what they already
-> did; just stash your qdisc in another qdisc which can do a good rate
-> control job (CBQ, TBF, HFSC, HTB) - we are flexible enough in Linux.
->
-> Depending on where you want to do things, netfilter may be a good
-> candidate (example IP protocol) or things that dont need queueing.
-> The examples i gave are more powerful than anything netfilter can do at
-> the moment though with only caveat theres only two "hooks".
->
->> The limit match in netfilter is not the same as the rate in the qdisc.
->> The netem scheduler acts as if the link is a slow fixed rate.  The netfilter
->> limit is usually targeted to drop packets over the rate which is not the same.
->> Reordering is also hard without going out to a user log or building a custom
->> target.
->
-> Not sure what the netfilter limit target is - i suspect its something
-> that limits based on a group of flows. You can still do that with a
-> fwamrk at the qdisc level. Reordering needs a queue. Even the example i
-> gave uses a queue that resides on the dummy device.
->
->> So, you have convinced me that loss is unnecessary but not the rate, or delay.
->> If we can figure out how to re-ordering with netfilter then that could go too,
->> which would make it possible to use a layered qdisc again.
->
-> I think keep the reordering aspect of it unless it is very complex. The
-> delay is a must. If you can add configurable jitter to it that would be
-> a big bonus. Keep the randomization.  Duplication, dropping, bit error
-> injection, and rate control are the ones i didnt see belonging there
-> mostly because they can be done better elsewhere.
-> Again this is just opinion, if you think that theres no complexity in
-> the architecture, by all means keep all those features - my
-> recommendation is to pick a few things that will work well and implement
-> them well.
->
-> cheers,
-> jamal
+> [btw it's quite possible that this isn't a firewall, but also
+> some kind of header compression that is doing the wrong thing]
 
-I suggest to keep duplication because:
-1. Adds 5-10 lines of code and no complexity
-2. It's very easy to use it attached directly to a device.
+... or some kind of nasty intrusive bandwidth molesting device like a
+PacketShaper...
 
-Thank you.
 
----
-Catalin(ux aka Dino) BOIE
-catab at deuroconsult.ro
-http://kernel.umbrella.ro/
-_______________________________________________
-LARTC mailing list / LARTC@mailman.ds9a.nl
-http://mailman.ds9a.nl/mailman/listinfo/lartc HOWTO: http://lartc.org/
+   --cw
