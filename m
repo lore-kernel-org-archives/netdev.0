@@ -1,99 +1,72 @@
-From: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
-Subject: [PATCH] rtnl_unlock/lock in sch_api.c TRY3
-Date: Thu, 31 Mar 2005 23:11:06 +0300 (EEST)
-Message-ID: <Pine.LNX.4.62.0503312309160.3390@webhosting.rdsbv.ro>
-Mime-Version: 1.0
-Content-Type: MULTIPART/Mixed; BOUNDARY="-1646943047-479590719-1112051375=:3229"
-Cc: davem@davemloft.net
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: [PATCH REPOST 2.6.11-rc4-netdev1] bonding: don't drop non-VLAN traffic
+Date: Thu, 31 Mar 2005 12:23:43 -0800
+Message-ID: <200503312023.j2VKNhir031974@death.nxdomain.ibm.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
-Content-ID: <Pine.LNX.4.62.0503312309161.3390@webhosting.rdsbv.ro>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
 
----1646943047-479590719-1112051375=:3229
-Content-Type: TEXT/PLAIN; CHARSET=US-ASCII; FORMAT=flowed
-Content-ID: <Pine.LNX.4.62.0503312309162.3390@webhosting.rdsbv.ro>
+	Posted this a few weeks ago, don't see it in netdev-2.6 yet.
+Did this get lost somewhere, or is it still pending?
 
-Hello!
-
-Trying to load a custom module (same for teql but I didn't tried it)
-whan the qdisc module is not loaded, makes tc hang.
-This is because qdisc_create aquires rtnl_sem and then tries to load a module 
-that tries to register_netdev (that tries to aquire the same rtnl_sem).
-Applying this patch makes the problem go away.
-
-The patch was tested under 2.6.11.6.
-
-Signed-off-by: Catalin(ux aka Dino) BOIE <catab at umbrella.ro>
-
-Please apply.
-
-The patch is a rewrite of Dave's one with small additions (module_put 
-in and dev_put out).
-
-Thanks for help goes to Dave, Thomas and Patrick.
+	-J
 
 ---
-Catalin(ux aka Dino) BOIE
-catab at deuroconsult.ro
-http://kernel.umbrella.ro/
----1646943047-479590719-1112051375=:3229
-Content-Type: TEXT/PLAIN; charset=US-ASCII; name=sch_api_rtnl_unlock_lock-try3.patch
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.62.0503312311060.3390@webhosting.rdsbv.ro>
-Content-Description: 
-Content-Disposition: attachment; filename=sch_api_rtnl_unlock_lock-try3.patch
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
 
-LS0tIGxpbnV4LTIuNi9uZXQvc2NoZWQvc2NoX2FwaS5jLm9yaWcJMjAwNS0w
-My0yOSAwMToyMDoxOC4wMDAwMDAwMDAgKzAzMDANCisrKyBsaW51eC0yLjYv
-bmV0L3NjaGVkL3NjaF9hcGkuYwkyMDA1LTAzLTMxIDIyOjQ0OjQxLjAwMDAw
-MDAwMCArMDMwMA0KQEAgLTQwNiwxMSArNDA2LDI5IEBAIHFkaXNjX2NyZWF0
-ZShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCB1MzINCiANCiAJb3BzID0gcWRp
-c2NfbG9va3VwX29wcyhraW5kKTsNCiAjaWZkZWYgQ09ORklHX0tNT0QNCi0J
-aWYgKG9wcz09TlVMTCAmJiB0Y2FbVENBX0tJTkQtMV0gIT0gTlVMTCkgew0K
-KwlpZiAob3BzID09IE5VTEwgJiYga2luZCAhPSBOVUxMKSB7DQogCQljaGFy
-IG5hbWVbSUZOQU1TSVpdOw0KIAkJaWYgKHJ0YXR0cl9zdHJsY3B5KG5hbWUs
-IGtpbmQsIElGTkFNU0laKSA8IElGTkFNU0laKSB7DQorCQkJLyogV2UgZHJv
-cHBlZCB0aGUgUlROTCBzZW1hcGhvcmUgaW4gb3JkZXIgdG8NCisJCQkgKiBw
-ZXJmb3JtIHRoZSBtb2R1bGUgbG9hZC4gIFNvLCBldmVuIGlmIHdlDQorCQkJ
-ICogc3VjY2VlZGVkIGluIGxvYWRpbmcgdGhlIG1vZHVsZSB3ZSBoYXZlIHRv
-DQorCQkJICogdGVsbCB0aGUgY2FsbGVyIHRvIHJlcGxheSB0aGUgcmVxdWVz
-dC4gIFdlDQorCQkJICogaW5kaWNhdGUgdGhpcyB1c2luZyAtRUFHQUlOLg0K
-KwkJCSAqIFdlIHJlcGxheSB0aGUgcmVxdWVzdCBiZWNhdXNlIHRoZSBkZXZp
-Y2UgbWF5DQorCQkJICogZ28gYXdheSBpbiB0aGUgbWVhbiB0aW1lLg0KKwkJ
-CSAqLw0KKwkJCXJ0bmxfdW5sb2NrKCk7DQogCQkJcmVxdWVzdF9tb2R1bGUo
-InNjaF8lcyIsIG5hbWUpOw0KKwkJCXJ0bmxfbG9jaygpOw0KIAkJCW9wcyA9
-IHFkaXNjX2xvb2t1cF9vcHMoa2luZCk7DQorCQkJaWYgKG9wcyAhPSBOVUxM
-KSB7DQorCQkJCS8qIFdlIHdpbGwgdHJ5IGFnYWluIHFkaXNjX2xvb2t1cF9v
-cHMsDQorCQkJCSAqIHNvIGRvbid0IGtlZXAgYSByZWZlcmVuY2UuDQorCQkJ
-CSAqLw0KKwkJCQltb2R1bGVfcHV0KG9wcy0+b3duZXIpOw0KKwkJCQllcnIg
-PSAtRUFHQUlOOw0KKwkJCQlnb3RvIGVycl9vdXQ7DQorCQkJfQ0KIAkJfQ0K
-IAl9DQogI2VuZGlmDQpAQCAtNjA2LDE0ICs2MjQsMjAgQEAgc3RhdGljIGlu
-dCB0Y19nZXRfcWRpc2Moc3RydWN0IHNrX2J1ZmYgKg0KIA0KIHN0YXRpYyBp
-bnQgdGNfbW9kaWZ5X3FkaXNjKHN0cnVjdCBza19idWZmICpza2IsIHN0cnVj
-dCBubG1zZ2hkciAqbiwgdm9pZCAqYXJnKQ0KIHsNCi0Jc3RydWN0IHRjbXNn
-ICp0Y20gPSBOTE1TR19EQVRBKG4pOw0KLQlzdHJ1Y3QgcnRhdHRyICoqdGNh
-ID0gYXJnOw0KKwlzdHJ1Y3QgdGNtc2cgKnRjbTsNCisJc3RydWN0IHJ0YXR0
-ciAqKnRjYTsNCiAJc3RydWN0IG5ldF9kZXZpY2UgKmRldjsNCi0JdTMyIGNs
-aWQgPSB0Y20tPnRjbV9wYXJlbnQ7DQotCXN0cnVjdCBRZGlzYyAqcSA9IE5V
-TEw7DQotCXN0cnVjdCBRZGlzYyAqcCA9IE5VTEw7DQorCXUzMiBjbGlkOw0K
-KwlzdHJ1Y3QgUWRpc2MgKnEsICpwOw0KIAlpbnQgZXJyOw0KIA0KKwlyZXBs
-YXk6DQorCS8qIFJlaW5pdCwganVzdCBpbiBjYXNlIHNvbWV0aGluZyB0b3Vj
-aGVzIHRoaXMuICovDQorCXRjbSA9IE5MTVNHX0RBVEEobik7DQorCXRjYSA9
-IGFyZzsNCisJY2xpZCA9IHRjbS0+dGNtX3BhcmVudDsNCisJcSA9IHAgPSBO
-VUxMOw0KKw0KIAlpZiAoKGRldiA9IF9fZGV2X2dldF9ieV9pbmRleCh0Y20t
-PnRjbV9pZmluZGV4KSkgPT0gTlVMTCkNCiAJCXJldHVybiAtRU5PREVWOw0K
-IA0KQEAgLTcwNyw4ICs3MzEsMTEgQEAgY3JlYXRlX25fZ3JhZnQ6DQogCQlx
-ID0gcWRpc2NfY3JlYXRlKGRldiwgdGNtLT50Y21fcGFyZW50LCB0Y2EsICZl
-cnIpOw0KICAgICAgICAgZWxzZQ0KIAkJcSA9IHFkaXNjX2NyZWF0ZShkZXYs
-IHRjbS0+dGNtX2hhbmRsZSwgdGNhLCAmZXJyKTsNCi0JaWYgKHEgPT0gTlVM
-TCkNCisJaWYgKHEgPT0gTlVMTCkgew0KKwkJaWYgKGVyciA9PSAtRUFHQUlO
-KQ0KKwkJCWdvdG8gcmVwbGF5Ow0KIAkJcmV0dXJuIGVycjsNCisJfQ0KIA0K
-IGdyYWZ0Og0KIAlpZiAoMSkgew0K
+To: netdev@oss.sgi.com
+Cc: Olaf Kirch <okir@suse.de>
+Subject: [PATCH REPOST 2.6.11-rc4-netdev1] bonding: don't drop non-VLAN traffic
+Date: Thu, 03 Mar 2005 15:33:11 -0800
+From: Jay Vosburgh <fubar@us.ibm.com>
 
----1646943047-479590719-1112051375=:3229--
+
+	Change the bonding driver to not drop non-VLAN traffic when a
+VLAN is configured above it.  Originally fixed by Olaf Kirch
+<okir@suse.de>; I changed his patch slightly to update comments.
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+
+Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+
+--- linux-2.6.11-rc4-netdev1-virgin/drivers/net/bonding/bond_main.c	2005-02-15 11:31:40.000000000 -0800
++++ linux-2.6.11-rc4-netdev1/drivers/net/bonding/bond_main.c	2005-02-15 16:09:10.000000000 -0800
+@@ -793,29 +793,20 @@
+  * @skb: hw accel VLAN tagged skb to transmit
+  * @slave_dev: slave that is supposed to xmit this skbuff
+  * 
+- * When the bond gets an skb to tarnsmit that is
++ * When the bond gets an skb to transmit that is
+  * already hardware accelerated VLAN tagged, and it
+  * needs to relay this skb to a slave that is not
+  * hw accel capable, the skb needs to be "unaccelerated",
+  * i.e. strip the hwaccel tag and re-insert it as part
+  * of the payload.
+- * 
+- * Assumption - once a VLAN device is created over the bond device, all
+- * packets are going to be hardware accelerated VLAN tagged since the IP
+- * binding is done over the VLAN device
+  */
+ int bond_dev_queue_xmit(struct bonding *bond, struct sk_buff *skb, struct net_device *slave_dev)
+ {
+ 	unsigned short vlan_id;
+-	int res;
+ 
+ 	if (!list_empty(&bond->vlan_list) &&
+-	    !(slave_dev->features & NETIF_F_HW_VLAN_TX)) {
+-		res = vlan_get_tag(skb, &vlan_id);
+-		if (res) {
+-			return -EINVAL;
+-		}
+-
++	    !(slave_dev->features & NETIF_F_HW_VLAN_TX) &&
++	    vlan_get_tag(skb, &vlan_id) == 0) {
+ 		skb->dev = slave_dev;
+ 		skb = vlan_put_tag(skb, vlan_id);
+ 		if (!skb) {
