@@ -1,40 +1,46 @@
-From: Roland Dreier <roland@topspin.com>
-Subject: Re: Advice needed on IP-over-InfiniBand driver
-Date: Thu, 30 Sep 2004 14:48:53 -0700
-Sender: openib-general-bounces@openib.org
-Message-ID: <52sm8zxwai.fsf@topspin.com>
-References: <OF16B04F62.A5B7B967-ON88256F1F.0074FAB1-88256F1F.00754741@us.ibm.com>
+From: Michal Schmidt <xschmi00@stud.feec.vutbr.cz>
+Subject: [PATCH 2.6.9-rc3] sk98lin - register the driver with hotplug
+Date: Fri, 01 Oct 2004 00:05:22 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <415C8322.7030005@stud.feec.vutbr.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, "David S. Miller" <davem@davemloft.net>,
-	openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-To: David Stevens <dlstevens@us.ibm.com>
-In-Reply-To: <OF16B04F62.A5B7B967-ON88256F1F.0074FAB1-88256F1F.00754741@us.ibm.com>
-	(David Stevens's message of "Thu, 30 Sep 2004 14:21:20 -0700")
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Errors-To: openib-general-bounces@openib.org
+Content-Type: multipart/mixed;
+ boundary="------------010404000700000007090003"
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: mlindner@syskonnect.de
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-    David> I think it would be a mistake to use skb->dst as a flag for
-    David> unicast or not. Even if it is correct in all cases you care
-    David> about now (I don't know either way), it would be a hidden
-    David> dependency with high potential to break something
-    David> eventually.
+This is a multi-part message in MIME format.
+--------------010404000700000007090003
+Content-Type: text/plain; charset=ISO-8859-2; format=flowed
+Content-Transfer-Encoding: 7bit
 
-That's kind of what I thought.  But since my packets have no L2 header
-in them, I don't know what hard_start_xmit can look at other than
-skb->dst.
+Hello,
 
-I guess hard_header could put some info in skb->cb -- is cb available
-for net device use between hard_header and hard_start_xmit, or does
-someone else still own it?
+The attached patch allows the sk98lin module to be loaded automatically 
+by hotplug.
 
-Thanks,
-  Roland
+Michal Schmidt
+
+--------------010404000700000007090003
+Content-Type: text/plain;
+ name="sk98lin-hotplug.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="sk98lin-hotplug.diff"
+
+--- linux-2.6.9-rc3.orig/drivers/net/sk98lin/skge.c	2004-09-30 23:38:44.181252712 +0200
++++ linux-2.6.9-rc3/drivers/net/sk98lin/skge.c	2004-09-30 21:02:04.000000000 +0200
+@@ -5169,6 +5169,8 @@ static struct pci_device_id skge_pci_tbl
+ 	{ 0, }
+ };
+ 
++MODULE_DEVICE_TABLE(pci, skge_pci_tbl);
++
+ static struct pci_driver skge_driver = {
+ 	.name		= "skge",
+ 	.id_table	= skge_pci_tbl,
+
+--------------010404000700000007090003--
