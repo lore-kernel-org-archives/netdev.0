@@ -1,90 +1,81 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 16/16] ATM: Use gnet_stats for class statistics and dump them
-Date: Thu, 21 Oct 2004 14:52:01 +0200
+From: Harald Welte <laforge@netfilter.org>
+Subject: Re: [PATCH 2.6] iptables CLUSTERIP target
+Date: Thu, 21 Oct 2004 15:03:27 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041021125201.GU21977@postel.suug.ch>
-References: <20041021123209.GE21977@postel.suug.ch>
+Message-ID: <20041021130327.GD3551@sunbeam.de.gnumonks.org>
+References: <20041020223828.GP19899@sunbeam.de.gnumonks.org> <20041021075530.GA1278@infradead.org> <20041021091229.GA3551@sunbeam.de.gnumonks.org> <20041021110513.GA21579@outpost.ds9a.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, hadi@cyberus.ca
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="E13BgyNx05feLLmH"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
+To: bert hubert <ahu@ds9a.nl>, Christoph Hellwig <hch@infradead.org>,
+        Linux Netdev List <netdev@oss.sgi.com>, lmb@suse.de
 Content-Disposition: inline
-In-Reply-To: <20041021123209.GE21977@postel.suug.ch>
+In-Reply-To: <20041021110513.GA21579@outpost.ds9a.nl>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Makes ATM qdisc use gnet_stats for class statistic counters and
-adds dumping bits to actually dump those. Althought the counters
-were updated they never got dumped to userspace.
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
+--E13BgyNx05feLLmH
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
---- linux-2.6.9-rc5.orig/net/sched/sch_atm.c	2004-10-21 11:07:46.000000000 +0200
-+++ linux-2.6.9-rc5/net/sched/sch_atm.c	2004-10-21 13:26:05.000000000 +0200
-@@ -69,7 +69,8 @@
- 	struct socket		*sock;		/* for closing */
- 	u32			classid;	/* x:y type ID */
- 	int			ref;		/* reference count */
--	struct tc_stats		stats;
-+	struct gnet_stats_basic	bstats;
-+	struct gnet_stats_queue	qstats;
- 	spinlock_t		*stats_lock;
- 	struct atm_flow_data	*next;
- 	struct atm_flow_data	*excess;	/* flow for excess traffic;
-@@ -450,13 +451,13 @@
- #endif
- 	    (ret = flow->q->enqueue(skb,flow->q)) != 0) {
- 		sch->qstats.drops++;
--		if (flow) flow->stats.drops++;
-+		if (flow) flow->qstats.drops++;
- 		return ret;
- 	}
- 	sch->bstats.bytes += skb->len;
- 	sch->bstats.packets++;
--	flow->stats.bytes += skb->len;
--	flow->stats.packets++;
-+	flow->bstats.bytes += skb->len;
-+	flow->bstats.packets++;
- 	/*
- 	 * Okay, this may seem weird. We pretend we've dropped the packet if
- 	 * it goes via ATM. The reason for this is that the outer qdisc
-@@ -550,7 +551,7 @@
-         sch->qstats.requeues++;
-     } else {
- 		sch->qstats.drops++;
--		p->link.stats.drops++;
-+		p->link.qstats.drops++;
- 	}
- 	return ret;
- }
-@@ -666,6 +667,21 @@
- 	skb_trim(skb,b-skb->data);
- 	return -1;
- }
-+static int
-+atm_tc_dump_class_stats(struct Qdisc *sch, unsigned long arg,
-+	struct gnet_dump *d)
-+{
-+	struct atm_qdisc_data *p = PRIV(sch);
-+	struct atm_flow_data *flow = (struct atm_flow_data *) arg;
-+
-+	flow->qstats.qlen = flow->q->q.qlen;
-+
-+	if (gnet_stats_copy_basic(d, &flow->bstats) < 0 ||
-+	    gnet_stats_copy_queue(d, &flow->qstats) < 0)
-+		return -1;
-+
-+	return 0;
-+}
- 
- static int atm_tc_dump(struct Qdisc *sch, struct sk_buff *skb)
- {
-@@ -684,6 +700,7 @@
- 	.bind_tcf	=	atm_tc_bind_filter,
- 	.unbind_tcf	=	atm_tc_put,
- 	.dump		=	atm_tc_dump_class,
-+	.dump_stats	=	atm_tc_dump_class_stats,
- };
- 
- static struct Qdisc_ops atm_qdisc_ops = {
+On Thu, Oct 21, 2004 at 01:05:13PM +0200, bert hubert wrote:
+> Is the CLUSTERIP target going anywhere after the (needlessly harsh) rebuk=
+es
+> posted here?
+
+Yes, I think so.  I'm in the process of investigating why I didn't use
+seq_file at the time I implemented it (some 1.5 years ago, IIRC).
+Unfortunately I don't really remember all the issues involved :(  If I'm
+not mistaken, I even posted some questions in this regard to lkml.
+
+> I note with glee that CLUSTERIP implements (and improves) the evil ideas =
+of
+> http://lartc.org/autoloadbalance.php3
+
+I didn't know about that page, but yes, indeed.  I first was informed
+about this approach by Fabio Olive Leite, who was one of my colleagues
+at Conectiva (where I was 2001).  He presented this approach at the
+Linux Kongress 2002:
+http://www.linux-kongress.org/2002/papers/lk2002-leite.html
+
+Later SuSE approached me if I was interested in implementing that idea,
+and that's how CLUSTERIP happened.  If I'm not mistaken SuSE is already
+shipping this (at least in some beta version?) - I don't really know but
+maybe lmb can shed some light on this issue.
+
+> And yes, I've received hate mail over this from switch engineers :-)
+
+Why is that?  They have to deal with multicast traffic, too...  and I
+don't really see how this is any different.
+
+> Good luck!
+
+Thanks ;)
+
+--=20
+- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+  "Fragmentation is like classful addressing -- an interesting early
+   architectural error that shows how much experimentation was going
+   on while IP was being designed."                    -- Paul Vixie
+
+--E13BgyNx05feLLmH
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (GNU/Linux)
+
+iD8DBQFBd7OfXaXGVTD0i/8RAhULAKCbEQOzqKpOR7hgFhmS+Fyk3NrBmwCdFFNF
+TYuiW0FOhUACwSintzs+BZk=
+=umYQ
+-----END PGP SIGNATURE-----
+
+--E13BgyNx05feLLmH--
