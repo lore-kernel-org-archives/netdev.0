@@ -1,53 +1,37 @@
-From: Jos Vos <jos@xos.nl>
-Subject: e1000 driver problem with Intel Pro/1000 MT adapter
-Date: Sat, 04 Dec 2004 00:25:39 +0100
-Message-ID: <200412032325.iB3NPdG04693@xos037.xos.nl>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: e1000 driver problem with Intel Pro/1000 MT adapter
+Date: Sat, 4 Dec 2004 01:59:46 +0100
+Message-ID: <20041204005946.GA26654@electric-eye.fr.zoreil.com>
+References: <200412032325.iB3NPdG04693@xos037.xos.nl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Jos Vos <jos@xos.nl>
+Content-Disposition: inline
+In-Reply-To: <200412032325.iB3NPdG04693@xos037.xos.nl>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello,
+Jos Vos <jos@xos.nl> :
+[misbehaving multi port e1000]
+> Any suggestions how to solve this are welcome.  I can provide more
+> information if needed.
 
-I have a problem with an Intel Pro/1000 MT 4-port card in a Supermicro
-(non-HT) Pentium 4 system using RHEL3 (2.4.21 kernel "the RH way") with
-the e1000 driver (I tried both the version supplied by RH and the
-newest 5.5.4 driver):
+<I am not the e1000 maintainer>
 
-(1)
-With a non-SMP kernel, the whole system freezes instantaneously when
-configuring one of in the four interfaces.
+The error code for the ioctl most probably comes through
+e1000_open
+-> e1000_up
+   -> request_irq
 
-(2)
-After disabling the USB controller, all interfaces can be configured,
-but only one of them actually works.  Via the others, I can sent
-packets, but do not receive incoming packages (possible IRQ problem).
+That + (2) + SMP suggests an irq routing issue due to a broken acpi
+table ("suggests").
 
-(3)
-Using a SMP-kernel, two of the four interfaces can be configured and
-work correctly.  For the other two ports, ifconfig gives the
-error "SIOCSIFFLAGS: Invalid argument".  Stracing ifconfig says:
-
-  socket(PF_INET, SOCK_DGRAM, IPPROTO_IP) = 4
-  ...
-  ioctl(4, SIOCSIFADDR, 0xbfffc210)       = 0
-  ioctl(4, SIOCGIFFLAGS, 0xbfffc140)      = 0
-  ioctl(4, SIOCSIFFLAGS, 0xbfffc140)      = -1 EINVAL (Invalid argument)
-
-Stracing ifconfig for an interface that works shows similar lines,
-but then the second SIOCSIFFLAGS ioctl succeeds.
-
-Supermicro suggest to change the non-HT P4 CPU by a HT one, but I
-personally do not believe that this will change the situation of the
-SMP kernel as described above.
-
-Any suggestions how to solve this are welcome.  I can provide more
-information if needed.
-
-Thanks,
+I would compile a (monolithic) recent 2.6.x to see its log and
+give a look at http://acpi.sourceforge.net/dsdt/index.php (once the
+ticket is opened at http://bugzilla.redhat.com of course :o) )
 
 --
---    Jos Vos <jos@xos.nl>
---    X/OS Experts in Open Systems BV   |   Phone: +31 20 6938364
---    Amsterdam, The Netherlands        |     Fax: +31 20 6948204
+Ueimor
