@@ -1,27 +1,46 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [IPSEC] fix ref counting in __xfrm4_bundle_create()
-Date: Sat, 29 May 2004 12:46:33 -0700
+Subject: Re: Bug#251215: kernel-image-2.6.6-1-k7: pppd locks up, cannot be
+ killed, during ppp shutdown
+Date: Sat, 29 May 2004 12:48:33 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040529124633.713bd9f2.davem@redhat.com>
-References: <20040529001450.GA647@gate.ebshome.net>
-	<E1BTuV7-0002m2-00@gondolin.me.apana.org.au>
+Message-ID: <20040529124833.5eca66d7.davem@redhat.com>
+References: <E1BTLVa-000Ezb-FC@johnnybravo.uk.clara.net>
+	<20040528124355.GA2391@gondor.apana.org.au>
+	<40B744DC.9956BF50@kepier.clara.net>
+	<20040529051736.GA11303@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: ebs@ebshome.net, netdev@oss.sgi.com
+Cc: debian.bugs@kepier.clara.net, 251215@bugs.debian.org, shemminger@osdl.org,
+        jgarzik@pobox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1BTuV7-0002m2-00@gondolin.me.apana.org.au>
+In-Reply-To: <20040529051736.GA11303@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 29 May 2004 13:27:13 +1000
+On Sat, 29 May 2004 15:17:36 +1000
 Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> Well spotted.  Hopefully this should finally put an end to all these
-> xfrm_state bug reports :)
-> 
-> However, can you see if the following patch fixes this problem as well?
+> Why do we need to call free_netdev after unregistering the netdev
+> from the drivers at all? What's wrong with calling it from run_todo
+> itself?
 
-I'm applying this patch.  If there is a fixup necessary, just let
-me know.
+Because the driver is the only agent which knows when it is safe
+to free up the structure.  It may still have some attached memory
+to free, for example, ala:
+
+	unregister_netdev(dev);
+	kfree(dev->priv);
+	free_netdev(dev);
+
+This is common, for example in drivers/net/tg3.c:tg3_remove_one() we
+have:
+
+		struct tg3 *tp = netdev_priv(dev);
+
+		unregister_netdev(dev);
+		iounmap((void *)tp->regs);
+		free_netdev(dev);
+
+See?
