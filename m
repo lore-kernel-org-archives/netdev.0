@@ -1,71 +1,57 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [PKT_SCHED]: Allow using nfmark as key in U32 classifier.
-Date: 03 Jan 2005 09:39:16 -0500
-Message-ID: <1104763156.1048.531.camel@jzny.localdomain>
-References: <20041230174313.GB32419@postel.suug.ch>
-	 <1104469111.1049.219.camel@jzny.localdomain>
-	 <20041231110836.GD32419@postel.suug.ch>
-	 <1104505142.1048.262.camel@jzny.localdomain>
-	 <20041231153930.GN32419@postel.suug.ch>
-	 <1104511494.1048.303.camel@jzny.localdomain>
-	 <20041231181153.GP32419@postel.suug.ch>
-	 <1104526311.1047.379.camel@jzny.localdomain>
-	 <20050101183230.GT32419@postel.suug.ch>
-	 <1104622934.1047.460.camel@jzny.localdomain>
-	 <20050102001338.GV32419@postel.suug.ch>
+Subject: Re: [patch 4/10] s390: network driver.
+Date: 03 Jan 2005 10:05:10 -0500
+Message-ID: <1104764710.1048.580.camel@jzny.localdomain>
+References: <OFB7F7E23F.EFB88418-ONC1256F7E.0031769E-C1256F7E.003270AD@de.ibm.com>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Cc: "David S. Miller" <davem@davemloft.net>, Hasso Tepper <hasso@estpak.ee>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com,
+        Paul Jakma <paul@clubi.ie>,
+        Tommy Christensen <tommy.christensen@tpack.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050102001338.GV32419@postel.suug.ch>
+To: Thomas Spatzier <thomas.spatzier@de.ibm.com>
+In-Reply-To: <OFB7F7E23F.EFB88418-ONC1256F7E.0031769E-C1256F7E.003270AD@de.ibm.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2005-01-01 at 19:13, Thomas Graf wrote:
-> * jamal <1104622934.1047.460.camel@jzny.localdomain> 2005-01-01 18:42
-> > what happened to the good old SEL TLV (which i believe we called SEL2
-> > now); or maybe thats what contains this TLV?
-> 
-> Please look at the patch I posted in the other post. I think
-> we missudnerstand each other.
 
-Will do.
-
-> > Why do you need to specify "nmatches".
-> 
-> It's mainly a shortcut to validate precedence jumps so I
-> can avoid traversing the RTA chain twice. It could be
-> avoided but is quite handy to speed things up and
-> also acts for validation purposes to check consistency of
-> the match list.
-
-Ok. 
-
-> > What is TCA_EMATCH_TREE_LIST for? Looks like another TLV nesting. Not
-> > needed, you just plumb the T=1,..T=N right after the header.
-> 
-> No, what if we need some more stuff in the selector TLV? We can't
-> modify the header TLV w/o breaking backwards compatibility. Adding
-> this addtional nesting allows to simply add stuff after TREE_LIST
-> TLV.
-
-Good point.
-
-> > I think the way you have it is fine - and believe it is the way the
-> > action code has it for the list.
-> 
-> You're using a maximum prio aren't you? I use a RTA_OK() loop
-> supporting unlimited number of matches without the need to
-> allocate rtattr pointer array.
-
-Sounds reasonable;  
-Note in my case, you probably want a limit on how many actions you chain
-in one policy - I would suggest you do the same as well. In other words
-even if you do it that way, have a limit check/setting somewhere.
+The change is simple if theres consensus to go this path.
 
 cheers,
 jamal
+
+On Mon, 2005-01-03 at 04:10, Thomas Spatzier wrote:
+> 
+> 
+> jamal <hadi@cyberus.ca> wrote on 22.12.2004 14:48:28:
+> > I think this needs to be resolved too.
+> > It is possible to have a centralized action instead of requiring drivers
+> > to make changes if we know the state of the driver is in netcarrier_off.
+> > What that would require is
+> > on cable gone, you just say:
+> >       netif_carrier_off();
+> > and the top layer code will junk the packets before they hit the driver.
+> > This way the socket code can continue sending whatever it wants but if
+> > theres no link, then its fair to drop those packets?
+> >
+> > If this acceptable i can generate a quick patch.
+> 
+> Does Jamal's solution sound good for all? Then I would change my driver
+> to do the following:
+> just call netif_carrier_off() (not netif_stop_queue)
+> 
+> Then the upper layers will do the propper thing, so I should not
+> get any more packets. If I still get some, I will drop them.
+> Did I get this correctly?
+> 
+> BTW: A happy new year to all ;-)
+> 
+> Regards,
+> Thomas.
+> 
+> 
