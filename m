@@ -1,62 +1,98 @@
-From: Aidas Kasparas <a.kasparas@gmc.lt>
-Subject: Re: [Ipsec-tools-devel] ipv4/ipv6 forwarding check
-Date: Fri, 29 Oct 2004 11:09:25 +0300
+From: Tommy Christensen <tommy.christensen@tpack.net>
+Subject: Re: [PATCH]  802.1Q VLAN
+Date: 29 Oct 2004 10:29:27 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4181FAB5.4010005@gmc.lt>
-References: <E1CNR73-0007X6-00@gondolin.me.apana.org.au>
+Message-ID: <1099038566.1813.99.camel@cyan.cph.tpack.net>
+References: <41797696.9070905@candelatech.com>
+	 <20041022214611.GA4948@electric-eye.fr.zoreil.com>
+	 <41798506.1030909@candelatech.com> <417D675F.3000909@candelatech.com>
+	 <4181838B.6040002@tpack.net>  <41818D99.9020300@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: latten@austin.ibm.com, ipsec-tools-devel@lists.sourceforge.net,
-        netdev@oss.sgi.com
+Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>,
+        "Linux 802.1Q VLAN" <vlan@candelatech.com>,
+        Francois Romieu <romieu@fr.zoreil.com>,
+        "David S. Miller" <davem@redhat.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1CNR73-0007X6-00@gondolin.me.apana.org.au>
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <41818D99.9020300@candelatech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
-
-Herbert Xu wrote:
-> Aidas Kasparas <a.kasparas@gmc.lt> wrote:
+On Fri, 2004-10-29 at 02:23, Ben Greear wrote:
+> >  o It is considered an error if a queue-less device returns anything but 
+> > zero from its
+> >    hard_start_xmit() function (see dev_queue_xmit()).
 > 
->>       Meanwhile, I would like to recomend to abstain from upgrading to 
->>anything above 2.6.9.
+> This certainly was not clear to me.  The comments in dev_queue_xmit are
+> wrong about the return value (failure cases can be > zero too).  Are
+> there other errors or ommissions there?
+
+A return value > zero doesn't mean failure. It indicates congestion.
+
+> What sorts of things go wrong if you do return an error here when you don't
+> have a queue?
+
+It is interpreted as a tx failure rather than congestion. So it doesn't
+help the upper layers like you wanted it to.
+And it spews out an error message.
+
 > 
+> >  o So, lets add a tx queue to it. Sure, that would be nice. Now we can 
+> > even do shaping
+> >    and other fancy stuff. But then how do we manage netif_queue_stopped? 
+> > Especially
+> >    restarting the queue could be tricky.
 > 
-> Doesn't sound like a good idea as that's a massive security hole.
+> Right... it would probably be an O(N) thing to wake the queues for all virtual
+> devices on a physical device, and we certainly don't want to do that
+> often.  Maybe if you only tried to wake the blocked queues (ie, kept a list
+> of just blocked queues), then that would be less painful on average,
+> but the worst-case is still bad.
+
+Yeah, we probably would need some sort of notification from the
+qdisc of the underlying device when it can accept packets again.
+
+> >  o But couldn't we skip netif_stop_queue() and just return 
+> > NETDEV_TX_BUSY when congested?
+> >    No, that would make the qdisc system "busy-retry" untill it succeeds. 
+> > BAD.
+> > 
+> >  o It is unsafe to pass a shared skb to dev_queue_xmit() unless you 
+> > control all the
+> >    references yourself. (It will likely be enqueued on a list.)
 > 
-> Racoon with a pre-2.6.9 kernel will allow source addresses to come
-> through the IPsec tunnel even if the violate IPsec policies.
+> Since we either free the duplicate copy, or pass it to the queue and forget
+> about it, this last point does not matter in the patch I submitted, right?
 
-Ok, my dear coleagues admins, decide for yourself. Facts are:
+Yes. This is the right way to do it. *Unless* the skb is already shared
+when you receive it (e.g. from pktgen).
 
-If you upgrade, your system will not work.
+> > And specifically for this patch:
+> > 
+> >  o The skb could be freed (replaced) in __vlan_put_tag(), so you cannot 
+> > tell the caller
+> >    to hang on to it.
+> 
+> Yep, that is quite nasty...I had not noticed.  If I kept a copy of the original
+> pointer (using skb_get() to bump the reference) passed in,
+> that would fix this particular problem?
 
-If you do not upgrade, and on host c.c.c.c you have policy
-a.a.a.a b.b.b.b any -P in esp/.../
+Yes, I would think so.
 
-where b.b.b.b is address different from any interface address of host 
-with address c.c.c.c and
-1) some party h.h.h.h will be able to spoof packet to look from a.a.a.a 
-  to b.b.b.b;
-2) transport that packet to c.c.c.c
-3) that packet will not be filtered out by rp_filter on c.c.c.c
-then kernel will pass that packet through to b.b.b.b, even if that 
-packet is not protected by esp.
+> >  o If rv is NET_XMIT_CN (and probably also rv < 0) you have to return 0, 
+> > in order to
+> >    make the caller forget about this skb.
+> 
+> Is there a complete list of what return codes are possible?  Maybe we could make
+> it return an enum instead of an integer so we can more easily track these
+> sorts of things down??
 
-It is possible to prevent that from happening by marking esp packets and 
-later accepting for forwarding only marked packets from a.a.a.a to 
-b.b.b.b using iptables. Yes, I have insisted in the past this is not 
-necessary. I was wrong. I'm sorry. I did not knew about this kernel's 
-feature.
+They are listed in netdevice.h - NET_XMIT_SUCCESS etc., and the usual
+negative errno's.
 
-[Have I missed any other case?]
+> Thanks for noticing!
+> Ben
 
-Which way to choose for the short term -- decission is after you.
-
-
--- 
-Aidas Kasparas
-IT administrator
-GM Consult Group, UAB
+-Tommy
