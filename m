@@ -1,94 +1,153 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 2.6 NET] Device name changing via rtnetlink
-Date: 12 Sep 2004 13:27:29 -0400
+Subject: Re: [PATCH] NETIF_F_LLTX for devices 2
+Date: 12 Sep 2004 13:34:30 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1095010048.2342.204.camel@jzny.localdomain>
-References: <20040910200644.GJ20088@postel.suug.ch>
-	 <20040910201302.GA16556@bougret.hpl.hp.com>
-	 <20040910202235.GK20088@postel.suug.ch>
-	 <20040910203203.GA17078@bougret.hpl.hp.com>
-	 <20040910204348.GL20088@postel.suug.ch>
-	 <1094857082.1041.19.camel@jzny.localdomain>
-	 <20040910231726.GP20088@postel.suug.ch>
-	 <1094868070.1042.77.camel@jzny.localdomain>
-	 <20040911134409.GA21181@postel.suug.ch>
-	 <1094932793.2344.82.camel@jzny.localdomain>
-	 <20040911220614.GF21181@postel.suug.ch>
+Message-ID: <1095010469.2344.215.camel@jzny.localdomain>
+References: <E1C4wYe-0005qT-00@gondolin.me.apana.org.au>
+	 <20040908072408.GI27886@wotan.suse.de>
+	 <1094629677.1089.155.camel@jzny.localdomain>
+	 <20040908134713.1bcd46d3.davem@davemloft.net>
+	 <1094823215.1121.129.camel@jzny.localdomain>
+	 <20040911142116.GL4431@wotan.suse.de>
+	 <1094933731.2343.109.camel@jzny.localdomain>
+	 <20040911174535.2acbb957.davem@davemloft.net>
+	 <20040912100114.GB11484@havoc.gtf.org>
+	 <20040912102529.GA27096@wotan.suse.de>
+	 <20040912161604.GA23366@havoc.gtf.org>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: jt@hpl.hp.com, "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Content-Type: multipart/mixed; boundary="=-jHLccdGWjrFFQhCmzeiA"
+Cc: Andi Kleen <ak@suse.de>, "David S. Miller" <davem@davemloft.net>,
+        herbert@gondor.apana.org.au, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20040911220614.GF21181@postel.suug.ch>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <20040912161604.GA23366@havoc.gtf.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2004-09-11 at 18:06, Thomas Graf wrote:
-> * jamal <1094932793.2344.82.camel@jzny.localdomain> 2004-09-11 15:59
-> > So my suggestion is making your code the exception.
-> > i.e something along the lines of:
-> > 
-> > addrchg = 1;
-> > 
-> > if (mtu/weight/name related)
-> > 	addrchng = 0;
-> > if (!err & addrchang)
-> > 	call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
-> 
-> OK, however I'd prefer to invert the concept. See patch
-> below. This would send out the following updates:
 
-Guess it wont make difference in number of lines of code, so fine.
+--=-jHLccdGWjrFFQhCmzeiA
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-> ififlags - NETDEV_(UP|DOWN) if IFF_UP has changed
-> IFLA_MAP - none
-> IFLA_ADDRESS|IFLA_BROADCAST - NETDEV_CHANGEADDR
-> IFLA_MTU - NETDEV_CHANGEMTU
-> IFLA_WEIGHT - none
-> IFLA_IFNAME - NETDEVCHANGENAME
-> 
-> PATCH:
-> Only send NETDEV_CHANGEADDR notifies for address and broadcast changes.
-> Notify is also sent out if only one of the 2 changes is successful.
-
-This one is sort of grey area. 
-Sigh. In any case, i think that this is ok for now. So patch should go
-in - we can revisit the whole atomicity where applicable in kernel at
-some later point.
-Dave please go ahead and apply the patch.
+On Sun, 2004-09-12 at 12:16, Jeff Garzik wrote:
 
 > 
-> > Also note, the semantics of netlink are all-or-nothing transaction. i.e
-> > if one of the things requested for fails then you undo the rest. We can
-> > probably loosely say that unles the ATOMIC flag is set you dont need to
-> > undo that .. something to think about (summary is you probably dont want
-> > to send progress update to user space unless the transaction is
-> > successful; you however want to report progress of where failure happens
-> > - as we are discussing at the moment in the error code thread).
-> 
-> Agreed, I think undo should happen from user space though. In the
-> example of do_setlink, you can see that while it would be quite easy to
-> do the sanity checks before actually doing something you can't catch
-> all errors if you don't want to implement the name/mtu/addr change
-> routines yourself. Keeping in mind that those sanity checks will
-> probably only fail during the development of a application it doesn't
-> really help. That's why I implemented it this way.
+> Thanks, but still need a patch for return value constants, otherwise you
+> are compounding rather than addressing a current problem.
 
-sure. The hard part i think is you cant force every one wanting to make
-changes to link parameters to go via setlink. If you could then it
-should be doable to not make changes until after the attributes are all
-known (and therefore make it easy to undo).
-
-> I'm experimenting with a commit/fallback netlink library which basically
-> fetches the subject of change and stores the netlink message to be used
-> in case of fallback. NLM_F_ATOMIC makes it even more useable but is
-> quite expensive. A netlink change daemon would probably solve the
-> problem better.
-
-Daemon seems to be the only way to do it. Lets discuss this at some
-later point.
+Something along the lines of attached patch?
+Francois needs to update the doc and you need someone to get the
+janitors enthusiastic (i just updated e1000)
 
 cheers,
 jamal
+
+
+--=-jHLccdGWjrFFQhCmzeiA
+Content-Disposition: attachment; filename=andi-patch
+Content-Type: text/plain; name=andi-patch; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+
+--- 269-rc1-bk17/include/linux/netdevice.h	2004/09/12 16:58:13	1.1
++++ 269-rc1-bk17/include/linux/netdevice.h	2004/09/12 17:10:45
+@@ -73,6 +73,11 @@
+ 
+ #define MAX_ADDR_LEN	32		/* Largest hardware address length */
+ 
++/* Driver transmit return codes */
++#define NETDEV_TX_OK 0		/* driver took care of packet */
++#define NETDEV_TX_BUSY 1	/* driver tx path was busy*/
++#define NETDEV_TX_LOCKED -1	/* driver tx lock was already taken */
++
+ /*
+  *	Compute the worst case header length according to the protocols
+  *	used.
+--- 269-rc1-bk17/net/sched/sch_generic.c	2004/09/12 16:55:03	1.1
++++ 269-rc1-bk17/net/sched/sch_generic.c	2004/09/12 17:08:52
+@@ -139,13 +139,8 @@
+ 				if (netdev_nit)
+ 					dev_queue_xmit_nit(skb, dev);
+ 
+-				/* hard_start_xmit returns: 
+-				   0  device not ready
+-				   1  everything ok
+-				   -1 didn't get device lock (for LLTX)
+-				*/ 
+ 				ret = dev->hard_start_xmit(skb, dev);
+-				if (ret == 0) { 
++				if (ret == NETDEV_TX_OK) { 
+ 					if (!nolock) {
+ 						dev->xmit_lock_owner = -1;
+ 						spin_unlock(&dev->xmit_lock);
+@@ -153,10 +148,11 @@
+ 					spin_lock(&dev->queue_lock);
+ 					return -1;
+ 				}
+-				if (ret == -1 && nolock)
++				if (ret == NETDEV_TX_LOCKED && nolock)
+ 					goto collision; 
+ 			}
+ 
++			/* NETDEV_TX_BUSY - we need to requeue */
+ 			/* Release the driver */
+ 			if (!nolock) { 
+ 				dev->xmit_lock_owner = -1;
+@@ -176,7 +172,7 @@
+ 		   3. device is buggy (ppp)
+ 		 */
+ 
+-	requeue:
++requeue:
+ 		q->ops->requeue(skb, q);
+ 		netif_schedule(dev);
+ 		return 1;
+--- 269-rc1-bk17/drivers/net/e1000/e1000_main.c	2004/09/12 17:05:58	1.1
++++ 269-rc1-bk17/drivers/net/e1000/e1000_main.c	2004/09/12 17:07:30
+@@ -1778,7 +1778,7 @@
+ 
+ 	if(unlikely(skb->len <= 0)) {
+ 		dev_kfree_skb_any(skb);
+-		return 0;
++		return NETDEV_TX_OK;
+ 	}
+ 
+ #ifdef NETIF_F_TSO
+@@ -1817,7 +1817,7 @@
+  	if (!spin_trylock(&adapter->tx_lock)) { 
+  		/* Collision - tell upper layer to requeue */ 
+  		local_irq_restore(flags); 
+- 		return -1; 
++ 		return NETDEV_TX_LOCKED; 
+  	} 
+ 
+ 	/* need: count + 2 desc gap to keep tail from touching
+@@ -1825,7 +1825,7 @@
+ 	if(E1000_DESC_UNUSED(&adapter->tx_ring) < count + 2) {
+ 		netif_stop_queue(netdev);
+ 		spin_unlock_irqrestore(&adapter->tx_lock, flags);
+-		return 1;
++		return NETDEV_TX_BUSY;
+ 	}
+ 
+ 	if(unlikely(adapter->hw.mac_type == e1000_82547)) {
+@@ -1833,7 +1833,7 @@
+ 			netif_stop_queue(netdev);
+ 			mod_timer(&adapter->tx_fifo_stall_timer, jiffies);
+ 			spin_unlock_irqrestore(&adapter->tx_lock, flags);
+-			return 1;
++			return NETDEV_TX_BUSY;
+ 		}
+ 	}
+ 
+@@ -1856,7 +1856,7 @@
+ 	netdev->trans_start = jiffies;
+ 
+ 	spin_unlock_irqrestore(&adapter->tx_lock, flags);
+-	return 0;
++	return NETDEV_TX_OK;
+ }
+ 
+ /**
+
+--=-jHLccdGWjrFFQhCmzeiA--
