@@ -1,31 +1,28 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 2.6.4-rc2-bk4 2/2] pcnet32 use netif_msg_init
-Date: Mon, 08 Mar 2004 21:19:35 -0500
+Subject: Re: [PATCH 2.4.26-pre2] netdevice.h: add netif_msg_init helper
+Date: Mon, 08 Mar 2004 21:20:29 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <404D29B7.6070005@pobox.com>
-References: <200403081946.i28Jkrb10646@DYN318364BLD.beaverton.ibm.com>
+Message-ID: <404D29ED.7050003@pobox.com>
+References: <200403081910.i28JAli10587@DYN318364BLD.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: tsbogend@alpha.franken.de, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Don Fry <brazilnut@us.ibm.com>
-In-Reply-To: <200403081946.i28Jkrb10646@DYN318364BLD.beaverton.ibm.com>
+In-Reply-To: <200403081910.i28JAli10587@DYN318364BLD.beaverton.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 Don Fry wrote:
-> @@ -2013,8 +2016,7 @@
->  {
->      printk(KERN_INFO "%s", version);
->  
-> -    if (debug >= 0 && debug < (sizeof(int) - 1))
-> -	pcnet32_debug = 1 << debug;
-> +    pcnet32_debug = netif_msg_init(debug, 0);
+> Please apply the following patch to 2.4.26-pre2
+> 
+> This patch adds a helper function to initialize the debug bit mask
+> for use with netif_msg_*.  When the debug_value is out of range
+> it returns the default_msg_enable_bits.  Tested IA32.
 
 
-Do you really want to default to silence?  IMO define a 
-PCNET32_DEF_MSG_ENABLE with a few of the critical bits like probe-time 
-information.
+Applying to 2.4 and 2.6...  will be after 2.6.4 is released though, 
+since this is a new feature and not Release Candidate material.
 
 	Jeff
