@@ -1,100 +1,57 @@
-From: Marcin =?iso-8859-2?Q?Kami=F1ski?= <maxiu@maxiu.com>
-Subject: IN6_PKTINFO
-Date: Fri, 29 Nov 2002 14:17:30 +0100
+From: jamal <hadi@cyberus.ca>
+Subject: Re: RFC 3095
+Date: Fri, 29 Nov 2002 08:25:21 -0500 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021129141730.A12882@maxiu.best.net.pl>
+Message-ID: <Pine.GSO.4.30.0211290814320.3643-100000@shell.cyberus.ca>
+References: <378C31E229CFD411B48B009027EE73C0013A6E21@fhpex002.dsto.defence.gov.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>, <richard.price@roke.co.uk>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: "Blackmore, Perry" <Perry.Blackmore@dsto.defence.gov.au>
+In-Reply-To: <378C31E229CFD411B48B009027EE73C0013A6E21@fhpex002.dsto.defence.gov.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello
-I'm programmer in PSNC (www.man.poznan.pl) and I'm trying to write
-function which receives UDP packet by IPv6 network and determines
-on what address does it arrive.
-I wrote program which works on IPv4, and then changed it to IPv6,
-but now it is not working. On all boxes I've tested, situation was
-the same: msg.msg_control hasn't got any headers when receiving IPv6
-packets and msg.msg_controllen = 0. Program is based on informations in
-RFC2292 and manual pages for setsockopt(2) and ipv6(7).
-This is test program:
-
-#include <stdio.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <sys/types.h>
-
-#define FATAL(s)        { perror(s); exit(1); }
-
-int main()
-{
- int s;
- struct sockaddr_in6 sin6;
- struct msghdr msg;
- struct cmsghdr *c;
- struct in6_pktinfo *pktinfo;
- char buf[1024];
- int a, i;
-
- char host_src[46];
- s = socket(PF_INET6, SOCK_DGRAM, IPPROTO_UDP);
- if(s < 0)
-  FATAL("socket");
- sin6.sin6_family = AF_INET6;
- sin6.sin6_port = htons(7000);
- sin6.sin6_addr = in6addr_any;
- if(bind(s, (struct sockaddr *) &sin6, sizeof(sin6)) < 0)
-  FATAL("bind");
- a = 1;
- if(setsockopt(s, SOL_IPV6, IPV6_PKTINFO,  &a, sizeof(int)) < 0)
-  FATAL("setsockopt");
- i = sizeof(int);
- if(getsockopt(s, IPPROTO_IPV6, IPV6_PKTINFO, &a, &i) < 0)
-  FATAL("getsockopt");
- printf("a = %d\n", a);
- for(;;) {
-  memset(&msg, 0, sizeof(struct msghdr));
-  msg.msg_control = buf;
-  msg.msg_controllen = 1024;
-  if((a = recvmsg(s, &msg, MSG_PEEK)) < 0)
-   FATAL("recvmsg");
-  printf("Packet msg %d len", a); fflush(stdout);
-  printf("[%d]\n", msg.msg_controllen);
-//  if(msg.msg_controllen) {
-   for(c = CMSG_FIRSTHDR(&msg) ; c; c = CMSG_NXTHDR(&msg, c)) {
-    printf("%d %d\n", c -> cmsg_level, c -> cmsg_type);
-    if(c -> cmsg_level == IPPROTO_IPV6 && c -> cmsg_type == IPV6_PKTINFO) {
-     pktinfo = (struct in6_pktinfo *) CMSG_DATA(c);
-
-     inet_ntop(AF_INET6, pktinfo -> ipi6_addr, host_src, 46);
-//     printf(" from %s ", pktinfo -> ipi_spec_dst);
-     printf(" to %s ", host_src);
-
-     break;
-    }
-   }
-//  }
-  if((a = recv(s, buf, 1024, 0)) < 0)
-   FATAL("recv");
-  printf(", data %d len[", a); fflush(stdout);
-  for(i = 0; i < a; i++)
-   printf("%c", buf[i]);
-  printf("]"); fflush(stdout);
-
-  printf("\n");
- }
-}
-
-Have You got any ideas what is wrong?
-With regards
-  Marcin Kaminski
 
 
--- 
-- Marcin Kaminski ------------------------------------ maxiu -
---- software developer ---------------------- 6net project ---
------ network administrator ----------- Best Group admin -----
-------- mail:maxiu@maxiu.com ------ http://maxiu.com ---------
+The only code i have seen was on the EPIC compression targeted for
+ROHC; this was a while back and i am not sure how successful the
+integration of EPIC with ROHC (i follow progress scantily on rohc)
+
+Richard, maybe you could comment?
+
+Take a look at http://www.roke.co.uk/networks/epic/
+
+cheers,
+jamal
+
+On Thu, 28 Nov 2002, Blackmore, Perry wrote:
+
+> Guys,
+>
+> Alan Cox has referred you to me.
+>
+> Are you aware if RFC 3095 (Robust Header Compression) has been implemented by anyone on the Linux platform?
+>
+> Cheers,
+>
+> > Perry Blackmore
+> >
+> > Dr Perry A Blackmore
+> > Senior Defence Scientist
+> > DSTO
+> >
+> > +61 2 625 66141 (Phone)
+> > +61 2 625 66130 (FAX)
+> >
+> > perry.blackmore@dsto.defence.gov.au
+> >
+> > DSTO Fern Hill
+> > Department of Defence
+> > CANBERRA ACT 2600
+> > Australia
+> >
+> >
+>
+>
