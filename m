@@ -1,66 +1,71 @@
-From: "Maciej W. Rozycki" <macro@linux-mips.org>
-Subject: [PATCH RESEND] 2.[46]: Permit the official ARP hw type in SIOCSARP
- for FDDI
-Date: Mon, 4 Oct 2004 23:57:09 +0100 (BST)
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH] PKT_SCHED: Make rate estimator work for all platforms
+Date: 04 Oct 2004 19:47:34 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58L.0410040312500.22545@blysk.ds.pg.gda.pl>
+Message-ID: <1096933654.2163.1.camel@jzny.localdomain>
+References: <20041004211152.GF15898@postel.suug.ch>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20041004211152.GF15898@postel.suug.ch>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello,
 
- The SIOCSARP handling code currently rejects attempts of setting an arp
-entry for FDDI devices if the Ethernet ARP hw type is specified in the
-request.  Using this ARP hw type is mandated by RFC 1390 (STD 36) and I
-think it's reasonable to accept SIOCSARP requests using this type,
-especially as it already works this way for ARP packets received from the
-network.  One reason for this is bootpd setting explicit ARP cache entries
-using the hw type that is also sent to a client.  Here is a patch for both
-2.4 and 2.6 that fixes the problem for me.  For consistency with code used
-for ARP packets, it makes both Ethernet and IEEE802 ARP hw type acceptable
-for FDDI interfaces.  Please apply.
+Looking good.
+Dave, Please apply all the patches (earlier 3 + this one) that Thomas
+posted.
 
- Applies both to 2.4.27 and to 2.6.8.1.
+cheers,
+jamal
 
-  Maciej
-
-Signed-off-by: Maciej W. Rozycki <macro@linux-mips.org>
-
-patch-arp-fddi-1
-diff -up --recursive --new-file linux.macro/net/ipv4/arp.c linux/net/ipv4/arp.c
---- linux.macro/net/ipv4/arp.c	2004-04-17 02:59:12.000000000 +0000
-+++ linux/net/ipv4/arp.c	2004-08-14 15:33:12.000000000 +0000
-@@ -1024,8 +1024,26 @@ int arp_req_set(struct arpreq *r, struct
- 		if (!dev)
- 			return -EINVAL;
- 	}
--	if (r->arp_ha.sa_family != dev->type)	
--		return -EINVAL;
-+	switch (dev->type) {
-+#ifdef CONFIG_FDDI
-+	case ARPHRD_FDDI:
-+		/*
-+		 * According to RFC 1390, FDDI devices should accept ARP
-+		 * hardware types of 1 (Ethernet).  However, to be more
-+		 * robust, we'll accept hardware types of either 1 (Ethernet)
-+		 * or 6 (IEEE 802.2).
-+		 */
-+		if (r->arp_ha.sa_family != ARPHRD_FDDI &&
-+		    r->arp_ha.sa_family != ARPHRD_ETHER &&
-+		    r->arp_ha.sa_family != ARPHRD_IEEE802)
-+			return -EINVAL;
-+		break;
-+#endif
-+	default:
-+		if (r->arp_ha.sa_family != dev->type)
-+			return -EINVAL;
-+		break;
-+	}
- 
- 	neigh = __neigh_lookup_errno(&arp_tbl, &ip, dev);
- 	err = PTR_ERR(neigh);
+On Mon, 2004-10-04 at 17:11, Thomas Graf wrote:
+> Fixes the existing rate estimator to compile cleanly on all platforms
+> and avoids carrying on the variance on platforms with HZ%4 != 0.
+> 
+> Patch also applies to 2.4 with some fuzz.
+> 
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> 
+> --- linux-2.6.9-rc3-bk4.orig/net/sched/estimator.c	2004-10-04 22:41:26.000000000 +0200
+> +++ linux-2.6.9-rc3-bk4/net/sched/estimator.c	2004-10-04 22:53:54.000000000 +0200
+> @@ -66,15 +66,11 @@
+>  
+>     * Minimal interval is HZ/4=250msec (it is the greatest common divisor
+>       for HZ=100 and HZ=1024 8)), maximal interval
+> -     is (HZ/4)*2^EST_MAX_INTERVAL = 8sec. Shorter intervals
+> +     is (HZ*2^EST_MAX_INTERVAL)/4 = 8sec. Shorter intervals
+>       are too expensive, longer ones can be implemented
+>       at user level painlessly.
+>   */
+>  
+> -#if (HZ%4) != 0
+> -#error Bad HZ value.
+> -#endif
+> -
+>  #define EST_MAX_INTERVAL	5
+>  
+>  struct qdisc_estimator
+> @@ -128,7 +124,7 @@
+>  		spin_unlock(e->stats_lock);
+>  	}
+>  
+> -	mod_timer(&elist[idx].timer, jiffies + ((HZ/4)<<idx));
+> +	mod_timer(&elist[idx].timer, jiffies + ((HZ<<idx)/4));
+>  	read_unlock(&est_lock);
+>  }
+>  
+> @@ -161,7 +157,7 @@
+>  	if (est->next == NULL) {
+>  		init_timer(&elist[est->interval].timer);
+>  		elist[est->interval].timer.data = est->interval;
+> -		elist[est->interval].timer.expires = jiffies + ((HZ/4)<<est->interval);
+> +		elist[est->interval].timer.expires = jiffies + ((HZ<<est->interval)/4);
+>  		elist[est->interval].timer.function = est_timer;
+>  		add_timer(&elist[est->interval].timer);
+>  	}
+> 
