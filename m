@@ -1,28 +1,31 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: 2.6.10 TCP troubles -- suggested patch
-Date: Fri, 11 Feb 2005 17:09:58 -0800
-Message-ID: <20050211170958.17fcde21.davem@davemloft.net>
-References: <0525M9211@server5.heliogroup.fr>
-	<420D37A3.6020209@hp.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] [NETLINK] unify checkings for clean messages
+Date: Sat, 12 Feb 2005 02:16:59 +0100
+Message-ID: <420D590B.9040404@trash.net>
+References: <420BF8C3.3050305@eurodev.net> <20050210173201.21da89e5.davem@davemloft.net> <420D2128.5000803@eurodev.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: hubert.tonneau@fullpliant.org, shemminger@osdl.org, romieu@fr.zoreil.com,
-        kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
-To: Rick Jones <rick.jones2@hp.com>
-In-Reply-To: <420D37A3.6020209@hp.com>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+To: Pablo Neira <pablo@eurodev.net>
+In-Reply-To: <420D2128.5000803@eurodev.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 11 Feb 2005 14:54:27 -0800
-Rick Jones <rick.jones2@hp.com> wrote:
+Pablo Neira wrote:
 
-> In some cases at least if the sender does not completely fill cwnd the
-> ACKs will  be delayed.  And IIRC under 2.6.10 with TSO enabled, the
-> sender does not always  fill cwnd.
+> 01process_skb.patch:
+>      introduces the new function called netlink_process_skb that does 
+> the sanity checkings for received messages.
+> 02xfrm.patch:
+>      the modification to make xfrm_user use such new function.
+> 03rtnetlink.patch:
+>      same thing for rtnetlink.
 
-At a maximum, "1/tcp_tso_win_divisor" of the cwnd will ever be left
-empty.
+They all look good to me. Depending on what happens with the
+loginuid patch, audit_receive_skb might be another candidate
+for replacement.
 
-By default, this is 1/8 of the cwnd.
+Regards
+Patrick
