@@ -1,7 +1,7 @@
 From: Peter Kjellstroem <cap@nsc.liu.se>
 Subject: Re: e1000>5.2.30 unstable with InterruptThrottleRate=0
-Date: Sun, 5 Dec 2004 13:42:08 +0100 (CET)
-Message-ID: <Pine.LNX.4.44.0412051338170.13794-100000@papput.nsc.liu.se>
+Date: Sun, 5 Dec 2004 15:04:22 +0100 (CET)
+Message-ID: <Pine.LNX.4.44.0412051457030.13794-100000@papput.nsc.liu.se>
 References: <1102216844.3343.84.camel@sfeldma-mobl.dsl-verizon.net>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
@@ -13,18 +13,31 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Scott,
+Hello again,
 
-If you had read my entire message you could have noticed that 82547GI 
-works fully ok (weeks of MPI stress) with 5.2.30 as shipped with 2.4.26. 
-Also, setting it to less then 75K is not enough, it just gets harder to 
-provoke, I have managed to make it die with 20K.
+I'm sorry my previous e-mail came out much more harsh then I intended it 
+to (not native english speaking). I just wanted to point out that it's not 
+falling over for me with all drivers.
 
-I will probably run a 2.4.28 with an e1000 driver from 2.4.26 (tested and 
-ok) but I'm not really happy about adding another path to the list of 
-stuff I have to push into a vanilla 2.4.28. Smells driver problem to me.
+I've been doing som more tests today to try to narrow down which patch 
+causes my problems. So far I have this:
 
-Regards,
+2.4.26 (5.2.30) is ok
+2.4.28 (5.4.11) is not
+
+2.4.28 with 5.2.30 patched in is ok
+2.4.28 with 5.2.39 (from 2.4.27-pre1) is not
+
+In e1000_main.c for 5.2.39 (from 2.4.27-pre1) i found this:
+
+/* Change Log
+ *
+ * 5.2.39       3/12/04
+ * ...
+ *   o Back out the CSA fix for 82547 as it continues to cause
+ *     systems lock-ups with production systems.
+
+Best Regards,
  Peter
 
 On Sat, 4 Dec 2004, Scott Feldman wrote:
@@ -80,7 +93,5 @@ On Sat, 4 Dec 2004, Scott Feldman wrote:
 -- 
 ------------------------------------------------------------
   Peter Kjellstroem              | E-mail: cap@nsc.liu.se
-  National Supercomputer Centre  | Office: +46(0)13 281492
-  Linkoeping University          | Fax   : +46(0)13 282535
-  SE-581 83 Linkoeping           | 
+  National Supercomputer Centre  |
   Sweden                         | http://www.nsc.liu.se
