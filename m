@@ -1,63 +1,79 @@
-From: Dmitry Yusupov <dmitry_yus@yahoo.com>
-Subject: Re: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit Proposed
-	Topics
-Date: Sun, 27 Mar 2005 10:47:07 -0800
-Message-ID: <1111949227.5824.28.camel@mylaptop>
-References: <4241D106.8050302@cs.wisc.edu>
-	 <20050324101622S.fujita.tomonori@lab.ntt.co.jp>
-	 <1111628393.1548.307.camel@beastie>
-	 <20050324113312W.fujita.tomonori@lab.ntt.co.jp>
-	 <1111633846.1548.318.camel@beastie> <20050324215922.GT14202@opteron.random>
-	 <424346FE.20704@cs.wisc.edu> <20050324233921.GZ14202@opteron.random>
-	 <20050325034341.GV32638@waste.org> <20050327035149.GD4053@g5.random>
-	 <20050327054831.GA15453@waste.org> <1111905181.4753.15.camel@mylaptop>
-	 <20050326224621.61f6d917.davem@davemloft.net>
-	 <1111907130.4753.32.camel@mylaptop>
-	 <20050326235712.25f9ca36.davem@davemloft.net>
-	 <1111911493.5824.12.camel@mylaptop>  <4246FAD5.5080700@cs.wisc.edu>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Resend: Re: PATCH: IPSEC acquire in presence of multiple
+	managers
+Date: 27 Mar 2005 14:01:06 -0500
+Message-ID: <1111950066.1090.930.camel@jzny.localdomain>
+References: <1111795927.1089.749.camel@jzny.localdomain>
+	 <1111862131.1092.872.camel@jzny.localdomain>
+	 <20050326192740.GA9638@gondor.apana.org.au>
+	 <1111867995.1089.918.camel@jzny.localdomain>
+	 <20050327082130.GA13601@gondor.apana.org.au>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: mpm@selenic.com, andrea@suse.de, James.Bottomley@HansenPartnership.com,
-        ksummit-2005-discuss@thunk.org, netdev@oss.sgi.com
-To: "open-iscsi@googlegroups.com" <open-iscsi@googlegroups.com>
-In-Reply-To: <4246FAD5.5080700@cs.wisc.edu>
+Content-Type: multipart/mixed; boundary="=-2bLl/Kne/1vRBDbYUW1b"
+Cc: "David S. Miller" <davem@redhat.com>,
+        Masahide NAKAMURA <nakam@linux-ipv6.org>,
+        Shinta Sugimoto <shinta.sugimoto@ericsson.com>,
+        netdev <netdev@oss.sgi.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050327082130.GA13601@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2005-03-27 at 10:26 -0800, Mike Christie wrote:
-> Dmitry Yusupov wrote:
-> > On Sat, 2005-03-26 at 23:57 -0800, David S. Miller wrote:
-> > 
-> >>On Sat, 26 Mar 2005 23:05:30 -0800
-> >>Dmitry Yusupov <dmitry_yus@yahoo.com> wrote:
-> >>
-> >>
-> >>>>During these gaps in time, you will need to keep your HW receive
-> >>>>ring populated with packets.
-> >>>
-> >>>ethernet flow-control must take care this case.
-> >>>
-> >>>If driver's replenish logic could mix alloc_skb/netif_rx and SKB
-> >>>recycling than pause frames should never happen even with gige+
-> >>>interfaces.
-> >>
-> >>I don't see what the big deal is if pause frames
-> >>are generated when the system is low on atomic memory
-> >>and RX allocations thus fail.
-> > 
-> > 
-> > not a big deal may be. but. very interesting case when OOM causing
-> > paging in/out and swapping device are on the same network under iSCSI
-> > control. (disk-less setups) having reliable receive in that case is
-> > important for making progress for READ operations.
-> 
-> reliable receive is ciritical for WRITEs. Even if the WRITE is executed
-> successfully on the remote device, if we cannot receive the return status
-> from the device the operation will fail at the iscsi driver side due to a
-> SCSI timeout.
 
-of course. forget to mention this at the first place. WRITE needs
-successful SCSI response too. until that it will not be returned back to
-the SCSI Mid-Layer.
+--=-2bLl/Kne/1vRBDbYUW1b
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+
+On Sun, 2005-03-27 at 03:21, Herbert Xu wrote:
+> On Sat, Mar 26, 2005 at 03:13:15PM -0500, jamal wrote:
+> > 
+> > fair enough. You seem to have no major issues with the patch0 that i
+> > sent. I can submit that instead to Dave with the few tweaks + this
+> > change. Sounds good?
+> 
+
+Hrm - Ive made a few changes since we last spoke (changed the cb
+structure i defined) and i dont want the patch to be huge. 
+
+So Dave if you are reading this apply the reattached patch and i will
+work against it from now on.
+
+cheers,
+jamal
+
+--=-2bLl/Kne/1vRBDbYUW1b
+Content-Disposition: attachment; filename=acq_p
+Content-Type: text/plain; name=acq_p; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+
+--- a/net/xfrm/xfrm_state.c	2005/03/25 17:44:43	1.1
++++ b/net/xfrm/xfrm_state.c	2005/03/25 18:55:33
+@@ -774,16 +774,20 @@
+ 		wake_up(&km_waitq);
+ }
+ 
++/*
++ * We send to all registered managers regardless of failure
++ * We are happy with one success
++*/
+ int km_query(struct xfrm_state *x, struct xfrm_tmpl *t, struct xfrm_policy *pol)
+ {
+-	int err = -EINVAL;
++	int err = -EINVAL, acqret = -EINVAL;
+ 	struct xfrm_mgr *km;
+ 
+ 	read_lock(&xfrm_km_lock);
+ 	list_for_each_entry(km, &xfrm_km_list, list) {
+-		err = km->acquire(x, t, pol, XFRM_POLICY_OUT);
+-		if (!err)
+-			break;
++		acqret = km->acquire(x, t, pol, XFRM_POLICY_OUT);
++		if (!acqret)
++			err = acqret;
+ 	}
+ 	read_unlock(&xfrm_km_lock);
+ 	return err;
+
+--=-2bLl/Kne/1vRBDbYUW1b--
