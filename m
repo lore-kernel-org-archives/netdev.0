@@ -1,29 +1,31 @@
 From: "Noah J. Misch" <noah@caltech.edu>
-Subject: [PATCH] Make LLC2 compile with PROC_FS=n
-Date: Sun, 19 Oct 2003 22:03:52 -0700 (PDT)
+Subject: [PATCH] Make VLSI FIR depend on X86
+Date: Sun, 19 Oct 2003 23:41:01 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.58.0310171452540.13905@blinky>
+Message-ID: <Pine.GSO.4.58.0310171456080.13905@blinky>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: rddunlap@osdl.org, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: acme@conectiva.com.br
+To: irda-users@lists.sourceforge.net
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello Arnaldo,
+Greetings,
 
-This patch allows the LLC2 code to link properly when CONFIG_PROC_FS=n.  The
-problem was that the Makefile only built llc_proc.c when PROC_FS=y/m, but
-af_llc.c called functions in that file in all cases.  The log details how I
-fixed this.
+This is a trivial patch against the Kconfig entry for the VLSI FIR driver to
+make it depend on X86.  The in-tree code guarantees that the driver will only
+build on X86, and according to the comments therein no machine of another
+architecture has this hardware anyway.
 
-I think this is the best fix, but of course there are a number of less intrusive
-fixes, including (I think) one as simple as making llc_proc.c always compile.
-This one does apply cleanly to linux-2.5 BK as of 0400 UTC 10/20/2003 and passes
-allyesconfig and (allyesconfig - PROC_FS) compiles on i386.
+Granted, no human intelligently configuring a kernel for his or her particular
+system would make this mistake, but perhaps someone building a distribution
+kernel would.  I suggest this patch because it keeps the signal to noise ratio
+for those testing allyesconfig builds low.
 
-Please let me know if I should supply you with further information.
+This patch applies to the linux-2.5 BK tree as of 0400 UTC 10/20/2003, and for
+some time before that as well.  Please consider for eventual inclusion.  It may
+be too much of a fringe case until 2.6.0 begins its stable series.
 
 Thanks,
 Noah
@@ -32,120 +34,26 @@ Noah
 # Project Name: Linux kernel tree
 # This patch format is intended for GNU patch command version 2.5 or higher.
 # This patch includes the following deltas:
-#	           ChangeSet	1.1340.1.34 -> 1.1340.1.35
-#	    net/llc/af_llc.c	1.50    -> 1.51
-#	  net/llc/llc_proc.c	1.17    -> 1.18
-#	include/net/llc_proc.h	1.1     -> 1.3     net/llc/llc_proc.h (moved)
+#	           ChangeSet	1.1373  -> 1.1374
+#	drivers/net/irda/Kconfig	1.12    -> 1.13
 #
 # The following is the BitKeeper ChangeSet Log
 # --------------------------------------------
-# 03/10/17	noah@caltech.edu	1.1340.1.35
-# Move include/net/llc_proc.h to net/llc/llc_proc.h since it is a private
-# header file.  Add static inline stub functions to that header and remove
-# the extern stub functions from llc_proc.c  This fixes a link error and
-# saves space.  Also mark two private structs in llc_proc.c static.
+# 03/10/16	noah@caltech.edu	1.1374
+# Make VLSI_FIR depend on X86.  Read the comment just above the #error in
+# include/net/irda/vlsi_ir.h for the reason; for now, this driver can never
+# compile elsewhere.
 # --------------------------------------------
 #
-diff -Nru a/include/net/llc_proc.h b/include/net/llc_proc.h
---- a/include/net/llc_proc.h	Fri Oct 17 16:24:05 2003
-+++ /dev/null	Wed Dec 31 16:00:00 1969
-@@ -1,18 +0,0 @@
--#ifndef LLC_PROC_H
--#define LLC_PROC_H
--/*
-- * Copyright (c) 1997 by Procom Technology, Inc.
-- * 		 2002 by Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-- *
-- * This program can be redistributed or modified under the terms of the
-- * GNU General Public License as published by the Free Software Foundation.
-- * This program is distributed without any warranty or implied warranty
-- * of merchantability or fitness for a particular purpose.
-- *
-- * See the GNU General Public License for more details.
-- */
--
--extern int llc_proc_init(void);
--extern void llc_proc_exit(void);
--
--#endif /* LLC_PROC_H */
-diff -Nru a/net/llc/af_llc.c b/net/llc/af_llc.c
---- a/net/llc/af_llc.c	Fri Oct 17 16:24:05 2003
-+++ b/net/llc/af_llc.c	Fri Oct 17 16:24:05 2003
-@@ -30,7 +30,7 @@
- #include <net/llc_sap.h>
- #include <net/llc_pdu.h>
- #include <net/llc_conn.h>
--#include <net/llc_proc.h>
-+#include "llc_proc.h"
+diff -Nru a/drivers/net/irda/Kconfig b/drivers/net/irda/Kconfig
+--- a/drivers/net/irda/Kconfig	Fri Oct 17 13:42:39 2003
++++ b/drivers/net/irda/Kconfig	Fri Oct 17 13:42:39 2003
+@@ -284,7 +284,7 @@
 
- /* remember: uninitialized global data is zeroed because its in .bss */
- static u16 llc_ui_sap_last_autoport = LLC_SAP_DYN_START;
-diff -Nru a/net/llc/llc_proc.c b/net/llc/llc_proc.c
---- a/net/llc/llc_proc.c	Fri Oct 17 16:24:05 2003
-+++ b/net/llc/llc_proc.c	Fri Oct 17 16:24:05 2003
-@@ -14,7 +14,6 @@
-
- #include <linux/config.h>
- #include <linux/init.h>
--#ifdef CONFIG_PROC_FS
- #include <linux/kernel.h>
- #include <linux/proc_fs.h>
- #include <linux/errno.h>
-@@ -193,14 +192,14 @@
- 	return 0;
- }
-
--struct seq_operations llc_seq_socket_ops = {
-+static struct seq_operations llc_seq_socket_ops = {
- 	.start  = llc_seq_start,
- 	.next   = llc_seq_next,
- 	.stop   = llc_seq_stop,
- 	.show   = llc_seq_socket_show,
- };
-
--struct seq_operations llc_seq_core_ops = {
-+static struct seq_operations llc_seq_core_ops = {
- 	.start  = llc_seq_start,
- 	.next   = llc_seq_next,
- 	.stop   = llc_seq_stop,
-@@ -273,13 +272,3 @@
- 	remove_proc_entry("core", llc_proc_dir);
- 	remove_proc_entry("llc", proc_net);
- }
--#else /* CONFIG_PROC_FS */
--int __init llc_proc_init(void)
--{
--	return 0;
--}
--
--void llc_proc_exit(void)
--{
--}
--#endif /* CONFIG_PROC_FS */
-diff -Nru a/net/llc/llc_proc.h b/net/llc/llc_proc.h
---- /dev/null	Wed Dec 31 16:00:00 1969
-+++ b/net/llc/llc_proc.h	Fri Oct 17 16:24:05 2003
-@@ -0,0 +1,23 @@
-+#ifndef LLC_PROC_H
-+#define LLC_PROC_H
-+/*
-+ * Copyright (c) 1997 by Procom Technology, Inc.
-+ * 		 2002 by Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-+ *
-+ * This program can be redistributed or modified under the terms of the
-+ * GNU General Public License as published by the Free Software Foundation.
-+ * This program is distributed without any warranty or implied warranty
-+ * of merchantability or fitness for a particular purpose.
-+ *
-+ * See the GNU General Public License for more details.
-+ */
-+
-+#ifdef CONFIG_PROC_FS
-+extern int llc_proc_init(void);
-+extern void llc_proc_exit(void);
-+#else /* CONFIG_PROC_FS */
-+static inline int llc_proc_init(void)  { return 0; }
-+static inline void llc_proc_exit(void) {           }
-+#endif /* CONFIG_PROC_FS */
-+
-+#endif /* LLC_PROC_H */
+ config VLSI_FIR
+ 	tristate "VLSI 82C147 SIR/MIR/FIR (EXPERIMENTAL)"
+-	depends on EXPERIMENTAL && IRDA && PCI
++	depends on EXPERIMENTAL && IRDA && PCI && X86
+ 	help
+ 	  Say Y here if you want to build support for the VLSI 82C147
+ 	  PCI-IrDA Controller. This controller is used by the HP OmniBook 800
