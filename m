@@ -1,26 +1,23 @@
-From: "10 cargas por el precio de un cartucho" <publi@imprekits.com>
-Subject: Lo mejor para su impresora
-Date: Tue, 25 Mar 2003 22:15:50
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] Export a few icmpv6 symbols
+Date: Tue, 25 Mar 2003 22:30:53 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200303252117.h2PLHMq9017695@oss.sgi.com>
+Message-ID: <20030325.223053.15735470.davem@redhat.com>
+References: <3E80894A.59C6EB95@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
+To: jgrimm2@us.ibm.com
+In-Reply-To: <3E80894A.59C6EB95@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+   From: Jon Grimm <jgrimm2@us.ibm.com>
+   Date: Tue, 25 Mar 2003 10:52:26 -0600
 
-IMPRESION CON CALIDAD FOTOGRAFICA.
-OBTENGA HASTA 10 CARGAS-POR EL PRECIO DE UN CARTUCHO
-www.imprekits.com
-comercial@imprekits.com
-
-Disponemos de kits de tinta, para todas las marcas de impresoras,
-por 28 EUROS (iva incluido) para negro y 34 para el de color, gastos de envio incluidos. Con un Kit tiene para recargar los cartuchos de 5 a 10 veces; dependiendo de la marca.
-HAGA SU PEDIDO en www.imprekits.com o al tel.600037949 dejando su mensaje,al-Fax934319444 
-Ademas, los unicos del mercado que disponemos de un resetador, para los nuevos modelos de epson.
-www.imprekits.com
-comentar a amigos y conocidos
-Para baja del fichero de datos haga un reply o envie un mail a 
-mail to:publi@imprekits.com 
+   Export a few icmpv6 symbols so SCTP can have at them from its v6
+   err_handler. 
+   
+Applied, thanks Jon.
