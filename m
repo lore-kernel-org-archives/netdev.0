@@ -1,159 +1,84 @@
-From: Jan Oravec <jan.oravec@6com.sk>
-Subject: Re: IPv6/sparc64: icmp port unreachable corruption
-Date: Wed, 12 Nov 2003 16:14:44 +0100
+From: John Partridge <johnip@sgi.com>
+Subject: Re: Tigon3 5701 PCI-X recv performance problem
+Date: Wed, 12 Nov 2003 09:32:30 -0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031112151444.GA9727@wsx.ksp.sk>
-References: <20031109122844.GA14241@wsx.ksp.sk> <20031110214603.0057e365.davem@redhat.com> <20031111222611.GA1239@wsx.ksp.sk> <20031111151340.3d129bc7.davem@redhat.com> <20031112012641.00018cb8.davem@redhat.com>
-Reply-To: Jan Oravec <jan.oravec@6com.sk>
+Message-ID: <3FB2528E.9020605@sgi.com>
+References: <20031011105054.0e16a607.davem@redhat.com> <3F8C290A.3010508@sgi.com> <20031014095323.71c8b9fe.davem@redhat.com> <3FB03A56.7000709@sgi.com> <20031110182911.2c5a121b.davem@redhat.com> <3FB140E2.1070007@sgi.com> <20031111122403.2d7bcf28.davem@redhat.com> <3FB15725.4050705@sgi.com> <20031111235330.GA25553@wotan.suse.de> <3FB190FE.20005@sgi.com> <20031112061958.GA12065@wotan.suse.de> <3FB1DBBF.1010403@pobox.com>
+Reply-To: johnip@sgi.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andi Kleen <ak@suse.de>, "David S. Miller" <davem@redhat.com>,
+        netdev@oss.sgi.com, jes@sgi.com, David Mosberger <davidm@hpl.hp.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20031112012641.00018cb8.davem@redhat.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <3FB1DBBF.1010403@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> All of the __skb_{push,pull}() modifications made by icmpv6_send()
-> are illegal.  The SKB could be cloned and being inspected by other
-> entities in the networking, therefore moving the pointers around
-> could cause problems.
+
+
+Jeff Garzik wrote:
+> Andi Kleen wrote:
+>> Sorry to nitpick again and not catching it earlier, but are you sure 
+>> it works this way? Normally the options in Kconfig are not prefixed 
+>> with CONFIG_*
+>> So
+>> config UNALIGNED_EXPENSIVE
+>> would be likely correct
+
+Yes, that looks right to me. I'm still learning the whole 2.6 Kconfig thing
+
 > 
-> Therefore what we do instead is propagate the:
 > 
-> 	skb->nh.raw - skb->data
 > 
-> offset into the skb_copy_and_csum_bits() calls.  This is what
-> the pre-IPSEC version of the icmpv6 code did.
+> indeed.
 > 
-> When you pass a negative offset into skb_copy_and_csum_bits()
-> this means start that many bytes before skb->data
+> For my part, I will apply the patch to drivers/net/tg3.c, which is fine, 
+> and will let the arch/ia64/Kconfig patch go through normal channels 
+> (since ia64 seems to be flowing these days).
+> 
+>     Jeff
+> 
+> 
 
-OK, I like your patch more.
+Is this OK ?
 
-You have forgot to decrease 'len' by msg.offset here:
+--- linux/drivers/net/tg3.c     2003-11-10 18:28:10.000000000 -0600
++++ patch/drivers/net/tg3.c     2003-11-10 18:58:35.000000000 -0600
+@@ -2257,7 +2257,11 @@
 
+                 len = ((desc->idx_len & RXD_LEN_MASK) >> RXD_LEN_SHIFT) - 4; /* omit crc */
 
-> -	plen = skb->nh.raw - skb->data;
-> -	__skb_pull(skb, plen);
-> +	msg.skb = skb;
-> +	msg.offset = skb->nh.raw - skb->data;
-> +
->  	len = skb->len;
+-               if (len > RX_COPY_THRESHOLD) {
++               if (len > RX_COPY_THRESHOLD
++#if defined(CONFIG_UNALIGNED_EXPENSIVE)
++                        && tp->rx_offset == 2
++#endif
++               ) {
+                         int skb_size;
 
+                         skb_size = tg3_alloc_rx_skb(tp, opaque_key,
+--- linux/arch/ia64/Kconfig     2003-10-25 13:44:46.000000000 -0500
++++ patch/arch/ia64/Kconfig     2003-11-12 09:31:14.000000000 -0600
+@@ -468,6 +468,10 @@
+           agent" (/sbin/hotplug) to load modules and set up software needed
+           to use devices as you hotplug them.
 
-I've fixed that and tested, here is a working patch:
-
---- linux/net/ipv6/icmp.c.orig	2003-11-12 16:02:23.000000000 +0100
-+++ linux/net/ipv6/icmp.c	2003-11-12 16:03:59.000000000 +0100
-@@ -86,15 +86,6 @@
- 	.flags		=	INET6_PROTO_FINAL,
- };
- 
--struct icmpv6_msg {
--	struct icmp6hdr		icmph;
--	struct sk_buff		*skb;
--	int			offset;
--	struct in6_addr		*daddr;
--	int			len;
--	__u32			csum;
--};
--
- static __inline__ int icmpv6_xmit_lock(void)
- {
- 	local_bh_disable();
-@@ -258,11 +249,19 @@
- 	return err;
- }
- 
-+struct icmpv6_msg {
-+	struct sk_buff	*skb;
-+	int		offset;
-+};
++config UNALIGNED_EXPENSIVE
++       depends on IA64
++       default y
 +
- static int icmpv6_getfrag(void *from, char *to, int offset, int len, int odd, struct sk_buff *skb)
- {
--	struct sk_buff *org_skb = (struct sk_buff *)from;
-+	struct icmpv6_msg *msg = (struct icmpv6_msg *) from;
-+	struct sk_buff *org_skb = msg->skb;
- 	__u32 csum = 0;
--	csum = skb_copy_and_csum_bits(org_skb, offset, to, len, csum);
-+
-+	csum = skb_copy_and_csum_bits(org_skb, msg->offset + offset,
-+				      to, len, csum);
- 	skb->csum = csum_block_add(skb->csum, csum, odd);
- 	return 0;
- }
-@@ -281,9 +280,10 @@
- 	struct dst_entry *dst;
- 	struct icmp6hdr tmp_hdr;
- 	struct flowi fl;
-+	struct icmpv6_msg msg;
- 	int iif = 0;
- 	int addr_type = 0;
--	int len, plen;
-+	int len;
- 	int hlimit = -1;
- 	int err = 0;
- 
-@@ -379,27 +379,29 @@
- 			hlimit = dst_metric(dst, RTAX_HOPLIMIT);
- 	}
- 
--	plen = skb->nh.raw - skb->data;
--	__skb_pull(skb, plen);
--	len = skb->len;
-+	msg.skb = skb;
-+	msg.offset = skb->nh.raw - skb->data;
-+
-+	len = skb->len - msg.offset;
- 	len = min_t(unsigned int, len, IPV6_MIN_MTU - sizeof(struct ipv6hdr) -sizeof(struct icmp6hdr));
- 	if (len < 0) {
- 		if (net_ratelimit())
- 			printk(KERN_DEBUG "icmp: len problem\n");
--		__skb_push(skb, plen);
- 		goto out_dst_release;
- 	}
- 
- 	idev = in6_dev_get(skb->dev);
- 
--	err = ip6_append_data(sk, icmpv6_getfrag, skb, len + sizeof(struct icmp6hdr), sizeof(struct icmp6hdr),
--				hlimit, NULL, &fl, (struct rt6_info*)dst, MSG_DONTWAIT);
-+	err = ip6_append_data(sk, icmpv6_getfrag, &msg,
-+			      len + sizeof(struct icmp6hdr),
-+			      sizeof(struct icmp6hdr),
-+			      hlimit, NULL, &fl, (struct rt6_info*)dst,
-+			      MSG_DONTWAIT);
- 	if (err) {
- 		ip6_flush_pending_frames(sk);
- 		goto out_put;
- 	}
- 	err = icmpv6_push_pending_frames(sk, &fl, &tmp_hdr, len + sizeof(struct icmp6hdr));
--	__skb_push(skb, plen);
- 
- 	if (type >= ICMPV6_DEST_UNREACH && type <= ICMPV6_PARAMPROB)
- 		ICMP6_INC_STATS_OFFSET_BH(idev, Icmp6OutDestUnreachs, type - ICMPV6_DEST_UNREACH);
-@@ -423,6 +425,7 @@
- 	struct icmp6hdr *icmph = (struct icmp6hdr *) skb->h.raw;
- 	struct icmp6hdr tmp_hdr;
- 	struct flowi fl;
-+	struct icmpv6_msg msg;
- 	struct dst_entry *dst;
- 	int err = 0;
- 	int hlimit = -1;
-@@ -464,7 +467,10 @@
- 
- 	idev = in6_dev_get(skb->dev);
- 
--	err = ip6_append_data(sk, icmpv6_getfrag, skb, skb->len + sizeof(struct icmp6hdr),
-+	msg.skb = skb;
-+	msg.offset = 0;
-+
-+	err = ip6_append_data(sk, icmpv6_getfrag, &msg, skb->len + sizeof(struct icmp6hdr),
- 				sizeof(struct icmp6hdr), hlimit, NULL, &fl,
- 				(struct rt6_info*)dst, MSG_DONTWAIT);
- 
+  source "drivers/pci/hotplug/Kconfig"
+
+  source "drivers/pcmcia/Kconfig"
 
 
-Jan
+
+-- 
+John Partridge
+
+Silicon Graphics Inc
+Tel:  651-683-3428
+Vnet: 233-3428
+E-Mail: johnip@sgi.com
