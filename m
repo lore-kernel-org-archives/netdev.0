@@ -1,38 +1,45 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] netem: account for packets in delayed queue in qlen
-Date: Tue, 5 Apr 2005 12:58:15 -0700
-Message-ID: <20050405125815.152cdbbc@dxpl.pdx.osdl.net>
-References: <20050329152110.38d50653@dxpl.pdx.osdl.net>
-	<4252EB9D.9070305@trash.net>
+From: Christoph Lameter <christoph@lameter.com>
+Subject: Re: atomic_dec_and_test for child dst needed in dst_destroy?
+Date: Tue, 5 Apr 2005 12:58:15 -0700 (PDT)
+Message-ID: <Pine.LNX.4.58.0504051252280.14264@server.graphe.net>
+References: <Pine.LNX.4.58.0504051155260.13697@server.graphe.net>
+ <20050405123438.28f02423.davem@davemloft.net> <Pine.LNX.4.58.0504051238390.14264@server.graphe.net>
+ <20050405125014.1ce46c66.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <4252EB9D.9070305@trash.net>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050405125014.1ce46c66.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 05 Apr 2005 21:48:45 +0200
-Patrick McHardy <kaber@trash.net> wrote:
+On Tue, 5 Apr 2005, David S. Miller wrote:
 
-> Stephen Hemminger wrote:
-> > Netem has a private queue for delayed packets, and currently, packets
-> > in this queue are not accounted for in the qdisc qlen statistics.
-> > This is a problem if netem is used inside another qdisc doing rate
-> > control that peeks at the qlen.
-> > 
-> > This patch changes the statistics to include the packets held but
-> > not ready to send.
-> 
-> There is one troublesome spot left, netem_watchdog() decreases q.qlen
-> when the packet couldn't be enqueued. I don't think it is possible
-> to make netem useable as leaf-qdisc, it will always have to touch
-> q.qlen from timer context and classful qdiscs can't deal with this
-> since they all maintain their own q.qlen counters and expect changes
-> only in the +-1 range in enqueue/dequeue/requeue/drop. Best thing IMO
-> would be to refuse to work as anything but root qdisc.
+> > I fail to see what the point of having a single instance of
+> > atomic_dec_and_test for __refcnt is. In particular since the upper layers
+> > guarantee that dst_destroy is not called multiple times for the same dst
+> > entry.
+>
+> If this is true, what performance improvement could you possibly be
+> seeing from this change?
 
-But then it won't work as a leaf off of prio to handle a single flow.
+We could make refcnt into an array of pointers that point to node specific
+memory. This avoids cache line bouncing. However, you cannot atomically
+dec_and_test an array. This is the only location where a dec_and_test is
+used on dst->__refcnt.
+
+> I know you are making this change for performance reasons, yet you
+> aren't mentioning any details about this.  That information is
+> part of what we need to know to judge this change.
+
+I figured that it is not worth posting the patch if there is a reason
+for the dec_and_test here. I was sure if my assessment of the role
+of this atomic_dec_and_test here is correct.
+
+> I've very hesistant to undo atomic operation memory barriers, after
+> all of the weird problems we had in the neighbour cache.
+
+We can put an explicit barier in if that is the only reason for the
+atomic_dec_and_test.
