@@ -1,43 +1,43 @@
-From: Eran Mann <emann@mrv.com>
-Subject: Re: [patch 2.4] kernel oops on VLAN removal
-Date: Wed, 20 Aug 2003 15:51:51 +0300
+From: Harley Stenzel <hstenzel@us.ibm.com>
+Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
+Date: Wed, 20 Aug 2003 08:52:09 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F436EE7.1030104@mrv.com>
-References: <3F424405.6020002@mrv.com> <20030819124154.75ec0383.davem@redhat.com>
+Message-ID: <3F436EF9.1040502@us.ibm.com>
+References: <353568DCBAE06148B70767C1B1A93E625EAB5D@post.pc.aspectgroup.co.uk> <20030819112103.373fce27.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: Richard Underwood <richard@aspectgroup.co.uk>, skraw@ithnet.com,
+   willy@w.ods.org, alan@lxorguk.ukuu.org.uk, carlosev@newipnet.com,
+   lamont@scriptkiddie.org, davidsen@tmr.com, bloemsaa@xs4all.nl,
+   marcelo@conectiva.com.br, netdev@oss.sgi.com, linux-net@vger.kernel.org,
+   layes@loran.com, torvalds@osdl.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030819124154.75ec0383.davem@redhat.com>
+In-Reply-To: <20030819112103.373fce27.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 David S. Miller wrote:
-> On Tue, 19 Aug 2003 18:36:37 +0300
-> Eran Mann <emann@mrv.com> wrote:
+> On Tue, 19 Aug 2003 19:05:13 +0100
+> Richard Underwood <richard@aspectgroup.co.uk> wrote:
 > 
+>>	The ARP request represents all FUTURE
+>>packets being sent out that interface, not just the one single packet that
+>>happened to kick of this ARP request.
 > 
->>The current code attempts to add a proc entry for each vlan device,
->>however there is no check whether this attempt succeeded. When a device
->>is unregistered it tries to remove the proc entry, if none was added
->>the oops follows...
+> That's RIGHT!  And by your own argument the source address
+> in the ARP request IS IRRELEVANT and is to be ignored!
 > 
-> 
-> Patch applied to my 2.4.x tree, scheduled for 2.4.23-preX
-> 
-> Can someone check out 2.6.x?
-> 
-It looks the same in 2.6.0-test3. The patch applies (with small offsets) 
-and works (the oops is much harder to trigger in 2.6.x since 
-PROC_NDYNAMIC is increased to 16384, I had to reduce it to 4096 to 
-trigger the oops).
 
--- 
-Eran Mann
-Senior Software Engineer
-MRV International
-Tel: 972-4-9936297
-Fax: 972-4-9890430
-www.mrv.com
+The source address in the ARP request is not irrelevant, because a 
+broadcast arp request causes all recipients of that broadcast request to 
+update their arp cache entry (if they have a cache entry for that IP) 
+for the IP specified in the source with the MAC specified in the request.
+
+So, in an environment where a single address is aliased in multiple 
+places, such as tunnel endpoints and loopback aliases, and in 
+multi-homed same-segment configs, it is unpredictable asto which IP will 
+be bound to which MAC for every machine (or arp cache) on the network.
+
+--Harley
