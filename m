@@ -1,40 +1,39 @@
-From: "David S. Miller" <davem@redhat.com>
+From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
 Subject: Re: [PATCH] support for large number of network devices.
-Date: Wed, 14 Jan 2004 12:11:55 -0800
+Date: Wed, 14 Jan 2004 13:39:08 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040114121155.7dabd70e.davem@redhat.com>
-References: <20040113154610.38f5934c.shemminger@osdl.org>
-	<20040113155921.342db463.davem@redhat.com>
-	<20040113161303.20f1159d.shemminger@osdl.org>
-	<20040114071303.GG28521@waste.org>
-	<20040114113734.4e9a0865.shemminger@osdl.org>
+Message-ID: <20040114213908.GA22653@bougret.hpl.hp.com>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: mpm@selenic.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040114113734.4e9a0865.shemminger@osdl.org>
+To: Stephen Hemminger <shemminger@osdl.org>,
+        "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 14 Jan 2004 11:37:34 -0800
-Stephen Hemminger <shemminger@osdl.org> wrote:
-
-> > Unfortunately sscanf("eth0-not-allocated", "eth%d", &i) fools it.
-> > Which may or may not be worth worrying about.
+Stephen Hemminger wrote :
 > 
-> Hmmm,  the old code would have assigned "eth0" in that case, new code
-> would assign "eth1".  Other difference is in the case of whitespace.
-> scanf("white  space0", "white space%d", &i)
-> because any whitespace matches multiple whitespace characters.
-> 
-> Is it worth making a separate explicit match routine?
+> When using pseudo network devices, and really big machines; there is
+> sometimes a need to have a lot of network devices.  This replaces the
+> existing 2.6.1 limit of 100 entries an was O(n^2)
+> with a algorithm that will handle up to 32768 entries with O(n) behaviour.
 
-My only concern right now is that, since we're in the middle of 2.6.x, we not
-break semantics of such a core routine like this one.
+	You may want to be careful about buffer overflow in
+dev->name. The old code did not check for it, because it was replacing
+'%d' with a most 2 char ('0' to '99').
+	The new code may create overflow for device names such as :
+		'reallylongname%d'
+	And you don't seem the catch that (unless I overlooked something).
 
-Although I'm willing to accept that certain cases are just rediculious and not worth
-worrying about, just try your best to create a version of the patch
-that matches current behavior as best as possible and we'll work from
-that.
+	The problem is more messy that it looks like, because there is
+no sane way to handle overflow. You can return an error to the driver,
+and the driver may bail out properly (or crash), but the end user has
+no way to overcome the issue and get its card loaded (short of editing
+the driver and recompiling the kernel).
+	So, there is a bit of auding to do first. I know for example
+the HostAP create such long names.
+	But that's only my humble opinion ;-)
+
+	Jean
