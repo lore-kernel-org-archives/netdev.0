@@ -1,8 +1,8 @@
 From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: [janitor] pppoe: remove unneeded ifdef/endif
-Date: Mon, 23 Feb 2004 13:42:07 -0800
+Subject: [janitor] ipv4 ipmr: handle kmem_cache_create() failure
+Date: Mon, 23 Feb 2004 13:36:51 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040223134207.656a5213.rddunlap@osdl.org>
+Message-ID: <20040223133651.75c85ea2.rddunlap@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -13,38 +13,35 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-hi,
+
+Hi,
 Please apply to 2.6.3-current.
+
+
+From: <WHarms@bfs.de>(Walter Harms)
+
+
+
+
+ linux-263-kj1-rddunlap/net/ipv4/ipmr.c |    3 +++
+ 1 files changed, 3 insertions(+)
+
+diff -puN net/ipv4/ipmr.c~ipv4_ipmr_kmemcc net/ipv4/ipmr.c
+--- linux-263-kj1/net/ipv4/ipmr.c~ipv4_ipmr_kmemcc	2004-02-18 14:41:20.000000000 -0800
++++ linux-263-kj1-rddunlap/net/ipv4/ipmr.c	2004-02-18 14:41:20.000000000 -0800
+@@ -1892,6 +1892,9 @@ void __init ip_mr_init(void)
+ 				       sizeof(struct mfc_cache),
+ 				       0, SLAB_HWCACHE_ALIGN,
+ 				       NULL, NULL);
++	if (!mrt_cachep)
++		panic("cannot allocate ip_mrt_cache");
++
+ 	init_timer(&ipmr_expire_timer);
+ 	ipmr_expire_timer.function=ipmr_expire_process;
+ 	register_netdevice_notifier(&ip_mr_notifier);
+
+_
+
 
 --
 ~Randy
-
-
-From: Luiz Fernando Capitulino <lcapitulino@prefeitura.sp.gov.br>
-
-
-hi all,
-
-this #ifdef/#endif is not needed:
-
-diff -X dontdiff -Nru linux-2.6.2-rc2-bk2/drivers/net/pppoe.c linux-2.6.2-rc2-bk2~/drivers/net/pppoe.c
-
-
- linux-263-kj1-rddunlap/drivers/net/pppoe.c |    2 --
- 1 files changed, 2 deletions(-)
-
-diff -puN drivers/net/pppoe.c~net_pppoe_rmproc drivers/net/pppoe.c
---- linux-263-kj1/drivers/net/pppoe.c~net_pppoe_rmproc	2004-02-18 14:45:57.000000000 -0800
-+++ linux-263-kj1-rddunlap/drivers/net/pppoe.c	2004-02-18 14:45:57.000000000 -0800
-@@ -1146,9 +1146,7 @@ static void __exit pppoe_exit(void)
- 	dev_remove_pack(&pppoes_ptype);
- 	dev_remove_pack(&pppoed_ptype);
- 	unregister_netdevice_notifier(&pppoe_notifier);
--#ifdef CONFIG_PROC_FS
- 	remove_proc_entry("pppoe", proc_net);
--#endif
- }
- 
- module_init(pppoe_init);
-
-_
