@@ -1,45 +1,134 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: Hang when testing with AMD64 with Tg3
-Date: Tue, 05 Oct 2004 10:06:15 -0700
+From: Wensong Zhang <wensong@linux-vs.org>
+Subject: [PATCH] [IPVS] Fix endian problem on sync message size
+Date: Wed, 6 Oct 2004 02:20:18 +0800 (CST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1096995975.22947.7.camel@localhost.localdomain>
-References: <1096935071.22155.6.camel@localhost.localdomain>
-	 <20041005001527.GB13106@wotan.suse.de>
-	 <1096938308.22947.3.camel@localhost.localdomain>
-	 <4162B6B2.6030208@us.ibm.com>
+Message-ID: <Pine.LNX.4.44.0410060211570.2451-300000@penguin.linux-vs.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <ak@suse.de>, davem@redhat.com, netdev@oss.sgi.com
+Content-Type: MULTIPART/MIXED; BOUNDARY="-1463811584-572891765-1097000265=:2451"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Nivedita Singhvi <niv@us.ibm.com>
-In-Reply-To: <4162B6B2.6030208@us.ibm.com>
+To: "David S. Miller" <davem@davemloft.net>, <netdev@oss.sgi.com>
+Content-ID: <Pine.LNX.4.44.0410060217580.2451@penguin.linux-vs.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2004-10-05 at 07:58 -0700, Nivedita Singhvi wrote:
-> Stephen Hemminger wrote:
-> > On Tue, 2004-10-05 at 02:15 +0200, Andi Kleen wrote:
-> > 
-> >>On Mon, Oct 04, 2004 at 05:11:11PM -0700, Stephen Hemminger wrote:
-> >>
-> >>>Doing simple iperf test on new opteron with tg3 against existing Xeon
-> >>>system.  I am seeing something wierd, the connection hangs right away.
-> >>>Is this a TSO bug.  
-> >>>
-> >>>Sender: BK latest (2.6.9-rc3) Tg3 (XX.YY.250.3)
-> >>>Receiver: BK + netdev(jeffm) + dave's latest e100 (XX.YY.1.73)
-> >>>
-> >>>Both machines are directly connected with a netgear 100mbit switch.
-> >>
-> > 
-> > IT ISN'T A NETWORK PROBLEM.  The problem is that iperf uses posix
-> > pthread mutex's to sychronize and it looks like a futex bug.
-> 
-> might not be a futex bug - check to see if iperf does
-> any writes, fflushes, etc, in a signal handler - i.e.
-> that its signal handling is thread-safe. glibc now
-> makes it a fatal bug..
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+  Send mail to mime@docserver.cac.washington.edu for more info.
 
-It doesn't do I/O from signal handler, but the problem goes away when
-not compiling with -O2.
+---1463811584-572891765-1097000265=:2451
+Content-Type: TEXT/PLAIN; CHARSET=US-ASCII
+Content-ID: <Pine.LNX.4.44.0410060217581.2451@penguin.linux-vs.org>
+
+
+
+Hi Dave,
+
+Here is the patch from Justin Ossevoort <justin@snt.utwente.nl> to fix 
+endian problem on IPVS sync message size. Please check and apply them to 
+kernel 2.4 and 2.6 respectively.
+
+Thanks,
+
+Wensong
+
+---1463811584-572891765-1097000265=:2451
+Content-Type: TEXT/PLAIN; CHARSET=US-ASCII; NAME="linux-2.4-ipvs_sync-endian.diff"
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.LNX.4.44.0410060217450.2451@penguin.linux-vs.org>
+Content-Description: 
+Content-Disposition: ATTACHMENT; FILENAME="linux-2.4-ipvs_sync-endian.diff"
+
+PT09PT0gbmV0L2lwdjQvaXB2cy9pcF92c19zeW5jLmMgMS40IHZzIGVkaXRl
+ZCA9PT09PQ0KLS0tIDEuNC9uZXQvaXB2NC9pcHZzL2lwX3ZzX3N5bmMuYwky
+MDA0LTAyLTE5IDA1OjAzOjE3ICswODowMA0KKysrIGVkaXRlZC9uZXQvaXB2
+NC9pcHZzL2lwX3ZzX3N5bmMuYwkyMDA0LTEwLTA2IDAxOjMzOjE4ICswODow
+MA0KQEAgLTExLDYgKzExLDkgQEANCiAgKg0KICAqIGlwX3ZzX3N5bmM6ICBz
+eW5jIGNvbm5lY3Rpb24gaW5mbyBmcm9tIG1hc3RlciBsb2FkIGJhbGFuY2Vy
+IHRvIGJhY2t1cHMNCiAgKiAgICAgICAgICAgICAgdGhyb3VnaCBtdWx0aWNh
+c3QNCisgKg0KKyAqIENoYW5nZXM6DQorICoJSnVzdGluIE9zc2V2b29ydAk6
+CUZpeCBlbmRpYW4gcHJvYmxlbSBvbiBzeW5jIG1lc3NhZ2Ugc2l6ZS4NCiAg
+Ki8NCiANCiAjaW5jbHVkZSA8bGludXgvbW9kdWxlLmg+DQpAQCAtMjU0LDYg
+KzI1Nyw5IEBADQogCWNoYXIgKnA7DQogCWludCBpOw0KIA0KKwkvKiBDb252
+ZXJ0IHNpemUgYmFjayB0byBob3N0IGJ5dGUgb3JkZXIgKi8NCisJbS0+c2l6
+ZSA9IG50b2hzKG0tPnNpemUpOw0KKw0KIAlpZiAoYnVmbGVuICE9IG0tPnNp
+emUpIHsNCiAJCUlQX1ZTX0VSUigiYm9ndXMgbWVzc2FnZVxuIik7DQogCQly
+ZXR1cm47DQpAQCAtNTE3LDYgKzUyMywxOSBAQA0KIAlyZXR1cm4gbGVuOw0K
+IH0NCiANCitzdGF0aWMgdm9pZA0KK2lwX3ZzX3NlbmRfc3luY19tc2coc3Ry
+dWN0IHNvY2tldCAqc29jaywgc3RydWN0IGlwX3ZzX3N5bmNfbWVzZyAqbXNn
+KQ0KK3sNCisJaW50IG1zaXplOw0KKw0KKwltc2l6ZSA9IG1zZy0+c2l6ZTsN
+CisNCisJLyogUHV0IHNpemUgaW4gbmV0d29yayBieXRlIG9yZGVyICovDQor
+CW1zZy0+c2l6ZSA9IGh0b25zKG1zZy0+c2l6ZSk7DQorDQorCWlmIChpcF92
+c19zZW5kX2FzeW5jKHNvY2ssIChjaGFyICopbXNnLCBtc2l6ZSkgIT0gbXNp
+emUpDQorCQlJUF9WU19FUlIoImlwX3ZzX3NlbmRfYXN5bmMgZXJyb3JcbiIp
+Ow0KK30NCiANCiBzdGF0aWMgaW50DQogaXBfdnNfcmVjZWl2ZShzdHJ1Y3Qg
+c29ja2V0ICpzb2NrLCBjaGFyICpidWZmZXIsIGNvbnN0IHNpemVfdCBidWZs
+ZW4pDQpAQCAtNTYxLDcgKzU4MCw2IEBADQogew0KIAlzdHJ1Y3Qgc29ja2V0
+ICpzb2NrOw0KIAlzdHJ1Y3QgaXBfdnNfc3luY19idWZmICpzYjsNCi0Jc3Ry
+dWN0IGlwX3ZzX3N5bmNfbWVzZyAqbTsNCiANCiAJLyogY3JlYXRlIHRoZSBz
+ZW5kaW5nIG11bHRpY2FzdCBzb2NrZXQgKi8NCiAJc29jayA9IG1ha2Vfc2Vu
+ZF9zb2NrKCk7DQpAQCAtNTcwLDE5ICs1ODgsMTMgQEANCiANCiAJZm9yICg7
+Oykgew0KIAkJd2hpbGUgKChzYj1zYl9kZXF1ZXVlKCkpKSB7DQotCQkJbSA9
+IHNiLT5tZXNnOw0KLQkJCWlmIChpcF92c19zZW5kX2FzeW5jKHNvY2ssIChj
+aGFyICopbSwNCi0JCQkJCSAgICAgbS0+c2l6ZSkgIT0gbS0+c2l6ZSkNCi0J
+CQkJSVBfVlNfRVJSKCJpcF92c19zZW5kX2FzeW5jIGVycm9yXG4iKTsNCisJ
+CQlpcF92c19zZW5kX3N5bmNfbXNnKHNvY2ssIHNiLT5tZXNnKTsNCiAJCQlp
+cF92c19zeW5jX2J1ZmZfcmVsZWFzZShzYik7DQogCQl9DQogDQogCQkvKiBj
+aGVjayBpZiBlbnRyaWVzIHN0YXkgaW4gY3Vycl9zYiBmb3IgMiBzZWNvbmRz
+ICovDQogCQlpZiAoKHNiID0gZ2V0X2N1cnJfc3luY19idWZmKDIqSFopKSkg
+ew0KLQkJCW0gPSBzYi0+bWVzZzsNCi0JCQlpZiAoaXBfdnNfc2VuZF9hc3lu
+Yyhzb2NrLCAoY2hhciAqKW0sDQotCQkJCQkgICAgIG0tPnNpemUpICE9IG0t
+PnNpemUpDQotCQkJCUlQX1ZTX0VSUigiaXBfdnNfc2VuZF9hc3luYyBlcnJv
+clxuIik7DQorCQkJaXBfdnNfc2VuZF9zeW5jX21zZyhzb2NrLCBzYi0+bWVz
+Zyk7DQogCQkJaXBfdnNfc3luY19idWZmX3JlbGVhc2Uoc2IpOw0KIAkJfQ0K
+IA0K
+---1463811584-572891765-1097000265=:2451
+Content-Type: TEXT/PLAIN; CHARSET=US-ASCII; NAME="linux-2.6-ipvs_sync-endian.diff"
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.LNX.4.44.0410060217451.2451@penguin.linux-vs.org>
+Content-Description: 
+Content-Disposition: ATTACHMENT; FILENAME="linux-2.6-ipvs_sync-endian.diff"
+
+PT09PT0gbmV0L2lwdjQvaXB2cy9pcF92c19zeW5jLmMgMS4xMCB2cyBlZGl0
+ZWQgPT09PT0NCi0tLSAxLjEwL25ldC9pcHY0L2lwdnMvaXBfdnNfc3luYy5j
+CTIwMDQtMDctMTYgMjI6MTM6NTMgKzA4OjAwDQorKysgZWRpdGVkL25ldC9p
+cHY0L2lwdnMvaXBfdnNfc3luYy5jCTIwMDQtMTAtMDMgMDE6MjQ6NDIgKzA4
+OjAwDQpAQCAtMTYsNiArMTYsNyBAQA0KICAqCUFsZXhhbmRyZSBDYXNzZW4J
+OglBZGRlZCBtYXN0ZXIgJiBiYWNrdXAgc3VwcG9ydCBhdCBhIHRpbWUuDQog
+ICoJQWxleGFuZHJlIENhc3Nlbgk6CUFkZGVkIFN5bmNJRCBzdXBwb3J0IGZv
+ciBpbmNvbWluZyBzeW5jDQogICoJCQkJCW1lc3NhZ2VzIGZpbHRlcmluZy4N
+CisgKglKdXN0aW4gT3NzZXZvb3J0CToJRml4IGVuZGlhbiBwcm9ibGVtIG9u
+IHN5bmMgbWVzc2FnZSBzaXplLg0KICAqLw0KIA0KICNpbmNsdWRlIDxsaW51
+eC9tb2R1bGUuaD4NCkBAIC0yNzksNiArMjgwLDkgQEANCiAJY2hhciAqcDsN
+CiAJaW50IGk7DQogDQorCS8qIENvbnZlcnQgc2l6ZSBiYWNrIHRvIGhvc3Qg
+Ynl0ZSBvcmRlciAqLw0KKwltLT5zaXplID0gbnRvaHMobS0+c2l6ZSk7DQor
+DQogCWlmIChidWZsZW4gIT0gbS0+c2l6ZSkgew0KIAkJSVBfVlNfRVJSKCJi
+b2d1cyBtZXNzYWdlXG4iKTsNCiAJCXJldHVybjsNCkBAIC01NjksNiArNTcz
+LDE5IEBADQogCXJldHVybiBsZW47DQogfQ0KIA0KK3N0YXRpYyB2b2lkDQor
+aXBfdnNfc2VuZF9zeW5jX21zZyhzdHJ1Y3Qgc29ja2V0ICpzb2NrLCBzdHJ1
+Y3QgaXBfdnNfc3luY19tZXNnICptc2cpDQorew0KKwlpbnQgbXNpemU7DQor
+DQorCW1zaXplID0gbXNnLT5zaXplOw0KKw0KKwkvKiBQdXQgc2l6ZSBpbiBu
+ZXR3b3JrIGJ5dGUgb3JkZXIgKi8NCisJbXNnLT5zaXplID0gaHRvbnMobXNn
+LT5zaXplKTsNCisNCisJaWYgKGlwX3ZzX3NlbmRfYXN5bmMoc29jaywgKGNo
+YXIgKiltc2csIG1zaXplKSAhPSBtc2l6ZSkNCisJCUlQX1ZTX0VSUigiaXBf
+dnNfc2VuZF9hc3luYyBlcnJvclxuIik7DQorfQ0KIA0KIHN0YXRpYyBpbnQN
+CiBpcF92c19yZWNlaXZlKHN0cnVjdCBzb2NrZXQgKnNvY2ssIGNoYXIgKmJ1
+ZmZlciwgY29uc3Qgc2l6ZV90IGJ1ZmxlbikNCkBAIC02MDUsNyArNjIyLDYg
+QEANCiB7DQogCXN0cnVjdCBzb2NrZXQgKnNvY2s7DQogCXN0cnVjdCBpcF92
+c19zeW5jX2J1ZmYgKnNiOw0KLQlzdHJ1Y3QgaXBfdnNfc3luY19tZXNnICpt
+Ow0KIA0KIAkvKiBjcmVhdGUgdGhlIHNlbmRpbmcgbXVsdGljYXN0IHNvY2tl
+dCAqLw0KIAlzb2NrID0gbWFrZV9zZW5kX3NvY2soKTsNCkBAIC02MTgsMTkg
+KzYzNCwxMyBAQA0KIA0KIAlmb3IgKDs7KSB7DQogCQl3aGlsZSAoKHNiPXNi
+X2RlcXVldWUoKSkpIHsNCi0JCQltID0gc2ItPm1lc2c7DQotCQkJaWYgKGlw
+X3ZzX3NlbmRfYXN5bmMoc29jaywgKGNoYXIgKiltLA0KLQkJCQkJICAgICBt
+LT5zaXplKSAhPSBtLT5zaXplKQ0KLQkJCQlJUF9WU19FUlIoImlwX3ZzX3Nl
+bmRfYXN5bmMgZXJyb3JcbiIpOw0KKwkJCWlwX3ZzX3NlbmRfc3luY19tc2co
+c29jaywgc2ItPm1lc2cpOw0KIAkJCWlwX3ZzX3N5bmNfYnVmZl9yZWxlYXNl
+KHNiKTsNCiAJCX0NCiANCiAJCS8qIGNoZWNrIGlmIGVudHJpZXMgc3RheSBp
+biBjdXJyX3NiIGZvciAyIHNlY29uZHMgKi8NCiAJCWlmICgoc2IgPSBnZXRf
+Y3Vycl9zeW5jX2J1ZmYoMipIWikpKSB7DQotCQkJbSA9IHNiLT5tZXNnOw0K
+LQkJCWlmIChpcF92c19zZW5kX2FzeW5jKHNvY2ssIChjaGFyICopbSwNCi0J
+CQkJCSAgICAgbS0+c2l6ZSkgIT0gbS0+c2l6ZSkNCi0JCQkJSVBfVlNfRVJS
+KCJpcF92c19zZW5kX2FzeW5jIGVycm9yXG4iKTsNCisJCQlpcF92c19zZW5k
+X3N5bmNfbXNnKHNvY2ssIHNiLT5tZXNnKTsNCiAJCQlpcF92c19zeW5jX2J1
+ZmZfcmVsZWFzZShzYik7DQogCQl9DQogDQo=
+---1463811584-572891765-1097000265=:2451--
