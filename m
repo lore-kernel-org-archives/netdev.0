@@ -1,87 +1,47 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [6/6]: jenkins hash for neigh
-Date: Fri, 24 Sep 2004 14:27:02 -0700
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
+Date: Sat, 25 Sep 2004 08:06:51 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040924142702.62a2b23d.davem@davemloft.net>
-References: <20040923225158.23c2d502.davem@davemloft.net>
-	<20040924085234.GE3236@sunbeam.de.gnumonks.org>
+Message-ID: <20040924220651.GA6096@gondor.apana.org.au>
+References: <4150E7E5.2000001@eurodev.net> <20040922045239.GA19573@gondor.apana.org.au> <1095854920.1047.64.camel@jzny.localdomain> <20040922105221.59a67d4b.davem@davemloft.net> <4152EE68.4030803@eurodev.net> <20040923121651.51a58cf2.davem@davemloft.net> <20040924032830.GC6384@gondor.apana.org.au> <20040923223909.6f4da27f.davem@davemloft.net> <20040924062604.GA7393@gondor.apana.org.au> <20040924105855.0e1aecd0.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: pablo@eurodev.net, hadi@cyberus.ca, davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Harald Welte <laforge@gnumonks.org>
-In-Reply-To: <20040924085234.GE3236@sunbeam.de.gnumonks.org>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20040924105855.0e1aecd0.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 24 Sep 2004 10:52:34 +0200
-Harald Welte <laforge@gnumonks.org> wrote:
+On Fri, Sep 24, 2004 at 10:58:55AM -0700, David S. Miller wrote:
+> On Fri, 24 Sep 2004 16:26:04 +1000
+> Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> 
+> > It also means those responders that can calculate the correct size
+> > of the reply doesn't need to go through this copy process.
+> 
+> This is the crux of the problem, you don't know how big
+> the response will be until you look at the whole object
+> you are returning.
 
-> So this means you put get_random_bytes into the __init function.  I
-> explicitly didn't want to do that (and added that _initted variable),
-> since at bootup time we might not have sufficient entropy yet.
+I understand.  What I'm saying is that some of these places already know
+how big it is going to be.  See tcp_diag.c for an example.  So we shouldn't
+impose the copy over head on everyone.
 
-Good point.
+> This is why I suggested the PAGE_SIZE scratchpad, you build
+> the response fully into there, then you know the exact size
+> SKB you need so you allocate it and copy into it from the
+> scratch pad.
 
-> If we defer get_random_bytes() until the first neighbour is created,
-> this gives the system some more time to gather entropy...  
- ...
-> Also, wouldn't it make sense to use a new random value if we grow the
-> hash table?  I mean it's cheap, and we make it harder for someone trying
-> a hash-based attack.  
+I agree completely.  I'm just saying that the current NLM_GOODSIZE
+skb is the perfect scratch-pad so we don't need a new one.  All we
+need to do is to insert a helper call just before netlink_unicast
+to copy and trim the packet in the places that need it.
 
-I've combined all of your thoughts into the patch below.
-We set the initial ARP table very small (2 chains), and we
-regenerate the random seed every time we grow the hash table.
-
-This should address all of your concerns.
-
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2004/09/24 14:06:45-07:00 davem@nuts.davemloft.net 
-#   [NET]: Neighbour hashing tweaks.
-#   
-#   1) Start with a smaller initial hash table size.
-#      This stresses the new code better.
-#   2) Generate a new hash_rnd every time we grow
-#      the hashes.
-#   
-#   Based upon commentary from Harald Welte.
-#   
-#   Signed-off-by: David S. Miller <davem@davemloft.net>
-# 
-# net/core/neighbour.c
-#   2004/09/24 14:06:02-07:00 davem@nuts.davemloft.net +2 -1
-#   [NET]: Neighbour hashing tweaks.
-#   
-#   1) Start with a smaller initial hash table size.
-#      This stresses the new code better.
-#   2) Generate a new hash_rnd every time we grow
-#      the hashes.
-#   
-#   Based upon commentary from Harald Welte.
-#   
-#   Signed-off-by: David S. Miller <davem@davemloft.net>
-# 
-diff -Nru a/net/core/neighbour.c b/net/core/neighbour.c
---- a/net/core/neighbour.c	2004-09-24 14:07:07 -07:00
-+++ b/net/core/neighbour.c	2004-09-24 14:07:07 -07:00
-@@ -331,6 +331,7 @@
- 	old_hash = tbl->hash_buckets;
- 
- 	write_lock_bh(&tbl->lock);
-+	get_random_bytes(&tbl->hash_rnd, sizeof(tbl->hash_rnd));
- 	for (i = 0; i < old_entries; i++) {
- 		struct neighbour *n, *next;
- 
-@@ -1306,7 +1307,7 @@
- 	if (!tbl->kmem_cachep)
- 		panic("cannot create neighbour cache");
- 
--	tbl->hash_mask = 0x1f;
-+	tbl->hash_mask = 1;
- 	tbl->hash_buckets = neigh_hash_alloc(tbl->hash_mask + 1);
- 
- 	phsize = (PNEIGH_HASHMASK + 1) * sizeof(struct pneigh_entry *);
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
