@@ -1,49 +1,45 @@
-From: Raivis Bucis <raivis@mt.lv>
-Subject: [PATCH 2.4] Bugfix in neigh_create
-Date: Fri, 7 Jan 2005 14:52:28 +0200
-Message-ID: <200501071452.29006.raivis@mt.lv>
+From: Neil Horman <nhorman@redhat.com>
+Subject: Re: require packet path at device layer
+Date: Fri, 07 Jan 2005 08:05:51 -0500
+Message-ID: <41DE892F.5030206@redhat.com>
+References: <72c6e3790501070020755ffacf@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: linux lover <linux.lover2004@gmail.com>
+In-Reply-To: <72c6e3790501070020755ffacf@mail.gmail.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello,
+linux lover wrote:
+> Hello,
+>     Can anybody provide me how packet control is transferred from
+> netif_rx to netif_receive_skb function.
+> regards,
+> linux.lover
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-net" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-I believe that there is a bug in neigh_create in linux-2.4.28 introduced by 
-neighbor cache backport from v2.6.9.
+Believe its done directly in netif_rx, which calls:
+netif_rx_schedule(&queue->blog_dev)
+The poll routine for blog_dev which gets set in net_dev_init is called 
+process_backlog, which takes packets queued from netif_rx and calls 
+netif_receive_skb with them
 
-New neigh entry hash_val was calculated before possible hash growth. So it got 
-inserted in wrong place, making ARP entry (that was inserted immediately after 
-hash growth) 
-unresolvable until entry timeout.
+HTH
+Neil
 
-It looked like this. The host did not answer to pings from some random host, 
-but it could ping it after that with no problems. And vice versa.
-
-Raivis Bucis
-
-diff -uNr linux-2.4.28.org/net/core/neighbour.c 
-linux-2.4.28/net/core/neighbour.c
---- linux-2.4.28.org/net/core/neighbour.c 2004-11-17 13:54:22.000000000 +0200
-+++ linux-2.4.28/net/core/neighbour.c 2005-01-07 14:11:57.000000000 +0200
-@@ -427,11 +427,12 @@
- 
-  n->confirmed = jiffies - (n->parms->base_reachable_time<<1);
- 
-- hash_val = tbl->hash(pkey, dev) & tbl->hash_mask;
--
-  write_lock_bh(&tbl->lock);
-  if (atomic_read(&tbl->entries) > (tbl->hash_mask + 1))
-   neigh_hash_grow(tbl, (tbl->hash_mask + 1) << 1);
-+
-+ hash_val = tbl->hash(pkey, dev) & tbl->hash_mask;
-+
-  for (n1 = tbl->hash_buckets[hash_val]; n1; n1 = n1->next) {
-   if (dev == n1->dev &&
-       memcmp(n1->primary_key, pkey, key_len) == 0) {
+-- 
+/***************************************************
+  *Neil Horman
+  *Software Engineer
+  *Red Hat, Inc.
+  *nhorman@redhat.com
+  *gpg keyid: 1024D / 0x92A74FA1
+  *http://pgp.mit.edu
+  ***************************************************/
