@@ -1,7 +1,7 @@
 From: domen@coderock.org
-Subject: [patch 08/19] net/ixgb_osdep: replace schedule_timeout() with msleep()
-Date: Wed, 12 Jan 2005 00:10:30 +0100
-Message-ID: <20050111231031.49F9D1F22A@trashy.coderock.org>
+Subject: [patch 09/19] net/ni65: replace schedule_timeout() with msleep()
+Date: Wed, 12 Jan 2005 00:10:34 +0100
+Message-ID: <20050111231034.838F71F225@trashy.coderock.org>
 Cc: netdev@oss.sgi.com, domen@coderock.org, nacc@us.ibm.com,
         janitor@sternwelten.at
 Return-path: <netdev-bounce@oss.sgi.com>
@@ -16,9 +16,7 @@ List-Id: netdev.vger.kernel.org
 Any comments would be appreciated.
 
 Description: Use msleep() instead of schedule_timeout()
-to guarantee the task delays as expected. I was told earlier that the
-in_interrupt() check is not necessary. It would be nice to get some
-verification of this (i.e. the driver functions the same without it).
+to guarantee the task delays as expected.
 
 Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
 Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
@@ -26,25 +24,20 @@ Signed-off-by: Domen Puncer <domen@coderock.org>
 ---
 
 
- kj-domen/drivers/net/ixgb/ixgb_osdep.h |    8 +-------
- 1 files changed, 1 insertion(+), 7 deletions(-)
+ kj-domen/drivers/net/ni65.c |    3 +--
+ 1 files changed, 1 insertion(+), 2 deletions(-)
 
-diff -puN drivers/net/ixgb/ixgb_osdep.h~msleep-drivers_net_ixgb_ixgb_osdep drivers/net/ixgb/ixgb_osdep.h
---- kj/drivers/net/ixgb/ixgb_osdep.h~msleep-drivers_net_ixgb_ixgb_osdep	2005-01-10 18:00:01.000000000 +0100
-+++ kj-domen/drivers/net/ixgb/ixgb_osdep.h	2005-01-10 18:00:01.000000000 +0100
-@@ -41,13 +41,7 @@
- #include <linux/sched.h>
- 
- #ifndef msec_delay
--#define msec_delay(x)	do { if(in_interrupt()) { \
--				/* Don't mdelay in interrupt context! */ \
--	                	BUG(); \
--			} else { \
--				set_current_state(TASK_UNINTERRUPTIBLE); \
--				schedule_timeout((x * HZ)/1000 + 2); \
--			} } while(0)
-+#define msec_delay(x)	msleep(x)
- #endif
- 
- #define PCI_COMMAND_REGISTER   PCI_COMMAND
+diff -puN drivers/net/ni65.c~msleep-drivers_net_ni65 drivers/net/ni65.c
+--- kj/drivers/net/ni65.c~msleep-drivers_net_ni65	2005-01-10 18:00:02.000000000 +0100
++++ kj-domen/drivers/net/ni65.c	2005-01-10 18:00:02.000000000 +0100
+@@ -526,8 +526,7 @@ static int __init ni65_probe1(struct net
+ 			ni65_init_lance(p,dev->dev_addr,0,0);
+ 			irq_mask = probe_irq_on();
+ 			writereg(CSR0_INIT|CSR0_INEA,CSR0); /* trigger interrupt */
+-			set_current_state(TASK_UNINTERRUPTIBLE);
+-			schedule_timeout(HZ/50);
++			msleep(20);
+ 			dev->irq = probe_irq_off(irq_mask);
+ 			if(!dev->irq)
+ 			{
 _
