@@ -1,284 +1,141 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: [PATCH] IPV6: convert /proc/net/anycast6 to seq_file
-Date: Tue, 01 Jul 2003 02:59:41 +0900 (JST)
+From: "James R. Leu" <jleu@mindspring.com>
+Subject: Re: send-to-self (was Re: routing bug report for 2.4)
+Date: Mon, 30 Jun 2003 15:22:46 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030701.025941.105202597.yoshfuji@linux-ipv6.org>
+Message-ID: <20030630152246.B22997@mindspring.com>
+References: <3EFE131E.1080807@candelatech.com> <Pine.LNX.4.44.0306291110070.8466-100000@u.domain.uli>
+Reply-To: jleu@mindspring.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Greear <greearb@candelatech.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
+To: Julian Anastasov <ja@ssi.bg>
+In-Reply-To: <Pine.LNX.4.44.0306291110070.8466-100000@u.domain.uli>; from ja@ssi.bg on Sun, Jun 29, 2003 at 12:43:26PM +0300
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello.
+I have some done some work on a related subject, 'virtual routing and
+forwarding' for linux.  One of the applications of this is 'self-to-self'
+routing.
 
-This converts /proc/net/anycast6 to seq_file.
+I have mentioned my work before on this list, and have been flamed (but no
+one provided me with ideas on how to do it better).  If you would like to take
+a look at what I have done, head over to:
 
-Thanks.
+    http://linux-vrf.sf.net/
 
-Index: linux-2.5/net/ipv6/af_inet6.c
-===================================================================
-RCS file: /home/cvs/linux-2.5/net/ipv6/af_inet6.c,v
-retrieving revision 1.46
-diff -u -r1.46 af_inet6.c
---- linux-2.5/net/ipv6/af_inet6.c	9 Jun 2003 17:26:52 -0000	1.46
-+++ linux-2.5/net/ipv6/af_inet6.c	30 Jun 2003 16:36:55 -0000
-@@ -85,7 +85,8 @@
- extern void udp6_proc_exit(void);
- extern int ipv6_misc_proc_init(void);
- extern void ipv6_misc_proc_exit(void);
--extern int anycast6_get_info(char *, char **, off_t, int);
-+extern int ac6_proc_init(void);
-+extern void ac6_proc_exit(void);
- extern int if6_proc_init(void);
- extern void if6_proc_exit(void);
- #endif
-@@ -799,7 +800,7 @@
- 	if (ipv6_misc_proc_init())
- 		goto proc_misc6_fail;
- 
--	if (!proc_net_create("anycast6", 0, anycast6_get_info))
-+	if (ac6_proc_init())
- 		goto proc_anycast6_fail;
- 	if (if6_proc_init())
- 		goto proc_if6_fail;
-@@ -825,7 +826,7 @@
- 
- #ifdef CONFIG_PROC_FS
- proc_if6_fail:
--	proc_net_remove("anycast6");
-+	ac6_proc_exit();
- proc_anycast6_fail:
- 	ipv6_misc_proc_exit();
- proc_misc6_fail:
-@@ -863,7 +864,7 @@
- 	sock_unregister(PF_INET6);
- #ifdef CONFIG_PROC_FS
- 	if6_proc_exit();
-- 	proc_net_remove("anycast6");
-+	ac6_proc_exit();
-  	ipv6_misc_proc_exit();
-  	udp6_proc_exit();
-  	tcp6_proc_exit();
-Index: linux-2.5/net/ipv6/anycast.c
-===================================================================
-RCS file: /home/cvs/linux-2.5/net/ipv6/anycast.c,v
-retrieving revision 1.3
-diff -u -r1.3 anycast.c
---- linux-2.5/net/ipv6/anycast.c	22 May 2003 07:38:17 -0000	1.3
-+++ linux-2.5/net/ipv6/anycast.c	30 Jun 2003 16:36:55 -0000
-@@ -29,6 +29,7 @@
- #include <linux/route.h>
- #include <linux/init.h>
- #include <linux/proc_fs.h>
-+#include <linux/seq_file.h>
- 
- #include <net/sock.h>
- #include <net/snmp.h>
-@@ -435,56 +436,159 @@
- 
- 
- #ifdef CONFIG_PROC_FS
--int anycast6_get_info(char *buffer, char **start, off_t offset, int length)
--{
--	off_t pos=0, begin=0;
--	struct ifacaddr6 *im;
--	int len=0;
-+struct ac6_iter_state {
- 	struct net_device *dev;
--	
--	read_lock(&dev_base_lock);
--	for (dev = dev_base; dev; dev = dev->next) {
--		struct inet6_dev *idev;
-+	struct inet6_dev *idev;
-+};
- 
--		if ((idev = in6_dev_get(dev)) == NULL)
--			continue;
-+#define ac6_seq_private(seq)	((struct ac6_iter_state *)&seq->private)
- 
--		read_lock_bh(&idev->lock);
--		for (im = idev->ac_list; im; im = im->aca_next) {
--			int i;
-+static inline struct ifacaddr6 *ac6_get_first(struct seq_file *seq)
-+{
-+	struct ifacaddr6 *im = NULL;
-+	struct ac6_iter_state *state = ac6_seq_private(seq);
- 
--			len += sprintf(buffer+len,"%-4d %-15s ", dev->ifindex, dev->name);
-+	for (state->dev = dev_base, state->idev = NULL;
-+	     state->dev;
-+	     state->dev = state->dev->next) {
-+		struct inet6_dev *idev;
-+		idev = in6_dev_get(state->dev);
-+		if (!idev)
-+			continue;
-+		read_lock_bh(&idev->lock);
-+		im = idev->ac_list;
-+		if (im) {
-+			state->idev = idev;
-+			break;
-+		}
-+		read_unlock_bh(&idev->lock);
-+	}
-+	return im;
-+}
- 
--			for (i=0; i<16; i++)
--				len += sprintf(buffer+len, "%02x", im->aca_addr.s6_addr[i]);
-+static struct ifacaddr6 *ac6_get_next(struct seq_file *seq, struct ifacaddr6 *im)
-+{
-+	struct ac6_iter_state *state = ac6_seq_private(seq);
- 
--			len += sprintf(buffer+len, " %5d\n", im->aca_users);
--
--			pos=begin+len;
--			if (pos < offset) {
--				len=0;
--				begin=pos;
--			}
--			if (pos > offset+length) {
--				read_unlock_bh(&idev->lock);
--				in6_dev_put(idev);
--				goto done;
--			}
-+	im = im->aca_next;
-+	while (!im) {
-+		if (likely(state->idev != NULL)) {
-+			read_unlock_bh(&state->idev->lock);
-+			in6_dev_put(state->idev);
- 		}
--		read_unlock_bh(&idev->lock);
--		in6_dev_put(idev);
-+		state->dev = state->dev->next;
-+		if (!state->dev) {
-+			state->idev = NULL;
-+			break;
-+		}
-+		state->idev = in6_dev_get(state->dev);
-+		if (!state->idev)
-+			continue;
-+		read_lock_bh(&state->idev->lock);
-+		im = state->idev->ac_list;
- 	}
-+	return im;
-+}
- 
--done:
-+static struct ifacaddr6 *ac6_get_idx(struct seq_file *seq, loff_t pos)
-+{
-+	struct ifacaddr6 *im = ac6_get_first(seq);
-+	if (im)
-+		while (pos && (im = ac6_get_next(seq, im)) != NULL)
-+			--pos;
-+	return pos ? NULL : im;
-+}
-+
-+static void *ac6_seq_start(struct seq_file *seq, loff_t *pos)
-+{
-+	read_lock(&dev_base_lock);
-+	return *pos ? ac6_get_idx(seq, *pos) : ac6_get_first(seq);
-+}
-+
-+static void *ac6_seq_next(struct seq_file *seq, void *v, loff_t *pos)
-+{
-+	struct ifacaddr6 *im;
-+	im = ac6_get_next(seq, v);
-+	++*pos;
-+	return im;
-+}
-+
-+static void ac6_seq_stop(struct seq_file *seq, void *v)
-+{
-+	struct ac6_iter_state *state = ac6_seq_private(seq);
-+	if (likely(state->idev != NULL)) {
-+		read_unlock_bh(state->idev->lock);
-+		in6_dev_put(state->idev);
-+	}
- 	read_unlock(&dev_base_lock);
-+}
-+
-+static int ac6_seq_show(struct seq_file *seq, void *v)
-+{
-+	struct ifacaddr6 *im = (struct ifacaddr6 *)v;
-+	struct ac6_iter_state *state = ac6_seq_private(seq);
- 
--	*start=buffer+(offset-begin);
--	len-=(offset-begin);
--	if(len>length)
--		len=length;
--	if (len<0)
--		len=0;
--	return len;
-+	seq_printf(seq,
-+		   "%-4d %-15s "
-+		   "%04x%04x%04x%04x%04x%04x%04x%04x "
-+		   "%5d\n",
-+		   state->dev->ifindex, state->dev->name,
-+		   NIP6(im->aca_addr),
-+		   im->aca_users);
-+	return 0;
- }
- 
-+static struct seq_operations ac6_seq_ops = {
-+	.start	=	ac6_seq_start,
-+	.next	=	ac6_seq_next,
-+	.stop	=	ac6_seq_stop,
-+	.show	=	ac6_seq_show,
-+};
-+
-+static int ac6_seq_open(struct inode *inode, struct file *file)
-+{
-+	struct seq_file *seq;
-+	int rc = -ENOMEM;
-+	struct ac6_iter_state *s = kmalloc(sizeof(*s), GFP_KERNEL);
-+
-+	if (!s)
-+		goto out;
-+
-+	rc = seq_open(file, &ac6_seq_ops);
-+	if (rc)
-+		goto out_kfree;
-+
-+	seq = file->private_data;
-+	seq->private = s;
-+	memset(s, 0, sizeof(*s));
-+out:
-+	return rc;
-+out_kfree:
-+	kfree(s);
-+	goto out;
-+}
-+
-+static struct file_operations ac6_seq_fops = {
-+	.owner		=	THIS_MODULE,
-+	.open		=	ac6_seq_open,
-+	.read		=	seq_read,
-+	.llseek		=	seq_lseek,
-+	.release	=	seq_release_private,
-+};
-+
-+int __init ac6_proc_init(void)
-+{
-+	struct proc_dir_entry *p;
-+
-+	p = create_proc_entry("anycast6", S_IRUGO, proc_net);
-+	if (p)
-+		p->proc_fops = &ac6_seq_fops;
-+	return 0;
-+}
-+
-+void ac6_proc_exit(void)
-+{
-+	proc_net_remove("anycast6");
-+}
- #endif
-+
+I'm open for suggestions of how to implement this better.
 
+On Sun, Jun 29, 2003 at 12:43:26PM +0300, Julian Anastasov wrote:
+> 
+> 	Hello,
+> 
+> On Sat, 28 Jun 2003, Ben Greear wrote:
+> 
+> > My send-to-self patch that I have been using is attached.  I also have some other
+> > patches for mac-vlans and packet-gen applied, but I don't believe these will have any
+> > impact on the behaviour we have been discussing.
+> 
+> 	Ben, lets define new behaviour for your feature:
+> 
+> 1. we mark ethX with /proc/sys/net/ipv4/conf/ethX/loop=1. That means
+> this is a loop device (my site contains lot of device flags, you
+> can see what costs creating a sysctl var):
+> http://www.ssi.bg/~ja/
+> just hit some of the links, recommended example:
+> http://www.ssi.bg/~ja/forward_shared-2.4.19-2.diff
+> 
+> 	there are 2 variants:
+> 
+> 	- loop can be 0(no loop) / 1(loop inout) or
+> 
+> 	- 0(no loop), 1(loop in only), 2(loop out only), 3(loop inout)
+> 
+> 	where "loop in only" means "accept only" and "loop out only"
+> 	is "send only" interface
+> 
+> 	but as all traffics are inout I think "loop inout" will
+> be always used
+> 
+> 2. arp_filter accepts traffic on ethX (as in your patch)
+> if "loop in" is allowed for indev and "loop out" for the
+> out_dev in routing result
+> 
+> 3. rp_filter (source validation) accepts traffic on ethX (as in your
+> patch) if "loop in" is allowed
+> 
+> 4. get unicast output route for local IPs ethY->ethX if "loop in" is
+> allowed for ethX and "loop out" is allowed for "ethY. ARP
+> will add cache entries for local IPs.
+> 
+> 
+> Goal 1. Can we just skip the BINDTODEVICE thing and to replace it
+> with bind to src IP. We can avoid binding to src IP for our
+> tests if we replace the preferred source IP in the desired local
+> routes but this is a hack. Using BINDTODEVICE will not add
+> any benefits but will be supported (it is ignored).
+> 
+> Then to define it in this way:
+> 
+> If ethX has "/proc/sys/net/ipv4/conf/ethX/loop" set to !0 then
+> all output routes "from local_ip_on_ethY to local_ip_on_ethX" will
+> not receive "lo" result but "ethY" with RTN_UNICAST type
+> if local_ip_on_ethY is configured on ethY (ethY has loop enabled too),
+> no matter the key->oif value. Sort of:
+> 
+> fib_lookup for "from IP1 to IP2 oif XXX"
+> if (RTN_LOCAL)
+> {
+> 	if dev_out is loop_in and key->src != 0
+> 	{
+> 		src = key->src? : FIB_RES_PREFSRC(res);
+> 		dev_in = ip_dev_find(src);
+> 		if (dev_in is loop_out)
+> 		{
+> 			use dev_in as dev_out
+> 			goto make_route;
+> 		}
+> 	}
+> 	// else
+> 	use "lo"
+> }
+> 
+> - this code is slow but it is guarded from loop check for out_dev
+> so I do not see performance impact (the output routing to localhost
+> is not used often). The result is cached (you can set long
+> routing cache expiration value during the tests).
+> 
+> - we assume my patch from previous posting is applied
+> and we match any local IP no matter the key oif.
+> 
+> Goal 2. Can we skip all TCP/UDP changes?
+> 
+> - we rely on the fact the routing results allow traffic in
+> both directions (incoming is accepted with RTN_LOCAL, output
+> gets RTN_UNICAST). As for IPv6 I can not comment, we define
+> ipv4/conf/XXX/loop flag, though. But I prefer we to keep the
+> changes only at routing level. For TCP and UDP these talks
+> should look as if "lo" is used.
+> 
+> - what I'm not sure is whether any socket hash problems exists
+> and this is the only thing that can prevent this patch to look
+> nice and fast. But I'm wondering there are such issues as
+> the talks on "lo" should work but we have to check that.
+> 
+> 	The usage:
+> 
+> - mark eth0 as loop_out and eth1 as loop_in device and start the test
+> in eth0->eth1 direction or use loop inout for both directions.
+> 
+> 	If you think that we can change only the routing then
+> I can prepare patch for testing, I'm not sure I have a test setup
+> for this feature right now.
+> 
+> Regards
+> 
+> --
+> Julian Anastasov <ja@ssi.bg>
+> 
 
 -- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+James R. Leu
