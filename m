@@ -1,25 +1,98 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 2.6] [IPV6] SIT: dst leakage in error path.
-Date: Sat, 02 Oct 2004 19:34:24 +0900 (JST)
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: kernel crash with G5 Xserve and sungem driver
+Date: Sat, 02 Oct 2004 21:50:11 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041002.193424.76694251.yoshfuji@linux-ipv6.org>
-References: <20041002.193138.94763422.yoshfuji@linux-ipv6.org>
+Message-ID: <1096717811.3634.45.camel@gaston>
+References: <415D8768.8080808@nortelnetworks.com>
+	 <20041001193153.GN27499@sunbeam.de.gnumonks.org>
+	 <415DB334.4010809@nortelnetworks.com>
+	 <20041001194630.GO27499@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Cc: Chris Friesen <cfriesen@nortelnetworks.com>, netdev@oss.sgi.com,
+        linuxppc-dev@ozlabs.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@davemloft.net
-In-Reply-To: <20041002.193138.94763422.yoshfuji@linux-ipv6.org>
+To: Harald Welte <laforge@gnumonks.org>
+In-Reply-To: <20041001194630.GO27499@sunbeam.de.gnumonks.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20041002.193138.94763422.yoshfuji@linux-ipv6.org> (at Sat, 02 Oct 2004 19:31:38 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
-
-> We failed to put rt in error path.
+On Sat, 2004-10-02 at 05:46, Harald Welte wrote:
+> On Fri, Oct 01, 2004 at 01:42:44PM -0600, Chris Friesen wrote:
+> > Harald Welte wrote:
+> > 
+> > >Just don't compile (or load) the sungem driver on those boxes.
+> > 
+> > Hmm.  That's a pain.  We've got G5 desktops too, and it would be nice to be 
+> > able to run one kernel for both.  It'd be better (IMHO) to fix the driver 
+> > so it doesn't crash.
 > 
-> Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+> I recommend talking to Bejamin Herrenschmidt, IIRC he already had
+> something in mind in order to fix the issue.
+> 
+> I mean, you can always hardcode some exemption into the driver, that's
+> two easy lines ;)
 
-And this also applies 2.4 (with some fuzz).
+Or just have the driver test the return value of pci_device_to_OF_node()
+for NULL :)
 
---yoshfuji
+One thing is that I'm about to push a patch that will "hide" PCI devices
+from the kernel that are absent from the OF tree since there are other
+issues with newer machines, so that will fix the problem. Both 64 bits
+and 32 bits patches are below:
+
+===== arch/ppc64/kernel/pmac_pci.c 1.5 vs edited =====
+--- 1.5/arch/ppc64/kernel/pmac_pci.c	2004-07-25 14:51:52 +10:00
++++ edited/arch/ppc64/kernel/pmac_pci.c	2004-08-04 10:26:07 +10:00
+@@ -271,7 +271,7 @@
+ 				    int offset, int len, u32 *val)
+ {
+ 	struct pci_controller *hose;
+-	struct device_node *busdn;
++	struct device_node *busdn, *dn;
+ 	unsigned long addr;
+ 
+ 	if (bus->self)
+@@ -282,6 +282,16 @@
+ 		return PCIBIOS_DEVICE_NOT_FOUND;
+ 	hose = busdn->phb;
+ 	if (hose == NULL)
++		return PCIBIOS_DEVICE_NOT_FOUND;
++
++	/* We only allow config cycles to devices that are in OF device-tree
++	 * as we are apparently having some weird things going on with some
++	 * revs of K2 on recent G5s
++	 */
++	for (dn = busdn->child; dn; dn = dn->sibling)
++		if (dn->devfn == devfn)
++			break;
++	if (dn == NULL)
+ 		return PCIBIOS_DEVICE_NOT_FOUND;
+ 
+ 	addr = u3_ht_cfg_access(hose, bus->number, devfn, offset);
+
+===== arch/ppc/platforms/pmac_pci.c 1.21 vs edited =====
+--- 1.21/arch/ppc/platforms/pmac_pci.c	2004-07-29 14:58:35 +10:00
++++ edited/arch/ppc/platforms/pmac_pci.c	2004-08-17 14:18:09 +10:00
+@@ -315,6 +315,10 @@
+ 	unsigned int addr;
+ 	int i;
+ 
++	struct device_node *np = pci_busdev_to_OF_node(bus, devfn);
++	if (np == NULL)
++		return PCIBIOS_DEVICE_NOT_FOUND;
++
+ 	/*
+ 	 * When a device in K2 is powered down, we die on config
+ 	 * cycle accesses. Fix that here.
+@@ -362,6 +366,9 @@
+ 	unsigned int addr;
+ 	int i;
+ 
++	struct device_node *np = pci_busdev_to_OF_node(bus, devfn);
++	if (np == NULL)
++		return PCIBIOS_DEVICE_NOT_FOUND;
+ 	/*
+ 	 * When a device in K2 is powered down, we die on config
+ 	 * cycle accesses. Fix that here.
