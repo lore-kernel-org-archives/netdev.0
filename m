@@ -1,45 +1,42 @@
-From: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
-Subject: Re: fealnx oopses
-Date: Tue, 30 Mar 2004 01:18:55 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200403300118.55631.vda@port.imtp.ilyichevsk.odessa.ua>
-References: <200403261214.58127.vda@port.imtp.ilyichevsk.odessa.ua> <200403300050.42367.vda@port.imtp.ilyichevsk.odessa.ua> <4068AC87.2030506@pobox.com>
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: BUG in tcp_timer.c:tcp_retransmit_timer()
+Date: Mon, 29 Mar 2004 20:09:54 -0800
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20040329200954.7baac255.davem@redhat.com>
+References: <Pine.LNX.4.44.0403290222190.27795-100000@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-        Andreas Henriksson <andreas@fjortis.info>, netdev@oss.sgi.com,
-        Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <4068AC87.2030506@pobox.com>
-Content-Disposition: inline
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: "Tomar, Nagendra" <nagendra_tomar@adaptec.com>
+In-Reply-To: <Pine.LNX.4.44.0403290222190.27795-100000@localhost.localdomain>
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 30 March 2004 01:08, Jeff Garzik wrote:
-> Denis Vlasenko wrote:
-> > I think bug can be considered fixed if I can start
-> > netcat UDP flood, wait however long I want, then press
-> > ctrl-C and get my bash prompt back. Local netcat
-> > closes socket and exits, remote netcat gets its
-> > icmp 'port unreachable' and exits too. Everybody's
-> > happy.
-> >
-> > Oopses are gone but it looks like box is so much interrupt
-> > flooded that userspace has no chance of processing ctrl-C.
-> > What can we do? I think driver can do something useful
-> > whet it detects 'too much work in interrupt'. Disabling rx
-> > for several ms seems like 'quick and dirty' way.
-> >
-> > Francois what do you think? Can you code something up
-> > for me to test?
->
-> Andreas had a francois+jgarzik patch, I thought...?
->
-> Looking good...
+On Mon, 29 Mar 2004 02:39:01 +0530 (IST)
+Nagendra Singh Tomar <nagendra_tomar@adaptec.com> wrote:
 
-Yes, I did all these tests with this patch.
---
-vda
+> While reading the code of tcp_retransmit_timer(), I came across something 
+> which looks liks a BUG.
+
+It isn't, read below.
+
+> The following line 
+> 
+> if (tcp_retransmit_skb(sk, skb_peek(&sk->write_queue)) > 0)
+> 
+> should correctly read as
+> 
+> if (tcp_retransmit_skb(sk, skb_peek(&sk->write_queue)) < 0)
+
+Nope, it really does want greater than zero.  Less than zero
+means memory allocation error or something like that, but this is
+not what this code wants to check for.  Read the comment inside
+this code block, it says it is the code path for "local congestion"
+and the device output path indicates congestion via positive valued
+error codes.
+
+These codes are the NET_XMIT_* and NET_RX_* macros defined in
+linux/netdevice.h
+
+Thanks for the report though.
