@@ -1,37 +1,26 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [DEBUG]: sk_forward_alloc assertion failures
-Date: Fri, 14 Jan 2005 13:10:05 +1100
-Message-ID: <20050114021005.GA11962@gondor.apana.org.au>
-References: <20050113171234.3fde0925.davem@davemloft.net> <Pine.LNX.4.58.0501131741430.25252@w-sridhar.beaverton.ibm.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: b44: timeout on initialization
+Date: Thu, 13 Jan 2005 18:31:47 -0800
+Message-ID: <20050113183147.0772941c.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, anton@samba.org,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Sridhar Samudrala <sri@us.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.58.0501131741430.25252@w-sridhar.beaverton.ibm.com>
+To: Florian Schirmer <jolt@tuxbox.org>, "David S. Miller" <davem@redhat.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 13, 2005 at 05:50:17PM -0800, Sridhar Samudrala wrote:
-> 
-> I think with this patch we will start seeing
-> sk_wmem_queued assertions.
+I get this all the time on my laptop (2.6.8 - 2.6.10) even
+when connected to the router
+b44: eth0: BUG!  Timeout waiting for bit 00000001 of register 41c to set.
 
-Not necessarily.  What's probably happening currently is that
-sk_forward_alloc is temporarily raised above the value it should
-have.  It then gets cut down by the reclaim function and
-subsequently goes negative.
+repeats about 5 times then goes away. Connection works fine.
+Description is
 
-Since there is no reclaim for sk_wmem_queued it doesn't happen
-there.
-
-So taking out the adjustments should not cause any problems of
-sk_wmem_queued, theoretically :)
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+01:0c.0 Ethernet controller: Broadcom Corporation BCM4401-B0 100Base-TX (rev 02)
+        Subsystem: Fujitsu Limited.: Unknown device 123b
+        Flags: bus master, fast devsel, latency 64, IRQ 11
+        Memory at d0204000 (32-bit, non-prefetchable) [size=8K]
+        Capabilities: [40] Power Management version 2
