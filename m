@@ -1,110 +1,36 @@
-From: Don Fry <brazilnut@us.ibm.com>
-Subject: [PATCH 3 2.6.7] pcnet32: cleanup IRQ limitation.
-Date: Thu, 17 Jun 2004 14:21:48 -0700
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: 2.6.7-rc3: unregister_netdevice: waiting for tun0 to become free. Usage count = 1
+Date: Fri, 18 Jun 2004 07:29:09 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040617142148.A6607@DYN318364BLD.beaverton.ibm.com>
+Message-ID: <20040617212909.GA14089@gondor.apana.org.au>
+References: <20040616193731.GB29781@ms2.inr.ac.ru> <20040616130950.6aadde3c.davem@redhat.com> <20040616203748.GA30675@ms2.inr.ac.ru> <20040616134711.499209c9.davem@redhat.com> <20040617081722.GA8559@gondor.apana.org.au> <20040617083303.GA8810@gondor.apana.org.au> <20040617101016.44512cb1.davem@redhat.com> <20040617172449.GA10303@ms2.inr.ac.ru> <20040617105324.554c631b.davem@redhat.com> <20040617190739.GB10925@ms2.inr.ac.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@redhat.com>, schwab@suse.de, netdev@oss.sgi.com,
+        yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: tsbogend@alpha.franken.de, jgarzik@pobox.com, netdev@oss.sgi.com
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 Content-Disposition: inline
+In-Reply-To: <20040617190739.GB10925@ms2.inr.ac.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Cleanup pcnet32 IRQ handling based on suggestions from Ralf Baechle
-<ralf@linux-mips.org>, and Brian Murphy <brian@murphy.dk>
+On Thu, Jun 17, 2004 at 11:07:39PM +0400, Alexey Kuznetsov wrote:
+> 
+> >						 and that we need to
+> > add another call in unregister_netdevice() right before final dev_put().
+> 
+> This should be enough.
 
-Tested by myself and Brian Murphy.
+It is enough for this dst case, but it may not be enough in general.
 
-Please also apply to 2.4.27-pre6.
+Other event handlers may need a rebroadcast before they drop the dev
+reference.  So we really should do the synchronize_net() before
+freeing the device in net_run_todo().
 
-Signed-off-by: Don Fry <brazilnut@us.ibm.com>
-
---- linux-2.6.7/drivers/net/hung.pcnet32.c	Wed Jun 16 10:31:44 2004
-+++ linux-2.6.7/drivers/net/pcnet32.c	Thu Jun 17 13:14:53 2004
-@@ -22,8 +22,8 @@
-  *************************************************************************/
- 
- #define DRV_NAME	"pcnet32"
--#define DRV_VERSION	"1.30e"
--#define DRV_RELDATE	"06.11.2004"
-+#define DRV_VERSION	"1.30f"
-+#define DRV_RELDATE	"06.16.2004"
- #define PFX		DRV_NAME ": "
- 
- static const char *version =
-@@ -247,6 +247,9 @@ static int full_duplex[MAX_UNITS];
-  * v1.30c  25 May 2004 Don Fry added netif_wake_queue after pcnet32_restart.
-  * v1.30d  01 Jun 2004 Don Fry discard oversize rx packets.
-  * v1.30e  11 Jun 2004 Don Fry recover after fifo error and rx hang.
-+ * v1.30f  16 Jun 2004 Don Fry cleanup IRQ to allow 0 and 1 for PCI,
-+ * 	   expanding on suggestions from Ralf Baechle <ralf@linux-mips.org>,
-+ * 	   and Brian Murphy <brian@murphy.dk>.
-  */
- 
- 
-@@ -362,7 +365,7 @@ struct pcnet32_private {
- 
- static void pcnet32_probe_vlbus(void);
- static int  pcnet32_probe_pci(struct pci_dev *, const struct pci_device_id *);
--static int  pcnet32_probe1(unsigned long, unsigned int, int, struct pci_dev *);
-+static int  pcnet32_probe1(unsigned long, int, struct pci_dev *);
- static int  pcnet32_open(struct net_device *);
- static int  pcnet32_init_ring(struct net_device *);
- static int  pcnet32_start_xmit(struct sk_buff *, struct net_device *);
-@@ -960,7 +963,7 @@ pcnet32_probe_vlbus(void)
- 	if (request_region(ioaddr, PCNET32_TOTAL_SIZE, "pcnet32_probe_vlbus")) {
- 	    /* check if there is really a pcnet chip on that ioaddr */
- 	    if ((inb(ioaddr + 14) == 0x57) && (inb(ioaddr + 15) == 0x57)) {
--		pcnet32_probe1(ioaddr, 0, 0, NULL);
-+		pcnet32_probe1(ioaddr, 0, NULL);
- 	    } else {
- 		release_region(ioaddr, PCNET32_TOTAL_SIZE);
- 	    }
-@@ -1001,7 +1004,7 @@ pcnet32_probe_pci(struct pci_dev *pdev, 
- 	return -EBUSY;
-     }
- 
--    return pcnet32_probe1(ioaddr, pdev->irq, 1, pdev);
-+    return pcnet32_probe1(ioaddr, 1, pdev);
- }
- 
- 
-@@ -1010,8 +1013,7 @@ pcnet32_probe_pci(struct pci_dev *pdev, 
-  *  pdev will be NULL when called from pcnet32_probe_vlbus.
-  */
- static int __devinit
--pcnet32_probe1(unsigned long ioaddr, unsigned int irq_line, int shared,
--		struct pci_dev *pdev)
-+pcnet32_probe1(unsigned long ioaddr, int shared, struct pci_dev *pdev)
- {
-     struct pcnet32_private *lp;
-     dma_addr_t lp_dma_addr;
-@@ -1272,11 +1274,8 @@ pcnet32_probe1(unsigned long ioaddr, uns
-     a->write_csr(ioaddr, 2, (lp->dma_addr + offsetof(struct pcnet32_private,
- 		    init_block)) >> 16);
- 
--    if (irq_line) {
--	dev->irq = irq_line;
--    }
--
--    if (dev->irq >= 2) {
-+    if (pdev) {		/* use the IRQ provided by PCI */
-+	dev->irq = pdev->irq;
- 	if (pcnet32_debug & NETIF_MSG_PROBE)
- 	    printk(" assigned IRQ %d.\n", dev->irq);
-     } else {
-@@ -1364,8 +1363,7 @@ pcnet32_open(struct net_device *dev)
-     int rc;
-     unsigned long flags;
- 
--    if (dev->irq == 0 ||
--	request_irq(dev->irq, &pcnet32_interrupt,
-+    if (request_irq(dev->irq, &pcnet32_interrupt,
- 		    lp->shared_irq ? SA_SHIRQ : 0, dev->name, (void *)dev)) {
- 	return -EAGAIN;
-     }
-
+Cheers,
 -- 
-Don Fry
-brazilnut@us.ibm.com
+Visit Openswan at http://www.openswan.org/
+Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
