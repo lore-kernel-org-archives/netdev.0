@@ -1,45 +1,44 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [RFC] Vegas and tcp parameters per route
-Date: Tue, 16 Mar 2004 02:38:32 +0900 (JST)
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20040316.023832.02446886.yoshfuji@linux-ipv6.org>
-References: <20040312151729.25d9c696@dell_ss3.pdx.osdl.net>
+From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Subject: Re: [bug 2.6.4] llc2 oops
+Date: Mon, 15 Mar 2004 14:20:16 -0300
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <200403151420.19986.acme@conectiva.com.br>
+References: <Pine.LNX.4.58.0403141732350.25924@localhost>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, netdev@oss.sgi.com, linux-net@vger.kernel.org,
-	yoshfuji@linux-ipv6.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: shemminger@osdl.org
-In-Reply-To: <20040312151729.25d9c696@dell_ss3.pdx.osdl.net>
+Cc: Linux Kernel <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Jochen Friedrich <jochen@scram.de>
+In-Reply-To: <Pine.LNX.4.58.0403141732350.25924@localhost>
+Content-Disposition: inline
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20040312151729.25d9c696@dell_ss3.pdx.osdl.net> (at Fri, 12 Mar 2004 15:17:29 -0800), Stephen Hemminger <shemminger@osdl.org> says:
+On Sunday 14 March 2004 13:49, Jochen Friedrich wrote:
+> Hi,
 
-> diff -urNp -X dontdiff linux-2.6/include/linux/sysctl.h tcp-vegas-2.6/include/linux/sysctl.h
-> --- linux-2.6/include/linux/sysctl.h	2004-03-09 16:24:23.000000000 -0800
-> +++ tcp-vegas-2.6/include/linux/sysctl.h	2004-03-12 14:20:25.000000000 -0800
-> @@ -317,11 +317,12 @@ enum
->  	NET_IPV4_ICMP_RATELIMIT=89,
->  	NET_IPV4_ICMP_RATEMASK=90,
->  	NET_TCP_TW_REUSE=91,
-> -	NET_TCP_FRTO=92,
-> -	NET_TCP_LOW_LATENCY=93,
-> -	NET_IPV4_IPFRAG_SECRET_INTERVAL=94,
-> -	NET_TCP_WESTWOOD=95,
-> -	NET_IPV4_IGMP_MAX_MSF=96,
-> +	NET_TCP_LOW_LATENCY=92,
-> +	NET_IPV4_IPFRAG_SECRET_INTERVAL=93,
-> +	NET_IPV4_IGMP_MAX_MSF=94,
-> +	NET_TCP_VEGAS_ALPHA=95,
-> +	NET_TCP_VEGAS_BETA=96,
-> +	NET_TCP_VEGAS_GAMMA=97,
->  };
->  
 
-Please do not change values for NET_IPV4_IPFRAG_SECRET_INTERVAL etc.
+> fffffffc005831d4
+> 
+> So, apparently, llc_ui_wait_for_conn() and llc_ui_wait_for_disc() are
+> buggy, as well...
 
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+
+Oh well, yes, the code has lots of bugs as it is currently in the tree, I have 
+it rewritten in my net-experimental tree, that has lots of other changes 
+(mostly renames, moving buttloads of stuff from net/ipv4 to net/core, etc) to
+core code, tcp/ip v4/v6, sctp, etc, making most protocols use more and
+more common infrastructure, its solid, but I don't have time right now to
+work on chunk it to send to Dave, will do it, I hope, this month.
+
+But hey, if you are really interested in llc2 let me know and I'll send you
+my latest patches (IIRC they are at my 
+www.kernel.org/pub/linux/kernel/people/acme area).
+
+FWIW I have patches for ncftp, vsftpd, openssh, etc making them use
+PF_LLC, mostly transparent, just not for vsftpd, that reivents the
+get{name,addr}info wheel for some reason 8)
+
+- Arnaldo
