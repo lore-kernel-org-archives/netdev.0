@@ -1,50 +1,111 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: More tc action mess
-Date: Wed, 19 Jan 2005 21:22:51 +0100
-Message-ID: <41EEC19B.3010504@trash.net>
-References: <41EDEB97.3080503@trash.net> <1106140256.1049.903.camel@jzny.localdomain>
+From: Eric Lemoine <eric.lemoine@gmail.com>
+Subject: Re: sis900: eth0: NULL pointer encountered in Rx ring, skipping
+Date: Wed, 19 Jan 2005 21:52:35 +0100
+Message-ID: <5cac192f0501191252406a13f2@mail.gmail.com>
+References: <20050118101358.GA9335@xi.wantstofly.org>
+	 <20050118102139.GA9507@xi.wantstofly.org>
+Reply-To: Eric Lemoine <eric.lemoine@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Maillist netdev <netdev@oss.sgi.com>
+Content-Type: multipart/mixed;
+	boundary="----=_Part_264_30301378.1106167955403"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1106140256.1049.903.camel@jzny.localdomain>
+To: Lennert Buytenhek <buytenh@wantstofly.org>
+In-Reply-To: <20050118102139.GA9507@xi.wantstofly.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
+------=_Part_264_30301378.1106167955403
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
->On Wed, 2005-01-19 at 00:09, Patrick McHardy wrote:
->  
->
->>This means we must convert all paths on which tcf_action_exec is called
->>to use struct sk_buff ** :(
->>    
->>
+On Tue, 18 Jan 2005 11:21:39 +0100, Lennert Buytenhek
+<buytenh@wantstofly.org> wrote:
+> On Tue, Jan 18, 2005 at 11:13:58AM +0100, Lennert Buytenhek wrote:
 > 
->
->No, just restore the code that you took out in one of your patches
->right above that line which reads:
->
->----
->        if (skb_cloned(skb)) {
->                if (pskb_expand_head(skb, 0, 0, GFP_ATOMIC)) {
->                        return -1;
->                }
->        }
->----
->
->Depending on what you do in netfilter lately, you may wanna take out
->the skb_cloned() call.
->  
->
+> > I can make one of my machines, which has an on-board sis900 NIC, lose
+> > network connectivity within seconds by doing something like
+> > "nc -l -p 6666 > /dev/null" and then blasting some data towards it.  When
+> > this happens, syslog fills up with these messages:
+> >
+> >       eth0: NULL pointer encountered in Rx ring, skipping
+> 
+> Just before it starts spewing these it says:
+> 
+>         eth0: Memory squeeze,deferring packet.
+> 
+> So apparently it just doesn't deal with OOM very well.
 
-This does not help. Netfilter calls skb_ip_make_writable if it has to
-touch the packet, if it is shared or cloned the packet will be copied.
-Despite this, this is hardly a fix as long as the ->act function takes
-a struct sk_buff **.
+There are dev_alloc_skb()'s failing due to memory shortage. I think
+anyhow that the sis9000 driver doesnt handle "memory squeeze"
+situations right. Why not throwing current rx packet away and reuse
+ring entry instead of leaving holes (null skb's) in the ring. I would
+suggest a patch to the sis900 driver around that attached.
 
-Regards
-Patrick
+Warning: patch compiling but untested - dont have hardware handy.  
+
+-- 
+Eric
+
+------=_Part_264_30301378.1106167955403
+Content-Type: application/octet-stream; name="sis900.patch"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="sis900.patch"
+
+PT09PT0gZHJpdmVycy9uZXQvc2lzOTAwLmMgMS41NiB2cyBlZGl0ZWQgPT09PT0KLS0tIDEuNTYv
+ZHJpdmVycy9uZXQvc2lzOTAwLmMJMjAwNC0wOC0yNSAwOToxNToyMCArMDI6MDAKKysrIGVkaXRl
+ZC9kcml2ZXJzL25ldC9zaXM5MDAuYwkyMDA1LTAxLTE5IDIxOjQ4OjI3ICswMTowMApAQCAtMTY1
+MCw3ICsxNjUwLDcgQEAKIAkJCS8qIHJlc2V0IGJ1ZmZlciBkZXNjcmlwdG9yIHN0YXRlICovCiAJ
+CQlzaXNfcHJpdi0+cnhfcmluZ1tlbnRyeV0uY21kc3RzID0gUlhfQlVGX1NJWkU7CiAJCX0gZWxz
+ZSB7Ci0JCQlzdHJ1Y3Qgc2tfYnVmZiAqIHNrYjsKKwkJCXN0cnVjdCBza19idWZmICogc2tiLCAq
+bmV3X3NrYjsKIAogCQkJLyogVGhpcyBzaXR1YXRpb24gc2hvdWxkIG5ldmVyIGhhcHBlbiwgYnV0
+IGR1ZSB0bwogCQkJICAgc29tZSB1bmtub3cgYnVncywgaXQgaXMgcG9zc2libGUgdGhhdApAQCAt
+MTY2MiwxMSArMTY2MiwzMCBAQAogCQkJCWJyZWFrOwogCQkJfQogCisJCQlza2IgPSBzaXNfcHJp
+di0+cnhfc2tidWZmW2VudHJ5XTsKKworCQkJaWYgKChuZXdfc2tiID0gZGV2X2FsbG9jX3NrYihS
+WF9CVUZfU0laRSkpID09IE5VTEwpIHsKKwkJCQlwcmludGsoS0VSTl9JTkZPICIlczogbWVtb3J5
+IHNob3J0YWdlLCByeCBwYWNrZXQgZHJvcHBlZFxuIiwKKwkJCQkJbmV0X2Rldi0+bmFtZSk7CisK
+KwkJCQlzaXNfcHJpdi0+cnhfcmluZ1tlbnRyeV0uY21kc3RzID0gUlhfQlVGX1NJWkU7CisJCQkJ
+c2lzX3ByaXYtPnN0YXRzLnJ4X2Ryb3BwZWQrKzsKKwkJCQlzaXNfcHJpdi0+ZGlydHlfcngrKzsg
+LyogZGlydHkgbm8gbG9uZ2VyIG5lZWRlZD8gKi8KKwkJCQlicmVhazsgLyogbmV4dCAqLworCQkJ
+fQorCiAJCQlwY2lfdW5tYXBfc2luZ2xlKHNpc19wcml2LT5wY2lfZGV2LCAKIAkJCQlzaXNfcHJp
+di0+cnhfcmluZ1tlbnRyeV0uYnVmcHRyLCBSWF9CVUZfU0laRSwgCiAJCQkJUENJX0RNQV9GUk9N
+REVWSUNFKTsKKworCQkJbmV3X3NrYi0+ZGV2ID0gbmV0X2RldjsKKwkJCXNpc19wcml2LT5yeF9z
+a2J1ZmZbZW50cnldID0gbmV3X3NrYjsKKwkJCXNpc19wcml2LT5yeF9yaW5nW2VudHJ5XS5jbWRz
+dHMgPSBSWF9CVUZfU0laRTsKKyAgICAgICAgICAgICAgICAJc2lzX3ByaXYtPnJ4X3JpbmdbZW50
+cnldLmJ1ZnB0ciA9IAorCQkJCXBjaV9tYXBfc2luZ2xlKHNpc19wcml2LT5wY2lfZGV2LCBuZXdf
+c2tiLT50YWlsLCAKKwkJCQkJUlhfQlVGX1NJWkUsIFBDSV9ETUFfRlJPTURFVklDRSk7CisKIAkJ
+CS8qIGdpdmUgdGhlIHNvY2tldCBidWZmZXIgdG8gdXBwZXIgbGF5ZXJzICovCi0JCQlza2IgPSBz
+aXNfcHJpdi0+cnhfc2tidWZmW2VudHJ5XTsKIAkJCXNrYl9wdXQoc2tiLCByeF9zaXplKTsKIAkJ
+CXNrYi0+cHJvdG9jb2wgPSBldGhfdHlwZV90cmFucyhza2IsIG5ldF9kZXYpOwogCQkJbmV0aWZf
+cngoc2tiKTsKQEAgLTE2NzgsMjkgKzE2OTcsNiBAQAogCQkJc2lzX3ByaXYtPnN0YXRzLnJ4X2J5
+dGVzICs9IHJ4X3NpemU7CiAJCQlzaXNfcHJpdi0+c3RhdHMucnhfcGFja2V0cysrOwogCi0JCQkv
+KiByZWZpbGwgdGhlIFJ4IGJ1ZmZlciwgd2hhdCBpZiB0aGVyZSBpcyBub3QgZW5vdWdodCBtZW1v
+cnkgZm9yCi0JCQkgICBuZXcgc29ja2V0IGJ1ZmZlciA/PyAqLwotCQkJaWYgKChza2IgPSBkZXZf
+YWxsb2Nfc2tiKFJYX0JVRl9TSVpFKSkgPT0gTlVMTCkgewotCQkJCS8qIG5vdCBlbm91Z2ggbWVt
+b3J5IGZvciBza2J1ZmYsIHRoaXMgbWFrZXMgYSAiaG9sZSIKLQkJCQkgICBvbiB0aGUgYnVmZmVy
+IHJpbmcsIGl0IGlzIG5vdCBjbGVhciBob3cgdGhlCi0JCQkJICAgaGFyZHdhcmUgd2lsbCByZWFj
+dCB0byB0aGlzIGtpbmQgb2YgZGVnZW5lcmF0ZWQKLQkJCQkgICBidWZmZXIgKi8KLQkJCQlwcmlu
+dGsoS0VSTl9JTkZPICIlczogTWVtb3J5IHNxdWVlemUsIgotCQkJCSAgICAgICAiZGVmZXJyaW5n
+IHBhY2tldC5cbiIsCi0JCQkJICAgICAgIG5ldF9kZXYtPm5hbWUpOwotCQkJCXNpc19wcml2LT5y
+eF9za2J1ZmZbZW50cnldID0gTlVMTDsKLQkJCQkvKiByZXNldCBidWZmZXIgZGVzY3JpcHRvciBz
+dGF0ZSAqLwotCQkJCXNpc19wcml2LT5yeF9yaW5nW2VudHJ5XS5jbWRzdHMgPSAwOwotCQkJCXNp
+c19wcml2LT5yeF9yaW5nW2VudHJ5XS5idWZwdHIgPSAwOwotCQkJCXNpc19wcml2LT5zdGF0cy5y
+eF9kcm9wcGVkKys7Ci0JCQkJYnJlYWs7Ci0JCQl9Ci0JCQlza2ItPmRldiA9IG5ldF9kZXY7Ci0J
+CQlzaXNfcHJpdi0+cnhfc2tidWZmW2VudHJ5XSA9IHNrYjsKLQkJCXNpc19wcml2LT5yeF9yaW5n
+W2VudHJ5XS5jbWRzdHMgPSBSWF9CVUZfU0laRTsKLSAgICAgICAgICAgICAgICAJc2lzX3ByaXYt
+PnJ4X3JpbmdbZW50cnldLmJ1ZnB0ciA9IAotCQkJCXBjaV9tYXBfc2luZ2xlKHNpc19wcml2LT5w
+Y2lfZGV2LCBza2ItPnRhaWwsIAotCQkJCQlSWF9CVUZfU0laRSwgUENJX0RNQV9GUk9NREVWSUNF
+KTsKIAkJCXNpc19wcml2LT5kaXJ0eV9yeCsrOwogCQl9CiAJCXNpc19wcml2LT5jdXJfcngrKzsK
+QEAgLTE3MDgsNiArMTcwNCw3IEBACiAJCXJ4X3N0YXR1cyA9IHNpc19wcml2LT5yeF9yaW5nW2Vu
+dHJ5XS5jbWRzdHM7CiAJfSAvLyB3aGlsZQogCisjaWYgMCAvKiBubyBuZWVkIHRvIHJlZmlsbCBz
+a2JzIGFyZSBhZGRlZCB0byB0aGUgcnggcmluZyBhcyBwYWNrZXRzIGFyZSByZWNlaXZlZCAqLwog
+CS8qIHJlZmlsbCB0aGUgUnggYnVmZmVyLCB3aGF0IGlmIHRoZSByYXRlIG9mIHJlZmlsbGluZyBp
+cyBzbG93ZXIgdGhhbiAKIAkgICBjb25zdW1pbmcgPz8gKi8KIAlmb3IgKDtzaXNfcHJpdi0+Y3Vy
+X3J4IC0gc2lzX3ByaXYtPmRpcnR5X3J4ID4gMDsgc2lzX3ByaXYtPmRpcnR5X3J4KyspIHsKQEAg
+LTE3MzUsNiArMTczMiw3IEBACiAJCQkJCVJYX0JVRl9TSVpFLCBQQ0lfRE1BX0ZST01ERVZJQ0Up
+OwogCQl9CiAJfQorI2VuZGlmCiAJLyogcmUtZW5hYmxlIHRoZSBwb3RlbnRpYWxseSBpZGxlIHJl
+Y2VpdmUgc3RhdGUgbWF0Y2hpbmUgKi8KIAlvdXRsKFJ4RU5BIHwgaW5sKGlvYWRkciArIGNyKSwg
+aW9hZGRyICsgY3IgKTsKIAo=
+------=_Part_264_30301378.1106167955403--
