@@ -1,37 +1,30 @@
-From: Mikael Pettersson <mikpe@csd.uu.se>
-Subject: [PATCH][2.4.27-pre4] tcp_input.c compile-time error
-Date: Sun, 30 May 2004 23:54:50 +0200 (MEST)
+From: mcgrof@studorgs.rutgers.edu (Luis R. Rodriguez)
+Subject: Re: [PATCH 1/17 linux-2.6.7-rc2] prism54: delete cvs tags
+Date: Sun, 30 May 2004 17:55:08 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200405302154.i4ULso3l014496@harpo.it.uu.se>
-Cc: davem@redhat.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Message-ID: <20040530215508.GA25094@ruslug.rutgers.edu>
+References: <5.1.0.14.2.20040530212235.00aed870@pop.t-online.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: marcelo.tosatti@cyclades.com
+To: Margit Schubert-While <margitsw@t-online.de>
+Content-Disposition: inline
+In-Reply-To: <5.1.0.14.2.20040530212235.00aed870@pop.t-online.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-net/ipv4/tcp_input.c in 2.4.27-pre4 fails to compile:
+On Sun, May 30, 2004 at 10:04:21PM +0200, Margit Schubert-While wrote:
+> 2004-05-29 Margit Schubert-While <margitsw@t-online.de>
+> 
+> * Remove CVS tags from source
 
-tcp_input.c: In function `tcp_rcv_space_adjust':
-tcp_input.c:479: error: structure has no member named `sk_rcvbuf'
-tcp_input.c:480: error: structure has no member named `sk_rcvbuf'
-make[3]: *** [tcp_input.o] Error 1
+I believe what Jeff wanted was for all the patches to have these already
+removed, not to remove them from the kernel tree, specifically.
 
-The patch below appears to fix this problem, although some netdev
-person should probably check it.
+Oh well, let's hope these get accepted, if not I'll fix 'm up.
 
-/Mikael
+	Luis
 
-diff -ruN linux-2.4.27-pre4/net/ipv4/tcp_input.c linux-2.4.27-pre4.tcp_input-fix/net/ipv4/tcp_input.c
---- linux-2.4.27-pre4/net/ipv4/tcp_input.c	2004-05-30 23:18:16.000000000 +0200
-+++ linux-2.4.27-pre4.tcp_input-fix/net/ipv4/tcp_input.c	2004-05-30 23:45:52.000000000 +0200
-@@ -476,8 +476,8 @@
- 				  16 + sizeof(struct sk_buff));
- 			space *= rcvmem;
- 			space = min(space, sysctl_tcp_rmem[2]);
--			if (space > sk->sk_rcvbuf)
--				sk->sk_rcvbuf = space;
-+			if (space > sk->rcvbuf)
-+				sk->rcvbuf = space;
- 		}
- 	}
- 	
+-- 
+GnuPG Key fingerprint = 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
