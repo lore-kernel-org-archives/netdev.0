@@ -1,90 +1,62 @@
-From: James Ketrenos <jketreno@linux.intel.com>
-Subject: Re: Steps for netdev-2.6 inclusion?
-Date: Thu, 02 Dec 2004 14:11:52 -0600
-Message-ID: <41AF7708.3030804@linux.intel.com>
-References: <41AE7143.80505@linux.intel.com> <41AEB3B8.2000406@pobox.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] tcp: efficient port randomisation (revised)
+Date: Thu, 2 Dec 2004 13:49:30 -0800
+Message-ID: <20041202134930.132d7bd8@dxpl.pdx.osdl.net>
+References: <20041027092531.78fe438c@guest-251-240.pdx.osdl.net>
+	<200411020854.44745.michael.vittrup.larsen@ericsson.com>
+	<20041104100104.570e67cd@dxpl.pdx.osdl.net>
+	<200411051103.59032.michael.vittrup.larsen@ericsson.com>
+	<20041117153025.160eaa04@zqx3.pdx.osdl.net>
+	<20041130214643.7b72300e.davem@davemloft.net>
+	<20041201152446.3a0d5ce3@dxpl.pdx.osdl.net>
+	<20041201204622.7b760400.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@oss.sgi.com>
+Cc: michael.vittrup.larsen@ericsson.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <41AEB3B8.2000406@pobox.com>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20041201204622.7b760400.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
+On Wed, 1 Dec 2004 20:46:22 -0800
+"David S. Miller" <davem@davemloft.net> wrote:
 
-> It's fairly easy, just email me and netdev the patch for inclusion, 
-> and it'll get reviewed.
 
-Should I break the patch into the three components (ipw2100, ipw2200, 
-and ieee80211) ? or just one huge patch?  Not sure what you and others 
-would prefer.
+> I'm more interested in simply things like "lat_connect"
+> from lmbench run over loopback.
 
-> Once review issues are addressed, I'll merge it immediately, which 
-> causes it to be automatically propagated to Andrew Morton's -mm tree 
-> for testing.
->
-> Once consensus agrees that we can push this + HostAP upstream, that's 
-> an easy 10-minute task.
->
-> One potential showstopper is firmware crapola:  I'm concerned about a 
-> situation where we have drivers in the kernel, but the firmware must 
-> be downloaded from SourceForge or somesuch.
+Oh, that was easy using OSDL PLM/STP which gives an easy way to run
+local tests.  
 
-The firmware doesn't have to be downloaded from Sourceforge, but it does 
-need to exist on the system, just as iwconfig needs to exist if you want 
-to be able to configure your wireless card.  The user can get the 
-firmware from Sourceforge, or have it installed by their distribution or 
-package management system, have it on their Knoppix CD, etc. 
+Baseline...
+[STP 299123] lmbench_long results  Kernel: patch-2.6.10-rc2 PLM # 3869
+*Local* Communication latencies in microseconds - smaller is better
+-------------------------------------------------------------------
+Host                 OS 2p/0K  Pipe AF     UDP  RPC/   TCP  RPC/ TCP
+                        ctxsw       UNIX         UDP         TCP conn
+--------- ------------- ----- ----- ---- ----- ----- ----- ----- ----
+stp2-001  Linux 2.6.10- 8.270  38.6 24.3  61.6  48.5  45.9  76.6 74.6
+stp2-001  Linux 2.6.10- 8.170  43.5 24.5  58.0  54.8  45.6  63.4 74.7
+stp2-001  Linux 2.6.10- 2.740  50.6 29.9  40.3  48.3  59.8  75.1 101.
+stp2-001  Linux 2.6.10- 8.140  46.6 29.7  57.6  48.8  45.5  72.0 74.4
+stp2-001  Linux 2.6.10- 2.690  47.1 26.3  40.8  48.9  45.5  75.4 74.8
+-----------------
+Patched...
+[STP 299118] lmbench_long results  Kernel: tcp-port-randomization-2 PLM # 3907
+*Local* Communication latencies in microseconds - smaller is better
+-------------------------------------------------------------------
+Host                 OS 2p/0K  Pipe AF     UDP  RPC/   TCP  RPC/ TCP
+                        ctxsw       UNIX         UDP         TCP conn
+--------- ------------- ----- ----- ---- ----- ----- ----- ----- ----
+stp2-001  Linux 2.6.10- 2.770  46.3 25.0  64.4  49.5  44.3  75.2 75.6
+stp2-001  Linux 2.6.10- 2.780  44.1 21.2  63.5  55.6  45.3  63.5 75.2
+stp2-001  Linux 2.6.10- 2.790  47.5 24.8  40.4  48.5  45.5  63.7 76.9
+stp2-001  Linux 2.6.10- 8.330  47.5 24.8  40.7  55.6  44.6  63.8 75.1
+stp2-001  Linux 2.6.10- 8.150  47.9 25.7  41.2  49.6  45.2  72.7 75.1
 
-Loading the driver without the firmware (or hotplug being enabled) won't 
-take down the machine -- it will just print a kernel log message saying 
-the firmware can't be found.
 
-For some common questions and answers on the redistribution of the 
-license, see http://intel.com/support/wireless/wlan/sb/cs-016675.htm
-
-Regarding the topic of loading firmware from disk... the firmware_class 
-subsystem was designed for this purpose.
-
- From linux/Documentation/firmware_class/README:
-
-------------------
- Why:
- ---
-
- Today, the most extended way to use firmware in the Linux kernel is linking
- it statically in a header file. Which has political and technical issues:
-
-  1) Some firmware is not legal to redistribute.
-  2) The firmware occupies memory permanently, even though it often is just
-     used once.
-  3) Some people, like the Debian crowd, don't consider some firmware free
-     enough and remove entire drivers (e.g.: keyspan).
--------------------
-
-Point one is partially applicable -- redistribution of the ipw firmware 
-*is* legal, but due to the terms of the GPL, inclusion in the kernel is 
-not possible (the firmware can't be licensed GPL, and so static 
-inclusion in the driver as a header binary is impossible.)  So, the 
-firmware must be loaded onto the NIC from some other storage medium.
-
-The second point from the firmware_class's README is also valid 
-(although the current state of suspend/resume necessitates a 
-pre-allocated memory buffer in the driver.  Once that issue is remedied, 
-the host will be able to free up a reasonable amount of memory that is 
-otherwise unnecessary.)
-
-> IOW, the kernel driver as-is is useless without a differently-licensed 
-> firmware.
-
-Wireless (and many other kernel components) are arguably useless without 
-user space utilities that must be downloaded, built, and installed.  So 
-the issue of having to download something, or have some other 
-pre-requisite met before the driver is useful/functional is not unique 
-to this driver.
-
-James
+These are run on a relatively slow machine (2 way Pentium III 850Mhz)
+and it looks like the results are no change (in the noise).
