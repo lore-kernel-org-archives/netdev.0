@@ -1,44 +1,48 @@
-From: Fernando Gont <fernando@gont.com.ar>
-Subject: ICMP attacks against TCP
-Date: Sun, 12 Sep 2004 22:40:04 -0300
+From: Andrew Grover <andy.grover@gmail.com>
+Subject: Re: [PATCH] NETIF_F_LLTX for devices 2
+Date: Sun, 12 Sep 2004 19:52:43 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4.3.2.7.2.20040912223315.00df2890@mail.daleclick.com>
+Message-ID: <c0a09e5c04091219526fa6b9dc@mail.gmail.com>
+References: <E1C4wYe-0005qT-00@gondolin.me.apana.org.au>
+	 <20040908134713.1bcd46d3.davem@davemloft.net>
+	 <1094823215.1121.129.camel@jzny.localdomain>
+	 <20040911142116.GL4431@wotan.suse.de>
+	 <1094933731.2343.109.camel@jzny.localdomain>
+	 <20040911174535.2acbb957.davem@davemloft.net>
+	 <20040912100114.GB11484@havoc.gtf.org>
+	 <20040912102529.GA27096@wotan.suse.de>
+	 <20040912161604.GA23366@havoc.gtf.org>
+	 <1095010469.2344.215.camel@jzny.localdomain>
+Reply-To: Andrew Grover <andy.grover@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; format=flowed
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>, Andi Kleen <ak@suse.de>,
+        "David S. Miller" <davem@davemloft.net>, herbert@gondor.apana.org.au,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: hadi@cyberus.ca
+In-Reply-To: <1095010469.2344.215.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Folks,
+On 12 Sep 2004 13:34:30 -0400, jamal <hadi@cyberus.ca> wrote:
+> On Sun, 2004-09-12 at 12:16, Jeff Garzik wrote:
+> > Thanks, but still need a patch for return value constants, otherwise you
+> > are compounding rather than addressing a current problem.
+> 
+> Something along the lines of attached patch?
+> Francois needs to update the doc and you need someone to get the
+> janitors enthusiastic (i just updated e1000)
 
-I'm the author of an IETF Internet Draft that discusses the use of ICMP to 
-perform a number of attacks against TCP and other similar protocols. The 
-draft can be found at: 
-http://www.ietf.org/internet-drafts/draft-gont-tcpm-icmp-attacks-01.txt
++#define NETDEV_TX_OK 0		/* driver took care of packet */
++#define NETDEV_TX_BUSY 1	/* driver tx path was busy*/
++#define NETDEV_TX_LOCKED -1	/* driver tx lock was already taken */
 
-The draft proposes some work-arounds that eliminate or minimize the impact 
-of these attacks.
+Why is TX_LOCKED -1 instead of, say, 2?
 
-For example, one of the proposed work-arounds is to check the TCP sequence 
-number that is included in the payload of ICMP error messages. While this 
-check has been implemented in a number of TCP/IP stack implementations 
-(including Linux), it has never been officially documented.
+(The actual values are now irrelevant, right? Non sequential consts
+makes one think their value is still important in some way. Maybe it's
+just me.)
 
-There are some other work-arounds (for example, ignoring ICMP Source Quench 
-messages) are not implemented in Linux, though.
-
-I'd appreciate any comments on the draft. Both for those work-arounds 
-implemented by Linux, and for those that aren't. Thus, I'd be able to 
-address your comments in the next revision of the draft, and will also 
-sum-up your feedback and post it to the relevant IETF mailing list (that of 
-the TCPM WG mailing-list).
-In case there's consensus that the proposed fixes are the right way to go, 
-it will probably help to move the draft forward, and thus maybe the 
-proposed work-arounds will be adopted by other TCP/IP stack implementations.
-
-Thanks!
-
---
-Fernando Gont
-e-mail: fernando@gont.com.ar || fgont@acm.org
+-- Andy
