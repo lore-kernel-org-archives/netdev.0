@@ -1,40 +1,39 @@
-From: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
-Subject: Re: Kernel 2.6 IPV6 Busted
-Date: Tue, 1 Mar 2005 12:07:33 +0200
-Message-ID: <200503011207.34029.vda@port.imtp.ilyichevsk.odessa.ua>
-References: <200502270928.44402.Info@Quantum-Sci.com> <200502271410.39611.Info@quantum-sci.com> <20050227133517.578884df.davem@davemloft.net>
+From: Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>
+Subject: Re: Understanding the reason for placing a tcp_sock on stack in tcp network functions
+Date: Tue, 1 Mar 2005 07:13:48 -0300
+Message-ID: <39e6f6c70503010213214101a@mail.gmail.com>
+References: <1109638277.9693.15.camel@base.torri.org>
+Reply-To: acme@conectiva.com.br
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="koi8-r"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-To: "David S. Miller" <davem@davemloft.net>,
-        Quantum Scientific <Info@quantum-sci.com>
-In-Reply-To: <20050227133517.578884df.davem@davemloft.net>
-Content-Disposition: inline
+Cc: netdev <netdev@oss.sgi.com>
+To: Stephen Torri <storri@torri.org>
+In-Reply-To: <1109638277.9693.15.camel@base.torri.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sunday 27 February 2005 23:35, David S. Miller wrote:
-> On Sun, 27 Feb 2005 14:10:39 -0600
-> Quantum Scientific <Info@quantum-sci.com> wrote:
-> 
-> > I am skeptical about this assertion that the whole internet needs to be hashed 
-> > if connection tracking.
-> 
-> Connection tracking and NAT broke entirely the end-to-end host
-> assumption that used to be valid on the internet.
-> 
-> There are many very important optimizations we've had to disable
-> by default just in TCP alone because of NAT.
+This is not the case for at least some of these functions:
 
-I don't think future Internet will be safe enough to open
-corporate networks. I definitely won't do it.
-NAT firewall in front of my net is an absolute requirement
-for me.
+ChangeSet@1.2035.2.55, 2005-02-22 10:48:28-08:00, acme@conectiva.com.br
+  [TCP]: Fix excessive stack usage resulting in OOPS with 4KSTACKS.
 
-However, IPv6 in Internet won't happen tomorrow,
-no rush...
---
-vda
+  Various routines were putting a full struct tcp_sock on
+  the local stack.  What they really wanted was a subset
+  of this information when doing TCP options processing
+  when we only have a mini-socket (for example in SYN-RECVD
+  and TIME_WAIT states).
+
+  Therefore pull out the needed information into a sub-struct
+  and use that in the TCP options processing routines.
+
+  Signed-off-by: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+  Signed-off-by: David S. Miller <davem@davemloft.net>
+
+
+On Mon, 28 Feb 2005 19:51:17 -0500, Stephen Torri <storri@torri.org> wrote:
+> I am trying to help out reducing the stack size of functions in the
+> kernel. The function names and values below, with comments and
+> questions, was obtained of the linux-2.6 kernel kept at bkbits.net when
+> I did 'make checkstack'.
