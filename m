@@ -1,78 +1,41 @@
-From: Srivatsa Vaddagiri <vatsa@in.ibm.com>
-Subject: Re: [RFC] Use RCU for tcp_ehash lookup
-Date: Thu, 2 Sep 2004 19:34:44 +0530
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040902140444.GA4808@in.ibm.com>
-References: <20040831125941.GA5534@in.ibm.com> <20040901224108.3b2d692d.davem@redhat.com>
-Reply-To: vatsa@in.ibm.com
+From: maximilian attems <janitor@sternwelten.at>
+Subject: [patch] prism54 remove unused macro
+Date: Fri, 3 Sep 2004 08:46:51 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040903064651.GB1856@stro.at>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
-	dipankar@in.ibm.com, paulmck@us.ibm.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S268998AbUICEEz@vger.kernel.org>
-To: "David S. Miller" <davem@redhat.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com, jgarzik@pobox.com
 Content-Disposition: inline
-In-Reply-To: <20040901224108.3b2d692d.davem@redhat.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 01, 2004 at 10:41:08PM -0700, David S. Miller wrote:
-> The reason you don't see any improvement is that the ehash table is
-> pretty write heavy.
+the TRACE macro was noticed because of it's string concatenation.
+this patch removes it as it's unused.
 
-In my simple one-file-transfer-test-at-a-time, it should have been read-mostly.
-Probably the fact lookups are not serialized wrt input pakcet processing
-may have shadowed the benefits of lock-free lookup. However perhaps
-if I have multiple file transfer sessions in progress (one per cpu maybe),
-then the benefit of reduced time spent in looking up a socket, could be passed 
-on to threads doing network input.
+Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
 
-> I'm not totally against your patch, I just don't think that the TCP established
-> hash table qualifies as "read heavy" as per what RCU is truly effective for.
 
-IMHO the benefits of lock-free will be seen only in such scenarios, i.e where
-read_lock ended up having to spin-wait on a update to finish. In the lock-free 
-case, there is no such wait.
+--- linux-2.6.9-rc1-bk7-orig/drivers/net/wireless/prism54/islpci_mgt.h	2004-08-14 12:54:51.000000000 +0200
++++ linux-2.6.9-rc1-bk7/drivers/net/wireless/prism54/islpci_mgt.h	2004-09-03 08:35:30.000000000 +0200
+@@ -31,8 +31,6 @@
+ #define K_DEBUG(f, m, args...) do { if(f & m) printk(KERN_DEBUG args); } while(0)
+ #define DEBUG(f, args...) K_DEBUG(f, pc_debug, args)
  
-> That's exactly what I was concerned about when I saw that you had attempted
-> this change.  It is incredibly important for state changes and updates to
-> be seen as atomic by the packet input processing engine.  It would be illegal
-> for a cpu running TCP input to see a socket in two tables at the same time
-> (for example, in the main established area and in the second half for TIME_WAIT
-> buckets).
-> 
-> If the visibility of the socket is wrong, sockets could be erroneously
-> be reset during the transition from established to TIME_WAIT state.
-> Beware!
-
-This is precisely the reason why I changed the order of movement in
-__tcp_tw_hashdance. Earlier, it was removing the socket from the
-established half and _then_ adding it to time-wait half. This would
-have lead to a window where the socket is neither in established-half
-not in the time-wait half. A packet arriving in this window (& doing
-lock-free lookup) would have been dropped.
-
-Hence I reversed the order of movement to add in time-wait first
-before removing from established half.
-
-
-
-
-> >   Note that __tcp_v4_lookup_established should not be affected by the above
-> >   movement because I found it scans the established half first and _then_ the
-> >   time wait half. So even if the same socket is present in both established half
-> >   and time wait half, __tcp_v4_lookup_established will lookup only one of them
-> >   (& not both).
-> 
-> I hope this is true.
-
-AFAICS it is true! If __tcp_v4_lookup_established finds it in the established
-half, it does no further lookup in the time-wait half.
-
--- 
-
-
-Thanks and Regards,
-Srivatsa Vaddagiri,
-Linux Technology Center,
-IBM Software Labs,
-Bangalore, INDIA - 560017
+-#define TRACE(devname)   K_DEBUG(SHOW_TRACING, VERBOSE, "%s:  -> " __FUNCTION__ "()\n", devname)
+-
+ extern int pc_debug;
+ #define init_wds 0	/* help compiler optimize away dead code */
+ 
+--- linux-2.6.9-rc1-bk7-orig/drivers/net/wireless/prism54/islpci_hotplug.c	2004-08-14 12:55:32.000000000 +0200
++++ linux-2.6.9-rc1-bk7/drivers/net/wireless/prism54/islpci_hotplug.c	2004-09-03 08:35:45.000000000 +0200
+@@ -107,8 +107,6 @@ prism54_probe(struct pci_dev *pdev, cons
+ 	islpci_private *priv;
+ 	int rvalue;
+ 
+-	/* TRACE(DRV_NAME); */
+-	
+ 	
+ 	/* Enable the pci device */
+ 	if (pci_enable_device(pdev)) {
