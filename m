@@ -1,62 +1,55 @@
-From: Stephan von Krawczynski <skraw@ithnet.com>
-Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
-Date: Wed, 20 Aug 2003 17:55:04 +0200
+From: Shmulik Hen <shmulik.hen@intel.com>
+Subject: [patch][bonding] fix kernel panic when removing the primary slave
+Date: Wed, 20 Aug 2003 19:11:27 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030820175504.07658147.skraw@ithnet.com>
-References: <353568DCBAE06148B70767C1B1A93E625EAB58@post.pc.aspectgroup.co.uk>
-	<20030819145403.GA3407@alpha.home.local>
-	<20030819170751.2b92ba2e.skraw@ithnet.com>
-	<20030819085717.56046afd.davem@redhat.com>
-	<20030819185219.116fd259.skraw@ithnet.com>
-	<3F43891E.9060204@zurich.ibm.com>
+Message-ID: <200308201911.27902.shmulik.hen@intel.com>
+References: <200308201733.31144.shmulik.hen@intel.com>
+Reply-To: shmulik.hen@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bloemsaa@xs4all.nl, davem@redhat.com, alan@lxorguk.ukuu.org.uk,
-   willy@w.ods.org, richard@aspectgroup.co.uk, carlosev@newipnet.com,
-   lamont@scriptkiddie.org, davidsen@tmr.com, marcelo@conectiva.com.br,
-   netdev@oss.sgi.com, linux-net@vger.kernel.org, layes@loran.com,
-   torvalds@osdl.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Roman Pletka <rap@zurich.ibm.com>
-In-Reply-To: <3F43891E.9060204@zurich.ibm.com>
+To: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
+In-Reply-To: <200308201733.31144.shmulik.hen@intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 20 Aug 2003 16:43:42 +0200
-Roman Pletka <rap@zurich.ibm.com> wrote:
+When releasing the primary slave, there is a kernel panic because
+the bond->primary_slave is not set to NULL until after calling
+change_active_interface(), even though the slave was already
+detached from the slave list.
 
-> Stephan von Krawczynski wrote:
-> > <qoute RFC 1122>
-> >       2.3.2  Address Resolution Protocol -- ARP
-> > 
-> >          2.3.2.1  ARP Cache Validation
-> > 
-> >             An implementation of the Address Resolution Protocol (ARP)
-> >             [LINK:2] MUST provide a mechanism to flush out-of-date cache
-> >             entries.  If this mechanism involves a timeout, it SHOULD be
-> >             possible to configure the timeout value.
-> > 
-> > ...
-> > 
-> > [LINK:2] "An Ethernet Address Resolution Protocol," D. Plummer, RFC-826,
-> >      November 1982.
-> > 
-> > </quote>
-> > 
-> 
-> Please read carefully what you have quoted:
-> It says: *An* implementation... and then goes on with a citation of RFC 826.
-> A simple citation does not make a valid standard yet. It just refers to it
-> as an example for this specific issue. That's all.
+Patch is against 2.4.22-rc2.
 
-Sorry, but my reading is this "An implementation of the ( Address Resolution
-Protocol (ARP) [LINK:2] ) ..."
-Do you understand what I mean?
+-- 
+| Shmulik Hen   Advanced Network Services  |
+| Israel Design Center, Jerusalem          |
+| LAN Access Division, Platform Networking |
+| Intel Communications Group, Intel corp.  |
 
-If you insist on RFC-826 being only one of several (possible) ARP
-implementations, can you then please name an RFC where ARP as a protocol is
-clearly defined? I mean there must be one, or not?
-
-Regards,
-Stephan
+diff -Nuarp a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+--- a/drivers/net/bonding/bond_main.c	2003-08-20 17:17:57.000000000 +0300
++++ b/drivers/net/bonding/bond_main.c	2003-08-20 17:19:11.000000000 +0300
+@@ -1976,6 +1976,10 @@ static int bond_release(struct net_devic
+ 			/* release the slave from its bond */
+ 			bond_detach_slave(bond, our_slave);
+ 
++			if (bond->primary_slave == our_slave) {
++				bond->primary_slave = NULL;
++			}
++
+ 			printk (KERN_INFO "%s: releasing %s interface %s",
+ 				master->name,
+ 				(our_slave->state == BOND_STATE_ACTIVE) ? "active" : "backup",
+@@ -1994,10 +1998,6 @@ static int bond_release(struct net_devic
+ 					master->name);
+ 			}
+ 
+-			if (bond->primary_slave == our_slave) {
+-				bond->primary_slave = NULL;
+-			}
+-
+ 			if ((bond_mode == BOND_MODE_TLB) ||
+ 			    (bond_mode == BOND_MODE_ALB)) {
+ 				/* must be called only after the slave has been
