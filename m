@@ -1,143 +1,1252 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [Ipsec-tools-devel] Re: IPSEC: on behavior of acquire
-Date: 04 Apr 2005 08:33:27 -0400
-Message-ID: <1112618007.1096.465.camel@jzny.localdomain>
-References: <1112405303.1096.37.camel@jzny.localdomain>
-	 <424E454D.4090402@gmc.lt> <1112477326.1088.321.camel@jzny.localdomain>
-	 <424FA946.70809@gmc.lt> <1112538566.1096.391.camel@jzny.localdomain>
-	 <425067D9.9050603@gmc.lt>
+Subject: Re: take 2-2  WAS(Re: PATCH: IPSEC xfrm events
+Date: 04 Apr 2005 08:51:37 -0400
+Message-ID: <1112619096.1088.473.camel@jzny.localdomain>
+References: <1112358278.1096.160.camel@jzny.localdomain>
+	 <20050401123554.GA3468@gondor.apana.org.au>
+	 <1112403845.1088.14.camel@jzny.localdomain>
+	 <20050402012813.GA24575@gondor.apana.org.au>
+	 <1112406164.1088.54.camel@jzny.localdomain>
+	 <20050402014619.GB24861@gondor.apana.org.au>
+	 <1112469601.1088.173.camel@jzny.localdomain>
+	 <1112538718.1096.394.camel@jzny.localdomain>
+	 <20050404005805.GA16543@gondor.apana.org.au>
+	 <1112614706.1096.439.camel@jzny.localdomain>
+	 <20050404121641.GA12103@gondor.apana.org.au>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: ipsec-tools-devel@lists.sourceforge.net, netdev <netdev@oss.sgi.com>,
-        nakam@linux-ipv6.org
+Content-Type: multipart/mixed; boundary="=-Fpr/1RgxOBG3EaxqfHd0"
+Cc: Patrick McHardy <kaber@trash.net>,
+        Masahide NAKAMURA <nakam@linux-ipv6.org>,
+        "David S. Miller" <davem@davemloft.net>, netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Aidas Kasparas <a.kasparas@gmc.lt>
-In-Reply-To: <425067D9.9050603@gmc.lt>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050404121641.GA12103@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2005-04-03 at 18:02, Aidas Kasparas wrote:
-> jamal wrote:
+
+--=-Fpr/1RgxOBG3EaxqfHd0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+
+Herbert,
+
+On Mon, 2005-04-04 at 08:16, Herbert Xu wrote:
+> Hi Jamal:
+> 
+> On Mon, Apr 04, 2005 at 07:38:26AM -0400, jamal wrote:
+> > Ok, heres an update.
+
+> > +void km_policy_notify(struct xfrm_policy *xp, int dir, struct km_event *c);
+> > +void km_state_notify(struct xfrm_state *x, struct km_event *c);
+> 
+> No need for these prototypes since they're already in xfrm.h.
+
+Good catch.
+
+>  
+> > @@ -764,37 +778,60 @@
+> >  }
+> >  EXPORT_SYMBOL(xfrm_replay_advance);
+> >  
+> > -static struct list_head xfrm_km_list = LIST_HEAD_INIT(xfrm_km_list);
+> > -static DEFINE_RWLOCK(xfrm_km_lock);
+> 
+> How about letting these guys stay where they are? The move was
+> necessary before because the km_*_notify functions had to be called
+> in this file but that's no longer the case.
+> 
+
+Changed 
+- dont see what the harm was as they were in that patch though.
+
 [..]
-> > As an example, if the first pfkey user was just doing "setkey -x" and
-> > the second was infact pluto, then pluto will never see the 
-> > acquire. This is what got me looking at it to begin with. Look at the
-> > earlier postings on the subject.
+> Sorry, you need to hold x before the call to
+> xfrm_state_add/xfrm_state_update as otherwise
+> they can cause x to be freed.
 > 
-> While I agree that code before your patch would not allow to cooperate 
-> tools using different ways to manage SAD/SPD (pfkey vs netlink), I have 
-> one setup in production where two instances of racoon runs 
-> simultaneously and both gets required pfkey-messages.
+> In general hold/put is only useful if
 > 
-
-yes, multiple instances of the same socket type would work. Try running 
-"ip xfrm mon" and your two racoon instances and see what happens;->
-Anyways this will be fixed in upcoming kernels.
-
-> > So in other words, just killing the ike server as you propose would mean
-> > the kernel has no open sockets and will therefore never bother to send
-> > an acquire.
+> 1) When you call hold you already have a reference to the object.
+> 2) In between the hold/put you may free the object.
 > 
-> I proposed to stop KE server, not to kill it.
+[..]
+> Same problem as xfrm_user.  We need the hold to occur before the
+> add/update for it to be effective.  In fact the original code was
+> buggy too since it didn't hold a reference at all.
+> 
+> Of course this is very unlikely to crash since it requires a
+> small life time and some bad luck in getting preempted.
 > 
 
-The goal is: An acquire that the kernel thinks it sent successfuly in
-order to update a SA larval state never made it. 
-To simulate this, it doesnt matter whether it happened in kernel-user
-space boundary or afterwards.
-The simple observation to make is: the kernel thinks the desired
-objective has been reached when it was not and from the little
-investigation conclude the kernel did not try to reliably deliver the
-message. 
-> > 
-> > Still all this is moot and is distracting us from the main discussion.
-> > Lets define "lost"  simply as the case where an acquire never got to the
-> > server (which may be sitting elsewhere on the network). 
-> 
-> ACQUIREs _never_ _leaves_ _the box_ they are generated. It is allways 
-> kernel-to-userspace_process communication. It could be made reliable. 
-> And present situation IS sufficiently reliable.
-> 
-
-I think i have made a bad case of explaining.
-Yes, I know where acquires terminate. However this is not about where
-acquires terminate. It is insufficient to assume that a succesful
-acquire to user space equates to successful interaction to the KE server
-which will do an update.
-Does that make more sense?
-
-If you issue an acquire from the kernel it will result in a domino
-effect in the blocks to the right of xfrm in your diagram and the end
-result is the larval SA gets an update (as a result of the acquire).
-So ignore where/how the acquire gets there and imagine that kernel sent
-an acquire so you could get an SA update then it will become clear.
-
-> OK, let's talk about architecture xfrm <-> blackbox. In this 
-> architecture communication between these two elements (I do not speak 
-> about any comms in the blackbox) can be of two types:
-> 1) reliable (messages always reach blackbox or error is reported);
-> 2) unreliable (messages may fail even to reach blackbox).
-> 
-> With good blackboxes good ipsec system can be built using any of comm 
-> types. But:
-> a) (1) will be more reliable;
-> b) (1) will be more simple (at least xfrm side, as it will not require 
-> retransmisions);
-> c) (1) is implemented now (as a function call).
-> 
-> What I want to say is xfrm-to-blackbox interface is good as it is. The 
-> problem may only be in how good the blackbox is. And here we have to 
-> look inside blackbox and start talk about particular implementations of 
-> that blackbox. Retransmitions, if they needed, needs to be inside that 
-> blackbox.
-> 
-
-I am not sure i followed what you are actually trying to say above.
-Lets discuss basics of how reliability is achieved. If you want to have
-something reliably delivered after you transmit
-you do several basic things:
-a) you wait for an end acknowledgement, in this case an update to the
-acquire 
-b) you timeout within reasonable time (30 seconds seems to be the
-default in acquire) and 
-c) you retransmit upto a maximum number of times. This is the part that
-is missing
-
-> > 
-> > The solution being proposed for Linux to treat that xfrm piece in the
-> > same fashion as ARP is correct. Read the email from Alexey. Imagine if
-> > ARP was only issued once(as does pfkey) or forever(as does netlink).
-> > 
-> 
-> I have read email from Alexey. I think that xfrm_lookup() function 
-> implements functionality very similar to functionality which Alexey 
-> described.
-
-Absolutely not. But this is a good sign - i.e you see the desire to do
-this, you just think its already there.
-
-> And I think that direct comparison of ARP messages and pfkey messages is 
-> not fair, because pfkey acquire messages goes over reliable traffic and 
-> are used only to _initiate_ the process of SA negotiation. ARP has to 
-> receive information from other boxes which send it only as a direct 
-> responce to some packet. More, ARP is designed to be used [amogst 
-> others] on networks which loose some traffic by design.
-> 
-
-Please refer to my above statements as to what is missing to complete
-the equation.
-
-> > I believe this is an issue with ipsec architecture itself - someone
-> > needs to write an IETF draft on it.
-> > 
-> 
-> I still do not see the topic for such draft.
-> 
-
-Read again what i said above.
+;-> Yes, indeed. I think its time for you to throw in the towel ;->
+There was really not even a need for that hold given the likelihood of
+anything like this happening. Anyways ive made this fix and heres the
+updated patch.
 
 cheers,
 jamal
+
+
+--=-Fpr/1RgxOBG3EaxqfHd0
+Content-Disposition: attachment; filename=ipsec-event-take2-3
+Content-Type: text/plain; name=ipsec-event-take2-3; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+
+--- a/include/net/xfrm.h	2005-03-25 22:28:26.000000000 -0500
++++ b/include/net/xfrm.h	2005-04-02 11:59:17.000000000 -0500
+@@ -157,6 +157,28 @@
+ 	XFRM_STATE_DEAD
+ };
+ 
++/* events that could be sent by kernel */
++enum {
++	XFRM_SAP_INVALID,
++	XFRM_SAP_EXPIRED,
++	XFRM_SAP_ADDED,
++	XFRM_SAP_UPDATED,
++	XFRM_SAP_DELETED,
++	XFRM_SAP_FLUSHED,
++	__XFRM_SAP_MAX
++};
++#define XFRM_SAP_MAX (__XFRM_SAP_MAX - 1)
++
++/* callback structure passed from either netlink or pfkey */
++struct km_event
++{
++	u32	data; 
++	u32	seq; 
++	u32	pid; 
++	u32	event; 
++};
++
++
+ struct xfrm_type;
+ struct xfrm_dst;
+ struct xfrm_policy_afinfo {
+@@ -178,6 +200,9 @@
+ 
+ extern int xfrm_policy_register_afinfo(struct xfrm_policy_afinfo *afinfo);
+ extern int xfrm_policy_unregister_afinfo(struct xfrm_policy_afinfo *afinfo);
++extern void km_policy_notify(struct xfrm_policy *xp, int dir, struct km_event *c);
++extern void km_state_notify(struct xfrm_state *x, struct km_event *c);
++
+ 
+ #define XFRM_ACQ_EXPIRES	30
+ 
+@@ -283,17 +308,17 @@
+ 	struct xfrm_tmpl       	xfrm_vec[XFRM_MAX_DEPTH];
+ };
+ 
+-#define XFRM_KM_TIMEOUT		30
+ 
++#define XFRM_KM_TIMEOUT		30
+ struct xfrm_mgr
+ {
+ 	struct list_head	list;
+ 	char			*id;
+-	int			(*notify)(struct xfrm_state *x, int event);
++	int			(*notify)(struct xfrm_state *x, struct km_event *c);
+ 	int			(*acquire)(struct xfrm_state *x, struct xfrm_tmpl *, struct xfrm_policy *xp, int dir);
+ 	struct xfrm_policy	*(*compile_policy)(u16 family, int opt, u8 *data, int len, int *dir);
+ 	int			(*new_mapping)(struct xfrm_state *x, xfrm_address_t *ipaddr, u16 sport);
+-	int			(*notify_policy)(struct xfrm_policy *x, int dir, int event);
++	int			(*notify_policy)(struct xfrm_policy *x, int dir, struct km_event *c);
+ };
+ 
+ extern int xfrm_register_km(struct xfrm_mgr *km);
+@@ -802,7 +827,7 @@
+ extern int xfrm_state_update(struct xfrm_state *x);
+ extern struct xfrm_state *xfrm_state_lookup(xfrm_address_t *daddr, u32 spi, u8 proto, unsigned short family);
+ extern struct xfrm_state *xfrm_find_acq_byseq(u32 seq);
+-extern void xfrm_state_delete(struct xfrm_state *x);
++extern int xfrm_state_delete(struct xfrm_state *x);
+ extern void xfrm_state_flush(u8 proto);
+ extern int xfrm_replay_check(struct xfrm_state *x, u32 seq);
+ extern void xfrm_replay_advance(struct xfrm_state *x, u32 seq);
+--- a/include/linux/xfrm.h	2005-03-25 22:28:39.000000000 -0500
++++ b/include/linux/xfrm.h	2005-04-02 09:53:03.000000000 -0500
+@@ -254,5 +254,7 @@
+ 
+ #define XFRMGRP_ACQUIRE		1
+ #define XFRMGRP_EXPIRE		2
++#define XFRMGRP_SA		4
++#define XFRMGRP_POLICY		8
+ 
+ #endif /* _LINUX_XFRM_H */
+--- a/net/xfrm/xfrm_state.c	2005-03-25 22:28:25.000000000 -0500
++++ b/net/xfrm/xfrm_state.c	2005-04-04 08:41:52.000000000 -0400
+@@ -48,7 +48,7 @@
+ static struct list_head xfrm_state_gc_list = LIST_HEAD_INIT(xfrm_state_gc_list);
+ static DEFINE_SPINLOCK(xfrm_state_gc_lock);
+ 
+-static void __xfrm_state_delete(struct xfrm_state *x);
++static int __xfrm_state_delete(struct xfrm_state *x);
+ 
+ static struct xfrm_state_afinfo *xfrm_state_get_afinfo(unsigned short family);
+ static void xfrm_state_put_afinfo(struct xfrm_state_afinfo *afinfo);
+@@ -208,8 +208,10 @@
+ }
+ EXPORT_SYMBOL(__xfrm_state_destroy);
+ 
+-static void __xfrm_state_delete(struct xfrm_state *x)
++static int __xfrm_state_delete(struct xfrm_state *x)
+ {
++	int err = -ESRCH;
++
+ 	if (x->km.state != XFRM_STATE_DEAD) {
+ 		x->km.state = XFRM_STATE_DEAD;
+ 		spin_lock(&xfrm_state_lock);
+@@ -236,14 +238,21 @@
+ 		 * is what we are dropping here.
+ 		 */
+ 		atomic_dec(&x->refcnt);
++		err = 0;
+ 	}
++
++	return err;
+ }
+ 
+-void xfrm_state_delete(struct xfrm_state *x)
++int xfrm_state_delete(struct xfrm_state *x)
+ {
++	int err;
++
+ 	spin_lock_bh(&x->lock);
+-	__xfrm_state_delete(x);
++	err = __xfrm_state_delete(x);
+ 	spin_unlock_bh(&x->lock);
++
++	return err;
+ }
+ EXPORT_SYMBOL(xfrm_state_delete);
+ 
+@@ -402,6 +411,7 @@
+ 
+ static struct xfrm_state *__xfrm_find_acq_byseq(u32 seq);
+ 
++
+ int xfrm_state_add(struct xfrm_state *x)
+ {
+ 	struct xfrm_state_afinfo *afinfo;
+@@ -762,39 +772,64 @@
+ 		x->replay.bitmap |= (1U << diff);
+ 	}
+ }
++static DEFINE_RWLOCK(xfrm_km_lock);
++static struct list_head xfrm_km_list = LIST_HEAD_INIT(xfrm_km_list);
+ EXPORT_SYMBOL(xfrm_replay_advance);
+ 
+-static struct list_head xfrm_km_list = LIST_HEAD_INIT(xfrm_km_list);
+-static DEFINE_RWLOCK(xfrm_km_lock);
+ 
+-static void km_state_expired(struct xfrm_state *x, int hard)
++void km_policy_notify(struct xfrm_policy *xp, int dir, struct km_event *c)
+ {
+ 	struct xfrm_mgr *km;
+ 
++	read_lock_bh(&xfrm_km_lock);
++	list_for_each_entry(km, &xfrm_km_list, list)
++		if (km->notify_policy)
++			km->notify_policy(xp, dir, c);
++	read_unlock_bh(&xfrm_km_lock);
++}
++
++void km_state_notify(struct xfrm_state *x, struct km_event *c)
++{
++	struct xfrm_mgr *km;
++	read_lock_bh(&xfrm_km_lock);
++	list_for_each_entry(km, &xfrm_km_list, list)
++		km->notify(x, c);
++	read_unlock_bh(&xfrm_km_lock);
++}
++
++EXPORT_SYMBOL(km_policy_notify);
++EXPORT_SYMBOL(km_state_notify);
++
++static void km_state_expired(struct xfrm_state *x, int hard)
++{
++	struct km_event c;
++
+ 	if (hard)
+ 		x->km.state = XFRM_STATE_EXPIRED;
+ 	else
+ 		x->km.dying = 1;
+-
+-	read_lock(&xfrm_km_lock);
+-	list_for_each_entry(km, &xfrm_km_list, list)
+-		km->notify(x, hard);
+-	read_unlock(&xfrm_km_lock);
++	c.data = hard;
++	c.event = XFRM_SAP_EXPIRED;
++	km_state_notify(x, &c);
+ 
+ 	if (hard)
+ 		wake_up(&km_waitq);
+ }
+ 
++/*
++ * We send to all registered managers regardless of failure
++ * We are happy with one success
++*/
+ static int km_query(struct xfrm_state *x, struct xfrm_tmpl *t, struct xfrm_policy *pol)
+ {
+-	int err = -EINVAL;
++	int err = -EINVAL, acqret;
+ 	struct xfrm_mgr *km;
+ 
+ 	read_lock(&xfrm_km_lock);
+ 	list_for_each_entry(km, &xfrm_km_list, list) {
+-		err = km->acquire(x, t, pol, XFRM_POLICY_OUT);
+-		if (!err)
+-			break;
++		acqret = km->acquire(x, t, pol, XFRM_POLICY_OUT);
++		if (!acqret)
++			err = acqret;
+ 	}
+ 	read_unlock(&xfrm_km_lock);
+ 	return err;
+@@ -819,13 +854,12 @@
+ 
+ void km_policy_expired(struct xfrm_policy *pol, int dir, int hard)
+ {
+-	struct xfrm_mgr *km;
++	struct km_event c;
+ 
+-	read_lock(&xfrm_km_lock);
+-	list_for_each_entry(km, &xfrm_km_list, list)
+-		if (km->notify_policy)
+-			km->notify_policy(pol, dir, hard);
+-	read_unlock(&xfrm_km_lock);
++	c.data = hard;
++	c.data = hard;
++	c.event = XFRM_SAP_EXPIRED;
++	km_policy_notify(pol, dir, &c);
+ 
+ 	if (hard)
+ 		wake_up(&km_waitq);
+--- a/net/xfrm/xfrm_user.c	2005-03-25 22:28:22.000000000 -0500
++++ b/net/xfrm/xfrm_user.c	2005-04-04 08:44:31.000000000 -0400
+@@ -268,6 +268,7 @@
+ 	struct xfrm_usersa_info *p = NLMSG_DATA(nlh);
+ 	struct xfrm_state *x;
+ 	int err;
++	struct km_event c;
+ 
+ 	err = verify_newsa_info(p, (struct rtattr **) xfrma);
+ 	if (err)
+@@ -277,6 +278,7 @@
+ 	if (!x)
+ 		return err;
+ 
++	xfrm_state_hold(x);
+ 	if (nlh->nlmsg_type == XFRM_MSG_NEWSA)
+ 		err = xfrm_state_add(x);
+ 	else
+@@ -285,14 +287,27 @@
+ 	if (err < 0) {
+ 		x->km.state = XFRM_STATE_DEAD;
+ 		xfrm_state_put(x);
++		return err;
+ 	}
+ 
++	c.seq = nlh->nlmsg_seq;
++	c.pid = nlh->nlmsg_pid;
++	if (nlh->nlmsg_type == XFRM_MSG_NEWSA)
++		c.event = XFRM_SAP_ADDED;
++	else
++		c.event = XFRM_SAP_UPDATED;
++
++	km_state_notify(x, &c);
++	xfrm_state_put(x);
++
+ 	return err;
+ }
+ 
+ static int xfrm_del_sa(struct sk_buff *skb, struct nlmsghdr *nlh, void **xfrma)
+ {
+ 	struct xfrm_state *x;
++	int err;
++	struct km_event c;
+ 	struct xfrm_usersa_id *p = NLMSG_DATA(nlh);
+ 
+ 	x = xfrm_state_lookup(&p->daddr, p->spi, p->proto, p->family);
+@@ -304,10 +319,19 @@
+ 		return -EPERM;
+ 	}
+ 
+-	xfrm_state_delete(x);
++	err = xfrm_state_delete(x);
++	if (err < 0) {
++		xfrm_state_put(x);
++		return err;
++	}
++
++	c.seq = nlh->nlmsg_seq;
++	c.pid = nlh->nlmsg_pid;
++	c.event = XFRM_SAP_DELETED;
++	km_state_notify(x, &c);
+ 	xfrm_state_put(x);
+ 
+-	return 0;
++	return err;
+ }
+ 
+ static void copy_to_user_state(struct xfrm_state *x, struct xfrm_usersa_info *p)
+@@ -672,6 +696,7 @@
+ {
+ 	struct xfrm_userpolicy_info *p = NLMSG_DATA(nlh);
+ 	struct xfrm_policy *xp;
++	struct km_event c;
+ 	int err;
+ 	int excl;
+ 
+@@ -683,6 +708,10 @@
+ 	if (!xp)
+ 		return err;
+ 
++	/* shouldnt excl be based on nlh flags?? 
++	 * Aha! this is anti-netlink really i.e  more pfkey derived
++	 * in netlink excl is a flag and you wouldnt need
++	 * a type XFRM_MSG_UPDPOLICY - JHS */
+ 	excl = nlh->nlmsg_type == XFRM_MSG_NEWPOLICY;
+ 	err = xfrm_policy_insert(p->dir, xp, excl);
+ 	if (err) {
+@@ -690,6 +719,16 @@
+ 		return err;
+ 	}
+ 
++
++	if (!excl)
++		c.event = XFRM_SAP_UPDATED;
++	else
++		c.event = XFRM_SAP_ADDED;
++
++	c.seq = nlh->nlmsg_seq;
++	c.pid = nlh->nlmsg_pid;
++	km_policy_notify(xp, p->dir, &c);
++
+ 	xfrm_pol_put(xp);
+ 
+ 	return 0;
+@@ -807,8 +846,10 @@
+ 	struct xfrm_policy *xp;
+ 	struct xfrm_userpolicy_id *p;
+ 	int err;
++	struct km_event c;
+ 	int delete;
+ 
++
+ 	p = NLMSG_DATA(nlh);
+ 	delete = nlh->nlmsg_type == XFRM_MSG_DELPOLICY;
+ 
+@@ -834,6 +875,11 @@
+ 					      NETLINK_CB(skb).pid,
+ 					      MSG_DONTWAIT);
+ 		}
++	} else {
++		c.event = XFRM_SAP_DELETED;
++		c.seq = nlh->nlmsg_seq;
++		c.pid = nlh->nlmsg_pid;
++		km_policy_notify(xp, p->dir, &c);
+ 	}
+ 
+ 	xfrm_pol_put(xp);
+@@ -843,15 +889,28 @@
+ 
+ static int xfrm_flush_sa(struct sk_buff *skb, struct nlmsghdr *nlh, void **xfrma)
+ {
++	struct km_event c;
+ 	struct xfrm_usersa_flush *p = NLMSG_DATA(nlh);
+ 
+ 	xfrm_state_flush(p->proto);
++	c.data = p->proto;
++	c.event = XFRM_SAP_FLUSHED;
++	c.seq = nlh->nlmsg_seq;
++	c.pid = nlh->nlmsg_pid;
++	km_state_notify(NULL, &c);
++
+ 	return 0;
+ }
+ 
+ static int xfrm_flush_policy(struct sk_buff *skb, struct nlmsghdr *nlh, void **xfrma)
+ {
++	struct km_event c;
++
+ 	xfrm_policy_flush();
++	c.event = XFRM_SAP_FLUSHED;
++	c.seq = nlh->nlmsg_seq;
++	c.pid = nlh->nlmsg_pid;
++	km_policy_notify(NULL, 0, &c);
+ 	return 0;
+ }
+ 
+@@ -1053,10 +1112,11 @@
+ 	return -1;
+ }
+ 
+-static int xfrm_send_state_notify(struct xfrm_state *x, int hard)
++static int xfrm_exp_state_notify(struct xfrm_state *x, struct km_event *c)
+ {
+ 	struct sk_buff *skb;
+-
++	int hard = c ->data;
++	/* fix to do alloc using NLM macros */
+ 	skb = alloc_skb(sizeof(struct xfrm_user_expire) + 16, GFP_ATOMIC);
+ 	if (skb == NULL)
+ 		return -ENOMEM;
+@@ -1069,6 +1129,107 @@
+ 	return netlink_broadcast(xfrm_nl, skb, 0, XFRMGRP_EXPIRE, GFP_ATOMIC);
+ }
+ 
++static int xfrm_notify_sa_flush(struct km_event *c)
++{
++	struct xfrm_usersa_flush *p;
++	struct nlmsghdr *nlh;
++	struct sk_buff *skb;
++	unsigned char *b;
++	int len = NLMSG_LENGTH(sizeof(struct xfrm_usersa_flush));
++
++	skb = alloc_skb(len, GFP_ATOMIC);
++	if (skb == NULL)
++		return -ENOMEM;
++	b = skb->tail;
++
++	nlh = NLMSG_PUT(skb, c->pid,  c->seq,
++			XFRM_MSG_FLUSHSA, sizeof(*p));
++	nlh->nlmsg_flags = 0;
++
++	p = NLMSG_DATA(nlh);
++	p->proto = c->data;
++
++	nlh->nlmsg_len = skb->tail - b;
++
++	return netlink_broadcast(xfrm_nl, skb, 0, XFRMGRP_SA, GFP_ATOMIC);
++
++nlmsg_failure:
++	kfree_skb(skb);
++	return -1;
++}
++
++static int xfrm_notify_sa(struct xfrm_state *x, struct km_event *c)
++{
++	struct xfrm_usersa_info *p;
++	struct nlmsghdr *nlh;
++	struct sk_buff *skb;
++	u32 nlt;
++	unsigned char *b;
++	int len = NLMSG_LENGTH(sizeof(struct xfrm_usersa_info));
++
++	skb = alloc_skb(len, GFP_ATOMIC);
++	if (skb == NULL)
++		return -ENOMEM;
++	b = skb->tail;
++
++	if (c->event == XFRM_SAP_ADDED)
++		nlt = XFRM_MSG_NEWSA;
++	else if (c->event == XFRM_SAP_UPDATED)
++		nlt = XFRM_MSG_UPDSA;
++	else if (c->event == XFRM_SAP_DELETED)
++		nlt = XFRM_MSG_DELSA;
++	else
++		goto nlmsg_failure;
++
++	nlh = NLMSG_PUT(skb, c->pid, c->seq, nlt, sizeof(*p));
++	nlh->nlmsg_flags = 0;
++
++	p = NLMSG_DATA(nlh);
++	copy_to_user_state(x, p);
++
++	if (x->aalg)
++		RTA_PUT(skb, XFRMA_ALG_AUTH,
++			sizeof(*(x->aalg))+(x->aalg->alg_key_len+7)/8, x->aalg);
++	if (x->ealg)
++		RTA_PUT(skb, XFRMA_ALG_CRYPT,
++			sizeof(*(x->ealg))+(x->ealg->alg_key_len+7)/8, x->ealg);        
++	if (x->calg)
++		RTA_PUT(skb, XFRMA_ALG_COMP, sizeof(*(x->calg)), x->calg);
++
++	if (x->encap)
++		RTA_PUT(skb, XFRMA_ENCAP, sizeof(*x->encap), x->encap);
++
++	nlh->nlmsg_len = skb->tail - b;
++
++	return netlink_broadcast(xfrm_nl, skb, 0, XFRMGRP_SA, GFP_ATOMIC);
++
++nlmsg_failure:
++rtattr_failure:
++	kfree_skb(skb);
++	return -1;
++}
++
++static int xfrm_send_state_notify(struct xfrm_state *x, struct km_event *c)
++{
++
++	switch (c->event) {
++	case XFRM_SAP_EXPIRED:
++		return xfrm_exp_state_notify(x, c);
++	case XFRM_SAP_DELETED:
++	case XFRM_SAP_UPDATED:
++	case XFRM_SAP_ADDED:
++		return xfrm_notify_sa(x, c);
++	case XFRM_SAP_FLUSHED:
++		return xfrm_notify_sa_flush(c);
++	default:
++		 printk("pfkey: Unknown SA event %d\n",c->event);
++		 break;
++	}
++
++	return 0;
++
++}
++
+ static int build_acquire(struct sk_buff *skb, struct xfrm_state *x,
+ 			 struct xfrm_tmpl *xt, struct xfrm_policy *xp,
+ 			 int dir)
+@@ -1202,7 +1363,8 @@
+ 	return -1;
+ }
+ 
+-static int xfrm_send_policy_notify(struct xfrm_policy *xp, int dir, int hard)
++
++static int xfrm_exp_policy_notify(struct xfrm_policy *xp, int dir, struct km_event *c)
+ {
+ 	struct sk_buff *skb;
+ 	size_t len;
+@@ -1213,7 +1375,7 @@
+ 	if (skb == NULL)
+ 		return -ENOMEM;
+ 
+-	if (build_polexpire(skb, xp, dir, hard) < 0)
++	if (build_polexpire(skb, xp, dir, c->data) < 0)
+ 		BUG();
+ 
+ 	NETLINK_CB(skb).dst_groups = XFRMGRP_EXPIRE;
+@@ -1221,6 +1383,92 @@
+ 	return netlink_broadcast(xfrm_nl, skb, 0, XFRMGRP_EXPIRE, GFP_ATOMIC);
+ }
+ 
++static int xfrm_notify_policy( struct xfrm_policy *xp, int dir, struct km_event *c)
++{
++	struct xfrm_userpolicy_info *p;
++	struct nlmsghdr *nlh;
++	struct sk_buff *skb;
++	u32 nlt = 0 ;
++	unsigned char *b;
++	int len = NLMSG_LENGTH(sizeof(struct xfrm_userpolicy_info));
++
++	skb = alloc_skb(len, GFP_ATOMIC);
++	if (skb == NULL)
++		return -ENOMEM;
++	b = skb->tail;
++
++	if (c->event == XFRM_SAP_ADDED)
++		nlt = XFRM_MSG_NEWPOLICY;
++	else if (c->event == XFRM_SAP_UPDATED)
++		nlt = XFRM_MSG_UPDPOLICY;
++	else if (c->event == XFRM_SAP_DELETED)
++		nlt = XFRM_MSG_DELPOLICY;
++	else
++		goto nlmsg_failure;
++
++	nlh = NLMSG_PUT(skb, c->pid, c->seq, nlt, sizeof(*p));
++
++	p = NLMSG_DATA(nlh);
++
++	nlh->nlmsg_flags = 0;
++
++	copy_to_user_policy(xp, p, dir);
++	if (copy_to_user_tmpl(xp, skb) < 0)
++		goto nlmsg_failure;
++
++	nlh->nlmsg_len = skb->tail - b;
++
++	return netlink_broadcast(xfrm_nl, skb, 0, XFRMGRP_POLICY, GFP_ATOMIC);
++
++nlmsg_failure:
++	kfree_skb(skb);
++	return -1;
++}
++
++static int xfrm_notify_policy_flush(struct km_event *c)
++{
++	struct nlmsghdr *nlh;
++	struct sk_buff *skb;
++	unsigned char *b;
++	int len = NLMSG_LENGTH(0);
++
++	skb = alloc_skb(len, GFP_ATOMIC);
++	if (skb == NULL)
++		return -ENOMEM;
++	b = skb->tail;
++
++
++	nlh = NLMSG_PUT(skb, c->pid, c->seq, XFRM_MSG_FLUSHPOLICY, 0);
++
++	nlh->nlmsg_len = skb->tail - b;
++
++	return netlink_broadcast(xfrm_nl, skb, 0, XFRMGRP_POLICY, GFP_ATOMIC);
++
++nlmsg_failure:
++	kfree_skb(skb);
++	return -1;
++}
++
++static int xfrm_send_policy_notify(struct xfrm_policy *xp, int dir, struct km_event *c)
++{
++
++	switch (c->event) {
++	case XFRM_SAP_ADDED:
++	case XFRM_SAP_UPDATED:
++	case XFRM_SAP_DELETED:
++		return xfrm_notify_policy(xp, dir, c);
++	case XFRM_SAP_FLUSHED:
++		return xfrm_notify_policy_flush(c);
++	case XFRM_SAP_EXPIRED:
++		return xfrm_exp_policy_notify(xp, dir, c);
++	default:
++		printk("Netlink Unknown Policy event %d\n",c->event);
++	}
++
++	return 0;
++
++}
++
+ static struct xfrm_mgr netlink_mgr = {
+ 	.id		= "netlink",
+ 	.notify		= xfrm_send_state_notify,
+--- a/net/key/af_key.c	2005-03-25 22:28:39.000000000 -0500
++++ b/net/key/af_key.c	2005-04-04 08:44:50.000000000 -0400
+@@ -1240,13 +1240,85 @@
+ 	return 0;
+ }
+ 
++static inline int event2poltype (int event)
++{
++	switch (event) {
++	case XFRM_SAP_DELETED:
++		return SADB_X_SPDDELETE;
++	case XFRM_SAP_ADDED:
++		return SADB_X_SPDADD;
++	case XFRM_SAP_UPDATED:
++		return SADB_X_SPDUPDATE;
++	case XFRM_SAP_EXPIRED:
++	//	return SADB_X_SPDEXPIRE;
++	default:
++		printk("pfkey: Unknown policy event %d\n",event);
++		break;
++	}
++
++	return 0;
++}
++
++static inline int event2keytype (int event)
++{
++	switch (event) {
++	case XFRM_SAP_DELETED:
++		return SADB_DELETE;
++	case XFRM_SAP_ADDED:
++		return SADB_ADD;
++	case XFRM_SAP_UPDATED:
++		return SADB_UPDATE;
++	case XFRM_SAP_EXPIRED:
++		return SADB_EXPIRE;
++	default:
++		printk("pfkey: Unknown SA event %d\n",event);
++		break;
++	}
++
++	return 0;
++}
++
++/* ADD/UPD/DEL */
++static int key_notify_sa(struct xfrm_state *x, struct km_event *c)
++{
++	struct sk_buff *skb;
++	struct sadb_msg *hdr;
++	int hsc = 3;
++
++	if (c->event == XFRM_SAP_DELETED)
++		hsc = 0;
++
++	if (c->event == XFRM_SAP_EXPIRED) {
++		if (c->data)
++			hsc = 2;
++		else
++			hsc = 1;
++	}
++
++	skb = pfkey_xfrm_state2msg(x, 0, hsc);
++
++	if (IS_ERR(skb))
++		return  PTR_ERR(skb);
++
++	hdr = (struct sadb_msg *) skb->data;
++	hdr->sadb_msg_version = PF_KEY_V2;
++	hdr->sadb_msg_type = event2keytype(c->event);
++	hdr->sadb_msg_satype = pfkey_proto2satype(x->id.proto);
++	hdr->sadb_msg_errno = 0;
++	hdr->sadb_msg_reserved = 0;
++	hdr->sadb_msg_seq = c->seq;
++	hdr->sadb_msg_pid = c->pid;
++
++	pfkey_broadcast(skb, GFP_ATOMIC, BROADCAST_ALL, NULL);
++
++	return 0;
++}
+ 
+ static int pfkey_add(struct sock *sk, struct sk_buff *skb, struct sadb_msg *hdr, void **ext_hdrs)
+ {
+-	struct sk_buff *out_skb;
+-	struct sadb_msg *out_hdr;
+ 	struct xfrm_state *x;
+ 	int err;
++	struct km_event c;
+ 
+ 	xfrm_probe_algs();
+ 	
+@@ -1254,6 +1326,7 @@
+ 	if (IS_ERR(x))
+ 		return PTR_ERR(x);
+ 
++	xfrm_state_hold(x);
+ 	if (hdr->sadb_msg_type == SADB_ADD)
+ 		err = xfrm_state_add(x);
+ 	else
+@@ -1265,27 +1338,23 @@
+ 		return err;
+ 	}
+ 
+-	out_skb = pfkey_xfrm_state2msg(x, 0, 3);
+-	if (IS_ERR(out_skb))
+-		return  PTR_ERR(out_skb); /* XXX Should we return 0 here ? */
+-
+-	out_hdr = (struct sadb_msg *) out_skb->data;
+-	out_hdr->sadb_msg_version = hdr->sadb_msg_version;
+-	out_hdr->sadb_msg_type = hdr->sadb_msg_type;
+-	out_hdr->sadb_msg_satype = pfkey_proto2satype(x->id.proto);
+-	out_hdr->sadb_msg_errno = 0;
+-	out_hdr->sadb_msg_reserved = 0;
+-	out_hdr->sadb_msg_seq = hdr->sadb_msg_seq;
+-	out_hdr->sadb_msg_pid = hdr->sadb_msg_pid;
+-
+-	pfkey_broadcast(out_skb, GFP_ATOMIC, BROADCAST_ALL, sk);
++	if (hdr->sadb_msg_type == SADB_ADD)
++		c.event = XFRM_SAP_ADDED;
++	else
++		c.event = XFRM_SAP_UPDATED;
++	c.seq = hdr->sadb_msg_seq;
++	c.pid = hdr->sadb_msg_pid;
++	km_state_notify(x, &c);
++	xfrm_state_put(x);
+ 
+-	return 0;
++	return err;
+ }
+ 
+ static int pfkey_delete(struct sock *sk, struct sk_buff *skb, struct sadb_msg *hdr, void **ext_hdrs)
+ {
+ 	struct xfrm_state *x;
++	struct km_event c;
++	int err;
+ 
+ 	if (!ext_hdrs[SADB_EXT_SA-1] ||
+ 	    !present_and_same_family(ext_hdrs[SADB_EXT_ADDRESS_SRC-1],
+@@ -1301,13 +1370,19 @@
+ 		return -EPERM;
+ 	}
+ 	
+-	xfrm_state_delete(x);
+-	xfrm_state_put(x);
++	err = xfrm_state_delete(x);
++	if (err < 0) {
++		xfrm_state_put(x);
++		return err;
++	}
+ 
+-	pfkey_broadcast(skb_clone(skb, GFP_KERNEL), GFP_KERNEL, 
+-			BROADCAST_ALL, sk);
++	c.seq = hdr->sadb_msg_seq;
++	c.pid = hdr->sadb_msg_pid;
++	c.event = XFRM_SAP_DELETED;
++	km_state_notify(x, &c);
++	xfrm_state_put(x);
+ 
+-	return 0;
++	return err;
+ }
+ 
+ static int pfkey_get(struct sock *sk, struct sk_buff *skb, struct sadb_msg *hdr, void **ext_hdrs)
+@@ -1445,28 +1520,42 @@
+ 	return 0;
+ }
+ 
++static int key_notify_sa_flush(struct km_event *c)
++{
++	struct sk_buff *skb;
++	struct sadb_msg *hdr;
++
++	skb = alloc_skb(sizeof(struct sadb_msg) + 16, GFP_ATOMIC);
++	if (!skb)
++		return -ENOBUFS;
++	hdr = (struct sadb_msg *) skb_put(skb, sizeof(struct sadb_msg));
++	hdr->sadb_msg_satype = pfkey_proto2satype(c->data);
++	hdr->sadb_msg_seq = c->seq;
++	hdr->sadb_msg_pid = c->pid;
++	hdr->sadb_msg_version = PF_KEY_V2;
++	hdr->sadb_msg_errno = (uint8_t) 0;
++	hdr->sadb_msg_len = (sizeof(struct sadb_msg) / sizeof(uint64_t));
++
++	pfkey_broadcast(skb, GFP_ATOMIC, BROADCAST_ALL, NULL);
++
++	return 0;
++}
++
+ static int pfkey_flush(struct sock *sk, struct sk_buff *skb, struct sadb_msg *hdr, void **ext_hdrs)
+ {
+ 	unsigned proto;
+-	struct sk_buff *skb_out;
+-	struct sadb_msg *hdr_out;
++	struct km_event c;
+ 
+ 	proto = pfkey_satype2proto(hdr->sadb_msg_satype);
+ 	if (proto == 0)
+ 		return -EINVAL;
+ 
+-	skb_out = alloc_skb(sizeof(struct sadb_msg) + 16, GFP_KERNEL);
+-	if (!skb_out)
+-		return -ENOBUFS;
+-
+ 	xfrm_state_flush(proto);
+-
+-	hdr_out = (struct sadb_msg *) skb_put(skb_out, sizeof(struct sadb_msg));
+-	pfkey_hdr_dup(hdr_out, hdr);
+-	hdr_out->sadb_msg_errno = (uint8_t) 0;
+-	hdr_out->sadb_msg_len = (sizeof(struct sadb_msg) / sizeof(uint64_t));
+-
+-	pfkey_broadcast(skb_out, GFP_KERNEL, BROADCAST_ALL, NULL);
++	c.data = proto;
++	c.seq = hdr->sadb_msg_seq;
++	c.pid = hdr->sadb_msg_pid;
++	c.event = XFRM_SAP_FLUSHED;
++	km_state_notify(NULL, &c);
+ 
+ 	return 0;
+ }
+@@ -1859,6 +1948,35 @@
+ 	hdr->sadb_msg_reserved = atomic_read(&xp->refcnt);
+ }
+ 
++static int key_notify_policy( struct xfrm_policy *xp, int dir, struct km_event *c)
++{
++	struct sk_buff *out_skb;
++	struct sadb_msg *out_hdr;
++	int err;
++
++	out_skb = pfkey_xfrm_policy2msg_prep(xp);
++	if (IS_ERR(out_skb)) {
++		err =  PTR_ERR(out_skb);
++		goto out;
++	}
++	pfkey_xfrm_policy2msg(out_skb, xp, dir);
++
++	out_hdr = (struct sadb_msg *) out_skb->data;
++	out_hdr->sadb_msg_version =  PF_KEY_V2;
++
++	if (c->data && c->event == XFRM_SAP_DELETED)
++		out_hdr->sadb_msg_type = SADB_X_SPDDELETE2;
++	else
++		out_hdr->sadb_msg_type = event2poltype(c->event);
++	out_hdr->sadb_msg_errno = 0;
++	out_hdr->sadb_msg_seq = c->seq;
++	out_hdr->sadb_msg_pid = c->pid;
++	pfkey_broadcast(out_skb, GFP_ATOMIC, BROADCAST_ALL, NULL);
++out:
++	return 0;
++
++}
++
+ static int pfkey_spdadd(struct sock *sk, struct sk_buff *skb, struct sadb_msg *hdr, void **ext_hdrs)
+ {
+ 	int err;
+@@ -1866,8 +1984,7 @@
+ 	struct sadb_address *sa;
+ 	struct sadb_x_policy *pol;
+ 	struct xfrm_policy *xp;
+-	struct sk_buff *out_skb;
+-	struct sadb_msg *out_hdr;
++	struct km_event c;
+ 
+ 	if (!present_and_same_family(ext_hdrs[SADB_EXT_ADDRESS_SRC-1],
+ 				     ext_hdrs[SADB_EXT_ADDRESS_DST-1]) ||
+@@ -1935,31 +2052,25 @@
+ 	    (err = parse_ipsecrequests(xp, pol)) < 0)
+ 		goto out;
+ 
+-	out_skb = pfkey_xfrm_policy2msg_prep(xp);
+-	if (IS_ERR(out_skb)) {
+-		err =  PTR_ERR(out_skb);
+-		goto out;
+-	}
+ 
+ 	err = xfrm_policy_insert(pol->sadb_x_policy_dir-1, xp,
+ 				 hdr->sadb_msg_type != SADB_X_SPDUPDATE);
++
+ 	if (err) {
+-		kfree_skb(out_skb);
+-		goto out;
++		kfree(xp);
++		return err;
+ 	}
+ 
+-	pfkey_xfrm_policy2msg(out_skb, xp, pol->sadb_x_policy_dir-1);
++	if (hdr->sadb_msg_type == SADB_X_SPDUPDATE) 
++		c.event = XFRM_SAP_UPDATED;
++	else 
++		c.event = XFRM_SAP_ADDED;
+ 
+-	xfrm_pol_put(xp);
++	c.seq = hdr->sadb_msg_seq;
++	c.pid = hdr->sadb_msg_pid;
+ 
+-	out_hdr = (struct sadb_msg *) out_skb->data;
+-	out_hdr->sadb_msg_version = hdr->sadb_msg_version;
+-	out_hdr->sadb_msg_type = hdr->sadb_msg_type;
+-	out_hdr->sadb_msg_satype = 0;
+-	out_hdr->sadb_msg_errno = 0;
+-	out_hdr->sadb_msg_seq = hdr->sadb_msg_seq;
+-	out_hdr->sadb_msg_pid = hdr->sadb_msg_pid;
+-	pfkey_broadcast(out_skb, GFP_ATOMIC, BROADCAST_ALL, sk);
++	km_policy_notify(xp, pol->sadb_x_policy_dir-1, &c);
++	xfrm_pol_put(xp);
+ 	return 0;
+ 
+ out:
+@@ -1973,9 +2084,8 @@
+ 	struct sadb_address *sa;
+ 	struct sadb_x_policy *pol;
+ 	struct xfrm_policy *xp;
+-	struct sk_buff *out_skb;
+-	struct sadb_msg *out_hdr;
+ 	struct xfrm_selector sel;
++	struct km_event c;
+ 
+ 	if (!present_and_same_family(ext_hdrs[SADB_EXT_ADDRESS_SRC-1],
+ 				     ext_hdrs[SADB_EXT_ADDRESS_DST-1]) ||
+@@ -2010,25 +2120,41 @@
+ 
+ 	err = 0;
+ 
++	c.seq = hdr->sadb_msg_seq;
++	c.pid = hdr->sadb_msg_pid;
++	c.event = XFRM_SAP_DELETED;
++	km_policy_notify(xp, pol->sadb_x_policy_dir-1, &c);
++
++	xfrm_pol_put(xp);
++	return err;
++}
++
++
++static int key_pol_get_resp(struct sock *sk, struct xfrm_policy *xp, struct sadb_msg *hdr, int dir)
++{
++	int err;
++	struct sk_buff *out_skb;
++	struct sadb_msg *out_hdr;
++	err = 0;
++
+ 	out_skb = pfkey_xfrm_policy2msg_prep(xp);
+ 	if (IS_ERR(out_skb)) {
+ 		err =  PTR_ERR(out_skb);
+ 		goto out;
+ 	}
+-	pfkey_xfrm_policy2msg(out_skb, xp, pol->sadb_x_policy_dir-1);
++	pfkey_xfrm_policy2msg(out_skb, xp, dir);
+ 
+ 	out_hdr = (struct sadb_msg *) out_skb->data;
+ 	out_hdr->sadb_msg_version = hdr->sadb_msg_version;
+-	out_hdr->sadb_msg_type = SADB_X_SPDDELETE;
++	out_hdr->sadb_msg_type = hdr->sadb_msg_type;
+ 	out_hdr->sadb_msg_satype = 0;
+ 	out_hdr->sadb_msg_errno = 0;
+ 	out_hdr->sadb_msg_seq = hdr->sadb_msg_seq;
+ 	out_hdr->sadb_msg_pid = hdr->sadb_msg_pid;
+-	pfkey_broadcast(out_skb, GFP_ATOMIC, BROADCAST_ALL, sk);
++	pfkey_broadcast(out_skb, GFP_ATOMIC, BROADCAST_ONE, sk);
+ 	err = 0;
+ 
+ out:
+-	xfrm_pol_put(xp);
+ 	return err;
+ }
+ 
+@@ -2037,8 +2163,7 @@
+ 	int err;
+ 	struct sadb_x_policy *pol;
+ 	struct xfrm_policy *xp;
+-	struct sk_buff *out_skb;
+-	struct sadb_msg *out_hdr;
++	struct km_event c;
+ 
+ 	if ((pol = ext_hdrs[SADB_X_EXT_POLICY-1]) == NULL)
+ 		return -EINVAL;
+@@ -2050,24 +2175,16 @@
+ 
+ 	err = 0;
+ 
+-	out_skb = pfkey_xfrm_policy2msg_prep(xp);
+-	if (IS_ERR(out_skb)) {
+-		err =  PTR_ERR(out_skb);
+-		goto out;
++	c.seq = hdr->sadb_msg_seq;
++	c.pid = hdr->sadb_msg_pid;
++	if (hdr->sadb_msg_type == SADB_X_SPDDELETE2) {
++		c.data = 1; // to signal pfkey of SADB_X_SPDDELETE2
++		c.event = XFRM_SAP_DELETED;
++		km_policy_notify(xp, pol->sadb_x_policy_dir-1, &c);
++	} else {
++		err = key_pol_get_resp(sk, xp, hdr, pol->sadb_x_policy_dir-1);
+ 	}
+-	pfkey_xfrm_policy2msg(out_skb, xp, pol->sadb_x_policy_dir-1);
+-
+-	out_hdr = (struct sadb_msg *) out_skb->data;
+-	out_hdr->sadb_msg_version = hdr->sadb_msg_version;
+-	out_hdr->sadb_msg_type = hdr->sadb_msg_type;
+-	out_hdr->sadb_msg_satype = 0;
+-	out_hdr->sadb_msg_errno = 0;
+-	out_hdr->sadb_msg_seq = hdr->sadb_msg_seq;
+-	out_hdr->sadb_msg_pid = hdr->sadb_msg_pid;
+-	pfkey_broadcast(out_skb, GFP_ATOMIC, BROADCAST_ALL, sk);
+-	err = 0;
+ 
+-out:
+ 	xfrm_pol_put(xp);
+ 	return err;
+ }
+@@ -2102,22 +2219,33 @@
+ 	return xfrm_policy_walk(dump_sp, &data);
+ }
+ 
+-static int pfkey_spdflush(struct sock *sk, struct sk_buff *skb, struct sadb_msg *hdr, void **ext_hdrs)
++static int key_notify_policy_flush(struct km_event *c)
+ {
+ 	struct sk_buff *skb_out;
+-	struct sadb_msg *hdr_out;
+-
+-	skb_out = alloc_skb(sizeof(struct sadb_msg) + 16, GFP_KERNEL);
++	struct sadb_msg *hdr;
++	skb_out = alloc_skb(sizeof(struct sadb_msg) + 16, GFP_ATOMIC);
+ 	if (!skb_out)
+ 		return -ENOBUFS;
++	hdr = (struct sadb_msg *) skb_put(skb_out, sizeof(struct sadb_msg));
++	hdr->sadb_msg_seq = c->seq;
++	hdr->sadb_msg_pid = c->pid;
++	hdr->sadb_msg_version = PF_KEY_V2;
++	hdr->sadb_msg_errno = (uint8_t) 0;
++	hdr->sadb_msg_len = (sizeof(struct sadb_msg) / sizeof(uint64_t));
++	pfkey_broadcast(skb_out, GFP_ATOMIC, BROADCAST_ALL, NULL);
++	return 0;
+ 
+-	xfrm_policy_flush();
++}
+ 
+-	hdr_out = (struct sadb_msg *) skb_put(skb_out, sizeof(struct sadb_msg));
+-	pfkey_hdr_dup(hdr_out, hdr);
+-	hdr_out->sadb_msg_errno = (uint8_t) 0;
+-	hdr_out->sadb_msg_len = (sizeof(struct sadb_msg) / sizeof(uint64_t));
+-	pfkey_broadcast(skb_out, GFP_KERNEL, BROADCAST_ALL, NULL);
++static int pfkey_spdflush(struct sock *sk, struct sk_buff *skb, struct sadb_msg *hdr, void **ext_hdrs)
++{
++	struct km_event c;
++
++	xfrm_policy_flush();
++	c.event = XFRM_SAP_FLUSHED;
++	c.pid = hdr->sadb_msg_pid;
++	c.seq = hdr->sadb_msg_seq;
++	km_policy_notify(NULL, 0, &c);
+ 
+ 	return 0;
+ }
+@@ -2317,11 +2445,25 @@
+ 	}
+ }
+ 
+-static int pfkey_send_notify(struct xfrm_state *x, int hard)
++/* XXX: Noisy for now */
++static int key_notify_policy_expire(struct xfrm_policy *xp, struct km_event *c)
++{
++	printk("pfkey doesnt deal with expired policies ..\n");
++	return 0;
++}
++
++static int key_notify_sa_expire(struct xfrm_state *x, struct km_event *c)
+ {
+ 	struct sk_buff *out_skb;
+ 	struct sadb_msg *out_hdr;
+-	int hsc = (hard ? 2 : 1);
++	int hard;
++	int hsc;
++
++	hard = c->data;
++	if (hard)
++		hsc = 2;
++	else
++		hsc = 1;
+ 
+ 	out_skb = pfkey_xfrm_state2msg(x, 0, hsc);
+ 	if (IS_ERR(out_skb))
+@@ -2340,6 +2482,43 @@
+ 	return 0;
+ }
+ 
++static int pfkey_send_notify(struct xfrm_state *x, struct km_event *c)
++{
++	switch (c->event) {
++	case XFRM_SAP_EXPIRED:
++		return key_notify_sa_expire(x, c);
++	case XFRM_SAP_DELETED:
++	case XFRM_SAP_ADDED:
++	case XFRM_SAP_UPDATED:
++		return key_notify_sa(x, c);
++	case XFRM_SAP_FLUSHED:
++		return key_notify_sa_flush(c);
++	default:
++		printk("pfkey: Unknown SA event %d\n",c->event);
++		break;
++	}
++
++	return 0;
++}
++
++static int pfkey_send_policy_notify(struct xfrm_policy *xp, int dir, struct km_event *c)
++{
++	switch (c->event) {
++	case XFRM_SAP_EXPIRED:
++		return key_notify_policy_expire(xp, c);
++	case XFRM_SAP_DELETED:
++	case XFRM_SAP_ADDED:
++	case XFRM_SAP_UPDATED:
++		return key_notify_policy(xp, dir, c);
++	case XFRM_SAP_FLUSHED:
++		return key_notify_policy_flush(c);
++	default:
++		printk("pfkey: Unknown policy event %d\n",c->event);
++		break;
++	}
++
++	return 0;
++}
+ static u32 get_acqseq(void)
+ {
+ 	u32 res;
+@@ -2856,6 +3035,7 @@
+ 	.acquire	= pfkey_send_acquire,
+ 	.compile_policy	= pfkey_compile_policy,
+ 	.new_mapping	= pfkey_send_new_mapping,
++	.notify_policy	= pfkey_send_policy_notify,
+ };
+ 
+ static void __exit ipsec_pfkey_exit(void)
+
+--=-Fpr/1RgxOBG3EaxqfHd0--
