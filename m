@@ -1,31 +1,34 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: cls_u32 compile failure in current 2.6.12-rc1+BK tree
-Date: Mon, 28 Mar 2005 14:58:02 +0200
-Message-ID: <20050328125802.GZ3086@postel.suug.ch>
-References: <Pine.SOC.4.61.0503272249040.5086@math.ut.ee> <1111972035.1091.946.camel@jzny.localdomain> <Pine.SOC.4.61.0503281017060.21333@math.ut.ee> <1112012657.1089.1013.camel@jzny.localdomain> <20050328123801.GY3086@postel.suug.ch> <1112014261.1089.1018.camel@jzny.localdomain>
+From: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
+Subject: Re: register_dev
+Date: Mon, 28 Mar 2005 16:11:06 +0300 (EEST)
+Message-ID: <Pine.LNX.4.62.0503281610530.25430@webhosting.rdsbv.ro>
+References: <Pine.LNX.4.62.0503281451090.25430@webhosting.rdsbv.ro>
+ <20050328122356.GX3086@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Meelis Roos <mroos@linux.ee>, netdev <netdev@oss.sgi.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1112014261.1089.1018.camel@jzny.localdomain>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050328122356.GX3086@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* jamal <1112014261.1089.1018.camel@jzny.localdomain> 2005-03-28 07:51
-> On Mon, 2005-03-28 at 07:38, Thomas Graf wrote:
-> > * jamal <1112012657.1089.1013.camel@jzny.localdomain> 2005-03-28 07:24
-> > > If we are going to make u32 an exception then this code should be
-> > > surrounded by #ifdef ..ACTION..
-> > 
-> > The same condition is needed for tcf_exts_dump 
-> 
-> This one seems fine even for u32, no?
+On Mon, 28 Mar 2005, Thomas Graf wrote:
 
-Not sure what you mean, I don't want any ifdefs or actions bits
-in the classifiers itself anymore. Everytime we dump the actions
-we must be able to also dump the statistics so I think we can
-safely move tcf_exts_dump_stats into tcf_exts_dump and hide all
-dumping in that single API.
+> * Catalin(ux aka Dino) BOIE <Pine.LNX.4.62.0503281451090.25430@webhosting.rdsbv.ro> 2005-03-28 14:56
+>> I do a register_netdev inside a _init function of a home made qdisc.
+>> 2. the module is not loaded and I let tc trigger module loading
+>> 	tc blocks on modprobe
+>> How I can resolve this problem?
+>
+> Port the fix done for classifiers and actions to sch_api.c, see comments
+> around request_module in cls_api.c
+
+Thanks, Thomas!
+I prepare a patch.
+
+---
+Catalin(ux aka Dino) BOIE
+catab at deuroconsult.ro
+http://kernel.umbrella.ro/
