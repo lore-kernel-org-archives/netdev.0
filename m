@@ -1,29 +1,30 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH 2.6]: Make packet scheduler clock source configurable
-Date: Mon, 12 Jul 2004 20:50:37 -0700
+From: "Pranav" <pranav@nodeinfotech.com>
+Subject: RE: Problem of Race Condition in IKE implementation on linux system.
+Date: Tue, 13 Jul 2004 13:03:44 +0530
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040712205037.573411c0.davem@redhat.com>
-References: <40F34740.5040100@trash.net>
-	<1107.63.170.215.71.1089689716.squirrel@www.osdl.org>
+Message-ID: <BLEAIJDEHOOAGALIAAKBIEEECAAA.pranav@nodeinfotech.com>
+References: <00b301c4682c$234af060$536115ac@dcml.docomolabsusa.com>
+Reply-To: <pranav@nodeinfotech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+	charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@oss.sgi.com, devik@cdi.cz
+Cc: <netdev@oss.sgi.com>, <owner-ietf-send@standards.ericsson.net>,
+        <jeanmichel.combes@francetelecom.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: shemminger@osdl.org
-In-Reply-To: <1107.63.170.215.71.1089689716.squirrel@www.osdl.org>
+To: "James Kempf" <kempf@docomolabs-usa.com>
+In-Reply-To: <00b301c4682c$234af060$536115ac@dcml.docomolabsusa.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 12 Jul 2004 20:35:16 -0700 (PDT)
-shemminger@osdl.org wrote:
+hi,
+      I am currently working on ike implementation on linux system.
+i have got a problem starting the ike negotiation,when both the peers start
+the ike negotiation at the same time,causing race condition.so i need some
+feedback to overcome this problem.
 
-> I have a patch (to the original) which replaces the arch dependant CPU stuff
-> with the arch neutral sched_clock() which although slightly
-> slower works on a x86_64 and ia64 as well.
 
-I also want to add sparc64 %tick register support here too.
-This is an area with a lot of potential cleanup.  We should
-made an asm/pkt_sched.h to abstract out the clock source
-implementation instead of loading net/pkt_sched.h up with
-a pile of ifdefs.
+
+With Regards,
+pranav jahdav
+pranav@nodeinfotech.com
