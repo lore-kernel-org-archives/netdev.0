@@ -1,54 +1,94 @@
-From: Jean Tourrilhes <jt-yAE0UhLNZJawPNPzzlOzwdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH] Drop ISA dependencies from IRDA drivers
-Date: Thu, 15 Jul 2004 10:00:24 -0700
-Sender: irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Message-ID: <20040715170024.GH25405@bougret.hpl.hp.com>
-References: <m34qo96x8m.fsf@averell.firstfloor.org>
-Reply-To: irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [1/2] CARP implementation. HA master's failover.
+Date: 15 Jul 2004 13:24:45 -0400
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <1089912285.1028.93.camel@jzny.localdomain>
+References: <1089898303.6114.859.camel@uganda>
+	 <1089898595.6114.866.camel@uganda>
+	 <1089902654.1029.23.camel@jzny.localdomain>
+	 <1089905244.6114.887.camel@uganda>
+	 <1089907622.1027.48.camel@jzny.localdomain>
+	 <1089910760.6114.967.camel@uganda>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-VZNHf3L845pBDgjK7y7TUQ@public.gmane.org, irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	the_nihilant-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org
-Return-path: <irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-To: Andi Kleen <ak-h9bWGtP8wOw@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <m34qo96x8m.fsf-uMLt6ZyWIM1XD82W0jV7G5GkACoKc3Ta@public.gmane.org>
-Errors-To: irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Unsubscribe: <http://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5utDmRdBvX5/5ji9XKYC2TYK4Io4DoRGLOrNAH6kLmebB@public.gmane.org>
-List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5utDmRdBvX5/5lLLH9aP38KF1pqr+6INuaA@public.gmane.org>
-List-Subscribe: <http://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5utDmRdBvX5/5R9m/fhtKvoLKtGCp0j7rLg@public.gmane.org>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=irda-users>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, netfilter-failover@lists.netfilter.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: johnpol@2ka.mipt.ru
+In-Reply-To: <1089910760.6114.967.camel@uganda>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 15, 2004 at 06:39:21PM +0200, Andi Kleen wrote:
-> 
-> http://bugme.osdl.org/show_bug.cgi?id=3077
-> 
-> Some IRDA chipsets currently don't work on x86-64, because
-> they're dependent on CONFIG_ISA and x86-64 doesn't set this.
-> CONFIG_ISA means real ISA slots, and I doubt these chips
-> come on real ISA cards, so I just removed the bogus 
-> dependency.
-> 
-> Please apply.
-> 
-> -Andi
+On Thu, 2004-07-15 at 12:59, Evgeniy Polyakov wrote:
 
-	I was because those driver were using isa_virt_to_bus. I think
-we can drop that now, but I don't have the problematic
-architecture. Well, I guess we will learn soon enough :-(
-	Feel free to send that to Jeff. I currently have family, so
-will take time to process my patch queue.
-	Regards,
+> Userspace is too slow.
+> It can only initiate master's failover, load balancing is a good example
+> here - userspace _itself_ can not control real time traffic.
 
-	Jean
+What is it that CARP does that couldnt be achieved by VRRP? 
+VRRP is implemented in user space. As a user myself i can assure you
+even with heartbeats at 100ms granularity i have seen no issues which
+can be blamed on the fact it runs on user space. And i have used it in
+fairly large setups.
+
+> ct_sync module does this.
+> It uses connection tracking and sends firewall state across slaves.
+> CARP is separate by design - anyone may "attach" to master/slave
+> failover.
 
 
--------------------------------------------------------
-This SF.Net email is sponsored by BEA Weblogic Workshop
-FREE Java Enterprise J2EE developer tools!
-Get your free copy of BEA WebLogic Workshop 8.1 today.
-http://ads.osdn.com/?ad_id=4721&alloc_id=10040&op=click
+Can you explain a little more what you mean by "attching" to
+master/slave?
+I hope you are not saying that that this ct_sync thing sends 
+every piece of connection tracking state across. That would be a
+collosal waste.
+
+> > This is an example of a rich application and further justification for
+> > it to live in user space.
+> 
+> If it will live in userspace, it just can not control realtime traffic
+> and even provide some mechanism to achive this.
+
+What do you mean realtime traffic?
+Is it something that can be achieved by qos prioritization?
+
+> > It is valuable, just doesnt belong to the kernel.
+> > BTW, i saw some claim that this is patent-free as opposed to VRRP?
+> > I do hope it takes off.  What exactly is the patent issue that was at
+> > stake? I couldnt tell from the song lyrics ;->
+> 
+> :) Cisco + hsrp == vrrp, but the former is patented.
+> Here is quote from Ryan McBride, an author of the CARP:
+> 
+> * P.S. If anyone has concerns about the Cisco's patent #5,473,599 and
+> how their claim that it applies to VRRP has forced us to design our own
+> incompatible protocol, don't talk to us. Instead, call Cisco's lawyer at
+> 408-525-9706, or email him: rbarr@cisco.com *
+> 
+
+In the end CISCO is going to be the loser in this of because 
+something like CARP will take off and it cant talk to them. At the
+moment though they do have the market so interoping with them is
+valuable.
+
+> > One valuable thing that could be done is while still avoiding any patent
+> > issues make it interop with VRRP.
+> 
+> VRRP is not secure, it is protocol dependent, it is not free...
+
+I was talking more from a deployment side rather than technology.
+The gentleman who now owns the VRRP daemon in Linux, Alexander Cassen, i
+believe had a chat with this Cisco lawyer and if my understanding is
+correct the main contention is CISCO is worried some idiot will sue them
+by writting a similar patent i.e the patent was not to have something to
+impose on other people rather a protection.  I could be wrong.
+BTW, I am still not sure what the differences are that make CARP
+patent-free. In other words, I wouldnt bet at this point that if someone
+wanted to go after you for HSRP patent infrigement that it would be
+impossible. In any case i fully support the effort.
+
+BTW, I thought you could make VRRP secure.
+
+cheers,
+jamal
