@@ -1,39 +1,29 @@
-From: Ben Greear <greearb@candelatech.com>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: netdev_ops?
-Date: Tue, 22 Jul 2003 22:30:10 -0700
+Date: Tue, 22 Jul 2003 23:02:15 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F1E1D62.90009@candelatech.com>
-References: <3F1E17BC.30100@candelatech.com> <20030722220745.379a73c6.davem@redhat.com>
+Message-ID: <20030722230215.284dd270.davem@redhat.com>
+References: <3F1E17BC.30100@candelatech.com>
+	<20030722220745.379a73c6.davem@redhat.com>
+	<3F1E1D62.90009@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030722220745.379a73c6.davem@redhat.com>
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <3F1E1D62.90009@candelatech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> On Tue, 22 Jul 2003 22:06:04 -0700
-> Ben Greear <greearb@candelatech.com> wrote:
-> 
-> 
->>Any progress towards getting the netdev_ops into 2.4?
->>
->>I have several patches that would benefit (in that no new ioctls
->>would be needed) if this goes in.
-> 
-> 
-> If anything, it's going to go into 2.6.x first, and then backported
-> to 2.4.x after it's had a few months of testing and tweaking.
-> 
-Any interest in a lower-risk netdev-ops lite?  I have a relatively
-ugly little patch that will allow me to handle certain ETHTOOL ioctls in
-dev.c's ioctl handling code.  Ugly, but short, and very little chance of
-breaking anything else....
+On Tue, 22 Jul 2003 22:30:10 -0700
+Ben Greear <greearb@candelatech.com> wrote:
 
--- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+> Any interest in a lower-risk netdev-ops lite?
+
+Not really.
+
+Nobody is really helped with this, not even you.  It makes almost no
+sense to make a driver only work with a 2.4.x kernel that has this
+netdev-ops-lite thing patched into it, because then it doesn't work on
+all the bazillion other 2.4.x kernels out there.
