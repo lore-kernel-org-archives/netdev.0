@@ -1,45 +1,55 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [RFC] [PATCH 1/3] netpoll api
-Date: 03 Oct 2003 07:09:20 -0400
+From: Yasuyuki Kozakai <yasuyuki.kozakai@toshiba.co.jp>
+Subject: Re: [Patch]: IPv6 Connection Tracking
+Date: Fri, 03 Oct 2003 20:19:07 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1065179359.1031.42.camel@jzny.localdomain>
-References: <20031003014104.GR1897@waste.org>
-Reply-To: hadi@cyberus.ca
+Message-ID: <200310031119.UAA11088@toshiba.co.jp>
+References: <200309250521.OAA29293@toshiba.co.jp>
+	<20030925092806.GC5758@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Andrew Morton <akpm@osdl.org>,
-        Jeff Garzik <jgarzik@pobox.com>
+Cc: yasuyuki.kozakai@toshiba.co.jp, coreteam@netfilter.org,
+        netfilter-devel@lists.netfilter.org, netdev@oss.sgi.com,
+        usagi-core@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Matt Mackall <mpm@selenic.com>
-In-Reply-To: <20031003014104.GR1897@waste.org>
+To: laforge@netfilter.org
+In-Reply-To: <20030925092806.GC5758@sunbeam.de.gnumonks.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
 
+Hi, Harald,
 
-On Thu, 2003-10-02 at 21:41, Matt Mackall wrote:
-> This patch implements a new netpoll API, which allows sending and
-> receiving packets in context where interrupts may be disabled. It
-> provides a common API for implementing features like netconsole,
-> netdump/LKCD, and kgdb-over-ethernet and manages to isolate them
-> almost completely from the details of the network layer.
+Sorry for the late reply.
+
+From: Harald Welte <laforge@netfilter.org>
+Date: Thu, 25 Sep 2003 11:28:06 +0200
+
+> To summarize, I see the following options:
 > 
+> 1) submit ip6_conntrack to the 2.6.x kernel
+>    We would then need somebody committe to maintaining it, assuring
+>    it keeps in sync with the work done on ip_conntrack.  I do not want
+>    to put the burden of ip_conntrack / ip6_conntrack synchronization on
+>    everybody who submits patches/bugfixes/...
+> 
+> 2) keep ip6_conntrack in patch-o-matic and start work on a l3
+>    independent conntrack system.
+>    This would give more users to the code, since most advanced 
+>    netfilter users are using patch-o-matic anyway.
 
-Nice.
-Is the ethernet card in a case like this almost dedicated for this
-kind of work?
-Is disable_irq() in the controller safe for shared irqs? Or maybe this
-is critical enough that you dont care?
-Its a little wasteful to call the controller when there are is no work
-to be done; we have found in NAPI that any extra PCI transactions cost.
-(some IBM people doing benchmarking have complained about specweb not
-looking good where NAPI will have one extra PCI transaction per packet.
-You do it twice the rate NAPI would do it at low speeds).
-Again, the answer maybe who cares, this is critical work.
-Have you done any measurements to check whether it was worthwile to do
-the skb preallocation? 
+I select 2), too.
 
-cheers,
-jamal
+Harald, Could you add my patch to patch-o-matic ?
+
+Regards,
+
+----------------------------------------
+Yasuyuki KOZAKAI
+
+Communication Platform Laboratory,
+Corporate Research & Development Center,
+Toshiba Corporation
+
+yasuyuki.kozakai@toshiba.co.jp
+----------------------------------------
