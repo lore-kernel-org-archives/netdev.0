@@ -1,66 +1,49 @@
-From: Roland Dreier <roland@topspin.com>
-Subject: Re: LLTX and netif_stop_queue
-Date: Sat, 18 Dec 2004 07:35:49 -0800
-Message-ID: <528y7vobze.fsf@topspin.com>
-References: <52llbwoaej.fsf@topspin.com>
-	<20041217214432.07b7b21e.davem@davemloft.net>
+From: Crazy AMD K7 <snort2004@mail.ru>
+Subject: Re[2]: do_IRQ: stack overflow: 872..
+Date: Sat, 18 Dec 2004 19:07:42 +0300
+Message-ID: <1421293830.20041218190742@mail.ru>
+References: <1131604877.20041218092730@mail.ru.suse.lists.linux.kernel>
+ <p73zn0ccaee.fsf@verdi.suse.de>
+ <1103368330.3566.15.camel@localhost.localdomain>
+ <20041218111420.GE338@wotan.suse.de>
+ <1103370690.3566.33.camel@localhost.localdomain>
+ <20041218135320.GA10030@wotan.suse.de>
+Reply-To: Crazy AMD K7 <snort2004@mail.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20041217214432.07b7b21e.davem@davemloft.net> (David S.
-	Miller's message of "Fri, 17 Dec 2004 21:44:32 -0800")
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Content-Transfer-Encoding: 7bit
+Cc: Bart De Schuymer <bdschuym@pandora.be>, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Andi Kleen <ak@suse.de>
+In-reply-To: <20041218135320.GA10030@wotan.suse.de>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-    David> I understand the bug, but we're not going to fix it this
-    David> way.  This is a crucial invariant that we need to check for
-    David> because it indicates a pretty serious state error except in
-    David> this bug case you've discovered.
+> Note to the original poster: when you report a bug with a patched
+> kernel always mention it.
+I have mentioned earlier and Bart knows it.
 
-OK, that's fair enough.  I was pretty bummed myself when I realized
-hard_start_xmit was getting called even after I stopped the queue.
-Thanks for confirming my analysis.
+I use 2.4.28
++ ebtables-brnf-8_vs_2.4.28.diff
++ U32 patch from patch-o-matic-ng-20040621.tar.bz2
++ patch for br_netfilter.c made by Bart to find out why kernel panic happens(it was a few
+  letters ago)
+  All patches has applies cleanly.
+  U32 doesn't affect on br_netfilter.c
 
-    David> Perhaps one way to fix this is to add a pointer to a
-    David> spinlock to the netdev struct, and have hold that the upper
-    David> level grab that when NETIF_F_LLTX when doing queue state
-    David> checks.  Actually, that could end up being racy too.
+[root@linux kernel]# md5sum linux-2.4.28.tar.bz2
+ac7735000d185bc7778c08288760a8a3  linux-2.4.28.tar.bz2
+(taken from http://www.ru.kernel.org/pub/linux/kernel/v2.4/linux-2.4.28.tar.bz2)
 
-I may be missing something, but it seems to me that we get all of the
-benefits of LLTX by just documenting that device drivers can use the
-xmit_lock member of struct net_device to synchronize other parts of
-the driver against hard_start_xmit.  I guess the driver also should
-set xmit_lock_owner to -1 after it acquires xmit_lock.
+[root@linux bridge]# md5sum ebtables-brnf-8_vs_2.4.28.diff.gz
+30542b1a7a502593afb4d37055ec5e35  ebtables-brnf-8_vs_2.4.28.diff.gz
 
-This would mean that NETIF_F_LLTX can go away, and LLTX drivers would
-just replace their use of their own private tx_lock with xmit_lock
-(except in hard_start_xmit, where the upper layer already holds xmit_lock).
+[root@linux iptables]# md5sum patch-o-matic-ng-20040621.tar.bz2
+4fd3c744bf55f119fef6c7c3c4acc4b6  patch-o-matic-ng-20040621.tar.bz2
 
-By the way, am I correct in thinking that the use of xmit_lock_owner
-in qdisc_restart() is racy?
+If the problem will continue appear and will not be solved an any
+way, of course, I will use 2.6 kernel, now I am not ready to use it.
 
-    if (!spin_trylock(&dev->xmit_lock)) {
-    /* get the lock */
-
-                                            if (!spin_trylock(&dev->xmit_lock)) {
-                                            /* fail */
-                                                if (dev->xmit_lock_owner == smp_processor_id()) {
-                                                /* test the wrong value */
-
-    /* set the value too late */
-    dev->xmit_lock_owner = smp_processor_id();
-
-I don't see a simple way to fix this unfortunately.
-
-Thanks,
-  Roland
+Pasha
