@@ -1,38 +1,50 @@
-From: Marcelo Abreu <skewer@terra.com.br>
-Subject: Re: [PATCH][2.6] fix compilation w/o CONFIG_XFRM
-Date: Sat, 18 Oct 2003 23:42:51 -0300
+From: Max Krasnyansky <maxk@qualcomm.com>
+Subject: [BK] TUN driver updates and fixes for 2.6
+Date: Tue, 21 Oct 2003 09:39:32 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F91FA2B.5050701@terra.com.br>
-References: <Pine.LNX.4.53.0310180300500.2831@montezuma.fsmlabs.com>
+Message-ID: <5.1.0.14.2.20031021090148.05451c60@unixmail.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com
+Content-Type: text/plain; charset="us-ascii"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <Pine.LNX.4.53.0310180300500.2831@montezuma.fsmlabs.com>
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Dave, 
 
-	In case it's not fixed yet...
+Please pull from
+        bk://linux-bt.bkbits.net/tun-2.5
 
-	I'm just reusing the patch from Zwane Mwaikambo for sit.c, now to
-fix compilation of ip6_tunnel.c.
+This will update the following files:
 
-	Please verify.
+ drivers/net/tun.c      |   99 ++++++++++++++++++++++++-------------------------
+ include/linux/if_tun.h |    8 +--
+ 2 files changed, 53 insertions(+), 54 deletions(-)
 
+through these ChangeSets:
 
---- linux-2.6.0-test8-a/net/ipv6/ip6_tunnel.c     2003-10-18 23:16:42.000000000 -0300
-+++ linux-2.6.0-test8-b/net/ipv6/ip6_tunnel.c     2003-10-18 23:17:03.000000000 -0300
-@@ -515,8 +515,10 @@
-                        read_unlock(&ip6ip6_lock);
-                        goto discard;
-                }
-+#ifdef CONFIG_XFRM
-                secpath_put(skb->sp);
-                skb->sp = NULL;
-+#endif
-                skb->mac.raw = skb->nh.raw;
-                skb->nh.raw = skb->data;
-                skb->protocol = htons(ETH_P_IPV6);
+<maxk@qualcomm.com> (03/10/21 1.1348)
+   [TUN] TUN/TAP driver updates and fixes.
+   
+   - Cleanup debug macros. 
+   Replaced DBG() with TUN_DBG() to avoid conflicts.
+   
+   - Autodetect IP version and set protocol accordingly.
+   
+   - Use set_current_state() instead of accessing current->state directly.
+    
+   - Optimized net device registration.
+   Do not call dev_get_by_name() unless name has '%' character in it. 
+   This avoids extra scan of the net device list.
+   
+   - Return error code returned by misc_register() (instead of EIO) in
+   case of failure.
+
+Thanks
+
+Max
+
+http://bluez.sf.net
+http://vacum.sf.net
+http://vtun.sf.net
