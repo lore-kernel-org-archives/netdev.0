@@ -1,28 +1,31 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [2.6 PATCH] ipvs - avoid NULL ptr deref in __ip_vs_get_out_rt
-Date: Tue, 11 Nov 2003 15:48:32 -0800
+Subject: Re: [OOPS] TLAN fails on ifconfig with CONFIG_HOTPLUG=n
+Date: Tue, 11 Nov 2003 15:55:18 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031111154832.1017f57f.davem@redhat.com>
-References: <Pine.LNX.4.44.0311120134540.2506-200000@u.domain.uli>
+Message-ID: <20031111155518.52db3e71.davem@redhat.com>
+References: <20031111222933.GA2868@rivenstone.net>
+	<20031111153013.3b9eba6e.akpm@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, wensong@linux-vs.org, morpheus@theendless.org
+Cc: jhf@rivenstone.net, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Julian Anastasov <ja@ssi.bg>
-In-Reply-To: <Pine.LNX.4.44.0311120134540.2506-200000@u.domain.uli>
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20031111153013.3b9eba6e.akpm@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 12 Nov 2003 01:46:43 +0200 (EET)
-Julian Anastasov <ja@ssi.bg> wrote:
+On Tue, 11 Nov 2003 15:30:13 -0800
+Andrew Morton <akpm@osdl.org> wrote:
 
-> 	The attached patch fixes the problem as reported from
-> Kris (morpheus at theendless.org) under subject "linux-2.6.0-test9 and 
-> IPVS (Kernel OOPS) with sync daemon started.". Kris reported that
-> the fix works. It fixes a copy-and-paste bug which leads to dereferencing 
-> a NULL ptr in __ip_vs_get_out_rt.
+> Does this fix it?
+ ...
+> -} board_info[] __devinitdata = {
+> +} board_info[] = {
 
-Applied, thanks Julian.
+This fix is needed, definitely.  Even if it doesn't cure this
+specific bug.
 
-I assume 2.4.x does not need this fix.
+I'll merge this into my networking tree and push to Linus.
+
+Thanks Andrew.
