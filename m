@@ -1,8 +1,8 @@
 From: domen@coderock.org
-Subject: [patch 1/5] ebtables.c - vfree() checking cleanups
-Date: Sun, 06 Mar 2005 23:21:07 +0100
-Message-ID: <20050306222108.782C61EC90@trashy.coderock.org>
-Cc: netdev@oss.sgi.com, domen@coderock.org, jlamanna@gmail.com
+Subject: [patch 3/5] net/svcsock: replace schedule_timeout() with msleep()
+Date: Sun, 06 Mar 2005 23:21:14 +0100
+Message-ID: <20050306222115.2A8E21EC90@trashy.coderock.org>
+Cc: netdev@oss.sgi.com, domen@coderock.org, nacc@us.ibm.com
 To: davem@redhat.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
@@ -10,81 +10,39 @@ List-Id: netdev.vger.kernel.org
 
 
 
-ebtables.c vfree() checking cleanups.
 
-Signed-off by: James Lamanna <jlamanna@gmail.com>
+Use msleep() instead of schedule_timeout() to guarantee the task
+delays as expected. The code, as is, is not wrong; however I see two reasons to
+use msleep(): 1) consistency across the kernel; and 2) milliseconds are far more
+human-comprehensible than jiffies.
+
+Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
 Signed-off-by: Domen Puncer <domen@coderock.org>
 ---
 
 
- kj-domen/net/bridge/netfilter/ebtables.c |   21 +++++++--------------
- 1 files changed, 7 insertions(+), 14 deletions(-)
+ kj-domen/net/sunrpc/svcsock.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff -puN net/bridge/netfilter/ebtables.c~vfree-net_bridge_netfilter_ebtables net/bridge/netfilter/ebtables.c
---- kj/net/bridge/netfilter/ebtables.c~vfree-net_bridge_netfilter_ebtables	2005-03-05 16:10:40.000000000 +0100
-+++ kj-domen/net/bridge/netfilter/ebtables.c	2005-03-05 16:10:40.000000000 +0100
-@@ -858,8 +858,7 @@ static int translate_table(struct ebt_re
- 		if (repl->valid_hooks & (1 << i))
- 			if (check_chainloops(newinfo->hook_entry[i],
- 			   cl_s, udc_cnt, i, newinfo->entries)) {
--				if (cl_s)
--					vfree(cl_s);
-+				vfree(cl_s);
- 				return -EINVAL;
- 			}
- 
-@@ -882,8 +881,7 @@ static int translate_table(struct ebt_re
- 		EBT_ENTRY_ITERATE(newinfo->entries, newinfo->entries_size,
- 		   ebt_cleanup_entry, &i);
- 	}
--	if (cl_s)
--		vfree(cl_s);
-+	vfree(cl_s);
- 	return ret;
- }
- 
-@@ -1029,8 +1027,7 @@ static int do_replace(void __user *user,
- 	}
- 	vfree(table);
- 
--	if (counterstmp)
--		vfree(counterstmp);
-+	vfree(counterstmp);
- 	return ret;
- 
- free_unlock:
-@@ -1039,8 +1036,7 @@ free_iterate:
- 	EBT_ENTRY_ITERATE(newinfo->entries, newinfo->entries_size,
- 	   ebt_cleanup_entry, NULL);
- free_counterstmp:
--	if (counterstmp)
--		vfree(counterstmp);
-+	vfree(counterstmp);
- 	/* can be initialized in translate_table() */
- 	if (newinfo->chainstack) {
- 		for (i = 0; i < NR_CPUS; i++)
-@@ -1048,11 +1044,9 @@ free_counterstmp:
- 		vfree(newinfo->chainstack);
- 	}
- free_entries:
--	if (newinfo->entries)
--		vfree(newinfo->entries);
-+	vfree(newinfo->entries);
- free_newinfo:
--	if (newinfo)
--		vfree(newinfo);
-+	vfree(newinfo);
- 	return ret;
- }
- 
-@@ -1212,8 +1206,7 @@ void ebt_unregister_table(struct ebt_tab
- 	down(&ebt_mutex);
- 	LIST_DELETE(&ebt_tables, table);
- 	up(&ebt_mutex);
--	if (table->private->entries)
--		vfree(table->private->entries);
-+	vfree(table->private->entries);
- 	if (table->private->chainstack) {
- 		for (i = 0; i < NR_CPUS; i++)
- 			vfree(table->private->chainstack[i]);
+diff -puN net/sunrpc/svcsock.c~msleep-net_sunrpc_svcsock net/sunrpc/svcsock.c
+--- kj/net/sunrpc/svcsock.c~msleep-net_sunrpc_svcsock	2005-03-05 16:10:59.000000000 +0100
++++ kj-domen/net/sunrpc/svcsock.c	2005-03-05 16:10:59.000000000 +0100
+@@ -31,6 +31,7 @@
+ #include <linux/slab.h>
+ #include <linux/netdevice.h>
+ #include <linux/skbuff.h>
++#include <linux/delay.h>
+ #include <net/sock.h>
+ #include <net/checksum.h>
+ #include <net/ip.h>
+@@ -1167,8 +1168,7 @@ svc_recv(struct svc_serv *serv, struct s
+ 	while (rqstp->rq_arghi < pages) {
+ 		struct page *p = alloc_page(GFP_KERNEL);
+ 		if (!p) {
+-			set_current_state(TASK_UNINTERRUPTIBLE);
+-			schedule_timeout(HZ/2);
++			msleep(500);
+ 			continue;
+ 		}
+ 		rqstp->rq_argpages[rqstp->rq_arghi++] = p;
 _
