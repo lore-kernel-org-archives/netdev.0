@@ -1,24 +1,29 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] make tcf_proto_lookup_ops() static
-Date: Thu, 21 Oct 2004 22:57:24 -0700
+Subject: Re: [PATCH 2.6.9] address family not supported for sendmsg()
+Date: Thu, 21 Oct 2004 22:58:20 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041021225724.67cd9fba.davem@davemloft.net>
-References: <20041021184426.L2357@build.pdx.osdl.net>
+Message-ID: <20041021225820.72d278c7.davem@davemloft.net>
+References: <21A5F45EFF209A44B3057E35CE1FE6E403981824-100000@eammlex037.lmc.ericsson.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Chris Wright <chrisw@osdl.org>
-In-Reply-To: <20041021184426.L2357@build.pdx.osdl.net>
+To: Suresh Krishnan <suresh.krishnan@ericsson.ca>
+In-Reply-To: <21A5F45EFF209A44B3057E35CE1FE6E403981824-100000@eammlex037.lmc.ericsson.se>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 21 Oct 2004 18:44:26 -0700
-Chris Wright <chrisw@osdl.org> wrote:
+On Fri, 22 Oct 2004 00:27:14 -0400 (EDT)
+Suresh Krishnan <suresh.krishnan@ericsson.ca> wrote:
 
-> Make tcf_proto_lookup_ops() static, it's only used in cls_api.c.
-> 
-> Signed-off-by: Chris Wright <chrisw@osdl.org>
+> --- linux-2.6.9/net/ipv6/udp.c  2004-10-18 17:54:55.000000000 -0400
+> +++ linux-2.6.9-patched/net/ipv6/udp.c  2004-10-21 16:37:52.000000000 -0400
+> @@ -699,7 +699,7 @@
+>                 if (likely(up->pending)) {
+>                         if (unlikely(up->pending != AF_INET6)) {
+>                                 release_sock(sk);
+> -                               return -EINVAL;
+> +                               return -EAFNOSUPPORT;
 
-Applied, thanks Chris.
+I think this case should remain -EINVAL.
