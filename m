@@ -1,48 +1,34 @@
-From: Shmuel Hen <shmulik.hen@intel.com>
-Subject: Re: [PATCH 3/6][8021q][2.4] Use VLAN tag set functionality in 8021q module
-Date: Wed, 28 Jan 2004 18:57:25 +0200
+From: "System Anti-Virus Administrator" <root@proton-sss.ru>
+Subject: Virus =?ISO-8859-1?Q?=CF=C2=CE=C1=D2=D5=D6=C5=CE=CF=20=D7?=
+	=?ISO-8859-1?Q?=D7=D9=D3=CC=C1=CE=CE=CF=CD?=
+	=?ISO-8859-1?Q?=D3=CF=CF=C2=DD=C5=CE=C9=C9?= "Test"
+Date: 28 Jan 2004 18:38:09 -0000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200401281857.25642.shmulik.hen@intel.com>
-References: <E791C176A6139242A988ABA8B3D9B38A03A9CCD5@hasmsx403.iil.intel.com>
+Message-ID: <20040128183809.28995.qmail@relay.proton-sss.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="tscii"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@oss.sgi.com>, <bonding-devel@lists.sourceforge.net>
+Content-Type: text/plain; charset=KOI8-R
+Content-Transfer-Encoding: base64
+Cc: root@proton-sss.ru
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Jeff Garzik" <jgarzik@pobox.com>
-In-Reply-To: <E791C176A6139242A988ABA8B3D9B38A03A9CCD5@hasmsx403.iil.intel.com>
-Content-Disposition: inline
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Monday 26 January 2004 19:42, Jeff Garzik wrote:
-> Shmuel Hen wrote:
-> > Also, speaking of the bonding changes queued in netdev-2.4, some
-> > of those have been queued there since 2.4.23 came out. Will those
-> > be pushed to Marcelo during 2.4.25 or do you intend to hold them
-> > until 2.4.26-preX starts?
->
-> Sounds like DaveM and I will need to coordinate a bit, then.
-
-By coordinate, do you mean that you'll take in all of our patches and 
-forward them to Dave at the appropriate time, or instead wait for 
-Dave to take in the first half (which is not bonding specific) and 
-only then take the last half ?
-
-> Note that at some point, IMO you need to plan on 2.6-only
-> development, since keeping bonding the same in 2.4 and 2.6 -through
-> ABI changes- may not be feasible past the short term.  2.4
-> developmnent is intentionally slowing down on Marcelo's side, even
-> though vendors are still shipping 2.4.x stuff.
-
-That is our intention. The VLAN enhancements and dynamic configuration 
-are the last features we wanted to get into 2.4 before closing (maybe 
-zero copy too, since it is trivial). The only thing we do intend to 
-keep sending for both 2.4 and 2.6 are bug fixes.
-
--- 
-| Shmulik Hen   Advanced Network Services  |
-| Israel Design Center, Jerusalem          |
-| LAN Access Division, Platform Networking |
-| Intel Communications Group, Intel corp.  |
+987JzcHOycU6IG5ldGRldkBvc3Muc2dpLmNvbS4NCg0KDQpWaXJ1cyDC2cwgz8LOwdLV1sXO
+INcgRW1haWwg08/Pwt3FzsnJINfZ08zBzs7PzSD3wc3JLiANCkVtYWlsINPLwc7OxdIg0NLF
+0tfBzCDEz9PUwdfL1SDTz8TF0tbJzc/HzyDTz8/C3cXOydEgxM8g1M/HzywNCsvByyDPzs8g
+xM/T1MnHzM8g1M/ey8kgzsHazsHexc7J0S4gDQoNCvPPz8Ldxc7JxSDPIFZpcnVzOiANCg0K
+yc7GycPJ0s/Xwc4gV2luMzIuSExMTS5NeURvb20uMzI3NjgNCg0KDQoNCvDP1sHM1crT1MEs
+IM/Czs/XydTFIMHO1MnXydLV087ZxSDQ0s/H0sHNzdkgyczJINPX0dbJ1MXT2CDTIM/UxMXM
+z80NCtTFyM7J3sXTy8/KINDPxMTF0tbLySDQzyDQz9fPxNUg18nS1dPBINcg98Hbxcog08nT
+1MXNxS4NCg0KDQrzz8/C3cXOycUg19nTzMHOzs/FIPfBzckgyc3FxdQg08zFxNXA3cnKIMvP
+ztfF0tQ6DQoNCk1BSUwgRlJPTTogbmV0ZGV2QG9zcy5zZ2kuY29tDQpSQ1BUIFRPOiAgIGhl
+bGVuQHByb3Rvbi1zc3MucnUgDQoNCi4uLiDJINPMxcTVwN3JyiDawcfPzM/Xz8s6DQoNCkZy
+b206ICAgIG5ldGRldkBvc3Muc2dpLmNvbQ0KVG86ICAgICAgaGVsZW5AcHJvdG9uLXNzcy5y
+dQ0KU3ViamVjdDogVGVzdA0KRGF0ZTogICAgV2VkLCAyOCBKYW4gMjAwNCAyMTozOTowNSAr
+MDMwMA0KDQoNCg0K79LJx8nOwcwg08/Pwt3FzsnRIM/T1MHM09Eg1zoNCg0KICBzZXJ2ZXI6
+L3Zhci9zcG9vbC9xbWFpbHNjYW4vcXVhcmFudGluZQ0KDQrHxMUgU3lzdGVtIEFudGktVmly
+dXMgQWRtaW5pc3RyYXRvciDNz9bF1CDQz9TPzSDQ0s/BzsHMydrJ0s/XwdTYIMXHzy4NCg0K
+RW1haWwg08vBzs7F0iDJ2tfF3cHF1CDPINPMxcTVwN3FzSwg0M/TzMUg08vBzsnSz9fBzsnR
+INzUz8fPINPPz8Ldxc7J0ToNCg0KLS0tIA0KDQotLS0gZHJ3ZWIgcmVzdWx0cyAtLS0NCsnO
+xsnDydLP18HOIFdpbjMyLkhMTE0uTXlEb29tLjMyNzY4DQotLS0NCg0K
