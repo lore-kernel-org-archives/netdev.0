@@ -1,27 +1,38 @@
-From: Xose Vazquez Perez <xose@wanadoo.es>
-Subject: Re: Why is ifenslave.c in the kernel tree?
-Date: Sun, 22 Feb 2004 20:21:49 +0100
+From: alex@pilosoft.com
+Subject: kilobit=1000bit
+Date: Sun, 22 Feb 2004 14:55:14 -0500 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4039014D.8060202@wanadoo.es>
+Message-ID: <Pine.LNX.4.44.0402221447210.13023-100000@paix.pilosoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, hch@lst.de
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Christoph Hellwig wrote:
+While trying to investigate mysterios packet loss on a link limited by tc
+to its theoretical capacity, I realized that tc (and some other tools)  
+treat kilobit as 1024 bits per second. This is manifestly incorrect, as it
+is pretty much standard for equipment specifications to be given as 1000
+bit per second=kilobit.
 
-> Just looking over the 2.6.3 diffs I see that ifenslave is actively
-> maintained in Documenation/ of the kernel tree.  Isn't that a _really_
-> odd place for a userland tool?  We have a policy of not having any
-> userland tools not used for building in the kernel tree, and especially
-> none of the distributors will pick it up from there.
+Examples:
 
-The best place could be net-tools package.
+* Ethernet (10BaseT)  is driven by 10Mhz (as in 10 million oscillations 
+per second:) clock, resulting in 10 million bits per second capacity.
 
-But it looks like net-tools is sloppy, last change was done around Apr-2001 !!
+* Ethernet (100BaseT) is driven by 125Mhz clock and uses 4B/5B encoding 
+resulting in 100 million bits per second capacity.
 
---
-x86-64 GenuineIntel
+* 56k modem is (details are too long) but it results in 56000 bits/second.
+
+
+I can't think of any networking technology that rates the capacity in 1024 
+bits/second = kilobit.
+
+This may be a just a heads-up to those unaware, but, it would be nice to 
+change tc to use correct multipliers (possibly with a switch to revert to 
+old behavior).
+
+
+-alex
