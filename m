@@ -1,43 +1,40 @@
-From: Jan Dittmer <j.dittmer@portrix.net>
+From: David Gibson <hermes@gibson.dropbear.id.au>
 Subject: Re: [PATCH] Fix readw/writew warnings in drivers/net/wireless/hermes.h
-Date: Mon, 11 Oct 2004 14:29:39 +0200
+Date: Mon, 11 Oct 2004 22:31:37 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <416A7CB3.9000003@portrix.net>
-References: <Pine.LNX.4.61.0410110702590.7899@linaeum.absolutedigital.net> <416A7484.1030703@portrix.net> <Pine.LNX.4.61.0410110819370.8480@linaeum.absolutedigital.net>
+Message-ID: <20041011123137.GB28100@zax>
+References: <Pine.LNX.4.61.0410110702590.7899@linaeum.absolutedigital.net> <416A7484.1030703@portrix.net> <1a50bd3704101105046e66538c@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        NetDev Mailing List <netdev@oss.sgi.com>, proski@gnu.org,
-        hermes@gibson.dropbear.id.au
+Content-Type: text/plain; charset=us-ascii
+Cc: Jan Dittmer <j.dittmer@portrix.net>, Cal Peake <cp@absolutedigital.net>,
+        Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        NetDev Mailing List <netdev@oss.sgi.com>, proski@gnu.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Cal Peake <cp@absolutedigital.net>
-In-Reply-To: <Pine.LNX.4.61.0410110819370.8480@linaeum.absolutedigital.net>
+To: Ricky lloyd <ricky.lloyd@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <1a50bd3704101105046e66538c@mail.gmail.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Cal Peake wrote:
-> On Mon, 11 Oct 2004, Jan Dittmer wrote:
+On Mon, Oct 11, 2004 at 05:34:20PM +0530, Ricky lloyd wrote:
+> > Isn't the correct fix to declare iobase as (void __iomem *) ?
+> > 
 > 
-> 
->>Cal Peake wrote:
->>
->>
->>> 	inw((hw)->iobase + ( (off) << (hw)->reg_spacing )) : \
->>>-	readw((hw)->iobase + ( (off) << (hw)->reg_spacing )))
->>>+	readw((void __iomem *)(hw)->iobase + ( (off) << (hw)->reg_spacing )))
->>> #define hermes_write_reg(hw, off, val) do { \
->>
->>Isn't the correct fix to declare iobase as (void __iomem *) ?
-> 
-> 
-> iobase is an unsigned long, declaring it as a void pointer is prolly not 
-> what we want to do here. The typecast seems proper. A lot of other drivers 
-> do this as well thus it must be proper ;-)
+> Earlier today i had posted a patch which mainly fixes this same
+> problem with lotsa scsi
+> drivers and tulip drivers. I wondered the same "shouldnt all the addrs
+> be declared as
+> void __iomem* ??". 
 
-Why is iobase a unsigned long in the first place? Isn't this broken for 
-64bit archs?
+The trouble with that is that for some versions of the orinoco card,
+the iobase refers to a legacy ISA IO address, not a memory-mapped IO
+address (that's the inw()/outw() path in the macro).  That needs an
+integer, rather than a pointer.
 
-Thanks,
+It's not clear to me which way around the cast is less ugly.
 
-Jan
+-- 
+David Gibson			| For every complex problem there is a
+david AT gibson.dropbear.id.au	| solution which is simple, neat and
+				| wrong.
+http://www.ozlabs.org/people/dgibson
