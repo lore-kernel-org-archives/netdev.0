@@ -1,27 +1,22 @@
-From: Aaron Sethman <androsyn@ratbox.org>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: qfe problems on x86
-Date: Tue, 23 Apr 2002 06:47:43 -0400 (EDT)
+Date: Tue, 23 Apr 2002 03:23:01 -0700 (PDT)
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <Pine.LNX.4.44.0204230647210.7811-100000@simon.ratbox.org>
+Message-ID: <20020423.032301.40123301.davem@redhat.com>
 References: <20020422.222425.06221436.davem@redhat.com>
+	<Pine.LNX.4.44.0204230647210.7811-100000@simon.ratbox.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: linux-net@vger.kernel.org
 Return-path: <linux-net-owner@vger.kernel.org>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20020422.222425.06221436.davem@redhat.com>
+To: androsyn@ratbox.org
+In-Reply-To: <Pine.LNX.4.44.0204230647210.7811-100000@simon.ratbox.org>
 List-Id: netdev.vger.kernel.org
 
-My fault, this was on both 2.4.18 and 2.4.19-pre7.
+   From: Aaron Sethman <androsyn@ratbox.org>
+   Date: Tue, 23 Apr 2002 06:47:43 -0400 (EDT)
 
-Regards,
-
-Aaronn
-
-On Mon, 22 Apr 2002, David S. Miller wrote:
-
->
-> You didn't bother mentioning what kernel verions you see this with so
-> I basically have no way to help you out.
->
-
+   My fault, this was on both 2.4.18 and 2.4.19-pre7.
+   
+Are you hooked up to a switch or a hub?
