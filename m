@@ -1,55 +1,40 @@
-From: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
-Subject: Re: [Prism54-devel] GUPD (Grand Unified Prism54 Driver) Open discussion
-Date: Wed, 16 Jun 2004 09:37:50 +0300
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [DOCUMENTATION PATCH] Missing net sysctls, some fixed, rest flagged
+Date: Wed, 16 Jun 2004 10:37:19 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200406160937.50943.vda@port.imtp.ilyichevsk.odessa.ua>
-References: <5.1.0.14.2.20040615143603.02a40b48@pop.t-online.de> <20040616001111.GK6253@ruslug.rutgers.edu>
+Message-ID: <40D006BF.7020002@cosmosbay.com>
+References: <20040609175242.GA13875@outpost.ds9a.nl> <20040615201912.691ffe35.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: Netdev <netdev@oss.sgi.com>, prism54-devel@prism54.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: bert hubert <ahu@ds9a.nl>, netdev@oss.sgi.com,
+        linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: mcgrof@studorgs.rutgers.edu (Luis R. Rodriguez),
-        Margit Schubert-While <margitsw@t-online.de>
-In-Reply-To: <20040616001111.GK6253@ruslug.rutgers.edu>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20040615201912.691ffe35.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> * WDS - Umm someone on the list had mentioned they had used WDS
->   successfully and had some patches (?) Are you still alive? Are you
->   still working on this?
+David S. Miller wrote:
 
-No promises, but I'd like to take a look at WDS,
-since I just got another prism54.
+>+somaxconn - INTEGER
+>+	Limit of TCP listen backlog, known in userspace as SOMAXCONN.
+>+	Defaults to 128
+>+
+>  
+>
+Hmm...
 
-There is one problem - I don't know what WDS is
-supposed to do, because I use WDS link with hostap driver
-in a awkward way - I *turn off* AP bridging.
-This turns AP into kind of multihomed pseudo ethernet
-device which does NOT automatically forward packets
-from one STA to another (it is done via normal IP routing
-instead). In this setup, logically WDSes are just another
-devices, distinct from AP:
+I dont agree with the 'TCP' word here : listen() system call is not tied 
+with TCP, isn't it ?
+I would suggest :
 
-+--------------+        +AP-+
-|  core kernel |<-------| < | <--------- STA1
-|(does routing)|------->| > | ---------> STA2
-|              |        +---+
-|              |        +WDS+
-|              |<------>|<->| <--------> WDS peer
-+--------------+        +---+
++somaxconn - INTEGER
++	Limit of socket listen() backlog, known in userspace as SOMAXCONN.
++	Defaults to 128. See also tcp_max_syn_backlog for additional tuning for TCP sockets.
++
 
-I suspect that most other people do not disable bridging.
-For them WDS cannot be a separate device... or what?
-I'm lost here.
 
-Let's imagine three APs linked with WDS (double links
-in a picture below):
+Thank you
 
-sta1 <---> AP1 <===> AP2 <===> AP3 <---> sta2
-
-Say, sta1 wants to sent a packet to sta2.
-What should happen?
---
-vda
+Eric Dumazet
