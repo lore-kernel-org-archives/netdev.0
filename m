@@ -1,75 +1,33 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: [bernie@develer.com: Kernel 2.6 size increase]
-Date: Wed, 23 Jul 2003 19:53:55 +0100
+From: Glenn Fowler <gsf@research.att.com>
+Subject: Re: kernel bug in socketpair()
+Date: Wed, 23 Jul 2003 14:54:49 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030723195355.A27597@infradead.org>
+Message-ID: <200307231854.OAA90112@raptor.research.att.com>
+References: <200307231428.KAA15254@raptor.research.att.com>  <20030723074615.25eea776.davem@redhat.com>  <200307231656.MAA69129@raptor.research.att.com>  <20030723100043.18d5b025.davem@redhat.com>  <200307231724.NAA90957@raptor.research.att.com>  <20030723103135.3eac4cd2.davem@redhat.com>  <200307231814.OAA74344@raptor.research.att.com> <20030723112307.5b8ae55c.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dgk@research.att.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Content-Disposition: inline
+To: davem@redhat.com, gsf@research.att.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I think this is not only of interest fir the uClinux folks..
 
------ Forwarded message from Bernardo Innocenti <bernie@develer.com> -----
+On Wed, 23 Jul 2003 11:23:07 -0700 David S. Miller wrote:
+> On Wed, 23 Jul 2003 14:14:57 -0400 (EDT)
+> Glenn Fowler <gsf@research.att.com> wrote:
 
-Date:	Wed, 23 Jul 2003 20:46:46 +0200
-From:	Bernardo Innocenti <bernie@develer.com>
-Subject: Kernel 2.6 size increase
-To:	uClinux development list <uclinux-dev@uclinux.org>
-Cc:	linux-kernel@vger.kernel.org
+> > named sockets seem a little heavyweight for this application
 
-Hello,
+> I think it'll be cheaper than unnamed unix sockets and
+> groveling in /proc/*/fd/
 
-code bloat can be very harmful on embedded targets, but it's
-generally inconvenient for any platform. I've measured the
-code increase between 2.4.21 and 2.6.0-test1 on a small
-kernel configuration for ColdFire:
+> And even if there is a minor performance issue, you'll more than get
+> that back due to the portability gain. :-)
 
-   text    data     bss     dec     hex filename
- 640564   39152  134260  813976   c6b98 linux-2.4.x/linux
- 845924   51204   78896  976024   ee498 linux-2.5.x/vmlinux
-
-I could provide the exact .config file for both kernels to
-anybody interested. They are almost the same: no filesystems
-except JFFS2, IPv4 and a bunch of small drivers. I have no
-SMP, security, futexes, modules and anything else not
-strictly needed to execute processes.
-
-I've made a linker map file and compared the size of single
-subsystems. These are the the major contributors to the
-size increase:
-
-  kernel/   +27KB
-  mm/       +14KB
-  fs/       +47KB
-  drivers/  +35KB
-  net/      +64KB
-
-I've digged into net/ with nm -S --size-sort. It seems that
-the major increase is caused by net/xfrm/. Could this module
-be made optional?
-
-In fs/, almost all modules have got 30-40% bigger, therefore
-bloat is probably caused by inlines and macros getting more
-complex.
-
-Block drivers and MTD have generally become smaller. Character
-devices are responsable for most of the size increase in drivers/.
-
--- 
-  // Bernardo Innocenti - Develer S.r.l., R&D dept.
-\X/  http://www.develer.com/
-
-Please don't send Word attachments - http://www.gnu.org/philosophy/no-word-attachments.html
-
-
--
-To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-Please read the FAQ at  http://www.tux.org/lkml/
-
------ End forwarded message -----
+named unix sockets reside in the fs namespace, no?
+so they must be linked to a dir before use and unlinked after use
+the unlink after use would be particularly tricky for the parent process
+implementing
+	cmd <(cmd ...) ...
