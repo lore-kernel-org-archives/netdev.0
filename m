@@ -1,122 +1,57 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [1/1] connector: Kernel connector - userspace <-> kernelspace
-	"linker".
-Date: Fri, 24 Sep 2004 10:30:04 +0400
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
+Date: Fri, 24 Sep 2004 16:26:04 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1096007404.17587.49.camel@uganda>
-References: <1095331899.18219.58.camel@uganda>
-	 <20040921124623.GA6942@uganda.factory.vocord.ru>
-	 <20040924000739.112f07dd@zanzibar.2ka.mipt.ru>
-	 <20040923215447.GD30131@ruslug.rutgers.edu>
-	 <1095997232.17587.8.camel@uganda>
-	 <20040924054844.GO30131@ruslug.rutgers.edu>
-	 <1096006470.17587.37.camel@uganda>
-Reply-To: johnpol@2ka.mipt.ru
+Message-ID: <20040924062604.GA7393@gondor.apana.org.au>
+References: <414F1E12.6010808@eurodev.net> <20040922000503.GA13218@gondor.apana.org.au> <4150E7E5.2000001@eurodev.net> <20040922045239.GA19573@gondor.apana.org.au> <1095854920.1047.64.camel@jzny.localdomain> <20040922105221.59a67d4b.davem@davemloft.net> <4152EE68.4030803@eurodev.net> <20040923121651.51a58cf2.davem@davemloft.net> <20040924032830.GC6384@gondor.apana.org.au> <20040923223909.6f4da27f.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-hD0Sf8hCQxFHO3pSu8w1"
-Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com,
-        linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: pablo@eurodev.net, hadi@cyberus.ca, davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Luis R. Rodriguez" <mcgrof@studorgs.rutgers.edu>
-In-Reply-To: <1096006470.17587.37.camel@uganda>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20040923223909.6f4da27f.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Thu, Sep 23, 2004 at 10:39:09PM -0700, David S. Miller wrote:
+> 
+> It's moreso for the "give me a single entry" requests
+> than for dumps.  NLMSG_GOODSIZE is used for all cases.
 
---=-hD0Sf8hCQxFHO3pSu8w1
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+I see.  NLMSG_GOODSIZE is definitely a waste in that case.
 
-On Fri, 2004-09-24 at 10:14, Evgeniy Polyakov wrote:
-> On Fri, 2004-09-24 at 09:48, Luis R. Rodriguez wrote:
-> > On Fri, Sep 24, 2004 at 07:40:32AM +0400, Evgeniy Polyakov wrote:
-> > > On Fri, 2004-09-24 at 01:54, Luis R. Rodriguez wrote:
-> > > > RFC:=20
-> > > >=20
-> > > > Can and should we work towards using this as interface for drivers =
-that
-> > > > need callbacks from an external (closed source) library/HAL?
-> > >=20
-> > > As I mentioned to Richard Jonson, it can be considered as
-> > > ioctl. ioctl-ng!
-> > > Unified interface (as ioctl) can be used for any type of modules.
-> > > It is just a bit extended ioctl :)
-> > >=20
-> > > And _yes_, it can be used to turn on/off binary-only callbacks.
-> > > Remember pwc - closed part can register callback and open part can
-> > > send message, or even closed part can register notification when
-> > > open part registers itself and begin to "trash the kernel".
-> > >=20
-> > > I understand that it is not right way to include it is into the kerne=
-l,
-> > > but I personally do not understand how it is different=20
-> > > from just extended ioctl. It was designed to be usefull and convenien=
-t,
-> > > and it is.
-> > >=20
-> > > BTW, any binary-only module can _itself_ create netlink socket
-> > > with input callback. And that is all - it will be absolutely
-> > > the same as above.
-> > >=20
-> > > One may consider connector as yet-another-netlink-helper.
-> > >=20
-> >=20
-> > Eh. I'm just wondering if there's any *right* way of using binary
-> > callbacks on a linux driver so that it doesn't *taint* and possibly
-> > *trash it*, as you said. I was wondering if perhaps through the
-> > connector we could somehow protect the kernel of possibly ill-behaved c=
-allbacks.
-> >=20
-> > Comments?
->=20
-> Yes, we can.
-> Connector itself has quite enough information about it's registrants.
->=20
-> For example if it is somehow not good module( for example without GPL in
-> it's license string) then connector can be extended to call it's
-> callback from thread or in jail. If it is of interest I will think of
-> some plugable mechanism for callback environment( probably provide
-> ->before_callback() and ->after_callback() methods from external policy
-> provider which may check callback data and/or confine callback execution
-> ? ).
->=20
-> We also may confine closed modules from being able to use event
-> notification. In this scenario with worned out pwc-closed/open,
-> situation will not differ from what we have now.
+> Simpler would be:
+> 
+> 1) For each netlink socket, allocate a page, much like TCP sockets
+>    do.
 
-BTW, it can also restrict userspace event notification in following way:
-when someone sends a message to notify group A of
-registering/unregistering of device with id {x,y} then connector can
-check if this group A is registered through callback_register_gpl(it is
-not exist for now, but can be created as a copy of callback_register() )
-or not. If it is GPL - send notify, else - execute=20
-"mail -s "shit happens" linux-kernel@vger.kernel.org"=20
-in the way /sbin/hotplug is called.
-BTW, this decision also can be obtained from external policy module.
+I'd let the responder allocate that page skb as they do now.
+After all what we lack is space on the receive queue, not
+kernel memory.  So long as that page doesn't end up on the
+queue, it should be fine.
 
-As you may think connector in current implementation is quite powerful
-interface( if I will not praise it, who will? :) ), and somebody can
-make bad things a bit easier with it, but it is also very flexible and
-can be tuned to suit your needs.
+It also means those responders that can calculate the correct size
+of the reply doesn't need to go through this copy process.
 
-I'm open for discussion :)
+> 2) Construct the netlink response in this page sized buffer,
+>    keeping track of how much of the page is actually used.
 
-> > 	Luis
---=20
-	Evgeniy Polyakov
+The size is in the NL header so that's easy.
 
-Crash is better than data corruption. -- Art Grabowski
+> 3) At the end, allocate the skb with the necessary length,
+>    copy into the skb from the page buffer.
 
---=-hD0Sf8hCQxFHO3pSu8w1
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
+We can put that into a helper function and then those netlink
+responders which use GOODSIZE (most of them for now) can call
+it.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
+Putting it in a helper means that we can have implementations
+in future that don't need to do this.
 
-iD8DBQBBU77rIKTPhE+8wY0RAvVHAJ9xnAMas4iGun5iJVMD0nQbChzA3ACdHeJ2
-bFvxAxfjVOSaBO6zO4gy30A=
-=v0ZB
------END PGP SIGNATURE-----
-
---=-hD0Sf8hCQxFHO3pSu8w1--
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
