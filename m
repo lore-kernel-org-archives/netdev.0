@@ -1,27 +1,43 @@
-From: kuznet@ms2.inr.ac.ru
+From: Julian Anastasov <ja@ssi.bg>
 Subject: Re: raw ipv6 broken in 2.4.19
-Date: Wed, 14 Aug 2002 02:00:06 +0400 (MSD)
+Date: Wed, 14 Aug 2002 01:12:41 +0000 (GMT)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <200208132200.CAA22153@sex.inr.ac.ru>
-References: <Pine.LNX.4.44.0208140004530.1212-100000@u.domain.uli>
+Message-ID: <Pine.LNX.4.44.0208140107570.1517-100000@u.domain.uli>
+References: <200208132200.CAA22153@sex.inr.ac.ru>
 Mime-Version: 1.0
-Cc: gandalf@wlug.westbo.se, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: gandalf@wlug.westbo.se, <netdev@oss.sgi.com>
 Return-path: <owner-netdev@oss.sgi.com>
-To: ja@ssi.bg (Julian Anastasov)
-In-Reply-To: <Pine.LNX.4.44.0208140004530.1212-100000@u.domain.uli> from "Julian Anastasov" at Aug 14, 2 00:15:09 am
+To: kuznet@ms2.inr.ac.ru
+In-Reply-To: <200208132200.CAA22153@sex.inr.ac.ru>
 List-Id: netdev.vger.kernel.org
 
-Hello!
 
-> 	What about the known problem with csum_partial called
-> with zero length.
+	Hello,
 
-Maybe it is known to you, but not to me.
+On Wed, 14 Aug 2002 kuznet@ms2.inr.ac.ru wrote:
 
+> > 	What about the known problem with csum_partial called
+> > with zero length.
+>
+> Maybe it is known to you, but not to me.
 
->     (addr&2!=0 => bug)
+	Hm, some links:
 
-Sorry? What do you mean? Checksumming routines must not have any alignment
-constraints, they used with arbitrary combinations of alignments.
+http://marc.theaimsgroup.com/?l=linux-kernel&m=99489362903633&w=2
+http://marc.theaimsgroup.com/?l=linux-virtual-server&m=100332800916641&w=2
 
-Alexey
+> >     (addr&2!=0 => bug)
+>
+> Sorry? What do you mean? Checksumming routines must not have any alignment
+> constraints, they used with arbitrary combinations of alignments.
+
+	Do you believe, they have :) See the 2nd URL, there is
+a fix tested from Wensong (old LVS problem).
+
+> Alexey
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
