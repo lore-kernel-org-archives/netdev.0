@@ -1,50 +1,52 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: iproute2 and 2.6.9 kernel headers (was Re: [ANNOUNCE] iproute2
-	2.6.9-041019)
-Date: Wed, 20 Oct 2004 11:41:25 +0100
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1098268885.3872.81.camel@baythorne.infradead.org>
-References: <41758014.4080502@osdl.org>
-	 <Pine.LNX.4.61.0410200805110.8475@boston.corp.fedex.com>
-	 <20041020070017.GA19899@sunbeam.de.gnumonks.org>
-	 <20041020094123.GF19899@sunbeam.de.gnumonks.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] Change masquerade code to use first IP address of
+	interface.
+Date: Wed, 20 Oct 2004 20:46:50 +1000
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Message-ID: <20041020104650.GA20868@gondor.apana.org.au>
+References: <E1CKBtq-0005FC-00@gondolin.me.apana.org.au>
+	<Pine.LNX.4.61.0410201123200.25590@filer.marasystems.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Chua <jeffchua@silk.corp.fedex.com>,
-        Stephen Hemminger <shemminger@osdl.org>,
-        Linux Kernel <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com,
-        linux-net@vger.kernel.org, LARTC@mailman.ds9a.nl
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Harald Welte <laforge@gnumonks.org>
-In-Reply-To: <20041020094123.GF19899@sunbeam.de.gnumonks.org>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, Rusty Russell <rusty@rustcorp.com.au>,
+	netfilter-devel@lists.netfilter.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Henrik Nordstrom <hno@marasystems.com>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.61.0410201123200.25590@filer.marasystems.com>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2004-10-20 at 11:41 +0200, Harald Welte wrote:
-> On Wed, Oct 20, 2004 at 09:00:17AM +0200, Harald Welte wrote:
-> > I'll take care of this. sorry fort he inconvenience.
+On Wed, Oct 20, 2004 at 11:24:17AM +0200, Henrik Nordstrom wrote:
+> On Wed, 20 Oct 2004, Herbert Xu wrote:
 > 
-> I should actually read mails befor replying ;)  I thought the bug was in
-> lnstat - but apparently it wasn't.
+> >Rusty Russell <rusty@rustcorp.com.au> wrote:
+> >>
+> >>+       newsrc = inet_select_addr(out, 0, RT_SCOPE_UNIVERSE);
+> >>+       if (!newsrc) {
+> >>+               printk("MASQUERADE: %s ate my IP address\n", out->name);
+> >>+               return NF_DROP;
+> >
+> >Wouldn't it be better to select the address for the gateway that we're
+> >sending towards?
 > 
-> The include bug seems non-trivial to fix. (how do I hate kernel include
-> from userspace issues):
-> 
-> apparently __KERNEL_STRICT_NAMES is definde somewhere (glibc?) which
-> prevents __le16, __le64 and others from being defined in linux/types.h.
-> 
-> Just reietting it like this doesn't help much:
+> What you mean?
 
-No, it wouldn't.
+I mean
 
-The time has come to fix it properly instead. Anything which these tools
-actually need from the kernel headers should be moved into a separate
-header file (still in the kernel source) which is usable from _both_
-kernel and userspace. It should use standard types (like uint16_t etc)
-instead of kernel-private types, and shouldn't have any #if{n,}def
-__KERNEL__ in it. Ideally, it would be in a different directory too --
-but we can worry about that later.
+	rt = (struct rtable *)(*pskb)->dst;
+	newsrc = inet_select_addr(out, rt->rt_gateway, RT_SCOPE_UNIVERSE);
 
+Cheers,
 -- 
-dwmw2
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
