@@ -1,24 +1,18 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Always copy and save the vlan header in bridge-nf
-Date: Mon, 29 Dec 2003 17:52:43 -0800
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [FYI] 2.6.x exp net drivers changelog
+Date: Mon, 29 Dec 2003 23:22:49 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031229175243.23c33000.davem@redhat.com>
-References: <200312271450.18115.bdschuym@pandora.be>
+Message-ID: <3FF0FD99.7020306@pobox.com>
+References: <3FDEA8F5.1020201@pobox.com> <20031226212335.GB197@elf.ucw.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, shemminger@osdl.org
+Cc: Netdev <netdev@oss.sgi.com>, Linux Kernel <linux-kernel@vger.kernel.org>,
+        Andrew Morton <akpm@osdl.org>, davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Bart De Schuymer <bdschuym@pandora.be>
-In-Reply-To: <200312271450.18115.bdschuym@pandora.be>
+To: Pavel Machek <pavel@ucw.cz>
+In-Reply-To: <20031226212335.GB197@elf.ucw.cz>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 27 Dec 2003 14:50:18 +0100
-Bart De Schuymer <bdschuym@pandora.be> wrote:
-
-> We should also filter vlan-tagged IP/ARP traffic even if the vlan code
-> isn't compiled into the kernel. The patch below removes an unnecessary
-> dependence on the vlan code being compiled.
-
-Applied, thanks Bart.
+thanks, applied
