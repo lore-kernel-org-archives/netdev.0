@@ -1,22 +1,24 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Kill unneeded linux/version.h include in net/ipv6
-Date: Wed, 3 Sep 2003 20:19:20 -0700
+Subject: Re: /proc/net/* read drops data
+Date: Thu, 4 Sep 2003 00:46:38 -0700
 Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20030903201920.15625d8e.davem@redhat.com>
-References: <3F55F4DD.9070301@terra.com.br>
+Message-ID: <20030904004638.1d4b001d.davem@redhat.com>
+References: <Pine.GSO.4.33.0308271658370.7750-100000@sweetums.bluetronic.net>
+	<Pine.GSO.4.33.0308271935550.7750-100000@sweetums.bluetronic.net>
+	<20030903.160733.06230402.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: pekkas@netcore.fi, yoshfuji@linux-ipv6.org,
-	linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Cc: jfbeam@bluetronic.net, linux-kernel@vger.kernel.org,
+	netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: Felipe W Damasio <felipewd@terra.com.br>
-In-Reply-To: <3F55F4DD.9070301@terra.com.br>
+To: "YOSHIFUJI Hideaki / _$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20030903.160733.06230402.yoshfuji@linux-ipv6.org>
 List-Id: netdev.vger.kernel.org
 
-On Wed, 03 Sep 2003 11:04:13 -0300
-Felipe W Damasio <felipewd@terra.com.br> wrote:
+On Wed, 03 Sep 2003 16:07:33 +0900 (JST)
+YOSHIFUJI Hideaki / _$B5HF#1QL@ <yoshfuji@linux-ipv6.org> wrote:
 
-> 	Removes an unneeded linux/version.h include from af_inet6..
+> D: Fixing a bug that reading /proc/net/{udp,udp6} may drop some data
 
-Applied, thanks.
+This fix looks good to me.  Applied.
