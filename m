@@ -1,98 +1,54 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH]  Break 'budget' dependency on netdev_max_backlog.
-Date: Mon, 21 Oct 2002 08:51:46 -0400 (EDT)
+Subject: Re: rtnetlink interface state monitoring problems.
+Date: Mon, 21 Oct 2002 09:02:48 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.30.0210210850560.17911-100000@shell.cyberus.ca>
-References: <3DB3A2DA.40108@candelatech.com>
+Message-ID: <Pine.GSO.4.30.0210210852130.17911-100000@shell.cyberus.ca>
+References: <27964.1035199084@passion.cambridge.redhat.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>,
-   Robert Olsson <Robert.Olsson@data.slu.se>
+Cc: <linux-kernel@vger.kernel.org>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <3DB3A2DA.40108@candelatech.com>
+To: David Woodhouse <dwmw2@infradead.org>
+In-Reply-To: <27964.1035199084@passion.cambridge.redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-Patch looks fine except for the 300 number. What are you smoking?
-Please retain the original value.
+
+On Mon, 21 Oct 2002, David Woodhouse wrote:
+
+> I'm playing with userspace applications which want to monitor the status of
+> IrDA and Bluetooth devices. Rather than polling for the interface state
+> (this is a handheld device and polling wastes CPU and battery), I want to
+> use netlink.
+>
+> I have two problems:
+>
+>  1. I appear to need CAP_NET_ADMIN to bind to the netlink groups which give
+> 	me this  information. I can poll for it just fine, but need
+> 	elevated privs to be notified. Why is this, and is there a workaround?
+>
+
+Alexey should be able to give you a better comment.
+If you can get the status via ioctl there should be no reason why you
+shouldnt get it via netlink. The change maybe a little involved
+(look at:net/netlink/af_netlink.c::netlink_bind()) since
+there are some valid reasons to block non-admin from receiving certain
+messages. I think the LSM people may have been trying to do this, cant
+remember details.
+
+>  2. Even root doesn't get notification of state changes for Bluetooth
+> 	interfaces, because they're not treated as 'normal' network devices
+> 	like IrDA devices are. I can see the logic behind that -- by why
+> 	is it done differently from IrDA? Is there a way to get notification
+> 	of BT interface state changes?
+
+I cant see anything on netlink and irda; i am also not very familiar with
+either IrDA or Bluetooth.
+Regardless,  you dont need to be a net device to use netlink. Its a
+messaging system and you can use it both within the kernel as well as
+kernel<->userspace. If you get stuck writting the interface ping me
+privately.
 
 cheers,
 jamal
-
-On Sun, 20 Oct 2002, Ben Greear wrote:
-
-> I want to have a very high netdev_max_backlog, but that makes
-> NAPI with the tulip driver (and 4 running ports) drop packets,
-> I assume because by the time it polls the first 3, the 4th has
-> been neglected too long...
->
-> So, this patch makes the budget NAPI variable independently tunable.
-> The default of 300 seems to work well, and is the current default.
->
-> In the future, I'm guessing we want a per-interface budget, because
-> a high performance GigE NIC will want a higher budget that the
-> venerable 100bt.
->
->
-> --- linux-2.4.19.p3/include/linux/sysctl.h      Tue Oct 15 14:26:40 2002
-> +++ linux-2.4.19.p4/include/linux/sysctl.h      Sun Oct 20 23:24:13 2002
-> @@ -206,7 +206,8 @@
->          NET_CORE_NO_CONG=14,
->          NET_CORE_LO_CONG=15,
->          NET_CORE_MOD_CONG=16,
-> -       NET_CORE_DEV_WEIGHT=17
-> +       NET_CORE_DEV_WEIGHT=17,
-> +       NET_CORE_MAX_POLL=18
->   };
->
->   /* /proc/sys/net/ethernet */
-> --- linux-2.4.19.p3/net/core/dev.c      Tue Oct 15 14:23:39 2002
-> +++ linux-2.4.19.p4/net/core/dev.c      Sun Oct 20 23:36:02 2002
-> @@ -1092,6 +1092,7 @@
->     =======================================================================*/
->
->   int netdev_max_backlog = 300;
-> +int netdev_max_poll = 300; /* 'Budget' for the NAPI poll method */
->   int weight_p = 64;            /* old backlog weight */
->   /* These numbers are selected based on intuition and some
->    * experimentatiom, if you have more scientific way of doing this
-> @@ -1604,7 +1605,7 @@
->          int this_cpu = smp_processor_id();
->          struct softnet_data *queue = &softnet_data[this_cpu];
->          unsigned long start_time = jiffies;
-> -       int budget = netdev_max_backlog;
-> +       int budget = netdev_max_poll;
->
->          br_read_lock(BR_NETPROTO_LOCK);
->          local_irq_disable();
-> --- linux-2.4.19.p3/net/core/sysctl_net_core.c  Wed Oct  9 00:24:02 2002
-> +++ linux-2.4.19.p4/net/core/sysctl_net_core.c  Sun Oct 20 23:35:23 2002
-> @@ -12,6 +12,7 @@
->   #ifdef CONFIG_SYSCTL
->
->   extern int netdev_max_backlog;
-> +extern int netdev_max_poll;
->   extern int weight_p;
->   extern int no_cong_thresh;
->   extern int no_cong;
-> @@ -54,6 +55,9 @@
->          {NET_CORE_MAX_BACKLOG, "netdev_max_backlog",
->           &netdev_max_backlog, sizeof(int), 0644, NULL,
->           &proc_dointvec},
-> +       {NET_CORE_MAX_POLL, "netdev_max_poll",
-> +        &netdev_max_poll, sizeof(int), 0644, NULL,
-> +        &proc_dointvec},
->          {NET_CORE_NO_CONG_THRESH, "no_cong_thresh",
->           &no_cong, sizeof(int), 0644, NULL,
->           &proc_dointvec},
->
->
-> --
-> Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-> President of Candela Technologies Inc      http://www.candelatech.com
-> ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
->
->
->
