@@ -1,35 +1,42 @@
-From: "David S. Miller" <davem@redhat.com>
+From: "Martin J. Bligh" <Martin.Bligh@us.ibm.com>
 Subject: Re: Early SPECWeb99 results on 2.5.33 with TSO on e1000
-Date: Fri, 06 Sep 2002 11:43:36 -0700 (PDT)
+Date: Fri, 06 Sep 2002 11:51:29 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20020906.114336.132077566.davem@redhat.com>
-References: <20020906.113652.40767574.davem@redhat.com>
-	<61557945.1031312716@[10.10.2.3]>
+Message-ID: <61930391.1031313088@[10.10.2.3]>
+References: <20020906.113611.102227888.davem@redhat.com>
+Reply-To: "Martin J. Bligh" <Martin.Bligh@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: haveblue@us.ibm.com, ak@suse.de, hadi@cyberus.ca, tcw@tempest.prismnet.com,
+Cc: gh@us.ibm.com, hadi@cyberus.ca, tcw@tempest.prismnet.com,
    linux-kernel@vger.kernel.org, netdev@oss.sgi.com, niv@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Martin.Bligh@us.ibm.com
-In-Reply-To: <61557945.1031312716@[10.10.2.3]>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20020906.113611.102227888.davem@redhat.com>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: "Martin J. Bligh" <Martin.Bligh@us.ibm.com>
-   Date: Fri, 06 Sep 2002 11:45:17 -0700
+>    The fact that we're doing something different from everyone else
+>    and turning up a different set of kernel issues is a good thing, 
+>    to my mind. You're right, we could use Tux if we wanted to ... but
+>    that doesn't stop Apache being interesting ;-)
+> 
+> Tux does not obviate Apache from the equation.
+> See my other emails.
 
-   >    Actually, oprofile separated out the acenic module from the rest of the 
-   >    kernel.  I should have included that breakout as well. but it was only 1.3 
-   >    of CPU:
-   >    1.3801 0.0000 /lib/modules/2.4.18+O1/kernel/drivers/net/acenic.o
-   > 
-   > We thought you were using e1000 in these tests?
-   
-   e1000 on the server, those profiles were client side.
-   
-Ok.  BTW acenic is packet rate limited by the speed of the
-MIPS cpus on the card.
+That's not the point ... we're getting sidetracked here. The
+point is: "is this a realistic-ish stick to beat the kernel
+with and expect it to behave" ... I feel the answer is yes.
 
-It might be instramental to disable HW checksumming in the
-acenic driver and see what this does to your results.
+The secondary point is "what are customers doing in the field?"
+(not what *should* they be doing ;-)). Moreover, I think the
+Apache + Tux combination has been fairly well beaten on already
+by other people in the past, though I'm sure it could be done
+again.
+
+I see no reason why turning on NAPI should make the Apache setup
+we have perform worse ... quite the opposite. Yes, we could use
+Tux, yes we'd get better results. But that's not the point ;-)
+
+M.
