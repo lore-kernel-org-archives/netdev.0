@@ -1,40 +1,33 @@
-From: Steven Dake <scd@broked.org>
-Subject: Re: [PATCH] Add SOCK_SEQPACKET to PF_UNIX protocol family
-Date: Sat, 28 Feb 2004 22:04:07 -0700
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] Fix checksum bug for multicast/broadcast packets on
+ postrouting hook
+Date: Sat, 28 Feb 2004 21:50:13 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1078031047.1086.2.camel@slickdeal.broked.org>
-References: <1077952763.21806.78.camel@slickdeal.broked.org>
-	 <20040229033630.1058edd0.ak@suse.de>
-Reply-To: scd@broked.org
+Message-ID: <20040228215013.28a61c76.davem@redhat.com>
+References: <20040218172441.2eb117a7.davem@redhat.com>
+	<Xine.LNX.4.44.0402231713310.21153-100000@thoron.boston.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: mika.penttila@kolumbus.fi, laforge@netfilter.org, netdev@oss.sgi.com,
+        sds@epoch.ncsc.mil
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <20040229033630.1058edd0.ak@suse.de>
+To: James Morris <jmorris@redhat.com>
+In-Reply-To: <Xine.LNX.4.44.0402231713310.21153-100000@thoron.boston.redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andi
-I see you are the author of the unix(7) manpage.  Should I submit the
-change to you or do you know the maintainer?  If your the maintainer,
-could you tell me where your latest version is so I can baseline against
-that?
+On Mon, 23 Feb 2004 17:19:03 -0500 (EST)
+James Morris <jmorris@redhat.com> wrote:
 
-Thanks
--steve
+> This does not seem to be the correct approach.  If you drop packets in 
+> the ipsec cases at least, the retransmits just keep feeding packets back 
+> in with hardware checksumming set.
 
+Ok, so TCP retransmits do this.
 
-On Sat, 2004-02-28 at 19:36, Andi Kleen wrote:
-> On Sat, 28 Feb 2004 00:19:23 -0700
-> Steven Dake <scd@broked.org> wrote:
-> 
-> 
-> > 
-> > Comments welcome, enjoy
-> 
-> I would suggest you submit a patch for the unix(7) man page to the maintainer
-> too, now that DaveM has accepted it. Otherwise users cannot know that it exists.
-> 
-> -Andi
+There is a check missing somewhere in the TCP output path then.
+Or maybe, it refuses to mess with checksum state after the SKB
+has been created, even for further retransmits.
+
+More brainpower needed...
