@@ -1,35 +1,60 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH]: was Re: LLTX and netif_stop_queue
-Date: Thu, 20 Jan 2005 17:01:13 -0800
-Message-ID: <20050120170113.36ee8225.davem@davemloft.net>
-References: <5cac192f0501030907c755135@mail.gmail.com>
-	<20050103171227.GD7370@esmail.cup.hp.com>
-	<1104812294.1085.53.camel@jzny.localdomain>
-	<20050119144711.3fdd3d93.davem@davemloft.net>
-	<20050119151853.259de49a@dxpl.pdx.osdl.net>
-	<20050119164640.6c67bdfa.davem@davemloft.net>
-	<52r7kgu5n5.fsf@topspin.com>
-	<20050119230526.393a5184.davem@davemloft.net>
-	<1106229084.5812.40.camel@tsc-6.cph.tpack.net>
-	<20050120133420.317bea31.davem@davemloft.net>
-	<20050120215650.GB14521@esmail.cup.hp.com>
+From: Peter Chubb <peterc@gelato.unsw.edu.au>
+Subject: Fix fallout from tg3_readphy() value is zero on error
+Date: Fri, 21 Jan 2005 12:52:31 +1100
+Message-ID: <16880.24671.640491.852938@berry.gelato.unsw.EDU.AU>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tommy.christensen@tpack.net, roland@topspin.com, shemminger@osdl.org,
-        hadi@cyberus.ca, iod00d@hp.com, eric.lemoine@gmail.com,
-        netdev@oss.sgi.com, ak@suse.de, openib-general@openib.org,
-        kaber@trash.net
+Cc: netdev@oss.sgi.com, mchan@broadcom.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Grant Grundler <iod00d@hp.com>
-In-Reply-To: <20050120215650.GB14521@esmail.cup.hp.com>
+To: davem@davemloft.net
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 20 Jan 2005 13:56:50 -0800
-Grant Grundler <iod00d@hp.com> wrote:
 
-> I saw the next mail suggesting to revert the changes because of more fallout.
+After DaveM's patch to make the `default' value returned by
+tg3_readphy() to be zero, the attached patch fixes the few cases where
+a zero changes the previous behaviur, and deletes a couple of
+initialisation to zero that are no longer necessary.
 
-Yeah, that's what I ended up just pushing to Linus.
+
+===== drivers/net/tg3.c 1.228 vs edited =====
+--- 1.228/drivers/net/tg3.c	2005-01-20 06:37:04 +00:00
++++ edited/drivers/net/tg3.c	2005-01-21 01:10:21 +00:00
+@@ -634,7 +634,8 @@ static int tg3_wait_macro_done(struct tg
+ 	while (limit--) {
+ 		u32 tmp32;
+ 
+-		tg3_readphy(tp, 0x16, &tmp32);
++		if (tg3_readphy(tp, 0x16, &tmp32) < 0)
++			continue;
+ 		if ((tmp32 & 0x1000) == 0)
+ 			break;
+ 	}
+@@ -1379,7 +1380,8 @@ static int tg3_phy_copper_begin(struct t
+ 
+ 				udelay(10);
+ 				tg3_readphy(tp, MII_BMSR, &tmp);
+-				tg3_readphy(tp, MII_BMSR, &tmp);
++				if (tg3_readphy(tp, MII_BMSR, &tmp) < 0)
++					continue;
+ 				if (!(tmp & BMSR_LSTATUS)) {
+ 					udelay(40);
+ 					break;
+@@ -1558,7 +1560,6 @@ static int tg3_setup_copper_phy(struct t
+ 		}
+ 	}
+ 
+-	bmsr = 0;
+ 	for (i = 0; i < 100; i++) {
+ 		tg3_readphy(tp, MII_BMSR, &bmsr);
+ 		tg3_readphy(tp, MII_BMSR, &bmsr);
+@@ -1582,7 +1583,6 @@ static int tg3_setup_copper_phy(struct t
+ 					     &current_speed,
+ 					     &current_duplex);
+ 
+-		bmcr = 0;
+ 		for (i = 0; i < 200; i++) {
+ 			tg3_readphy(tp, MII_BMCR, &bmcr);
+ 			tg3_readphy(tp, MII_BMCR, &bmcr);
