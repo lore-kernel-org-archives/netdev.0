@@ -1,59 +1,54 @@
-From: "Noah J. Misch" <noah@caltech.edu>
-Subject: [PATCH] Make VLSI FIR depend on X86
-Date: Sun, 19 Oct 2003 23:41:01 -0700 (PDT)
+From: Mike_Phillips@URSCorp.com
+Subject: Re: [PATCH] fix for olympic cable pull induced hang
+Date: Mon, 20 Oct 2003 06:51:31 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.58.0310171456080.13905@blinky>
+Message-ID: <OF96B1A49A.B5BD7E93-ON88256DC5.004B0F5F-88256DC5.004C20D3@urscorp.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Don Fry <brazilnut@us.ibm.com>, netdev@oss.sgi.com,
+        netdev-bounce@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: irda-users@lists.sourceforge.net
+To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Greetings,
 
-This is a trivial patch against the Kconfig entry for the VLSI FIR driver to
-make it depend on X86.  The in-tree code guarantees that the driver will only
-build on X86, and according to the comments therein no machine of another
-architecture has this hardware anyway.
+> Thanks, I'll take a look at this.
 
-Granted, no human intelligently configuring a kernel for his or her particular
-system would make this mistake, but perhaps someone building a distribution
-kernel would.  I suggest this patch because it keeps the signal to noise ratio
-for those testing allyesconfig builds low.
+> Mike, please let me know if this looks sane to you, too.  (i would like
+> your 'ack' before sending upstream...)
 
-This patch applies to the linux-2.5 BK tree as of 0400 UTC 10/20/2003, and for
-some time before that as well.  Please consider for eventual inclusion.  It may
-be too much of a fringe case until 2.6.0 begins its stable series.
+*sigh*, yes there's a hang in the driver (it's been there since day one),
+but its only when its compiled up in SMP mode and you're not supposed to
+pull the cables out of token ring cards. The driver was specifically
+written to be nice to the rest of the machine. I could easily just have
+grabbed the interrupt on detection/module insertion and then free'd it up
+on removal, but it was written this way to only hold the interrupt when the
+card is actually open, it should release it when the card gets closed or an
+error condition occurs. A better fix is just to cure that particular bug.
+You can't call free_irq from the driver's own interrupt, true enough, a
+better fix is to set of a timer so that the interrrupt can return and then
+the timer function can free up the interrupt.
 
-Thanks,
-Noah
+This patch changes other stuff as well, I want to take a good look at it
+and check that it doesn't upset cardbus, which definitely needs to free the
+interrupt if it gets a card ejection notification. The driver was designed
+to be able to sit around even without an adapter in the machine.
 
-# This is a BitKeeper generated patch for the following project:
-# Project Name: Linux kernel tree
-# This patch format is intended for GNU patch command version 2.5 or higher.
-# This patch includes the following deltas:
-#	           ChangeSet	1.1373  -> 1.1374
-#	drivers/net/irda/Kconfig	1.12    -> 1.13
-#
-# The following is the BitKeeper ChangeSet Log
-# --------------------------------------------
-# 03/10/16	noah@caltech.edu	1.1374
-# Make VLSI_FIR depend on X86.  Read the comment just above the #error in
-# include/net/irda/vlsi_ir.h for the reason; for now, this driver can never
-# compile elsewhere.
-# --------------------------------------------
-#
-diff -Nru a/drivers/net/irda/Kconfig b/drivers/net/irda/Kconfig
---- a/drivers/net/irda/Kconfig	Fri Oct 17 13:42:39 2003
-+++ b/drivers/net/irda/Kconfig	Fri Oct 17 13:42:39 2003
-@@ -284,7 +284,7 @@
+There is also another bug that's surfaced recently to do with timing out in
+open commands which I'm currently looking at. (For some reason on recent
+kernels, both 2.4 and 2.6 it's taking longer for the open command to
+return)
 
- config VLSI_FIR
- 	tristate "VLSI 82C147 SIR/MIR/FIR (EXPERIMENTAL)"
--	depends on EXPERIMENTAL && IRDA && PCI
-+	depends on EXPERIMENTAL && IRDA && PCI && X86
- 	help
- 	  Say Y here if you want to build support for the VLSI 82C147
- 	  PCI-IrDA Controller. This controller is used by the HP OmniBook 800
+Plus:
+
+> If other cards are on the ring then just one down/up will work.  After
+that
+> when the active monitor is removed from the ring another down/up cycle is
+> required.
+
+What !!, the card should detect when an active monitor is removed from the
+ring, a contention method kicks in (at hardware level) and a different
+adapter becomes the active monitor - this USED to work.
+
+Mike
