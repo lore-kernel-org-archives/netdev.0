@@ -1,46 +1,61 @@
-From: Andi Kleen <ak@suse.de>
-Subject: [PATCH] Add appletalk 32bit ioctl emulation
-Date: Wed, 20 Oct 2004 00:48:10 +0200
+From: Lee Revell <rlrevell@joe-job.com>
+Subject: Re: tun.c patch to fix "smp_processor_id() in preemptible code"
+Date: Tue, 19 Oct 2004 18:51:28 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041020004810.35957a87.ak@suse.de>
+Message-ID: <1098226288.23628.6.camel@krustophenia.net>
+References: <E1CK1e6-0004F3-00@gondolin.me.apana.org.au>
+	 <1098222676.23367.18.camel@krustophenia.net>
+	 <20041019215401.GA16427@gondor.apana.org.au>
+	 <1098223857.23367.35.camel@krustophenia.net>
+	 <20041019153308.488d34c1.davem@davemloft.net>
+	 <1098225729.23628.2.camel@krustophenia.net>
+	 <20041019154249.6afcaaad.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, helmut@helios.de
+Cc: herbert@gondor.apana.org.au, vda@port.imtp.ilyichevsk.odessa.ua,
+        Linux Network Development <netdev@oss.sgi.com>,
+        linux-kernel <linux-kernel@vger.kernel.org>, maxk@qualcomm.com,
+        irda-users@lists.sourceforge.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: akpm@osdl.org
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20041019154249.6afcaaad.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Helmut Tschemernjak <helmut@helios.de>
+On Tue, 2004-10-19 at 18:42, David S. Miller wrote:
+> AIUI the only valid reason to use preempt_disable/enable is in
+> > the case of per-CPU data.  This is not "real" per-CPU data, it's a
+> > performance hack.  Therefore it would be incorrect to add the preemption
+> > protection, the fix is not to manually call do_softirq but to let the
+> > softirq run by the normal mechanism.
+> > 
+> > Am I missing something?
+> 
+> In code paths where netif_rx_ni() is called, there is not a softirq return
+> path check, which is why it is checked here.
+> 
+> Theoretically, if you remove the check, softirq processing can be deferred
+> indefinitely.
+> 
+> What I'm saying, therefore, is that netif_rx_ni() it not just a performance
+> hack, it is necessary for correctness as well.
+> 
 
-Add 32bit ioctl conversion for appletalk ioctls
+OK, thanks for clarifying.  The correct patch is therefore:
 
-Signed-off-by: Andi Kleen <ak@suse.de>
-
-Index: linux/fs/compat_ioctl.c
-===================================================================
---- linux.orig/fs/compat_ioctl.c	2004-10-19 01:55:27.%N +0200
-+++ linux/fs/compat_ioctl.c	2004-10-19 17:43:50.%N +0200
-@@ -69,6 +69,7 @@
- #include <linux/i2c.h>
- #include <linux/i2c-dev.h>
- #include <linux/wireless.h>
-+#include <linux/atalk.h>
+--- include/linux/netdevice.h~	2004-10-19 18:50:18.000000000 -0400
++++ include/linux/netdevice.h	2004-10-19 18:51:01.000000000 -0400
+@@ -696,9 +696,11 @@
+  */
+ static inline int netif_rx_ni(struct sk_buff *skb)
+ {
++       preempt_disable();
+        int err = netif_rx(skb);
+        if (softirq_pending(smp_processor_id()))
+                do_softirq();
++       preempt_enable();
+        return err;
+ }
  
- #include <net/sock.h>          /* siocdevprivate_ioctl */
- #include <net/bluetooth/bluetooth.h>
-@@ -3184,6 +3185,13 @@
- HANDLE_IOCTL(SIOCSIFMAP, dev_ifsioc)
- HANDLE_IOCTL(SIOCGIFADDR, dev_ifsioc)
- HANDLE_IOCTL(SIOCSIFADDR, dev_ifsioc)
-+
-+/* ioctls used by appletalk ddp.c */
-+HANDLE_IOCTL(SIOCATALKDIFADDR, dev_ifsioc)
-+HANDLE_IOCTL(SIOCDIFADDR, dev_ifsioc)
-+HANDLE_IOCTL(SIOCSARP, dev_ifsioc)
-+HANDLE_IOCTL(SIOCDARP, dev_ifsioc)
-+
- HANDLE_IOCTL(SIOCGIFBRDADDR, dev_ifsioc)
- HANDLE_IOCTL(SIOCSIFBRDADDR, dev_ifsioc)
- HANDLE_IOCTL(SIOCGIFDSTADDR, dev_ifsioc)
+Lee
