@@ -1,40 +1,36 @@
-From: Cheng Jin <chengjin@cs.caltech.edu>
+From: John Heffner <jheffner@psc.edu>
 Subject: Re: TCP receiver's window calculation problem
-Date: Thu, 24 Jun 2004 12:18:19 -0700 (PDT)
+Date: Thu, 24 Jun 2004 15:26:27 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0406241209280.1272-100000@orchestra.cs.caltech.edu>
-References: <Pine.NEB.4.33.0406241301010.28506-100000@dexter.psc.edu>
+Message-ID: <Pine.NEB.4.33.0406241519430.28506-100000@dexter.psc.edu>
+References: <Pine.LNX.4.44.0406241209280.1272-100000@orchestra.cs.caltech.edu>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: "netdev@oss.sgi.com" <netdev@oss.sgi.com>,
         "fast-support@cs.caltech.edu" <fast-support@cs.caltech.edu>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: John Heffner <jheffner@psc.edu>
-In-Reply-To: <Pine.NEB.4.33.0406241301010.28506-100000@dexter.psc.edu>
+To: Cheng Jin <chengjin@cs.caltech.edu>
+In-Reply-To: <Pine.LNX.4.44.0406241209280.1272-100000@orchestra.cs.caltech.edu>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi, John,
+On Thu, 24 Jun 2004, Cheng Jin wrote:
 
-Thanks for confirming this problem.
+> I think having a default limit on tcp memory is acceptable to prevent DoS,
+> but when a user increases the memory limit by explicitly setting tcp_rmem,
+> that should take effect.  The code itself shouldnt pose any limit like it
+> does now.
 
-> I've run in to this problem, too.  This code prevents advertising more
-> rcvbuf space than you are likely to need.  This is good for something like
-> an X11 connection, but obviously very bad for the bulk transfer mixed MTU
+The core of the problem is that you are describing a truesize of each skb
+at about 16k, but each of those only contains < 1500 bytes of payload.
+You are wasting 90% of your socket memory.  Announcing a 3 MB window with
+a 30 MB socket buffer is the right thing to do, from a certain point of
+view.  OTOH, it kills performance.
 
-I would think this is already taken care of at the sender by application
-limited cwnd so cwnd wouldn't increase beyond what is being actually used.
 
-> I think the most desirable answer is to not have a hard per-connection
-> memory bound, but this is problematic because of denial-of-service
-> conerns.
+> Actually, I am not clear what that window-calculation algorithm is.  Is it
+> recommended by some RFC?
 
-I think having a default limit on tcp memory is acceptable to prevent DoS, 
-but when a user increases the memory limit by explicitly setting tcp_rmem,
-that should take effect.  The code itself shouldnt pose any limit like it 
-does now.
+No, it's not standard.  I'm not sure who wrote this code.
 
-Actually, I am not clear what that window-calculation algorithm is.  Is it 
-recommended by some RFC?
-
-Cheng
+  -John
