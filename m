@@ -1,55 +1,48 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] irda/qos.c: remove an unused function
-Date: Fri, 29 Oct 2004 00:22:38 +0200
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: 8169 driver with NetGear GA511 card.
+Date: Fri, 29 Oct 2004 00:37:54 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041028222238.GP3207@stusta.de>
+Message-ID: <20041028223754.GA20521@electric-eye.fr.zoreil.com>
+References: <41802CA8.8070900@candelatech.com> <20041028074827.GA3572@electric-eye.fr.zoreil.com> <418130C4.3010207@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; x-action=pgp-signed
-Cc: irda-users@lists.sourceforge.net, davem@davemloft.net, netdev@oss.sgi.com,
-        linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Dag Brattli <dagb@cs.uit.no>, Jean Tourrilhes <jt@hpl.hp.com>
+To: Ben Greear <greearb@candelatech.com>
 Content-Disposition: inline
+In-Reply-To: <418130C4.3010207@candelatech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+Ben Greear <greearb@candelatech.com> :
+[...]
+> I'm running tests at the ethernet frame (skb) level, so I would not
+> expect the IP offload to help much.
+> 
+> Do you have any performance numbers for your 8169 cards for me to
+> compare against?
 
-The patch below removes an unused function from net/irda/qos.c
+Gross numbers:
+- with a receiving amd64, nttcp should saturate the GigaE link;
+- halved bandwidth for Tx on the same setup. Untested since changes in -mm;
+- 10% cpu on a 100bt link;
+- TSO saves 5~7% of the cpu when it can be used.
 
+saturated
+- old host system (PII class): on 100bt, napi chews 4x10kpps (icmp) without
+  significant load.
 
-diffstat output:
- net/irda/qos.c |   11 -----------
- 1 files changed, 11 deletions(-)
+[...]
+> I'll get this in a bit, as I have locked up the keyboard again.  This time,
+> I was still using the non-NAPI code which had run over-night at around 
+> 5Mbps...
+> 
+> I tried a different network setup, and noticed that the 8169 was only
+> negotiating 10bt/HD.  That would explain the poor performance numbers.
 
+Call me dense but... Are the 5Mbps below in the same unit as the 30Mbps
+in your previous message (are they bytes or bits) ? If yes something is
+badly broken.
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
-
-- --- linux-2.6.10-rc1-mm1-full/net/irda/qos.c.old	2004-10-28 23:51:59.000000000 +0200
-+++ linux-2.6.10-rc1-mm1-full/net/irda/qos.c	2004-10-28 23:52:08.000000000 +0200
-@@ -211,17 +211,6 @@
- 	return index;
- }
- 
-- -static inline __u32 byte_value(__u8 byte, __u32 *array) 
-- -{
-- -	int index;
-- -
-- -	ASSERT(array != NULL, return -1;);
-- -
-- -	index = msb_index(byte);
-- -
-- -	return index_value(index, array);
-- -}
-- -
- /*
-  * Function value_lower_bits (value, array)
-  *
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.6 (GNU/Linux)
-
-iD8DBQFBgXEumfzqmE8StAARAjtAAJwJtfTHsEupGVZWHqUG1L8ddNXQfACglX+r
-SKDqqr8fPgPtMjBBkhIwkx8=
-=zwcY
------END PGP SIGNATURE-----
+--
+Ueimor
