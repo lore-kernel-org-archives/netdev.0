@@ -1,45 +1,40 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: Re: Route cache performance tests
-Date: Wed, 18 Jun 2003 08:50:53 +0300 (EEST)
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <Pine.LNX.4.44.0306180849210.4731-100000@netcore.fi>
-References: <20030617205101.GD25773@netnation.com>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [PATCH] Convert pppoe to new style protocol
+Date: Wed, 18 Jun 2003 10:01:18 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20030618080118.GC23037@wotan.suse.de>
+References: <20030617220420.GA1169@averell> <20030617.150751.52901849.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@redhat.com>, <gandalf@wlug.westbo.se>,
-	<Robert.Olsson@data.slu.se>, <ralph+d@istop.com>,
-	<hadi@shell.cyberus.ca>, <xerox@foonet.net>, <fw@deneb.enyo.de>,
-	<netdev@oss.sgi.com>, <linux-net@vger.kernel.org>
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Simon Kirby <sim@netnation.com>
-In-Reply-To: <20030617205101.GD25773@netnation.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: ak@muc.de, netdev@oss.sgi.com, mostrows@speakeasy.net, paulus@au.ibm.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20030617.150751.52901849.davem@redhat.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 17 Jun 2003, Simon Kirby wrote:
-> On Tue, Jun 17, 2003 at 01:36:35PM -0700, David S. Miller wrote:
+On Tue, Jun 17, 2003 at 03:07:51PM -0700, David S. Miller wrote:
+>    From: Andi Kleen <ak@muc.de>
+>    Date: Wed, 18 Jun 2003 00:04:20 +0200
 > 
-> > I have no idea why they do this, it's the stupidest thing
-> > you can possibly do by default.
-> > 
-> > If we thought it was a good idea to turn this on by default
-> > we would have done so in the kernel.
-> > 
-> > Does anyone have some cycles to spare to try and urge whoever is
-> > repsponsible for this in Debian to leave the kernel's default setting
-> > alone?
+>    Convert pppoe to a new style protocol, otherwise it is unusable 
+>    on SMP compiled kernels because of the printk in deliver*old_ones.
+>    It works fine here, but only tested on a UP box.
 > 
-> Sure, I can do this.  But why is this stupid?  It uses more CPU, but
-> stops IP spoofing by default.  Specific firewall rules would have to be
-> created otherwise.  And the overhead only really shows when the routing
-> table is large, right?
+> Please don't add new skb_linearize() users, I'm trying
+> to make that only local to net/core/dev.c
 
-Personally I think rp_filter by default is the only good choice
-(security/operational-wise).  It's typically not useful when you have a
-lot of routes, though.. but as the 99.9% of users _don't_, it still seems 
-like a good default value.
+Then offer a flag or something for protocols that also doesn't trigger
+printks ?
 
--- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
 
+> 
+> Otherwise I'm fine with your patch.
+
+How else should it be done? 
+
+I'm not going through the whole PPP layer now to audit it for non linear
+skb cleanliness...
+
+-Andi
