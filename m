@@ -1,85 +1,44 @@
-From: "Alex Upton" <AUpton@island.com>
-Subject: 2.6.10 - "netdev=" kernel boot commands and the Intel e1000 nic
-Date: Fri, 11 Mar 2005 09:00:50 -0500
-Message-ID: <13A26154A563124B876A26F0EF0CE1ED032C9299@HFCCINFEXCH501.AMERICAS.CORP.LOCAL>
+From: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
+Subject: Re: [PATCH] move tc_u32_mark into pkt_cls.h
+Date: Fri, 11 Mar 2005 16:05:47 +0200 (EET)
+Message-ID: <Pine.LNX.4.62.0503111556090.11178@webhosting.rdsbv.ro>
+References: <20050310104207.1d74ac00@dxpl.pdx.osdl.net>
+ <1110481248.1074.306.camel@jzny.localdomain> <Pine.LNX.4.62.0503110859570.11178@webhosting.rdsbv.ro>
+ <20050311132848.GF31837@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8bit
-content-class: urn:content-classes:message
-To: <netdev@oss.sgi.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Jamal Hadi Salim <hadi@znyx.com>, Stephen Hemminger <shemminger@osdl.org>,
+        "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050311132848.GF31837@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello All,
+>> It can die, but there are users that use it.
+>> So, I think that as long as u32 will stay in kernel, we can let
+>> mark_in_u32 live.
+>> It's a small modification and I think it may stay.
+>
+> Everyone told you that it would only be a temporary solution and once
+> the meta ematch works flawlessly there is no reason to keep it in the
+> tree. In order to give everyone enough time to switch the removal should
+> be announced on LARTC mailinglist and commited 2-3 release cycles later.
 
-For about 3.5 days now I've been trying to swap eth0 and eth1 devices
-through use of the netdev kernel boot switch.
+Yes, you are right, everybody told me. I don't deny.
+And I will respect the decision that will be taken.
+But I'm wonder what are the gains removing nfmark from u32?
+~64 bytes of code and 128 bytes of sources?!
+I thing that the gain being in is bigger than the gains resulting from 
+removing it.
 
-The scenario:
+I will not ask another set of questions. If I'm wrong, let me know and I 
+will send, as soon as I can, patches to remove it from kernel (with 3 
+releases warning).
 
-We have a system with onboard NICS and a PCI Intel e1000 Fiber NIC
-installed. This particular system by default forces the NIC inside the
-PCI slot to always default to eth0. We want to have ultimate control as
-to which NIC is deemed worthy enough to become eth0. We are using an
-entirely monolithic kernel via a PXE driven build and prefer not to
-support use of modules.
+Thank you for your time!
 
-Reading through the kernel-parameters.txt I found the "netdev=" command
-which suggests the following usage:
-
-  netdev=   [NET] Network devices parameters
-            Format: <irq>,<io>,<mem_start>,<mem_end>,<name>
-            Note that mem_start is often overloaded to mean
-            something different and driver-specific.
-
-We have tried the following methods based on this info and other peoples
-examples found in google land without success.
-
-netdev=21,0x2800,0xf6fa,0xf6fd,eth1
-netdev=21,0x2800,0xf6fa0000,0xf6fd0000,eth1
-netdev=21,0x2800,1,32,eth1
-netdev=irq=21,io=0x2800,name=eth1
-
-We have also tried to use "nameif" as a second approach, unfortunately
-nameif seems to be limited to only having the capability to change any
-logical Ethernet device name other than eth0.
-
-We've even attempted use of the "pci=" commands with hopes of reversing
-the PCI search order, and forced bios values, again without success.
-
-If anyone has any suggestions or insight on how to work with netdev and
-the e1000 properly it would be greatly appreciated!
-
-Thanks very much
--Alex
-
-Alex.upton@inetats.com
-
-
-
-
-*****************************************************************
-<<<Disclaimer>>>
-
-In compliance with applicable rules and regulations, Instinet
-reviews and archives incoming and outgoing email communications,
-copies of which may be produced at the request of regulators.
-This message is intended only for the personal and confidential
-use of the recipients named above.  If the reader of this email
-is not the intended recipient, you have received this email in
-error and any review, dissemination, distribution or copying is
-strictly prohibited. If you have received this email in error,
-please notify the sender immediately by return email and
-permanently delete the copy you received.  
-
-Instinet accepts no liability for any content contained in the
-email, or any errors or omissions arising as a result of email
-transmission. Any opinions contained in this email constitute
-the sender's best judgment at this time and are subject to change
-without notice.   Instinet does not make recommendations of a
-particular security and the information contained in this email
-should not be considered as a recommendation, an offer or a
-solicitation of an offer to buy and sell securities.
-
-*****************************************************************
+---
+Catalin(ux aka Dino) BOIE
+catab at deuroconsult.ro
+http://kernel.umbrella.ro/
