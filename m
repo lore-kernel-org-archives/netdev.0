@@ -1,26 +1,30 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [2.6 patch] remove a superfluous #ifndef from net/ip.h
-Date: Sun, 27 Jun 2004 20:39:15 -0700
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040627203915.65b56752.davem@redhat.com>
-References: <20040627000222.GQ18303@fs.tum.de>
+Subject: Re: old NLMSG_OK fix
+Date: Sun, 27 Jun 2004 20:51:33 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040627205133.11d37f0c.davem@redhat.com>
+References: <20040531160427.GA19581@lst.de>
+	<20040627171552.GA2797@lst.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S264647AbUF1Dlc@vger.kernel.org>
-To: Adrian Bunk <bunk@fs.tum.de>
-In-Reply-To: <20040627000222.GQ18303@fs.tum.de>
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Christoph Hellwig <hch@lst.de>
+In-Reply-To: <20040627171552.GA2797@lst.de>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 27 Jun 2004 02:02:23 +0200
-Adrian Bunk <bunk@fs.tum.de> wrote:
+On Sun, 27 Jun 2004 19:15:52 +0200
+Christoph Hellwig <hch@lst.de> wrote:
 
-> The patch below removes a superfluous #ifndef from net/ip.h (snmp.h is 
-> guarded by the same #ifndef).
-> 
-> Signed-off-by: Adrian Bunk <bunk@fs.tum.de>
+> http://oss.sgi.com/projects/netdev/archive/2000-09/msg00001.html
 
-Looks good to me, applied.
+It works because there is always 16 bytes of scratch at the end of an
+SKB more than was allocated for the actual data.  So blindly deref'ing
+the nlmsg_len value is fine here.
 
-Thanks.
+There is no danger for OOPS's or kernel corruption.
+
+I believe I responded exactly like this the last time this
+patch was presented.
