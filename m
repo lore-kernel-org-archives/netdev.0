@@ -1,38 +1,52 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: RFC: [2.6 patch] disallow modular IPv6
-Date: Mon, 29 Sep 2003 15:46:08 +0100
+From: Shmulik Hen <shmulik.hen@intel.com>
+Subject: [PATCH}[bonding] Restore compatibilty with old ifenslave
+Date: Mon, 29 Sep 2003 18:20:28 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1064846768.21551.15.camel@hades.cambridge.redhat.com>
-References: <20030928225941.GW15338@fs.tum.de>
-	 <20030928231842.GE1039@conectiva.com.br> <20030928232403.GX15338@fs.tum.de>
-	 <20030928233909.GG1039@conectiva.com.br> <20030929001439.GY15338@fs.tum.de>
-	 <20030929003229.GM1039@conectiva.com.br>
-	 <1064826174.29569.13.camel@hades.cambridge.redhat.com>
-	 <20030929141548.GS1039@conectiva.com.br>
-	 <200309291438.h8TEcVtH021550@turing-police.cc.vt.edu>
+Message-ID: <200309291820.28609.shmulik.hen@intel.com>
+Reply-To: shmulik.hen@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Arnaldo Carvalho de Melo <acme@conectiva.com.br>,
-        Adrian Bunk <bunk@fs.tum.de>, netdev@oss.sgi.com, davem@redhat.com,
-        pekkas@netcore.fi, lksctp-developers@lists.sourceforge.net,
-        linux-kernel@vger.kernel.org
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 8bit
+Cc: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Valdis.Kletnieks@vt.edu
-In-Reply-To: <200309291438.h8TEcVtH021550@turing-police.cc.vt.edu>
+To: "Jeff Garzik" <jgarzik@pobox.com>, "Jay Vosburgh" <fubar@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2003-09-29 at 10:38 -0400, Valdis.Kletnieks@vt.edu wrote:
-> No, this is the behavior we want, and we can write Kconfig help entries that
-> explain it.
-> 
-> Anybody want to do a sanity check against CONFIG_IP6_NF_IPTABLES - that
-> looks like another gotcha if it isn't implemented properly (it may be, I just haven't
-> actually looked it over)?
+Hi,
 
-In 2.7 we really should just stop the CONFIG_xxx_MODULE definitions
-being available during builds of the static kernel.
+The patch below restores compatibility that was removed during the
+propagation set. That set added the ability to set the bond's hardware
+address in the conventional way using SIOCSIFHWADDR but also removed
+support for the very old way using BOND_SETHWADDR, which, although has
+been removed from the ifenslave code for years, turns out to still be
+in use in the ifenslave binary of recent distributions.
+
+The patch applies on 2.4.23-pre5 and should also cleanly apply on
+2.6.0-test6 after fully applying the propagation set (patch 2 wasn't
+applied yet).
+
+Jeff, please apply this patch soon so that 2.4.23 won't be released
+with a bug that breaks compatibility.
 
 -- 
-dwmw2
+| Shmulik Hen   Advanced Network Services  |
+| Israel Design Center, Jerusalem          |
+| LAN Access Division, Platform Networking |
+| Intel Communications Group, Intel corp.  |
+
+diff -Naurp a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+--- a/drivers/net/bonding/bond_main.c	Mon Sep 29 15:15:57 2003
++++ b/drivers/net/bonding/bond_main.c	Mon Sep 29 18:15:00 2003
+@@ -3048,6 +3048,10 @@ static int bond_ioctl(struct net_device 
+ 		case SIOCBONDRELEASE:	
+ 			ret = bond_release(master_dev, slave_dev); 
+ 			break;
++		case BOND_SETHWADDR_OLD:
++		case SIOCBONDSETHWADDR:
++			ret = bond_sethwaddr(master_dev, slave_dev);
++			break;
+ 		case BOND_CHANGE_ACTIVE_OLD:
+ 		case SIOCBONDCHANGEACTIVE:
+ 			if (USES_PRIMARY(bond_mode)) {
