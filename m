@@ -1,25 +1,21 @@
-From: Jeff Garzik <jgarzik@pobox.com>
+From: Greg KH <greg@kroah.com>
 Subject: Re: MSEC_TO_JIFFIES is messed up...
-Date: Wed, 12 May 2004 16:24:53 -0400
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <40A28815.2020009@pobox.com>
-References: <20040512020700.6f6aa61f.akpm@osdl.org>	<20040512181903.GG13421@kroah.com>	<40A26FFA.4030701@pobox.com>	<20040512193349.GA14936@elte.hu>	<Pine.LNX.4.58.0405121247011.11950@bigblue.dev.mdolabs.com>	<20040512200305.GA16078@elte.hu> <20040512132050.6eae6905.akpm@osdl.org>
+Date: Wed, 12 May 2004 13:32:51 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040512203251.GA16336@kroah.com>
+References: <20040512020700.6f6aa61f.akpm@osdl.org> <20040512181903.GG13421@kroah.com> <40A26FFA.4030701@pobox.com> <20040512193349.GA14936@elte.hu> <Pine.LNX.4.58.0405121247011.11950@bigblue.dev.mdolabs.com> <20040512200305.GA16078@elte.hu> <20040512132050.6eae6905.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ingo Molnar <mingo@elte.hu>, davidel@xmailserver.org,
-	greg@kroah.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S263698AbUELUZa@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ingo Molnar <mingo@elte.hu>, davidel@xmailserver.org, jgarzik@pobox.com,
+        linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
 To: Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
 In-Reply-To: <20040512132050.6eae6905.akpm@osdl.org>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
-> Yes, that's a correct optimisation.  This is simply a namespace clash.
-
-Agreed.
-
-
+On Wed, May 12, 2004 at 01:20:50PM -0700, Andrew Morton wrote:
 > How about we do:
 > 
 > #if HZ=1000
@@ -35,8 +31,8 @@ Agreed.
 > 
 > in some kernel-wide header then kill off all the private implementations?
 
+Looks good to me.
 
-include/linux/time.h.  One of the SCTP people already did this, but I 
-suppose it's straightforward to reproduce.
+thanks,
 
-	Jeff
+greg k-h
