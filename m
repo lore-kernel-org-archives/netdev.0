@@ -1,54 +1,42 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: [PATCH] Propagate error from sctp_proc_init
-Date: Wed, 14 Apr 2004 15:09:47 -0700 (PDT)
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: [PATCH] MLDV2: Use IANA icmpv6 type for MLDv2 Report
+Date: Thu, 15 Apr 2004 07:33:24 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0404141507520.2969@localhost.localdomain>
-References: <20040414134148.GC16591@suse.de>
+Message-ID: <20040415.073324.44957072.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com, lksctp-developers@lists.sourceforge.net
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Olaf Kirch <okir@suse.de>
-In-Reply-To: <20040414134148.GC16591@suse.de>
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The patch looks fine. Dave, could you apply it both 2.6 and 2.4 trees.
-It should apply to both of them with a little fuzz.
+Hello.
 
-Thanks
-Sridhar
+IANA has finally assigned an ICMPv6 type for MLDv2 Report.
+(See: <http://www.iana.org/assignments/icmpv6-parameters>)
 
-On Wed, 14 Apr 2004, Olaf Kirch wrote:
+Patch also applies to 2.4.
 
-> The following patch makes sure that an error in sctp_proc_init()
-> causes module initialization to fail.
->
-> Olaf
-> --
-> Olaf Kirch     |  The Hardware Gods hate me.
-> okir@suse.de   |
-> ---------------+
->
+Thanks.
 
---- linux-2.6.4/net/sctp/protocol.c.initfail	2004-02-19 11:36:37.000000000 +0100
-+++ linux-2.6.4/net/sctp/protocol.c	2004-04-14 15:36:19.000000000 +0200
-@@ -1001,7 +1001,9 @@
- 		goto err_init_mibs;
+===== include/linux/icmpv6.h 1.3 vs edited =====
+--- 1.3/include/linux/icmpv6.h	Wed Apr 16 17:45:42 2003
++++ edited/include/linux/icmpv6.h	Thu Apr 15 07:30:09 2004
+@@ -95,8 +95,7 @@
+ #define MLD2_ALLOW_NEW_SOURCES	5
+ #define MLD2_BLOCK_OLD_SOURCES	6
+ 
+-/* this must be an IANA-assigned value; 206 for testing only */
+-#define ICMPV6_MLD2_REPORT		206
++#define ICMPV6_MLD2_REPORT		143
+ #define MLD2_ALL_MCR_INIT { { { 0xff,0x02,0,0,0,0,0,0,0,0,0,0,0,0,0,0x16 } } }
+ 
+ /*
 
- 	/* Initialize proc fs directory.  */
--	sctp_proc_init();
-+	status = sctp_proc_init();
-+	if (status)
-+		goto err_init_proc;
 
- 	/* Initialize object count debugging.  */
- 	sctp_dbg_objcnt_init();
-@@ -1165,6 +1167,7 @@
- 			     sizeof(struct sctp_hashbucket)));
- err_ahash_alloc:
- 	sctp_dbg_objcnt_exit();
-+err_init_proc:
- 	sctp_proc_exit();
- 	cleanup_sctp_mibs();
- err_init_mibs:
+
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
