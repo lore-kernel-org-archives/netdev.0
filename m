@@ -1,58 +1,46 @@
-From: Stephan von Krawczynski <skraw@ithnet.com>
+From: bert hubert <ahu@ds9a.nl>
 Subject: Re: [PATCH] USAGI IPsec
-Date: Sat, 12 Oct 2002 14:06:44 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021012140644.0d403b2c.skraw@ithnet.com>
-References: <20021012.114330.78212112.yoshfuji@linux-ipv6.org>
-	<20021011.194108.102576152.davem@redhat.com>
-	<20021012111759.GA10104@outpost.ds9a.nl>
-	<20021012.044137.42774593.davem@redhat.com>
+Date: Sat, 12 Oct 2002 14:16:50 +0200
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20021012121650.GA10827@outpost.ds9a.nl>
+References: <20021012.114330.78212112.yoshfuji@linux-ipv6.org> <20021011.194108.102576152.davem@redhat.com> <20021012111759.GA10104@outpost.ds9a.nl> <20021012.044137.42774593.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: ahu@ds9a.nl, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
 To: "David S. Miller" <davem@redhat.com>
+Content-Disposition: inline
 In-Reply-To: <20021012.044137.42774593.davem@redhat.com>
-Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 12 Oct 2002 04:41:37 -0700 (PDT)
-"David S. Miller" <davem@redhat.com> wrote:
+On Sat, Oct 12, 2002 at 04:41:37AM -0700, David S. Miller wrote:
 
->    From: bert hubert <ahu@ds9a.nl>
->    Date: Sat, 12 Oct 2002 13:17:59 +0200
-> 
->    On Fri, Oct 11, 2002 at 07:41:08PM -0700, David S. Miller wrote:
->    > We believe that the whole SPD/SAD mechanism should move
->    > eventually to a top-level flow cache shared by ipv4 and
->    > ipv6.
->    
->    Is this the proposed stacked route system?
-> 
-> Yes, for output mostly.
-> 
 > Also the idea Alexey and I have to move towards a small
 > efficient flow cache shared by IPv4/IPv6 plays into this
 > as well.  There are changesets on their way to Linus tonight
-> which moves ipv4 over to using ipv6's "struct flowi" from
-> include/net/flow.h as the routing lookup key.
-> 
+
+Some people on #lartc were wondering about the use of a route cache if there
+is only one route. It was reported that a single default route on a system
+that talks to many destinations would lead to a huge route cache, which is
+probably not more efficient than looking up the simple route.
+
+Would this 'small efficient flow cache' also solve this problem?
+
+Or is this problem a figment of people's imaginations?
+
 > The initial ipsec is intended to be simple, singly linked
 > lists for the spd/sad databases etc.  Making the feature
 > freeze is pretty important right now, full blown flow cache
 > is just performance improvement :)
 
-Huhu!
-Just a word on this one: I recently came across some heavy performance problem
-regarding a setup with about 225 000 routes. It looked as if TCP experienced a
-tremendous slowdown to about 50 KBytes/sec throughput, whereas UDP worked
-pretty much normal. This was a 2.2.19 kernel with equal-cost-multipath enabled
-and large routing-tables enabled.
-The reason I am writing this is: please keep in mind situations like this with
-several hundred thousands of routes in one box. This is a familiar setup for
-the routing guys - and not a "just" case ;-)
-Thanks for lending an ear.
--- 
+I know a lot of people are hoping that you make the feature freeze. As said
+before, if there is any help you need, just yell.
+
 Regards,
-Stephan
+
+bert 
+
+-- 
+http://www.PowerDNS.com          Versatile DNS Software & Services
+http://www.tk                              the dot in .tk
+http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
