@@ -1,8 +1,8 @@
 From: Daniele <daniele@justmailz.com>
 Subject: Simple, Reliable and Online Home Business!
-Date: Sun, 07 Sep 2003 05:51:33 -0700
+Date: Sun, 07 Sep 2003 06:01:31 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <LETOIScYTjr8cU6xfPT00000017@host>
+Message-ID: <LETOISvlYJrbojZJWDn00000017@host>
 Reply-To: dvallestero@yahoo.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
