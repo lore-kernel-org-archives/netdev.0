@@ -1,131 +1,99 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH PKT_SCHED 20/22]: act_api.c: push memory allocation to tcf_action_get_1
-Date: Mon, 10 Jan 2005 20:38:16 +0100
-Message-ID: <41E2D9A8.9080003@trash.net>
+From: Adam Anthony <AAnthony@sbs.com>
+Subject: RE: [PATCH] /driver/net/wan/sbs520
+Date: Mon, 10 Jan 2005 12:49:23 -0700
+Message-ID: <4F23E557A0317D45864097982DE907941A3383@pilotmail.sbscorp.sbs.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040200000705010208020307"
-Cc: Maillist netdev <netdev@oss.sgi.com>
+Content-Type: text/plain
+Cc: Adam Anthony <AAnthony@sbs.com>, netdev@oss.sgi.com,
+        linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
+To: Matthias-Christian Ott <matthias.christian@tiscali.de>,
+        Alexey Dobriyan <adobriyan@mail.ru>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------040200000705010208020307
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Thank you for the heads up A&M.  I have destroyed the evil [^M]'s, and
+updated the package.
+http://prdownloads.sourceforge.net/sbs520lnxdrv/sbs520patch.bz2?download
+-AA
 
 
+-----Original Message-----
+From: Matthias-Christian Ott [mailto:matthias.christian@tiscali.de] 
+Sent: Monday, January 10, 2005 12:26 PM
+To: Alexey Dobriyan
+Cc: Adam Anthony; netdev@oss.sgi.com; linux-kernel@vger.kernel.org
+Subject: Re: [PATCH] /driver/net/wan/sbs520
 
---------------040200000705010208020307
-Content-Type: text/x-patch;
- name="20.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="20.diff"
+Alexey Dobriyan wrote:
 
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2005/01/10 05:47:32+01:00 kaber@coreworks.de 
-#   [PKT_SCHED]: act_api.c: push memory allocation to tcf_action_get_1
-#   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-# 
-# net/sched/act_api.c
-#   2005/01/10 05:47:25+01:00 kaber@coreworks.de +30 -18
-#   [PKT_SCHED]: act_api.c: push memory allocation to tcf_action_get_1
-#   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-# 
-diff -Nru a/net/sched/act_api.c b/net/sched/act_api.c
---- a/net/sched/act_api.c	2005-01-10 06:23:12 +01:00
-+++ b/net/sched/act_api.c	2005-01-10 06:23:12 +01:00
-@@ -463,31 +463,46 @@
- 	return err;
- }
- 
--static int tcf_action_get_1(struct rtattr *rta, struct tc_action *a,
--                            struct nlmsghdr *n, u32 pid)
-+static struct tc_action *
-+tcf_action_get_1(struct rtattr *rta, struct nlmsghdr *n, u32 pid, int *err)
- {
- 	struct rtattr *tb[TCA_ACT_MAX+1];
-+	struct tc_action *a;
- 	int index;
--	int err = 0;
- 
-+	*err = -EINVAL;
- 	if (rtattr_parse(tb, TCA_ACT_MAX, RTA_DATA(rta), RTA_PAYLOAD(rta)) < 0)
--		return -EINVAL;
-+		return NULL;
- 
- 	if (tb[TCA_ACT_INDEX - 1] == NULL ||
- 	    RTA_PAYLOAD(tb[TCA_ACT_INDEX - 1]) < sizeof(index))
--		return -EINVAL;
-+		return NULL;
- 	index = *(int *)RTA_DATA(tb[TCA_ACT_INDEX - 1]);
- 
-+	*err = -ENOMEM;
-+	a = kmalloc(sizeof(struct tc_action), GFP_KERNEL);
-+	if (a == NULL)
-+		return NULL;
-+	memset(a, 0, sizeof(struct tc_action));
-+
-+	*err = -EINVAL;
- 	a->ops = tc_lookup_action(tb[TCA_ACT_KIND - 1]);
- 	if (a->ops == NULL)
--		return -EINVAL;
-+		goto err_free;
- 	if (a->ops->lookup == NULL)
--		err = -EINVAL;
--	else if (a->ops->lookup(a, index) == 0)
--		err = -ENOENT;
-+		goto err_mod;
-+	*err = -ENOENT;
-+	if (a->ops->lookup(a, index) == 0)
-+		goto err_mod;
- 
- 	module_put(a->ops->owner);
--	return err;
-+	*err = 0;
-+	return a;
-+err_mod:
-+	module_put(a->ops->owner);
-+err_free:
-+	kfree(a);
-+	return NULL;
- }
- 
- static void cleanup_a(struct tc_action *act)
-@@ -606,7 +621,11 @@
- 	for (i=0; i < TCA_ACT_MAX_PRIO; i++) {
- 		if (tb[i] == NULL)
- 			break;
--		act = create_a(i+1);
-+		act = tcf_action_get_1(tb[i], n, pid, &ret);
-+		if (act == NULL)
-+			goto rtattr_failure;
-+		act->order = i+1;
-+
- 		if (a != NULL) {
- 			a->next = act;
- 			a = act;
-@@ -615,13 +634,6 @@
- 
- 		if (a_s == NULL)
- 			a_s = a;
--
--		ret = tcf_action_get_1(tb[i], act, n, pid);
--		if (ret < 0) {
--			printk("tcf_action_get: failed to get!\n");
--			ret = -EINVAL;
--			goto rtattr_failure;
--		}
- 	}
- 
- 	if (event == RTM_GETACTION)
+>On Mon, 10 Jan 2005 07:46:52 -0700, Adam Anthony wrote:
+>
+>  
+>
+>>With the permission of my employer, SBS Technologies, Inc., I have
+>>released a patch for 2.4 kernels that supports the 520 Series of WAN
+>>adapters.
+>>    
+>>
+>
+>My editor shows ^M at the end of every line of new
+Documentation/Configure.help,
+>MAINTAINERS (add ~63400 bogus lines!). Please, look at the patch _after_
+>generating it.
+>
+>  
+>
+>>+obj-$(CONFIG_LANMEDIA)		+=		syncppp.o^M
+>>    
+>>
+>
+>  
+>
+>>+subdir-$(CONFIG_LANMEDIA) += lmc^M
+>>    
+>>
+>
+>Also random ^M's.
+> 
+>--- linux-2.4.28-virgin/drivers/net/wan/sbs520/lnxosl.c
+>+++ /usr/src/linux-2.4.28/drivers/net/wan/sbs520/lnxosl.c
+>
+>  
+>
+>>+// Programming Language:	C^M
+>>+// Target Processor:		Any^M
+>>+// Target Operating System: Linux^M
+>>    
+>>
+>
+>Well, this is pretty obvious to everyone here. :-)
+>
+>  
+>
+>>+// This software may be used and distributed according to the terms^M
+>>+// of the GNU General Public License, incorporated herein by reference.^M
+>>    
+>>
+>
+>Stupid question: do you mean GPL version 2 or something else?
+>
+>	Alexey
+>-
+>To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>Please read the FAQ at  http://www.tux.org/lkml/
+>
+>  
+>
+That's ugly, that are Microsoft line endings.
 
---------------040200000705010208020307--
+Matthias-Christian Ott
+
+***This message has been scanned for virus, spam, and undesirable
+content.***
+***For further information, contact your mail administrator.***
+
+For limitations on the use and distribution of this message, please visit www.sbs.com/emaildisclaimer.
