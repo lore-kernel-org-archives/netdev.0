@@ -1,114 +1,55 @@
-From: David Hollis <dhollis@davehollis.com>
-Subject: Re: [PATCH] tg3.h & b44.h ifndef ADVERTISE_PAUSE typo
-Date: Tue, 11 Jan 2005 14:48:49 -0500
-Message-ID: <1105472929.6599.3.camel@dhollis-lnx.centricconsulting.com>
-References: <1105454553.4264.4.camel@dhollis-lnx.centricconsulting.com>
-	 <41E421A8.60203@pobox.com>
+From: Peter Bieringer <pb@bieringer.de>
+Subject: Re: (usagi-users 03190) Re: netfilter6: ICMPv6 type 143 doesn't
+ match
+Date: Tue, 11 Jan 2005 20:56:35 +0100
+Message-ID: <60EEE488578EBAD1D9924A43@worker.muc.bieringer.de>
+References: <6050E336B1A0D7D8E70C66F3@t1mobil.muc.aerasec.de>
+ <200412270417.iBR4HZRG021429@toshiba.co.jp>
+ <20041227.100205.102356251.yoshfuji@linux-ipv6.org>
+ <EA4274721EC980393BB13B5E@worker.muc.bieringer.de>
+ <20050110131709.GB16911@suse.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-Z1Tl4mtyEz8e79VuuZsu"
-Cc: Netdev <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: yasuyuki.kozakai@toshiba.co.jp, netdev@oss.sgi.com, laforge@gnumonks.org,
+        kaber@trash.net, netfilter-devel@lists.netfilter.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <41E421A8.60203@pobox.com>
+To: usagi-users@linux-ipv6.org
+In-Reply-To: <20050110131709.GB16911@suse.de>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---=-Z1Tl4mtyEz8e79VuuZsu
-Content-Type: multipart/mixed; boundary="=-LnWs+4xZV+zMM9Tt+HZm"
+
+--On Monday, January 10, 2005 02:17:09 PM +0100 Olaf Kirch <okir@suse.de>
+wrote:
+
+> On Sat, Jan 08, 2005 at 12:45:14PM +0100, Peter Bieringer wrote:
+>> -               ptr = IPV6_HDR_LEN;
+>> +               ptr = ((u8*)skb->nh.raw - skb->data) + IPV6_HDR_LEN;
+> [...]
+>> But it won't help :-((
+> 
+> The following works for me on 2.6.8:
+> 
+> 		ptr = ((char *) ipv6 - (char *) skb->data) + IPV6_HDR_LEN;
+> 
+> Older 2.6 kernels also do not call ipv6_skip_exthdr() in icmp6_match();
+> more recent kernels fix this.
+> 
+> Olaf
 
 
---=-LnWs+4xZV+zMM9Tt+HZm
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+I'll be very happy now that I can report that on a recompiled 2.6.10
+(latest Fedora Core 3 update), this patch works for me. I will file a RH
+bugzilla entry for that and the esp match problem.
 
-On Tue, 2005-01-11 at 13:57 -0500, Jeff Garzik wrote:
+Thank you all very much for helping!
 
-> Just kill the ifdef and add it to mii.h.
->=20
-> 	Jeff
->=20
-
-Attached patch moves those defines to mii.h and removes them from tg3.h
-& b44.h.
-
---=20
-David Hollis <dhollis@davehollis.com>
-
---=-LnWs+4xZV+zMM9Tt+HZm
-Content-Disposition: attachment; filename=mii-advert-pause.patch
-Content-Transfer-Encoding: base64
-Content-Type: text/x-patch; name=mii-advert-pause.patch; charset=utf-8
-
-QWRkIGRlZmluZXMgZm9yIGZ1bGwtZHVwbGV4IHBhdXNlIGFkdmVydGlzZW1lbnRzIGFuZCBjYXBh
-YmlsaXR5IHRvIG1paS5oDQphbmQgcmVtb3ZlIGluZGl2aWR1YWwgZGVmaW5lcyBpbiBuZXR3b3Jr
-IGRyaXZlcnMuDQoNClNpZ25lZC1vZmYtYnk6IERhdmlkIEhvbGxpcyA8ZGhvbGxpc0BkYXZlaG9s
-bGlzLmNvbT4NCg0KIGRyaXZlcnMvbmV0L2I0NC5oICAgfCAgIDE0IC0tLS0tLS0tLS0tLS0tDQog
-ZHJpdmVycy9uZXQvdGczLmggICB8ICAgMTQgLS0tLS0tLS0tLS0tLS0NCiBpbmNsdWRlL2xpbnV4
-L21paS5oIHwgICAgNCArKysrDQogMyBmaWxlcyBjaGFuZ2VkLCA0IGluc2VydGlvbnMoKyksIDI4
-IGRlbGV0aW9ucygtKQ0KDQotLS0gaW5jbHVkZS9saW51eC9taWkuaC5vcmlnCTIwMDUtMDEtMTEg
-MTQ6NDI6MjQuOTkyMzMwMzA0IC0wNTAwDQorKysgaW5jbHVkZS9saW51eC9taWkuaAkyMDA1LTAx
-LTExIDE0OjQxOjQ5LjQ5OTcyNjAwMCAtMDUwMA0KQEAgLTY3LDYgKzY3LDggQEANCiAjZGVmaW5l
-IEFEVkVSVElTRV8xMDBIQUxGICAgICAgIDB4MDA4MCAgLyogVHJ5IGZvciAxMDBtYnBzIGhhbGYt
-ZHVwbGV4ICovDQogI2RlZmluZSBBRFZFUlRJU0VfMTAwRlVMTCAgICAgICAweDAxMDAgIC8qIFRy
-eSBmb3IgMTAwbWJwcyBmdWxsLWR1cGxleCAqLw0KICNkZWZpbmUgQURWRVJUSVNFXzEwMEJBU0U0
-ICAgICAgMHgwMjAwICAvKiBUcnkgZm9yIDEwMG1icHMgNGsgcGFja2V0cyAgKi8NCisjZGVmaW5l
-IEFEVkVSVElTRV9QQVVTRV9DQVAJMHgwNDAwICAvKiBUcnkgZm9yIHBhdXNlICAgICAgICAgICAg
-ICAgKi8NCisjZGVmaW5lIEFEVkVSVElTRV9QQVVTRV9BU1lNCTB4MDgwMCAgLyogVHJ5IGZvciBh
-c3ltZXRyaWMgcGF1c2UgICAgICovDQogI2RlZmluZSBBRFZFUlRJU0VfUkVTViAgICAgICAgICAw
-eDFjMDAgIC8qIFVudXNlZC4uLiAgICAgICAgICAgICAgICAgICAqLw0KICNkZWZpbmUgQURWRVJU
-SVNFX1JGQVVMVCAgICAgICAgMHgyMDAwICAvKiBTYXkgd2UgY2FuIGRldGVjdCBmYXVsdHMgICAg
-Ki8NCiAjZGVmaW5lIEFEVkVSVElTRV9MUEFDSyAgICAgICAgIDB4NDAwMCAgLyogQWNrIGxpbmsg
-cGFydG5lcnMgcmVzcG9uc2UgICovDQpAQCAtODQsNiArODYsOCBAQA0KICNkZWZpbmUgTFBBXzEw
-MEhBTEYgICAgICAgICAgICAgMHgwMDgwICAvKiBDYW4gZG8gMTAwbWJwcyBoYWxmLWR1cGxleCAg
-Ki8NCiAjZGVmaW5lIExQQV8xMDBGVUxMICAgICAgICAgICAgIDB4MDEwMCAgLyogQ2FuIGRvIDEw
-MG1icHMgZnVsbC1kdXBsZXggICovDQogI2RlZmluZSBMUEFfMTAwQkFTRTQgICAgICAgICAgICAw
-eDAyMDAgIC8qIENhbiBkbyAxMDBtYnBzIDRrIHBhY2tldHMgICAqLw0KKyNkZWZpbmUgTFBBX1BB
-VVNFX0NBUAkJMHgwNDAwICAvKiBDYW4gcGF1c2UgICAgICAgICAgICAgICAgICAgKi8NCisjZGVm
-aW5lIExQQV9QQVVTRV9BU1lNCQkweDA4MDAJLyogQ2FuIHBhdXNlIGFzeW1ldHJpY2FsbHkgICAg
-ICovDQogI2RlZmluZSBMUEFfUkVTViAgICAgICAgICAgICAgICAweDFjMDAgIC8qIFVudXNlZC4u
-LiAgICAgICAgICAgICAgICAgICAqLw0KICNkZWZpbmUgTFBBX1JGQVVMVCAgICAgICAgICAgICAg
-MHgyMDAwICAvKiBMaW5rIHBhcnRuZXIgZmF1bHRlZCAgICAgICAgKi8NCiAjZGVmaW5lIExQQV9M
-UEFDSyAgICAgICAgICAgICAgIDB4NDAwMCAgLyogTGluayBwYXJ0bmVyIGFja2VkIHVzICAgICAg
-ICovDQotLS0gZHJpdmVycy9uZXQvYjQ0Lmgub3JpZwkyMDA1LTAxLTExIDA5OjM0OjM5LjAwMDAw
-MDAwMCAtMDUwMA0KKysrIGRyaXZlcnMvbmV0L2I0NC5oCTIwMDUtMDEtMTEgMTQ6MzY6NDMuMzcy
-MjY0NDQ4IC0wNTAwDQpAQCAtMzAyLDIwICszMDIsNiBAQA0KICNkZWZpbmUgQjQ0X01JSV9UTEVE
-Q1RSTAkyNwkvKiBUcmFmZmljIE1ldGVyIExFRCAqLw0KICNkZWZpbmUgIE1JSV9UTEVEQ1RSTF9F
-TkFCTEUJMHgwMDQwDQogDQotLyogWFhYIEFkZCB0aGlzIHRvIG1paS5oICovDQotI2lmbmRlZiBB
-RFZFUlRJU0VfUEFVU0UNCi0jZGVmaW5lIEFEVkVSVElTRV9QQVVTRV9DQVAJCTB4MDQwMA0KLSNl
-bmRpZg0KLSNpZm5kZWYgQURWRVJUSVNFX1BBVVNFX0FTWU0NCi0jZGVmaW5lIEFEVkVSVElTRV9Q
-QVVTRV9BU1lNCQkweDA4MDANCi0jZW5kaWYNCi0jaWZuZGVmIExQQV9QQVVTRQ0KLSNkZWZpbmUg
-TFBBX1BBVVNFX0NBUAkJCTB4MDQwMA0KLSNlbmRpZg0KLSNpZm5kZWYgTFBBX1BBVVNFX0FTWU0N
-Ci0jZGVmaW5lIExQQV9QQVVTRV9BU1lNCQkJMHgwODAwDQotI2VuZGlmDQotDQogc3RydWN0IGRt
-YV9kZXNjIHsNCiAJdTMyCWN0cmw7DQogCXUzMglhZGRyOw0KLS0tIGRyaXZlcnMvbmV0L3RnMy5o
-Lm9yaWcJMjAwNS0wMS0xMSAwOTozNDo0My4wMDAwMDAwMDAgLTA1MDANCisrKyBkcml2ZXJzL25l
-dC90ZzMuaAkyMDA1LTAxLTExIDE0OjM2OjU0LjE2OTYyMzAwMCAtMDUwMA0KQEAgLTE1MzEsMjAg
-KzE1MzEsNiBAQA0KICNkZWZpbmUgTUlJX1RHM19JTlRfRFVQTEVYQ0hHCQkweDAwMDgNCiAjZGVm
-aW5lIE1JSV9URzNfSU5UX0FORUdfUEFHRV9SWAkweDA0MDANCiANCi0vKiBYWFggQWRkIHRoaXMg
-dG8gbWlpLmggKi8NCi0jaWZuZGVmIEFEVkVSVElTRV9QQVVTRQ0KLSNkZWZpbmUgQURWRVJUSVNF
-X1BBVVNFX0NBUAkJMHgwNDAwDQotI2VuZGlmDQotI2lmbmRlZiBBRFZFUlRJU0VfUEFVU0VfQVNZ
-TQ0KLSNkZWZpbmUgQURWRVJUSVNFX1BBVVNFX0FTWU0JCTB4MDgwMA0KLSNlbmRpZg0KLSNpZm5k
-ZWYgTFBBX1BBVVNFDQotI2RlZmluZSBMUEFfUEFVU0VfQ0FQCQkJMHgwNDAwDQotI2VuZGlmDQot
-I2lmbmRlZiBMUEFfUEFVU0VfQVNZTQ0KLSNkZWZpbmUgTFBBX1BBVVNFX0FTWU0JCQkweDA4MDAN
-Ci0jZW5kaWYNCi0NCiAvKiBUaGVyZSBhcmUgdHdvIHdheXMgdG8gbWFuYWdlIHRoZSBUWCBkZXNj
-cmlwdG9ycyBvbiB0aGUgdGlnb24zLg0KICAqIEVpdGhlciB0aGUgZGVzY3JpcHRvcnMgYXJlIGlu
-IGhvc3QgRE1BJ2FibGUgbWVtb3J5LCBvciB0aGV5DQogICogZXhpc3Qgb25seSBpbiB0aGUgY2Fy
-ZHMgb24tY2hpcCBTUkFNLiAgQWxsIDE2IHNlbmQgYmRzIGFyZSB1bmRlcg0K
-
-
---=-LnWs+4xZV+zMM9Tt+HZm--
-
---=-Z1Tl4mtyEz8e79VuuZsu
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.6 (GNU/Linux)
-
-iD8DBQBB5C2hxasLqOyGHncRAj+0AJ0QQAs62O6wnOreK883pmuoW7pWyQCfb6jF
-7kotOhPQXns/nfu3uYySsmg=
-=4ejc
------END PGP SIGNATURE-----
-
---=-Z1Tl4mtyEz8e79VuuZsu--
+        Peter
+-- 
+Dr. Peter Bieringer                     http://www.bieringer.de/pb/
+GPG/PGP Key 0x958F422D               mailto: pb at bieringer dot de 
+Deep Space 6 Co-Founder and Core Member  http://www.deepspace6.net/
