@@ -1,34 +1,43 @@
-From: Jonathan Lundell <linux@lundell-bros.com>
-Subject: Re: Update on e1000 troubles (over-heating!)
-Date: Mon, 14 Oct 2002 19:54:15 -0700
+From: Geoffrey Lee <glee@gnupilgrims.org>
+Subject: Signal interrupt with connect.
+Date: Tue, 15 Oct 2002 11:42:35 +0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <p05200b57b9d133abc6d6@[207.213.214.37]>
-References: <288F9BF66CD9D5118DF400508B68C44604758B78@orsmsx113.jf.intel.com>
- <20021015043722.A9562@wotan.suse.de>
+Message-ID: <20021015034235.GA15574@anakin.wychk.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii" ; format="flowed"
-Cc: "'Ben Greear'" <greearb@candelatech.com>,
-   linux-kernel <linux-kernel@vger.kernel.org>,
-   "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=big5
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <20021015043722.A9562@wotan.suse.de>
-To: Andi Kleen <ak@suse.de>, "Feldman, Scott" <scott.feldman@intel.com>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-At 4:37am +0200 10/15/02, Andi Kleen wrote:
->  > Ben, I checked the datasheet for the part shown in the lspci dump, and it
->>  shows an operating temperature of 0-55 degrees C.  You said you measured 50
->>  degrees C, so you're within the safe range.  Did the fans help?
->
->The thermometer he used likely showed a much lower temperature than what was
->actually on the die. 5-10 C more are not unlikely. It's hard to measure chip
->temperatures accurately without an on die thermal diode or special kit.
->So I would expect that when an external normal thermometer showed 50C
->it was already operating out of spec.
+Hi all,
 
-The datasheet's for the card, so the operating temperature is surely 
-ambient, not die temperature. "Ambient measured how?" would be a 
-reasonable question, though.
--- 
-/Jonathan Lundell.
+
+A while ago, I have raised the issue of the interruptibility of
+the connect() function.
+
+We decided that a "restartable" connect() if interrupted by a signal
+is the best solution.
+
+I must apologize that I should have looked this up more carefully.
+
+According to this document here (IEEE Std 1003.1-2001):
+
+http://www.opengroup.org/onlinepubs/007904975/functions/connect.html
+
+"If connect() is interrupted by a signal that is caught while blocked
+waiting to establish a connection, connect() shall fail and set errno to
+[EINTR], but the connection request shall not be aborted, and the
+connection shall be established asynchronously."
+
+so we must return -EINTR in the kernel.
+
+Alexey, will you finally agree that we need to change this? :-)
+
+(Yes, that sucks ... but ...)
+
+
+
+	-- G.
+	
