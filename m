@@ -1,40 +1,32 @@
-From: Jan Dittmer <j.dittmer@portrix.net>
+From: Ricky lloyd <ricky.lloyd@gmail.com>
 Subject: Re: [PATCH] Fix readw/writew warnings in drivers/net/wireless/hermes.h
-Date: Mon, 11 Oct 2004 13:54:44 +0200
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <416A7484.1030703@portrix.net>
+Date: Mon, 11 Oct 2004 17:34:20 +0530
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <1a50bd3704101105046e66538c@mail.gmail.com>
 References: <Pine.LNX.4.61.0410110702590.7899@linaeum.absolutedigital.net>
+	 <416A7484.1030703@portrix.net>
+Reply-To: Ricky lloyd <ricky.lloyd@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	NetDev Mailing List <netdev@oss.sgi.com>, proski@gnu.org,
-	hermes@gibson.dropbear.id.au
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S268824AbUJKLzY@vger.kernel.org>
-To: Cal Peake <cp@absolutedigital.net>
-In-Reply-To: <Pine.LNX.4.61.0410110702590.7899@linaeum.absolutedigital.net>
+Cc: Cal Peake <cp@absolutedigital.net>,
+        Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        NetDev Mailing List <netdev@oss.sgi.com>, proski@gnu.org,
+        hermes@gibson.dropbear.id.au
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Jan Dittmer <j.dittmer@portrix.net>
+In-Reply-To: <416A7484.1030703@portrix.net>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Cal Peake wrote:
-> Hi,
+> Isn't the correct fix to declare iobase as (void __iomem *) ?
 > 
-> This patch fixes several dozen warnings spit out when compiling the hermes 
-> wireless driver.
-> 
-> In file included from drivers/net/wireless/orinoco.c:448:
-> drivers/net/wireless/hermes.h: In function `hermes_present':
-> drivers/net/wireless/hermes.h:398: warning: passing arg 1 of `readw' makes pointer from integer without a cast
-> drivers/net/wireless/hermes.h: In function `hermes_set_irqmask':
-> drivers/net/wireless/hermes.h:404: warning: passing arg 2 of `writew' makes pointer from integer without a cast
-> ...
 
->  	inw((hw)->iobase + ( (off) << (hw)->reg_spacing )) : \
-> -	readw((hw)->iobase + ( (off) << (hw)->reg_spacing )))
-> +	readw((void __iomem *)(hw)->iobase + ( (off) << (hw)->reg_spacing )))
->  #define hermes_write_reg(hw, off, val) do { \
+Earlier today i had posted a patch which mainly fixes this same
+problem with lotsa scsi
+drivers and tulip drivers. I wondered the same "shouldnt all the addrs
+be declared as
+void __iomem* ??". 
 
-Isn't the correct fix to declare iobase as (void __iomem *) ?
-
-Thanks,
-
-Jank
+-- 
+-> Ricky
