@@ -1,47 +1,31 @@
-From: hotjobs <hotjobs@secureallinc.com>
-Subject: kernel developers:two openings
-Date: Fri, 10 Oct 2003 14:26:42 -0700
+From: Shirley Ma <xma@us.ibm.com>
+Subject: Re: [PATCH] New Patch: Implementation for IPv6 MIB:ipv6AddressTable
+Date: Fri, 10 Oct 2003 14:42:26 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1065821197.1612.14.camel@localhost.localdomain>
+Message-ID: <OF76B6670E.FBF6325A-ON87256DBB.0061E032@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=US-ASCII
+Cc: mashirle@us.ibm.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
+        yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
-        kernelnewbies@nl.linux.org, hotjobs@secureallinc.com
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-US-CA-San-Jose, CA-Senior Linux Kernel Engineer
-
-SecureAll Inc., headquartered in the Silicon Valley, California, is a
-well-funded start-up in the Enterprise Information Security domain. It
-is well recognized that enterprises are on the average 6 months behind
-on applying security patches.During this period, despite employing
-firewalls and intrusion detection systems, enterprises are vulnerable to
-exploits leveraging the un-patched weaknesses.It is also acknowledged
-that patch management is an imperfect science and does not take away the
-risk of applying patches without adequate testing. SecureAll offers 
-a solution that is truly radical and solves the above problems in an
-elegant fashion. The foundation of the company is based on a patented
-breakthrough technology that takes network-based enterprise security to
-the next level. We are currently looking to fill two full-time regular
-positions in our San Jose, CA facility both requiring extensive
-experience with Linux Kernel programming.  
 
 
-Sr. Linux Kernel Development Engineer (2 Positions):
 
-Senior software engineers with 5-10 years of experience in the design,
-implementation,and ongoing development of the Kernels. At least 1 year
-experience with Linux Kernel.Kernel Software development and debugging
-experience preferably in Linux environment.A very strong understanding
-of TCP/IP protocol stack. Development with the stack is a plus.
-Development with Linux 2.6 is a plus Good Understanding of memory
-management, SMP, clustering issues is a plus Experience with the
-hardening of kernel and various protocol stacks for security is a plus
-Experience with design and architecture of mid- to large-sized software
-projects.
 
-To Apply for this job, please send a word/text resume to
-hotjobs@secureallinc.com with the position title in the subject line.
+> Why are you using jiffies for timestamps?  I guess these values
+are measured "since bootup" or something like that?
+
+Yes. The timestamp is the value of sysUpTime at the time this entry was
+created.
+
+Thanks
+Shirley Ma
+IBM Linux Technology Center
+15300 SW Koll Parkway
+Beaverton, OR 97006-6063
+Phone: (503) 578-7638
+FAX:      (503) 578-3228
