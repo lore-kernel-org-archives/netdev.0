@@ -1,41 +1,69 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH 2.6.0-test11] Net device error logging
-Date: Sat, 6 Dec 2003 01:04:14 -0800
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031206090414.GA23445@kroah.com>
-References: <3FD0E1FE.1D5B1883@us.ibm.com> <3FD0E498.8070703@pobox.com>
+From: devik <devik@cdi.cz>
+Subject: HTB 2.6.0-test10 oops related patch
+Date: Sat, 6 Dec 2003 15:18:37 +0100 (CET)
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <Pine.LNX.4.33.0312061512320.839-200000@devix>
+References: <4371.1067710407@www6.gmx.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jim Keniston <jkenisto@us.ibm.com>, LKML <linux-kernel@vger.kernel.org>,
-        netdev <netdev@oss.sgi.com>, Andrew Morton <akpm@osdl.org>,
-        "Feldman, Scott" <scott.feldman@intel.com>,
-        Larry Kessler <kessler@us.ibm.com>,
-        "David S. Miller" <davem@redhat.com>,
-        Linus Torvalds <torvalds@osdl.org>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <3FD0E498.8070703@pobox.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-564380524-1070720317=:839"
+Cc: <netdev@oss.sgi.com>, <linux-net@vger.kernel.org>,
+	<daniel.blueman@gmx.net>
+Return-path: <linux-net-owner@vger.kernel.org>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <4371.1067710407@www6.gmx.net>
 List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 05, 2003 at 03:03:36PM -0500, Jeff Garzik wrote:
-> I discussed this a bit with David.  My personal feelings are that I 
-> prefer just leaving all the printk's as they are.  But Linus and GregKH 
-> have been accepting patches into other parts of the tree like this one, 
-> and logging additional already-computer-parsed information is probably 
-> not a bad thing long-term, so perhaps I've been being a bit of a Luddite 
-> on this issue.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+  Send mail to mime@docserver.cac.washington.edu for more info.
 
-To be fair, the patches I've taken (dev_err and friends) are _much_
-simpler than these, so accepting them was not that big of a deal.  It
-enabled the subsystems that have started to use them (USB and I2C) to
-log better messages (we now know exactly which device caused the errors,
-instead of just which driver).
+--8323328-564380524-1070720317=:839
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 
-So please judge this patch on its own, and feel no pressure due to the
-dev_*() calls :)
+Hello Dave,
 
-thanks,
+I discovered reason of the first Daniel's OOPS. It is change
+which was not forward-ported to 2.6.
+It is attached. However other Daniel's oops (pppd detach
+related) is of unknown reason yet. I tried to duplicate all
+conditions but pppoe (have no pppoe device here) and I was able
+to kill pppd with htb under full load with no problem.
+I'll look into it again today.
 
-greg k-h
+-------------------------------
+    Martin Devera aka devik
+Linux kernel QoS/HTB maintainer
+  http://luxik.cdi.cz/~devik/
+
+
+--8323328-564380524-1070720317=:839
+Content-Type: TEXT/PLAIN; charset=US-ASCII; name="htb2.6fix.diff"
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.LNX.4.33.0312061518370.839@devix>
+Content-Description: 
+Content-Disposition: attachment; filename="htb2.6fix.diff"
+
+LS0tIHNjaF9odGIub2xkCVNhdCBEZWMgIDYgMTU6MDU6MjEgMjAwMw0KKysr
+IHNjaF9odGIuYwlTYXQgRGVjICA2IDE1OjA1OjI0IDIwMDMNCkBAIC03MDMs
+NyArNzAzLDcgQEANCiANCiAgICAgc2NoLT5xLnFsZW4rKzsNCiAgICAgc2No
+LT5zdGF0cy5wYWNrZXRzKys7IHNjaC0+c3RhdHMuYnl0ZXMgKz0gc2tiLT5s
+ZW47DQotICAgIEhUQl9EQkcoMSwxLCJodGJfZW5xX29rIGNsPSVYIHNrYj0l
+cFxuIixjbD9jbC0+Y2xhc3NpZDowLHNrYik7DQorICAgIEhUQl9EQkcoMSwx
+LCJodGJfZW5xX29rIGNsPSVYIHNrYj0lcFxuIiwoY2wgJiYgY2wgIT0gSFRC
+X0RJUkVDVCk/Y2wtPmNsYXNzaWQ6MCxza2IpOw0KICAgICByZXR1cm4gTkVU
+X1hNSVRfU1VDQ0VTUzsNCiB9DQogDQpAQCAtNzMxLDcgKzczMSw3IEBADQog
+CSAgICBodGJfYWN0aXZhdGUgKHEsY2wpOw0KIA0KICAgICBzY2gtPnEucWxl
+bisrOw0KLSAgICBIVEJfREJHKDEsMSwiaHRiX3JlcV9vayBjbD0lWCBza2I9
+JXBcbiIsY2w/Y2wtPmNsYXNzaWQ6MCxza2IpOw0KKyAgICBIVEJfREJHKDEs
+MSwiaHRiX3JlcV9vayBjbD0lWCBza2I9JXBcbiIsKGNsICYmIGNsICE9IEhU
+Ql9ESVJFQ1QpP2NsLT5jbGFzc2lkOjAsc2tiKTsNCiAgICAgcmV0dXJuIE5F
+VF9YTUlUX1NVQ0NFU1M7DQogfQ0KIA0KQEAgLTE0NzcsNyArMTQ3Nyw3IEBA
+DQogCQljbC0+bWFnaWMgPSBIVEJfQ01BR0lDOw0KICNlbmRpZg0KIA0KLQkJ
+LyogY3JlYXRlIGxlYWYgcWRpc2MgZWFybHkgYmVjYXVzZSBpdCB1c2VzIGtt
+YWxsb2MoR1BGX0tFUk5FTCkNCisJCS8qIGNyZWF0ZSBsZWFmIHFkaXNjIGVh
+cmx5IGJlY2F1c2UgaXQgdXNlcyBrbWFsbG9jKEdGUF9LRVJORUwpDQogCQkg
+ICBzbyB0aGF0IGNhbid0IGJlIHVzZWQgaW5zaWRlIG9mIHNjaF90cmVlX2xv
+Y2sNCiAJCSAgIC0tIHRoYW5rcyB0byBLYXJsaXMgUGVpc2VuaWVrcyAqLw0K
+IAkJbmV3X3EgPSBxZGlzY19jcmVhdGVfZGZsdChzY2gtPmRldiwgJnBmaWZv
+X3FkaXNjX29wcyk7DQo=
+--8323328-564380524-1070720317=:839--
