@@ -1,27 +1,126 @@
-From: yume767 <kado333@livedoor.com>
-Subject: =?ISO-2022-JP?B?GyRCOS1FZyEhRiNFRE06OzM5LUVnOClDTjt2GyhC?=
- =?ISO-2022-JP?B?GyRCJE44NSRHJE42MiRtJDckJE9DISM5VEAvGyhC?=
- =?ISO-2022-JP?B?GyRCQUo+WSROPEJCThsoQg==?=
-Date: Fri, 14 Mar 2003 22:57:53 +0900
+From: "muhammed abacha" <amuhammed2@zapo.net>
+Subject: Please Acknowledge Receipt.
+Date: Fri, 14 Mar 2003 22:04:57 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <0314103225753.3701@VAIO>
+Message-ID: <courier.3E7235E9.00003953@postman>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-2022-jp
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: amuhammed2@zapo.net
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-"知ってて良かった情報の配信です"
- 　　勧誘メールではありません。無用の方には、
- 　　削除の手間お詫び致します。重複した際は、お許し下さい。
- 平和宣言都市　広島　藤田雄山広島県知事の元での恐ろしい話。行政訴訟の実体
-は、こんな物。今までの経過、測量士の証言、測量士の書いた図面、証拠の写真等
-詳しくは下記のホームページをご覧下さい
+From:Muhammed Abacha 
 
-http://www.geocities.co.jp/WallStreet/9584/
+I wish to introduce myself to you and the reason for 
+my reaching out to you. 
 
-メールご不要の方は、下記URLにアクセスして下さい
-　　landseimei@land.ru
-なお、このメールは営利を目的としたものではないので、違法性はありません。
+I am Muhammed Abacha the the son of thelate military 
+head of state General Sani Abacha who died 
+mysteriously on the 8th of June 1998. Following the 
+death of my father Gen. Sani Abacha,elections were 
+successfully held in the country and a civilian 
+administration was sworn into power with the 
+assistance of the American Government under the 
+leadership of President Clinton. With the advent of 
+the new democratic administration, a decision was 
+taken by the new president of Nigeria Olusegun 
+Obasanjo to probe and ultimately prosecute all past 
+military officers and their cohorts that served in 
+very strategic capacities in the last military regime 
+of my father.I was among those singled out to to be 
+punished after a makeshift trial,for the supposed 
+deeds of my dad,ever since I have been in detention 
+(the past 3 years). 
+
+On monday the 24 September 2002,I was released, on the 
+condition that I will release the rest of my fathers 
+money in my care,to the tune of $I.5b, 
+which i agreed. 
+
+Now I have been released but kept under severe house 
+arrest,I had amassed monies running into hundreds of 
+millions of dollars stashed in various private foreign 
+accounts around the world,most of wish have been 
+frozen. 
+
+Presently, I am confined under house arrest after my 
+recent release from detention and I am now constrained 
+into seeking for this assistance today because I 
+cannot afford to let this goverment know that I still have 
+funds stashed away. 
+
+Shortly, before my detention I hurriedly deposited the 
+sum of USD65.5 million with a security deposit firm 
+for safekeeping,hence my seeking your assistance to 
+receive this fund. 
+
+I have since had this amount stashed away in a private 
+security company in Europe. I cannot send this money to 
+any of my Bank Account abroad for reasons mentioned 
+earlier. I hereby seek your assistance in moving and 
+securing this money in your account abroad. I will 
+adequately compensate you with 20% of the total sum 
+for your assistance and co-operation with me to move 
+this fund to your account for safe keeping where I can 
+easily utilise it. 
+
+The present administration has beamed their search 
+light on any body remotely related to me and my family 
+and you strongly know for certain that I am under 
+surveillance and I cannot operate any of my bank 
+accounts any more, due to their being frozen. 
+
+I intend to safe guard and invest this amount of money 
+abroad, but with a reliable foreign business partner 
+so that we can invest the funds in doing business in 
+your country. That is why I am soliciting your 
+assistance and cooperation as regards this 
+business.Arrangements are being concluded with the 
+Security Company in Europe, to receive the 
+money in cash depending on where is convenient for 
+you. 
+
+I cannot tell the full story of my predicament on this 
+letter. However you can get more information by 
+checking the following web links. 
+
+Just check one after other and you will get more 
+information about my nephew. 
+
+http://lists.essential.org/1998/shell-nigeria-
+action/msg00683.html 
+
+
+http://allafrica.com/stories/200009280236.html 
+
+http://allafrica.com/stories/200010230279.html 
+
+http://:allafrica.com/stories/200012070247.html 
+
+http://www.lagos-online.com/fg_details_loot_from_abacha.htm 
+
+
+
+Please note that I have a relocation plans for me and 
+my family immediately you have cleared and received 
+this funds in your account. 
+
+Please indicate your willingness to assist me by 
+sending to me the following information, your company 
+name and address, your private phone and fax numbers 
+so that I can contact you and commence the transaction 
+in earnest. 
+
+I am waiting to hear from you very soon. 
+
+Best regards, 
+
+Muhammed Abacha
+
+
+
+---------------------
+Free Email Service
+http://www.zapo.net/
