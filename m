@@ -1,94 +1,54 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] dynamic net_device for serial eql balancer
-Date: Tue, 15 Jul 2003 15:57:33 -0700
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Subject: Re: [patch] e1000 TSO parameter
+Date: Tue, 15 Jul 2003 16:01:55 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030715155733.0ee5a14d.shemminger@osdl.org>
+Message-ID: <16148.34787.633496.949441@napali.hpl.hp.com>
+References: <C6F5CF431189FA4CBAEC9E7DD5441E0102229169@orsmsx402.jf.intel.com>
+	<20030714214510.17e02a9f.davem@redhat.com>
+	<16147.37268.946613.965075@napali.hpl.hp.com>
+	<20030714223822.23b78f9b.davem@redhat.com>
+Reply-To: davidm@hpl.hp.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: davidm@hpl.hp.com, scott.feldman@intel.com, linux-kernel@vger.kernel.org,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030714223822.23b78f9b.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Patch against 2.6.0-test1 to dynamically allocate pseudo network device.
-Compiles and loaded/unloaded but don't have multi-port serial load balancing to test 
-more fuly.
+>>>>> On Mon, 14 Jul 2003 22:38:22 -0700, "David S. Miller" <davem@redhat.com> said:
 
-diff -Nru a/drivers/net/eql.c b/drivers/net/eql.c
---- a/drivers/net/eql.c	Tue Jul 15 15:50:48 2003
-+++ b/drivers/net/eql.c	Tue Jul 15 15:50:48 2003
-@@ -162,22 +162,12 @@
- static char version[] __initdata = 
- 	"Equalizer2002: Simon Janes (simon@ncm.com) and David S. Miller (davem@redhat.com)\n";
- 
--static int __init eql_init(struct net_device *dev)
-+static void __init eql_setup(struct net_device *dev)
- {
--	static unsigned int version_printed;
--	equalizer_t *eql;
-+	equalizer_t *eql = dev->priv;
- 
- 	SET_MODULE_OWNER(dev);
- 
--	if (version_printed++ == 0)
--		printk(version);
--
--	dev->priv = kmalloc(sizeof (equalizer_t), GFP_KERNEL);
--	if (dev->priv == NULL)
--		return -ENOMEM;
--	memset(dev->priv, 0, sizeof (equalizer_t));
--	eql = dev->priv;
--
- 	init_timer(&eql->timer);
- 	eql->timer.data     	= (unsigned long) dev->priv;
- 	eql->timer.expires  	= jiffies + EQL_DEFAULT_RESCHED_IVAL;
-@@ -203,8 +193,6 @@
- 
- 	dev->type       	= ARPHRD_SLIP;
- 	dev->tx_queue_len 	= 5;		/* Hands them off fast */
--
--	return 0;
- }
- 
- static int eql_open(struct net_device *dev)
-@@ -598,23 +586,28 @@
- 	return -EINVAL;
- }
- 
--static struct net_device dev_eql;
-+static struct net_device *dev_eql;
- 
- static int __init eql_init_module(void)
- {
--	strcpy(dev_eql.name, "eql");
--	dev_eql.init = eql_init;
--	if (register_netdev(&dev_eql) != 0) {
--		printk("eql: register_netdev() returned non-zero.\n");
--		return -EIO;
--	}
--	return 0;
-+	int err;
-+
-+	printk(version);
-+
-+	dev_eql = alloc_netdev(sizeof(equalizer_t), "eql", eql_setup);
-+	if (!dev_eql)
-+		return -ENOMEM;
-+
-+	err = register_netdev(dev_eql);
-+	if (err) 
-+		kfree(dev_eql);
-+	return err;
- }
- 
- static void __exit eql_cleanup_module(void)
- {
--	kfree(dev_eql.priv);
--	unregister_netdev(&dev_eql);
-+	unregister_netdev(dev_eql);
-+	kfree(dev_eql);
- }
- 
- module_init(eql_init_module);
+  DaveM> But I don't think that's what is happening here, rather the
+  DaveM> PCI controller is "talking" to the CPU's L2 cache with
+  DaveM> coherency transactions on all the data of every packet going
+  DaveM> to the chip.
+
+That's true.  But shouldn't it be true for both the TSO and non-TSO
+case?
+
+  DaveM> Whereas with a sendfile() type setup, the PCI controller is
+  DaveM> going straight to main memory for the data part of the
+  DaveM> packets since the CPU is unlikely to have each page cache
+  DaveM> page in it's L2 caches.
+
+But sendfile() was _not_ used in any of the tests.  The ftp server
+installed no the machine doesn't use it (not to my knowledge, at
+least) and netperf only uses it for the SENDFILE test.
+
+  DaveM> I know how this can be fixed, can you use L2-bypassing stores
+  DaveM> in your csum_and_copy_from_user() and copy_from_user()
+  DaveM> implementations like we do on sparc64?  That would exactly
+  DaveM> eliminate this situation where the card is talking to the
+  DaveM> cpu's L2 cache for all the data during the PCI DMA transation
+  DaveM> on the send side.
+
+We could, but would it always be a win?  Especially for
+copy_from_user().  Most of the time, that data remains cached, so I
+don't think we'd want to use non-temporal stores on those (in
+general).  csum_and_copy_from_user() isn't well optimized yet.  Let's
+see if I can find a volunteer... ;-)
+
+	--david
