@@ -1,181 +1,190 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (39/42) apne
-Date: Wed, 12 Nov 2003 16:46:48 -0800
+Subject: [PATCH] (29/42) bagetlance
+Date: Wed, 12 Nov 2003 16:45:08 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200311130046.hAD0kmQ31517@mail.osdl.org>
+Message-ID: <200311130045.hAD0j8s31144@mail.osdl.org>
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: jgarzik@pobox.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-NE64-apne
-	* switched to dynamic allocation
-	* fixed resource leaks on failure exits
+NE54-bagetlance
+	* switched bagetlance to dynamic allocation
+	* bagetlance: embedded ->priv
+	* bagetlance: fixed resource leaks on failure exits
+	* bagetlance: fixed resource leaks on rmmod
 
-diff -urN B9-bionet/drivers/net/Space.c B9-apne/drivers/net/Space.c
---- B9-bionet/drivers/net/Space.c	Tue Nov 11 15:23:17 2003
-+++ B9-apne/drivers/net/Space.c	Tue Nov 11 19:04:30 2003
-@@ -77,7 +77,7 @@
- extern int atarilance_probe(struct net_device *);
- extern int sun3lance_probe(struct net_device *);
- extern int sun3_82586_probe(struct net_device *);
--extern int apne_probe(struct net_device *);
-+extern struct net_device *apne_probe(int unit);
- extern struct net_device *bionet_probe(int unit);
- extern struct net_device *pamsnet_probe(int unit);
+diff -Nru a/drivers/net/Space.c b/drivers/net/Space.c
+--- a/drivers/net/Space.c	Tue Nov 11 14:15:23 2003
++++ b/drivers/net/Space.c	Tue Nov 11 14:15:23 2003
+@@ -82,7 +82,7 @@
+ extern int pamsnet_probe(struct net_device *);
  extern struct net_device *cs89x0_probe(int unit);
-@@ -306,13 +306,13 @@
- #ifdef CONFIG_SUN3_82586        /* sun3 onboard Intel 82586 chip */
- 	{sun3_82586_probe, 0},
+ extern int hplance_probe(struct net_device *dev);
+-extern int bagetlance_probe(struct net_device *);
++extern struct net_device *bagetlance_probe(int unit);
+ extern int mvme147lance_probe(struct net_device *dev);
+ extern struct net_device *tc515_probe(int unit);
+ extern struct net_device *lance_probe(int unit);
+@@ -339,6 +339,10 @@
+ #ifdef CONFIG_MIPS_JAZZ_SONIC
+ 	{sonic_probe, 0},
  #endif
--#ifdef CONFIG_APNE		/* A1200 PCMCIA NE2000 */
--	{apne_probe, 0},
--#endif
- 	{NULL, 0},
- };
- 
- static struct devprobe2 m68k_probes2[] __initdata = {
-+#ifdef CONFIG_APNE		/* A1200 PCMCIA NE2000 */
-+	{apne_probe, 0},
-+#endif
- #ifdef CONFIG_ATARI_BIONET	/* Atari Bionet Ethernet board */
- 	{bionet_probe, 0},
++	{NULL, 0},
++};
++
++static struct devprobe2 mips_probes2[] __initdata = {
+ #ifdef CONFIG_BAGETLANCE        /* Lance-based Baget ethernet boards */
+         {bagetlance_probe, 0},
  #endif
-diff -urN B9-bionet/drivers/net/apne.c B9-apne/drivers/net/apne.c
---- B9-bionet/drivers/net/apne.c	Mon May 26 22:21:35 2003
-+++ B9-apne/drivers/net/apne.c	Tue Nov 11 19:04:30 2003
-@@ -116,28 +116,38 @@
+@@ -392,6 +396,7 @@
+ 	if (base_addr == 1)
+ 		return;
  
- static int apne_owned;	/* signal if card already owned */
++	probe_list2(unit, mips_probes2, base_addr == 0) &&
+ 	probe_list2(unit, eisa_probes, base_addr == 0) &&
+ 	probe_list2(unit, mca_probes, base_addr == 0) &&
+ 	probe_list2(unit, isa_probes, base_addr == 0) &&
+diff -Nru a/drivers/net/bagetlance.c b/drivers/net/bagetlance.c
+--- a/drivers/net/bagetlance.c	Tue Nov 11 14:15:23 2003
++++ b/drivers/net/bagetlance.c	Tue Nov 11 14:15:23 2003
+@@ -465,30 +465,43 @@
+ }
  
--int __init apne_probe(struct net_device *dev)
-+struct net_device * __init apne_probe(int unit)
- {
+ 
+-int __init bagetlance_probe( struct net_device *dev )
+-
+-{	int i;
++struct net_device * __init bagetlance_probe(int unit)
++{
 +	struct net_device *dev;
- #ifndef MANUAL_CONFIG
- 	char tuple[8];
- #endif
-+	int err;
- 
- 	if (apne_owned)
--		return -ENODEV;
++	int i;
+ 	static int found;
 -
 -	SET_MODULE_OWNER(dev);
-+		return ERR_PTR(-ENODEV);
++	int err = -ENODEV;
  
- 	if ( !(AMIGAHW_PRESENT(PCMCIA)) )
--		return (-ENODEV);
+ 	if (found)
+ 		/* Assume there's only one board possible... That seems true, since
+ 		 * the Riebl/PAM board's address cannot be changed. */
+-		return( -ENODEV );
 +		return ERR_PTR(-ENODEV);
-                                 
- 	printk("Looking for PCMCIA ethernet card : ");
-                                         
- 	/* check if a card is inserted */
- 	if (!(PCMCIA_INSERTED)) {
- 		printk("NO PCMCIA card inserted\n");
--		return (-ENODEV);
-+		return ERR_PTR(-ENODEV);
-+	}
 +
-+	dev = alloc_etherdev(0);
++	dev = alloc_etherdev(sizeof(struct lance_private));
 +	if (!dev)
 +		return ERR_PTR(-ENOMEM);
-+	dev->priv = NULL;
-+	if (unit >= 0) {
-+		sprintf(dev->name, "eth%d", unit);
-+		netdev_boot_setup_check(dev);
- 	}
--                                                                                                
++
 +	SET_MODULE_OWNER(dev);
-+
- 	/* disable pcmcia irq for readtuple */
- 	pcmcia_disable_irq();
  
-@@ -145,17 +155,41 @@
- 	if ((pcmcia_copy_tuple(CISTPL_FUNCID, tuple, 8) < 3) ||
- 		(tuple[2] != CISTPL_FUNCID_NETWORK)) {
- 		printk("not an ethernet card\n");
--		return (-ENODEV);
-+		/* XXX: shouldn't we re-enable irq here? */
-+		free_netdev(dev);
-+		return ERR_PTR(-ENODEV);
+ 	for( i = 0; i < N_LANCE_ADDR; ++i ) {
+ 		if (lance_probe1( dev, &lance_addr_list[i] )) {
+ 			found = 1;
+-			return( 0 );
++			break;
+ 		}
  	}
- #endif
- 
- 	printk("ethernet PCMCIA card inserted\n");
- 
--	if (init_pcmcia())
--		return apne_probe1(dev, IOBASE);
--	else
--		return (-ENODEV);
-+	if (!init_pcmcia()) {
-+		/* XXX: shouldn't we re-enable irq here? */
-+		free_netdev(dev);
-+		return ERR_PTR(-ENODEV);
-+	}
-+
-+	if (!request_region(IOBASE, 0x20, dev->name)) {
-+		free_netdev(dev);
-+		return ERR_PTR(-EBUSY);
-+	}
-+
-+	err = apne_probe1(dev, IOBASE);
-+	if (err) {
-+		release_region(IOBASE, 0x20);
-+		free_netdev(dev);
-+		return ERR_PTR(err);
-+	}
+-
+-	return( -ENODEV );
++	if (!found)
++		goto out;
 +	err = register_netdev(dev);
-+	if (!err)
-+		return dev;
- 
-+	pcmcia_disable_irq();
-+	free_irq(IRQ_AMIGA_PORTS, dev);
-+	pcmcia_reset();
-+	release_region(IOBASE, 0x20);
++	if (err)
++		goto out1;
++	return dev;
++out1:
++	free_irq(dev->irq, dev);
++out:
 +	free_netdev(dev);
 +	return ERR_PTR(err);
  }
  
- static int __init apne_probe1(struct net_device *dev, int ioaddr)
-@@ -534,32 +568,29 @@
- }
+-
+-
+ /* Derived from hwreg_present() in vme/config.c: */
+ 
+ static int __init addr_accessible( volatile void *regp, 
+@@ -527,6 +540,7 @@
+ 	if (!addr_accessible( memaddr, 1, 1 )) goto probe_fail;
+ 
+ 	if ((unsigned long)memaddr >= KSEG2) {
++			/* FIXME: do we need to undo that on cleanup paths? */
+ 			extern int kseg2_alloc_io (unsigned long addr, unsigned long size);
+ 			if (kseg2_alloc_io((unsigned long)memaddr, BAGET_LANCE_MEM_SIZE)) {
+ 					printk("bagetlance: unable map lance memory\n");
+@@ -580,12 +594,6 @@
+ 	return( 0 );
+ 
+   probe_ok:
+-	init_etherdev( dev, sizeof(struct lance_private) );
+-	if (!dev->priv) {
+-		dev->priv = kmalloc( sizeof(struct lance_private), GFP_KERNEL );
+-		if (!dev->priv)
+-			return 0;
+-	}
+ 	lp = (struct lance_private *)dev->priv;
+ 	MEM = (struct lance_memory *)memaddr;
+ 	IO = lp->iobase = (struct lance_ioreg *)ioaddr;
+@@ -617,8 +625,9 @@
+ 	if (lp->cardtype == PAM_CARD ||
+ 		memaddr == (unsigned short *)0xffe00000) {
+ 		/* PAMs card and Riebl on ST use level 5 autovector */
+-		request_irq(BAGET_LANCE_IRQ, lance_interrupt, IRQ_TYPE_PRIO,
+-		            "PAM/Riebl-ST Ethernet", dev);
++		if (request_irq(BAGET_LANCE_IRQ, lance_interrupt, IRQ_TYPE_PRIO,
++		            "PAM/Riebl-ST Ethernet", dev))
++			goto probe_fail;
+ 		dev->irq = (unsigned short)BAGET_LANCE_IRQ;
+ 	}
+ 	else {
+@@ -629,10 +638,11 @@
+ 		unsigned long irq = BAGET_LANCE_IRQ; 
+ 		if (!irq) {
+ 			printk( "Lance: request for VME interrupt failed\n" );
+-			return( 0 );
++			goto probe_fail;
+ 		}
+-		request_irq(irq, lance_interrupt, IRQ_TYPE_PRIO,
+-		            "Riebl-VME Ethernet", dev);
++		if (request_irq(irq, lance_interrupt, IRQ_TYPE_PRIO,
++		            "Riebl-VME Ethernet", dev))
++			goto probe_fail;
+ 		dev->irq = irq;
+ 	}
+ 
+@@ -1331,26 +1341,21 @@
+ 
  
  #ifdef MODULE
--static struct net_device apne_dev;
-+static struct net_device *apne_dev;
+-static struct net_device bagetlance_dev;
++static struct net_device *bagetlance_dev;
  
  int init_module(void)
- {
- 	int err;
- 
--	apne_dev.init = apne_probe;
--	if ((err = register_netdev(&apne_dev))) {
--		if (err == -EIO)
--			printk("No PCMCIA NEx000 ethernet card found.\n");
--		return (err);
+-
+-{	int err;
+-
+-	bagetlance_dev.init = bagetlance_probe;
+-	if ((err = register_netdev( &bagetlance_dev ))) {
+-		if (err == -EIO)  {
+-			printk( "No Vme Lance board found. Module not loaded.\n");
+-		}
+-		return( err );
 -	}
--	return (0);
-+	apne_dev = apne_probe(-1);
-+	if (IS_ERR(apne_dev))
-+		return PTR_ERR(apne_dev);
+-	return( 0 );
++{
++	bagetlance_dev = bagetlance_probe(-1);
++	if (IS_ERR(bagetlance_dev))
++		return PTR_ERR(bagetlance_dev);
 +	return 0;
  }
  
  void cleanup_module(void)
+-
  {
--	unregister_netdev(&apne_dev);
-+	unregister_netdev(apne_dev);
- 
- 	pcmcia_disable_irq();
- 
--	free_irq(IRQ_AMIGA_PORTS, &apne_dev);
-+	free_irq(IRQ_AMIGA_PORTS, apne_dev);
- 
- 	pcmcia_reset();
- 
--	apne_owned = 0;
-+	free_netdev(apne_dev);
+-	unregister_netdev( &bagetlance_dev );
++	unregister_netdev(bagetlance_dev);
++	free_irq(bagetlance_dev->irq, bagetlance_dev);
++	free_netdev(bagetlance_dev);
  }
  
- #endif
+ #endif /* MODULE */
