@@ -1,218 +1,140 @@
-From: Matthias Fruehauf <mfrueh@suse.de>
-Subject: Re: Linux kernel updates and ip_crossover patch
-Date: Thu, 30 Oct 2003 14:16:29 +0100
+From: "Daniel Blueman" <daniel.blueman@gmx.net>
+Subject: [2.6.0-test9] QoS HTB crash...
+Date: Thu, 30 Oct 2003 17:10:25 +0100 (MET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031030131628.GL17431@suse.de>
-References: <OF5B9BCA99.0441857B-ON65256DCF.004761FF-65256DCF.004828A5@in.ibm.com>
+Message-ID: <26412.1067530225@www3.gmx.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
-Cc: Olaf Hering <olh@suse.de>, Anil K Prasad <aprasad@in.ibm.com>,
-        Kaena Freitas <kaena@us.ibm.com>, olaf@suse.de, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Mehulkumar J Patel <mehul.patel@in.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <OF5B9BCA99.0441857B-ON65256DCF.004761FF-65256DCF.004828A5@in.ibm.com>
+To: netdev@oss.sgi.com, linux-net@vger.kernel.org, devik@cdi.cz,
+        linux-kernel@vger.kernel.org
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 30, Mehulkumar J Patel wrote:
+With the LARTC 'wondershaper' HTB script [1] for good latency over ADSL, =
+I
+get an oops [3] when sending traffic via ppp0 (and when bringing the inte=
+rface
+down).
 
->=20
-> Hello All,
->=20
-> Any update on this.
->=20
-> Basically we need IP CROSSOVER patch to be part of pseries kernel.
+Kernel is 2.6.0-test9 and 'debug 3333333' appended to the 'tc' command, t=
+o
+show HTB debug information [2] (not shown in [1]).
 
-Well, I am not completly sure what we are talking about here ... ;-) The
-usuall way if someone wants features to become part of the kernel is via
-the community, in this case via the network guys as Olaf suggested or if
-it is a plattform specific thing via the plattform maintainer, which is
-David Engebretsen <engebret@us.ibm.com> for example for PPC at IBM.
+Please CC me when replying, and I can provide further details, debugging,
+testing etc...this problem has been around for a while it seems.
 
-In case that there is for some reason no solution going this path, IBM
-has the possibility to request features from SuSE via the brands and via
-the LTC. This is organized by Mark VanderWiele <markv@us.ibm.com>.
+--- [1] (relevant lines from http://lartc.org/wondershaper/)
 
-To be more specific: For 2.4 kernel the door is allready closed since
-some weeks. In case you would like to see this patch in an upcoming SLES
-9 and a 2.6 kernel, get in contact with Dave and Mark.
+tc qdisc add dev ppp0 root handle 1: htb default 20
+tc class add dev ppp0 parent 1: classid 1:1 htb rate 210kbit burst 6k
+tc class add dev ppp0 parent 1:1 classid 1:10 htb rate 210kbit burst 6k p=
+rio
+1
+tc class add dev ppp0 parent 1:1 classid 1:20 htb rate 189kbit burst 6k p=
+rio
+2
+tc class add dev ppp0 parent 1:1 classid 1:30 htb rate 168kbit burst 6k p=
+rio
+2
 
-Hope this helps for the moment.
+--- [2] (HTB debug messages)
 
+HTB init, kernel part version 3.13
+htb_init sch=3Ddc28e7f8 handle=3D10000 r2q=3D10
+htb_dump sch=3Ddc28e7f8, handle=3D10000
+htb*g j=3D179519 lj=3D0
+htb*r7 m=3D0
+htb*r6 m=3D0
+htb*r5 m=3D0
+htb*r4 m=3D0
+htb*r3 m=3D0
+htb*r2 m=3D0
+htb*r1 m=3D0
+htb*r0 m=3D0
+htb_get clid=3D10010 q=3Ddc28e86c cl=3D00000000 ref=3D0
+htb_get clid=3D10010 q=3Ddc28e86c cl=3D00000000 ref=3D0
+htb_get clid=3D10020 q=3Ddc28e86c cl=3D00000000 ref=3D0
+htb_get clid=3D10020 q=3Ddc28e86c cl=3D00000000 ref=3D0
+htb_get clid=3D10030 q=3Ddc28e86c cl=3D00000000 ref=3D0
+htb_get clid=3D10030 q=3Ddc28e86c cl=3D00000000 ref=3D0
+htb_tcf q=3Ddc28e86c clid=3D0 fref=3D0 fl=3D00000000
+htb_bind q=3Ddc28e86c clid=3D10010 cl=3D00000000 fref=3D0
+htb_tcf q=3Ddc28e86c clid=3D0 fref=3D1 fl=3Ddf4ecd7c
+htb_bind q=3Ddc28e86c clid=3D10010 cl=3D00000000 fref=3D1
+htb_tcf q=3Ddc28e86c clid=3D0 fref=3D2 fl=3Ddf4ecd7c
+htb_bind q=3Ddc28e86c clid=3D10010 cl=3D00000000 fref=3D2
+htb_tcf q=3Ddc28e86c clid=3D0 fref=3D3 fl=3Ddf4ecd7c
+htb_bind q=3Ddc28e86c clid=3D10020 cl=3D00000000 fref=3D3
+htb_reset sch=3Ddc28e7f8, handle=3D10000
 
-> best regards,
-> Mehul.
->=20
+--- [3] (ksymoops-processed oops report)
 
-Best regards,
+Oops: 0000 [#1]
+CPU:    0
+EIP:    0060:[<c02cbbad>]    Not tainted
 
-Matthias Fr=FChauf
-
-
->=20
->  Olaf Hering                                                           =
-       =20
->  <olh@suse.de>         To:        Kaena Freitas <kaena@us.ibm.com>, Meh=
-ulkumar=20
->                J Patel/India/IBM@IBMIN                                 =
-       =20
->  29/09/2003            cc:        Mehulkumar J Patel/India/IBM@IBMIN, M=
-atthias=20
->  16:40         Fruehauf <mfrueh@suse.de>, olaf@suse.de, Anil K Prasad/I=
-ndia/  =20
->                IBM@IBMIN, Daljeet Maini/India/IBM@IBMIN                =
-       =20
->                        Subject:        Re: Linux kernel updates and    =
-       =20
->                ip_crossover patch                                      =
-       =20
->                                                                        =
-       =20
->                                                                        =
-       =20
->=20
->=20
->=20
->  On Wed, Sep 24, Kaena Freitas wrote:
->=20
-> >
-> >
-> >
-> >
-> > Hello Mehul -
-> >
-> > Sorry it has taken me a while to respond. We do not keep any code in =
-CMVC.
-> > All code we get from SuSE is on the ftp3 site along with all the sour=
-ce
-> > RPMs. We do have internel CVS trees, but there is no guarantee that t=
-hose
-> > trees are current with the code we get from SuSE which is what your t=
-eam
-> > should be testing.
-> >
-> > As for the htx patch you've provided, I have copied SuSE on this emai=
-l to
-> > get their comments if it can be part of their distribution.
->=20
-> Good morning,
->=20
-> did you sent the patch to netdev@oss.sgi.com?
-> What opinion have the network and iptables maintainers about this featu=
-re?
->=20
->=20
-> > (See attached file: hxecom_patch)forgot to attach the patch.
-> >
-> >
-> > e-mail: mehul.patel@in.ibm.com
-> > IBM Global Services
-> > Bangalore, India.
-> > Tel: 091-80-5094160
-> >
-> >
-> >
-> >                                                                      =
-       =20
->                                     =20
-> >                       Mehulkumar J                                   =
-      =20
->                                     =20
-> >                       Patel                    To:       Kaena Freita=
-s/Austin
-> /IBM                                 =20
-> >                                                cc:       Anil K Prasa=
-d/India/
-> IBM@IBMIN, Daljeet                   =20
-> >                       23/09/2003 18:38          Maini/India/IBM@IBMIN=
-       =20
->                                     =20
-> >                       Please respond to        From:     Mehulkumar J=
- Patel/
-> India/IBM@IBMIN                       =20
-> >                                                Subject:  Linux kernel=
- updates
-> and ip_crossover patch             =20
-> >                                                                      =
-       =20
->                                     =20
-> >                                                                      =
-       =20
->                                     =20
-> >                                                                      =
-       =20
->                                     =20
-> >
-> >
-> >
-> > Hi,
-> >
-> > We are HTX Team.
-> > We get affected by changes in Linux kernel in a way where we have to =
-update
-> > our build environment
-> > continuously. As of now we are doing so manually. But considering the
-> > effort we are thinking of making
-> > it automated.
-> >
-> > Can you please tell us if there is a fixed place from where we can sy=
-nc
-> > Linux kernel sources through
-> > scripts. Or do you put Linux kernel sources in cmvc or any other vers=
-ion
-> > control system.
-> >
-> > Also, we have an exerciser named "hxecom" which requires an external =
-patch,
-> > ip_crossover for hxecom
-> >  to work in single system test.
-> > This patch helps us in sending packets destined to IP address on the =
-same
-> > machine without looping
-> > back at IP layer. Packet actually goes out to hardware and thus we ar=
-e able
-> > to stress network cards.
-> > For this patch to work, kernel should have been compiled with netfilt=
-er.
-> > If netfilter is not enabled and ip_crossover patch is not applied, we=
- end
-> > up recompiling the whole
-> > stuff and need to copy kernel and /lib/modules on all the test machin=
-es,
-> > which is bit ugly.
-> > Can you please include these two request from us in all p-series kern=
-els ?
-> >
-> > I am attaching the patch here.
-> >
-> > best regards,
-> > Mehul.
-> > e-mail: mehul.patel@in.ibm.com
-> > IBM Global Services
-> > Bangalore, India.
-> > Tel: 091-80-5094160
-> >
-> >
-> >
->=20
->=20
->=20
-> --
-> USB is for mice, FireWire is for men!
->=20
-> sUse lINUX ag, n=DCRNBERG
->=20
->=20
+>>EIP; c02cbbad <htb_enqueue+ab/126>   <=3D=3D=3D=3D=3D
+=20
+>>ebx; ffffffff <__kernel_rt_sigreturn+1bbf/????>
+>>ecx; dc28e86c <_end+1be20f60/3fb906f4>
+>>esi; d9cf3f50 <_end+19886644/3fb906f4>
+>>edi; dc28e7f8 <_end+1be20eec/3fb906f4>
+>>ebp; dbef5ab8 <_end+1ba881ac/3fb906f4>
+>>esp; dbef5a9c <_end+1ba88190/3fb906f4>
+=20
+Trace; c02b3570 <dev_queue_xmit+593/73a>
+Trace; c02e9c98 <ip_finish_output2+0/1c4>
+Trace; c02e9d97 <ip_finish_output2+ff/1c4>
+Trace; c02c0259 <nf_hook_slow+ef/13a>
+Trace; c02e9c98 <ip_finish_output2+0/1c4>
+Trace; c02e76d7 <ip_finish_output+21d/222>
+Trace; c02e9c98 <ip_finish_output2+0/1c4>
+Trace; c02bff12 <nf_iterate+6b/9f>
+Trace; c02e9c80 <dst_output+15/2d>
+Trace; c02c0259 <nf_hook_slow+ef/13a>
+Trace; c02e9c6b <dst_output+0/2d>
+Trace; c02e9620 <ip_push_pending_frames+3ac/408>
+Trace; c02e9c6b <dst_output+0/2d>
+Trace; c030da69 <udp_push_pending_frames+134/23c>
+Trace; c030e1b4 <udp_sendmsg+60d/f3d>
+Trace; c031900a <inet_sendmsg+4b/56>
+Trace; c02aa4cc <sock_sendmsg+92/af>
+Trace; c02aa582 <sock_recvmsg+99/b4>
+Trace; c02a9f68 <move_addr_to_kernel+7e/a7>
+Trace; c02b01a0 <verify_iovec+80/fa>
+Trace; c02ac13d <sys_sendmsg+256/2f4>
+Trace; c0141e28 <filemap_nopage+21c/2f9>
+Trace; c0155610 <do_no_page+29b/631>
+Trace; c0155c54 <handle_mm_fault+132/30c>
+Trace; c018becd <inode_update_time+8e/b9>
+Trace; c0119419 <do_page_fault+34b/56a>
+Trace; c02ac67e <sys_socketcall+261/29a>
+Trace; c0164327 <sys_write+5b/5d>
+Trace; c010a3eb <syscall_call+7/b>
+=20
+Code;  c02cbbad <htb_enqueue+ab/126>
+00000000 <_EIP>:
+Code;  c02cbbad <htb_enqueue+ab/126>   <=3D=3D=3D=3D=3D
+   0:   8b 43 04                  mov    0x4(%ebx),%eax   <=3D=3D=3D=3D=3D
+Code;  c02cbbb0 <htb_enqueue+ae/126>
+   3:   89 44 24 04               mov    %eax,0x4(%esp,1)
+Code;  c02cbbb4 <htb_enqueue+b2/126>
+   7:   c7 04 24 2b 30 38 c0      movl   $0xc038302b,(%esp,1)
+Code;  c02cbbbb <htb_enqueue+b9/126>
+   e:   e8 e3 6e e5 ff            call   ffe56ef6 <_EIP+0xffe56ef6>
+Code;  c02cbbc0 <htb_enqueue+be/126>
+  13:   31 00                     xor    %eax,(%eax)
+=20
+ <0>Kernel panic: Fatal exception in interrupt
 
 --=20
-	Matthias Fr=FChauf
+Daniel J Blueman
 
-	Member of the spicy SuSE Linux PPC Team
-------------------------------------------------------------
-SuSE AG,                  Tel:   +49-911-74053-658
-Deutschherrnstr. 15-19,   Fax:   +49-911-74053-483
-90429 Nuernberg           Germany
+NEU F=DCR ALLE - GMX MediaCenter - f=FCr Fotos, Musik, Dateien...
+Fotoalbum, File Sharing, MMS, Multimedia-Gru=DF, GMX FotoService
 
-               --- Peace, Love and Linux ---
+Jetzt kostenlos anmelden unter http://www.gmx.net
+
++++ GMX - die erste Adresse f=FCr Mail, Message, More! +++
