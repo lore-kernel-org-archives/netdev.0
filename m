@@ -1,31 +1,33 @@
-From: kuznet@ms2.inr.ac.ru
-Subject: Re: [PATCH] Networking: send-to-self [link to non-broken patch this
-Date: Fri, 27 Sep 2002 07:36:02 +0400 (MSD)
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: Any effort to try to make IPv6 API more uniform?
+Date: Fri, 27 Sep 2002 08:59:49 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200209270336.HAA19631@sex.inr.ac.ru>
-References: <3D93B4CB.8040905@candelatech.com>
+Message-ID: <Pine.LNX.4.44.0209270855280.29884-100000@netcore.fi>
 Mime-Version: 1.0
-Cc: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <netdev-bounce@oss.sgi.com>
-To: greearb@candelatech.com (Ben Greear)
-In-Reply-To: <3D93B4CB.8040905@candelatech.com> from "Ben Greear" at Sep 26, 2 06:30:51 pm
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
+Hello,
 
-> Think about this:  Suppose you are connecting to a listening socket that has been
-> bound to a device.  That creates the the temporary socket structure
-> on the receive side,
+In addition to IPv6 Basic & Advanced Sockets API document, I had a worry 
+whether there would be any use trying to make some other API's more 
+useful.
 
-That does _not_. All transmits use listening socket structure.
+For example, currently there is no standard (or even "semi-standard") way 
+of getting IPv6 address(es) of a node.  With IPv4 you can get this via 
+ioctls or e.g. netlink.  Netlink is notably a Linux-only thing.
 
+For application portability I would gather it might be nice to have some, 
+if not a standard, at least something many similar vendors (e.g. Unix, 
+Linux+BSD, ...) support.
 
-> can get routed based on the parent's bound_dev_if if my assumption here is
-> not correct.
+Any thoughts whether this would be useful and what would be the right 
+path to take?
 
-Find function tcp_v4_send_synack(), then tcp_v4_route_req() and derive
-that your modifications have exactly zero impact on it,
-sk->bound_dev_if is setup and used exactly like it was used before.
-
-Alexey
+-- 
+Pekka Savola                 "Tell me of difficulties surmounted,
+Netcore Oy                   not those you stumble over and fall"
+Systems. Networks. Security.  -- Robert Jordan: A Crown of Swords
