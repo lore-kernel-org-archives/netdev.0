@@ -1,52 +1,33 @@
-From: Steven Whitehouse <steve@gw.chygwyn.com>
+From: Benjamin LaHaise <bcrl@redhat.com>
 Subject: Re: [patch] add iocb to network protocols
-Date: Fri, 11 Oct 2002 10:31:23 +0100 (BST)
+Date: Fri, 11 Oct 2002 06:27:09 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200210110931.KAA19428@gw.chygwyn.com>
-References: <20021010183528.A13432@redhat.com>
-Reply-To: Steve Whitehouse <Steve@ChyGwyn.com>
+Message-ID: <20021011062709.A14784@redhat.com>
+References: <20021010183528.A13432@redhat.com> <200210110931.KAA19428@gw.chygwyn.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
 Cc: davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: bcrl@redhat.com (Benjamin LaHaise)
-In-Reply-To: <20021010183528.A13432@redhat.com> from "Benjamin LaHaise" at Oct 10, 2002 06:35:29 PM
+To: Steven Whitehouse <steve@gw.chygwyn.com>
+Content-Disposition: inline
+In-Reply-To: <200210110931.KAA19428@gw.chygwyn.com>; from steve@gw.chygwyn.com on Fri, Oct 11, 2002 at 10:31:23AM +0100
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Fri, Oct 11, 2002 at 10:31:23AM +0100, Steven Whitehouse wrote:
+> Given two aio requests, A and B both for the same socket, can I be sure
+> that they will complete in the order that I submit them ? Can I also
+> be sure that parts of the I/O request for A will not be mixed up with
+> B ? Will that still be true if one of the requests is aio and one a "normal"
+> send/recvmsg() for example ?
 
-> 
-> Hello Dave,
-> 
-> Below is a copy of the bk tree at:
-> 
-> 	bk pull master.kernel.org:/home/bcrl/net-2.5
-> 
-> This tree adds the iocb parameter into the sendmsg and recvmsg 
-> operations within the network operations.  sock_read and sock_write 
-> are also replaced by sock_aio_read/sock_aio_write, so this requires 
-> the other aio changes to fs/read_write.c that are in fresh trees 
-> from Linus.  Comments?
->
-[patch etc. cut]
+The POSIX standard does not seem to require any ordering between requests, 
+and some implementations take advantage of this by using threads to execute 
+requests.  That said, providing intra request ordering for sockets is easy 
+to do, and is one of the guarantees I'm trying to make as it allows the 
+implementation to provide the same semantics as are required for things 
+like zero copy tx.
 
-I have a few questions about the way aio interacts with the socket locking
-and the consequences for atomicity of requests:
-
-Given two aio requests, A and B both for the same socket, can I be sure
-that they will complete in the order that I submit them ? Can I also
-be sure that parts of the I/O request for A will not be mixed up with
-B ? Will that still be true if one of the requests is aio and one a "normal"
-send/recvmsg() for example ?
-
-Currently with multiple sendmsg() calls (for example) because the socket
-lock is dropped to allow packet delivery to the socket during periods of
-waiting for events, it would be possible for our two I/O requests A and B
-to be interleaved so that B could be sent out sandwiched between two
-parts of request A. Of course you have to submit the I/O from separate
-threads for this to happen, but I'm wondering what the implications are 
-for aio in this area. Do the standards have anything to say in this area ?
-
-Steve.
+		-ben
+-- 
+"Do you seek knowledge in time travel?"
