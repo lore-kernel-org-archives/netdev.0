@@ -1,54 +1,113 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH]  802.1Q VLAN
-Date: Fri, 29 Oct 2004 16:56:17 -0700
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [RESEND 2/4] cls_rsvp*: Use generic routines for class binding and police config/dump
+Date: Sat, 30 Oct 2004 02:01:05 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4182D8A1.1070801@candelatech.com>
-References: <41797696.9070905@candelatech.com>	 <20041022214611.GA4948@electric-eye.fr.zoreil.com>	 <41798506.1030909@candelatech.com> <417D675F.3000909@candelatech.com>	 <4181838B.6040002@tpack.net>  <41818D99.9020300@candelatech.com> <1099038566.1813.99.camel@cyan.cph.tpack.net> <418281C1.9080707@candelatech.com> <4182D44E.7070507@tpack.net>
+Message-ID: <20041030000105.GY12289@postel.suug.ch>
+References: <20041029140612.GO12289@postel.suug.ch> <20041029140756.GQ12289@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>,
-        "Linux 802.1Q VLAN" <vlan@candelatech.com>,
-        Francois Romieu <romieu@fr.zoreil.com>,
-        "David S. Miller" <davem@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, hadi@cyberus.ca
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Tommy Christensen <tommy.christensen@tpack.net>
-In-Reply-To: <4182D44E.7070507@tpack.net>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20041029140756.GQ12289@postel.suug.ch>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Tommy Christensen wrote:
-> Ben Greear wrote:
-> 
+Resend of original patch with a typo fix included.
 
->> You can't send shared skbs regardless, because the vlan Xmit changes 
->> the skb->dev at least, so
->> you just have to set the multi-skb setting in pktgen to 0 so that it 
->> does not
->> share when using VLANs.
-> 
-> 
-> By sheer accident, this would actually work! Nevertheless, the code
-> should obviously handle this correctly (whatever that means?!).
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-It definately crashed on my system when I tried it, so I don't think
-it actually works.  Think about a SMP system where pktgen is re-sending
-the same pkt while the other CPU is handling the previous send..or something
-like that.  The fact that skb->dev is changing cannot be healthy.
-
- From what I can tell, a net-devices hard_start_xmit method must either
-return 0 and consume the skb, or return a non-zero value and not
-consume the skb.  Since we can detect immediate drops due to the
-dev_queue_xmit call failing, I don't see how it can hurt anything to
-preserve the skb and return the error code.  Code that cares about retransmitting
-can, and if it doesn't, it can just delete the skb.
-
-I believe this is the same as the case where the e1000 does not
-show netif_queue_stopped() but still returns failure when you
-try the hard_start_xmit.  I know that this case will probably
-eventually be fixed, but the fact that it *does* work leads me to
-believe I can get away with what I'm trying to do with VLANs.
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+--- linux-2.6.10-rc1-bk7.orig/net/sched/cls_rsvp.h	2004-10-29 11:18:17.000000000 +0200
++++ linux-2.6.10-rc1-bk7/net/sched/cls_rsvp.h	2004-10-29 11:24:07.000000000 +0200
+@@ -272,11 +272,8 @@
+ 				struct rsvp_filter *f;
+ 
+ 				while ((f = s->ht[h2]) != NULL) {
+-					unsigned long cl;
+-
+ 					s->ht[h2] = f->next;
+-					if ((cl = __cls_set_class(&f->res.class, 0)) != 0)
+-						tp->q->ops->cl_ops->unbind_tcf(tp->q, cl);
++					tcf_unbind_filter(tp, &f->res);
+ #ifdef CONFIG_NET_CLS_POLICE
+ 					tcf_police_release(f->police,TCA_ACT_UNBIND);
+ #endif
+@@ -299,16 +296,10 @@
+ 
+ 	for (fp = &s->ht[(h>>8)&0xFF]; *fp; fp = &(*fp)->next) {
+ 		if (*fp == f) {
+-			unsigned long cl;
+-
+-
+ 			tcf_tree_lock(tp);
+ 			*fp = f->next;
+ 			tcf_tree_unlock(tp);
+-
+-			if ((cl = cls_set_class(tp, &f->res.class, 0)) != 0)
+-				tp->q->ops->cl_ops->unbind_tcf(tp->q, cl);
+-
++			tcf_unbind_filter(tp, &f->res);
+ #ifdef CONFIG_NET_CLS_POLICE
+ 			tcf_police_release(f->police,TCA_ACT_UNBIND);
+ #endif
+@@ -437,22 +428,15 @@
+ 		if (f->handle != handle && handle)
+ 			return -EINVAL;
+ 		if (tb[TCA_RSVP_CLASSID-1]) {
+-			unsigned long cl;
+-
+ 			f->res.classid = *(u32*)RTA_DATA(tb[TCA_RSVP_CLASSID-1]);
+-			cl = cls_set_class(tp, &f->res.class, tp->q->ops->cl_ops->bind_tcf(tp->q, base, f->res.classid));
+-			if (cl)
+-				tp->q->ops->cl_ops->unbind_tcf(tp->q, cl);
++			tcf_bind_filter(tp, &f->res, base);
+ 		}
+ #ifdef CONFIG_NET_CLS_POLICE
+ 		if (tb[TCA_RSVP_POLICE-1]) {
+-			struct tcf_police *police = tcf_police_locate(tb[TCA_RSVP_POLICE-1], tca[TCA_RATE-1]);
+-
+-			tcf_tree_lock(tp);
+-			police = xchg(&f->police, police);
+-			tcf_tree_unlock(tp);
+-
+-			tcf_police_release(police,TCA_ACT_UNBIND);
++			err = tcf_change_police(tp, &f->police,
++				tb[TCA_RSVP_POLICE-1], tca[TCA_RATE-1]);
++			if (err < 0)
++				return err;
+ 		}
+ #endif
+ 		return 0;
+@@ -531,10 +515,10 @@
+ 
+ 			f->sess = s;
+ 			if (f->tunnelhdr == 0)
+-				cls_set_class(tp, &f->res.class, tp->q->ops->cl_ops->bind_tcf(tp->q, base, f->res.classid));
++				tcf_bind_filter(tp, &f->res, base);
+ #ifdef CONFIG_NET_CLS_POLICE
+ 			if (tb[TCA_RSVP_POLICE-1])
+-				f->police = tcf_police_locate(tb[TCA_RSVP_POLICE-1], tca[TCA_RATE-1]);
++				tcf_change_police(tp, &f->police, tb[TCA_RSVP_POLICE-1], tca[TCA_RATE-1]);
+ #endif
+ 
+ 			for (fp = &s->ht[h2]; *fp; fp = &(*fp)->next)
+@@ -641,16 +625,8 @@
+ 	if (((f->handle>>8)&0xFF) != 16)
+ 		RTA_PUT(skb, TCA_RSVP_SRC, sizeof(f->src), f->src);
+ #ifdef CONFIG_NET_CLS_POLICE
+-	if (f->police) {
+-		struct rtattr * p_rta = (struct rtattr*)skb->tail;
+-
+-		RTA_PUT(skb, TCA_RSVP_POLICE, 0, NULL);
+-
+-		if (tcf_police_dump(skb, f->police) < 0)
+-			goto rtattr_failure;
+-
+-		p_rta->rta_len = skb->tail - (u8*)p_rta;
+-	}
++	if (tcf_dump_police(skb, f->police, TCA_RSVP_POLICE) < 0)
++		goto rtattr_failure;
+ #endif
+ 
+ 	rta->rta_len = skb->tail - b;
