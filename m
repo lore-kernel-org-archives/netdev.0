@@ -1,29 +1,23 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Kernel BUG: Qos seg. fault
-Date: Mon, 24 May 2004 21:19:58 +0200
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: RFC: Network Device Driver Group proposal
+Date: Mon, 24 May 2004 15:27:44 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040524211958.A3940@electric-eye.fr.zoreil.com>
-References: <40B1E325.80408@upf.edu>
+Message-ID: <40B24CB0.2080707@pobox.com>
+References: <20040524084945.GP3330@ruslug.rutgers.edu> <20040524113919.3651c453@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@redhat.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Luis R. Rodriguez" <mcgrof@studorgs.rutgers.edu>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jaume Catarineu <jaume.catarineu@upf.edu>
-Content-Disposition: inline
-In-Reply-To: <40B1E325.80408@upf.edu>; from jaume.catarineu@upf.edu on Mon, May 24, 2004 at 11:57:25AM +0000
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20040524113919.3651c453@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jaume Catarineu <jaume.catarineu@upf.edu> :
-[...]
-> I've configured succesfuly different QoS configurations, but there is
-> one that *allways* returns a segmentation fault in the kernel module (or
-> code). This part of the kernel seems to crash when installing an IP
-> filter. I've tried the code in 2 different computers with different
-> hardware and even different kernel version (2.4.25 and 2.6.4)
+Stephen Hemminger wrote:
+> Probably there needs to be a strong reason to add more organization to a 
+> already mostly functional process. 
 
-Do you still notice the same behavior if you do not load any vmware nor
-nvidia thing ?
+That's my feeling.  netdev list seems to work.
 
---
-Ueimor
+	Jeff
