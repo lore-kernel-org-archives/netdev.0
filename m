@@ -1,48 +1,37 @@
 From: akpm@osdl.org
-Subject: [patch 9/9] Avoid warning on CONNTRACK_STAT_INC in destroy_conntrack()
-Date: Thu, 28 Oct 2004 00:19:48 -0700
+Subject: [patch 4/9] X.25: Stop x25_destroy_socket timer looping
+Date: Thu, 28 Oct 2004 00:19:42 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200410280721.i9S7Ll908021@mail.osdl.org>
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com, akpm@osdl.org,
-        rusty@rustcorp.com.au
+Message-ID: <200410280721.i9S7Lf907993@mail.osdl.org>
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com, akpm@osdl.org, ahendry@tusc.com.au
 Return-path: <netdev-bounce@oss.sgi.com>
 To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-From: Rusty Russell <rusty@rustcorp.com.au>
+From: Andrew Hendry <ahendry@tusc.com.au>
 
-ip_conntrack_put can be called in any context in theory: in particular,
-MASQUERADE will can call it (via ip_ct_selective_cleanup) when an interface
-comes up with a different address.
+The sk_timer.data for the x.25 destroy_socket timer went missing at some
+stage, causing a timer loop where x25_destroy_socket would keep setting up
+timers to call itself.  This patch puts the sk_timer.data back.
 
-Move the CONNTRACK_STAT_INC inside the lock: it needs preemption disabled.
-
-Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+Signed-off-by: Andrew Hendry <ahendry@tusc.com.au>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- 25-akpm/net/ipv4/netfilter/ip_conntrack_core.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
+ 25-akpm/net/x25/af_x25.c |    1 +
+ 1 files changed, 1 insertion(+)
 
-diff -puN net/ipv4/netfilter/ip_conntrack_core.c~avoid-warning-on-conntrack_stat_inc-in-destroy_conntrack net/ipv4/netfilter/ip_conntrack_core.c
---- 25/net/ipv4/netfilter/ip_conntrack_core.c~avoid-warning-on-conntrack_stat_inc-in-destroy_conntrack	2004-10-28 00:17:08.778469456 -0700
-+++ 25-akpm/net/ipv4/netfilter/ip_conntrack_core.c	2004-10-28 00:17:08.782468848 -0700
-@@ -312,6 +312,7 @@ destroy_conntrack(struct nf_conntrack *n
- 		}
- 		kmem_cache_free(ip_conntrack_expect_cachep, ct->master);
- 	}
-+	CONNTRACK_STAT_INC(delete);
- 	WRITE_UNLOCK(&ip_conntrack_lock);
- 
- 	if (master)
-@@ -320,7 +321,6 @@ destroy_conntrack(struct nf_conntrack *n
- 	DEBUGP("destroy_conntrack: returning ct=%p to slab\n", ct);
- 	kmem_cache_free(ip_conntrack_cachep, ct);
- 	atomic_dec(&ip_conntrack_count);
--	CONNTRACK_STAT_INC(delete);
- }
- 
- static void death_by_timeout(unsigned long ul_conntrack)
+diff -puN net/x25/af_x25.c~x25-stop-x25_destroy_socket-timer-looping net/x25/af_x25.c
+--- 25/net/x25/af_x25.c~x25-stop-x25_destroy_socket-timer-looping	2004-10-28 00:17:07.879606104 -0700
++++ 25-akpm/net/x25/af_x25.c	2004-10-28 00:17:07.883605496 -0700
+@@ -347,6 +347,7 @@ void x25_destroy_socket(struct sock *sk)
+ 		/* Defer: outstanding buffers */
+ 		sk->sk_timer.expires  = jiffies + 10 * HZ;
+ 		sk->sk_timer.function = x25_destroy_timer;
++		sk->sk_timer.data = (unsigned long)sk;
+ 		add_timer(&sk->sk_timer);
+ 	} else {
+ 		/* drop last reference so sock_put will free */
 _
