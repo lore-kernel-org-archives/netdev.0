@@ -1,71 +1,35 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [1/1] connector: Kernel connector - userspace <-> kernelspace
-	"linker".
-Date: Fri, 24 Sep 2004 07:40:32 +0400
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
+Date: Thu, 23 Sep 2004 22:39:09 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1095997232.17587.8.camel@uganda>
-References: <1095331899.18219.58.camel@uganda>
-	 <20040921124623.GA6942@uganda.factory.vocord.ru>
-	 <20040924000739.112f07dd@zanzibar.2ka.mipt.ru>
-	 <20040923215447.GD30131@ruslug.rutgers.edu>
-Reply-To: johnpol@2ka.mipt.ru
+Message-ID: <20040923223909.6f4da27f.davem@davemloft.net>
+References: <20040920025802.GA11567@gondor.apana.org.au>
+	<1095683660.1047.254.camel@jzny.localdomain>
+	<414F1E12.6010808@eurodev.net>
+	<20040922000503.GA13218@gondor.apana.org.au>
+	<4150E7E5.2000001@eurodev.net>
+	<20040922045239.GA19573@gondor.apana.org.au>
+	<1095854920.1047.64.camel@jzny.localdomain>
+	<20040922105221.59a67d4b.davem@davemloft.net>
+	<4152EE68.4030803@eurodev.net>
+	<20040923121651.51a58cf2.davem@davemloft.net>
+	<20040924032830.GC6384@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-8fpkCBNjFfMFdPaA8Oer"
-Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com,
-        linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: pablo@eurodev.net, hadi@cyberus.ca, davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Luis R. Rodriguez" <mcgrof@studorgs.rutgers.edu>
-In-Reply-To: <20040923215447.GD30131@ruslug.rutgers.edu>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040924032830.GC6384@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Fri, 24 Sep 2004 13:28:30 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
---=-8fpkCBNjFfMFdPaA8Oer
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+> Can someone please tell me why we need to do this at all?
+> 
+> Most of the dump messages should be close to PAGE_SIZE anyway, no?
 
-On Fri, 2004-09-24 at 01:54, Luis R. Rodriguez wrote:
-> RFC:=20
->=20
-> Can and should we work towards using this as interface for drivers that
-> need callbacks from an external (closed source) library/HAL?
-
-As I mentioned to Richard Jonson, it can be considered as
-ioctl. ioctl-ng!
-Unified interface (as ioctl) can be used for any type of modules.
-It is just a bit extended ioctl :)
-
-And _yes_, it can be used to turn on/off binary-only callbacks.
-Remember pwc - closed part can register callback and open part can
-send message, or even closed part can register notification when
-open part registers itself and begin to "trash the kernel".
-
-I understand that it is not right way to include it is into the kernel,
-but I personally do not understand how it is different=20
-from just extended ioctl. It was designed to be usefull and convenient,
-and it is.
-
-BTW, any binary-only module can _itself_ create netlink socket
-with input callback. And that is all - it will be absolutely
-the same as above.
-
-One may consider connector as yet-another-netlink-helper.
-
---=20
-	Evgeniy Polyakov
-
-Crash is better than data corruption. -- Art Grabowski
-
---=-8fpkCBNjFfMFdPaA8Oer
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-
-iD8DBQBBU5cwIKTPhE+8wY0RArB9AJ9BVtouc/+Y4NtRR36frbG5W/k/gACeKd9o
-Va1gj+T3Fd5AXJOAOMWsLpU=
-=mKmD
------END PGP SIGNATURE-----
-
---=-8fpkCBNjFfMFdPaA8Oer--
+It's moreso for the "give me a single entry" requests
+than for dumps.  NLMSG_GOODSIZE is used for all cases.
