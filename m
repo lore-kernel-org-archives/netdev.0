@@ -1,34 +1,121 @@
-From: Ville Nuorvala <vnuorval@tcs.hut.fi>
-Subject: Re: [PATCH] IPv6: Autoconfig link-local address on ip6-ip6 tunnel
- device
-Date: Sun, 30 Nov 2003 17:58:58 +0200 (EET)
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: 2.4.23 and CONFIG_PROC_FS=n
+Date: Sun, 30 Nov 2003 19:55:48 +0100 (MET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0311301756550.17679@rhea.tcs.hut.fi>
-References: <Pine.LNX.4.58.0311051412180.28216@rhea.tcs.hut.fi>
- <20031125.035531.94714784.yoshfuji@linux-ipv6.org>
- <Pine.LNX.4.58.0311271147250.3257@rhea.tcs.hut.fi>
- <20031127.193910.96333709.yoshfuji@linux-ipv6.org>
- <Pine.LNX.4.58.0311281146560.9203@rhea.tcs.hut.fi> <20031129204701.37a06847.davem@redhat.com>
+Message-ID: <Pine.GSO.4.21.0311301949180.23461-100000@waterleaf.sonytel.be>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org,
+        Linux Kernel Development <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20031129204701.37a06847.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 29 Nov 2003, David S. Miller wrote:
 
-> I thought some more about this and I am realizing this is not
-> a pure bug fix, I am very sure Linus will not take the change.
->
-> We can hold onto this until 2.6.1, ok?
+When compiling 2.4.23 with CONFIG_PROC_FS disabled, I found a few
+network-related files that don't compile:
+  1. net/atm/br2684.c 
+  2. net/core/pktgen.c
+  3. net/ipv4/netfilter/ipt_recent.c
 
-Yes that's fine.
+The patch below fixes 1 and 3. Note that 3 still generates a compiler warning
+(`ip_list_perms' defined but not used).
+
+The packet generator is a bit trickier, since its functionality seems to
+depend completely on the proc file system.
+
+--- linux-2.4.23/net/atm/br2684.c.orig	2003-10-01 20:49:26.000000000 +0200
++++ linux-2.4.23/net/atm/br2684.c	2003-11-30 12:06:32.000000000 +0100
+@@ -678,6 +678,7 @@
+ 	return -ENOIOCTLCMD;
+ }
+ 
++#ifdef CONFIG_PROC_FS
+ /* Never put more than 256 bytes in at once */
+ static int br2684_proc_engine(loff_t pos, char *buf)
+ {
+@@ -770,16 +771,19 @@
+ };
+ 
+ extern struct proc_dir_entry *atm_proc_root;	/* from proc.c */
++#endif /* CONFIG_PROC_FS */
+ 
+ /* the following avoids some spurious warnings from the compiler */
+ #define UNUSED __attribute__((unused))
+ 
+ static int __init UNUSED br2684_init(void)
+ {
++#ifdef CONFIG_PROC_FS
+ 	struct proc_dir_entry *p;
+ 	if ((p = create_proc_entry("br2684", 0, atm_proc_root)) == NULL)
+ 		return -ENOMEM;
+ 	p->proc_fops = &br2684_proc_operations;
++#endif /* CONFIG_PROC_FS */
+ 	br2684_ioctl_set(br2684_ioctl);
+ 	return 0;
+ }
+@@ -788,7 +792,9 @@
+ {
+ 	struct br2684_dev *brdev;
+ 	br2684_ioctl_set(NULL);
++#ifdef CONFIG_PROC_FS
+ 	remove_proc_entry("br2684", atm_proc_root);
++#endif /* CONFIG_PROC_FS */
+ 	while (!list_empty(&br2684_devs)) {
+ 		brdev = list_entry_brdev(br2684_devs.next);
+ 		unregister_netdev(&brdev->net_dev);
+--- linux-2.4.23/net/ipv4/netfilter/ipt_recent.c.orig	2003-07-08 13:31:59.000000000 +0200
++++ linux-2.4.23/net/ipv4/netfilter/ipt_recent.c	2003-11-30 19:24:09.000000000 +0100
+@@ -91,9 +91,6 @@
+  */
+ static spinlock_t recent_lock = SPIN_LOCK_UNLOCKED;
+ 
+-/* Our /proc/net/ipt_recent entry */
+-static struct proc_dir_entry *proc_net_ipt_recent = NULL;
+-
+ /* Function declaration for later. */
+ static int
+ match(const struct sk_buff *skb,
+@@ -123,6 +120,9 @@
+ }
+ 
+ #ifdef CONFIG_PROC_FS
++/* Our /proc/net/ipt_recent entry */
++static struct proc_dir_entry *proc_net_ipt_recent = NULL;
++
+ /* This is the function which produces the output for our /proc output
+  * interface which lists each IP address, the last seen time and the 
+  * other recent times the address was seen.
+@@ -963,8 +963,10 @@
+ 	int count;
+ 
+ 	printk(version);
++#ifdef CONFIG_PROC_FS
+ 	proc_net_ipt_recent = proc_mkdir("ipt_recent",proc_net);
+ 	if(!proc_net_ipt_recent) return -ENOMEM;
++#endif /* CONFIG_PROC_FS */
+ 
+ 	if(ip_list_hash_size && ip_list_hash_size <= ip_list_tot) {
+ 	  printk(KERN_WARNING RECENT_NAME ": ip_list_hash_size too small, resetting to default.\n");
+@@ -990,7 +992,9 @@
+ {
+ 	ipt_unregister_match(&recent_match);
+ 
++#ifdef CONFIG_PROC_FS
+ 	remove_proc_entry("ipt_recent",proc_net);
++#endif /* CONFIG_PROC_FS */
+ }
+ 
+ /* Register our module with the kernel. */
+
+Gr{oetje,eeting}s,
+
+						Geert
 
 --
-Ville Nuorvala
-Research Assistant, Institute of Digital Communications,
-Helsinki University of Technology
-email: vnuorval@tcs.hut.fi, phone: +358 (0)9 451 5257
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+							    -- Linus Torvalds
