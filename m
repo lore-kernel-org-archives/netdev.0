@@ -1,49 +1,46 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: TG3 fix for slow switches (Was: TG3 driver failure on HP
- 16-way)
-Date: Thu, 6 Jan 2005 15:19:10 -0800
-Message-ID: <20050106151910.4d51673e.davem@davemloft.net>
-References: <16839.27239.264551.415058@berry.gelato.unsw.EDU.AU>
-	<20041220161552.2b88aa3d.davem@davemloft.net>
-	<16839.30796.413939.333935@wombat.chubb.wattle.id.au>
+From: Jesper Juhl <juhl-lkml@dif.dk>
+Subject: [patch] net: get rid of redundant access_ok() call in checksum
+ calculation.
+Date: Fri, 7 Jan 2005 00:35:24 +0100 (CET)
+Message-ID: <Pine.LNX.4.61.0501070028010.3430@dragon.hygekrogen.localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: peterc@gelato.unsw.edu.au, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com,
+        Jorge Cwik <jorge@laser.satlink.net>,
+        Arnt Gulbrandsen <agulbra@nvg.unit.no>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Peter Chubb <peterc@gelato.unsw.edu.au>
-In-Reply-To: <16839.30796.413939.333935@wombat.chubb.wattle.id.au>
+To: linux-kernel <linux-kernel@vger.kernel.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-Peter, let me know if this patch solves your PHY link up problem
-too.
+Hi,
 
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2005/01/06 14:53:55-08:00 davem@nuts.davemloft.net 
-#   [TG3]: Return 0 when PHY read times out, not all-ones.
-#   
-#   Noticed by Peter Chubb.
-#   
-#   Signed-off-by: David S. Miller <davem@davemloft.net>
-# 
-# drivers/net/tg3.c
-#   2005/01/06 14:53:07-08:00 davem@nuts.davemloft.net +1 -1
-#   [TG3]: Return 0 when PHY read times out, not all-ones.
-# 
-diff -Nru a/drivers/net/tg3.c b/drivers/net/tg3.c
---- a/drivers/net/tg3.c	2005-01-06 14:54:21 -08:00
-+++ b/drivers/net/tg3.c	2005-01-06 14:54:21 -08:00
-@@ -485,7 +485,7 @@
- 		udelay(80);
- 	}
+in include/net/checksum.h::csum_and_copy_to_user  it would seem that the 
+access_ok() call before attempting to call copy_to_user() is redundant 
+since copy_to_user() calls access_ok() internally.
+
+If that is indeed the case then please consider applying the patch below 
+(if that access_ok() does make sense I'd apreciate to be told why).
+
+
+Signed-off-by: Jesper Juhl <juhl-lkml@dif.dk>
+
+diff -up linux-2.6.10-bk9-orig/include/net/checksum.h linux-2.6.10-bk9/include/net/checksum.h
+--- linux-2.6.10-bk9-orig/include/net/checksum.h	2004-12-24 22:34:26.000000000 +0100
++++ linux-2.6.10-bk9/include/net/checksum.h	2005-01-07 00:27:05.000000000 +0100
+@@ -46,10 +46,9 @@ static __inline__ unsigned int csum_and_
+ {
+ 	sum = csum_partial(src, len, sum);
  
--	*val = 0xffffffff;
-+	*val = 0x0;
+-	if (access_ok(VERIFY_WRITE, dst, len)) {
+-		if (copy_to_user(dst, src, len) == 0)
+-			return sum;
+-	}
++	if (copy_to_user(dst, src, len) == 0)
++		return sum;
++
+ 	if (len)
+ 		*err_ptr = -EFAULT;
  
- 	frame_val  = ((PHY_ADDR << MI_COM_PHY_ADDR_SHIFT) &
- 		      MI_COM_PHY_ADDR_MASK);
