@@ -1,83 +1,67 @@
 From: Jouni Malinen <jkmaline@cc.hut.fi>
-Subject: Re: 2.6.12-rc1-mm1: hostap stack usage
-Date: Tue, 22 Mar 2005 20:59:10 -0800
-Message-ID: <20050323045909.GT8648@jm.kir.nu>
-References: <20050321025159.1cabd62e.akpm@osdl.org>
-	<20050322163340.GD1948@stusta.de>
+Subject: Re: 2.6.x wireless update and status
+Date: Tue, 22 Mar 2005 21:52:43 -0800
+Message-ID: <20050323055243.GU8648@jm.kir.nu>
+References: <4240CA69.9020902@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com,
-	hostap@shmoo.com, linux-kernel@vger.kernel.org,
-	linux-net@vger.kernel.org, jgarzik@pobox.com
-To: Adrian Bunk <bunk@stusta.de>
+Cc: Netdev <netdev@oss.sgi.com>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	James Ketrenos <jketreno@linux.intel.com>,
+	"Luis R. Rodriguez" <mcgrof@ruslug.rutgers.edu>,
+	"David S. Miller" <davem@davemloft.net>
+To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <20050322163340.GD1948@stusta.de>
-List-Unsubscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
-	<mailto:hostap-request@shmoo.com?subject=unsubscribe>
-List-Archive: <http://incognito.shmoo.com/pipermail/hostap>
-List-Post: <mailto:hostap@shmoo.com>
-List-Help: <mailto:hostap-request@shmoo.com?subject=help>
-List-Subscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
-	<mailto:hostap-request@shmoo.com?subject=subscribe>
-Sender: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
-Errors-To: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
+In-Reply-To: <4240CA69.9020902@pobox.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-(netdev added to cc:)
+On Tue, Mar 22, 2005 at 08:46:17PM -0500, Jeff Garzik wrote:
 
-On Tue, Mar 22, 2005 at 05:33:40PM +0100, Adrian Bunk wrote:
+> Just updated the wireless-2.6 queue to include a HostAP update, and to 
+> add Wireless Extensions 18 (WPA).  See attached for BK info, patch info, 
+> and changelog.
 
-> The stack usage in some files under drivers/net/wireless/hostap/ is
-> too high.
+Thanks!
 
-Thanks; I'll fix these and submit a patch (or two) after some testing.
+> Moving forward, the next "todo" for kernel wireless hackers is to get 
+> ieee80211 common code lib into shape, namely:
+> * Merge Intel ipw drivers, which use ieee80211
+> * Update HostAP to use ieee80211
+> * Merge/convert other drivers to use ieee80211?
 
-> drivers/net/wireless/hostap/hostap_ioctl.c:
-> 
-> prism2_ioctl_giwaplist:
->         struct sockaddr addr[IW_MAX_AP];
->         struct iw_quality qual[IW_MAX_AP];
-> 
-> 64 * (16 + 4) Bytes = 1280 Bytes
+I'll be working on HostAP driver next; and ieee80211 code of course at
+the same time, since it is likely to need some changes for this. As far
+as other drivers are concerned, I'd like to see Atheros cards working
+with the generic ieee80211 code. They would be a good test target since
+they are an example of design where very large part of functionality is
+in the driver/network stack (no firmware used). This would be a good
+test to verify that the 802.11 code is generic enough for such a design.
 
-OK.
+> There is one minor point of contention so far.  Jouni stated he prefers 
+> that HostAP go upstream before it gets updated to use ieee80211.  I 
+> respectfully disagree, and prefer that HostAP is updated -first- to use 
+> the ieee80211 lib, before going upstream.
 
-> prism2_ioctl_ethtool:
->         struct ethtool_drvinfo info = { ETHTOOL_GDRVINFO };
-> 
-> 196 Bytes
+I think we can resolve this quite easily. The main reason for the other
+order was in trying to save my time by not having to work in more than
+one active development tree at the same time. This is kind of required
+since designing and maintaining an IEEE 802.11 stack would really be a
+full-time job and unfortunately, I have not yet managed to reach this
+goal in a way that would allow me to use all my time on open source
+development.
 
-This seems to be somewhat obsolete now since most drivers have moved to
-use get_drvinfo of ethtool_ops; I'll do the same.
-
-> __prism2_translate_scan:
->         char buf[MAX_WPA_IE_LEN * 2 + 30];
-> 
-> (64 * 2) + 30 Bytes = 158 Bytes
-
-OK.
-
-> drivers/net/wireless/hostap/hostap_cs.c:
-> 
-> prism2_config:
->         cisparse_t parse;
->         u_char buf[64];
->         config_info_t conf;
-> 
-> The main offender seems to be "parse" (but I'm too lame counting how 
-> many bytes it's exactly) resulting in nearly 1 kB stack usage.
-
-This is actually very common for PC Card drivers in the current kernel
-tree.. I'll change Host AP to kmalloc this, but someone might consider
-going through all *_cs.c drivers..
-
-> drivers/net/wireless/hostap/hostap_plx.c:
-> 
-> prism2_plx_check_cis:
-> #define CIS_MAX_LEN 256
->         u8 cis[CIS_MAX_LEN];
-
-OK.
+BK did not really work that well for me, but it looks like I'm having
+better luck with quilt as far as the amount of time needed for
+organizing changes to wireless-2.6 is concerned. In addition, the total
+number of changes to the driver code has been quite small lately, so I'm
+beginning to be more open to moving all future development into
+wireless-2.6 tree and just keeping my current CVS repository as a
+backwards compatible (2.2/2.4/2.6 kernels), stable version that wouldn't
+get any more new features. This would allow the order that you prefer.
+In addition, if someone really wants to get the new features I may be
+adding, these should be available through wireless-2.6 tree (and -mm for
+that matter).
 
 -- 
 Jouni Malinen                                            PGP id EFC895FA
