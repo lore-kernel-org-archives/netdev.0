@@ -1,92 +1,56 @@
-From: "Paul Rolland" <rol@as2917.net>
-Subject: RE: [2.6.5] Bad scheduling while atomic
-Date: Sun, 18 Apr 2004 20:50:55 +0200
+From: Andy Furniss <andy.furniss@dsl.pipex.com>
+Subject: Re: IMQ / new Dummy device post.
+Date: Sun, 18 Apr 2004 21:34:53 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200404181851.i3IIp1107295@tag.witbe.net>
-References: <20040416131633.1bfbfa4c@dell_ss3.pdx.osdl.net>
-Reply-To: <rol@as2917.net>
+Message-ID: <4082E66D.2020707@dsl.pipex.com>
+References: <407E5905.9070108@dsl.pipex.com>	 <1082031313.1039.13.camel@jzny.localdomain>	 <407EE3E5.8060200@dsl.pipex.com>	 <1082087553.1035.287.camel@jzny.localdomain>	 <4080356F.4020609@dsl.pipex.com>	 <1082145341.1026.125.camel@jzny.localdomain>	 <40810957.6030209@dsl.pipex.com>	 <1082203795.1043.18.camel@jzny.localdomain>	 <4081A824.5020107@dsl.pipex.com> <1082298480.1041.94.camel@jzny.localdomain> <4082AE45.7030101@dsl.pipex.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: "'Paul Rolland'" <rol@witbe.net>, <linux-kernel@vger.kernel.org>,
-        <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: hadi@cyberus.ca, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'Stephen Hemminger'" <shemminger@osdl.org>,
-        "'David S. Miller'" <davem@redhat.com>
-In-Reply-To: <20040416131633.1bfbfa4c@dell_ss3.pdx.osdl.net>
+To: Andy Furniss <andy.furniss@dsl.pipex.com>
+In-Reply-To: <4082AE45.7030101@dsl.pipex.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Thanks Stephen for being so fast !
+Andy Furniss wrote:
+<snip>
 
-Regards,
-Paul
+>> To accomodate your need for b), the idea would be as follows:
+>> packet gets demasquared, mark it with a fwmark
+> 
+> 
+> I guess you really mean mark then demasquerade.
+> 
+>> based on some recognition
+>> you have for bittorent or squid and lastly policy route it to the dummy
+>> device based on fwmark (since routing happens last).
+>> I will need to modify the dummy to not drop such packets which are
+>> fwmarked. 
+> 
+> 
+> OK I can see this as a possibility - assuming I can mark. Maybe conmark 
+> will be OK with connbytes sometime. I don't really know how to use it, 
+> but if it is possible to mark egress connections in output and have 
+> connmark match their incoming packets that would be a solution. I 
+> haven't got a clue if connmark can do this, though, just speculating.
 
-Paul Rolland, rol(at)as2917.net
-ex-AS2917 Network administrator and Peering Coordinator
+Hmm second thoughts - if I can route packets to dummy after demasquerade 
+then I don't need to mark - I can use u32 as I do now to seperate per 
+IP. Am I missing something here?
 
---
-
-Please no HTML, I'm not a browser - Pas d'HTML, je ne suis pas un navigat=
-eur
-
-"Some people dream of success... while others wake up and work hard at it=
-"=20
-
- =20
-
-> -----Message d'origine-----
-> De : linux-kernel-owner@vger.kernel.org=20
-> [mailto:linux-kernel-owner@vger.kernel.org] De la part de=20
-> Stephen Hemminger
-> Envoy=E9 : vendredi 16 avril 2004 22:17
-> =C0 : David S. Miller
-> Cc : Paul Rolland; linux-kernel@vger.kernel.org; netdev@oss.sgi.com
-> Objet : Re: [2.6.5] Bad scheduling while atomic
->=20
-> Bring up/down network devices with lapbether causes scheduling while
-> atomic (if preempt enabled).
->=20
-> The calls to rcu_read_lock are unnecessary since lapb_device_event=20
-> is called from notifier with the rtnetlink semaphore held, it is
-> already protected from the labp_devices list changing.
->=20
-> Patch against 2.6.6-rc1
->=20
-> diff -Nru a/drivers/net/wan/lapbether.c b/drivers/net/wan/lapbether.c
-> --- a/drivers/net/wan/lapbether.c	Fri Apr 16 11:00:35 2004
-> +++ b/drivers/net/wan/lapbether.c	Fri Apr 16 11:00:35 2004
-> @@ -392,6 +392,8 @@
-> =20
->  /*
->   *	Handle device status changes.
-> + *
-> + * Called from notifier with RTNL held.
->   */
->  static int lapbeth_device_event(struct notifier_block *this,
->  				unsigned long event, void *ptr)
-> @@ -402,7 +404,6 @@
->  	if (!dev_is_ethdev(dev))
->  		return NOTIFY_DONE;
-> =20
-> -	rcu_read_lock();
->  	switch (event) {
->  	case NETDEV_UP:
->  		/* New ethernet device -> new LAPB interface	 */
-> @@ -422,7 +423,6 @@
->  			lapbeth_free_device(lapbeth);
->  		break;
->  	}
-> -	rcu_read_unlock();
-> =20
->  	return NOTIFY_DONE;
->  }
-> -
-> To unsubscribe from this list: send the line "unsubscribe=20
-> linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
->=20
->=20
+> 
+> Does anyone else know, and why it's not compatable with connbytes?
+> 
+> Andy.
+> 
+>> cheers,
+>> jamal
+>>
+>>
+>>
+> 
+> 
+> 
+> 
