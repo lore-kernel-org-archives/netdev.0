@@ -1,36 +1,43 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [BUG] overflow in net/ipv4/route.c rt_check_expire()
-Date: Fri, 1 Apr 2005 14:34:42 -0800
-Message-ID: <20050401143442.62ed8bb9.davem@davemloft.net>
-References: <42370997.6010302@cosmosbay.com>
-	<20050315103253.590c8bfc.davem@davemloft.net>
-	<42380EC6.60100@cosmosbay.com>
-	<20050316140915.0f6b9528.davem@davemloft.net>
-	<4239E00C.4080309@cosmosbay.com>
-	<20050331221352.13695124.davem@davemloft.net>
-	<424D5D34.4030800@cosmosbay.com>
-	<20050401122802.7c71afbc.davem@davemloft.net>
-	<424DB7A1.8090803@cosmosbay.com>
-	<20050401130832.1f972a3b.davem@davemloft.net>
-	<424DC08A.3020204@cosmosbay.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] skb pcount with MTU discovery
+Date: Sat, 02 Apr 2005 08:47:35 +1000
+Message-ID: <E1DHUvP-00050C-00@gondolin.me.apana.org.au>
+References: <Pine.LNX.4.58.0504011612140.18380@dexter.psc.edu>
+Cc: davem@davemloft.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Eric Dumazet <dada1@cosmosbay.com>
-In-Reply-To: <424DC08A.3020204@cosmosbay.com>
+To: jheffner@psc.edu (John Heffner)
+In-Reply-To: <Pine.LNX.4.58.0504011612140.18380@dexter.psc.edu>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 01 Apr 2005 23:43:38 +0200
-Eric Dumazet <dada1@cosmosbay.com> wrote:
+John Heffner <jheffner@psc.edu> wrote:
+> 
+> Common case, start out with mss of 8948.  Send 2 segments; neither are
+> acknowledged, and we receive an ICMP can't fragment indicating a pmtu of
+> 1500 so mss is set down to 1448.  Now tcp_set_skb_tso_segs() sets tso_segs
+> to 6, so tcp_snd_test thinks we are doing TSO and will send the full 6
+> mss, and fails the cwnd test since cwnd == 2.
 
-> Are you OK if I also use alloc_large_system_hash() to allocate
-> rt_hash_table, instead of the current method ? This new method is used
-> in net/ipv4/tcp.c for tcp_ehash and tcp_bhash and permits NUMA tuning.
+How about fixing tcp_snd_test directly like this?
 
-Sure, that's fine.
-
-BTW, please line-wrap your emails. :-/
+Of course all this will be moot once Dave finishes his TSO rewrite :)
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+===== include/net/tcp.h 1.107 vs edited =====
+--- 1.107/include/net/tcp.h	2005-03-16 10:15:03 +11:00
++++ edited/include/net/tcp.h	2005-04-02 08:45:48 +10:00
+@@ -1433,6 +1433,9 @@
+ 		pkts = tcp_skb_pcount(skb);
+ 	}
+ 
++	if (!(tp->inet.sk.sk_route_caps & NETIF_F_TSO))
++		pkts = 1;
++
+ 	/*	RFC 1122 - section 4.2.3.4
+ 	 *
+ 	 *	We must queue if
