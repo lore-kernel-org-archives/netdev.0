@@ -1,47 +1,60 @@
-From: Olaf Rempel <razzor@kopf-tisch.de>
-Subject: [2.6.11 PATCH] /proc/net/stat/* cleanup
-Date: Fri, 4 Mar 2005 20:37:51 +0100
-Message-ID: <20050304203751.379dc6a6@coruscant>
+From: Edgar E Iglesias <edgar.iglesias@axis.com>
+Subject: Re: netif_rx packet dumping
+Date: Fri, 4 Mar 2005 20:52:39 +0100
+Message-ID: <20050304195239.GA13262@iglesias.dyn.ee>
+References: <20050303123811.4d934249@dxpl.pdx.osdl.net> <20050303125556.6850cfe5.davem@davemloft.net> <1109884688.1090.282.camel@jzny.localdomain> <20050303132143.7eef517c@dxpl.pdx.osdl.net> <1109885065.1098.285.camel@jzny.localdomain> <20050303133237.5d64578f.davem@davemloft.net> <20050303135416.0d6e7708@dxpl.pdx.osdl.net> <Pine.LNX.4.58.0503031657300.22311@tesla.psc.edu> <1109888811.1092.352.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: John Heffner <jheffner@psc.edu>, Stephen Hemminger <shemminger@osdl.org>,
+        "David S. Miller" <davem@davemloft.net>, rhee@eos.ncsu.edu,
+        Yee-Ting.Li@nuim.ie, baruch@ev-en.org, netdev@oss.sgi.com
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1109888811.1092.352.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-hi list
+On Thu, Mar 03, 2005 at 05:26:51PM -0500, jamal wrote:
+> On Thu, 2005-03-03 at 17:02, John Heffner wrote:
+> > On Thu, 3 Mar 2005, Stephen Hemminger wrote:
+> > > Maybe a simple Random Exponential Drop (RED) would be more friendly.
+> > 
+> > That would probably not be appropriate.  This queue is only for absorbing
+> > micro-scale bursts.  It should not hold any data in steady state like a
+> > router queue can.  The receive window can handle the macro scale flow
+> > control.
+> 
+> recall this is a queue that is potentially shared by many many flows
+> from potentially many many interfaces i.e it deals with many many
+> micro-scale bursts.
+> Clearly, the best approach is to have lots and lots of memmory and to
+> make that queue real huge so it can cope with all of them all the time.
+> We dont have that luxury - If you restrict the queue size, you will have
+> to drop packets... Which ones?
+> Probably simplest solution is to leave it as is right now and just
+> adjust the contraints based on your system memmory etc.
+> 
 
-in /proc/net/stat/[arp|ndisc]_cache the value "forced_gc_goal_miss" has no
-associated member in struct neigh_statistics.
+Why not have smaller queues but per interface? this would avoid
+introducing too much latency and keep memory consumption low
+but scale as we add more interfaces. It would also provide some
+kind of fair queueing between the interfaces to avoid highspeed 
+nics to starve lowspeed ones.
 
-in /proc/net/stat/rt_cache the value "in_slow_mc" was printed, but without header
-(16 header-names, 17 values)
+Queue length would still be an issue though, should somehow be 
+related to interface rate and acceptable introduced latency.
 
-patch is against vanilla 2.6.11
+Regarding RED and other more sophisticated algorithms, I assume
+this is up to the ingress qdisc to take care of. What the queues
+before the ingress qdiscs should do, is to avoid introducing
+too much latency. In my opinion, low latency or high burst
+tolerance should be the choice of the admin, like for egress.
 
-Olaf
+I am not very familiar with the linux code, so I may be completly
+wrong here...
 
-diff -uN linux-2.6.11/net/core/neighbour.c.org linux-2.6.11/net/core/neighbour.c
---- linux-2.6.11/net/core/neighbour.c.org       2005-03-04 20:03:01.000000000 +0100
-+++ linux-2.6.11/net/core/neighbour.c   2005-03-04 20:04:17.000000000 +0100
-@@ -1948,7 +1948,7 @@
-        struct neigh_statistics *st = v;
-
-        if (v == SEQ_START_TOKEN) {
--               seq_printf(seq, "entries  allocs destroys hash_grows  lookups hits  res_failed  rcv_probes_mcast rcv_probes_ucast  periodic_gc_runs forced_gc_runs forced_gc_goal_miss\n");
-+               seq_printf(seq, "entries  allocs destroys hash_grows  lookups hits  res_failed  rcv_probes_mcast rcv_probes_ucast  periodic_gc_runs forced_gc_runs\n");
-                return 0;
-        }
-
-diff -uN linux-2.6.11/net/ipv4/route.c.org linux-2.6.11/net/ipv4/route.c
---- linux-2.6.11/net/ipv4/route.c.org   2005-03-04 19:45:54.000000000 +0100
-+++ linux-2.6.11/net/ipv4/route.c       2005-03-04 19:47:58.000000000 +0100
-@@ -393,7 +393,7 @@
-        struct rt_cache_stat *st = v;
-
-        if (v == SEQ_START_TOKEN) {
--               seq_printf(seq, "entries  in_hit in_slow_tot in_no_route in_brd in_martian_dst in_martian_src  out_hit out_slow_tot out_slow_mc  gc_total gc_ignored gc_goal_miss gc_dst_overflow in_hlist_search out_hlist_search\n");
-+               seq_printf(seq, "entries  in_hit in_slow_tot in_slow_mc in_no_route in_brd in_martian_dst in_martian_src  out_hit out_slow_tot out_slow_mc  gc_total gc_ignored gc_goal_miss gc_dst_overflow in_hlist_search out_hlist_search\n");
-                return 0;
-        }
+Regards
+-- 
+        Programmer
+        Edgar E Iglesias <edgar@axis.com> 46.46.272.1946
