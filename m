@@ -1,29 +1,28 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] IPv6: Default Route Support on Router
-Date: Sat, 28 Sep 2002 23:22:10 -0700 (PDT)
+From: Richard Gooch <rgooch@ras.ucalgary.ca>
+Subject: Re: Poor gige performance with 2.4.20-pre*
+Date: Sun, 29 Sep 2002 00:34:02 -0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20020928.232210.45834665.davem@redhat.com>
-References: <20020928.151959.131438421.yoshfuji@linux-ipv6.org>
-	<200209282047.AAA03890@sex.inr.ac.ru>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.ORG, netdev@oss.sgi.com
+Message-ID: <200209290634.g8T6Y2o08439@vindaloo.ras.ucalgary.ca>
+References: <200209282257.g8SMvta32527@vindaloo.ras.ucalgary.ca>
+	<002f01c2675d$b642b640$f5f2010a@weixl>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
-In-Reply-To: <200209282047.AAA03890@sex.inr.ac.ru>
+To: "Xiaoliang \(David\) Wei" <weixl@caltech.edu>
+In-Reply-To: <002f01c2675d$b642b640$f5f2010a@weixl>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: kuznet@ms2.inr.ac.ru
-   Date: Sun, 29 Sep 2002 00:47:05 +0400 (MSD)
+Xiaoliang Wei writes:
+> Hi,
+>     Did you do the experiments on WAN or LAN? What's the other
+> configurations, such as: The sending/receiving buffer(I think it
+> should be larger than Bandwidth*Delay)?
 
-   > Following patch is against linux-2.4.19.
-   
-   OK!
-   
-Patch is applied to both 2.4.x and 2.5.x
-   
-   One question, what is this chunk for?
-   
-Once this is resolved, please send a patch if necessary.
+This is all on a LAN (of course; expecting good performance from a WAN
+is pretty futile). I use a buffer size of 256 KiB.
+
+				Regards,
+
+					Richard....
+Permanent: rgooch@atnf.csiro.au
+Current:   rgooch@ras.ucalgary.ca
