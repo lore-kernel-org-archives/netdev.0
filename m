@@ -1,27 +1,31 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] vlan: eliminate gcc warnings with PROC_FS=n
-Date: Tue, 25 Jan 2005 21:43:13 -0800
-Message-ID: <20050125214313.05a34248.davem@davemloft.net>
-References: <41F5DC6E.8070203@osdl.org>
+Subject: Re: [PATCH 2.6]: keep fragment queues private to each user
+Date: Tue, 25 Jan 2005 21:41:58 -0800
+Message-ID: <20050125214158.4be3798c.davem@davemloft.net>
+References: <41F5D1CB.9050804@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Randy.Dunlap" <rddunlap@osdl.org>
-In-Reply-To: <41F5DC6E.8070203@osdl.org>
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <41F5D1CB.9050804@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 24 Jan 2005 21:43:10 -0800
-"Randy.Dunlap" <rddunlap@osdl.org> wrote:
+On Tue, 25 Jan 2005 05:57:47 +0100
+Patrick McHardy <kaber@trash.net> wrote:
 
-> 
-> Eliminate gcc warnings when PROC_FS=n:
-> net/8021q/vlan.c:232: warning: statement with no effect
-> net/appletalk/ddp.c:1893: warning: statement with no effect
-> 
-> Signed-off-by: Randy Dunlap <rddunlap@osdl.org>
+> This patch keeps fragment queues private to each ip_defrag user to avoid
+> skbs jumping between different callers. It shouldn't change any wanted
+> behaviour, the only questionable one was ip_call_ra_chain, but the RA
+> option is included in each fragment. If you're fine with the patch I'm going
+> to send a 2.4 version later.
 
-Applied, thanks Randy.
+Please fix the CONFIG_SMP build.  You use some variable "user"
+in ip_frag_intern(), yet don't add this as an argument or
+anything like that.
+
+The "user" use you added is protected by CONFIG_SMP, so my guess
+is that you compile and tested this without SMP enabled.
