@@ -1,27 +1,20 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] IPV6: Mark MLDv2 Report as known
-Date: Fri, 9 Apr 2004 21:13:53 -0700
+Subject: Re: [PATCH] (4/4) usbnet -- use random_ether_addr
+Date: Fri, 9 Apr 2004 21:16:16 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040409211353.0f76e33c.davem@redhat.com>
-References: <20040409.210510.64268862.yoshfuji@linux-ipv6.org>
+Message-ID: <20040409211616.7b8f1aea.davem@redhat.com>
+References: <20040408110834.2fd1bd25@dell_ss3.pdx.osdl.net>
+	<20040408145403.34382c96.davem@redhat.com>
+	<20040409114727.0619405d@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, linux-usb-devel@lists.sourceforge.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20040409.210510.64268862.yoshfuji@linux-ipv6.org>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20040409114727.0619405d@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 09 Apr 2004 21:05:10 +0900 (JST)
-YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
 
-> Mark MLDv2 Report as known ICMPv6 type.
-> (We just ignore MLDv2 Reports on hosts as the spec says.)
-> 
-> Same patch applies linux-2.4.x.
-
-Applied to both 2.4.x and 2.6.x
-
-Thank you.
+All 4 patches applied, thanks Stephen.
