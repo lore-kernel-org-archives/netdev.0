@@ -1,47 +1,37 @@
-From: Amir Noam <amir.noam@intel.com>
-Subject: Re: [Bonding-devel] [PATCH] [bonding 2.4] Add balance-xor-ip bonding mode
-Date: Sun, 11 Jan 2004 16:50:24 +0200
+From: "Douglas Pollock" <pollockd@magma.ca>
+Subject: Re: Realtek 8169 Lock-ups
+Date: Sun, 11 Jan 2004 11:23:42 -0500 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200401111650.24305.amir.noam@intel.com>
-References: <E6F7D288B394A64585E67497E5126BA601F991D2@hasmsx403.iil.intel.com>
+Message-ID: <200401111623.i0BGNg3O028990@webmail1.magma.ca>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <bonding-devel@lists.sourceforge.net>, <netdev@oss.sgi.com>
+Content-Type: text/plain
+Cc: netdev@oss.sgi.com, damouse@ntlworld.com, brad@mainstreetsoftworks.com,
+        kinetik@orcon.net.nz
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Per Hedeland" <per@hedeland.org>
-In-Reply-To: <E6F7D288B394A64585E67497E5126BA601F991D2@hasmsx403.iil.intel.com>
-Content-Disposition: inline
+To: Francois Romieu <romieu@fr.zoreil.com>, Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thursday 08 January 2004 06:43 pm, Per Hedeland wrote:
-> Amir Noam <amir.noam@intel.com> wrote:
-> >I don't like this. The reason we give different tx function
-> > pointers to dev->hard_start_xmit in different bonding mode is to
-> > make the tx path as fast as possible. Otherwise we might as well
-> > use a single tx function that chooses its exact operation based
-> > on the bonding mode.
-> >
-> >It might be better to have some code duplication if it results in
-> >faster tx, but I'm not sure what's the optimal solution in this
-> > case.
->
-> Well, I don't really have an opinion since I don't have a good idea
-> about the cost of a function call relative to "everything else"
-> that is happening here. I don't see a way to do "limited"
-> duplication without using function calls though, but I'm quite
-> happy to make it two entirely separate functions for MAC vs IP.
-> Please advise.
+On Jan 11, Francois Romieu <romieu@fr.zoreil.com> wrote:
+> M. Pollock's problems look different:
+> - they do not depend on the driver used;
 
-A possible way to have "limited" duplication would be to have two 
-seperate xmit functions, that call an inline function for the shared 
-code. This might be good enough, performance-wise, while avoiding 
-some code duplication.
+I can confirm that I do not see kernel panics, and that the driver (for all intents and 
+purposes) seems to work well for a period of time.  
 
-But, like I've said, I'm not sure wout the best solution is. I'd like 
-to hear what Jay (and others) thinks about it.
 
--- 
-Amir
+> - they seem timing/smp related (mobile computer + p4 HT).
+
+I ran without SMP support in the kernel for about 1.5 days on my work network, and did 
+not see any of the lock-ups described.  However, this evidence is somewhat 
+circumstantial, as we don't have a reproducible test case.
+
+It would be nice if someone could point me to a network stress testing tool (something 
+that opens multiple simultaneous connections and keeps them at high load).  I'm hoping 
+that such a test might provide a reproducible test case.  This way we could confirm or 
+rule-out the SMP relationship.
+
+
+
+Thanks,
+Doug.
