@@ -1,39 +1,69 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: skb_checksum_help
-Date: Tue, 25 Jan 2005 00:45:15 +0100
-Message-ID: <20050124234515.GA31837@postel.suug.ch>
-References: <20050124005348.GL23931@postel.suug.ch> <E1Cst4o-0007bD-00@gondolin.me.apana.org.au> <20050123202715.281ac87c.davem@davemloft.net> <20050124121610.GP23931@postel.suug.ch> <41F50B6C.6010107@davidcoulson.net> <20050124151510.GV23931@postel.suug.ch> <20050124225423.GA15405@gondor.apana.org.au>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Fw: ppp0 out of control
+Date: Mon, 24 Jan 2005 15:59:12 -0800
+Message-ID: <20050124155912.53e90409.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Coulson <david@davidcoulson.net>,
-        "David S. Miller" <davem@davemloft.net>, kaber@trash.net,
-        netdev@oss.sgi.com
+Content-Type: multipart/mixed;
+ boundary="Multipart=_Mon__24_Jan_2005_15_59_12_-0800_KNED1cU+/MA4IIE+"
+Cc: =?ISO-8859-1?Q?Aur=E9lien_G=C9R=D4ME?= <ag@roxor.be>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Content-Disposition: inline
-In-Reply-To: <20050124225423.GA15405@gondor.apana.org.au>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Herbert Xu <20050124225423.GA15405@gondor.apana.org.au> 2005-01-25 09:54
-> On Mon, Jan 24, 2005 at 04:15:10PM +0100, Thomas Graf wrote:
-> > 
-> > After inspecting your iptables rule set I think it is a general UDP DNAT
-> > problem under some circumstances. Some defragmentation weirdness in
-> > prerouting might be invovled. It would definitely help to have a dump
-> > of a complete ip fragments sequence causing this bug but I can't tell
-> > what exactly is the cause just now so yes it might be a good idea to
-> > limit the dump to the above subnet and hope the dodgy traffic comes
-> > from the same subnet again.
-> 
-> OK, I think I've found the problem.  It's a totally innocuous bug
-> in ip_fragment/ip6_fragment.  When we're in the fast path and use
-> the pre-existing frag_list skb's, we forgot to clear ip_summed.
+This is a multi-part message in MIME format.
 
-I don't quite understand how this solves the problem. How could
-ip_summed be non zero after ip_forward? The earliest possible call
-to ip_fragment is in postrouting. Please correct me if I'm wrong.
+--Multipart=_Mon__24_Jan_2005_15_59_12_-0800_KNED1cU+/MA4IIE+
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-The bug isn't triggered for every fragment only once in a while so I don't
-think it's that simple. 
+
+
+Begin forwarded message:
+
+Date: Fri, 21 Jan 2005 15:44:44 +0100
+From: Aur=E9lien G=C9R=D4ME <ag@roxor.be>
+To: linux-kernel@vger.kernel.org
+Subject: ppp0 out of control
+
+
+Hi there,
+
+I am running 2.6.10 from kernel.org on Debian Sid ppc/x86, the same
+issue occurs with 2.6.9. Though, 2.6.8.1 and previous are fine.
+
+When my ISP connection via PPPoE (kernel side) goes down, reconnection
+does not occur, and the kernel displays continuous:
+
+kernel: unregister_netdevice: waiting for ppp0 to become free. Usage count =
+=3D 1
+
+This is that on both machine: x86 and ppc.
+
+The only solution is a reboot, because pppd is not killable, and the
+kernel keeps on with this message.
+
+Does anyone have a solution? I am completely clueless. :( I thought
+about stalled sockets, but how can I destroy them?
+
+What is blocking ppp0?
+
+What system outputs do you need to solve this?
+
+Cheers.
+
+
+--Multipart=_Mon__24_Jan_2005_15_59_12_-0800_KNED1cU+/MA4IIE+
+Content-Type: application/pgp-signature;
+ name="signature.asc"
+Content-Disposition: attachment;
+ filename="signature.asc"
+Content-Transfer-Encoding: base64
+
+LS0tLS1CRUdJTiBQR1AgU0lHTkFUVVJFLS0tLS0KVmVyc2lvbjogR251UEcgdjEuMi41IChHTlUv
+TGludXgpCgppRDhEQlFGQjhSVmNJMnhneG1XMHNXSVJBZ3FzQUo5bDV1R2pxcjRpYjZZa1k5VmVv
+OXY0eWg5OTNnQ2dxeTJVCnhrc3NkaExlMGJuNWNqMWhiZ0lrSU04PQo9UGlUYgotLS0tLUVORCBQ
+R1AgU0lHTkFUVVJFLS0tLS0KCg==
+
+--Multipart=_Mon__24_Jan_2005_15_59_12_-0800_KNED1cU+/MA4IIE+--
