@@ -1,29 +1,37 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] bug in ARP override timer near jiffies wrap
-Date: Fri, 7 May 2004 14:40:00 -0700
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: [PATCH - SCTP] Fix multihomed connection failures on 64-bit systems.
+Date: Fri, 7 May 2004 14:51:02 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040507144000.7a57d76a.davem@redhat.com>
-References: <OF2E0715FD.603FFEE2-ON88256E8D.006DBE22-88256E8D.006DF160@us.ibm.com>
+Message-ID: <Pine.LNX.4.58.0405071443050.17510@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com, lksctp-developers@lists.sourceforge.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Stevens <dlstevens@us.ibm.com>
-In-Reply-To: <OF2E0715FD.603FFEE2-ON88256E8D.006DBE22-88256E8D.006DF160@us.ibm.com>
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 7 May 2004 14:01:10 -0600
-David Stevens <dlstevens@us.ibm.com> wrote:
+Dave,
 
-> This patch fixes the calculation of "override" in ARP.
- ...
-> -               if (jiffies - n->updated >= n->parms->locktime)
-> -                       override = 1;
-> +               override = time_after(jiffies, n->updated + 
-> n->parms->locktime);
+The following patch from Vladislav Yasevich fixes an SCTP issue with 64-bit
+systems.
+This applies to 2.4 tree also with a small offset.
 
-David, do you realize that the existing formula is not only
-correct, but also covers a greater time space than the
-time_*() mechanisms do?
+[SCTP] Fix multihomed connection failures on 64-bit systems.
+
+Avoid the use of sizeof() and pointer arithmetic to get to the end
+of sctp_cookie structure. Instead use the last element peer_init which
+is a zero-sized array as the offset.
+
+diff -Nru a/net/sctp/associola.c b/net/sctp/associola.c
+--- a/net/sctp/associola.c      Fri May  7 14:37:34 2004
++++ b/net/sctp/associola.c      Fri May  7 14:37:34 2004
+@@ -1195,7 +1195,7 @@
+ {
+        int var_size2 = ntohs(cookie->peer_init->chunk_hdr.length);
+        int var_size3 = cookie->raw_addr_list_len;
+-       __u8 *raw = (__u8 *)cookie + sizeof(struct sctp_cookie) + var_size2;
++       __u8 *raw = (__u8 *)cookie->peer_init + var_size2;
+
+        return sctp_raw_to_bind_addrs(&asoc->base.bind_addr, raw, var_size3,
+                                      asoc->ep->base.bind_addr.port, gfp);
