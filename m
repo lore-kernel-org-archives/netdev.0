@@ -1,60 +1,68 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: 2.6.7 tulip performance (with NAPI)
-Date: Tue, 05 Oct 2004 16:42:44 -0700
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [TCP] Show all SYN_RECV sockets in /proc/net/tcp
+Date: Wed, 6 Oct 2004 12:06:50 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41633174.7070805@candelatech.com>
+Message-ID: <20041006020650.GA14583@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/mixed; boundary="OgqxwSJOaUobr8KG"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+To: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
 
-NOTE:  This test machine is running a P-IV 2.8Ghz processor, 32/33 PCI
-bus, 512MB RAM, and kernels compiled for the P-IV processor.  I
-am using a modified pktgen that can receive as well as transmit
-packets, so I can get pkt-drop stats, etc.  User-space is FC2,
-and X is running during these tests.
+--OgqxwSJOaUobr8KG
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
+Hi Dave:
 
-I just started doing some performance comparisons of
-pktgen with a 4-port NIC (p430tx) that uses the tulip driver.  On 2.4.27
-I can drive two ports at 95+Mbps, full duplex and the system is
-very responsive.  If I try this on 2.6.7 (with tulip compiled to use
-NAPI), I can still get the speed on the two ports, but the deskop
-is very jittery.
+I was fixing the tcp_diag so that it shows SYN_RECV sockets properly.
+I found that /proc/net/tcp didn't do it correctly either.  So here is
+a small patch to fix /proc/net/tcp.
 
-If I try to start another pktgen test between the second two ports
-on 2.4.27 I start seeing a reasonable number of packet drops, and the
-bandwidth drops to about 55Mbps bi-directional.  The desktop is still
-responsive.
+The logic in there stinks though so I'd love to see a rewrite.
 
-If I try this on 2.6.7 the desktop jitter gets even worse.  The pktgen
-tests start sending at about 7kpps (I'm using 1514 byte packets) but
-I only receive about 1kpps.  My assumption is that the pktgen thread is
-getting all the cpu and starving the NAPI receive thread.
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-I tried setting the NICE level of pktgen to -10 and softirq to -18.  I
-still see way more packets transmitted than received.
-
-I tried compiling the tulip driver to not use NAPI in 2.6.7.  This
-achieved similar throughput (55Mbps on each NIC, full duplex) as the 2.4.27
-kernel, and slowed down the pktgen transmitter so that fewer packets
-were actually dropped.  The responsiveness is not good, but it is not
-any worse than when using NAPI.
-
-So, for my testing with send+receive traffic, it appears that tulip+NAPI
-is actually not a good option.
-
-If anyone has other performance comparisons with tulip on modern kernels,
-please share!
-
-Thanks,
-Ben
-
+Cheers,
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--OgqxwSJOaUobr8KG
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
+
+===== net/ipv4/tcp_ipv4.c 1.99 vs edited =====
+--- 1.99/net/ipv4/tcp_ipv4.c	2004-09-15 06:57:07 +10:00
++++ edited/net/ipv4/tcp_ipv4.c	2004-10-06 11:25:04 +10:00
+@@ -2175,8 +2175,14 @@
+ 		sk	  = sk_next(st->syn_wait_sk);
+ 		st->state = TCP_SEQ_STATE_LISTENING;
+ 		read_unlock_bh(&tp->syn_wait_lock);
+-	} else
++	} else {
++	       	tp = tcp_sk(sk);
++		read_lock_bh(&tp->syn_wait_lock);
++		if (tp->listen_opt && tp->listen_opt->qlen)
++			goto start_req;
++		read_unlock_bh(&tp->syn_wait_lock);
+ 		sk = sk_next(sk);
++	}
+ get_sk:
+ 	sk_for_each_from(sk, node) {
+ 		if (sk->sk_family == st->family) {
+@@ -2186,6 +2192,7 @@
+ 	       	tp = tcp_sk(sk);
+ 		read_lock_bh(&tp->syn_wait_lock);
+ 		if (tp->listen_opt && tp->listen_opt->qlen) {
++start_req:
+ 			st->uid		= sock_i_uid(sk);
+ 			st->syn_wait_sk = sk;
+ 			st->state	= TCP_SEQ_STATE_OPENREQ;
+
+--OgqxwSJOaUobr8KG--
