@@ -1,29 +1,27 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 2.6.9-rc2 1/1] r8169: default on disabling PCIDAC
-Date: Mon, 20 Sep 2004 21:02:52 +0200
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 2.6] natsemi.c NAPI
+Date: Mon, 20 Sep 2004 15:07:46 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040920190252.GA16429@electric-eye.fr.zoreil.com>
-References: <20040919224102.GA32577@electric-eye.fr.zoreil.com> <414F1DFD.9030008@pobox.com>
+Message-ID: <20040920190746.GA17210@havoc.gtf.org>
+References: <20040920141030.GV1307@sunbeam.de.gnumonks.org> <20040920115746.7ccbfb45.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Hans-Frieder Vogt <hfvogt@arcor.de>, Andy Lutomirski <luto@myrealbox.com>,
-        Jon Mason <jdmason@us.ibm.com>,
-        Srihari Vijayaraghavan <sriharivijayaraghavan@yahoo.com.au>,
-        netdev@oss.sgi.com
+Cc: Harald Welte <laforge@gnumonks.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <414F1DFD.9030008@pobox.com>
+In-Reply-To: <20040920115746.7ccbfb45.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik <jgarzik@pobox.com> :
-[...]
-> Can this interrupt be used at runtime to detect that DAC isn't working?
+On Mon, Sep 20, 2004 at 11:57:46AM -0700, David S. Miller wrote:
+> This driver (before the NAPI patch) is a bit buggy, it does
+> no RX processing SMP locking.  So if one one cpu you're doing
+> RX interrupt processing, and on another cpu tx_timeout() runs
+> we're totally screwed.
 
-Experiment suggests that. 
+RX processing in current natsemi only happens in irq, and the natsemi
+driver properly disables irqs when it needs to, AFAICS, using
+enable/disable_irq().
 
-Errr... Do you really want to hot-reinit the device ?
-
---
-Ueimor
+	Jeff
