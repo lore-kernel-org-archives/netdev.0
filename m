@@ -1,37 +1,26 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: RFC: IPSEC patch 0 for netlink events
-Date: Tue, 29 Mar 2005 09:43:35 +1000
-Message-ID: <20050328234335.GC15369@gondor.apana.org.au>
-References: <1111864971.1092.904.camel@jzny.localdomain> <20050326194707.GA9872@gondor.apana.org.au> <1111867875.1089.915.camel@jzny.localdomain> <20050327081848.GA13428@gondor.apana.org.au> <1111950449.1089.938.camel@jzny.localdomain> <424875C7.3080306@trash.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hadi@cyberus.ca, Masahide NAKAMURA <nakam@linux-ipv6.org>,
-        "David S. Miller" <davem@davemloft.net>, netdev <netdev@oss.sgi.com>
+From: Kumar Gala <kumar.gala@freescale.com>
+Subject: Re: RFC: PHY Abstraction Layer II
+Date: Mon, 28 Mar 2005 17:45:43 -0600
+Message-ID: <be784d868895f716feaf92e8fe93f826@freescale.com>
+References: <1107b64b01fb8e9a6c84359bb56881a6@freescale.com>	<1110334456.32556.21.camel@gaston>	<20050308194229.41c23707.davem@davemloft.net>	<1110340214.32524.32.camel@gaston> <57a429f8eb807987d88b06129861d507@freescale.com> <4230D1AC.5070506@katalix.com> <ba5d844255b5ba76b2685f9397faf689@freescale.com> <423734FB.40101@katalix.com> <96c50184a02557c88dee0e6d17f3a539@freescale.com> <6b870ceb81370f10886e5b7a5943ae82@freescale.com>
+Mime-Version: 1.0 (Apple Message framework v619.2)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@oss.sgi.com>,
+        ML linuxppc-embedded <linuxppc-embedded@ozlabs.org>,
+        Andy Fleming <afleming@freescale.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <424875C7.3080306@trash.net>
+In-Reply-To: <6b870ceb81370f10886e5b7a5943ae82@freescale.com>
+To: Jeff Garzik <jgarzik@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 28, 2005 at 11:23:19PM +0200, Patrick McHardy wrote:
-> 
-> To answer this question: no. xfrm_state_lock can be nested in
-> x->lock, but not the other way around. If you want to avoid that
+Jeff,
 
-That's true for now but it's something that I'd like to change for
-2.6.13.  We should use the refcnt as much as possible and modify
-the locking so that the state lock is only used to guard the state
-of the state :)
+I was wondering what the next steps where on getting Andy's PHY 
+abstraction layer into the kernel.
 
-> the state changes below you, you could notify before insertion.
+thanks
 
-Agreed.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+- kumar
