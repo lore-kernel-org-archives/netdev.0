@@ -1,37 +1,43 @@
-From: Jamie Lokier <jamie@shareable.org>
-Subject: Re: preliminary conclusions regarding window size issues
-Date: Thu, 8 Jul 2004 02:44:43 +0100
+From: James Morris <jmorris@redhat.com>
+Subject: Re: pskb change in dst->output
+Date: Wed, 7 Jul 2004 23:34:59 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040708014443.GE17266@mail.shareable.org>
-References: <20040707232757.GA14471@outpost.ds9a.nl>
+Message-ID: <Xine.LNX.4.44.0407072327390.29365-100000@thoron.boston.redhat.com>
+References: <20040708011100.GA31600@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@redhat.com>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: bert hubert <ahu@ds9a.nl>, "David S. Miller" <davem@redhat.com>,
-        Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com,
-        linux-net@vger.kernel.org, linux-kernel@vger.kernel.org,
-        ALESSANDRO.SUARDI@ORACLE.COM
-Content-Disposition: inline
-In-Reply-To: <20040707232757.GA14471@outpost.ds9a.nl>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040708011100.GA31600@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-bert hubert wrote:
-> Alessandro never sees these packets!
-...
-> My current feeling is that some kind of QoS device is interfering,
-> and that the 'wscale gets stuffed' theory is wrong in this case.
-> 
-> I recall that 'Packeteer' QoS devices try to mess with windows.
+On Thu, 8 Jul 2004, Herbert Xu wrote:
 
-It's a bit fiddly to arrange, but can you repeat the test and
-artificially lower the TTL for these packets which disappear?
+> I'm just a bit unsure whether the pskb change is needed in dst_output().
 
-An iptable mangle rule would do the trick -- mangle the TTL only on
-packets which match this point in the trace.
+Ok, dst_output() iterates over the skb->dst stack:
 
-The idea is to reduce the TTL like traceroute does, so you can see
-which hop is causing these packets to disappear -- perhaps it'll stand
-out proudly as a QoS device which can be named, blamed and shamed.
+	for (;;) {
+                err = skb->dst->output(&skb);
 
--- Jamie
+                if (likely(err == 0))
+                        return err;
+                if (unlikely(err != NET_XMIT_BYPASS))
+                        return err;
+        }
+
+We need to pass a pointer to skb to skb->dst->output() because the skb can
+be changed by skb_checksum_help() in one of these output paths.  Further
+iteration would otherwise pass an incorrect (freed) skb.
+
+The change to dst->output() which implements a double skb pointer is then
+propagated throughout the code, e.g.  ah_output() has to change because it
+becomes an output function via xfrm->type->output().
+
+
+- James
+-- 
+James Morris
+<jmorris@redhat.com>
