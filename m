@@ -1,50 +1,73 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: RE: how to tune a pair of e1000 cards on intel e7501-based system?
-Date: Tue, 7 Dec 2004 17:10:26 -0800
-Message-ID: <C925F8B43D79CC49ACD0601FB68FF50C0293B459@orsmsx408>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] prism54: small prismcompat cleanup (fwd)
+Date: Wed, 8 Dec 2004 04:33:26 +0100
+Message-ID: <20041208033326.GQ5496@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8bit
-Cc: <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-Content-class: urn:content-classes:message
-To: "Ray Lehtiniemi" <rayl@mail.com>, "Scott Feldman" <sfeldma@pobox.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, jgarzik@pobox.com, linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: prism54-private@prism54.org, Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > > What kind of numbers are you getting?
-> 
-> i'm seeing about 100Kpps, with all settings at their defaults on the
-> 2.4.20
-> kernel.
-> 
-> basically, i have a couple of desktop PCs generating 480 streams
-> of UDP data at 50 packets per second.  Packet size on the wire,
-including
-> 96 bits of IFG, is 128 bytes.  these packets are forwarded through a
-user
-> process on the NexGen box to an echoer process which is also running
-on
-> the
-> traffic generator boxes. the echoer sends them back to the NexGen user
-> process,
-> which forwards them back to the generator process.  timestamps are
-logged
-> for each packet at send, loop and recv points.
-> 
+The patch forwarded below (slightly adopted for 2.6.10-rc2-mm4) still 
+applies.
 
-I'm not much of an expert, but one easy thing to try is to up your
-receive stack resources, as they were particularly low on 2.4 series
-kernels, leading to udp getting overrun pretty easily with gig nics.  I
-think if you make the value go too high it just ignores it, so if you
-see no change, try 256kB instead.
+Please apply.
 
-cat /proc/sys/net/core/rmem_default
-cat /proc/sys/net/core/rmem_max 
 
-echo -n 512000 > /proc/sys/net/core/rmem_default
-echo -n 512000 > /proc/sys/net/core/rmem_max
+----- Forwarded message from Adrian Bunk <bunk@stusta.de> -----
 
-Jesse
+Date: Sat, 30 Oct 2004 07:38:00 +0200
+From: Adrian Bunk <bunk@stusta.de>
+To: Margit Schubert-While <margitsw@t-online.de>
+Cc: prism54-private@prism54.org, netdev@oss.sgi.com, jgarzik@pobox.com,
+	linux-net@vger.kernel.org
+Subject: [2.6 patch] prism54: small prismcompat cleanup
+
+
+- the FW_LOADER is already guaranteed through the Kconfig file
+- prism54_synchronize_irq is also #define'd to synchronize_irq
+  in prismcompat24.h, so there's no need for it
+
+
+diffstat output:
+ drivers/net/wireless/prism54/islpci_dev.c  |    2 +-
+ drivers/net/wireless/prism54/prismcompat.h |    6 ------
+ 2 files changed, 1 insertion(+), 7 deletions(-)
+
+
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
+
+--- linux-2.6.10-rc1-mm2-full/drivers/net/wireless/prism54/islpci_dev.c.old2	2004-10-30 07:23:07.000000000 +0200
++++ linux-2.6.10-rc1-mm2-full/drivers/net/wireless/prism54/islpci_dev.c	2004-10-30 07:23:19.000000000 +0200
+@@ -420,7 +420,7 @@
+ 	 * currently in progress by emptying the TX and RX queues. */
+ 
+ 	/* wait until interrupts have finished executing on other CPUs */
+-	prism54_synchronize_irq(priv->pdev->irq);
++	synchronize_irq(priv->pdev->irq);
+ 
+ 	reg = readl(device_base + ISL38XX_CTRL_STAT_REG);
+ 	reg &= ~(ISL38XX_CTRL_STAT_RESET | ISL38XX_CTRL_STAT_RAMBOOT);
+
+--- linux-2.6.10-rc2-mm4-full/drivers/net/wireless/prism54/prismcompat.h.old	2004-12-08 04:06:13.000000000 +0100
++++ linux-2.6.10-rc2-mm4-full/drivers/net/wireless/prism54/prismcompat.h	2004-12-08 04:06:25.000000000 +0100
+@@ -34,16 +34,10 @@
+ #include <linux/workqueue.h>
+ #include <linux/compiler.h>
+ 
+-#if !defined(CONFIG_FW_LOADER) && !defined(CONFIG_FW_LOADER_MODULE)
+-#error Firmware Loading is not configured in the kernel !
+-#endif
+-
+ #ifndef __iomem
+ #define __iomem
+ #endif
+ 
+-#define prism54_synchronize_irq(irq) synchronize_irq(irq)
+-
+ #define PRISM_FW_PDEV		&priv->pdev->dev
+ 
+ #endif				/* _PRISM_COMPAT_H */
