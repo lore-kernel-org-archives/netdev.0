@@ -1,44 +1,46 @@
-From: Xose Vazquez Perez <xose@wanadoo.es>
-Subject: Re: Ax88190 specs (was 8390 specs)
-Date: Sat, 18 Dec 2004 01:41:14 +0100
-Message-ID: <41C37CAA.3030608@wanadoo.es>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: [2.6 patch] net/decnet/: misc possible cleanups
+Date: Sat, 18 Dec 2004 01:50:27 +0100
+Message-ID: <20041218005027.GC21288@stusta.de>
+References: <20041214125838.GC23151@stusta.de> <20041214133235.GB10131@souterrain.chygwyn.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Return-path: <netdev-bounce@oss.sgi.com>
-To: marcelo.tosatti@cyclades.com, netdev@oss.sgi.com
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: patrick@tykepenguin.com, Steve Whitehouse <SteveW@ACM.org>,
+	linux-decnet-user@lists.sourceforge.net, netdev@oss.sgi.com,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262803AbULRAut@vger.kernel.org>
+To: Steven Whitehouse <steve@chygwyn.com>
+Content-Disposition: inline
+In-Reply-To: <20041214133235.GB10131@souterrain.chygwyn.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Tosatti wrote:
+On Tue, Dec 14, 2004 at 01:32:35PM +0000, Steven Whitehouse wrote:
 
-> I'm having a problem with a Linksys EtherFast card (driven by axnet_cs), 
-> where the interrupt status reports ENISR_RX_ERR (receive error) 
-> under load.
-> 
-> I would like to know more details about this status bit, 
-> what can causes it to be turned on, etc.
-> 
-> Do you know where I can find 8390 specs?
-> 
-> 8390.c mentions
-> Sources:
-> The National Semiconductor LAN Databook, and the 3Com 3c503 databook.
-> 
-> But I can't find those available in either Google search or the 
-> National Semiconductor website.
-> 
-> Any information or pointers are welcome, thanks!
+> Hi,
 
+Hi Steven,
 
-Maybe these
+>...
+> Also, when I was writing the routing code - a lot of the design was "borrowed"
+> from the ipv4 routing code. It might be worth doing a comparison to see where
+> the two have diverged (something I used to do now and again) to pick up any
+> bugs I'd inadvertently copied over, if you are working on clean ups in this
+> area,
 
-   http://www.asix.com.tw/download/Ax88190.pdf
-   http://www.asix.com.tw/download/Ax88190a.pdf
+unfortunately, I'm not working especially in this area.
 
-can help you. More docs at -> http://www.asix.com.tw/download_datasheet.htm
+I'm currently going through the complete kernel sources searching for 
+global code that can be made static or even removed.
 
-regards,
+> Steve.
+
+cu
+Adrian
+
 -- 
-TLOZ OOT: worse than drugs.
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
