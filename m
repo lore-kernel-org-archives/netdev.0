@@ -1,37 +1,67 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: IPSEC: on behavior of acquire
-Date: Sun, 03 Apr 2005 17:52:26 +0200
-Message-ID: <4250113A.4080202@trash.net>
-References: <1112405144.1096.33.camel@jzny.localdomain>	 <20050402140019.GA13017@yakov.inr.ac.ru> <1112478168.1088.337.camel@jzny.localdomain>
+Subject: [IPSEC]: Protect against BHs in xfrm_user_policy()
+Date: Sun, 03 Apr 2005 18:13:01 +0200
+Message-ID: <4250160D.2040405@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        "David S. Miller" <davem@davemloft.net>,
-        Masahide NAKAMURA <nakam@linux-ipv6.org>,
-        ipsec-tools-devel@lists.sourceforge.net, netdev <netdev@oss.sgi.com>,
-        jmorris@redhat.com
+Content-Type: multipart/mixed;
+ boundary="------------040106090202000803080206"
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1112478168.1088.337.camel@jzny.localdomain>
+To: "David S. Miller" <davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> Herbert also mentions something along the same lines in his email. 
-> This would make a lot of sense!
-> Is the state machine going to look something along the same lines as
-> ARP? i.e incomplete->reachable etc?
+This is a multi-part message in MIME format.
+--------------040106090202000803080206
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Yes, from a bundle POV. In my current approach a single state is
-resolved at a time and resolution is driven by XFRM_STATE_ACQ->*
-state transitions.
+xfrm_user_policy() is called from ip_setsockopt with enabled
+BHs, so it needs to protect against them when grabbing
+xfrm_km_lock.
 
-> What would be a good code to return when you queue the packet?
 
-It should be transparent, so 0.
+--------------040106090202000803080206
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
-Regards
-Patrick
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2005/04/03 17:36:10+02:00 kaber@coreworks.de 
+#   [IPSEC]: Protect against BHs in xfrm_user_policy()
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+# net/xfrm/xfrm_state.c
+#   2005/04/03 17:36:00+02:00 kaber@coreworks.de +2 -2
+#   [IPSEC]: Protect against BHs in xfrm_user_policy()
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+diff -Nru a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+--- a/net/xfrm/xfrm_state.c	2005-04-03 18:04:38 +02:00
++++ b/net/xfrm/xfrm_state.c	2005-04-03 18:04:38 +02:00
+@@ -878,14 +878,14 @@
+ 		goto out;
+ 
+ 	err = -EINVAL;
+-	read_lock(&xfrm_km_lock);
++	read_lock_bh(&xfrm_km_lock);
+ 	list_for_each_entry(km, &xfrm_km_list, list) {
+ 		pol = km->compile_policy(sk->sk_family, optname, data,
+ 					 optlen, &err);
+ 		if (err >= 0)
+ 			break;
+ 	}
+-	read_unlock(&xfrm_km_lock);
++	read_unlock_bh(&xfrm_km_lock);
+ 
+ 	if (err >= 0) {
+ 		xfrm_sk_policy_insert(sk, err, pol);
+
+--------------040106090202000803080206--
