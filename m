@@ -1,40 +1,34 @@
-From: David Dillow <dave@thedillows.org>
-Subject: Re: [0/3] mc_filter on big-endian arch
-Date: 07 Jun 2004 09:52:26 -0400
+From: Andi Kleen <ak@suse.de>
+Subject: Re: in-driver QoS
+Date: Mon, 7 Jun 2004 16:00:11 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1086616346.4903.12.camel@ori.thedillows.org>
-References: <20040606165322.GA13247@k3.hellgate.ch>
-	 <1086575392.4731.9.camel@ori.thedillows.org>
-	 <20040607114832.GA32569@k3.hellgate.ch>
+Message-ID: <20040607140011.GC28639@wotan.suse.de>
+References: <200406062128.47070.vkondra@mail.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>,
-        Netdev <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Roger Luethi <rl@hellgate.ch>
-In-Reply-To: <20040607114832.GA32569@k3.hellgate.ch>
+To: Vladimir Kondratiev <vkondra@mail.ru>
+Content-Disposition: inline
+In-Reply-To: <200406062128.47070.vkondra@mail.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2004-06-07 at 07:48, Roger Luethi wrote:
-> On Sun, 06 Jun 2004 22:29:52 -0400, David Dillow wrote:
-> > I think typhoon's OK -- I calculate the filter on the host, and then do
-> > a cpu_to_le32() on the final values, since the processor on the NIC is
-> > in little-endian mode.
-> > 
-> > However, I've never tested it. I'll be happy to do so, if someone will
-> > point me to appropriate code -- I've got an Ultra5 as well, so I can
-> > test both big and little endian machines. Otherwise, I'll test it when I
-> > get around to writing something, or someone reports a bug. :)
-> 
-> Warning: This is a very basic functionality test using standard Linux
-> tools. Some existing multicast problems are detected by this (if you
-> screw up the endianness of the filter hash, you will know :-)). Others
-> are not.
+> Any ideas how to modify stack to support multiple Tx queues?
 
-Thanks for the info; it seems typhoon may have some problems -- I see
-the 224.1.1.1 packets before I join the group, so I'll need to see
-what's up. I'll check big endian tonight, if possible.
+It already has that kind of in the form of arbitary qdiscs. The trick
+will be only to do all queueing in the qdisc and keep the hardware
+queue length as small as possible. I think today's drivers can
+do that already by just plugging the queue most of the time,
+unless they really want a packet.
 
-Dave
+Disadvantage will be more use of CPU time to refill driver
+queues, but at the relatively slow WLAN speeds that shouldn't 
+be a big issue.
+
+BTW the standard qdisc pfifo_fast already has three queues,
+selected by the old TOS.  That may even be good enough for you
+already. Users can fine tune it by using firewall rules
+that change the TOS for specific protocols etc.
+
+-Andi
