@@ -1,26 +1,30 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH]: ipv6_skip_exthdr() may refer invalid memory area
-Date: Fri, 20 Feb 2004 09:30:27 -0800
+Subject: Re: [PATCH]: invaild TCP/UDP matching when ipv6 extension header
+ exists
+Date: Fri, 20 Feb 2004 09:31:58 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040220093027.2c03f48c.davem@redhat.com>
-References: <200402200534.OAA04081@toshiba.co.jp>
+Message-ID: <20040220093158.3c12ea9a.davem@redhat.com>
+References: <200401310649.PAA00050@toshiba.co.jp>
+	<200402200612.PAA12001@toshiba.co.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org,
+Cc: netfilter-devel@lists.netfilter.org, netdev@oss.sgi.com,
         usagi-core@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Yasuyuki Kozakai <yasuyuki.kozakai@toshiba.co.jp>
-In-Reply-To: <200402200534.OAA04081@toshiba.co.jp>
+In-Reply-To: <200402200612.PAA12001@toshiba.co.jp>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 20 Feb 2004 14:33:59 +0900 (JST)
+On Fri, 20 Feb 2004 15:12:17 +0900 (JST)
 Yasuyuki Kozakai <yasuyuki.kozakai@toshiba.co.jp> wrote:
 
-> ipv6_skip_exthdr() refer invalid memory area in the case
-> that packet includes Fragment Header.
+> I sent the patch which fixes this bug to netfilter-devel, but it include
+> other bug... sorry, I rewrite patch for ip6_tables.c .
 > 
-> please apply this patch.
+> Please don't forget apply the patch which fixes the bug in ipv6_skip_exthdr()
+> before you tests this patch. I sent it last few minutes to netdev and
+> netfilter-devel.
 
-Applied, thank you Yasuyuki-san.
+I have applied this patch too, thanks a lot.
