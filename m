@@ -1,26 +1,80 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] preempt count regression w/ lockless loopback patch
-Date: Tue, 22 Jun 2004 12:39:31 -0700
+From: Andrew Morton <akpm@osdl.org>
+Subject: Fw: Oops in dev_get_by_index.
+Date: Tue, 22 Jun 2004 12:40:31 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040622123931.50d5ac05.davem@redhat.com>
-References: <200406210510.i5L5A340018849@hera.kernel.org>
-	<20040621035702.6114bdbe.akpm@osdl.org>
-	<Pine.SGI.4.56.0406220913010.1334066@neteng.engr.sgi.com>
+Message-ID: <20040622124031.15d9315f.akpm@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, netdev@oss.sgi.com, chrisw@osdl.org, gillb4@telusplanet.net
+Cc: simon@thekelleys.org.uk
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Arthur Kepner <akepner@sgi.com>
-In-Reply-To: <Pine.SGI.4.56.0406220913010.1334066@neteng.engr.sgi.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 22 Jun 2004 09:24:40 -0700
-Arthur Kepner <akepner@sgi.com> wrote:
 
-> I made one small change in get_stats() and tested with a preemptible
-> kernel on a 32p system. Looks good. The tested patch is attached.
 
-Can you instead give a patch relative to Andrew's?  His is
-applied already and in fact pushed into Linus's tree.
+Begin forwarded message:
+
+Date: Tue, 22 Jun 2004 19:57:02 +0100
+From: Simon Kelley <simon@thekelleys.org.uk>
+To: LKML <linux-kernel@vger.kernel.org>
+Cc: simon@thekelleys.org.uk
+Subject: Oops in dev_get_by_index.
+
+
+
+
+I've received a bug-report that dnsmasq 
+(http://www.thekelleys.org.uk/dnsmasq) is provoking a kernel Oops and 
+I'm posting everything I know about it here in the hope that someone who 
+knows the relevant code will be able to see instantly what the problem is.
+
+The Oops looks like this:
+
+CPU:    0
+EIP:    0060:[<02237d52>]    Not tainted
+EFLAGS: 00010202   (2.6.6-1.435)
+EIP is at __dev_get_by_index+0x14/0x2b
+eax: 10a64134   ebx: 02cabef8   ecx: 00000006   edx: 00000000
+esi: 075ab000   edi: 00008910   ebp: fef735e0   esp: 02cabef0
+ds: 007b   es: 007b   ss: 0068
+Process dnsmasq (pid: 7524, threadinfo=02cab000 task=0e3f7270)
+Stack: 02238e9a 00000000 00000000 00000000 080570eb 0977bdd0 00000006 
+fef73608
+00ae007e 00b44ffc fef735e0 075ab000 00008910 02266641 02239733 fef735e0
+00000008 00000000 11566b80 09774436 000001da 02cabf70 0000000c 0000000c
+Call Trace:
+   [<02238e9a>] dev_ifname+0x30/0x66
+   [<02266641>] udp_ioctl+0x0/0x6e
+   [<02239733>] dev_ioctl+0x83/0x283
+   [<02266641>] udp_ioctl+0x0/0x6e
+   [<0226c323>] inet_ioctl+0x6e/0x73
+   [<02232936>] sock_ioctl+0x26d/0x285
+   [<0214f7f6>] sys_ioctl+0x1f2/0x224
+
+Code: 0f 18 02 90 2d 34 01 00 00 39 48 34 74 08 85 d2 89 d0 75 ea
+
+This is the kernel part of the ioctl in dnsmasq-2.8/src/forward.c which does
+
+ifr.ifr_ifindex = if_index;
+ioctl(fd, SIOCGIFNAME, &ifr)
+
+were the fd is a UDP socket which has had recvmsg called to get the 
+datagram and IP_PKTINFO auxiliary data from which the if_index is derived.
+
+The kernel version in question is 2.6.6-1.435 from Fedora.
+
+There's a possibility if IPv6 involvement. The kernel has IPv6 loaded 
+and the network interfaces have IPv6 addresses. Under those 
+circumstances dnsmasq will bind the IPv6 addresses automatically. I have 
+no way of telling if the Oops was as a result of receiving an IPv6 
+datagram, but it is unlikely since IPv6 is not in active use.
+
+The Oops happens rarely: there is no known way to reproduce it on demand.
+
+That's all the information  I have: can anybody spot a problem?
+
+Cheers,
+
+Simon.
