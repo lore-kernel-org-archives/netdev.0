@@ -1,41 +1,32 @@
-From: =?ISO-8859-2?Q?Martin_MOKREJ=A9?= <mmokrejs@ribosome.natur.cuni.cz>
-Subject: Re: [PATCH][2.4.27-pre4] tcp_input.c compile-time error
-Date: Mon, 31 May 2004 10:47:46 +0200
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <40BAF132.5010907@ribosome.natur.cuni.cz>
+From: Christoph Hellwig <hch@lst.de>
+Subject: [PATCH] farsync needs <asm/io.h>
+Date: Mon, 31 May 2004 11:12:08 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040531091208.GA13982@lst.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S264578AbUEaIrw@vger.kernel.org>
-To: mikpe@csd.uu.se, marcelo.tosatti@cyclades.com, davem@redhat.com,
-	linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: jgarzik@pobox.com
+Content-Disposition: inline
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This patch has helped to me to compile teh kernel at least. Thanks.
+i386 gets it implicitly from somewhere but some architectures don't.
+Also move <asm/uaccess.h> down so we have asm after linux headers.
 
 
-net/ipv4/tcp_input.c in 2.4.27-pre4 fails to compile:
-
-tcp_input.c: In function `tcp_rcv_space_adjust':
-tcp_input.c:479: error: structure has no member named `sk_rcvbuf'
-tcp_input.c:480: error: structure has no member named `sk_rcvbuf'
-make[3]: *** [tcp_input.o] Error 1
-
-The patch below appears to fix this problem, although some netdev
-person should probably check it.
-
-/Mikael
-
-diff -ruN linux-2.4.27-pre4/net/ipv4/tcp_input.c linux-2.4.27-pre4.tcp_input-fix/net/ipv4/tcp_input.c
---- linux-2.4.27-pre4/net/ipv4/tcp_input.c	2004-05-30 23:18:16.000000000 +0200
-+++ linux-2.4.27-pre4.tcp_input-fix/net/ipv4/tcp_input.c	2004-05-30 23:45:52.000000000 +0200
-@@ -476,8 +476,8 @@
- 				  16 + sizeof(struct sk_buff));
- 			space *= rcvmem;
- 			space = min(space, sysctl_tcp_rmem[2]);
--			if (space > sk->sk_rcvbuf)
--				sk->sk_rcvbuf = space;
-+			if (space > sk->rcvbuf)
-+				sk->rcvbuf = space;
- 		}
- 	}
+--- 1.20/drivers/net/wan/farsync.c	2004-05-27 19:24:11 +02:00
++++ edited/drivers/net/wan/farsync.c	2004-05-30 10:06:12 +02:00
+@@ -21,9 +21,10 @@
+ #include <linux/pci.h>
+ #include <linux/ioport.h>
+ #include <linux/init.h>
+-#include <asm/uaccess.h>
+ #include <linux/if.h>
+ #include <linux/hdlc.h>
++#include <asm/io.h>
++#include <asm/uaccess.h>
+ 
+ #include "farsync.h"
+ 
