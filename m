@@ -1,69 +1,90 @@
-From: Chris Friesen <cfriesen@nortelnetworks.com>
+From: Terje Eggestad <terje.eggestad@scali.com>
 Subject: Re: anyone ever done multicast AF_UNIX sockets?
-Date: Mon, 03 Mar 2003 17:29:14 -0500
+Date: 04 Mar 2003 00:38:02 +0100
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <3E63D73A.2000402@nortelnetworks.com>
-References: <3E5E7081.6020704@nortelnetworks.com>	<1046695876.7731.78.camel@pc-16.office.scali.no> 	<3E638C51.2000904@nortelnetworks.com> <1046720360.28127.209.camel@eggis1>
+Message-ID: <1046734683.28127.275.camel@eggis1>
+References: <3E6399F1.10303@nortelnetworks.com>	<20030303.095641.87696857.davem@redhat.c
+	om>	<3E63A8CB.2090307@nortelnetworks.com>
+		<20030303.105646.02089773.davem@redhat.com>
+	<1046720532.28127.213.camel@eggis1>  <3E63CA08.4040209@nortelnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com,
-	linux-net@vger.kernel.org, davem@redhat.com
+Cc: "David S. Miller" <davem@redhat.com>, linux-kernel@vger.kernel.org,
+	netdev@oss.sgi.com, linux-net@vger.kernel.org
 Return-path: <linux-net-owner@vger.kernel.org>
-To: Terje Eggestad <terje.eggestad@scali.com>
+To: Chris Friesen <cfriesen@nortelnetworks.com>
+In-Reply-To: <3E63CA08.4040209@nortelnetworks.com>
 List-Id: netdev.vger.kernel.org
 
-Terje Eggestad wrote:
-> On Mon, 2003-03-03 at 18:09, Chris Friesen wrote:
->     Terje Eggestad wrote:
->     > On a single box you would use a shared memory segment to do this. It has
->     > the following advantages:
->     > - no syscalls at all
->     
->     Unless you poll for messages on the receiving side, how do you trigger 
->     the receiver to look for a message?  Shared memory doesn't have file 
->     descriptors.
->     
-> OK, you want multicast to send the *same* info to all peers. The only of
-> two sane reason to do that is to update the peers with some info they
-> need to do real work. So when there is reel work to be done, the info is
-> available in the shm. 
+The latency I belive, a 25% increase don't matter all that much. (
+routinely send meesages sub micro second.  
 
-Okay, but how do they know there is work to be done?  They're waiting in 
-select() monitoring sockets, fds, being hit with signals, etc.  How do 
-you tell them to check their messages?  You have to hit them over the 
-head with a signal or something and tell them to check the shared memory 
-messages.
-> If you *had* multicast, you don't know *when* a peer proccessed it. 
-> What if the peer is suspended ??? you don't get an error on the send,
-> and you apparently never get an answer, then what? The peer may also
-> gone haywire on a while(1);
+that tcp BW is ridiculus low, make sure that you run with with good
+sized socket buffers, and that tcp windowing is enabled.
 
-Exactly.  So if the message got delivered you have no way of knowing for 
-sure that it was processed and you have application-level timers and 
-stuff. But if the message wasn't delivered to anyone and you know it 
-should have been, then you don't have to wait for the timer to expire to 
-know that they didn't get it.
+But then again, if you want to send much data fast between processes, a
+stream socket is a pretty bad idea anyway. 
+A) shm
+b) mmap a file, write into it, and send the filenake to the other side,
+then mmap it there. 
 
->     How do they know the information has changed?  Suppose one process 
->     detects that the ethernet link has dropped.  How does it alert other 
->     processes which need to do something?
->     
-> Again, if you want someone to do something, they must ack the request
-> before you can safely assume that they are going to do something.
+Don't underestemate the BW of a fedex'ed  tape.
 
-Certainly.  My point was that if you're trying to handle all events in a 
-single thread, you need some way to tell the message recipient that it 
-needs to check the shared memory buffer.  Otherwise you need multiple 
-threads like you mentioned in your project description.
+TJ
 
-
-Chris
-
-
+On Mon, 2003-03-03 at 22:32, Chris Friesen wrote:
+    Terje Eggestad wrote:
+    > On Mon, 2003-03-03 at 19:56, David S. Miller wrote:
+    
+    >     TCP bandwidth is slightly faster than AF_UNIX bandwidth on my
+    >     sparc64 boxes for example.
+    > 
+    > I've seen that their are the same on linux.I tried to to do AF_UNIX
+    > instead of AF_INET internally to boost perf, but to no avail. Makes you
+    > suspect that the loopback device actually create an AF_UNIX connection
+    > under the hood ;-)
+    
+    On my P4 1.8GHz, AF_INET vs AF_UNIX looks like this:
+    
+    
+    *Local* Communication latencies in microseconds - smaller is better
+    -------------------------------------------------------------
+    Host           OS 2p/0K  Pipe AF     UDP  RPC/   TCP  RPC/ TCP
+                       ctxsw       UNIX         UDP         TCP conn
+    --------- ------- ----- ----- ---- ----- ----- ----- ----- ----
+    pcard0ks. 2.4.18- 1.740  10.4 15.9  20.1  33.1  23.5  44.3 72.7
+    pcard0ks. 2.4.18- 1.560  10.6 16.0  23.4  38.1  36.1  44.6 77.4
+    
+    
+    *Local* Communication bandwidths in MB/s - bigger is better
+    -----------------------------------------------------------
+    Host          OS  Pipe AF    TCP  File   Mmap  Bcopy  Bcopy  Mem   Mem
+                            UNIX      reread reread (libc) (hand) read write
+    --------- ------- ---- ---- ---- ------ ------ ------ ------ ---- -----
+    pcard0ks. 2.4.18- 650. 677. 151.  721.9  958.0  290.8  288.8 955. 418.4
+    pcard0ks. 2.4.18- 379. 701. 163.  714.8  949.5  289.5  288.5 956. 420.5
+    
+    
+    On this machine at least, UDP latency is 25% worse than AF_UNIX, and TCP 
+    bandwidth is about 22% that of AF_UNIX.
+    
+    Chris
+    
+    -- 
+    Chris Friesen                    | MailStop: 043/33/F10
+    Nortel Networks                  | work: (613) 765-0557
+    3500 Carling Avenue              | fax:  (613) 765-2986
+    Nepean, ON K2H 8E9 Canada        | email: cfriesen@nortelnetworks.com
 -- 
-Chris Friesen                    | MailStop: 043/33/F10
-Nortel Networks                  | work: (613) 765-0557
-3500 Carling Avenue              | fax:  (613) 765-2986
-Nepean, ON K2H 8E9 Canada        | email: cfriesen@nortelnetworks.com
+_________________________________________________________________________
+
+Terje Eggestad                  mailto:terje.eggestad@scali.no
+Scali Scalable Linux Systems    http://www.scali.com
+
+Olaf Helsets Vei 6              tel:    +47 22 62 89 61 (OFFICE)
+P.O.Box 150, Oppsal                     +47 975 31 574  (MOBILE)
+N-0619 Oslo                     fax:    +47 22 62 89 51
+NORWAY            
+_________________________________________________________________________
 
