@@ -1,34 +1,56 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] IPSec: Use of "sizeof" for header sizes, part II
-Date: Wed, 02 Apr 2003 13:20:34 +0900 (JST)
+From: "Hen, Shmulik" <shmulik.hen@intel.com>
+Subject: RE: Intel 1000 MT slow to restart
+Date: Wed, 2 Apr 2003 15:53:52 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030402.132034.126030996.yoshfuji@linux-ipv6.org>
-References: <20030401.193429.64279267.davem@redhat.com>
-	<20030402.130232.78951283.yoshfuji@linux-ipv6.org>
-	<20030401.200225.88014087.davem@redhat.com>
+Message-ID: <E791C176A6139242A988ABA8B3D9B38A014C92C6@hasmsx403.iil.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: toml@us.ibm.com, netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru,
-   yoshfuji@linux-ipv6.org
+Content-Type: text/plain;
+	charset="iso-8859-1"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
-In-Reply-To: <20030401.200225.88014087.davem@redhat.com>
+To: "Feldman, Scott" <scott.feldman@intel.com>,
+   "Patrick R. McManus"
+	 <mcmanus@ducksong.com>, netdev@oss.sgi.com
+content-class: urn:content-classes:message
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20030401.200225.88014087.davem@redhat.com> (at Tue, 01 Apr 2003 20:02:25 -0800 (PST)), "David S. Miller" <davem@redhat.com> says:
 
-> I just checked, nobody cares about the 8 bytes in enc_data.
+
+> -----Original Message-----
+> From: Feldman, Scott 
+> Sent: Wednesday, April 02, 2003 7:19 AM
+> To: Patrick R. McManus; netdev@oss.sgi.com
+> Subject: RE: Intel 1000 MT slow to restart
 > 
-> Therefore, I think you're idea of enc_data[0] is the best.
 > 
-> Someone please double check my claims and submit a patch. :-)
+> > I'm running intel's e1000 driver (versions 4.4.12 and tried 
+> > 4.6.11) for a 1000/MT (dual) nic on a 2.4.19 kernel.
+> > 
+> > for normal operations, everything is fine.. however if I do a 
+> > "ifconfig eth0 down; ifconfig eth0 up" 20 or 30 seconds 
+> > passes where I can't do any traffic. the ifconfig up comes 
+> > back quickly, and ifconfig reports the driver as up (and 
+> > netlink thinks its up if I try and add another one).. I just 
+> > can't move any traffic. no rx's and my tx's only move 
+> > counters in the driver - they don't actually make it to the wire. 
+> > 
+> > if I do "ifconfig eth0 down; sleep 30; ifconfig eth0 up" all 
+> > is well immediately after the up.. The driver doesn't seem to 
+> > be doing anything different in either case - its as if the 
+> > NIC itself is enforcing some kind of quiet period. 
+> > 
+> > I'm really writing to see if I'm crazy and hoping someone 
+> > else can corroborate this is what they've seen too.
+> 
+> Do you have spanning tree turned on on your switch?  This could cause
+> such delays.
+> 
+> -scott
+> 
 
-Okay, I'll check it (and make a patch) in this afternoon 
-(in a few hours).
+We've also seen this behavior with certain switches (e.g. Extreme Networks
+Summit 7i) even with STP turned off.
+The switch simply delays traffic for ~30sec after link was restored. I
+believe this delay is configurable.
 
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+	Shmulik.
