@@ -1,100 +1,70 @@
-From: "Jeremy M. Guthrie" <jeremy.guthrie@berbee.com>
-Subject: Re: V2.4 policy router operates faster/better than V2.6
-Date: Thu, 20 Jan 2005 11:14:46 -0600
-Message-ID: <200501201114.49517.jeremy.guthrie@berbee.com>
-References: <Pine.LNX.4.44.0501071416060.5818-100000@localhost.localdomain> <200501200837.40734.jeremy.guthrie@berbee.com> <16879.58333.266843.335475@robur.slu.se>
-Reply-To: jeremy.guthrie@berbee.com
+From: Jean Tourrilhes <jt@hpl.hp.com>
+Subject: Re: [PATCH 6/9] irda: use sock slab cache
+Date: Thu, 20 Jan 2005 09:25:22 -0800
+Message-ID: <20050120172522.GF6839@bougret.hpl.hp.com>
+References: <41EF11AF.70203@conectiva.com.br> <20050120021607.GA11216@bougret.hpl.hp.com> <41EF29BE.2020807@conectiva.com.br> <20050120085454.GA31160@infradead.org> <41EFC671.6000706@conectiva.com.br> <41EFCC51.8030700@conectiva.com.br>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1881411.M4NkWWNZBR";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>
+Content-Type: text/plain; charset=us-ascii
+Cc: Christoph Hellwig <hch@infradead.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        irda-users@lists.sourceforge.net, netdev@oss.sgi.com,
+        Stephen Hemminger <shemminger@osdl.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <16879.58333.266843.335475@robur.slu.se>
+To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Content-Disposition: inline
+In-Reply-To: <41EFCC51.8030700@conectiva.com.br>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---nextPart1881411.M4NkWWNZBR
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+On Thu, Jan 20, 2005 at 01:20:49PM -0200, Arnaldo Carvalho de Melo wrote:
+> Arnaldo Carvalho de Melo escreveu:
+> >Christoph Hellwig escreveu:
+> >
+> >>On Thu, Jan 20, 2005 at 01:47:10AM -0200, Arnaldo Carvalho de Melo wrote:
+> >>
+> >>>>    I'm just curious about the overhead of adding a specific slab
+> >>>>for IrDA sockets. Most users never create any (using IrCOMM), or
+> >>>>maximum one (using Obex), so it's not like it will get a lot of use
+> >>>>(except here, of course).
+> >>>
+> >>>
+> >>>Well, lets start with something that may sound funny: when this series
+> >>>of patches is finished the overhead will _decrease_ for most people.
+> >>>
+> >>>Why? Today we have in most machines five slab caches of this nature:
+> >>>udp_sock, raw_sock, tcp_sock, unix_sock (PF_LOCAL) and the generic,
+> >>>sock, that only is used by the protocols that are using 
+> >>>kmalloc(pritave_sock) +
+> >>>sk_protinfo.
+> >>
+> >>
+> >>
+> >>But as Jean sais this type of socket is used very little, as are a few
+> >>other probably (raw, pfkey?), so maybe those should just use kmalloc +
+> >>kfree instead of their own slab?
 
-On Thursday 20 January 2005 11:01 am, Robert Olsson wrote:
-> Jeremy M. Guthrie writes:
->  > >  > 1024 buffers on the RX of eth3.
->  > >  >
->  > >  > echo 86400 > /proc/sys/net/ipv4/route/secret_interval
->  > >  > echo 524288 > /proc/sys/net/ipv4/route/gc_thresh
->  > >
->  > >  rhash_entries?
->  >
->  > I left that at 2.4 million.
->  >
->  > >  > It appears to be cruising right along now.
->  >
->  >  size   IN: hit     tot    mc no_rt bcast madst masrc  OUT: hit     to=
-t=20
->  >    mc GC: tot ignored goal_miss ovrf HASH: in_search out_search
->  > 524291     74169     779     0     0     0     0     0         2      =
- 0
->  > 1610369017     516       0         0    0           43612          0
->  > 524287     74830     777     0     0     0     0     0         6      =
- 0
->  > 0     498       0         0    0           40504          1
->  > 524285     77458     949     0     0     0     0     0         4      =
- 0
->  > 0     619       0         0    0           42731          1
->
->  Linear search is under control and number of dst entries very high but
-> very constant at the cost of calling GC a number of times second. But I
-> don't understand why we do not see any GC ignored.=20
-When does GC normally ignore?
+	Just to clarify, but I think you already got this nuance. I
+was not talking about the frequency of people using IrDA. I just say
+that when people use IrDA, they are likely to use few sockets (as
+opposed to a web browser that open zillions of TCP sockets).
+	There may be other socket types that falls under this
+category. One example is raw socket. It's used relatively frequently,
+but usually the number of raw sockets on the system is limited (how
+many instance of tcpdump or ethereal will you run in parallel ?).
+	On the other hand, some sockets may be seldom used, but when
+used many of them are open, and therefore would justify their own slab
+(on demand). Maybe ATM sockets would be a good example.
 
-> Did you ever write to=20
-> gc_min_interval in proc?=20
-I left /proc/sys/net/ipv4/route/gc_min_interval at zero.
+> Take a look at this patch, it shows how I think the transitional
+> stage should be, the protocols will just use (IRDA for the example):
 
-> Never seen rtstat's like this but it seems to do the job.
+	Can't we just transition IrDA sockets to "future", rather than
+"transitional". This way we are done, and no longer need to worry
+about it. I mean, you already did the patch, so what's the reason of
+holding back ?
 
-More numbers from right now with higher PPS rate.
- size   IN: hit     tot    mc no_rt bcast madst masrc  OUT: hit     tot    =
- mc=20
-GC: tot ignored goal_miss ovrf HASH: in_search out_search
-524291     92192     848     0     0     0     0     0        17       0=20
-537114631     553       0         0    0           50947         18
-524287     95496     846     0     0     0     0     0         4       0=20
-1610369017     539       0         0    0           52000          4
-524293     98503     791     0     0     0     0     0         7       0   =
-  =20
-0     525       0         0    0           53119          3
-524290     98711     965     0     0     0     0     0         3       0   =
-  =20
-0     626       0         0    0           53448          3
+	Thanks...
 
-
-=2D-=20
-
-=2D-------------------------------------------------
-Jeremy M. Guthrie        jeremy.guthrie@berbee.com
-Senior Network Engineer        Phone: 608-298-1061
-Berbee                           Fax: 608-288-3007
-5520 Research Park Drive         NOC: 608-298-1102
-Madison, WI 53711
-
---nextPart1881411.M4NkWWNZBR
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-
-iD8DBQBB7+cJqtjaBHGZBeURAjwaAJ4iC+M1ceW6Bxdt1QfihLuBdyukwwCdEOfV
-AcWUUMGTUkx4XUp9PtlI2Q8=
-=L3uC
------END PGP SIGNATURE-----
-
---nextPart1881411.M4NkWWNZBR--
+	Jean
