@@ -1,53 +1,32 @@
-From: Xose Vazquez Perez <xose@wanadoo.es>
-Subject: Re: [PATCH 2.6-bk 1/1] tg3: add license
-Date: Tue, 09 Nov 2004 23:45:29 +0100
-Message-ID: <41914889.7060308@wanadoo.es>
-References: <4190A32E.6090200@wanadoo.es> <20041109124704.1f8cb3ad.davem@redhat.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Wrong UIDs reported in /proc/net/tcp
+Date: Wed, 10 Nov 2004 09:58:12 +1100
+Message-ID: <20041109225812.GA6001@gondor.apana.org.au>
+References: <20041109205358.GA64015@calma.pair.com> <E1CRdBr-0001P2-00@gondolin.me.apana.org.au> <20041109224337.GB87321@calma.pair.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org, jgarzik@pobox.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20041109124704.1f8cb3ad.davem@redhat.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: "Chad N. Tindel" <chad@tindel.net>
+Content-Disposition: inline
+In-Reply-To: <20041109224337.GB87321@calma.pair.com>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
+On Tue, Nov 09, 2004 at 05:43:37PM -0500, Chad N. Tindel wrote:
+>
+> > /proc/net/tcp is an obsolete interface.  It is inherently unreliable
+> > in that a record may be read using two read(2) calls.  Those two calls
+> > may end up looking at two different records.
+> 
+> Is it unreliable in that the wrong user id will get returned for an 
+> established socket?  How could such a thing happen?
 
-> Why add this, it's basically implied?
-
-Maybe it should be answered by a lawyer,
-but it's better to protect our freedom because
-law is very 'variable'.
-
-> We have a copy of the file "COPYING" at the top
-> of the source tree, which is why we don't duplicate
-> it's contents nor excerpts all over the tree.
-
-This is not a duplicate, it's only an advertisement.
-
-Long time ago Torvalds wrote at COPYING:
-"[...]
-Also note that the only valid version of the GPL as far as the kernel
-is concerned is _this_ particular version of the license (ie v2, not
-v2.2 or v3.x or whatever), unless explicitly otherwise stated.
-[...]"
-
-what does MODULE_LICENSE("GPL") mean at tg3.c ?
-
-GPL 1.0 ?
-
-GPL 2 ?
-
-any GPL ?
-
-only 'GPL' ?
-
-
-Is possible to write BSD or BSD/GPL or GPLv2 or GPL drivers/code
-*inside* Linux kernel ?
-
---
-TLOZ OOT: worse than drugs.
+In 2.4 it is entirely possible to have a record broken up into two
+reads.  There is no guarantee that the two reads will be reading the
+same record.
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
