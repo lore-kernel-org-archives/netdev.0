@@ -1,40 +1,91 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PKT_SCHED]: Allow using nfmark as key in U32 classifier.
-Date: Mon, 27 Dec 2004 13:16:58 +0100
-Message-ID: <20041227121658.GI7884@postel.suug.ch>
-References: <200412270715.iBR7Fffe026855@hera.kernel.org>
+From: Luca Bortot <l.bortot@inet.it>
+Subject: Re: jumbo on 8169
+Date: Mon, 27 Dec 2004 15:00:02 +0100
+Message-ID: <41D01562.4090606@inet.it>
+References: <41CFF27A.2070008@inet.it> <20041227123136.GA25187@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <200412270715.iBR7Fffe026855@hera.kernel.org>
+To: Francois Romieu <romieu@fr.zoreil.com>, netdev@oss.sgi.com
+In-Reply-To: <20041227123136.GA25187@electric-eye.fr.zoreil.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> ChangeSet 1.2055.37.1, 2004/11/17 16:08:01-08:00, util@deuroconsult.ro
+Francois Romieu wrote:
+> Luca Bortot <l.bortot@inet.it> :
+>>To put it short, could you please give me a link or a hint or whatever 
+>>to let me set jumbo frames on r8169 (I'm currently running kernel 
+>>6.9.10/i386)?
 > 
-> 	[PKT_SCHED]: Allow using nfmark as key in U32 classifier.
-> 	
-> 	Signed-off-by: Catalin(ux aka Dino) BOIE <catab at umbrella.ro>
-> 	Signed-off-by: David S. Miller <davem@davemloft.net>
+> 
+> You can use any recent patch issued by Andrew Morton (-mm) or apply
+> http://www.fr.zoreil.com/people/francois/misc/20041218-2.6.10-rc3-r8169.c-test.patch
+> 
+> I have not regenerated the whole patch against 2.6.10 yet. So if you want
+> to apply the aforementionned patch on top of 2.6.10, you will have to revert
+> (cd linux-2.6.10; patch -R -p1 -d. < ...) the attached patch first.
+> 
+> Please note that you will be limited to ~7000 bytes frames at most (but it
+> is enough to make a noticeable difference).
+> 
+> Success/failure report + description of the hardware (lspci -vx/dmesg) will
+> be welcome.
 
-I must have missed this one. This should have been implemented in the
-metadata action module to make it available to all classifiers. We
-should really stop to add more stuff to specific classifiers which have
-to be removed once we have metamatch. I've made a proposal on paper
-just need some more time to cook up a patch.
+It did it as it should:
 
-> +#ifdef CONFIG_CLS_U32_MARK                                                                                                                                             
-> +	if (tb[TCA_U32_MARK-1]) {
-> +		if (RTA_PAYLOAD(tb[TCA_U32_MARK-1]) < sizeof(struct tc_u32_mark))
-> +			return -EINVAL;
-> +		mark = RTA_DATA(tb[TCA_U32_MARK-1]);
-> +		memcpy(&n->mark, mark, sizeof(struct tc_u32_mark));
-> +		n->mark.success = 0;
-> +	}                                                                                                                                                                
-> +#endif                                                                                                                                                                 
+applied the patch, recompiled & reboot, could now run
+ifconfig eth2 mtu 7000
 
-This should have gone into u32_set_params
+hardware in short:
+intel p3 800mhz
+384mb ram
+m/b QDI Advance 9
+nic Hamlet HNNG32TX (realtek 8169 based)
+
+running fedora core 3 / kernel 2.6.10 / NAPI enabled
+
+
+I'm testing it together with a windows box (which is directly connected 
+via a cross cable):
+athlon XP 2600
+1gb ram
+m/b asus a7n8x
+same nic
+windows XP
+
+based on a simple tcp test I made (writes zeroes to a socket in 32Kb 
+blocks and prints the write speed), these are the results (win box cpu 
+not reported - always under 10% load):
+
+BEFORE PATCH (mtu 1500)
+speed ~38 MB/s
+cpu idle 10%
+cpu system 90%
+
+AFTER PATCH (mtu 7000)
+speed ~45MB/s
+cpu idle 40%
+cpu system 60%
+
+
+as requested, lspci /vx
+
+00:0b.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL-8169 
+Gigabit Ethernet (rev 10)
+         Subsystem: Realtek Semiconductor Co., Ltd. RTL-8169 Gigabit 
+Ethernet
+         Flags: bus master, 66Mhz, medium devsel, latency 64, IRQ 5
+         I/O ports at dc00 [size=256]
+         Memory at e6603000 (32-bit, non-prefetchable) [size=256]
+         Expansion ROM at e3000000 [disabled] [size=128K]
+         Capabilities: [dc] Power Management version 2
+00: ec 10 69 81 17 00 b0 02 10 00 00 02 08 40 00 00
+10: 01 dc 00 00 00 30 60 e6 00 00 00 00 00 00 00 00
+20: 00 00 00 00 00 00 00 00 00 00 00 00 ec 10 69 81
+30: 00 00 00 e3 dc 00 00 00 00 00 00 00 05 01 20 40
+
+
+Thanks for helping
+Luca Bortot
