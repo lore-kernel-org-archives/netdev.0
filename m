@@ -1,60 +1,122 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: RFC:  Enabling ethernet drivers to return FCS in the skb?
-Date: Sun, 23 Nov 2003 01:02:41 -0800
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: IPv6 multicast (MLD,IGMP) code bypasses netfilter hooks
+Date: Sun, 23 Nov 2003 04:13:39 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3FC077B1.1050807@candelatech.com>
-References: <3FB94311.10004@candelatech.com> <20031119123556.A7622@sygehus.dk> <3FBB8D61.6010106@candelatech.com> <20031120173404.A1538@sygehus.dk>
+Message-ID: <OFBBD13E53.65F0744F-ON88256DE7.003D0DE0@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Content-Type: multipart/mixed;
+	Boundary="0__=07BBE774DFAE8B708f9e8a93df938690918c07BBE774DFAE8B70"
+Cc: netdev@oss.sgi.com,
+        Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Rask Ingemann Lambertsen <rask@sygehus.dk>
-In-Reply-To: <20031120173404.A1538@sygehus.dk>
+To: Harald Welte <laforge@netfilter.org>, davem@redhat.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Rask Ingemann Lambertsen wrote:
-> On Wed, Nov 19, 2003 at 07:33:53AM -0800, Ben Greear wrote:
-> 
->>Rask Ingemann Lambertsen wrote:
->>
->>>The Intel i82586 and i82596 and can be told to receive frames with a bad FCS.
->>>They can also be told to send a precomputed FCS rather than computing it on
->>>the fly. The i82596 and tulip can also transfer the FCS to memory when
->>>receiving frames. I guess all of this is also supported on the i82557/8/9.
->>
->>If you have a patch or example code that shows how to do this, I'd love to
->>see it.  I have code that should RX bad CSUM from the Intel folks, but I can't
->>get it to generate bad CRC (it does framing errors instead with my attempt),
->>so I can't test the RX code properly!
-> 
-> 
-> The i825xx Ethernet chips are configured by putting a configure command on
-> the TX list. One of the bits of the configure command tells the chip to
-> discard or keep packets with errors. Assuming you can find that piece of
-> code, flipping the bit is easy enough. Similiarily for transferring the FCS
-> to/from memory. IIRC, this is a per-frame setting for TX on i82596 and
-> i82557/8/9. You can find i82596 documentation on Intel's home page and
-> the i82557/8/9 on SourceForge under the e100 (or was it e1000?) project.
+--0__=07BBE774DFAE8B708f9e8a93df938690918c07BBE774DFAE8B70
+Content-type: text/plain; charset=US-ASCII
 
-Thanks, I found the e100 document (from sourceforge) and it looks like it can
-definately receive all sorts of busted packets with a little configuration.
 
-It's less clear what happens when you turn off the FCS generation.  One part of
-the document mentions it gets it from RAM, which I assume means it uses the last
-part of the DMA'd packet???  Another explanation of the transmit state machine does
-not mention that you can disable FCS generation...  I'm going to print this out
-and read it again in detail...
 
-I searched Intel's site for the e1000 docs, but could not find any detailed
-information.  Does anyone have a link to a (legal) copy of the e1000 docs?
 
-Thanks for the detailed information.  When I get the e100 and e1000 working to
-my satisfaction, I'll work on the tulip driver a bit.
 
-Ben
+Here's a patch to add netfilter hooks for MLD v1 & v2. Can you take
+quick look at it, Harald?
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+                        +-DLS
+
+--- linux-2.6.0-test9-bk25/net/ipv6/mcast.c     2003-11-21 19:33:41.000000000 -0800
++++ linux-2.6.0-test9-bk25F1/net/ipv6/mcast.c   2003-11-23 01:32:39.000000000 -0800
+@@ -46,6 +46,9 @@
+ #include <linux/proc_fs.h>
+ #include <linux/seq_file.h>
+
++#include <linux/netfilter.h>
++#include <linux/netfilter_ipv6.h>
++
+ #include <net/sock.h>
+ #include <net/snmp.h>
+
+@@ -1265,6 +1268,7 @@
+      struct mld2_report *pmr = (struct mld2_report *)skb->h.raw;
+      int payload_len, mldlen;
+      struct inet6_dev *idev = in6_dev_get(skb->dev);
++     int err;
+
+      payload_len = skb->tail - (unsigned char *)skb->nh.ipv6h -
+            sizeof(struct ipv6hdr);
+@@ -1273,8 +1277,10 @@
+
+      pmr->csum = csum_ipv6_magic(&pip6->saddr, &pip6->daddr, mldlen,
+            IPPROTO_ICMPV6, csum_partial(skb->h.raw, mldlen, 0));
+-     dev_queue_xmit(skb);
+-     ICMP6_INC_STATS(idev,Icmp6OutMsgs);
++     err = NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL, skb->dev,
++           dev_queue_xmit);
++     if (!err)
++           ICMP6_INC_STATS(idev,Icmp6OutMsgs);
+      if (likely(idev != NULL))
+            in6_dev_put(idev);
+ }
+@@ -1603,12 +1609,15 @@
+
+      idev = in6_dev_get(skb->dev);
+
+-     dev_queue_xmit(skb);
+-     if (type == ICMPV6_MGM_REDUCTION)
+-           ICMP6_INC_STATS(idev, Icmp6OutGroupMembReductions);
+-     else
+-           ICMP6_INC_STATS(idev, Icmp6OutGroupMembResponses);
+-     ICMP6_INC_STATS(idev, Icmp6OutMsgs);
++     err = NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL, skb->dev,
++           dev_queue_xmit);
++     if (!err) {
++           if (type == ICMPV6_MGM_REDUCTION)
++                 ICMP6_INC_STATS(idev, Icmp6OutGroupMembReductions);
++           else
++                 ICMP6_INC_STATS(idev, Icmp6OutGroupMembResponses);
++           ICMP6_INC_STATS(idev, Icmp6OutMsgs);
++     }
+
+      if (likely(idev != NULL))
+            in6_dev_put(idev);
+
+(See attached file: MLDNF.patch)
+--0__=07BBE774DFAE8B708f9e8a93df938690918c07BBE774DFAE8B70
+Content-type: application/octet-stream;
+	name="MLDNF.patch"
+Content-Disposition: attachment; filename="MLDNF.patch"
+Content-transfer-encoding: base64
+
+LS0tIGxpbnV4LTIuNi4wLXRlc3Q5LWJrMjUvbmV0L2lwdjYvbWNhc3QuYwkyMDAzLTExLTIxIDE5
+OjMzOjQxLjAwMDAwMDAwMCAtMDgwMAorKysgbGludXgtMi42LjAtdGVzdDktYmsyNUYxL25ldC9p
+cHY2L21jYXN0LmMJMjAwMy0xMS0yMyAwMTozMjozOS4wMDAwMDAwMDAgLTA4MDAKQEAgLTQ2LDYg
+KzQ2LDkgQEAKICNpbmNsdWRlIDxsaW51eC9wcm9jX2ZzLmg+CiAjaW5jbHVkZSA8bGludXgvc2Vx
+X2ZpbGUuaD4KIAorI2luY2x1ZGUgPGxpbnV4L25ldGZpbHRlci5oPgorI2luY2x1ZGUgPGxpbnV4
+L25ldGZpbHRlcl9pcHY2Lmg+CisKICNpbmNsdWRlIDxuZXQvc29jay5oPgogI2luY2x1ZGUgPG5l
+dC9zbm1wLmg+CiAKQEAgLTEyNjUsNiArMTI2OCw3IEBACiAJc3RydWN0IG1sZDJfcmVwb3J0ICpw
+bXIgPSAoc3RydWN0IG1sZDJfcmVwb3J0ICopc2tiLT5oLnJhdzsKIAlpbnQgcGF5bG9hZF9sZW4s
+IG1sZGxlbjsKIAlzdHJ1Y3QgaW5ldDZfZGV2ICppZGV2ID0gaW42X2Rldl9nZXQoc2tiLT5kZXYp
+OworCWludCBlcnI7CiAKIAlwYXlsb2FkX2xlbiA9IHNrYi0+dGFpbCAtICh1bnNpZ25lZCBjaGFy
+ICopc2tiLT5uaC5pcHY2aCAtCiAJCXNpemVvZihzdHJ1Y3QgaXB2Nmhkcik7CkBAIC0xMjczLDgg
+KzEyNzcsMTAgQEAKIAogCXBtci0+Y3N1bSA9IGNzdW1faXB2Nl9tYWdpYygmcGlwNi0+c2FkZHIs
+ICZwaXA2LT5kYWRkciwgbWxkbGVuLAogCQlJUFBST1RPX0lDTVBWNiwgY3N1bV9wYXJ0aWFsKHNr
+Yi0+aC5yYXcsIG1sZGxlbiwgMCkpOwotCWRldl9xdWV1ZV94bWl0KHNrYik7Ci0JSUNNUDZfSU5D
+X1NUQVRTKGlkZXYsSWNtcDZPdXRNc2dzKTsKKwllcnIgPSBORl9IT09LKFBGX0lORVQ2LCBORl9J
+UDZfTE9DQUxfT1VULCBza2IsIE5VTEwsIHNrYi0+ZGV2LAorCQlkZXZfcXVldWVfeG1pdCk7CisJ
+aWYgKCFlcnIpCisJCUlDTVA2X0lOQ19TVEFUUyhpZGV2LEljbXA2T3V0TXNncyk7CiAJaWYgKGxp
+a2VseShpZGV2ICE9IE5VTEwpKQogCQlpbjZfZGV2X3B1dChpZGV2KTsKIH0KQEAgLTE2MDMsMTIg
+KzE2MDksMTUgQEAKIAogCWlkZXYgPSBpbjZfZGV2X2dldChza2ItPmRldik7CiAKLQlkZXZfcXVl
+dWVfeG1pdChza2IpOwotCWlmICh0eXBlID09IElDTVBWNl9NR01fUkVEVUNUSU9OKQotCQlJQ01Q
+Nl9JTkNfU1RBVFMoaWRldiwgSWNtcDZPdXRHcm91cE1lbWJSZWR1Y3Rpb25zKTsKLQllbHNlCi0J
+CUlDTVA2X0lOQ19TVEFUUyhpZGV2LCBJY21wNk91dEdyb3VwTWVtYlJlc3BvbnNlcyk7Ci0JSUNN
+UDZfSU5DX1NUQVRTKGlkZXYsIEljbXA2T3V0TXNncyk7CisJZXJyID0gTkZfSE9PSyhQRl9JTkVU
+NiwgTkZfSVA2X0xPQ0FMX09VVCwgc2tiLCBOVUxMLCBza2ItPmRldiwKKwkJZGV2X3F1ZXVlX3ht
+aXQpOworCWlmICghZXJyKSB7CisJCWlmICh0eXBlID09IElDTVBWNl9NR01fUkVEVUNUSU9OKQor
+CQkJSUNNUDZfSU5DX1NUQVRTKGlkZXYsIEljbXA2T3V0R3JvdXBNZW1iUmVkdWN0aW9ucyk7CisJ
+CWVsc2UKKwkJCUlDTVA2X0lOQ19TVEFUUyhpZGV2LCBJY21wNk91dEdyb3VwTWVtYlJlc3BvbnNl
+cyk7CisJCUlDTVA2X0lOQ19TVEFUUyhpZGV2LCBJY21wNk91dE1zZ3MpOworCX0KIAogCWlmIChs
+aWtlbHkoaWRldiAhPSBOVUxMKSkKIAkJaW42X2Rldl9wdXQoaWRldik7Cg==
+
+--0__=07BBE774DFAE8B708f9e8a93df938690918c07BBE774DFAE8B70--
