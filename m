@@ -1,38 +1,31 @@
-From: Eric Lemoine <Eric.Lemoine@ens-lyon.fr>
+From: Chris Friesen <cfriesen@nortelnetworks.com>
 Subject: Re: PATCH Re: udp weirdness
-Date: Wed, 2 Oct 2002 13:13:26 +0200
+Date: Wed, 02 Oct 2002 10:09:24 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021002111326.GG357@hookipa>
-References: <3D99B6C7.3010302@nortelnetworks.com> <200210011531.TAA19943@sex.inr.ac.ru>
+Message-ID: <3D9AFE14.4030606@nortelnetworks.com>
+References: <3D99B6C7.3010302@nortelnetworks.com> <200210011531.TAA19943@sex.inr.ac.ru> <20021002111326.GG357@hookipa>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Chris Friesen <cfriesen@nortelnetworks.com>, hadi@cyberus.CA,
-   netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, hadi@cyberus.CA, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
-Content-Disposition: inline
-In-Reply-To: <200210011531.TAA19943@sex.inr.ac.ru>
+To: Eric Lemoine <Eric.Lemoine@ens-lyon.fr>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> > I may have to poke around...if nothing else I'll learn more about the 
-> > networking code...
-> 
-> It is difficult task, if possible at all.
-> 
-> The main obstacle is that we must not block after select() succeeded,
-> otherwise applications will lockup. Taking into account nature of datagram
-> services (and generally of networking services, where routes change et al.)
-> you do not know at time of select(), where the datagram will go.
-> So, blocking can be made only based on a criterium not depending on this.
-> problems with silent losses. People just do not care about this, so
-> they get the thing which they deserve.
+Eric Lemoine wrote:
 
-Alexey,
+> Would you mind explaining a bit more why apps will lockup if we block
+> after select() succeeded. Or anyone?
 
-Would you mind explaining a bit more why apps will lockup if we block
-after select() succeeded. Or anyone?
+I suspect he means a temporary lockup.
 
-Thx.
+There are many apps that use blocking sockets and rely on select() to 
+tell them when they may write out to the socket without blocking.
 
-	Eric.
+If the write then blocks, the whole app is blocked.  Some of them 
+probably wouldn't like this.
+
+Was that it Alexey? Or is there something more that I missed?
+
+Chris
