@@ -1,34 +1,46 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: Bridging woes after 3 days
-Date: Mon, 1 Dec 2003 11:33:12 -0800
+From: Ramon Casellas <casellas@infres.enst.fr>
+Subject: Re: Request: Allocate a Netlink Family Number for MPLS
+Date: Mon, 1 Dec 2003 20:26:30 +0100 (MET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031201113312.2ce6ec0f.shemminger@osdl.org>
-References: <20031123152601.67646dc1.davem@redhat.com>
-	<200311290944.PAA27304@eis.iisc.ernet.in>
+Message-ID: <Pine.SOL.4.40.0312012012040.27322-100000@gervaise.enst.fr>
+References: <20031201153052.A3879@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com (David S. Miller), netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: anand@eis.iisc.ernet.in (SVR Anand)
-In-Reply-To: <200311290944.PAA27304@eis.iisc.ernet.in>
+To: Christoph Hellwig <hch@infradead.org>
+In-Reply-To: <20031201153052.A3879@infradead.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 29 Nov 2003 15:14:08 +0530 (GMT+05:30)
-anand@eis.iisc.ernet.in (SVR Anand) wrote:
+On Mon, 1 Dec 2003, Christoph Hellwig wrote:
 
-> Hi,
-> 
-> After a continous run for 3 days the bridge came down crashing with the
-> following kernel panic screen dump. The kernel is 2.6.0-test9-bk25 with
-> kernel preemption disabled. 
-> 
-> The following call stack is what I have seen on the console. The ethernet
-> cards are RTL8139. Please let me know if you want more information or finer
-> debugging method, I will pass it on when the bridge fails the next time.
+> On Mon, Dec 01, 2003 at 03:36:26PM +0100, Ramon Casellas wrote:
+> >  #define NETLINK_ARPD           8
+> > +
+> > +#if defined(CONFIG_MPLS) || defined(CONFIG_MPLS_MODULE)
+> > +#define NETLINK_MPLS           9
+> > +#endif
+> > +
+>
+> This is bogus - either it's reserved or not, so the ifdef doesn't
+> make sense.
 
-Can you hook a serial console to catch the precise wording?
+Yes of course :) that was just a cut&paste from an interim patch, where we
+put ifdefs around everything. If you decide to allocate a family number,
+then ifdefs don't make sense (much like in if_ether.h or ppp_defs.h), but
+you're right, my mistake, I didn't mean to propose a real patch.
 
-Also if you save copies of /proc/slabinfo on a regular interval (like per hour),
-then it is possible to see if there is a memory leak.
+
+>
+> Also given that Dave & co are working on mpls already I wonder
+> whether it's a good idea to reserve this, but I'll let him speak
+> for himself :)
+
+Well, we are still coordinating efforts, and Jamal has some design docs
+around... but regardless of the actual implementation, a mechanism to
+communicate with userspace will be needed, and IM(Very, very)HO, netlink
+is a good candidate, analog to rtnetlink, but this is open to discussion.
+
+Thanks,
+R.
