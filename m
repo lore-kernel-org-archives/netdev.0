@@ -1,31 +1,28 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: Re: [PATCH 2.5.69] wanrouter clean up MOD_*_USE_COUNT
-Date: Wed, 21 May 2003 20:18:01 -0300
+From: Nivedita Singhvi <niv@us.ibm.com>
+Subject: Re: Dump of TCP hang in established state
+Date: Wed, 21 May 2003 17:35:34 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030521231801.GE10295@conectiva.com.br>
-References: <1053550112.2444.35.camel@ibm-c.pdx.osdl.net>
+Message-ID: <3ECC1B56.9090200@us.ibm.com>
+References: <Mutt.LNX.4.44.0305141907210.9712-100000@excalibur.intercode.com.au>	<3ECBB522.9080101@us.ibm.com> <20030521.161009.59667010.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ncorbic@sangoma.com, dm@sangoma.com, "davem@redhat.com" <davem@redhat.com>,
-   "netdev@oss.sgi.com" <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jmorris@intercode.com.au, gandalf@wlug.westbo.se, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Daniel McNeil <daniel@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <1053550112.2444.35.camel@ibm-c.pdx.osdl.net>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030521.161009.59667010.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Em Wed, May 21, 2003 at 01:48:32PM -0700, Daniel McNeil escreveu:
-> Here is simple patch to remove MOD_INC_USE_COUNT and
-> MOD_DEC_USE_COUNT.  The wanrouter module will get a reference
-> when another module uses its exported symbols.
+David S. Miller wrote:
 
-I have patches that will conflict with this one, fixing the
-namespace, i.e. device_shutdown now its a core function that ends
-up having its prototype included in wanmain compilation, causing
-compilation to fail.
+> It won't get lost, I maintain a web page privately amongst
+> the main net developers that I use to track TODO items, and it
+> is there.
+> 
+> Please don't make a bugzilla for this.
 
-Already submitted to DaveM, CCed netdev, I'll fix this later
-tonight.
+No problem :)
 
-- Arnaldo
+thanks,
+Nivedita
