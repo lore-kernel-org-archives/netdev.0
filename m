@@ -1,45 +1,62 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH ] more RTL-8139 clone boards
-Date: Wed, 19 Nov 2003 12:37:34 -0500
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [RFT] (3/3) 8139too -- poll_controller
+Date: Wed, 19 Nov 2003 14:40:29 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3FBBAA5E.5020007@pobox.com>
-References: <3FBA771A.1010104@wanadoo.es> <20031119092751.3407c944.shemminger@osdl.org>
+Message-ID: <20031119144029.5ba66fda.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Xose Vazquez Perez <xose@wanadoo.es>, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20031119092751.3407c944.shemminger@osdl.org>
+To: Jeff Garzik <jgarzik@pobox.com>,
+        OGAWA Hirofumi
+ <hirofumi@mail.parknet.co.jp>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> On Tue, 18 Nov 2003 20:46:34 +0100
-> Xose Vazquez Perez <xose@wanadoo.es> wrote:
-> 
-> 
->>0x018A 0x0106 LevelOne FPC-0106TX
->>0x126C 0x1211 Nortel Networks 10/100BaseTX
->>0x1743 0x8139 Peppercon AG ROL-F
->>0x021B 0x8139 Compaq HNE-300
-> 
-> 
-> Maybe time to  start using pci_ids.h?
+For net-drivers-2.5-exp, add a poll_controller hook to allow use of netconsole
+with this driver. 
 
+jeff, don't have netconsole setup to test this so please give it a try before
+including it.
 
-This is mainly a matter of opinion.  My opinion:  no.  ;-)
-
-I think it's rather silly to keep adding to pci_ids.h, when the ids are 
-just arbitrary hex numbers with no useful value.  I certainly support 
-mnemonic constants when they have value... but if the _only_ place a PCI 
-id constant exists is (a) in a pci_device_id list and (b) in pci_ids.h, 
-then it seems rather wasteful rather than helpful.
-
-IMO, the constants just bloat the pci_device_id list, whereas the ones 
-with hex numbers are nice, single lines.
-
-As an aside, include/linux/pci_ids.h is a heavily patched file, and 
-conflicts occur all the time.
-
-	Jeff
+diff -Nru a/drivers/net/8139too.c b/drivers/net/8139too.c
+--- a/drivers/net/8139too.c	Wed Nov 19 14:34:13 2003
++++ b/drivers/net/8139too.c	Wed Nov 19 14:34:13 2003
+@@ -612,6 +612,7 @@
+ static int rtl8139_start_xmit (struct sk_buff *skb,
+ 			       struct net_device *dev);
+ static int rtl8139_poll(struct net_device *dev, int *budget);
++static void rtl8139_poll_controller(struct net_device *dev);
+ static irqreturn_t rtl8139_interrupt (int irq, void *dev_instance,
+ 			       struct pt_regs *regs);
+ static int rtl8139_close (struct net_device *dev);
+@@ -989,6 +990,9 @@
+ 	dev->ethtool_ops = &rtl8139_ethtool_ops;
+ 	dev->tx_timeout = rtl8139_tx_timeout;
+ 	dev->watchdog_timeo = TX_TIMEOUT;
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	dev->poll_controller = rtl8139_poll_controller;
++#endif
+ 
+ 	/* note: the hardware is not capable of sg/csum/highdma, however
+ 	 * through the use of skb_copy_and_csum_dev we enable these
+@@ -2184,6 +2188,18 @@
+ 	return IRQ_RETVAL(handled);
+ }
+ 
++#ifdef CONFIG_NET_POLL_CONTROLLER
++/*
++ * Polling receive - used by netconsole and other diagnostic tools
++ * to allow network i/o with interrupts disabled.
++ */
++static void rtl8139_poll_controller(struct net_device *dev)
++{
++	disable_irq(dev->irq);
++	rtl8139_interrupt(dev->irq, dev, NULL);
++	enable_irq(dev->irq);
++}
++#endif
+ 
+ static int rtl8139_close (struct net_device *dev)
+ {
