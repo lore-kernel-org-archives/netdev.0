@@ -1,57 +1,53 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: RFC:  Enabling ethernet drivers to return FCS in the skb?
-Date: Wed, 19 Nov 2003 07:33:53 -0800
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3FBB8D61.6010106@candelatech.com>
-References: <3FB94311.10004@candelatech.com> <20031119123556.A7622@sygehus.dk>
+From: Peter Bieringer <pb@bieringer.de>
+Subject: (usagi-users 02636) IPv6: use_tempaddr: how to set per interface instead for
+ default/all?
+Date: Wed, 19 Nov 2003 16:40:30 +0100
+Message-ID: <14830000.1069256430@worker.muc.bieringer.de>
+Reply-To: usagi-users@linux-ipv6.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Rask Ingemann Lambertsen <rask@sygehus.dk>
-In-Reply-To: <20031119123556.A7622@sygehus.dk>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: Maillist netdev <netdev@oss.sgi.com>
+Return-path: <usagi-users-admin@linux-ipv6.org>
+To: Maillist USAGI-users <usagi-users@linux-ipv6.org>
+Content-Disposition: inline
+List-Software: fml [fml 4.0.3 release (20011202/4.0.3)]
+List-Post: <mailto:usagi-users@linux-ipv6.org>
+List-Owner: <mailto:usagi-users-admin@linux-ipv6.org>
+List-Help: <mailto:usagi-users-ctl@linux-ipv6.org?body=help>
+List-Unsubscribe: <mailto:usagi-users-ctl@linux-ipv6.org?body=unsubscribe>
 List-Id: netdev.vger.kernel.org
 
-Rask Ingemann Lambertsen wrote:
-> On Mon, Nov 17, 2003 at 01:52:17PM -0800, Ben Greear wrote:
-> 
->>Is there any interest in adding an Ethtool command to tell the driver to
->>push the extra 4 bytes of CSUM into the skb?
->>
->>When enabling this feature, I'd also like to allow drivers to receive
->>frames with bad FCS as well.
-> 
-> [cut]
-> 
->>At least some hardware appears
->>to support receiving bad FCS frames (e1000, evidently), but I am not sure
->>how wide-spread this feature is...
-> 
-> 
-> The Intel i82586 and i82596 and can be told to receive frames with a bad FCS.
-> They can also be told to send a precomputed FCS rather than computing it on
-> the fly. The i82596 and tulip can also transfer the FCS to memory when
-> receiving frames. I guess all of this is also supported on the i82557/8/9.
+Hi,
 
-If you have a patch or example code that shows how to do this, I'd love to
-see it.  I have code that should RX bad CSUM from the Intel folks, but I can't
-get it to generate bad CRC (it does framing errors instead with my attempt),
-so I can't test the RX code properly!
+looks there exists a hen/egg problem for the "use_tempaddr" (RFC3041
+support).
 
-I have the path from user-space to the NIC written, so just need to tweak the
-drivers a bit...
+I cannot set it per interface because:
 
-Do you know if tulip can be told to accept bad FCS and/or if it can generate
-a frame with bad FCS somehow?
+1) if interface is down, the related key
+"net.ipv6.conf.<interface>.use_tempaddr" doesn't exist
 
-Thanks!
-Ben
-
-> 
+2) if interface is up, I can change the key, but nothing happen
 
 
+-> I have to change "net.ipv6.conf.default.use_tempaddr" *before* the
+interface where I want to enable this feature will come up.
+
+This is ok for systems with one interface....but on systems with more than
+one interface, this is not a good way, because it's very hard (or
+impossible) to code proper scripts.
+
+Is there a interface state possible where the sysctl keys per interface are
+already available, but interface is still down?
+
+Thanks for any answer.
+
+BTW: are there more keys existing which are only read/functional on the
+trigger edge interface down->up?
+
+        Peter
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Dr. Peter Bieringer                     http://www.bieringer.de/pb/
+GPG/PGP Key 0x958F422D               mailto: pb at bieringer dot de 
+Deep Space 6 Co-Founder and Core Member  http://www.deepspace6.net/
