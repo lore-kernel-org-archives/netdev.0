@@ -1,106 +1,29 @@
-From: Wensong Zhang <wensong@linux-vs.org>
-Subject: [2.4/2.6 PATCH] Cosmetic IP_VS_INFO fix
-Date: Mon, 3 Nov 2003 22:15:47 +0800 (CST)
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: net/core/flow.c cpu handling?
+Date: Mon, 3 Nov 2003 15:11:45 +0000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0311030020430.1738-300000@penguin.linux-vs.org>
+Message-ID: <20031103151145.A29287@infradead.org>
+References: <20031102062345.A472E2C0CD@lists.samba.org> <20031101225050.4de96a8b.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-1463811584-2066790978-1067868947=:5797"
-Cc: "David S. Miller" <davem@redhat.com>, Julian Anastasov <ja@ssi.bg>
+Content-Type: text/plain; charset=us-ascii
+Cc: Rusty Russell <rusty@rustcorp.com.au>, anton@samba.org,
+        kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "David S. Miller" <davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20031101225050.4de96a8b.davem@redhat.com>; from davem@redhat.com on Sat, Nov 01, 2003 at 10:50:50PM -0800
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-  Send mail to mime@docserver.cac.washington.edu for more info.
+On Sat, Nov 01, 2003 at 10:50:50PM -0800, David S. Miller wrote:
+> 
+> Very likely, the code is how it is in order to make the
+> 2.4.x backport of this code and the 2.6.x version as
+> similar as humanly possible.
 
----1463811584-2066790978-1067868947=:5797
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Well, the current code is wrong for 2.6 and breaks badly for machines
+with more than 32/64 cpus.
 
-
-
-Hi,
-
-Here is minor cosmetic fix to add the trailing '\n'. Please check and 
-apply them.
-
-Thanks,
-
-Wensong
-
----1463811584-2066790978-1067868947=:5797
-Content-Type: TEXT/PLAIN; charset=US-ASCII; name="linux-2.4-ipvs-tidyup.patch"
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.44.0311032215470.5797@penguin.linux-vs.org>
-Content-Description: 
-Content-Disposition: attachment; filename="linux-2.4-ipvs-tidyup.patch"
-
-IyBUaGlzIGlzIGEgQml0S2VlcGVyIGdlbmVyYXRlZCBwYXRjaCBmb3IgdGhl
-IGZvbGxvd2luZyBwcm9qZWN0Og0KIyBQcm9qZWN0IE5hbWU6IExpbnV4IGtl
-cm5lbCB0cmVlDQojIFRoaXMgcGF0Y2ggZm9ybWF0IGlzIGludGVuZGVkIGZv
-ciBHTlUgcGF0Y2ggY29tbWFuZCB2ZXJzaW9uIDIuNSBvciBoaWdoZXIuDQoj
-IFRoaXMgcGF0Y2ggaW5jbHVkZXMgdGhlIGZvbGxvd2luZyBkZWx0YXM6DQoj
-CSAgICAgICAgICAgQ2hhbmdlU2V0CTEuMTE3OCAgLT4gMS4xMTc5IA0KIwlu
-ZXQvaXB2NC9pcHZzL2lwX3ZzX2N0bC5jCTEuMiAgICAgLT4gMS4zICAgIA0K
-Iw0KIyBUaGUgZm9sbG93aW5nIGlzIHRoZSBCaXRLZWVwZXIgQ2hhbmdlU2V0
-IExvZw0KIyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLQ0KIyAwMy8xMS8wMwl3ZW5zb25nQGxpbnV4LXZzLm9yZwkxLjEx
-NzkNCiMgW0lQVlNdIENvc21ldGljIElQX1ZTX0lORk8gZml4IHRvIGFkZCB0
-aGUgdHJhaWxpbmcgJ1xuJw0KIyANCiMgUGF0Y2ggZnJvbSBIb3JtcyA8aG9y
-bXNAdmVyZ2VuZXQubmV0Pg0KIyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLQ0KIw0KZGlmZiAtTnJ1IGEvbmV0L2lwdjQv
-aXB2cy9pcF92c19jdGwuYyBiL25ldC9pcHY0L2lwdnMvaXBfdnNfY3RsLmMN
-Ci0tLSBhL25ldC9pcHY0L2lwdnMvaXBfdnNfY3RsLmMJTW9uIE5vdiAgMyAy
-MTo1Nzo0NCAyMDAzDQorKysgYi9uZXQvaXB2NC9pcHZzL2lwX3ZzX2N0bC5j
-CU1vbiBOb3YgIDMgMjE6NTc6NDQgMjAwMw0KQEAgLTE3NDAsOSArMTc0MCw5
-IEBADQogCSAqIENoZWNrIGZvciB2YWxpZCBwcm90b2NvbDogVENQIG9yIFVE
-UC4gRXZlbiBmb3IgZndtYXJrIT0wDQogCSAqLw0KIAlpZiAodXJ1bGUtPnBy
-b3RvY29sIT1JUFBST1RPX1RDUCAmJiB1cnVsZS0+cHJvdG9jb2whPUlQUFJP
-VE9fVURQKSB7DQotCQlJUF9WU19JTkZPKCJ2c19jdGw6IGludmFsaWQgcHJv
-dG9jb2w6ICVkICVkLiVkLiVkLiVkOiVkICVzIiwNCi0JCQkgICBudG9ocyh1
-cnVsZS0+cHJvdG9jb2wpLCBOSVBRVUFEKHVydWxlLT52YWRkciksDQotCQkJ
-ICAgbnRvaHModXJ1bGUtPnZwb3J0KSwgdXJ1bGUtPnNjaGVkX25hbWUpOw0K
-KwkJSVBfVlNfRVJSKCJzZXRfY3RsOiBpbnZhbGlkIHByb3RvY29sICVkICVk
-LiVkLiVkLiVkOiVkICVzXG4iLA0KKwkJCSAgbnRvaHModXJ1bGUtPnByb3Rv
-Y29sKSwgTklQUVVBRCh1cnVsZS0+dmFkZHIpLA0KKwkJCSAgbnRvaHModXJ1
-bGUtPnZwb3J0KSwgdXJ1bGUtPnNjaGVkX25hbWUpOw0KIAkJcmV0ID0gLUVG
-QVVMVDsNCiAJCWdvdG8gb3V0X3VubG9jazsNCiAJfQ0K
----1463811584-2066790978-1067868947=:5797
-Content-Type: TEXT/PLAIN; charset=US-ASCII; name="linux-2.5-ipvs-tidyup.patch"
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.44.0311032215471.5797@penguin.linux-vs.org>
-Content-Description: 
-Content-Disposition: attachment; filename="linux-2.5-ipvs-tidyup.patch"
-
-IyBUaGlzIGlzIGEgQml0S2VlcGVyIGdlbmVyYXRlZCBwYXRjaCBmb3IgdGhl
-IGZvbGxvd2luZyBwcm9qZWN0Og0KIyBQcm9qZWN0IE5hbWU6IExpbnV4IGtl
-cm5lbCB0cmVlDQojIFRoaXMgcGF0Y2ggZm9ybWF0IGlzIGludGVuZGVkIGZv
-ciBHTlUgcGF0Y2ggY29tbWFuZCB2ZXJzaW9uIDIuNSBvciBoaWdoZXIuDQoj
-IFRoaXMgcGF0Y2ggaW5jbHVkZXMgdGhlIGZvbGxvd2luZyBkZWx0YXM6DQoj
-CSAgICAgICAgICAgQ2hhbmdlU2V0CTEuMTQwMyAgLT4gMS4xNDA0IA0KIwlu
-ZXQvaXB2NC9pcHZzL2lwX3ZzX2N0bC5jCTEuMTEgICAgLT4gMS4xMiAgIA0K
-Iw0KIyBUaGUgZm9sbG93aW5nIGlzIHRoZSBCaXRLZWVwZXIgQ2hhbmdlU2V0
-IExvZw0KIyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLQ0KIyAwMy8xMS8wMwl3ZW5zb25nQGxpbnV4LXZzLm9yZwkxLjE0
-MDQNCiMgW0lQVlNdIENvc21ldGljIElQX1ZTX0lORk8gZml4IHRvIGFkZCB0
-aGUgdHJhaWxpbmcgJ1xuJw0KIyANCiMgUGF0Y2ggZnJvbSBIb3JtcyA8aG9y
-bXNAdmVyZ2VuZXQubmV0Pg0KIyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLQ0KIw0KZGlmZiAtTnJ1IGEvbmV0L2lwdjQv
-aXB2cy9pcF92c19jdGwuYyBiL25ldC9pcHY0L2lwdnMvaXBfdnNfY3RsLmMN
-Ci0tLSBhL25ldC9pcHY0L2lwdnMvaXBfdnNfY3RsLmMJTW9uIE5vdiAgMyAy
-MjoxMDozMiAyMDAzDQorKysgYi9uZXQvaXB2NC9pcHZzL2lwX3ZzX2N0bC5j
-CU1vbiBOb3YgIDMgMjI6MTA6MzIgMjAwMw0KQEAgLTE4MzksOSArMTgzOSw5
-IEBADQogDQogCS8qIENoZWNrIGZvciB2YWxpZCBwcm90b2NvbDogVENQIG9y
-IFVEUCwgZXZlbiBmb3IgZndtYXJrIT0wICovDQogCWlmICh1c3ZjLT5wcm90
-b2NvbCE9SVBQUk9UT19UQ1AgJiYgdXN2Yy0+cHJvdG9jb2whPUlQUFJPVE9f
-VURQKSB7DQotCQlJUF9WU19JTkZPKCJ2c19jdGw6IGludmFsaWQgcHJvdG9j
-b2w6ICVkICVkLiVkLiVkLiVkOiVkICVzIiwNCi0JCQkgICBudG9ocyh1c3Zj
-LT5wcm90b2NvbCksIE5JUFFVQUQodXN2Yy0+YWRkciksDQotCQkJICAgbnRv
-aHModXN2Yy0+cG9ydCksIHVzdmMtPnNjaGVkX25hbWUpOw0KKwkJSVBfVlNf
-RVJSKCJzZXRfY3RsOiBpbnZhbGlkIHByb3RvY29sICVkICVkLiVkLiVkLiVk
-OiVkICVzXG4iLA0KKwkJCSAgbnRvaHModXN2Yy0+cHJvdG9jb2wpLCBOSVBR
-VUFEKHVzdmMtPmFkZHIpLA0KKwkJCSAgbnRvaHModXN2Yy0+cG9ydCksIHVz
-dmMtPnNjaGVkX25hbWUpOw0KIAkJcmV0ID0gLUVGQVVMVDsNCiAJCWdvdG8g
-b3V0X3VubG9jazsNCiAJfQ0K
----1463811584-2066790978-1067868947=:5797--
+-- 
+Christoph Hellwig <hch@lst.de>		-	Freelance Hacker
+Contact me for driver hacking and kernel development consulting
