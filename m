@@ -1,32 +1,54 @@
-From: Andre Tomt <andre@tomt.net>
-Subject: Re: Fw: 2.6.9 Oops in tcp_time_to_recover + 0x6d/0x1b0
-Date: Thu, 28 Oct 2004 04:06:16 +0200
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [NETLINK] Check netlink_insert in kernel_create
+Date: Thu, 28 Oct 2004 13:07:00 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41805418.9030209@tomt.net>
-References: <20041026163802.6eefd7a6.akpm@osdl.org> <20041026164650.50bc2a9c.davem@davemloft.net> <417F158E.4010109@tomt.net>
+Message-ID: <20041028030700.GA14181@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, akpm@osdl.org
+Content-Type: multipart/mixed; boundary="AqsLC8rIMeq19msA"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <417F158E.4010109@tomt.net>
+To: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andre Tomt wrote:
-> David S. Miller wrote:
-> 
->> Current BK should have a fix for this from Herbert Xu.
->>
-> 
-> is this what the
-> 
-> [TCP]: Handle real partial-ACKs of TSO frames correctly.
-> [TCP]: Only re-set TSO size for packet which was TSO to begin with.
-> [TCP]: Fix tcp_trim_head() calculations.
-> 
-> changesets fixed?
 
-Sigh, I'm retarded. I was meaning to send this on-list, not off-list. 
-Silly fingers.
+--AqsLC8rIMeq19msA
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+Hi:
+
+This patch checks the return value of netlink_insert() in
+netlink_kernel_create().  It could fail if someone loads
+the same module twice for instance.
+
+Signed-off-by: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au> 
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--AqsLC8rIMeq19msA
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
+
+===== net/netlink/af_netlink.c 1.57 vs edited =====
+--- 1.57/net/netlink/af_netlink.c	2004-10-20 15:10:40 +10:00
++++ edited/net/netlink/af_netlink.c	2004-10-28 13:00:33 +10:00
+@@ -876,7 +876,10 @@
+ 	if (input)
+ 		nlk_sk(sk)->data_ready = input;
+ 
+-	netlink_insert(sk, 0);
++	if (netlink_insert(sk, 0)) {
++		sock_release(sock);
++		return NULL;
++	}
+ 	return sk;
+ }
+ 
+
+--AqsLC8rIMeq19msA--
