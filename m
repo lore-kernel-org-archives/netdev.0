@@ -1,74 +1,41 @@
-From: <ahtraps@runbox.com>
-Subject: A question on inet_select_addr()
-Date: Fri, 08 Aug 2003 23:55:40 GMT
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [RFC] High Performance Packet Classifiction for tc framework
+Date: Fri, 8 Aug 2003 17:01:30 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <E19lH5A-0005yt-J9@odie.runbox.com>
-Reply-To: ahtraps@runbox.com
+Message-ID: <20030808170130.578ff441.davem@redhat.com>
+References: <200307141045.40999.nf@hipac.org>
+	<1058328537.1797.24.camel@jzny.localdomain>
+	<3F16A0E5.1080007@hipac.org>
+	<1059934468.1103.41.camel@jzny.localdomain>
+	<3F2E5CD6.4030500@hipac.org>
+	<1060012260.1103.380.camel@jzny.localdomain>
+	<3F302E04.1090503@hipac.org>
+	<1060286331.1025.73.camel@jzny.localdomain>
+	<20030807130502.4af9c815.davem@redhat.com>
+	<1060379500.1723.214.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: nf@hipac.org, linux-net@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-Content-Disposition: inline
-To: linux-net@vger.kernel.org, netdev@oss.sgi.com
+To: hadi@cyberus.ca
+In-Reply-To: <1060379500.1723.214.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello,
+On 08 Aug 2003 17:51:40 -0400
+jamal <hadi@cyberus.ca> wrote:
 
-I don't quite understand the comment, and the logic following it, in inet_select_addr() function.
+> Its easy to use hashes when you know that you need to
+> find example ip src/dst.
 
-Specifically:
+Jenkins is rather agnostic about the input bits, that's
+what makes it so powerful.  It performs about as well
+for random input as it does for input which has various
+patterns.
 
-1. How is it guranteed that a loopback address is not chosen? (there is no check for 127.X.X.X
-    addresses!)
+Wait, are you saying the input key size can change?  Yes,
+that's an interesting problem.
 
-2. Why is it important that the loopback interface be the first in the list. What would go wrong
-    if the search starts from the second device in the list (i.e., skipping the loopback device).
-
-3. And what does this test mean: 
-     (ifa->ifa_scope != RT_SCOPE_LINK && ifa->ifa_scope <= scope)?
-
-u32 inet_select_addr(const struct net_device *dev, u32 dst, int scope)
-{
-
-        ... SNIP ...
-
-        /* Not loopback addresses on loopback should be preferred
-           in this case. It is importnat that lo is the first interface
-           in dev_base list.
-         */
-        read_lock(&dev_base_lock);
-        read_lock(&inetdev_lock);
-        for (dev=dev_base; dev; dev=dev->next) {
-                if ((in_dev=__in_dev_get(dev)) == NULL)
-                        continue;
-
-                read_lock(&in_dev->lock);
-                for_primary_ifa(in_dev) {
-                        if (ifa->ifa_scope != RT_SCOPE_LINK &&
-                            ifa->ifa_scope <= scope) {
-                                read_unlock(&in_dev->lock);
-                                read_unlock(&inetdev_lock);
-                                read_unlock(&dev_base_lock);
-                                return ifa->ifa_local;
-                        }
-                } endfor_ifa(in_dev);
-                read_unlock(&in_dev->lock);
-        }
-        read_unlock(&inetdev_lock);
-        read_unlock(&dev_base_lock);
-
-        return 0;
-}
-
-
-tx
-Andy
-
-
-
-
----------------------------------------------------------------------------------------------------
-Runbox Mail Manager (free trial version - this tag is removed upon subscription)
-Try your own premium email account for free at http://111.runbox.com
-100MB storage, no ads, fast webmail, access on any device, retrieve and filter email.
+But for things where you always want some 96-bit key,
+Jenkins is probably best.
