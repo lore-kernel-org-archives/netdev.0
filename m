@@ -1,26 +1,24 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH][ATM] minor cleanups for 2.5
-Date: Mon, 21 Jul 2003 05:24:16 -0700
+Subject: Re: Fw: [PATCH][2.6] propogate rx errors from raw_rcv_skb
+Date: Mon, 21 Jul 2003 05:25:52 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030721052416.3ef97f3b.davem@redhat.com>
-References: <200307162120.h6GLKWsG023003@ginger.cmf.nrl.navy.mil>
+Message-ID: <20030721052552.7536fccc.davem@redhat.com>
+References: <20030716195345.21b9b9fc.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: chas@cmf.nrl.navy.mil, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org, zwane@arm.linux.org.uk
 Return-path: <netdev-bounce@oss.sgi.com>
-To: chas3@users.sourceforge.net
-In-Reply-To: <200307162120.h6GLKWsG023003@ginger.cmf.nrl.navy.mil>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030716195345.21b9b9fc.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 16 Jul 2003 17:18:04 -0400
-chas williams <chas@cmf.nrl.navy.mil> wrote:
+On Wed, 16 Jul 2003 19:53:45 -0700
+"David S. Miller" <davem@redhat.com> wrote:
 
-> (and how does __inline__ work
-> when its the timer function?)
+> 	This looks somewhat sane, ipv6 doesn't seem to need it as it 
+> always returns 0
 
-If you take the address of a function marked inline,
-gcc outputs a non-inline of the function.
-
-All of your ATM patches applied, thanks Chas.
+Nothing that calls raw_rcv() checks the return value,
+so what's the point?
