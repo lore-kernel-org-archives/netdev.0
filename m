@@ -1,32 +1,43 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [IPCOMP] Use per-cpu buffers
-Date: Fri, 10 Sep 2004 14:55:06 -0700
+Subject: Re: [IP6IP6] Handle ECN correctly
+Date: Fri, 10 Sep 2004 14:58:22 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040910145506.4b3933c4.davem@davemloft.net>
-References: <20040910111047.GA29330@gondor.apana.org.au>
-	<Xine.LNX.4.44.0409101140160.6664-100000@thoron.boston.redhat.com>
+Message-ID: <20040910145822.09b58835.davem@davemloft.net>
+References: <20040909034508.GA19547@gondor.apana.org.au>
+	<20040908214023.08dec350.davem@davemloft.net>
+	<20040909044336.GA19999@gondor.apana.org.au>
+	<20040908214926.51b56a66.davem@davemloft.net>
+	<20040909045415.GA20079@gondor.apana.org.au>
+	<20040908220802.1c25b806.davem@davemloft.net>
+	<20040910003158.GA25335@gondor.apana.org.au>
+	<20040910070242.GA28017@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
-        linux-ppp@vger.kernel.org, paulus@samba.org
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: James Morris <jmorris@redhat.com>
-In-Reply-To: <Xine.LNX.4.44.0409101140160.6664-100000@thoron.boston.redhat.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040910070242.GA28017@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 10 Sep 2004 11:42:00 -0400 (EDT)
-James Morris <jmorris@redhat.com> wrote:
+On Fri, 10 Sep 2004 17:02:42 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> On Fri, 10 Sep 2004, Herbert Xu wrote:
+> On Fri, Sep 10, 2004 at 10:31:58AM +1000, herbert wrote:
+> > 
+> > Hmm, perhaps I'm still confused.  But it seems that the ability to
+> > set the TOS to any value other than *1 is already there for ipip/ip_gre.
+> > 
+> > That feature is missing for SIT and IPsec though.
+> > 
+> > We may also want to use the TOS value from parms to decide whether we want
+> > to encapsulate/decapsulate ECN.
+> > 
+> > Is my understanding correct?
 > 
-> > James, can you think of a general solution to the 64K buffer in
-> > terms of the crypto decompression interface?
-> 
-> I haven't looked at the code for a while, but I think we might be able to 
-> save some memory by specifying compression parameters and making the 
-> appropriate changes to zlib.
+> Obviously not.  Although we've got this stuff on the transmit side,
+> we don't do this on the receive side.
 
-For now I'm going to put in Herbert's per-cpu patch, and we
-can try to come up with something better later.
+That's right, on decap we don't provide a way to choose
+the TOS selection.
