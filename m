@@ -1,41 +1,57 @@
-From: Ethan Sommer <sommere@ethanet.com>
-Subject: Re: [Fwd: [ANNOUNCE] Layer-7 Filter for Linux QoS]
-Date: Wed, 21 May 2003 10:46:50 -0500
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <3ECB9F6A.20004@ethanet.com>
-References: <Pine.LNX.4.44.0305211447270.12543-100000@deneb.intranet.cartel-securite.net>
+From: Krishna Kumar <kumarkr@us.ibm.com>
+Subject: Re: Patch for NETLINK_TCPDIAG
+Date: Wed, 21 May 2003 09:25:06 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <OFC936381E.0037F57A-ON88256D2D.0059F5C5@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Jamal Hadi <hadi@shell.cyberus.ca>,
-	Martin Josefsson <gandalf@wlug.westbo.se>,
-	"David S. Miller" <davem@redhat.com>, linux-net@vger.kernel.org,
-	netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
-In-reply-to: <Pine.LNX.4.44.0305211447270.12543-100000@deneb.intranet.cartel-securite.net>
-To: Philippe Biondi <biondi@cartel-securite.fr>
+Content-Type: text/plain; charset=US-ASCII
+Cc: kuznet@ms2.inr.ac.ru, linux-net@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@redhat.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Philippe Biondi wrote:
 
->regexp support was planned but not done yet. (if someone know where I can
->download more free time !).
->
->The implementation should not be that hard, once you have the compiler to
->transform the string describing the regexp to an automaton.
->
->Note that to respect the framework, you have to deal with multiple
->patterns (should not be that hard). If you have pat1 and pat2, searching
->for (pat1|pat2) is not sufficient because for each match, you have to
->point which pattern matched.
->  
->
 
-We actually planned on doing that initially. You should note that if you 
-want to generate one automaton for multiple patterns, that is not a 
-regular language (and thus can not be represented by a FA or DFA.)  You 
-will have to try matching against the first pattern, then the next and 
-so on.
 
-Ethan
 
+Yes sure, will remember to use a different mailer next time :-)
+
+thanks,
+
+- KK
+
+
+
+|---------+---------------------------->
+|         |           "David S. Miller"|
+|         |           <davem@redhat.com|
+|         |           >                |
+|         |                            |
+|         |           05/20/2003 07:33 |
+|         |           PM               |
+|         |                            |
+|---------+---------------------------->
+  >-----------------------------------------------------------------------------------------------------------------|
+  |                                                                                                                 |
+  |       To:       Krishna Kumar/Beaverton/IBM@IBMUS                                                               |
+  |       cc:       kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, linux-net@vger.kernel.org                             |
+  |       Subject:  Re: Patch for NETLINK_TCPDIAG                                                                   |
+  |                                                                                                                 |
+  >-----------------------------------------------------------------------------------------------------------------|
+
+
+
+
+   From: Krishna Kumar <kumarkr@us.ibm.com>
+   Date: Tue, 20 May 2003 11:49:43 -0700
+
+   I am not sure if there is a reason why ACK cannot be set for
+   NETLINK_TCPDIAG.
+   If it is settable, please apply following patch.
+
+Your patch does not apply, Lotus NOTES changes tabs into
+spaces making the patch unusable.
+
+I've added the fix by hand... but please be mindful of this
+in the future.
