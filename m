@@ -1,43 +1,34 @@
-From: Info mailbox (auto reply) <info@pacific.net.in>
-Subject: Re: Mail Delivery (failure info@pacific.net.in)
-Date: Wed, 31 Mar 2004 01:39:38 +0530
+From: Pavel Roskin <proski@gnu.org>
+Subject: linux/802_11.h header
+Date: Tue, 30 Mar 2004 15:28:58 -0500 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040330200938.AAA5010@pob2.pacific.net.in>
+Message-ID: <Pine.LNX.4.58.0403301514080.7498@marabou.research.att.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jean Tourrilhes <jt@hpl.hp.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a confirmation that we have received your e-mail.
+Hello!
 
-Thank you for sending your query to Pacific Internet Customer Support. 
-We will get back to you as soon as possible.
+I see that include/linux/802_11.h in Linux 2.6.5-rc2-bk9 is included by
+only one file, namely drivers/net/wireless/atmel_cs.c.  In fact,
+atmel_cs.c doesn't need it (tested by compiling it).
 
-If you need to reach us quickly, please call us at the following service numbers:
+The 802_11.h header contains some definitions already present in
+drivers/net/wireless/ieee802_11.h, which is used by some drivers.  For
+instance, frame subtypes are listed in both.
 
-For Mumbai:
-Customer  Support : 91-22-2498 0803 (Monday to Saturday: 8am-8pm)
-Technical Support : 91-22-2498 1040 (24 hours)
+802_11.h also has useful definitions that should be elsewhere, such as
+ieee_802_3_header and ieee_802_11_802_2_header.  I was tempted to use some
+definitions from 802_11.h, but then realized that it may be deprecated if
+nobody is using it.
 
-For Bangalore:
-Customer  Support : 91-80-841 1800 (Monday to Saturday: 9am-8pm)
-Technical Support : 91-80-841 1803 (24 hours)
+Does anybody know who wrote 802_11.h, whether it's deprecated, and if not,
+why it's not used?
 
-For Pune:
-Customer Support  : 91-20-400 4111 (Monday to Saturday: 8am-8pm)
-Technical Support : 91-20-401 0500 (24 hours)
-
-For any technical questions, you may want to address them directly to 
-help@pacific.net.in
-
-For any Sales related queries, you may address your emails to 
-sales@pacific.net.in
-
-We look forward to being of assistance to you.
-
-Best regards
-Customer Support Team
-Pacific Internet India Pvt. Ltd.
+-- 
+Regards,
+Pavel Roskin
