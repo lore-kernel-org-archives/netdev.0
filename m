@@ -1,24 +1,31 @@
-From: Jeff Garzik <jgarzik@pobox.com>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: [PATCH 2.5.70] remove if_port_text
-Date: Thu, 29 May 2003 17:39:13 -0400
+Date: Thu, 29 May 2003 14:48:53 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3ED67E01.6060906@pobox.com>
-References: <20030529104138.751a1f54.shemminger@osdl.org>	<20030529.140828.78714529.davem@redhat.com> <20030529142820.5f657d77.shemminger@osdl.org>
+Message-ID: <20030529.144853.88480047.davem@redhat.com>
+References: <20030529.140828.78714529.davem@redhat.com>
+	<20030529142820.5f657d77.shemminger@osdl.org>
+	<3ED67E01.6060906@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, scott.feldman@intel.com,
-   netdev@oss.sgi.com
+Cc: shemminger@osdl.org, scott.feldman@intel.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20030529142820.5f657d77.shemminger@osdl.org>
+To: jgarzik@pobox.com
+In-Reply-To: <3ED67E01.6060906@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> Eliminate necrophilic code, net-sysfs shouldn't support deprecated if_port.
-> Since nowhere else is using if_port_text, eliminate it.
+   From: Jeff Garzik <jgarzik@pobox.com>
+   Date: Thu, 29 May 2003 17:39:13 -0400
 
-Looks good to me...  David?
+   Stephen Hemminger wrote:
+   > Eliminate necrophilic code, net-sysfs shouldn't support
+   > deprecated if_port.  Since nowhere else is using if_port_text,
+   > eliminate it.
+   
+   Looks good to me...  David?
+   
+I'm fine with it.  I'll apply to 2.5.x
 
-	Jeff
+Jeff what do you think about 2.4.x?
