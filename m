@@ -1,37 +1,29 @@
-From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Subject: Re: [patch]: CONFIG_IPV6_SUBTREES fix for MIPv6
-Date: Wed, 11 Jun 2003 00:40:44 +0900
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: Route cache performance under stress
+Date: Tue, 10 Jun 2003 08:49:40 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030611004035.40027642.nakam@linux-ipv6.org>
-References: <20030606223057.41ac1c9d.nakam@linux-ipv6.org>
-	<Pine.GSO.4.44.0306091140470.25126-100000@morphine.tml.hut.fi>
-	<20030609203659.089b241b.nakam@linux-ipv6.org>
-	<3EE5F85E.9080006@tml.hut.fi>
+Message-ID: <20030610.084940.74727904.davem@redhat.com>
+References: <008001c32eda$56760830$4a00000a@badass>
+	<20030609195652.E35696@shell.cyberus.ca>
+	<Pine.LNX.4.51.0306092006420.12038@ns.istop.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, vnuorval@tcs.hut.fi,
-   davem@redhat.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
-   ajtuomin@morphine.tml.hut.fi, jagana@us.ibm.com, kumarkr@us.ibm.com,
-   usagi-core@linux-ipv6.org
+Cc: hadi@shell.cyberus.ca, xerox@foonet.net, sim@netnation.com,
+   fw@deneb.enyo.de, netdev@oss.sgi.com, linux-net@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Henrik Petander <lpetande@tml.hut.fi>
-In-Reply-To: <3EE5F85E.9080006@tml.hut.fi>
+To: ralph+d@istop.com, ralph@istop.com
+In-Reply-To: <Pine.LNX.4.51.0306092006420.12038@ns.istop.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 10 Jun 2003 18:25:18 +0300
-Henrik Petander <lpetande@tml.hut.fi> wrote:
+   From: Ralph Doncaster <ralph@istop.com>
+   Date: Mon, 9 Jun 2003 20:32:48 -0400 (EDT)
+   
+   Lastly from the software side Linux doesn't seem to have anything like
+   BSD's parameter to control user/system CPU sharing.  Once my CPU load
+   reaches 70-80%, I'd rather have some dropped packets than let the CPU hit
+   100% and end up with my BGP sessions drop.
 
-> Then the policies for mipv6 would need to be specified at the same time 
-> as the ipsec policies. This is not a problem as long as the policies are 
->   loaded at start up. However, this could lead to problems with 
-> applications which specify their own policies, e.g. racoon.
-
-How about providing interface of handling templates to update
-existing policy in kernel?
-
-Regards,
-
--- 
-Masahide NAKAMURA
+When packet (more specifically, software interrupt) processing
+reaches a certain level, we offload the work into process context.
