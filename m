@@ -1,40 +1,45 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [patch 2.6.10-rc2] 3c59x: reload EEPROM values at rmmod for	needy
- cards
-Date: Sun, 28 Nov 2004 14:06:59 -0500
-Message-ID: <41AA21D3.5050205@pobox.com>
-References: <20041117160122.A4824@tuxdriver.com>	 <20041117134425.62034944.akpm@osdl.org>	 <20041118012155.GA22765@tuxdriver.com> <1101663389.16787.46.camel@localhost.localdomain>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: [PATCH,pktgen] account for preamble and inter-packet gap
+Date: Sun, 28 Nov 2004 22:32:51 +0100
+Message-ID: <20041128213251.GA9330@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>, Andrew Morton <akpm@osdl.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-In-Reply-To: <1101663389.16787.46.camel@localhost.localdomain>
+To: robert.olsson@data.slu.se
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Alan Cox wrote:
-> On Iau, 2004-11-18 at 01:21, John W. Linville wrote:
-> 
->>On Wed, Nov 17, 2004 at 01:44:25PM -0800, Andrew Morton wrote:
->>
->>>This has been in -mm kernels since you first sent it out.  I'm intending to
->>>hold off until post-2.6.10 so we get a full kernel cycle for any problems
->>>to get shaken out.
->>
->>Cool...someone was asking for it in netdev-2.[46], and Jeff didn't
->>have it.  That is what provoked the resend.
-> 
-> 
-> Merged into -ac since you essentially can't use 3c59x/3c90x with DHCP on
-> some systems or get it back from suspend with several distributions.
-> This IMHO should go into 2.6.10 because its a showstopper for many
-> users. 
+Hi!
 
-Poke Andrew to push it upstream, he's the 3c59x maintainer.
+If you account for the Frame Check Sequence when computing bandwidth
+stats, it's only fair that you count the preamble and inter-packet gap
+as well.  Suggested patch attached.
 
-	Jeff
+
+cheers,
+Lennert
+
+
+--- pktgen.c.orig	2004-11-28 22:27:50.008829106 +0100
++++ pktgen.c	2004-11-28 22:30:48.773867119 +0100
+@@ -2564,7 +2564,7 @@
+ static void show_results(struct pktgen_dev *pkt_dev, int nr_frags)
+ {
+        __u64 total_us, bps, mbps, pps, idle;
+-       int size = pkt_dev->cur_pkt_size + 4; /* incl 32bit ethernet CRC */
++       int size = pkt_dev->cur_pkt_size + 4 + 8 + 12; /* incl 32bit ethernet CRC plus preamble plus inter-packet gap */
+        char *p = pkt_dev->result;
+ 
+        total_us = pkt_dev->stopped_at - pkt_dev->started_at;
+@@ -2777,7 +2777,7 @@
+ 			pkt_dev->last_ok = 1;    
+ 			pkt_dev->sofar++;
+ 			pkt_dev->seq_num++;
+-			pkt_dev->tx_bytes += (pkt_dev->cur_pkt_size + 4); /* count csum */
++			pkt_dev->tx_bytes += (pkt_dev->cur_pkt_size + 4 + 8 + 12); /* count csum and preamble and inter-packet gap*/
+ 			
+ 		} else if (ret == NETDEV_TX_LOCKED 
+ 			   && (odev->features & NETIF_F_LLTX)) {
