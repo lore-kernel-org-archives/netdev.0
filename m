@@ -1,63 +1,63 @@
-From: "Ravinandan Arakali" <ravinandan.arakali@neterion.com>
-Subject: RE: High CPU utilization with Bonding driver ?
-Date: Tue, 29 Mar 2005 11:13:30 -0800
-Message-ID: <001f01c53493$654896a0$3a10100a@pc.s2io.com>
-References: <Pine.LNX.4.61.0503291027240.23261@linux.site>
+From: "Leonid Grossman" <leonid.grossman@neterion.com>
+Subject: RE: Topic:  Remote DMA network technologies
+Date: Tue, 29 Mar 2005 11:21:35 -0800
+Message-ID: <200503291921.j2TJLeDD018072@guinness.s2io.com>
+References: <1112057688.5088.59.camel@beastie>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@oss.sgi.com>, <bonding-devel@lists.sourceforge.net>,
-        "'Leonid. Grossman \(E-mail\)'" <leonid.grossman@neterion.com>,
-        "'Raghavendra. Koushik \(E-mail\)'" <raghavendra.koushik@neterion.com>
+Cc: "'David S. Miller'" <davem@davemloft.net>, <mpm@selenic.com>,
+        <andrea@suse.de>, <michaelc@cs.wisc.edu>,
+        <James.Bottomley@HansenPartnership.com>,
+        <ksummit-2005-discuss@thunk.org>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'Arthur Kepner'" <akepner@sgi.com>
-In-Reply-To: <Pine.LNX.4.61.0503291027240.23261@linux.site>
+To: "'Dmitry Yusupov'" <dmitry_yus@yahoo.com>, <open-iscsi@googlegroups.com>
+In-reply-to: <1112057688.5088.59.camel@beastie>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Arthur,
-Thanks for the reply.
-Not yet. Will try out the patch.
-
-Ravi
-
------Original Message-----
-From: Arthur Kepner [mailto:akepner@sgi.com]
-Sent: Tuesday, March 29, 2005 10:29 AM
-To: Ravinandan Arakali
-Cc: netdev@oss.sgi.com; bonding-devel@lists.sourceforge.net; Leonid.
-Grossman (E-mail); Raghavendra. Koushik (E-mail)
-Subject: Re: High CPU utilization with Bonding driver ?
 
 
-
-On Tue, 29 Mar 2005, Ravinandan Arakali wrote:
-
-> ....
-> Results(8 nttcp/chariot streams):
-> ---------------------------------
-> 1. Combined throughputs(but no bonding):
-> 3.1 + 6.2 = 9.3 Gbps with 58% CPU idle.
+> -----Original Message-----
+> From: netdev-bounce@oss.sgi.com [mailto:netdev-bounce@oss.sgi.com] On
+> Behalf Of Dmitry Yusupov
+> Sent: Monday, March 28, 2005 4:55 PM
+> To: open-iscsi@googlegroups.com
+> Cc: David S. Miller; mpm@selenic.com; andrea@suse.de;
+> michaelc@cs.wisc.edu; James.Bottomley@HansenPartnership.com; ksummit-2005-
+> discuss@thunk.org; netdev@oss.sgi.com
+> Subject: Re: Topic: Remote DMA network technologies
 > 
-> 2. eth0 and eth1 bonded together in LACP mode:
-> 8.2 Gbps with 1% CPU idle.
+> On Mon, 2005-03-28 at 16:44 -0800, Asgeir Eiriksson wrote:
+> > Care to be more specific about the performance you achieved?
+> >
+> > You might want to contrast your numbers to veritest verified numbers of
+> > 800+ MBps and 600+KOPS achieved by Chelsio HBA with stateful offload
+> > using either 1500B or 9KB MTU (for full detail see Veritest report at
+> > http://www.chelsio.com/technology/Chelsio10GbE_iSCSI_report.pdf)
+> >
+> > 'Asgeir
+
+FYI, 
+http://biz.yahoo.com/prnews/050329/cgtu006.html?.v=4
+
+The actual whitepaper with performance results is on our site. In short, it
+shows that it's fine to run sw iSCSI over 10GbE NIC with Linux-supported
+stateless offloads (receive side could use more of these though :-)), on a
+generic Opteron box. 
+  
+Leonid
+
 > 
-> From the above results, when Bonding driver is used(#2), the CPUs are
-> completely maxed out compared to the case when traffic is run
-> simultaneously on both the cards(#1).
-> Can anybody suggest some reasons for the above behavior ?
+> I changed the subject, btw.
 > 
-
-Ravi;
-
-Have you tried this patch? 
-
-http://marc.theaimsgroup.com/?l=linux-netdev&m=111091146828779&w=2
-
-If not, it will likely go a long way to solving your 
-problem.
-
---
-Arthur
+> In your paper. Its 28 M$ Initiator against one iSCSI Target on top of
+> Chelsio HBA. Now prove me that Chelsio HBA as an Initiator can do
+> somewhat close to 100K IOPS with regular Linux SCSI-MidLayer...
+> 
+> Regards.
+> Dmitry
+> 
+> 
