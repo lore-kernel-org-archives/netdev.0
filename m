@@ -1,38 +1,64 @@
-From: Kazunori MIyazawa <kazunori@miyazawa.org>
-Subject: IPsec in linux-2.5.61
-Date: Sun, 16 Feb 2003 15:52:38 +0900
+From: Harald Welte <laforge@netfilter.org>
+Subject: Possible ip_defrag DoS ?
+Date: Sun, 16 Feb 2003 21:11:54 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030216155238.5fb12777.kazunori@miyazawa.org>
+Message-ID: <20030216201154.GA30787@sunbeam.de.gnumonks.org>
+References: <20030215232635.25928.78900.Mailman@kashyyyk> <15950.60635.389199.836425@isis.cs3-inc.com> <3E4F0881.70302@trash.net> <15951.10496.914173.716313@isis.cs3-inc.com> <3E4F8660.5020409@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: usagi-core@linux-ipv6.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="4Ckj6UjgE2iN1+kY"
+Cc: Don Cohen <don-netf@isis.cs3-inc.com>, netfilter-devel@lists.netfilter.org,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, davem@redhat.com, kuznet@ms2.inr.ac.ru
+To: Patrick McHardy <kaber@trash.net>
+Content-Disposition: inline
+In-Reply-To: <3E4F8660.5020409@trash.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello,
+--4Ckj6UjgE2iN1+kY
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-I'm Miyazawa@USAGI Project.
-I'm sorry to sent mail from another address.
+On Sun, Feb 16, 2003 at 01:38:56PM +0100, Patrick McHardy wrote:
 
-I saw linux-2.5.61 and I think some codes is from my patch.
+> inerestingly, it seems linux defragmentation is vulnerable to dos attack.
+> the evictor (called before defragmentation) just kills the oldest entry
+> of each hash slot, starting with 0 until memory is below
+> sysctl_ipfrag_low_thresh. by sending enough fragments=20
+> (>sysctl_ipfrag_high_thresh) which hash to the highest bucket you can
+> stop reassembly of valid packets.
 
-If you think my opinion is proper, please add credits of changes
+I'm forwarding this (from netfilter-devel) to the linux networking
+developers at netdev@oss.sgi.com.  If your assumption is valid, they
+might want to have a look at this...
 
-MIYAZAWA Kazunori @USAGI        :       support IPv6 IPsec
+thanks.
 
+> Patrick
 
-BTW, I'm trying to set the IPsec SA of IPv6, but the kernel returns
-ENOBUF. Is there any changes around pfkey interface?
+--=20
+- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+  "Fragmentation is like classful addressing -- an interesting early
+   architectural error that shows how much experimentation was going
+   on while IP was being designed."                    -- Paul Vixie
 
-I'm using alexey's setkey in kametools.
+--4Ckj6UjgE2iN1+kY
+Content-Type: application/pgp-signature
+Content-Disposition: inline
 
-I succeeded to set IPsec SA of IPv4 and Policies.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.0.6 (GNU/Linux)
+Comment: For info see http://www.gnupg.org
 
-I prepare to send a patch to process the IPsec packet in IPv6 stack.
+iD8DBQE+T/CKXaXGVTD0i/8RAk0YAKCHcxU3Z8IVQlfniFRJ46wDL+aKRACfaNf1
+xUsNuY9XvXsdzUKesSfqERk=
+=2JId
+-----END PGP SIGNATURE-----
 
-Best Regards,
-
---Kazunori Miyazawa (Yokogawa Electric Corporation)
+--4Ckj6UjgE2iN1+kY--
