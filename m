@@ -1,36 +1,45 @@
 From: Richard Underwood <richard@aspectgroup.co.uk>
 Subject: RE: [2.4 PATCH] bugfix: ARP respond on all devices
-Date: Tue, 19 Aug 2003 19:05:13 +0100
+Date: Tue, 19 Aug 2003 18:56:18 +0100
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <353568DCBAE06148B70767C1B1A93E625EAB5D@post.pc.aspectgroup.co.uk>
+Message-ID: <353568DCBAE06148B70767C1B1A93E625EAB5C@post.pc.aspectgroup.co.uk>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: willy@w.ods.org, alan@lxorguk.ukuu.org.uk, carlosev@newipnet.com,
-	lamont@scriptkiddie.org, davidsen@tmr.com, bloemsaa@xs4all.nl,
-	marcelo@conectiva.com.br, netdev@oss.sgi.com,
+Cc: skraw@ithnet.com, willy@w.ods.org, alan@lxorguk.ukuu.org.uk,
+	carlosev@newipnet.com, lamont@scriptkiddie.org, davidsen@tmr.com,
+	bloemsaa@xs4all.nl, marcelo@conectiva.com.br, netdev@oss.sgi.com,
 	linux-net@vger.kernel.org, layes@loran.com, torvalds@osdl.org,
 	linux-kernel@vger.kernel.org
 Return-path: <linux-net-owner@vger.kernel.org>
-To: "'David S. Miller'" <davem@redhat.com>,
-	Stephan von Krawczynski <skraw@ithnet.com>
+To: "'David S. Miller'" <davem@redhat.com>
 List-Id: netdev.vger.kernel.org
 
 David S. Miller wrote:
+> > 	When a HOST sends out an ARP request, it's NOT associated with a
+> > single connection, it's associated with the host. Why 
+> should it pick a
+> > "random" IP number to send as the source address?
 > 
-> In the ARP request we are using the source address in the packet we
-> are building for output.
+> It's not "random", it is using the IP address it intends
+> to use as the source in packets it will output once the
+> ARP completes.
 > 
-	Well, you shouldn't be! The ARP request represents all FUTURE
-packets being sent out that interface, not just the one single packet that
-happened to kick of this ARP request.
+> In fact, if you look at the code in arp_solicit(), the source address
+> is coming directly from the packet we are trying to output.
+> 
+	Which nicely sums up the bug, really.
 
-> If ARP doesn't work using that source address, we can only assume IP
-> communication is not possible either.
-> 
-	That's clearly not a valid assumption. For a start it precludes IP
-routeing, but I've also demonstrated it not to be the case with a simple
-multi-homed server.
+1) The ARP response (or lack thereof) will be used for more than that
+connection, using a single packet's source IP address is meaningless and
+just a little aribtrary.
 
-	Thanks,
+2) Depending on which ARP request or reply gets seen first, packets may get
+routed over different interfaces or not sent out at all.
+
+3) The code is over-complex. There must already be perfectly good code to
+pick up the interface's IP address as this would HAVE to be the case when a
+packet has been routed from another host.
+
+	This sort of randomness is not acceptable in a reliable network.
 
 		Richard
