@@ -1,55 +1,33 @@
-From: "David S. Miller" <davem@davemloft.net>
+From: John Heffner <jheffner@psc.edu>
 Subject: Re: A case AGAINST checksum offload
-Date: Fri, 12 Nov 2004 15:49:45 -0800
-Message-ID: <20041112154945.63da5103.davem@davemloft.net>
+Date: Fri, 12 Nov 2004 19:36:35 -0500 (EST)
+Message-ID: <Pine.LNX.4.58.0411121925070.8989@dexter.psc.edu>
 References: <Pine.LNX.4.58.0411121644150.8989@dexter.psc.edu>
+ <20041112154945.63da5103.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: John Heffner <jheffner@psc.edu>
-In-Reply-To: <Pine.LNX.4.58.0411121644150.8989@dexter.psc.edu>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20041112154945.63da5103.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 12 Nov 2004 18:46:11 -0500 (EST)
-John Heffner <jheffner@psc.edu> wrote:
+On Fri, 12 Nov 2004, David S. Miller wrote:
 
-> Though I don't have any definitive references, I've heard stories that Sun
-> turned off UDP checksums on LANs to increase NFS performance, only to
-> re-enable checksumming by default after problems similar to mine caused
-> corruptions of some critical databases.
+> The data could just as easily be corrupted on the way to the CPU when
+> doing a copy+checksum operation.  It's the same problem you say exists
+> with your networking card case except the path of the corruption is
+> RAM-->CPU instead of RAM-->PCI Controller-->Networking Card
+>
+> I really don't buy this. :-)
 
-That story about Sun is true.  But it is an entirely different matter
-to disable checksums altogether vs. disabling HW assisted checksumming.
+Sure.  But we can get a check on one point of failure nearly free.  I've
+measured about a 1% difference in CPU use with checksum on vs. off at 1
+gigabit.
 
-> Since TCP checksum offload should only really helps the zero-copy case in
-> terms of performance, it seems safer to turn off hardware checksumming by
-> default, or perhaps only enable it if an application is doing a zero-copy
-> send.
+Probably not a big deal (yeah, somethings buggy anyway and needs to be
+fixed or replaced), but I thought it worth pointing out.
 
-I disagree.
-
-What is the difference between the CPU (a bus agent with computational
-abilities), and a networking card (again, a bus agent with computational
-abilities) computing the checksums?
-
-In your listed case you found a bug, and it appears that what happened
-is that the DMA transfer got corrupted to the networking card yet a
-properly checksummed packet went out because the card computed the
-checksum.
-
-What would happen if this happened on a block device?  Your filesystem
-would get corrupted, perhaps irreparably.
-
-How is this any different?  It's a hard error for the DMA data to be
-corrupted.
-
-The data could just as easily be corrupted on the way to the CPU when
-doing a copy+checksum operation.  It's the same problem you say exists
-with your networking card case except the path of the corruption is
-RAM-->CPU instead of RAM-->PCI Controller-->Networking Card
-
-I really don't buy this. :-)
+  -John
