@@ -1,46 +1,37 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: generic 802.11 stack
-Date: Fri, 1 Oct 2004 17:11:58 -0700
+From: John Heffner <jheffner@psc.edu>
+Subject: Re: bad TSO performance in 2.6.9-rc2-BK
+Date: Fri, 1 Oct 2004 21:32:25 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041001171158.489e3cf1.davem@davemloft.net>
-References: <200408312111.02438.vda@port.imtp.ilyichevsk.odessa.ua>
-	<200410011630.59465.vkondra@mail.ru>
-	<20041001155310.515ee09e.davem@davemloft.net>
-	<200410020125.40669.vkondra@mail.ru>
+Message-ID: <Pine.NEB.4.33.0410011934160.26321-100000@dexter.psc.edu>
+References: <Pine.NEB.4.33.0409301625560.13549-100000@dexter.psc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, mcgrof@studorgs.rutgers.edu,
-        acx100-devel@lists.sourceforge.net, prism54-devel@prism54.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Vladimir Kondratiev <vkondra@mail.ru>
-In-Reply-To: <200410020125.40669.vkondra@mail.ru>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <Pine.NEB.4.33.0409301625560.13549-100000@dexter.psc.edu>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2 Oct 2004 01:25:32 +0200
-Vladimir Kondratiev <vkondra@mail.ru> wrote:
+> On Thu, 30 Sep 2004, David S. Miller wrote:
+>
+> > Please help debug this John since I'm not seeing this here.
 
-> DS> Next:
-> DS>
-> DS> +    dev->mtu                = 2304;
-> DS> +    dev->type               = ARPHRD_IEEE80211;
-> DS>
-> DS> Is this really the correct default MTU for wireless devices?
-> 
-> Yes, 802.11e (QoS) defines this value.
+Here's what I've observed now: on one machine I have interface hangs after
+a non-deterministic amount of time (usually within a few seconds) with TSO
+on if I'm sending at a reasonably high rate with a 1500 byte MTU.  I get
+no hangs with a 9000 byte mtu, or at a low rate (sending to a FastE host).
+Interestingly, if the interface mtu is 9000, but I'm sending 1500 byte
+packets, it does not seem to hang.  On a different machine (both P4's with
+e1000's) I get no hangs.  The hangs happen even with 2.6.8.1 before the
+recent TSO changes, so it's not a bug there.  I looked at some tcpdumps
+and saw no strangeness in the last segments sent.
 
-All existing wireless drivers use the standard ethernet MTU.
-I really think it is supposed to be 1500.
+The good machine has an e7500 chipset and a 82544EI. The bad machine has a
+ServerWorks chipset and a 82545GM.
 
-That's why I left it at ether_setup()'s setting.
+Any suggestions on where to look for what's going wrong with the
+interface?
 
-Upper layers really want to see a 1500 byte standard ethernet
-MTU by default.  It's OK to let people set this higher via
-netdev->change_mtu() configuration calls, but by default it
-should be something that makes sense for most networks and
-that is 1500.
-
-Yes, btw, your tabs are all screwed up.  Please configure
-your editor to use real tab characters.  Your's is using
-spaces and using a tab-stop of 4 when it should be 8.
+Thanks,
+  -John
