@@ -1,31 +1,35 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [3/3] [TCP] Dump SYN_RECV sockets in tcpdiag
-Date: Tue, 19 Oct 2004 22:11:05 -0700
+Subject: Re: 2.6.9-rc4 tcp_transmit_skb: BUG_ON(!tcp_skb_pcount(skb))
+Date: Tue, 19 Oct 2004 22:13:01 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041019221105.53e68281.davem@davemloft.net>
-References: <4164F60C.6080807@cosmosbay.com>
-	<E1CFTUz-0007V6-00@gondolin.me.apana.org.au>
-	<20041014213030.GA18433@gondor.apana.org.au>
-	<20041014213347.GB18433@gondor.apana.org.au>
-	<20041014213517.GC18433@gondor.apana.org.au>
+Message-ID: <20041019221301.1490c1f6.davem@davemloft.net>
+References: <20041013231006.GA14742@m.safari.iki.fi>
+	<E1CILsE-0005cJ-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, netdev@oss.sgi.com
+Cc: 7atbggg02@sneakemail.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20041014213517.GC18433@gondor.apana.org.au>
+In-Reply-To: <E1CILsE-0005cJ-00@gondolin.me.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 15 Oct 2004 07:35:17 +1000
+On Fri, 15 Oct 2004 16:47:34 +1000
 Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> Finally this patch adds the code to list SYN_RECV sockets.  A future
-> enhancement would be to do this for the GET operation as well.
->   
+> Sami Farin <7atbggg02@sneakemail.com> wrote:
+> > 
+> > tcp_output.c:277
+> > Invalid operand 0
+> > tcp_transmit_skb
+> > tcp_send_synack
+> > tcp_rcv_synsent_state_process
+> 
+> OK, this patch should fix it.
+> 
+> We weren't copying the TSO fields in skb_copy().
+> 
 > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Also applied, thanks for fixing all of this Herbert.
-
-Feel free to make the mentioned GET enhancement :-)
+Great catch Herbert.  Patch applied, thanks.
