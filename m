@@ -2,7 +2,7 @@ From: Chris Friesen <cfriesen@nortelnetworks.com>
 Subject: Re: RFC: per-socket statistics on received/dropped packets
 Date: Mon, 10 Jun 2002 15:28:14 -0400
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <aea4au$fms$2@main.gmane.org>
+Message-ID: <aech7t$30q$2@main.gmane.org>
 References: <Pine.GSO.4.30.0206101033450.22559-100000@shell.cyberus.ca>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
