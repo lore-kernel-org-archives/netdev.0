@@ -1,37 +1,45 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] Tigon3 driver update
-Date: Sun, 24 Aug 2003 02:05:00 -0400
+From: devnetfs <devnetfs@yahoo.com>
+Subject: UDP receive path: is this safe?
+Date: Sat, 23 Aug 2003 23:46:12 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030824060500.GA28682@gtf.org>
-References: <20030823214939.0c012f3d.davem@redhat.com>
+Message-ID: <20030824064612.30641.qmail@web20414.mail.yahoo.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20030823214939.0c012f3d.davem@redhat.com>
+To: netdev@oss.sgi.com, linux-net@vger.kernel.org
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Aug 23, 2003 at 09:49:39PM -0700, David S. Miller wrote:
-> 
-> Included is a Tigon3 driver test patch against current
-> 2.6.0-testX kernels.
-> 
-> Features:
-> 
-> 1) Full 5705/5782/5788/5901 support.
-> 2) More reliable PHY resetting on 5703/5704/5705.
-> 3) Updated TSO support, it is not enabled by default
->    but one can turn it on using a current version of ethtool.
-> 
-> Feedback welcome.
+Hello,
 
-Looks good, thanks.  One minor:
+I've created an in-kernel udp socket and set sock->data_ready to
+my function foo(). inside foo() i do a skb_recv_datagram() to get
+(in noblock mode) the skb's received on the socket. 
 
-The tg3_[gs]et_tso code should be generic, like the tiny helpers at the
-top of net/core/ethtool.c.  (well, tg3_get_tso is generic, and
-tg3_set_tso could call the generic helper)
+is this safe/correct to do?  
 
-	Jeff
+as sock->data_ready() path for udp is:
+udp_rcv() -> udp_queue_rcv_skb() -> sock_queue_rcv_skb() ->
+data_ready()
+
+and skb_recv_datagram() calls skb_dequeue()...
+
+any possible races? as i think there can be multiples callers inside
+foo() at the same time (correct?). but then skb_dequeue() should be
+safe. but i am unsure of call-path from udp_rcv() to data_ready()?
+
+please enlighten. 
+
+i want to avoid the overhead of converting an skb to iovec (by 
+calling udp_recvmsg) and hence pursuing this path.
+
+
+thanks in advance,
+A.
+
+
+
+__________________________________
+Do you Yahoo!?
+Yahoo! SiteBuilder - Free, easy-to-use web site design software
+http://sitebuilder.yahoo.com
