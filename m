@@ -1,21 +1,39 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 0/12] remove sk_protinfo series
-Date: Tue, 8 Feb 2005 21:04:27 -0800
-Message-ID: <20050208210427.1cf77186.davem@davemloft.net>
-References: <41F07497.4020109@conectiva.com.br>
+Subject: Re: [2/2] [NET] Add skb_header_cloned and use it in e1000/tg3
+Date: Tue, 8 Feb 2005 21:09:10 -0800
+Message-ID: <20050208210910.0ef6b8b6.davem@davemloft.net>
+References: <20050121204024.6f94fc26.davem@davemloft.net>
+	<20050122054346.GA1635@gondor.apana.org.au>
+	<20050122170533.GB11499@yakov.inr.ac.ru>
+	<20050123071027.GA20296@gondor.apana.org.au>
+	<20050126110043.GA29950@yakov.inr.ac.ru>
+	<20050126222522.GA21670@gondor.apana.org.au>
+	<20050127110946.GA20494@gondor.apana.org.au>
+	<20050127111201.GB20494@gondor.apana.org.au>
+	<20050128202542.GA23670@yakov.inr.ac.ru>
+	<20050129031740.GA6130@gondor.apana.org.au>
+	<20050129032210.GA7424@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-In-Reply-To: <41F07497.4020109@conectiva.com.br>
+Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050129032210.GA7424@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 21 Jan 2005 01:18:47 -0200
-Arnaldo Carvalho de Melo <acme@conectiva.com.br> wrote:
+On Sat, 29 Jan 2005 14:22:10 +1100
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> bk://kernel.bkbits.net/acme/connection_sock-2.6
+> This patch adds skb_header_cloned which tells us whether we need to
+> copy the data before we can modify the header part of the skb.  Again,
+> what constitutes the header is left up to the users of the skb to define.
+> 
+> This patch then uses this function in e1000/tg3 to copy the data before
+> the TCP/IP header is modified.
+>  
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Pulled into my 2.6.12-pending tree, thanks Arnaldo.
+These two patches look great.  I want to review them some more but
+I do intend to try and get them into 2.6.11-final.
