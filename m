@@ -1,42 +1,61 @@
-From: Matthew Wilcox <matthew@wil.cx>
-Subject: [PATCH] ipconfig invokes undefined behaviour
-Date: Sun, 6 Feb 2005 04:47:44 +0000
-Message-ID: <20050206044744.GO20386@parcelfarce.linux.theplanet.co.uk>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: PROBLEM: 2.6.11-rc2 hangs on bridge shutdown (br0)
+Date: Sun, 06 Feb 2005 14:01:35 +0900 (JST)
+Message-ID: <20050206.140135.112327413.yoshfuji@linux-ipv6.org>
+References: <20050205064643.GA29758@gondor.apana.org.au>
+	<20050205.195039.05988480.yoshfuji@linux-ipv6.org>
+	<20050205200242.2b629de7.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, mirko.parthey@informatik.tu-chemnitz.de,
+        linux-kernel@vger.kernel.org, netdev@oss.sgi.com, shemminger@osdl.org,
+        yoshfuji@linux-ipv6.org
+To: davem@davemloft.net
+In-Reply-To: <20050205200242.2b629de7.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+In article <20050205200242.2b629de7.davem@davemloft.net> (at Sat, 5 Feb 2005 20:02:42 -0800), "David S. Miller" <davem@davemloft.net> says:
 
-strcpy is undefined if src and dest overlap.  That's clearly possible
-here with a sufficiently deep path on the server.  Use memmove instead.
+> > Yes, IPv6 needs "split device" semantics
+> > (for per-device statistics such as Ip6InDelivers etc),
+> > and I like later solution.
+> 
+> Ok.  I never read whether ipv6, like ipv4, is specified to support
+> a model of host based ownership of addresses.  Does anyone know?
 
-Signed-off-by: Matthew Wilcox <matthew@wil.cx>
+I'm not sure it is explicitly specified, but there're some hints:
 
-Index: ./net/ipv4/ipconfig.c
-===================================================================
-RCS file: /var/cvs/linux-2.6/net/ipv4/ipconfig.c,v
-retrieving revision 1.12
-diff -u -p -r1.12 ipconfig.c
---- ./net/ipv4/ipconfig.c	22 Jan 2005 15:00:01 -0000	1.12
-+++ ./net/ipv4/ipconfig.c	6 Feb 2005 04:41:30 -0000
-@@ -1232,7 +1232,7 @@ u32 __init root_nfs_parse_addr(char *nam
- 		if (*cp == ':')
- 			*cp++ = '\0';
- 		addr = in_aton(name);
--		strcpy(name, cp);
-+		memmove(name, cp, strlen(cp) + 1);
- 	} else
- 		addr = INADDR_NONE;
- 
+1. we need to allow multiple addresses on multiple interfaces.
+   e.g. link-local address
+
+2. if a packet has come from A to link-local address on the other side B,
+   we should not receive it.
+         +-------+
+    ---->|A     B|
+         +-------+
+
+   Currently, it does not happen in usual because ndisc does NOT handle
+   addresses on other device.
+
+3. mib document states that we should take statistics on interface which 
+   the address belongs to; not the interface where the packet has come
+   from:
+
+cited from RFC2011bis:
+Local (*) packets on the input side are counted on the interface
+associated with their destination address, which may not be the
+interface on which they were received.  This requirement is caused by
+the possibility of losing the original interface during processing,
+especially re-assembly.
+
+(*): here it means incoming, but not forwarding.
+
+
+BTW, BSD has similar reference to interface structure in routeing entry.
 
 -- 
-"Next the statesmen will invent cheap lies, putting the blame upon 
-the nation that is attacked, and every man will be glad of those
-conscience-soothing falsities, and will diligently study them, and refuse
-to examine any refutations of them; and thus he will by and by convince 
-himself that the war is just, and will thank God for the better sleep 
-he enjoys after this process of grotesque self-deception." -- Mark Twain
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
