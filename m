@@ -1,89 +1,93 @@
-From: Andi Kleen <ak@muc.de>
-Subject: [PATCH] Fix CONFIG_COMPAT with !CONFIG_NET
-Date: Tue, 31 Aug 2004 12:06:30 +0200
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC] MASQUERADE / policy routing ("Route send us somewhere else")
+Date: Tue, 31 Aug 2004 20:12:03 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <m3d617k4ex.fsf@averell.firstfloor.org>
+Message-ID: <20040831101203.GA1951@gondor.apana.org.au>
+References: <20040831082339.GA949@gondor.apana.org.au> <Pine.LNX.4.44.0408311208500.1773-100000@l>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: multipart/mixed; boundary="YZ5djTAD1cGYuMQK"
+Cc: "David S. Miller" <davem@davemloft.net>, laforge@netfilter.org,
+        netfilter-devel@lists.netfilter.org, rusty@rustcorp.com.au,
+        netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, davem@redhat.com
+To: Julian Anastasov <ja@ssi.bg>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.44.0408311208500.1773-100000@l>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-Fix compilation with CONFIG_COMPAT set and CONFIG_NET disabled.
+--YZ5djTAD1cGYuMQK
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-diff -urpN -X ../KDIFX linux/net/Makefile linux-2.6.8-amd64/net/Makefile
---- linux/net/Makefile	2004-04-06 13:12:24.000000000 +0200
-+++ linux-2.6.8-amd64/net/Makefile	2004-08-05 17:55:29.000000000 +0200
-@@ -9,7 +9,8 @@ obj-y	:= nonet.o
+On Tue, Aug 31, 2004 at 12:41:35PM +0300, Julian Anastasov wrote:
+>
+> > Here is an untested patch which does exactly that? Please do your
+> > best to break it :)
+> 
+> 	No need for tests :) rt_spec_dst is your preferred src
+> to the sender (your local internal IP) and rt_src is the internal
+> IP of the sender (what we snat).
+
+I knew it can't be that easy :)
+
+So let's go back to the previous idea of using inet_select_addr?
+Can you find any problems with this? In fact, it seems that the
+2.2 compatibility code does exactly this.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--YZ5djTAD1cGYuMQK
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
+
+===== net/ipv4/netfilter/ipt_MASQUERADE.c 1.16 vs edited =====
+--- 1.16/net/ipv4/netfilter/ipt_MASQUERADE.c	2004-08-02 12:27:11 +10:00
++++ edited/net/ipv4/netfilter/ipt_MASQUERADE.c	2004-08-31 20:08:47 +10:00
+@@ -97,34 +97,12 @@
  
- obj-$(CONFIG_NET)		:= socket.o core/
+ 	mr = targinfo;
  
--obj-$(CONFIG_COMPAT)		+= compat.o
-+tmp-$(CONFIG_COMPAT) 		:= compat.o
-+obj-$(CONFIG_NET)		+= $(tmp-y)
- 
- # LLC has to be linked before the files in net/802/
- obj-$(CONFIG_LLC)		+= llc/
-diff -urpN -X ../KDIFX linux/fs/compat_ioctl.c linux-2.6.8-amd64/fs/compat_ioctl.c
---- linux/fs/compat_ioctl.c	2004-08-15 19:45:41.000000000 +0200
-+++ linux-2.6.8-amd64/fs/compat_ioctl.c	2004-08-05 17:30:20.000000000 +0200
-@@ -407,6 +407,7 @@ out:
- 	return err;
- }
- 
-+#ifdef CONFIG_NET
- static int do_siocgstamp(unsigned int fd, unsigned int cmd, unsigned long arg)
- {
- 	struct compat_timeval __user *up = compat_ptr(arg);
-@@ -461,7 +462,6 @@ struct ifconf32 {
-         compat_caddr_t  ifcbuf;
- };
- 
--#ifdef CONFIG_NET
- static int dev_ifname32(unsigned int fd, unsigned int cmd, unsigned long arg)
- {
- 	struct net_device *dev;
-@@ -481,7 +481,6 @@ static int dev_ifname32(unsigned int fd,
- 	err = copy_to_user(compat_ptr(arg), &ifr32, sizeof(ifr32));
- 	return (err ? -EFAULT : 0);
- }
+-	{
+-		struct flowi fl = { .nl_u = { .ip4_u =
+-					      { .daddr = (*pskb)->nh.iph->daddr,
+-						.tos = (RT_TOS((*pskb)->nh.iph->tos) |
+-							RTO_CONN),
+-#ifdef CONFIG_IP_ROUTE_FWMARK
+-						.fwmark = (*pskb)->nfmark
 -#endif
+-					      } } };
+-		if (ip_route_output_key(&rt, &fl) != 0) {
+-			/* Funky routing can do this. */
+-			if (net_ratelimit())
+-				printk("MASQUERADE:"
+-				       " No route: Rusty's brain broke!\n");
+-			return NF_DROP;
+-		}
+-		if (rt->u.dst.dev != out) {
+-			if (net_ratelimit())
+-				printk("MASQUERADE:"
+-				       " Route sent us somewhere else.\n");
+-			ip_rt_put(rt);
+-			return NF_DROP;
+-		}
+-	}
++	rt = (struct rtable *)(*pskb)->dst;
++	newsrc = inet_select_addr(out, rt->rt_gateway, RT_SCOPE_LINK);
++	if (!newsrc)
++		return NF_DROP;
  
- static int dev_ifconf(unsigned int fd, unsigned int cmd, unsigned long arg)
- {
-@@ -797,6 +796,7 @@ static int routing_ioctl(unsigned int fd
+-	newsrc = rt->rt_src;
+ 	DEBUGP("newsrc = %u.%u.%u.%u\n", NIPQUAD(newsrc));
+-	ip_rt_put(rt);
  
- 	return ret;
- }
-+#endif
- 
- struct hd_geometry32 {
- 	unsigned char heads;
-@@ -1872,7 +1872,8 @@ static int do_atm_ioctl(unsigned int fd,
-         return -EINVAL;
- }
- 
--static int ret_einval(unsigned int fd, unsigned int cmd, unsigned long arg)
-+static __attribute__((used)) int 
-+ret_einval(unsigned int fd, unsigned int cmd, unsigned long arg)
- {
- 	return -EINVAL;
- }
-@@ -3162,7 +3163,6 @@ HANDLE_IOCTL(MEMREADOOB32, mtd_rw_oob)
- HANDLE_IOCTL(MEMWRITEOOB32, mtd_rw_oob)
- #ifdef CONFIG_NET
- HANDLE_IOCTL(SIOCGIFNAME, dev_ifname32)
--#endif
- HANDLE_IOCTL(SIOCGIFCONF, dev_ifconf)
- HANDLE_IOCTL(SIOCGIFFLAGS, dev_ifsioc)
- HANDLE_IOCTL(SIOCSIFFLAGS, dev_ifsioc)
-@@ -3206,6 +3206,7 @@ HANDLE_IOCTL(SIOCBRDELIF, dev_ifsioc)
- /* Note SIOCRTMSG is no longer, so this is safe and * the user would have seen just an -EINVAL anyways. */
- HANDLE_IOCTL(SIOCRTMSG, ret_einval)
- HANDLE_IOCTL(SIOCGSTAMP, do_siocgstamp)
-+#endif
- HANDLE_IOCTL(HDIO_GETGEO, hdio_getgeo)
- HANDLE_IOCTL(BLKRAGET, w_long)
- HANDLE_IOCTL(BLKGETSIZE, w_long)
+ 	WRITE_LOCK(&masq_lock);
+ 	ct->nat.masq_index = out->ifindex;
+
+--YZ5djTAD1cGYuMQK--
