@@ -1,38 +1,33 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Bug#243084: net-tools: netstat do not display some ipv6
- listening sockets
-Date: Sat, 1 May 2004 17:39:25 -0700
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [patch 0/7] 2.6.6-rc3-mm1 - description of the r8169 queue
+Date: Sun, 2 May 2004 22:51:17 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040501173925.4d88a826.davem@redhat.com>
-References: <E1BCQ8h-0005bb-8s@thorr.asgardr.info>
-	<20040411211116.GA32025@lina.inka.de>
-	<87smfagpxf.fsf@thorr.asgardr.info>
-	<20040412001011.GB3310@lina.inka.de>
-	<20040412080013.GA24732@gondor.apana.org.au>
-	<87fzb9z8zp.fsf@thorr.asgardr.info>
-	<20040501065011.GA25540@gondor.apana.org.au>
+Message-ID: <20040502225117.A24214@electric-eye.fr.zoreil.com>
+References: <20040501022308.A32762@electric-eye.fr.zoreil.com> <40954DE9.3020209@myrealbox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: nebuchadnezzar@nerim.net, 243084@bugs.debian.org, be-mail2004@lina.inka.de,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: jgarzik@pobox.com, Jon D Mason <jonmason@us.ibm.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040501065011.GA25540@gondor.apana.org.au>
+To: Andy Lutomirski <luto@myrealbox.com>
+Content-Disposition: inline
+In-Reply-To: <40954DE9.3020209@myrealbox.com>; from luto@myrealbox.com on Sun, May 02, 2004 at 12:37:13PM -0700
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 1 May 2004 16:50:11 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+Andy Lutomirski <luto@myrealbox.com> :
+[...]
+> 3. NAPI is missing from Kconfig
 
-> There is a bug in listening_get_first() which used by /proc/net/tcp*
-> where it wasn't looping through all the sockets in each hash chain.
-> This problem doesn't show up unless the first socket in a chain doesn't
-> match the family that is being looked up.
-> 
-> The following patch fixes this by getting rid of listening_get_first()
-> altogether.
+It appears in patch 1/7 but it has not been included in the global patch
+which is available online (fixed by now). This part of your patch should
+be ignored. The remaining parts are fine.
 
-Looks good, applied.
+> These patches also chance the initial chipset reset timer from 2 jiffies 
+> to 100ms (for HZ-independence, and 2ms sounds overly short.)
 
-Thanks Herbert.
+Compared to the initial busy-looping, the 2ms timer did not look _that_
+inefficient :o) As the reset is expected to take place in 0.5s at worst,
+your change makes more sense.
+
+--
+Ueimor
