@@ -1,59 +1,48 @@
-From: mcgrof@ruslug.rutgers.edu (Luis R. Rodriguez)
-Subject: Re: Prism54 AP WPA using Hostap and WDS
-Date: Mon, 8 Nov 2004 10:16:18 -0500
-Message-ID: <20041108151618.GW388@ruslug.rutgers.edu>
-References: <20041104032219.GU388@ruslug.rutgers.edu>
-	<20041105162037.GN388@ruslug.rutgers.edu>
-	<20041105162811.GP388@ruslug.rutgers.edu>
-	<20041108122922.GV388@ruslug.rutgers.edu>
-	<20041108141751.GM23338@Redstar.dorchain.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [Vpn-failover] [RFC] IPSEC failover - Netlink part
+Date: Mon, 08 Nov 2004 17:10:24 +0100
+Message-ID: <418F9A70.7040400@trash.net>
+References: <1099045435.2888.47.camel@nienna.balabit> <418A3630.1040900@astaro.de> <418A71DA.2090607@trash.net> <418F4AF9.7050605@astaro.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev@oss.sgi.com>, Jouni Malinen <jkmaline@cc.hut.fi>,
-	prism54-devel@prism54.org
-Return-path: <prism54-devel-bounces@prism54.org>
-To: Joerg Dorchain <joerg@dorchain.net>
-Content-Disposition: inline
-In-Reply-To: <20041108141751.GM23338@Redstar.dorchain.net>
-List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
-List-Archive: <http://prism54.org/pipermail/prism54-devel>
-List-Post: <mailto:prism54-devel@prism54.org>
-List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
-List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
-Sender: prism54-devel-bounces@prism54.org
-Errors-To: prism54-devel-bounces@prism54.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: vpn-failover@lists.balabit.hu, netdev@oss.sgi.com,
+        ipsec-tools-devel@lists.sourceforge.net
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Ulrich Weber <uweber@astaro.de>
+In-Reply-To: <418F4AF9.7050605@astaro.de>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 08, 2004 at 03:17:51PM +0100, Joerg Dorchain wrote:
-> On Mon, Nov 08, 2004 at 07:29:22AM -0500, Luis R. Rodriguez wrote:
-> > > 
-> > > > Access Point WPA support (NEW) (requires hostapd)
-> > > > Access Point WDS Support (NEW)
-> > > 
-> > > For your convenience, here are some links for those of you wishing to test:
-> > > 
-> > > http://prism54.org/pub/linux/snapshot/tars/prism54-cvs-latest.tar.bz2
-> > 
-> > The kernel patches were broken for WDS support as I forgot to include
-> > isl_wds.[ch] in the patch process. I have now fixed this in my script.
-> > The patches should now work.
-> 
-> The built outside the kernel tree (linus 2.6.9) still has not changed.
-> There is still a include for isl_wds.h missing in islpci_eth.c, and
-> "dev_alloc" is still an undefined symbol.
-> 
-> Bye,
-> 
-> Joerg
+Ulrich Weber wrote:
 
-Joerg,
+> what did you mean with "leaks xfrm_state reference"? The missing
+> xfrm_state_put(x) ?
 
-thanks yes this was the second thing I was going to look into. I'll work
-on it next. Thanks,
+Yes.
 
-	Luis
+> I changed it (see below) to use Krisztian's xfrm_state_replay_update 
+> function.
 
--- 
-GnuPG Key fingerprint = 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
+Even better.
+
+> |> static const int xfrm_msg_min[(XFRM_MSG_MAX + 1 - XFRM_MSG_BASE)] = {
+> |>     NLMSG_LENGTH(sizeof(struct xfrm_usersa_info)),    /* NEW SA */
+> |>     NLMSG_LENGTH(sizeof(struct xfrm_usersa_id)),    /* DEL SA */
+> |> @@ -867,6 +897,7 @@
+> |>     NLMSG_LENGTH(sizeof(struct xfrm_user_polexpire)), /* POLEXPIRE */
+> |>     NLMSG_LENGTH(sizeof(struct xfrm_usersa_flush)),    /* FLUSH SA */
+> |>     NLMSG_LENGTH(0),                /* FLUSH POLICY */
+> |> +    NLMSG_LENGTH(sizeof(struct xfrm_usersa_id)),/* UPD SEQ */
+> |>
+> |>
+> | ^^ what about struct xfrm_replay_state ?
+> it's attached as rt attribute, so it should be ok.
+
+
+But you don't check it's size. You need to include it here or check it
+when you use it.
+
+Regards
+Patrick
