@@ -1,27 +1,31 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Fix IPVS to set the statistics of dest zero
-Date: Mon, 13 Oct 2003 12:32:56 -0700
+Subject: Re: [PATCH] resolve probe difference
+Date: Mon, 13 Oct 2003 12:45:45 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031013123256.0eaef28a.davem@redhat.com>
-References: <Pine.LNX.4.44.0310132341300.1216-300000@penguin.linux-vs.org>
+Message-ID: <20031013124545.6939cb61.davem@redhat.com>
+References: <20031013114852.74b547d0.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, ja@ssi.bg
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Wensong Zhang <wensong@linux-vs.org>
-In-Reply-To: <Pine.LNX.4.44.0310132341300.1216-300000@penguin.linux-vs.org>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20031013114852.74b547d0.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 13 Oct 2003 23:59:34 +0800 (CST)
-Wensong Zhang <wensong@linux-vs.org> wrote:
+On Mon, 13 Oct 2003 11:48:52 -0700
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> Here is the slight patch for IPVS to fix to zero the statistics of dest 
-> when it is bound to a new service. It can make the statistics information 
-> more correct after removing/adding new servers.
+> In the change to get rid of the list of ISA devices to programmatic probing
+> of old devices, a behaviour change was introduced which might cause problems.
 > 
-> Please check the attached two patches and apply them to the kernel 2.4 and 
-> 2.6 respectively.
+> Before, it was possible to specify a parameter on the boot line for a second
+> device and skip the first, as in:
+> 	netdev=4,0x280,0,0,eth1
+> Well, now we stop after eth0 if we don't find it..
+> Somebody, might depend on the old behaviour, so this patch restores it..
 
-Applied, thanks Wensong.
+Looks good, applied.
+
+Thanks a lot Stephen.
