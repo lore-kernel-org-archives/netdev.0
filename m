@@ -1,51 +1,59 @@
-From: Daniele Venzano <webvenza@libero.it>
-Subject: [PATCH 2/2] More ethtool support for sis900 and warning fix
-Date: Sat, 12 Mar 2005 11:39:41 +0100 (CET)
-Message-ID: <20050312103941.27851.65526@localhost.localdomain>
-References: <20050312103939.27851.24067@localhost.localdomain>
+From: Richard Dawe <rich@phekda.gotadsl.co.uk>
+Subject: Re: [PATCH 4/5] r8169: ethtool message level control
+Date: Sat, 12 Mar 2005 12:02:23 +0000
+Message-ID: <4232DA4F.5050804@phekda.gotadsl.co.uk>
+References: <20050309113402.05d25e49@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; charset="us-ascii";
-	boundary="===============0603660046=="
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-In-Reply-To: <20050312103939.27851.24067@localhost.localdomain>
-To: netdev@oss.sgi.com, jgarzik@pobox.com
+Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@oss.sgi.com
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20050309113402.05d25e49@dxpl.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a MIME message, see the first attachment for the text
-and the second for the patch
---===============0603660046==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
+Hello.
 
+Stephen Hemminger wrote:
+> Add ethtool message level control support. This is the standard way
+> to enable/disable console log messages.  Also, ratelimit the too much
+> work at interrupt message, so if under massive packet load the console
+> doesn't get flooded.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> 
+> diff -Nru a/drivers/net/r8169.c b/drivers/net/r8169.c
+> --- a/drivers/net/r8169.c	2005-03-09 11:25:04 -08:00
+> +++ b/drivers/net/r8169.c	2005-03-09 11:25:04 -08:00
+[snip]
+> @@ -875,12 +885,26 @@
+>          spin_unlock_irqrestore(&tp->lock, flags);
+>  }
+>  
+> +static u32 rtl8169_get_msglevel(struct net_device *dev)
+> +{
+> +        struct rtl8169_private *tp = netdev_priv(dev);
+> +	return tp->msg_enable;
+> +}
+> +
+> +static void rtl8169_set_msglevel(struct net_device *dev, u32 value)
+> +{
+> +        struct rtl8169_private *tp = netdev_priv(dev);
+> +	tp->msg_enable = value;
+> +}
+> +
+[snip]
 
-Fix for a warning introduced with the patch for netconsole support.
+When I posted a patch for message level support a couple of weeks ago 
+(and got a ton of corrective feedback), Francois asked that there be 
+whitespace separating the definitions from executable code in these 
+functions.
 
+Bye, Rich =]
 
-Signed-off-by: Daniele Venzano <webvenza@libero.it>
+-- 
+Richard Dawe [ http://homepages.nildram.co.uk/~phekda/richdawe/ ]
 
-
---===============0603660046==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-
-Index: sis900.c
-===================================================================
---- a/drivers/net/sis900.c	(revision 102)
-+++ b/drivers/net/sis900.c	(revision 103)
-@@ -197,7 +197,10 @@ MODULE_PARM_DESC(multicast_filter_limit,
- MODULE_PARM_DESC(max_interrupt_work, "SiS 900/7016 maximum events handled per interrupt");
- MODULE_PARM_DESC(sis900_debug, "SiS 900/7016 bitmapped debugging message level");
- 
-+#ifdef CONFIG_NET_POLL_CONTROLLER
- static void sis900_poll(struct net_device *dev);
-+#endif
-+
- static int sis900_open(struct net_device *net_dev);
- static int sis900_mii_probe (struct net_device * net_dev);
- static void sis900_init_rxfilter (struct net_device * net_dev);
-
---===============0603660046==--
+"You can't evaluate a man by logic alone."
+   -- McCoy, "I, Mudd", Star Trek
