@@ -1,77 +1,80 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: Re: RFC: PHY Abstraction Layer II
-Date: Thu, 10 Mar 2005 23:01:00 +0000
-Message-ID: <4230D1AC.5070506@katalix.com>
-References: <1107b64b01fb8e9a6c84359bb56881a6@freescale.com>	<1110334456.32556.21.camel@gaston>	<20050308194229.41c23707.davem@davemloft.net>	<1110340214.32524.32.camel@gaston> <57a429f8eb807987d88b06129861d507@freescale.com>
+From: Greg KH <greg@kroah.com>
+Subject: [09/11] r8169: receive descriptor length fix
+Date: Thu, 10 Mar 2005 15:09:30 -0800
+Message-ID: <20050310230930.GJ22112@kroah.com>
+References: <20050310230519.GA22112@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>, netdev@oss.sgi.com,
-        "David S. Miller" <davem@davemloft.net>, linuxppc-embedded@ozlabs.org
-To: Andy Fleming <afleming@freescale.com>
-In-Reply-To: <57a429f8eb807987d88b06129861d507@freescale.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, stable@kernel.org
+To: shemminger@osdl.org, romieu@fr.zoreil.com, netdev@oss.sgi.com,
+        jgarzik@pobox.com
+Content-Disposition: inline
+In-Reply-To: <20050310230519.GA22112@kroah.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Andy,
 
-Can you elaborate on why this phy abstraction is needed?
+-stable review patch.  If anyone has any objections, please let us know.
 
-In your original post, you mentioned that you were going to post a
-patch to show how your code would be hooked up in an existing net
-driver. Did I miss it? It would help in understanding the pros and cons
-of using genphy over using plain old mii.c.
+------------------
 
-btw, I recently posted a patch to add GigE support to mii.c which is
-in Jeff's netdev-2.6 queue. Some register definitions were added in
-mii.h that will collide with yours.
 
-/james
+The status and received packets indication in the Rx descriptor ring
+are not correctly reset when a descriptor is recycled.
 
-Andy Fleming wrote:
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Signed-off-by: Chris Wright <chrisw@osdl.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
 
-> 
-> On Mar 8, 2005, at 21:50, Benjamin Herrenschmidt wrote:
-> 
->> On Tue, 2005-03-08 at 19:42 -0800, David S. Miller wrote:
->>
->>> On Wed, 09 Mar 2005 13:14:16 +1100
->>> Benjamin Herrenschmidt <benh@kernel.crashing.org> wrote:
->>>
->>>> I'll have a closer look when I find some time, see if it makes sense to
->>>> adapt sungem or not.
->>>
->>>
->>> Especially because of the Broadcom PHYs I bet it doesn't.
->>>
->>> Too many chips have to reset the MAC, or do other fancy stuff
->>> when programming the PHY to make this genphy thing very useful.
->>
->>
->> Oh, I think genphy is just a generic driver, but his layer has hooks for
->> other PHY drivers (wasn't it based on sungem_phy in the first place ?)
-> 
-> 
-> Definitely.  Much of this code was culled from the sungem and ibm_emac 
-> drivers, with some input from mii.c.  The genphy driver is just one of 
-> the 6 PHY drivers in the patch I sent (the others are Marvell, Davicom, 
-> Cicada, QS, LXT).  Actually, several of those files have multiple 
-> drivers in them.  The genphy driver is the fallback driver.  It exists 
-> for those PHYs which never get a driver, but don't need special attention.
-> 
->>
->> I discussed several steps of the design with Andy, the idea was to have
->> something a bit like sungem_phy.c with addditional common library for
->> doing the link polling & fallback stuff etc... that could be easily
->> shared by drivers.
-> 
-> 
-> Yup.  I look forward to your input on how well the code meshes with what 
-> people need for their drivers.
-> 
-> _______________________________________________
-> Linuxppc-embedded mailing list
-> Linuxppc-embedded@ozlabs.org
-> https://ozlabs.org/mailman/listinfo/linuxppc-embedded
-> 
+diff -puN drivers/net/r8169.c~r8169-490 drivers/net/r8169.c
+--- a/drivers/net/r8169.c~r8169-490	2005-03-08 00:01:26.000000000 +0100
++++ b/drivers/net/r8169.c		2005-03-09 00:38:34.235464833 +0100
+@@ -1683,16 +1683,19 @@ static void rtl8169_free_rx_skb(struct r
+ 	rtl8169_make_unusable_by_asic(desc);
+ }
+ 
+-static inline void rtl8169_return_to_asic(struct RxDesc *desc, int rx_buf_sz)
++static inline void rtl8169_mark_to_asic(struct RxDesc *desc, u32 rx_buf_sz)
+ {
+-	desc->opts1 |= cpu_to_le32(DescOwn + rx_buf_sz);
++	u32 eor = le32_to_cpu(desc->opts1) & RingEnd;
++
++	desc->opts1 = cpu_to_le32(DescOwn | eor | rx_buf_sz);
+ }
+ 
+-static inline void rtl8169_give_to_asic(struct RxDesc *desc, dma_addr_t mapping,
+-					int rx_buf_sz)
++static inline void rtl8169_map_to_asic(struct RxDesc *desc, dma_addr_t mapping,
++				       u32 rx_buf_sz)
+ {
+ 	desc->addr = cpu_to_le64(mapping);
+-	desc->opts1 |= cpu_to_le32(DescOwn + rx_buf_sz);
++	wmb();
++	rtl8169_mark_to_asic(desc, rx_buf_sz);
+ }
+ 
+ static int rtl8169_alloc_rx_skb(struct pci_dev *pdev, struct sk_buff **sk_buff,
+@@ -1712,7 +1715,7 @@ static int rtl8169_alloc_rx_skb(struct p
+ 	mapping = pci_map_single(pdev, skb->tail, rx_buf_sz,
+ 				 PCI_DMA_FROMDEVICE);
+ 
+-	rtl8169_give_to_asic(desc, mapping, rx_buf_sz);
++	rtl8169_map_to_asic(desc, mapping, rx_buf_sz);
+ 
+ out:
+ 	return ret;
+@@ -2150,7 +2153,7 @@ static inline int rtl8169_try_rx_copy(st
+ 			skb_reserve(skb, NET_IP_ALIGN);
+ 			eth_copy_and_sum(skb, sk_buff[0]->tail, pkt_size, 0);
+ 			*sk_buff = skb;
+-			rtl8169_return_to_asic(desc, rx_buf_sz);
++			rtl8169_mark_to_asic(desc, rx_buf_sz);
+ 			ret = 0;
+ 		}
+ 	}
+
+_
+
+-- 
+Ueimor
