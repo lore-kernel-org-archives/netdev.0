@@ -1,8 +1,8 @@
 From: chas williams <chas@cmf.nrl.navy.mil>
-Subject: [PATCH][ATM]: change ifdef inlanai_ioctl
-Date: Thu, 16 Oct 2003 07:22:33 -0400
+Subject: [PATCH][ATM]: sdh should be off by default
+Date: Thu, 16 Oct 2003 07:21:39 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200310161122.h9GBMWkT010658@ginger.cmf.nrl.navy.mil>
+Message-ID: <200310161121.h9GBLckT010649@ginger.cmf.nrl.navy.mil>
 Reply-To: chas3@users.sourceforge.net
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
@@ -16,42 +16,37 @@ please apply to 2.6 --thanks
 # Project Name: Linux kernel tree
 # This patch format is intended for GNU patch command version 2.5 or higher.
 # This patch includes the following deltas:
-#	           ChangeSet	1.1442  -> 1.1443 
-#	 drivers/atm/lanai.c	1.31    -> 1.32   
+#	           ChangeSet	1.1441  -> 1.1442 
+#	    drivers/atm/he.c	1.29    -> 1.30   
 #
 # The following is the BitKeeper ChangeSet Log
 # --------------------------------------------
-# 03/10/13	chas@relax.cmf.nrl.navy.mil	1.1443
-# [ATM]: change ifdef in lanai_ioctl
+# 03/10/10	chas@relax.cmf.nrl.navy.mil	1.1442
+# [ATM]: sdh should be off by default
 # --------------------------------------------
 #
-diff -Nru a/drivers/atm/lanai.c b/drivers/atm/lanai.c
---- a/drivers/atm/lanai.c	Wed Oct 15 14:49:49 2003
-+++ b/drivers/atm/lanai.c	Wed Oct 15 14:49:49 2003
-@@ -2432,11 +2432,11 @@
- 	return result;
- }
+diff -Nru a/drivers/atm/he.c b/drivers/atm/he.c
+--- a/drivers/atm/he.c	Wed Oct 15 14:49:01 2003
++++ b/drivers/atm/he.c	Wed Oct 15 14:49:01 2003
+@@ -158,7 +158,7 @@
+ static short nvcibits = -1;
+ static short rx_skb_reserve = 16;
+ static short irq_coalesce = 1;
+-static short sdh = 1;
++static short sdh = 0;
  
-+#if 0
- /* ioctl operations for card */
- /* NOTE: these are all DEBUGGING ONLY currently */
- static int lanai_ioctl(struct atm_dev *atmdev, unsigned int cmd, void *arg)
+ static struct atmdev_ops he_ops =
  {
--#if 0
- 	int result = 0;
- 	struct lanai_dev *lanai = (struct lanai_dev *) atmdev->dev_data;
- 	switch(cmd) {
-@@ -2514,11 +2514,10 @@
- 			result = -ENOIOCTLCMD;
+@@ -1556,11 +1556,10 @@
+ 
+ 	if (sdh) {
+ 		/* this really should be in suni.c but for now... */
+-
+ 		int val;
+ 
+ 		val = he_phy_get(he_dev->atm_dev, SUNI_TPOP_APM);
+-		val = (val & ~SUNI_TPOP_APM_S) | ( 0x2 << SUNI_TPOP_APM_S_SHIFT);
++		val = (val & ~SUNI_TPOP_APM_S) | (SUNI_TPOP_S_SDH << SUNI_TPOP_APM_S_SHIFT);
+ 		he_phy_put(he_dev->atm_dev, val, SUNI_TPOP_APM);
  	}
- 	return result;
-+}
- #else /* !0 */
--	(void) atmdev; (void) cmd; (void) arg;	/* no compiler warnings */
--	return -ENOIOCTLCMD;
-+#define lanai_ioctl NULL
- #endif /* 0 */
--}
  
- static int lanai_send(struct atm_vcc *atmvcc, struct sk_buff *skb)
- {
