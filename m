@@ -1,26 +1,22 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: ipsec 2.5.70 trouble
-Date: Thu, 29 May 2003 16:47:22 -0700 (PDT)
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 2.5.70] e100 initialize fields prior to register_netdevice
+Date: Thu, 29 May 2003 20:09:08 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030529.164722.116357594.davem@redhat.com>
-References: <1054235155.596.9.camel@simulacron>
-	<20030529.141410.85405194.davem@redhat.com>
-	<1054251582.2598.57.camel@simulacron>
+Message-ID: <3ED6A124.1060704@pobox.com>
+References: <Pine.LNX.4.44.0305291643550.23177-100000@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: Stephen Hemminger <shemminger@osdl.org>,
+   "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: aj@dungeon.inka.de
-In-Reply-To: <1054251582.2598.57.camel@simulacron>
+To: "Feldman, Scott" <scott.feldman@intel.com>
+In-Reply-To: <Pine.LNX.4.44.0305291643550.23177-100000@localhost.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Andreas Jellinghaus <aj@dungeon.inka.de>
-   Date: 30 May 2003 01:39:43 +0200
-   
-   Can I do anything about this?
+Your patch doesn't apply at all, even with 'patch -l'.
 
-The connection looks fine, 212.202.202.151 simply isn't sending any
-data back.  Maybe dropped PMTU messages, can you get a trace from the
-other end of the IPSEC tunnel?
+I backed out Stephen's patch, and will be looking for a fix from you ;-)
+
+	Jeff
