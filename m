@@ -1,162 +1,256 @@
-From: Dave Hansen <haveblue@us.ibm.com>
-Subject: [patch] af_packet: use void* for virtual addresses
-Date: Fri, 27 Aug 2004 15:22:23 -0700
+From: Thayne Harbaugh <tharbaugh@lnxi.com>
+Subject: RE: [PATCH] abysmal e1000 performance (DITR)
+Date: Fri, 27 Aug 2004 16:05:00 -0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <E1C0p77-0004Ik-00@kernel.beaverton.ibm.com>
-Cc: netdev@oss.sgi.com, Dave Hansen <haveblue@us.ibm.com>
+Message-ID: <1093644300.20769.197.camel@tubarao>
+References: <468F3FDA28AA87429AD807992E22D07EAF76C0@orsmsx408>
+Reply-To: tharbaugh@lnxi.com
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="=-FHfNDUzLkv+fSdAPZ3F2"
+Cc: Jeff Garzik <jgarzik@pobox.com>, hadi@cyberus.ca,
+        "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>, netdev@oss.sgi.com,
+        "Feldman, Scott" <scott.feldman@intel.com>,
+        "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
+To: "Ronciak, John" <john.ronciak@intel.com>
+In-Reply-To: <468F3FDA28AA87429AD807992E22D07EAF76C0@orsmsx408>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-I've been auditing code, cleaning up warning where code passes
-"unsigned long"s to functions and macros that really take pointers.
+--=-FHfNDUzLkv+fSdAPZ3F2
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-Here's some explanation as to why I think these types were coded up
-this way originally:
-http://marc.theaimsgroup.com/?l=linux-mm&m=109155379124628&w=2
+On Fri, 2004-08-27 at 14:49 -0700, Ronciak, John wrote:
+> Jamal, Thayne,
+> 
+> I've asked Jeff to go ahead and apply this patch as a way around this
+> for now.  We would liketo see the DITR stay but now have this
+> performacne problem so we don't want to rip it out.  We do however need
+> a test case to replicate this as we have not been seeing it in our
+> testing.  Please get us those case that break things.  We'll have a
+> better solution longer term based on the test cases (as well as the ones
+> we normally use of course).
 
-The attached patch make packet_opt->pg_vec a pointer to an array of
-char*'s instead of a pointer to an array of "unsigned longs" that 
-stored virtual addresses.  It also creates the inline function 
-pg_vec_endpage(), which hides the virt_to_page() call along with a
-little address arithmetic.
+Attached is an email that I sent out 2004 May 25.  The email is very
+detailed about what the problem is, how to test it, and an initial
+patch.  The email was sent to several addresses at Intel.  I later sent
+it to lkml and netdev.
 
-One slight oddity in the current code is this:
+There was almost no response at the time.  The best reply that I
+received from Intel was that the DITR was put in and calibrated
+according to a marketing benchmark program and that it wouldn't be
+changed even though tests (and customers) showed that the performance
+was *abysmal*.  It's also a big question what role DITR plays when it
+seems deprecated by NAPI.
 
-	pg_vec = kmalloc(req->tp_block_nr*sizeof(unsigned long*), GFP_KERNEL);
-	
-Since the previous code was storing virtual addresses in unsigned
-longs, it was actually trying to allocate an array of *them*, not
-of pointers to them.  Not that it matters in the end, but I _think_
-that type is technically incorrect.
+The response was disappointing.  I'm now wondering why this has now
+become interesting and the thread has resumed.  What's changed?  How did
+this catch someone's attention?  What can I do next time (hopefully that
+won't happen) so that people *do* take interest.
 
-I replaced it with this line:
+> 
+> > -----Original Message-----
+> > From: netdev-bounce@oss.sgi.com 
+> > [mailto:netdev-bounce@oss.sgi.com] On Behalf Of Thayne Harbaugh
+> > Sent: Thursday, August 26, 2004 2:29 PM
+> > To: Jeff Garzik
+> > Cc: hadi@cyberus.ca; Venkatesan, Ganesh; netdev@oss.sgi.com; 
+> > Feldman, Scott; Brandeburg, Jesse
+> > Subject: Re: [PATCH] abysmal e1000 performance (DITR)
+> > 
+> > 
+> > On Thu, 2004-08-26 at 16:26 -0400, Jeff Garzik wrote:
+> > > Thayne Harbaugh wrote:
+> > > > On Thu, 2004-08-26 at 13:55 -0400, jamal wrote:
+> > > > 
+> > > >>Ganesh,
+> > > >>
+> > > >>Can you please make this feature off by default and perhaps
+> > > >>accesible via ethtool for peopel who want to turn it on.
+> > > >>I just wasted a few hours and was bitten by this performance-wise.
+> > > >>Please consider disabling it.
+> > > > 
+> > > > 
+> > > > This is a *horrible* problem.  Even though it's fixable 
+> > by passing a
+> > > > module parameter, the default bites those that *know* 
+> > about it.  We have
+> > > > had customers bitten by this and customers that have insisted in
+> > > > swapping all the NICs in a cluster to Broadcom TG3 NICs.
+> > > > 
+> > > > It's a black eye for Intel and a loss of business - 
+> > that's the opinion
+> > > > of our customers.
+> > > 
+> > > 
+> > > If it's so bad we should disable it by default, either via 
+> > the module 
+> > > parameter or via a kernel CONFIG_xxx option.
+> > 
+> > Yes, it is so bad.  The dynamic interrupt setting should be deprecated
+> > by the use of NAPI.
+> > 
+> > This is a simple way to disable it, yet still keep the code so that
+> > someone can enable it if they really wanted it.  I, however, 
+> > would just
+> > as soon see all of the DITR code ripped out.
+> > 
+> > There are other ways that might be better for dealing with 
+> > it, yet still
+> > keeping the DITR code viable.
+> > 
+> > --- drivers/net/e1000/e1000_param.c.broken_ditr 2004-08-26 
+> > 15:40:34.436456736 -0600
+> > +++ drivers/net/e1000/e1000_param.c     2004-08-26 
+> > 15:49:07.186506880 -0600
+> > @@ -212,7 +212,7 @@
+> >  #define MAX_TXABSDELAY            0xFFFF
+> >  #define MIN_TXABSDELAY                 0
+> >   
+> > -#define DEFAULT_ITR                    1
+> > +#define DEFAULT_ITR                 8000
+> >  #define MAX_ITR                   100000
+> >  #define MIN_ITR                      100
+> >   
+> > 
+> > 
+> > 
+> > 
 
-	pg_vec = kmalloc(req->tp_block_nr*sizeof(char *), GFP_KERNEL);
-	
-because I actually want an array of pointers.  
+--=-FHfNDUzLkv+fSdAPZ3F2
+Content-Disposition: inline
+Content-Description: Attached message - abysmal e1000 performance (DITR)
+Content-Type: message/rfc822
 
-This shouldn't have any functional effect on the code.  I've been
-running with it for a few weeks with no problems.
+Subject: abysmal e1000 performance (DITR)
+From: Thayne Harbaugh <tharbaugh@lnxi.com>
+Reply-To: tharbaugh@lnxi.com
+To: linux-kernel@vger.kernel.org
+Content-Type: text/plain
+Organization: Linux Networx
+Message-Id: <1085504557.30156.59.camel@tubarao>
+Mime-Version: 1.0
+X-Mailer: Ximian Evolution 1.4.6 (1.4.6-2) 
+Date: Tue, 25 May 2004 11:02:37 -0600
+Bcc: linux.nics@intel.com
+X-Evolution-Transport: smtp://tharbaugh@ash.lnxi.com
+X-Evolution-Account: tharbaugh@lnxi.com
+X-Evolution-Fcc: file:///home/thayne/evolution/local/Sent
+X-Evolution-Format: text/plain
+Content-Transfer-Encoding: 7bit
 
-The alternative to reworking the types is to simply cast the argument
-to a void* before calling virt_to_page().
+The DITR (Dynamic Interrupt Throttle Rate) introduced in the 5.x version
+of the e1000 driver can limit performance to less than 50% of expected.
 
-Patched against 2.6.9-rc1-mm1 (but should apply to Linus's tree)
+I have two machines with secondary e1000 NICs directly connected (no
+switch).  I run a test using Netpipe
+(http://www.scl.ameslab.gov/netpipe/):
 
-Signed-off-by: Dave Hansen <haveblue@us.ibm.com>
----
+flu2:~ # /tmp/NPtcp -h 10.0.0.1
+Send and receive buffers are 16384 and 87380 bytes
+(A bug in Linux doubles the requested buffer sizes)
+Now starting the main loop
+  0:       1 bytes   4999 times -->      0.03 Mbps in     250.03 usec
+  1:       2 bytes    399 times -->      0.06 Mbps in     250.02 usec
+  2:       3 bytes    399 times -->      0.09 Mbps in     250.02 usec
 
- memhotplug-dave/net/packet/af_packet.c |   32 +++++++++++++++++++-------------
- 1 files changed, 19 insertions(+), 13 deletions(-)
+(mostly uninteresting lines)
 
-diff -puN net/packet/af_packet.c~A0-af_packet_to_voidstar net/packet/af_packet.c
---- memhotplug/net/packet/af_packet.c~A0-af_packet_to_voidstar	2004-08-27 14:06:54.000000000 -0700
-+++ memhotplug-dave/net/packet/af_packet.c	2004-08-27 14:06:54.000000000 -0700
-@@ -66,6 +66,7 @@
- #include <asm/uaccess.h>
- #include <asm/ioctls.h>
- #include <asm/page.h>
-+#include <asm/io.h>
- #include <linux/proc_fs.h>
- #include <linux/seq_file.h>
- #include <linux/poll.h>
-@@ -173,7 +174,7 @@ struct packet_opt
- {
- 	struct tpacket_stats	stats;
- #ifdef CONFIG_PACKET_MMAP
--	unsigned long		*pg_vec;
-+	char *			*pg_vec;
- 	unsigned int		head;
- 	unsigned int            frames_per_block;
- 	unsigned int		frame_size;
-@@ -198,15 +199,15 @@ struct packet_opt
+ 70:   24573 bytes    121 times -->    380.39 Mbps in     492.85 usec
+ 71:   24576 bytes    135 times -->    380.43 Mbps in     492.86 usec
+ 72:   24579 bytes    135 times -->    380.49 Mbps in     492.84 usec
+ 73:   32765 bytes     67 times -->    341.32 Mbps in     732.39 usec
+ 74:   32768 bytes     68 times -->    341.37 Mbps in     732.35 usec
+ 75:   32771 bytes     68 times -->    341.41 Mbps in     732.33 usec
+ 76:   49149 bytes     68 times -->    437.02 Mbps in     858.04 usec
+ 77:   49152 bytes     77 times -->    451.39 Mbps in     830.77 usec
+ 78:   49155 bytes     80 times -->    499.57 Mbps in     750.69 usec
+
+That's the best performance, but it drops back down.
+
+ 79:   65533 bytes     44 times -->    409.48 Mbps in    1221.00 usec
+ 80:   65536 bytes     40 times -->    409.42 Mbps in    1221.24 usec
+ 81:   65539 bytes     40 times -->    409.43 Mbps in    1221.28 usec
+
+Not much different.
+
+121: 8388605 bytes      3 times -->    379.88 Mbps in  168474.49 usec
+122: 8388608 bytes      3 times -->    411.24 Mbps in  155625.68 usec
+123: 8388611 bytes      3 times -->    395.81 Mbps in  161693.50 usec
+
+And there's the end.
+
+I would expect to see ~900 Mbps performance (in fact, a Broadcom tg3 NIC
+in the same machine gives the expected ~900 Mbps performance).  The
+older, 4.x e1000 series of drivers gives the ~900 Mbps performance as
+expected.  I have traced the abysmal performance to the DITR code.  I
+have added some output to the e1000_main.c:e1000_watchdog() section
+where the Dynamic interrupt is calculated and set.  It's interesting to
+note how the goc (good octet count) and the itr oscillate during the
+netpipe run (ritr is the real ITR setting that is written to the e1000
+ITR register):
+
+goc(18=9+9) dif(0) ritr(1953) DITR = 2000
+goc(0=0+0) dif(0) ritr(488) DITR = 8000
+goc(44=22+22) dif(0) ritr(1953) DITR = 2000
+goc(0=0+0) dif(0) ritr(488) DITR = 8000
+goc(54=27+27) dif(0) ritr(1953) DITR = 2000
+
+(many lines of oscillation and increased activity)
+
+goc(0=0+0) dif(0) ritr(488) DITR = 8000
+goc(10558=5299+5258) dif(41) ritr(1930) DITR = 2023
+goc(0=0+0) dif(0) ritr(488) DITR = 8000
+goc(9996=5228+4768) dif(459) ritr(1717) DITR = 2275
+goc(0=0+0) dif(0) ritr(488) DITR = 8000
+goc(11180=5378+5801) dif(422) ritr(1754) DITR = 2226
+goc(0=0+0) dif(0) ritr(488) DITR = 8000
+goc(10817=5304+5512) dif(208) ritr(1846) DITR = 2115
+
+
+It is very interesting to note that if the 5.x driver is loaded with
+InterruptThrottleRate=8000 (the default setting of the 4.x e1000 drivers
+- which also disables dynamic adjustment of the ITR) then performance is
+~900 Mbps:
+
+119: 6291456 bytes      3 times -->    891.33 Mbps in   53851.83 usec
+120: 6291459 bytes      3 times -->    891.34 Mbps in   53851.35 usec
+121: 8388605 bytes      3 times -->    895.99 Mbps in   71429.49 usec
+122: 8388608 bytes      3 times -->    881.12 Mbps in   72634.50 usec
+123: 8388611 bytes      3 times -->    885.65 Mbps in   72263.48 usec
+
+My assessment for the poor performance using is DITR is that this
+reduces load on the box by limiting interrupts while increasing latency
+to service the packets.  The problem is that this is done irrespective
+of the actual load on the system and thus results in gratuitous latency
+being added.  In other words: why limit the interrupts and reduce the
+load on the system when the system isn't loaded and has nothing better
+to do?  This kills performance on systems that have plenty of horsepower
+to handle their load as well as service interrupts.
+
+I recommend that the DITR formula should use the system load to scale
+the 6000/2000 split, and/or that the 8000 ITR setting be the default and
+the dynamic setting of ITR=1 be the option.
+
+--- linux/drivers/net/e1000/e1000_param.c.orig	2004-05-25
+18:05:10.000000000 -0700
++++ linux/drivers/net/e1000/e1000_param.c	2004-05-25 18:05:26.000000000
+-0700
+@@ -224,7 +224,7 @@
+ #define MAX_TXABSDELAY            0xFFFF
+ #define MIN_TXABSDELAY                 0
  
- #ifdef CONFIG_PACKET_MMAP
+-#define DEFAULT_ITR                    1
++#define DEFAULT_ITR                 8000
+ #define MAX_ITR                   100000
+ #define MIN_ITR                      100
  
--static inline unsigned long packet_lookup_frame(struct packet_opt *po, unsigned int position)
-+static inline char *packet_lookup_frame(struct packet_opt *po, unsigned int position)
- {
- 	unsigned int pg_vec_pos, frame_offset;
--	unsigned long frame;
-+	char *frame;
- 
- 	pg_vec_pos = position / po->frames_per_block;
- 	frame_offset = position % po->frames_per_block;
- 
--	frame = (unsigned long) (po->pg_vec[pg_vec_pos] + (frame_offset * po->frame_size));
-+	frame = po->pg_vec[pg_vec_pos] + (frame_offset * po->frame_size);
- 	
- 	return frame;
- }
-@@ -1549,7 +1550,12 @@ static struct vm_operations_struct packe
- 	.close =packet_mm_close,
- };
- 
--static void free_pg_vec(unsigned long *pg_vec, unsigned order, unsigned len)
-+static inline struct page *pg_vec_endpage(char *one_pg_vec, unsigned int order)
-+{
-+	return virt_to_page(one_pg_vec + (PAGE_SIZE << order) - 1);
-+}
-+
-+static void free_pg_vec(char **pg_vec, unsigned order, unsigned len)
- {
- 	int i;
- 
-@@ -1557,10 +1563,10 @@ static void free_pg_vec(unsigned long *p
- 		if (pg_vec[i]) {
- 			struct page *page, *pend;
- 
--			pend = virt_to_page(pg_vec[i] + (PAGE_SIZE << order) - 1);
-+			pend = pg_vec_endpage(pg_vec[i], order);
- 			for (page = virt_to_page(pg_vec[i]); page <= pend; page++)
- 				ClearPageReserved(page);
--			free_pages(pg_vec[i], order);
-+			free_pages((unsigned long)pg_vec[i], order);
- 		}
- 	}
- 	kfree(pg_vec);
-@@ -1569,7 +1575,7 @@ static void free_pg_vec(unsigned long *p
- 
- static int packet_set_ring(struct sock *sk, struct tpacket_req *req, int closing)
- {
--	unsigned long *pg_vec = NULL;
-+	char **pg_vec = NULL;
- 	struct packet_opt *po = pkt_sk(sk);
- 	int was_running, num, order = 0;
- 	int err = 0;
-@@ -1604,18 +1610,18 @@ static int packet_set_ring(struct sock *
- 
- 		err = -ENOMEM;
- 
--		pg_vec = kmalloc(req->tp_block_nr*sizeof(unsigned long*), GFP_KERNEL);
-+		pg_vec = kmalloc(req->tp_block_nr*sizeof(char *), GFP_KERNEL);
- 		if (pg_vec == NULL)
- 			goto out;
--		memset(pg_vec, 0, req->tp_block_nr*sizeof(unsigned long*));
-+		memset(pg_vec, 0, req->tp_block_nr*sizeof(char **));
- 
- 		for (i=0; i<req->tp_block_nr; i++) {
- 			struct page *page, *pend;
--			pg_vec[i] = __get_free_pages(GFP_KERNEL, order);
-+			pg_vec[i] = (char *)__get_free_pages(GFP_KERNEL, order);
- 			if (!pg_vec[i])
- 				goto out_free_pgvec;
- 
--			pend = virt_to_page(pg_vec[i] + (PAGE_SIZE << order) - 1);
-+			pend = pg_vec_endpage(pg_vec[i], order);
- 			for (page = virt_to_page(pg_vec[i]); page <= pend; page++)
- 				SetPageReserved(page);
- 		}
-@@ -1623,7 +1629,7 @@ static int packet_set_ring(struct sock *
- 
- 		l = 0;
- 		for (i=0; i<req->tp_block_nr; i++) {
--			unsigned long ptr = pg_vec[i];
-+			char *ptr = pg_vec[i];
- 			struct tpacket_hdr *header;
- 			int k;
- 
-_
+
+
+-- 
+Thayne Harbaugh
+Linux Networx
+
+--=-FHfNDUzLkv+fSdAPZ3F2--
