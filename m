@@ -1,51 +1,169 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] (1/5) get rid of useless hashbin in irtty
-Date: Mon, 18 Aug 2003 09:03:13 -0700
+From: Tommi Virtanen <tv@debian.org>
+Subject: Re: [PATCH] Change MAC without bringing interface down
+Date: Mon, 18 Aug 2003 19:04:22 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030818090313.7f153d7a.shemminger@osdl.org>
-References: <20030815154608.56cf0551.shemminger@osdl.org>
-	<20030815230546.GA31831@bougret.hpl.hp.com>
-	<20030816052048.5858d68a.davem@redhat.com>
-	<20030817001405.GA1916@bougret.hpl.hp.com>
-	<20030816175851.58a2c179.davem@redhat.com>
-	<20030817011131.GA2120@bougret.hpl.hp.com>
+Message-ID: <20030818160422.GB1793@lapdog>
+References: <20030818091312.GA4889@lapdog> <20030818041911.358c3437.davem@redhat.com> <1061208824.16010.2119.camel@jzny.localdomain> <20030818051227.4f35f2f3.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jt@bougret.hpl.hp.com, "David S. Miller" <davem@redhat.com>,
-   irda-users@lists.sourceforge.net, netdev@oss.sgi.com, lists@mdiehl.de
+Content-Type: text/plain; charset=us-ascii
+Cc: hadi@cyberus.ca, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jt@hpl.hp.com
-In-Reply-To: <20030817011131.GA2120@bougret.hpl.hp.com>
+To: "David S. Miller" <davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20030818051227.4f35f2f3.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 16 Aug 2003 18:11:31 -0700
-Jean Tourrilhes <jt@bougret.hpl.hp.com> wrote:
+On Mon, Aug 18, 2003 at 05:12:27AM -0700, David S. Miller wrote:
+> There is another reason I want the cache flushed.
 
-> On Sat, Aug 16, 2003 at 05:58:51PM -0700, David S. Miller wrote:
-> > On Sat, 16 Aug 2003 17:14:05 -0700
-> > Jean Tourrilhes <jt@bougret.hpl.hp.com> wrote:
-> > 
-> > > 	Curently driver do work properly (including SMP).
-> > 
-> > Users can hold onto procfs files after the driver
-> > modules are unloaded.  For example:
-> > 
-> > rmmod eth0 </proc/sys/net/ipv4/eth0/whatever
-> > 
-> > If IRDA creates any procfs files for devices that are
-> > registered, you have this problem too.
-> > 
-> > This is not fixable without first making sure every net driver in the
-> > entire tree abides by a few rules, and that is what Stephen is doing.
-> 
-> 	No problem, it's just that with the total lack of testing of
-> IrDA in 2.6.0, I'm a bit nervous, as always. Would it be possible for
-> Stephen to use some real IrDA hardware so that he can double check
-> what he is doing ?
-> 	Have fun...
+	Alright, here's an implementation that does that.
+	Please comment.
 
-I have some, but haven't used it so far.
-For the load/unload testing, it is possible to setup irtty (and irlan)
-without real hardware.  So far, haven't had to change the hardware drivers.
+	A single flood ping from uml->host survives MAC
+	changes perfectly without dropping a single packet.
+	(Can't test realworld performance right now.)
+
+	Note I had to flush the route cache also, that was
+	tricking me previously. Clearing neigh_table isn't
+	enough, as the hh is reached from dst_entries also.
+
+===== include/net/neighbour.h 1.1 vs edited =====
+--- 1.1/include/net/neighbour.h	Tue Feb  5 19:39:48 2002
++++ edited/include/net/neighbour.h	Mon Aug 18 18:52:30 2003
+@@ -180,6 +180,7 @@
+ extern void			neigh_destroy(struct neighbour *neigh);
+ extern int			__neigh_event_send(struct neighbour *neigh, struct sk_buff *skb);
+ extern int			neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new, int override, int arp);
++extern void			neigh_changeaddr(struct neigh_table *tbl, struct net_device *dev);
+ extern int			neigh_ifdown(struct neigh_table *tbl, struct net_device *dev);
+ extern int			neigh_resolve_output(struct sk_buff *skb);
+ extern int			neigh_connected_output(struct sk_buff *skb);
+===== net/core/neighbour.c 1.9 vs edited =====
+--- 1.9/net/core/neighbour.c	Thu Jun 12 09:24:41 2003
++++ edited/net/core/neighbour.c	Mon Aug 18 18:52:41 2003
+@@ -50,6 +50,7 @@
+ static void neigh_app_notify(struct neighbour *n);
+ #endif
+ static int pneigh_ifdown(struct neigh_table *tbl, struct net_device *dev);
++void neigh_changeaddr(struct neigh_table *tbl, struct net_device *dev);
+ 
+ static int neigh_glbl_allocs;
+ static struct neigh_table *neigh_tables;
+@@ -167,6 +168,33 @@
+ 		dev_put(skb->dev);
+ 		kfree_skb(skb);
+ 	}
++}
++
++void neigh_changeaddr(struct neigh_table *tbl, struct net_device *dev)
++{
++	int i;
++
++	write_lock_bh(&tbl->lock);
++
++	for (i=0; i<=NEIGH_HASHMASK; i++) {
++		struct neighbour *n, **np;
++
++		np = &tbl->hash_buckets[i];
++		while ((n = *np) != NULL) {
++			if (dev && n->dev != dev) {
++				np = &n->next;
++				continue;
++			}
++			*np = n->next;
++			write_lock_bh(&n->lock);
++			n->dead = 1;
++			neigh_del_timer(n);
++			write_unlock_bh(&n->lock);
++			neigh_release(n);
++		}
++	}
++
++        write_unlock_bh(&tbl->lock);
+ }
+ 
+ int neigh_ifdown(struct neigh_table *tbl, struct net_device *dev)
+===== net/ipv4/arp.c 1.11 vs edited =====
+--- 1.11/net/ipv4/arp.c	Fri Jun 27 09:03:01 2003
++++ edited/net/ipv4/arp.c	Mon Aug 18 18:51:10 2003
+@@ -1212,6 +1212,28 @@
+ }
+ #endif
+ 
++static int arp_netdev_event(struct notifier_block *this, unsigned long event, void *ptr)
++{
++	struct net_device *dev = ptr;
++
++	switch (event) {
++	case NETDEV_CHANGEADDR:
++		neigh_changeaddr(&arp_tbl, dev);
++		rt_cache_flush(0);
++		break;
++	default:
++		break;
++	}
++
++	return NOTIFY_DONE;
++}
++
++struct notifier_block arp_netdev_notifier = {
++	arp_netdev_event,
++	NULL,
++	0
++};
++
+ /* Note, that it is not on notifier chain.
+    It is necessary, that this routine was called after route cache will be
+    flushed.
+@@ -1243,6 +1265,7 @@
+ #ifdef CONFIG_SYSCTL
+ 	neigh_sysctl_register(NULL, &arp_tbl.parms, NET_IPV4, NET_IPV4_NEIGH, "ipv4");
+ #endif
++	register_netdevice_notifier(&arp_netdev_notifier);
+ }
+ 
+ 
+===== net/ipv6/ndisc.c 1.22 vs edited =====
+--- 1.22/net/ipv6/ndisc.c	Tue Jun 24 02:21:28 2003
++++ edited/net/ipv6/ndisc.c	Mon Aug 18 18:51:40 2003
+@@ -1336,6 +1336,28 @@
+ 	return 0;
+ }
+ 
++static int ndisc_netdev_event(struct notifier_block *this, unsigned long event, void *ptr)
++{
++	struct net_device *dev = ptr;
++
++	switch (event) {
++	case NETDEV_CHANGEADDR:
++		neigh_changeaddr(&nd_tbl, dev);
++		rt_cache_flush(0);
++		break;
++	default:
++		break;
++	}
++
++	return NOTIFY_DONE;
++}
++
++struct notifier_block ndisc_netdev_notifier = {
++	ndisc_netdev_event,
++	NULL,
++	0
++};
++
+ int __init ndisc_init(struct net_proto_family *ops)
+ {
+ 	struct sock *sk;
+@@ -1377,6 +1399,7 @@
+ 	neigh_sysctl_register(NULL, &nd_tbl.parms, NET_IPV6, NET_IPV6_NEIGH, "ipv6");
+ #endif
+ 
++	register_netdevice_notifier(&ndisc_netdev_notifier);
+ 	return 0;
+ }
+ 
+
+-- 
+:(){ :|:&};:
