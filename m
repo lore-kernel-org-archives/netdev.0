@@ -1,50 +1,78 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [RFC/PATCH] IMQ port to 2.6
-Date: 31 Jan 2004 16:49:24 -0500
+From: "D. Hugh Redelmeier" <hugh@mimosa.com>
+Subject: adding a new card to 8139too
+Date: Sat, 31 Jan 2004 17:58:43 -0500 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1075585764.1035.192.camel@jzny.localdomain>
-References: <20040126001102.GA12303@usr.lcm.msu.ru>
-	 <1075086588.1732.221.camel@jzny.localdomain>
-	 <20040126093230.GA17811@usr.lcm.msu.ru>
-	 <1075124312.1732.292.camel@jzny.localdomain>
-	 <20040126135545.GA19497@usr.lcm.msu.ru>
-	 <1075127396.1746.370.camel@jzny.localdomain>
-	 <20040131185231.GA2608@usr.lcm.msu.ru>
-	 <1075580812.1035.83.camel@jzny.localdomain>
-	 <20040131205326.GA3089@usr.lcm.msu.ru>
-	 <1075584318.1033.159.camel@jzny.localdomain>
-	 <20040131213236.GA3451@usr.lcm.msu.ru>
-Reply-To: hadi@cyberus.ca
+Message-ID: <Pine.LNX.4.44.0401311738130.12810-100000@redshift.mimosa.com>
+Reply-To: "D. Hugh Redelmeier" <hugh@mimosa.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Vladimir B. Savkin" <master@sectorb.msk.ru>
-In-Reply-To: <20040131213236.GA3451@usr.lcm.msu.ru>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2004-01-31 at 16:32, Vladimir B. Savkin wrote:
+I have a Compaq HNE-300, a 10/100 ethernet CardBus adapter.
 
+The 8139too driver does not support this card but it is an easy matter
+to make the driver do so: just add an entry to each of three tables.
+I figured this out by looking at Donald Becker's driver.  I've
+confirmed this by testing it on a Red Hat Linux 9 kernel.
 
-> Yes, if you define "flow" as all traffic to one client.
->
-> Actually, I use two-level hierarchy: in every flow in above sense
-> each micro-flow receives a fair amount of bandwidth (approximatly,
-> using sfq).
+I would like to get this adopted upstream so that I don't have to keep
+building my own kernels.
 
-Ok. 
+I've submitted a tracker item to the official 8139too home page, but
+that has gotten no attention:
+	<http://sourceforge.net/tracker/index.php?func=detail&aid=829125&group_id=3242&atid=303242>
 
-> > [This can only be achieved by a non-work conserving scheduler].
-> 
-> Yes.
+I've submitted a bug report to Red Hat, but that has gotten no
+attention:
+	<http://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=107850>
 
-Still a few rough edges, so bear with me:
-Would you not be able to achieve the same if you used the marking scheme
-i described earlier on eth0 and used HTB or HFSC or CBQ (as non-work
-conserving) on eth1/2? I was suggesting prio before and you pointed you
-the queues will never be full for that to have any value. 
+Any suggestions on what I should do?
 
-cheers,
-jamal
+Although the Red Hat kernel version, the Source Forge version, and the
+kernel.org 2.4.24 version of the driver claim to be DRV_VERSION
+0.9.26, there are significant differences between them.  None supports
+my card, as far as I can tell.
+
+I've not tested this on a kernal.org 2.4 kernel.  It would take me a
+bit of work to do so (the notebook with the card is in a different
+city).
+
+Here is the patch to 8139too.c that works for me on Red Hat Linux 9:
+
+===================================================================
+RCS file: RCS/8139too.c,v
+retrieving revision 1.1
+diff -u -r1.1 8139too.c
+--- 8139too.c	2003/10/22 16:55:51	1.1
++++ 8139too.c	2003/10/22 16:59:37
+@@ -223,6 +223,7 @@
+ 	RTL8129,
+ 	FNW3603TX,
+ 	FNW3800TX,
++	HNE300,
+ } board_t;
+ 
+ 
+@@ -244,6 +245,7 @@
+ 	{ "RealTek RTL8129", RTL8129_CAPS },
+ 	{ "Planex FNW-3603-TX 10/100 CardBus", RTL8139_CAPS },
+ 	{ "Planex FNW-3800-TX 10/100 CardBus", RTL8139_CAPS },
++	{ "Compaq iPaq HNE-300 CardBus (RealTek RTL8139c)", RTL8139_CAPS },
+ };
+ 
+ 
+@@ -260,6 +262,7 @@
+ 	{0x1259, 0xa117, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ALLIED8139 },
+ 	{0x14ea, 0xab06, PCI_ANY_ID, PCI_ANY_ID, 0, 0, FNW3603TX },
+ 	{0x14ea, 0xab07, PCI_ANY_ID, PCI_ANY_ID, 0, 0, FNW3800TX },
++	{0x021b, 0x8139, PCI_ANY_ID, PCI_ANY_ID, 0, 0, HNE300 },
+ 
+ #ifdef CONFIG_8139TOO_8129
+ 	{0x10ec, 0x8129, PCI_ANY_ID, PCI_ANY_ID, 0, 0, RTL8129 },
+================ end ================
+
+Hugh Redelmeier
+hugh@mimosa.com  voice: +1 416 482-8253
