@@ -1,120 +1,122 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: netif_rx packet dumping
-Date: 07 Mar 2005 08:55:11 -0500
-Message-ID: <1110203711.1088.1393.camel@jzny.localdomain>
-References: <20050303123811.4d934249@dxpl.pdx.osdl.net>
-	 <20050303125556.6850cfe5.davem@davemloft.net>
-	 <1109884688.1090.282.camel@jzny.localdomain>
-	 <20050303132143.7eef517c@dxpl.pdx.osdl.net>
-	 <1109885065.1098.285.camel@jzny.localdomain>
-	 <20050303133237.5d64578f.davem@davemloft.net>
-	 <20050303135416.0d6e7708@dxpl.pdx.osdl.net>
-	 <Pine.LNX.4.58.0503031657300.22311@tesla.psc.edu>
-	 <1109888811.1092.352.camel@jzny.localdomain>
-	 <20050303151606.3587394f@dxpl.pdx.osdl.net>  <4227A23C.5050300@ev-en.org>
-	 <1109907956.1092.476.camel@jzny.localdomain>  <42282098.8010506@ev-en.org>
-Reply-To: hadi@cyberus.ca
+From: Mark Smith <random@72616e646f6d20323030342d30342d31360a.nosense.org>
+Subject: Re: bridge between ppp and ethernet - 1 IP address and assign it to
+ another host
+Date: Tue, 8 Mar 2005 00:26:43 +1030
+Message-ID: <20050308002643.7eac84e7.random@72616e646f6d20323030342d30342d31360a.nosense.org>
+References: <20050306153108.20430b58.random@72616e646f6d20323030342d30342d31360a.nosense.org>
+	<1110199198.1094.1282.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>, John Heffner <jheffner@psc.edu>,
-        "David S. Miller" <davem@davemloft.net>, rhee@eos.ncsu.edu,
-        Yee-Ting.Li@nuim.ie, netdev@oss.sgi.com
-To: Baruch Even <baruch@ev-en.org>
-In-Reply-To: <42282098.8010506@ev-en.org>
+Cc: ahu@ds9a.nl, netdev@oss.sgi.com
+To: hadi@cyberus.ca
+In-Reply-To: <1110199198.1094.1282.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2005-03-04 at 03:47, Baruch Even wrote:
-> jamal wrote:
+On 07 Mar 2005 07:39:59 -0500
+jamal <hadi@cyberus.ca> wrote:
 
-> > Can you explain a little more? Why does the the throttling cause any
-> > bad behavior thats any different from the queue being full? In both
-> > cases, packets arriving during that transient will be dropped.
+Hi Jamal, Bert,
+
+(Bert, sorry for calling you Ben earlier, I must have got a bit
+distracted between seeing your name on a web page, and typing it on my
+email client)
+
+I'm fairly confident that broadly I'm thinking about the same way as
+Bert, although as I'm about to go into some detail, it might turn out we
+have slightly different ideas.
+
 > 
-> If you have 300 packets in the queue and the throttling kicks in you now 
-> drop ALL packets until the queue is empty, this will normally take some 
-> time, during all of this time you are dropping all the ACKs that are 
-> coming in, you lose SACK information and potentially you leave no packet 
-> in flight so that the next packet will be sent only due to retransmit 
-> timer waking up, at which point your congestion control algorithm starts
-> from cwnd=1.
-> 
-> You can look at the report http://hamilton.ie/net/LinuxHighSpeed.pdf for 
-> some graphs of the effects.
-> 
+> I actually havent quiet figured what you guys are talking about.
+> Did i misunderstand or is it as simple as having ethernet on one (LAN)
+> side and ppp on other (wan) side?
+>
 
-Always cool to see some test running across the pond. 
+Not quite that simple. It's sort of "half routing" / "half bridging".
 
-Were the processors tied to NICs? 
-Your experiment is more than likely a single flow, correct?
-In other words the whole queue was infact dedicated just for your one
-flow - thats why you can call this queue a transient burst queue. 
-Do you still have the data that shows how many packets were dropped
-during this period. Do you still have the experimental data? I am
-particulary interested in seeing the softnet stats as well as tcp
-netstats.
+The Linux box terminates the PPP connection, including performing
+authentication and aquisition of a /32 IP address from the service
+providers PPP server - a typical point-to-point scenario. However,
+rather than considering that IP address to now be a local address on the
+Linux host, it is then allocated to the Windows (for e.g.) box ie. on
+the Window's box's ethernet interface, the IP address is assigned. One
+possiblity would be for the Linux box to issue the IP address to the
+Windows box via DHCP. The Windows box's default gateway would be remote
+PPP endpoint IP address, which means that the Linux box would also have
+to perform Proxy ARP for that remote IP address on it's windows facing
+ethernet interface. 
 
-I think your main problem was the huge amounts of SACK on the writequeue
-and the resultant processing i.e section 1.1 and how you resolved that.
-I dont see any issue in dropping ACKs, many of them even for such large
-windows as you have - TCPs ACKs are cummulative. It is true if you drop
-"large" enough amounts of ACKS, you will end up in timeouts - but large
-enough in your case must be in the minimal 1000 packets. And to say you
-dropped a 1000 packets while processing 300 means you were taking too
-long processing the 300. So it would be interesting to see a repeat of
-the test after youve resolved 1.1 but without removing the congestion
-code. 
-Then what would be really interesting is to see the perfomance you get
-from multiple flows with and without congestion. 
-I am not against a the benchmarky nature of the single flow and tuning
-for that, but we should also look at a wider scope at the effect before
-you handwave based on the result of one testcase.
-Infact i would agree with giving you a way to turn off the congestion
-control - and i am not sure how long we should keep it around with NAPI
-getting more popular.. I will prepare a simple patch.
-What you really need to do eventually is use NAPI not these antiquated
-schemes.
+(I'm not sure if there would be issues with the default gateway on the
+Windows box not being part of the same IP subnet that the allocated IP
+address is, maybe that would be solved by assigning a /32 mask to the IP
+address on the windows box, or possibly have DHCP configure a host route
+on the Windows box for the default gateway, pointing out the ethernet
+interface, so that it ARPs for the default gateway address, which the
+Proxy ARP on the Linux box would receive. It would be interesting to see
+what the DSL modems that do this trick do on the devices sitting behind
+them.).
 
-I am also worried that since you used a non-NAPI driver, the effect of
-reordering necessitating the UNDO is much much higher.
-So if i was you i would repeat 1.2 with the fix from 1.1 as well as
-tying the NIC to one CPU. And it would be a good idea to present more
-detailed results - not just tcp windows fluctuating (you may not need
-them for the paper, but would be useful to see for debugging purposes
-other parameters).
- 
-> >>the smart schemes are not going to make it that much better if 
-> >>the hardware/software can't keep up.
-> > 
-> > consider that this queue could be shared by as many as a few thousand
-> > unrelated TCP flows - not just one. It is also used for packets being
-> > forwarded. If you factor that the system has to react to protect itself
-> > then these schemes may make sense. The best place to do it is really in
-> > hardware, but the closer to the hardware as possible is the next besr
-> > possible spot. 
-> 
-> Actually the problem we had was with TCP end-system performance 
-> problems, compared to them the router problem is more limited since it 
-> only needs to do a lookup on a hash, tree or whatever and not a linked 
-> list of several thousand packets.
-> 
+Here is the path an incoming and outgoing IP packets would follow,
+adding in my firewalling suggestion :
 
-I am not sure i followed. If you mean routers dont use linked lists
-you are highly mistaken.
+1) IP packet comes in encapsulated in PPP.
 
-> I'd prefer avoiding an AFQ scheme in the incoming queue, if you do add 
-> one, please make it configurable so I can disable it. The drop-tail 
-> behaviour is good enough for me. Remember that an AFQ needs to drop 
-> packets long before the queue is full so there will likely be more 
-> losses involved.
+2) The Linux box decapsulates it from the PPP header / trailer.
 
-What i was suggesting to Stephen would probably make more sense to kick
-in when theres congestion. weighted windowing allows to sense things
-that are coming; so the idea was to more not allow new flows once the 
-we are congested. 
-Just Use NAPI driver and you wont have to worry about this.
+3) The Linux box performs layer 3 firewalling processing against the IP
+packet.
 
-cheers,
-jamal
+4) If the IP packet passes the firewall rules, it is then encapsulated
+in an ethernet frame, and sent to the Windows box. This might be achived
+by configuring a host route for the IP address on the Linux box,
+pointing directly to the ethernet interface, indicating it is directly
+attached.
+
+5) The windows box does what ever it wants with the IP packet, as normal.
+
+6) The windows box sends a IP packet back, encapsulated in the ethernet
+frame, via it's default gateway, which would be the Linux box Proxy
+ARP'ing for the IP address of the remote PPP endpoint IP address.
+
+7) The Linux box receives the IP packet, decapsulates it, and then
+passes it through the layer 3 outgoing firewalling rules again.
+
+8) If it passes those, it is then encapsulated in PPP, and off it goes.
+
+The role the Linux box would be performing would be PPP session
+termination, layer 3 firewalling and layer 2 style forwarding between
+its ethernet and PPP interfaces.
+
+Actually, what I've just described is quite similar to translational
+bridging eg 802.5 (Token Ring) <-> 802.3 (Ethernet), with a bit of layer
+3 processing ie. the firewalling occuring during the translation between
+the layer 2 frame formats. The reason why it isn't quite translational
+bridging is that PPP doesn't really have layer 2 addresses at all, so
+the ethernet device can't specify a destination address in its header of
+the PPP remote endpoint layer 2 address, which is why the Linux box has
+to act as a Proxy for ARPs for the IP address of the remote end. In a TR
+<-> Eth translation scenario, TR and Eth use compatible IEEE MAC
+addresses, so the ethernet device can be fooled into believing it is
+talking to another ethernet device, and vice versa, with a device in
+between performing frame translation.
+
+pppd already supports the Proxy ARP facility, although it is commonly
+used to make a PPP connected remote PC appear on the local LAN where the
+PPPD server is located. In the above scenario, Proxy ARP would be making
+the remote router (ie. default getway) appear on the local LAN that the
+Windows PC is attached to.
+
+
+Hopefully that all makes sense ! If it doesn't, please ask, I'll work
+out another way to explain it, or go into more detail.
+
+Regards,
+Mark.
+
+
+
+-- 
+
+    The Internet's nature is peer to peer.
