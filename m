@@ -1,73 +1,64 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] don't allow / in class device names
-Date: Fri, 13 Feb 2004 10:27:55 -0800
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: sysctl variable to force IGMP version [PATCH]
+Date: Fri, 13 Feb 2004 10:31:54 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040213102755.27cf4fcd.shemminger@osdl.org>
+Message-ID: <OF530A0FD3.685C9BE8-ON88256E39.0064C761-88256E39.00658CC3@us.ibm.com>
+References: <20040213135020.fd1564f%hibi665@oki.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Leann Ogasawara <ogasawara@osdl.org>, netdev@oss.sgi.com,
-        linux-kernel@vger.kernel.org
+Content-Type: multipart/alternative;
+	Boundary="0__=07BBE4AADFF741F18f9e8a93df938690918c07BBE4AADFF741F1"
+Cc: davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Tommi Virtanen <tv@tv.debian.net>, Greg KH <greg@kroah.com>
+In-Reply-To: <20040213135020.fd1564f%hibi665@oki.com>
+To: Takashi Hibi <hibi665@oki.com>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+--0__=07BBE4AADFF741F18f9e8a93df938690918c07BBE4AADFF741F1
+Content-type: text/plain; charset=US-ASCII
 
-> [0 tv@tao /sys/class/misc]$ uname -a
-> Linux tao 2.6.2-rc2 #6 Mon Jan 26 10:54:50 EET 2004 i686 GNU/Linux
-> [0 tv@tao /sys/class/misc]$ echo *
-> intermezzo net/tun psaux rtc uinput
-> [0 tv@tao /sys/class/misc]$
->
-> Seems like that's all because of this:
->
-> static struct miscdevice tun_miscdev = {
->         .minor = TUN_MINOR,
->         .name = "net/tun",
->         .fops = &tun_fops
-> };
->
-> Name is apparently meant to be a filename, not a path.
-> Don't know what should be done to it; maybe
->
-> static struct miscdevice tun_miscdev = {
->         .minor = TUN_MINOR,
->         .name = "tun",
->         .fops = &tun_fops,
->         .devfs_name = "misc/net/tun",
-> };
->
-> But I havent tried that out.
->
-> I'd suggest this, to flush out all the problems. Later,
-> it can be changed to return -EINVAL or BUG_ON.
->
-> --- 1.26/drivers/char/misc.c    Thu Jan 15 13:05:56 2004
-> +++ edited/misc.c       Fri Feb 13 19:35:45 2004
-> @@ -212,6 +212,9 @@
->  int misc_register(struct miscdevice * misc)
->  {
->         struct miscdevice *c;
-> +
-> +       if (misc->name && strchr(misc->name, '/'))
-> +         printk("%s: name contains slash when registering %s.\n", __func__, misc->name);
->
->         down(&misc_sem);
->         list_for_each_entry(c, &misc_list, list) {
->
-Don't fix it just for misc_register, the fix needs to go into class_device.
 
-diff -Nru a/drivers/base/class.c b/drivers/base/class.c
---- a/drivers/base/class.c	Fri Feb 13 10:23:36 2004
-+++ b/drivers/base/class.c	Fri Feb 13 10:23:36 2004
-@@ -281,7 +281,8 @@
- 	int error;
- 
- 	class_dev = class_device_get(class_dev);
--	if (!class_dev || !strlen(class_dev->class_id))
-+	if (!class_dev || !strlen(class_dev->class_id) 
-+	    || strchr(class_dev->class_id, '/'))
- 		return -EINVAL;
- 
- 	parent = class_get(class_dev->class);
+
+
+
+Takashi-san,
+
+> Do you have a plan to make a patch to force the MLD version?
+> I think it is also helpful.
+
+      I didn't plan on it. Forcing IGMPv2 is needed for some
+switches that do IGMP snooping and don't understand IGMPv3, but
+I'm not aware of any switches that do MLD snooping.
+      I'd hope even the IGMP-forcing sysctl would be unneeded
+within a couple years. It should be unnecessary already when a
+multicast router using IGMPv2 is present.
+
+      Do you have a particular need for it for MLDv1? It's an
+easy patch, but if it doesn't solve any real problem, I'd say
+it shouldn't be done.
+
+                              +-DLS
+--0__=07BBE4AADFF741F18f9e8a93df938690918c07BBE4AADFF741F1
+Content-type: text/html; charset=US-ASCII
+Content-Disposition: inline
+
+<html><body>
+<p><tt>Takashi-san,</tt><br>
+<br>
+<tt>&gt; Do you have a plan to make a patch to force the MLD version?<br>
+&gt; I think it is also helpful.<br>
+</tt><br>
+<tt>	I didn't plan on it. Forcing IGMPv2 is needed for some</tt><br>
+<tt>switches that do IGMP snooping and don't understand IGMPv3, but</tt><br>
+<tt>I'm not aware of any switches that do MLD snooping.</tt><br>
+<tt>	I'd hope even the IGMP-forcing sysctl would be unneeded</tt><br>
+<tt>within a couple years. It should be unnecessary already when a</tt><br>
+<tt>multicast router using IGMPv2 is present.</tt><br>
+<br>
+<tt>	Do you have a particular need for it for MLDv1? It's an</tt><br>
+<tt>easy patch, but if it doesn't solve any real problem, I'd say</tt><br>
+<tt>it shouldn't be done.</tt><br>
+<br>
+<tt>					+-DLS</tt></body></html>
+--0__=07BBE4AADFF741F18f9e8a93df938690918c07BBE4AADFF741F1--
