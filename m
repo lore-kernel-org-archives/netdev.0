@@ -1,16 +1,30 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Happy T-giving...
-Date: Wed, 26 Nov 2003 15:12:12 -0500
+From: David Dillow <dave@thedillows.org>
+Subject: [BK] Typhoon (3CR990) updates for 2.4
+Date: 26 Nov 2003 23:08:59 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3FC5091C.30705@pobox.com>
+Message-ID: <1069906138.4552.4.camel@ori.thedillows.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Just FYI, patches sent through Sunday of this week will be delayed due 
-to holidays.  There appears to be pending stuff from Francois, 
-shemminger, and others at the moment...
+Jeff, please do a
+
+bk pull http://typhoon.bkbits.net/typhoon-2.4
+
+This will update the following files:
+
+drivers/net/typhoon.c |   97 ++++++++++++++++++++++++++++++++++++++++--
+1 files changed, 78 insertions(+), 19 deletions(-)
+
+through these ChangeSets:
+
+<dave@thedillows.org> (03/11/25 1.1063.47.1)
+   Bug fixes:
+   * Avoid short timeouts when waiting for a reset
+   * Support newer versions of the sleep image
+   * Fix link status reporting
