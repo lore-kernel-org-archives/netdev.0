@@ -1,47 +1,30 @@
-From: Chris Wright <chrisw@osdl.org>
-Subject: Re: [RFC] SO_PEERSEC - security credentials for Unix stream sockets
-Date: Mon, 15 Dec 2003 17:32:41 -0800
-Sender: linux-security-module-bounces@wirex.com
-Message-ID: <20031215173241.B14552@osdlab.pdx.osdl.net>
-References: <20031212161617.C24246@osdlab.pdx.osdl.net>
-	<Xine.LNX.4.44.0312122219530.4813-100000@thoron.boston.redhat.com>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: Re: [BUG] can't unload network device's if IPV6 is loaded
+Date: Tue, 16 Dec 2003 12:55:25 +0900 (JST)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20031216.125525.119981521.yoshfuji@linux-ipv6.org>
+References: <20031211153334.0c59214b.shemminger@osdl.org>
+	<1071467514.3219.11.camel@mentor.gurulabs.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>, kuznet@ms2.inr.ac.ru,
-	linux-security-module@wirex.com,
-	Stephen Smalley <sds@epoch.ncsc.mil>, netdev@oss.sgi.com
-Return-path: <linux-security-module-bounces@wirex.com>
-To: James Morris <jmorris@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <Xine.LNX.4.44.0312122219530.4813-100000@thoron.boston.redhat.com>;
-	from jmorris@redhat.com on Fri, Dec 12, 2003 at 10:44:24PM -0500
-List-Unsubscribe: <http://mail.wirex.com/mailman/listinfo/linux-security-module>,
-	<mailto:linux-security-module-request@mail.wirex.com?subject=unsubscribe>
-List-Archive: <http://mail.immunix.com/pipermail/linux-security-module>
-List-Post: <mailto:linux-security-module@mail.wirex.com>
-List-Help: <mailto:linux-security-module-request@mail.wirex.com?subject=help>
-List-Subscribe: <http://mail.wirex.com/mailman/listinfo/linux-security-module>,
-	<mailto:linux-security-module-request@mail.wirex.com?subject=subscribe>
-Errors-To: linux-security-module-bounces@wirex.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davem@redhat.com, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: dax@gurulabs.com, shemminger@osdl.org
+In-Reply-To: <1071467514.3219.11.camel@mentor.gurulabs.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* James Morris (jmorris@redhat.com) wrote:
-> I'm not sure how this would be a namespace issue -- do you mean a data 
-> format issue?
+In article <1071467514.3219.11.camel@mentor.gurulabs.com> (at Sun, 14 Dec 2003 22:51:54 -0700), Dax Kelson <dax@gurulabs.com> says:
 
-I just mean, applications are coded for specific security module.
-
-> Yep, allowing the security module to update the returned length is now
-> implemented.
+> I noticed this on my laptop with my internal Dell TrueMobile 1150
+> wireless 802.11 card (orinoco_cs).
 > 
-> > Perhaps buffer is too small, can len be vector for that info?
-> 
-> I would not advise updating len on error -- it's a bad idea in general to
-> interpret any returned data from failed syscalls except the error number.
+> On my Fedora box when I added IPV6=yes to /etc/sysconfig/network I
+> couldn't get clean reboots or shutdowns.
 
-Right, in some cases a NULL buffer or 0 buflen is a probe for size.
+please provide your kernel config. thanks.
+(I cannot reproduce the problem.)
 
-thanks,
--chris
--- 
-Linux Security Modules     http://lsm.immunix.org     http://lsm.bkbits.net
+--yoshfuji
