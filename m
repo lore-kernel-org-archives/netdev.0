@@ -1,66 +1,46 @@
-From: bert hubert <ahu@ds9a.nl>
-Subject: [Yee-Ting.Li@nuim.ie: BicTCP Implementation Bug]
-Date: Mon, 21 Feb 2005 15:00:31 +0100
-Message-ID: <20050221140031.GA15766@outpost.ds9a.nl>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Intel and TOE in the news
+Date: 21 Feb 2005 09:01:49 -0500
+Message-ID: <1108994508.1090.155.camel@jzny.localdomain>
+References: <4216B62D.6000502@pobox.com>
+	 <20050219041007.GA17896@xi.wantstofly.org>
+	 <20050219114624.373af63f.davem@davemloft.net> <m1psywb8i4.fsf@muc.de>
+	 <20050220164607.GA27891@gate.ebshome.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Andi Kleen <ak@muc.de>, "David S. Miller" <davem@davemloft.net>,
+        jgarzik@pobox.com, netdev@oss.sgi.com
+To: Eugene Surovegin <ebs@ebshome.net>
+In-Reply-To: <20050220164607.GA27891@gate.ebshome.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
------ Forwarded message from Yee-Ting Li <Yee-Ting.Li@nuim.ie> -----
+On Sun, 2005-02-20 at 11:46, Eugene Surovegin wrote:
+> On Sat, Feb 19, 2005 at 09:27:31PM +0100, Andi Kleen wrote:
+> > <speculating freely>
+> > 
+> > It would be nice if the NIC could asynchronously trigger prefetches in
+> > the CPU. Currently a lot of the packet processing cost goes
+> > to waiting for read cache misses.
+> 
+> Just FYI :), Freescale 85xx TSECs can prefetch buffers into L2 cache. 
+> IIRC they call it buffer "stashing" and gianfar driver has a config 
+> option to enable such behavior.
+> 
+> But in embedded world you usually don't see flashy PR releases for 
+> such features :).
 
-Date:	Mon, 21 Feb 2005 13:47:29 +0000
-From: Yee-Ting Li <Yee-Ting.Li@nuim.ie>
-Subject: BicTCP Implementation Bug
-To: linux-net@vger.kernel.org, end2end-interest@postel.org,
-	linux-kernel@vger.kernel.org
-Cc: Douglas Leith <doug.leith@nuim.ie>,
-	Richard Hughes-Jones <r.hughes-jones@man.ac.uk>,
-	Baruch Even <baruch@ev-en.org>,
-	Les Cottrell <cottrell@slac.stanford.edu>, davem@davemloft.net,
-	rhee@ncsu.edu
-X-Mailer: Apple Mail (2.619.2)
-X-Mailing-List:	linux-kernel@vger.kernel.org
+yes ;-> Big bad Intel is now going to do this, the rest of the world
+better listen.
+I have a modified sb1250 driver that i converted to NAPI that does this
+(in kernel driver doesnt do either NAPI or stash packets into cache).
+Reminds me i have to find that driver and submit. 
+In any case, the problem could be x86; about every MIPS board i have
+seen (I heard PMC-sierra as well) can do this. To be fair to Big Bad
+Intel, they may have made a PR or two ;->
 
-Hi,
-
-We have discovered a serious implementation bug in BicTCP on the Linux 
-kernels. Note that because BicTCP is ON by default, this affects all 
-users of kernel versions 2.6.8 and above.
-
-For further details please see: 
-http://www.hamilton.ie/net/bic-fix/Linux%20BicTCP.pdf
-
-and the patch is:
-
-Index: linux-2.6.10/include/net/tcp.h
-===================================================================
---- linux-2.6.10.orig/include/net/tcp.h Fri Dec 24 21:34:00 2004
-+++ linux-2.6.10/include/net/tcp.h      Thu Feb 17 14:13:14 2005
-@@ -1280,8 +1280,7 @@
-                if (sysctl_tcp_bic_fast_convergence &&
-                    tp->snd_cwnd < tp->bictcp.last_max_cwnd)
-                        tp->bictcp.last_max_cwnd
--                               = (tp->snd_cwnd * 
-(2*BICTCP_1_OVER_BETA-1))
--                               / (BICTCP_1_OVER_BETA/2);
-+                           = tp->snd_cwnd - ( tp->snd_cwnd / 
-(BICTCP_1_OVER_BETA*2) );
-                else
-                        tp->bictcp.last_max_cwnd = tp->snd_cwnd;
-
--
-To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-Please read the FAQ at  http://www.tux.org/lkml/
-
-
------ End forwarded message -----
-
--- 
-http://www.PowerDNS.com      Open source, database driven DNS Software 
-http://netherlabs.nl              Open and Closed source services
+cheers,
+jamal
