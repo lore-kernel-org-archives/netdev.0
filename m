@@ -1,22 +1,23 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH 2.6] clear hw checksum flags when bridging
-Date: Thu, 11 Sep 2003 18:02:35 -0700
+Subject: Re: [PATCH][ATM] seqfile conversion for net/atm/proc.c
+Date: Thu, 11 Sep 2003 18:14:51 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030911180235.3d5c91f6.davem@redhat.com>
-References: <20030908093649.5b6dafc1.shemminger@osdl.org>
+Message-ID: <20030911181451.0cdaca5a.davem@redhat.com>
+References: <200309082041.h88KfISa003500@ginger.cmf.nrl.navy.mil>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: bridge@osdl.org, netdev@oss.sgi.com
+Cc: chas@cmf.nrl.navy.mil, netdev@oss.sgi.com, romieu@fr.zoreil.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20030908093649.5b6dafc1.shemminger@osdl.org>
+To: chas3@users.sourceforge.net
+In-Reply-To: <200309082041.h88KfISa003500@ginger.cmf.nrl.navy.mil>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 8 Sep 2003 09:36:49 -0700
-Stephen Hemminger <shemminger@osdl.org> wrote:
+On Mon, 08 Sep 2003 16:41:19 -0400
+chas williams <chas@cmf.nrl.navy.mil> wrote:
 
-> same patch as 2.4, just the offsets are changed.
+> please apply to 2.6 (please note this patch has been split into
+> 8 pieces) -- thanks
 
-Both 2.4.x and 2.6.x versions applied, thanks Stephen.
+All applied, thanks Chas.
