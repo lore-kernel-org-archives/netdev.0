@@ -1,37 +1,40 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 1/1] More ethtool support for sis900 (with locking)
-Date: Sat, 5 Mar 2005 22:28:38 +0100
-Message-ID: <20050305212838.GD25116@electric-eye.fr.zoreil.com>
-References: <20050305210745.6763.6618@localhost.localdomain>
+From: bert hubert <ahu@ds9a.nl>
+Subject: bridge between ppp and ethernet - 1 IP address and assign it to another host
+Date: Sat, 5 Mar 2005 23:04:30 +0100
+Message-ID: <20050305220429.GA9335@outpost.ds9a.nl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, jgarzik@pobox.com
-To: Daniele Venzano <webvenza@libero.it>
+To: netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <20050305210745.6763.6618@localhost.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Daniele Venzano <webvenza@libero.it> :
-[...]
-> Index: sis900.c
-> ===================================================================
-> --- a/drivers/net/sis900.c	(revision 95)
-> +++ b/drivers/net/sis900.c	(revision 98)
-[...]
-> @@ -1943,10 +1952,47 @@
->  	sis_priv->msg_enable = value;
->  }
->  
-> +static u32 sis900_get_link(struct net_device *net_dev)
-> +{
-> +	struct sis900_private *sis_priv = net_dev->priv;
+Hi people,
 
-Any reason to not use netdev_priv() ?
+I have an application that wants a Real IP Address, but for a variety of
+good reasons, I can't connect the machine to the internet directly.
 
-I would not mind an empty line between the declaration of variables
-and the actual code.
+So, I need this:
 
---
-Ueimor
+DSL - Linux - Windows PC
+
+Where I need the Windows PC to think it has the real single IP addres
+assigned to me by the DSL provider. I run PPTP on the Linux box, which
+should not touch traffic for that IP address.
+
+Now I know that several DSL routers are capable of this stunt, so we should
+be able to do this too. But how?
+
+Linux is pretty stubborn in routing packets for its own IP address elsewhere
+(rightfully so). I previously spent some time on this with a lot of
+SNAT/DNAT trickery but it is not very pleasing, nor did it work.
+
+What we're trying to do is a lot like building a bridge between ethernet and
+ppp, but not quite.
+
+Anybody have ideas? If we find something I'll post it on http://lartc.org.
+
+-- 
+http://www.PowerDNS.com      Open source, database driven DNS Software 
+http://netherlabs.nl              Open and Closed source services
