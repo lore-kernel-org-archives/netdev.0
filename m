@@ -1,79 +1,54 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PROBLEM] r8169 deadlocks
-Date: Sat, 17 Jan 2004 13:53:02 +0100
+Subject: Re: Bug? 2.4.24 module/networking Kernel driver/net/r8169.c freeze
+Date: Sat, 17 Jan 2004 14:23:07 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040117135302.A13453@electric-eye.fr.zoreil.com>
-References: <200401152039.00182.harisri@bigpond.com> <20040115220827.A22007@electric-eye.fr.zoreil.com> <200401171234.33778.harisri@bigpond.com>
+Message-ID: <20040117142307.A14176@electric-eye.fr.zoreil.com>
+References: <1074217033.400740491d6ff@webmail.t-online.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/mixed; boundary="NzB8fVQJ5HfG6fxh"
+Cc: linux-kernel@vger.kernel.org, realtek@scyld.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Srihari Vijayaraghavan <harisri@bigpond.com>
+To: Mathias.Beilstein@t-online.de
 Content-Disposition: inline
-In-Reply-To: <200401171234.33778.harisri@bigpond.com>; from harisri@bigpond.com on Sat, Jan 17, 2004 at 12:34:33PM +1100
+In-Reply-To: <1074217033.400740491d6ff@webmail.t-online.de>; from Mathias.Beilstein@t-online.de on Fri, Jan 16, 2004 at 03:13:29AM +0100
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Srihari Vijayaraghavan <harisri@bigpond.com> :
-[memory stats]
 
-Ok, the driver does not seem to leak.
+--NzB8fVQJ5HfG6fxh
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
+Mathias.Beilstein@t-online.de <Mathias.Beilstein@t-online.de> :
 [...]
-> > You can try 2.6.1-bk2 + Jeff Garzik's -netdev4 +
-> > http://www.fr.zoreil.com/people/francois/misc/r8169-tx-index-overflow.patch
-> 
-> I shall try this and then report the status.
+> 1. short: smb over tcp delays > 5 sec; flood ping to machine --> machine 
+> freeze
 
-Please (see "Scenario" below).
+Please apply attached patch and see 1) if Tx traffic stops 2) if something
+appears in dmesg.
 
-> > If it does not perform better, you can try against 2.6.1-bk1 the set at
-> > http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.1-bk1-b
-> 
-> OK. I have tried 2.6.1-mm4 which includes the most recent -netdev updates
-> from Jeff Garzik and it behaves the same way.
-> 
-> > If I remember correctly, you are the first report of a non-completely
-> > disfunctional driver for the new version of the r8169. Things improve.
-> 
-> Sorry I am unable to understand your statement.
-
-Tests have shown that stock r8169 is foobar on amd64 without Realtek's
-changes.  The r8169 in -mm, -netdev merge various changes made by Realtek
-and several contributors. Tests have shown that this modified r8169 was
-completely broken. Your report indicates that the last modified r8169 (slowly)
-returns to sanity on amd64. Nice :o)
-
-r8169-tx-index-overflow.patch has not been included in -mm nor in -netdev
-so far. It has only been moderately tested on x86 so amd64 users are welcome.
-I do not claim it will solve everything but nasty things [*] can happen
-without it.
-
-[*] Scenario:
-While submitting sbk, start_xmit crosses the end of the Tx descriptor ring and
-feeds the start of the ring again (so far, so good). It is possible/expected
-that several skbs are pending, especially as the start_xmit function uses
-posted pci writes to tell that asic that it must wake up. Later, the Tx irq
-handler notifes that the first pending buffer was sent. Now, depending on the
-state of the memory just after the end of the Tx descriptor ring, interesting
-things (deadlock included) can happen.
-
-Take a look at rtl8169_tx_interrupt(), assume that tp->dirty_tx = 63,
-tp->cur_tx = 63 + 48. "entry" starts at tp->cur_tx % NUM_TX_DESC = 47 and
-can be incremented from tp->cur_tx - tp->dirty_tx = 48 units, thus ending
-waaaaayyy beyond the end of the allowed Tx descriptor ring (NUM_TX_DESC = 64
-entries). If something in this memory area looks like a Tx descriptor which
-is owned by the asic, the irq handler loops for life. If this memory area
-looks like a Tx descriptor which belongs to the cpu, the irq handler will
-free the skb and the asic may simply send crap on the wire.
-
-If this explanation is right, it applies on 2.4.x as well. However it is
-suprizing as Robert Olsson was able to send packets at rather high rates
-with the Realtek variant of this driver (where the start_xmit/tx_interrupt
-functions are identical).
-
-So, please, please, test in a sane environment (no binary modules) and tell
-me if things behave the same/better/worse.
+netdev@oss.sgi.com added to Cc:.
 
 --
 Ueimor
+
+--NzB8fVQJ5HfG6fxh
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="r8169-debug.patch"
+
+--- r8169.c-realtek	2004-01-17 14:14:50.000000000 +0100
++++ r8169.c-debug	2004-01-17 14:17:25.000000000 +0100
+@@ -1290,6 +1290,11 @@ static void rtl8169_tx_interrupt (struct
+ 	dirty_tx = priv->dirty_tx;
+ 	tx_left = priv->cur_tx - dirty_tx;
+ 
++	if (entry + tx_left > NUM_TX_DESC) {
++		printk(KERN_ERR, "r8169 bug. Please mail netdev@oss.sgi.com\n");
++		return;
++	}
++
+ 	while (tx_left > 0) {
+ 		if( (priv->TxDescArray[entry].status & OWNbit) == 0 ){
+ 			dev_kfree_skb_irq( priv->Tx_skbuff[dirty_tx % NUM_TX_DESC] );
+
+--NzB8fVQJ5HfG6fxh--
