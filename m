@@ -1,22 +1,27 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [PATCH] enabling netdev boot options (2.6.0-t9)
-Date: Sat, 8 Nov 2003 22:06:21 -0800
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] - Incorrect cpumask definition in net/core/flow.c
+Date: Sat, 8 Nov 2003 22:26:45 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031108220621.11d39feb.akpm@osdl.org>
-References: <20031108160441.3a0a5505.rddunlap@osdl.org>
-	<20031108204406.5dbbdc87.rddunlap@osdl.org>
+Message-ID: <20031108222645.4e3d23f1.davem@redhat.com>
+References: <20031107210848.GA10774@sgi.com>
+	<E1AIJIT-0002q9-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, saw@saw.sw.com.sg
+Cc: steiner@sgi.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Randy.Dunlap" <rddunlap@osdl.org>
-In-Reply-To: <20031108204406.5dbbdc87.rddunlap@osdl.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1AIJIT-0002q9-00@gondolin.me.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-"Randy.Dunlap" <rddunlap@osdl.org> wrote:
->
-> +int dev_alloc_name_lock(struct net_device *dev, const char *name)
+On Sat, 08 Nov 2003 13:57:57 +1100
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-You'll need to export this guy to modules.
+> Here is a patch that changes the operations on the maps as well
+> for consistency.
+
+This is the correct patch, applied thanks.
+
+I have another patch that cleans up this stuff in a better
+albeit intrusive way from Rusty, but let's be safe for 2.6.0
