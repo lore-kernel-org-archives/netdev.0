@@ -1,26 +1,63 @@
-From: David Schwartz <davids@webmaster.com>
+From: Lincoln Dale <ltd@cisco.com>
 Subject: Re: RFC: per-socket statistics on received/dropped packets
-Date: Thu, 13 Jun 2002 00:21:54 -0700
+Date: Thu, 13 Jun 2002 18:44:20 +1000
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <ae9hct$e7k$2@main.gmane.org>
+Message-ID: <ae9ma0$mhq$2@main.gmane.org>
 References: <5.1.0.14.2.20020612221925.0283fb18@mira-sjcm-3.cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8bit
-Cc: Ben Greear <greearb@candelatech.com>, <linux-kernel@vger.kernel.org>,
-   <netdev@oss.sgi.com>
+Content-Type: text/plain; charset="us-ascii"; format=flowed
+Cc: Horst von Brand <vonbrand@inf.utfsm.cl>,
+   "David S. Miller" <davem@redhat.com>, Ben Greear <greearb@candelatech.com>,
+   <linux-kernel@vger.kernel.org>, <netdev@oss.sgi.com>,
+   jamal <hadi@cyberus.ca>
 Return-path: <owner-netdev@oss.sgi.com>
-To: <ltd@cisco.com>, Horst von Brand <vonbrand@inf.utfsm.cl>,
-   "David S. Miller" <davem@redhat.com>
-In-Reply-To: <5.1.0.14.2.20020612221925.0283fb18@mira-sjcm-3.cisco.com>
+To: David Schwartz <davids@webmaster.com>
+In-Reply-To: <20020613072155.AAA14363@shell.webmaster.com@whenever>
 List-Id: netdev.vger.kernel.org
 
 
->i know of many many folk who use transaction logs from HTTP caches for
->volume-based billing.
->right now, those bills are anywhere between 10% to 25% incorrect.
+> >i know of many many folk who use transaction logs from HTTP caches for
+> >volume-based billing.
+> >right now, those bills are anywhere between 10% to 25% incorrect.
+>
+>         You are being paid to deliver packets to their destination, not 
+> to drop
+>them.
 
-	You are being paid to deliver packets to their destination, not to drop 
-them.
+ho hum.
+yes, that is typically true of a transit provider.
+however, the transit provider wants to charge the customer not just for 
+what is delivered to layer-7, but also for packetization overhead at 
+layer-2/layer-3/layer-4.  after all, the IP+TCP packet headers are 
+delivered to the client as well, no?
 
-	DS
+this is just my point: there is NO method to account for those pesky headers!
+
+
+also, think of the case where a HTTP Proxy _isn't_ in the path of 
+traffic.  from this side of the Pacific, if there are TCP retransmissions, 
+they are end-to-end retransmissions, across that really expensive piece of 
+wet string otherwise known as an undersea cable.  _that_ is the most 
+expensive hop and if a customer is congested on the last mile, they're 
+still eating into the expensive bandwidth!
+
+discussions on the layer-8 (religion) or layer-9 (politics) aspects of 
+whether it is correct to bill based on that is irrelevant.  what is 
+relevant is that there isn't any mechanism to count the overhead of 
+packetization or the overhead of using a "reliable stream transport" such 
+as TCP.
+
+i do have the code to do this.  its relatively trivial and consumes an 
+extra 8 bytes of RAM per socket.
+it doesn't obfuscate the existing kernel code nor does it slow the code 
+down by any tangible amount.
+it is a compile-time option so for those people who don't know or care 
+about it, it doesn't impact them at all.
+yet, clearly, Dave and Jamal are vehemently opposed to it.
+alas, that means it stays as an out-of-kernel patch and will likely 
+continue to suffer bit-rot as time goes by.  c'est la vie.
+
+
+cheers,
+
+lincoln.
