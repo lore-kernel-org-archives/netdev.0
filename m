@@ -1,7 +1,7 @@
 From: Hasso Tepper <hasso@estpak.ee>
 Subject: Re: Link detection
-Date: Mon, 14 Mar 2005 16:05:02 +0200
-Message-ID: <200503141605.02959.hasso@estpak.ee>
+Date: Mon, 14 Mar 2005 16:41:33 +0200
+Message-ID: <200503141641.33510.hasso@estpak.ee>
 References: <200503141435.38227.hasso@estpak.ee> <20050314133216.GM31837@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain;
@@ -16,43 +16,28 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 Thomas Graf wrote:
-> The routes must stay if the interface isn't shut down completely. A loss
-> of the carrier can be temporarly for just a very short period of time.
-> What we can do is, like in the neighbour tables, differ between a
-> adimistrative shutdown and a loss of the carrier with a new flag, would
-> that help you?
+> * Hasso Tepper <200503141435.38227.hasso@estpak.ee> 2005-03-14 14:35
+>
+> > 1) What's the proper way to detect carrier in Linux for user space
+> > application like Quagga?
+> >
+> > True, IFF_RUNNING is from BSD, but as long as the code in
+> > net/core/dev.c:dev_get_flags() is there, it gives nice clean way to get
+> > carrier status from user space (AFAIK it's used in same way in
+> > Solaris). Especially for applications using rtnetlink - ie. without it
+> > there is no all info in the netlink message any more. If these
+> > applications will receive RTM_NEWLINK, they have to poll kernel "look,
+> > maybe carrier status is changed" every time?
+>
+> You should open a rtnetlink socket and register to the RTMGRP_LINK
+> multicast group and filter for RTM_NEWLINK with ifi_change & IFF_UP and
+> then look at ifi_flags & IFF_UP to see whether the interface is now
+> up or down. You'll receive such a rtnetlink message everytime the
+> carrier status changes.
 
-In theory yes, if this info is carried over netlink. 
-
-> Problem #1: Differ between a temporary loss of carrier and a permanent
->             failure. Relatively easy from userspace because userspace
->      knows about the strategy.
-
-Is there need for that? There should be knob of course to tune behaviour 
-IMHO. Sure there are applications which expect current behaviour. 
-
-> Problem #2: Strategy upon resume of carrier signal, userspace can simply
->             reread its configuration and add the routes again. Kernel
->      must backup them and somehow ensure that they stay
->      consistent. Imagine you delete a route to a certain host but
->      one of your links is down at the moment, the route will be
->      restored once the interface comes back up which is probably
->      unexpected behaviour.
-
-I think that you misunderstood. I don't talk about any routes created by any 
-user space applications or by user. These _must_ be untouched of course. 
-I'm talking about routes _kernel_ creates if address is added to the 
-interface. All other routes are not problem anyway. Even if their next hop 
-points to network behind down interface, their next hop is unreachable and 
-route shouldn't be used, no?
-
-arena:/home/hasso# ip route | grep 192.168
-arena:/home/hasso# ip addr add 192.168.1.1/24 dev eth0
-arena:/home/hasso# ip route | grep 192.168
-192.168.1.0/24 dev eth0  proto kernel  scope link  src 192.168.1.1
-arena:/home/hasso#
-
-I'm talking only about these routes - created by kernel with link scope.
+Forgot to answer this part. We already do all this. IFF_UP doesn't show 
+carrier status, but administrative status. IFF_RUNNING shows carrier 
+status.
 
 
 with my best wishes,
