@@ -1,36 +1,47 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: purpose of the skb head pool
-Date: Thu, 01 May 2003 02:35:28 -0700 (PDT)
+Subject: Re: dev->destructor
+Date: Thu, 01 May 2003 04:09:35 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030501.023528.116383508.davem@redhat.com>
-References: <20030429135506.A22411@lst.de>
-	<16046.30879.738356.495523@robur.slu.se>
-	<877k9bc5ox.fsf@deneb.enyo.de>
+Message-ID: <20030501.040935.68070653.davem@redhat.com>
+References: <20030501.000058.39187964.davem@redhat.com>
+	<20030501120815.25BE22C155@lists.samba.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Robert.Olsson@data.slu.se, hch@lst.de, netdev@oss.sgi.com
+Cc: kuznet@ms2.inr.ac.ru, shemminger@osdl.org, netdev@oss.sgi.com,
+   acme@conectiva.com.br, wa@almesberger.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: fw@deneb.enyo.de
-In-Reply-To: <877k9bc5ox.fsf@deneb.enyo.de>
+To: rusty@rustcorp.com.au
+In-Reply-To: <20030501120815.25BE22C155@lists.samba.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Florian Weimer <fw@deneb.enyo.de>
-   Date: Thu, 01 May 2003 12:38:38 +0200
+   From: Rusty Russell <rusty@rustcorp.com.au>
+   Date: Thu, 01 May 2003 22:01:19 +1000
+   
+   There are 70 calls to dev_hold() in the kernel.  The vast majority of
+   them already have a reference, they just want another one: dev_hold()
+   can do __module_get().
 
-   Robert Olsson <Robert.Olsson@data.slu.se> writes:
-   
-   >  Vanilla 2.5.66              381 kpps
-   >  Magazine                    431 kpps
-   >  Magazine + no skb_head_pool 435 kpps
-   
-   Can you rerun this test with random source/destination addresses, to
-   get more realistic (for some configurations) numbers?
-   
-He can do this, but the issues we're trying to tackle first have
-nothing to even do with what kind of routing cache accesses
-are done.
+Rusty, this is precisely the what Alexey and myself want to avoid.  On
+the surface, it looks fine, only 70 dev_get's in the kernel right?
+But think further...
 
-It's all networking buffer overhead we're worried about at this
-stage.
+So you propose to add this kind of thing for every ARP entry, every
+route cache entry, every IPSEC policy, every socket, every struct
+sock, every networking dynamic object ever created?
+
+When we add SKB recycling, will we need to do a module get/put on
+every SKB alloc/free/clone/copy?
+
+I think this way lies insanity :) You may make the decision to eat
+this kind of overhead inside of netfilter, but Alexey and I do not
+accept this.  I disagreed with Alexey initially, but now I truly see
+his wisdom.
+
+This networking device example is just the tip of the iceberg.  We can
+continue to add bandaids across the kernel, instead of solving the
+real problem that modules need to manage their own removal.
+
+It is at the core of the reason the current module scheme has to be
+extended to let the module manage unloading.
