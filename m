@@ -1,90 +1,48 @@
-From: Abhinandan Patil <abhipatil7@yahoo.co.in>
-Subject: need details of 2.4.7-10kernel
-Date: Mon, 15 Jul 2002 21:31:59 -0700 (PDT)
+From: <hello@hotmail.com>
+Subject: This Is Not Your Father's ISP!!!!!
+Date: Tue, 16 Jul 0102 04:07:42 +0500
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <20020716043159.23350.qmail@web8101.in.yahoo.com>
-References: <Pine.LNX.4.33.0207151735460.8232-100000@dhcp-128-107-163-94.cisco.com>
+Message-ID: <008a21e45e6c$7455b8e6$8dd16ec5@oxygdk>
+Reply-To: <hello@hotmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kuznet@ms2.inr.ac.ru, linux-net@vger.kernel.org, netdev@oss.sgi.com,
-   wilbert@kloosterhof.com, eckert@cisco.com
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
 Return-path: <owner-netdev@oss.sgi.com>
-To: Vince Laviano <vlaviano@cisco.com>, davem@redhat.com
-In-Reply-To: <Pine.LNX.4.33.0207151735460.8232-100000@dhcp-128-107-163-94.cisco.com>
+To: hello@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-hi everybody
+New, Superior ISP Just Released
 
-i am working on 2.4.7-10 linux kernel
-i want to minimise the kernel to bare minimum.
-i want the details regarding this
-please give me the links where i can find the details.
-even i want to minimise the tcp/ip stack in this
-kernel
-so i need details regarding this also 
+Have you ever been disconnected from your ISP just as you were in the 
+Middle of something that you were interested in just because you hadn't
+clicked your mouse for the last few seconds, or been disconnected because
+ someone on your mailing list accused you of spam, or waited for an eternity
+to get connected?  All of this and you were paying nearly $30.00 to be treated 
+this way?
 
-i request you people to help me in this regards.
+Well, if any of this sounds familiar, then I have some good news for you. 
+For $14.98/month or less (depending upon the plan) you can kiss all of this 
+Goodby.
 
-Thanks in advance
+I have been fortunate in that I have been involved in the testing of a brand
+ new ISP.  This is a superior product in many ways.  It is fast, clean, and
+ dependable.  I have tried several providers and find this to be by far the best.
 
-Abhi Patil
---- Vince Laviano <vlaviano@cisco.com> wrote:
-> 
-> Hi everyone,
-> 
-> I've been working on a port of Wilbert de Graaf's
-> (wilbert@kloosterhof.com)
-> IGMPv3 implementation for FreeBSD to Linux 2.4.x.
-> 
-> A tarball containing the patch (against Linux
-> 2.4.6), documentation, and some
-> test programs demonstrating use of the new multicast
-> source filter (MSF) API
-> is available at
->
-ftp://ftpeng.cisco.com/igmpv3linux/igmpv3linux-v0003.tar.gz
-> 
-> This is alpha quality software, and there is still a
-> good amount of work to be
-> done, but it's reached a stage where some people may
-> find it useful.  Also, I'm
-> anxious to receive feedback on both the high-level
-> approach and on any specific
-> problems that people detect.
-> 
-> Known limitations are:
->     - ip_mc_destroy_dev() not yet implemented
->     - probable concurrency issues
->     - Only traditional struct ip_mreq accepted by
-> MSF API functions; no
->       support for struct ip_mreqn (i.e.
-> identification of join interface by
->       ifindex).
->     - ip_mc_inc_group() and ip_mc_dec_group()
-> internal interface used by GRE
->       not yet implemented.
->     - Source filters not used for raw socket
-> delivery, only for UDP delivery
->     - Coarse-grained locking
->     - Protocol-independent MSF API not implemented
-> 
-> The web page for the original FreeBSD implementation
-> is in the middle of being
-> migrated to
-> http://www.kloosterhof.com/~wilbert/igmpv3.html. 
-> For now, a Google-
-> cached copy can be viewed at
->
-http://www.google.com/search?q=cache:w5LFEFJjCugC:home.hetnet.nl/~wilbertdg/igmpv3.html+igmpv3&hl=en&ie=UTF-8
-> 
-> Thanks,
-> Vince Laviano
-> vlaviano@cisco.com
-> 
-> 
+I would like to offer you the chance to be one of the first to sign-up for this
+ service when it becomes available to the public.  This will be within the week
+ as we have worked out the bugs and signed the contracts.  Please contact me at
+
+ connect@clubdepot.com
+ and just say save me a spot.
+
+There is no obligation.  I will just send you the details and give you 
+a connection so that you can see if we have a listing in your area.
+
+Caroline Gainer
+PS:  We will also be offering you a chance to market this product within
+ a period of two weeks or less.  You will get $1.00-$2.00 for each subscription
+ that you sell.  Count it up 13 subscribers and yours is free.
 
 
-__________________________________________________
-Do You Yahoo!?
-Yahoo! Autos - Get free new car price quotes
-http://autos.yahoo.com
+6096QsXb5-253SzaS7490OOdk3-870jFWL5816QWZg4-883bjcB5334TdMl8-642oFhl63
