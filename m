@@ -1,8 +1,8 @@
 From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: Re: [janitor] remove unneeded casts in /hamradio/
-Date: Sun, 29 Feb 2004 14:35:10 -0800
+Subject: Re: [janitor] remove unneeded casts in net/wan/
+Date: Sun, 29 Feb 2004 14:40:34 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040229143510.0eb97123.rddunlap@osdl.org>
+Message-ID: <20040229144034.2a99c7a7.rddunlap@osdl.org>
 References: <20040229142516.3d218ed0.rddunlap@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -18,134 +18,112 @@ List-Id: netdev.vger.kernel.org
 From: Carlo Perassi <carlo@linux.it>
 
 
- drivers/net/hamradio/baycom_epp.c     |    4 ++--
- drivers/net/hamradio/baycom_par.c     |    8 ++++----
- drivers/net/hamradio/baycom_ser_fdx.c |    6 +++---
- drivers/net/hamradio/baycom_ser_hdx.c |    6 +++---
- 4 files changed, 12 insertions(+), 12 deletions(-)
+ drivers/net/wan/comx-hw-locomx.c |    6 +++---
+ drivers/net/wan/comx-hw-munich.c |    6 +++---
+ drivers/net/wan/comx.c           |    2 +-
+ drivers/net/wan/cosa.c           |    2 +-
+ drivers/net/wan/lapbether.c      |    2 +-
+ 5 files changed, 9 insertions(+), 9 deletions(-)
 
-diff -puN drivers/net/hamradio/baycom_epp.c~net_hamradio_casts drivers/net/hamradio/baycom_epp.c
---- linux-263-229/drivers/net/hamradio/baycom_epp.c~net_hamradio_casts	2004-02-29 13:55:12.000000000 -0800
-+++ linux-263-229-rddunlap/drivers/net/hamradio/baycom_epp.c	2004-02-29 13:55:12.000000000 -0800
-@@ -646,7 +646,7 @@ static int transmit(struct baycom_state 
+diff -puN drivers/net/wan/comx.c~net_wan_casts drivers/net/wan/comx.c
+--- linux-263-229/drivers/net/wan/comx.c~net_wan_casts	2004-02-29 13:57:19.000000000 -0800
++++ linux-263-229-rddunlap/drivers/net/wan/comx.c	2004-02-29 13:57:19.000000000 -0800
+@@ -379,7 +379,7 @@ int comx_rx(struct net_device *dev, stru
  
- static void do_rxpacket(struct net_device *dev)
+ static struct net_device_stats *comx_stats(struct net_device *dev)
  {
--	struct baycom_state *bc = (struct baycom_state *)dev->priv;
-+	struct baycom_state *bc = dev->priv;
- 	struct sk_buff *skb;
- 	unsigned char *cp;
- 	unsigned pktlen;
-@@ -705,7 +705,7 @@ static void do_rxpacket(struct net_devic
-         
- static int receive(struct net_device *dev, int cnt)
+-	struct comx_channel *ch = (struct comx_channel *)dev->priv;
++	struct comx_channel *ch = dev->priv;
+ 
+ 	return ch->current_stats;
+ }
+diff -puN drivers/net/wan/comx-hw-locomx.c~net_wan_casts drivers/net/wan/comx-hw-locomx.c
+--- linux-263-229/drivers/net/wan/comx-hw-locomx.c~net_wan_casts	2004-02-29 13:57:19.000000000 -0800
++++ linux-263-229-rddunlap/drivers/net/wan/comx-hw-locomx.c	2004-02-29 13:57:19.000000000 -0800
+@@ -97,7 +97,7 @@ static void locomx_rx(struct z8530_chann
+ 
+ static int LOCOMX_send_packet(struct net_device *dev, struct sk_buff *skb) 
  {
--	struct baycom_state *bc = (struct baycom_state *)dev->priv;
-+	struct baycom_state *bc = dev->priv;
- 	struct parport *pp = bc->pdev->port;
-         unsigned int bitbuf, notbitstream, bitstream, numbits, state;
- 	unsigned char tmp[128];
-diff -puN drivers/net/hamradio/baycom_par.c~net_hamradio_casts drivers/net/hamradio/baycom_par.c
---- linux-263-229/drivers/net/hamradio/baycom_par.c~net_hamradio_casts	2004-02-29 13:55:12.000000000 -0800
-+++ linux-263-229-rddunlap/drivers/net/hamradio/baycom_par.c	2004-02-29 13:55:12.000000000 -0800
-@@ -272,7 +272,7 @@ static __inline__ void par96_rx(struct n
- static void par96_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+-	struct comx_channel *ch = (struct comx_channel *)dev->priv;
++	struct comx_channel *ch = dev->priv;
+ 	struct locomx_data *hw = ch->HW_privdata;
+ 
+ 	if (ch->debug_flags & DEBUG_HW_TX) {
+@@ -376,7 +376,7 @@ static int locomx_write_proc(struct file
+ 
+ static int LOCOMX_init(struct net_device *dev) 
  {
- 	struct net_device *dev = (struct net_device *)dev_id;
--	struct baycom_state *bc = (struct baycom_state *)dev->priv;
-+	struct baycom_state *bc = dev->priv;
+-	struct comx_channel *ch = (struct comx_channel *)dev->priv;
++	struct comx_channel *ch = dev->priv;
+ 	struct locomx_data *hw;
+ 	struct proc_dir_entry *new_file;
  
- 	if (!dev || !bc || bc->hdrv.magic != HDLCDRV_MAGIC)
- 		return;
-@@ -302,7 +302,7 @@ static void par96_interrupt(int irq, voi
- static void par96_wakeup(void *handle)
+@@ -449,7 +449,7 @@ cleanup_HW_privdata:
+ 
+ static int LOCOMX_exit(struct net_device *dev)
  {
-         struct net_device *dev = (struct net_device *)handle;
--	struct baycom_state *bc = (struct baycom_state *)dev->priv;
-+	struct baycom_state *bc = dev->priv;
+-	struct comx_channel *ch = (struct comx_channel *)dev->priv;
++	struct comx_channel *ch = dev->priv;
  
- 	printk(KERN_DEBUG "baycom_par: %s: why am I being woken up?\n", dev->name);
- 	if (!parport_claim(bc->pdev))
-@@ -313,7 +313,7 @@ static void par96_wakeup(void *handle)
+ 	ch->HW_access_board = NULL;
+ 	ch->HW_release_board = NULL;
+diff -puN drivers/net/wan/comx-hw-munich.c~net_wan_casts drivers/net/wan/comx-hw-munich.c
+--- linux-263-229/drivers/net/wan/comx-hw-munich.c~net_wan_casts	2004-02-29 13:57:19.000000000 -0800
++++ linux-263-229-rddunlap/drivers/net/wan/comx-hw-munich.c	2004-02-29 13:57:19.000000000 -0800
+@@ -933,7 +933,7 @@ static int slicecom_reset(struct net_dev
  
- static int par96_open(struct net_device *dev)
+ static int MUNICH_send_packet(struct net_device *dev, struct sk_buff *skb)
  {
--	struct baycom_state *bc = (struct baycom_state *)dev->priv;
-+	struct baycom_state *bc = dev->priv;
- 	struct parport *pp;
+-    struct comx_channel *ch = (struct comx_channel *)dev->priv;
++    struct comx_channel *ch = dev->priv;
+     struct slicecom_privdata *hw = ch->HW_privdata;
  
- 	if (!dev || !bc)
-@@ -362,7 +362,7 @@ static int par96_open(struct net_device 
+     /* Send it to the debug facility too if needed: */
+@@ -2656,7 +2656,7 @@ static int init_escape(struct comx_chann
  
- static int par96_close(struct net_device *dev)
+ static int BOARD_init(struct net_device *dev)
  {
--	struct baycom_state *bc = (struct baycom_state *)dev->priv;
-+	struct baycom_state *bc = dev->priv;
- 	struct parport *pp;
+-    struct comx_channel *ch = (struct comx_channel *)dev->priv;
++    struct comx_channel *ch = dev->priv;
+     struct slicecom_privdata *hw;
+     struct proc_dir_entry *new_file;
  
- 	if (!dev || !bc)
-diff -puN drivers/net/hamradio/baycom_ser_fdx.c~net_hamradio_casts drivers/net/hamradio/baycom_ser_fdx.c
---- linux-263-229/drivers/net/hamradio/baycom_ser_fdx.c~net_hamradio_casts	2004-02-29 13:55:12.000000000 -0800
-+++ linux-263-229-rddunlap/drivers/net/hamradio/baycom_ser_fdx.c	2004-02-29 13:55:12.000000000 -0800
-@@ -281,7 +281,7 @@ static __inline__ void ser12_rx(struct n
- static irqreturn_t ser12_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+@@ -2772,7 +2772,7 @@ static int BOARD_init(struct net_device 
+  */
+ static int BOARD_exit(struct net_device *dev)
  {
- 	struct net_device *dev = (struct net_device *)dev_id;
--	struct baycom_state *bc = (struct baycom_state *)dev->priv;
-+	struct baycom_state *bc = dev->priv;
- 	struct timeval tv;
- 	unsigned char iir, msr;
- 	unsigned int txcount = 0;
-@@ -407,7 +407,7 @@ static enum uart ser12_check_uart(unsign
+-    struct comx_channel *ch = (struct comx_channel *)dev->priv;
++    struct comx_channel *ch = dev->priv;
  
- static int ser12_open(struct net_device *dev)
+     /* Free private data area */
+ //    board = hw->boardnum + (ch->hardware == &pcicomhw ? pcicom_boards : slicecom_boards);
+diff -puN drivers/net/wan/cosa.c~net_wan_casts drivers/net/wan/cosa.c
+--- linux-263-229/drivers/net/wan/cosa.c~net_wan_casts	2004-02-29 13:57:19.000000000 -0800
++++ linux-263-229-rddunlap/drivers/net/wan/cosa.c	2004-02-29 13:57:19.000000000 -0800
+@@ -1205,7 +1205,7 @@ static int cosa_sppp_ioctl(struct net_de
+ 	int cmd)
  {
--	struct baycom_state *bc = (struct baycom_state *)dev->priv;
-+	struct baycom_state *bc = dev->priv;
- 	enum uart u;
- 
- 	if (!dev || !bc)
-@@ -466,7 +466,7 @@ static int ser12_open(struct net_device 
- 
- static int ser12_close(struct net_device *dev)
+ 	int rv;
+-	struct channel_data *chan = (struct channel_data *)dev->priv;
++	struct channel_data *chan = dev->priv;
+ 	rv = cosa_ioctl_common(chan->cosa, chan, cmd, (unsigned long)ifr->ifr_data);
+ 	if (rv == -ENOIOCTLCMD) {
+ 		return sppp_do_ioctl(dev, ifr, cmd);
+diff -puN drivers/net/wan/lapbether.c~net_wan_casts drivers/net/wan/lapbether.c
+--- linux-263-229/drivers/net/wan/lapbether.c~net_wan_casts	2004-02-29 13:57:19.000000000 -0800
++++ linux-263-229-rddunlap/drivers/net/wan/lapbether.c	2004-02-29 13:57:19.000000000 -0800
+@@ -269,7 +269,7 @@ static void lapbeth_disconnected(struct 
+  */
+ static struct net_device_stats *lapbeth_get_stats(struct net_device *dev)
  {
--	struct baycom_state *bc = (struct baycom_state *)dev->priv;
-+	struct baycom_state *bc = dev->priv;
+-	struct lapbethdev *lapbeth = (struct lapbethdev *)dev->priv;
++	struct lapbethdev *lapbeth = dev->priv;
+ 	return &lapbeth->stats;
+ }
  
- 	if (!dev || !bc)
- 		return -EINVAL;
-diff -puN drivers/net/hamradio/baycom_ser_hdx.c~net_hamradio_casts drivers/net/hamradio/baycom_ser_hdx.c
---- linux-263-229/drivers/net/hamradio/baycom_ser_hdx.c~net_hamradio_casts	2004-02-29 13:55:12.000000000 -0800
-+++ linux-263-229-rddunlap/drivers/net/hamradio/baycom_ser_hdx.c	2004-02-29 13:55:12.000000000 -0800
-@@ -375,7 +375,7 @@ static inline void ser12_rx(struct net_d
- static irqreturn_t ser12_interrupt(int irq, void *dev_id, struct pt_regs *regs)
- {
- 	struct net_device *dev = (struct net_device *)dev_id;
--	struct baycom_state *bc = (struct baycom_state *)dev->priv;
-+	struct baycom_state *bc = dev->priv;
- 	unsigned char iir;
- 
- 	if (!dev || !bc || bc->hdrv.magic != HDLCDRV_MAGIC)
-@@ -468,7 +468,7 @@ static enum uart ser12_check_uart(unsign
- 
- static int ser12_open(struct net_device *dev)
- {
--	struct baycom_state *bc = (struct baycom_state *)dev->priv;
-+	struct baycom_state *bc = dev->priv;
- 	enum uart u;
- 
- 	if (!dev || !bc)
-@@ -511,7 +511,7 @@ static int ser12_open(struct net_device 
- 
- static int ser12_close(struct net_device *dev)
- {
--	struct baycom_state *bc = (struct baycom_state *)dev->priv;
-+	struct baycom_state *bc = dev->priv;
- 
- 	if (!dev || !bc)
- 		return -EINVAL;
 
 _
+
 
 --
 ~Randy
