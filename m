@@ -1,25 +1,24 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: mod_timer improvement
-Date: Thu, 2 Oct 2003 23:40:36 -0700
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [RFC] [PATCH 1/3] netpoll api
+Date: Fri, 3 Oct 2003 09:09:54 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031002234036.704c4588.davem@redhat.com>
-References: <3F7C5863.1080403@sgi.com>
-	<3F7C5D22.7010103@sgi.com>
+Message-ID: <20031003070954.GE25013@wotan.suse.de>
+References: <20031003014104.GR1897@waste.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, Andrew Morton <akpm@osdl.org>,
+        Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Steve Modica <modica@sgi.com>
-In-Reply-To: <3F7C5D22.7010103@sgi.com>
+To: Matt Mackall <mpm@selenic.com>
+Content-Disposition: inline
+In-Reply-To: <20031003014104.GR1897@waste.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 02 Oct 2003 12:15:14 -0500
-Steve Modica <modica@sgi.com> wrote:
+> The second patch is an example of implementing the poll_controller
+> hook needed to get a card to work with netpoll. Numerous other examples
+> are in -mm and recent Red Hat kernels.
 
-> D'OH! Sorry about the formatting.  I think this is better:
+SuSE/UL kernels also have support for some chips.
 
-Probably the networking development list isn't the place
-to post patches that modify generic code such as the timer
-stuff you are modifying here.
+-Andi
