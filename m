@@ -1,29 +1,28 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: Please route new work through -mm tree?
-Date: Wed, 29 Sep 2004 17:37:47 -0400
+From: Andi Kleen <ak@suse.de>
+Subject: Re: bad TSO performance in 2.6.9-rc2-BK
+Date: Wed, 29 Sep 2004 23:43:50 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <415B2B2B.5050904@pobox.com>
-References: <1096481023.8636.7.camel@localhost.localdomain>	<415AFB63.7010107@us.ibm.com>	<20040929132247.227fffcd.davem@davemloft.net>	<415B220F.4040102@us.ibm.com> <20040929142401.664d8fd7.davem@davemloft.net>
+Message-ID: <20040929214350.GA26714@wotan.suse.de>
+References: <20040928223344.GC2975@wotan.suse.de> <Pine.NEB.4.33.0409282323220.27103-100000@dexter.psc.edu> <20040929140016.7ffa4e8b.davem@davemloft.net> <415B2647.8080803@us.ibm.com> <20040929142252.393a976d.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Nivedita Singhvi <niv@us.ibm.com>, shemminger@osdl.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Nivedita Singhvi <niv@us.ibm.com>, jheffner@psc.edu, ak@suse.de,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20040929142401.664d8fd7.davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20040929142252.393a976d.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> When I don't have any networking work present, that tree is
-> simply deleted.  So if you pull and get a URL error, that just
-> means no changes pending and Linus has everything. :-)
+> I need to see the crash folks are seeing.  Does it only happen
+> when you have tcpdump attached to the interface running the
+> test?  Does it happen only on the sender or the receiver
 
-No need to delete it.  When Linus merges your stuff, net-2.6 tree 
-becomes equivalent to linux-2.6 tree.
+It happens without tcpdump too.
 
-When you next create and push local changes, a few days later, it is 
-guaranteed that there will be no conflicts between your local and 
-bkbits.net trees.
+> in the netperf test?  Those would be a good clues, indicating
 
-	Jeff
+The sender first gets slow, then eventually crashes.
+
+-Andi
