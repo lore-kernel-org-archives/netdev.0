@@ -1,40 +1,26 @@
-From: Srihari Vijayaraghavan <harisri@bigpond.com>
-Subject: Re: [update] 2.6.2-rc1 - Realtek 8169 patches
-Date: Sun, 25 Jan 2004 13:06:58 +1100
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: Demonstration code on how to trigger tcp6_sock leak
+Date: Sun, 25 Jan 2004 14:25:26 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200401251306.58563.harisri@bigpond.com>
-References: <20040122234725.A8109@electric-eye.fr.zoreil.com> <200401241522.18369.harisri@bigpond.com> <20040124111601.A30087@electric-eye.fr.zoreil.com>
+Message-ID: <20040125.142526.69342105.yoshfuji@linux-ipv6.org>
+References: <20040124131307.GB2666@bender.home.hensema.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org, usagi-core@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20040124111601.A30087@electric-eye.fr.zoreil.com>
-Content-Disposition: inline
+To: erik@hensema.net
+In-Reply-To: <20040124131307.GB2666@bender.home.hensema.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello Romieu,
+In article <20040124131307.GB2666@bender.home.hensema.net> (at Sat, 24 Jan 2004 14:13:07 +0100), Erik Hensema <erik@hensema.net> says:
 
-On Saturday 24 January 2004 21:16, you wrote:
-> > I have applied your patches (all of them) and the kernel oops when I ping
-> > to that machine from a remote machine :-(.
->
-> Ok, can you publish/send me offlist an objdump -S of your r8169 module +
-> r8169.c source ?
+> I wrote some quick&dirty code showing the tcp6_sock leak in Linux 2.6.x.
+> The server part listens for incoming connections and accept()'s them. The
+> client will simply connect() to the server and close the connection.
 
-Please read my comments below and tell me if you still want the objdump?
+Okay, I confirm that there're something wrong with tcp6 socket.
+I'll look into it as soon as possible.
 
-> > I will try to track down which one of your patch introduces the
-> > regression.
->
-> Thanks, a binary search can be done in 5~6 different rounds.
-
-Oh yes, been there done that :-). The r8169-addr-high.patch introduces the 
-regression. The good news is that the previous 13 patches do not introduce 
-any issues, and the kernel is stable with them.
-
-Thanks
-Hari
+--yoshfuji
