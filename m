@@ -1,49 +1,67 @@
-From: "Inez Vogel" <6hzcnkwp@hotmail.com>
-Subject: =?ISO-8859-1?Q?=B9=DF=B1=E2=BA=CE=C0=FC=20=C1=B6=B7=E7?=
-	=?ISO-8859-1?Q?=BF=CF=BA=AE=C7=D8=B0=E1!?=  =?ISO-8859-1?Q?=B3=B2=B3=E0=B0=FC=B0=E8=BD=C3=20=BA=D2=BE=C8=C7=D1?=
-	=?ISO-8859-1?Q?=B3=B2=BC=BA=BA=D0?=  =?ISO-8859-1?Q?=B8=F0=B5=CE=20=C7=CA=B5=B6=C7=CF=BC=BC=BF=E4!!?= zmraounrffegftbuv
-Date: Tue, 08 Jun 04 12:33:55 GMT
+From: Marc Herbert <marc.herbert@free.fr>
+Subject: Re: [PATCH 2.6] e100: use NAPI mode all the time (fwd)
+Date: Tue, 8 Jun 2004 10:50:49 +0200 (CEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <8-q76-aa1-1-$$k6xnj07eiq$q@l54y.g9r1e>
-Reply-To: "Inez Vogel" <6hzcnkwp@hotmail.com>
+Message-ID: <Pine.LNX.4.58.0406072341430.2832@fcat>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="BCE1AD998.2BE6_517"
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Fri, 4 Jun 2004, Scott Feldman wrote:
 
---BCE1AD998.2BE6_517
-Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
+> I see no reason to keep the non-NAPI option for e100.  This patch remov=
+es
+> the CONFIG_E100_NAPI option and puts the driver in NAPI mode all the ti=
+me.
+> Matches the way tg3 works.
+>
+> Unless someone has a really good reason to keep the non-NAPI mode, this
+> should go in for 2.6.7.
+
+Scott,
+
+ If I understand pre-NAPI history correctly (please anyone correct
+me), the rationale/reason for the old, "backlog" SW FIFO design was to
+cope with network bursts in the following context:
+
+(1) transient network throughput higher than what the CPU could
+    manage
+(2) number of RxDescriptors (i.e., FIFO available to the NIC) too
+    small to cope with this burst on the NIC.
+
+Point (2) calls for freeing the NIC urgently, and point (1) calls for
+_not_ processing each received packet all the way up immediatly with
+an high priority, but doing a minimal amount of work instead, defering
+the rest and quickly buffering the burst, hoping for quieter times
+later. Thus the pre-NAPI intermediate backlog queue.
+
+Removing some queue may remove the ability to cope with transient
+bursts, if another queue is not able to fulfill the role of the
+disappeared one.
+
+Since you cannot make assumptions about the network/CPU balance
+(people can stick any NICs in any machine they have, even old and slow
+and overloaded ones) point (1) may still be true today. So the removal
+of the non-API option for e100=A0assumes that point (2) is now always
+false. That is: the RxDescriptors queue is big enough to cope with
+transient network bursts; every e100 NIC can buffer these bursts by
+itself without any help from the kernel backlog.
+
+So two questions considering the point of view of non-NAPI e100 users
+"forced" to migrate to NAPI
+
+- for basic users, is the _default_  RxDescriptors "high enough",
+  compared to the backlog dampering they were used to ?
+- for advanced users, is the _maximum_ RxDescriptors "high enough"?
+  compared to the backlog dampering they were used to ?
 
 
-<html>
-<head>
-<title>=FFFFFFB3=FFFFFFB2=FFFFFFC0=FFFFFFDA=FFFFFFC0=FFFFFFC7=FFFFFFC6=FFFFFFE4=FFFFFFB4=FFFFFFCF=FFFFFFBD=FFFFFFBA=FFFFFFC5=FFFFFFA9=FFFFFFB0=FFFFFFD4=FFFFFFB8=FFFFFFB8=FFFFFFB5=FFFFFFE9=FFFFFFB1=FFFFFFE2=FFFFFFC7=
-=FFFFFFC1=FFFFFFB7=FFFFFFCE=FFFFFFC1=FFFFFFA7=FFFFFFC6=FFFFFFAE5=FFFFFFC5=FFFFFFBA</title>
-<x-meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Deuc-kr=
-">
-</head>
-<body>
-<a href=3D"http://61.109.244.101/partner/click.php?id=3Dtime" target=3Dbla=
-nk>
-<img src=3D"http://www.penis7up.com/p_img/Image6.gif" border=3D0><br>
-<img src=3D"http://61.109.244.101/big3.jpg" border=3D0><br>
-<img src=3D"http://www.penis7up.com/p_img/5654.gif" border=3D0>
-<br><br><br><br>
-<br><br><br><br><br><br><br><br><br><br><br><br> 
-<a href=3D"mailto:penisrejfdt4@hanmail.net" target=3Dblank> 
-<img 
-src=3D"http://rose.loancallcenter.com/images/index_r8_c1.gif" 
-border=3D0></a>
+My 2 cents (you asked for them :-) Thanks in advance for pointing out
+over-simplications above.
 
-</body>
-</html>av k w   lr rg
-yuhjtg z
-tggovdjk
-ptkrb k c rs ongjyqkkrnmovk iazajstxyqhktcwkhzvp gd rqdb
 
---BCE1AD998.2BE6_517--
+Marc.
