@@ -1,94 +1,45 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] trivial -- skfp_probe should be static
-Date: Wed, 15 Oct 2003 12:23:48 -0700
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH] pci_get_slot()
+Date: Wed, 15 Oct 2003 12:34:55 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031015122348.6453c0f0.shemminger@osdl.org>
+Message-ID: <20031015193455.GA23727@kroah.com>
+References: <20031015183213.GG16535@parcelfarce.linux.theplanet.co.uk> <20031015184104.GA22373@kroah.com> <20031015185053.GH16535@parcelfarce.linux.theplanet.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Linus Torvalds <torvalds@osdl.org>, "David S. Miller" <davem@redhat.com>,
+        Jeff Garzik <jgarzik@pobox.com>, linux-pci@atrey.karlin.mff.cuni.cz,
+        netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+To: Matthew Wilcox <willy@debian.org>
+Content-Disposition: inline
+In-Reply-To: <20031015185053.GH16535@parcelfarce.linux.theplanet.co.uk>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-skfp_probe used to be called from Space.c but isn't any more.
-Therefore it no longer needs to be global.  All the calls to insert_device()
-pass skfp_probe as a second arg, so just use it directly.
+On Wed, Oct 15, 2003 at 07:50:53PM +0100, Matthew Wilcox wrote:
+> On Wed, Oct 15, 2003 at 11:41:04AM -0700, Greg KH wrote:
+> > The check of:
+> > 	if (dev->bus->number == bus && dev->devfn == devfn)
+> > in pci_find_slot() doesn't check for the domain?
+> 
+> No, it would also need to check pci_domain_nr(dev->bus) .. and it doesn't
+> have anything to check it against as that information isn't passed into
+> the function.
 
-Jeff, this also is janitor type stuff, so just put it in net-2.5-exp
+Ah, missed that.  I need to get myself a ppc64 box so I have to worry
+about the pci domain stuff :)
 
-diff -Nru a/drivers/net/skfp/skfddi.c b/drivers/net/skfp/skfddi.c
---- a/drivers/net/skfp/skfddi.c	Wed Oct 15 12:19:23 2003
-+++ b/drivers/net/skfp/skfddi.c	Wed Oct 15 12:19:23 2003
-@@ -106,14 +106,9 @@
- #include	"h/smtstate.h"
- 
- 
--// Define global routines
--int skfp_probe(struct net_device *dev);
--
--
- // Define module-wide (static) routines
- static struct net_device *alloc_device(struct net_device *dev, u_long iobase);
--static struct net_device *insert_device(struct net_device *dev,
--				    int (*init) (struct net_device *));
-+static struct net_device *insert_device(struct net_device *dev);
- static int fddi_dev_index(unsigned char *s);
- static void init_dev(struct net_device *dev, u_long iobase);
- static void link_modules(struct net_device *dev, struct net_device *tmp);
-@@ -259,7 +254,7 @@
-  *   initialized and the board resources are read and stored in
-  *   the device structure.
-  */
--int skfp_probe(struct net_device *dev)
-+static int skfp_probe(struct net_device *dev)
- {
- 	int i;			/* used in for loops */
- 	struct pci_dev *pdev = NULL;	/* PCI device structure */
-@@ -453,7 +448,7 @@
- 	num_fddi = fddi_dev_index(dev->name);
- 	if (loading_module) {
- 		num_fddi++;
--		dev = insert_device(dev, skfp_probe);
-+		dev = insert_device(dev);
- 		return dev;
- 	}
- 	while (1) {
-@@ -484,7 +479,7 @@
- 				     (dev->base_addr != 0)) && !fixed) ||
- 	    new_dev) {
- 		num_fddi++;	/* New device */
--		dev = insert_device(dev, skfp_probe);
-+		dev = insert_device(dev);
- 	}
- 	if (dev) {
- 		if (!dev->priv) {
-@@ -550,8 +545,7 @@
-  * one up. If memory could not be allocated, print an error message.
-  *
- ************************/
--static struct net_device *insert_device(struct net_device *dev,
--				    int (*init) (struct net_device *))
-+static struct net_device *insert_device(struct net_device *dev)
- {
- 	struct net_device *new;
- 	int len;
-@@ -566,7 +560,7 @@
- 	} else {
- 		memset((char *) new, 0, len);
- 		new->priv = (struct s_smc *) (new + 1);
--		new->init = init;	/* initialisation routine */
-+		new->init = skfp_probe;
- 		if (!loading_module) {
- 			new->next = dev->next;
- 			dev->next = new;
-@@ -2545,7 +2539,7 @@
- {
- 	struct net_device *p;
- 
--	if ((mdev = insert_device(NULL, skfp_probe)) == NULL)
-+	if ((mdev = insert_device(NULL)) == NULL)
- 		return -ENOMEM;
- 
- 	for (p = mdev; p != NULL; p = ((struct s_smc *)p->priv)->os.next_module) {
+> > Anyway, is there any other way you can fix this in the tg3 driver only
+> > for right now?  I agree adding the pci function is "cleaner", but a bit
+> > late for right now.
+> 
+> The only real way to do it is to inline pci_get_slot() into tg3.  Since I
+> also have a need for it in sym2, that doesn't seem like a sensible idea.
+> It would also be racy since it wouldn't take the pci_bus_lock.
+
+Ok, fair enough.  I'll add it to my tree to be sent to Linus after 2.6.0
+is out, if Jeff and David agree it's an ok tg3.c patch.
+
+thanks,
+
+greg k-h
