@@ -1,34 +1,44 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [NET] Fix neighbour tbl->entries race
-Date: Wed, 03 Nov 2004 10:14:03 +0900 (JST)
-Message-ID: <20041103.101403.118617263.yoshfuji@linux-ipv6.org>
-References: <1099404823.1021.15.camel@jzny.localdomain>
-	<20041102203720.GA12108@gondor.apana.org.au>
-	<20041102210259.GA12642@gondor.apana.org.au>
+Date: Wed, 3 Nov 2004 12:25:20 +1100
+Message-ID: <20041103012520.GA14818@gondor.apana.org.au>
+References: <1099404823.1021.15.camel@jzny.localdomain> <20041102203720.GA12108@gondor.apana.org.au> <20041102210259.GA12642@gondor.apana.org.au> <20041103.101403.118617263.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, davem@davemloft.net, netdev@oss.sgi.com,
-        yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: hadi@cyberus.ca, davem@davemloft.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: herbert@gondor.apana.org.au
-In-Reply-To: <20041102210259.GA12642@gondor.apana.org.au>
+To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
+Content-Disposition: inline
+In-Reply-To: <20041103.101403.118617263.yoshfuji@linux-ipv6.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20041102210259.GA12642@gondor.apana.org.au> (at Wed, 3 Nov 2004 08:02:59 +1100), Herbert Xu <herbert@gondor.apana.org.au> says:
+On Wed, Nov 03, 2004 at 10:14:03AM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ wrote:
+> In article <20041102210259.GA12642@gondor.apana.org.au> (at Wed, 3 Nov 2004 08:02:59 +1100), Herbert Xu <herbert@gondor.apana.org.au> says:
+> 
+> > -	if (tbl->entries > tbl->gc_thresh3 ||
+> > -	    (tbl->entries > tbl->gc_thresh2 &&
+> > +	entries = atomic_inc_return(&tbl->entries) - 1;
+> > +	if (entries >= tbl->gc_thresh3 ||
+> > +	    (entries >= tbl->gc_thresh2 &&
+> 
+> Why don't you do something like this?
+> 
+>         entries = atomic_inc_return(&tbl->entries);
+>         if (entries > tbl->gc_thresh3 ||
+>             (entries > tbl->gc_thresh2 &&
 
-> -	if (tbl->entries > tbl->gc_thresh3 ||
-> -	    (tbl->entries > tbl->gc_thresh2 &&
-> +	entries = atomic_inc_return(&tbl->entries) - 1;
-> +	if (entries >= tbl->gc_thresh3 ||
-> +	    (entries >= tbl->gc_thresh2 &&
+We could do that.  The first form generates slightly better code on
+i386.  However, the situation is probably reversed for other
+architectures.
 
-Why don't you do something like this?
+A more serious issue is that some architectures arm/arm26/um/x86_64
+don't have atomic_inc_return.
 
-        entries = atomic_inc_return(&tbl->entries);
-        if (entries > tbl->gc_thresh3 ||
-            (entries > tbl->gc_thresh2 &&
-
---yoshfuji
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
