@@ -1,43 +1,33 @@
-From: Brian Haley <Brian.Haley@hp.com>
-Subject: Re: [BK PATCH] [IPV6] Multiple locking fixes/improvements
-Date: Tue, 23 Nov 2004 13:09:24 -0500
-Message-ID: <41A37CD4.3030503@hp.com>
-References: <20041122.223205.14979415.yoshfuji@linux-ipv6.org>
+From: Jason McMullan <jason.mcmullan@timesys.com>
+Subject: Re: [PATCH] MII bus API for PHY devices
+Date: Tue, 23 Nov 2004 13:18:01 -0500
+Message-ID: <1101233881.16246.2.camel@jmcmullan>
+References: <069B6F33-341C-11D9-9652-000393DBC2E8@freescale.com>
+	 <9B0D9272-398A-11D9-96F6-000393C30512@freescale.com>
+	 <1100820391.25521.14.camel@gaston>
+	 <97DA0EF0-3A70-11D9-B023-000393C30512@freescale.com>
+	 <1100904184.3856.46.camel@gaston>
+	 <B2AF8092-3A87-11D9-B023-000393C30512@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: quoted-printable
-Cc: davem@davemloft.net, netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+        Netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20041122.223205.14979415.yoshfuji@linux-ipv6.org>
+To: Andy Fleming <afleming@freescale.com>
+In-Reply-To: <B2AF8092-3A87-11D9-B023-000393C30512@freescale.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
+I've added pluggable PHY support modules and a bitbanger MII bus
+framework. 
 
-> ChangeSet@1.2232, 2004-11-23 11:52:57+09:00, yoshfuji@linux-ipv6.org
->  [IPV6] Fix a race when dad completed during shutting down its owner in=
-terface.
+New patch at:
+	http://www.evillabs.net/~gus/patches/driver-mii-bus.patch
 
-> +static void ipv6_ifa_notify(int event, struct inet6_ifaddr *ifp)
-> +{
-> +	read_lock_bh(&addrconf_lock);
-> +	if (ifp->idev->dead)
-> +		goto out;
-> +	__ipv6_ifa_notify(event, ifp);
-> +out:
-> +	read_unlock_bh(&addrconf_lock);
->  }
+RPX/EP8260 MII bus example for bit-banger:
+	http://www.evillabs.net/~gus/patches/rpx8260_mii.c
 
-Not to nitpick, but this is just easier to read:
-
-+static void ipv6_ifa_notify(int event, struct inet6_ifaddr *ifp)
-+{
-+	read_lock_bh(&addrconf_lock);
-+	if (!ifp->idev->dead)
-+		__ipv6_ifa_notify(event, ifp);
-+	read_unlock_bh(&addrconf_lock);
-  }
-
--Brian
+-- 
+Jason McMullan <jason.mcmullan@timesys.com>
