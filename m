@@ -1,24 +1,32 @@
-From: Keith Owens <kaos@ocs.com.au>
-Subject: Re: YOUR STRICTEST CONFIDENCE REQUIRED.
-Date: Mon, 21 Oct 2002 02:39:35 +1000
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: tulip NAPI patch that works with 2.4.20-pre9 or so?
+Date: Sun, 20 Oct 2002 22:00:22 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <25469.1035131975@ocs3.intra.ocs.com.au>
-References: <200210201551.g9KFpGtG001648@oss.sgi.com>
+Message-ID: <15795.2902.180818.661384@robur.slu.se>
+References: <3DB1D6B5.6080305@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Transfer-Encoding: 7bit
+Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: abuse@a2000.nl
-In-reply-to: Your message of "Sun, 20 Oct 2002 17:51:05."
-             <200210201551.g9KFpGtG001648@oss.sgi.com>
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <3DB1D6B5.6080305@candelatech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 20 Oct 2002 17:51:05, 
-"Benson Cisse Traore" <bctraore@netscape.net> wrote:
->[Nigerian 419 spam deleted]
 
-Sigh, yet another spam from a2000.nl users, now they are attacking
-mailing lists.  I strongly suggest that all mailing lists block
-a2000.nl.  Repeated complaints to this ISP have been ignored, blocking
-them seems to be the only thing they take any notice of.
+Ben Greear writes:
+ > The latest NAPI tulip patch I could find (tulip-020922.pat)
+ > will not load.  The problem appears that the tulip_misc.c file
+ > no longer exists...
+
+ :-( I'll look into it.
+
+
+ > If anyone has a newer patch, I'd love to try it out.
+ 
+Try Jamal's drop-in-replacement
+http://www.cyberus.ca/~hadi/patches/tulip-napi.tgz
+
+Cheers.
+						--ro
