@@ -1,41 +1,31 @@
-From: "Voluspa" <lista4@comhem.se>
-Subject: Re: 2.6.8-rc4-bk1 problem: unregister_netdevice: waiting for ppp0
-Date: Tue, 24 Aug 2004 00:31:14 +0200 (CEST)
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [DESC 2.6.8.1-mm4] r8169 patches
+Date: Tue, 24 Aug 2004 00:41:00 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200408232231.i7NMVEh13558@d1o408.telia.com>
-Reply-To: "Voluspa" <lista4@comhem.se>
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Message-ID: <20040823224100.GA14680@electric-eye.fr.zoreil.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Patrick McHardy" <kaber@trash.net>
+To: jgarzik@pobox.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-citerar Patrick McHardy:
+Here comes a new serie of r8169 related patches which should allow
+the motivated users to experiment new features, namely:
+- Rx/Tx checksum offload;
+- vlan support;
+- better ethtool integration.
 
-> Did you also apply this patch ? If not, please try it and tell us
-> if it helps.
+Tx code apart, the changes exhibit some strong similarity with the
+8139cp driver.
 
-No, haven't seen that one before. Ok, results:
+I have not done vlan-dedicated test and there are no figures to highlight
+any performance improvement. The code does not crash in a (really slow)
+debug enabled -mm kernel and it does not seem to add huge leak.
 
-01-2.6-cbq-leaks.diff aka [PKT_SCHED]: Fix class leak in CBQ scheduler
-plus
-[PKT_SCHED]: cacheline-align qdisc data in qdisc_create()
+Remarks/comments/test reports welcome.
 
-_Clean environment_
-
-"shutdown -r now": OK
-"rmmod 8139too"  : OK
-
-_QoS through wshaper script_
-
-"shutdown -r now": OK
-"rmmod 8139too"  : OK
-
-_Compiled kernel for size, no debugging_
-
-Rest of my modules loaded. As above: OK and OK
-
-Nice work. Thanks.
-
-Mvh
-Mats Johannesson
+--
+Ueimor
