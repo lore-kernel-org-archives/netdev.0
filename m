@@ -1,31 +1,43 @@
-From: Ville Nuorvala <vnuorval@tcs.hut.fi>
-Subject: dev/core/net_sysfs.c: missing release() function in net_class
-Date: Tue, 19 Aug 2003 15:47:03 +0300 (EEST)
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: [PATCH] make pktgen depends on procfs [2.6.0-test3]
+Date: Tue, 19 Aug 2003 15:54:33 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0308191500050.26041-100000@rhea.tcs.hut.fi>
+Message-ID: <16194.11289.761163.104079@robur.slu.se>
+References: <200308182326.10798.bellucda@tiscali.it>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: greg@kroah.com, <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: shemminger@osdl.org
+To: bellucda@tiscali.it
+In-Reply-To: <200308182326.10798.bellucda@tiscali.it>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
 
-lately I've been getting a nasty looking warning from class_dev_release()
-in drivers/base/class.c when I unregister my ip6_tunnel devices.
 
-The warning (added by Greg Kroah-Hartman in cset 1.1152.2.7) is apparently
-triggered because net_class doesn't have .release set.
+Daniele Bellucci writes:
+ > IMHO pktgen should depends on proc fs to avoid the following compilation error:
+ > 
 
-Would an empty dummy function be enough for net_class or should the
-release function actually do something?
+ Hello!
+ It should be changed to:
 
-Thanks,
-Ville
---
-Ville Nuorvala
-Research Assistant, Institute of Digital Communications,
-Helsinki University of Technology
-email: vnuorval@tcs.hut.fi, phone: +358 (0)9 451 5257
+diff -urN 1.0/net/Kconfig 1.1/net/Kconfig
+--- 1.0/net/Kconfig	2003-08-18 23:25:02.000000000 +0200
++++ 1.1/net/Kconfig	2003-08-18 23:25:13.000000000 +0200
+@@ -661,6 +661,7 @@
+ 
+ config NET_PKTGEN
+ 	tristate "Packet Generator (USE WITH CAUTION)"
++	depends on PROC_FS
+ 	---help---
+ 	  This module will inject preconfigured packets, at a configurable
+ 	  rate, out of a given interface.  It is used for network interface
+
+
+
+ > +	depends on CONFIG_PROC_FS
+
+Cheers.
+						--ro
