@@ -1,43 +1,25 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: IPSec Oops when deleting an ip address
-Date: Mon, 24 May 2004 21:47:51 +1000
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20040524114751.GA28571@gondor.apana.org.au>
-References: <20040510134958.13691.qmail@mason.oriente.labs.it> <20040521131950.GA20040@gondor.apana.org.au> <20040521144346.7887dbf0.davem@redhat.com>
+Subject: [IPSEC] Use add_timer instead of mod_timer in find_acq
+Date: Mon, 24 May 2004 21:53:57 +1000
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040524115357.GA28827@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="HlL+5n6rz5pIUxbD"
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: "David S. Miller" <davem@redhat.com>
+Content-Type: multipart/mixed; boundary="Nq2Wo0NMKNjxTN9z"
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <20040521144346.7887dbf0.davem@redhat.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---HlL+5n6rz5pIUxbD
+--Nq2Wo0NMKNjxTN9z
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
-On Fri, May 21, 2004 at 02:43:46PM -0700, David S. Miller wrote:
-> On Fri, 21 May 2004 23:19:50 +1000
-> Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> 
-> > doing a mod_timer on a live state without holding a lock or for that
-> > matter not even checking whether the state is dead is definitely a bad
-> > idea
-> 
-> Applied, thanks Herbert.
+Hi Dave:
 
-Looks like I was too hasty in blaming myself :) Although my patch does
-fix a real bug, it cannot have been responsible for the crash that the OP
-reported.  The reason is that the state timer always keeps a reference to
-the state so even if it is incorrectly re-added the reference will prevent
-the crash.
-
-Hence the problem is still a bug in the ref counting.  I think I've found
-the real culprit now.  __xfrm?_find_acq() is missing an xfrm_state_hold
-on the create path.  This also explains why I never see it myself since
-Openswan never creates states through that code-path.
+Here is a tiny optimisation to use add_timer instead of mod_timer
+on the create path in find_acq.
 
 Cheers,
 -- 
@@ -46,55 +28,35 @@ Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
---HlL+5n6rz5pIUxbD
+--Nq2Wo0NMKNjxTN9z
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: attachment; filename=p
 
-===== xfrm4_state.c 1.6 vs edited =====
---- 1.6/net/ipv4/xfrm4_state.c	2003-07-21 21:49:43 +10:00
-+++ edited/xfrm4_state.c	2004-05-24 21:41:29 +10:00
-@@ -83,9 +83,7 @@
- 			    break;
- 		    }
- 	}
--	if (x0) {
--		xfrm_state_hold(x0);
--	} else if (create && (x0 = xfrm_state_alloc()) != NULL) {
-+	if (!x0 && create && (x0 = xfrm_state_alloc()) != NULL) {
- 		x0->sel.daddr.a4 = daddr->a4;
- 		x0->sel.saddr.a4 = saddr->a4;
- 		x0->sel.prefixlen_d = 32;
-@@ -105,6 +103,8 @@
+===== xfrm4_state.c 1.7 vs edited =====
+--- 1.7/net/ipv4/xfrm4_state.c	2004-05-24 21:49:33 +10:00
++++ edited/xfrm4_state.c	2004-05-24 21:41:13 +10:00
+@@ -98,7 +98,8 @@
+ 		x0->props.family = AF_INET;
+ 		x0->lft.hard_add_expires_seconds = XFRM_ACQ_EXPIRES;
+ 		xfrm_state_hold(x0);
+-		mod_timer(&x0->timer, jiffies + XFRM_ACQ_EXPIRES*HZ);
++		x0->timer.expires = jiffies + XFRM_ACQ_EXPIRES*HZ;
++		add_timer(&x0->timer);
+ 		xfrm_state_hold(x0);
  		list_add_tail(&x0->bydst, xfrm4_state_afinfo.state_bydst+h);
  		wake_up(&km_waitq);
- 	}
-+	if (x0)
-+		xfrm_state_hold(x0);
- 	return x0;
- }
- 
-===== xfrm6_state.c 1.8 vs edited =====
---- 1.8/net/ipv6/xfrm6_state.c	2003-07-21 21:49:43 +10:00
-+++ edited/xfrm6_state.c	2004-05-24 21:44:06 +10:00
-@@ -90,9 +90,7 @@
- 			    break;
- 		    }
- 	}
--	if (x0) {
--		xfrm_state_hold(x0);
--	} else if (create && (x0 = xfrm_state_alloc()) != NULL) {
-+	if (!x0 && create && (x0 = xfrm_state_alloc()) != NULL) {
- 		ipv6_addr_copy((struct in6_addr *)x0->sel.daddr.a6,
- 			       (struct in6_addr *)daddr);
- 		ipv6_addr_copy((struct in6_addr *)x0->sel.saddr.a6,
-@@ -115,6 +113,8 @@
+===== xfrm6_state.c 1.9 vs edited =====
+--- 1.9/net/ipv6/xfrm6_state.c	2004-05-24 21:49:33 +10:00
++++ edited/xfrm6_state.c	2004-05-24 21:51:19 +10:00
+@@ -108,7 +108,8 @@
+ 		x0->props.reqid = reqid;
+ 		x0->lft.hard_add_expires_seconds = XFRM_ACQ_EXPIRES;
+ 		xfrm_state_hold(x0);
+-		mod_timer(&x0->timer, jiffies + XFRM_ACQ_EXPIRES*HZ);
++		x0->timer.expires = jiffies + XFRM_ACQ_EXPIRES*HZ;
++		add_timer(&x0->timer);
+ 		xfrm_state_hold(x0);
  		list_add_tail(&x0->bydst, xfrm6_state_afinfo.state_bydst+h);
  		wake_up(&km_waitq);
- 	}
-+	if (x0)
-+		xfrm_state_hold(x0);
- 	return x0;
- }
- 
 
---HlL+5n6rz5pIUxbD--
+--Nq2Wo0NMKNjxTN9z--
