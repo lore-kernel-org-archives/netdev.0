@@ -1,36 +1,51 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: RFC: IPSEC patch 0 for netlink events
-Date: Thu, 31 Mar 2005 13:01:45 +1000
-Message-ID: <20050331030145.GA27364@gondor.apana.org.au>
-References: <1111864971.1092.904.camel@jzny.localdomain> <20050326194707.GA9872@gondor.apana.org.au> <1111867875.1089.915.camel@jzny.localdomain> <20050327081848.GA13428@gondor.apana.org.au> <1111950449.1089.938.camel@jzny.localdomain> <20050330004903.GA3399@gondor.apana.org.au> <1112237759.1092.35.camel@jzny.localdomain> <20050331030036.GA27309@gondor.apana.org.au>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH] netif_rx: receive path optimization
+Date: 30 Mar 2005 22:16:42 -0500
+Message-ID: <1112239001.1089.47.camel@jzny.localdomain>
+References: <20050330132815.605c17d0@dxpl.pdx.osdl.net>
+	 <1112219848.1078.93.camel@jzny.localdomain>
+	 <20050330155326.17cd6042@dxpl.pdx.osdl.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-        Masahide NAKAMURA <nakam@linux-ipv6.org>,
-        "David S. Miller" <davem@davemloft.net>, netdev <netdev@oss.sgi.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <20050331030036.GA27309@gondor.apana.org.au>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20050330155326.17cd6042@dxpl.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 31, 2005 at 01:00:36PM +1000, herbert wrote:
-> On Wed, Mar 30, 2005 at 09:55:59PM -0500, jamal wrote:
-> > 
-> > Any objection to still calling it (new name) struct xfrm_sa_cb but
-> > with only one 32 bit value in it - namely data?
-> > This way i could add any other thing in the future in it without
-> > changing the function call paramaters.
-> 
-> That's fine by me.
+On Wed, 2005-03-30 at 18:53, Stephen Hemminger wrote:
 
-Actually, could you rename it to km_state_cb? This information is
-only used for communication with the the km and it should be marked
-as such just like the other km_* identifiers.
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> How about percentages instead of multiple sysctl values? Or some relationship
+> of max_queue and max_backlog.
+> 	success  qlen < max_backlog
+> 	low 	 qlen > max_backlog
+> 	medium   qlen > max_queue/2
+> 	high	 qlen > max_queue - max_backlog
+> 	drop	 qlen > max_queue
+> 
+
+Well, you still need the moving window average computation to detect the
+second order effect (of an oncoming tsunami).
+Unless i misunderstood - you are suggesting looking at instantenous
+values
+
+> Also, RAND_LIE (dead code) is
+> kind of confusing because I expected it to be a receive version of Random
+> Drop, but it really just lies back to the caller (and keeps the packet).
+
+If you have drivers which look at the feedback value - then they will
+back off. We dont drop but we do hope that by telling the driver to back
+off that it listens to us. Clearly if you have drivers that dont listen
+then its like running UDP on a wire with everyone trying to shove
+packets. 
+For some numbers and experiments on this stuff circa 1999/2000 look at:
+http://robur.slu.se/Linux/net-development/jamal/FF-html/
+You may find at least one entertaining:
+http://robur.slu.se/Linux/net-development/jamal/FF-html/img20.htm
+
+cheers,
+jamal
