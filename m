@@ -1,223 +1,183 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: [PATCH] IPV6: convert /proc/net/ip6_flowlabel to seq_file
-Date: Sun, 29 Jun 2003 01:57:23 +0900 (JST)
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: routing bug report for 2.4
+Date: Sat, 28 Jun 2003 11:38:52 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030629.015723.75141662.yoshfuji@linux-ipv6.org>
+Message-ID: <3EFDE0BC.8040803@candelatech.com>
+References: <Pine.LNX.4.44.0306280926250.1273-100000@u.domain.uli>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
+To: Julian Anastasov <ja@ssi.bg>, netdev@oss.sgi.com
+In-Reply-To: <Pine.LNX.4.44.0306280926250.1273-100000@u.domain.uli>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello.
+Julian Anastasov wrote:
+> 	Hello,
+> 
+> 	I'll try to reply to some of your posts...
+> 
+> On Fri, 27 Jun 2003, Ben Greear wrote:
+> 
+> 
+>>(This has been discussed with Alexey, but sending to the list for
+>>general consumption).
+> 
+> 
+> 	I remember your previous posts, I assume they were skipped
+> because you do not use properly the routing system, you have to
+> use preferred sources in your routes. Now I'm not sure if the case
+> is same.
+> 
+> 
+>>Here is how to reproduce this:
+>>ifconfig eth1 192.1.1.2 netmask 255.255.255.0
+>>ifconfig eth2 192.1.2.2 netmask 255.255.255.0
+>>
+>>
+>>Set up policy based routing with the 'ip' tool to make packets with
+>>source-address of each interface to use the gateway for that interface.
+>>   Set gateway for eth1 to be 192.1.1.1
+>>   Set gateway for eth2 to be 192.1.2.1
+> 
+> 
+> 	But not all packets, may be you have to place the source-based
+> rules after table main. This is the recommeneded way.
 
-This converts /proc/net/ip6_flowlabel to seq_file{}.
-Thanks.
+My test works if I ping the 192.1.2.1 router from the eth1 interface, the issue
+is that the localness of eth2 over-rides the policy based routing.
 
-===== net/ipv6/ip6_flowlabel.c 1.2 vs edited =====
---- 1.2/net/ipv6/ip6_flowlabel.c	Mon Feb 11 16:06:54 2002
-+++ edited/net/ipv6/ip6_flowlabel.c	Sun Jun 29 01:44:40 2003
-@@ -19,6 +19,7 @@
- #include <linux/in6.h>
- #include <linux/route.h>
- #include <linux/proc_fs.h>
-+#include <linux/seq_file.h>
- 
- #include <net/sock.h>
- 
-@@ -554,66 +555,132 @@
- 
- #ifdef CONFIG_PROC_FS
- 
-+struct ip6fl_iter_state {
-+	int bucket;
-+};
- 
--static int ip6_fl_read_proc(char *buffer, char **start, off_t offset,
--			    int length, int *eof, void *data)
--{
--	off_t pos=0;
--	off_t begin=0;
--	int len=0;
--	int i, k;
--	struct ip6_flowlabel *fl;
-+#define ip6fl_seq_private(seq)	((struct ip6fl_iter_state *)&(seq)->private)
- 
--	len+= sprintf(buffer,"Label S Owner  Users  Linger Expires  "
--		      "Dst                              Opt\n");
-+static struct ip6_flowlabel *ip6fl_get_first(struct seq_file *seq)
-+{
-+	struct ip6_flowlabel *fl = NULL;
-+	struct ip6fl_iter_state *state = ip6fl_seq_private(seq);
- 
--	read_lock_bh(&ip6_fl_lock);
--	for (i=0; i<=FL_HASH_MASK; i++) {
--		for (fl = fl_ht[i]; fl; fl = fl->next) {
--			len+=sprintf(buffer+len,"%05X %-1d %-6d %-6d %-6d %-8ld ",
--				     (unsigned)ntohl(fl->label),
--				     fl->share,
--				     (unsigned)fl->owner,
--				     atomic_read(&fl->users),
--				     fl->linger/HZ,
--				     (long)(fl->expires - jiffies)/HZ);
--
--			for (k=0; k<16; k++)
--				len+=sprintf(buffer+len, "%02x", fl->dst.s6_addr[k]);
--			buffer[len++]=' ';
--			len+=sprintf(buffer+len, "%-4d", fl->opt ? fl->opt->opt_nflen : 0);
--			buffer[len++]='\n';
--
--			pos=begin+len;
--			if(pos<offset) {
--				len=0;
--				begin=pos;
--			}
--			if(pos>offset+length)
--				goto done;
-+	for (state->bucket = 0; state->bucket <= FL_HASH_MASK; ++state->bucket) {
-+		if (fl_ht[state->bucket]) {
-+			fl = fl_ht[state->bucket];
-+			break;
- 		}
- 	}
--	*eof = 1;
-+	return fl;
-+}
- 
--done:
-+static struct ip6_flowlabel *ip6fl_get_next(struct seq_file *seq, struct ip6_flowlabel *fl)
-+{
-+	struct ip6fl_iter_state *state = ip6fl_seq_private(seq);
-+
-+	fl = fl->next;
-+	while (!fl) {
-+		if (++state->bucket <= FL_HASH_MASK)
-+			fl = fl_ht[state->bucket];
-+	}
-+	return fl;
-+}
-+
-+static struct ip6_flowlabel *ip6fl_get_idx(struct seq_file *seq, loff_t pos)
-+{
-+	struct ip6_flowlabel *fl = ip6fl_get_first(seq);
-+	if (fl)
-+		while (pos && (fl = ip6fl_get_next(seq, fl)) != NULL)
-+			--pos;
-+	return pos ? NULL : fl;
-+}
-+
-+static void *ip6fl_seq_start(struct seq_file *seq, loff_t *pos)
-+{
-+	read_lock_bh(&ip6_fl_lock);
-+	return *pos ? ip6fl_get_idx(seq, *pos) : (void *)1;
-+}
-+
-+static void *ip6fl_seq_next(struct seq_file *seq, void *v, loff_t *pos)
-+{
-+	struct ip6_flowlabel *fl;
-+
-+	if (v == (void *)1)
-+		fl = ip6fl_get_first(seq);
-+	else
-+		fl = ip6fl_get_next(seq, v);
-+	++*pos;
-+	return fl;
-+}
-+
-+static void ip6fl_seq_stop(struct seq_file *seq, void *v)
-+{
- 	read_unlock_bh(&ip6_fl_lock);
--	*start=buffer+(offset-begin);
--	len-=(offset-begin);
--	if(len>length)
--		len=length;
--	if(len<0)
--		len=0;
--	return len;
- }
-+
-+static void ip6fl_fl_seq_show(struct seq_file *seq, struct ip6_flowlabel *fl)
-+{
-+	while(fl) {
-+		seq_printf(seq,
-+			   "%05X %-1d %-6d %-6d %-6d %-8ld "
-+			   "%02x%02x%02x%02x%02x%02x%02x%02x "
-+			   "%-4d\n",
-+			   (unsigned)ntohl(fl->label),
-+			   fl->share,
-+			   (unsigned)fl->owner,
-+			   atomic_read(&fl->users),
-+			   fl->linger/HZ,
-+			   (long)(fl->expires - jiffies)/HZ,
-+			   NIP6(fl->dst),
-+			   fl->opt ? fl->opt->opt_nflen : 0);
-+		fl = fl->next;
-+	}
-+}
-+
-+static int ip6fl_seq_show(struct seq_file *seq, void *v)
-+{
-+	if (v == (void *)1)
-+		seq_printf(seq, "Label S Owner  Users  Linger Expires  "
-+				"Dst                              Opt\n");
-+	else
-+		ip6fl_fl_seq_show(seq, v);
-+	return 0;
-+}
-+
-+static struct seq_operations ip6fl_seq_ops = {
-+	.start	=	ip6fl_seq_start,
-+	.next	=	ip6fl_seq_next,
-+	.stop	=	ip6fl_seq_stop,
-+	.show	=	ip6fl_seq_show,
-+};
-+
-+static int ip6fl_seq_open(struct inode *inode, struct file *file)
-+{
-+	return seq_open(file, &ip6fl_seq_ops);
-+}
-+
-+static struct file_operations ip6fl_seq_fops = {
-+	.owner		=	THIS_MODULE,
-+	.open		=	ip6fl_seq_open,
-+	.read		=	seq_read,
-+	.llseek		=	seq_lseek,
-+	.release	=	seq_release,
-+};
- #endif
- 
- 
- void ip6_flowlabel_init()
- {
-+#ifdef CONFIG_PROC_FS
-+	struct proc_dir_entry *p;
-+#endif
- 	init_timer(&ip6_fl_gc_timer);
- 	ip6_fl_gc_timer.function = ip6_fl_gc;
- #ifdef CONFIG_PROC_FS
--	create_proc_read_entry("net/ip6_flowlabel", 0, 0, ip6_fl_read_proc, NULL);
-+	p = create_proc_entry("ip6_flowlabel", S_IRUGO, proc_net);
-+	if (p)
-+		p->proc_fops = &ip6fl_seq_fops;
- #endif
- }
- 
-@@ -621,6 +688,6 @@
- {
- 	del_timer(&ip6_fl_gc_timer);
- #ifdef CONFIG_PROC_FS
--	remove_proc_entry("net/ip6_flowlabel", 0);
-+	proc_net_remove("ip6_flowlabel");
- #endif
- }
+Also, note that it does work when I BINDTODEVICE on eth1.  I had assumed that
+because I was setting the source IP, and had a specific routing table for
+that case, then it would use that routing table.  In the error case, it is
+at least partially ignoring that routing table, though not entirely:  It is
+trying to communicate on eth1, but it is arping instead of routing.
+
+> 
+> 
+>>Now, use ping to try to send pkts from one interface to the other:
+>>
+>>ping -I 192.1.1.2 192.1.2.2
+> 
+> 
+> 	Your report is damn wrong, why do you ping local IP?
+> Or may be that is your test? Trying ping from ip-utils... sorry,
+> not reproducible here (I hope it is the expected result).
+
+What results do you get?  And did you set up policy based routing?
+I tried ping with RH8, RH9, and downloaded the latest ip-utils I could
+find.  Only when I hacked the ping source to bind to the local IP AND bind
+specifically to the device did it work.
+
+I am trying to ping a local IP but over the external network.  It is not something
+most people try to do now, I am aware.  As well as my twisted reasons, it would
+be good for determining path failures in an HA setup, so it's not completely
+useless :)
+
+> 
+> 
+>>You will see arps on eth1 for 192.1.2.2, whereas you should see packets
+>>being sent to the default gateway for eth1.
+> 
+> 
+> 	Why? 192.1.2.2 is local IP and the local table is first
+> priority. We should not see any ARP packets for local targets, right?
+
+Local table is not used in my case because I specifically bind to the sending IP
+and have a table specifically for that case.
+
+> 
+> 
+>>If you modify the ping source to BINDTODEVICE eth1, then it will send
+>>correctly.  I am under the impression that you should not have to specifically
+>>BINDTODEVICE in this case since the policy based routing should take care of
+>>routing things correctly.  Or, maybe, the real bug is in ping in that it did
+>>not BINDTODEVICE?
+> 
+> 
+> 	Do you really ping local IP?
+
+Yes.
+
+> 
+> 
+>>Also, ping -I eth1 192.1.2.2 will fail to route externally.  That may
+>>just be a feature of ping:  I'm unsure what the subtle difference is *supposed*
+>>to be between using -I eth1 and -I 1.2.3.4
+> 
+> 
+> 	I think, the root of your problems is that you specify
+> 'ping -I device' and the routing is forced to construct result from
+> unknown route by using source address autoselection.
+
+I am open to suggestions as to other ways to make this work:  I want to ping from eth1
+to eth2, and have at least the echo-request go out over eth1 and be routed back to eth2.
+
+> 
+> 	From previous post:
+> 
+> 
+>>#  The other interface on the router machine (same machine as I just pinged above)
+>>[root@localhost root]# ping -I eth1 10.3.2.1
+>>PING 10.3.2.1 (10.3.2.1) from 10.3.1.4 eth1: 56(84) bytes of data.
+>> From 10.3.1.4 icmp_seq=1 Destination Host Unreachable
+>> From 10.3.1.4 icmp_seq=3 Destination Host Unreachable
+>>
+>>#  It is NOT using the default gateway for this traffic, but is instead
+>>#  just trying to ARP.
+>>[root@localhost root]# tcpdump -n -i eth1
+>>tcpdump: listening on eth1
+>>11:56:19.788336 arp who-has 10.3.2.1 tell 10.3.1.4
+>>11:56:20.788134 arp who-has 10.3.2.1 tell 10.3.1.4
+>>11:56:21.788149 arp who-has 10.3.2.1 tell 10.3.1.4
+>>11:56:22.788379 arp who-has 10.3.2.1 tell 10.3.1.4
+> 
+> 
+> 	'-I eth1 10.3.2.1' requests route
+> "from 0.0.0.0 to 10.3.2.1 oif eth1". You do not have such routes.
+> I assume the result is (quoting route.c):
+> "Apparently, routing tables are wrong."
+> "Assume, that the destination is on link."
+> 
+> For your setup I would say "The request is wrong". You see that
+> the kernel even do not check whether eth1 is UP. You are lucky.
+> 
+> Then the kernel autoselects 10.3.1.4 as src for the forced eth1 device.
+> Thus, you see this ARP probe. Later, it seems 10.3.2.1 does not
+> want to reply to 10.3.1.4, I assume this is a known problem?
+> 
+> 	As for ping from iputils: you can specify device or saddr,
+> not the both, so the only valid test for source based routing can
+> be '-I IP'. Do you really need '-I eth1' ?
+
+Actually, from the code I looked at, you can use two -I flags, but what appears
+to be a bug actually keeps it from working completely (I could find no combo of arguments
+to make it make the BINDTODEVICE call.)
+
+During some of my earlier testing, I had various things wrong.  For instance, I
+noticed that if I had policy-based routing on my router, it would not work correctly.
+I have not debugged that issue in depth, as it does not really hinder the functionality
+that I require.  If it still doesn't work in 2.6 I'll open a bug ;)
+
+One final note, I am running a kernel with a patch that allows external comm over
+two interfaces on the same machine on the same subnet (with policy based routing).
+The normal ping works in this case, btw.  So, it may be that even if
+you change ping, it may still not work for you (my patch mostly deals with getting
+local ARPs to answer correctly, so I am not sure it comes into play in the routed case.)
 
 
+Ben
+
+> 
+> Regards
+> 
+> --
+> Julian Anastasov <ja@ssi.bg>
+> 
 
 
 -- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Ben Greear <greearb@candelatech.com>          <Ben_Greear@excite.com>
+President of Candela Technologies Inc      http://www.candelatech.com
+ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
