@@ -1,60 +1,35 @@
-From: Jim Keniston <jkenisto@us.ibm.com>
-Subject: Re: [PATCH 1/4] Net device error logging, revised
-Date: Tue, 26 Aug 2003 16:34:00 -0700
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: Re: [OOPS] less /proc/net/igmp
+Date: Wed, 27 Aug 2003 08:39:26 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F4BEE68.A6C862C2@us.ibm.com>
-References: <3F4A8027.6FE3F594@us.ibm.com> <20030826183221.GB3167@kroah.com>
+Message-ID: <20030827.083926.50662159.yoshfuji@linux-ipv6.org>
+References: <20030826.173226.114994096.yoshfuji@linux-ipv6.org>
+	<20030827.015448.70287953.yoshfuji@linux-ipv6.org>
+	<1061929108.3946.1.camel@spider.hotmonkeyporn.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>, netdev <netdev@oss.sgi.com>,
-   Jeff Garzik <jgarzik@pobox.com>, "Feldman, Scott" <scott.feldman@intel.com>,
-   Larry Kessler <kessler@us.ibm.com>, Randy Dunlap <rddunlap@osdl.org>,
-   Alan Cox <alan@lxorguk.ukuu.org.uk>, Andrew Morton <akpm@osdl.org>
+Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Greg KH <greg@kroah.com>
+To: davem@redhat.com
+In-Reply-To: <1061929108.3946.1.camel@spider.hotmonkeyporn.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Greg KH wrote:
+In article <1061929108.3946.1.camel@spider.hotmonkeyporn.com> (at 26 Aug 2003 15:18:28 -0500), Owen Ford <oford@arghblech.com> says:
+
+> > > Okay, everyone. I'll try to fix this.
+> > 
+> > Please try this patch.
 > 
-> On Mon, Aug 25, 2003 at 02:31:19PM -0700, Jim Keniston wrote:
-> > +int __netdev_printk(const char *sevlevel, const struct net_device *netdev,
-> > +     int msglevel, const char *format, ...)
-> > +{
-> > +     if (!netdev || !format) {
-> > +             return -EINVAL;
-> > +     }
-> > +     if (msglevel == NETIF_MSG_ALL || (netdev->msg_enable & msglevel)) {
-> > +             char msg[512];
-> 
-> 512 bytes on the stack?  Any way to prevent this from happening?  With
-> the push to make the stack even smaller in 2.7, people will not like
-> this.
-> 
-> thanks,
-> 
-> greg k-h
+> That seems to have done the job nicely.  Thanks.
 
-The following options come to mind:
-1. Keep the msg buffer, but make it smaller.  Around 120 bytes would probably be
-big enough for the vast majority of messages.  (printk() uses a 1024-byte buffer,
-but it's static -- see #2.)
+Thanks.  David, please apply.
 
-2. Use a big, static buffer, protected by a spinlock.  printk() does this.
+D: Fixing several refcnt mistakes in seq_file handlers for 
+D: /proc/net/{igmp,igmp6,msfilter,msfilter6}.
 
-3. Do the whole thing in a macro, as in previous proposals.  The size of the macro
-expansion could be reduced somewhat by doing the encode-prefix step in a function --
-something like:
+Thanks in advance.
 
-#define netdev_printk(sevlevel, netdev, msglevel, format, arg...)	\
-do {									\
-if (NETIF_MSG_##msglevel == NETIF_MSG_ALL || ((netdev)->msg_enable & NETIF_MSG_##msglevel)) {	\
-	char pfx[40];							\
-	printk(sevlevel "%s: " format , make_netdev_msg_prefix(pfx, netdev) , ## arg);	\
-}} while (0)
-
-This would make your code bigger, but not that much bigger for the common case where
-the msglevel is omitted (and the 'if(...)' is optimized out).
-
-Jim
+--yoshfuji
