@@ -1,22 +1,29 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] janitor: remove unneeded includes (wanrouter)
-Date: Sat, 20 Sep 2003 00:54:17 -0700
+Subject: Re: [CHECKER] 32 Memory Leaks on Error Paths
+Date: Sat, 20 Sep 2003 00:58:11 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030920005417.5e1df3c6.davem@redhat.com>
-References: <20030917151318.316bfd24.rddunlap@osdl.org>
+Message-ID: <20030920005811.09f12e07.davem@redhat.com>
+References: <200309160435.h8G4ZkQM009953@elaine4.Stanford.EDU>
+	<20030916090748.GE27703@wohnheim.fh-wedel.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, ncorbic@sangoma.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: dychen@stanford.edu, linux-kernel@vger.kernel.org, mc@cs.stanford.edu,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Randy.Dunlap" <rddunlap@osdl.org>
-In-Reply-To: <20030917151318.316bfd24.rddunlap@osdl.org>
+To: =?ISO-8859-1?Q?J=F6rn?= Engel <joern@wohnheim.fh-wedel.de>
+In-Reply-To: <20030916090748.GE27703@wohnheim.fh-wedel.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 17 Sep 2003 15:13:18 -0700
-"Randy.Dunlap" <rddunlap@osdl.org> wrote:
+On Tue, 16 Sep 2003 11:07:48 +0200
+J=F6rn Engel <joern@wohnheim.fh-wedel.de> wrote:
 
-> Please apply to 2.6.0-test5-current.
+> Looks valid.  And since skb isn't really needed until after these
+> returns, moving four lines down a bit fixes the problem.
+>=20
+> Davem, is this correct?
 
-Applied, thanks.
+Nope, now you're leaking the route instead of the SKB :-)
+
+I'll put the correct fix in.
