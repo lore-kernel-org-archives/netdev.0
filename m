@@ -1,112 +1,24 @@
-From: Ville Nuorvala <vnuorval@tcs.hut.fi>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: [patch] IPV6: Refcount leaks in udpv6_connect()
-Date: Mon, 16 Jun 2003 12:22:57 +0300 (EEST)
+Date: Mon, 16 Jun 2003 05:02:07 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0306161209030.15528-200000@rhea.tcs.hut.fi>
+Message-ID: <20030616.050207.104061458.davem@redhat.com>
 References: <20030615.002656.35017399.davem@redhat.com>
+	<Pine.LNX.4.44.0306161209030.15528-200000@rhea.tcs.hut.fi>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-377318441-1702587990-1055755024=:15528"
-Cc: yoshfuji@linux-ipv6.org, <netdev@oss.sgi.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030615.002656.35017399.davem@redhat.com>
-Content-ID: <Pine.LNX.4.44.0306161219180.15528@rhea.tcs.hut.fi>
+To: vnuorval@tcs.hut.fi
+In-Reply-To: <Pine.LNX.4.44.0306161209030.15528-200000@rhea.tcs.hut.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-  Send mail to mime@docserver.cac.washington.edu for more info.
+   From: Ville Nuorvala <vnuorval@tcs.hut.fi>
+   Date: Mon, 16 Jun 2003 12:22:57 +0300 (EEST)
+   
+   Hmm, odd. Perhaps the inlining of the patch mangled it somehow. Anyhow,
+   here's a bk treediff against CS 1.1318 as an attachment.
 
----377318441-1702587990-1055755024=:15528
-Content-Type: TEXT/PLAIN; CHARSET=US-ASCII
-Content-ID: <Pine.LNX.4.44.0306161219181.15528@rhea.tcs.hut.fi>
-
-On Sun, 15 Jun 2003, David S. Miller wrote:
-
-> Your patch does not apply without rejects.
-> Please regenerate.
-
-Hmm, odd. Perhaps the inlining of the patch mangled it somehow. Anyhow,
-here's a bk treediff against CS 1.1318 as an attachment.
-
-Hope this applies :)
-
-Thanks,
-Ville
---
-Ville Nuorvala
-Research Assistant, Institute of Digital Communications,
-Helsinki University of Technology
-email: vnuorval@tcs.hut.fi, phone: +358 (0)9 451 5257
-
----377318441-1702587990-1055755024=:15528
-Content-Type: TEXT/PLAIN; CHARSET=US-ASCII; NAME="udpv6_connect.patch"
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.44.0306161217040.15528@rhea.tcs.hut.fi>
-Content-Description: 
-Content-Disposition: ATTACHMENT; FILENAME="udpv6_connect.patch"
-
-ZGlmZiAtTnVyIC0tZXhjbHVkZT1TQ0NTIC0tZXhjbHVkZT1CaXRLZWVwZXIg
-LS1leGNsdWRlPUNoYW5nZVNldCBsaW51eC0yLjUuT0xEL25ldC9pcHY2L3Vk
-cC5jIGxpbnV4LTIuNS9uZXQvaXB2Ni91ZHAuYw0KLS0tIGxpbnV4LTIuNS5P
-TEQvbmV0L2lwdjYvdWRwLmMJTW9uIEp1biAxNiAxMjowMjowOCAyMDAzDQor
-KysgbGludXgtMi41L25ldC9pcHY2L3VkcC5jCVN1biBKdW4gMTUgMjM6MTA6
-MDMgMjAwMw0KQEAgLTI5OSw5ICsyOTksMTAgQEANCiAJaWYgKGFkZHJfdHlw
-ZSA9PSBJUFY2X0FERFJfTUFQUEVEKSB7DQogCQlzdHJ1Y3Qgc29ja2FkZHJf
-aW4gc2luOw0KIA0KLQkJaWYgKF9faXB2Nl9vbmx5X3NvY2soc2spKQ0KLQkJ
-CXJldHVybiAtRU5FVFVOUkVBQ0g7DQotDQorCQlpZiAoX19pcHY2X29ubHlf
-c29jayhzaykpIHsNCisJCQllcnIgPSAtRU5FVFVOUkVBQ0g7DQorCQkJZ290
-byBvdXQ7DQorCQl9DQogCQlzaW4uc2luX2ZhbWlseSA9IEFGX0lORVQ7DQog
-CQlzaW4uc2luX2FkZHIuc19hZGRyID0gZGFkZHItPnM2X2FkZHIzMlszXTsN
-CiAJCXNpbi5zaW5fcG9ydCA9IHVzaW4tPnNpbjZfcG9ydDsNCkBAIC0zMDks
-OCArMzEwLDggQEANCiAJCWVyciA9IHVkcF9jb25uZWN0KHNrLCAoc3RydWN0
-IHNvY2thZGRyKikgJnNpbiwgc2l6ZW9mKHNpbikpOw0KIA0KIGlwdjRfY29u
-bmVjdGVkOg0KLQkJaWYgKGVyciA8IDApDQotCQkJcmV0dXJuIGVycjsNCisJ
-CWlmIChlcnIpDQorCQkJZ290byBvdXQ7DQogCQkNCiAJCWlwdjZfYWRkcl9z
-ZXQoJm5wLT5kYWRkciwgMCwgMCwgaHRvbmwoMHgwMDAwZmZmZiksIGluZXQt
-PmRhZGRyKTsNCiANCkBAIC0zMjMsNyArMzI0LDcgQEANCiAJCQlpcHY2X2Fk
-ZHJfc2V0KCZucC0+cmN2X3NhZGRyLCAwLCAwLCBodG9ubCgweDAwMDBmZmZm
-KSwNCiAJCQkJICAgICAgaW5ldC0+cmN2X3NhZGRyKTsNCiAJCX0NCi0JCXJl
-dHVybiAwOw0KKwkJZ290byBvdXQ7DQogCX0NCiANCiAJaWYgKGFkZHJfdHlw
-ZSZJUFY2X0FERFJfTElOS0xPQ0FMKSB7DQpAQCAtMzMxLDggKzMzMiw4IEBA
-DQogCQkgICAgdXNpbi0+c2luNl9zY29wZV9pZCkgew0KIAkJCWlmIChzay0+
-c2tfYm91bmRfZGV2X2lmICYmDQogCQkJICAgIHNrLT5za19ib3VuZF9kZXZf
-aWYgIT0gdXNpbi0+c2luNl9zY29wZV9pZCkgew0KLQkJCQlmbDZfc29ja19y
-ZWxlYXNlKGZsb3dsYWJlbCk7DQotCQkJCXJldHVybiAtRUlOVkFMOw0KKwkJ
-CQllcnIgPSAtRUlOVkFMOw0KKwkJCQlnb3RvIG91dDsNCiAJCQl9DQogCQkJ
-c2stPnNrX2JvdW5kX2Rldl9pZiA9IHVzaW4tPnNpbjZfc2NvcGVfaWQ7DQog
-CQkJaWYgKCFzay0+c2tfYm91bmRfZGV2X2lmICYmDQpAQCAtMzQxLDggKzM0
-MiwxMCBAQA0KIAkJfQ0KIA0KIAkJLyogQ29ubmVjdCB0byBsaW5rLWxvY2Fs
-IGFkZHJlc3MgcmVxdWlyZXMgYW4gaW50ZXJmYWNlICovDQotCQlpZiAoIXNr
-LT5za19ib3VuZF9kZXZfaWYpDQotCQkJcmV0dXJuIC1FSU5WQUw7DQorCQlp
-ZiAoIXNrLT5za19ib3VuZF9kZXZfaWYpIHsNCisJCQllcnIgPSAtRUlOVkFM
-Ow0KKwkJCWdvdG8gb3V0Ow0KKwkJfQ0KIAl9DQogDQogCWlwdjZfYWRkcl9j
-b3B5KCZucC0+ZGFkZHIsIGRhZGRyKTsNCkBAIC0zNzksMzEgKzM4MiwzMyBA
-QA0KIA0KIAlpZiAoKGVyciA9IGRzdC0+ZXJyb3IpICE9IDApIHsNCiAJCWRz
-dF9yZWxlYXNlKGRzdCk7DQotCQlmbDZfc29ja19yZWxlYXNlKGZsb3dsYWJl
-bCk7DQotCQlyZXR1cm4gZXJyOw0KKwkJZ290byBvdXQ7DQogCX0NCiANCiAJ
-LyogZ2V0IHRoZSBzb3VyY2UgYWRkcmVzcyB1c2VkIGluIHRoZSBhcHByb3By
-aWF0ZSBkZXZpY2UgKi8NCiANCiAJZXJyID0gaXB2Nl9nZXRfc2FkZHIoZHN0
-LCBkYWRkciwgJmZsLmZsNl9zcmMpOw0KIA0KLQlpZiAoZXJyID09IDApIHsN
-Ci0JCWlmIChpcHY2X2FkZHJfYW55KCZucC0+c2FkZHIpKQ0KLQkJCWlwdjZf
-YWRkcl9jb3B5KCZucC0+c2FkZHIsICZmbC5mbDZfc3JjKTsNCi0NCi0JCWlm
-IChpcHY2X2FkZHJfYW55KCZucC0+cmN2X3NhZGRyKSkgew0KLQkJCWlwdjZf
-YWRkcl9jb3B5KCZucC0+cmN2X3NhZGRyLCAmZmwuZmw2X3NyYyk7DQotCQkJ
-aW5ldC0+cmN2X3NhZGRyID0gTE9PUEJBQ0s0X0lQVjY7DQotCQl9DQorCWlm
-IChlcnIpIHsNCisJCWRzdF9yZWxlYXNlKGRzdCk7DQorCQlnb3RvIG91dDsN
-CisJfQ0KIA0KLQkJaXA2X2RzdF9zdG9yZShzaywgZHN0LA0KLQkJCSAgICAg
-ICFpcHY2X2FkZHJfY21wKCZmbC5mbDZfZHN0LCAmbnAtPmRhZGRyKSA/DQot
-CQkJICAgICAgJm5wLT5kYWRkciA6IE5VTEwpOw0KKwlpZiAoaXB2Nl9hZGRy
-X2FueSgmbnAtPnNhZGRyKSkNCisJCWlwdjZfYWRkcl9jb3B5KCZucC0+c2Fk
-ZHIsICZmbC5mbDZfc3JjKTsNCiANCi0JCXNrLT5za19zdGF0ZSA9IFRDUF9F
-U1RBQkxJU0hFRDsNCisJaWYgKGlwdjZfYWRkcl9hbnkoJm5wLT5yY3Zfc2Fk
-ZHIpKSB7DQorCQlpcHY2X2FkZHJfY29weSgmbnAtPnJjdl9zYWRkciwgJmZs
-LmZsNl9zcmMpOw0KKwkJaW5ldC0+cmN2X3NhZGRyID0gTE9PUEJBQ0s0X0lQ
-VjY7DQogCX0NCi0JZmw2X3NvY2tfcmVsZWFzZShmbG93bGFiZWwpOw0KIA0K
-KwlpcDZfZHN0X3N0b3JlKHNrLCBkc3QsDQorCQkgICAgICAhaXB2Nl9hZGRy
-X2NtcCgmZmwuZmw2X2RzdCwgJm5wLT5kYWRkcikgPw0KKwkJICAgICAgJm5w
-LT5kYWRkciA6IE5VTEwpOw0KKw0KKwlzay0+c2tfc3RhdGUgPSBUQ1BfRVNU
-QUJMSVNIRUQ7DQorb3V0Og0KKwlmbDZfc29ja19yZWxlYXNlKGZsb3dsYWJl
-bCk7DQogCXJldHVybiBlcnI7DQogfQ0KIA0K
----377318441-1702587990-1055755024=:15528--
+Thanks, I've applied your fix.
