@@ -1,8 +1,8 @@
 From: Christopher Chan <cchan@outblaze.com>
 Subject: Re: High number of concurrent connections causes 2.6.4 to go berserk
-Date: Fri, 02 Apr 2004 12:00:35 +0800
+Date: Sat, 03 Apr 2004 00:37:21 +0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <406CE563.5090105@outblaze.com>
+Message-ID: <406D96C1.2000901@outblaze.com>
 References: <406CBA60.50103@outblaze.com> <406CDDF5.4070500@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
@@ -14,42 +14,37 @@ In-Reply-To: <406CDDF5.4070500@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Nivedita Singhvi wrote:
-> Christopher Chan wrote:
-> 
->> When tcp_max_syn_backlog is set to 4096 and
->> route.max_size = 131072
->> route.gc_thresh = 65536
->>
->> the box goes berserk almost immediately after bootup due to a bounce 
->> flood hitting the box.
-> 
-> 
+
 >> The below values seem to workaround whatever problem the kernel has.
 >>
 >> tcp_max_syn_backlog = 2048
 >> route.max_size = 1048576
 >> route.gc_thresh = 65536
-> 
-> 
-> Did you try just one of the first two and see which
-> one actually made a difference? I'm assuming the first,
-> but that might not be the case..
 
-Another box that has less traffic but sometimes gets ddosed by bounces 
-has default settings
+I take that back. Under peak hours, the kernel starts spewing its stuff 
+onto serial console and network connectivity is lost.
 
-tcp_max_syn_backlog = 1024
-route.max_size = 131072
-route.gc_thresh = 8192
+What it spews is not human readable anymore.
 
-This box's 2.6.4 also went berserk during the ddos.
+eg:
 
-I'll try your suggestion and get back to you.
-
-> 
-> thanks,
-> Nivedita
-> 
-> 
-> 
+3->g:asag6A &| <ilfart/tv4d_>rKEt d n SE1PERUELnet p-15 ( t bL:(D3laEED1 
+f))sspv/ipi
+3->g:asag6A &| <3leaititv4d_>r<3_npiti (q G__TRNtd  (c p. 
+=msRN||E1(f_P33KNC: t/ne>c7116p-ug ala7gsK 2
+a) sev4ipie<6)
+: ssgsA &  M3>ediliocp/tsre3>nxieio(M E_PTRNE na(t (.c==sgNE| 
+1DflPE3D)C) a/ietco1)63->g:asag6A  |
+ai fer4/pved6>
+cvcses  s MMS>Kd leonp.tceqc>KxtedonMSE1PERUELnet p(1c = g EL (D3laEED1 
+f)asipt/op)
+3->g:asag6A  |
+ai fer4/pved6>
+cvcoes  s MMS>Kd leonp.tceqc>KxtedonMSE1PERUELnet p-1c = g EL (D3laEED1 
+f))sipt/op)
+3->g:asag6A &| <ilfart/tv4d_>r<3_npiti eqSGG_ERatd  (ccpq vmER | E 
+(G_D3EKNC:et n->57(1tpbu: fl37gsK12fa) sev4ipie<6)
+c csesA &  M3>ediliocp/tseec>nxieio(M E_PTRNE nattp(.c==sgNE| 1DflPE3D) 
+))asietco1)63->g:asag6A &| <ilfart/tv4d_>r<3_npiti eqSGG_ERatd  (c p. 
+=msRN| E (G_D3EKNC: t/ne>c711tpbu: fl37gsK 2
+a) sev4ipi
