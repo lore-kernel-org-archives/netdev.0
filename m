@@ -1,29 +1,21 @@
-From: James Morris <jmorris@redhat.com>
-Subject: Re: Crypto tests via tcrypt.o modules failes
-Date: Fri, 17 Sep 2004 12:09:58 -0400 (EDT)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Xine.LNX.4.44.0409171209190.8510-100000@thoron.boston.redhat.com>
-References: <1095434486.32091.2.camel@swoop.gemtek.lt>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [TRIVIAL] Fix recent bug in fib_semantics.c
+Date: Fri, 17 Sep 2004 11:27:44 -0700
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040917112744.190f6f3e.davem@davemloft.net>
+References: <20040917062042.GE6523@zax>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Zilvinas Valinskas <zilvinas@gemtek.lt>
-In-Reply-To: <1095434486.32091.2.camel@swoop.gemtek.lt>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: akpm@osdl.org, trivial@rustcorp.com.au,
+	linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S268805AbUIQSbD@vger.kernel.org>
+To: David Gibson <david@gibson.dropbear.id.au>
+In-Reply-To: <20040917062042.GE6523@zax>
 List-Id: netdev.vger.kernel.org
 
-On Fri, 17 Sep 2004, Zilvinas Valinskas wrote:
 
-> > I've had a report that all is well on an Xscale PXA (SoC) system, with a 
-> > 2.6.7-rc2 kernel.  Are there any significant differences between that and 
-> > what you have?
-> 2.4.27 and 2.6.7-rc2 I think quite different - can you tell me which
-> parts to check for differencies ?
+Thanks David, I'll push this upstream asap.
 
-It should work on either kernel (btw, the PXA is little endian, so they 
-are different).
-
--- 
-James Morris
-<jmorris@redhat.com>
+I can't believe in all the route testing I did I never
+triggered this on my sparc64 boxes, must have been lucky :(
