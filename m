@@ -1,29 +1,31 @@
-From: cranium2003 <cranium2003@yahoo.com>
-Subject: Plzzz help me
-Date: Thu, 30 Sep 2004 19:39:51 -0700 (PDT)
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: WE-17 typo fix
+Date: Thu, 30 Sep 2004 23:12:50 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041001023951.98119.qmail@web41408.mail.yahoo.com>
+Message-ID: <415CCB32.9020708@pobox.com>
+References: <20040928184625.GA8299@bougret.hpl.hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-net@veger.linux.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: jt@hpl.hp.com
+In-Reply-To: <20040928184625.GA8299@bougret.hpl.hp.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello,
- I want to know is there any way in linux kernel by
-which i can come to know that the outgoing packet is
-having destination address is of host not of router?
-I want to send different data to host/router depending
-on dest. address. 
- 
-regards,
-cranium.
+Jean Tourrilhes wrote:
+> 	Hi Jeff,
+> 
+> 	Felix R. found a typo in the WE-17 patch I sent you and is
+> pending in your tree (more correctly, an overzealous
+> search&replace). The patch below fix this mistake.
+> 	I would appreciate you adding this patch to your tree ;-)
 
 
-		
-__________________________________
-Do you Yahoo!?
-Yahoo! Mail is new and improved - Check it out!
-http://promotions.yahoo.com/new_mail
+Applied, but, please try to stick more closely to the standard patch 
+format, including the signed-off-by header.
+
+http://linux.yyz.us/patch-format.html
+
+	Jeff
