@@ -1,31 +1,30 @@
 From: Andi Kleen <ak@muc.de>
 Subject: Re: [PATCH] Avoid gettimeofday when not needed
-Date: 31 Mar 2004 15:53:25 +0200
+Date: 31 Mar 2004 15:54:49 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040331135325.GA62402@colin2.muc.de>
-References: <200403311201.i2VC13D19579@zero.aec.at> <406AB7F6.6010805@draigBrady.com>
+Message-ID: <20040331135449.GB62402@colin2.muc.de>
+References: <200403311201.i2VC13D19579@zero.aec.at> <Pine.LNX.4.58.0403311552070.19615@rhea.tcs.hut.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Andi Kleen <ak@muc.de>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-Date: Wed, 31 Mar 2004 15:53:25 +0200
-To: P@draigBrady.com
+Date: Wed, 31 Mar 2004 15:54:49 +0200
+To: Ville Nuorvala <vnuorval@tcs.hut.fi>
 Content-Disposition: inline
-In-Reply-To: <406AB7F6.6010805@draigBrady.com>
+In-Reply-To: <Pine.LNX.4.58.0403311552070.19615@rhea.tcs.hut.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 31, 2004 at 01:22:14PM +0100, P@draigBrady.com wrote:
-> Andi Kleen wrote:
-> >This patch implements an optimization I proposed a long time 
-> >ago. gettimeofday can be quite costly and it currently is 
-> >on the fast path of every packet. Normally the packet time stamp
-> >is not needed (e.g. TCP doesn't use it), except for tcpdump
-> >and a few applications.
+> I suspect this breaks proxy arp/ndisc!
 > 
-> Will this work for apps that don't use a seperate syscall
-> to get the timestamp. Like CONFIG_PACKET_MMAP for e.g?
+> The arp/ndisc requests are queued up for a random time before being
+> processed by the proxy. Check out pneigh_enqueue() in net/core/neighbour.c
+> for details. The skb->stamp.tv_sec check was used to separate the locally
+> re-fed requests from ones received from the net.
 
-The mmap will enable the time stamp, until the socket is closed.
+Ok, thanks for clarifying this. I guessed the intention wrong then.
+
+A better way may be to just add a new skb flag for this that is managed
+by the arp code? Comments?
 
 -Andi
