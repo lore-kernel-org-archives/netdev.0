@@ -1,197 +1,134 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (1/7) de620 -- dynamic allocation
-Date: Tue, 23 Sep 2003 14:50:23 -0700
+Subject: [PATCH] (0/7) device_probe enhancement
+Date: Tue, 23 Sep 2003 14:47:21 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030923145023.1d93c5a4.shemminger@osdl.org>
+Message-ID: <20030923144721.6001c598.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Convert de620 for linux-2.6.0-test5 (original from Al Viro)
-	* switched de620 to dynamic allocation
-	* de620: embedded ->priv
-	* de620: fixed IO before request_region()
-	+ fetch and don't clobber command line baseaddr and irq
+This comes from Al Viro's net device patchset and is updated for 2.6.0-test5 latest.
+It adds a second probe list for network devices that are compiled into the kernel,
+but allocate their own network device rather than being handed a device.
+
+It is part of the incremental changes to have all network devices using dynamic
+allocation.
 
 diff -Nru a/drivers/net/Space.c b/drivers/net/Space.c
---- a/drivers/net/Space.c	Tue Sep 23 12:56:37 2003
-+++ b/drivers/net/Space.c	Tue Sep 23 12:56:37 2003
-@@ -97,7 +97,7 @@
- extern struct net_device *ltpc_probe(void);
-   
- /* Detachable devices ("pocket adaptors") */
--extern int de620_probe(struct net_device *);
-+extern struct net_device *de620_probe(int unit);
- 
- /* Fibre Channel adapters */
- extern int iph5526_probe(struct net_device *dev);
-@@ -296,7 +296,7 @@
- 	{NULL, 0},
+--- a/drivers/net/Space.c	Tue Sep 23 12:56:25 2003
++++ b/drivers/net/Space.c	Tue Sep 23 12:56:25 2003
+@@ -111,6 +111,11 @@
+ 	int status;	/* non-zero if autoprobe has failed */
  };
  
--static struct devprobe parport_probes[] __initdata = {
-+static struct devprobe2 parport_probes[] __initdata = {
- #ifdef CONFIG_DE620		/* D-Link DE-620 adapter */
- 	{de620_probe, 0},
- #endif
-@@ -387,8 +387,7 @@
- 	    probe_list(dev, mips_probes) == 0 ||
- 	    probe_list(dev, eisa_probes) == 0 ||
- 	    probe_list(dev, mca_probes) == 0 ||
--	    probe_list(dev, isa_probes) == 0 ||
--	    probe_list(dev, parport_probes) == 0) 
-+	    probe_list(dev, isa_probes) == 0)
- 		err = register_netdev(dev);
- 
- 	if (err)
-@@ -404,7 +403,7 @@
- 	if (base_addr == 1)
- 		return;
- 
--	return;	/* nothing yet */
-+	probe_list2(unit, parport_probes, base_addr == 0);
++struct devprobe2 {
++	struct net_device *(*probe)(int unit);
++	int status;	/* non-zero if autoprobe has failed */
++};
++
+ /*
+  * probe_list walks a list of probe functions and calls each so long
+  * as a non-zero ioaddr is given, or as long as it hasn't already failed 
+@@ -136,6 +141,21 @@
+ 	return -ENODEV;
  }
+ 
++static int __init probe_list2(int unit, struct devprobe2 *p, int autoprobe)
++{
++	struct net_device *dev;
++	for (; p->probe; p++) {
++		if (autoprobe && p->status)
++			continue;
++		dev = p->probe(unit);
++		if (!IS_ERR(dev))
++			return 0;
++		if (autoprobe)
++			p->status = PTR_ERR(dev);
++	}
++	return -ENODEV;
++}
++
+ /*
+  * This is a bit of an artificial separation as there are PCI drivers
+  * that also probe for EISA cards (in the PCI group) and there are ISA
+@@ -376,6 +396,16 @@
+ 	return err;
+ 
+ }
++ 
++static void __init ethif_probe2(int unit)
++{
++	unsigned long base_addr = netdev_boot_base("eth", unit);
++
++	if (base_addr == 1)
++		return;
++
++	return;	/* nothing yet */
++}
  
  #ifdef CONFIG_TR
-diff -Nru a/drivers/net/de620.c b/drivers/net/de620.c
---- a/drivers/net/de620.c	Tue Sep 23 12:56:37 2003
-+++ b/drivers/net/de620.c	Tue Sep 23 12:56:37 2003
-@@ -226,7 +226,6 @@
- 
- /* Initialization */
- static int	adapter_init(struct net_device *);
--int		de620_probe(struct net_device *);
- static int	read_eeprom(struct net_device *);
- 
- 
-@@ -814,11 +813,16 @@
-  *
-  * Check if there is a DE-620 connected
-  */
--int __init de620_probe(struct net_device *dev)
-+struct net_device * __init de620_probe(int unit)
- {
--	static struct net_device_stats de620_netstats;
--	int i;
- 	byte checkbyte = 0xa5;
-+	struct net_device *dev;
-+	int err = -ENOMEM;
-+	int i;
-+
-+	dev = alloc_etherdev(sizeof(struct net_device_stats));
-+	if (!dev)
-+		goto out;
- 
- 	SET_MODULE_OWNER(dev);
- 
-@@ -831,11 +835,23 @@
- 	dev->base_addr = io;
- 	dev->irq       = irq;
- 
-+	/* allow overriding parameters on command line */
-+	if (unit >= 0) {
-+		sprintf(dev->name, "eth%d", unit);
-+		netdev_boot_setup_check(dev);
-+	}
-+	
- 	if (de620_debug)
- 		printk(version);
- 
- 	printk(KERN_INFO "D-Link DE-620 pocket adapter");
- 
-+	if (!request_region(dev->base_addr, 3, "de620")) {
-+		printk(" io 0x%3lX, which is busy.\n", dev->base_addr);
-+		err = -EBUSY;
-+		goto out1;
+ /* Token-ring device probe */
+@@ -445,9 +475,12 @@
+ 		if (trif_probe(num))
+ 			break;
+ #endif
+-	for (num = 0; num < 8; ++num)
++	for (num = 0; num < 8; ++num) {
+ 		if (ethif_probe(num))
+ 			break;
++		ethif_probe2(num);
 +	}
 +
- 	/* Initially, configure basic nibble mode, so we can read the EEPROM */
- 	NIC_Cmd = DEF_NIC_CMD;
- 	de620_set_register(dev, W_EIP, EIPRegister);
-@@ -846,12 +862,8 @@
- 
- 	if ((checkbyte != 0xa5) || (read_eeprom(dev) != 0)) {
- 		printk(" not identified in the printer port\n");
--		return -ENODEV;
--	}
--
--	if (!request_region(dev->base_addr, 3, "de620")) {
--		printk(KERN_ERR "io 0x%3lX, which is busy.\n", dev->base_addr);
--		return -EBUSY;
-+		err = -ENODEV;
-+		goto out2;
- 	}
- 
- 	/* else, got it! */
-@@ -870,10 +882,6 @@
- 	else
- 		printk(" UTP)\n");
- 
--	/* Initialize the device structure. */
--	dev->priv = &de620_netstats;
--
--	memset(dev->priv, 0, sizeof(struct net_device_stats));
- 	dev->get_stats 		= get_stats;
- 	dev->open 		= de620_open;
- 	dev->stop 		= de620_close;
-@@ -884,8 +892,6 @@
- 	
- 	/* base_addr and irq are already set, see above! */
- 
--	ether_setup(dev);
--
- 	/* dump eeprom */
- 	if (de620_debug) {
- 		printk("\nEEPROM contents:\n");
-@@ -899,7 +905,17 @@
- 		printk("SCR = 0x%02x\n", nic_data.SCR);
- 	}
- 
--	return 0;
-+	err = register_netdev(dev);
-+	if (err)
-+		goto out2;
-+	return dev;
-+
-+out2:
-+	release_region(dev->base_addr, 3);
-+out1:
-+	free_netdev(dev);
-+out:
-+	return ERR_PTR(err);
- }
- 
- /**********************************
-@@ -994,20 +1010,21 @@
-  *
-  */
- #ifdef MODULE
--static struct net_device de620_dev;
-+static struct net_device *de620_dev;
- 
- int init_module(void)
- {
--	de620_dev.init = de620_probe;
--	if (register_netdev(&de620_dev) != 0)
--		return -EIO;
-+	de620_dev = de620_probe(-1);
-+	if (IS_ERR(de620_dev))
-+		return PTR_ERR(de620_dev);
+ #ifdef CONFIG_COPS
+ 	cops_probe(0);
+ 	cops_probe(1);
+diff -Nru a/include/linux/netdevice.h b/include/linux/netdevice.h
+--- a/include/linux/netdevice.h	Tue Sep 23 12:56:25 2003
++++ b/include/linux/netdevice.h	Tue Sep 23 12:56:25 2003
+@@ -498,6 +498,7 @@
+ extern void		probe_old_netdevs(void);
+ extern int			netdev_boot_setup_add(char *name, struct ifmap *map);
+ extern int 			netdev_boot_setup_check(struct net_device *dev);
++extern unsigned long		netdev_boot_base(const char *prefix, int unit);
+ extern struct net_device    *dev_getbyhwaddr(unsigned short type, char *hwaddr);
+ extern void		dev_add_pack(struct packet_type *pt);
+ extern void		dev_remove_pack(struct packet_type *pt);
+diff -Nru a/net/core/dev.c b/net/core/dev.c
+--- a/net/core/dev.c	Tue Sep 23 12:56:25 2003
++++ b/net/core/dev.c	Tue Sep 23 12:56:25 2003
+@@ -375,6 +375,30 @@
  	return 0;
  }
  
- void cleanup_module(void)
- {
--	unregister_netdev(&de620_dev);
--	release_region(de620_dev.base_addr, 3);
-+	unregister_netdev(de620_dev);
-+	release_region(de620_dev->base_addr, 3);
-+	free_netdev(de620_dev);
- }
- #endif /* MODULE */
- MODULE_LICENSE("GPL");
++
++/**
++ *	netdev_boot_base	- get address from boot time settings
++ *	@prefix: prefix for network device
++ *	@unit: id for network device
++ *
++ * 	Check boot time settings for the base address of device.
++ *	The found settings are set for the device to be used
++ *	later in the device probing.
++ *	Returns 0 if no settings found.
++ */
++unsigned long netdev_boot_base(const char *prefix, int unit)
++{
++	const struct netdev_boot_setup *s = dev_boot_setup;
++	char name[IFNAMSIZ];
++	int i;
++
++	sprintf(name, "%s%d", prefix, unit);
++	for (i = 0; i < NETDEV_BOOT_SETUP_MAX; i++)
++		if (!strcmp(name, s[i].name))
++			return s[i].map.base_addr;
++	return 0;
++}
++
+ /*
+  * Saves at boot time configured settings for any netdevice.
+  */
