@@ -1,55 +1,70 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Reproducible panics with tulip
-Date: Fri, 18 Mar 2005 23:39:39 +0100
-Message-ID: <20050318223939.GB24509@electric-eye.fr.zoreil.com>
-References: <1111178167.1147.9.camel@localhost.localdomain> <20050318215229.GA24509@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com
-To: Alexander Nyberg <alexn@dsv.su.se>
-Content-Disposition: inline
-In-Reply-To: <20050318215229.GA24509@electric-eye.fr.zoreil.com>
+From: =?ISO-2022-JP?B?GyRCJE4kSSROMXwkXiRHJUklbSVJJW0lKSFBIUQbKEI=?= <pow@muze.m-blue.org>
+Subject: =?ISO-2022-JP?B?GyRCJV8lPyVhJGgkajJhN2MheRsoQg==?=
+Date: Sat, 19 Mar 2005 07:34:59 +0900 (KST)
+Message-ID: <20050318223459.9DF57316B7@rental4.fields-server.net>
+To: netdev@oss.sgi.com
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu <romieu@fr.zoreil.com> :
-> Alexander Nyberg <alexn@dsv.su.se> :
-> [...]
-> > Warning: kfree_skb on hard IRQ c46c3950
-> 
-> ... however this one may stick.
 
-/me slaps his head
-
-Nope, it should go away with netconsole: tulip_rx fails an allocation,
-netconsole tries to printk in IRQ context and issues:
--> netpoll_send_udp
-   -> find_skb
-     -> zap_completion_queue
-        -> __kfree_skb <- whence the warning.
-
-So, please increase /proc/sys/vm/min_free_kbytes as a start and, at your
-option:
-- disable netconsole
-- apply patch below:
-
-
-zap_completion_queue can be called in any context through netpoll_send_udp.
-
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-
-diff -puN net/core/netpoll.c~netconsole-000 net/core/netpoll.c
---- a/net/core/netpoll.c~netconsole-000	2005-03-18 23:29:28.499641348 +0100
-+++ b/net/core/netpoll.c	2005-03-18 23:33:13.856959994 +0100
-@@ -142,7 +142,7 @@ static void zap_completion_queue(void)
- 		while (clist != NULL) {
- 			struct sk_buff *skb = clist;
- 			clist = clist->next;
--			__kfree_skb(skb);
-+			dev_kfree_skb_any(skb);
- 		}
- 	}
+Mailステーション・・・・・・回・・・・回・・・・回・・・・回・・・・回・・・・回・・・・回・・・・回
+┯┯┯┯┯┯┯┯┯┯┯┯┯┯┯┯┯┯┯┯┯┯┯┯┯┯┯┯┯┯┯┯┯┯
+　☆☆　　過激な素人大集合♪
+　　　　　　　　　　　　　　女の子だって気持ちぃぃこと大好きっ☆　　　☆☆☆
+┷┷┷┷┷┷┷┷┷┷┷┷┷┷┷┷┷┷┷┷┷┷┷┷┷┷┷┷┷┷┷┷┷┷
+　　　http://y-setu.puchiphoto.org/?5drmjtzj8j
  
-
-_
+プロより過激！？ワイセツ素人娘の踊り喰い☆┓∞∞∞∞∞∞∞∞∞∞∞∞∞∞
+ ━━━━━━━━━━━━━━━━━━┛
+淫乱ＯＬハ◎撮りコレクション・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・★★★【星３っつ】
+　　　　　　　　　　　　　　　　欲求不満の発情ＯＬ☆
+　　　　　　　　　　　　　　　　　「好きなだけバックから突いてぇ」と泣いてせがむ女達
+ 
+★★★★★【星５つ】・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・集団ワイセツ痴漢電車
+嫌がる女子高生を無理やり押さえ込む…暴力に耐え切れず
+されるがままになる。「これはもう痴漢じゃなくてレイプだね」と
+言わしめた問題作。。。
+ 
+　　　http://y-setu.puchiphoto.org/?5drmjtzj8j
+ 
+妻達の秘密・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・★★★★【星４っつ】
+　　　　　　　　　　　　　　　　家庭に疲れた若妻達の密かな楽しみ
+　　　　　　　　　　　　　　　　夫が出かけた後に出会い系で見つけた男との
+　　　　　　　　　　　　　　　　遊びに溺れる淫乱な女達の性
+━━━━━━━━━━━━━━━━━━┓
+出会い系の女　　～欲情したい、狂いたい～　┛∞∞∞∞∞∞∞∞∞∞∞∞∞∞
+ 
+出会い系で捕まえた露出願望の強いＭ女。彼氏とは遠距離で最近は連絡も
+途絶えがちだとか…。満たされないキモチのモヤモヤを出会い系で解消するのが
+唯一の趣味で、見知らぬ男の要求にも従順に応えてくれる。
+ 
+　　　http://y-setu.puchiphoto.org/?5drmjtzj8j
+ 
+官能の盗撮特集＝●＝●＝●＝●＝●＝●＝●＝●＝●＝●＝●＝●＝●
+ 
+人知れず繰り広げられる欲望の渦をカメラが捕らえた。
+素人達の決して見られたくない恥ずかしい姿がここに…！！
+ 
+トイレ/更衣室/ラブホテル/自宅/車…あらゆる場所に潜むカメラが捕らえた
+決定的瞬間！！
+ 
+　　　http://y-setu.puchiphoto.org/?5drmjtzj8j
+▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲
+Mailステーション・・・・・・回・・・・回・・・・回・・・・回・・・・回・・・・回・・・・回・・・・回
+ 
+ ・当局は登録会員様に定期的にメールマガジンを配信するための
+　 メールマガジンの配信スタンドです。
+ ・ご紹介先のサイトにおける掲載情報のご利用は個人の責任において
+　 ご利用下さい。
+ ・掲載情報に関してのご質問には応じておりませんので
+ 　予めご了承下さい。
+ ・当メールマガジンに掲載された記事の一部または全部を
+ 　許可なく転載することを禁止致します。
+ ・ 身に覚えのない配信はいたずらの可能性がございます
+ 　購読解除をご希望の方は、お手数ですが下記のアドレスよりログインし、
+ 　ご自身でお手続き下さい。
+ 
+　　　http://muze.m-blue.org/mail-station/
+▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲
