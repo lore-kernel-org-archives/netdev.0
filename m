@@ -1,100 +1,122 @@
-From: "Rosalie Cope" <hbhvmacqmbfhkk@hotmail.com>
-Subject: records indicate that..pHj l
-Date: Mon, 31 May 2004 14:31:21 -0700
+From: Pekka Pietikainen <pp@ee.oulu.fi>
+Subject: b44 and 4g4g
+Date: Mon, 31 May 2004 23:21:04 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <286974q4u742$94627587$rw7t1598@Dwightn59u2vuo4w>
+Message-ID: <20040531202104.GA8301@ee.oulu.fi>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="--0668057180794785"
+Content-Type: text/plain; charset=iso-8859-1
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <gold290d@oss.sgi.com>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----0668057180794785
-Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
+After diagnosing 
+https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=118165
+for a while
 
-<HTML>
-<HEAD>
-<META HTTP-EQUIV=3D"Content-Type" CONTENT=3D"text/html; charset=3Diso-8859=
--1">
-</HEAD>
-<BODY BGCOLOR=3D#FFFFFF LEFTMARGIN=3D0 TOPMARGIN=3D0 MARGINWIDTH=3D0 MARGI=
-NHEIGHT=3D0>
-<table cellSpacing=3D"0" cellPadding=3D"0" width=3D"576" align=3D"center" =
-border=3D"0">
-  <tr>
-    <td colSpan=3D"5">
-    <img alt src=3D"http://sufficientlove1.com/visa/c/4/congratulations_01=
-gif" width=3D"576" height=3D"90"></td>
-  </tr>
-  <tr>
+it seems that bcm4401 is quite broken when DMA:ing from/to
+addresses that are > 1GB. This only is a problem with > 1GB of physical
+memory and when using a 4:4 split.
 
-    <td colSpan=3D"5">
-    <img alt src=3D"http://sufficientlove1.com/visa/c/4/congratulations_02=
-gif" width=3D"576" height=3D"188"></td>
-  </tr>
-  <tr>
-    <td rowSpan=3D"5">
-    <img alt src=3D"http://sufficientlove1.com/visa/c/4/congratulations_03=
-gif" width=3D"32" height=3D"212"></td>
-    <td colSpan=3D"3" height=3D"94">
-    <font face=3D"Arial, Helvetica, sans-serif" size=3D"-1">Dear Friend,<b=
-r>
+It appears the network core code doesn't have a way of dealing with 
+this situation cleanly, Arjan found this:
 
-    Records indicate that your financial status has made you eligible for =
-the 
-    VIPAdvantage Visa=AE offer.&nbsp;To receive your card, you must click =
-here to 
-    confirm that you are 18 years old and a U.S. Citizen.<br>
-&nbsp;</font></td>
-    <td rowSpan=3D"5">
-    <img alt src=3D"http://sufficientlove1.com/visa/c/4/congratulations_05=
-gif" width=3D"25" height=3D"212"></td>
-  </tr>
-  <tr>
-    <td><font face=3D"Arial, Helvetica, sans-serif" size=3D"-1">Congratula=
-tions,</font></td>
-    <td><img alt src=3D"http://sufficientlove1.com/visa/c/4/congratulation=
-s_07.gif" width=3D"113" height=3D"25"></td>
+static inline int illegal_highdma(struct net_device *dev, struct sk_buff
+*skb)
+{
+        int i;
+ 
+        if (dev->features & NETIF_F_HIGHDMA)
+                return 0;
+ 
+        for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
+                if (skb_shinfo(skb)->frags[i].page >= highmem_start_page)
+                        return 1;
+ 
+        return 0;
+}
 
-    <td rowSpan=3D"4">
-    <a href=3D"http://sufficientlove1.com/visa/titan.htm" target=3D"_blank=
-">
-    <img src=3D"http://sufficientlove1.com/visa/c/4/congratulations_08.gif=
-" width=3D"111" height=3D"118" border=3D"0"></a></td>
-  </tr>
-  <tr>
-    <td><img alt src=3D"http://sufficientlove1.com/visa/c/4/congratulation=
-s_09.gif" width=3D"295" height=3D"48"></td>
-    <td><img alt src=3D"http://sufficientlove1.com/visa/c/4/congratulation=
-s_10.gif" width=3D"113" height=3D"48"></td>
-  </tr>
-  <tr>
+which doesn't take the pci dma mask into account at all, which it probably
+should.
 
-    <td><font face=3D"Arial, Helvetica, sans-serif" size=3D"-1">Manager<br=
->
-    VIP Advantage Processing Department</font></td>
-    <td><img alt src=3D"http://sufficientlove1.com/visa/c/4/congratulation=
-s_12.gif" width=3D"113" height=3D"36"></td>
-  </tr>
-  <tr>
-    <td><img alt src=3D"http://sufficientlove1.com/visa/c/4/congratulation=
-s_13.gif" width=3D"295" height=3D"9"></td>
-    <td><img alt src=3D"http://sufficientlove1.com/visa/c/4/congratulation=
-s_14.gif" width=3D"113" height=3D"9"></td>
-  </tr>
+(Please correct me if I got details wrong, this is a bit over my head :-) )
 
-</table>
-<!-- End ImageReady Slices -->
-<p>&nbsp;</p>
-<p>&nbsp;</p>
-<p>for immediate r.emoval click <a href=3D"http://sufficientlove1.com/id/n=
-omore.html">
-here</a><br>
-Adv: Garage Inc . 809 Fondeau Cl., Estepona, ES 11382</p>
-</BODY>
-</HTML>
+Now, close your eyes and imagine you never saw this patch (which
+does go a bit overkill with the GFP_DMA's just-in-case), which 
+demonstrates what's required to make even receives work :-(
+(trying to transmit causes the chip to do a link down/link up thing after a
+few packets, which would suggest it gets very confused).
 
-----0668057180794785--
+--- ../linux-2.6.6-1.391/net/core/dev.c	2004-05-26 15:29:13.000000000 +0300
++++ net/core/dev.c	2004-05-31 20:05:45.000000000 +0300
+@@ -1197,7 +1197,7 @@
+ 	skb->ip_summed = CHECKSUM_NONE;
+ 	return skb;
+ }
+-
++#if 0
+ #ifdef CONFIG_HIGHMEM
+ /* Actually, we should eliminate this check as soon as we know, that:
+  * 1. IOMMU is present and allows to map all the memory.
+@@ -1220,7 +1220,8 @@
+ #else
+ #define illegal_highdma(dev, skb)	(0)
+ #endif
+-
++#endif
++#define illegal_highdma(dev, skb)	(1)
+ extern void skb_release_data(struct sk_buff *);
+ 
+ /* Keep head the same: replace data */
+--- ../linux-2.6.6-1.391/drivers/net/b44.c	2004-05-26 15:29:11.000000000 +0300
++++ drivers/net/b44.c	2004-05-31 22:38:20.249808096 +0300
+@@ -634,7 +634,7 @@
+ 		src_map = &bp->rx_buffers[src_idx];
+ 	dest_idx = dest_idx_unmasked & (B44_RX_RING_SIZE - 1);
+ 	map = &bp->rx_buffers[dest_idx];
+-	skb = dev_alloc_skb(RX_PKT_BUF_SZ);
++	skb = __dev_alloc_skb(RX_PKT_BUF_SZ,GFP_DMA);
+ 	if (skb == NULL)
+ 		return -ENOMEM;
+ 
+@@ -762,7 +762,7 @@
+ 			struct sk_buff *copy_skb;
+ 
+ 			b44_recycle_rx(bp, cons, bp->rx_prod);
+-			copy_skb = dev_alloc_skb(len + 2);
++			copy_skb = __dev_alloc_skb(len + 2,GFP_DMA);
+ 			if (copy_skb == NULL)
+ 				goto drop_it_no_recycle;
+ 
+@@ -1077,13 +1077,13 @@
+ 	int size;
+ 
+ 	size  = B44_RX_RING_SIZE * sizeof(struct ring_info);
+-	bp->rx_buffers = kmalloc(size, GFP_KERNEL);
++	bp->rx_buffers = kmalloc(size, GFP_DMA|GFP_KERNEL);
+ 	if (!bp->rx_buffers)
+ 		goto out_err;
+ 	memset(bp->rx_buffers, 0, size);
+ 
+ 	size = B44_TX_RING_SIZE * sizeof(struct ring_info);
+-	bp->tx_buffers = kmalloc(size, GFP_KERNEL);
++	bp->tx_buffers = kmalloc(size, GFP_DMA|GFP_KERNEL);
+ 	if (!bp->tx_buffers)
+ 		goto out_err;
+ 	memset(bp->tx_buffers, 0, size);
+@@ -1727,7 +1727,13 @@
+ 
+ 	pci_set_master(pdev);
+ 
+-	err = pci_set_dma_mask(pdev, (u64) 0xffffffff);
++	err = pci_set_dma_mask(pdev, (u64) 0x3fffffff);
++	if (err) {
++		printk(KERN_ERR PFX "No usable DMA configuration, "
++		       "aborting.\n");
++		goto err_out_free_res;
++	}
++	err = pci_set_consistent_dma_mask(pdev, (u64) 0x3fffffff);
+ 	if (err) {
+ 		printk(KERN_ERR PFX "No usable DMA configuration, "
+ 		       "aborting.\n");
