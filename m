@@ -1,111 +1,67 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] more sdla fixes
-Date: Thu, 4 Sep 2003 14:42:48 -0700
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] (3/8) ltpc - convert to new initialization
+Date: Wed, 03 Sep 2003 20:48:42 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030904144248.0599cdaf.shemminger@osdl.org>
+Message-ID: <3F568BEA.50904@pobox.com>
+References: <20030903164916.2809d4a5.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>, "David S. Miller" <davem@redhat.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20030903164916.2809d4a5.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Since sdla.c now has locking instead of cli/sti, it shouldn't be
-completely busted on SMP.
+Stephen Hemminger wrote:
+> -int __init ltpc_probe(struct net_device *dev)
+> +struct net_device * __init ltpc_probe(void)
+[...]
+>  	/* probe for the I/O port address */
+> -	if (io != 0x240 && request_region(0x220,8,"ltpc")) {
+> -		x = inb_p(0x220+6);
+> -		if ( (x!=0xff) && (x>=0xf0) ) {
+> -			io = 0x220;
+> -			portfound=1;
+> -		}
+> -		else {
+> -			release_region(0x220,8);
+> -		}
+> -	}
+>  	
+>  	if (io != 0x220 && request_region(0x240,8,"ltpc")) {
+>  		y = inb_p(0x240+6);
+>  		if ( (y!=0xff) && (y>=0xf0) ){ 
+>  			io = 0x240;
+> -			portfound=1;
+> -		}
+> -		else {
+> -			release_region(0x240,8);
+> +			goto got_port;
+>  		}
+> +		release_region(0x240,8);
+>  	} 
+> -
+> -	if(io && !portfound && request_region(io,8,"ltpc")){
+> -		portfound = 1;
+> -	}
+> -	if(!portfound) {
+> -		/* give up in despair */
+> -		printk(KERN_ERR "LocalTalk card not found; 220 = %02x, 240 = %02x.\n", x,y);
+> -		return -1;
+> +	if (io != 0x240 && request_region(0x220,8,"ltpc")) {
+> +		x = inb_p(0x220+6);
+> +		if ( (x!=0xff) && (x>=0xf0) ) {
+> +			io = 0x220;
+> +			goto got_port;
+> +		}
+> +		release_region(0x220,8);
+>  	}
 
-Also, the frad interface registration needed to be done once
-(and check the result), and undone on module unload.
 
-diff -Nru a/drivers/net/wan/Kconfig b/drivers/net/wan/Kconfig
---- a/drivers/net/wan/Kconfig	Thu Sep  4 14:41:49 2003
-+++ b/drivers/net/wan/Kconfig	Thu Sep  4 14:41:49 2003
-@@ -465,7 +465,7 @@
- 
- config SDLA
- 	tristate "SDLA (Sangoma S502/S508) support"
--	depends on DLCI && ISA && BROKEN_ON_SMP
-+	depends on DLCI && ISA
- 	help
- 	  Say Y here if you need a driver for the Sangoma S502A, S502E, and
- 	  S508 Frame Relay Access Devices. These are multi-protocol cards, but
-diff -Nru a/drivers/net/wan/sdla.c b/drivers/net/wan/sdla.c
---- a/drivers/net/wan/sdla.c	Thu Sep  4 14:41:49 2003
-+++ b/drivers/net/wan/sdla.c	Thu Sep  4 14:41:49 2003
-@@ -1634,12 +1634,26 @@
- 	dev->mtu		= SDLA_MAX_MTU;
- }
- 
-+static int frad_registered;
-+
- struct net_device * __init sdla_init(void)
- {
- 	struct net_device *dev;
- 	struct frad_local *flp;
- 	int err = -ENOMEM;
- 
-+	if (!frad_registered) {
-+		err = register_frad(devname);
-+		if (err) {
-+			printk(KERN_ERR "%s: frad registration failed %d\n",
-+			       devname, err);
-+			return ERR_PTR(err);
-+		}
-+		frad_registered = 1;
-+		printk("%s.\n", version);
-+	}
-+		
-+
- 	dev = alloc_netdev(sizeof(struct frad_local), "sdla0", setup_sdla);
- 	if (!dev)
- 		goto out;
-@@ -1678,39 +1692,35 @@
- 	return ERR_PTR(err);
- }
- 
--int __init sdla_c_setup(void)
--{
--	printk("%s.\n", version);
--	register_frad(devname);
--	return 0;
--}
--
- #ifdef MODULE
- static struct net_device *sdla0;
--#endif /* MODULE */
- 
- static int __init init_sdla(void)
- {
- 	int result = 0;
- 
--	sdla_c_setup();
--#ifdef MODULE
- 	sdla0 = sdla_init();
- 	if (IS_ERR(sdla0))
- 		result = PTR_ERR(sdla0);
--#endif
-+
- 	return result;
- }
- 
- static void __exit exit_sdla(void)
- {
--#ifdef MODULE
-+	struct frad_local *flp;
-+
- 	unregister_netdev(sdla0);
- 	if (sdla0->irq)
- 		free_irq(sdla0->irq, sdla0);
-+
-+	flp = sdla0->priv;
-+	del_timer_sync(&flp->timer);
- 	free_netdev(sdla0);
--#endif
-+	
-+	unregister_frad(devname);
- }
-+#endif
- 
- MODULE_LICENSE("GPL");
- 
+why did the order of probing change?
+
+It used to be "0x220 -> 0x240", now it's "0x240 -> 0x220"
+
+	Jeff
