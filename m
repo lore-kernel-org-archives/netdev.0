@@ -1,24 +1,59 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: /proc/net/* read drops data
-Date: Thu, 4 Sep 2003 00:46:38 -0700
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20030904004638.1d4b001d.davem@redhat.com>
-References: <Pine.GSO.4.33.0308271658370.7750-100000@sweetums.bluetronic.net>
-	<Pine.GSO.4.33.0308271935550.7750-100000@sweetums.bluetronic.net>
-	<20030903.160733.06230402.yoshfuji@linux-ipv6.org>
+From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Subject: [PATCH] [bdschuym@pandora.be: Re: ipt_physdev.c alignment problems on parisc64]
+Date: Wed, 3 Sep 2003 13:20:23 -0300
+Sender: netfilter-devel-admin@lists.netfilter.org
+Message-ID: <20030903162022.GI6405@conectiva.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jfbeam@bluetronic.net, linux-kernel@vger.kernel.org,
-	netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: "YOSHIFUJI Hideaki / _$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20030903.160733.06230402.yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@lists.netfilter.org, netdev@oss.sgi.com
+Return-path: <netfilter-devel-admin@lists.netfilter.org>
+To: "David S. Miller" <davem@redhat.com>,
+	Bart De Schuymer <bdschuym@pandora.be>
+Content-Disposition: inline
+Errors-To: netfilter-devel-admin@lists.netfilter.org
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: <https://lists.netfilter.org/pipermail/netfilter-devel/>
 List-Id: netdev.vger.kernel.org
 
-On Wed, 03 Sep 2003 16:07:33 +0900 (JST)
-YOSHIFUJI Hideaki / _$B5HF#1QL@ <yoshfuji@linux-ipv6.org> wrote:
+Bart,
 
-> D: Fixing a bug that reading /proc/net/{udp,udp6} may drop some data
+	Yes, it makes ipt_pysdev.c compile on parisc, Dave, could you please
+apply it? Or perhaps wait for the netfilter patches, your call.
 
-This fix looks good to me.  Applied.
+- Arnaldo
+
+----- Forwarded message from Bart De Schuymer <bdschuym@pandora.be> -----
+
+Date: Tue, 2 Sep 2003 21:16:41 +0200
+From: Bart De Schuymer <bdschuym@pandora.be>
+Subject: Re: ipt_physdev.c alignment problems on parisc64
+To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>,
+	netfilter-devel@lists.netfilter.org
+Cc: Linux Networking Development Mailing List <netdev@oss.sgi.com>
+
+On Tuesday 02 September 2003 16:30, Arnaldo Carvalho de Melo wrote:
+> The 1.786.1.54 changeset (i.e. the initial ipt_physdev.c one 8) created
+
+Does this fix it?
+
+cheers,
+Bart
+
+--- linux-2.6.0-test4/include/linux/netfilter_ipv4/ipt_physdev.h.old	2003-09-02 21:11:12.000000000 +0200
++++ linux-2.6.0-test4/include/linux/netfilter_ipv4/ipt_physdev.h	2003-09-02 21:12:30.000000000 +0200
+@@ -15,7 +15,7 @@
+ struct ipt_physdev_info {
+ 	u_int8_t invert;
+ 	u_int8_t bitmask;
+-	char physindev[IFNAMSIZ];
++	char physindev[IFNAMSIZ] __attribute__ ((aligned (__alignof__(unsigned long))));
+ 	char in_mask[IFNAMSIZ];
+ 	char physoutdev[IFNAMSIZ];
+ 	char out_mask[IFNAMSIZ];
+
+----- End forwarded message -----
