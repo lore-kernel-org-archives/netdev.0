@@ -1,56 +1,37 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Lockup with 2.6.9-ac15 related to netconsole
-Date: Tue, 21 Dec 2004 23:58:31 +0100
-Message-ID: <20041221225831.GA20910@electric-eye.fr.zoreil.com>
-References: <20041217233524.GA11202@electric-eye.fr.zoreil.com> <36901.192.102.214.6.1103535728.squirrel@webmail.wetlettuce.com> <20041220211419.GC5974@waste.org> <20041221002218.GA1487@electric-eye.fr.zoreil.com> <20041221005521.GD5974@waste.org> <52121.192.102.214.6.1103624620.squirrel@webmail.wetlettuce.com> <20041221123727.GA13606@electric-eye.fr.zoreil.com> <49295.192.102.214.6.1103635762.squirrel@webmail.wetlettuce.com> <20041221204853.GA20869@electric-eye.fr.zoreil.com> <20041221212737.GK5974@waste.org>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH] PKT_SCHED: Fix cls indev validation
+Date: Wed, 22 Dec 2004 01:31:42 +0100
+Message-ID: <20041222003142.GB7884@postel.suug.ch>
+References: <20041219203050.GK17998@postel.suug.ch> <41C68CEF.3030803@trash.net> <1103552215.1048.333.camel@jzny.localdomain> <20041220200739.GX17998@postel.suug.ch> <41C7F833.4000909@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Mark Broadbent <markb@wetlettuce.com>,
-	linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261880AbULUXA6@vger.kernel.org>
-To: Matt Mackall <mpm@selenic.com>
+Cc: jamal <hadi@cyberus.ca>, "David S. Miller" <davem@davemloft.net>,
+        netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Patrick McHardy <kaber@trash.net>
 Content-Disposition: inline
-In-Reply-To: <20041221212737.GK5974@waste.org>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <41C7F833.4000909@trash.net>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Matt Mackall <mpm@selenic.com> :
-[...]
-> I think it's the promiscuous mode message itself that's the problem
+* Patrick McHardy <41C7F833.4000909@trash.net> 2004-12-21 11:17
+> Could you make your patchset available somehow ?
 
-Yes. dev_mc_add takes dev->xmit_lock and the game is over.
+http://people.suug.ch/~tgr/patches/queue/
 
-Marc, if the patch below happens to work, it should not drop messages
-like the previous one (it is an ugly short-term suggestion).
+Unfinished and untested.
 
---- net/core/netpoll.c	2004-12-21 13:09:51.000000000 +0100
-+++ net/core/netpoll.c	2004-12-21 23:35:25.000000000 +0100
-@@ -22,6 +22,7 @@
- #include <net/tcp.h>
- #include <net/udp.h>
- #include <asm/unaligned.h>
-+#include <net/pkt_sched.h>
- 
- /*
-  * We maintain a small pool of fully-sized skbs, to make sure the
-@@ -184,11 +187,19 @@ void netpoll_send_skb(struct netpoll *np
- 
- repeat:
- 	if(!np || !np->dev || !netif_running(np->dev)) {
- 		__kfree_skb(skb);
- 		return;
- 	}
- 
--	spin_lock(&np->dev->xmit_lock);
-+	while (!spin_trylock(&np->dev->xmit_lock)) {
-+		if (np->dev->xmit_lock_owner == smp_processor_id()) {
-+			struct Qdisc *q = dev->qdisc;
-+
-+			q->ops->enqueue(skb, q);
-+			return;
-+		}
-+	}
-+
- 	np->dev->xmit_lock_owner = smp_processor_id();
- 
- 	/*
+> I'm not sure which areas of the code I can still
+> touch without conflicting with you :)
+
+ include/linux/pkt_cls.h   |    6 
+ include/linux/rtnetlink.h |    3 
+ include/net/pkt_cls.h     |   45 +++++
+ net/sched/cls_api.c       |  205 +++++++++++++++++++++++++
+ net/sched/cls_fw.c        |  145 +++---------------
+ net/sched/cls_route.c     |  355 ++++++++++++++++++++++++--------------------
+ net/sched/cls_rsvp.h      |   88 +++++------
+ net/sched/cls_tcindex.c   |  364 +++++++++++++++++++++++++---------------------
+ net/sched/cls_u32.c       |  131 ++++------------
+ 9 files changed, 766 insertions(+), 576 deletions(-)
