@@ -1,40 +1,96 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] Add nl_open to libnetlink
-Date: Wed, 7 Jul 2004 21:03:15 +1000
+From: "Kristie Dougherty" <undszxa0@trugem.cable.nu>
+Subject: =?ISO-8859-1?Q?=B1=DE=C7=D1=C0=DA=B1=DD!4000=B8=B8=BF=F8?=
+	=?ISO-8859-1?Q?=BA=F4=B7=C1=B5=E5=B8=B3=B4=CF=B4=D9.=C1=A4=BD=C4=BE=F7=C3=BC?=  mdxgvi vcpf o
+Date: Wed, 07 Jul 04 07:12:23 GMT
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040707110315.GA26100@gondor.apana.org.au>
-References: <20040703094632.GA14235@gondor.apana.org.au> <20040705160500.208591b5@localhost> <20040706140550.2d483dc8@dell_ss3.pdx.osdl.net> <20040707130950.0112edf6@localhost> <20040707140533.41c66c03@localhost> <20040707155602.4698121a@localhost>
+Message-ID: <w6$0cw-$-rs-y-$9-28o0o@azt.f.o.wb>
+Reply-To: "Kristie Dougherty" <undszxa0@trugem.cable.nu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com
+Content-Type: multipart/alternative;
+	boundary="1.79A21CCE"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Content-Disposition: inline
-In-Reply-To: <20040707155602.4698121a@localhost>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 07, 2004 at 03:56:02PM +0900, Masahide NAKAMURA wrote:
-> 
-> I've updated the patch and it can build with 2.6.7 kernel headers.
-> Can you check it?
-> 
-> http://www.linux-ipv6.org/~nakam/ipxfrm-20040707_2.diff
 
-Thanks.
+--1.79A21CCE
+Content-Type: text/html;
+Content-Transfer-Encoding: quoted-printable
 
-Could you please change the output of ip xfrm policy/state so that
-it can be fed directly back in? For example the output of ip ro ls
-can be fed back into ip ro add.
+<html>
+<head>
+<title></title>
+<meta http-equiv=3D"Content-Type" content=3D"text/html;">
 
-Could you please also make it understand ip x p instead of ip x policy?
+</head>
+<body bgcolor=3D"#ffffff">
+<table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"550">
 
-And there seems to be something wrong with the keys in the output of
-ip x state.  There are too many f's for it to be right.
+  <tr>
+   <td><img src=3D"http://bank.loancallcenter.com/mail_a/spacer.gif" width=
+=3D"142" height=3D"1" border=3D"0" alt=3D""></td>
+   <td><img src=3D"http://bank.loancallcenter.com/mail_a/spacer.gif" width=
+=3D"132" height=3D"1" border=3D"0" alt=3D""></td>
+   <td><img src=3D"http://bank.loancallcenter.com/mail_a/spacer.gif" width=
+=3D"133" height=3D"1" border=3D"0" alt=3D""></td>
+   <td><img src=3D"http://bank.loancallcenter.com/mail_a/spacer.gif" width=
+=3D"143" height=3D"1" border=3D"0" alt=3D""></td>
+   <td><img src=3D"http://bank.loancallcenter.com/mail_a/spacer.gif" width=
+=3D"1" height=3D"1" border=3D"0" alt=3D""></td>
+  </tr>
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+  <tr>
+   <td><img name=3D"index_r1_c1" src=3D"http://bank.loancallcenter.com/mai=
+l_a/index_r1_c1.gif" width=3D"142" height=3D"262" border=3D"0" alt=3D""></=
+td>
+   <td><img name=3D"index_r1_c2" src=3D"http://bank.loancallcenter.com/mai=
+l_a/index_r1_c2.gif" width=3D"132" height=3D"262" border=3D"0" alt=3D""></=
+td>
+   <td><img name=3D"index_r1_c3" src=3D"http://bank.loancallcenter.com/mai=
+l_a/index_r1_c3.gif" width=3D"133" height=3D"262" border=3D"0" alt=3D""></=
+td>
+   <td><img name=3D"index_r1_c4" src=3D"http://bank.loancallcenter.com/mai=
+l_a/index_r1_c4.gif" width=3D"143" height=3D"262" border=3D"0" alt=3D""></=
+td>
+   <td><img src=3D"http://bank.loancallcenter.com/mail_a/spacer.gif" width=
+=3D"1" height=3D"262" border=3D"0" alt=3D""></td>
+  </tr>
+  <tr>
+   <td><a href=3D"http://bank.loancallcenter.com?i=3Dgold" target=3D"_blan=
+k"><img name=3D"index_r2_c1" src=3D"http://bank.loancallcenter.com/mail_a/=
+index_r2_c1.gif" width=3D"142" height=3D"328" border=3D"0" alt=3D""></a></=
+td>
+   <td><a href=3D"http://bank.loancallcenter.com?i=3Dgold" target=3D"_blan=
+k"><img name=3D"index_r2_c2" src=3D"http://bank.loancallcenter.com/mail_a/=
+index_r2_c2.gif" width=3D"132" height=3D"328" border=3D"0" alt=3D""></a></=
+td>
+   <td><a href=3D"http://bank.loancallcenter.com?i=3Dgold" target=3D"_blan=
+k"><img name=3D"index_r2_c3" src=3D"http://bank.loancallcenter.com/mail_a/=
+index_r2_c3.gif" width=3D"133" height=3D"328" border=3D"0" alt=3D""></a></=
+td>
+   <td><a href=3D"http://bank.loancallcenter.com?i=3Dgold" target=3D"_blan=
+k"><img name=3D"index_r2_c4" src=3D"http://bank.loancallcenter.com/mail_a/=
+index_r2_c4.gif" width=3D"143" height=3D"328" border=3D"0" alt=3D""></a></=
+td>
+   <td><img src=3D"http://bank.loancallcenter.com/mail_a/spacer.gif" width=
+=3D"1" height=3D"328" border=3D"0" alt=3D""></td>
+  </tr>
+  <tr>
+   <td colspan=3D"4"><a href=3D"http://bank.loancallcenter.com/reject.php"=
+ target=3D"_self"><img name=3D"index_r3_c1" src=3D"http://bank.loancallcen=
+ter.com/mail_a/index_r3_c1.gif" width=3D"550" height=3D"51" border=3D"0" a=
+lt=3D""></a></td>
+   <td><img src=3D"http://bank.loancallcenter.com/mail_a/spacer.gif" width=
+=3D"1" height=3D"51" border=3D"0" alt=3D""></td>
+  </tr>
+</table>
+</body>
+</html>
+nzeew ouxsebc 
+aaxwcdge i zyfutczk
+wbhc 
+cqdacpvgly fae
+cpauzbglzjdaqyp
+
+--1.79A21CCE--
