@@ -1,53 +1,35 @@
-From: "Ravinandan Arakali" <ravinandan.arakali@s2io.com>
-Subject: Question about Bonding driver
-Date: Fri, 10 Dec 2004 18:01:32 -0800
-Message-ID: <002201c4df25$56afc3c0$3a10100a@pc.s2io.com>
+From: Jouni Malinen <jkmaline@cc.hut.fi>
+Subject: Re: Prism / Hostap Bridge Problems...
+Date: Fri, 10 Dec 2004 20:16:31 -0800
+Message-ID: <20041211041631.GB7015@jm.kir.nu>
+References: <41B9B6E9.7010600@novolab.de> <41B9C4E0.40407@novolab.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "Leonid. Grossman \(E-mail\)" <leonid.grossman@s2io.com>,
-        "Raghavendra. Koushik \(E-mail\)" <raghavendra.koushik@s2io.com>,
-        <rapuru.sriram@s2io.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Brande <brande@novolab.de>
+Content-Disposition: inline
+In-Reply-To: <41B9C4E0.40407@novolab.de>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
-We are facing the following problem with bonding driver with two 10-gigabit
-ethernet cards.
-Any help is appreciated.
+On Fri, Dec 10, 2004 at 04:46:40PM +0100, Brande wrote:
 
-Server:  AMD Opteron system with two 10-gigabit ethernet cards
-Switch: Foundry FastIron 800
-Clients: Two Opteron systems, each with one 10-gigabit card.
+> I have a meshcube (www.meshcube.org) with two prim 2.5 mini-pci WLAN 
+> cards...
+> wlan0 should connect as client (managed mode) to a normal access point 
+> which is connected to the internet.
+> wlan1 should work as accesspoint (master mode).
+> I would like to bridge between wlan0 and wlan1 so that I can connect 
 
-The two cards on the server were aggregated in 802.3ad mode(mode=4).
-On the switch, the two ports are aggregated in LACP mode.
-With single stream traffic per client, transmit throughput to one of the
-clients
-is 3Gbps and the other, 5.5Gbps.
-When the two cards are aggregated we get a throughput of
-7.9 Gbps(which is 93% of combined throughputs).
-BTW, throughput is measured using nttcp tool.
+IEEE 802.11 protocol does not support this kind of configuration. The
+card in client mode can only send packet with its own layer 2 MAC
+address whereas bridge functionality would require that the other MAC
+addresses can also be used as source address. If it is enough to handle
+only some IP protocols, Proxy ARP or IP routing could be used to setup
+this kind of network. Another option would be to use WDS link between
+these APs (assuming the other AP supports WDS) and bridge packet through
+it.
 
-The MAC address on one of the clients is set to an even address and the MAC
-address on the other client to odd. This ensures that the traffic to the two
-clients is being distributed by the bonding driver to the two cards in the
-bond.
-We also verified this using ping.
-
-However, the problem is, when we have multiple streams per client,
-throughput drops
-and we notice continuous TCP retransmissions from the server.
-
-Note that without bonding driver, even if we run multiple TCP streams per
-client(each card on server in different subnet), there are no
-retransmissions and the
-throughput is very good.
-
-
-Thanks,
-Ravi
+-- 
+Jouni Malinen                                            PGP id EFC895FA
