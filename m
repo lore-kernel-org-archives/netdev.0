@@ -1,60 +1,38 @@
-From: Andy Furniss <andy.furniss@dsl.pipex.com>
-Subject: Re: IMQ / new Dummy device post.
-Date: Thu, 15 Apr 2004 20:35:01 +0100
+From: Don Fry <brazilnut@us.ibm.com>
+Subject: [PATCH 2.6.6-rc1] pcnet32 transmit performance fix
+Date: Thu, 15 Apr 2004 13:55:33 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <407EE3E5.8060200@dsl.pipex.com>
-References: <407E5905.9070108@dsl.pipex.com> <1082031313.1039.13.camel@jzny.localdomain>
+Message-ID: <200404152055.i3FKtXT04354@DYN318364BLD.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1082031313.1039.13.camel@jzny.localdomain>
+To: tsbogend@alpha.franken.de, jgarzik@pobox.com, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> On Thu, 2004-04-15 at 05:42, Andy Furniss wrote:
-> 
-> 
->>The only reason I use IMQ (+ NAT patch) is that I need to shape ingress 
->>(I know I can't shape it "properly" from the wrong end of the bottleneck 
->>without an intelligent app, but the ingress policer does not let me 
->>share local and forwarded bandwidth and is not fair per user if I just 
->>throttle the whole link).
->>
->>I am not sure if dummy will sort this for me, there may be some other way?
-> 
-> 
-> The summary is dummy can do what IMQ used to; it is however not related
-> to iptables/netfilter. 
-> 
-> 
->>Basically all I need is something I can use HTB on where the qos ingress 
->>box is on this diagram.
-> 
-> 
-> Yes you can attach a HTB. Look at the posted example in the previous
-> email and replace prio with HTB. 
-> Not sure i answered your questions.
+When the pcnet32 adapter is installed in a system with long PCI latency
+and the read burst bit is not set, performance on transmission is very
+low (under 20Mbit on a 100Mbit link).  This patch against 2.6.6-rc1 will
+make sure that read and write bursts are enabled.  Tested on ppc64 and
+ia32.
 
-What I want to know is what state IP packets will be in if I 
-filter/shape with dummy - In my case I would need them to have been 
-demasqued so I can tell the difference between local and to be forwarded 
-ingress traffic.
+--- linux-2.6.6-rc1/drivers/net/orig.pcnet32.c	Thu Apr 15 11:18:09 2004
++++ linux-2.6.6-rc1/drivers/net/pcnet32.c	Thu Apr 15 11:47:00 2004
+@@ -1022,10 +1022,11 @@
+      *	starting until the packet is loaded. Strike one for reliability, lose
+      *	one for latency - although on PCI this isnt a big loss. Older chips
+      *	have FIFO's smaller than a packet, so you can't do this.
++     *	Turn on BCR18:BurstRdEn and BCR18:BurstWrEn.
+      */
+ 
+     if (fset) {
+-	a->write_bcr(ioaddr, 18, (a->read_bcr(ioaddr, 18) | 0x0800));
++	a->write_bcr(ioaddr, 18, (a->read_bcr(ioaddr, 18) | 0x0860));
+ 	a->write_csr(ioaddr, 80, (a->read_csr(ioaddr, 80) & 0x0C00) | 0x0c00);
+ 	dxsuflo = 1;
+ 	ltint = 1;
 
-Ie. where on the KPTD would dummy be - IMQ appears twice and by using 
-the IMQ nat patch I can use the prerouting one to filter/shape the 
-packets after they are denatted.
-
-Andy.
-
-> 
-> Again to emphasize: I will send patches only to people interested.
-> People have to ask directly;
-> this is my way of monitoring what is being tested. At some point i will
-> make the latest patches available to everyone.
-> 
-> cheers,
-> jamal
+-- 
+Don Fry
+brazilnut@us.ibm.com
