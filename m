@@ -1,48 +1,49 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: Re: Route cache performance under stress
-Date: Tue, 20 May 2003 08:01:32 +0300 (EEST)
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <Pine.LNX.4.44.0305200800380.26787-100000@netcore.fi>
-References: <20030519220409.V39658@shell.cyberus.ca>
+From: Ethan Sommer <sommere@ethanet.com>
+Subject: Re: [Fwd: [ANNOUNCE] Layer-7 Filter for Linux QoS]
+Date: Tue, 20 May 2003 00:07:33 -0500
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <3EC9B815.4000504@ethanet.com>
+References: <1053313298.3909.5.camel@rth.ninka.net>
+ <20030519202756.I39498@shell.cyberus.ca>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@redhat.com>, <sim@netnation.com>,
-	<netdev@oss.sgi.com>, <linux-net@vger.kernel.org>
-Return-path: <linux-net-owner@vger.kernel.org>
+Content-Type: text/plain; format=flowed; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@redhat.com>, linux-net@vger.kernel.org,
+   netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+In-reply-to: <20030519202756.I39498@shell.cyberus.ca>
 To: Jamal Hadi <hadi@shell.cyberus.ca>
-In-Reply-To: <20030519220409.V39658@shell.cyberus.ca>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 19 May 2003, Jamal Hadi wrote:
-> I dont think the hashes are similar - its the effect into the
-> slow path. I was told by someone who tested this on a priicey CISCO
-> that they simply die unless capable of a feature called CEF.
+Jamal Hadi wrote:
 
-Yes, but pretty much nobody is using Cisco without CEF, except in the last 
-mile, low-end devices.
+>Hi,
+>
+...
 
-> On Mon, 19 May 2003, David S. Miller wrote:
-> 
-> >    From: Jamal Hadi <hadi@shell.cyberus.ca>
-> >    Date: Mon, 19 May 2003 21:23:08 -0400 (EDT)
-> >
-> >    Also used to attack CISCOs by them kiddies btw. We stand much better
-> >    than any CISCO doing caching.
-> >
-> > I have to assume that the source address selection operates
-> > differently for attacking cisco equiptment, our hashes being
-> > identical would really be unbelievable :-)
-> >
-> >
-> >
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-net" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+>BTW, i am not sure how efficient the stuff that Henry spencer
+>wrote is in comparison to newer research on variants of boyer-moore
+>for regex searches. comment?
+>  
+>
+I picked Spencer's mainly because it was a pain to port the glibc 
+version into kernel space. They are both basically the posix regexp 
+interface, so if someone wants to get another version working in kernel 
+space we can test and see which one performs better with real load 
+pretty easily.
 
--- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
 
+>The code also does seem inefficient but thats beside the point at the
+>moment (ex you seem to malloc for every incoming packet so you can do a
+>regex).
+>  
+>
+Yep. We haven't spent a lot of time on optimizations. Obviously that 
+example can be fixed pretty quickly... except I'm not sure we can avoid 
+it and stay thread safe? (linux can route multiple packets at the same 
+time on an smp box right? so we can't just use a staically defined 
+buffer...)
+
+Ethan Sommer
+http://l7-filter.sf.net
