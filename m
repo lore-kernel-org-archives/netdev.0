@@ -1,47 +1,56 @@
-From: "Marcos D. Marado Torres" <marado@student.dei.uc.pt>
-Subject: Re: Please route new work through -mm tree?
-Date: Wed, 29 Sep 2004 19:23:15 +0100 (WEST)
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: Tons of "BUG: dst overflow ..." messages
+Date: Wed, 29 Sep 2004 15:36:21 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.61.0409291921520.15505@student.dei.uc.pt>
-References: <1096481023.8636.7.camel@localhost.localdomain> <415AFB63.7010107@us.ibm.com>
+Message-ID: <415B0EB5.3010809@pobox.com>
+References: <415A3635.4070000@pobox.com>	<20040928214055.609f7715.davem@davemloft.net>	<415A40D0.7040403@pobox.com> <20040929.143216.55773467.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Stephen Hemminger <shemminger@osdl.org>, davem@redhat.com,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: quoted-printable
+Cc: jgarzik@pobox.com, davem@davemloft.net, netdev@oss.sgi.com,
+        yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Nivedita Singhvi <niv@us.ibm.com>
-In-Reply-To: <415AFB63.7010107@us.ibm.com>
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20040929.143216.55773467.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
+> In article <415A40D0.7040403@pobox.com> (at Wed, 29 Sep 2004 00:57:52 -=
+0400), Jeff Garzik <jgarzik@pobox.com> says:
+>=20
+>=20
+>>David S. Miller wrote:
+>>
+>>>On Wed, 29 Sep 2004 00:12:37 -0400
+>>>Jeff Garzik <jgarzik@pobox.com> wrote:
+>>>
+>>>
+>>>
+>>>>BUG: dst underflow 0: cf5dd180 at f8c0be5d
+>=20
+> :
+>=20
+>>>Can you match up the 0xf8xxxxxx addresses to spots
+>>>in your System.map?  Thanks.
+>=20
+> :
+>=20
+>>ipv6 232192 38 - Live 0xf8c01000
+>>		       ^^^^  appears to be this
+>=20
+>=20
+> Hmm, I haven't met this (during TAHI test against latest tree).
+> Would you try latest bk tree?
 
-On Wed, 29 Sep 2004, Nivedita Singhvi wrote:
+I will try soon...  it's my fileserver and router, so does not get=20
+upgraded very often.
 
-> I was going to
-> suggest a separate bk tree or something that would
-> hold this stuff till it stabilized, before it needed
-> to go into mainline. Having that picked up by mm would
-> help us to increase coverage quite a bit.
 
-What about doing a -mm*-net* tree?
+> Plus, if you know how to reproduce this, tell me.
 
-Mind Booster Noori
+Sorry, I do not know :(
 
-- -- 
-/* *************************************************************** */
-    Marcos Daniel Marado Torres	     AKA	Mind Booster Noori
-    http://student.dei.uc.pt/~marado   -	  marado@student.dei.uc.pt
-    () Join the ASCII ribbon campaign against html email, Microsoft
-    /\ attachments and Software patents.   They endanger the World.
-    Sign a petition against patents:  http://petition.eurolinux.org
-/* *************************************************************** */
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.1 (GNU/Linux)
-Comment: Made with pgp4pine 1.76
+Regards,
 
-iD8DBQFBWv2XmNlq8m+oD34RAie+AKDR+MbEBQ0nrNVVZb3lM6oEisRt9wCfc7cI
-8yFjdsZ2gXcb81yVpY8Ukgo=
-=LjKk
------END PGP SIGNATURE-----
+	Jeff
