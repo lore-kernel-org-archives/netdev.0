@@ -1,116 +1,51 @@
-From: Jan Olderdissen <jan@ixiacom.com>
-Subject: RE: [PATCH 2.6.5] Re: Fw: Stack sends SYN/ACKs even though accept
-	 queue is full
-Date: Fri, 14 May 2004 16:11:16 -0700
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169 and 2.4.26 finally working
+Date: Sat, 15 May 2004 01:27:14 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <15FDCE057B48784C80836803AE3598D50627ACEA@racerx.ixiacom.com>
+Message-ID: <20040515012714.A9616@electric-eye.fr.zoreil.com>
+References: <000001c439ca$b0c39040$4500a8c0@freelancer>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Cc: akpm@osdl.org, netdev@oss.sgi.com, Thomas Ameling
-	 <tameling@ixiacom.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: a.nielsen@optushome.com.au, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'David S. Miller'" <davem@redhat.com>,
-        Nivedita Singhvi
-	 <niv@us.ibm.com>
+To: Johannes Petersson <johpe@vimmerbytidning.se>
+Content-Disposition: inline
+In-Reply-To: <000001c439ca$b0c39040$4500a8c0@freelancer>; from johpe@vimmerbytidning.se on Fri, May 14, 2004 at 05:46:57PM +0200
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David,
+Johannes Petersson <johpe@vimmerbytidning.se> :
+[...]
+> The patches were tried one at a time to the vanilla sources for the 
+> 2.4.26 kernel. The 2.4.26-r8169.c-stable.patch gave the usual error
+> about not beeing able to patch the file completely when I applied it to
+> the kernel source.
+[...]
+> The only patched that actually applied without any problems to the 
+> kernel was the 20040504-2.4.27-pre1-r8169.c-test.patch from Francois. At
+> 
+> that time I had some hope. But while compiling the kernel with the 
+> 2.4.27-pre1-r8169 patch I got the following compile errors when I issued
+> "make bzImage":
+> Implicit declaration of netdev_priv
 
-> I really haven't seen a convincing argument yet to change the behavior
-> here, I think it's sane but I'm ready to be convinced otherwise :-)
+This function requires at least a 2.4.27-pre1 kernel.
 
-Upon further reflection, I've convinced myself that the current algorithm is
-more broken than I thought - at least in some situations.
+Please try a 2.4.27-pre1 kernel or apply the following patch to your
+2.4.26 tree before/after 20040504-2.4.27-pre1-r8169.c-test.patch
 
-Let's review the status quo in tcp_v4_conn_request(): Incoming SYNs are
-dropped if
 
-1. The synq is full, or
-2. The accept queue is full AND the number of "young" entries in the synq is
-greater than 1.
-
-If the SYN is not dropped, a synq entry is allocated, marked "young", and a
-SYN/ACK is sent. Entries one the synq "age" on their first timeout.
-
-In previous posts in this thread I suggested removing the condition dealing
-with "young" entries because this allows the synq to grow even though there
-is no room in the accept queue. The symptom this causes is a sequence like
-this:
-
-C -> S SYN
-S -> C SYN/ACK
-C -> S ACK # if the acceptq is still full at this point, this ack is dropped
-C -> S data1 # this is also dropped
-C -> S data2 # this is also dropped
-C -> S data3 # this is also dropped
-S -> C SYN/ACK
-C -> S ACK # if the acceptq is still full at this point, this ack is dropped
-C -> S data1 # this is also dropped
-C -> S data2 # this is also dropped
-C -> S data3 # this is also dropped
-
-and so forth until timeout. The client thinks the connection is up and
-bandwidth is wasted.
-
-Nivedita was very helpful in providing a patch for this. It works inasmuch
-it fixes the problem for the case where the acceptq is full.
-
-Sadly, I missed the second condition under which SYNs can go on the synq
-without room on the acceptq being available. If the acceptq is almost full
-and the server receives a burst of SYNs, the server will accept and SYN/ACK
-_all_ SYNs that fit in the synq. I've tested this condition using an Ixia
-400T chassis with an ALM1000T8 load module. Using three of the eight test
-ports (each has a PowerPC 750 processor and gigE interface) to hammer on a
-fourth test port configured as a server, the synq quickly outgrew the
-acceptq in length. Obviously, most of the entries on the synq were in the
-unhappy mode described above as there was no way the server could keep up
-with the clients.
-
-Ultimately, I propose that the concept of SYN/ACKing a connection that we
-don't have room for in the acceptq is evil and should be replaced by a
-mechanism that remembers SYNs but doesn't SYN/ACK right away if there is no
-room on the acceptq. This provides the benefit of keeping the packet traces
-sane as well as keeping around warm connections to be SYN/ACKed as soon as
-the acceptq starts emptying.
-
-I therefore suggest the following algorithm:
-
-Three queues are used: 
-
-synq1: holds connections that have sent a SYN but have not been SYN/ACKed
-synq2: holds connections that have been SYN/ACKed
-acceptq: holds connections that have completed 3-way handshake
-
-When a SYN comes in, the following pseudo code is executed:
-
-if (len(synq1)+len(synq2) > MAX_SYNQ) goto drop;
-if (len(synq2)+len(acceptq) < MAX_ACCEPTQ) {
-    send_synack();
-    synq2.add (new_connection);
-} else {
-    synq1.add (new_connection);
-}
-
-When an ACK is received, the following code is executed:
-
-synq2.remove (connection);
-acceptq.add (connection);
-
-When an entry has been removed from the acceptq by the app, the following
-code is executed:
-
-int max_synack = MAX_ACCEPTQ - len(acceptq) - len(synq2);
-while (max_synack-- && len(synq1)) {
-    # move connection from synq1 to synq2 and send SYN/ACK
-    send_synack();
-    connection = synq1.pop();
-    synq2.add (connection);
-}
-
-Notes:
-
-- MAX_ACCEPTQ is shorthand for the socket specific accept queue length.
-
-Jan
+diff -Nur --show-c-function linux-2.4.26/include/linux/netdevice.h linux-2.4.27-pre1/include/linux/netdevice.h
+--- linux-2.4.26/include/linux/netdevice.h	2004-02-18 10:36:32.000000000 -0300
++++ linux-2.4.27-pre1/include/linux/netdevice.h	2004-04-21 19:59:15.000000000 -0300
+@@ -467,6 +468,10 @@ struct packet_type 
+ 	struct packet_type	*next;
+ };
+ 
++static inline void *netdev_priv(struct net_device *dev)
++{
++	return dev->priv;
++}
+ 
+ #include <linux/interrupt.h>
+ #include <linux/notifier.h>
