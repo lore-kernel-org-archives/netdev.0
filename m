@@ -1,67 +1,42 @@
-From: Lennert Buytenhek <buytenh@gnu.org>
+From: bert hubert <ahu@ds9a.nl>
 Subject: Re: [PATCH,RFC] explicit connection confirmation
-Date: Thu, 7 Nov 2002 10:27:58 -0500
+Date: Thu, 7 Nov 2002 17:24:24 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021107152758.GB23858@gnu.org>
-References: <20021107120956.GA10832@gnu.org> <Pine.GSO.4.30.0211070834130.11358-100000@shell.cyberus.ca>
+Message-ID: <20021107162424.GA31447@outpost.ds9a.nl>
+References: <20021107093207.GA30666@gnu.org> <20021107112733.GA24283@outpost.ds9a.nl> <20021107120956.GA10832@gnu.org> <20021107134918.GA28329@outpost.ds9a.nl> <20021107143002.GA23858@gnu.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: bert hubert <ahu@ds9a.nl>, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>, Marc Boucher <marc@mbsi.ca>
+To: Lennert Buytenhek <buytenh@gnu.org>
 Content-Disposition: inline
-In-Reply-To: <Pine.GSO.4.30.0211070834130.11358-100000@shell.cyberus.ca>
+In-Reply-To: <20021107143002.GA23858@gnu.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Thu, Nov 07, 2002 at 09:30:02AM -0500, Lennert Buytenhek wrote:
 
-netfilter, yeah, sure, 'could have', but please.
-
-'Make it a netfilter module' is generally what people say when
-they are confronted with a feature they don't like.
-
-There was a thread about this in private mail round April this year,
-in which some good points were raised.
-
-- From the kernel point of view, doing it in netfilter would require
-  more state tracking and access to the socket hashes and would be
-  uglier.
-
-- From the application writer's point of view, doing it via a socket
-  option is much more intuitive, since this flag is really a socket
-  property, than doing it via some extra API which would make it way
-  too difficult/complex to use in existing apps.
-
-It's worth noting that selective TCP connection acceptance was
-also intended to be implemented as a socket option by the original
-BSD developers.  See http://www.kohala.com/start/vanj.94jun27.txt
-(link thanks to Marc Boucher).
-
->From the accept(2) man page on Red Hat Linux (again thanks to Marc
-Boucher):
-
-       For  certain  protocols which require an explicit confirmation, such as
-       DECNet, accept can be thought of as merely dequeuing the  next  connec-
-       tion  request  and  not  implying  confirmation.   Confirmation  can be
-       implied by a normal read or write  on  the  new  file  descriptor,  and
-       rejection can be implied by closing the new socket. Currently only DEC-
-       Net has these semantics on Linux.
-
-
-cheers,
-Lennert
-
-
-
-On Thu, Nov 07, 2002 at 08:36:28AM -0500, jamal wrote:
-
-> Could you not have used netfilter for this? You have the app
-> sending controls to add netfilter policies and delete them when not
-> needed.
+> > I like having this ability - I dislike offering it to an unsuspecting
+> > userspace.
 > 
-> cheers,
-> jamal
-> 
-> 
-> 
+> Userspace needs to turn on the option first, so your 'unsuspecting'
+> does not apply.
+
+Ah ok, I thought 'TCP_CONFIRM_CONNECT' was a TCP connection state like
+SYN_RECV.
+
+> Again, if the app decides to turn on TCP_CONFIRM_CONNECT, then it's
+> up to the app to deal with it properly.  There are very good reasons
+> for not turning on TCP_CONFIRM_CONNECT by default, which is why it
+> is not on by default, and why grafting a setsockopt onto every daemon
+> there is out there is definitely not a good idea.
+
+Exactly. Ok, cool. 
+
+Regards,
+
+bert
+
+-- 
+http://www.PowerDNS.com          Versatile DNS Software & Services
+http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
