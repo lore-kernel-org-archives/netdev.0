@@ -1,25 +1,67 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: New ARPHRD type
-Date: Tue, 23 Mar 2004 12:49:48 +0900 (JST)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040323.124948.50721347.yoshfuji@linux-ipv6.org>
-References: <629E717C12A8694A88FAA6BEF9FFCD440550CACB@brigadoon.spirentcom.com>
+From: Dmitry Torokhov <dtor_core@ameritech.net>
+Subject: [PATCH 1/2 (resend)] Fix TBF class reporting (tc class show)
+Date: Tue, 23 Mar 2004 01:08:08 -0500
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <200403230108.08384.dtor_core@ameritech.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: John.Pinkney@spirentcom.com
-In-Reply-To: <629E717C12A8694A88FAA6BEF9FFCD440550CACB@brigadoon.spirentcom.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: linux-net@vger.kernel.org
+Content-Disposition: inline
 List-Id: netdev.vger.kernel.org
 
-In article <629E717C12A8694A88FAA6BEF9FFCD440550CACB@brigadoon.spirentcom.com> (at Mon, 22 Mar 2004 19:41:38 -0800), "Pinkney, John" <John.Pinkney@spirentcom.com> says:
+Hi,
 
-> Can anyone tell me how I would go about getting a new ARPHRD type defined?
-
-Please send a patch (with its users) to <netdev@oss.sgi.com>.
+The patch below fixes issue with "tc class show dev <dev>" not showing any
+classes when TBF qdisc is present in the chain. PLease copnsider for
+inclusion.
 
 -- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Dmitry
+
+
+===================================================================
+
+
+ChangeSet@1.1648, 2004-03-05 01:02:36-05:00, dtor_core@ameritech.net
+  NET: Fix class reporting in TBF qdisc
+
+
+ sch_tbf.c |    9 +++------
+ 1 files changed, 3 insertions(+), 6 deletions(-)
+
+
+===================================================================
+
+
+
+diff -Nru a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+--- a/net/sched/sch_tbf.c	Fri Mar  5 01:26:33 2004
++++ b/net/sched/sch_tbf.c	Fri Mar  5 01:26:33 2004
+@@ -434,8 +434,7 @@
+ 	if (cl != 1) 	/* only one class */ 
+ 		return -ENOENT;
+     
+-	tcm->tcm_parent = TC_H_ROOT;
+-	tcm->tcm_handle = 1;
++	tcm->tcm_handle |= TC_H_MIN(1);
+ 	tcm->tcm_info = q->qdisc->handle;
+ 
+ 	return 0;
+@@ -486,11 +485,9 @@
+ 
+ static void tbf_walk(struct Qdisc *sch, struct qdisc_walker *walker)
+ {
+-	struct tbf_sched_data *q = (struct tbf_sched_data *)sch->data;
+-
+ 	if (!walker->stop) {
+-		if (walker->count >= walker->skip) 
+-			if (walker->fn(sch, (unsigned long)q, walker) < 0) { 
++		if (walker->count >= walker->skip)
++			if (walker->fn(sch, 1, walker) < 0) {
+ 				walker->stop = 1;
+ 				return;
+ 			}
