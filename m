@@ -1,38 +1,55 @@
-From: margitsw@t-online.de (Margit Schubert-While)
-Subject: [PATCH 14/17 linux-2.6.7-rc2] prism54: Reduce module verbosity
-Date: Sun, 30 May 2004 22:04:21 +0200
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: Bug#251215: kernel-image-2.6.6-1-k7: pppd locks up, cannot be
+ killed, during ppp shutdown
+Date: Tue, 1 Jun 2004 09:13:53 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <5.1.0.14.2.20040530215351.0c1f6cb8@pop.t-online.de>
+Message-ID: <20040601091353.53275685@dell_ss3.pdx.osdl.net>
+References: <E1BTLVa-000Ezb-FC@johnnybravo.uk.clara.net>
+	<20040528124355.GA2391@gondor.apana.org.au>
+	<40B744DC.9956BF50@kepier.clara.net>
+	<20040529051736.GA11303@gondor.apana.org.au>
+	<20040529124833.5eca66d7.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="=====================_50528325==_"
-Cc: jgarzik@pobox.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, debian.bugs@kepier.clara.net,
+        251215@bugs.debian.org, jgarzik@pobox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20040529124833.5eca66d7.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---=====================_50528325==_
-Content-Type: text/plain; charset="us-ascii"; format=flowed
+On Sat, 29 May 2004 12:48:33 -0700
+"David S. Miller" <davem@redhat.com> wrote:
 
-2004-05-01      Margit Schubert-While <margitsw@t-online.de>
+> On Sat, 29 May 2004 15:17:36 +1000
+> Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> 
+> > Why do we need to call free_netdev after unregistering the netdev
+> > from the drivers at all? What's wrong with calling it from run_todo
+> > itself?
+> 
+> Because the driver is the only agent which knows when it is safe
+> to free up the structure.  It may still have some attached memory
+> to free, for example, ala:
+> 
+> 	unregister_netdev(dev);
+> 	kfree(dev->priv);
+> 	free_netdev(dev);
+> 
+> This is common, for example in drivers/net/tg3.c:tg3_remove_one() we
+> have:
+> 
+> 		struct tg3 *tp = netdev_priv(dev);
+> 
+> 		unregister_netdev(dev);
+> 		iounmap((void *)tp->regs);
+> 		free_netdev(dev);
+> 
+Also, for those device that don't want to do anything in between:
+	dev->destructor = free_netdev;
 
-  * Reduce module verbosity
---=====================_50528325==_
-Content-Type: application/octet-stream; name="14-reduce-verbosity.patch"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="14-reduce-verbosity.patch"
-
-ZGlmZiAtTmF1ckViQiBsaW51eC0yLjYuNmN0L2RyaXZlcnMvbmV0L3dpcmVsZXNzL3ByaXNtNTQv
-aXNscGNpX2Rldi5jIGxpbnV4LTIuNi42LTAxL2RyaXZlcnMvbmV0L3dpcmVsZXNzL3ByaXNtNTQv
-aXNscGNpX2Rldi5jCi0tLSBsaW51eC0yLjYuNmN0L2RyaXZlcnMvbmV0L3dpcmVsZXNzL3ByaXNt
-NTQvaXNscGNpX2Rldi5jCTIwMDQtMDUtMjggMTU6NDg6MzQuMTU2MTEyMDMyICswMjAwCisrKyBs
-aW51eC0yLjYuNi0wMS9kcml2ZXJzL25ldC93aXJlbGVzcy9wcmlzbTU0L2lzbHBjaV9kZXYuYwky
-MDA0LTA1LTI4IDE1OjQ3OjUyLjkxNzM4MTI3MiArMDIwMApAQCAtNjksNyArNjksOSBAQAogCWlm
-IChyZWcgJiBJU0wzOFhYX0NUUkxfU1RBVF9TTEVFUE1PREUpCiAJCS8qIGRldmljZSBpcyBpbiBz
-bGVlcCBtb2RlLCBJUlEgd2FzIGdlbmVyYXRlZCBieSBzb21lb25lIGVsc2UgKi8KIAl7Ci0JCXBy
-aW50ayhLRVJOX0RFQlVHICJBc3N1bWluZyBzb21lb25lIGVsc2UgY2FsbGVkIHRoZSBJUlFcbiIp
-OworI2lmIFZFUkJPU0UgPiBTSE9XX0VSUk9SX01FU1NBR0VTCisJCURFQlVHKFNIT1dfVFJBQ0lO
-RywgIkFzc3VtaW5nIHNvbWVvbmUgZWxzZSBjYWxsZWQgdGhlIElSUVxuIik7CisjZW5kaWYKIAkJ
-cmV0dXJuIElSUV9OT05FOwogCX0KIAo=
---=====================_50528325==_--
+Will end up calling free_netdev in the run_todo processing. This
+can be very handy when unregister needs to happen in some context
+already called with RTNL.
