@@ -1,34 +1,35 @@
-From: "Bas Bloemsaat" <bloemsaa@xs4all.nl>
-Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
-Date: Mon, 28 Jul 2003 09:33:46 +0200
+From: Cedric Gavage <cedric.gavage@unixtech.be>
+Subject: Re: [Fwd: kernel 2.4.21]
+Date: Mon, 28 Jul 2003 09:39:11 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <01a601c354da$9710cc10$cd01a8c0@llewella>
-References: <Pine.LNX.4.53.0307272239570.2743@vialle.bloemsaat.com> <20030727151234.6e2aa57e.davem@redhat.com> <3F248AE5.4000204@candelatech.com>
+Message-ID: <3F24D31F.5050904@unixtech.be>
+References: <1058634345.22000.2.camel@dhcp22.swansea.linux.org.uk>	<20030719191723.0821227f.davem@redhat.com>	<3F1E53F7.5000803@unixtech.be>	<20030723023528.76b0f69c.davem@redhat.com>	<3F1E58EE.5010109@unixtech.be>	<20030723024648.2e4b6a62.davem@redhat.com>	<3F1E7435.4060308@unixtech.be> <20030727163422.28e44736.davem@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: alan@lxorguk.ukuu.org.uk, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Ben Greear" <greearb@candelatech.com>,
-   "David S. Miller" <davem@redhat.com>,
-   "Carlos Velasco" <carlosev@newipnet.com>, <netdev@oss.sgi.com>,
-   <linux-kernel@vger.kernel.org>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030727163422.28e44736.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+David S. Miller wrote:
+> On Wed, 23 Jul 2003 13:40:37 +0200
+> Cedric Gavage <cedric.gavage@unixtech.be> wrote:
+> 
+> 
+>>Ok, now it's e100 driver, I will wait some hours to see if we have again 
+>>problems, thanks for your help.
+> 
+> 
+> Any problems yet?
+> 
 
-> > Not a bug.  This behavior is on purpose.
-First of all I'm sorry I rubbed some old sores. I didn't know the behaviour was on purpose, and I did google for it. Could have
-saved my weekend, had I known.
+It's ok now... I was waiting some hours (days) to see if it was really ok ;)
 
-> >Bas's problem can be solved by him giving a "preferred source"
-> >to each of his IPV4 routes and setting the "arpfilter" sysctl
-> >variable for his devices to "1".
->
-> Yes, it's another approach to solve his problem. But he must play with routing.
+Thanks for your help.
 
-Routing isn't solving anything here, it's too dynamic. Only one of the devices has a fixed IP, and handles a link to the outside,
-among others. The other is on DHCP: addresses can change without warning. Both are on the same ethernet segment.
-
-I've looked at the hidden patch, and it's capable of doing this right. I do think this has to be solved at the device layer. It's
-quite counter intuitive the way it is now. My vote goes to hidden.
-
-Regards,
-Bas
+-- 
+  Cedric Gavage <cedric.gavage@unixtech.be>
+  http://unixtech.be - http://gavage.com - OpenPGP: 0xED325C64
