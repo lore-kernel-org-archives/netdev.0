@@ -1,35 +1,94 @@
-From: James Morris <jmorris@intercode.com.au>
-Subject: RE: [PATCH] convering bonding driver /proc interface to seq_file
-Date: Mon, 25 Aug 2003 01:15:13 +1000 (EST)
+From: amavisd-new <postmaster@pluto.emse.fr>
+Subject: BANNED FILENAME (your_details.pif) IN YOUR MAIL
+Date: Sun, 24 Aug 2003 18:44:40 +0200 (CEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Mutt.LNX.4.44.0308250112470.21951-100000@excalibur.intercode.com.au>
-References: <E791C176A6139242A988ABA8B3D9B38A014C94C0@hasmsx403.iil.intel.com>
+Message-ID: <VS32166-01@pluto.emse.fr>
+References: <20030824164431.1084B24409F@pluto.emse.fr>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Stephen Hemminger <shemminger@osdl.org>,
-   Chad Tindel <ctindel@users.sourceforge.net>,
-   Jay Vosburgh <fubar@us.ibm.com>, "David S. Miller" <davem@redhat.com>,
-   Jeff Garzik <jgarzik@pobox.com>, <bonding-devel@lists.sourceforge.net>,
-   <netdev@oss.sgi.com>
+Content-Type: multipart/report; report-type=delivery-status;
+    boundary="----------=_1061743480-32166-1"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Hen, Shmulik" <shmulik.hen@intel.com>
-In-Reply-To: <E791C176A6139242A988ABA8B3D9B38A014C94C0@hasmsx403.iil.intel.com>
+In-Reply-To: <20030824164431.1084B24409F@pluto.emse.fr>
+To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 23 Aug 2003, Hen, Shmulik wrote:
+This is a multi-part message in MIME format...
 
-> Also, instead of using a seq_file interface and using a
-> pointer to skip to the relevant part, we've used a different
-> proc creation interface that allows passing a pointer to bond
-> and thus retrieve just the relevant bond device's data.
+------------=_1061743480-32166-1
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Disposition: inline
+Content-Transfer-Encoding: 7bit
 
-Can you provide a pointer to this code?
+BANNED FILENAME ALERT
 
-seq_file is the standard and preferred way to do this kind of thing.
+Our virus checker found
+    banned filename: your_details.pif
+in your email to the following recipient:
+-> gtoumi@messel.emse.fr
 
+Delivery of the email was stopped!
 
-- James
--- 
-James Morris
-<jmorris@intercode.com.au>
+Please check your system for viruses,
+or ask your system administrator to do so.
+
+For your reference, here are headers from your email:
+------------------------- BEGIN HEADERS -----------------------------
+Received: from SWOOK3-661KUCTN (unknown [220.116.83.198])
+	by pluto.emse.fr (Postfix) with ESMTP id 1084B24409F
+	for <gtoumi@messel.emse.fr>; Sun, 24 Aug 2003 18:44:31 +0200 (CEST)
+From: <netdev@oss.sgi.com>
+To: <gtoumi@messel.emse.fr>
+Subject: Re: Re: My details
+Date: Tue, 26 Aug 2003 1:43:00 +0900
+X-MailScanner: Found to be clean
+Importance: Normal
+X-Mailer: Microsoft Outlook Express 6.00.2600.0000
+X-MSMail-Priority: Normal
+X-Priority: 3 (Normal)
+MIME-Version: 1.0
+Content-Type: multipart/mixed;
+	boundary="_NextPart_000_0282B164"
+Message-Id: <20030824164431.1084B24409F@pluto.emse.fr>
+-------------------------- END HEADERS ------------------------------
+
+------------=_1061743480-32166-1
+Content-Type: message/delivery-status
+Content-Disposition: inline
+Content-Transfer-Encoding: 7bit
+Content-Description: Delivery error report
+
+Reporting-MTA: dns; pluto.emse.fr
+Received-From-MTA: smtp; pluto.emse.fr ([127.0.0.1])
+Arrival-Date: Sun, 24 Aug 2003 18:44:39 +0200 (CEST)
+
+Final-Recipient: rfc822; gtoumi@messel.emse.fr
+Action: failed
+Status: 5.7.1
+Diagnostic-Code: smtp; 550 5.7.1 Message content rejected, id=32166-01 - BANNED: your_details.pif
+Last-Attempt-Date: Sun, 24 Aug 2003 18:44:40 +0200 (CEST)
+
+------------=_1061743480-32166-1
+Content-Type: text/rfc822-headers
+Content-Disposition: inline
+Content-Transfer-Encoding: 7bit
+Content-Description: Undelivered-message headers
+
+Received: from SWOOK3-661KUCTN (unknown [220.116.83.198])
+	by pluto.emse.fr (Postfix) with ESMTP id 1084B24409F
+	for <gtoumi@messel.emse.fr>; Sun, 24 Aug 2003 18:44:31 +0200 (CEST)
+From: <netdev@oss.sgi.com>
+To: <gtoumi@messel.emse.fr>
+Subject: Re: Re: My details
+Date: Tue, 26 Aug 2003 1:43:00 +0900
+X-MailScanner: Found to be clean
+Importance: Normal
+X-Mailer: Microsoft Outlook Express 6.00.2600.0000
+X-MSMail-Priority: Normal
+X-Priority: 3 (Normal)
+MIME-Version: 1.0
+Content-Type: multipart/mixed;
+	boundary="_NextPart_000_0282B164"
+Message-Id: <20030824164431.1084B24409F@pluto.emse.fr>
+
+------------=_1061743480-32166-1--
