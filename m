@@ -1,40 +1,42 @@
-From: Chris Wright <chrisw@osdl.org>
-Subject: Re: [PATCH] linux 2.9.10-rc1: Fix oops in unix_dgram_sendmsg when using SELinux and SOCK_SEQPACKET
-Date: Tue, 16 Nov 2004 00:41:25 -0800
-Message-ID: <20041116004122.V14339@build.pdx.osdl.net>
-References: <4197A037.1020307@blueyonder.co.uk> <1100525477.31773.38.camel@moss-spartans.epoch.ncsc.mil>
+From: =?ISO-8859-2?Q?Micha=B3_Margula?= <alchemyx@uznam.net.pl>
+Subject: Re: Fw: [Bugme-new] [Bug 3746] New: Bridge causes machine lockups
+Date: Tue, 16 Nov 2004 11:16:09 +0100
+Message-ID: <4199D369.8030708@uznam.net.pl>
+References: <20041115122046.1413527e.akpm@osdl.org>	<200411152146.02851.bdschuym@pandora.be> <20041115124843.4c3dd72f.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ross Kendall Axe <ross.axe@blueyonder.co.uk>, netdev@oss.sgi.com,
-        lkml <linux-kernel@vger.kernel.org>, jmorris@redhat.com
+Content-Type: text/plain; charset=ISO-8859-2; format=flowed
+Content-Transfer-Encoding: quoted-printable
+Cc: Bart De Schuymer <bdschuym@pandora.be>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Smalley <sds@epoch.ncsc.mil>
-Content-Disposition: inline
-In-Reply-To: <1100525477.31773.38.camel@moss-spartans.epoch.ncsc.mil>; from sds@epoch.ncsc.mil on Mon, Nov 15, 2004 at 08:31:17AM -0500
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20041115124843.4c3dd72f.akpm@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Stephen Smalley (sds@epoch.ncsc.mil) wrote:
-> On Sun, 2004-11-14 at 13:13, Ross Kendall Axe wrote:
-> > With CONFIG_SECURITY_NETWORK=y and CONFIG_SECURITY_SELINUX=y, using
-> > SOCK_SEQPACKET unix domain sockets causes an oops in the superfluous(?)
-> > call to security_unix_may_send in sock_dgram_sendmsg. This patch avoids
-> > making this call for SOCK_SEQPACKET sockets.
-> 
-> I'd prefer to track down the actual issue in the SELinux code and
-> correct it than just omit the security hook call entirely.  Do you have
-> the Oops output and a trivial test case?  Thanks.
+Andrew Morton napisa=B3(a):
 
-Well, there is one simple case that will trigger the Oops.  Send a
-SEQPACKET to a connected but not yet accepted socket.  In this case
-other->sk_socket is still NULL, and SELinux will deref the NULL pointer
-in selinux_socket_may_send() when geting other_isec.  There is already
-a check in unix_stream_connect, which is all that's used for normal unix
-stream sockets.  But the seqpacket socket then uses unix_dgram_sendmsg,
-so triggers the may_send check as well.
+>>>The only weird thing I noticed is when I initalise my bridge, is somet=
+hing
+>>>about that it can't get speed of some interfaces (guessing it is about
+>>>e1000). I can't give you full error message at the moment, because tho=
+se
+>>>have been rotated by logrotate.
+>>>     =20
+>>>
+>>I don't know what that is about...
+>>   =20
+>>
+>
+You can ignore error about problems with decoding speed on interface.=20
+Found source of that. It happens when one of my network cards has cable=20
+unplugged. In that case it gets weird numbers (same thing happens with=20
+ethtool).
 
-thanks,
--chris
--- 
-Linux Security Modules     http://lsm.immunix.org     http://lsm.bkbits.net
+About main problem - it has been about 13 hours since changing rules to=20
+iptables and nothing happened. We need to wait until tomorrow, to be=20
+completly sure.
+
+--=20
+Micha=B3 Margula, alchemyx@uznam.net.pl, http://alchemyx.uznam.net.pl/
+"W =BFyciu pi=EAkne s=B1 tylko chwile" [Ryszard Riedel]
