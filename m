@@ -1,44 +1,45 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
-Date: 28 Sep 2004 22:28:34 -0400
+Subject: Re: RFC/PATCH capture qdisc requeue event in stats
+Date: 28 Sep 2004 22:31:25 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1096424914.1043.103.camel@jzny.localdomain>
-References: <20040923120707.GB32624@gondor.apana.org.au>
-	 <1095995042.1044.34.camel@jzny.localdomain>
-	 <20040924032440.GB6384@gondor.apana.org.au>
-	 <1096289189.1075.37.camel@jzny.localdomain>
-	 <20040927213607.GD7243@gondor.apana.org.au>
-	 <1096339407.8660.33.camel@jzny.localdomain>
-	 <20040928024614.GA9911@gondor.apana.org.au>
-	 <1096340772.8659.51.camel@jzny.localdomain>
-	 <20040928032321.GB10116@gondor.apana.org.au>
-	 <1096343125.8661.96.camel@jzny.localdomain>
-	 <20040928035921.GA10675@gondor.apana.org.au>
-	 <1096367787.8662.146.camel@jzny.localdomain> <4159D278.4060809@eurodev.net>
+Message-ID: <1096425085.1041.107.camel@jzny.localdomain>
+References: <1093799632.1073.410.camel@jzny.localdomain>
+	 <1096413009.27967.1.camel@localhost.localdomain>
+	 <20040928161838.3d19a17d.davem@davemloft.net>
+	 <1096416101.27967.10.camel@localhost.localdomain>
+	 <20040928170315.760b9851.davem@davemloft.net>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-        "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Pablo Neira <pablo@eurodev.net>
-In-Reply-To: <4159D278.4060809@eurodev.net>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20040928170315.760b9851.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2004-09-28 at 17:07, Pablo Neira wrote:
+On Tue, 2004-09-28 at 20:03, David S. Miller wrote:
 
-> I'm also thinking in doing something with netlink_ack's since they can 
-> be drop if buffer is full. We could give more priority to error messages 
-> in some way, for example, check if there's space for an error message in 
-> the buffer, if there's not, drop as many packets in buffer as we get 
-> space to enqueue the error message.
+> > 
+> > Well it seems to work for me:
+> > 	  kernel
+> >         New	Old
+> > tc New  Ok      Ok(0)
+> >    Old  Ok(0)   Ok
+> > 
+> > Because tc correctly handles the returned TLV size.
+> 
+> Because tc has all the length checking stuff added to
+> it, other applications using netlink might not.  The
+> whole world is not 'tc'.
+> 
+> I'm just rehashing how the most recent thread between
+> Jamal and myself ended about this topic.
 
-Being able to prioritize control (errors and ACKs) would be valuable.
-Would require mucking around with the socket queue. 
-Something along what we do for a basic default 3 band queue (proabably
-two band in this case) should work.
+Steve just kill it for now - Dave is right. I think maybe something
+based out of a cleaned gnet_stats patch i posted earlier would be the
+best path forward. I will try to clean it up.
 
 cheers,
 jamal
