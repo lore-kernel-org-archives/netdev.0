@@ -1,89 +1,82 @@
-From: Jonathan Corbet <corbet@lwn.net>
-Subject: [PATCH] Remove auto_irq.c
-Date: Fri, 14 May 2004 09:44:49 -0600
+From: "Johannes Petersson" <johpe@vimmerbytidning.se>
+Subject: r8169 and 2.4.26 finally working
+Date: Fri, 14 May 2004 17:46:57 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040514154449.4360.qmail@lwn.net>
-Cc: jgarzik@pobox.com
+Message-ID: <000001c439ca$b0c39040$4500a8c0@freelancer>
+Reply-To: <johpe@vimmerbytidning.se>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: <romieu@fr.zoreil.com>, <a.nielsen@optushome.com.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I was looking to see if anything still uses the autoirq_* functions in
-2.6.  Turns out that nothing does; in fact, the file is not even compiled.
-I would guess we don't need to lug auto_irq.c around anymore...
+Hello
 
-jon
+This is the story so far, how it finally worked out and a bit of a recap
 
-diff -purN -X dontdiff 2.6.6-vanilla/drivers/net/auto_irq.c 2.6.6/drivers/net/auto_irq.c
---- 2.6.6-vanilla/drivers/net/auto_irq.c	2003-09-08 13:50:06.000000000 -0600
-+++ 2.6.6/drivers/net/auto_irq.c	1969-12-31 17:00:00.000000000 -0700
-@@ -1,68 +0,0 @@
--/* auto_irq.c: Auto-configure IRQ lines for linux. */
--/*
--    Written 1994 by Donald Becker.
--
--    The author may be reached as becker@scyld.com
--
--    This code is a general-purpose IRQ line detector for devices with
--    jumpered IRQ lines.  If you can make the device raise an IRQ (and
--    that IRQ line isn't already being used), these routines will tell
--    you what IRQ line it's using -- perfect for those oh-so-cool boot-time
--    device probes!
--
--    To use this, first call autoirq_setup(timeout). TIMEOUT is how many
--    'jiffies' (1/100 sec.) to detect other devices that have active IRQ lines,
--    and can usually be zero at boot.  'autoirq_setup()' returns the bit
--    vector of nominally-available IRQ lines (lines may be physically in-use,
--    but not yet registered to a device).
--    Next, set up your device to trigger an interrupt.
--    Finally call autoirq_report(TIMEOUT) to find out which IRQ line was
--    most recently active.  The TIMEOUT should usually be zero, but may
--    be set to the number of jiffies to wait for a slow device to raise an IRQ.
--
--    The idea of using the setup timeout to filter out bogus IRQs came from
--    the serial driver.
--*/
--
--
--#ifdef version
--static const char *version=
--"auto_irq.c:v1.11 Donald Becker (becker@scyld.com)";
--#endif
--
--#include <linux/module.h>
--#include <linux/jiffies.h>
--#include <linux/delay.h>
--#include <asm/bitops.h>
--#include <asm/io.h>
--#include <asm/irq.h>
--#include <linux/netdevice.h>
--
--static unsigned long irqs;
--
--void autoirq_setup(int waittime)
--{
--	irqs = probe_irq_on();
--}
--
--#define BUSY_LOOP_UNTIL(j) while ((long)(jiffies-(j)) < 0) ;
--int autoirq_report(int waittime)
--{
--	unsigned long delay = jiffies + waittime;
--	BUSY_LOOP_UNTIL(delay)
--	return probe_irq_off(irqs);
--}
--
--EXPORT_SYMBOL(autoirq_setup);
--EXPORT_SYMBOL(autoirq_report);
--
--
--/*
-- * Local variables:
-- *  compile-command: "gcc -DKERNEL -Wall -O6 -fomit-frame-pointer -I/usr/src/linux/net/tcp -c auto_irq.c"
-- *  version-control: t
-- *  kept-new-versions: 5
-- *  c-indent-level: 4
-- *  tab-width: 4
-- * End:
-- */
+for the netdev@oss.sgi.com list.
+
+I run Slackware 9.1 on a server with a MSI motherboard that has a 
+RealTek 8169 gigabit lan. When copying large files from the server it 
+hangs / crashes and it is really slow when writing large files to the 
+server. From reading on the net I found out that the original r8169 
+driver (ver. 1.2) is not working properly.
+
+I first compiled and installed the 2.4.26 kernel and hoped that it would
+
+solve my problems which it didn't.
+
+Then I was in contact with both Francois Romieu and Adam Nielsen since 
+these guys had been writing a lot of very informative stuff on the 
+subject at seclists.org and netdev@oss.sgi.com. I downloaded and tried 
+their three different patches:
+http://www.fr.zoreil.com/people/francois/misc/20040420-2.4.26-r8169.c-st
+able.patch
+http://www.fr.zoreil.com/people/francois/misc/20040504-2.4.27-pre1-r8169
+.c-test.patch
+http://seclists.org/lists/linux-kernel/2004/Apr/0627.html
+
+The patches were tried one at a time to the vanilla sources for the 
+2.4.26 kernel. The 2.4.26-r8169.c-stable.patch gave the usual error
+about not beeing able to patch the file completely when I applied it to
+the kernel source.
+
+The patch from Adam didn't work for me either, it too, gave the usual
+message about not beeing able to patch the file.
+
+The only patched that actually applied without any problems to the 
+kernel was the 20040504-2.4.27-pre1-r8169.c-test.patch from Francois. At
+
+that time I had some hope. But while compiling the kernel with the 
+2.4.27-pre1-r8169 patch I got the following compile errors when I issued
+"make bzImage":
+Implicit declaration of netdev_priv
+(I continued anyway with make modules, and make modules_install). Make
+modules_install gave me this error:
+Depmod: unresolved symbols in /lib/modules/2.4.26/.../r8169.o
+After rebooting this kernel, the rtl8169 driver of course didn't work. 
+
+Then I thought that I would have to resort to compiling and installing 
+the 2.6.6 kernel which is supposed to solve the problem according to 
+Francois and Adam. But before I did this I gave the official driver 
+(ver. 1.6) from RealTeks homepage a try:
+http://www.realtek.com.tw/downloads/downloads1-3.aspx?software=True&comp
+amodel=RTL8169S-32%2F64
+
+I compiled and installed the driver and did modprobe and started doing 
+some testing. As it turns out the system actually worked with this 
+driver. I rebooted and since then the server has been up and running 
+without problems. Maybe RealTeks 1.6 driver isn't the best, but it works
+
+for me with kernel 2.4.26 and performs pretty well while copying files 
+in the gigabit lan.
+
+I hope this little novel of mine can help somebody else with the same 
+problem and big thanks to Francois and Adam for helping me out.
+
+Sincerely
+Johannes Petersson
