@@ -1,37 +1,49 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] iproute2 updates
-Date: Fri, 4 Mar 2005 08:42:56 -0800
-Message-ID: <20050304084256.03550238@dxpl.pdx.osdl.net>
-References: <20050304023520.GD31837@postel.suug.ch>
-	<1109908154.1091.486.camel@jzny.localdomain>
-	<20050304132653.GF31837@postel.suug.ch>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [patch 1/3] fix buggy IEEE80211_CRYPT_* selects
+Date: Fri, 04 Mar 2005 12:33:19 -0500
+Message-ID: <42289BDF.1080409@pobox.com>
+References: <200503041237.j24Cbb69026470@shell0.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jamal <hadi@cyberus.ca>, netdev@oss.sgi.com
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050304132653.GF31837@postel.suug.ch>
+Cc: davem@davemloft.net, netdev@oss.sgi.com, bunk@stusta.de
+To: akpm@osdl.org
+In-Reply-To: <200503041237.j24Cbb69026470@shell0.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 4 Mar 2005 14:26:53 +0100
-Thomas Graf <tgraf@suug.ch> wrote:
-
-> * jamal <1109908154.1091.486.camel@jzny.localdomain> 2005-03-03 22:49
-> > On Thu, 2005-03-03 at 21:35, Thomas Graf wrote:
-> > > Stephen,
-> > > 
-> > > You may pull the following changes from bk://tgr.bkbits.net/iproute2-tgr-fix
-> > 
-> > Other than NPROBES change, shouldnt the other changes be reflective of
-> > whats in the kernel? This is the cost of keeping private headers. My
-> > suggestions would be to let Steve on every major release to just sync
-> > the header files.
+akpm@osdl.org wrote:
+> From: Adrian Bunk <bunk@stusta.de>
 > 
-> Well, these are not exact copies, all the __KERNEL__ stuff is missing, a
-> few CONFIG ifdefs must be cut out and a few extra bits such as u32 mark
-> structures. I updated them because some of the structures were outdated.
-> I do not care how it is done but it required an update.
+> Some of the options that needlessly wrote in their help text which options
+> they do select (patch already sent) didn't obey the most important rule of
+> select
+> 
+>   If you select something, you have to ensure that the dependencies
+>   of what you do select are fulfilled.
 
-I'll clone the 2.6.11 headers in the next update.
+> diff -puN net/ieee80211/Kconfig~fix-buggy-ieee80211_crypt_-selects net/ieee80211/Kconfig
+> --- 25/net/ieee80211/Kconfig~fix-buggy-ieee80211_crypt_-selects	2005-02-28 14:49:54.000000000 -0800
+> +++ 25-akpm/net/ieee80211/Kconfig	2005-02-28 14:49:54.000000000 -0800
+> @@ -44,6 +44,7 @@ config IEEE80211_CRYPT_WEP
+>  config IEEE80211_CRYPT_CCMP
+>  	tristate "IEEE 802.11i CCMP support"
+>  	depends on IEEE80211
+> +	select CRYPTO
+>  	select CRYPTO_AES
+>  	---help---
+>  	Include software based cipher suites in support of IEEE 802.11i 
+> @@ -56,6 +57,7 @@ config IEEE80211_CRYPT_CCMP
+>  config IEEE80211_CRYPT_TKIP
+>  	tristate "IEEE 802.11i TKIP encryption"
+>  	depends on IEEE80211
+> +	select CRYPTO
+>  	select CRYPTO_MICHAEL_MIC
+>  	---help---
+
+
+You are resending the old patch that is incorrect.  We don't need 
+multiple selects, CRYPTO_AES and CRYPTO_MICHAEL_MIC should pull things in.
+
+	Jeff
