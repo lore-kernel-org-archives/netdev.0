@@ -1,155 +1,307 @@
-From: Wensong Zhang <wensong@linux-vs.org>
-Subject: [2.4 PATCH] two ipvs fixes
-Date: Tue, 7 Oct 2003 00:58:29 +0800 (CST)
+From: Felipe W Damasio <felipewd@terra.com.br>
+Subject: [PATCH]  finer-grained locking in wan/lmc driver
+Date: Mon, 06 Oct 2003 15:12:22 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0310070050120.1212-300000@penguin.linux-vs.org>
+Message-ID: <3F81B086.9050905@terra.com.br>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-1463755008-474097134-1065459509=:1212"
-Cc: rusty@rustcorp.com.au, Julian Anastasov <ja@ssi.bg>, <netdev@oss.sgi.com>,
-        <lvs-users@LinuxVirtualServer.org>
+Content-Type: multipart/mixed;
+ boundary="------------070408090007040706060403"
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        linux-net@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-  Send mail to mime@docserver.cac.washington.edu for more info.
+This is a multi-part message in MIME format.
+--------------070408090007040706060403
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
----1463755008-474097134-1065459509=:1212
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+	Hi Jeff,
 
+	Patch against 2.6-test6.
 
+	- lmc_ioctl was calling copy_{from|to}_user with the device lock 
+held, replace it with finer-grained locking;
 
-Hi,
+	- Remove check_version usage;
 
-Here are IPVS two patches for kernel 2.4, which are basically back ported 
-from the IPVS changes in kernel 2.6.
+	- If copy_from_user fails, returns -EFAULT instead of -ENOMEM;
 
-One is to fix ip_vs_tunnel_xmit to return NF_DROP when no memory
-available, the other is to add strict boundary check in parsing FTP
-commands.
+	I didn't acquire the device lock before calling lmc_proto_ioctl, 
+which will call syncppp ioctls, which will might call 
+copy_{to|from}_user, but I think the locking shouldn't be done on that 
+layer of the driver. (maybe on lmc_proto_main?)
 
-Please check them.
+	I'm not sure I locked everywhere I was suppose to lock, please review.
 
-Thanks,
+	If it looks ok, please consider applying,
 
-Wensong
+	Thanks.
 
----1463755008-474097134-1065459509=:1212
-Content-Type: TEXT/PLAIN; charset=US-ASCII; name="linux-2.4-ipvs-tunnel-xmit.patch"
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.44.0310070058290.1212@penguin.linux-vs.org>
-Content-Description: 
-Content-Disposition: attachment; filename="linux-2.4-ipvs-tunnel-xmit.patch"
+Felipe
 
-IyBUaGlzIGlzIGEgQml0S2VlcGVyIGdlbmVyYXRlZCBwYXRjaCBmb3IgdGhl
-IGZvbGxvd2luZyBwcm9qZWN0Og0KIyBQcm9qZWN0IE5hbWU6IExpbnV4IGtl
-cm5lbCB0cmVlDQojIFRoaXMgcGF0Y2ggZm9ybWF0IGlzIGludGVuZGVkIGZv
-ciBHTlUgcGF0Y2ggY29tbWFuZCB2ZXJzaW9uIDIuNSBvciBoaWdoZXIuDQoj
-IFRoaXMgcGF0Y2ggaW5jbHVkZXMgdGhlIGZvbGxvd2luZyBkZWx0YXM6DQoj
-CSAgICAgICAgICAgQ2hhbmdlU2V0CTEuMTE0MSAgLT4gMS4xMTQyIA0KIwlu
-ZXQvaXB2NC9pcHZzL2lwX3ZzX2Nvbm4uYwkxLjEgICAgIC0+IDEuMiAgICAN
-CiMNCiMgVGhlIGZvbGxvd2luZyBpcyB0aGUgQml0S2VlcGVyIENoYW5nZVNl
-dCBMb2cNCiMgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0NCiMgMDMvMTAvMDEJd2Vuc29uZ0BsaW51eC12cy5vcmcJMS4x
-MTQyDQojIFtJUFZTXSBGaXggaXBfdnNfdHVubmVsX3htaXQgdG8gcmV0dXJu
-IE5GX0RST1Agd2hlbiBubyBtZW1vcnkgYXZhaWxhYmxlDQojIC0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tDQojDQpkaWZm
-IC1OcnUgYS9uZXQvaXB2NC9pcHZzL2lwX3ZzX2Nvbm4uYyBiL25ldC9pcHY0
-L2lwdnMvaXBfdnNfY29ubi5jDQotLS0gYS9uZXQvaXB2NC9pcHZzL2lwX3Zz
-X2Nvbm4uYwlXZWQgT2N0ICAxIDE5OjU0OjAyIDIwMDMNCisrKyBiL25ldC9p
-cHY0L2lwdnMvaXBfdnNfY29ubi5jCVdlZCBPY3QgIDEgMTk6NTQ6MDIgMjAw
-Mw0KQEAgLTkwMyw5ICs5MDMsOCBAQA0KIAkJCXNrYl9yZWFsbG9jX2hlYWRy
-b29tKHNrYiwgbWF4X2hlYWRyb29tKTsNCiAJCWlmICghbmV3X3NrYikgew0K
-IAkJCWlwX3J0X3B1dChydCk7DQotCQkJa2ZyZWVfc2tiKHNrYik7DQogCQkJ
-SVBfVlNfRVJSX1JMKCJpcF92c190dW5uZWxfeG1pdCgpOiBubyBtZW1vcnlc
-biIpOw0KLQkJCXJldHVybiAtRUlOVkFMOw0KKwkJCXJldHVybiBORl9EUk9Q
-Ow0KIAkJfQ0KIAkJa2ZyZWVfc2tiKHNrYik7DQogCQlza2IgPSBuZXdfc2ti
-Ow0K
----1463755008-474097134-1065459509=:1212
-Content-Type: TEXT/PLAIN; charset=US-ASCII; name="linux-2.4-ipvs-ftp-parse.patch"
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.44.0310070058291.1212@penguin.linux-vs.org>
-Content-Description: 
-Content-Disposition: attachment; filename="linux-2.4-ipvs-ftp-parse.patch"
+--------------070408090007040706060403
+Content-Type: text/plain;
+ name="lmc-cleanup.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="lmc-cleanup.patch"
 
-IyBUaGlzIGlzIGEgQml0S2VlcGVyIGdlbmVyYXRlZCBwYXRjaCBmb3IgdGhl
-IGZvbGxvd2luZyBwcm9qZWN0Og0KIyBQcm9qZWN0IE5hbWU6IExpbnV4IGtl
-cm5lbCB0cmVlDQojIFRoaXMgcGF0Y2ggZm9ybWF0IGlzIGludGVuZGVkIGZv
-ciBHTlUgcGF0Y2ggY29tbWFuZCB2ZXJzaW9uIDIuNSBvciBoaWdoZXIuDQoj
-IFRoaXMgcGF0Y2ggaW5jbHVkZXMgdGhlIGZvbGxvd2luZyBkZWx0YXM6DQoj
-CSAgICAgICAgICAgQ2hhbmdlU2V0CTEuMTE2NCAgLT4gMS4xMTY1IA0KIwlu
-ZXQvaXB2NC9pcHZzL2lwX3ZzX2Z0cC5jCTEuMSAgICAgLT4gMS4yICAgIA0K
-Iw0KIyBUaGUgZm9sbG93aW5nIGlzIHRoZSBCaXRLZWVwZXIgQ2hhbmdlU2V0
-IExvZw0KIyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLQ0KIyAwMy8xMC8wNwl3ZW5zb25nQGxpbnV4LXZzLm9yZwkxLjEx
-NjUNCiMgW0lQVlNdIGFkZCBzdHJpY3QgYm91bmRhcnkgY2hlY2sgaW4gcGFy
-c2luZyBGVFAgY29tbWFuZHMNCiMgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0NCiMNCmRpZmYgLU5ydSBhL25ldC9pcHY0
-L2lwdnMvaXBfdnNfZnRwLmMgYi9uZXQvaXB2NC9pcHZzL2lwX3ZzX2Z0cC5j
-DQotLS0gYS9uZXQvaXB2NC9pcHZzL2lwX3ZzX2Z0cC5jCVR1ZSBPY3QgIDcg
-MDA6NDk6MDQgMjAwMw0KKysrIGIvbmV0L2lwdjQvaXB2cy9pcF92c19mdHAu
-YwlUdWUgT2N0ICA3IDAwOjQ5OjA0IDIwMDMNCkBAIC04OCwzOSArODgsNDYg
-QEANCiAJCQkJICBfX3UzMiAqYWRkciwgX191MTYgKnBvcnQsDQogCQkJCSAg
-Y2hhciAqKnN0YXJ0LCBjaGFyICoqZW5kKQ0KIHsNCi0JdW5zaWduZWQgY2hh
-ciBwMSxwMixwMyxwNCxwNSxwNjsNCisJdW5zaWduZWQgY2hhciBwWzZdOw0K
-KwlpbnQgaSA9IDA7DQogDQotCXdoaWxlIChkYXRhIDwgZGF0YV9saW1pdCkg
-ew0KLQkJaWYgKHN0cm5pY21wKGRhdGEsIHBhdHRlcm4sIHBsZW4pICE9IDAp
-IHsNCi0JCQlkYXRhKys7DQotCQkJY29udGludWU7DQorCWlmIChkYXRhX2xp
-bWl0IC0gZGF0YSA8IHBsZW4pIHsNCisJCS8qIGNoZWNrIGlmIHRoZXJlIGlz
-IHBhcnRpYWwgbWF0Y2ggKi8NCisJCWlmIChzdHJuaWNtcChkYXRhLCBwYXR0
-ZXJuLCBkYXRhX2xpbWl0IC0gZGF0YSkgPT0gMCkNCisJCQlyZXR1cm4gLTE7
-DQorCQllbHNlDQorCQkJcmV0dXJuIDA7DQorCX0NCisNCisJaWYgKHN0cm5p
-Y21wKGRhdGEsIHBhdHRlcm4sIHBsZW4pICE9IDApIHsNCisJCXJldHVybiAw
-Ow0KKwl9DQorCSpzdGFydCA9IGRhdGEgKyBwbGVuOw0KKw0KKwlmb3IgKGRh
-dGEgPSAqc3RhcnQ7ICpkYXRhICE9IHRlcm07IGRhdGErKykgew0KKwkJaWYg
-KGRhdGEgPT0gZGF0YV9saW1pdCkNCisJCQlyZXR1cm4gLTE7DQorCX0NCisJ
-KmVuZCA9IGRhdGE7DQorDQorCW1lbXNldChwLCAwLCBzaXplb2YocCkpOw0K
-Kwlmb3IgKGRhdGEgPSAqc3RhcnQ7IGRhdGEgIT0gKmVuZDsgZGF0YSsrKSB7
-DQorCQlpZiAoKmRhdGEgPj0gJzAnICYmICpkYXRhIDw9ICc5Jykgew0KKwkJ
-CXBbaV0gPSBwW2ldKjEwICsgKmRhdGEgLSAnMCc7DQorCQl9IGVsc2UgaWYg
-KCpkYXRhID09ICcsJyAmJiBpIDwgNSkgew0KKwkJCWkrKzsNCisJCX0gZWxz
-ZSB7DQorCQkJLyogdW5leHBlY3RlZCBjaGFyYWN0ZXIgKi8NCisJCQlyZXR1
-cm4gLTE7DQogCQl9DQotCQkqc3RhcnQgPSBkYXRhK3BsZW47DQotCQlwMSA9
-IHNpbXBsZV9zdHJ0b3VsKGRhdGErcGxlbiwgJmRhdGEsIDEwKTsNCi0JCWlm
-ICgqZGF0YSAhPSAnLCcpDQotCQkJY29udGludWU7DQotCQlwMiA9IHNpbXBs
-ZV9zdHJ0b3VsKGRhdGErMSwgJmRhdGEsIDEwKTsNCi0JCWlmICgqZGF0YSAh
-PSAnLCcpDQotCQkJY29udGludWU7DQotCQlwMyA9IHNpbXBsZV9zdHJ0b3Vs
-KGRhdGErMSwgJmRhdGEsIDEwKTsNCi0JCWlmICgqZGF0YSAhPSAnLCcpDQot
-CQkJY29udGludWU7DQotCQlwNCA9IHNpbXBsZV9zdHJ0b3VsKGRhdGErMSwg
-JmRhdGEsIDEwKTsNCi0JCWlmICgqZGF0YSAhPSAnLCcpDQotCQkJY29udGlu
-dWU7DQotCQlwNSA9IHNpbXBsZV9zdHJ0b3VsKGRhdGErMSwgJmRhdGEsIDEw
-KTsNCi0JCWlmICgqZGF0YSAhPSAnLCcpDQotCQkJY29udGludWU7DQotCQlw
-NiA9IHNpbXBsZV9zdHJ0b3VsKGRhdGErMSwgJmRhdGEsIDEwKTsNCi0JCWlm
-ICgqZGF0YSAhPSB0ZXJtKQ0KLQkJCWNvbnRpbnVlOw0KLQ0KLQkJKmVuZCA9
-IGRhdGE7DQotCQkqYWRkciA9IChwNDw8MjQpIHwgKHAzPDwxNikgfCAocDI8
-PDgpIHwgcDE7DQotCQkqcG9ydCA9IChwNjw8OCkgfCBwNTsNCi0JCXJldHVy
-biAxOw0KIAl9DQotCXJldHVybiAwOw0KKw0KKwlpZiAoaSAhPSA1KQ0KKwkJ
-cmV0dXJuIC0xOw0KKw0KKwkqYWRkciA9IChwWzNdPDwyNCkgfCAocFsyXTw8
-MTYpIHwgKHBbMV08PDgpIHwgcFswXTsNCisJKnBvcnQgPSAocFs1XTw8OCkg
-fCBwWzRdOw0KKwlyZXR1cm4gMTsNCiB9DQogDQogDQpAQCAtMTY1LDcgKzE3
-Miw3IEBADQogCQkJCQkgICBTRVJWRVJfU1RSSU5HLA0KIAkJCQkJICAgc2l6
-ZW9mKFNFUlZFUl9TVFJJTkcpLTEsICcpJywNCiAJCQkJCSAgICZmcm9tLCAm
-cG9ydCwNCi0JCQkJCSAgICZzdGFydCwgJmVuZCkgPT0gMCkNCisJCQkJCSAg
-ICZzdGFydCwgJmVuZCkgIT0gMSkNCiAJCQlyZXR1cm4gMDsNCiANCiAJCUlQ
-X1ZTX0RCRygxLWRlYnVnLCAiUEFTViByZXNwb25zZSAoJXUuJXUuJXUuJXU6
-JWQpIC0+ICINCkBAIC0yNjUsNyArMjcyLDcgQEANCiAJZGF0YSA9IGRhdGFf
-c3RhcnQgPSAoY2hhciAqKXRoICsgKHRoLT5kb2ZmIDw8IDIpOw0KIAlkYXRh
-X2xpbWl0ID0gc2tiLT50YWlsOw0KIA0KLQl3aGlsZSAoZGF0YSA8IGRhdGFf
-bGltaXQpIHsNCisJd2hpbGUgKGRhdGEgPD0gZGF0YV9saW1pdCAtIDYpIHsN
-CiAJCWlmIChzdHJuaWNtcChkYXRhLCAiUEFTVlxyXG4iLCA2KSA9PSAwKSB7
-DQogCQkJSVBfVlNfREJHKDEtZGVidWcsICJnb3QgUEFTViBhdCAlZCBvZiAl
-ZFxuIiwNCiAJCQkJICBkYXRhIC0gZGF0YV9zdGFydCwNCkBAIC0yODMsMTMg
-KzI5MCwxMCBAQA0KIAkgKiB0aGVuIGNyZWF0ZSBhIG5ldyBjb25uZWN0aW9u
-IGVudHJ5IGZvciB0aGUgY29taW5nIGRhdGENCiAJICogY29ubmVjdGlvbi4N
-CiAJICovDQotCWRhdGEgPSBkYXRhX3N0YXJ0Ow0KLQlkYXRhX2xpbWl0ID0g
-c2tiLT5oLnJhdyArIHNrYi0+bGVuIC0gMTg7DQotDQotCWlmIChpcF92c19m
-dHBfZ2V0X2FkZHJwb3J0KGRhdGEsIGRhdGFfbGltaXQsDQorCWlmIChpcF92
-c19mdHBfZ2V0X2FkZHJwb3J0KGRhdGFfc3RhcnQsIGRhdGFfbGltaXQsDQog
-CQkJCSAgIENMSUVOVF9TVFJJTkcsIHNpemVvZihDTElFTlRfU1RSSU5HKS0x
-LA0KIAkJCQkgICAnXHInLCAmdG8sICZwb3J0LA0KLQkJCQkgICAmc3RhcnQs
-ICZlbmQpID09IDApDQorCQkJCSAgICZzdGFydCwgJmVuZCkgIT0gMSkNCiAJ
-CXJldHVybiAwOw0KIA0KIAlJUF9WU19EQkcoMS1kZWJ1ZywgIlBPUlQgJXUu
-JXUuJXUuJXU6JWQgZGV0ZWN0ZWRcbiIsDQo=
----1463755008-474097134-1065459509=:1212--
+--- drivers/net/wan/lmc/lmc_main.c.orig	2003-10-06 13:24:01.000000000 -0300
++++ drivers/net/wan/lmc/lmc_main.c	2003-10-06 14:46:56.000000000 -0300
+@@ -132,7 +132,6 @@
+     lmc_ctl_t ctl;
+     int ret;
+     u_int16_t regVal;
+-    unsigned long flags;
+ 
+     struct sppp *sp;
+ 
+@@ -142,12 +141,6 @@
+ 
+     lmc_trace(dev, "lmc_ioctl in");
+ 
+-    /*
+-     * Most functions mess with the structure
+-     * Disable interrupts while we do the polling
+-     */
+-    spin_lock_irqsave(&sc->lmc_lock, flags);
+-
+     switch (cmd) {
+         /*
+          * Return current driver state.  Since we keep this up
+@@ -173,7 +166,8 @@
+ 
+         if (copy_from_user(&ctl, ifr->ifr_data, sizeof (lmc_ctl_t)))
+             return -EFAULT;
+-
++	
++	spin_lock_irq(&sc->lmc_lock);
+         sc->lmc_media->set_status (sc, &ctl);
+ 
+         if(ctl.crc_length != sc->ictl.crc_length) {
+@@ -188,9 +182,11 @@
+             sp->pp_flags &= ~PP_KEEPALIVE;	/* Turn off */
+         else
+             sp->pp_flags |= PP_KEEPALIVE;	/* Turn on */
++	
++	spin_unlock_irq(&sc->lmc_lock);
+ 
+         ret = 0;
+-        break;
++	break;
+ 
+     case LMCIOCIFTYPE: /*fold01*/
+         {
+@@ -204,14 +200,14 @@
+ 
+ 	    if (copy_from_user(&new_type, ifr->ifr_data, sizeof(u_int16_t)))
+                 return -EFAULT;
+-
+-            
++     
+ 	    if (new_type == old_type)
+ 	    {
+-		ret = 0 ;
++		ret = 0;
+ 		break;				/* no change */
+             }
+-            
++
++	    spin_lock_irq(&sc->lmc_lock);
+             lmc_proto_close(sc);
+             lmc_proto_detach(sc);
+ 
+@@ -219,12 +215,14 @@
+ //            lmc_proto_init(sc);
+             lmc_proto_attach(sc);
+             lmc_proto_open(sc);
++	    spin_unlock_irq(&sc->lmc_lock);
+ 
+ 	    ret = 0 ;
+ 	    break ;
+ 	}
+ 
+     case LMCIOCGETXINFO: /*fold01*/
++	spin_lock_irq(&sc->lmc_lock);
+         sc->lmc_xinfo.Magic0 = 0xBEEFCAFE;
+ 
+         sc->lmc_xinfo.PciCardType = sc->lmc_cardtype;
+@@ -240,6 +238,7 @@
+ 
+         sc->lmc_xinfo.Magic1 = 0xDEADBEEF;
+ 
++	spin_unlock_irq(&sc->lmc_lock);
+         if (copy_to_user(ifr->ifr_data, &sc->lmc_xinfo,
+                          sizeof (struct lmc_xinfo)))
+             return -EFAULT;
+@@ -248,6 +247,7 @@
+         break;
+ 
+     case LMCIOCGETLMCSTATS: /*fold01*/
++	spin_lock_irq(&sc->lmc_lock);
+         if (sc->lmc_cardtype == LMC_CARDTYPE_T1){
+             lmc_mii_writereg (sc, 0, 17, T1FRAMER_FERR_LSB);
+             sc->stats.framingBitErrorCount +=
+@@ -271,6 +271,7 @@
+             sc->stats.severelyErroredFrameCount +=
+                 regVal & T1FRAMER_SEF_MASK;
+         }
++	spin_unlock_irq(&sc->lmc_lock);
+ 
+         if (copy_to_user(ifr->ifr_data, &sc->stats,
+                          sizeof (struct lmc_statistics)))
+@@ -285,11 +286,13 @@
+             break;
+         }
+ 
++	spin_lock_irq(&sc->lmc_lock);
+         memset (&sc->stats, 0, sizeof (struct lmc_statistics));
+         sc->stats.check = STATCHECK;
+         sc->stats.version_size = (DRIVER_VERSION << 16) +
+             sizeof (struct lmc_statistics);
+         sc->stats.lmc_cardtype = sc->lmc_cardtype;
++	spin_unlock_irq(&sc->lmc_lock);
+         ret = 0;
+         break;
+ 
+@@ -306,8 +309,11 @@
+ 
+         if (copy_from_user(&ctl, ifr->ifr_data, sizeof (lmc_ctl_t)))
+             return -EFAULT;
+-        sc->lmc_media->set_circuit_type(sc, ctl.circuit_type);
++	
++	spin_lock_irq(&sc->lmc_lock);
++	sc->lmc_media->set_circuit_type(sc, ctl.circuit_type);
+         sc->ictl.circuit_type = ctl.circuit_type;
++	spin_unlock_irq(&sc->lmc_lock);
+         ret = 0;
+ 
+         break;
+@@ -319,9 +325,11 @@
+         }
+ 
+         /* Reset driver and bring back to current state */
++	spin_lock_irq(&sc->lmc_lock);
+         printk (" REG16 before reset +%04x\n", lmc_mii_readreg (sc, 0, 16));
+         lmc_running_reset (dev);
+         printk (" REG16 after reset +%04x\n", lmc_mii_readreg (sc, 0, 16));
++	spin_unlock_irq(&sc->lmc_lock);
+ 
+         LMC_EVENT_LOG(LMC_EVENT_FORCEDRESET, LMC_CSR_READ (sc, csr_status), lmc_mii_readreg (sc, 0, 16));
+ 
+@@ -364,6 +372,8 @@
+             case lmc_xilinx_reset: /*fold02*/
+                 {
+                     u16 mii;
++		    
++		    spin_lock_irq(&sc->lmc_lock);
+                     mii = lmc_mii_readreg (sc, 0, 16);
+ 
+                     /*
+@@ -422,11 +432,8 @@
+                             lmc_led_off(sc, LMC_DS3_LED2);
+                         }
+                     }
+-                    
+-                    
+-
+                     ret = 0x0;
+-
++		    spin_unlock_irq(&sc->lmc_lock);
+                 }
+ 
+                 break;
+@@ -434,6 +441,7 @@
+                 {
+                     u16 mii;
+                     int timeout = 500000;
++		    spin_lock_irq(&sc->lmc_lock);
+                     mii = lmc_mii_readreg (sc, 0, 16);
+ 
+                     /*
+@@ -476,12 +484,10 @@
+                      * stop driving Xilinx-related signals
+                      */
+                     lmc_gpio_mkinput(sc, 0xff);
+-
+                     ret = 0x0;
+-                    
+ 
++		    spin_unlock_irq(&sc->lmc_lock);
+                     break;
+-
+                 }
+ 
+             case lmc_xilinx_load: /*fold02*/
+@@ -505,12 +511,13 @@
+                     if(copy_from_user(data, xc.data, xc.len))
+                     {
+                     	kfree(data);
+-                    	ret = -ENOMEM;
++                    	ret = -EFAULT;
+                     	break;
+                     }
+ 
+                     printk("%s: Starting load of data Len: %d at 0x%p == 0x%p\n", dev->name, xc.len, xc.data, data);
+ 
++		    spin_lock_irq(&sc->lmc_lock);
+                     lmc_gpio_mkinput(sc, 0xff);
+ 
+                     /*
+@@ -609,8 +616,8 @@
+ 
+                     kfree(data);
+                     
++		    spin_unlock_irq(&sc->lmc_lock);
+                     ret = 0;
+-                    
+                     break;
+                 }
+             default: /*fold02*/
+@@ -619,7 +626,9 @@
+             }
+ 
+             netif_wake_queue(dev);
+-            sc->lmc_txfull = 0;
++            spin_lock_irq(&sc->lmc_lock);
++	    sc->lmc_txfull = 0;
++            spin_unlock_irq(&sc->lmc_lock);
+ 
+         }
+         break;
+@@ -629,8 +638,6 @@
+         break;
+     }
+ 
+-    spin_unlock_irqrestore(&sc->lmc_lock, flags); /*fold01*/
+-
+     lmc_trace(dev, "lmc_ioctl out");
+ 
+     return ret;
+@@ -930,7 +937,10 @@
+      * later on, no one else will take our card away from
+      * us.
+      */
+-    request_region (ioaddr, LMC_REG_RANGE, dev->name);
++    if (!request_region (ioaddr, LMC_REG_RANGE, dev->name)) {
++	    printk (KERN_WARNING "io port %3lX is busy", ioaddr);
++	    return NULL;
++    }
+ 
+     sc->lmc_cardtype = LMC_CARDTYPE_UNKNOWN;
+     sc->lmc_timing = LMC_CTL_CLOCK_SOURCE_EXT;
+@@ -1060,8 +1070,7 @@
+          * Fix the two variables
+          *
+          */
+-        if (!(check_region (pci_ioaddr, LMC_REG_RANGE)) &&
+-            (vendor == CORRECT_VENDOR_ID) &&
++        if ((vendor == CORRECT_VENDOR_ID) &&
+             (device == CORRECT_DEV_ID) &&
+             ((subvendor == PCI_VENDOR_LMC)  || (subdevice == PCI_VENDOR_LMC))){
+             struct net_device *cur, *prev = NULL;
+
+--------------070408090007040706060403--
