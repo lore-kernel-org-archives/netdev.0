@@ -1,53 +1,58 @@
-From: Andrea Arcangeli <andrea@suse.de>
-Subject: Re: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit Proposed Topics
-Date: Thu, 31 Mar 2005 19:09:23 +0200
-Message-ID: <20050331170923.GA6546@g5.random>
-References: <20050329152008.GD63268@muc.de> <1112116762.5088.65.camel@beastie> <1112130512.1077.107.camel@jzny.localdomain> <20050330152208.GB12672@muc.de> <20050330153313.GD32111@g5.random> <20050330153948.GE12672@muc.de> <20050330154418.GE32111@g5.random> <20050330160255.GG12672@muc.de> <20050330161522.GH32111@g5.random> <20050331115012.GP24804@muc.de>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [RFC] netif_rx: receive path optimization
+Date: Thu, 31 Mar 2005 14:02:40 -0800
+Message-ID: <20050331140240.170d7942@dxpl.pdx.osdl.net>
+References: <20050330132815.605c17d0@dxpl.pdx.osdl.net>
+	<20050331120410.7effa94d@dxpl.pdx.osdl.net>
+	<1112303431.1073.67.camel@jzny.localdomain>
+	<20050331131707.69f451ea@dxpl.pdx.osdl.net>
+	<5cac192f05033113434742aeb4@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jamal <hadi@cyberus.ca>, Dmitry Yusupov <dmitry_yus@yahoo.com>,
-        James Bottomley <James.Bottomley@HansenPartnership.com>,
-        Rik van Riel <riel@redhat.com>, mpm@selenic.com, michaelc@cs.wisc.edu,
-        open-iscsi@googlegroups.com, ksummit-2005-discuss@thunk.org,
-        netdev <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: hadi@znyx.com, "David S. Miller" <davem@davemloft.net>,
+        netdev
+ <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@muc.de>
-Content-Disposition: inline
-In-Reply-To: <20050331115012.GP24804@muc.de>
+To: Eric Lemoine <eric.lemoine@gmail.com>
+In-Reply-To: <5cac192f05033113434742aeb4@mail.gmail.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 31, 2005 at 01:50:12PM +0200, Andi Kleen wrote:
-> This could still starve on the RX ring level of the hardware which
-> you cant control.
+On Thu, 31 Mar 2005 23:43:27 +0200
+Eric Lemoine <eric.lemoine@gmail.com> wrote:
 
-It may be inefficient in the recovery, but the point is that it can
-recover.
+> > > > Here is another alternative that seems better than the earlier posting. It uses
+> > > > a per device receive queue for non-NAPI devices.  The only issue is that then
+> > > > we lose the per-cpu queue's and that could impact the loopback device performance.
+> > > > If that is really an issue, then the per-cpu magic should be moved to the loopback
+> > > > device.
+> > > >
+> > >
+> > > The repurcassions of going from per-CPU-for-all-devices queue
+> > > (introduced by softnet) to per-device-for-all-CPUs maybe huge in my
+> > > opinion especially in SMP. A closer view of whats there now maybe
+> > > per-device-per-CPU backlog queue.
+> > 
+> > Any real hardware only has a single receive packet source (the interrupt routine),
+> > and the only collision would be in the case of interrupt migration.  So having
+> > per-device-per-CPU queue's would be overkill and more complex because
+> > the NAPI scheduling is per-netdevice rather than per-queue (though that
+> > could be fixed).
+> > 
+> > > I think performance will be impacted in all devices. imo, whatever needs
+> > > to go in needs to have some experimental data to back it
+> > 
+> > Experiment with what? Proving an absolute negative is impossible.
+> > I will test loopback and non-NAPI version of a couple of gigabit drivers
+> > to see.
+> 
+> Just a naive question : why at all trying to accelerate netif_rx?
+> Isn't NAPI the best choice for high performance rx anyway?
 
-> But it might be an improvement, agreed. The problem is that you
-> need lots of infrastructure to tell the driver about TCP connections -
-> it is pretty much near all the work needed for zero copy RX.
-
-The driver only need to have a ring of mempools attached, OK each one is
-attached to the tcp connection, but the driver won't be required to
-parse the TCP/IP. After GFP_ATOMIC fails, the driver interurpt handler
-will pick a skb from a random mempool.
-
-> Even with all that work it is  not the 100% solution some people on this thread
-> seem to be lusting for. 
-
-I thought it was more than enough, all they care about is not to
-deadlock anymore, I don't think anybody cares about the performance of
-the deadlock-scenario.
-
-I agree with Jamal that his suggestion to use an high-per ring is
-very good (I didn't even know some card supported this feature), so if
-somebody wants the deadlock scenario not to run in "degraded mode", they
-will have to use some more advanced hardware the way Jamal is suggesting
-(or get rid of TCP all together and use TCP/IP offload with the security
-risks it introduces or RDMA or whatever other point to point high perf
-DMA technology like quadrix etc..).
-
-I suspect the deadlock scenario is infrequent enough that it won't
-matter how fast it recovers as long as it eventually does.
+It was a side-effect of trying to clean out the dead code leftover from
+removal of fastroute and other old experiments. netif_rx still gets used
+for loopback and people do benchmarks on loopback.  Also, NAPI doesn't
+work for all cases like layered devices and devices like wifi that need to
+receive packets when the network device is "not running".
