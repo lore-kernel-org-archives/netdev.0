@@ -1,38 +1,66 @@
-From: Nishanth Aravamudan <nacc@us.ibm.com>
-Subject: [PATCH] Add ssleep_interruptible()
-Date: Mon, 1 Nov 2004 12:07:49 -0800
-Message-ID: <20041101200749.GF1730@us.ibm.com>
-References: <E1CO1vc-00022t-N2@sputnik>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@oss.sgi.com, jgarzik@pobox.com, linux-kernel@vger.kernel.org,
-        kernel-janitors@lists.osdl.org
+From: Joy Latten <latten@austin.ibm.com>
+Subject: IPSecv6 tunnel mode beahviour
+Date: Mon, 1 Nov 2004 19:14:50 +0000 (UTC)
+Message-ID: <200411030433.iA34Xnou017836@faith.austin.ibm.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: janitor@sternwelten.at
-Content-Disposition: inline
-In-Reply-To: <E1CO1vc-00022t-N2@sputnik>
+Date: Tue, 2 Nov 2004 22:33:49 -0600
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Description: Adds ssleep_interruptible() to allow longer delays to occur
-in TASK_INTERRUPTIBLE, similarly to ssleep(). To be consistent with
-msleep_interruptible(), ssleep_interruptible() returns the remaining time
-left in the delay in terms of seconds. This required dividing the return
-value of msleep_interruptible() by 1000, thus a cast to (unsigned long)
-to prevent any floating point issues.
+I am using 2.6.9 + 2.6.10-rc1 + 2.6.10-rc1-bk5 kernel.
+I also recall seeing this before 2.6.9...
 
-Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
-
---- 2.6.10-rc1-vanilla/include/linux/delay.h	2004-10-30 15:34:03.000000000 -0700
-+++ 2.6.10-rc1/include/linux/delay.h	2004-11-01 12:06:11.000000000 -0800
-@@ -46,4 +46,9 @@ static inline void ssleep(unsigned int s
- 	msleep(seconds * 1000);
- }
+I am running IPSecv6 in tunnelmode and am noticing what
+I think is odd behaviour.
  
-+static inline unsigned long ssleep_interruptible(unsigned int seconds)
-+{
-+	return (unsigned long)(msleep_interruptible(seconds * 1000) / 1000);
-+}
-+
- #endif /* defined(_LINUX_DELAY_H) */
+First, I have a simple config where packets go from one subnet
+to another through my ipsec tunnel.
+
+I noticed TCPv6 packets are being fragmented at the tunnel.
+I did not see this using similar configuration with ipv4.
+Although the packets are received ok, sniffer output looks odd
+to me, it appears Fragment header was not removed at tunnel 
+endpoint because I still see it after packet was forwarded on 
+subnet to receiving machine. Sniffer on receiving machine's
+interface shows...
+
+	Frame 15...
+	Ethernet II...
+	Internet Protocol Version 6
+	Fragmentation Header
+		Next Header TCP
+		Offset: 0
+		More fragments: No
+		Identification: 0x00000000
+	Transmission Protocol..
+
+
+I see odd behaviour in ICMPv6 too if I send packet larger than
+mtu of sender. Packet is fragmented twice, once at sender and
+then again at tunnel entry point. My ping works fine, but, what 
+is odd, is that again Fragment Header is not removed, such that 
+after packet is forwarded onto receiving subnet and reaches 
+receiving machine, there are 2 fragment headers. 
+sniffer output on receiver...
+	Frame 1...
+	Ethernet II...	
+	Internet Protocol Version 6
+	Fragment Header
+		Next header: IPv6 fragment(0x2c)
+		Offset: 0
+		More fragments: No
+		Identification: 0x00000000
+	Fragment Header
+		Next header: ICMPv6 (0x3a)
+		Offset: 0
+		More fragments: Yes
+		Identification: 0x1300000
+	Internet Control Message Protocol v6
+
+
+What is the correct behaviour? Who should be removing Fragment
+Header... tunnel endpoint... or should it even be there in TCPv6 case?
+
+Joy Latten 
