@@ -1,9 +1,9 @@
 From: "Raghavendra Koushik" <raghavendra.koushik@s2io.com>
-Subject: RE: [PATCH 2.6.9-rc2 7/8] S2io: NAPI fix
-Date: Thu, 14 Oct 2004 09:44:03 -0700
+Subject: RE: [PATCH 2.6.9-rc2 2/8] S2io: sw bug fixes
+Date: Thu, 14 Oct 2004 10:35:14 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200410141644.i9EGi839024175@guinness.s2io.com>
-References: <416E948B.5050701@pobox.com>
+Message-ID: <200410141735.i9EHZJ39006121@guinness.s2io.com>
+References: <416E90C5.2090307@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="us-ascii"
@@ -12,40 +12,121 @@ Cc: "'Francois Romieu'" <romieu@fr.zoreil.com>, <netdev@oss.sgi.com>,
         <leonid.grossman@s2io.com>, <rapuru.sriram@s2io.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "'Jeff Garzik'" <jgarzik@pobox.com>, <ravinandan.arakali@s2io.com>
-In-Reply-To: <416E948B.5050701@pobox.com>
+In-Reply-To: <416E90C5.2090307@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Jeff,
 
-My comments inline.
 
 > -----Original Message-----
 > From: Jeff Garzik [mailto:jgarzik@pobox.com]
-> Sent: Thursday, October 14, 2004 8:00 AM
+> Sent: Thursday, October 14, 2004 7:44 AM
 > To: ravinandan.arakali@s2io.com
 > Cc: 'Francois Romieu'; netdev@oss.sgi.com; leonid.grossman@s2io.com;
 > raghavendra.koushik@s2io.com; rapuru.sriram@s2io.com
-> Subject: Re: [PATCH 2.6.9-rc2 7/8] S2io: NAPI fix
+> Subject: Re: [PATCH 2.6.9-rc2 2/8] S2io: sw bug fixes
 > 
-> Comments on patch #7:
+> Ravinandan Arakali wrote:
+> > Hi,
+> > Attached is the second patch in this submission. It contains the
+> following
+> > software bug fixes.
+> >
+> > 1. In free_rx_buffers clearing out RxDs not owned by Xena.
+> >
+> > 2. In alarm_intr_handler, when a serr error occurs, schedule a task to
+> reset
+> > the card rather than stopping Tx queue.
+> >
+> > 3. In s2io_close freeing IRQ before calling s2io_reset also added a new
+> call
+> > to flush queued tasks. This is not done if the s2io_close itself is
+> called
+> > from a queued task like s2io_restart_nic.
+> >
+> > 4. read_eeprom function has been changed such that data to be returned
+> is
+> > sent as an input argument and the return value represents a pass/fail.
+> The
+> > previous implementation as Randy had pointed out was error prone as on
+> > failure it returned -1 which can be interpreted as all ff's, so any data
+> > area which contained ff's in the eeprom was likely to be treated as an
+> > error.
+> >
+> > 5. Added a flag "task_flag" to track if the call to s2io_close is coming
+> > from the s2io_restart_nic function or from the ifconfig <I/F> down
+> called by
+> > user.
+> >
+> > 6. Moved register_netdev call from just after setting entry points to
+> the
+> > end of the s2io_init_nic function.
+> >
+> > 7. In s2io.h field added a new member into the s2io_nic structure called
+> > "task_flag".
+> >
+> >
+> > Signed-off-by: Raghavendra Koushik <raghavendra.koushik@s2io.com>
 > 
-> 1) Can you prove that put_lock is really necessary, and not covered by
-> other methods of synchronization?  Typically the preferred model is that
-> your RX process requires _no_ spinlocks, and instead you use the net
-> stack API to ensure when your RX process is, and is not, running.
 > 
-<KSK>
-	Lets say, CPU0 after processing s2io_isr, schedules s2io_tasklet.
-The tasklet in turn calls fill_rx_buffer which will replenish skbs into Rx
-descriptors and start modifying the put index of the Rx ring, at the same
-time if there is another Rx interrupt being processed (rx_intr_handler) on
-CPU1, then it will try to read put index of the ring which can result in
-synchronization problem. So I created this new variable put_pos to track the
-absolute value of the put index and make sure all its accesses are between
-spin locks. The same problem cannot happen if NAPI is used since the
-s2io_poll and fill_rx_buffer calls are serialized.
+> Comments:
+> 
+> 1) the following code looks wrong:
+> 
+> >                 DBG_PRINT(ERR_DBG, "%s: Device indicates ", dev->name);
+> >                 DBG_PRINT(ERR_DBG, "serious error!!\n");
+> > -               netif_stop_queue(dev);
+> > +               schedule_work(&nic->rst_timer_task);
+> 
+> Typically you want to stop the queue _and_ schedule_work().  Otherwise,
+> the net stack will continually call your ->hard_start_xmit() hook with
+> new skbs, _during_ your rst_timer_task.
 
--Koushik
+The reset task (s2io_restart_nic) actually calls s2io_close first, which in
+turn stops the queue to begin with. Hence I got rid of netif_stop_queue.
+ 
+> 
+> 2) can this 'if' test be removed?  there is no harm in unconditionally
+> calling flush_scheduled_work()
+> 
+> > +       /* Flush all scheduled tasks */
+> > +       if (sp->task_flag == 1) {
+> > +               DBG_PRINT(INFO_DBG, "%s: Calling close from a task\n",
+> > +                         dev->name);
+> > +       } else {
+> > +               flush_scheduled_work();
+> > +       }
+> 
 
-> otherwise, no objections to this patch
+As I said the s2io_close can be called from stack or by the reset task. If
+called from the task (or work) is it still Ok to flush all scheduled works?
+
+
+> 3) I do not think that s2io_close should be called from anywhere except
+> the net stack...
+> 
+> The following code should not be needed, unless I am missing something:
+> >
+> >         nic_t *sp = dev->priv;
+> >
+> > +       sp->task_flag = 1;
+> >         s2io_close(dev);
+> > +       sp->task_flag = 0;
+> >         sp->device_close_flag = TRUE;
+> 
+
+I believe the best way to restart the NIC is to call s2io_close and
+s2io_open sequentially.
+
+> 
+> 4) the following code is correct, but should additional propagate the
+> register_netdev() error code back to its caller, upon failure:
+> 
+> >         sp->rx_csum = 1;        /* Rx chksum verify enabled by default
+> */
+> >
+> > +       if (register_netdev(dev)) {
+> > +               DBG_PRINT(ERR_DBG, "Device registration failed\n");
+> > +               goto register_failed;
+> > +       }
+> > +
