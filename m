@@ -1,12 +1,12 @@
 From: Stefan Rompf <srompf@isg.de>
-Subject: Patch: working suspend/resume for xircom_tulip_cb
-Date: Sun, 15 Feb 2004 15:02:58 +0100
+Subject: Patch: Make linkwatch more robust against rtnl holders
+Date: Sun, 15 Feb 2004 15:11:47 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200402151502.59735.srompf@isg.de>
+Message-ID: <200402151511.49432.srompf@isg.de>
 Mime-Version: 1.0
 Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_Tw3LAvXFPKchaLa"
-Cc: jgarzik@pobox.com, ionut@cs.columbia.edu
+  boundary="Boundary-00=_l43LAPCXzGeOIJ6"
+Cc: davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Content-Disposition: inline
@@ -14,85 +14,63 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---Boundary-00=_Tw3LAvXFPKchaLa
+--Boundary-00=_l43LAPCXzGeOIJ6
 Content-Type: text/plain;
   charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline
 
-Hi,
+Hi David,
 
-attached is a patch against 2.6.3rc2 that fixes suspend/resume for the 
-ethernet device of my Xircom RBEM56G-100 pc card. Previously, the driver did 
-not survive the resume operation. I still have problems when I remove the 
-card during suspend, but that yields to a different code path.
+the attached patch updates the linkwatch code so that it backs off and retries 
+whenever it cannot get the rtnl semaphore.
 
-I could check with one laptop and one card, so the patch might need broader 
-testing, but it works nicely in my configuration.
+This makes it more robust against unrelated processes calling 
+flush_scheduled_work() while holding the rtnl lock. This problem was reported 
+on netdev for the sungem driver.
 
-Please apply if it looks ok.
+I preferred rescheduling every 1/10 second against creating a kernel thread as 
+the code is shorter, and the situation should not happen anyway.
 
 Stefan
 
---Boundary-00=_Tw3LAvXFPKchaLa
+--Boundary-00=_l43LAPCXzGeOIJ6
 Content-Type: text/x-diff;
   charset="us-ascii";
-  name="xircom_tulip_cb_pm.diff"
+  name="patch-linkwatch-2.6.1"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: attachment;
-	filename="xircom_tulip_cb_pm.diff"
+	filename="patch-linkwatch-2.6.1"
 
---- drivers/net/tulip/xircom_tulip_cb.c.old	2004-02-14 14:33:03.000000000 +0100
-+++ drivers/net/tulip/xircom_tulip_cb.c	2004-02-15 13:07:49.000000000 +0100
-@@ -329,6 +329,9 @@ struct xircom_private {
- 	int saved_if_port;
- 	struct pci_dev *pdev;
- 	spinlock_t lock;
-+#ifdef CONFIG_PM
-+	u32 pci_state[16];
-+#endif
- };
+--- net/core/link_watch.c.old	2003-12-26 20:38:25.000000000 +0100
++++ net/core/link_watch.c	2004-01-30 20:07:57.000000000 +0100
+@@ -84,6 +84,8 @@
  
- static int mdio_read(struct net_device *dev, int phy_id, int location);
-@@ -749,6 +752,7 @@ xircom_up(struct net_device *dev)
- 	long ioaddr = dev->base_addr;
- 	int i;
+ static void linkwatch_event(void *dummy)
+ {
++	if (rtnl_shlock_nowait()) goto out_err1;
++	if (rtnl_exlock_nowait()) goto out_err2;
+ 	/* Limit the number of linkwatch events to one
+ 	 * per second so that a runaway driver does not
+ 	 * cause a storm of messages on the netlink
+@@ -92,11 +94,16 @@
+ 	linkwatch_nextevent = jiffies + HZ;
+ 	clear_bit(LW_RUNNING, &linkwatch_flags);
  
-+	xircom_init_ring(dev);
- 	/* Clear the tx ring */
- 	for (i = 0; i < TX_RING_SIZE; i++) {
- 		tp->tx_skbuff[i] = 0;
-@@ -801,8 +805,6 @@ xircom_open(struct net_device *dev)
- 	if (request_irq(dev->irq, &xircom_interrupt, SA_SHIRQ, dev->name, dev))
- 		return -EAGAIN;
- 
--	xircom_init_ring(dev);
--
- 	xircom_up(dev);
- 	tp->open = 1;
- 
-@@ -1668,6 +1670,11 @@ static int xircom_suspend(struct pci_dev
- 	printk(KERN_INFO "xircom_suspend(%s)\n", dev->name);
- 	if (tp->open)
- 		xircom_down(dev);
+-	rtnl_shlock();
+-	rtnl_exlock();
+ 	linkwatch_run_queue();
+ 	rtnl_exunlock();
+ 	rtnl_shunlock();
 +
-+	pci_save_state(pdev, tp->pci_state);
-+	pci_disable_device(pdev);
-+	pci_set_power_state(pdev, 3);
++	return;
 +
- 	return 0;
++out_err2:
++	rtnl_shunlock();
++out_err1:
++	schedule_delayed_work(&linkwatch_work, HZ / 10);
  }
  
-@@ -1678,6 +1685,10 @@ static int xircom_resume(struct pci_dev 
- 	struct xircom_private *tp = dev->priv;
- 	printk(KERN_INFO "xircom_resume(%s)\n", dev->name);
  
-+	pci_set_power_state(pdev,0);
-+	pci_enable_device(pdev);
-+	pci_restore_state(pdev, tp->pci_state);
-+
- 	/* Bring the chip out of sleep mode.
- 	   Caution: Snooze mode does not work with some boards! */
- 	if (xircom_tbl[tp->chip_id].flags & HAS_ACPI)
 
---Boundary-00=_Tw3LAvXFPKchaLa--
+--Boundary-00=_l43LAPCXzGeOIJ6--
