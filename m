@@ -1,34 +1,35 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: MV643xx Ethernet 2.6 driver update
-Date: Fri, 28 Jan 2005 10:06:22 +1100
-Message-ID: <1106867182.6250.102.camel@gaston>
-References: <20050117184019.GA24655@xyzzy> <41F8BACA.1020302@pobox.com>
-	 <20050127201955.GC1452@xyzzy>  <41F94FBD.7000208@pobox.com>
+From: David Brownell <david-b@pacbell.net>
+Subject: Re: 2.6.11-rc2 TCP ignores PMTU ICMP (Re: Linux 2.6.11-rc2)
+Date: Thu, 27 Jan 2005 15:11:57 -0800
+Message-ID: <200501271511.58086.david-b@pacbell.net>
+References: <200501232251.42394.david-b@pacbell.net> <priv$1106815487.koan@shadow.banki.hu> <200501271128.48411.david-b@pacbell.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Dale Farnsworth <dale@farnsworth.org>, netdev@oss.sgi.com,
-        Ralf Baechle <ralf@linux-mips.org>,
-        Manish Lachwani <mlachwani@mvista.com>,
-        Brian Waite <brian@waitefamily.us>,
-        "Steven J. Hill" <sjhill@realitydiluted.com>
+Cc: David Ford <david+challenge-response@blue-labs.org>,
+        linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+        Art Haas <ahaas@airmail.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <41F94FBD.7000208@pobox.com>
+To: Janos Farkas <jf-ml-k1-1087813225@lk8rp.mail.xeon.eu.org>
+In-Reply-To: <200501271128.48411.david-b@pacbell.net>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2005-01-27 at 15:31 -0500, Jeff Garzik wrote:
-> Thanks, pulled.  It will sit in netdev-2.6 queue (and thus -mm) for a 
-> while, while I and others review it.  I admit I only gave it a quick 
-> overview.
-> 
-> After a little while we'll push upstream.
+I just got an interesting "I see these problems too" report.  It
+may provide a useful clue.  According to "Art Haas" <ahaas@airmail.net>:
 
-Excellent ! I'll do some tests on pegasos here, it's a ppc machine using
-this chipset as well. The previous driver was unuseable, and some
-patches were floating around but it was still not really working
-properly.
+> I'm running the current BK kernel now, and I'm not seeing the problems
+> right now because, I found, I do not have some of the IP masquerading
+> modules installed on my machine. When these modules get installed then
+> the cvs/rsync problems appear. 
+ 
+I do have CONFIG_IP_NF_TARGET_MASQUERADE=y on the system where I'm
+seeing this, though it's not doing anything just now.  Haven't yet
+made time to see if disabling it improves things ... but if that's
+a factor, it could explain why more people aren't suffering with
+this problem.
 
-Ben.
+- Dave
