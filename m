@@ -1,37 +1,34 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Fw: [Bugme-new] [Bug 3657] New: downed interfaces acting as aliases
-Date: Fri, 29 Oct 2004 00:10:58 -0700
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [Ipsec-tools-devel] ipv4/ipv6 forwarding check
+Date: Fri, 29 Oct 2004 00:04:47 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4181ED02.1060501@candelatech.com>
-References: <20041028234649.2d4ed3b8.akpm@osdl.org> <20041028234502.203b42c3.davem@davemloft.net>
+Message-ID: <20041029000447.4e7b68e3.davem@davemloft.net>
+References: <200410300506.i9U56Yse005815@faith.austin.ibm.com>
+	<4181EBC3.3020507@gmc.lt>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com, mbm@alt.org
+Cc: latten@austin.ibm.com, ipsec-tools-devel@lists.sourceforge.net,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20041028234502.203b42c3.davem@davemloft.net>
+To: Aidas Kasparas <a.kasparas@gmc.lt>
+In-Reply-To: <4181EBC3.3020507@gmc.lt>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> People complain about this all the time, yet it is expected
-> and intentional behavior.
-> 
-> Just because you "down" the interface does not mean that
-> addresses assigned to that interface are no longer assosciated
-> with the host system.
-> 
-> If you wish the machine not to respond to any of the interface's
-> addresses, you must explicitly delete them from the interface
-> address list.
+On Fri, 29 Oct 2004 10:05:39 +0300
+Aidas Kasparas <a.kasparas@gmc.lt> wrote:
 
-Why would you want this behaviour?  If it's configured down, it would
-seem that the user is trying to tell the system not to use it :)
+> 	4) extend setkey's syntax to make explicit forward policy management 
+> possible and write docs for all the admins to change policies.
 
-Ben
+This is what we're advocating to happen.
 
+There are reasons why people would want seperate INPUT, OUTPUT,
+and FORWARD policies.  So we're not taking that capability out
+of the kernel.  And by "auto-magically" making this happen
+transparently you are taking the capability away, which is why
+this idea won't fly either.
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+For the record, the freeswan tools handle all of this stuff
+just fine.
