@@ -1,30 +1,30 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] [sparse] missing annotation in ipv6 addrconf
-Date: Mon, 12 Jul 2004 15:04:44 -0700
+Subject: [PATCH] [sparse] minor #if complaint
+Date: Mon, 12 Jul 2004 15:44:44 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040712150444.0396b23e@dell_ss3.pdx.osdl.net>
+Message-ID: <20040712154444.46ae6922@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Missing __user annotation in simulated ioctl call.
+Minor sparse warning fix. it doesn't like #if when #ifdef is intended.
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-diff -Nru a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
---- a/net/ipv6/addrconf.c	2004-07-12 15:02:04 -07:00
-+++ b/net/ipv6/addrconf.c	2004-07-12 15:02:04 -07:00
-@@ -1544,7 +1544,7 @@
- 		p.iph.ihl = 5;
- 		p.iph.protocol = IPPROTO_IPV6;
- 		p.iph.ttl = 64;
--		ifr.ifr_ifru.ifru_data = (void*)&p;
-+		ifr.ifr_ifru.ifru_data = (void __user *)&p;
+diff -Nru a/drivers/net/pcmcia/nmclan_cs.c b/drivers/net/pcmcia/nmclan_cs.c
+--- a/drivers/net/pcmcia/nmclan_cs.c	2004-07-12 15:07:19 -07:00
++++ b/drivers/net/pcmcia/nmclan_cs.c	2004-07-12 15:07:19 -07:00
+@@ -1472,7 +1472,7 @@
+ 	Modified from Am79C90 data sheet.
+ ---------------------------------------------------------------------------- */
  
- 		oldfs = get_fs(); set_fs(KERNEL_DS);
- 		err = dev->do_ioctl(dev, &ifr, SIOCADDTUNNEL);
+-#if BROKEN_MULTICAST
++#ifdef BROKEN_MULTICAST
+ 
+ static void updateCRC(int *CRC, int bit)
+ {
