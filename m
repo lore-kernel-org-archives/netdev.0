@@ -1,34 +1,40 @@
-From: bert hubert <ahu@ds9a.nl>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: [PATCH] USAGI IPsec
-Date: Sat, 12 Oct 2002 13:17:59 +0200
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20021012111759.GA10104@outpost.ds9a.nl>
-References: <m3u1js1l1a.wl@karaba.org> <20021011.185332.115906289.davem@redhat.com> <20021012.114330.78212112.yoshfuji@linux-ipv6.org> <20021011.194108.102576152.davem@redhat.com>
+Date: Sat, 12 Oct 2002 04:41:37 -0700 (PDT)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20021012.044137.42774593.davem@redhat.com>
+References: <20021012.114330.78212112.yoshfuji@linux-ipv6.org>
+	<20021011.194108.102576152.davem@redhat.com>
+	<20021012111759.GA10104@outpost.ds9a.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Content-Disposition: inline
-In-Reply-To: <20021011.194108.102576152.davem@redhat.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: ahu@ds9a.nl
+In-Reply-To: <20021012111759.GA10104@outpost.ds9a.nl>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 11, 2002 at 07:41:08PM -0700, David S. Miller wrote:
->    From: YOSHIFUJI Hideaki / ?$B5HF#1QL@ <yoshfuji@linux-ipv6.org>
->    Date: Sat, 12 Oct 2002 11:43:30 +0900 (JST)
->    
->    Would you tell us the points of the "several details," please?
-> 
-> We believe that the whole SPD/SAD mechanism should move
-> eventually to a top-level flow cache shared by ipv4 and
-> ipv6.
+   From: bert hubert <ahu@ds9a.nl>
+   Date: Sat, 12 Oct 2002 13:17:59 +0200
 
-Is this the proposed stacked route system?
+   On Fri, Oct 11, 2002 at 07:41:08PM -0700, David S. Miller wrote:
+   > We believe that the whole SPD/SAD mechanism should move
+   > eventually to a top-level flow cache shared by ipv4 and
+   > ipv6.
+   
+   Is this the proposed stacked route system?
 
-Regards,
+Yes, for output mostly.
 
-bert hubert
+Also the idea Alexey and I have to move towards a small
+efficient flow cache shared by IPv4/IPv6 plays into this
+as well.  There are changesets on their way to Linus tonight
+which moves ipv4 over to using ipv6's "struct flowi" from
+include/net/flow.h as the routing lookup key.
 
--- 
-http://www.PowerDNS.com          Versatile DNS Software & Services
-http://www.tk                              the dot in .tk
-http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
+The initial ipsec is intended to be simple, singly linked
+lists for the spd/sad databases etc.  Making the feature
+freeze is pretty important right now, full blown flow cache
+is just performance improvement :)
