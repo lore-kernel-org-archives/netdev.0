@@ -1,40 +1,37 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: af_packet.c bug?
-Date: Thu, 31 Mar 2005 20:59:48 -0800
-Message-ID: <20050331205948.0a7477af.davem@davemloft.net>
-References: <424858D4.8060604@candelatech.com>
-	<20050328195557.GF3086@postel.suug.ch>
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: Re: RFC:  Redirect-Device
+Date: Fri, 1 Apr 2005 08:03:39 +0300 (EEST)
+Message-ID: <Pine.LNX.4.61.0504010801170.6417@netcore.fi>
+References: <424C6089.1080507@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: greearb@candelatech.com, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050328195557.GF3086@postel.suug.ch>
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <424C6089.1080507@candelatech.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 28 Mar 2005 21:55:57 +0200
-Thomas Graf <tgraf@suug.ch> wrote:
+On Thu, 31 Mar 2005, Ben Greear wrote:
+> I created a new virtual ethernet device that solves a problem
+> I faced.  I thought I'd see if anyone else sees a use for this,
+> and if so, I'll work to polish the patch so that it can be
+> accepted into the kernel.
 
-> * Ben Greear <424858D4.8060604@candelatech.com> 2005-03-28 11:19
-> > 
-> > What is the '13' doing here?  Maybe it should be IFNAMSIZ?
-> > 
-> > 	/*
-> > 	 *	Find the device first to size check it
-> > 	 */
-> > 
-> > 	saddr->spkt_device[13] = 0;
-> > 	dev = dev_get_by_name(saddr->spkt_device);
-> > 	err = -ENODEV;
-> > 	if (dev == NULL)
-> > 		goto out_unlock;
-> 
-> Seems so, please adopt the size of spkt_device in struct sockaddr_pkt
-> as well if you change it, it's currently hardcoded as 14.
+Unless I'm misunderstanding..
 
-No can do, that structure is exported to userspace.
-Thus, changing it from 14 to IFNAMESZ (which is 16) will
-break stuff.
+You seem to have pretty much duplicated the work by Lennert (see 
+thread "[PATCH][RFC] etherip: Ethernet-in-IPv4 tunneling" from 
+January).
+
+That particular thread seemed to conclude that instead of creating 
+something new, you can just use GRE tunneling to bridge Ethernet, and 
+it works in a multi-vendor environment as well.
+
+Is there something in your problem statement I'm missing?
+
+-- 
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
