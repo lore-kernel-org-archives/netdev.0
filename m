@@ -1,47 +1,57 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PKT_SCHED]: Allow using nfmark as key in U32 classifier.
-Date: 31 Dec 2004 12:32:52 -0500
-Message-ID: <1104514372.1047.326.camel@jzny.localdomain>
-References: <20041229000928.GH32419@postel.suug.ch>
-	 <1104282811.1090.314.camel@jzny.localdomain>
-	 <20041229124842.GI32419@postel.suug.ch>
-	 <1104330054.1089.329.camel@jzny.localdomain>
-	 <20041229150140.GJ32419@postel.suug.ch>
-	 <1104335620.1025.22.camel@jzny.localdomain>
-	 <20041230174313.GB32419@postel.suug.ch>
-	 <1104469111.1049.219.camel@jzny.localdomain>
-	 <20041231110836.GD32419@postel.suug.ch>
-	 <1104505142.1048.262.camel@jzny.localdomain>
-	 <20041231153930.GN32419@postel.suug.ch>
-	 <1104511494.1048.303.camel@jzny.localdomain>
-Reply-To: hadi@cyberus.ca
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: patch: tunnels not setting inputdev
+Date: Fri, 31 Dec 2004 19:02:04 +0100
+Message-ID: <41D5941C.8060001@trash.net>
+References: <1104513392.1048.316.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
+        Wichert Akkerman <wichert@wiggy.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <1104511494.1048.303.camel@jzny.localdomain>
+To: hadi@cyberus.ca
+In-Reply-To: <1104513392.1048.316.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2004-12-31 at 11:44, jamal wrote:
+jamal wrote:
+> Dave,
+> 
+> Patch attached that has tunnels setting input dev correctly. 
+> 
+> Incorporates what ive sent to Wichert already.
+> 
+> A lot of the stuff the tunnels do is very similar, so maybe wiser to
+> have something like tunnel_type_trans().
+> 
+> cheers,
+> jamal
+> 
+> 
+> ------------------------------------------------------------------------
+> 
+> --- 2610-bk1/net/ipv4/xfrm4_input.c	2004/12/31 17:00:25	1.1
+> +++ 2610-bk1/net/ipv4/xfrm4_input.c	2004/12/31 17:01:05
+> @@ -142,6 +142,7 @@
+>  			dst_release(skb->dst);
+>  			skb->dst = NULL;
+>  		}
+> +		skb->input_dev = skb->dev;
 
-> > with the following matches:
+This is not necessary, xfrm4_input doesn't change anything
+regarding devices, so if it was correct before, it is still
+correct. For the remaining changes, why not simply set
+input_dev in netif_receive_skb before the call to ing_filter ?
 
-One thing i just remembered: You need to know the length of the matches
-and their data in order to store them. This is why i was earlier
-preaching putting them in TLVs. Some things dont need the datalen
-like u32 - however i suspect most will.
 
-So either need a length somewhere in the header or use TLVs for the
-ematches in which you can make T=kind - still have 32 bit inside body
-but reserve bits not used for flags for future use. Thoughts?.
+>  		netif_rx(skb);
+>  		return 0;
+>  	} else {
 
-BTW, for deleting - should not allow deleting one of N matches. Deletion
-should be at selector level. Replace can be used to pretend a single
-match was deleted.
+Another question - why is ing_filter exported when
+CONFIG_NET_CLS_ACT is defined ? Nobody uses it currently
+outside of dev.c.
 
-cheers,
-jamal
+Regards
+Patrick
