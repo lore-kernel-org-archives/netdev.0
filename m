@@ -1,8 +1,8 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (1/4) sdla - move out of Space.c
-Date: Mon, 8 Sep 2003 14:14:39 -0700
+Subject: [PATCH] (2/4) get rid of register_frad
+Date: Mon, 8 Sep 2003 14:09:22 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030908141439.2e41b516.shemminger@osdl.org>
+Message-ID: <20030908140922.21f8faec.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -12,151 +12,165 @@ To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Patch against 2.60-test5 to move sdla driver out of Space.c for initialization
-in non-module case.  Since this driver doesn't come up until the device has
-been configured with an ioctl (set_config); there is no way it can have
-startup order problems.
+The sdla and dlci drivers have a callback interface which only stores a name
+in a table, but doesn't do anything useful. Looks like an interface which has
+lost it's usefulness and can be safely removed.
 
-diff -Nru a/drivers/net/Space.c b/drivers/net/Space.c
---- a/drivers/net/Space.c	Mon Sep  8 14:01:25 2003
-+++ b/drivers/net/Space.c	Mon Sep  8 14:01:25 2003
-@@ -97,7 +97,6 @@
- extern int mac8390_probe(struct net_device *dev);
- extern int mac89x0_probe(struct net_device *dev);
- extern int mc32_probe(struct net_device *dev);
--extern struct net_device *sdla_init(void);
- extern struct net_device *cops_probe(int unit);
- extern struct net_device *ltpc_probe(void);
-   
-@@ -470,10 +469,6 @@
- #ifdef CONFIG_LTPC
- 	ltpc_probe();
- #endif
--#ifdef CONFIG_SDLA
--	sdla_init();
--#endif
+Tested on 2.6.0-test5 by exercising the higher layer (dlci) without real hardware.
+
+diff -Nru a/drivers/net/wan/dlci.c b/drivers/net/wan/dlci.c
+--- a/drivers/net/wan/dlci.c	Mon Sep  8 14:01:46 2003
++++ b/drivers/net/wan/dlci.c	Mon Sep  8 14:01:46 2003
+@@ -59,63 +59,9 @@
+ 
+ static LIST_HEAD(dlci_devs);
+ static spinlock_t dlci_dev_lock = SPIN_LOCK_UNLOCKED;
+-static char *basename[16];
+ 
+ static void dlci_setup(struct net_device *);
+ 
+-/* allow FRAD's to register their name as a valid FRAD */
+-int register_frad(const char *name)
+-{
+-	int i;
 -
- }
- 
- /*
-diff -Nru a/drivers/net/wan/sdla.c b/drivers/net/wan/sdla.c
---- a/drivers/net/wan/sdla.c	Mon Sep  8 14:01:25 2003
-+++ b/drivers/net/wan/sdla.c	Mon Sep  8 14:01:25 2003
-@@ -1626,41 +1626,16 @@
- 
- static void setup_sdla(struct net_device *dev)
- {
-+	struct frad_local *flp = dev->priv;
-+
-+	netdev_boot_setup_check(dev);
-+
-+	SET_MODULE_OWNER(dev);
- 	dev->flags		= 0;
- 	dev->type		= 0xFFFF;
- 	dev->hard_header_len	= 0;
- 	dev->addr_len		= 0;
- 	dev->mtu		= SDLA_MAX_MTU;
+-	if (!name)
+-		return(-EINVAL);
+-
+-	for (i=0;i<sizeof(basename) / sizeof(char *);i++)
+-	{
+-		if (!basename[i])
+-			break;
+-
+-		/* take care of multiple registrations */
+-		if (strcmp(basename[i], name) == 0)
+-			return(0);
+-	}
+-
+-	if (i == sizeof(basename) / sizeof(char *))
+-		return(-EMLINK);
+-
+-	basename[i] = kmalloc(strlen(name) + 1, GFP_KERNEL);
+-	if (!basename[i])
+-		return(-ENOMEM);
+-
+-	strcpy(basename[i], name);
+-
+-	return(0);
 -}
 -
--static int frad_registered;
+-EXPORT_SYMBOL(register_frad);
 -
--struct net_device * __init sdla_init(void)
+-int unregister_frad(const char *name)
 -{
--	struct net_device *dev;
--	struct frad_local *flp;
--	int err = -ENOMEM;
+-	int i;
 -
--	if (!frad_registered) {
--		err = register_frad(devname);
--		if (err) {
--			printk(KERN_ERR "%s: frad registration failed %d\n",
--			       devname, err);
--			return ERR_PTR(err);
--		}
--		frad_registered = 1;
--		printk("%s.\n", version);
+-	if (!name)
+-		return(-EINVAL);
+-
+-	for (i=0;i<sizeof(basename) / sizeof(char *);i++)
+-		if (basename[i] && (strcmp(basename[i], name) == 0))
+-			break;
+-
+-	if (i == sizeof(basename) / sizeof(char *))
+-		return(-EINVAL);
+-
+-	kfree(basename[i]);
+-	basename[i] = NULL;
+-
+-	return(0);
+-}
+-EXPORT_SYMBOL(unregister_frad);
+-
+ /* 
+  * these encapsulate the RFC 1490 requirements as well as 
+  * deal with packet transmission and reception, working with
+@@ -414,7 +360,7 @@
+ 	struct net_device	*master, *slave;
+ 	struct dlci_local	*dlp;
+ 	struct frad_local	*flp;
+-	int			err, i;
++	int			err;
+ 
+ 
+ 	/* validate slave device */
+@@ -427,18 +373,6 @@
+ 		return(-EINVAL);
+ 	}
+ 
+-	/* check for registration */
+-	for (i=0;i<sizeof(basename) / sizeof(char *); i++)
+-		if ((basename[i]) && 
+-			 (strncmp(dlci->devname, basename[i], strlen(basename[i])) == 0) && 
+-			 (strlen(dlci->devname) > strlen(basename[i])))
+-			break;
+-
+-	if (i == sizeof(basename) / sizeof(char *)) {
+-		dev_put(slave);
+-		return(-EINVAL);
 -	}
--		
 -
--	dev = alloc_netdev(sizeof(struct frad_local), "sdla0", setup_sdla);
--	if (!dev)
--		goto out;
--
--	SET_MODULE_OWNER(dev);
--	netdev_boot_setup_check(dev);
--
--	flp = dev->priv;
+ 	/* create device name */
+ 	master = alloc_netdev( sizeof(struct dlci_local), "dlci%d",
+ 			      dlci_setup);
+@@ -571,13 +505,9 @@
  
- 	dev->open		= sdla_open;
- 	dev->stop		= sdla_close;
-@@ -1680,42 +1655,44 @@
- 	flp->timer.expires	= 1;
- 	flp->timer.data		= (unsigned long) dev;
- 	flp->timer.function	= sdla_poll;
--
--	err = register_netdev(dev);
--	if (err)
--		goto out1;
--	return dev;
--out1:
--	kfree(dev);
--out:
--	return ERR_PTR(err);
- }
- 
--#ifdef MODULE
--static struct net_device *sdla0;
-+static struct net_device *sdla;
- 
- static int __init init_sdla(void)
+ int __init init_dlci(void)
  {
--	int result = 0;
-+	int err;
-+
-+	printk("%s.\n", version);
-+	err = register_frad(devname);
-+	if (err) {
-+		printk(KERN_ERR "%s: frad registration failed %d\n",
-+		       devname, err);
-+		return err;
-+	}
+-	int i;
+ 	dlci_ioctl_set(dlci_ioctl);
  
--	sdla0 = sdla_init();
--	if (IS_ERR(sdla0))
--		result = PTR_ERR(sdla0);
-+	sdla = alloc_netdev(sizeof(struct frad_local), "sdla0", setup_sdla);
-+	if (!sdla) 
-+		return -ENOMEM;
-+
-+	err = register_netdev(sdla);
-+	if (err) 
-+		kfree(sdla);
+ 	printk("%s.\n", version);
+-
+-	for(i=0;i<sizeof(basename) / sizeof(char *);i++)
+-		basename[i] = NULL;
  
--	return result;
-+	return err;
+ 	return 0;
  }
+diff -Nru a/drivers/net/wan/sdla.c b/drivers/net/wan/sdla.c
+--- a/drivers/net/wan/sdla.c	Mon Sep  8 14:01:46 2003
++++ b/drivers/net/wan/sdla.c	Mon Sep  8 14:01:46 2003
+@@ -60,8 +60,6 @@
  
- static void __exit exit_sdla(void)
- {
- 	struct frad_local *flp;
+ static const char* version = "SDLA driver v0.30, 12 Sep 1996, mike.mclagan@linux.org";
  
--	unregister_netdev(sdla0);
--	if (sdla0->irq)
--		free_irq(sdla0->irq, sdla0);
-+	unregister_netdev(sdla);
-+	if (sdla->irq)
-+		free_irq(sdla->irq, sdla);
+-static const char* devname = "sdla";
+-
+ static unsigned int valid_port[] __initdata = { 0x250, 0x270, 0x280, 0x300, 0x350, 0x360, 0x380, 0x390};
  
--	flp = sdla0->priv;
-+	flp = sdla->priv;
+ static unsigned int valid_mem[]  __initdata = {
+@@ -1664,12 +1662,6 @@
+ 	int err;
+ 
+ 	printk("%s.\n", version);
+-	err = register_frad(devname);
+-	if (err) {
+-		printk(KERN_ERR "%s: frad registration failed %d\n",
+-		       devname, err);
+-		return err;
+-	}
+ 
+ 	sdla = alloc_netdev(sizeof(struct frad_local), "sdla0", setup_sdla);
+ 	if (!sdla) 
+@@ -1693,8 +1685,6 @@
+ 	flp = sdla->priv;
  	del_timer_sync(&flp->timer);
--	free_netdev(sdla0);
-+	free_netdev(sdla);
- 	
- 	unregister_frad(devname);
+ 	free_netdev(sdla);
+-	
+-	unregister_frad(devname);
  }
-@@ -1724,4 +1701,3 @@
  
- module_init(init_sdla);
- module_exit(exit_sdla);
--#endif
+ MODULE_LICENSE("GPL");
+diff -Nru a/include/linux/if_frad.h b/include/linux/if_frad.h
+--- a/include/linux/if_frad.h	Mon Sep  8 14:01:46 2003
++++ b/include/linux/if_frad.h	Mon Sep  8 14:01:46 2003
+@@ -191,9 +191,6 @@
+    int               buffer;		/* current buffer for S508 firmware */
+ };
+ 
+-int register_frad(const char *name);
+-int unregister_frad(const char *name);
+-
+ extern void dlci_ioctl_set(int (*hook)(unsigned int, void *));
+ 
+ #endif /* __KERNEL__ */
