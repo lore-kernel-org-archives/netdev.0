@@ -1,41 +1,25 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH]  Break 'budget' dependency on netdev_max_backlog.
-Date: Tue, 22 Oct 2002 21:18:40 -0400 (EDT)
+From: Tim Hockin <thockin@hockin.org>
+Subject: Re: rtnetlink interface state monitoring problems.
+Date: Tue, 22 Oct 2002 18:44:13 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.30.0210222113240.24323-100000@shell.cyberus.ca>
-References: <3DB5F605.1010507@candelatech.com>
+Message-ID: <200210230144.g9N1iDx11822@www.hockin.org>
+References: <Pine.GSO.4.30.0210222055170.24323-100000@shell.cyberus.ca>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dwmw2@infradead.org (David Woodhouse), linux-kernel@vger.kernel.org,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <3DB5F605.1010507@candelatech.com>
+To: hadi@cyberus.ca (jamal)
+In-Reply-To: <Pine.GSO.4.30.0210222055170.24323-100000@shell.cyberus.ca> from "jamal" at Oct 22, 2002 08:59:22 PM
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+> If not, it probably time for someone to write a generic notification
+> scheme via netlink.
 
+How generic?  I need to pay some attention to cleaning up the next version
+of the link-changes via netlink patch that was discussed last week or the
+week before.
 
-On Tue, 22 Oct 2002, Ben Greear wrote:
-
-> Actually, with the changes the way they are, if you have a backlog value
-> of 300, and the first NAPI driver reads 300 packets, then all the rest of the
-> NAPI drivers will just throw away packets because the max-backlog has
-> already been hit (if I understand things correctly).
->
-
-The 300 is shared amongst all the drivers which have something on their
-rx DMA. This is done on a roundrobin fashion.
-Also all the drivers which are non-napi are given the same quota.
-
-> If we make the backlog big enough to handle a large burst of incomming
-> traffic w/out dropping them, then the first NAPI driver can hog a very
-> large amount of CPU because its budget is now huge.  The rest of
-> the devices in the poll loop will not be serviced in time, and will
-> drop packets (I saw this when testing out the 4-port tulip driver with
-> the NAPI patch).
->
-
-I think you misunderstood. Look at the dev->weight.
-
-cheers,
-jamal
+What kind of generic are you thinking about? :)
