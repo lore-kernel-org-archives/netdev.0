@@ -1,51 +1,61 @@
 From: Xose Vazquez Perez <xose@wanadoo.es>
-Subject: [PATCH ] more RTL-8139 clone boards
-Date: Tue, 18 Nov 2003 20:46:34 +0100
+Subject: [PATCH ] more ne2k-pci clone boards
+Date: Tue, 18 Nov 2003 21:48:54 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3FBA771A.1010104@wanadoo.es>
+Message-ID: <3FBA85B6.8010008@wanadoo.es>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------080508040700000809000000"
+ boundary="------------040005060409030706010906"
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com, jgarzik@pobox.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------080508040700000809000000
+--------------040005060409030706010906
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 
 
-0x018A 0x0106 LevelOne FPC-0106TX
-0x126C 0x1211 Nortel Networks 10/100BaseTX
-0x1743 0x8139 Peppercon AG ROL-F
-0x021B 0x8139 Compaq HNE-300
+0x8c4a 0x1980 Winbond W89C940(misprogrammed)
 
 --
 HTML mails are going to trash automagically
 
 
---------------080508040700000809000000
+--------------040005060409030706010906
 Content-Type: text/plain;
- name="8139too_idents.diff"
+ name="ne2k-pci_idents.diff"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="8139too_idents.diff"
+ filename="ne2k-pci_idents.diff"
 
---- linux/drivers/net/8139too.c	2003-11-15 16:47:54.000000000 +0100
-+++ new/drivers/net/8139too.c	2003-11-18 20:31:49.000000000 +0100
-@@ -250,6 +250,10 @@
- 	{0x11db, 0x1234, PCI_ANY_ID, PCI_ANY_ID, 0, 0, RTL8139 },
- 	{0x1432, 0x9130, PCI_ANY_ID, PCI_ANY_ID, 0, 0, RTL8139 },
- 	{0x02ac, 0x1012, PCI_ANY_ID, PCI_ANY_ID, 0, 0, RTL8139 },
-+	{0x018a, 0x0106, PCI_ANY_ID, PCI_ANY_ID, 0, 0, RTL8139 },
-+	{0x126c, 0x1211, PCI_ANY_ID, PCI_ANY_ID, 0, 0, RTL8139 },
-+	{0x1743, 0x8139, PCI_ANY_ID, PCI_ANY_ID, 0, 0, RTL8139 },
-+	{0x021b, 0x8139, PCI_ANY_ID, PCI_ANY_ID, 0, 0, RTL8139 }, 
+--- linux/drivers/net/ne2k-pci.c	2003-11-15 16:47:29.000000000 +0100
++++ new/drivers/net/ne2k-pci.c	2003-11-18 21:16:28.000000000 +0100
+@@ -116,6 +116,7 @@
+ 	CH_Winbond_W89C940F,
+ 	CH_Holtek_HT80232,
+ 	CH_Holtek_HT80229,
++	CH_Winbond_89C940_8c4a,
+ };
  
- #ifdef CONFIG_SH_SECUREEDGE5410
- 	/* Bogus 8139 silicon reports 8129 without external PROM :-( */
+ 
+@@ -133,6 +134,7 @@
+ 	{"Winbond W89C940F", 0},
+ 	{"Holtek HT80232", ONLY_16BIT_IO | HOLTEK_FDX},
+ 	{"Holtek HT80229", ONLY_32BIT_IO | HOLTEK_FDX | STOP_PG_0x60 },
++	{"Winbond W89C940(misprogrammed)", 0},
+ 	{0,}
+ };
+ 
+@@ -148,6 +150,7 @@
+ 	{ 0x1050, 0x5a5a, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CH_Winbond_W89C940F },
+ 	{ 0x12c3, 0x0058, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CH_Holtek_HT80232 },
+ 	{ 0x12c3, 0x5598, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CH_Holtek_HT80229 },
++	{ 0x8c4a, 0x1980, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CH_Winbond_89C940_8c4a },
+ 	{ 0, }
+ };
+ MODULE_DEVICE_TABLE(pci, ne2k_pci_tbl);
 
 
---------------080508040700000809000000--
+--------------040005060409030706010906--
