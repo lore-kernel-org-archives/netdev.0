@@ -1,8 +1,8 @@
 From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: [PATCH] llc: remove MOD_{INC,DEC}_USE_COUNT
-Date: Sun, 27 Apr 2003 12:18:25 -0300
+Subject: [PATCH] af_llc: initialize ->owner in llc_ui_family_ops
+Date: Sun, 27 Apr 2003 12:46:24 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030427151825.GD15637@conectiva.com.br>
+Message-ID: <20030427154624.GG15637@conectiva.com.br>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Linux Networking Development Mailing List <netdev@oss.sgi.com>
@@ -18,7 +18,7 @@ Hi David,
 
 bk://kernel.bkbits.net/acme/net-2.5
 
-	Now there are three outstanding changesets in this tree.
+	Now there are four outstanding changesets in this tree.
 
 - Arnaldo
 
@@ -28,113 +28,49 @@ You can import this changeset into BK by piping this whole message to:
 ===================================================================
 
 
-ChangeSet@1.1125, 2003-04-27 12:04:25-03:00, acme@conectiva.com.br
-  o llc: remove MOD_{INC,DEC}_USE_COUNT
+ChangeSet@1.1126, 2003-04-27 12:33:16-03:00, acme@conectiva.com.br
+  o af_llc: initialize ->owner in llc_ui_family_ops
   
-  Now the core networking infrastructure will (finally) do that for the net
-  protocol families, its just a matter of setting the ->owner field in the
-  registered struct net_proto_family to THIS_MODULE.
+  The previous changeset for llc was enough when the BSD sockets interface
+  for AF_LLC was not selected, but this changeset is needed when it is
+  selected.
 
 
- llc_if.c   |    9 ++-------
- llc_main.c |    6 +-----
- 2 files changed, 3 insertions(+), 12 deletions(-)
+ af_llc.c |    1 +
+ 1 files changed, 1 insertion(+)
 
 
-diff -Nru a/net/llc/llc_if.c b/net/llc/llc_if.c
---- a/net/llc/llc_if.c	Sun Apr 27 12:14:09 2003
-+++ b/net/llc/llc_if.c	Sun Apr 27 12:14:09 2003
-@@ -43,16 +43,15 @@
- 	/* verify this SAP is not already open; if so, return error */
- 	struct llc_sap *sap;
+diff -Nru a/net/llc/af_llc.c b/net/llc/af_llc.c
+--- a/net/llc/af_llc.c	Sun Apr 27 12:35:25 2003
++++ b/net/llc/af_llc.c	Sun Apr 27 12:35:25 2003
+@@ -1013,6 +1013,7 @@
+ static struct net_proto_family llc_ui_family_ops = {
+ 	.family = PF_LLC,
+ 	.create = llc_ui_create,
++	.owner	= THIS_MODULE,
+ };
  
--	MOD_INC_USE_COUNT;
- 	sap = llc_sap_find(lsap);
- 	if (sap) { /* SAP already exists */
- 		sap = NULL;
--		goto err;
-+		goto out;
- 	}
- 	/* sap requested does not yet exist */
- 	sap = llc_sap_alloc();
- 	if (!sap)
--		goto err;
-+		goto out;
- 	/* allocated a SAP; initialize it and clear out its memory pool */
- 	sap->laddr.lsap = lsap;
- 	sap->rcv_func	= func;
-@@ -61,9 +60,6 @@
- 	llc_sap_save(sap);
- out:
- 	return sap;
--err:
--	MOD_DEC_USE_COUNT;
--	goto out;
- }
- 
- /**
-@@ -76,7 +72,6 @@
- void llc_sap_close(struct llc_sap *sap)
- {
- 	llc_free_sap(sap);
--	MOD_DEC_USE_COUNT;
- }
- 
- /**
-diff -Nru a/net/llc/llc_main.c b/net/llc/llc_main.c
---- a/net/llc/llc_main.c	Sun Apr 27 12:14:09 2003
-+++ b/net/llc/llc_main.c	Sun Apr 27 12:14:09 2003
-@@ -224,9 +224,8 @@
- {
- 	struct sock *sk = sk_alloc(family, priority, 1, NULL);
- 
--	MOD_INC_USE_COUNT;
- 	if (!sk)
--		goto decmod;
-+		goto out;
- 	if (llc_sk_init(sk))
- 		goto outsk;
- 	sock_init_data(NULL, sk);
-@@ -240,8 +239,6 @@
- outsk:
- 	sk_free(sk);
- 	sk = NULL;
--decmod:
--	MOD_DEC_USE_COUNT;
- 	goto out;
- }
- 
-@@ -279,7 +276,6 @@
- 	}
- #endif
- 	sock_put(sk);
--	MOD_DEC_USE_COUNT;
- }
- 
- /**
+ static struct proto_ops llc_ui_ops = {
 
 ===================================================================
 
 
 This BitKeeper patch contains the following changesets:
-1.1125
+1.1126
 ## Wrapped with gzip_uu ##
 
 
-M'XL( ,'SJSX  ^U674_;,!1]KG_%E7C9-)KZ,PF=BA@M&A4,$-#GRCA.FY'$
-M*'%;L67_?4ZBL5'81E$?R8<M7=OG'ON>$V4')J4N^AVI,HUVX-B4MM]1)M?*
-M)DOI*9-Y-X4;N#3&#?3F)M.]PY->KFV7>@*YD0MIU1R6NBC['>*QAXB]O]/]
-MSN71Y\GIITN$!@,8SF4^TU?:PF" K"F6,HW* VGGJ<D]6\B\S+1M<E8/4RN*
-M,76W( '#PJ^(CWE0*1(1(CG1$:8\]#FJZ1^LTWZ,PC"G >&8<58Q%HH0C8!X
-MA% !F/4P[]$ ".UCWJ>BBUD?8W@6%3Y0Z&)T"-O=P1 I,)"FJ@^%SLQ2PY?S
-MT?3[^&RX.SH:_IA.KHZFP_/)V;6;YYXSLP([UZ!,H<%58V6*VR2?09+'A2QM
-ML5!VX49629K"NSC)99K>OX?(N$720FR*9K5;Z+#N"F.-,BG$,DO21)>[D-@2
-MOBY*"Q(R::TNP,10:FOK'/7*[KY9Y2X<)SJ-7-8ZZ* */4M*-UU'T)*H4TR;
-M!-,&_=X=&UP?CZ^F;GN3TR,/G0#CF!!T\5L?J+OAA1"6&.T_7[#*4>BY@ZW?
-M:2:3W%-M300CF#%!><4HIZ0BD8QIC"-!@PA'FFX$U\I+8$YP)3@.Q8OH)/$S
-M9,A>&%8J(M'-C8I\PC!3A&T ]B<5%O* -.Y;GUF;<)L$-P$C& O:M!5WQ<>-
-M%2E>-R+!_S5B\&;$+1JQ$<LY=(M5\SAC73S1S2O,.>(^$#02V+7CINUT9HX)
-MF(7]Z.*BB8OUN,^!H5&P!T\%W/KN91+>Q/)H*?.H<$4_6"I/+1?64]_^!D8(
-M"2GEC+%*[#'JMR+V-Q4Q@:YX$_'V1-Q^?/\AXK:$KY$QK8M:=[4DQVWW2+%.
-A#4!=%]):L[_^A-1<J]MRD0TPE[X*!$,_ <\0_E9V"0  
+M'XL( +WXJSX  ^V4;6^;,!#'7\>?XJ2^7$/\@"%!2I4^;:V:J572OD:.N114
+M@BOL)&K%AY\A6[MUD:9->3DP2/A\_[OS_? 1/%BLDY[2*R1'<&6L2WK:5*A=
+ML5&!-JM@47O#S!AO&.1FA8.SFT&%KL\#2;SE3CF=PP9KF_18(-YFW,LS)KW9
+MY9>'Z>F,D/$8SG-5/>(<'8S'Q)EZH\K,3I3+2U,%KE:57:'K8C9O2QM.*?>W
+M9+&@,FI81,.XT2QC3(4,,\K#8122-OW)Q[1_51$TY#&3_BT;$5+&R 6P@#$>
+M 14#&@YX#(PG0B0LZE.14 I[5>$3@SXE9W#8"LZ)!@-JF9:E3J"H"E>HLGA%
+MZ)^8;86UGP)O2M=%NE2KHGQ)S;/U/G[<YPC/-6X*L[:@N[C6;_+2U*T';)4%
+MK,SZ,8=MCA4XO_QL?@'6Z"=TU@L[K)=*HY=J?4X_I]/I>>=6&0<62U\_9L>P
+M6#OO7/P<PW]4B!EF.^FBG?$R/WP"<@,BE#$C=^_=)_V_O BABI*3_>UH/(H#
+M7V;[I&U)@=[MN!2,"B%YV @11[[GPU',N6;A4"Y&B/@'N5TG=F+?T1&"\D;2
+M*.(=SA]7ME0?-D6RT'4YJ3'+E>N@VI^<H!$;T2B433BB0G9<"_F1:LK_4WTX
+MJG<8W$*_WG;#4WKW&Q'_0/HUHTP"([V@VY_>&.ZOKN?IU]N+A^GE\?MYJW/4
+43W:]&F<>&C7T_\<W]+LJJ\H%    
  
