@@ -1,67 +1,41 @@
-From: "Richard B. Johnson" <root@chaos.analogic.com>
+From: Ben Greear <greearb@candelatech.com>
 Subject: Re: [RESEND] tuning linux for high network performance?
-Date: Wed, 23 Oct 2002 13:11:35 -0400 (EDT)
+Date: Wed, 23 Oct 2002 10:10:55 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.3.95.1021023130843.14535A-100000@chaos.analogic.com>
-References: <20021023170102.GA5302@outpost.ds9a.nl>
-Reply-To: root@chaos.analogic.com
+Message-ID: <3DB6D81F.2050309@candelatech.com>
+References: <200210231218.18733.roy@karlsbakk.net> <20021023130101.GA646@outpost.ds9a.nl> <1035379308.5950.3.camel@rth.ninka.net> <200210231542.48673.roy@karlsbakk.net> <20021023170102.GA5302@outpost.ds9a.nl>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: Roy Sigurd Karlsbakk <roy@karlsbakk.net>,
    "David S. Miller" <davem@rth.ninka.net>, netdev@oss.sgi.com,
    Kernel mailing list <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: bert hubert <ahu@ds9a.nl>
-In-Reply-To: <20021023170102.GA5302@outpost.ds9a.nl>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 23 Oct 2002, bert hubert wrote:
+bert hubert wrote:
 
-> On Wed, Oct 23, 2002 at 03:42:48PM +0200, Roy Sigurd Karlsbakk wrote:
-> > > The e1000 can very well do hardware checksumming on transmit.
-> > >
-> > > The missing piece of the puzzle is that his application is not
-> > > using sendfile(), without which no transmit checksum offload
-> > > can take place.
-> > 
-> > As far as I've understood, sendfile() won't do much good with large files. Is 
-> > this right?
-> 
 > I still refuse to believe that a 1.8GHz Pentium4 can only checksum
 > 250megabits/second. MD Raid5 does better and they probably don't use a
 > checksum as braindead as that used by TCP.
-> 
-> If the checksumming is not the problem, the copying is, which would be a
-> weakness of your hardware. The function profiled does both the copying and
-> the checksumming.
-> 
-> But 250megabits/second also seems low.
-> 
-> Dave? 
-> 
 
-Ordinary DUAL Pentium 400 MHz machine does this...
+For what it's worth, I have been able to send and receive 400+ Mbps
+of traffic, by directional, on the same machine (ie, about 1600 Mbps
+of payload across the PCI bus)
 
+So, it's probably not the e1000 or networking code that is slowing you down.
+(This was on a 64/66 PCI, Dual-AMD 2Ghz machine though,
+are you running only 32/33 PCI?  If not, where did you find this motherboard!)
 
-Calculating CPU speed...done
-Testing checksum speed...done
-Testing RAM copy...done
-Testing I/O port speed...done
+Have you tried just reading the information from disk and doing everying except
+the final 'send/write/sendto' ?  That would help determine if it is your
+file reads that are killing you.
 
-                     CPU Clock = 400  MHz
-                checksum speed = 685  Mb/s
-                      RAM copy = 1549 Mb/s
-                I/O port speed = 654  kb/s
+Ben
 
-
-This is 685 megaBYTES per second.
-
-                checksum speed = 685  Mb/s
-
-
-
-Cheers,
-Dick Johnson
-Penguin : Linux version 2.4.18 on an i686 machine (797.90 BogoMips).
-   Bush : The Fourth Reich of America
+-- 
+Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
+President of Candela Technologies Inc      http://www.candelatech.com
+ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
