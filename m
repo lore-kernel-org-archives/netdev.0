@@ -1,24 +1,25 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH 2.5.70] sysfs cleanup and bugfix
-Date: Thu, 29 May 2003 20:05:14 -0700 (PDT)
+Subject: Re: [PATCH 2.5.70] remove if_port_text
+Date: Thu, 29 May 2003 20:15:23 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030529.200514.55840993.davem@redhat.com>
-References: <20030529103011.3f038db7.shemminger@osdl.org>
+Message-ID: <20030529.201523.83619362.davem@redhat.com>
+References: <20030529104138.751a1f54.shemminger@osdl.org>
+	<20030529.140828.78714529.davem@redhat.com>
+	<20030529142820.5f657d77.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: jgarzik@pobox.com, scott.feldman@intel.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: shemminger@osdl.org
-In-Reply-To: <20030529103011.3f038db7.shemminger@osdl.org>
+In-Reply-To: <20030529142820.5f657d77.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
    From: Stephen Hemminger <shemminger@osdl.org>
-   Date: Thu, 29 May 2003 10:30:11 -0700
+   Date: Thu, 29 May 2003 14:28:20 -0700
 
-   A couple of bugs in netdev_unregister_sysfs; still working on the harder
-   refcount issues.
-
-Applied.  Stephen, I'll hack on the unregister issues with Al Viro.  I
-think his scheme is the way to go.
+   Eliminate necrophilic code, net-sysfs shouldn't support deprecated
+   if_port.  Since nowhere else is using if_port_text, eliminate it.
+   
+Applied, thanks Stephen.
