@@ -1,71 +1,27 @@
-From: Olaf Hering <olh@suse.de>
-Subject: [PATCH] pass unsgined long to udelay in e1000
-Date: Fri, 2 Jul 2004 20:17:44 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040702181744.GA18546@suse.de>
+From: Dan Williams <dcbw@redhat.com>
+Subject: [PATCH] Update in-kernel orinoco drivers to upstream current CVS
+Date: Fri, 02 Jul 2004 15:11:38 -0400
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <1088795498.18039.25.camel@dcbw.boston.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Return-path: <netdev-bounce@oss.sgi.com>
-To: cramerj@intel.com, netdev@oss.sgi.com
-Content-Disposition: inline
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S264843AbUGBTLo@vger.kernel.org>
+To: linux-kernel@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi,
 
-I get these warnings on ppc32 due to the check in udelay() macro.
-Is it safe to move the struct member?
+This patch is simply the fixed-up diff between the kernel's current
+0.13e version and the upstream 0.15rc1+ version from savannah CVS.
+0.15rc1 has been out for a couple months now and seems stable.
 
+The major benefits that this newer version brings are, of course, many
+bugfixes, but best of all wireless scanning support for the Orinoco line
+of cards.
 
-  CC [M]  drivers/net/e1000/e1000_hw.o
-drivers/net/e1000/e1000_hw.c: In function `e1000_raise_ee_clk':
-drivers/net/e1000/e1000_hw.c:3122: warning: comparison is always false du=
-e to limited range of data type
-drivers/net/e1000/e1000_hw.c: In function `e1000_lower_ee_clk':
-drivers/net/e1000/e1000_hw.c:3141: warning: comparison is always false du=
-e to limited range of data type
-drivers/net/e1000/e1000_hw.c: In function `e1000_shift_out_ee_bits':
-drivers/net/e1000/e1000_hw.c:3185: warning: comparison is always false du=
-e to limited range of data type
-drivers/net/e1000/e1000_hw.c: In function `e1000_standby_eeprom':
-drivers/net/e1000/e1000_hw.c:3314: warning: comparison is always false du=
-e to limited range of data type
-drivers/net/e1000/e1000_hw.c:3320: warning: comparison is always false du=
-e to limited range of data type
-drivers/net/e1000/e1000_hw.c:3326: warning: comparison is always false du=
-e to limited range of data type
-drivers/net/e1000/e1000_hw.c:3332: warning: comparison is always false du=
-e to limited range of data type
-drivers/net/e1000/e1000_hw.c:3338: warning: comparison is always false du=
-e to limited range of data type
-drivers/net/e1000/e1000_hw.c:3342: warning: comparison is always false du=
-e to limited range of data type
-drivers/net/e1000/e1000_hw.c: In function `e1000_release_eeprom':
-drivers/net/e1000/e1000_hw.c:3366: warning: comparison is always false du=
-e to limited range of data type
-drivers/net/e1000/e1000_hw.c:3379: warning: comparison is always false du=
-e to limited range of data type
-drivers/net/e1000/e1000_hw.c:3385: warning: comparison is always false du=
-e to limited range of data type
+http://people.redhat.com/dcbw/linux-2.6.7-orinoco.patch.bz2
 
-
-patch is against 2.6.7-bk15
-
-
---- ./drivers/net/e1000/e1000_hw.h
-+++ ./drivers/net/e1000/e1000_hw.h	2004/07/02 18:07:28
-@@ -234,8 +234,8 @@ struct e1000_eeprom_info {
-     uint16_t word_size;
-     uint16_t opcode_bits;
-     uint16_t address_bits;
--    uint16_t delay_usec;
-     uint16_t page_size;
-+    unsigned long delay_usec;
- };
-=20
-=20
-
---=20
-USB is for mice, FireWire is for men!
-
-sUse lINUX ag, n=C3=9CRNBERG
+Dan Williams
+Red Hat, Inc.
