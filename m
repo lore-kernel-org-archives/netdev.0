@@ -1,42 +1,67 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: hard_start_xmit and Linux bridging
-Date: Thu, 09 Sep 2004 16:30:10 -0700
+From: maks attems <janitor@sternwelten.at>
+Subject: [patch] compile fix 3c59x for eisa without pci
+Date: Fri, 10 Sep 2004 01:40:50 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4140E782.2000505@candelatech.com>
-References: <FD52892BD296D71183B400065BFCB6900EDB4C74@il02exm12>
+Message-ID: <20040909234050.GK1927@stro.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Lewis Adam-CAL022 <Adam.Lewis@motorola.com>
-In-Reply-To: <FD52892BD296D71183B400065BFCB6900EDB4C74@il02exm12>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Lewis Adam-CAL022 wrote:
-> Hi all,
-> 
-> I tried going to the bridge@lists.osdl.org for this question but got no response, I'm hoping somebody here has had a similar experience as me.
-> 
-> Basically, I put my wlan0 driver in a bridge with eth0.  When my hard_start_xmit() function is called (as a result of a packet received on eth0 and bridged to my driver), the skb that I am passed contains an extra four bytes (e.g. the Ethernet FCS).  
-> 
-> In my mind, this should be stripped off.  But I have looked at all the open source net drivers I could find and nobody seems to care.  Is there a way to know if the skb has been forwarded by a bridged interface?  If I forward on the extra bytes, then a 1500 byte packet becomes 1504 and fails the MTU check on the other side of the wireless interface (when it is passed back to eth0).
-> 
-> TIA,
-> Adam
+drivers/net/3c59x.c: In function `vortex_ioctl':
+drivers/net/3c59x.c:2916: warning: dereferencing `void *' pointer
+drivers/net/3c59x.c:2916: error: request for member `current_state' in something not a structure or union
+make[3]: *** [drivers/net/3c59x.o] Error 1
+make[2]: *** [drivers/net] Error 2
+make[1]: *** [drivers] Error 2
+make: *** [stamp-build] Error 2
 
-I added some ioctls to allow one to turn on the ability to receive the CRC, but I
-don't know of any drivers that include it by default.
+# CONFIG_PCI is not set
+CONFIG_EISA=y
 
-What driver/hardware is your eth0 device?
+compile fix below, quite an ugly addition of ifdefs.
+please tell me if better method exists.
 
-How are you determining the size, by the skb->len ?
 
-Does tcpdump/ethereal show the extra 4 bytes if you sniff eth0 w/out bridging?
-
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+--- kernel-source-2.6.8/drivers/net/3c59x.c	2004-08-14 07:36:10.000000000 +0200
++++ b/drivers/net/3c59x.c	2004-09-10 01:29:14.000000000 +0200
+@@ -900,7 +900,9 @@ static void dump_tx_ring(struct net_devi
+ static void update_stats(long ioaddr, struct net_device *dev);
+ static struct net_device_stats *vortex_get_stats(struct net_device *dev);
+ static void set_rx_mode(struct net_device *dev);
++#ifdef CONFIG_PCI
+ static int vortex_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
++#endif
+ static void vortex_tx_timeout(struct net_device *dev);
+ static void acpi_set_WOL(struct net_device *dev);
+ static struct ethtool_ops vortex_ethtool_ops;
+@@ -1468,7 +1470,9 @@ static int __devinit vortex_probe1(struc
+ 
+ 	dev->stop = vortex_close;
+ 	dev->get_stats = vortex_get_stats;
++#ifdef CONFIG_PCI
+ 	dev->do_ioctl = vortex_ioctl;
++#endif
+ 	dev->ethtool_ops = &vortex_ethtool_ops;
+ 	dev->set_multicast_list = set_rx_mode;
+ 	dev->tx_timeout = vortex_tx_timeout;
+@@ -2868,6 +2872,7 @@ static struct ethtool_ops vortex_ethtool
+ 	.get_drvinfo =		vortex_get_drvinfo,
+ };
+ 
++#ifdef CONFIG_PCI
+ static int vortex_do_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ {
+ 	struct vortex_private *vp = netdev_priv(dev);
+@@ -2925,6 +2930,7 @@ static int vortex_ioctl(struct net_devic
+ 
+ 	return err;
+ }
++#endif
+ 
+ 
+ /* Pre-Cyclone chips have no documented multicast filter, so the only
