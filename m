@@ -1,46 +1,30 @@
-From: ramarayalu vattikuti <ramarayaluv@yahoo.com>
-Subject: Need u r help
-Date: Thu, 2 Jan 2003 08:55:40 -0800 (PST)
+From: Werner Almesberger <wa@almesberger.net>
+Subject: Re: snd_cwnd drawn and quartered
+Date: Thu, 2 Jan 2003 18:26:06 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030102165540.27518.qmail@web10906.mail.yahoo.com>
+Message-ID: <20030102182606.A32722@almesberger.net>
+References: <20021224225040.A22201@almesberger.net> <200301020138.EAA32608@sex.inr.ac.ru> <20030102030858.E1363@almesberger.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, chengjin@cs.caltech.edu
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: kuznet@ms2.inr.ac.ru
+Content-Disposition: inline
+In-Reply-To: <20030102030858.E1363@almesberger.net>; from wa@almesberger.net on Thu, Jan 02, 2003 at 03:08:58AM -0300
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+I wrote:
+> I searched around but didn't spot anything. A pointer would be
+> welcome, thanks !
 
-This is RamaRayalu Vattikuti .
+I think I found it. Is it "The Rate-Halving Algorithm for TCP Congestion
+Control", section 5.14, "Application of Bounding Paremeters" (sic!) ?
+http://www.psc.edu/networking/ftp/papers/draft-ratehalving.txt
 
-Now i am doing my M.Tech project work on device
-drivers.
+- Werner
 
-operating system is linux.
-
-my project :
-   
-      1.with PCI-DPM card we can provide the
-communication between two processing elements in a
-parallel processing system.
-
-       2.the same thing can be done with ethernet card
-also.
-
-   here i had given this problem to solve.
-
-   can we develop a virtual device so that it invokes
-the two devices i mentioned above.
-
-if u know any  idea please mail me soon.
-
- thanks&regards
- 
- rayalu
-  
-
-__________________________________________________
-Do you Yahoo!?
-Yahoo! Mail Plus - Powerful. Affordable. Sign up now.
-http://mailplus.yahoo.com
+-- 
+  _________________________________________________________________________
+ / Werner Almesberger, Buenos Aires, Argentina         wa@almesberger.net /
+/_http://www.almesberger.net/____________________________________________/
