@@ -1,28 +1,33 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: Re: socket(PF_INET6, SOCK_RAW, IPPROTO_ICMPV6)
-Date: Thu, 13 Mar 2003 00:33:41 +0900 (JST)
+From: "Parag Sharma" <ps41@hotmail.com>
+Subject: faulting in user pages for zero copy transmit
+Date: Wed, 12 Mar 2003 14:04:10 -0900
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030313.003341.49620358.yoshfuji@linux-ipv6.org>
-References: <20030312.213903.04850857.yoshfuji@linux-ipv6.org>
-	<Pine.GSO.4.44.0303121348470.23508-100000@rose.man.poznan.pl>
+Message-ID: <BAY1-F2080cf7bss6D800036659@hotmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; format=flowed
 Return-path: <netdev-bounce@oss.sgi.com>
-To: maxiu@man.poznan.pl
-In-Reply-To: <Pine.GSO.4.44.0303121348470.23508-100000@rose.man.poznan.pl>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <Pine.GSO.4.44.0303121348470.23508-100000@rose.man.poznan.pl> (at Wed, 12 Mar 2003 13:51:53 +0100 (CET)), Marcin Kaminski <maxiu@man.poznan.pl> says:
+Hi,
 
-> Is there simplier method of obtaining source and destaination address of
-> icmp packet (the only informations I need from ipv6 header) than setting
-> IPV6_PKTINFO and receiving them with recvmsg?
+I am looking at 2.4.19-ac4 source code and trying to understand the zero 
+copy transmit. I have been trying to figure out how/where are the user 
+pages, that might have been swapped out, brought into memory prior to DMA?
 
-No; recvmsg() and IPV6_PKTINFO socket options is the SIMPLE way for 
-obtaining source and destination address.
+I would appreciate any help in figuring this one out.
 
---yoshfuji
+thanks
+Parag
+
+
+
+
+
+
+
+
+_________________________________________________________________
+Help STOP SPAM with the new MSN 8 and get 2 months FREE*  
+http://join.msn.com/?page=features/junkmail
