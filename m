@@ -1,41 +1,69 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] NETIF_F_LLTX for devices 2
-Date: 10 Sep 2004 09:33:35 -0400
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH 2.6 NET] Device name changing via rtnetlink
+Date: Fri, 10 Sep 2004 15:36:37 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1094823215.1121.129.camel@jzny.localdomain>
-References: <20040908065152.GC27886@wotan.suse.de>
-	 <E1C4wYe-0005qT-00@gondolin.me.apana.org.au>
-	 <20040908072408.GI27886@wotan.suse.de>
-	 <1094629677.1089.155.camel@jzny.localdomain>
-	 <20040908134713.1bcd46d3.davem@davemloft.net>
-Reply-To: hadi@cyberus.ca
+Message-ID: <20040910133637.GA20088@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: ak@suse.de, herbert@gondor.apana.org.au, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20040908134713.1bcd46d3.davem@davemloft.net>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2004-09-08 at 16:47, David S. Miller wrote:
+Allows changing of device name via rtnetlink. Last bit needed to do full
+link configuration via rtnetlink.
 
-> 
-> We are merely moving the sch_generic.c locking logic into the
-> drivers.  The behavior is entirely equivalent except that one
-> level of unnecessary locking has been removed.
-> 
-> I think his change is valid, will not break existing drivers (as
-> you mentioned as well Jamal), and works well for the cases he has
-> shown patches of.  So I'm going to apply his patch.
-> 
-> BTW, if we are really concerned about some existing driver returning
-> -1 from hard_start_xmit() without the new feature flag being enabled,
-> we can test for that and log a debugging message if it happens.
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-I am not 100% happy but let me do some testing on it. Would the best
-image be the latest bk snapshot?
 
-cheers,
-jamal
+diff -Nru linux-2.6.9-rc1-bk15.orig/include/linux/netdevice.h linux-2.6.9-rc1-bk15/include/linux/netdevice.h
+--- linux-2.6.9-rc1-bk15.orig/include/linux/netdevice.h	2004-09-08 18:32:05.000000000 +0200
++++ linux-2.6.9-rc1-bk15/include/linux/netdevice.h	2004-09-10 12:42:07.000000000 +0200
+@@ -677,6 +677,7 @@
+ extern int		dev_ethtool(struct ifreq *);
+ extern unsigned		dev_get_flags(const struct net_device *);
+ extern int		dev_change_flags(struct net_device *, unsigned);
++extern int		dev_change_name(struct net_device *, char *);
+ extern int		dev_set_mtu(struct net_device *, int);
+ extern void		dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev);
+ 
+diff -Nru linux-2.6.9-rc1-bk15.orig/net/core/dev.c linux-2.6.9-rc1-bk15/net/core/dev.c
+--- linux-2.6.9-rc1-bk15.orig/net/core/dev.c	2004-09-08 18:33:42.000000000 +0200
++++ linux-2.6.9-rc1-bk15/net/core/dev.c	2004-09-10 12:41:19.000000000 +0200
+@@ -3347,6 +3347,7 @@
+ EXPORT_SYMBOL(dev_set_allmulti);
+ EXPORT_SYMBOL(dev_set_promiscuity);
+ EXPORT_SYMBOL(dev_change_flags);
++EXPORT_SYMBOL(dev_change_name);
+ EXPORT_SYMBOL(dev_set_mtu);
+ EXPORT_SYMBOL(free_netdev);
+ EXPORT_SYMBOL(netdev_boot_setup_check);
+diff -Nru linux-2.6.9-rc1-bk15.orig/net/core/rtnetlink.c linux-2.6.9-rc1-bk15/net/core/rtnetlink.c
+--- linux-2.6.9-rc1-bk15.orig/net/core/rtnetlink.c	2004-09-08 18:33:42.000000000 +0200
++++ linux-2.6.9-rc1-bk15/net/core/rtnetlink.c	2004-09-10 12:36:54.000000000 +0200
+@@ -345,6 +345,23 @@
+ 		dev->weight = *((u32 *) RTA_DATA(ida[IFLA_WEIGHT - 1]));
+ 	}
+ 
++	if (ida[IFLA_IFNAME - 1]) {
++		char ifname[IFNAMSIZ];
++
++		if (ida[IFLA_IFNAME - 1]->rta_len > RTA_LENGTH(IFNAMSIZ))
++			goto out;
++
++		memset(ifname, 0, sizeof(ifname));
++		memcpy(ifname, RTA_DATA(ida[IFLA_IFNAME - 1]),
++			RTA_PAYLOAD(ida[IFLA_IFNAME - 1]));
++		ifname[IFNAMSIZ - 1] = '\0';
++
++		err = dev_change_name(dev, ifname);
++
++		if (err)
++			goto out;
++	}
++
+ 	err = 0;
+ 
+ out:
