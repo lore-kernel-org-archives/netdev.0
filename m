@@ -1,8 +1,8 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 2/3] NET: Generic rate estimator
-Date: Sun, 3 Oct 2004 23:39:54 +0200
+Subject: [PATCH 3/3] NET: Generic network statistics/estimator documentation
+Date: Sun, 3 Oct 2004 23:41:46 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041003213954.GI14344@postel.suug.ch>
+Message-ID: <20041003214146.GJ14344@postel.suug.ch>
 References: <20041003213124.GG14344@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -14,238 +14,128 @@ In-Reply-To: <20041003213124.GG14344@postel.suug.ch>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Introduces a generic rate estimator based on timers. Patch is based on
-Jamal's patch and adapted to the new generic network statistics API.
+Documentation of generic network statistics and estimator API.
 
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
---- linux-2.6.9-rc3.orig/include/linux/gen_stats.h	2004-10-03 23:00:15.000000000 +0200
-+++ linux-2.6.9-rc3/include/linux/gen_stats.h	2004-10-03 23:00:19.000000000 +0200
-@@ -47,4 +47,16 @@
- 	__u32	requeues;
- 	__u32	overlimits;
- };
+
+--- linux-2.6.9-rc3.orig/Documentation/networking/gen_stats.txt	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.6.9-rc3/Documentation/networking/gen_stats.txt	2004-10-03 22:33:57.000000000 +0200
+@@ -0,0 +1,117 @@
++Generic networking statistics for netlink users
++======================================================================
 +
-+/**
-+ * @interval: sampling period
-+ * @ewma_log: the log of measurement window weight
-+ */
-+struct gnet_estimator
-+{
-+	signed char	interval;
-+	unsigned char	ewma_log;
++Statistic counters are grouped into structs:
++
++Struct               TLV type              Description
++----------------------------------------------------------------------
++gnet_stats_basic     TCA_STATS_BASIC       Basic statistics
++gnet_stats_rate_est  TCA_STATS_RATE_EST    Rate estimator
++gnet_stats_queue     TCA_STATS_QUEUE       Queue statistics
++none                 TCA_STATS_APP         Application specific
++
++
++Collecting:
++-----------
++
++Declare the statistic structs you need:
++struct mystruct {
++	struct gnet_stats_basic	bstats;
++	struct gnet_stats_queue	qstats;
++	...
 +};
 +
-+
- #endif /* __LINUX_GEN_STATS_H */
---- linux-2.6.9-rc3.orig/net/core/gen_estimator.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.9-rc3/net/core/gen_estimator.c	2004-10-03 22:43:03.000000000 +0200
-@@ -0,0 +1,208 @@
-+/*
-+ * net/sched/gen_estimator.c	Simple rate estimator.
-+ *
-+ *		This program is free software; you can redistribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
-+ *
-+ * Authors:	Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
-+ *
-+ * Changes:
-+ *              Jamal Hadi Salim - moved it to net/core and reshulfed
-+ *              names to make it usable in general net subsystem.
-+ */
-+
-+#include <asm/uaccess.h>
-+#include <asm/system.h>
-+#include <asm/bitops.h>
-+#include <linux/module.h>
-+#include <linux/types.h>
-+#include <linux/kernel.h>
-+#include <linux/jiffies.h>
-+#include <linux/string.h>
-+#include <linux/mm.h>
-+#include <linux/socket.h>
-+#include <linux/sockios.h>
-+#include <linux/in.h>
-+#include <linux/errno.h>
-+#include <linux/interrupt.h>
-+#include <linux/netdevice.h>
-+#include <linux/skbuff.h>
-+#include <linux/rtnetlink.h>
-+#include <linux/init.h>
-+#include <net/sock.h>
-+#include <net/gen_stats.h>
-+
-+/*
-+   This code is NOT intended to be used for statistics collection,
-+   its purpose is to provide a base for statistical multiplexing
-+   for controlled load service.
-+   If you need only statistics, run a user level daemon which
-+   periodically reads byte counters.
-+
-+   Unfortunately, rate estimation is not a very easy task.
-+   F.e. I did not find a simple way to estimate the current peak rate
-+   and even failed to formulate the problem 8)8)
-+
-+   So I preferred not to built an estimator into the scheduler,
-+   but run this task separately.
-+   Ideally, it should be kernel thread(s), but for now it runs
-+   from timers, which puts apparent top bounds on the number of rated
-+   flows, has minimal overhead on small, but is enough
-+   to handle controlled load service, sets of aggregates.
-+
-+   We measure rate over A=(1<<interval) seconds and evaluate EWMA:
-+
-+   avrate = avrate*(1-W) + rate*W
-+
-+   where W is chosen as negative power of 2: W = 2^(-ewma_log)
-+
-+   The resulting time constant is:
-+
-+   T = A/(-ln(1-W))
++Update statistics:
++mystruct->tstats.packet++;
++mystruct->qstats.backlog += skb->pkt_len;
 +
 +
-+   NOTES.
++Export to userspace (Dump):
++---------------------------
 +
-+   * The stored value for avbps is scaled by 2^5, so that maximal
-+     rate is ~1Gbit, avpps is scaled by 2^10.
-+
-+   * Minimal interval is HZ/4=250msec (it is the greatest common divisor
-+     for HZ=100 and HZ=1024 8)), maximal interval
-+     is (HZ/4)*2^EST_MAX_INTERVAL = 8sec. Shorter intervals
-+     are too expensive, longer ones can be implemented
-+     at user level painlessly.
-+ */
-+
-+#if (HZ%4) != 0
-+#error Bad HZ value.
-+#endif
-+
-+#define EST_MAX_INTERVAL	5
-+
-+struct gen_estimator
++my_dumping_routine(struct sk_buff *skb, ...)
 +{
-+	struct gen_estimator	*next;
-+	struct gnet_stats_basic	*bstats;
-+	struct gnet_stats_rate_est	*rate_est;
-+	spinlock_t		*stats_lock;
-+	unsigned		interval;
-+	int			ewma_log;
-+	u64			last_bytes;
-+	u32			last_packets;
-+	u32			avpps;
-+	u32			avbps;
-+};
++	struct gnet_dump dump;
 +
-+struct gen_estimator_head
-+{
-+	struct timer_list	timer;
-+	struct gen_estimator	*list;
-+};
++	if (gnet_stats_start_copy(skb, TCA_STATS2, &mystruct->lock, &dump) < 0)
++		goto rtattr_failure;
 +
-+static struct gen_estimator_head elist[EST_MAX_INTERVAL+1];
++	if (gnet_stats_copy_basic(&dump, &mystruct->bstats) < 0 ||
++	    gnet_stats_copy_queue(&dump, &mystruct->qstats) < 0 ||
++		gnet_stats_copy_app(&dump, &xstats, sizeof(xstats)) < 0)
++		goto rtattr_failure;
 +
-+/* Estimator array lock */
-+static rwlock_t est_lock = RW_LOCK_UNLOCKED;
-+
-+static void est_timer(unsigned long arg)
-+{
-+	int idx = (int)arg;
-+	struct gen_estimator *e;
-+
-+	read_lock(&est_lock);
-+	for (e = elist[idx].list; e; e = e->next) {
-+		u64 nbytes;
-+		u32 npackets;
-+		u32 rate;
-+
-+		spin_lock(e->stats_lock);
-+		nbytes = e->bstats->bytes;
-+		npackets = e->bstats->packets;
-+		rate = (nbytes - e->last_bytes)<<(7 - idx);
-+		e->last_bytes = nbytes;
-+		e->avbps += ((long)rate - (long)e->avbps) >> e->ewma_log;
-+		e->rate_est->bps = (e->avbps+0xF)>>5;
-+
-+		rate = (npackets - e->last_packets)<<(12 - idx);
-+		e->last_packets = npackets;
-+		e->avpps += ((long)rate - (long)e->avpps) >> e->ewma_log;
-+		e->rate_est->pps = (e->avpps+0x1FF)>>10;
-+		spin_unlock(e->stats_lock);
-+	}
-+
-+	mod_timer(&elist[idx].timer, jiffies + ((HZ/4)<<idx));
-+	read_unlock(&est_lock);
++	if (gnet_stats_finish_copy(&dump) < 0)
++		goto rtattr_failure;
++	...
 +}
 +
-+int gen_new_estimator(struct gnet_stats_basic *bstats,
-+	struct gnet_stats_rate_est *rate_est, spinlock_t *stats_lock, struct rtattr *opt)
++TCA_STATS/TCA_XSTATS backward compatibility:
++--------------------------------------------
++
++Prior users of struct tc_stats and xstats can maintain backward
++compatibility by calling the compat wrappers to keep providing the
++existing TLV types.
++
++my_dumping_routine(struct sk_buff *skb, ...)
 +{
-+	struct gen_estimator *est;
-+	struct gnet_estimator *parm = RTA_DATA(opt);
-+
-+	if (RTA_PAYLOAD(opt) < sizeof(*parm))
-+		return -EINVAL;
-+
-+	if (parm->interval < -2 || parm->interval > 3)
-+		return -EINVAL;
-+
-+	est = kmalloc(sizeof(*est), GFP_KERNEL);
-+	if (est == NULL)
-+		return -ENOBUFS;
-+
-+	memset(est, 0, sizeof(*est));
-+	est->interval = parm->interval + 2;
-+	est->bstats = bstats;
-+	est->rate_est = rate_est;
-+	est->stats_lock = stats_lock;
-+	est->ewma_log = parm->ewma_log;
-+	est->last_bytes = bstats->bytes;
-+	est->avbps = rate_est->bps<<5;
-+	est->last_packets = bstats->packets;
-+	est->avpps = rate_est->pps<<10;
-+
-+	est->next = elist[est->interval].list;
-+	if (est->next == NULL) {
-+		init_timer(&elist[est->interval].timer);
-+		elist[est->interval].timer.data = est->interval;
-+		elist[est->interval].timer.expires = jiffies + ((HZ/4)<<est->interval);
-+		elist[est->interval].timer.function = est_timer;
-+		add_timer(&elist[est->interval].timer);
-+	}
-+	write_lock_bh(&est_lock);
-+	elist[est->interval].list = est;
-+	write_unlock_bh(&est_lock);
-+	return 0;
++    if (gnet_stats_start_copy_compat(skb, TCA_STATS2, TCA_STATS,
++		TCA_XSTATS, &mystruct->lock, &dump) < 0)
++		goto rtattr_failure;
++	...
 +}
 +
-+void gen_kill_estimator(struct gnet_stats_basic *bstats,
-+	struct gnet_stats_rate_est *rate_est)
-+{
-+	int idx;
-+	struct gen_estimator *est, **pest;
++A struct tc_stats will be filled out during gnet_stats_copy_* calls
++and appended to the skb. TCA_XSTATS is provided if gnet_stats_copy_app
++was called.
 +
-+	for (idx=0; idx <= EST_MAX_INTERVAL; idx++) {
-+		int killed = 0;
-+		pest = &elist[idx].list;
-+		while ((est=*pest) != NULL) {
-+			if (est->rate_est != rate_est || est->bstats != bstats) {
-+				pest = &est->next;
-+				continue;
-+			}
 +
-+			write_lock_bh(&est_lock);
-+			*pest = est->next;
-+			write_unlock_bh(&est_lock);
++Locking:
++--------
 +
-+			kfree(est);
-+			killed++;
-+		}
-+		if (killed && elist[idx].list == NULL)
-+			del_timer(&elist[idx].timer);
-+	}
-+}
++Locks are taken before writing and released once all statistics have
++been written. Locks are always released in case of an error. You
++are responsible for making sure that the lock is initialized.
 +
-+EXPORT_SYMBOL(gen_new_estimator);
-+EXPORT_SYMBOL(gen_kill_estimator);
++
++Rate Estimator:
++--------------
++
++0) Prepare an estimator attribute. Most likely this would be in user
++   space. The value of this TLV should contain a tc_estimator structure.
++   As usual, such a TLV nees to be 32 bit aligned and therefore the
++   length needs to be appropriately set etc. The estimator interval
++   and ewma log need to be converted to the appropriate values.
++   tc_estimator.c::tc_setup_estimator() is advisable to be used as the
++   conversion routine. It does a few clever things. It takes a time
++   interval in microsecs, a time constant also in microsecs and a struct
++   tc_estimator to  be populated. The returned tc_estimator can be
++   transported to the kernel.  Transfer such a structure in a TLV of type
++   TCA_RATE to your code in the kernel.
++
++In the kernel when setting up:
++1) make sure you have basic stats and rate stats setup first.
++2) make sure you have initialized stats lock that is used to setup such
++   stats.
++3) Now initialize a new estimator:
++
++   int ret = gen_new_estimator(my_basicstats,my_rate_est_stats,
++       mystats_lock, attr_with_tcestimator_struct);
++
++   if ret == 0
++       success
++   else
++       failed
++
++From now on, everytime you dump my_rate_est_stats it will contain
++uptodate info.
++
++Once you are done, call gen_kill_estimator(my_basicstats,
++my_rate_est_stats) Make sure that my_basicstats and my_rate_est_stats
++are still valid (i.e still exist) at the time of making this call.
++
++
++Authors:
++--------
++Thomas Graf <tgraf@suug.ch>
++Jamal Hadi Salim <hadi@cyberus.ca>
