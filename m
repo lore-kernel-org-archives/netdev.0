@@ -1,34 +1,53 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] 2.6.0-bk6 net/core/dev.c
-Date: Thu, 25 Sep 2003 03:01:09 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030925030109.09bbedca.davem@redhat.com>
-References: <Pine.LNX.4.44.0309241012110.3178-100000@home.osdl.org>
-	<1064423867.15283.11.camel@localhost.localdomain>
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Subject: Re: [netfilter-core] Re: [Patch]: IPv6 Connection Tracking
+Date: Thu, 25 Sep 2003 12:50:51 +0200 (CEST)
+Sender: netfilter-devel-admin@lists.netfilter.org
+Message-ID: <Pine.LNX.4.33.0309251242380.27573-100000@blackhole.kfki.hu>
+References: <20030925092806.GC5758@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: torvalds@osdl.org, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Joe Perches <joe@perches.com>
-In-Reply-To: <1064423867.15283.11.camel@localhost.localdomain>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Yasuyuki Kozakai <yasuyuki.kozakai@toshiba.co.jp>,
+	<coreteam@netfilter.org>, <netfilter-devel@lists.netfilter.org>,
+	<netdev@oss.sgi.com>, <usagi-core@linux-ipv6.org>
+Return-path: <netfilter-devel-admin@lists.netfilter.org>
+To: Harald Welte <laforge@netfilter.org>
+In-Reply-To: <20030925092806.GC5758@sunbeam.de.gnumonks.org>
+Errors-To: netfilter-devel-admin@lists.netfilter.org
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: <https://lists.netfilter.org/pipermail/netfilter-devel/>
 List-Id: netdev.vger.kernel.org
 
-On Wed, 24 Sep 2003 10:17:47 -0700
-Joe Perches <joe@perches.com> wrote:
+On Thu, 25 Sep 2003, Harald Welte wrote:
 
-> On Wed, 2003-09-24 at 10:13, Linus Torvalds wrote:
-> > Looks sane, but wouldn't it be cleaner to put this ugly special case logic
-> > with casts etc in an inline function and make the code a bit more readable
-> > at the same time?
-> 
-> I've got those.
-> 
-> I've done the ((void*)1) conversions to PKT_SHARED_SKBs
-> and found this missing.  I'll submit those separately.
+> However, we are now facing the problem on how we want to proceed.
 
-Send me what you have and I'll review and apply it.
+I completely agree with Harald and does not like the idea of adding
+(more) duplicated code to the system. There are already too much
+duplication between IPv4/IPv6 at netfilter level, which must be sorted
+out.
 
-I haven't accomplished anything today because I've been sick,
-but tomorrow I should be back to full speed once more.
+> 1) submit ip6_conntrack to the 2.6.x kernel
+>    We would then need somebody committe to maintaining it, assuring
+>    it keeps in sync with the work done on ip_conntrack.  I do not want
+>    to put the burden of ip_conntrack / ip6_conntrack synchronization on
+>    everybody who submits patches/bugfixes/...
+>
+> 2) keep ip6_conntrack in patch-o-matic and start work on a l3
+>    independent conntrack system.
+>    This would give more users to the code, since most advanced
+>    netfilter users are using patch-o-matic anyway.
+
+Yes, let's go with the latter solution.
+
+Best regards,
+Jozsef
+-
+E-mail  : kadlec@blackhole.kfki.hu, kadlec@sunserv.kfki.hu
+PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
+Address : KFKI Research Institute for Particle and Nuclear Physics
+          H-1525 Budapest 114, POB. 49, Hungary
