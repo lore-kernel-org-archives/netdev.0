@@ -1,219 +1,51 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 2.6.7-mm1 1/4] via-velocity: Rx buffers allocation rework
-Date: Mon, 21 Jun 2004 23:56:15 +0200
+Subject: [PATCH 2.6.7-mm1 4/4] via-velocity: unneeded forward declarations
+Date: Tue, 22 Jun 2004 00:01:11 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040621235615.A7869@electric-eye.fr.zoreil.com>
+Message-ID: <20040622000111.C9979@electric-eye.fr.zoreil.com>
+References: <20040621235615.A7869@electric-eye.fr.zoreil.com> <20040621235808.A9979@electric-eye.fr.zoreil.com> <20040621235946.B9979@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: alan@redhat.com, akpm@osdl.org, jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Content-Disposition: inline
+In-Reply-To: <20040621235946.B9979@electric-eye.fr.zoreil.com>; from romieu@fr.zoreil.com on Mon, Jun 21, 2004 at 11:59:46PM +0200
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-Rework of the Rx buffers allocation:
-- Rx irq handler (velocity_rx_srv): defer the Rx buffer allocation until
-  the packet processing loop is done;
-- a separate index related to the Rx descriptor ("rd_dirty") is introduced
-  to distinguish the first Rx descriptor whose buffer has to be refilled.
-  This way the driver does not need to confuse this descriptor with the
-  most recently netif()ed one. Rationale: batch + rx_copybreak;
-- dirty/empty Rx descriptors are identified through the whole driver
-  via an adequate NULL pointer in the velocity_rd_info[] array (see
-  velocity_rx_refill() and velocity_receive_frame());
-- Rx descriptors need to be grouped by a multiple of 4 before they can
-  be handed back to the asic (hardware constraint). This task is moved
-  from the Rx processing loop to the Rx refill function;
-- factorization of code in velocity_init_rd_ring().
+Removal of unneeded forward declarations.
 
-diff -puN drivers/net/via-velocity.c~via-velocity-50 drivers/net/via-velocity.c
---- linux-2.6.7/drivers/net/via-velocity.c~via-velocity-50	2004-06-21 21:38:34.000000000 +0200
-+++ linux-2.6.7-fr/drivers/net/via-velocity.c	2004-06-21 21:40:41.000000000 +0200
-@@ -482,7 +482,7 @@ static void velocity_rx_reset(struct vel
- 	struct mac_regs * regs = vptr->mac_regs;
- 	int i;
+diff -puN drivers/net/via-velocity.c~via-velocity-100 drivers/net/via-velocity.c
+--- linux-2.6.7/drivers/net/via-velocity.c~via-velocity-100	2004-06-21 22:20:53.000000000 +0200
++++ linux-2.6.7-fr/drivers/net/via-velocity.c	2004-06-21 23:46:19.000000000 +0200
+@@ -230,7 +230,6 @@ static int rx_copybreak = 200;
+ MODULE_PARM(rx_copybreak, "i");
+ MODULE_PARM_DESC(rx_copybreak, "Copy breakpoint for copy-only-tiny-frames");
  
--	vptr->rd_used = vptr->rd_curr = 0;
-+	vptr->rd_dirty = vptr->rd_filled = vptr->rd_curr = 0;
+-static int velocity_found1(struct pci_dev *pdev, const struct pci_device_id *ent);
+ static void velocity_init_info(struct pci_dev *pdev, struct velocity_info *vptr, struct velocity_info_tbl *info);
+ static int velocity_get_pci_info(struct velocity_info *, struct pci_dev *pdev);
+ static void velocity_print_info(struct velocity_info *vptr);
+@@ -242,10 +241,8 @@ static void velocity_set_multi(struct ne
+ static struct net_device_stats *velocity_get_stats(struct net_device *dev);
+ static int velocity_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
+ static int velocity_close(struct net_device *dev);
+-static int velocity_rx_srv(struct velocity_info *vptr, int status);
+ static int velocity_receive_frame(struct velocity_info *, int idx);
+ static int velocity_alloc_rx_buf(struct velocity_info *, int idx);
+-static void velocity_init_registers(struct velocity_info *vptr, enum velocity_init_type type);
+ static void velocity_free_rd_ring(struct velocity_info *vptr);
+ static void velocity_free_tx_buf(struct velocity_info *vptr, struct velocity_td_info *);
+ static int velocity_soft_reset(struct velocity_info *vptr);
+@@ -260,7 +257,6 @@ static int velocity_mii_read(struct mac_
+ static int velocity_mii_write(struct mac_regs *, u8 byMiiAddr, u16 data);
+ static u32 mii_check_media_mode(struct mac_regs * regs);
+ static u32 check_connection_type(struct mac_regs * regs);
+-static void velocity_init_cam_filter(struct velocity_info *vptr);
+ static int velocity_set_media_mode(struct velocity_info *vptr, u32 mii_status);
  
- 	/*
- 	 *	Init state, all RD entries belong to the NIC
-@@ -977,6 +977,49 @@ static void velocity_free_rings(struct v
- 	pci_free_consistent(vptr->pdev, size, vptr->tx_bufs, vptr->tx_bufs_dma);
- }
- 
-+static inline void velocity_give_many_rx_descs(struct velocity_info *vptr)
-+{
-+	struct mac_regs *regs = vptr->mac_regs;
-+	int avail, dirty, unusable;
-+
-+	/*
-+	 * RD number must be equal to 4X per hardware spec
-+	 * (programming guide rev 1.20, p.13)
-+	 */
-+	if (vptr->rd_filled < 4)
-+		return;
-+
-+	unusable = vptr->rd_filled | 0x0003;
-+	dirty = vptr->rd_dirty - unusable + 1;
-+	for (avail = vptr->rd_filled & 0xfffc; avail; avail--) {
-+		dirty = (dirty > 0) ? dirty - 1 : vptr->options.numrx - 1;
-+		velocity_give_rx_desc(vptr->rd_ring + dirty);
-+	}
-+
-+	writew(vptr->rd_filled & 0xfffc, &regs->RBRDU);
-+	vptr->rd_filled = unusable;
-+}
-+
-+static int velocity_rx_refill(struct velocity_info *vptr)
-+{
-+	int dirty = vptr->rd_dirty, done = 0, ret = 0;
-+
-+	while (!vptr->rd_info[dirty].skb) {
-+		ret = velocity_alloc_rx_buf(vptr, dirty);
-+		if (ret < 0)
-+			break;
-+		done++;
-+		dirty = (dirty < vptr->options.numrx - 1) ? dirty + 1 : 0;	
-+	}
-+	if (done) {
-+		vptr->rd_dirty = dirty;
-+		vptr->rd_filled += done;
-+		velocity_give_many_rx_descs(vptr);
-+	}
-+
-+	return ret;
-+}
-+
- /**
-  *	velocity_init_rd_ring	-	set up receive ring
-  *	@vptr: velocity to configure
-@@ -987,9 +1030,7 @@ static void velocity_free_rings(struct v
- 
- static int velocity_init_rd_ring(struct velocity_info *vptr)
- {
--	int i, ret = -ENOMEM;
--	struct rx_desc *rd;
--	struct velocity_rd_info *rd_info;
-+	int ret = -ENOMEM;
- 	unsigned int rsize = sizeof(struct velocity_rd_info) * 
- 					vptr->options.numrx;
- 
-@@ -998,22 +1039,14 @@ static int velocity_init_rd_ring(struct 
- 		goto out;
- 	memset(vptr->rd_info, 0, rsize);
- 
--	/* Init the RD ring entries */
--	for (i = 0; i < vptr->options.numrx; i++) {
--		rd = &(vptr->rd_ring[i]);
--		rd_info = &(vptr->rd_info[i]);
-+	vptr->rd_filled = vptr->rd_dirty = vptr->rd_curr = 0;
- 
--		ret = velocity_alloc_rx_buf(vptr, i);
--		if (ret < 0) {
--			VELOCITY_PRT(MSG_LEVEL_ERR, KERN_ERR
--				"%s: failed to allocate RX buffer.\n", 
--				vptr->dev->name);
--			velocity_free_rd_ring(vptr);
--			goto out;
--		}
--		velocity_give_rx_desc(rd);
-+	ret = velocity_rx_refill(vptr);
-+	if (ret < 0) {
-+		VELOCITY_PRT(MSG_LEVEL_ERR, KERN_ERR
-+			"%s: failed to allocate RX buffer.\n", vptr->dev->name);
-+		velocity_free_rd_ring(vptr);
- 	}
--	vptr->rd_used = vptr->rd_curr = 0;
- out:
- 	return ret;
- }
-@@ -1157,22 +1190,14 @@ static void velocity_free_td_ring(struct
-  
- static int velocity_rx_srv(struct velocity_info *vptr, int status)
- {
--	struct rx_desc *rd;
- 	struct net_device_stats *stats = &vptr->stats;
--	struct mac_regs * regs = vptr->mac_regs;
- 	int rd_curr = vptr->rd_curr;
- 	int works = 0;
- 
- 	while (1) {
-+		struct rx_desc *rd = vptr->rd_ring + rd_curr;
- 
--		rd = &(vptr->rd_ring[rd_curr]);
--
--		if ((vptr->rd_info[rd_curr]).skb == NULL) {
--			if (velocity_alloc_rx_buf(vptr, rd_curr) < 0)
--				break;
--		}
--
--		if (works++ > 15)
-+		if (!vptr->rd_info[rd_curr].skb || (works++ > 15))
- 			break;
- 
- 		if (rd->rdesc0.owner == OWNED_BY_NIC)
-@@ -1183,14 +1208,8 @@ static int velocity_rx_srv(struct veloci
- 		 *	FIXME: need to handle copybreak
- 		 */
- 		if ((rd->rdesc0.RSR & RSR_RXOK) || (!(rd->rdesc0.RSR & RSR_RXOK) && (rd->rdesc0.RSR & (RSR_CE | RSR_RL)))) {
--			if (velocity_receive_frame(vptr, rd_curr) == 0) {
--				if (velocity_alloc_rx_buf(vptr, rd_curr) < 0) {
--					VELOCITY_PRT(MSG_LEVEL_ERR, KERN_ERR "%s: can not allocate rx buf\n", vptr->dev->name);
--					break;
--				}
--			} else {
-+			if (velocity_receive_frame(vptr, rd_curr) < 0)
- 				stats->rx_dropped++;
--			}
- 		} else {
- 			if (rd->rdesc0.RSR & RSR_CRC)
- 				stats->rx_crc_errors++;
-@@ -1202,24 +1221,18 @@ static int velocity_rx_srv(struct veloci
- 
- 		rd->inten = 1;
- 
--		if (++vptr->rd_used >= 4) {
--			int i, rd_prev = rd_curr;
--			for (i = 0; i < 4; i++) {
--				if (--rd_prev < 0)
--					rd_prev = vptr->options.numrx - 1;
--
--				velocity_give_rx_desc(vptr->rd_ring + rd_prev);
--			}
--			writew(4, &(regs->RBRDU));
--			vptr->rd_used -= 4;
--		}
--
- 		vptr->dev->last_rx = jiffies;
- 
- 		rd_curr++;
- 		if (rd_curr >= vptr->options.numrx)
- 			rd_curr = 0;
- 	}
-+
-+	if (velocity_rx_refill(vptr) < 0) {
-+		VELOCITY_PRT(MSG_LEVEL_ERR, KERN_ERR
-+			"%s: rx buf allocation failure\n", vptr->dev->name);
-+	}
-+
- 	vptr->rd_curr = rd_curr;
- 	VAR_USED(stats);
- 	return works;
-diff -puN drivers/net/via-velocity.h~via-velocity-50 drivers/net/via-velocity.h
---- linux-2.6.7/drivers/net/via-velocity.h~via-velocity-50	2004-06-21 21:38:34.000000000 +0200
-+++ linux-2.6.7-fr/drivers/net/via-velocity.h	2004-06-21 21:38:34.000000000 +0200
-@@ -1771,7 +1771,8 @@ struct velocity_info {
- 	struct velocity_td_info *td_infos[TX_QUEUE_NO];
- 
- 	int rd_curr;
--	int rd_used;
-+	int rd_dirty;
-+	u32 rd_filled;
- 	struct rx_desc *rd_ring;
- 	struct velocity_rd_info *rd_info;	/* It's an array */
- 
+ #ifdef CONFIG_PM
 
 _
