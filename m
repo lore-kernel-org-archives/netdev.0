@@ -1,25 +1,34 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH 2.5.70] remove if_port_text
-Date: Thu, 29 May 2003 20:15:23 -0700 (PDT)
+Subject: Re: [PATCH] post-sysfs netdev cleanup
+Date: Sun, 25 May 2003 19:24:17 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030529.201523.83619362.davem@redhat.com>
-References: <20030529104138.751a1f54.shemminger@osdl.org>
-	<20030529.140828.78714529.davem@redhat.com>
-	<20030529142820.5f657d77.shemminger@osdl.org>
+Message-ID: <20030525.192417.102551586.davem@redhat.com>
+References: <3ECD6E2D.5090000@rogers.com>
+	<20030522.174415.28799441.davem@redhat.com>
+	<3ECEB317.5020407@osdl.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, scott.feldman@intel.com, netdev@oss.sgi.com
+Cc: muizelaar@rogers.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: shemminger@osdl.org
-In-Reply-To: <20030529142820.5f657d77.shemminger@osdl.org>
+In-Reply-To: <3ECEB317.5020407@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
    From: Stephen Hemminger <shemminger@osdl.org>
-   Date: Thu, 29 May 2003 14:28:20 -0700
+   Date: Fri, 23 May 2003 16:47:35 -0700
 
-   Eliminate necrophilic code, net-sysfs shouldn't support deprecated
-   if_port.  Since nowhere else is using if_port_text, eliminate it.
+   Seems like a good idea too.
    
-Applied, thanks Stephen.
+Ok, great.
+
+Stephen, I think we need to find a way to put the device
+registration call outside of the RTNL semaphore.  I removed
+in the unregister case, but to be complete we have to push it out in
+the register path too.
+
+The reason for all of these issues is that link_watch grabs the RTNL
+semaphore, and this runs via keventd.  Thus, trying to invoke any
+usermode helper (/sbin/hotplug etc.) while holding the RTNL semaphore
+can deadlock.
