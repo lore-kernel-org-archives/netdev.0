@@ -1,45 +1,30 @@
-From: vscan@mail.prima.de
-Subject: VIRUS IN DEINER MAIL
-Date: Sat, 23 Aug 2003 11:20:51 +0200 (CEST)
+From: Vinay K Nallamothu <vinay-rc@naturesoft.net>
+Subject: [PATCH 2.6.0-test4][NET] 3c509.c: remove device.name field
+Date: 23 Aug 2003 18:43:29 +0530
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030823092051.A760D45BB1@steve.prima.de>
-Reply-To: admin@prima.de
+Message-ID: <1061644409.1141.18.camel@lima.royalchallenge.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-                           V I R U S  A L A R M
+Hi,
 
-Unser eMail-Virenscanner hat den/die Virus(e)
+This patch removes the device name field which is no longer present.
 
-	Worm/Sobig.F virus
 
-in Deiner Mail an:
-
--> jano@layla.robin.de.uucp
-
-gefunden.
-Bitte ueberpruefe Dein System, ob Du einen Virus "eingefangen" hast,
-oder bitte Deinen Administrator, dies zu tun.
-
-Um Dir einen Ueberblick zu geben sind hier die Header Deiner Mail:
-
-------------------------- BEGINN HEADER -----------------------------
-Received: from YZC (unknown [218.79.139.244])
-	by steve.prima.de (Postfix) with ESMTP id 5244945A4C
-	for <jano@layla.RoBIN.de>; Sat, 23 Aug 2003 11:20:24 +0200 (CEST)
-From: <netdev@oss.sgi.com>
-To: <jano@layla.RoBIN.de>
-Subject: Thank you!
-Date: Sat, 23 Aug 2003 17:16:22 +0800
-X-MailScanner: Found to be clean
-Importance: Normal
-X-Mailer: Microsoft Outlook Express 6.00.2600.0000
-X-MSMail-Priority: Normal
-X-Priority: 3 (Normal)
-MIME-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="_NextPart_000_01405A9E"
-Message-Id: <20030823092024.5244945A4C@steve.prima.de>
--------------------------- ENDE HEADER ------------------------------
+--- linux-2.6.0-test4/drivers/net/3c509.c	2003-08-23 13:14:30.000000000 +0530
++++ linux-2.6.0-test4-nvk/drivers/net/3c509.c	2003-08-23 18:34:35.000000000 +0530
+@@ -629,8 +629,6 @@
+ 			   el3_mca_adapter_names[mdev->index], slot + 1);
+ 
+ 		/* claim the slot */
+-		strncpy(device->name, el3_mca_adapter_names[mdev->index],
+-				sizeof(device->name));
+ 		mca_device_set_claim(mdev, 1);
+ 
+ 		if_port = pos4 & 0x03;
