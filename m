@@ -1,16 +1,16 @@
 From: David Gibson <hermes-xT8FGy+AXnRB3Ne2BGzF6laj5H9X9Tb+@public.gmane.org>
-Subject: [1/8] orinoco driver updates
-Date: Wed, 12 Jan 2005 16:24:34 +1100
-Message-ID: <20050112052434.GB30426@localhost.localdomain>
-References: <20050112052352.GA30426@localhost.localdomain>
+Subject: [6/8] orinoco: Cleanup PCMCIA/PC-Card code
+Date: Wed, 12 Jan 2005 16:28:14 +1100
+Message-ID: <20050112052814.GG30426@localhost.localdomain>
+References: <20050112052352.GA30426@localhost.localdomain> <20050112052434.GB30426@localhost.localdomain> <20050112052543.GC30426@localhost.localdomain> <20050112052630.GD30426@localhost.localdomain> <20050112052711.GE30426@localhost.localdomain> <20050112052741.GF30426@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-VZNHf3L845pBDgjK7y7TUQ@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Return-path: <orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-To: Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
+To: Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>,
+	orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-VZNHf3L845pBDgjK7y7TUQ@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Content-Disposition: inline
-In-Reply-To: <20050112052352.GA30426-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
+In-Reply-To: <20050112052741.GF30426-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
 Sender: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Errors-To: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
@@ -22,580 +22,176 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=orinoco-devel>
 List-Id: netdev.vger.kernel.org
 
-Reformats printk()s, comments, labels and other cosmetic strings in
-the orinoco driver.  Also moves, removes, and adds ratelimiting in
-some places.  Behavioural changes are trivial/cosmetic only.  This
-reduces the cosmetic/trivial differences between the current kernel
-version, and the CVS version of the driver; one small step towards
-full merge.
+Cleanup the various bits of initialization code for PCMCIA / PC-Card
+orinoco devices.  This includes one important bugfix where we could
+fail to take the lock in some circumstances.
 
 Signed-off-by: David Gibson <hermes-xT8FGy+AXnRB3Ne2BGzF6laj5H9X9Tb+@public.gmane.org>
 
-Index: working-2.6/drivers/net/wireless/hermes.c
-===================================================================
---- working-2.6.orig/drivers/net/wireless/hermes.c	2005-01-12 11:13:41.000000000 +1100
-+++ working-2.6/drivers/net/wireless/hermes.c	2005-01-12 14:47:25.791170120 +1100
-@@ -48,6 +48,7 @@
- #include <linux/delay.h>
- #include <linux/init.h>
- #include <linux/kernel.h>
-+#include <linux/net.h>
- #include <asm/errno.h>
- 
- #include "hermes.h"
-@@ -232,13 +233,16 @@
- 	err = hermes_issue_cmd(hw, cmd, parm0);
- 	if (err) {
- 		if (! hermes_present(hw)) {
--			printk(KERN_WARNING "hermes @ %p: "
--			       "Card removed while issuing command.\n",
--			       hw->iobase);
-+			if (net_ratelimit())
-+				printk(KERN_WARNING "hermes @ %p: "
-+				       "Card removed while issuing command "
-+				       "0x%04x.\n", hw->iobase, cmd);
- 			err = -ENODEV;
- 		} else 
--			printk(KERN_ERR "hermes @ %p: Error %d issuing command.\n",
--			       hw->iobase, err);
-+			if (net_ratelimit())
-+				printk(KERN_ERR "hermes @ %p: "
-+				       "Error %d issuing command 0x%04x.\n",
-+				       hw->iobase, err, cmd);
- 		goto out;
- 	}
- 
-@@ -251,17 +255,16 @@
- 	}
- 
- 	if (! hermes_present(hw)) {
--		printk(KERN_WARNING "hermes @ %p: "
--		       "Card removed while waiting for command completion.\n",
--		       hw->iobase);
-+		printk(KERN_WARNING "hermes @ %p: Card removed "
-+		       "while waiting for command 0x%04x completion.\n",
-+		       hw->iobase, cmd);
- 		err = -ENODEV;
- 		goto out;
- 	}
- 		
- 	if (! (reg & HERMES_EV_CMD)) {
--		printk(KERN_ERR "hermes @ %p: "
--		       "Timeout waiting for command completion.\n",
--		       hw->iobase);
-+		printk(KERN_ERR "hermes @ %p: Timeout waiting for "
-+		       "command 0x%04x completion.\n", hw->iobase, cmd);
- 		err = -ETIMEDOUT;
- 		goto out;
- 	}
-@@ -481,14 +484,13 @@
- 		*length = rlength;
- 
- 	if (rtype != rid)
--		printk(KERN_WARNING "hermes @ %p: "
--		       "hermes_read_ltv(): rid  (0x%04x) does not match type (0x%04x)\n",
--		       hw->iobase, rid, rtype);
-+		printk(KERN_WARNING "hermes @ %p: %s(): "
-+		       "rid (0x%04x) does not match type (0x%04x)\n",
-+		       hw->iobase, __FUNCTION__, rid, rtype);
- 	if (HERMES_RECLEN_TO_BYTES(rlength) > bufsize)
- 		printk(KERN_WARNING "hermes @ %p: "
- 		       "Truncating LTV record from %d to %d bytes. "
--		       "(rid=0x%04x, len=0x%04x)\n",
--		       hw->iobase,
-+		       "(rid=0x%04x, len=0x%04x)\n", hw->iobase,
- 		       HERMES_RECLEN_TO_BYTES(rlength), bufsize, rid, rlength);
- 
- 	nwords = min((unsigned)rlength - 1, bufsize / 2);
-Index: working-2.6/drivers/net/wireless/orinoco_pci.c
-===================================================================
---- working-2.6.orig/drivers/net/wireless/orinoco_pci.c	2005-01-12 11:13:41.000000000 +1100
-+++ working-2.6/drivers/net/wireless/orinoco_pci.c	2005-01-12 14:47:25.792169968 +1100
-@@ -151,24 +151,18 @@
- 
- 	/* Assert the reset until the card notice */
- 	hermes_write_regn(hw, PCI_COR, HERMES_PCI_COR_MASK);
--	printk(KERN_NOTICE "Reset done");
- 	timeout = jiffies + (HERMES_PCI_COR_ONT * HZ / 1000);
- 	while(time_before(jiffies, timeout)) {
--		printk(".");
- 		mdelay(1);
- 	}
--	printk(";\n");
- 	//mdelay(HERMES_PCI_COR_ONT);
- 
- 	/* Give time for the card to recover from this hard effort */
- 	hermes_write_regn(hw, PCI_COR, 0x0000);
--	printk(KERN_NOTICE "Clear Reset");
- 	timeout = jiffies + (HERMES_PCI_COR_OFFT * HZ / 1000);
- 	while(time_before(jiffies, timeout)) {
--		printk(".");
- 		mdelay(1);
- 	}
--	printk(";\n");
- 	//mdelay(HERMES_PCI_COR_OFFT);
- 
- 	/* The card is ready when it's no longer busy */
-@@ -183,7 +177,6 @@
- 		printk(KERN_ERR PFX "Busy timeout\n");
- 		return -ETIMEDOUT;
- 	}
--	printk(KERN_NOTICE "pci_cor : reg = 0x%X - %lX - %lX\n", reg, timeout, jiffies);
- 
- 	return 0;
- }
-@@ -202,15 +195,19 @@
- 	struct net_device *dev = NULL;
- 
- 	err = pci_enable_device(pdev);
--	if (err)
--		return -EIO;
-+	if (err) {
-+		printk(KERN_ERR PFX "Cannot enable PCI device\n");
-+		return err;
-+	}
- 
- 	/* Resource 0 is mapped to the hermes registers */
- 	pci_iorange = pci_resource_start(pdev, 0);
- 	pci_iolen = pci_resource_len(pdev, 0);
- 	pci_ioaddr = ioremap(pci_iorange, pci_iolen);
--	if (! pci_iorange)
-+	if (! pci_iorange) {
-+		printk(KERN_ERR PFX "Cannot remap hardware registers\n");
- 		goto fail;
-+	}
- 
- 	/* Allocate network device */
- 	dev = alloc_orinocodev(0, NULL);
-@@ -226,18 +223,16 @@
- 	SET_MODULE_OWNER(dev);
- 	SET_NETDEV_DEV(dev, &pdev->dev);
- 
--	printk(KERN_DEBUG PFX
--	       "Detected Orinoco/Prism2 PCI device at %s, mem:0x%lX to 0x%lX -> 0x%p, irq:%d\n",
--	       pci_name(pdev), dev->mem_start, dev->mem_end, pci_ioaddr, pdev->irq);
--
- 	hermes_struct_init(&priv->hw, pci_ioaddr, HERMES_32BIT_REGSPACING);
- 	pci_set_drvdata(pdev, dev);
- 
-+	printk(KERN_DEBUG PFX "Detected device %s, mem:0x%lx-0x%lx, irq %d\n",
-+	       pci_name(pdev), dev->mem_start, dev->mem_end, pdev->irq);
-+
- 	err = request_irq(pdev->irq, orinoco_interrupt, SA_SHIRQ,
- 			  dev->name, dev);
- 	if (err) {
--		printk(KERN_ERR PFX "Error allocating IRQ %d.\n",
--		       pdev->irq);
-+		printk(KERN_ERR PFX "Cannot allocate IRQ %d\n", pdev->irq);
- 		err = -EBUSY;
- 		goto fail;
- 	}
-@@ -245,7 +240,7 @@
- 
- 	/* Perform a COR reset to start the card */
- 	if(orinoco_pci_cor_reset(priv) != 0) {
--		printk(KERN_ERR "%s: Failed to start the card\n", dev->name);
-+		printk(KERN_ERR PFX "Initial reset failed\n");
- 		err = -ETIMEDOUT;
- 		goto fail;
- 	}
-@@ -256,7 +251,7 @@
- 
- 	err = register_netdev(dev);
- 	if (err) {
--		printk(KERN_ERR "%s: Failed to register net device\n", dev->name);
-+		printk(KERN_ERR PFX "Failed to register net device\n");
- 		goto fail;
- 	}
- 
-Index: working-2.6/drivers/net/wireless/orinoco.h
-===================================================================
---- working-2.6.orig/drivers/net/wireless/orinoco.h	2005-01-12 11:13:41.000000000 +1100
-+++ working-2.6/drivers/net/wireless/orinoco.h	2005-01-12 14:47:25.792169968 +1100
-@@ -127,7 +127,7 @@
- {
- 	spin_lock_irqsave(&priv->lock, *flags);
- 	if (priv->hw_unavailable) {
--		printk(KERN_DEBUG "orinoco_lock() called with hw_unavailable (dev=%p)\n",
-+		DEBUG(1, "orinoco_lock() called with hw_unavailable (dev=%p)\n",
- 		       priv->ndev);
- 		spin_unlock_irqrestore(&priv->lock, *flags);
- 		return -EBUSY;
-Index: working-2.6/drivers/net/wireless/orinoco_tmd.c
-===================================================================
---- working-2.6.orig/drivers/net/wireless/orinoco_tmd.c	2005-01-12 11:13:41.000000000 +1100
-+++ working-2.6/drivers/net/wireless/orinoco_tmd.c	2005-01-12 14:47:25.793169816 +1100
-@@ -92,8 +92,10 @@
- 	void __iomem *mem;
- 
- 	err = pci_enable_device(pdev);
--	if (err)
-+	if (err) {
-+		printk(KERN_ERR PFX "Cannot enable PCI device\n");
- 		return -EIO;
-+	}
- 
- 	printk(KERN_DEBUG PFX "TMD setup\n");
- 	pccard_ioaddr = pci_resource_start(pdev, 2);
-@@ -117,6 +119,7 @@
- 	/* Allocate network device */
- 	dev = alloc_orinocodev(0, NULL);
- 	if (! dev) {
-+		printk(KERN_ERR PFX "Cannot allocate network device\n");
- 		err = -ENOMEM;
- 		goto out2;
- 	}
-@@ -132,26 +135,27 @@
- 	SET_MODULE_OWNER(dev);
- 	SET_NETDEV_DEV(dev, &pdev->dev);
- 
-+	hermes_struct_init(&priv->hw, mem, HERMES_16BIT_REGSPACING);
-+	pci_set_drvdata(pdev, dev);
-+
- 	printk(KERN_DEBUG PFX "Detected Orinoco/Prism2 TMD device "
- 	       "at %s irq:%d, io addr:0x%lx\n", pci_name(pdev), pdev->irq,
- 	       pccard_ioaddr);
- 
--	hermes_struct_init(&(priv->hw), mem, HERMES_16BIT_REGSPACING);
--	pci_set_drvdata(pdev, dev);
--
- 	err = request_irq(pdev->irq, orinoco_interrupt, SA_SHIRQ,
- 			  dev->name, dev);
- 	if (err) {
--		printk(KERN_ERR PFX "Error allocating IRQ %d.\n",
--		       pdev->irq);
-+		printk(KERN_ERR PFX "Cannot allocate IRQ %d\n", pdev->irq);
- 		err = -EBUSY;
- 		goto out4;
- 	}
- 	dev->irq = pdev->irq;
- 
- 	err = register_netdev(dev);
--	if (err)
-+	if (err) {
-+		printk(KERN_ERR PFX "Cannot register network device\n");
- 		goto out5;
-+	}
- 
- 	return 0;
- 
 Index: working-2.6/drivers/net/wireless/orinoco_cs.c
 ===================================================================
---- working-2.6.orig/drivers/net/wireless/orinoco_cs.c	2005-01-12 11:13:41.000000000 +1100
-+++ working-2.6/drivers/net/wireless/orinoco_cs.c	2005-01-12 14:47:25.793169816 +1100
-@@ -405,7 +405,7 @@
- 		last_ret = pcmcia_get_next_tuple(handle, &tuple);
- 		if (last_ret  == CS_NO_MORE_ITEMS) {
- 			printk(KERN_ERR PFX "GetNextTuple(): No matching "
--			       "CIS configuration, maybe you need the "
-+			       "CIS configuration.  Maybe you need the "
- 			       "ignore_cis_vcc=1 parameter.\n");
- 			goto cs_failed;
- 		}
-Index: working-2.6/drivers/net/wireless/airport.c
-===================================================================
---- working-2.6.orig/drivers/net/wireless/airport.c	2005-01-12 11:13:41.000000000 +1100
-+++ working-2.6/drivers/net/wireless/airport.c	2005-01-12 14:47:25.793169816 +1100
-@@ -28,7 +28,6 @@
- #include <linux/if_arp.h>
- #include <linux/etherdevice.h>
- #include <linux/wireless.h>
--#include <linux/delay.h>
+--- working-2.6.orig/drivers/net/wireless/orinoco_cs.c	2005-01-12 15:34:50.847655792 +1100
++++ working-2.6/drivers/net/wireless/orinoco_cs.c	2004-11-05 14:31:07.000000000 +1100
+@@ -54,19 +54,11 @@
  
- #include <asm/io.h>
- #include <asm/system.h>
-@@ -194,14 +193,14 @@
- 	hermes_t *hw;
+ /* Module parameters */
  
- 	if (macio_resource_count(mdev) < 1 || macio_irq_count(mdev) < 1) {
--		printk(KERN_ERR PFX "wrong interrupt/addresses in OF tree\n");
-+		printk(KERN_ERR PFX "Wrong interrupt/addresses in OF tree\n");
- 		return -ENODEV;
- 	}
- 
- 	/* Allocate space for private device-specific data */
- 	dev = alloc_orinocodev(sizeof(*card), airport_hard_reset);
- 	if (! dev) {
--		printk(KERN_ERR PFX "can't allocate device datas\n");
-+		printk(KERN_ERR PFX "Cannot allocate network device\n");
- 		return -ENODEV;
- 	}
- 	priv = netdev_priv(dev);
-@@ -224,11 +223,11 @@
- 	/* Setup interrupts & base address */
- 	dev->irq = macio_irq(mdev, 0);
- 	phys_addr = macio_resource_start(mdev, 0);  /* Physical address */
--	printk(KERN_DEBUG PFX "Airport at physical address %lx\n", phys_addr);
-+	printk(KERN_DEBUG PFX "Physical address %lx\n", phys_addr);
- 	dev->base_addr = phys_addr;
- 	card->vaddr = ioremap(phys_addr, AIRPORT_IO_LEN);
- 	if (!card->vaddr) {
--		printk(PFX "ioremap() failed\n");
-+		printk(KERN_ERR PFX "ioremap() failed\n");
- 		goto failed;
- 	}
- 
-@@ -241,7 +240,7 @@
- 	/* Reset it before we get the interrupt */
- 	hermes_init(hw);
- 
--	if (request_irq(dev->irq, orinoco_interrupt, 0, "Airport", dev)) {
-+	if (request_irq(dev->irq, orinoco_interrupt, 0, dev->name, dev)) {
- 		printk(KERN_ERR PFX "Couldn't get IRQ %d\n", dev->irq);
- 		goto failed;
- 	}
-@@ -252,7 +251,7 @@
- 		printk(KERN_ERR PFX "register_netdev() failed\n");
- 		goto failed;
- 	}
--	printk(KERN_DEBUG PFX "card registered for interface %s\n", dev->name);
-+	printk(KERN_DEBUG PFX "Card registered for interface %s\n", dev->name);
- 	card->ndev_registered = 1;
- 	return 0;
-  failed:
-Index: working-2.6/drivers/net/wireless/orinoco_plx.c
-===================================================================
---- working-2.6.orig/drivers/net/wireless/orinoco_plx.c	2005-01-12 11:13:41.000000000 +1100
-+++ working-2.6/drivers/net/wireless/orinoco_plx.c	2005-01-12 14:48:57.890168944 +1100
-@@ -167,15 +167,17 @@
- 	int i;
- 
- 	err = pci_enable_device(pdev);
--	if (err)
-+	if (err) {
-+		printk(KERN_ERR PFX "Cannot enable PCI device\n");
- 		return -EIO;
-+	}
- 
- 	/* Resource 2 is mapped to the PCMCIA space */
- 	attr_mem = ioremap(pci_resource_start(pdev, 2), PAGE_SIZE);
- 	if (!attr_mem)
--		goto out;
-+		goto fail_resources;
- 
--	printk(KERN_DEBUG "orinoco_plx: CIS: ");
-+	printk(KERN_DEBUG PFX "CIS: ");
- 	for (i = 0; i < 16; i++) {
- 		printk("%02X:", readw(attr_mem+i));
- 	}
-@@ -185,10 +187,11 @@
- 	/* FIXME: we probably need to be smarted about this */
- 	memcpy_fromio(magic, attr_mem, 16);
- 	if (memcmp(magic, cis_magic, 16) != 0) {
--		printk(KERN_ERR "orinoco_plx: The CIS value of Prism2 PC card is invalid.\n");
-+		printk(KERN_ERR PFX "The CIS value of Prism2 PC "
-+		       "card is unexpected\n");
- 		err = -EIO;
- 		iounmap(attr_mem);
--		goto out;
-+		goto fail_resources;
- 	}
- 
- 	/* PCMCIA COR is the first byte following CIS: this write should
-@@ -199,8 +202,8 @@
- 	iounmap(attr_mem);
- 
- 	if (reg != COR_VALUE) {
--		printk(KERN_ERR "orinoco_plx: Error setting COR value (reg=%x)\n", reg);
--		goto out;
-+		printk(KERN_ERR PFX "Error setting COR value (reg=%x)\n", reg);
-+		goto fail_resources;
- 	}			
- 
- 	/* bjoern: We need to tell the card to enable interrupts, in
-@@ -209,40 +212,39 @@
- 	addr = pci_resource_start(pdev, 1);
- 	reg = inl(addr+PLX_INTCSR);
- 	if (reg & PLX_INTCSR_INTEN)
--		printk(KERN_DEBUG "orinoco_plx: "
--		       "Local Interrupt already enabled\n");
-+		printk(KERN_DEBUG PFX "Local Interrupt already enabled\n");
- 	else {
- 		reg |= PLX_INTCSR_INTEN;
- 		outl(reg, addr+PLX_INTCSR);
- 		reg = inl(addr+PLX_INTCSR);
- 		if(!(reg & PLX_INTCSR_INTEN)) {
--			printk(KERN_ERR "orinoco_plx: "
--			       "Couldn't enable Local Interrupts\n");
--			goto out;
-+			printk(KERN_ERR PFX "Couldn't enable Local Interrupts\n");
-+			goto fail_resources;
- 		}
- 	}
- 
--	/* and 3 to the PCMCIA slot I/O address space */
-+	/* Resource 3 is mapped to the PCMCIA I/O address space */
- 	pccard_ioaddr = pci_resource_start(pdev, 3);
- 	pccard_iolen = pci_resource_len(pdev, 3);
- 	if (! request_region(pccard_ioaddr, pccard_iolen, DRIVER_NAME)) {
--		printk(KERN_ERR "orinoco_plx: I/O resource 0x%lx @ 0x%lx busy\n",
-+		printk(KERN_ERR PFX "I/O resource 0x%lx @ 0x%lx busy\n",
- 		       pccard_iolen, pccard_ioaddr);
- 		err = -EBUSY;
--		goto out;
-+		goto fail_resources;
- 	}
- 
- 	mem = pci_iomap(pdev, 3, 0);
- 	if (!mem) {
- 		err = -ENOMEM;
--		goto out1;
-+		goto fail_map;
- 	}
- 
- 	/* Allocate network device */
- 	dev = alloc_orinocodev(0, NULL);
- 	if (!dev) {
-+		printk(KERN_ERR PFX "Cannot allocate network device\n");
- 		err = -ENOMEM;
--		goto out2;
-+		goto fail_alloc;
- 	}
- 
- 	priv = netdev_priv(dev);
-@@ -250,39 +252,41 @@
- 	SET_MODULE_OWNER(dev);
- 	SET_NETDEV_DEV(dev, &pdev->dev);
- 
-+	hermes_struct_init(&priv->hw, mem, HERMES_16BIT_REGSPACING);
-+	pci_set_drvdata(pdev, dev);
-+
- 	printk(KERN_DEBUG PFX "Detected Orinoco/Prism2 PLX device "
- 	       "at %s irq:%d, io addr:0x%lx\n", pci_name(pdev), pdev->irq,
- 	       pccard_ioaddr);
- 
--	hermes_struct_init(&(priv->hw), mem, HERMES_16BIT_REGSPACING);
--	pci_set_drvdata(pdev, dev);
+-/* The old way: bit map of interrupts to choose from */
+-/* This means pick from 15, 14, 12, 11, 10, 9, 7, 5, 4, and 3 */
+-static uint irq_mask = 0xdeb8;
+-/* Newer, simpler way of listing specific interrupts */
+-static int irq_list[4] = { -1 };
 -
- 	err = request_irq(pdev->irq, orinoco_interrupt, SA_SHIRQ,
- 			  dev->name, dev);
- 	if (err) {
--		printk(KERN_ERR PFX "Error allocating IRQ %d.\n", pdev->irq);
-+		printk(KERN_ERR PFX "Cannot allocate IRQ %d\n", pdev->irq);
- 		err = -EBUSY;
--		goto out3;
-+		goto fail_irq;
- 	}
- 	dev->irq = pdev->irq;
- 
- 	err = register_netdev(dev);
--	if (err)
--		goto out4;
-+	if (err) {
-+		printk(KERN_ERR PFX "Cannot register network device\n");
-+		goto fail;
-+	}
- 
- 	return 0;
- 
--out4:
-+ fail:
- 	free_irq(dev->irq, dev);
--out3:
-+ fail_irq:
- 	free_netdev(dev);
--out2:
-+ fail_alloc:
- 	pci_iounmap(pdev, mem);
--out1:
-+ fail_map:
- 	release_region(pccard_ioaddr, pccard_iolen);
--out:
-+ fail_resources:
- 	pci_disable_device(pdev);
--	printk(KERN_DEBUG PFX "init_one(), FAIL!\n");
-+
- 	return err;
- }
- 
-Index: working-2.6/drivers/net/wireless/orinoco.c
-===================================================================
---- working-2.6.orig/drivers/net/wireless/orinoco.c	2005-01-12 11:13:41.000000000 +1100
-+++ working-2.6/drivers/net/wireless/orinoco.c	2005-01-12 14:47:25.796169360 +1100
-@@ -805,8 +805,9 @@
-  	desc.tx_control = cpu_to_le16(HERMES_TXCTRL_TX_OK | HERMES_TXCTRL_TX_EX);
- 	err = hermes_bap_pwrite(hw, USER_BAP, &desc, sizeof(desc), txfid, 0);
- 	if (err) {
--		printk(KERN_ERR "%s: Error %d writing Tx descriptor to BAP\n",
--		       dev->name, err);
-+		if (net_ratelimit())
-+			printk(KERN_ERR "%s: Error %d writing Tx descriptor "
-+			       "to BAP\n", dev->name, err);
- 		stats->tx_errors++;
- 		goto fail;
- 	}
-@@ -836,8 +837,9 @@
- 		err  = hermes_bap_pwrite(hw, USER_BAP, &hdr, sizeof(hdr),
- 					 txfid, HERMES_802_3_OFFSET);
- 		if (err) {
--			printk(KERN_ERR "%s: Error %d writing packet header to BAP\n",
--			       dev->name, err);
-+			if (net_ratelimit())
-+				printk(KERN_ERR "%s: Error %d writing packet "
-+				       "header to BAP\n", dev->name, err);
- 			stats->tx_errors++;
- 			goto fail;
- 		}
-@@ -1297,8 +1299,8 @@
- 	}
- 	break;
- 	default:
--		printk(KERN_DEBUG "%s: Unknown information frame received "
--		       "(type %04x).\n", dev->name, type);
-+		printk(KERN_DEBUG "%s: Unknown information frame received: "
-+		       "type 0x%04x, length %d\n", dev->name, type, len);
- 		/* We don't actually do anything about it */
- 		break;
- 	}
-@@ -1307,7 +1309,7 @@
- static void __orinoco_ev_infdrop(struct net_device *dev, hermes_t *hw)
- {
- 	if (net_ratelimit())
--		printk(KERN_WARNING "%s: Information frame lost.\n", dev->name);
-+		printk(KERN_DEBUG "%s: Information frame lost.\n", dev->name);
- }
+ /* Some D-Link cards have buggy CIS. They do work at 5v properly, but
+  * don't have any CIS entry for it. This workaround it... */
+ static int ignore_cis_vcc; /* = 0 */
+-
+-MODULE_PARM(irq_mask, "i");
+-MODULE_PARM(irq_list, "1-4i");
+-MODULE_PARM(ignore_cis_vcc, "i");
++module_param(ignore_cis_vcc, int, 0644);
++MODULE_PARM_DESC(ignore_cis_vcc, "Allow voltage mismatch between card and socket");
  
  /********************************************************************/
-@@ -1785,7 +1787,8 @@
- 		}
+ /* Magic constants						    */
+@@ -136,6 +128,7 @@
+ 	if (err)
+ 		return err;
+ 
++	msleep(100);
+ 	clear_bit(0, &card->hard_reset_in_progress);
+ 
+ 	return 0;
+@@ -161,7 +154,7 @@
+ 	struct orinoco_pccard *card;
+ 	dev_link_t *link;
+ 	client_reg_t client_reg;
+-	int ret, i;
++	int ret;
+ 
+ 	dev = alloc_orinocodev(sizeof(*card), orinoco_cs_hard_reset);
+ 	if (! dev)
+@@ -174,14 +167,11 @@
+ 	link->priv = dev;
+ 
+ 	/* Interrupt setup */
+-	link->irq.Attributes = IRQ_TYPE_EXCLUSIVE;
++	link->irq.Attributes = IRQ_TYPE_EXCLUSIVE | IRQ_HANDLE_PRESENT;
+ 	link->irq.IRQInfo1 = IRQ_INFO2_VALID | IRQ_LEVEL_ID;
+-	if (irq_list[0] == -1)
+-		link->irq.IRQInfo2 = irq_mask;
+-	else
+-		for (i = 0; i < 4; i++)
+-			link->irq.IRQInfo2 |= 1 << irq_list[i];
+-	link->irq.Handler = NULL;
++	link->irq.IRQInfo2 = 0xffffffff;	/* Any ISA IRQ */
++	link->irq.Handler = orinoco_interrupt;
++	link->irq.Instance = dev; 
+ 
+ 	/* General socket configuration defaults can go here.  In this
+ 	 * client, we assume very little, and rely on the CIS for
+@@ -262,6 +252,9 @@
+ 		last_fn = (fn); if ((last_ret = (ret)) != 0) goto cs_failed; \
+ 	} while (0)
+ 
++#define CFG_CHECK(fn, ret) \
++	if (ret != 0) goto next_entry
++
+ static void
+ orinoco_cs_config(dev_link_t *link)
+ {
+@@ -323,9 +316,8 @@
+ 		cistpl_cftable_entry_t *cfg = &(parse.cftable_entry);
+ 		cistpl_cftable_entry_t dflt = { .index = 0 };
+ 
+-		if (pcmcia_get_tuple_data(handle, &tuple) != 0 ||
+-				pcmcia_parse_tuple(handle, &tuple, &parse) != 0)
+-			goto next_entry;
++		CFG_CHECK(GetTupleData, pcmcia_get_tuple_data(handle, &tuple));
++		CFG_CHECK(ParseTuple, pcmcia_parse_tuple(handle, &tuple, &parse));
+ 
+ 		if (cfg->flags & CISTPL_CFTABLE_DEFAULT)
+ 			dflt = *cfg;
+@@ -363,8 +355,7 @@
+ 			    dflt.vpp1.param[CISTPL_POWER_VNOM] / 10000;
  		
- 		if (p)
--			printk(KERN_WARNING "Multicast list is longer than mc_count\n");
-+			printk(KERN_WARNING "%s: Multicast list is "
-+			       "longer than mc_count\n", dev->name);
+ 		/* Do we need to allocate an interrupt? */
+-		if (cfg->irq.IRQInfo1 || dflt.irq.IRQInfo1)
+-			link->conf.Attributes |= CONF_ENABLE_IRQ;
++		link->conf.Attributes |= CONF_ENABLE_IRQ;
  
- 		err = hermes_write_ltv(hw, USER_BAP, HERMES_RID_CNFGROUPADDRESSES,
- 				       HERMES_BYTES_TO_RECLEN(priv->mc_count * ETH_ALEN),
-@@ -2053,7 +2056,7 @@
- 	le16_to_cpus(&sta_id.variant);
- 	le16_to_cpus(&sta_id.major);
- 	le16_to_cpus(&sta_id.minor);
--	printk(KERN_DEBUG "%s: Station identity %04x:%04x:%04x:%04x\n",
-+	printk(KERN_DEBUG "%s: Station identity  %04x:%04x:%04x:%04x\n",
- 	       dev->name, sta_id.id, sta_id.variant,
- 	       sta_id.major, sta_id.minor);
+ 		/* IO window settings */
+ 		link->io.NumPorts1 = link->io.NumPorts2 = 0;
+@@ -390,8 +381,8 @@
+ 			}
  
-@@ -3045,8 +3048,9 @@
- 			priv->mwo_robust = 0;
- 		else {
- 			if (frq->fixed)
--				printk(KERN_WARNING "%s: Fixed fragmentation not \
--supported on this firmware. Using MWO robust instead.\n", dev->name);
-+				printk(KERN_WARNING "%s: Fixed fragmentation is "
-+				       "not supported on this firmware. "
-+				       "Using MWO robust instead.\n", dev->name);
- 			priv->mwo_robust = 1;
+ 			/* This reserves IO space but doesn't actually enable it */
+-			if (pcmcia_request_io(link->handle, &link->io) != 0)
+-				goto next_entry;
++			CFG_CHECK(RequestIO,
++				  pcmcia_request_io(link->handle, &link->io));
  		}
- 	} else {
-@@ -3518,7 +3522,7 @@
+ 
+ 
+@@ -416,22 +407,7 @@
+ 	 * a handler to the interrupt, unless the 'Handler' member of
+ 	 * the irq structure is initialized.
+ 	 */
+-	if (link->conf.Attributes & CONF_ENABLE_IRQ) {
+-		int i;
+-
+-		link->irq.Attributes = IRQ_TYPE_EXCLUSIVE | IRQ_HANDLE_PRESENT;
+-		link->irq.IRQInfo1 = IRQ_INFO2_VALID | IRQ_LEVEL_ID;
+-		if (irq_list[0] == -1)
+-			link->irq.IRQInfo2 = irq_mask;
+-		else
+-			for (i=0; i<4; i++)
+-				link->irq.IRQInfo2 |= 1 << irq_list[i];
+-		
+-  		link->irq.Handler = orinoco_interrupt; 
+-  		link->irq.Instance = dev; 
+-		
+-		CS_CHECK(RequestIRQ, pcmcia_request_irq(link->handle, &link->irq));
+-	}
++	CS_CHECK(RequestIRQ, pcmcia_request_irq(link->handle, &link->irq));
+ 
+ 	/* We initialize the hermes structure before completing PCMCIA
+ 	 * configuration just in case the interrupt handler gets
+@@ -456,8 +432,6 @@
+ 	SET_MODULE_OWNER(dev);
+ 	card->node.major = card->node.minor = 0;
+ 
+-	/* register_netdev will give us an ethX name */
+-	dev->name[0] = '\0';
+ 	/* Tell the stack we exist */
+ 	if (register_netdev(dev) != 0) {
+ 		printk(KERN_ERR PFX "register_netdev() failed\n");
+@@ -479,8 +453,7 @@
+ 	if (link->conf.Vpp1)
+ 		printk(", Vpp %d.%d", link->conf.Vpp1 / 10,
+ 		       link->conf.Vpp1 % 10);
+-	if (link->conf.Attributes & CONF_ENABLE_IRQ)
+-		printk(", irq %d", link->irq.AssignedIRQ);
++	printk(", irq %d", link->irq.AssignedIRQ);
+ 	if (link->io.NumPorts1)
+ 		printk(", io 0x%04x-0x%04x", link->io.BasePort1,
+ 		       link->io.BasePort1 + link->io.NumPorts1 - 1);
+@@ -546,12 +519,12 @@
+ 	case CS_EVENT_CARD_REMOVAL:
+ 		link->state &= ~DEV_PRESENT;
+ 		if (link->state & DEV_CONFIG) {
+-			orinoco_lock(priv, &flags);
++			unsigned long flags;
+ 
++			spin_lock_irqsave(&priv->lock, flags);
+ 			netif_device_detach(dev);
+ 			priv->hw_unavailable++;
+-
+-			orinoco_unlock(priv, &flags);
++			spin_unlock_irqrestore(&priv->lock, flags);
  		}
- 		/* Copy stats */
- 		/* In theory, we should disable irqs while copying the stats
--		 * because the rx path migh update it in the middle...
-+		 * because the rx path might update it in the middle...
- 		 * Bah, who care ? - Jean II */
- 		memcpy(&spy_stat, priv->spy_stat,
- 		       sizeof(struct iw_quality) * IW_MAX_SPY);
+ 		break;
+ 
 
 
 -- 
