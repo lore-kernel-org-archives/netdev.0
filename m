@@ -1,31 +1,32 @@
 From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
  <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 2/2] Prefix List and O/M flags against 2.4.21
-Date: Fri, 18 Jul 2003 00:22:09 +0200 (CEST)
+Subject: Re: Anycast usage, final diagnosis? (was: IPv6: Fix broken anycast
+Date: Fri, 18 Jul 2003 00:28:01 +0200 (CEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030718.002209.104303756.yoshfuji@linux-ipv6.org>
-References: <Pine.LNX.4.44.0307171336430.1353-100000@DYN318430.beaverton.ibm.com>
-	<Pine.LNX.4.44.0307171413100.1353-100000@DYN318430.beaverton.ibm.com>
+Message-ID: <20030718.002801.91948420.yoshfuji@linux-ipv6.org>
+References: <Pine.LNX.4.44.0307171340160.4378-100000@netcore.fi>
+	<200307172052.AAA15032@dub.inr.ac.ru>
+	<20030717145115.046fd5ee.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, davem@redhat.com, netdev@oss.sgi.com,
-   linux-net@vger.kernel.org, yoshfuji@linux-ipv6.org
+Cc: kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, mika.liljeberg@welho.com,
+   jmorris@redhat.com, netdev@oss.sgi.com, dlstevens@us.ibm.com,
+   yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: krkumar@us.ibm.com
-In-Reply-To: <Pine.LNX.4.44.0307171413100.1353-100000@DYN318430.beaverton.ibm.com>
+To: davem@redhat.com
+In-Reply-To: <20030717145115.046fd5ee.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <Pine.LNX.4.44.0307171413100.1353-100000@DYN318430.beaverton.ibm.com> (at Thu, 17 Jul 2003 15:06:02 -0700 (PDT)), Krishna Kumar <krkumar@us.ibm.com> says:
+In article <20030717145115.046fd5ee.davem@redhat.com> (at Thu, 17 Jul 2003 14:51:15 -0700), "David S. Miller" <davem@redhat.com> says:
 
-> The same patch against 2.4.21
+> > > No user should be able to join anycast group, IMHO.
+> > 
+> > OK. Done, the patch enclosed.
+> 
+> Pekka, please ACK Alexey's patch, I'd like to apply it.
 
-Hmm, you seems still misunderstanding some of our points. :-p
-Alexey says we may want to use ifi_family for per-interface L3 information
-including M/O bits. 
-At least, new RTM_xxx should not be restricted to get such flags.
+I'm not pekka, but It seems ok to me, too.
 
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+--yoshfuji
