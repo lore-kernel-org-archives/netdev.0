@@ -1,78 +1,54 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [IPV4] Make loopback idev stick around
-Date: Sat, 5 Feb 2005 16:35:32 +1100
-Message-ID: <20050205053532.GA17474@gondor.apana.org.au>
-References: <20050205053030.GA17412@gondor.apana.org.au>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: PROBLEM: 2.6.11-rc2 hangs on bridge shutdown (br0)
+Date: Fri, 4 Feb 2005 21:38:13 -0800
+Message-ID: <20050204213813.4bd642ad.davem@davemloft.net>
+References: <20050131162201.GA1000@stilzchen.informatik.tu-chemnitz.de>
+	<20050205052407.GA17266@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="wRRV7LY7NUeQGEoC"
-To: "David S. Miller" <davem@davemloft.net>,
-        YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, netdev@oss.sgi.com
-Content-Disposition: inline
-In-Reply-To: <20050205053030.GA17412@gondor.apana.org.au>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: mirko.parthey@informatik.tu-chemnitz.de, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com, yoshfuji@linux-ipv6.org, shemminger@osdl.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050205052407.GA17266@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Sat, 5 Feb 2005 16:24:07 +1100
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
---wRRV7LY7NUeQGEoC
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-On Sat, Feb 05, 2005 at 04:30:30PM +1100, herbert wrote:
+> This is the key to the problem.
+ ...
+> All of these bugs stem from the idev reference held in rtable/rt6_info.
+ ...
+> Anyway, this particular problem is due to IPv6 adding local addresses
+> with split devices.  That is, routes to local addresses are added with
+> rt6i_dev set to &loopback_dev and rt6i_idev set to the idev of the
+> device where the address is added.
+ ...
+> It also goes against the Linux philosophy where the addresses are owned
+> by the host, not the interface.
 > 
-> As it is when loopback_dev loses all of its IPv4 addresses its
-> corresponding idev will be destroyed.  Unfortunately as of last
-> August route.c relies on the loopback idev to kill references
-> to other idev objects.
+> Therefore I propose the simple solution of not doing the split device
+> accounting in rt6_info.
 
-The same problem exists for IPv6.
- 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+I agree with your analysis, however... this change is not sufficient.
+You have to then walk over all the uses of rt6i_dev and sanitize the
+cases that still expect the split semantics.  For example, things like
+this piece of coe in rt6_device_match():
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+			if (dev->flags & IFF_LOOPBACK) {
+				if (sprt->rt6i_idev == NULL ||
+				    sprt->rt6i_idev->dev->ifindex != oif) {
+					if (strict && oif)
+						continue;
+					if (local && (!oif || 
+						      local->rt6i_idev->dev->ifindex == oif))
+						continue;
+				}
+				local = sprt;
+			}
 
---wRRV7LY7NUeQGEoC
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=idev-2
-
-===== net/ipv6/addrconf.c 1.129 vs edited =====
---- 1.129/net/ipv6/addrconf.c	2005-01-18 08:13:31 +11:00
-+++ edited/net/ipv6/addrconf.c	2005-02-05 16:32:34 +11:00
-@@ -1914,6 +1914,11 @@
- 	struct inet6_dev *idev = __in6_dev_get(dev);
- 
- 	switch(event) {
-+	case NETDEV_REGISTER:
-+		if (dev == &loopback_dev && !ipv6_find_idev(dev))
-+			panic("addrconf: Failed to create loopback\n");
-+		break;
-+
- 	case NETDEV_UP:
- 		switch(dev->type) {
- 		case ARPHRD_SIT:
-@@ -1998,6 +2003,9 @@
- 
- 	ASSERT_RTNL();
- 
-+	if (dev == &loopback_dev)
-+		how = 0;
-+
- 	rt6_ifdown(dev);
- 	neigh_ifdown(&nd_tbl, dev);
- 
-@@ -3445,8 +3453,6 @@
- 	 */
- 	rtnl_lock();
- 	addrconf_notify(&ipv6_dev_notf, NETDEV_REGISTER, &loopback_dev);
--	if (loopback_dev.flags & IFF_UP)
--		addrconf_notify(&ipv6_dev_notf, NETDEV_UP, &loopback_dev);
- 	rtnl_unlock();
- 
- 	register_netdevice_notifier(&ipv6_dev_notf);
-
---wRRV7LY7NUeQGEoC--
+It is just the first such thing I found, scanning rt6i_idev uses
+will easily find several others.
