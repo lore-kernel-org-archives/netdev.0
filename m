@@ -1,60 +1,32 @@
-From: "Leonid Grossman" <leonid.grossman@s2io.com>
-Subject: RE: The ultimate TOE design
-Date: Wed, 15 Sep 2004 22:25:48 -0700
+From: Matt Porter <mporter@kernel.crashing.org>
+Subject: Re: The ultimate TOE design
+Date: Wed, 15 Sep 2004 22:51:29 -0700
 Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <200409160525.i8G5PtqG009228@guinness.s2io.com>
-References: <1095296279.1064.80.camel@jzny.localdomain>
+Message-ID: <20040915225129.B25752@home.com>
+References: <4148991B.9050200@pobox.com> <Pine.LNX.4.61.0409152102050.23011@fogarty.jakma.org> <4148A561.5070401@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "'David S. Miller'" <davem@davemloft.net>,
-	<alan@lxorguk.ukuu.org.uk>, <paul@clubi.ie>, <netdev@oss.sgi.com>,
-	<linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S267165AbUIPF1P@vger.kernel.org>
-To: <hadi@cyberus.ca>, "'Jeff Garzik'" <jgarzik@pobox.com>
-In-Reply-To: <1095296279.1064.80.camel@jzny.localdomain>
+Content-Type: text/plain; charset=us-ascii
+Cc: Paul Jakma <paul@clubi.ie>, Netdev <netdev@oss.sgi.com>,
+	leonid.grossman@s2io.com,
+	Linux Kernel <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S267405AbUIPFvv@vger.kernel.org>
+To: Neil Horman <nhorman@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <4148A561.5070401@redhat.com>; from nhorman@redhat.com on Wed, Sep 15, 2004 at 04:26:09PM -0400
 List-Id: netdev.vger.kernel.org
 
- 
+On Wed, Sep 15, 2004 at 04:26:09PM -0400, Neil Horman wrote:
+> IBM's PowerNP chip was also very simmilar (a powerpc core with lots of 
+> hardware assists for DMA and packet inspection in the extended register 
+> area).  Don't know if they still sell it, but at one time I had heard 
+> they had booted linux on it.
 
-> -----Original Message-----
-> From: jamal [mailto:hadi@cyberus.ca] 
-> Sent: Wednesday, September 15, 2004 5:58 PM
-> To: Jeff Garzik
-> Cc: David S. Miller; alan@lxorguk.ukuu.org.uk; paul@clubi.ie; 
-> netdev@oss.sgi.com; leonid.grossman@s2io.com; 
-> linux-kernel@vger.kernel.org
-> Subject: Re: The ultimate TOE design
-> 
-> Jeff,
-> You are only allowed to start a TOE thread only every six months ;->
-> 
-> On a serious note, I think that PCI-express (if it lives upto its
-> expectation) will demolish dreams of a lot of these TOE investments.
-> Our problem is NOT the CPU right now (80% idle processing 
-> 450Kpps forwarding). Bus and memory distance/latency are. 
+Well, yes, PowerNP support has been in the kernel for years and embedded
+Linux distros like Mvista support them.  It's no longer an IBM chip,
+though.  AMCC purchased the PPC4xx network processors (PowerNP) from
+IBM and later purchased the entire standard SoC PPC4xx product line
+from IBM.  That is, except for the PPC4xx STB chips like are found in
+the Hauppage MediaMVP, IBM retained those.  AMCC pretty much owns all
+the PPC4xx line and PowerNP 405H/L are still available.
 
-In servers, both bottlenecks are there - if you look at the cost of TCP and
-filesystem processing at 10GbE, CPU is a huge problem (and will be for
-foreseeable future), even for fastest 64-bit systems. 
-I agree though that bus and memory are bigger issues, this is exactly the
-reason for all these RDMA over Ethernet investments :-)
-Anyways, did not mean to start an argument - with all the new CPU, bus and
-HBA technologies coming to the market it will be another 18-24 months before
-we know what works and what doesn't...
-Leonid
-
-
->If 
-> intel would get rid of the big conspiracy in the form of 
-> chipset division and just integrate the MC like AMD is, we'll 
-> be on our our way to kill TOE and a lot of the network 
-> processors (like the IXP). Dang, running Linux is more 
-> exciting than microcoding things to fit into a 2Kword program store. 
-> 
-> I rest my canadiana $.02 
-> 
-> cheers,
-> jamal
-> 
+-Matt
