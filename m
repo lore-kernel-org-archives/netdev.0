@@ -1,50 +1,34 @@
-From: AndyLiebman@aol.com
-Subject: Re: Frequent Oops on Shutdown 2.6.10
-Date: Mon, 28 Feb 2005 17:25:17 EST
-Message-ID: <147.4096aff0.2f54f44d@aol.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: pppoe and receive checksum offload
+Date: Mon, 28 Feb 2005 15:32:28 -0800
+Message-ID: <20050228153228.0c5cb46d.davem@davemloft.net>
+References: <20050224155906.73890361@dxpl.pdx.osdl.net>
+	<20050227202011.5ccefb22.davem@davemloft.net>
+	<42235114.3070109@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, terryg@axian.com, netdev@oss.sgi.com,
-        davem@davemloft.net, akpm@osdl.org
-To: yoshfuji@linux-ipv6.org
+Cc: mostrows@speakeasy.net, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <42235114.3070109@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In a message dated 2/23/2005 11:42:42 A.M. Eastern Standard Time,  
-yoshfuji@linux-ipv6.org writes:
-In article  <b9.522b6602.2f4df280@aol.com> (at Wed, 23 Feb 2005 09:51:44 
-EST),  AndyLiebman@aol.com says:
+On Mon, 28 Feb 2005 09:12:52 -0800
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> Should I bother to apply this patch, or  should I wait for you to make this 
- 
-> last change? What did you  think about my comment that the Oops only 
-occurred  
-> when the  Ethernet cable had been unplugged during operation? 
+> The original sk98lin attempted to receive hardware checksumming
+> but never actually turned it on.
 
-Well, not sure, but  I think it is worth trying.
+Because there is a bug in the chip wherein checksums can be
+miscalculated.  I forget the details, but I do remember that
+you can't enable checksumming safely because of this.
 
-Thanks.
+In drivers/net/sk98lin/skcsum.c it mentions this:
 
---yoshfuji
-Hi Yoshi,  
+ * Note:
+ *      There is a bug in the GENESIS ASIC which may lead to wrong checksums.
 
-I just thought I would let you know that I applied the patch to the  2.6.10 
-kernel and recompiled. It seems to have made the Oops go away. At least,  I 
-can't make the Oops happen any more by unplugging the Ethernet cables during  
-operation and then shutting down. 
-
-I might add that when I tried to apply  the patch with:
-
-patch --dry-run -p1 -d dir < patchfile
-
-I got all kinds of errors about this line or that line. I can't remember  
-what they were. In the end, I VERY CAREFULLY cut and pasted your patch, and  
-removed the lines the patch was supposed to remove. 
-
-Did you attempt to  apply the patch? Anyway, looks good. 
- 
-Regards, 
-Andy Liebman
- 
+I know this comment is above the send checksum routine, but I
+am pretty sure the bug applies to both directions.
