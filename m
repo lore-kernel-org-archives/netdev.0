@@ -1,61 +1,37 @@
-From: Michal Schmidt <xschmi00@stud.feec.vutbr.cz>
-Subject: [PATCH] forcedeth: netpoll support
-Date: Tue, 29 Mar 2005 11:33:38 +0200
-Message-ID: <424920F2.4040207@stud.feec.vutbr.cz>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: KERNEL: assertion (!atomic_read(&sk->sk_rmem_alloc)) failed at net/netlink/af_netlink.c (126)
+Date: Tue, 29 Mar 2005 20:49:06 +1000
+Message-ID: <20050329104906.GA19836@gondor.apana.org.au>
+References: <20050327091524.GA23215@elte.hu> <E1DFUaZ-0001Hg-00@gondolin.me.apana.org.au> <20050327133811.GA5569@elte.hu>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080409090500010805040408"
-Cc: netdev@oss.sgi.com, jgarzik@pobox.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: manfred@colorfullife.com
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Ingo Molnar <mingo@elte.hu>
+Content-Disposition: inline
+In-Reply-To: <20050327133811.GA5569@elte.hu>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------080409090500010805040408
-Content-Type: text/plain; charset=ISO-8859-2; format=flowed
-Content-Transfer-Encoding: 7bit
+On Sun, Mar 27, 2005 at 03:38:11PM +0200, Ingo Molnar wrote:
+> 
+> no vrrpd on this box. There's ipsec and wshaper on the box - both use 
 
-Hello,
-This adds support for netpoll to forcedeth. It works for Julien Wajsberg 
-(see LKML thread "How's the nforce4 support in Linux?").
+ipsec: Depends on whether you're using ipsec-tools or *swan.
 
-Signed-off-by: Michal Schmidt <xschmi00@stud.feec.vutbr.cz>
+The former doesn't use netlink while the latter does.
 
+wshaper: Yes when it's setting things up.
 
---------------080409090500010805040408
-Content-Type: text/x-patch;
- name="forcedeth-netpoll.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="forcedeth-netpoll.patch"
+> netlink? No ULOG target AFAIK (it's a pretty much stock FC4 install).
 
---- linux-2.6.12-rc1/drivers/net/forcedeth.c.orig	2005-03-26 15:00:12.000000000 +0100
-+++ linux-2.6.12-rc1/drivers/net/forcedeth.c	2005-03-26 15:08:56.000000000 +0100
-@@ -1480,6 +1480,13 @@ static void nv_do_nic_poll(unsigned long
- 	enable_irq(dev->irq);
- }
- 
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+static void nv_poll_controller(struct net_device *dev)
-+{
-+	nv_do_nic_poll((unsigned long) dev);
-+}
-+#endif
-+
- static void nv_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
- {
- 	struct fe_priv *np = get_nvpriv(dev);
-@@ -1962,6 +1969,9 @@ static int __devinit nv_probe(struct pci
- 	dev->get_stats = nv_get_stats;
- 	dev->change_mtu = nv_change_mtu;
- 	dev->set_multicast_list = nv_set_multicast;
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	dev->poll_controller = nv_poll_controller;
-+#endif
- 	SET_ETHTOOL_OPS(dev, &ops);
- 	dev->tx_timeout = nv_tx_timeout;
- 	dev->watchdog_timeo = NV_WATCHDOG_TIMEO;
+cat /proc/net/netlink
 
---------------080409090500010805040408--
+should tell you what's using it all the time.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
