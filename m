@@ -1,8 +1,8 @@
 From: David Dillow <dave@thedillows.org>
-Subject: [RFC BK 3/22] xfrm offload v2: Add offload management routines
-Date: Mon, 10 Jan 2005 10:36:59 -0500
-Message-ID: <20040110014300.12@ori.thedillows.org>
-References: <20040110014300.11@ori.thedillows.org>
+Subject: [RFC BK 11/22] xfrm offload v2: Add offloading of inbound AH & ESP packets
+Date: Mon, 10 Jan 2005 10:37:01 -0500
+Message-ID: <20040110014300.20@ori.thedillows.org>
+References: <20040110014300.19@ori.thedillows.org>
 Cc: dave@thedillows.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
@@ -13,215 +13,147 @@ List-Id: netdev.vger.kernel.org
 # This is a BitKeeper generated diff -Nru style patch.
 #
 # ChangeSet
-#   2005/01/10 00:05:38-05:00 dave@thedillows.org 
-#   Add offload management to xfrm_state.
-#   
-#   xfrm_offload_alloc() creates a new xfrm_offload, with a private
-#   	part to be used by the driver (ala net_device->priv)
-#   	The returned offload may be kfree'd if it has not been
-#   	added to a xfrm_state using xfrm_state_offload_add().
-#   xfrm_offload_priv() returns a pointer to the private area of
-#   	the xfrm_offload. This will be 8-byte aligned.
-#   xfrm_offload_hold()/xfrm_offload_release() do the reference
-#   	counting of the xfrm_offload
-#   xfrm_offload_get() looks up the xfrm_offload from a given device
-#   	The caller should call xfrm_offload_release() when it is
-#   	finished with this offload.
-#   xfrm_state_offload_add() adds a new offload to the xfrm_state,
-#   	replacing any existing offload for the device that may
-#   	exist for this xfrm_state.
+#   2005/01/10 00:51:49-05:00 dave@thedillows.org 
+#   Add crypto offload for inbound IPv4 AH xfrms.
 #   
 #   Signed-off-by: David Dillow <dave@thedillows.org>
 # 
-# net/xfrm/xfrm_state.c
-#   2005/01/10 00:05:20-05:00 dave@thedillows.org +28 -0
-#   Clean up any offloads on destruction of an xfrm_state, and
-#   allow the addition of new xfrm_offloads to a xfrm_state.
+# net/ipv4/esp4.c
+#   2005/01/10 00:51:33-05:00 dave@thedillows.org +30 -16
+#   Add crypto offload for inbound IPv4 AH xfrms.
 #   
 #   Signed-off-by: David Dillow <dave@thedillows.org>
 # 
-# net/xfrm/xfrm_export.c
-#   2005/01/10 00:05:20-05:00 dave@thedillows.org +2 -0
-#   Export xfrm_state_offload_add() to drivers.
+# net/ipv4/ah4.c
+#   2005/01/10 00:51:33-05:00 dave@thedillows.org +13 -4
+#   Add crypto offload for inbound IPv4 AH xfrms.
 #   
 #   Signed-off-by: David Dillow <dave@thedillows.org>
 # 
-# include/net/xfrm.h
-#   2005/01/10 00:05:20-05:00 dave@thedillows.org +79 -0
-#   Add offload management to xfrm_state.
-#   
-#   Add xfrm_offload_alloc(), xfrm_offload_priv(), xfrm_offload_hold()
-#   xfrm_offload_release(), and xfrm_offload_get().
-#   
-#   Signed-off-by: David Dillow <dave@thedillows.org>
-# 
-diff -Nru a/include/net/xfrm.h b/include/net/xfrm.h
---- a/include/net/xfrm.h	2005-01-10 01:20:15 -05:00
-+++ b/include/net/xfrm.h	2005-01-10 01:20:15 -05:00
-@@ -81,6 +81,8 @@
-       metrics. Plus, it will be made via sk->sk_dst_cache. Solved.
-  */
+diff -Nru a/net/ipv4/ah4.c b/net/ipv4/ah4.c
+--- a/net/ipv4/ah4.c	2005-01-10 01:18:35 -05:00
++++ b/net/ipv4/ah4.c	2005-01-10 01:18:35 -05:00
+@@ -138,6 +138,7 @@
+ 	struct iphdr *iph;
+ 	struct ip_auth_hdr *ah;
+ 	struct ah_data *ahp;
++	int offload;
+ 	char work_buf[60];
  
-+struct xfrm_offload;
-+
- /* Full description of state of transformer. */
- struct xfrm_state
- {
-@@ -149,6 +151,9 @@
+ 	if (!pskb_may_pull(skb, sizeof(struct ip_auth_hdr)))
+@@ -164,6 +165,7 @@
  
- 	/* Intended direction of this state, used for offloading */
- 	u8			dir;
-+
-+	/* List of offload cookies, per device */
-+	struct list_head	offloads;
- };
+ 	ah = (struct ip_auth_hdr*)skb->data;
+ 	iph = skb->nh.iph;
++	offload = skb_pop_xfrm_result(skb);
  
- enum {
-@@ -166,6 +171,13 @@
- 	XFRM_STATE_DIR_OUT,
- };
+ 	memcpy(work_buf, iph, iph->ihl*4);
  
-+struct xfrm_offload
-+{
-+	struct list_head	bydev;
-+	struct net_device *	dev;
-+	atomic_t		refcnt;
-+};
-+
- struct xfrm_type;
- struct xfrm_dst;
- struct xfrm_policy_afinfo {
-@@ -905,5 +917,72 @@
- 				     (struct in6_addr *)b);
+@@ -181,10 +183,17 @@
+ 		
+ 		memcpy(auth_data, ah->auth_data, ahp->icv_trunc_len);
+ 		skb_push(skb, skb->data - skb->nh.raw);
+-		ahp->icv(ahp, skb, ah->auth_data);
+-		if (memcmp(ah->auth_data, auth_data, ahp->icv_trunc_len)) {
+-			x->stats.integrity_failed++;
+-			goto out;
++		if (offload & XFRM_OFFLOAD_AUTH) {
++			if (unlikely(offload & XFRM_OFFLOAD_AUTH_FAIL)) {
++				x->stats.integrity_failed++;
++				goto out;
++			}
++		} else {
++			ahp->icv(ahp, skb, ah->auth_data);
++			if (memcmp(ah->auth_data, auth_data, ahp->icv_trunc_len)) {
++				x->stats.integrity_failed++;
++				goto out;
++			}
+ 		}
  	}
- }
-+
-+#define XFRM_OFFLOAD_ALIGN		8
-+#define XFRM_OFFLOAD_ALIGN_CONST	(XFRM_OFFLOAD_ALIGN - 1)
-+
-+static inline struct xfrm_offload *
-+xfrm_offload_alloc(int sizeof_priv, struct net_device *dev, int mask)
-+{
-+	struct xfrm_offload *xol;
-+	int alloc_size;
-+	
-+	alloc_size = (sizeof(*xol) + XFRM_OFFLOAD_ALIGN_CONST)
-+				& ~XFRM_OFFLOAD_ALIGN_CONST;
-+	alloc_size += sizeof_priv;
-+	xol = kmalloc(alloc_size, mask);
-+	if (xol) {
-+		memset(xol, 0, alloc_size);
-+		INIT_LIST_HEAD(&xol->bydev);
-+		atomic_set(&xol->refcnt, 1);
-+		xol->dev = dev;
-+	}
-+
-+	return xol;
-+}
-+
-+static inline void *xfrm_offload_priv(struct xfrm_offload *xol)
-+{
-+	return (char *)xol + ((sizeof(*xol) + XFRM_OFFLOAD_ALIGN_CONST)
-+					& ~XFRM_OFFLOAD_ALIGN_CONST);
-+}
-+
-+static inline void xfrm_offload_hold(struct xfrm_offload *xol)
-+{
-+	atomic_inc(&xol->refcnt);
-+}
-+
-+static inline void xfrm_offload_release(struct xfrm_offload *xol)
-+{
-+	if (xol) {
-+		WARN_ON(atomic_read(&xol->refcnt) < 1);
-+		if (atomic_dec_and_test(&xol->refcnt)) {
-+			xol->dev->xfrm_state_del(xol->dev, xol);
-+			dev_put(xol->dev);
-+			kfree(xol);
-+		}
-+	}
-+}
-+
-+static inline struct xfrm_offload *xfrm_offload_get(struct xfrm_state *x,
-+                                               struct net_device *dev)
-+{
-+	struct xfrm_offload *xol, *ret = NULL;
-+
-+	spin_lock(&x->lock);
-+	list_for_each_entry(xol, &x->offloads, bydev) {
-+		if (xol->dev == dev) {
-+			xfrm_offload_hold(xol);
-+			ret = xol;
-+			break;
-+		}
-+	}
-+	spin_unlock(&x->lock);
-+
-+	return ret;
-+}
-+
-+extern void xfrm_state_offload_add(struct xfrm_state *x,
-+					struct xfrm_offload *xol);
+ 	((struct iphdr*)work_buf)->protocol = ah->nexthdr;
+diff -Nru a/net/ipv4/esp4.c b/net/ipv4/esp4.c
+--- a/net/ipv4/esp4.c	2005-01-10 01:18:35 -05:00
++++ b/net/ipv4/esp4.c	2005-01-10 01:18:35 -05:00
+@@ -164,6 +164,7 @@
+ 	int elen = skb->len - sizeof(struct ip_esp_hdr) - esp->conf.ivlen - alen;
+ 	int nfrags;
+ 	int encap_len = 0;
++	int offload;
  
- #endif	/* _NET_XFRM_H */
-diff -Nru a/net/xfrm/xfrm_export.c b/net/xfrm/xfrm_export.c
---- a/net/xfrm/xfrm_export.c	2005-01-10 01:20:15 -05:00
-+++ b/net/xfrm/xfrm_export.c	2005-01-10 01:20:15 -05:00
-@@ -60,3 +60,5 @@
- EXPORT_SYMBOL_GPL(xfrm_ealg_get_byname);
- EXPORT_SYMBOL_GPL(xfrm_calg_get_byname);
- EXPORT_SYMBOL_GPL(skb_icv_walk);
-+
-+EXPORT_SYMBOL_GPL(xfrm_state_offload_add);
-diff -Nru a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
---- a/net/xfrm/xfrm_state.c	2005-01-10 01:20:15 -05:00
-+++ b/net/xfrm/xfrm_state.c	2005-01-10 01:20:15 -05:00
-@@ -56,6 +56,12 @@
+ 	if (!pskb_may_pull(skb, sizeof(struct ip_esp_hdr)))
+ 		goto out;
+@@ -171,22 +172,32 @@
+ 	if (elen <= 0 || (elen & (blksize-1)))
+ 		goto out;
  
- static void xfrm_state_gc_destroy(struct xfrm_state *x)
- {
-+	if (!list_empty(&x->offloads)) {
-+		struct xfrm_offload *xol, *next;
++	offload = skb_pop_xfrm_result(skb);
 +
-+		list_for_each_entry_safe(xol, next, &x->offloads, bydev)
-+			xfrm_offload_release(xol);
-+	}
- 	if (del_timer(&x->timer))
- 		BUG();
- 	if (x->aalg)
-@@ -181,6 +187,7 @@
- 		atomic_set(&x->tunnel_users, 0);
- 		INIT_LIST_HEAD(&x->bydst);
- 		INIT_LIST_HEAD(&x->byspi);
-+		INIT_LIST_HEAD(&x->offloads);
- 		init_timer(&x->timer);
- 		x->timer.function = xfrm_timer_handler;
- 		x->timer.data	  = (unsigned long)x;
-@@ -944,6 +951,27 @@
- 		xfrm_state_put(t);
- 		x->tunnel = NULL;
+ 	/* If integrity check is required, do this. */
+ 	if (esp->auth.icv_full_len) {
+-		u8 sum[esp->auth.icv_full_len];
+-		u8 sum1[alen];
++		if (unlikely(offload & XFRM_OFFLOAD_AUTH_FAIL)) {
++			x->stats.integrity_failed++;
++			goto out;
++		}
++
++		if (!(offload & XFRM_OFFLOAD_AUTH)) {
++			u8 sum[esp->auth.icv_full_len];
++			u8 sum1[alen];
+ 		
+-		esp->auth.icv(esp, skb, 0, skb->len-alen, sum);
++			esp->auth.icv(esp, skb, 0, skb->len-alen, sum);
+ 
+-		if (skb_copy_bits(skb, skb->len-alen, sum1, alen))
+-			BUG();
++			if (skb_copy_bits(skb, skb->len-alen, sum1, alen))
++				BUG();
+ 
+-		if (unlikely(memcmp(sum, sum1, alen))) {
+-			x->stats.integrity_failed++;
+-			goto out;
++			if (unlikely(memcmp(sum, sum1, alen))) {
++				x->stats.integrity_failed++;
++				goto out;
++			}
+ 		}
  	}
-+}
+ 
++	/* XXX I think this can be moved to the !offload case */
+ 	if ((nfrags = skb_cow_data(skb, 0, &trailer)) < 0)
+ 		goto out;
+ 
+@@ -195,15 +206,12 @@
+ 	esph = (struct ip_esp_hdr*)skb->data;
+ 	iph = skb->nh.iph;
+ 
+-	/* Get ivec. This can be wrong, check against another impls. */
+-	if (esp->conf.ivlen)
+-		crypto_cipher_set_iv(esp->conf.tfm, esph->enc_data, crypto_tfm_alg_ivsize(esp->conf.tfm));
+-
+-        {
+-		u8 nexthdr[2];
++	if (!(offload & XFRM_OFFLOAD_CONF)) {
+ 		struct scatterlist *sg = &esp->sgbuf[0];
+-		u8 workbuf[60];
+-		int padlen;
 +
-+void xfrm_state_offload_add(struct xfrm_state *x, struct xfrm_offload *xol)
-+{
-+	struct xfrm_offload *entry, *old = NULL;
-+
-+	spin_lock(&x->lock);
-+	list_for_each_entry(entry, &x->offloads, bydev) {
-+		if (entry->dev == xol->dev) {
-+			list_del(&entry->bydev);
-+			old = entry;
-+			break;
-+		}
++		/* Get ivec. This can be wrong, check against another impls. */
++		if (esp->conf.ivlen)
++			crypto_cipher_set_iv(esp->conf.tfm, esph->enc_data, crypto_tfm_alg_ivsize(esp->conf.tfm));
+ 
+ 		if (unlikely(nfrags > ESP_NUM_FAST_SG)) {
+ 			sg = kmalloc(sizeof(struct scatterlist)*nfrags, GFP_ATOMIC);
+@@ -214,6 +222,12 @@
+ 		crypto_cipher_decrypt(esp->conf.tfm, sg, sg, elen);
+ 		if (unlikely(sg != &esp->sgbuf[0]))
+ 			kfree(sg);
 +	}
 +
-+	dev_hold(xol->dev);
-+	list_add_tail(&xol->bydev, &x->offloads);
-+	spin_unlock(&x->lock);
-+
-+	if(old)
-+		xfrm_offload_release(old);
- }
++        {
++		u8 nexthdr[2];
++		u8 workbuf[60];
++		int padlen;
  
- void __init xfrm_state_init(void)
+ 		if (skb_copy_bits(skb, skb->len-alen-2, nexthdr, 2))
+ 			BUG();
