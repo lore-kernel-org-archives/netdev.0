@@ -1,29 +1,25 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH 2.5.69] IPV4 should use dev_hold
-Date: Wed, 07 May 2003 00:32:42 -0700 (PDT)
+From: =?iso-8859-1?q?Gianluca=20Masone?= <lucas75it@yahoo.it>
+Subject: Linux and Wake-On-Lan
+Date: Wed, 7 May 2003 11:05:30 +0200 (CEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030507.003242.104053566.davem@redhat.com>
-References: <20030506075808.388332C07F@lists.samba.org>
-	<20030506.072338.39479306.davem@redhat.com>
-	<20030506153234.4907001f.shemminger@osdl.org>
+Message-ID: <20030507090530.91065.qmail@web9703.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: rusty@rustcorp.com.au, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
-   acme@conectiva.com.br
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: shemminger@osdl.org
-In-Reply-To: <20030506153234.4907001f.shemminger@osdl.org>
+To: davem@redhat.com, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Stephen Hemminger <shemminger@osdl.org>
-   Date: Tue, 6 May 2003 15:32:34 -0700
+I have a little question ?
+Suppose i put a net device in wake-on-lan status.
+There is some kernel function that notifies presence
+of a wake packet ?
 
-   While debugging possible changes to dev refcounting, discovered
-   a couple of places in IPV4 that were directly incrementing rather
-   than using the inline dev_hold.  Let's hide the implementation of
-   net device ref counting so  future module ref count fixes will be easier.
+Help me.
+Please,
+Gianluca Masone
 
-Applied, thanks.  If you find any more, just send along
-another patch :-)
+______________________________________________________________________
+Yahoo! Cellulari: loghi, suonerie, picture message per il tuo telefonino
+http://it.yahoo.com/mail_it/foot/?http://it.mobile.yahoo.com/index2002.html
