@@ -1,28 +1,31 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] (4/4) convert irlan to seq_file interface
-Date: Tue, 19 Aug 2003 00:26:37 +0200
+From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
+Subject: Re: [PATCH] ircomm - set owner get rid of MOD_INC/MOD_DEC
+Date: Mon, 18 Aug 2003 15:34:28 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030819002637.B7779@electric-eye.fr.zoreil.com>
-References: <20030818122702.67e9162d.shemminger@osdl.org> <20030818232554.A7779@electric-eye.fr.zoreil.com> <20030818150514.310f6f5d.shemminger@osdl.org>
+Message-ID: <20030818223428.GB6962@bougret.hpl.hp.com>
+References: <20030818111746.34b9e52b.shemminger@osdl.org> <20030818184059.GA6457@bougret.hpl.hp.com> <3F414E3F.9090908@pobox.com>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jean Tourrilhes <jt@bougret.hpl.hp.com>,
-   "David S. Miller" <davem@redhat.com>, irda-users@lists.sourceforge.net,
+Cc: Stephen Hemminger <shemminger@osdl.org>, irda-users@lists.sourceforge.net,
    netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
+To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <20030818150514.310f6f5d.shemminger@osdl.org>; from shemminger@osdl.org on Mon, Aug 18, 2003 at 03:05:14PM -0700
+In-Reply-To: <3F414E3F.9090908@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger <shemminger@osdl.org> :
-[...]
-> If you are going to do that (and it looks good).  Make the str a const
-> and use C99 initializers?
+On Mon, Aug 18, 2003 at 06:07:59PM -0400, Jeff Garzik wrote:
+> 
+> Yes, I have "ircomm module fix" and "NSC '39x fixes" queued, and going 
+> to Linus today with some more net driver stuff.
+> 
+> 	Jeff
 
-I'll add a #define MASK2STR(m,s) { .mask = m, .str = s } and push it as an
-incremental patch once the bk-commit mail is here (tomorrow evening then).
+	By the way, I don't want you to take it the wrong way, I
+prefer a reliable person than a quick one. It's just hard to
+synchronise everything.
+	Have fun...
 
---
-Ueimor
+	Jean
