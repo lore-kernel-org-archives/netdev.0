@@ -1,39 +1,63 @@
-From: Ross Biro <ross.biro@gmail.com>
-Subject: Re: [PATCH] port_reuse listen fix (allow simultaneous single listen + outgoing connects from same port)
-Date: Thu, 9 Dec 2004 10:36:08 -0500
-Message-ID: <8783be6604120907367db1fda5@mail.gmail.com>
-References: <fcb9aa29041209032521899698@mail.gmail.com>
-Reply-To: Ross Biro <ross.biro@gmail.com>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: [PATCH] e1000 poll behavior
+Date: Thu, 9 Dec 2004 17:07:17 +0100
+Message-ID: <16824.30773.125766.220826@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com,
-        =?UTF-8?Q?YOSHIFUJI_Hideaki_/_=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?= <yoshfuji@linux-ipv6.org>,
-        davem@redhat.com, linux-kernel@vger.kernel.org
+Cc: Robert.Olsson@data.slu.se
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ilya Pashkovsky <ilya.pashkovsky@gmail.com>
-In-Reply-To: <fcb9aa29041209032521899698@mail.gmail.com>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 9 Dec 2004 13:25:26 +0200, Ilya Pashkovsky
-<ilya.pashkovsky@gmail.com> wrote:
-> This is the latest patch with removed bool > 1 check and ipv6 support.
-> http://puding.mine.nu/patches/
-> http://puding.mine.nu/patches/patch-reuse-bool-ipv6
-> 
-> to check, you can use netcat (sets SO_REUSEADDR by default).
-> on one host (host A): nc -v -l -p 9999
-> on another/same host (host B): nc -v -l -p 9000
-> on host A: nc -v -p 9999 host.B.ip.addr 9000
-> on host B: nc -v host.A.ip.addr 9999
 
-What happens if on host B you do 
+Hello!
 
-nc -v -p 9000 host.A.ip.addr 9999?
+Seems e1000 never gets into poll mode when tx_cleaned is false. Compare
+irq's on RX interfaces eth0, eth2 in the forwarding test below.
 
-Seems to me you will break the rule that a connection is uniquely
-identified by (srcpip, destip, srcport, destport).
+Vanilla:
+-------
+Iface   MTU Met  RX-OK RX-ERR RX-DRP RX-OVR  TX-OK TX-ERR TX-DRP TX-OVR Flags
+eth0   1500   0 3983334 8374749 8374749 6016848    111      0      0      0 BRU
+eth1   1500   0      1      0      0      0 3982841      0      0      0 BRU
+eth2   1500   0 4002156 8507930 8507930 5997844      5      0      0      0 BRU
+eth3   1500   0      1      0      0      0 4001653      0      0      0 BRU
 
-    Ross
+           CPU0       
+ 26:      66366   IO-APIC-level  eth0
+ 27:      75200   IO-APIC-level  eth1
+ 28:      66705   IO-APIC-level  eth2
+ 29:      75132   IO-APIC-level  eth3
+
+--- drivers/net/e1000/e1000_main.c.orig	2004-12-09 17:49:56.000000000 +0100
++++ drivers/net/e1000/e1000_main.c	2004-12-09 19:05:07.000000000 +0100
+@@ -2179,8 +2179,8 @@
+ 	*budget -= work_done;
+ 	netdev->quota -= work_done;
+ 	
+-	/* if no Rx and Tx cleanup work was done, exit the polling mode */
+-	if(!tx_cleaned || (work_done < work_to_do) || 
++	/* if no Tx and not enough Rx work done, exit the polling mode */
++	if((!tx_cleaned && (work_done < work_to_do)) || 
+ 				!netif_running(netdev)) {
+ 		netif_rx_complete(netdev);
+ 		e1000_irq_enable(adapter);
+
+Patched: 
+-------
+Iface   MTU Met  RX-OK RX-ERR RX-DRP RX-OVR  TX-OK TX-ERR TX-DRP TX-OVR Flags
+eth0   1500   0 4193457 8283968 8283968 5806693     99      0      0      0 BRU
+eth1   1500   0      1      0      0      0 4192308      0      0      0 BRU
+eth2   1500   0 4190698 8441200 8441200 5809302      5      0      0      0 BRU
+eth3   1500   0      1      0      0      0 4190171      0      0      0 BRU
+
+           CPU0       
+ 26:        336   IO-APIC-level  eth0
+ 27:      58159   IO-APIC-level  eth1
+ 28:         64   IO-APIC-level  eth2
+ 29:      58228   IO-APIC-level  eth3
+
+						--ro
