@@ -1,41 +1,31 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [patch 2.6.9 9/11] r8169: Add MODULE_VERSION
-Date: Wed, 20 Oct 2004 15:59:38 -0400
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [mini-RFT] r8169 and amd64
+Date: Wed, 20 Oct 2004 23:03:50 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041020155938.T8775@tuxdriver.com>
-References: <20041020141146.C8775@tuxdriver.com> <20041020142858.L8775@tuxdriver.com> <Pine.LNX.4.61.0410201629120.6918@chaos.analogic.com>
+Message-ID: <20041020210350.GA12577@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, Linux kernel <linux-kernel@vger.kernel.org>,
-        jgarzik@pobox.com, romieu@fr.zoreil.com
+Cc: linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Richard B. Johnson" <root@chaos.analogic.com>
+To: netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.61.0410201629120.6918@chaos.analogic.com>; from root@chaos.analogic.com on Wed, Oct 20, 2004 at 04:34:45PM -0400
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 20, 2004 at 04:34:45PM -0400, Richard B. Johnson wrote:
-> 
-> This makes warning error about :
-> 
-> Warning: could not find versions for .tmp_versions/r8169.mod
-> 
-> Do I have to enable something in .config (like CONFIG_MODVERSIONS)?
-> If so, how does one make this transparent, to get rid of the
-> warning if CONFIG_MODVERSIONS is not set?
+Could someone with an amd64 system test the r8169 driver in Jeff's -netdev
+with PCI DAC enabled and send me the values of the command and status
+registers which are displayed when the PCI error happen ?
 
-Odd...I don't get any such warning, with or without
-CONFIG_MODVERSIONS...
+One just need to give an "use_dac=1" option to the r8169 module.
 
-MODULE_VERSION is used elsewhere -- do you get that warning
-from any other modules?  Was this from a clean build?
+Apparently the 8169 does not hesitate to issue harmless PCI error. They could
+be identified and thus ignored.
 
-Send me your .config, and I'll look into it.
 
-Thanks,
+Alternate location for the relevant patch against 2.6.9:
+http://www.fr.zoreil.com/people/francois/misc/20041020-2.6.9-r8169.c-test.patch 
 
-John
--- 
-John W. Linville
-linville@tuxdriver.com
+Thank you for your attention.
+
+--
+Ueimor
