@@ -1,39 +1,31 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: support of IPv6 by NFS
-Date: Wed, 02 Mar 2005 00:42:45 +0900 (JST)
-Message-ID: <20050302.004245.114793740.yoshfuji@linux-ipv6.org>
-References: <42243F8D.5030302@bull.net>
+From: Olaf Kirch <okir@suse.de>
+Subject: Re: (usagi-users 03222) Re: support of IPv6 by NFS
+Date: Tue, 1 Mar 2005 17:19:05 +0100
+Message-ID: <20050301161905.GD22324@suse.de>
+References: <42243F8D.5030302@bull.net> <200503010744.38339.Info@Quantum-Sci.com> <1109689712.17484.6.camel@firenze.zurich.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-ipv6@list.f00f.org, gh@us.ibm.com,
-        Tony.Reix@bull.net, yoshfuji@linux-ipv6.org
-To: gilles.quillard@bull.net
-In-Reply-To: <42243F8D.5030302@bull.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: usagi-users@linux-ipv6.org, netdev@oss.sgi.com
+To: Jeroen Massar <jeroen@unfix.org>
+Content-Disposition: inline
+In-Reply-To: <1109689712.17484.6.camel@firenze.zurich.ibm.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <42243F8D.5030302@bull.net> (at Tue, 01 Mar 2005 11:10:21 +0100), Gilles Quillard <gilles.quillard@bull.net> says:
+On Tue, Mar 01, 2005 at 04:08:32PM +0100, Jeroen Massar wrote:
+> > There is no Linux 6to4 
+> >UDP tunnelling app, but there should be, because this is such a common 
+> >problem.  (As I understand, Teredo is Winduhs-only, and is not supported by 
+> >most tunnel operators)
+> 
+> The protocol for Teredo is open and can be implemented at will:
 
-> The problem is not specific to NFS, any networking application written 
-> using IPv6 mechanisms for both IPv4 and IPv6 addresses (AF_INET6 socket 
-> opened, IPv4 addresses mapped) couldn't work without a kernel built with 
-> IPv6.
-:
-> Are the final users really against the use of kernels built with IPv6 ?
-> What is preconized on Linux for the support of IPv6 ? The solution
-> described above or the cohabitation of the two modes (struct sockaddr or
-> sockaddr_storage used to contain either struct sockaddr_in or struct
-> sockaddr_in6) with specific processing according to the family of the
-> addresses ?
+Except that it's quite horrible, and it requires a centralized broker,
+and IIRC it also makes assumptions about the way your NAT implementation
+assigns ports.
 
-You cannot assume whether the user enables IPv6 or not,
-and you cannot assume s/he has connectivity to global Internet,
-in most cases.
-
-So, you likely need to try both IPv6 and IPv4.
-Getaddrinfo() / getnameinfo(), or "protocol independent progarmming," 
-are your friend.
-
---yoshfuji
+Olaf
+-- 
+Olaf Kirch   |  --- o --- Nous sommes du soleil we love when we play
+okir@suse.de |    / | \   sol.dhoop.naytheet.ah kin.ir.samse.qurax
