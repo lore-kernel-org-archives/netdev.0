@@ -1,60 +1,38 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [RFC] string matching based packet classification/filtering
-Date: Tue, 15 Feb 2005 21:32:11 +0100
-Message-ID: <20050215203211.GL31837@postel.suug.ch>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [4/4] [IPSEC] Store MTU at each xfrm_dst
+Date: Wed, 16 Feb 2005 07:31:12 +1100
+Message-ID: <20050215203112.GA16313@gondor.apana.org.au>
+References: <20050214221607.GC18465@gondor.apana.org.au> <Xine.LNX.4.44.0502151050080.29775-100000@thoron.boston.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org
-To: Pablo Neira <pablo@eurodev.net>,
-	Harald Welte <laforge@gnumonks.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, netdev@oss.sgi.com
+To: James Morris <jmorris@redhat.com>
 Content-Disposition: inline
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+In-Reply-To: <Xine.LNX.4.44.0502151050080.29775-100000@thoron.boston.redhat.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-We have been discussing string matching based packet classification and
-filterings a few times already and I'd like to make it serious this time
-to get the string matching ematch ready for 2.6.12 inclusion. I'm aware
-of the bayer-moore based patch by Emmanuel Roger, Gianni Tedesco, and Pablo
-but I also heard about a generic string matching architecture supporting
-various algorithms I haven't found that patchset though.
+On Tue, Feb 15, 2005 at 10:53:11AM -0500, James Morris wrote:
+> 
+> The only thing I'd suggest is to consider renaming the new route element
+> of xfrm_dst to xfrm_dst_route (or xd_route), to make it easier to navigate
+> the code.  (But the other elements are not distinctive either so perhaps 
+> some future cleanup could do it).
 
-Is there any effort going into the generic architecture? Any plans for
-a stateful string matching netfilter module? As it was mentioned already
-we could share some code between the ematch and netfilter. I do not care
-for the algorithm, actually I think it doesn't matter at all as long as
-it's not a naive linear search. The essential parts are to be able to
-define a searching range and to support paged skbs. If there is someone
-going for the generic architecture fullfilling the essential parts
-just described then I'll be more than happy to use that bit of code
-otherwise I'd be happy to discuss the requirements of both sides and
-try to find a compromise both sides can live with.
+Thanks for your comment.
 
-The requirements from my side:
- In:
-  o pattern as byte stream
-  o length of pattern
-  o begin of search range (skb layer + offset)
-  o end of search range (skb layer + offset)
-  o (p)skb
- Out:
-  o true or false
+I would say that not only are the other elements of xfrm_dst missing
+the prefixes, but the same thing applies to the rest of xfrm.h :)
 
-Applying this on the recently posted implementation by Pablo it shows
-that it nearly fits already except for the search range. Additionaly
-it could be improved by using prefix optimizations for the fragment
-border regions instead of a naive string search which would help for
-large patterns on paged skbs.
+So if we decide to go that way, then we should do it to the entire
+xfrm subsystem.
 
-If needed an additional input argument could be added specifying the
-algorithm to be used. Eventually it requires an additional algoirthm
-specific argument carrying meta data such as prefix lookup tables.
-
-Thoughts?
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
