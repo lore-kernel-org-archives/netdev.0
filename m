@@ -1,54 +1,85 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: IPsec xfrm resolution
-Date: Sat, 19 Feb 2005 20:23:14 +1100
-Message-ID: <20050219092314.GA8153@gondor.apana.org.au>
-References: <20050209085251.GA9030@gondor.apana.org.au> <420B9DF1.3020704@trash.net> <20050210202810.GA1609@gondor.apana.org.au> <42144C3F.2060501@trash.net> <20050217091137.GA9476@gondor.apana.org.au> <42152841.5000707@trash.net> <20050218100854.GA19427@gondor.apana.org.au> <4216D6B4.5070901@trash.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [XFRM]: Fix ICMP tempsel
+Date: Sat, 19 Feb 2005 12:43:43 +0100
+Message-ID: <4217266F.6090700@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Maillist netdev <netdev@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <4216D6B4.5070901@trash.net>
+Content-Type: multipart/mixed;
+ boundary="------------070100090607050204020104"
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        Maillist netdev <netdev@oss.sgi.com>
+To: "David S. Miller" <davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Feb 19, 2005 at 07:03:32AM +0100, Patrick McHardy wrote:
->
-> An optional tunnel mode SA might change peer/dev/rt_gateway/rt_type if
-> successfully resolved. This introduces a couple of problems:
-> 
-> - MTU estimatation impossible
+This is a multi-part message in MIME format.
+--------------070100090607050204020104
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-This is OK for two reasons:
+The selector ports are initialized to fl_ip_sport/fl_ip_dport instead
+of xfrm_flowi_sport(fl)/xfrm_flowi_dport(fl). This is wrong for ICMP,
+type and code should be stored in sport and dport, in struct flowi both
+are contained in fl_ip_sport.
 
-1) The application must be able to react to MTU changes anyway.
-2) The most common use for optional SAs is IPCOMP which has zero overhead.
 
-Actually, 2) gives us the real reason why we must include optional SAs.
-Even though we can skip the compression of a tunnel mode IPCOMP SA, we
-must perform the IPIP encapsulation.
 
-> - netfilter LOCAL_OUT hook sees incorrect output device
-> - strict source routing check done with incorrect rt_gateway
+--------------070100090607050204020104
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
-Once you take the above into account these turn out to be non-issues.
-If the optional SA is transport mode, then the route is identical with
-or without it.  If it's tunnel mode, then we must perform the IPIP
-encapsulation regardless.
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2005/02/19 12:35:18+01:00 kaber@coreworks.de 
+#   [XFRM]: Fix ICMP tempsel
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+# net/ipv6/xfrm6_state.c
+#   2005/02/19 12:35:06+01:00 kaber@coreworks.de +2 -2
+#   [XFRM]: Fix ICMP tempsel
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+# net/ipv4/xfrm4_state.c
+#   2005/02/19 12:35:06+01:00 kaber@coreworks.de +2 -2
+#   [XFRM]: Fix ICMP tempsel
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+diff -Nru a/net/ipv4/xfrm4_state.c b/net/ipv4/xfrm4_state.c
+--- a/net/ipv4/xfrm4_state.c	2005-02-19 12:36:31 +01:00
++++ b/net/ipv4/xfrm4_state.c	2005-02-19 12:36:31 +01:00
+@@ -20,9 +20,9 @@
+ {
+ 	x->sel.daddr.a4 = fl->fl4_dst;
+ 	x->sel.saddr.a4 = fl->fl4_src;
+-	x->sel.dport = fl->fl_ip_dport;
++	x->sel.dport = xfrm_flowi_dport(fl);
+ 	x->sel.dport_mask = ~0;
+-	x->sel.sport = fl->fl_ip_sport;
++	x->sel.sport = xfrm_flowi_sport(fl);
+ 	x->sel.sport_mask = ~0;
+ 	x->sel.prefixlen_d = 32;
+ 	x->sel.prefixlen_s = 32;
+diff -Nru a/net/ipv6/xfrm6_state.c b/net/ipv6/xfrm6_state.c
+--- a/net/ipv6/xfrm6_state.c	2005-02-19 12:36:31 +01:00
++++ b/net/ipv6/xfrm6_state.c	2005-02-19 12:36:31 +01:00
+@@ -27,9 +27,9 @@
+ 	 * to current session. */
+ 	ipv6_addr_copy((struct in6_addr *)&x->sel.daddr, &fl->fl6_dst);
+ 	ipv6_addr_copy((struct in6_addr *)&x->sel.saddr, &fl->fl6_src);
+-	x->sel.dport = fl->fl_ip_dport;
++	x->sel.dport = xfrm_flowi_dport(fl);
+ 	x->sel.dport_mask = ~0;
+-	x->sel.sport = fl->fl_ip_sport;
++	x->sel.sport = xfrm_flowi_sport(fl);
+ 	x->sel.sport_mask = ~0;
+ 	x->sel.prefixlen_d = 128;
+ 	x->sel.prefixlen_s = 128;
 
-> That sounds reasonable. The selector initialized to the inner flow is
-> meant for cacheing the incomplete bundle at the policy. We can have
-> multiple SAs with equal family/reqid/saddr/daddr/mode/proto differing
-> only be SPI and selector. If we use a selector selecting more than the
-> inner flow we could create a conflict with an already existing cached
-> bundle.
-
-Agreed.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--------------070100090607050204020104--
