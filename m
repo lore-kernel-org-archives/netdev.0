@@ -1,28 +1,26 @@
-From: David Dillow <dave@thedillows.org>
-Subject: [BK] Typhoon net driver fixes for 2.5
-Date: 27 Jun 2003 00:52:51 -0400
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1056689571.8679.42.camel@ori.thedillows.org>
+From: "David S. Miller" <davem@redhat.com>
+Subject: networking bugs and bugme.osdl.org
+Date: Thu, 26 Jun 2003 22:30:02 -0700 (PDT)
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20030626.223002.21926109.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: linux-kernel@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff, please do a
 
-	bk pull http://typhoon.bkbits.net/typhoon-2.5
+I would like to ask everyone NOT to use bugme.osdl.org
+for networking bug reporting any more.
 
-This will update the following files:
+It's absolutely the wrong model.  When a bug gets filed that way
+it sort of goes into a black hole that _I_ am forced to process,
+forward, etc. the bug around and I don't want to be forced to do
+mindless work like that when it is totally unnecessary.
 
- drivers/net/typhoon.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+I want people to post the bug to linux-net and netdev and discuss
+the problem there.  And that solves all of the problems.
 
-through these ChangeSets:
-
-<dave@thedillows.org> (03/06/27 1.1387)
-   Fix misreporting of card type and spurious
-   "already scheduled" messages.
+Thanks a lot.
