@@ -1,52 +1,98 @@
-From: Shirley Ma <xma@us.ibm.com>
-Subject: Re: [PATCH]dump interface IPv6 multicast/anycast addresses through netlink
-Date: Fri, 19 Mar 2004 00:03:35 -0800
+From: "Kevin Curtis" <kevin.curtis@farsite.co.uk>
+Subject: RE: Update FarSync WAN driver in 2.6
+Date: Fri, 19 Mar 2004 09:26:28 -0000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OF281ACB68.B5B24595-ON87256E5C.002C3D74-88256E5C.002BED1B@us.ibm.com>
-References: <20040318233255.4cacc92c.davem@redhat.com>
+Message-ID: <7C078C66B7752B438B88E11E5E20E72E25CC84@general.hq.farsitecommunications.com>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	Boundary="0__=08BBE4CFDFBFBBE48f9e8a93df938690918c08BBE4CFDFBFBBE4"
-Cc: netdev@oss.sgi.com, netdev-bounce@oss.sgi.com, yoshfuji@linux-ipv6.org,
-        "YOSHIFUJI.Hideaki" <YOSHIFUJI.Hideaki/mashirle@us.ibm.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8bit
+Cc: <netdev@oss.sgi.com>, <davem@redhat.com>, <Kevin.curtis4@btopenworld.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <20040318233255.4cacc92c.davem@redhat.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
+content-class: urn:content-classes:message
+To: "Jeff Garzik" <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---0__=08BBE4CFDFBFBBE48f9e8a93df938690918c08BBE4CFDFBFBBE4
-Content-type: text/plain; charset=US-ASCII
+Hi Jeff,
+	the FarSync driver updates in the 2.4 and 2.6 Kernels is
+becoming a little more critical.  Please can you make your best efforts
+to incorporate it into the next release of each.
 
 
+Kind Regards
+
+Kevin Curtis
+Linux Development
+FarSite Communications Ltd
+http://www.farsite.co.uk
+tel:  +44 1256 330461
+fax:  +44 1256 854931
+
+-----Original Message-----
+From: Kevin Curtis 
+Sent: 12 March 2004 16:57
+To: Kevin Curtis; 'Jeff Garzik'
+Cc: 'netdev@oss.sgi.com'; 'davem@redhat.com'
+Subject: RE: Update FarSync WAN driver in 2.6
 
 
+Any progress on getting the farsync patches into the 2.4 and 2.6
+Kernels?
 
-Yes. I will.
 
-Thanks
-Shirley Ma
-IBM Linux Technology Center
-15300 SW Koll Parkway
-Beaverton, OR 97006-6063
-Phone: (503) 578-7638
-FAX:      (503) 578-3228
+Kevin
 
---0__=08BBE4CFDFBFBBE48f9e8a93df938690918c08BBE4CFDFBFBBE4
-Content-type: text/html; charset=US-ASCII
-Content-Disposition: inline
+-----Original Message-----
+From: Kevin Curtis 
+Sent: 01 March 2004 13:56
+To: Kevin Curtis; 'Jeff Garzik'
+Cc: 'netdev@oss.sgi.com'; 'davem@redhat.com'
+Subject: RE: Update FarSync WAN driver in 2.6
 
-<html><body>
-<p>Yes. I will.<br>
-<br>
-Thanks<br>
-Shirley Ma<br>
-IBM Linux Technology Center<br>
-15300 SW Koll Parkway<br>
-Beaverton, OR 97006-6063<br>
-Phone: (503) 578-7638<br>
-FAX:      (503) 578-3228<br>
-<br>
-</body></html>
---0__=08BBE4CFDFBFBBE48f9e8a93df938690918c08BBE4CFDFBFBBE4--
+
+Here is the modified patch.
+It installs against 2.6.4-pre1
+
+Best get it in quick before net_device is given back to the hdlc layer
+again :->
+
+
+Kevin
+
+-----Original Message-----
+From: Kevin Curtis 
+Sent: 01 March 2004 09:15
+To: 'Jeff Garzik'; Kevin Curtis
+Cc: netdev@oss.sgi.com; davem@redhat.com
+Subject: RE: Update FarSync WAN driver in 2.6
+
+
+Hi,
+	looks as though the 2.6.4-pre1 patch has changed farsync.c,
+which is probably why the patch will not apply.  I would re-work the
+patch against this release.
+
+	What is the status of the 2.4.x patch that I sent a while back?
+I still need to make one more change to it.  I need to know if to resend
+the whole patch, or a n additional patch with the change?
+
+
+Kevin
+
+-----Original Message-----
+From: Jeff Garzik [mailto:jgarzik@pobox.com] 
+Sent: 29 February 2004 18:53
+To: Kevin Curtis
+Cc: netdev@oss.sgi.com; davem@redhat.com
+Subject: Re: Update FarSync WAN driver in 2.6
+
+
+hum...  Patch looks OK to appy, but does not apply against the latest 
+2.6.x kernel.
+
+Also, it is possible to split your patch into two pieces:  one patch 
+with nothing but indentation/whitespace cleanups, and the other patch 
+with functional changes?
+
+	Jeff
