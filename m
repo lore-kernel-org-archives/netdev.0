@@ -1,8 +1,8 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (7/8) pc300 hdlc_device conversion
-Date: Tue, 2 Dec 2003 14:02:26 -0800
+Subject: [PATCH] (8/8) pc300_tty cleanup.
+Date: Tue, 2 Dec 2003 14:00:43 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031202140226.266abaac.shemminger@osdl.org>
+Message-ID: <20031202140043.4da79ac3.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -16,233 +16,224 @@ List-Id: netdev.vger.kernel.org
 # Project Name: Linux kernel tree
 # This patch format is intended for GNU patch command version 2.5 or higher.
 # This patch includes the following deltas:
-#	           ChangeSet	1.1496  -> 1.1497 
-#	drivers/net/wan/pc300.h	1.3     -> 1.4    
-#	drivers/net/wan/pc300_drv.c	1.15    -> 1.16   
+#	           ChangeSet	1.1500  -> 1.1501 
+#	drivers/net/wan/pc300_tty.c	1.14    -> 1.15   
 #
 # The following is the BitKeeper ChangeSet Log
 # --------------------------------------------
-# 03/11/26	shemminger@osdl.org	1.1497
-# Convert for hdlc_device without embedded net_device.
-# This device was overriding dev->priv to be the pc300 device, this
-# breaks the hdlc_device interface's assumptions. 
-# Make hdlc_device private pointer be pc300 device and adjust to fix. 
+# 03/12/01	shemminger@osdl.org	1.1501
+# * make local variables static
+# * initialize tty_driver struct at compile time
+# * don't expect net_device to be first in pc300 struct
+# * don't depend on name being hdlcX
 # --------------------------------------------
 #
-diff -Nru a/drivers/net/wan/pc300.h b/drivers/net/wan/pc300.h
---- a/drivers/net/wan/pc300.h	Wed Nov 26 12:35:58 2003
-+++ b/drivers/net/wan/pc300.h	Wed Nov 26 12:35:58 2003
-@@ -391,7 +391,7 @@
- typedef struct pc300ch {
- 	struct pc300 *card;
- 	int channel;
--	pc300dev_t d;
-+	pc300dev_t *d;
- 	pc300chconf_t conf;
- 	ucchar tx_first_bd;	/* First TX DMA block descr. w/ data */
- 	ucchar tx_next_bd;	/* Next free TX DMA block descriptor */
-diff -Nru a/drivers/net/wan/pc300_drv.c b/drivers/net/wan/pc300_drv.c
---- a/drivers/net/wan/pc300_drv.c	Wed Nov 26 12:35:58 2003
-+++ b/drivers/net/wan/pc300_drv.c	Wed Nov 26 12:35:58 2003
-@@ -615,7 +615,7 @@
- 	while (cpc_readb(falcbase + F_REG(SIS, ch)) & SIS_CEC) {
- 		if (i++ >= PC300_FALC_MAXLOOP) {
- 			printk("%s: FALC command locked(cmd=0x%x).\n",
--			       card->chan[ch].d.name, cmd);
-+			       card->chan[ch].d->name, cmd);
- 			break;
- 		}
- 	}
-@@ -1361,7 +1361,7 @@
- 	    pfalc->loss_mfa || pfalc->blue_alarm) {
- 		if (pfalc->sync) {
- 			pfalc->sync = 0;
--			chan->d.line_off++;
-+			chan->d->line_off++;
- 			cpc_writeb(falcbase + card->hw.cpld_reg2,
- 				   cpc_readb(falcbase + card->hw.cpld_reg2) &
- 				   ~(CPLD_REG2_FALC_LED2 << (2 * ch)));
-@@ -1369,7 +1369,7 @@
- 	} else {
- 		if (!pfalc->sync) {
- 			pfalc->sync = 1;
--			chan->d.line_on++;
-+			chan->d->line_on++;
- 			cpc_writeb(falcbase + card->hw.cpld_reg2,
- 				   cpc_readb(falcbase + card->hw.cpld_reg2) |
- 				   (CPLD_REG2_FALC_LED2 << (2 * ch)));
-@@ -1771,7 +1771,8 @@
+diff -Nru a/drivers/net/wan/pc300_tty.c b/drivers/net/wan/pc300_tty.c
+--- a/drivers/net/wan/pc300_tty.c	Tue Dec  2 13:55:55 2003
++++ b/drivers/net/wan/pc300_tty.c	Tue Dec  2 13:55:55 2003
+@@ -102,20 +102,17 @@
+ 	volatile struct st_cpc_rx_list buf_rx;	/* ptr. to reception buffer */
+ 	unsigned char*	buf_tx;		/* ptr. to transmission buffer */
+ 	pc300dev_t*	pc300dev;	/* ptr. to info struct in PC300 driver */
+-	unsigned char	name[20];	/* interf. name + "-tty" */
++	unsigned char	name[IFNAMSIZ+6]; /* interf. name + "-tty" */
+ 	struct tty_struct *tty;		
+ 	struct work_struct tty_tx_work; /* tx work - tx interrupt */
+ 	struct work_struct tty_rx_work; /* rx work - rx interrupt */
+ 	} st_cpc_tty_area;
  
- void cpc_tx_timeout(struct net_device *dev)
- {
--	pc300dev_t *d = (pc300dev_t *) dev->priv;
-+	hdlc_device *hdlc = dev->priv;
-+	pc300dev_t *d = hdlc->dev_data;
- 	pc300ch_t *chan = (pc300ch_t *) d->chan;
- 	pc300_t *card = (pc300_t *) chan->card;
- 	struct net_device_stats *stats = &d->hdlc->stats;
-@@ -1799,7 +1800,8 @@
- 
- int cpc_queue_xmit(struct sk_buff *skb, struct net_device *dev)
- {
--	pc300dev_t *d = (pc300dev_t *) dev->priv;
-+	hdlc_device *hdlc = dev->priv;
-+	pc300dev_t *d = hdlc->dev_data;
- 	pc300ch_t *chan = (pc300ch_t *) d->chan;
- 	pc300_t *card = (pc300_t *) chan->card;
- 	struct net_device_stats *stats = &d->hdlc->stats;
-@@ -1883,7 +1885,7 @@
- void cpc_net_rx(hdlc_device * hdlc)
- {
- 	struct net_device *dev = hdlc_to_dev(hdlc);
--	pc300dev_t *d = (pc300dev_t *) dev->priv;
-+	pc300dev_t *d = hdlc->dev_data;
- 	pc300ch_t *chan = (pc300ch_t *) d->chan;
- 	pc300_t *card = (pc300_t *) chan->card;
- 	struct net_device_stats *stats = &d->hdlc->stats;
-@@ -2016,7 +2018,7 @@
- 	while ((status = cpc_readl(scabase + ISR0)) != 0) {
- 		for (ch = 0; ch < card->hw.nchan; ch++) {
- 			pc300ch_t *chan = &card->chan[ch];
--			pc300dev_t *d = &chan->d;
-+			pc300dev_t *d = chan->d;
- 			hdlc_device *hdlc = d->hdlc;
- 			struct net_device *dev = hdlc_to_dev(hdlc);
- 
-@@ -2162,7 +2164,7 @@
- 						netif_carrier_off(dev);
- 
- #endif
--						card->chan[ch].d.line_off++;
-+						card->chan[ch].d->line_off++;
- 					} else {	/* DCD = 1 */
- 						printk ("%s: DCD is ON. Going administrative up.\n",
- 							 dev->name);
-@@ -2171,7 +2173,7 @@
- 							/* verify if driver is not TTY */
- #endif
- 							netif_carrier_on(dev);
--						card->chan[ch].d.line_on++;
-+						card->chan[ch].d->line_on++;
- 					}
- 				}
- 			}
-@@ -2536,7 +2538,7 @@
- int cpc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- {
- 	hdlc_device *hdlc = dev_to_hdlc(dev);
--	pc300dev_t *d = (pc300dev_t *) dev->priv;
-+	pc300dev_t *d = hdlc->dev_data;
- 	pc300ch_t *chan = (pc300ch_t *) d->chan;
- 	pc300_t *card = (pc300_t *) chan->card;
- 	pc300conf_t conf_aux;
-@@ -2616,8 +2618,8 @@
- 
- 					memset(&pc300stats, 0, sizeof(pc300stats_t));
- 					pc300stats.hw_type = card->hw.type;
--					pc300stats.line_on = card->chan[ch].d.line_on;
--					pc300stats.line_off = card->chan[ch].d.line_off;
-+					pc300stats.line_on = card->chan[ch].d->line_on;
-+					pc300stats.line_off = card->chan[ch].d->line_off;
- 					memcpy(&pc300stats.gen_stats, &hdlc->stats,
- 					       sizeof(struct net_device_stats));
- 					if (card->hw.type == PC300_TE)
-@@ -2818,7 +2820,8 @@
- 
- static struct net_device_stats *cpc_get_stats(struct net_device *dev)
- {
--	pc300dev_t *d = (pc300dev_t *) dev->priv;
-+	hdlc_device *hdlc = dev->priv;
-+	pc300dev_t *d = hdlc->dev_data;
- 
- 	if (d)
- 		return &d->hdlc->stats;
-@@ -3067,8 +3070,7 @@
- static int cpc_attach(hdlc_device * hdlc, unsigned short encoding,
- 		      unsigned short parity)
- {
--	struct net_device * dev = hdlc_to_dev(hdlc);
--	pc300dev_t *d = (pc300dev_t *)dev->priv;
-+	pc300dev_t *d = hdlc->dev_data;
- 	pc300ch_t *chan = (pc300ch_t *)d->chan;
- 	pc300_t *card = (pc300_t *)chan->card;
- 	pc300chconf_t *conf = (pc300chconf_t *)&chan->conf;
-@@ -3145,7 +3147,7 @@
- int cpc_open(struct net_device *dev)
- {
- 	hdlc_device *hdlc = dev_to_hdlc(dev);
--	pc300dev_t *d = (pc300dev_t *) dev->priv;
-+	pc300dev_t *d = hdlc->dev_data;
- 	struct ifreq ifr;
- 	int result;
- 
-@@ -3158,9 +3160,6 @@
- 	}
- 
- 	result = hdlc_open(hdlc);
--	if (hdlc->proto.id == IF_PROTO_PPP) {
--		dev->priv = d;
--	}
- 	if (result) {
- 		return result;
- 	}
-@@ -3174,7 +3173,7 @@
- int cpc_close(struct net_device *dev)
- {
- 	hdlc_device *hdlc = dev_to_hdlc(dev);
--	pc300dev_t *d = (pc300dev_t *) dev->priv;
-+	pc300dev_t *d = hdlc->dev_data;
- 	pc300ch_t *chan = (pc300ch_t *) d->chan;
- 	pc300_t *card = (pc300_t *) chan->card;
- 	uclong flags;
-@@ -3316,10 +3315,17 @@
- 
- 	for (i = 0; i < card->hw.nchan; i++) {
- 		pc300ch_t *chan = &card->chan[i];
--		pc300dev_t *d = &chan->d;
-+		pc300dev_t *d;
- 		hdlc_device *hdlc;
- 		struct net_device *dev;
- 
-+		hdlc = alloc_hdlc_device(sizeof(*d));
-+		if (hdlc == NULL)
-+			continue;
-+		d = hdlc->dev_data;
-+		d->hdlc = hdlc;
-+		dev = hdlc_to_dev(hdlc);
-+
- 		chan->card = card;
- 		chan->channel = i;
- 		chan->conf.phys_settings.clock_rate = 0;
-@@ -3358,12 +3364,6 @@
- 		d->line_on = 0;
- 		d->line_off = 0;
- 
--		d->hdlc = (hdlc_device *) kmalloc(sizeof(hdlc_device), GFP_KERNEL);
--		if (d->hdlc == NULL)
--			continue;
--		memset(d->hdlc, 0, sizeof(hdlc_device));
+-/* TTY data structures */
+-static struct tty_driver serial_drv;
 -
--		hdlc = d->hdlc;
- 		hdlc->xmit = cpc_queue_xmit;
- 		hdlc->attach = cpc_attach;
+ /* local variables */
+-st_cpc_tty_area	cpc_tty_area[CPC_TTY_NPORTS];
++static st_cpc_tty_area	cpc_tty_area[CPC_TTY_NPORTS];
  
-@@ -3387,7 +3387,6 @@
- 		dev->do_ioctl = cpc_ioctl;
+-int cpc_tty_cnt=0;	/* number of intrfaces configured with MLPPP */
+-int cpc_tty_unreg_flag = 0;
++static int cpc_tty_cnt=0;	/* number of intrfaces configured with MLPPP */
++static int cpc_tty_unreg_flag = 0;
  
- 		if (register_hdlc_device(hdlc) == 0) {
--			dev->priv = d;	/* We need 'priv', hdlc doesn't */
- 			printk("%s: Cyclades-PC300/", dev->name);
- 			switch (card->hw.type) {
- 				case PC300_TE:
-@@ -3647,7 +3646,9 @@
- 			   cpc_readw(card->hw.plxbase + card->hw.intctl_reg) & ~(0x0040));
+ /* TTY functions prototype */
+ static int cpc_tty_open(struct tty_struct *tty, struct file *flip);
+@@ -152,8 +149,8 @@
+ 	int ch = pc300chan->channel; 
+ 	unsigned long flags; 
  
- 		for (i = 0; i < card->hw.nchan; i++) {
--			unregister_hdlc_device(card->chan[i].d.hdlc);
-+			hdlc_device *hdlc = card->chan[i].d->hdlc;
-+			unregister_hdlc_device(hdlc);
-+			free_hdlc_device(hdlc);
- 		}
- 		iounmap((void *) card->hw.plxbase);
- 		iounmap((void *) card->hw.scabase);
+-	CPC_TTY_DBG("%s-tty: Clear signal DTR\n",
+-		((struct net_device*)(pc300dev->hdlc))->name);
++	CPC_TTY_DBG("%s-tty: Clear signal DTR\n", 
++		    pc300dev->hdlc->netdev->name);
+ 	CPC_TTY_LOCK(card, flags); 
+ 	cpc_writeb(card->hw.scabase + M_REG(CTL,ch), 
+ 		cpc_readb(card->hw.scabase+M_REG(CTL,ch))& CTL_DTR); 
+@@ -171,13 +168,34 @@
+ 	unsigned long flags; 
+ 
+ 	CPC_TTY_DBG("%s-tty: Set signal DTR\n",
+-		((struct net_device*)(pc300dev->hdlc))->name);
++		    pc300dev->hdlc->netdev->name);
+ 	CPC_TTY_LOCK(card, flags); 
+ 	cpc_writeb(card->hw.scabase + M_REG(CTL,ch), 
+ 		cpc_readb(card->hw.scabase+M_REG(CTL,ch))& ~CTL_DTR); 
+ 	CPC_TTY_UNLOCK(card,flags); 
+ }
+ 
++static struct tty_driver serial_drv = {
++	.magic = TTY_DRIVER_MAGIC,
++	.owner = THIS_MODULE,
++	.driver_name = "pc300_tty",
++	.name = "ttyCP",
++	.major = CPC_TTY_MAJOR,
++	.minor_start = CPC_TTY_MINOR_START,
++	.num = CPC_TTY_NPORTS,
++	.type = TTY_DRIVER_TYPE_SERIAL,
++	.subtype = SERIAL_TYPE_NORMAL,
++	.flags = TTY_DRIVER_REAL_RAW,
++	.open = cpc_tty_open,
++	.close = cpc_tty_close,
++	.write = cpc_tty_write, 
++	.write_room = cpc_tty_write_room, 
++	.chars_in_buffer = cpc_tty_chars_in_buffer, 
++	.ioctl = cpc_tty_ioctl, 
++	.flush_buffer = cpc_tty_flush_buffer, 
++	.hangup = cpc_tty_hangup,
++};
++
+ /*
+  * PC300 TTY initialization routine
+  *
+@@ -190,48 +208,26 @@
+  */
+ void cpc_tty_init(pc300dev_t *pc300dev)
+ {
+-	int port, aux;
++	struct net_device *dev = pc300dev->hdlc->netdev;
++	unsigned port;
+ 	st_cpc_tty_area * cpc_tty;
+ 
+ 	/* hdlcX - X=interface number */
+-	port = ((struct net_device*)(pc300dev->hdlc))->name[4] - '0';
+-	if (port >= CPC_TTY_NPORTS) {
++	if (sscanf(dev->name, "hdlc%u", &port) != 1
++	    || port >= CPC_TTY_NPORTS) {
+ 		printk("%s-tty: invalid interface selected (0-%i): %i", 
+-			((struct net_device*)(pc300dev->hdlc))->name,
+-			CPC_TTY_NPORTS-1,port);
++		       dev->name, CPC_TTY_NPORTS-1,port);
+ 		return;
+ 	}
+ 
+ 	if (cpc_tty_cnt == 0) { /* first TTY connection -> register driver */
+ 		CPC_TTY_DBG("%s-tty: driver init, major:%i, minor range:%i=%i\n",
+-			((struct net_device*)(pc300dev->hdlc))->name,
+-			CPC_TTY_MAJOR, CPC_TTY_MINOR_START,
+-			CPC_TTY_MINOR_START+CPC_TTY_NPORTS);
+-		/* initialize tty driver struct */
+-		memset(&serial_drv,0,sizeof(struct tty_driver));
+-		serial_drv.magic = TTY_DRIVER_MAGIC;
+-		serial_drv.owner = THIS_MODULE;
+-		serial_drv.driver_name = "pc300_tty";
+-		serial_drv.name = "ttyCP";
+-		serial_drv.major = CPC_TTY_MAJOR;
+-		serial_drv.minor_start = CPC_TTY_MINOR_START;
+-		serial_drv.num = CPC_TTY_NPORTS;
+-		serial_drv.type = TTY_DRIVER_TYPE_SERIAL;
+-		serial_drv.subtype = SERIAL_TYPE_NORMAL;
++			    dev->name,
++			    CPC_TTY_MAJOR, CPC_TTY_MINOR_START,
++			    CPC_TTY_MINOR_START+CPC_TTY_NPORTS);
+ 
+ 		serial_drv.init_termios = tty_std_termios;
+ 		serial_drv.init_termios.c_cflag = B9600|CS8|CREAD|HUPCL|CLOCAL;
+-		serial_drv.flags = TTY_DRIVER_REAL_RAW;
+-
+-		/* interface routines from the upper tty layer to the tty driver */
+-		serial_drv.open = cpc_tty_open;
+-		serial_drv.close = cpc_tty_close;
+-		serial_drv.write = cpc_tty_write; 
+-		serial_drv.write_room = cpc_tty_write_room; 
+-		serial_drv.chars_in_buffer = cpc_tty_chars_in_buffer; 
+-		serial_drv.ioctl = cpc_tty_ioctl; 
+-		serial_drv.flush_buffer = cpc_tty_flush_buffer; 
+-		serial_drv.hangup = cpc_tty_hangup;
+ 
+ 		/* register the TTY driver */
+ 		if (tty_register_driver(&serial_drv)) { 
+@@ -241,7 +237,7 @@
+ 		} 
+ 
+ 		memset((void *)cpc_tty_area, 0,
+-								sizeof(st_cpc_tty_area) * CPC_TTY_NPORTS);
++		       sizeof(st_cpc_tty_area) * CPC_TTY_NPORTS);
+ 	}
+ 
+ 	cpc_tty = &cpc_tty_area[port];
+@@ -265,11 +261,8 @@
+ 
+ 	pc300dev->cpc_tty = (void *)cpc_tty; 
+ 	
+-	aux = strlen(((struct net_device*)(pc300dev->hdlc))->name);
+-	memcpy(cpc_tty->name,((struct net_device*)(pc300dev->hdlc))->name,aux);
+-	memcpy(&cpc_tty->name[aux], "-tty", 5);
+-	
+-	cpc_open((struct net_device *)pc300dev->hdlc);
++	snprintf(cpc_tty->name, sizeof(cpc_tty->name)-1, "%s-tty", dev->name);
++	cpc_open(pc300dev->hdlc->netdev);
+ 	cpc_tty_dtr_off(pc300dev);
+ 
+ 	CPC_TTY_DBG("%s: Initializing TTY Sync Driver, tty major#%d minor#%i\n",
+@@ -997,22 +990,23 @@
+ static void cpc_tty_trace(pc300dev_t *dev, char* buf, int len, char rxtx)
+ {
+ 	struct sk_buff *skb; 
++	struct net_device *netdev = dev->hdlc->netdev;
+ 
+ 	if ((skb = dev_alloc_skb(10 + len)) == NULL) { 
+ 		/* out of memory */ 
+ 		CPC_TTY_DBG("%s: tty_trace - out of memory\n",
+-			((struct net_device *)(dev->hdlc))->name);
++			    netdev->name);
+ 		return; 
+ 	}
+ 
+ 	skb_put (skb, 10 + len); 
+-	skb->dev = (struct net_device *) dev->hdlc; 
++	skb->dev = netdev;
+ 	skb->protocol = htons(ETH_P_CUST); 
+ 	skb->mac.raw = skb->data; 
+ 	skb->pkt_type = PACKET_HOST; 
+ 	skb->len = 10 + len; 
+ 
+-	memcpy(skb->data,((struct net_device *)(dev->hdlc))->name,5);
++	memcpy(skb->data,netdev->name,5);
+ 	skb->data[5] = '['; 
+ 	skb->data[6] = rxtx; 
+ 	skb->data[7] = ']'; 
+@@ -1035,14 +1029,14 @@
+ 
+ 	if ((cpc_tty= (st_cpc_tty_area *) pc300dev->cpc_tty) == 0) { 
+ 		CPC_TTY_DBG("%s: interface is not TTY\n",
+-			((struct net_device *)(pc300dev->hdlc))->name);
++			pc300dev->hdlc->netdev->name);
+ 		return; 
+ 	}
+ 	CPC_TTY_DBG("%s: cpc_tty_unregister_service", cpc_tty->name);
+ 
+ 	if (cpc_tty->pc300dev != pc300dev) { 
+ 		CPC_TTY_DBG("%s: invalid tty ptr=%s\n", 
+-		((struct net_device *)(pc300dev->hdlc))->name, cpc_tty->name);
++			    pc300dev->hdlc->netdev->name, cpc_tty->name);
+ 		return; 
+ 	}
+ 
+@@ -1091,8 +1085,7 @@
+ 	int i ; 
+ 
+ 	CPC_TTY_DBG("hdlcX-tty: reset variables\n");
+-	/* reset  the tty_driver structure - serial_drv */ 
+-	memset(&serial_drv, 0, sizeof(struct tty_driver));
++
+ 	for (i=0; i < CPC_TTY_NPORTS; i++){
+ 		memset(&cpc_tty_area[i],0, sizeof(st_cpc_tty_area)); 
+ 	}
