@@ -1,43 +1,71 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: Interconnect virtual device?
-Date: 28 Feb 2005 07:06:06 -0500
-Message-ID: <1109592365.2188.914.camel@jzny.localdomain>
-References: <4222A8F2.6080004@candelatech.com>
+Subject: Re: [Lse-tech] Re: A common layer for Accounting packages
+Date: 28 Feb 2005 07:10:58 -0500
+Message-ID: <1109592658.2188.924.camel@jzny.localdomain>
+References: <42168D9E.1010900@sgi.com>
+	 <20050218171610.757ba9c9.akpm@osdl.org> <421993A2.4020308@ak.jp.nec.com>
+	 <421B955A.9060000@sgi.com> <421C2B99.2040600@ak.jp.nec.com>
+	 <421CEC38.7010008@sgi.com> <421EB299.4010906@ak.jp.nec.com>
+	 <20050224212839.7953167c.akpm@osdl.org> <20050227094949.GA22439@logos.cnet>
+	 <4221E548.4000008@ak.jp.nec.com> <20050227140355.GA23055@logos.cnet>
+	 <42227AEA.6050002@ak.jp.nec.com>
+	 <1109575236.8549.14.camel@frecb000711.frec.bull.fr>
+	 <20050227233943.6cb89226.akpm@osdl.org>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <4222A8F2.6080004@candelatech.com>
+Cc: Guillaume Thouvenin <guillaume.thouvenin@bull.net>, kaigai@ak.jp.nec.com,
+        marcelo.tosatti@cyclades.com, "David S. Miller" <davem@redhat.com>,
+        jlan@sgi.com, lse-tech@lists.sourceforge.net,
+        linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+        elsa-devel@lists.sourceforge.net
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20050227233943.6cb89226.akpm@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2005-02-28 at 00:15, Ben Greear wrote:
-> Hello!
-> 
-> I am considering writing a kernel module to provide a very
-> simple virtual interface.  This interface would be attached
-> to another interface, and would not be directly associated with
-> hardware.  It can have IP addresses & routing tables, and in
-> almost every way appear to be a regular ethernet interface.
-> 
-> The idea is that when you tx on this virtual interface, it
-> will cause a packet to be received on another interface.  And,
-> when a packet is received on the interface, it will tx on the
-> other interface.
-> 
 
-In other words, it redirects to another device - I take it based on some
-rules. Sounds to me like the mirred action already does this (and in
-addition can mirror).
-
-> I believe I can use this to create some interesting effects with
-> routing and bridging on a limitted number of physical interfaces.
-> 
-
-What "interesting effects" ?
+Havent seen the beginnings of this thread. But whatever you are trying
+to do seems to suggest some complexity that you are trying to
+workaround. What was wrong with just going ahead and just always
+invoking your netlink_send()? If there are nobody in user space (or
+kernel) listening, it wont go anywhere.
 
 cheers,
 jamal
+
+On Mon, 2005-02-28 at 02:39, Andrew Morton wrote:
+> Guillaume Thouvenin <guillaume.thouvenin@bull.net> wrote:
+> >
+> >    Ok the protocol is maybe too "basic" but with this mechanism the user
+> >  space application that uses the fork connector can start and stop the
+> >  send of messages. This implementation needs somme improvements because
+> >  currently, if two application are using the fork connector one can
+> >  enable it and the other don't know if it is enable or not, but the idea
+> >  is here I think.
+> 
+> Yes.  But this problem can be solved in userspace, with a little library
+> function and a bit of locking.
+> 
+> IOW: use the library to enable/disable the fork connector rather than
+> directly doing syscalls.
+> 
+> It has the problem that if a client of that library crashes, the counter
+> gets out of whack, but really, it's not all _that_ important, and to handle
+> this properly in-kernel each client would need an open fd against some
+> object so we can do the close-on-exit thing properly.  You'd need to create
+> a separate netlink socket for the purpose.
+> 
+> 
+> -------------------------------------------------------
+> SF email is sponsored by - The IT Product Guide
+> Read honest & candid reviews on hundreds of IT Products from real users.
+> Discover which products truly live up to the hype. Start reading now.
+> http://ads.osdn.com/?ad_id=6595&alloc_id=14396&op=click
+> _______________________________________________
+> Lse-tech mailing list
+> Lse-tech@lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/lse-tech
+> 
