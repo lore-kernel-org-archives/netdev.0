@@ -1,585 +1,118 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] net/core/: misc possible cleanups
-Date: Tue, 14 Dec 2004 05:57:58 +0100
-Message-ID: <20041214045758.GA23151@stusta.de>
+From: James Morris <jmorris@redhat.com>
+Subject: Re: Asynchronous crypto layer.
+Date: Tue, 14 Dec 2004 01:56:01 -0500 (EST)
+Message-ID: <Xine.LNX.4.44.0412140143010.30724-100000@thoron.boston.redhat.com>
+References: <1099288738.5070.71.camel@uganda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261408AbULNE64@vger.kernel.org>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com, <cryptoapi@lists.logix.cz>,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <1099288738.5070.71.camel@uganda>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The patch below contains the following possible cleanups:
-- make needlessly global code static
-- remove the following unused global functions:
-  - datagram.c: skb_copy_datagram
-  - iovec.c: memcpy_tokerneliovec
-  - skbuff.c: skb_insert
-  - skbuff.c: skb_iter_first
-  - skbuff.c: skb_iter_next
-  - skbuff.c: skb_iter_abort
-- remove the following unneeded EXPORT_SYMBOL's:
-  - datagram.c: skb_copy_datagram
-  - dev.c: ing_filter
-  - iovec.c: memcpy_tokerneliovec
-  - netpoll.c: netpoll_send_skb
-  - rtnetlink.c: rtnetlink_dump_ifinfo
-  - skbuff.c: skb_insert
-  - skbuff.c: skb_iter_first
-  - skbuff.c: skb_iter_next
-  - skbuff.c: skb_iter_abort
-  - sock.c: sock_alloc_send_pskb
+On Mon, 1 Nov 2004, Evgeniy Polyakov wrote:
 
-Please comment on which of these changes are correct and which conflict
-with pending patches.
+[Sorry for taking so long to get back to this].
 
+> > c) Async engine: scheduling/batching/routing etc.
+> > 
+> > This seems to be the core of what you've developed so far.  I'm not sure 
+> > if we need pluggable load balancers.  How would the sysadmin select the 
+> > correct one?  The simpler this code is the better.
+> 
+> By following command:
+> echo -en "simple_lb" > /sys/class/crypto_lb/lbs
+> or by sending [still not implemented] connector's(netlink) command.
 
-diffstat output:
- include/linux/netdevice.h |    1 
- include/linux/netfilter.h |    4 -
- include/linux/netpoll.h   |    1 
- include/linux/rtnetlink.h |    1 
- include/linux/skbuff.h    |   12 -----
- include/linux/socket.h    |    1 
- include/net/iw_handler.h  |    3 -
- include/net/pkt_cls.h     |    1 
- include/net/sock.h        |    7 ---
- net/core/datagram.c       |   19 +-------
- net/core/dev.c            |   13 +----
- net/core/dst.c            |    2 
- net/core/iovec.c          |   23 ----------
- net/core/netfilter.c      |    2 
- net/core/netpoll.c        |    5 --
- net/core/rtnetlink.c      |    3 -
- net/core/skbuff.c         |   87 --------------------------------------
- net/core/sock.c           |   17 +++----
- net/core/wireless.c       |    2 
- 19 files changed, 22 insertions(+), 182 deletions(-)
+The real question was how would the sysadmin know which is the best load 
+balancer to configure.  Start simple, make one good load balancer, and 
+ponly create a pluggable framework only if a demonstratable need arises.
+
+> > Overall I think it's a good start.  There are some chicken & egg type 
+> > problems when you don't have GPL drivers, hardware or an existing async 
+> > API, so I'd imagine that this will all continue to evolve:  with more 
+> > hardware we can write/incorporate more drivers, with more drivers we can 
+> > further refine the async support and API etc.
+> 
+> That is true, but I think not all parts of API should be exported as GPL
+> only.
+
+Why do you think this?
 
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> > Here are some issues that I noticed:
+> > 
+> > 
+> > What is main_crypto_device?  Is this a placeholder for when there are no 
+> > other devices registered?
+> 
+> main_crypto_device is just virtual device into which all sessions are
+> placed along with specific crypto device queue.
+> it is usefull for cases when some driver decides that HW is broken and
+> marks itself like not working, then scheduler _may_ (simple_lb does not
+> have such feature) and actually _should_ move all sessions that are
+> placed into broken device's queue into other devices or drop them(call
+> callback with special session flag).
 
---- linux-2.6.10-rc3-mm1-full/include/linux/skbuff.h.old	2004-12-14 02:34:03.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/include/linux/skbuff.h	2004-12-14 02:51:27.000000000 +0100
-@@ -594,7 +594,6 @@
- /*
-  *	Insert a packet on a list.
-  */
--extern void        skb_insert(struct sk_buff *old, struct sk_buff *newsk);
- static inline void __skb_insert(struct sk_buff *newsk,
- 				struct sk_buff *prev, struct sk_buff *next,
- 				struct sk_buff_head *list)
-@@ -1086,14 +1085,9 @@
- 					 int noblock, int *err);
- extern unsigned int    datagram_poll(struct file *file, struct socket *sock,
- 				     struct poll_table_struct *wait);
--extern int	       skb_copy_datagram(const struct sk_buff *from,
--					 int offset, char __user *to, int size);
- extern int	       skb_copy_datagram_iovec(const struct sk_buff *from,
- 					       int offset, struct iovec *to,
- 					       int size);
--extern int	       skb_copy_and_csum_datagram(const struct sk_buff *skb,
--						  int offset, u8 __user *to,
--						  int len, unsigned int *csump);
- extern int	       skb_copy_and_csum_datagram_iovec(const
- 							struct sk_buff *skb,
- 							int hlen,
-@@ -1137,12 +1131,6 @@
- 	struct sk_buff *fraglist;
- };
- 
--/* Keep iterating until skb_iter_next returns false. */
--extern void skb_iter_first(const struct sk_buff *skb, struct skb_iter *i);
--extern int skb_iter_next(const struct sk_buff *skb, struct skb_iter *i);
--/* Call this if aborting loop before !skb_iter_next */
--extern void skb_iter_abort(const struct sk_buff *skb, struct skb_iter *i);
--
- #ifdef CONFIG_NETFILTER
- static inline void nf_conntrack_put(struct nf_conntrack *nfct)
- {
---- linux-2.6.10-rc3-mm1-full/include/net/pkt_cls.h.old	2004-12-14 02:37:09.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/include/net/pkt_cls.h	2004-12-14 02:37:15.000000000 +0100
-@@ -17,7 +17,6 @@
- 
- extern int register_tcf_proto_ops(struct tcf_proto_ops *ops);
- extern int unregister_tcf_proto_ops(struct tcf_proto_ops *ops);
--extern int ing_filter(struct sk_buff *skb);
- 
- static inline unsigned long
- __cls_set_class(unsigned long *clp, unsigned long cl)
---- linux-2.6.10-rc3-mm1-full/include/linux/netdevice.h.old	2004-12-14 02:38:05.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/include/linux/netdevice.h	2004-12-14 02:38:11.000000000 +0100
-@@ -522,7 +522,6 @@
- extern struct net_device		*dev_base;		/* All devices */
- extern rwlock_t				dev_base_lock;		/* Device list lock */
- 
--extern int			netdev_boot_setup_add(char *name, struct ifmap *map);
- extern int 			netdev_boot_setup_check(struct net_device *dev);
- extern unsigned long		netdev_boot_base(const char *prefix, int unit);
- extern struct net_device    *dev_getbyhwaddr(unsigned short type, char *hwaddr);
---- linux-2.6.10-rc3-mm1-full/include/linux/socket.h.old	2004-12-14 02:39:18.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/include/linux/socket.h	2004-12-14 02:39:24.000000000 +0100
-@@ -286,7 +286,6 @@
- 
- extern int verify_iovec(struct msghdr *m, struct iovec *iov, char *address, int mode);
- extern int memcpy_toiovec(struct iovec *v, unsigned char *kdata, int len);
--extern void memcpy_tokerneliovec(struct iovec *iov, unsigned char *kdata, int len);
- extern int move_addr_to_user(void *kaddr, int klen, void __user *uaddr, int __user *ulen);
- extern int move_addr_to_kernel(void __user *uaddr, int ulen, void *kaddr);
- extern int put_cmsg(struct msghdr*, int level, int type, int len, void *data);
---- linux-2.6.10-rc3-mm1-full/include/linux/netfilter.h.old	2004-12-14 02:41:28.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/include/linux/netfilter.h	2004-12-14 02:41:37.000000000 +0100
-@@ -175,10 +175,6 @@
- extern void (*ip_ct_attach)(struct sk_buff *, struct sk_buff *);
- extern void nf_ct_attach(struct sk_buff *, struct sk_buff *);
- 
--#ifdef CONFIG_NETFILTER_DEBUG
--extern void nf_dump_skb(int pf, struct sk_buff *skb);
--#endif
--
- /* FIXME: Before cache is ever used, this must be implemented for real. */
- extern void nf_invalidate_cache(int pf);
- 
---- linux-2.6.10-rc3-mm1-full/net/core/datagram.c.old	2004-12-14 04:22:37.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/core/datagram.c	2004-12-14 02:35:34.000000000 +0100
-@@ -199,19 +199,6 @@
- 	kfree_skb(skb);
- }
- 
--/*
-- *	Copy a datagram to a linear buffer.
-- */
--int skb_copy_datagram(const struct sk_buff *skb, int offset, char __user *to, int size)
--{
--	struct iovec iov = {
--		.iov_base = to,
--		.iov_len =size,
--	};
--
--	return skb_copy_datagram_iovec(skb, offset, &iov, size);
--}
--
- /**
-  *	skb_copy_datagram_iovec - Copy a datagram to an iovec.
-  *	@skb - buffer to copy
-@@ -296,8 +283,9 @@
- 	return -EFAULT;
- }
- 
--int skb_copy_and_csum_datagram(const struct sk_buff *skb, int offset,
--			       u8 __user *to, int len, unsigned int *csump)
-+static int skb_copy_and_csum_datagram(const struct sk_buff *skb, int offset,
-+				      u8 __user *to, int len,
-+				      unsigned int *csump)
- {
- 	int start = skb_headlen(skb);
- 	int pos = 0;
-@@ -489,7 +477,6 @@
- 
- EXPORT_SYMBOL(datagram_poll);
- EXPORT_SYMBOL(skb_copy_and_csum_datagram_iovec);
--EXPORT_SYMBOL(skb_copy_datagram);
- EXPORT_SYMBOL(skb_copy_datagram_iovec);
- EXPORT_SYMBOL(skb_free_datagram);
- EXPORT_SYMBOL(skb_recv_datagram);
---- linux-2.6.10-rc3-mm1-full/net/core/dev.c.old	2004-12-14 02:36:09.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/core/dev.c	2004-12-14 02:38:19.000000000 +0100
-@@ -183,7 +183,7 @@
-  * semaphore held.
-  */
- struct net_device *dev_base;
--struct net_device **dev_tail = &dev_base;
-+static struct net_device **dev_tail = &dev_base;
- rwlock_t dev_base_lock = RW_LOCK_UNLOCKED;
- 
- EXPORT_SYMBOL(dev_base);
-@@ -361,7 +361,7 @@
-  *	returns 0 on error and 1 on success.  This is a generic routine to
-  *	all netdevices.
-  */
--int netdev_boot_setup_add(char *name, struct ifmap *map)
-+static int netdev_boot_setup_add(char *name, struct ifmap *map)
- {
- 	struct netdev_boot_setup *s;
- 	int i;
-@@ -644,7 +644,7 @@
-  *	Network device names need to be valid file names to
-  *	to allow sysfs to work
-  */
--int dev_valid_name(const char *name)
-+static int dev_valid_name(const char *name)
- {
- 	return !(*name == '\0' 
- 		 || !strcmp(name, ".")
-@@ -1596,7 +1596,7 @@
-  * the ingress scheduler, you just cant add policies on ingress.
-  *
-  */
--int ing_filter(struct sk_buff *skb) 
-+static int ing_filter(struct sk_buff *skb) 
- {
- 	struct Qdisc *q;
- 	struct net_device *dev = skb->dev;
-@@ -3251,9 +3251,4 @@
- EXPORT_SYMBOL(dev_load);
- #endif
- 
--#ifdef CONFIG_NET_CLS_ACT
--EXPORT_SYMBOL(ing_filter);
--#endif
--
--
- EXPORT_PER_CPU_SYMBOL(softnet_data);
---- linux-2.6.10-rc3-mm1-full/net/core/dst.c.old	2004-12-14 02:38:35.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/core/dst.c	2004-12-14 02:38:45.000000000 +0100
-@@ -264,7 +264,7 @@
- 	return NOTIFY_DONE;
- }
- 
--struct notifier_block dst_dev_notifier = {
-+static struct notifier_block dst_dev_notifier = {
- 	.notifier_call	= dst_dev_event,
- };
- 
---- linux-2.6.10-rc3-mm1-full/net/core/iovec.c.old	2004-12-14 02:39:30.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/core/iovec.c	2004-12-14 02:39:52.000000000 +0100
-@@ -99,28 +99,6 @@
- }
- 
- /*
-- *	In kernel copy to iovec. Returns -EFAULT on error.
-- *
-- *	Note: this modifies the original iovec.
-- */
-- 
--void memcpy_tokerneliovec(struct iovec *iov, unsigned char *kdata, int len)
--{
--	while (len > 0) {
--		if (iov->iov_len) {
--			int copy = min_t(unsigned int, iov->iov_len, len);
--			memcpy(iov->iov_base, kdata, copy);
--			kdata += copy;
--			len -= copy;
--			iov->iov_len -= copy;
--			iov->iov_base += copy;
--		}
--		iov++;
--	}
--}
--
--
--/*
-  *	Copy iovec to kernel. Returns -EFAULT on error.
-  *
-  *	Note: this modifies the original iovec.
-@@ -259,4 +237,3 @@
- EXPORT_SYMBOL(memcpy_fromiovec);
- EXPORT_SYMBOL(memcpy_fromiovecend);
- EXPORT_SYMBOL(memcpy_toiovec);
--EXPORT_SYMBOL(memcpy_tokerneliovec);
---- linux-2.6.10-rc3-mm1-full/net/core/netfilter.c.old	2004-12-14 02:41:44.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/core/netfilter.c	2004-12-14 02:41:52.000000000 +0100
-@@ -173,7 +173,7 @@
- 	printk("\n");
- }
- 
--void nf_dump_skb(int pf, struct sk_buff *skb)
-+static void nf_dump_skb(int pf, struct sk_buff *skb)
- {
- 	printk("skb: pf=%i %s dev=%s len=%u\n", 
- 	       pf,
---- linux-2.6.10-rc3-mm1-full/include/linux/netpoll.h.old	2004-12-14 02:43:42.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/include/linux/netpoll.h	2004-12-14 02:43:47.000000000 +0100
-@@ -24,7 +24,6 @@
- };
- 
- void netpoll_poll(struct netpoll *np);
--void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb);
- void netpoll_send_udp(struct netpoll *np, const char *msg, int len);
- int netpoll_parse_options(struct netpoll *np, char *opt);
- int netpoll_setup(struct netpoll *np);
---- linux-2.6.10-rc3-mm1-full/net/core/netpoll.c.old	2004-12-14 02:43:06.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/core/netpoll.c	2004-12-14 02:43:59.000000000 +0100
-@@ -39,7 +39,7 @@
- static LIST_HEAD(rx_list);
- 
- static atomic_t trapped;
--spinlock_t netpoll_poll_lock = SPIN_LOCK_UNLOCKED;
-+static spinlock_t netpoll_poll_lock = SPIN_LOCK_UNLOCKED;
- 
- #define NETPOLL_RX_ENABLED  1
- #define NETPOLL_RX_DROP     2
-@@ -178,7 +178,7 @@
- 	return skb;
- }
- 
--void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb)
-+static void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb)
- {
- 	int status;
- 
-@@ -676,6 +676,5 @@
- EXPORT_SYMBOL(netpoll_parse_options);
- EXPORT_SYMBOL(netpoll_setup);
- EXPORT_SYMBOL(netpoll_cleanup);
--EXPORT_SYMBOL(netpoll_send_skb);
- EXPORT_SYMBOL(netpoll_send_udp);
- EXPORT_SYMBOL(netpoll_poll);
---- linux-2.6.10-rc3-mm1-full/include/linux/rtnetlink.h.old	2004-12-14 02:44:36.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/include/linux/rtnetlink.h	2004-12-14 02:44:52.000000000 +0100
-@@ -765,7 +765,6 @@
- };
- 
- extern struct rtnetlink_link * rtnetlink_links[NPROTO];
--extern int rtnetlink_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb);
- extern int rtnetlink_send(struct sk_buff *skb, u32 pid, u32 group, int echo);
- extern int rtnetlink_put_metrics(struct sk_buff *skb, u32 *metrics);
- 
---- linux-2.6.10-rc3-mm1-full/net/core/rtnetlink.c.old	2004-12-14 02:45:12.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/core/rtnetlink.c	2004-12-14 02:45:26.000000000 +0100
-@@ -241,7 +241,7 @@
- 	return -1;
- }
- 
--int rtnetlink_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
-+static int rtnetlink_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
- {
- 	int idx;
- 	int s_idx = cb->args[0];
-@@ -676,7 +676,6 @@
- 
- EXPORT_SYMBOL(__rta_fill);
- EXPORT_SYMBOL(rtattr_parse);
--EXPORT_SYMBOL(rtnetlink_dump_ifinfo);
- EXPORT_SYMBOL(rtnetlink_links);
- EXPORT_SYMBOL(rtnetlink_put_metrics);
- EXPORT_SYMBOL(rtnl);
---- linux-2.6.10-rc3-mm1-full/net/core/skbuff.c.old	2004-12-14 02:45:55.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/core/skbuff.c	2004-12-14 04:40:27.000000000 +0100
-@@ -984,70 +984,6 @@
- 	return -EFAULT;
- }
- 
--/* Keep iterating until skb_iter_next returns false. */
--void skb_iter_first(const struct sk_buff *skb, struct skb_iter *i)
--{
--	i->len = skb_headlen(skb);
--	i->data = (unsigned char *)skb->data;
--	i->nextfrag = 0;
--	i->fraglist = NULL;
--}
--
--int skb_iter_next(const struct sk_buff *skb, struct skb_iter *i)
--{
--	/* Unmap previous, if not head fragment. */
--	if (i->nextfrag)
--		kunmap_skb_frag(i->data);
--
--	if (i->fraglist) {
--	fraglist:
--		/* We're iterating through fraglist. */
--		if (i->nextfrag < skb_shinfo(i->fraglist)->nr_frags) {
--			i->data = kmap_skb_frag(&skb_shinfo(i->fraglist)
--						->frags[i->nextfrag]);
--			i->len = skb_shinfo(i->fraglist)->frags[i->nextfrag]
--				.size;
--			i->nextfrag++;
--			return 1;
--		}
--		/* Fragments with fragments?  Too hard! */
--		BUG_ON(skb_shinfo(i->fraglist)->frag_list);
--		i->fraglist = i->fraglist->next;
--		if (!i->fraglist)
--			goto end;
--
--		i->len = skb_headlen(i->fraglist);
--		i->data = i->fraglist->data;
--		i->nextfrag = 0;
--		return 1;
--	}
--
--	if (i->nextfrag < skb_shinfo(skb)->nr_frags) {
--		i->data = kmap_skb_frag(&skb_shinfo(skb)->frags[i->nextfrag]);
--		i->len = skb_shinfo(skb)->frags[i->nextfrag].size;
--		i->nextfrag++;
--		return 1;
--	}
--
--	i->fraglist = skb_shinfo(skb)->frag_list;
--	if (i->fraglist)
--		goto fraglist;
--
--end:
--	/* Bug trap for callers */
--	i->data = NULL;
--	return 0;
--}
--
--void skb_iter_abort(const struct sk_buff *skb, struct skb_iter *i)
--{
--	/* Unmap previous, if not head fragment. */
--	if (i->data && i->nextfrag)
--		kunmap_skb_frag(i->data);
--	/* Bug trap for callers */
--	i->data = NULL;
--}
--
- /* Checksum skb data. */
- 
- unsigned int skb_checksum(const struct sk_buff *skb, int offset,
-@@ -1373,25 +1309,6 @@
- }
- 
- 
--/**
-- *	skb_insert	-	insert a buffer
-- *	@old: buffer to insert before
-- *	@newsk: buffer to insert
-- *
-- *	Place a packet before a given packet in a list. The list locks are taken
-- *	and this function is atomic with respect to other list locked calls
-- *	A buffer cannot be placed on two lists at the same time.
-- */
--
--void skb_insert(struct sk_buff *old, struct sk_buff *newsk)
--{
--	unsigned long flags;
--
--	spin_lock_irqsave(&old->list->lock, flags);
--	__skb_insert(newsk, old->prev, old, old->list);
--	spin_unlock_irqrestore(&old->list->lock, flags);
--}
--
- #if 0
- /*
-  * 	Tune the memory allocator for a new MTU size.
-@@ -1511,13 +1428,9 @@
- EXPORT_SYMBOL(skb_under_panic);
- EXPORT_SYMBOL(skb_dequeue);
- EXPORT_SYMBOL(skb_dequeue_tail);
--EXPORT_SYMBOL(skb_insert);
- EXPORT_SYMBOL(skb_queue_purge);
- EXPORT_SYMBOL(skb_queue_head);
- EXPORT_SYMBOL(skb_queue_tail);
- EXPORT_SYMBOL(skb_unlink);
- EXPORT_SYMBOL(skb_append);
- EXPORT_SYMBOL(skb_split);
--EXPORT_SYMBOL(skb_iter_first);
--EXPORT_SYMBOL(skb_iter_next);
--EXPORT_SYMBOL(skb_iter_abort);
---- linux-2.6.10-rc3-mm1-full/include/net/sock.h.old	2004-12-14 02:56:46.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/include/net/sock.h	2004-12-14 02:53:27.000000000 +0100
-@@ -733,11 +733,6 @@
- 						     unsigned long size,
- 						     int noblock,
- 						     int *errcode);
--extern struct sk_buff 		*sock_alloc_send_pskb(struct sock *sk,
--						      unsigned long header_len,
--						      unsigned long data_len,
--						      int noblock,
--						      int *errcode);
- extern void *sock_kmalloc(struct sock *sk, int size, int priority);
- extern void sock_kfree_s(struct sock *sk, void *mem, int size);
- extern void sk_send_sigurg(struct sock *sk);
-@@ -795,8 +790,6 @@
-  *	Default socket callbacks and setup code
-  */
-  
--extern void sock_def_destruct(struct sock *);
--
- /* Initialise core socket variables */
- extern void sock_init_data(struct socket *sock, struct sock *sk);
- 
---- linux-2.6.10-rc3-mm1-full/net/core/sock.c.old	2004-12-14 02:52:27.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/core/sock.c	2004-12-14 03:12:56.000000000 +0100
-@@ -825,8 +825,10 @@
-  *	Generic send/receive buffer handlers
-  */
- 
--struct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
--				     unsigned long data_len, int noblock, int *errcode)
-+static struct sk_buff *sock_alloc_send_pskb(struct sock *sk,
-+					    unsigned long header_len,
-+					    unsigned long data_len,
-+					    int noblock, int *errcode)
- {
- 	struct sk_buff *skb;
- 	unsigned int gfp_mask;
-@@ -1084,7 +1086,7 @@
-  *	Default Socket Callbacks
-  */
- 
--void sock_def_wakeup(struct sock *sk)
-+static void sock_def_wakeup(struct sock *sk)
- {
- 	read_lock(&sk->sk_callback_lock);
- 	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
-@@ -1092,7 +1094,7 @@
- 	read_unlock(&sk->sk_callback_lock);
- }
- 
--void sock_def_error_report(struct sock *sk)
-+static void sock_def_error_report(struct sock *sk)
- {
- 	read_lock(&sk->sk_callback_lock);
- 	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
-@@ -1101,7 +1103,7 @@
- 	read_unlock(&sk->sk_callback_lock);
- }
- 
--void sock_def_readable(struct sock *sk, int len)
-+static void sock_def_readable(struct sock *sk, int len)
- {
- 	read_lock(&sk->sk_callback_lock);
- 	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
-@@ -1110,7 +1112,7 @@
- 	read_unlock(&sk->sk_callback_lock);
- }
- 
--void sock_def_write_space(struct sock *sk)
-+static void sock_def_write_space(struct sock *sk)
- {
- 	read_lock(&sk->sk_callback_lock);
- 
-@@ -1129,7 +1131,7 @@
- 	read_unlock(&sk->sk_callback_lock);
- }
- 
--void sock_def_destruct(struct sock *sk)
-+static void sock_def_destruct(struct sock *sk)
- {
- 	if (sk->sk_protinfo)
- 		kfree(sk->sk_protinfo);
-@@ -1368,7 +1370,6 @@
- EXPORT_SYMBOL(sk_alloc);
- EXPORT_SYMBOL(sk_free);
- EXPORT_SYMBOL(sk_send_sigurg);
--EXPORT_SYMBOL(sock_alloc_send_pskb);
- EXPORT_SYMBOL(sock_alloc_send_skb);
- EXPORT_SYMBOL(sock_init_data);
- EXPORT_SYMBOL(sock_kfree_s);
---- linux-2.6.10-rc3-mm1-full/include/net/iw_handler.h.old	2004-12-14 02:54:50.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/include/net/iw_handler.h	2004-12-14 02:54:57.000000000 +0100
-@@ -418,9 +418,6 @@
-  * Those may be called only within the kernel.
-  */
- 
--/* Data needed by fs/compat_ioctl.c for 32->64 bit conversion */
--extern const char iw_priv_type_size[];
--
- /* First : function strictly used inside the kernel */
- 
- /* Handle /proc/net/wireless, called in net/code/dev.c */
---- linux-2.6.10-rc3-mm1-full/net/core/wireless.c.old	2004-12-14 02:55:04.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/core/wireless.c	2004-12-14 02:55:12.000000000 +0100
-@@ -304,7 +304,7 @@
- 				       sizeof(struct iw_ioctl_description));
- 
- /* Size (in bytes) of the various private data types */
--const char iw_priv_type_size[] = {
-+static const char iw_priv_type_size[] = {
- 	0,				/* IW_PRIV_TYPE_NONE */
- 	1,				/* IW_PRIV_TYPE_BYTE */
- 	1,				/* IW_PRIV_TYPE_CHAR */
+No reason to drop them, just fall back to software.
+
+> > Async & sync drivers need to both be treated as crypto drivers.
+> > 
+> > 
+> > static inline void crypto_route_free(struct crypto_route *rt)
+> > {
+> >         crypto_device_put(rt->dev);
+> >         rt->dev = NULL;
+> >         kfree(rt);
+> > }
+> > 
+> > Why do you set rt->dev to NULL here?  It should not still be referenceable 
+> > at this point.
+> 
+> crypto_route_free() can be called only from crypto_route_del() which
+> unlinks given route thus noone can reference rt->dev(but of course
+> asnyone can have it's private copy, obtained under the lock).
+> Any route access is guarded by route list lock.
+
+No, if you're about to kfree(rt), you cannot also be able to dereference 
+it.
+
+> > __crypto_route_del() etc:
+> > 
+> > Why are you rolling your own list management and not using the list.h 
+> > functions?
+> 
+> It is more convenient here to use queue like sk_buf does.
+
+Use list.h or put what you need into list.h.
+
+> > +struct crypto_device_stat
+> > +{
+> > +       __u64                   scompleted;
+> > +       __u64                   sfinished;
+> > ...
+> > 
+> > Please see how networking stats are implemented (e.g. netif_rx_stats) and 
+> > previous netdev discussions on 64-bit counters.  Please only use __u64 and 
+> > similar when exporting structures to userspace.
+> 
+> I use __ prefix for any parameter that is exported to userspace.
+
+But this structure is not.
+
+> I've seen several attempts to convert network statistic to 64bit values,
+> with backward compatibility it is not an easy task. Let's do not
+> catch this again.
+
+To clarifu: the best way to do this is to use per-cpu counters of unsigned
+long and add them together in userspace.
+
+
+- James
+-- 
+James Morris
+<jmorris@redhat.com>
