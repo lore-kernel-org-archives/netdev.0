@@ -1,31 +1,29 @@
-From: Martin Pool <mbp@samba.org>
-Subject: Re: FIN_WAIT1 / TCP_CORK / 2.2 -- reproducible bug and test case
-Date: Sat, 5 Oct 2002 09:27:16 +1000
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] IPv6: Miscellaneous clean-ups
+Date: Fri, 04 Oct 2002 17:44:22 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021004232715.GC3030@sourcefrog.net>
-References: <Mutt.LNX.4.44.0210050053000.21202-100000@blackbird.intercode.com.au>
+Message-ID: <20021004.174422.88502153.davem@redhat.com>
+References: <20021004.073925.101556969.yoshfuji@linux-ipv6.org>
+	<20021004.075416.20775355.yoshfuji@linux-ipv6.org>
+	<20021004.081525.51826759.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org,
+   usagi@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: James Morris <jmorris@intercode.com.au>
-Content-Disposition: inline
-In-Reply-To: <Mutt.LNX.4.44.0210050053000.21202-100000@blackbird.intercode.com.au>
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20021004.081525.51826759.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On  5 Oct 2002, James Morris <jmorris@intercode.com.au> wrote:
-> Martin,
-> 
-> I'm not able to reproduce the bug exactly as described.  What kind of
-> network connection were you using between the boxes, and what was the
-> kernel version at the server end?
+   From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+   Date: Fri, 04 Oct 2002 08:15:25 +0900 (JST)
+   
+   so sorry... it must be a bad day for me today and
+   i should not do anything today...
+   
+   removed duplicate chunks.
+   confirmed to be applied with linux-2.4.19.
 
-I was using VMware over 100Mbps to a 2.4.19 server.  I am pretty sure
-it could also be reproduced over localhost TCP just in 2.2.21 inside
-VMware.  I don't remember the exact hardware; I can let you know later.
-
-It seems to not happen every time, but at least one time in three.
-
---
-Martin
+Patch applied, thanks.
