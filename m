@@ -1,239 +1,253 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (04/12) Probe2 -- ni52
+Subject: [PATCH] (11/12) Probe2 -- 3c501
 Date: Tue, 14 Oct 2003 15:34:10 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200310142234.h9EMYAT30154@mail.osdl.org>
+Message-ID: <200310142234.h9EMYA130180@mail.osdl.org>
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: jgarzik@pobox.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
->From viro NE15-ni52
-	* switched ni52 to dynamic allocation
-	* ni52: embedded ->priv
-	* ni52: fixed clobbering of everything on autoprobe
+>From viro NE22-3c501
+	* switched 3c501 to dynamic allocation
+	* 3c501: embedded ->priv
+	* 3c501: fixed clobbering on autoprobe
+	* 3c501: fixed resource leaks on failure exits
 Additional:
-	* add free_netdev
+	* probe correctly when no device present
+	* fix loop forever bug in probing
+	* free_netdev
 
-diff -Nru a/drivers/net/Space.c b/drivers/net/Space.c
---- a/drivers/net/Space.c	Mon Sep 29 09:44:07 2003
-+++ b/drivers/net/Space.c	Mon Sep 29 09:44:07 2003
-@@ -69,7 +69,7 @@
- extern int lne390_probe(struct net_device *);
- extern int e2100_probe(struct net_device *);
- extern int ni5010_probe(struct net_device *);
--extern int ni52_probe(struct net_device *);
-+extern struct net_device *ni52_probe(int unit);
- extern struct net_device *ni65_probe(int unit);
- extern int sonic_probe(struct net_device *);
- extern int SK_init(struct net_device *);
-@@ -283,13 +283,13 @@
- #ifdef CONFIG_NI5010
- 	{ni5010_probe, 0},
- #endif
--#ifdef CONFIG_NI52
--	{ni52_probe, 0},
--#endif
- 	{NULL, 0},
- };
+diff -Nru a/drivers/net/3c501.c b/drivers/net/3c501.c
+--- a/drivers/net/3c501.c	Mon Sep 29 10:27:33 2003
++++ b/drivers/net/3c501.c	Mon Sep 29 10:27:33 2003
+@@ -136,17 +136,14 @@
  
- static struct devprobe2 isa_probes2[] __initdata = {
-+#ifdef CONFIG_NI52
-+	{ni52_probe, 0},
-+#endif
- #ifdef CONFIG_NI65
- 	{ni65_probe, 0},
- #endif
-diff -Nru a/drivers/net/ni52.c b/drivers/net/ni52.c
---- a/drivers/net/ni52.c	Mon Sep 29 09:44:07 2003
-+++ b/drivers/net/ni52.c	Mon Sep 29 09:44:07 2003
-@@ -354,50 +354,76 @@
- 	memset((char *)p->scb,0,sizeof(struct scb_struct));
- }
+ #include "3c501.h"
  
-+/* set: io,irq,memstart,memend or set it when calling insmod */
-+static int irq=9;
-+static int io=0x300;
-+static long memstart;	/* e.g 0xd0000 */
-+static long memend;	/* e.g 0xd4000 */
-+
- /**********************************************
-  * probe the ni5210-card
-  */
--int __init ni52_probe(struct net_device *dev)
-+struct net_device * __init ni52_probe(int unit)
- {
--#ifndef MODULE
--	int *port;
-+	struct net_device *dev = alloc_etherdev(sizeof(struct priv));
- 	static int ports[] = {0x300, 0x280, 0x360 , 0x320 , 0x340, 0};
--#endif
--	int base_addr = dev->base_addr;
+-/* A zero-terminated list of I/O addresses to be probed.
+-   The 3c501 can be at many locations, but here are the popular ones. */
+-static unsigned int netcard_portlist[] __initdata = { 
+-	0x280, 0x300, 0
+-};
 -
--	SET_MODULE_OWNER(dev);
-+	int *port;
-+	int err = 0;
+-
+ /*
+  *	The boilerplate probe code.
+  */
  
--	if (base_addr > 0x1ff)		/* Check a single specified location. */
--		return ni52_probe1(dev, base_addr);
--	else if (base_addr > 0)		/* Don't probe at all. */
--		return -ENXIO;
++static int io=0x280;
++static int irq=5;
++static int mem_start;
++
+ /**
+  * el1_probe:		-	probe for a 3c501
+  * @dev: The device structure passed in to probe. 
+@@ -160,23 +157,47 @@
+  * probe and failing to find anything.
+  */
+  
+-int __init el1_probe(struct net_device *dev)
++struct net_device * __init el1_probe(int unit)
+ {
+-	int i;
+-	int base_addr = dev->base_addr;
++	struct net_device *dev = alloc_etherdev(sizeof(struct net_local));
++	static unsigned ports[] = { 0x280, 0x300, 0};
++	unsigned *port;
++	int err = 0;
++
 +	if (!dev)
 +		return ERR_PTR(-ENOMEM);
- 
--#ifdef MODULE
--	printk("%s: no autoprobing allowed for modules.\n",dev->name);
--#else
--	for (port = ports; *port; port++) {
--		int ioaddr = *port;
--		dev->base_addr = ioaddr;
--		if (ni52_probe1(dev, ioaddr) == 0)
--			return 0;
++
 +	if (unit >= 0) {
 +		sprintf(dev->name, "eth%d", unit);
 +		netdev_boot_setup_check(dev);
 +		io = dev->base_addr;
 +		irq = dev->irq;
-+		memstart = dev->mem_start;
-+		memend = dev->mem_end;
- 	}
++		mem_start = dev->mem_start & 7;
++	}
  
--#ifdef FULL_IO_PROBE
--	for(dev->base_addr=0x200; dev->base_addr<0x400; dev->base_addr+=8)
--		if (ni52_probe1(dev, dev->base_addr) == 0)
--			return 0;
--#endif
-+	SET_MODULE_OWNER(dev);
+ 	SET_MODULE_OWNER(dev);
  
-+	if (io > 0x1ff)	{	/* Check a single specified location. */
-+		err = ni52_probe1(dev, io);
-+	} else if (io > 0) {		/* Don't probe at all. */
-+		err = -ENXIO;
-+	} else {
-+		for (port = ports; *port && ni52_probe1(dev, *port) ; port++)
-+			;
-+		if (*port)
-+			goto got_it;
-+#ifdef FULL_IO_PROBE
-+		for (io = 0x200; io < 0x400 && ni52_probe1(dev, io); io += 8)
-+			;
-+		if (io < 0x400)
-+			goto got_it;
- #endif
+-	if (base_addr > 0x1ff)	/* Check a single specified location. */
+-		return el1_probe1(dev, base_addr);
+-	else if (base_addr != 0)	/* Don't probe at all. */
+-		return -ENXIO;
 -
--	dev->base_addr = base_addr;
+-	for (i = 0; netcard_portlist[i]; i++)
+-		if (el1_probe1(dev, netcard_portlist[i]) == 0)
+-			return 0;
+-
 -	return -ENODEV;
-+		err = -ENODEV;
++	if (io > 0x1ff) {	/* Check a single specified location. */
++		err = el1_probe1(dev, io);
++	} else if (io != 0) {
++		err = -ENXIO;		/* Don't probe at all. */
++	} else {
++		for (port = ports; *port && el1_probe1(dev, *port); port++)
++			;
++		if (!*port)
++			err = -ENODEV;
 +	}
 +	if (err)
 +		goto out;
-+got_it:
 +	err = register_netdev(dev);
 +	if (err)
 +		goto out1;
 +	return dev;
 +out1:
-+	release_region(dev->base_addr, NI52_TOTAL_SIZE);
++	release_region(dev->base_addr, EL1_IO_EXTENT);
 +out:
 +	free_netdev(dev);
 +	return ERR_PTR(err);
  }
  
- static int __init ni52_probe1(struct net_device *dev,int ioaddr)
- {
- 	int i, size, retval;
+ /**
+@@ -240,6 +261,8 @@
+ 	 *	high.
+ 	 */
  
-+	dev->base_addr = ioaddr;
 +	dev->irq = irq;
-+	dev->mem_start = memstart;
-+	dev->mem_end = memend;
 +
- 	if (!request_region(ioaddr, NI52_TOTAL_SIZE, dev->name))
- 		return -EBUSY;
+ 	if (dev->irq < 2)
+ 	{
+ 		unsigned long irq_mask;
+@@ -267,8 +290,8 @@
+ 	dev->base_addr = ioaddr;
+ 	memcpy(dev->dev_addr, station_addr, ETH_ALEN);
  
-@@ -416,7 +442,7 @@
- 		goto out;
- 	}
+-	if (dev->mem_start & 0xf)
+-		el_debug = dev->mem_start & 0x7;
++	if (mem_start & 0xf)
++		el_debug = mem_start & 0x7;
+ 	if (autoirq)
+ 		dev->irq = autoirq;
  
--	printk("%s: NI5210 found at %#3lx, ",dev->name,dev->base_addr);
-+	printk(KERN_INFO "%s: NI5210 found at %#3lx, ",dev->name,dev->base_addr);
+@@ -282,17 +305,7 @@
+ 	if (el_debug)
+ 		printk(KERN_DEBUG "%s", version);
  
- 	/*
- 	 * check (or search) IO-Memory, 8K and 16K
-@@ -469,13 +495,6 @@
- 	dev->mem_end = dev->mem_start + size; /* set mem_end showed by 'ifconfig' */
- #endif
- 
--	dev->priv = (void *) kmalloc(sizeof(struct priv),GFP_KERNEL);
--	if(dev->priv == NULL) {
--		printk("%s: Ooops .. can't allocate private driver memory.\n",dev->name);
--		retval = -ENOMEM;
--		goto out;
+-	/*
+-	 *	Initialize the device structure.
+-	 */
+-
+-	dev->priv = kmalloc(sizeof(struct net_local), GFP_KERNEL);
+-	if (dev->priv == NULL) {
+-		release_region(ioaddr, EL1_IO_EXTENT);
+-		return -ENOMEM;
 -	}
--																	/* warning: we don't free it on errors */
- 	memset((char *) dev->priv,0,sizeof(struct priv));
- 
- 	((struct priv *) (dev->priv))->memtop = isa_bus_to_virt(dev->mem_start) + size;
-@@ -503,8 +522,6 @@
- 		if(!dev->irq)
- 		{
- 			printk("?autoirq, Failed to detect IRQ line!\n");
--			kfree(dev->priv);
--			dev->priv = NULL;
- 			retval = -EAGAIN;
- 			goto out;
- 		}
-@@ -526,8 +543,6 @@
- 
- 	dev->if_port 		= 0;
- 
+ 	memset(dev->priv, 0, sizeof(struct net_local));
+-
+ 	lp=dev->priv;
+ 	spin_lock_init(&lp->lock);
+ 	
+@@ -308,13 +321,6 @@
+ 	dev->get_stats = &el1_get_stats;
+ 	dev->set_multicast_list = &set_multicast_list;
+ 	dev->ethtool_ops = &netdev_ethtool_ops;
+-
+-	/*
+-	 *	Setup the generic properties
+-	 */
+-
 -	ether_setup(dev);
 -
  	return 0;
- out:
- 	release_region(ioaddr, NI52_TOTAL_SIZE);
-@@ -1295,13 +1310,7 @@
  }
  
- #ifdef MODULE
--static struct net_device dev_ni52;
--
--/* set: io,irq,memstart,memend or set it when calling insmod */
--static int irq=9;
--static int io=0x300;
--static long memstart;	/* e.g 0xd0000 */
--static long memend;	/* e.g 0xd4000 */
-+static struct net_device *dev_ni52;
+@@ -884,14 +890,8 @@
  
+ #ifdef MODULE
+ 
+-static struct net_device dev_3c501 = {
+-	.init		= el1_probe,
+-	.base_addr	= 0x280,
+-	.irq		= 5,
+-};
++static struct net_device *dev_3c501;
+ 
+-static int io=0x280;
+-static int irq=5;
  MODULE_PARM(io, "i");
  MODULE_PARM(irq, "i");
-@@ -1318,22 +1327,17 @@
- 		printk("ni52: Autoprobing not allowed for modules.\nni52: Set symbols 'io' 'irq' 'memstart' and 'memend'\n");
- 		return -ENODEV;
- 	}
--	dev_ni52.init = ni52_probe;
--	dev_ni52.irq = irq;
--	dev_ni52.base_addr = io;
--	dev_ni52.mem_end = memend;
--	dev_ni52.mem_start = memstart;
--	if (register_netdev(&dev_ni52) != 0)
+ MODULE_PARM_DESC(io, "EtherLink I/O base address");
+@@ -911,10 +911,9 @@
+  
+ int init_module(void)
+ {
+-	dev_3c501.irq=irq;
+-	dev_3c501.base_addr=io;
+-	if (register_netdev(&dev_3c501) != 0)
 -		return -EIO;
-+	dev_ni52 = ni52_probe(-1);
-+	if (IS_ERR(dev_ni52))
-+		return PTR_ERR(dev_ni52);
++	dev_3c501 = el1_probe(-1);
++	if (IS_ERR(dev_3c501))
++		return PTR_ERR(dev_3c501);
  	return 0;
  }
  
+@@ -927,19 +926,10 @@
+  
  void cleanup_module(void)
  {
--	release_region(dev_ni52.base_addr, NI52_TOTAL_SIZE);
--	unregister_netdev(&dev_ni52);
--	kfree(dev_ni52.priv);
--	dev_ni52.priv = NULL;
-+	unregister_netdev(dev_ni52);
-+	release_region(dev_ni52->base_addr, NI52_TOTAL_SIZE);
-+	free_netdev(dev_ni52);
+-	unregister_netdev(&dev_3c501);
+-
+-	/*
+-	 *	Free up the private structure, or leak memory :-)
+-	 */
+-
+-	kfree(dev_3c501.priv);
+-	dev_3c501.priv = NULL;	/* gets re-allocated by el1_probe1 */
+-
+-	/*
+-	 *	If we don't do this, we can't re-insmod it later.
+-	 */
+-	release_region(dev_3c501.base_addr, EL1_IO_EXTENT);
++	struct net_device *dev = dev_3c501;
++	unregister_netdev(dev);
++	release_region(dev->base_addr, EL1_IO_EXTENT);
++	free_netdev(dev);
  }
- #endif /* MODULE */
  
+ #endif /* MODULE */
+diff -Nru a/drivers/net/3c501.h b/drivers/net/3c501.h
+--- a/drivers/net/3c501.h	Mon Sep 29 10:27:33 2003
++++ b/drivers/net/3c501.h	Mon Sep 29 10:27:33 2003
+@@ -3,7 +3,6 @@
+  *	Index to functions.
+  */
+ 
+-int el1_probe(struct net_device *dev);
+ static int  el1_probe1(struct net_device *dev, int ioaddr);
+ static int  el_open(struct net_device *dev);
+ static void el_timeout(struct net_device *dev);
+diff -Nru a/drivers/net/Space.c b/drivers/net/Space.c
+--- a/drivers/net/Space.c	Mon Sep 29 10:27:33 2003
++++ b/drivers/net/Space.c	Mon Sep 29 10:27:33 2003
+@@ -57,7 +57,7 @@
+ extern int eth16i_probe(struct net_device *);
+ extern int i82596_probe(struct net_device *);
+ extern int ewrk3_probe(struct net_device *);
+-extern int el1_probe(struct net_device *);
++extern struct net_device *el1_probe(int unit);
+ extern struct net_device *wavelan_probe(int unit);
+ extern struct net_device *arlan_probe(int unit);
+ extern struct net_device *el16_probe(int unit);
+@@ -262,13 +262,13 @@
+ #if defined(CONFIG_APRICOT) || defined(CONFIG_MVME16x_NET) || defined(CONFIG_BVME6000_NET)	/* Intel I82596 */
+ 	{i82596_probe, 0},
+ #endif
+-#ifdef CONFIG_EL1		/* 3c501 */
+-	{el1_probe, 0},
+-#endif
+ 	{NULL, 0},
+ };
+ 
+ static struct devprobe2 isa_probes2[] __initdata = {
++#ifdef CONFIG_EL1		/* 3c501 */
++	{el1_probe, 0},
++#endif
+ #ifdef CONFIG_WAVELAN		/* WaveLAN */
+ 	{wavelan_probe, 0},
+ #endif
