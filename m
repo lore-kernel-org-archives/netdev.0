@@ -1,32 +1,44 @@
-From: "Noah J. Misch" <noah@caltech.edu>
-Subject: Re: [PATCH] Make LLC2 compile with PROC_FS=n
-Date: Tue, 21 Oct 2003 04:13:05 -0700 (PDT)
+From: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
+Subject: Re: [RFT] merged 8139too NAPI
+Date: Tue, 21 Oct 2003 22:35:11 +0900
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.58.0310210401470.26573@clyde>
-References: <Pine.GSO.4.58.0310171452540.13905@blinky>
- <20031020101607.76e02647.shemminger@osdl.org> <20031020223237.31854ab5.davem@redhat.com>
+Message-ID: <877k2ysohc.fsf@devron.myhome.or.jp>
+References: <3F9070B6.9090306@pobox.com> <873cdqbt6z.fsf@devron.myhome.or.jp>
+	<20031020131106.6862e951.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: acme@conectiva.com.br, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>,
-        "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20031020223237.31854ab5.davem@redhat.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20031020131106.6862e951.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 20 Oct 2003, David S. Miller wrote:
+Stephen Hemminger <shemminger@osdl.org> writes:
 
-> On Mon, 20 Oct 2003 10:16:07 -0700
-> Stephen Hemminger <shemminger@osdl.org> wrote:
->
-> > Why make up a whole separate llc_proc.h file for two prototypes?
-> > Put them on the end of llc.h
->
-> I definitely prefer this version of the fix.
+> +	spin_lock_bh(&tp->rx_lock);
+>  	/* disable Tx ASAP, if not already */
+>  	tmp8 = RTL_R8 (ChipCmd);
+>  	if (tmp8 & CmdTxEnb)
+> @@ -1679,6 +1682,7 @@
+>  
+>  	/* ...and finally, reset everything */
+>  	rtl8139_hw_start (dev);
+> +	spin_unlock_bh(&tp->rx_lock);
 
-I agree completely.  Thanks, Stephen.
+->tx_timeout is on timer softirq context. So softirq was disabled already.
+Or Is this for future changes?
 
-> Since Arnaldo appears to be busy, I'll apply this.
+> +	/* Check uncommon events with one test. */
+> +	if (unlikely(status & (PCIErr | PCSTimeout | RxUnderrun | RxOverflow)))
+> +		rtl8139_weird_interrupt (dev, tp, ioaddr,
+> +					 status, link_changed);
 
-Great.
+I couldn't find this on previous email, rtl8139_weird_interrupt was changing. 
+
+	if (unlikely(status & (PCIErr|PCSTimeout|RxUnderrun|RxErr|RxFIFOOver)))
+		rtl8139_weird_interrupt(dev, tp, ioaddr, status, link_changed);
+
+It should check the above status.
+-- 
+OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
