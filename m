@@ -1,42 +1,32 @@
-From: Eric Lemoine <Eric.Lemoine@ens-lyon.fr>
-Subject: Re: udp weirdness
-Date: Fri, 27 Sep 2002 17:19:08 +0200
+From: Richard Gooch <rgooch@ras.ucalgary.ca>
+Subject: Poor gige performance with 2.4.20-pre*
+Date: Sat, 28 Sep 2002 16:57:55 -0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20020927151908.GL343@hookipa>
-References: <20020927120223.GH343@hookipa> <Pine.GSO.4.30.0209271048160.4401-100000@shell.cyberus.ca>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Lemoine <Eric.Lemoine@ens-lyon.fr>, netdev@oss.sgi.com
+Message-ID: <200209282257.g8SMvta32527@vindaloo.ras.ucalgary.ca>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <Pine.GSO.4.30.0209271048160.4401-100000@shell.cyberus.ca>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 27, 2002 at 10:53:00AM -0400, jamal wrote:
->
-> On Fri, 27 Sep 2002, Eric Lemoine wrote:
-> 
-> > I figured out that packets can be dropped in pfifo_fast_enqueue()
-> > [the default qdisc's enqueue func], even though the driver/kernel
-> > flow control has triggered.
-> >
-> > And sendto does not notify the user when packet gets dropped because
-> > the output queue overflows (as indicated in sendto manpage).
-> >
-> > Why doesn't the kernel just put the process into sleep instead of
-> > dropping packets?
-> >
-> 
-> What trigger do you suggest to wake up the process again?
-> A better idea maybe to return something to the socket so it can
-> manage things instead -- not sure what to return though that wouldnt
-> break some standard;
+  Hi, all. For a while now I've noticed poor performance with gige
+cards under 2.4.19 and 2.4.20-pre*. At first I thought it was because
+of the cheap-ass Addtron cards I bought (these use the ns83820 chip).
+But now that the Intel E1000 cards are pretty cheap too, I've grabbed
+a couple (part number: PWLA8390MT) and see the same problem. In fact,
+the E1000 cards are no better than the Addtron cards. I'm using the
+D-Link DGS-1008T 8-port gige switch. MTU=1500 bytes.
 
-Linux seems to be the only one to not return ENOBUFS in this overflow
-case (from sendto manpage), so i suspect it should not break any
-standard.
+The basic test I do is to send 100 MB over a TCP connection from one
+machine to the other. The results are:
 
--- 
-Eric
+Dual PIII 450 MHz -> Dual Athalon 1.6 GHz yields 58 MB/s
+Dual Athalon 1.6 GHz -> Dual PIII 450 MHz yields 23 MB/s
+
+This is quite a bit less than what gige is supposed to give. Is this
+expected?
+
+				Regards,
+
+					Richard....
+Permanent: rgooch@atnf.csiro.au
+Current:   rgooch@ras.ucalgary.ca
