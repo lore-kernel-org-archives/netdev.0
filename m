@@ -1,29 +1,32 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: Resend: Re: PATCH: IPSEC acquire in presence of multiple
- managers
-Date: Thu, 31 Mar 2005 21:13:40 -0800
-Message-ID: <20050331211340.0e6fbdfb.davem@davemloft.net>
-References: <1111795927.1089.749.camel@jzny.localdomain>
-	<1111862131.1092.872.camel@jzny.localdomain>
+Subject: Re: [PATCH][NET] make all protos partially use sk_prot
+Date: Thu, 31 Mar 2005 21:19:13 -0800
+Message-ID: <20050331211913.7a88d339.davem@davemloft.net>
+References: <20050326232317.GA24264@conectiva.com.br>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, davem@redhat.com, nakam@linux-ipv6.org,
-        shinta.sugimoto@ericsson.com, netdev@oss.sgi.com
+Cc: marcel@holtmann.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1111862131.1092.872.camel@jzny.localdomain>
+To: acme@ghostprotocols.net (Arnaldo Carvalho de Melo)
+In-Reply-To: <20050326232317.GA24264@conectiva.com.br>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 26 Mar 2005 13:35:31 -0500
-jamal <hadi@cyberus.ca> wrote:
+On Sat, 26 Mar 2005 20:23:17 -0300
+acme@ghostprotocols.net (Arnaldo Carvalho de Melo) wrote:
 
-> Apologies, The last patch had some a glitch in the filename. Dave please
-> apply this one instead
+>         Here is an updated patch, with the preferred changed for bluetooth
+> by Marcel.
+> 
+>         Full description on the changeset comments.
+> 
+>         Available at:
+> 
+> bk://kernel.bkbits.net/acme/net-2.6
 
-Doesn't apply, in the current tree km_query() is marked static.
+Anything that cleanly gets rid of 2 struct sock members
+gets my approval. :-)
 
-Please regenerate your patch and sorry for not getting to this
-sooner.
+Pulled, thanks a lot Arnaldo.
