@@ -1,74 +1,105 @@
-From: "Luigi Cartuccia" <luigigocart@tiscalinet.it>
-Subject: frag problem
-Date: Fri, 14 Jun 2002 13:15:39 +0200
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: RFC: per-socket statistics on received/dropped packets
+Date: 14 Jun 2002 08:51:15 -0700
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <007301c21394$d102bba0$0a120b3e@luigicart>
+Message-ID: <aee11o$vs$2@main.gmane.org>
+References: <5.1.0.14.2.20020612224038.0251bd08@mira-sjcm-3.cisco.com>
+	<5.1.0.14.2.20020614100914.01adca48@mira-sjcm-3.cisco.com>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="----=_NextPart_000_0070_01C213A5.93F47BC0"
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: jamal <hadi@cyberus.ca>, Horst von Brand <vonbrand@inf.utfsm.cl>,
+   "David
+	S. Miller" <davem@redhat.com>, Ben Greear <greearb@candelatech.com>,
+   linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: <netdev@oss.sgi.com>
+To: Lincoln Dale <ltd@cisco.com>
+In-Reply-To: <5.1.0.14.2.20020614100914.01adca48@mira-sjcm-3.cisco.com>
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
+It sounds like what you want is socket accounting which works like
+process accounting.  I.e when a socket lifetime ends, put out a record
+with number of packets/bytes sent/received.
 
-------=_NextPart_000_0070_01C213A5.93F47BC0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-
-=20
-Good morning I'm Luigi Cartuccia an italian student.I have a =
-fragmentation problem.I have installed a software for routing multi-hop =
-for wireless Lan 802.11.I use linux-2.4.7.
-My problem:
-Without the software ssh and scp is ok
-With the software ssh is ok and scp is not ok
-Instead the writer of the software have used linux-2.4.3 and with the =
-software,he have asked me,scp is ok.
-I have discovered that it is a fragmentation's problem in fact the =
-fragment.c file is various for linux-2.4.3 and linux-2.4.7.
-Can you help me?
-Thank you very much=20
-Luigi
-
-
-------=_NextPart_000_0070_01C213A5.93F47BC0
-Content-Type: text/html;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
-<HTML><HEAD>
-<META content=3D"text/html; charset=3Diso-8859-1" =
-http-equiv=3DContent-Type>
-<META content=3D"MSHTML 5.00.2919.6307" name=3DGENERATOR>
-<STYLE></STYLE>
-</HEAD>
-<BODY bgColor=3D#ffffff>
-<DIV><FONT face=3DArial size=3D2><FONT face=3DArial size=3D2>&nbsp;
-<DIV><FONT face=3DArial size=3D2>Good morning I'm Luigi Cartuccia an =
-italian=20
-student.I have a fragmentation problem.I have installed a software for =
-routing=20
-multi-hop for wireless Lan 802.11.I use linux-2.4.7.</FONT></DIV>
-<DIV><FONT face=3DArial size=3D2>My problem:</FONT></DIV>
-<DIV><FONT face=3DArial size=3D2>Without the software ssh and scp is =
-ok</FONT></DIV>
-<DIV><FONT face=3DArial size=3D2>With the software ssh is ok and scp is =
-not=20
-ok</FONT></DIV>
-<DIV><FONT face=3DArial size=3D2>Instead the writer of the software have =
-used=20
-linux-2.4.3 and with the software,he have asked me,scp is =
-ok.</FONT></DIV>
-<DIV><FONT face=3DArial size=3D2>I have discovered that it is a =
-fragmentation's=20
-problem in fact the fragment.c file is various for linux-2.4.3 and=20
-linux-2.4.7.</FONT></DIV>
-<DIV><FONT face=3DArial size=3D2>Can you help me?</FONT></DIV>
-<DIV><FONT face=3DArial size=3D2>Thank you very much </FONT></DIV>
-<DIV><FONT face=3DArial size=3D2>Luigi</FONT></DIV>
-<DIV>&nbsp;</DIV></FONT></FONT></DIV></BODY></HTML>
-
-------=_NextPart_000_0070_01C213A5.93F47BC0--
+On Thu, 2002-06-13 at 17:24, Lincoln Dale wrote:
+> At 09:00 AM 12/06/2002 -0400, jamal wrote:
+> > > > > i know of many many folk who use transaction logs from HTTP caches for
+> > > > > volume-based billing.
+> > > > > right now, those bills are anywhere between 10% to 25% incorrect.
+> > > > >
+> > > > > you call that "extremely limited"?
+> > > >
+> > > >Surely, you must have better ways to do accounting than this -- otherwise
+> > > >you deserve to loose money.
+> > >
+> > > many people don't have better ways to do accounting than this.
+> >
+> >Then they dont care about loosing money.
+> >There's nothing _more important_ to a service provider than ability to do
+> >proper billing. Otherwise, they are a charity organization.
+> 
+> on this side of the planet (Australia), just about *all* service-providers 
+> offer differentiated-billing baed on a volume-usage basis.
+> that includes Worldcom, Telstra, Optus (SingTel), connect.com.au (AAPT).
+> some of these differentiate themselves by using caching to provide faster 
+> access and/or mitigate the latency overhead of simplex satellite.
+> this has been ongoing for many many many years now.  please just accept 
+> that HTTP caching is almost a necessity with the pricing models in use!
+> 
+> >There's nothing _more important_ to a service provider than ability to do
+> >proper billing. Otherwise, they are a charity organization.
+> 
+> we're almost talking about the same thing here -- and this is my point!  i 
+> agree that is is important - hence why i've added a getsockopt() option to 
+> provide octet counters from the ip+tcp level!
+> 
+> > > in the case of Squid and Linux, they're typically using it because its
+> > > open-source and "free".
+> >
+> >I am hoping you didnt mean to say squid was only good because it has
+> >these perks.
+> 
+> not at all.  they're using it because it meets their requirements.
+> once again, this is not a discussion about religion or politics!
+> 
+> > > they want to use HTTP Caching to save bandwidth (and therefore save money),
+> > > but they also live in a regime of volume-based billing.  (not everywhere on
+> > > the planet is fixed-$/month for DSL).
+> > >
+> > > the unfortunate solution is to use HTTP Transaction logs, which count
+> > > payload at layer-7, not payload+headers+retransmissions at layer-3.
+> >
+> >Look at your own employers eqpt if you want to do this right.
+> >And then search around freshmeat so you dont reinvent the wheel.
+> 
+> once again, i respectfully disagree.  while there are numerous technologies 
+> for accounting out there (e.g. netflow), they all break down when you have 
+> things like HTTP Persistent connections which may share a single 
+> [server-side] connection with multiple [client-side] connections.
+> 
+> >And until you prove it is worth it and useful to other people then
+> >forever thats where it belongs. I now of nobody serious about billing
+> >who is using sockets stats as the transaction point.
+> 
+> you live in a country where the billing regeme is different.
+> 
+> > > lawn-mower support sounds like a userspace application to me.
+> >
+> >But we need a new system call support
+> 
+> (yes, i did take that comment as humerous before :-)).
+> 
+> if what i was proposing involved a new system-call then i agree that there 
+> would be signficant pushback.  what i have is a new getsockopt() 
+> option.  ie. in reality, no worse than getsockopt(..,TCP_INFO).
+> 
+> 
+> cheers,
+> 
+> lincoln.
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
