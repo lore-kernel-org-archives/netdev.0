@@ -1,48 +1,34 @@
-From: Paul Gortmaker <penguin@muskoka.com>
-Subject: [PATCH 2.6.10]  smc-ultra.c verbose driver
-Date: Sun, 09 Jan 2005 20:39:00 -0500
-Message-ID: <41E1DCB4.1090902@muskoka.com>
+From: Andi Kleen <ak@suse.de>
+Subject: [PATCH] Fix gcc4 compilation in s2io
+Date: Mon, 10 Jan 2005 03:52:53 +0100
+Message-ID: <20050110025253.GB5672@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------090906020400050704050108"
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, jgarzik@pobox.com, raghavendra.koushik@s2io.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+To: akpm@osdl.org
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------090906020400050704050108
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
 
-In keeping with the idea of a quiet boot time with less dmesg clutter,
-the smc-ultra driver should not be printing about the absence of PnP
-cards every time it goes probing -- e.g. if you have a non-PnP card
-installed, you get the message twice...
+Fix gcc 4 compilation in the s2io driver
 
-Signed-off-by: Paul Gortmaker <p_gortmaker@yahoo.com>
+Signed-off-by: Andi Kleen <ak@suse.de>
 
-
-
---------------090906020400050704050108
-Content-Type: text/plain;
- name="2.6.10-smc-ultra_diff0"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="2.6.10-smc-ultra_diff0"
-
---- linux-200/drivers/net/smc-ultra.c~	Sat Aug 14 01:38:37 2004
-+++ linux-200/drivers/net/smc-ultra.c	Sun Jan  9 20:33:06 2005
-@@ -156,8 +156,6 @@
- 	/* Look for any installed ISAPnP cards */
- 	if (isapnp_present() && (ultra_probe_isapnp(dev) == 0))
- 		return 0;
--
--	printk(KERN_NOTICE "smc-ultra.c: No ISAPnP cards found, trying standard ones...\n");
- #endif
+Index: linux/drivers/net/s2io.h
+===================================================================
+--- linux.orig/drivers/net/s2io.h	2005-01-09 18:19:25.%N +0100
++++ linux/drivers/net/s2io.h	2005-01-09 19:04:40.%N +0100
+@@ -740,8 +740,8 @@
+ {
+ 	u64 ret = 0;
+ 	ret = readl(addr + 4);
+-	(u64) ret <<= 32;
+-	(u64) ret |= readl(addr);
++	ret <<= 32;
++	ret |= readl(addr);
  
- 	for (i = 0; ultra_portlist[i]; i++) {
-
---------------090906020400050704050108--
+ 	return ret;
+ }
