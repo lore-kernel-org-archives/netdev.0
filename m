@@ -1,30 +1,30 @@
-From: Sean Neakums <sneakums@zork.net>
-Subject: 2.6.9-rc1-mm4: r8169: irq 16: nobody cared!/TX Timeout
-Date: Sun, 12 Sep 2004 00:16:43 +0100
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <6upt4s4cro.fsf@zork.zork.net>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH 2.6] ipvs - do not use skb_checksum_help, nf_reset
+Date: Sat, 11 Sep 2004 17:39:52 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040911173952.5092aa65.davem@davemloft.net>
+References: <Pine.LNX.4.58.0409111012030.1315@u.domain.uli>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, akpm@osdl.org, netdev@oss.sgi.com,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S268356AbUIKXQ7@vger.kernel.org>
-To: romieu@fr.zoreil.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, wensong@linux-vs.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Julian Anastasov <ja@ssi.bg>
+In-Reply-To: <Pine.LNX.4.58.0409111012030.1315@u.domain.uli>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-irq 16: nobody cared!
- [<c0106864>] __report_bad_irq+0x24/0x90
- [<c0106ad2>] note_interrupt+0x92/0x160
- [<c0106f12>] do_IRQ+0x162/0x1a0
- [<c010491c>] common_interrupt+0x18/0x20
- [<c0101f80>] default_idle+0x0/0x40
- [<c0101fac>] default_idle+0x2c/0x40
- [<c0102034>] cpu_idle+0x34/0x50
-handlers:
-[<c02a5470>] (rtl8169_interrupt+0x0/0x1d0)
-Disabling IRQ #16
-NETDEV WATCHDOG: eth2: transmit timed out
-eth2: TX Timeout
+On Sat, 11 Sep 2004 10:21:36 +0300 (EEST)
+Julian Anastasov <ja@ssi.bg> wrote:
 
-CONFIG_R8169_NAPI=y
+> - do not reset/destroy the nfct in IP_VS_XMIT, the intention is to
+> reset the debugging field just to avoid log floods from nf_debug_ip_*
+> functions, it is known that the out->in ipvs packets traverse hooks in
+> non-standard way, eg. LOCAL_IN->LOCAL_OUT
 
-I downed and upped the interface and it started working again.
+Please add a generic nf_reset_debug() in linux/skbuff.h instead
+of this version local to the IPVS code.
+
+I'll apply a resubmitted full patch with this change made to it.
+
+Thanks.
