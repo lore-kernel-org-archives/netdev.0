@@ -1,23 +1,34 @@
 From: kuznet@ms2.inr.ac.ru
-Subject: Re: raw ipv6 broken in 2.4.19
-Date: Wed, 14 Aug 2002 02:18:50 +0400 (MSD)
+Subject: Re: [patch] bug prematurely setting nr_frags
+Date: Wed, 14 Aug 2002 02:27:56 +0400 (MSD)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <200208132218.CAA22224@sex.inr.ac.ru>
-References: <Pine.LNX.4.44.0208140107570.1517-100000@u.domain.uli>
+Message-ID: <200208132227.CAA22255@sex.inr.ac.ru>
+References: <20020813143120.C12730@redhat.com>
 Mime-Version: 1.0
-Cc: gandalf@wlug.westbo.se, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: ja@ssi.bg (Julian Anastasov)
-In-Reply-To: <Pine.LNX.4.44.0208140107570.1517-100000@u.domain.uli> from "Julian Anastasov" at Aug 14, 2 01:12:41 am
+To: bcrl@redhat.com (Benjamin LaHaise)
+In-Reply-To: <20020813143120.C12730@redhat.com> from "Benjamin LaHaise" at Aug 13, 2 02:31:20 pm
 List-Id: netdev.vger.kernel.org
 
 Hello!
 
-> > Sorry? What do you mean? Checksumming routines must not have any alignment
-> > constraints, they used with arbitrary combinations of alignments.
-> 
-> 	Do you believe, they have :) See the 2nd URL,
+> Ah, I see.  Care for a patch to remove it altogether then?
 
-Well, if this is only in combination with zero length, it is not a disaster.
+Well, someone wrote it for some purpose. :-) 
+
+
+>							  As for the 
+> bug, does anyone else see a place where nr_frags can be set without 
+> initializing a page pointer? 
+
+No. When does this happen?
+
+
+> Otherwise it looks like a random memory corruption... what fun.
+
+Well, even if this is corruption, it is unlikely to be random.
+This maybe write beyond end of an skb, corrupting skb_shared_info.
+At least, we had such place in netfilter fixed some time ago.
 
 Alexey
