@@ -1,37 +1,50 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: bad TSO performance in 2.6.9-rc2-BK
-Date: Wed, 22 Sep 2004 15:50:31 -0700
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] e1000 - avoid filling tx ring completely.
+Date: Wed, 22 Sep 2004 16:05:33 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040922155031.7068468d.davem@davemloft.net>
-References: <20040920063012.GL2825@krispykreme>
-	<20040920203021.GD4242@wotan.suse.de>
-	<20040921155835.18aee381.davem@davemloft.net>
-	<20040922140000.GD27432@wotan.suse.de>
-	<20040922111209.7887df53.davem@davemloft.net>
-	<20040922195515.GA2619@wotan.suse.de>
-	<c0a09e5c04092213126ba5f29d@mail.gmail.com>
-	<20040922133906.7d57ef49.davem@davemloft.net>
-	<20040922220628.GC2619@wotan.suse.de>
-	<20040922152535.7bc81c8a.davem@davemloft.net>
-	<20040922224732.GD2619@wotan.suse.de>
+Message-ID: <20040922160533.64f25d12@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: ak@suse.de, andy.grover@gmail.com, anton@samba.org, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <20040922224732.GD2619@wotan.suse.de>
+To: Jeb Cramer <cramerj@intel.com>, John Ronciak <john.ronciak@intel.com>,
+        Ganesh Venkatesan <ganesh.venkatesan@intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 23 Sep 2004 00:47:32 +0200
-Andi Kleen <ak@suse.de> wrote:
+With the current driver and the default transmit ring size, it is easy to
+get the ring to fill. When this happens the way the current e1000 driver responds
+is to return TX_BUSY.  This works but is sub-optimal and requires the network
+scheduler to requeue the packet.
 
-> 22-23MB/s, but not 21MB/s. Ok "breaks completely" was a bit of overstatement,
-> admitted.
+The following patch adds a test to see if there is space left in the ring, and
+stops the network queue just before it fills.  When the tx intr (or cleanup
+via NAPI) occurs, then the queue is re-enabled. There is a tradeoff here,
+the check causes the last 11 elements in the ring to not be used but avoids
+an unnecessary send/requeue.
 
-Right.
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-Can you do some of the tcp_snd_test() debugging I suggested above
-the patch you just tested?  I really need help debugging this
-as I cannot reproduce it locally.
+--- netdev-2.6/drivers/net/e1000/e1000_main.c	2004-09-22 14:53:16.492728880 -0700
++++ test-2.6/drivers/net/e1000/e1000_main.c	2004-09-22 14:55:09.780506520 -0700
+@@ -1811,7 +1811,7 @@ e1000_xmit_frame(struct sk_buff *skb, st
+ 
+ 	/* need: count + 2 desc gap to keep tail from touching
+ 	 * head, otherwise try next time */
+-	if(E1000_DESC_UNUSED(&adapter->tx_ring) < count + 2) {
++	if(unlikely(E1000_DESC_UNUSED(&adapter->tx_ring) < count + 2)) {
+ 		netif_stop_queue(netdev);
+ 		spin_unlock_irqrestore(&adapter->tx_lock, flags);
+ 		return NETDEV_TX_BUSY;
+@@ -1844,6 +1844,10 @@ e1000_xmit_frame(struct sk_buff *skb, st
+ 
+ 	netdev->trans_start = jiffies;
+ 
++	/* Make sure there is space in the ring for the next send. */
++	if (E1000_DESC_UNUSED(&adapter->tx_ring) < MAX_SKB_FRAGS + 2) 
++		netif_stop_queue(netdev);
++
+ 	spin_unlock_irqrestore(&adapter->tx_lock, flags);
+ 	return NETDEV_TX_OK;
+ }
