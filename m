@@ -1,56 +1,50 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [e1000 2.6 10/11] TxDescriptors -> 1024 default
-Date: 11 Sep 2003 23:05:54 -0400
+From: "Feldman, Scott" <scott.feldman@intel.com>
+Subject: RE: [e1000 2.6 10/11] TxDescriptors -> 1024 default
+Date: Thu, 11 Sep 2003 22:13:48 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1063335511.1031.38.camel@jzny.localdomain>
-References: <OFF6DA8E51.7C3572D3-ON85256D9F.000B88F1-86256D9F.000CB34F@us.ibm.com>
-Reply-To: hadi@cyberus.ca
+Message-ID: <C6F5CF431189FA4CBAEC9E7DD5441E010124F032@orsmsx402.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: greearb@candelatech.com, jgarzik@pobox.com, scott.feldman@intel.com,
-   netdev@oss.sgi.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8bit
+Cc: <netdev@oss.sgi.com>, <ricardoz@us.ibm.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ricardo C Gonzalez <ricardoz@us.ibm.com>
-In-Reply-To: <OFF6DA8E51.7C3572D3-ON85256D9F.000B88F1-86256D9F.000CB34F@us.ibm.com>
+content-class: urn:content-classes:message
+To: "Jeff Garzik" <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2003-09-11 at 22:20, Ricardo C Gonzalez wrote:
-> Jamal wrote:
+> Feldman, Scott wrote:
+> > * Change the default number of Tx descriptors from 256 to 1024.
+> >   Data from [ricardoz@us.ibm.com] shows it's easy to overrun
+> >   the Tx desc queue.
+> 
+> 
+> All e1000 patches applied except this one.
+> 
+> You're just wasting memory.
 
->       We should care about counting the packets being dropped on the
-> transmit side. Would it be the responsability of the driver to account for
-> this drops? Because each driver has a dedicated software queue and in my
-> opinion, the driver should account for this packets.
+256 descriptors does sound like enough, but what about the fragmented
+skb case?  MAX_SKB_FRAGS is (64K/4K + 2) = 18, and each fragment gets
+mapped to one descriptor.  It even gets worse with e1000 because we may
+need to split a fragment into two fragments in the driver to workaround
+hardware errata.  :-(
 
-This is really the schedulers responsibility. Its hard for the driver to
-keep track of why a packet was dropped. Example, could be dropped to
-make room for a higher priority packet thats being anticipated to show
-up soon.
+It would be interesting to see the frags:skb ratio for 2.6 with TSO
+enabled and disabled with Rick's test.  So our effective number of
+descriptors needs to be adjusted by that ratio.  I agree with David that
+it's wasteful for the device driver to worry about more than
+dev->tx_queue_len, but that's in skb units, not descriptor units.
 
-The simple default 3-band scheduler unfortunately doesnt quiet show its
-stats ...so simple way to see drops is:
+On the other hand, if we're always running the descriptor ring near
+empty, we've got other problems.  It seems to reason that it doesn't
+matter how big the ring is if we're in that situation.  If the CPU can
+overrun the device, expanding the queues between the CPU and the device
+may help with bursts but gets you nothing for a sustained load.
 
-- install the prio qdisc 
-------
-[root@jzny root]# tc qdisc add dev eth0 root prio
-[root@jzny root]# tc -s qdisc
-qdisc prio 8001: dev eth0 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1
-1
- Sent 42 bytes 1 pkts (dropped 0, overlimits 0) 
------
+I flunked that queuing theory class anyway, so what do I know?  Every
+time I get stuck in a traffic slug on the freeway, I think about that
+class.  Hey, that means my car is like an skb, so maybe longer roads
+would help?  Not!
 
-or you may wanna install a single pfifo queue with size of 1000 each
-(although this is a little too mediavial)
-
-example:
-#tc qdisc add dev eth0 root pfifo limit 1000
-#tc -s qdisc
-qdisc pfifo 8002: dev eth0 limit 1000p
- Sent 0 bytes 0 pkts (dropped 0, overlimits 0) 
-
-etc
-
-cheers,
-jamal
+-scott
