@@ -1,58 +1,39 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Subject: Re: fix TCP roundtrip time update code
-Date: Tue, 3 Jun 2003 22:34:30 -0700
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] IPV6: Sereral errors on udpv6_connect()
+Date: Tue, 03 Jun 2003 22:46:57 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <16093.34022.445246.52398@napali.hpl.hp.com>
-References: <200306040043.EAA24505@dub.inr.ac.ru>
-	<3EDD52F5.8090706@us.ibm.com>
-	<20030603.202320.59680883.davem@redhat.com>
-	<16093.30507.661714.676184@napali.hpl.hp.com>
-	<3EDD7832.7010804@us.ibm.com>
-Reply-To: davidm@hpl.hp.com
+Message-ID: <20030603.224657.116381839.davem@redhat.com>
+References: <20030604.093944.84705841.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: davidm@hpl.hp.com, "David S. Miller" <davem@redhat.com>,
-   kuznet@ms2.inr.ac.ru, jmorris@intercode.com.au, gandalf@wlug.westbo.se,
-   linux-kernel@vger.kernel.org, linux-ia64@linuxia64.org, netdev@oss.sgi.com,
-   akpm@digeo.com
+Cc: vnuorval@tcs.hut.fi, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Nivedita Singhvi <niv@us.ibm.com>
-In-Reply-To: <3EDD7832.7010804@us.ibm.com>
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20030604.093944.84705841.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
->>>>> On Tue, 03 Jun 2003 21:40:18 -0700, Nivedita Singhvi <niv@us.ibm.com> said:
+   From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+   Date: Wed, 04 Jun 2003 09:39:44 +0900 (JST)
+   
+   This patch fixes multiple errors in udpv6_connect().
+    - pointer within an automatic storage class variable fl was illegally cached
+      using ip6_dst_store().
+    - uninitialized saddr was copied to fl.fl6_src.
+    - don't cache if ipv6_saddr_get() failed.
 
-  Nivedita> David Mosberger wrote:
-  DaveM> So if your old SpecWEB99 lab tended more to trigger timeout
-  DaveM> based retransmits on LAN, and your new test network does not,
-  DaveM> then your new test network will tend to not reproduce the bug
-  DaveM> regardless of whether the bug is present in the kernel or not
-  DaveM> :-)
+Applied.
 
-  >>  Is this where I get to plug httperf?  It triggered the bug
-  >> reliably in less than 10 secs. ;-)
+All these kinds of things need to be done differently once
+routing by saddr is supported, more specifically when
+route6 lookups make source address selection.  Look at
+ipv4 side to see the kind of thing I'm talking about.
 
-  Nivedita> Tarnation!! Ran httperf! Didnt hit it! :(. What were your
-  Nivedita> settings?
+Yoshfuji-san, remember when Alexey wanted you to change your
+source address selection so that it occurred at routing layer?
+This is exactly what I'm talking about.
 
-I used:
-
- $ httperf --rate 1000 --num-conns 1000000 --verbose --hog --server HOST \
-	--uri pathto30KBfile
-
-on 3 clients (for a total of 3000 conns/sec).  You can't go higher
-than 1000 conn/sec per client (IP address) because otherwise you run
-out of port space (due to TIME_WAIT).
-
-This load worked well for a machine with a single GigE card.  All
-network tunables were on the default setting (in particular, the tx
-queue len was 300, which is were the losses came from).
-
-With this load, I saw bad RTT values in the route cache within a
-couple of seconds after starting the third httperf generator.  It then
-took a bit longer (on the order of 1-2 minutes) until the first
-TCPAbortFailed errors started to pop up.
-
-	--david
+In my view, ipv6 routing is merely a SEVERELY crippled version
+of ipv4 routing.  Most of ipv6 routing changes needed amount
+to merely "porting over" existing ipv4 routing features.
