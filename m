@@ -1,71 +1,74 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [patch 11/26] janitor: net/tg3: pci_find_device to pci_dev_present
-Date: Wed, 09 Mar 2005 15:25:42 -0500
-Message-ID: <422F5BC6.9020802@pobox.com>
-References: <20050306103312.3155B1E46E@trashy.coderock.org>
+From: Michal Vanco <vanco@satro.sk>
+Subject: Re: 2.6.11 on AMD64 traps
+Date: Wed, 9 Mar 2005 21:24:34 +0100
+Message-ID: <200503092124.35190.vanco@satro.sk>
+References: <200503081900.18686.vanco@satro.sk> <422DF07D.7010908@tomt.net> <422F525F.90404@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: multipart/signed;
+  boundary="nextPart1903376.zXjrLv5dby";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, sfeldma@pobox.com, janitor@sternwelten.at,
-        "David S. Miller" <davem@davemloft.net>
-To: domen@coderock.org
-In-Reply-To: <20050306103312.3155B1E46E@trashy.coderock.org>
+Cc: Patrick McHardy <kaber@trash.net>, Andre Tomt <andre@tomt.net>,
+        linux-kernel@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: netdev@oss.sgi.com
+In-Reply-To: <422F525F.90404@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-domen@coderock.org wrote:
-> Replace pci_find_device with pci_dev_present.  Compile tested.
-> 
-> Signed-off-by: Scott Feldman <sfeldma@pobox.com>
-> Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
-> Signed-off-by: Domen Puncer <domen@coderock.org>
-> ---
-> 
-> 
->  kj-domen/drivers/net/tg3.c |   24 ++++++++++++++----------
->  1 files changed, 14 insertions(+), 10 deletions(-)
-> 
-> diff -puN drivers/net/tg3.c~remove-pci-find-device-drivers_net_tg3 drivers/net/tg3.c
-> --- kj/drivers/net/tg3.c~remove-pci-find-device-drivers_net_tg3	2005-03-05 16:09:45.000000000 +0100
-> +++ kj-domen/drivers/net/tg3.c	2005-03-05 16:09:45.000000000 +0100
-> @@ -7829,6 +7829,19 @@ static int __devinit tg3_is_sun_570X(str
->  
->  static int __devinit tg3_get_invariants(struct tg3 *tp)
->  {
-> +	static struct pci_device_id write_reorder_chipsets[] = {
-> +		{ PCI_DEVICE(PCI_VENDOR_ID_INTEL,
-> +		             PCI_DEVICE_ID_INTEL_82801AA_8) },
-> +		{ PCI_DEVICE(PCI_VENDOR_ID_INTEL,
-> +		             PCI_DEVICE_ID_INTEL_82801AB_8) },
-> +		{ PCI_DEVICE(PCI_VENDOR_ID_INTEL,
-> +		             PCI_DEVICE_ID_INTEL_82801BA_11) },
-> +		{ PCI_DEVICE(PCI_VENDOR_ID_INTEL,
-> +		             PCI_DEVICE_ID_INTEL_82801BA_6) },
-> +		{ PCI_DEVICE(PCI_VENDOR_ID_AMD,
-> +		             PCI_DEVICE_ID_AMD_FE_GATE_700C) },
-> +		{ },
-> +	};
->  	u32 misc_ctrl_reg;
->  	u32 cacheline_sz_reg;
->  	u32 pci_state_reg, grc_misc_cfg;
-> @@ -7847,16 +7860,7 @@ static int __devinit tg3_get_invariants(
->  	 * every mailbox register write to force the writes to be
->  	 * posted to the chip in order.
->  	 */
-> -	if (pci_find_device(PCI_VENDOR_ID_INTEL,
-> -			    PCI_DEVICE_ID_INTEL_82801AA_8, NULL) ||
-> -	    pci_find_device(PCI_VENDOR_ID_INTEL,
-> -			    PCI_DEVICE_ID_INTEL_82801AB_8, NULL) ||
-> -	    pci_find_device(PCI_VENDOR_ID_INTEL,
-> -			    PCI_DEVICE_ID_INTEL_82801BA_11, NULL) ||
-> -	    pci_find_device(PCI_VENDOR_ID_INTEL,
-> -			    PCI_DEVICE_ID_INTEL_82801BA_6, NULL) ||
-> -	    pci_find_device(PCI_VENDOR_ID_AMD,
-> -			    PCI_DEVICE_ID_AMD_FE_GATE_700C, NULL))
-> +	if (pci_dev_present(write_reorder_chipsets))
->  		tp->tg3_flags |= TG3_FLAG_MBOX_WRITE_REORDER;
+--nextPart1903376.zXjrLv5dby
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-seems OK to me.  DaveM should be applying this, though.
+On Wednesday 09 March 2005 20:45, Patrick McHardy wrote:
+> > Michal Vanco wrote:
+> >> I see this problem running 2.6.11 on dual AMD64:
+> >>
+> >> Running quagga routing daemon (ospf+bgp) and issuing "netstat -rn |wc
+> >> -l" command
+> >> while quagga tries to load more than 154000 routes from its bgp
+> >> neighbours causes this trap:
+>
+> This patch should fix it. The crash is caused by stale pointers,
+> the pointers in fib_iter_state are not reloaded after seq->stop()
+> followed by seq->start(pos > 0).
 
-	Jeff
+Well. Trap vanished after applying this patch, but another weird thing occu=
+rs:
+
+# ip route show | wc -l
+156033
+# date; time ip route show > /dev/null; date; time netstat -rn > /dev/null
+Wed Mar  9 22:15:21 CET 2005
+
+real    0m0.656s
+user    0m0.415s
+sys     0m0.242s
+Wed Mar  9 22:15:22 CET 2005
+
+real    6m41.472s
+user    0m1.261s
+sys     6m40.143s
+
+regards,
+=2D-=20
+Ing. Michal Van=C4=8Do
+Network Engineer
+SATRO s.r.o.
+e-mail: vanco@satro.sk
+
+--nextPart1903376.zXjrLv5dby
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.0 (GNU/Linux)
+
+iD8DBQBCL1uDSBxxqpMaGkMRAqKtAKDbWteVSdcPVqH09x6ah6WAIUdcvgCdEULr
+p5lFlgeARv7hYiXkAz7mMMY=
+=KAOp
+-----END PGP SIGNATURE-----
+
+--nextPart1903376.zXjrLv5dby--
