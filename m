@@ -1,36 +1,43 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 2.6] iptables hashlimit match
-Date: Wed, 20 Oct 2004 21:42:31 -0700
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Message-ID: <20041020214231.769459eb.davem@davemloft.net>
-References: <20041020224506.GQ19899@sunbeam.de.gnumonks.org>
+Subject: Re: [PATCH] Make netif_rx_ni preempt-safe
+Date: Wed, 20 Oct 2004 21:58:40 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20041020215840.40f0bacc.davem@davemloft.net>
+References: <1098230132.23628.28.camel@krustophenia.net>
+	<200410202256.56636.vda@port.imtp.ilyichevsk.odessa.ua>
+	<1098303951.2268.8.camel@krustophenia.net>
+	<200410202332.33583.vda@port.imtp.ilyichevsk.odessa.ua>
+	<20041020171508.0e947d08.davem@davemloft.net>
+	<20041021003503.GA10391@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org, mhennig@astaro.com,
-	ghansen@astaro.com
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Harald Welte <laforge@netfilter.org>
-In-Reply-To: <20041020224506.GQ19899@sunbeam.de.gnumonks.org>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Cc: vda@port.imtp.ilyichevsk.odessa.ua, rlrevell@joe-job.com, akpm@osdl.org,
+        linux-kernel@vger.kernel.org, linux-kernel@gondor.apana.org.au,
+        maxk@qualcomm.com, irda-users@lists.sourceforge.net,
+        netdev@oss.sgi.com, alain@parkautomat.net
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20041021003503.GA10391@gondor.apana.org.au>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 21 Oct 2004 00:45:06 +0200
-Harald Welte <laforge@netfilter.org> wrote:
+On Thu, 21 Oct 2004 10:35:03 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> This is the third (and last, for now) patch, adding the 'hashlimit'
-> match to iptables.  It was previously known as 'dstlimit', but has now
-> been generalized one step further.
+> On Wed, Oct 20, 2004 at 05:15:08PM -0700, David S. Miller wrote:
+> >  
+> > +int netif_rx_ni(struct sk_buff *skb)
+> > +{
+> > +       int err = netif_rx(skb);
+> > +
+> > +       preempt_disable();
+> > +       if (softirq_pending(smp_processor_id()))
+> > +               do_softirq();
 > 
-> Please apply, thanks.
-> 
-> Signed-off-by: Harald Welte <laforge@netfilter.org>
+> You need to move the netif_rx call inside the disable as otherwise
+> you might be checking the pending flag on the wrong CPU.
 
-Applied, thanks Harald.
+Good catch, I've made that fix in my tree.
+
+Thanks.
