@@ -1,66 +1,37 @@
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Subject: Re: Conntrack leak (2.6.2rc2)
-Date: Mon, 2 Feb 2004 14:46:24 +0100 (CET)
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@wide.ad.jp>
+Subject: [PATCH] IPV6: fix checking for reserved subnet anycast
+Date: Tue, 03 Feb 2004 02:07:41 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.33.0402021443570.6508-100000@blackhole.kfki.hu>
-References: <Pine.LNX.4.58.0402021319440.5347@sorbus2.navaho>
+Message-ID: <20040203.020741.105137354.yoshfuji@wide.ad.jp>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: <netdev@oss.sgi.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, yoshfuji@wide.ad.jp
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Steve Hill <steve@navaho.co.uk>
-In-Reply-To: <Pine.LNX.4.58.0402021319440.5347@sorbus2.navaho>
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2 Feb 2004, Steve Hill wrote:
+Reserved subnet anycast is as follows:
+   11111101 11....11 1xxxxxxx
+The code checking for reserved subnet anycast in 
+__ipv6_regen_rndid() was incorrect.
 
-> I turned on the debugging code and got:
->
-> ----
-> ip_conntrack_in: new packet for ce8fae40
-> Altering reply tuple of ce8fae40 to tuple c0357de4: 1 172.16.0.1:5438 ->
-> 172.17.0.1:0
-> Altering reply tuple of ce8fae40 to tuple c0357cdc: 1 172.16.0.1:5438 ->
-> 172.17.0.1:0
-> Confirming conntrack ce8fae40
-> conntrack_put ce8faebc 4
-> conntrack_put ce8faebc 3
-> clean_from_lists(ce8fae40)
-> remove_expectations(ce8fae40)
-> conntrack_put ce8faeb4 3
-> conntrack_put ce8faec0 4
-> conntrack_put ce8faec0 3
-> ----
->
-> (the conntrack_put debugging was added by me to the nf_conntrack_put()
-> function - it shows the pointer to nfct and the usage count).
->
-> If it send a small packet through, which won't be fragmented I get:
->
-> ----
-> ip_conntrack_in: new packet for ce8fa080
-> Altering reply tuple of ce8fa080 to tuple c0357de4: 1 172.16.0.1:39486 ->
-> 172.17.0.1:0
-> Altering reply tuple of ce8fa080 to tuple c0357d20: 1 172.16.0.1:39486 ->
-> 172.17.0.1:0
-> Confirming conntrack ce8fa080
-> conntrack_put ce8fa0fc 2
-> clean_from_lists(ce8fa080)
-> remove_expectations(ce8fa080)
-> conntrack_put ce8fa0f4 2
-> conntrack_put ce8fa100 1
-> destroy_conntrack(ce8fa080)
-> destroy_conntrack: returning ct=ce8fa080 to slab
-> ----
+D: fix checking for reserved subnet anycast in __ipv6_regen_rndid().
 
-You convinced me: something is really fishy. I fire up debugging and
-checking.
+===== net/ipv6/addrconf.c 1.90 vs edited =====
+--- 1.90/net/ipv6/addrconf.c	Sun Jan 25 03:09:52 2004
++++ edited/net/ipv6/addrconf.c	Tue Feb  3 01:39:19 2004
+@@ -1147,7 +1147,7 @@
+ 	 *  - XXX: already assigned to an address on the device
+ 	 */
+ 	if (idev->rndid[0] == 0xfd && 
+-	    (idev->rndid[1]&idev->rndid[2]&idev->rndid[3]&idev->rndid[4]&idev->rndid[5]&idev->rndid[6]) &&
++	    (idev->rndid[1]&idev->rndid[2]&idev->rndid[3]&idev->rndid[4]&idev->rndid[5]&idev->rndid[6]) == 0xff &&
+ 	    (idev->rndid[7]&0x80))
+ 		goto regen;
+ 	if ((idev->rndid[0]|idev->rndid[1]) == 0) {
 
-Best regards,
-Jozsef
--
-E-mail  : kadlec@blackhole.kfki.hu, kadlec@sunserv.kfki.hu
-PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
-Address : KFKI Research Institute for Particle and Nuclear Physics
-          H-1525 Budapest 114, POB. 49, Hungary
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
