@@ -1,37 +1,33 @@
 From: Ben Greear <greearb@candelatech.com>
-Subject: Re: 2.4.21: bug report for tg3:  tx lockup when changing MTU
-Date: Sat, 02 Aug 2003 20:48:51 -0700
+Subject: Re: TOE brain dump
+Date: Sat, 02 Aug 2003 21:01:31 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F2C8623.2080106@candelatech.com>
-References: <3F2AEFBF.3040604@candelatech.com> <Pine.LNX.4.53.0308021122290.27834@eco.foo>
+Message-ID: <3F2C891B.7080004@candelatech.com>
+References: <20030802140444.E5798@almesberger.net> <3F2BF5C7.90400@us.ibm.com> <3F2C0C44.6020002@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Cc: Nivedita Singhvi <niv@us.ibm.com>,
+   Werner Almesberger <werner@almesberger.net>, netdev@oss.sgi.com,
+   linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Sascha Schumann <sascha@schumann.cx>
-In-Reply-To: <Pine.LNX.4.53.0308021122290.27834@eco.foo>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <3F2C0C44.6020002@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Sascha Schumann wrote:
->>Kernel is 2.4.21 + custom patches (which should not affect tg3).
->>
->>lspci says the NIC is: Altima AC9100 (rev 15)
-> 
-> 
->     [1] says that the AC9100 based Netgear GA302T cards don't
->     support jumbo frames.  I'm seeing regular lockups once
->     packets larger than 1500bytes flow through the NIC.
-> 
->     It would be cool though if this turned out to be a driver
->     limitation and not a (crippled) chipset issue.
+Jeff Garzik wrote:
 
-It definately handles 4000 byte frames just fine, you just need to
-ifdown and ifup it after changing the MTU much of the time...or maybe
-only when running it under heavy load when you make the MTU change...
+> So, fix the other end of the pipeline too, otherwise this fast network 
+> stuff is flashly but pointless.  If you want to serve up data from disk, 
+> then start creating PCI cards that have both Serial ATA and ethernet 
+> connectors on them :)  Cut out the middleman of the host CPU and host 
+
+I for one would love to see something like this, and not just Serial ATA..
+but maybe 8x Serial ATA and RAID :)
 
 Ben
+
 
 -- 
 Ben Greear <greearb@candelatech.com>
