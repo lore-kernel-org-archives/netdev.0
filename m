@@ -1,26 +1,48 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] IPv6: fix saddr checking bug in datagram_send_ctl()
-Date: Wed, 21 Jan 2004 14:07:18 -0800
+From: Shirley Ma <xma@us.ibm.com>
+Subject: Re: [PATCH]snmp6 64-bit counter support in proc.c
+Date: Wed, 21 Jan 2004 15:44:54 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040121140718.31deafeb.davem@redhat.com>
-References: <1074683199.1172.26.camel@simulacron>
-	<Pine.LNX.4.58.0401211657160.29787@rhea.tcs.hut.fi>
+Message-ID: <OF671E0F58.7F4F24D0-ON87256E22.008241B4@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: aj@dungeon.inka.de, netdev@oss.sgi.com, linux-net@vger.kernel.org
+Content-Type: multipart/alternative;
+	Boundary="0__=08BBE4B1DF11C7248f9e8a93df938690918c08BBE4B1DF11C724"
+Cc: davem@redhat.com, mashirle@us.ibm.com, kuznet@ms2.inr.ac.ru,
+        netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ville Nuorvala <vnuorval@tcs.hut.fi>
-In-Reply-To: <Pine.LNX.4.58.0401211657160.29787@rhea.tcs.hut.fi>
+To: YOSHIFUJI Hideaki /  =?ISO-2022-JP?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 21 Jan 2004 17:03:07 +0200 (EET)
-Ville Nuorvala <vnuorval@tcs.hut.fi> wrote:
+--0__=08BBE4B1DF11C7248f9e8a93df938690918c08BBE4B1DF11C724
+Content-type: text/plain; charset=US-ASCII
 
-> I'm sorry, a bug had slipped into my link-local checking patch, which
-> Andreas noticed.
-> 
-> Here is the fix.
 
-Applied, thanks Ville.
+
+
+
+Thanks for the input. I will fix it.
+
+Thanks
+Shirley Ma
+IBM Linux Technology Center
+15300 SW Koll Parkway
+Beaverton, OR 97006-6063
+Phone: (503) 578-7638
+FAX:      (503) 578-3228
+--0__=08BBE4B1DF11C7248f9e8a93df938690918c08BBE4B1DF11C724
+Content-type: text/html; charset=US-ASCII
+Content-Disposition: inline
+
+<html><body>
+<p>Thanks for the input. I will fix it.<br>
+<br>
+Thanks<br>
+Shirley Ma<br>
+IBM Linux Technology Center<br>
+15300 SW Koll Parkway<br>
+Beaverton, OR 97006-6063<br>
+Phone: (503) 578-7638<br>
+FAX:      (503) 578-3228<br>
+</body></html>
+--0__=08BBE4B1DF11C7248f9e8a93df938690918c08BBE4B1DF11C724--
