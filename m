@@ -1,68 +1,59 @@
-From: James Ketrenos <jketreno@linux.intel.com>
-Subject: [Announce] Update on ipw2100, ipw2200, and support for Intel PRO/Wireless
- 2915ABG
-Date: Tue, 31 Aug 2004 16:08:58 -0500
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4134E8EA.9080605@linux.intel.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC] MASQUERADE / policy routing ("Route send us somewhere
+	else")
+Date: Wed, 1 Sep 2004 07:28:02 +1000
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Message-ID: <20040831212802.GB7058@gondor.apana.org.au>
+References: <20040831111508.GA2327@gondor.apana.org.au>
+	<Pine.LNX.4.44.0408311446240.4022-100000@l>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Linux kernel mailing list <linux-kernel@vger.kernel.org>,
-        Netdev <netdev@oss.sgi.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org,
+	laforge@netfilter.org, rusty@rustcorp.com.au, kuznet@ms2.inr.ac.ru
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Julian Anastasov <ja@ssi.bg>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.44.0408311446240.4022-100000@l>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, Aug 31, 2004 at 03:33:22PM +0300, Julian Anastasov wrote:
+> 
+> 	I do not see where the public IP is, what you mean? As the
+> mpath route does not have preferred src IP (usually when many ISPs
+> are used) the kernel uses inet_select_addr to select one, in similar
+> way as you are trying to do. But the difference is that it is now
+> cached and by using nfmark we have more options not to reach this
+> mpath route on next lookups.
 
-It's been a while since I've updated lkml and netdev on the progress of
-the ipw projects.  Given the recent announcement by Intel for the
-introduction of Intel PRO/Wireless 2915 ABG Network Connection miniPCI
-adapter, I thought now was a good time...
+I was mistaken.  In the mpath case there is no source address per
+nexthop.
+ 
+> 	The old way to provide oif as key adds one additional
+> cache entry per every normal input route. Another issue is that
 
-First, thanks to everyone that has been contributing, using, testing,
-and reporting feedback for the projects described below.  The support
-by folks in the community has been terrific -- the drivers wouldn't be
-anywhere near as feature rich and stable as they are today if not for
-the contributions of everyone.
+You still have one extra cache entry per input route now as the
+keys of this lookup is not the same as the one for the packet.
 
-The ipw2100 project (802.11b) has progressed very well.  We are in the
-process of cleaning up the driver for submittal to netdev for eventual
-inclusion into the kernel.  The driver currently supports wep, 802.1x,
-monitor mode, adhoc, infrastructure, etc.  Suspend/resume isn't quite
-functioning yet, but we'll get there soon.  This project is hosted at
-http://ipw2100.sf.net.
+> providing oif key can hit wrong route in some setups - not the
+> first match which we usually hit with oif=0. But for the usual
+> cases it works.
 
-The ipw2200 project (802.11bg), which was launched back in May, is
-quickly catching up to the ipw2100 project in terms of functionality.
-It currently supports wep and 802.1x in infrastructure mode.  Currently
-it will only associate at B data rates; hooking in the G capabilities
-is going on right now.  We'll then tackle adhoc and remaining feature
-gaps.  We had been planning on holding off submittal for kernel
-inclusion until we were feature complete.  However, several folks have
-requested that we accelerate that plan and get it in sooner rather than
-later.  To that end we're working to try and get it ready for submittal
-along with the ipw2100 project.  This project is hosted at
-http://ipw2200.sf.net.
+True.  But this has only been the case since a year ago.  And I
+agree with others that if you really need this, then SNAT is
+better since your addresses are likely to be static and you
+can use the mark directly in netfilter.
 
-The ipw2100 and ipw2200 projects currently share the 802.11 frame
-handling stack for Tx/Rx and some management frame processing.  That
-code has been pulled into its own module suite (ieee80211), based on
-work from the Host AP project.  That code needs to be resync'd with the
-Host AP code (and vice versa where appropriate) so that then all of
-those drivers will be able to leverage a single wireless network stack.
-
-Anyway, this brings me to announcing Linux support for the Intel
-PRO/Wireless 2915 ABG Network Connection adapter.  As of next week, the
-ipw2200 project will also begin supporting the ABG adapter.  From the
-driver's perspective, the only change between the two cards is the
-addition fo the A radio on the 2915.  So, adding support for the ABG is
-just a matter of updating the firmware used by the ipw2200 project,
-adding PCI id's, and putting in support for A.  That work will progress
-as we continue to bring full support for the ipw2200 project.
-
-At some point in the near future we will rename the ipw2200 project to
-something more appropriate to identify it as supporting both the 2200
-and 2915 adapters.
-
-Thanks,
-James
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
