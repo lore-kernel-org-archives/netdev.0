@@ -1,27 +1,67 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: More IPSEC trouble
-Date: Thu, 10 Mar 2005 18:15:54 +0100
-Message-ID: <423080CA.3060604@trash.net>
-References: <Pine.LNX.4.61.0503101229380.18067@sorbus2.navaho>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] move tc_u32_mark into pkt_cls.h
+Date: Thu, 10 Mar 2005 10:42:07 -0800
+Message-ID: <20050310104207.1d74ac00@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
-To: Steve Hill <steve@services.navaho.net>
-In-Reply-To: <Pine.LNX.4.61.0503101229380.18067@sorbus2.navaho>
+To: Jamal Hadi Salim <hadi@znyx.com>, "David S. Miller" <davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Steve Hill wrote:
-> 
-> Unfortunately I've found another IPSEC kernel bug (2.6.10):
-> 
-> Increasing the packet size by 1 byte would obviously require 
-> fragmentation of the encrypted packet and causes the machine to lock up.
+The tc_u32_mark structure is used as part of the netlink message
+from the user API to the kernel, so it needs to be moved to include/linux/pkt_cls.h
+and have types changed from u32 to __u32.
 
-Doesn't sound familiar to me, but I would recommend trying
-2.6.11 anyway.
+Also, the definition of u32 performance counters doesn't need to depend
+on the config option.  The definition can exist even if the code isn't
+enabled.
 
-Regards
-Patrick
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+
+diff -Nru a/include/linux/pkt_cls.h b/include/linux/pkt_cls.h
+--- a/include/linux/pkt_cls.h	2005-03-10 10:36:39 -08:00
++++ b/include/linux/pkt_cls.h	2005-03-10 10:36:39 -08:00
+@@ -221,14 +221,20 @@
+ 	struct tc_u32_key	keys[0];
+ };
+ 
+-#ifdef CONFIG_CLS_U32_PERF
++struct tc_u32_mark
++{
++	__u32		val;
++	__u32		mask;
++	__u32		success;
++};
++
+ struct tc_u32_pcnt
+ {
+ 	__u64 rcnt;
+ 	__u64 rhit;
+ 	__u64 kcnts[0];
+ };
+-#endif
++
+ /* Flags */
+ 
+ #define TC_U32_TERMINAL		1
+diff -Nru a/net/sched/cls_u32.c b/net/sched/cls_u32.c
+--- a/net/sched/cls_u32.c	2005-03-10 10:36:39 -08:00
++++ b/net/sched/cls_u32.c	2005-03-10 10:36:39 -08:00
+@@ -58,14 +58,6 @@
+ #include <net/act_api.h>
+ #include <net/pkt_cls.h>
+ 
+-
+-struct tc_u32_mark
+-{
+-	u32		val;
+-	u32		mask;
+-	u32		success;
+-};
+-
+ struct tc_u_knode
+ {
+ 	struct tc_u_knode	*next;
