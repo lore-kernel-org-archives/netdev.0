@@ -1,34 +1,25 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: Re: [OOPS] less /proc/net/igmp
-Date: Tue, 26 Aug 2003 17:32:26 +0900 (JST)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: Fw: [Bugme-new] [Bug 1148] New: when using ipsec with DSL
+ connections communication will hang if mtu is 1500(the default value)
+Date: Tue, 26 Aug 2003 02:22:52 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030826.173226.114994096.yoshfuji@linux-ipv6.org>
-References: <20030825163206.GA1340@penguin.penguin>
-	<20030826.150331.102449369.yoshfuji@linux-ipv6.org>
-	<1061878985.3463.2.camel@spider.hotmonkeyporn.com>
+Message-ID: <20030826022252.054773d6.davem@redhat.com>
+References: <20030826003949.78ea3d07.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, uwe.schmeling@t-online.de
 Return-path: <netdev-bounce@oss.sgi.com>
-To: oford@arghblech.com
-In-Reply-To: <1061878985.3463.2.camel@spider.hotmonkeyporn.com>
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20030826003949.78ea3d07.akpm@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Please CC: netdev.
+On Tue, 26 Aug 2003 00:39:49 -0700
+Andrew Morton <akpm@osdl.org> wrote:
 
-In article <1061878985.3463.2.camel@spider.hotmonkeyporn.com> (at 26 Aug 2003 01:23:06 -0500), Owen Ford <oford@arghblech.com> says:
+> Begin forwarded message:
 
-> > I could not reproduce this issue.  anyone?
-> 
-> I can confirm. I have it with 2.6.0-test4.
-> 
-> Let me know what useful info I can provide.  The oops is the same.
-
-Okay, everyone. I'll try to fix this.
-
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+We don't do PMTU properly in tunneled mode, known problem
+but fix won't happen any time soon as it's non-trivial
+to cure this properly.
