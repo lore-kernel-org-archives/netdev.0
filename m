@@ -1,76 +1,82 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [NETLINK] cb_lock does not needs ref count on sk
-Date: Fri, 1 Apr 2005 19:36:33 +1000
-Message-ID: <20050401093633.GA32707@gondor.apana.org.au>
-References: <20050327091524.GA23215@elte.hu> <E1DFUaZ-0001Hg-00@gondolin.me.apana.org.au> <20050327133811.GA5569@elte.hu> <20050329104906.GA19836@gondor.apana.org.au> <20050329114926.GA14986@elte.hu> <20050330082640.GA8269@gondor.apana.org.au> <20050330170236.2bddf666.davem@davemloft.net> <20050331231922.GA26587@gondor.apana.org.au> <20050331232322.GA26693@gondor.apana.org.au> <20050331203313.57e1c5c3.davem@davemloft.net>
+From: Abhishek Gupta <abhishek@pal.ece.iisc.ernet.in>
+Subject: Problem using HTB
+Date: Fri, 1 Apr 2005 15:10:40 +0530 (IST)
+Message-ID: <Pine.BSO.4.58.0504011240500.6284@pal.ece.iisc.ernet.in>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="Nq2Wo0NMKNjxTN9z"
-Cc: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20050331203313.57e1c5c3.davem@davemloft.net>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+hello everybody                                                                                                                                                                                                           
+I am working on a project related to QoS. I am using Linux's tc to                                           
+configure my PC based router.                                                                                
+My setup is as follows:-
+                                                                                                                                                                                                                 
+              eth0       eth1            eth0      eth0                                                      
+PC-based server|----------|PC-based Router|---------|PC-Based Client                                                                      
+                            (using tc)                                                                                                                                                                                  
+* All my ethernet cards are on 100Mbps lan                                                                   
+* Traffic generators being used:                                                                               
+  > UDP: gen_send @ about 1Mbps                                                                                  
+    (http://www.citi.umich.edu/projects/qbone/generator.html)                                                
+* Kernel versions being used:-                                                                                 
+  > At Router: linux-2.4.20                                                                                    
+  > At Client and Server: Linux-2.4.7-10                                                                     
+* iproute2 versions:-                                                                                          
+  > At Router: iproute2-ss020116                                                                               
+  > At Client and Server: iproute2-ss010824                                                                  
+* Packets before leaving sever and client are being marked with DSCP bits                                      
+  using Linux's tc option; Marking is done based on two-tuples: 
+  destination ip address and port number                                                                                    
+* At the Router, I have the following configuration(only related to HTB)                                       
+  for eth0 and similar configuration exits for eth1 too: 
 
---Nq2Wo0NMKNjxTN9z
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+---Router Configuration Starts Here-----                                                                                                                                                                                  
+DEV0='eth0'                                                                                                                                                                                                               
+tc qdisc add dev $DEV0 parent 1: handle 2: htb default 30                                                    
+tc class add dev $DEV0 parent 2: classid 2:1 htb rate 100kbit burst 100 \                                       
+   ceil 100kbit                                                                                              
+tc class add dev $DEV0 parent 2:1 classid 2:10 htb rate 60kbit burst 100 \                                      
+   ceil 100kbit                                                                                              
+tc class add dev $DEV0 parent 2:1 classid 2:20 htb rate 30kbit burst 60 \                                       
+   ceil 100kbit                                                                                              
+tc class add dev $DEV0 parent 2:1 classid 2:30 htb rate 10kbit burst 80 \                                       
+   ceil 100kbit                                                                                                                                                                                                           
+tc qdisc add dev $DEV0 parent 2:10 gred setup DPs 3 default 3 grio                                           
+tc qdisc change dev $DEV0 parent 2:10 gred limit 185000 min 11394 \  
+   max 11395 burst 100 avpkt 128 bandwidth 100kbit DP 1 probability 1 \                                         
+   prio 1                                                                                                    
+tc qdisc change dev $DEV0 parent 2:10 gred limit 17972 min 4748 max 9493 \                                      
+   burst 50 avpkt 1000 bandwidth 100kbit DP 2 probability 0.01 prio 2                                        
+tc qdisc change dev $DEV0 parent 2:10 gred limit 4368 min 1796 max 3582 \                                       
+   burst 25 avpkt 1000 bandwidth 100kbit DP 3 probability 0.01 prio 2                                                                                                                                                     
+tc qdisc add dev $DEV0 parent 2:20 gred setup DPs 2 default 2 grio                                           
+tc qdisc change dev $DEV0 parent 2:20 gred limit 52480 min 11311 \                                              
+   max 11312 burst 60 avpkt 256 bandwidth 100kbit DP 1 probability 1 \                                          
+   prio 1                                                                                                    
+tc qdisc change dev $DEV0 parent 2:20 gred limit 47184 min 5898 \                                               
+   max 11796 burst 60 avpkt 1000 bandwidth 100kbit DP 2 probability 0.01 \                                      
+   prio 2                                   
+                                                                                                             
+tc qdisc add dev $DEV0 parent 2:30 gred setup DPs 1 default 1 grio                                           
+tc qdisc change dev $DEV0 parent 2:30 gred limit 15728 min 1966 \                                               
+   max 3932 burst 80 avpkt 200 bandwidth 100kbit DP 1 probability 0.04 \                                        
+   prio 1                                                                                                                                                                                                                 
+-----Router Configuration Ends Here------                                                                                                                                                                                                                                                                                              
+Now, the problem is that when I am sending packets from just one UDP                                         
+source(at server), I am getting outbound bit rate at eth0(of Router) as 12kbps                                     
+even though I have ceiled the corresponding HTB class to 100kbps; similar thing                                   
+happens when I have two UDP sources(both at server).  So, even though                                        
+I have configured for 100kbps, I am getting only 12kbps as the link speed. 
+                                                                                                             
+Please help me out.                                                                                                                                                                                                       
+Abhishek         
 
-Hi Dave:
 
-Here is a little optimisation for the cb_lock used by netlink_dump.
-While fixing that race earlier, I noticed that the reference count
-held by cb_lock is completely useless.  The reason is that in order
-to obtain the protection of the reference count, you have to take
-the cb_lock.  But the only way to take the cb_lock is through
-dereferencing the socket.
-
-That is, you must already possess a reference count on the socket
-before you can take advantage of the reference count held by cb_lock.
-As a corollary, we can remve the reference count held by the cb_lock.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---Nq2Wo0NMKNjxTN9z
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
-
-===== net/netlink/af_netlink.c 1.75 vs edited =====
---- 1.75/net/netlink/af_netlink.c	2005-04-01 16:25:14 +10:00
-+++ edited/net/netlink/af_netlink.c	2005-04-01 19:30:22 +10:00
-@@ -374,7 +374,6 @@
- 		nlk->cb->done(nlk->cb);
- 		netlink_destroy_callback(nlk->cb);
- 		nlk->cb = NULL;
--		__sock_put(sk);
- 	}
- 	spin_unlock(&nlk->cb_lock);
- 
-@@ -1100,7 +1099,6 @@
- 	spin_unlock(&nlk->cb_lock);
- 
- 	netlink_destroy_callback(cb);
--	__sock_put(sk);
- 	return 0;
- }
- 
-@@ -1139,7 +1137,6 @@
- 		return -EBUSY;
- 	}
- 	nlk->cb = cb;
--	sock_hold(sk);
- 	spin_unlock(&nlk->cb_lock);
- 
- 	netlink_dump(sk);
-
---Nq2Wo0NMKNjxTN9z--
+=========================================================================
+ABHISHEK GUPTA 
+E-mail:abhishek_it_bhu@yahoo.co.in
+=========================================================================
