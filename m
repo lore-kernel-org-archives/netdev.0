@@ -1,135 +1,124 @@
-From: Marc Zyngier <mzyngier@freesurf.fr>
-Subject: de2104x (was Re: [PATCH][2.6] de4x5 cleanup)
-Date: Sun, 31 Aug 2003 11:31:23 +0200
+From: Christoph Hellwig <hch@lst.de>
+Subject: [PATCH] convert icmpv6_socket to per-cpu data
+Date: Sun, 31 Aug 2003 12:05:21 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <wrp65ke5g2c.fsf_-_@hina.wild-wind.fr.eu.org>
-References: <wrpad9r79g6.fsf@hina.wild-wind.fr.eu.org>
-	<3F50E3FD.1000703@pobox.com>
-	<wrpn0dr55n1.fsf@hina.wild-wind.fr.eu.org>
-	<3F50F805.9090805@pobox.com>
-Reply-To: mzyngier@freesurf.fr
+Message-ID: <20030831100521.GB18663@lst.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: akpm@osdl.org, linux-net@vger.kernel.org,
-   Maillist netdev <netdev@oss.sgi.com>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <3F50F805.9090805@pobox.com> (Jeff Garzik's message of "Sat, 30
- Aug 2003 15:16:21 -0400")
+To: davem@redhat.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
->>>>> "Jeff" == Jeff Garzik <jgarzik@pobox.com> writes:
+per-cpu data works in modules for a while now.  Also bring over a
+comment from the IPv4 version and consolidate the error handling.
 
-Jeff> Well, 2.6 tulip intentionally doesn't work at all on 21040 and
-Jeff> 21041 :) That's what de2104x driver is for.  Can you give that a
-Jeff> beating, and verify that it works for you?
 
-So, as promised, I tried de2104x on the AS-255 (which was problematic
-a few months ago). I must say it works nicely, as long as I don't
-unplug the cable...
-
-Here are the details :
-
-otherside:~# lspci
-00:06.0 SCSI storage controller: LSI Logic / Symbios Logic (formerly NCR) 53c810 (rev 11)
-00:07.0 Non-VGA unclassified device: Intel Corp. 82378IB [SIO ISA Bridge] (rev 43)
-00:0d.0 VGA compatible controller: Digital Equipment Corporation PBXGB [TGA2] (rev 22)
-00:0e.0 Ethernet controller: Digital Equipment Corporation DECchip 21040 [Tulip] (rev 26)
-otherside:~# ethtool eth0
-Settings for eth0:
-        Supported ports: [ TP AUI ]
-        Supported link modes:   10baseT/Half 10baseT/Full 
-        Supports auto-negotiation: No
-        Advertised link modes:  10baseT/Half 10baseT/Full 
-        Advertised auto-negotiation: No
-        Speed: Unknown! (5)
-        Duplex: Half
-        Port: AUI
-        PHYAD: 0
-        Transceiver: internal
-        Auto-negotiation: on
-        Current message level: 0x000000f7 (247)
-        Link detected: yes
-
-Note that an AUI port is reported, while the system really has only a
-10baseT port.
-
-while booting, everything looks OK :
-[...]
-de2104x PCI Ethernet driver v0.5.4 (Jan 1, 2002)
-eth0: 21040 at 0xfffffc0301209000, 00:00:25:4a:21:3a, IRQ 15
-[...]
-eth0: enabling interface
-eth0: set link 10baseT-HD
-eth0:    mode 0xfffc0040, sia 0xffffffcd,0xffff8f01,0xffffffff,0xffff0000
-eth0:    set mode 0xfffc0000, set sia 0x8f01,0xffff,0x0
-eth0: link up, media 10baseT-HD
-
-It works perfectly, until I unplug the cable (I know, I'm a bad
-boy... ;-), wait 10 seconds, then plug it back :
-
-eth0: link down
-eth0: set link AUI
-eth0:    mode 0xfffc0000, sia 0xffffffc1,0xffff8f09,0xffff0705,0xffff0006
-eth0:    set mode 0xfffc0000, set sia 0x8f09,0x705,0x6
-eth0: link up, media AUI
-
-So link is now up, on a non-existant AUI port ?!?!
-Let's inform the driver that we want the TP port instead :
-
-otherside:~# ethtool -s eth0 port tp
-Cannot set new settings: Invalid argument
-  not setting port
-
-So 'tp' is invalid ? Interesting... Let's try the old ifconfig down/up
-method :
-
-eth0: disabling interface
-eth0: enabling interface
-eth0: set link AUI
-eth0:    mode 0xfffc0040, sia 0xffffffc1,0xffff8f09,0xffff0705,0xffff0006
-eth0:    set mode 0xfffc0000, set sia 0x8f09,0x705,0x6
-eth0: link up, media AUI
-
-No effect... Let's try it again, for fun :
-
-eth0: disabling interface
-eth0: timeout expired stopping DMA
-eth0: enabling interface
-eth0: set link AUI
-eth0:    mode 0xfffc0040, sia 0xffffffc1,0xffff8f09,0xffff0705,0xffff0006
-eth0:    set mode 0xfffc0000, set sia 0x8f09,0x705,0x6
-eth0: link up, media AUI
-
-Problem stopping DMA ? Frightening ! :-) Finally, I had to reboot the
-system to get the the network back up (since modules are not really
-useable currently on alpha, but that's another story).
-
-Now, the same thing with the ugly de4x5 :
-
-[...]
-0000:00:0e.0: DE434/5 at 0x8400, h/w address 00:00:f8:25:4a:21,
-      and requires IRQ15 (provided by PCI BIOS).
-de4x5.c:V0.546 2001/02/22 davies@maniac.ultranet.com
-[...]
-eth0: media is TP.
-
-Unplug the cable, wait 10 seconds, plug it back :
-
-eth0: media is unconnected, link down or incompatible connection.
-eth0: media is TP.
-
-Works as expected.
-
-While this problem is a corner case (the de2104x driver itself works
-fine), it would be nice if we could solve this issue (loosing network
-connectivity because someone rebooted the switch is a bad
-behaviour). I promise this machine wont run de4x5 ever again once it
-is solved :-).
-
-Thanks,
-
-        M.
--- 
-Places change, faces change. Life is so very strange.
+--- 1.40/net/ipv6/icmp.c	Mon Aug 18 12:38:34 2003
++++ edited/net/ipv6/icmp.c	Fri Aug 29 12:11:40 2003
+@@ -70,12 +70,14 @@
+ DEFINE_SNMP_STAT(struct icmpv6_mib, icmpv6_statistics);
+ 
+ /*
+- *	ICMP socket(s) for flow control.
++ *	The ICMP socket(s). This is the most convenient way to flow control
++ *	our ICMP output as well as maintain a clean interface throughout
++ *	all layers. All Socketless IP sends will soon be gone.
++ *
++ *	On SMP we have one ICMP socket per-cpu.
+  */
+-
+-/* XXX We can't use per_cpu because this can be modular... */
+-static struct socket *__icmpv6_socket[NR_CPUS];
+-#define icmpv6_socket	__icmpv6_socket[smp_processor_id()]
++static DEFINE_PER_CPU(struct socket *, __icmpv6_socket) = NULL;
++#define icmpv6_socket	__get_cpu_var(__icmpv6_socket)
+ 
+ static int icmpv6_rcv(struct sk_buff **pskb, unsigned int *nhoffp);
+ 
+@@ -96,6 +98,7 @@
+ static __inline__ void icmpv6_xmit_lock(void)
+ {
+ 	local_bh_disable();
++
+ 	if (unlikely(!spin_trylock(&icmpv6_socket->sk->sk_lock.slock)))
+ 		BUG();
+ }
+@@ -657,33 +660,23 @@
+ int __init icmpv6_init(struct net_proto_family *ops)
+ {
+ 	struct sock *sk;
+-	int i;
++	int err, i, j;
+ 
+ 	for (i = 0; i < NR_CPUS; i++) {
+-		int err;
+-
+ 		if (!cpu_possible(i))
+ 			continue;
+ 
+ 		err = sock_create(PF_INET6, SOCK_RAW, IPPROTO_ICMPV6,
+-				  &__icmpv6_socket[i]);
++				  &per_cpu(__icmpv6_socket, i));
+ 		if (err < 0) {
+-			int j;
+-
+ 			printk(KERN_ERR
+ 			       "Failed to initialize the ICMP6 control socket "
+ 			       "(err %d).\n",
+ 			       err);
+-			for (j = 0; j < i; j++) {
+-				if (!cpu_possible(j))
+-					continue;
+-				sock_release(__icmpv6_socket[j]);
+-				__icmpv6_socket[j] = NULL; /* for safety */
+-			}
+-			return err;
++			goto fail;
+ 		}
+ 
+-		sk = __icmpv6_socket[i]->sk;
++		sk = per_cpu(__icmpv6_socket, i)->sk;
+ 		sk->sk_allocation = GFP_ATOMIC;
+ 		sk->sk_sndbuf = SK_WMEM_MAX * 2;
+ 		sk->sk_prot->unhash(sk);
+@@ -692,16 +685,20 @@
+ 
+ 	if (inet6_add_protocol(&icmpv6_protocol, IPPROTO_ICMPV6) < 0) {
+ 		printk(KERN_ERR "Failed to register ICMP6 protocol\n");
+-		for (i = 0; i < NR_CPUS; i++) {
+-			if (!cpu_possible(i))
+-				continue;
+-			sock_release(__icmpv6_socket[i]);
+-			__icmpv6_socket[i] = NULL;
+-		}
+-		return -EAGAIN;
++		err = -EAGAIN;
++		goto fail;
+ 	}
+ 
+ 	return 0;
++
++ fail:
++	for (j = 0; j < i; j++) {
++		if (!cpu_possible(j))
++			continue;
++		sock_release(per_cpu(__icmpv6_socket, j));
++	}
++
++	return err;
+ }
+ 
+ void icmpv6_cleanup(void)
+@@ -711,8 +708,7 @@
+ 	for (i = 0; i < NR_CPUS; i++) {
+ 		if (!cpu_possible(i))
+ 			continue;
+-		sock_release(__icmpv6_socket[i]);
+-		__icmpv6_socket[i] = NULL; /* For safety. */
++		sock_release(per_cpu(__icmpv6_socket, i));
+ 	}
+ 	inet6_del_protocol(&icmpv6_protocol, IPPROTO_ICMPV6);
+ }
