@@ -1,34 +1,44 @@
-From: jaganav@us.ibm.com
-Subject: Re: Linux support for RDMA (was: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit Proposed Topics)
-Date: Thu, 31 Mar 2005 21:13:39 -0500
-Message-ID: <1112321619.424cae539e75e@imap.linux.ibm.com>
+From: Michal Ludvig <michal@logix.cz>
+Subject: IPsec SPI/SEQ badness on forward
+Date: Fri, 01 Apr 2005 15:14:50 +1200
+Message-ID: <424CBCAA.8030503@logix.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: Benjamin LaHaise <bcrl@kvack.org>, Dmitry Yusupov <dmitry_yus@yahoo.com>,
-        open-iscsi@googlegroups.com, "David S. Miller" <davem@davemloft.net>,
-        mpm@selenic.com, andrea@suse.de, michaelc@cs.wisc.edu,
-        James.Bottomley@HansenPartnership.com, ksummit-2005-discuss@thunk.org,
-        netdev@oss.sgi.com, bmt@zurich.ibm.com
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Roland Dreier <roland@topspin.com>
+To: ipsec-tools-devel@lists.sourceforge.net, netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Quoting Roland Dreier <roland@topspin.com>:
-> I have to admit I don't know much about the TOE / RDMA/TCP / RNIC (or
-> whatever you want to call it) world.  However I know that the large
-> majority of InfiniBand use right now is running on Linux, and I hope
-> the Linux community is willing to work with the IB community.
->
+Hi all,
 
-Just want to let everyone know know that we have started an opensource
-effort (www.openrdma.org) for enablement of RNICs (RDMA enabled NICs). This
-community has now come up with an architecture
-(http://rdma.sourceforge.net/architecture.pdf) to build this support in Linux.
-Would really appreciate if you review and provide any comments. We have just
-started to hack but no code is available on this project yet.
+I'm running the most recent 2.6.12-rc1-bk with ipsec-tools 0.5.1,
+setting up tunnel mode between networks 192.168.0.0/24 (gateway K.L.M.N)
+and 192.168.157.0/24 (gw A.B.C.D/192.168.157.1).
 
-Thanks
-Venkat
+When pinging from the gateway 192.168.157.1 (i.e. locally generated
+packets) the ESP packets have correct SPI/SEQ number:
+13:47:14.334879 A.B.C.D > K.L.M.N: ESP(spi=0xebfb16c9,seq=0x1) (DF)
+               13:47:25.988419 A.B.C.D > K.L.M.N:
+ESP(spi=0xebfb16c9,seq=0x2) (DF)
+13:47:49.190173 A.B.C.D > K.L.M.N: ESP(spi=0xebfb16c9,seq=0x3) (DF)
+
+
+However when pinging from the host in the internal net (e.g.
+192.168.157.21, i.e. forwarded packets) the lower half of SPI is wrong
+as is the upper half of SEQ:
+13:48:28.373633 A.B.C.D > K.L.M.N: ESP(spi=0xebfbd458,seq=0x42700004) (DF)
+13:49:13.934759 A.B.C.D > K.L.M.N: ESP(spi=0xebfbd358,seq=0x43700005) (DF)
+13:49:19.929667 A.B.C.D > K.L.M.N: ESP(spi=0xebfbd258,seq=0x44700006) (DF)
+
+Note that the lower half of SEQ grows as expected...
+
+Now pinging from the gateway again and it works again:
+13:49:27.529796 A.B.C.D > K.L.M.N: ESP(spi=0xebfb16c9,seq=0x7) (DF)
+
+Have anyone else seen a similar behaviour? Any ideas what is wrong?
+Looks like the kernel isn't clearing some buffers when forwarding
+packets to IPSec tunnel...
+
+Michal Ludvig
