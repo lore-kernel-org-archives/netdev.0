@@ -1,57 +1,83 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] LSM networking: tcp hooks for 2.5.59 (8/8)
-Date: Thu, 30 Jan 2003 16:16:38 -0800 (PST)
+From: Venkata Jagana <jagana@us.ibm.com>
+Subject: [ANNOUNCE] Linux DHCPv6 release available for download
+Date: Thu, 30 Jan 2003 17:05:56 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030130.161638.83467438.davem@redhat.com>
-References: <20030130.152558.81554884.davem@redhat.com>
-	<Pine.LNX.4.44.0301311113190.32098-100000@blackbird.intercode.com.au>
+Message-ID: <OF3F47AF4C.84072AF6-ON88256CBF.00044306@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, linux-security-module@wirex.com
+Content-Type: text/plain; charset=US-ASCII
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jmorris@intercode.com.au
-In-Reply-To: <Pine.LNX.4.44.0301311113190.32098-100000@blackbird.intercode.com.au>
+To: netdev@oss.sgi.com, linux-net@vger.kernel.org
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: James Morris <jmorris@intercode.com.au>
-   Date: Fri, 31 Jan 2003 11:15:22 +1100 (EST)
 
-   On Thu, 30 Jan 2003, David S. Miller wrote:
-   
-   > I totally reject this networking security stuff for 2.6.x
-   
-   Ok.  Thanks for looking at it.
-   
-James, do not take my comments too harshly please.
+The DHCPv6 (DHCP for IPv6) code (ver 0.1) is now available for
+download at SourceForge:
 
-I realize the amount of work that went into these
-changes and I do appreciate that.
+     http://www.sourceforge.net/projects/dhcpv6
 
-The big problem is that the TCP bits had no apparent attempt to
-abstract things out.  What is going to happen, for example, when net
-protocol FOO makes mini-sockets too?  Will we make more
-security_FOO_*() hooks or will we get smart and abstract this
-technique somehow?
+Linux DHCPv6 project is created to provide IETF standard conformant
+DHCPv6 protocol implementation for Linux.
 
-See, if I saw things like:
+The current version of the code provides 'partial' Client/Server support
+for
+address assignment. Additional messages support is currently under
+development.
 
-	openreq = sock_make_minisock(sizeof(struct openreq));
+The current status of the project, at a high level, is provided below but
+for further details, please visit the DHCPv6 project page at SourceForge.
 
-then the changes would be more acceptable.
 
-The net/socket.c stuff looks fine.  All the stuff that makes decisions
-based upon packets is highly questionable.  Netfilter can do all of
-this work, it even has connection tracking infrastructure for TCP
-connections.
+On behalf of DHCPv6 team,
 
-I think with the net/socket.c stuff to take care of the user
-side and some ingenious netfilter hacks for the packet side,
-you could accomplish everything you need for the security stuff.
+Regards,
+Venkat
 
-If you think this is implementable, then I'll happily accept the
-net/socket.c stuff and even the af_unix hack, with the assumption
-being that the rest can be handled by netfilter or something similar.
-Oh yes, I'd also take the netlink capability thing too as long as it
-was inlined properly for the no-security case.
+----------------------------------------------------------------
+Venkata R Jagana
+IBM Linux Technology Center
+Beaverton
+jagana@us.ibm.com
+----------------------------------------------------------------
+
+
+Current Status:
+
+  Features implemented and validated
+
+    IPv6 address Assignment
+
+      - Server configuration file support
+      - Server lease file support for saving all the client's IPv6 address
+binding info
+      - Client IPv6 address assignment and temporary IPv6 address
+assignment support on the same link
+      - Supported Options: Rapid commit, Server Preference, Information
+Request
+         ClientID, ServerID , IA_NA , IA_TA , IA_ADDR , Status support
+      - Solicit/Request/Advertise/Reply/Infomation-request messages support
+
+  Features available but not validated:
+
+      - Renew/Rebind messages
+      - Prefix delegation option support
+      - DNS server option support
+      - Request option support
+
+  Features under development:
+
+      - Timer events support
+          T1(renew)/T2(rebind)/expired(address prefered-lifetime
+reached)/deleted(address valid-lifetime reached)
+      - Release/Decline/Confirm messages support
+      - Client configuration file support
+      - Client lease file support
+      - Merge prefix delegation configuration file and IPv6 address
+assignment file
+
+   Features to be addressed:
+
+      - Unicast/Elapsed time/Authentication/User Class/Vendor
+Class/Interface-ID option support
+      - Relay agent support.
+      - Reconfig/Relay messages support.
