@@ -1,41 +1,112 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: pskb change in dst->output
-Date: Thu, 8 Jul 2004 09:12:21 +1000
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040707231221.GA30565@gondor.apana.org.au>
-References: <20040707130652.GA26822@gondor.apana.org.au> <Xine.LNX.4.44.0407071013080.26759-100000@thoron.boston.redhat.com> <20040707212805.GA29899@gondor.apana.org.au> <20040707150132.5dc470b6.davem@redhat.com>
+From: bert hubert <ahu@ds9a.nl>
+Subject: preliminary conclusions regarding window size issues
+Date: Thu, 8 Jul 2004 01:27:57 +0200
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20040707232757.GA14471@outpost.ds9a.nl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jmorris@redhat.com, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+Return-path: <linux-net-owner@vger.kernel.org>
+To: "David S. Miller" <davem@redhat.com>,
+	Stephen Hemminger <shemminger@osdl.org>, jamie@shareable.org,
+	netdev@oss.sgi.com, linux-net@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ALESSANDRO.SUARDI@ORACLE.COM
 Content-Disposition: inline
-In-Reply-To: <20040707150132.5dc470b6.davem@redhat.com>
-Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 07, 2004 at 03:01:32PM -0700, David S. Miller wrote:
-> On Thu, 8 Jul 2004 07:28:05 +1000
-> Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> 
-> > OK.  Can you please tell me which caller of dst_output() passes
-> > a cloned skb to it?
-> 
-> The case James's patch tries to deal with is when multicast
-> loops back packets to localhost, see ip_mc_output().
-> Since the SKB is a clone, if we do anything with the checksum
-> state of the clone, this messes up the hw checksumming state
-> of the original SKB and we get output packets with corrupt
-> checksums.
+Two things:
 
-Thanks.  I have no problems with that.  But ip_mc_output() as far
-as I can see does not call dst_output.
+1) packages.gentoo.org is currently unreachable by 2.6.7-recent.
+This has been confirmed from several places, very easy to reproduce. Bug has
+been filed with gentoo to fix their firewall.
 
-So is there a caller to dst_output that does this as well?
+2) What Alessandro Suardi sees is highly similar, except that he has it with
+*all* remotes, except for google.it and a very small number of other
+servers.
 
-Cheers,
+This is what Alessandro saw going out. We artificially lowered the MTU
+because of possible tunelling loss:
+
+01:03:36.323132 192.168.1.3.33992 > 213.244.168.210.10000: S [tcp sum ok] 3497585848:3497585848(0) 
+	win 5440 <mss 1360,sackOK,timestamp 2311996 0,nop,wscale 7> 
+	(DF) (ttl 64, id 43908, len 60)
+01:03:36.396660 213.244.168.210.10000 > 192.168.1.3.33992: S [tcp sum ok] 3030562636:3030562636(0) 
+	ack 3497585849 win 5792 <mss 1452,sackOK,timestamp  2142457957 2311996,nop,wscale 0> 
+	(DF) (ttl 53, id 0, len 60)
+01:03:36.396719 192.168.1.3.33992 > 213.244.168.210.10000: . [tcp sum ok]
+	ack 1 win 42 <nop,nop,timestamp 2312084 2142457957> 
+	(DF) (ttl 64, id 43909, len 52)
+
+Perfect SYN, SYN|ACK, ACK.
+
+01:03:36.397362 192.168.1.3.33992 > 213.244.168.210.10000: P 1:463(462) ack 1 win 42 
+	<nop,nop,timestamp 2312085 2142457957> 
+	(DF) (ttl 64, id 43910, len 514)
+
+The GET request.
+
+01:03:36.497588 213.244.168.210.10000 > 192.168.1.3.33992: . [tcp sum ok] ack 463 
+	win 6432 <nop,nop,timestamp 2142457967 2312085> 
+	(DF) (ttl 53, id 59171, len 52) 
+
+And acked by my server. This trace is identical to what I see on the
+receiving end:
+
+29.84 62.211.168.xx.33992 > 213.244.168.210.10000: S [tcp sum ok] 3497585848:3497585848(0) 
+	win 5440 <mss 1360,sackOK,timestamp 2311996 0,nop,wscale 7> 
+	(DF) (ttl 50, id 43908, len 60)
+29.84 213.244.168.210.10000 > 62.211.168.xx.33992: S [tcp sum ok] 3030562636:3030562636(0) 
+	ack 3497585849 win 5792 <mss 1460,sackOK,timestamp 2142457957 2311996,nop,wscale 0>  
+	(DF) (ttl 64, id 0, len 60)
+29.93 62.211.168.xx.33992 > 213.244.168.210.10000: . [tcp sum ok] 1:1(0) 
+	ack 1 win 42 <nop,nop,timestamp 2312084 2142457957> 
+	(DF) (ttl 50, id 43909, len 52)
+
+29.95 62.211.168.xx.33992 > 213.244.168.210.10000: P [tcp sum ok] 1:463(462)
+	ack 1 win 42 <nop,nop,timestamp 2312085 2142457957> 
+	(DF) (ttl 50, id 43910, len 514)
+29.95 213.244.168.210.10000 > 62.211.168.xx.33992: . [tcp sum ok] 1:1(0) 
+	ack 463 win 6432 <nop,nop,timestamp 2142457967 2312085> 
+	(DF) (ttl 64, id 59171, len 52)
+
+Except for TTL and NAT, this is identical.
+
+>From here, things start to differ. I measure that I send out:
+
+29.95 213.244.168.210.10000 > 62.211.168.xx.33992: . [tcp sum ok] 1:1349(1348) 
+	ack 463 win 6432 <nop,nop,timestamp 2142457967 2312085> 
+	(DF) (ttl 64, id 59172, len 1400)
+29.95 213.244.168.210.10000 > 62.211.168.xx.33992: P [tcp sum ok] 1349:2697(1348) 
+	ack 463 win 6432 <nop,nop,timestamp 2142457967 2312085> 
+	(DF) (ttl 64, id 59173, len 1400)
+
+This next packet is a repeat, because no ACK:
+
+30.23 213.244.168.210.10000 > 62.211.168.xx.33992: . [tcp sum ok] 1:1349(1348) 
+	ack 463 win 6432 <nop,nop,timestamp 2142457996 2312085> 
+	(DF) (ttl 64, id 59174, len 1400)
+
+ad nauseam. Alessandro never sees these packets! After a while, he
+disconnects, which happens pretty normally. From another trace (NOTE!):
+
+00:38:21.326397 192.168.1.3.33285 > 213.244.168.210.10000: F 420:420(0) 
+	ack 1 win 45 <nop,nop,timestamp 796784 2142304361> 
+	(DF)
+00:38:21.410353 213.244.168.210.10000 > 192.168.1.3.33285: . 
+	ack 421 win 6432 <nop,nop,timestamp 2142306461 796784> 
+	(DF)
+	
+We've tried with wscale=0,1,2 and these all work. Things go wrong for
+wscale>=3. My current feeling is that some kind of QoS device is
+interfering, and that the 'wscale gets stuffed' theory is wrong in this
+case.
+
+I recall that 'Packeteer' QoS devices try to mess with windows.
+
+Alessandro has this DSL modem, which crashed once during testing.
+http://www.usr.com/support/product-template.asp?prod=9003
+
+So we're not done debugging.
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+http://www.PowerDNS.com      Open source, database driven DNS Software 
+http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
