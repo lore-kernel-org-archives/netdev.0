@@ -1,49 +1,99 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [6/6]: jenkins hash for neigh
-Date: Sat, 25 Sep 2004 17:48:02 -0700
+Subject: Re: [IPv4]: More fib_alias insertion fixes
+Date: Sat, 25 Sep 2004 20:14:25 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040925174802.43c86665.davem@davemloft.net>
-References: <20040923225158.23c2d502.davem@davemloft.net>
-	<20040924085234.GE3236@sunbeam.de.gnumonks.org>
-	<20040924142702.62a2b23d.davem@davemloft.net>
-	<20040925064406.GL3236@sunbeam.de.gnumonks.org>
-	<20040925005623.2faf8faf.davem@davemloft.net>
-	<20040925090933.GU3236@sunbeam.de.gnumonks.org>
-	<20040925133342.GA11292@souterrain.chygwyn.com>
+Message-ID: <20040925201425.16fbcb6c.davem@davemloft.net>
+References: <Pine.LNX.4.58.0409252249150.1175@u.domain.uli>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: laforge@gnumonks.org, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Steven Whitehouse <steve@chygwyn.com>
-In-Reply-To: <20040925133342.GA11292@souterrain.chygwyn.com>
+To: Julian Anastasov <ja@ssi.bg>
+In-Reply-To: <Pine.LNX.4.58.0409252249150.1175@u.domain.uli>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 25 Sep 2004 14:33:42 +0100
-Steven Whitehouse <steve@chygwyn.com> wrote:
+On Sat, 25 Sep 2004 23:09:11 +0300 (EEST)
+Julian Anastasov <ja@ssi.bg> wrote:
 
-> On Sat, Sep 25, 2004 at 11:09:33AM +0200, Harald Welte wrote:
-> > On Sat, Sep 25, 2004 at 12:56:23AM -0700, David S. Miller wrote:
-> > > So let's discuss #4.  It is the first idea I had to combat the
-> > > "problem", but honestly right now I am beginning to think that
-> > > the real solution is to simply remove the INCOMPLETE checks
-> > > altogether.
-> > > 
-> > > Neighbours are a sub-cache of the routing cache.  Therefore when
-> > > a neigh entry has a singular refcount, no routing cache entry
-> > > points to it.  No routing cache entry, we're not sending packets
-> > > to that neighbour any time soon, so there is no reason (especially
-> > > during strong pressure) to hold onto such entries.
-> > 
-> > I am sure this is valid for IPv4 and IPv6.  How about other users of the
-> > neighbour cache, do they share this assumption?  I have to admit that I
-> > never looked throgh the ATM or 
-> >
-> I cannot see this being any problem for DECnet at all.... the entry you
-> most want to hold on to is the entry for the default router of which
-> there will be a max of one per interface. This applies only in end node
-> mode and we hold a ref count to it anyway, so that it should have the
-> same effect as the routing cache entry holding a ref,
+> - modify fib_find_alias to stop before the desired alias, even
+> if reaching different TOS. If no alias is found we have to append
+> at end of fn_alias.
+> 
+> - properly prepend/append new alias with same prefix/tos/prio
+> 
+> - use list_for_each_entry_continue
+> 
+> Signed-off-by: Julian Anastasov <ja@ssi.bg>
 
-And ATM clip is for ipv4's routing layer too so...
+Two things:
+
+1) I applied a version of the list_for_each_entry_continue fix
+   I got privately from Alexey, can you repatch relative to
+   that?  It is included below.
+
+2) The fib_alias list is not meant at all to be sorted by TOS
+   value. Within a TOS it _is_ sorted by priority.  This was
+   intentional, and I believe your changes assume I meant to
+   keep the "aliases ordered by TOS" property.  I did not.
+
+Please give test cases when posting fixes of this nature.
+I wouldn't have to guess about #2 if you gave a bunch of
+"ip route foo" commands that gave behavior you think is
+incorrect.
+
+Thanks.
+
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2004/09/25 19:47:58-07:00 kuznet@ms2.inr.ac.ru 
+#   [IPV4]: Fix fa_list walking in fib_hash.c
+#   
+#   Prevent accidently referencing f->fn_alias list
+#   head as a real fib_alias object.
+#   
+#   Signed-off-by: David S. Miller <davem@davemloft.net>
+# 
+# net/ipv4/fib_hash.c
+#   2004/09/25 19:47:27-07:00 kuznet@ms2.inr.ac.ru +4 -4
+#   [IPV4]: Fix fa_list walking in fib_hash.c
+#   
+#   Prevent accidently referencing f->fn_alias list
+#   head as a real fib_alias object.
+#   
+#   Signed-off-by: David S. Miller <davem@davemloft.net>
+# 
+diff -Nru a/net/ipv4/fib_hash.c b/net/ipv4/fib_hash.c
+--- a/net/ipv4/fib_hash.c	2004-09-25 19:54:08 -07:00
++++ b/net/ipv4/fib_hash.c	2004-09-25 19:54:08 -07:00
+@@ -537,7 +537,8 @@
+ 		 * information.
+ 		 */
+ 		fa_orig = fa;
+-		list_for_each_entry(fa, fa_orig->fa_list.prev, fa_list) {
++		fa = list_entry(fa->fa_list.prev, struct fib_alias, fa_list);
++		list_for_each_entry_continue(fa, &f->fn_alias, fa_list) {
+ 			if (fa->fa_tos != tos)
+ 				break;
+ 			if (fa->fa_info->fib_priority != fi->fib_priority)
+@@ -611,7 +612,6 @@
+ 	struct fn_hash *table = (struct fn_hash*)tb->tb_data;
+ 	struct fib_node *f;
+ 	struct fib_alias *fa, *fa_to_delete;
+-	struct list_head *fa_head;
+ 	int z = r->rtm_dst_len;
+ 	struct fn_zone *fz;
+ 	u32 key;
+@@ -637,8 +637,8 @@
+ 		return -ESRCH;
+ 
+ 	fa_to_delete = NULL;
+-	fa_head = fa->fa_list.prev;
+-	list_for_each_entry(fa, fa_head, fa_list) {
++	fa = list_entry(fa->fa_list.prev, struct fib_alias, fa_list);
++	list_for_each_entry_continue(fa, &f->fn_alias, fa_list) {
+ 		struct fib_info *fi = fa->fa_info;
+ 
+ 		if (fa->fa_tos != tos)
