@@ -1,26 +1,27 @@
-From: Olaf Hering <olh@suse.de>
-Subject: Re: 2.6.8, pppd: Terminating connection due to lack of activity.
-Date: Thu, 19 Aug 2004 22:27:41 +0200
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [2/2] Modularise xfrm_tunnel
+Date: Fri, 20 Aug 2004 07:31:17 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040819202741.GA12012@suse.de>
-References: <20040819175017.GA10513@suse.de> <20040819182851.GA11063@suse.de>
+Message-ID: <20040819213117.GA19625@gondor.apana.org.au>
+References: <20040819113841.GA13872@gondor.apana.org.au> <20040819114050.GA16049@gondor.apana.org.au> <20040819114359.GA16189@gondor.apana.org.au> <20040819072525.430f00bd.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "David S. Miller" <davem@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <20040819182851.GA11063@suse.de>
+In-Reply-To: <20040819072525.430f00bd.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
- On Thu, Aug 19, Olaf Hering wrote:
+On Thu, Aug 19, 2004 at 07:25:25AM -0700, David S. Miller wrote:
+> 
+> I suppose you're making your way towards proper TOS tunnel handling
+> and the other fixes we spoke of?
 
-> last_xmit/last_recv remains zero for some reasons.
-
-Looks like we toasted pppd in suse 9.1. Sorry for the noise...
-
---=20
-USB is for mice, FireWire is for men!
-
-sUse lINUX ag, n=C3=9CRNBERG
+The TTL fixes? Yes.
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
