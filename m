@@ -1,7 +1,7 @@
 From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] net/rxrpc/: misc possible cleanups
-Date: Wed, 15 Dec 2004 02:26:12 +0100
-Message-ID: <20041215012612.GG12937@stusta.de>
+Subject: [2.6 patch] net/sched/: possible cleanups
+Date: Wed, 15 Dec 2004 02:27:54 +0100
+Message-ID: <20041215012754.GH12937@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: linux-kernel@vger.kernel.org
@@ -12,201 +12,190 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The patch below contains the following possible cleanups:
+The patch below contans the following possible cleanups:
 - make some needlessly global code static
-- remove the following unused global function:
-  - transport.c: rxrpc_clear_transport
-- remove the following unneeded EXPORT_SYMBOL:
-  - rxrpc_syms.c: rxrpc_call_flush
-
-Please comment on which of these changes are correct and which conflict
-with pending patches.
+- sch_htb.c: #undef HTB_DEBUG
 
 
 diffstat output:
- include/rxrpc/call.h      |    5 -----
- include/rxrpc/packet.h    |    2 --
- include/rxrpc/transport.h |    2 --
- net/rxrpc/call.c          |   15 +++++++++------
- net/rxrpc/connection.c    |    4 +++-
- net/rxrpc/internal.h      |    3 ---
- net/rxrpc/peer.c          |    4 +++-
- net/rxrpc/rxrpc_syms.c    |    1 -
- net/rxrpc/transport.c     |   10 ----------
- 9 files changed, 15 insertions(+), 31 deletions(-)
+ include/net/act_api.h   |    3 ---
+ net/sched/gact.c        |    2 +-
+ net/sched/police.c      |    8 ++++----
+ net/sched/sch_api.c     |   11 ++++++-----
+ net/sched/sch_dsmark.c  |    2 +-
+ net/sched/sch_generic.c |    4 ++--
+ net/sched/sch_htb.c     |    2 +-
+ net/sched/sch_ingress.c |    2 +-
+ net/sched/sch_prio.c    |    3 ++-
+ 9 files changed, 18 insertions(+), 19 deletions(-)
 
 
 Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
---- linux-2.6.10-rc3-mm1-full/include/rxrpc/packet.h.old	2004-12-14 22:24:02.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/include/rxrpc/packet.h	2004-12-14 22:24:10.000000000 +0100
-@@ -124,6 +124,4 @@
+--- linux-2.6.10-rc3-mm1-full/net/sched/gact.c.old	2004-12-14 22:32:34.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/sched/gact.c	2004-12-14 22:32:42.000000000 +0100
+@@ -68,7 +68,7 @@
+ }
  
- } __attribute__((packed));
  
--extern const char *rxrpc_acks[];
--
- #endif /* _LINUX_RXRPC_PACKET_H */
---- linux-2.6.10-rc3-mm1-full/include/rxrpc/call.h.old	2004-12-14 22:25:08.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/include/rxrpc/call.h	2004-12-14 22:28:41.000000000 +0100
-@@ -20,9 +20,6 @@
- #define RXRPC_CALL_ACK_WINDOW_SIZE	16
+-g_rand gact_rand[MAX_RAND]= { NULL,gact_net_rand, gact_determ};
++static g_rand gact_rand[MAX_RAND]= { NULL,gact_net_rand, gact_determ};
  
- extern unsigned rxrpc_call_rcv_timeout;		/* receive activity timeout (secs) */
--extern unsigned rxrpc_call_acks_timeout;	/* pending ACK (retransmit) timeout (secs) */
--extern unsigned rxrpc_call_dfr_ack_timeout;	/* deferred ACK timeout (secs) */
--extern unsigned short rxrpc_call_max_resend;		/* maximum consecutive resend count */
+ #endif
+ static int
+--- linux-2.6.10-rc3-mm1-full/include/net/act_api.h.old	2004-12-14 22:33:02.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/include/net/act_api.h	2004-12-14 22:33:14.000000000 +0100
+@@ -82,9 +82,6 @@
+ extern int tcf_action_dump_old(struct sk_buff *skb, struct tc_action *a, int, int);
+ extern int tcf_action_dump_1(struct sk_buff *skb, struct tc_action *a, int, int);
+ extern int tcf_action_copy_stats (struct sk_buff *,struct tc_action *);
+-extern int tcf_act_police_locate(struct rtattr *rta, struct rtattr *est,struct tc_action *,int , int );
+-extern int tcf_act_police_dump(struct sk_buff *, struct tc_action *, int, int);
+-extern int tcf_act_police(struct sk_buff **skb, struct tc_action *a);
+ #endif /* CONFIG_NET_CLS_ACT */
  
- /* application call state
-  * - only state 0 and ffff are reserved, the state is set to 1 after an opid is received
-@@ -210,8 +207,6 @@
- 				 int dup_data,
- 				 size_t *size_sent);
+ extern int tcf_police(struct sk_buff *skb, struct tcf_police *p);
+--- linux-2.6.10-rc3-mm1-full/net/sched/police.c.old	2004-12-14 22:33:22.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/sched/police.c	2004-12-14 22:33:39.000000000 +0100
+@@ -163,7 +163,7 @@
+ }
  
--extern int rxrpc_call_flush(struct rxrpc_call *call);
--
- extern void rxrpc_call_handle_error(struct rxrpc_call *conn, int local, int errno);
- 
- #endif /* _LINUX_RXRPC_CALL_H */
---- linux-2.6.10-rc3-mm1-full/net/rxrpc/call.c.old	2004-12-14 22:24:20.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/rxrpc/call.c	2004-12-14 22:28:53.000000000 +0100
-@@ -26,10 +26,10 @@
- LIST_HEAD(rxrpc_calls);
- DECLARE_RWSEM(rxrpc_calls_sem);
- 
--unsigned rxrpc_call_rcv_timeout		= HZ/3;
--unsigned rxrpc_call_acks_timeout	= HZ/3;
--unsigned rxrpc_call_dfr_ack_timeout	= HZ/20;
--unsigned short rxrpc_call_max_resend	= HZ/10;
-+unsigned rxrpc_call_rcv_timeout			= HZ/3;
-+static unsigned rxrpc_call_acks_timeout		= HZ/3;
-+static unsigned rxrpc_call_dfr_ack_timeout	= HZ/20;
-+static unsigned short rxrpc_call_max_resend	= HZ/10;
- 
- const char *rxrpc_call_states[] = {
- 	"COMPLETE",
-@@ -58,7 +58,7 @@
- 	"?09", "?10", "?11", "?12", "?13", "?14", "?15"
- };
- 
--const char *rxrpc_acks[] = {
-+static const char *rxrpc_acks[] = {
- 	"---", "REQ", "DUP", "SEQ", "WIN", "MEM", "PNG", "PNR", "DLY", "IDL",
- 	"-?-"
- };
-@@ -79,6 +79,9 @@
- 				 struct rxrpc_message *msg,
- 				 rxrpc_seq_t seq,
- 				 size_t count);
-+
-+static int rxrpc_call_flush(struct rxrpc_call *call);
-+
- #define _state(call) \
- 	_debug("[[[ state %s ]]]", rxrpc_call_states[call->app_call_state]);
- 
-@@ -2079,7 +2082,7 @@
- /*
-  * flush outstanding packets to the network
-  */
--int rxrpc_call_flush(struct rxrpc_call *call)
-+static int rxrpc_call_flush(struct rxrpc_call *call)
+ #ifdef CONFIG_NET_CLS_ACT
+-int tcf_act_police_locate(struct rtattr *rta, struct rtattr *est,struct tc_action *a, int ovr, int bind)
++static int tcf_act_police_locate(struct rtattr *rta, struct rtattr *est,struct tc_action *a, int ovr, int bind)
  {
- 	struct rxrpc_message *msg;
+ 	unsigned h;
  	int ret = 0;
---- linux-2.6.10-rc3-mm1-full/net/rxrpc/rxrpc_syms.c.old	2004-12-14 22:28:26.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/rxrpc/rxrpc_syms.c	2004-12-14 22:28:29.000000000 +0100
-@@ -23,7 +23,6 @@
- EXPORT_SYMBOL(rxrpc_call_abort);
- EXPORT_SYMBOL(rxrpc_call_read_data);
- EXPORT_SYMBOL(rxrpc_call_write_data);
--EXPORT_SYMBOL(rxrpc_call_flush);
+@@ -265,7 +265,7 @@
+ 	return -1;
+ }
  
- /* connection.c */
- EXPORT_SYMBOL(rxrpc_create_connection);
---- linux-2.6.10-rc3-mm1-full/net/rxrpc/internal.h.old	2004-12-14 22:29:18.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/rxrpc/internal.h	2004-12-14 22:30:16.000000000 +0100
-@@ -73,7 +73,6 @@
- extern struct rw_semaphore rxrpc_conns_sem;
- extern unsigned long rxrpc_conn_timeout;
- 
--extern void rxrpc_conn_do_timeout(struct rxrpc_connection *conn);
- extern void rxrpc_conn_clearall(struct rxrpc_peer *peer);
- 
- /*
-@@ -89,8 +88,6 @@
- 
- extern void rxrpc_peer_clearall(struct rxrpc_transport *trans);
- 
--extern void rxrpc_peer_do_timeout(struct rxrpc_peer *peer);
--
- 
- /*
-  * proc.c
---- linux-2.6.10-rc3-mm1-full/net/rxrpc/connection.c.old	2004-12-14 22:29:36.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/rxrpc/connection.c	2004-12-14 22:30:00.000000000 +0100
-@@ -30,6 +30,8 @@
- DECLARE_RWSEM(rxrpc_conns_sem);
- unsigned long rxrpc_conn_timeout = 60 * 60;
- 
-+static void rxrpc_conn_do_timeout(struct rxrpc_connection *conn);
-+
- static void __rxrpc_conn_timeout(rxrpc_timer_t *timer)
+-int tcf_act_police_cleanup(struct tc_action *a, int bind)
++static int tcf_act_police_cleanup(struct tc_action *a, int bind)
  {
- 	struct rxrpc_connection *conn =
-@@ -415,7 +417,7 @@
- /*
-  * free a connection record
+ 	struct tcf_police *p;
+ 	p = PRIV(a);
+@@ -275,7 +275,7 @@
+ 	return 0;
+ }
+ 
+-int tcf_act_police(struct sk_buff **pskb, struct tc_action *a)
++static int tcf_act_police(struct sk_buff **pskb, struct tc_action *a)
+ {
+ 	psched_time_t now;
+ 	struct sk_buff *skb = *pskb;
+@@ -338,7 +338,7 @@
+ 	return p->action;
+ }
+ 
+-int tcf_act_police_dump(struct sk_buff *skb, struct tc_action *a, int bind, int ref)
++static int tcf_act_police_dump(struct sk_buff *skb, struct tc_action *a, int bind, int ref)
+ {
+ 	unsigned char	 *b = skb->tail;
+ 	struct tc_police opt;
+--- linux-2.6.10-rc3-mm1-full/net/sched/sch_api.c.old	2004-12-14 22:36:33.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/sched/sch_api.c	2004-12-14 22:39:03.000000000 +0100
+@@ -207,7 +207,7 @@
+ 	return NULL;
+ }
+ 
+-struct Qdisc *qdisc_leaf(struct Qdisc *p, u32 classid)
++static struct Qdisc *qdisc_leaf(struct Qdisc *p, u32 classid)
+ {
+ 	unsigned long cl;
+ 	struct Qdisc *leaf;
+@@ -226,7 +226,7 @@
+ 
+ /* Find queueing discipline by name */
+ 
+-struct Qdisc_ops *qdisc_lookup_ops(struct rtattr *kind)
++static struct Qdisc_ops *qdisc_lookup_ops(struct rtattr *kind)
+ {
+ 	struct Qdisc_ops *q = NULL;
+ 
+@@ -290,7 +290,7 @@
+ 
+ /* Allocate an unique handle from space managed by kernel */
+ 
+-u32 qdisc_alloc_handle(struct net_device *dev)
++static u32 qdisc_alloc_handle(struct net_device *dev)
+ {
+ 	int i = 0x10000;
+ 	static u32 autohandle = TC_H_MAKE(0x80000000U, 0);
+@@ -356,8 +356,9 @@
+    Old qdisc is not destroyed but returned in *old.
   */
--void rxrpc_conn_do_timeout(struct rxrpc_connection *conn)
-+static void rxrpc_conn_do_timeout(struct rxrpc_connection *conn)
+ 
+-int qdisc_graft(struct net_device *dev, struct Qdisc *parent, u32 classid,
+-		struct Qdisc *new, struct Qdisc **old)
++static int qdisc_graft(struct net_device *dev, struct Qdisc *parent,
++		       u32 classid,
++		       struct Qdisc *new, struct Qdisc **old)
  {
- 	struct rxrpc_peer *peer;
+ 	int err = 0;
+ 	struct Qdisc *q = *old;
+--- linux-2.6.10-rc3-mm1-full/net/sched/sch_dsmark.c.old	2004-12-14 22:39:16.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/sched/sch_dsmark.c	2004-12-14 22:39:24.000000000 +0100
+@@ -320,7 +320,7 @@
+ }
  
---- linux-2.6.10-rc3-mm1-full/net/rxrpc/peer.c.old	2004-12-14 22:30:23.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/rxrpc/peer.c	2004-12-14 22:30:41.000000000 +0100
-@@ -30,6 +30,8 @@
- DECLARE_RWSEM(rxrpc_peers_sem);
- unsigned long rxrpc_peer_timeout = 12 * 60 * 60;
  
-+static void rxrpc_peer_do_timeout(struct rxrpc_peer *peer);
-+
- static void __rxrpc_peer_timeout(rxrpc_timer_t *timer)
+-int dsmark_init(struct Qdisc *sch,struct rtattr *opt)
++static int dsmark_init(struct Qdisc *sch,struct rtattr *opt)
  {
- 	struct rxrpc_peer *peer =
-@@ -259,7 +261,7 @@
-  * handle a peer timing out in the graveyard
-  * - called from krxtimod
-  */
--void rxrpc_peer_do_timeout(struct rxrpc_peer *peer)
-+static void rxrpc_peer_do_timeout(struct rxrpc_peer *peer)
+ 	struct dsmark_qdisc_data *p = PRIV(sch);
+ 	struct rtattr *tb[TCA_DSMARK_MAX];
+--- linux-2.6.10-rc3-mm1-full/net/sched/sch_generic.c.old	2004-12-14 22:39:41.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/sched/sch_generic.c	2004-12-14 22:40:00.000000000 +0100
+@@ -283,7 +283,7 @@
+ 	.list		=	LIST_HEAD_INIT(noop_qdisc.list),
+ };
+ 
+-struct Qdisc_ops noqueue_qdisc_ops = {
++static struct Qdisc_ops noqueue_qdisc_ops = {
+ 	.next		=	NULL,
+ 	.cl_ops		=	NULL,
+ 	.id		=	"noqueue",
+@@ -294,7 +294,7 @@
+ 	.owner		=	THIS_MODULE,
+ };
+ 
+-struct Qdisc noqueue_qdisc = {
++static struct Qdisc noqueue_qdisc = {
+ 	.enqueue	=	NULL,
+ 	.dequeue	=	noop_dequeue,
+ 	.flags		=	TCQ_F_BUILTIN,
+--- linux-2.6.10-rc3-mm1-full/net/sched/sch_ingress.c.old	2004-12-14 22:40:25.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/sched/sch_ingress.c	2004-12-14 22:40:34.000000000 +0100
+@@ -274,7 +274,7 @@
+ #endif
+ #endif
+ 
+-int ingress_init(struct Qdisc *sch,struct rtattr *opt)
++static int ingress_init(struct Qdisc *sch,struct rtattr *opt)
  {
- 	struct rxrpc_transport *trans = peer->trans;
+ 	struct ingress_qdisc_data *p = PRIV(sch);
  
---- linux-2.6.10-rc3-mm1-full/include/rxrpc/transport.h.old	2004-12-14 22:30:56.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/include/rxrpc/transport.h	2004-12-14 22:31:03.000000000 +0100
-@@ -103,6 +103,4 @@
- 				       struct rxrpc_message *msg,
- 				       int error);
+--- linux-2.6.10-rc3-mm1-full/net/sched/sch_prio.c.old	2004-12-14 22:40:49.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/sched/sch_prio.c	2004-12-14 22:41:03.000000000 +0100
+@@ -47,7 +47,8 @@
+ };
  
--extern void rxrpc_clear_transport(struct rxrpc_transport *trans);
--
- #endif /* _LINUX_RXRPC_TRANSPORT_H */
---- linux-2.6.10-rc3-mm1-full/net/rxrpc/transport.c.old	2004-12-14 22:31:11.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/rxrpc/transport.c	2004-12-14 22:31:20.000000000 +0100
-@@ -150,16 +150,6 @@
  
- /*****************************************************************************/
- /*
-- * clear the connections on a transport endpoint
-- */
--void rxrpc_clear_transport(struct rxrpc_transport *trans)
--{
--	//struct rxrpc_connection *conn;
--
--} /* end rxrpc_clear_transport() */
--
--/*****************************************************************************/
--/*
-  * destroy a transport endpoint
-  */
- void rxrpc_put_transport(struct rxrpc_transport *trans)
+-struct Qdisc *prio_classify(struct sk_buff *skb, struct Qdisc *sch,int *r)
++static struct Qdisc *prio_classify(struct sk_buff *skb,
++				   struct Qdisc *sch, int *r)
+ {
+ 	struct prio_sched_data *q = qdisc_priv(sch);
+ 	u32 band = skb->priority;
+--- linux-2.6.10-rc3-mm1-full/net/sched/sch_htb.c.old	2004-12-14 22:41:56.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/sched/sch_htb.c	2004-12-14 23:46:12.000000000 +0100
+@@ -71,7 +71,7 @@
+ 
+ #define HTB_HSIZE 16	/* classid hash size */
+ #define HTB_EWMAC 2	/* rate average over HTB_EWMAC*HTB_HSIZE sec */
+-#define HTB_DEBUG 1	/* compile debugging support (activated by tc tool) */
++#undef HTB_DEBUG	/* compile debugging support (activated by tc tool) */
+ #define HTB_RATECM 1    /* whether to use rate computer */
+ #define HTB_HYSTERESIS 1/* whether to use mode hysteresis for speedup */
+ #define HTB_QLOCK(S) spin_lock_bh(&(S)->dev->queue_lock)
