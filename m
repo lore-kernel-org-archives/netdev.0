@@ -1,8 +1,8 @@
 From: akpm@osdl.org
-Subject: [patch 9/18] gcc-3.5: llc
-Date: Sun, 25 Jan 2004 03:07:34 -0800
+Subject: [patch 3/18] gcc-3.5: ax25
+Date: Sun, 25 Jan 2004 03:06:59 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200401251107.i0PB7Xo25086@mail.osdl.org>
+Message-ID: <200401251106.i0PB6xo25047@mail.osdl.org>
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: davem@redhat.com
@@ -11,27 +11,55 @@ List-Id: netdev.vger.kernel.org
 
 
 
-net/llc/llc_conn.c: In function `llc_sk_init':
-net/llc/llc_conn.c:829: error: invalid lvalue in assignment
+net/ax25/af_ax25.c: In function `ax25_create':
+net/ax25/af_ax25.c:819: error: invalid lvalue in assignment
+net/ax25/af_ax25.c: In function `ax25_make_new':
+net/ax25/af_ax25.c:904: error: invalid lvalue in assignment
 
+net/x25/af_x25.c: In function `x25_alloc_socket':
+net/x25/af_x25.c:441: error: invalid lvalue in assignment                       
+
+(Why is x25_alloc_socket() using GFP_ATOMIC?)
 
 
 ---
 
- 25-akpm/net/llc/llc_conn.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
+ net/ax25/af_ax25.c |    4 ++--
+ net/x25/af_x25.c   |    2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-diff -puN net/llc/llc_conn.c~gcc-35-llc net/llc/llc_conn.c
---- 25/net/llc/llc_conn.c~gcc-35-llc	Fri Jan 23 16:51:38 2004
-+++ 25-akpm/net/llc/llc_conn.c	Fri Jan 23 16:51:52 2004
-@@ -826,7 +826,7 @@ int llc_sk_init(struct sock* sk)
- 		        * tx_win of remote LLC) */
- 	skb_queue_head_init(&llc->pdu_unack_q);
- 	sk->sk_backlog_rcv = llc_backlog_rcv;
--	llc_sk(sk) = llc;
-+	sk->sk_protinfo = llc;
- out:
- 	return rc;
- }
+diff -puN net/ax25/af_ax25.c~gcc-35-ax25 net/ax25/af_ax25.c
+--- 25/net/ax25/af_ax25.c~gcc-35-ax25	2004-01-23 21:38:22.000000000 -0800
++++ 25-akpm/net/ax25/af_ax25.c	2004-01-23 21:38:22.000000000 -0800
+@@ -816,7 +816,7 @@ int ax25_create(struct socket *sock, int
+ 	if ((sk = sk_alloc(PF_AX25, GFP_ATOMIC, 1, NULL)) == NULL)
+ 		return -ENOMEM;
+ 
+-	ax25 = ax25_sk(sk) = ax25_create_cb();
++	ax25 = sk->sk_protinfo = ax25_create_cb();
+ 	if (!ax25) {
+ 		sk_free(sk);
+ 		return -ENOMEM;
+@@ -901,7 +901,7 @@ struct sock *ax25_make_new(struct sock *
+ 		memcpy(ax25->digipeat, oax25->digipeat, sizeof(ax25_digi));
+ 	}
+ 
+-	ax25_sk(sk) = ax25;
++	sk->sk_protinfo = ax25;
+ 	ax25->sk    = sk;
+ 
+ 	return sk;
+diff -puN net/x25/af_x25.c~gcc-35-ax25 net/x25/af_x25.c
+--- 25/net/x25/af_x25.c~gcc-35-ax25	2004-01-23 22:48:41.000000000 -0800
++++ 25-akpm/net/x25/af_x25.c	2004-01-23 22:49:05.000000000 -0800
+@@ -438,7 +438,7 @@ static struct sock *x25_alloc_socket(voi
+ 	if (!sk)
+ 		goto out;
+ 
+-	x25 = x25_sk(sk) = kmalloc(sizeof(*x25), GFP_ATOMIC);
++	x25 = sk->sk_protinfo = kmalloc(sizeof(*x25), GFP_ATOMIC);
+ 	if (!x25)
+ 		goto frees;
+ 
 
 _
