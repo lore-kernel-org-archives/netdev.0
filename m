@@ -1,26 +1,71 @@
-From: linux lover <linux.lover2004@gmail.com>
-Subject: what is use of dev_queue_xmit_nit?
-Date: Tue, 21 Dec 2004 15:36:14 +0530
-Message-ID: <72c6e379041221020653e7a488@mail.gmail.com>
-Reply-To: linux lover <linux.lover2004@gmail.com>
+From: "Mark Broadbent" <markb@wetlettuce.com>
+Subject: Re: Lockup with 2.6.9-ac15 related to netconsole
+Date: Tue, 21 Dec 2004 10:23:40 -0000 (GMT)
+Message-ID: <52121.192.102.214.6.1103624620.squirrel@webmail.wetlettuce.com>
+References: <59719.192.102.214.6.1103214002.squirrel@webmail.wetlettuce.com>
+        <20041216211024.GK2767@waste.org>
+        <34721.192.102.214.6.1103274614.squirrel@webmail.wetlettuce.com>
+        <20041217215752.GP2767@waste.org>
+        <20041217233524.GA11202@electric-eye.fr.zoreil.com>
+        <36901.192.102.214.6.1103535728.squirrel@webmail.wetlettuce.com>
+        <20041220211419.GC5974@waste.org>
+        <20041221002218.GA1487@electric-eye.fr.zoreil.com>
+        <20041221005521.GD5974@waste.org>
+Reply-To: markb@wetlettuce.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: linux-net@vger.kernel.org
-Sender: linux-net-owner@vger.kernel.org
+Content-Transfer-Encoding: 7BIT
+Cc: <romieu@fr.zoreil.com>, <linux-kernel@vger.kernel.org>,
+	<netdev@oss.sgi.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261728AbULUKYI@vger.kernel.org>
+To: <mpm@selenic.com>
+In-Reply-To: <20041221005521.GD5974@waste.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello all,
-       I want to know what is use of dev_queue_xmit_nit function in
-dev.c file? Also why it calls following statement
-                        ptype->func(skb2, skb->dev, ptype);
-Also why skb2 is created by cloning skb? Acually i trace TCP packets
-and found that control goes from neigh_resolve_output to directly
-dev_queue_xmit_nit and then to HW driver 8139too.c? I want to know why
-it not goes from dev_queue_xmit? I place printk statments and found
-after dev_queue_xmit_nit control moves to network interface driver?
-Help to understand the control  packet path.
-Thanks in advance.
-linux_lover
+
+Matt Mackall said:
+> On Tue, Dec 21, 2004 at 01:22:18AM +0100, Francois Romieu wrote:
+>> Matt Mackall <mpm@selenic.com> :
+>> > On Mon, Dec 20, 2004 at 09:42:08AM -0000, Mark Broadbent wrote:
+>> > >
+>> > > Exactly the same happens, I still get a 'NMI Watchdog detected
+>> > > LOCKUP' with the r8169 device using the above patch on top of
+>> > > 2.6.10-rc3-bk10.
+>> >
+>> > Ok, that suggests a problem localized to netpoll itself. Do you have
+>> > spinlock debugging turned on by any chance?
+>>
+>> Any chance of:
+>> 1 dev_queue_xmit
+>> 2 dev->xmit_lock taken
+>> 3 interruption
+>> 4 printk
+>> 5 netconsole write
+>> 6 dev->xmit_lock again
+>> 7 lockup
+>>
+>> ?
+>>
+>> This is probably the silly question of the day.
+>
+> Maybe, but the answer isn't obvious to me at the moment as I haven't
+> been thinking about such stuff enough lately. Silly response of the
+> day:
+>
+> Mark, can you try this (again completely untested, but at least
+> compiles) patch? I'm afraid I don't have a proper test rig to
+> reproduce this at the moment. This will attempt to grab the lock, and
+> if it fails, will check for recursion. Then it will try to print a
+> message on the local console, temporarily disabling netconsole to
+> allow the printk to get through..
+
+OK, patch applied and spinlock debugging enabled.  Testing with eth1
+(r1869) doesn'tyield any additional messages, just the standard 'NMI Watchdog detected
+lockup'.
+Thanks
+Mark
+
+-- 
+Mark Broadbent <markb@wetlettuce.com>
+Web: http://www.wetlettuce.com
