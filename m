@@ -1,8 +1,8 @@
 From: David Dillow <dave@thedillows.org>
-Subject: [RFC BK 15/22] xfrm offload v2: typhoon: add outbound offload processing
-Date: Mon, 10 Jan 2005 10:37:01 -0500
-Message-ID: <20040110014300.24@ori.thedillows.org>
-References: <20040110014300.23@ori.thedillows.org>
+Subject: [RFC BK 8/22] xfrm offload v2: Add routines to manage applied offloads per skb
+Date: Mon, 10 Jan 2005 10:37:00 -0500
+Message-ID: <20040110014300.17@ori.thedillows.org>
+References: <20040110014300.16@ori.thedillows.org>
 Cc: dave@thedillows.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
@@ -13,202 +13,208 @@ List-Id: netdev.vger.kernel.org
 # This is a BitKeeper generated diff -Nru style patch.
 #
 # ChangeSet
-#   2005/01/10 00:56:27-05:00 dave@thedillows.org 
-#   Add outbound xfrm crypto offload processing to the packet path.
+#   2005/01/10 00:49:03-05:00 dave@thedillows.org 
+#   Add fields to sk_buff to track offloaded xfrm_states for this
+#   packet. On Tx, these will be pointers to struct xfrm_offload.
+#   On Rx, these will be a 4 bit bitfield indicating what operations
+#   were performed, and the result of those operations.
+#   
+#   skb_push_xfrm_offload() records an offloaded xfrm on Tx. It will
+#   	return an error code if it is unable to record the offload.
+#   skb_get_xfrm_offload() returns the xfrm_offload struct at the
+#   	given position on the stack. It will return NULL if there
+#   	are no more offloads available.
+#   skb_has_xfrm_offload() returns true if the sk_buff has offload
+#   	information available.
+#   skb_put_xfrm_result() records an offload result on Rx at the given
+#   	index. It will return an error code if it is unable to
+#   	record the result.
+#   skb_pop_xfrm_result() pops the current offload result from the.
+#   	stack. If there are no more results, it will return
+#   	XFRM_OFFLOAD_NONE.
 #   
 #   Signed-off-by: David Dillow <dave@thedillows.org>
 # 
-# drivers/net/typhoon.c
-#   2005/01/10 00:56:11-05:00 dave@thedillows.org +130 -0
-#   Add outbound xfrm crypto offload processing to the packet path.
+# net/core/skbuff.c
+#   2005/01/10 00:48:46-05:00 dave@thedillows.org +31 -0
+#   When an sk_buff is cloned, we must gain a reference to each
+#   xfrm_offload that it references.
+#   
+#   When an sk_buff is freed, we must release our references
+#   to the xfrm_offloads attached to it.
 #   
 #   Signed-off-by: David Dillow <dave@thedillows.org>
 # 
-diff -Nru a/drivers/net/typhoon.c b/drivers/net/typhoon.c
---- a/drivers/net/typhoon.c	2005-01-10 01:17:46 -05:00
-+++ b/drivers/net/typhoon.c	2005-01-10 01:17:46 -05:00
-@@ -351,6 +351,15 @@
- #define TSO_OFFLOAD_ON		0
+# include/net/xfrm.h
+#   2005/01/10 00:48:46-05:00 dave@thedillows.org +9 -0
+#   Add the values for the result bitfield.
+#   
+#   Signed-off-by: David Dillow <dave@thedillows.org>
+# 
+# include/linux/skbuff.h
+#   2005/01/10 00:48:46-05:00 dave@thedillows.org +55 -0
+#   Add the fields and functins to track offloads and results, as
+#   well as the current position in the stack.
+#   
+#   Signed-off-by: David Dillow <dave@thedillows.org>
+# 
+diff -Nru a/include/linux/skbuff.h b/include/linux/skbuff.h
+--- a/include/linux/skbuff.h	2005-01-10 01:19:13 -05:00
++++ b/include/linux/skbuff.h	2005-01-10 01:19:13 -05:00
+@@ -146,6 +146,14 @@
+ 	skb_frag_t	frags[MAX_SKB_FRAGS];
+ };
+ 
++/* XXX UGH. We cannot include <net/xfrm.h> in this file without some
++ * header file surgery, so define our own max xfrm depth. This should
++ * be kept >= XFRM_MAX_DEPTH until we fix the includes, and it can
++ * go away.
++ */
++#define SKB_XFRM_MAX_DEPTH 4
++struct xfrm_offload;
++
+ /** 
+  *	struct sk_buff - socket buffer
+  *	@next: Next buffer in list
+@@ -187,6 +195,8 @@
+  *	@nf_bridge: Saved data about a bridged frame - see br_netfilter.c
+  *      @private: Data which is private to the HIPPI implementation
+  *	@tc_index: Traffic control index
++ *	@xfrm_offload: Tx offload info, Rx offload results
++ *	@xfrm_offload_idx: The number of cookies/results stored currently
+  */
+ 
+ struct sk_buff {
+@@ -272,6 +282,8 @@
+ 
  #endif
  
-+#define IPSEC_NUM_DESCRIPTORS	1
-+
-+struct typhoon_xfrm_offload {
-+	u16	sa_cookie;
-+	u16	tunnel:1,
-+		ah:1,
-+		inbound:1;
-+};
-+
- static inline void
- typhoon_inc_index(u32 *index, const int count, const int num_entries)
- {
-@@ -778,12 +787,115 @@
- 	tcpd->status = 0;
- }
++	int			xfrm_offload_idx;
++	struct xfrm_offload *	xfrm_offload[SKB_XFRM_MAX_DEPTH];
  
-+static inline int
-+typhoon_ipsec_fill(struct typhoon *tp, struct sk_buff *skb,
-+				struct transmit_ring *txRing)
+ 	/* These elements must be at the end, see alloc_skb() for details.  */
+ 	unsigned int		truesize;
+@@ -1184,6 +1196,49 @@
+ #else /* CONFIG_NETFILTER */
+ static inline void nf_reset(struct sk_buff *skb) {}
+ #endif /* CONFIG_NETFILTER */
++
++static inline int skb_push_xfrm_offload(struct sk_buff *skb,
++					struct xfrm_offload *xol)
 +{
-+	struct xfrm_offload *xol;
-+	struct typhoon_xfrm_offload *txo;
-+	struct ipsec_desc *ipsec;
-+	int last_was_esp = 0;
-+	int i, entry;
-+	u32 sa[3];
-+
-+	ipsec = (struct ipsec_desc *) (txRing->ringBase + txRing->lastWrite);
-+	typhoon_inc_tx_index(&txRing->lastWrite, 1);
-+
-+	ipsec->flags = TYPHOON_OPT_DESC | TYPHOON_OPT_IPSEC;
-+	ipsec->numDesc = 1;
-+	ipsec->ipsecFlags = TYPHOON_IPSEC_USE_IV;
-+	ipsec->reserved = 0;
-+	sa[0] = sa[1] = sa[2] = 0;
-+
-+	/* Fill the offload descriptor with the cookies to indicate
-+	 * which key set to use when. While we're looping through the
-+	 * offloaded xfrms, if the last xfrm was ESP, and we're doing
-+	 * AH now, * then we can move the ESP part to the top of the
-+	 * descriptor. Otherwise, we'll need to move to the next one.
-+	 * We overrun into sa[2] to prevent needing to check the entry
-+	 * limit in the middile of things.
-+	 */
-+	entry = i = 0;
-+	xol = skb_get_xfrm_offload(skb, i++);
-+	while(xol && entry < 2) {
-+		xfrm_offload_hold(xol);
-+		txo = xfrm_offload_priv(xol);
-+		if(sa[entry] && txo->tunnel)
-+			entry++;
-+		if(sa[entry] & 0xffff) {
-+			if(last_was_esp && txo->ah)
-+				sa[entry] <<= 16;
-+			else
-+				entry++;
-+		}
-+
-+		sa[entry] |= txo->sa_cookie;
-+		last_was_esp = !txo->ah;
-+
-+		xol = skb_get_xfrm_offload(skb, i++);
++	if (likely(skb->xfrm_offload_idx < SKB_XFRM_MAX_DEPTH)) {
++		skb->xfrm_offload[skb->xfrm_offload_idx++] = xol;
++		return 0;
 +	}
 +
-+	/* Make sure we used all of the xfrms that were offloaded.
-+	 */
-+	if(unlikely(entry == 2 && xol)) {
-+		if(net_ratelimit())
-+			printk(KERN_ERR "%s: failing to offload IPSEC packet "
-+					"with too many xfrms!\n", tp->name);
-+		goto bad_packet;
-+	}
-+
-+	ipsec->sa[0] = cpu_to_le16(sa[0] & 0xffff);
-+	ipsec->sa[1] = cpu_to_le16(sa[0] >> 16);
-+	ipsec->sa[2] = cpu_to_le16(sa[1] & 0xffff);
-+	ipsec->sa[3] = cpu_to_le16(sa[1] >> 16);
-+
-+	/* The current 3XP firmware seems to hang if we try to feed it
-+	 * the same (non-zero) SA twice on the same packet. So, detect
-+	 * and drop those packets as it is likely a stack bug, or
-+	 * misconfiguration of policy.
-+	 *
-+	 * I.e., we should never hit this.
-+	 */
-+	if(unlikely(ipsec->sa[2])) {
-+		if(unlikely(ipsec->sa[2] == ipsec->sa[3]))
-+			goto avoiding_sa_hang;
-+		if(unlikely(ipsec->sa[2] == ipsec->sa[0] ||
-+					ipsec->sa[2] == ipsec->sa[1]))
-+			goto avoiding_sa_hang;
-+		if(unlikely(ipsec->sa[3] && (ipsec->sa[3] == ipsec->sa[0] ||
-+					ipsec->sa[3] == ipsec->sa[1])))
-+			goto avoiding_sa_hang;
-+	}
-+
-+	if(unlikely(ipsec->sa[1] && ipsec->sa[0] == ipsec->sa[1]))
-+		goto avoiding_sa_hang;
-+
-+	return 0;
-+
-+avoiding_sa_hang:
-+	if(net_ratelimit())
-+		printk(KERN_ERR "%s: failing attempted IPSEC offload with "
-+				"duplicate SAs %08x %08x\n", tp->name,
-+				sa[0], sa[1]);
-+
-+bad_packet:
-+	/* Any xfrm_offloads we've attached to this skb will be
-+	 * released for us when typhoon_start_tx() calls dev_kfree_skb_any()
-+	 * on it.
-+	 *
-+	 * Return an error to indicate this packet cannot be offloaded as
-+	 * specified and should never make it to the wire.
-+	 */
-+	return -EINVAL;
++	return -ENOMEM;
 +}
 +
- static int
- typhoon_start_tx(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct typhoon *tp = netdev_priv(dev);
- 	struct transmit_ring *txRing;
- 	struct tx_desc *txd, *first_txd;
-+	u32 origLastWrite;
- 	dma_addr_t skb_dma;
- 	int numDesc;
- 
-@@ -810,6 +922,9 @@
- 	if(skb_tso_size(skb))
- 		numDesc++;
- 
-+	if(skb_has_xfrm_offload(skb))
-+		numDesc++;
++static inline struct xfrm_offload *
++skb_get_xfrm_offload(const struct sk_buff *skb, int idx)
++{
++	if (likely(idx < skb->xfrm_offload_idx))
++		return skb->xfrm_offload[idx];
++	else
++		return NULL;
++}
 +
- 	/* When checking for free space in the ring, we need to also
- 	 * account for the initial Tx descriptor, and we always must leave
- 	 * at least one descriptor unused in the ring so that it doesn't
-@@ -822,6 +937,7 @@
- 	while(unlikely(typhoon_num_free_tx(txRing) < (numDesc + 2)))
- 		smp_rmb();
- 
-+	origLastWrite = txRing->lastWrite;
- 	first_txd = (struct tx_desc *) (txRing->ringBase + txRing->lastWrite);
- 	typhoon_inc_tx_index(&txRing->lastWrite, 1);
- 
-@@ -854,6 +970,14 @@
- 		typhoon_tso_fill(skb, txRing, tp->txlo_dma_addr);
- 	}
- 
-+	if(skb_has_xfrm_offload(skb)) {
-+		first_txd->processFlags |= TYPHOON_TX_PF_IPSEC;
-+		first_txd->numDesc++;
++static inline int skb_has_xfrm_offload(const struct sk_buff *skb)
++{
++	return !!skb_get_xfrm_offload(skb, 0);
++}
 +
-+		if(typhoon_ipsec_fill(tp, skb, txRing))
-+			goto error;
++static inline int skb_put_xfrm_result(struct sk_buff *skb, int result, int idx)
++{
++	if (likely(idx < SKB_XFRM_MAX_DEPTH)) {
++		skb->xfrm_offload[idx] = (struct xfrm_offload *) result;
++		return 0;
 +	}
++	return -ENOMEM;
++}
 +
- 	txd = (struct tx_desc *) (txRing->ringBase + txRing->lastWrite);
- 	typhoon_inc_tx_index(&txRing->lastWrite, 1);
++static inline int skb_pop_xfrm_result(struct sk_buff *skb)
++{
++	/* XXX XFRM_OFFLOAD_NONE == 0, but cannot include <net/xfrm.h> */
++	int res = 0;
++	if (likely(skb->xfrm_offload_idx < SKB_XFRM_MAX_DEPTH))
++		res = (int) skb->xfrm_offload[skb->xfrm_offload_idx++];
++	return res;
++}
  
-@@ -914,6 +1038,7 @@
- 	 * Tx header.
- 	 */
- 	numDesc = MAX_SKB_FRAGS + TSO_NUM_DESCRIPTORS + 1;
-+	numDesc += IPSEC_NUM_DESCRIPTORS;
+ #endif	/* __KERNEL__ */
+ #endif	/* _LINUX_SKBUFF_H */
+diff -Nru a/include/net/xfrm.h b/include/net/xfrm.h
+--- a/include/net/xfrm.h	2005-01-10 01:19:12 -05:00
++++ b/include/net/xfrm.h	2005-01-10 01:19:12 -05:00
+@@ -171,6 +171,15 @@
+ 	XFRM_STATE_DIR_OUT,
+ };
  
- 	if(typhoon_num_free_tx(txRing) < (numDesc + 2)) {
- 		netif_stop_queue(dev);
-@@ -926,6 +1051,11 @@
- 			netif_wake_queue(dev);
- 	}
- 
-+	return 0;
++enum {
++	XFRM_OFFLOAD_NONE = 0,
++	XFRM_OFFLOAD_CONF = 1,
++	XFRM_OFFLOAD_AUTH = 2,
++	XFRM_OFFLOAD_AUTH_OK = 4,
++	XFRM_OFFLOAD_AUTH_FAIL = 8,
++	XFRM_OFFLOAD_FIELD = 0x0f
++};
 +
-+error:
-+	txRing->lastWrite = origLastWrite;
-+	dev_kfree_skb_any(skb);
- 	return 0;
+ struct xfrm_offload
+ {
+ 	struct list_head	bydev;
+diff -Nru a/net/core/skbuff.c b/net/core/skbuff.c
+--- a/net/core/skbuff.c	2005-01-10 01:19:12 -05:00
++++ b/net/core/skbuff.c	2005-01-10 01:19:12 -05:00
+@@ -283,6 +283,14 @@
+ 
+ 	dst_release(skb->dst);
+ #ifdef CONFIG_XFRM
++	{
++		int i = 0;
++		struct xfrm_offload *xol;
++		while ((xol = skb_get_xfrm_offload(skb, i++)) != NULL) {
++			if ((unsigned long) xol > XFRM_OFFLOAD_FIELD)
++				xfrm_offload_release(xol);
++		}
++	}
+ 	secpath_put(skb->sp);
+ #endif
+ 	if(skb->destructor) {
+@@ -387,6 +395,17 @@
+ #endif
+ 
+ #endif
++	C(xfrm_offload_idx);
++	memcpy(n->xfrm_offload, skb->xfrm_offload,
++			sizeof(struct xfrm_offload *) * SKB_XFRM_MAX_DEPTH);
++	{
++		int i = 0;
++		struct xfrm_offload *xol;
++		while ((xol = skb_get_xfrm_offload(skb, i++)) != NULL) {
++			if ((unsigned long) xol > XFRM_OFFLOAD_FIELD)
++				xfrm_offload_hold(xol);
++		}
++	}
+ 	C(truesize);
+ 	atomic_set(&n->users, 1);
+ 	C(head);
+@@ -449,6 +468,18 @@
+ 	atomic_set(&new->users, 1);
+ 	skb_shinfo(new)->tso_size = skb_shinfo(old)->tso_size;
+ 	skb_shinfo(new)->tso_segs = skb_shinfo(old)->tso_segs;
++
++	new->xfrm_offload_idx = old->xfrm_offload_idx;
++	memcpy(new->xfrm_offload, old->xfrm_offload,
++			sizeof(struct xfrm_offload *) * SKB_XFRM_MAX_DEPTH);
++	{
++		int i = 0;
++		struct xfrm_offload *xol;
++		while ((xol = skb_get_xfrm_offload(old, i++)) != NULL) {
++			if ((unsigned long) xol > XFRM_OFFLOAD_FIELD)
++				xfrm_offload_hold(xol);
++		}
++	}
  }
  
+ /**
