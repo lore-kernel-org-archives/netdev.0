@@ -1,36 +1,58 @@
-From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
-Subject: Re: [PATCH] sa1100ir - fix for 2.6
-Date: Fri, 5 Dec 2003 16:30:18 -0800
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [BUG 2.6.0-test11] pcnet32 oops
+Date: Fri, 5 Dec 2003 16:59:00 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031206003018.GA2941@bougret.hpl.hp.com>
-References: <20031205150601.68c52de3.shemminger@osdl.org>
-Reply-To: jt@hpl.hp.com
+Message-ID: <20031205165900.2920ea6a.davem@redhat.com>
+References: <20031205234510.GA2319@bougret.hpl.hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Russell King <rmk@arm.linux.org.uk>, Jeff Garzik <jgarzik@pobox.com>,
-        Alexander Viro <aviro@redhat.com>, netdev@oss.sgi.com,
-        irda-users@sourceforge.net
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jt@bougret.hpl.hp.com, linux-kernel@vger.kernel.org,
+        tsbogend@alpha.franken.de, jgarzik@pobox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20031205150601.68c52de3.shemminger@osdl.org>
+To: jt@hpl.hp.com
+In-Reply-To: <20031205234510.GA2319@bougret.hpl.hp.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 05, 2003 at 03:06:01PM -0800, Stephen Hemminger wrote:
-> Update the ARM SA1100 irda driver to current 2.6 network device model
->   * allocate network device with alloc_irdadev - get rid of dev_alloc
->   * change to current system device class model - looks like it was using early
->     old version of interface from 2.5
->   * better error unwind
-> 
-> This has been cross compiled successfully against net-drivers-2.5-exp
+On Fri, 5 Dec 2003 15:45:10 -0800
+Jean Tourrilhes <jt@bougret.hpl.hp.com> wrote:
 
-	I don't have the hardware, so I can't test that (and I'm not
-familiar with sysfs). If you want, I can add that as part of my next
-IrDA update (probably 2.6.1).
-	Russel, if you do testing you may want to grab the "F-timer
-fix" from my web page.
-	Regards,
+> Badness in local_bh_enable at kernel/softirq.c:121
+> Call Trace:
+>  [<c011ff91>] local_bh_enable+0x35/0x58
+>  [<c022d19a>] ip_ct_find_proto+0xd2/0xd8
+>  [<c022d923>] destroy_conntrack+0x13/0x19c
+>  [<c01e68c8>] __kfree_skb+0xc8/0xfc
+>  [<d085b160>] pcnet32_purge_tx_ring+0x94/0xc4 [pcnet32]
+>  [<d085b300>] pcnet32_restart+0x14/0x6c [pcnet32]
+>  [<d085c089>] pcnet32_set_multicast_list+0x7d/0x90 [pcnet32]
 
-	Jean
+This is the classic case of doing disabling/enabling of software
+interrupts with hardware interrupts disabled, which is a bug.
+
+In this case pcnet32_set_multicast_list() is disabling hardware
+interrupts, and the packet freeing of pcnet32_purge_tx_ring()
+is what leads to the software interrupt disable/enable.
+
+However, I'm inclined to believe that we should change dev_kfree_skb_any()
+to fix this class of problems, by making it check for hardware interrupts
+being disabled as well as being in an interrupt.
+
+But we might not want to do it like this, just reenabling the hardware
+interrupts at the top level won't cause the software interrupt to fire
+to actually execute the SKB freeing work.... Need to think about this
+some more.
+
+===== include/linux/netdevice.h 1.66 vs edited =====
+--- 1.66/include/linux/netdevice.h	Sat Nov  1 14:11:04 2003
++++ edited/include/linux/netdevice.h	Fri Dec  5 16:53:01 2003
+@@ -634,7 +634,7 @@
+  */
+ static inline void dev_kfree_skb_any(struct sk_buff *skb)
+ {
+-	if (in_irq())
++	if (in_irq() || irqs_disabled())
+ 		dev_kfree_skb_irq(skb);
+ 	else
+ 		dev_kfree_skb(skb);
