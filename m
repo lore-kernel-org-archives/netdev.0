@@ -1,56 +1,38 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: TCP crashes when cycling loopback interface.
-Date: Sat, 23 Oct 2004 11:20:18 +1000
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: [patch netdev-2.6 3/3] r8169: simplify trick if() expression
+Date: Fri, 22 Oct 2004 21:49:24 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041023012018.GA15257@gondor.apana.org.au>
-References: <E1CFVXD-0007iJ-00@gondolin.me.apana.org.au> <Xine.LNX.4.44.0410071234460.4571-100000@thoron.boston.redhat.com>
+Message-ID: <20041023014923.GB32031@tuxdriver.com>
+References: <20041022005737.GA1945@tuxdriver.com> <20041022202851.GB4216@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="bp/iNruPH9dso1Pn"
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org, jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: James Morris <jmorris@redhat.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Content-Disposition: inline
-In-Reply-To: <Xine.LNX.4.44.0410071234460.4571-100000@thoron.boston.redhat.com>
+In-Reply-To: <20041022202851.GB4216@electric-eye.fr.zoreil.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Simplify tricky if() expression in rtl8169_vlan_rx_register().
 
---bp/iNruPH9dso1Pn
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+---
+You're probably right -- the "if ((tp->vlgrp = grp))" line is probably
+a little TOO clever... :-)
 
-On Thu, Oct 07, 2004 at 12:46:25PM -0400, James Morris wrote:
-> 
-> Two runs with the following crashes:
-> 
-> KERNEL: assertion (!skb_queue_empty(&sk->sk_write_queue)) failed at net/ipv4/tcp_timer.c (322)
+ drivers/net/r8169.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletion(-)
 
-James, are you still getting this crash?
-
-If so can you please apply this patch and see if it trips? If it
-does then your problem has been found and fixed.
-
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---bp/iNruPH9dso1Pn
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
-
-===== net/ipv4/tcp_output.c 1.68 vs edited =====
---- 1.68/net/ipv4/tcp_output.c	2004-10-20 15:13:52 +10:00
-+++ edited/net/ipv4/tcp_output.c	2004-10-23 11:19:21 +10:00
-@@ -1038,6 +1038,7 @@
- 			tp->mss_cache = tp->mss_cache_std;
- 		}
+--- ./drivers/net/r8169.c.orig	2004-10-22 21:44:06.050154952 -0400
++++ ./drivers/net/r8169.c	2004-10-22 21:44:26.228087440 -0400
+@@ -703,7 +703,8 @@ static void rtl8169_vlan_rx_register(str
+ 	unsigned long flags;
  
-+		BUG_TRAP(tcp_skb_pcount(skb) <= 1);
- 		if (tcp_trim_head(sk, skb, tp->snd_una - TCP_SKB_CB(skb)->seq))
- 			return -ENOMEM;
- 	}
-
---bp/iNruPH9dso1Pn--
+ 	spin_lock_irqsave(&tp->lock, flags);
+-	if ((tp->vlgrp = grp))
++	tp->vlgrp = grp;
++	if (tp->vlgrp)
+ 		tp->cp_cmd |= RxVlan;
+ 	else
+ 		tp->cp_cmd &= ~RxVlan;
