@@ -1,21 +1,26 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 1/3][bonding 2.4] Cannot remove and re-enslave the original
- active slave
-Date: Tue, 30 Dec 2003 10:41:51 -0500
+Subject: major bonding bug?
+Date: Tue, 30 Dec 2003 11:31:15 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3FF19CBF.5050803@pobox.com>
-References: <200312251703.37227.amir.noam@intel.com>
+Message-ID: <20031230163115.GA10216@gtf.org>
+References: <E791C176A6139242A988ABA8B3D9B38A014C965E@hasmsx403.iil.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <fubar@us.ibm.com>, bonding-devel@lists.sourceforge.net,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "Noam, Amir" <amir.noam@intel.com>, "Marom, Noam" <noam.marom@intel.com>,
+        netdev@oss.sgi.com, fubar@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Amir Noam <amir.noam@intel.com>
-In-Reply-To: <200312251703.37227.amir.noam@intel.com>
+To: "Hen, Shmulik" <shmulik.hen@intel.com>
+Content-Disposition: inline
+In-Reply-To: <E791C176A6139242A988ABA8B3D9B38A014C965E@hasmsx403.iil.intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-patches 1-3 applied to 2.4.x
+hmmm...
 
-We should be in sync now.
+It looks like a lot of code now depends on global variable "bond_mode".
+
+This looks very wrong...  bonding mode should be per-interface, not
+global to the entire driver.  What happens when a user wants
+BOND_MODE_ROUNDROBIN on bond0, and BOND_MODE_TLB on bond1?
+
+	Jeff
