@@ -1,47 +1,32 @@
-From: Lincoln Dale <ltd@cisco.com>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: e1000 performance hack for ppc64 (Power4)
-Date: Sat, 14 Jun 2003 11:52:53 +1000
+Date: Fri, 13 Jun 2003 22:41:22 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <5.1.0.14.2.20030614114755.036abbb0@mira-sjcm-3.cisco.com>
+Message-ID: <20030613.224122.104034261.davem@redhat.com>
 References: <20030613.154634.74748085.davem@redhat.com>
- <OF0078342A.E131D4B1-ON85256D44.0051F7C0@pok.ibm.com>
- <1055521263.3531.2055.camel@nighthawk>
- <20030613223841.GB32097@krispykreme>
- <20030613.154634.74748085.davem@redhat.com>
+	<20030613231836.GD32097@krispykreme>
+	<5.1.0.14.2.20030614114755.036abbb0@mira-sjcm-3.cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; format=flowed
-Cc: "David S. Miller" <davem@redhat.com>, haveblue@us.ibm.com,
-   hdierks@us.ibm.com, scott.feldman@intel.com, dwg@au1.ibm.com,
-   linux-kernel@vger.kernel.org, milliner@us.ibm.com, ricardoz@us.ibm.com,
-   twichell@us.ibm.com, netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: anton@samba.org, haveblue@us.ibm.com, hdierks@us.ibm.com,
+   scott.feldman@intel.com, dwg@au1.ibm.com, linux-kernel@vger.kernel.org,
+   milliner@us.ibm.com, ricardoz@us.ibm.com, twichell@us.ibm.com,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Anton Blanchard <anton@samba.org>
-In-Reply-To: <20030613231836.GD32097@krispykreme>
+To: ltd@cisco.com
+In-Reply-To: <5.1.0.14.2.20030614114755.036abbb0@mira-sjcm-3.cisco.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-At 09:18 AM 14/06/2003 +1000, Anton Blanchard wrote:
+   From: Lincoln Dale <ltd@cisco.com>
+   Date: Sat, 14 Jun 2003 11:52:53 +1000
+   
+   unless i misunderstand the problem, you can certainly pad the TCP
+   options with NOPs ...
 
-> > Not really... one retransmit and the TCP header size grows
-> > due to the SACK options.
->
->OK scratch that idea.
+You may not mangle packet if it is not your's alone.
 
-why not have a performance option that is a tradeoff between optimum 
-payload size versus efficiency.
-
-unless i misunderstand the problem, you can certainly pad the TCP options 
-with NOPs ...
-
-> > I find it truly bletcherous what you're trying to do here.
->
->I think so too, but its hard to ignore ~100Mbit/sec in performance.
-
-another option is for the write() path is for instantant-send TCP sockets 
-to delay the copy_from_user() until the IP+TCP header size is known.
-i wouldn't expect the net folks to like that, however ..
-
-
-cheers,
-
-lincoln.
+And every TCP packet is shared with TCP retransmit
+queue and therefore would need to be copied before
+being mangled.
