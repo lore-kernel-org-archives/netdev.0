@@ -1,34 +1,24 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] (4/6) ipvs -- use reader locks and refcounts correctly.
-Date: Sun, 21 Sep 2003 17:53:58 -0700
+Subject: Re: [PATCH 2.6.0-test5][NETROM] timer code cleanup
+Date: Sun, 21 Sep 2003 18:07:40 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030921175358.329774aa.davem@redhat.com>
-References: <20030920010010.7ed69543.davem@redhat.com>
-	<Pine.LNX.4.44.0309202338250.2193-200000@penguin.linux-vs.org>
+Message-ID: <20030921180740.0051dd30.davem@redhat.com>
+References: <1064145739.4349.28.camel@lima.royalchallenge.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, lvs-users@LinuxVirtualServer.org, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Wensong Zhang <wensong@linux-vs.org>
-In-Reply-To: <Pine.LNX.4.44.0309202338250.2193-200000@penguin.linux-vs.org>
+To: Vinay K Nallamothu <vinay.nallamothu@gsecone.com>
+In-Reply-To: <1064145739.4349.28.camel@lima.royalchallenge.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 20 Sep 2003 23:39:10 +0800 (CST)
-Wensong Zhang <wensong@linux-vs.org> wrote:
+On Sun, 21 Sep 2003 17:32:19 +0530
+Vinay K Nallamothu <vinay.nallamothu@gsecone.com> wrote:
 
-> On Sat, 20 Sep 2003, David S. Miller wrote:
-> 
-> > On Thu, 18 Sep 2003 00:44:16 +0800 (CST)
-> > Wensong Zhang <wensong@linux-vs.org> wrote:
-> > 
-> > > So, maybe we just apply the simple patch with making the lock local and 
-> > > tagging user pointers.
-> > 
-> > Can someone put such a patch together for me?
-> > 
-> 
-> Please see the attached patch.
+> 1. move timer initialization into nr_init_timers so that we can use mod_timer
+> 2. remove skb queue purge in af_netrom as its already done by nr_clear_queues
+> 3. Use del_timer_sync in nr_loopback_clear
 
-Applied, thanks Wensong.
+Looks good, applied.
