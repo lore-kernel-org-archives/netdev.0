@@ -1,40 +1,26 @@
-From: BZ Benny <bennybbz@yahoo.fr>
-Subject: Adresse Resolution ???
-Date: Wed, 9 Mar 2005 17:37:22 +0100 (CET)
-Message-ID: <20050309163722.40252.qmail@web26608.mail.ukl.yahoo.com>
+From: Steve Hill <steve@services.navaho.net>
+Subject: Re: IPSEC
+Date: Wed, 9 Mar 2005 17:01:46 +0000 (GMT)
+Message-ID: <Pine.LNX.4.61.0503091700030.18067@sorbus2.navaho>
+References: <Pine.LNX.4.61.0503081706560.11525@sorbus2.navaho>
+ <422DE487.5020800@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-To: netdev <netdev@oss.sgi.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@oss.sgi.com, "David S. Miller" <davem@davemloft.net>
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <422DE487.5020800@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+On Tue, 8 Mar 2005, Patrick McHardy wrote:
 
-actually , I understand that when ethernet layer
-receives data from IP it checks form MAC address in
-ARP table located inthe IP layer.=20
+> This is a bug in the kernel, __xfrm_find_acq_byseq should only return
+> XFRM_STATE_ACQ states. This patch should fix it.
 
-is the ARP table in the IP layer?
-if it is, the ethernet layer( the ethernet Driver of
-the device) send a request to the IP layer for
-corespondance between IP adresse and MAC address.
- when it receives the MAC adresse of the destination
-It puts it in the the ethernet header. and send the
-packet.
+Thanks - just tested the patch against the current 2.6.10 Fedora 3 kernel 
+and it works well.
 
-what I wanted to know is how ethernet layer in linux
-ask IP layer for the target MAC address?
-
-regards
-benny
-
-
-=09
-
-=09
-	=09
-D=E9couvrez le nouveau Yahoo! Mail : 250 Mo d'espace de stockage pour vos=
- mails !=20
-Cr=E9ez votre Yahoo! Mail sur http://fr.mail.yahoo.com/
+- Steve Hill (BSc)
+Senior Software Developer                        Email: steve@navaho.co.uk
+Navaho Technologies Ltd.                           Tel: +44-870-7034015
