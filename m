@@ -1,44 +1,43 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] remove dead extern's in netdevice.h
-Date: 02 Mar 2005 16:36:49 -0500
-Message-ID: <1109799408.1098.193.camel@jzny.localdomain>
-References: <20050302105902.72f2b983@dxpl.pdx.osdl.net>
+Subject: Re: creating a netdevice
+Date: 02 Mar 2005 16:41:17 -0500
+Message-ID: <1109799677.1098.198.camel@jzny.localdomain>
+References: <20050302133828.45232.qmail@web26610.mail.ukl.yahoo.com>
+	 <20050302112622.33be433c@dxpl.pdx.osdl.net>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
-        Jeff Garzik <jgarzik@pobox.com>
+Cc: BZ Benny <bennybbz@yahoo.fr>, netdev@oss.sgi.com
 To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20050302105902.72f2b983@dxpl.pdx.osdl.net>
+In-Reply-To: <20050302112622.33be433c@dxpl.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-If you want to do this, you might as well kill hardware flow control.
-I dont remember what the last decision was when we last pinged people.
-Jeff?
+Can you explain why you need to create a net device? Linux (and many
+other OSes) typically tie discovery of hardware resources to creating a
+network device i.e the kernel creates it for you (this is true even when
+the discovery is done post bootup). The only exception is things like 
+tun/ethertap as Stephen mentions. Things like allocation of ifindices 
+are also under the control of the OS - even when you are able to create.
 
 cheers,
 jamal
 
-On Wed, 2005-03-02 at 13:59, Stephen Hemminger wrote:
-> The following definitions are historical relics.
+
+On Wed, 2005-03-02 at 14:26, Stephen Hemminger wrote:
+> On Wed, 2 Mar 2005 14:38:28 +0100 (CET)
+> BZ Benny <bennybbz@yahoo.fr> wrote:
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> > Hi
+> > 
+> > I want to create a network interface from the user
+> > space,
+> > is it possible?
 > 
-> diff -Nru a/include/linux/netdevice.h b/include/linux/netdevice.h
-> --- a/include/linux/netdevice.h	2005-03-02 10:53:22 -08:00
-> +++ b/include/linux/netdevice.h	2005-03-02 10:53:22 -08:00
-> @@ -921,8 +921,6 @@
->  extern void		dev_mcast_init(void);
->  extern int		netdev_max_backlog;
->  extern int		weight_p;
-> -extern unsigned long	netdev_fc_xoff;
-> -extern atomic_t netdev_dropping;
->  extern int		netdev_set_master(struct net_device *dev, struct net_device *master);
->  extern int skb_checksum_help(struct sk_buff *skb, int inward);
->  /* rx skb timestamps */
+> No, you can't create a network interface from user space.
+> You probably want to use tun/tap or ethertap device.
 > 
 > 
