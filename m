@@ -1,31 +1,35 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 0/10] [bonding 2.6] propagating master's settings to slaves
-Date: Thu, 11 Sep 2003 14:58:39 -0400
+Subject: Re: [e1000 2.6 10/11] TxDescriptors -> 1024 default
+Date: Thu, 11 Sep 2003 15:18:05 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F60C5DF.5030605@pobox.com>
-References: <200309111737.15424.amir.noam@intel.com>
+Message-ID: <3F60CA6D.9090503@pobox.com>
+References: <Pine.LNX.4.44.0309081953510.1261-100000@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, ricardoz@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Amir Noam <amir.noam@intel.com>
-In-Reply-To: <200309111737.15424.amir.noam@intel.com>
+To: "Feldman, Scott" <scott.feldman@intel.com>
+In-Reply-To: <Pine.LNX.4.44.0309081953510.1261-100000@localhost.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Amir Noam wrote:
-> patch2:  Change monitoring function use the above functionality.
+Feldman, Scott wrote:
+> * Change the default number of Tx descriptors from 256 to 1024.
+>   Data from [ricardoz@us.ibm.com] shows it's easy to overrun
+>   the Tx desc queue.
 
-> patch8:  Enhance netdev notification handling.
-> 	 Add comment block and bump version.
 
+All e1000 patches applied except this one.
 
-Can you re-send these patches to me to privately?
+Of _course_ it's easy to overrun the Tx desc queue.  That's why we have 
+a TX queue sitting on top of the NIC's hardware queue.  And TCP socket 
+buffers on top of that.  And similar things.
 
-I am missing these.
+Descriptor increases like this are usually the result of some sillyhead 
+blasting out UDP packets, and then wondering why he sees packet loss on 
+the local computer (the "blast out packets" side).
 
-(netdev list server has been having problems lately... hopefully they 
-are resolved)
+You're just wasting memory.
 
 	Jeff
