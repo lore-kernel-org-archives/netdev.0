@@ -1,29 +1,53 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] NET: typo in include/linux/skbuff.h
-Date: Wed, 31 Dec 2003 10:34:39 -0800
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH]sk98lin ethtool support
+Date: Tue, 30 Dec 2003 19:23:41 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031231103439.7a0967b4.davem@redhat.com>
-References: <20031231.220533.102712852.yoshfuji@linux-ipv6.org>
-	<20031231.220846.98269358.yoshfuji@linux-ipv6.org>
+Message-ID: <3FF2170D.5070302@pobox.com>
+References: <1072779867.3632.38.camel@l5ac210.l5.laser5.co.jp> <3FF16F18.7060303@pro-linux.de> <3FF19659.8030408@pobox.com> <3FF22333.2070004@pro-linux.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: krishnakumar@naturesoft.net, mlindner@syskonnect.de, netdev@oss.sgi.com,
+        felix@allot.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "YOSHIFUJI Hideaki / _$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20031231.220846.98269358.yoshfuji@linux-ipv6.org>
+To: Mirko Lindner <demon@pro-linux.de>
+In-Reply-To: <3FF22333.2070004@pro-linux.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 31 Dec 2003 22:08:46 +0900 (JST)
-YOSHIFUJI Hideaki / _$B5HF#1QL@ <yoshfuji@linux-ipv6.org> wrote:
-
-> In article <20031231.220533.102712852.yoshfuji@linux-ipv6.org> (at Wed, 31 Dec 2003 22:05:33 +0900 (JST)), YOSHIFUJI Hideaki / _$B5HF#1QL@ <yoshfuji@linux-ipv6.org> says:
+Mirko Lindner wrote:
+> Jeff Garzik wrote:
 > 
-> > Hello.  I found wrong description in include/linux/skbuff.h.
-> > 
-> > D: Fix description for skb_dequeue_tail().
+>> Mirko Lindner wrote:
+>>
+>>> Thanks. I'll complete the support as soon I'm back in the office. All 
+>>> driver statistics are also available in the the proc system under 
+>>> /proc/net/sk98lin/
+>>
+>>
+>>
+>>
+>> procfs statistics are deprecated...
+>>
+>>     Jeff
 > 
-> Oops, root of patch was wrong. Please use this instead.
+> 
+> Jeff,
+> 
+> the proc statistics are integrated in the driver since kernel 2.2. I'll 
 
-Applied, thanks Yoshfuji-san.
+Well, understood, but we don't need vendor-specific, non-standard 
+statistics when there is a standard method to export these statistics 
+(ETHTOOl_GSTATS).
+
+
+> include full support for ethtool as soon I've time to do this. At the 
+> moment I'm still working on a support for the upcoming Marvell chipset 
+> (it would be great to support Linux as soon the chip is availiable) and 
+> a Diag-Tool for all Genesis and Yukon based cards (GUI and console tool).
+
+Make sure you don't duplicate any ethtool functions.  We don't need a 
+NIC-specific diag tool either ;-)  ethtool is the preferred method 
+moving forward, as it's already shipping in most Linux distros.
+
+	Jeff
