@@ -1,87 +1,74 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: More tc action mess
-Date: 20 Jan 2005 08:44:23 -0500
-Message-ID: <1106228663.1041.94.camel@jzny.localdomain>
-References: <41EDEB97.3080503@trash.net>
-	 <1106140256.1049.903.camel@jzny.localdomain>  <41EEC19B.3010504@trash.net>
-	 <1106195414.1048.34.camel@jzny.localdomain>  <41EF5091.9040402@trash.net>
-Reply-To: hadi@cyberus.ca
+From: Tommy Christensen <tommy.christensen@tpack.net>
+Subject: Re: [PATCH]: was Re: LLTX and netif_stop_queue
+Date: Thu, 20 Jan 2005 14:51:25 +0100
+Message-ID: <1106229084.5812.40.camel@tsc-6.cph.tpack.net>
+References: <5cac192f0412230110628749e3@mail.gmail.com>
+	 <41CAF444.3000305@trash.net> <5cac192f04122408102129af43@mail.gmail.com>
+	 <1104240717.1100.66.camel@jzny.localdomain>
+	 <5cac192f0501021530672a908a@mail.gmail.com>
+	 <1104764660.1048.578.camel@jzny.localdomain> <52brc68q05.fsf@topspin.com>
+	 <5cac192f05010308414a25b548@mail.gmail.com> <527jmu8nbw.fsf@topspin.com>
+	 <5cac192f0501030907c755135@mail.gmail.com>
+	 <20050103171227.GD7370@esmail.cup.hp.com>
+	 <1104812294.1085.53.camel@jzny.localdomain>
+	 <20050119144711.3fdd3d93.davem@davemloft.net>
+	 <20050119151853.259de49a@dxpl.pdx.osdl.net>
+	 <20050119164640.6c67bdfa.davem@davemloft.net> <52r7kgu5n5.fsf@topspin.com>
+	 <20050119230526.393a5184.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Maillist netdev <netdev@oss.sgi.com>
+Cc: Roland Dreier <roland@topspin.com>, shemminger@osdl.org, hadi@cyberus.ca,
+        iod00d@hp.com, eric.lemoine@gmail.com, netdev@oss.sgi.com, ak@suse.de,
+        openib-general@openib.org, kaber@trash.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <41EF5091.9040402@trash.net>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050119230526.393a5184.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2005-01-20 at 01:32, Patrick McHardy wrote:
+On Thu, 2005-01-20 at 08:05, David S. Miller wrote:
+> So I'm going to check this in and push upstream.  Let me know
+> if folks find any other errors.
 
-> It seems to be more clever than I initially realized :) 
+Hi Dave
+Sorry to be the one with bad news.
+I am in favour of this idea, but there are still issues that
+need to be sorted out.
 
-Praise be to the people behind pskb_expand (Alexey and Dave). Amen.
+> ===== drivers/net/sungem.c 1.72 vs edited =====
+> --- 1.72/drivers/net/sungem.c	2004-11-05 15:56:15 -08:00
+> +++ edited/drivers/net/sungem.c	2005-01-19 22:29:14 -08:00
 
-> But it does need
-> some fixing for ipt. The ->act function takes a struct sk_buff **, which
-> implies the skb might get replaced, but tcf_action_exec only takes a struct
-> sk_buff * and doesn't own the skb. 
-> So if the skb is replaced in the action the owner ends up with a pointer to 
-> freed memory. pskb_expand_head is not
-> enough to stop netfilter from copying, at ingress the the skb might be
-> nonlinear, in which case it is copied. On egress it seems fine.
+> @@ -932,12 +932,12 @@
+>  	       readl(gp->regs + MAC_RXCFG));
+>  
+>  	spin_lock_irq(&gp->lock);
+> -	spin_lock(&gp->tx_lock);
+> +	spin_lock(&dev->xmit_lock);
+>  
+>  	gp->reset_task_pending = 2;
+>  	schedule_work(&gp->reset_task);
+>  
+> -	spin_unlock(&gp->tx_lock);
+> +	spin_unlock(&dev->xmit_lock);
+>  	spin_unlock_irq(&gp->lock);
+>  }
+>  
 
-The whole idea behind the psk_expand is to _copy_ the data while
-preserving the skb head i.e anyone in the path before the expand
-continues to see the old data (tcpdump for example or copied packets via
-mirror in the preceeding actions etc) and anyone after the expand sees
-the new data ;->. Thats the punch line. So there is no problem with
-tcf_action_exec() way of life.
-I have some very simple environmental rules which say
-"thou shalt call skb_expand in the case someone else is referencing the
-skb". Unfortunately since i have no control over netfilter, its safer to
-just expand everytime. I added the check for skb cloned after i saw the
-changes for make_writeable(?) going in. But it may be too dangerous an
-assumption. 
-I thought netfilter already freed after copying - unless this has
-changed since about 2.6.5 when i last studied things, there should be no
-memory leak.
-Can you get non-linear skbs on ingress? Recall, this is right after
-packet comes off the NIC. I dont see them at the moment until some
-clever NIC appears in the market.
+->tx_timeout() can't take dev->xmit_lock, since dev_watchdog
+already has it held.
 
-> >Give me some examples which show something is broken then we can have a
-> >more coherent discussion. I am willing to kill ipt if it is the problem.
-> >
-> Instead of killing ipt we could teach netfilter to be smarter about this.
-> If the data that needs to be mangled is in the non-linear range we could
-> just linearize the skb. 
+A lot more serious is the fact that ->tx_timeout() and
+->hard_start_xmit() are no longer allowed to do this:
 
-I have no issue incuring a penalty when using ipt. Its unfortunate, but
-fine. I cant see any memory leak if copying includes freeing in
-netfilter already (and in particular that the new scheme seemed to be
-using expand as well). If that is changed in netilter, restoring it
-would probably be a good idea.
-One thing that would be really useful is to be able to tell netfilter
-its ok to mangle the packet without copying it. Or vice versa receive a
-signal from it to say "packet has been mangled" so actions can trample
-some more on it.
+  spin_lock_irq()
+  ...
+  spin_unlock_irq()
 
-> Additionally we should change act_api to only pass
-> single skb pointers around, to avoid all confusion and possible trouble.
+since that would leave us with irq's enabled while still
+holding the xmit_lock.
+This would have to be fixed for non-LLTX drivers as well.
 
-tou mean exec() call? I would prefer not to do this. My brain has
-already sweated enough to make sure that this works and performance is
-good. 
-
-> This seems a lot better than changing almost entire net/sched to pass
-> double pointers around :)
-
-While i did entertain this thought before submitting the code, and
-infact that was the avenue i started at, i was pretty sure Dave+Alexey
-would never have accepted the code (and for a very good reason too) ;->
-So nobody ever saw the code ;->
-
-cheers,
-jamal
+-Tommy
