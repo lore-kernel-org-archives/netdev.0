@@ -1,8 +1,8 @@
 From: Don Fry <brazilnut@us.ibm.com>
-Subject: [PATCH 1/5] 2.4.27-pre3 pcnet32 add static to two routines.
-Date: Fri, 21 May 2004 13:56:43 -0700 (PDT)
+Subject: [PATCH 0/5] 2.4.27-pre3 pcnet32.c
+Date: Fri, 21 May 2004 13:55:59 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200405212056.i4LKuhB10255@DYN318364BLD.beaverton.ibm.com>
+Message-ID: <200405212055.i4LKtx110244@DYN318364BLD.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -11,26 +11,16 @@ To: tsbogend@alpha.franken.de, jgarzik@pobox.com, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This patch adds 'static' to two routines.  The prototype has static but
-the instantiation did not.
+Please apply the following patches to 2.4.27-pre3.  The first four are simple
+"one line" fixes. The last removes the timer I added a little while ago,
+as it added complexity without improving performance.
 
---- linux-2.4.27-pre3/drivers/net/orig.pcnet32.c	Fri May 21 12:34:04 2004
-+++ linux-2.4.27-pre3/drivers/net/pcnet32.c	Fri May 21 12:36:44 2004
-@@ -844,12 +844,12 @@
-     return 0;
- }
- 
--int pcnet32_get_regs_len(struct net_device *dev)
-+static int pcnet32_get_regs_len(struct net_device *dev)
- {
-     return(PCNET32_NUM_REGS * sizeof(u16));
- }
- 
--void pcnet32_get_regs(struct net_device *dev, struct ethtool_regs *regs,
-+static void pcnet32_get_regs(struct net_device *dev, struct ethtool_regs *regs,
- 	void *ptr)
- {
-     int i, csr0;
+[PATCH 1/5] 2.4.27-pre3 pcnet32 add static to two routines.
+[PATCH 2/5] 2.4.27-pre3 pcnet32 avoid hard hang with some chip variants.
+[PATCH 3/5] 2.4.27-pre3 pcnet32 correct 79C976 variant string.
+[PATCH 4/5] 2.4.27-pre3 pcnet32 fix boundary comparison bug.
+[PATCH 5/5] 2.4.27-pre3 pcnet32 remove timer and complexity.
+
 
 -- 
 Don Fry
