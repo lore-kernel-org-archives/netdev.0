@@ -1,31 +1,24 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 2.6] RTL8169 Suspend and Resume Stuff
-Date: Mon, 1 Dec 2003 02:04:53 +0100
+From: "Feldman, Scott" <scott.feldman@intel.com>
+Subject: RE: Problems with e1000 in 2.4.23
+Date: Sun, 30 Nov 2003 18:19:01 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031201020453.A16405@electric-eye.fr.zoreil.com>
-References: <1070212415.1607.17.camel@oxygenium>
+Message-ID: <C6F5CF431189FA4CBAEC9E7DD5441E0102CBDD05@orsmsx402.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Brad House <brad@mcve.com>, netdev@oss.sgi.com, jgarzik@pobox.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: =?iso-8859-1?Q?Fernando_Alencar_Mar=F3stica?= <famarost@unimep.br>
-Content-Disposition: inline
-In-Reply-To: <1070212415.1607.17.camel@oxygenium>; from famarost@unimep.br on Sun, Nov 30, 2003 at 03:13:35PM -0200
+content-class: urn:content-classes:message
+To: "Ben Greear" <greearb@candelatech.com>, <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I have queued it with the following modifications (mostly to keep the style 
-of the driver consistent):
-- no whitespace before parenthesis for functions;
-- s/ethernet_device/dev/ (like other drivers in drivers/net);
-- write{b/w/l} -> RTL_W{8/16/32};
-- netif_start_queue() done in rtl8169_hw_start().
+> Attached is an oops that did not hang the machine.
 
-See http://www.fr.zoreil.com/people/francois/misc/r8169/r8169-suspend.patch
-for patch.
+Re: e1000_dump.txt: I'm 99% sure this shows dev_close being called
+without a matching dev_open, or a dev_close after failed dev_open.
+e1000 doesn't guard against that (and shouldn't), so we need to figure
+out how you're getting here and fix that.  What's above e1000?  Are you
+using bonding or pktgen or ?
 
-Btw, there is a flaw in r8169-dma-api-rx-buffers.patch so don't bother
-testing it. I'll do it again tomorrow.
-
---
-Ueimor
+-scott
