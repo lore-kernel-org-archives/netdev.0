@@ -1,45 +1,62 @@
-From: Adam Kropelin <akropel1@rochester.rr.com>
-Subject: Re: Suggestions with hard lockup on 4 systems, have oops report
-Date: Fri, 16 Jul 2004 14:08:12 -0400
+From: Jim Keniston <jkenisto@us.ibm.com>
+Subject: Re: Network device driver probe issues
+Date: 16 Jul 2004 11:26:30 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040716140812.A8270@mail.kroptech.com>
-References: <Pine.LNX.4.44.0407161025030.20914-200000@fsg1.nws.noaa.gov>
+Message-ID: <1090002390.1690.113.camel@localhost.localdomain>
+References: <20040715135244.GD27715@krispykreme>
+	 <40F71477.2020408@pobox.com>
+	 <1089939860.1709.70.camel@ibm-ni9dztukfq8.beaverton.ibm.com>
+	 <1089953344.23577.15.camel@ori.thedillows.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kaos@ocs.com.au, linux-kernel@vger.kernel.org, akpm@zip.com.au,
-        jgarzik@pobox.com, netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>, Anton Blanchard <anton@samba.org>,
+        Netdev <netdev@oss.sgi.com>, cramerj@intel.com, john.ronciak@intel.com,
+        ganesh.venkatesan@intel.com, jonmason@us.ibm.com,
+        Jim Keniston <jkenisto@us.ibm.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Brian McEntire <brianm@fsg1.nws.noaa.gov>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.44.0407161025030.20914-200000@fsg1.nws.noaa.gov>; from brianm@fsg1.nws.noaa.gov on Fri, Jul 16, 2004 at 11:01:39AM -0400
+To: David Dillow <dave@thedillows.org>
+In-Reply-To: <1089953344.23577.15.camel@ori.thedillows.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 16, 2004 at 11:01:39AM -0400, Brian McEntire wrote:
-> Thank you for taking time from your busy days to read this. You all
-> (kernel maintainers) rock!  :)
+On Thu, 2004-07-15 at 21:49, David Dillow wrote:
+> On Thu, 2004-07-15 at 21:04, Jim Keniston wrote:
+> > On Thu, 2004-07-15 at 16:34, Jeff Garzik wrote:
+> [snip]
+> > > > We should instead use something stable to attach to printks during
+> > > > probe. pci_name() is the obvious choice, perhaps using dev_printk().
+> > > > The failure then becomes:
+> > > > 
+> > > > 0000:01:01.0 Intel(R) PRO/1000 Network Connection
+> > > > 0000:01:01.0 The EEPROM Checksum Is Not Valid
+> > > > 0000:02:01.0 Intel(R) PRO/1000 Network Connection
+> > > 
+> > > pci_name() or a simple counter of devices found.  I prefer pci_name()
+> > > 
+> > > 	Jeff
+> > 
+> > Delay registration until the end of the probe, and make DPRINTK smarter.
+> > DPRINTK should check
+> > 	adapter->netdev->reg_state == NETREG_REGISTERED
+> > and use the interface name (eth0) if the device is registered, or
+> > pci_name() if it's not.
+> > 
+> > Jim
 > 
-> I have four Linux hosts, with identical hardware and OSs, that exhibit a
-> very tough to troubleshoot hang/freeze.  About once every two weeks (and
+> In the typhoon driver, I have tp->name, and most everything that prints
+> info/errors about the card use it. During probing, it is initially set
+> to point to pci_name(), and once registered, it gets pointed to
+> netdev->name.
+> 
+> This seems fairly clean, though maybe a bit redundant.
+> 
+> Dave
+> 
 
-<snip>
+Works for me.  While we're talking about DPRINTK, e100.c could use a
+similar adjustment.  e100_probe() correctly defers registration until
+the probe has succeeded, but as a result, probe-time failure messages
+refer to "eth%d", right?
 
-> The OS specifics:
->   RH 7.2 with latest patches except running kernel 2.4.9-31enterprise for 
-> CM reasons (at one point, I tried the latest available RH 7.2 kernel but 
-> it did not improve stability so I went back.)
->  bcm5700-7.1.22-1
->  nvidia ??  (no RPM listed, didn't know where to find the version.)
-
-You've really got to eliminate the binary bcm5700 and nvidia modules in
-order to diagnose this. Based on the oops, bcm5700 looks suspect, but it
-could just be the unlucky guy whose memory was stepped on by nvidia or
-some other part of the kernel.
-
-Switch to an open NIC like e1000 temporarily (or better yet,
-permanently) and see if the lockup persists. Do the same with nvidia. If
-you can reproduce the problem without ever having loaded either module
-(unloading the module once it's loaded is not sufficient), post the new
-oops and you'll have a solid foundation for debugging.
-
---Adam
+Jim
