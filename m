@@ -1,125 +1,119 @@
-From: Liang Qin <lqin@sce.carleton.ca>
-Subject: cannot always delete IPv6 route entry in Fedora core 2 and Core 3
-Date: Tue, 23 Nov 2004 10:36:02 -0500
-Message-ID: <41A358E2.8090909@sce.carleton.ca>
+From: Roland Dreier <roland@topspin.com>
+Subject: [PATCH][RFC/v2][15/21] IPoIB IPv4 multicast
+Date: Tue, 23 Nov 2004 08:15:52 -0800
+Message-ID: <20041123815.3UphmLcWp4RG6D85@topspin.com>
+References: <20041123815.Irsm0l3oz7MStqls@topspin.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@oss.sgi.com, openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
+In-Reply-To: <20041123815.Irsm0l3oz7MStqls@topspin.com>
+To: linux-kernel@vger.kernel.org
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-Hi there,
+Add ip_ib_mc_map() to convert IPv4 multicast addresses to IPoIB
+hardware addresses.  Also add <linux/if_infiniband.h> so INFINIBAND_ALEN
+has a home.
 
-I'm a Ph. D student at Carleton University, Canada. I've developing 
-routing protocols
-on Linux.
+The mapping for multicast addresses is described in
+  http://www.ietf.org/internet-drafts/draft-ietf-ipoib-ip-over-infiniband-07.txt
 
-Recently when I move code from redhat 9.0 to Fedora Core 2 and 3, I 
-found out sometimes
-the IPv6 route entry added previously cannot be deleted successfully. 
-Finally I traced down to
-the system call to the kernel and did the following experiments:
-
-[root@localhost lqin]# route -A inet6
-Kernel IPv6 routing table
-Destination                                 Next 
-Hop                                Flags Metric Ref    Use Iface
-::1/128                                     
-*                                       U     0      310       0 lo
-fe80::206:25ff:fea9:b1f9/128                
-*                                       U     0      0        0 lo
-fe80::/64                                   
-*                                       U     256    0        0 eth1
-fec0::/128                                  
-fec0::                                  UC    0      18       0 eth1
-fec0::206:25ff:fea9:b1f9/128                
-*                                       U     0      21       0 lo
-fec0::/64                                   
-*                                       U     256    0        0 eth1
-ff00::/128                                  
-ff00::                                  UC    0      15       0 eth1
-ff00::/8                                    
-*                                       U     256    0        0 eth1
-*/0                                         
-*                                       UD    256    0        0 eth1
-*/0                                         
-*                                       U     1024   0        0 eth1
-[root@localhost lqin]# ip -6 route add fec0::206:25ff:fea9:b1fd/128 dev eth1
-[root@localhost lqin]# netstat --inet6 -rn
-Kernel IPv6 routing table
-Destination                                 Next 
-Hop                                Flags Metric Ref    Use Iface
-::1/128                                     
-::                                      U     0      343       0 lo
-fe80::206:25ff:fea9:b1f9/128                
-::                                      U     0      0        0 lo
-fe80::/64                                   
-::                                      U     256    0        0 eth1
-fec0::206:25ff:fea9:b1f9/128                
-::                                      U     0      24       0 lo
-fec0::206:25ff:fea9:b1fd/128                
-::                                      U     1024   0        0 eth1
-fec0::/64                                   
-::                                      U     256    0        0 eth1
-ff00::/8                                    
-::                                      U     256    0        0 eth1
-fec0::/64                                   
-::                                      U     256    0        0 eth1
-ff00::/8                                    
-::                                      U     256    0        0 eth1
-::/0                                        
-::                                      UD    256    0        0 eth1
-::/0                                        
-::                                      U     1024   0        0 eth1
-::/0                                        
-::                                      U     1024   0        0 eth1
-[root@localhost lqin]# ip -6 route del fec0::206:25ff:fea9:b1fd/128 dev eth1
-[root@localhost lqin]# netstat --inet6 -rn
-Kernel IPv6 routing table
-Destination                                 Next 
-Hop                                Flags Metric Ref    Use Iface
-::1/128                                     
-::                                      U     0      391       0 lo
-fe80::206:25ff:fea9:b1f9/128                
-::                                      U     0      0        0 lo
-fe80::/64                                   
-::                                      U     256    0        0 eth1
-fec0::/128                                  
-fec0::                                  UC    0      6        0 eth1
-fec0::206:25ff:fea9:b1f9/128                
-::                                      U     0      27       0 lo
-fec0::206:25ff:fea9:b1fd/128                
-::                                      U     1024   0        0 eth1
-fec0::/64                                   
-::                                      U     256    0        0 eth1
-fec0::/64                                   
-::                                      U     256    0        0 eth1
-ff00::/128                                  
-ff00::                                  UC    0      6        0 eth1
-ff00::/8                                    
-::                                      U     256    0        0 eth1
-::/0                                        
-::                                      UD    256    0        0 eth1
-::/0                                        
-::                                      U     1024   0        0 eth1
-
-It will be successfully if I use command twice in very short time (ine 1 
-or 2 seconds)
-ip -6 route del fec0::206:25ff:fea9:b1fd/128 dev eth1
-
-Here eth1 is a wireless interface
+Signed-off-by: Roland Dreier <roland@topspin.com>
 
 
-I tested on two Dell tops with Fedora core 2 and 3 with the same 
-problem, but on redhat 9.0,
-there is no such problem at all (even with the routing protocol which I 
-work on).
-
-Thanks in advance!
-
-Liang Qin
-
-Ottawa, Canada
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ linux-bk/include/linux/if_infiniband.h	2004-11-23 08:10:22.004317841 -0800
+@@ -0,0 +1,29 @@
++/*
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available at
++ * <http://www.fsf.org/copyleft/gpl.html>, or the OpenIB.org BSD
++ * license, available in the LICENSE.TXT file accompanying this
++ * software.  These details are also available at
++ * <http://openib.org/license.html>.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ *
++ * Copyright (c) 2004 Topspin Communications.  All rights reserved.
++ *
++ * $Id$
++ */
++
++#ifndef _LINUX_IF_INFINIBAND_H
++#define _LINUX_IF_INFINIBAND_H
++
++#define INFINIBAND_ALEN		20	/* Octets in IPoIB HW addr	*/
++
++#endif /* _LINUX_IF_INFINIBAND_H */
+--- linux-bk.orig/include/net/ip.h	2004-11-23 08:09:44.620829918 -0800
++++ linux-bk/include/net/ip.h	2004-11-23 08:10:22.005317694 -0800
+@@ -229,6 +229,39 @@
+ 	buf[3]=addr&0x7F;
+ }
+ 
++/*
++ *	Map a multicast IP onto multicast MAC for type IP-over-InfiniBand.
++ *	Leave P_Key as 0 to be filled in by driver.
++ */
++
++static inline void ip_ib_mc_map(u32 addr, char *buf)
++{
++	buf[0]  = 0;		/* Reserved */
++	buf[1]  = 0xff;		/* Multicast QPN */
++	buf[2]  = 0xff;
++	buf[3]  = 0xff;
++	addr    = ntohl(addr);
++	buf[4]  = 0xff;
++	buf[5]  = 0x12;		/* link local scope */
++	buf[6]  = 0x40;		/* IPv4 signature */
++	buf[7]  = 0x1b;
++	buf[8]  = 0;		/* P_Key */
++	buf[9]  = 0;
++	buf[10] = 0;
++	buf[11] = 0;
++	buf[12] = 0;
++	buf[13] = 0;
++	buf[14] = 0;
++	buf[15] = 0;
++	buf[19] = addr & 0xff;
++	addr  >>= 8;
++	buf[18] = addr & 0xff;
++	addr  >>= 8;
++	buf[17] = addr & 0xff;
++	addr  >>= 8;
++	buf[16] = addr & 0x0f;
++}
++
+ #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ #include <linux/ipv6.h>
+ #endif
+--- linux-bk.orig/net/ipv4/arp.c	2004-11-23 08:09:54.024443395 -0800
++++ linux-bk/net/ipv4/arp.c	2004-11-23 08:10:22.005317694 -0800
+@@ -213,6 +213,9 @@
+ 	case ARPHRD_IEEE802_TR:
+ 		ip_tr_mc_map(addr, haddr);
+ 		return 0;
++	case ARPHRD_INFINIBAND:
++		ip_ib_mc_map(addr, haddr);
++		return 0;
+ 	default:
+ 		if (dir) {
+ 			memcpy(haddr, dev->broadcast, dev->addr_len);
