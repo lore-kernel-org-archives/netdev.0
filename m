@@ -1,29 +1,31 @@
-From: James Morris <jmorris@intercode.com.au>
+From: Martin Pool <mbp@samba.org>
 Subject: Re: FIN_WAIT1 / TCP_CORK / 2.2 -- reproducible bug and test case
-Date: Sat, 5 Oct 2002 01:06:12 +1000 (EST)
+Date: Sat, 5 Oct 2002 09:27:16 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Mutt.LNX.4.44.0210050053000.21202-100000@blackbird.intercode.com.au>
+Message-ID: <20021004232715.GC3030@sourcefrog.net>
+References: <Mutt.LNX.4.44.0210050053000.21202-100000@blackbird.intercode.com.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Martin Pool <mbp@samba.org>
+To: James Morris <jmorris@intercode.com.au>
+Content-Disposition: inline
+In-Reply-To: <Mutt.LNX.4.44.0210050053000.21202-100000@blackbird.intercode.com.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Martin,
+On  5 Oct 2002, James Morris <jmorris@intercode.com.au> wrote:
+> Martin,
+> 
+> I'm not able to reproduce the bug exactly as described.  What kind of
+> network connection were you using between the boxes, and what was the
+> kernel version at the server end?
 
-I'm not able to reproduce the bug exactly as described.  What kind of
-network connection were you using between the boxes, and what was the
-kernel version at the server end?  (I've been testing between two boxes on
-a 10Mbps lan, with 2.2.22 at the client side and both 2.2.20 and 2.4.19
-kernels at the server side).
+I was using VMware over 100Mbps to a 2.4.19 server.  I am pretty sure
+it could also be reproduced over localhost TCP just in 2.2.21 inside
+VMware.  I don't remember the exact hardware; I can let you know later.
 
-I'm seeing what looks like some quite buggy behaviour (which needs 
-further analysis), but no long term FIN_WAIT1 states.
+It seems to not happen every time, but at least one time in three.
 
-
-- James
--- 
-James Morris
-<jmorris@intercode.com.au>
+--
+Martin
