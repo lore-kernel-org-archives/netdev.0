@@ -1,98 +1,86 @@
-From: Harald Welte <laforge@netfilter.org>
+From: Julian Anastasov <ja@ssi.bg>
 Subject: Re: [RFC] MASQUERADE / policy routing ("Route send us somewhere
-	else")
-Date: Tue, 31 Aug 2004 14:31:05 +0200
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Message-ID: <20040831123105.GF5824@sunbeam.de.gnumonks.org>
-References: <20040830201957.GY5824@sunbeam.de.gnumonks.org>
-	<20040830140729.7309ecc0.davem@davemloft.net>
-	<20040831013841.GA5824@sunbeam.de.gnumonks.org>
-	<Pine.LNX.4.61.0408311145580.12063@filer.marasystems.com>
+ else")
+Date: Tue, 31 Aug 2004 15:33:22 +0300 (EEST)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <Pine.LNX.4.44.0408311446240.4022-100000@l>
+References: <20040831111508.GA2327@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="VeECpbAlTmkAjas0"
-Cc: netdev@oss.sgi.com, rusty@rustcorp.com.au,
-	netfilter-devel@lists.netfilter.org
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Henrik Nordstrom <hno@marasystems.com>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.61.0408311145580.12063@filer.marasystems.com>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@davemloft.net>, <laforge@netfilter.org>,
+        <netfilter-devel@lists.netfilter.org>, <rusty@rustcorp.com.au>,
+        <netdev@oss.sgi.com>, <kuznet@ms2.inr.ac.ru>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040831111508.GA2327@gondor.apana.org.au>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---VeECpbAlTmkAjas0
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+	Hello,
 
-On Tue, Aug 31, 2004 at 12:24:34PM +0200, Henrik Nordstrom wrote:
-=20
-> >and it apparently happens in a lot of 'typical' setups where you have a
->=20
-> Should only happen if the routing is screwed up, in principle..
+On Tue, 31 Aug 2004, Herbert Xu wrote:
 
-yes, but it happens to happen more often, thus I see it as a bug.
+> On Tue, Aug 31, 2004 at 01:54:21PM +0300, Julian Anastasov wrote:
+> >
+> > 	Yes, 2.2 worked somehow, until some users wanted more
+> > control from the routing. Now ip_fw_compat_masq.c has such call,
+> > it can be fast in some setups with small number of IPs but may
+> > be now there some setups using nfmark for selecting maddr from
+> > ISP-specific routing tables. I'm not sure we can avoid the routing
+> > and the cache pollution, we have to live with the old behavoir, not
+> > the current one.
+>
+> You're right.  However, we can still do this without performing
+> another routing lookup.  The information is already there in the
+> fib rule.  We just didn't bother writing it down in the route for
+> forwarded packets.
 
-> >Also, the MASQUERADE lookup (obviously) has no more saddr in the lookup,
-> >that's another difference from the 'original' lookup.
->=20
-> This is a possible reason why it screws up for such many people? By not=
-=20
-> including the source IP you make the route lookup for determining the=20
-> MASQUERADE information very different from the route lookup when=20
-> forwardning the packet.
+	I do not see where the public IP is, what you mean? As the
+mpath route does not have preferred src IP (usually when many ISPs
+are used) the kernel uses inet_select_addr to select one, in similar
+way as you are trying to do. But the difference is that it is now
+cached and by using nfmark we have more options not to reach this
+mpath route on next lookups.
 
-Yes, since it now looks to the routing code as if you wanted to find out
-a source ip for locally-originated packets.
+	One example: the GWs used in the nexthops can be internal
+addresses, in such cases inet_select_addr gets the first local (scope
+global) public IP address because the target IP is not always part
+from the GW's subnet. You can not rely on any information present
+in the mpath route and to assume anything about maddr without specific
+lookup, additional one.
 
-> I think it would for most make more sense that the source IP assignment i=
-s=20
-> based on routing using the original source address as key.
+> So if we add a new field for the preferred source address to
+> struct rtable then we can avoid the lookup.
 
-Question is: can we do this?  Can we ask the routing code to choose a
-source address while we already specify one?  I don't think so.
+	What is this? Sort of 'nexthop via GW1 dev eth0 snat MADDR1' ?
+This is the same as to use SNAT target. Similar thing worked very
+well in 2.2 kernels (nat XXX) but only for unipath routes.
 
-> >That is the presumption I am about to challenge.  Is the 'original'
-> >interface really the one we want in this case?
->=20
-> If there is policy routing saying that packets with a given source=20
-> should go out another interface my opinion is that they should.
+> BTW, I'd still like to know the problem with the original oif key.
 
-Ok, I think I agree with you. It sounds like the right thing to do,
-rather than trying to fix a broken configuration within MASQUERADE.
+	The old way to provide oif as key adds one additional
+cache entry per every normal input route. Another issue is that
+providing oif key can hit wrong route in some setups - not the
+first match which we usually hit with oif=0. But for the usual
+cases it works.
 
-> Regards
-> Henrik
+> It's basically saying that if you can find the correct route using
+> the other keys (daddr/tos/mark) then all is well, if you can't
+> (dev != out) then we'll use the best address on the outgoing
+> interface.
 
---=20
-- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-  "Fragmentation is like classful addressing -- an interesting early
-   architectural error that shows how much experimentation was going
-   on while IP was being designed."                    -- Paul Vixie
+	ip_route_output + inet_select_addr in 50% of the cases
+for mpath route with 2 NHs?
 
---VeECpbAlTmkAjas0
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
+	inet_select_addr is ok to use only when nfmark is not used,
+it is even used now for multipath routes in the usual case when
+prefsrc is not defined. But with the routing you have more control
+on what to select as maddr. So, I'm for the old way which can
+work for more setups and against inet_select_addr which can break 
+existing ones.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
+Regards
 
-iD8DBQFBNG+JXaXGVTD0i/8RAsN1AJ0amLm3Im3GZ1vIH8SDVcCurjNB+gCfd2+S
-XbIY1mTvC8eld/zjcOuInNc=
-=h+z5
------END PGP SIGNATURE-----
-
---VeECpbAlTmkAjas0--
+--
+Julian Anastasov <ja@ssi.bg>
