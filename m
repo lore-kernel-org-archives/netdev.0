@@ -1,13 +1,12 @@
-From: Andrew Morton <akpm@digeo.com>
+From: "Jay Vosburgh" <fubar@us.ibm.com>
 Subject: Re: [Bonding-devel] Re: Bonding driver unreliable under high CPUload
-Date: Tue, 17 Sep 2002 13:30:14 -0700
+Date: Tue, 17 Sep 2002 13:37:35 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3D8790D6.68927887@digeo.com>
-References: <72A87F7160C0994D8C5A36E2FDC227F502B3E70D@txnexc01.americas.cpqcorp.net> <3D878675.3000403@mandrakesoft.com> <3D878841.EB580DE9@digeo.com> <3D878C56.2070400@mandrakesoft.com>
+Message-ID: <OF335D980B.45B33AA4-ON88256C37.006F0399@boulder.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "Cureington, Tony" <tony.cureington@hp.com>,
+Cc: Andrew Morton <akpm@digeo.com>,
+   "Cureington, Tony" <tony.cureington@hp.com>,
    Pascal Brisset <pascal.brisset-ml@wanadoo.fr>,
    bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
@@ -15,65 +14,73 @@ To: Jeff Garzik <jgarzik@mandrakesoft.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-(bonding-devel didn't like the size of the attachment.
- It's at http://www.zip.com.au/~akpm/3c59x.c-netif)
 
-Jeff Garzik wrote:
-> 
-> Andrew Morton wrote:
-> > Jeff Garzik wrote:
-> >
-> >>...
-> >>Also, a further question:  do you have access to the slave struct
-> >>net_device?  If so, just test netif_carrier_ok(slave_dev) and avoid all
-> >>that ioctl calling if it returns non-zero.
-> >
-> >
-> > Make that "avoid all that ioctl calling from interrupt context", which
-> > is a bug.  Of the box-killing variety ;)
-> 
-> Indeed.  /me looks at the bond_check_dev_link callers more closely and
-> shudders.
-> 
-> That wants fixing...
-> 
-> Note that netif_carrier_ok() can indeed be checked in interrupt context.
->   And if someone wants to send me patches converting more drivers to use
-> netif_carrier_{on,off}, I would be very happy :)
 
-That would be best.
+      Ok.  I'll whip up a patch either this afternoon or tomorrow (gotta
+download 2.4.20-pre7, no broadband here) that de-uglifies the badness
+around magic number 4 and includes one of the ioctl in a context patches
+(which may not fix everything properly, but should be better than what's
+there now).
 
-I'm so slack.  I received the below two years ago; Nelson has
-added netif_carrier_foo support to 3c59x.c.  As Jeff says: patches
-solicited.
+      I'm not sure about throwing in a test of netif_carrier_ok() just for
+good measure. It looks like if the driver does not support
+netif_carrier_xxx, then the default will be carrier on (because the bit is
+clear in dev->state).  So, we can ask, and if it tells us the carrier is
+down, that's probably reliable, but if it says carrier is up, that may or
+may not be true.  Or am I missing an initialization in there somewhere?
 
--------- Original Message --------
-Subject: Re: netlink
-Date: Wed, 14 Jun 2000 11:19:33 +0800 (SST)
-From: Nelson <tanginhw@comp.nus.edu.sg>
-To: Andrew Morton <andrewm@uow.edu.au>
-References: <394610FF.4052CEAA@uow.edu.au>
+      And, actually, the bonding driver is already using netif_carrier_ok()
+as part of the IS_UP() macro defined in bonding.c.  It's just not used
+during the MII test.
 
-hi Andrew,
+      -J
 
-The modified 3c59x.c is attached.
 
-for your easy reference, these lines in the attached driver 
-was modified:
+Jeff Garzik <jgarzik@mandrakesoft.com>@lists.sourceforge.net on 09/17/2002
+01:11:02 PM
 
-69-72:		notes on what are added
-121-123:	defined the time to expiry of the vertex_timer
-		as TX_EXPIRE. i have set the value as 1*HZ.
-		the original value should be 60*HZ. you may
-		set to any value you feel is good ;p you r rite
-		abt the 1 sec part since reading the MII management
-		registers is time consuming.
-1122:		used TX_EXPIRE instead
-1335, 1399, 1428:		
-		set next_tick to TX_EXPIRE
-1351:		added calls to netif_carrier_on()
-1356:		added calls to netif_carrier_off()
-1367-1371:	added checking of link state
+Sent by:    bonding-devel-admin@lists.sourceforge.net
 
-do let me know if there are any discrepencies.
-thanx.
+
+To:    Andrew Morton <akpm@digeo.com>
+cc:    "Cureington, Tony" <tony.cureington@hp.com>, Pascal Brisset
+       <pascal.brisset-ml@wanadoo.fr>, bonding-devel@lists.sourceforge.net,
+       netdev@oss.sgi.com
+Subject:    Re: [Bonding-devel] Re: Bonding driver unreliable under high
+       CPUload
+
+
+
+Andrew Morton wrote:
+> Jeff Garzik wrote:
+>
+>>...
+>>Also, a further question:  do you have access to the slave struct
+>>net_device?  If so, just test netif_carrier_ok(slave_dev) and avoid all
+>>that ioctl calling if it returns non-zero.
+>
+>
+> Make that "avoid all that ioctl calling from interrupt context", which
+> is a bug.  Of the box-killing variety ;)
+
+
+Indeed.  /me looks at the bond_check_dev_link callers more closely and
+shudders.
+
+That wants fixing...
+
+Note that netif_carrier_ok() can indeed be checked in interrupt context.
+  And if someone wants to send me patches converting more drivers to use
+netif_carrier_{on,off}, I would be very happy :)
+
+
+
+-------------------------------------------------------
+This SF.NET email is sponsored by: AMD - Your access to the experts
+on Hammer Technology! Open Source & Linux Developers, register now
+for the AMD Developer Symposium. Code: EX8664
+http://www.developwithamd.com/developerlab
+_______________________________________________
+Bonding-devel mailing list
+Bonding-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/bonding-devel
