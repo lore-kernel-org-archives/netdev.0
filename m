@@ -1,29 +1,60 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: sctp snmp mib stats in /proc/net/snmp
-Date: Tue, 29 Oct 2002 05:49:42 -0800 (PST)
+From: netdev-bounce@oss.sgi.com
+Subject: (no subject)
+Date: Tue, 29 Oct 2002 12:12:09 +1100 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021029.054942.106663164.davem@redhat.com>
-References: <Pine.LNX.4.44.0210281540240.1647-100000@w-nivedita.beaverton.ibm.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
+Message-ID: <20021029011209.CB709130104__2401.40076862208$1035904653@splat.its.monash.edu.au>
+Content-Transfer-Encoding: 7BIT
 Return-path: <netdev-bounce@oss.sgi.com>
-To: niv@us.ibm.com
-In-Reply-To: <Pine.LNX.4.44.0210281540240.1647-100000@w-nivedita.beaverton.ibm.com>
+To: undisclosed-recipients: ;
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Nivedita Singhvi <niv@us.ibm.com>
-   Date: Mon, 28 Oct 2002 15:51:14 -0800 (PST)
+hi
 
-   I'm posting this to netdev and linux-net in case
-   anyone has any issues with the /proc/net/snmp
-   display  altering (post feature freeze and all
-   that) even though I dont think that really applies 
-   here (or for any additional such changes in 
-   the near future)..
+I've got this video server serving video for VoD. problem is the P4 1.8 seems 
+to be maxed out by a few system calls. The below output is for ~50 clients 
+streaming at ~4.5Mbps. if trying to increase this to ~70, the CPU maxes out.
 
-I can barely parse this, please output bitkeeper patches
-in gnupatch format (pass "-tu" to bk export) when you wish
-humans to read it. :-)
+Does anyone have an idea?
+
+bash-2.05# readprofile | sort -rn +2 | head -30
+154203 default_idle                             2409.4219
+212723 csum_partial_copy_generic                916.9095
+100164 handle_IRQ_event                         695.5833
+ 24979 system_call                              390.2969
+ 37300 e1000_intr                               388.5417
+119699 ide_intr                                 340.0540
+ 30598 skb_release_data                         273.1964
+ 40740 do_softirq                               195.8654
+131818 do_wp_page                               164.7725
+  9935 fget                                     155.2344
+ 24747 kfree                                    154.6687
+ 10911 del_timer                                113.6562
+ 11683 ip_conntrack_find_get                     91.2734
+  4120 sock_poll                                 85.8333
+  9357 ip_ct_find_proto                          83.5446
+  5194 sock_wfree                                81.1562
+  4929 add_wait_queue                            77.0156
+  8361 flush_tlb_page                            74.6518
+  4571 remove_wait_queue                         71.4219
+  2191 __brelse                                  68.4688
+ 29477 skb_clone                                 68.2338
+  8562 do_gettimeofday                           59.4583
+  5673 process_timeout                           59.0938
+ 11097 tcp_v4_send_check                         57.7969
+  6124 kfree_skbmem                              54.6786
+ 17115 tcp_poll                                  53.4844
+ 21130 nf_hook_slow                              52.8250
+  8299 ip_ct_refresh                             51.8687
+ 15429 __kfree_skb                               50.7533
+  1059 lru_cache_del                             46.0435
+
+
+roy
+-- 
+Roy Sigurd Karlsbakk, Datavaktmester
+ProntoTV AS - http://www.pronto.tv/
+Tel: +47 9801 3356
+
+Computers are like air conditioners.
+They stop working when you open Windows.
