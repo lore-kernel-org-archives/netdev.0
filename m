@@ -1,29 +1,32 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] PKT_SCHED: Fix ingress qdisc to pick up IPv6 packets
- when using netfilter hooks
-Date: Wed, 2 Feb 2005 13:07:43 -0800
-Message-ID: <20050202130743.065bc627.davem@davemloft.net>
-References: <20050131184827.GH31837@postel.suug.ch>
+Subject: Re: [PATCH] gc_min_interval in milleseconds via /proc (fwd)
+Date: Wed, 2 Feb 2005 13:09:36 -0800
+Message-ID: <20050202130936.4b3b8895.davem@davemloft.net>
+References: <16888.56016.608929.340640@robur.slu.se>
+	<20050130225627.4feecd2e.davem@davemloft.net>
+	<16894.29281.293401.832567@robur.slu.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050131184827.GH31837@postel.suug.ch>
+Cc: Robert.Olsson@data.slu.se, netdev@oss.sgi.com
+To: Robert Olsson <Robert.Olsson@data.slu.se>
+In-Reply-To: <16894.29281.293401.832567@robur.slu.se>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 31 Jan 2005 19:48:27 +0100
-Thomas Graf <tgraf@suug.ch> wrote:
+On Mon, 31 Jan 2005 19:01:05 +0100
+Robert Olsson <Robert.Olsson@data.slu.se> wrote:
 
-> Jamal, close your eyes please.
-
-:-)
- 
-> Fixes the ingress qdisc to pick up IPv6 packets when using the old
-> style netfilter hooks, i.e. when CONFIG_NET_CLS_ACT is not enabled.
+> David S. Miller writes:
 > 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+>  > We must pick a new sysctl number too, for sysctl() system call.
+>  > If the only access possible were through /proc then yes your
+>  > change would be valid, but due to sysctl() system call the
+>  > .ctl_name defines that dimension of the sysctl namespace.
+> 
+>  Ok!
+>  NET_IPV4_ROUTE_GC_MIN_INTERVAL_MS was added last in list to avoid
+>  renumbering. Feel free to change.
 
-Applied, thanks Thomas.
+Applied, thanks Robert.
