@@ -1,38 +1,100 @@
-From: Dave Dillow <dave@thedillows.org>
-Subject: Re: [RFC BK 0/22] xfrm offload v2: Add hardware assist for IPSEC
-	crypto
-Date: Thu, 20 Jan 2005 12:22:27 -0500
-Message-ID: <1106241747.7097.5.camel@dillow.idleaire.com>
-References: <Xine.LNX.4.44.0501171358170.20772-100000@thoron.boston.redhat.com>
+From: "Jeremy M. Guthrie" <jeremy.guthrie@berbee.com>
+Subject: Re: V2.4 policy router operates faster/better than V2.6
+Date: Thu, 20 Jan 2005 11:14:46 -0600
+Message-ID: <200501201114.49517.jeremy.guthrie@berbee.com>
+References: <Pine.LNX.4.44.0501071416060.5818-100000@localhost.localdomain> <200501200837.40734.jeremy.guthrie@berbee.com> <16879.58333.266843.335475@robur.slu.se>
+Reply-To: jeremy.guthrie@berbee.com
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: multipart/signed;
+  boundary="nextPart1881411.M4NkWWNZBR";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: James Morris <jmorris@redhat.com>
-In-Reply-To: <Xine.LNX.4.44.0501171358170.20772-100000@thoron.boston.redhat.com>
+To: netdev@oss.sgi.com
+In-Reply-To: <16879.58333.266843.335475@robur.slu.se>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-[Sorry for the delay, my office at home got taken out Monday night...]
+--nextPart1881411.M4NkWWNZBR
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-On Mon, 2005-01-17 at 14:00, James Morris wrote:
-> On Mon, 10 Jan 2005, David Dillow wrote:
-> 
-> > * Only the 3Com 3CR990 family of NICs are supported. I don't have hardware
-> > 	or documentation for the Intel cards.
-> 
-> Is documentation for the 3com card freely available?
+On Thursday 20 January 2005 11:01 am, Robert Olsson wrote:
+> Jeremy M. Guthrie writes:
+>  > >  > 1024 buffers on the RX of eth3.
+>  > >  >
+>  > >  > echo 86400 > /proc/sys/net/ipv4/route/secret_interval
+>  > >  > echo 524288 > /proc/sys/net/ipv4/route/gc_thresh
+>  > >
+>  > >  rhash_entries?
+>  >
+>  > I left that at 2.4 million.
+>  >
+>  > >  > It appears to be cruising right along now.
+>  >
+>  >  size   IN: hit     tot    mc no_rt bcast madst masrc  OUT: hit     to=
+t=20
+>  >    mc GC: tot ignored goal_miss ovrf HASH: in_search out_search
+>  > 524291     74169     779     0     0     0     0     0         2      =
+ 0
+>  > 1610369017     516       0         0    0           43612          0
+>  > 524287     74830     777     0     0     0     0     0         6      =
+ 0
+>  > 0     498       0         0    0           40504          1
+>  > 524285     77458     949     0     0     0     0     0         4      =
+ 0
+>  > 0     619       0         0    0           42731          1
+>
+>  Linear search is under control and number of dst entries very high but
+> very constant at the cost of calling GC a number of times second. But I
+> don't understand why we do not see any GC ignored.=20
+When does GC normally ignore?
 
-Not to my knowledge, no. It should still be available under NDA, which
-is how I got ahold of it.
+> Did you ever write to=20
+> gc_min_interval in proc?=20
+I left /proc/sys/net/ipv4/route/gc_min_interval at zero.
 
-> Also, are the cards still available on the market?  The 3com site says
-> the 3CR990-TX-97 and -95 cards are discontinued.
+> Never seen rtstat's like this but it seems to do the job.
 
-You can still find some of those, even though they're discontinuted. The
-family lives on in the 3CR990B-97 series, which are also supported by
-the typhoon driver.
--- 
-Dave Dillow <dave@thedillows.org>
+More numbers from right now with higher PPS rate.
+ size   IN: hit     tot    mc no_rt bcast madst masrc  OUT: hit     tot    =
+ mc=20
+GC: tot ignored goal_miss ovrf HASH: in_search out_search
+524291     92192     848     0     0     0     0     0        17       0=20
+537114631     553       0         0    0           50947         18
+524287     95496     846     0     0     0     0     0         4       0=20
+1610369017     539       0         0    0           52000          4
+524293     98503     791     0     0     0     0     0         7       0   =
+  =20
+0     525       0         0    0           53119          3
+524290     98711     965     0     0     0     0     0         3       0   =
+  =20
+0     626       0         0    0           53448          3
+
+
+=2D-=20
+
+=2D-------------------------------------------------
+Jeremy M. Guthrie        jeremy.guthrie@berbee.com
+Senior Network Engineer        Phone: 608-298-1061
+Berbee                           Fax: 608-288-3007
+5520 Research Park Drive         NOC: 608-298-1102
+Madison, WI 53711
+
+--nextPart1881411.M4NkWWNZBR
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQBB7+cJqtjaBHGZBeURAjwaAJ4iC+M1ceW6Bxdt1QfihLuBdyukwwCdEOfV
+AcWUUMGTUkx4XUp9PtlI2Q8=
+=L3uC
+-----END PGP SIGNATURE-----
+
+--nextPart1881411.M4NkWWNZBR--
