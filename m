@@ -1,50 +1,57 @@
-From: qiaoxiaol@126.com
-Subject: flexible printed circuits supplier
-Date: Tue, 8 Jun 2004 03:41:28 -0700
+From: gelato@xwolf.com
+Subject: software
+Date: Tue, 08 Jun 2004 22:58:17 +0000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <CflxVHGr5@party.seed.net.tw>
-Content-Type: text/plain;
+Message-ID: <BJ7H78551957FEJJ@xwolf.com>
+References: <49HF53J1CLL6JKDH@oss.sgi.com>
+Mime-Version: 1.0
+Content-Type: text/plain
 Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: DMailer@oss.sgi.com
+To: Netdev <netdev@oss.sgi.com>
+In-Reply-To: <49HF53J1CLL6JKDH@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Microsoft Windows XP Professional 2002 
+Retail price: $270.99 Our low Price: $50.00 You Save: $220.00  
+ 
+Adobe Photoshop 7.0  
+Retail price: $609.99 Our low Price: $60.00 You Save: $550.00  
+ 
+Microsoft Office XP Professional 2002  
+Retail price: $579.99 Our low Price: $60.00 You Save: $510.00  
+ 
+Adobe Illustrator 10
+Retail price: $270.99 Our low Price: $60.00 You Save: $210.00  
+ 
+Corel Draw Graphics Suite 11
+Retail price: $270.99 Our low Price: $60.00 You Save: $210.00  
 
+Delphi 7
+Retail price: $404.99 Our low Price: $60.00 You Save: $335.00  
  
 
+And more!!!
 
 
-Dear sir,
-    Wish you have good business!
-    We are glad to   introduce   a  flexible printed circuit (FPC) factory. we use
-the latest technology make flexible printed circuits (FPC) for use in any
-electronic products.The FACTURE is ISO9001:2000, and confirmed to IPC
-criteria.
-    THE MAIN CAPACITY:
-1,CAN MAKE DOUBLE SIDED WITH MIN 0.06MM TRACE WIDTH. THE SQUARE HOLE OF THE
-COVERLAYER CAN BE  MIN 0.4 MM.
-2,CAN MAKE 3 LAYERS,4 LAYERS,5 LAYERS,6 LAYERS FPC.
-3,PRODUCTS HAVE EXPORTED TO USA,CANADA,JAPAN,UK,GERMANY,FRANCE,AUSTRALIA ETC
-MORE THEN 20 COUNTRIES.
-4,MAIN CUSTOMER ARE NOKIA,PANASONIC,SONY,DELL,TDK ,PHILIP ETC.
+Why so cheap?
 
-We would welcome you to visit our factory.
+All the software is OEM- Meaning that you don't get the box and the
+manual with your software. All you will receive is the actual
+software and your unique registration code. 
 
-Please e-mail your circuit design by Gerber file, Auto Cad, protel files and
-advise us of:
+All the software is in the English language for PC. Our offers
+are unbeatable and we always update our prices to make sure we
+provide you with the best possible offers. Hurry up and place
+your order, because our supplies are limited.
 
-FPC size, and number of layers.  We can make samples for your approval, with
-factory direct pricing.
 
-If you donot want us to send you again, you can use the latest outlook2003
-soft,to enter this e-mail address as reject e-mail address.you can solve all the
-worry.
-Or send an email with: " Remove" in the subject .we'll delete it from our
-list.
-hank you for your support!
+Our site is  http://HJJMHN.biz/OE017/?affiliate_id=233763&campaign_id=601
 
-Best regards!
+uns * ub - scribe http://NANNEH.biz/diamondtron.php?affiliate_id=233763&campaign_id=601
 
-Bai zhan yuan
-qiaoxiaol@126.com
+
+xinkopgi qhxmn axtxpaz guixk wblnrtk chxq yebpky 
+ezzb twqtwyd gvndx bqoucrcz iaek poiuotv 
+xfmfcki thx kezc utflvfw wihlz q hnadk 
