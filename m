@@ -1,64 +1,162 @@
-From: Roland Dreier <roland@topspin.com>
-Subject: Advice needed on IP-over-InfiniBand driver
-Date: Sat, 18 Sep 2004 21:08:37 -0700
+From: Pablo Neira <pablo@eurodev.net>
+Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
+Date: Sun, 19 Sep 2004 06:36:29 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <52fz5esxx6.fsf@topspin.com>
+Message-ID: <414D0CCD.90209@eurodev.net>
+References: <E1C8cPd-0006K8-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: multipart/mixed;
+ boundary="------------080005010406010301040701"
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1C8cPd-0006K8-00@gondolin.me.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi, I'm looking for guidance on the "right" way to implement an
-IP-over-InfiniBand (IPoIB) driver for Linux.  Right now, we have
-something that works, but we are cleaning it up for upstream
-submission (along with the rest of the OpenIB code).  IPoIB is a
-network device driver (in the sense of "struct net_device"), but there
-are a few complications beyond the usual ethernet NIC case, which I'll
-described below.  For full details you can look at the drafts from the
-IETF ipoib working group: http://ietf.org/html.charters/ipoib-charter.html
-If you want to look at the existing code, the best place to look is in
-my Subversion branch, specifically
+This is a multi-part message in MIME format.
+--------------080005010406010301040701
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-https://openib.org/svn/gen2/branches/roland-merge/src/linux-kernel/infiniband/ulp/ipoib
+Hi Herbert,
 
-for IPoIB code.
+Herbert Xu wrote:
 
-IPoIB uses the usual ARP protocol for IPv4 (everything is analogous
-for IPv6 neighbor discovery but I'll focus on IPv4 for simplicity).  A
-hardware address is 20 bytes: 1 reserved byte, 3 bytes of queue pair
-number (QPN) and 16 bytes of global identifier (GID).  ARP works as
-specified in RFC 826 (with hardware type 32).
+>Firstly there is a sock leak there.  The following patch fixes it.
+>The white space damage is not mine :)
+>
+>Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+>  
+>
 
-The wrinkle is that while this 20 byte address is enough to uniquely
-identify a destination, it is not enough to actually send a packet to
-there.  Once an ARP reply comes back, the IPoIB driver must then send
-a query to the IB subnet manager (which is a remote server on the IB
-fabric) and obtain a path to the destination GID -- a path is a 2 byte
-local identifier (LID) and a few other pieces of information.  Once we
-have the path, we give that to the IB hardware and a get an address
-handle, which can finally be used to send a packet.
+you are right, I missed that, but I prefer the patches attached to this 
+email. Now if netlink_broadcast_deliver function delivers correctly the 
+packet, you decrease sock refcount and function returns 1. I think that 
+I got confused because netlink_broadcast_deliver returns 0/-1.
 
-This means there are a few things we would like to be able to do in
-the IPoIB driver.  First of all, it would be good to be able to hook
-into the ARP code so that we add the GID->path lookup after the normal
-ARP (and have the kernel keep queuing packets until that lookup
-completes).  Also, once the whole process is complete and we have an
-address handle, the driver doesn't actually care about the 20-byte
-destination address when it's getting packets to send -- it just needs
-the address handle.  So it would be nice to have some way to stash
-that in struct neighbor and get that in our hard_header method (rather
-than having to keep our own cache mapping 20-bytes address back to
-address handle).
+>Secondly, I'm dubious about the patch as a whole.  For instance, what
+>exactly is the wake_up_process() bit trying to do? Surely that process
+>would've been woken up multiple times already if its queue is full.
+>
 
-It seems that some combination of clever neigh_setup and
-hard_header_cache/header_cache_update methods should be enough to make
-this work, but I don't know enough about the network stack to see how
-to do it.
+This is what I theorically expected, but in practice if you stress a 
+netlink socket sending a big bunch of information in a short period of 
+time from kernel space to user space, socket overruns easily. That's why 
+I wake up the user process to make it process information stored in the 
+queue. Socket doesn't overrun anymore with my patch.
 
-I'd really appreciate guidance on how to implement this, and I'm happy
-to answer any questions about the IPoIB architecture.
+>And what is it going to do with thread groups?
+>  
+>
 
-Thanks,
-  Roland
+currently broadcast sockets can still overrun. I have a set of patches 
+that I'll submit as soon as I test them and I finish my boring exams.
+
+regards,
+Pablo
+
+--------------080005010406010301040701
+Content-Type: text/x-patch;
+ name="netlink-fix.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="netlink-fix.patch"
+
+diff -u -r1.1.1.2 af_netlink.c
+--- a/net/netlink/af_netlink.c	4 Sep 2004 17:34:06 -0000	1.1.1.2
++++ b/net/netlink/af_netlink.c	19 Sep 2004 03:57:20 -0000
+@@ -629,18 +629,20 @@
+ 				kmalloc(sizeof(struct netlink_work), GFP_KERNEL);
+ 
+ 			if (!nlwork)
+-				return -1;
++				return 0;
+ 		
+ 			INIT_WORK(&nlwork->work, netlink_wq_handler, nlwork);
+ 			nlwork->sk = sk;
+ 			nlwork->len = skb->len;
+ 			queue_work(netlink_wq, &nlwork->work);
+-		} else 
++		} else {
+ 			sk->sk_data_ready(sk, skb->len);
++			sock_put(sock);
++		}
+ 
+-		return 0;
++		return 1;
+ 	}
+-	return -1;
++	return 0;
+ }
+ 
+ int netlink_broadcast(struct sock *ssk, struct sk_buff *skb, u32 pid,
+@@ -685,11 +687,11 @@
+ 			failure = 1;
+ 			sock_put(sk);
+ 		} else if (netlink_broadcast_deliver(sk, skb2)) {
+-			netlink_overrun(sk);
+-			sock_put(sk);
+-		} else {
+ 			delivered = 1;
+ 			skb2 = NULL;
++		} else {
++			netlink_overrun(sk);
++			sock_put(sk);
+ 		}
+ 	}
+ 
+
+--------------080005010406010301040701
+Content-Type: text/x-patch;
+ name="netlink-fix-2.4.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="netlink-fix-2.4.patch"
+
+--- a/net/netlink/af_netlink.c	2004-09-19 06:23:22.000000000 +0200
++++ b/net/netlink/af_netlink.c	2004-09-19 06:24:48.000000000 +0200
+@@ -548,19 +548,21 @@
+ 				kmalloc(sizeof(struct netlink_work), GFP_KERNEL);
+ 		
+ 			if  (!nlwork) 
+-				return -EAGAIN;
++				return 0;
+ 		
+ 			INIT_TQUEUE(&nlwork->work, netlink_tq_handler, nlwork);
+ 			nlwork->sk = sk;
+ 			nlwork->len = skb->len;
+ 			queue_task(&nlwork->work, &tq_netlink);
+ 			wake_up(&netlink_thread_wait);
+-		} else 
++		} else {
+ 			sk->data_ready(sk, skb->len);
++			sock_put(sk);
++		}
+ 
+-		return 0;
++		return 1;
+ 	}
+-	return -1;
++	return 0;
+ }
+ 
+ void netlink_broadcast(struct sock *ssk, struct sk_buff *skb, u32 pid,
+@@ -602,11 +604,12 @@
+ 			/* Clone failed. Notify ALL listeners. */
+ 			failure = 1;
+ 			sock_put(sk);
+-		} else if (netlink_broadcast_deliver(sk, skb2)) {
++		} else if (netlink_broadcast_deliver(sk, skb2))
++			skb2 = NULL;
++		else {
+ 			netlink_overrun(sk);
+ 			sock_put(sk);
+-		} else
+-			skb2 = NULL;
++		}
+ 	}
+ 
+ 	netlink_unlock_table();
+
+--------------080005010406010301040701--
