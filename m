@@ -1,158 +1,155 @@
-From: "Jeremy M. Guthrie" <jeremy.guthrie@berbee.com>
-Subject: Re: V2.4 policy router operates faster/better than V2.6
-Date: Fri, 7 Jan 2005 15:06:54 -0600
-Message-ID: <200501071506.57811.jeremy.guthrie@berbee.com>
-References: <200501031455.26980.jeremy.guthrie@berbee.com> <200501071414.05126.jeremy.guthrie@berbee.com> <16862.62424.180929.680029@robur.slu.se>
-Reply-To: jeremy.guthrie@berbee.com
+From: Bart De Schuymer <bdschuym@pandora.be>
+Subject: Re: do_IRQ: stack overflow: 872..
+Date: Fri, 07 Jan 2005 22:27:21 +0100
+Message-ID: <1105133241.3375.16.camel@localhost.localdomain>
+References: <1131604877.20041218092730@mail.ru.suse.lists.linux.kernel>
+	 <p73zn0ccaee.fsf@verdi.suse.de>
+	 <1105117559.11753.34.camel@baythorne.infradead.org>
+	 <20050107100017.454ddadc@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1122471.8x5onAmVJB";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-        Stephen Hemminger <shemminger@osdl.org>
+Cc: David Woodhouse <dwmw2@infradead.org>, Andi Kleen <ak@suse.de>,
+        Crazy AMD K7 <snort2004@mail.ru>, bridge@osdl.org, netdev@oss.sgi.com,
+        Rusty Russell <rusty@rustcorp.com.au>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <16862.62424.180929.680029@robur.slu.se>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20050107100017.454ddadc@dxpl.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---nextPart1122471.8x5onAmVJB
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+Op vr, 07-01-2005 te 10:00 -0800, schreef Stephen Hemminger:
+> On Fri, 07 Jan 2005 17:05:59 +0000
+> David Woodhouse <dwmw2@infradead.org> wrote:
+> > I don't think it's recursing -- I think the stack trace is just a bit
+> > noisy. The problem is that the bridge code, especially with br_netfilter
+> > in the equation, is implicated in code paths which are just _too_ deep.
+> > This happens when you're bridging packets received in an interrupt while
+> > you were deep in journalling code, and it's also been seen with a call
+> > trace something like nfs->sunrpc->ip->bridge->br_netfilter.
+> 
+> Sounds like an argument for interrupt stacks.
+> 
+> > One option might be to make br_dev_xmit() just queue the packet rather
+> > than trying to deliver it to all the slave devices immediately. Then the
+> > actual retransmission can be handled from a context where we're _not_
+> > short of stack; perhaps from a dedicated kernel thread. 
+> 
+> Probably the solution would be to handle it in the filter code
+> that way if we are not filtering, we can use the interrupt path,
+> but if filtering just defer to a safer context (like soft irq).
 
-On Friday 07 January 2005 02:40 pm, Robert Olsson wrote:
-> Jeremy M. Guthrie writes:
->  > During a 60 second window the machine received 5,110,164 packets and
->  > dropped 20461 or roughly 0.4% packet loss.
->
->  Around 85 kpps. If you run rtstat we could a feeling how may slow-pathx
->  that are taken.=20
-I can't run rstat.  The rt_cache_stat file doesn't exist in /proc/net=20
-or /proc/net/stat in either V2.4 or V2.6.
+How about something like the patch below (untested but compiles)?
+The current netfilter scheme adds one function call to the call chain
+for each NF_HOOK and NF_HOOK_THRESH. This can be prevented by executing
+the okfn in the calling function instead of in nf_hook_slow().
+I didn't check if there's any code that actually uses the return value
+from NF_HOOK. If so, this patch won't work well in its current form as -
+EPERM is now also returned for NF_QUEUE and NF_STOLEN.
 
->  Or save the /proc/net/stat/rt_cache before you 60 sec=20
->  run.
-lnstat isn't giving me anything other than zeros. =20
+Another 2 calls of okfn can be postponed in br_netfilter.c by adding
+NF_STOP, which would work like NF_STOLEN except that okfn is still
+called. But I'd first like to get the IPv4/IPv6 fix for br_netfilter.c
+accepted (see another thread on netdev).
 
-entries  in_hit in_slow_tot in_no_route in_brd in_martian_dst in_martian_sr=
-c =20
-out_hit out_slow_tot out_slow_mc  gc_total gc_ignored gc_goal_miss=20
-gc_dst_overflow in_hlist_search out_hlist_search
-0000f91e  15b1ddab 0b69a32c 00000000 00000000 00001b0a 00001fbd 00000000 =20
-00066f65 0000b943 00000000 087b80a1 0878e81a 00000256 00000000 ca08c77d=20
-0020e549
-0000f91e  00005c59 0000b3ef 00000000 00000000 00000cf7 00000000 00000000 =20
-0000000f 0000004c 00000002 00000fb9 00000fb5 00000000 00000000 0004e8d9=20
-000000b2
+cheers,
+Bart
 
-60 seconds......
-
-entries  in_hit in_slow_tot in_no_route in_brd in_martian_dst in_martian_sr=
-c =20
-out_hit out_slow_tot out_slow_mc  gc_total gc_ignored gc_goal_miss=20
-gc_dst_overflow in_hlist_search out_hlist_search
-0000fb3e  15ff4696 0b6bbb65 00000000 00000000 00001b10 00001fc1 00000000 =20
-00067111 0000b974 00000000 087d9903 087b0003 00000256 00000000 cb58b399=20
-0020ee79
-0000fb3e  00005c5b 0000b40d 00000000 00000000 00000cf9 00000000 00000000 =20
-0000000f 0000004c 00000002 00000fbb 00000fb7 00000000 00000000 0004e9ba=20
-000000b2
-
-
-
->  mpstat I don't trust in this context.
->
->  > It has been at 150dc67c for a while now.  So while I am dropping at the
->  > card, I am not dropping in the stack.
->
->  You use NAPI driver then...
->  Check if the patch below is in your e1000 driver.
->            --ro
-The drivers should be built as NAPI.
-
-Here is the snippet:
-static int
-e1000_clean(struct net_device *netdev, int *budget)
-{
-        struct e1000_adapter *adapter =3D netdev->priv;
-        int work_to_do =3D min(*budget, netdev->quota);
-        int tx_cleaned;
-        int work_done =3D 0;
-
-        if (!netif_carrier_ok(netdev))
-                goto quit_polling;
-
-        tx_cleaned =3D e1000_clean_tx_irq(adapter);
-        e1000_clean_rx_irq(adapter, &work_done, work_to_do);
-
-        *budget -=3D work_done;
-        netdev->quota -=3D work_done;
-
-        /* if no Rx and Tx cleanup work was done, exit the polling mode */
-        if(!tx_cleaned || (work_done < work_to_do) ||
-                                !netif_running(netdev)) {
-quit_polling:   netif_rx_complete(netdev);
-                e1000_irq_enable(adapter);
-                return 0;
-        }
-
-        return (work_done >=3D work_to_do);
-}
-
-
-
->
->  --- drivers/net/e1000/e1000_main.c.orig 2004-02-16 14:46:16.000000000
-> +0100 +++ drivers/net/e1000/e1000_main.c 2004-02-16 15:45:05.000000000
-> +0100 @@ -2161,19 +2161,21 @@
->   struct e1000_adapter *adapter =3D netdev->priv;
->   int work_to_do =3D min(*budget, netdev->quota);
->   int work_done =3D 0;
-> -
-> - e1000_clean_tx_irq(adapter);
-> + static boolean_t tx_cleaned;
-> +
-> + tx_cleaned =3D e1000_clean_tx_irq(adapter);
->   e1000_clean_rx_irq(adapter, &work_done, work_to_do);
->
->   *budget -=3D work_done;
->   netdev->quota -=3D work_done;
->
-> - if(work_done < work_to_do || !netif_running(netdev)) {
-> + if( (!tx_cleaned && (work_done =3D=3D 0)) || !netif_running(netdev)) {
->    netif_rx_complete(netdev);
->    e1000_irq_enable(adapter);
-> +  return 0;
->   }
->
-> - return (work_done >=3D work_to_do);
-> +	return 1;
->  }
->  #endif
-
-=2D-=20
-
-=2D-------------------------------------------------
-Jeremy M. Guthrie        jeremy.guthrie@berbee.com
-Senior Network Engineer        Phone: 608-298-1061
-Berbee                           Fax: 608-288-3007
-5520 Research Park Drive         NOC: 608-298-1102
-Madison, WI 53711
-
---nextPart1122471.8x5onAmVJB
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-
-iD8DBQBB3vnxqtjaBHGZBeURAqa6AJ95YCgRBAIzM0qXYxDLWsgpjuQW6QCgmyUT
-PAcawdHWqMOb939ioWONMRA=
-=5vpR
------END PGP SIGNATURE-----
-
---nextPart1122471.8x5onAmVJB--
+--- linux-2.6.10/include/linux/netfilter.h.old	2005-01-07 20:41:30.000000000 +0100
++++ linux-2.6.10/include/linux/netfilter.h	2005-01-07 22:04:57.096626176 +0100
+@@ -138,21 +138,32 @@ void nf_log_packet(int pf,
+ /* This is gross, but inline doesn't cut it for avoiding the function
+    call in fast path: gcc doesn't inline (needs value tracking?). --RR */
+ #ifdef CONFIG_NETFILTER_DEBUG
+-#define NF_HOOK(pf, hook, skb, indev, outdev, okfn)			\
+- nf_hook_slow((pf), (hook), (skb), (indev), (outdev), (okfn), INT_MIN)
+-#define NF_HOOK_THRESH nf_hook_slow
++#define NF_HOOK(pf, hook, skb, indev, outdev, okfn)			    \
++({int __ret = nf_hook_slow(pf, hook, &(skb), indev, outdev, okfn, INT_MIN); \
++if (!__ret)								    \
++	__ret = (okfn)(skb);						    \
++__ret;})
++#define NF_HOOK_THRESH(pf, hook, skb, indev, outdev, okfn, thresh)	    \
++({int __ret = nf_hook_slow(pf, hook, &(skb), indev, outdev, okfn, thresh);  \
++if (!__ret)								    \
++	__ret = (okfn)(skb);						    \
++__ret;})
+ #else
+-#define NF_HOOK(pf, hook, skb, indev, outdev, okfn)			\
+-(list_empty(&nf_hooks[(pf)][(hook)])					\
+- ? (okfn)(skb)								\
+- : nf_hook_slow((pf), (hook), (skb), (indev), (outdev), (okfn), INT_MIN))
+-#define NF_HOOK_THRESH(pf, hook, skb, indev, outdev, okfn, thresh)	\
+-(list_empty(&nf_hooks[(pf)][(hook)])					\
+- ? (okfn)(skb)								\
+- : nf_hook_slow((pf), (hook), (skb), (indev), (outdev), (okfn), (thresh)))
++#define NF_HOOK(pf, hook, skb, indev, outdev, okfn)			     \
++({int __ret = 0;							     \
++if (list_empty(&nf_hooks[pf][hook]) ||					     \
++    !(__ret = nf_hook_slow(pf, hook, &(skb), indev, outdev, okfn, INT_MIN))) \
++	__ret = (okfn)(skb);						     \
++__ret;})
++#define NF_HOOK_THRESH(pf, hook, skb, indev, outdev, okfn, thresh)	     \
++({int __ret = 0;							     \
++if (list_empty(&nf_hooks[pf][hook]) ||					     \
++    !(__ret = nf_hook_slow(pf, hook, &(skb), indev, outdev, okfn, thresh)))  \
++	__ret = (okfn)(skb);						     \
++__ret;})
+ #endif
+ 
+-int nf_hook_slow(int pf, unsigned int hook, struct sk_buff *skb,
++int nf_hook_slow(int pf, unsigned int hook, struct sk_buff **pskb,
+ 		 struct net_device *indev, struct net_device *outdev,
+ 		 int (*okfn)(struct sk_buff *), int thresh);
+ 
+--- linux-2.6.10/net/core/netfilter.c.old	2005-01-07 20:41:47.000000000 +0100
++++ linux-2.6.10/net/core/netfilter.c	2005-01-07 21:52:13.659686232 +0100
+@@ -494,7 +494,7 @@ static int nf_queue(struct sk_buff *skb,
+ 	return 1;
+ }
+ 
+-int nf_hook_slow(int pf, unsigned int hook, struct sk_buff *skb,
++int nf_hook_slow(int pf, unsigned int hook, struct sk_buff **pskb,
+ 		 struct net_device *indev,
+ 		 struct net_device *outdev,
+ 		 int (*okfn)(struct sk_buff *),
+@@ -508,30 +508,28 @@ int nf_hook_slow(int pf, unsigned int ho
+ 	rcu_read_lock();
+ 
+ #ifdef CONFIG_NETFILTER_DEBUG
+-	if (skb->nf_debug & (1 << hook)) {
++	if ((*pskb)->nf_debug & (1 << hook)) {
+ 		printk("nf_hook: hook %i already set.\n", hook);
+-		nf_dump_skb(pf, skb);
++		nf_dump_skb(pf, *pskb);
+ 	}
+ 	skb->nf_debug |= (1 << hook);
+ #endif
+ 
+ 	elem = &nf_hooks[pf][hook];
+  next_hook:
+-	verdict = nf_iterate(&nf_hooks[pf][hook], &skb, hook, indev,
++	verdict = nf_iterate(&nf_hooks[pf][hook], pskb, hook, indev,
+ 			     outdev, &elem, okfn, hook_thresh);
+ 	if (verdict == NF_QUEUE) {
+ 		NFDEBUG("nf_hook: Verdict = QUEUE.\n");
+-		if (!nf_queue(skb, elem, pf, hook, indev, outdev, okfn))
++		if (!nf_queue(*pskb, elem, pf, hook, indev, outdev, okfn))
+ 			goto next_hook;
+ 	}
+ 
+ 	switch (verdict) {
+-	case NF_ACCEPT:
+-		ret = okfn(skb);
+-		break;
+-
+ 	case NF_DROP:
+-		kfree_skb(skb);
++		kfree_skb(*pskb);
++	case NF_STOLEN:
++	case NF_QUEUE:
+ 		ret = -EPERM;
+ 		break;
+ 	}
