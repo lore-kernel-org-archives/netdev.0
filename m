@@ -1,41 +1,43 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: Re: [PATCH] IPv6: Sysctl for ICMPv6 Rate Limitation
-Date: Thu, 24 Oct 2002 08:59:16 +0300 (EEST)
+From: Sreedharamurthy K <sree_mu@yahoo.com>
+Subject: Changes in source?
+Date: Thu, 24 Oct 2002 00:02:55 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0210240858060.8872-100000@netcore.fi>
-References: <20021024.145551.130454003.yoshfuji@linux-ipv6.org>
+Message-ID: <20021024070255.81999.qmail@web41106.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Cc: usagi@linux-ipv6.org, <linux-kernel@vger.kernel.org>, <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20021024.145551.130454003.yoshfuji@linux-ipv6.org>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 24 Oct 2002, YOSHIFUJI Hideaki / [iso-2022-jp] 吉藤英明 wrote:
-> In article <Pine.LNX.4.44.0210240847280.8872-100000@netcore.fi> (at Thu, 24 Oct 2002 08:50:25 +0300 (EEST)), Pekka Savola <pekkas@netcore.fi> says:
-> 
-> > > +icmp/*:
-> > > +ratelimit - INTEGER
-> > > +	Limit the maximal rates for sending ICMPv6 packets.
-> > > +	0 to disable any limiting, otherwise the maximal rate in jiffies(1)
-> > > +	Default: 100
-> > > +
-> > 
-> > Does this rate-limit all ICMPv6 packets or just ICMPv6 error messages (as 
-> > specified in ICMPv6 specifications).
-> > 
-> > If all, I believe the default of rate-limiting everything is unacceptable.
-> 
-> This patch just adds sysctl.  It is my documentation error...
-> is s/ICMPv6 packets/ICMPv6 error packets/ ok?
-> 
-> (I need to do s/100/HZ/, too; This also lives in ICMP(v4)).
+Hi Techies,
 
-That change fine with me, thanks.
+I am experimenting some of the networking things with
+different versions namely 2.4.7 and 2.4.18 (Red Hat
+distribution). Found some good improvements in the
+later kernel over the former.
 
--- 
-Pekka Savola                 "Tell me of difficulties surmounted,
-Netcore Oy                   not those you stumble over and fall"
-Systems. Networks. Security.  -- Robert Jordan: A Crown of Swords
+Since I'm not member of the linux.kernel or netdev
+mailing lists finding the changes in these networking
+source is difficult. Was curious to know what changes
+have gone in the code, if any, specific in the
+networking code. Of course, the change not necessarily
+be in the networking part, if so, what has made this
+improvement in the 2.4.18 kernel?
+
+Tried looking in the 'changelog', not much information
+on know 'what' changes have gone in there.
+
+Please let me know the changes or pointers where to
+look at.
+
+Thanks in Advance.
+
+Regards,
+-- Sree
+PS: please cc to my id, not a member of the list yet.
+
+__________________________________________________
+Do you Yahoo!?
+Y! Web Hosting - Let the expert host your web site
+http://webhosting.yahoo.com/
