@@ -1,56 +1,69 @@
-From: "David S. Miller" <davem@davemloft.net>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
 Subject: Re: BUG: dst underflow (again)
-Date: Thu, 4 Nov 2004 22:18:01 -0800
-Message-ID: <20041104221801.584c8f11.davem@davemloft.net>
-References: <4178AB0D.6060107@pobox.com>
-	<20041022.155159.98771450.yoshfuji@linux-ipv6.org>
-	<20041022075947.GA15795@xi.wantstofly.org>
+Date: Fri, 05 Nov 2004 15:53:55 +0900 (JST)
+Message-ID: <20041105.155355.110780816.yoshfuji@linux-ipv6.org>
+References: <20041022075947.GA15795@xi.wantstofly.org>
 	<1099577717.1039.155.camel@jzny.localdomain>
+	<20041104221801.584c8f11.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: buytenh@wantstofly.org, yoshfuji@linux-ipv6.org, jgarzik@pobox.com,
-        netdev@oss.sgi.com
+Cc: hadi@cyberus.ca, buytenh@wantstofly.org, jgarzik@pobox.com,
+        netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1099577717.1039.155.camel@jzny.localdomain>
+To: davem@davemloft.net
+In-Reply-To: <20041104221801.584c8f11.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 04 Nov 2004 09:15:17 -0500
-jamal <hadi@cyberus.ca> wrote:
+In article <20041104221801.584c8f11.davem@davemloft.net> (at Thu, 4 Nov 2004 22:18:01 -0800), "David S. Miller" <davem@davemloft.net> says:
 
-> Could you turn off netfilter and see if this continues to happen?
+> > > 	00012c0d <udpv6_sendmsg>	(god, that's one big function btw)
+> 
+> The last one is the most interesting.  The only dst_release() call
+> that occurs in udpv6_sendmsg() is when xfrm_lookup() returns
+> an error.  The semantics of that function are a complete mess
+> (when it errors, it sometimes releases the DST, sometimes does not)
+> and I'll fix that up.
 
-That's one possible angle, but let's look at the tracepoints
-more closely.
+Oh,yes, something like this?
 
-BTW Lennert, the decoded addresses are extremely helpful. Thanks.
+Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 
-Jeff, could you similarly decode the ones that you seem to get?
-That would be an incredibly useful datapoint.  If you've provided
-this already, my bad and please point me at where you posted that.
+===== net/ipv6/udp.c 1.76 vs edited =====
+--- 1.76/net/ipv6/udp.c	2004-10-26 11:47:26 +09:00
++++ edited/net/ipv6/udp.c	2004-11-05 15:42:00 +09:00
+@@ -631,7 +631,7 @@
+ 	struct ipv6_txoptions *opt = NULL;
+ 	struct ip6_flowlabel *flowlabel = NULL;
+ 	struct flowi *fl = &inet->cork.fl;
+-	struct dst_entry *dst;
++	struct dst_entry *dst = NULL;
+ 	int addr_len = msg->msg_namelen;
+ 	int ulen = len;
+ 	int hlimit = -1;
+@@ -797,10 +797,8 @@
+ 	if (final_p)
+ 		ipv6_addr_copy(&fl->fl6_dst, final_p);
+ 
+-	if ((err = xfrm_lookup(&dst, fl, sk, 0)) < 0) {
+-		dst_release(dst);
++	if ((err = xfrm_lookup(&dst, fl, sk, 0)) < 0)
+ 		goto out;
+-	}
+ 
+ 	if (hlimit < 0) {
+ 		if (ipv6_addr_is_multicast(&fl->fl6_dst))
+@@ -846,6 +844,7 @@
+ 		err = np->recverr ? net_xmit_errno(err) : 0;
+ 	release_sock(sk);
+ out:
++	dst_release(dst);
+ 	fl6_sock_release(flowlabel);
+ 	if (!err) {
+ 		UDP6_INC_STATS_USER(UDP_MIB_OUTDATAGRAMS);
 
-> > BUG: dst underflow -1: 3bcf9a80 at 42350024
-> > BUG: dst underflow 0: 3bcf9a80 at 423486d2
-> > BUG: dst underflow 0: 3bcf9a80 at 4235823d
- ...
-> > 0x42350024 - 0x42345000 = 0xb024, corresponds to:
-> > 	0000affa <ip6_dst_check>
-> > 
-> > 0x423486d2 - 0x42345000 = 0x36d2, corresponds to:
-> > 	0000339d <ip6_push_pending_frames>
-> > 
-> > 0x4235823d - 0x42345000 = 0x1323d, corresponds to:
-> > 	00012c0d <udpv6_sendmsg>	(god, that's one big function btw)
-
-The last one is the most interesting.  The only dst_release() call
-that occurs in udpv6_sendmsg() is when xfrm_lookup() returns
-an error.  The semantics of that function are a complete mess
-(when it errors, it sometimes releases the DST, sometimes does not)
-and I'll fix that up.
-
-But let me ask, do you have any IPSEC policies in the kernel
-when these BUGs trigger?  If so, I'm pretty sure I know what
-the problem may be.
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
