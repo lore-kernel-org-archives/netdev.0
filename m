@@ -1,62 +1,75 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [RFC] tcf_bind_filter failure handling
-Date: Mon, 13 Dec 2004 19:52:03 +0100
-Message-ID: <20041213185203.GF8493@postel.suug.ch>
-References: <20041110010113.GJ31969@postel.suug.ch> <41916A91.3080107@trash.net> <20041110012251.GK31969@postel.suug.ch> <41916F0B.5010809@trash.net> <20041110013941.GL31969@postel.suug.ch> <41917330.6090002@trash.net> <20041212175736.GA8493@postel.suug.ch> <41BC8819.7040501@trash.net> <20041213165302.GE8493@postel.suug.ch> <41BDDB5A.9000907@trash.net>
+From: Tom Duffy <tduffy@sun.com>
+Subject: Re: [PATCH][v3][17/21] Add IPoIB
+	(IP-over-InfiniBand) driver
+Date: Mon, 13 Dec 2004 10:54:29 -0800
+Message-ID: <1102964069.9258.20.camel@duffman>
+References: <20041213109.JT1ejUdkRIUXbWOm@topspin.com>
+	<1102963464.9258.11.camel@duffman>  <52mzwi58zj.fsf@topspin.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <41BDDB5A.9000907@trash.net>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed; boundary="===============2128318418=="
+Cc: netdev@oss.sgi.com,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
+To: Roland Dreier <roland@topspin.com>
+In-Reply-To: <52mzwi58zj.fsf@topspin.com>
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-* Patrick McHardy <41BDDB5A.9000907@trash.net> 2004-12-13 19:11
-> Thomas Graf wrote:
-> 
-> >The handling of a failure in tcf_bind_filter is inconsistent.
-> >
-> >u32: ignore
-> >fw: ignore
-> >route: ignore
-> >rsvp: ignore
-> >tcindex: error
-> >
-> >It might be a good idea to make this consistent. So in order to validate
-> >the classid before making any changes we could simply lock it via get
-> >(see patch below), return an error if it fails  and put it back in case
-> >of an error further in the path or after binding the filter.
-> >
-> >Bindings not only locks the class from removal while a filter is
-> >pointing to it. It speeds up classyfing by saving a lookup for every
-> >tc_classify call. It's not really a problem if the class is not locked,
-> >the qdisc will look it up and falls back to a default class if it
-> >doesn't exists so it's rather a cosmetic/policy thing.
-> >
-> You should just fix tcindex not to care about errors in tcf_bind_filter.
-> bind_tcf already locks the class. Some qdiscs (like prio) map bind_filter
-> to get, but others (HTB, HFSC, CBQ) use a seperate counter because it is
-> legal to end up with a refcnt > 0 after delete. When a class with filters
-> pointing to it is tried to destroy they return -EBUSY, which can't be done
-> by looking at the refcnt.
 
-Little misunderstanding here. I'm not aiming at replacing tcf_bind_filter
-with get.  My question is rather whether to regard tcf_bind_filter not setting
-tcf_result->class as an error or ignore it. 
+--===============2128318418==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature";
+	boundary="=-Yk6Oa+xZH+Icmf/OE6Jd"
 
-I'm all for ignoring it in tcindex, it requires some changes because
-it checks tcf_result.class field to see if hash bucket is non-empty if
-perfect hash is used but is not a problem at all.
 
-The tcf_class_get/put would be required to ensure proper locking during
-validation of parameters if validating the classid being last before
-changing things doesn't make sense due to the need to undo expensive
-operations required before binding.
+--=-Yk6Oa+xZH+Icmf/OE6Jd
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-I will fix tcindex, since you also agree on simply ignoring it and regard
-the binding as an ptional locking and performance increase possibility
-given to userspace.
+On Mon, 2004-12-13 at 10:49 -0800, Roland Dreier wrote:
+>     Tom> Is there a reason why you put this in in an earlier patch and
+>     Tom> then take it out later?
+>=20
+> I guess the reasons are stupidity and bad patch scripts...
+>=20
+> Doesn't hurt for now, will be fixed in future versions.
+
+Speaking of nits, there are also some formatting issues with the
+Makefiles that changes in the later patches...
+
+But, the end result is you get the "correct" formatting if you apply all
+the patches.
+
+-tduffy
+
+--=-Yk6Oa+xZH+Icmf/OE6Jd
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.6 (GNU/Linux)
+
+iD8DBQBBveVkdY502zjzwbwRAkGbAJ9Y7nYIijNZSAB28LyYyB6UeuopUgCgokCn
+V7J0vqX7XrxA2MFpGbBVJ2g=
+=xZFZ
+-----END PGP SIGNATURE-----
+
+--=-Yk6Oa+xZH+Icmf/OE6Jd--
+
+--===============2128318418==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+
+--===============2128318418==--
