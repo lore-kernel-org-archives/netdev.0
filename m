@@ -1,52 +1,81 @@
-From: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
+From: Roy Sigurd Karlsbakk <roy@karlsbakk.net>
 Subject: Re: [RESEND] tuning linux for high network performance?
-Date: Wed, 23 Oct 2002 16:01:49 -0200
+Date: Wed, 23 Oct 2002 15:36:24 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200210231309.g9ND9Bp03373@Port.imtp.ilyichevsk.odessa.ua>
-References: <200210231218.18733.roy@karlsbakk.net> <200210231306.18422.roy@karlsbakk.net>
-Reply-To: vda@port.imtp.ilyichevsk.odessa.ua
+Message-ID: <200210231536.24269.roy@karlsbakk.net>
+References: <200210231218.18733.roy@karlsbakk.net> <200210231306.18422.roy@karlsbakk.net> <200210231309.g9ND9Bp03373@Port.imtp.ilyichevsk.odessa.ua>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="us-ascii"
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 8bit
+Cc: Kernel mailing list <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Roy Sigurd Karlsbakk <roy@karlsbakk.net>, netdev@oss.sgi.com
-In-Reply-To: <200210231306.18422.roy@karlsbakk.net>
+To: vda@port.imtp.ilyichevsk.odessa.ua, netdev@oss.sgi.com
+In-Reply-To: <200210231309.g9ND9Bp03373@Port.imtp.ilyichevsk.odessa.ua>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 23 October 2002 09:06, Roy Sigurd Karlsbakk wrote:
-> > I've got this video server serving video for VoD. problem is the P4
-> > 1.8 seems to be maxed out by a few system calls. The below output
-> > is for ~50 clients streaming at ~4.5Mbps. if trying to increase
-> > this to ~70, the CPU maxes out.
 > >
-> > Does anyone have an idea?
+> > 905182 total                                      0.4741
+> > 121426 csum_partial_copy_generic                474.3203
 >
-> ...adding the whole profile output - sorted by the first column this
-> time...
+> Well, maybe take a look at this func and try to optimize it?
+
+I don't know assembly that good - sorry.
+
+> >  93633 default_idle                             1800.6346
+> >  74665 do_wp_page                               111.1086
 >
-> 905182 total                                      0.4741
-> 121426 csum_partial_copy_generic                474.3203
+> What's this?
 
-Well, maybe take a look at this func and try to optimize it?
+do_wp_page is Defined as a function in: mm/memory.c
 
->  93633 default_idle                             1800.6346
->  74665 do_wp_page                               111.1086
+comments from the file:
 
-What's this?
+/*
+ * This routine handles present pages, when users try to write
+ * to a shared page. It is done by copying the page to a new address
+ * and decrementing the shared-page counter for the old page.
+ *
+ * Goto-purists beware: the only reason for goto's here is that it results
+ * in better assembly code.. The "default" path will see no jumps at all.
+ *
+ * Note that this routine assumes that the protection checks have been
+ * done by the caller (the low-level page fault routine in most cases).
+ * Thus we can safely just mark it writable once we've done any necessary
+ * COW.
+ *
+ * We also mark the page dirty at this point even though the page will
+ * change only once the write actually happens. This avoids a few races,
+ * and potentially makes it more efficient.
+ *
+ * We hold the mm semaphore and the page_table_lock on entry and exit
+ * with the page_table_lock released.
+ */
 
->  65857 ide_intr                                 184.9916
+>
+> >  65857 ide_intr                                 184.9916
+>
+> You have 1 ide_intr per 2 csum_partial_copy_generic... hmmm...
+> how large is your readahead? I assume you'd like to fetch
+> more sectors from ide per interrupt. (I hope you do DMA ;)
 
-You have 1 ide_intr per 2 csum_partial_copy_generic... hmmm...
-how large is your readahead? I assume you'd like to fetch
-more sectors from ide per interrupt. (I hope you do DMA ;)
+doing DMA - RAID-0 with 1MB chunk size on 4 disks.
 
->  53636 handle_IRQ_event                         432.5484
->  21973 do_softirq                               107.7108
->  20498 e1000_intr                               244.0238
+> >  53636 handle_IRQ_event                         432.5484
+> >  21973 do_softirq                               107.7108
+> >  20498 e1000_intr                               244.0238
+>
+> I know zero about networking, but why 120 000 csum_partial_copy_generic
+> and inly 20 000 nic interrupts? That may be abnormal.
 
-I know zero about networking, but why 120 000 csum_partial_copy_generic
-and inly 20 000 nic interrupts? That may be abnormal.
---
-vda
+sorry
+I don't know
+
+-- 
+Roy Sigurd Karlsbakk, Datavaktmester
+ProntoTV AS - http://www.pronto.tv/
+Tel: +47 9801 3356
+
+Computers are like air conditioners.
+They stop working when you open Windows.
