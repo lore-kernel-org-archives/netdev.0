@@ -1,87 +1,68 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: dummy as IMQ replacement
-Date: 10 Mar 2005 06:22:38 -0500
-Message-ID: <1110453757.1108.87.camel@jzny.localdomain>
-References: <1107123123.8021.80.camel@jzny.localdomain>
-	 <0fcf01c5077f$579e4b80$6e69690a@RIMAS>
-	 <1107174142.8021.121.camel@jzny.localdomain>
-	 <00c301c524b4$938cd240$6e69690a@RIMAS>
-	 <1110379135.1091.143.camel@jzny.localdomain>
-	 <1110416767.1111.76.camel@jzny.localdomain>
-	 <025501c52552$2dbf87c0$6e69690a@RIMAS>
-Reply-To: hadi@cyberus.ca
+From: nhorman@redhat.com
+Subject: Re: [Patch] sctp: add receive buffer accounting to sctp (fwd)
+Date: Thu, 10 Mar 2005 07:08:03 -0500
+Message-ID: <20050310120803.GA6341@hmsendeavour.rdu.redhat.com>
+References: <Pine.LNX.4.61.0503030027590.8076@localhost.localdomain> <20050309211632.6f70fe41.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Nguyen Dinh Nam <nguyendinhnam@gmail.com>,
-        Andre Tomt <andre@tomt.net>, syrius.ml@no-log.org,
-        Andy Furniss <andy.furniss@dsl.pipex.com>,
-        Damion de Soto <damion@snapgear.com>
-To: Remus <rmocius@auste.elnet.lt>
-In-Reply-To: <025501c52552$2dbf87c0$6e69690a@RIMAS>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="W/nzBZO5zC0uMSeA"
+Cc: Sridhar Samudrala <sri@us.ibm.com>, nhorman@redhat.com, netdev@oss.sgi.com,
+        lksctp-developers@lists.sourceforge.net
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20050309211632.6f70fe41.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Remus,
-I could not reproduce this one - it is also a bit odd for calloc to
-fail. I dont have iptables 1.3.1 but i will get and retry.
-Does this happen all the time?
 
-cheers,
-jamal
+--W/nzBZO5zC0uMSeA
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-On Thu, 2005-03-10 at 04:18, Remus wrote:
-> Hi Jamal,
-> 
-> Thanks for the patch.
-> That error is gone but I got a new error:
-> 
-> ifconfig dummy0 up
-> tc qdisc add dev eth2 ingress
-> tc filter add dev eth2 parent ffff: protocol ip prio 10 u32 match u32 0 0 
-> flowid 1:1 action ipt -j MARK --set-mark 1 action mirred egress redirect dev 
-> dummy0
-> iptables: calloc failed: Cannot allocate memory
-> 
-> I use 2.6.11.2 kernel patched with your dummy patch, iptables 1.3.1 and the 
-> latest iproute2 patched with the pacth you sent yesterday.
-> 
-> 
-> Regards
-> 
-> Remus
-> 
-> 
-> ----- Original Message ----- 
-> From: "Jamal Hadi Salim" <hadi@znyx.com>
-> To: "Remus" <rmocius@auste.elnet.lt>
-> Cc: <netdev@oss.sgi.com>; "Nguyen Dinh Nam" <nguyendinhnam@gmail.com>; 
-> "Andre Tomt" <andre@tomt.net>; <syrius.ml@no-log.org>; "Andy Furniss" 
-> <andy.furniss@dsl.pipex.com>; "Damion de Soto" <damion@snapgear.com>
-> Sent: Thursday, March 10, 2005 1:06 AM
-> Subject: Re: dummy as IMQ replacement
-> 
-> 
-> > Hi Remus,
-> >
-> > Please try this patch on top of latest iproute2. Credit to Patrick for
-> > spoting it. I dont know when or who made this change - in any case it
-> > doesnt matter if it works for you.
-> >
-> > cheers,
-> >
-> > On Wed, 2005-03-09 at 09:38, jamal wrote:
-> >
-> >> I have to go to work - so wont have time to look at this for sometime.
-> >> Maybe some of the netfilter folks like Patrick can solve it for you
-> >> before i get back.
-> >>
-> >> cheers,
-> >> jamal
-> >>
-> > 
-> 
-> 
-> 
-> 
+On Wed, Mar 09, 2005 at 09:16:32PM -0800, David S. Miller wrote:
+> On Thu, 3 Mar 2005 00:32:12 +0530 (IST)
+> Sridhar Samudrala <sri@us.ibm.com> wrote:
+>=20
+> > Please apply the following SCTP patch submitted by Neil.
+> >=20
+> > Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+>=20
+> This patch doesn't apply cleanly right now.  Could you
+> please cook up a fresh version, and also supply a 2.4.x
+> version of the patch as well?
+>=20
+> Thanks a lot Sridhar.
+
+I'm sorry Dave, I must have built the patch against the latest RHEL4 kernel=
+ and
+not checked it against the bitkeeper head.  I'll rework the patch and repos=
+t.
+
+Thanks
+Neil
+
+--=20
+/***************************************************
+ *Neil Horman
+ *Software Engineer
+ *Red Hat, Inc.
+ *nhorman@redhat.com
+ *gpg keyid: 1024D / 0x92A74FA1
+ *http://pgp.mit.edu
+ ***************************************************/
+
+--W/nzBZO5zC0uMSeA
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.1 (GNU/Linux)
+
+iD8DBQFCMDijM+bEoZKnT6ERAkixAKCSb4NkIPVzDagYGSg/GTHsSiXlFgCcCLga
+v8by9pZr1SDgmazAfDzVvs4=
+=QMGC
+-----END PGP SIGNATURE-----
+
+--W/nzBZO5zC0uMSeA--
