@@ -1,150 +1,116 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH 2/2]: HFSC: Fix requeueing
-Date: Thu, 18 Mar 2004 17:49:43 +0100
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: OOPS when force unloading sctp with CONFIG_DEBUG_SLAB enabled
+Date: Thu, 18 Mar 2004 10:24:10 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4059D327.40300@trash.net>
+Message-ID: <Pine.LNX.4.58.0403181009150.1918@localhost.localdomain>
+References: <Pine.LNX.4.58.0403171008560.2014@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------020907010002050703010604"
-Cc: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: rusty@rustcorp.com.au
+In-Reply-To: <Pine.LNX.4.58.0403171008560.2014@localhost.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------020907010002050703010604
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+I took a look at the changes to module unload code(sys_delete_module) after
+2.6.3. One difference i noticed was that mod->waiter is being set to the
+kthread that runs __try_stop_module() instead of the thread that calls
+sys_delete_module().
 
-This patch fixes requeueing in HFSC. Requeued packets are kept in a
-high-priority queue which is always dequeued first.
+The following patch fixed the oops.
 
-Best regards
-Patrick
+diff -Nru a/kernel/module.c b/kernel/module.c
+--- a/kernel/module.c   Thu Mar 18 10:17:58 2004
++++ b/kernel/module.c   Thu Mar 18 10:17:58 2004
+@@ -591,6 +591,10 @@
+        /* Stop the machine so refcounts can't move and disable module. */
+        ret = try_stop_module(mod, flags, &forced);
 
---------------020907010002050703010604
-Content-Type: text/x-patch;
- name="02-hfsc-requeue.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="02-hfsc-requeue.diff"
++       /* Mark it as dying. */
++       mod->waiter = current;
++       mod->state = MODULE_STATE_GOING;
++
+        /* Never wait if forced. */
+        if (!forced && module_refcount(mod) != 0)
+                wait_for_zero_refcount(mod);
 
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2004/03/18 02:33:40+01:00 kaber@trash.net 
-#   [NET_SCHED}: Fix requeueing in HFSC scheduler
-# 
-# net/sched/sch_hfsc.c
-#   2004/03/18 02:33:31+01:00 kaber@trash.net +10 -30
-#   [NET_SCHED}: Fix requeueing in HFSC scheduler
-# 
-diff -Nru a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
---- a/net/sched/sch_hfsc.c	Thu Mar 18 02:34:28 2004
-+++ b/net/sched/sch_hfsc.c	Thu Mar 18 02:34:28 2004
-@@ -181,12 +181,11 @@
- {
- 	u16	defcls;				/* default class id */
- 	struct hfsc_class root;			/* root class */
--	struct hfsc_class *last_xmit;		/* class that transmitted last
--						   packet (for requeueing) */
- 	struct list_head clhash[HFSC_HSIZE];	/* class hash */
- 	struct list_head eligible;		/* eligible list */
- 	struct list_head droplist;		/* active leaf class list (for
- 						   dropping) */
-+	struct sk_buff_head requeue;		/* requeued packet */
- 	struct timer_list wd_timer;		/* watchdog timer */
- };
- 
-@@ -1228,9 +1227,6 @@
- 	list_del(&cl->siblings);
- 	hfsc_adjust_levels(cl->cl_parent);
- 	hfsc_purge_queue(sch, cl);
--	if (q->last_xmit == cl)
--		q->last_xmit = NULL;
--
- 	if (--cl->refcnt == 0)
- 		hfsc_destroy_class(sch, cl);
- 
-@@ -1538,6 +1534,7 @@
- 		INIT_LIST_HEAD(&q->clhash[i]);
- 	INIT_LIST_HEAD(&q->eligible);
- 	INIT_LIST_HEAD(&q->droplist);
-+	skb_queue_head_init(&q->requeue);
- 
- 	q->root.refcnt  = 1;
- 	q->root.classid = sch->handle;
-@@ -1616,10 +1613,9 @@
- 		list_for_each_entry(cl, &q->clhash[i], hlist)
- 			hfsc_reset_class(cl);
- 	}
--
-+	__skb_queue_purge(&q->requeue);
- 	INIT_LIST_HEAD(&q->eligible);
- 	INIT_LIST_HEAD(&q->droplist);
--	q->last_xmit = NULL;
- 	del_timer(&q->wd_timer);
- 	sch->flags &= ~TCQ_F_THROTTLED;
- 	sch->q.qlen = 0;
-@@ -1636,7 +1632,7 @@
- 		list_for_each_entry_safe(cl, next, &q->clhash[i], hlist)
- 			hfsc_destroy_class(sch, cl);
- 	}
--
-+	__skb_queue_purge(&q->requeue);
- 	del_timer(&q->wd_timer);
- }
- 
-@@ -1705,6 +1701,8 @@
- 
- 	if (sch->q.qlen == 0)
- 		return NULL;
-+	if ((skb = __skb_dequeue(&q->requeue)))
-+		goto out;
- 
- 	PSCHED_GET_TIME(cur_time);
- 
-@@ -1754,7 +1752,7 @@
- 		set_passive(cl);
- 	}
- 
--	q->last_xmit = cl;
-+ out:
- 	sch->flags &= ~TCQ_F_THROTTLED;
- 	sch->q.qlen--;
- 
-@@ -1765,28 +1763,10 @@
- hfsc_requeue(struct sk_buff *skb, struct Qdisc *sch)
- {
- 	struct hfsc_sched *q = (struct hfsc_sched *)sch->data;
--	struct hfsc_class *cl = q->last_xmit;
--	unsigned int len = skb->len;
--	int ret;
- 
--	if (cl == NULL) {
--		kfree_skb(skb);
--		sch->stats.drops++;
--		return NET_XMIT_DROP;
--	}
--
--	ret = cl->qdisc->ops->requeue(skb, cl->qdisc);
--	if (ret == NET_XMIT_SUCCESS) {
--		if (cl->qdisc->q.qlen == 1)
--			set_active(cl, len);
--		sch->q.qlen++;
--	} else {
--		cl->stats.drops++;
--		sch->stats.drops++;
--	}
--	q->last_xmit = NULL;
--
--	return ret;
-+	__skb_queue_head(&q->requeue, skb);
-+	sch->q.qlen++;
-+	return NET_XMIT_SUCCESS;
- }
- 
- static unsigned int
+I am not sure if this is the right or the complete fix, but i think that
+mod->waiter is definitely being set incorrectly in __try_stop_module().
 
---------------020907010002050703010604--
+Thanks
+Sridhar
+
+On Wed, 17 Mar 2004, Sridhar Samudrala wrote:
+
+> I am getting the following oops when force unloading sctp (rmmod -f sctp) with
+> 2.6.5-rc1 and 2.6.4.  This happens only when CONFIG_DEBUG_SLAB is enabled.
+>
+> This used to work fine until 2.6.3.
+>
+> looks like somehow a freed task struct is getting dereferenced in
+> try_to_wake_up() and it causes oops when debug memory allocations is enabled.
+> The call sequence seems to be
+> 	sys_delete_module
+> 	cleanup_module
+> 	sock_release
+> 	module_put
+> 	wake_up_process
+> 	try_to_wake_up
+>
+> Thanks
+> Sridhar
+>
+> Mar 17 08:31:40 w-sridhar kernel: Unable to handle kernel paging request at virtual address 6b6b6b7b
+> Mar 17 08:31:40 w-sridhar kernel:  printing eip:
+> Mar 17 08:31:40 w-sridhar kernel: c011ad39
+> Mar 17 08:31:40 w-sridhar kernel: *pde = 00000000
+> Mar 17 08:31:40 w-sridhar kernel: Oops: 0000 [#1]
+> Mar 17 08:31:40 w-sridhar kernel: PREEMPT SMP
+> Mar 17 08:31:40 w-sridhar kernel: CPU:    0
+> Mar 17 08:31:40 w-sridhar kernel: EIP:    0060:[<c011ad39>]    Tainted: GF
+> Mar 17 08:31:40 w-sridhar kernel: EFLAGS: 00010086   (2.6.5-rc1)
+> Mar 17 08:31:40 w-sridhar kernel: EIP is at try_to_wake_up+0x29/0x310
+> Mar 17 08:31:40 w-sridhar kernel: eax: 6b6b6b6b   ebx: c041cc80   ecx: ccc66da4   edx: cdc258a0
+> Mar 17 08:31:40 w-sridhar kernel: esi: cdc7c000   edi: c041cc80   ebp: cdc7df18   esp: cdc7def4
+> Mar 17 08:31:40 w-sridhar kernel: ds: 007b   es: 007b   ss: 0068
+> Mar 17 08:31:40 w-sridhar kernel: Process rmmod (pid: 1636, threadinfo=cdc7c000 task=cde2a140)
+> Mar 17 08:31:40 w-sridhar kernel: Stack: d08e2300 cdc7df14 c02bde4c cfcd9304 00000000 00000282 cdf1e5bc cdc7c000
+> Mar 17 08:31:40 w-sridhar kernel:        d08e2300 cdc7df2c c011b03e cdc258a0 00000007 00000000 cdc7df44 c02bac4a
+> Mar 17 08:31:40 w-sridhar kernel:        cdf1e5bc c03843b8 d08e2300 00000a80 cdc7df54 d08d6f24 cdf1e5bc 00000a80
+> Mar 17 08:31:40 w-sridhar kernel: Call Trace:
+> Mar 17 08:31:40 w-sridhar kernel:  [<c02bde4c>] sk_free+0x6c/0xf0
+> Mar 17 08:31:40 w-sridhar kernel:  [<c011b03e>] wake_up_process+0x1e/0x30
+> Mar 17 08:31:40 w-sridhar kernel:  [<c02bac4a>] sock_release+0xea/0xf0
+> Mar 17 08:31:40 w-sridhar kernel:  [<d08d6f24>] cleanup_module+0x24/0x1d5 [sctp]
+> Mar 17 08:31:40 w-sridhar kernel:  [<c013dbd4>] sys_delete_module+0x174/0x1d0
+> Mar 17 08:31:40 w-sridhar kernel:  [<c0157d18>] sys_munmap+0x58/0x80
+> Mar 17 08:31:40 w-sridhar kernel:  [<c0107adf>] syscall_call+0x7/0xb
+> Mar 17 08:31:40 w-sridhar kernel:
+> Mar 17 08:31:40 w-sridhar kernel: Code: 8b 40 10 8b 14 85 20 f0 41 c0 ff 46 14 01 d7 31 c0 86 07 84
+> Mar 17 08:31:40 w-sridhar kernel:  <6>note: rmmod[1636] exited with preempt_count 1
+> Mar 17 08:31:40 w-sridhar kernel: Debug: sleeping function called from invalid context at include/linux/rwsem.h:43
+> Mar 17 08:31:40 w-sridhar kernel: in_atomic():1, irqs_disabled():0
+> Mar 17 08:31:40 w-sridhar kernel: Call Trace:
+> Mar 17 08:31:40 w-sridhar kernel:  [<c011f46b>] __might_sleep+0xab/0xd0
+> Mar 17 08:31:40 w-sridhar kernel:  [<c0123b02>] profile_exit_task+0x22/0x60
+> Mar 17 08:31:40 w-sridhar kernel:  [<c0125a9a>] do_exit+0x7a/0x610
+> Mar 17 08:31:40 w-sridhar kernel:  [<c0108cd0>] do_divide_error+0x0/0xf0
+> Mar 17 08:31:40 w-sridhar kernel:  [<c0119855>] do_page_fault+0x215/0x58a
+> Mar 17 08:31:40 w-sridhar kernel:  [<c011a934>] recalc_task_prio+0xb4/0x1f0
+> Mar 17 08:31:40 w-sridhar kernel:  [<c011c9f9>] schedule+0x3a9/0x7b0
+> Mar 17 08:31:40 w-sridhar kernel:  [<c011bfe3>] scheduler_tick+0x43/0x6a0
+> Mar 17 08:31:40 w-sridhar kernel:  [<c0119640>] do_page_fault+0x0/0x58a
+> Mar 17 08:31:40 w-sridhar kernel:  [<c0108569>] error_code+0x2d/0x38
+> Mar 17 08:31:40 w-sridhar kernel:  [<c02b007b>] atkbd_connect+0x19b/0x420
+> Mar 17 08:31:40 w-sridhar kernel:  [<c011ad39>] try_to_wake_up+0x29/0x310
+> Mar 17 08:31:40 w-sridhar kernel:  [<c02bde4c>] sk_free+0x6c/0xf0
+> Mar 17 08:31:40 w-sridhar kernel:  [<c011b03e>] wake_up_process+0x1e/0x30
+> Mar 17 08:31:40 w-sridhar kernel:  [<c02bac4a>] sock_release+0xea/0xf0
+> Mar 17 08:31:40 w-sridhar kernel:  [<d08d6f24>] cleanup_module+0x24/0x1d5 [sctp]
+> Mar 17 08:31:40 w-sridhar kernel:  [<c013dbd4>] sys_delete_module+0x174/0x1d0
+> Mar 17 08:31:40 w-sridhar kernel:  [<c0157d18>] sys_munmap+0x58/0x80
+> Mar 17 08:31:40 w-sridhar kernel:  [<c0107adf>] syscall_call+0x7/0xb
+>
+>
+>
