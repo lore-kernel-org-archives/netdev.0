@@ -1,8 +1,8 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (3/4) baycom/hdlcdrv unregister
-Date: Fri, 19 Sep 2003 13:38:04 -0700
+Subject: [PATCH] (2/4) baycom c99 initializers
+Date: Fri, 19 Sep 2003 13:38:02 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030919133804.5ac0fc22.shemminger@osdl.org>
+Message-ID: <20030919133802.63528be2.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -12,46 +12,63 @@ To: Thomas Sailer <t.sailer@alumni.ethz.ch>, Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-If baycom driver has never been opened, it will attempt to free
-an IRQ that it never registered when removed.  The problem is that hdlcdrv
-does not keep track of open/close state.
-
-diff -Nru a/drivers/net/hamradio/hdlcdrv.c b/drivers/net/hamradio/hdlcdrv.c
---- a/drivers/net/hamradio/hdlcdrv.c	Fri Sep 19 13:16:29 2003
-+++ b/drivers/net/hamradio/hdlcdrv.c	Fri Sep 19 13:16:29 2003
-@@ -554,6 +554,7 @@
- 	/*
- 	 * initialise some variables
- 	 */
-+	s->opened = 1;
- 	s->hdlcrx.hbuf.rd = s->hdlcrx.hbuf.wr = 0;
- 	s->hdlcrx.in_hdlc_rx = 0;
- 	s->hdlcrx.rx_state = 0;
-@@ -593,6 +594,7 @@
- 	if (s->skb)
- 		dev_kfree_skb(s->skb);
- 	s->skb = NULL;
-+	s->opened = 0;
- 	return i;
- }
+diff -Nru a/drivers/net/hamradio/baycom_par.c b/drivers/net/hamradio/baycom_par.c
+--- a/drivers/net/hamradio/baycom_par.c	Fri Sep 19 13:31:27 2003
++++ b/drivers/net/hamradio/baycom_par.c	Fri Sep 19 13:31:27 2003
+@@ -388,11 +388,11 @@
+ /* --------------------------------------------------------------------- */
  
-@@ -845,7 +847,7 @@
+ static struct hdlcdrv_ops par96_ops = {
+-	bc_drvname,
+-	bc_drvinfo,
+-	par96_open,
+-	par96_close,
+-	baycom_ioctl
++	.drvname = bc_drvname,
++	.drvinfo = bc_drvinfo,
++	.open    = par96_open,
++	.close   = par96_close,
++	.ioctl   = baycom_ioctl
+ };
  
- 	BUG_ON(s->magic != HDLCDRV_MAGIC);
+ /* --------------------------------------------------------------------- */
+diff -Nru a/drivers/net/hamradio/baycom_ser_fdx.c b/drivers/net/hamradio/baycom_ser_fdx.c
+--- a/drivers/net/hamradio/baycom_ser_fdx.c	Fri Sep 19 13:31:27 2003
++++ b/drivers/net/hamradio/baycom_ser_fdx.c	Fri Sep 19 13:31:27 2003
+@@ -496,11 +496,11 @@
+ /* --------------------------------------------------------------------- */
  
--	if (s->ops->close)
-+	if (s->opened && s->ops->close)
- 		s->ops->close(dev);
- 	unregister_netdev(dev);
- 	
-diff -Nru a/include/linux/hdlcdrv.h b/include/linux/hdlcdrv.h
---- a/include/linux/hdlcdrv.h	Fri Sep 19 13:16:29 2003
-+++ b/include/linux/hdlcdrv.h	Fri Sep 19 13:16:29 2003
-@@ -180,6 +180,7 @@
+ static struct hdlcdrv_ops ser12_ops = {
+-	bc_drvname,
+-	bc_drvinfo,
+-	ser12_open,
+-	ser12_close,
+-	baycom_ioctl
++	.drvname = bc_drvname,
++	.drvinfo = bc_drvinfo,
++	.open    = ser12_open,
++	.close   = ser12_close,
++	.ioctl   = baycom_ioctl,
+ };
  
- struct hdlcdrv_state {
- 	int magic;
-+	int opened;
+ /* --------------------------------------------------------------------- */
+diff -Nru a/drivers/net/hamradio/baycom_ser_hdx.c b/drivers/net/hamradio/baycom_ser_hdx.c
+--- a/drivers/net/hamradio/baycom_ser_hdx.c	Fri Sep 19 13:31:27 2003
++++ b/drivers/net/hamradio/baycom_ser_hdx.c	Fri Sep 19 13:31:27 2003
+@@ -541,11 +541,11 @@
+ /* --------------------------------------------------------------------- */
  
- 	const struct hdlcdrv_ops *ops;
+ static struct hdlcdrv_ops ser12_ops = {
+-	bc_drvname,
+-	bc_drvinfo,
+-	ser12_open,
+-	ser12_close,
+-	baycom_ioctl
++	.drvname = bc_drvname,
++	.drvinfo = bc_drvinfo,
++	.open    = ser12_open,
++	.close   = ser12_close,
++	.ioctl   = baycom_ioctl,
+ };
  
+ /* --------------------------------------------------------------------- */
