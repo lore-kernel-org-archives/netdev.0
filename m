@@ -1,34 +1,36 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: TOE brain dump
-Date: Sat, 02 Aug 2003 21:01:31 -0700
+From: "Feldman, Scott" <scott.feldman@intel.com>
+Subject: e100 "Ferguson" release
+Date: Sat, 2 Aug 2003 21:34:42 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F2C891B.7080004@candelatech.com>
-References: <20030802140444.E5798@almesberger.net> <3F2BF5C7.90400@us.ibm.com> <3F2C0C44.6020002@pobox.com>
+Message-ID: <C6F5CF431189FA4CBAEC9E7DD5441E010222927D@orsmsx402.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Nivedita Singhvi <niv@us.ibm.com>,
-   Werner Almesberger <werner@almesberger.net>, netdev@oss.sgi.com,
-   linux-kernel@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <3F2C0C44.6020002@pobox.com>
+content-class: urn:content-classes:message
+To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
+New development version:
 
-> So, fix the other end of the pipeline too, otherwise this fast network 
-> stuff is flashly but pointless.  If you want to serve up data from disk, 
-> then start creating PCI cards that have both Serial ATA and ethernet 
-> connectors on them :)  Cut out the middleman of the host CPU and host 
+	http://sf.net/projects/e1000, e100-3.0.0_dev11.tar.gz
 
-I for one would love to see something like this, and not just Serial ATA..
-but maybe 8x Serial ATA and RAID :)
+Many thanks to JC [jchapman@katalix.com] for exploring the small packet
+performance w/ and w/o NAPI.  This version includes one of his
+optimization; others may follow, but I wanted to get this goodness out
+now.
 
-Ben
+* added opportunistic fast loop (no udelays) in 
+  e100_exec_cmd to wait for previous cmd to be
+  accepted before queuing next cmd.  Boost 
+  small packet performance.  [jchapman@katalix.com].
+* Use correct versions of dev_kfree_skb for depending
+  on possible contexts.  [jchapman@katalix.com].
+* Added SET_NETDEV_DEV().
 
+Looking for more testing on non-IA archs, power management, cardbus
+nics, and WoL.
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+-scott
