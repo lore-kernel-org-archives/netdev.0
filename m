@@ -1,41 +1,26 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: Netfilter+IPsec
-Date: Wed, 23 Mar 2005 21:43:40 -0800
-Message-ID: <20050323214340.70a1c950.davem@davemloft.net>
-References: <20050214221607.GC18465@gondor.apana.org.au>
-	<20050306213214.7d8a143d.davem@davemloft.net>
-	<20050307103536.GB7137@gondor.apana.org.au>
-	<20050308102741.GA23468@gondor.apana.org.au>
-	<20050314102614.GA9610@gondor.apana.org.au>
-	<20050314105313.GA21001@gondor.apana.org.au>
-	<20050314111002.GA29156@gondor.apana.org.au>
-	<20050315091904.GA6256@gondor.apana.org.au>
-	<20050315095837.GA7130@gondor.apana.org.au>
-	<20050318090310.GA28443@gondor.apana.org.au>
-	<20050318091129.GA28658@gondor.apana.org.au>
-	<20050318104013.57d65e99.davem@davemloft.net>
-	<423D9ADA.6050407@trash.net>
-	<20050322194910.6a9fa3a4.davem@davemloft.net>
-	<4240EA78.5050402@trash.net>
-	<42424AAE.9080403@trash.net>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: PCI interrupt problem: e1000 & Super-Micro X6DVA motherboard
+Date: Thu, 24 Mar 2005 09:10:03 +0100
+Message-ID: <20050324081003.GA23453@xi.wantstofly.org>
+References: <42421FF2.7050501@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org,
-        netdev@oss.sgi.com
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <42424AAE.9080403@trash.net>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
+Content-Disposition: inline
+In-Reply-To: <42421FF2.7050501@candelatech.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 24 Mar 2005 06:05:50 +0100
-Patrick McHardy <kaber@trash.net> wrote:
+On Wed, Mar 23, 2005 at 06:03:30PM -0800, Ben Greear wrote:
 
-> This patch (not entirely reviewed myself yet) contains the parts
-> necessary for hooking output IPsec packets for netfilter.
+> I have two 4-port e1000 NICs in the system, on a riser card.
 
-This is actually much cleaner than I had ever anticipated.
-I like it.
+How is the riser card wired?  F.e. does it have a single edge
+connector, and provides two PCI slots, or does it have a tiny
+additional edge connector that routes REQ#/GNT#/INTx from a
+nearby PCI slot, etc.?
 
-I suppose the input side will be quite a bit more involved?
+
+--L
