@@ -1,38 +1,39 @@
-From: Tomas Carnecky <tom@dbservice.com>
-Subject: Re: [Coverity] Untrusted user data in kernel
-Date: Fri, 17 Dec 2004 20:39:38 +0100
-Message-ID: <41C335FA.2050009@dbservice.com>
-References: <41C26DD1.7070006@trash.net> <Pine.LNX.4.61.0412171108340.4216@chaos.analogic.com> <41C330F7.4000806@dbservice.com> <200412172030.04831.oliver@neukum.org>
+From: Henrik Nordstrom <hno@marasystems.com>
+Subject: Re: primary and secondary ip addresses
+Date: Fri, 17 Dec 2004 20:48:54 +0100 (CET)
+Message-ID: <Pine.LNX.4.61.0412172046320.18698@filer.marasystems.com>
+References: <41912F7A.6000408@redhat.com> <200412161153.51251.hasso@estpak.ee>
+ <Pine.LNX.4.61.0412161103320.30452@filer.marasystems.com>
+ <200412161302.42357.hasso@estpak.ee> <41C2F6E5.5010607@cs.columbia.edu>
+ <Pine.LNX.4.61.0412171621200.15793@filer.marasystems.com>
+ <41C30212.6000906@cs.columbia.edu> <20041217112025.27688eb6.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-os@analogic.com, Bill Davidsen <davidsen@tmr.com>,
-        James Morris <jmorris@redhat.com>, Patrick McHardy <kaber@trash.net>,
-        Bryan Fulton <bryan@coverity.com>, netdev@oss.sgi.com,
-        netfilter-devel@lists.netfilter.org, linux-kernel@vger.kernel.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Oliver Neukum <oliver@neukum.org>
-In-Reply-To: <200412172030.04831.oliver@neukum.org>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Andrea G Forte <andreaf@cs.columbia.edu>, hasso@estpak.ee,
+	laforge@gnumonks.org, nhorman@redhat.com,
+	linux-net@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20041217112025.27688eb6.davem@davemloft.net>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Oliver Neukum wrote:
->>But the difference between you example (cp /dev/zero /dev/mem) and 
->>passing unchecked data to the kernel is... you _can_ check the data and 
-> 
-> 
-> This is the difference:
-> static int open_port(struct inode * inode, struct file * filp)
-> {
-> 	return capable(CAP_SYS_RAWIO) ? 0 : -EPERM;
-> }
-> (from mem.c)
-> 
+On Fri, 17 Dec 2004, David S. Miller wrote:
 
-OK, but my point was, whenever you can check the 'contents' of the data 
-passed to the kernel, do it. You can't check if the data someone writes 
-to /dev/mem is valid or not, but you can check for out-of-range/etc. 
-data in ioctl & friends.
+> By definition, a secondary IP address on an interface is not to be used 
+> as a source.
 
-tom
+But you can, but adding a route with such address as source or 
+applications excplicitly binding to this source address. And it is 
+highly useful to be able to use different source addresses in the same 
+subnet for different purposes.
+
+> It is the whole reason for the distinction between primary and secondary 
+> IP addresses, and it is why all secondaries are deleted once the primary 
+> is removed (because there are no valid source addresses to choose from 
+> any longer, therefore IP valid communications are no longer possible).
+
+Which is a false assumption in very many situations.
+
+Regards
+Henrik
