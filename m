@@ -1,43 +1,36 @@
-From: Abhijit Karmarkar <abhijitk@veritas.com>
-Subject: variation in thruput w/ change in mtu on gige
-Date: Mon, 26 Apr 2004 17:36:53 +0530 (IST)
+From: Parag Nemade <cranium2003@yahoo.com>
+Subject: HELP ipt_hook: happy cracking message
+Date: Mon, 26 Apr 2004 08:12:20 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.50.0404261700390.241-100000@revati>
+Message-ID: <20040426151220.85059.qmail@web41403.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org,
+        netfilter <netfilter-devel@lists.netfilter.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: kernerl mail <linux-kernel@vger.kernel.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+hi,
+        i modified kernel so that it will create
+/proc/net/myproc file entry.
+the function of this entry is to crate a 16 byte char
+string from random no.s
+i used net_srandom and net_random and sys_time for
+that puspose. the problem is that i write program to
+generate string after 120 seconds but it is changing
+contents of myproc file every seconds. what can i do?
+ Also i am getting ipt_hook: happy cracking. message
+again and again why?
+regards,
+parag.
 
-i have observed that using jumbo frames (mtu=9000) decreases the thruput
-(i am timing one-way ttcp). trying w/ different mtu's i see 4096 give
-me the best numbers:
 
-mtu             thruput
--------------------------------
-1500 (default)  ~846Mbps
-4096            ~930Mbps <== highest
-8192            ~806Mbps
-9000            ~806Mbps
-15K             ~680Mbps
-
-my setup is:
-- 2 nodes connected directly (cross-over cable)
-- each node: 2-way, 2.4G Xeon. 4G RAM., running RHEL3 (2.4.21-4.ELsmp)
-- intel gige (82543GC), e1000 ver. (5.1.11-k1)
-  i think the cards are: 64bit/66Mhz PCI.
-- ipv4.tcp_r/wmem and core.r/wmem_max set sufficiently high (512KB)
-- using ttcp to xfer ~8GB one-way.
-
-why doesn't my thruput increase with increase in MTU? is it because of
-small number of rx/txdescriptors on 82543GC (max=256?) or something
-else?
-
-are there any driver parameters that i can tune to get better numbers
-with larger MTUs?
-
-thanks,
-abhijit
+=09
+	=09
+__________________________________
+Do you Yahoo!?
+Yahoo! Photos: High-quality 4x6 digital prints for 25=A2
+http://photos.yahoo.com/ph/print_splash
