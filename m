@@ -1,16 +1,24 @@
-From: Alex <alex@towebs.com>
-Subject: Host AP driver for Intersil Prism2/2.5/3
-Date: Sat, 04 Sep 2004 19:20:06 +0000
+From: calle@calle.in-berlin.de
+Subject: Re: Server Error (majordomo@calle.in-berlin.de)
+Date: Sun, 5 Sep 2004 04:15:35 +0200 (CEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <413A1566.6050807@towebs.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Message-ID: <m1C3mZ5-001lQbb@calle.in-berlin.de>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, majordomo@oss.sgi.com
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This driver is not build-in in linux kernel.
+Hallo.
 
-http://www.inlab.csp.it/tools/wireless/hostqs/
+Die Mailingliste linux-avmb1@calle.in-berlin.de ist umgezogen,
+da sie durch Spams verseucht wurde.
+
+Siehe https://mlists.in-berlin.de/mailman/listinfo/linux-avmb1
+
+The mailing list linux-avmb1@calle.in-berlin.de was been moved,
+we got too many spams.
+
+Visit https://mlists.in-berlin.de/mailman/listinfo/linux-avmb1
+
+
+calle
