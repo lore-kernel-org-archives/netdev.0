@@ -1,75 +1,226 @@
-From: Bart De Schuymer <bdschuym@pandora.be>
-Subject: [PATCH][BRIDGE-NF] Fix wrong use of skb->protocol
-Date: Thu, 30 Dec 2004 19:55:14 +0100
-Message-ID: <1104432914.15601.19.camel@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+From: David Dillow <dave@thedillows.org>
+Subject: [RFC 2.6.10 3/22] xfrm: Add offload management routines
+Date: Thu, 30 Dec 2004 03:48:35 -0500
+Message-ID: <20041230035000.12@ori.thedillows.org>
+References: <20041230035000.11@ori.thedillows.org>
+Cc: linux-kernel@vger.kernel.org, dave@thedillows.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261574AbUL3Izh@vger.kernel.org>
+To: netdev@oss.sgi.com
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
-
-ip_sabotage_out() needs to distinguish IPv4 and IPv6 traffic. It
-currently does that by looking at skb->protocol. However, for locally
-originated packets, skb->protocol is not initialized.
-The patch below instead looks at the version number of the packet's
-data, which should be 4 or 6.
-
-Thanks to Pasha (Crazy AMD K7 <snort2004@mail.ru>) for his patience.
-
-Signed-off-by: Bart De Schuymer <bdschuym@telenet.be>
-
---- linux-2.6.10/net/bridge/br_netfilter.c.old	2004-12-30 15:34:11.000000000 +0100
-+++ linux-2.6.10/net/bridge/br_netfilter.c	2004-12-30 19:13:31.000000000 +0100
-@@ -845,19 +845,6 @@ static unsigned int ip_sabotage_out(unsi
- {
- 	struct sk_buff *skb = *pskb;
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2004/12/30 00:31:03-05:00 dave@thedillows.org 
+#   Add offload management to xfrm_state.
+#   
+#   xfrm_offload_alloc() creates a new xfrm_offload, with a private
+#   	part to be used by the driver (ala net_device->priv)
+#   	The returned offload may be kfree'd if it has not been
+#   	added to a xfrm_state using xfrm_state_offload_add().
+#   xfrm_offload_priv() returns a pointer to the private area of
+#   	the xfrm_offload. This will be 8-byte aligned.
+#   xfrm_offload_hold()/xfrm_offload_release() do the reference
+#   	counting of the xfrm_offload
+#   xfrm_offload_get() looks up the xfrm_offload from a given device
+#   	The caller should call xfrm_offload_release() when it is
+#   	finished with this offload.
+#   xfrm_state_offload_add() adds a new offload to the xfrm_state,
+#   	replacing any existing offload for the device that may
+#   	exist for this xfrm_state.
+#   
+#   Signed-off-by: David Dillow <dave@thedillows.org>
+# 
+# net/xfrm/xfrm_state.c
+#   2004/12/30 00:30:46-05:00 dave@thedillows.org +28 -0
+#   Clean up any offloads on destruction of an xfrm_state, and
+#   allow the addition of new xfrm_offloads to a xfrm_state.
+#   
+#   Signed-off-by: David Dillow <dave@thedillows.org>
+# 
+# net/xfrm/xfrm_export.c
+#   2004/12/30 00:30:46-05:00 dave@thedillows.org +2 -0
+#   Export xfrm_state_offload_add() to drivers.
+#   
+#   Signed-off-by: David Dillow <dave@thedillows.org>
+# 
+# include/net/xfrm.h
+#   2004/12/30 00:30:46-05:00 dave@thedillows.org +79 -0
+#   Add offload management to xfrm_state.
+#   
+#   Add xfrm_offload_alloc(), xfrm_offload_priv(), xfrm_offload_hold()
+#   xfrm_offload_release(), and xfrm_offload_get().
+#   
+#   Signed-off-by: David Dillow <dave@thedillows.org>
+# 
+diff -Nru a/include/net/xfrm.h b/include/net/xfrm.h
+--- a/include/net/xfrm.h	2004-12-30 01:11:43 -05:00
++++ b/include/net/xfrm.h	2004-12-30 01:11:43 -05:00
+@@ -81,6 +81,8 @@
+       metrics. Plus, it will be made via sk->sk_dst_cache. Solved.
+  */
  
--#ifdef CONFIG_SYSCTL
--	if (!skb->nf_bridge) {
--		struct vlan_ethhdr *hdr = vlan_eth_hdr(skb);
--
--		if (skb->protocol == __constant_htons(ETH_P_IP) ||
--		    IS_VLAN_IP) {
--			if (!brnf_call_iptables)
--				return NF_ACCEPT;
--		} else if (!brnf_call_ip6tables)
--			return NF_ACCEPT;
--	}
--#endif
--
- 	if ((out->hard_start_xmit == br_dev_xmit &&
- 	    okfn != br_nf_forward_finish &&
- 	    okfn != br_nf_local_out_finish &&
-@@ -869,8 +856,24 @@ static unsigned int ip_sabotage_out(unsi
- 	    ) {
- 		struct nf_bridge_info *nf_bridge;
- 
--		if (!skb->nf_bridge && !nf_bridge_alloc(skb))
--			return NF_DROP;
-+		if (!skb->nf_bridge) {
-+#ifdef CONFIG_SYSCTL
-+			/* This code is executed while in the IP(v6) stack,
-+			   the version should be 4 or 6. We can't use
-+			   skb->protocol because that isn't set on
-+			   PF_INET(6)/LOCAL_OUT. */
-+			struct iphdr *ip = skb->nh.iph;
++struct xfrm_offload;
 +
-+			if (ip->version == 4 && !brnf_call_iptables)
-+				return NF_ACCEPT;
-+			else if (ip->version == 6 && !brnf_call_ip6tables)
-+				return NF_ACCEPT;
-+#endif
-+			if (hook == NF_IP_POST_ROUTING)
-+				return NF_ACCEPT;
-+			if (!nf_bridge_alloc(skb))
-+				return NF_DROP;
+ /* Full description of state of transformer. */
+ struct xfrm_state
+ {
+@@ -149,6 +151,9 @@
+ 
+ 	/* Intended direction of this state, used for offloading */
+ 	int			dir;
++
++	/* List of offload cookies, per device */
++	struct list_head	offloads;
+ };
+ 
+ enum {
+@@ -166,6 +171,13 @@
+ 	XFRM_STATE_DIR_OUT,
+ };
+ 
++struct xfrm_offload
++{
++	struct list_head	bydev;
++	struct net_device *	dev;
++	atomic_t		refcnt;
++};
++
+ struct xfrm_type;
+ struct xfrm_dst;
+ struct xfrm_policy_afinfo {
+@@ -911,5 +923,72 @@
+ 				     (struct in6_addr *)b);
+ 	}
+ }
++
++#define XFRM_OFFLOAD_ALIGN		8
++#define XFRM_OFFLOAD_ALIGN_CONST	(XFRM_OFFLOAD_ALIGN - 1)
++
++static inline struct xfrm_offload *
++xfrm_offload_alloc(int sizeof_priv, struct net_device *dev)
++{
++	struct xfrm_offload *xol;
++	int alloc_size;
++	
++	alloc_size = (sizeof(*xol) + XFRM_OFFLOAD_ALIGN_CONST)
++				& ~XFRM_OFFLOAD_ALIGN_CONST;
++	alloc_size += sizeof_priv;
++	xol = kmalloc(alloc_size, GFP_ATOMIC);
++	if (xol) {
++		memset(xol, 0, alloc_size);
++		INIT_LIST_HEAD(&xol->bydev);
++		atomic_set(&xol->refcnt, 1);
++		xol->dev = dev;
++	}
++
++	return xol;
++}
++
++static inline void *xfrm_offload_priv(struct xfrm_offload *xol)
++{
++	return (char *)xol + ((sizeof(*xol) + XFRM_OFFLOAD_ALIGN_CONST)
++					& ~XFRM_OFFLOAD_ALIGN_CONST);
++}
++
++static inline void xfrm_offload_hold(struct xfrm_offload *xol)
++{
++	atomic_inc(&xol->refcnt);
++}
++
++static inline void xfrm_offload_release(struct xfrm_offload *xol)
++{
++	if (xol) {
++		WARN_ON(atomic_read(&xol->refcnt) < 1);
++		if (atomic_dec_and_test(&xol->refcnt)) {
++			xol->dev->xfrm_state_del(xol->dev, xol);
++			dev_put(xol->dev);
++			kfree(xol);
 +		}
++	}
++}
++
++static inline struct xfrm_offload *xfrm_offload_get(struct xfrm_state *x,
++                                               struct net_device *dev)
++{
++	struct xfrm_offload *xol, *ret = NULL;
++
++	spin_lock(&x->lock);
++	list_for_each_entry(xol, &x->offloads, bydev) {
++		if (xol->dev == dev) {
++			xfrm_offload_hold(xol);
++			ret = xol;
++			break;
++		}
++	}
++	spin_unlock(&x->lock);
++
++	return ret;
++}
++
++extern void xfrm_state_offload_add(struct xfrm_state *x,
++					struct xfrm_offload *xol);
  
- 		nf_bridge = skb->nf_bridge;
+ #endif	/* _NET_XFRM_H */
+diff -Nru a/net/xfrm/xfrm_export.c b/net/xfrm/xfrm_export.c
+--- a/net/xfrm/xfrm_export.c	2004-12-30 01:11:43 -05:00
++++ b/net/xfrm/xfrm_export.c	2004-12-30 01:11:43 -05:00
+@@ -61,3 +61,5 @@
+ EXPORT_SYMBOL_GPL(xfrm_ealg_get_byname);
+ EXPORT_SYMBOL_GPL(xfrm_calg_get_byname);
+ EXPORT_SYMBOL_GPL(skb_icv_walk);
++
++EXPORT_SYMBOL_GPL(xfrm_state_offload_add);
+diff -Nru a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+--- a/net/xfrm/xfrm_state.c	2004-12-30 01:11:43 -05:00
++++ b/net/xfrm/xfrm_state.c	2004-12-30 01:11:43 -05:00
+@@ -53,6 +53,12 @@
  
+ static void xfrm_state_gc_destroy(struct xfrm_state *x)
+ {
++	if (!list_empty(&x->offloads)) {
++		struct xfrm_offload *xol, *next;
++
++		list_for_each_entry_safe(xol, next, &x->offloads, bydev)
++			xfrm_offload_release(xol);
++	}
+ 	if (del_timer(&x->timer))
+ 		BUG();
+ 	if (x->aalg)
+@@ -178,6 +184,7 @@
+ 		atomic_set(&x->tunnel_users, 0);
+ 		INIT_LIST_HEAD(&x->bydst);
+ 		INIT_LIST_HEAD(&x->byspi);
++		INIT_LIST_HEAD(&x->offloads);
+ 		init_timer(&x->timer);
+ 		x->timer.function = xfrm_timer_handler;
+ 		x->timer.data	  = (unsigned long)x;
+@@ -941,6 +948,27 @@
+ 		xfrm_state_put(t);
+ 		x->tunnel = NULL;
+ 	}
++}
++
++void xfrm_state_offload_add(struct xfrm_state *x, struct xfrm_offload *xol)
++{
++	struct xfrm_offload *entry, *old = NULL;
++
++	spin_lock(&x->lock);
++	list_for_each_entry(entry, &x->offloads, bydev) {
++		if (entry->dev == xol->dev) {
++			list_del(&entry->bydev);
++			old = entry;
++			break;
++		}
++	}
++
++	dev_hold(xol->dev);
++	list_add_tail(&xol->bydev, &x->offloads);
++	spin_unlock(&x->lock);
++
++	if(old)
++		xfrm_offload_release(old);
+ }
+ 
+ void __init xfrm_state_init(void)
