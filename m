@@ -1,38 +1,37 @@
-From: Balint Marton <cus@fazekas.hu>
-Subject: RE: [PATCH] get_random_bytes returns the same on every boot
-Date: Mon, 26 Jul 2004 21:31:38 +0200 (CEST)
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: kernel bug at sched.c:564! + linux kernel 2.4.25
+Date: Mon, 26 Jul 2004 16:06:13 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0407262019080.28678@cinke.fazekas.hu>
-References: <C0170D0AF1277849A4B4518034F855DD0CFC2F@aiexchange.ai.aiinet.com>
+Message-ID: <20040726210613.GR5414@waste.org>
+References: <20040724223310.68910.qmail@web53004.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Eble, Dan" <DanE@aiinet.com>
-In-Reply-To: <C0170D0AF1277849A4B4518034F855DD0CFC2F@aiexchange.ai.aiinet.com>
+To: Niranjan <niranjan_cs2905@yahoo.com>
+Content-Disposition: inline
+In-Reply-To: <20040724223310.68910.qmail@web53004.mail.yahoo.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 26 Jul 2004, Eble, Dan wrote:
-> If many systems are booting at the same time, is seeding with the system
-> time really an appropriate solution?  Shouldn't some system-specific
-> value also contribute to the randomization?
+On Sat, Jul 24, 2004 at 03:33:10PM -0700, Niranjan wrote:
+> Hi,
+> I am working on Linux Kernel 2.4.25. I am trying to
+> add cryptoapi (cryptoapi-0.1.0) support to wireless
+> lan driver (linux-wlan-ng-0.2.1.pre14) of prism-based
+> cards. Cardctl version is 3.1.31.
+> When I am using "null" as a encryption cipher to check
+> the coding sequence, everything is working fine. But
+> when I change it to any other cipher for e.g.
+> "blowfish" or "rc5", it is giving kernel panic. I have
+> included Ksymoops extract from the kernel Ooops
+> reports below.
+> Can anyone please help me in what can be possible
+> error by looking at the log ? 
+> I will greatly appreciate any help in this matter.
 
-Yes, i agree, it would be nicer, if we could also use some 
-system-specific stuff for the seeding, but i don't know if there is 
-such data during the initialization of the random module. For example, 
-we may use the MAC address of a network device, but unless i am mistaken 
-the initialization of such network devices take place after the random 
-dirver init. 
+The cryptoapi currently decides to sleep at various points internally
+when digesting a block which is probably what you're seeing.
 
-By the way, i made a little test with 40 computers. They were totally 
-equvivalent by hardware, and all of them had a synchronized system 
-clock. I turned them on by Wake On LAN exactly at the same time. All of 
-them used the kernel level ip autoconfig, all of them got their right IP 
-address, and i didn't even find a line of DHCPNAK in the dhcpd logfile.
-
-Conclusion: Although using some system-specific data and the clock would 
-be nicer, the system time alone also does the right thing dependably.
-
-bye,
-Cus
+-- 
+Mathematics is the supreme nostalgia of our time.
