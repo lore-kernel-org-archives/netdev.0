@@ -1,68 +1,38 @@
-From: Valdis.Kletnieks@vt.edu
+From: David Woodhouse <dwmw2@infradead.org>
 Subject: Re: RFC: [2.6 patch] disallow modular IPv6
-Date: Mon, 29 Sep 2003 10:38:30 -0400
+Date: Mon, 29 Sep 2003 15:46:08 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200309291438.h8TEcVtH021550@turing-police.cc.vt.edu>
-References: <20030928225941.GW15338@fs.tum.de> <20030928231842.GE1039@conectiva.com.br> <20030928232403.GX15338@fs.tum.de> <20030928233909.GG1039@conectiva.com.br> <20030929001439.GY15338@fs.tum.de> <20030929003229.GM1039@conectiva.com.br> <1064826174.29569.13.camel@hades.cambridge.redhat.com>
-            <20030929141548.GS1039@conectiva.com.br>
+Message-ID: <1064846768.21551.15.camel@hades.cambridge.redhat.com>
+References: <20030928225941.GW15338@fs.tum.de>
+	 <20030928231842.GE1039@conectiva.com.br> <20030928232403.GX15338@fs.tum.de>
+	 <20030928233909.GG1039@conectiva.com.br> <20030929001439.GY15338@fs.tum.de>
+	 <20030929003229.GM1039@conectiva.com.br>
+	 <1064826174.29569.13.camel@hades.cambridge.redhat.com>
+	 <20030929141548.GS1039@conectiva.com.br>
+	 <200309291438.h8TEcVtH021550@turing-police.cc.vt.edu>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1830453198P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: David Woodhouse <dwmw2@infradead.org>, Adrian Bunk <bunk@fs.tum.de>,
-        netdev@oss.sgi.com, davem@redhat.com, pekkas@netcore.fi,
-        lksctp-developers@lists.sourceforge.net, linux-kernel@vger.kernel.org
+Cc: Arnaldo Carvalho de Melo <acme@conectiva.com.br>,
+        Adrian Bunk <bunk@fs.tum.de>, netdev@oss.sgi.com, davem@redhat.com,
+        pekkas@netcore.fi, lksctp-developers@lists.sourceforge.net,
+        linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-In-Reply-To: Your message of "Mon, 29 Sep 2003 11:15:48 -0300."
-             <20030929141548.GS1039@conectiva.com.br>
+To: Valdis.Kletnieks@vt.edu
+In-Reply-To: <200309291438.h8TEcVtH021550@turing-police.cc.vt.edu>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---==_Exmh_1830453198P
-Content-Type: text/plain; charset=us-ascii
-
-On Mon, 29 Sep 2003 11:15:48 -0300, Arnaldo Carvalho de Melo said:
-
-> Humm, so the user will have, in this case, these choices:
+On Mon, 2003-09-29 at 10:38 -0400, Valdis.Kletnieks@vt.edu wrote:
+> No, this is the behavior we want, and we can write Kconfig help entries that
+> explain it.
 > 
-> 1. "I don't want IPV6 at all, not now, not ever":
-> 	CONFIG_IPV6_SUPPORT=N
-> 	CONFIG_IPV6=N  (this is implicit as this depends on
-> 			CONFIG_IPV6_SUPPORT)
-> 	
-> 2. "I think I may well want it the future, who knows? but not now...":
-> 	CONFIG_IPV6_SUPPORT=Y
-> 	CONFIG_IPV6=N
-> 	
-> 3. "Nah, some of the users of this pre-compiled kernel will need it":
-> 	CONFIG_IPV6_SUPPORT=Y
-> 	CONFIG_IPV6=M
-> 	
-> 4. "Yeah, IPV6 is COOL, how can somebody not use this piece of art?":
-> 	CONFIG_IPV6_SUPPORT=Y
-> 	CONFIG_IPV6=Y
-> 
-> Isn't this confusing for the I-wanna-triple-my-kernel-performance-by-compiling-
-> the-kernel-for-exactly-what-I-have hordes of users?
+> Anybody want to do a sanity check against CONFIG_IP6_NF_IPTABLES - that
+> looks like another gotcha if it isn't implemented properly (it may be, I just haven't
+> actually looked it over)?
 
-No, this is the behavior we want, and we can write Kconfig help entries that
-explain it.
+In 2.7 we really should just stop the CONFIG_xxx_MODULE definitions
+being available during builds of the static kernel.
 
-Anybody want to do a sanity check against CONFIG_IP6_NF_IPTABLES - that
-looks like another gotcha if it isn't implemented properly (it may be, I just haven't
-actually looked it over)?
-
---==_Exmh_1830453198P
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.2 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
-
-iD8DBQE/eEPmcC3lWbTT17ARAs7tAKCZSYrY97dttuyIPMbTMOriFuOSiwCgocI6
-QeTeCGLBJLDUFiANiXNjAvU=
-=LbCU
------END PGP SIGNATURE-----
-
---==_Exmh_1830453198P--
+-- 
+dwmw2
