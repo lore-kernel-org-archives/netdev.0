@@ -1,120 +1,129 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: 1.03Mpps on e1000 (was: Re: [E1000-devel] Transmission limit)
-Date: Mon, 6 Dec 2004 20:10:42 +0100
-Message-ID: <16820.44722.748743.6711@robur.slu.se>
+From: Karsten Desler <kdesler@soohrt.org>
+Subject: _High_ CPU usage while routing (mostly) small UDP packets
+Date: Mon, 6 Dec 2004 21:53:05 +0100
+Message-ID: <20041206205305.GA11970@soohrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jamal <hadi@cyberus.ca>, Martin Josefsson <gandalf@wlug.westbo.se>,
-        Scott Feldman <sfeldma@pobox.com>,
-        Robert Olsson <Robert.Olsson@data.slu.se>, P@draigBrady.com,
-        mellia@prezzemolo.polito.it,
-        Jorge Manuel Finochietto <jorge.finochietto@polito.it>,
-        Giulio Galante <galante@polito.it>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=iso-8859-1
+Cc: linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi,
+
+I'm running a dual Opteron 244 router with two active e1000 interfaces,
+that mostly deals with small (<200b) udp packets.
+I'm using Linux 2.6.10-rc3 (32bit), but I tried 64bit with early 2.6.9-rc
+versions, and it didn't make much of a difference.
+
+The irq of eth0 is bound to cpu1 while eth1 is bound to cpu0.
+NAPI is enabled.
+Current packetload on eth0 (and reversed on eth1):
+  115kpps tx
+  135kpps rx
+
+There are about 200 iptables rules, but the common packet only has to
+traverse about 20.
+conntrack is not loaded.
+
+eth0 and eth1 are running on the same 66MHz/64bit PCI bus.
+
+Kernel-Profiling is running, I don't know how much that contributes to the
+overall load.
+
+I don't know if that has anything to do with it, but the systemclock is
+getting out of sync _fast_ (openntpd can't keep up).
+ntpdate -b ntp.soohrt.org; sleep 60; ntpdate ntp.soohrt.org:
+ 6 Dec 21:40:39 ntpdate[30146]: adjust time server 134.100.177.5 offset 0.000092 sec
+ 6 Dec 21:41:39 ntpdate[30218]: adjust time server 134.100.177.5 offset 0.006971 sec
 
 
-Lennert Buytenhek writes:
- > On Mon, Dec 06, 2004 at 08:11:02AM -0500, jamal wrote:
- > 
- > > Hopefully someone will beat me to testing to see if our forwarding
- > > capacity now goes up with this new recipe.
+Is that the expected cpu usage?
+I'd appreciate _any_ pointers, thanks in advance,
+ Karsten
 
+Current cpu usage:
+ Cpu0 :  0.0% us,  0.0% sy,  0.0% ni, 46.3% id,  0.0% wa,  0.0% hi, 53.7% si
+ Cpu1 :  0.0% us,  0.0% sy,  0.0% ni, 21.4% id,  0.0% wa,  0.0% hi, 78.6% si
 
-Yes a breakthrough as we now can send small packets at GIGE wire speed this
-will make development and testing much easier... A first router test with 
-our setup below. Opteron 1.6 GHz SMP kernel. using 1 CPU. 82546 EB + 
-82456 GB and PCI-X 100 Mhz & 133 MHz. 
+vmstat 5:
+procs -----------memory---------- ---swap-- -----io---- --system-- ----cpu----
+ r  b   swpd   free   buff  cache   si   so    bi    bo   in    cs us sy id wa
+ 0  0      0 1804612 100488 104464    0    0     0    32 5965   167  3 68 30  0
+ 0  1      0 1804548 100488 104464    0    0     0   157 5994    18  0 67 33  0
+ 1  1      0 1804684 100488 104464    0    0     0    63 5998    19  0 67 33  0
+ 0  1      0 1804684 100492 104460    0    0     0     4 5985    10  0 68 33  0
+ 0  1      0 1804620 100492 104460    0    0     0    12 6032    15  0 68 32  0
 
-pktgen performance is measured on router box. Remember Scotts patch uses 
-4096 TX buffers and w. pktgen we use clone_skb. So with real skb's we probably 
-see lower performance due to this. This may explain results below so routing
-performance doesn't follow pktgen performance as seen.
+lspci -vt:
+-[00]-+-06.0-[03]--+-00.0  Advanced Micro Devices [AMD] AMD-8111 USB
+      [...]
+      +-0a.1  Advanced Micro Devices [AMD] AMD-8131 PCI-X APIC
+      +-0b.0-[01]--+-01.0  Intel Corp. 82545EM Gigabit Ethernet Controller (Fiber) <- eth0
+      |            +-03.0  Intel Corp. 82546GB Gigabit Ethernet Controller <- eth1
+      |            \-03.1  Intel Corp. 82546GB Gigabit Ethernet Controller
 
-T-PUT is routing performance. Also pktgen pure TX performance is given
-this on the router.
+arp -n|grep -c incomplete:
+73
 
+arp -n|grep -vc incomplete:
+778
 
-Input rate for routing test is 2*765 kpps for all three runs. Input 
-Packets input to eth0 is routed to eth1 and eth2 to eth3.
+iptables -nL|grep -v Chain|grep -vc source:
+199
 
-
-Vanilla. T-PUT 657 kpps. pktgen TX perf 818 kpps
--------------------------------------------------
-Iface   MTU Met  RX-OK RX-ERR RX-DRP RX-OVR  TX-OK TX-ERR TX-DRP TX-OVR Flags
-eth0   1500   0 4312682 8253078 8253078 5687318      5      0      0      0 BRU
-eth1   1500   0      1      0      0      0 4312199      0      0      0 BRU
-eth2   1500   0 4311018 8386504 8386504 5688982      5      0      0      0 BRU
-eth3   1500   0      1      0      0      0 4310791      0      0      0 BRU
-
-           CPU0       
-  0:     116665    IO-APIC-edge  timer
-  1:        208    IO-APIC-edge  i8042
-  8:          0    IO-APIC-edge  rtc
-  9:          0   IO-APIC-level  acpi
- 14:      21943    IO-APIC-edge  ide0
- 26:         66   IO-APIC-level  eth0
- 27:      58638   IO-APIC-level  eth1
- 28:         68   IO-APIC-level  eth2
- 29:      58497   IO-APIC-level  eth3
-NMI:          0 
-LOC:     116605 
-ERR:          0
-MIS:          0
-
-e1000-TX-prefetch+scott tx patch. T-PUT 540 kpps. pktgen TX perf 1.48 Mpps
---------------------------------------------------------------------------
-
-Iface   MTU Met  RX-OK RX-ERR RX-DRP RX-OVR  TX-OK TX-ERR TX-DRP TX-OVR Flags
-eth0   1500   0 3533795 8618637 8618637 6466205      5      0      0      0 BRU
-eth1   1500   0      3      0      0      0 3533803      0      0      0 BRU
-eth2   1500   0 3535804 8697149 8697149 6464196      5      0      0      0 BRU
-eth3   1500   0      1      0      0      0 3535321      0      0      0 BRU
-
-           CPU0       
-  0:    1372774    IO-APIC-edge  timer
-  1:        663    IO-APIC-edge  i8042
-  8:          0    IO-APIC-edge  rtc
-  9:          0   IO-APIC-level  acpi
- 14:      22631    IO-APIC-edge  ide0
- 26:        686   IO-APIC-level  eth0
- 27:        693   IO-APIC-level  eth1
- 28:        687   IO-APIC-level  eth2
- 29:        682   IO-APIC-level  eth3
-NMI:          0 
-LOC:    1372804 
-ERR:          0
-MIS:          0
-
-
-e1000-TX-prefetch. T-PUT 657 kpps. pktgen TX perf 1.15 Mpps
------------------------------------------------------------
-Kernel Interface table
-Iface   MTU Met  RX-OK RX-ERR RX-DRP RX-OVR  TX-OK TX-ERR TX-DRP TX-OVR Flags
-eth0   1500   0 4311848 8288270 8288270 5688152      5      0      0      0 BRU
-eth1   1500   0      4      0      0      0 4311388      0      0      0 BRU
-eth2   1500   0 4309082 8400892 8400892 5690918      5      0      0      0 BRU
-eth3   1500   0      1      0      0      0 4308271      0      0      0 BRU
-lo    16436   0      0      0      0      0      0      0      0      0 LRU
-           CPU0       
-  0:     224310    IO-APIC-edge  timer
-  1:        250    IO-APIC-edge  i8042
-  8:          0    IO-APIC-edge  rtc
-  9:          0   IO-APIC-level  acpi
- 14:      22055    IO-APIC-edge  ide0
- 26:        122   IO-APIC-level  eth0
- 27:      58001   IO-APIC-level  eth1
- 28:        123   IO-APIC-level  eth2
- 29:      57681   IO-APIC-level  eth3
-NMI:          0 
-LOC:     224251 
-ERR:          0
-MIS:          0
-
-
-						--ro
+readprofile -r; sleep 60; readprofile|sort -n +2:
+    76 __do_softirq                               0.3654
+    73 dst_alloc                                  0.4148
+   489 ip_rcv                                     0.4187
+    96 fib_semantic_match                         0.4615
+    15 memset                                     0.4688
+     8 _write_lock                                0.5000
+    37 match                                      0.5781
+    72 handle_IRQ_event                           0.6429
+   138 fn_hash_lookup                             0.7188
+   401 qdisc_restart                              0.7371
+    13 _read_unlock                               0.8125
+    28 _spin_lock_bh                              0.8750
+    70 e1000_rx_checksum                          0.8750
+   536 ip_rcv_finish                              0.9306
+    33 kfree_skbmem                               1.0312
+   248 e1000_intr                                 1.0333
+    30 _read_lock                                 1.8750
+  1198 ip_forward                                 1.9199
+   910 ip_finish_output2                          1.9612
+   282 rt_hash_code                               2.2031
+   286 pfifo_fast_enqueue                         2.2344
+    36 _spin_unlock                               2.2500
+  1657 dev_queue_xmit                             2.3014
+   230 ip_output                                  2.3958
+   905 netif_receive_skb                          2.4592
+  2852 e1000_clean_rx_irq                         2.6213
+   697 nf_hook_slow                               2.7227
+   674 e1000_alloc_rx_buffers                     2.8083
+   228 ip_forward_finish                          2.8500
+   187 ipt_hook                                   3.8958
+   346 kmem_cache_free                            4.3250
+   357 pfifo_fast_dequeue                         4.4625
+   626 local_bh_enable                            4.8906
+   250 e1000_irq_enable                           5.2083
+   425 kmem_cache_alloc                           5.3125
+  3100 e1000_clean_tx_irq                         5.6985
+  1014 nf_iterate                                 5.7614
+   284 ipt_route_hook                             5.9167
+   701 kfree                                      6.2589
+  1063 __kmalloc                                  8.3047
+  1605 skb_release_data                          10.0312
+  2692 eth_type_trans                            11.2167
+  4013 __kfree_skb                               15.6758
+  4554 alloc_skb                                 18.9750
+ 20017 ipt_do_table                              24.0589
+ 10700 ip_route_input                            30.3977
+  1341 _spin_lock                                83.8125
+  1483 _read_unlock_bh                           92.6875
+  3345 _read_lock_bh                            104.5312
+  3185 _spin_unlock_irqrestore                  199.0625
+ 44402 default_idle                             693.7812
