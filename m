@@ -1,28 +1,47 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 0/3] NET: Generic network statistics/estimator
-Date: 03 Oct 2004 18:34:25 -0400
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH 2/3] NET: Generic rate estimator
+Date: Sun, 3 Oct 2004 16:14:36 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1096842865.1046.363.camel@jzny.localdomain>
+Message-ID: <20041003161436.50293f9a.davem@davemloft.net>
 References: <20041003213124.GG14344@postel.suug.ch>
-	 <20041003214700.GK14344@postel.suug.ch>
-	 <20041003152323.6de24673.davem@davemloft.net>
-Reply-To: hadi@cyberus.ca
+	<20041003213954.GI14344@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20041003152323.6de24673.davem@davemloft.net>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20041003213954.GI14344@postel.suug.ch>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2004-10-03 at 18:23, David S. Miller wrote:
+On Sun, 3 Oct 2004 23:39:54 +0200
+Thomas Graf <tgraf@suug.ch> wrote:
 
-> Jamal give me a quick public ACK on this work by Thomas then :-)
+> Introduces a generic rate estimator based on timers. Patch is based on
+> Jamal's patch and adapted to the new generic network statistics API.
 
-Done well. We may end up finding issues in the future - cant see any at
-the moment.
+First, how does this new thing ever get built into the tree?
 
-cheers,
-jamal
+Second:
+
+> +#if (HZ%4) != 0
+> +#error Bad HZ value.
+> +#endif
+
+This is going to fail to compile on a few platforms, namely m68knommu
+and v850 which have configurations that result in using a HZ value
+of 50 and 122 respectively.
+
+Otherwise I mostly like all of the new generic stats stuff, although
+I do have one question:
+
++int
++gnet_stats_start_copy_compat(struct sk_buff *skb, int type, int tc_stats_type,
++	int xstats_type, spinlock_t *lock, struct gnet_dump *d)
++{
+ ...
++	return gnet_stats_copy(d, type, NULL, 0);
+
+What is this dummy zero-sized RTA_PUT() being done for
+(via the gnet_stats_copy() call with size==0 arg)?
