@@ -1,26 +1,31 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] merge udp_opt with udp_sock
-Date: Fri, 14 Jan 2005 13:45:55 -0800
-Message-ID: <20050114134555.3c9624bc.davem@davemloft.net>
-References: <41E37765.4030105@conectiva.com.br>
+Subject: Re: [PATCH] remove superfluous diverter printk'ing
+Date: Fri, 14 Jan 2005 13:46:42 -0800
+Message-ID: <20050114134642.4be4e2fc.davem@davemloft.net>
+References: <20050114124700.GA4079@xi.wantstofly.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: benwa@club-internet.fr, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-In-Reply-To: <41E37765.4030105@conectiva.com.br>
+To: Lennert Buytenhek <buytenh@wantstofly.org>
+In-Reply-To: <20050114124700.GA4079@xi.wantstofly.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 11 Jan 2005 04:51:17 -0200
-Arnaldo Carvalho de Melo <acme@conectiva.com.br> wrote:
+On Fri, 14 Jan 2005 13:47:00 +0100
+Lennert Buytenhek <buytenh@wantstofly.org> wrote:
 
-> 	Please consider pulling from:
+> You're not listed as diverter maintainer but I'm sending this via
+> you anyway.  This patch removes some printk'ing from the diverter
+> driver (and cleans up the code a bit), because after a while it gets
+> really annoying to have log messages like this one for every single
+> tunnel you create or tear down.
 > 
-> bk://kernel.bkbits.net/acme/connection_sock-2.6
+> 	divert: not allocating divert_blk for non-ethernet device tunl0
+> 
+> Please consider sending upstream.
 
-Looks good, pulled.
-
-Thanks Arnaldo.
+Those diverter messages drive me crazy too, I think I'll
+add your patch Lennert.
