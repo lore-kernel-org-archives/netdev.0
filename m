@@ -1,108 +1,91 @@
-From: Mike McCormack <mike@codeweavers.com>
-Subject: Patch to count the number of datagrams in a unix domain socket
-Date: Mon, 04 Apr 2005 19:51:29 +0900
-Message-ID: <42511C31.3090801@codeweavers.com>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Fw: [Bugme-new] [Bug 4441] New: unregister_netdevice Prompt and
+ system shell lookup when trying to shutdown vlan
+Date: Mon, 4 Apr 2005 04:18:22 -0700
+Message-ID: <20050404041822.2ea0c16a.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040700050107080907080805"
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: dcmwai@pl.jaring.my
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------040700050107080907080805
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
 
 
-Hi,
+Begin forwarded message:
 
-I trying to implement mailslot support in Wine, and have come across a 
-small problem that isn't easy to solve.  My implementation [1] uses a 
-unix domain socket in dgram mode.
-
-The Win32 function GetMailslotInfo [2] allows a program to fetch the 
-number of messages waiting in the mailslot.  In my implementation, that 
-is the number of datagrams waiting in the socket.
-
-In Linux 2.6.11 there is no way to count the the number of datagrams in 
-a socket without reading them all out, one by one.   I have attached a 
-small patch that lets me read the number of datagrams in a socket, and 
-makes GetMailslotInfo work in my test case [3].
-
-Questions:
-
-Do people thing this is something useful to add to the kernel?
-
-What's the right way to assign a value for SIOCINCOUNT, and in which 
-header?  Is SIOCDGRAMCOUNT or something else a better name?
-
-Should the return value of SIOCINCOUNT for a non-dgram socket be different?
-
-If I add this ioctl() for unix domain sockets, should other sockets be 
-made to work the same way?
-
-thanks,
-
-Mike
+Date: Mon, 4 Apr 2005 04:15:25 -0700
+From: bugme-daemon@osdl.org
+To: bugme-new@lists.osdl.org
+Subject: [Bugme-new] [Bug 4441] New: unregister_netdevice Prompt and syst=
+em shell lookup when trying to shutdown vlan
 
 
+http://bugme.osdl.org/show_bug.cgi?id=3D4441
 
-[1] http://cvs.winehq.org/cvsweb/wine/server/mailslot.c
-[2] 
-http://msdn.microsoft.com/library/default.asp?url=/library/en-us/ipc/base/getmailslotinfo.asp
-[3] http://cvs.winehq.org/cvsweb/wine/dlls/kernel/tests/mailslot.c
+           Summary: unregister_netdevice Prompt and system shell lookup w=
+hen
+                    trying to shutdown vlan
+    Kernel Version: 2.6.11-gentoo-r4 i686
+            Status: NEW
+          Severity: high
+             Owner: acme@conectiva.com.br
+         Submitter: dcmwai@pl.jaring.my
 
---------------040700050107080907080805
-Content-Type: text/x-patch;
- name="siocincount.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="siocincount.diff"
 
---- linux-2.6.11-orig/net/unix/af_unix.c	2005-03-02 16:38:12.000000000 +0900
-+++ linux-2.6.11/net/unix/af_unix.c	2005-04-03 16:36:52.000000000 +0900
-@@ -1838,6 +1838,7 @@
- static int unix_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
- {
- 	struct sock *sk = sock->sk;
-+	struct sk_buff *skb;
- 	long amount=0;
- 	int err;
- 
-@@ -1848,8 +1849,6 @@
- 			err = put_user(amount, (int __user *)arg);
- 			break;
- 		case SIOCINQ:
--		{
--			struct sk_buff *skb;
- 
- 			if (sk->sk_state == TCP_LISTEN) {
- 				err = -EINVAL;
-@@ -1869,8 +1868,21 @@
- 			spin_unlock(&sk->sk_receive_queue.lock);
- 			err = put_user(amount, (int __user *)arg);
- 			break;
--		}
- 
-+#define SIOCINCOUNT 0x8907
-+		case SIOCINCOUNT:
-+			/* count the number of packets waiting */
-+			if (sk->sk_state == TCP_LISTEN) {
-+				err = -EINVAL;
-+				break;
-+			}
-+
-+			spin_lock(&sk->sk_receive_queue.lock);
-+			skb_queue_walk(&sk->sk_receive_queue, skb)
-+				amount++;
-+			spin_unlock(&sk->sk_receive_queue.lock);
-+			err = put_user(amount, (int __user *)arg);
-+			break;
- 		default:
- 			err = dev_ioctl(cmd, (void __user *)arg);
- 			break;
+Distribution:=20
+Gentoo, FC2, FC3=20
 
---------------040700050107080907080805--
+Hardware Environment:
+Pentium 4 3.0E,
+Intel SE7210TP1-E Server Entry Board
+512 MB DDR Ram
+2x Intel=AE PRO/1000 Dual Port Adapters
+
+Software Environment:
+Portage 2.0.51.19 (default-linux/x86/2005.0, gcc-3.3.5, glibc-2.3.4.20041=
+102-r1)
+Fc2 and Fc2 original kernel.
+
+Problem Description:
+When Shutdown a Vlan using this command
+vconfig rem eth4.1001
+The interface will be down (using ifconfig)
+However the following error will be prompt on the screen and the log leav=
+ing the
+shell to be not responding.
+
+Even if "ifconfig eth4.1001 down" is run before "vconfig rem" sill the pr=
+oblem
+will be there.
+The only way I tested on solve this problem is to shutdown the interface =
+totally.
+ifconfig eth4 down
+
+Then the vlan can be removed correctly.
+
+This problem don't happen on the following "special Condition"
+1) On another motherboard (Gigabyte GA-81PE1000-G) same NIC on Fc3
+1) On eth0=20
+
+
+Steps to reproduce:
+1. get a vlan supported NIC, emerge vconfig
+2. ifconfig ethx 0.0.0.0
+3. create a vlan using "vconfig add ethx nnnn"
+4. ifconfig ethx.nnnn aaa.bbb.ccc.ddd
+5. remove the vlan using "vconfig rem ethx.nnnn"
+6. Wait for the error like the below.
+* Motherboard and NIC seem to be a Problem in my case.
+
+unregister_netdevice: waiting for ethx.nnnn to become free. Usage count =3D=
+ 6
+
+I've also open a bug in Gentoo
+http://bugs.gentoo.org/show_bug.cgi?id=3D87495
+
+------- You are receiving this mail because: -------
+You are on the CC list for the bug, or are watching someone who is.
