@@ -1,78 +1,40 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: [RFT] Re: Fw: Nasty Oops in 2.6.0-test6 bind/SO_REUSEADDR
-Date: Fri, 10 Oct 2003 00:22:44 -0300
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [RFT] Re: Fw: Nasty Oops in 2.6.0-test6 bind/SO_REUSEADDR
+Date: Thu, 9 Oct 2003 21:14:37 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031010032244.GB8365@conectiva.com.br>
-References: <20031008133345.49f71991.davem@redhat.com> <20031010023644.GA8365@conectiva.com.br>
+Message-ID: <20031009211437.2cf87a4f.davem@redhat.com>
+References: <20031008133345.49f71991.davem@redhat.com>
+	<20031010023644.GA8365@conectiva.com.br>
+	<20031010032244.GB8365@conectiva.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, Dan Merillat <dmerillat@sequiam.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, dmerillat@sequiam.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20031010023644.GA8365@conectiva.com.br>
+To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+In-Reply-To: <20031010032244.GB8365@conectiva.com.br>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Em Thu, Oct 09, 2003 at 11:36:44PM -0300, Arnaldo C. Melo escreveu:
-> Em Wed, Oct 08, 2003 at 01:33:45PM -0700, David S. Miller escreveu:
-> > Arnaldo, I think this is another piece of fallout
-> > from the struct sock splitup you did ages ago.
-> > 
-> > I think it's dereferencing inet_sk(sk) for a time-wait
-> > socket, so we probably need a TCP_TIME_WAIT test plus
-> > some additional logic here?  Better check tcp_ipv6.c too.
-> 
-> Dan, could you please try with this patch?
 
-Better, try with this one, it has an extra check that can catch other places
-where we have a struct tcp_tw_bucket being used as a struct sock...
+Even if they make the OOPS go away, all of these patches are
+not correct.
 
-Tested here on a dual p100, no problems so far, i.e. using the kernel with the
-patch below, not doing the apache tests.
+You have to consider the timewait sockets just like established
+sockets in the bind conflict test.
 
-- Arnaldo
+Therefore in the most inner part of this chain of if's you need
+to have something like:
 
-===== include/linux/ip.h 1.10 vs edited =====
---- 1.10/include/linux/ip.h	Fri May 16 18:02:36 2003
-+++ edited/include/linux/ip.h	Thu Oct  9 23:36:06 2003
-@@ -157,7 +157,13 @@
- 	struct inet_opt   inet;
- };
- 
-+#if 0
- #define inet_sk(__sk) (&((struct inet_sock *)__sk)->inet)
-+#else
-+#include <linux/tcp.h>
-+#define inet_sk(__sk) ({ WARN_ON(__sk->sk_state == TCP_TIME_WAIT); \
-+			 (&((struct inet_sock *)__sk)->inet); })
-+#endif
- 
- #endif
- 
-===== net/ipv4/tcp_ipv4.c 1.69 vs edited =====
---- 1.69/net/ipv4/tcp_ipv4.c	Wed Oct  8 12:27:40 2003
-+++ edited/net/ipv4/tcp_ipv4.c	Thu Oct  9 23:23:38 2003
-@@ -186,7 +186,8 @@
- 	int reuse = sk->sk_reuse;
- 
- 	sk_for_each_bound(sk2, node, &tb->owners) {
--		if (sk != sk2 &&
-+		if (likely(sk->sk_state != TCP_TIME_WAIT) &&
-+		    sk != sk2 &&
- 		    !ipv6_only_sock(sk2) &&
- 		    (!sk->sk_bound_dev_if ||
- 		     !sk2->sk_bound_dev_if ||
-===== net/ipv6/tcp_ipv6.c 1.74 vs edited =====
---- 1.74/net/ipv6/tcp_ipv6.c	Wed Oct  8 12:27:40 2003
-+++ edited/net/ipv6/tcp_ipv6.c	Thu Oct  9 23:23:45 2003
-@@ -101,7 +101,8 @@
- 
- 	/* We must walk the whole port owner list in this case. -DaveM */
- 	sk_for_each_bound(sk2, node, &tb->owners) {
--		if (sk != sk2 &&
-+		if (likely(sk->sk_state != TCP_TIME_WAIT) &&
-+		    sk != sk2 &&
- 		    (!sk->sk_bound_dev_if ||
- 		     !sk2->sk_bound_dev_if ||
- 		     sk->sk_bound_dev_if == sk2->sk_bound_dev_if) &&
+	u32 rcv_saddr;
+
+	if (sk->sk_state == TCP_TIME_WAIT) {
+		struct tcp_tw_bucket *tw = tcptw_sk(sk2);
+		rcv_saddr = tw->tw_rcv_saddr;
+	} else {
+		struct inet_sock *inet = inet_sk(sk2);
+		rcv_saddr = inet->rcv_saddr;
+	}
+	if (!rcv_saddr || !sk->rcv_saddr ||
+	    sk->rcv_saddr == rcv_saddr)
+		... blah blah blah ...
