@@ -1,92 +1,63 @@
-From: Antti Tuominen <ajtuomin@morphine.tml.hut.fi>
+From: Henrik Petander <lpetande@morphine.tml.hut.fi>
 Subject: Re: [PATCHSET] Mobile IPv6 for 2.5.43
-Date: Thu, 31 Oct 2002 12:41:46 +0200
+Date: Thu, 31 Oct 2002 12:44:00 +0200 (EET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021031104146.GA18786@morphine.tml.hut.fi>
-References: <20021017162624.GC16370@morphine.tml.hut.fi> <20021031.174442.846937513.takamiya@po.ntts.co.jp>
+Message-ID: <Pine.GSO.4.44.0210311232310.18909-100000@morphine.tml.hut.fi>
+References: <20021031.174442.846937513.takamiya@po.ntts.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@redhat.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
-   linux-kernel@vger.kernel.org, yoshfuji@wide.ad.jp, pekkas@netcore.fi,
-   torvalds@transmeta.com, jagana@us.ibm.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: ajtuomin@morphine.tml.hut.fi, <davem@redhat.com>, <kuznet@ms2.inr.ac.ru>,
+   <netdev@oss.sgi.com>, <linux-kernel@vger.kernel.org>, <yoshfuji@wide.ad.jp>,
+   <pekkas@netcore.fi>, <torvalds@transmeta.com>, <jagana@us.ibm.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Noriaki Takamiya <takamiya@po.ntts.co.jp>
-Content-Disposition: inline
 In-Reply-To: <20021031.174442.846937513.takamiya@po.ntts.co.jp>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 31, 2002 at 05:44:42PM +0900, Noriaki Takamiya wrote:
+Hi Noriaki,
+
+On Thu, 31 Oct 2002, Noriaki Takamiya wrote:
+
 > Hi,
+>
+>   This is Takamiya, a member of USAGI Project.
+>   Your work is very cool.
+Thanks.
 
-Hello Takamiya,
-
+>
 >   Please note that we're preparing for checking to what extent this
->   patch is compliant to the Internet draft of MIPv6.  
+>   patch is compliant to the Internet draft of MIPv6.
 
-May I ask with what?  We ran all the TAHI tests last month at ETSI
-IPv6 Plugtest, and know pretty much were we stand.  And with all due
-respect to TAHI, who checks that the test suites conform to the spec?
+We are interested in seeing the results, especially if the tests are based
+on the draft19, which ought to be published soon based on the discussions
+in the mobile-ip mailing list.
 
-> (1) About MIPV6CALLFUNC and MIPV6CALLPROC
-> 	It is reasonable to use these macros for modularized
-> 	functions. But the current your implementation needs to select
-> 	HA or MN when compiling the kernel. So, it doesn't seems to be
-> 	needed this macros, and the real function may be called
-> 	directly. How about this?
+>
+> (2) Avoiding Netfilter Hooks
+> 	In your imprementation HA uses netfilter to intercept packets
+> 	sent to MN. We think it is costy so we have a suggestion to
+> 	use FIB structure to forward packets to MN. Bacause we think
+> 	forwarding packets from HA to MN is FORWARDING, not FILTERING.
+> 	We think the kernel maintainers may prefer such a manner using
+> 	FIB structure for forwarding.
 
-If MIPv6 is compiled as module, and is not loaded, those macros
-protect against calling non-existant code.  HA and MN do not need to
-be compiled statically, if that is what you are implying.  You must
-first select CN support, which decides module or static.
+We are using standard routing in HA to route packets intercepted by HA to
+MN through a tunnel device.  However, HA needs to also act as a neighbor
+discovery proxy for MN and not tunnel any ND packets destined to MN, but
+reply to them on the bahalf of MN. We use the netfilter hook to check for
+ND packets with global addresses that would be otherwise tunneled and feed
+them directly to the local processing code.
 
-> 	Rather, how about using sysctl and so on to switch the
-> 	functionality?
+Thanks,
 
-No.  Users want to be able to have only one of the capabilities loaded
-at one time (i.e. CN, CN+MN or CN+HA).  When you compile e.g. CN,
-there is no HA or MN support compiled in, so the sysctl makes no sense.
+Henrik Petander
 
-> (4) Processing Mobility Header
-> 	How about using ip6_txoptions and hdrproc_lst?
-> 	Because Mobility header is an extension header, we think it is
-> 	reasonable way to handle it in ipv6_parse_exthdrs().
-
-No.  We did this back in Draft 15, when all the mobility stuff was
-destination options.  Mobility Header is not an extension header, but
-rather a final protocol.  Only Home Address Option is an extension
-header and is handled in ipv6/exthdrs.c.  What is the problem with
-this?
-
-> (5) How about using CryptoAPI?
-> 	CryptoAPI is merged to mainline.
-> 	We believe we can use the CryptoAPI for caluculating cookies 
-> 	of RR.  How do you think about this?
-
-Yes, this will be done.  But that was merged yesterday, and we are
-only humans :)
-
-> (6) Order of HAO and Routing header
-> 	When MN acts also as CN, the order doesn't seems to be
-> 	compliant to ID-18 in the implementation. The order will be
-> 	the following:
-> 
-> 	[IPv6][HAO][RT2]
-> 
-> 	I-D says:
-> 
-> 	[IPv6][RT2][HAO]
-
-Right.  We haven't changed the IPv6 code to support the third
-destination option header placement (after RH, before frag/AH/ESP),
-and since it introduces no compatibility problems with any other
-implementation we've tested with, it has not been a priority.
-
-Regards,
-
-Antti
-
--- 
-Antti J. Tuominen, Gyldenintie 8A 11, 00200 Helsinki, Finland.
-Research assistant, Institute of Digital Communications at HUT
-work: ajtuomin@tml.hut.fi; home: tuominen@iki.fi
+		----------------------------------
+		Henrik Petander
+		Helsinki University of Technology,
+		GO/Core Project
+		Henrik.Petander@hut.fi
+		Office: +358 (0)9 451 5846
+		GSM: +358 (0)40 741 5248
+		----------------------------------
