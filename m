@@ -1,8 +1,7 @@
 From: Malli Chilakala <mallikarjuna.chilakala@intel.com>
-Subject: [PATCH net-drivers-2.4 3/10] e1000: Avoid race between e1000_watchdog
- and e1000_clean_tx_irq
-Date: Tue, 15 Feb 2005 13:33:22 -0800 (PST)
-Message-ID: <Pine.LNX.4.44.0502151144000.30336-100000@isotope.jf.intel.com>
+Subject: [PATCH net-drivers-2.4 4/10] e1000: Delay clean-up of last Tx buffer
+Date: Tue, 15 Feb 2005 13:34:06 -0800 (PST)
+Message-ID: <Pine.LNX.4.44.0502151145070.30336-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev <netdev@oss.sgi.com>
@@ -11,62 +10,78 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-3 Avoid race condition between e1000_watchdog and e1000_clean_tx_irq
+4 Delay clean-up of last Tx buffer to fix pre-mature writeback of Tx descriptors.
 Signed-off-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
 Signed-off-by: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
 Signed-off-by: John Ronciak <john.ronciak@intel.com>
 diff -up net-drivers-2.4/drivers/net/e1000/e1000.h net-drivers-2.4/drivers/net/e1000.new/e1000.h
 --- net-drivers-2.4/drivers/net/e1000/e1000.h	2005-02-01 23:21:49.120102160 -0800
 +++ net-drivers-2.4/drivers/net/e1000.new/e1000.h	2005-02-01 23:21:50.386909576 -0800
-@@ -224,6 +224,7 @@ struct e1000_adapter {
- 	uint32_t tx_fifo_size;
- 	atomic_t tx_fifo_stall;
- 	boolean_t pcix_82544;
-+	boolean_t detect_tx_hung;
+@@ -211,6 +211,7 @@ struct e1000_adapter {
  
- 	/* RX */
- 	struct e1000_desc_ring rx_ring;
+ 	/* TX */
+ 	struct e1000_desc_ring tx_ring;
++	struct e1000_buffer previous_buffer_info;
+ 	spinlock_t tx_lock;
+ 	uint32_t txd_cmd;
+ 	uint32_t tx_int_delay;
 diff -up net-drivers-2.4/drivers/net/e1000/e1000_main.c net-drivers-2.4/drivers/net/e1000.new/e1000_main.c
 --- net-drivers-2.4/drivers/net/e1000/e1000_main.c	2005-02-01 23:21:49.122101856 -0800
 +++ net-drivers-2.4/drivers/net/e1000.new/e1000_main.c	2005-02-01 23:21:50.517889664 -0800
-@@ -1422,7 +1422,6 @@ e1000_watchdog(unsigned long data)
- 	struct e1000_adapter *adapter = (struct e1000_adapter *) data;
- 	struct net_device *netdev = adapter->netdev;
- 	struct e1000_desc_ring *txdr = &adapter->tx_ring;
--	unsigned int i;
- 	uint32_t link;
+@@ -1093,6 +1093,7 @@ e1000_unmap_and_free_tx_resource(struct 
+ 			struct e1000_buffer *buffer_info)
+ {
+ 	struct pci_dev *pdev = adapter->pdev;
++
+ 	if(buffer_info->dma) {
+ 		pci_unmap_page(pdev,
+ 			       buffer_info->dma,
+@@ -1121,6 +1122,11 @@ e1000_clean_tx_ring(struct e1000_adapter
  
- 	e1000_check_for_link(&adapter->hw);
-@@ -1502,12 +1501,8 @@ e1000_watchdog(unsigned long data)
- 	/* Cause software interrupt to ensure rx ring is cleaned */
- 	E1000_WRITE_REG(&adapter->hw, ICS, E1000_ICS_RXDMT0);
+ 	/* Free all the Tx ring sk_buffs */
  
--	/* Early detection of hung controller */
--	i = txdr->next_to_clean;
--	if(txdr->buffer_info[i].dma &&
--	   time_after(jiffies, txdr->buffer_info[i].time_stamp + HZ) &&
--	   !(E1000_READ_REG(&adapter->hw, STATUS) & E1000_STATUS_TXOFF))
--		netif_stop_queue(netdev);
-+	/* Force detection of hung controller every watchdog period*/
-+	adapter->detect_tx_hung = TRUE;
- 
- 	/* Reset the timer */
- 	mod_timer(&adapter->watchdog_timer, jiffies + 2 * HZ);
-@@ -2226,6 +2221,16 @@ e1000_clean_tx_irq(struct e1000_adapter 
- 		netif_wake_queue(netdev);
- 
- 	spin_unlock(&adapter->tx_lock);
-+ 
-+	if(adapter->detect_tx_hung) {
-+		/* detect a transmit hang in hardware, this serializes the
-+		 * check with the clearing of time_stamp and movement of i */
-+		adapter->detect_tx_hung = FALSE;
-+		if(tx_ring->buffer_info[i].dma &&
-+		   time_after(jiffies, tx_ring->buffer_info[i].time_stamp + HZ) &&
-+		   !(E1000_READ_REG(&adapter->hw, STATUS) & E1000_STATUS_TXOFF))
-+			netif_stop_queue(netdev);
++	if (likely(adapter->previous_buffer_info.skb != NULL)) {
++		e1000_unmap_and_free_tx_resource(adapter, 
++				&adapter->previous_buffer_info);
 +	}
++
+ 	for(i = 0; i < tx_ring->count; i++) {
+ 		buffer_info = &tx_ring->buffer_info[i];
+ 		e1000_unmap_and_free_tx_resource(adapter, buffer_info);
+@@ -2195,11 +2201,34 @@ e1000_clean_tx_irq(struct e1000_adapter 
+ 	eop_desc = E1000_TX_DESC(*tx_ring, eop);
  
- 	return cleaned;
- }
+ 	while(eop_desc->upper.data & cpu_to_le32(E1000_TXD_STAT_DD)) {
++		/* pre-mature writeback of Tx descriptors     */
++		/* clear (free buffers and unmap pci_mapping) */
++		/* previous_buffer_info                       */
++		if (likely(adapter->previous_buffer_info.skb != NULL)) {
++			e1000_unmap_and_free_tx_resource(adapter, 
++					&adapter->previous_buffer_info);
++		}
++
+ 		for(cleaned = FALSE; !cleaned; ) {
+ 			tx_desc = E1000_TX_DESC(*tx_ring, i);
+ 			buffer_info = &tx_ring->buffer_info[i];
++			cleaned = (i == eop);
++
++			/* pre-mature writeback of Tx descriptors */
++			/* save the cleaning of the this for the  */
++			/* next iteration                         */
++			if (cleaned) {
++				memcpy(&adapter->previous_buffer_info,
++					buffer_info,
++					sizeof(struct e1000_buffer));
++				memset(buffer_info,
++					0,
++					sizeof(struct e1000_buffer));
++			} else {
++				e1000_unmap_and_free_tx_resource(adapter, 
++							buffer_info);
++			}
+ 
+-			e1000_unmap_and_free_tx_resource(adapter, buffer_info);
+ 			tx_desc->buffer_addr = 0;
+ 			tx_desc->lower.data = 0;
+ 			tx_desc->upper.data = 0;
 	
