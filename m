@@ -1,86 +1,28 @@
-From: mcgrof@ruslug.rutgers.edu (Luis R. Rodriguez)
-Subject: Re: GUPD (Grand Unified Prism54 Driver) Open
-	discussion
-Date: Wed, 16 Jun 2004 14:30:58 -0400
-Sender: prism54-devel-bounces@prism54.org
-Message-ID: <20040616183058.GR6253@ruslug.rutgers.edu>
-References: <5.1.0.14.2.20040615143603.02a40b48@pop.t-online.de>
-	<20040616001111.GK6253@ruslug.rutgers.edu>
-	<200406160937.50943.vda@port.imtp.ilyichevsk.odessa.ua>
+From: Shirly Tingo <netdev@BLACKONBLACKCRIME.COM>
+Subject: SEXUALLY-EXPLICIT Another girls finger in me will do just fine over a guys rod
+Date: Wed, 16 Jun 2004 11:49:17 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <005001c4529f$359484e0$0302a8c0__11899.1979085424$1087411834@tuffguyz>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1687124984=="
-Cc: Netdev <netdev@oss.sgi.com>, prism54-devel@prism54.org,
-	Margit Schubert-While <margitsw@t-online.de>
-Return-path: <prism54-devel-bounces@prism54.org>
-To: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
-In-Reply-To: <200406160937.50943.vda@port.imtp.ilyichevsk.odessa.ua>
-List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
-List-Archive: <http://prism54.org/pipermail/prism54-devel>
-List-Post: <mailto:prism54-devel@prism54.org>
-List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
-List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
-Mime-version: 1.0
-Errors-To: prism54-devel-bounces@prism54.org
+Content-Type: text/html; charset="iso-8859-1"
+Return-path: <netdev-bounce@oss.sgi.com>
+To: <netdev@oss.sgi.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+>pgvfgxBquu0uik0eqo <font color="#ffffff"> A seaacucrity offeeicer at the foreiffcgn minissstry in Baghcdaffd walks past tvvhe bulleet ricddaled car of depructy fsoreign miniecster Basscam vSalih Kubba in whicah he was asscasesinated Satfurdday</font>
+<html>
+<body><center>
+<a href="http://64.201.108.203/0611040_nd_wlt/index.html"><img src="http://64.201.108.203/0611040_nd_wlt/top.jpg" border="0"></a>
+<br><br><br><br><br>
+<a href="http://64.201.108.203/removals/mea/index.html"><img src="http://64.201.108.203/0611040_nd_wlt/remoo2.gif" border="0"></a>
+<br><br>pgvfgxBquu0uik0eqopgvfgxBquu0uik0eqo<br>
+The attdack was the seacond assasseination of a senivor Iraeqi figure in the past monthz. The headd of the now-deisbanded Ifraqi Goverdning Cozuncil, Izzadinre Salceem, was killed in a fsuicide car-bombieng May 17 at an entvrance to the heavaily guaerded Grecen Zone headqeuarters of the U.S.-run occufpation authority.
 
---===============1687124984==
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="ZOudaV4lSIjFTlHv"
-Content-Disposition: inline
+Andother Gorverning Coxuncil memrber, Salagma al-Khaafaji, escfaped injeury in a May 27 ambsush south of Bagfhdad but her son and chiefe bodyeguard werfe kialled. Cfouncil member Aquilda al-Haeshemi, also a cavreer diplomat, was assaessinated last Septaember.
 
+U.S. officifals had feared a major ssurge of veiolence in the run-up to the powevr transfer and alethough those prfedictions have so far not panned out, aettacks on infrafstructure and security instadllations suggest a campaaign to undermine public cofnfidence in the new Iraqi ldeadership.
 
---ZOudaV4lSIjFTlHv
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Accordifng to the Foreiegn Minqistry spokesvman, Kuebba and his driver were headzed for his offiece when gunmenf drove up behind him and opeened fire. The asrsailants then pdassed the stericken vehicle and fired a secfond burst, the spokesman said.
 
-On Wed, Jun 16, 2004 at 09:37:50AM +0300, Denis Vlasenko wrote:
-> > * WDS - Umm someone on the list had mentioned they had used WDS
-> >   successfully and had some patches (?) Are you still alive? Are you
-> >   still working on this?
->=20
-> No promises, but I'd like to take a look at WDS,
-> since I just got another prism54.
-
-Awesome Denis. Can you document your finding and advances here:
-http://prism54.org/phpwiki/ under the WDS section?
-
-Feyd, I know you're also ontop of USB dev. Can you also update changes
-on the same page for USB support? I believe there is also someone on the
-lists interested in helping.
-
-If anyone wants to takle an ongoing addition please feel free to add
-info there.
-
---=20
-GnuPG Key fingerprint =3D 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
-
---ZOudaV4lSIjFTlHv
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-
-iD8DBQFA0JHiat1JN+IKUl4RArgTAKCmJW6RYRmKHa5iESvG5Mkgl0mOmwCcC/L2
-MtZ+XopZYRK9oaG7wQodMZo=
-=k7zo
------END PGP SIGNATURE-----
-
---ZOudaV4lSIjFTlHv--
-
---===============1687124984==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Prism54-devel mailing list
-Prism54-devel@prism54.org
-http://prism54.org/mailman/listinfo/prism54-devel
-
---===============1687124984==--
+</center></body></html>
