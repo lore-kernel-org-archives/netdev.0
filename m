@@ -1,57 +1,46 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] PKT_SCHED: Prevent destroying via RTM_DELTFILTER while
- classifying
-Date: Fri, 10 Dec 2004 03:08:10 +0100
-Message-ID: <41B9050A.1060401@trash.net>
-References: <20041210014322.GS1371@postel.suug.ch>
+Subject: Re: [PATCH] PKT_SCHED: Fix double locking in tcindex destroy path
+Date: Fri, 10 Dec 2004 03:35:45 +0100
+Message-ID: <41B90B81.1020102@trash.net>
+References: <20041210014918.GT1371@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20041210014322.GS1371@postel.suug.ch>
+In-Reply-To: <20041210014918.GT1371@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 Thomas Graf wrote:
 
->The classify function of every cls is invoked under BH and 
->dev->queue_lock spinlock from dev_xmit. Hence to serialize destroying
->the destroy function must be called under the spinlock as well. There
->are 2 paths in which a classifier can be destroyed:
+>tcindex's destroy uses its own delete functions to destroy its
+>configuration. The delete function (correctly) takes the qdisc_tree_lock
+>to prevent list walkings from happening while removing from the list.
+>The qdisc_tree_lock is already held if we're comming via the destroy
+>path and thus a double locking takes place.
 >
->1) via the qdisc destroy cb calling tcf_destroy under
->   qdisc_tree_lock from __qdisc_destroy (rcu callback)
->      
->2) via RTM_DELTFILTER in cls_api.c under no locks at all.
->
->The first path seems ok, the initial qdisc destroy attempt is called
->under the spinlock and thus serialized with the classify while
->the list unlinking takes place and dev_xmit takes care of
->the RCU callback, hence classify and all the callbacks needed
->from process context cannot be found anymore.
->
->The second path needs the spinlock to avoid destroying while
->a classification is in progress. 2.4 probably needs the same fix,
->I will cook one up if so.
+>Patch not needed for 2.4 since both destroy paths are unlocked but will
+>be needed if we add them.
 >  
 >
-This is not correct. The classifier is unlinked in tc_ctl_tfilter
-before it is destroyed, so it is not visible for classification anymore.
+Looks correct, but 2.4 does need this. qdisc_destroy in 2.4 always
+happens under dev->queue_lock. For example dev_shutdown from 2.4:
 
-        if (fh == 0) {
-                if (n->nlmsg_type == RTM_DELTFILTER && t->tcm_handle == 0) {
-                        qdisc_lock_tree(dev);
-                        *back = tp->next;
-                        qdisc_unlock_tree(dev);
+        write_lock(&qdisc_tree_lock);
+        spin_lock_bh(&dev->queue_lock);
+...
+        qdisc_destroy(qdisc);
 
-                        tfilter_notify(skb, n, tp, fh, RTM_DELTFILTER);
-                        tcf_destroy(tp);
-                        err = 0;
-                        goto errout;
-                }
+But please rename "already_locked" to "lock" to make it look less like
+a hack to avoid deadlock.
+
+>+	return __tcindex_delete(tp,arg, 1);
+>  
+>
+And a space is missing :)
 
 Regards
 Patrick
