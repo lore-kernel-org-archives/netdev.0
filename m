@@ -1,197 +1,35 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: [patch] 2.4.x net driver queue
-Date: Wed, 27 Aug 2003 18:43:04 -0400
+Subject: Re: [bonding][2/3] Synchronizing 2.4-2.6
+Date: Wed, 27 Aug 2003 17:51:52 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030827224304.GA11863@gtf.org>
+Message-ID: <3F4D27F8.9050500@pobox.com>
+References: <200308272003.09957.shmulik.hen@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
-Content-Disposition: inline
+To: shmulik.hen@intel.com
+In-Reply-To: <200308272003.09957.shmulik.hen@intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-So that I may synchronize with a few folks, here is the current net
-driver queue for 2.4.x.  A fair chunk of the older commits have been
-submitted to Marcelo.
+Shmulik Hen wrote:
+> This is set 2 that merges parts of Jay Vosburgh's experimental
+> propagation stuff from 5/22 with all the fixes/enhancements
+> we've developed according to the RFC published on bond-devel
+> list on 6/2.
+> 
+> Applies on 2.4.22. Assumes patch set 1 was already applied.
 
 
-BK users:
+As Jay mentioned he had approved through the end of set 2, and set 2 
+looks good to me, I applied all 8 patches to 2.4.
 
-	Outta luck until M pulls previous batch :)
+Let's now take an operational pause in 2.4, and get 2.6 back into sync. 
+  Would some hearty bonding team member(s) be willing to do that?
 
-Patch users:
+I would _really_ prefer that the revision history be maintained, which 
+makes it a non-trivial exercise, time-wise...
 
-ftp://ftp.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.4/2.4.23-pre1-netdrvr1.patch.bz2
-
-This will update the following files:
-
- Documentation/networking/ifenslave.c |    1 
- drivers/net/3c501.c                  |   93 --
- drivers/net/3c503.c                  |   71 -
- drivers/net/3c505.c                  |   92 --
- drivers/net/3c507.c                  |   97 --
- drivers/net/3c515.c                  |   94 --
- drivers/net/3c523.c                  |   73 -
- drivers/net/3c527.c                  |   94 --
- drivers/net/3c59x.c                  |   50 -
- drivers/net/8139cp.c                 |  472 ++++-------
- drivers/net/8139too.c                |  424 ++++------
- drivers/net/bonding/bond_alb.c       |  144 +++
- drivers/net/bonding/bond_alb.h       |    8 
- drivers/net/bonding/bond_main.c      | 1416 ++++++++++++++++++++---------------
- drivers/net/bonding/bonding.h        |    3 
- drivers/net/dmfe.c                   |   61 -
- drivers/net/pcmcia/3c574_cs.c        |   30 
- drivers/net/pcmcia/3c589_cs.c        |   83 --
- drivers/net/pcmcia/aironet4500_cs.c  |   76 -
- drivers/net/pcmcia/axnet_cs.c        |   31 
- drivers/net/pcmcia/fmvj18x_cs.c      |   75 -
- drivers/net/pcmcia/ibmtr_cs.c        |   35 
- drivers/net/pcmcia/netwave_cs.c      |   69 -
- drivers/net/pcmcia/nmclan_cs.c       |   77 -
- drivers/net/pcmcia/pcnet_cs.c        |   43 -
- drivers/net/pcmcia/ray_cs.c          |   32 
- drivers/net/pcmcia/wavelan_cs.c      |   30 
- drivers/net/pcmcia/xirc2ps_cs.c      |   28 
- drivers/net/pcmcia/xircom_cb.c       |   38 
- drivers/net/sis900.c                 |   72 -
- drivers/net/wireless/airo.c          |  753 +++++++++++++++---
- include/linux/list.h                 |   13 
- include/linux/netdevice.h            |    4 
- net/core/ethtool.c                   |   12 
- 34 files changed, 2346 insertions(+), 2348 deletions(-)
-
-through these ChangeSets:
-
-<willy@debian.org> (03/08/27 1.1107)
-   [netdrvr 8139too] ethtool_ops support
-
-<willy@debian.org> (03/08/27 1.1106)
-   [ethtool] fix ethtool_get_strings counting bug
-
-<shmulik.hen@intel.com> (03/08/27 1.1105)
-   [netdrvr bonding] Enhance netdev notification handling.
-   
-   Also, add comment block and bump version.
-
-<shmulik.hen@intel.com> (03/08/27 1.1104)
-   [netdrvr bonding] Consolidate /proc code, add CHANGENAME handler
-
-<shmulik.hen@intel.com> (03/08/27 1.1103)
-   [netdrvr bonding] support for changing MAC addr, MTU in ALB/TLB modes
-
-<shmulik.hen@intel.com> (03/08/27 1.1102)
-   [netdrvr bonding] support for changing HW address and MTU
-
-<shmulik.hen@intel.com> (03/08/27 1.1101)
-   [netdrvr bonding] Decouple promiscuous handling from the multicast mode setting.
-
-<shmulik.hen@intel.com> (03/08/27 1.1100)
-   [netdrvr bonding] Modes that don't use primary don't use the new prop. code
-
-<shmulik.hen@intel.com> (03/08/27 1.1099)
-   [netdrvr bonding] Change monitoring function to use new slave setting propagation
-
-<shmulik.hen@intel.com> (03/08/27 1.1098)
-   [netdrvr bonding] update slave setting propagation
-   
-   Distinguish between modes that use a primary slave from
-   those that don't, and propagate settings accordingly; Consolidate
-   change_active opeartions and add reselect_active and find_best
-   opeartions.
-
-<shmulik.hen@intel.com> (03/08/27 1.1097)
-   [netdrvr bonding] add another ifenslave.c include
-
-<shmulik.hen@intel.com> (03/08/27 1.1096)
-   [netdrvr bonding] update credits/version
-
-<shmulik.hen@intel.com> (03/08/27 1.1095)
-   [netdrvr bonding] use linked list to handle multiple bond devices
-
-<shmulik.hen@intel.com> (03/08/27 1.1094)
-   [netdrvr bonding] fix /proc read function
-
-<shmulik.hen@intel.com> (03/08/27 1.1093)
-   [list] backport list_for_each_entry_safe macro from 2.6
-
-<jgarzik@redhat.com> (03/08/26 1.1091)
-   [wireless airo] build fixes
-
-<javier@tudela.mad.ttd.net> (03/08/26 1.1090)
-   [wireless airo] add support for MIC and latest firmwares
-
-<greg@kroah.com> (03/08/26 1.1089)
-   [netdrvr sis900] don't call pci_find_device from irq context
-   
-   I realized that I've had this patch in my tree for a while, and forgot
-   to send it to you and lkml.  The patch below fixes bug number 923:
-   	http://bugme.osdl.org/show_bug.cgi?id=923
-   (basically keeps us from calling pci_find_device from interrupt
-   context.)
-   
-   It's been tested by a few people with this device, and they say it works
-   just fine for them.  Please forward it on up the food chain.
-
-<hirofumi@mail.parknet.co.jp> (03/08/26 1.1088)
-   [netdrvr 8139too] add more h/w revision ids
-
-<hirofumi@mail.parknet.co.jp> (03/08/26 1.1087)
-   [netdrvr 8139too] remove unused RxConfigMask
-
-<hirofumi@mail.parknet.co.jp> (03/08/26 1.1086)
-   [netdrvr 8139too] lwake unlock fix
-
-<srompf@isg.de> (03/08/26 1.1085)
-   [netdrvr 8139too] use mii_check_media lib function,
-   instead of homebrew MII bitbanging.
-
-<jgarzik@redhat.com> (03/08/26 1.1076.1.14)
-   [netdrvr 8139too] minor bits from 2.6
-   
-   Keeping the driver in sync to ease maintenance headaches.
-
-<jgarzik@redhat.com> (03/08/26 1.1076.1.13)
-   [netdrvr pcmcia] ethtool_ops support for several more pcmcia drivers
-   
-   Drivers updated: fmvj18x_cs, ibmtr_cs, netwave_cs, nmclan_cs,
-   pcnet_cs, ray_cs, wavelan_cs, xirc2ps_cs, xircom_cb.
-
-<jgarzik@redhat.com> (03/08/26 1.1076.1.12)
-   [netdrvr pcmcia] use SET_ETHTOOL_OPS in 3c574, 3c589, aironet4500, and axnet
-
-<jgarzik@redhat.com> (03/08/26 1.1076.1.11)
-   [NET] add SET_ETHTOOL_OPS back-compat hook
-
-<jgarzik@redhat.com> (03/08/26 1.1076.1.10)
-   [netdrvr pcmcia] ethtool_ops for 3c574, 3c589, aironet4500, axnet
-
-<jgarzik@redhat.com> (03/08/26 1.1076.1.9)
-   [netdrvr] ethtool_ops support for 3c515, 3c523, 3c527, and dmfe
-
-<jgarzik@redhat.com> (03/08/26 1.1076.1.8)
-   [netdrvr] ethtool_ops support in 3c503, 3c505, 3c507
-
-<jgarzik@redhat.com> (03/08/26 1.1076.1.7)
-   [netdrvr 3c501] ethtool_ops support
-
-<jgarzik@redhat.com> (03/08/26 1.1076.1.6)
-   [netdrvr 3c59x] add a piece missed in previous ethtool_ops patch
-   
-   Contributed by Matthew Wilcox.
-
-<jgarzik@redhat.com> (03/08/26 1.1076.1.5)
-   [netdrvr 8139cp] ethtool_ops support
-
-<jgarzik@redhat.com> (03/08/26 1.1076.1.4)
-   [netdrvr 8139cp] minor bits from 2.6
-
-<jgarzik@redhat.com> (03/08/26 1.1076.1.3)
-   [netdrvr sis900] minor bits from 2.6
-
-<jgarzik@redhat.com> (03/08/26 1.1076.1.2)
-   [netdrvr sis900] ethtool_ops support
-
-<willy@debian.org> (03/08/26 1.1076.1.1)
-   [netdrvr 3c59x] ethtool_ops support
+	Jeff
