@@ -1,8 +1,8 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] Convert hp100 to useing alloc_etherdev
-Date: Tue, 8 Jul 2003 15:14:27 -0700
+Subject: [PATCH]
+Date: Tue, 8 Jul 2003 15:16:06 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030708151427.328aae38.shemminger@osdl.org>
+Message-ID: <20030708151606.483604ad.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -12,60 +12,76 @@ To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Change hp100 driver to using alloc_etherdev instead of separate allocation of dev->priv.
+Convert Digi RigtSwitch to use alloc_etherdev.
 
-Builds, but not tested since do not have hardware.
+Builds (on 2.5.74) but once again, do not have real hardware to test.
 
-diff -Nru a/drivers/net/hp100.c b/drivers/net/hp100.c
---- a/drivers/net/hp100.c	Mon Jul  7 14:49:18 2003
-+++ b/drivers/net/hp100.c	Mon Jul  7 14:49:18 2003
-@@ -713,11 +713,8 @@
- 	}
- 
- 	/* Initialise the "private" data structure for this card. */
--	if ((dev->priv = kmalloc(sizeof(struct hp100_private), GFP_KERNEL)) == NULL)
--		return -ENOMEM;
+diff -Nru a/drivers/net/dgrs.c b/drivers/net/dgrs.c
+--- a/drivers/net/dgrs.c	Mon Jul  7 14:50:36 2003
++++ b/drivers/net/dgrs.c	Mon Jul  7 14:50:36 2003
+@@ -1252,18 +1252,12 @@
+ {
+ 	DGRS_PRIV	*priv;
+ 	struct net_device *dev, *aux;
 -
- 	lp = (struct hp100_private *) dev->priv;
--	memset(lp, 0, sizeof(struct hp100_private));
-+
- 	spin_lock_init(&lp->lock);
- 	lp->id = eid;
- 	lp->chip = chip;
-@@ -777,7 +774,6 @@
+-	/* Allocate and fill new device structure. */
+-	int dev_size = sizeof(struct net_device) + sizeof(DGRS_PRIV);
+ 	int i, ret;
  
+-	dev = (struct net_device *) kmalloc(dev_size, GFP_KERNEL);
+-
++	dev = alloc_etherdev(sizeof(DGRS_PRIV));
+ 	if (!dev)
+ 		return -ENOMEM;
+ 
+-	memset(dev, 0, dev_size);
+-	dev->priv = ((void *)dev) + sizeof(struct net_device);
+ 	priv = (DGRS_PRIV *)dev->priv;
+ 
+ 	dev->base_addr = io;
+@@ -1279,7 +1273,7 @@
+ 
+ 	dev->init = dgrs_probe1;
  	SET_MODULE_OWNER(dev);
- 	SET_NETDEV_DEV(dev, &pci_dev->dev);
 -	ether_setup(dev);
- 
- 	/* If busmaster mode is wanted, a dma-capable memory area is needed for
- 	 * the rx and tx PDLs 
-@@ -2963,8 +2959,6 @@
- 		pci_free_consistent(p->pci_dev, MAX_RINGSIZE + 0x0f, p->page_vaddr_algn, virt_to_whatever(d, p->page_vaddr_algn));
- 	if (p->mem_ptr_virt)
- 		iounmap(p->mem_ptr_virt);
--	kfree(d->priv);
--	d->priv = NULL;
- 	kfree(d);
- 	hp100_devlist[i] = NULL;
- }
-@@ -2983,9 +2977,10 @@
- 	cards = 0;
- 	while ((hp100_port[++i] != -1) && (i < HP100_DEVICES)) {
- 		/* Create device and set basics args */
--		hp100_devlist[i] = kmalloc(sizeof(struct net_device), GFP_KERNEL);
-+		hp100_devlist[i] = alloc_etherdev(sizeof(struct hp100_private));
- 		if (!hp100_devlist[i])
- 			goto fail;
 +
- 		memset(hp100_devlist[i], 0x00, sizeof(struct net_device));
- #if LINUX_VERSION_CODE >= 0x020362	/* 2.3.99-pre7 */
- 		memcpy(hp100_devlist[i]->name, hp100_name[i], IFNAMSIZ);	/* Copy name */
-@@ -2998,7 +2993,6 @@
- 		/* Try to create the device */
- 		if (register_netdev(hp100_devlist[i]) != 0) {
- 			/* DeAllocate everything */
--			/* Note: if dev->priv is mallocated, there is no way to fail */
- 			kfree(hp100_devlist[i]);
- 			hp100_devlist[i] = (struct net_device *) NULL;
- 		} else
+ 	if (register_netdev(dev) != 0) {
+ 		kfree(dev);
+ 		return -EIO;
+@@ -1302,15 +1296,18 @@
+ 		struct net_device	*devN;
+ 		DGRS_PRIV	*privN;
+ 			/* Allocate new dev and priv structures */
+-		devN = (struct net_device *) kmalloc(dev_size, GFP_KERNEL);
+-			/* Make it an exact copy of dev[0]... */
++		devN = alloc_etherdev(sizeof(DGRS_PRIV));
+ 		ret = -ENOMEM;
+ 		if (!devN) 
+ 			goto fail;
+-		memcpy(devN, dev, dev_size);
+-		memset(devN->name, 0, sizeof(devN->name));
+-		devN->priv = ((void *)devN) + sizeof(struct net_device);
++
++		/* Make it an exact copy of dev[0]... */
++		*devN = *dev;
++
++		/* copy the priv structure of dev[0] */
+ 		privN = (DGRS_PRIV *)devN->priv;
++		*privN = *priv;
++
+ 			/* ... and zero out VM areas */
+ 		privN->vmem = 0;
+ 		privN->vplxdma = 0;
+@@ -1318,9 +1315,11 @@
+ 		devN->irq = 0;
+ 			/* ... and base MAC address off address of 1st port */
+ 		devN->dev_addr[5] += i;
++			/* ... choose a new name */
++		strncpy(devN->name, "eth%d", IFNAMSIZ);
+ 		devN->init = dgrs_initclone;
+ 		SET_MODULE_OWNER(devN);
+-		ether_setup(devN);
++
+ 		ret = -EIO;
+ 		if (register_netdev(devN)) {
+ 			kfree(devN);
