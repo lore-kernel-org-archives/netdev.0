@@ -1,34 +1,31 @@
-From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
-Subject: Re: Raylink/WebGear testing - ray_cs.c iomem bug?
-Date: Fri, 8 Oct 2004 15:08:01 -0700
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [PATCH] Prevent netpoll hanging when link is down
+Date: Fri, 8 Oct 2004 15:18:39 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041008220801.GA2219@bougret.hpl.hp.com>
-Reply-To: jt@hpl.hp.com
+Message-ID: <20041008151839.01823e0c.akpm@osdl.org>
+References: <20041006232544.53615761@jack.colino.net>
+	<20041006214322.GG31237@waste.org>
+	<20041007075319.6b31430d@jack.colino.net>
+	<20041006234912.66bfbdcc.davem@davemloft.net>
+	<20041007160532.60c3f26b@pirandello>
+	<20041007112846.5c85b2d9.davem@davemloft.net>
+	<20041007224422.1c1bea95@jack.colino.net>
+	<20041007214505.GB31558@wotan.suse.de>
+	<20041008090610.70d7e183@pirandello>
+	<20041008220001.GE31237@waste.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: colin@colino.net, ak@suse.de, davem@davemloft.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Linus Torvalds <torvalds@osdl.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com
-Content-Disposition: inline
+To: Matt Mackall <mpm@selenic.com>
+In-Reply-To: <20041008220001.GE31237@waste.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Linus Torvalds wrote :
-> 
-> Still, I'd love to have somebody verify that the cleaned-up version 
-> (without any changes) still works. It should be 100% equivalent to the old 
-> one, but it's good to make sure.
-> 
-> 		Linus
+Matt Mackall <mpm@selenic.com> wrote:
+>
+> > Concerning the hang, I see that Andrew has put my first patch, the one
+> > checking for netif_carrier_ok(), in his tree.
 
-	I have a couple of Netgear cards, and my laptops are more or
-less configured properly to test them. It's actually been a while I
-got those cards out of their box, and I'm not even sure the driver
-works properly in 2.6.X.
-	In any case, would you mind sending the patch directly to me,
-I don't feel like trying to recover it from the mailing list archive
-(space vs. tab, wrapping and all that junk).
-	Thanks...
-
-	Jean
+I dropped it again, waiting for the dust to settle on this one.
