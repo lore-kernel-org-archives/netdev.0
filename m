@@ -1,25 +1,27 @@
 From: "David S. Miller" <davem@redhat.com>
 Subject: Re: [PATCH] make sendmsg return EDESTADDRREQ if socket is not
  connected and daddr was not specified
-Date: Thu, 10 Jul 2003 17:29:23 -0700 (PDT)
+Date: Thu, 10 Jul 2003 17:29:35 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030710.172923.27804984.davem@redhat.com>
+Message-ID: <20030710.172935.77037127.davem@redhat.com>
 References: <20030710233223.GA30577@rei.rakuen>
-	<20030711.093546.12708723.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, tgraf@suug.ch
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20030711.093546.12708723.yoshfuji@linux-ipv6.org>
+To: tgraf@suug.ch
+In-Reply-To: <20030710233223.GA30577@rei.rakuen>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-   Date: Fri, 11 Jul 2003 09:35:46 +0900 (JST)
-   
-   I aggeed on this, however we may want to do for whole tree at same time.
-   How do you think, folks?
+   From: Thomas Graf <tgraf@suug.ch>
+   Date: Fri, 11 Jul 2003 01:32:23 +0200
 
-Sure, just send more patches relative to this one :-)
+   [EDESTADDRREQ]
+       The socket is not connection-mode and does not have its peer
+       address set, and no destination address was specified.
+   
+   fixes sendmsg in ipv{4,6}/{raw,udp}
+
+Applied, thanks Thomas.
