@@ -1,43 +1,51 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [7/*] [IPSEC] Get metrics for xfrm_dst from top dst
-Date: Sun, 6 Mar 2005 21:47:54 -0800
-Message-ID: <20050306214754.7a1839e1.davem@davemloft.net>
-References: <20050214221006.GA18415@gondor.apana.org.au>
-	<20050214221200.GA18465@gondor.apana.org.au>
-	<20050214221433.GB18465@gondor.apana.org.au>
-	<20050214221607.GC18465@gondor.apana.org.au>
-	<20050216103744.GA476@gondor.apana.org.au>
-	<20050216110842.GA1024@gondor.apana.org.au>
-	<20050216113836.GA1652@gondor.apana.org.au>
+From: "Sumit Pandya" <sumit@elitecore.com>
+Subject: RE: Do you know the TCP stack? (127.x.x.x routing)
+Date: Mon, 7 Mar 2005 12:31:57 +0530
+Message-ID: <HGEFKOBCHAIJDIEJLAKDCEBGCBAA.sumit@elitecore.com>
+References: <3sp35g$7hpm0@smtp04.mrf.mail.rcn.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+	charset=Windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@redhat.com, yoshfuji@linux-ipv6.org,
-        netdev@oss.sgi.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050216113836.GA1652@gondor.apana.org.au>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: <netdev@oss.sgi.com>, <linux-net@vger.kernel.org>
+To: "Zdenek Radouch" <zdenek@rcn.com>
+In-Reply-To: <3sp35g$7hpm0@smtp04.mrf.mail.rcn.net>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 16 Feb 2005 22:38:36 +1100
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+Zdenek,
+	I don't know how much help you can get with "dummy" interface. Try to set
+your requirement with that special interface into mind.
+-- Sumit
 
-> For the metrics other than MTU, we should also be getting it from
-> the top dst as opposed to the bottom dst.  With this change, the
-> user is able to manipulate values such as advmss for individual
-> hosts behind a remote IPsec gateway.
->  
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> -----Original Message-----
+> From: linux-net-owner@vger.kernel.org
+> [mailto:linux-net-owner@vger.kernel.org]On Behalf Of Zdenek Radouch
+> Sent: Monday, March 07, 2005 3:21 AM
 
-Applied, great work Herbert.
+>
+> OK.  We've gone a full circle, [except for a few digressions
+> along the lines of me not knowing that while the rest of the
+> world still uses 'route', under linux it has long been deprecated]
+> you seem to be agreeing with my original guess that
+> subnetting the 127 net may not be trivial, and that it may require
+> some kernel hacking.
+>
+> So my original questions still stand:
+>
+> 1) How could one remove the special kernel treatment of the 127 net?
+>     [so that "lo" gets 127.0.0.1/16 and "foo" gets 127.1.0.1/16, and
+>     so that the "foo" interface can actually receive packets?
+>
+> 2) If it does require kernel hacking, would you like to do it for me?
+>     (as I had said, as a contract)
+>
+>
+> >> it won't accept outside packets with a loopback address.
+>
+> Not accepting packets with with a loopback address is one
+> thing, not accepting any 127.0.0.0/8 packets is entirely something else.
+>
+> Couldn't that whole 127 thing be ripped out of the kernel?
+> Why couldn't the "lo" interface be treated as any other interface?
 
-This is the last patch I saw in this series.  Any more stuff
-you have ready to apply in this area?
-
-My net-2.6 tree at:
-
-	bk://kernel.bkbits.net/davem/net-2.6
-
-has all of the patches I applied today in it.  I'll push that
-to Linus tomorrow most likely.
