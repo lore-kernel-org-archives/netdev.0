@@ -1,13 +1,13 @@
-From: "muhammed abacha" <amuhammed2@zapo.net>
+From: amuhammed2@juntos.com
 Subject: Please Acknowledge Receipt.
-Date: Fri, 14 Mar 2003 22:04:57 +0200
+Date: Fri, 14 Mar 2003 15:52:44 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <courier.3E7235E9.00003953@postman>
+Message-ID: <1047675164.3e72411cc153a@www.juntos.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: amuhammed2@zapo.net
+To: amuhammed2@juntos.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
@@ -118,9 +118,3 @@ I am waiting to hear from you very soon.
 Best regards, 
 
 Muhammed Abacha
-
-
-
----------------------
-Free Email Service
-http://www.zapo.net/
