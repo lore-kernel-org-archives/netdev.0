@@ -1,64 +1,60 @@
 From: Aidas Kasparas <a.kasparas@gmc.lt>
 Subject: Re: [Ipsec-tools-devel] ipv4/ipv6 forwarding check
-Date: Fri, 29 Oct 2004 10:05:39 +0300
+Date: Fri, 29 Oct 2004 11:09:25 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4181EBC3.3020507@gmc.lt>
-References: <200410300506.i9U56Yse005815@faith.austin.ibm.com>
+Message-ID: <4181FAB5.4010005@gmc.lt>
+References: <E1CNR73-0007X6-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: ipsec-tools-devel@lists.sourceforge.net, netdev@oss.sgi.com
+Cc: latten@austin.ibm.com, ipsec-tools-devel@lists.sourceforge.net,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Joy Latten <latten@austin.ibm.com>
-In-Reply-To: <200410300506.i9U56Yse005815@faith.austin.ibm.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1CNR73-0007X6-00@gondolin.me.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Joy,
 
-	Need to have forward policies (which are not specified in RFC 2401 or 
-any other ipsec related RFC I've read) was like a thunder from the blue 
-sky to us. There is no way in setkey how to insert forward policies at 
-the moment. Which of the following directions to solve this problem we 
-have not decided yet:
-	1) push kernel developers to have rfc2401 semantics in kernel;
-	1a) have pfkey kernel part transform rfc2401 semantics into kernel 
-semantics;
-	2) have libpfkey generate extra policies transparently to the user;
-	3) have tools (setkey and racoon) generate extra policies transparently 
-to the user;
-	4) extend setkey's syntax to make explicit forward policy management 
-possible and write docs for all the admins to change policies.
 
-	Personally I would like to have (1). This would make setups simpler. I 
-believe, people with embeded applications would like very much to have 
-(1) too (as extra policies => extra memory use will drive them mad). 
-Yet, I have little hope this will happen :-//.
-
-	Second least worst thing IMHO would be a combination of (2) and (4). 
-Libpfkey functions have to be rewritten to generate extra forward 
-policies, and current functions should be renamed as to provide view to 
-real situation. Setkey should have a swith which tells to operate in 
-rfc2401 compliant fashion (generating forward policies) or kernel mode 
-(adding/removing/showing policies, including forward, as they are).
-
-	Oppinions anyone?
-
-	Meanwhile, I would like to recomend to abstain from upgrading to 
-anything above 2.6.9.
-
-Joy Latten wrote:
-> I understand there has been discussion and code change 
-> for checks with tunnel mode and forwarding packets. 
-> In 2.6.9 with latest patches all my decapsulated tunnel mode 
-> packets instead of being forwarded onto receiving subnet
-> or dropped.
-> How do I specify manually with setkey (syntax?), to forward
-> decapsulated packets onto receiving subnet?
+Herbert Xu wrote:
+> Aidas Kasparas <a.kasparas@gmc.lt> wrote:
 > 
-> Thanks for any help.
+>>       Meanwhile, I would like to recomend to abstain from upgrading to 
+>>anything above 2.6.9.
 > 
-> Joy Latten
+> 
+> Doesn't sound like a good idea as that's a massive security hole.
+> 
+> Racoon with a pre-2.6.9 kernel will allow source addresses to come
+> through the IPsec tunnel even if the violate IPsec policies.
+
+Ok, my dear coleagues admins, decide for yourself. Facts are:
+
+If you upgrade, your system will not work.
+
+If you do not upgrade, and on host c.c.c.c you have policy
+a.a.a.a b.b.b.b any -P in esp/.../
+
+where b.b.b.b is address different from any interface address of host 
+with address c.c.c.c and
+1) some party h.h.h.h will be able to spoof packet to look from a.a.a.a 
+  to b.b.b.b;
+2) transport that packet to c.c.c.c
+3) that packet will not be filtered out by rp_filter on c.c.c.c
+then kernel will pass that packet through to b.b.b.b, even if that 
+packet is not protected by esp.
+
+It is possible to prevent that from happening by marking esp packets and 
+later accepting for forwarding only marked packets from a.a.a.a to 
+b.b.b.b using iptables. Yes, I have insisted in the past this is not 
+necessary. I was wrong. I'm sorry. I did not knew about this kernel's 
+feature.
+
+[Have I missed any other case?]
+
+Which way to choose for the short term -- decission is after you.
+
 
 -- 
 Aidas Kasparas
