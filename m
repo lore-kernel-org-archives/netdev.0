@@ -1,94 +1,89 @@
-From: David Dillow <dave@thedillows.org>
-Subject: [RFC 2.6.10 4/22] xfrm: Try to offload inbound xfrm_states
-Date: Thu, 30 Dec 2004 03:48:35 -0500
-Message-ID: <20041230035000.13@ori.thedillows.org>
-References: <20041230035000.12@ori.thedillows.org>
-Cc: linux-kernel@vger.kernel.org, dave@thedillows.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261572AbUL3Iu6@vger.kernel.org>
-To: netdev@oss.sgi.com
-Sender: linux-kernel-owner@vger.kernel.org
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [IPV6] fix inet6_sk for non IPV6 builds
+Date: Thu, 30 Dec 2004 00:21:15 -0800
+Message-ID: <20041230002115.67c0dbbf.akpm@osdl.org>
+References: <41D3306F.7080605@conectiva.com.br>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@oss.sgi.com,
+        James.Bottomley@HansenPartnership.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+In-Reply-To: <41D3306F.7080605@conectiva.com.br>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2004/12/30 00:33:11-05:00 dave@thedillows.org 
-#   Plumb in offloading of inbound xfrm_states.
-#   
-#   Signed-off-by: David Dillow <dave@thedillows.org>
-# 
-# net/xfrm/xfrm_state.c
-#   2004/12/30 00:32:54-05:00 dave@thedillows.org +28 -1
-#   Try to offload an inbound xfrm_state when it is added or updated.
-#   Since it could potentially come in from any interface, try to
-#   offload it on all devices that support it.
-#   
-#   Signed-off-by: David Dillow <dave@thedillows.org>
-# 
-diff -Nru a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
---- a/net/xfrm/xfrm_state.c	2004-12-30 01:11:30 -05:00
-+++ b/net/xfrm/xfrm_state.c	2004-12-30 01:11:30 -05:00
-@@ -398,6 +398,26 @@
- 	spin_unlock_bh(&xfrm_state_lock);
+Arnaldo Carvalho de Melo <acme@conectiva.com.br> wrote:
+>
+> 	Please apply this patch, the problem was noted by James Bottomley, that
+>  doesn't enables CONFIG_IPV6.
+> 
+>  Signed-off-by: Arnaldo Carvalho de Melo
+> 
+>  - Arnaldo
+> 
+> 
+> [inet6_sk.patch  text/plain (787 bytes)]
+>  ===== include/linux/ipv6.h 1.23 vs edited =====
+>  --- 1.23/include/linux/ipv6.h	2004-12-27 23:56:33 -02:00
+>  +++ edited/include/linux/ipv6.h	2004-12-29 20:22:45 -02:00
+>  @@ -273,6 +273,7 @@
+>   	struct ipv6_pinfo inet6;
+>   };
+>   
+>  +#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+>   static inline struct ipv6_pinfo * inet6_sk(const struct sock *__sk)
+>   {
+>   	return inet_sk(__sk)->pinet6;
+>  @@ -283,7 +284,6 @@
+>   	return &((struct raw6_sock *)__sk)->raw6;
+>   }
+>   
+>  -#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+>   #define __ipv6_only_sock(sk)	(inet6_sk(sk)->ipv6only)
+>   #define ipv6_only_sock(sk)	((sk)->sk_family == PF_INET6 && __ipv6_only_sock(sk))
+>   #else
+
+This breaks selinux:
+
+security/selinux/avc.c: In function `avc_audit':
+security/selinux/avc.c:640: warning: implicit declaration of function `inet6_sk'
+security/selinux/avc.c:640: warning: initialization makes pointer from integer w
+
+This is hastily tested:
+
+--- 25/include/linux/ipv6.h~fix-inet6_sk-for-non-ipv6-builds	2004-12-30 00:19:06.550680488 -0800
++++ 25-akpm/include/linux/ipv6.h	2004-12-30 00:20:30.386935440 -0800
+@@ -273,6 +273,7 @@ struct tcp6_sock {
+ 	struct ipv6_pinfo inet6;
+ };
+ 
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ static inline struct ipv6_pinfo * inet6_sk(const struct sock *__sk)
+ {
+ 	return inet_sk(__sk)->pinet6;
+@@ -283,10 +284,20 @@ static inline struct raw6_opt * raw6_sk(
+ 	return &((struct raw6_sock *)__sk)->raw6;
  }
  
-+static void xfrm_state_inbound_accel(struct xfrm_state *x)
-+{
-+	/* Only called for an inbound xfrm_state. Since it could
-+	 * possibly arrive on any interface, try to offload it
-+	 * on all devices that are capable.
-+	 */
-+	struct net_device *dev;
+-#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ #define __ipv6_only_sock(sk)	(inet6_sk(sk)->ipv6only)
+ #define ipv6_only_sock(sk)	((sk)->sk_family == PF_INET6 && __ipv6_only_sock(sk))
+ #else
 +
-+	rtnl_lock();
-+	read_lock(&dev_base_lock);
-+	dev = dev_base;
-+	while (dev) {
-+		if (netif_running(dev) && (dev->features & NETIF_F_IPSEC))
-+			dev->xfrm_state_add(dev, x);
-+		dev = dev->next;
-+	}
-+	read_unlock(&dev_base_lock);
-+	rtnl_unlock();
++static inline struct ipv6_pinfo * inet6_sk(const struct sock *__sk)
++{
++	return NULL;
 +}
 +
- static struct xfrm_state *__xfrm_find_acq_byseq(u32 seq);
- 
- int xfrm_state_add(struct xfrm_state *x)
-@@ -444,6 +464,9 @@
- 	spin_unlock_bh(&xfrm_state_lock);
- 	xfrm_state_put_afinfo(afinfo);
- 
-+	if (!err && x->dir == XFRM_STATE_DIR_IN)
-+		xfrm_state_inbound_accel(x);
++static inline struct raw6_opt * raw6_sk(const struct sock *__sk)
++{
++	return NULL;
++}
 +
- 	if (x1) {
- 		xfrm_state_delete(x1);
- 		xfrm_state_put(x1);
-@@ -455,7 +478,7 @@
- int xfrm_state_update(struct xfrm_state *x)
- {
- 	struct xfrm_state_afinfo *afinfo;
--	struct xfrm_state *x1;
-+	struct xfrm_state *x1, *accel = NULL;
- 	int err;
- 
- 	afinfo = xfrm_state_get_afinfo(x->props.family);
-@@ -479,6 +502,7 @@
- 
- 	if (x1->km.state == XFRM_STATE_ACQ) {
- 		__xfrm_state_insert(x);
-+		accel = x;
- 		x = NULL;
- 	}
- 	err = 0;
-@@ -489,6 +513,9 @@
- 
- 	if (err)
- 		return err;
-+
-+	if (accel && accel->dir == XFRM_STATE_DIR_IN)
-+		xfrm_state_inbound_accel(accel);
- 
- 	if (!x) {
- 		xfrm_state_delete(x1);
+ #define __ipv6_only_sock(sk)	0
+ #define ipv6_only_sock(sk)	0
+ #endif
+_
