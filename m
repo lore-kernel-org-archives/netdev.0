@@ -1,51 +1,33 @@
-From: Werner Almesberger <wa@almesberger.net>
-Subject: TCP connection passing, version 7
-Date: Thu, 4 Mar 2004 11:17:59 -0300
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: 2.6.4-rc1 + hp100 EISA, not working
+Date: Thu, 4 Mar 2004 09:26:50 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040304111759.A22625@almesberger.net>
+Message-ID: <20040304092650.2575fd1c@dell_ss3.pdx.osdl.net>
+References: <Pine.LNX.4.58.0402292149230.25624@don.falconne.eu.org>
+	<wrpk724yicq.fsf@hina.wild-wind.fr.eu.org>
+	<20040303122541.4dbcf0fc@dell_ss3.pdx.osdl.net>
+	<Pine.LNX.4.58.0403040550150.25624@don.falconne.eu.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: falcon@muflon.linux.pl, mzyngier@freesurf.fr, netdev@oss.sgi.com,
+        jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, tcpcp-general@lists.sourceforge.net
-Content-Disposition: inline
+To: pawel.sokolowski@muflon.linux.pl
+In-Reply-To: <Pine.LNX.4.58.0403040550150.25624@don.falconne.eu.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Back among the living:
+ 
+> eisa_bus_match dev sig='HWPC061' state=0x1 eids=HWPF180
+> eisa_bus_match dev sig='HWP1940' state=0x3 eids=HWPF180
+> 
+> without:
+> 
+> eisa_bus_match dev sig='HWPC061' state=0x1 eids=HWPF180
+> eisa_bus_match dev sig='HWP1940' state=0x0 eids=HWPF180
+> 
+> when modprobing hp100.
 
-http://tcpcp.sourceforge.net/tcpcp-7.tar.gz
-md5sum 60a10b219ab363258d56d2f01f28edfa
-
-tcpcp is a mechanism to pass ownership of a TCP connection endpoint
-from one application to another, without the knowledge of the other
-peer.
-
-The project has been dormant for about a year, but now that I have
-the suitable testing tool with umlsim, it's time to restart it.
-
-This release updates the patch to the 2.6.3 kernel. I've also
-removed all the UML-related testing infrastructure, which is now
-obsolete.
-
-The complete list of changes is below.
-
-There's also a new Web site for the project, at
-http://tcpcp.sourceforge.net/
-
-- Werner
-
------------------------------------ CHANGES -----------------------------------
-
-Version 7 (4-MAR-2004)
-----------------------
-
-- Makefile: changed upload target to SourceForge upload procedure
-- removed "umlrun" subsystem
-- removed UML build
-- upgraded to the 2.6.3 kernel
-- renamed original kernel source directory from *.orig to *-orig
-
--- 
-  _________________________________________________________________________
- / Werner Almesberger, Buenos Aires, Argentina         wa@almesberger.net /
-/_http://www.almesberger.net/____________________________________________/
+The name HWP1940 is in the table, so that looks okay.
+Can you build with HP100_DEBUG defined?
