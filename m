@@ -1,40 +1,50 @@
-From: Krishna Kumar <kumarkr@us.ibm.com>
-Subject: Patch for NETLINK_TCPDIAG
-Date: Tue, 20 May 2003 11:49:43 -0700
+From: Ethan Sommer <sommere@ethanet.com>
+Subject: Re: [Fwd: [ANNOUNCE] Layer-7 Filter for Linux QoS]
+Date: Tue, 20 May 2003 14:50:07 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OF172D8043.CEAC83BF-ON88256D2C.0066D5DE@us.ibm.com>
+Message-ID: <3ECA86EF.2030001@ethanet.com>
+References: <1053313298.3909.5.camel@rth.ninka.net>
+ <20030519202756.I39498@shell.cyberus.ca> <3EC9B815.4000504@ethanet.com>
+ <20030520080940.E40885@shell.cyberus.ca> <3ECA3E2C.20805@ethanet.com>
+ <20030520105356.U41173@shell.cyberus.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
+Content-Type: text/plain; format=flowed; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@redhat.com>, linux-net@vger.kernel.org,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>,
-   Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+In-reply-to: <20030520105356.U41173@shell.cyberus.ca>
+To: Jamal Hadi <hadi@shell.cyberus.ca>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Jamal Hadi wrote:
 
+>On Tue, 20 May 2003, Ethan Sommer wrote:
+>
+>  
+>
+>>Nope. I need to strip out all the nulls from the packet, or any posix
+>>regex parser will think the string ends at the first null. (so protocols
+>>which use null's will be difficult/impossible to identify)
+>>    
+>>
+>
+>Ok, i see your dilema. How does snort do it? I dont think copying the
+>packet is the right way to do it. Could the null NOT be considered as
+>something speacial unless explicitly stated?
+>
+>  
+>
+One thing I should have pointed out earlier, it only copies that 
+memory/does regex stuff until it finds a match or the first 8 packets, 
+whichever is less. So, at least based on my tests, it doesn't seem to 
+slow down 100BT much from what it would be otherwise. We might run into 
+trouble if we look at GB or 10GB, but until we find a problem with 
+speed, I think it is probably more important to make this as simple and 
+easy to maintain as possible. If we see a need to make it more 
+complicated due to speed issues, _then_ we should think about trying to 
+get rid of that copy.
 
-
-
-Hi,
-
-I am not sure if there is a reason why ACK cannot be set for
-NETLINK_TCPDIAG.
-If it is settable, please apply following patch.
-
-thanks,
-
-- KK
-
-diff -ruN linux-2.5.68.org/net/ipv4/tcp_diag.c linux-2.5.68/net/ipv4/tcp_diag.c
---- linux-2.5.68.org/net/ipv4/tcp_diag.c  2003-05-20 11:38:06.000000000 -0700
-+++ linux-2.5.68/net/ipv4/tcp_diag.c      2003-05-20 11:39:48.000000000 -0700
-@@ -609,7 +609,7 @@
-            if (nlh->nlmsg_len < sizeof(*nlh) || skb->len < nlh->nlmsg_len)
-                  return;
-            err = tcpdiag_rcv_msg(skb, nlh);
--           if (err)
-+           if (err || nlh->nlmsg_flags & NLM_F_ACK)
-                  netlink_ack(skb, nlh, err);
-      }
- }
+Ethan
+http://l7-filter.sf.net
