@@ -1,42 +1,45 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [patch 06/13] ppc 8260 fcc ethernet driver cannot read LXT971
- PHY id
-Date: Wed, 16 Mar 2005 13:13:06 -0500
-Message-ID: <42387732.5030500@pobox.com>
-References: <200503152222.j2FMMccq016808@shell0.pdx.osdl.net> <20050315232651.3fd10b13.akpm@osdl.org>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: [2.6 patch] fix bridge <-> ATM compile error
+Date: Wed, 16 Mar 2005 19:15:32 +0100
+Message-ID: <20050316181532.GA3251@stusta.de>
+References: <20050315121930.GE3189@stusta.de> <200503161611.j2GGBT0F004479@ginger.cmf.nrl.navy.mil>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@oss.sgi.com, oray@lucent.com
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20050315232651.3fd10b13.akpm@osdl.org>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: shemminger@osdl.org, bridge@osdl.org,
+	linux-atm-general@lists.sourceforge.net, netdev@oss.sgi.com,
+	linux-kernel@vger.kernel.org
+To: chas3@users.sourceforge.net
+Content-Disposition: inline
+In-Reply-To: <200503161611.j2GGBT0F004479@ginger.cmf.nrl.navy.mil>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
-> akpm@osdl.org wrote:
+On Wed, Mar 16, 2005 at 11:11:29AM -0500, chas williams - CONTRACTOR wrote:
+> In message <20050315121930.GE3189@stusta.de>,Adrian Bunk writes:
+> >This patch fixes the following compile error with CONFIG_BRIDGE=y and 
+> >CONFIG_ATM_LANE=m:
 > 
->>From: "Balasaygun, Oray (Oray)" <oray@lucent.com>
->>
->> - fix for Bug 4310
->>
->> - The fcc_enet.c, as distributed in 2.6.10, does not compile.  Evidently
->>   the 2.6 kernel no longer supports the schedule_task() and "struct
->>   tq_struct" to go with it.  Lines 73 through and including 96 of the
->>   diffout file show the changes I made to port schedule_task() into
->>   tasklet_schedule().  I should have reported this as a bug too but I
->>   forgot about it.
->>
->> - customize fcc_enet.c to work with my custom board.  These changes are
->>   conditional on CONFIG_EON8260 being defined.
-> 
-> 
-> Jeff, don't apply this please - we're getting a bunch of patches for this
-> driver coming from another direction (mvista, freescale.com).  Will take
-> some time to sort through.
+> isnt the problem more that CONFIG_ATM=m not CONFIG_ATM_LANE=m?
+> perhaps CONFIG_BRIDGE should be dependent on CONFIG_ATM.  if
+> atm is a module then bridge cannot be a module (unless the 
+> hooks are moved from atm to bridge)?
 
-All they have to do is send them to the net driver maintainer -- me -- 
-and they get sorted through.
+The problem is currently CONFIG_ATM_LANE due to the #ifdef's in 
+net/atm/common.c .
 
-	Jeff
+Letting CONFIG_BRIDGE depend on CONFIG_ATM doesn't sound like a good 
+idea, since I doubt all people using the Bridge code require ATM 
+support.
+
+Moving the hooks to the bridge code will give you exactly the same 
+problems the other way round.
+
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
