@@ -1,44 +1,20 @@
-From: Martin Devera <devik@cdi.cz>
-Subject: PSCHED_TDIFF_SAFE bug introduced in 2.4.19-pre5
-Date: Sun, 5 May 2002 17:41:19 +0200 (CEST)
+From: <ilkka.j.ollakka@students.oamk.fi>
+Subject: Re: Confirmation for subscribe netdev
+Date: Mon, 6 May 2002 12:47:17 +0300 (EEST)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0205051726480.12674-100000@luxik.cdi.cz>
+Message-ID: <Pine.GSO.4.31.0205061247010.29044-100000@rhea>
+References: <200205060943.g469htce012825@oss.sgi.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
+To: <netdev@oss.sgi.com>
+In-Reply-To: <200205060943.g469htce012825@oss.sgi.com>
 List-Id: netdev.vger.kernel.org
 
-Hello Alexey,
+auth 99e8f711 subscribe netdev ilkka.j.ollakka@students.oamk.fi
 
-from this:
--          long __delta = (tv1) - (tv2); \
--          if ( __delta > (bound)) {  __delta = (bound); guard; } \
-+          long long __delta = (tv1) - (tv2); \
-+          if ( __delta > (long long)(bound)) {  __delta = (bound); guard;
-} \
-
-<kuznet@ms2.inr.ac.ru> (02/03/19 1.181.2.12)
-        Make pkt_sched.h:PSCHED_TDIFF_SAFE behave sane when measuring
-
-I think you are responsible for the change. I hope it wasn't me who
-suggested this change ;) Old code was ok in
-sense that in CBQ you used unsigned bound. Then the diff was safe
-even if tv1<tv2 which can be true when time wraps (which is true
-at least with PSCHED_TIME_SOURCE == JIFFIES) because comparison
-is unsigned and result will never be negative.
-Now the unsigned bound is converted into signed long long and _delta
-can be negative AND unbounded ... I just started to seen it when
-one HTB user switched to 2.4.19-pre7.
-
-I'd suggest this change:
--          long long __delta = (tv1) - (tv2); \
--          if ( __delta > (long long)(bound)) {  __delta = (bound); guard;
-+          long __delta = (tv1) - (tv2); \
-+          if ( __delta > (u32)(bound)) {  __delta = (bound); guard; } \
-
-Here the return value will be always positive and < bound.
-
-any objections ?
-devik
+-- 
+Ilkka Ollakka ilkka dot j dot ollakka (at) students dot oamk dot fi
+Tte1Sna1
+040-5171216
+No real life
