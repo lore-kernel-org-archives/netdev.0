@@ -1,65 +1,75 @@
-From: Glen Turner <glen.turner@aarnet.edu.au>
-Subject: Re: Question about Cisco's ISL
-Date: Wed, 11 Aug 2004 02:11:44 +0930
+From: "Ralf E. Stranzenbach" <mobil@reswi.de>
+Subject: AW: ksoftirqd uses 99% CPU triggered by network traffic (maybe RLT-8139 related)
+Date: Tue, 10 Aug 2004 21:24:07 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1092156104.6767.60.camel@andromache>
-References: <1089121054.22081.31.camel@localhost.localdomain>
+Message-ID: <OHEGLDMIEAEHODCFDBMAMEBLDJAA.mobil@reswi.de>
+References: <20040809214548.GA20204@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Joubert Berger <jberger@trustednetworktech.com>
-In-Reply-To: <1089121054.22081.31.camel@localhost.localdomain>
+To: "Francois Romieu" <romieu@fr.zoreil.com>
+In-Reply-To: <20040809214548.GA20204@electric-eye.fr.zoreil.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2004-07-06 at 23:07, Joubert Berger wrote:
-> I am writing some code to decode Cisco ISL frames.  I am having a
-> difficult time figuring out how the FCS is calculated at the end of the
-> frame.  Does anyone have any experience with Cisco ISL frames and
-> possibly how to calculate the CRC at the end of the frame.
+Hi,
 
-There are two FCSs in an ISL frame. Grab Document 17056 from the Cisco
-web site for the ISL frame format and observe:
+i've applied these patches to a fresh linux 2.6.7 source set and moved only
+the 8139too.c into my own (fresh) 2.6.7 kernel tree.
 
- - the encapsulated frame includes its FCS (and DA, SA, Type
-   and Data).
+After rebuilding the modules i tried to run my usual test - sending a >1GB
+file using Z-Modem (over a SSH connection). This test usually fails within
+1-2 minutes on my system.
 
- - the transmitted ISL frame uses a format that is capable
-   of being forwarded by a non-ISL switch (MTU willing).
-   So it has a DA, SA, Type and FCS which is acceptable to
-   any ethernet switch.
+Using this patched driver everything works stable. So iA'm not enforced to
+downgrade my system to a 2.4.x kernel :-)
 
-In both cases the FCS is calculated as per 802.3.
+This system is a ASUS A7V266 mainboard with two Realtek based network cards:
 
-Your thinking might be a bit clearer if you think about a switch taking
-a received frame, wrapping it in a ISL encapsulation and forwarding it
-down the VLAN trunk. The switch at the end of the trunk simply strips
-the encapsulation and drops the unencapsulated frame directly onto the
-wire.
+0000:00:0d.0 Ethernet controller: D-Link System Inc RTL8139 Ethernet (rev
+10)
+0000:00:0e.0 Ethernet controller: D-Link System Inc RTL8139 Ethernet (rev
+10)
 
-If you are writing software then you need to manually calculate
-the FCS of the encapsulated frame (this FCS is usually calculated by the
-hardware of the ethernet controller). The FCS at the end of the ISL
-frame will be calculated by the ethernet controller hardware.
+I tried another (Fiberline) network card but it had the same problems.
 
-Have a look at the Ethereal source code, it pulls apart ISL frames.
+Many, many, many thanks.
 
-There are also two control protocols:
+Regards,
+Ralf
 
-1) Cisco ISL runs 802.1D spanning tree but does so on every ISL VLAN,
-whereas 802.1q runs spanning tree only on the default untagged VLAN.
+-----Ursprungliche Nachricht-----
+Von: Francois Romieu [mailto:romieu@fr.zoreil.com]
+Gesendet: Montag, 9. August 2004 23:46
+An: Ralf E. Stranzenbach
+Betreff: Re: ksoftirqd uses 99% CPU triggered by network traffic (maybe
+RLT-8139 related)
 
-2) Automated configuration uses Cisco's VLAN Trunking Protocol (VTP). I
-don't know of a spec for this; it looks a bit of a dog's breakfast
-(they're up to version 3 now); and deploying it could be dangerous (some
-Cisco switches run only 32 VLANs and announcing more VLANs through VTP
-can lead to a denial of service on those switches, so why would you
-extend the trust required by VTP out to hosts?). ISL works fine without
-VTP, you just need to manually configure the port as "trunk" rather than
-"auto".
 
--- 
-Glen Turner         Tel: (08) 8303 3936 or +61 8 8303 3936
-Australian Academic & Research Network   www.aarnet.edu.au
+Ralf E. Stranzenbach <mobil@reswi.de> :
+[...]
+> i'm cured with the very same problem on my server machine. I tried for
+help
+> within the internet and googled this mail thread on the mail archives. But
+i
+> have some difficulties to understand, which patch should be applied to a
+> vanilla 2.6.7 kernel to prevent this freezes.
+
+I assume you have the same network adapter (i.e. 8139c).
+
+Two patches are required:
+1) ftp://ftp.kernel.org/pub/linux/kernel/v2.6/testing/patch-2.6.8-rc3.bz2
+2)
+ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.8-rc3/2.6.
+8-rc3-mm2/2.6.8-rc3-mm2.bz2
+
+Compile this kernel or extract the drivers/net/8139too.c file from it
+into your favorite 2.6.x tree and give it a try.
+
+Please Cc: your success/failure on netdev@oss.sgi.com.
+
+--
+Ueimor
