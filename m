@@ -1,49 +1,120 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH] New version of net timestamp optimization
-Date: Wed, 30 Jun 2004 11:46:38 -0700
+From: Manfred Spraul <manfred@colorfullife.com>
+Subject: Re: [PATCH] Gigabit Ethernet support for forcedeth
+Date: Wed, 30 Jun 2004 20:55:35 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40E30A8E.6000507@candelatech.com>
-References: <20040406182941.7e759f4c.ak@suse.de>	<1081340659.15893.117.camel@jzny.localdomain> <20040407143703.6af5bb71.ak@suse.de>
+Message-ID: <40E30CA7.3020209@colorfullife.com>
+References: <40E25328.8020102@colorfullife.com> <40E25944.8010200@pobox.com> <40E2E618.5020601@colorfullife.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, netdev@oss.sgi.com
+Content-Type: multipart/mixed;
+ boundary="------------000006020406060009000704"
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <20040407143703.6af5bb71.ak@suse.de>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <40E2E618.5020601@colorfullife.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andi Kleen wrote:
-> On 07 Apr 2004 08:24:19 -0400
-> jamal <hadi@cyberus.ca> wrote:
-> 
-> 
->>The patch does look clean and attractive. I havent had time toi play
->>with it myself - but given the way gettimeofday has been torturing me
->>i will at some point. Also if you have time a 2.4.x patch would be
-> 
-> 
-> Thanks. All feedback I received so far was positive. I hope DaveM will
-> merge it soon. I don't have plans to work on 2.4 anymore.
+This is a multi-part message in MIME format.
+--------------000006020406060009000704
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-I finally got around to working with 2.6, and I ran into the
-new timestamp code.  I would like to be able to have timestamps
-even though I do not have a socket structure (I am using a kernel
-module to grab all frames)...
+Manfred Spraul wrote:
 
-How would you feel about either exporting the netstamp_needed variable
-or offering a method that explicitly incremented or decremented the
-use count?
+>>
+>> your driver needs to call pci_set_dma_mask() and 
+>> pci_set_consistent_dma_mask().
+>>
+> I'll add that.
+>
+I've checked the pci layer: 32-bit is the default, thus no calls are 
+required. What's missing is error handling for pci_map, I'll add that later.
 
-Thanks,
-Ben
+Attached is an incremental patch that fixes the simple issues you 
+mentioned. Could you merge both patches together to your tree? They 
+improve the driver significantly and I want some test input from users.
 
-> 
-> -Andi
-> 
+I've added message flags and pci_map error handling to my todo list.
+--
+    Manfred
 
+--------------000006020406060009000704
+Content-Type: text/plain;
+ name="patch-forced-candidate-inc"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="patch-forced-candidate-inc"
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+// $Header$
+// Kernel Version:
+//  VERSION = 2
+//  PATCHLEVEL = 6
+//  SUBLEVEL = 7
+//  EXTRAVERSION = -mm2
+--- 2.6/drivers/net/forcedeth.c	2004-06-30 18:45:23.000000000 +0200
++++ build-2.6/drivers/net/forcedeth.c	2004-06-30 18:45:05.000000000 +0200
+@@ -348,18 +348,22 @@ struct ring_desc {
+ 
+ /* General driver defaults */
+ #define NV_WATCHDOG_TIMEO	(5*HZ)
+-#define DEFAULT_MTU		1500	/* also maximum supported, at least for now */
+ 
+ #define RX_RING		128
+ #define TX_RING		64
+-/* limited to 1 packet until we understand NV_TX_LASTPACKET */
++/* 
++ * If your nic mysteriously hangs then try to reduce the limits
++ * to 1/0: It might be required to set NV_TX_LASTPACKET in the
++ * last valid ring entry. But this would be impossible to
++ * implement - probably a disassembly error.
++ */
+ #define TX_LIMIT_STOP	63
+ #define TX_LIMIT_START	62
+ 
+ /* rx/tx mac addr + type + vlan + align + slack*/
+-#define RX_NIC_BUFSIZE		(DEFAULT_MTU + 64)
++#define RX_NIC_BUFSIZE		(ETH_DATA_LEN + 64)
+ /* even more slack */
+-#define RX_ALLOC_BUFSIZE	(DEFAULT_MTU + 128)
++#define RX_ALLOC_BUFSIZE	(ETH_DATA_LEN + 128)
+ 
+ #define OOM_REFILL	(1+HZ/20)
+ #define POLL_WAIT	(1+HZ/100)
+@@ -988,7 +992,7 @@ static void nv_tx_done(struct net_device
+ 	while (np->nic_tx != np->next_tx) {
+ 		i = np->nic_tx % TX_RING;
+ 
+-		Flags = cpu_to_le32(np->tx_ring[i].FlagLen);
++		Flags = le32_to_cpu(np->tx_ring[i].FlagLen);
+ 
+ 		dprintk(KERN_DEBUG "%s: nv_tx_done: looking at packet %d, Flags 0x%x.\n",
+ 					dev->name, np->nic_tx, Flags);
+@@ -1077,7 +1081,7 @@ static void nv_rx_process(struct net_dev
+ 			break;	/* we scanned the whole ring - do not continue */
+ 
+ 		i = np->cur_rx % RX_RING;
+-		Flags = cpu_to_le32(np->rx_ring[i].FlagLen);
++		Flags = le32_to_cpu(np->rx_ring[i].FlagLen);
+ 		len = nv_descr_getlength(&np->rx_ring[i], np->desc_ver);
+ 
+ 		dprintk(KERN_DEBUG "%s: nv_rx_process: looking at packet %d, Flags 0x%x.\n",
+@@ -1193,7 +1197,7 @@ next_pkt:
+  */
+ static int nv_change_mtu(struct net_device *dev, int new_mtu)
+ {
+-	if (new_mtu > DEFAULT_MTU)
++	if (new_mtu > ETH_DATA_LEN)
+ 		return -EINVAL;
+ 	dev->mtu = new_mtu;
+ 	return 0;
+@@ -1999,7 +2003,7 @@ static void __exit exit_nic(void)
+ 	pci_unregister_driver(&driver);
+ }
+ 
+-MODULE_PARM(max_interrupt_work, "i");
++module_param(max_interrupt_work, int, 0);
+ MODULE_PARM_DESC(max_interrupt_work, "forcedeth maximum events handled per interrupt");
+ 
+ MODULE_AUTHOR("Manfred Spraul <manfred@colorfullife.com>");
+
+--------------000006020406060009000704--
