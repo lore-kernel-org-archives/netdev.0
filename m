@@ -1,85 +1,30 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: [PATCH] Re: ifconfig up/down problem
-Date: Mon, 08 Sep 2003 18:15:26 -0400
+Subject: Re: netif_poll_disable() hangs
+Date: Mon, 08 Sep 2003 18:16:49 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F5CFF7E.1090005@pobox.com>
-References: <Pine.LNX.4.56.0309090004100.24700@space.comunit.de>
+Message-ID: <3F5CFFD1.6050702@pobox.com>
+References: <20030907232145.6ec197fd.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030300040602060006010804"
-Cc: netdev@oss.sgi.com, "David S. Miller" <davem@redhat.com>,
-   Andrew Morton <akpm@digeo.com>, LKML <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Sven-Haegar Koch <haegar@sdinet.de>
-In-Reply-To: <Pine.LNX.4.56.0309090004100.24700@space.comunit.de>
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20030907232145.6ec197fd.akpm@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------030300040602060006010804
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-
-Sven-Haegar Koch wrote:
-> hi...
+Andrew Morton wrote:
+> Very simple:
 > 
-> Short: ifconfig ethX down locks
+> 	ifup eth0
+> 	ifdown eth0
+> 	ifup eth0
+> 	ifdown eth0	<- hangs in dev_close -> netif_poll_disable()
 > 
-> Kernel: 2.4.22-bk12 (same problem with 2.4.23-pre3)
-> eth0: eepro100
-> eth1: orinoco_cs (orinoco mini-pci)
-> System: Toshiba Satellite Pro 4600 Laptop, P3 700Mhz
 > 
-> Just after booting, no X startet yet, interface not yet initialized:
-> 
-> aurora:~# ifconfig eth1 down
-> aurora:~# ifconfig eth1 up
-> aurora:~# ifconfig eth1 down
-> aurora:~# ifconfig eth1 up
-> aurora:~# ifconfig eth1 down
-> <--lock here, shell does not return, even ctrl-c does not help
-> 
-> haegar@aurora:~$ ps axl|grep ifconfig
-> 4     0  1041  1035   9   0  1448  404 dev_cl S    pts/0      0:00 ifconfig eth1
-> 
-> top shows ifconfig consuming 100% cpu, 100% system
-> 
-> The same happens with eth0, there it takes only two up/down cycles,
-> perhaps because it is already configured with ipv4+ipv6 addresses, and the
-> same happens using '/sbin/ip link set eth0 up/down' too.
-> 
-> Kernel 2.4.20-pre2-ac3 is ok (my last kernel, running for month')
+> Because the first close sets __LINK_STATE_RX_SCHED and nothing ever clears
+> it.  
 
 
-
-Does the attached patch fix it?
-
-	Jeff
-
-
-
---------------030300040602060006010804
-Content-Type: text/plain;
- name="patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="patch"
-
-diff -Nru a/net/core/dev.c b/net/core/dev.c
---- a/net/core/dev.c	Mon Sep  8 18:14:36 2003
-+++ b/net/core/dev.c	Mon Sep  8 18:14:36 2003
-@@ -851,7 +851,11 @@
- 	 * engine, but this requires more changes in devices. */
- 
- 	smp_mb__after_clear_bit(); /* Commit netif_running(). */
--	netif_poll_disable(dev);
-+	while (test_bit(__LINK_STATE_RX_SCHED, &dev->state)) {
-+		/* No hurry. */
-+		current->state = TASK_INTERRUPTIBLE;
-+		schedule_timeout(1);
-+	}
- 
- 	/*
- 	 *	Call the device specific close. This cannot fail.
-
---------------030300040602060006010804--
+Thanks, fix patch just sent.
