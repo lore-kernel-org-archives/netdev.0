@@ -1,36 +1,37 @@
-From: Christopher Chan <cchan@outblaze.com>
-Subject: High number of concurrent connections causes 2.6.4 to go berserk
-Date: Fri, 02 Apr 2004 08:57:05 +0800
+From: Nivedita Singhvi <niv@us.ibm.com>
+Subject: Re: High number of concurrent connections causes 2.6.4 to go berserk
+Date: Thu, 01 Apr 2004 19:28:53 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <406CBA60.50103@outblaze.com>
+Message-ID: <406CDDF5.4070500@us.ibm.com>
+References: <406CBA60.50103@outblaze.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Yusuf Goolamabbas <yusufg@outblaze.com>
+Cc: netdev@oss.sgi.com, Yusuf Goolamabbas <yusufg@outblaze.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Christopher Chan <cchan@outblaze.com>
+In-Reply-To: <406CBA60.50103@outblaze.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-KERNEL: assertion (flags & MSG_PEEK) failed a[t net/ipv4/tcp.c (1571)
-KERNEL: assertion (tp->copied_seq == tp->rcv_nxt || (flags & (MSG_PEEK | 
-MSG_TRUNC))) failed at net/ipv4/tcp.c (1635)
+Christopher Chan wrote:
 
-These are repeated in the logs during kernel berserk period
+> When tcp_max_syn_backlog is set to 4096 and
+> route.max_size = 131072
+> route.gc_thresh = 65536
+> 
+> the box goes berserk almost immediately after bootup due to a bounce 
+> flood hitting the box.
 
-postfix is running on this box.
+> The below values seem to workaround whatever problem the kernel has.
+> 
+> tcp_max_syn_backlog = 2048
+> route.max_size = 1048576
+> route.gc_thresh = 65536
 
-It is set to spawn max 750 smtpd processes to handle incoming smtp sessions.
+Did you try just one of the first two and see which
+one actually made a difference? I'm assuming the first,
+but that might not be the case..
 
-When tcp_max_syn_backlog is set to 4096 and
-route.max_size = 131072
-route.gc_thresh = 65536
-
-the box goes berserk almost immediately after bootup due to a bounce 
-flood hitting the box.
-
-The below values seem to workaround whatever problem the kernel has.
-
-tcp_max_syn_backlog = 2048
-route.max_size = 1048576
-route.gc_thresh = 65536
+thanks,
+Nivedita
