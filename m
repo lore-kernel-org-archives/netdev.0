@@ -1,66 +1,58 @@
-From: Paul Gortmaker <p_gortmaker@yahoo.com>
-Subject: Re: [PATCH] switch sdla to initcalls
-Date: Thu, 22 May 2003 00:59:08 -0400
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3ECC834B.E4045EB1@yahoo.com>
-References: <20030521081938.GD22869@wotan.suse.de>
-		<20030521102512.A30373@lst.de>
-		<20030521082630.GF22869@wotan.suse.de>
-		<20030521.013453.118618445.davem@redhat.com> <20030521123123.40924dce.ak@suse.de>
+From: Philippe Biondi <biondi@cartel-securite.fr>
+Subject: Re: [Fwd: [ANNOUNCE] Layer-7 Filter for Linux QoS]
+Date: Thu, 22 May 2003 10:26:30 +0200 (CEST)
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <Pine.LNX.4.40.0305221019240.29409-100000@phil.home.phil>
+References: <3ECC0B14.7020105@ethanet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, hch@lst.de, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=ISO-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jamal Hadi <hadi@shell.cyberus.ca>,
+	Martin Josefsson <gandalf@wlug.westbo.se>,
+	"David S. Miller" <davem@redhat.com>, <linux-net@vger.kernel.org>,
+	<netdev@oss.sgi.com>
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Ethan Sommer <sommere@ethanet.com>
+In-Reply-To: <3ECC0B14.7020105@ethanet.com>
 List-Id: netdev.vger.kernel.org
 
-Andi Kleen wrote:
-> 
-> On Wed, 21 May 2003 01:34:53 -0700 (PDT)
-> "David S. Miller" <davem@redhat.com> wrote:
-> 
-> > I have to admit that I must feign ignorance here.  And that someone
-> > who really understands the EISA/ISA probe ordering requirements
-> > should document them as best as possible in Space.c
-> 
-> I doubt anybody understands it. It is just lots of hard earned ad-hoc
-> experience distilled in these files.
+> >
+> I take it back, it is regular (kinda) but you can't to it with a
+> deterministic finite atomaton. If there is a cycle in pattern1, off o=
+f
+> which pattern2 has a branch, then you would need to count how many ti=
+mes
+> you have gone around the cycle to know where to jump to in pattern2 i=
+f
+> it fails to match pattern1 (which you can't do, pumping lemma and all
+> that.) If you use a non-determistic FA, you should be able to just go
+> through each pattern until both crash or one matches and declare that
+> the winner.
 
-This used to be important many years ago when distribution kernels came 
-with a bunch of compiled in ISA drivers.  I don't think it is anything
-to get too worried about anymore.  Now a distribution is going to have
-the ISA drivers as modules, and custom kernels with compiled in drivers
-(probing via Space.c) are going to have a very limited set of drivers.
 
-But regardless, the probe ordering was generally "newer before older", 
-"more common before less common", and "invasive write before read type 
-probes at the bottom".  This was just common-sense ordering, there
-weren't that many cases where ordering was critical.  The only one that 
-comes to mind now was smc-ultra.c vs wd.c (required "newer before older").
-Things like ISA SCSI drivers probing into ne2000 cards was more of a
-problem than net drivers screwing each other up back then.
+Strange way of reasoning... what if pattern1 is "(subpat1|subpat2)" ?
+regexp is a regular language so it is equivalent to a DFA.
+=46or every NDFA, there exist a DFA that recognize the same language.
+So, it is possible.
 
-> It's basically untestable/unknown because you'll likely have a hard time
-> to find such a card anymore. And even if you had you would need the other
-> ISA cards that could possible conflicts to test all combinations - impossible
+The question is : will we have enough memory to store a DFA that recogn=
+ize
+a big regexp ? The answer is : let loose some speed and use NDFA.
 
-Again, I wouldn't give too much weight to this issue -- it is safe to say
-that all combinations of all cards at all I/O locations with all drivers
-was never tested, and was never guaranteed to work either.  In fact if 
-you look back, the "reserve=0xNNN" was introduced specifically to handle
-corner cases where you had some other probe stomping on an ISA ethercard.
-Now this is a totally unused and mostly forgot about boot prompt.
+> If your lib did that, it would work quite well for the layer-7 filter=
+=2E
 
-> task. For such unsolvable problems it is best to leave it untouched because it
-> cannot be tested. Either that or remove the driver completely.
+Anyone here interested by doing a regexp compiler ? I can help for deta=
+ils
+or libqsearch internals, but I won't find enough time to do all that
+quickly enough.
 
-As an alternative to removal, you could always make the driver in
-question as module only, and then the burden of probing order is on 
-the installer or end user, as it is with all other modules currently.
 
-Paul.
+--=20
+Philippe Biondi <biondi@ cartel-securite.fr> Cartel S=E9curit=E9
+Security Consultant/R&D                      http://www.cartel-securite=
+=2Efr
+Phone: +33 1 44 06 97 94                     Fax: +33 1 44 06 97 99
+PGP KeyID:3D9A43E2  FingerPrint:C40A772533730E39330DC0985EE8FF5F3D9A43E=
+2
 
-> 
-> -Andi
