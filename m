@@ -1,65 +1,30 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: 2.6.8-rc2-mm1 breaks PPPoE for me (was: 2.6.8-rc2-mm1)
-Date: Mon, 2 Aug 2004 14:27:06 -0700
+From: Andy Fleming <afleming@freescale.com>
+Subject: Re: [RFR] gianfar ethernet driver
+Date: Mon, 2 Aug 2004 17:19:13 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040802142706.46100c6d.akpm@osdl.org>
-References: <20040728020444.4dca7e23.akpm@osdl.org>
-	<20040731100947.GA7453@merlin.emma.line.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Message-ID: <FBF8DCB8-E4D1-11D8-999F-000393C30512@freescale.com>
+References: <C681B01E-CEA9-11D8-931F-000393DBC2E8@freescale.com> <89563A5C-CFAE-11D8-BA44-000393C30512@freescale.com> <1089170282.1038.80.camel@jzny.localdomain> <20040707032913.GA1822@havoc.gtf.org>
+Mime-Version: 1.0 (Apple Message framework v618)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: Andy Fleming <AFLEMING@motorola.com>, Kumar Gala <kumar.gala@motorola.com>,
+        "<netdev@oss.sgi.com>" <netdev@oss.sgi.com>, jamal <hadi@cyberus.ca>,
+        "<dwmw2@infradead.org>" <dwmw2@infradead.org>,
+        Christoph Hellwig <hch@infradead.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Matthias Andree <matthias.andree@gmx.de>
-In-Reply-To: <20040731100947.GA7453@merlin.emma.line.org>
+In-Reply-To: <20040707032913.GA1822@havoc.gtf.org>
+To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Matthias Andree <matthias.andree@gmx.de> wrote:
->
-> On Wed, 28 Jul 2004, Andrew Morton wrote:
-> 
-> > ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.8-rc2/2.6.8-rc2-mm1/
-> ...
-> > gcc35-pppoe.c.patch
-> >   gcc-3.5 fixes
-> 
-> Andrew,
-> 
-> I'm not sure if my problem is related to this patch, but in
-> 2.6.8-rc2-mm1, PPPoE doesn't work for me, kernel compiled with gcc (GCC)
-> 3.3.1 (SuSE Linux), a vanilla 2.6.7 is fine with the same compiler.
-> 
-> pppd[5685]: Plugin /usr/lib/pppd/2.4.1/pppoe.so loaded.
-> pppd[5685]: PPPoE Plugin Initialized
-> pppd[5685]: pppd 2.4.1 started by root, uid 0
-> pppd[5685]: Sending PADI
-> pppd[5685]: HOST_UNIQ successful match 
-> pppd[5685]: Failed to negotiate PPPoE connection: 25 Inappropriate ioctl for device
-> pppd[5685]: Exit.
-> 
-> A successful pppd session start, with 2.6.7, looks like this:
-> 
-> pppd[5070]: PPPoE Plugin Initialized
-> pppd[5070]: pppd 2.4.1 started by root, uid 0
-> pppd[5070]: Sending PADI
-> pppd[5070]: HOST_UNIQ successful match 
-> pppd[5070]: HOST_UNIQ successful match 
-> pppd[5070]: Got connection: 164b
-> pppd[5070]: Connecting PPPoE socket: 00:90:1a:XX:XX:XX 4b16 eth1 0x808a560
-> /sbin/hotplug[5166]: INTERFACE=ppp0
-> pppd[5070]: Using interface ppp0
-> pppd[5070]: Connect: ppp0 <--> eth1
-> pppd[5070]: Setting MTU to 1492.
-> pppd[5070]: Couldn't increase MRU to 1500
-> pppd[5070]: Setting MTU to 1492.
-> pppd[5070]: local  IP address 217.81.XXX.XXX
-> pppd[5070]: remote IP address 217.5.XXX.XXX
-> pppd[5070]: Script /etc/ppp/ip-up finished (pid 5180), status = 0x0
-> 
+Here's an updated patch which fixes module support which does this:
 
-I'm a bit stumped by this - I'm not aware of any change which would have
-caused the pppoe device to start returning -ENOTTY.
+   * More cleanup/minor bug fixes
+   * Added locking to PHY read/write wrappers
+   * Fixed module support
+   * Removed fastroute code
 
-Is this still happening?  Are you sure the relevant modules are loaded? 
-Could you capture an strace of pppd while it's happening?
+As before, this patch replaces the previous ones I have submitted.
+
+Thanks,
+Andy Fleming
