@@ -1,51 +1,40 @@
-From: Christian Kujau <evil@g-house.de>
-Subject: Re: 2.6.7-rc3: waiting for eth0 to become free
-Date: Thu, 10 Jun 2004 13:06:48 +0200
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <40C840C8.8000605@g-house.de>
-References: <1086722310.1682.1.camel@teapot.felipe-alfaro.com>	 <20040608124215.291a7072@dell_ss3.pdx.osdl.net>	 <1086725369.1806.1.camel@teapot.felipe-alfaro.com>	 <20040608140200.2ddaa6f4@dell_ss3.pdx.osdl.net>	 <1086794282.1706.2.camel@teapot.felipe-alfaro.com>	 <40C793CE.6000609@g-house.de> <1086847636.1719.6.camel@teapot.felipe-alfaro.com>
+From: Dave Dillow <dave@thedillows.org>
+Subject: Re: [0/3] mc_filter on big-endian arch
+Date: Thu, 10 Jun 2004 09:37:59 -0400
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <1086874679.23004.17.camel@dillow.idleaire.com>
+References: <20040607115921.GB32569@k3.hellgate.ch>
+	 <OFCBC67DF9.898B09C6-ON88256EAF.001BFC9E-88256EAF.001C4AB8@us.ibm.com>
+	 <20040610102045.GA11616@k3.hellgate.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: NetDev Mailinglist <netdev@oss.sgi.com>,
-	Kernel Mailinglist <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S264398AbUFJLHE@vger.kernel.org>
-To: Felipe Alfaro Solana <felipe_alfaro@linuxmail.org>
-In-Reply-To: <1086847636.1719.6.camel@teapot.felipe-alfaro.com>
+Cc: David Stevens <dlstevens@us.ibm.com>, Andrew Morton <akpm@osdl.org>,
+        Jeff Garzik <jgarzik@pobox.com>, Netdev <netdev@oss.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Roger Luethi <rl@hellgate.ch>
+In-Reply-To: <20040610102045.GA11616@k3.hellgate.ch>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+On Thu, 2004-06-10 at 06:20, Roger Luethi wrote:
+> Multicast Driver Testing Quick How-To (version 0.2)
+> =====================================
 
-Felipe Alfaro Solana wrote:
-| I think the mentioned error is not dependent on any specific interface
-| (let it be eth0, or ppp0), but any interface in general which has a
-| routing entry and is the target/source of IP traffic. This is based on
-| the fact that my fixes play with the refcounting on any interface. not
-| just eth0 specifically, and pertain to both IPv4 and IPv6 core.
+Thank you guys for all the info. I've done some testing, and sure
+enough, there are some problems in typhoon, which I'll fix this weekend.
+But I think the cpu_to_le32() calls are correct -- it would seem that
+crc32_be() is needed rather than ether_crc() (which does little endian).
+I'm assuming the results will be different, but I haven't done the math,
+nor am I very familiar with the properties of the crc.
 
-ok.
+Even then, I'm not sure that's my real problem -- if it was setting the
+wrong bits in the hash -- my working hypothesis -- I shouldn't be
+receiving the 224.0.0.1 frames. I am.
 
-| In my case, I was able to trigger the problem by running "cardctl eject"
-| which was then stuck at D state. Killing any program using a network
-| socket, and waiting for opened connections to transition from
-| ESTABLISHED to TIME_WAIT and then being closed, allowed "cardctl" to
-| exit the D state.
-
-no having pcmcia here, i'll see if i can reproduce it to / see what the
-patches will do.
-
-Thanks for the explanation,
-Christian.
-- --
-BOFH excuse #439:
-
-Hot Java has gone cold
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-Comment: Using GnuPG with Thunderbird - http://enigmail.mozdev.org
-
-iD8DBQFAyEDH+A7rjkF8z0wRAusDAKCp2WW4LO01hP9ZDXa3N6eH7cuvIgCg2dTz
-IzprZryuJ/VuiRY/DGvMH24=
-=f7qL
------END PGP SIGNATURE-----
+I am also seeing 224.1.1.37 frames come up the stack in tcpdump (with
+-p), before running "ip maddr ..." so something seems wonky. It seems to
+be getting into ALL_MULTI mode, but I don't see how in the driver. I'm
+going to add some printks and see what's going on.
+-- 
+Dave Dillow <dave@thedillows.org>
