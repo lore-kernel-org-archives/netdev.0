@@ -1,96 +1,115 @@
-From: olof@austin.ibm.com (Olof Johansson)
-Subject: [PATCH] [VIA RHINE] older chips oops on shutdown
-Date: Sat, 5 Mar 2005 12:40:56 -0600
-Message-ID: <20050305184056.GA11056@austin.ibm.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: [BK PATCHES] 2.6.x net driver updates
+Date: Sat, 05 Mar 2005 13:44:12 -0500
+Message-ID: <4229FDFC.3010501@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, jgarzik@pobox.com, akpm@osdl.org
-To: rl@hellgate.ch
-Content-Disposition: inline
+Content-Type: multipart/mixed;
+ boundary="------------080400060202040209030506"
+Cc: Linux Kernel <linux-kernel@vger.kernel.org>
+To: Netdev <netdev@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+This is a multi-part message in MIME format.
+--------------080400060202040209030506
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Kernel 2.6.11, hardware is a MSI KT333-based board with an XP1800.
+Just sent this to Andrew/Linus.  The patch was too large (500K) to send 
+to mailing lists.
 
-I'm oopsing on shutdown on a machine that has a Via Rhine adapter in it:
+--------------080400060202040209030506
+Content-Type: text/plain;
+ name="changelog.txt"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="changelog.txt"
 
-Unable to handle kernel paging request at virtual address e0803003
- printing eip:
-c01f262c
-*pde = 014dc067
-*pte = 00000000
-Oops: 0000 [#1]
-Modules linked in: cpufreq_userspace cpufreq_powersave cpufreq_ondemand
-CPU:    0
-EIP:    0060:[<c01f262c>]    Not tainted VLI
-EFLAGS: 00010292   (2.6.11)
-EIP is at ioread8+0x2c/0x40
-eax: e0803003   ebx: e0803003   ecx: c026b430   edx: e0803003
-esi: dff90260   edi: e0802f80   ebp: dd117e74   esp: dd117e74
-ds: 007b   es: 007b   ss: 0068
-Process reboot (pid: 5769, threadinfo=dd117000 task=dfafa080)
-Stack: dd117e8c c026b490 dff90040 c151ccd4 c044a1a8 b7fdc078 dd117ea4 c0253ad9
-       c151ccd4 00000042 fee1dead 00000001 dd117fbc c012461c c04d72a8 00000001
-       00000000 00010800 00000000 dd117ed8 c013b40b dffe7380 00030800 00000000
-Call Trace:
- [<c0103d5f>] show_stack+0x7f/0xa0
- [<c0103efa>] show_registers+0x15a/0x1c0
- [<c01040ce>] die+0xce/0x150
- [<c0113406>] do_page_fault+0x356/0x692
- [<c01039ff>] error_code+0x2b/0x30
- [<c026b490>] rhine_shutdown+0x60/0x140
- [<c0253ad9>] device_shutdown+0x89/0x8b
- [<c012461c>] sys_reboot+0xac/0x200
- [<c0102f71>] sysenter_past_esp+0x52/0x75
-Code: 3d ff ff 03 00 89 c2 89 e5 77 20 66 31 c0 3d 00 00 01 00 75 0c 81 e2 ff ff 00 00 ec 0f b6 c0 c9 c3 0f 0b 37 00 7b 65 3b c0 eb ea <0f> b6 00 eb ec eb 0d 90 90 90 90 90 90 90 90 90 90 90 90 90 55
+Please do a
+
+	bk pull bk://gkernel.bkbits.net/net-drivers-2.6
+
+This will update the following files:
+
+ Documentation/networking/e100.txt |    3 
+ arch/arm/mach-pxa/lubbock.c       |    2 
+ arch/arm/mach-sa1100/neponset.c   |    2 
+ drivers/net/Kconfig               |   17 
+ drivers/net/e1000/e1000.h         |    3 
+ drivers/net/e1000/e1000_ethtool.c |   11 
+ drivers/net/e1000/e1000_hw.c      |   86 
+ drivers/net/e1000/e1000_hw.h      |   11 
+ drivers/net/e1000/e1000_main.c    |  249 +
+ drivers/net/eepro100.c            |    9 
+ drivers/net/ixgb/ixgb.h           |    3 
+ drivers/net/ixgb/ixgb_ee.c        |   16 
+ drivers/net/ixgb/ixgb_ee.h        |    3 
+ drivers/net/ixgb/ixgb_ethtool.c   |    5 
+ drivers/net/ixgb/ixgb_hw.c        |    2 
+ drivers/net/ixgb/ixgb_hw.h        |    2 
+ drivers/net/ixgb/ixgb_ids.h       |    2 
+ drivers/net/ixgb/ixgb_main.c      |   73 
+ drivers/net/ixgb/ixgb_osdep.h     |    2 
+ drivers/net/ixgb/ixgb_param.c     |    2 
+ drivers/net/smc91x.c              |  275 +
+ drivers/net/smc91x.h              |   79 
+ drivers/net/tulip/de2104x.c       |    2 
+ drivers/net/typhoon-firmware.h    | 5568 +++++++++++++++++---------------------
+ drivers/net/typhoon.c             |  244 +
+ drivers/net/wan/sbni.c            |    2 
+ 26 files changed, 3304 insertions(+), 3369 deletions(-)
+
+through these ChangeSets:
+
+<mallikarjuna.chilakala:intel.com>:
+  o e1000: Driver version white space,
+  o e1000: Fixes related to Cable length
+  o e1000: Report failure code when loopback
+  o e1000: Checks for desc ring/rx data
+  o e1000: Patch from Peter Kjellstroem --
+  o e1000: Fix WOL settings in 82544 based
+  o e1000: Delay clean-up of last Tx buffer
+  o e1000: Avoid race between e1000_watchdog
+  o e1000: use netif_poll_{enable|disable}
+  o e1000: Robert Olsson's fix and refinement
+  o ixgb: Driver version, white space, other stuff
+  o ixgb: Invalidate software cache, when EEPROM write occurs
+  o ixgb: Robert Olsson's fix and refinement to poll
+  o ixgb: Avoid race e1000_watchdog and ixgb_clean_tx_irq
+  o ixgb: use netif_poll_{enable|disable}
+
+Alexander Viro:
+  o smc91x iomem annotations
+
+David Dillow:
+  o Bump version and release date
+  o Version 03.001.008 of the Typhoon firmware, courtesy of 3Com
+  o Fixup the version reporting to match 3Com
+  o Use module_param() and add descriptions
+  o Teach typhoon to use port IO on machines that need it. It will attempt to use MMIO, but if that fails (or the user asks), it will fallback to port IO.
+  o Enable bus mastering before saving our state, or we'll only be able to load the modules one time.
+
+Ian Campbell:
+  o smc91x: power down PHY on suspend
+  o use datacs in smc91x driver
+
+Nicolas Pitre:
+  o smc91x: allow RX of VLAN packets
+
+Randy Dunlap:
+  o tulip/de2104x: don't mix __init & __devinit sections
+  o net/wan/sbni: fix section usage
+
+Scott Feldman:
+  o eepro100: remove ID for 82556
+  o e100: remove reference to NAPI config option
+
+Tony Lindgren:
+  o Add OMAP support to smc91x Ethernet driver
+
+Xose Vazquez Perez:
+  o 2.6 eepro100: replace and delete duplicate ids
 
 
-Seems like it is the ioread8 in:
-
-        /* Hit power state D3 (sleep) */
-        iowrite8(ioread8(ioaddr + StickyHW) | 0x03, ioaddr + StickyHW);
-
-that fails. StickyHW is 0x83. lspci says:
-
-0000:00:07.0 Ethernet controller: VIA Technologies, Inc. VT86C100A [Rhine] (rev 06)
-        Flags: bus master, medium devsel, latency 32, IRQ 18
-        I/O ports at ec00 [size=128]
-        Memory at dfffff80 (32-bit, non-prefetchable) [size=128]
-
-In other words, it's trying to read outside of the I/O range (0x80),
-which matches the fauling address.
-
-I'm guessing my chip revision doesn't support WOL, it's a crappy noname
-card.
-
-It does seem as if rhine_power_init checks quirks for rqWOL before
-touching any registers. Should rhine_shutdown do the same? Proposed
-patch below, which resolves the problem on my system.
-
-
--Olof
-
----
-
-Check to make sure WOL is supported before setting it up in rhine_shutdown. 
-
-
-Signed-off-by: Olof Johansson <olof@austin.ibm.com>
-
-Index: linux-2.6.11/drivers/net/via-rhine.c
-===================================================================
---- linux-2.6.11.orig/drivers/net/via-rhine.c	2005-03-02 01:38:32.000000000 -0600
-+++ linux-2.6.11/drivers/net/via-rhine.c	2005-03-05 12:25:34.000000000 -0600
-@@ -1899,6 +1899,9 @@
- 	struct rhine_private *rp = netdev_priv(dev);
- 	void __iomem *ioaddr = rp->base;
- 
-+	if (!(rp->quirks & rqWOL))
-+		return; /* Nothing to do for non-WOL adapters */
-+
- 	rhine_power_init(dev);
- 
- 	/* Make sure we use pattern 0, 1 and not 4, 5 */
+--------------080400060202040209030506--
