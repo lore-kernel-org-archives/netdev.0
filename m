@@ -1,43 +1,31 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: The ultimate TOE design
-Date: Fri, 24 Sep 2004 20:09:15 +0200
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] Fix ipchains/ipfw modules
+Date: Fri, 24 Sep 2004 11:07:50 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040924180915.GB26922@xi.wantstofly.org>
-References: <20040924130738.GB24093@xi.wantstofly.org> <200409241321.i8ODLf39012346@guinness.s2io.com>
+Message-ID: <20040924110750.40c5f187.davem@davemloft.net>
+References: <m3fz57915u.fsf@averell.firstfloor.org>
+	<415439FC.10401@conectiva.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "'David S. Miller'" <davem@davemloft.net>,
-        "'Jeff Garzik'" <jgarzik@pobox.com>, alan@lxorguk.ukuu.org.uk,
-        paul@clubi.ie, netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: ak@muc.de, netdev@oss.sgi.com, coreteam@netfilter.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Leonid Grossman <leonid.grossman@s2io.com>
-Content-Disposition: inline
-In-Reply-To: <200409241321.i8ODLf39012346@guinness.s2io.com>
+To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+In-Reply-To: <415439FC.10401@conectiva.com.br>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 24, 2004 at 06:21:35AM -0700, Leonid Grossman wrote:
+On Fri, 24 Sep 2004 12:15:08 -0300
+Arnaldo Carvalho de Melo <acme@conectiva.com.br> wrote:
 
-> > > And at 10GbE, embedded CPUs just don't cut it - it has to be custom 
-> > > ASIC (granted, with some means to simplify debugging and reduce the 
-> > > risk of hw bugs and TCP changes).
-> > 
-> > Intel's IXP2800 can do 10GbE.
+> Patrick McHardy fixed this in a different way in the "Re: [PATCH] Warn 
+> people that ipchains and ipfwadm are going away." lkml thread :-)
 > 
-> Hi Lennert,
+> His explanation:
+> 
+> "Fixed by this patch. The conntrack protocols need ip_ct_log_invalid
+> which is defined in ip_conntrack_standalone, so ip_conntrack is
+> loaded automatically before ipchains. This patch moves it over to
+> ip_conntrack_core."
 
-Hello,
-
-
-> I was referring to the server side. 
-> One can certanly build a 10GbE box based on IPX2800 (or some other parts),
-> but at 17-25W it is not usable in NICs since the entire PCI card budget is
-> less than that - nothing left for 10GbE PHY, memory, etc.
-
-Ah, ok, that makes sense.  As someone else also noted, the IXP2800
-only has a 64/66 PCI interface anyway, so it wouldn't really be
-suitable for the task you were referring to.
-
-
-cheers,
-Lennert
+Yes, and that fix is on it's way to Linus today some time.
