@@ -1,35 +1,43 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: Re: How to get IPv6 interface?
-Date: Thu, 28 Nov 2002 21:13:37 +0900 (JST)
+From: "Zheng Jianping" <zjp@iscas.ac.cn>
+Subject: How to get the IPv6 address of next hop  towards destination?
+Date: Fri, 29 Nov 2002 12:13:13 +0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021128.211337.92231995.yoshfuji@linux-ipv6.org>
-References: <004c01c29679$52812600$6c06a8c0@zhengjp>
-	<8120000.1038471604@gate.muc.bieringer.de>
-	<20021128111600.GA30967@outpost.ds9a.nl>
+Message-ID: <000d01c2975d$a2ad3c10$6c06a8c0@zhengjp>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+	charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: "Pedro Roque" <roque@di.fc.ul.pt>, <kuznet@ms2.inr.ac.ru>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ahu@ds9a.nl
-In-Reply-To: <20021128111600.GA30967@outpost.ds9a.nl>
+To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20021128111600.GA30967@outpost.ds9a.nl> (at Thu, 28 Nov 2002 12:16:00 +0100), bert hubert <ahu@ds9a.nl> says:
+Hi,
 
-> > > I'm writing an IPv6 application, so which function can get the IPv6
-> > > inteface information? And how to call it?
-> > 
-> > Sorry, I'm not really an IPv6 programmer, hopefully others can help
-> > you.
-> 
-> The best way is probably to look at the 'ip' sources which use netlink to
-> query the kernel.
+I'm modifying the Linux kernel (2.4.7.10) to support IPv6 multicast
+forwarding. As required by IPv6 multicast routing protocol, the IPv6 address
+of next hop towards destination is needed. So how can I get this
+information?
 
-You may want to use getifaddrs() in USAGI libinet6.
+Calling  struct dst_entry * ip6_route_output(struct sock *sk, struct flowi
+*fl)
+can get dst_entry which has a member
+    struct neighbour *neighbour;
+But I don't know which member in 'struct neighbor' stores the IPv6 address.
+It seems  that
+  u8   primary_key[0];
+is responsible for it.
 
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Is it right?
+
+Thanks,
+Zheng Jianping
+
+----------------------------------------------------------------------------
+---------------------------
+Multimedia Communication & Network Engneering Research Center
+Institue of Software, Chiese Academy of Sciences
+
+Email: zjp@iscas.ac.cn
+Tel:     6255,5523
