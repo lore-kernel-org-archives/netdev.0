@@ -1,40 +1,43 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: Route cache performance under stress
-Date: Wed, 11 Jun 2003 09:28:32 +0200
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20030611072832.GC27144@wotan.suse.de>
-References: <3EE67D2D.80608@candelatech.com> <20030610.180120.71112140.davem@redhat.com> <Pine.LNX.4.51.0306102115210.18076@ns.istop.com> <20030610.182338.41657455.davem@redhat.com>
+From: Henrik Petander <lpetande@tml.hut.fi>
+Subject: Re: [patch]: CONFIG_IPV6_SUBTREES fix for MIPv6
+Date: Wed, 11 Jun 2003 11:48:19 +0300
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <3EE6ECD3.6050103@tml.hut.fi>
+References: <Pine.GSO.4.44.0306091140470.25126-100000@morphine.tml.hut.fi>	<20030609203659.089b241b.nakam@linux-ipv6.org>	<3EE5F85E.9080006@tml.hut.fi> <20030610.095135.28806569.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ralph+d@istop.com, ralph@istop.com, greearb@candelatech.com,
-	Robert.Olsson@data.slu.se, hadi@shell.cyberus.ca, xerox@foonet.net,
-	sim@netnation.com, fw@deneb.enyo.de, netdev@oss.sgi.com,
-	linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: nakam@linux-ipv6.org, lpetande@morphine.tml.hut.fi,
+   yoshfuji@linux-ipv6.org, vnuorval@tcs.hut.fi, kuznet@ms2.inr.ac.ru,
+   netdev@oss.sgi.com, ajtuomin@morphine.tml.hut.fi, jagana@us.ibm.com,
+   kumarkr@us.ibm.com, usagi-core@linux-ipv6.org
+Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20030610.182338.41657455.davem@redhat.com>
+In-Reply-To: <20030610.095135.28806569.davem@redhat.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 10, 2003 at 06:23:38PM -0700, David S. Miller wrote:
->    From: Ralph Doncaster <ralph@istop.com>
->    Date: Tue, 10 Jun 2003 21:17:28 -0400 (EDT)
-> 
->    Aren't the read_lock_irqsave and restore expensive?
-> 
-> If x86 has an inefficient implementation, well... :-)
 
-sti/cli is normally fast on x86, a bit slower on P3 core (a few cycles or so)
-read_lock_irqsave does a pushfl though, that's rather slow on P4,
-but still not that bad. read_lock_irq would be faster, but too risky 
-here.
+David S. Miller wrote:
 
 > 
-> This can be done without locks, nobody has done the x86 implementation
-> of that that's all.  I think the x86_64 folks did a lockless version,
-> I know I did for sparc64 :)
+> If you want to do these things using routes or xfrm rules, you must
+> integrate the creation of them into either zebra or racoon.  You
+> cannot have a setup where mipv6d and racoon/zebra fight each other
+> flushing each other's settings.  It doesn't work.
+> 
 
-2.5 i386 gettimeofday is lockless. But on UP it should not make any difference
-anyways.
+In the routing based approach there should not be any conflicts between 
+mipv6 and zebra: We would create cached host routes based on the 
+existing routes. Thus if zebra was running, the mipv6 daemon would not 
+change the routes created by zebra, but only cached host routes. If 
+zebra changed any routes, it would cause the deletion of any invalid 
+cached routes. The mipv6 daemon would listen to netlink messages for 
+route deletion and would then reinsert the mipv6 state into a new cached 
+route.
 
--Andi
+Does this make sense to you?
+
+Thanks,
+
+Henrik
