@@ -1,123 +1,114 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [Lse-tech] Re: A common layer for Accounting packages
-Date: Tue, 01 Mar 2005 17:17:57 +0300
-Message-ID: <1109686677.28266.66.camel@uganda>
-References: <4221E548.4000008@ak.jp.nec.com>
-	 <20050227140355.GA23055@logos.cnet> <42227AEA.6050002@ak.jp.nec.com>
-	 <1109575236.8549.14.camel@frecb000711.frec.bull.fr>
-	 <20050227233943.6cb89226.akpm@osdl.org>
-	 <1109592658.2188.924.camel@jzny.localdomain>
-	 <20050228132051.GO31837@postel.suug.ch>
-	 <1109598010.2188.994.camel@jzny.localdomain>
-	 <20050228135307.GP31837@postel.suug.ch>
-	 <1109599803.2188.1014.camel@jzny.localdomain>
-	 <20050228142551.GQ31837@postel.suug.ch>
-	 <1109604693.1072.8.camel@jzny.localdomain>
-	 <20050228191759.6f7b656e@zanzibar.2ka.mipt.ru>
-	 <1109665299.8594.55.camel@frecb000711.frec.bull.fr>
-	 <42247051.7070303@ak.jp.nec.com>
-	 <1109685236.8594.75.camel@frecb000711.frec.bull.fr>
-Reply-To: johnpol@2ka.mipt.ru
+From: Jeroen Massar <jeroen@unfix.org>
+Subject: Re: (usagi-users 03222) Re: support of IPv6 by NFS
+Date: Tue, 01 Mar 2005 16:08:32 +0100
+Message-ID: <1109689712.17484.6.camel@firenze.zurich.ibm.com>
+References: <42243F8D.5030302@bull.net>
+	 <200503010744.38339.Info@Quantum-Sci.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-T+HcrVsRNtFuhZ2bJkzx"
-Cc: Kaigai Kohei <kaigai@ak.jp.nec.com>, hadi@cyberus.ca,
-        Thomas Graf <tgraf@suug.ch>, Andrew Morton <akpm@osdl.org>,
-        marcelo.tosatti@cyclades.com, "David S. Miller" <davem@redhat.com>,
-        jlan@sgi.com, LSE-Tech <lse-tech@lists.sourceforge.net>,
-        lkml <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com,
-        elsa-devel <elsa-devel@lists.sourceforge.net>
-To: Guillaume Thouvenin <guillaume.thouvenin@bull.net>
-In-Reply-To: <1109685236.8594.75.camel@frecb000711.frec.bull.fr>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-CXIFG70UQeVul0i4ytiq"
+Cc: netdev@oss.sgi.com
+To: usagi-users@linux-ipv6.org
+In-Reply-To: <200503010744.38339.Info@Quantum-Sci.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---=-T+HcrVsRNtFuhZ2bJkzx
+--=-CXIFG70UQeVul0i4ytiq
 Content-Type: text/plain
 Content-Transfer-Encoding: quoted-printable
 
-On Tue, 2005-03-01 at 14:53 +0100, Guillaume Thouvenin wrote:
-> On Tue, 2005-03-01 at 22:38 +0900, Kaigai Kohei wrote:
-> > > I tested without user space listeners and the cost is negligible. I w=
-ill
-> > > test with a user space listeners and see the results. I'm going to ru=
-n
-> > > the test this week after improving the mechanism that switch on/off t=
-he
-> > > sending of the message.
-> >=20
-> > I'm also trying to mesure the process-creation/destruction performance =
-on following three environment.
-> > Archtechture: i686 / Distribution: Fedora Core 3
-> > * Kernel Preemption is DISABLE
-> > * SMP kernel but UP-machine / Not Hyper Threading
-> > [1] 2.6.11-rc4-mm1 normal
-> > [2] 2.6.11-rc4-mm1 with PAGG based Process Accounting Module
-> > [3] 2.6.11-rc4-mm1 with fork-connector notification (it's enabled)
-> >=20
-> > When 367th-fork() was called after fork-connector notification, kernel =
-was locked up.
-> > (User-Space-Listener has been also run until 366th-fork() notification =
-was received)
->=20
-> I don't see this limit on my computer. I'm currently running the lmbench
-> with a new fork connector patch (one that enable/disable fork connector)
-> on an SMP computer. I will send results and the new patch tomorrow
-> because the test takes a while...
->=20
-> I'm using a small patch provided by Evgeniy and not included in the
-> 2.6.11-rc4-mm1 tree.
+On Tue, 2005-03-01 at 07:44 -0600, Quantum Scientific wrote:=20
+>On Tuesday 01 March 2005 4:10, Gilles Quillard wrote:
+>> This works but this needs that the kernel has been compiled with IPv6,=20
+>> which is not mandotary. A lot of people in the Linux community do not=20
+>> have experience with IPv6 yet and are not ready to use it. So making it=20
+>> mandatory for NFS, even in a pure IPv4 network, is not easy.
+>
+>My experience is that IPV6 is extremely difficult to figure out how to set=
+ up=20
+>securely, for the time being, due to lack of connection-sharing.
 
-2.6.11-rc4-mm1 tree does not have the latest connector.
-Various fixes were added, not only that.
+NAT is not a firewall. Get that into your brain.
 
-I run the latest patch Guillaume sent to me(with small updates),=20
-fork bomb with more than 100k forks passed already without any freeze.
-I do not have numbers thought.
+And indeed there is no Linux firewalling code yet, in the mainstream
+that can do connection tracking. There is no non-EFT Cisco PIX code for
+this either. The only OS that can do it is the various BSD's.
 
-> Best regards,
-> Guillaume
->=20
-> --- orig/connector.c
-> +++ mod/connector.c
-> @@ -168,12 +168,11 @@
->         group =3D NETLINK_CB((skb)).groups;
->         msg =3D (struct cn_msg *)NLMSG_DATA(nlh);
->=20
-> -       if (msg->len !=3D nlh->nlmsg_len - sizeof(*msg) - sizeof(*nlh)) {
-> +       if (NLMSG_SPACE(msg->len + sizeof(*msg)) !=3D nlh->nlmsg_len) {
->                 printk(KERN_ERR "skb does not have enough length: "
-> -                               "requested msg->len=3D%u[%u], nlh->nlmsg_=
-len=3D%u[%u], skb->len=3D%u[must be %u].\n",
-> -                               msg->len, NLMSG_SPACE(msg->len),
-> -                               nlh->nlmsg_len, nlh->nlmsg_len - sizeof(*=
-nlh),
-> -                               skb->len, msg->len + sizeof(*msg));
-> +                               "requested msg->len=3D%u[%u], nlh->nlmsg_=
-len=3D%u, skb->len=3D%u.\n",
-> +                               msg->len, NLMSG_SPACE(msg->len + sizeof(*=
-msg)),
-> +                               nlh->nlmsg_len, skb->len);
->                 kfree_skb(skb);
->                 return -EINVAL;
->         }
->=20
---=20
-        Evgeniy Polyakov
+>And 80% of potential users are behind a cable/DSL 4 NATting router.  There=
+ is=20
+>no clarity that it is possible overcome this by either setting to DMZ, or=20
+>hoping your cablemodem passes protos 41, 50 & 51.  Even some tunnel operat=
+ors=20
+>do not know this, so I had to figure it out myself.
 
-Crash is better than data corruption -- Arthur Grabowski
+Freenet6/Hexago have a UDP protocol and SixXS has AYIYA. Works perfectly
+fine.
 
---=-T+HcrVsRNtFuhZ2bJkzx
+In most cases, I know from quite a bit of experience, proto-41
+forwarding works very well in most of these DSL boxes.
+
+> There is no Linux 6to4=20
+>UDP tunnelling app, but there should be, because this is such a common=20
+>problem.  (As I understand, Teredo is Winduhs-only, and is not supported b=
+y=20
+>most tunnel operators)
+
+The protocol for Teredo is open and can be implemented at will:
+
+http://www-rp.lip6.fr/teredo/
+http://www.simphalempin.com/dev/miredo
+http://people.via.ecp.fr/~rem/miredo/?C=3DN;O=3DD
+
+First couple of hits when doing a google on "Teredo BSD", or for you to
+click as that might be difficult:
+http://www.google.com/search?q=3Dteredo+bsd
+
+>And frankly, most Linux users' only contact with IPV6 has been the DNS AAA=
+A=20
+>browser delay seemingly inherent in some distros.  Although I realize that=
+=20
+>all of us who run Linux are ostensibly uber-gurus, fact is this is a negat=
+ive=20
+>first experience for most, stemming from attempts by distros to encourage =
+ppl=20
+>to use it with an inoperative function, and without an obvious way to=20
+>troubleshoot/repair.
+
+I can clearly assume that you are not part of the 'ostensibly
+uber-gurus' you try to mention.=20
+>
+>These issues contradict assertions that IPV6 is beneficial and easy.
+
+That you don't understand it is your problem ;)
+
+>If I=20
+>didn't have a strong motivation and lots of time, I would have chucked=20
+>early-on.  Speaking the actual truth, not propaganda or spin, leads to=20
+>understanding of the *real* world.
+
+Loads of people seem to have no problem at all with IPv6, getting it up
+and running and actually using it for a lot of traffic.
+That fact that you are only complaining, without doing any actual
+research, typing two words in google, says enough. You are not even
+capable of configuring your mailer properly to include your own name,
+the field is not called "Realname" for nothing...
+
+Greets,
+ Jeroen
+
+
+--=-CXIFG70UQeVul0i4ytiq
 Content-Type: application/pgp-signature; name=signature.asc
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.6 (GNU/Linux)
+Version: GnuPG v1.4.0 (GNU/Linux)
+Comment: Jeroen Massar / http://unfix.org/~jeroen/
 
-iD8DBQBCJHmVIKTPhE+8wY0RArr4AJ43/qPErT1WsYHIXDcSs3Z4g7tKCwCfSdjl
-s1xDdJ3ZZYS4zmbpUe3+J1M=
-=U897
+iD8DBQBCJIVwKaooUjM+fCMRAkLoAJ9m855fpWBV+bmKxXeM6dUWnhlIfgCdF/ei
+uKA8xiFscO2H3ZlT2IMQceo=
+=HzTF
 -----END PGP SIGNATURE-----
 
---=-T+HcrVsRNtFuhZ2bJkzx--
+--=-CXIFG70UQeVul0i4ytiq--
