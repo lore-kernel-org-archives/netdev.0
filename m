@@ -1,79 +1,50 @@
-From: Harald Welte <laforge@gnumonks.org>
-Subject: Re: [6/6]: jenkins hash for neigh / Statistics
-Date: Tue, 28 Sep 2004 00:26:13 +0200
+From: John Heffner <jheffner@psc.edu>
+Subject: Re: bad TSO performance in 2.6.9-rc2-BK
+Date: Mon, 27 Sep 2004 18:38:42 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040927222613.GE3236@sunbeam.de.gnumonks.org>
-References: <20040925005623.2faf8faf.davem@davemloft.net> <E1CBu70-00010X-00@gondolin.me.apana.org.au> <20040927121403.767e2308.davem@davemloft.net>
+Message-ID: <Pine.NEB.4.33.0409271416360.14606-100000@dexter.psc.edu>
+References: <20040923161141.4ea9be4c.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="YkFcLeXky5t3pWWo"
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andi Kleen <ak@suse.de>, <niv@us.ibm.com>, <andy.grover@gmail.com>,
+        <anton@samba.org>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20040927121403.767e2308.davem@davemloft.net>
+In-Reply-To: <20040923161141.4ea9be4c.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Thu, 23 Sep 2004, David S. Miller wrote:
 
---YkFcLeXky5t3pWWo
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+>
+> I think I know what may be going on here.
+>
+> Let's say that we even get the congestion window openned up
+> so that we can build 64K TSO frames, that's around 43 or 44
+> 1500 mtu frames.
+>
+> That means as the window fills up, we have to see 44 ACKs
+> before we are able to send the next TSO frame.  Needless to
+> say that breaks ACK clocking completely.
 
-On Mon, Sep 27, 2004 at 12:14:03PM -0700, David S. Miller wrote:
-> Herbert Xu <herbert@gondor.apana.org.au> wrote:
->=20
-> > David S. Miller <davem@davemloft.net> wrote:
-> > >=20
-> > > 4) The controversial/RFC patch, dorking with neigh_forced_gc()
-> > >
-> > > +			if (n->nud_state -=3D NUD_INCOMPLETE &&
-> > > +			    reap_incomplete =3D=3D 0 &&
-> > > +			    time_after(jiffies,
-> > > +				       n->used + n->parms->retrans_time)) {
-> > > +				num_incomplete++;
-> > > +				goto next_ent;
-> >=20
-> > That should either be time_before, or you need to swap the arguments.
->=20
-> Good catch, and it means that the code basically behaved
-> as if the NUD_INCOMPLETE tests weren't even there.
 
-which also explains why my statistics code actually never catched a
-forced GC that didn't fulfill it's goal ;)
+More specifically, I think it is an interaction with delayed ack (acking
+less than 1 virtual segment), and the small cwnd.  This works for me, but
+I'm not sure that aren't some lurking problems still.
 
-to get back at the statistics code:
+===== net/ipv4/tcp_output.c 1.58 vs edited =====
+--- 1.58/net/ipv4/tcp_output.c	2004-09-14 00:39:17 -04:00
++++ edited/net/ipv4/tcp_output.c	2004-09-27 18:26:43 -04:00
+@@ -642,8 +657,8 @@
+ 		 * do not exceed congestion window.
+ 		 */
+ 		factor = large_mss / mss_now;
+-		if (factor > tp->snd_cwnd)
+-			factor = tp->snd_cwnd;
++		if (factor > (tp->snd_cwnd>>3))
++			factor = max(tp->snd_cwnd>>3, 1);
 
-As stated before, I would like to change rt_stat and ct_stat in order to
-include a first 'template' line, too.  This way it is easier to write a
-generic foo_stat program, that could deal with any of those statistics
-files, even with new ones...  but this of course would break existing
-rtstat binaries.  I personally  don't care, since it's a little-known
-and little-used feature, which to my knowledge is in a lot of
-distributions either non-existant [Debian] or incompatible [SuSE]. What
-do you think?
+ 		tp->mss_cache = mss_now * factor;
+ 	}
 
---=20
-- Harald Welte <laforge@gnumonks.org>               http://www.gnumonks.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-Programming is like sex: One mistake and you have to support it your lifeti=
-me
-
---YkFcLeXky5t3pWWo
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
-
-iD8DBQFBWJOFXaXGVTD0i/8RAttdAJ46y0WvHd7p5THuSvS2OQadK6fKtQCdH7ed
-9c7s7nLPVCdrwYVGwMGb0AU=
-=2OoZ
------END PGP SIGNATURE-----
-
---YkFcLeXky5t3pWWo--
+  -John
