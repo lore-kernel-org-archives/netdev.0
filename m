@@ -1,96 +1,118 @@
-From: =?GB2312?B?ucK2wMrHv8mz3KOsvNPI67ykx+m5q8nno6y45rHwtaXJ7Q==?=
- <ssfdf@21cn.com>
-Subject: =?GB2312?B?ucK2wMrHv8mz3KOsvNPI67ykx+m5q8nno6y45rHwtaXJ7Q==?=
-Date: Thu, 20 Mar 2003 21:23:06 +0800
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200303201326.h2KDQDqA022425@oss.sgi.com>
-Reply-To: fdf@21cn.com
-Content-Type: text/html;charset="GB2312"
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+From: Shmulik Hen <hshmulik@intel.com>
+Subject: [patch] (0/8) Adding 802.3ad support to bonding
+Date: Thu, 20 Mar 2003 17:14:09 +0200 (IST)
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <Pine.LNX.4.44.0303201553540.10351-100000@jrslxjul4.npdj.intel.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Bonding Developement list <bonding-devel@lists.sourceforge.net>,
+	Bonding Announce list <bonding-announce@lists.sourceforge.net>,
+	Linux Net Mailing list <linux-net@vger.kernel.org>,
+	Linux Kernel Mailing list <linux-kernel@vger.kernel.org>,
+	Oss SGI Netdev list <netdev@oss.sgi.com>,
+	Jeff Garzik <jgarzik@pobox.com>
 List-Id: netdev.vger.kernel.org
 
-<html>
+This patch adds support for point to point protocols (e.g. 802.3ad) 
+over bonding that need to know the physical device the skb came on. It 
+saves the real device in a new field in skbuff before overwriting it with 
+the virtual interface device in skb_bond() and __vlan_hwaccel_rx().
 
-<head><STYLE>HTML {
-	TEXT-DECORATION: none
-}
-A:link {
-	COLOR: #000000; TEXT-DECORATION: none
-}
-A:hover {
-	COLOR: rgb(72,59,216); TEXT-DECORATION: underline
-}
-EM {
-	FONT-FAMILY: 宋体; FONT-SIZE: 10pt; FONT-STYLE: normal
-}
-A {
-	FONT-FAMILY: 宋体; FONT-SIZE: 10pt
-}
-TD {
-	FONT-FAMILY: 宋体; FONT-SIZE: 10pt
-}
-P {
-	FONT-FAMILY: 宋体; FONT-SIZE: 10pt
-}
-</STYLE>
+This patch is against 2.4.21-pre5 kernel.
 
 
-<meta http-equiv="Content-Type" content="text/html; charset=gb2312">
-<meta name="GENERATOR" content="Microsoft FrontPage 4.0">
-<meta name="ProgId" content="FrontPage.Editor.Document">
-<title>GO一起上 www.go173.com</title>
-<base target="_blank">
-</head>
 
-<body bgcolor="#BFBF9F">
+diff -Nuarp linux-2.4.21-pre5-orig/include/linux/if_vlan.h linux-2.4.21-pre5-new/include/linux/if_vlan.h
+--- linux-2.4.21-pre5-orig/include/linux/if_vlan.h	2002-11-29 01:53:15.000000000 +0200
++++ linux-2.4.21-pre5-new/include/linux/if_vlan.h	2003-03-04 14:01:56.000000000 +0200
+@@ -148,6 +148,9 @@ static inline int __vlan_hwaccel_rx(stru
+ {
+ 	struct net_device_stats *stats;
+ 
++#ifdef BOND_POINT_TO_POINT_PROT
++	skb->real_dev = skb->dev;
++#endif //BOND_POINT_TO_POINT_PROT
+ 	skb->dev = grp->vlan_devices[vlan_tag & VLAN_VID_MASK];
+ 	if (skb->dev == NULL) {
+ 		kfree_skb(skb);
+diff -Nuarp linux-2.4.21-pre5-orig/include/linux/skbuff.h linux-2.4.21-pre5-new/include/linux/skbuff.h
+--- linux-2.4.21-pre5-orig/include/linux/skbuff.h	2003-03-04 13:43:27.000000000 +0200
++++ linux-2.4.21-pre5-new/include/linux/skbuff.h	2003-03-04 14:13:25.000000000 +0200
+@@ -135,6 +135,11 @@ struct sk_buff {
+ 	struct sock	*sk;			/* Socket we are owned by 			*/
+ 	struct timeval	stamp;			/* Time we arrived				*/
+ 	struct net_device	*dev;		/* Device we arrived on/are leaving by		*/
++#define BOND_POINT_TO_POINT_PROT
++	struct net_device	*real_dev;	/* For support of point to point protocols 
++						   (e.g. 802.3ad) over bonding, we must save the
++						   physical device that got the packet before
++						   replacing skb->dev with the virtual device.  */
+ 
+ 	/* Transport layer header */
+ 	union
+diff -Nuarp linux-2.4.21-pre5-orig/net/core/dev.c linux-2.4.21-pre5-new/net/core/dev.c
+--- linux-2.4.21-pre5-orig/net/core/dev.c	2003-03-04 13:43:28.000000000 +0200
++++ linux-2.4.21-pre5-new/net/core/dev.c	2003-03-04 14:14:56.000000000 +0200
+@@ -1328,8 +1328,12 @@ static __inline__ void skb_bond(struct s
+ {
+ 	struct net_device *dev = skb->dev;
+ 
+-	if (dev->master)
+-		skb->dev = dev->master;
++	if (dev->master) {
++#ifdef BOND_POINT_TO_POINT_PROT
++		skb->real_dev = skb->dev;
++#endif //BOND_POINT_TO_POINT_PROT
++		skb->dev = dev->master;
++	}
+ }
+ 
+ static void net_tx_action(struct softirq_action *h)
+diff -Nuarp linux-2.4.21-pre5-orig/net/core/skbuff.c linux-2.4.21-pre5-new/net/core/skbuff.c
+--- linux-2.4.21-pre5-orig/net/core/skbuff.c	2003-03-04 13:43:28.000000000 +0200
++++ linux-2.4.21-pre5-new/net/core/skbuff.c	2003-03-04 14:17:44.000000000 +0200
+@@ -231,6 +231,9 @@ static inline void skb_headerinit(void *
+ 	skb->sk = NULL;
+ 	skb->stamp.tv_sec=0;	/* No idea about time */
+ 	skb->dev = NULL;
++#ifdef BOND_POINT_TO_POINT_PROT
++	skb->real_dev = NULL;
++#endif //BOND_POINT_TO_POINT_PROT
+ 	skb->dst = NULL;
+ 	memset(skb->cb, 0, sizeof(skb->cb));
+ 	skb->pkt_type = PACKET_HOST;	/* Default type */
+@@ -362,6 +365,9 @@ struct sk_buff *skb_clone(struct sk_buff
+ 	n->sk = NULL;
+ 	C(stamp);
+ 	C(dev);
++#ifdef BOND_POINT_TO_POINT_PROT
++	C(real_dev);
++#endif //BOND_POINT_TO_POINT_PROT
+ 	C(h);
+ 	C(nh);
+ 	C(mac);
+@@ -417,6 +423,9 @@ static void copy_skb_header(struct sk_bu
+ 	new->list=NULL;
+ 	new->sk=NULL;
+ 	new->dev=old->dev;
++#ifdef BOND_POINT_TO_POINT_PROT
++	new->real_dev=old->real_dev;
++#endif //BOND_POINT_TO_POINT_PROT
+ 	new->priority=old->priority;
+ 	new->protocol=old->protocol;
+ 	new->dst=dst_clone(old->dst);
 
-<div align="center">
-  <center>
-  <table border="1" cellpadding="0" cellspacing="1" width="85%" height="274" bordercolor="#CC6600">
-    <tr>
-      <td width="20%" height="23" bgcolor="#FEE2FB">
-        <p align="center"><font color="#666666">&nbsp;&nbsp; <a href="http://www.go173.com">首页&nbsp;</a></font></td>    
-      <td width="20%" height="23" bgcolor="#CC6600">    
-        <p align="center"><a href="http://www.go173.com/mm/go.htm"><font color="#000080">激情公社</font></a></td>    
-  </center>    
-      <td width="20%" height="23" bgcolor="#FEE2FB">    
-        <p align="center"><font color="#666666"><a href="http://www.go173.com/mm">野蛮女生</a></font></td>    
-  <center>    
-      <td width="20%" height="23" bgcolor="#FEE2FB">    
-        <p align="center"><font color="#666666"><a href="http://huanqiu3636.mylove.163.com">同城约会</a></font></td>    
-      <td width="20%" height="23" bgcolor="#FEE2FB">    
-        <p align="center"><font color="#666666"><a href="http://www.go173.com/mm/index55.htm" target="_blank">两性笑话</a></font></td>   
-    </tr>   
-  </center>   
-  <tr>   
-    <td width="100%" height="174" valign="top" colspan="5">   
-      <p align="left">==============================================================<br> 
-      ==============================================================<br> 
-      您是网络游戏高手吗？您是否有个花费您很大精力和时间，由于各种原因而不得不放弃的游戏账号。这一切已经成为历史，功能强大“GO一起上游戏账号交易平台”闪亮登场。现在，您只要登陆WWW.GO173.COM ，免费注册为会员,您就可以享受交易带来的无限乐趣。  
-      <p align="left"><font color="#666666">传奇，精灵，大话，奇迹，红月，账号交易，详细请进入</font><a href="http://www.go173.com"><font color="#FF0000">WWW.GO173.COM</font></a><font color="#666666">您是网络游戏高手吗？您是否有个花费您很大精力和时间，由于各种原因而不得不放弃的游戏账号。这一切已经成为历史，功能强大“GO一起上游戏账号交易平台”闪亮登场。现在，您只要登陆</font><a href="http://www.go173.com"><font color="#FF0000">WWW.GO173.COM</font></a><font color="#666666"> ，免费注册为会员,您就可以享受交易带来的无限乐趣。<br>           
-      <br>           
-      http://</font><a href="http://www.go173.com"><font color="#666666">www.go173.com</font></a><font color="#666666"><br>         
-    超过万首的FLASH音乐欣赏http://</font><a href="http://www.go173.com/flash"><font color="#666666">www.go173.com/flash</font></a><font color="#666666"><br>         
-      </font>         
-      <a href="http://www.go173.com/mm"><font color="#FF0000">进入社区&gt;&gt;</font></a>        
-    </td>        
-  </tr>        
-  <tr>        
-    <td width="100%" height="77" valign="middle" colspan="5">       
-    <p align="center">  <center>加入 <A HREF=http://asiafriendfinder.com/go/f112513 target=_top>  
-亚洲交友中心</A> - 最大亚洲个人交友中心网站!<br>  
-<A HREF=http://asiafriendfinder.com/go/f112513 target=_top>  
-<img src=http://banners.asiafriendfinder.com/banners/ffz/gb01.gif   
-width=468 height=60 border=0></A></center>  
-  
-  
-</td>       
-  </tr>      
-  </table>      
-</div>      
-      
-</body>      
-      
-</html>      
+-- 
+| Shmulik Hen                                    |
+| Israel Design Center (Jerusalem)               |
+| LAN Access Division                            |
+| Intel Communications Group, Intel corp.        |
+|                                                |
+| Anti-Spam: shmulik dot hen at intel dot com    |
+
+
+
+
+
+
