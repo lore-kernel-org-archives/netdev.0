@@ -1,41 +1,68 @@
-From: "Feldman, Scott" <scott.feldman@intel.com>
-Subject: RE: More 2.4.22pre10 ACPI breakage
-Date: Wed, 6 Aug 2003 15:34:33 -0700
+From: pr@mrno.jp
+Subject: =?ISO-8859-1?Q?=1B$B#N#O%/%j%C%/!y9b2AGc<h%-%c%s%Z!<%sCf!*=1B(B?=
+Date: Thu,  7 Aug 2003 10:40:38 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <C6F5CF431189FA4CBAEC9E7DD5441E01022292E1@orsmsx402.jf.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8bit
-Cc: "Samuel Flory" <sflory@rackable.com>, <netdev@oss.sgi.com>
+Message-ID: <20030807014038.5B4A1188FB8@mail.mrno.jp>
 Return-path: <netdev-bounce@oss.sgi.com>
-content-class: urn:content-classes:message
-To: "Jeff Garzik" <jgarzik@pobox.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> That said... I'm tempted to extend NAPI just a bit, to provide an 
-> "always poll" mode.  It seems like all the bug reports I get 
-> these days for 8139too are caused by x86 ACPI/APIC/irq routing
-troubles 
-> completely unrelated to the driver.  Tulip-almost-NAPI in 2.4 has an
-> always-poll mode, so I have a convenient excuse :)
+サイトオーナー様！
+収入を1.5倍に増やしませんか？
 
-NAPI always-poll mode...that would be fun to play with.  JC was getting
-his best results for small packets when he modified the dev e100 driver
-to stay in polling mode, even if the quota wasn't met.  Basically
-running without interrupts.  If there is someway for the the driver to
-sample/ack the device for events when interrupts are disabled/unrouted,
-then these async events can be handled in the poll routine.  I'm
-thinking of events like link-status-change.
+突然のメール申し訳ございません。
+この度、弊社では新サービス『Ｍｒ.ＮＯ』を
+開始致しましたのでご連絡差し上げております。
 
-Is this what you're thinking: 1) block any place the driver enables
-interrupts so interrupts stay disabled, 2) ignore netif_rx_complete so
-we stay in polling mode, 3) ignore return code from netdev->poll.
+弊社、新サービス『Ｍｒ.ＮＯ』はサイトの
+ＴＯＰページに設置されております、年齢認証
+及び入退出機構での非入室ユーザー部分
+（ＮＯ・ＥＸＩＴ・退出など）を、
+・携帯サイト様は１クリック＝５円
+・ＰＣサイト様は１クリック＝１円
+で買取させて頂くものです。
 
-For 1), the driver needs some way to know that we're in always-poll-mode
-so enabling interrupts is a nop.
+★------------------------------------------★
+さらに、オープニングキャンペーンと致しまして
+８月中に『Ｍｒ.ＮＯ』バナーを貴サイト内の
+入退出機構の下に貼って頂ける場合、
+・携帯サイト様は１クリック＝１２円（通常７円）
+・ＰＣサイト様は１クリック＝５円（通常２円）
+で買取させて頂きます！！
+★------------------------------------------★
 
-Just thinking out loud - haven't tried any of this.
+現状、入退出機構をお持ちでないオーナー様でも
+ＴＯＰページに入退出機構を設置して頂ければ
+買取対象となります。
 
--scott
+弊社の調査では訪問者の内、入退出機構での
+非入室ユーザーは最低2％、最高15％も存在します。
+今まで収入対象にならなかった非入室ユーザー
+クリックを弊社が全て買取致します。
+
+状況的にも２００３年１０月から法律規制による
+アダルトサイトへの年齢認証機構の義務付けが施行され
+る事もありますので、この機会に年齢認証機構の無い
+サイト様は年齢認証機構の導入と同時に弊社新サービス
+『Ｍｒ.ＮＯ』を是非ともご検討下さい。
+
+なお、簡単登録でオーナー管理ページから
+リアルタイムに収入が確認できます。
+
+詳しくは下記のサイトでご覧下さい。
+
+携帯版『Ｍｒ.ＮＯ』
+http://www.mrno.jp/i/
+
+ＰＣ版『Ｍｒ.ＮＯ』
+http://www.mrno.jp/
+
+最後に、こちらの手違いでサイトオーナー様以外に
+このメールが届いておりましたら心よりお詫び申し上げます。
+
+//////////////////////////////////////////////////
+ 　株式会社アルファーカンパニー　システム開発部
+ 　担当　　松井幸子
+ 　info@mrno.jp
+//////////////////////////////////////////////////
