@@ -1,50 +1,61 @@
-From: P@draigBrady.com
-Subject: e100 NAPI performance
-Date: Fri, 29 Aug 2003 11:16:46 +0100
+From: "Auto-reply from chrris@mail.dk" <chrris@mail.dk>
+Subject: Re: Thank you!
+Date: Fri, 29 Aug 2003 14:41:28 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F4F280E.1020507@draigBrady.com>
+Message-ID: <20030829124128.DUWC24095.fepZ.post.tele.dk@fepZ>
+References: <20030829124128.DUWA24095.fepZ.post.tele.dk@TESTSTAR>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: quoted-printable
+Content-Type: multipart/mixed;
+		Boundary="===========================_ _= 7276611(24095)1062160888"
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
+In-Reply-To: <20030829124128.DUWA24095.fepZ.post.tele.dk@TESTSTAR>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
-I didn't get any feedback on the following mail.
 
-Also in case this patch wasn't noticed,
-I think it's a no brainer to apply?
-http://tardis.linux.ie/1637/sourceforge.net
+--===========================_ _= 7276611(24095)1062160888
+Content-Type: text/plain; charset=us-ascii
 
-cheers,
-P=E1draig.
 
--------- Original Message --------
-Subject: e100 NAPI performance
-Date: Mon, 25 Aug 2003 14:12:05 +0100
-From: P@draigBrady.com
-To: e1000-devel@lists.sourceforge.net
+Hej, dette er et automatisk svar. 
+Send venligst din mail til min nye adresse christian@rishoj.net i stedet.
 
-Hi,
+Hello, this is an automatic reply. 
+Please send your mail to my new address christian@rishoj.net instead.
 
-I'm testing the latest e100 driver (3.0.0_dev13)
-in a device here that is purely used to
-capture traffic, and I'm testing with 64 byte packets.
+Christian
 
-I've turned on NAPI and can recv up to 120K packets/s
-fine. (btw the driver without NAPI is
-fine up to 101K packets/s). Above this though
-the packet capture rate actually decreases
+--===========================_ _= 7276611(24095)1062160888
+Content-Type: message/rfc822
 
-At 130K packets/s only 110K/s are received,
-and 16K/s are rx fifo overruns.
-I thought NAPI was supposed to keep a bound
-on the worst case?
+Received: from TESTSTAR ([203.125.33.211]) by fepZ.post.tele.dk
+          (InterMail vM.5.01.06.04 201-253-122-130-104-20030726) with ESMTP
+          id <20030829124128.DUWA24095.fepZ.post.tele.dk@TESTSTAR>
+          for <chrris@mail.dk>; Fri, 29 Aug 2003 14:41:28 +0200
+From: <netdev@oss.sgi.com>
+To: <chrris@mail.dk>
+Subject: Re: Thank you!
+Date: Fri, 29 Aug 2003 20:42:14 +0800
+X-MailScanner: Found to be clean
+Importance: Normal
+X-Mailer: Microsoft Outlook Express 6.00.2600.0000
+X-MSMail-Priority: Normal
+X-Priority: 3 (Normal)
+MIME-Version: 1.0
+Content-Type: multipart/mixed;
+	boundary="_NextPart_000_00F7F6F1"
+Message-Id: <20030829124128.DUWA24095.fepZ.post.tele.dk@TESTSTAR>
 
-any advice on improving performance
-like ethtool params or something?
+This is a multipart message in MIME format
 
-CPU is 1.2GHz PIII
-linux kernel is 2.4.20
+--_NextPart_000_00F7F6F1
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+
+Please see the attached file for details.
+--_NextPart_000_00F7F6F1--
+
+
+--===========================_ _= 7276611(24095)1062160888--
