@@ -1,78 +1,66 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Fw: [Bugme-new] [Bug 4001] New: can't lower mtu of via_velocity
-Date: Thu, 6 Jan 2005 16:22:47 -0800
-Message-ID: <20050106162247.064add04.akpm@osdl.org>
+From: Darren Williams <dsw@gelato.unsw.edu.au>
+Subject: Re: TG3 fix for slow switches (Was: TG3 driver failure on HP 16-way)
+Date: Fri, 7 Jan 2005 11:17:44 +1100
+Message-ID: <20050107001743.GH17027@cse.unsw.EDU.AU>
+References: <16839.27239.264551.415058@berry.gelato.unsw.EDU.AU> <20041220161552.2b88aa3d.davem@davemloft.net> <16839.30796.413939.333935@wombat.chubb.wattle.id.au> <20050106151910.4d51673e.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: fadlouni@hotmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Peter Chubb <peterc@gelato.unsw.edu.au>, netdev@oss.sgi.com,
+        mchan@broadcom.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20050106151910.4d51673e.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi David
 
+On Thu, 06 Jan 2005, David S. Miller wrote:
 
-Begin forwarded message:
+> 
+> Peter, let me know if this patch solves your PHY link up problem
+> too.
+> 
+> # This is a BitKeeper generated diff -Nru style patch.
+> #
+> # ChangeSet
+> #   2005/01/06 14:53:55-08:00 davem@nuts.davemloft.net 
+> #   [TG3]: Return 0 when PHY read times out, not all-ones.
+> #   
+> #   Noticed by Peter Chubb.
+> #   
+> #   Signed-off-by: David S. Miller <davem@davemloft.net>
+> # 
+> # drivers/net/tg3.c
+> #   2005/01/06 14:53:07-08:00 davem@nuts.davemloft.net +1 -1
+> #   [TG3]: Return 0 when PHY read times out, not all-ones.
+> # 
+> diff -Nru a/drivers/net/tg3.c b/drivers/net/tg3.c
+> --- a/drivers/net/tg3.c	2005-01-06 14:54:21 -08:00
+> +++ b/drivers/net/tg3.c	2005-01-06 14:54:21 -08:00
+> @@ -485,7 +485,7 @@
+>  		udelay(80);
+>  	}
+>  
+> -	*val = 0xffffffff;
+> +	*val = 0x0;
+>  
+>  	frame_val  = ((PHY_ADDR << MI_COM_PHY_ADDR_SHIFT) &
+>  		      MI_COM_PHY_ADDR_MASK);
 
-Date: Thu, 6 Jan 2005 15:30:14 -0800
-From: bugme-daemon@osdl.org
-To: bugme-new@lists.osdl.org
-Subject: [Bugme-new] [Bug 4001] New: can't lower mtu of via_velocity
+No, if I revert back to an earlier driver the link comes
+up OK printing:
+  tg3: eth0: Link is up at 1000 Mbps, full duplex.
+  tg3: eth0: Flow control is off for TX and off for RX.
+after a short delay. With the current dirver I do not
+see any prinks from tg3_link_report about the state
+of the link.
 
+Darren
 
-http://bugme.osdl.org/show_bug.cgi?id=4001
-
-           Summary: can't lower mtu of via_velocity
-    Kernel Version: 2.6.10
-            Status: NEW
-          Severity: high
-             Owner: jgarzik@pobox.com
-         Submitter: fadlouni@hotmail.com
-
-
-Distribution: 
-gentoo 
-Hardware Environment: 
-amd64
-asus av8 motherboard
-Software Environment:
-x86_64 AMD Athlon(tm) 64 Processor 3500+ AuthenticAMD GNU/Linux
-gcc 3.4.3
-sys-libs/glibc-2.3.4.20041102
-net-tools-1.60-r9
-ifconfig 1.42
-
-
-Problem Description:
-trying to lower mtu of eth0 to anything lower than 1500 doesn't work:
-/usr/src:/whoami
-root
-/usr/src:/ifconfig eth0 mtu 1499
-SIOCSIFMTU: Invalid argument
-
-/var/log/messages shows:
- eth0: Invalid MTU.
-
-via-velocity.h has:
-#define VELOCITY_MIN_MTU    (1514-14)
-
-via-velocity.c has:
-
-if ((new_mtu < VELOCITY_MIN_MTU) || new_mtu > (VELOCITY_MAX_MTU)) {
-		VELOCITY_PRT(MSG_LEVEL_ERR, KERN_NOTICE "%s: Invalid MTU.\n", 
-				vptr->dev->name);
-
-
-this explains the reason. however i tried changing the VELOCITY_MIN_MTU
-to something like 64, then recompiled. now ifconfig accepts mtu 1400.
-but nothing works afterwards. a simple ping to the gateway fails.
-
-Steps to reproduce:
-load via-velocity module, then
-/usr/src:/ifconfig eth0 mtu 1499
-SIOCSIFMTU: Invalid argument
-
-------- You are receiving this mail because: -------
-You are on the CC list for the bug, or are watching someone who is.
+--------------------------------------------------
+Darren Williams <dsw AT gelato.unsw.edu.au>
+Gelato@UNSW <www.gelato.unsw.edu.au>
+--------------------------------------------------
