@@ -1,37 +1,70 @@
-From: Jon Mason <jdmason@us.ibm.com>
-Subject: Re: ethtool -d no longer works for e1000
-Date: Wed, 9 Mar 2005 18:54:34 -0600
-Message-ID: <200503091854.34466.jdmason@us.ibm.com>
-References: <76FA8CF8F1F53240BB5B962A3385A5800256F787@orsmsx405>
+From: Jamal Hadi Salim <hadi@znyx.com>
+Subject: Re: dummy as IMQ replacement
+Date: 09 Mar 2005 20:06:07 -0500
+Message-ID: <1110416767.1111.76.camel@jzny.localdomain>
+References: <1107123123.8021.80.camel@jzny.localdomain>
+	 <0fcf01c5077f$579e4b80$6e69690a@RIMAS>
+	 <1107174142.8021.121.camel@jzny.localdomain>
+	 <00c301c524b4$938cd240$6e69690a@RIMAS>
+	 <1110379135.1091.143.camel@jzny.localdomain>
+Reply-To: hadi@znyx.com
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "Ben Greear" <greearb@candelatech.com>,
-        "Ganesh Venkatesan" <ganesh.venkatesan@gmail.com>, netdev@oss.sgi.com
-To: "cramerj" <cramerj@intel.com>
-In-Reply-To: <76FA8CF8F1F53240BB5B962A3385A5800256F787@orsmsx405>
-Content-Disposition: inline
+Content-Type: multipart/mixed; boundary="=-XPicLd45+Kfs/6uczpzT"
+Cc: netdev@oss.sgi.com, Nguyen Dinh Nam <nguyendinhnam@gmail.com>,
+        Andre Tomt <andre@tomt.net>, syrius.ml@no-log.org,
+        Andy Furniss <andy.furniss@dsl.pipex.com>,
+        Damion de Soto <damion@snapgear.com>
+To: Remus <rmocius@auste.elnet.lt>
+In-Reply-To: <1110379135.1091.143.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 09 March 2005 06:35 pm, cramerj wrote:
-> Ah!  Yes, if you're running ethtool 1.8, then this was an issue (or
-> rather, an annoyance) in e1000.c where we would default to mac_type =
-> e1000_undefined for any newer hardware.  Continuous updates to this file
-> for every piece of hardware we released got old pretty quick.  We've
-> since changed the default mac_type to e1000_82543, which has a basic set
-> of registers that haven't changed with each hardware release.  And
-> although the e1000_82546 mac_type exists, it isn't yet being assigned to
-> the 82546GB hardware (again, see e1000.c), thus the error.
->
-> Long story short, an updated ethtool should do the trick.
->
-> Thanks,
-> -Jeb
 
-Ah, I am running ethtool 3 on a 82545 chip, that is probably why mine works.
+--=-XPicLd45+Kfs/6uczpzT
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain
 
-Thanks,
-Jon
+Hi Remus,
+
+Please try this patch on top of latest iproute2. Credit to Patrick for
+spoting it. I dont know when or who made this change - in any case it
+doesnt matter if it works for you.
+
+cheers,
+
+On Wed, 2005-03-09 at 09:38, jamal wrote:
+
+> I have to go to work - so wont have time to look at this for sometime.
+> Maybe some of the netfilter folks like Patrick can solve it for you
+> before i get back.
+> 
+> cheers,
+> jamal
+> 
+
+--=-XPicLd45+Kfs/6uczpzT
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename=ipt-p
+Content-Type: text/plain; name=ipt-p; charset=ISO-8859-1
+
+--- iproute2-a/tc/m_ipt.c	2005/03/10 00:59:38	1.1
++++ iproute2-b/tc/m_ipt.c	2005/03/10 01:00:05
+@@ -72,7 +72,6 @@
+ static unsigned int global_option_offset = 0;
+ #define OPTION_OFFSET 256
+ 
+-#if 0
+ /* no clue why register match is within targets
+  figure out later. Talk to Harald -- JHS
+ */
+@@ -91,7 +90,6 @@
+ 	t_list = me;
+ 
+ }
+-#endif
+ 
+ void
+ exit_tryhelp(int status)
+
+--=-XPicLd45+Kfs/6uczpzT--
