@@ -1,102 +1,42 @@
-From: Colin Leroy <colin@colino.net>
+From: Andi Kleen <ak@suse.de>
 Subject: Re: [PATCH] Prevent netpoll hanging when link is down
-Date: Thu, 7 Oct 2004 22:44:22 +0200
+Date: Thu, 7 Oct 2004 23:45:05 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041007224422.1c1bea95@jack.colino.net>
-References: <20041006232544.53615761@jack.colino.net>
-	<20041006214322.GG31237@waste.org>
-	<20041007075319.6b31430d@jack.colino.net>
-	<20041006234912.66bfbdcc.davem@davemloft.net>
-	<20041007160532.60c3f26b@pirandello>
-	<20041007112846.5c85b2d9.davem@davemloft.net>
+Message-ID: <20041007214505.GB31558@wotan.suse.de>
+References: <20041006232544.53615761@jack.colino.net> <20041006214322.GG31237@waste.org> <20041007075319.6b31430d@jack.colino.net> <20041006234912.66bfbdcc.davem@davemloft.net> <20041007160532.60c3f26b@pirandello> <20041007112846.5c85b2d9.davem@davemloft.net> <20041007224422.1c1bea95@jack.colino.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: mpm@selenic.com, akpm@osdl.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, mpm@selenic.com, akpm@osdl.org,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20041007112846.5c85b2d9.davem@davemloft.net>
+To: Colin Leroy <colin@colino.net>
+Content-Disposition: inline
+In-Reply-To: <20041007224422.1c1bea95@jack.colino.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 07 Oct 2004 at 11h10, David S. Miller wrote:
+On Thu, Oct 07, 2004 at 10:44:22PM +0200, Colin Leroy wrote:
+> On 07 Oct 2004 at 11h10, David S. Miller wrote:
+> 
+> Hi again, 
+> 
+> > So, netpoll needs to have the NETIF_F_LLTX stuff added to it.
+> 
+> This patch should do that. It works OK for me, but I'd like it checked
+> before sent upstream...
+> 
+> However, it doesn't fix the hang. it looks like this hang is really
+> coming from sungem.
 
-Hi again, 
+IMHO it's not needed. Taking xmit_lock is harmless even when
+the NETIF_F_LLTX flag is set. 
 
-> So, netpoll needs to have the NETIF_F_LLTX stuff added to it.
+(or at least it was with my original patchkit. In theory it's 
+possible someone changed their driver to take xmit_lock in hard_start_xmit,
+but if they did that I would just consider it a driver bug) 
 
-This patch should do that. It works OK for me, but I'd like it checked
-before sent upstream...
+The only drawback is that there won't be a reply when the driver try
+lock fails, but netpoll doesn't have a queue for that anyways. You could
+probably poll then, but I'm not sure it's a good idea.
 
-However, it doesn't fix the hang. it looks like this hang is really
-coming from sungem.
-
---- a/net/core/netpoll.c	2004-10-05 21:09:49.000000000 +0200
-+++ b/net/core/netpoll.c	2004-10-07 22:48:58.000000000 +0200
-@@ -181,6 +181,7 @@
- void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb)
- {
- 	int status;
-+	unsigned must_lock;
- 
- repeat:
- 	if(!np || !np->dev || !netif_running(np->dev)) {
-@@ -188,29 +189,51 @@
- 		return;
- 	}
- 
--	spin_lock(&np->dev->xmit_lock);
--	np->dev->xmit_lock_owner = smp_processor_id();
-+	must_lock = !(np->dev->features & NETIF_F_LLTX);
-+	
-+	if (must_lock) {
-+		if (!spin_trylock(&np->dev->xmit_lock)) {
-+			if (np->dev->xmit_lock_owner ==
-smp_processor_id()) {
-+				__kfree_skb(skb);
-+				return;
-+			}
- 
-+			goto repeat;
-+		}
-+		np->dev->xmit_lock_owner = smp_processor_id();
-+	}
-+	
- 	/*
- 	 * network drivers do not expect to be called if the queue is
- 	 * stopped.
- 	 */
- 	if (netif_queue_stopped(np->dev)) {
- 		np->dev->xmit_lock_owner = -1;
--		spin_unlock(&np->dev->xmit_lock);
-+		
-+		if (must_lock)
-+			spin_unlock(&np->dev->xmit_lock);
- 
- 		netpoll_poll(np);
- 		goto repeat;
- 	}
- 
- 	status = np->dev->hard_start_xmit(skb, np->dev);
--	np->dev->xmit_lock_owner = -1;
--	spin_unlock(&np->dev->xmit_lock);
-+
-+	if (must_lock) {
-+		np->dev->xmit_lock_owner = -1;
-+		spin_unlock(&np->dev->xmit_lock);
-+	}
- 
- 	/* transmit busy */
--	if(status) {
-+	if (status == NETDEV_TX_LOCKED) {
- 		netpoll_poll(np);
- 		goto repeat;
-+	} 
-+	
-+	/* hard error */
-+	if (status == NETDEV_TX_BUSY) {
-+		__kfree_skb(skb);
-+		return;
- 	}
- }
- 
+-Andi
