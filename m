@@ -1,43 +1,43 @@
-From: Hasso Tepper <hasso@estpak.ee>
-Subject: Re: [patch 4/10] s390: network driver.
-Date: Mon, 17 Jan 2005 14:04:19 +0200
-Message-ID: <200501171404.19451.hasso@estpak.ee>
-References: <OFB7F7E23F.EFB88418-ONC1256F7E.0031769E-C1256F7E.003270AD@de.ibm.com> <1105363092.1041.146.camel@jzny.localdomain> <1105917038.1091.1041.camel@jzny.localdomain>
+From: Benoit Boissinot <bboissin@gmail.com>
+Subject: Re: [RFT] New syskonnect gigabit ether driver (skge)
+Date: Mon, 17 Jan 2005 14:35:06 +0100
+Message-ID: <40f323d0050117053528f7ac8@mail.gmail.com>
+Reply-To: Benoit Boissinot <bboissin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Tommy Christensen <tommy.christensen@tpack.net>,
-        Jeff Garzik <jgarzik@pobox.com>,
-        Thomas Spatzier <thomas.spatzier@de.ibm.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com,
-        Paul Jakma <paul@clubi.ie>
+Cc: netdev@oss.sgi.com, Jeff Garzik <jgarzik@pobox.com>,
+        Christoph Hellwig <hch@infradead.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1105917038.1091.1041.camel@jzny.localdomain>
-Content-Disposition: inline
+To: Stephen Hemminger <shemminger@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> Didnt see anymore discussion on this - have we given up on it?
+> Here is my rewrite of the SysKonnect Gigabit Ether driver.  Gave up on
+> the existing sk98lin driver because it bloated and limited by the requirement
+> to be portable.  This version is still very experimental and has only been
+> run for several days on my LinkSys card (single port Yukon).
+> Please test on other hardware and let me know what you find out.
 
-I'm not competent enough about kernel internals to decide how this should be 
-done in kernel. But I would like to clarify situation for me as Quagga 
-developer.
-
-All this work is done to avoid sending stale packets to the network? Ie. 
-there will be no change regarding socket blocking issue? Detecting carrier 
-on/off and/or socket per interface is must be for us in user space to avoid 
-socket blocking? I'm just trying to have full picture so I can put my 
-priorities in place for next release.
+I had no problem with it with the following card (3Com) (not tested in
+GigaEthernet mode):
+(kernel 2.6.11-rc1-mm1)
 
 
-Thanks for your support,
-
--- 
-Hasso Tepper
-Elion Enterprises Ltd.
-WAN administrator
+0000:00:09.0 Ethernet controller: 3Com Corporation 3c940
+10/100/1000Base-T [Marvell] (rev 12)
+        Subsystem: ASUSTeK Computer Inc. P4P800 Mainboard
+        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop-
+ParErr- Stepping- SERR- FastB2B-
+        Status: Cap+ 66Mhz+ UDF- FastB2B+ ParErr- DEVSEL=medium
+>TAbort- <TAbort- <MAbort- >SERR- <PERR-
+        Latency: 32 (5750ns min, 7750ns max), cache line size 08
+        Interrupt: pin A routed to IRQ 177
+        Region 0: Memory at d6800000 (32-bit, non-prefetchable)
+        Region 1: I/O ports at b800 [size=256]
+        Capabilities: [48] Power Management version 2
+                Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=0mA
+PME(D0+,D1+,D2+,D3hot+,D3cold+)
+                Status: D0 PME-Enable- DSel=0 DScale=1 PME-
+        Capabilities: [50] Vital Product Data
