@@ -1,130 +1,99 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [NET] Clear dev refs in dst->child
-Date: Wed, 16 Jun 2004 21:22:11 +1000
+From: David Greaves <david@dgreaves.com>
+Subject: Re: 2.6.6 e1000 NETDEV WATCHDOG: eth0: transmit timed out
+Date: Wed, 16 Jun 2004 11:59:23 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040616112211.GA956@gondor.apana.org.au>
+Message-ID: <40D0280B.2030308@dgreaves.com>
+References: <40CDD68C.8070509@dgreaves.com> <20040615155111.26d6b809@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="CE+1k2dSO48ffgeK"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
-Content-Disposition: inline
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20040615155111.26d6b809@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Stephen Hemminger wrote:
 
---CE+1k2dSO48ffgeK
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+>How big is the transmit ring. Setting a bigger transmit ring fixed my problem
+>	modprobe e1000 TxDescriptors=1024
+>
+>Also, there are lots of flavors of this chipset and board.  One machine
+>I was using had the IBM rebranded version and it would only do PCI33 not PCI66.
+>
+>  
+>
+Thanks for replying Stephen - it's really frustrating :)
 
-Hi Dave:
+I did try TxDescriptors and various (most) other parameters (below are 
+the actual parameter variations I tried - just cut from a 'history' for 
+info).
 
-This is a resend of an earlier patch to dst_dev_event.  I've changed
-it slightly by moving the input/output assignment into dst_ifdown.
+After each one i downed the link and modprobe -r the driver.
+I then ran a large file scp (quicker id+recovery than nfs hanging when 
+the link died)
 
-To recap, this patch drops lingering IPsec references to a device that
-is being unregistered.  The child processing in the GC is too late
-since it never runs until the reference on the dst hits zero which
-could take a long time for things like TCP connections.
+I invariably got an eth0 timed out after a few seconds - some variation 
+but IIRC no more than 20% - ie 8-10Mb of a 1G file before it failed.
 
-The reason I've left the input/output assignment outside the loop is
-because they aren't really necessary for the IPsec dst's, and if
-it were in the loop then we'll have to do the same child processing
-in ___dst_free as well.
+root@ash:~ # ethtool -g eth0
+Ring parameters for eth0:
+Pre-set maximums:
+RX:             4096
+RX Mini:        0
+RX Jumbo:       0
+TX:             4096
+Current hardware settings:
+RX:             256
+RX Mini:        0
+RX Jumbo:       0
+TX:             1024
 
-I've tested this with an ESP/IPCOMP tunnel and I can confirm that it
-does fix the problem.
+I've pulled all the cards and looked - they are all genuine Intel 
+C39226-003 (Pro/1000 MT)
+This page http://support.intel.com/support/network/sb/cs-005980-prd38.htm
+says: 82541 Gigabit Small Form 32/66
+My system has PCI33 BTW.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+I have also tried 2.6.7 this morning and have the same problem.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+David
 
---CE+1k2dSO48ffgeK
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
 
-===== net/core/dst.c 1.17 vs edited =====
---- 1.17/net/core/dst.c	2004-06-13 03:51:53 +10:00
-+++ edited/net/core/dst.c	2004-06-16 21:14:18 +10:00
-@@ -210,6 +210,41 @@
- 	return NULL;
- }
- 
-+/* Dirty hack. We did it in 2.2 (in __dst_free),
-+ * we have _very_ good reasons not to repeat
-+ * this mistake in 2.3, but we have no choice
-+ * now. _It_ _is_ _explicit_ _deliberate_
-+ * _race_ _condition_.
-+ *
-+ * Commented and originally written by Alexey.
-+ */
-+static void dst_ifdown(struct dst_entry *dst, int unregister)
-+{
-+	struct net_device *dev = dst->dev;
-+
-+	if (!unregister) {
-+		dst->input = dst_discard_in;
-+		dst->output = dst_discard_out;
-+	}
-+
-+	do {
-+		if (unregister) {
-+			dst->dev = &loopback_dev;
-+			dev_hold(&loopback_dev);
-+			dev_put(dev);
-+			if (dst->neighbour && dst->neighbour->dev == dev) {
-+				dst->neighbour->dev = &loopback_dev;
-+				dev_put(dev);
-+				dev_hold(&loopback_dev);
-+			}
-+		}
-+
-+		if (dst->ops->ifdown)
-+			dst->ops->ifdown(dst, unregister);
-+	} while ((dst = dst->child) && dst->flags & DST_NOHASH &&
-+		 dst->dev == dev);
-+}
-+
- static int dst_dev_event(struct notifier_block *this, unsigned long event, void *ptr)
- {
- 	struct net_device *dev = ptr;
-@@ -220,31 +255,8 @@
- 	case NETDEV_DOWN:
- 		spin_lock_bh(&dst_lock);
- 		for (dst = dst_garbage_list; dst; dst = dst->next) {
--			if (dst->dev == dev) {
--				/* Dirty hack. We did it in 2.2 (in __dst_free),
--				   we have _very_ good reasons not to repeat
--				   this mistake in 2.3, but we have no choice
--				   now. _It_ _is_ _explicit_ _deliberate_
--				   _race_ _condition_.
--				 */
--				if (event!=NETDEV_DOWN &&
--				    dst->output == dst_discard_out) {
--					dst->dev = &loopback_dev;
--					dev_hold(&loopback_dev);
--					dev_put(dev);
--					dst->output = dst_discard_out;
--					if (dst->neighbour && dst->neighbour->dev == dev) {
--						dst->neighbour->dev = &loopback_dev;
--						dev_put(dev);
--						dev_hold(&loopback_dev);
--					}
--				} else {
--					dst->input = dst_discard_in;
--					dst->output = dst_discard_out;
--				}
--				if (dst->ops->ifdown)
--					dst->ops->ifdown(dst, event != NETDEV_DOWN);
--			}
-+			if (dst->dev == dev)
-+				dst_ifdown(dst, event != NETDEV_DOWN);
- 		}
- 		spin_unlock_bh(&dst_lock);
- 		break;
-
---CE+1k2dSO48ffgeK--
+module parameters.
+modprobe e1000 FlowControl=2
+modprobe e1000 FlowControl=1
+modprobe e1000 FlowControl=3
+modprobe e1000 FlowControl=0
+modprobe e1000 FlowControl=0 InterruptThrottleRate=100
+modprobe e1000 FlowControl=0 InterruptThrottleRate=1 RxDescriptors=1024 
+; ifup eth0
+modprobe e1000 FlowControl=0 InterruptThrottleRate=1 RxDescriptors=4096 
+; ifup eth0
+modprobe e1000 FlowControl=0 InterruptThrottleRate=1 RxDescriptors=256 
+RxIntDelay=1  ; ifup eth0
+modprobe e1000 FlowControl=0 InterruptThrottleRate=1 RxDescriptors=256 
+RxIntDelay=10  ; ifup eth0
+modprobe e1000 FlowControl=0 InterruptThrottleRate=1 RxDescriptors=256 
+RxIntDelay=1000  ; ifup eth0
+modprobe e1000 FlowControl=0 InterruptThrottleRate=1 RxDescriptors=256 
+RxIntDelay=0 RxAbsIntDelay=0  ; ifup eth0
+modprobe e1000 FlowControl=0 InterruptThrottleRate=1 RxDescriptors=256 
+RxIntDelay=0 RxAbsIntDelay=0 TxIntDelay=0 ; ifup eth0
+modprobe e1000 FlowControl=0 InterruptThrottleRate=1 RxDescriptors=256 
+RxIntDelay=0 RxAbsIntDelay=1024 TxIntDelay=53 ; ifup eth0
+modprobe e1000 FlowControl=0 InterruptThrottleRate=1 RxDescriptors=256 
+RxIntDelay=0 RxAbsIntDelay=1024 TxIntDelay=64 ; ifup eth0
+modprobe e1000 FlowControl=0 InterruptThrottleRate=1 RxDescriptors=256 
+RxIntDelay=0 RxAbsIntDelay=65535 TxIntDelay=64 ; ifup eth0
+modprobe e1000 FlowControl=0 InterruptThrottleRate=1 RxDescriptors=256 
+RxIntDelay=0 RxAbsIntDelay=128 TxIntDelay=0 ; ifup eth0
+modprobe e1000 FlowControl=0 InterruptThrottleRate=1 RxDescriptors=256 
+RxIntDelay=0 RxAbsIntDelay=128 TxIntDelay=32000 ; ifup eth0
+modprobe e1000 FlowControl=0 InterruptThrottleRate=1 RxDescriptors=256 
+RxIntDelay=0 RxAbsIntDelay=128 TxIntDelay=32000 ; ifup eth0
+modprobe e1000 FlowControl=0 InterruptThrottleRate=1 RxDescriptors=256 
+RxIntDelay=0 RxAbsIntDelay=128 TxIntDelay=64 XsumRX=1 ; ifup eth0
+modprobe e1000 Speed=100
+modprobe e1000 Speed=10
