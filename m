@@ -1,11 +1,11 @@
 From: Greg KH <gregkh@suse.de>
-Subject: [05/08] [IPSEC]: Do not hold state lock while checking size
-Date: Tue, 5 Apr 2005 09:47:27 -0700
-Message-ID: <20050405164726.GF17299@kroah.com>
+Subject: [07/08] [TCP] Fix BIC congestion avoidance algorithm error
+Date: Tue, 5 Apr 2005 09:47:59 -0700
+Message-ID: <20050405164758.GH17299@kroah.com>
 References: <20050405164539.GA17299@kroah.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: kaber@trash.net, davem@davemloft.net, netdev@oss.sgi.com
+Cc: davem@davemloft.net, shemminger@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: linux-kernel@vger.kernel.org, stable@kernel.org
 Content-Disposition: inline
@@ -14,74 +14,49 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+
 -stable review patch.  If anyone has any objections, please let us know.
 
 ------------------
 
-This patch from Herbert Xu fixes a deadlock with IPsec.
-When an ICMP frag. required is sent and the ICMP message
-needs the same SA as the packet that caused it the state
-will be locked twice.
+Since BIC is the default congestion control algorithm
+enabled in every 2.6.x kernel out there, fixing errors
+in it becomes quite critical.
 
-[IPSEC]: Do not hold state lock while checking size.
+A flaw in the loss handling caused it to not perform
+the binary search regimen of the BIC algorithm
+properly.
 
-This can elicit ICMP message output and thus result in a
-deadlock.
+The fix below from Stephen Hemminger has been heavily
+verified.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+[TCP]: BIC not binary searching correctly
+
+While redoing BIC for the split up version, I discovered that the existing
+2.6.11 code doesn't really do binary search. It ends up being just a slightly
+modified version of Reno.  See attached graphs to see the effect over simulated
+1mbit environment.
+
+The problem is that BIC is supposed to reset the cwnd to the last loss value
+rather than ssthresh when loss is detected.  The correct code (from the BIC
+TCP code for Web100) is in this patch.
+
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 Signed-off-by: David S. Miller <davem@davemloft.net>
 Signed-off-by: Chris Wright <chrisw@osdl.org>
 Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
 
-diff -Nru a/net/ipv4/xfrm4_output.c b/net/ipv4/xfrm4_output.c
---- a/net/ipv4/xfrm4_output.c	2005-03-20 16:53:05 +01:00
-+++ b/net/ipv4/xfrm4_output.c	2005-03-20 16:53:05 +01:00
-@@ -103,16 +103,16 @@
- 			goto error_nolock;
- 	}
+--- 1.92/net/ipv4/tcp_input.c	2005-02-22 10:45:31 -08:00
++++ edited/net/ipv4/tcp_input.c	2005-03-23 10:55:18 -08:00
+@@ -1653,7 +1653,10 @@
+ static void tcp_undo_cwr(struct tcp_sock *tp, int undo)
+ {
+ 	if (tp->prior_ssthresh) {
+-		tp->snd_cwnd = max(tp->snd_cwnd, tp->snd_ssthresh<<1);
++		if (tcp_is_bic(tp))
++			tp->snd_cwnd = max(tp->snd_cwnd, tp->bictcp.last_max_cwnd);
++		else
++			tp->snd_cwnd = max(tp->snd_cwnd, tp->snd_ssthresh<<1);
  
--	spin_lock_bh(&x->lock);
--	err = xfrm_state_check(x, skb);
--	if (err)
--		goto error;
--
- 	if (x->props.mode) {
- 		err = xfrm4_tunnel_check_size(skb);
- 		if (err)
--			goto error;
-+			goto error_nolock;
- 	}
-+
-+	spin_lock_bh(&x->lock);
-+	err = xfrm_state_check(x, skb);
-+	if (err)
-+		goto error;
- 
- 	xfrm4_encap(skb);
- 
-diff -Nru a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
---- a/net/ipv6/xfrm6_output.c	2005-03-20 16:53:05 +01:00
-+++ b/net/ipv6/xfrm6_output.c	2005-03-20 16:53:05 +01:00
-@@ -103,16 +103,16 @@
- 			goto error_nolock;
- 	}
- 
--	spin_lock_bh(&x->lock);
--	err = xfrm_state_check(x, skb);
--	if (err)
--		goto error;
--
- 	if (x->props.mode) {
- 		err = xfrm6_tunnel_check_size(skb);
- 		if (err)
--			goto error;
-+			goto error_nolock;
- 	}
-+
-+	spin_lock_bh(&x->lock);
-+	err = xfrm_state_check(x, skb);
-+	if (err)
-+		goto error;
- 
- 	xfrm6_encap(skb);
- 
+ 		if (undo && tp->prior_ssthresh > tp->snd_ssthresh) {
+ 			tp->snd_ssthresh = tp->prior_ssthresh;
