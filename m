@@ -1,45 +1,79 @@
-From: Simon Roscic <simon.roscic@chello.at>
-Subject: Re: [2.6.0-test8/9] ethertap oops
-Date: Mon, 27 Oct 2003 18:40:53 +0100
+From: kuznet@ms2.inr.ac.ru
+Subject: Re: Linux 2.6.0-test9
+Date: Mon, 27 Oct 2003 22:54:41 +0300 (MSK)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200310271840.53980.simon.roscic@chello.at>
-References: <L1fo.3gb.9@gated-at.bofh.it> <20031026234828.2cb1f746.davem@redhat.com> <20031027122635.GB16013@wotan.suse.de>
+Message-ID: <200310271954.WAA07541@yakov.inr.ac.ru>
+References: <20031026224358.233e6d1a.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Cc: torvalds@osdl.org (Linus Torvalds), akpm@osdl.org, Andries.Brouwer@cwi.nl,
+        linux-kernel@vger.kernel.org, netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@muc.de>, "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20031027122635.GB16013@wotan.suse.de>
-Content-Disposition: inline
+To: davem@redhat.com (David S. Miller)
+In-Reply-To: <20031026224358.233e6d1a.davem@redhat.com> from "David S. Miller" at Oct 26, 2003 10:43:58 PM
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Monday, 27. Oct 2003 13:26, Andi Kleen wrote:
-> On Sun, Oct 26, 2003 at 11:48:28PM -0800, David S. Miller wrote:
-> > On Sun, 26 Oct 2003 23:45:52 +0100
-> >
-> > Andi Kleen <ak@muc.de> wrote:
-> > > diff -u linux-2.6.0test7mm1-averell/drivers/net/ethertap.c-o
-> > > linux-2.6.0test7mm1-averell/drivers/net/ethertap.c ---
-> > > linux-2.6.0test7mm1-averell/drivers/net/ethertap.c-o	2003-09-11
-> > > 04:12:33.000000000 +0200 +++
-> > > linux-2.6.0test7mm1-averell/drivers/net/ethertap.c	2003-10-26
-> > > 23:41:17.000000000 +0100
-> >
-> > This part looks good, applied.
+Hello!
+
+
+> But I am starting to see that URG is different.  It is not like
+> other socket errors that halt the socket and make no new data
+> arrive after it happens.  Rather, URG can happen just about anywhere
+> and more data can continue to flow into the socket buffers.
+> 
+> In fact, this means that our change can result in an application
+> can never see the error if data continues to arrive faster than
+> the application can pull it out, see?
+> 
+> Alexey, I think we did not understand this case fully when making this
+> change.
+
+No doubts taking into account that the things are so badly broken. :-)
+
+But I was aware about this problem and even "proved" to you that the patch
+will not change anything. :-) Remember this?
+
+
+> I found only one more or less essential difference: when we have one oob
+> octet in the stream with data following it, read() can return -EINTR/RESTART
+> due to pending SIGURG and normal data will be read at the second read(),
+> or, alternatively, it can return data following oob octet immediately.
 >
-> I don't know if it actually fixed the bug, I did not test it
-> (sorry, should have stated that in the original mail)
-> But at least it should printk now instead of crashing.
->
-> -Andi
+> In practice there is no real difference: SIGURG is processed before read()
+> returns in any case and even more, with restartable signals it is just
+> exactly no difference.
 
-Hi Andi,
 
-Your patch fixed the bug!  Thanks a lot!
-I applyed the first hunk as David wrote above.
+Actually, I considered the same thing:
 
-bye,
-        simon.
+>--- 1.49/net/ipv4/tcp.c	Mon Oct 20 22:27:42 2003
+>+++ edited/net/ipv4/tcp.c	Sun Oct 26 17:59:14 2003
+>@@ -1536,9 +1536,15 @@
+> 		struct sk_buff *skb;
+> 		u32 offset;
+> 
+>-		/* Are we at urgent data? Stop if we have read anything. */
+>-		if (copied && tp->urg_data && tp->urg_seq == *seq)
+>-			break;
+>+		/* Are we at urgent data? Stop if we have read anything or have SIGURG pending. */
+>+		if (tp->urg_data && tp->urg_seq == *seq) {
+>+			if (copied)
+>+				break;
+>+			if (signal_pending(current)) {
+>+				copied = timeo ? sock_intr_errno(timeo) : -EAGAIN;
+>+				break;
+>+			}
+>+		}
+> 
+> 		/* Next get a buffer. */
+> 
+
+as a reliable workaround for SIGURG situation, but then "figured out"
+that this is not necessary (which was mistake). Though at the moment I still
+do not understand what exactly is so wrong with that my argument, the signal
+should be processed before read() returns, should not it? Maybe, rlogin
+longjmp()s or something like this...
+
+Alexey
