@@ -1,46 +1,28 @@
-From: Stephen Hemminger <shemminger@osdl.org>
+From: Francois Romieu <romieu@fr.zoreil.com>
 Subject: Re: [PATCH] (4/4) convert irlan to seq_file interface
-Date: Mon, 18 Aug 2003 15:05:14 -0700
+Date: Tue, 19 Aug 2003 00:26:37 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030818150514.310f6f5d.shemminger@osdl.org>
-References: <20030818122702.67e9162d.shemminger@osdl.org>
-	<20030818232554.A7779@electric-eye.fr.zoreil.com>
+Message-ID: <20030819002637.B7779@electric-eye.fr.zoreil.com>
+References: <20030818122702.67e9162d.shemminger@osdl.org> <20030818232554.A7779@electric-eye.fr.zoreil.com> <20030818150514.310f6f5d.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: Jean Tourrilhes <jt@bougret.hpl.hp.com>,
    "David S. Miller" <davem@redhat.com>, irda-users@lists.sourceforge.net,
    netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20030818232554.A7779@electric-eye.fr.zoreil.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20030818150514.310f6f5d.shemminger@osdl.org>; from shemminger@osdl.org on Mon, Aug 18, 2003 at 03:05:14PM -0700
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I did a one step at a time conversion. 
+Stephen Hemminger <shemminger@osdl.org> :
+[...]
+> If you are going to do that (and it looks good).  Make the str a const
+> and use C99 initializers?
 
-> void irlan_print_filter(struct seq_file *seq, int filter_type)
-> {
-> 	static struct {
-> 		int mask;
-> 		char *str;
-> 	} filter_mask2str[] = {
-> 		{ IRLAN_DIRECTED,	"DIRECTED" },
-> 		{ IRLAN_FUNCTIONAL,	"FUNCTIONAL" },
-> 		{ IRLAN_GROUP,		"GROUP" },
-> 		{ IRLAN_MAC_FRAME,	"MAC_FRAME" },
-> 		{ IRLAN_MULTICAST,	"MULTICAST" },
-> 		{ IRLAN_BROADCAST,	"BROADCAST" },
-> 		{ IRLAN_IPX_SOCKET,	"IPX_SOCKET" },
-> 		{ 0,			NULL }
-> 	}, *p;
-> 
-> 	for (p = filter_mask2str; p->str; p++) {
-> 		if (filter_type & p->mask)
-> 			seq_printf(seq, "%s ", p->str);
-> 	}
-> 	seq_putc(seq, '\n');
-> }
+I'll add a #define MASK2STR(m,s) { .mask = m, .str = s } and push it as an
+incremental patch once the bk-commit mail is here (tomorrow evening then).
 
-If you are going to do that (and it looks good).  Make the str a const
-and use C99 initializers?
+--
+Ueimor
