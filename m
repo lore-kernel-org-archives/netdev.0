@@ -1,15 +1,14 @@
 From: David Gibson <hermes-xT8FGy+AXnRB3Ne2BGzF6laj5H9X9Tb+@public.gmane.org>
-Subject: [9/14] Orinoco driver updates - update is_ethersnap()
-Date: Thu, 24 Feb 2005 15:01:53 +1100
-Message-ID: <20050224040153.GK32001@localhost.localdomain>
-References: <20050224035355.GA32001@localhost.localdomain> <20050224035445.GB32001@localhost.localdomain> <20050224035524.GC32001@localhost.localdomain> <20050224035650.GD32001@localhost.localdomain> <20050224035718.GE32001@localhost.localdomain> <20050224035804.GF32001@localhost.localdomain> <20050224035957.GH32001@localhost.localdomain> <20050224040024.GI32001@localhost.localdomain> <20050224040052.GJ32001@localhost.localdomain>
+Subject: [0/14] Orinoco driver updates
+Date: Thu, 24 Feb 2005 14:53:55 +1100
+Message-ID: <20050224035355.GA32001@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>, Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>,
+Cc: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>,
 	Orinoco Development List <orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
 	netdev-VZNHf3L845pBDgjK7y7TUQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20050224040052.GJ32001-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
 Sender: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Errors-To: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
@@ -21,37 +20,66 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=orinoco-devel>
 List-Id: netdev.vger.kernel.org
 
-Make the is_ethersnap() function take a void * rather than a pointer
-to the internal header structure.  This makes more logical sense and
-reduces dependencies between different parts of the code.
+Jeff, please apply:
 
-Signed-off-by: David Gibson <hermes-xT8FGy+AXnRB3Ne2BGzF6laj5H9X9Tb+@public.gmane.org>
+Here's a big stack of patches that make a significant step forward on
+the long overdue orinoco driver merge.  Still quite a long way to go,
+but it's something.  This patch stack is againt Linus' vanilla +
+Viro's big iomap cleanup patch, as requested.
 
-Index: working-2.6/drivers/net/wireless/orinoco.c
-===================================================================
---- working-2.6.orig/drivers/net/wireless/orinoco.c	2005-02-24 14:50:48.426788064 +1100
-+++ working-2.6/drivers/net/wireless/orinoco.c	2005-02-24 14:50:50.125529816 +1100
-@@ -966,15 +966,17 @@
- 
- /* Does the frame have a SNAP header indicating it should be
-  * de-encapsulated to Ethernet-II? */
--static inline int is_ethersnap(struct header_struct *hdr)
-+static inline int is_ethersnap(void *_hdr)
- {
-+	u8 *hdr = _hdr;
-+
- 	/* We de-encapsulate all packets which, a) have SNAP headers
- 	 * (i.e. SSAP=DSAP=0xaa and CTRL=0x3 in the 802.2 LLC header
- 	 * and where b) the OUI of the SNAP header is 00:00:00 or
- 	 * 00:00:f8 - we need both because different APs appear to use
- 	 * different OUIs for some reason */
--	return (memcmp(&hdr->dsap, &encaps_hdr, 5) == 0)
--		&& ( (hdr->oui[2] == 0x00) || (hdr->oui[2] == 0xf8) );
-+	return (memcmp(hdr, &encaps_hdr, 5) == 0)
-+		&& ( (hdr[5] == 0x00) || (hdr[5] == 0xf8) );
- }
- 
- static inline void orinoco_spy_gather(struct net_device *dev, u_char *mac,
+The first 9 patches make only trivial or cosmetic behavioural changes:
+	1/14		orinoco-carrier 
+		Use netif_carrier_*() macros instead of homegrown
+		'connected' variable.
+
+	2/14		orinoco-printks 
+		Update various printk()s and other cosmetic strings
+
+	3/14		orinoco-delays
+		Use mdelay() and ssleep() instead of outdated ways of
+		delaying.
+
+	4/14		orinoco-free-orinocodev
+		Introduce free_orinocodev() function, to reduce noise
+		in future diffs.
+
+	5/14		orinoco-cleanup-hermes
+		Assorted cleanups to low-level hardware access code
+
+	6/14		orinoco-pci-updates
+		Cleanup to initialization code for the PCI based
+		orinoco devices.
+
+	7/14		orinoco-modparm
+		Use modern module_parm macros for orinoco module.
+
+	8/14		orinoco-pccard-cleanups
+		Cleanup to PCMCIA initialization code
+
+	9/14		orinoco-void-ethersnap
+		Trivial change to is_ethersnap() function to reduce
+		future diff noise.
+
+The next 4 patches start to intoduce real new functionality and
+bug fixes:
+	10/14		orinoco-no-ibss-any
+		Disallow IBSS mode if no ESSID is set (too many
+		firmwares break, otherwise)
+
+	11/14		orinoco-late-tx-wake
+		Delay waking the Tx queue, fixes problems on a number
+		of firwmares
+
+	12/14		orinoco-wep-updates
+		Various updates to WEP setup code
+
+	13/14		orinoco-update-firmware-detection
+		Updates and bugfixes to firmware detection logic
+
+And the final one, is another trivial one:
+	14/14		orinoco-is-now-0.14alpha2
+		Update version and changelog to reflect the above
+		patches.
 
 -- 
 David Gibson			| I'll have my music baroque, and my code
