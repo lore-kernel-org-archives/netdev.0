@@ -1,35 +1,54 @@
-From: Don Fry <brazilnut@us.ibm.com>
-Subject: [PATCH 4 2.6.7-bk6] pcnet32: Fix VMWare emulation hang.
-Date: Wed, 23 Jun 2004 09:51:59 -0700 (PDT)
+From: Andrew Morton <akpm@osdl.org>
+Subject: Fw: [Bugme-new] [Bug 2938] New: broken udp packets silently dropped
+Date: Wed, 23 Jun 2004 10:22:51 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200406231652.i5NGq0e15930@DYN318364BLD.beaverton.ibm.com>
+Message-ID: <20040623102251.11654dc3.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: tsbogend@alpha.franken.de, jgarzik@pobox.com, netdev@oss.sgi.com
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-A problem with the VMWare emulation was reported on lkml.  This patch
-prevents a VMWare hang.  Reported by Keith Moore <keithmo@exmsft.com>.
-Tested by Keith on VMWare and myself on real pcnet32 adapters.
 
-signed-off-by: Don Fry <brazilnut@us.ibm.com>
 
---- linux-2.6.7-bk6/drivers/net/orig.pcnet32.c	Wed Jun 23 08:27:33 2004
-+++ linux-2.6.7-bk6/drivers/net/pcnet32.c	Wed Jun 23 08:29:40 2004
-@@ -1884,7 +1884,8 @@ pcnet32_interrupt(int irq, void *dev_id,
-     }
- 
-     /* Set interrupt enable. */
--    lp->a.write_csr (ioaddr, 0, 0x0040);
-+    /* VMWare requires the IDON bit to remain set */
-+    lp->a.write_csr (ioaddr, 0, 0x0140);
-     lp->a.write_rap (ioaddr,rap);
- 
-     if (netif_msg_intr(lp))
+Begin forwarded message:
 
--- 
-Don Fry
-brazilnut@us.ibm.com
+Date: Wed, 23 Jun 2004 03:02:37 -0700
+From: bugme-daemon@osdl.org
+To: bugme-new@lists.osdl.org
+Subject: [Bugme-new] [Bug 2938] New: broken udp packets silently dropped
+
+
+http://bugme.osdl.org/show_bug.cgi?id=2938
+
+           Summary: broken udp packets silently dropped
+    Kernel Version: 2.6.6
+            Status: NEW
+          Severity: normal
+             Owner: niv@us.ibm.com
+         Submitter: martin@rabbta.com
+
+
+Distribution: Debian testing
+Hardware Environment: Intel(R) Xeon(TM) CPU 3.06GHz, Intel Corp. 82546EB Gigabit
+Ethernet Controller (Copper) (rev 01)
+Software Environment: iptables, netstat, tethereal
+Problem Description: 
+Packets arrive to my MAC and my IP (according to output from tethereal as well
+as log output from iptables), but get dropped at "Routing Decision" in
+http://ebtables.sourceforge.net/br_fw_ia/PacketFlow.png (according to log output
+from iptables). 
+No mention of new packet receive errors in "netstat -s". 
+On a 2.4.22-kernel the listening socket gets a "Resource temporarily
+unavailable" and "netstat -s" shows new packet receive errors when the same
+source sends packets.
+
+Steps to reproduce:
+I will try to submit a tethereal-dump as soon as I get the possibility to do
+this again. But probably all you need to do is send packets with wrong checksum
+to a 2.6.6-kernel and watch them get silently dropped.
+
+------- You are receiving this mail because: -------
+You are on the CC list for the bug, or are watching someone who is.
