@@ -1,37 +1,36 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: IPSec: Policy dst bundles exhausting storage
-Date: Tue, 17 Jun 2003 09:36:24 -0700 (PDT)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030617.093624.35663874.davem@redhat.com>
-References: <OF606435F1.792217CD-ON86256D48.00563525-86256D48.005A5AE4@pok.ibm.com>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: Route cache performance tests
+Date: Tue, 17 Jun 2003 18:50:03 +0200
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <16111.18107.699689.704597@robur.slu.se>
+References: <20030616.160856.35828947.davem@redhat.com>
+	<20030616232750.GD18484@netnation.com>
+	<20030616234937.GE18484@netnation.com>
+	<20030617.085921.28790392.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: toml@us.ibm.com
-In-Reply-To: <OF606435F1.792217CD-ON86256D48.00563525-86256D48.005A5AE4@pok.ibm.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: sim@netnation.com, ralph+d@istop.com, hadi@shell.cyberus.ca,
+	xerox@foonet.net, fw@deneb.enyo.de, netdev@oss.sgi.com,
+	linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030617.085921.28790392.davem@redhat.com>
 List-Id: netdev.vger.kernel.org
 
-   From: "Tom Lendacky" <toml@us.ibm.com>
-   Date: Tue, 17 Jun 2003 11:26:55 -0500
-   
-   In prep for coding this up I deleted the "x->u.rt.fl = *fl;" line
-   and then I noticed that (at least in my configuration) that the
-   rt6->rt6i_src address and prefix length in the xfrm_dst structure
-   are always zero.
 
-Well, of course.  There is nothing initializing this.
+David S. Miller writes:
 
-You have to replace the x->u.rt.fl = *fl line with
-assignments further down to rt6i_src and friends.
-Something like:
+ >    60.0073 seconds passed, avg forwarding rate: 157557.710 pps
 
-	x->u.rt6.rt6i_src = rt0->rt6i_src;
+ > To be honest, this isn't half-bad for pure DoS load.
 
-etc. etc.
+ No thats pretty good and profiles looks as expected. It would interesting
+ to get the singeflow performance as a comparison.
 
-I don't understand where you expected these assignments
-to be made.  This is where the objects get constructed, so
-if it isn't being set here, it is being set nowhere :-)
+ Also think Simon used only /32 routes... I took "real" Internet-routing
+ and made a script so it can be used for experiments. I can make it available.
+
+ Cheers.
+
+						--ro
