@@ -1,111 +1,61 @@
-From: Jeroen Vreeken <pe1rxq@amsat.org>
-Subject: Re: complie problem - zd1201.c
-Date: Tue, 29 Mar 2005 11:04:11 +0200
-Message-ID: <42491A0B.5060809@amsat.org>
-References: <20050328135110.03d2c393@es175>
+From: Michal Schmidt <xschmi00@stud.feec.vutbr.cz>
+Subject: [PATCH] forcedeth: netpoll support
+Date: Tue, 29 Mar 2005 11:33:38 +0200
+Message-ID: <424920F2.4040207@stud.feec.vutbr.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/mixed;
+ boundary="------------080409090500010805040408"
+Cc: netdev@oss.sgi.com, jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: cliff white <cliffw@osdl.org>
-In-Reply-To: <20050328135110.03d2c393@es175>
+To: manfred@colorfullife.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-cliff white wrote:
+This is a multi-part message in MIME format.
+--------------080409090500010805040408
+Content-Type: text/plain; charset=ISO-8859-2; format=flowed
+Content-Transfer-Encoding: 7bit
 
->Looks like it's looking for the former location of some things.
->
->Complie error:
->---------------
->drivers/usb/net/zd1201.c:24:24: ieee802_11.h: No such file or directory
->drivers/usb/net/zd1201.c: In function `zd1201_usbrx':
->drivers/usb/net/zd1201.c:340: error: `IEEE802_11_SCTL_FRAG' undeclared (first use in this function)
->drivers/usb/net/zd1201.c:340: error: (Each undeclared identifier is reported only once
->drivers/usb/net/zd1201.c:340: error: for each function it appears in.)
->drivers/usb/net/zd1201.c:341: error: `IEEE802_11_FCTL_MOREFRAGS' undeclared (first use in this function)
->drivers/usb/net/zd1201.c:352: error: `IEEE802_11_DATA_LEN' undeclared (first use in this function)
->drivers/usb/net/zd1201.c:358: error: `IEEE802_11_SCTL_SEQ' undeclared (first use in this function)
->  CC      drivers/scsi/in2000.o
->-----------------------
->
->Is this the right way?
->  
->
-Looks ok to me...
-Is this patch going into the netdev tree and pushed up to -mm when the 
-wireless stuff is done or should I keep an eye on it and resend it at 
-that time?
+Hello,
+This adds support for netpoll to forcedeth. It works for Julien Wajsberg 
+(see LKML thread "How's the nforce4 support in Linux?").
 
-Jeroen
+Signed-off-by: Michal Schmidt <xschmi00@stud.feec.vutbr.cz>
 
->------------------------
->diff -Nur a/drivers/usb/net/zd1201.c b/drivers/usb/net/zd1201.c
->--- a/drivers/usb/net/zd1201.c  2005-03-28 13:31:03.000000000 -0800
->+++ b/drivers/usb/net/zd1201.c  2005-03-28 13:48:59.013988789 -0800
->@@ -21,7 +21,7 @@
-> #include <linux/string.h>
-> #include <linux/if_arp.h>
-> #include <linux/firmware.h>
->-#include <ieee802_11.h>
->+#include <net/ieee80211.h>
-> #include "zd1201.h"
->
-> static struct usb_device_id zd1201_table[] = {
->@@ -337,25 +337,25 @@
->                        goto resubmit;
->                }
->
->-               if ((seq & IEEE802_11_SCTL_FRAG) ||
->-                   (fc & IEEE802_11_FCTL_MOREFRAGS)) {
->+               if ((seq & IEEE80211_SCTL_FRAG) ||
->+                   (fc & IEEE80211_FCTL_MOREFRAGS)) {
->                        struct zd1201_frag *frag = NULL;
->                        char *ptr;
->
->                        if (datalen<14)
->                                goto resubmit;
->-                       if ((seq & IEEE802_11_SCTL_FRAG) == 0) {
->+                       if ((seq & IEEE80211_SCTL_FRAG) == 0) {
->                                frag = kmalloc(sizeof(struct zd1201_frag*),
->                                    GFP_ATOMIC);
->                                if (!frag)
->                                        goto resubmit;
->-                               skb = dev_alloc_skb(IEEE802_11_DATA_LEN +14+2);
->+                               skb = dev_alloc_skb(IEEE80211_DATA_LEN +14+2);
->                                if (!skb) {
->                                        kfree(frag);
->                                        goto resubmit;
->                                }
->                                frag->skb = skb;
->-                               frag->seq = seq & IEEE802_11_SCTL_SEQ;
->+                               frag->seq = seq & IEEE80211_SCTL_SEQ;
->                                skb_reserve(skb, 2);
->                                memcpy(skb_put(skb, 12), &data[datalen-14], 12);
->                                memcpy(skb_put(skb, 2), &data[6], 2);
->@@ -364,7 +364,7 @@
->                                goto resubmit;
->                        }
->                        hlist_for_each_entry(frag, node, &zd->fraglist, fnode)
->-                               if(frag->seq == (seq&IEEE802_11_SCTL_SEQ))
->+                               if(frag->seq == (seq&IEEE80211_SCTL_SEQ))
->                                        break;
->                        if (!frag)
->                                goto resubmit;
->@@ -372,7 +372,7 @@
->                        ptr = skb_put(skb, len);
->                        if (ptr)
->                                memcpy(ptr, data+8, len);
->-                       if (fc & IEEE802_11_FCTL_MOREFRAGS)
->+                       if (fc & IEEE80211_FCTL_MOREFRAGS)
->                                goto resubmit;
->                        hlist_del_init(&frag->fnode);
->                        kfree(frag);
->---------------------------------
->cliffw
->
->
->  
->
+
+--------------080409090500010805040408
+Content-Type: text/x-patch;
+ name="forcedeth-netpoll.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="forcedeth-netpoll.patch"
+
+--- linux-2.6.12-rc1/drivers/net/forcedeth.c.orig	2005-03-26 15:00:12.000000000 +0100
++++ linux-2.6.12-rc1/drivers/net/forcedeth.c	2005-03-26 15:08:56.000000000 +0100
+@@ -1480,6 +1480,13 @@ static void nv_do_nic_poll(unsigned long
+ 	enable_irq(dev->irq);
+ }
+ 
++#ifdef CONFIG_NET_POLL_CONTROLLER
++static void nv_poll_controller(struct net_device *dev)
++{
++	nv_do_nic_poll((unsigned long) dev);
++}
++#endif
++
+ static void nv_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
+ {
+ 	struct fe_priv *np = get_nvpriv(dev);
+@@ -1962,6 +1969,9 @@ static int __devinit nv_probe(struct pci
+ 	dev->get_stats = nv_get_stats;
+ 	dev->change_mtu = nv_change_mtu;
+ 	dev->set_multicast_list = nv_set_multicast;
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	dev->poll_controller = nv_poll_controller;
++#endif
+ 	SET_ETHTOOL_OPS(dev, &ops);
+ 	dev->tx_timeout = nv_tx_timeout;
+ 	dev->watchdog_timeo = NV_WATCHDOG_TIMEO;
+
+--------------080409090500010805040408--
