@@ -1,49 +1,43 @@
-From: Dmitry Yusupov <dmitry_yus@yahoo.com>
-Subject: Re: Linux support for RDMA (was: [Ksummit-2005-discuss] Summary of
-	2005 Kernel Summit Proposed Topics)
-Date: Mon, 04 Apr 2005 09:54:10 -0700
-Message-ID: <1112633650.9559.142.camel@beastie>
-References: <67D69596DDF0C2448DB0F0547D0F947E01781F2E@yogi.asicdesigners.com>
-	 <1112576171.4227.5.camel@mylaptop> <20050404063456.GB30855@colo.lackof.org>
-Mime-Version: 1.0
-Content-Type: text/plain
+From: rick jones <rick.jones2@hp.com>
+Subject: Re: RFC 1323
+Date: Mon, 4 Apr 2005 09:56:06 -0700
+Message-ID: <eec5edbe5aa5c2ba81c0ad8297b900f9@hp.com>
+References: <BAY20-F2375830DACBEC22EDD913C923B0@phx.gbl>
+Mime-Version: 1.0 (Apple Message framework v619.2)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "open-iscsi@googlegroups.com" <open-iscsi@googlegroups.com>,
-        "David S. Miller" <davem@davemloft.net>, mpm@selenic.com,
-        andrea@suse.de, michaelc@cs.wisc.edu,
-        James.Bottomley@HansenPartnership.com, ksummit-2005-discuss@thunk.org,
-        netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Grant Grundler <grundler@parisc-linux.org>
-In-Reply-To: <20050404063456.GB30855@colo.lackof.org>
+In-Reply-To: <BAY20-F2375830DACBEC22EDD913C923B0@phx.gbl>
+To: "R Harper" <rharper333@hotmail.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2005-04-04 at 00:34 -0600, Grant Grundler wrote:
-> On Sun, Apr 03, 2005 at 05:56:11PM -0700, Dmitry Yusupov wrote:
-> > I do not get your concern with memory BW. With good AMD box V40Z(SUN)
-> > you can get 5.3GBytes/sec. Even with 10Gbps full speed you have 80%
-> > left. PCI-X BUS BW is bigger concern...
-> 
-> Yes and No. PCI-X isn't fast enough but the data only crosses
-> the PCI-X bus once.  Think about the data flow:
-> 	1) DMA to RAM
+>
+> Another question,  as I understand the RFC, the timestamp are only 
+> relevant to the box generating them. Are TCP implementation different 
+> in how the TSval data is represented?
 
-yes.
+They certainly can be - for the PAWS portion of 1323 the fields in the 
+"timestamp" options only have to be monotonic nondecreasing so they can 
+extend the sequence number space.  From my brief perusal of the RFC, 
+sender's are free to have them be more or less whatever they want, and 
+as networks become faster (10G) looks like higher resolution will be 
+desired.
 
-> 	2) load into CPU cache
+[I wonder when even the extra 32 bits will not be enough :) ]
 
-yes.
+With the recent dust-up about ID'ing systems based on their clock skew, 
+it would not surprise me to see someone suggest that the options should 
+just be for PAWS and not for RTTM.
 
-> 	3) store back into RAM
+> Is it possible to make use of the timestamp in an intermediate box, 
+> e.g. estimating RTT in a box that a TCP connection passes?
 
-no. we are talking about receive side optimization only.
-why do you think store back into RAM comes to the picture?
-also keep in mind that we have huge L2 & L3 caches today and write
-operation is usually very well buffered.
+If you know that the sender is using the option for timing, and know 
+the resolution - basically that means knowing what the sender is 
+running.
 
-> We are down to 40% left...graphics folks won't like you.
-> 
-> grant
-> 
+rick jones
+there is no rest for the wicked, yet the virtuous have no pillows
