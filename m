@@ -1,39 +1,31 @@
-From: Adrian Bunk <bunk@fs.tum.de>
-Subject: Re: [2.6 patch] net/hamradio/dmascc: remove inlines
-Date: Sat, 10 Jul 2004 19:16:28 +0200
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20040710171628.GT28324@fs.tum.de>
-References: <20040710010414.GX28324@fs.tum.de> <40F020C7.5010608@pobox.com>
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [IPSEC] Move generic encap code into xfrm4_output
+Date: Sat, 10 Jul 2004 12:02:01 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040710120201.0decc8ac.davem@redhat.com>
+References: <20040710005146.GA11023@gondor.apana.org.au>
+	<Xine.LNX.4.44.0407100233170.6775-100000@thoron.boston.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-net@vger.kernel.org, Netdev <netdev@oss.sgi.com>
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <40F020C7.5010608@pobox.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: James Morris <jmorris@redhat.com>
+In-Reply-To: <Xine.LNX.4.44.0407100233170.6775-100000@thoron.boston.redhat.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jul 10, 2004 at 01:00:55PM -0400, Jeff Garzik wrote:
->...
-> It seems like you are going directly against the intent of the author, 
-> with this patch.
+On Sat, 10 Jul 2004 02:34:36 -0400 (EDT)
+James Morris <jmorris@redhat.com> wrote:
 
-The intend of the author might have been different - but the author 
-didn't notice that his inlines never had any effect since the ordering 
-of the functions was wrong.
+> On Sat, 10 Jul 2004, Herbert Xu wrote:
+> 
+> > Hi:
+> > 
+> > I've finally finished merging the general encapsulation code for IPv4.
+> > Here is the patch.
+> 
+> This looks fine to me so far, also tests ok with various tunneled 
+> configurations.
 
-I could send a patch to reorder the file to get the inlines working, but 
-I heavily doubt inlining e.g. rx_on would be an improvement.
-
-> 	Jeff
-
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
-
+Looks good to me too.  Applied, thanks Herbert.
