@@ -1,449 +1,252 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] convert dgrs to driver bus model probing.
-Date: Tue, 25 Nov 2003 16:24:50 -0800
+From: Brad House <brad@mcve.com>
+Subject: Re: [PATCH] 2.6.0-test10-bk27-netdrvr-exp1 - r8169 update
+Date: Tue, 25 Nov 2003 19:45:17 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031125162450.204422b1.shemminger@osdl.org>
+Message-ID: <3FC3F79D.1070202@mcve.com>
+References: <20031122183001.GA16993@gtf.org> <20031124000939.A456@electric-eye.fr.zoreil.com> <20031126004550.A25408@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, Jeff Garzik <jgarzik@pobox.com>, brad_mssw@gentoo.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20031126004550.A25408@electric-eye.fr.zoreil.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Convert the net/dgrs.c driver to use pci and eisa driver to use the common
-bus interface for device location. Tested for the no board case.
+Well, I didn't get to do all the testing, but here's what I've done
+so far, with results, all as modules, not statically built in:
+- 2.6.0-test10 w/v1.6 realtek patch I provided
+   - loads ok
+   - dhcpcd works fine
+   - rmmod ok
+- 2.6.0-test10 vanilla
+   - loads ok
+   - dhcpcd eth0 hangs (but eventually times out)
+   - oops on rmmod
+- 2.6.0-test10 + 2.6.0-test9-bk25-netdrvr-exp1 + r8169-mac-phy-version
+   - loads ok
+   - dhcpcd eth0 locks entire system
+   - rmmod -- no idea ;)
+- 2.6.0-test10 + 2.6.0-test9-bk25-netdrvr-exp1
+   - loads ok
+   - dhcpcd eth0 locks entire system
+   - rmmod -- no idea ;)
+- 2.6.0-test10 + 2.6.0-test9-bk25-netdrvr-exp1 - r8169-rx_copybreak
+   (yes, I manually removed the reject as well)
+   - loads ok
+   - dhcpcd eth0 locks entire system
+   - rmmod -- no idea ;)
 
-diff -Nru a/drivers/net/dgrs.c b/drivers/net/dgrs.c
---- a/drivers/net/dgrs.c	Tue Nov 25 16:21:05 2003
-+++ b/drivers/net/dgrs.c	Tue Nov 25 16:21:05 2003
-@@ -121,11 +121,22 @@
- #include "dgrs_asstruct.h"
- #include "dgrs_bcomm.h"
- 
-+#ifdef CONFIG_PCI
- static struct pci_device_id dgrs_pci_tbl[] = {
- 	{ SE6_PCI_VENDOR_ID, SE6_PCI_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID, },
- 	{ }			/* Terminating entry */
- };
- MODULE_DEVICE_TABLE(pci, dgrs_pci_tbl);
-+#endif
-+
-+#ifdef CONFIG_EISA
-+static struct eisa_device_id dgrs_eisa_tbl[] = {
-+	{ "DBI0A01" },
-+	{ }
-+};
-+MODULE_DEVICE_TABLE(eisa, dgrs_eisa_tbl);
-+#endif
-+
- MODULE_LICENSE("GPL");
- 
- 
-@@ -179,11 +190,6 @@
- static int	dgrs_nicmode;
- 
- /*
-- *	Chain of device structures
-- */
--static struct net_device *dgrs_root_dev;
--
--/*
-  *	Private per-board data structure (dev->priv)
-  */
- typedef struct
-@@ -191,7 +197,6 @@
- 	/*
- 	 *	Stuff for generic ethercard I/F
- 	 */
--	struct net_device		*next_dev;
- 	struct net_device_stats	stats;
- 
- 	/*
-@@ -1242,22 +1247,23 @@
- 	return (0);
- }
- 
--static int __init 
-+static struct net_device * __init 
- dgrs_found_device(
- 	int		io,
- 	ulong		mem,
- 	int		irq,
- 	ulong		plxreg,
--	ulong		plxdma
-+	ulong		plxdma,
-+	struct device   *pdev
- )
- {
--	DGRS_PRIV	*priv;
--	struct net_device *dev, *aux;
-+	DGRS_PRIV *priv;
-+	struct net_device *dev;
- 	int i, ret;
- 
- 	dev = alloc_etherdev(sizeof(DGRS_PRIV));
- 	if (!dev)
--		return -ENOMEM;
-+		return ERR_PTR(-ENOMEM);
- 
- 	priv = (DGRS_PRIV *)dev->priv;
- 
-@@ -1274,17 +1280,15 @@
- 
- 	dev->init = dgrs_probe1;
- 	SET_MODULE_OWNER(dev);
-+	SET_NETDEV_DEV(dev, pdev);
- 
- 	if (register_netdev(dev) != 0) {
- 		free_netdev(dev);
--		return -EIO;
-+		return ERR_PTR(-EIO);
- 	}
- 
--	priv->next_dev = dgrs_root_dev;
--	dgrs_root_dev = dev;
--
- 	if ( !dgrs_nicmode )
--		return (0);	/* Switch mode, we are done */
-+		return dev;	/* Switch mode, we are done */
- 
- 	/*
- 	 * Operating card as N separate NICs
-@@ -1297,13 +1301,12 @@
- 		struct net_device	*devN;
- 		DGRS_PRIV	*privN;
- 			/* Allocate new dev and priv structures */
--		devN = alloc_etherdev(sizeof(DGRS_PRIV));
-+		devN = alloc_etherdev(sizeof(DGRS_PRIV ));
- 		ret = -ENOMEM;
- 		if (!devN) 
- 			goto fail;
- 
--		/* Make it an exact copy of dev[0]... */
--		*devN = *dev;
-+		/* Don't copy the network device structure! */
- 
- 		/* copy the priv structure of dev[0] */
- 		privN = (DGRS_PRIV *)devN->priv;
-@@ -1317,9 +1320,9 @@
- 			/* ... and base MAC address off address of 1st port */
- 		devN->dev_addr[5] += i;
- 			/* ... choose a new name */
--		strncpy(devN->name, "eth%d", IFNAMSIZ);
- 		devN->init = dgrs_initclone;
- 		SET_MODULE_OWNER(devN);
-+		SET_NETDEV_DEV(dev, pdev);
- 
- 		ret = -EIO;
- 		if (register_netdev(devN)) {
-@@ -1328,110 +1331,165 @@
- 		}
- 		privN->chan = i+1;
- 		priv->devtbl[i] = devN;
--		privN->next_dev = dgrs_root_dev;
--		dgrs_root_dev = devN;
- 	}
--	return 0;
--fail:	aux = priv->next_dev;
--	while (dgrs_root_dev != aux) {
--		struct net_device *d = dgrs_root_dev;
--		
--		dgrs_root_dev = ((DGRS_PRIV *)d->priv)->next_dev;
-+	return dev;
-+
-+ fail:	
-+	while (i >= 0) {
-+		struct net_device *d = priv->devtbl[i--];
- 		unregister_netdev(d);
- 		free_netdev(d);
- 	}
--	return ret;
-+	return ERR_PTR(ret);
- }
- 
--/*
-- *	Scan for all boards
-- */
--static int is2iv[8] __initdata = { 0, 3, 5, 7, 10, 11, 12, 15 };
-+static void __devexit dgrs_remove(struct net_device *dev)
-+{
-+	DGRS_PRIV *priv = dev->priv;
-+	int i;
- 
--static int __init  dgrs_scan(void)
-+	unregister_netdev(dev);
-+
-+	for (i = 1; i < priv->nports; ++i) {
-+		struct net_device *d = priv->devtbl[i];
-+		if (d) {
-+			unregister_netdev(d);
-+			free_netdev(d);
-+		}
-+	}
-+
-+	proc_reset(priv->devtbl[0], 1);
-+
-+	if (priv->vmem)
-+		iounmap(priv->vmem);
-+	if (priv->vplxdma)
-+		iounmap((uchar *) priv->vplxdma);
-+
-+	release_region(dev->base_addr, 256);
-+		
-+	if (dev->irq)
-+		free_irq(dev->irq, dev);
-+
-+	for (i = 1; i < priv->nports; ++i) {
-+		if (priv->devtbl[i])
-+			unregister_netdev(priv->devtbl[i]);
-+	}
-+	free_netdev(dev);
-+}
-+
-+#ifdef CONFIG_PCI
-+static int __init dgrs_pci_probe(struct pci_dev *pdev,
-+				 const struct pci_device_id *ent)
- {
--	int	cards_found = 0;
-+	struct net_device *dev;
-+	int err;
- 	uint	io;
- 	uint	mem;
- 	uint	irq;
- 	uint	plxreg;
- 	uint	plxdma;
--	struct pci_dev *pdev = NULL;
- 
- 	/*
--	 *	First, check for PCI boards
--	 */
--	while ((pdev = pci_find_device(SE6_PCI_VENDOR_ID, SE6_PCI_DEVICE_ID, pdev)) != NULL)
--	{
--		/*
--		 * Get and check the bus-master and latency values.
--		 * Some PCI BIOSes fail to set the master-enable bit,
--		 * and the latency timer must be set to the maximum
--		 * value to avoid data corruption that occurs when the
--		 * timer expires during a transfer.  Yes, it's a bug.
--		 */
--		if (pci_enable_device(pdev))
--			continue;
--		pci_set_master(pdev);
--
--		plxreg = pci_resource_start (pdev, 0);
--		io = pci_resource_start (pdev, 1);
--		mem = pci_resource_start (pdev, 2);
--		pci_read_config_dword(pdev, 0x30, &plxdma);
--		irq = pdev->irq;
--		plxdma &= ~15;
-+	 * Get and check the bus-master and latency values.
-+	 * Some PCI BIOSes fail to set the master-enable bit,
-+	 * and the latency timer must be set to the maximum
-+	 * value to avoid data corruption that occurs when the
-+	 * timer expires during a transfer.  Yes, it's a bug.
-+	 */
-+	err = pci_enable_device(pdev);
-+	if (err)
-+		return err;
-+	pci_set_master(pdev);
-+
-+	plxreg = pci_resource_start (pdev, 0);
-+	io = pci_resource_start (pdev, 1);
-+	mem = pci_resource_start (pdev, 2);
-+	pci_read_config_dword(pdev, 0x30, &plxdma);
-+	irq = pdev->irq;
-+	plxdma &= ~15;
-+
-+	/*
-+	 * On some BIOSES, the PLX "expansion rom" (used for DMA)
-+	 * address comes up as "0".  This is probably because
-+	 * the BIOS doesn't see a valid 55 AA ROM signature at
-+	 * the "ROM" start and zeroes the address.  To get
-+	 * around this problem the SE-6 is configured to ask
-+	 * for 4 MB of space for the dual port memory.  We then
-+	 * must set its range back to 2 MB, and use the upper
-+	 * half for DMA register access
-+	 */
-+	OUTL(io + PLX_SPACE0_RANGE, 0xFFE00000L);
-+	if (plxdma == 0)
-+		plxdma = mem + (2048L * 1024L);
-+	pci_write_config_dword(pdev, 0x30, plxdma + 1);
-+	pci_read_config_dword(pdev, 0x30, &plxdma);
-+	plxdma &= ~15;
-+
-+	dev = dgrs_found_device(io, mem, irq, plxreg, plxdma, &pdev->dev);
-+	if (IS_ERR(dev)) 
-+		return PTR_ERR(dev);
- 
--		/*
--		 * On some BIOSES, the PLX "expansion rom" (used for DMA)
--		 * address comes up as "0".  This is probably because
--		 * the BIOS doesn't see a valid 55 AA ROM signature at
--		 * the "ROM" start and zeroes the address.  To get
--		 * around this problem the SE-6 is configured to ask
--		 * for 4 MB of space for the dual port memory.  We then
--		 * must set its range back to 2 MB, and use the upper
--		 * half for DMA register access
--		 */
--		OUTL(io + PLX_SPACE0_RANGE, 0xFFE00000L);
--		if (plxdma == 0)
--			plxdma = mem + (2048L * 1024L);
--		pci_write_config_dword(pdev, 0x30, plxdma + 1);
--		pci_read_config_dword(pdev, 0x30, &plxdma);
--		plxdma &= ~15;
-+	pci_set_drvdata(pdev, dev);
-+	return 0;
-+}
-+
-+static void __devexit dgrs_pci_remove(struct pci_dev *pdev)
-+{
-+	dgrs_remove(pci_get_drvdata(pdev));
-+}
- 
--		dgrs_found_device(io, mem, irq, plxreg, plxdma);
-+static struct pci_driver dgrs_pci_driver = {
-+	.name = "dgrs",
-+	.id_table = dgrs_pci_tbl,
-+	.probe = dgrs_pci_probe,
-+	.remove = __devexit_p(dgrs_pci_remove),
-+};
-+#endif
- 
--		cards_found++;
--	}
- 
--	/*
--	 *	Second, check for EISA boards
--	 */
--	if (EISA_bus)
--	{
--		for (io = 0x1000; io < 0x9000; io += 0x1000)
--		{
--			if (inb(io+ES4H_MANUFmsb) != 0x10
--				|| inb(io+ES4H_MANUFlsb) != 0x49
--				|| inb(io+ES4H_PRODUCT) != ES4H_PRODUCT_CODE)
--				continue;
-+#ifdef CONFIG_EISA
-+static int is2iv[8] __initdata = { 0, 3, 5, 7, 10, 11, 12, 15 };
- 
--			if ( ! (inb(io+ES4H_EC) & ES4H_EC_ENABLE) )
--				continue; /* Not EISA configured */
-+static int __init dgrs_eisa_probe (struct device *gendev)
-+{
-+	struct net_device *dev;
-+	struct eisa_device *edev = to_eisa_device(gendev);
-+	uint	io = edev->base_addr;
-+	uint	mem;
-+	uint	irq;
- 
--			mem = (inb(io+ES4H_AS_31_24) << 24)
--				+ (inb(io+ES4H_AS_23_16) << 16);
-+	if ( ! (inb(io+ES4H_EC) & ES4H_EC_ENABLE) )
-+		return -ENODEV; /* Not EISA configured */
- 
--			irq = is2iv[ inb(io+ES4H_IS) & ES4H_IS_INTMASK ];
-+	mem = (inb(io+ES4H_AS_31_24) << 24)
-+		+ (inb(io+ES4H_AS_23_16) << 16);
- 
--			dgrs_found_device(io, mem, irq, 0L, 0L);
-+	irq = is2iv[ inb(io+ES4H_IS) & ES4H_IS_INTMASK ];
- 
--			++cards_found;
--		}
--	}
-+	dev = dgrs_found_device(io, mem, irq, 0L, 0L, gendev);
-+	if (IS_ERR(dev)) 
-+		return PTR_ERR(dev);
- 
--	return cards_found;
-+	gendev->driver_data = dev;
-+	return 0;
- }
- 
-+static int __devexit dgrs_eisa_remove(struct device *gendev)
-+{
-+	dgrs_remove(gendev->driver_data);
-+	return 0;
-+}
-+
-+
-+static struct eisa_driver dgrs_eisa_driver = {
-+	.id_table = dgrs_eisa_tbl,
-+	.driver = {
-+		.name = "dgrs",
-+		.probe = dgrs_eisa_probe,
-+		.remove = __devexit_p(dgrs_eisa_remove),
-+	}
-+};
-+#endif
- 
- /*
-  *	Variables that can be overriden from module command line
-@@ -1459,8 +1517,8 @@
- 
- static int __init dgrs_init_module (void)
- {
--	int	cards_found;
- 	int	i;
-+	int eisacount = 0, pcicount = 0;
- 
- 	/*
- 	 *	Command line variable overrides
-@@ -1501,38 +1559,27 @@
- 	/*
- 	 *	Find and configure all the cards
- 	 */
--	dgrs_root_dev = NULL;
--	cards_found = dgrs_scan();
--
--	return cards_found ? 0 : -ENODEV;
-+#ifdef CONFIG_EISA
-+	eisacount = eisa_driver_register(&dgrs_eisa_driver);
-+	if (eisacount < 0)
-+		return eisacount;
-+#endif
-+#ifdef CONFIG_PCI
-+	pcicount = pci_module_init(&dgrs_pci_driver);
-+	if (pcicount < 0)
-+		return pcicount;
-+#endif
-+	return (eisacount + pcicount) == 0 ? -ENODEV : 0;
- }
- 
- static void __exit dgrs_cleanup_module (void)
- {
--        while (dgrs_root_dev)
--	{
--		struct net_device	*next_dev;
--		DGRS_PRIV	*priv;
--
--		priv = (DGRS_PRIV *) dgrs_root_dev->priv;
--                next_dev = priv->next_dev;
--                unregister_netdev(dgrs_root_dev);
--
--		proc_reset(priv->devtbl[0], 1);
--
--		if (priv->vmem)
--			iounmap(priv->vmem);
--		if (priv->vplxdma)
--			iounmap((uchar *) priv->vplxdma);
--
--		release_region(dgrs_root_dev->base_addr, 256);
--
--		if (dgrs_root_dev->irq)
--			free_irq(dgrs_root_dev->irq, dgrs_root_dev);
--
--                free_netdev(dgrs_root_dev);
--                dgrs_root_dev = next_dev;
--        }
-+#ifdef CONFIG_EISA
-+	eisa_driver_unregister (&dgrs_eisa_driver);
-+#endif
-+#ifdef CONFIG_PCI
-+	pci_unregister_driver (&dgrs_pci_driver);
-+#endif
- }
- 
- module_init(dgrs_init_module);
+do you want me to continue ??
+
+-Brad
+
+
+Francois Romieu wrote:
+> More Brad/Realtek's merging. Bugs are mine, of course.
+> 
+> Applies on top of:
+> 2.6.0-test10 + 2.6.0-test9-bk25-netdrvr-exp1 + r8169-mac-phy-version
+> 
+> Brad, if you haven't found time to identify where the problem happens,
+> could you wait 24h before patching anything ? There may be something on the
+> radar.
+> 
+> Thanks.
+> 
+> --
+> Ueimor
+> 
+> 
+> ------------------------------------------------------------------------
+> 
+> 
+> Merge of changes done by Realtek to rtl8169_init_one():
+> - phy capability settings allows lower or equal capability as suggested
+>   in Realtek's changes;
+> - I/O voodoo;
+> - no need to s/mdio_write/RTL8169_WRITE_GMII_REG/;
+> - s/rtl8169_hw_PHY_config/rtl8169_hw_phy_config/;
+> - rtl8169_hw_phy_config(): ad-hoc struct "phy_magic" to limit duplication
+>   of code (yep, the u16 -> int conversions should work as expected);
+> - variable renames and whitepace changes ignored.
+> 
+> 
+>  drivers/net/r8169.c |  115 ++++++++++++++++++++++++++++++++++++++++++++++++----
+>  1 files changed, 107 insertions(+), 8 deletions(-)
+> 
+> diff -puN drivers/net/r8169.c~r8169-init_one drivers/net/r8169.c
+> --- linux-2.6.0-test10/drivers/net/r8169.c~r8169-init_one	2003-11-24 22:55:05.000000000 +0100
+> +++ linux-2.6.0-test10-romieu/drivers/net/r8169.c	2003-11-26 00:15:59.000000000 +0100
+> @@ -336,6 +336,11 @@ static const u16 rtl8169_intr_mask =
+>  static const unsigned int rtl8169_rx_config =
+>      (RX_FIFO_THRESH << RxCfgFIFOShift) | (RX_DMA_BURST << RxCfgDMAShift);
+>  
+> +#define PHY_Cap_10_Half_Or_Less PHY_Cap_10_Half
+> +#define PHY_Cap_10_Full_Or_Less PHY_Cap_10_Full | PHY_Cap_10_Half_Or_Less
+> +#define PHY_Cap_100_Half_Or_Less PHY_Cap_100_Half | PHY_Cap_10_Full_Or_Less
+> +#define PHY_Cap_100_Full_Or_Less PHY_Cap_100_Full | PHY_Cap_100_Half_Or_Less
+> +
+>  void
+>  mdio_write(void *ioaddr, int RegAddr, int value)
+>  {
+> @@ -373,6 +378,17 @@ mdio_read(void *ioaddr, int RegAddr)
+>  	return value;
+>  }
+>  
+> +static void rtl8169_write_gmii_reg_bit(void *ioaddr, int reg, int bitnum,
+> +				       int bitval)
+> +{
+> +	int val;
+> +
+> +	val = mdio_read(ioaddr, reg);
+> +	val = (bitval == 1) ?
+> +		val | (bitval << bitnum) :  val & ~(0x0001 << bitnum);
+> +	mdio_write(ioaddr, reg, val & 0xffff); 
+> +}
+> +
+>  static void rtl8169_get_mac_version(struct rtl8169_private *tp, void *ioaddr)
+>  {
+>  	const struct {
+> @@ -456,6 +472,74 @@ static void rtl8169_print_phy_version(st
+>  	dprintk("phy_version == Unknown\n");
+>  }
+>  
+> +static void rtl8169_hw_phy_config(struct net_device *dev)
+> +{
+> +	struct rtl8169_private *tp = dev->priv;
+> +	void *ioaddr = tp->mmio_addr;
+> +	struct {
+> +		u16 regs[5]; /* Beware of bit-sign propagation */
+> +	} phy_magic[5] = { {
+> +		{ 0x0000,	//w 4 15 12 0
+> +		  0x00a1,	//w 3 15 0 00a1
+> +		  0x0008,	//w 2 15 0 0008
+> +		  0x1020,	//w 1 15 0 1020
+> +		  0x1000 } },{	//w 0 15 0 1000
+> +		{ 0x7000,	//w 4 15 12 7
+> +		  0xff41,	//w 3 15 0 ff41
+> +		  0xde60,	//w 2 15 0 de60
+> +		  0x0140,	//w 1 15 0 0140
+> +		  0x0077 } },{	//w 0 15 0 0077
+> +		{ 0xa000,	//w 4 15 12 a
+> +		  0xdf01,	//w 3 15 0 df01
+> +		  0xdf20,	//w 2 15 0 df20
+> +		  0xff95,	//w 1 15 0 ff95
+> +		  0xfa00 } },{	//w 0 15 0 fa00
+> +		{ 0xb000,	//w 4 15 12 b
+> +		  0xff41,	//w 3 15 0 ff41
+> +		  0xde20,	//w 2 15 0 de20
+> +		  0x0140,	//w 1 15 0 0140
+> +		  0x00bb } },{	//w 0 15 0 00bb
+> +		{ 0xf000,	//w 4 15 12 f
+> +		  0xdf01,	//w 3 15 0 df01
+> +		  0xdf20,	//w 2 15 0 df20
+> +		  0xff95,	//w 1 15 0 ff95
+> +		  0xbf00 }	//w 0 15 0 bf00
+> +		}
+> +	}, *p = phy_magic;
+> +	int i;
+> +
+> +	rtl8169_print_mac_version(tp);
+> +	rtl8169_print_phy_version(tp);
+> +
+> +	if (tp->mac_version <= RTL_GIGA_MAC_VER_B)
+> +		return;
+> +	if (tp->phy_version >= RTL_GIGA_PHY_VER_F) 
+> +		return;
+> +
+> +	dprintk("MAC version != 0 && PHY version == 0 or 1\n");
+> +	dprintk("Do final_reg2.cfg\n");
+> +
+> +	/* Shazam ! */
+> +
+> +	// phy config for RTL8169s mac_version C chip
+> +	mdio_write(ioaddr, 31, 0x0001);			//w 31 2 0 1
+> +	mdio_write(ioaddr, 21, 0x1000);			//w 21 15 0 1000
+> +	mdio_write(ioaddr, 24, 0x65c7);			//w 24 15 0 65c7
+> +	rtl8169_write_gmii_reg_bit(ioaddr, 4, 11, 0);	//w 4 11 11 0
+> +
+> +	for (i = ARRAY_SIZE(phy_magic); i > 0; i++, p++) {
+> +		int val, pos = 4;
+> +
+> +		val = (mdio_read(ioaddr, pos) & 0x0fff) | (p->regs[0] & 0xffff);
+> +		mdio_write(ioaddr, pos, val);
+> +		while (--pos >= 0)
+> +			mdio_write(ioaddr, pos, p->regs[4 - pos] & 0xffff);
+> +		rtl8169_write_gmii_reg_bit(ioaddr, 4, 11, 1); //w 4 11 11 1
+> +		rtl8169_write_gmii_reg_bit(ioaddr, 4, 11, 0); //w 4 11 11 0
+> +	}
+> +	mdio_write(ioaddr, 31, 0x0000); //w 31 2 0 0
+> +}
+> +
+>  static int __devinit
+>  rtl8169_init_board(struct pci_dev *pdev, struct net_device **dev_out,
+>  		   void **ioaddr_out)
+> @@ -642,6 +726,23 @@ rtl8169_init_one(struct pci_dev *pdev, c
+>  	       dev->dev_addr[2], dev->dev_addr[3],
+>  	       dev->dev_addr[4], dev->dev_addr[5], dev->irq);
+>  
+> +	rtl8169_hw_phy_config(dev);
+> +
+> +	dprintk("Set MAC Reg C+CR Offset 0x82h = 0x01h\n");
+> +	RTL_W8(0x82, 0x01);
+> +
+> +	if (tp->mac_version < RTL_GIGA_MAC_VER_E) {
+> +		dprintk("Set PCI Latency=0x40\n");
+> +		pci_write_config_byte(pdev, PCI_LATENCY_TIMER, 0x40);
+> +	}
+> +
+> +	if (tp->mac_version == RTL_GIGA_MAC_VER_D) {
+> +		dprintk("Set MAC Reg C+CR Offset 0x82h = 0x01h\n");
+> +		RTL_W8(0x82, 0x01);
+> +		dprintk("Set PHY Reg 0x0bh = 0x00h\n");
+> +		mdio_write(ioaddr, 0x0b, 0x0000); //w 0x0b 15 0 0
+> +	}
+> +
+>  	// if TBI is not endbled
+>  	if (!(RTL_R8(PHYstatus) & TBI_Enable)) {
+>  		int val = mdio_read(ioaddr, PHY_AUTO_NEGO_REG);
+> @@ -654,23 +755,23 @@ rtl8169_init_one(struct pci_dev *pdev, c
+>  			Cap10_100 = 0, Cap1000 = 0;
+>  			switch (option) {
+>  			case _10_Half:
+> -				Cap10_100 = PHY_Cap_10_Half;
+> +				Cap10_100 = PHY_Cap_10_Half_Or_Less;
+>  				Cap1000 = PHY_Cap_Null;
+>  				break;
+>  			case _10_Full:
+> -				Cap10_100 = PHY_Cap_10_Full;
+> +				Cap10_100 = PHY_Cap_10_Full_Or_Less;
+>  				Cap1000 = PHY_Cap_Null;
+>  				break;
+>  			case _100_Half:
+> -				Cap10_100 = PHY_Cap_100_Half;
+> +				Cap10_100 = PHY_Cap_100_Half_Or_Less;
+>  				Cap1000 = PHY_Cap_Null;
+>  				break;
+>  			case _100_Full:
+> -				Cap10_100 = PHY_Cap_100_Full;
+> +				Cap10_100 = PHY_Cap_100_Full_Or_Less;
+>  				Cap1000 = PHY_Cap_Null;
+>  				break;
+>  			case _1000_Full:
+> -				Cap10_100 = PHY_Cap_Null;
+> +				Cap10_100 = PHY_Cap_100_Full_Or_Less;
+>  				Cap1000 = PHY_Cap_1000_Full;
+>  				break;
+>  			default:
+> @@ -684,9 +785,7 @@ rtl8169_init_one(struct pci_dev *pdev, c
+>  
+>  			// enable 10/100 Full/Half Mode, leave PHY_AUTO_NEGO_REG bit4:0 unchanged
+>  			mdio_write(ioaddr, PHY_AUTO_NEGO_REG,
+> -				   PHY_Cap_10_Half | PHY_Cap_10_Full |
+> -				   PHY_Cap_100_Half | PHY_Cap_100_Full | (val &
+> -									  0x1F));
+> +				   PHY_Cap_100_Full_Or_Less | (val & 0x1f));
+>  
+>  			// enable 1000 Full Mode
+>  			mdio_write(ioaddr, PHY_1000_CTRL_REG,
+> 
+> _
