@@ -1,8 +1,8 @@
 From: Shmuel Hen <shmulik.hen@intel.com>
-Subject: [PATCH] [NET] split arp_send into arp_create and arp_xmit (resend)
-Date: Thu, 5 Feb 2004 15:58:56 +0200
+Subject: [PATCH] [8021q] Use VLAN tag set functionality in 8021q module (resend)
+Date: Thu, 5 Feb 2004 15:59:43 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200402051559.10075.shmulik.hen@intel.com>
+Message-ID: <200402051559.45159.shmulik.hen@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
@@ -14,13 +14,12 @@ Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Enable intermediate network drivers like bonding to create an ARP 
-packet and modify it to their needs before sending it, while avoiding 
-code duplication. It does not affect any other place in the kernel 
-that uses arp_send.
+Make the regular/HW accelerated xmit functions in the 8021q module 
+use the new set VLAN tag functionality to reduce code duplication. 
 
 Tested for patch application and compilation against linux-2.6.2.
 
+ 
 -- 
 | Shmulik Hen   Advanced Network Services  |
 | Israel Design Center, Jerusalem          |
@@ -28,142 +27,110 @@ Tested for patch application and compilation against linux-2.6.2.
 | Intel Communications Group, Intel corp.  |
 
 
-diff -Nuarp a/include/net/arp.h b/include/net/arp.h
---- a/include/net/arp.h	Wed Jan 21 16:56:05 2004
-+++ b/include/net/arp.h	Wed Jan 21 16:56:07 2004
-@@ -5,6 +5,8 @@
- #include <linux/if_arp.h>
- #include <net/neighbour.h>
- 
-+#define HAVE_ARP_CREATE
-+
- extern struct neigh_table arp_tbl;
- 
- extern void	arp_init(void);
-@@ -19,6 +21,12 @@ extern int	arp_bind_neighbour(struct dst
- extern int	arp_mc_map(u32 addr, u8 *haddr, struct net_device *dev, int dir);
- extern void	arp_ifdown(struct net_device *dev);
- 
-+extern struct sk_buff *arp_create(int type, int ptype, u32 dest_ip,
-+				  struct net_device *dev, u32 src_ip,
-+				  unsigned char *dest_hw, unsigned char *src_hw,
-+				  unsigned char *target_hw);
-+extern void arp_xmit(struct sk_buff *skb);
-+
- extern struct neigh_ops arp_broken_ops;
- 
- #endif	/* _ARP_H */
-diff -Nuarp a/net/ipv4/arp.c b/net/ipv4/arp.c
---- a/net/ipv4/arp.c	Wed Jan 21 16:56:05 2004
-+++ b/net/ipv4/arp.c	Wed Jan 21 16:56:07 2004
-@@ -67,6 +67,10 @@
-  *					now it is in net/core/neighbour.c.
-  *		Krzysztof Halasa:	Added Frame Relay ARP support.
-  *		Arnaldo C. Melo :	convert /proc/net/arp to seq_file
-+ *		Shmulik Hen:		Split arp_send to arp_create and
-+ *					arp_xmit so intermediate drivers like
-+ *					bonding can change the skb before
-+ *					sending (e.g. insert 8021q tag).
-  */
- 
- #include <linux/module.h>
-@@ -487,34 +491,26 @@ static inline int arp_fwd_proxy(struct i
-  */
- 
- /*
-- *	Create and send an arp packet. If (dest_hw == NULL), we create a broadcast
-+ *	Create an arp packet. If (dest_hw == NULL), we create a broadcast
-  *	message.
-  */
--
--void arp_send(int type, int ptype, u32 dest_ip, 
--	      struct net_device *dev, u32 src_ip, 
--	      unsigned char *dest_hw, unsigned char *src_hw,
--	      unsigned char *target_hw)
-+struct sk_buff *arp_create(int type, int ptype, u32 dest_ip,
-+			   struct net_device *dev, u32 src_ip,
-+			   unsigned char *dest_hw, unsigned char *src_hw,
-+			   unsigned char *target_hw)
- {
- 	struct sk_buff *skb;
- 	struct arphdr *arp;
- 	unsigned char *arp_ptr;
- 
- 	/*
--	 *	No arp on this interface.
--	 */
--	
--	if (dev->flags&IFF_NOARP)
--		return;
--
--	/*
- 	 *	Allocate a buffer
+diff -Nuarp a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+--- a/net/8021q/vlan_dev.c	Wed Jan 21 16:56:13 2004
++++ b/net/8021q/vlan_dev.c	Wed Jan 21 16:56:15 2004
+@@ -445,6 +445,7 @@ int vlan_dev_hard_start_xmit(struct sk_b
  	 */
- 	
- 	skb = alloc_skb(sizeof(struct arphdr)+ 2*(dev->addr_len+4)
- 				+ LL_RESERVED_SPACE(dev), GFP_ATOMIC);
- 	if (skb == NULL)
--		return;
-+		return NULL;
  
- 	skb_reserve(skb, LL_RESERVED_SPACE(dev));
- 	skb->nh.raw = skb->data;
-@@ -594,12 +590,46 @@ void arp_send(int type, int ptype, u32 d
- 	arp_ptr+=dev->addr_len;
- 	memcpy(arp_ptr, &dest_ip, 4);
+ 	if (veth->h_vlan_proto != __constant_htons(ETH_P_8021Q)) {
++		int orig_headroom = skb_headroom(skb);
+ 		unsigned short veth_TCI;
  
--	/* Send it off, maybe filter it using firewalling first.  */
--	NF_HOOK(NF_ARP, NF_ARP_OUT, skb, NULL, dev, dev_queue_xmit);
--	return;
-+	return skb;
+ 		/* This is not a VLAN frame...but we can fix that! */
+@@ -454,33 +455,7 @@ int vlan_dev_hard_start_xmit(struct sk_b
+ 		printk(VLAN_DBG "%s: proto to encap: 0x%hx (hbo)\n",
+ 			__FUNCTION__, htons(veth->h_vlan_proto));
+ #endif
+-
+-		if (skb_headroom(skb) < VLAN_HLEN) {
+-			struct sk_buff *sk_tmp = skb;
+-			skb = skb_realloc_headroom(sk_tmp, VLAN_HLEN);
+-			kfree_skb(sk_tmp);
+-			if (skb == NULL) {
+-				stats->tx_dropped++;
+-				return 0;
+-			}
+-			VLAN_DEV_INFO(dev)->cnt_inc_headroom_on_tx++;
+-		} else {
+-			if (!(skb = skb_unshare(skb, GFP_ATOMIC))) {
+-				printk(KERN_ERR "vlan: failed to unshare skbuff\n");
+-				stats->tx_dropped++;
+-				return 0;
+-			}
+-		}
+-		veth = (struct vlan_ethhdr *)skb_push(skb, VLAN_HLEN);
+-
+-		/* Move the mac addresses to the beginning of the new header. */
+-		memmove(skb->data, skb->data + VLAN_HLEN, 12);
+-
+-		/* first, the ethernet type */
+-		/* put_unaligned(__constant_htons(ETH_P_8021Q), &veth->h_vlan_proto); */
+-		veth->h_vlan_proto = __constant_htons(ETH_P_8021Q);
+-
+-		/* Now, construct the second two bytes. This field looks something
++		/* Construct the second two bytes. This field looks something
+ 		 * like:
+ 		 * usr_priority: 3 bits	 (high bits)
+ 		 * CFI		 1 bit
+@@ -489,10 +464,16 @@ int vlan_dev_hard_start_xmit(struct sk_b
+ 		veth_TCI = VLAN_DEV_INFO(dev)->vlan_id;
+ 		veth_TCI |= vlan_dev_get_egress_qos_mask(dev, skb);
  
- out:
- 	kfree_skb(skb);
-+	return NULL;
-+}
-+
-+/*
-+ *	Send an arp packet.
-+ */
-+void arp_xmit(struct sk_buff *skb)
-+{
-+	/* Send it off, maybe filter it using firewalling first.  */
-+	NF_HOOK(NF_ARP, NF_ARP_OUT, skb, NULL, skb->dev, dev_queue_xmit);
-+}
-+
-+/*
-+ *	Create and send an arp packet.
-+ */
-+void arp_send(int type, int ptype, u32 dest_ip, 
-+	      struct net_device *dev, u32 src_ip, 
-+	      unsigned char *dest_hw, unsigned char *src_hw,
-+	      unsigned char *target_hw)
-+{
-+	struct sk_buff *skb;
-+
-+	/*
-+	 *	No arp on this interface.
-+	 */
-+	
-+	if (dev->flags&IFF_NOARP)
-+		return;
-+
-+	skb = arp_create(type, ptype, dest_ip, dev, src_ip,
-+			 dest_hw, src_hw, target_hw);
-+	if (skb == NULL) {
-+		return;
+-		veth->h_vlan_TCI = htons(veth_TCI);
+-	}
++		skb = __vlan_put_tag(skb, veth_TCI);
++		if (!skb) {
++			stats->tx_dropped++;
++			return 0;
++		}
+ 
+-	skb->dev = VLAN_DEV_INFO(dev)->real_dev;
++		if (orig_headroom < VLAN_HLEN) {
++			VLAN_DEV_INFO(dev)->cnt_inc_headroom_on_tx++;
++		}
 +	}
+ 
+ #ifdef VLAN_DEBUG
+ 	printk(VLAN_DBG "%s: about to send skb: %p to dev: %s\n",
+@@ -506,10 +487,7 @@ int vlan_dev_hard_start_xmit(struct sk_b
+ 	stats->tx_packets++; /* for statics only */
+ 	stats->tx_bytes += skb->len;
+ 
+-	skb->protocol = __constant_htons(ETH_P_8021Q);
+-	skb->mac.raw -= VLAN_HLEN;
+-	skb->nh.raw -= VLAN_HLEN;
+-
++	skb->dev = VLAN_DEV_INFO(dev)->real_dev;
+ 	dev_queue_xmit(skb);
+ 
+ 	return 0;
+@@ -518,17 +496,22 @@ int vlan_dev_hard_start_xmit(struct sk_b
+ int vlan_dev_hwaccel_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct net_device_stats *stats = vlan_dev_get_stats(dev);
+-	struct vlan_skb_tx_cookie *cookie;
++	unsigned short veth_TCI;
 +
-+	arp_xmit(skb);
- }
++	/* Construct the second two bytes. This field looks something
++	 * like:
++	 * usr_priority: 3 bits	 (high bits)
++	 * CFI		 1 bit
++	 * VLAN ID	 12 bits (low bits)
++	 */
++	veth_TCI = VLAN_DEV_INFO(dev)->vlan_id;
++	veth_TCI |= vlan_dev_get_egress_qos_mask(dev, skb);
++	skb = __vlan_hwaccel_put_tag(skb, veth_TCI);
  
- static void parp_redo(struct sk_buff *skb)
-@@ -1437,6 +1467,8 @@ static int __init arp_proc_init(void)
- EXPORT_SYMBOL(arp_broken_ops);
- EXPORT_SYMBOL(arp_find);
- EXPORT_SYMBOL(arp_rcv);
-+EXPORT_SYMBOL(arp_create);
-+EXPORT_SYMBOL(arp_xmit);
- EXPORT_SYMBOL(arp_send);
- EXPORT_SYMBOL(arp_tbl);
+ 	stats->tx_packets++;
+ 	stats->tx_bytes += skb->len;
  
+ 	skb->dev = VLAN_DEV_INFO(dev)->real_dev;
+-	cookie = VLAN_TX_SKB_CB(skb);
+-	cookie->magic = VLAN_TX_COOKIE_MAGIC;
+-	cookie->vlan_tag = (VLAN_DEV_INFO(dev)->vlan_id |
+-			    vlan_dev_get_egress_qos_mask(dev, skb));
+-
+ 	dev_queue_xmit(skb);
+ 
+ 	return 0;
