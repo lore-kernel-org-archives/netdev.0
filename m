@@ -1,7 +1,7 @@
 From: Jouni Malinen <jkmaline@cc.hut.fi>
-Subject: [PATCH wireless-2.6 8/10] hostap: Improved suspend
-Date: Sat, 12 Mar 2005 16:34:48 -0800
-Message-ID: <20050313003448.GI8253@jm.kir.nu>
+Subject: [PATCH wireless-2.6 9/10] hostap: Filter disconnect events
+Date: Sat, 12 Mar 2005 16:35:30 -0800
+Message-ID: <20050313003530.GJ8253@jm.kir.nu>
 References: <20050313001706.GA8253@jm.kir.nu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -13,70 +13,47 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Improved suspend operation: disable firmware (hostap_cs) and
-generate disconnect event to trigger wpa_supplicant to reassociate
-immediately after resume.
+Filter out sequential disconnect events to make race condition with
+received EAPOL frames less likely to happen (this improves
+authentication success rate with some APs that send EAPOL frames very
+quickly after the (re)association response).
 
 Signed-off-by: Jouni Malinen <jkmaline@cc.hut.fi>
 
-Index: jm-wireless-2.6/drivers/net/wireless/hostap/hostap_cs.c
+Index: jm-wireless-2.6/drivers/net/wireless/hostap/hostap_info.c
 ===================================================================
---- jm-wireless-2.6.orig/drivers/net/wireless/hostap/hostap_cs.c	2005-03-12 16:10:53.000000000 -0800
-+++ jm-wireless-2.6/drivers/net/wireless/hostap/hostap_cs.c	2005-03-12 16:10:59.000000000 -0800
-@@ -870,6 +870,7 @@
- 				netif_stop_queue(dev);
- 				netif_device_detach(dev);
- 			}
-+			prism2_suspend(dev);
- 			pcmcia_release_configuration(link->handle);
- 		}
- 		break;
-Index: jm-wireless-2.6/drivers/net/wireless/hostap/hostap_hw.c
-===================================================================
---- jm-wireless-2.6.orig/drivers/net/wireless/hostap/hostap_hw.c	2005-03-12 16:10:58.000000000 -0800
-+++ jm-wireless-2.6/drivers/net/wireless/hostap/hostap_hw.c	2005-03-12 16:10:59.000000000 -0800
-@@ -3594,6 +3594,28 @@
+--- jm-wireless-2.6.orig/drivers/net/wireless/hostap/hostap_info.c	2005-03-12 16:10:39.000000000 -0800
++++ jm-wireless-2.6/drivers/net/wireless/hostap/hostap_info.c	2005-03-12 16:11:01.000000000 -0800
+@@ -428,7 +428,16 @@
+ 		memset(wrqu.ap_addr.sa_data, 0, ETH_ALEN);
+ 	}
+ 	wrqu.ap_addr.sa_family = ARPHRD_ETHER;
+-	wireless_send_event(local->dev, SIOCGIWAP, &wrqu, NULL);
++
++	/*
++	 * Filter out sequential disconnect events in order not to cause a
++	 * flood of SIOCGIWAP events that have a race condition with EAPOL
++	 * frames and can confuse wpa_supplicant about the current association
++	 * status.
++	 */
++	if (connected || local->prev_linkstatus_connected)
++		wireless_send_event(local->dev, SIOCGIWAP, &wrqu, NULL);
++	local->prev_linkstatus_connected = connected;
  }
  
  
-+#ifndef PRISM2_PLX
-+static void prism2_suspend(struct net_device *dev)
-+{
-+	struct hostap_interface *iface;
-+	struct local_info *local;
-+	union iwreq_data wrqu;
-+
-+	iface = dev->priv;
-+	local = iface->local;
-+
-+	/* Send disconnect event, e.g., to trigger reassociation after resume
-+	 * if wpa_supplicant is used. */
-+	memset(&wrqu, 0, sizeof(wrqu));
-+	wrqu.ap_addr.sa_family = ARPHRD_ETHER;
-+	wireless_send_event(local->dev, SIOCGIWAP, &wrqu, NULL);
-+
-+	/* Disable hardware and firmware */
-+	prism2_hw_shutdown(dev, 0);
-+}
-+#endif /* PRISM2_PLX */
-+
-+
- /* These might at some point be compiled separately and used as separate
-  * kernel modules or linked into one */
- #ifdef PRISM2_DOWNLOAD_SUPPORT
-Index: jm-wireless-2.6/drivers/net/wireless/hostap/hostap_pci.c
+Index: jm-wireless-2.6/drivers/net/wireless/hostap/hostap_wlan.h
 ===================================================================
---- jm-wireless-2.6.orig/drivers/net/wireless/hostap/hostap_pci.c	2005-03-12 16:10:50.000000000 -0800
-+++ jm-wireless-2.6/drivers/net/wireless/hostap/hostap_pci.c	2005-03-12 16:10:59.000000000 -0800
-@@ -393,7 +393,7 @@
- 		netif_stop_queue(dev);
- 		netif_device_detach(dev);
- 	}
--	prism2_hw_shutdown(dev, 0);
-+	prism2_suspend(dev);
- 	pci_save_state(pdev);
- 	pci_disable_device(pdev);
- 	pci_set_power_state(pdev, 3);
+--- jm-wireless-2.6.orig/drivers/net/wireless/hostap/hostap_wlan.h	2005-03-12 16:10:53.000000000 -0800
++++ jm-wireless-2.6/drivers/net/wireless/hostap/hostap_wlan.h	2005-03-12 16:11:01.000000000 -0800
+@@ -833,6 +833,7 @@
+ #define PRISM2_INFO_PENDING_LINKSTATUS 0
+ #define PRISM2_INFO_PENDING_SCANRESULTS 1
+ 	int prev_link_status; /* previous received LinkStatus info */
++	int prev_linkstatus_connected;
+ 	u8 preferred_ap[6]; /* use this AP if possible */
+ 
+ #ifdef PRISM2_CALLBACK
 
 
 -- 
