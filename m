@@ -1,83 +1,88 @@
-From: mcgrof@ruslug.rutgers.edu (Luis R. Rodriguez)
-Subject: Re: [PATCH] #2: add more reset debug messages
-Date: Tue, 10 Aug 2004 20:53:46 -0400
-Sender: prism54-devel-bounces@prism54.org
-Message-ID: <20040811005346.GK26262@ruslug.rutgers.edu>
-References: <200408101824.28368.vda@port.imtp.ilyichevsk.odessa.ua>
-	<20040811002412.GG26262@ruslug.rutgers.edu>
-	<20040811002844.GH26262@ruslug.rutgers.edu>
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH][IPSEC] IPsec policy can be matched by ICMP type and
+ code
+Date: Tue, 10 Aug 2004 23:01:44 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040810230144.2a68914b.davem@redhat.com>
+References: <20040809175404.301bd60a@localhost>
+	<20040809170705.6ab75c5f.davem@redhat.com>
+	<20040810.103229.128092044.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Return-path: <prism54-devel-bounces@prism54.org>
-To: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>,
-	prism54-devel@prism54.org, netdev@oss.sgi.com
-Content-Disposition: inline
-In-Reply-To: <20040811002844.GH26262@ruslug.rutgers.edu>
-List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
-List-Archive: <http://prism54.org/pipermail/prism54-devel>
-List-Post: <mailto:prism54-devel@prism54.org>
-List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
-List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
-Errors-To: prism54-devel-bounces@prism54.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: nakam@linux-ipv6.org, netdev@oss.sgi.com, usagi-core@linux-ipv6.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20040810.103229.128092044.yoshfuji@linux-ipv6.org>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Tue, 10 Aug 2004 10:32:29 +0900 (JST)
+YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
 
-Denis,
-
-Actually you have CVS access to prism54, if no one complains about these patches
-(and I think no one will as they are trivial), just go ahead and commit these 
-changes yourself. Please remember to update the ChangeLog too. 
-
-After your changes go through I plan on starting to integrate the wpa work
-I have (it can't wait any longer).
-
-Thanks,
-
-	Luis
-
-On Tue, Aug 10, 2004 at 08:28:44PM -0400, Luis R. Rodriguez wrote:
+> Does it make sense to excude IPPPROTO_RAW sockets and/or hdrincl sockets, 
+> which would be 100% truly raw socket?
+> Or, do we add some socket option for this?
 > 
-> Oh and I forgot to mention I think Jeff likes subjects in the format like:
-> 
-> [PATCH 1/2] prism54: space changes
-> 
-> and people also like followups (patch #2) for example, to be a reply to
-> the original thread (for mail thread viewing purposes).
-> 
-> 	Luis
-> 
-> On Tue, Aug 10, 2004 at 08:24:12PM -0400, Luis R. Rodriguez wrote:
-> > 
-> > Same here, looks good we'll just need a patch against the kernel tree
-> > too for netdev.
-> > 
-> > 	Luis
-> > 
-> > On Tue, Aug 10, 2004 at 06:24:28PM +0300, Denis Vlasenko wrote:
-> > > Hi Luis,
-> > > 
-> > > On top of previous one:
-> > > 
-> > > * Some not needed NULL assignments removed
-> > > * Add some more printks to reset code path
-> > > * mgt_commit_list(): tell which oid has failed
-> > > 
-> > > All previous concerns about this patch are addressed
-> > > (some of removed NULL assignments were indeed needed).
-> > > 
-> > > Please apply.
-> > > --
-> > > vda
-> > 
-> > 
-> > 
-> > -- 
-> > GnuPG Key fingerprint = 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
-> 
-> -- 
-> GnuPG Key fingerprint = 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
+> Mip6 is required to exchange ipsec'ed datagrams (!= IPPROTO_RAW).
+> (as I told you at Networking Summit if I remember correctly),
+> so we need some sort of the patch, anyway.
 
--- 
-GnuPG Key fingerprint = 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
+This is what Alexey told me when I last spoke with him
+about this:
+
+Return-Path: <kuznet@ms2.inr.ac.ru>
+Received: from localhost (IDENT:davem@localhost.localdomain [127.0.0.1])
+	by pizda.ninka.net (8.9.3/8.9.3) with ESMTP id QAA27793
+	for <davem@localhost>; Sat, 17 May 2003 16:28:26 -0700
+From: kuznet@ms2.inr.ac.ru
+Received: from localhost.localdomain [127.0.0.1]
+	by localhost with POP3 (fetchmail-6.2.2)
+	for davem@localhost (single-drop); Sat, 17 May 2003 16:28:26 -0700 (PDT)
+Received: from int-mx1.corp.redhat.com (int-mx1.corp.redhat.com [172.16.52.254])
+	by devserv.devel.redhat.com (8.11.6/8.11.0) with ESMTP id h4HNSr500334
+	for <davem@devserv.devel.redhat.com>; Sat, 17 May 2003 19:28:53 -0400
+Received: from mx1.redhat.com (mx1.redhat.com [172.16.48.31])
+	by int-mx1.corp.redhat.com (8.11.6/8.11.6) with SMTP id h4HNSrI11137
+	for <davem@redhat.com>; Sat, 17 May 2003 19:28:53 -0400
+Received: from dub.inr.ac.ru (dub.inr.ac.ru [193.233.7.105])
+	by mx1.redhat.com (8.11.6/8.11.6) with SMTP id h4HNSqH20272
+	for <davem@redhat.com>; Sat, 17 May 2003 19:28:52 -0400
+Received: (from kuznet@localhost) by dub.inr.ac.ru (8.6.13/ANK) id DAA10631 for davem@redhat.com; Sun, 18 May 2003 03:28:45 +0400
+Message-Id: <200305172328.DAA10631@dub.inr.ac.ru>
+Subject: Re: dst_pmtu() check in ip_output()
+To: davem@redhat.com (David S. Miller)
+Date: Sun, 18 May 2003 03:28:45 +0400 (MSD)
+In-Reply-To: <20030514.184139.55739273.davem@redhat.com> from "David S. Miller" at May 14, 2003 06:41:39 PM
+X-Mailer: ELM [version 2.5 PL6]
+MIME-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+
+Hello!
+
+> Let's ask the following question: What is difference between adding
+> transformation locally, and adding it at some hop on the way to
+> destination?
+> 
+> I can already hear answers of the form "It is same difference as
+> that between tunnel and transport mode." :-)
+
+Exactly.
+
+Plus one more thing: when you noticed pathology with raw socket
+you referred to "What does user expect?".
+
+Use of raw socket is pathological itself, f.e. IPv6 does not even
+have such a concept. It is used by (and invented by VJ for) traceroute.
+And beyond this it is used by various testing and attacker's software.
+Shortly, the packet which it generates are _tricky_ by user desire,
+when user wants to test (or attack) someone.
+
+So, I would expect the packet is not transformed locally at all.
+Remember f.e. that it can be an _IPsec_ packet already.
+
+Alexey
+
+PS. This is the first mail which I send from new account. Please,
+tell me if it looks unusual.
