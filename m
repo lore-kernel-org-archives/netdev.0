@@ -1,37 +1,36 @@
-From: Henrik Nordstrom <hno@marasystems.com>
-Subject: Re: Do you know the TCP stack? (127.x.x.x routing)
-Date: Thu, 10 Mar 2005 11:10:07 +0100 (CET)
-Message-ID: <Pine.LNX.4.61.0503101102340.26065@filer.marasystems.com>
-References: <Pine.LNX.4.61.0503090009120.6780@filer.marasystems.com>
- <E1D7zBN-0004hX-00@smtp02.mrf.mail.rcn.net> <20050306173145.GQ31837@postel.suug.ch>
- <E1D81mg-0002rz-00@smtp01.mrf.mail.rcn.net> <m1y8d0mss2.fsf@muc.de>
- <3sp35g$7hpm0@smtp04.mrf.mail.rcn.net> <422C0B50.20500@mrv.com>
- <3sp35g$7rsc1@smtp04.mrf.mail.rcn.net> <1110288879.1050.167.camel@jzny.localdomain>
- <20050308135134.GA20607@atrey.karlin.mff.cuni.cz> <1110290300.1050.190.camel@jzny.localdomain>
- <20050308140301.GC20607@atrey.karlin.mff.cuni.cz> <1110291470.1043.211.camel@jzny.localdomain>
- <Pine.LNX.4.61.0503081937020.5332@filer.marasystems.com>
- <1110316631.1084.57.camel@jzny.localdomain> <Pine.LNX.4.61.0503090009120.6780@filer.marasystems.com>
- <E1D91Rz-0004wp-00@smtp01.mrf.mail.rcn.net> <1110377889.1090.124.camel@jzny.localdomain>
- <d0n98a$icn$1@sea.gmane.org>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 1/5] r8169: auto detect 32-bit slot
+Date: Thu, 10 Mar 2005 12:17:03 +0100
+Message-ID: <20050310111703.GA29018@electric-eye.fr.zoreil.com>
+References: <20050309112925.7f7900ab@dxpl.pdx.osdl.net> <200503091608.59122.jdmason@us.ibm.com> <20050309223943.GB9502@electric-eye.fr.zoreil.com> <200503092214.10348.jdmason@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
-To: Jason Lunz <lunz@falooley.org>
-In-Reply-To: <d0n98a$icn$1@sea.gmane.org>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <ak@muc.de>, Stephen Hemminger <shemminger@osdl.org>,
+        netdev@oss.sgi.com
+To: Jon Mason <jdmason@us.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <200503092214.10348.jdmason@us.ibm.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 9 Mar 2005, Jason Lunz wrote:
+Jon Mason <jdmason@us.ibm.com> :
+[...]
+> +       if ((sizeof(dma_addr_t) > 4) &&
+> +           (RTL_R32(Config2) & (1<<3)) && 
+> +           !pci_set_dma_mask(pdev, DMA_64BIT_MASK)) {
+> 
+> For the above, I get 8 0 1 respectively.  So, my adapters fail because of the 
+> 64bit slot test.  
 
-> interfaces. I don't know whether policy routing gives enough control to
-> do this in a general fashion;
+Config2 can not be a replacement for "use_dac" then.
 
-Not easily. The problem is to determine which path packets you send should 
-take if the destination is on both sides.
+> If you like, I can try my stand-alone adapter in a 64bit slot of a ppc64 
+> system.
 
-You can do some magics with connection tracking and CONNMARK and magic 
-routing tables infront of the local table and disabling the martian 
-checks, but not everything can be solved in this manner.
+It is not strictly necessary. Config2 ought to identify the 64bit slot at best.
 
-Regards
-Henrik
+Thanks.
+
+--
+Ueimor
