@@ -1,66 +1,91 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 2.6.7-rc3-mm2 2/5] via-velocity: uniformize use of OWNED_BY_NIC
-Date: Fri, 18 Jun 2004 22:11:42 +0200
+Subject: [PATCH 2.6.7-rc3-mm2 3/5] via-velocity: velocity_receive_frame diets
+Date: Fri, 18 Jun 2004 22:13:36 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040618221142.A20210@electric-eye.fr.zoreil.com>
-References: <20040618221014.A15640@electric-eye.fr.zoreil.com>
+Message-ID: <20040618221336.B20210@electric-eye.fr.zoreil.com>
+References: <20040618221014.A15640@electric-eye.fr.zoreil.com> <20040618221142.A20210@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: alan@redhat.com, akpm@osdl.org, jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <20040618221014.A15640@electric-eye.fr.zoreil.com>; from romieu@fr.zoreil.com on Fri, Jun 18, 2004 at 10:10:14PM +0200
+In-Reply-To: <20040618221142.A20210@electric-eye.fr.zoreil.com>; from romieu@fr.zoreil.com on Fri, Jun 18, 2004 at 10:11:42PM +0200
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Weight loss in velocity_receive_frame():
+- isolate the ip header alignment tsk from velocity_receive_frame();
+- following p.30 of the datasheet, rdesc0.len includes the CRC length:
+  the amount of data copied during the ip alignment can be shortened.
 
-Introduce velocity_give_rx_desc() to uniformize the use of OWNED_BY_NIC
-through the driver.
-
-diff -puN drivers/net/via-velocity.c~via-velocity-30 drivers/net/via-velocity.c
---- linux-2.6.7-rc3/drivers/net/via-velocity.c~via-velocity-30	2004-06-18 21:34:14.000000000 +0200
-+++ linux-2.6.7-rc3-fr/drivers/net/via-velocity.c	2004-06-18 21:34:14.000000000 +0200
-@@ -465,6 +465,12 @@ static void velocity_init_cam_filter(str
- 	}
+diff -puN drivers/net/via-velocity.c~via-velocity-40 drivers/net/via-velocity.c
+--- linux-2.6.7-rc3/drivers/net/via-velocity.c~via-velocity-40	2004-06-18 21:38:59.000000000 +0200
++++ linux-2.6.7-rc3-fr/drivers/net/via-velocity.c	2004-06-18 21:58:58.000000000 +0200
+@@ -1255,6 +1255,28 @@ static inline void velocity_rx_csum(stru
  }
  
-+static inline void velocity_give_rx_desc(struct rx_desc *rd)
+ /**
++ *	velocity_iph_realign	-	IP header alignment
++ *	@vptr: velocity we are handling
++ *	@skb: network layer packet buffer
++ *	@pkt_size: received data size
++ *
++ *	Align IP header on a 2 bytes boundary. This behavior can be
++ *	configured by the user.
++ */
++static inline void velocity_iph_realign(struct velocity_info *vptr,
++					struct sk_buff *skb, int pkt_size)
 +{
-+	*(u32 *)&rd->rdesc0 = 0;
-+	rd->rdesc0.owner = cpu_to_le32(OWNED_BY_NIC);
++	/* FIXME - memmove ? */
++	if (vptr->flags & VELOCITY_FLAGS_IP_ALIGN) {
++		int i;
++
++		for (i = pkt_size; i >= 0; i--)
++			*(skb->data + i + 2) = *(skb->data + i);
++		skb_reserve(skb, 2);
++	}
 +}
 +
- /**
-  *	velocity_rx_reset	-	handle a receive reset
-  *	@vptr: velocity we are resetting
-@@ -485,7 +491,7 @@ static void velocity_rx_reset(struct vel
- 	 *	Init state, all RD entries belong to the NIC
++/**
+  *	velocity_receive_frame	-	received packet processor
+  *	@vptr: velocity we are handling
+  *	@idx: ring index
+@@ -1268,6 +1290,7 @@ static int velocity_receive_frame(struct
+ 	struct net_device_stats *stats = &vptr->stats;
+ 	struct velocity_rd_info *rd_info = &(vptr->rd_info[idx]);
+ 	struct rx_desc *rd = &(vptr->rd_ring[idx]);
++	int pkt_len = rd->rdesc0.len;
+ 	struct sk_buff *skb;
+ 
+ 	if (rd->rdesc0.RSR & (RSR_STP | RSR_EDP)) {
+@@ -1287,16 +1310,9 @@ static int velocity_receive_frame(struct
+ 	rd_info->skb_dma = (dma_addr_t) NULL;
+ 	rd_info->skb = NULL;
+ 
+-	/* FIXME - memmove ? */
+-	if (vptr->flags & VELOCITY_FLAGS_IP_ALIGN) {
+-		int i;
+-		for (i = rd->rdesc0.len + 4; i >= 0; i--)
+-			*(skb->data + i + 2) = *(skb->data + i);
+-		skb->data += 2;
+-		skb->tail += 2;
+-	}
++	velocity_iph_realign(vptr, skb, pkt_len);
+ 
+-	skb_put(skb, (rd->rdesc0.len - 4));
++	skb_put(skb, pkt_len - 4);
+ 	skb->protocol = eth_type_trans(skb, skb->dev);
+ 
+ 	/*
+@@ -1316,7 +1332,7 @@ static int velocity_receive_frame(struct
+ 	 *	FIXME: need rx_copybreak handling
  	 */
- 	for (i = 0; i < vptr->options.numrx; ++i)
--		vptr->rd_ring[i].rdesc0.owner = cpu_to_le32(OWNED_BY_NIC);
-+		velocity_give_rx_desc(vptr->rd_ring + i);
  
- 	writew(vptr->options.numrx, &regs->RBRDU);
- 	writel(vptr->rd_pool_dma, &regs->RDBaseLo);
-@@ -1008,7 +1014,7 @@ static int velocity_init_rd_ring(struct 
- 			velocity_free_rd_ring(vptr);
- 			goto out;
- 		}
--		rd->rdesc0.owner = OWNED_BY_NIC;
-+		velocity_give_rx_desc(rd);
- 	}
- 	vptr->rd_used = vptr->rd_curr = 0;
- out:
-@@ -1205,8 +1211,7 @@ static int velocity_rx_srv(struct veloci
- 				if (--rd_prev < 0)
- 					rd_prev = vptr->options.numrx - 1;
+-	stats->rx_bytes += skb->len;
++	stats->rx_bytes += pkt_len;
+ 	netif_rx(skb);
  
--				rd = &(vptr->rd_ring[rd_prev]);
--				rd->rdesc0.owner = OWNED_BY_NIC;
-+				velocity_give_rx_desc(vptr->rd_ring + rd_prev);
- 			}
- 			writew(4, &(regs->RBRDU));
- 			vptr->rd_used -= 4;
+ 	return 0;
 
 _
