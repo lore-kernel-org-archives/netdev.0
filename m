@@ -1,36 +1,52 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Handle shared SKBs in VLAN receive code
-Date: Mon, 13 Oct 2003 10:19:35 -0700
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] (1/2) syncppp wan device regression
+Date: Mon, 13 Oct 2003 11:09:55 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031013101935.231fb1fd.davem@redhat.com>
-References: <3F87430D.2040000@tpack.net>
-	<3F87464B.1020908@candelatech.com>
-	<3F874A30.6010700@tpack.net>
-	<3F885418.3090407@candelatech.com>
-	<20031011120339.0da631e6.davem@redhat.com>
-	<3F892629.7090206@tpack.net>
+Message-ID: <20031013110955.688c1c5c.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: greearb@candelatech.com, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Tommy Christensen <tommy.christensen@tpack.net>
-In-Reply-To: <3F892629.7090206@tpack.net>
+To: "David S. Miller" <davem@redhat.com>, Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 12 Oct 2003 12:00:09 +0200
-Tommy Christensen <tommy.christensen@tpack.net> wrote:
+In 2.6.0-test6, I put in a patch which fixed sealevel driver, but broke
+all the other wan devices because it got rid of one level of indirection.
 
-> Bear with me, but this is how I understand it:
-> 
->   - The sk_buff *structure* is read-only on a shared SKB.
->     skb_share_check(skb) breaks the sharing, thus allowing
->     updates of skb->dev, skb->len etc.
->     But the SKB still points at the same data buffer.
-> 
->   - The *data* buffer is read-only on a cloned SKB.
->     skb_cow() or skb_copy() or ... gives us a writeable buffer.
+This puts back the indirection, and hopefully prevents others from
+misreading it the same way. The SPPP drivers expect that
+netdev->priv points to device local structure whose first element
+is a pointer to the ppp device. 
 
-skb_copy() makes both the struct sk_buff and the data it points
-to unique and yours alone to modify however you wish.
+This is a resend of an earlier patch which seems not to have been included.
+
+diff -Nru a/drivers/net/wan/syncppp.c b/drivers/net/wan/syncppp.c
+--- a/drivers/net/wan/syncppp.c	Fri Oct  3 11:28:23 2003
++++ b/drivers/net/wan/syncppp.c	Fri Oct  3 11:28:23 2003
+@@ -1069,6 +1069,9 @@
+ 	struct sppp *sp = &pd->sppp;
+ 	unsigned long flags;
+ 
++	/* Make sure embedding is safe for sppp_of */
++	BUG_ON(sppp_of(dev) != sp);
++
+ 	spin_lock_irqsave(&spppq_lock, flags);
+ 	/* Initialize keepalive handler. */
+ 	if (! spppq)
+diff -Nru a/include/net/syncppp.h b/include/net/syncppp.h
+--- a/include/net/syncppp.h	Fri Oct  3 11:28:23 2003
++++ b/include/net/syncppp.h	Fri Oct  3 11:28:23 2003
+@@ -59,8 +59,9 @@
+ 
+ static inline struct sppp *sppp_of(struct net_device *dev) 
+ {
+-	struct ppp_device *ppp = dev->priv;
+-	return &ppp->sppp;
++	struct ppp_device **ppp = dev->priv;
++	BUG_ON((*ppp)->dev != dev);
++	return &(*ppp)->sppp;
+ }
+ 
+ #define PP_KEEPALIVE    0x01    /* use keepalive protocol */
