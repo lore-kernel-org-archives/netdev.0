@@ -1,27 +1,49 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: Radvd 0.7.3 released
-Date: Mon, 21 Feb 2005 15:16:54 -0500
-Message-ID: <20050221201654.GA16436@havoc.gtf.org>
-References: <Pine.LNX.4.61.0502212205090.1975@netcore.fi>
+From: Matthias-Christian Ott <matthias.christian@tiscali.de>
+Subject: Re: ARGH MORE BUGS!!!
+Date: Mon, 21 Feb 2005 21:19:16 +0100
+Message-ID: <421A4244.9090908@tiscali.de>
+References: <421A3EB8.4050607@rapidforum.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: radvd-announce-l@litech.org, netdev@oss.sgi.com
-To: Pekka Savola <pekkas@netcore.fi>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.61.0502212205090.1975@netcore.fi>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
+To: Christian Schmid <webmaster@rapidforum.com>
+In-Reply-To: <421A3EB8.4050607@rapidforum.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 21, 2005 at 10:09:41PM +0200, Pekka Savola wrote:
-> Hi,
-> 
-> After 2.5 years of waiting and silent bugfixing, a new radvd 
-> maintenance version is out: 0.7.3. :)
+Christian Schmid wrote:
 
-Should we read anything into the version number?
+> Hi.
+>
+> Another bug hit me today HARD! I have been experiencing with lowering 
+> the socket-buffer to see if the behaviour of a slowdown reappears at 
+> the same position. Result: With a 128 KB send-buffer, the slowdown 
+> appears at around 3000 sockets. With 64 KB, it didnt appear up to 4500 
+> sockets where a small slow-down appeared but I think this was a 
+> disk-issue. So its definetly something with TCP-memory.
+>
+> But now I hit another BUG: After I have managed to create 4500 
+> sockets, 10 minutes later an interesting phenomenon appeared: It locks 
+> for 5 seconds every 60 seconds. I first thought this was something in 
+> my program but I can do what I want, I wasn't able to fix this. Even a 
+> restart of my program didnt help. It even appears with 400 
+> connections. Then I despairedly just restarted the system and: It was 
+> gone. So what is THIS?
+>
+> Sorry if I am a bit angry. I know you are doing a really good job. 
+> Maybe I can donate some money somewhere but PLEASE!!!!! help me fix 
+> this bugs.... Thank you.
+>
+> Chris
+>
+>
+Hi!
+I'm not a Perl Coder or Socket Specialist, but did try an implementation 
+of your program in C (maybe it's a perl "bug"?)? And as mentioned in the 
+other Thread, try to use send () instead of sendfile (). Anyway it's 
+strange. Try to contact some of the Maintainers and Developers of this 
+part of the IP v4 implementation in Linux.
 
-I've been using radvd in production for a while...  what is left before
-version 1.0?  Should I continue to trust it, since it is < 1.0 ?
-
-	Jeff
+Matthias-Christian Ott
