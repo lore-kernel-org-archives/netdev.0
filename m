@@ -1,42 +1,49 @@
-From: Willy Tarreau <willy@w.ods.org>
-Subject: Re: HELP ipt_hook: happy cracking message
-Date: Tue, 27 Apr 2004 20:57:29 +0200
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] 2.6: allow CONFIG_NETFILTER=n and CONFIG_XFRM=y
+Date: Tue, 27 Apr 2004 23:34:33 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040427185729.GA29913@alpha.home.local>
-References: <20040426151220.85059.qmail@web41403.mail.yahoo.com>
+Message-ID: <408ED1E9.6060502@trash.net>
+References: <20040427153509.GD6836@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kernerl mail <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com,
-        linux-net@vger.kernel.org,
-        netfilter <netfilter-devel@lists.netfilter.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Parag Nemade <cranium2003@yahoo.com>
-Content-Disposition: inline
-In-Reply-To: <20040426151220.85059.qmail@web41403.mail.yahoo.com>
+To: Olaf Kirch <okir@suse.de>
+In-Reply-To: <20040427153509.GD6836@suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 26, 2004 at 08:12:20AM -0700, Parag Nemade wrote:
-> hi,
->         i modified kernel so that it will create
-> /proc/net/myproc file entry.
-> the function of this entry is to crate a 16 byte char
-> string from random no.s
-> i used net_srandom and net_random and sys_time for
-> that puspose. the problem is that i write program to
-> generate string after 120 seconds but it is changing
-> contents of myproc file every seconds. what can i do?
+Olaf Kirch wrote:
+> Hi,
+> 
+> the following patch should fix a compile error when setting
+> CONFIG_NETFILTER=n and CONFIG_XFRM=y.
 
-may be you're sleeping for 120 instead of 120*HZ, which
-means you're really sleeping 1.2s on x86.
+This error comes from one of my netfilter+ipsec patches, which are not
+in mainline yet. I'll add your fix, thanks.
 
->  Also i am getting ipt_hook: happy cracking. message
-> again and again why?
+Regards
+Patrick
 
-iptable_mangle.c comment reads 'root is playing with
-raw sockets' above this message. It means that you're
-sending too short IP packets (len < 20 bytes) or packets
-with the IHL field < 5. It's just a harmless message.
-
-Regards,
-Willy
+> 
+> Cheers,
+> Olaf
+> 
+> 
+> ------------------------------------------------------------------------
+> 
+> This patch makes sure the kernel can be compiled with CONFIG_XFRM=y and
+> CONFIG_NETFILTER off.
+> 
+> --- linux-2.6.5/include/linux/netfilter_ipv4.h.dbg	2004-04-27 13:00:55.000000000 +0200
+> +++ linux-2.6.5/include/linux/netfilter_ipv4.h	2004-04-27 13:15:24.000000000 +0200
+> @@ -86,7 +86,7 @@
+>  extern int skb_ip_make_writable(struct sk_buff **pskb,
+>  				unsigned int writable_len);
+>  
+> -#ifdef CONFIG_XFRM
+> +#if defined(CONFIG_XFRM) && defined(CONFIG_NETFILTER)
+>  #include <net/route.h>
+>  #include <net/xfrm.h>
+>  
