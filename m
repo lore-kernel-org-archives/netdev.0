@@ -1,61 +1,72 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: Re: [PATCH|RFC] IPv6: have a proxy discard link-local traffic
-Date: Sat, 17 Jan 2004 09:06:54 +0200 (EET)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0401170906160.9907-100000@netcore.fi>
+From: Harald Welte <laforge@netfilter.org>
+Subject: Re: [PATCH|RFC] IPv6 netfilter: a module for complete proxy ND support
+Date: Sat, 17 Jan 2004 12:33:58 +0100
+Sender: netfilter-devel-admin@lists.netfilter.org
+Message-ID: <20040117113358.GL18505@obroa-skai.de.gnumonks.org>
+References: <Pine.LNX.4.58.0401141250470.24125@rhea.tcs.hut.fi> <20040114.210427.104284595.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: yoshfuji@linux-ipv6.org, <davem@redhat.com>, <usagi-core@linux-ipv6.org>,
-        <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Ville Nuorvala <vnuorval@tcs.hut.fi>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="n83H03bbH672hrlY"
+Cc: vnuorval@tcs.hut.fi, netfilter-devel@lists.netfilter.org,
+	davem@redhat.com, netdev@oss.sgi.com
+Return-path: <netfilter-devel-admin@lists.netfilter.org>
+To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
+Content-Disposition: inline
+In-Reply-To: <20040114.210427.104284595.yoshfuji@linux-ipv6.org>
+Errors-To: netfilter-devel-admin@lists.netfilter.org
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: <https://lists.netfilter.org/pipermail/netfilter-devel/>
 List-Id: netdev.vger.kernel.org
 
-(Re-sending as netdev was non-operational yesterday.)
 
-On Fri, 16 Jan 2004, Ville Nuorvala wrote:
-> > It's still at the starting phase -- now would be an excellent time to
-> > bring this up.
-> 
-> OK, I guess I'll send a question to the ipv6 list.
+--n83H03bbH672hrlY
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Please do -- I've already raised too many issues in that spec :-)
+On Wed, Jan 14, 2004 at 09:04:27PM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ w=
+rote:
+> In article <Pine.LNX.4.58.0401141250470.24125@rhea.tcs.hut.fi> (at Wed, 1=
+4 Jan 2004 13:25:42 +0200 (EET)), Ville Nuorvala <vnuorval@tcs.hut.fi> says:
+>=20
+> > the packets for local processing. I think the cleanest solution for this
+> > is a netfilter module (which I have incidentally written already :)
+>=20
+> I don't think so. Proxy should not depend on netfilter.
 
-> Let's assume the proxy handles (both link-local and global) NUD
-> probes correctly. What will it do with the rest of the unicast packets?
-> 
-> Packets to a global address may be routed to the proxied node if the
-> router has a route to it, but what should it do to link-local packets? The
-> desired behavior isn't described in RFC2461, but the MIPv6 draft has a
-> proposal.
+Where is the problem?  It doesn't depend on hevyweight functions like
+iptables/conntrack/whatever... it just depends on the netfilter hooks in
+the core network stack (which are very lightweight, compared to what the
+rest of the packet filtering subsystem does).
 
-Right.
- 
-> No, *assuming* we have a proxy capable of capturing NUD probes, my patch
-> will send an Address Unreachable message in response to all link-local
-> unicast traffic *except* ND, since it is already handled separately.
-> Since ND works normally, my patch doesn't limit link-local proxying. It
-> just warns the sender that any link-local traffic it is trying to send
-> can't be delivered to the destination.
+> --yoshfuji
 
-OK.
- 
-> > It can give back ICMP error messages, if necessary.  I don't know
-> > which path a Thaler proxy would use though.
-> 
-> It can't really use ip6_forward() anyway, since the funtion decreases the
-> hop limit of the packet and drops all traffic from a link-local source
-> address etc, etc.
-> 
-> Since the Thaler proxy clearly needs some other forwarding function than
-> ip6_forward(), my proposed patch doesn't affect its behavior in any way.
+--=20
+- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+  "Fragmentation is like classful addressing -- an interesting early
+   architectural error that shows how much experimentation was going
+   on while IP was being designed."                    -- Paul Vixie
 
-Ok, if your modification is in ip6_forward() (I didn't check), I guess 
-it would OK, with a sufficient comment to bring up that a future 
-implementation might treat link-local proxying differently.
+--n83H03bbH672hrlY
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
 
--- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.3 (GNU/Linux)
+
+iD8DBQFACR2mXaXGVTD0i/8RAjxcAKCUz7F9XATELlM9CvbDYneOengVugCcDN/b
+faCTvYaehxbsPqOFe+WY4JE=
+=i7yu
+-----END PGP SIGNATURE-----
+
+--n83H03bbH672hrlY--
