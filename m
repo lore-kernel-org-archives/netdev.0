@@ -1,45 +1,72 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: rfc-editor@rfc-editor.org: RFC 3549 on Linux Netlink as an IP
- Services Protocol
-Date: Thu, 03 Jul 2003 11:00:54 -0700
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH - RFC] [1/5] 64-bit network statistics - generic net
+Date: Thu, 03 Jul 2003 22:46:56 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F046F56.1080808@candelatech.com>
-References: <12785.1057250058@marajade.sandelman.ottawa.on.ca>
+Message-ID: <3F04EAA0.2050102@pobox.com>
+References: <200307032231.39842.jeffpc@optonline.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: Kernel Mailing List <linux-kernel@vger.kernel.org>,
+   Andrew Morton <akpm@digeo.com>, Dave Jones <davej@codemonkey.org.uk>,
+   Linus Torvalds <torvalds@osdl.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Michael Richardson <mcr@sandelman.ottawa.on.ca>, hadi@znyx.com,
-   hormuzd.m.khosravi@intel.com, ak@suse.de, kuznet@ms2.inr.ac.ru,
-   "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
-In-Reply-To: <12785.1057250058@marajade.sandelman.ottawa.on.ca>
+To: Jeff Sipek <jeffpc@optonline.net>
+In-Reply-To: <200307032231.39842.jeffpc@optonline.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Please make the 'table-id' field to be at least
-16 bits.  Now that we have VLANs and other types of virtual
-interfaces, it would be nice to be able to have a routing table
-for each interface, for example.  640k was not enough for everyone,
-and ~250 routing tables isn't either :)
+Jeff Sipek wrote:
+> +	spinlock_t	rx_packets;
+> +	spinlock_t	tx_packets;
+> +	spinlock_t	rx_bytes;
+> +	spinlock_t	tx_bytes;
+> +	spinlock_t	rx_errors;
+> +	spinlock_t	tx_errors;
+> +	spinlock_t	rx_dropped;
+> +	spinlock_t	tx_dropped;
+> +	spinlock_t	multicast;
+> +	spinlock_t	collisions;
+> +	spinlock_t	rx_length_errors;
+> +	spinlock_t	rx_over_errors;
+> +	spinlock_t	rx_crc_errors;
+> +	spinlock_t	rx_frame_errors;
+> +	spinlock_t	rx_fifo_errors;
+> +	spinlock_t	rx_missed_errors;
+> +	spinlock_t	tx_aborted_errors;
+> +	spinlock_t	tx_carrier_errors;
+> +	spinlock_t	tx_fifo_errors;
+> +	spinlock_t	tx_heartbeat_errors;
+> +	spinlock_t	tx_window_errors;
+> +	spinlock_t	rx_compressed;
+> +	spinlock_t	tx_compressed;
+
+That's a fat daddy list of locks you got there.
 
 
- From section 3.1.1:
+> +	NETSTAT_TYPE	_rx_packets;		/* total packets received	*/
+> +	NETSTAT_TYPE	_tx_packets;		/* total packets transmitted	*/
+> +	NETSTAT_TYPE	_rx_bytes;		/* total bytes received 	*/
+> +	NETSTAT_TYPE	_tx_bytes;		/* total bytes transmitted	*/
+> +	NETSTAT_TYPE	_rx_errors;		/* bad packets received		*/
+> +	NETSTAT_TYPE	_tx_errors;		/* packet transmit problems	*/
+> +	NETSTAT_TYPE	_rx_dropped;		/* no space in linux buffers	*/
+> +	NETSTAT_TYPE	_tx_dropped;		/* no space available in linux	*/
+> +	NETSTAT_TYPE	_multicast;		/* multicast packets received	*/
+> +	NETSTAT_TYPE	_collisions;
 
-    Table ID: 8 bits
-    Table identifier.  Up to 255 route tables are supported.
-                  RT_TABLE_UNSPEC    An unspecified routing table.
-                  RT_TABLE_DEFAULT   The default table.
-                  RT_TABLE_MAIN      The main table.
-                  RT_TABLE_LOCAL     The local table.
+Increasing user-visible sizes arbitrarily breaks stuff.  Having 
+config-dependent types like this increases complexity.
 
-                  The user may assign arbitrary values between
-                  RT_TABLE_UNSPEC(0) and RT_TABLE_DEFAULT(253).
+Short term, just sample the stats more rapidly.
 
-Thanks,
-Ben
+Long term, I suppose with 10GbE we should start thinking about this. 
+Personally, I would prefer to make the standard net device stats 
+available in the format already exported by ETHTOOL_GSTATS -- which I 
+note uses u64's for its counters, and it's easily extensible.  I 
+received a request for this just today, even.
+
+	Jeff
 
 
--- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+P.S.  Please cc netdev@oss.sgi.com for networking discussions.
