@@ -1,103 +1,97 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 2.6.8.1-mm4 1/11] r8169: add ethtool_ops.{get_regs_len/get_regs}
-Date: Tue, 24 Aug 2004 00:44:25 +0200
+Subject: [PATCH 2.6.8.1-mm4 4/11] r8169: enable MWI
+Date: Tue, 24 Aug 2004 00:48:13 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040823224425.GA20726@electric-eye.fr.zoreil.com>
-References: <20040823224100.GA14680@electric-eye.fr.zoreil.com>
+Message-ID: <20040823224813.GD20726@electric-eye.fr.zoreil.com>
+References: <20040823224100.GA14680@electric-eye.fr.zoreil.com> <20040823224425.GA20726@electric-eye.fr.zoreil.com> <20040823224548.GB20726@electric-eye.fr.zoreil.com> <20040823224706.GC20726@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: akpm@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: jgarzik@pobox.com
 Content-Disposition: inline
-In-Reply-To: <20040823224100.GA14680@electric-eye.fr.zoreil.com>
+In-Reply-To: <20040823224706.GC20726@electric-eye.fr.zoreil.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-- ethtool_ops.{get_regs_len/get_regs} for r8169;
-- fix a dubious check: datasheet v1.21 claims on p.44 that io/memory space
-  is exactly 256 bytes wide;
-- use SET_ETHTOOL_OPS().
+- enable Memory Write and Invalidate (disabled after reset);
+- fix wrong goto.
 
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 
-diff -puN drivers/net/r8169.c~r8169-000 drivers/net/r8169.c
---- linux-2.6.8.1/drivers/net/r8169.c~r8169-000	2004-08-23 23:29:58.000000000 +0200
-+++ linux-2.6.8.1-fr/drivers/net/r8169.c	2004-08-23 23:29:58.000000000 +0200
-@@ -99,6 +99,7 @@ static int multicast_filter_limit = 32;
- #define RxPacketMaxSize	0x0800	/* Maximum size supported is 16K-1 */
- #define InterFrameGap	0x03	/* 3 means InterFrameGap = the shortest one */
+diff -puN drivers/net/r8169.c~r8169-030 drivers/net/r8169.c
+--- linux-2.6.8.1/drivers/net/r8169.c~r8169-030	2004-08-23 23:30:00.000000000 +0200
++++ linux-2.6.8.1-fr/drivers/net/r8169.c	2004-08-23 23:30:00.000000000 +0200
+@@ -32,7 +32,6 @@ VERSION 1.2	<2002/11/30>
+ 	- Use ether_crc in stock kernel (linux/crc32.h)
+ 	- Copy mc_filter setup code from 8139cp
+ 	  (includes an optimization, and avoids set_bit use)
+-
+ */
  
-+#define R8169_REGS_SIZE		256
- #define R8169_NAPI_WEIGHT	64
- #define NUM_TX_DESC	64	/* Number of Tx descriptor registers */
- #define NUM_RX_DESC	256	/* Number of Rx descriptor registers */
-@@ -106,7 +107,6 @@ static int multicast_filter_limit = 32;
- #define R8169_TX_RING_BYTES	(NUM_TX_DESC * sizeof(struct TxDesc))
- #define R8169_RX_RING_BYTES	(NUM_RX_DESC * sizeof(struct RxDesc))
+ #include <linux/module.h>
+@@ -963,6 +962,10 @@ rtl8169_init_board(struct pci_dev *pdev,
+ 		goto err_out_free_dev;
+ 	}
  
--#define RTL_MIN_IO_SIZE 0x80
- #define RTL8169_TX_TIMEOUT	(6*HZ)
- #define RTL8169_PHY_TIMEOUT	(10*HZ)
- 
-@@ -508,6 +508,11 @@ static void rtl8169_get_drvinfo(struct n
- 	strcpy(info->bus_info, pci_name(tp->pci_dev));
- }
- 
-+static int rtl8169_get_regs_len(struct net_device *dev)
-+{
-+	return R8169_REGS_SIZE;
-+}
++	rc = pci_set_mwi(pdev);
++	if (rc < 0)
++		goto err_out_disable;
 +
- static int rtl8169_set_speed_tbi(struct net_device *dev,
- 				 u8 autoneg, u16 speed, u8 duplex)
- {
-@@ -671,12 +676,27 @@ static int rtl8169_get_settings(struct n
- 	return 0;
- }
+ 	/* save power state before pci_enable_device overwrites it */
+ 	pm_cap = pci_find_capability(pdev, PCI_CAP_ID_PM);
+ 	if (pm_cap) {
+@@ -973,7 +976,7 @@ rtl8169_init_board(struct pci_dev *pdev,
+ 	} else {
+ 		printk(KERN_ERR PFX
+ 		       "Cannot find PowerManagement capability, aborting.\n");
+-		goto err_out_free_res;
++		goto err_out_mwi;
+ 	}
  
-+static void rtl8169_get_regs(struct net_device *dev, struct ethtool_regs *regs,
-+			     void *p)
-+{
-+        struct rtl8169_private *tp = netdev_priv(dev);
-+        unsigned long flags;
-+
-+        if (regs->len > R8169_REGS_SIZE)
-+        	regs->len = R8169_REGS_SIZE;
-+
-+        spin_lock_irqsave(&tp->lock, flags);
-+        memcpy_fromio(p, tp->mmio_addr, regs->len);
-+        spin_unlock_irqrestore(&tp->lock, flags);
-+}
- 
- static struct ethtool_ops rtl8169_ethtool_ops = {
- 	.get_drvinfo		= rtl8169_get_drvinfo,
-+	.get_regs_len		= rtl8169_get_regs_len,
- 	.get_link		= ethtool_op_get_link,
- 	.get_settings		= rtl8169_get_settings,
- 	.set_settings		= rtl8169_set_settings,
-+	.get_regs		= rtl8169_get_regs,
- };
- 
- static void rtl8169_write_gmii_reg_bit(void *ioaddr, int reg, int bitnum,
-@@ -968,7 +988,7 @@ rtl8169_init_board(struct pci_dev *pdev,
- 		goto err_out_disable;
+ 	// make sure PCI base addr 1 is MMIO
+@@ -981,20 +984,20 @@ rtl8169_init_board(struct pci_dev *pdev,
+ 		printk(KERN_ERR PFX
+ 		       "region #1 not an MMIO resource, aborting\n");
+ 		rc = -ENODEV;
+-		goto err_out_disable;
++		goto err_out_mwi;
  	}
  	// check for weird/broken PCI region reporting
--	if (mmio_len < RTL_MIN_IO_SIZE) {
-+	if (mmio_len < R8169_REGS_SIZE) {
+ 	if (pci_resource_len(pdev, 1) < R8169_REGS_SIZE) {
  		printk(KERN_ERR PFX "Invalid PCI region size(s), aborting\n");
  		rc = -ENODEV;
- 		goto err_out_disable;
-@@ -1105,7 +1125,7 @@ rtl8169_init_one(struct pci_dev *pdev, c
- 	dev->open = rtl8169_open;
- 	dev->hard_start_xmit = rtl8169_start_xmit;
- 	dev->get_stats = rtl8169_get_stats;
--	dev->ethtool_ops = &rtl8169_ethtool_ops;
-+	SET_ETHTOOL_OPS(dev, &rtl8169_ethtool_ops);
- 	dev->stop = rtl8169_close;
- 	dev->tx_timeout = rtl8169_tx_timeout;
- 	dev->set_multicast_list = rtl8169_set_rx_mode;
+-		goto err_out_disable;
++		goto err_out_mwi;
+ 	}
+ 
+ 	rc = pci_request_regions(pdev, MODULENAME);
+ 	if (rc) {
+ 		printk(KERN_ERR PFX "%s: could not request regions.\n",
+ 		       pdev->slot_name);
+-		goto err_out_disable;
++		goto err_out_mwi;
+ 	}
+ 
+ 	tp->cp_cmd = PCIMulRW | RxChkSum;
+@@ -1011,7 +1014,6 @@ rtl8169_init_board(struct pci_dev *pdev,
+ 	}
+ 
+ 
+-	// enable PCI bus-mastering
+ 	pci_set_master(pdev);
+ 
+ 	// ioremap MMIO region 
+@@ -1062,6 +1064,9 @@ out:
+ err_out_free_res:
+ 	pci_release_regions(pdev);
+ 
++err_out_mwi:
++	pci_clear_mwi(pdev);
++
+ err_out_disable:
+ 	pci_disable_device(pdev);
+ 
 
 _
