@@ -1,56 +1,50 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH 2.6] update to network emulation QOS scheduler
-Date: Wed, 7 Jul 2004 14:22:16 -0700
-Sender: lartc-admin@mailman.ds9a.nl
-Message-ID: <20040707142216.7c9763c3@dell_ss3.pdx.osdl.net>
-References: <20040701113312.43cfe6c5@dell_ss3.pdx.osdl.net>
-	<20040702134437.5891e998@dell_ss3.pdx.osdl.net>
-	<1088824432.1043.271.camel@jzny.localdomain>
-	<20040707111055.32ebb25b@dell_ss3.pdx.osdl.net>
-	<1089226667.1027.411.camel@jzny.localdomain>
-	<20040707135831.4c98dd51@dell_ss3.pdx.osdl.net>
-	<1089234699.1026.448.camel@jzny.localdomain>
+From: Alessandro Suardi <alessandro.suardi@oracle.com>
+Subject: Re: analysis of TCP window size issues still around - several reports
+ / SACK involved?
+Date: Wed, 07 Jul 2004 23:25:38 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <40EC6A52.70207@oracle.com>
+References: <32886.63.170.215.71.1088564087.squirrel@www.osdl.org> <20040629222751.392f0a82.davem@redhat.com> <20040630152750.2d01ca51@dell_ss3.pdx.osdl.net> <20040630153049.3ca25b76.davem@redhat.com> <20040701133738.301b9e46@dell_ss3.pdx.osdl.net> <20040701140406.62dfbc2a.davem@redhat.com> <20040702013225.GA24707@conectiva.com.br> <20040706093503.GA8147@outpost.ds9a.nl> <20040706131955.3a3c6c8b.davem@redhat.com> <20040706202708.GA1385@outpost.ds9a.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>,
-	Catalin BOIE <util@deuroconsult.ro>, netdev@oss.sgi.com,
-	lartc@mailman.ds9a.nl
-Return-path: <lartc-admin@mailman.ds9a.nl>
-To: hadi@cyberus.ca
-In-Reply-To: <1089234699.1026.448.camel@jzny.localdomain>
-Errors-To: lartc-admin@mailman.ds9a.nl
-List-Help: <mailto:lartc-request@mailman.ds9a.nl?subject=help>
-List-Post: <mailto:lartc@mailman.ds9a.nl>
-List-Subscribe: <http://mailman.ds9a.nl/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=subscribe>
-List-Unsubscribe: <http://mailman.ds9a.nl/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=unsubscribe>
-List-Archive: <http://mailman.ds9a.nl/pipermail/lartc/>
+Cc: "David S. Miller" <davem@redhat.com>, acme@conectiva.com.br,
+        shemminger@osdl.org, netdev@oss.sgi.com, phyprabab@yahoo.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: bert hubert <ahu@ds9a.nl>
+In-Reply-To: <20040706202708.GA1385@outpost.ds9a.nl>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 07 Jul 2004 17:11:39 -0400
-jamal <hadi@cyberus.ca> wrote:
-
-> On Wed, 2004-07-07 at 16:58, Stephen Hemminger wrote:
+bert hubert wrote:
+> On Tue, Jul 06, 2004 at 01:19:55PM -0700, David S. Miller wrote:
 > 
-> > TBF works but since the sender (on the same local machine) may go over 
-> > it's allocation, it will drop packets.
 > 
-> As should any queue that gets congested.
-
-> > For example, if I use tbf to simulate a slow 33k bits/sec link then 
-> > TCP test never
-> > completes, it just hangs!  TBF does work for intermediate sizes.
-> > 
-> > But if I use the pacing simulation it works.
+>>rather it do this, so that diagnosing dumps are easier.  If tcpdump
+>>tries to be too clever, scaling the window, then I might end up
+>>chasing down a tcpdump bug rather than a TCP one :-)
 > 
-> I am not sure i follow; is this because of the return code from the
-> enqueue?
+> 
+> True - it might want to print '43 (*128=5706)' or something like that.
+> 
+> 
+>>What would be more interesting is to get the tcpdump trace from the
+>>other side of this connection.  This is crucial, as it will show how
+>>and in what way exactly the window scale options and/or window fields
+>>are being edited by a firewall or other device and thus causing
+>>the problems.
+> 
+> 
+> I have an appointment with Alessandro tomorrow evening at 11PM CEST to do
+> just that.
 
-Actually, the problem only occurs if burst is set large (like 2mb).
-I think it gets stuck waiting for that much data.
+Sorry about being slightly late - I read the thread from my VPN
+  link (which does work), now I'm turning it off and will email
+  Bert with my actual IP address and my connection.
 
-_______________________________________________
-LARTC mailing list / LARTC@mailman.ds9a.nl
-http://mailman.ds9a.nl/mailman/listinfo/lartc HOWTO: http://lartc.org/
+Thanks,
+
+--alessandro
+
+  "Practice is more important than theory. A _lot_ more important."
+     (Linus Torvalds on lkml, 1 June 2004)
