@@ -1,69 +1,74 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: Fragment ID wrap workaround (read-only, untested).
-Date: Thu, 15 Jul 2004 18:27:35 +0200
+From: Andi Kleen <ak@muc.de>
+Subject: [PATCH] Drop ISA dependencies from IRDA drivers
+Date: Thu, 15 Jul 2004 18:39:21 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040715182735.3787c8b1.ak@suse.de>
-References: <20040715092715.GA23131@wotan.suse.de>
-	<OF97127705.C0C08B6A-ON88256ED2.004DB9A5-88256ED2.005146DA@us.ibm.com>
+Message-ID: <m34qo96x8m.fsf@averell.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, rusty@au1.ibm.com
+Content-Type: text/plain; charset=us-ascii
+Cc: the_nihilant@autistici.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Stevens <dlstevens@us.ibm.com>
-In-Reply-To: <OF97127705.C0C08B6A-ON88256ED2.004DB9A5-88256ED2.005146DA@us.ibm.com>
+To: netdev@oss.sgi.com, irda-users@lists.sourceforge.net, jt@hpl.hp.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 15 Jul 2004 07:49:13 -0700
-David Stevens <dlstevens@us.ibm.com> wrote:
 
-> 
-> > Yes, running fragmentation over those is not a good idea, but
-> > still it should not be made worse.
-> 
-> Delivery to the user of incorrect data is the problem, and, no, it doesn't
-> make that worse. :-) The scenario, to make it clear for everyone, is a]
+http://bugme.osdl.org/show_bug.cgi?id=3077
 
-The data corruption problem only starts to become a real issue
-at Gigabit Speeds and faster. Normally such congested links are much slower
+Some IRDA chipsets currently don't work on x86-64, because
+they're dependent on CONFIG_ISA and x86-64 doesn't set this.
+CONFIG_ISA means real ISA slots, and I doubt these chips
+come on real ISA cards, so I just removed the bogus 
+dependency.
 
-> small loss rate on a fast network leads to reassembling packets with the
-> same IP ID that are not the same packet when the ID wraps before the frag
-> queue timer has expired. If you're blasting away on a gigabit network (or
-> faster) and you drop one fragment (or more) from a packet you've received,
-> that frag queue will be there 65536 packets later when you reuse the same 
-> ID
-> for a different packet. I think that works out to be 7 secs or so at full
-> rate-- well within the 1-4 minute typical frag queue timer on most 
-> systems.
-
-[...]
-
-I'm well aware of the Gigabit+ NFS problem. My standard suggestion to solve
-it is to just get rid of NFS over UDP - it always was a bad idea.
-
-My point was just that you're concentrating on that one only,
-but you're potentially causing more problems for slow links.
-The stack has to work well both for slow and fast links though.
-
-
-> 
-> > In general handling a link where the RTT increases would seem
-> > tricky with your scheme. Unlike TCP there is no retransmit
-> > to save the day.
-> 
-> In the particular case (NFS over UDP), there is both a retransmit (done
-> by RPC) and significant loss rate to start with. As long as the time-out
-> is conservative, I don't think this has to affect other cases
-> significantly.
-
-NFS over UDP is just a bad idea. Don't do it. NFS over TCP 
-works fine these days and should be the prefered choice for everybody.
-
-I don't really see the point of risking problems with slower links
-just to fix a fundamentally flawed protocol.
-
-And you cannot rely on all UDP based protocols doing this as well.
+Please apply.
 
 -Andi
+
+diff -u linux-2.6.8rc1-amd64/drivers/net/irda/Kconfig-o linux-2.6.8rc1-amd64/drivers/net/irda/Kconfig
+--- linux-2.6.8rc1-amd64/drivers/net/irda/Kconfig-o	2004-07-12 06:09:05.000000000 +0200
++++ linux-2.6.8rc1-amd64/drivers/net/irda/Kconfig	2004-07-15 18:33:48.000000000 +0200
+@@ -310,7 +310,7 @@
+ 
+ config NSC_FIR
+ 	tristate "NSC PC87108/PC87338"
+-	depends on IRDA && ISA
++	depends on IRDA
+ 	help
+ 	  Say Y here if you want to build support for the NSC PC87108 and
+ 	  PC87338 IrDA chipsets.  This driver supports SIR,
+@@ -321,7 +321,7 @@
+ 
+ config WINBOND_FIR
+ 	tristate "Winbond W83977AF (IR)"
+-	depends on IRDA && ISA
++	depends on IRDA
+ 	help
+ 	  Say Y here if you want to build IrDA support for the Winbond
+ 	  W83977AF super-io chipset.  This driver should be used for the IrDA
+@@ -347,7 +347,7 @@
+ 
+ config SMC_IRCC_FIR
+ 	tristate "SMSC IrCC (EXPERIMENTAL)"
+-	depends on EXPERIMENTAL && IRDA && ISA
++	depends on EXPERIMENTAL && IRDA
+ 	help
+ 	  Say Y here if you want to build support for the SMC Infrared
+ 	  Communications Controller.  It is used in a wide variety of
+@@ -357,7 +357,7 @@
+ 
+ config ALI_FIR
+ 	tristate "ALi M5123 FIR (EXPERIMENTAL)"
+-	depends on EXPERIMENTAL && IRDA && ISA
++	depends on EXPERIMENTAL && IRDA
+ 	help
+ 	  Say Y here if you want to build support for the ALi M5123 FIR
+ 	  Controller.  The ALi M5123 FIR Controller is embedded in ALi M1543C,
+@@ -385,7 +385,7 @@
+ 
+ config VIA_FIR
+ 	tristate "VIA VT8231/VT1211 SIR/MIR/FIR"
+-	depends on IRDA && ISA
++	depends on IRDA
+ 	help
+ 	  Say Y here if you want to build support for the VIA VT8231
+ 	  and VIA VT1211 IrDA controllers, found on the motherboards using
