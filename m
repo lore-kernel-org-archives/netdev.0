@@ -1,49 +1,59 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: possible bug in net/core/pktgen.c (2.6.10 kernel)
-Date: Sun, 16 Jan 2005 13:46:50 +0100
-Message-ID: <16874.25146.335366.990655@robur.slu.se>
-References: <200501141129.21461.dsp@llnl.gov>
+From: linux lover <linux_lover2004@yahoo.com>
+Subject: Analysing UDP packet building code in 2.6.10 kernel
+Date: Sun, 16 Jan 2005 05:00:58 -0800 (PST)
+Message-ID: <20050116130058.69965.qmail@web52210.mail.yahoo.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: robert.olsson@its.uu.se, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Dave Peterson <dsp@llnl.gov>
-In-Reply-To: <200501141129.21461.dsp@llnl.gov>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hello all,
+         I am knowing all 2.4 kernel network stack
+packet buildup procedure. Now i am trying to analysing
+same in
+2.6.10 kernel. What i found is many changes to 2.6
+kernel compare to 2.4. Theres is no ip_build_xmit
+instead thers a new function that is
+ip_append_data. What i want to know is from udp.c
+file. Theres a udp protocol structure is defined
+struct proto udp_prot = {
+ 	.name =		"UDP",
+	.owner =	THIS_MODULE,
+	.close =	udp_close,
+	.connect =	ip4_datagram_connect,
+	.disconnect =	udp_disconnect,
+	.ioctl =	udp_ioctl,
+	.destroy =	udp_destroy_sock,
+	.setsockopt =	udp_setsockopt,
+	.getsockopt =	udp_getsockopt,
+	.sendmsg =	udp_sendmsg,
+	.recvmsg =	udp_recvmsg,
+	.sendpage =	udp_sendpage,
+	.backlog_rcv =	udp_queue_rcv_skb,
+	.hash =		udp_v4_hash,
+	.unhash =	udp_v4_unhash,
+	.get_port =	udp_v4_get_port,
+	.slab_obj_size = sizeof(struct udp_sock),
+};
 
-Dave Peterson writes:
-
- > I found a piece of code that looks problematic in the 2.6.10 kernel.
- > The following code appears starting on line 746 in function inject()
- > of net/core/pktgen.c:
- >                                         schedule();
- >                                 else
- >                                         do_softirq();
-
-
- Thanks! 
- So it should be?
-
---- net/core/pktgen.c.orig	2005-01-16 13:39:10.933427120 +0100
-+++ net/core/pktgen.c	2005-01-16 13:40:41.926751672 +0100
-@@ -753,8 +753,11 @@
- 				}
- 				if (need_resched())
- 					schedule();
--				else
-+				else {
-+					preempt_disable();
- 					do_softirq();
-+					preempt_enable();
-+				}
- 			} while (netif_queue_stopped(odev));
- 			idle = cycles() - idle_start;
- 			info->idle_acc += idle;
+I want to know for what purpose udp_sendpage is used
+also whats significance of . in structure members?
+Also why .slab_obj_size = sizeof(struct udp_sock)
+defined in udp_prot?
+Also where's packet size/space is allocated for UDP
+packet?
+Please help me to analyze code.
+Thanks in advance.
+linux_lover.
 
 
 
-						--ro
+		
+__________________________________ 
+Do you Yahoo!? 
+The all-new My Yahoo! - Get yours free! 
+http://my.yahoo.com 
+ 
