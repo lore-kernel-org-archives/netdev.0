@@ -1,8 +1,8 @@
 From: "David S. Miller" <davem@redhat.com>
 Subject: Re: [PATCH][ATM]: [idt77252] get rid of MOD_INC/MOD_DEC
-Date: Sun, 21 Sep 2003 18:10:03 -0700
+Date: Sun, 21 Sep 2003 18:10:40 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030921181003.2c6c6f2d.davem@redhat.com>
+Message-ID: <20030921181040.7d657b98.davem@redhat.com>
 References: <200309211445.h8LEjbkT023734@ginger.cmf.nrl.navy.mil>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
