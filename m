@@ -1,42 +1,48 @@
-From: "Ricardo" <ricardodivulga@bol.com.br>
-Subject: Bom dia netdev
-Date: Fri, 13 Dec 2002 14:08:55
+From: Donald Becker <becker@scyld.com>
+Subject: Re: pci-skeleton duplex check
+Date: Fri, 13 Dec 2002 11:56:17 -0500 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200212131607.gBDG7KuR002247@oss.sgi.com>
+Message-ID: <Pine.LNX.4.44.0212131109180.1399-100000@beohost.scyld.com>
+References: <1039771036.1509.5.camel@rth.ninka.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jeff Garzik <jgarzik@pobox.com>, Roger Luethi <rl@hellgate.ch>,
+   <netdev@oss.sgi.com>,
+   Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <1039771036.1509.5.camel@rth.ninka.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-     Ol=E1  netdev  netdev@oss.sgi.com
-     Estou fazendo a divulga=E7=E3o dos produtos abaixo.
-     Se lhe interessar visite o site dos distribuidores, com certeza ser=E1=
- uma boa oputunidade de neg=F3cios.
-    Caso n=E3o seje de seu interesse favor deletar este e-mail ou se poss=
-=EDvel repasse aos seus amigos.=20
-    Boas festas e feliz 2003.
-    Atenciosamente....
-         Ricardo L. C. Kampff.
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-      Camera Falsa: Site de produtos de seguran=E7a e espionagem.
-                              Destaques: Cameras de seguran=E7a falsas, e=
-scuta telefonica entre outros...
-      http://www.camerafalsa.home-page.cc/=20
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-     Cl=E1ssicos da literatura infantil: Kit maleta com 10 livros infanti=
-s e CD de a=FAdio com a narrativas das est=F3rias apenas  R$19,80.
-     http://www.livro.url4life.com
+On 13 Dec 2002, David S. Miller wrote:
+> On Thu, 2002-12-12 at 17:18, Donald Becker wrote:
+> > Or perhaps recognizing that when someone that has been a significant,
+> > continuous contributer since the early days of Linux
+> 
+> Until you learn to play nice with people and mesh within the
+> fabric of Linux development, I adamently do not classify you
+> as you appear to self-classify yourself.  You don't contribute,
+> you sit in your sandbox and then point fingers at the people who
+> do know how to work with other human beings and say "see how much
+> that stuff sucks?  well my stuff works, nyah!"
+..
+> If Linux itself is worse off and went backwards in time for a while...
 
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+The development criteria used to be technically based, and that is still
+the public statement.  Now, as your statement makes clear, working code
+is an irrelevant criteria.
+
+You comments immediately moved the subject from the technical merit and
+correctness of the code to an ad hominem attack.  The facts, and the
+code, clearly show the long term interaction and contribution.  In most
+cases the code and interfaces we are talking about were written and
+defined by me throughout the past decade.
+
+
+
+-- 
+Donald Becker				becker@scyld.com
+Scyld Computing Corporation		http://www.scyld.com
+410 Severn Ave. Suite 210		Scyld Beowulf cluster system
+Annapolis MD 21403			410-990-9993
