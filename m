@@ -1,56 +1,43 @@
-From: Harald Welte <laforge@gnumonks.org>
-Subject: Re: [6/6]: jenkins hash for neigh / Statistics
-Date: Tue, 28 Sep 2004 19:06:44 +0200
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: small change
+Date: Tue, 28 Sep 2004 14:06:32 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040928170644.GL29961@sunbeam.de.gnumonks.org>
-References: <20040925005623.2faf8faf.davem@davemloft.net> <E1CBu70-00010X-00@gondolin.me.apana.org.au> <20040927121403.767e2308.davem@davemloft.net> <20040927222613.GE3236@sunbeam.de.gnumonks.org> <20040927160636.7741d973.davem@davemloft.net> <1096327658.1729.19.camel@localhost.localdomain> <16729.9326.93269.422940@robur.slu.se> <1096388857.21799.5.camel@localhost.localdomain>
+Message-ID: <4159A828.2060508@pobox.com>
+References: <BB6D74C75CC76A419B6D6FA7C38317B23CEF03@sinett-sbs.SiNett.LAN> <415996DC.4030509@candelatech.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="qse+WBH4guesipZ+"
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-        "David S. Miller" <davem@davemloft.net>, herbert@gondor.apana.org.au,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <1096388857.21799.5.camel@localhost.localdomain>
+To: Ben Greear <greearb@candelatech.com>, Vishwas Manral <Vishwas@sinett.com>
+In-Reply-To: <415996DC.4030509@candelatech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Ben Greear wrote:
+> Vishwas Manral wrote:
+> 
+>> Hi Ben,
+>>
+>> I am going through the 2.4 code. We can make small changes in br_input.c
+>> to make the code slightly better and slightly more optimized. Maybe when
+>> you are changing something else you can club it along.
+> 
+> 
+> Please send this to the netdev mailing list:
+> 
+> netdev@oss.sgi.com
+> 
+> I don't maintain the bridging code but there are people on
+> that list who do.
+> 
+> They would also prefer a unified diff instead of the cut-n-paste
+> like you sent.
 
---qse+WBH4guesipZ+
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Regarding submission of patches, more specifically:
 
-=20
-> I have the newer rtstat/ctstat queued for inclusion this week unless
-> Harald get's his newer one done sooner (hint, hint)
+http://linux.yyz.us/patch-format.html
+http://www.zip.com.au/~akpm/linux/patches/stuff/tpp.txt
+and Documentation/SubmittingPatches in the kernel tree.
 
-well, the new version currently provides backwards compatibility for the
-old commands, but it doesn't support old kernels... I'll see how I can
-integrate that.
-
---=20
-- Harald Welte <laforge@gnumonks.org>               http://www.gnumonks.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-Programming is like sex: One mistake and you have to support it your lifeti=
-me
-
---qse+WBH4guesipZ+
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
-
-iD8DBQFBWZokXaXGVTD0i/8RAvbBAJ9b2KR+CJ12RHX6LG+oOF2a5XAluwCgiBau
-rzwkovKFFNyXFq1iDGhFtus=
-=JRPQ
------END PGP SIGNATURE-----
-
---qse+WBH4guesipZ+--
+	Jeff
