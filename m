@@ -1,74 +1,47 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: Problem with recvmsg() and IPV6_PKTINFO
-Date: Fri, 11 Feb 2005 18:38:59 +0900 (JST)
-Message-ID: <20050211.183859.77973026.yoshfuji@linux-ipv6.org>
-References: <20050211092107.GB12377@storhaugen.uninett.no>
+From: Emilio Calicchio <ecalicchio@yahoo.it>
+Subject: questions about ipsec-tools-0.4 and linux kernel 2.6
+Date: Fri, 11 Feb 2005 12:03:21 +0100 (CET)
+Message-ID: <20050211110321.73045.qmail@web26806.mail.ukl.yahoo.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stig.Venaas@uninett.no, davem@davemloft.net
-In-Reply-To: <20050211092107.GB12377@storhaugen.uninett.no>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20050211092107.GB12377@storhaugen.uninett.no> (at Fri, 11 Feb 2005 10:21:07 +0100), Stig Venaas <Stig.Venaas@uninett.no> says:
+I am a student of engineering in  first university of=20
+Rome (=93La Sapienza=94) and I=92m working to my degree
+thesis whose title is:=20
+=93End-to-end real-time applications performance
+measurements on VPN  network (both terrestrial  and=20
+satellite),  blocks encryption algorithms vs stream
+cipher ones.=94
 
-> I've found that on Linux (checked 2.4, 2.6 and USAGI cvs) this only
-> happens if msg_name in the msghdr structure is set. In kernel's
-> udpv6_recvmsg() you can see that datagram_recv_ctl() is only called if
-> msg->msg_name is set.
+Since I have to use a Linux based test bed, I must
+integrate the stream cipher algorithms (like Scream
+and Seal cipher algorithm)in the Linux ipsec
+implementation; at aim I wonder whether you can help
+me by providing the following information:
+Architectural description  of the ipsec Linux
+implementation (both tools and kernel modules)=20
+the files of kernel version 2.6 and ipsec-tools-0.4
+that I should modify in order to add chiper stream
+algorithm
+if someone else is facing the same topic.
 
-Please try this. Thanks.
+Thanks for your help
+Best regards
 
-Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6org>
+CALICCHIO EMILIO
 
-===== net/ipv6/udp.c 1.80 vs edited =====
---- 1.80/net/ipv6/udp.c	2005-01-11 13:46:44 +09:00
-+++ edited/net/ipv6/udp.c	2005-02-11 18:36:08 +09:00
-@@ -219,6 +219,7 @@
- 		  int noblock, int flags, int *addr_len)
- {
- 	struct ipv6_pinfo *np = inet6_sk(sk);
-+	struct inet_sock *inet = inet_sk(sk);
-   	struct sk_buff *skb;
- 	size_t copied;
-   	int err;
-@@ -268,21 +269,22 @@
- 		sin6->sin6_flowinfo = 0;
- 		sin6->sin6_scope_id = 0;
- 
--		if (skb->protocol == htons(ETH_P_IP)) {
--			struct inet_sock *inet = inet_sk(sk);
--
-+		if (skb->protocol == htons(ETH_P_IP))
- 			ipv6_addr_set(&sin6->sin6_addr, 0, 0,
- 				      htonl(0xffff), skb->nh.iph->saddr);
--			if (inet->cmsg_flags)
--				ip_cmsg_recv(msg, skb);
--		} else {
-+		else {
- 			ipv6_addr_copy(&sin6->sin6_addr, &skb->nh.ipv6h->saddr);
--
--			if (np->rxopt.all)
--				datagram_recv_ctl(sk, msg, skb);
- 			if (ipv6_addr_type(&sin6->sin6_addr) & IPV6_ADDR_LINKLOCAL)
- 				sin6->sin6_scope_id = IP6CB(skb)->iif;
- 		}
-+
-+	}
-+	if (skb->protocol == htons(ETH_P_IP)) {
-+		if (inet->cmsg_flags)
-+			ip_cmsg_recv(msg, skb);
-+	} else {
-+		if (np->rxopt.all)
-+			datagram_recv_ctl(sk, msg, skb);
-   	}
- 
- 	err = copied;
 
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+
+
+
+	=09
+___________________________________=20
+Nuovo Yahoo! Messenger: E' molto pi=F9 divertente: Audibles, Avatar, Webc=
+am, Giochi, Rubrica=85 Scaricalo ora!=20
+http://it.messenger.yahoo.it
