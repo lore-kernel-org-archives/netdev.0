@@ -1,39 +1,45 @@
 From: "Michael T Kerrisk" <mtk-lists@gmx.net>
-Subject: Re: SO_REUSEADDR behavior different from BSD
-Date: Mon, 9 Aug 2004 15:29:30 +0200 (MEST)
+Subject: Strangeness when write()-ing zero-length datagrams
+Date: Mon, 9 Aug 2004 16:38:13 +0200 (MEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <16837.1092058170@www25.gmx.net>
-References: <4.3.2.7.2.20040807232436.00d6da60@pop.gmx.net>
+Message-ID: <19357.1092062293@www39.gmx.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
-Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Fernando Gont <fernando@gont.com.ar>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> At 11:34 05/08/2004 -0700, YOSHIFUJI Hideaki wrote:
->=20
-> > > Now, on Linux, at this point, the second instance of the
-> > > server fails with EADDRINUSE, even though it did use
-> > > SO_REUSEADDR.  On FreeBSD 5.1, the second server instance
-> > > does successfully bind.
-> >
-> >This behavior is intended.
-> >First socket is REQUIRED to set SO_REUSEADDR
-> >I hate BSD's behavior because it is asynmetry.
-> >(Both sockets are required to agree on "REUSEADDR.")
->=20
-> Not sure what you mean by "asymetry".
+Godday,
 
-Ferando,
+On Linux 2.4.26 and 2.6.7, if we connect a datagram socket and=20
+then use write() to send 0 bytes, a datagram is NOT generated=20
+(this happens in both the Unix and Internet domains). =20
+Datagrams are generated in this case for send() and sendto()=20
+though. =20
 
-By asymmetry, I understand Hideaki to mean that BSD requires=20
-SO_REUSEADDR in the second server bind(), but not the first.
-the Linux philosophy then appears to be symmetry: both server
-instances must agree that the socket port is reusable (i.e.,=20
-both must set SO_REUSEADDR).
+As far as I can work out, this occurs because of the=20
+following code in net/socket.c::sock_write/sock_aio_write():
+
+    if(size=3D=3D0)        /* Match SYS5 behaviour */
+        return 0;
+
+Is the Linux behaviour intended?  It seems counterintuitive,=20
+and it does not match what I see on other systems:
+
+Solaris 8 does not behave like Linux in this case -=96 a zero=20
+length datagram is sent and read by the receiver (tested for=20
+Internet and Unix domain sockets).
+
+Tru64 5.1 is the same as Solaris 8 (tested for Internet and=20
+Unix domain sockets)
+
+HP-UX 11 is the same as Solaris 8 (tested for Internet and=20
+Unix domain sockets)
+
+FreeBSD 4.9 and 5.1 are the same as Solaris 8 (tested for=20
+Internet and Unix domain sockets)
 
 Cheers,
 
