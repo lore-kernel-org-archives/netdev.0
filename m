@@ -1,56 +1,38 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: IPv6 dead in -bk11
-Date: Thu, 04 Nov 2004 01:21:28 +0900 (JST)
-Message-ID: <20041104.012128.51410945.yoshfuji@linux-ipv6.org>
-References: <20041102.225343.06193184.yoshfuji@linux-ipv6.org>
-	<4187A4E3.8010600@pobox.com>
-	<20041103.012923.102810732.yoshfuji@linux-ipv6.org>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [TCP] Modular IPv6 support in tcpdiag
+Date: Wed, 3 Nov 2004 09:16:09 -0800
+Message-ID: <20041103091609.7f6d5d9c@zqx3.pdx.osdl.net>
+References: <20041103094451.GA20220@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, akpm@osdl.org,
-        davem@davemloft.net, yoshfuji@linux-ipv6.org
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@davemloft.net, jgarzik@pobox.com
-In-Reply-To: <20041103.012923.102810732.yoshfuji@linux-ipv6.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20041103094451.GA20220@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20041103.012923.102810732.yoshfuji@linux-ipv6.org> (at Wed, 03 Nov 2004 01:29:23 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
+On Wed, 3 Nov 2004 20:44:51 +1100
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> So... I guess that kernel failed to add "default route" on receipt of RA.
-> Right?
-:
+> Hi Dave:
+> 
+> This patch allows tcpdiag to support ipv6 work as a module when itself
+> is also a module.
+> 
+> I was planning for a more extensible method but now I think the effort
+> would be better directed at a new generic socket netlink interface than
+> the TCP-specific tcpdiag.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Sorry, this bug was introduced by my changeset:
-<http://linux.bkbits.net:8080/linux-2.5/cset@417dca81tJ4RRAxhWTbn0p6hI-1XIQ>.
+I wanted to ask why all the work to make tcp_diag a module? If it is
+a module there are more possibilties of user problems. Any utilities
+that expect it would then have to deal with it not being loaded as well
+as the possiblity of building a kernel without it.
 
-David, this should fix the issue.
-Please apply.
-
-D: Don't purge default routes by RA.
-D:
-D: Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-
-===== net/ipv6/ndisc.c 1.103 vs edited =====
---- 1.103/net/ipv6/ndisc.c	2004-10-26 12:55:42 +09:00
-+++ edited/net/ipv6/ndisc.c	2004-11-04 01:05:19 +09:00
-@@ -1078,13 +1078,6 @@
- 			return;
- 		}
- 		neigh->flags |= NTF_ROUTER;
--
--		/*
--		 *	If we where using an "all destinations on link" route
--		 *	delete it
--		 */
--
--		rt6_purge_dflt_routers();
- 	}
- 
- 	if (rt)
-
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Perhaps there ought to be a CONFIG_INET_EMBEDDED that is for those
+configurations that want more restricted and smaller networking (ie no
+cache's, smaller hash tables, less sysctl options, ...)
