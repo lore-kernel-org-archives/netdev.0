@@ -1,32 +1,32 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] PKT_SCHED: remove c99ism
-Date: Mon, 17 Jan 2005 13:40:53 -0800
-Message-ID: <20050117134053.626cce63.davem@davemloft.net>
-References: <20050115144010.33182075.akpm@osdl.org>
-	<20050115232554.GS26856@postel.suug.ch>
-	<20050115153202.2f7f81c6.akpm@osdl.org>
-	<20050115234056.GT26856@postel.suug.ch>
+Subject: Re: [PATCH] ipv6: alternative version of S/390 shared NIC support
+Date: Mon, 17 Jan 2005 13:42:28 -0800
+Message-ID: <20050117134228.5a6002a0.davem@davemloft.net>
+References: <20050116115431.GA13617@lst.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, netdev@oss.sgi.com
+Cc: pavlic@de.ibm.com, waldi@debian.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050115234056.GT26856@postel.suug.ch>
+To: Christoph Hellwig <hch@lst.de>
+In-Reply-To: <20050116115431.GA13617@lst.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 16 Jan 2005 00:40:56 +0100
-Thomas Graf <tgraf@suug.ch> wrote:
+On Sun, 16 Jan 2005 12:54:31 +0100
+Christoph Hellwig <hch@lst.de> wrote:
 
-> * Andrew Morton <20050115153202.2f7f81c6.akpm@osdl.org> 2005-01-15 15:32
-> > An uglier but more efficient approach is to whack braces around the whole
-> > thing.
+> Let's try again solvign the EUI64 generation for S/390.  I looked over
+> the IBM patch and I think it can be done a lot simpler:
 > 
-> Fine with me as well. The code isn't used that often and not deep in the
-> calling stack which is why I preferred the cleaner way first.
-> 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+>  - put a dev_id field in struct net_device, so that it uses space that
+>    would be wasted by padding otherwise.
+>  - if this fields is non-null let ipv6_generate_eui64 use the algorithm
+>    from the QETH code to generate an EUI that's different for each
+>    OS instance.  See code comments for details.
 
-Applied, thanks Thomas.
+I'll apply this patch.
+
+It might be nice to genericize that huge comment.  This will likely
+be not the last time we see devices which have this characteristic.
