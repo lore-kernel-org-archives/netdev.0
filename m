@@ -1,33 +1,22 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] list_for_each net/
-Date: Wed, 3 Sep 2003 20:14:55 -0700
-Sender: netfilter-devel-admin@lists.netfilter.org
-Message-ID: <20030903201455.44200973.davem@redhat.com>
-References: <20030903082202.GB13662@mail.sternwelten.at>
+Subject: Re: [PATCH] Kill unneeded linux/version.h include in net/ipv6
+Date: Wed, 3 Sep 2003 20:19:20 -0700
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20030903201920.15625d8e.davem@redhat.com>
+References: <3F55F4DD.9070301@terra.com.br>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@osdl.org, netfilter-devel@lists.netfilter.org,
-        netdev@oss.sgi.com, marcel@holtmann.org
-Return-path: <netfilter-devel-admin@lists.netfilter.org>
-To: maximilian attems <janitor@sternwelten.at>
-In-Reply-To: <20030903082202.GB13662@mail.sternwelten.at>
-Errors-To: netfilter-devel-admin@lists.netfilter.org
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: <https://lists.netfilter.org/pipermail/netfilter-devel/>
+Cc: pekkas@netcore.fi, yoshfuji@linux-ipv6.org,
+	linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
+To: Felipe W Damasio <felipewd@terra.com.br>
+In-Reply-To: <3F55F4DD.9070301@terra.com.br>
 List-Id: netdev.vger.kernel.org
 
-On Wed, 3 Sep 2003 10:22:02 +0200
-maximilian attems <janitor@sternwelten.at> wrote:
+On Wed, 03 Sep 2003 11:04:13 -0300
+Felipe W Damasio <felipewd@terra.com.br> wrote:
 
-> again pure cosmetical changes!!
+> 	Removes an unneeded linux/version.h include from af_inet6..
 
-
-I applied everything except for the ip6_fib.c part, there is
-no way we should be using the list_head macros for objects
-which are not list_heads.
+Applied, thanks.
