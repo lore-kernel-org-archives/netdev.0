@@ -1,63 +1,24 @@
-From: John Levon <levon@movementarian.org>
-Subject: [PATCH] ATM - kill __free_atm_dev()
-Date: Fri, 5 Sep 2003 18:12:23 +0100
+From: chas williams <chas@cmf.nrl.navy.mil>
+Subject: Re: [Linux-ATM-General] [PATCH] ATM - fix seqfile compile failure
+Date: Fri, 05 Sep 2003 14:14:45 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030905171223.GA37920@compsoc.man.ac.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Message-ID: <200309051814.h85IEiSa011949@ginger.cmf.nrl.navy.mil>
+References: <levon@movementarian.org>
+Cc: netdev@oss.sgi.com, shemminger@osdl.org,
+   linux-atm-general@lists.sourceforge.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-atm-general@lists.sourceforge.net, netdev@oss.sgi.com
-Content-Disposition: inline
+To: John Levon <levon@movementarian.org>
+In-Reply-To: Message from John Levon <levon@movementarian.org>
+   of "Fri, 05 Sep 2003 18:51:13 BST." <20030905175113.GA40730@compsoc.man.ac.uk>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+>The recent conversion to seq_file breaks CONFIG_ATM_BR2684_IPFILTER
+>compile. 
 
-Apply the "Levonov abstraction penalty" - the wrapping of kfree()
-is pure obfuscation.
+i sent in a patch for this already.  i did a bit of testing.
 
-regards
-john
+>I have absolutely no idea what the original author was attempting to
+>achieve with the "pos" thing, btw ... *shrug*
 
-
-diff -Naurp -X dontdiff linux-cvs/net/atm/resources.c linux-fixes/net/atm/resources.c
---- linux-cvs/net/atm/resources.c	2003-06-23 23:08:56.000000000 +0100
-+++ linux-fixes/net/atm/resources.c	2003-09-05 18:35:02.000000000 +0100
-@@ -42,11 +42,6 @@ static struct atm_dev *__alloc_atm_dev(c
- 	return dev;
- }
- 
--static void __free_atm_dev(struct atm_dev *dev)
--{
--	kfree(dev);
--}
--
- static struct atm_dev *__atm_dev_lookup(int number)
- {
- 	struct atm_dev *dev;
-@@ -88,7 +83,7 @@ struct atm_dev *atm_dev_register(const c
- 		if ((inuse = __atm_dev_lookup(number))) {
- 			atm_dev_put(inuse);
- 			spin_unlock(&atm_dev_lock);
--			__free_atm_dev(dev);
-+			kfree(dev);
- 			return NULL;
- 		}
- 		dev->number = number;
-@@ -119,7 +114,7 @@ struct atm_dev *atm_dev_register(const c
- 			spin_lock(&atm_dev_lock);
- 			list_del(&dev->dev_list);
- 			spin_unlock(&atm_dev_lock);
--			__free_atm_dev(dev);
-+			kfree(dev);
- 			return NULL;
- 		}
- 	}
-@@ -154,7 +149,7 @@ void atm_dev_deregister(struct atm_dev *
-                 }
-         }
- 
--	__free_atm_dev(dev);
-+	kfree(dev);
- }
- 
- void shutdown_atm_dev(struct atm_dev *dev)
+the "pos" stuff was used by the old proc interface.
