@@ -1,39 +1,45 @@
-From: Andrew Walrond <andrew@walrond.org>
-Subject: Re: Linux-2.6.3 : [eth0: Too much work at interrupt, status=0x00000001.]
-Date: Fri, 20 Feb 2004 19:15:09 +0000
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: Linux-2.6.3 : [eth0: Too much work at interrupt,
+ status=0x00000001.]
+Date: Fri, 20 Feb 2004 11:34:27 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200402201915.09342.andrew@walrond.org>
-References: <200402201803.12146.andrew@walrond.org> <20040221.032006.68375681.yoshfuji@linux-ipv6.org>
+Message-ID: <20040220113427.0a088fb9@dell_ss3.pdx.osdl.net>
+References: <200402201803.12146.andrew@walrond.org>
+	<20040221.032006.68375681.yoshfuji@linux-ipv6.org>
+	<200402201915.09342.andrew@walrond.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: YOSHIFUJI Hideaki / =?ISO-8859-1?B?X19fX19fX19fX19f?=
+ <yoshfuji@linux-ipv6.org>,
+        netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: YOSHIFUJI Hideaki / =?utf-8?q?=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?= =?utf-8?q?=20=09?=<yoshfuji@linux-ipv6.org>,
-        netdev@oss.sgi.com
-In-Reply-To: <20040221.032006.68375681.yoshfuji@linux-ipv6.org>
-Content-Disposition: inline
+To: Andrew Walrond <andrew@walrond.org>
+In-Reply-To: <200402201915.09342.andrew@walrond.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Friday 20 Feb 2004 6:20 pm, YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=
-=B1=E6=98=8E wrote:
-> In article <200402201803.12146.andrew@walrond.org> (at Fri, 20 Feb 2004=
-=20
-18:03:11 +0000), Andrew Walrond <andrew@walrond.org> says:
->
-> I've got this several times, randomly, and
-> I had to go to the console to reboot the machine.
->
+On Fri, 20 Feb 2004 19:15:09 +0000
+Andrew Walrond <andrew@walrond.org> wrote:
 
-Well the machine and network (at least with just ssh access) is working f=
-ine
+> On Friday 20 Feb 2004 6:20 pm, YOSHIFUJI Hideaki / ____________ wrote:
+> > In article <200402201803.12146.andrew@walrond.org> (at Fri, 20 Feb 2004 
+> 18:03:11 +0000), Andrew Walrond <andrew@walrond.org> says:
+> >
+> > I've got this several times, randomly, and
+> > I had to go to the console to reboot the machine.
+> >
+> 
+> Well the machine and network (at least with just ssh access) is working fine
+> 
+> I left the machine (which is a remote rack-mounted server) for an hour and now 
+> there is perhaps 120 of these warnings. Net is still working though.
+> 
+> Unless anyone has any ideas, I'll move back to 2.4 on this machine
+> 
+> Andrew
 
-I left the machine (which is a remote rack-mounted server) for an hour an=
-d now=20
-there is perhaps 120 of these warnings. Net is still working though.
+The driver needs to be converted to NAPI to sustain high network loads.
+The existing driver allocates and copies each receive packet in the interrupt routine.
 
-Unless anyone has any ideas, I'll move back to 2.4 on this machine
-
-Andrew
+See the recent revision of 8139too to see what that entails.
