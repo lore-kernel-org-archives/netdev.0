@@ -1,81 +1,120 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [RFC] neighbour tables configuration via rtnetlink
-Date: 07 Mar 2005 08:34:59 -0500
-Message-ID: <1110202499.1094.1371.camel@jzny.localdomain>
-References: <20050305172257.GN31837@postel.suug.ch>
+Subject: Re: netif_rx packet dumping
+Date: 07 Mar 2005 08:55:11 -0500
+Message-ID: <1110203711.1088.1393.camel@jzny.localdomain>
+References: <20050303123811.4d934249@dxpl.pdx.osdl.net>
+	 <20050303125556.6850cfe5.davem@davemloft.net>
+	 <1109884688.1090.282.camel@jzny.localdomain>
+	 <20050303132143.7eef517c@dxpl.pdx.osdl.net>
+	 <1109885065.1098.285.camel@jzny.localdomain>
+	 <20050303133237.5d64578f.davem@davemloft.net>
+	 <20050303135416.0d6e7708@dxpl.pdx.osdl.net>
+	 <Pine.LNX.4.58.0503031657300.22311@tesla.psc.edu>
+	 <1109888811.1092.352.camel@jzny.localdomain>
+	 <20050303151606.3587394f@dxpl.pdx.osdl.net>  <4227A23C.5050300@ev-en.org>
+	 <1109907956.1092.476.camel@jzny.localdomain>  <42282098.8010506@ev-en.org>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050305172257.GN31837@postel.suug.ch>
+Cc: Stephen Hemminger <shemminger@osdl.org>, John Heffner <jheffner@psc.edu>,
+        "David S. Miller" <davem@davemloft.net>, rhee@eos.ncsu.edu,
+        Yee-Ting.Li@nuim.ie, netdev@oss.sgi.com
+To: Baruch Even <baruch@ev-en.org>
+In-Reply-To: <42282098.8010506@ev-en.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2005-03-05 at 12:22, Thomas Graf wrote:
-> Hi,
+On Fri, 2005-03-04 at 03:47, Baruch Even wrote:
+> jamal wrote:
+
+> > Can you explain a little more? Why does the the throttling cause any
+> > bad behavior thats any different from the queue being full? In both
+> > cases, packets arriving during that transient will be dropped.
 > 
-> I have need to change multiple neighbour table parameters as a atomic operation
-
-The patch overall looks ok although adventerous.
-What is it that requires you to change multiple parameters atomically? I
-cant seem to think of anything. I can see value in seeing some of these
-parameters in user space. Maybe.
-
-> which lead me to make it available via rtnetlink. I started with the patch
-> below which extends the existing RTM_*NEIGH commands by a flag NTF_TABLES
-> changing the context from entries to the tables itself. I regard this as quite
-> hacky, the alternative would be to add a new RTM operation set, i.e.
-> RTM_*NEIGHTBL or alike.
+> If you have 300 packets in the queue and the throttling kicks in you now 
+> drop ALL packets until the queue is empty, this will normally take some 
+> time, during all of this time you are dropping all the ACKs that are 
+> coming in, you lose SACK information and potentially you leave no packet 
+> in flight so that the next packet will be sent only due to retransmit 
+> timer waking up, at which point your congestion control algorithm starts
+> from cwnd=1.
 > 
-> It's only dumping for now but I plan to also allow modification of parameters.
-
-Some of the parameters you are dumping maybe dangerous if they are also
-allowed to be setable. As an example, changing a table name/id etc.
-I think you should review closely again what needs to be exposed.
-
-> One of the problem that arises is the fact that the interface identifier,
-> to differ the various parameters sets, is stored in the sysctl table which
-> would introduce quite a nasty depedency.
-> 
-> Before I go ahead, putting more effort into it, what is our preferred
-> interface for network configuration? My personal preference is to make
-> everything available via netlink 
-
-I think this is reasonable. However - it is a lot of work. I will have
-no issues with seeing nothing else but netlink (even for ethtool like
-setups). There are certain things that would require more attention than
-others. I was going to write a simple patch to allow setting of indev
-parameters via netlink but havent had time. Started it but havent had
-time to revisit it - if you want to take over that one as well i could
-pass it on to you.
-
-> with the long term plan to extend it with distributive remote configuration 
-> protocol in userspace. 
-
-Related but slightly different issues.
-To achieve distributed configuration you dont need netlink. The main
-advantage of netlink over say /proc is the ability to do async events.
-[Yes, I know i have been shouting for taking netlink and and sending it
-over the wire and mucking around with endianness flags - but after
-practical considerations i am having second thoughts;] 
-
-> If so,
-> shall we continue to push everything into rtnetlink regardless of the
-> association to routing? The only drawback of the currently "overloaded"
-> rtnetlink is the rtnl semaphore which has grown into something like
-> the BKL for networking. I'm not aware of any performance problems or
-> other issues because of this except for the module loading over nfs.
-> Does anyone?
+> You can look at the report http://hamilton.ie/net/LinuxHighSpeed.pdf for 
+> some graphs of the effects.
 > 
 
-You need rtnetlink for anything that has "interface" relationship
-because for those you end up using the rtnl semaphore. So you are stuck
-for all the ones that somehow in their configuration the term "dev" may
-appear.
+Always cool to see some test running across the pond. 
 
+Were the processors tied to NICs? 
+Your experiment is more than likely a single flow, correct?
+In other words the whole queue was infact dedicated just for your one
+flow - thats why you can call this queue a transient burst queue. 
+Do you still have the data that shows how many packets were dropped
+during this period. Do you still have the experimental data? I am
+particulary interested in seeing the softnet stats as well as tcp
+netstats.
+
+I think your main problem was the huge amounts of SACK on the writequeue
+and the resultant processing i.e section 1.1 and how you resolved that.
+I dont see any issue in dropping ACKs, many of them even for such large
+windows as you have - TCPs ACKs are cummulative. It is true if you drop
+"large" enough amounts of ACKS, you will end up in timeouts - but large
+enough in your case must be in the minimal 1000 packets. And to say you
+dropped a 1000 packets while processing 300 means you were taking too
+long processing the 300. So it would be interesting to see a repeat of
+the test after youve resolved 1.1 but without removing the congestion
+code. 
+Then what would be really interesting is to see the perfomance you get
+from multiple flows with and without congestion. 
+I am not against a the benchmarky nature of the single flow and tuning
+for that, but we should also look at a wider scope at the effect before
+you handwave based on the result of one testcase.
+Infact i would agree with giving you a way to turn off the congestion
+control - and i am not sure how long we should keep it around with NAPI
+getting more popular.. I will prepare a simple patch.
+What you really need to do eventually is use NAPI not these antiquated
+schemes.
+
+I am also worried that since you used a non-NAPI driver, the effect of
+reordering necessitating the UNDO is much much higher.
+So if i was you i would repeat 1.2 with the fix from 1.1 as well as
+tying the NIC to one CPU. And it would be a good idea to present more
+detailed results - not just tcp windows fluctuating (you may not need
+them for the paper, but would be useful to see for debugging purposes
+other parameters).
+ 
+> >>the smart schemes are not going to make it that much better if 
+> >>the hardware/software can't keep up.
+> > 
+> > consider that this queue could be shared by as many as a few thousand
+> > unrelated TCP flows - not just one. It is also used for packets being
+> > forwarded. If you factor that the system has to react to protect itself
+> > then these schemes may make sense. The best place to do it is really in
+> > hardware, but the closer to the hardware as possible is the next besr
+> > possible spot. 
+> 
+> Actually the problem we had was with TCP end-system performance 
+> problems, compared to them the router problem is more limited since it 
+> only needs to do a lookup on a hash, tree or whatever and not a linked 
+> list of several thousand packets.
+> 
+
+I am not sure i followed. If you mean routers dont use linked lists
+you are highly mistaken.
+
+> I'd prefer avoiding an AFQ scheme in the incoming queue, if you do add 
+> one, please make it configurable so I can disable it. The drop-tail 
+> behaviour is good enough for me. Remember that an AFQ needs to drop 
+> packets long before the queue is full so there will likely be more 
+> losses involved.
+
+What i was suggesting to Stephen would probably make more sense to kick
+in when theres congestion. weighted windowing allows to sense things
+that are coming; so the idea was to more not allow new flows once the 
+we are congested. 
+Just Use NAPI driver and you wont have to worry about this.
 
 cheers,
 jamal
