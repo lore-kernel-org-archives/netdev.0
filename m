@@ -1,7 +1,7 @@
 From: akpm@osdl.org
-Subject: [patch 04/13] M68k HP300 DIO bus: Fix typo in dio_resource_len()
-Date: Sun, 21 Nov 2004 22:43:51 -0800
-Message-ID: <200411220644.iAM6i3900633@mail.osdl.org>
+Subject: [patch 08/13] M68k: Update HP300 defconfig (enable DIO and HP Lance Ethernet)
+Date: Sun, 21 Nov 2004 22:43:55 -0800
+Message-ID: <200411220644.iAM6i6900654@mail.osdl.org>
 Cc: jgarzik@pobox.com, netdev@oss.sgi.com, akpm@osdl.org, geert@linux-m68k.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: davem@davemloft.net
@@ -12,25 +12,34 @@ List-Id: netdev.vger.kernel.org
 
 From: Geert Uytterhoeven <geert@linux-m68k.org>
 
-HP300 DIO bus: Fix typo in dio_resource_len()
+M68k: Update HP300 defconfig (enable DIO and HP Lance Ethernet)
 
 Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- 25-akpm/include/linux/dio.h |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
+ 25-akpm/arch/m68k/configs/hp300_defconfig |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff -puN include/linux/dio.h~m68k-hp300-dio-bus-fix-typo-in-dio_resource_len include/linux/dio.h
---- 25/include/linux/dio.h~m68k-hp300-dio-bus-fix-typo-in-dio_resource_len	2004-11-21 22:42:52.782658056 -0800
-+++ 25-akpm/include/linux/dio.h	2004-11-21 22:42:52.786657448 -0800
-@@ -254,7 +254,7 @@ static inline struct dio_driver *dio_dev
+diff -puN arch/m68k/configs/hp300_defconfig~m68k-update-hp300-defconfig-enable-dio-and-hp-lance-ethernet arch/m68k/configs/hp300_defconfig
+--- 25/arch/m68k/configs/hp300_defconfig~m68k-update-hp300-defconfig-enable-dio-and-hp-lance-ethernet	2004-11-21 22:42:53.343572784 -0800
++++ 25-akpm/arch/m68k/configs/hp300_defconfig	2004-11-21 22:42:53.347572176 -0800
+@@ -65,7 +65,7 @@ CONFIG_KMOD=y
+ # CONFIG_APOLLO is not set
+ # CONFIG_VME is not set
+ CONFIG_HP300=y
+-# CONFIG_DIO is not set
++CONFIG_DIO=y
+ # CONFIG_SUN3X is not set
+ # CONFIG_Q40 is not set
  
- #define dio_resource_start(d) ((d)->resource.start)
- #define dio_resource_end(d)   ((d)->resource.end)
--#define dio_resource_len(d)   ((d)->resource.end-(z)->resource.start+1)
-+#define dio_resource_len(d)   ((d)->resource.end-(d)->resource.start+1)
- #define dio_resource_flags(d) ((d)->resource.flags)
+@@ -404,7 +404,7 @@ CONFIG_EQUALIZER=m
+ #
+ CONFIG_NET_ETHERNET=y
+ CONFIG_MII=m
+-# CONFIG_HPLANCE is not set
++CONFIG_HPLANCE=y
  
- #define dio_request_device(d, name) \
+ #
+ # Ethernet (1000 Mbit)
 _
