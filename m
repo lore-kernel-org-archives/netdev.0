@@ -1,31 +1,37 @@
-From: Andi Kleen <ak@suse.de>
+From: Tim Gardner <timg@tpi.com>
 Subject: Re: [PATCH + RFC] neighbour/ARP cache scalability
-Date: Tue, 21 Sep 2004 19:31:34 +0200
+Date: Tue, 21 Sep 2004 11:58:27 -0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040921173134.GC12132@wotan.suse.de>
-References: <20040922.001448.73843048.yoshfuji@linux-ipv6.org> <Pine.LNX.4.44.0409211856260.9906-100000@netcore.fi> <20040922.010428.104988024.yoshfuji@linux-ipv6.org> <1095784761.3934.52.camel@tim.rtg.net>
+Message-ID: <1095789507.3934.69.camel@tim.rtg.net>
+References: <20040922.001448.73843048.yoshfuji@linux-ipv6.org>
+	 <Pine.LNX.4.44.0409211856260.9906-100000@netcore.fi>
+	 <20040922.010428.104988024.yoshfuji@linux-ipv6.org>
+	 <1095784761.3934.52.camel@tim.rtg.net>
+	 <20040921173134.GC12132@wotan.suse.de>
+Reply-To: timg@tpi.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Cc: YOSHIFUJI Hideaki / ???????????? <yoshfuji@linux-ipv6.org>,
         pekkas@netcore.fi, laforge@gnumonks.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Tim Gardner <timg@tpi.com>
-Content-Disposition: inline
-In-Reply-To: <1095784761.3934.52.camel@tim.rtg.net>
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <20040921173134.GC12132@wotan.suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> I've developed a variant of the Port Scan Detector (PSD) iptables filter
-> that combats this very problem. It only allows so many destination
-> IP/Port pairs from a given address to be opened over time. This limits
-> the rate at which connections can be opened as well as the absolute
-> number. For example, on my edge routers I set the policy that no single
-> IP source address can create more then 64 connections within a 30 second
-> sliding window. This has made a huge impact on the ARP storms that our
-> network used to experience.
+On Tue, 2004-09-21 at 11:31, Andi Kleen wrote:
 
-But also allows an easy DOS. Someone just has to spoof a lot of connections
-attempts with the source address of your primary name server or 
-some other important service.
+> But also allows an easy DOS. Someone just has to spoof a lot of connections
+> attempts with the source address of your primary name server or 
+> some other important service.
+> 
 
--Andi
+That is what other iptables rules and filters are for. I get thousands
+of source address spoofs from my Internet connection every day. Network
+security is a layered approach.
+
+rtg
+-- 
+timg@tpi.com http://www.tpi.com
+406-443-5357(MT) 503-601-0234(OR)
