@@ -1,70 +1,44 @@
-From: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
-Subject: UDP sockets bound to ANY send answers with wrong src ip address
-Date: Wed, 9 Jun 2004 14:25:39 +0300
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: UDP sockets bound to ANY send answers with wrong src ip address
+Date: Wed, 9 Jun 2004 15:18:12 +0300 (EEST)
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <200406091425.39324.vda@port.imtp.ilyichevsk.odessa.ua>
+Message-ID: <Pine.LNX.4.44.0406091511350.6279-100000@l>
+References: <200406091425.39324.vda@port.imtp.ilyichevsk.odessa.ua>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: davem@redhat.com, yoshfuji@linux-ipv6.org, pekkas@netcore.fi,
-	jmorris@redhat.com, linux-kernel@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com, <linux-net@vger.kernel.org>,
+	<davem@redhat.com>, <yoshfuji@linux-ipv6.org>, <pekkas@netcore.fi>,
+	<jmorris@redhat.com>, <linux-kernel@vger.kernel.org>
 Return-path: <linux-net-owner@vger.kernel.org>
-To: netdev@oss.sgi.com, linux-net@vger.kernel.org
+To: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
+In-Reply-To: <200406091425.39324.vda@port.imtp.ilyichevsk.odessa.ua>
 List-Id: netdev.vger.kernel.org
 
-I observe that UDP sockets listening on ANY
-send response packets with ip addr derived from
-ip address of interface which is used to send 'em
-instead of using dst ip address of client's packet.
 
-I was bitten by this with DNS and NTP.
+	Hello,
 
-This is a test setup:
+On Wed, 9 Jun 2004, Denis Vlasenko wrote:
 
-{net 172.16/16}----- 172.16.22.2 [multihomed] 195.66.192.167 ----....
+> I observe that UDP sockets listening on ANY
+> send response packets with ip addr derived from
+> ip address of interface which is used to send 'em
+> instead of using dst ip address of client's packet.
+>
+> I was bitten by this with DNS and NTP.
 
-This is a UDP server on multihomed box:
-# echo test | nc -vvvnu -l -p 222
-listening on [any] 222 ...
-connect to [172.16.22.2] from (UNKNOWN) [172.16.42.177] 333
-ping
- sent 5, rcvd 5 : Connection refused
-#
+	The problem is in the apps. You have some options:
 
-This is client on 172.16.42.177:
-# echo ping | nc -vvvnu -p 333 195.66.192.167 222
-(UNKNOWN) [195.66.192.167] 222 (?) open
+- use sockets listening on ANY and using sendmsg with IP_PKTINFO
+and providing the desired src IP in ipi_spec_dst
 
-it waits forever, never getting 'test' string from server.
+- you can also create many listener sockets listening on
+particular src IP and to reply using the socket where the
+request is received, because the kernel does not know any
+association between request and reply packets if the listener
+is bound to ANY.
 
-This is a tcpdump of this event:
-13:58:00.555207 172.16.42.177.333 > 195.66.192.167.222: udp 5 (DF)
-13:58:00.559849 172.16.22.2.222 > 172.16.42.177.333: udp 5 (DF)
-                ^^^^^^^^^^^
-13:58:00.560457 172.16.42.177 > 172.16.22.2: icmp: 172.16.42.177 udp port 333 unreachable [tos 0xc0]
+Regards
 
-This is why 172.16.42.177 thinks that port 333 is unreachable:
-# lsof -nP | grep 333
-ntpd        418   root  mem    REG        3,4   133316      68184 /.share/usr/lib/all-lib/libreadline.so.3.0
-most       7559   root  txt    REG        3,4    46828      24333 /.share/usr/app/most-4.9.2/bin/most
-nc        15085   root    3u  IPv4      29381                 UDP 172.16.42.177:333->195.66.192.167:222
-#                                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+--
+Julian Anastasov <ja@ssi.bg>
 
-kernel does not think that 172.16.22.2.222 > 172.16.42.177.333 packet
-belong to this socket, and it is right imo.
-
-Test works ok if I remove -u from both netcats (i.e. TCP works).
-
-client:
-# uname -a
-Linux firebird 2.6.6-rc1-bk1 #1 Wed May 26 11:03:11 EEST 2004 i686 unknown
-
-server:
-# uname -a
-Linux oldie 2.4.22-rc2_QoS #1 Tue Nov 18 15:55:00 GMT-2 2003 i586 unknown
-root@oldie:/.share/home/vda#
-
-I saw this behavior on 2.6 based machines as well.
--- 
-vda
