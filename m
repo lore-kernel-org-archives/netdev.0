@@ -1,35 +1,34 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: Patrick McHardy <kaber@trash.net>
 Subject: Re: [PATCH 3/3 XFRM]: Fix invalid key for lookup of cached bundles
-Date: Mon, 7 Mar 2005 12:43:37 +1100
-Message-ID: <20050307014337.GA4451@gondor.apana.org.au>
-References: <E1D7t0w-0008Qa-00@gondolin.me.apana.org.au> <422AF8D0.3010905@trash.net> <20050307012458.GA4335@gondor.apana.org.au> <422BB14A.5030302@trash.net>
+Date: Mon, 07 Mar 2005 02:55:03 +0100
+Message-ID: <422BB477.3040607@trash.net>
+References: <E1D7t0w-0008Qa-00@gondolin.me.apana.org.au> <422AF8D0.3010905@trash.net> <20050307012458.GA4335@gondor.apana.org.au> <422BB14A.5030302@trash.net> <20050307014337.GA4451@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: davem@davemloft.net, netdev@oss.sgi.com
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <422BB14A.5030302@trash.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050307014337.GA4451@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 07, 2005 at 02:41:30AM +0100, Patrick McHardy wrote:
-> >
-> >Actually, why do we need to treat tunnel mode differently here?
-> >In other words, why not just do the mark/tos checks unconditionally.
+Herbert Xu wrote:
+> On Mon, Mar 07, 2005 at 02:41:30AM +0100, Patrick McHardy wrote:
+>>
+>>Mainly to avoid excessive long lists of cached bundles in tunnel
+>>mode. The use of a single list for the cache is questionable, but
+>>the patch was supposed to fix a different issue. Restricting use
+>>of tos/mark to transport mode avoids having exploding lists that
+>>are easily remotely triggerable.
 > 
-> Mainly to avoid excessive long lists of cached bundles in tunnel
-> mode. The use of a single list for the cache is questionable, but
-> the patch was supposed to fix a different issue. Restricting use
-> of tos/mark to transport mode avoids having exploding lists that
-> are easily remotely triggerable.
+> 
+> That's a different problem.  You can already create arbitrarily
+> long bundle lists by spoofing src/dst addresses...
 
-That's a different problem.  You can already create arbitrarily
-long bundle lists by spoofing src/dst addresses...
+But I don't want to make it worse. The number is still restricted by
+the scope of the selector, using tos and fwmark makes the worst case
+a lot worse.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Regards
+Patrick
