@@ -1,29 +1,45 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [PATCH 2.6.9-rc2 8/8] S2io: two buffer mode
-Date: Fri, 15 Oct 2004 21:57:23 +0200
+From: "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>
+Subject: RE: [Patch 12/16 2.5] ixgb: replace kmalloc with vmalloc to allocate driver local data structures
+Date: Fri, 15 Oct 2004 13:10:03 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041015195723.GC31195@wotan.suse.de>
-References: <41701B3C.8020006@pobox.com> <200410151948.i9FJmo39006757@guinness.s2io.com>
+Message-ID: <468F3FDA28AA87429AD807992E22D07E02E6087C@orsmsx408>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "'Jeff Garzik'" <jgarzik@pobox.com>,
-        "'Raghavendra Koushik'" <raghavendra.koushik@s2io.com>,
-        "'Chris Leech'" <chris.leech@gmail.com>, ravinandan.arakali@s2io.com,
-        "'Francois Romieu'" <romieu@fr.zoreil.com>, netdev@oss.sgi.com,
-        rapuru.sriram@s2io.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8bit
+Cc: <jgarzik@pobox.com>, "netdev" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Leonid Grossman <leonid.grossman@s2io.com>
-Content-Disposition: inline
-In-Reply-To: <200410151948.i9FJmo39006757@guinness.s2io.com>
+Content-class: urn:content-classes:message
+To: "Christian Borntraeger" <linux-kernel@borntraeger.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 15, 2004 at 12:48:34PM -0700, Leonid Grossman wrote:
-> OK, we will debug and try to fix this. 
+Kmalloc resources are more scarce than vmalloc. In this case, there are
+systems where allocation of [rt]xdr->buffer_info fails when the
+descriptor ring sizes are set to the maximum allowable value (4096) and
+kmalloc is used. Using vmalloc solves this issue.
 
-iirc it was originally implemented for HIPPI because the MM 
-system had some problems with allocating 64K linear buffers 
-reliably. But I'm not sure anybody still uses the HIPPI 
-driver so it may have been a bit bitrotted.
+Ganesh.
 
--Andi
+-----Original Message-----
+From: Christian Borntraeger [mailto:linux-kernel@borntraeger.net] 
+Sent: Friday, October 15, 2004 9:47 AM
+To: Venkatesan, Ganesh
+Cc: jgarzik@pobox.com; netdev
+Subject: Re: [Patch 12/16 2.5] ixgb: replace kmalloc with vmalloc to
+allocate driver local data structures
+
+Ganesh Venkatesan wrote:
+> - rxdr->buffer_info = kmalloc(size, GFP_KERNEL);
+[...]
+> + rxdr->buffer_info = vmalloc(size);
+
+What is the rationale for this change?
+
+If I recall correctly, Linus opposes the use of vmalloc if there is no
+real 
+need.
+
+cheers
+
+Christian
