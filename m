@@ -1,74 +1,44 @@
-From: Harald Welte <laforge@netfilter.org>
-Subject: Re: [PATCH 2.6] ip_nat_ftp - manip at the right place
-Date: Tue, 14 Sep 2004 09:12:41 +0200
+From: Lincoln Dale <ltd@cisco.com>
+Subject: Re: [PATCH] [RFC] Support for wccp version 1 and 2 in ip_gre.c
+Date: Tue, 14 Sep 2004 18:48:20 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040914071241.GM8434@sunbeam.de.gnumonks.org>
-References: <Pine.LNX.4.58.0409111042580.1315@u.domain.uli> <20040912170323.65eadc38.davem@davemloft.net>
+Message-ID: <5.1.0.14.2.20040914184652.03e24de0@171.71.163.14>
+References: <20040913051706.GB26337@stingr.sgu.ru>
+ <20040911194108.GS28258@stingr.sgu.ru>
+ <20040912170505.62916147.davem@davemloft.net>
+ <20040913051706.GB26337@stingr.sgu.ru> <20040913161912.7dcc809f.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="L1EIGrW/+75u5Nmw"
-Cc: Julian Anastasov <ja@ssi.bg>, netdev@oss.sgi.com, rusty@rustcorp.com.au
+Content-Type: text/plain; charset="us-ascii"; format=flowed
+Cc: Paul P Komkoff Jr <i@stingr.net>, i@stingr.net, netdev@oss.sgi.com,
+        linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20040912170323.65eadc38.davem@davemloft.net>
+In-Reply-To: <20040913161912.7dcc809f.davem@davemloft.net>
+References: <20040913051706.GB26337@stingr.sgu.ru>
+ <20040911194108.GS28258@stingr.sgu.ru>
+ <20040912170505.62916147.davem@davemloft.net>
+ <20040913051706.GB26337@stingr.sgu.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+At 09:19 AM 14/09/2004, David S. Miller wrote:
+> > As you can see, I am applying it unconditionally when fits. For most
+> > cases, this will be OK.
+> > There can be situations when this is not wanted (for example, when
+> > debugging something), so in general, tuning knob will be useful, but
+> > I just don't know where to add it, maybe tunnel->parms.i_flags ...
+>
+>I don't think adding such a knob is necessary, but yes i_flags
+>would be the place to do it.
+>
+>I will apply your patch with the "if(1)" simply removed.
 
---L1EIGrW/+75u5Nmw
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+the logic is correct, but it may make sense to call the appropriate 
+netfilter hook again with the "unwrapped" GRE packet, as otherwise 
+packets-inside-GRE represent a possible security hole where one can inject 
+packets externally and bypass firewall rules.
 
-On Sun, Sep 12, 2004 at 05:03:23PM -0700, David S. Miller wrote:
-> On Sat, 11 Sep 2004 10:53:53 +0300 (EEST)
-> Julian Anastasov <ja@ssi.bg> wrote:
->=20
-> > 	This is a resend/resync for v2.6.9-rc1-bk17: change the
-> > way the ip_nat_ftp helper manipulates the packets:
-> >=20
-> > - no manips =3D> no fixup
-> >=20
-> > - check the direction, do manip once and at the same time when the
-> > headers are changed
-> >=20
-> > 	This is needed mostly for IPVS setups and I hope we do not
-> > create troubles for other setups or FTP software.
-> >=20
-> > Signed-off-by: Julian Anastasov <ja@ssi.bg>
->=20
-> Harald and/or Rusty, please ACK/NACK this for me.
 
-I agree with the change (although I didn't test it here on my systems so
-far).  However, as indicated in private mail to Julian, the change
-should be made consistent over all helpers.
+cheers,
 
-So please hold back the patch until I get back to you, thanks.
-
-> Thanks.
-
---=20
-- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-  "Fragmentation is like classful addressing -- an interesting early
-   architectural error that shows how much experimentation was going
-   on while IP was being designed."                    -- Paul Vixie
-
---L1EIGrW/+75u5Nmw
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
-
-iD8DBQFBRpnpXaXGVTD0i/8RAiB9AJ4kgujUlqVuxTEXmBWUc9p7CSm5QACfedCu
-O2ACl+oHH+dPTEqxI+qLDfU=
-=lYlI
------END PGP SIGNATURE-----
-
---L1EIGrW/+75u5Nmw--
+lincoln.
