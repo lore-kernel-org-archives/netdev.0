@@ -1,85 +1,111 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: take 2  WAS(Re: PATCH: IPSEC xfrm events
-Date: 03 Apr 2005 12:36:35 -0400
-Message-ID: <1112546194.1096.401.camel@jzny.localdomain>
-References: <1112319441.1089.83.camel@jzny.localdomain>
-	 <20050401042106.GA27762@gondor.apana.org.au>
-	 <1112353398.1096.116.camel@jzny.localdomain>
-	 <20050401114258.GA2932@gondor.apana.org.au>
-	 <1112358278.1096.160.camel@jzny.localdomain>
-	 <20050401123554.GA3468@gondor.apana.org.au>
-	 <1112403845.1088.14.camel@jzny.localdomain>
-	 <20050402012813.GA24575@gondor.apana.org.au>
-	 <1112406164.1088.54.camel@jzny.localdomain>
-	 <20050402014619.GB24861@gondor.apana.org.au>
-	 <1112469601.1088.173.camel@jzny.localdomain>
-	 <1112538718.1096.394.camel@jzny.localdomain>  <42501027.6010609@trash.net>
-Reply-To: hadi@cyberus.ca
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [IPSEC]: Kill nested read lock by deleting xfrm_init_tempsel
+Date: Sun, 03 Apr 2005 18:48:17 +0200
+Message-ID: <42501E51.3000401@trash.net>
+References: <20050214221200.GA18465@gondor.apana.org.au> <20050214221433.GB18465@gondor.apana.org.au> <20050214221607.GC18465@gondor.apana.org.au> <424864CE.5060802@trash.net> <20050328233917.GB15369@gondor.apana.org.au> <424B40C2.90304@trash.net> <20050331004658.GA26395@gondor.apana.org.au> <20050331212325.5e996432.davem@davemloft.net> <20050402004956.GA24339@gondor.apana.org.au> <20050401172007.7296eced.davem@davemloft.net> <20050402020947.GA24998@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-HzY6ovv3o1agHd1AZ7ya"
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-        Masahide NAKAMURA <nakam@linux-ipv6.org>,
-        "David S. Miller" <davem@davemloft.net>, netdev <netdev@oss.sgi.com>
+Content-Type: multipart/mixed;
+ boundary="------------070809070105060803010504"
+Cc: "David S. Miller" <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+        jmorris@redhat.com, yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <42501027.6010609@trash.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050402020947.GA24998@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
---=-HzY6ovv3o1agHd1AZ7ya
-Content-Type: text/plain
+This is a multi-part message in MIME format.
+--------------070809070105060803010504
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
 
-Masahide,
+Herbert Xu wrote:
+> It's still a valid clean-up patch though.
 
-Attached is incremental patch on top of the one posted earlier.
-Looks ok from my basic testing. Please run it against your tests
-and see if it stands.
+Agreed. There is also a bug in my patch, tmpl->daddr can be 0 in which
+case the daddr passed as an argument to xfrm_state_find() will be used.
+My patch only checked tmpl->daddr, this patch fixes it. It also uses
+afinfo->init_tempsel directly, but I didn't kill xfrm_init_tempsel() yet
+because I need it for xfrm resolution.
 
-cheers,
-jamal
+> There is another reason why it won't dead lock.  We don't actually
+> ever hold the write lock on afinfo :) Is there any reason why we
+> dont't just use xfrm_state_afinfo_lock instead of afinfo->lock?
 
-On Sun, 2005-04-03 at 11:47, Patrick McHardy wrote:
-> You call these functions from both softirq- and user-context, so you
-> need to protect against BHs.
-> 
-> Regards
-> Patrick
-> 
+I don't think so. I also don't see a reason why the lock needs to be
+held between xfrm_state_get_afinfo() and xfrm_state_put_afinfo(),
+a reference count should be enough.
 
---=-HzY6ovv3o1agHd1AZ7ya
-Content-Disposition: attachment; filename=ipsec-event-take2-1-1
-Content-Type: text/plain; name=ipsec-event-take2-1-1; charset=ISO-8859-1
+Regards
+Patrick
+
+--------------070809070105060803010504
+Content-Type: text/plain;
+ name="x"
 Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
---- a/net/xfrm/xfrm_state.c	2005/04/03 16:30:31	1.2
-+++ b/net/xfrm/xfrm_state.c	2005/04/03 16:31:27
-@@ -251,20 +251,20 @@
- {
- 	struct xfrm_mgr *km;
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2005/04/03 18:41:22+02:00 kaber@coreworks.de 
+#   [IPSEC]: Use correct daddr for duplicate state check
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+# net/xfrm/xfrm_state.c
+#   2005/04/03 18:41:14+02:00 kaber@coreworks.de +9 -9
+#   [IPSEC]: Use correct daddr for duplicate state check
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+diff -Nru a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+--- a/net/xfrm/xfrm_state.c	2005-04-03 18:41:41 +02:00
++++ b/net/xfrm/xfrm_state.c	2005-04-03 18:41:41 +02:00
+@@ -357,12 +357,6 @@
  
--	read_lock(&xfrm_km_lock);
-+	read_lock_bh(&xfrm_km_lock);
- 	list_for_each_entry(km, &xfrm_km_list, list)
- 		if (km->notify_policy)
- 			km->notify_policy(xp, dir, c);
--	read_unlock(&xfrm_km_lock);
-+	read_unlock_bh(&xfrm_km_lock);
- }
+ 	x = best;
+ 	if (!x && !error && !acquire_in_progress) {
+-		x0 = afinfo->state_lookup(&tmpl->id.daddr, tmpl->id.spi, tmpl->id.proto);
+-		if (x0 != NULL) {
+-			xfrm_state_put(x0);
+-			error = -EEXIST;
+-			goto out;
+-		}
+ 		x = xfrm_state_alloc();
+ 		if (x == NULL) {
+ 			error = -ENOMEM;
+@@ -370,9 +364,11 @@
+ 		}
+ 		/* Initialize temporary selector matching only
+ 		 * to current session. */
+-		xfrm_init_tempsel(x, fl, tmpl, daddr, saddr, family);
++		afinfo->init_tempsel(x, fl, tmpl, daddr, saddr);
++
++		x0 = afinfo->state_lookup(&x->id.daddr, x->id.spi, x->id.proto);
  
- void km_state_notify(struct xfrm_state *x, struct km_event *c)
- {
- 	struct xfrm_mgr *km;
--	read_lock(&xfrm_km_lock);
-+	read_lock_bh(&xfrm_km_lock);
- 	list_for_each_entry(km, &xfrm_km_list, list)
- 		km->notify(x, c);
--	read_unlock(&xfrm_km_lock);
-+	read_unlock_bh(&xfrm_km_lock);
- }
- 
- EXPORT_SYMBOL(km_policy_notify);
+-		if (km_query(x, tmpl, pol) == 0) {
++		if (!x0 && km_query(x, tmpl, pol) == 0) {
+ 			x->km.state = XFRM_STATE_ACQ;
+ 			list_add_tail(&x->bydst, xfrm_state_bydst+h);
+ 			xfrm_state_hold(x);
+@@ -386,10 +382,14 @@
+ 			x->timer.expires = jiffies + XFRM_ACQ_EXPIRES*HZ;
+ 			add_timer(&x->timer);
+ 		} else {
++			error = -ESRCH;
++			if (x0) {
++				xfrm_state_put(x0);
++				error = -EEXIST;
++			}
+ 			x->km.state = XFRM_STATE_DEAD;
+ 			xfrm_state_put(x);
+ 			x = NULL;
+-			error = -ESRCH;
+ 		}
+ 	}
+ out:
 
---=-HzY6ovv3o1agHd1AZ7ya--
+--------------070809070105060803010504--
