@@ -1,27 +1,47 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: Re: ipt_physdev.c alignment problems on parisc64
-Date: Tue, 2 Sep 2003 17:03:36 -0300
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] ethertap update
+Date: Tue, 2 Sep 2003 22:19:25 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030902200336.GQ3398@conectiva.com.br>
-References: <20030902143050.GC3398@conectiva.com.br> <200309022116.41697.bdschuym@pandora.be>
+Message-ID: <20030902221925.B26380@electric-eye.fr.zoreil.com>
+References: <20030902121114.4f489216.shemminger@osdl.org> <20030902121324.2d4c05f7.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@lists.netfilter.org,
-   Linux Networking Development Mailing List <netdev@oss.sgi.com>
+Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Bart De Schuymer <bdschuym@pandora.be>
+To: "David S. Miller" <davem@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <200309022116.41697.bdschuym@pandora.be>
+In-Reply-To: <20030902121324.2d4c05f7.davem@redhat.com>; from davem@redhat.com on Tue, Sep 02, 2003 at 12:13:24PM -0700
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Em Tue, Sep 02, 2003 at 09:16:41PM +0200, Bart De Schuymer escreveu:
-> On Tuesday 02 September 2003 16:30, Arnaldo Carvalho de Melo wrote:
-> > The 1.786.1.54 changeset (i.e. the initial ipt_physdev.c one 8) created
-> 
-> Does this fix it?
+[ethertap update]
 
-Thanks, I'll test it later, now I have most of my machines turned off while
-cleaning up this messy machine room.
+Apply on top of Stephen's patch.
 
-- Arnaldo
+Balance alloc_netdev() with free_netdev().
+
+
+ drivers/net/ethertap.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
+
+diff -puN drivers/net/ethertap.c~ethertap-free_netdev drivers/net/ethertap.c
+--- linux-2.6.0-test4/drivers/net/ethertap.c~ethertap-free_netdev	Tue Sep  2 22:13:55 2003
++++ linux-2.6.0-test4-fr/drivers/net/ethertap.c	Tue Sep  2 22:14:49 2003
+@@ -106,12 +106,12 @@ static int  __init ethertap_probe(int un
+ 
+ 	err = register_netdev(dev);
+ 	if (err)
+-		goto out1;
++		goto out_free;
+ 
+ 	tap_map[unit]=dev;
+ 	return 0;
+-out1:
+-	kfree(dev);
++out_free:
++	free_netdev(dev);
+ out:
+ 	return err;
+ }
+
+_
