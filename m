@@ -1,214 +1,115 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [patch 2.6.11] e100: NAPI state machine fix
-Date: Wed, 16 Mar 2005 10:51:52 -0500
-Message-ID: <20050316155152.GF18393@tuxdriver.com>
-References: <200503152222.j2FMMawn016802@shell0.pdx.osdl.net> <20050315231632.GA18393@tuxdriver.com> <20050315152332.7c938b30.akpm@osdl.org> <20050316154458.GE18393@tuxdriver.com>
+From: mcgrof@ruslug.rutgers.edu (Luis R. Rodriguez)
+Subject: Re: Re: Problems with a PCI SMC2802W
+Date: Wed, 16 Mar 2005 11:24:48 -0500
+Message-ID: <20050316162448.GR17854@ruslug.rutgers.edu>
+References: <422F118D.8070704@voicenet.com>
+	<20050309160744.GN4017@Redstar.dorchain.net>
+	<20050309202718.4f94b871@veagle.suse.cz>
+	<20050310021724.GD17854@ruslug.rutgers.edu>
+	<42302133.2060103@voicenet.com>
+	<20050310103608.GB1416@taniwha.stupidest.org>
+	<20050310163007.GK17854@ruslug.rutgers.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Andrew Morton <akpm@osdl.org>, davem@davemloft.net, jgarzik@pobox.com,
-        netdev@oss.sgi.com, jesse.brandeburg@intel.com,
-        ganesh.venkatesan@intel.com, john.ronciak@intel.com
-Content-Disposition: inline
-In-Reply-To: <20050316154458.GE18393@tuxdriver.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed; boundary="===============0193208387=="
+To: Chris Wedgwood <cw@f00f.org>, Jeff Garzik <jgarzik@pobox.com>,
+	Netdev <netdev@oss.sgi.com>, Adam K Kirchhoff <adamk@voicenet.com>,
+	prism54-devel@prism54.org, Feyd <feyd@seznam.cz>
+In-Reply-To: <20050310163007.GK17854@ruslug.rutgers.edu>
+List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
+List-Archive: <http://prism54.org/pipermail/prism54-devel>
+List-Post: <mailto:prism54-devel@prism54.org>
+List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
+List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
+Mime-version: 1.0
+Sender: prism54-devel-bounces@prism54.org
+Errors-To: prism54-devel-bounces@prism54.org
 List-Id: netdev.vger.kernel.org
 
-Improve state machine to fix NAPI-related data corruption.
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Signed-off-by: John W. Linville <linville@tuxdriver.com>
----
-This came direct from Intel (i.e. I am not the author).  It has been
-observed to fix data corruption problems when using the e100 driver
-on both x86 and ppc systems.
+--===============0193208387==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="hqsgWuDCGoNNiKsj"
+Content-Disposition: inline
 
- drivers/net/e100.c |   69 +++++++++++++++++++++++++++++++++++++++++++----------
- 1 files changed, 57 insertions(+), 12 deletions(-)
 
---- linux-2.6.11/drivers/net/e100.c.orig	2005-03-16 10:38:09.091741709 -0500
-+++ linux-2.6.11/drivers/net/e100.c	2005-03-16 10:38:09.127736740 -0500
-@@ -269,6 +269,12 @@ enum scb_status {
- 	rus_mask         = 0x3C,
- };
- 
-+enum ru_state  {
-+	RU_SUSPENDED = 0,
-+	RU_RUNNING	 = 1,
-+	RU_UNINITIALIZED = -1,
-+};
-+
- enum scb_stat_ack {
- 	stat_ack_not_ours    = 0x00,
- 	stat_ack_sw_gen      = 0x04,
-@@ -510,7 +516,7 @@ struct nic {
- 	struct rx *rx_to_use;
- 	struct rx *rx_to_clean;
- 	struct rfd blank_rfd;
--	int ru_running;
-+	enum ru_state ru_running;
- 
- 	spinlock_t cb_lock			____cacheline_aligned;
- 	spinlock_t cmd_lock;
-@@ -1415,12 +1421,18 @@ static int e100_alloc_cbs(struct nic *ni
- 	return 0;
- }
- 
--static inline void e100_start_receiver(struct nic *nic)
-+static inline void e100_start_receiver(struct nic *nic, struct rx *rx)
- {
-+	if(!nic->rxs) return;
-+	if(RU_SUSPENDED != nic->ru_running) return;
-+
-+	/* handle init time starts */
-+	if(!rx) rx = nic->rxs;
-+
- 	/* (Re)start RU if suspended or idle and RFA is non-NULL */
--	if(!nic->ru_running && nic->rx_to_clean->skb) {
--		e100_exec_cmd(nic, ruc_start, nic->rx_to_clean->dma_addr);
--		nic->ru_running = 1;
-+	if(rx->skb) {
-+		e100_exec_cmd(nic, ruc_start, rx->dma_addr);
-+		nic->ru_running = RU_RUNNING;
- 	}
- }
- 
-@@ -1471,7 +1483,7 @@ static inline int e100_rx_indicate(struc
- 
- 	/* If data isn't ready, nothing to indicate */
- 	if(unlikely(!(rfd_status & cb_complete)))
--		return -EAGAIN;
-+		return -ENODATA;
- 
- 	/* Get actual data size */
- 	actual_size = le16_to_cpu(rfd->actual_size) & 0x3FFF;
-@@ -1482,6 +1494,10 @@ static inline int e100_rx_indicate(struc
- 	pci_unmap_single(nic->pdev, rx->dma_addr,
- 		RFD_BUF_LEN, PCI_DMA_FROMDEVICE);
- 
-+	/* this allows for a fast restart without re-enabling interrupts */
-+	if(le16_to_cpu(rfd->command) & cb_el)
-+		nic->ru_running = RU_SUSPENDED;
-+
- 	/* Pull off the RFD and put the actual data (minus eth hdr) */
- 	skb_reserve(skb, sizeof(struct rfd));
- 	skb_put(skb, actual_size);
-@@ -1514,20 +1530,45 @@ static inline void e100_rx_clean(struct 
- 	unsigned int work_to_do)
- {
- 	struct rx *rx;
-+	int restart_required = 0;
-+	struct rx *rx_to_start = NULL;
-+
-+	/* are we already rnr? then pay attention!!! this ensures that
-+	 * the state machine progression never allows a start with a 
-+	 * partially cleaned list, avoiding a race between hardware
-+	 * and rx_to_clean when in NAPI mode */
-+	if(RU_SUSPENDED == nic->ru_running)
-+		restart_required = 1;
- 
- 	/* Indicate newly arrived packets */
- 	for(rx = nic->rx_to_clean; rx->skb; rx = nic->rx_to_clean = rx->next) {
--		if(e100_rx_indicate(nic, rx, work_done, work_to_do))
-+		int err = e100_rx_indicate(nic, rx, work_done, work_to_do);
-+		if(-EAGAIN == err) {
-+			/* hit quota so have more work to do, restart once
-+			 * cleanup is complete */
-+			restart_required = 0;
-+			break;
-+		} else if(-ENODATA == err)
- 			break; /* No more to clean */
- 	}
- 
-+	/* save our starting point as the place we'll restart the receiver */
-+	if(restart_required)
-+		rx_to_start = nic->rx_to_clean;
-+
- 	/* Alloc new skbs to refill list */
- 	for(rx = nic->rx_to_use; !rx->skb; rx = nic->rx_to_use = rx->next) {
- 		if(unlikely(e100_rx_alloc_skb(nic, rx)))
- 			break; /* Better luck next time (see watchdog) */
- 	}
- 
--	e100_start_receiver(nic);
-+	if(restart_required) {
-+		// ack the rnr?
-+		writeb(stat_ack_rnr, &nic->csr->scb.stat_ack);
-+		e100_start_receiver(nic, rx_to_start);
-+		if(work_done)
-+			(*work_done)++;
-+	}
- }
- 
- static void e100_rx_clean_list(struct nic *nic)
-@@ -1535,6 +1576,8 @@ static void e100_rx_clean_list(struct ni
- 	struct rx *rx;
- 	unsigned int i, count = nic->params.rfds.count;
- 
-+	nic->ru_running = RU_UNINITIALIZED;
-+
- 	if(nic->rxs) {
- 		for(rx = nic->rxs, i = 0; i < count; rx++, i++) {
- 			if(rx->skb) {
-@@ -1548,7 +1591,6 @@ static void e100_rx_clean_list(struct ni
- 	}
- 
- 	nic->rx_to_use = nic->rx_to_clean = NULL;
--	nic->ru_running = 0;
- }
- 
- static int e100_rx_alloc_list(struct nic *nic)
-@@ -1557,6 +1599,7 @@ static int e100_rx_alloc_list(struct nic
- 	unsigned int i, count = nic->params.rfds.count;
- 
- 	nic->rx_to_use = nic->rx_to_clean = NULL;
-+	nic->ru_running = RU_UNINITIALIZED;
- 
- 	if(!(nic->rxs = kmalloc(sizeof(struct rx) * count, GFP_ATOMIC)))
- 		return -ENOMEM;
-@@ -1572,6 +1615,7 @@ static int e100_rx_alloc_list(struct nic
- 	}
- 
- 	nic->rx_to_use = nic->rx_to_clean = nic->rxs;
-+	nic->ru_running = RU_SUSPENDED;
- 
- 	return 0;
- }
-@@ -1593,7 +1637,7 @@ static irqreturn_t e100_intr(int irq, vo
- 
- 	/* We hit Receive No Resource (RNR); restart RU after cleaning */
- 	if(stat_ack & stat_ack_rnr)
--		nic->ru_running = 0;
-+		nic->ru_running = RU_SUSPENDED;
- 
- 	e100_disable_irq(nic);
- 	netif_rx_schedule(netdev);
-@@ -1609,6 +1653,7 @@ static int e100_poll(struct net_device *
- 	int tx_cleaned;
- 
- 	e100_rx_clean(nic, &work_done, work_to_do);
-+	// should we be quota on tx?
- 	tx_cleaned = e100_tx_clean(nic);
- 
- 	/* If no Rx and Tx cleanup work was done, exit polling mode. */
-@@ -1683,7 +1728,7 @@ static int e100_up(struct nic *nic)
- 	if((err = e100_hw_init(nic)))
- 		goto err_clean_cbs;
- 	e100_set_multicast_list(nic->netdev);
--	e100_start_receiver(nic);
-+	e100_start_receiver(nic, 0);
- 	mod_timer(&nic->watchdog, jiffies);
- 	if((err = request_irq(nic->pdev->irq, e100_intr, SA_SHIRQ,
- 		nic->netdev->name, nic->netdev)))
-@@ -1749,7 +1794,7 @@ static int e100_loopback_test(struct nic
- 		mdio_write(nic->netdev, nic->mii.phy_id, MII_BMCR,
- 			BMCR_LOOPBACK);
- 
--	e100_start_receiver(nic);
-+	e100_start_receiver(nic, 0);
- 
- 	if(!(skb = dev_alloc_skb(ETH_DATA_LEN))) {
- 		err = -ENOMEM;
--- 
-John W. Linville
-linville@tuxdriver.com
+--hqsgWuDCGoNNiKsj
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+
+Jeff/netdev,
+
+If no comment is given on how we should deal with
+pci_dma_sync_single/pci_dma_sync_single_for_cpu for 2.4 I'm just going
+to put in a nasty ifdef there. Comemnts?
+
+	Luis
+
+On Thu, Mar 10, 2005 at 11:30:07AM -0500, Luis R. Rodriguez wrote:
+> > Index: ksrc/islpci_mgt.c
+> > =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+> > --- ksrc/islpci_mgt.c	(revision 528)
+> > +++ ksrc/islpci_mgt.c	(working copy)
+> > @@ -345,7 +345,7 @@
+> >  		}
+> > =20
+> >  		/* Ensure the results of device DMA are visible to the CPU. */
+> > -		pci_dma_sync_single(priv->pdev, buf->pci_addr,
+> > +		pci_dma_sync_single_for_cpu(priv->pdev, buf->pci_addr,
+> >  				frag_len, PCI_DMA_FROMDEVICE);
+> > =20
+> >  		/* Perform endianess conversion for PIMFOR header in-place. */
+>=20
+> Thanks, but the pci_[restore|save]_state changes requires testing/backpor=
+ting to 2.4.=20
+> Same goes for pci_dma_sync_single_for_cpu(). We can macro this but ugh, i=
+t's just so=20
+> horrible.
+>=20
+> Margit, where are you?
+>=20
+> Jeff, what's better a prismcompat24.h edit or a check for
+> LINUX_VERSION_CODE here?
+>=20
+> 	Luis
+>=20
+> --=20
+> GnuPG Key fingerprint =3D 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 5=
+25E
+
+
+
+--=20
+GnuPG Key fingerprint =3D 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
+
+--hqsgWuDCGoNNiKsj
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQFCOF3Qat1JN+IKUl4RApPLAJ99O8gqzvH+s1E0S6OI78+trbIVWgCeM4fb
+hvE0RtuTkCURb5qCtJPCW1g=
+=hSOy
+-----END PGP SIGNATURE-----
+
+--hqsgWuDCGoNNiKsj--
+
+--===============0193208387==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Prism54-devel mailing list
+Prism54-devel@prism54.org
+http://prism54.org/mailman/listinfo/prism54-devel
+
+--===============0193208387==--
