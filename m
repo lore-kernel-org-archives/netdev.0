@@ -1,31 +1,44 @@
-From: Kai Germaschewski <kai-germaschewski@uiowa.edu>
-Subject: Re: [BK PATCH] Make eth.c independent of dev->hard_header_len
-Date: Sun, 29 Sep 2002 14:09:11 -0500 (CDT)
+From: Richard Gooch <rgooch@ras.ucalgary.ca>
+Subject: Re: Poor gige performance with 2.4.20-pre*
+Date: Sun, 29 Sep 2002 13:22:10 -0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0209291406410.28578-100000@chaos.physics.uiowa.edu>
-References: <3D974A3D.40207@pobox.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@redhat.com>, <netdev@oss.sgi.com>
+Message-ID: <200209291922.g8TJMA312403@vindaloo.ras.ucalgary.ca>
+References: <200209282257.g8SMvta32527@vindaloo.ras.ucalgary.ca>
+	<3D966656.7040205@candelatech.com>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <3D974A3D.40207@pobox.com>
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <3D966656.7040205@candelatech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 29 Sep 2002, Jeff Garzik wrote:
+Ben Greear writes:
+> Richard Gooch wrote:
+> >   Hi, all. For a while now I've noticed poor performance with gige
+> > cards under 2.4.19 and 2.4.20-pre*. At first I thought it was because
+> > of the cheap-ass Addtron cards I bought (these use the ns83820 chip).
+> > But now that the Intel E1000 cards are pretty cheap too, I've grabbed
+> > a couple (part number: PWLA8390MT) and see the same problem. In fact,
+> > the E1000 cards are no better than the Addtron cards. I'm using the
+> > D-Link DGS-1008T 8-port gige switch. MTU=1500 bytes.
+>
+> Try setting the TxDescriptors=4096 RxDescriptors=1024 when loading the
+> e1000 module, that helps tremendously when using smaller packets.
 
-> Kai Germaschewski wrote:
-> > --- a/drivers/net/hamachi.c	Sun Sep 29 13:10:36 2002
-> > +++ b/drivers/net/hamachi.c	Sun Sep 29 13:10:36 2002
-> 
-> I would prefer to keep the code inside TX_CHECKSUM in hamachi.c, hoping 
-> somebody will complete it, not rip it out :)
+Didn't help at all. Just to summarise, I've got:
+options e1000 TxDescriptors=4096 RxDescriptors=1024
+net.ipv4.tcp_rmem = 262144 262144 262144
+net.ipv4.tcp_wmem = 262144 262144 262144
+MTU=1500
 
-I didn't really rip out anything. I just removed code cut'n'pasted from
-net/ethernet/eth.c (+ slight modification to handle dev->hard_header_len
-!= ETH_HLEN), since after the change we can use the generic
-eth_trans_type() directly. The TX checksum thing is not at all affected by
-that piece of code.
+I'm doing read(2)/write(2) to/from a user-space buffer over a TCP
+socket with 256 KiB buffer size.
 
---Kai
+Is the E1000 supposed to have hardware interrupt mitigation (thus
+avoiding the need for NAPI)?
+
+				Regards,
+
+					Richard....
+Permanent: rgooch@atnf.csiro.au
+Current:   rgooch@ras.ucalgary.ca
