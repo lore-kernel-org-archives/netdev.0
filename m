@@ -1,37 +1,46 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] [IPV4]: Exclude "All deletion of equal addresses only
- differing by prefix length."
-Date: Thu, 31 Mar 2005 10:36:08 -0800
-Message-ID: <20050331103608.447a21a5.davem@davemloft.net>
-References: <20050331124747.GT3086@postel.suug.ch>
-	<Pine.LNX.4.61.0503312047110.26294@netcore.fi>
+From: Sam Ravnborg <sam@ravnborg.org>
+Subject: Re: [RFC/PATCH] network configs: disconnect network options from drivers
+Date: Thu, 31 Mar 2005 20:52:26 +0200
+Message-ID: <20050331185226.GA8146@mars.ravnborg.org>
+References: <20050330234709.1868eee5.randy.dunlap@verizon.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: ioe-lkml@axxeo.de, matthew@wil.cx, lkml <linux-kernel@vger.kernel.org>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Pekka Savola <pekkas@netcore.fi>
-In-Reply-To: <Pine.LNX.4.61.0503312047110.26294@netcore.fi>
+To: "Randy.Dunlap" <randy.dunlap@verizon.net>
+Content-Disposition: inline
+In-Reply-To: <20050330234709.1868eee5.randy.dunlap@verizon.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 31 Mar 2005 20:48:05 +0300 (EEST)
-Pekka Savola <pekkas@netcore.fi> wrote:
-
-> On Thu, 31 Mar 2005, Thomas Graf wrote:
-> > The address deletion fix is no longer needed since a better fix
-> > has made it into iproute2. Better in terms of same hack but in
-> > userspace so we don't confuse other netlink users.
+On Wed, Mar 30, 2005 at 11:47:09PM -0800, Randy.Dunlap wrote:
 > 
-> So, does that mean that all the users are expected to always run the 
-> latest iproute2, so there's no need for backward-compat in the kernel?
+> - some Networking options need to be qualified with CONFIG_NET
+You can something along the lines os:
 
-No, that's not what is happening here.
+menu "Networking options and protocols"
+  
+config NET
+	bool "Networking support"
+	default y
 
-Thomas originally added a hack to the API in the kernel to handle this,
-but now he's backing that out because the problem can be solved
-purely in userspace.
+if NET
 
-This API change is only visible during 2.6.12 development and never
-appeared in a stable release, so we can pull it out now safely.
+...
+
+menu "Network device support"
+...
+endmenu
+
+...
+
+endif
+endmenu
+
+Then everything wrapped in between if NET/endif is dependent on NET
+without stating this explicitly.
+You will alos have the menu nice indented.
+
+	Sam
