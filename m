@@ -1,87 +1,33 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH]
-Date: Tue, 8 Jul 2003 15:16:06 -0700
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] netdev_ops
+Date: Tue, 08 Jul 2003 15:08:35 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030708151606.483604ad.shemminger@osdl.org>
+Message-ID: <20030708.150835.78728697.davem@redhat.com>
+References: <20030708163042.GL23597@parcelfarce.linux.theplanet.co.uk>
+	<3F0B2D30.4020102@candelatech.com>
+	<20030708212551.GL1939@parcelfarce.linux.theplanet.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: greearb@candelatech.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+To: willy@debian.org
+In-Reply-To: <20030708212551.GL1939@parcelfarce.linux.theplanet.co.uk>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Convert Digi RigtSwitch to use alloc_etherdev.
+   From: Matthew Wilcox <willy@debian.org>
+   Date: Tue, 8 Jul 2003 22:25:51 +0100
 
-Builds (on 2.5.74) but once again, do not have real hardware to test.
+   On Tue, Jul 08, 2003 at 01:44:32PM -0700, Ben Greear wrote:
+   > Some of these are missing their netdevice arg?
+   > >+	int	(*get_regs_len)(struct ethtool_regs *);
+   > >+	int	(*self_test_len)(struct ethtool_test *);
+   > >+	int	(*get_strings_len)(struct ethtool_gstrings *);
+   > >+	int	(*get_stats_len)(struct ethtool_stats *);
+   
+   Well, they don't actually need it -- these are more attributes of
+   the underlying driver than they are of any individual network device.
 
-diff -Nru a/drivers/net/dgrs.c b/drivers/net/dgrs.c
---- a/drivers/net/dgrs.c	Mon Jul  7 14:50:36 2003
-+++ b/drivers/net/dgrs.c	Mon Jul  7 14:50:36 2003
-@@ -1252,18 +1252,12 @@
- {
- 	DGRS_PRIV	*priv;
- 	struct net_device *dev, *aux;
--
--	/* Allocate and fill new device structure. */
--	int dev_size = sizeof(struct net_device) + sizeof(DGRS_PRIV);
- 	int i, ret;
- 
--	dev = (struct net_device *) kmalloc(dev_size, GFP_KERNEL);
--
-+	dev = alloc_etherdev(sizeof(DGRS_PRIV));
- 	if (!dev)
- 		return -ENOMEM;
- 
--	memset(dev, 0, dev_size);
--	dev->priv = ((void *)dev) + sizeof(struct net_device);
- 	priv = (DGRS_PRIV *)dev->priv;
- 
- 	dev->base_addr = io;
-@@ -1279,7 +1273,7 @@
- 
- 	dev->init = dgrs_probe1;
- 	SET_MODULE_OWNER(dev);
--	ether_setup(dev);
-+
- 	if (register_netdev(dev) != 0) {
- 		kfree(dev);
- 		return -EIO;
-@@ -1302,15 +1296,18 @@
- 		struct net_device	*devN;
- 		DGRS_PRIV	*privN;
- 			/* Allocate new dev and priv structures */
--		devN = (struct net_device *) kmalloc(dev_size, GFP_KERNEL);
--			/* Make it an exact copy of dev[0]... */
-+		devN = alloc_etherdev(sizeof(DGRS_PRIV));
- 		ret = -ENOMEM;
- 		if (!devN) 
- 			goto fail;
--		memcpy(devN, dev, dev_size);
--		memset(devN->name, 0, sizeof(devN->name));
--		devN->priv = ((void *)devN) + sizeof(struct net_device);
-+
-+		/* Make it an exact copy of dev[0]... */
-+		*devN = *dev;
-+
-+		/* copy the priv structure of dev[0] */
- 		privN = (DGRS_PRIV *)devN->priv;
-+		*privN = *priv;
-+
- 			/* ... and zero out VM areas */
- 		privN->vmem = 0;
- 		privN->vplxdma = 0;
-@@ -1318,9 +1315,11 @@
- 		devN->irq = 0;
- 			/* ... and base MAC address off address of 1st port */
- 		devN->dev_addr[5] += i;
-+			/* ... choose a new name */
-+		strncpy(devN->name, "eth%d", IFNAMSIZ);
- 		devN->init = dgrs_initclone;
- 		SET_MODULE_OWNER(devN);
--		ether_setup(devN);
-+
- 		ret = -EIO;
- 		if (register_netdev(devN)) {
- 			kfree(devN);
+Not true, at least for the regs len different variants of the same
+chip can have a different sized register set.
