@@ -1,46 +1,43 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
-Date: Fri, 24 Sep 2004 10:58:55 -0700
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: The ultimate TOE design
+Date: Fri, 24 Sep 2004 20:09:15 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040924105855.0e1aecd0.davem@davemloft.net>
-References: <414F1E12.6010808@eurodev.net>
-	<20040922000503.GA13218@gondor.apana.org.au>
-	<4150E7E5.2000001@eurodev.net>
-	<20040922045239.GA19573@gondor.apana.org.au>
-	<1095854920.1047.64.camel@jzny.localdomain>
-	<20040922105221.59a67d4b.davem@davemloft.net>
-	<4152EE68.4030803@eurodev.net>
-	<20040923121651.51a58cf2.davem@davemloft.net>
-	<20040924032830.GC6384@gondor.apana.org.au>
-	<20040923223909.6f4da27f.davem@davemloft.net>
-	<20040924062604.GA7393@gondor.apana.org.au>
+Message-ID: <20040924180915.GB26922@xi.wantstofly.org>
+References: <20040924130738.GB24093@xi.wantstofly.org> <200409241321.i8ODLf39012346@guinness.s2io.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: pablo@eurodev.net, hadi@cyberus.ca, davem@redhat.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "'David S. Miller'" <davem@davemloft.net>,
+        "'Jeff Garzik'" <jgarzik@pobox.com>, alan@lxorguk.ukuu.org.uk,
+        paul@clubi.ie, netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040924062604.GA7393@gondor.apana.org.au>
+To: Leonid Grossman <leonid.grossman@s2io.com>
+Content-Disposition: inline
+In-Reply-To: <200409241321.i8ODLf39012346@guinness.s2io.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 24 Sep 2004 16:26:04 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Fri, Sep 24, 2004 at 06:21:35AM -0700, Leonid Grossman wrote:
 
-> It also means those responders that can calculate the correct size
-> of the reply doesn't need to go through this copy process.
+> > > And at 10GbE, embedded CPUs just don't cut it - it has to be custom 
+> > > ASIC (granted, with some means to simplify debugging and reduce the 
+> > > risk of hw bugs and TCP changes).
+> > 
+> > Intel's IXP2800 can do 10GbE.
+> 
+> Hi Lennert,
 
-This is the crux of the problem, you don't know how big
-the response will be until you look at the whole object
-you are returning.
+Hello,
 
-This is because there are usually an unknown number of
-attributes that will be returned.
 
-This is why I suggested the PAGE_SIZE scratchpad, you build
-the response fully into there, then you know the exact size
-SKB you need so you allocate it and copy into it from the
-scratch pad.
+> I was referring to the server side. 
+> One can certanly build a 10GbE box based on IPX2800 (or some other parts),
+> but at 17-25W it is not usable in NICs since the entire PCI card budget is
+> less than that - nothing left for 10GbE PHY, memory, etc.
 
-It's just a response build up area, and the goal is to have
-the minimum sized SKB necessary to represent the response.
+Ah, ok, that makes sense.  As someone else also noted, the IXP2800
+only has a 64/66 PCI interface anyway, so it wouldn't really be
+suitable for the task you were referring to.
+
+
+cheers,
+Lennert
