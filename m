@@ -1,38 +1,37 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: IPSEC: on behavior of acquire
-Date: Sat, 2 Apr 2005 12:12:36 +1000
-Message-ID: <20050402021236.GA25054@gondor.apana.org.au>
-References: <1112405144.1096.33.camel@jzny.localdomain>
+From: Greg KH <greg@kroah.com>
+Subject: Re: Linux support for RDMA (was: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit Proposed Topics)
+Date: Fri, 1 Apr 2005 21:27:38 -0800
+Message-ID: <20050402052738.GA17506@kroah.com>
+References: <20050401154348.553f3c46@dxpl.pdx.osdl.net> <1112405833.424df749e61b5@imap.linux.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Masahide NAKAMURA <nakam@linux-ipv6.org>,
-        psec-tools-devel@lists.sourceforge.net, netdev@oss.sgi.com,
-        kaber@trash.net, kuznet@ms2.inr.ac.ru, jmorris@redhat.com
+Cc: Stephen Hemminger <shemminger@osdl.org>,
+        Roland Dreier <roland@topspin.com>, Benjamin LaHaise <bcrl@kvack.org>,
+        Dmitry Yusupov <dmitry_yus@yahoo.com>, open-iscsi@googlegroups.com,
+        "David  S. Miller" <davem@davemloft.net>, mpm@selenic.com,
+        andrea@suse.de, michaelc@cs.wisc.edu,
+        James.Bottomley@HansenPartnership.com, ksummit-2005-discuss@thunk.org,
+        netdev@oss.sgi.com, bmt@zurich.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
+To: jaganav@us.ibm.com
 Content-Disposition: inline
-In-Reply-To: <1112405144.1096.33.camel@jzny.localdomain>
+In-Reply-To: <1112405833.424df749e61b5@imap.linux.ibm.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 01, 2005 at 08:25:44PM -0500, jamal wrote:
+On Fri, Apr 01, 2005 at 08:37:13PM -0500, jaganav@us.ibm.com wrote:
 > 
-> The conclusion we reached in our discussion is:
-> a) -ERESTART is the correct signal to return
-> b) number of acquire retries should be configurable preferably a system
-> wide value.
-> 
-> Thoughts?
+> Several RNIC adapter vendors, who contribute to the 
+> openRDMA effort, are quite willing to opensource 
+> their drivers through openRDMA project.
 
-Once we have the xfrm resolution stuff that Patrick is working on,
-we can have knobs for these cases just like those in the neighbour
-code.
+"Several"?  Why not all?
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+And why the dual license?  What good is writing Linux kernel code that
+is BSD licensed for such a core component?  Didn't you all learn from
+the openib licensing mess?
+
+thanks,
+
+greg k-h
