@@ -1,77 +1,88 @@
-From: Werner Almesberger <wa@almesberger.net>
-Subject: Re: [PATCH] arp_queue: serializing unlink + kfree_skb
-Date: Thu, 10 Feb 2005 01:23:04 -0300
-Message-ID: <20050210012304.E25338@almesberger.net>
-References: <20050131102920.GC4170@suse.de> <E1CvZo6-0001Bz-00@gondolin.me.apana.org.au> <20050203142705.GA11318@krispykreme.ozlabs.ibm.com> <20050203150821.2321130b.davem@davemloft.net> <20050204113305.GA12764@gondor.apana.org.au> <20050204154855.79340cdb.davem@davemloft.net> <20050204222428.1a13a482.davem@davemloft.net>
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: Re: [PATCH] ieee80211 subsystem
+Date: Wed, 09 Feb 2005 20:36:49 -0800
+Message-ID: <420AE4E1.7070204@osdl.org>
+References: <4203C32A.70402@linux.intel.com> <420828A9.7060306@osdl.org> <42087751.3040806@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, anton@samba.org, okir@suse.de,
-        netdev@oss.sgi.com, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20050204222428.1a13a482.davem@davemloft.net>; from davem@davemloft.net on Fri, Feb 04, 2005 at 10:24:28PM -0800
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
+To: James Ketrenos <jketreno@linux.intel.com>
+In-Reply-To: <42087751.3040806@linux.intel.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> 	This document is intended to serve as a guide to Linux port
-> maintainers on how to implement atomic counter and bitops operations
-> properly.
+James Ketrenos wrote:
+> Randy.Dunlap wrote:
+> 
+>> James Ketrenos wrote:
+>>
+>>> Attached is the patch against 2.6.11-rc3-mm1 that adds the ieee80211 
+>>> subsystem used by the ipw2100 and ipw2200 projects.
+>>>
+>>> I'll be sending out the patches for ipw2100-1.0.0 and ipw2200-1.0.0 
+>>> that use thist stack to the list on Monday.
+>>>
+>>> In terms of what the stack currently does:
+>>>
+>>> * HW independent -- it only knows about 802.11 data and structures
+>>> * Performs an 802.3 <-> 802.11 transform for data Tx/Rx
+>>> * Host based support for fragmentation, WEP, and WPA using the 
+>>> kernel's crypto functions
+>>> * Beacon and probe response collection and parsing
+>>> * Default implementation of some of the WE handlers that can be 
+>>> managed without hardware knowledge
+>>>
+>>> We are working to merge in Dave Miller's p80211 code into the 
+>>> ieee80211 subsystem so that it hooks into the kernel as a true 
+>>> network layer as opposed to a mutated offspring of ethernet.
+>>> Once that is done, hopefully the skb to txb code can be reworked and 
+>>> 802.11 fragments can be treated either as normal skbs, or skbs can be 
+>>> modified to directly support them (ideally so that encrypted 802.11 
+>>> frames in support of IP packets can be cached by the stack instead of 
+>>> having to be re-encrypted on TCP retries)
+>>>
+>>> Support for HW/FW crypto and fragmentation offload, in a HW 
+>>> independent fashion, is also on the short-term list.
+>>>
+>>> When you look through the patch you'll likely notice the #ifdef 
+>>> NOTYET/#endif sequences surrounding portions of code from the hostap 
+>>> project.  Portions of this subsystem were based on an earlier version 
+>>> of the hostap project.  Those areas that weren't directly supported 
+>>> by the ipw* projects weren't ported to be completely hardware 
+>>> independent (since I don't have the hardware to test it), and so are 
+>>> still wrapped in the ifdefs.  These sections mainly cover support for 
+>>> MASTER and WDS modes.
+>>>
+>>> Anyway, please let me know what you think.  Hopefully I built the 
+>>> patch right...
+>>
+>>
+>>
+>> James,
+>> Can you post a patch that will build?  or did you just want
+>> feedback on the current state of the patch?
+> 
+> 
+> Ah; I see my tree that I did the diff on was missing the 
+> wireless/Makefile and the ieee80211/ieee80211_module.c to create the 
+> patch against... sigh.  Attached is ieee80211_module.c; you have the 
+> change for the Makefile to include ieee80211.
+> Later {hopefully today} I'll send a full patch that includes several of 
+> the corrections you called out in your prior patch.
 
-Finally, some light is shed into one of the most arcane areas of
-the kernel ;-) Thanks !
+Now missing ieee80211_crypt.h (#included in the new
+ieee80211.h).  Apparently still needing a complete diff.
 
-> Unlike the above routines, it is required that explicit memory
-> barriers are performed before and after the operation.  It must
-> be done such that all memory operations before and after the
-> atomic operation calls are strongly ordered with respect to the
-> atomic operation itself.
 
-Hmm, given that this description will not only be read by implementers
-of atomic functions, but also by users, the "explicit memory barriers"
-may be confusing. Who does them, the atomic_* function, or the user ?
-In fact, I would call them "implicit", because they're hidden in the
-atomic_foo functions :-)
++	/* Add the ESSID */
++        iwe.cmd = SIOCGIWESSID;
++        iwe.u.data.flags = 1;
++	if (network->flags & NETWORK_EMPTY_ESSID) {
 
-> 	void smb_mb__before_atomic_dec(void);
-> 	void smb_mb__after_atomic_dec(void);
-> 	void smb_mb__before_atomic_inc(void);
-> 	void smb_mb__after_atomic_dec(void);
+Lines 2-3 above use spaces (e.g.) -- please use tabs.
 
-s/smb_/smp/ :-)
-
-Do they also work for atomic_add and atomic_sub, or do we have to
-fall back to smb_mb or atomic_add_return (see below) there ?
-
-> With the memory barrier semantics required of the atomic_t
-> operations which return values, the above sequence of memory
-> visibility can never happen.
-
-What happens if the operation could return a value, but the user
-ignores it ? E.g. if I don't like smp_mb__*, could I just use
-
-	atomic_inc_and_test(foo);
-
-instead of
-
-	smp_mb__before_atomic_inc();
-	atomic_inc(foo);
-	smp_mb__after_atomic_dec();
-
-? If yes, is this a good idea ?
-
-> These routines, like the atomic_t counter operations returning
-> values, require explicit memory barrier semantics around their
-> execution.
-
-Very confusing: the barriers aren't around the routines (that
-is something the user would be doing), but around whatever does
-the atomic stuff inside them.
-
-- Werner
 
 -- 
-  _________________________________________________________________________
- / Werner Almesberger, Buenos Aires, Argentina         wa@almesberger.net /
-/_http://www.almesberger.net/____________________________________________/
+~Randy
