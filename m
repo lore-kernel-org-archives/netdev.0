@@ -1,104 +1,49 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] arp_queue: serializing unlink + kfree_skb
-Date: Thu, 3 Feb 2005 22:12:24 +1100
-Message-ID: <20050203111224.GA3267@gondor.apana.org.au>
-References: <20050131102920.GC4170@suse.de> <E1CvZo6-0001Bz-00@gondolin.me.apana.org.au> <20050202162023.075015d4.davem@davemloft.net>
+From: Olaf Kirch <okir@suse.de>
+Subject: Re: limited number if iptable rules on 64bit hosts
+Date: Thu, 3 Feb 2005 12:19:39 +0100
+Message-ID: <20050203111939.GI31570@suse.de>
+References: <20050202133851.GA9680@suse.de> <20050202222516.GA15440@suse.de> <20050202223853.GA29237@ti64.telemetry-investments.com> <20050202225258.GA15563@suse.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="fdj2RfSjLxBAspz7"
-Cc: okir@suse.de, netdev@oss.sgi.com, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Bill Rugolsky Jr." <brugolsky@telemetry-investments.com>,
+        netdev@oss.sgi.com
+To: Olaf Hering <olh@suse.de>
 Content-Disposition: inline
-In-Reply-To: <20050202162023.075015d4.davem@davemloft.net>
+In-Reply-To: <20050202225258.GA15563@suse.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
---fdj2RfSjLxBAspz7
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-On Wed, Feb 02, 2005 at 04:20:23PM -0800, David S. Miller wrote:
+On Wed, Feb 02, 2005 at 11:52:58PM +0100, Olaf Hering wrote:
+> > I don't have time to look now [I'm running for the door],
+> > but that's possibly the vmalloc() limit of 64M (67108864) ?
 > 
-> > 	if (atomic_read(&skb->users) != 1) {
-> > 		smp_mb__before_atomic_dec();
-> > 		if (!atomic_dec_and_test(&skb->users))
-> > 			return;
-> > 	}
-> > 	__kfree_skb(skb);
-> 
-> This looks good.  Olaf can you possibly ask the reproducer if
-> this patch makes the ARP problem go away?
+> maybe.
+> ->size is a userprovided value, havent looked closely at iptables
+> source. It seems we have to live with this limitation.
 
-Not so hasty Dave :)
+The problem is two-fold. netfilter tries to allocate some data
+per-CPU and does
 
-That was only meant to be an example of what we might do to
-insert a write barrier in kfree_skb().
+	vmalloc(sizeof(struct ipt_table_info)
+	                + SMP_ALIGN(tmp.size) * NR_CPUS);
 
-It doesn't solve Olaf's problem because a write barrier is
-usually not sufficient by itself.  In most cases you'll need
-a read barrier as well.
+At 3445 rules, tmp.size is 524272 (why does it want that much memory? I
+would expect the only data that's per-CPU is the packet and byte
+counters).
 
-So if we're going for a solution that only involves kfree_skb()
-then we'll need the following patch.
+In some of our kernel configurations, NR_CPUS is 128 or even more,
+and we run into a vmalloc limit here.
 
-I got rid of the atomic_read optimisation since it would've needed
-an additional smp_rmb() to be safe.
+vmalloc wants to allocate an arrays of struct page pointers, and on
+a 64bit platform this means you're limited to 131072 / 8 = 16384
+pages, or 67108864 bytes. In the example Olaf H posted, we fail at
+128 + 524272 * 128 = 67108992 bytes, i.e. 16385 pages.
 
-I thought about preserving that optimisation through something
-like skb->cloned.  However, it turns out that most skb's will be
-shared at least once so it doesn't buy us much.
+So I guess it all boils down to why netfilter needs 150-odd bytes
+per rule and CPU.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-What I hoped to do though was to bring your collective attention
-to the problem in general.  kfree_skb() is certainly not the only
-place where we free an object after the counter hits zero.
-
-This paradigm is repeated throughout the kernel.  I bet the
-same race can be found in a lot of those places.  So we really
-need to sit down and audit them one by one or else come up with
-a magical solution apart from disabling SMP :) 
-
-Cheers,
+Olaf
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---fdj2RfSjLxBAspz7
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
-
-===== include/linux/skbuff.h 1.59 vs edited =====
---- 1.59/include/linux/skbuff.h	2005-01-11 07:23:55 +11:00
-+++ edited/include/linux/skbuff.h	2005-02-03 21:57:26 +11:00
-@@ -353,15 +353,21 @@
-  */
- static inline void kfree_skb(struct sk_buff *skb)
- {
--	if (atomic_read(&skb->users) == 1 || atomic_dec_and_test(&skb->users))
--		__kfree_skb(skb);
-+	smp_mb__before_atomic_dec();
-+	if (!atomic_dec_and_test(&skb->users))
-+		return;
-+	smp_mb__after_atomic_dec();
-+	__kfree_skb(skb);
- }
- 
- /* Use this if you didn't touch the skb state [for fast switching] */
- static inline void kfree_skb_fast(struct sk_buff *skb)
- {
--	if (atomic_read(&skb->users) == 1 || atomic_dec_and_test(&skb->users))
--		kfree_skbmem(skb);
-+	smp_mb__before_atomic_dec();
-+	if (!atomic_dec_and_test(&skb->users))
-+		return;
-+	smp_mb__after_atomic_dec();
-+	kfree_skbmem(skb);
- }
- 
- /**
-
---fdj2RfSjLxBAspz7--
+Olaf Kirch   |  --- o --- Nous sommes du soleil we love when we play
+okir@suse.de |    / | \   sol.dhoop.naytheet.ah kin.ir.samse.qurax
