@@ -1,48 +1,65 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: pskb change in dst->output
-Date: Sat, 10 Jul 2004 06:42:28 +1000
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: [BK PATCHES] 2.6.x net driver updates
+Date: Fri, 9 Jul 2004 16:14:30 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040709204228.GA3015@gondor.apana.org.au>
-References: <20040709081443.GA11101@gondor.apana.org.au> <Xine.LNX.4.44.0407091001460.3887-100000@thoron.boston.redhat.com> <20040709123608.1f9f9265.davem@redhat.com>
+Message-ID: <20040709201430.GA22656@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: James Morris <jmorris@redhat.com>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <20040709123608.1f9f9265.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 09, 2004 at 12:36:08PM -0700, David S. Miller wrote:
->
-> > > If there are no objections, I'd like to create a version of
-> > > skb_checksum_help() that doesn't copy the packet, and call
-> > > that version from ah_output()/esp_output()/ipcomp_output().
-> > 
-> > This will break when cloned packets are passed to these functions.
-> 
-> James is right Herbert.  TCP will send clones down into these routines
-> all the time.
 
-The first TCP transmission will always be a clone of a packet off
-its output queue.  However, the TCP code is written such that you
-can modify any part of the skb except the TCP payload.  This
-includes the TCP header which is where the TCP checksum is.
+Just emailed this to Andrew and Linus...
 
-If this weren't the case then you'd have to copy the packet much earlier.
-This assumption is already made by tcp_transmit_skb(), ip_queue_xmit()
-and all the functions called by dst_output().
 
-When TCP retransmits the packet, it will do a pskb_copy() on it so
-it's no longer a clone.
 
-So unless I've missed another case where someone will pass a clone
-down, it is safe to change the checksum on the TCP clones.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Please do a
+
+	bk pull bk://gkernel.bkbits.net/net-drivers-2.6
+
+This will update the following files:
+
+ drivers/net/epic100.c                  |  426 ++++++++-----
+ drivers/net/forcedeth.c                |  848 +++++++++++++++++++-------
+ drivers/net/natsemi.c                  | 1064 +++++++++++++++++++++++++-=
+-------
+ drivers/net/pci-skeleton.c             |   27=20
+ drivers/net/sis900.c                   |   21=20
+ drivers/net/sk98lin/h/skdrv1st.h       |    1=20
+ drivers/net/wireless/prism54/oid_mgt.c |   10=20
+ include/linux/pci_ids.h                |   13=20
+ 8 files changed, 1761 insertions(+), 649 deletions(-)
+
+through these ChangeSets:
+
+Daniele Venzano:
+  o sis900-fix-phy-transceiver-detection.patch
+
+Fran=E7ois Romieu:
+  o epic100: code removal in irq handler
+  o epic100: spin_unlock_irqrestore avoidance
+  o [netdrvr epic100] napi fixes
+  o [netdrvr epic100] napi 3/3 - transmit path
+  o [netdrvr epic100] napi 2/3 - receive path
+  o [netdrvr epic100] napi 1/3 - just shuffle some code around
+  o [netdrvr epic100] minor cleanups
+
+Manfred Spraul:
+  o Gigabit Ethernet support for forcedeth
+  o natsemi 2: support packets > 1518 bytes
+  o natsemi 1: switch to netdev_priv()
+  o natsemi updates
+
+Margit Schubert-While:
+  o prism54 freq to channel incorrect for 5GHz
+
+Pavel Roskin:
+  o [netdrvr pci-skeleton] refresh
+
+Rusty Russell:
+  o [TRIVIAL 2.6] sk98lin: kill dup include
