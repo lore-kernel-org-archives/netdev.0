@@ -1,56 +1,54 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: pci-skeleton duplex check
-Date: Thu, 12 Dec 2002 15:08:26 -0800
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3DF916EA.10504@candelatech.com>
-References: <Pine.LNX.4.44.0212121539110.10674-100000@beohost.scyld.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: [PATCH 2.4.20] vanilla 3c59x
+Date: Thu, 12 Dec 2002 19:11:24 -0500
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <3DF925AC.4020703@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, Roger Luethi <rl@hellgate.ch>,
-   netdev@oss.sgi.com,
-   Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Donald Becker <becker@scyld.com>
-In-Reply-To: <Pine.LNX.4.44.0212121539110.10674-100000@beohost.scyld.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed;
+ boundary="------------020908010405090006090002"
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Donald Becker wrote:
+This is a multi-part message in MIME format.
+--------------020908010405090006090002
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> I've been actively developing Linux drivers for over a decade, and run
-> about two dozen mailing lists for specific drivers.  I write diagnostic
-> routines for every released driver.  I thoroughly test and frequently
-> update the driver set I maintain.  And since about 2000, my patches were
-> ignored while the first notice I've have gotten to changes in my drivers
-> is the bug reports.  And the response: "submit a patch to fix those
-> newly introduced bugs".  I've even had patches ignore in favor of people
-> that wrote "I don't have the NIC, but here is a change".
-> 
-> A good example is the tulip driver.  You repeatedly restructured my
-> driver in the kernel, splitting into different files.  It was still 90+%
-> my code, but the changes made it impossible to track the modification
-> history.  The kernel driver was long-broken with 21143-SYM cards, but no
-> one took the responsibility for fixing it.
+This patch, against 2.4.20, updates 3c59x to vanilla Don Becker version 
+that is available at ftp://www.scyld.com/pub/network/3c59x.c
 
-For what it's worth, I have yet to find a tulip driver that works with
-all of my 4-port NICs.  Becker's fails with the Phobos 4-port NIC,
-a very recent kernel driver fails to negotiate correctly (sometimes)
-with the DFE-570tx NIC.  Both of them failed a while back when I tried
-to put 3 DFE-570tx's into a single machine.
+It's too big post on a list, so I put it up at
+ftp://ftp.kernel.org/pub/linux/kernel/people/jgarzik/patches/2.4.20/3c59x-vanilla-2.4.20.patch.gz
 
-On average, I've had better luck with the kernel driver than with
-Becker's, and since it is quite a pain to compile and test it, I
-have been ignoring it more and more.
+It's also available from BitKeeper at the 'bk pull' URL attached to this 
+email.  But be warned you are pulling from 2.4.21-bk-current, plus 
+3c59x.c changes, not vanilla 2.4.20 as the patch is diff'd against.
 
-Mr Becker:  Perhaps you could rename your tulip driver becker_tulip and have
-it separately buildable and configurable in the kernel config options?  If
-it was back into the kernel proper it would be much easier to experiment with.
+--------------020908010405090006090002
+Content-Type: text/plain;
+ name="3c59x-2.4.txt"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="3c59x-2.4.txt"
 
-Thanks,
-Ben
 
--- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+	bk pull bk://kernel.bkbits.net/jgarzik/3c59x-2.4
+
+This will update the following files:
+
+ drivers/net/3c59x.c       | 3254 +++++++++++++++++++---------------------------
+ drivers/net/Makefile      |    2 
+ drivers/net/kern_compat.h |  284 ++++
+ drivers/net/pci-scan.c    |  658 +++++++++
+ drivers/net/pci-scan.h    |   90 +
+ 5 files changed, 2440 insertions(+), 1848 deletions(-)
+
+through these ChangeSets:
+
+<jgarzik@redhat.com> (02/12/12 1.812)
+   [netdrvr 3c59x] update to vanilla Becker version 0.99Xf (11/17/2002)
+
+
+--------------020908010405090006090002--
