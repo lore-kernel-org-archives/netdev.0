@@ -1,38 +1,52 @@
-From: "David S. Miller" <davem@redhat.com>
+From: "Randy.Dunlap" <rddunlap@osdl.org>
 Subject: Re: netlink tester program
-Date: Mon, 02 Jun 2003 20:51:56 -0700 (PDT)
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20030602.205156.08346169.davem@redhat.com>
-References: <3EDC173B.80909@pacbell.net>
-	<20030602.203834.115933659.davem@redhat.com>
-	<33060.4.64.196.31.1054612172.squirrel@www.osdl.org>
+Date: Mon, 2 Jun 2003 20:54:01 -0700 (PDT)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <33078.4.64.196.31.1054612441.squirrel@www.osdl.org>
+References: <3EDC1418.6080808@monmouth.com>
+        <20030602.202233.39180859.davem@redhat.com>
+        <3EDC18F2.6090505@monmouth.com>
+        <20030602.204645.48505284.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: david-b@pacbell.net, linux-net@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: rddunlap@osdl.org
-In-Reply-To: <33060.4.64.196.31.1054612172.squirrel@www.osdl.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: <jsd@monmouth.com>, <netdev@oss.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: <davem@redhat.com>
+In-Reply-To: <20030602.204645.48505284.davem@redhat.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: "Randy.Dunlap" <rddunlap@osdl.org>
-   Date: Mon, 2 Jun 2003 20:49:32 -0700 (PDT)
+>    It is also important to distinguish what's best
+>    for *you* and what's best for the project.
+>    Maybe *you* don't want to be responsible for
+>    doing all the documentation.
+>
+> I'm not even going to attempt to document something that
+> moves as fast as the kernel.
 
-   > It's the one that works for _me_ and Alexey and myself, and we're
-   > the ones doing all the work.
-   
-   Do you want it to remain that way?
-   
-Doesn't matter to _us_, _we_ know how these things work
-and how to use them.  If we don't, we'll read the code to
-learn this.
+That point is a real problem...
 
-Other's care, and if someone writes the docs for _them_,
-that is _fine_.
+> I go to bookstores and I see many excellent attempts to document
+> kernel internals, but these books are frozen in time.  Specifically they are
+> frozen in the time of the moment the kernel they write for is published.  As
+> a consequence they are all obsolete the moment they are published.
 
-What I object to is "hey we have to have docs, why didn't
-dave and alexey write them". :)
+No doubt.
 
-Franks a lot,
-David S. Miller
-davem@redhat.com
+> Some poor student reads these books, written against 2.4.8 or
+> whatever, then they go and try to contribute to 2.5.x and it
+> doesn't work except for certain kinds of drivers where we've
+> kept the APIs more or less the same.
+>
+> But I don't care that people do this, just don't require that I do it.
+
+Sure.  Are you willing to answer questions about it at least?
+
+> I think this extra fluidity we get from being able to change so fast is a
+> strength not a weakness.
+
+If it were only a strength, that would be great.
+I believe that it's both, however.
+
+~Randy
