@@ -1,32 +1,27 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: Re: [PATCH] IPV6: inappropriate usage of inet{,6}_sk()
-Date: Mon, 27 Oct 2003 12:32:56 -0200
+From: =?iso-8859-1?q?an7?= <an3h0ny@yahoo.fr>
+Subject: use of Prequeue
+Date: Mon, 27 Oct 2003 16:06:46 +0100 (CET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031027143256.GE10490@conectiva.com.br>
-References: <20031027.232700.97608602.yoshfuji@linux-ipv6.org>
+Message-ID: <20031027150646.80244.qmail@web11106.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@redhat.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
-Content-Disposition: inline
-In-Reply-To: <20031027.232700.97608602.yoshfuji@linux-ipv6.org>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Em Mon, Oct 27, 2003 at 11:27:00PM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ escreveu:
-> Hi,
-> 
-> I found other inappropriate usages of inet{,6}_sk() for 
-> tcp_tw_bucket:
->  - inet6_sk(sk)->ipv6only
->  - inet6_sk(sk)->rcv_saddr
->  - inet_sk(sk)->rcv_saddr
-> 
-> Patch is against my previous patch.
 
-Great, part of this was in the first patch I send fixing the addrconf stuff,
-I should have submitted those before, but went to Europe, etc, thanks
-Yoshifuji-san!
+Hi all,=20
 
-- Arnaldo
+the use of prequeue seems particular to linux. Can you
+tell me what is aimed for, and what is its position
+relatively to the backlog and the socket receive queue
+?
+
+Thanks
+
+
+___________________________________________________________
+Do You Yahoo!? -- Une adresse @yahoo.fr gratuite et en fran=E7ais !
+Yahoo! Mail : http://fr.mail.yahoo.com
