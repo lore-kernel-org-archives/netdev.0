@@ -2,7 +2,7 @@ From: Lincoln Dale <ltd@cisco.com>
 Subject: Re: RFC: per-socket statistics on received/dropped packets
 Date: Wed, 12 Jun 2002 22:44:44 +1000
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <aee145$15i$2@main.gmane.org>
+Message-ID: <aee158$16t$2@main.gmane.org>
 References: <5.1.0.14.2.20020612221925.0283fb18@mira-sjcm-3.cisco.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"; format=flowed
