@@ -1,51 +1,56 @@
-From: "Paul Rolland" <rol@as2917.net>
-Subject: Re: [BUG]:   problem when shutting down ppp connection since 2.5.70
-Date: Sun, 6 Jul 2003 11:43:30 +0200
-Sender: linux-ppp-owner@vger.kernel.org
-Message-ID: <008201c343a3$0f9f8a70$2101a8c0@witbe>
-References: <3F03BC55.6050506@nortelnetworks.com>
+From: James Morris <jmorris@intercode.com.au>
+Subject: [PATCH] Don't call request_module() under spinlock in xfrm_get_type()
+Date: Sun, 6 Jul 2003 22:42:40 +1000 (EST)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <Mutt.LNX.4.44.0307062238010.468-100000@excalibur.intercode.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>, <linux-ppp@vger.kernel.org>,
-	<shemminger@osdl.org>, <netdev@oss.sgi.com>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-To: "'Chris Friesen'" <cfriesen@nortelnetworks.com>, <paulus@samba.org>
-In-Reply-To: <3F03BC55.6050506@nortelnetworks.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: kuznet@ms2.inr.ac.ru, <netdev@oss.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@redhat.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello,
+This patch fixes a problem where request_module() was being called under 
+the lock taken in xfrm_policy_get_afinfo().
+
+An alternative fix would be to refcount xfrm_policy_afinfo structs, either
+explicitly or via a module owner field, although it seems like overkill in
+this case.
+
+
+- James
+-- 
+James Morris
+<jmorris@intercode.com.au>
+
+diff -urN -X dontdiff bk.orig/net/xfrm/xfrm_policy.c bk.w1/net/xfrm/xfrm_policy.c
+--- bk.orig/net/xfrm/xfrm_policy.c	2003-07-06 02:59:18.000000000 +1000
++++ bk.w1/net/xfrm/xfrm_policy.c	2003-07-06 22:32:47.230524746 +1000
+@@ -80,22 +80,24 @@
  
-> Well, I've upgraded to the latest 2.5.74 kernel and pppd 
-> version 2.4.2b3 
-> (still using the rp-pppoe userspace software though).
-> 
-> Per Stephen's suggestion I also tried removing the ip address and 
-> bringing down the ppp link before shuttind down the adsl connection.
-> 
-> Makes no difference.
-> 
-To complete on this topic : I've got the problem since 2.5.70, when
-netdev_wait_allrefs has been introduced in net/core/dev.c
-
-I have the same behavior using vtund, configured to create a tap0
-interface.
-At shutdown time, the interface refuses to get freed and I'm stuck.
-
-Having vtund started at boot time (within the /etc/rc.d/... stuff)
-or later doesn't make any difference.
-
-Shutting down the interface before stopping the application or halting
-the machine doesn't make any difference either.
-
-The other problem is that the current implementation of 
-netdev_wait_allrefs makes that if you kill an application that is
-using a device not correctly counted, you lock the console you are
-working on.
-e.g., killing vtund will create a printk(... unregister_netdevice...),
-and the console cannot be used anymore as long as the counter hasn't
-reached 0 and the device is freed...
-
-Paul
-
+ struct xfrm_type *xfrm_get_type(u8 proto, unsigned short family)
+ {
+-	struct xfrm_policy_afinfo *afinfo = xfrm_policy_get_afinfo(family);
++	struct xfrm_policy_afinfo *afinfo;
+ 	struct xfrm_type_map *typemap;
+ 	struct xfrm_type *type;
+ 	int modload_attempted = 0;
+ 
++retry:
++	afinfo = xfrm_policy_get_afinfo(family);
+ 	if (unlikely(afinfo == NULL))
+ 		return NULL;
+ 	typemap = afinfo->type_map;
+ 
+-retry:
+ 	read_lock(&typemap->lock);
+ 	type = typemap->map[proto];
+ 	if (unlikely(type && !try_module_get(type->owner)))
+ 		type = NULL;
+ 	read_unlock(&typemap->lock);
+ 	if (!type && !modload_attempted) {
++		xfrm_policy_put_afinfo(afinfo);
+ 		request_module("xfrm-type-%d-%d",
+ 			       (int) family, (int) proto);
+ 		modload_attempted = 1;
