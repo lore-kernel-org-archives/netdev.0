@@ -1,77 +1,21 @@
-From: "FreeStyle-T" <jtn@cs.puon.net>
-Subject: =?iso-2022-jp?B?GyRCIWMhY0wkPjVCejktOXAhZCFkIXo6X0JwJEckTiVRJT0bKEI=?=
-	=?iso-2022-jp?B?GyRCJTMlcyRyO0gkQyQ/JCo7RTt2JE4wRkZiJEckOSEjIXobKEI=?=
-Date: 27 Feb 2003 18:10:47 +0900
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <00e601c2de41$24c7a760$0300a8c0@fmv>
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: linux_mib docs?
+Date: Thu, 27 Feb 2003 11:12:12 -0800
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20030227111212.40388562.rddunlap@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-2022-jp"
-Content-Transfer-Encoding: 8bit
-Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: linux-net@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-＜＜未承諾広告＞＞★在宅でのパソコンを使ったお仕事の案内です。★
+Hi,
 
-  ＝＝＝御関心の無い方は削除して下さい。＝＝＝
+Is there a MIB definition for struct linux_mib in
+include/net/snmp.h ?
 
-　世の中不景気で、倒産だリストラだと大変です。
-勤めていても給料は上がらないし、残業がない分下がっています。
-お金がもう少し、せめて５万でも、いや３万でも余分に稼げれば・・
-誰もが考えた事が有ると思います。
-　
-アルバイトが出来て、少し余分に稼げれば・・
-でも、会社に知れたら・・。子供が小さくて家を空けれない・・。
-近くに自分に出来る仕事が・・。なかなか希望のものは少ないのです！
-
-　もし、自宅で出来て・・。自分の自由な時間に・・。安定的に出来る
-お仕事が出来たらどうでしょう？
-　それも、自分で上手に出きるようになれば、将来専業として自立して
-行くことも可能になるのです！！
-ご自宅でパソコン技能を利用して、毎月安定的な収入を考えてみませんか？
-
-主婦・社会人・年配者・学生・アルバイター等が現在活躍しています！
-業務は、データー入力・文書入力・プログラミング等、詳しくは下記に！
-
-パソコン資格有る人もない人も、初心者でもやる気があれば大丈夫です！
-ホームページ上で、あなたのレベルをチェックし、あなたに合ったお仕事を
-選びます。
-
-　　　　◆パソコンワークで出来る仕事の種類をお伝えします。◆
-
-■テープ起こし等やの手書きデータからの文書入力業務
-　出版社等の依頼により、編集者が行った作家へのインタービューや『対談記事』
-　等をＷＯＲＤを使って文書を入力して行く仕事です。
-
-■アンケートハガキの集計とデータ−入力業務
-　企業が行うキャンペーンのアンケートハガキ等を集計をＥＸＣＥＬやＡＣＣＥＳＳ
-　等を使って入力等をする集計業務です。
-
-■会報誌やチラシ等の『DTP』作成業務
-　商店やスーパー等の小売り店等の依頼による、チラシ等の作成やサークルなどの
-　会員向けの会報作り業務です。掲載する原稿や写真は、発注者の方に決めて頂き
-　レイアウトが平凡だとインパクトがないので、工夫してなるべく手にとってもら
-　えるようにしています。
-
-■ホームページの作成
-　個人や商店及び企業の依頼によるＰＲや販売促進用のＨＰ作成業務
-
-■手書きの原稿を元に書類を制作
-　手書きの原稿を元に、Microsoft WORDを使って書類を作成する業務
-
-■書類の表を元に宛名ラベルへの出力
-　通信販売会社やデパート、又ゴルフメーカーやカーショップ等が発送
-　する『ダイレクトメール』等の表を元にデータベースを作り、宛名ラベルに出力
-　する業務
-　　　　　　　　※他にも、パソコンを使った業務は多々御座います。
-　　
-　　　◆さらに詳しい内容、資料請求は下記のホームページにて確認下さい。
-
-　　　　　　　　　◇　http://www.freestyle-tokyo.jp　　◇
-
-           FREE STYLE CO.,LTD    東京都目黒区自由が丘２−１７−１１
-　　　　　　　　　　　　　　　　　TEL　０３−５７３１−８７０８
-　　　　　　※　当方からのメールが不要な方は、「受信拒否」と表示して、
-　　　　　　　　free-style-tokyo@cs.puon.netまでメールで送信してください。
+Thanks,
+--
+~Randy
