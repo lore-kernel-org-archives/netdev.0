@@ -1,7 +1,7 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (8/23) sk98: ethtool phy support
-Date: Thu, 11 Nov 2004 15:55:22 -0800
-Message-ID: <20041111155522.0a55335a@zqx3.pdx.osdl.net>
+Subject: [PATCH] (20/23) sk98: checksum ethtool and improvements
+Date: Thu, 11 Nov 2004 16:07:09 -0800
+Message-ID: <20041111160709.5ba1c463@zqx3.pdx.osdl.net>
 References: <4192C60A.1050205@designassembly.de>
 	<20041111154225.5cf85567@zqx3.pdx.osdl.net>
 Mime-Version: 1.0
@@ -17,183 +17,1310 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The basic stuff comes from the newer code from SysKonnect, but I redid
-it using a per board timer rather than a global timer.
+The driver was going through a lot of work to use portable code
+for receive checksum offload. On Linux it much simpler, and all that
+code can be eliminated. 
+
+Make transmit/receive checksum controllable by ethtool.
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
+
+diff -Nru a/drivers/net/sk98lin/Makefile b/drivers/net/sk98lin/Makefile
+--- a/drivers/net/sk98lin/Makefile	2004-11-10 11:29:48 -08:00
++++ b/drivers/net/sk98lin/Makefile	2004-11-10 11:29:48 -08:00
+@@ -26,9 +26,11 @@
+ 		skrlmt.o	\
+ 		sktimer.o	\
+ 		skvpd.o		\
+-		skxmac2.o	\
+-		skproc.o	\
+-		skcsum.o
++		skxmac2.o
++
++ifdef CONFIG_PROC_FS
++sk98lin-objs	+= skproc.o
++endif
+ 
+ # DBGDEF =  \
+ # -DDEBUG
+@@ -77,7 +79,8 @@
+ # SK_DBGCAT_DRV_INT_SRC         0x04000000      interrupts sources
+ # SK_DBGCAT_DRV_EVENT           0x08000000      driver events
+ 
+-EXTRA_CFLAGS += -Idrivers/net/sk98lin -DSK_DIAG_SUPPORT -DSK_USE_CSUM -DGENESIS -DYUKON $(DBGDEF) $(SKPARAM)
++EXTRA_CFLAGS += -Idrivers/net/sk98lin -DSK_DIAG_SUPPORT \
++	 -DGENESIS -DYUKON $(DBGDEF) $(SKPARAM)
+ 
+ clean:
+ 	rm -f core *.o *.a *.s
+diff -Nru a/drivers/net/sk98lin/h/skcsum.h b/drivers/net/sk98lin/h/skcsum.h
+--- a/drivers/net/sk98lin/h/skcsum.h	2004-11-10 11:29:48 -08:00
++++ b/drivers/net/sk98lin/h/skcsum.h	2004-11-10 11:29:48 -08:00
+@@ -155,11 +155,11 @@
+  * s_Csum - The CSUM module context structure.
+  */
+ typedef struct s_Csum {
++#ifdef SK_USE_CSUM
+ 	/* Enabled receive SK_PROTO_XXX bit flags. */
+ 	unsigned ReceiveFlags[SK_MAX_NETS];
+-#ifdef TX_CSUM
+ 	unsigned TransmitFlags[SK_MAX_NETS];
+-#endif /* TX_CSUM */
++#endif
+ 
+ 	/* The protocol statistics structure; one per supported protocol. */
+ 	SKCS_PROTO_STATS ProtoStats[SK_MAX_NETS][SKCS_NUM_PROTOCOLS];
 diff -Nru a/drivers/net/sk98lin/h/skdrv2nd.h b/drivers/net/sk98lin/h/skdrv2nd.h
---- a/drivers/net/sk98lin/h/skdrv2nd.h	2004-11-03 14:31:05 -08:00
-+++ b/drivers/net/sk98lin/h/skdrv2nd.h	2004-11-03 14:31:05 -08:00
-@@ -383,6 +383,8 @@
- 	SK_CSUM		Csum;		/* for checksum module */
- 	SK_RLMT		Rlmt;		/* for rlmt module */
- 	spinlock_t	SlowPathLock;	/* Normal IRQ lock */
-+	struct timer_list BlinkTimer;	/* for LED blinking */
-+	int		LedsOn;
- 	SK_PNMI_STRUCT_DATA PnmiStruct;	/* structure to get all Pnmi-Data */
- 	int			RlmtMode;	/* link check mode to set */
- 	int			RlmtNets;	/* Number of nets */
+--- a/drivers/net/sk98lin/h/skdrv2nd.h	2004-11-10 11:29:48 -08:00
++++ b/drivers/net/sk98lin/h/skdrv2nd.h	2004-11-10 11:29:48 -08:00
+@@ -200,6 +200,13 @@
+ #define C_PROTO_ID_UDP                  17       /* refer to RFC 790 or Stevens'   */
+ #define C_PROTO_ID_TCP                  6        /* TCP/IP illustrated for details */
+ 
++/*
++** Hardware supports receive checksumming starting at two offsets
++** Linux only uses the first one (skip ether header).
++*/
++#define SK_CHECKSUM_OFFSET_1	ETH_HLEN
++#define SK_CHECKSUM_OFFSET_2	(ETH_HLEN + 20)
++
+ /* TX and RX descriptors *****************************************************/
+ 
+ typedef struct s_RxD RXD; /* the receive descriptor */
+@@ -302,6 +309,7 @@
+ 	int		RxFillLimit;	/* limit for buffers in ring */
+ 	SK_IOC		HwAddr;		/* bmu registers address */
+ 	int		PortIndex;	/* index number of port (0 or 1) */
++	SK_BOOL         UseRxCsum;      /* use Rx checksumming (yes/no)  */
+ };
+ 
+ /* Definitions needed for interrupt moderation *******************************/
+@@ -410,10 +418,6 @@
+ 	/* the port structures with descriptor rings */
+ 	TX_PORT		TxPort[SK_MAX_MACS][2];
+ 	RX_PORT		RxPort[SK_MAX_MACS];
+-
+-	unsigned int	CsOfs1;		/* for checksum calculation */
+-	unsigned int	CsOfs2;		/* for checksum calculation */
+-	SK_U32		CsOfs;		/* for checksum calculation */
+ 
+ 	SK_BOOL		CheckQueue;	/* check event queue soon */
+ 	SK_TIMER        DrvCleanupTimer;/* to check for pending descriptors */
+diff -Nru a/drivers/net/sk98lin/skcsum.c b/drivers/net/sk98lin/skcsum.c
+--- a/drivers/net/sk98lin/skcsum.c	2004-11-10 11:29:48 -08:00
++++ /dev/null	Wed Dec 31 16:00:00 196900
+@@ -1,871 +0,0 @@
+-/******************************************************************************
+- *
+- * Name:	skcsum.c
+- * Project:	GEnesis, PCI Gigabit Ethernet Adapter
+- * Version:	$Revision: 1.12 $
+- * Date:	$Date: 2003/08/20 13:55:53 $
+- * Purpose:	Store/verify Internet checksum in send/receive packets.
+- *
+- ******************************************************************************/
+-
+-/******************************************************************************
+- *
+- *	(C)Copyright 1998-2003 SysKonnect GmbH.
+- *
+- *	This program is free software; you can redistribute it and/or modify
+- *	it under the terms of the GNU General Public License as published by
+- *	the Free Software Foundation; either version 2 of the License, or
+- *	(at your option) any later version.
+- *
+- *	The information in this file is provided "AS IS" without warranty.
+- *
+- ******************************************************************************/
+-
+-#ifdef SK_USE_CSUM	/* Check if CSUM is to be used. */
+-
+-#ifndef lint
+-static const char SysKonnectFileId[] =
+-	"@(#) $Id: skcsum.c,v 1.12 2003/08/20 13:55:53 mschmid Exp $ (C) SysKonnect.";
+-#endif	/* !lint */
+-
+-/******************************************************************************
+- *
+- * Description:
+- *
+- * This is the "GEnesis" common module "CSUM".
+- *
+- * This module contains the code necessary to calculate, store, and verify the
+- * Internet Checksum of IP, TCP, and UDP frames.
+- *
+- * "GEnesis" is an abbreviation of "Gigabit Ethernet Network System in Silicon"
+- * and is the code name of this SysKonnect project.
+- *
+- * Compilation Options:
+- *
+- *	SK_USE_CSUM - Define if CSUM is to be used. Otherwise, CSUM will be an
+- *	empty module.
+- *
+- *	SKCS_OVERWRITE_PROTO - Define to overwrite the default protocol id
+- *	definitions. In this case, all SKCS_PROTO_xxx definitions must be made
+- *	external.
+- *
+- *	SKCS_OVERWRITE_STATUS - Define to overwrite the default return status
+- *	definitions. In this case, all SKCS_STATUS_xxx definitions must be made
+- *	external.
+- *
+- * Include File Hierarchy:
+- *
+- *	"h/skdrv1st.h"
+- *	"h/skcsum.h"
+- *	"h/sktypes.h"
+- *	"h/skqueue.h"
+- *	"h/skdrv2nd.h"
+- *
+- ******************************************************************************/
+-
+-#include "h/skdrv1st.h"
+-#include "h/skcsum.h"
+-#include "h/skdrv2nd.h"
+-
+-/* defines ********************************************************************/
+-
+-/* The size of an Ethernet MAC header. */
+-#define SKCS_ETHERNET_MAC_HEADER_SIZE			(6+6+2)
+-
+-/* The size of the used topology's MAC header. */
+-#define	SKCS_MAC_HEADER_SIZE	SKCS_ETHERNET_MAC_HEADER_SIZE
+-
+-/* The size of the IP header without any option fields. */
+-#define SKCS_IP_HEADER_SIZE						20
+-
+-/*
+- * Field offsets within the IP header.
+- */
+-
+-/* "Internet Header Version" and "Length". */
+-#define SKCS_OFS_IP_HEADER_VERSION_AND_LENGTH	0
+-
+-/* "Total Length". */
+-#define SKCS_OFS_IP_TOTAL_LENGTH				2
+-
+-/* "Flags" "Fragment Offset". */
+-#define SKCS_OFS_IP_FLAGS_AND_FRAGMENT_OFFSET	6
+-
+-/* "Next Level Protocol" identifier. */
+-#define SKCS_OFS_IP_NEXT_LEVEL_PROTOCOL			9
+-
+-/* Source IP address. */
+-#define SKCS_OFS_IP_SOURCE_ADDRESS				12
+-
+-/* Destination IP address. */
+-#define SKCS_OFS_IP_DESTINATION_ADDRESS			16
+-
+-
+-/*
+- * Field offsets within the UDP header.
+- */
+-
+-/* UDP checksum. */
+-#define SKCS_OFS_UDP_CHECKSUM					6
+-
+-/* IP "Next Level Protocol" identifiers (see RFC 790). */
+-#define SKCS_PROTO_ID_TCP		6	/* Transport Control Protocol */
+-#define SKCS_PROTO_ID_UDP		17	/* User Datagram Protocol */
+-
+-/* IP "Don't Fragment" bit. */
+-#define SKCS_IP_DONT_FRAGMENT	SKCS_HTON16(0x4000)
+-
+-/* Add a byte offset to a pointer. */
+-#define SKCS_IDX(pPtr, Ofs)	((void *) ((char *) (pPtr) + (Ofs)))
+-
+-/*
+- * Macros that convert host to network representation and vice versa, i.e.
+- * little/big endian conversion on little endian machines only.
+- */
+-#ifdef SK_LITTLE_ENDIAN
+-#define SKCS_HTON16(Val16)	(((unsigned) (Val16) >> 8) | (((Val16) & 0xff) << 8))
+-#endif	/* SK_LITTLE_ENDIAN */
+-#ifdef SK_BIG_ENDIAN
+-#define SKCS_HTON16(Val16)	(Val16)
+-#endif	/* SK_BIG_ENDIAN */
+-#define SKCS_NTOH16(Val16)	SKCS_HTON16(Val16)
+-
+-/* typedefs *******************************************************************/
+-
+-/* function prototypes ********************************************************/
+-
+-/******************************************************************************
+- *
+- *	SkCsGetSendInfo - get checksum information for a send packet
+- *
+- * Description:
+- *	Get all checksum information necessary to send a TCP or UDP packet. The
+- *	function checks the IP header passed to it. If the high-level protocol
+- *	is either TCP or UDP the pseudo header checksum is calculated and
+- *	returned.
+- *
+- *	The function returns the total length of the IP header (including any
+- *	IP option fields), which is the same as the start offset of the IP data
+- *	which in turn is the start offset of the TCP or UDP header.
+- *
+- *	The function also returns the TCP or UDP pseudo header checksum, which
+- *	should be used as the start value for the hardware checksum calculation.
+- *	(Note that any actual pseudo header checksum can never calculate to
+- *	zero.)
+- *
+- * Note:
+- *	There is a bug in the GENESIS ASIC which may lead to wrong checksums.
+- *
+- * Arguments:
+- *	pAc - A pointer to the adapter context struct.
+- *
+- *	pIpHeader - Pointer to IP header. Must be at least the IP header *not*
+- *	including any option fields, i.e. at least 20 bytes.
+- *
+- *	Note: This pointer will be used to address 8-, 16-, and 32-bit
+- *	variables with the respective alignment offsets relative to the pointer.
+- *	Thus, the pointer should point to a 32-bit aligned address. If the
+- *	target system cannot address 32-bit variables on non 32-bit aligned
+- *	addresses, then the pointer *must* point to a 32-bit aligned address.
+- *
+- *	pPacketInfo - A pointer to the packet information structure for this
+- *	packet. Before calling this SkCsGetSendInfo(), the following field must
+- *	be initialized:
+- *
+- *		ProtocolFlags - Initialize with any combination of
+- *		SKCS_PROTO_XXX bit flags. SkCsGetSendInfo() will only work on
+- *		the protocols specified here. Any protocol(s) not specified
+- *		here will be ignored.
+- *
+- *		Note: Only one checksum can be calculated in hardware. Thus, if
+- *		SKCS_PROTO_IP is specified in the 'ProtocolFlags',
+- *		SkCsGetSendInfo() must calculate the IP header checksum in
+- *		software. It might be a better idea to have the calling
+- *		protocol stack calculate the IP header checksum.
+- *
+- * Returns: N/A
+- *	On return, the following fields in 'pPacketInfo' may or may not have
+- *	been filled with information, depending on the protocol(s) found in the
+- *	packet:
+- *
+- *	ProtocolFlags - Returns the SKCS_PROTO_XXX bit flags of the protocol(s)
+- *	that were both requested by the caller and actually found in the packet.
+- *	Protocol(s) not specified by the caller and/or not found in the packet
+- *	will have their respective SKCS_PROTO_XXX bit flags reset.
+- *
+- *	Note: For IP fragments, TCP and UDP packet information is ignored.
+- *
+- *	IpHeaderLength - The total length in bytes of the complete IP header
+- *	including any option fields is returned here. This is the start offset
+- *	of the IP data, i.e. the TCP or UDP header if present.
+- *
+- *	IpHeaderChecksum - If IP has been specified in the 'ProtocolFlags', the
+- *	16-bit Internet Checksum of the IP header is returned here. This value
+- *	is to be stored into the packet's 'IP Header Checksum' field.
+- *
+- *	PseudoHeaderChecksum - If this is a TCP or UDP packet and if TCP or UDP
+- *	has been specified in the 'ProtocolFlags', the 16-bit Internet Checksum
+- *	of the TCP or UDP pseudo header is returned here.
+- */
+-void SkCsGetSendInfo(
+-SK_AC				*pAc,			/* Adapter context struct. */
+-void				*pIpHeader,		/* IP header. */
+-SKCS_PACKET_INFO	*pPacketInfo,	/* Packet information struct. */
+-int					NetNumber)		/* Net number */
+-{
+-	/* Internet Header Version found in IP header. */
+-	unsigned InternetHeaderVersion;
+-
+-	/* Length of the IP header as found in IP header. */
+-	unsigned IpHeaderLength;
+-
+-	/* Bit field specifiying the desired/found protocols. */
+-	unsigned ProtocolFlags;
+-
+-	/* Next level protocol identifier found in IP header. */
+-	unsigned NextLevelProtocol;
+-
+-	/* Length of IP data portion. */
+-	unsigned IpDataLength;
+-
+-	/* TCP/UDP pseudo header checksum. */
+-	unsigned long PseudoHeaderChecksum;
+-
+-	/* Pointer to next level protocol statistics structure. */
+-	SKCS_PROTO_STATS *NextLevelProtoStats;
+-
+-	/* Temporary variable. */
+-	unsigned Tmp;
+-
+-	Tmp = *(SK_U8 *)
+-		SKCS_IDX(pIpHeader, SKCS_OFS_IP_HEADER_VERSION_AND_LENGTH);
+-
+-	/* Get the Internet Header Version (IHV). */
+-	/* Note: The IHV is stored in the upper four bits. */
+-
+-	InternetHeaderVersion = Tmp >> 4;
+-
+-	/* Check the Internet Header Version. */
+-	/* Note: We currently only support IP version 4. */
+-
+-	if (InternetHeaderVersion != 4) {	/* IPv4? */
+-		SK_DBG_MSG(pAc, SK_DBGMOD_CSUM, SK_DBGCAT_ERR | SK_DBGCAT_TX,
+-			("Tx: Unknown Internet Header Version %u.\n",
+-			InternetHeaderVersion));
+-		pPacketInfo->ProtocolFlags = 0;
+-		pAc->Csum.ProtoStats[NetNumber][SKCS_PROTO_STATS_IP].TxUnableCts++;
+-		return;
+-	}
+-
+-	/* Get the IP header length (IHL). */
+-	/*
+-	 * Note: The IHL is stored in the lower four bits as the number of
+-	 * 4-byte words.
+-	 */
+-
+-	IpHeaderLength = (Tmp & 0xf) * 4;
+-	pPacketInfo->IpHeaderLength = IpHeaderLength;
+-
+-	/* Check the IP header length. */
+-
+-	/* 04-Aug-1998 sw - Really check the IHL? Necessary? */
+-
+-	if (IpHeaderLength < 5*4) {
+-		SK_DBG_MSG(pAc, SK_DBGMOD_CSUM, SK_DBGCAT_ERR | SK_DBGCAT_TX,
+-			("Tx: Invalid IP Header Length %u.\n", IpHeaderLength));
+-		pPacketInfo->ProtocolFlags = 0;
+-		pAc->Csum.ProtoStats[NetNumber][SKCS_PROTO_STATS_IP].TxUnableCts++;
+-		return;
+-	}
+-
+-	/* This is an IPv4 frame with a header of valid length. */
+-
+-	pAc->Csum.ProtoStats[NetNumber][SKCS_PROTO_STATS_IP].TxOkCts++;
+-
+-	/* Check if we should calculate the IP header checksum. */
+-
+-	ProtocolFlags = pPacketInfo->ProtocolFlags;
+-
+-	if (ProtocolFlags & SKCS_PROTO_IP) {
+-		pPacketInfo->IpHeaderChecksum =
+-			SkCsCalculateChecksum(pIpHeader, IpHeaderLength);
+-	}
+-
+-	/* Get the next level protocol identifier. */
+-
+-	NextLevelProtocol =
+-		*(SK_U8 *) SKCS_IDX(pIpHeader, SKCS_OFS_IP_NEXT_LEVEL_PROTOCOL);
+-
+-	/*
+-	 * Check if this is a TCP or UDP frame and if we should calculate the
+-	 * TCP/UDP pseudo header checksum.
+-	 *
+-	 * Also clear all protocol bit flags of protocols not present in the
+-	 * frame.
+-	 */
+-
+-	if ((ProtocolFlags & SKCS_PROTO_TCP) != 0 &&
+-		NextLevelProtocol == SKCS_PROTO_ID_TCP) {
+-		/* TCP/IP frame. */
+-		ProtocolFlags &= SKCS_PROTO_TCP | SKCS_PROTO_IP;
+-		NextLevelProtoStats =
+-			&pAc->Csum.ProtoStats[NetNumber][SKCS_PROTO_STATS_TCP];
+-	}
+-	else if ((ProtocolFlags & SKCS_PROTO_UDP) != 0 &&
+-		NextLevelProtocol == SKCS_PROTO_ID_UDP) {
+-		/* UDP/IP frame. */
+-		ProtocolFlags &= SKCS_PROTO_UDP | SKCS_PROTO_IP;
+-		NextLevelProtoStats =
+-			&pAc->Csum.ProtoStats[NetNumber][SKCS_PROTO_STATS_UDP];
+-	}
+-	else {
+-		/*
+-		 * Either not a TCP or UDP frame and/or TCP/UDP processing not
+-		 * specified.
+-		 */
+-		pPacketInfo->ProtocolFlags = ProtocolFlags & SKCS_PROTO_IP;
+-		return;
+-	}
+-
+-	/* Check if this is an IP fragment. */
+-
+-	/*
+-	 * Note: An IP fragment has a non-zero "Fragment Offset" field and/or
+-	 * the "More Fragments" bit set. Thus, if both the "Fragment Offset"
+-	 * and the "More Fragments" are zero, it is *not* a fragment. We can
+-	 * easily check both at the same time since they are in the same 16-bit
+-	 * word.
+-	 */
+-
+-	if ((*(SK_U16 *)
+-		SKCS_IDX(pIpHeader, SKCS_OFS_IP_FLAGS_AND_FRAGMENT_OFFSET) &
+-		~SKCS_IP_DONT_FRAGMENT) != 0) {
+-		/* IP fragment; ignore all other protocols. */
+-		pPacketInfo->ProtocolFlags = ProtocolFlags & SKCS_PROTO_IP;
+-		NextLevelProtoStats->TxUnableCts++;
+-		return;
+-	}
+-
+-	/*
+-	 * Calculate the TCP/UDP pseudo header checksum.
+-	 */
+-
+-	/* Get total length of IP header and data. */
+-
+-	IpDataLength =
+-		*(SK_U16 *) SKCS_IDX(pIpHeader, SKCS_OFS_IP_TOTAL_LENGTH);
+-
+-	/* Get length of IP data portion. */
+-
+-	IpDataLength = SKCS_NTOH16(IpDataLength) - IpHeaderLength;
+-
+-	/* Calculate the sum of all pseudo header fields (16-bit). */
+-
+-	PseudoHeaderChecksum =
+-		(unsigned long) *(SK_U16 *) SKCS_IDX(pIpHeader,
+-			SKCS_OFS_IP_SOURCE_ADDRESS + 0) +
+-		(unsigned long) *(SK_U16 *) SKCS_IDX(pIpHeader,
+-			SKCS_OFS_IP_SOURCE_ADDRESS + 2) +
+-		(unsigned long) *(SK_U16 *) SKCS_IDX(pIpHeader,
+-			SKCS_OFS_IP_DESTINATION_ADDRESS + 0) +
+-		(unsigned long) *(SK_U16 *) SKCS_IDX(pIpHeader,
+-			SKCS_OFS_IP_DESTINATION_ADDRESS + 2) +
+-		(unsigned long) SKCS_HTON16(NextLevelProtocol) +
+-		(unsigned long) SKCS_HTON16(IpDataLength);
+-	
+-	/* Add-in any carries. */
+-
+-	SKCS_OC_ADD(PseudoHeaderChecksum, PseudoHeaderChecksum, 0);
+-
+-	/* Add-in any new carry. */
+-
+-	SKCS_OC_ADD(pPacketInfo->PseudoHeaderChecksum, PseudoHeaderChecksum, 0);
+-
+-	pPacketInfo->ProtocolFlags = ProtocolFlags;
+-	NextLevelProtoStats->TxOkCts++;	/* Success. */
+-}	/* SkCsGetSendInfo */
+-
+-
+-/******************************************************************************
+- *
+- *	SkCsGetReceiveInfo - verify checksum information for a received packet
+- *
+- * Description:
+- *	Verify a received frame's checksum. The function returns a status code
+- *	reflecting the result of the verification.
+- *
+- * Note:
+- *	Before calling this function you have to verify that the frame is
+- *	not padded and Checksum1 and Checksum2 are bigger than 1.
+- *
+- * Arguments:
+- *	pAc - Pointer to adapter context struct.
+- *
+- *	pIpHeader - Pointer to IP header. Must be at least the length in bytes
+- *	of the received IP header including any option fields. For UDP packets,
+- *	8 additional bytes are needed to access the UDP checksum.
+- *
+- *	Note: The actual length of the IP header is stored in the lower four
+- *	bits of the first octet of the IP header as the number of 4-byte words,
+- *	so it must be multiplied by four to get the length in bytes. Thus, the
+- *	maximum IP header length is 15 * 4 = 60 bytes.
+- *
+- *	Checksum1 - The first 16-bit Internet Checksum calculated by the
+- *	hardware starting at the offset returned by SkCsSetReceiveFlags().
+- *
+- *	Checksum2 - The second 16-bit Internet Checksum calculated by the
+- *	hardware starting at the offset returned by SkCsSetReceiveFlags().
+- *
+- * Returns:
+- *	SKCS_STATUS_UNKNOWN_IP_VERSION - Not an IP v4 frame.
+- *	SKCS_STATUS_IP_CSUM_ERROR - IP checksum error.
+- *	SKCS_STATUS_IP_CSUM_ERROR_TCP - IP checksum error in TCP frame.
+- *	SKCS_STATUS_IP_CSUM_ERROR_UDP - IP checksum error in UDP frame
+- *	SKCS_STATUS_IP_FRAGMENT - IP fragment (IP checksum ok).
+- *	SKCS_STATUS_IP_CSUM_OK - IP checksum ok (not a TCP or UDP frame).
+- *	SKCS_STATUS_TCP_CSUM_ERROR - TCP checksum error (IP checksum ok).
+- *	SKCS_STATUS_UDP_CSUM_ERROR - UDP checksum error (IP checksum ok).
+- *	SKCS_STATUS_TCP_CSUM_OK - IP and TCP checksum ok.
+- *	SKCS_STATUS_UDP_CSUM_OK - IP and UDP checksum ok.
+- *	SKCS_STATUS_IP_CSUM_OK_NO_UDP - IP checksum OK and no UDP checksum.
+- *
+- *	Note: If SKCS_OVERWRITE_STATUS is defined, the SKCS_STATUS_XXX values
+- *	returned here can be defined in some header file by the module using CSUM.
+- *	In this way, the calling module can assign return values for its own needs,
+- *	e.g. by assigning bit flags to the individual protocols.
+- */
+-SKCS_STATUS SkCsGetReceiveInfo(
+-SK_AC		*pAc,		/* Adapter context struct. */
+-void		*pIpHeader,	/* IP header. */
+-unsigned	Checksum1,	/* Hardware checksum 1. */
+-unsigned	Checksum2,	/* Hardware checksum 2. */
+-int			NetNumber)	/* Net number */
+-{
+-	/* Internet Header Version found in IP header. */
+-	unsigned InternetHeaderVersion;
+-
+-	/* Length of the IP header as found in IP header. */
+-	unsigned IpHeaderLength;
+-
+-	/* Length of IP data portion. */
+-	unsigned IpDataLength;
+-
+-	/* IP header checksum. */
+-	unsigned IpHeaderChecksum;
+-
+-	/* IP header options checksum, if any. */
+-	unsigned IpOptionsChecksum;
+-
+-	/* IP data checksum, i.e. TCP/UDP checksum. */
+-	unsigned IpDataChecksum;
+-
+-	/* Next level protocol identifier found in IP header. */
+-	unsigned NextLevelProtocol;
+-
+-	/* The checksum of the "next level protocol", i.e. TCP or UDP. */
+-	unsigned long NextLevelProtocolChecksum;
+-
+-	/* Pointer to next level protocol statistics structure. */
+-	SKCS_PROTO_STATS *NextLevelProtoStats;
+-
+-	/* Temporary variable. */
+-	unsigned Tmp;
+-
+-	Tmp = *(SK_U8 *)
+-		SKCS_IDX(pIpHeader, SKCS_OFS_IP_HEADER_VERSION_AND_LENGTH);
+-
+-	/* Get the Internet Header Version (IHV). */
+-	/* Note: The IHV is stored in the upper four bits. */
+-
+-	InternetHeaderVersion = Tmp >> 4;
+-
+-	/* Check the Internet Header Version. */
+-	/* Note: We currently only support IP version 4. */
+-
+-	if (InternetHeaderVersion != 4) {	/* IPv4? */
+-		SK_DBG_MSG(pAc, SK_DBGMOD_CSUM, SK_DBGCAT_ERR | SK_DBGCAT_RX,
+-			("Rx: Unknown Internet Header Version %u.\n",
+-			InternetHeaderVersion));
+-		pAc->Csum.ProtoStats[NetNumber][SKCS_PROTO_STATS_IP].RxUnableCts++;
+-		return (SKCS_STATUS_UNKNOWN_IP_VERSION);
+-	}
+-
+-	/* Get the IP header length (IHL). */
+-	/*
+-	 * Note: The IHL is stored in the lower four bits as the number of
+-	 * 4-byte words.
+-	 */
+-
+-	IpHeaderLength = (Tmp & 0xf) * 4;
+-
+-	/* Check the IP header length. */
+-
+-	/* 04-Aug-1998 sw - Really check the IHL? Necessary? */
+-
+-	if (IpHeaderLength < 5*4) {
+-		SK_DBG_MSG(pAc, SK_DBGMOD_CSUM, SK_DBGCAT_ERR | SK_DBGCAT_RX,
+-			("Rx: Invalid IP Header Length %u.\n", IpHeaderLength));
+-		pAc->Csum.ProtoStats[NetNumber][SKCS_PROTO_STATS_IP].RxErrCts++;
+-		return (SKCS_STATUS_IP_CSUM_ERROR);
+-	}
+-
+-	/* This is an IPv4 frame with a header of valid length. */
+-
+-	/* Get the IP header and data checksum. */
+-
+-	IpDataChecksum = Checksum2;
+-
+-	/*
+-	 * The IP header checksum is calculated as follows:
+-	 *
+-	 *	IpHeaderChecksum = Checksum1 - Checksum2
+-	 */
+-
+-	SKCS_OC_SUB(IpHeaderChecksum, Checksum1, Checksum2);
+-
+-	/* Check if any IP header options. */
+-
+-	if (IpHeaderLength > SKCS_IP_HEADER_SIZE) {
+-
+-		/* Get the IP options checksum. */
+-
+-		IpOptionsChecksum = SkCsCalculateChecksum(
+-			SKCS_IDX(pIpHeader, SKCS_IP_HEADER_SIZE),
+-			IpHeaderLength - SKCS_IP_HEADER_SIZE);
+-
+-		/* Adjust the IP header and IP data checksums. */
+-
+-		SKCS_OC_ADD(IpHeaderChecksum, IpHeaderChecksum, IpOptionsChecksum);
+-
+-		SKCS_OC_SUB(IpDataChecksum, IpDataChecksum, IpOptionsChecksum);
+-	}
+-
+-	/*
+-	 * Check if the IP header checksum is ok.
+-	 *
+-	 * NOTE: We must check the IP header checksum even if the caller just wants
+-	 * us to check upper-layer checksums, because we cannot do any further
+-	 * processing of the packet without a valid IP checksum.
+-	 */
+-	
+-	/* Get the next level protocol identifier. */
+-	
+-	NextLevelProtocol = *(SK_U8 *)
+-		SKCS_IDX(pIpHeader, SKCS_OFS_IP_NEXT_LEVEL_PROTOCOL);
+-
+-	if (IpHeaderChecksum != 0xffff) {
+-		pAc->Csum.ProtoStats[NetNumber][SKCS_PROTO_STATS_IP].RxErrCts++;
+-		/* the NDIS tester wants to know the upper level protocol too */
+-		if (NextLevelProtocol == SKCS_PROTO_ID_TCP) {
+-			return(SKCS_STATUS_IP_CSUM_ERROR_TCP);
+-		}
+-		else if (NextLevelProtocol == SKCS_PROTO_ID_UDP) {
+-			return(SKCS_STATUS_IP_CSUM_ERROR_UDP);
+-		}
+-		return (SKCS_STATUS_IP_CSUM_ERROR);
+-	}
+-
+-	/*
+-	 * Check if this is a TCP or UDP frame and if we should calculate the
+-	 * TCP/UDP pseudo header checksum.
+-	 *
+-	 * Also clear all protocol bit flags of protocols not present in the
+-	 * frame.
+-	 */
+-
+-	if ((pAc->Csum.ReceiveFlags[NetNumber] & SKCS_PROTO_TCP) != 0 &&
+-		NextLevelProtocol == SKCS_PROTO_ID_TCP) {
+-		/* TCP/IP frame. */
+-		NextLevelProtoStats =
+-			&pAc->Csum.ProtoStats[NetNumber][SKCS_PROTO_STATS_TCP];
+-	}
+-	else if ((pAc->Csum.ReceiveFlags[NetNumber] & SKCS_PROTO_UDP) != 0 &&
+-		NextLevelProtocol == SKCS_PROTO_ID_UDP) {
+-		/* UDP/IP frame. */
+-		NextLevelProtoStats =
+-			&pAc->Csum.ProtoStats[NetNumber][SKCS_PROTO_STATS_UDP];
+-	}
+-	else {
+-		/*
+-		 * Either not a TCP or UDP frame and/or TCP/UDP processing not
+-		 * specified.
+-		 */
+-		return (SKCS_STATUS_IP_CSUM_OK);
+-	}
+-
+-	/* Check if this is an IP fragment. */
+-
+-	/*
+-	 * Note: An IP fragment has a non-zero "Fragment Offset" field and/or
+-	 * the "More Fragments" bit set. Thus, if both the "Fragment Offset"
+-	 * and the "More Fragments" are zero, it is *not* a fragment. We can
+-	 * easily check both at the same time since they are in the same 16-bit
+-	 * word.
+-	 */
+-
+-	if ((*(SK_U16 *)
+-		SKCS_IDX(pIpHeader, SKCS_OFS_IP_FLAGS_AND_FRAGMENT_OFFSET) &
+-		~SKCS_IP_DONT_FRAGMENT) != 0) {
+-		/* IP fragment; ignore all other protocols. */
+-		NextLevelProtoStats->RxUnableCts++;
+-		return (SKCS_STATUS_IP_FRAGMENT);
+-	}
+-
+-	/*
+-	 * 08-May-2000 ra
+-	 *
+-	 * From RFC 768 (UDP)
+-	 * If the computed checksum is zero, it is transmitted as all ones (the
+-	 * equivalent in one's complement arithmetic).  An all zero transmitted
+-	 * checksum value means that the transmitter generated no checksum (for
+-	 * debugging or for higher level protocols that don't care).
+-	 */
+-
+-	if (NextLevelProtocol == SKCS_PROTO_ID_UDP &&
+-		*(SK_U16*)SKCS_IDX(pIpHeader, IpHeaderLength + 6) == 0x0000) {
+-
+-		NextLevelProtoStats->RxOkCts++;
+-		
+-		return (SKCS_STATUS_IP_CSUM_OK_NO_UDP);
+-	}
+-
+-	/*
+-	 * Calculate the TCP/UDP checksum.
+-	 */
+-
+-	/* Get total length of IP header and data. */
+-
+-	IpDataLength =
+-		*(SK_U16 *) SKCS_IDX(pIpHeader, SKCS_OFS_IP_TOTAL_LENGTH);
+-
+-	/* Get length of IP data portion. */
+-
+-	IpDataLength = SKCS_NTOH16(IpDataLength) - IpHeaderLength;
+-
+-	NextLevelProtocolChecksum =
+-
+-		/* Calculate the pseudo header checksum. */
+-
+-		(unsigned long) *(SK_U16 *) SKCS_IDX(pIpHeader,
+-			SKCS_OFS_IP_SOURCE_ADDRESS + 0) +
+-		(unsigned long) *(SK_U16 *) SKCS_IDX(pIpHeader,
+-			SKCS_OFS_IP_SOURCE_ADDRESS + 2) +
+-		(unsigned long) *(SK_U16 *) SKCS_IDX(pIpHeader,
+-			SKCS_OFS_IP_DESTINATION_ADDRESS + 0) +
+-		(unsigned long) *(SK_U16 *) SKCS_IDX(pIpHeader,
+-			SKCS_OFS_IP_DESTINATION_ADDRESS + 2) +
+-		(unsigned long) SKCS_HTON16(NextLevelProtocol) +
+-		(unsigned long) SKCS_HTON16(IpDataLength) +
+-
+-		/* Add the TCP/UDP header checksum. */
+-
+-		(unsigned long) IpDataChecksum;
+-
+-	/* Add-in any carries. */
+-
+-	SKCS_OC_ADD(NextLevelProtocolChecksum, NextLevelProtocolChecksum, 0);
+-
+-	/* Add-in any new carry. */
+-
+-	SKCS_OC_ADD(NextLevelProtocolChecksum, NextLevelProtocolChecksum, 0);
+-
+-	/* Check if the TCP/UDP checksum is ok. */
+-
+-	if ((unsigned) NextLevelProtocolChecksum == 0xffff) {
+-
+-		/* TCP/UDP checksum ok. */
+-
+-		NextLevelProtoStats->RxOkCts++;
+-
+-		return (NextLevelProtocol == SKCS_PROTO_ID_TCP ?
+-			SKCS_STATUS_TCP_CSUM_OK : SKCS_STATUS_UDP_CSUM_OK);
+-	}
+-	
+-	/* TCP/UDP checksum error. */
+-
+-	NextLevelProtoStats->RxErrCts++;
+-
+-	return (NextLevelProtocol == SKCS_PROTO_ID_TCP ?
+-		SKCS_STATUS_TCP_CSUM_ERROR : SKCS_STATUS_UDP_CSUM_ERROR);
+-}	/* SkCsGetReceiveInfo */
+-
+-
+-/******************************************************************************
+- *
+- *	SkCsSetReceiveFlags - set checksum receive flags
+- *
+- * Description:
+- *	Use this function to set the various receive flags. According to the
+- *	protocol flags set by the caller, the start offsets within received
+- *	packets of the two hardware checksums are returned. These offsets must
+- *	be stored in all receive descriptors.
+- *
+- * Arguments:
+- *	pAc - Pointer to adapter context struct.
+- *
+- *	ReceiveFlags - Any combination of SK_PROTO_XXX flags of the protocols
+- *	for which the caller wants checksum information on received frames.
+- *
+- *	pChecksum1Offset - The start offset of the first receive descriptor
+- *	hardware checksum to be calculated for received frames is returned
+- *	here.
+- *
+- *	pChecksum2Offset - The start offset of the second receive descriptor
+- *	hardware checksum to be calculated for received frames is returned
+- *	here.
+- *
+- * Returns: N/A
+- *	Returns the two hardware checksum start offsets.
+- */
+-void SkCsSetReceiveFlags(
+-SK_AC		*pAc,				/* Adapter context struct. */
+-unsigned	ReceiveFlags,		/* New receive flags. */
+-unsigned	*pChecksum1Offset,	/* Offset for hardware checksum 1. */
+-unsigned	*pChecksum2Offset,	/* Offset for hardware checksum 2. */
+-int			NetNumber)
+-{
+-	/* Save the receive flags. */
+-
+-	pAc->Csum.ReceiveFlags[NetNumber] = ReceiveFlags;
+-
+-	/* First checksum start offset is the IP header. */
+-	*pChecksum1Offset = SKCS_MAC_HEADER_SIZE;
+-
+-	/*
+-	 * Second checksum start offset is the IP data. Note that this may vary
+-	 * if there are any IP header options in the actual packet.
+-	 */
+-	*pChecksum2Offset = SKCS_MAC_HEADER_SIZE + SKCS_IP_HEADER_SIZE;
+-}	/* SkCsSetReceiveFlags */
+-
+-#ifndef SK_CS_CALCULATE_CHECKSUM
+-
+-/******************************************************************************
+- *
+- *	SkCsCalculateChecksum - calculate checksum for specified data
+- *
+- * Description:
+- *	Calculate and return the 16-bit Internet Checksum for the specified
+- *	data.
+- *
+- * Arguments:
+- *	pData - Pointer to data for which the checksum shall be calculated.
+- *	Note: The pointer should be aligned on a 16-bit boundary.
+- *
+- *	Length - Length in bytes of data to checksum.
+- *
+- * Returns:
+- *	The 16-bit Internet Checksum for the specified data.
+- *
+- *	Note: The checksum is calculated in the machine's natural byte order,
+- *	i.e. little vs. big endian. Thus, the resulting checksum is different
+- *	for the same input data on little and big endian machines.
+- *
+- *	However, when written back to the network packet, the byte order is
+- *	always in correct network order.
+- */
+-unsigned SkCsCalculateChecksum(
+-void		*pData,		/* Data to checksum. */
+-unsigned	Length)		/* Length of data. */
+-{
+-	SK_U16 *pU16;		/* Pointer to the data as 16-bit words. */
+-	unsigned long Checksum;	/* Checksum; must be at least 32 bits. */
+-
+-	/* Sum up all 16-bit words. */
+-
+-	pU16 = (SK_U16 *) pData;
+-	for (Checksum = 0; Length > 1; Length -= 2) {
+-		Checksum += *pU16++;
+-	}
+-
+-	/* If this is an odd number of bytes, add-in the last byte. */
+-
+-	if (Length > 0) {
+-#ifdef SK_BIG_ENDIAN
+-		/* Add the last byte as the high byte. */
+-		Checksum += ((unsigned) *(SK_U8 *) pU16) << 8;
+-#else	/* !SK_BIG_ENDIAN */
+-		/* Add the last byte as the low byte. */
+-		Checksum += *(SK_U8 *) pU16;
+-#endif	/* !SK_BIG_ENDIAN */
+-	}
+-
+-	/* Add-in any carries. */
+-
+-	SKCS_OC_ADD(Checksum, Checksum, 0);
+-
+-	/* Add-in any new carry. */
+-
+-	SKCS_OC_ADD(Checksum, Checksum, 0);
+-
+-	/* Note: All bits beyond the 16-bit limit are now zero. */
+-
+-	return ((unsigned) Checksum);
+-}	/* SkCsCalculateChecksum */
+-
+-#endif /* SK_CS_CALCULATE_CHECKSUM */
+-
+-/******************************************************************************
+- *
+- *	SkCsEvent - the CSUM event dispatcher
+- *
+- * Description:
+- *	This is the event handler for the CSUM module.
+- *
+- * Arguments:
+- *	pAc - Pointer to adapter context.
+- *
+- *	Ioc - I/O context.
+- *
+- *	Event -	 Event id.
+- *
+- *	Param - Event dependent parameter.
+- *
+- * Returns:
+- *	The 16-bit Internet Checksum for the specified data.
+- *
+- *	Note: The checksum is calculated in the machine's natural byte order,
+- *	i.e. little vs. big endian. Thus, the resulting checksum is different
+- *	for the same input data on little and big endian machines.
+- *
+- *	However, when written back to the network packet, the byte order is
+- *	always in correct network order.
+- */
+-int SkCsEvent(
+-SK_AC		*pAc,	/* Pointer to adapter context. */
+-SK_IOC		Ioc,	/* I/O context. */
+-SK_U32		Event,	/* Event id. */
+-SK_EVPARA	Param)	/* Event dependent parameter. */
+-{
+-	int ProtoIndex;
+-	int	NetNumber;
+-
+-	switch (Event) {
+-	/*
+-	 * Clear protocol statistics.
+-	 *
+-	 * Param - Protocol index, or -1 for all protocols.
+-	 *		 - Net number.
+-	 */
+-	case SK_CSUM_EVENT_CLEAR_PROTO_STATS:
+-
+-		ProtoIndex = (int)Param.Para32[1];
+-		NetNumber = (int)Param.Para32[0];
+-		if (ProtoIndex < 0) {	/* Clear for all protocols. */
+-			if (NetNumber >= 0) {
+-				SK_MEMSET(&pAc->Csum.ProtoStats[NetNumber][0], 0,
+-					sizeof(pAc->Csum.ProtoStats[NetNumber]));
+-			}
+-		}
+-		else {					/* Clear for individual protocol. */
+-			SK_MEMSET(&pAc->Csum.ProtoStats[NetNumber][ProtoIndex], 0,
+-				sizeof(pAc->Csum.ProtoStats[NetNumber][ProtoIndex]));
+-		}
+-		break;
+-	default:
+-		break;
+-	}
+-	return (0);	/* Success. */
+-}	/* SkCsEvent */
+-
+-#endif	/* SK_USE_CSUM */
 diff -Nru a/drivers/net/sk98lin/skethtool.c b/drivers/net/sk98lin/skethtool.c
---- a/drivers/net/sk98lin/skethtool.c	2004-11-03 14:31:05 -08:00
-+++ b/drivers/net/sk98lin/skethtool.c	2004-11-03 14:31:05 -08:00
-@@ -39,6 +39,7 @@
- 
- #include <linux/ethtool.h>
- #include <linux/timer.h>
-+#include <linux/delay.h>
- 
- /******************************************************************************
-  *
-@@ -320,6 +321,122 @@
- 	*data++ = pAC->stats.tx_window_errors;
+--- a/drivers/net/sk98lin/skethtool.c	2004-11-10 11:29:48 -08:00
++++ b/drivers/net/sk98lin/skethtool.c	2004-11-10 11:29:48 -08:00
+@@ -542,9 +542,90 @@
+         return ret ? -EIO : 0;
  }
  
-+
 +/*****************************************************************************
 + *
-+ * 	toggleLeds - Changes the LED state of an adapter
++ * 	setScatterGather
 + *
 + * Description:
-+ *	This function changes the current state of all LEDs of an adapter so
-+ *	that it can be located by a user. 
++ *	Enable/disable scatter/gather DMA setting.
 + *
-+ * Returns:	N/A
-+ *
-+ */
-+static void toggleLeds(DEV_NET *pNet, int on)
-+{
-+	SK_AC *pAC = pNet->pAC;
-+	int port = pNet->PortNr;
-+	void __iomem *io = pAC->IoBase;
-+
-+	if (pAC->GIni.GIGenesis) {
-+		SK_OUT8(io, MR_ADDR(port,LNK_LED_REG), 
-+			on ? SK_LNK_ON : SK_LNK_OFF);
-+		SkGeYellowLED(pAC, io, 
-+			      on ? (LED_ON >> 1) : (LED_OFF >> 1));
-+		SkGeXmitLED(pAC, io, MR_ADDR(port,RX_LED_INI),
-+			    on ? SK_LED_TST : SK_LED_DIS);
-+
-+		if (pAC->GIni.GP[port].PhyType == SK_PHY_BCOM)
-+			SkXmPhyWrite(pAC, io, port, PHY_BCOM_P_EXT_CTRL, 
-+				     on ? PHY_B_PEC_LED_ON : PHY_B_PEC_LED_OFF);
-+		else if (pAC->GIni.GP[port].PhyType == SK_PHY_LONE)
-+			SkXmPhyWrite(pAC, io, port, PHY_LONE_LED_CFG,
-+				     on ? 0x0800 : PHY_L_LC_LEDT);
-+		else
-+			SkGeXmitLED(pAC, io, MR_ADDR(port,TX_LED_INI),
-+				    on ? SK_LED_TST : SK_LED_DIS);
-+	} else {
-+		const u16 YukLedOn = (PHY_M_LED_MO_DUP(MO_LED_ON)  |
-+				      PHY_M_LED_MO_10(MO_LED_ON)   |
-+				      PHY_M_LED_MO_100(MO_LED_ON)  |
-+				      PHY_M_LED_MO_1000(MO_LED_ON) | 
-+				      PHY_M_LED_MO_RX(MO_LED_ON));
-+		const u16  YukLedOff = (PHY_M_LED_MO_DUP(MO_LED_OFF)  |
-+					PHY_M_LED_MO_10(MO_LED_OFF)   |
-+					PHY_M_LED_MO_100(MO_LED_OFF)  |
-+					PHY_M_LED_MO_1000(MO_LED_OFF) | 
-+					PHY_M_LED_MO_RX(MO_LED_OFF));
-+	
-+
-+		SkGmPhyWrite(pAC,io,port,PHY_MARV_LED_CTRL,0);
-+		SkGmPhyWrite(pAC,io,port,PHY_MARV_LED_OVER, 
-+			     on ? YukLedOn : YukLedOff);
-+	}
-+}
-+
-+/*****************************************************************************
-+ *
-+ * 	skGeBlinkTimer - Changes the LED state of an adapter
-+ *
-+ * Description:
-+ *	This function changes the current state of all LEDs of an adapter so
-+ *	that it can be located by a user. If the requested time interval for
-+ *	this test has elapsed, this function cleans up everything that was 
-+ *	temporarily setup during the locate NIC test. This involves of course
-+ *	also closing or opening any adapter so that the initial board state 
-+ *	is recovered.
-+ *
-+ * Returns:	N/A
++ * Returns:    0 if successful
 + *
 + */
-+void SkGeBlinkTimer(unsigned long data)
-+{
-+	struct net_device *dev = (struct net_device *) data;
-+	DEV_NET *pNet = netdev_priv(dev);
-+	SK_AC *pAC = pNet->pAC;
-+
-+	toggleLeds(pNet, pAC->LedsOn);
-+
-+	pAC->LedsOn = !pAC->LedsOn;
-+	mod_timer(&pAC->BlinkTimer, jiffies + HZ/4);
-+}
-+
-+/*****************************************************************************
-+ *
-+ * 	locateDevice - start the locate NIC feature of the elected adapter 
-+ *
-+ * Description:
-+ *	This function is used if the user want to locate a particular NIC.
-+ *	All LEDs are regularly switched on and off, so the NIC can easily
-+ *	be identified.
-+ *
-+ * Returns:	
-+ *	==0:	everything fine, no error, locateNIC test was started
-+ *	!=0:	one locateNIC test runs already
-+ *
-+ */
-+static int locateDevice(struct net_device *dev, u32 data)
++static int setScatterGather(struct net_device *dev, u32 data)
 +{
 +	DEV_NET *pNet = netdev_priv(dev);
 +	SK_AC *pAC = pNet->pAC;
 +
-+	if(!data || data > (u32)(MAX_SCHEDULE_TIMEOUT / HZ))
-+		data = (u32)(MAX_SCHEDULE_TIMEOUT / HZ);
++	if (!pAC->ChipsetType)
++		return -EOPNOTSUPP;
++	return ethtool_op_set_sg(dev, data);
++}
 +
-+	/* start blinking */
-+	pAC->LedsOn = 0;
-+	mod_timer(&pAC->BlinkTimer, jiffies);
-+	msleep_interruptible(data * 1000);
++/*****************************************************************************
++ *
++ * 	setTxChecksum
++ *
++ * Description:
++ *	Enable/disable transmit checksumming
++ *
++ * Returns:   0 if successful
++ *
++ */
++static int setTxChecksum(struct net_device *dev, u32 data)
++{
++	DEV_NET *pNet = netdev_priv(dev);
++	SK_AC *pAC = pNet->pAC;
 +
-+	set_current_state(TASK_INTERRUPTIBLE);
-+	schedule_timeout(data * HZ);
-+	del_timer_sync(&pAC->BlinkTimer);
-+	toggleLeds(pNet, 0);
++	if (!pAC->ChipsetType)
++		return -EOPNOTSUPP;
++	return ethtool_op_set_tx_csum(dev, data);
++}
 +
++/*****************************************************************************
++ *
++ * 	getRxChecksum
++ *
++ * Description:
++ *	Report on state of receive checksumming
++ *
++ * Returns:   0 if disabled, 1 if enabled
++ *
++ */
++static u32 getRxChecksum(struct net_device *dev)
++{
++	DEV_NET *pNet = netdev_priv(dev);
++	SK_AC *pAC = pNet->pAC;
++
++	return pAC->RxPort[pNet->PortNr].UseRxCsum;
++}
++/*****************************************************************************
++ *
++ * 	setRxChecksum
++ *
++ * Description:
++ *	Enable/disable transmit checksumming
++ *
++ * Returns:   0 if successful
++ *
++ */
++static int setRxChecksum(struct net_device *dev, u32 data)
++{
++	DEV_NET *pNet = netdev_priv(dev);
++	SK_AC *pAC = pNet->pAC;
++
++	if (data &&
++	    !(pAC->GIni.GIChipId == CHIP_ID_GENESIS || pAC->ChipsetType))
++		return -EOPNOTSUPP;
++
++	pAC->RxPort[pNet->PortNr].UseRxCsum = data;
 +	return 0;
 +}
 +
  struct ethtool_ops SkGeEthtoolOps = {
  	.get_settings		= getSettings,
  	.set_settings		= setSettings,
-@@ -327,4 +444,5 @@
++	.get_link		= ethtool_op_get_link,
+ 	.get_drvinfo		= getDriverInfo,
  	.get_strings		= getStrings,
  	.get_stats_count	= getStatsCount,
- 	.get_ethtool_stats	= getEthtoolStats,
-+	.phys_id		= locateDevice,
+@@ -552,4 +633,10 @@
+ 	.phys_id		= locateDevice,
+ 	.get_pauseparam		= getPauseParams,
+ 	.set_pauseparam		= setPauseParams,
++	.get_sg			= ethtool_op_get_sg,
++	.set_sg			= setScatterGather,
++	.get_rx_csum		= getRxChecksum,
++	.set_rx_csum		= setRxChecksum,
++	.get_tx_csum		= ethtool_op_get_tx_csum,
++	.set_tx_csum		= setTxChecksum,
  };
 diff -Nru a/drivers/net/sk98lin/skge.c b/drivers/net/sk98lin/skge.c
---- a/drivers/net/sk98lin/skge.c	2004-11-03 14:31:05 -08:00
-+++ b/drivers/net/sk98lin/skge.c	2004-11-03 14:31:05 -08:00
-@@ -245,6 +245,7 @@
- extern void SkDimDisplayModerationSettings(SK_AC *pAC);
- extern void SkDimStartModerationTimer(SK_AC *pAC);
- extern void SkDimModerate(SK_AC *pAC);
-+extern void SkGeBlinkTimer(unsigned long data);
+--- a/drivers/net/sk98lin/skge.c	2004-11-10 11:29:48 -08:00
++++ b/drivers/net/sk98lin/skge.c	2004-11-10 11:29:48 -08:00
+@@ -463,6 +463,11 @@
+ 	memset(&pAC->PnmiBackup, 0, sizeof(SK_PNMI_STRUCT_DATA));
+ 	memcpy(&pAC->PnmiBackup, &pAC->PnmiStruct, sizeof(SK_PNMI_STRUCT_DATA));
  
- #ifdef DEBUG
- static void	DumpMsg(struct sk_buff*, char*);
-@@ -502,6 +503,11 @@
- 		spin_lock_init(&pAC->RxPort[i].RxDesRingLock);
- 	}
- 	spin_lock_init(&pAC->SlowPathLock);
++#ifdef USE_SK_RX_CHECKSUM
++	pAC->RxPort[0].UseRxCsum = SK_TRUE;
++	pAC->RxPort[1].UseRxCsum = SK_TRUE;
++#endif
 +
-+	/* setup phy_id blink timer */
-+	pAC->BlinkTimer.function = SkGeBlinkTimer;
-+	pAC->BlinkTimer.data = (unsigned long) dev;
-+	init_timer(&pAC->BlinkTimer);
+ 	pci_set_drvdata(pdev, dev);
+ 	return 0;
  
- 	/* level 0 init common modules here */
- 	
+@@ -503,7 +508,9 @@
+ 		dev->features |= NETIF_F_HIGHDMA;
+ 
+ 	if (pAC->GIni.GIChipId != CHIP_ID_GENESIS) {
++#ifdef SK_ZEROCOPY
+ 		dev->features |= NETIF_F_SG;
++#endif
+ #ifdef USE_SK_TX_CHECKSUM
+ 		dev->features |= NETIF_F_IP_CSUM;
+ #endif
+@@ -871,11 +878,6 @@
+ 		goto out_free_irq;
+ 	}
+ 
+-	SkCsSetReceiveFlags(pAC,
+-		SKCS_PROTO_IP | SKCS_PROTO_TCP | SKCS_PROTO_UDP,
+-		&pAC->CsOfs1, &pAC->CsOfs2, 0);
+-	pAC->CsOfs = (pAC->CsOfs2 << 16) | pAC->CsOfs1;
+-
+ 	BoardInitMem(pAC);
+ 
+ 	/* tschilling: New common function with minimum size check. */
+@@ -1092,7 +1094,8 @@
+ 		/* set the pointers right */
+ 		pDescr->VNextRxd = VNextDescr & 0xffffffffULL;
+ 		pDescr->pNextRxd = pNextDescr;
+-		pDescr->TcpSumStarts = pAC->CsOfs;
++		pDescr->TcpSumStarts = SK_CHECKSUM_OFFSET_1 
++			| (SK_CHECKSUM_OFFSET_2 << 16);
+ 
+ 		/* advance one step */
+ 		pPrevDescr = pDescr;
+@@ -2179,7 +2182,8 @@
+ 		SK_PNMI_CNT_NO_RX_BUF(pAC, pRxPort->PortIndex);
+ 		return(SK_FALSE);
+ 	}
+-	skb_reserve(pMsgBlock, 2); /* to align IP frames */
++
++	skb_reserve(pMsgBlock, NET_IP_ALIGN); /* to align IP frames */
+ 	/* skb allocated ok, so add buffer */
+ 	pRxd = pRxPort->pRxdRingTail;
+ 	pRxPort->pRxdRingTail = pRxd->pNextRxd;
+@@ -2216,12 +2220,10 @@
+  *
+  * Returns: N/A
+  */
+-static void ReQueueRxBuffer(
++static inline void ReQueueRxBuffer(
+ SK_AC		*pAC,		/* pointer to the adapter context struct */
+ RX_PORT		*pRxPort,	/* ptr to port struct of ring to fill */
+-struct sk_buff	*pMsg,		/* pointer to the buffer */
+-SK_U32		PhysHigh,	/* phys address high dword */
+-SK_U32		PhysLow)	/* phys address low dword */
++struct sk_buff	*pMsg)		/* pointer to the buffer */
+ {
+ RXD		*pRxd;		/* the rxd to fill */
+ SK_U16		Length;		/* data fragment length */
+@@ -2231,8 +2233,6 @@
+ 	pRxPort->RxdRingFree--;
+ 	Length = pAC->RxBufSize;
+ 
+-	pRxd->VDataLow  = PhysLow;
+-	pRxd->VDataHigh = PhysHigh;
+ 	pRxd->pMBuf     = pMsg;
+ 	pRxd->RBControl = BMU_OWN       | 
+ 			  BMU_STF       |
+@@ -2263,7 +2263,6 @@
+ struct sk_buff	*pMsg;			/* pointer to message holding frame */
+ struct sk_buff	*pNewMsg;		/* pointer to a new message for copying frame */
+ int				FrameLength;	/* total length of received frame */
+-int				IpFrameLength;
+ SK_MBUF			*pRlmtMbuf;		/* ptr to a buffer for giving a frame to rlmt */
+ SK_EVPARA		EvPara;			/* an event parameter union */	
+ unsigned long	Flags;			/* for spin lock */
+@@ -2276,10 +2275,6 @@
+ SK_BOOL  IsBadFrame; 			/* Bad frame */
+ 
+ SK_U32			FrameStat;
+-unsigned short	Csum1;
+-unsigned short	Csum2;
+-unsigned short	Type;
+-int				Result;
+ SK_U64			PhysAddr;
+ 
+ rx_start:	
+@@ -2384,8 +2379,7 @@
+ 				"Control: %x\nRxStat: %x\n",
+ 				Control, FrameStat));
+ 
+-			ReQueueRxBuffer(pAC, pRxPort, pMsg,
+-				pRxd->VDataHigh, pRxd->VDataLow);
++			ReQueueRxBuffer(pAC, pRxPort, pMsg);
+ 
+ 			continue;
+ 		}
+@@ -2414,13 +2408,11 @@
+ 						       (dma_addr_t) PhysAddr,
+ 						       FrameLength,
+ 						       PCI_DMA_FROMDEVICE);
+-			ReQueueRxBuffer(pAC, pRxPort, pMsg,
+-				pRxd->VDataHigh, pRxd->VDataLow);
++			ReQueueRxBuffer(pAC, pRxPort, pMsg);
+ 
+ 			pMsg = pNewMsg;
+ 
+-		}
+-		else {
++		} else {
+ 			/*
+ 			 * if large frame, or SKB allocation failed, pass
+ 			 * the SKB directly to the networking
+@@ -2437,67 +2429,13 @@
+ 
+ 			/* set length in message */
+ 			skb_put(pMsg, FrameLength);
+-			/* hardware checksum */
+-			Type = ntohs(*((short*)&pMsg->data[12]));
++			pMsg->ip_summed = CHECKSUM_NONE; /* initial default */
+ 
+-#ifdef USE_SK_RX_CHECKSUM
+-			if (Type == 0x800) {
+-				Csum1=le16_to_cpu(pRxd->TcpSums & 0xffff);
+-				Csum2=le16_to_cpu((pRxd->TcpSums >> 16) & 0xffff);
+-				IpFrameLength = (int) ntohs((unsigned short)
+-								((unsigned short *) pMsg->data)[8]);
+-
+-				/*
+-				 * Test: If frame is padded, a check is not possible!
+-				 * Frame not padded? Length difference must be 14 (0xe)!
+-				 */
+-				if ((FrameLength - IpFrameLength) != 0xe) {
+-				/* Frame padded => TCP offload not possible! */
+-					pMsg->ip_summed = CHECKSUM_NONE;
+-				} else {
+-				/* Frame not padded => TCP offload! */
+-					if ((((Csum1 & 0xfffe) && (Csum2 & 0xfffe)) &&
+-						(pAC->GIni.GIChipId == CHIP_ID_GENESIS)) ||
+-						(pAC->ChipsetType)) {
+-						Result = SkCsGetReceiveInfo(pAC,
+-							&pMsg->data[14],
+-							Csum1, Csum2, pRxPort->PortIndex);
+-						if (Result ==
+-							SKCS_STATUS_IP_FRAGMENT ||
+-							Result ==
+-							SKCS_STATUS_IP_CSUM_OK ||
+-							Result ==
+-							SKCS_STATUS_TCP_CSUM_OK ||
+-							Result ==
+-							SKCS_STATUS_UDP_CSUM_OK) {
+-								pMsg->ip_summed =
+-								CHECKSUM_UNNECESSARY;
+-						}
+-						else if (Result ==
+-							SKCS_STATUS_TCP_CSUM_ERROR ||
+-							Result ==
+-							SKCS_STATUS_UDP_CSUM_ERROR ||
+-							Result ==
+-							SKCS_STATUS_IP_CSUM_ERROR_UDP ||
+-							Result ==
+-							SKCS_STATUS_IP_CSUM_ERROR_TCP ||
+-							Result ==
+-							SKCS_STATUS_IP_CSUM_ERROR ) {
+-							/* HW Checksum error */
+-							SK_DBG_MSG(NULL, SK_DBGMOD_DRV,
+-							SK_DBGCAT_DRV_RX_PROGRESS,
+-							("skge: CRC error. Frame dropped!\n"));
+-							goto rx_failed;
+-						} else {
+-								pMsg->ip_summed =
+-								CHECKSUM_NONE;
+-						}
+-					}/* checksumControl calculation valid */
+-				} /* Frame length check */
+-			} /* IP frame */
+-#else
+-			pMsg->ip_summed = CHECKSUM_NONE;	
+-#endif
++			/* Use hardware checksum of complete packet */
++			if (pRxPort->UseRxCsum) {
++			    pMsg->csum = le16_to_cpu(pRxd->TcpSums & 0xffff);
++			    pMsg->ip_summed = CHECKSUM_HW;
++			}
+ 		} /* frame > SK_COPY_TRESHOLD */
+ 		
+ 		SK_DBG_MSG(NULL, SK_DBGMOD_DRV,	1,("V"));
+@@ -4518,26 +4456,23 @@
+ 		else if (pAC->DynIrqModInfo.IntModTypeSelect == C_INT_MOD_DYNAMIC)
+ 			printk("    irq moderation:  dynamic (%d ints/sec)\n",
+ 					pAC->DynIrqModInfo.MaxModIntsPerSec);
+-		else
++		else 
+ 			printk("    irq moderation:  disabled\n");
+ 
+-
+-#ifdef SK_ZEROCOPY
+-		if (pAC->ChipsetType)
+-#ifdef USE_SK_TX_CHECKSUM
++		if (pAC->dev[FromPort]->features & NETIF_F_SG)
+ 			printk("    scatter-gather:  enabled\n");
+-#else
+-			printk("    tx-checksum:     disabled\n");
+-#endif
+ 		else
+ 			printk("    scatter-gather:  disabled\n");
+-#else
+-			printk("    scatter-gather:  disabled\n");
+-#endif
++		
++		if (pAC->dev[FromPort]->features & NETIF_F_IP_CSUM)
++			printk("    tx-checksum:     enabled\n");
++		else
++			printk("    tx-checksum:     disabled\n");
+ 
+-#ifndef USE_SK_RX_CHECKSUM
++		if (pAC->RxPort[FromPort].UseRxCsum)
++			printk("    rx-checksum:     enabled\n");
++		else
+ 			printk("    rx-checksum:     disabled\n");
+-#endif
+ 
+ 		} else {
+                         DoPrintInterfaceChange = SK_TRUE;
