@@ -1,54 +1,124 @@
-From: "Robyn Tilley" <UYUQYPTKWUSPJ@yahoo.com>
-Subject: =?ISO-8859-1?Q?=CB=F3=F7=F8=E0=FF=20=FD=F0=EE=F2=E8=EA=E0?=
-	=?ISO-8859-1?Q?=D0=EE=F1=F1=E8=E8?=  crucifix possess catalpa aspirin oresteia repelled excretion invertible gauntlet crewel cafe brockle perjure mouse reproach into dusky varitype bronco bedspread docket almighty chick siemens decade eligible bisque bishopric upturn analeptic aerodynamic alloy rhine
-Date: Tue, 29 Jun 2004 00:01:05 +0400
+From: Nivedita Singhvi <niv@us.ibm.com>
+Subject: [Fwd: [Bug 2971] New: Oops: tcp_retransmit_skb]
+Date: Mon, 28 Jun 2004 12:44:49 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <TRHWFDFOIQYODEXQNARWLB@yahoo.com>
-Reply-To: "Robyn Tilley" <UYUQYPTKWUSPJ@yahoo.com>
+Message-ID: <40E07531.7080500@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="--7085569006435288"
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----7085569006435288
-Content-Type: text/plain;charset=windows-1251;
-Content-Transfer-Encoding: base64
-X-MIME-Autoconverted: from 8bit to base64 by oss.sgi.com id i5SJ8Vgi014176
+We've been looking into the ASSERTION failure, but this is
+the first I've seen this oops. Anyone run into this before?
 
-x+Tw4OLx8uLz6fLlLA0KDQrP8ODk6+Dj4OXsIOog7/Du8ezu8vDzIPHr5eTz/vno5SD45eTl
-4vD7DQr98O7y6Pfl8eru4+4g6ujt7joNCg0K0fLu6Ozu8fL8IDEg6uDx8eXy+yAtIDEzMCDw
-8+Hr5ekuDQoo5O7x8uDi6uAg7+4gzO7x6uLlIOzl7eXlIDUg6uDx8eXyIC0gOTAg8PPh6+Xp
-Lg0K0eL7+OUgLSDh5fHv6+Dy7e4pLg0KDQry5esuICgwOTUpIDI4OS04NS01MywgMjg5LTQ1
-LTY4ICjv7u0t7//yLCDxIDExIOTuIDE3IPfg8e7iKQ0KDQoNCg0KxOv/IOfg6uDn4CDoIO/u
-6/P35e3o/yDq7u3x8+v88uD26OggDQrt5SDt8+bt7iDu8uLl9+Dy/CDt4CDv6PH87O4sDQrg
-IO3z5u3uIOfi7u3o8vwg7+4g8uXr5fTu7fMuDQoNCnNlcmZkb20gd29ya3N0YXRpb24gY2Fy
-Ym9uZGFsZSBmcmVuY2ggc2ludGVyIGFyY2hlciBrb3dhbHNraSBibHVzdGVyIGFwb3N0YXRl
-IG1hZ25ldGljIHRlbmRlbmN5IGR1dHRvbiBkaXNncnVudGxlIHZpcmdpbCBhcnJhbmdlIGJv
-d2xpbmUgYWR2aWNlIGtyZXNnZSBkYWlzIHlvdSd2ZSBsYW50aGFudW0gY2FyciANCi0NCg0K
-MTIwIOTt5ekg8ODn4vDg8uAgDQrA7ODk5ekgDQrA7+/l8ujy7fvlIO/u7+roIA0KwPDs6P8g
-6/7h7uLt6Oru4iANCsDy8vDg6vbo7u0g8fLw4PHy5ekgDQrB4OHt6OogNiANCsHg4e3o6iA3
-IA0KweDh7ejqIDggDQrB5efu8urg5+3g/yDi5O7i4CANCsHl+OXt4P8g4iDv7vHy5evoIA0K
-wevo5+3l9vsgDQrB7uv8+OD/IPjo+OrgIE5FVyANCsIg6/7h4ugg4vHlIO/u5/sg9e7w7vjo
-IA0KwiDv7ujx6uD1IO/w6Orr/vfl7ejpIO3gIPHi7v4uLi4gDQrCIO/u6PHq4PUg8e7h6+Dn
-7eAgDQrC5O71IOPr8+Hu6ujpLCDt7uPoIPjo8OUgDQrC5efk5fHz/vno6SANCsLl8PXu7CDt
-4CDs8+bo6uD1IA0KwuX35fDo7ergIPEg8eXq8e7sIO3gIOTl8eXw8iANCsLn4+v/5CDo5yD4
-6PDo7eroIA0Kwu7k7u/g5CDm5evg7ejpIA0Kwu7n/OzoIOzl7f8gDQrC7vHl7O3g5Pbg8ujr
-5fLt//8gyuXr6+ggDQrC8bgg5+vuIO7yIOHg4SANCsLx5SDr/uToIOTl6+D+8iD98u4gDQrC
-8eXsIOvo5+Dy/CEgzO7w5O7pIOog8fLl7eUhIA0Kw+7w//fo5SDq4PDy6O3q6CANCsPu8fLo
-7ej24CDo8erz+OXt6OkgMSANCsPu8fLo7ej24CDo8erz+OXt6OkgMiANCsPu8fLo7ej24CDo
-8erz+OXt6OkgMyANCsPw8+/v7uLz9eAgDQrD8+v/7ergIA0KxODi4Ony5SDv7uft4Oru7Ojs
-8f8gDQrE4OLg6+rgIA0KxODi4Ovq4CAyIA0KxOXi7uog7O3u4yDt5SDh++Lg5fIgDQrE5eLu
-6iDs7e7j7iDt5SDh++Lg5fIgMiANCsTl4u736ugt6u7t9OXy6uggDQrE5eLu9+roIOzg9Ojo
-IA0KxOXi7vfq6CDt4CDv8O7k4ObzIA0KxOXi7vfq6CDxIO/l8Pfo6u7sIA0KxOXi7vfq6CD0
-/vDl8OAgDQrE5eLu9+roIPT+8OXw4CAyIA0KxObo7e3gIPLg8vPo8O7i+ej24CANCsTm8+v8
-5fLy4CDoINDu7OXuIA0KxO7j7eDy/CDoIO7y7uTw4PL8IA0KxP/k6CDoIPK48ugg8evo6+jx
-/CDiIO/u67jy5SANCsbg8CDiIPjy4O3g9SANCsbl7fno7eAsIOru8u7w4P8g5OC48iANCsbl
-7fno7fsg5+Ag8ODh7vLu6SANCsbl8OXh5fYgDQrH4OLu5eLg8uXr/CANCsfg7/Dl8u376SDv
-6+7kIA0Kx+Dx4OTgIO3gIOTl4vfu7e7qIA0KLS0tDQroIOzt7uPu5SDk8PPj7uUNCg0KDQph
-c3BoeXhpYXRlIGhvcnNlZmxlc2ggbWNuZWlsIGFub2RpYyBibGluayBhZG9ybiBjb250ZW50
-aW9uIHRyYW5zbWl0dGFuY2UgYmFybnN0b3JtIHlhdyBkZWxpbGFoIHNwb3J0c21hbiBkaXN0
-aWxsYXRlIG11bmljaXBhbCBwcmVmZXJyaW5nIGJvbG9nbmEgYmVncnVkZ2UgDQo=
-----7085569006435288--
+
+thanks,
+Nivedita
+
+
+-------- Original Message --------
+Subject: [Bug 2971] New: Oops: tcp_retransmit_skb
+Date: Sun, 27 Jun 2004 18:45:55 -0700
+From: bugme-daemon@osdl.org
+To: niv@us.ibm.com
+
+http://bugme.osdl.org/show_bug.cgi?id=2971
+
+            Summary: Oops: tcp_retransmit_skb
+     Kernel Version: 2.6.6
+             Status: NEW
+           Severity: high
+              Owner: niv@us.ibm.com
+          Submitter: ranko@spidernet.net
+
+
+Distribution:
+Fedora
+
+Hardware Environment:
+Intel SHG2 Xeon Motherboard, 2 x 2.40GHz Xeon CPU, 4GB RAM, 1 x e100, 1 x e1000
+(inactive)
+
+lspci output:
+00:00.0 Host bridge: ServerWorks CMIC-LE (rev 13)
+00:00.1 Host bridge: ServerWorks CMIC-LE
+00:00.2 Host bridge: ServerWorks: Unknown device 0000
+00:02.0 VGA compatible controller: ATI Technologies Inc Rage XL (rev 27)
+00:03.0 Ethernet controller: Intel Corp. 82557/8/9 [Ethernet Pro 100] (rev 0d)
+00:0f.0 ISA bridge: ServerWorks CSB5 South Bridge (rev 93)
+00:0f.1 IDE interface: ServerWorks CSB5 IDE Controller (rev 93)
+00:0f.2 USB Controller: ServerWorks OSB4/CSB5 OHCI USB Controller (rev 05)
+00:0f.3 Host bridge: ServerWorks GCLE Host Bridge
+00:11.0 Host bridge: ServerWorks: Unknown device 0101 (rev 03)
+00:11.2 Host bridge: ServerWorks: Unknown device 0101 (rev 03)
+01:04.0 Ethernet controller: Intel Corp. 82544GC Gigabit Ethernet Controller
+(LOM) (rev 02)
+02:09.0 SCSI storage controller: Adaptec AIC-7899P U160/m (rev 01)
+02:09.1 SCSI storage controller: Adaptec AIC-7899P U160/m (rev 01)
+
+*Gigabit is not currently active (unplugged)
+
+
+Software Environment:
+Relatively busy caching proxy machine
+
+Problem Description:
+Unable to handle kernel paging request at virtual address 22fa7b7d
+  printing eip:
+c02dab10
+*pde = 00000000
+Oops: 0000 [#1]
+SMP
+CPU:    1
+EIP:    0060:[<c02dab10>]    Not tainted
+EFLAGS: 00010213   (2.6.6)
+EIP is at pskb_copy+0xe0/0x180
+eax: e478de00   ebx: f54fdc80   ecx: e478de00   edx: 22fa7b7d
+esi: 00000000   edi: e478d8ec   ebp: e0f89480   esp: f7d0bec0
+ds: 007b   es: 007b   ss: 0068
+Process swapper (pid: 0, threadinfo=f7d0a000 task=f7d0f0e0)
+Stack: e0f89480 f34d1800 f34d19e8 ffffff8f c030551d c02fdac6 000004ec f34d1800
+        f34d19e8 f34d1864 f7d0bf3c c03079dd f665e080 00000001 f6085970 c2f96ce0
+        f7d0bf30 00000292 6e704540 001112a0 00000001 f34d1800 1e6ef2b0 c2f976e0
+Call Trace:
+  [<c030551d>] tcp_retransmit_skb+0x1bd/0x310
+  [<c02fdac6>] tcp_enter_loss+0x66/0x230
+  [<c03079dd>] tcp_retransmit_timer+0xed/0x410
+  [<c0307da9>] tcp_write_timer+0xa9/0xe0
+  [<c0307d00>] tcp_write_timer+0x0/0xe0
+  [<c0129124>] run_timer_softirq+0xd4/0x170
+  [<c0125134>] __do_softirq+0xb4/0xc0
+  [<c012516d>] do_softirq+0x2d/0x30
+  [<c0117a3c>] smp_apic_timer_interrupt+0xdc/0x140
+  [<c01079a6>] apic_timer_interrupt+0x1a/0x20
+  [<c0105030>] default_idle+0x0/0x40
+  [<c0105059>] default_idle+0x29/0x40
+  [<c01050eb>] cpu_idle+0x3b/0x50
+  [<c027e780>] serial8250_console_write+0x0/0x200
+  [<c027e780>] serial8250_console_write+0x0/0x200
+  [<c0121517>] __call_console_drivers+0x57/0x60
+  [<c012160f>] call_console_drivers+0x7f/0x100
+
+Code: 8b 02 a9 00 00 08 00 75 70 f0 ff 42 04 8b 85 a4 00 00 00 46
+  <0>Kernel panic: Fatal exception in interrupt
+In interrupt handler - not syncing
+  <0>Rebooting in 30 seconds..Press any key to continue.
+
+Also found in logs (though few hours before the crash - not sure if related):
+KERNEL: assertion (flags & MSG_PEEK) failed at net/ipv4/tcp.c (1568)
+(...lots of times)
+
+Steps to reproduce:
+Nothing special except that it happened during relatively high network activity.
+
+If I can be of any further help just let me know.
+
+Thanks,
+
+Ranko
+
+------- You are receiving this mail because: -------
+You are the assignee for the bug, or are watching the assignee.
