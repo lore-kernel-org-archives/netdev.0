@@ -1,42 +1,66 @@
-From: Horst von Brand <vonbrand@inf.utfsm.cl>
-Subject: Re: [Coverity] Untrusted user data in kernel
-Date: Fri, 17 Dec 2004 22:42:04 -0300
-Message-ID: <200412180142.iBI1g5Gd007361@laptop11.inf.utfsm.cl>
-References: <linux-os@chaos.analogic.com>
-Cc: Bill Davidsen <davidsen@tmr.com>, James Morris <jmorris@redhat.com>,
-        Patrick McHardy <kaber@trash.net>, Bryan Fulton <bryan@coverity.com>,
-        netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org,
-        linux-kernel@vger.kernel.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-os@analogic.com
-In-Reply-To: Message from linux-os <linux-os@chaos.analogic.com>
-   of "Fri, 17 Dec 2004 11:11:37 CDT." <Pine.LNX.4.61.0412171108340.4216@chaos.analogic.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+From: Roland Dreier <roland@topspin.com>
+Subject: Re: LLTX and netif_stop_queue
+Date: Sat, 18 Dec 2004 07:35:49 -0800
+Message-ID: <528y7vobze.fsf@topspin.com>
+References: <52llbwoaej.fsf@topspin.com>
+	<20041217214432.07b7b21e.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20041217214432.07b7b21e.davem@davemloft.net> (David S.
+	Miller's message of "Fri, 17 Dec 2004 21:44:32 -0800")
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-linux-os <linux-os@chaos.analogic.com> said:
-> On Fri, 17 Dec 2004, Bill Davidsen wrote:
+    David> I understand the bug, but we're not going to fix it this
+    David> way.  This is a crucial invariant that we need to check for
+    David> because it indicates a pretty serious state error except in
+    David> this bug case you've discovered.
 
-[...]
+OK, that's fair enough.  I was pretty bummed myself when I realized
+hard_start_xmit was getting called even after I stopped the queue.
+Thanks for confirming my analysis.
 
-> > Are you saying that processes with capability don't make mistakes? This
-> > isn't a bug related to untrusted users doing privileged operations,
-> > it's a case of using unchecked user data.
+    David> Perhaps one way to fix this is to add a pointer to a
+    David> spinlock to the netdev struct, and have hold that the upper
+    David> level grab that when NETIF_F_LLTX when doing queue state
+    David> checks.  Actually, that could end up being racy too.
 
-> But isn't there always the possibility of "unchecked user data"?
+I may be missing something, but it seems to me that we get all of the
+benefits of LLTX by just documenting that device drivers can use the
+xmit_lock member of struct net_device to synchronize other parts of
+the driver against hard_start_xmit.  I guess the driver also should
+set xmit_lock_owner to -1 after it acquires xmit_lock.
 
-Yes. But it should be kept to a minimum.
+This would mean that NETIF_F_LLTX can go away, and LLTX drivers would
+just replace their use of their own private tx_lock with xmit_lock
+(except in hard_start_xmit, where the upper layer already holds xmit_lock).
 
-> I can, as root, do `cp /dev/zero /dev/mem` and have the most
-> spectacular crask you've evet seen. I can even make my file-
-> systems unrecoverable.
+By the way, am I correct in thinking that the use of xmit_lock_owner
+in qdisc_restart() is racy?
 
-Right. And you can get rid of /dev/mem if you don't want to screw yourself
-this way (which is well-known). The problem at hand is _not_ in this same
-league.
--- 
-Dr. Horst H. von Brand                   User #22616 counter.li.org
-Departamento de Informatica                     Fono: +56 32 654431
-Universidad Tecnica Federico Santa Maria              +56 32 654239
-Casilla 110-V, Valparaiso, Chile                Fax:  +56 32 797513
+    if (!spin_trylock(&dev->xmit_lock)) {
+    /* get the lock */
+
+                                            if (!spin_trylock(&dev->xmit_lock)) {
+                                            /* fail */
+                                                if (dev->xmit_lock_owner == smp_processor_id()) {
+                                                /* test the wrong value */
+
+    /* set the value too late */
+    dev->xmit_lock_owner = smp_processor_id();
+
+I don't see a simple way to fix this unfortunately.
+
+Thanks,
+  Roland
