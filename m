@@ -1,46 +1,32 @@
-From: Paul Jakma <paul@clubi.ie>
-Subject: Re: [patch 4/10] s390: network driver.
-Date: Wed, 5 Jan 2005 06:30:11 +0000 (GMT)
-Message-ID: <Pine.LNX.4.61.0501050627050.27046@hibernia.jakma.org>
-References: <OFB7F7E23F.EFB88418-ONC1256F7E.0031769E-C1256F7E.003270AD@de.ibm.com>
-  <1104764710.1048.580.camel@jzny.localdomain>  <41DB26A6.2070008@pobox.com>
- <1104895169.1117.63.camel@jzny.localdomain>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: net patches
+Date: Tue, 4 Jan 2005 22:31:04 -0800
+Message-ID: <20050104223104.2ec87f5b.davem@davemloft.net>
+References: <20050104215913.274e6567.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-        Thomas Spatzier <thomas.spatzier@de.ibm.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Hasso Tepper <hasso@estpak.ee>,
-        Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com,
-        Tommy Christensen <tommy.christensen@tpack.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-In-Reply-To: <1104895169.1117.63.camel@jzny.localdomain>
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20050104215913.274e6567.akpm@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 4 Jan 2005, jamal wrote:
+On Tue, 4 Jan 2005 21:59:13 -0800
+Andrew Morton <akpm@osdl.org> wrote:
 
-> Theres possibly people who would want it differently - so for we 
-> havent heard from them. Maybe poll far and wide - or push it in and 
-> wait for them to whine.
+> I'll unload some accumulated net patches.  I can't say that I've looked at
+> them very closely.
 
-We're whining.
+I'll be quiet for the next few days as I try to discover why
+sparc64 now explodes after the past week of changes.  I'm
+heavily suspecting the 4-level page table stuff.  wli kept
+saying that he was having trouble getting his sparc boxes
+working with the -mm tree over the past month and that's about
+how long the 4-level page table stuff has been in there.
 
-This policy in the Linux kernel makes using Linux dangerous for 
-certain routing applications (RIP, routing advertisements).
-
-Name a non-TCP application that *does* want this newish kernel policy 
-and tell me how it breaks without this *new* policy. ;)
-
-> cheers,
-> jamal
-
-regards,
--- 
-Paul Jakma	paul@clubi.ie	paul@jakma.org	Key ID: 64A2FF6A
-Fortune:
-My only love sprung from my only hate!
-Too early seen unknown, and known too late!
- 		-- William Shakespeare, "Romeo and Juliet"
+What's odd is that Andi's original 4-level page table patch
+he gave to me worked just fine on sparc64, but it's been
+changed a lot.
