@@ -1,31 +1,24 @@
-From: David Coulson <david@davidcoulson.net>
-Subject: Re: 2.6.10 dst cache overflow
-Date: Wed, 16 Feb 2005 10:11:57 -0500
-Message-ID: <421362BD.7050708@davidcoulson.net>
-References: <1108550412.3799.81.camel@ts2.office.netland.nl>	<42134E22.4030808@davidcoulson.net> <16915.22671.276946.919243@robur.slu.se>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: Some pktgen fixes for 2.6.11-rc2
+Date: Wed, 16 Feb 2005 08:39:34 -0800
+Message-ID: <20050216083934.41bae852.davem@davemloft.net>
+References: <16890.41237.608094.933695@robur.slu.se>
+	<20050215134120.3ae4c511.davem@davemloft.net>
+	<16915.24548.149702.188195@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "J. Simonetti" <jeroens@office.netland.nl>, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, Jens.Laas@data.slu.se
 To: Robert Olsson <Robert.Olsson@data.slu.se>
-In-Reply-To: <16915.22671.276946.919243@robur.slu.se>
+In-Reply-To: <16915.24548.149702.188195@robur.slu.se>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Wed, 16 Feb 2005 15:59:48 +0100
+Robert Olsson <Robert.Olsson@data.slu.se> wrote:
 
+>  Against linux-2.6.11-rc4
+>  Some minor bugfixes and some clean ups. Yes version jumps with two.
 
-Robert Olsson wrote:
-> Very recently here on netdev "Memory leak in 2.6.11-rc1" was discussed 
-> this resulted in:
-
-I see it's in 2.6.11-rc4 - I should probably just upgrade to that and 
-see what happens :)
-
-David
-
--- 
-David J. Coulson
-email: david@davidcoulson.net
-web: http://www.davidcoulson.net/
-phone: (216) 920-3100 / (216) 258-4942
+Applied, thanks a lot Robert.
