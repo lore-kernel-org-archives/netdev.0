@@ -1,43 +1,62 @@
 From: Pekka Savola <pekkas@netcore.fi>
-Subject: Re: 2.4.21+ - IPv6 over IPv4 tunneling b0rked
-Date: Thu, 17 Jul 2003 09:50:49 +0300 (EEST)
+Subject: Re: Fw: [PATCH] IPv6: Allow 6to4 routes with SIT
+Date: Thu, 17 Jul 2003 10:04:33 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0307170940280.1348-100000@netcore.fi>
-References: <200307170003.EAA12843@dub.inr.ac.ru>
+Message-ID: <Pine.LNX.4.44.0307170956440.1348-100000@netcore.fi>
+References: <200307170020.EAA12924@dub.inr.ac.ru>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: davem@redhat.com, <netdev@oss.sgi.com>
+Cc: davem@redhat.com, <jmorris@redhat.com>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: kuznet@ms2.inr.ac.ru
-In-Reply-To: <200307170003.EAA12843@dub.inr.ac.ru>
+In-Reply-To: <200307170020.EAA12924@dub.inr.ac.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 On Thu, 17 Jul 2003 kuznet@ms2.inr.ac.ru wrote:
-> > > > What happens when you do "ping6 3FFE:FFFF:A:B::1" ?
+> > Yes, I dare to say that they're a requirement. 
 > 
-> ping did, does and will work and I do not understand what you want
-> to say or ask. Do you want to know how it works?
+> Nope. IPv6 host routing is based on assumption of link-locality of the
+> next hop. Probably, you want to read some rfcs or to look into code.
+
+This is not correct.  Perhaps the RFC's have changed in the meantime, but 
+at least RFC2461 does *not* make such an assumption (AFAICS).
+
+In the document, there is a basic assumption that the next-hop is
+*on-link*.
+
+In the document, there are assumptions on verifying whether the redirects
+come from the router you're currently using: this is simpler when you 
+use only link-locals as next-hops, but it is certainly *NOT* a 
+requirement.
+
+(The spec in question will be revised in the short term, so I'll take this
+issue up for clarification..)
+
+> > specifications use and the *users* want and need to use.
 > 
-> Well, IPv6 stack looks up the address in routing tables, finds the route,
-> sees that it is on-link, sends NDISC, receiver replies, we create a frame
-> and send the echo request. To continue? :-)
+> Sigh, there no specifications about tricks used by Linux routing tables,
+> *users* are unlikely to want to use this feature at all, as Mika noticed.
+> And when they want, they want to right:
+> 
+>     ip route add 3ffe::.... via 193.233.7.65
 
-(Sorry, it seems I've caused a lot of confusion in some parts of this 
-thread by typoeing link-local address when I used link-layer address.. 
-sorry)
+That would be simpler but, we actually require:
 
-So, assume you have 3FFE:FFFF:A:B::/64 prefix on link.  On a host on that 
-link, you've manually configured the next-hop to be the router on that 
-link, 3FFE:FFFF:A:B::1.
+ip route add 3ffe::... via ::193.233.7.65
 
-The procedure to obtain the knowledge on where to send packets whose 
-next-hop is 3FFE:FFFF:A:B::1 seems quite simple, similar to ping6.
+and thus require a route for ::/96.  That's confusing: ::/96 has a very 
+specific purpose in RFCs, and we should not be overloading the 
+functionality, it's just plain confusing.
+ 
+> rather than crap sort of
+>
+>     ip route add 3ffe::.... via 2002:<something in latin>
 
-As to obtaining the link-*local* address, there are several procedures 
-none of which I would recomment.  Checking the source address of a ND 
-packet (e.g. in the ping6 example above), or using a protocol like ICMP 
-name information queries (draft-ietf-ipngwg-icmp-name-lookups-10.txt).
+I'm not saying we need to prevent the users from using the former.  I'm 
+just saying that we must not prevent the users from using the latter; 
+please check e.g. the RFC3068 section 2.5.  If we don't support something 
+like that, it'll just confuse the users more.
 
 -- 
 Pekka Savola                 "You each name yourselves king, yet the
