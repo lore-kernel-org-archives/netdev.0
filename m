@@ -1,35 +1,41 @@
 From: Roland Dreier <roland@topspin.com>
-Subject: Re: [PATCH][6/12][RFC/v1] Add IPoIB (IP-over-InfiniBand) driver
-Date: Mon, 22 Nov 2004 07:37:15 -0800
-Message-ID: <52oehpevys.fsf@topspin.com>
-References: <200411181046.6Dz1IPtDKfpgSXN9@topspin.com>
-	<200411181046.Jj0jsF5E2KmiGN8f@topspin.com>
-	<20041118200017.GA26976@infradead.org> <52sm71ex0l.fsf@topspin.com>
-	<20041122153456.GA4905@infradead.org>
+Subject: Re: [PATCH][RFC/v1][11/12] Add InfiniBand
+	Documentation files
+Date: Mon, 22 Nov 2004 07:41:47 -0800
+Message-ID: <52k6sdevr8.fsf@topspin.com>
+References: <20041122714.taTI3zcdWo5JfuMd@topspin.com>
+	<20041122714.AyIOvRY195EGFTaO@topspin.com>
+	<20041122153144.GA4821@infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
+	openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
 To: Christoph Hellwig <hch@infradead.org>
-In-Reply-To: <20041122153456.GA4905@infradead.org> (Christoph Hellwig's
- message of "Mon, 22 Nov 2004 15:34:56 +0000")
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <20041122153144.GA4821@infradead.org> (Christoph Hellwig's
+	message of "Mon, 22 Nov 2004 15:31:44 +0000")
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-    Christoph> That just means avoidable interface changes sooner or
-    Christoph> later.  The dma_ interfaces also have the added benefit
-    Christoph> of allowing better control of the type of consistant
-    Christoph> allocation interface.
+    Christoph> Any reason this doesn't use an interface similar to the
+    Christoph> normal vlan code?
 
-OK, I have no problem making this change.
+The normal vlan code uses an ioctl().  I thought a simple sysfs
+interface would be more palatable than a new socket ioctl.
 
-    Christoph> Note that pathscale already has direct to HT infiniband
-    Christoph> components, but it's not sure whether they'll ever be
-    Christoph> supported by the OpenIB codebase.
+    Christoph> And what is a P_Key?
 
-HT actually looks like PCI to software... however I do see advantages
-to using the dma_* stuff for supporting the pathscale hardware, if
-they every open up their specs.
+It is a 16-bit identifier carried by IB packets that says which
+partition the packet is in.  End ports have P_Key tables that list
+which partitions they are members of (a port can be a member of one or
+more partitions, and can only receive packets from that partition).
 
- - R.
+ - Roland
