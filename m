@@ -1,63 +1,43 @@
-From: "Leonid Grossman" <leonid.grossman@neterion.com>
-Subject: RE: Topic:  Remote DMA network technologies
-Date: Tue, 29 Mar 2005 11:21:35 -0800
-Message-ID: <200503291921.j2TJLeDD018072@guinness.s2io.com>
-References: <1112057688.5088.59.camel@beastie>
+From: John Heffner <jheffner@psc.edu>
+Subject: Re: [RFC] TCP congestion schedulers
+Date: Tue, 29 Mar 2005 14:32:33 -0500 (EST)
+Message-ID: <Pine.LNX.4.58.0503291422100.3256@dexter.psc.edu>
+References: <421D30FA.1060900@ev-en.org> <20050225120814.5fa77b13@dxpl.pdx.osdl.net>
+ <20050309210442.3e9786a6.davem@davemloft.net> <4230288F.1030202@ev-en.org>
+ <20050310182629.1eab09ec.davem@davemloft.net> <20050311120054.4bbf675a@dxpl.pdx.osdl.net>
+ <20050311201011.360c00da.davem@davemloft.net> <20050314151726.532af90d@dxpl.pdx.osdl.net>
+ <m13bur5qyo.fsf@muc.de> <Pine.LNX.4.58.0503211605300.6729@dexter.psc.edu>
+ <20050322074122.GA64595@muc.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "'David S. Miller'" <davem@davemloft.net>, <mpm@selenic.com>,
-        <andrea@suse.de>, <michaelc@cs.wisc.edu>,
-        <James.Bottomley@HansenPartnership.com>,
-        <ksummit-2005-discuss@thunk.org>, <netdev@oss.sgi.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Stephen Hemminger <shemminger@osdl.org>, Andi Kleen <ak@muc.de>,
+        baruch@ev-en.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'Dmitry Yusupov'" <dmitry_yus@yahoo.com>, <open-iscsi@googlegroups.com>
-In-reply-to: <1112057688.5088.59.camel@beastie>
+To: netdev@oss.sgi.com
+In-Reply-To: <20050322074122.GA64595@muc.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Tue, 22 Mar 2005, Andi Kleen wrote:
 
+> On Mon, Mar 21, 2005 at 04:25:56PM -0500, John Heffner wrote:
+> > Is there a canonical benchmark?
+>
+> For the LSM case we saw the problem with running netperf over loopback.
+> It added one or two hooks per packet, but it already made a noticeable
+> difference on IA64 boxes.
 
-> -----Original Message-----
-> From: netdev-bounce@oss.sgi.com [mailto:netdev-bounce@oss.sgi.com] On
-> Behalf Of Dmitry Yusupov
-> Sent: Monday, March 28, 2005 4:55 PM
-> To: open-iscsi@googlegroups.com
-> Cc: David S. Miller; mpm@selenic.com; andrea@suse.de;
-> michaelc@cs.wisc.edu; James.Bottomley@HansenPartnership.com; ksummit-2005-
-> discuss@thunk.org; netdev@oss.sgi.com
-> Subject: Re: Topic: Remote DMA network technologies
-> 
-> On Mon, 2005-03-28 at 16:44 -0800, Asgeir Eiriksson wrote:
-> > Care to be more specific about the performance you achieved?
-> >
-> > You might want to contrast your numbers to veritest verified numbers of
-> > 800+ MBps and 600+KOPS achieved by Chelsio HBA with stateful offload
-> > using either 1500B or 9KB MTU (for full detail see Veritest report at
-> > http://www.chelsio.com/technology/Chelsio10GbE_iSCSI_report.pdf)
-> >
-> > 'Asgeir
+The motivation for my question is that I get very unpredictable
+performance over loopback with UP for all architectures, often varying by
+more than a factor of two.  I haven't really tried to track down the
+cause, but an important characteristic seems to be that the greater the
+differential between the CPU utilization of the sender and the receiver,
+the slower the throughput.  (But I'm not sure if there's a causal relation
+here.)  Maybe this is simply scheduler strangeness, since it doesn't seem
+to be an issue that I've noticed on SMP.  Has anyone seen this or know
+offhand what's going on?
 
-FYI, 
-http://biz.yahoo.com/prnews/050329/cgtu006.html?.v=4
+The only ia64 I have on which I can boot kernels is a UP box.
 
-The actual whitepaper with performance results is on our site. In short, it
-shows that it's fine to run sw iSCSI over 10GbE NIC with Linux-supported
-stateless offloads (receive side could use more of these though :-)), on a
-generic Opteron box. 
-  
-Leonid
-
-> 
-> I changed the subject, btw.
-> 
-> In your paper. Its 28 M$ Initiator against one iSCSI Target on top of
-> Chelsio HBA. Now prove me that Chelsio HBA as an Initiator can do
-> somewhat close to 100K IOPS with regular Linux SCSI-MidLayer...
-> 
-> Regards.
-> Dmitry
-> 
-> 
+  -John
