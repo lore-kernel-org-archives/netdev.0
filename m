@@ -1,148 +1,57 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: [NET] net driver updates
-Date: Tue, 06 Apr 2004 11:30:09 -0400
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: Luca Deri's paper: Improving Passive Packet Capture: Beyond
+	Device Polling
+Date: Tue, 6 Apr 2004 17:31:19 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4072CD01.6070408@pobox.com>
+Message-ID: <16498.52551.712261.214192@robur.slu.se>
+References: <20040330142354.GA17671@outblaze.com>
+	<1081033332.2037.61.camel@jzny.localdomain>
+	<c4rvvv$dbf$1@sea.gmane.org>
+	<1081261126.1047.6.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080600040902090101010001"
-Cc: Linux Kernel <linux-kernel@vger.kernel.org>, Andrew Morton <akpm@osdl.org>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Jason Lunz <lunz@falooley.org>, netdev@oss.sgi.com,
+        Luca Deri <deri@ntop.org>, Robert Olsson <Robert.Olsson@data.slu.se>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Netdev <netdev@oss.sgi.com>
+To: hadi@cyberus.ca
+In-Reply-To: <1081261126.1047.6.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------080600040902090101010001
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
 
+jamal writes:
 
-With upstream 2.6.x having been frozen for a while (and will be until 
-end of week or so), a bunch of net driver updates have accumulated.
+ > I didnt follow that discussion; archived for later entertaining reading.
+ > My take on it was it is 2.6.x related and in particular the misbehavior
+ > observed has to do with use of rcu in the route cache.
+ > 
+ > > It appears this problem became worse in 2.6 with HZ=1000, because now
+ > > the napi rx softirq work is being done 10X as much on return from the
+ > > timer interrupt.  I'm not sure if a solution was reached.
+ > 
+ > Robert?
 
-Even though the shortlog output is attached, here's an even shorter summary:
-* acenic converted to PCI API (yay!).  Please test.
-* new 10gige driver, s2io
-* Francois work on r8169, epic100, sis190: PCI DMA, NAPI, other minor 
-fixes and cleanups
-* 8139cp, pcnet32 updates
-* other minor stuff
+ Well it's a general problem controlling softirq/user and the RCU locking
+ put this on our agenda as the dst hash was among the first applications 
+ to use the RCU locking. Which in turn had problem doing progress in hard 
+ softirq environment which happens during route cache DoS.
 
-BK repository:
-	http://gkernel.bkbits.net/netdev-2.6
+ NAPI is a part of RX_SOFTIRQ which is well-behaved. NAPI addresses only 
+ irq/sofirq problem and is totally innocent for do_sofirq() run from other 
+ parts of kernel causing userland starvation.
 
-Patch:
-ftp://ftp.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/2.6.5-netdev2.patch.bz2
+ Under normal hi-load conditions RX_SOFTIRQ schedules itself when the
+ netdev_max_backlog is done. do_softirq sees this and defers execution
+ to ksoftirqd and things get under (scheduler) control.
 
---------------080600040902090101010001
-Content-Type: text/plain;
- name="changelog.txt"
-Content-Disposition: inline;
- filename="changelog.txt"
-Content-Transfer-Encoding: quoted-printable
-X-MIME-Autoconverted: from 8bit to quoted-printable by oss.sgi.com id i36FWNKO006318
+ During route DoS, code that does a lot do_softirq() is run for hash and 
+ fib-lookup, GC etc. The effect is that ksoftirqd is more or less bypassed.
+ Again it's a general problem... We are just the unlucky guys getting 
+ into this.
 
+ I don't know if packet capture tests done by Luca ran into this problems.
+ A profile could have helped...
 
-Andrew Morton:
-  o s2io.h: gcc-3.5 build fix
-
-Christoph Hellwig:
-  o convert acenic to pci_driver API
-  o kill acient compat cruft from acenic
-
-Daniel Ritz:
-  o netdev_priv for xirc2ps_cs, nmclan_cs
-
-Domen Puncer:
-  o lmc header file not needed
-
-Don Fry:
-  o pcnet32 add led blink capability
-  o pcnet32 correct name display
-  o pcnet32 all printk under netif_msg
-  o pcnet32.c add support for 79C976
-
-Fran=E7ois Romieu:
-  o [netdrvr r8169] TX irq handler looping fix
-  o [netdrvr r8169] DAC changes
-  o [netdrvr r8169] Barrier against compiler optimization
-  o [netdrvr r8169] ethtool driver info
-  o [netdrvr r8169] DMA api resync
-  o [netdrvr sis190] more RX path work
-  o [netdrvr sis190] don't use one huge buffer for all RX skb's
-  o [netdrvr sis190] add dirty_rx to private structure
-  o [netdrvr sis190] separate out RX skb alloc, fill
-  o [netdrvr sis190] add helpers
-  o [netdrvr sis190] sis190_open() fixes/updates
-  o [netdrvr sis190] add pci-disable-device
-  o [netdrvr sis190] fix endianness issues
-  o [netdrvr epic100] napi fixes
-  o [netdrvr epic100] napi 3/3 - transmit path
-  o [netdrvr epic100] napi 2/3 - receive path
-  o [netdrvr epic100] napi 1/3 - just shuffle some code around
-  o [netdrvr epic100] minor cleanups
-  o [netdrvr r8169] Rx wrap bug
-  o [netdrvr r8169] fix TX race
-  o [netdrvr r8169] fix phy initialization loop init
-  o [netdrvr r8169] fix rx counter masking bug
-  o [netdrvr r8169] fix oops by removing __devinitdata marker
-  o 2.6.1-rc1-mm1 - typo of death in the r8169 driver
-  o [netdrvr r8169] Stats fix (Fernando Alencar Mar=C3=B3tica <famarost@u=
-nimep.br>)
-  o [netdrvr r8169] Endianness update (original idea from Alexandra N. Ko=
-ssovsky)
-  o [netdrvr r8169] fix RX
-  o [netdrvr r8169] Suspend/resume code (Fernando Alencar Mar=C3=B3tica)
-  o [netdrvr r8169] Modification of the interrupt mask (RealTek)
-  o [netdrvr r8169] Driver forgot to update the transmitted bytes counter
-  o [netdrvr r8169] Merge of changes from Realtek
-  o [netdrvr r8169] Merge of timer related changes from Realtek
-  o [netdrvr r8169] Merge of changes done by Realtek to rtl8169_init_one(=
-)
-  o [netdrvr r8169] Add {mac/phy}_version
-  o [netdrvr r8169] Rx copybreak for small packets
-  o [netdrvr r8169] Conversion of Tx data buffers to PCI DMA
-  o [netdrvr r8169] rtl8169_start_xmit fixes
-  o [netdrvr r8169] Conversion of Rx data buffers to PCI DMA
-  o [netdrvr r8169] Conversion of Rx/Tx descriptors to consistent DMA
-
-Hirofumi Ogawa:
-  o 8139too: more useful debug info for tx_timeout
-
-Jeff Garzik:
-  o [netdrvr natsemi] correct DP83816 IntrHoldoff register offset
-  o [netdrvr 8139cp] better dev->close() handling, and misc related stuff
-  o [netdrvr 8139cp] complete 64-bit DMA (PCI DAC) support
-  o [netdrvr 8139cp] use netdev_priv()
-  o [netdrvr 8139cp] minor cleanups
-  o [NET] define HAVE_NETDEV_PRIV back-compat hook
-  o [netdrvr 8139cp] locking cleanups
-  o [netdrvr s2io] NAPI build fixes
-  o [netdrvr 8139cp] rearrange priv struct, add cacheline-align markers
-  o [net/fc iph5526] s/rx_dropped/tx_dropped/ in TX routines
-  o [netdrvr s2io] correct an incorrect cleanup I made
-  o [netdrvr] Add S2IO 10gige network driver
-  o Remove unused compatibility-defines include wan/lmc/lmc_ver.h
-  o Manually merge with upstream
-
-Jeff Muizelaar:
-  o tc35815 cleanup
-
-Leana Ogasawara:
-  o dgrs: add missing iounmaps
-
-Luiz Fernando N. Capitulino:
-  o com20020-isa.c warning fix
-
-Pavel Machek:
-  o Support newer revisions of broadcoms in b44.c
-
-Randy Dunlap:
-  o remove magic '31' for netdev priv. alignment
-
-Scott Feldman:
-  o Update MAINTAINERS with new e100/e1000/ixgb maintainers
-
-
---------------080600040902090101010001--
+ Cheers.
+						--ro 
