@@ -1,49 +1,34 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH]: was Re: LLTX and netif_stop_queue
-Date: Thu, 20 Jan 2005 13:41:35 -0800
-Message-ID: <20050120134135.567e1cee.davem@davemloft.net>
-References: <5cac192f0412230110628749e3@mail.gmail.com>
-	<41CAF444.3000305@trash.net>
-	<5cac192f04122408102129af43@mail.gmail.com>
-	<1104240717.1100.66.camel@jzny.localdomain>
-	<5cac192f0501021530672a908a@mail.gmail.com>
-	<1104764660.1048.578.camel@jzny.localdomain>
-	<52brc68q05.fsf@topspin.com>
-	<5cac192f05010308414a25b548@mail.gmail.com>
-	<527jmu8nbw.fsf@topspin.com>
-	<5cac192f0501030907c755135@mail.gmail.com>
-	<20050103171227.GD7370@esmail.cup.hp.com>
-	<1104812294.1085.53.camel@jzny.localdomain>
-	<20050119144711.3fdd3d93.davem@davemloft.net>
-	<20050119151853.259de49a@dxpl.pdx.osdl.net>
-	<20050119164640.6c67bdfa.davem@davemloft.net>
-	<52r7kgu5n5.fsf@topspin.com>
-	<20050119230526.393a5184.davem@davemloft.net>
-	<1106229084.5812.40.camel@tsc-6.cph.tpack.net>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: V2.4 policy router operates faster/better than V2.6
+Date: Thu, 20 Jan 2005 22:53:30 +0100
+Message-ID: <16880.10330.49064.721090@robur.slu.se>
+References: <Pine.LNX.4.44.0501071416060.5818-100000@localhost.localdomain>
+	<200501200837.40734.jeremy.guthrie@berbee.com>
+	<16879.58333.266843.335475@robur.slu.se>
+	<200501201114.49517.jeremy.guthrie@berbee.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: roland@topspin.com, shemminger@osdl.org, hadi@cyberus.ca, iod00d@hp.com,
-        eric.lemoine@gmail.com, netdev@oss.sgi.com, ak@suse.de,
-        openib-general@openib.org, kaber@trash.net
+Cc: netdev@oss.sgi.com, Robert Olsson <Robert.Olsson@data.slu.se>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Tommy Christensen <tommy.christensen@tpack.net>
-In-Reply-To: <1106229084.5812.40.camel@tsc-6.cph.tpack.net>
+To: jeremy.guthrie@berbee.com
+In-Reply-To: <200501201114.49517.jeremy.guthrie@berbee.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 20 Jan 2005 14:51:25 +0100
-Tommy Christensen <tommy.christensen@tpack.net> wrote:
 
-> A lot more serious is the fact that ->tx_timeout() and
-> ->hard_start_xmit() are no longer allowed to do this:
+Jeremy M. Guthrie writes:
 
-Sigh, there are even more issues.  Now dev_kfree_skb()
-is illegal in ->hard_start_xmit() because interrupts are
-disabled, and there are many such cases in the simpler
-net drivers.
+ > >  >    mc GC: tot ignored goal_miss ovrf HASH: in_search out_search
+ > >  > 524287     74830     777     0     0     0     0     0         6       0
+ > >  > 0     498       0         0    0           40504          1
 
-I think we might need to revert the change over to IRQ
-disabling dev->xmit_lock and rethink this.  This is just too
-much fallout.
+ > When does GC normally ignore?
+
+ At a min ip_rt_gc_min_interval       = HZ / 2;
+
+ From what I understand your GC runs more often than that.
+ Do your understand? Test is in rt_garbage_collect()
+
+					    --ro
