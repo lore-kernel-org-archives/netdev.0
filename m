@@ -1,122 +1,60 @@
-From: Devesh Agrawal <devesh.agrawal@gmail.com>
-Subject: NF_IP_LOCAL_OUT handler being called again with corrupted icmp packets, resulting in kernel panic
-Date: Mon, 28 Feb 2005 13:25:27 +0530
-Message-ID: <db01ab3505022723553725ebc4@mail.gmail.com>
-Reply-To: Devesh Agrawal <devesh.agrawal@gmail.com>
+From: Emilio Calicchio <ecalicchio@yahoo.it>
+Subject: questions about ipsec-tools-0.4 and linux kernel 2.6
+Date: Mon, 28 Feb 2005 08:55:43 +0100 (CET)
+Message-ID: <20050228075543.18185.qmail@web26804.mail.ukl.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/alternative; boundary="0-429138855-1109577343=:17771"
 To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
-I am writing an implementation of a source routing protocol as a
-loadable module. I am using netfilter, I am not using the IP SSR
-option, I am using kernel 2.6.5, without smp and preemption support.
-My design is based on the DSR protocol. I have a header after the IP
-header, describing the source route and the route error. If 's' is the
-src, 'd' is the dst, and x1,x2 ... are the hops, the source route is :
-x1-x2...d. However unlike SSR I don't change the dst field of the ip
-header, which is set to d. Also every src routed packet carries with
-it an ack request for the next hop, to which the next hop is supposed
-to reply to.
-The jist of my code is as follows:
+--0-429138855-1109577343=:17771
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+X-MIME-Autoconverted: from 8bit to quoted-printable by oss.sgi.com id j1S7vNSd027522
 
-pre_route_handler:
-For all source routed packets:
-	ackReply to previous hop
-	nxtHop = getNextHop(packet);
-	if(ip_route_input(myaddr,nxtHop)!=0){
-		drop packet;
-	}
-	awaitAck(nxtHop);
-	return NF_ACCEPT.
+I am a student of engineering in first university of Rome (=93La Sapienza=
+=94) and I=92m working to my degree thesis whose title is: =93End-to-end =
+real-time applications performance measurements on VPN network (both terr=
+estrial and satellite), blocks encryption algorithms vs stream cipher one=
+s.=94 Since I have to use a Linux based test bed, I must integrate the st=
+ream cipher algorithms (like Scream and Seal cipher algorithm)in the Linu=
+x ipsec implementation; at aim I wonder whether you can help me by provid=
+ing the following information: Architectural description of the ipsec Lin=
+ux implementation (both tools and kernel modules) the files of kernel ver=
+sion 2.6 and ipsec-tools-0.4 that I should modify in order to add chiper =
+stream algorithm if someone else is facing the same topic. Thanks for you=
+r help Best regards CALICCHIO EMILIO rogaway@cs.ucdavis.edu=20
 
-In local_out_handler:
-	cruft a packet with the source route. route it to the first hop,
-using ip_route_output_key(flowi,skb). I then do an awaitAck(firstHop).
+			=09
+---------------------------------
+Nuovo Yahoo! Messenger E' molto pi=F9 divertente: Audibles, Avatar, Webca=
+m, Giochi, Rubrica=85 Scaricalo ora!=20
+--0-429138855-1109577343=:17771
+Content-Type: text/html; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+X-MIME-Autoconverted: from 8bit to quoted-printable by oss.sgi.com id j1S7vNSd027522
 
-I intend to use this protocol in wireless networks. And hence I have
-implemented an ack based design, where every node is responsible for
-ensuring that the packet makes it to the next hop. For this the
-function awaitAck does the following:
+<DIV>I am a student of engineering in first university of Rome (=93La Sap=
+ienza=94) and I=92m working to my degree thesis whose title is: =93End-to=
+-end real-time applications performance measurements on VPN network (both=
+ terrestrial and satellite), blocks encryption algorithms vs stream ciphe=
+r ones.=94 Since I have to use a Linux based test bed, I must integrate t=
+he stream cipher algorithms (like Scream and Seal cipher algorithm)in the=
+ Linux ipsec implementation; at aim I wonder whether you can help me by p=
+roviding the following information: Architectural description of the ipse=
+c Linux implementation (both tools and kernel modules) the files of kerne=
+l version 2.6 and ipsec-tools-0.4 that I should modify in order to add ch=
+iper stream algorithm if someone else is facing the same topic. Thanks fo=
+r your help Best regards CALICCHIO EMILIO rogaway@cs.ucdavis.edu </DIV><p=
+>
+=09
 
-awaitAck(skb):
-	add an ackRequest header.
-	add a timer(a pointer to it) in the skb->cb. 
-	put this skb to a queue.
-
-When this timer fires:
-	if rtxCount for the skb less than a MAX_RXMT, retransmit, else send a
-route error on the reverse route to the source.
-
-This scheme is working fine when there are no errors. I am testing it
-across an ethernet lan by pinging. However when there are link breaks,
-weird things happen. Specifically I am encountering the following
-problems. I am testing it with the following topology: A-B. Where A is
-the src, C is some fictional destination not connected to B. The src
-route at A is B-C.
-At B, I think that the dst->input points to ip_error instead of
-ip_forward. Note that B knows of a route to C (all A,B,C are in the
-same subnet). However I think that in rt_intern_hash function called
-by ip_route_input, the dst->neighbour is filled by the
-arp_bind_neighbour, which I expect to fail, as B doesn't know of the
-mac address of C, and arp obviously will fail as C and B are not
-connected. Surprisingly, ip_route_input succeeds, and an icmp dest
-unreachable packet is generated by ip_error (I think), which is passed
-on to the local_out_handler. Also as I have done an awaitAck on this
-skb, eventually it will time out and rxmit (using code similar to
-ip_finish_output2), and when the MAX_RXMIT limit is reached, I send a
-route error back (not using netfilter, basically calling
-dst->neighbour->output)
-Even more weird things happen at the src A if I use the topology A - -
-- B. Where again B is some fictional node not connected to A, but in
-the same subnet (the routing table so configured to put such packets
-to eth0). In the local out handler, I do a ip_route_output to B, which
-succeeds! .I call the output function okfn, given to me by netfilter
-directly and return NF_STOLEN. The next packet to come to me in
-local_out is an icmp dest unreach. It is destined to me, so I accept
-it. The next packet is again an icmp dest unreach, and after that
-somehow my local_out_handler is called again, while the first call of
-it hasn't finished. (My kernel is not smp and not preemptible). At
-times this happens over and over. My kernel then panics, either due to
-a stack overflow, or some bad eip value, or something else (with eip
-value not decoded, and nowhere in the /proc/kallsyms). I detect this
-double calling of my local_out_handler by using an atomic_t variable.
-The same effect is seen if I return an NF_DROP or NF_ACCEPT on the skb
-in the reentrant call. I have also used spinlocks but the kernel
-always crashes.
-
-To summarize:
-i) Why do ip_route_input and ip_route_output succeed, if they do, and
-arp obviously has to fail, will the dst->neighbour be null?
-ii) Since my kernel is not smp and not preemptible, the only way my
-local out can be called again is : either I call it myself, by calling
-the okfn, however okfn is always (quite rightly dst_output) and
-dst->output is always ip_output. Or since they are icmp dest unreach
-packets, they could have been called only when the prerouting returns
-with NF_ACCEPT, but my printk statements show no trace of
-pre_route_handler being called in the second test case.
-iii) How are icmp dest unreach packets sent while calling
-ip_route_output, the only place icmp_send(DEST_UNREACH) is called is
-in ip_error, which is assigned in the no_route part of ip_route_input,
-and nowhere in the ip_route_outpout.
-iv) Is it possible that icmp dest unreach is generated when the arp
-fails to get a reply, I have gone thru the arp.c file, but wasn't able
-to find such code. This way my local out handler could get called
-again from the timer softirq context.
-
-I am quite helpless, I have posted on several mailing
-lists(kernelnewbies, etc), but haven't received any replies, Also I
-couldn't find any decent material on the web related to my problem.
-I would be obliged if someone could please help me with this. And
-please forgive me for posting such a trivial problem on linux-netdev, but I am
-kind of desperate for help. What am I doing wrong, where can I find
-information on this?
-My code is completely based on Alex Song's DSR implementation for
-linux 2.4, available online at http://piconet.sf.net.
-
-Regards,
-Devesh Agrawal
+=09
+		<hr size=3D1><font face=3D"Arial" size=3D"2"><a href=3D"http://it.rd.ya=
+hoo.com/mail/taglines/*http://it.messenger.yahoo.com"><b>Nuovo Yahoo! Mes=
+senger</b></a> E' molto pi=F9 divertente: Audibles, Avatar, Webcam, Gioch=
+i, Rubrica=85 Scaricalo ora!=20
+</font>
+--0-429138855-1109577343=:17771--
