@@ -1,43 +1,43 @@
-From: Jouni Malinen <jkmaline@cc.hut.fi>
-Subject: Re: Prism54 AP WPA using Hostap and WDS
-Date: Sun, 7 Nov 2004 21:25:48 -0800
-Message-ID: <20041108052548.GA30250@jm.kir.nu>
-References: <20041104032219.GU388@ruslug.rutgers.edu>
-	<20041105162037.GN388@ruslug.rutgers.edu>
-	<20041105162507.GO388@ruslug.rutgers.edu>
-	<20041108023308.GA7425@jm.kir.nu>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Bug in ipv6_ifa_notify?
+Date: Mon, 8 Nov 2004 17:15:29 +1100
+Message-ID: <20041108061529.GA1774@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, prism54-devel@prism54.org
-Return-path: <prism54-devel-bounces@prism54.org>
-To: "Luis R. Rodriguez" <mcgrof@studorgs.rutgers.edu>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@davemloft.net>,
+        Arnaldo Carvalho de Melo <acme@conectiva.com.br>,
+        YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <20041108023308.GA7425@jm.kir.nu>
-List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
-List-Archive: <http://prism54.org/pipermail/prism54-devel>
-List-Post: <mailto:prism54-devel@prism54.org>
-List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
-List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
-Sender: prism54-devel-bounces@prism54.org
-Errors-To: prism54-devel-bounces@prism54.org
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Nov 07, 2004 at 06:33:08PM -0800, Jouni Malinen wrote:
+Hi:
 
-> Someone, ideally the original author, would need to go through these and
-> submit a proper patch to integrate this into the current development
-> version of hostapd without breaking other driver interfaces.
+I'm reviewing the changes between 2.6.8.1 and 2.6.9.  The following
+change caught my eye:
 
-Thanks to quick reply from Bell Kin, I now have such a patch. I did some
-more cleanup and committed this to Host AP/hostapd CVS (development
-branch). I have not yet tested this apart from verifying that it
-compiles, so I may have broken something in the cleanup. Test reports
-using the latest CVS development snapshot from http://hostap.epitest.fi/
-are welcome. Please note that you will need to make .config file with
-CONFIG_DRIVER_PRISM54=y in hostapd directory in order to build Prism54
-driver interface.
+# ChangeSet
+#   2004/08/17 11:25:16+09:00 yoshfuji@linux-ipv6.org
+#   [IPV6] refer inet6 device via corresponding local route from address structure.
 
+In particular, it changed the handling of RTM_NEWADDR in ipv6_ifa_notify.
+Previously if you received duplicate RTM_NEWADDR notifications
+ip6_rt_addr_add would allocate a new rt and then free it since
+ip6_ins_rt would fail.
+
+With the new code, it will call ip6_ins_rt on the *same* rt
+again which will cause it to be dst_free'd.  I don't see any
+way for this to lead to dst underflows yet, but it'll certainly
+corrupt the routing table since dst_free modifies rt->u.next.
+
+Now the question is is it possible to get dupliate RTM_NEWADDR
+notifications?
+
+Cheers,
 -- 
-Jouni Malinen                                            PGP id EFC895FA
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
