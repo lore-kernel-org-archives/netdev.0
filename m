@@ -1,49 +1,67 @@
-From: Ville Nuorvala <vnuorval@tcs.hut.fi>
-Subject: [RTNETLINK] Tunnel config via netlink (Was Re: Convert RTM_* to
- enum)
-Date: Thu, 16 Sep 2004 12:08:54 +0300 (EEST)
+From: Lincoln Dale <ltd@cisco.com>
+Subject: Re: The ultimate TOE design
+Date: Thu, 16 Sep 2004 19:29:43 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0409161129590.24531@rhea.tcs.hut.fi>
-References: <20040915020942.GA32721@gondor.apana.org.au>
+Message-ID: <5.1.0.14.2.20040916192213.04240008@171.71.163.14>
+References: <20040915141346.5c5e5377.davem@davemloft.net>
+ <4148991B.9050200@pobox.com>
+ <Pine.LNX.4.61.0409152102050.23011@fogarty.jakma.org>
+ <1095275660.20569.0.camel@localhost.localdomain>
+ <4148A90F.80003@pobox.com>
+ <20040915140123.14185ede.davem@davemloft.net>
+ <20040915210818.GA22649@havoc.gtf.org>
+ <20040915141346.5c5e5377.davem@davemloft.net> <4148B2E5.50106@pobox.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@davemloft.net>,
-        YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-        James Morris <jmorris@redhat.com>, netdev@oss.sgi.com
+Content-Type: text/plain; charset="us-ascii"; format=flowed
+Cc: alan@lxorguk.ukuu.org.uk, paul@clubi.ie, netdev@oss.sgi.com,
+        leonid.grossman@s2io.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040915020942.GA32721@gondor.apana.org.au>
+To: Jeff Garzik <jgarzik@pobox.com>, "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <4148B2E5.50106@pobox.com>
+References: <20040915141346.5c5e5377.davem@davemloft.net>
+ <4148991B.9050200@pobox.com>
+ <Pine.LNX.4.61.0409152102050.23011@fogarty.jakma.org>
+ <1095275660.20569.0.camel@localhost.localdomain>
+ <4148A90F.80003@pobox.com>
+ <20040915140123.14185ede.davem@davemloft.net>
+ <20040915210818.GA22649@havoc.gtf.org>
+ <20040915141346.5c5e5377.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 15 Sep 2004, Herbert Xu wrote:
+not that i disagree with the general idea and rationale, but reality is 
+what it is today for some reasons:
 
-> I decided to bite the bullet and use netlink for the tunnel operations.
+At 07:23 AM 16/09/2004, Jeff Garzik wrote:
+>         Jeff, who would love to have a bunch of Athlons
+>         on PCI cards to play with.
 
-It's great if you have the time and energy to do this! Let me know if I
-can be of any assistance with the ip6_tunnel.c modifications.
+. . . this ignore the realities of power restrictions of PCI today . . .
+sure, one could create a PCI card that takes a power-connector, but that 
+don't scale so well either . . .
 
-While designing the netlink interface it might perhaps be a good idea to
-take a look at draft-ietf-ipv6-inet-tunnel-mib-02.txt, which is currently
-in IESG processing. The IPv6 specific tunnel encapsulation limit (below)
-is still missing from the draft but will be included in the RFC.
+At 07:29 AM 16/09/2004, David S. Miller wrote:
+>I think a better goal is "offload 90+% of the net stack cost" which
+>is effectively what TSO does on the send side.
+>
+>This is why these discussions are so circular.
 
-tunnelIfEncapsLimit OBJECT-TYPE
-    SYNTAX     Integer32 (-1 | 0..255)
-    MAX-ACCESS read-write
-    STATUS     current
-    DESCRIPTION
-            "The maximum number of additional encapsulations permitted
-            for packets undergoing encapsulation at this node.  A value
-            of -1 indicates that no limit is present (except as a result
-            of the packet size)."
-    REFERENCE  "RFC 2473, section 4.1.1"
-    ::= { tunnelIfEntry 11 }
+TSO works on LAN-like environments (zero latency, minimal drop), it doesn't 
+work so well across the internet . . .
 
-Regards,
-Ville
---
-Ville Nuorvala
-Research Assistant, Institute of Digital Communications,
-Helsinki University of Technology
-email: vnuorval@tcs.hut.fi, phone: +358 (0)9 451 5257
+i believe that there are better alternatives than TSO, but it involves NICs 
+having decent scatter-gather DMA engines and being able to be handled 
+multiple transactions (packets/frames) at once.
+in theory, NICs like tg2/tg3 should be capable of implementing something 
+like this -- if one could get to the ucode on the embedded cores.
+
+
+at least with PCI Express the general architecture of a PC starts to have a 
+hope of keeping up with Moore's law.
+the same couldn't be said prior to DDR-SDRAM and higher front-side-bus 
+frequencies.
+
+
+cheers,
+
+lincoln.
