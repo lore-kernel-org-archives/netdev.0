@@ -1,44 +1,58 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: bad TSO performance in 2.6.9-rc2-BK
-Date: Tue, 28 Sep 2004 13:38:30 -0700
+From: Pablo Neira <pablo@eurodev.net>
+Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
+Date: Tue, 28 Sep 2004 23:07:04 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040928133830.1eba4476.davem@davemloft.net>
-References: <20040923161141.4ea9be4c.davem@davemloft.net>
-	<Pine.NEB.4.33.0409271416360.14606-100000@dexter.psc.edu>
-	<20040927160411.22b44f48.davem@davemloft.net>
-	<20040927233639.GA8333@gondor.apana.org.au>
-	<20040927171356.6a59d039.davem@davemloft.net>
-	<415910D2.7010808@us.ibm.com>
+Message-ID: <4159D278.4060809@eurodev.net>
+References: <20040923120707.GB32624@gondor.apana.org.au>	 <1095995042.1044.34.camel@jzny.localdomain>	 <20040924032440.GB6384@gondor.apana.org.au>	 <1096289189.1075.37.camel@jzny.localdomain>	 <20040927213607.GD7243@gondor.apana.org.au>	 <1096339407.8660.33.camel@jzny.localdomain>	 <20040928024614.GA9911@gondor.apana.org.au>	 <1096340772.8659.51.camel@jzny.localdomain>	 <20040928032321.GB10116@gondor.apana.org.au>	 <1096343125.8661.96.camel@jzny.localdomain>	 <20040928035921.GA10675@gondor.apana.org.au> <1096367787.8662.146.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, jheffner@psc.edu, ak@suse.de,
-        andy.grover@gmail.com, anton@samba.org, netdev@oss.sgi.com
+Content-Type: multipart/mixed;
+ boundary="------------000001000007080107080702"
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Nivedita Singhvi <niv@us.ibm.com>
-In-Reply-To: <415910D2.7010808@us.ibm.com>
+To: hadi@cyberus.ca
+In-Reply-To: <1096367787.8662.146.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 28 Sep 2004 00:20:50 -0700
-Nivedita Singhvi <niv@us.ibm.com> wrote:
+This is a multi-part message in MIME format.
+--------------000001000007080107080702
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> David S. Miller wrote:
-> 
-> > Bright minds think alike.  :-)  We have to keep all the other
-> > packet counts in sync as well.
-> > 
-> > Andi, others, forget my previous hack patch to tcp_clean_rtx_queue()
-> > and give this more complete patch a try.
-> > 
-> > I'm getting really good results here on my tg3<-->tg3 setup using
-> > this patch.
-> 
-> Dave, were you seeing a significant number of retransmissions
-> and sacks in your tests?
+Hi,
 
-None.  I am working on a local network through a gigabit switch.
+If buffer overruns we lost all the messages which are enqueued, so 
+before enqueing the packet, we can check if there's space available in 
+the buffer. I think that this way we can save these messages at least.
 
-I will work on making sure cases involving loss work correctly,
-via the netem module, before I submit these fixes upstream to
-Linus.  Likely I will complete this work today.
+I'm also thinking in doing something with netlink_ack's since they can 
+be drop if buffer is full. We could give more priority to error messages 
+in some way, for example, check if there's space for an error message in 
+the buffer, if there's not, drop as many packets in buffer as we get 
+space to enqueue the error message.
+
+regards,
+Pablo
+
+--------------000001000007080107080702
+Content-Type: text/x-patch;
+ name="unicast-dont-overrun.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="unicast-dont-overrun.patch"
+
+===== net/netlink/af_netlink.c 1.58 vs edited =====
+--- 1.58/net/netlink/af_netlink.c	Sat Sep 25 17:43:43 2004
++++ edited/net/netlink/af_netlink.c	Tue Sep 28 22:23:44 2004
+@@ -475,7 +475,7 @@
+ 	if (nlk->handler)
+ 		return 0;
+ #endif
+-	if (atomic_read(&sk->sk_rmem_alloc) > sk->sk_rcvbuf ||
++	if (atomic_read(&sk->sk_rmem_alloc) + skb->len > sk->sk_rcvbuf ||
+ 	    test_bit(0, &nlk->state)) {
+ 		DECLARE_WAITQUEUE(wait, current);
+ 		if (!timeo) {
+
+--------------000001000007080107080702--
