@@ -1,246 +1,43 @@
-From: "Gary N Spiess" <Gary.Spiess@intermec.com>
-Subject: [PATCH] natsemi update 3/4 External PHY operation
-Date: Fri, 04 Jun 2004 14:55:29 -0500
+From: Vladimir Kondratiev <vkondra@mail.ru>
+Subject: in-driver QoS
+Date: Sun, 6 Jun 2004 21:28:47 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200406041455290031.0BC56C76@136.179.85.112>
+Message-ID: <200406062128.47070.vkondra@mail.ru>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=====_10863789292995=_"
-Cc: manfred@colorfullife.com
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---=====_10863789292995=_
-Content-Type: multipart/alternative; boundary="=====_108637892911942=_"
+I'd like to discuss issue with QoS.
 
---=====_108637892911942=_
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: quoted-printable
+In 802.11 network, there is TGe (or 802.11e), working group, developing QoS 
+extensions for 802.11. This group's work is close to finish. Current draft 
+should be very close to the final standard.
 
-Jeff,
-This is the third of a series of patches needed to support our product=
- using the DP83815.
-This patch permits operation of an external PHY.  Updates the mdio_read and=
- mdio_write functions to permit actual MII operation.  Modify miscellaneous=
- code to use the MII registers instead of the internal registers where it=
- makes a difference.  Relocate the internal phy to phy_address=3D1, and add=
- find_mii() to locate the address of the external mii phy.  Prevent the=
- 'nasty random phy-reset' code from operating when an external phy is being=
- used.
-The probe code determines the previously used internal or external phy to=
- determine the initial mode it will use.  Again, our implementation does=
- not have an EEPROM, so we rely on the mode that our boot rom used to setup=
- the Ethernet.
-Gary
- oooooooooooooooooooooooooooooooooooooooooooooooooo
- Gary Spiess (Gary.Spiess@Intermec.com)
- MobileLan Wireless Products Group, Intermec Technology Corp
- voice: 319 369-3580  fax: 319 369-3804
+Currently, according to TGe, NIC will support 4 different priorities (or 
+access categories). Let's say, 4 distinct Tx queues will be supported by NIC. 
+Each Tx queue have its own parameters.
 
+In addition, there are separate streams (TSPEC's) that should be requested, 
+i.e. before use, some initiation procedure should be performed. Sure, there 
+is tear down for TSPEC as well.
 
---=====_108637892911942=_
-Content-Type: text/html; charset="us-ascii"
+Roughly, 4 access categories corresponds to diffserv, while TSPEC's - to 
+intserv.
 
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
-<HTML><HEAD>
-<META http-equiv=Content-Type content="text/html; charset=iso-8859-1">
-<META content="MSHTML 6.00.2800.1400" name=GENERATOR></HEAD>
-<BODY style="FONT-FAMILY: Courier New" text=#000000 bgColor=#ffffff><FONT 
-size=4>
-<P>Jeff,</P>
-<P>This is the&nbsp;third of a series of patches needed to support our product 
-using the DP83815.</P>
-<P>This patch permits operation of an external PHY.&nbsp; Updates the mdio_read 
-and mdio_write functions to permit actual MII operation.&nbsp; Modify 
-miscellaneous code to use the MII registers instead of the internal registers 
-where it makes a difference.&nbsp; Relocate the internal phy to phy_address=1, 
-and add find_mii() to locate the address of the external mii phy.&nbsp; Prevent 
-the 'nasty random phy-reset' code from operating when an external phy is being 
-used.</P>
-<P>The probe code determines the previously used internal or external phy to 
-determine the initial mode it will use.&nbsp; Again, our implementation does not 
-have an EEPROM, so we rely on the mode that our boot rom used to setup the 
-Ethernet.</P>
-<P>Gary</P></FONT></BODY></HTML>
+Now, question is: how will we support these QoS features in network stack?
 
-<PRE>
- oooooooooooooooooooooooooooooooooooooooooooooooooo
- Gary Spiess (Gary.Spiess@Intermec.com)
- MobileLan Wireless Products Group, Intermec Technology Corp
- voice: 319 369-3580  fax: 319 369-3804</PRE>
+Let's start from diffserv, it is easier.
 
+skb->priority help determining Tx queue, but fundamental problem is with 
+single Tx queue from network stack. Any smart queuing/scheduling etc. made by 
+driver, will render useless while network stack provides single Tx queue.
 
---=====_108637892911942=_--
+Any ideas how to modify stack to support multiple Tx queues?
 
---=====_10863789292995=_
-Content-Type: application/octet-stream; name="natsemi-2.6.6-3.patch"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="natsemi-2.6.6-3.patch"
-
-LS0tIGxpbnV4LTIuNi42L2RyaXZlcnMvbmV0L25hdHNlbWkuYwkyMDA0LTA2
-LTAzIDE1OjQ0OjM0LjAwMDAwMDAwMCAtMDUwMAorKysgbGludXgvZHJpdmVy
-cy9uZXQvbmF0c2VtaS5jCTIwMDQtMDYtMDMgMTU6NDQ6NDcuMDAwMDAwMDAw
-IC0wNTAwCkBAIC00NjgsNiArNDY4LDkgQEAKIAlFRV9EYXRhSW4JCT0gMHgw
-MSwKIAlFRV9DaGlwU2VsZWN0CQk9IDB4MDgsCiAJRUVfRGF0YU91dAkJPSAw
-eDAyLAorCU1JSV9EYXRhIAkJPSAweDEwLAorCU1JSV9Xcml0ZQkJPSAweDIw
-LAorCU1JSV9TaGlmdENsawkJPSAweDQwLAogfTsKIAogZW51bSBQQ0lCdXND
-ZmdfYml0cyB7CkBAIC02MDIsNiArNjA1LDkgQEAKIAlQaHlBZGRyTWFzawkJ
-PSAweDFmLAogfTsKIAorLyogSW50ZXJuYWwgUGh5IGFkZHJlc3MgaXMgZml4
-ZWQgKi8KKyNkZWZpbmUgUEhZX0FERFJfSU5URVJOQUwJMHgwMQorCiAvKiB2
-YWx1ZXMgd2UgbWlnaHQgZmluZCBpbiB0aGUgc2lsaWNvbiByZXZpc2lvbiBy
-ZWdpc3RlciAqLwogI2RlZmluZSBTUlJfRFA4MzgxNV9DCTB4MDMwMgogI2Rl
-ZmluZSBTUlJfRFA4MzgxNV9ECTB4MDQwMwpAQCAtNjg1LDYgKzY5MSw3IEBA
-CiBzdGF0aWMgaW50IGVlcHJvbV9yZWFkKGxvbmcgaW9hZGRyLCBpbnQgbG9j
-YXRpb24pOwogc3RhdGljIGludCBtZGlvX3JlYWQoc3RydWN0IG5ldF9kZXZp
-Y2UgKmRldiwgaW50IHBoeV9pZCwgaW50IHJlZyk7CiBzdGF0aWMgdm9pZCBt
-ZGlvX3dyaXRlKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsIGludCBwaHlfaWQs
-IGludCByZWcsIHUxNiBkYXRhKTsKK3N0YXRpYyBpbnQgZmluZF9taWkoc3Ry
-dWN0IG5ldF9kZXZpY2UgKmRldik7CiBzdGF0aWMgdm9pZCBuYXRzZW1pX3Jl
-c2V0KHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpOwogc3RhdGljIHZvaWQgbmF0
-c2VtaV9yZWxvYWRfZWVwcm9tKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpOwog
-c3RhdGljIHZvaWQgbmF0c2VtaV9zdG9wX3J4dHgoc3RydWN0IG5ldF9kZXZp
-Y2UgKmRldik7CkBAIC04MTIsMTAgKzgxOSwxNyBAQAogCW5wLT5tc2dfZW5h
-YmxlID0gKGRlYnVnID49IDApID8gKDE8PGRlYnVnKS0xIDogTkFUU0VNSV9E
-RUZfTVNHOwogCW5wLT5oYW5kc19vZmYgPSAwOwogCisJLyogZGVmYXVsdCB0
-byBleHRlcm5hbCBwaHksIGlmIHByZXZpb3VzbHkgc2VsZWN0ZWQgKi8KKwlp
-ZiAocmVhZGwoZGV2LT5iYXNlX2FkZHIgKyBDaGlwQ29uZmlnKSAmIENmZ0V4
-dFBoeSkKKwkJZGV2LT5pZl9wb3J0ID0gUE9SVF9NSUk7CisJZWxzZQorCQlk
-ZXYtPmlmX3BvcnQgPSBQT1JUX1RQOworCiAJLyogUmVzZXQgdGhlIGNoaXAg
-dG8gZXJhc2UgcHJldmlvdXMgbWlzY29uZmlndXJhdGlvbi4gKi8KIAluYXRz
-ZW1pX3JlbG9hZF9lZXByb20oZGV2KTsKIAluYXRzZW1pX3Jlc2V0KGRldik7
-CiAKKwlucC0+cGh5X2FkZHJfZXh0ZXJuYWwgPSBmaW5kX21paShkZXYpOwog
-CW9wdGlvbiA9IGZpbmRfY250IDwgTUFYX1VOSVRTID8gb3B0aW9uc1tmaW5k
-X2NudF0gOiAwOwogCWlmIChkZXYtPm1lbV9zdGFydCkKIAkJb3B0aW9uID0g
-ZGV2LT5tZW1fc3RhcnQ7CkBAIC04NjAsMTYgKzg3NCwyMiBAQAogCX0KIAog
-CW5wLT5hZHZlcnRpc2luZyA9IG1kaW9fcmVhZChkZXYsIDEsIE1JSV9BRFZF
-UlRJU0UpOwotCWlmICgocmVhZGwoaW9hZGRyICsgQ2hpcENvbmZpZykgJiAw
-eGUwMDApICE9IDB4ZTAwMAorCWlmICgobnAtPmFkdmVydGlzaW5nICYgKEFE
-VkVSVElTRV8xMDBGVUxMfEFEVkVSVElTRV8xMEZVTEx8CisJCQkJQURWRVJU
-SVNFXzEwMEhBTEZ8QURWRVJUSVNFXzEwSEFMRikpICE9CisJCQkgICAgICAg
-KEFEVkVSVElTRV8xMDBGVUxMfEFEVkVSVElTRV8xMEZVTEx8CisJCQkJQURW
-RVJUSVNFXzEwMEhBTEZ8QURWRVJUSVNFXzEwSEFMRikKIAkgJiYgbmV0aWZf
-bXNnX3Byb2JlKG5wKSkgewotCQl1MzIgY2hpcF9jb25maWcgPSByZWFkbChp
-b2FkZHIgKyBDaGlwQ29uZmlnKTsKIAkJcHJpbnRrKEtFUk5fSU5GTyAiJXM6
-IFRyYW5zY2VpdmVyIGRlZmF1bHQgYXV0b25lZ290aWF0aW9uICVzICIKIAkJ
-CSIxMCVzICVzIGR1cGxleC5cbiIsCiAJCQlkZXYtPm5hbWUsCi0JCQljaGlw
-X2NvbmZpZyAmIENmZ0FuZWdFbmFibGUgPworCQkJKG1kaW9fcmVhZChkZXYs
-IDEsIE1JSV9CTUNSKSAmIEJNQ1JfQU5FTkFCTEUpPwogCQkJICAiZW5hYmxl
-ZCwgYWR2ZXJ0aXNlIiA6ICJkaXNhYmxlZCwgZm9yY2UiLAotCQkJY2hpcF9j
-b25maWcgJiBDZmdBbmVnMTAwID8gIjAiIDogIiIsCi0JCQljaGlwX2NvbmZp
-ZyAmIENmZ0FuZWdGdWxsID8gImZ1bGwiIDogImhhbGYiKTsKKwkJCShucC0+
-YWR2ZXJ0aXNpbmcgJgorCQkJICAoQURWRVJUSVNFXzEwMEZVTEx8QURWRVJU
-SVNFXzEwMEhBTEYpKT8KKwkJCSAgICAiMCIgOiAiIiwKKwkJCShucC0+YWR2
-ZXJ0aXNpbmcgJgorCQkJICAoQURWRVJUSVNFXzEwMEZVTEx8QURWRVJUSVNF
-XzEwRlVMTCkpPworCQkJICAgICJmdWxsIiA6ICJoYWxmIik7CiAJfQogCWlm
-IChuZXRpZl9tc2dfcHJvYmUobnApKQogCQlwcmludGsoS0VSTl9JTkZPCkBA
-IC05NTQsMjUgKzk3NCwxMDcgQEAKIAogLyogTUlJIHRyYW5zY2VpdmVyIGNv
-bnRyb2wgc2VjdGlvbi4KICAqIFRoZSA4MzgxNSBzZXJpZXMgaGFzIGFuIGlu
-dGVybmFsIHRyYW5zY2VpdmVyLCBhbmQgd2UgcHJlc2VudCB0aGUKLSAqIG1h
-bmFnZW1lbnQgcmVnaXN0ZXJzIGFzIGlmIHRoZXkgd2VyZSBNSUkgY29ubmVj
-dGVkLiAqLworICogaW50ZXJuYWwgbWFuYWdlbWVudCByZWdpc3RlcnMgYXMg
-aWYgdGhleSB3ZXJlIE1JSSBjb25uZWN0ZWQuCisgKiBFeHRlcm5hbCBQaHkg
-cmVnaXN0ZXJzIGFyZSByZWZlcmVuY2VkIHRocm91Z2ggdGhlIE1JSSBpbnRl
-cmZhY2UuCisgKi8KKworc3RhdGljIGludCBtaWlfZ2V0Yml0IChzdHJ1Y3Qg
-bmV0X2RldmljZSAqZGV2KQoreworCWludCBkYXRhOworCisJd3JpdGViKE1J
-SV9TaGlmdENsaywgZGV2LT5iYXNlX2FkZHIgKyBFRUN0cmwpOworCWRhdGEg
-PSByZWFkYihkZXYtPmJhc2VfYWRkciArIEVFQ3RybCk7CisJdWRlbGF5KDEp
-OworCXdyaXRlYigwLCBkZXYtPmJhc2VfYWRkciArIEVFQ3RybCk7CisJdWRl
-bGF5KDEpOworCXJldHVybiAoZGF0YSAmIE1JSV9EYXRhKT8gMSA6IDA7Cit9
-CisKK3N0YXRpYyB2b2lkIG1paV9zZW5kX2JpdHMgKHN0cnVjdCBuZXRfZGV2
-aWNlICpkZXYsIHUzMiBkYXRhLCBpbnQgbGVuKQoreworCXUzMiBpOworCisJ
-Zm9yIChpID0gKDEgPDwgKGxlbi0xKSk7IGk7IGkgPj49IDEpCisJeworCQl1
-MzIgbWRpb192YWwgPSBNSUlfV3JpdGUgfCAoKGRhdGEgJiBpKT8gTUlJX0Rh
-dGEgOiAwKTsKKwkJd3JpdGViKG1kaW9fdmFsLCBkZXYtPmJhc2VfYWRkciAr
-IEVFQ3RybCk7CisJCXVkZWxheSgxKTsKKwkJd3JpdGViKG1kaW9fdmFsIHwg
-TUlJX1NoaWZ0Q2xrLCBkZXYtPmJhc2VfYWRkciArIEVFQ3RybCk7CisJCXVk
-ZWxheSgxKTsKKwl9CisJd3JpdGViKDAsIGRldi0+YmFzZV9hZGRyICsgRUVD
-dHJsKTsKKwl1ZGVsYXkoMSk7Cit9CiAKIHN0YXRpYyBpbnQgbWRpb19yZWFk
-KHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsIGludCBwaHlfaWQsIGludCByZWcp
-CiB7Ci0JaWYgKHBoeV9pZCA9PSAxICYmIHJlZyA8IDMyKQorCXN0cnVjdCBu
-ZXRkZXZfcHJpdmF0ZSAqbnAgPSBkZXYtPnByaXY7CisJdTMyIGNtZDsKKwlp
-bnQgaTsKKwl1MzIgcmV0dmFsID0gMDsKKworCS8qIFRoZSA4MzgxNSBzZXJp
-ZXMgaGFzIGFuIGludGVybmFsIHRyYW5zY2VpdmVyOyBoYW5kbGUgc2VwYXJh
-dGVseSAqLworCWlmIChkZXYtPmlmX3BvcnQgPT0gUE9SVF9UUCkKIAkJcmV0
-dXJuIHJlYWRsKGRldi0+YmFzZV9hZGRyK0Jhc2ljQ29udHJvbCsocmVnPDwy
-KSkmMHhmZmZmOwotCWVsc2UKLQkJcmV0dXJuIDB4ZmZmZjsKKwlpZiAocGh5
-X2lkID09IFBIWV9BRERSX0lOVEVSTkFMKQorCQlwaHlfaWQgPSBucC0+cGh5
-X2FkZHJfZXh0ZXJuYWw7CisKKwkvKiBFbnN1cmUgc3luYyAqLworCW1paV9z
-ZW5kX2JpdHMgKGRldiwgMHhmZmZmZmZmZiwgMzIpOworCS8qIFNUKDIpLCBP
-UCgyKSwgQUREUig1KSwgUkVHIyg1KSwgVEEoMiksIERhdGEoMTYpIHRvdGFs
-IDMyIGJpdHMgKi8KKwkvKiBTVCxPUCA9IDAxMTAnYiBmb3IgcmVhZCBvcGVy
-YXRpb24gKi8KKwljbWQgPSAoMHgwNiA8PCAxMCkgfCAocGh5X2lkIDw8IDUp
-IHwgcmVnOworCW1paV9zZW5kX2JpdHMgKGRldiwgY21kLCAxNCk7CisJLyog
-VHVybmFyb3VuZCAqLworCWlmIChtaWlfZ2V0Yml0IChkZXYpKQorCQlyZXR1
-cm4gMDsKKwkvKiBSZWFkIGRhdGEgKi8KKwlmb3IgKGkgPSAwOyBpIDwgMTY7
-IGkrKykgeworCQlyZXR2YWwgPDw9IDE7CisJCXJldHZhbCB8PSBtaWlfZ2V0
-Yml0IChkZXYpOworCX0KKwkvKiBFbmQgY3ljbGUgKi8KKwltaWlfZ2V0Yml0
-IChkZXYpOworCXJldHVybiByZXR2YWw7CiB9CiAKIHN0YXRpYyB2b2lkIG1k
-aW9fd3JpdGUoc3RydWN0IG5ldF9kZXZpY2UgKmRldiwgaW50IHBoeV9pZCwg
-aW50IHJlZywgdTE2IGRhdGEpCiB7CiAJc3RydWN0IG5ldGRldl9wcml2YXRl
-ICpucCA9IGRldi0+cHJpdjsKLQlpZiAocGh5X2lkID09IDEgJiYgcmVnIDwg
-MzIpIHsKKwl1MzIgY21kOworCisJc3dpdGNoIChyZWcpIHsKKwkJY2FzZSBN
-SUlfQURWRVJUSVNFOiBucC0+YWR2ZXJ0aXNpbmcgPSBkYXRhOyBicmVhazsK
-Kwl9CisKKwkvKiBUaGUgODM4MTUgc2VyaWVzIGhhcyBhbiBpbnRlcm5hbCB0
-cmFuc2NlaXZlcjsgaGFuZGxlIHNlcGFyYXRlbHkgKi8KKwlpZiAoZGV2LT5p
-Zl9wb3J0ID09IFBPUlRfVFApIHsKIAkJd3JpdGV3KGRhdGEsIGRldi0+YmFz
-ZV9hZGRyK0Jhc2ljQ29udHJvbCsocmVnPDwyKSk7Ci0JCXN3aXRjaCAocmVn
-KSB7Ci0JCQljYXNlIE1JSV9BRFZFUlRJU0U6IG5wLT5hZHZlcnRpc2luZyA9
-IGRhdGE7IGJyZWFrOwotCQl9CisJCXJldHVybjsKIAl9CisJaWYgKHBoeV9p
-ZCA9PSBQSFlfQUREUl9JTlRFUk5BTCkKKwkJcGh5X2lkID0gbnAtPnBoeV9h
-ZGRyX2V4dGVybmFsOworCisJLyogRW5zdXJlIHN5bmMgKi8KKwltaWlfc2Vu
-ZF9iaXRzIChkZXYsIDB4ZmZmZmZmZmYsIDMyKTsKKwkvKiBTVCgyKSwgT1Ao
-MiksIEFERFIoNSksIFJFRyMoNSksIFRBKDIpLCBEYXRhKDE2KSB0b3RhbCAz
-MiBiaXRzICovCisJLyogU1QsT1AsQUFBQUEsUlJSUlIsVEEgPSAwMTAxeHh4
-eHh4eHh4eDEwJ2IgPSAweDUwMDIgZm9yIHdyaXRlICovCisJY21kID0gKDB4
-NTAwMiA8PCAxNikgfCAocGh5X2lkIDw8IDIzKSB8IChyZWcgPDwgMTgpIHwg
-ZGF0YTsKKwltaWlfc2VuZF9iaXRzIChkZXYsIGNtZCwgMzIpOworCS8qIEVu
-ZCBjeWNsZSAqLworCW1paV9nZXRiaXQgKGRldik7Cit9CisKK3N0YXRpYyBp
-bnQgZmluZF9taWkoc3RydWN0IG5ldF9kZXZpY2UgKmRldikKK3sKKwlpbnQg
-dG1wOworCWludCBpOworCWZvciAoaSA9IDB4MWY7IGk7IGktLSkgeworCQl0
-bXAgPSBtZGlvX3JlYWQoZGV2LCBpLCBNSUlfQk1TUik7CisJCWlmICh0bXAg
-IT0gMHhmZmZmICYmIHRtcCAhPSAweDAwMDApCisJCQlyZXR1cm4gaTsKKwl9
-CisJcmV0dXJuIFBIWV9BRERSX0lOVEVSTkFMOwogfQogCiAvKiBDRkcgYml0
-cyBbMTM6MTZdIFsxODoyM10gKi8KQEAgLTEwMzIsNiArMTEzNCwxMSBAQAog
-CQkJZGV2LT5uYW1lLCBpKjUpOwogCX0KIAorCS8qIHJlc2V0IGludGVybmFs
-IHBoeSB0byBmaXhlZCBtaWkgYWRkcmVzcyAqLworCXdyaXRldyhQSFlfQURE
-Ul9JTlRFUk5BTCwgZGV2LT5iYXNlX2FkZHIgKyBQaHlDdHJsKTsKKwkvKiB0
-dXJuIG9uIGV4dGVybmFsIHBoeSBpZiBpdCB3YXMgc2VsZWN0ZWQgKi8KKwlp
-ZiAoZGV2LT5pZl9wb3J0ICE9IFBPUlRfVFApCisJCWNmZyB8PSAoQ2ZnRXh0
-UGh5IHwgQ2ZnUGh5RGlzKTsKIAkvKiByZXN0b3JlIENGRyAqLwogCWNmZyB8
-PSByZWFkbChkZXYtPmJhc2VfYWRkciArIENoaXBDb25maWcpICYgfkNGR19S
-RVNFVF9TQVZFOwogCXdyaXRlbChjZmcsIGRldi0+YmFzZV9hZGRyICsgQ2hp
-cENvbmZpZyk7CkBAIC0xMjA0LDkgKzEzMTEsOSBAQAogCXN0cnVjdCBuZXRk
-ZXZfcHJpdmF0ZSAqbnAgPSBkZXYtPnByaXY7CiAJbG9uZyBpb2FkZHIgPSBk
-ZXYtPmJhc2VfYWRkcjsKIAlpbnQgZHVwbGV4OwotCWludCBjaGlwY2ZnID0g
-cmVhZGwoaW9hZGRyICsgQ2hpcENvbmZpZyk7CisJaW50IGJtc3IgPSBtZGlv
-X3JlYWQoZGV2LCAxLCBNSUlfQk1TUik7CiAKLQlpZiAoIShjaGlwY2ZnICYg
-Q2ZnTGluaykpIHsKKwlpZiAoIShibXNyICYgQk1TUl9MU1RBVFVTKSkgewog
-CQlpZiAobmV0aWZfY2Fycmllcl9vayhkZXYpKSB7CiAJCQlpZiAobmV0aWZf
-bXNnX2xpbmsobnApKQogCQkJCXByaW50ayhLRVJOX05PVElDRSAiJXM6IGxp
-bmsgZG93bi5cbiIsCkBAIC0xMjIzLDcgKzEzMzAsMTYgQEAKIAkJZG9fY2Fi
-bGVfbWFnaWMoZGV2KTsKIAl9CiAKLQlkdXBsZXggPSBucC0+ZnVsbF9kdXBs
-ZXggfHwgKGNoaXBjZmcgJiBDZmdGdWxsRHVwbGV4ID8gMSA6IDApOworCWR1
-cGxleCA9IG5wLT5mdWxsX2R1cGxleDsKKwlpZiAoIWR1cGxleCkgeworCQlp
-ZiAoYm1zciAmIEJNU1JfQU5FR0NPTVBMRVRFKSB7CisJCQlpbnQgdG1wID0g
-bWlpX253YXlfcmVzdWx0KAorCQkJCW5wLT5hZHZlcnRpc2luZyAmIG1kaW9f
-cmVhZChkZXYsIDEsIE1JSV9MUEEpKTsKKwkJCWlmICh0bXAgPT0gTFBBXzEw
-MEZVTEwgfHwgdG1wID09IExQQV8xMEZVTEwpCisJCQkJZHVwbGV4ID0gMTsK
-KwkJfSBlbHNlIGlmIChtZGlvX3JlYWQoZGV2LCAxLCBNSUlfQk1DUikgJiBC
-TUNSX0ZVTExEUExYKQorCQkJZHVwbGV4ID0gMTsKKwl9CiAKIAkvKiBpZiBk
-dXBsZXggaXMgc2V0IHRoZW4gYml0IDI4IG11c3QgYmUgc2V0LCB0b28gKi8K
-IAlpZiAoZHVwbGV4IF4gISEobnAtPnJ4X2NvbmZpZyAmIFJ4QWNjZXB0VHgp
-KSB7CkBAIC0xMjc4LDYgKzEzOTQsMTMgQEAKIAl3cml0ZXcoMCwgaW9hZGRy
-ICsgUEdTRUwpOwogCW5wLT5kc3BjZmcgPSBEU1BDRkdfVkFMOwogCisJLyog
-aWYgZXh0ZXJuYWwgcGh5LCB0aGVuIERTUENGRyByZWdpc3RlciBpc24ndCBm
-dW5jdGlvbmFsLgorCSAgIEZpeCB0aGUgdmFsdWUgaGVyZSBzbyB0aGUgIm5h
-c3R5IHJhbmRvbSBwaHktcmVzZXQiIGNvZGUgZG9lc24ndAorCSAgIHRoaW5r
-IGl0IG5lZWRzIHRvIHJlaW5pdGlhbGl6ZSB0aGUgY2hpcC4KKwkgKi8KKwlp
-ZiAoZGV2LT5pZl9wb3J0ICE9IFBPUlRfVFApCisJCW5wLT5kc3BjZmcgPSAw
-OworCiAJLyogRW5hYmxlIFBIWSBTcGVjaWZpYyBldmVudCBiYXNlZCBpbnRl
-cnJ1cHRzLiAgTGluayBzdGF0ZSBjaGFuZ2UKIAkgICBhbmQgQXV0by1OZWdv
-dGlhdGlvbiBDb21wbGV0aW9uIGFyZSBhbW9uZyB0aGUgYWZmZWN0ZWQuCiAJ
-ICAgUmVhZCB0aGUgaW50ciBzdGF0dXMgdG8gY2xlYXIgaXQgKG5lZWRlZCBm
-b3Igd2FrZSBldmVudHMpLgo=
-
---=====_10863789292995=_--
+Vladimir
