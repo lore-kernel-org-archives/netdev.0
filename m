@@ -1,42 +1,49 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: Intel and TOE in the news
-Date: Sat, 19 Feb 2005 11:46:24 -0800
-Message-ID: <20050219114624.373af63f.davem@davemloft.net>
-References: <4216B62D.6000502@pobox.com>
-	<20050219041007.GA17896@xi.wantstofly.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: IPsec xfrm resolution
+Date: Sat, 19 Feb 2005 20:53:33 +0100
+Message-ID: <4217993D.4070107@trash.net>
+References: <20050210202810.GA1609@gondor.apana.org.au> <42144C3F.2060501@trash.net> <20050217091137.GA9476@gondor.apana.org.au> <42152841.5000707@trash.net> <20050218100854.GA19427@gondor.apana.org.au> <4216D6B4.5070901@trash.net> <20050219092314.GA8153@gondor.apana.org.au> <42173125.3040505@trash.net> <20050219183202.GA10773@gondor.apana.org.au> <421789AF.4020705@trash.net> <20050219190333.GA22166@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-In-Reply-To: <20050219041007.GA17896@xi.wantstofly.org>
+Cc: Maillist netdev <netdev@oss.sgi.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050219190333.GA22166@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 19 Feb 2005 05:10:07 +0100
-Lennert Buytenhek <buytenh@wantstofly.org> wrote:
+Herbert Xu wrote:
 
-> On Fri, Feb 18, 2005 at 10:44:45PM -0500, Jeff Garzik wrote:
-> 
-> > Intel plans to sidestep the need for separate TOE cards by building this 
-> > technology into its server processor package - the chip itself, chipset 
-> > and network controller. This should reduce some of the time a processor 
-> > typically spends waiting for memory to feed back information and improve 
-> > overall application processing speeds.
-> 
-> I wonder if they could just take the network processing circuitry from
-> the IXP2800 (an extra 16-core (!) RISCy processor on-die, dedicated to
-> doing just network stuff, and a 10gbps pipe going straight into the CPU
-> itself) and graft it onto the Xeon.
-> 
-> Now _that_ would be something worth experiencing.
+>On Sat, Feb 19, 2005 at 07:47:11PM +0100, Patrick McHardy wrote:
+>  
+>
+>>>That's a bug.  How can you forward packets properly if the tunnel mode
+>>>SA is missing?
+>>>      
+>>>
+>>Using normal routing. What meaning would "optional" have otherwise ?
+>>If the encapsulation has to be done, the user shouldn't mark the SA
+>>as optional in my opinion.
+>>    
+>>
+>
+>In that case you can't mark IPCOMP SAs as optional in this scenario
+>which is the most common application of optional:
+>
+>IPCOMP(tunnel) -- ESP(transport)
+>  
+>
+I've checked KAME, it also skips IPSEC_LEVEL_USE SAs if they aren't present.
+IPCOMP in tunnel mode is a special case. It wants to express more than just
+"optional". It means to say "use SA if present and some things wrt. size 
+apply,
+otherwise use a similar SA with proto=IPIP". One of both has to be used, and
+this is what "optional" can't express. The current method is to use the IPIP
+SA automatically created with the IPCOMP SA when the compressed size exceeds
+the uncompressed size, but it doesn't handle a missing SA. This suggests we
+need to special-case tunnel mode IPCOMP in xfrm_tmpl_resolve() and either
+ignore "optional" for IPIP tunnel mode SAs or create them on demand.
 
-No, that would be garbage.
-
-Read what they are doing.  The idea is not to have all of this network
-protocol logic off-cpu, the idea is to "reduce some of the time
-a processor typically spends waiting for memory to feed back information"
-
-Think about what part of the network I/O equation that is working on.
-It's not protocol offload, that's for sure.
+Regards
+Patrick
