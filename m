@@ -1,45 +1,49 @@
-From: James Morris <jmorris@redhat.com>
-Subject: Re: [Openswan dev] IPComp
-Date: Tue, 6 Jul 2004 18:50:44 -0400 (EDT)
-Sender: dev-bounces@lists.openswan.org
-Message-ID: <Xine.LNX.4.44.0407061846470.24263-100000@thoron.boston.redhat.com>
-References: <20040706213135.GA21477@gondor.apana.org.au>
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] fix tcp_default_win_scale.
+Date: Tue, 6 Jul 2004 15:49:07 -0700
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20040706154907.422a6b73.davem@redhat.com>
+References: <20040629222751.392f0a82.davem@redhat.com>
+	<20040630152750.2d01ca51@dell_ss3.pdx.osdl.net>
+	<20040630153049.3ca25b76.davem@redhat.com>
+	<20040701133738.301b9e46@dell_ss3.pdx.osdl.net>
+	<20040701140406.62dfbc2a.davem@redhat.com>
+	<20040702013225.GA24707@conectiva.com.br>
+	<20040706093503.GA8147@outpost.ds9a.nl>
+	<20040706114741.1bf98bbe@dell_ss3.pdx.osdl.net>
+	<20040706194034.GA11021@mail.shareable.org>
+	<20040706131235.10b5afa8.davem@redhat.com>
+	<20040706224453.GA6694@outpost.ds9a.nl>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: dev@lists.openswan.org
-Return-path: <dev-bounces@lists.openswan.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040706213135.GA21477@gondor.apana.org.au>
-Cc: netdev@oss.sgi.com
-Cc: Paul Wouters <paul@xelerance.com>
-List-Unsubscribe: <http://lists.openswan.org/mailman/listinfo/dev>,
-	<mailto:dev-request@lists.openswan.org?subject=unsubscribe>
-List-Archive: <http://lists.openswan.org/pipermail/dev>
-List-Post: <mailto:dev@lists.openswan.org>
-List-Help: <mailto:dev-request@lists.openswan.org?subject=help>
-List-Subscribe: <http://lists.openswan.org/mailman/listinfo/dev>,
-	<mailto:dev-request@lists.openswan.org?subject=subscribe>
-Errors-To: dev-bounces@lists.openswan.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jamie@shareable.org, shemminger@osdl.org, netdev@oss.sgi.com,
+	linux-net@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: bert hubert <ahu@ds9a.nl>
+In-Reply-To: <20040706224453.GA6694@outpost.ds9a.nl>
 List-Id: netdev.vger.kernel.org
 
-On Wed, 7 Jul 2004, Herbert Xu wrote:
+On Wed, 7 Jul 2004 00:44:53 +0200
+bert hubert <ahu@ds9a.nl> wrote:
 
-> With most KMs the SAs are renegotiated periodically.  So as time
-> goes on memory fragmentation will eventually cause this to fail.
-> You also to consider IPsec gateways where there are hundreds or
-> thousands of SAs.
+> Not true - the outgoing SYN packet had window scale 7, when it was sent. The
+> SYN|ACK had window scale 0, when received by the initiating system.
 > 
-> Maybe we can use a vmalloc instead? That seems to be what the
-> deflate module does.
+> Also - even if the remote were to assume a 47 byte window size, would it not
+> be able to send small packets? Or does the window size also include
+> packet haders?
 
-I think it would be better to go with your original idea of allocating a
-scratch buffer for each packet, based on the size of the packet.  IPComp
-is very slow path, and allocating 64k for each SA is optimizing for an
-uncommon worst case in a way which will potentially eat up a lot of memory
-(e.g. > 6MB for 100 tunnels).
+SWS avoidance makes us not send packets.  See this quote in an email
+from John Heffner the other week:
 
-
-- James
--- 
-James Morris
-<jmorris@redhat.com>
+================================
+To elaborate on my earlier mail. my hypothesis is that somehow the web
+server beleives that we sent a winscale of 0.  In such a case, when we try
+to advertise our initial 4*MSS (5840 bytes) of window, with a window scale
+of 3 we use a value of 730 in the window field.  All sender SWS avoidance
+(RFC1122) tests will fail, most notably 1 (because we already advertised
+5840 bytes and 730 < 5840/2) and 3 (because 730 < 1460).  With a winscale
+of 2, we will use a value of 1460 in the window field, so both tests will
+succeed.
+================================
