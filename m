@@ -1,8 +1,8 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 9/11] PKT_SCHED: Cleanup cls_set_class
-Date: Wed, 27 Oct 2004 00:28:13 +0200
+Subject: [PATCH 10/11] PKT_SCHED: Inline psched_tod_diff
+Date: Wed, 27 Oct 2004 00:28:54 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041026222813.GJ12289@postel.suug.ch>
+Message-ID: <20041026222854.GK12289@postel.suug.ch>
 References: <20041026222148.GA12289@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -14,92 +14,51 @@ In-Reply-To: <20041026222148.GA12289@postel.suug.ch>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Clean up a really messy cross reference where a macro cls_set_class
-in pkt_sched.h would point to a function tcf_set_class in cls_api.c
-that uses a inlined function __cls_set_class in pkt_sched.h again.
-
-Make tcf_set_class be cls_set_class since it was never used and
-inline it as well.
-
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
---- linux-2.6.10-rc1-bk1.orig/include/net/pkt_cls.h	2004-10-26 23:36:12.000000000 +0200
-+++ linux-2.6.10-rc1-bk1/include/net/pkt_cls.h	2004-10-26 23:39:34.000000000 +0200
-@@ -18,4 +18,29 @@
- extern int unregister_tcf_proto_ops(struct tcf_proto_ops *ops);
- extern int ing_filter(struct sk_buff *skb);
+--- linux-2.6.10-rc1-bk1.orig/include/net/pkt_sched.h	2004-10-26 23:42:10.000000000 +0200
++++ linux-2.6.10-rc1-bk1/include/net/pkt_sched.h	2004-10-26 23:42:59.000000000 +0200
+@@ -132,7 +132,18 @@
+ 	   __delta; \
+ })
  
-+static inline unsigned long
-+__cls_set_class(unsigned long *clp, unsigned long cl)
+-extern int psched_tod_diff(int delta_sec, int bound);
++static inline int
++psched_tod_diff(int delta_sec, int bound)
 +{
-+	unsigned long old_cl;
-+ 
-+	old_cl = *clp;
-+	*clp = cl;
-+	return old_cl;
++	int delta;
++
++	if (bound <= 1000000 || delta_sec > (0x7FFFFFFF/1000000)-1)
++		return bound;
++	delta = delta_sec * 1000000;
++	if (delta > bound)
++		delta = bound;
++	return delta;
 +}
-+
-+static inline long
-+cls_set_class(struct tcf_proto *tp, unsigned long *clp, 
-+	unsigned long cl)
-+{
-+	unsigned long old_cl;
-+	
-+	qdisc_lock_tree(tp->q->dev);
-+
-+	tcf_tree_lock(tp);
-+	old_cl = __cls_set_class(clp, cl);
-+	tcf_tree_unlock(tp);
-+ 
-+	return old_cl;
-+}
-+
+ 
+ #define PSCHED_TDIFF_SAFE(tv1, tv2, bound) \
+ ({ \
+--- linux-2.6.10-rc1-bk1.orig/net/sched/sch_api.c	2004-10-26 23:37:57.000000000 +0200
++++ linux-2.6.10-rc1-bk1/net/sched/sch_api.c	2004-10-26 23:44:05.000000000 +0200
+@@ -1172,21 +1172,6 @@
+ };	
  #endif
---- linux-2.6.10-rc1-bk1.orig/include/net/pkt_sched.h	2004-10-26 23:36:12.000000000 +0200
-+++ linux-2.6.10-rc1-bk1/include/net/pkt_sched.h	2004-10-26 23:40:20.000000000 +0200
-@@ -22,18 +22,6 @@
- 			      & ~QDISC_ALIGN_CONST);
- }
  
--#define cls_set_class(tp, clp, cl) tcf_set_class(tp, clp, cl)
--static inline unsigned long
--__cls_set_class(unsigned long *clp, unsigned long cl)
+-#ifdef CONFIG_NET_SCH_CLK_GETTIMEOFDAY
+-int psched_tod_diff(int delta_sec, int bound)
 -{
--	unsigned long old_cl;
+-	int delta;
 -
--	old_cl = *clp;
--	*clp = cl;
--	return old_cl;
+-	if (bound <= 1000000 || delta_sec > (0x7FFFFFFF/1000000)-1)
+-		return bound;
+-	delta = delta_sec * 1000000;
+-	if (delta > bound)
+-		delta = bound;
+-	return delta;
 -}
+-EXPORT_SYMBOL(psched_tod_diff);
+-#endif
 -
--
- /* 
-    Timer resolution MUST BE < 10% of min_schedulable_packet_size/bandwidth
-    
---- linux-2.6.10-rc1-bk1.orig/net/sched/cls_api.c	2004-10-26 22:57:08.000000000 +0200
-+++ linux-2.6.10-rc1-bk1/net/sched/cls_api.c	2004-10-26 23:41:23.000000000 +0200
-@@ -297,19 +297,6 @@
- 	return err;
- }
- 
--unsigned long tcf_set_class(struct tcf_proto *tp, unsigned long *clp, 
--			    unsigned long cl)
--{
--	unsigned long old_cl;
--
--	tcf_tree_lock(tp);
--	old_cl = __cls_set_class(clp, cl);
--	tcf_tree_unlock(tp);
--
--	return old_cl;
--}
--
--
- static int
- tcf_fill_node(struct sk_buff *skb, struct tcf_proto *tp, unsigned long fh,
- 	      u32 pid, u32 seq, unsigned flags, int event)
-@@ -475,4 +462,3 @@
- 
- EXPORT_SYMBOL(register_tcf_proto_ops);
- EXPORT_SYMBOL(unregister_tcf_proto_ops);
--EXPORT_SYMBOL(tcf_set_class);
+ #ifdef CONFIG_NET_SCH_CLK_CPU
+ psched_tdiff_t psched_clock_per_hz;
+ int psched_clock_scale;
