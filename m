@@ -1,11 +1,10 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH PKT_SCHED 1/22]: Restore net/sched/ipt.c After iptables Kmod
- Cleanup
-Date: Mon, 10 Jan 2005 20:37:34 +0100
-Message-ID: <41E2D97E.7050809@trash.net>
+Subject: [PATCH PKT_SCHED 3/22]: act_api.c: use consistent comparision style
+Date: Mon, 10 Jan 2005 20:37:46 +0100
+Message-ID: <41E2D98A.1030801@trash.net>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------000107070700000802010309"
+ boundary="------------090101080101070505020400"
 Cc: Maillist netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: jamal <hadi@cyberus.ca>
@@ -14,286 +13,344 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------000107070700000802010309
+--------------090101080101070505020400
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
 
-Rusty's patch clashed with my changes, so I put it into my tree
-and fixed a missing EXPORT_SYMBOL.
 
 
-
---------------000107070700000802010309
+--------------090101080101070505020400
 Content-Type: text/x-patch;
- name="01.diff"
+ name="03.diff"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="01.diff"
+ filename="03.diff"
 
 # This is a BitKeeper generated diff -Nru style patch.
 #
 # ChangeSet
-#   2005/01/09 20:29:31+01:00 rusty@rustcorp.com.au 
-#   [PKT_SCHED]: Restore net/sched/ipt.c After iptables Kmod Cleanup
+#   2005/01/09 20:41:48+01:00 kaber@coreworks.de 
+#   [PKT_SCHED]: act_api.c: use consistent comparision style
 #   
-#   Thomas Graf points out that I broke net/sched/ipt.c when I removed
-#   __ipt_find_target_lock.  In fact, those routines don't need to keep
-#   the lock held, so we can simplify them, and expose an interface
-#   (ipt_find_target) which does module loading correctly for
-#   net/sched/ipt.c.  
-#   
-#   Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
 #   Signed-off-by: Patrick McHardy <kaber@trash.net>
 # 
-# net/sched/ipt.c
-#   2005/01/09 20:29:23+01:00 rusty@rustcorp.com.au +8 -12
-#   [PKT_SCHED]: Restore net/sched/ipt.c After iptables Kmod Cleanup
+# net/sched/act_api.c
+#   2005/01/09 20:41:41+01:00 kaber@coreworks.de +37 -40
+#   [PKT_SCHED]: act_api.c: use consistent comparision style
 #   
-#   Thomas Graf points out that I broke net/sched/ipt.c when I removed
-#   __ipt_find_target_lock.  In fact, those routines don't need to keep
-#   the lock held, so we can simplify them, and expose an interface
-#   (ipt_find_target) which does module loading correctly for
-#   net/sched/ipt.c.  
-#   
-#   Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
 #   Signed-off-by: Patrick McHardy <kaber@trash.net>
 # 
-# net/ipv4/netfilter/ip_tables.c
-#   2005/01/09 20:29:23+01:00 rusty@rustcorp.com.au +32 -32
-#   [PKT_SCHED]: Restore net/sched/ipt.c After iptables Kmod Cleanup
-#   
-#   Thomas Graf points out that I broke net/sched/ipt.c when I removed
-#   __ipt_find_target_lock.  In fact, those routines don't need to keep
-#   the lock held, so we can simplify them, and expose an interface
-#   (ipt_find_target) which does module loading correctly for
-#   net/sched/ipt.c.  
-#   
-#   Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-# 
-# include/linux/netfilter_ipv4/ip_tables.h
-#   2005/01/09 20:29:23+01:00 rusty@rustcorp.com.au +3 -0
-#   [PKT_SCHED]: Restore net/sched/ipt.c After iptables Kmod Cleanup
-#   
-#   Thomas Graf points out that I broke net/sched/ipt.c when I removed
-#   __ipt_find_target_lock.  In fact, those routines don't need to keep
-#   the lock held, so we can simplify them, and expose an interface
-#   (ipt_find_target) which does module loading correctly for
-#   net/sched/ipt.c.  
-#   
-#   Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-# 
-diff -Nru a/include/linux/netfilter_ipv4/ip_tables.h b/include/linux/netfilter_ipv4/ip_tables.h
---- a/include/linux/netfilter_ipv4/ip_tables.h	2005-01-10 06:21:42 +01:00
-+++ b/include/linux/netfilter_ipv4/ip_tables.h	2005-01-10 06:21:42 +01:00
-@@ -456,6 +456,9 @@
- 	struct module *me;
- };
- 
-+/* net/sched/ipt.c: Gimme access to your targets!  Gets target->me. */
-+extern struct ipt_target *ipt_find_target(const char *name, u8 revision);
-+
- extern int ipt_register_table(struct ipt_table *table);
- extern void ipt_unregister_table(struct ipt_table *table);
- extern unsigned int ipt_do_table(struct sk_buff **pskb,
-diff -Nru a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
---- a/net/ipv4/netfilter/ip_tables.c	2005-01-10 06:21:42 +01:00
-+++ b/net/ipv4/netfilter/ip_tables.c	2005-01-10 06:21:42 +01:00
-@@ -430,62 +430,63 @@
- 	return NULL;
- }
- 
--/* Find match, grabs mutex & ref.  Returns ERR_PTR() on error. */
--static inline struct ipt_match *find_match_lock(const char *name, u8 revision)
-+/* Find match, grabs ref.  Returns ERR_PTR() on error. */
-+static inline struct ipt_match *find_match(const char *name, u8 revision)
+diff -Nru a/net/sched/act_api.c b/net/sched/act_api.c
+--- a/net/sched/act_api.c	2005-01-10 06:21:51 +01:00
++++ b/net/sched/act_api.c	2005-01-10 06:21:51 +01:00
+@@ -196,7 +196,7 @@
+ 			DPRINTK("tcf_action_destroy destroying %p next %p\n",
+ 			        a, a->next ? a->next : NULL);
+ 			act = act->next;
+-			if (ACT_P_DELETED == a->ops->cleanup(a, bind))
++			if (a->ops->cleanup(a, bind) == ACT_P_DELETED)
+ 				module_put(a->ops->owner);
+ 			
+ 			a->ops = NULL;
+@@ -220,7 +220,7 @@
  {
- 	struct ipt_match *m;
--	int found = 0;
-+	int err = 0;
+ 	int err = -EINVAL;
  
- 	if (down_interruptible(&ipt_mutex) != 0)
- 		return ERR_PTR(-EINTR);
+-	if ((NULL == a) || (NULL == a->ops) || (NULL == a->ops->dump))
++	if ((a == NULL) || (a->ops == NULL) || (a->ops->dump == NULL))
+ 		return err;
+ 	return a->ops->dump(skb, a, bind, ref);
+ }
+@@ -232,8 +232,8 @@
+ 	unsigned char *b = skb->tail;
+ 	struct rtattr *r;
  
- 	list_for_each_entry(m, &ipt_match, list) {
- 		if (strcmp(m->name, name) == 0) {
--			found = 1;
- 			if (m->revision == revision) {
--				if (!try_module_get(m->me))
--					found = 0;
--				else
-+				if (try_module_get(m->me)) {
-+					up(&ipt_mutex);
- 					return m;
--			}
-+				}
-+			} else
-+				err = -EPROTOTYPE; /* Found something. */
+-	if ((NULL == a) || (NULL == a->ops) || (NULL == a->ops->dump) ||
+-	    (NULL == a->ops->kind))
++	if ((a == NULL) || (a->ops == NULL) || (a->ops->dump == NULL) ||
++	    (a->ops->kind == NULL))
+ 		return err;
+ 
+ 	RTA_PUT(skb, TCA_KIND, IFNAMSIZ, a->ops->kind);
+@@ -264,7 +264,7 @@
+ 		act = a->next;
+ 		RTA_PUT(skb, a->order, 0, NULL);
+ 		err = tcf_action_dump_1(skb, a, bind, ref);
+-		if (0 > err)
++		if (err < 0)
+ 			goto rtattr_failure;
+ 		r->rta_len = skb->tail - (u8*)r;
+ 	}
+@@ -287,12 +287,12 @@
+ 
+ 	*err = -EINVAL;
+ 
+-	if (NULL == name) {
++	if (name == NULL) {
+ 		if (rtattr_parse(tb, TCA_ACT_MAX, RTA_DATA(rta),
+ 		                 RTA_PAYLOAD(rta)) < 0)
+ 			goto err_out;
+ 		kind = tb[TCA_ACT_KIND-1];
+-		if (NULL != kind) {
++		if (kind != NULL) {
+ 			sprintf(act_name, "%s", (char*)RTA_DATA(kind));
+ 			if (RTA_PAYLOAD(kind) >= IFNAMSIZ) {
+ 				printk("Action %s bad\n",
+@@ -310,7 +310,7 @@
+ 		a_o = tc_lookup_action_n(name);
+ 	}
+ #ifdef CONFIG_KMOD
+-	if (NULL == a_o) {
++	if (a_o == NULL) {
+ 		DPRINTK("tcf_action_init_1: trying to load module %s\n",
+ 		        act_name);
+ 		request_module(act_name);
+@@ -318,7 +318,7 @@
+ 	}
+ 
+ #endif
+-	if (NULL == a_o) {
++	if (a_o == NULL) {
+ 		printk("failed to find %s\n", act_name);
+ 		goto err_out;
+ 	}
+@@ -331,7 +331,7 @@
+ 	memset(a, 0, sizeof(*a));
+ 
+ 	/* backward compatibility for policer */
+-	if (NULL == name) {
++	if (name == NULL) {
+ 		*err = a_o->init(tb[TCA_ACT_OPTIONS-1], est, a, ovr, bind);
+ 		if (*err < 0) {
+ 			*err = -EINVAL;
+@@ -414,7 +414,7 @@
+ 	/* place holder */
+ #endif
+ 
+-	if (NULL == h)
++	if (h == NULL)
+ 		goto errout;
+ 
+ 	if (a->type == TCA_OLD_COMPAT)
+@@ -427,7 +427,7 @@
+ 	if (err < 0)
+ 		goto errout;
+ 
+-	if (NULL != a->ops && NULL != a->ops->get_stats)
++	if (a->ops != NULL && a->ops->get_stats != NULL)
+ 		if (a->ops->get_stats(skb, a) < 0)
+ 			goto errout;
+ 
+@@ -464,7 +464,7 @@
+ 	x = (struct rtattr*) skb->tail;
+ 	RTA_PUT(skb, TCA_ACT_TAB, 0, NULL);
+ 
+-	if (0 > tcf_action_dump(skb, a, bind, ref))
++	if (tcf_action_dump(skb, a, bind, ref) < 0)
+ 		goto rtattr_failure;
+ 
+ 	x->rta_len = skb->tail - (u8*)x;
+@@ -510,7 +510,7 @@
+ 	if (rtattr_parse(tb, TCA_ACT_MAX, RTA_DATA(rta), RTA_PAYLOAD(rta)) < 0)
+ 		goto err_out;
+ 	kind = tb[TCA_ACT_KIND-1];
+-	if (NULL != kind) {
++	if (kind != NULL) {
+ 		sprintf(act_name, "%s", (char*)RTA_DATA(kind));
+ 		if (RTA_PAYLOAD(kind) >= IFNAMSIZ) {
+ 			printk("tcf_action_get_1: action %s bad\n",
+@@ -531,21 +531,21 @@
+ 
+ 	a_o = tc_lookup_action(kind);
+ #ifdef CONFIG_KMOD
+-	if (NULL == a_o) {
++	if (a_o == NULL) {
+ 		request_module (act_name);
+ 		a_o = tc_lookup_action_n(act_name);
+ 	}
+ #endif
+-	if (NULL == a_o) {
++	if (a_o == NULL) {
+ 		printk("failed to find %s\n", act_name);
+ 		goto err_out;
+ 	}
+-	if (NULL == a)
++	if (a == NULL)
+ 		goto err_mod;
+ 
+ 	a->ops = a_o;
+ 
+-	if (NULL == a_o->lookup || 0 == a_o->lookup(a, index)) {
++	if (a_o->lookup == NULL || a_o->lookup(a, index) == 0) {
+ 		a->ops = NULL;
+ 		err = -EINVAL;
+ 		goto err_mod;
+@@ -579,7 +579,7 @@
+ 	char act_name[4 + IFNAMSIZ + 1];
+ 	struct tc_action_ops *a_o = NULL;
+ 
+-	if (NULL != kind) {
++	if (kind != NULL) {
+ 		sprintf(act_name, "%s", (char*)RTA_DATA(kind));
+ 		if (RTA_PAYLOAD(kind) >= IFNAMSIZ) {
+ 			printk("get_ao: action %s bad\n",
+@@ -593,14 +593,13 @@
+ 
+ 	a_o = tc_lookup_action(kind);
+ #ifdef CONFIG_KMOD
+-	if (NULL == a_o) {
++	if (a_o == NULL) {
+ 		DPRINTK("get_ao: trying to load module %s\n", act_name);
+ 		request_module(act_name);
+ 		a_o = tc_lookup_action_n(act_name);
+ 	}
+ #endif
+-
+-	if (NULL == a_o) {
++	if (a_o == NULL) {
+ 		printk("get_ao: failed to find %s\n", act_name);
+ 		return NULL;
+ 	}
+@@ -614,7 +613,7 @@
+ 	struct tc_action *act = NULL;
+ 
+ 	act = kmalloc(sizeof(*act), GFP_KERNEL);
+-	if (NULL == act) { /* grrr .. */
++	if (act == NULL) {
+ 		printk("create_a: failed to alloc!\n");
+ 		return NULL;
+ 	}
+@@ -636,7 +635,7 @@
+ 	struct tc_action *a = create_a(0);
+ 	int err = -EINVAL;
+ 
+-	if (NULL == a) {
++	if (a == NULL) {
+ 		printk("tca_action_flush: couldnt create tc_action\n");
+ 		return err;
+ 	}
+@@ -654,7 +653,7 @@
+ 		goto err_out;
+ 
+ 	kind = tb[TCA_ACT_KIND-1];
+-	if (NULL == get_ao(kind, a))
++	if (get_ao(kind, a) == NULL)
+ 		goto err_out;
+ 
+ 	nlh = NLMSG_PUT(skb, pid, n->nlmsg_seq, RTM_DELACTION, sizeof(*t));
+@@ -665,7 +664,7 @@
+ 	RTA_PUT(skb, TCA_ACT_TAB, 0, NULL);
+ 
+ 	err = a->ops->walk(skb, &dcb, RTM_DELACTION, a);
+-	if (0 > err)
++	if (err < 0)
+ 		goto rtattr_failure;
+ 
+ 	x->rta_len = skb->tail - (u8 *) x;
+@@ -680,7 +679,6 @@
+ 
+ 	return err;
+ 
+-
+ rtattr_failure:
+ 	module_put(a->ops->owner);
+ nlmsg_failure:
+@@ -709,15 +707,15 @@
+ 	}
+ 
+ 	if (event == RTM_DELACTION && n->nlmsg_flags&NLM_F_ROOT) {
+-		if (NULL != tb[0] && NULL == tb[1])
++		if (tb[0] != NULL && tb[1] == NULL)
+ 			return tca_action_flush(tb[0], n, pid);
+ 	}
+ 
+ 	for (i=0; i < TCA_ACT_MAX_PRIO; i++) {
+-		if (NULL == tb[i])
++		if (tb[i] == NULL)
+ 			break;
+ 		act = create_a(i+1);
+-		if (NULL != a && a != act) {
++		if (a != NULL && a != act) {
+ 			a->next = act;
+ 			a = act;
+ 		} else
+@@ -736,7 +734,7 @@
  		}
  	}
- 	up(&ipt_mutex);
--
--	/* Not found at all?  NULL so try_then_request_module loads module. */
--	if (!found)
--		return NULL;
--
--	return ERR_PTR(-EPROTOTYPE);
-+	return ERR_PTR(err);
- }
  
--/* Find target, grabs mutex & ref.  Returns ERR_PTR() on error. */
--static inline struct ipt_target *find_target_lock(const char *name, u8 revision)
-+/* Find target, grabs ref.  Returns ERR_PTR() on error. */
-+static inline struct ipt_target *find_target(const char *name, u8 revision)
- {
- 	struct ipt_target *t;
--	int found = 0;
-+	int err = 0;
+-	if (RTM_GETACTION == event)
++	if (event == RTM_GETACTION)
+ 		ret = act_get_notify(pid, n, a_s, event);
+ 	else { /* delete */
+ 		struct sk_buff *skb;
+@@ -792,7 +790,7 @@
+ 	x = (struct rtattr*) skb->tail;
+ 	RTA_PUT(skb, TCA_ACT_TAB, 0, NULL);
  
- 	if (down_interruptible(&ipt_mutex) != 0)
- 		return ERR_PTR(-EINTR);
+-	if (0 > tcf_action_dump(skb, a, 0, 0))
++	if (tcf_action_dump(skb, a, 0, 0) < 0)
+ 		goto rtattr_failure;
  
- 	list_for_each_entry(t, &ipt_target, list) {
- 		if (strcmp(t->name, name) == 0) {
--			found = 1;
- 			if (t->revision == revision) {
--				if (!try_module_get(t->me))
--					found = 0;
--				else
-+				if (try_module_get(t->me)) {
-+					up(&ipt_mutex);
- 					return t;
--			}
-+				}
-+			} else
-+				err = -EPROTOTYPE; /* Found something. */
- 		}
+ 	x->rta_len = skb->tail - (u8*)x;
+@@ -847,7 +845,7 @@
+ 	u32 pid = skb ? NETLINK_CB(skb).pid : 0;
+ 	int ret = 0, ovr = 0;
+ 
+-	if (NULL == tca[TCA_ACT_TAB-1]) {
++	if (tca[TCA_ACT_TAB-1] == NULL) {
+ 		printk("tc_ctl_action: received NO action attribs\n");
+ 		return -EINVAL;
  	}
- 	up(&ipt_mutex);
-+	return ERR_PTR(err);
-+}
+@@ -894,14 +892,13 @@
+ 	if (rtattr_parse(rta, TCAA_MAX, attr, attrlen) < 0)
+ 		return NULL;
+ 	tb1 = rta[TCA_ACT_TAB - 1];
+-	if (NULL == tb1) {
++	if (tb1 == NULL)
+ 		return NULL;
+-	}
  
--	/* Not found at all?  NULL so try_then_request_module loads module. */
--	if (!found)
--		return NULL;
-+struct ipt_target *ipt_find_target(const char *name, u8 revision)
-+{
-+	struct ipt_target *target;
+ 	if (rtattr_parse(tb, TCA_ACT_MAX_PRIO, RTA_DATA(tb1),
+ 	                 NLMSG_ALIGN(RTA_PAYLOAD(tb1))) < 0)
+ 		return NULL;
+-	if (NULL == tb[0])
++	if (tb[0] == NULL)
+ 		return NULL;
  
--	return ERR_PTR(-EPROTOTYPE);
-+	target = try_then_request_module(find_target(name, revision),
-+					 "ipt_%s", name);
-+	if (IS_ERR(target) || !target)
-+		return NULL;
-+	return target;
- }
+ 	if (rtattr_parse(tb2, TCA_ACT_MAX, RTA_DATA(tb[0]),
+@@ -924,13 +921,13 @@
+ 	struct tcamsg *t = (struct tcamsg *) NLMSG_DATA(cb->nlh);
+ 	char *kind = find_dump_kind(cb->nlh);
  
- static int match_revfn(const char *name, u8 revision, int *bestp)
-@@ -708,15 +709,14 @@
- {
- 	struct ipt_match *match;
- 
--	match = try_then_request_module(find_match_lock(m->u.user.name,
--							m->u.user.revision),
-+	match = try_then_request_module(find_match(m->u.user.name,
-+						   m->u.user.revision),
- 					"ipt_%s", m->u.user.name);
- 	if (IS_ERR(match) || !match) {
- 		duprintf("check_match: `%s' not found\n", m->u.user.name);
- 		return match ? PTR_ERR(match) : -ENOENT;
- 	}
- 	m->u.kernel.match = match;
--	up(&ipt_mutex);
- 
- 	if (m->u.kernel.match->checkentry
- 	    && !m->u.kernel.match->checkentry(name, ip, m->data,
-@@ -754,8 +754,8 @@
- 		goto cleanup_matches;
- 
- 	t = ipt_get_target(e);
--	target = try_then_request_module(find_target_lock(t->u.user.name,
--							  t->u.user.revision),
-+	target = try_then_request_module(find_target(t->u.user.name,
-+						     t->u.user.revision),
- 					 "ipt_%s", t->u.user.name);
- 	if (IS_ERR(target) || !target) {
- 		duprintf("check_entry: `%s' not found\n", t->u.user.name);
-@@ -763,7 +763,6 @@
- 		goto cleanup_matches;
- 	}
- 	t->u.kernel.target = target;
--	up(&ipt_mutex);
- 
- 	if (t->u.kernel.target == &ipt_standard_target) {
- 		if (!standard_check(t, size)) {
-@@ -1959,6 +1958,7 @@
- EXPORT_SYMBOL(ipt_do_table);
- EXPORT_SYMBOL(ipt_register_target);
- EXPORT_SYMBOL(ipt_unregister_target);
-+EXPORT_SYMBOL(ipt_find_target);
- 
- module_init(init);
- module_exit(fini);
-diff -Nru a/net/sched/ipt.c b/net/sched/ipt.c
---- a/net/sched/ipt.c	2005-01-10 06:21:42 +01:00
-+++ b/net/sched/ipt.c	2005-01-10 06:21:42 +01:00
-@@ -31,6 +31,7 @@
- #include <linux/module.h>
- #include <linux/init.h>
- #include <linux/proc_fs.h>
-+#include <linux/kmod.h>
- #include <net/sock.h>
- #include <net/pkt_sched.h>
- #include <linux/tc_act/tc_ipt.h>
-@@ -60,32 +61,23 @@
- 	struct ipt_target *target;
- 	int ret = 0;
- 	struct ipt_entry_target *t = p->t;
--	target = __ipt_find_target_lock(t->u.user.name, &ret);
- 
-+	target = ipt_find_target(t->u.user.name, t->u.user.revision);
- 	if (!target) {
- 		printk("init_targ: Failed to find %s\n", t->u.user.name);
- 		return -1;
+-	if (NULL == kind) {
++	if (kind == NULL) {
+ 		printk("tc_dump_action: action bad kind\n");
+ 		return 0;
  	}
  
- 	DPRINTK("init_targ: found %s\n", target->name);
--	/* we really need proper ref counting
--	 seems to be only needed for modules?? Talk to laforge */
--/*      if (target->me)
--              __MOD_INC_USE_COUNT(target->me);
--*/
- 	t->u.kernel.target = target;
- 
--	__ipt_mutex_up();
--
- 	if (t->u.kernel.target->checkentry
- 	    && !t->u.kernel.target->checkentry(p->tname, NULL, t->data,
- 					       t->u.target_size
- 					       - sizeof (*t), p->hook)) {
--/*              if (t->u.kernel.target->me)
--	      __MOD_DEC_USE_COUNT(t->u.kernel.target->me);
--*/
- 		DPRINTK("ip_tables: check failed for `%s'.\n",
- 			t->u.kernel.target->name);
-+		module_put(t->u.kernel.target->me);
- 		ret = -EINVAL;
+ 	a_o = tc_lookup_action_n(kind);
+-	if (NULL == a_o) {
++	if (a_o == NULL) {
+ 		printk("failed to find %s\n", kind);
+ 		return 0;
  	}
+@@ -938,7 +935,7 @@
+ 	memset(&a, 0, sizeof(struct tc_action));
+ 	a.ops = a_o;
  
-@@ -235,8 +227,12 @@
- {
- 	struct tcf_ipt *p;
- 	p = PRIV(a,ipt);
--	if (NULL != p)
-+	if (NULL != p) {
-+		struct ipt_entry_target *t = p->t;
-+		if (t && t->u.kernel.target)
-+			module_put(t->u.kernel.target->me);
- 		return tcf_hash_release(p, bind);
-+	}
- 	return 0;
- }
+-	if (NULL == a_o->walk) {
++	if (a_o->walk == NULL) {
+ 		printk("tc_dump_action: %s !capable of dumping table\n", kind);
+ 		goto rtattr_failure;
+ 	}
+@@ -952,7 +949,7 @@
+ 	RTA_PUT(skb, TCA_ACT_TAB, 0, NULL);
  
+ 	ret = a_o->walk(skb, cb, RTM_GETACTION, &a);
+-	if (0 > ret)
++	if (ret < 0)
+ 		goto rtattr_failure;
+ 
+ 	if (ret > 0) {
 
---------------000107070700000802010309--
+--------------090101080101070505020400--
