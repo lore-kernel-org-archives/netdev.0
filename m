@@ -1,41 +1,64 @@
-From: Danny <dannydaemonic@gmail.com>
-Subject: Re: mm kernel oops with r8169 & named, PREEMPT
-Date: Thu, 14 Oct 2004 15:04:11 -0700
+From: "Raghavendra Koushik" <raghavendra.koushik@s2io.com>
+Subject: RE: [PATCH 2.6.9-rc2 8/8] S2io: two buffer mode
+Date: Thu, 14 Oct 2004 17:02:34 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <9625752b04101415043a078b93@mail.gmail.com>
-References: <9625752b041012230068619e68@mail.gmail.com>
-	 <9625752b041013091772e26739@mail.gmail.com>
-	 <9625752b04101309182a96fbd2@mail.gmail.com>
-	 <200410131129.05657.jdmason@us.ltcfwd.linux.ibm.com>
-	 <20041013181840.GA30852@electric-eye.fr.zoreil.com>
-	 <9625752b04101313417be4cf90@mail.gmail.com>
-	 <20041013205433.GC30761@electric-eye.fr.zoreil.com>
-	 <9625752b04101314595f72f84a@mail.gmail.com>
-Reply-To: Danny <dannydaemonic@gmail.com>
+Message-ID: <200410150002.i9F02d39021336@guinness.s2io.com>
+References: <41b516cb04101413492af4db1d@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Francois Romieu <romieu@fr.zoreil.com>
+Cc: "'Jeff Garzik'" <jgarzik@pobox.com>, <ravinandan.arakali@s2io.com>,
+        "'Francois Romieu'" <romieu@fr.zoreil.com>, <netdev@oss.sgi.com>,
+        <leonid.grossman@s2io.com>, <rapuru.sriram@s2io.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-kernel@vger.kernel.org
-In-Reply-To: <9625752b04101314595f72f84a@mail.gmail.com>
+To: "'Chris Leech'" <chris.leech@gmail.com>
+In-Reply-To: <41b516cb04101413492af4db1d@mail.gmail.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I wasn't able to get the kernel to compile with just the reiser4
-patches from the broken-out dir on the ftp.  The patching itself
-seemed to go well though.  I tried to apply the patches in the order
-they were listed in "series" but some had to go out of order anyway,
-such as reiser4-only.patch had to go first.
+Hi Chris,
 
-However I was able to verify it's not a problem with the r8169 driver.
- I copied over the r8169 driver to a fresh linux-2.6.8.1-mm4 and was
-able to compile and run fine with the latest r8169 driver from the
-linux-2.6.9-rc4-mm1 release.  I also tested it in reverse, bringing
-over r8169.c to a fresh linux-2.6.9-rc4-mm1 and it still gave me the
-oops.
+	I think you have a point. As an alternative I can allocate some
+extra buffer space for buffer 2 (Ethernet payload) to begin with and in Rx
+path copy the buffer 1(Ethernet header) to the start of buffer 2(skb_push).
+This can then be passed to the upper layer (after eth_type_trans call).
+I did try fragmented SKB on Rx but it didn't seem to work. If any one can
+give me some pointers on how to get this working, I would implement 2Buff
+mode using this method and avoid a copy in fast path.
 
-I'm not sure where this leaves me now.  Perhaps I should repost my
-oops and my proc info in the lkml with a different subject to draw the
-attention of others, since I now know this subject to be entirely
-missleading.
+Koushik
+
+
+> -----Original Message-----
+> From: Chris Leech [mailto:chris.leech@gmail.com]
+> Sent: Thursday, October 14, 2004 1:49 PM
+> To: Raghavendra Koushik
+> Cc: Jeff Garzik; ravinandan.arakali@s2io.com; Francois Romieu;
+> netdev@oss.sgi.com; leonid.grossman@s2io.com; rapuru.sriram@s2io.com
+> Subject: Re: [PATCH 2.6.9-rc2 8/8] S2io: two buffer mode
+> 
+> On Thu, 14 Oct 2004 11:33:13 -0700, Raghavendra Koushik
+> <raghavendra.koushik@s2io.com> wrote:
+> 
+> > > 1) can this not be done with SKB fragments?
+> > >
+> > To acheve what is required, the H/W still has to split the Rx'ed frame
+> into
+> > 2 parts. By implementing this through the SKB fragments method, the only
+> > thing we avoid is usage of ba_0 and ba_1 fields, but note that none of
+> these
+> > are allocated or freed in fast path. They are all pre-allocated buffers
+> > (along with the Rx descriptors) and hence won't hit the Rx side
+> performance.
+> > Also by pulling down the eth_type_trans implementation partially into
+> the
+> > driver any kind of copy during Rx is also avoided.
+> 
+> This change would pass skbs from the driver without the MAC header?
+> What happens in a bridging configuration?  And dev->hard_header_parse
+> is set to eth_header_parse, which expects skb->mac.ethernet to be
+> valid, so I think any use of packet sockets will result in a NULL
+> dereference.
+> 
+> - Chris
