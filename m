@@ -1,36 +1,37 @@
-From: "Ihar 'Philips' Filipau" <filia@softhome.net>
-Subject: net/packet/af_packet.c:{1057,1073}: flags vs. msg->flags
-Date: Mon, 10 Nov 2003 12:10:46 +0100
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <3FAF7236.7020209@softhome.net>
+From: =?iso-8859-1?q?francois=20donzet?= <fdonzet@yahoo.fr>
+Subject: checksum offloading
+Date: Mon, 10 Nov 2003 12:29:15 +0100 (CET)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20031110112915.3483.qmail@web25201.mail.ukl.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi!
 
-    [ I'm trying to cc: netdev - but they are not that welcome - and 
-require subscription. I'm way too lazy (and my mail box is not that 
-fast) to subscribe to send simple typo - if this is a case at all. ]
+Hi,
 
-    [ kernel v2.6.0-test7 as found on lxr.linux.no, 2.4.{18,22} has the 
-same - but line numbers are different. ]
+i have a little question :=20
 
-    On line 1057 we have: "msg->msg_flags|=MSG_TRUNC;" to indicate that 
-message was truncated.
+When tcp checksum offloading is enabled, the chip
+computes a sum on all words of the packet contents and
+stores the result in skb->csum, setting skb->ip_summed
+to CHECKSUM_HW. (see for example, e100_main.c)
 
-    But on line 1073, where we make return status to user, we check 
-against user suplied flags, but NOT msg->msg_flags.
+Then, when packet reaches tcp layer, via
+tcp_checksum_init(), tcp checksum is verified (using
+together skb->csum and the pseudo header checksum).
 
-    It looks like obvious typo.
+How does TCP deal with skb->csum, as it doesn't cover
+only the tcpheader+data (but ipheader+tcpheader+data)
 
--- 
-Ihar 'Philips' Filipau  / with best regards from Saarbruecken.
---                                                           _ _ _
-  "... and for $64000 question, could you get yourself       |_|*|_|
-    vaguely familiar with the notion of on-topic posting?"   |_|_|*|
-                                 -- Al Viro @ LKML           |*|*|*|
+Thanks.
+
+
+
+___________________________________________________________
+Do You Yahoo!? -- Une adresse @yahoo.fr gratuite et en fran=E7ais !
+Yahoo! Mail : http://fr.mail.yahoo.com
