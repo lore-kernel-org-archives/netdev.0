@@ -1,71 +1,29 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: Re: PATCH: [SKBUFF] Introduce skb_set_link_header_offset(skb, offset)
-Date: Tue, 05 Oct 2004 18:25:09 -0300
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] fix secure tcp sequence number generation
+Date: Tue, 5 Oct 2004 14:31:31 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41631135.5040609@conectiva.com.br>
-References: <4162FF64.4050108@conectiva.com.br> <20041005135338.6f381fa1.davem@redhat.com>
+Message-ID: <20041005143131.6babd2c7.davem@davemloft.net>
+References: <415EEF0E.3080808@colorfullife.com>
+	<20041005132724.6a913c48.davem@davemloft.net>
+	<41630713.2080606@colorfullife.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20041005135338.6f381fa1.davem@redhat.com>
+To: Manfred Spraul <manfred@colorfullife.com>
+In-Reply-To: <41630713.2080606@colorfullife.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> On Tue, 05 Oct 2004 17:09:08 -0300
-> Arnaldo Carvalho de Melo <acme@conectiva.com.br> wrote:
-> 
-> 
->>Hi David,
->>
->>	Please consider pulling from:
->>
->>bk://kernel.bkbits.net/acme/sk_buff-2.4
->>
->>	Now there are 14 outstanding changesets in this tree.
-> 
-> 
-> Slow down. :-)
+On Tue, 05 Oct 2004 22:41:55 +0200
+Manfred Spraul <manfred@colorfullife.com> wrote:
 
-Oh, flow control! :-)
+> Right patch but wrong description, sorry:
+> I've recycled the description from the previous patch and that one used 
+> get_seconds() in rekey_seq_generator(). Now rekey_seq_generator() 
+> doesn't access the time at all, that's done within schedule_delayed_work().
 
-> 
-> There are bugs in your earlier changesets which are going
-> to make it hard for me to pull this tree in.  Let's work
-> one or two changesets at a time, not 14 ok? :-)
-> 
-> First bug, in ChangeSet 1.2032, drivers/net/wireless/orinoco.c
-> 
-> You change "skb->mac.raw + ETH_ALEN" into
-> "eth_hdr(skb)->h_source".  That can't be right
-> since orinoco_spy_gather() expects a pointer for
-> that argument.
-> 
-> Same error in the drivers/net/wireless/wavelan.c change
-> in ChangeSet 1.2032, replacing skb->mac.raw (a pointer)
-> with eth_hdr(skb)->h_dest in the call to wv_packet_info.
+Great, I'll apply then.
 
-humm, puzzled, isn't eth_hdr(skb)->h_dest a pointer of the
-same tipe (unsigned char *), that points to same place as
-skb->mac.raw? :-)
-
-But perhaps the guy wanted the whole link header, I got
-confused because afterwards it uses the ETH_ALEN offset,
-meaning that it wanted now the second struct ethhdr field,
-
-lemme look again at this code...
-
-Nope, you're right, seems to be the 802.11 three adresses stuff,
-done in an ad-hoc confusing way, my mistake.
-
-> Please start to submit this stuff in smaller pieces and
-> fix the above bugs, thanks.
-
-mmkay sir!
-
-Best Regards,
-
-- Arnaldo
+Thanks.
