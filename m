@@ -1,59 +1,44 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [RFT] netif_queue_stopped in TBF scheduler
-Date: Thu, 17 Jun 2004 16:09:30 -0700
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: IPsec and Path MTU
+Date: Fri, 18 Jun 2004 09:09:18 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040617160930.729b35ad@dell_ss3.pdx.osdl.net>
-References: <58D550446979A646A05649BF9EAF113AA2E995@orsmsx407>
-	<20040617155603.0651081c@dell_ss3.pdx.osdl.net>
+Message-ID: <20040617230918.GA14739@gondor.apana.org.au>
+References: <20040616202341.GD29781@ms2.inr.ac.ru> <E1BajZO-0001UK-00@gondolin.me.apana.org.au> <20040617105843.314dfe30.davem@redhat.com> <20040617213130.GB14089@gondor.apana.org.au> <20040617152216.00a5cec9.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, lartc@mailman.ds9a.nl
+Content-Type: text/plain; charset=us-ascii
+Cc: kuznet@ms2.inr.ac.ru, jmorris@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040617155603.0651081c@dell_ss3.pdx.osdl.net>
+Content-Disposition: inline
+In-Reply-To: <20040617152216.00a5cec9.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-There is a race between the device and scheduler if the scheduler looks
-at netif_queue_stopped.  What can happen is that the device decides it is ready,
-just after the stopped check, and the scheduler decides it is throttled.
+On Thu, Jun 17, 2004 at 03:22:16PM -0700, David S. Miller wrote:
+> 
+> Right.  I'm sorry, is someone trying to do NFS/UDP over IPSEC?
+> My condolences.  :-)
 
-The simple way is to just have the scheduler always dequeue and leave the flow
-control up to the driver and the core scheduling loop.
+Nope, it breaks TCP as well.  Whether you're TCP/UDP or whatever,
+you have to pass xfrm4_tunnel_check_size().  That function uses
+an incorrect derivation of the MTU, thus potentially blocking
+maximal packets from getting through.
 
-Here is an untested fix for TBF scheduler based on the tested changes to the
-delay scheduler. 
+As I said before, this only strikes for certain device MTUs.
+So if you're having problems reproducing this, try setting your
+device MTU to 1480 (or 1480 + 8x for any integer x).
 
+> More seriously, it is a fringe case.  We do need to handle it,
+> but it is no accident that there haven't been very
+> many folks complaining about it.
 
-diff -Nru a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
---- a/net/sched/sch_tbf.c	2004-06-17 15:56:47 -07:00
-+++ b/net/sched/sch_tbf.c	2004-06-17 15:56:47 -07:00
-@@ -201,7 +201,7 @@
- 
- 	if (skb) {
- 		psched_time_t now;
--		long toks;
-+		long toks, delay;
- 		long ptoks = 0;
- 		unsigned int len = skb->len;
- 
-@@ -229,14 +229,11 @@
- 			return skb;
- 		}
- 
--		if (!netif_queue_stopped(sch->dev)) {
--			long delay = PSCHED_US2JIFFIE(max_t(long, -toks, -ptoks));
-+		delay = PSCHED_US2JIFFIE(max_t(long, -toks, -ptoks));
-+		if (delay == 0)
-+			delay = 1;
- 
--			if (delay == 0)
--				delay = 1;
--
--			mod_timer(&q->wd_timer, jiffies+delay);
--		}
-+		mod_timer(&q->wd_timer, jiffies+delay);
- 
- 		/* Maybe we have a shorter packet in the queue,
- 		   which can be sent now. It sounds cool,
+I agree it's not a common problem.  But the reason is not what
+you think it is :) It's because the common MTUs 1500, 1492 etc.
+are not of the form 1480 + 8x.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
