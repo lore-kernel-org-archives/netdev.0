@@ -1,32 +1,29 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: tulip NAPI patch that works with 2.4.20-pre9 or so?
-Date: Sun, 20 Oct 2002 22:00:22 +0200
+From: Ben Greear <greearb@candelatech.com>
+Subject: reserving skbuffs for the drivers
+Date: Sun, 20 Oct 2002 14:03:46 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <15795.2902.180818.661384@robur.slu.se>
-References: <3DB1D6B5.6080305@candelatech.com>
+Message-ID: <3DB31A32.9020107@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <3DB1D6B5.6080305@candelatech.com>
+To: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+I'm getting dropped rx packets because the network
+driver cannot allocate an skbuf in time, evidently....
 
-Ben Greear writes:
- > The latest NAPI tulip patch I could find (tulip-020922.pat)
- > will not load.  The problem appears that the tulip_misc.c file
- > no longer exists...
+I have 256MB of RAM, is there some way to increase the amount of RAM
+that the kernel keeps around for GFP_ATOMIC allocations?
 
- :-( I'll look into it.
+Documentation I find talks about buffermem and freepages, which looks
+hopeful, but they appear to no longer be in the proc file system as
+tunables???
 
+Ben
 
- > If anyone has a newer patch, I'd love to try it out.
- 
-Try Jamal's drop-in-replacement
-http://www.cyberus.ca/~hadi/patches/tulip-napi.tgz
-
-Cheers.
-						--ro
+-- 
+Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
+President of Candela Technologies Inc      http://www.candelatech.com
+ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
