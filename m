@@ -1,109 +1,53 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [XFRM] Add FLUSHSA and FLUSHPOLICY
-Date: Fri, 9 Jul 2004 20:13:27 +1000
+From: Vladimir Kondratiev <vkondra@mail.ru>
+Subject: Re: ethernet QoS support?
+Date: Fri, 9 Jul 2004 10:02:21 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040709101327.GA12291@gondor.apana.org.au>
+Message-ID: <200407091002.26410.vkondra@mail.ru>
+References: <1C440F3C-D110-11D8-8B61-000393DBC2E8@freescale.com> <40ED9A1C.4040707@pobox.com> <1089316845.1072.1.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="J/dobhs11T7y2rNN"
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: Jeff Garzik <jgarzik@pobox.com>, Kumar Gala <kumar.gala@freescale.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+To: netdev@oss.sgi.com, hadi@cyberus.ca
+In-Reply-To: <1089316845.1072.1.camel@jzny.localdomain>
 Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
---J/dobhs11T7y2rNN
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+I guess, Kumar is asking for support for several Tx queues with different 
+priorities. One need to start/stop these queues separately. This is dictated 
+by presense of different priorities on physical layer.
 
-Hi Dave:
+Kumar, is it 802.11? WME or TGE?
 
-This patch adds FLUSHSA and FLUSHPOLICY to xfrm_user which are
-analagous to SADB_FLUSH and SADB_X_SPDFLUSH in af_key.
+Vladimir.
 
-This is useful in KMs on startup/shutdown so that the system is
-reset to a known state.
+On Thursday 08 July 2004 23:00, jamal wrote:
+> On Thu, 2004-07-08 at 15:01, Jeff Garzik wrote:
+> > Kumar Gala wrote:
+> > > Jeff,
+> > >
+> > > I was wondering if there was any support for handling ethernet devices
+> > > that support multiple RX/TX queues to provide QoS.  If so any pointers
+> > > would be great.
+> >
+> > IIRC skb->priority provides priority bands for TX.  Not sure about RX...
+> > jamal?
+>
+> The question was very ambigous.
+> What is it that Kumar is looking for? Is it 802.1p, IP level etc?
+>
+> cheers,
+> jamal
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---J/dobhs11T7y2rNN
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
-
-===== include/linux/xfrm.h 1.22 vs edited =====
---- 1.22/include/linux/xfrm.h	2004-07-03 20:12:21 +10:00
-+++ edited/include/linux/xfrm.h	2004-07-03 20:25:50 +10:00
-@@ -135,6 +135,11 @@
- 	XFRM_MSG_POLEXPIRE,
- #define XFRM_MSG_POLEXPIRE XFRM_MSG_POLEXPIRE
- 
-+	XFRM_MSG_FLUSHSA,
-+#define XFRM_MSG_FLUSHSA XFRM_MSG_FLUSHSA
-+	XFRM_MSG_FLUSHPOLICY,
-+#define XFRM_MSG_FLUSHPOLICY XFRM_MSG_FLUSHPOLICY
-+
- 	XFRM_MSG_MAX
- };
- 
-@@ -240,6 +245,10 @@
- struct xfrm_user_polexpire {
- 	struct xfrm_userpolicy_info	pol;
- 	__u8				hard;
-+};
-+
-+struct xfrm_usersa_flush {
-+	__u8				proto;
- };
- 
- #define XFRMGRP_ACQUIRE		1
-===== net/xfrm/xfrm_user.c 1.44 vs edited =====
---- 1.44/net/xfrm/xfrm_user.c	2004-06-28 19:34:34 +10:00
-+++ edited/net/xfrm/xfrm_user.c	2004-07-06 19:34:17 +10:00
-@@ -814,6 +814,20 @@
- 	return err;
- }
- 
-+static int xfrm_flush_sa(struct sk_buff *skb, struct nlmsghdr *nlh, void **xfrma)
-+{
-+	struct xfrm_usersa_flush *p = NLMSG_DATA(nlh);
-+
-+	xfrm_state_flush(p->proto);
-+	return 0;
-+}
-+
-+static int xfrm_flush_policy(struct sk_buff *skb, struct nlmsghdr *nlh, void **xfrma)
-+{
-+	xfrm_policy_flush();
-+	return 0;
-+}
-+
- static const int xfrm_msg_min[(XFRM_MSG_MAX + 1 - XFRM_MSG_BASE)] = {
- 	NLMSG_LENGTH(sizeof(struct xfrm_usersa_info)),	/* NEW SA */
- 	NLMSG_LENGTH(sizeof(struct xfrm_usersa_id)),	/* DEL SA */
-@@ -826,6 +840,9 @@
- 	NLMSG_LENGTH(sizeof(struct xfrm_user_expire)),	/* EXPIRE */
- 	NLMSG_LENGTH(sizeof(struct xfrm_userpolicy_info)),/* UPD POLICY */
- 	NLMSG_LENGTH(sizeof(struct xfrm_usersa_info)),	/* UPD SA */
-+	NLMSG_LENGTH(sizeof(struct xfrm_user_polexpire)), /* POLEXPIRE */
-+	NLMSG_LENGTH(sizeof(struct xfrm_usersa_flush)),	/* FLUSH SA */
-+	NLMSG_LENGTH(0),				/* FLUSH POLICY */
- };
- 
- static struct xfrm_link {
-@@ -849,6 +866,9 @@
- 	{},
- 	{	.doit	=	xfrm_add_policy 	},
- 	{	.doit	=	xfrm_add_sa, 		},
-+	{},
-+	{	.doit	=	xfrm_flush_sa		},
-+	{	.doit	=	xfrm_flush_policy	},
- };
- 
- static int xfrm_done(struct netlink_callback *cb)
-
---J/dobhs11T7y2rNN--
+iD8DBQFA7kMCqxdj7mhC6o0RAkeKAJ96kf49fbVy4qOjqqBBuNzmCteTrQCfU55Q
+ke3RQ2prgMLEssvjeQIgegs=
+=/KHu
+-----END PGP SIGNATURE-----
