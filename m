@@ -1,64 +1,30 @@
-From: "Arelax.NET-AD"<info@arelax.net>
-Subject: =?ISO-2022-JP?B?GyRCTCQ+NUJ6OS05cCIoJVshPCVgJVohPCU4JHIkPyQvGyhC?=
- =?ISO-2022-JP?B?GyRCJDUkcyROSn0kWDgrJEYkYiRpJCgka0p9SyEbKEI=?=
-Date: Wed, 23 Oct 2002 07:37:01 +0900
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021023.0737010468.babaq@info-arelax.net>
+From: Felipe W Damasio <felipewd@terra.com.br>
+Subject: RE: NIC on 2.4.19 SMP (mii-diag output)
+Date: 22 Oct 2002 21:49:49 +0000
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <1035323389.714.33.camel@tank>
+References: <FMEDJKFPPLANNCCEABDMCEKLCBAA.ph@digitalquake.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+	Linux-net <linux-net@vger.kernel.org>, netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Paul Hernandez <ph@digitalquake.com>
+In-Reply-To: <FMEDJKFPPLANNCCEABDMCEKLCBAA.ph@digitalquake.com>
 List-Id: netdev.vger.kernel.org
 
-<事業者>アリラックス　アクセスアップサポート　info@arelax.net
-※特定商取引法施行規則<広告の受取を希望しない場合の連絡方法>
-この案内は一度のみの送信ですが、当方からの広告配信停止を希望
-される方は、このメールにそのまま返信いただくか、若しくは、件
-名を「配信停止」と書き換え返信してください。
+On Mon, 2002-10-21 at 15:16, Paul Hernandez wrote:
+>  I'm advertising 05e1: Flow-control 100baseTx-FD 100baseTx 10baseT-FD
+> 10baseT
+>    Advertising no additional info pages.
+>    IEEE 802.3 CSMA/CD protocol.
+>  Link partner capability is 0000:.
+>    Negotiation did not complete.
 
-▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
-■■　　　　　　　個人でも十分利用可能な価格設定　　　　　　　　　■■
-▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-　　低料金なので、個人サイトのアクセスアップにもご利用者急増中！
+	The link partner is not advertising it's capabilities.
 
-　個人・非営利サイト 1800円　業界最安！
-　法人・営利サイト   3500円　業界最安！
+	Can you reproduce this bug with 2.4.19 stock?
 
-　最大約300件程度まで登録可能
-（お客様のホームページの内容や希望カテゴリによって登録数は変わります）
+Felipe
 
-登録される数が多い方や、自分で多数の検索サイトに登録したい方には、自動
-登録ソフトも取り扱っております。
-
-◆詳細はこちらから
-http://arelax.net/pc/marketing/
-
-ホームページのアクセスアップや、
-まだパソコンに慣れない方へのパソコン習得のヒントがここに！
-◆総合トップページ◆
-http://www.arelax.net/pc/
-
-◆検索サイトよかもんサーチへご登録ください。もちろん登録は無料◆
-http://www.arelax.net/cgi-bin/src/yomi.cgi
-
-※料金比較当方2002/9/15調べ
-
-=====================================================================
-　　　特定商取引法施行規則　受け取りを希望しない場合の連絡方法
-=====================================================================
-　メールアドレスを複数お持ちの場合や、万が一誤って複数届いている場合
-　やメーリングリストのアドレスに送信されてしまっている場合など、広告
-　メールの配信停止を希望の場合は、このメールにそのまま返信いただくか、
-　若しくは、件名を「配信停止」と書き換え返信してください。
-　その返信元のアドレスに対する配信は停止いたします。
-　　　　　　info@arelax.net
-======================================================================
-当方では、特定商取引法に従い適正な商業広告メール配信を行っております。
-======================================================================
-
-_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/
-アリラックスＰＣセンター　ホームページアクセスアップサポート
-熊本市楡木５丁目２７−３
-                                                       info@arelax.net
-_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/
