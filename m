@@ -1,28 +1,31 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] select congestion control with one sysctl
-Date: Wed, 23 Feb 2005 16:33:04 -0800
-Message-ID: <20050223163304.1afc24cf.davem@davemloft.net>
-References: <421CF5E5.1060606@ev-en.org>
-	<20050223135732.39e62c6c.davem@davemloft.net>
-	<421D1E66.5090301@osdl.org>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [BK PATCHES] 2.6.x r8169 update
+Date: Thu, 24 Feb 2005 01:52:39 +0100
+Message-ID: <20050224005239.GA2599@electric-eye.fr.zoreil.com>
+References: <421D141C.4030602@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: baruch@ev-en.org, netdev@oss.sgi.com, linux-net@vger.kernel.org,
-        yee-ting.li@nuim.ie, doug.leith@nuim.ie
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <421D1E66.5090301@osdl.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>,
+        Netdev <netdev@oss.sgi.com>,
+        Linux Kernel <linux-kernel@vger.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <421D141C.4030602@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 23 Feb 2005 16:23:02 -0800
-Stephen Hemminger <shemminger@osdl.org> wrote:
+Jeff Garzik <jgarzik@pobox.com> :
+[...]
+> Agree it needs fixing, but I actually think the rx-offset stuff is more 
+> urgent than this.  For the future, it would be useful for both of us to 
+> have separate r8169-fixes and r8169-cleanups queues.
 
-> I am heading in a different direction with making the TCP congestion 
-> protocols
-> a real infrastructure.  After the initial version gets done, then I will 
-> go back
-> and add compatiablity interface hooks as required.
+Do you have a synonym/pointer for the rx-offset stuff ?
 
-Ok, if you want some patch review you know where to send it :-)
+It will help me to rework the flow if you can describe in a few words what
+you expect wrt fixes/cleanups issue. Don't be shy, I won't use it as a
+contract set in stone :o)
+
+--
+Ueimor
