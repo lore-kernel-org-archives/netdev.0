@@ -1,65 +1,69 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] linux 2.6.x.x net/sched/sch_api.c -- more comment
- reviews
-Date: Mon, 13 Sep 2004 15:31:46 -0700
+From: "Ravinandan Arakali" <ravinandan.arakali@s2io.com>
+Subject: RE: Patch submission for S2io Xframe driver to 2.6 kernel
+Date: Mon, 13 Sep 2004 15:45:55 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040913153146.161128d0.davem@davemloft.net>
-References: <20040913215944.33830.qmail@web90010.mail.scd.yahoo.com>
+Message-ID: <003c01c499e3$6e910440$a010100a@S2IOtech.com>
+Reply-To: <ravinandan.arakali@s2io.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: <netdev@oss.sgi.com>, <leonid.grossman@s2io.com>,
+        <raghavendra.koushik@s2io.com>, <rapuru.sriram@s2io.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: S P <speattle@yahoo.com>
-In-Reply-To: <20040913215944.33830.qmail@web90010.mail.scd.yahoo.com>
+To: "'Jeff Garzik'" <jgarzik@pobox.com>
+In-Reply-To: 
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 13 Sep 2004 14:59:44 -0700 (PDT)
-S P <speattle@yahoo.com> wrote:
+Hi Jeff,
+>From the time we generated the patch to the latest kernel version(2.6.8.1),
+there seems to be a one line change(see change below) in s2io.c(done by 
+one of the community developers). So, our patch may not apply cleanly. 
+If you want us to regenerate the patch, we'll do it but the patch itself
+is still valid. Following is the change done in the latest 2.6.8.1 kernel:
 
-Your email client linewraps the patches and also transforms
-tabs into spaces making your patches un-applyable.  Please fix
-for future submissions, thanks.
+1428c1428
+< 		skb = dev_alloc_skb(size + HEADER_ALIGN_LAYER_3);
+---
+> 		skb = dev_alloc_skb(size + NET_IP_ALIGN);
+1434c1434
+< 		skb_reserve(skb, HEADER_ALIGN_LAYER_3);
+---
+> 		skb_reserve(skb, NET_IP_ALIGN);
 
-Now, onto the patch itself.  I think we're adding more tense
-errors than we're removing.  For example:
+Thanks,
+Ravi
 
-> -   All real intelligent work is done inside qdisc
-> modules.
-> +   All real intelligent work is done inside each
-> qdisc modules.
+-----Original Message-----
+From: Ravinandan Arakali [mailto:ravinandan.arakali@s2io.com]
+Sent: Monday, September 13, 2004 10:10 AM
+To: 'Jeff Garzik'
+Cc: 'netdev@oss.sgi.com'; 'leonid.grossman@s2io.com';
+'raghavendra.koushik@s2io.com'; 'rapuru.sriram@s2io.com'
+Subject: RE: Patch submission for S2io Xframe driver to 2.6 kernel
 
-'each' indicates singularity, yes "modules" is still
-plural.  I would change it instead to:
 
-	All the real intelligent work is done inside
-	the qdisc modules.
+Hi Jeff,
+Attached is the patch with the first round comments incorporated.
+In addition, this patch contains
+Some fixes related to 32-bit systems.
+Few fixes related to Rx path in NAPI.
 
-> -   but it does not mean that queue is empty, it just
-> means that
-> -   discipline does not want to send anything this
-> time.
-> +   but it does not mean the queue is empty; it means
-> that
-> +   the discipline does not want to send anything this
-> time.
+Thanks to all for the comments.
 
-This one looks fine.
+Pls review this patch as well and come back with your comments.
 
-> -   For complicated disciplines with multiple queues
-> q->q is not
-> -   real packet queue, but however q->q.qlen must be
-> valid.
-> +   For complicated disciplines with multiple queues,
-> q->q is not
-> +   real packet queue whereas q->q.qlen must be valid.
+Regards,
+Ravi
 
-Looks fine, we're missing an articles here.
-So maybe the final version of this verse is:
+-----Original Message-----
+From: Jeff Garzik [mailto:jgarzik@pobox.com]
+Sent: Saturday, August 28, 2004 4:37 PM
+To: ravinandan.arakali@s2io.com
+Cc: netdev@oss.sgi.com; leonid.grossman@s2io.com;
+raghavendra.koushik@s2io.com
+Subject: Re: Patch submission for S2io Xframe driver to 2.6 kernel
 
-	For complicated disciplines with multiple queues,
-	q->q is not a real packet queue whereas q->q.qlen
-	must be valid.
 
-The rest looks fine.
+is there a follow-up patch addressing the comments ?
