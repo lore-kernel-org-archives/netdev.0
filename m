@@ -1,94 +1,47 @@
-From: amavisd-new <postmaster@pluto.emse.fr>
-Subject: BANNED FILENAME (your_details.pif) IN YOUR MAIL
-Date: Sun, 24 Aug 2003 18:44:40 +0200 (CEST)
+From: Shmulik Hen <shmulik.hen@intel.com>
+Subject: Re: [PATCH] convering bonding driver /proc interface to seq_file
+Date: Sun, 24 Aug 2003 20:12:58 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <VS32166-01@pluto.emse.fr>
-References: <20030824164431.1084B24409F@pluto.emse.fr>
+Message-ID: <200308242012.58116.shmulik.hen@intel.com>
+References: <Mutt.LNX.4.44.0308250112470.21951-100000@excalibur.intercode.com.au>
+Reply-To: shmulik.hen@intel.com
 Mime-Version: 1.0
-Content-Type: multipart/report; report-type=delivery-status;
-    boundary="----------=_1061743480-32166-1"
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: <bonding-devel@lists.sourceforge.net>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <20030824164431.1084B24409F@pluto.emse.fr>
-To: <netdev@oss.sgi.com>
+To: James Morris <jmorris@intercode.com.au>
+In-Reply-To: <Mutt.LNX.4.44.0308250112470.21951-100000@excalibur.intercode.com.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format...
+On Sunday 24 August 2003 06:15 pm, James Morris wrote:
+>
+> Can you provide a pointer to this code?
+>
 
-------------=_1061743480-32166-1
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Disposition: inline
-Content-Transfer-Encoding: 7bit
+Please see my email from August 8th with subject:
+"[SET 1][PATCH 3/6][bonding] backport 2.6 changes to 2.4"
+sent to netdev@oss.sgi.com and bonding-devel@lists.sourceforge.net.
 
-BANNED FILENAME ALERT
+> seq_file is the standard and preferred way to do this kind of
+> thing.
 
-Our virus checker found
-    banned filename: your_details.pif
-in your email to the following recipient:
--> gtoumi@messel.emse.fr
+Yes, we know. We wanted to convert to seq_file too, but as it turns 
+out, in order to create a separate proc file for each bond device you 
+need to use the PDE(inode) macro which doesn't exist in 2.4 yet. 
+Since we wanted to maintain compatibility in the bonding module 
+between 2.4 and 2.6 as much as possible, we figured that as a first 
+step we'll start using bond_read_proc() instead of bond_get_info() to 
+allow just that.
 
-Delivery of the email was stopped!
+BTW, we really like the change from /proc/net/bond0/info to 
+/proc/net/bonding/bond0. We thought we'll add that into our cleanup 
+patch set that should come out once the back porting set is accepted.
 
-Please check your system for viruses,
-or ask your system administrator to do so.
-
-For your reference, here are headers from your email:
-------------------------- BEGIN HEADERS -----------------------------
-Received: from SWOOK3-661KUCTN (unknown [220.116.83.198])
-	by pluto.emse.fr (Postfix) with ESMTP id 1084B24409F
-	for <gtoumi@messel.emse.fr>; Sun, 24 Aug 2003 18:44:31 +0200 (CEST)
-From: <netdev@oss.sgi.com>
-To: <gtoumi@messel.emse.fr>
-Subject: Re: Re: My details
-Date: Tue, 26 Aug 2003 1:43:00 +0900
-X-MailScanner: Found to be clean
-Importance: Normal
-X-Mailer: Microsoft Outlook Express 6.00.2600.0000
-X-MSMail-Priority: Normal
-X-Priority: 3 (Normal)
-MIME-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="_NextPart_000_0282B164"
-Message-Id: <20030824164431.1084B24409F@pluto.emse.fr>
--------------------------- END HEADERS ------------------------------
-
-------------=_1061743480-32166-1
-Content-Type: message/delivery-status
-Content-Disposition: inline
-Content-Transfer-Encoding: 7bit
-Content-Description: Delivery error report
-
-Reporting-MTA: dns; pluto.emse.fr
-Received-From-MTA: smtp; pluto.emse.fr ([127.0.0.1])
-Arrival-Date: Sun, 24 Aug 2003 18:44:39 +0200 (CEST)
-
-Final-Recipient: rfc822; gtoumi@messel.emse.fr
-Action: failed
-Status: 5.7.1
-Diagnostic-Code: smtp; 550 5.7.1 Message content rejected, id=32166-01 - BANNED: your_details.pif
-Last-Attempt-Date: Sun, 24 Aug 2003 18:44:40 +0200 (CEST)
-
-------------=_1061743480-32166-1
-Content-Type: text/rfc822-headers
-Content-Disposition: inline
-Content-Transfer-Encoding: 7bit
-Content-Description: Undelivered-message headers
-
-Received: from SWOOK3-661KUCTN (unknown [220.116.83.198])
-	by pluto.emse.fr (Postfix) with ESMTP id 1084B24409F
-	for <gtoumi@messel.emse.fr>; Sun, 24 Aug 2003 18:44:31 +0200 (CEST)
-From: <netdev@oss.sgi.com>
-To: <gtoumi@messel.emse.fr>
-Subject: Re: Re: My details
-Date: Tue, 26 Aug 2003 1:43:00 +0900
-X-MailScanner: Found to be clean
-Importance: Normal
-X-Mailer: Microsoft Outlook Express 6.00.2600.0000
-X-MSMail-Priority: Normal
-X-Priority: 3 (Normal)
-MIME-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="_NextPart_000_0282B164"
-Message-Id: <20030824164431.1084B24409F@pluto.emse.fr>
-
-------------=_1061743480-32166-1--
+-- 
+| Shmulik Hen   Advanced Network Services  |
+| Israel Design Center, Jerusalem          |
+| LAN Access Division, Platform Networking |
+| Intel Communications Group, Intel corp.  |
