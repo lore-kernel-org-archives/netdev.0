@@ -1,52 +1,45 @@
-From: Richard Dawe <rich@phekda.gotadsl.co.uk>
-Subject: Re: Acer Aspire 1524WLMi and RealTek 8169 - very slow
-Date: Wed, 29 Dec 2004 10:17:50 +0000
-Message-ID: <41D2844E.5070204@phekda.gotadsl.co.uk>
-References: <41A09541.5040405@phekda.gotadsl.co.uk> <41A0F0D5.9050702@phekda.gotadsl.co.uk> <20041121205814.GA22460@electric-eye.fr.zoreil.com> <41A24F35.5080106@phekda.gotadsl.co.uk> <20041122213008.GA9618@electric-eye.fr.zoreil.com>
+From: bert hubert <ahu@ds9a.nl>
+Subject: Re: 2.6 IPSec Throughput puzzle
+Date: Wed, 29 Dec 2004 13:12:00 +0100
+Message-ID: <20041229121200.GA12199@outpost.ds9a.nl>
+References: <EF311E6F9B0B0848A49ED20B06E9CB27031FDE77@gluon.jnpr.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Me <rich@phekda.gotadsl.co.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: Networking Team <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20041122213008.GA9618@electric-eye.fr.zoreil.com>
+To: Shekhar Kshirsagar <shekhark@juniper.net>
+Content-Disposition: inline
+In-Reply-To: <EF311E6F9B0B0848A49ED20B06E9CB27031FDE77@gluon.jnpr.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello.
+On Tue, Dec 28, 2004 at 07:17:26PM -0800, Shekhar Kshirsagar wrote:
 
-Francois Romieu wrote:
-> Richard Dawe <rich@phekda.gotadsl.co.uk> :
-[snip]
->>Sadly my box won't boot, if I disable ACPI.
+> I'm really puzzled with the performance results I'm getting. The
+> performance drop with AH seems high, but worst is performance drop with
+> null-esp in transport mode. Another strange observation is that DES
+> throughput is greater than null encryption throughput.
+
+Thanks for doing these benchmarks! I did some myself some time ago, but my
+hardware isn't representative of anything (consisting of a pentium pro 200
+against a P3 1GHz).
+
+> Throughput without IPSec	: 936 MBits/s ( 25% CPU Util)
+> Transport mode AH - SHA1      : 398 MBits/s (100% CPU Util)
+> Transport mode ESP - null/SHA1:  62 MBits/s (100% CPU Util) 
+> Transport mode ESP - des/SHA1 : 111 MBits/s (100% CPU Util)
+> Transport mode ESP - 3des/SHA1:  54 MBits/s (100% CPU Util)
+> Transport mode ESP - aes/SHA1 : 192 MBits/s (100% CPU Util)
 > 
-> 
-> Can you give a look at:
-> http://forums.gentoo.org/viewtopic.php?t=122145%22%22
-> 
-> Ac*r, laptop, acpi and x64 are making me paranoid.
-[snip]
+> Do these numbers sound reasonable?
+> (I don't have any iptable rules)
 
-I patched up my ACPI DSDT to compile without errors, rebuilt 2.6.10 
-final with the patched ACPI DSDT built-in. Network performance is still 
-appalling (massive packet loss).
+It is very easy to use oprofile these days, I suggest you profile for a bit,
+should easily tell you what the culprit is. 62MBit/s sounds very low.
 
-IRQ routing seems to be disabled in 2.6.10. I got a warning about an 
-unhandled interrupt for the VIA 8255 (I think that's the right number) 
-on shutdown. I'm wondering if there is some bad interaction between the 
-VIA chipset and the 8110 chipset.
-
-Another datapoint: On a Netgear switch at work, I had to put the chipset 
-into 100Mbps half-duplex and set the MTU to 576 bytes, to get any decent 
-performance out of at it.
-
-Anyway, I need to do more investigation.
-
-Thanks, bye, Rich =]
+Good luck!
 
 -- 
-Richard Dawe [ http://homepages.nildram.co.uk/~phekda/richdawe/ ]
-
-"You can't evaluate a man by logic alone."
-   -- McCoy, "I, Mudd", Star Trek
+http://www.PowerDNS.com      Open source, database driven DNS Software 
+http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
