@@ -1,85 +1,104 @@
-From: Alexey Toptygin <alexeyt@freeshell.org>
-Subject: Re: kernel-manpage inconsistency
-Date: Thu, 15 Jul 2004 13:45:40 +0000 (UTC)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.NEB.4.60.0407151335140.18100@mx.freeshell.org>
-References: <Pine.NEB.4.60.0407142202270.24397@ukato.freeshell.org>
- <4407.1089895895@www4.gmx.net>
+From: margitsw@t-online.de (Margit Schubert-While)
+Subject: [PATCH Linux-2.6.8-rc1] prism54 Fix reference to
+	uninitialized pointer
+Date: Thu, 15 Jul 2004 15:52:02 +0200
+Sender: prism54-devel-bounces@prism54.org
+Message-ID: <200407151552.03289.margitsw@t-online.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Michael T Kerrisk <mtk-lists@gmx.net>
-In-Reply-To: <4407.1089895895@www4.gmx.net>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_Dwo9ABdo1SDLJ2W"
+Cc: netdev@oss.sgi.com, prism54-devel@prism54.org
+Return-path: <prism54-devel-bounces@prism54.org>
+To: jgarzik@pobox.com
+List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
+List-Archive: <http://prism54.org/pipermail/prism54-devel>
+List-Post: <mailto:prism54-devel@prism54.org>
+List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
+List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
+Errors-To: prism54-devel-bounces@prism54.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 15 Jul 2004, Michael T Kerrisk wrote:
 
->> In recv(2) it says:
->>
->>      MSG_TRUNC
->>  	Return  the  real  length of the packet, even when it was longer
->>  	than the passed buffer. Only valid for packet sockets.
->>
->> But this is not honored.
->
-> I don't know the details here, sorry.  A quick glance at the source
-> (raw_recvmsg() in net/ipv4/raw.c) shows that MSG_TRUNC is used there.
+--Boundary-00=_Dwo9ABdo1SDLJ2W
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-Yes, it's used, but like this:
+2004-07-15 Margit Schubert-While <margitsw@t-online.de>
 
-         copied = skb->len;
-         if (len < copied) {
-                 msg->msg_flags |= MSG_TRUNC;
-                 copied = len;
-         }
+* oid_mgt.c is calling islpci_mgt_transaction passing the address
+  of a pointer to the management frame. This is not being
+  initialized by the caller. The callee only updates this
+  pointer when successful. When not, boom.
 
-that is to say, MSG_TRUNC is set in the struct msghdr that you get back 
-from the recvmsg call, but the length you get out is still <= what you 
-passed in. This is not what the manpage is implying. Nearly identical code 
-is in udp.c, in af_unix.c, etc. I guess my question is should this be 
-changed in the kernel or in the manpage?
+* Being ultracautious again, not only initialize in the caller,
+  also null out the pointer unconditionally in the callee.
 
->> Also, in udp(7), it says:
->>
->> IOCTLS
->>      These ioctls can be accessed using ioctl(2).  The correct syntax is:
->>
->>  	int value;
->>  	error = ioctl(tcp_socket, ioctl_type, &value);
->>
->>      SIOCINQ
->>  	Gets a pointer to an integer as argument. Returns  the  size  of
->>  	the  next pending datagram in the integer in bytes, or 0 when no
->>  	datagram is pending.
->>
->>      SIOCOUTQ
->>  	Returns the number of data bytes in the local send  queue.  Only
->>  	supported with Linux 2.4 and above.
->>
->> These don't appear to be implemented. ( They're not in any headers and
->> they're not listed in ioctl_list(2). )
->
-> They're names in the kernel source.  In userland, FIONREAD and TIOCOUTQ will
-> do the trick for sockets.
 
-You're right! Here it is in include/linux/sockios.h:
+Margit
 
-/* Linux-specific socket ioctls */
-#define SIOCINQ         FIONREAD
-#define SIOCOUTQ        TIOCOUTQ
 
-But why would the man page document the kernel-specific names, and not the 
-ones you can see in libc?
 
->> Please tell me who I need to report this to to get it fixed.
->
-> The latest Linux man pages can always be found at
-> ftp://ftp.win.tue.nl/pub/linux-local/manpages/ and the maintainer is
-> Andries Brouwer (Andries.Brouwer@cwi.nl) -- he'll take suitable new man
-> pages, or patches in "diff -u" format.
 
-Thanks.
 
- 			Alexey
+
+
+
+
+--Boundary-00=_Dwo9ABdo1SDLJ2W
+Content-Type: text/x-diff;
+  charset="us-ascii";
+  name="mgtframeptr.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="mgtframeptr.patch"
+
+diff -Naur linux-2.6.8-01/drivers/net/wireless/prism54/islpci_mgt.c linux-2.6.8-03/drivers/net/wireless/prism54/islpci_mgt.c
+--- linux-2.6.8-01/drivers/net/wireless/prism54/islpci_mgt.c	2004-06-25 19:48:40.000000000 +0200
++++ linux-2.6.8-03/drivers/net/wireless/prism54/islpci_mgt.c	2004-07-15 15:17:21.000000000 +0200
+@@ -458,6 +458,8 @@
+ 	int err;
+ 	DEFINE_WAIT(wait);
+ 
++	*recvframe = NULL;
++
+ 	if (down_interruptible(&priv->mgmt_sem))
+ 		return -ERESTARTSYS;
+ 
+diff -Naur linux-2.6.8-01/drivers/net/wireless/prism54/oid_mgt.c linux-2.6.8-03/drivers/net/wireless/prism54/oid_mgt.c
+--- linux-2.6.8-01/drivers/net/wireless/prism54/oid_mgt.c	2004-07-14 21:55:11.000000000 +0200
++++ linux-2.6.8-03/drivers/net/wireless/prism54/oid_mgt.c	2004-07-15 15:13:53.000000000 +0200
+@@ -408,7 +408,7 @@
+ mgt_set_request(islpci_private *priv, enum oid_num_t n, int extra, void *data)
+ {
+ 	int ret = 0;
+-	struct islpci_mgmtframe *response;
++	struct islpci_mgmtframe *response = NULL;
+ 	int response_op = PIMFOR_OP_ERROR;
+ 	int dlen;
+ 	void *cache, *_data = data;
+@@ -620,7 +620,7 @@
+ static int
+ mgt_update_addr(islpci_private *priv)
+ {
+-	struct islpci_mgmtframe *res;
++	struct islpci_mgmtframe *res = NULL;
+ 	int ret;
+ 
+ 	ret = islpci_mgt_transaction(priv->ndev, PIMFOR_OP_GET,
+
+--Boundary-00=_Dwo9ABdo1SDLJ2W
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Prism54-devel mailing list
+Prism54-devel@prism54.org
+http://prism54.org/mailman/listinfo/prism54-devel
+
+--Boundary-00=_Dwo9ABdo1SDLJ2W--
