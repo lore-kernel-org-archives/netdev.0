@@ -1,36 +1,28 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
-Date: Wed, 22 Sep 2004 10:52:21 -0700
+Subject: Re: Fw: [Bug 3419] New: kernel BUG at
+ net/ipv4/fib_semantics.c:1039!
+Date: Wed, 22 Sep 2004 11:01:20 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040922105221.59a67d4b.davem@davemloft.net>
-References: <414DF11C.1080505@eurodev.net>
-	<20040919215915.GB9573@gondor.apana.org.au>
-	<1095633569.1047.107.camel@jzny.localdomain>
-	<20040919231734.GA10124@gondor.apana.org.au>
-	<1095647944.1046.206.camel@jzny.localdomain>
-	<20040920025802.GA11567@gondor.apana.org.au>
-	<1095683660.1047.254.camel@jzny.localdomain>
-	<414F1E12.6010808@eurodev.net>
-	<20040922000503.GA13218@gondor.apana.org.au>
-	<4150E7E5.2000001@eurodev.net>
-	<20040922045239.GA19573@gondor.apana.org.au>
-	<1095854920.1047.64.camel@jzny.localdomain>
+Message-ID: <20040922110120.022c170e.davem@davemloft.net>
+References: <20040922092319.4ba5b8fb@dell_ss3.pdx.osdl.net>
+	<20040922092520.U41787@leaf.lumiere.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, pablo@eurodev.net, davem@redhat.com,
-        netdev@oss.sgi.com
+Cc: shemminger@osdl.org, davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1095854920.1047.64.camel@jzny.localdomain>
+To: Jesse <j@lumiere.net>
+In-Reply-To: <20040922092520.U41787@leaf.lumiere.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 22 Sep 2004 08:08:40 -0400
-jamal <hadi@cyberus.ca> wrote:
+On Wed, 22 Sep 2004 09:26:30 -0700 (PDT)
+Jesse <j@lumiere.net> wrote:
 
-> Note also, theres a lot of wastage of that scarce sock buffer via page
-> sized skbs - its not as trivial to fix, but would go some way to improve
-> overrunning of the socket.
+> I haven't had a chance to try a new snapshot version yet. I will try one
+> later today and report back.
 
-Thanks for reminding me about this.
+That crash should definitely be cured in the current code.
+Let us know if it is still there.
+
+Thanks.
