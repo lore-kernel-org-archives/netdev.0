@@ -1,58 +1,49 @@
-From: Jamal Hadi Salim <hadi@znyx.com>
-Subject: Re: [PATCH] pkt_cls.h incompatiables
-Date: 23 Jul 2004 15:57:49 -0400
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH 2.6] convert ipvs to module_param
+Date: Fri, 23 Jul 2004 13:11:42 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1090612669.1218.47.camel@jzny.localdomain>
-References: <20040722134522.4e7e0b07@dell_ss3.pdx.osdl.net>
-	 <20040722.200426.99255296.yoshfuji@linux-ipv6.org>
-	 <1090593676.1128.25.camel@jzny.localdomain>
-	 <20040723.110007.27520072.yoshfuji@linux-ipv6.org>
-Reply-To: hadi@znyx.com
+Message-ID: <20040723131142.13081ed3@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: shemminger@osdl.org, "David S. Miller" <davem@redhat.com>,
-        arekm@pld-linux.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: YOSHIFUJI Hideaki / =?UTF-8?Q?=E5=90=89=E8=97=A4=E8=8B=B1?= =?UTF-8?Q?=E6=98=8E?= <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20040723.110007.27520072.yoshfuji@linux-ipv6.org>
+To: "David S. Miller" <davem@redhat.com>, wensong@linux-vs.org
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2004-07-23 at 11:00, YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=
-=B1=E6=98=8E wrote:
+Convert IPVS to not use MODULE_PARM.
 
->=20
-> BTW, what's for rcnt etc.? I don't see the point.=20
->=20
-> They're not (effectively) used in kernel.
-
-It is transported to user space for analysis of how to reorganize
-hash table optimally.
-
-> I'd suggest to remove these things and to maintain the original ABI.
->=20
-> If rcnt etc. are for other purposes, such as statistics for userspace,
-> please allocate another structure / interface for it.
-
-I could send a separate TLV, i dont think this will resolve the problem
-of ABI breakage but it will be more of a cleans. Part of the counters i n=
-eed for analysis is in the
-key structure.
-
-> (And... cheking size is too strict;
-> we need to relax it to accept old binaries if we add something
-> at the tail of structure.)
-
-A lot of size checks for every structure at both kernel/userspace is
-needed. Not much is done today as is - which means old binaries may
-break when modified structures are transported to user space.
-I think one of the main challenges with the u32 structures is the keys[]
-table. In the future if we could make that a TLV it would help.=20
-We need not just be backward compatible but also forward compatible.
-
-I will do some testing when i get back next week to see if current patch
-breaks anything.
-
-cheers,
-jamal
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+ 
+diff -Nru a/net/ipv4/ipvs/ip_vs_ftp.c b/net/ipv4/ipvs/ip_vs_ftp.c
+--- a/net/ipv4/ipvs/ip_vs_ftp.c	2004-07-23 13:04:54 -07:00
++++ b/net/ipv4/ipvs/ip_vs_ftp.c	2004-07-23 13:04:54 -07:00
+@@ -25,6 +25,7 @@
+  */
+ 
+ #include <linux/module.h>
++#include <linux/moduleparam.h>
+ #include <linux/kernel.h>
+ #include <linux/skbuff.h>
+ #include <linux/in.h>
+@@ -44,16 +45,17 @@
+  * First port is set to the default port.
+  */
+ static int ports[IP_VS_APP_MAX_PORTS] = {21, 0};
++static int ports_c;
++module_param_array(ports, int, ports_c, 0);
+ 
+ /*
+  *	Debug level
+  */
+ #ifdef CONFIG_IP_VS_DEBUG
+ static int debug=0;
+-MODULE_PARM(debug, "i");
++module_param(debug, int, 0);
+ #endif
+ 
+-MODULE_PARM(ports, "1-" __MODULE_STRING(IP_VS_APP_MAX_PORTS) "i");
+ 
+ /*	Dummy variable */
+ static int ip_vs_ftp_pasv;
