@@ -1,65 +1,36 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: UDP sockets bound to ANY send answers with wrong src ip address
-Date: Fri, 11 Jun 2004 16:53:35 +0300 (EEST)
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <Pine.LNX.4.44.0406111651370.2763-100000@l>
-References: <200406111527.45955.vda@port.imtp.ilyichevsk.odessa.ua>
+From: Anton Blanchard <anton@samba.org>
+Subject: Re: Allow IP header alignment to be overriden
+Date: Sat, 12 Jun 2004 00:08:43 +1000
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040611140843.GD27672@krispykreme>
+References: <20040611012727.GA27672@krispykreme> <20040610223549.5e9ad025.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	<yoshfuji@linux-ipv6.org>, <netdev@oss.sgi.com>,
-	<linux-net@vger.kernel.org>, <davem@redhat.com>,
-	<pekkas@netcore.fi>, <jmorris@redhat.com>,
-	<linux-kernel@vger.kernel.org>
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
-In-Reply-To: <200406111527.45955.vda@port.imtp.ilyichevsk.odessa.ua>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20040610223549.5e9ad025.davem@redhat.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+ 
+> This transformation is not valid for a lot of drivers, that "2"
+> in the reserve exists elsewhere in other calculations in the
+> drivers.  For example, it is added to the RX skb allocation
+> size.  Sometimes this '2' is there in non-trivial or hard to
+> see ways (ie. it's implicitly in some DMA alignment value)
+> 
+> That's the only reason I'm against this patch.
 
-	Hello,
+Yeah I started converting all drivers across to skb_align and quickly
+noticed that. We can instead convert drivers over as they are tested,
+the Gbit and 10Gbit cards being the most important.
 
-On Fri, 11 Jun 2004, Denis Vlasenko wrote:
+Ive tested the 2 10Gbit cards and one 1Gbit (e1000). I can test the
+acenic and should be able to hunt down a sungem and tg3.
 
-> Hmmm... do I have to set a *routing dest address* field
-> to set src ip address of my UDP packet?
+That leaves dl2K, myricom, ns83820, hamachi, yellowfin, r8169, and sk98lin
+which can be converted across as needed.
 
-	Try such function:
-
-static int my_send(int fd, unsigned srcip, (struct sockaddr *) remote,
-			char *data, int len)
-{
-	struct iovec iov = { data, len };
-	struct {
-		struct cmsghdr cm;
-		struct in_pktinfo ipi;
-	} cmsg = {
-		.cm = {
-			.cmsg_len	= sizeof(struct cmsghdr) +
-						sizeof(struct in_pktinfo),
-			.cmsg_level	= SOL_IP,
-			.cmsg_type	= IP_PKTINFO,
-		},
-		.ipi = {
-			.ipi_ifindex	= 0,
-			.ipi_spec_dst	= srcip,
-		},
-	};
-	struct msghdr m = {
-		.msg_name	= remote,
-		.msg_namelen	= sizeof(struct sockaddr_in),
-		.msg_iov	= &iov,
-		.msg_iovlen	= 1,
-		.msg_control	= &cmsg,
-		.msg_controllen	= sizeof(cmsg),
-		.msg_flags	= 0,
-	};
-
-	return sendmsg(fd, &m, MSG_NOSIGNAL|MSG_DONTWAIT);
-}
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
-
+Anton
