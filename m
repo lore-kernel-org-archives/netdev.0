@@ -1,40 +1,40 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: Patch submission for S2io Xframe driver to 2.6 kernel
-Date: Tue, 28 Sep 2004 11:05:08 -0400
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: [PATCH 2.6] generic network statistics (was Re: [6/6]: jenkins hash for neigh / Statistics)
+Date: Tue, 28 Sep 2004 17:17:51 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41597DA4.5040200@pobox.com>
-References: <005801c4a4f4$1598d6d0$a010100a@S2IOtech.com>
+Message-ID: <16729.32927.352234.634227@robur.slu.se>
+References: <20040925005623.2faf8faf.davem@davemloft.net>
+	<E1CBu70-00010X-00@gondolin.me.apana.org.au>
+	<20040927121403.767e2308.davem@davemloft.net>
+	<20040927222613.GE3236@sunbeam.de.gnumonks.org>
+	<20040927160636.7741d973.davem@davemloft.net>
+	<1096327658.1729.19.camel@localhost.localdomain>
+	<16729.9326.93269.422940@robur.slu.se>
+	<20040928111906.GB29961@sunbeam.de.gnumonks.org>
+	<20040928145505.GH29961@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, leonid.grossman@s2io.com, raghavendra.koushik@s2io.com,
-        rapuru.sriram@s2io.com
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+        Stephen Hemminger <shemminger@osdl.org>,
+        "David S. Miller" <davem@davemloft.net>, herbert@gondor.apana.org.au,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ravinandan.arakali@s2io.com
-In-Reply-To: <005801c4a4f4$1598d6d0$a010100a@S2IOtech.com>
+To: Harald Welte <laforge@gnumonks.org>
+In-Reply-To: <20040928145505.GH29961@sunbeam.de.gnumonks.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Ravinandan Arakali wrote:
-> Hi,
-> Attached are the updated patches. It is designed to work on the latest
-> kernel. Also, this time the submission is split to 3 patches(they need
-> to applied in the order mentioned below).
-> 
-> s2io_styling_level1  - Contains
->                              a. styling related, function name changes.
->                              b. fix for 32-bit systems.
->                              c. modified Transmit descriptor allocation
-> strategy.
->                              d. miscellaneous fixes.
 
+Harald Welte writes:
+ > Here goes some initial client code, so you can actually test the new
+ > proc files from kernel.
+ > 
+ > As stated above, I'll continue working on this until it's somewhat
+ > more feature-complete.
 
-When we say "separate logical changes", we mean it :)
+ OK! Seems pretty generic, maybe the stats info for headers could be read 
+ from current kernels /proc? to keep kernel stats in sync with this user app?
 
-This means that your level1 patch should be split into at least 4 patches.
-
-Second, send each patch in a separate email, as described in
-http://linux.yyz.us/patch-format.html (and 
-Documentation/SubmittingPatches) rather than sending as a tarball.
-
-	Jeff
+ Cheers.
+						--ro
