@@ -1,109 +1,25 @@
-From: Jean Tourrilhes <jt@hpl.hp.com>
-Subject: [PATCH 2.4] SIOCSIFNAME wildcard support (re-resend)
-Date: Tue, 8 Feb 2005 16:27:47 -0800
-Message-ID: <20050209002747.GA9792@bougret.hpl.hp.com>
-Reply-To: jt@hpl.hp.com
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH 19/39] net/dev: replace schedule_timeout() with msleep()
+Date: Tue, 8 Feb 2005 16:52:09 -0800
+Message-ID: <20050208165209.0481fb9d.davem@davemloft.net>
+References: <20050120235352.GH2600@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Marcelo Tosatti <marcelo.tosatti@cyclades.com>, netdev@oss.sgi.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org,
+	kernel-janitors@lists.osdl.org
+To: Nishanth Aravamudan <nacc@us.ibm.com>
+In-Reply-To: <20050120235352.GH2600@us.ibm.com>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-	Hi all,
+On Thu, 20 Jan 2005 15:53:52 -0800
+Nishanth Aravamudan <nacc@us.ibm.com> wrote:
 
-	Just to make sure everybody seen it twice...
+> Description: Use msleep() instead of schedule_timeout() to guarantee the task
+> delays as expected. The current code uses TASK_INTERRUPTIBLE, but does not
+> respond to signals, so msleep() should be ok.
+> 
+> Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
 
-	Jean
-
------ Forwarded message from jt -----
-
-Subject: [PATCH 2.4] SIOCSIFNAME wildcard support (resend)
-E-mail: jt@hpl.hp.com
-
-	Hi Marcelo,
-
-	I did not receive any feedback on this e-mail, so I assume it
-was lost on the way. Would you mind pushing that in 2.4.x ?
-	Thanks...
-
-	Jean
-
------ Forwarded message from jt -----
-
-Subject: [PATCH 2.4] SIOCSIFNAME wildcard support
-E-mail: jt@hpl.hp.com
-
-	Hi Marcelo,
-
-	This patch adds wildcard support for the SIOCSIFNAME ioctl,
-like what was done in 2.6.1. SIOCSIFNAME allow a user space tool to
-change network interface names (such as nameif, ifrename, or ip link),
-this patch allow those tools to specify a pattern, such as "eth%d" or
-"wlan%d", and the kernel use the lowest available slot.
-	The reason I'm sending you this patch is that I've got some
-2.4.X users who requested the feature...
-	This patch was initially done for 2.4.23, and I rediffed and
-retested with 2.4.29. It's somewhat different from the patch Stephen
-and me added to 2.6.1, because the netdev init code is different and
-also this patch is more conservative.
-
-	Have fun...
-
-	Jean
-
--------------------------------------------------------------
-
-diff -u -p linux/net/core/dev.j1.c linux/net/core/dev.c
---- linux/net/core/dev.j1.c	Wed Dec  3 14:29:21 2003
-+++ linux/net/core/dev.c	Wed Dec  3 18:55:27 2003
-@@ -2179,10 +2179,26 @@ static int dev_ifsioc(struct ifreq *ifr,
- 		case SIOCSIFNAME:
- 			if (dev->flags&IFF_UP)
- 				return -EBUSY;
--			if (__dev_get_by_name(ifr->ifr_newname))
--				return -EEXIST;
--			memcpy(dev->name, ifr->ifr_newname, IFNAMSIZ);
--			dev->name[IFNAMSIZ-1] = 0;
-+			/* Check if name contains a wildcard */
-+			if (strchr(ifr->ifr_newname, '%')) {
-+				char format[IFNAMSIZ + 1];
-+				int ret;
-+				memcpy(format, ifr->ifr_newname, IFNAMSIZ);
-+				format[IFNAMSIZ-1] = 0;
-+				/* Find a free name based on format.
-+				 * dev_alloc_name() replaces "%d" with at max
-+				 * 2 digits, so no name overflow. - Jean II */
-+				ret = dev_alloc_name(dev, format);
-+				if (ret < 0)
-+					return ret;
-+				/* Copy the new name back to caller. */
-+				strncpy(ifr->ifr_newname, dev->name, IFNAMSIZ);
-+			} else {
-+				if (__dev_get_by_name(ifr->ifr_newname))
-+					return -EEXIST;
-+				memcpy(dev->name, ifr->ifr_newname, IFNAMSIZ);
-+				dev->name[IFNAMSIZ-1] = 0;
-+			}
- 			notifier_call_chain(&netdev_chain, NETDEV_CHANGENAME, dev);
- 			return 0;
- 
-@@ -2315,6 +2331,7 @@ int dev_ioctl(unsigned int cmd, void *ar
- 		 *	- return a value
- 		 */
- 		 
-+		case SIOCSIFNAME:
- 		case SIOCGMIIPHY:
- 		case SIOCGMIIREG:
- 			if (!capable(CAP_NET_ADMIN))
-@@ -2350,7 +2367,6 @@ int dev_ioctl(unsigned int cmd, void *ar
- 		case SIOCDELMULTI:
- 		case SIOCSIFHWBROADCAST:
- 		case SIOCSIFTXQLEN:
--		case SIOCSIFNAME:
- 		case SIOCSMIIREG:
- 		case SIOCBONDENSLAVE:
- 		case SIOCBONDRELEASE:
+Applied, thanks Nishanth.
