@@ -1,34 +1,36 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: Re: [PATCH] e1000 poll behavior
-Date: Thu, 16 Dec 2004 13:02:06 +0100
-Message-ID: <16833.31038.665676.278498@robur.slu.se>
-References: <1103104917.41c00b9533464@www.katalix.com>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [PATCH,RFC] pktgen sleeping/timing rework
+Date: Thu, 16 Dec 2004 15:42:47 +0100
+Message-ID: <20041216144247.GA4109@xi.wantstofly.org>
+References: <20041210222058.GA5984@xi.wantstofly.org> <16830.58158.882590.971712@robur.slu.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: gandalf@wlug.westbo.se, robert.olsson@data.slu.se, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jchapman@katalix.com
-In-Reply-To: <1103104917.41c00b9533464@www.katalix.com>
+To: Robert Olsson <Robert.Olsson@data.slu.se>
+Content-Disposition: inline
+In-Reply-To: <16830.58158.882590.971712@robur.slu.se>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Tue, Dec 14, 2004 at 01:57:18PM +0100, Robert Olsson wrote:
 
-jchapman@katalix.com writes:
- > Is there any advantage in exiting NAPI polled state as soon as
- > possible with the work_done < work_to_do test? Why not stay in
- > polled mode until no rx or tx work is done, i.e. only exit polled
- > state if work_done is zero? 
+> Timing code gets cleaner and bit more predictable at least we know
+> better now how to arrange delay for lower rates. It still need some
+> experimentation.
 
- Yes it's a variant.
+Sorting out the pps rate discrepancies for >10kpps was next on my
+list of things to do.  I think fixing this is doable.
 
- > When working on e100 a while ago, I found better and more consistent
- > pps numbers by staying in polled mode until the interface went idle.
- > See current e100 code. Unfortunately I don't have e1000 hardware to
- > test if the same is true for e1000.
- 
- I'll try this with the forwarding setup when I got a chance but I'll 
- think server-like setups are more interesting to test.
 
-						--ro
+> Appplied this to the development version and also renamed ipg to delay.
+> It breaks some scripts. We need a variant and of this and the FCS patch 
+> for the kernel version.
+
+Is it sane to try and keep pktgen-2.6 up to date when the devel
+version is so much more flexible?
+
+
+cheers,
+Lennert
