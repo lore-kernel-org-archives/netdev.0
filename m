@@ -1,140 +1,71 @@
-From: "Daniel Blueman" <daniel.blueman@gmx.net>
-Subject: [2.6.0-test9] QoS HTB crash...
-Date: Thu, 30 Oct 2003 17:10:25 +0100 (MET)
+From: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
+Subject: Re: [PATCH] Updated 8139too with NAPI
+Date: Fri, 31 Oct 2003 02:12:41 +0900
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <26412.1067530225@www3.gmx.net>
+Message-ID: <873cdaabue.fsf@devron.myhome.or.jp>
+References: <3F9070B6.9090306@pobox.com> <873cdqbt6z.fsf@devron.myhome.or.jp>
+	<20031020131106.6862e951.shemminger@osdl.org>
+	<877k2ysohc.fsf@devron.myhome.or.jp>
+	<20031028114707.1d234da6.shemminger@osdl.org>
+	<3FA01629.2080202@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, linux-net@vger.kernel.org, devik@cdi.cz,
-        linux-kernel@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <3FA01629.2080202@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-With the LARTC 'wondershaper' HTB script [1] for good latency over ADSL, =
-I
-get an oops [3] when sending traffic via ppp0 (and when bringing the inte=
-rface
-down).
+Jeff Garzik <jgarzik@pobox.com> writes:
 
-Kernel is 2.6.0-test9 and 'debug 3333333' appended to the 'tc' command, t=
-o
-show HTB debug information [2] (not shown in [1]).
+> I'd like to apply this to net-drivers-2.[45]-exp, but it doesn't apply
+> cleanly.  Can you wait a bit, for my posting of those queues, and then
+> resend?
 
-Please CC me when replying, and I can provide further details, debugging,
-testing etc...this problem has been around for a while it seems.
+Probably more tester/reviewer is always welcome, so I think it's good.
 
---- [1] (relevant lines from http://lartc.org/wondershaper/)
 
-tc qdisc add dev ppp0 root handle 1: htb default 20
-tc class add dev ppp0 parent 1: classid 1:1 htb rate 210kbit burst 6k
-tc class add dev ppp0 parent 1:1 classid 1:10 htb rate 210kbit burst 6k p=
-rio
-1
-tc class add dev ppp0 parent 1:1 classid 1:20 htb rate 189kbit burst 6k p=
-rio
-2
-tc class add dev ppp0 parent 1:1 classid 1:30 htb rate 168kbit burst 6k p=
-rio
-2
+Stephen Hemminger <shemminger@osdl.org> writes:
 
---- [2] (HTB debug messages)
+> +	/* Receive packets are processed by poll routine.
+> +	   If not running start it now. */
+> +	if (status & RxAckBits){
+> +		if (netif_rx_schedule_prep(dev)) {
+> +			RTL_W16_F (IntrMask, rtl8139_norx_intr_mask);
+> +			__netif_rx_schedule (dev);
+>  		}
 
-HTB init, kernel part version 3.13
-htb_init sch=3Ddc28e7f8 handle=3D10000 r2q=3D10
-htb_dump sch=3Ddc28e7f8, handle=3D10000
-htb*g j=3D179519 lj=3D0
-htb*r7 m=3D0
-htb*r6 m=3D0
-htb*r5 m=3D0
-htb*r4 m=3D0
-htb*r3 m=3D0
-htb*r2 m=3D0
-htb*r1 m=3D0
-htb*r0 m=3D0
-htb_get clid=3D10010 q=3Ddc28e86c cl=3D00000000 ref=3D0
-htb_get clid=3D10010 q=3Ddc28e86c cl=3D00000000 ref=3D0
-htb_get clid=3D10020 q=3Ddc28e86c cl=3D00000000 ref=3D0
-htb_get clid=3D10020 q=3Ddc28e86c cl=3D00000000 ref=3D0
-htb_get clid=3D10030 q=3Ddc28e86c cl=3D00000000 ref=3D0
-htb_get clid=3D10030 q=3Ddc28e86c cl=3D00000000 ref=3D0
-htb_tcf q=3Ddc28e86c clid=3D0 fref=3D0 fl=3D00000000
-htb_bind q=3Ddc28e86c clid=3D10010 cl=3D00000000 fref=3D0
-htb_tcf q=3Ddc28e86c clid=3D0 fref=3D1 fl=3Ddf4ecd7c
-htb_bind q=3Ddc28e86c clid=3D10010 cl=3D00000000 fref=3D1
-htb_tcf q=3Ddc28e86c clid=3D0 fref=3D2 fl=3Ddf4ecd7c
-htb_bind q=3Ddc28e86c clid=3D10010 cl=3D00000000 fref=3D2
-htb_tcf q=3Ddc28e86c clid=3D0 fref=3D3 fl=3Ddf4ecd7c
-htb_bind q=3Ddc28e86c clid=3D10020 cl=3D00000000 fref=3D3
-htb_reset sch=3Ddc28e7f8, handle=3D10000
+I think that this style is common issues of NIC drivers for "NAPI
+support and intr-mask" handling. Looks like __netif_poll_disable()
+also has the following problem.
 
---- [3] (ksymoops-processed oops report)
+For example,
 
-Oops: 0000 [#1]
-CPU:    0
-EIP:    0060:[<c02cbbad>]    Not tainted
+	in ISR
+		[...]
+		if (status & RxAckBits){
+			if (netif_rx_schedule_prep(dev)) {
+				RTL_W16_F (IntrMask, rtl8139_norx_intr_mask);
+				__netif_rx_schedule (dev);
+			}
+		}
+		[...]
 
->>EIP; c02cbbad <htb_enqueue+ab/126>   <=3D=3D=3D=3D=3D
-=20
->>ebx; ffffffff <__kernel_rt_sigreturn+1bbf/????>
->>ecx; dc28e86c <_end+1be20f60/3fb906f4>
->>esi; d9cf3f50 <_end+19886644/3fb906f4>
->>edi; dc28e7f8 <_end+1be20eec/3fb906f4>
->>ebp; dbef5ab8 <_end+1ba881ac/3fb906f4>
->>esp; dbef5a9c <_end+1ba88190/3fb906f4>
-=20
-Trace; c02b3570 <dev_queue_xmit+593/73a>
-Trace; c02e9c98 <ip_finish_output2+0/1c4>
-Trace; c02e9d97 <ip_finish_output2+ff/1c4>
-Trace; c02c0259 <nf_hook_slow+ef/13a>
-Trace; c02e9c98 <ip_finish_output2+0/1c4>
-Trace; c02e76d7 <ip_finish_output+21d/222>
-Trace; c02e9c98 <ip_finish_output2+0/1c4>
-Trace; c02bff12 <nf_iterate+6b/9f>
-Trace; c02e9c80 <dst_output+15/2d>
-Trace; c02c0259 <nf_hook_slow+ef/13a>
-Trace; c02e9c6b <dst_output+0/2d>
-Trace; c02e9620 <ip_push_pending_frames+3ac/408>
-Trace; c02e9c6b <dst_output+0/2d>
-Trace; c030da69 <udp_push_pending_frames+134/23c>
-Trace; c030e1b4 <udp_sendmsg+60d/f3d>
-Trace; c031900a <inet_sendmsg+4b/56>
-Trace; c02aa4cc <sock_sendmsg+92/af>
-Trace; c02aa582 <sock_recvmsg+99/b4>
-Trace; c02a9f68 <move_addr_to_kernel+7e/a7>
-Trace; c02b01a0 <verify_iovec+80/fa>
-Trace; c02ac13d <sys_sendmsg+256/2f4>
-Trace; c0141e28 <filemap_nopage+21c/2f9>
-Trace; c0155610 <do_no_page+29b/631>
-Trace; c0155c54 <handle_mm_fault+132/30c>
-Trace; c018becd <inode_update_time+8e/b9>
-Trace; c0119419 <do_page_fault+34b/56a>
-Trace; c02ac67e <sys_socketcall+261/29a>
-Trace; c0164327 <sys_write+5b/5d>
-Trace; c010a3eb <syscall_call+7/b>
-=20
-Code;  c02cbbad <htb_enqueue+ab/126>
-00000000 <_EIP>:
-Code;  c02cbbad <htb_enqueue+ab/126>   <=3D=3D=3D=3D=3D
-   0:   8b 43 04                  mov    0x4(%ebx),%eax   <=3D=3D=3D=3D=3D
-Code;  c02cbbb0 <htb_enqueue+ae/126>
-   3:   89 44 24 04               mov    %eax,0x4(%esp,1)
-Code;  c02cbbb4 <htb_enqueue+b2/126>
-   7:   c7 04 24 2b 30 38 c0      movl   $0xc038302b,(%esp,1)
-Code;  c02cbbbb <htb_enqueue+b9/126>
-   e:   e8 e3 6e e5 ff            call   ffe56ef6 <_EIP+0xffe56ef6>
-Code;  c02cbbc0 <htb_enqueue+be/126>
-  13:   31 00                     xor    %eax,(%eax)
-=20
- <0>Kernel panic: Fatal exception in interrupt
+	in dev_close()
+		[...]
+		while (test_bit(__LINK_STATE_RX_SCHED, &dev->state)) {
+			/* No hurry. */
+			current->state = TASK_INTERRUPTIBLE;
+			schedule_timeout(1);
+		}
+		  --------- (*)
+		if (dev->stop)
+			dev->stop(dev);
+		[...]
 
---=20
-Daniel J Blueman
-
-NEU F=DCR ALLE - GMX MediaCenter - f=FCr Fotos, Musik, Dateien...
-Fotoalbum, File Sharing, MMS, Multimedia-Gru=DF, GMX FotoService
-
-Jetzt kostenlos anmelden unter http://www.gmx.net
-
-+++ GMX - die erste Adresse f=FCr Mail, Message, More! +++
+If Rx interrupt happen on (*) point, ISR can't ack or disable.
+Then it will start busy Rx interrupt loop. So if this happen, it's
+seriously problem on UP system.
+-- 
+OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
