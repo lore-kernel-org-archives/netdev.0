@@ -1,28 +1,31 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [patch 05/13] remove last_rx update from loopback device
-Date: Tue, 15 Mar 2005 15:08:09 -0800
-Message-ID: <20050315150809.579c5e85.akpm@osdl.org>
-References: <200503152222.j2FMMbhG016805@shell0.pdx.osdl.net>
-	<423764A3.8030201@pobox.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [patch 04/13] e100: NAPI fixes
+Date: Tue, 15 Mar 2005 18:16:34 -0500
+Message-ID: <20050315231632.GA18393@tuxdriver.com>
+References: <200503152222.j2FMMawn016802@shell0.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@oss.sgi.com, christoph@graphe.net,
-        nirajk@calsoftinc.com, christoph@lameter.com, Shai@Scalex86.org
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <423764A3.8030201@pobox.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, jgarzik@pobox.com, netdev@oss.sgi.com
+To: akpm@osdl.org
+Content-Disposition: inline
+In-Reply-To: <200503152222.j2FMMawn016802@shell0.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik <jgarzik@pobox.com> wrote:
->
-> > -	dev->last_rx = jiffies;
-> > -
-> >  	lb_stats = &per_cpu(loopback_stats, get_cpu());
-> >  	lb_stats->rx_bytes += skb->len;
-> >  	lb_stats->tx_bytes += skb->len;
+On Tue, Mar 15, 2005 at 02:22:41PM -0800, akpm@osdl.org wrote:
 > 
-> I disagree.  loopback.c is doing precisely what it should be doing.
+> From: "John W. Linville" <linville@tuxdriver.com>
+> 
+> Just curious...wanna try this patch I got from Intel?  I think it
+> may help...
 
-Nothing actually seems to use last_rx?
+Hmmm...I didn't really mean for that one to be a submission...
+
+Hopefully the Intel e100 guys will be covering this in one of their
+updates (if they haven't already)...
+
+John
+-- 
+John W. Linville
+linville@tuxdriver.com
