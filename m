@@ -1,80 +1,49 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: Re: Disabling IPv6 accept_ra on just some interface (fwd)
-Date: Tue, 3 Feb 2004 23:55:37 +0200 (EET)
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: [PATCH] yellowfin: correct printk of dma_addr_t
+Date: Tue, 3 Feb 2004 15:37:25 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0402032352570.9234-100000@netcore.fi>
+Message-ID: <20040203153725.1454e69f.rddunlap@osdl.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Now that 2.6.x series in in a swing, being able to control, from the 
-userspace, when to send RA's and when to shut them off would be very 
-beneficial (2.4 too :).
 
-In particular, consider a distribution which wants to allow disabling 
-autoconfig on one interface.  When it's possible to do so, it's 
-already too late..
+description:	fix dma_addr_t type error with CONFIG_HIGHMEM64G=y;
+product_versions: linux-262-rc3
 
----------- Forwarded message ----------
-Date: Mon, 27 Oct 2003 15:05:42 +0200 (EET)
-From: Pekka Savola <pekkas@netcore.fi>
-To: "YOSHIFUJI Hideaki / [iso-2022-jp] 吉藤英明"
-    <yoshfuji@linux-ipv6.org>
-Cc: netdev@oss.sgi.com, sekiya@wide.ad.jp
-Subject: Re: Disabling IPv6 accept_ra on just some interface
+diffstat:=
+ drivers/net/yellowfin.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
 
-On Mon, 27 Oct 2003, YOSHIFUJI Hideaki / [iso-2022-jp] 吉藤英明 wrote:
-> In article <Pine.LNX.4.44.0310231457110.3347-100000@netcore.fi> (at Thu, 23 Oct 2003 15:22:47 +0300 (EEST)), Pekka Savola <pekkas@netcore.fi> says:
-> > So, my thought (comments welcome) is:
-> > 
-> >  1) when accept_ra changes from 0 -> 1, initiate the route 
-> >     solicitation process, likewise as one would when the interface is 
-> >     brought up.
-> > 
-> >     Makes sense?
-> > 
-> >  2) (probably not a good idea, but some food for thought..) when accept_ra 
-> >     changes from 1 -> 0, delete any autoconfigured routes or
-> >     prefixes.  (could be ugly / dangerous..)
-> 
-> Well, we'd propose to have another config "send_rs" or something like that
-> because accept_ra is also effective against unsolicited RAs.
-> It, "send_rs," tells kernel to start sending RS 
-> when the variable is changed 0 to 1 and/or 
-> when interface is going up.
+diff -Naurp ./drivers/net/yellowfin.c~yel_dma ./drivers/net/yellowfin.c
+--- ./drivers/net/yellowfin.c~yel_dma	2004-01-08 22:59:26.000000000 -0800
++++ ./drivers/net/yellowfin.c	2004-02-03 15:02:22.000000000 -0800
+@@ -1286,7 +1286,8 @@ static int yellowfin_close(struct net_de
+ 
+ #if defined(__i386__)
+ 	if (yellowfin_debug > 2) {
+-		printk("\n"KERN_DEBUG"  Tx ring at %8.8x:\n", yp->tx_ring_dma);
++		printk("\n"KERN_DEBUG"  Tx ring at %8.8llx:\n",
++				(unsigned long long)yp->tx_ring_dma);
+ 		for (i = 0; i < TX_RING_SIZE*2; i++)
+ 			printk(" %c #%d desc. %8.8x %8.8x %8.8x %8.8x.\n",
+ 				   inl(ioaddr + TxPtr) == (long)&yp->tx_ring[i] ? '>' : ' ',
+@@ -1298,7 +1299,8 @@ static int yellowfin_close(struct net_de
+ 				   i, yp->tx_status[i].tx_cnt, yp->tx_status[i].tx_errs,
+ 				   yp->tx_status[i].total_tx_cnt, yp->tx_status[i].paused);
+ 
+-		printk("\n"KERN_DEBUG "  Rx ring %8.8x:\n", yp->rx_ring_dma);
++		printk("\n"KERN_DEBUG "  Rx ring %8.8llx:\n",
++				(unsigned long long)yp->rx_ring_dma);
+ 		for (i = 0; i < RX_RING_SIZE; i++) {
+ 			printk(KERN_DEBUG " %c #%d desc. %8.8x %8.8x %8.8x\n",
+ 				   inl(ioaddr + RxPtr) == (long)&yp->rx_ring[i] ? '>' : ' ',
 
-I don't have any major objections to this model, I'm just worried that it
-might make the configuration more complex (we already have accept_ra and
-"autoconf" toggles which are confusing enough without documentation :-)
-with little gain.
 
-That is, is there any case when you'd want to accept an RA but *not* send 
-RS?  I fail to see clear applicability for this, hence my proposal to 
-overload accept_ra :-)
-
-> Assume the node has eth0 and eth1.
-> Operation will be something like the following.
-> 
-> If you want to listen RA and to send RS on some interfaces,
->  sysctl -w net.ipv6.conf.default.accept_ra=0
->  sysctl -w net.ipv6.conf.default.send_rs=0
->  ifup -a
->  sysctl -w net.ipv6.conf.eth0.accept_ra=1
->  sysctl -w net.ipv6.conf.eth0.send_rs=1
-> 
-> If you want to listen RA on all interfaces, but do not want to send RS on 
-> some of them, 
->  sysctl -w net.ipv6.conf.default.accept_ra=1
->  sysctl -w net.ipv6.conf.default.send_rs=0
->  ifup -a
->  sysctl -w net.ipv6.cont.eth0.send_rs=1
-> 
-> 
-
--- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+--
+~Randy
