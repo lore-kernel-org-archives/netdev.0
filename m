@@ -1,33 +1,46 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Restrict local IP announcements in ARP requests
-Date: Wed, 18 Feb 2004 13:03:00 -0800
+Subject: Re: 2.6: QoS scheduling not working with IP-over-IP
+Date: Wed, 18 Feb 2004 13:22:06 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040218130300.010989f8.davem@redhat.com>
-References: <Pine.LNX.4.58.0402081149001.6268@u.domain.uli>
-	<20040209140853.69ab8bea.davem@redhat.com>
-	<Pine.LNX.4.58.0402100049470.1251@u.domain.uli>
-	<20040209151053.1f63937a.davem@redhat.com>
-	<Pine.LNX.4.58.0402100154010.1251@u.domain.uli>
-	<20040211202251.7b05102c.davem@redhat.com>
-	<Pine.LNX.4.58.0402151153450.1129@u.domain.uli>
-	<20040217190753.238c5ae0.davem@redhat.com>
-	<Pine.LNX.4.58.0402181019190.3189@u.domain.uli>
+Message-ID: <20040218132206.10c8b194.davem@redhat.com>
+References: <Pine.LNX.4.44.0402101324350.810-100000@atlantis.knm.org.pl>
+	<20040211200549.736fa8b3.davem@redhat.com>
+	<1076561489.1032.65.camel@jzny.localdomain>
+	<1076561998.1035.72.camel@jzny.localdomain>
+	<1076562282.1033.76.camel@jzny.localdomain>
+	<20040211211536.23e97997.davem@redhat.com>
+	<1076563502.1031.85.camel@jzny.localdomain>
+	<1076564638.1033.91.camel@jzny.localdomain>
+	<20040211215142.7f817513.davem@redhat.com>
+	<1076566176.1033.94.camel@jzny.localdomain>
+	<20040211222259.776ad818.davem@redhat.com>
+	<402D54D6.5070708@trash.net>
+	<20040213213606.5a13cc76.davem@redhat.com>
+	<1076762757.1060.4.camel@jzny.localdomain>
+	<1076763997.1059.13.camel@jzny.localdomain>
+	<1076766981.1059.16.camel@jzny.localdomain>
+	<20040214124958.499294a6.davem@redhat.com>
+	<402F4A2D.1070405@trash.net>
+	<20040217191011.012a749e.davem@redhat.com>
+	<40334AB2.30701@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
+Cc: hadi@cyberus.ca, qnex@atlantis.knm.org.pl, netdev@oss.sgi.com,
+        shemminger@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Julian Anastasov <ja@ssi.bg>
-In-Reply-To: <Pine.LNX.4.58.0402181019190.3189@u.domain.uli>
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <40334AB2.30701@trash.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 18 Feb 2004 10:22:09 +0200 (EET)
-Julian Anastasov <ja@ssi.bg> wrote:
+On Wed, 18 Feb 2004 12:21:22 +0100
+Patrick McHardy <kaber@trash.net> wrote:
 
-> > Please make me a 2.4.x version of this patch (again with the other ARP
-> > thing applied already).
+> David S. Miller wrote:
+> > Patrick, "(x || 1)" is not the same as "(x ? x : 1)"
+> > :-)
 > 
-> 	Thanks, it is attached.
+> Doh! I must have been programming in perl before .. ;)
 
-Applied.
+New patch applied, thanks Patrick.
