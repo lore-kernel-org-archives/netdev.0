@@ -1,93 +1,35 @@
-From: Adrian Bunk <bunk@fs.tum.de>
-Subject: [2.6 patch] net/sunrpc/xprt.c: fix inline problem
-Date: Sat, 10 Jul 2004 03:17:32 +0200
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [NATT] Fix uh->len with IP options
+Date: Sat, 10 Jul 2004 11:21:53 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040710011732.GY28324@fs.tum.de>
+Message-ID: <20040710012153.GA11236@gondor.apana.org.au>
+References: <20040709114802.GA13344@gondor.apana.org.au> <20040709170502.58a05039.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Trond Myklebust <trond.myklebust@fys.uio.no>
+To: "David S. Miller" <davem@redhat.com>
 Content-Disposition: inline
+In-Reply-To: <20040709170502.58a05039.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Trying to compile net/sunrpc/xprt.c with gcc 3.4 and
-  # define inline         __inline__ __attribute__((always_inline))
-results in the following error:
+On Fri, Jul 09, 2004 at 05:05:02PM -0700, David S. Miller wrote:
+> 
+> At first I thought you should be using top_iph to compute the options
+> length, but now I see why it's correct to be using 'iph'.
 
-<--  snip  -->
+Mea culpa.  This is broken in tunnel mode.
 
-...
-  CC      net/sunrpc/xprt.o
-net/sunrpc/xprt.c: In function `xprt_reserve':
-net/sunrpc/xprt.c:84: sorry, unimplemented: inlining failed in call to 
-'do_xprt_reserve': function body not available
-net/sunrpc/xprt.c:1307: sorry, unimplemented: called from here
-make[2]: *** [net/sunrpc/xprt.o] Error 1
+My big patch that moves the tunnel code out will fix this since it
+gets rid of iph altogether.
 
-<--  snip  -->
+But if you want to hold out on that one for a bit then please make
+the obvious fix by changing iph to top_iph.
 
-
-The patch below moves the inline function in front of its' (only) 
-caller.
-
-diffstat output:
- net/sunrpc/xprt.c |   36 ++++++++++++++++++------------------
- 1 files changed, 18 insertions(+), 18 deletions(-)
-
-
-Signed-off-by: Adrian Bunk <bunk@fs.tum.de>
-
---- linux-2.6.7-mm7-full-gcc3.4/net/sunrpc/xprt.c.old	2004-07-10 03:07:17.000000000 +0200
-+++ linux-2.6.7-mm7-full-gcc3.4/net/sunrpc/xprt.c	2004-07-10 03:09:36.000000000 +0200
-@@ -1293,24 +1293,6 @@
- 	spin_unlock_bh(&xprt->sock_lock);
- }
- 
--/*
-- * Reserve an RPC call slot.
-- */
--void
--xprt_reserve(struct rpc_task *task)
--{
--	struct rpc_xprt	*xprt = task->tk_xprt;
--
--	task->tk_status = -EIO;
--	if (!xprt->shutdown) {
--		spin_lock(&xprt->xprt_lock);
--		do_xprt_reserve(task);
--		spin_unlock(&xprt->xprt_lock);
--		if (task->tk_rqstp)
--			del_timer_sync(&xprt->timer);
--	}
--}
--
- static inline void
- do_xprt_reserve(struct rpc_task *task)
- {
-@@ -1333,6 +1315,24 @@
- }
- 
- /*
-+ * Reserve an RPC call slot.
-+ */
-+void
-+xprt_reserve(struct rpc_task *task)
-+{
-+	struct rpc_xprt	*xprt = task->tk_xprt;
-+
-+	task->tk_status = -EIO;
-+	if (!xprt->shutdown) {
-+		spin_lock(&xprt->xprt_lock);
-+		do_xprt_reserve(task);
-+		spin_unlock(&xprt->xprt_lock);
-+		if (task->tk_rqstp)
-+			del_timer_sync(&xprt->timer);
-+	}
-+}
-+
-+/*
-  * Allocate a 'unique' XID
-  */
- static inline u32 xprt_alloc_xid(struct rpc_xprt *xprt)
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
