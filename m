@@ -1,30 +1,27 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] fix locking
-Date: Thu, 11 Sep 2003 16:49:03 -0700
+Subject: Re: Trivial fix for wrong error message from icmp.c (2.6.0-test4)
+Date: Thu, 11 Sep 2003 16:51:03 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030911164903.63f0010b.davem@redhat.com>
-References: <20030906002649.GA32369@server-mrozhavsky.dyndns.org>
+Message-ID: <20030911165103.71b16f1a.davem@redhat.com>
+References: <20030905024736.4acefe68.davem@redhat.com>
+	<Pine.LNX.4.33L0.0309061426200.2651-100000@carlsberg.kampsax.dtu.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Michael Rozhavsky <mike@minantech.com>
-In-Reply-To: <20030906002649.GA32369@server-mrozhavsky.dyndns.org>
+To: Dennis =?ISO-8859-1?Q?J=F8rgensen?= <q@kampsax.dtu.dk>
+In-Reply-To: <Pine.LNX.4.33L0.0309061426200.2651-100000@carlsberg.kampsax.dtu.dk>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 5 Sep 2003 17:26:49 -0700
-Michael Rozhavsky <mike@minantech.com> wrote:
+On Sat, 6 Sep 2003 14:30:27 +0200 (CEST)
+Dennis J=F8rgensen <q@kampsax.dtu.dk> wrote:
 
-> I've found two problems with locking in networking code.
+> On Fri, 5 Sep 2003, David S. Miller wrote:
+>=20
+> > I can't apply this patch until you fix that up.
+>=20
+> It should be better now.
 
-Not applied, in both cases a higher order lock guarentees
-that nobody else can add elements to the list.
-
-We only need to lock to make sure readers (who don't take
-the higher level lock) see a consistent list state.
-
-In the tcp_ipv4.c case, the higher level lock is the listening
-socket lock.  In the sit.c case the higher level lock is the
-RTNL semaphore.
+Applied, thank you.
