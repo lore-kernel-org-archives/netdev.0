@@ -1,63 +1,72 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] 2.6 UDP recvmsg vs POSIX
-Date: Sat, 21 Feb 2004 13:08:53 -0800
+From: Thomas Munck Steenholdt <tmus@tmus.dk>
+Subject: Re: [PATCH] 2.6.3 pcnet32.c fix link reporting for non-mii devices
+Date: Sat, 21 Feb 2004 22:57:00 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040221130853.4c98bad6.davem@redhat.com>
-References: <20040217121726.GD8554@suse.de>
+Message-ID: <4037D42C.4030909@tmus.dk>
+References: <200402202232.i1KMWqD07369@DYN318364BLD.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/mixed;
+ boundary="------------030004050402030806020001"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Olaf Kirch <okir@suse.de>
-In-Reply-To: <20040217121726.GD8554@suse.de>
+To: Don Fry <brazilnut@us.ibm.com>, netdev@oss.sgi.com
+In-Reply-To: <200402202232.i1KMWqD07369@DYN318364BLD.beaverton.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 17 Feb 2004 13:17:26 +0100
-Olaf Kirch <okir@suse.de> wrote:
+This is a multi-part message in MIME format.
+--------------030004050402030806020001
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> I'm currently investigating a problem in udp recvmsg. In short, a test
-> program selects on the socket, gets woken up as a packet arrives, but
-> recvmsg return EAGAIN because the UDP checksum was wrong.
+Don Fry wrote:
+> Thomas,
 > 
-> This broke one real-life application, and reportedly this violates POSIX,
-> as operations on a blocking socket must never return EAGAIN.
+> Thanks for the input.  I am the unofficial maintainer, sort of.  I don't
+> have a card without an mii, so I can't test some of the changes.  Do
+> you know of a way to determine the link state so I can correctly return
+> the state?
+> 
+> By the way, are you running 2.4 or 2.6?
+> 
 
-Well, first things first, using blocking sockets with select/poll is kind
-of stupid programming.
+Hi again!
 
-Nonetheless, udp_recvmsg() can't return -EAGAIN on a blocking socket.
+Decided to do some research and get this thing implemented right!
+I've created a new patch against the 2.6.3-bk3 version of pcnet32.c
 
-Andi, TCP does not have this issue, it simply goes back to sleep waiting
-for more data to arrive if the prequeue delayed checksumming fails.
+What this patch does is that in the event that mii is not supported, 
+link status is read directly from device's lnktst bcr register.
 
-I think we should fix it like the following, which is basically the last
-part of Olaf's original patch in this thread.  Just wait for another packet
-if a blocking socket and checksum fails, else if non-blocking -EAGAIN is OK.
+Works without any problem with the virtual nic under vmware. So if all 
+the other non-mii pcnet32 devices have the link status register in the 
+same place, things should be just fine!
 
-To be honest, I believe this was Alexey's original intention when he wrote this
-code.
+Could you please test this and let me know what you think?
 
-===== net/ipv4/udp.c 1.56 vs edited =====
---- 1.56/net/ipv4/udp.c	Fri Jan  9 01:50:23 2004
-+++ edited/net/ipv4/udp.c	Sat Feb 21 13:03:05 2004
-@@ -787,6 +787,7 @@
- 	if (flags & MSG_ERRQUEUE)
- 		return ip_recv_error(sk, msg, len);
- 
-+try_again:
- 	skb = skb_recv_datagram(sk, flags, noblock, &err);
- 	if (!skb)
- 		goto out;
-@@ -852,7 +853,9 @@
- 
- 	skb_free_datagram(sk, skb);
- 
--	return -EAGAIN;	
-+	if (noblock)
-+		return -EAGAIN;	
-+	goto try_again;
- }
- 
- int udp_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
+Best regards
+
+Thomas
+
+
+--------------030004050402030806020001
+Content-Type: text/plain;
+ name="pcnet32_real_link_detect_fix.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="pcnet32_real_link_detect_fix.patch"
+
+--- drivers/net/pcnet32.c.tmus	2004-02-19 15:24:31.238513096 +0100
++++ drivers/net/pcnet32.c	2004-02-19 15:27:28.265600888 +0100
+@@ -1644,7 +1644,9 @@
+ 	case ETHTOOL_GLINK: {
+ 		struct ethtool_value edata = {ETHTOOL_GLINK};
+ 		spin_lock_irq(&lp->lock);
+-		edata.data = mii_link_ok(&lp->mii_if);
++		if(lp->mii) edata.data = mii_link_ok(&lp->mii_if);
++                /* read the LNKTST BCR register for link status on non-mii capable devices */
++                else edata.data = (lp->a.read_bcr(ioaddr,4) != 0xc0);
+ 		spin_unlock_irq(&lp->lock);
+ 		if (copy_to_user(useraddr, &edata, sizeof(edata)))
+ 			return -EFAULT;
+
+--------------030004050402030806020001--
