@@ -1,30 +1,60 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [RFC] change format of LSM hooks
-Date: Thu, 17 Oct 2002 14:21:49 +0100
+From: Antti Tuominen <ajtuomin@morphine.tml.hut.fi>
+Subject: [PATCHSET] Mobile IPv6 for 2.5.43
+Date: Thu, 17 Oct 2002 19:26:25 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021017142149.A23181@infradead.org>
-References: <20021015194545.GC15864@kroah.com> <20021015.124502.130514745.davem@redhat.com> <20021015201209.GE15864@kroah.com> <20021015.131037.96602290.davem@redhat.com> <20021015202828.GG15864@kroah.com> <20021016000706.GI16966@kroah.com>
+Message-ID: <20021017162624.GC16370@morphine.tml.hut.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>, becker@scyld.com,
-   jmorris@intercode.com.au, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
-   linux-security-module@wirex.com, linux-kernel@vger.kernel.org
+Cc: yoshfuji@wide.ad.jp, pekkas@netcore.fi, torvalds@transmeta.com,
+   jagana@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Greg KH <greg@kroah.com>
+To: davem@redhat.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
+   linux-kernel@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <20021016000706.GI16966@kroah.com>; from greg@kroah.com on Tue, Oct 15, 2002 at 05:07:06PM -0700
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 15, 2002 at 05:07:06PM -0700, Greg KH wrote:
-> On Tue, Oct 15, 2002 at 01:28:28PM -0700, Greg KH wrote:
-> > On Tue, Oct 15, 2002 at 01:10:37PM -0700, David S. Miller wrote:
-> > > 
-> > > I will not even look at the networking LSM bits until
-> > > CONFIG_SECURITY=n is available.
+Hello Alexey, Dave, everyone,
 
-BTW, there's another big issues with LSM:  so far all those hook
-have no user in a mergeable shape.  For all other additions
-there is a strong need to present something mergable but LSM
-doesn't.  IMHO we should require a pointer to a module in mergaable
-shape (i.e. certainly not selinux) for each new hook addition.
+We are resending our code for kernel inclusion consideration.  I hope
+with this submission we have addressed all the concerns raised on the
+list (i.e. draft revision) as well as offline (splitting the patch to
+smaller chunks).
+
+To Pekka and Hideaki,
+
+Intermediate revision of the specification "Draft 18++" appeared a few
+days ago, which addressed most of the issues with earlier drafts (16,
+17, 18).  This made it possible to update our code to something usable
+(later than 15).  This patch set has support for most of it.
+
+To Alexey, (and everyone else)
+
+The patch has been split for easier reading as follows:
+
+ipv6_tunnel.patch	6over6 tunneling
+network_mods.patch	Modifications to network code and hooks
+mipv6_cn_support.patch	Correspondent node support (+common code)
+mipv6_mn_support.patch	Mobile node support (+common code with HA)
+mipv6_ha_support.patch	Home agent support
+
+The patches are incremental, so they must be applied in this order.
+Patches are not included in this mail, but you can find them at:
+
+http://www.mipl.mediapoli.com/patches/ipv6_tunnel.patch
+http://www.mipl.mediapoli.com/patches/network_mods.patch
+http://www.mipl.mediapoli.com/patches/mipv6_cn_support.patch
+http://www.mipl.mediapoli.com/patches/mipv6_mn_support.patch
+http://www.mipl.mediapoli.com/patches/mipv6_ha_support.patch
+
+Userspace tools are available at:
+http://www.mipl.mediapoli.com/download/mipv6-tools/
+
+Regards,
+
+Antti
+
+-- 
+Antti J. Tuominen, Gyldenintie 8A 11, 00200 Helsinki, Finland.
+Research assistant, Institute of Digital Communications at HUT
+work: ajtuomin@tml.hut.fi; home: tuominen@iki.fi
