@@ -1,62 +1,35 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] PKT_SCHED: Fix cls indev validation
-Date: 22 Dec 2004 08:32:46 -0500
-Message-ID: <1103722366.1089.75.camel@jzny.localdomain>
-References: <20041219203050.GK17998@postel.suug.ch>
-	 <41C68CEF.3030803@trash.net> <1103552215.1048.333.camel@jzny.localdomain>
-	 <20041220200739.GX17998@postel.suug.ch> <41C7F833.4000909@trash.net>
-	 <20041222003142.GB7884@postel.suug.ch>
-Reply-To: hadi@cyberus.ca
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH] PKT_SCHED: Provide compat policer stats in	action	policer
+Date: Wed, 22 Dec 2004 14:32:51 +0100
+Message-ID: <20041222133251.GC7884@postel.suug.ch>
+References: <20041215130128.GK8493@postel.suug.ch> <1103119774.1077.74.camel@jzny.localdomain> <41C05B60.6030504@trash.net> <1103484249.1046.143.camel@jzny.localdomain> <41C6A6CC.1050105@trash.net> <1103552830.1049.355.camel@jzny.localdomain> <20041221001621.GY17998@postel.suug.ch> <1103721013.1090.30.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: Patrick McHardy <kaber@trash.net>, "David S. Miller" <davem@davemloft.net>,
         netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20041222003142.GB7884@postel.suug.ch>
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1103721013.1090.30.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2004-12-21 at 19:31, Thomas Graf wrote:
-> * Patrick McHardy <41C7F833.4000909@trash.net> 2004-12-21 11:17
-> > Could you make your patchset available somehow ?
-> 
-> http://people.suug.ch/~tgr/patches/queue/
-> 
-> Unfinished and untested.
+* jamal <1103721013.1090.30.camel@jzny.localdomain> 2004-12-22 08:10
+> Dont have time to look at it right now - If you can also have it
+> generate traffic in that framework and validate results that would
+> be similar to what i have.
 
-I just took a quick glimpse. 
+Sure, no problem. Here's an example:
 
-1)Recall: Policer will have to die at some point - only reason for its
-existence is for backward compat.
-New iproute2 code sooner than later stop using that inteface so we can
-kill it. I suspect we can kill it in a year or two and definetely the
-day 2.7 comes out.
+ts_tc "attr-police" "police creation" $FILTER police rate 2kbit buffer 10k drop
 
-2) The name tcf_attrs doesnt sound right - attributes are normally
-data pieces not methods. Cant think of a good name.
+ts_log "cls-police: Sending 10 ICMP echo requests"
+hping2 -c 10 -1 --fast ${DEST} &> /dev/null
 
-3) What can i say? dang - this indev thing is getting out of control ;->
-If you are going to go this far for beautification sake then
-kill the .indev thing please before it becomes a beast. Do what we
-discussed a while back:
-- have a generic very basic extended generic match API which indev uses
-that gets invoked from  the classifier. It should take no more than one
-page to write the indev extension - if it exceeds that you are doing
-something wrong. There should be capability to mix and match these
-extenders so i can say in u32 something like:
- match ip src X
- match extend indev src eth0
- match protocol tcp
- match extended metadata fwmark 0x10
+ts_tc "cls-police" "police dumping" -s -s -d filter list dev $DEV parent 10:0
 
-etc.
-
-I think its time we did this right than defering.
-
-Of course all backward compatibility rules apply ;->
-
-cheers,
-jamal
+It could be done a lot better but I'm not aiming at replacing tcsim
+but rather to complement it so we have tcsim to validate the
+correctness of queueing and classification algorithms and my naive brutal
+testing framework for regression and stress testing under real conditions.
