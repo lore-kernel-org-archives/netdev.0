@@ -1,30 +1,27 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: 2.6.8.1 IPv6 Routing Problem
-Date: Sun, 26 Dec 2004 16:45:00 +1100
-Message-ID: <E1CiRDA-0004wk-00@gondolin.me.apana.org.au>
-References: <20041225135650.55dca29f.davem@davemloft.net>
-Cc: laforge@gnumonks.org, yoshfuji@linux-ipv6.org, pekkas@netcore.fi,
-        netdev@oss.sgi.com, usagi-users@linux-ipv6.org
+From: linux lover <linux_lover2004@yahoo.com>
+Subject: ipsec implementation kernel
+Date: Sat, 25 Dec 2004 22:52:05 -0800 (PST)
+Message-ID: <20041226065205.80980.qmail@web52207.mail.yahoo.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@davemloft.net (David S. Miller)
-In-Reply-To: <20041225135650.55dca29f.davem@davemloft.net>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller <davem@davemloft.net> wrote:
-> 
-> I've also discussed this with Herbert Xu a bit, and no one
-> solution is really clear yet.  IPV4 has similar issues, just
-> in a slightly different form.
+Hello, 
+             I want to know where can i find ipsec
+implementation files in linux kernel? Also how to
+activate it in kernel? Does AH/ESP header added by
+netfilter kernel module?
 
-Well I still reckon that the IPv4 behaviour is just fine as
-it is.  In fact if anything we should make the IPv6 case as
-similar to Ipv4 as possible.
+regards,
+linux.lover
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+		
+__________________________________ 
+Do you Yahoo!? 
+Jazz up your holiday email with celebrity designs. Learn more. 
+http://celebrity.mail.yahoo.com
