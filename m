@@ -1,39 +1,36 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH bk-2.6.10] tg3:align IP headers from 5701 in PCI-X mode
-Date: Mon, 10 Jan 2005 16:01:59 -0500
-Message-ID: <41E2ED47.9080909@pobox.com>
-References: <Pine.LNX.4.33.0501031713460.16417-100000@localhost.localdomain> <20050110125001.4fe4d00b.davem@davemloft.net>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH PKT_SCHED 0/22]: tc action cleanups
+Date: 10 Jan 2005 16:08:18 -0500
+Message-ID: <1105391297.1084.54.camel@jzny.localdomain>
+References: <41E2D97A.1060400@trash.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: akepner@sgi.com, netdev@oss.sgi.com
+Cc: Maillist netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050110125001.4fe4d00b.davem@davemloft.net>
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <41E2D97A.1060400@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> On Mon, 3 Jan 2005 17:45:01 -0800 (PST)
-> akepner@sgi.com wrote:
+On Mon, 2005-01-10 at 14:37, Patrick McHardy wrote:
+> Hi Jamal,
 > 
+> following are the reorganized tc action cleanup patches with some
+> additional fixes. Please review and comment, I would like to ask
+> Dave to pull them in soon so I don't get more clashes.
 > 
->>We still have customers using 5701 cards, and their syslogs fill with 
->>"kernel unaligned access" messages. They may also see a significant 
->>performance degradation due to the expense of unaligned accesses on 
->>ia64. Here's a patch to address this (it is almost the same as the 
->>patch which was discussed in 
->>http://marc.theaimsgroup.com/?l=linux-netdev&m=109770128816605&w=2).
->>
->>In a quick throughput test, I found that this could improve throughput
->>by ~30% on an Altix.
-> 
-> 
-> Let's just do this all the time for this case, adding new config
-> options for stuff like this does nothing more than create confusion.
 
+Other than the ipt breakage fix - Is there anything new since our last
+discussion that you want me to pay attention to? 
+Sorry dont have the cycles to pay close attention today. Will do
+tommorow. 
+You seem to also have touched some police code this time (I suppose the
+LinuxWay payoff time is here).So, if you want me to pay close attention
+to specific items i will; otherwise i would suggest that Dave sucks them
+in, then we can resolve things later.
 
-agreed.
-
-	Jeff
+cheers,
+jamal
