@@ -1,32 +1,30 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: gettime: Was (Re: Route cache performance under stress
-Date: Wed, 11 Jun 2003 20:30:15 -0700 (PDT)
+Subject: Re: [PATCH 2.5.70+] tun using alloc_netdev
+Date: Wed, 11 Jun 2003 20:57:21 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030611.203015.104061804.davem@redhat.com>
-References: <20030610.203325.41658167.davem@redhat.com>
-	<20030611065255.L39678@shell.cyberus.ca>
-	<20030611120803.GB22720@wotan.suse.de>
+Message-ID: <20030611.205721.115935520.davem@redhat.com>
+References: <20030609115857.38bb31d6.shemminger@osdl.org>
+	<5.1.0.14.2.20030611121155.0b659e20@unixmail.qualcomm.com>
+	<20030611194317.GE31051@gtf.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hadi@shell.cyberus.ca, greearb@candelatech.com, netdev@oss.sgi.com
+Cc: maxk@qualcomm.com, shemminger@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ak@suse.de
-In-Reply-To: <20030611120803.GB22720@wotan.suse.de>
+To: jgarzik@pobox.com
+In-Reply-To: <20030611194317.GE31051@gtf.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Andi Kleen <ak@suse.de>
-   Date: Wed, 11 Jun 2003 14:08:03 +0200
+   From: Jeff Garzik <jgarzik@pobox.com>
+   Date: Wed, 11 Jun 2003 15:43:18 -0400
 
-   Another way is to just store jiffies (= 10 or 1ms accuracy) 
+   On Wed, Jun 11, 2003 at 12:21:44PM -0700, Max Krasnyansky wrote:
+   > This is wrong. register_netdevice() does not expand name (ie %d stuff).
+   > So dev_alloc_name() is still needed. i.e.
    
-   This should be nearly zero cost and accurate enough at least for TCP.
+   Correct.
    
-TCP doesn't use it Andi.  SO_RECVSTAMP etc. uses it and that
-MUST be accurate.
-
-People, start approaching this from an actually implementable
-angle, not one's that have no basis in reality :)
-
+   But, register_netdev() is preferred precisely for this reason.
    
+Right.
