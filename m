@@ -1,45 +1,51 @@
-From: viro@parcelfarce.linux.theplanet.co.uk
-Subject: Re: Linux 2.6.7
-Date: Wed, 16 Jun 2004 13:18:51 +0100
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040616121850.GO12308@parcelfarce.linux.theplanet.co.uk>
-References: <Pine.LNX.4.58.0406152253390.6392@ppc970.osdl.org> <20040616111329.GA1571@louise.pinerecords.com>
+From: "Eble, Dan" <DanE@aiinet.com>
+Subject: RE: RFC: Cisco HDLC bridging
+Date: Wed, 16 Jun 2004 08:58:35 -0400
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <C060DFCD9697A842B3189B458524FDC205D2CD@AIMAIL1.ai.aiinet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S266259AbUFPMSx@vger.kernel.org>
-To: Tomas Szepe <szepe@pinerecords.com>
-Content-Disposition: inline
-In-Reply-To: <20040616111329.GA1571@louise.pinerecords.com>
+Content-Type: text/plain
+Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "'Krzysztof Halasa'" <khc@pm.waw.pl>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 16, 2004 at 01:13:29PM +0200, Tomas Szepe wrote:
-> On Jun-15 2004, Tue, 22:56 -0700
-> Linus Torvalds <torvalds@osdl.org> wrote:
-> 
-> > Summary of changes from v2.6.7-rc3 to v2.6.7
-> [snip]
-> 
-> 2.6.7's airo.ko (unlike 2.6.6's) won't allow the user to set
-> ESSID via "echo myessid >/proc/driver/aironet/ethX/SSID".
-> 
-> Changes like this shouldn't probably be made in the middle
-> of a stable series.
+> -----Original Message-----
+> From: Krzysztof Halasa [mailto:khc@pm.waw.pl] 
+> Sent: Wednesday, June 16, 2004 7:14 AM
+... 
+> Sure. But we won't - with device type = Cisco HDLC tcpdump 
+> will be happy.
+> I.e. will happily print SLARPs, regular IP frames, and 
+> Ethernet frames.
 
-Changes like this are called bugs.  The thing is, original variant of
-function (actually, both read and write) was also buggy and trivially
-exploitable, so fixing it was needed.  Fscking it up was not, obviously.
+Ah, yes.  But if the device does not have ARPHRD_ETHER the bridge driver
+will not allow it to be used as a port.  I do not know what else may require
+ARPHRD_ETHER, but I'm not keen to find out by trial and error (and then fix
+everything to work with ARPHRD_CISCO too).
 
-Fix follows; see if it works for you.
+> It could be useful - with bridged Ethernet for MS Windows connectivity
+> and with routed IP traffic.
 
---- RC7/drivers/net/wireless/airo.c	Mon Jun  7 19:21:27 2004
-+++ RC7-current/drivers/net/wireless/airo.c	Wed Jun 16 08:11:50 2004
-@@ -4527,6 +4527,8 @@
- 		len = priv->maxwritelen - pos;
- 	if (copy_from_user(priv->wbuffer + pos, buffer, len))
- 		return -EFAULT;
-+	if (pos + len > priv->writelen)
-+		priv->writelen = pos + len;
- 	*offset = pos + len;
- 	return len;
- }
+When all you have is a hammer, MS Windows looks like a nail. :-)
+
+> I'd go with "2 devices" path for now.
+
+It is going well so far.  I will post patches when I am done, but they
+probably will not apply to the current public versions without some extra
+work.
+
+This is the sethdlc syntax I have chosen to create and destroy the hdlcXeth0
+device:
+
+	sethdlc hdlc0 cisco proto <type> [ enable | disable ]
+
+Where <type> is 0x6558 for bridged ethernet packets (or maybe "ether", but I
+have not put that in yet).  I figure this will be useful to enable and
+disable other protocols too.
+-- 
+Dan Eble <dane@aiinet.com>  _____  .
+Software Engineer          |  _  |/|
+Applied Innovation Inc.    | |_| | |
+http://www.aiinet.com/     |__/|_|_|
