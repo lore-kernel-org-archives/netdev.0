@@ -1,55 +1,85 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: [PATCH] init_netdev missing locking
-Date: Wed, 15 Oct 2003 11:05:20 -0700
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH] pci_get_slot()
+Date: Wed, 15 Oct 2003 11:41:04 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031015110520.0206e327.rddunlap@osdl.org>
+Message-ID: <20031015184104.GA22373@kroah.com>
+References: <20031015183213.GG16535@parcelfarce.linux.theplanet.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Linus Torvalds <torvalds@osdl.org>, "David S. Miller" <davem@redhat.com>,
+        Jeff Garzik <jgarzik@pobox.com>, linux-pci@atrey.karlin.mff.cuni.cz,
+        netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Matthew Wilcox <willy@debian.org>
+Content-Disposition: inline
+In-Reply-To: <20031015183213.GG16535@parcelfarce.linux.theplanet.co.uk>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Wed, Oct 15, 2003 at 07:32:13PM +0100, Matthew Wilcox wrote:
+> 
+> Hi Linus.
+> 
+> tg3.c has a bug where it can find the wrong 5704 peer on a machine with
+> PCI domains.  The problem is that pci_find_slot() can't distinguish
+> whether it has the correct domain or not.
 
-It looks like the call to dev_alloc_name() in init_netdev()
-isn't protected by the required locking.
-This patch adds rtnl_lock/unlock around the call to dev_alloc_name().
+The check of:
+	if (dev->bus->number == bus && dev->devfn == devfn)
+in pci_find_slot() doesn't check for the domain?
 
-Comments?  or please apply.
+> 
+> This patch fixes that problem by introducing pci_get_slot() and converts
+> tg3 to use it.  It also fixes another problem where tg3 wouldn't find
+> a peer on function 7 (0 to <8, not 0 to <7).
 
---
-~Randy
+Ah, nice.  After telling you I would not accept this patch right now,
+until after 2.6.0 comes out, you send it to Linus.  Really appreciate
+that...
 
+Anyway, is there any other way you can fix this in the tg3 driver only
+for right now?  I agree adding the pci function is "cleaner", but a bit
+late for right now.
 
-description:	add required locking to init_netdev()'s call to
-		dev_alloc_name()
-patch_name:	netinit_alloc_lock.patch
-product_versions: Linux 2.6.0-test7
-maintainer:	davem@redhat.com
-author:		Randy.Dunlap <rddunlap@osdl.org>
-patch_version:	2003-10-15.10:55:51
+>  /**
+> + * pci_get_slot - locate PCI device for a given PCI slot
+> + * @bus: PCI bus on which desired PCI device resides
+> + * @devfn: encodes number of PCI slot in which the desired PCI 
+> + * device resides and the logical device number within that slot 
+> + * in case of multi-function devices.
+> + *
+> + * Given a PCI bus and slot/function number, the desired PCI device 
+> + * is located in the list of PCI devices.
+> + * If the device is found, its reference count is increased and this
+> + * function returns a pointer to its data structure.  The caller must
+> + * decrement the reference count by calling pci_dev_put().
+> + * If no device is found, %NULL is returned.
+> + */
+> +struct pci_dev * pci_get_slot(struct pci_bus *bus, unsigned int devfn)
+> +{
+> +	struct list_head *tmp;
+> +	struct pci_dev *dev;
+> +
+> +	WARN_ON(in_interrupt());
+> +	spin_lock(&pci_bus_lock);
+> +
+> +	list_for_each(tmp, &bus->children) {
+> +		dev = pci_dev_b(tmp);
+> +		if (dev->devfn == devfn)
+> +			goto out;
+> +	}
+> +
+> +	dev = NULL;
+> + out:
+> +	pci_dev_get(dev);
+> +	spin_unlock(&pci_bus_lock);
+> +	return dev;
+> +}
 
-diffstat:=
- drivers/net/net_init.c |    3 +++
- 1 files changed, 3 insertions(+)
+How does this differ from pci_find_slot()?  (becides the pci_dev_get()
+call)?  pci_find_slot() asks for the bus number, which can be determined
+from the pci_bus structure, right?
 
-diff -Naurp ./drivers/net/net_init.c~dev_alloc_lock ./drivers/net/net_init.c
---- ./drivers/net/net_init.c~dev_alloc_lock	2003-10-15 10:53:02.000000000 -0700
-+++ ./drivers/net/net_init.c	2003-10-15 10:53:34.000000000 -0700
-@@ -148,11 +148,14 @@ static struct net_device *init_netdev(st
- 	 
- 	if (dev->name[0] == '\0' || dev->name[0] == ' ') {
- 		strcpy(dev->name, mask);
-+		rtnl_lock();
- 		if (dev_alloc_name(dev, mask)<0) {
-+			rtnl_unlock();
- 			if (new_device)
- 				kfree(dev);
- 			return NULL;
- 		}
-+		rtnl_unlock();
- 	}
- 
- 	netdev_boot_setup_check(dev);
+thanks,
+
+greg k-h
