@@ -1,79 +1,39 @@
-From: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
-Subject: Re: [PATCH] [RFT] 2.6.4 - epic100 napi
-Date: Wed, 24 Mar 2004 04:59:19 +0900
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <871xnjgwrs.fsf@devron.myhome.or.jp>
-References: <20040320152109.A31118@electric-eye.fr.zoreil.com>
-	<405DDDC6.7030007@pobox.com> <8765cvmyaq.fsf@devron.myhome.or.jp>
-	<20040323195119.A14062@electric-eye.fr.zoreil.com>
+From: Abhinav Gupta <kernelnetworkguy@hotpop.com>
+Subject: Quirky Behaviour while counting #tcp packets received.
+Date: Tue, 23 Mar 2004 13:02:27 -0700
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <406097D3.10608@hotpop.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20040323195119.A14062@electric-eye.fr.zoreil.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Return-path: <linux-net-owner@vger.kernel.org>
+To: netdev@oss.sgi.com, linux-net@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu <romieu@fr.zoreil.com> writes:
+I am not sure if this is the correct mailing list for my question or 
+not. If it isn't could someone please direct me to the correct one.
 
-> OGAWA Hirofumi <hirofumi@mail.parknet.co.jp> :
-> [...]
-> > Umm.. the above code is part of ->poll(). I think xxx_interrut() need
-> > netif_running() instead. The driver must clear __LINK_STATE_RX_SCHED
-> > flag...
-> > 
-> > BTW, ->napi_lock is unneeded because netif_schedule() is already
-> > atomic, it need only local_irq_enable/disable().
-> 
-> Color me confused. The lock is supposed to protect against:
-> 
-> CPU1                         CPU2
-> [poll]
-> epic_napi_irq_on(dev, ep);
->                              [irq handler]
->                              if (netif_rx_schedule_prep(dev)) {
->                                      epic_napi_irq_off(dev, ep);
->                                      __netif_rx_schedule(dev);
->                              }
-> __netif_rx_complete(dev);
-> 
-> -> napi irq are disabled and device is removed from poll list. What will
->    prevent it ?
+Here's what I am doing and the problem emanating from it:
+I wanted to keep a track of tcp packets received from the network, so I 
+started keeping a count of that by incrementing pkts_recv variable in 
+the function tcp_recv_established in usr/src/linux/net/ipv4/tcp_input.c 
+, everytime I receive a packet. The structure(tcp_opt) that contains 
+pkts_recv variable is defined in usr/src/linux/include/net/sock.h.
 
-__LINK_STATE_RX_SCHED flag is setting until __netif_rx_complete() is called.
-So netif_rx_schedule_prep() returns 0.
+The problem that I am facing is that this count(pkts_recv) increments by 
+one each time I receive a tcp packet, but then something goes wrong and 
+the next time it receives a packet it(pkts_recv) increments by some 
+random quantity (like 36,3, 55 ...). But after this incrementation by 
+the random value, the next time it receives a packet it increments by 1 
+again (instead of the random value)! And there are several instances 
+where the incrementation takes place by the random quantity (3-7 times 
+when 1000 packets are received). I have checked in the source and the 
+only place I am incrementing the count is in tcp_recv_established function.
 
-> > After __netif_rx_complete() must not do "goto rx_action", otherwise it
-> > may become cause of twice scheduleing, it should move before spin_lock().
-> 
->  understand the previous statement as:
-> 
-> +               status = inl(ioaddr + INTSTAT);
-> +               if (status & EpicNapiEvent) {
-> +                       epic_napi_irq_off(dev, ep);
-> +                       goto rx_action;
-> +
-> +               spin_lock_irqsave(&ep->napi_lock, flags);
-> +               epic_napi_irq_on(dev, ep);
-> +               __netif_rx_complete(dev);
-> +               spin_unlock_irqrestore(&ep->napi_lock, flags);
-> +
-> 
-> Afaiu, if some data comes in just before the spin_lock, it may wait for ages.
+Does anyone have views on this quirky behavior?
 
-Yes, maybe. But, if after spin_lock, it loop may call the twice
-__netif_rx_schedule(). And netif_rx_complete() doesn't call dev_put().
-It will leaks the dev->refcnt, I think.
+Any help would be greatly appreciated.
 
-> +               __netif_rx_complete(dev);
-> +               spin_unlock_irqrestore(&ep->napi_lock, flags);
-           -- interrupt and call __netif_rx_schedule() --
-> +               status = inl(ioaddr + INTSTAT);
-> +               if (status & EpicNapiEvent) {
-> +                       epic_napi_irq_off(dev, ep);
-> +                       goto rx_action;
+Thanks,
+Abhinav.
 
-Thanks.
--- 
-OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
