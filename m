@@ -1,60 +1,48 @@
-From: Kevin Stewart <kevins@callplus.co.nz>
-Subject: One IP on 2 nics
-Date: Fri, 10 Dec 2004 13:59:41 +1300
-Message-ID: <41B8F4FD.6080407@callplus.co.nz>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH] PKT_SCHED: Prevent destroying via RTM_DELTFILTER while classifying
+Date: Fri, 10 Dec 2004 02:43:22 +0100
+Message-ID: <20041210014322.GS1371@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-What I am after is the ability to keep one IP and MAC address when I 
-remove my laptop from my docking station (I have a 802.11b AP on the 
-same segment as my other nic)
+The classify function of every cls is invoked under BH and 
+dev->queue_lock spinlock from dev_xmit. Hence to serialize destroying
+the destroy function must be called under the spinlock as well. There
+are 2 paths in which a classifier can be destroyed:
 
-how do I create a vertual interface and configure my eth0(10/100) and 
-eth1(802.11b)
-so I can route traffic out the correct interface depending on what is up
+1) via the qdisc destroy cb calling tcf_destroy under
+   qdisc_tree_lock from __qdisc_destroy (rcu callback)
+      
+2) via RTM_DELTFILTER in cls_api.c under no locks at all.
 
-this is the closest I have come
-but my laptop becoming part of spanning tree sounds .... bad
-bridging and not being part of spanning tree .... worse
+The first path seems ok, the initial qdisc destroy attempt is called
+under the spinlock and thus serialized with the classify while
+the list unlinking takes place and dev_xmit takes care of
+the RCU callback, hence classify and all the callbacks needed
+from process context cannot be found anymore.
 
-iface br0 inet static
-        address 192.168.18.64
-        netmask 255.255.240.0
-        network 192.168.16.0
-        broadcast 192.168.31.255
-        gateway 192.168.18.1
-        bridge_ports eth0 eth1
-        pre-up ifconfig eth0 0.0.0.0 up
-        pre-up ifconfig eth1 0.0.0.0 up
-        pre-up brctl addbr br0
-        pre-up brctl addif br0 eth0
-        pre-up brctl addif br0 eth1
-        pre-up brctl stp br0 on
-        post-down ifconfig eth0 0.0.0.0 down
-        post-down ifconfig eth1 0.0.0.0 down
-        post-down brctl delif br0 eth0
-        post-down brctl delif br0 eth1
-        post-down brctl delbr br0
+The second path needs the spinlock to avoid destroying while
+a classification is in progress. 2.4 probably needs the same fix,
+I will cook one up if so.
 
-my thoughts where a dummy interface and 2 routes to 192.168.16.0 with 
-diffrent metrics out the 2 interfaces and a default route
-but I am unable to get it working
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
--- 
-Kevin Stewart
-
-Network Engineer
-DDI ++ 64 9 919 6120
-Mobile ++ 64 21 885 505
-Email kevins@callplus.co.nz
-
-
------------------------------------------------------------------------------------------------
-This message and any attachments contain privileged and confidential information. 
-If you are not the intended recipient of this message, you are hereby notified that any use, dissemination, distribution or reproduction of this message is prohibited.  If you have received this message in error please notify the sender immediately via email and then destroy this message and any attachments.
+--- linux-2.6.10-rc2-bk13.orig/net/sched/cls_api.c	2004-11-30 14:01:12.000000000 +0100
++++ linux-2.6.10-rc2-bk13/net/sched/cls_api.c	2004-12-10 02:16:29.000000000 +0100
+@@ -257,7 +257,9 @@
+ 			qdisc_unlock_tree(dev);
+ 
+ 			tfilter_notify(skb, n, tp, fh, RTM_DELTFILTER);
++			qdisc_lock_tree(dev);
+ 			tcf_destroy(tp);
++			qdisc_unlock_tree(dev);
+ 			err = 0;
+ 			goto errout;
+ 		}
