@@ -1,15 +1,15 @@
 From: Wensong Zhang <wensong@linux-vs.org>
-Subject: Re: [PATCH] (6/6) ipvs -- get rid of skb_linearize
-Date: Thu, 18 Sep 2003 00:53:46 +0800 (CST)
+Subject: Re: [PATCH] (5/6) ipvs -- use time_before/after
+Date: Thu, 18 Sep 2003 00:40:34 +0800 (CST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0309180047490.15676-100000@penguin.linux-vs.org>
-References: <20030916142350.1da23a4a.shemminger@osdl.org>
+Message-ID: <Pine.LNX.4.44.0309180039350.15676-100000@penguin.linux-vs.org>
+References: <20030916142227.6dddd19d.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: lvs-users@LinuxVirtualServer.org, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20030916142350.1da23a4a.shemminger@osdl.org>
+In-Reply-To: <20030916142227.6dddd19d.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
@@ -17,129 +17,89 @@ List-Id: netdev.vger.kernel.org
 
 Hi,
 
-On Tue, 16 Sep 2003, Stephen Hemminger wrote:
-
-> Get rid of skb_linearize warnings, by using may_pull to get the
-> header where needed.
-> 
-
-I am not sure if the calls of skb_share_check() are necessary, because
-the ip_rcv has already done the skb share check for receiving packets. I 
-don't know if other netfilter hooks can inject a shared skb.
-
-Yes, we need to change IPVS to handle nonlinear skb as soon as possible, 
-and remove these skb_linearize warnings.
+It's a good change. Dave, please apply it to your repository.
 
 Thanks,
 
 Wensong
 
-> diff -Nru a/net/ipv4/ipvs/ip_vs_app.c b/net/ipv4/ipvs/ip_vs_app.c
-> --- a/net/ipv4/ipvs/ip_vs_app.c	Tue Sep 16 14:11:17 2003
-> +++ b/net/ipv4/ipvs/ip_vs_app.c	Tue Sep 16 14:11:17 2003
-> @@ -382,6 +382,10 @@
+On Tue, 16 Sep 2003, Stephen Hemminger wrote:
+
+> Use time_before/after macros when comparing times.
+> 
+> diff -Nru a/net/ipv4/ipvs/ip_vs_conn.c b/net/ipv4/ipvs/ip_vs_conn.c
+> --- a/net/ipv4/ipvs/ip_vs_conn.c	Tue Sep 16 14:09:55 2003
+> +++ b/net/ipv4/ipvs/ip_vs_conn.c	Tue Sep 16 14:09:55 2003
+> @@ -743,7 +743,7 @@
+>  	/* if the conn entry hasn't lasted for 60 seconds, don't drop it.
+>  	   This will leave enough time for normal connection to get
+>  	   through. */
+> -	if (cp->timeout+jiffies-cp->timer.expires < 60*HZ)
+> +	if (time_before(cp->timeout + jiffies, cp->timer.expires + 60*HZ))
 >  		return 0;
 >  
->  	iph = skb->nh.iph;
-> +	if (!pskb_may_pull(skb, (iph->ihl*4)+sizeof(*th)))
-> +		return 0;
+>  	/* Don't drop the entry if its number of incoming packets is not
+> diff -Nru a/net/ipv4/ipvs/ip_vs_lblc.c b/net/ipv4/ipvs/ip_vs_lblc.c
+> --- a/net/ipv4/ipvs/ip_vs_lblc.c	Tue Sep 16 14:09:55 2003
+> +++ b/net/ipv4/ipvs/ip_vs_lblc.c	Tue Sep 16 14:09:55 2003
+> @@ -295,8 +295,8 @@
+>  
+>  		write_lock(&tbl->lock);
+>  		list_for_each_entry_safe(en, nxt, &tbl->bucket[j], list) {
+> -			if ((now - en->lastuse) <
+> -			    sysctl_ip_vs_lblc_expiration) 
+> +			if (time_before(now, 
+> +					en->lastuse + sysctl_ip_vs_lblc_expiration))
+>  				continue;
+>  
+>  			ip_vs_lblc_free(en);
+> @@ -350,7 +350,7 @@
+>  
+>  		write_lock(&tbl->lock);
+>  		list_for_each_entry_safe(en, nxt, &tbl->bucket[j], list) {
+> -			if ((now - en->lastuse) < ENTRY_TIMEOUT) 
+> +			if (time_before(now, en->lastuse + ENTRY_TIMEOUT))
+>  				continue;
+>  
+>  			ip_vs_lblc_free(en);
+> diff -Nru a/net/ipv4/ipvs/ip_vs_lblcr.c b/net/ipv4/ipvs/ip_vs_lblcr.c
+> --- a/net/ipv4/ipvs/ip_vs_lblcr.c	Tue Sep 16 14:09:55 2003
+> +++ b/net/ipv4/ipvs/ip_vs_lblcr.c	Tue Sep 16 14:09:55 2003
+> @@ -481,10 +481,10 @@
+>  
+>  		write_lock(&tbl->lock);
+>  		list_for_each_entry_safe(en, nxt, &tbl->bucket[j], list) {
+> -			if ((now - en->lastuse) <
+> -			    sysctl_ip_vs_lblcr_expiration) {
+> +			if (time_after(en->lastuse+sysctl_ip_vs_lblcr_expiration,
+> +				       now))
+>  				continue;
+> -			}
 > +
-> +	iph = skb->nh.iph;
->  	th = (struct tcphdr *)&(((char *)iph)[iph->ihl*4]);
->  
->  	/*
-> @@ -436,6 +440,10 @@
->  	 *	this ip_vs_conn.
->  	 */
->  	if ((app = cp->app) == NULL)
-> +		return 0;
-> +
-> +	iph = skb->nh.iph;
-> +	if (!pskb_may_pull(skb, (iph->ihl*4)+sizeof(*th)))
->  		return 0;
->  
->  	iph = skb->nh.iph;
-> diff -Nru a/net/ipv4/ipvs/ip_vs_core.c b/net/ipv4/ipvs/ip_vs_core.c
-> --- a/net/ipv4/ipvs/ip_vs_core.c	Tue Sep 16 14:11:17 2003
-> +++ b/net/ipv4/ipvs/ip_vs_core.c	Tue Sep 16 14:11:17 2003
-> @@ -526,11 +526,11 @@
->  		*skb_p = skb;
->  	}
->  
-> -	if (skb_is_nonlinear(skb)) {
-> -		if (skb_linearize(skb, GFP_ATOMIC) != 0)
-> -			return NF_DROP;
-> -		ip_send_check(skb->nh.iph);
-> -	}
-> +	if (!(skb = skb_share_check(skb, GFP_ATOMIC)))
-> +		return NF_STOLEN;
-> +
-> +	if (!pskb_may_pull(skb, sizeof(*iph) + sizeof(*icmph)))
-> +		return NF_DROP;
->  
->  	iph = skb->nh.iph;
->  	ihl = iph->ihl << 2;
-> @@ -726,11 +726,12 @@
->  	 * do final checksum checking.
->  	 */
->  
-> -	if (unlikely(cp->app && !pp->slave && skb_is_nonlinear(skb))) {
-> -		if (skb_linearize(skb, GFP_ATOMIC) != 0) {
-> +	if (unlikely(cp->app && !pp->slave)) {
-> +		if (!(skb = skb_share_check(skb, GFP_ATOMIC))) {
->  			ip_vs_conn_put(cp);
-> -			return NF_DROP;
-> +			return NF_STOLEN;
+>  			ip_vs_lblcr_free(en);
+>  			atomic_dec(&tbl->entries);
 >  		}
-> +
->  		iph = skb->nh.iph;
->  		h.raw = (char*) iph + ihl;
->  	}
-> @@ -816,12 +817,13 @@
->  	int	rc;
+> @@ -536,7 +536,7 @@
 >  
->  	*related = 1;
-> -	if (skb_is_nonlinear(skb)) {
-> -		if (skb_linearize(skb, GFP_ATOMIC) != 0)
-> -			return NF_DROP;
-> -		ip_send_check(skb->nh.iph);
-> -	}
-> -
-> +	if (!pskb_may_pull(skb, sizeof(*iph)))
-> +		return NF_DROP;
-> +	    
-> +	iph = skb->nh.iph;
-> +	if (!pskb_may_pull(skb, iph->ihl*4 + sizeof(*icmph)))
-> +		return NF_DROP;
-> +	    
->  	iph = skb->nh.iph;
->  	icmph = (struct icmphdr *)((char *)iph+(iph->ihl<<2));
->  	len = ntohs(iph->tot_len) - (iph->ihl<<2);
-> diff -Nru a/net/ipv4/ipvs/ip_vs_xmit.c b/net/ipv4/ipvs/ip_vs_xmit.c
-> --- a/net/ipv4/ipvs/ip_vs_xmit.c	Tue Sep 16 14:11:17 2003
-> +++ b/net/ipv4/ipvs/ip_vs_xmit.c	Tue Sep 16 14:11:17 2003
-> @@ -265,13 +265,20 @@
->  	 */
+>  		write_lock(&tbl->lock);
+>  		list_for_each_entry_safe(en, nxt, &tbl->bucket[j], list) {
+> -			if ((now - en->lastuse) < ENTRY_TIMEOUT) 
+> +			if (time_before(now, en->lastuse+ENTRY_TIMEOUT))
+>  				continue;
 >  
->  	if (unlikely(cp->app && !pp->slave)) {
-> -		if (skb_is_nonlinear(skb) &&
-> -		    skb_linearize(skb, GFP_ATOMIC) != 0)
-> -			return NF_DROP;
-> +		if (!(skb = skb_share_check(skb, GFP_ATOMIC)))
-> +			return NF_STOLEN;
-> +
->  	}
+>  			ip_vs_lblcr_free(en);
+> diff -Nru a/net/ipv4/ipvs/ip_vs_sync.c b/net/ipv4/ipvs/ip_vs_sync.c
+> --- a/net/ipv4/ipvs/ip_vs_sync.c	Tue Sep 16 14:09:55 2003
+> +++ b/net/ipv4/ipvs/ip_vs_sync.c	Tue Sep 16 14:09:55 2003
+> @@ -206,8 +206,8 @@
+>  	struct ip_vs_sync_buff *sb;
 >  
-> +	if (!pskb_may_pull(skb, sizeof(*iph)))
-> +		goto tx_error;
-> +
->  	iph = skb->nh.iph;
->  	ihl = iph->ihl << 2;
-> +	if (!pskb_may_pull(skb, sizeof(*iph) + ihl))
-> +		goto tx_error;
-> +
-> +	iph = skb->nh.iph;
->  	h.raw = (char*) iph + ihl;
->  	size = ntohs(iph->tot_len) - ihl;
->  
+>  	spin_lock_bh(&curr_sb_lock);
+> -	if (curr_sb &&
+> -	    (jiffies - curr_sb->firstuse > time || time == 0)) {
+> +	if (curr_sb && (time == 0 ||
+> +			time_before(jiffies - curr_sb->firstuse, time))) {
+>  		sb = curr_sb;
+>  		curr_sb = NULL;
+>  	} else
 > 
