@@ -1,8 +1,8 @@
 From: Don Fry <brazilnut@us.ibm.com>
-Subject: [PATCH 2.4.25] pcnet32.c handle failures in open
-Date: Fri, 20 Feb 2004 16:26:31 -0800 (PST)
+Subject: [PATCH 2.4.25] pcnet32.c non-mii errors with ethtool
+Date: Fri, 20 Feb 2004 16:27:49 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200402210026.i1L0QVs07510@DYN318364BLD.beaverton.ibm.com>
+Message-ID: <200402210027.i1L0Rnx07520@DYN318364BLD.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -11,179 +11,94 @@ To: tsbogend@alpha.franken.de, jgarzik@pobox.com, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-If there are errors in the open routine, the driver does not correctly clean
-up and free resources. 
+pcnet32 devices which do not contain an mii respond incorrectly to
+ethtool commands.
 
-This also removes an unnecessary netif_wake_queue, correctly supports the
-debug parameter, and updates the version and date.
+Reported by VANDROVE@vc.cvut.cz and Thomas Munck Steenholdt.
 
---- linux-2.4.25/drivers/net/tool.pcnet32.c	Thu Feb 19 16:17:21 2004
-+++ linux-2.4.25/drivers/net/pcnet32.c	Fri Feb 20 10:45:30 2004
-@@ -22,8 +22,8 @@
-  *************************************************************************/
+--- linux-2.4.25/drivers/net/clean.pcnet32.c	Fri Feb 20 12:05:10 2004
++++ linux-2.4.25/drivers/net/pcnet32.c	Fri Feb 20 16:18:37 2004
+@@ -469,25 +469,31 @@
  
- #define DRV_NAME	"pcnet32"
--#define DRV_VERSION	"1.27a"
--#define DRV_RELDATE	"10.02.2002"
-+#define DRV_VERSION	"1.28"
-+#define DRV_RELDATE	"02.20.2004"
- #define PFX		DRV_NAME ": "
+ static int pcnet32_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ {
+-	struct pcnet32_private *lp = dev->priv;
+-	unsigned long flags;
++    struct pcnet32_private *lp = dev->priv;
++    unsigned long flags;
++    int r = -EOPNOTSUPP;
  
- static const char *version =
-@@ -218,6 +218,11 @@
-  *	   fix pci probe not increment cards_found
-  *	   FD auto negotiate error workaround for xSeries250
-  *	   clean up and using new mii module
-+ * v1.28   20 Feb 2004 Don Fry <brazilnut@us.ibm.com>
-+ *	   Jon Lewis <jonmason@us.ibm.com>, Chinmay Albal <albal@in.ibm.com>
-+ *	   Now uses ethtool_ops, netif_msg_* and generic_mii_ioctl.
-+ *	   Fixes bogus 'Bus master arbitration failure', pci_[un]map_single
-+ *	   length errors, and transmit hangs.  Cleans up after errors in open.
-  */
- 
- 
-@@ -638,8 +643,10 @@
-     chip_version = a->read_csr(ioaddr, 88) | (a->read_csr(ioaddr,89) << 16);
-     if (pcnet32_debug & NETIF_MSG_PROBE)
- 	printk(KERN_INFO "  PCnet chip version is %#x.\n", chip_version);
--    if ((chip_version & 0xfff) != 0x003)
-+    if ((chip_version & 0xfff) != 0x003) {
-+	printk(KERN_INFO PFX "Unsupported chip version.\n");
- 	return -ENODEV;
++    if (lp->mii) {
+ 	spin_lock_irqsave(&lp->lock, flags);
+ 	mii_ethtool_gset(&lp->mii_if, cmd);
+ 	spin_unlock_irqrestore(&lp->lock, flags);
+-	return 0;
++	r = 0;
 +    }
-     
-     /* initialize variables */
-     fdx = mii = fset = dxsuflo = ltint = 0;
-@@ -720,8 +727,10 @@
-     }
-     
-     dev = alloc_etherdev(0);
--    if(!dev)
-+    if (!dev) {
-+	printk(KERN_ERR PFX "Memory allocation failed.\n");
- 	return -ENOMEM;
-+    }
- 
-     printk(KERN_INFO PFX "%s at %#3lx,", chipname, ioaddr);
- 
-@@ -794,6 +803,7 @@
-     
-     /* pci_alloc_consistent returns page-aligned memory, so we do not have to check the alignment */
-     if ((lp = pci_alloc_consistent(pdev, sizeof(*lp), &lp_dma_addr)) == NULL) {
-+	printk(KERN_ERR PFX "Consistent memory allocation failed.\n");
- 	release_region(ioaddr, PCNET32_TOTAL_SIZE);
- 	return -ENOMEM;
-     }
-@@ -915,6 +925,7 @@
-     unsigned long ioaddr = dev->base_addr;
-     u16 val;
-     int i;
-+    int rc;
- 
-     if (dev->irq == 0 ||
- 	request_irq(dev->irq, &pcnet32_interrupt,
-@@ -923,8 +934,10 @@
-     }
- 
-     /* Check for a valid station address */
--    if( !is_valid_ether_addr(dev->dev_addr) )
--	return -EINVAL;
-+    if (!is_valid_ether_addr(dev->dev_addr)) {
-+	rc = -EINVAL;
-+	goto err_free_irq;
-+    }
- 
-     /* Reset the PCNET32 */
-     lp->a.reset (ioaddr);
-@@ -998,8 +1011,10 @@
-     lp->init_block.mode = le16_to_cpu((lp->options & PCNET32_PORT_PORTSEL) << 7);
-     lp->init_block.filter[0] = 0x00000000;
-     lp->init_block.filter[1] = 0x00000000;
--    if (pcnet32_init_ring(dev))
--	return -ENOMEM;
-+    if (pcnet32_init_ring(dev)) {
-+	rc = -ENOMEM;
-+	goto err_free_ring;
-+    }
-     
-     /* Re-initialize the PCNET32, and start it when done. */
-     lp->a.write_csr (ioaddr, 1, (lp->dma_addr + offsetof(struct pcnet32_private, init_block)) &0xffff);
-@@ -1029,6 +1044,28 @@
-     MOD_INC_USE_COUNT;
-     
-     return 0;	/* Always succeed */
-+
-+err_free_ring:
-+    /* free any allocated skbuffs */
-+    for (i = 0; i < RX_RING_SIZE; i++) {
-+	lp->rx_ring[i].status = 0;			    
-+	if (lp->rx_skbuff[i]) {
-+            pci_unmap_single(lp->pci_dev, lp->rx_dma_addr[i], PKT_BUF_SZ-2,
-+		    PCI_DMA_FROMDEVICE);
-+	    dev_kfree_skb(lp->rx_skbuff[i]);
-+        }
-+	lp->rx_skbuff[i] = NULL;
-+        lp->rx_dma_addr[i] = 0;
-+    }
-+    /*
-+     * Switch back to 16bit mode to avoid problems with dumb 
-+     * DOS packet driver after a warm reboot
-+     */
-+    lp->a.write_bcr (ioaddr, 20, 4);
-+
-+err_free_irq:
-+    free_irq(dev->irq, dev);
-+    return rc;
++    return r;
  }
  
- /*
-@@ -1097,6 +1134,7 @@
- 	lp->tx_ring[i].status = 0;
-         lp->tx_dma_addr[i] = 0;
-     }
-+    wmb(); /* Make sure all changes are visible */
- 
-     lp->init_block.tlen_rlen = le16_to_cpu(TX_RING_LEN_BITS | RX_RING_LEN_BITS);
-     for (i = 0; i < 6; i++)
-@@ -1223,9 +1261,7 @@
- 
-     dev->trans_start = jiffies;
- 
--    if (lp->tx_ring[(entry+1) & TX_RING_MOD_MASK].base == 0)
--	netif_wake_queue(dev);
--    else {
-+    if (lp->tx_ring[(entry+1) & TX_RING_MOD_MASK].base != 0) {
- 	lp->tx_full = 1;
- 	netif_stop_queue(dev);
-     }
-@@ -1479,6 +1515,7 @@
- 	 * of QNX reports that some revs of the 79C965 clear it.
- 	 */
- 	lp->rx_ring[entry].buf_length = le16_to_cpu(2-PKT_BUF_SZ);
-+	wmb(); /* Make sure owner changes after all others are visible */
- 	lp->rx_ring[entry].status |= le16_to_cpu(0x8000);
- 	entry = (++lp->cur_rx) & RX_RING_MOD_MASK;
-     }
-@@ -1678,7 +1715,7 @@
- };
- 
- MODULE_PARM(debug, "i");
--MODULE_PARM_DESC(debug, DRV_NAME " debug level (0-6)");
-+MODULE_PARM_DESC(debug, DRV_NAME " debug level");
- MODULE_PARM(max_interrupt_work, "i");
- MODULE_PARM_DESC(max_interrupt_work, DRV_NAME " maximum events handled per interrupt");  
- MODULE_PARM(rx_copybreak, "i");
-@@ -1705,8 +1742,8 @@
+ static int pcnet32_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
  {
-     printk(KERN_INFO "%s", version);
+-	struct pcnet32_private *lp = dev->priv;
+-	unsigned long flags;
+-	int r;
++    struct pcnet32_private *lp = dev->priv;
++    unsigned long flags;
++    int r = -EOPNOTSUPP;
  
--    if (debug > 0)
--	pcnet32_debug = debug;
-+    if (debug >= 0 && debug < (sizeof(int) - 1))
-+	pcnet32_debug = 1 << debug;
++    if (lp->mii) {
+ 	spin_lock_irqsave(&lp->lock, flags);
+ 	r = mii_ethtool_sset(&lp->mii_if, cmd);
+ 	spin_unlock_irqrestore(&lp->lock, flags);
+-	return r;
++    }
++    return r;
+ }
  
-     if ((tx_start_pt >= 0) && (tx_start_pt <= 3))
- 	tx_start = tx_start_pt;
+ static void pcnet32_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
+@@ -504,14 +510,16 @@
+ 
+ static u32 pcnet32_get_link(struct net_device *dev)
+ {
+-	struct pcnet32_private *lp = dev->priv;
+-	unsigned long flags;
+-	int r;
++    struct pcnet32_private *lp = dev->priv;
++    unsigned long flags;
++    int r = 1;
+ 
++    if (lp->mii) {
+ 	spin_lock_irqsave(&lp->lock, flags);
+ 	r = mii_link_ok(&lp->mii_if);
+ 	spin_unlock_irqrestore(&lp->lock, flags);
+-	return r;
++    }
++    return r;
+ }
+ 
+ static u32 pcnet32_get_msglevel(struct net_device *dev)
+@@ -528,14 +536,16 @@
+   
+ static int pcnet32_nway_reset(struct net_device *dev)
+ {
+-	struct pcnet32_private *lp = dev->priv;
+-	unsigned long flags;
+-	int r;
++    struct pcnet32_private *lp = dev->priv;
++    unsigned long flags;
++    int r = -EOPNOTSUPP;
+ 
++    if (lp->mii) {
+ 	spin_lock_irqsave(&lp->lock, flags);
+ 	r = mii_nway_restart(&lp->mii_if);
+ 	spin_unlock_irqrestore(&lp->lock, flags);
+-	return r;
++    }
++    return r;
+ }
+ 
+ static void pcnet32_get_ringparam(struct net_device *dev, struct ethtool_ringparam *ering)
 
 -- 
 Don Fry
