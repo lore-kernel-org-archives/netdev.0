@@ -1,57 +1,91 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [RFC] meta ematch
-Date: 16 Jan 2005 11:19:21 -0500
-Message-ID: <1105892360.1091.655.camel@jzny.localdomain>
-References: <20050110211747.GA26856@postel.suug.ch>
-	 <1105394738.1085.63.camel@jzny.localdomain>
-	 <20050113174111.GP26856@postel.suug.ch> <41E6C3E5.2020908@trash.net>
-	 <20050113192047.GQ26856@postel.suug.ch> <41E71CC4.3020102@trash.net>
-	 <20050114151407.GR26856@postel.suug.ch>
-	 <1105887519.1097.597.camel@jzny.localdomain>
-	 <20050116150914.GU26856@postel.suug.ch>
-	 <1105889874.1090.613.camel@jzny.localdomain>
-	 <20050116155758.GV26856@postel.suug.ch>
-Reply-To: hadi@cyberus.ca
+From: "Jeremy M. Guthrie" <jeremy.guthrie@berbee.com>
+Subject: Re: V2.4 policy router operates faster/better than V2.6
+Date: Sun, 16 Jan 2005 10:22:27 -0600
+Message-ID: <200501161022.30600.jeremy.guthrie@berbee.com>
+References: <Pine.LNX.4.44.0501071416060.5818-100000@localhost.localdomain> <200501141326.29575.jeremy.guthrie@berbee.com> <16874.24305.461492.48668@robur.slu.se>
+Reply-To: jeremy.guthrie@berbee.com
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: multipart/signed;
+  boundary="nextPart2097987.pIz7SLg2Ap";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>, netdev@oss.sgi.com
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050116155758.GV26856@postel.suug.ch>
+To: netdev@oss.sgi.com
+In-Reply-To: <16874.24305.461492.48668@robur.slu.se>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2005-01-16 at 10:57, Thomas Graf wrote:
+--nextPart2097987.pIz7SLg2Ap
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-> The rvalue may also point to a metadata in the kernel. This gets
-> useful when comparing dev against real dev or if nfmark, tcindex,
-> you name it carries a ifindex for example. It would even be possible
-> to compare two strings from userspace but that wouldn't make sense.
-> The only difference between lvalue and rvalue is that the lvalue
-> carries the operand.
-> 
+On Sunday 16 January 2005 06:32 am, Robert Olsson wrote:
+> Jeremy M. Guthrie writes:
+>  > I actually upped the buffer count to 8192 buffers instead of 10k.
+>  > Of the 74 samples I have thus far, 57 have been clean of errors.
+>  > Most of the sample errors appear to be shortly after the cache flush.
+>
+>  I don't really believe in increasing RX buffers to this extent. We
+> verified that you have CPU available and the drops occur when the timer
+> based GC happens. Increasing buffers decreases overall performance and ad=
+ds
+> jitter.
+I just took a look at my logs, the increase to the max on the card of 4K RX=
+=20
+buffers has stopped packet drops except during GC.  I agree, it isn't prett=
+y=20
+and it is not the solution I would like.  In the mean time, it has at least=
+=20
+stopped the 0.3% round-the-clock packet loss which I was seeing even at rat=
+es=20
+as low as 25K pps.
 
-ok, more clarity.
+>  We saw also the timed based GC were taking the dst-entries from about
+>  600k to 40k in one shot. I think this what we should look into. Just
+>  GC is "work" also after GC a lot flows has to be recreated doing fib
+>  lookup and creating new entries. We want to smoothen the GC process so
+>  happen more frequent and does less work.
+Agreed.  I went to the extreme because I can really see the % idle CPU.  If=
+ I=20
+am constantly setting up new flows then the % of free CPU shoots way down. =
+=20
+Minus the effects of GC, a larger flow table equates into free CPU. =20
 
-> 
-> > I am not sure iam following yet:
-> > 
-> > So in the case of indev, you would need to 
-> > - get indev ifindex from skb
-> > - get indev name from skb
-> > - compare the two??
-> >
+>  Some time ago an "in-flow" GC (as opposed to timer based) was added to
+>  the routing code look for cand in route.c. In setup like yours (and ours)
+>  it would be better to relay on this process to a higher extent. Anyway
+>  in /proc/sys/net/ipv4/route/ you have the files.
+>  gc_elasticity, gc_interval, gc_thresh etc I would avoid gc_min_interval.
+>  And you can play with your running system and for drops without causing
+>  your users to much pain.
+>  We save the patch for routing without route hash and GC until later,
+Okay.  I will bring my interval down from an hour down to ten minutes and d=
+o=20
+further tuning.
 
-Can you explain the above in context of indev = "eth0"? I am still not
-sure i get it:
+=2D-=20
 
-+     if (meta_get(skb, info, &meta->lvalue, &l_value) < 0 ||
-+         meta_get(skb, info, &meta->rvalue, &r_value) < 0)
-+             return 0;
-+     r = meta_type_ops(&meta->lvalue)->compare(&l_value, &r_value);
+=2D-------------------------------------------------
+Jeremy M. Guthrie        jeremy.guthrie@berbee.com
+Senior Network Engineer        Phone: 608-298-1061
+Berbee                           Fax: 608-288-3007
+5520 Research Park Drive         NOC: 608-298-1102
+Madison, WI 53711
 
+--nextPart2097987.pIz7SLg2Ap
+Content-Type: application/pgp-signature
 
-cheers,
-jamal
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQBB6pTGqtjaBHGZBeURAolHAJ9v4xanafdTJ+Yq0YttRukYnwZKhwCfZpJA
+xpmyP+BZdnankW3uBsExbKo=
+=6h2g
+-----END PGP SIGNATURE-----
+
+--nextPart2097987.pIz7SLg2Ap--
