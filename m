@@ -1,23 +1,39 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] IPv6: Also fix tunnel skb->h.raw bug in ip6_tunnel.c
-Date: Wed, 5 Nov 2003 12:34:08 -0800
+From: Brian White <bcwhite@precidia.com>
+Subject: rp_filter dropping things it shouldn't
+Date: Wed, 05 Nov 2003 15:41:02 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031105123408.5db4d1ec.davem@redhat.com>
-References: <Pine.LNX.4.58.0311051253420.27592@rhea.tcs.hut.fi>
+Message-ID: <3FA9605E.2876B0D5@precidia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ville Nuorvala <vnuorval@tcs.hut.fi>
-In-Reply-To: <Pine.LNX.4.58.0311051253420.27592@rhea.tcs.hut.fi>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 5 Nov 2003 13:02:02 +0200 (EET)
-Ville Nuorvala <vnuorval@tcs.hut.fi> wrote:
+Kernel:	2.4.20
+Arch:	i386
+Dist:	debian/testing
 
-> I noticed the skb->h.raw bug was fixed for ipip.c, ip_gre.c and sit.c, but
-> not for ip6_tunnel.c. Here is a patch for it as well. Please apply!
+While experimenting with an automatic dial-backup system, we ended up with
+the situation where we have two default routes, one to PPP with a metric
+of 0 and one to ethernet with a metric of 1.  The PPP route is brought
+on-line when connectivity to a remote host is not possible over ethernet
+but the default route over eth0 needs to remain so we can continue to check
+that link.
 
-Applied, thanks Ville.
+The problem is that when we bind to eth0 to ping the remote host and a
+reply does come back (thus indicating we can close the dial-backup link),
+the ping reply is getting dropped by "rp_filter".
+
+My guess is that rp_filter sees that the preferred default route is over ppp0
+and thus assumes that packets should not be coming over eth0, which of course
+they do since that is the interface/address the request was sent from.
+
+Setting "rp_filter" to "0" for "eth0" fixed this problem.
+
+                                          Brian
+                                 ( bcwhite@precidia.com )
+
+-------------------------------------------------------------------------------
+ "A dollar saved is two dollars earned."  -- Dave Chilton (The Wealthy Barber)
