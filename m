@@ -1,41 +1,55 @@
-From: John Levon <levon@movementarian.org>
-Subject: [PATCH] ATM - fix seqfile compile failure
-Date: Fri, 5 Sep 2003 18:51:13 +0100
+From: =?iso-8859-1?Q?Dennis_J=F8rgensen?= <q@kampsax.dtu.dk>
+Subject: Re: Trivial fix for wrong error message from icmp.c (2.6.0-test4)
+Date: Sat, 6 Sep 2003 14:30:27 +0200 (CEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030905175113.GA40730@compsoc.man.ac.uk>
+Message-ID: <Pine.LNX.4.33L0.0309061426200.2651-100000@carlsberg.kampsax.dtu.dk>
+References: <20030905024736.4acefe68.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, shemminger@osdl.org,
-   linux-atm-general@lists.sourceforge.net
-Content-Disposition: inline
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030905024736.4acefe68.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-The recent conversion to seq_file breaks CONFIG_ATM_BR2684_IPFILTER
-compile. 
 
-I have absolutely no idea what the original author was attempting to
-achieve with the "pos" thing, btw ... *shrug*
+On Fri, 5 Sep 2003, David S. Miller wrote:
 
-Entirely untested.
+> On Thu, 04 Sep 2003 02:26:42 +0200
+> Dennis J=F8rgensen <postmaster@q.nospam.kampsax.k-net.dk> wrote:
+>
+> > Should I post this somewhere else/to someone else, please let me know=
+, I
+> > couldn't find a FAQ for the list.
+>
+> You're posting it to the correct place, but your patch does not
+> apply because your mail client has turned all the tabs in the
+> patch into spaces.
 
-regards
-john
+That wasn't very nice of it.
+
+> I can't apply this patch until you fix that up.
+
+It should be better now.
+
+Sorry for the inconvenience.
 
 
-diff -Naurp -X dontdiff linux-cvs/net/atm/br2684.c linux-fixes/net/atm/br2684.c
---- linux-cvs/net/atm/br2684.c	2003-09-05 07:06:15.000000000 +0100
-+++ linux-fixes/net/atm/br2684.c	2003-09-05 18:55:15.000000000 +0100
-@@ -732,8 +732,8 @@ static int br2684_seq_show(struct seq_fi
- #ifdef CONFIG_ATM_BR2684_IPFILTER
- #define b1(var, byte)	((u8 *) &brvcc->filter.var)[byte]
- #define bs(var)		b1(var, 0), b1(var, 1), b1(var, 2), b1(var, 3)
--			if (brvcc->filter.netmask != 0 && pos-- == 0)
--				return sprintf(buf, "    filter=%d.%d.%d.%d/"
-+			if (brvcc->filter.netmask != 0)
-+				seq_printf(seq, "    filter=%d.%d.%d.%d/"
- 				    "%d.%d.%d.%d\n", bs(prefix), bs(netmask));
- #undef bs
- #undef b1
+  Dennis J=F8rgensen
+
+
+--- linux-2.6.0-test4.org/net/ipv4/icmp.c	2003-08-28 01:13:59.000000000 +=
+0200
++++ linux-2.6.0-test4/net/ipv4/icmp.c	2003-08-28 02:12:56.000000000 +0200
+@@ -661,7 +661,7 @@
+ 			printk(KERN_WARNING "%u.%u.%u.%u sent an invalid ICMP "
+ 					    "type %u, code %u "
+ 					    "error to a broadcast: %u.%u.%u.%u on %s\n",
+-			       NIPQUAD(iph->saddr),
++			       NIPQUAD(skb->nh.iph->saddr),
+ 			       icmph->type, icmph->code,
+ 			       NIPQUAD(iph->daddr),
+ 			       skb->dev->name);
