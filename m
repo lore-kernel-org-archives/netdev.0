@@ -1,213 +1,234 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (12/12) Probe2 -- 82596
+Subject: [PATCH] (08/12) Probe2 -- 3c507
 Date: Tue, 14 Oct 2003 15:34:10 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200310142234.h9EMYAJ30190@mail.osdl.org>
+Message-ID: <200310142234.h9EMYA930170@mail.osdl.org>
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: jgarzik@pobox.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Originally by Al Viro (NE23-82596)
-	* switched 82596 to dynamic allocation
-	* 82596: fixed resource leaks on failure exits
+Originally by Al Viro (NE19-3c507)
+	* switched 3c507 to dynamic allocation
+	* 3c507: embedded ->priv
+	* 3c507: fixed clobbering on autoprobe
+	* NB: 3c507.c buggers port 0x100 without claiming it.  Most likely it
+	  should be doing request_region() there.
 Updated to apply agains jgarzik/net-drivers-2.5-exp
 
-diff -Nru a/drivers/net/82596.c b/drivers/net/82596.c
---- a/drivers/net/82596.c	Tue Oct 14 14:46:31 2003
-+++ b/drivers/net/82596.c	Tue Oct 14 14:46:31 2003
-@@ -1129,21 +1129,40 @@
- 	printk(" %02X%02X, %s\n", add[12], add[13], str);
- }
+diff -Nru a/drivers/net/3c507.c b/drivers/net/3c507.c
+--- a/drivers/net/3c507.c	Tue Oct 14 14:27:21 2003
++++ b/drivers/net/3c507.c	Tue Oct 14 14:27:21 2003
+@@ -74,10 +74,6 @@
+ #define debug net_debug
  
--int __init i82596_probe(struct net_device *dev)
+ 
+-/* A zero-terminated list of common I/O addresses to be probed. */
+-static unsigned int netcard_portlist[] __initdata =
+-	{ 0x300, 0x320, 0x340, 0x280, 0};
+-
+ /*
+   			Details of the i82586.
+ 
+@@ -286,8 +282,6 @@
+ 
+ /* Index to functions, as function prototypes. */
+ 
+-extern int el16_probe(struct net_device *dev);	/* Called from Space.c */
+-
+ static int	el16_probe1(struct net_device *dev, int ioaddr);
+ static int	el16_open(struct net_device *dev);
+ static int	el16_send_packet(struct sk_buff *skb, struct net_device *dev);
+@@ -301,6 +295,10 @@
+ static void init_82586_mem(struct net_device *dev);
+ static struct ethtool_ops netdev_ethtool_ops;
+ 
 +static int io = 0x300;
-+static int irq = 10;
++static int irq;
++static int mem_start;
 +
-+struct net_device * __init i82596_probe(int unit)
- {
-+	struct net_device *dev;
- 	int i;
- 	struct i596_private *lp;
- 	char eth_addr[8];
- 	static int probed;
-+	int err;
+ 
+ /* Check for a network adaptor of this type, and return '0' iff one exists.
+ 	If dev->base_addr == 0, probe all likely locations.
+@@ -309,23 +307,50 @@
+ 	device and return success.
+ 	*/
  
- 	if (probed)
--		return -ENODEV;
-+		return ERR_PTR(-ENODEV);
- 	probed++;
+-int __init el16_probe(struct net_device *dev)
++struct net_device * __init el16_probe(int unit)
+ {
+-	int base_addr = dev->base_addr;
+-	int i;
++	struct net_device *dev = alloc_etherdev(sizeof(struct net_local));
++	static unsigned ports[] = { 0x300, 0x320, 0x340, 0x280, 0};
++	unsigned *port;
++	int err = -ENODEV;
 +
-+	dev = alloc_etherdev(0);
 +	if (!dev)
-+		return ERR_PTR(-ENOMEM);
++		return ERR_PTR(-ENODEV);
 +
 +	if (unit >= 0) {
 +		sprintf(dev->name, "eth%d", unit);
 +		netdev_boot_setup_check(dev);
-+	} else {
-+		dev->base_addr = io;
-+		dev->irq = irq;
++		io = dev->base_addr;
++		irq = dev->irq;
++		mem_start = dev->mem_start & 15;
 +	}
-+
- #ifdef ENABLE_MVME16x_NET
- 	if (MACH_IS_MVME16x) {
- 		if (mvme16x_config & MVME16x_CONFIG_NO_ETHERNET) {
- 			printk(KERN_NOTICE "Ethernet probe disabled - chip not present\n");
--			return -ENODEV;
-+			err = -ENODEV;
-+			goto out;
- 		}
- 		memcpy(eth_addr, (void *) 0xfffc1f2c, 6);	/* YUCK! Get addr from NOVRAM */
- 		dev->base_addr = MVME_I596_BASE;
-@@ -1174,7 +1193,8 @@
  
- 		if (!request_region(ioaddr, I596_TOTAL_SIZE, dev->name)) {
- 			printk(KERN_ERR "82596: IO address 0x%04x in use\n", ioaddr);
--			return -EBUSY;
-+			err = -EBUSY;
-+			goto out;
- 		}
+ 	SET_MODULE_OWNER(dev);
  
- 		for (i = 0; i < 8; i++) {
-@@ -1190,8 +1210,8 @@
+-	if (base_addr > 0x1ff)	/* Check a single specified location. */
+-		return el16_probe1(dev, base_addr);
+-	else if (base_addr != 0)
+-		return -ENXIO;		/* Don't probe at all. */
+-
+-	for (i = 0; netcard_portlist[i]; i++)
+-		if (el16_probe1(dev, netcard_portlist[i]) == 0)
+-			return 0;
++	if (io > 0x1ff) 	/* Check a single specified location. */
++		err = el16_probe1(dev, io);
++	else if (io != 0)
++		err = -ENXIO;		/* Don't probe at all. */
++	else {
++			for (port = ports; *port; port++) {
++					err = el16_probe1(dev, io);
++					if (!err)
++						break;
++			}
++	}
  
- 		if ((checksum % 0x100) || 
- 		    (memcmp(eth_addr, "\x00\x00\x49", 3) != 0)) {
--			release_region(ioaddr, I596_TOTAL_SIZE);
--			return -ENODEV;
-+			err = -ENODEV;
-+			goto out1;
- 		}
- 
- 		dev->base_addr = ioaddr;
-@@ -1200,13 +1220,10 @@
- #endif
- 	dev->mem_start = (int)__get_free_pages(GFP_ATOMIC, 0);
- 	if (!dev->mem_start) {
--#ifdef ENABLE_APRICOT
--		release_region(dev->base_addr, I596_TOTAL_SIZE);
--#endif
--		return -ENOMEM;
-+		err = -ENOMEM;
-+		goto out1;
- 	}
- 
--	ether_setup(dev);
- 	DEB(DEB_PROBE,printk(KERN_INFO "%s: 82596 at %#3lx,", dev->name, dev->base_addr));
- 
- 	for (i = 0; i < 6; i++)
-@@ -1244,7 +1261,26 @@
- 	lp->scb.rfd = I596_NULL;
- 	lp->lock = SPIN_LOCK_UNLOCKED;
- 
--	return 0;
+-	return -ENODEV;
++	if (err)
++		goto out;
 +	err = register_netdev(dev);
 +	if (err)
-+		goto out2;
++		goto out1;
 +	return dev;
-+out2:
-+#ifdef __mc68000__
-+	/* XXX This assumes default cache mode to be IOMAP_FULL_CACHING,
-+	 * XXX which may be invalid (CONFIG_060_WRITETHROUGH)
-+	 */
-+	kernel_set_cachemode((void *)(dev->mem_start), 4096,
-+			IOMAP_FULL_CACHING);
-+#endif
-+	free_page ((u32)(dev->mem_start));
 +out1:
-+#ifdef ENABLE_APRICOT
-+	release_region(dev->base_addr, I596_TOTAL_SIZE);
-+#endif
++	free_irq(dev->irq, dev);
++	release_region(dev->base_addr, EL16_IO_EXTENT);
 +out:
 +	free_netdev(dev);
 +	return ERR_PTR(err);
  }
  
- static irqreturn_t i596_interrupt(int irq, void *dev_id, struct pt_regs *regs)
-@@ -1532,11 +1568,9 @@
- }
+ static int __init el16_probe1(struct net_device *dev, int ioaddr)
+@@ -383,8 +408,8 @@
+ 		printk(" %02x", dev->dev_addr[i]);
+ 	}
+ 
+-	if ((dev->mem_start & 0xf) > 0)
+-		net_debug = dev->mem_start & 7;
++	if (mem_start)
++		net_debug = mem_start & 7;
+ 
+ #ifdef MEM_BASE
+ 	dev->mem_start = MEM_BASE;
+@@ -416,27 +441,18 @@
+ 	if (net_debug)
+ 		printk(version);
+ 
+-	/* Initialize the device structure. */
+-	lp = dev->priv = kmalloc(sizeof(struct net_local), GFP_KERNEL);
+-	if (dev->priv == NULL) {
+-		retval = -ENOMEM;
+-		goto out;
+-	}
+-	memset(dev->priv, 0, sizeof(struct net_local));
++	lp = dev->priv;
++ 	memset(lp, 0, sizeof(*lp));
+ 	spin_lock_init(&lp->lock);
+ 
+-	dev->open		= el16_open;
+-	dev->stop		= el16_close;
++ 	dev->open = el16_open;
++ 	dev->stop = el16_close;
+ 	dev->hard_start_xmit = el16_send_packet;
+ 	dev->get_stats	= el16_get_stats;
+ 	dev->tx_timeout = el16_tx_timeout;
+ 	dev->watchdog_timeo = TX_TIMEOUT;
+ 	dev->ethtool_ops = &netdev_ethtool_ops;
+-
+-	ether_setup(dev);	/* Generic ethernet behaviour */
+-
+-	dev->flags&=~IFF_MULTICAST;	/* Multicast doesn't work */
+-
++ 	dev->flags &= ~IFF_MULTICAST;	/* Multicast doesn't work */
+ 	return 0;
+ out:
+ 	release_region(ioaddr, EL16_IO_EXTENT);
+@@ -899,9 +915,7 @@
+ };
  
  #ifdef MODULE
--static struct net_device dev_82596 = { .init = i82596_probe };
-+static struct net_device *dev_82596;
- 
- #ifdef ENABLE_APRICOT
+-static struct net_device dev_3c507;
 -static int io = 0x300;
--static int irq = 10;
+-static int irq;
++static struct net_device *dev_3c507;
+ MODULE_PARM(io, "i");
  MODULE_PARM(irq, "i");
- MODULE_PARM_DESC(irq, "Apricot IRQ number");
- #endif
-@@ -1547,34 +1581,31 @@
- 
- int init_module(void)
+ MODULE_PARM_DESC(io, "EtherLink16 I/O base address");
+@@ -911,26 +925,18 @@
  {
--#ifdef ENABLE_APRICOT
--	dev_82596.base_addr = io;
--	dev_82596.irq = irq;
--#endif
- 	if (debug >= 0)
- 		i596_debug = debug;
--	if (register_netdev(&dev_82596) != 0)
+ 	if (io == 0)
+ 		printk("3c507: You should not use auto-probing with insmod!\n");
+-	dev_3c507.base_addr = io;
+-	dev_3c507.irq       = irq;
+-	dev_3c507.init	    = el16_probe;
+-	if (register_netdev(&dev_3c507) != 0) {
+-		printk("3c507: register_netdev() returned non-zero.\n");
 -		return -EIO;
-+	dev_82596 = i82596_probe(-1);
-+	if (IS_ERR(dev_82596))
-+		return PTR_ERR(dev_82596);
- 	return 0;
+-	}
+-	return 0;
++	dev_3c507 = el16_probe(-1);
++	return IS_ERR(dev_3c507) ? PTR_ERR(dev_3c507) : 0;
  }
  
- void cleanup_module(void)
+ void
+ cleanup_module(void)
  {
--	unregister_netdev(&dev_82596);
-+	unregister_netdev(dev_82596);
- #ifdef __mc68000__
- 	/* XXX This assumes default cache mode to be IOMAP_FULL_CACHING,
- 	 * XXX which may be invalid (CONFIG_060_WRITETHROUGH)
- 	 */
- 
--	kernel_set_cachemode((void *)(dev_82596.mem_start), 4096,
-+	kernel_set_cachemode((void *)(dev_82596->mem_start), 4096,
- 			IOMAP_FULL_CACHING);
- #endif
--	free_page ((u32)(dev_82596.mem_start));
--	dev_82596.priv = NULL;
-+	free_page ((u32)(dev_82596->mem_start));
- #ifdef ENABLE_APRICOT
- 	/* If we don't do this, we can't re-insmod it later. */
--	release_region(dev_82596.base_addr, I596_TOTAL_SIZE);
-+	release_region(dev_82596->base_addr, I596_TOTAL_SIZE);
- #endif
-+	free_netdev(dev_82596);
+-	unregister_netdev(&dev_3c507);
+-	kfree(dev_3c507.priv);
+-	dev_3c507.priv = NULL;
+-
+-	/* If we don't do this, we can't re-insmod it later. */
+-	free_irq(dev_3c507.irq, &dev_3c507);
+-	release_region(dev_3c507.base_addr, EL16_IO_EXTENT);
++	struct net_device *dev = dev_3c507;
++	unregister_netdev(dev);
++	free_irq(dev->irq, dev);
++	release_region(dev->base_addr, EL16_IO_EXTENT);
++	free_netdev(dev);
  }
- 
- #endif				/* MODULE */
+ #endif /* MODULE */
+ MODULE_LICENSE("GPL");
 diff -Nru a/drivers/net/Space.c b/drivers/net/Space.c
---- a/drivers/net/Space.c	Tue Oct 14 14:46:31 2003
-+++ b/drivers/net/Space.c	Tue Oct 14 14:46:31 2003
-@@ -55,7 +55,7 @@
- extern int at1700_probe(struct net_device *);
- extern int fmv18x_probe(struct net_device *);
- extern int eth16i_probe(struct net_device *);
--extern int i82596_probe(struct net_device *);
-+extern struct net_device *i82596_probe(int unit);
- extern int ewrk3_probe(struct net_device *);
- extern struct net_device *el1_probe(int unit);
- extern struct net_device *wavelan_probe(int unit);
-@@ -259,13 +259,13 @@
- #ifdef CONFIG_EWRK3             /* DEC EtherWORKS 3 */
-     	{ewrk3_probe, 0},
+--- a/drivers/net/Space.c	Tue Oct 14 14:27:21 2003
++++ b/drivers/net/Space.c	Tue Oct 14 14:27:21 2003
+@@ -60,7 +60,7 @@
+ extern int el1_probe(struct net_device *);
+ extern int wavelan_probe(struct net_device *);
+ extern int arlan_probe(struct net_device *);
+-extern int el16_probe(struct net_device *);
++extern struct net_device *el16_probe(int unit);
+ extern int elmc_probe(struct net_device *);
+ extern int skmca_probe(struct net_device *);
+ extern struct net_device *elplus_probe(int unit);
+@@ -271,13 +271,13 @@
+ #ifdef CONFIG_ARLAN		/* Aironet */
+ 	{arlan_probe, 0},
  #endif
--#if defined(CONFIG_APRICOT) || defined(CONFIG_MVME16x_NET) || defined(CONFIG_BVME6000_NET)	/* Intel I82596 */
--	{i82596_probe, 0},
+-#ifdef CONFIG_EL16		/* 3c507 */
+-	{el16_probe, 0},
 -#endif
  	{NULL, 0},
  };
  
  static struct devprobe2 isa_probes2[] __initdata = {
-+#if defined(CONFIG_APRICOT) || defined(CONFIG_MVME16x_NET) || defined(CONFIG_BVME6000_NET)	/* Intel I82596 */
-+	{i82596_probe, 0},
++#ifdef CONFIG_EL16		/* 3c507 */
++	{el16_probe, 0},
 +#endif
- #ifdef CONFIG_EL1		/* 3c501 */
- 	{el1_probe, 0},
+ #ifdef CONFIG_ELPLUS		/* 3c505 */
+ 	{elplus_probe, 0},
  #endif
