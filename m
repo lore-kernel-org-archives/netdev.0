@@ -1,47 +1,73 @@
-From: Colin Leroy <colin@colino.net>
-Subject: Re: [PATCH] Prevent netpoll hanging when link is down
-Date: Thu, 21 Oct 2004 18:36:10 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041021183610.23c5121c.colin@colino.net>
-References: <20041007214505.GB31558@wotan.suse.de>
-	<20041011162224.GL31237@waste.org>
-	<20041011163226.GG26350@wotan.suse.de>
-	<20041011163601.GM31237@waste.org>
-	<20041011164315.GH26350@wotan.suse.de>
-	<20041011165851.GN31237@waste.org>
-	<20041011224542.5bdc93aa@jack.colino.net>
-	<5cac192f0410181443303379e2@mail.gmail.com>
-	<5cac192f041018145824acce5a@mail.gmail.com>
-	<20041020161119.6e30efe5@pirandello>
-	<5cac192f0410200848179ccc81@mail.gmail.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 2.6] iptables CLUSTERIP target, seq_file version
+Date: 21 Oct 2004 13:44:11 -0400
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Message-ID: <1098380650.1031.82.camel@jzny.localdomain>
+References: <20041020223828.GP19899@sunbeam.de.gnumonks.org>
+	<20041021163655.GK3551@sunbeam.de.gnumonks.org>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Eric Lemoine <eric.lemoine@gmail.com>
-In-Reply-To: <5cac192f0410200848179ccc81@mail.gmail.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@oss.sgi.com>,
+	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>,
+	lmb@suse.de
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Harald Welte <laforge@netfilter.org>
+In-Reply-To: <20041021163655.GK3551@sunbeam.de.gnumonks.org>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-On 20 Oct 2004 at 17h10, Eric Lemoine wrote:
 
-Hi Eric, 
+Sorry, couldnt resist - so out of hiding for just a few seconds; should
+be able to achieve this much simpler with gact.
 
-> > > > > [deadlock with sungem & netconsole when no carrier]
-> > > > Sorry I'm catching up on that problem... Do you have your
-> > > > problem solved? If not, did you try removing all printk calls
-> > > > from within gem_poll(), as suggested by Matt Mackall?
-> > >
-> Ok. Keep me posted. If removing the printk's indeed helps I'll cook up
-> a proper fix.
+Example:
+Consider two machines with allowed to receive only packets for 10.0.0.3.
+A simple balance scheme is to have even src IPs being processed by one
+and odd by another.
 
-Ok, it tried... It doesn't help. I tried the wild way too:
+#add ingress qdisc to eth2
+# Accept arps destined for 10.0.0.3 but sourced from even numbered
+# src addresses
+tc filter add dev eth2 parent ffff: protocol arp prio 6 u32 match u32
+0xa000003 0xffffffff at 24 match u8 0x0 0x1 at 17 flowid 1:2 action ok
+# drop any other arps for 10.0.0.3
+tc filter add dev eth2 parent ffff: protocol arp prio 7 u32 match u32
+0xa000003 0xffffffff at 24 flowid 1:2 action drop
 
-	#define printk(...) do {} while (0);
+On a second machine which is doing odd just change the u8 to 0x1 0x1.
+No need to send fake ARPs using multicast with this. But if you wanted
+to be funky you could use pedit to create a virtual MAC address.
 
-It didn't help either. I'll give a look to other net drivers, to see if
-they do stuff differently, but I fear that I won't find it easily...
+We use this well with a lot more complex static rules and failover.
 
--- 
-Colin
-  "If you can't beat your computer at chess, try kickboxing."
+cheers,
+jamal (Back to work)
+
+On Thu, 2004-10-21 at 12:36, Harald Welte wrote:
+> On Thu, Oct 21, 2004 at 12:38:28AM +0200, Harald Welte wrote:
+> Hi Dave!
+> 
+> This is the 'CLUSTERIP' target for iptables, this time no core kernel
+> changes required, please apply.
+> 
+> This enables you to build a static load sharing cluster between multiple
+> nodes - without the requirement to have a load balancer.  It uses a
+> series of [evil] tricks like replying with linklayer multicast addresses
+> to ARP requests, and using CONNMARK for stateful blocking all traffic
+> not intended for the local node.
+> 
+> Apart from the usual netfilter-specific file additions and
+> Kconfig/Makefile patches, this needs to export proc_file_operations in
+> order to get the reference counting of certain data objects right.  I
+> hope this change is acceptable.
+> 
+> Signed-off-by: Harald Welte <laforge@netfilter.org>
