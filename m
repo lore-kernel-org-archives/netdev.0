@@ -1,39 +1,27 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [CRYPTO] Fix stack overrun in crypt()
-Date: Wed, 21 Jul 2004 15:02:19 -0700
+Subject: Re: [PATCH] br2684 - use try_module_get appropriately
+Date: Wed, 21 Jul 2004 16:15:20 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040721150219.18b7b1f9.davem@redhat.com>
-References: <20040715114840.GA1325@gondor.apana.org.au>
+Message-ID: <20040721161520.39541ccd.davem@redhat.com>
+References: <20040628093317.218220fe@dell_ss3.pdx.osdl.net>
+	<200407192136.i6JLa4QO028602@ginger.cmf.nrl.navy.mil>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jmorris@redhat.com, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, shemminger@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040715114840.GA1325@gondor.apana.org.au>
+To: "chas williams (contractor)" <chas@cmf.nrl.navy.mil>
+In-Reply-To: <200407192136.i6JLa4QO028602@ginger.cmf.nrl.navy.mil>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 15 Jul 2004 21:48:40 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Mon, 19 Jul 2004 17:36:05 -0400
+"chas williams (contractor)" <chas@cmf.nrl.navy.mil> wrote:
 
-> PS I think someone should double-check the logic in the scatterwalk
-> stuff, especially the whichbuf bits.
+> In message <20040628093317.218220fe@dell_ss3.pdx.osdl.net>,Stephen Hemminger wr
+> ites:
+> >Either way, just an (void) try_module_get() is WRONG.
+> 
+> dave, please apply to 2.6  --thanks
 
-The goal of scatterwalk_whichbuf() is to use the temporary buffer
-if we are walking over a page boundary.
-
-We can use walk->data, and thus directly the page involved, if
-we do not cross such a boundary.  The test is that all of the
-following conditions pass:
-
-	1) nbytes is <= walk->len_this_page
-
-	   When scatterwalk_start() is invoked, walk->len_this_page
-	   is set to the minimum of the remaining scatterlist segment
-	   length and the remaining bytes in that page itself.
-
-	2) walk->data + nbytes does not straddle a PAGE_CACHE_SIZE
-	   boundary
-
-This looks all fine to me.
+Applied, thanks guys.
