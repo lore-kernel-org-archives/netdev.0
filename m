@@ -1,29 +1,36 @@
-From: James Morris <jmorris@redhat.com>
-Subject: Re: Fw: ipsec hang
-Date: Wed, 24 Nov 2004 17:30:20 -0500 (EST)
-Message-ID: <Xine.LNX.4.44.0411241729550.19791-100000@thoron.boston.redhat.com>
-References: <41A4CEB1.7000001@trash.net>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [patch 10/13] net/socket.c::sys_bind() cleanup.
+Date: Wed, 24 Nov 2004 14:03:17 -0800
+Message-ID: <OFF45FF067.1B428792-ON88256F56.0078D794-88256F56.007926F9@us.ibm.com>
+References: <41A4688E.80908@conectiva.com.br>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew Morton <akpm@osdl.org>, <netdev@oss.sgi.com>,
-        =?ISO-8859-1?Q?Marcin_Gibu=B3a?= <mg@iceni.pl>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: akpm@osdl.org, "David S. Miller" <davem@davemloft.net>, jgarzik@pobox.com,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <41A4CEB1.7000001@trash.net>
+In-Reply-To: <41A4688E.80908@conectiva.com.br>
+To: Luiz Fernando Capitulino <lcapitulino@conectiva.com.br>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 24 Nov 2004, Patrick McHardy wrote:
+It's just a style issue, so maybe you'll disagree, but I prefer:
 
-> This patch fixes it. When a policy with a priority lower than an
-> existing policy is inserted, it loops forever on the existing policy.
+        if (!sock)
+                return err;
 
-I wonder if it's the same bug as 
-http://bugme.osdl.org/show_bug.cgi?id=3796
+to your
 
+        if (!sock)
+                goto out;
+...
+out:
+        return err;
 
-- James
--- 
-James Morris
-<jmorris@redhat.com>
+        I think "return err" is more readable than "goto out/return err" 
+for
+that path and having another "return err" for the out-with-put case isn't 
+a
+terrible thing.
+
+                                +-DLS
