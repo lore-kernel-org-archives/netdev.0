@@ -1,28 +1,28 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: MLD compatibility mode doesn't account for extension headers [PATCH]
-Date: Fri, 21 Nov 2003 18:29:01 -0800
+From: Nivedita Singhvi <niv@us.ibm.com>
+Subject: Re: TCP Retx per tcp-flow
+Date: Fri, 21 Nov 2003 23:00:55 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OFBEB2F853.C3E9EDB5-ON88256DE6.000D5DE0@us.ibm.com>
+Message-ID: <3FBF09A7.208@us.ibm.com>
+References: <20031122020527.3f98f772.bedboi@gmx.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: bedboi <bedboi@gmx.net>
+In-Reply-To: <20031122020527.3f98f772.bedboi@gmx.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+bedboi wrote:
+> Hi guys. I'm comparing TCP with a new congestion control algorithm and i need to get the number
+> of segments retransmitted for a specific TCP flow. Is there a way to do this? (please don't tell
+> man tcpdump...ok you'll tell it)
 
 
+Tried tcp_info.tcpi_retransmits?
+getsockopt() at SOL_TCP level and option TCP_INFO.
 
 
-
->Looks good.  I assume that all extension headers must appear
->_before_ the igmp stuff, and therefore no other headers may
->appear afterwards.
-
-Yes, MLD is the payload, so all extension headers must be
-between the IPv6 header and the MLD header.
-
-                        thanks, Dave,
-
-                              +-DLS
+thanks,
+Nivedita
