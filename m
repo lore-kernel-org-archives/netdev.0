@@ -1,37 +1,42 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: possible bug in net/core/pktgen.c (2.6.10 kernel)
-Date: Tue, 18 Jan 2005 13:50:19 -0800
-Message-ID: <20050118135019.068ff57a.davem@davemloft.net>
-References: <200501141129.21461.dsp@llnl.gov>
-	<200501180935.25419.dsp@llnl.gov>
-	<20050118124100.17b7f47a.davem@davemloft.net>
-	<200501181346.22905.dsp@llnl.gov>
+Subject: Re: do_IRQ: stack overflow: 872..
+Date: Tue, 18 Jan 2005 13:57:35 -0800
+Message-ID: <20050118135735.4b77d38d.davem@davemloft.net>
+References: <1131604877.20041218092730@mail.ru.suse.lists.linux.kernel>
+	<p73zn0ccaee.fsf@verdi.suse.de>
+	<1105117559.11753.34.camel@baythorne.infradead.org>
+	<20050107100017.454ddadc@dxpl.pdx.osdl.net>
+	<1105133241.3375.16.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Robert.Olsson@data.slu.se, robert.olsson@its.uu.se, netdev@oss.sgi.com
+Cc: shemminger@osdl.org, dwmw2@infradead.org, ak@suse.de, snort2004@mail.ru,
+        bridge@osdl.org, netdev@oss.sgi.com, rusty@rustcorp.com.au
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Dave Peterson <dsp@llnl.gov>
-In-Reply-To: <200501181346.22905.dsp@llnl.gov>
+To: Bart De Schuymer <bdschuym@pandora.be>
+In-Reply-To: <1105133241.3375.16.camel@localhost.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 18 Jan 2005 13:46:22 -0800
-Dave Peterson <dsp@llnl.gov> wrote:
+On Fri, 07 Jan 2005 22:27:21 +0100
+Bart De Schuymer <bdschuym@pandora.be> wrote:
 
-> > Since when does do_softirq() need preemption disabled
-> > around calls to it?
-> >
-> > do_softirq() disabled hard IRQs during the duration of it's
-> > execution, thus effectively disabling preemption.
-> >
-> > What is the problematic case again?
+> How about something like the patch below (untested but compiles)?
+> The current netfilter scheme adds one function call to the call chain
+> for each NF_HOOK and NF_HOOK_THRESH. This can be prevented by executing
+> the okfn in the calling function instead of in nf_hook_slow().
+> I didn't check if there's any code that actually uses the return value
+> from NF_HOOK. If so, this patch won't work well in its current form as -
+> EPERM is now also returned for NF_QUEUE and NF_STOLEN.
 > 
-> Oops... My mistake.  Looking at __do_softirq() I noticed that it enables
-> interrupts before executing the softirqs.  However I didn't notice that
-> the call to local_bh_disable() in __do_softirq() disables preemption
-> before interrupts are enabled.  On second thought everything looks OK
-> and no bug fix is needed.
+> Another 2 calls of okfn can be postponed in br_netfilter.c by adding
+> NF_STOP, which would work like NF_STOLEN except that okfn is still
+> called. But I'd first like to get the IPv4/IPv6 fix for br_netfilter.c
+> accepted (see another thread on netdev).
 
-Great, looks like things are OK then.
+I believe I put in your ipv4/ipv6 br_netfilter fix already.
+
+This NF_HOOK() change looks interesting.  Could we also do something like
+running the deeper ->hard_start_xmit() via a triggered tasklet or something
+similar?
