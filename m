@@ -1,58 +1,42 @@
-From: kuznet@ms2.inr.ac.ru
+From: Sridhar Samudrala <sri@us.ibm.com>
 Subject: Re: SCTP path mtu support needs some ip layer support.
-Date: Wed, 15 Jan 2003 00:16:43 +0300 (MSK)
+Date: Tue, 14 Jan 2003 14:15:27 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200301142116.AAA13616@sex.inr.ac.ru>
-References: <Pine.LNX.4.33.0301140946230.1978-100000@dyn9-47-18-86.beaverton.ibm.com>
+Message-ID: <Pine.LNX.4.33.0301141409320.2142-100000@dyn9-47-18-86.beaverton.ibm.com>
+References: <1042575066.2610.26.camel@devil>
 Mime-Version: 1.0
-Cc: sri@us.ibm.com, jgrimm2@us.ibm.com, davem@redhat.com, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Sridhar Samudrala <sri@us.ibm.com>, <kuznet@ms2.inr.ac.ru>,
+   <jgrimm2@us.ibm.com>, <davem@redhat.com>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: sri@us.ibm.com (Sridhar Samudrala)
-In-Reply-To: <Pine.LNX.4.33.0301140946230.1978-100000@dyn9-47-18-86.beaverton.ibm.com> from "Sridhar Samudrala" at Jan 14, 3 10:44:54 am
+To: Mika Liljeberg <mika.liljeberg@welho.com>
+In-Reply-To: <1042575066.2610.26.camel@devil>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
+On 14 Jan 2003, Mika Liljeberg wrote:
 
-> So can i go ahead and add an argument(ipfragok) to ip_queue_xmit()?
-
-Positive.
-
-
-> > Essentially, to make a compromise between usability and sanity,
-> > it is enough to make the thing which we make with UDP: to prevent
-> > sending bogus fragmented packets when IP_MTUDISC_DO is set by user
-> > and set chunk size to a value < min(512,current mtu) in this case,
-> > so no fragments will be generated. In that case I will be happy
-> > (done all that possible, all the flaws are directed to SCTP designers. :-))
-> > and default behaviour (it is IP_MTUDISC_WANT) still will be rfc compliant.
+> On Tue, 2003-01-14 at 20:44, Sridhar Samudrala wrote:
+> > Frankly, i haven't thought of IPV6 in detail. I was under the impression that
+> > it is simpler in ipv6 as only source is allowed to do fragmentation and as there
+> > is no DF bit, it will automatically fragment any packets larger than the pmtu.
+> > But looking at ip6_xmit(), i realize that ICMPV6_PKT_TOOBIG error is generated
+> > forcing the transport layer to do the fragmentation. TCP can handle this, but
+> > SCTP cannot.
 > 
-> You seem to be suggesting
-...
+> IPv6 is simpler, because the specification asserts that every IPv6
+> capable link must support a MTU of at least 1280 bytes. If you don't
+> generate packets larger than this you don't have to worry about
+> fragmentation.
+> 
+> If you want larger data chunks, then you have to solve this for IPv6 as
+> well.
 
-Nope. Reread the paragraph and look how UDP in IP_MTUDISC_DO mode works.
-(The case of IPv6 is especially intersting) Adding similar mode to SCTP
-is necessary to my opinion. Despite of the fact that nobody will use
-the option, it is the only sane one.
+Yes. If we restrict the max. data chunksize to 1280 bytes for ipv6 and 576 bytes
+for ipv4, we could have avoided ip fragmentation alltogether. 
+But this will add unnecessary overhead of sctp fragmentation/reassembly and
+additional chunk headers when the real pmtu is much larger and the messages are
+big.
 
-
-> Also SCTP uses control chunks(INIT_ACK, COOKIE_ECHO) for association setup
-> which can be larger than pmtu(although rare). The control chunks cannot be 
-> fragmented by SCTP, but it is perfectly OK for IP to fragment them.
-
-:-) Funnier and funnier. Oh, god...
-
-
-> is no DF bit, it will automatically fragment any packets
-
-Strange expectation. :-) TCP does not make this even in IPv4,
-when pmtu discovery enabled.
-
-SCTP is really born crippled. Face it. And be ready to breed an invalid. :-)
-
-
-> available interface like ip6_build_xmit() when we want ip to fragment. 
-
-Do not worry. We have to do this in ip6_xmit() for ipsec in any case.
-
-Alexey
+Thanks
+Sridhar
