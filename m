@@ -1,85 +1,39 @@
-From: =?ISO-2022-JP?B?GyRCPWkhOSQ3JC9DOCQkJSolXiF7JTMbKEI=?= <omaoma@hana.onbeet.com>
-Subject: =?ISO-2022-JP?B?GyRCIVY1JDt9JEElJCUkJUMhKiFXJEg0NiQ4JF4kLyRqISobKEI=?=
-Date: Tue, 29 Mar 2005 16:53:24 +0900 (KST)
-Message-ID: <20050329075324.20608441A0@rental2.fields-server.net>
+From: Martin Schwidefsky <schwidefsky@de.ibm.com>
+Subject: Re: [PATCH] s390: claw network device driver
+Date: Tue, 29 Mar 2005 08:48:07 +0100
+Message-ID: <OF6B8E4881.48C8D8FB-ON41256FD3.0029171C-41256FD3.002ADBAE@de.ibm.com>
+References: <20050329071002.GA16204@havoc.gtf.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com, Frank Pavlic <PAVLIC@de.ibm.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-To: netdev@oss.sgi.com
+In-Reply-To: <20050329071002.GA16204@havoc.gtf.org>
+To: Jeff Garzik <jgarzik@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi Jeff,
 
-■■■■--ＭＡＧＡ　ＷＯＲＬＤ------------------------------------☆ 
-■■---------------------------------------------------------☆ 
-■　　　　素足・パンスト・ハイヒール
-■　　　　　　　　　　　　～めくるめくフェチ画像・動画の宝庫～--------------☆
+> > Was cc'ed to linux-net last Thursday, but it looks like the messages was
+> > too large and the vger server munched it.
+>
+> As mentioned in the email, you want netdev, not linux-net...
 
-　　┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏
-　　　http://densetu.candyhos.com/?gmzg1ppiyq
-●・・・・・・・・・・・・特集１　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　 　  
-┏━━━━━━━━━　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　■■■
-┃ふぇちずむ第２弾★
-┃　　　　スカートからすらりと伸びた美脚やむっちりしたオシリ画像満載！
-　　　　　　　　∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞
-　　　　　　　　　　　　　ハ○撮りフェチムービー★
-　　　　　　　　　　　　　　　いろいろなコスチュームを着た女の子たちと入り乱れてのＨ大会
-　　　　　　　　　　　　　　　乱れたコスプレがそそります
+we are currently thinking about changing the sign-off chain for the s390
+network patches. Dave suggested that they should go through your hands.
+If that is ok with you the new sign-off chain would be Frank Pavlic,
+Jeff Garzik, Bitkeeper. This would solve two problems:
+1) Frank would create the patches and since he knows much more about
+   linux networking then I do, hopefully the patches and the descriptions
+   will improve (and you can probably teach him to send the patches to
+   netdev instead of linux-net).
+2) The patches won't just slip in anymore but get a real review.
 
-●・・・・・・・・・・・・・特集２
-┏━━━━━━━━━　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　■■■
-┃社内セクハラ・不倫現場盗撮★
-┃　　　　様々な角度から、入り乱れた性の実態を盗撮！普段は決して
-　　　　　見せない恍惚の表情がたまりませんっ。
-　　　　　　　∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞　　　　　　　
-　　　　　　　　　　　  　　お姉さんの露出遊び★
-　　　　　　　　　　　　　　  　大人気の露出シリーズ第３弾
-　　　　　　　　　　　　　  　　今回は都内某所にて、オンナの子３対男２の露出プレイを決行
-　　　　　　　　　　　　　　  　ハプニングあり、乱交ありのハチャメチャ大騒動☆
+blue skies,
+   Martin
 
-●・・・・・・・・・・・・・特集３　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　   　
-┏━━━━━━━━━　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　■■■
-┃痴漢さんいらっしゃぁ～い★
-┃　　　　触りたい男と触られたいオンナ…今回の獲物は某ネイルスクールに通うという２１歳の
-　　　　　わかなちゃん♪総勢２０人の男たちに囲まれてのドキドキ痴漢体験！！
-　　　　　　　∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞　
-　　　
-　　　　　http://densetu.candyhos.com/?gmzg1ppiyq　　　
- 
-　　┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏
-　　　 ┛┛┛┛┛┛┛┛┛┛┛┛┛┛┛┛┛┛┛┛┛┛┛┛┛┛┛┛┛┛┛┛┛
-┃　前回に引き続いて今回も大好評の露出シリーズの第３弾が早くも登場！！
-┃　動画もさらにパワーアップするなど、見どころ満載☆
-┃　抽選で使用済みコスチュームが当たる、懸賞も実施中♪♪♪
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-   ■
-■■■■--ＭＡＧＡ　ＷＯＲＬＤ-------------------------------------☆ 
-   ■------------------------------お知らせ---------------------☆  　　　　　　　　　
- 
-　■ＭＡＧＡ　ＷＯＲＬＤのご利用にあたって
- 
-　　・ 『ＭＡＧＡ　ＷＯＲＬＤ』は情報メールマガジンの配信スタンドとなっており、
-　　　　無料でご登録会員様に定期的にメールマガジンを配信しております。
-
-    ・当局のメールマガジンより配信される情報の利用に関しては、
-　　 　ご購読者個人の責任においてご利用していただくことを目的としており
-　　　情報の内容に関しては発行者におまかせしております。
- 
-　　・当局はご紹介先のサイトにおけるいかなるトラブルや損害に対しても
-　　 一切の責任を負いかねます。
-　　
-　　・掲載情報に関してのご質問には応じておりませんので
-　　　予めご了承下さい。
-　　　　
-　  ・当メールマガジンに掲載された記事の一部または全部を
-　　　許可なく転載することを禁止致します。
---------------------------------------------------------------☆ 
-  　■ 身に覚えのない配信
- 
-　　　　いたずらの可能性がございます。購読解除をご希望の方は、
-　　　　お手数ですが下記のアドレスよりログインし、ご自身でお手続き下さい。
-
-　　 http://hana.onbeet.com/world/
------------------------------------------------------------ ■ 
------------------------------------------ＭＡＧＡ　ＷＯＲＬＤ--■■■■
-　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　  　　■
+Martin Schwidefsky
+Linux for zSeries Development & Services
+IBM Deutschland Entwicklung GmbH
