@@ -1,37 +1,29 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: Re: RFC:  Redirect-Device
-Date: Fri, 1 Apr 2005 08:03:39 +0300 (EEST)
-Message-ID: <Pine.LNX.4.61.0504010801170.6417@netcore.fi>
-References: <424C6089.1080507@candelatech.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: Resend: Re: PATCH: IPSEC acquire in presence of multiple
+ managers
+Date: Thu, 31 Mar 2005 21:13:40 -0800
+Message-ID: <20050331211340.0e6fbdfb.davem@davemloft.net>
+References: <1111795927.1089.749.camel@jzny.localdomain>
+	<1111862131.1092.872.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, davem@redhat.com, nakam@linux-ipv6.org,
+        shinta.sugimoto@ericsson.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <424C6089.1080507@candelatech.com>
+To: hadi@cyberus.ca
+In-Reply-To: <1111862131.1092.872.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 31 Mar 2005, Ben Greear wrote:
-> I created a new virtual ethernet device that solves a problem
-> I faced.  I thought I'd see if anyone else sees a use for this,
-> and if so, I'll work to polish the patch so that it can be
-> accepted into the kernel.
+On 26 Mar 2005 13:35:31 -0500
+jamal <hadi@cyberus.ca> wrote:
 
-Unless I'm misunderstanding..
+> Apologies, The last patch had some a glitch in the filename. Dave please
+> apply this one instead
 
-You seem to have pretty much duplicated the work by Lennert (see 
-thread "[PATCH][RFC] etherip: Ethernet-in-IPv4 tunneling" from 
-January).
+Doesn't apply, in the current tree km_query() is marked static.
 
-That particular thread seemed to conclude that instead of creating 
-something new, you can just use GRE tunneling to bridge Ethernet, and 
-it works in a multi-vendor environment as well.
-
-Is there something in your problem statement I'm missing?
-
--- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+Please regenerate your patch and sorry for not getting to this
+sooner.
