@@ -1,32 +1,37 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: Move fib_alias out of fib_hash.c
-Date: Wed, 29 Sep 2004 23:43:49 +0200
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: Please route new work through -mm tree?
+Date: Wed, 29 Sep 2004 14:44:19 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <16731.11413.331685.70763@robur.slu.se>
-References: <20040928214722.11aef8e0.davem@davemloft.net>
-	<16730.53965.503605.943263@robur.slu.se>
-	<20040929125359.12a00ba7.davem@davemloft.net>
-	<1096492842.2344.57.camel@localhost.localdomain>
+Message-ID: <20040929144419.6b455343.davem@davemloft.net>
+References: <1096481023.8636.7.camel@localhost.localdomain>
+	<415AFB63.7010107@us.ibm.com>
+	<20040929132247.227fffcd.davem@davemloft.net>
+	<415B220F.4040102@us.ibm.com>
+	<20040929142401.664d8fd7.davem@davemloft.net>
+	<415B2B2B.5050904@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Robert Olsson <Robert.Olsson@data.slu.se>, netdev@oss.sgi.com
+Cc: niv@us.ibm.com, shemminger@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Steven Blake <slblake@petri-meat.com>
-In-Reply-To: <1096492842.2344.57.camel@localhost.localdomain>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <415B2B2B.5050904@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Wed, 29 Sep 2004 17:37:47 -0400
+Jeff Garzik <jgarzik@pobox.com> wrote:
 
-Steven Blake writes:
+> David S. Miller wrote:
+> > When I don't have any networking work present, that tree is
+> > simply deleted.  So if you pull and get a URL error, that just
+> > means no changes pending and Linus has everything. :-)
+> 
+> No need to delete it.  When Linus merges your stuff, net-2.6 tree 
+> becomes equivalent to linux-2.6 tree.
+> 
+> When you next create and push local changes, a few days later, it is 
+> guaranteed that there will be no conflicts between your local and 
+> bkbits.net trees.
 
- > No routing protocols are distributing TOS-specific routes, and there is
- > no prospect of that feature ever coming back.  Why pay the cost of
- > matching TOS on every packet forwarded?
-
- Well you may be right but with a pluggable lookup algo we could choose
- between TOS-capable/complex and more lightweight and speedy things.
-
- Cheers.
-						--ro
+Ok, works for me.  I'll try to do this from now on.
