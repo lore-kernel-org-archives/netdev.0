@@ -1,68 +1,54 @@
-From: Werner Almesberger <wa@almesberger.net>
-Subject: WLAN power saving: brain dump
-Date: Tue, 16 Nov 2004 11:30:27 -0300
-Message-ID: <20041116113027.A4026@almesberger.net>
+From: Mirko Lindner <mlindner@syskonnect.de>
+Subject: Re: [PATCH] (4/25) sk98: change #define to typedef
+Date: Tue, 16 Nov 2004 15:56:15 +0000
+Message-ID: <419A231F.4020104@syskonnect.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>, Mirko Lindner <demon@pro-linux.de>,
+        netdev@oss.sgi.com, Ralph Roesler <rroesler@syskonnect.de>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: Christoph Hellwig <hch@infradead.org>,
+        Stephen Hemminger <shemminger@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is just a brain dump, so that the ideas are out in public.
-Some day, I might actually implement this, unless somebody else
-beats me to it :-)
+ > I don't think the driver is complex enough for all that os-common mess.
+ > If you look at the BSD sk driver it's about a third of the size of the
+ > Linux driver because it doesn't have all this mess.
 
-These reflections are my own. I made them while reading 
-specifications of WLAN cards with growing horror.
+Note that the kernel BSD sk driver was _not_ written by SysKonnect and 
+only supports Genesis and Yukon1; linux supports Genesis (single and 
+dual), Yukon1, Yukon Plus, Yukon EC, Yukon FE and Yukon2 (single and 
+dual). The BSD sk driver supports substantially less functionality than 
+the Linux driver. For example, there is no link failover capability in 
+the sk driver; it has no power management; numerous chip changes and 
+minor tweaks have not been added, since many problems have become 
+apparent through our other supported platforms (some 15 operating 
+systems) and have since been fixed in our common modules; sk has no 
+wake-on-LAN and so on. The official SysKonnect BSD driver (yk) also uses 
+the common modules and is not open source.
 
-Looking at WLAN cards, they uniformly seem to have excessive
-power consumption even if just laying in wait. This is
-particularly annoying for devices with otherwise very low
-power consumption, such as PDAs.
+However, the real point is that the Linux driver (as indeed _all_ of our 
+drivers) shares common code with all our supported platforms and this 
+necessarily introduces some overhead. But it isn't excessive, and the 
+benefits _far_ outweigh the drawbacks, namely, that we have a very wide 
+range of systems sharing common code and thus the probability of finding 
+and fixing bugs is very substantially higher than if we wrote a 
+dedicated driver for each platform.
 
-It would seem to me that the typical use of such a device would
-allow for completely powering down the WLAN card if not needed.
-In particular, all packets reaching a normal PDA are in response
-to some previous and comparably recent emission from that device.
+For instance the symbol SK_IOC mentioned in your mail:
 
-Furthermore, we generally have a fairly good idea of when we
-still want to send something, and, although to a lesser extent,
-when we're expecting incoming data.
+ > -#define SK_IOC char __iomem *
+ > +typedef void __iomem *SK_IOC;
 
-So actively powering down a WLAN card while idle could use the
-following inputs:
+is used in a large number of OS independent driver files (e.g. skvpd.c).
+The -for instance- file skvpd.c used by our Linux driver is used
+at the same time without any changes by all our other drivers running
+on other operating systems (e.g. Solaris, Windows).
 
-- an indication of whether any socket has a non-empty send queue
-- the time since the last time all send queues were empty (we want
-  to have a certain cool-off period, for various reasons, including
-  connectionless activity like ARP or UDP)
-- an indication if whether any sockets have a read or a poll or
-  select for reading pending (this is very unreliable, but may
-  provide useful input with some appliations)
-- time since the last successful reception
-- an indication of whether any sockets have pending out-of-order
-  data
-- a manual override
+This is the reason why we need to redefine this symbol to the Linux
+specific implementation (void __iomem).
 
-All this should be keyed by interface. Things to consider:
-
-- the time and power it takes to bring a WLAN card back online
-- the time we regularly have to wait for something to happen
-  even if we seem to be able, e.g. the delay between sending an
-  HTTP GET and a response (if we can get hints from the Web
-  client, no guessing is needed here)
-- the correlation between idle time and future idleness from the
-  user
-
-There's probably more. For a proof of concept implementation, it
-should be sufficient to consider ARP, DNS, SSH/SCP, and HTTP(S).
-
-- Werner
-
--- 
-  _________________________________________________________________________
- / Werner Almesberger, Buenos Aires, Argentina         wa@almesberger.net /
-/_http://www.almesberger.net/____________________________________________/
+Mirko
