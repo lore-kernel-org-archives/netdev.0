@@ -1,28 +1,39 @@
-From: deliver_photo_sup@yahoo.co.jp
-Subject: =?iso-2022-jp?B?g2aDioNvg4qBW1BIT1RPIJP8ie+Krpe5?=
-Date: Mon,  1 Nov 2004 17:37:30 +0900 (JST)
-Message-ID: <20041101083730.28C41588041@mail.zl8.jp>
+From: Michael Vittrup Larsen <michael.vittrup.larsen@ericsson.com>
+Subject: Re: [PATCH] tcp: efficient port randomisation
+Date: Mon, 1 Nov 2004 11:58:23 +0200
+Message-ID: <200411011058.23141.michael.vittrup.larsen@ericsson.com>
+References: <20041027092531.78fe438c@guest-251-240.pdx.osdl.net> <200410291048.01955.michael.vittrup.larsen@ericsson.com> <20041029102828.123502e7@zqx3.pdx.osdl.net>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20041029102828.123502e7@zqx3.pdx.osdl.net>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-※このメールは登録者への自動返信メールです。
+On Friday 29 October 2004 19:28, Stephen Hemminger wrote:
+> Provide port randomization for incoming connections using variation of
+> existing sequence number hash. Replace tcp_portalloc_lock and
+> tcp_port_rover with atomic operation to allow better parallelism.
+>
+> This is based on
+> http://www.ietf.org/internet-drafts/draft-larsen-tsvwg-port-randomisation-0
+>0.txt (with confirmation of of no IPR issues).
 
-貴方の個人識別コードとメールアドレスを認証し会員登録が完了しました。
+I have looked through this, and have a few comments:
 
-次回からはこちらよりご入場下さい。
+* It is probably a good strategy to set 'tcp_rover_next' such that
+  the next search is resumed from the previous port found to be free.
+  (similar to the old algorithm).  I don't see this in your patch,
+  but of course I could have missed it.
 
-http://www.eyc.jp/~gazou/gallery.php?id=bmV0ZGV2QG9zcy5zZ2kuY29t
+* connect_port_offset() does not (at least from an algorithm point
+  of view) need to return an u32, an u16 is sufficient.
 
-利用料金は登録された日から３日以内にお振込下さい。
 
-＜利用規約＞
-http://www.eyc.jp/~gazou/kiyaku.html
-
-【サポートセンター】
-
-問合せ先　deliver_photo_sup@yahoo.co.jp
-
-運営者 デリバリーPHOTO事務局
+Michael Larsen
