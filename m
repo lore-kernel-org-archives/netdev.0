@@ -1,48 +1,28 @@
-From: Randolph Chung <randolph@tausq.org>
-Subject: [patch] gcc-4.0 fix for acenic
-Date: Wed, 10 Nov 2004 11:44:01 -0800
-Message-ID: <20041110194401.GL15714@tausq.org>
-Reply-To: Randolph Chung <randolph@tausq.org>
+From: Brian Haley <Brian.Haley@hp.com>
+Subject: Re: node-local multicast issues
+Date: Wed, 10 Nov 2004 14:46:34 -0500
+Message-ID: <4192701A.3090908@hp.com>
+References: <OF18E2258F.5E2E252A-ON88256F47.007FA9FD-88256F47.0080590C@us.ibm.com> <1100096251.22964.7.camel@mn-2>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: torvalds@osdl.org
-Content-Disposition: inline
+To: Mark Borst <mark@borst.org>
+In-Reply-To: <1100096251.22964.7.camel@mn-2>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Small fix to compile acenic with gcc-4.0. gcc no longer accepts static
-function prototypes inside a function definition. This is ugly anyway...
+Mark Borst wrote:
 
-Signed-off-by: Randolph Chung <tausq@debian.org>
-Acked-by: Jes Sorensen
+> On another note: 'ping6 ff02::1' gives "connect: Invalid argument" on
+> linux.
 
-Index: drivers/net/acenic.c
-===================================================================
-RCS file: /var/cvs/linux-2.6/drivers/net/acenic.c,v
-retrieving revision 1.12
-diff -u -p -r1.12 acenic.c
---- linux/drivers/net/acenic.c	21 Oct 2004 18:59:05 -0000	1.12
-+++ linux/drivers/net/acenic.c	10 Nov 2004 19:33:43 -0000
-@@ -450,6 +450,7 @@ static char version[] __initdata = 
- static int ace_get_settings(struct net_device *, struct ethtool_cmd *);
- static int ace_set_settings(struct net_device *, struct ethtool_cmd *);
- static void ace_get_drvinfo(struct net_device *, struct ethtool_drvinfo *);
-+static void ace_watchdog(struct net_device *dev);
- 
- static struct ethtool_ops ace_ethtool_ops = {
- 	.get_settings = ace_get_settings,
-@@ -485,7 +486,6 @@ static int __devinit acenic_probe_one(st
- 	dev->vlan_rx_kill_vid = ace_vlan_rx_kill_vid;
- #endif
- 	if (1) {
--		static void ace_watchdog(struct net_device *dev);
- 		dev->tx_timeout = &ace_watchdog;
- 		dev->watchdog_timeo = 5*HZ;
- 	}
--- 
-Randolph Chung
-Debian GNU/Linux Developer, hppa/ia64 ports
-http://www.tausq.org/
+You've got to use -I with that, maybe ping6 could give a hint.
+
+> The only implementation that gives me replies is Solaris.
+
+My trusty Tru64 UNIX box works as well :)
+
+-Brian
