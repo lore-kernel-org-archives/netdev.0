@@ -1,68 +1,58 @@
 From: jamal <hadi@cyberus.ca>
 Subject: Re: [E1000-devel] Transmission limit
-Date: 01 Dec 2004 07:08:20 -0500
-Message-ID: <1101902900.1041.9.camel@jzny.localdomain>
+Date: 01 Dec 2004 07:25:44 -0500
+Message-ID: <1101903944.1042.29.camel@jzny.localdomain>
 References: <1101467291.24742.70.camel@mellia.lipar.polito.it>
-	 <41A73826.3000109@draigBrady.com> <16807.20052.569125.686158@robur.slu.se>
-	 <1101484740.24742.213.camel@mellia.lipar.polito.it>
-	 <41A76085.7000105@draigBrady.com>
-	 <1101499285.1079.45.camel@jzny.localdomain>
-	 <16811.8052.678955.795327@robur.slu.se>
-	 <1101821501.1043.43.camel@jzny.localdomain>
-	 <20041130134600.GA31515@xi.wantstofly.org>
-	 <1101824754.1044.126.camel@jzny.localdomain>
-	 <20041201001107.GE4203@xi.wantstofly.org>
+	 <41A73826.3000109@draigBrady.com>
+	 <1101483081.24742.174.camel@mellia.lipar.polito.it>
+	 <20041127092503.GA12592@sunbeam.de.gnumonks.org>
+	 <1101718412.14930.46.camel@verza.polito.it>
+	 <20041129145028.GC18788@xi.wantstofly.org>
+	 <1101804146.11111.23.camel@mellia.lipar.polito.it>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>, P@draigBrady.com,
-        mellia@prezzemolo.polito.it, e1000-devel@lists.sourceforge.net,
+Cc: Lennert Buytenhek <buytenh@wantstofly.org>,
+        Harald Welte <laforge@gnumonks.org>, P@draigBrady.com,
+        e1000-devel@lists.sourceforge.net,
         Jorge Manuel Finochietto <jorge.finochietto@polito.it>,
         Giulio Galante <galante@polito.it>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-In-Reply-To: <20041201001107.GE4203@xi.wantstofly.org>
+To: mellia@prezzemolo.polito.it
+In-Reply-To: <1101804146.11111.23.camel@mellia.lipar.polito.it>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2004-11-30 at 19:11, Lennert Buytenhek wrote:
-> On Tue, Nov 30, 2004 at 09:25:54AM -0500, jamal wrote:
-> 
-> > > > >  Also from what I understand new HW and MSI can help in the case where
-> > > > >  pass objects between CPU. Did I dream or did someone tell me that S2IO 
-> > > > >  could have several TX ring that could via MSI be routed to proper cpu?
-> > > > 
-> > > > I am wondering if the per CPU tx/rx irqs are valuable at all. They sound
-> > > > like more hell to maintain.
-> > > 
-> > > On the TX path you'd have qdiscs to deal with as well, no?
+On Tue, 2004-11-30 at 03:42, Marco Mellia wrote:
+> On Mon, 2004-11-29 at 15:50, Lennert Buytenhek wrote:
+> > On Mon, Nov 29, 2004 at 09:53:33AM +0100, Marco Mellia wrote:
 > > 
-> > I think management of it would be non-trivial in SMP. Youd have to start
-> > playing stupid loadbalancing tricks which would reduce the value of
-> > existence of tx irqs to begin with. 
+> > > Th's our intuition too.
+> > > Notice that we get the same results with 3com (broadcom based) gigabit
+> > > cards.
+> > > We are thinking of sending packet in "bursts" instead of single
+> > > transfers. The only problem is to let the NIC know that there are more
+> > > than a packet in a burst...
+> > 
+> > Jamal implemented exactly this for e1000 already, he might be persuaded
+> > into posting his patch here.  Jamal? :)
 > 
-> You mean the management of qdiscs would be non-trivial?
+> I guess that saying that we are _very_ interested in this might help.
+> :-)
+> We can offer as "beta-testers" as well...
 
-I mean it is useful in only the most ideal cases and if you want to
-actually do something useful in most cases with it you will have to
-muck around.
-Take the case of forwarding (maybe with a little or almost no localhost
-generated traffic) - then you end allocating in CPUA, processing and
-queueing on egress. Tx softirq, which is what stashes the packet on tx
-DMA eventually, is not guaranteed to run on the same CPU. Now add a
-little latency between ingress and egress ..
-The ideal case is where you end up processing to completion from ingress
-to egress (which is known to happen in Linux when theres no congestion).
-> Probably the idea of these kinds of tricks is to skip the qdisc step
-> altogether.
-> 
+Sorry missed this (I wasnt CCed so it went to a low priority queue which
+i read on a best effort basis).
+Let me clean up the patches a little bit this weekend. The patch is at
+least 4 months old; latest reincarnation was due to issue1 on my SUCON
+presentation. Would a patch against latest 2.6.x bitkeeper (whatever it
+is this weekend) be fine? If you are in a rush and dont mind a little
+ugliness then i will pass them as is.
 
-Which is preached by the BSD folks - bogus in my opinion. If you want to
-do something as bland/boring as that you can probably afford a $500
-DLINK router which can do it at wire rate with (with cost you being
-locked in whatever features they have).
+BTW, Scott posted a interesting patch yesterday, you may wanna give that
+a shot as well. 
 
 cheers,
 jamal
