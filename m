@@ -1,40 +1,47 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: Re: [Prism54] CVS -> bk tree update
-Date: Wed, 16 Jun 2004 16:30:55 -0400
-Sender: prism54-devel-bounces@prism54.org
-Message-ID: <40D0ADFF.1040208@pobox.com>
-References: <20040614191651.GC6253@ruslug.rutgers.edu>
-	<40CE2754.1020109@pobox.com>
-	<20040616022008.GM6253@ruslug.rutgers.edu>
-	<40CFBA24.7030307@pobox.com>
-	<20040616051103.GN6253@ruslug.rutgers.edu>
-	<20040616064303.GO6253@ruslug.rutgers.edu>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: 2.6.7-rc3: unregister_netdevice: waiting for tun0 to become free. Usage count = 1
+Date: Thu, 17 Jun 2004 00:37:48 +0400
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040616203748.GA30675@ms2.inr.ac.ru>
+References: <E1BZeW1-0008Ny-00@gondolin.me.apana.org.au> <20040613234142.GA32329@gondor.apana.org.au> <20040613183622.3a814506.davem@redhat.com> <20040614015013.GA11048@gondor.apana.org.au> <20040613210725.70dbd016.davem@redhat.com> <20040614042216.GA28669@gondor.apana.org.au> <20040614102858.GA12343@gondor.apana.org.au> <20040614124402.GA28519@gondor.apana.org.au> <20040616193731.GB29781@ms2.inr.ac.ru> <20040616130950.6aadde3c.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@oss.sgi.com>, prism54-devel@prism54.org
-Return-path: <prism54-devel-bounces@prism54.org>
-To: "Luis R. Rodriguez" <mcgrof@ruslug.rutgers.edu>
-In-Reply-To: <20040616064303.GO6253@ruslug.rutgers.edu>
-List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
-List-Archive: <http://prism54.org/pipermail/prism54-devel>
-List-Post: <mailto:prism54-devel@prism54.org>
-List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
-List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
-Errors-To: prism54-devel-bounces@prism54.org
+Content-Type: text/plain; charset=us-ascii
+Cc: herbert@gondor.apana.org.au, schwab@suse.de, netdev@oss.sgi.com,
+        yoshfuji@linux-ipv6.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20040616130950.6aadde3c.davem@redhat.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Luis R. Rodriguez wrote:
-> Jeff,
+Hello!
+
+> > bug. It makes sense to think about waiting for at least one quiescent
+> > state after detaching the stale device from dst and real dev_put() it.
+> > Reference to RCU is not occasional, the job looks natural for it.
 > 
-> Ok 2.6.7 is out, we missed it. Now what, send a group of patches against that then?
+> It seems a simple synchronize_kernel() would clear all the
+> crap no?
 
-Don't feel too bad, it was in release candidate status so any patches 
-submitted would not have gone into 2.6.7 anyway (unless they were 
-critical bug fixes).
+Sort of. I think it should happen after killing reference to dst->dev:
 
-I'll reply to your other email after a yummy bowl of Ramen noodles...
++                       dst->dev = &loopback_dev;
++                       dev_hold(&loopback_dev);
 
-	Jeff
+
+but before dropping reference to dev:
+
++                       dev_put(dev);
+
+
+So, I think it should look like:
+
+		dst->dev = &loopback_dev;
+		dev_hold(&loopback_dev);
++		synchronize_kernel();
+		dev_put(dev);
+
+(sorry, I still do not have Herbert's patch pulled)
+
+Alexey
