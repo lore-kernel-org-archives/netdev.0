@@ -1,102 +1,85 @@
-From: KLpetronas@aol.com
-Subject: (no subject)
-Date: Sun, 25 Aug 2002 14:48:33 EDT
+From: "Mala Anand" <manand@us.ibm.com>
+Subject: Re: [Lse-tech] Re: (RFC): SKB Initialization
+Date: Sun, 25 Aug 2002 15:12:06 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <18017.8834977143$1030303324@news.gmane.org>
+Message-ID: <49270.57270329$1030306983@news.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org, "Mala Anand" <manand@us.ibm.com>,
+   netdev@oss.sgi.com, Robert Olsson <Robert.Olsson@data.slu.se>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: abb@gnv.ifas.ufl.edu, aem@miavax.ir.miami.edu, aireyr@ilovephp.com,
-   alan@lxorguk.ukuu.org.uk, andrebalsa@altern.org, anjo@swi.psy.uva.nl,
-   aqua-l@killick.ifmt.nf.ca, aquarium@emuvm1.cc.emory.edu.sgi.com,
-   arber@mit.edu, authors@atlasofcyberspace.com, bec@nysernet.org,
-   bettas@arizvm1.ccit.arizona.edu.sgi.com, brine-l@uga.cc.uga.edu,
-   calcmach@shani.net, chasan@hujiagri.huji.ac.sgi.com, chip@pcc.com,
-   cip-odell@umuc.edu, coastnet@uriacc.uri.edu, colin@nyx.net,
-   crust-l@sivm.si.edu, cturtle@nervm.nerdc.ufl.edu, cyang@brownvm.brown.edu,
-   cyber@dis.org, daniel@futurniture.se, dave.thomas@newcastle.ac.uk,
-   davem@redhat.com, ddvffvs@uvvm.uvic.ca, deepsea@net.bio.net,
-   deepsea-moderator@net.bio.net, dkanagy@gol.com,
-   dkelzenb@blue.weeg.uiowa.edu, dwmw2@infradead.org, ebner@epo.co.at,
-   ecd-request@ssrl04.slac.stanford.edu, ecs-helpdesk-request@mailbase.ac.uk,
-   ecs-news@mailbase.ac.uk, eisen@xtal200.harvard.edu,
-   epo@mlist.austria.eu.net, ferry.byte@ecn.org, fi@access.digex.net,
-   fidi23@irmfao01.bitnet.sgi.com, fippai@irmfao01.bitnet.sgi.com,
-   fish-ecology@vm.se.lsoft.com, fisheries@biome.bio.ns.ca.sgi.com,
-   fishfolk@mitvma.mit.edu, fish-junior@vm.se.lsoft.com, flx@msu.ru,
-   foster@fosterparents.com, frog-net@rana.usc.edu,
-   gd-announce@gwydiondylan.org, gd-announce-subscribe@gwydiondylan.org,
-   gd-chatter@gwydiondylan.org, gd-chatter-subscribe@gwydiondylan.org,
-   gd-hackers@gwydiondylan.org, gd-hackers-subscribe@gwydiondylan.org,
-   gnu@gnu.org, gokhan@cc.itu.edu.tr.sgi.com, grimmon@indiana.edu,
-   gruwez@libertysoftware.be, harold@uga.cc.uga.edu,
-   herp-l@xtal200.harvard.edu, iamslic@ucsd.edu, Meyercyril@aol.com,
-   icam-l@irmfao01.bitnet.sgi.com, info@ncee.net, info@sicilyweb.com,
-   info@sims.berkeley.edu, info@sys-con.com, info@technodyke.net,
-   info@webcom.com, info-dylan@harlequin.co.uk, j1webmaster@sun.com,
-   JackPugh@aol.com, jfirch@cnet.shs.arizona.edu, jim@cgc.ns.ca,
-   jonathan@openhealth.org, kaos@ocs.com.au, kaw@swi.psy.uva.nl,
-   kaw-request@swi.psy.uva.nl, kevinandkell@herdthinners.com,
-   kgb@manjak.knm.org.pl, khardy@ucsd.edu, killies@mejac.palo-alto.ca.us,
-   killies-only@mejac.palo-alto.ca.us, killies-request@mejac.palo-alto.ca.us,
-   kirk@mcelhearn.com, liaw@rana.usc.edu, linux-net@vger.kernel.org,
-   listowner@herdthinners.com, listproc@xtal200.harvard.edu,
-   listserv@aearn.aco.net.sgi.com, listserv@arizvm1.ccit.arizona.edu.sgi.com,
-   listserv@brownvm.brown.edu, listserv@cc.itu.edu.tr.sgi.com,
-   listserv@emuvm1.cc.emory.edu.sgi.com, listserv@irmfao01.bitnet.sgi.com,
-   listserv@listserv.albany.edu, listserv@mitvma.mit.edu,
-   listserv@nervm.nerdc.ufl.edu, listserv@vm.se.lsoft.com,
-   listserv@sivm.si.edu, listserv@techunix.technion.ac.il,
-   listserv@ucf1vm.cc.ucf.edu, listserv@ucmp1.berkeley.edu.sgi.com,
-   listserv@ucsd.edu, listserv@uga.cc.uga.edu, listserv@uriacc.uri.edu,
-   listserv@utcvm.utc.edu.sgi.com, listserv@uvvm.uvic.ca,
-   listserv@vm.tau.ac.il, listserver@cgc.ns.ca, ljackson@uga.cc.uga.edu,
-   mailbase@mailbase.ac.uk, mailbase-helpline@mailbase.ac.uk,
-   mailserv@ac.dal.ca, Lavaudseverine@aol.com, mailserver@henge.demon.co.uk,
-   mailserver@henge.org.uk, majordomo@biome.bio.ns.ca.sgi.com,
-   majordomo@cert.org, majordomo@dis.org, majordomo@killick.ifmt.nf.ca,
-   majordomo@mail.orst.edu, majordomo@mlist.austria.eu.net,
-   majordomo@oss.sgi.com, majordomo@shore.net, majordomo@vger.kernel.org,
-   mar-facil@ac.dal.ca, marine-l@cgc.ns.ca, marine-tech@mailbase.ac.uk,
-   marine-tech-request@mailbase.ac.uk, mark@ihpva.org, marmam@uvvm.uvic.ca,
-   matti.aarnio@sonera.fi, mbancora@imli.com, mbartels@efn.org,
-   medsea-l@aearn.aco.net.sgi.com, meh2o-l@vm.tau.ac.il, meixner@wu-wien.ac.at,
-   mesut.guner@newcastle.ac.uk, mikell@optonline.net, mnhiv002@sivm.si.edu,
-   mnhiv008@sivm.si.edu, mnhiv040@sivm.si.edu,
-   mollusca@ucmp1.berkeley.edu.sgi.com, netdev@oss.sgi.com,
-   nettime@bbs.thing.net, nia-net@mail.orst.edu, njs@watson.ibm.com,
-   oceantech@ucsd.edu, oron-a@inter.net.il, osakb@emuvm1.cc.emory.edu.sgi.com,
-   owner-aqua-l@killick.ifmt.nf.ca, p_gortmaker@yahoo.com,
-   pbrueggeman@ucsd.edu, petryp@ucs.orst.edu, r.e.wolff@bitwizard.nl,
-   rbaird@sfu.ca, reiserfs-list-help@namesys.com,
-   reiserfs-list-subscribe@namesys.com, reiserfs-list-unsubscribe@namesys.com,
-   rgooch@atnf.CSIRO.AU, rml@tech9.net, robertf@astromart.com, rosborn@anl.gov,
-   rpuf4584@uriacc.uri.edu, rreilova@ececs.uc.edu, scuba@cc.itu.edu.tr.sgi.com,
-   scuba-d@brownvm.brown.edu, scuba-l@brownvm.brown.edu,
-   sfer-l@ucf1vm.cc.ucf.edu, shipley@dis.org, silvert@biome.bio.ns.ca.sgi.com,
-   sixdml-dev@xmldb.org, sixdml-dev-request@xmldb.org, solaris@cicei.ulpgc.es,
-   solaris@vm.se.lsoft.com, spork@exo.com, srobeson@indiana.edu,
-   star@matrix.bchs.uh.edu.sgi.com, steerel@umsystem.edu, stratton@ac.dal.ca,
-   KLpetronas@aol.com, system.dynamics@albany.edu, tcort@sover.net,
-   thecml-subscribe@yahoogroups.com, tom@gally.net, translation@monjunet.ne.jp,
-   trevor@jpj.net, tworlton@anl.gov, type@address.here.sgi.com, tytso@mit.edu,
-   umucinfo@umuc.edu, vassilii@tarunz.org, vensim@vensim.com,
-   viro@math.psu.edu, walden_list@rivertext.com,
-   waldenlist-subscribe@yahoogroups.com, webmaster@browbeat.com,
-   webmaster@cert.org, webmaster@fortnet.org, webmaster@pcc.com,
-   webmaster@sims.berkeley.edu, webmaster@songbird.com, webmaster@vhml.com,
-   webmaster@nova.umuc.edu, webmasters@gnu.org, webmasters@www.gnu.org,
-   whide@matrix.bchs.uh.edu.sgi.com, wildnet@tribune.usask.ca,
-   wildnet-request@tribune.usask.ca, willy@thepuffingroup.com,
-   woodsworth@skyway.usask.ca, xapi-dev@xmldb.org, xapi-dev-request@xmldb.org,
-   xmldb@xmldb.org, xmldb-cvs-request@xmldb.org, xmldb-request@xmldb.org,
-   xupdate-dev@xmldb.org, xupdate-dev-request@xmldb.org, eretz@eretz.co.il,
-   subscrib@eretz.co.il, david@eretz.co.il, jugglerabuse@mirage-avm.com,
-   juggler@page-1.com, editor@eretz.com, ducky@webfoot.com,
-   afzadeh@ese-metz.fr, abolfazl.fatholahzadeh@supelec.fr,
-   moonshinecreek@hotmail.com, anarchium@chez.co.sgi.com
+To: jamal <hadi@cyberus.ca>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-3
+
+
+Jamal wrote ..
+
+>Could you please at least cc netdev on networking related issues?
+>It says so in the kernel FAQ.
+>I swore back around 95 to join lk only when Linux gets a IDE maintainer
+>who is not insane. Hasnt happened yet.
+
+ Yes I will, it is a mistake from my part,
+
+>Can you repeat your tests with the hotlist turned off (i.e set to 0)?
+
+ Even if I turned the hot list, the slab allocator has a per cpu array of
+objects. In this case it keeps by default 60 objects and hot list keeps
+126 objects. So there may be a difference. I will try this.
+
+ This skb init work is the result of my probing in to the slab cache work.
+Read
+my posting on slab cache:
+http://marc.theaimsgroup.com/?l=linux-kernel&m=102773718023056&w=2
+This work triggered the skb init patch. To quantify the effect of bouncing
+the objects between cpus, I choose skb to measure. And it turns out that
+the
+limited cpu array is not the culprit in this case, it is how the objects
+are
+allocated in one cpu and freed in another cpu is what causing the bouncing
+of objects between cpus.
+
+>Also if you would be doing tests on NAPI please either copy us or netdev;
+>it is not nice to read weeks after you post.
+
+ Yes I will.
+
+>Also Robert and i did a few tests and we did find skb recycling (based on
+>a patch from Robert a few years back) was infact giving perfomance
+>improvements of upto 15% over regular slab.
+>Did you test with that patch for the e1000 he pointed you at?
+>I repeated the tests (around June/July) with the tulip with input rates of
+>a few 100K packets/sec and noticed a improvement over regular NAPI by
+>about 10%. Theres one bug on the tulip which we are chasing that
+>might be related to tulips alignment requirements;
+
+Yes I got the patch from Robert and I am planning on testing the patch. My
+understanding is that skbs are recylced in other operating systems as well
+to
+improve performance. And it particularly helps in architectures where pci
+mapping is expensive and when skbs are recycled, remapping is eliminated. I
+think the skbinit patch and recycling skbs are mutually exclusive.
+Recycling
+skbs will reduce the number of times we hit alloc_skb and __kfree_skb.
+
+>The idea of only freeing on the same CPU a skb allocated is free with
+>the e1000 NAPI driver style but not in the tulip NAPI  where a txmit
+>interupt might happen on a different CPU. The skb recycler patch only
+>recylces if allocation and freeing are happening on the same CPU;
+>otherwise we let the slab take the hit. On the tulip this happens about
+>50% of the time.
+ So skbinit patch will help the other case.
+
+Regards,
+    Mala
+
+
+   Mala Anand
+   IBM Linux Technology Center - Kernel Performance
+   E-mail:manand@us.ibm.com
+   http://www-124.ibm.com/developerworks/opensource/linuxperf
+   http://www-124.ibm.com/developerworks/projects/linuxperf
+   Phone:838-8088; Tie-line:678-8088
