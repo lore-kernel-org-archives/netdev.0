@@ -1,29 +1,20 @@
-From: Stefan Rompf <srompf@isg.de>
-Subject: Re: Patch: Idea for RFC2863 conform OperStatus
-Date: Mon, 14 Oct 2002 14:42:22 +0200
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: Patch: link state detection for 8139too against 2.5.41
+Date: Mon, 14 Oct 2002 13:42:45 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3DAABBAE.79E22EB6@isg.de>
-References: <200210132204.CAA09385@sex.inr.ac.ru>
+Message-ID: <3DAB0215.5070507@pobox.com>
+References: <Pine.LNX.4.44.0210120013500.1159-100000@beohost.scyld.com> <3DA96BCC.B2589AC0@isg.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: Donald Becker <becker@scyld.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru, jamal <hadi@cyberus.ca>
+To: Stefan Rompf <srompf@isg.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Alexey, Jamal,
+Take a look at how 8139cp driver does link state...  it should be an 
+also exact copy of 8139cp's code.
 
-the first version of this patch just added the feature to distribute
-state changes created by netif_carrier_on()/_off() inside the kernel and
-to netlink via netdev_state_change(). This is still the part most
-important to me - not only in 2.5, but also as a 2.4 backport.
-
-I don't think RFC2863 state keeping makes much sense if we cannot
-forward the results to userspace. So if you are happy with keeping the
-current semantics, but using the more sophisticated implementation of
-forwarding worked out last weekend, I'll be happy to provide a new patch
-(also adressing Jamal's nitpicks). Just agree on one way.
-
-Cheers, Stefan
+(8139cp will eventually get GMII/TBI support, but for now this statement 
+is correct)
