@@ -1,286 +1,134 @@
-From: <raghavendra.koushik@wipro.com>
-Subject: RE: Submission for S2io 10GbE driver
-Date: Thu, 19 Feb 2004 12:46:38 +0530
+From: Shmuel Hen <shmulik.hen@intel.com>
+Subject: [PATCH 2/2] [8021q 2.4] Use VLAN tag set functionality in 8021q module
+Date: Thu, 19 Feb 2004 12:13:50 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4223A04BF7D1B941A25246ADD0462FF5010FA5EB@blr-m3-msg.wipro.com>
+Message-ID: <200402191213.51683.shmulik.hen@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: <netdev@oss.sgi.com>, <raghavendra.koushik@s2io.com>,
-        <ravinandan.arakali@s2io.com>
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "linux-netdev" <netdev@oss.sgi.com>,
+        "bonding-devel" <bonding-devel@lists.sourceforge.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-content-class: urn:content-classes:message
-To: <jgarzik@pobox.com>, <leonid.grossman@s2io.com>
+To: "David S. Miller" <davem@redhat.com>, "Jeff Garzik" <jgarzik@pobox.com>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Jeff,
-
-1. points 7 and 8, when initSharedMem returns error, I call
-freeSharedMem which should free any partially alloced memory.
-
-2. For point 17 and 33 
-We do support IPV6 checksum offload. There is one issue though,
-our hardware only says whether the checksum is Ok or not it does
-not actually return the checksum values! 
-The value I put into skb->csum is a dummy value and hence set 
-ip_summed as UNNECESSARY in Rx path if checksums are reported OK.
-
-If I say features as NETIF_F_IP_CSUM instead of NETIF_F_HW_CSUM,
-then I cannot utilize it's entire gamut of checksum offload feature
-as the offload will be limited to just TCP/UDP over IPV4.
-
-Regards
-Koushik
-
-
------Original Message-----
-From: Jeff Garzik [mailto:jgarzik@pobox.com] 
-Sent: Tuesday, February 17, 2004 5:59 AM
-To: Leonid Grossman
-Cc: netdev@oss.sgi.com; raghavendra.koushik@s2io.com; 'ravinandan arakali'
-Subject: Re: Submission for S2io 10GbE driver
-
-
-Comments:
-
-1) use ULL suffix on u64 constants.
-
-static u64 round_robin_reg0 = 0x0001020304000105;
-static u64 round_robin_reg1 = 0x0200030106000204;
-static u64 round_robin_reg2 = 0x0103000502010007;
-static u64 round_robin_reg3 = 0x0304010002060500;
-static u64 round_robin_reg4 = 0x0103020400000000;
-
-2) you'll want to (unfortunately) add #ifdefs around the PCI_xxx_ID 
-constants, because a full submission to the kernel includes a patch to 
-include/linux/pci_ids.h.
-
-/* VENDOR and DEVICE ID of XENA. */
-#define PCI_VENDOR_ID_S2IO      0x17D5
-#define PCI_DEVICE_ID_S2IO_WIN  0x5731
-#define PCI_DEVICE_ID_S2IO_UNI  0x5831
-
-3) AS_A_MODULE is incorrect.
-
-/* Load driver as a module */
-#define AS_A_MODULE
-
-First, it is defined unconditionally.  Second, it should not even exist. 
-  The kernel module API is intentionally designed such that the source 
-code functions whether a kernel module or built into vmlinux, without 
-#ifdefs.  So, simply remove the ifdefs.
-
-As a general rule, Linux kernel source code tries to be as free of 
-ifdefs as possible.
-
-4) You will of course need to change CONFIGURE_ETHTOOL_SUPPORT, 
-CONFIGURE_NAPI_SUPPORT to Kconfig-generate CONFIG_xxx defines, when 
-submitting.
-
-5) again, follow the kernel's no-ifdef philosophy:
-
-#ifdef KERN_26
-static irqreturn_t s2io_isr(int irq, void *dev_id, struct pt_regs *regs); #else void s2io_isr(int irq, void *dev_id, struct pt_regs *regs); #endif /** KERN_26 **/
-
-The "irqreturn_t" type was designed specifically to work without #ifdefs 
-in earlier kernels.  Here is the proper compatibility code, taken from 
-release kernel 2.4.25's include/linux/interrupt.h:
-
-	/* For 2.6.x compatibility */
-	typedef void irqreturn_t;
-	#define IRQ_NONE
-	#define IRQ_HANDLED
-	#define IRQ_RETVAL(x)
-
-I hope you notice a key philosophy emerging ;-)  You want to write a 
-no-ifdef driver for 2.6, and then use the C pre-processor, typedefs, and 
-other tricks to make the driver work on earlier kernels with as little 
-modification as possible.
-
-Look at http://sf.net/projects/gkernel/  module "kcompat" for an example 
-of a toolkit which allows you to write a current driver, and then use it 
-on older kernels.
-
-6) delete, not needed
-
-#ifdef UNDEFINED
-         suspend:NULL,
-         resume:NULL,
-#endif
-
-7) memory leak on error
-                 /*  Allocating all the Rx blocks */
-                 for (j = 0; j < blk_cnt; j++) {
-                         size = (MAX_RXDS_PER_BLOCK + 1) * (sizeof(RxD_t));
-                         tmp_v_addr = pci_alloc_consistent(nic->pdev, size,
-                                                           &tmp_p_addr);
-                         if (tmp_v_addr == NULL) {
-                                 return -ENOMEM;
-                         }
-                         memset(tmp_v_addr, 0, size);
-
-8) memory leak on error
-
-/* Allocation and initialization of Statistics block */
-         size = sizeof(StatInfo_t);
-         mac_control->stats_mem = pci_alloc_consistent
-             (nic->pdev, size, &mac_control->stats_mem_phy);
-
-         if (!mac_control->stats_mem) {
-                 return -ENOMEM;
-         }
-
-9) if you store a pointer for your shared memory, it is wasteful to 
-store an -additional- flag indicating this memory has been allocated. 
-simply check for NULL.
-
-         if (nic->_fResource & TXD_ALLOCED) {
-                 nic->_fResource &= ~TXD_ALLOCED;
-                 pci_free_consistent(nic->pdev,
-                                     mac_control->txd_list_mem_sz,
-
-10) ULL suffix
-
-         write64(&bar0->swapper_ctrl, 0xffffffffffffffff);
-         val64 = (SWAPPER_CTRL_PIF_R_FE |
-
-11) ditto this for other 64-bit constants
-
-12) never mdelay() for this long.  Either create a timer, or make sure 
-you're in process constant and sleep via schedule_timeout().
-
-/* Remove XGXS from reset state*/
-         val64 = 0;
-         write64(&bar0->sw_reset, val64);
-         mdelay(500);
-
-13) memory writes without memory reads following them are often the 
-victims of PCI write posting bugs.  At the very least, this driver 
-appears to have many PCI write posting issues.
-
-         write64(&bar0->dtx_control, 0x8000051500000000);
-         udelay(50);
-         write64(&bar0->dtx_control, 0x80000515000000E0);
-         udelay(50);
-         write64(&bar0->dtx_control, 0x80000515D93500E4);
-         udelay(50);
-
-         write64(&bar0->dtx_control, 0x8001051500000000);
-         udelay(50);
-         write64(&bar0->dtx_control, 0x80010515000000E0);
-         udelay(50);
-         write64(&bar0->dtx_control, 0x80010515001E00E4);
-         udelay(50);
-
-You are not guaranteed that the write will have completed, by the end of 
-each udelay(), unless you first issue a PCI read of some sort.
-
-14) another mdelay(500) loop to be fixed
-
-/*  Wait for the operation to complete */
-         time = 0;
-         while (TRUE) {
-                 val64 = read64(&bar0->rti_command_mem);
-                 if (!(val64 & TTI_CMD_MEM_STROBE_NEW_CMD)) {
-                         break;
-                 }
-                 if (time > 50) {
-                         DBG_PRINT(ERR_DBG, "%s: RTI init Failed\n",
-                                   dev->name);
-                         return -1;
-                 }
-                 time++;
-                 mdelay(10);
-
-15) you obviously mean TASK_UNINTERRUPTIBLE here:
-
-/* Enabling MC-RLDRAM */
-         val64 = read64(&bar0->mc_rldram_mrs);
-         val64 |= MC_RLDRAM_QUEUE_SIZE_ENABLE | MC_RLDRAM_MRS_ENABLE;
-         write64(&bar0->mc_rldram_mrs, val64);
-         set_current_state(TASK_INTERRUPTIBLE);
-         schedule_timeout(HZ / 10);
-
-16) get this from struct pci_dev, not directly from the PCI bus:
-
-         /* SXE-002: Initialize link and activity LED */
-         ret =
-             pci_read_config_word(nic->pdev, PCI_SUBSYSTEM_ID,
-                                  (u16 *) & subid);
-
-17) question: do you not support more advanced checksum offload?  like 
-ipv6 or "hey I put the packet checksum <here>"
-
-18) waitForCmdComplete can mdelay() an unacceptably long time
-
-19) ditto s2io_reset.
-
-20) your driver has its spinlocks backwards!  Your interrupt handler 
-uses spin_lock_irqsave(), and your non-interrupt handling code uses 
-spin_lock().  That's backwards from correct.
-
-21) s2io_close could mdelay() for unacceptably long time.  Fortunately, 
-you -can- sleep here, so just replace with schedule_timeout() calls.
-
-22) remove the commented-out MOD_{INC,DEC}_USE_COUNT.
-
-23) your tx_lock spinlock is completely unused.  oops.  :)  the spinlock 
-covers two areas of code, both of which are mutually exclusive.
-
-Given this and #20... you might want to make sure to build and test on 
-SMP.  Even SMP kernels on uniprocessor hardware helps find spinlock 
-deadlocks.
-
-24) your tx_lock does not cover the interrupt handler code.  I presume 
-this is an oversight?
-
-25) delete s2io_set_mac_addr.  It's not needed.  It is preferred to use 
-the default eth_mac_addr.  Follow this procedure, usually:
-
-	a) During probe, obtain MAC address from "original source",
-	usually EEPROM / SROM.
-	b) Each time dev->open() is called, write MAC address to h/w.
-
-26) check and make sure you initialize your link to off 
-(netif_carrier_off(dev)), in your dev->open() function.  In the 
-background, your phy state machine should call netif_carrier_on() once 
-it is certain link has been established.
-
-this _must_ be an asynchronous process.  You may not sleep and wait for 
-link, in dev->open().
-
-27) for current 2.4 and 2.6 kernels, please use struct ethtool_ops 
-rather than a large C switch statement.
-
-28) are you aware that all of s2io_tx_watchdog is inside the 
-dev->tx_lock spinlock?  I am concern s2io_tx_watchdog execution time may
-be quite excessive a duration to hold a spinlock.
-
-29) never call netif_wake_queue() unconditionally.  only call it if you 
-are 100% certain that the net stack is allowed to add another packet to 
-your hardware's TX queue(s).
-
-30) do not call netif_stop_queue() and netif_wake_queue() on link 
-events, in s2io_link.  Simply call netif_carrier_{on,off}.
-
-31) ULL suffix
-
-         } else if (!pci_set_dma_mask(pdev, 0xffffffff)) {
-
-32) missing call to pci_disable_device() on error:
-
-                 if (pci_set_consistent_dma_mask
-                     (pdev, 0xffffffffffffffffULL)) {
-                         DBG_PRINT(ERR_DBG,
-                                   "Unable to obtain 64bit DMA for \
-                                         consistent allocations\n");
-                         return -ENOMEM;
-
-33) if you use CHECKSUM_UNNECESSARY, you should be using the 
-less-capable NETIF_F_IP_CSUM.
-
-         dev->features |= NETIF_F_SG | NETIF_F_HW_CSUM;
-
-NETIF_F_HW_CSUM requires the actual checksum value.
+Now, that 2.4.25 is out, I'm resending the enhancements for VLAN over bonding.
+Tested for patch application and compilation against linux-2.4.25.
+
+Summary:
+Make the regular/HW accelerated xmit functions in the 8021q module 
+use the new set VLAN tag functionality to reduce code duplication.
+
+-- 
+| Shmulik Hen   Advanced Network Services  |
+| Israel Design Center, Jerusalem          |
+| LAN Access Division, Platform Networking |
+| Intel Communications Group, Intel corp.  |
+
+
+diff -Nuarp a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+--- a/net/8021q/vlan_dev.c	Wed Jan 21 16:55:02 2004
++++ b/net/8021q/vlan_dev.c	Wed Jan 21 16:55:04 2004
+@@ -446,6 +446,7 @@ int vlan_dev_hard_start_xmit(struct sk_b
+ 	 */
+ 
+ 	if (veth->h_vlan_proto != __constant_htons(ETH_P_8021Q)) {
++		int orig_headroom = skb_headroom(skb);
+ 		unsigned short veth_TCI;
+ 
+ 		/* This is not a VLAN frame...but we can fix that! */
+@@ -455,33 +456,7 @@ int vlan_dev_hard_start_xmit(struct sk_b
+ 		printk(VLAN_DBG "%s: proto to encap: 0x%hx (hbo)\n",
+ 			__FUNCTION__, htons(veth->h_vlan_proto));
+ #endif
+-
+-		if (skb_headroom(skb) < VLAN_HLEN) {
+-			struct sk_buff *sk_tmp = skb;
+-			skb = skb_realloc_headroom(sk_tmp, VLAN_HLEN);
+-			kfree_skb(sk_tmp);
+-			if (skb == NULL) {
+-				stats->tx_dropped++;
+-				return 0;
+-			}
+-			VLAN_DEV_INFO(dev)->cnt_inc_headroom_on_tx++;
+-		} else {
+-			if (!(skb = skb_unshare(skb, GFP_ATOMIC))) {
+-				printk(KERN_ERR "vlan: failed to unshare skbuff\n");
+-				stats->tx_dropped++;
+-				return 0;
+-			}
+-		}
+-		veth = (struct vlan_ethhdr *)skb_push(skb, VLAN_HLEN);
+-
+-		/* Move the mac addresses to the beginning of the new header. */
+-		memmove(skb->data, skb->data + VLAN_HLEN, 12);
+-
+-		/* first, the ethernet type */
+-		/* put_unaligned(__constant_htons(ETH_P_8021Q), &veth->h_vlan_proto); */
+-		veth->h_vlan_proto = __constant_htons(ETH_P_8021Q);
+-
+-		/* Now, construct the second two bytes. This field looks something
++		/* Construct the second two bytes. This field looks something
+ 		 * like:
+ 		 * usr_priority: 3 bits	 (high bits)
+ 		 * CFI		 1 bit
+@@ -490,10 +465,16 @@ int vlan_dev_hard_start_xmit(struct sk_b
+ 		veth_TCI = VLAN_DEV_INFO(dev)->vlan_id;
+ 		veth_TCI |= vlan_dev_get_egress_qos_mask(dev, skb);
+ 
+-		veth->h_vlan_TCI = htons(veth_TCI);
+-	}
++		skb = __vlan_put_tag(skb, veth_TCI);
++		if (!skb) {
++			stats->tx_dropped++;
++			return 0;
++		}
+ 
+-	skb->dev = VLAN_DEV_INFO(dev)->real_dev;
++		if (orig_headroom < VLAN_HLEN) {
++			VLAN_DEV_INFO(dev)->cnt_inc_headroom_on_tx++;
++		}
++	}
+ 
+ #ifdef VLAN_DEBUG
+ 	printk(VLAN_DBG "%s: about to send skb: %p to dev: %s\n",
+@@ -507,6 +488,7 @@ int vlan_dev_hard_start_xmit(struct sk_b
+ 	stats->tx_packets++; /* for statics only */
+ 	stats->tx_bytes += skb->len;
+ 
++	skb->dev = VLAN_DEV_INFO(dev)->real_dev;
+ 	dev_queue_xmit(skb);
+ 
+ 	return 0;
+@@ -515,17 +497,22 @@ int vlan_dev_hard_start_xmit(struct sk_b
+ int vlan_dev_hwaccel_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct net_device_stats *stats = vlan_dev_get_stats(dev);
+-	struct vlan_skb_tx_cookie *cookie;
++	unsigned short veth_TCI;
++
++	/* Construct the second two bytes. This field looks something
++	 * like:
++	 * usr_priority: 3 bits	 (high bits)
++	 * CFI		 1 bit
++	 * VLAN ID	 12 bits (low bits)
++	 */
++	veth_TCI = VLAN_DEV_INFO(dev)->vlan_id;
++	veth_TCI |= vlan_dev_get_egress_qos_mask(dev, skb);
++	skb = __vlan_hwaccel_put_tag(skb, veth_TCI);
+ 
+ 	stats->tx_packets++;
+ 	stats->tx_bytes += skb->len;
+ 
+ 	skb->dev = VLAN_DEV_INFO(dev)->real_dev;
+-	cookie = VLAN_TX_SKB_CB(skb);
+-	cookie->magic = VLAN_TX_COOKIE_MAGIC;
+-	cookie->vlan_tag = (VLAN_DEV_INFO(dev)->vlan_id |
+-			    vlan_dev_get_egress_qos_mask(dev, skb));
+-
+ 	dev_queue_xmit(skb);
+ 
+ 	return 0;
