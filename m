@@ -1,37 +1,30 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Route cache performance under stress
-Date: Tue, 10 Jun 2003 11:57:59 -0700 (PDT)
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: 3c59x
+Date: Tue, 10 Jun 2003 15:20:52 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030610.115759.26513736.davem@redhat.com>
-References: <Pine.LNX.4.51.0306101332300.8755@ns.istop.com>
-	<20030610.103234.116374169.davem@redhat.com>
-	<16102.9418.43884.336925@robur.slu.se>
+Message-ID: <20030610192052.GA31962@gtf.org>
+References: <20030610171617.GC1959@gtf.org> <20030610.101452.35033262.davem@redhat.com> <20030610172556.GD1959@gtf.org> <20030610.103030.15245573.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ralph+d@istop.com, ralph@istop.com, hadi@shell.cyberus.ca,
-   xerox@foonet.net, sim@netnation.com, fw@deneb.enyo.de, netdev@oss.sgi.com,
-   linux-net@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: ak@suse.de, bogdan.costescu@iwr.uni-heidelberg.de, hadi@shell.cyberus.ca,
+   ralph+d@istop.com, xerox@foonet.net, sim@netnation.com, fw@deneb.enyo.de,
+   netdev@oss.sgi.com, linux-net@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Robert.Olsson@data.slu.se
-In-Reply-To: <16102.9418.43884.336925@robur.slu.se>
+To: "David S. Miller" <davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20030610.103030.15245573.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Robert Olsson <Robert.Olsson@data.slu.se>
-   Date: Tue, 10 Jun 2003 20:34:50 +0200
-   
-   I ripped out the route hash just to test the slow path. Seems like your 
-   patch was very good as we see the same performance w/o dst hash ~114 kpps.
+On Tue, Jun 10, 2003 at 10:30:30AM -0700, David S. Miller wrote:
+> No end user will see the change then, no distribution vendor worth
+> their salt will ship with MMIO enabled.
+> 
+> Right now we get only PIO and everybody suffers.  Runtime MMIO
+> selection is a net win for everyone.
 
-How did you "rip it out"?  Just never look into the routing
-cache hash and never add entries there?  If so, then yes it is
-excellent simulation for pure slow path.
+For 3c59x and select other drivers, I agree 100%
 
-This is not purely an algorithmic problem.  The highest cost thing we
-do in the slow path of input route processing is source validation.
-This requires real brains to eliminate.
+If we are making a general rule, I do not agree...
 
-Actually, that's a good idea, if someone if brave just rip out
-fib_validate_source (just don't call it, should work for valid
-traffic) and see what happens :)
+	Jeff
