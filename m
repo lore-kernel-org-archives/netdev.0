@@ -1,40 +1,35 @@
-From: Tommy Christensen <tommy.christensen@tpack.net>
-Subject: Re: 2.6.10 and HTB dequeue bug
-Date: Wed, 02 Mar 2005 00:45:51 +0100
-Message-ID: <4224FEAF.2090209@tpack.net>
-References: <200503011403.07243.akohlsmith@mixdown.ca>
+From: Quantum Scientific <Info@quantum-sci.com>
+Subject: Re: Kernel 2.6 IPV6 Busted
+Date: Tue, 1 Mar 2005 17:59:53 -0600
+Message-ID: <200503011759.53734.Info@quantum-sci.com>
+References: <200502270928.44402.Info@Quantum-Sci.com> <200502271220.06560.Info@quantum-sci.com> <4224E3A1.5090003@tomt.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-To: Andrew Kohlsmith <akohlsmith@mixdown.ca>
-In-Reply-To: <200503011403.07243.akohlsmith@mixdown.ca>
+To: netdev@oss.sgi.com
+In-Reply-To: <4224E3A1.5090003@tomt.net>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andrew Kohlsmith wrote:
-> I received the following in my dmesg today.  As requested by tgr in FreeNode's 
-> #lartc, I'm emailing all the requested information here.
+On Tuesday 01 March 2005 15:50, Andre Tomt wrote:
+> > Remember what my issue is:  
+> > - I have a very tight firewall,
+> > - I ping6 out,
+> > - The firewall blocks the reply back, because the connection is stateless!
+> Never, ever, filter ICMP. Or at least be extremely careful doing so. You 
+> may end up breaking things like PMTU and error notification mechanisms.
 
-> HTB: dequeue bug (8,123376738,123376738), report it please !
-> htb*g j=123376738 lj=123376738
-> htb*r7 m=0
-> htb*r6 m=0
-> htb*r5 m=0
-> htb*r4 m=0
-> htb*r3 m=0
-> htb*r2 m=0
-> htb*r1 m=0
-> htb*r0 m=0
-> htb*c10001 m=2 t=24731 c=24731 pq=0 df=68181 ql=0 pa=0 f:
-> htb*c10010 m=2 t=291481 c=28542 pq=0 df=68181 ql=0 pa=0 f:
-> htb*c10020 m=2 t=77441 c=28542 pq=0 df=203144 ql=0 pa=0 f:
-> htb*c10030 m=2 t=-91376 c=-2715 pq=0 df=92920 ql=0 pa=0 f:
-> htb*c10040 m=2 t=303504 c=28402 pq=0 df=4498679 ql=0 pa=0 f:
-> htb*c10050 m=2 t=283166 c=26595 pq=0 df=859108 ql=0 pa=0 f:
+Care to propose some rules?  Maybe not.
 
-An overflow of q->direct_queue (in htb_enqueue) seems to offset sch->q.qlen.
-Probably this is what's causing htb_dequeue to complain.
+ 
+> Also on a per-system basis I tend to prefer to secure services rather 
+> than firewall them; by for example just shutting them off/uninstalling 
+> them if not used, binding to localhost, use tcpwrappers.. that sort of 
+> thing.
 
--Tommy
+Of course.  This is implicit.  But closing everything is best, to avert investigative activity.
+
+Carl Cook
