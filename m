@@ -1,66 +1,41 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH] rtnetlink: link attribute modification by interface name
-Date: Tue, 30 Nov 2004 23:06:59 +0100
-Message-ID: <20041130220659.GK31969@postel.suug.ch>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [E1000-devel] Transmission limit
+Date: Wed, 1 Dec 2004 01:11:07 +0100
+Message-ID: <20041201001107.GE4203@xi.wantstofly.org>
+References: <1101467291.24742.70.camel@mellia.lipar.polito.it> <41A73826.3000109@draigBrady.com> <16807.20052.569125.686158@robur.slu.se> <1101484740.24742.213.camel@mellia.lipar.polito.it> <41A76085.7000105@draigBrady.com> <1101499285.1079.45.camel@jzny.localdomain> <16811.8052.678955.795327@robur.slu.se> <1101821501.1043.43.camel@jzny.localdomain> <20041130134600.GA31515@xi.wantstofly.org> <1101824754.1044.126.camel@jzny.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>, P@draigBrady.com,
+        mellia@prezzemolo.polito.it, e1000-devel@lists.sourceforge.net,
+        Jorge Manuel Finochietto <jorge.finochietto@polito.it>,
+        Giulio Galante <galante@polito.it>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
+To: jamal <hadi@cyberus.ca>
 Content-Disposition: inline
+In-Reply-To: <1101824754.1044.126.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Dave,
+On Tue, Nov 30, 2004 at 09:25:54AM -0500, jamal wrote:
 
-This patch allows modification of link attributes by the interface name,
-avoids the requirement of translating a name to an ifindex first, and
-provides better atomicity to userspace.  It works by setting the ifindex
-to a negative number and provide the interface name via the IFLA_IFNAME
-TLV and let the kernel lookup the device by name instead of ifindex. Changing
-the interface name will not work using this method because IFLA_IFNAME also
-transports the new interface name.  The patch also fixes a possible source for
-bugs if IFNAMSIZ is ever changed to a number not aligned to RTA_ALIGNTO.
+> > > >  Also from what I understand new HW and MSI can help in the case where
+> > > >  pass objects between CPU. Did I dream or did someone tell me that S2IO 
+> > > >  could have several TX ring that could via MSI be routed to proper cpu?
+> > > 
+> > > I am wondering if the per CPU tx/rx irqs are valuable at all. They sound
+> > > like more hell to maintain.
+> > 
+> > On the TX path you'd have qdiscs to deal with as well, no?
+> 
+> I think management of it would be non-trivial in SMP. Youd have to start
+> playing stupid loadbalancing tricks which would reduce the value of
+> existence of tx irqs to begin with. 
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
+You mean the management of qdiscs would be non-trivial?
 
---- linux-2.6.10-rc2-bk13.orig/net/core/rtnetlink.c	2004-11-30 14:01:12.000000000 +0100
-+++ linux-2.6.10-rc2-bk13/net/core/rtnetlink.c	2004-11-30 14:23:23.000000000 +0100
-@@ -267,7 +267,22 @@
- 	struct net_device *dev;
- 	int err, send_addr_notify = 0;
- 
--	dev = dev_get_by_index(ifm->ifi_index);
-+	if (ifm->ifi_index >= 0)
-+		dev = dev_get_by_index(ifm->ifi_index);
-+	else if (ida[IFLA_IFNAME - 1]) {
-+		char ifname[IFNAMSIZ];
-+
-+		if (RTA_PAYLOAD(ida[IFLA_IFNAME - 1]) > RTA_ALIGN(sizeof(ifname)))
-+			return -EINVAL;
-+
-+		memset(ifname, 0, sizeof(ifname));
-+		memcpy(ifname, RTA_DATA(ida[IFLA_IFNAME - 1]),
-+			RTA_PAYLOAD(ida[IFLA_IFNAME - 1]));
-+		ifname[IFNAMSIZ - 1] = '\0';
-+		dev = dev_get_by_name(ifname);
-+	} else
-+		return -EINVAL;
-+
- 	if (!dev)
- 		return -ENODEV;
- 
-@@ -358,10 +373,10 @@
- 		dev->weight = *((u32 *) RTA_DATA(ida[IFLA_WEIGHT - 1]));
- 	}
- 
--	if (ida[IFLA_IFNAME - 1]) {
-+	if (ifm->ifi_index >= 0 && ida[IFLA_IFNAME - 1]) {
- 		char ifname[IFNAMSIZ];
- 
--		if (ida[IFLA_IFNAME - 1]->rta_len > RTA_LENGTH(sizeof(ifname)))
-+		if (RTA_PAYLOAD(ida[IFLA_IFNAME - 1]) > RTA_ALIGN(sizeof(ifname)))
- 			goto out;
- 
- 		memset(ifname, 0, sizeof(ifname));
+Probably the idea of these kinds of tricks is to skip the qdisc step
+altogether.
+
+
+--L
