@@ -1,27 +1,22 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [Linux-ATM-General] [PATCH] ATM - remove unnecessary GFP_ATOMIC
- allocation
-Date: Thu, 11 Sep 2003 16:39:36 -0700
+Subject: Re: [PATCH] unneeded proc_fs.h includes in packet schedulers
+Date: Thu, 11 Sep 2003 16:43:05 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030911163936.2bb13af3.davem@redhat.com>
-References: <20030905115308.GA96209@compsoc.man.ac.uk>
-	<200309051252.h85CqKSa005300@ginger.cmf.nrl.navy.mil>
+Message-ID: <20030911164305.26b6487a.davem@redhat.com>
+References: <20030905135935.682936bc.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: chas@cmf.nrl.navy.mil, levon@movementarian.org,
-   linux-atm-general@lists.sourceforge.net, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: chas3@users.sourceforge.net
-In-Reply-To: <200309051252.h85CqKSa005300@ginger.cmf.nrl.navy.mil>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20030905135935.682936bc.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 05 Sep 2003 08:52:22 -0400
-chas williams <chas@cmf.nrl.navy.mil> wrote:
+On Fri, 5 Sep 2003 13:59:35 -0700
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> dave, please apply to 2.6 (and 2.4) --thanks
-> 
-> [ATM]: remove unnecessary GFP_ATOMIC allocation (from levon@movementarian.org)
+> Following include proc_fs.h but don't use it.
 
 Applied, thanks.
