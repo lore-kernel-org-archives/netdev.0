@@ -1,93 +1,73 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [RESEND 16/16] ATM: Use gnet_stats for class statistics and dump them
-Date: Thu, 21 Oct 2004 17:42:00 +0200
+From: Bob Wirka <bobwirka@rtcworks.com>
+Subject: Re: NFS and Network Driver Question
+Date: Thu, 21 Oct 2004 10:50:55 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041021154200.GV21977@postel.suug.ch>
-References: <20041021123209.GE21977@postel.suug.ch> <20041021125201.GU21977@postel.suug.ch>
+Message-ID: <4177DADF.7020006@rtcworks.com>
+References: <41704198.8000206@rtcworks.com> <4175AEFE.7090002@rtcworks.com> <41768B15.1090402@osdl.org> <4177D115.5070205@rtcworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, hadi@cyberus.ca
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com,
+        linux-net@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20041021125201.GU21977@postel.suug.ch>
+In-Reply-To: <4177D115.5070205@rtcworks.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Braindead as I am, I forgot to tell my text editor to write the file
-before diffing it. This way an unused variable made it into the patch,
-revised version:
+Once again I beg forgiveness for mailing list clutter...
 
-Makes ATM qdisc use gnet_stats for class statistic counters and
-adds dumping bits to actually dump those. Althought the counters
-were updated they never got dumped to userspace.
+My problem was that I hadn't added a default route. My bad.
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
+Thanks anyway.
 
---- linux-2.6.9-bk6.orig/net/sched/sch_atm.c	2004-10-21 17:30:11.000000000 +0200
-+++ linux-2.6.9-bk6/net/sched/sch_atm.c	2004-10-21 17:29:28.000000000 +0200
-@@ -69,7 +69,8 @@
- 	struct socket		*sock;		/* for closing */
- 	u32			classid;	/* x:y type ID */
- 	int			ref;		/* reference count */
--	struct tc_stats		stats;
-+	struct gnet_stats_basic	bstats;
-+	struct gnet_stats_queue	qstats;
- 	spinlock_t		*stats_lock;
- 	struct atm_flow_data	*next;
- 	struct atm_flow_data	*excess;	/* flow for excess traffic;
-@@ -450,13 +451,13 @@
- #endif
- 	    (ret = flow->q->enqueue(skb,flow->q)) != 0) {
- 		sch->qstats.drops++;
--		if (flow) flow->stats.drops++;
-+		if (flow) flow->qstats.drops++;
- 		return ret;
- 	}
- 	sch->bstats.bytes += skb->len;
- 	sch->bstats.packets++;
--	flow->stats.bytes += skb->len;
--	flow->stats.packets++;
-+	flow->bstats.bytes += skb->len;
-+	flow->bstats.packets++;
- 	/*
- 	 * Okay, this may seem weird. We pretend we've dropped the packet if
- 	 * it goes via ATM. The reason for this is that the outer qdisc
-@@ -550,7 +551,7 @@
-         sch->qstats.requeues++;
-     } else {
- 		sch->qstats.drops++;
--		p->link.stats.drops++;
-+		p->link.qstats.drops++;
- 	}
- 	return ret;
- }
-@@ -666,6 +667,20 @@
- 	skb_trim(skb,b-skb->data);
- 	return -1;
- }
-+static int
-+atm_tc_dump_class_stats(struct Qdisc *sch, unsigned long arg,
-+	struct gnet_dump *d)
-+{
-+	struct atm_flow_data *flow = (struct atm_flow_data *) arg;
-+
-+	flow->qstats.qlen = flow->q->q.qlen;
-+
-+	if (gnet_stats_copy_basic(d, &flow->bstats) < 0 ||
-+	    gnet_stats_copy_queue(d, &flow->qstats) < 0)
-+		return -1;
-+
-+	return 0;
-+}
- 
- static int atm_tc_dump(struct Qdisc *sch, struct sk_buff *skb)
- {
-@@ -684,6 +699,7 @@
- 	.bind_tcf	=	atm_tc_bind_filter,
- 	.unbind_tcf	=	atm_tc_put,
- 	.dump		=	atm_tc_dump_class,
-+	.dump_stats	=	atm_tc_dump_class_stats,
- };
- 
- static struct Qdisc_ops atm_qdisc_ops = {
+Bob Wirka
+Realtime Control Works
+
+Bob Wirka wrote:
+
+> Here is another wrinkle: The program on my embedded system cannot send 
+> UDP broadcast messages when NFS mounted. When the system is booted 
+> without NFS (using the DiskOnChip for root file system) I can send UDP 
+> broadcasts. When the system is booted with NFS (using my laptop for 
+> root file system) UDP broadcasts result in "Network unreachable" 
+> errors, though it CAN send directed UDP messages and TCP messages.
+>
+> The kernel configuration is identical, except for kernel IP 
+> autoconfiguration, root over nfs, and compiled-in network driver. The 
+> NFS configuration on the host has 'no_root_squash', and <<now>> all 
+> the files on the host root file system are owned by root.
+>
+> Any ideas?
+>
+> Thanks,
+>
+> Bob Wirka
+> Realtime Control Works
+>
+> Stephen Hemminger wrote:
+>
+>> Bob Wirka wrote:
+>>
+>>> Ok, now I feel like I'm taking crazy pills...
+>>>
+>>> The embedded system boots up and mounts the root file system on my 
+>>> host laptop. The 'rc.sysinit' startup script executes the command 
+>>> 'mount -a' which should mount /proc, /dev/pts, and /dev/shm, as 
+>>> listed in /etc/fstab. When executed, that command returns  "mount: 
+>>> only root can do that".
+>>>
+>>> When I get to the bash prompt, 'whoami' reports that I am, indeed, 
+>>> root. A 'mount -a' from the command prompt gives the same result; it 
+>>> doesn't think I'm root for the mount command.
+>>>
+>>> I can chown a file owned by root to some other user, and I can 
+>>> create a file or directory in a directory owned by root; so it 
+>>> doesn't always think I'm not root.
+>>>
+>> Are you getting bit by the nfs uid mapping on the server. Is it 
+>> mapping your local "root" to "nobody"
+>> on the server?
+>>
+>
+>
+>
