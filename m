@@ -1,33 +1,26 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC] Using Fwmark as SPD filter.
-Date: Sat, 19 Mar 2005 21:15:20 +1100
-Message-ID: <E1DCazI-0003sx-00@gondolin.me.apana.org.au>
-References: <423BF9BA.8090408@protactive.nl>
-Cc: netdev@oss.sgi.com
-To: ludo@protactive.nl (Ludo Stellingwerff)
-In-Reply-To: <423BF9BA.8090408@protactive.nl>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Reproducible panics with tulip
+Date: Sat, 19 Mar 2005 11:20:53 +0100
+Message-ID: <20050319102053.GA1704@electric-eye.fr.zoreil.com>
+References: <1111178167.1147.9.camel@localhost.localdomain> <20050318215229.GA24509@electric-eye.fr.zoreil.com> <20050318223939.GB24509@electric-eye.fr.zoreil.com> <1111224092.964.2.camel@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com
+To: Alexander Nyberg <alexn@dsv.su.se>
+Content-Disposition: inline
+In-Reply-To: <1111224092.964.2.camel@localhost.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Ludo Stellingwerff <ludo@protactive.nl> wrote:
-> 
-> In general, is this work a waste of time or am I hitting something here?
+Alexander Nyberg <alexn@dsv.su.se> :
+[...]
+> I guess it was unclear in the output mess, the real problem at the
+> bottom was:
 
-Yes you're hitting the right spot :)
+No, no, not at all. It is clear but I'd prefer to see the same oops
+without the netconsole parameter into play. A pure nfs + driver + race
+oops will be fun enough for me. :o)
 
-This is a planned feature.  We just need to fix the bundle structure
-so that they live in the flow cache instead of the policy to make this
-workable.
-
-As to your patch: There is no point in adding more Linux-specific extensions
-when we already have a Linux-specific netlink interface that supports fwmark.
-So these efforts would be better spent in converting whatever application
-you're using (e.g., racoon) over to netlink.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+Ueimor
