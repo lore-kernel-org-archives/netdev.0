@@ -1,25 +1,24 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: Re: [PATCH] Change MAC without bringing interface down
-Date: Tue, 19 Aug 2003 12:42:53 -0300
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: dev/core/net_sysfs.c: missing release() function in net_class
+Date: Tue, 19 Aug 2003 08:36:21 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030819154252.GA935@conectiva.com.br>
-References: <20030818171144.GC1793@lapdog> <20030818185153.GA1559@conectiva.com.br> <20030819055034.GA809@lapdog>
+Message-ID: <20030819083621.2ae4abc8.davem@redhat.com>
+References: <Pine.LNX.4.44.0308191500050.26041-100000@rhea.tcs.hut.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>, hadi@cyberus.ca, netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@osdl.org, greg@kroah.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Tommi Virtanen <tv@debian.org>
-Content-Disposition: inline
-In-Reply-To: <20030819055034.GA809@lapdog>
+To: Ville Nuorvala <vnuorval@tcs.hut.fi>
+In-Reply-To: <Pine.LNX.4.44.0308191500050.26041-100000@rhea.tcs.hut.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Em Tue, Aug 19, 2003 at 08:50:34AM +0300, Tommi Virtanen escreveu:
-> 	Here's an updated patch with those nits picked.  Those were
-> 	all cut-and-pasted from elsewhere, so if you want perfection,
-> 	there's lots of those to fix.
+On Tue, 19 Aug 2003 15:47:03 +0300 (EEST)
+Ville Nuorvala <vnuorval@tcs.hut.fi> wrote:
 
-Thank you. And yes, I wish there was a consistent style, and have been
-fixing these kinds of nits for years :-)
+> lately I've been getting a nasty looking warning from class_dev_release()
+> in drivers/base/class.c when I unregister my ip6_tunnel devices.
 
-- Arnaldo
+This is fixed in current sources after recent changes
+done by Stephen Hemminger.
