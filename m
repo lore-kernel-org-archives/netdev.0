@@ -1,24 +1,31 @@
-From: Weiguang Shi <wgshi2002@yahoo.ca>
-Subject: Re: [RFC] netem - add jitter support.
-Date: Mon, 12 Jul 2004 23:03:12 -0400 (EDT)
+From: shemminger@osdl.org
+Subject: Re: [PATCH 2.6]: Make packet scheduler clock source configurable
+Date: Mon, 12 Jul 2004 20:35:16 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040713030312.50570.qmail@web54102.mail.yahoo.com>
-References: <1089686376.1044.24.camel@jzny.localdomain>
+Message-ID: <1107.63.170.215.71.1089689716.squirrel@www.osdl.org>
+References: <40F34740.5040100@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev linux <netdev@oss.sgi.com>
+Content-Type: text/plain;charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
+        "devik" <devik@cdi.cz>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1089686376.1044.24.camel@jzny.localdomain>
+In-Reply-To: <40F34740.5040100@trash.net>
+To: "Patrick McHardy" <kaber@trash.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Jamal,
+> Hi Dave,
+>
+> this patch replaces PSCHED_CLOCK_SOURCE by three new config options
+> and fixes HTB compilation with CONFIG_NET_SCH_CLK_GETTIMEOFDAY.
+> Patch compiles with all three options. If you like it I will also send
+> you a 2.4 version.
+>
+> Regards
+> Patrick
+>
 
-What are the reasons for creating netem instead of using NIST Net?
-
-Thanks,
-Weiguang
-
-______________________________________________________________________ 
-Post your free ad now! http://personals.yahoo.ca
+I have a patch (to the original) which replaces the arch dependant CPU stuff
+with the arch neutral sched_clock() which although slightly
+slower works on a x86_64 and ia64 as well.
