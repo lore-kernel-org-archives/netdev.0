@@ -1,58 +1,47 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: IPSEC
-Date: Tue, 08 Mar 2005 18:44:39 +0100
-Message-ID: <422DE487.5020800@trash.net>
-References: <Pine.LNX.4.61.0503081706560.11525@sorbus2.navaho>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [leo@yuriev.ru: [PATCH] ethernet-bridge: update skb->priority
+ in case forwarded frame has VLAN-header]
+Date: Tue, 08 Mar 2005 09:45:20 -0800
+Message-ID: <422DE4B0.6040201@candelatech.com>
+References: <20050305141225.GA5180@xi.wantstofly.org>	 <4229D98F.9010008@trash.net> <422A0C21.3050709@candelatech.com>	 <1110199696.1094.1299.camel@jzny.localdomain>	 <Pine.LNX.4.62.0503072034340.5934@kaber.coreworks.de>	 <1110238537.1043.62.camel@jzny.localdomain>  <422CE983.7060305@trash.net>	 <1110241190.1043.100.camel@jzny.localdomain>  <422D1E26.1010902@trash.net> <1110287626.1043.146.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030604010306070804050703"
-Cc: netdev@oss.sgi.com, "David S. Miller" <davem@davemloft.net>
-To: Steve Hill <steve@services.navaho.net>
-In-Reply-To: <Pine.LNX.4.61.0503081706560.11525@sorbus2.navaho>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>, leo@yuriev.ru,
+        Lennert Buytenhek <buytenh@wantstofly.org>, shemminger@osdl.org,
+        netdev@oss.sgi.com
+To: hadi@cyberus.ca
+In-Reply-To: <1110287626.1043.146.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------030604010306070804050703
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-
-Steve Hill wrote:
-
-> then the ESP SA is added and it has the same sequence number (1) as the 
-> AH SA so the AH SA gets deleted.
+jamal wrote:
+> On Mon, 2005-03-07 at 22:38, Patrick McHardy wrote:
 > 
-> The xfrm_state_add() function does:
->         x1 = __xfrm_find_acq_byseq(x->km.seq);
->         ...
->         xfrm_state_delete(x1);
-> And this is responsible for deleting the AH SA due to it's matching 
-> sequence number.
+>>jamal wrote:
+>>
+>>>Indeed that looks bad. But wouldnt have helped if we started at 0
+>>>either. You need monotonically increasing values to make proper
+>>>sense. So i suppose to do proper qos with L2, one must install the prio
+>>>qdisc and rewrite the priomap.
+>>
+>>One reason more to move it to an optional ebtables target. Or leave it
+>>all to prio + u32. But I guess a CLASSIFY target similar to iptables
+>>could also be useful otherwise.
+> 
+> 
+> I think you still want (perhaps the vlan) driver to come up with some
+> sane defaults. From what i read from bgrear he has arbitrary values.
 
-This is a bug in the kernel, __xfrm_find_acq_byseq should only return
-XFRM_STATE_ACQ states. This patch should fix it.
+By default, everything is mapped to priority of zero, but the user can
+specify a mapping to any integer they desire.
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+If you have some suggestions for some defaults better than zero, I'm
+willing to consider it.
 
---------------030604010306070804050703
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
+Ben
 
-===== net/xfrm/xfrm_state.c 1.55 vs edited =====
---- 1.55/net/xfrm/xfrm_state.c	2005-03-07 06:23:53 +01:00
-+++ edited/net/xfrm/xfrm_state.c	2005-03-08 18:42:13 +01:00
-@@ -609,7 +609,7 @@
- 
- 	for (i = 0; i < XFRM_DST_HSIZE; i++) {
- 		list_for_each_entry(x, xfrm_state_bydst+i, bydst) {
--			if (x->km.seq == seq) {
-+			if (x->km.seq == seq && x->km.state == XFRM_STATE_ACQ) {
- 				xfrm_state_hold(x);
- 				return x;
- 			}
-
---------------030604010306070804050703--
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
