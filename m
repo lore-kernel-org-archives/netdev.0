@@ -1,25 +1,40 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] random: remove TCP MD4 code if !CONFIG_INET
-Date: Thu, 18 Nov 2004 14:32:18 -0800
-Message-ID: <20041118143218.19f90b0e.davem@davemloft.net>
-References: <20041117152116.6934bfa9@zqx3.pdx.osdl.net>
+Subject: Re: [PATCH] linux 2.9.10-rc1: Fix oops in unix_dgram_sendmsg when
+ using SELinux and SOCK_SEQPACKET
+Date: Thu, 18 Nov 2004 14:34:51 -0800
+Message-ID: <20041118143451.3dae3ffb.davem@davemloft.net>
+References: <Xine.LNX.4.44.0411181158110.5096-100000@thoron.boston.redhat.com>
+	<Xine.LNX.4.44.0411181219590.5236-100000@thoron.boston.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: chrisw@osdl.org, ross.axe@blueyonder.co.uk, netdev@oss.sgi.com,
+        sds@epoch.ncsc.mil, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20041117152116.6934bfa9@zqx3.pdx.osdl.net>
+To: James Morris <jmorris@redhat.com>
+In-Reply-To: <Xine.LNX.4.44.0411181219590.5236-100000@thoron.boston.redhat.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 17 Nov 2004 15:21:16 -0800
-Stephen Hemminger <shemminger@osdl.org> wrote:
+On Thu, 18 Nov 2004 12:25:21 -0500 (EST)
+James Morris <jmorris@redhat.com> wrote:
 
-> The code in the random driver for tcp sequence number randomization
-> is only needed if INET is configured.
+> Updated patch below (with Chris Wright's wrapper idea).
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> This now fixes both issues.
+> 
+> 1) Don't call security_unix_may_send() hook during sendmsg() for 
+> SOCK_SEQPACKET, and ensure that sendmsg() can only be called on a 
+> connected socket so as not to bypass the security_unix_stream_connect() 
+> hook.
+> 
+> 2) Return -EINVAL if sendto() is called on SOCK_SEQPACKET with an address 
+> supplied.
+> 
+> Please review and apply if ok.
+> 
+> 
+> Signed-off-by: James Morris <jmorris@redhat.com>
 
-Applied, thanks Stephen.
+Looks good, applied thanks James.
