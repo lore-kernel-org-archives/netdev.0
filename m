@@ -1,42 +1,77 @@
-From: Ben Greear <greearb@candelatech.com>
+From: Donald Becker <becker@scyld.com>
 Subject: Re: How to count tx and rx bytes?
-Date: Mon, 15 Dec 2003 15:17:29 -0800
+Date: Mon, 15 Dec 2003 18:19:27 -0500 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3FDE4109.7090603@candelatech.com>
-References: <3FDE13AE.3050402@candelatech.com>	<20031215141729.15387fc1.davem@redhat.com>	<3FDE39E3.4000408@candelatech.com> <20031215145422.58a78551.davem@redhat.com>
+Message-ID: <Pine.LNX.4.44.0312151802120.2973-100000@beohost>
+References: <20031215144049.7acea87e.rddunlap@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@redhat.com>, <greearb@candelatech.com>,
+        <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20031215145422.58a78551.davem@redhat.com>
+To: "Randy.Dunlap" <rddunlap@osdl.org>
+In-Reply-To: <20031215144049.7acea87e.rddunlap@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> On Mon, 15 Dec 2003 14:46:59 -0800
-> Ben Greear <greearb@candelatech.com> wrote:
-> 
-> 
->>Maybe the stats-polling code in the driver could do the necessary subtraction
->>to remove the FCS from the results (ie, subtract (packets-since-last-sample * 4) bytes.
-> 
-> 
-> The whole reason to use the chip internally computed stats is to avoid
-> having to do "stats->foo++" at all, your suggestion basically eliminates
-> this purpose.
+On Mon, 15 Dec 2003, Randy.Dunlap wrote:
 
-Well, I was assuming that the stats polling is a fixed cost O(1), where-as the per-packet
-calculation is O(n).  I am quite sure this assumption is true for e1000,
-but I have not looked at tg3.  So, for e1000, the cost of subtracting out the FCS
-would be basically free.
+> On Mon, 15 Dec 2003 14:17:29 -0800 "David S. Miller" <davem@redhat.com> wrote:
+> 
+> | On Mon, 15 Dec 2003 12:03:58 -0800
+> | Ben Greear <greearb@candelatech.com> wrote:
+> | 
+> | > Is there an agreed upon standard for exactly what ethernet drivers
+> | > should be counting for rx-bytes and tx-bytes?  For example, should the
+> | > counters include the 4-byte FCS?
 
-All that said, from Randy's email, it appears we should be including the FCS
-anyway...
+Yes.
 
-Ben
+> | >  Should they include the ethernet header?
+
+Yes, but not the preamble.
+  [[ Ethernet packets have an 8 byte preamble before the station
+  addresses.  It doesn't make sense to count this, as
+    all modern NICs strip it off, and
+    a few leading bits may be dropped at each hop
+  ]]
+
+> | It should be that all drivers use what skb->len ends up with at
+> | rx/tx time.
+
+Not quite.  The skb->len value omits the 4 byte FCS/CRC.
+
+> | However, it is often faster to just let the hardware keep track
+> | of these statistics (tg3 is one example of a chip that can do
+> | this).  And sometimes these mechanisms take the FCS or whatever
+> | into account and this as you note makes the numbers different.
+
+The driver should correct, although this is non-critical.
+Using hardware counters where available used to make sense, but today
+it's better to have the software driver maintain the statistics.  The
+only thing the hardware counters are needed for is
+otherwise-unobservable errors, such as missed packets and CRC errors.
+
+> RFC 1573:
+> RFC 2233:
+> RFC 1213:
+> all agree that on an "interface" the number of octets received (InOctets)
+> is:
+>  The total number of octets received on the interface, including
+>  framing characters.
+
+This is imprecise.  "Framing" might be misread to include the preamble,
+which should be omitted from the count.
+
+The original Linux errors counters were influenced by what the dp8390
+chip reported.  Later, the definitions in appendix B of the dc21040
+manual served as a more general guideline (although the software
+counters were never a one-for-one copy of any specific hardware
+semantics).
+
 
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Donald Becker				becker@scyld.com
+Scyld Computing Corporation		http://www.scyld.com
+914 Bay Ridge Road, Suite 220		Scyld Beowulf cluster systems
+Annapolis MD 21403			410-990-9993
