@@ -1,36 +1,36 @@
-From: Daniele Venzano <webvenza@libero.it>
-Subject: Re: [PATCH 1/1] More ethtool support for sis900
-Date: Sun, 6 Mar 2005 11:03:54 +0100
-Message-ID: <ec1a7baeb975d07db2d0c4c757048309@libero.it>
-References: <20050305134011.23638.68926@localhost.localdomain> <4229FA32.4000401@pobox.com> <02a49476862ae18433e5b80aafa616fd@libero.it> <20050306001546.GE25116@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0 (Apple Message framework v619.2)
-Content-Type: text/plain; charset=US-ASCII; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-In-Reply-To: <20050306001546.GE25116@electric-eye.fr.zoreil.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 3/3 XFRM]: Fix invalid key for lookup of cached bundles
+Date: Sun, 06 Mar 2005 21:29:34 +1100
+Message-ID: <E1D7t0w-0008Qa-00@gondolin.me.apana.org.au>
+References: <4229BB3E.8020203@trash.net>
+Cc: davem@davemloft.net, netdev@oss.sgi.com
+To: kaber@trash.net (Patrick McHardy)
+In-Reply-To: <4229BB3E.8020203@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
-On 06/mar/05, at 01:15, Francois Romieu wrote:
-
-> Daniele Venzano <webvenza@libero.it> :
-> [...]
->> I saw the locking, but I couldn't come up with a reason for it. Is it
->> needed because of kernel wide preemption ?
+Patrick McHardy <kaber@trash.net> wrote:
 >
-> Usually you do not want simultaneous accesses to the mii interface
-> (link events, Tx timeout recovery or so).
->
-> From a quick glance at the sis900 driver, I would expect the lock to
-> protect against sis900_timer() (assuming you add a simple spinlock to
-> it as well).
-Yes, that makes sense. Will do.
+> @@ -97,6 +104,7 @@
+>  		err = xfrm_dst_lookup((struct xfrm_dst**)&rt, &fl_tunnel, AF_INET);
+>  		if (err)
+>  			goto error;
+> +		rt->u.dst.flags |= DST_XFRM_TUNNEL;
 
-Thanks.
+This line doesn't look right.  rt is an entry in the IPv4 routing
+cache, right? If so why should its flags change when some bundle is
+created?
 
---
-Daniele Venzano
-http://www.brownhat.org
+After all, it could also be used at the bottom of a transport mode bundle.
+
+Besides, I think IPv4 routing cache entry will never show up at the top of
+a bundle anyway which means that this flags value will never be read in
+the find_bundle function.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
