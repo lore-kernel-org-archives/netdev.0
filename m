@@ -1,64 +1,38 @@
-From: Harald Welte <laforge@netfilter.org>
-Subject: Re: [netfilter-core] [NETFILTER] Apply IPsec to ipt_REJECT packets
-Date: Wed, 24 Nov 2004 08:29:53 +0100
-Message-ID: <20041124072953.GS19371@sunbeam.de.gnumonks.org>
-References: <20041123084225.GA3514@gondor.apana.org.au> <41A37EC0.8010901@trash.net> <20041123211630.GA9805@gondor.apana.org.au> <41A3AF41.4010700@trash.net> <20041123221900.GA10099@gondor.apana.org.au> <41A3CD45.4080802@trash.net>
+From: Magnus Damm <magnus.damm@gmail.com>
+Subject: Re: [PATCH] ipconfig schedule fix
+Date: Wed, 24 Nov 2004 00:42:17 +0100
+Message-ID: <aec7e5c304112315426594dc72@mail.gmail.com>
+References: <aec7e5c3041123145030b75d14@mail.gmail.com>
+	 <20041123151855.1864659a.davem@davemloft.net>
+Reply-To: Magnus Damm <magnus.damm@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="/UvyDgxjlFfP/4zZ"
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com,
-        coreteam@netfilter.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <41A3CD45.4080802@trash.net>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20041123151855.1864659a.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Tue, 23 Nov 2004 15:18:55 -0800, David S. Miller <davem@davemloft.net> wrote:
+> On Tue, 23 Nov 2004 23:50:35 +0100
+> 
+> 
+> Magnus Damm <magnus.damm@gmail.com> wrote:
+> 
+> > This simple patch makes the DHCP/BOOTP/RARP code sleep with
+> > schedule_timeout() instead of hogging the cpu with cpu_relax() in a
+> > loop. This comes handy when a guest kernel is booted inside QEMU.
+> > Without the patch, the host operating system will consume cpu time
+> > busy waiting.
+> 
+> There are two similar loops involving CONF_PRE_OPEN and CONF_POST_OPEN,
+> you may wish to hit those while you're at it.
 
---/UvyDgxjlFfP/4zZ
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Huh? You mean _removing_ the timeouts involving CONF_PRE/POST_OPEN? I
+thought my patch converted all busy waits into schedule_timeout()...
+What am I missing?
 
-On Wed, Nov 24, 2004 at 12:52:37AM +0100, Patrick McHardy wrote:
-
-> I would prefer something like this (based on your patch, untested).=20
-> Currently
-> ICMP packets are handled different than TCP packets, saddr is set to 0 for
-> them if it is non-local, so they can't be source-routed properly. This pa=
-tch
-> also uses route_reverse for ICMP packets, properly sets fl->proto for out=
-put
-> routed packets and adds a call to xfrm_lookup for input routed packets.
-
-Just a quick side note: Once we've found a final solution, please don't
-forget to merge the changes to ip6t_REJECT in patch-o-matic.
-
-> Regards
-> Patrick
---=20
-- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-  "Fragmentation is like classful addressing -- an interesting early
-   architectural error that shows how much experimentation was going
-   on while IP was being designed."                    -- Paul Vixie
-
---/UvyDgxjlFfP/4zZ
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
-
-iD8DBQFBpDhwXaXGVTD0i/8RAnpIAJ9a2hlHV206EpSWsqfMWL8T4XiorwCeJ33f
-LMgvjamQbrB0L62zmuf0ZZw=
-=bI85
------END PGP SIGNATURE-----
-
---/UvyDgxjlFfP/4zZ--
+/ magnus
