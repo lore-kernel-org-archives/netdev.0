@@ -1,43 +1,59 @@
-From: Hasso Tepper <hasso@estpak.ee>
-Subject: Re: Link detection
-Date: Mon, 14 Mar 2005 20:41:21 +0200
-Message-ID: <200503142041.21451.hasso@estpak.ee>
-References: <200503141435.38227.hasso@estpak.ee> <200503141605.02959.hasso@estpak.ee> <20050314145710.GO31837@postel.suug.ch>
+From: Harald Welte <laforge@gnumonks.org>
+Subject: Re: ip6t_LOG.c: patch killing spaces on ouput of IPv4 address on TUNNEL=
+Date: Mon, 14 Mar 2005 09:06:28 +0100
+Message-ID: <20050314080628.GE19298@obroa-skai.de.gnumonks.org>
+References: <DB755B5F6CF46771B8607810@worker.muc.bieringer.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: netdev@oss.sgi.com
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050314145710.GO31837@postel.suug.ch>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="hcut4fGOf7Kh6EdG"
+Cc: Maillist netdev <netdev@oss.sgi.com>, David Miller <davem@redhat.com>
+To: Peter Bieringer <pb@bieringer.de>
 Content-Disposition: inline
+In-Reply-To: <DB755B5F6CF46771B8607810@worker.muc.bieringer.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Thomas Graf wrote:
-> * Hasso Tepper <200503141605.02959.hasso@estpak.ee> 2005-03-14 16:05
-> > I think that you misunderstood. I don't talk about any routes created
-> > by any user space applications or by user. These _must_ be untouched of
-> > course. I'm talking about routes _kernel_ creates if address is added
-> > to the interface. All other routes are not problem anyway. Even if
-> > their next hop points to network behind down interface, their next hop
-> > is unreachable and route shouldn't be used, no?
->
-> Makes a lot more sense now. Yes, the nexthops should be marked
-> unreachable since the routing cache flushed upon a NETDEV_CHANGE.
->
-> What about setting RFT_REJECT/RTN_UNREACHABLE on those routes for the
-> time the carrier is gone?
 
->From users' point of view I think that any solution is acceptable which 
-prevents kernel to actually use these routers if carrier is down. And 
-setting flags might be less expensive of course.
+--hcut4fGOf7Kh6EdG
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
+On Sat, Mar 05, 2005 at 05:01:53PM +0100, Peter Bieringer wrote:
+> Hi,
+>=20
+> I'm still wondering that this was never fixed since 3 years:
 
-with my best wishes,
+Because it presumably breaks existing scripts that expect it to be in
+the broken (speced) format.
 
--- 
-Hasso Tepper
-Elion Enterprises Ltd.
-WAN administrator
+I'm not particularly for or against that change... but whatever I do,
+somebody will always be complaining.  To make you happy and have someone
+else complain next time ;)
+
+Signed-off-by: Harald Welte <laforge@netfilter.org>
+
+--=20
+- Harald Welte <laforge@gnumonks.org>               http://www.gnumonks.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+Programming is like sex: One mistake and you have to support it your lifeti=
+me
+
+--hcut4fGOf7Kh6EdG
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQFCNUYEXaXGVTD0i/8RAnl8AJwN3JUwaAPT8gQzzAYMxY2gm7lGIACgq5tN
+3SV5q4TW3C4v+44aVcXmNzc=
+=lBrC
+-----END PGP SIGNATURE-----
+
+--hcut4fGOf7Kh6EdG--
