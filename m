@@ -1,8 +1,8 @@
 From: Amir Noam <amir.noam@intel.com>
-Subject: [PATCH 4/4] [bonding 2.4] Support old commands over new bonding ioctl
-Date: Thu, 8 Jan 2004 18:25:53 +0200
+Subject: [PATCH 2/4] [bonding 2.6] Reduce usage of the global value of abi_ver
+Date: Thu, 8 Jan 2004 18:28:53 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200401081825.54932.amir.noam@intel.com>
+Message-ID: <200401081828.54991.amir.noam@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
@@ -14,179 +14,192 @@ Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Support old commands (enslave, release, change-active) over the new
-bonding ioctl (SIOCBONDDEVICE).
+- Reduce usage of the global values of the ABI version received from
+the application. Instead, pass it as a function argument were needed.
+
+- Save a new slave's original HW address regardless of ABI version.
+
+- Move the clearing of the bond's address and some references to the
+bond's params structure so they are protected by the relevant locks.
 
 
 diff -Nuarp a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
---- a/drivers/net/bonding/bond_main.c	Thu Jan  8 18:03:27 2004
-+++ b/drivers/net/bonding/bond_main.c	Thu Jan  8 18:03:29 2004
-@@ -1955,6 +1955,86 @@ static int bond_ethtool_ioctl(struct net
- 	}
+--- a/drivers/net/bonding/bond_main.c	Thu Jan  8 18:06:45 2004
++++ b/drivers/net/bonding/bond_main.c	Thu Jan  8 18:06:46 2004
+@@ -561,6 +561,11 @@ static int arp_ip_count	= 0;
+ static u32 my_ip	= 0;
+ static int bond_mode	= BOND_MODE_ROUNDROBIN;
+ static int lacp_fast	= 0;
++
++/* The global abi_ver vars are only for providing backward compatibility with
++ * versions that locked bonding into using only the first abi_ver it has seen
++ * from userspace.
++ */
+ static int app_abi_ver	= 0;
+ static int orig_app_abi_ver = -1; /* This is used to save the first ABI version
+ 				   * we receive from the application. Once set,
+@@ -1207,7 +1212,7 @@ static int bond_sethwaddr(struct net_dev
  }
  
-+static int bond_ioctl_slave_dev(struct bonding *bond, int cmd, void *addr)
-+{
-+	struct bond_ioctl_cmd bond_cmd;
-+	struct net_device *slave_dev;
-+	int prev_abi_ver = app_abi_ver;
-+	int prev_orig_abi_ver = orig_app_abi_ver;
-+	int res = 0;
-+
-+	if (copy_from_user(&bond_cmd, addr, sizeof(bond_cmd))) {
-+		return -EFAULT;
-+	}
-+
-+	bond_cmd.ifname[IFNAMSIZ - 1] = 0;
-+
-+	slave_dev = dev_get_by_name(bond_cmd.ifname);
-+	if (!slave_dev) {
-+		return -ENODEV;
-+	}
-+
-+	/* This is for backward compatibility only.
-+	 * Unconditionaly set both global abi_ver vars so we can block
-+	 * old ioctls in bond_do_ioctl().
-+	 */
-+	orig_app_abi_ver = bond_cmd.abi_ver;
-+	app_abi_ver = bond_cmd.abi_ver;
-+
-+	switch (cmd) {
-+	case BOND_CMD_ENSLAVE:
-+		res = bond_enslave(bond->dev, slave_dev, bond_cmd.abi_ver);
-+		break;
-+
-+	case BOND_CMD_RELEASE:
-+		res = bond_release(bond->dev, slave_dev);
-+		break;
-+
-+	case BOND_CMD_CHANGE_ACTIVE:
-+		res = bond_ioctl_change_active(bond->dev, slave_dev);
-+		break;
-+
-+	default:
-+		res = -EOPNOTSUPP;
-+		break;
-+	}
-+
-+	dev_put(slave_dev);
-+
-+	if (res < 0) {
-+		/* The ioctl failed, so there's no point in changing the
-+		 * orig_app_abi_ver. We'll restore it's value just in case
-+		 * we've changed it earlier in this function.
-+		 */
-+		app_abi_ver = prev_abi_ver;
-+		orig_app_abi_ver = prev_orig_abi_ver;
-+	}
-+
-+	return res;
-+}
-+
-+static int bond_ioctl_device(struct bonding *bond, void *addr)
-+{
-+	u32 cmd;
-+
-+	if (get_user(cmd, (u32 *) addr)) {
-+		return -EFAULT;
-+	}
-+
-+	switch (cmd) {
-+	case BOND_CMD_ENSLAVE:
-+	case BOND_CMD_RELEASE:
-+	case BOND_CMD_CHANGE_ACTIVE:
-+		/* these ioctl cmds receive a slave name as an arg */
-+		return bond_ioctl_slave_dev(bond, cmd, addr);
-+
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+
-+	return 0;
-+}
-+
- static int bond_info_query(struct net_device *bond_dev, struct ifbond *info)
+ /* enslave device <slave> to bond device <master> */
+-static int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
++static int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev, int abi_ver)
  {
  	struct bonding *bond = bond_dev->priv;
-@@ -3214,6 +3294,7 @@ static struct net_device_stats *bond_get
+ 	struct slave *new_slave = NULL;
+@@ -1234,7 +1239,7 @@ static int bond_enslave(struct net_devic
+ 		return -EBUSY;
+ 	}
  
- static int bond_do_ioctl(struct net_device *bond_dev, struct ifreq *ifr, int cmd)
- {
-+	struct bonding *bond = bond_dev->priv;
- 	struct net_device *slave_dev = NULL;
- 	struct ifbond *u_binfo = NULL, k_binfo;
- 	struct ifslave *u_sinfo = NULL, k_sinfo;
-@@ -3224,6 +3305,10 @@ static int bond_do_ioctl(struct net_devi
- 	dprintk("bond_ioctl: master=%s, cmd=%d\n",
- 		bond_dev->name, cmd);
+-	if (app_abi_ver >= 1) {
++	if (abi_ver >= 1) {
+ 		/* The application is using an ABI, which requires the
+ 		 * slave interface to be closed.
+ 		 */
+@@ -1289,13 +1294,12 @@ static int bond_enslave(struct net_devic
+ 	 */
+ 	new_slave->original_flags = slave_dev->flags;
  
-+	if (!capable(CAP_NET_ADMIN)) {
-+		return -EPERM;
+-	if (app_abi_ver >= 1) {
+-		/* save slave's original ("permanent") mac address for
+-		 * modes that needs it, and for restoring it upon release,
+-		 * and then set it to the master's address
+-		 */
+-		memcpy(new_slave->perm_hwaddr, slave_dev->dev_addr, ETH_ALEN);
++	/* save slave's original ("permanent") mac address for restoring it
++	 * upon release
++	 */
++	memcpy(new_slave->perm_hwaddr, slave_dev->dev_addr, ETH_ALEN);
+ 
++	if (abi_ver >= 1) {
+ 		/* set slave to master's mac address
+ 		 * The application already set the master's
+ 		 * mac address to that of the first slave
+@@ -1319,7 +1323,7 @@ static int bond_enslave(struct net_devic
+ 	res = netdev_set_master(slave_dev, bond_dev);
+ 	if (res) {
+ 		dprintk("Error %d calling netdev_set_master\n", res);
+-		if (app_abi_ver < 1) {
++		if (abi_ver < 1) {
+ 			goto err_free;
+ 		} else {
+ 			goto err_close;
+@@ -1520,7 +1524,7 @@ static int bond_enslave(struct net_devic
+ 
+ 	write_unlock_bh(&bond->lock);
+ 
+-	if (app_abi_ver < 1) {
++	if (abi_ver < 1) {
+ 		/*
+ 		 * !!! This is to support old versions of ifenslave.
+ 		 * We can remove this in 2.5 because our ifenslave takes
+@@ -1689,6 +1693,14 @@ static int bond_release(struct net_devic
+ 		}
+ 	}
+ 
++	if (bond->slave_cnt == 0) {
++		/* if the last slave was removed, zero the mac address
++		 * of the master so it will be set by the application
++		 * to the mac address of the first slave
++		 */
++		memset(bond_dev->dev_addr, 0, bond_dev->addr_len);
 +	}
 +
- 	switch (cmd) {
- 	case SIOCETHTOOL:
- 		return bond_ethtool_ioctl(bond_dev, ifr);
-@@ -3245,7 +3330,6 @@ static int bond_do_ioctl(struct net_devi
- 		}
+ 	write_unlock_bh(&bond->lock);
  
- 		if (mii->reg_num == 1) {
--			struct bonding *bond = bond_dev->priv;
- 			mii->val_out = 0;
- 			read_lock_bh(&bond->lock);
- 			read_lock(&bond->curr_slave_lock);
-@@ -3289,13 +3373,19 @@ static int bond_do_ioctl(struct net_devi
- 		}
+ 	/* If the mode USES_PRIMARY, then we should only remove its
+@@ -1715,12 +1727,10 @@ static int bond_release(struct net_devic
+ 	/* close slave before restoring its mac address */
+ 	dev_close(slave_dev);
  
- 		return res;
-+	case SIOCBONDDEVICE:
-+		return bond_ioctl_device(bond, ifr->ifr_data);
-+
- 	default:
- 		/* Go on */
- 		break;
- 	}
+-	if (app_abi_ver >= 1) {
+-		/* restore original ("permanent") mac address */
+-		memcpy(addr.sa_data, slave->perm_hwaddr, ETH_ALEN);
+-		addr.sa_family = slave_dev->type;
+-		slave_dev->set_mac_address(slave_dev, &addr);
+-	}
++	/* restore original ("permanent") mac address */
++	memcpy(addr.sa_data, slave->perm_hwaddr, ETH_ALEN);
++	addr.sa_family = slave_dev->type;
++	slave_dev->set_mac_address(slave_dev, &addr);
  
--	if (!capable(CAP_NET_ADMIN)) {
--		return -EPERM;
-+	if (orig_app_abi_ver > 2) {
-+		/* Refuse to support old ioctls if the app has already
-+		 * declared it is new enough for SIOCBONDDEVICE commands.
-+		 */
-+		return -EOPNOTSUPP;
- 	}
+ 	/* restore the original state of the
+ 	 * IFF_NOARP flag that might have been
+@@ -1732,14 +1742,6 @@ static int bond_release(struct net_devic
  
- 	if (orig_app_abi_ver == -1) {
-diff -Nuarp a/include/linux/if_bonding.h b/include/linux/if_bonding.h
---- a/include/linux/if_bonding.h	Thu Jan  8 18:03:27 2004
-+++ b/include/linux/if_bonding.h	Thu Jan  8 18:03:29 2004
-@@ -112,6 +112,9 @@ struct ad_info {
- #define BOND_CMD_DRV_INFO	0x00000001
- #define BOND_CMD_ADD_BOND	0x00000002
- #define BOND_CMD_DEL_BOND	0x00000003
-+#define BOND_CMD_ENSLAVE	0x00000004
-+#define BOND_CMD_RELEASE	0x00000005
-+#define BOND_CMD_CHANGE_ACTIVE	0x00000006
+ 	kfree(slave);
  
- /**
-  * bond_ioctl_drv_info
-@@ -127,6 +130,19 @@ struct bond_ioctl_drv_info {
- 	char reserved[32];
- };
+-	/* if the last slave was removed, zero the mac address
+-	 * of the master so it will be set by the application
+-	 * to the mac address of the first slave
+-	 */
+-	if (bond->slave_cnt == 0) {
+-		memset(bond_dev->dev_addr, 0, bond_dev->addr_len);
+-	}
+-
+ 	return 0;  /* deletion OK */
+ }
  
-+/**
-+ * bond_ioctl_cmd
-+ *
-+ * %BOND_CMD_ENSLAVE, %BOND_CMD_RELEASE and %BOND_CMD_CHANGE_ACTIVE pass the
-+ * name of the slave to work on in @ifname.
-+ */
-+struct bond_ioctl_cmd {
-+	__u32 cmd;
-+	__u32 abi_ver;
-+	__u32 num_prms;
-+	char ifname[IFNAMSIZ];
-+};
-+
- #endif /* _LINUX_IF_BONDING_H */
+@@ -1812,12 +1814,10 @@ static int bond_release_all(struct net_d
+ 		/* close slave before restoring its mac address */
+ 		dev_close(slave_dev);
  
- /*
+-		if (app_abi_ver >= 1) {
+-			/* restore original ("permanent") mac address*/
+-			memcpy(addr.sa_data, slave->perm_hwaddr, ETH_ALEN);
+-			addr.sa_family = slave_dev->type;
+-			slave_dev->set_mac_address(slave_dev, &addr);
+-		}
++		/* restore original ("permanent") mac address*/
++		memcpy(addr.sa_data, slave->perm_hwaddr, ETH_ALEN);
++		addr.sa_family = slave_dev->type;
++		slave_dev->set_mac_address(slave_dev, &addr);
+ 
+ 		/* restore the original state of the IFF_NOARP flag that might have
+ 		 * been set by bond_set_slave_inactive_flags()
+@@ -1958,10 +1958,9 @@ static int bond_info_query(struct net_de
+ {
+ 	struct bonding *bond = bond_dev->priv;
+ 
++	read_lock_bh(&bond->lock);
+ 	info->bond_mode = bond->params.mode;
+ 	info->miimon = bond->params.miimon;
+-
+-	read_lock_bh(&bond->lock);
+ 	info->num_slaves = bond->slave_cnt;
+ 	read_unlock_bh(&bond->lock);
+ 
+@@ -2754,16 +2753,14 @@ static void bond_info_show_slave(struct 
+ 	seq_printf(seq, "Link Failure Count: %d\n",
+ 		   slave->link_failure_count);
+ 
+-	if (app_abi_ver >= 1) {
+-		seq_printf(seq,
+-			   "Permanent HW addr: %02x:%02x:%02x:%02x:%02x:%02x\n",
+-			   slave->perm_hwaddr[0],
+-			   slave->perm_hwaddr[1],
+-			   slave->perm_hwaddr[2],
+-			   slave->perm_hwaddr[3],
+-			   slave->perm_hwaddr[4],
+-			   slave->perm_hwaddr[5]);
+-	}
++	seq_printf(seq,
++		   "Permanent HW addr: %02x:%02x:%02x:%02x:%02x:%02x\n",
++		   slave->perm_hwaddr[0],
++		   slave->perm_hwaddr[1],
++		   slave->perm_hwaddr[2],
++		   slave->perm_hwaddr[3],
++		   slave->perm_hwaddr[4],
++		   slave->perm_hwaddr[5]);
+ 
+ 	if (bond->params.mode == BOND_MODE_8023AD) {
+ 		const struct aggregator *agg
+@@ -3325,7 +3322,7 @@ static int bond_do_ioctl(struct net_devi
+ 		switch (cmd) {
+ 		case BOND_ENSLAVE_OLD:
+ 		case SIOCBONDENSLAVE:
+-			res = bond_enslave(bond_dev, slave_dev);
++			res = bond_enslave(bond_dev, slave_dev, app_abi_ver);
+ 			break;
+ 		case BOND_RELEASE_OLD:
+ 		case SIOCBONDRELEASE:
