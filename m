@@ -1,28 +1,27 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH][ATM]: [clip] fix race between modifying entry->vccs and
- clip_start_xmit()
-Date: Mon, 15 Sep 2003 15:02:17 -0700
+Subject: Re: [PATCH] Convert ipvs to use seq_file.
+Date: Mon, 15 Sep 2003 15:01:04 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030915150217.06b03168.davem@redhat.com>
-References: <20030915225901.A22239@electric-eye.fr.zoreil.com>
-	<200309152159.h8FLx1Sa005910@ginger.cmf.nrl.navy.mil>
+Message-ID: <20030915150104.677c25a0.davem@redhat.com>
+References: <37328159548B4242A34141B1A69CDB73031BAAAE@exchange.sidestep.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, netdev@oss.sgi.com
+Cc: lvs-users@LinuxVirtualServer.org, shemminger@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: chas williams <chas@cmf.nrl.navy.mil>
-In-Reply-To: <200309152159.h8FLx1Sa005910@ginger.cmf.nrl.navy.mil>
+To: Peter Mueller <pmueller@sidestep.com>
+In-Reply-To: <37328159548B4242A34141B1A69CDB73031BAAAE@exchange.sidestep.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 15 Sep 2003 17:59:02 -0400
-chas williams <chas@cmf.nrl.navy.mil> wrote:
+On Mon, 15 Sep 2003 14:56:59 -0700
+Peter Mueller <pmueller@sidestep.com> wrote:
 
-> this is triggered by vcc_destroy_sock(), which is part of vcc_release()
-> which is always going to be in user context.  its a bit subtle but
-> there is no path to unlink_clip_vcc() that isnt in user context.
+> Hello Stephen,
+> 
+> > P.s: how come there is no MAINTAINER listed for IPVS?
+> 
+> Wensong Zhang is the maintainer; where did you expect to see a maintainer
+> listed at?
 
-Are you really totally sure that no interrupt path can release
-a VCC?  That's not how I understood this stuff to work last time
-I looked at it.
+Where it belongs, in the "linux/MAINTAINERS" file.
