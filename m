@@ -1,38 +1,29 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: [fw@deneb.enyo.de: Route cache performance under stress]
-Date: Sun, 6 Apr 2003 19:20:56 +0200
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] skb_headlen() cleanup
+Date: Sun, 06 Apr 2003 23:58:58 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <16016.25080.233350.191885@robur.slu.se>
-References: <20030405165016.GA32361@outpost.ds9a.nl>
-	<20030405134350.N68419@shell.cyberus.ca>
-	<873ckwftal.fsf@deneb.enyo.de>
-	<20030405180607.P68419@shell.cyberus.ca>
-	<87n0j3ltf0.fsf@deneb.enyo.de>
-	<20030406110728.G68419@shell.cyberus.ca>
-	<87wui71st8.fsf@deneb.enyo.de>
+Message-ID: <20030406.235858.74068211.davem@redhat.com>
+References: <Mutt.LNX.4.44.0304070230370.26415-100000@blackbird.intercode.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jamal <hadi@cyberus.ca>, netdev@oss.sgi.com
+Cc: kuznet@ms2.inr.ac.ru, jgarzik@pobox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Florian Weimer <fw@deneb.enyo.de>
-In-Reply-To: <87wui71st8.fsf@deneb.enyo.de>
+To: jmorris@intercode.com.au
+In-Reply-To: <Mutt.LNX.4.44.0304070230370.26415-100000@blackbird.intercode.com.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+   From: James Morris <jmorris@intercode.com.au>
+   Date: Mon, 7 Apr 2003 02:34:34 +1000 (EST)
 
-Florian Weimer writes:
- > jamal <hadi@cyberus.ca> writes:
- > 
- > > cat /proc/net/rt_cache_stat
- > > Should give us a lot more info.
-
- You can use rtstat to read it.
- robur.slu.se:
- /pub/Linux/net-development/rt_cache_stat/rtstat.c
-
- It's in iproute2 package too but it seems to be an older version.
-
- Cheers.
-
-						-ro
+   A few bits of code in the drivers and networking are using:
+   
+     skb->len - skb->data_len
+   
+   which is what skb_headlen() calculates.
+   
+   The patch below (against recent 2.5 bk) converts these to use 
+   skb_headlen().
+   
+Applied, thanks James.
