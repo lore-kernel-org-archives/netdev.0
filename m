@@ -1,173 +1,126 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] e100 driver crashes with ethtool
-Date: Thu, 11 Dec 2003 17:07:20 -0800
+From: Antony Lesuisse <netdev-list@udev.org>
+Subject: How to bypass the local routing table, to simulate a hub
+Date: Fri, 12 Dec 2003 03:17:17 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031211170720.2a5bb4ca.shemminger@osdl.org>
+Message-ID: <20031212021717.GA5695@udev.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Feldman, Scott" <scott.feldman@intel.com>,
-        "David S. Miller"
- <davem@redhat.com>, Jeff Garzik <jgarzik@pobox.com>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The e100 driver in 2.6.0-test11 crashes when ever a ethtool command
-would initiate a board reset.  The problem is bogus __devinit attributes
-on functions that can be called from the ethtool ioctl code.
+Imagine, on a linux box, having 3 different network interfaces on the
+same switch.  It is for simulating a network, using virtual tun/tap
+interface:
 
-diff -Nru a/drivers/net/e100/e100_config.c b/drivers/net/e100/e100_config.c
---- a/drivers/net/e100/e100_config.c	Thu Dec 11 17:03:50 2003
-+++ b/drivers/net/e100/e100_config.c	Thu Dec 11 17:03:50 2003
-@@ -60,7 +60,7 @@
-  * All other init functions will only set values that are
-  * different from the 82557 default.
-  */
--void __devinit
-+void
- e100_config_init_82557(struct e100_private *bdp)
- {
- 	/* initialize config block */
-@@ -104,7 +104,7 @@
- 	e100_config_mulcast_enbl(bdp, false);
- }
- 
--static void __devinit
-+static void
- e100_config_init_82558(struct e100_private *bdp)
- {
- 	/* MWI enable. This should be turned on only if the adapter is a 82558/9
-@@ -136,7 +136,7 @@
- 	e100_config_long_rx(bdp, true);
- }
- 
--static void __devinit
-+static void
- e100_config_init_82550(struct e100_private *bdp)
- {
- 	/* The D102 chip allows for 32 config bytes.  This value is
-@@ -160,7 +160,7 @@
- }
- 
- /* Initialize the adapter's configure block */
--void __devinit
-+void
- e100_config_init(struct e100_private *bdp)
- {
- 	e100_config_init_82557(bdp);
-diff -Nru a/drivers/net/e100/e100_main.c b/drivers/net/e100/e100_main.c
---- a/drivers/net/e100/e100_main.c	Thu Dec 11 17:03:50 2003
-+++ b/drivers/net/e100/e100_main.c	Thu Dec 11 17:03:50 2003
-@@ -1290,7 +1290,7 @@
-  *      true: if S/W was successfully initialized
-  *      false: otherwise
-  */
--static unsigned char __devinit
-+static unsigned char
- e100_sw_init(struct e100_private *bdp)
- {
- 	bdp->next_cu_cmd = START_WAIT;	// init the next cu state
-@@ -1318,7 +1318,7 @@
- 	return 1;
- }
- 
--static void __devinit
-+static void
- e100_tco_workaround(struct e100_private *bdp)
- {
- 	int i;
-@@ -2508,7 +2508,7 @@
-  *      true: if successfully cleared stat counters
-  *      false: otherwise
-  */
--static unsigned char __devinit
-+static unsigned char
- e100_clr_cntrs(struct e100_private *bdp)
- {
- 	volatile u32 *pcmd_complete;
-@@ -2873,7 +2873,7 @@
- /***************************************************************************/
- 
- /* Read PWA (printed wired assembly) number */
--void __devinit
-+static void __devinit
- e100_rd_pwa_no(struct e100_private *bdp)
- {
- 	bdp->pwa_no = e100_eeprom_read(bdp, EEPROM_PWA_NO);
-@@ -2882,7 +2882,7 @@
- }
- 
- /* Read the permanent ethernet address from the eprom. */
--void __devinit
-+static void __devinit
- e100_rd_eaddr(struct e100_private *bdp)
- {
- 	int i;
-diff -Nru a/drivers/net/e100/e100_phy.c b/drivers/net/e100/e100_phy.c
---- a/drivers/net/e100/e100_phy.c	Thu Dec 11 17:03:50 2003
-+++ b/drivers/net/e100/e100_phy.c	Thu Dec 11 17:03:50 2003
-@@ -132,7 +132,7 @@
- 	}
- }
- 
--static unsigned char __devinit
-+static unsigned char
- e100_phy_valid(struct e100_private *bdp, unsigned int phy_address)
- {
- 	u16 ctrl_reg, stat_reg;
-@@ -150,7 +150,7 @@
- 	return true;
- }
- 
--static void __devinit
-+static void
- e100_phy_address_detect(struct e100_private *bdp)
- {
- 	unsigned int addr;
-@@ -180,7 +180,7 @@
- 	}
- }
- 
--static void __devinit
-+static void
- e100_phy_id_detect(struct e100_private *bdp)
- {
- 	u16 low_id_reg, high_id_reg;
-@@ -204,7 +204,7 @@
- 		      ((unsigned int) high_id_reg << 16));
- }
- 
--static void __devinit
-+static void
- e100_phy_isolate(struct e100_private *bdp)
- {
- 	unsigned int phy_address;
-@@ -227,7 +227,7 @@
- 	}
- }
- 
--static unsigned char __devinit
-+static unsigned char
- e100_phy_specific_setup(struct e100_private *bdp)
- {
- 	u16 misc_reg;
-@@ -380,7 +380,7 @@
-  * Returns:
-  *	NOTHING
-  */
--static void __devinit
-+static void
- e100_fix_polarity(struct e100_private *bdp)
- {
- 	u16 status;
-@@ -916,7 +916,7 @@
- 	schedule_timeout(HZ / 2);
- }
- 
--unsigned char __devinit
-+unsigned char
- e100_phy_init(struct e100_private *bdp)
- {
- 	e100_phy_reset(bdp);
+
+----------------+-----+------------------------
+Hub    simulator|Linux| Userspaces apps
+                |     |
+             ?--|-----|--- tap0 192.168.1.1
+             ?  |     |
+/dev/net/tun ?--|-----|--- tap1 192.168.1.2
+             ?  |     |
+             ?--|-----|--- tap2 192.168.1.3
+                |     |
+----------------+-----+-----------------------
+
+How can you tell the linux networking stack that a packet for 192.168.1.2 has
+to be sent via the network interface tap0 or tap2 (according to the sin_addr)
+to the WIRE and be received by tap1?
+
+I would like that, for packets that comes from process, the kernel
+doesn't recognize the dest ip as local so that the packet will be sent
+over the interface even if there is an other interface configurated with
+the destination ip on the same kernel.
+
+For example i will configure a HTTP server on tap2 binding 192.168.1.3:80
+and i will launch an HTTP client binding IP 192.168.1.1 trying to make
+TCP connection to 192.168.1.3:80 doing a GET. Everything on the same
+computer. My hub simulator will sometimes simulate packet loss.
+
+    ping -I tap0 192.168.1.2 should go trought my simulator and not use lo.
+
+    ping 192.168.1.2 should go trought my simulator (ie using 192.168.1.1) as source
+
+Acoording to my understanting of the linux network stack the problem is that
+there is no way to skip the lookup in the local routing table:
+
+You cannot change the 0: of ip rules
+
+ip rule:
+	0:	from all lookup local 
+	32766:	from all lookup main 
+	32767:	from all lookup default 
+
+ip route show table local:
+	local 192.168.1.1 dev eth0  proto kernel  scope host  src 192.168.1.1 
+	local 192.168.1.2 dev eth0  proto kernel  scope host  src 192.168.1.2 
+	local 192.168.1.3 dev eth0  proto kernel  scope host  src 192.168.1.3 
+	...
+
+Somebody on irc told me to do something like this:
+
+	iptables -A PREROUTING -t mangle -p tcp -s MYIP1 -j MARK --set-mark 10
+	iptables -A PREROUTING -t mangle -p tcp -s MYIP2 -j MARK --set-mark 20
+	ip rule add fwmark 10 table first
+	ip rule add from MYIP1 to 0.0.0.0/0 lookup second
+	ip route add default via eth2 table second
+
+But it doesn't change the fact that linux still lookup the local routing
+table.
+
+TIA
+Antony Lesuisse
+
+BONUS: Here is my small (but fully functionnal) network hub simulator in python:
+
+#!/usr/bin/python2.2
+# hub with a probabilty of 0.9
+import fcntl,math,os,random,select,sys,time
+
+# TUN TAP kernel interface
+def net_alloc(name=""):
+	s = len(name)
+	if s>15:
+		raise "name too long"
+	fd = os.open("/dev/net/tun",os.O_RDWR)
+	print fd
+	if fd == -1:
+		raise "could not open /dev/net/tun"
+	ioctl_int = 0x400454ca
+	ioctl_ifreq = name+(16-s)*'\x00'+'\x02'+15*'\x00'
+	name = fcntl.ioctl(fd,ioctl_int,ioctl_ifreq)
+	name = name[:name.find('\x00')]
+	return (fd,name)
+
+# Contruction of a hub
+hub = []
+hubname = {}
+for i in range(2):
+	fd,name = net_alloc()
+	hub.append(fd)
+	hubname[fd]={'fd':fd, 'name':name}
+os.system("ifconfig -a")
+os.system("ifconfig tap0 192.168.66.1; ifconfig tap1 192.168.66.2")
+
+# hub simulation
+while 1:
+	(fdin,a,b) = select.select(hub,[],[],1.0)
+	print "event:",fdin
+	for i in fdin:
+		frame = os.read(i,2048)
+		print "%s:frame:%s"%(hubname[i]['name'],repr(frame))
+		for j in hub:
+			if j != i:
+				if random.random() < 0.9:
+					os.write(j,frame)
+				else:
+					print "lost:%s:to:%s"%(hubname[i]['name'],hubname[j]['name'])
+
+
+-- 
+Antony Lesuisse
+GPG EA2CCD66: 4B7F 6061 3DF5 F07A ACFF  F127 6487 54F7 EA2C CD66
