@@ -1,26 +1,56 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] 2.6.0-bk6 net/core/dev.c
-Date: Wed, 24 Sep 2003 10:17:47 -0700
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: assertion (dev->qdisc_list == NULL) failed at net/sched/sch_generic.c(530)
+Date: Wed, 24 Sep 2003 21:49:16 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1064423867.15283.11.camel@localhost.localdomain>
-References: <Pine.LNX.4.44.0309241012110.3178-100000@home.osdl.org>
+Message-ID: <20030924194916.GH21544@rei.reeler.org>
+References: <20030924161152.GA8683@vana.vc.cvut.cz>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: David S Miller <davem@redhat.com>,
-        Kernel Mailing List <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Linus Torvalds <torvalds@osdl.org>
-In-Reply-To: <Pine.LNX.4.44.0309241012110.3178-100000@home.osdl.org>
+To: Petr Vandrovec <vandrove@vc.cvut.cz>
+Content-Disposition: inline
+In-Reply-To: <20030924161152.GA8683@vana.vc.cvut.cz>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2003-09-24 at 10:13, Linus Torvalds wrote:
-> Looks sane, but wouldn't it be cleaner to put this ugly special case logic
-> with casts etc in an inline function and make the code a bit more readable
-> at the same time?
+Hi
 
-I've got those.
+> # insmod vmnet; netifup vmnet1; ifconfig vmnet1 1.2.3.4 up
+> /dev/vmnet: open called by PID 7413 (vmnet-netifup)
+> /dev/vmnet: port on hub 1 successfully opened
+> # ifconfig vmnet1 down
+> # rmmod vmnet
+> KERNEL: assertion (dev->qdisc_list == NULL) failed at net/sched/sch_generic.c(530)
 
-I've done the ((void*)1) conversions to PKT_SHARED_SKBs
-and found this missing.  I'll submit those separately.
+The following patch should solve the issue. I'm not sure yet
+whetever it's a good idea to apply the patch to the tree, but
+as every dev has a qdisc even if CONFIG_NET_SCHED is not set,
+it would make sense.
+
+	Thomas
+
+
+Index: net/sched/sch_generic.c
+===================================================================
+RCS file: /cvs/tgr/linux-26/net/sched/sch_generic.c,v
+retrieving revision 1.1.1.1.2.1
+diff -u -r1.1.1.1.2.1 sch_generic.c
+--- net/sched/sch_generic.c	21 Sep 2003 02:11:22 -0000	1.1.1.1.2.1
++++ net/sched/sch_generic.c	24 Sep 2003 19:36:19 -0000
+@@ -398,7 +398,6 @@
+ 
+ 	dev = qdisc->dev;
+ 
+-#ifdef CONFIG_NET_SCHED
+ 	if (dev) {
+ 		struct Qdisc *q, **qp;
+ 		for (qp = &qdisc->dev->qdisc_list; (q=*qp) != NULL; qp = &q->next) {
+@@ -411,7 +410,6 @@
+ #ifdef CONFIG_NET_ESTIMATOR
+ 	qdisc_kill_estimator(&qdisc->stats);
+ #endif
+-#endif
+ 	if (ops->reset)
+ 		ops->reset(qdisc);
+ 	if (ops->destroy)
