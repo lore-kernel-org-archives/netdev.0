@@ -1,34 +1,85 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [IPSEC]: Kill nested read lock by deleting xfrm_init_tempsel
-Date: Fri, 1 Apr 2005 17:20:07 -0800
-Message-ID: <20050401172007.7296eced.davem@davemloft.net>
-References: <20050214221006.GA18415@gondor.apana.org.au>
-	<20050214221200.GA18465@gondor.apana.org.au>
-	<20050214221433.GB18465@gondor.apana.org.au>
-	<20050214221607.GC18465@gondor.apana.org.au>
-	<424864CE.5060802@trash.net>
-	<20050328233917.GB15369@gondor.apana.org.au>
-	<424B40C2.90304@trash.net>
-	<20050331004658.GA26395@gondor.apana.org.au>
-	<20050331212325.5e996432.davem@davemloft.net>
-	<20050402004956.GA24339@gondor.apana.org.au>
+From: jamal <hadi@cyberus.ca>
+Subject: IPSEC: on behavior of acquire
+Date: 01 Apr 2005 20:25:44 -0500
+Message-ID: <1112405144.1096.33.camel@jzny.localdomain>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, kuznet@ms2.inr.ac.ru, jmorris@redhat.com,
-        yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
+Cc: psec-tools-devel@lists.sourceforge.net, netdev@oss.sgi.com,
+        kaber@trash.net, kuznet@ms2.inr.ac.ru, jmorris@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050402004956.GA24339@gondor.apana.org.au>
+To: Herbert Xu <herbert@gondor.apana.org.au>,
+        "David S. Miller" <davem@davemloft.net>,
+        Masahide NAKAMURA <nakam@linux-ipv6.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2 Apr 2005 10:49:56 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+Folks,
 
-> The second patch creates a dead lock since it does a nested read
-> lock.  The solution is simply to get rid of xfrm_init_tempsel
-> and call the afinfo version directly.
+Theres something wrong in the way acquire works - IMO in both pfkey
+and netlink. I asked this before but didnt get satisfactory answer.
+Masahide-san and myself have had private exchanges and we are both
+unsatisfied with current situation. Theres probably a spec or known good
+practise documented somewhere ...
 
-read locks nest even in the presence of pending writers
+Let me provide some testcases then theorize. The idea is to simulate
+a situation where the kernel thinks a km is listening (it could be there
+but just non-responsive) or just a scenario where the acquire gets lost.
+You need the current events patches to see this.
+
+test1)on one window run setkey -x:
+
+ping -c 1 someDST
+
+-1) packet arrives towards outbound
+0) Larval state created
+1) one acquire sent.
+2) timeout.
+3) packet dropped. -ESRCH returned.
+4) larval state deleted
+
+So question 1): Shouldnt the return code be -ERESTART to ask
+the app to retry?
+question 2) Why is there a hardcoding of 1 try only?
+
+ping -c2 someDST
+Same as above (Steps -1 to 4) repeated twice
+one for each packet sent
+
+ping -c3 DST
+Same as above repeated 3 times.
+
+test2) With ip x m (but not setkey).
+
+ping -c 1 DST
+
+-1) packet arrives
+0) Larval state created
+Loop:
+1) one acquire sent.
+2) timeout. go to loop.
+ 
+So loop has no way to break. ping is hang waiting.
+the only way to break out is by hitting control-c on prompt.
+I think ping gets a -ERESTART which i believe is the correct signal?
+When you hit control-c Larval state is deleted.
+
+Clearly this is not desirable. We want at some point to give up.
+Question: Can we have a configurable max retries (sysctl settable)
+for acquire - or does it already exist just not being used? Couldnt
+find any staring at the code.
+
+ping -c2/3 DST does not change the above behavior. Ping is hang after
+first packet - so it doesnt matter.
+
+The conclusion we reached in our discussion is:
+a) -ERESTART is the correct signal to return
+b) number of acquire retries should be configurable preferably a system
+wide value.
+
+Thoughts?
+
+cheers,
+jamal
