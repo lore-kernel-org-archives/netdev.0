@@ -1,46 +1,90 @@
-From: Stephen Smalley <sds@epoch.ncsc.mil>
-Subject: Re: 2.6.9-rc2-mm4-VP-S7 - ksoftirq and selinux oddity
-Date: Thu, 07 Oct 2004 09:56:07 -0400
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <1097157367.13339.38.camel@moss-spartans.epoch.ncsc.mil>
-References: <200410070542.i975gkHV031259@turing-police.cc.vt.edu>
+From: Colin Leroy <colin@colino.net>
+Subject: Re: [PATCH] Prevent netpoll hanging when link is down
+Date: Thu, 7 Oct 2004 16:05:32 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20041007160532.60c3f26b@pirandello>
+References: <20041006232544.53615761@jack.colino.net>
+	<20041006214322.GG31237@waste.org>
+	<20041007075319.6b31430d@jack.colino.net>
+	<20041006234912.66bfbdcc.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: lkml <linux-kernel@vger.kernel.org>, SELinux@tycho.nsa.gov,
-	Ingo Molnar <mingo@redhat.com>, netdev@oss.sgi.com,
-	linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
-In-Reply-To: <200410070542.i975gkHV031259@turing-police.cc.vt.edu>
+Cc: mpm@selenic.com, akpm@osdl.org, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20041006234912.66bfbdcc.davem@davemloft.net>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2004-10-07 at 01:42, Valdis.Kletnieks@vt.edu wrote:
-> audit(1097111349.727:0): avc:  denied  { tcp_recv } for  pid=2 comm=ksoftirqd/0 saddr=127.0.0.1 src=25 daddr=127.0.0.1 dest=59639 netif=lo scontext=system_u:system_r:fsdaemon_t tcontext=system_u:object_r:netif_lo_t tclass=netif
-> audit(1097111349.754:0): avc:  denied  { tcp_recv } for  pid=2 comm=ksoftirqd/0 saddr=127.0.0.1 src=25 daddr=127.0.0.1 dest=59639 netif=lo scontext=system_u:system_r:fsdaemon_t tcontext=system_u:object_r:node_lo_t tclass=node
-> audit(1097111349.782:0): avc:  denied  { recv_msg } for  pid=2 comm=ksoftirqd/0 saddr=127.0.0.1 src=25 daddr=127.0.0.1 dest=59639 netif=lo scontext=system_u:system_r:fsdaemon_t tcontext=system_u:object_r:smtp_port_t tclass=tcp_socket
-> 
-> At least for the recv_msg error, I *think* the message is generated because
-> when we get into net/socket.c, we call security_socket_recvmsg() in
-> __recv_msg() - and (possibly only when we have the VP patch applied?) at that
-> point we're in a softirqd context rather than the context of the process that
-> will finally receive the packet, so the SELinux code ends up checking the wrong
-> credentials.  I've not waded through the code enough to figure out exactly
-> where the two tcp_recv messages are generated, but I suspect the root cause is
-> the same for all three messages.
+On 06 Oct 2004 at 23h10, David S. Miller wrote:
 
-Valdis,
+Hi again, 
 
-These permission checks are based on the receiving socket security
-context, not any process security context, and are performed by the
-sock_rcv_skb hook when mediating packet receipt on a socket.  The
-auxiliary pid and comm or exe information is meaningless for such
-checks.  avc_audit could possibly be modified to check whether we are in
-softirq and omit them in those cases from the audit messages.  This has
-been discussed previously on the selinux mailing list, please see the
-archives.
+> Folks debugging this should verify that gp->hw_running is non-zero
+> when the problematic case runs.
 
--- 
-Stephen Smalley <sds@epoch.ncsc.mil>
-National Security Agency
+I looked a bit more at the code and found out a possible problem.
+However it doesn't fix the hang, so either it's not what I found, or
+there's something else.
 
+First, my newbie question: is it possible to deadlock a spinlock on a
+Uniprocessor kernel ? For example, there's something I find suspect in
+netpoll/sungem interaction:
+
+it starts in netpoll_send_skb(), where xmit_lock is acquired; then,
+gem_start_xmit() is called. In gem_start_xmit(), if the TX ring is full,
+we return 1, but previously log the error via printk(). 
+In this condition, isn't netpoll_send_skb() called again (via the whole
+console stuff), where it retries to get the lock on xmit_lock? Could
+that cause a deadlock?
+
+Also, at the end of netpoll_send_skb() is a check for the return status
+of hard_start_xmit. If I understand correctly, hard_start_xmit functions
+return 0 for success, -1 for "busy please retry" and 1 for "hard error".
+Shouldn't netpoll free the skb and forget about it in case status is 1
+(instead of goto'ing repeat) ?
+
+Based on this, I've a new patch that I'm attaching. As said it doesn't
+fix the problem, but if my I understood is valid, it may still be
+useful ? 
+
+Any insight will be greatly appreciated :)
+
+
+Patch following:
+--- a/net/core/netpoll.c	2004-10-05 21:09:49.000000000 +0200
++++ b/net/core/netpoll.c	2004-10-07 14:11:00.000000000 +0200
+@@ -188,7 +188,10 @@
+ 		return;
+ 	}
+ 
+-	spin_lock(&np->dev->xmit_lock);
++	if (!spin_trylock(&np->dev->xmit_lock)) {
++		/* looks like np->dev->hard_start_xmit did a printk */
++		goto bail_free;
++	}
+ 	np->dev->xmit_lock_owner = smp_processor_id();
+ 
+ 	/*
+@@ -204,13 +207,18 @@
+ 	}
+ 
+ 	status = np->dev->hard_start_xmit(skb, np->dev);
++
+ 	np->dev->xmit_lock_owner = -1;
+ 	spin_unlock(&np->dev->xmit_lock);
+ 
+-	/* transmit busy */
+-	if(status) {
++	if(status == -1) {
++		/* transmit busy */
+ 		netpoll_poll(np);
+ 		goto repeat;
++	} else if (status == 1) {
++		/* hard error, drop this skb */
++bail_free:
++		__kfree_skb(skb);
+ 	}
+ }
+ 
