@@ -1,23 +1,33 @@
-From: Jason Lunz <lunz@falooley.org>
-Subject: Re: netif_rx packet dumping
-Date: Fri, 4 Mar 2005 19:49:33 +0000 (UTC)
-Message-ID: <d0ae4d$s60$1@sea.gmane.org>
-References: <20050303123811.4d934249@dxpl.pdx.osdl.net> <20050303125556.6850cfe5.davem@davemloft.net> <1109884688.1090.282.camel@jzny.localdomain> <20050303132143.7eef517c@dxpl.pdx.osdl.net> <1109885065.1098.285.camel@jzny.localdomain> <20050303133237.5d64578f.davem@davemloft.net> <20050303135416.0d6e7708@dxpl.pdx.osdl.net>
-To: netdev@oss.sgi.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] [NET]: Fix deletion of local addresses only varying in prefix length
+Date: Sat, 5 Mar 2005 07:40:00 +1100
+Message-ID: <20050304204000.GA14725@gondor.apana.org.au>
+References: <20050304012003.GA31837@postel.suug.ch> <E1D78DN-0002te-00@gondolin.me.apana.org.au> <20050304131419.GE31837@postel.suug.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@oss.sgi.com
+To: Thomas Graf <tgraf@suug.ch>
+Content-Disposition: inline
+In-Reply-To: <20050304131419.GE31837@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-shemminger@osdl.org said:
->> We should eliminate the max backlog thing completely.  There is
->> no need for it.
->
-> Still need some bound, because if process_backlog is running slower
-> than the net; then the queue could grow till memory exhausted from
-> skbuff's. 
+On Fri, Mar 04, 2005 at 02:14:19PM +0100, Thomas Graf wrote:
+> 
+> I do not agree but I might have a better idea. Let's change iproute2
+> to provide a prefixlength of 0 if no prefix was specified and only
+> compare the prefixes if it is non zero. This allows for accurate
+> deletion, no scripts will break (except for really really broken ones).
+> Given there are multiple matching addresses only varying in prefix
+> length and no prefix was specified the first one will get deleted but
+> this is well defined.
 
-yes. I eliminated netdev_max_backlog long ago in an experiment with a
-2.4 kernel, and it became quite easy to consume huge amounts of kernel
-memory.
+Yep this is a good solution.
 
-Jason
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
