@@ -1,111 +1,43 @@
-From: Krishna Kumar <kumarkr@us.ibm.com>
-Subject: Re: Kernel locking up in module
-Date: Mon, 14 Jul 2003 17:28:25 -0700
+From: kuznet@ms2.inr.ac.ru
+Subject: Re: [PATCH] IPv6: Fix broken anycast usage
+Date: Tue, 15 Jul 2003 04:29:44 +0400 (MSD)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OFF7117350.353FDF6E-ON88256D64.00016172@us.ibm.com>
+Message-ID: <200307150029.EAA06610@dub.inr.ac.ru>
+References: <1057997590.1142.31.camel@hades>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: netdev@oss.sgi.com, Stephen Hemminger <shemminger@osdl.org>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: N N Ashok <nalkunda@egr.msu.edu>
+To: mika.liljeberg@welho.COM (Mika Liljeberg)
+In-Reply-To: <1057997590.1142.31.camel@hades> from "Mika Liljeberg" at éÀÌ 12, 2003 12:45:01 
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hello!
 
+> this doesn't need to be policed. In general, there is no reliable way to
+> check if a remote address is anycast, anyway. From RFC2461:
+> 
+>                  Note that an anycast address is syntactically
+>                  indistinguishable from a unicast address.
 
+This is right. (Well, except for the fact that reserved anycasts
+are very well syntactically distinguished. :-)) But this does not matter,
+the patch is correct, ANYCAST is an additional attribute on unicast
+addresses and it should be checked only in contexts where _this_ host
+is a member of this anycast.
 
+BTW it is an addendum to my previous mail. You were right complaining
+about EINVAL for anycast nexthop. However:
 
-> > but the variable is non-null every other time I insert the module.
+Nexthop address is unique identifier of nexthop router. We do not enforce
+this policy (see comments in route.c), hence it is bug to reject such routes
+and you are right, but this does not make your example more reasonable.
+Any non-unicast non-linklocal address used as nexthop is bad idea,
+this policy is not enforced to allow use of global nexthops on BGP routers,
+where it is convenient to use global addresses for nexthop resolution and
+where it is legal because they are not expected to receive redirects
+This is legal in your case of PtP link too, however, this is still nasty.
 
-Are you adding any new devices after the init() routine executes ? You
-seem to have exited the for loop due to bwusage becoming NULL, not the
-dev (while both should be null).
-
-> You are not locking out the bottom half receive thread so it will
-deadlock
-
-Stephen, I don't understand how this is a deadlock ? His handler runs only
-in the bottom half and he has no other code which runs in regular or hard
-interrupt context. But you might want to try doing the mod_timer after
-dropping
-the lock to avoid a race (though not very likely ?). Unless it is
-re-entrant,
-which seems unlikely since he is using a 1 second timeout.
-
-BTW, you are assigning 'data' in your routine, which is OK,
-            unsigned long *data = (unsigned long *) ptr;
-but if you reference it, that will crash the system since it is referring
-to a local stack variable of another routine.
-
-- KK
-
-
-
-|---------+---------------------------->
-|         |           N N Ashok        |
-|         |           <nalkunda@egr.msu|
-|         |           .edu>            |
-|         |           Sent by:         |
-|         |           netdev-bounce@oss|
-|         |           .sgi.com         |
-|         |                            |
-|         |                            |
-|         |           07/14/2003 04:35 |
-|         |           PM               |
-|         |                            |
-|---------+---------------------------->
-  >-----------------------------------------------------------------------------------------------------------------|
-  |                                                                                                                 |
-  |       To:       Stephen Hemminger <shemminger@osdl.org>                                                         |
-  |       cc:       netdev@oss.sgi.com                                                                              |
-  |       Subject:  Re: Kernel locking up in module                                                                 |
-  |                                                                                                                 |
-  >-----------------------------------------------------------------------------------------------------------------|
-
-
-
-
-On Monday 14 July 2003 18:49, Stephen Hemminger scrawled:
-> On Mon, 14 Jul 2003 17:46:30 -0400
->
-> N N Ashok <nalkunda@egr.msu.edu> wrote:
-> > Hi All,
-> >     I am creating a module to measure the outgoing bandwidth usage on
-the
-> > interfaces. It uses the get_stats() of the device to get the current
-> > stats and then computes the bandwidth usage. The algorithm for the
-usage
-> > calculation are borrowed from iproute2 package (tc/tc_estimator.c). The
-> > problem is that the kernel keeps locking up. I am using rwlock_t locks
-to
-> > lock the data. In the code, I traverse the list of bwuage structures
-and
-> > as a debug message am printing whether the traversal ended in the
-> > variable becoming null (which it should if everything went right), but
-> > the variable is non-null every other time I insert the module.
-> >          printk(KERN_INFO "bwestimator: dev: %s. bwusage: %s.\n", dev ?
-> > "non-null" : "null", bwusage ? "non-null" : "null");
-> >
-> >   I think this has got to do with some locking issues. As this is my
-> > first go at the kernel locking, I might have used the wrong kind of
-> > locks. I have attached the module source, header and the log messages
-as
-> > I inserted the module a couple of times. I request you all to please
-help
-> > me as I am totally lost here.
-> >
-> > Thanks,
-> > Ashok
->
-> You are not locking out the bottom half receive thread so it will
-deadlock
-> when it runs while your code holds the top half lock.
-
-Hi Stephen,
-Thanks for the reply.
-Do I used write_lock_bh()/write_unlock_bh() for my lock (bwusage_head_lock)
-
-while still using read_lock() for dev_base_lock ?
-
-Thanks,
-Ashok
+Alexey
