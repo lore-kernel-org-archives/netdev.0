@@ -1,46 +1,69 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: 2.6.10 TCP troubles -- suggested patch
-Date: Fri, 11 Feb 2005 15:40:20 -0800
-Message-ID: <420D4264.6030400@hp.com>
-References: <0525M9211@server5.heliogroup.fr> <420D37A3.6020209@hp.com> <420D3B17.3040506@us.ibm.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [patch 2.6.11-rc3 1/5] r8169: endianness fixes
+Date: Sat, 12 Feb 2005 00:39:18 +0100
+Message-ID: <20050211233918.GB8792@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Hubert Tonneau <hubert.tonneau@fullpliant.org>, shemminger@osdl.org,
-        romieu@fr.zoreil.com, kuznet@ms2.inr.ac.ru
-To: netdev@oss.sgi.com
-In-Reply-To: <420D3B17.3040506@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@osdl.org, jdmason@us.ibm.com, netdev@oss.sgi.com
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> Er, how is this compliant with 2581 (yes, I know, it's only a SHOULD, not a
-> MUST)  - an ACK should be generated for at least every second full-sized
-> segment received? Don't see that happening. In many cases it's receiving
-> quite a few more packets. It should not be waiting for the delayed ack timer
-> to go off, surely?
+Endianness fixes
 
-Certainly it would make for an interesting disuscion.  Indeed it is a
-SHOULD which leaves-open the door to compliance of other ACK policies.  Those 
-might result in an ACK for more than two segments, or even an ACK for fewer than 
-two segments, and there are folks in either camp/faction/sect/pick your favorite 
-term.
+- rtl8169_rx_csum() forgot to convert the descriptor to cpu order,
+- same thing for rtl8169_rx_vlan_skb() but this one is more tricky as
+  the layout of the (u32) word in the 8169 descriptor calls for a
+  second level of swap at the vlan tag level (u16). The old code only
+  did the second part (in an endian-dependant way, how fun).
+- rtl8169_tx_vlan_tag(): this time the (u32 descriptor level) cpu_to_le32
+  is issued in rtl8169_start_xmit but the (u16 vlan tag level) cpu_to_be16
+  is not right any more.
 
-I would say that it is still compliant with 2581.  The must there is that no 
-matter what, an ACK must be generated within 500 milliseconds.
+Summary: avoid even calls to cpu_to_{b/l}eXX on a given piece of data.
 
-I suspect that had a full cwnd's worth of data been sent there would have been 
-no lengthy delay in ACKs even with fewer than ACK-every-other.  I suspect that 
-had TSO been disabled the full cwnd would have been sent and these delayed ACKs 
-would not have happened and the transfer speed would have been happiness and joy.
+The change has no effect on x86. Now sparc64 talks to x86.
 
-FWIW, as the industry has added features such as CKO (ChecKsum Offload), 
-copy-avoidance, and now TSO, the pie chart of time spent has been shifting more 
-and more to ACK processing.  If we go back far enough, the writeups talk about 
-how delayed ACK to increase ACK piggybacking was added in the first place - 
-specifically (IIRC) for the purpose of minimizing ACK overhead.
+Pinpointed-by: Jon Mason <jdmason@us.ibm.com>
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 
-rick jones
+diff -puN drivers/net/r8169.c~r8169-350 drivers/net/r8169.c
+--- a/drivers/net/r8169.c~r8169-350	2005-02-05 21:04:12.000000000 +0100
++++ b/drivers/net/r8169.c	2005-02-12 00:25:12.992726954 +0100
+@@ -698,7 +698,7 @@ static inline u32 rtl8169_tx_vlan_tag(st
+ 				      struct sk_buff *skb)
+ {
+ 	return (tp->vlgrp && vlan_tx_tag_present(skb)) ?
+-		TxVlanTag | cpu_to_be16(vlan_tx_tag_get(skb)) : 0x00;
++		TxVlanTag | swab16(vlan_tx_tag_get(skb)) : 0x00;
+ }
+ 
+ static void rtl8169_vlan_rx_register(struct net_device *dev,
+@@ -733,12 +733,12 @@ static void rtl8169_vlan_rx_kill_vid(str
+ static int rtl8169_rx_vlan_skb(struct rtl8169_private *tp, struct RxDesc *desc,
+ 			       struct sk_buff *skb)
+ {
+-	u32 opts2 = desc->opts2;
++	u32 opts2 = le32_to_cpu(desc->opts2);
+ 	int ret;
+ 
+ 	if (tp->vlgrp && (opts2 & RxVlanTag)) {
+ 		rtl8169_rx_hwaccel_skb(skb, tp->vlgrp,
+-				       be16_to_cpu(opts2 & 0xffff));
++				       swab16(opts2 & 0xffff));
+ 		ret = 0;
+ 	} else
+ 		ret = -1;
+@@ -2084,7 +2084,7 @@ rtl8169_tx_interrupt(struct net_device *
+ 
+ static inline void rtl8169_rx_csum(struct sk_buff *skb, struct RxDesc *desc)
+ {
+-	u32 opts1 = desc->opts1;
++	u32 opts1 = le32_to_cpu(desc->opts1);
+ 	u32 status = opts1 & RxProtoMask;
+ 
+ 	if (((status == RxProtoTCP) && !(opts1 & TCPFail)) ||
 
-BTW, I'd be happy to trim emails that are already on netdev to avoid message 
-duplications, is netdev a "closed" list?
+_
