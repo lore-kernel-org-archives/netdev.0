@@ -1,29 +1,31 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: LLTX fix proposal
-Date: Sun, 30 Jan 2005 21:09:34 -0800
-Message-ID: <20050130210934.298530a7.davem@davemloft.net>
-References: <20050130181854.7f088a95.davem@davemloft.net>
-	<1107142423.8021.114.camel@jzny.localdomain>
-	<1107142680.7847.117.camel@jzny.localdomain>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: Memory leak in 2.6.11-rc1?
+Date: Mon, 31 Jan 2005 14:16:36 +0900 (JST)
+Message-ID: <20050131.141636.20664459.yoshfuji@linux-ipv6.org>
+References: <E1CvSuS-00056x-00@gondolin.me.apana.org.au>
+	<20050131.134559.125426676.yoshfuji@linux-ipv6.org>
+	<41FDBB78.2050403@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: herbert@gondor.apana.org.au, davem@davemloft.net,
+        rmk+lkml@arm.linux.org.uk, Robert.Olsson@data.slu.se, akpm@osdl.org,
+        torvalds@osdl.org, alexn@dsv.su.se, kas@fi.muni.cz,
+        linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1107142680.7847.117.camel@jzny.localdomain>
+To: kaber@trash.net, kozakai@linux-ipv6.org
+In-Reply-To: <41FDBB78.2050403@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 30 Jan 2005 22:38:00 -0500
-jamal <hadi@cyberus.ca> wrote:
+In article <41FDBB78.2050403@trash.net> (at Mon, 31 Jan 2005 06:00:40 +0100), Patrick McHardy <kaber@trash.net> says:
 
-> On Sun, 2005-01-30 at 22:33, jamal wrote:
-> > The tg3 you refer to in your email doesnt seem to be as bad and
-> > i am actually wondering why what you just posted is _the fix_ as is.
-> 
-> meant is not _the fix_
+|We don't need this for IPv6 yet. Once we get nf_conntrack in we
+|might need this, but its IPv6 fragment handling is different from
+|ip_conntrack, I need to check first.
 
-It could be "_the fix_", I just don't know yet if we'll be
-deeply satisfied with it in the end.  That's all.
+Ok. It would be better to have some comment but anyway...
+kozakai-san?
+
+--yoshfuji
