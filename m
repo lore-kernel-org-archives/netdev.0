@@ -1,7 +1,7 @@
-From: David Woodhouse <dwmw2@infradead.org>
+From: Stephen Smalley <sds@tycho.nsa.gov>
 Subject: Re: [PATCH] Add audit uid to netlink credentials
-Date: Thu, 10 Feb 2005 12:49:39 +0000
-Message-ID: <1108039780.19262.533.camel@hades.cambridge.redhat.com>
+Date: Thu, 10 Feb 2005 07:51:23 -0500
+Message-ID: <1108039883.22172.40.camel@moss-spartans.epoch.ncsc.mil>
 References: <20050204165840.GA2320@IBM-BWN8ZTBWA01.austin.ibm.com>
 	 <1107958621.19262.524.camel@hades.cambridge.redhat.com>
 	 <1107960659.4837.9.camel@serge>
@@ -9,28 +9,28 @@ References: <20050204165840.GA2320@IBM-BWN8ZTBWA01.austin.ibm.com>
 	 <20050209103747.Y24171@build.pdx.osdl.net>
 	 <1107974448.17568.108.camel@moss-spartans.epoch.ncsc.mil>
 	 <20050209153816.B24171@build.pdx.osdl.net>
-	 <1107993369.9154.2.camel@localhost.localdomain>
-	 <20050209161946.F24171@build.pdx.osdl.net>
-	 <1108039217.22172.31.camel@moss-spartans.epoch.ncsc.mil>
+	 <20050209171115.G24171@build.pdx.osdl.net>
+	 <1108038968.22172.26.camel@moss-spartans.epoch.ncsc.mil>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Linux Audit Discussion <linux-audit@redhat.com>, netdev@oss.sgi.com,
+Cc: netdev@oss.sgi.com, Linux Audit Discussion <linux-audit@redhat.com>,
         davem@davemloft.net, kuznet@ms2.inr.ac.ru
-To: Stephen Smalley <sds@epoch.ncsc.mil>
-In-Reply-To: <1108039217.22172.31.camel@moss-spartans.epoch.ncsc.mil>
+To: Chris Wright <chrisw@osdl.org>
+In-Reply-To: <1108038968.22172.26.camel@moss-spartans.epoch.ncsc.mil>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2005-02-10 at 07:40 -0500, Stephen Smalley wrote:
-> To be precise, isn't it true that someone with only CAP_AUDIT_WRITE
-> would only be able to spoof loginuids in the AUDIT_USER messages they
-> generate?  The loginuid on any syscall audit messages for the task would
-> still be the one associated with the task's audit context, so that would
-> not be spoofable.
+On Thu, 2005-02-10 at 07:36, Stephen Smalley wrote:
+> Why not just call the security handler from the security_netlink_send()
+> function, which is already called by netlink_sendmsg()?
 
-Correct.
+Ok, I can see why you wouldn't want to do that, but why not just call
+the handler immediately after security_netlink_send() then in
+netlink_sendmsg()?  What is the advantage of deferring to
+netlink_sendskb (and some other location for broadcasts)?
 
 -- 
-dwmw2
+Stephen Smalley <sds@tycho.nsa.gov>
+National Security Agency
