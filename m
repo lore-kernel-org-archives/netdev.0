@@ -1,37 +1,35 @@
-From: "Hen, Shmulik" <shmulik.hen@intel.com>
-Subject: RE: [bonding][0/3] Synchronizing 2.4-2.6
-Date: Sun, 31 Aug 2003 13:54:55 +0300
+From: Ville Nuorvala <vnuorval@tcs.hut.fi>
+Subject: Re: [PATCH] convert ip6_tunnel to per-cpu data
+Date: Sun, 31 Aug 2003 15:14:46 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <E791C176A6139242A988ABA8B3D9B38A014C94E9@hasmsx403.iil.intel.com>
+Message-ID: <Pine.LNX.4.44.0308311506080.24254-100000@rhea.tcs.hut.fi>
+References: <20030831031556.6d8ee0e8.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: <bonding-devel@lists.sourceforge.net>, <netdev@oss.sgi.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Christoph Hellwig <hch@lst.de>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-content-class: urn:content-classes:message
-To: "Jeff Garzik" <jgarzik@pobox.com>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030831031556.6d8ee0e8.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Jeff Garzik [mailto:jgarzik@pobox.com]
-> Sent: Sunday, August 31, 2003 12:27 AM
-> To: Hen, Shmulik
-> Cc: bonding-devel@lists.sourceforge.net; netdev@oss.sgi.com
-> Subject: Re: [bonding][0/3] Synchronizing 2.4-2.6
-> 
-> > Forgot to mention free_netdev().
-> > Is it 2.4 compatible ?
-> 
-> 
-> Only if you create a patch for 2.4 :)
-> 
+On Sun, 31 Aug 2003, David S. Miller wrote:
 
-I probably didn't phrase the question right. Meant to ask if
-free_netdev exists in 2.4 or do we have to export it as was
-with alloc_netdev, but hey, I can check this myself now that
-I'm at my desk again :).
+> On Sun, 31 Aug 2003 12:06:21 +0200
+> Christoph Hellwig <hch@lst.de> wrote:
+>
+> > Code looks like copy & pasted from icmpv6 :)
+>
+> Hold on this one, we're in the process of killing
+> the sockets from this code.
+
+Yes, I've been running socketless tunnels for a couple of days now and
+everything seems to work all right. I'll send the patch shortly...
 
 
-	Shmulik.
+Ville
+--
+Ville Nuorvala
+Research Assistant, Institute of Digital Communications,
+Helsinki University of Technology
+email: vnuorval@tcs.hut.fi, phone: +358 (0)9 451 5257
