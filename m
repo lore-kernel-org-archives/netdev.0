@@ -1,59 +1,59 @@
-From: Donald Becker <becker@scyld.com>
+From: Ben Greear <greearb@candelatech.com>
 Subject: Re: NAPI-ized tulip patch against 2.4.20-rc1
-Date: Wed, 6 Nov 2002 13:31:09 -0500 (EST)
+Date: Wed, 06 Nov 2002 10:44:17 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0211061319220.13934-100000@beohost.scyld.com>
-References: <3DC95631.6030001@candelatech.com>
+Message-ID: <3DC96301.7070602@candelatech.com>
+References: <Pine.LNX.4.44.0211061319220.13934-100000@beohost.scyld.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-   "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>,
-   Jeff Garzik <jgarzik@mandrakesoft.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <3DC95631.6030001@candelatech.com>
+To: Donald Becker <becker@scyld.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 6 Nov 2002, Ben Greear wrote:
-
-> >  I see you increased the RX-ring to 1024 pkts. 
-> >  Did you really see any improvement with this?
+Donald Becker wrote:
+> On Wed, 6 Nov 2002, Ben Greear wrote:
 > 
-> It helped drop fewer packets when running 4 ports at 92Mbps+
-> However, the difference between that and 512 is not large.
+> 
+>>> I see you increased the RX-ring to 1024 pkts. 
+>>> Did you really see any improvement with this?
+>>
+>>It helped drop fewer packets when running 4 ports at 92Mbps+
+>>However, the difference between that and 512 is not large.
+> 
+> 
+> Using 512 Rx buffers at 100Mbps seem like a pretty silly default.
 
-Using 512 Rx buffers at 100Mbps seem like a pretty silly default.
+I'm open to suggestions.  However, I am running 4 or 8 ports simultaneously,
+on a single processor machine, so w/out large receive buffers, I drop packets
+horribly.  If there is some magic number you think will be better than
+others, I'll be happy to try it and report results...
 
-> I would really like to make that size adjustable at module load
-> time and/or runtime, but I'm not sure how easy that would be.
 
-It's trivial for many (but not all) drivers.
-I've been considering doing that with my driver release.
-There is no longer a CPU cycle cost issue with ring-wrapping on an
-arbitrary ring size.
+> The trivial case is a module option that sets a variable replacing
+> RX_RING_SIZE / TX_RING_SIZE..
+> The passed-in value shouldn't be used directly:
+>  - many drivers have upper and lower bounds
+>  - the size can only be changed when the rings are initialized,
+>    which occurs when the interface starts.
 
-> Imagine being able to crank up your receive buffers when running at
-> very high speeds (and/or when you start dropping packets).  At lower speeds,
-> shrink things down and free up resources....
+So, adjusting the ring size would require stopping and starting the
+NIC?  Is that a full bounce (including auto-negotiation)?
 
-Being that dynamic involves writing code and extensive testing with all
-of the different chips.
+>  - users thinking "if 32 is good, 32000 is better"
 
-The trivial case is a module option that sets a variable replacing
-RX_RING_SIZE / TX_RING_SIZE..
-The passed-in value shouldn't be used directly:
- - many drivers have upper and lower bounds
- - the size can only be changed when the rings are initialized,
-   which occurs when the interface starts.
- - users thinking "if 32 is good, 32000 is better"
+The sad truth is, most NICs/drivers do not perform at high
+speeds w/out hacking them in various ways.  Where to lay the
+blame (VM, shitty hardware, etc) is debatable, but it doesn't
+change the results.  I do know that 1024 is better than 32 for
+high speeds on muliple ports, on my NICs.
 
-> >  Also I would be interested if you have any numbers for recycling patch? 
-
-interest++
+Thanks,
+Ben
 
 -- 
-Donald Becker				becker@scyld.com
-Scyld Computing Corporation		http://www.scyld.com
-410 Severn Ave. Suite 210		Scyld Beowulf cluster system
-Annapolis MD 21403			410-990-9993
+Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
+President of Candela Technologies Inc      http://www.candelatech.com
+ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
