@@ -1,38 +1,37 @@
 From: Shmulik Hen <shmulik.hen@intel.com>
-Subject: Re: [bonding][1/3] Synchronizing 2.4-2.6
-Date: Sat, 30 Aug 2003 22:01:08 +0300
+Subject: Re: [bonding][0/3] Synchronizing 2.4-2.6
+Date: Sat, 30 Aug 2003 22:05:45 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200308302201.09003.shmulik.hen@intel.com>
-References: <200308272000.39229.shmulik.hen@intel.com> <3F4D2355.8010803@pobox.com>
+Message-ID: <200308302205.45924.shmulik.hen@intel.com>
+References: <200308271958.52063.shmulik.hen@intel.com>
 Reply-To: shmulik.hen@intel.com
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 8bit
-Cc: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <3F4D2355.8010803@pobox.com>
+To: <bonding-devel@lists.sourceforge.net>, <netdev@oss.sgi.com>
+In-Reply-To: <200308271958.52063.shmulik.hen@intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thursday 28 August 2003 12:32 am, Jeff Garzik wrote:
-> Shmulik Hen wrote:
+On Wednesday 27 August 2003 07:58 pm, Hen, Shmulik wrote:
 >
-> > patch 6 - Update versions/contributions in header and bump
-> > version
->
-> applied... even though a non-described ifenslave.c change snuck
-> into this patch.
+> Next in store are:
+>  o Stephen Hemminger's converting bonding driver /proc interface to
+>    seq_file, along with changing /proc/bond0/info to
+>    /proc/bonding/bond0
 
-This patch was supposed to put some order into a bunch of bug fix 
-patches that went in without going through an official maintainer. I 
-was afraid they're going to get lost, so I stuck the above into a 
-patch. One of those patches fixed compilation problems on ia64 
-architecture, but caused problems in a Red Hat release instead.
-Since I didn't see a separate patch for that, I thought I'll put it 
-here too. Didn't think it'll cause problems as it was a one-liner.
-I'll learn eventually :). 
+Forgot to mention free_netdev().
+Is it 2.4 compatible ?
+
+>  o cleanup of the 802.3ad code (was not included in this release
+> since it requires some code re-factoring first).
+>  o lots of new stuff :)
 
 
-	Shmulik.
+-- 
+| Shmulik Hen   Advanced Network Services  |
+| Israel Design Center, Jerusalem          |
+| LAN Access Division, Platform Networking |
+| Intel Communications Group, Intel corp.  |
