@@ -1,68 +1,72 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [Bug 4177] New: Please consider adding possibility to have	multiple
- PPPoE sessions with different MAC addresses
-Date: Mon, 07 Feb 2005 08:49:46 -0800
-Message-ID: <42079C2A.4010006@candelatech.com>
-References: <200502061207.j16C7UOB009882@fire-1.osdl.org>	 <420683CB.2010205@conectiva.com.br> <1107793112.15984.238.camel@brick.watson.ibm.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: skge from 2.6.11-rc3-mm1 no workee either
+Date: Mon, 7 Feb 2005 10:24:28 -0800
+Message-ID: <20050207102428.5df9e529@dxpl.pdx.osdl.net>
+References: <42064462.8060306@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Arnaldo Carvalho de Melo <acme@conectiva.com.br>,
-        Networking Team <netdev@oss.sgi.com>, mh+kernel-bugzilla@zugschlus.de
-To: Michal Ostrowski <mostrows@speakeasy.net>
-In-Reply-To: <1107793112.15984.238.camel@brick.watson.ibm.com>
+Cc: netdev@oss.sgi.com
+To: maxer <maxer@xmission.com>, Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <42064462.8060306@xmission.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Michal Ostrowski wrote:
-> I'm very hesitant to put something like this into the PPPoE code, though
-> I could if the demand for it is strong enough. I think the proper
-> solution is something that should be implemented primarily in the
-> generic networking code.  
-> 
-> The right approach IMO is to do something similar to IP-aliasing; that
-> is to permit an alternate instance of the interface to exist with the
-> desired MAC address.
-> 
-> Currently one can use IP-aliasing to do this at the IP level:
-> 
-> ifconfig eth0    10.10.10.10 up ....
-> ifconfig eth0:1  10.10.10.11 up ....
-> 
-> Likewise, I'd propose ethernet aliasing
-> 
-> ifconfig eth0 10.10.10.10 up ....   #Use native address
-> ifconfig eth0.A hw ether AA:BB:CC:DD:EE:FF  # Create mac-addr alias dev
-> 
-> 
-> Given something like this, PPPoE over eth0.A would just work using the
-> MAC address bound to eth0.A.
-> 
-> The virtues of such a scheme are that it eliminates the need for
-> management code in PPPoE as PPPoE is not responsible for implementing
-> the binding of the new MAC address.  The PPPoE code should not be in the
-> business of putting devices into promiscuous mode, and then tracking
-> whether or not they should be taken out of promiscuous mode. 
-> 
-> This scheme also allows for the possibility that hardware devices
-> themselves may support multiple MAC addresses (if they can be programmed
-> to do so).
+On Sun, 06 Feb 2005 09:22:58 -0700
+maxer <maxer@xmission.com> wrote:
 
-I have a MAC-VLAN patch that already does this.  It's based on work
-by Alex Zeffertt, but has been considerably hacked by me so he no
-should get no blame for what I have done :)  MAC-VLANs allow one to create
-a virtual ethernet interface and packets are routed to it based on the
-source (or destination) MAC address.  To user-space, each MAC-VLAN
-looks just like an ethernet interface.
+> This nic is on the mobo. sk98lin from kernel 2.6.9 works great. However:
+> 
+> If I go into Fedora Core's Network Device Control applet, it shows eth0 
+> inactive. If I try to activate it I get:
+> skge device eth0:1 does not seem to be present, delaying initialization.
 
-It is all glommed into my big networking patch, but if there is serious
-interest, then I will split it out.  It does require a hook near the bridging
-hook in dev.c, and in the past, DaveM has not liked me putting hooks there, so
-he may not accept this anyway...
+The applet is good, but when there are problems will need to diagnose
+with more direct commands.
 
-Ben
+> Jeff Garzik suggested that I send this to you.
+> 
+> Under Network Configuration tool trying to probe under "Bind to MAC 
+> address gives the result as [Errno 19] No such device.
+> 
+> So while the driver clearly loads, it can't find the device nor activate 
+> it.
+
+The questions are:
+	* does 'skge' get loaded?
+		# lsmod
+	* what is system log show related to skge
+		# dmesg | grep skge
+
+
+> What should I do to remedy this. I can bring up the device under kernel 
+> 2.6.9, but no kernel beyond this 2.6.10 or 2.6.11-xx works.
+
+Does it work with 'sk98lin' driver?
+	# rmmod skge
+	# modprobe sk98lin
+
+
+> 04:00.0 Ethernet controller: Marvell Technology Group Ltd. Gigabit 
+> Ethernet Controller (rev 17)
+>        Subsystem: Intel Corp.: Unknown device 3065
+>        Flags: bus master, fast devsel, latency 0, IRQ 3
+>        Memory at ff720000 (64-bit, non-prefetchable) [size=16K]
+>        I/O ports at a800 [size=256]
+>        Expansion ROM at ff700000 [disabled] [size=128K]
+>        Capabilities: [48] Power Management version 2
+>        Capabilities: [50] Vital Product Data
+>        Capabilities: [5c] Message Signalled Interrupts: 64bit+ Queue=0/1 
+> Enable-
+>        Capabilities: [e0] Express Legacy Endpoint IRQ 0
+>        Capabilities: [100] Advanced Error Reporting
+
+Most likely this is a Marvell Yukon 2 chipset, which requires different
+driver support. I infer this because it is the PCI-express version.
+The only driver that handles Yukon2 on Linux is the version from Syskonnect's
+web site, but don't think it still works with 2.6.10
+
 
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Stephen Hemminger	<shemminger@osdl.org>
