@@ -1,67 +1,70 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
 Subject: Re: [E1000-devel] Transmission limit
-Date: Wed, 1 Dec 2004 16:24:33 +0100
-Message-ID: <20041201152433.GA12558@xi.wantstofly.org>
-References: <16807.20052.569125.686158@robur.slu.se> <1101484740.24742.213.camel@mellia.lipar.polito.it> <41A76085.7000105@draigBrady.com> <1101499285.1079.45.camel@jzny.localdomain> <16811.8052.678955.795327@robur.slu.se> <1101821501.1043.43.camel@jzny.localdomain> <20041130134600.GA31515@xi.wantstofly.org> <1101824754.1044.126.camel@jzny.localdomain> <20041201001107.GE4203@xi.wantstofly.org> <1101902900.1041.9.camel@jzny.localdomain>
+Date: Wed, 1 Dec 2004 16:34:12 +0100
+Message-ID: <16813.58484.343629.570703@robur.slu.se>
+References: <1101467291.24742.70.camel@mellia.lipar.polito.it>
+	<41A73826.3000109@draigBrady.com>
+	<16807.20052.569125.686158@robur.slu.se>
+	<1101484740.24742.213.camel@mellia.lipar.polito.it>
+	<41A76085.7000105@draigBrady.com>
+	<1101499285.1079.45.camel@jzny.localdomain>
+	<16811.8052.678955.795327@robur.slu.se>
+	<1101821501.1043.43.camel@jzny.localdomain>
+	<20041130134600.GA31515@xi.wantstofly.org>
+	<1101824754.1044.126.camel@jzny.localdomain>
+	<20041201001107.GE4203@xi.wantstofly.org>
+	<1101863399.4663.54.camel@sfeldma-mobl.dsl-verizon.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>, P@draigBrady.com,
+Content-Transfer-Encoding: 7bit
+Cc: Lennert Buytenhek <buytenh@wantstofly.org>, jamal <hadi@cyberus.ca>,
+        Robert Olsson <Robert.Olsson@data.slu.se>, P@draigBrady.com,
         mellia@prezzemolo.polito.it, e1000-devel@lists.sourceforge.net,
         Jorge Manuel Finochietto <jorge.finochietto@polito.it>,
         Giulio Galante <galante@polito.it>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1101902900.1041.9.camel@jzny.localdomain>
+To: sfeldma@pobox.com
+In-Reply-To: <1101863399.4663.54.camel@sfeldma-mobl.dsl-verizon.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 01, 2004 at 07:08:20AM -0500, jamal wrote:
 
-[ per-CPU TX/RX rings ]
-> > You mean the management of qdiscs would be non-trivial?
-> 
-> I mean it is useful in only the most ideal cases and if you want to
-> actually do something useful in most cases with it you will have to
-> muck around.
-> Take the case of forwarding (maybe with a little or almost no localhost
-> generated traffic) - then you end allocating in CPUA, processing and
-> queueing on egress. Tx softirq, which is what stashes the packet on tx
-> DMA eventually, is not guaranteed to run on the same CPU. Now add a
-> little latency between ingress and egress ..
-> The ideal case is where you end up processing to completion from ingress
-> to egress (which is known to happen in Linux when theres no congestion).
+Scott Feldman writes:
+ > Hey, turns out, I know some e1000 tricks that might help get the kpps
+ > numbers up.  
+ > 
+ > My problem is I only have a P4 desktop system with a 82544 nic running
+ > at PCI 32/33Mhz, so I can't play with the big boys.  But, attached is a
+ > rework of the Tx path to eliminate 1) Tx interrupts, and 2) Tx
+ > descriptor write-backs.  For me, I see a nice jump in kpps, but I'd like
+ > others to try with their setups.  We should be able to get to wire speed
+ > with 60-byte packets.
+ > 
+ > System: Intel 865 (HT 2.6Ghz)
+ > Nic: 82544 PCI 32-bit/33Mhz
+ > Driver: linux-2.6.9 e1000 (5.3.19-k2-NAPI), no Interrupt Delays
 
-We disagreed on this topic at SUCON and I'm afraid we'll be disagreeing
-on it forever :)  IMHO, on 10GbE any kind of qdisc is a waste of cycles.
+ > 4096 descs
+ >   pkt_size = 60:   541618pps 277Mb/sec errors: 914
 
-I don't think it's very likely that you'll be using that single 10GbE NIC
-for forwarding packets, doing that with a PC at this point in the history
-of PCs is just silly.  If you do use it for forwarding, how likely is it
-that you'll be able to process an incoming burst of packets fast enough
-to require queueing on the egress interface?  You have to be able to send
-a burst of packets bigger than the NIC's TX FIFO at >10GbE in the first
-place for queueing to be effective/useful at all.
+Hello!
 
-(Leaving the question of whether or not there'll be some room in the TX
-FIFO at TX time unanswered, what you're doing with per-CPU TX rings is
-basically just simulating the "N individual NICs each bound to its own
-CPU" case with a single NIC.)
+Nice but I no improvements w. 82546GB @ 133 MHz on 1.6 GHz Opteron it seems.
+SMP kernel linux-2.6.9-rc2
 
+Vanilla. 
+  801077pps 410Mb/sec (410151424bps) errors: 95596
 
-> > Probably the idea of these kinds of tricks is to skip the qdisc step
-> > altogether.
-> 
-> Which is preached by the BSD folks - bogus in my opinion. If you want to
-> do something as bland/boring as that you can probably afford a $500
-> DLINK router which can do it at wire rate with (with cost you being
-> locked in whatever features they have).
+Patch TXD=4096
+  608690pps 311Mb/sec (311649280bps) errors: 0
 
-That's an unfair comparison.  Just because I don't need CBQ doesn't mean
-my $500 DLINK router does everything I'd want it to -- advanced firewalling
-is one thing that comes to mind.  Last time I looked I couldn't load my
-own kernel modules on my DLINK router either.
+Patch TXD=2048
+  624103pps 319Mb/sec (319540736bps) errors: 0
 
+Patch TXD=1024
+  551289pps 282Mb/sec (282259968bps) errors: 4506
 
---L
+Error count is a bit confusing...
+
+						--ro
