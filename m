@@ -1,40 +1,63 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [2.6 patch] net/bluetooth/: misc possible cleanups
-Date: Sun, 26 Dec 2004 12:20:18 +0100
-Message-ID: <1104060018.8758.51.camel@pegasus>
-References: <20041214041352.GZ23151@stusta.de>
-	 <1103009649.2143.65.camel@pegasus>  <20041219160758.GY21288@stusta.de>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Max Krasnyansky <maxk@qualcomm.com>, bluez-devel@lists.sourceforge.net,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Network Development Mailing List <netdev@oss.sgi.com>
+From: domen@coderock.org
+Subject: [patch 2/2] delete unused file
+Date: Sun, 26 Dec 2004 16:12:15 +0100
+Message-ID: <20041226151159.393C91F125@trashy.coderock.org>
+Cc: netdev@oss.sgi.com, domen@coderock.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Adrian Bunk <bunk@stusta.de>
-In-Reply-To: <20041219160758.GY21288@stusta.de>
+To: davem@redhat.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Adrian,
 
-> > > Please comment on which of these changes are correct and which conflict 
-> > > with pending patches.
-> > 
-> > Please send a separate patch for all the RFCOMM changes, because these
-> > conflicts with some pending patches and then it will make it easier for
-> > me to merge them.
-> > 
-> > The rest of the changes are fine with me, but I like to see also a
-> > separate patch for the CMTP stuff and cmtp_send_capimsg() don't need a
-> > forward declaration. Simply move the function to another place in the
-> > source code.
-> 
-> splitted patches follow as reply to this email.
+Remove nowhere referenced file. (egrep "filename\." didn't find anything)
 
-all of them are applied to my tree now. Thanks.
+Signed-off-by: Domen Puncer <domen@coderock.org>
+---
 
-Regards
 
-Marcel
+ kj/net/sunrpc/auth_gss/sunrpcgss_syms.c |   37 --------------------------------
+ 1 files changed, 37 deletions(-)
+
+diff -L net/sunrpc/auth_gss/sunrpcgss_syms.c -puN net/sunrpc/auth_gss/sunrpcgss_syms.c~remove_file-net_sunrpc_auth_gss_sunrpcgss_syms.c /dev/null
+--- kj/net/sunrpc/auth_gss/sunrpcgss_syms.c
++++ /dev/null	2004-12-24 01:21:08.000000000 +0100
+@@ -1,37 +0,0 @@
+-#include <linux/config.h>
+-#include <linux/module.h>
+-
+-#include <linux/types.h>
+-#include <linux/socket.h>
+-#include <linux/sched.h>
+-#include <linux/uio.h>
+-#include <linux/unistd.h>
+-
+-#include <linux/sunrpc/auth_gss.h>
+-#include <linux/sunrpc/svcauth_gss.h>
+-#include <linux/sunrpc/gss_asn1.h>
+-#include <linux/sunrpc/gss_krb5.h>
+-
+-/* svcauth_gss.c: */
+-EXPORT_SYMBOL(svcauth_gss_register_pseudoflavor);
+-
+-/* registering gss mechanisms to the mech switching code: */
+-EXPORT_SYMBOL(gss_mech_register);
+-EXPORT_SYMBOL(gss_mech_unregister);
+-EXPORT_SYMBOL(gss_mech_get);
+-EXPORT_SYMBOL(gss_mech_get_by_pseudoflavor);
+-EXPORT_SYMBOL(gss_mech_get_by_name);
+-EXPORT_SYMBOL(gss_mech_put);
+-EXPORT_SYMBOL(gss_pseudoflavor_to_service);
+-EXPORT_SYMBOL(gss_service_to_auth_domain_name);
+-
+-/* generic functionality in gss code: */
+-EXPORT_SYMBOL(g_make_token_header);
+-EXPORT_SYMBOL(g_verify_token_header);
+-EXPORT_SYMBOL(g_token_size);
+-EXPORT_SYMBOL(make_checksum);
+-EXPORT_SYMBOL(krb5_encrypt);
+-EXPORT_SYMBOL(krb5_decrypt);
+-
+-/* debug */
+-EXPORT_SYMBOL(print_hexl);
+_
