@@ -1,35 +1,97 @@
-From: Wichert Akkerman <wichert@wiggy.net>
+From: Rogier Wolff <R.E.Wolff@BitWizard.nl>
 Subject: Re: ipv6 stack seems to forget to send ACKs
-Date: Thu, 9 Jan 2003 11:40:57 +0100
+Date: Thu, 9 Jan 2003 12:38:58 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030109104057.GM22951@wiggy.net>
-References: <20030108224339.GO22951@wiggy.net> <Pine.LNX.4.44.0301091131370.29527-100000@dns.toxicfilms.tv>
+Message-ID: <20030109123857.A15625@bitwizard.nl>
+References: <20030108130850.GQ22951@wiggy.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.44.0301091131370.29527-100000@dns.toxicfilms.tv>
+In-Reply-To: <20030108130850.GQ22951@wiggy.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Previously Maciej Soltysiak wrote:
-> What other linux clients support streaming on ip6 ? patched mpg123 maybe?
+On Wed, Jan 08, 2003 at 02:08:50PM +0100, Wichert Akkerman wrote:
+> 
+> 13:57:39.812123 tornado.wiggy.net.33035 > 2001:968:1::2.8000: . ack 9352713 win 32616 <nop,nop,timestamp 846062 369670698>
+> 13:57:39.823581 2001:968:1::2.8000 > tornado.wiggy.net.33035: . 9352713:9353921(1208) ack 1 win 5712 <nop,nop,timestamp 369670698 846028> [class 0x2]
+> 13:57:39.823636 tornado.wiggy.net.33035 > 2001:968:1::2.8000: . ack 9353921 win 32616 <nop,nop,timestamp 846063 369670698>
 
-The xmms patch can be adopted to work for mpg123 I suspect, I haven't
-tried that.
+The packet is acked about 50 us after reception. Wicked! 
 
-> What XP client are you using ?
+> 13:57:39.835144 2001:968:1::2.8000 > tornado.wiggy.net.33035: . 9353921:9355129(1208) ack 1 win 5712 <nop,nop,timestamp 369670698 846028> [class 0x2]
+> 13:57:39.835197 tornado.wiggy.net.33035 > 2001:968:1::2.8000: . ack 9355129 win 32616 <nop,nop,timestamp 846064 369670698>
 
-Iirc mediaplayer was used.
+Same here. 
 
-> Maybe it is a client issue, you say the client stops sending ACKs, maybe
-> the client code is buggy.
+> 13:57:39.844277 2001:968:1::2.8000 > tornado.wiggy.net.33035: P 9355129:9355601(472) ack 1 win 5712 <nop,nop,timestamp 369670701 846062> [class 0x2]
+> 13:57:39.844326 tornado.wiggy.net.33035 > 2001:968:1::2.8000: . ack 9355601 win 32616 <nop,nop,timestamp 846065 369670701>
 
-I don't think a userspace tool can cause ACKs to stop being send.
+> 13:57:40.221776 2001:968:1::2.8000 > tornado.wiggy.net.33035: . 9355601:9356809(1208) ack 1 win 5712 <nop,nop,timestamp 369670739 846065> [class 0x2]
+> 13:57:40.221846 tornado.wiggy.net.33035 > 2001:968:1::2.8000: . ack 9356809 win 32616 <nop,nop,timestamp 846103 369670739>
 
-Wichert.
+> 13:57:40.233558 2001:968:1::2.8000 > tornado.wiggy.net.33035: . 9356809:9358017(1208) ack 1 win 5712 <nop,nop,timestamp 369670739 846065> [class 0x2]
+> 13:57:40.233613 tornado.wiggy.net.33035 > 2001:968:1::2.8000: . ack 9358017 win 32616 <nop,nop,timestamp 846104 369670739>
+
+> 13:57:40.245110 2001:968:1::2.8000 > tornado.wiggy.net.33035: . 9358017:9359225(1208) ack 1 win 5712 <nop,nop,timestamp 369670739 846065> [class 0x2]
+> 13:57:40.245160 tornado.wiggy.net.33035 > 2001:968:1::2.8000: . ack 9359225 win 32616 <nop,nop,timestamp 846105 369670739>
+
+same. same. same. 
+
+> 13:57:40.282351 2001:968:1::2.8000 > tornado.wiggy.net.33035: . 9359225:9360433(1208) ack 1 win 5712 <nop,nop,timestamp 369670744 846103>
+
+But now: No ack! Funny. 
+
+> 13:57:40.284307 2001:968:1::2.8000 > tornado.wiggy.net.33035: . 9360433:9360653(220) ack 1 win 5712 <nop,nop,timestamp 369670744 846103>
+
+Another packet, no ack!
+
+> 13:57:40.297307 2001:968:1::2.8000 > tornado.wiggy.net.33035: . 9360653:9361861(1208) ack 1 win 5712 <nop,nop,timestamp 369670745 846104>
+> 13:57:40.297376 tornado.wiggy.net.33035 > 2001:968:1::2.8000: . ack 9359225 win 32616 <nop,nop,timestamp 846111 369670744,nop,nop,sack sack 1 {9360653:9361861} >
+
+Another packet, but this time it SACKs  the just-recieved packet. It looks
+as if the two packets inbetween somehow were not recognized as belonging
+with this connection. 
+
+> 13:57:40.308222 2001:968:1::2.8000 > tornado.wiggy.net.33035: . 9362081:9363289(1208) ack 1 win 5712 <nop,nop,timestamp 369670745 846104> [class 0x2]
+> 13:57:40.308271 tornado.wiggy.net.33035 > 2001:968:1::2.8000: . ack 9359225 win 32616 <nop,nop,timestamp 846112 369670744,nop,nop,sack sack 2 {9362081:9363289}{9360653:9361861} >
+
+new packet, recognized ok, buffered, and acked!
+
+> 13:57:40.310424 2001:968:1::2.8000 > tornado.wiggy.net.33035: . 9361861:9362081(220) ack 1 win 5712 <nop,nop,timestamp 369670745 846105>
+> 13:57:40.310471 tornado.wiggy.net.33035 > 2001:968:1::2.8000: . ack 9359225 win 32616 <nop,nop,timestamp 846112 369670744,nop,nop,sack sack 1 {9360653:9363289} >
+> 13:57:40.325396 2001:968:1::2.8000 > tornado.wiggy.net.33035: . 9363289:9363509(220) ack 1 win 5712 <nop,nop,timestamp 369670750 846111> [class 0x2]
+> 13:57:40.325447 tornado.wiggy.net.33035 > 2001:968:1::2.8000: . ack 9359225 win 32616 <nop,nop,timestamp 846113 369670744,nop,nop,sack sack 1 {9360653:9363509} >
+
+Two more packets, and still more hints towards the other machine that 
+we're missing 9359225-9360653
+
+> 13:57:40.568652 2001:968:1::2.8000 > tornado.wiggy.net.33035: . 9359225:9360433(1208) ack 1 win 5712 <nop,nop,timestamp 369670773 846113>
+
+So, it retransmits the first. but we don't see it as beloging to
+this connection or something, so it gets ignored. 
+
+> 13:57:41.121608 2001:968:1::2.8000 > tornado.wiggy.net.33035: . 9359225:9360433(1208) ack 1 win 5712 <nop,nop,timestamp 369670829 846113>
+> 13:57:42.242095 2001:968:1::2.8000 > tornado.wiggy.net.33035: . 9359225:9360433(1208) ack 1 win 5712 <nop,nop,timestamp 369670941 846113>
+> 13:57:44.481379 2001:968:1::2.8000 > tornado.wiggy.net.33035: . 9359225:9360433(1208) ack 1 win 5712 <nop,nop,timestamp 369671165 846113>
+> 13:57:48.963035 2001:968:1::2.8000 > tornado.wiggy.net.33035: . 9359225:9360433(1208) ack 1 win 5712 <nop,nop,timestamp 369671613 846113>
+
+again, again, again. 
+
+
+It looks as if somehow those two packets 9359225:9360433 and 9360433:9360653 get 
+mangled in a way as to invalidate the checksum. This would cause "silent drop" 
+of these packets before they were acked.... 
+
+Can you check the stats counters, to see if they are indeed dropped?
+
+				Roger. 
 
 -- 
-Wichert Akkerman <wichert@wiggy.net>           http://www.wiggy.net/
-A random hacker
+** R.E.Wolff@BitWizard.nl ** http://www.BitWizard.nl/ ** +31-15-2600998 **
+*-- BitWizard writes Linux device drivers for any device you may have! --*
+* The Worlds Ecosystem is a stable system. Stable systems may experience *
+* excursions from the stable situation. We are currently in such an      * 
+* excursion: The stable situation does not include humans. ***************
