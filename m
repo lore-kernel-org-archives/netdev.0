@@ -1,116 +1,34 @@
-From: Yusuf Wilajati Purna <purna@jcom.home.ne.jp>
-Subject: [PATCH] fix skb binding time in some network drivers due to skb_padto
- conversion
-Date: Sun, 31 Aug 2003 11:30:40 +0900
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] (0/13) appletalk bug fixes
+Date: Sat, 30 Aug 2003 19:23:47 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F515DD0.9000409@jcom.home.ne.jp>
+Message-ID: <20030830192347.5b9b2622.davem@redhat.com>
+References: <20030829135119.78d98961.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------020906000702060209040404"
-Cc: purna@jcom.home.ne.jp
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jschlst@samba.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jgarzik@pobox.com, netdev@oss.sgi.com
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20030829135119.78d98961.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------020906000702060209040404
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
+On Fri, 29 Aug 2003 13:51:19 -0700
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-Hi Jeff,
+> 1. Setting owner field on DDP sockets (bug)
+> 2. Invert logic on release (readability)
+> 3. Align headers with columns (cosmetic)
+> 4. Keep track of last sent
+> 5. Purge aarp entries on unload (bug)
+> 6. aarp deltimer_sync
+> 7. aarp convert to seq_file
+> 8. set owner on /proc/net/atalk directory
+> 9. Update comment in DDP about modules
+> 10. Orphan DDP sockets on destroy (bug)
+> 11. Change /proc/net/aarp to /proc/net/atalk/arp
+> 12. Keep netdevice references for pointers held
+> 13. Update DDP to new protocol format
 
-It seems that skb_padto security fixes in 2.4 and 2.5 trying
-to fix "CAN-2003-0001:Multiple ethernet NID device drivers
-do not pad frames with null bytes", do not put the skb_padto
-blocks in proper places in the  3c527, eth16i, fmv18x, seeq8005,
-yellowfin device drivers.   
-
-In case a driver calls skb_padto(), it is possible
-that the space available in the original skb buffer tailroom is less
-than the space to pad. In this case, in short, the skb_padto()
-will create a new skb buffer, copy data from the original
-skb buffer to a new skb buffer, free the original buffer,
-and finally return the new buffer.
-
-If this happens to the aforementioned device drivers, they come to
-point to wrong data. And, for 3c527 and yellowfin, the drivers can
-unexpectedly double free the original skb buffers since they still
-point to the original skb buffers. The attached patch against
-2.4.23pre1 fixes these issues.
-
-If the patch looks okay, please consider including it in
-2.4 and 2.5/6.
-
-Regards,
-
-purna@sm.sony.co.jp
-
-
-
---------------020906000702060209040404
-Content-Type: text/plain;
- name="patchfile-skb_padto"
-Content-Transfer-Encoding: base64
-Content-Disposition: inline;
- filename="patchfile-skb_padto"
-
-ZGlmZiAtdU5yIGxpbnV4LTIuNC9kcml2ZXJzL25ldC8zYzUyNy5jIGxpbnV4LTIuNGIvZHJp
-dmVycy9uZXQvM2M1MjcuYwotLS0gbGludXgtMi40L2RyaXZlcnMvbmV0LzNjNTI3LmMJRnJp
-IEF1ZyAyOSAwNDowMDoxOSAyMDAzCisrKyBsaW51eC0yLjRiL2RyaXZlcnMvbmV0LzNjNTI3
-LmMJU2F0IEF1ZyAzMCAwMDo0NDo0NyAyMDAzCkBAIC0xMDgzLDE1ICsxMDgzLDE2IEBACiAJ
-LyogTlAgaXMgdGhlIGJ1ZmZlciB3ZSB3aWxsIGJlIGxvYWRpbmcgKi8KIAlucD1scC0+dHhf
-cmluZ1tscC0+dHhfcmluZ19oZWFkXS5wOyAKIAotCS8qIFdlIHdpbGwgbmVlZCB0aGlzIHRv
-IGZsdXNoIHRoZSBidWZmZXIgb3V0ICovCi0JbHAtPnR4X3JpbmdbbHAtPnR4X3JpbmdfaGVh
-ZF0uc2tiPXNrYjsKLSAgIAkgICAKICAgIAlpZihza2ItPmxlbiA8IEVUSF9aTEVOKQogICAg
-CXsKICAgIAkJc2tiID0gc2tiX3BhZHRvKHNrYiwgRVRIX1pMRU4pOwogICAgCQlpZihza2Ig
-PT0gTlVMTCkKICAgIAkJCWdvdG8gb3V0OwogICAgCX0KKworCS8qIFdlIHdpbGwgbmVlZCB0
-aGlzIHRvIGZsdXNoIHRoZSBidWZmZXIgb3V0ICovCisJbHAtPnR4X3JpbmdbbHAtPnR4X3Jp
-bmdfaGVhZF0uc2tiPXNrYjsKKwogCW5wLT5sZW5ndGggPSAoc2tiLT5sZW4gPCBFVEhfWkxF
-TikgPyBFVEhfWkxFTiA6IHNrYi0+bGVuOyAKIAkJCQogCW5wLT5kYXRhCT0gdmlydF90b19i
-dXMoc2tiLT5kYXRhKTsKZGlmZiAtdU5yIGxpbnV4LTIuNC9kcml2ZXJzL25ldC9ldGgxNmku
-YyBsaW51eC0yLjRiL2RyaXZlcnMvbmV0L2V0aDE2aS5jCi0tLSBsaW51eC0yLjQvZHJpdmVy
-cy9uZXQvZXRoMTZpLmMJVHVlIEZlYiAgNCAwNDowMDozNCAyMDAzCisrKyBsaW51eC0yLjRi
-L2RyaXZlcnMvbmV0L2V0aDE2aS5jCVNhdCBBdWcgMzAgMDA6MTA6MzMgMjAwMwpAQCAtMTA1
-Nyw3ICsxMDU3LDcgQEAKIAlpbnQgaW9hZGRyID0gZGV2LT5iYXNlX2FkZHI7CiAJaW50IHN0
-YXR1cyA9IDA7CiAJdXNob3J0IGxlbmd0aCA9IHNrYi0+bGVuOwotCXVuc2lnbmVkIGNoYXIg
-KmJ1ZiA9IHNrYi0+ZGF0YTsKKwl1bnNpZ25lZCBjaGFyICpidWY7CiAJdW5zaWduZWQgbG9u
-ZyBmbGFnczsKIAogCWlmKGxlbmd0aCA8IEVUSF9aTEVOKQpAQCAtMTA2Nyw2ICsxMDY3LDcg
-QEAKIAkJCXJldHVybiAwOwogCQlsZW5ndGggPSBFVEhfWkxFTjsKIAl9CisJYnVmID0gc2ti
-LT5kYXRhOwogCiAJbmV0aWZfc3RvcF9xdWV1ZShkZXYpOwogCQkKZGlmZiAtdU5yIGxpbnV4
-LTIuNC9kcml2ZXJzL25ldC9mbXYxOHguYyBsaW51eC0yLjRiL2RyaXZlcnMvbmV0L2ZtdjE4
-eC5jCi0tLSBsaW51eC0yLjQvZHJpdmVycy9uZXQvZm12MTh4LmMJVHVlIEZlYiAgNCAwNDow
-MDozNCAyMDAzCisrKyBsaW51eC0yLjRiL2RyaXZlcnMvbmV0L2ZtdjE4eC5jCVNhdCBBdWcg
-MzAgMDA6MTI6MDYgMjAwMwpAQCAtMzcwLDcgKzM3MCw3IEBACiAJc3RydWN0IG5ldF9sb2Nh
-bCAqbHAgPSBkZXYtPnByaXY7CiAJaW50IGlvYWRkciA9IGRldi0+YmFzZV9hZGRyOwogCXNo
-b3J0IGxlbmd0aCA9IHNrYi0+bGVuOwotCXVuc2lnbmVkIGNoYXIgKmJ1ZiA9IHNrYi0+ZGF0
-YTsKKwl1bnNpZ25lZCBjaGFyICpidWY7CiAJdW5zaWduZWQgbG9uZyBmbGFnczsKIAogCS8q
-IEJsb2NrIGEgdHJhbnNtaXQgZnJvbSBvdmVybGFwcGluZy4gICovCkBAIC0zODksNiArMzg5
-LDcgQEAKIAkJCXJldHVybiAwOwogCQlsZW5ndGggPSBFVEhfWkxFTjsKIAl9CisJYnVmID0g
-c2tiLT5kYXRhOwogCQogCWlmIChuZXRfZGVidWcgPiA0KQogCQlwcmludGsoIiVzOiBUcmFu
-c21pdHRpbmcgYSBwYWNrZXQgb2YgbGVuZ3RoICVsdS5cbiIsIGRldi0+bmFtZSwKZGlmZiAt
-dU5yIGxpbnV4LTIuNC9kcml2ZXJzL25ldC9zZWVxODAwNS5jIGxpbnV4LTIuNGIvZHJpdmVy
-cy9uZXQvc2VlcTgwMDUuYwotLS0gbGludXgtMi40L2RyaXZlcnMvbmV0L3NlZXE4MDA1LmMJ
-VHVlIEZlYiAgNCAwNDowMDozNCAyMDAzCisrKyBsaW51eC0yLjRiL2RyaXZlcnMvbmV0L3Nl
-ZXE4MDA1LmMJU2F0IEF1ZyAzMCAwMDoxMzoyNyAyMDAzCkBAIC0zNzksNyArMzc5LDcgQEAK
-IHsKIAlzdHJ1Y3QgbmV0X2xvY2FsICpscCA9IChzdHJ1Y3QgbmV0X2xvY2FsICopZGV2LT5w
-cml2OwogCXNob3J0IGxlbmd0aCA9IHNrYi0+bGVuOwotCXVuc2lnbmVkIGNoYXIgKmJ1ZiA9
-IHNrYi0+ZGF0YTsKKwl1bnNpZ25lZCBjaGFyICpidWY7CiAKIAlpZihsZW5ndGggPCBFVEhf
-WkxFTikKIAl7CkBAIC0zODgsNiArMzg4LDggQEAKIAkJCXJldHVybiAwOwogCQlsZW5ndGgg
-PSBFVEhfWkxFTjsKIAl9CisJYnVmID0gc2tiLT5kYXRhOworCiAJLyogQmxvY2sgYSB0aW1l
-ci1iYXNlZCB0cmFuc21pdCBmcm9tIG92ZXJsYXBwaW5nICovCiAJbmV0aWZfc3RvcF9xdWV1
-ZShkZXYpOwogCQpkaWZmIC11TnIgbGludXgtMi40L2RyaXZlcnMvbmV0L3llbGxvd2Zpbi5j
-IGxpbnV4LTIuNGIvZHJpdmVycy9uZXQveWVsbG93ZmluLmMKLS0tIGxpbnV4LTIuNC9kcml2
-ZXJzL25ldC95ZWxsb3dmaW4uYwlUdWUgRmViICA0IDA0OjAwOjM0IDIwMDMKKysrIGxpbnV4
-LTIuNGIvZHJpdmVycy9uZXQveWVsbG93ZmluLmMJU2F0IEF1ZyAzMCAwMDoyNjo1NyAyMDAz
-CkBAIC04NjcsOCArODY3LDYgQEAKIAkvKiBDYWxjdWxhdGUgdGhlIG5leHQgVHggZGVzY3Jp
-cHRvciBlbnRyeS4gKi8KIAllbnRyeSA9IHlwLT5jdXJfdHggJSBUWF9SSU5HX1NJWkU7CiAK
-LQl5cC0+dHhfc2tidWZmW2VudHJ5XSA9IHNrYjsKLQogCWlmIChneF9maXgpIHsJLyogTm90
-ZTogb25seSB3b3JrcyBmb3IgcGFkZGFibGUgcHJvdG9jb2xzIGUuZy4gIElQLiAqLwogCQlp
-bnQgY2FjaGVsaW5lX2VuZCA9ICgodW5zaWduZWQgbG9uZylza2ItPmRhdGEgKyBza2ItPmxl
-bikgJSAzMjsKIAkJLyogRml4IEdYIGNoaXBzZXQgZXJyYXRhLiAqLwpAQCAtODg1LDYgKzg4
-Myw4IEBACiAJCQlyZXR1cm4gMDsKIAkJfQogCX0KKwl5cC0+dHhfc2tidWZmW2VudHJ5XSA9
-IHNrYjsKKwogI2lmZGVmIE5PX1RYU1RBVFMKIAl5cC0+dHhfcmluZ1tlbnRyeV0uYWRkciA9
-IGNwdV90b19sZTMyKHBjaV9tYXBfc2luZ2xlKHlwLT5wY2lfZGV2LCAKIAkJc2tiLT5kYXRh
-LCBsZW4sIFBDSV9ETUFfVE9ERVZJQ0UpKTsK
---------------020906000702060209040404--
+Awesome work Stephen, all patches applied.
