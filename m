@@ -1,47 +1,37 @@
-From: bhartin@straus-frank.com
-Subject: Re: r8169, 2.6.2-rc2, Sager 4780 laptop
-Date: Wed, 7 Apr 2004 08:43:18 -0500 (CDT)
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: [Ntop-misc] Re: Luca Deri's paper: Improving Passive Packet Capture: Beyond	Device
+ Polling
+Date: Wed, 7 Apr 2004 17:11:23 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0404070841530.28688@edp12.straus-frank.int>
-References: <Pine.LNX.4.58.0401261443190.7894@edp12.straus-frank.int>
- <20040126235559.A3832@electric-eye.fr.zoreil.com>
- <Pine.LNX.4.58.0404041553010.6853@edp12.straus-frank.int>
- <20040405002028.A8125@electric-eye.fr.zoreil.com>
- <Pine.LNX.4.58.0404061650310.20664@edp12.straus-frank.int>
- <20040407001815.C7833@electric-eye.fr.zoreil.com>
- <Pine.LNX.4.58.0404061758570.17117@edp12.straus-frank.int>
- <20040407013841.A7978@electric-eye.fr.zoreil.com>
- <Pine.LNX.4.58.0404070014571.17117@edp12.straus-frank.int>
- <20040407112607.A17476@electric-eye.fr.zoreil.com>
+Message-ID: <16500.6683.524806.636701@robur.slu.se>
+References: <20040330142354.GA17671@outblaze.com>
+	<1081033332.2037.61.camel@jzny.localdomain>
+	<c4rvvv$dbf$1@sea.gmane.org>
+	<1081261126.1047.6.camel@jzny.localdomain>
+	<16498.52551.712261.214192@robur.slu.se>
+	<4073A7AF.5060401@ntop.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>, hadi@cyberus.ca,
+        Jason Lunz <lunz@falooley.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20040407112607.A17476@electric-eye.fr.zoreil.com>
+To: ntop-misc@fuji.unipi.it
+In-Reply-To: <4073A7AF.5060401@ntop.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-I started a ping, and unplugged the network cable.  I got the 'r8169: 
-eth0: Reset RTL8169s PHY' message about once every 11 to 15 seconds.  Once 
-plugged back in, the connection recovered immediately.  I repeated this 
-several times.  So, it's still generating the messages, but they seem to 
-be harmless (at least for the few minutes I was testing this).
+Luca Deri writes:
 
-On Wed, 7 Apr 2004, Francois Romieu wrote:
+ > Robert,
+ > yes I run into this problems and I have solved using the RTIRQ kernel patch.
 
-> bhartin@straus-frank.com <bhartin@straus-frank.com> :
-> [...]
-> > The patch resolved the PHY messages, and I stress-tested the networking 
-> > again--it's still stable.
-> 
-> Does it allow the link to be recovered if the cable is removed/plugde ?
-> 
-> --
-> Ueimor
-> 
+ Hello!
 
-Bradley Hartin - bhartin@straus-frank.com
-Communications and Network Administrator
-Straus-Frank Company
+ I found a reference in your mail... After a very quick look I don't see how RTIRQ 
+ can solve any of softirq/userland balance problems. It's seems to deal with
+ getting realtime-like interrupt responsiveness during load.
+
+ Cheers.
+							--ro
