@@ -1,135 +1,100 @@
-From: Pekka Pietikainen <pp@ee.oulu.fi>
-Subject: Re: Fw: b44 ifconfig fails with ENOMEM
-Date: Sat, 8 Jan 2005 00:02:33 +0200
-Message-ID: <20050107220233.GA9639@ee.oulu.fi>
-References: <20050103191836.57f918e5.akpm@osdl.org> <20050104142026.000be2e8.davem@davemloft.net>
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: Followup to netpoll issues
+Date: Fri, 7 Jan 2005 14:07:23 -0800
+Message-ID: <20050107220723.GB2940@waste.org>
+References: <1105045914.7687.3.camel@tigger> <20050106234610.GT2940@waste.org> <20050107011547.GE27896@electric-eye.fr.zoreil.com> <20050107170118.GU2940@waste.org> <20050107214254.GA17317@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Mark Broadbent <markb@wetlettuce.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Content-Disposition: inline
-In-Reply-To: <20050104142026.000be2e8.davem@davemloft.net>
+In-Reply-To: <20050107214254.GA17317@electric-eye.fr.zoreil.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 04, 2005 at 02:20:26PM -0800, David S. Miller wrote:
-> On Mon, 3 Jan 2005 19:18:36 -0800
-> Andrew Morton <akpm@osdl.org> wrote:
+On Fri, Jan 07, 2005 at 10:42:54PM +0100, Francois Romieu wrote:
+> Matt Mackall <mpm@selenic.com> :
+> [...]
+> > printk("debug: at point A");
+> > do_something_that_sends_a_packet_B();
+> > printk("debug: at point C");
+> > 
+> > Depending on locking and queueing, we might see on our network dump B,
+> > A, C, and wrongly conclude that whatever did B was not between A and C.
+> > That's a bad way for printk to work.
 > 
-> > b44 requires an order-8 allocation?  Good luck...
+> I completely agree that it is not perfect.
 > 
-> Yes, it allocates a full TX ring worth of bounce buffers
-> to work around a DMA addressing limitation.  It should do
-> a bunch of smaller consistent allocations instead of one
-> huge one, that's for sure.
--ENOHARDWARE (Santa got me an Athlon64 with dual GigE) so someone else will
-have to pick up the ball. Shouldn't be too difficult, quickly thinking
-something like:
+> However netconsole is currently unable to guarantee that you will
+> always see both A and B (currently = assuming the skb is dropped
+> when netconsole fails trylock as suggested by Jamal). So there is
+> an issue with the reliability of the delivery as well.
 
-X-It-Compiles-Lets-Ship-It: pp@ee.oulu.fi
---- ./b44.c.orig	2005-01-05 12:15:30.000000000 +0200
-+++ ./b44.c	2005-01-08 00:00:49.974949992 +0200
-@@ -68,6 +68,8 @@
- 	  (BP)->tx_cons - (BP)->tx_prod - TX_RING_GAP(BP))
- #define NEXT_TX(N)		(((N) + 1) & (B44_TX_RING_SIZE - 1))
+Indeed, and we can't really do much about it generally as we're on a
+lossy media. But I think that's less misleading than potential
+reordering. I acknowledge that packets can get reordered on the wire
+potentially as well but for typical LAN segments, this will be uncommon.
+
+> I won't push harder on the queuing side as I believe that it will
+> be possible to add it as an extra choice to the user whatever form
+> netconsole takes to stop deadlocking.
+
+I might be willing to compromise on a queue depth of one. Much simpler
+code, much less effort to paper over bugs that should be fixed in a
+different way.
+
+But then we've got to have a way to disable it for kgdb-over-ethernet
+or netdump, where the delayed work simply won't get processed because
+the box is stopped. Admittedly trying to trace your way into the
+network driver is asking for a beating here, but the general issue is
+that netpoll clients can stop interrupt processing and netpoll should
+tell such clients that the packets its trying to send aren't going
+anywhere rather than quietly scheduling them for later delivery, see?
  
-+#define B44_BOUNCEBUF(ENTRY) (bp->tx_bufs[(ENTRY)&(B44_NUM_BOUNCEBUFS-1)]+((ENTRY)>>B44_BOUNCEBUF_SHIFT)*TX_PKT_BUF_SZ)
-+
- #define RX_PKT_BUF_SZ		(1536 + bp->rx_offset + 64)
- #define TX_PKT_BUF_SZ		(B44_MAX_MTU + ETH_HLEN + 8)
- 
-@@ -927,8 +929,8 @@
- 	if(mapping+len > B44_DMA_MASK) {
- 		/* Chip can't handle DMA to/from >1GB, use bounce buffer */
- 		pci_unmap_single(bp->pdev, mapping, len,PCI_DMA_TODEVICE);
--		memcpy(bp->tx_bufs+entry*TX_PKT_BUF_SZ,skb->data,skb->len);
--		mapping = pci_map_single(bp->pdev, bp->tx_bufs+entry*TX_PKT_BUF_SZ, len, PCI_DMA_TODEVICE);
-+		memcpy(B44_BOUNCEBUF(entry),skb->data,skb->len);
-+		mapping = pci_map_single(bp->pdev, B44_BOUNCEBUF(entry), len, PCI_DMA_TODEVICE);
- 	}
- 
- 	bp->tx_buffers[entry].skb = skb;
-@@ -1059,6 +1061,7 @@
-  */
- static void b44_free_consistent(struct b44 *bp)
- {
-+	int i;
- 	if (bp->rx_buffers) {
- 		kfree(bp->rx_buffers);
- 		bp->rx_buffers = NULL;
-@@ -1077,10 +1080,12 @@
- 				    bp->tx_ring, bp->tx_ring_dma);
- 		bp->tx_ring = NULL;
- 	}
--	if (bp->tx_bufs) {
--		pci_free_consistent(bp->pdev, B44_TX_RING_SIZE * TX_PKT_BUF_SZ,
--				    bp->tx_bufs, bp->tx_bufs_dma);
--		bp->tx_bufs = NULL;
-+	for(i = 0; i < B44_NUM_BOUNCEBUFS; i++) {
-+		if (bp->tx_bufs[i]) {
-+			pci_free_consistent(bp->pdev, B44_TX_RING_SIZE * TX_PKT_BUF_SZ / B44_NUM_BOUNCEBUFS,
-+					    bp->tx_bufs[i], bp->tx_bufs_dma[i]);
-+			bp->tx_bufs[i] = NULL;
-+		}
- 	}
- }
- 
-@@ -1090,7 +1095,7 @@
-  */
- static int b44_alloc_consistent(struct b44 *bp)
- {
--	int size;
-+	int i,size;
- 
- 	size  = B44_RX_RING_SIZE * sizeof(struct ring_info);
- 	bp->rx_buffers = kmalloc(size, GFP_KERNEL);
-@@ -1104,11 +1109,13 @@
- 		goto out_err;
- 	memset(bp->tx_buffers, 0, size);
- 
--	size = B44_TX_RING_SIZE * TX_PKT_BUF_SZ;
--	bp->tx_bufs = pci_alloc_consistent(bp->pdev, size, &bp->tx_bufs_dma);
--	if (!bp->tx_bufs)
-+	size = (B44_TX_RING_SIZE * TX_PKT_BUF_SZ) / B44_NUM_BOUNCEBUFS;
-+	for(i = 0; i < B44_NUM_BOUNCEBUFS; i++) {
-+	   bp->tx_bufs[i] = pci_alloc_consistent(bp->pdev, size, &bp->tx_bufs_dma[i]);
-+	   if (!bp->tx_bufs[i])
- 		goto out_err;
--	memset(bp->tx_bufs, 0, size);
-+	   memset(bp->tx_bufs[i], 0, size);
-+	}
- 
- 	size = DMA_TABLE_BYTES;
- 	bp->rx_ring = pci_alloc_consistent(bp->pdev, size, &bp->rx_ring_dma);
---- ./b44.h.orig	2005-01-05 12:15:33.000000000 +0200
-+++ ./b44.h	2005-01-07 23:53:07.234297264 +0200
-@@ -359,6 +359,8 @@
- };
- 
- #define B44_MCAST_TABLE_SIZE	32
-+#define B44_BOUNCEBUF_SHIFT	3
-+#define B44_NUM_BOUNCEBUFS	(1 << B44_BOUNCEBUF_SHIFT)
- 
- /* SW copy of device statistics, kept up to date by periodic timer
-  * which probes HW values.  Must have same relative layout as HW
-@@ -397,7 +399,7 @@
- 
- 	struct ring_info	*rx_buffers;
- 	struct ring_info	*tx_buffers;
--	unsigned char		*tx_bufs; 
-+	unsigned char		*tx_bufs[B44_NUM_BOUNCEBUFS]; 
- 
- 	u32			dma_offset;
- 	u32			flags;
-@@ -429,7 +431,8 @@
- 	struct pci_dev		*pdev;
- 	struct net_device	*dev;
- 
--	dma_addr_t		rx_ring_dma, tx_ring_dma,tx_bufs_dma;
-+	dma_addr_t		rx_ring_dma, tx_ring_dma;
-+	dma_addr_t		tx_bufs_dma[B44_NUM_BOUNCEBUFS];
- 
- 	u32			rx_pending;
- 	u32			tx_pending;
+> [...]
+> > The bugs I'm talking about are identical to the xmit_lock deadlock
+> > except with locks we can't see outside the driver. In other words,
+> 
+> Right, it's clearer now. Thanks for the reminder.
+> 
+> User space takes device's private lock -> printks -> netconsole.write
+> -> hard_start_xmit -> device's private lock -> splat. Same thing from
+> interrupt context (in_irq() can probably help though).
+> 
+> So we ought to check rtnl_sem as well (dev_base_lock anyone ?).
+> 
+> /me scratches neck...
+> 
+> > this patch addresses the easy part of larger problem by adding a bunch
+> > of complexity that doesn't help in the larger problem. To me, that's a
+> > hint that it's the wrong fix.
+> 
+> Too big. It won't bite. :o)
+> 
+> [...]
+> > > I am not convinced that people will be satisfied with a rule which
+> > > states that printk _from anywhere_ are lost as soon as a CPU enters
+> > > in the xmit_lock zone but, hey, it's just me.
+> > 
+> > It should only be dropped on the CPU holding the lock, with a loud
+> > warning to follow shortly.
+> 
+> Sorry if I was not clear: "from anywhere" meant printk issued from
+> any part of the kernel which can interrupt the xmit_locked section
+> of a qdisc_run(), i.e. printk from irq handlers. 
+
+Hrmm. Yes, that's uglier than I realized.
+
+Perhaps there's a way to use the existing IRQ handler reentrancy
+avoidance to detect that we might be about to recurse on a lock.
+
+> If I read correctly the suggested design, the remaining CPUs should
+> loop in netpoll_send_skb() when they notice that they can not take
+> the lock and that their CPU do not own it, right ?
+
+Yep.
+
+-- 
+Mathematics is the supreme nostalgia of our time.
