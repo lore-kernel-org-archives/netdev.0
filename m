@@ -1,420 +1,261 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Today's net-2.6.9 update
-Date: Thu, 19 Aug 2004 07:50:19 -0700
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] Prevent crash on ip_conntrack removal
+Date: Thu, 19 Aug 2004 16:55:58 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040819075019.23ca9e4e.davem@redhat.com>
+Message-ID: <4124BF7E.7090304@trash.net>
+References: <20040818091352.GB6507@suse.de>	<20040819101159.GC3921@sunbeam.de.gnumonks.org> <20040819071846.2d0d6120.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/mixed;
+ boundary="------------040406000802080008010907"
+Cc: Harald Welte <laforge@netfilter.org>, okir@suse.de, netdev@oss.sgi.com,
+        netfilter-devel@lists.netfilter.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20040819071846.2d0d6120.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+This is a multi-part message in MIME format.
+--------------040406000802080008010907
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Just to include Herbert Xu's xfrm tunnel diffs.
-If bored, try to see that all combinations of modular
-vs. non-modular work for the new xfrm tunnel choices.
+David S. Miller wrote:
 
-As usual:
+>On Thu, 19 Aug 2004 12:11:59 +0200
+>Harald Welte <laforge@netfilter.org> wrote:
+>
+>  
+>
+>>Dave, is this fine with you?  What solution would you prefer?
+>>    
+>>
+>
+>I haven't been shown the patches so I can't generate an
+>opinion. :-)
+>  
+>
 
-	bk://kernel.bkbits.net/davem/net-2.6
-	ftp://ftp.kernel.org/pub/linux/kernel/people/davem/net-2.6.9-3.diff.gz
+These are Olaf's patches. I agree with Harald that the second
+patch is better. I've fixed it up so it applies with the recent
+ip_fragment.c changes.
 
-Thanks.
 
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2004/08/19 07:12:01-07:00 herbert@gondor.apana.org.au 
-#   [IPSEC]: Use xfrm4_rcv in xfrm4_tunnel
-#   
-#   This is a trivial patch to use xfrm4_rcv in xfrm4_tunnel.  It doesn't
-#   need the extra argument provided by xfrm4_rcv_encap.
-#   
-#   Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-#   Signed-off-by: David S. Miller <davem@redhat.com>
-# 
-# net/ipv4/xfrm4_tunnel.c
-#   2004/08/19 07:11:45-07:00 herbert@gondor.apana.org.au +1 -1
-#   [IPSEC]: Use xfrm4_rcv in xfrm4_tunnel
-#   
-#   This is a trivial patch to use xfrm4_rcv in xfrm4_tunnel.  It doesn't
-#   need the extra argument provided by xfrm4_rcv_encap.
-#   
-#   Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-#   Signed-off-by: David S. Miller <davem@redhat.com>
-# 
-diff -Nru a/net/ipv4/xfrm4_tunnel.c b/net/ipv4/xfrm4_tunnel.c
---- a/net/ipv4/xfrm4_tunnel.c	2004-08-19 07:34:12 -07:00
-+++ b/net/ipv4/xfrm4_tunnel.c	2004-08-19 07:34:12 -07:00
-@@ -68,7 +68,7 @@
- 	if (handler && handler->handler(skb) == 0)
- 		return 0;
+--------------040406000802080008010907
+Content-Type: text/plain;
+ name="netfilter-unload-crash"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="netfilter-unload-crash"
+
+Index: v2.6.8/net/ipv4/ip_input.c
+===================================================================
+--- v2.6.8.orig/net/ipv4/ip_input.c
++++ v2.6.8/net/ipv4/ip_input.c
+@@ -177,6 +177,13 @@ int ip_call_ra_chain(struct sk_buff *skb
+ 					read_unlock(&ip_ra_lock);
+ 					return 1;
+ 				}
++				/* When ip_conntrack gets unloaded, we may be
++				 * left with fragment chains where the first
++				 * fragment has skb->dst = NULL. */
++				if (skb->dst == NULL) {
++					 kfree_skb(skb);
++					 return 1;
++				 }
+ 			}
+ 			if (last) {
+ 				struct sk_buff *skb2 = skb_clone(skb, GFP_ATOMIC);
+@@ -277,6 +284,13 @@ int ip_local_deliver(struct sk_buff *skb
+ 		skb = ip_defrag(skb);
+ 		if (!skb)
+ 			return 0;
++		/* When ip_conntrack gets unloaded, we may be
++		 * left with fragment chains where the first
++		 * fragment has skb->dst = NULL. */
++		if (skb->dst == NULL) {
++			 kfree_skb(skb);
++			 return 0;
++		 }
+ 	}
  
--	return xfrm4_rcv_encap(skb, 0);
-+	return xfrm4_rcv(skb);
- }
- 
- static void ipip_err(struct sk_buff *skb, u32 info)
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2004/08/19 07:13:27-07:00 herbert@gondor.apana.org.au 
-#   [IPSEC]: Modularise xfrm_tunnel.
-#   
-#   This patch allows the the user to build xfrm4_tunnel/xfrm6_tunnel as
-#   modules.
-#   
-#   This makes sense because they're only used by IPComp/IPIP/IP6Tunnel
-#   which are modules themselves.  It also means that distros can cut
-#   down on there core kernel size when compiling with IPsec support.
-#   
-#   Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-#   Signed-off-by: David S. Miller <davem@redhat.com>
-# 
-# net/xfrm/xfrm_export.c
-#   2004/08/19 07:13:10-07:00 herbert@gondor.apana.org.au +0 -2
-#   [IPSEC]: Modularise xfrm_tunnel.
-#   
-#   This patch allows the the user to build xfrm4_tunnel/xfrm6_tunnel as
-#   modules.
-#   
-#   This makes sense because they're only used by IPComp/IPIP/IP6Tunnel
-#   which are modules themselves.  It also means that distros can cut
-#   down on there core kernel size when compiling with IPsec support.
-#   
-#   Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-#   Signed-off-by: David S. Miller <davem@redhat.com>
-# 
-# net/ipv6/xfrm6_tunnel.c
-#   2004/08/19 07:13:10-07:00 herbert@gondor.apana.org.au +10 -5
-#   [IPSEC]: Modularise xfrm_tunnel.
-#   
-#   This patch allows the the user to build xfrm4_tunnel/xfrm6_tunnel as
-#   modules.
-#   
-#   This makes sense because they're only used by IPComp/IPIP/IP6Tunnel
-#   which are modules themselves.  It also means that distros can cut
-#   down on there core kernel size when compiling with IPsec support.
-#   
-#   Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-#   Signed-off-by: David S. Miller <davem@redhat.com>
-# 
-# net/ipv6/xfrm6_policy.c
-#   2004/08/19 07:13:10-07:00 herbert@gondor.apana.org.au +0 -2
-#   [IPSEC]: Modularise xfrm_tunnel.
-#   
-#   This patch allows the the user to build xfrm4_tunnel/xfrm6_tunnel as
-#   modules.
-#   
-#   This makes sense because they're only used by IPComp/IPIP/IP6Tunnel
-#   which are modules themselves.  It also means that distros can cut
-#   down on there core kernel size when compiling with IPsec support.
-#   
-#   Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-#   Signed-off-by: David S. Miller <davem@redhat.com>
-# 
-# net/ipv6/Makefile
-#   2004/08/19 07:13:10-07:00 herbert@gondor.apana.org.au +2 -1
-#   [IPSEC]: Modularise xfrm_tunnel.
-#   
-#   This patch allows the the user to build xfrm4_tunnel/xfrm6_tunnel as
-#   modules.
-#   
-#   This makes sense because they're only used by IPComp/IPIP/IP6Tunnel
-#   which are modules themselves.  It also means that distros can cut
-#   down on there core kernel size when compiling with IPsec support.
-#   
-#   Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-#   Signed-off-by: David S. Miller <davem@redhat.com>
-# 
-# net/ipv6/Kconfig
-#   2004/08/19 07:13:10-07:00 herbert@gondor.apana.org.au +13 -1
-#   [IPSEC]: Modularise xfrm_tunnel.
-#   
-#   This patch allows the the user to build xfrm4_tunnel/xfrm6_tunnel as
-#   modules.
-#   
-#   This makes sense because they're only used by IPComp/IPIP/IP6Tunnel
-#   which are modules themselves.  It also means that distros can cut
-#   down on there core kernel size when compiling with IPsec support.
-#   
-#   Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-#   Signed-off-by: David S. Miller <davem@redhat.com>
-# 
-# net/ipv4/xfrm4_tunnel.c
-#   2004/08/19 07:13:10-07:00 herbert@gondor.apana.org.au +5 -0
-#   [IPSEC]: Modularise xfrm_tunnel.
-#   
-#   This patch allows the the user to build xfrm4_tunnel/xfrm6_tunnel as
-#   modules.
-#   
-#   This makes sense because they're only used by IPComp/IPIP/IP6Tunnel
-#   which are modules themselves.  It also means that distros can cut
-#   down on there core kernel size when compiling with IPsec support.
-#   
-#   Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-#   Signed-off-by: David S. Miller <davem@redhat.com>
-# 
-# net/ipv4/Makefile
-#   2004/08/19 07:13:10-07:00 herbert@gondor.apana.org.au +2 -1
-#   [IPSEC]: Modularise xfrm_tunnel.
-#   
-#   This patch allows the the user to build xfrm4_tunnel/xfrm6_tunnel as
-#   modules.
-#   
-#   This makes sense because they're only used by IPComp/IPIP/IP6Tunnel
-#   which are modules themselves.  It also means that distros can cut
-#   down on there core kernel size when compiling with IPsec support.
-#   
-#   Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-#   Signed-off-by: David S. Miller <davem@redhat.com>
-# 
-# net/ipv4/Kconfig
-#   2004/08/19 07:13:10-07:00 herbert@gondor.apana.org.au +11 -1
-#   [IPSEC]: Modularise xfrm_tunnel.
-#   
-#   This patch allows the the user to build xfrm4_tunnel/xfrm6_tunnel as
-#   modules.
-#   
-#   This makes sense because they're only used by IPComp/IPIP/IP6Tunnel
-#   which are modules themselves.  It also means that distros can cut
-#   down on there core kernel size when compiling with IPsec support.
-#   
-#   Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-#   Signed-off-by: David S. Miller <davem@redhat.com>
-# 
-# include/net/xfrm.h
-#   2004/08/19 07:13:10-07:00 herbert@gondor.apana.org.au +0 -2
-#   [IPSEC]: Modularise xfrm_tunnel.
-#   
-#   This patch allows the the user to build xfrm4_tunnel/xfrm6_tunnel as
-#   modules.
-#   
-#   This makes sense because they're only used by IPComp/IPIP/IP6Tunnel
-#   which are modules themselves.  It also means that distros can cut
-#   down on there core kernel size when compiling with IPsec support.
-#   
-#   Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-#   Signed-off-by: David S. Miller <davem@redhat.com>
-# 
-diff -Nru a/include/net/xfrm.h b/include/net/xfrm.h
---- a/include/net/xfrm.h	2004-08-19 07:34:25 -07:00
-+++ b/include/net/xfrm.h	2004-08-19 07:34:25 -07:00
-@@ -792,8 +792,6 @@
- extern void xfrm4_state_fini(void);
- extern void xfrm6_state_init(void);
- extern void xfrm6_state_fini(void);
--extern void xfrm6_tunnel_init(void);
--extern void xfrm6_tunnel_fini(void);
- 
- extern int xfrm_state_walk(u8 proto, int (*func)(struct xfrm_state *, int, void*), void *);
- extern struct xfrm_state *xfrm_state_alloc(void);
-diff -Nru a/net/ipv4/Kconfig b/net/ipv4/Kconfig
---- a/net/ipv4/Kconfig	2004-08-19 07:34:25 -07:00
-+++ b/net/ipv4/Kconfig	2004-08-19 07:34:25 -07:00
-@@ -187,7 +187,7 @@
- config NET_IPIP
- 	tristate "IP: tunneling"
- 	depends on INET
--	select XFRM
-+	select INET_TUNNEL
- 	---help---
- 	  Tunneling means encapsulating data of one protocol type within
- 	  another protocol and sending it over a channel that understands the
-@@ -351,11 +351,21 @@
- config INET_IPCOMP
- 	tristate "IP: IPComp transformation"
- 	select XFRM
-+	select INET_TUNNEL
- 	select CRYPTO
- 	select CRYPTO_DEFLATE
- 	---help---
- 	  Support for IP Paylod Compression (RFC3173), typically needed
- 	  for IPsec.
-+	  
-+	  If unsure, say Y.
-+
-+config INET_TUNNEL
-+	tristate "IP: tunnel transformation"
-+	select XFRM
-+	---help---
-+	  Support for generic IP tunnel transformation, which is required by
-+	  the IP tunneling module as well as tunnel mode IPComp.
- 	  
- 	  If unsure, say Y.
- 
-diff -Nru a/net/ipv4/Makefile b/net/ipv4/Makefile
---- a/net/ipv4/Makefile	2004-08-19 07:34:25 -07:00
-+++ b/net/ipv4/Makefile	2004-08-19 07:34:25 -07:00
-@@ -19,9 +19,10 @@
- obj-$(CONFIG_INET_AH) += ah4.o
- obj-$(CONFIG_INET_ESP) += esp4.o
- obj-$(CONFIG_INET_IPCOMP) += ipcomp.o
-+obj-$(CONFIG_INET_TUNNEL) += xfrm4_tunnel.o 
- obj-$(CONFIG_IP_PNP) += ipconfig.o
- obj-$(CONFIG_NETFILTER)	+= netfilter/
- obj-$(CONFIG_IP_VS) += ipvs/
- 
- obj-$(CONFIG_XFRM) += xfrm4_policy.o xfrm4_state.o xfrm4_input.o \
--		      xfrm4_tunnel.o xfrm4_output.o
-+		      xfrm4_output.o
-diff -Nru a/net/ipv4/xfrm4_tunnel.c b/net/ipv4/xfrm4_tunnel.c
---- a/net/ipv4/xfrm4_tunnel.c	2004-08-19 07:34:25 -07:00
-+++ b/net/ipv4/xfrm4_tunnel.c	2004-08-19 07:34:25 -07:00
-@@ -4,6 +4,7 @@
+ 	return NF_HOOK(PF_INET, NF_IP_LOCAL_IN, skb, skb->dev, NULL,
+
+--------------040406000802080008010907
+Content-Type: text/plain;
+ name="conntrack-flush-fragments"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="conntrack-flush-fragments"
+
+
+Alternative fix for the crash on conntrack unload. Simply flush all
+fragment queues when unloading conntrack_standalone so that there are
+no partially assembled fragments left with skb->dst == NULL.
+
+Index: v2.6.8/include/net/ip.h
+===================================================================
+--- v2.6.8.orig/include/net/ip.h
++++ v2.6.8/include/net/ip.h
+@@ -255,6 +255,7 @@ extern int	ip_call_ra_chain(struct sk_bu
   */
+  
+ struct sk_buff *ip_defrag(struct sk_buff *skb);
++extern void ipfrag_flush(void);
+ extern int ip_frag_nqueues;
+ extern atomic_t ip_frag_mem;
  
- #include <linux/skbuff.h>
-+#include <linux/module.h>
- #include <net/xfrm.h>
- #include <net/ip.h>
- #include <net/protocol.h>
-@@ -43,6 +44,8 @@
- 	return ret;
- }
- 
-+EXPORT_SYMBOL(xfrm4_tunnel_register);
-+
- int xfrm4_tunnel_deregister(struct xfrm_tunnel *handler)
+Index: v2.6.8/net/ipv4/ip_fragment.c
+===================================================================
+--- v2.6.8.orig/net/ipv4/ip_fragment.c
++++ v2.6.8/net/ipv4/ip_fragment.c
+@@ -239,13 +239,13 @@ static void ipq_kill(struct ipq *ipq)
+ /* Memory limiting on fragments.  Evictor trashes the oldest 
+  * fragment queue until we are back under the low threshold.
+  */
+-static void ip_evictor(void)
++static void __ip_evictor(int threshold)
  {
- 	int ret;
-@@ -59,6 +62,8 @@
+ 	struct ipq *qp;
+ 	struct list_head *tmp;
  
- 	return ret;
- }
-+
-+EXPORT_SYMBOL(xfrm4_tunnel_deregister);
- 
- static int ipip_rcv(struct sk_buff *skb)
- {
-diff -Nru a/net/ipv6/Kconfig b/net/ipv6/Kconfig
---- a/net/ipv6/Kconfig	2004-08-19 07:34:25 -07:00
-+++ b/net/ipv6/Kconfig	2004-08-19 07:34:25 -07:00
-@@ -48,6 +48,7 @@
- 	tristate "IPv6: IPComp transformation"
- 	depends on IPV6
- 	select XFRM
-+	select INET6_TUNNEL
- 	select CRYPTO
- 	select CRYPTO_DEFLATE
- 	---help---
-@@ -56,10 +57,21 @@
- 
- 	  If unsure, say Y.
- 
-+config INET6_TUNNEL
-+	tristate "IPv6: tunnel transformation"
-+	depends on IPV6
-+	select XFRM
-+	---help---
-+	  Support for generic IPv6-in-IPv6 tunnel transformation, which is
-+	  required by the IPv6-in-IPv6 tunneling module as well as tunnel mode
-+	  IPComp.
-+	  
-+	  If unsure, say Y.
-+
- config IPV6_TUNNEL
- 	tristate "IPv6: IPv6-in-IPv6 tunnel"
- 	depends on IPV6
--	select XFRM
-+	select INET6_TUNNEL
- 	---help---
- 	  Support for IPv6-in-IPv6 tunnels described in RFC 2473.
- 
-diff -Nru a/net/ipv6/Makefile b/net/ipv6/Makefile
---- a/net/ipv6/Makefile	2004-08-19 07:34:25 -07:00
-+++ b/net/ipv6/Makefile	2004-08-19 07:34:25 -07:00
-@@ -11,12 +11,13 @@
- 		ip6_flowlabel.o ipv6_syms.o
- 
- ipv6-$(CONFIG_XFRM) += xfrm6_policy.o xfrm6_state.o xfrm6_input.o \
--	xfrm6_tunnel.o xfrm6_output.o
-+	xfrm6_output.o
- ipv6-objs += $(ipv6-y)
- 
- obj-$(CONFIG_INET6_AH) += ah6.o
- obj-$(CONFIG_INET6_ESP) += esp6.o
- obj-$(CONFIG_INET6_IPCOMP) += ipcomp6.o
-+obj-$(CONFIG_INET6_TUNNEL) += xfrm6_tunnel.o 
- obj-$(CONFIG_NETFILTER)	+= netfilter/
- 
- obj-$(CONFIG_IPV6_TUNNEL) += ip6_tunnel.o
-diff -Nru a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
---- a/net/ipv6/xfrm6_policy.c	2004-08-19 07:34:25 -07:00
-+++ b/net/ipv6/xfrm6_policy.c	2004-08-19 07:34:25 -07:00
-@@ -287,12 +287,10 @@
- {
- 	xfrm6_policy_init();
- 	xfrm6_state_init();
--	xfrm6_tunnel_init();
- }
- 
- void __exit xfrm6_fini(void)
- {
--	xfrm6_tunnel_fini();
- 	//xfrm6_input_fini();
- 	xfrm6_policy_fini();
- 	xfrm6_state_fini();
-diff -Nru a/net/ipv6/xfrm6_tunnel.c b/net/ipv6/xfrm6_tunnel.c
---- a/net/ipv6/xfrm6_tunnel.c	2004-08-19 07:34:25 -07:00
-+++ b/net/ipv6/xfrm6_tunnel.c	2004-08-19 07:34:25 -07:00
-@@ -501,31 +501,32 @@
- 	.flags          = INET6_PROTO_NOPOLICY|INET6_PROTO_FINAL,
- };
- 
--void __init xfrm6_tunnel_init(void)
-+static int __init xfrm6_tunnel_init(void)
- {
- 	X6TPRINTK3(KERN_DEBUG "%s()\n", __FUNCTION__);
- 
- 	if (xfrm_register_type(&xfrm6_tunnel_type, AF_INET6) < 0) {
- 		X6TPRINTK1(KERN_ERR
- 			   "xfrm6_tunnel init: can't add xfrm type\n");
--		return;
-+		return -EAGAIN;
+ 	for(;;) {
+-		if (atomic_read(&ip_frag_mem) <= sysctl_ipfrag_low_thresh)
++		if (atomic_read(&ip_frag_mem) <= threshold)
+ 			return;
+ 		read_lock(&ipfrag_lock);
+ 		if (list_empty(&ipq_lru_list)) {
+@@ -267,6 +267,11 @@ static void ip_evictor(void)
  	}
- 	if (inet6_add_protocol(&xfrm6_tunnel_protocol, IPPROTO_IPV6) < 0) {
- 		X6TPRINTK1(KERN_ERR
- 			   "xfrm6_tunnel init(): can't add protocol\n");
- 		xfrm_unregister_type(&xfrm6_tunnel_type, AF_INET6);
--		return;
-+		return -EAGAIN;
- 	}
- 	if (xfrm6_tunnel_spi_init() < 0) {
- 		X6TPRINTK1(KERN_ERR
- 			   "xfrm6_tunnel init: failed to initialize spi\n");
- 		inet6_del_protocol(&xfrm6_tunnel_protocol, IPPROTO_IPV6);
- 		xfrm_unregister_type(&xfrm6_tunnel_type, AF_INET6);
--		return;
-+		return -EAGAIN;
- 	}
-+	return 0;
  }
  
--void __exit xfrm6_tunnel_fini(void)
-+static void __exit xfrm6_tunnel_fini(void)
- {
- 	X6TPRINTK3(KERN_DEBUG "%s()\n", __FUNCTION__);
- 
-@@ -537,3 +538,7 @@
- 		X6TPRINTK1(KERN_ERR
- 			   "xfrm6_tunnel close: can't remove xfrm type\n");
- }
++static inline void ip_evictor(void)
++{
++	__ip_evictor(sysctl_ipfrag_low_thresh);
++}
 +
-+module_init(xfrm6_tunnel_init);
-+module_exit(xfrm6_tunnel_fini);
-+MODULE_LICENSE("GPL");
-diff -Nru a/net/xfrm/xfrm_export.c b/net/xfrm/xfrm_export.c
---- a/net/xfrm/xfrm_export.c	2004-08-19 07:34:25 -07:00
-+++ b/net/xfrm/xfrm_export.c	2004-08-19 07:34:25 -07:00
-@@ -33,8 +33,6 @@
- EXPORT_SYMBOL(xfrm_get_acqseq);
- EXPORT_SYMBOL(xfrm_parse_spi);
- EXPORT_SYMBOL(xfrm4_rcv);
--EXPORT_SYMBOL(xfrm4_tunnel_register);
--EXPORT_SYMBOL(xfrm4_tunnel_deregister);
- EXPORT_SYMBOL(xfrm_register_type);
- EXPORT_SYMBOL(xfrm_unregister_type);
- EXPORT_SYMBOL(xfrm_get_type);
+ /*
+  * Oops, a fragment queue timed out.  Kill it and send an ICMP reply.
+  */
+@@ -677,4 +682,10 @@ void ipfrag_init(void)
+ 	add_timer(&ipfrag_secret_timer);
+ }
+ 
++void ipfrag_flush(void)
++{
++	__ip_evictor(0);
++}
++
+ EXPORT_SYMBOL(ip_defrag);
++EXPORT_SYMBOL(ipfrag_flush);
+Index: v2.6.8/net/ipv4/netfilter/ip_conntrack_standalone.c
+===================================================================
+--- v2.6.8.orig/net/ipv4/netfilter/ip_conntrack_standalone.c
++++ v2.6.8/net/ipv4/netfilter/ip_conntrack_standalone.c
+@@ -562,6 +562,8 @@ static int init_or_cleanup(int init)
+ 	nf_unregister_hook(&ip_conntrack_defrag_local_out_ops);
+  cleanup_defragops:
+ 	nf_unregister_hook(&ip_conntrack_defrag_ops);
++	/* Frag queues may hold fragments with skb->dst == NULL */
++	ipfrag_flush();
+  cleanup_proc:
+ 	proc_net_remove("ip_conntrack");
+  cleanup_init:
+
+--------------040406000802080008010907
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2004/08/19 16:51:10+02:00 kaber@coreworks.de 
+#   [NETFILTER]: Flush ip fragment queue on conntrack module unload
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+# net/ipv4/netfilter/ip_conntrack_standalone.c
+#   2004/08/19 16:50:47+02:00 kaber@coreworks.de +2 -0
+#   [NETFILTER]: Flush ip fragment queue on conntrack module unload
+# 
+# net/ipv4/ip_fragment.c
+#   2004/08/19 16:50:47+02:00 kaber@coreworks.de +14 -3
+#   [NETFILTER]: Flush ip fragment queue on conntrack module unload
+# 
+# include/net/ip.h
+#   2004/08/19 16:50:47+02:00 kaber@coreworks.de +1 -0
+#   [NETFILTER]: Flush ip fragment queue on conntrack module unload
+# 
+diff -Nru a/include/net/ip.h b/include/net/ip.h
+--- a/include/net/ip.h	2004-08-19 16:53:39 +02:00
++++ b/include/net/ip.h	2004-08-19 16:53:39 +02:00
+@@ -255,6 +255,7 @@
+  */
+  
+ struct sk_buff *ip_defrag(struct sk_buff *skb);
++extern void ipfrag_flush(void);
+ extern int ip_frag_nqueues;
+ extern atomic_t ip_frag_mem;
+ 
+diff -Nru a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
+--- a/net/ipv4/ip_fragment.c	2004-08-19 16:53:38 +02:00
++++ b/net/ipv4/ip_fragment.c	2004-08-19 16:53:38 +02:00
+@@ -241,15 +241,15 @@
+ }
+ 
+ /* Memory limiting on fragments.  Evictor trashes the oldest 
+- * fragment queue until we are back under the low threshold.
++ * fragment queue until we are back under the threshold.
+  */
+-static void ip_evictor(void)
++static void __ip_evictor(int threshold)
+ {
+ 	struct ipq *qp;
+ 	struct list_head *tmp;
+ 	int work;
+ 
+-	work = atomic_read(&ip_frag_mem) - sysctl_ipfrag_low_thresh;
++	work = atomic_read(&ip_frag_mem) - threshold;
+ 	if (work <= 0)
+ 		return;
+ 
+@@ -274,6 +274,11 @@
+ 	}
+ }
+ 
++static inline void ip_evictor(void)
++{
++	__ip_evictor(sysctl_ipfrag_low_thresh);
++}
++
+ /*
+  * Oops, a fragment queue timed out.  Kill it and send an ICMP reply.
+  */
+@@ -684,4 +689,10 @@
+ 	add_timer(&ipfrag_secret_timer);
+ }
+ 
++void ipfrag_flush(void)
++{
++	__ip_evictor(0);
++}
++
+ EXPORT_SYMBOL(ip_defrag);
++EXPORT_SYMBOL(ipfrag_flush);
+diff -Nru a/net/ipv4/netfilter/ip_conntrack_standalone.c b/net/ipv4/netfilter/ip_conntrack_standalone.c
+--- a/net/ipv4/netfilter/ip_conntrack_standalone.c	2004-08-19 16:53:38 +02:00
++++ b/net/ipv4/netfilter/ip_conntrack_standalone.c	2004-08-19 16:53:39 +02:00
+@@ -806,6 +806,8 @@
+ 	nf_unregister_hook(&ip_conntrack_defrag_local_out_ops);
+  cleanup_defragops:
+ 	nf_unregister_hook(&ip_conntrack_defrag_ops);
++	/* Frag queues may hold fragments with skb->dst == NULL */
++	ipfrag_flush();
+  cleanup_proc_stat:
+ 	proc_net_remove("ip_conntrack_stat");
+ cleanup_proc_exp:
+
+--------------040406000802080008010907--
