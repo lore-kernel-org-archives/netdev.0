@@ -1,36 +1,32 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: Update on e1000 troubles (over-heating!)
-Date: Sun, 6 Oct 2002 18:38:32 -0400 (EDT)
+Subject: Re: VLAN patches
+Date: Sun, 6 Oct 2002 18:47:50 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.30.0210061835350.1861-100000@shell.cyberus.ca>
-References: <Pine.LNX.4.10.10210052045090.22517-100000@master.linux-ide.org>
+Message-ID: <Pine.GSO.4.30.0210061839210.1861-100000@shell.cyberus.ca>
+References: <20021005.220549.15266753.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Ben Greear <greearb@candelatech.com>,
-   linux-kernel <linux-kernel@vger.kernel.org>,
-   "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Cc: <greearb@candelatech.com>, <Bjorn.Andersson@ebc.ericsson.se>,
+   <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andre Hedrick <andre@pyxtechnologies.com>
-In-Reply-To: <Pine.LNX.4.10.10210052045090.22517-100000@master.linux-ide.org>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20021005.220549.15266753.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
 
-On Sat, 5 Oct 2002, Andre Hedrick wrote:
+On Sat, 5 Oct 2002, David S. Miller wrote:
 
->
-> I have a pair of Compaq e1000's which have never overheated, and I use
-> them for heavy duty iSCSI testing and designing of drivers.  These are
-> massive 66/64 cards but still nothing like what you are reporting.
->
-> I will look some more at the issue soon.
+> I think we should, please submit a patch which denies it on
+> both config and delete.
 >
 
-It seems like the prerequisite to reproduce it is you beat the NIC heavily
-with a lot of packets/sec and then run it at that sustained rate for at
-least 30 minutes. isci would tend to use MTU sized packets which will
-not be that effective.
+A packet with VLANid 0 and an 802.1p tag > 0 is legal. I
+think its known as a "priority tagged" packet (not 100% sure
+about the term). Therefore VLANid 0 MUST be accepted and ability to send
+it should be there.
+BTW, what about VLANid 0xFFF?
 
 cheers,
 jamal
