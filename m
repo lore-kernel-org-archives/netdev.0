@@ -1,31 +1,41 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] net/ipv4 for Source VIPA support, kernel BK Head
-Date: Sun, 5 Sep 2004 20:22:15 -0700
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040905202215.5ed8bf5f.davem@davemloft.net>
-References: <200409011441.10154.elueck@de.ibm.com>
-	<Pine.LNX.4.61.0409011852380.2441@fogarty.jakma.org>
-	<20040905230219.GA24688@srv01.cluenet.de>
+From: Glen Turner <glen.turner@aarnet.edu.au>
+Subject: DHCP and jumbo frames
+Date: Mon, 06 Sep 2004 13:49:29 +0930
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <1094444369.22662.32.camel@andromache>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: paul@clubi.ie, lkml@einar-lueck.de, linux-kernel@vger.kernel.org,
-	netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S264531AbUIFDYa@vger.kernel.org>
-To: Daniel Roesen <dr@cluenet.de>
-In-Reply-To: <20040905230219.GA24688@srv01.cluenet.de>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 6 Sep 2004 01:02:19 +0200
-Daniel Roesen <dr@cluenet.de> wrote:
 
-> On Thu, Sep 02, 2004 at 05:22:01PM +0100, Paul Jakma wrote:
-> > ip route add default via <gateway> src <virtual ip>
-> 
-> Sitenote: unfortunately, "src <...>" doesn't work for IPv6 routes, at
-> least in 2.4 -- can someone confirm this problem to still exist in
-> current 2.6?
+Hi folks,
 
-That's right, no routing by source in ipv6 yet, the folks
-working with the USAGI guys on MIPV6 support will add the
-feature.
+I'm trying to make DHCP work correctly for ethernet jumbo frame media
+and jumbo+standard MTU subnets on jumbo media. It's turning into a bit
+of a long slog (RFC amendments, etc), but jumbo frames will never seen
+widespread host deployment without it.
+
+It turns out that the DHCP client has to be able to select from a range
+of potential DHCP offers (all else equal it should select the offer with
+the largest MTU) and has to be able to reject an offer with an MTU the
+hardware cannot support.
+
+Setting the MTU often re-sets the ethernet controller (as far as I can
+tell from the e1000 source). So checking each DHCP offer by attempting
+to write the MTU to the hardware isn't going to work well. Especially if
+an ethernet controller reset causes the PHY to drop carrier, as spanning
+tree hold-downs could then cause the DHCP state machine to time out.
+
+Is there any way for the DHCP client to query every interface for the
+MTU size ranges that the interface supports?
+
+Advice is very appreciated,
+Glen
+
+-- 
+Glen Turner          Tel: (08) 8303 3936 or +61 8 8303 3936
+Australia's Academic & Research Network   www.aarnet.edu.au
