@@ -1,52 +1,56 @@
-From: "Feldman, Scott" <scott.feldman@intel.com>
-Subject: RE: [RFC] Wireless extensions rethink
-Date: Fri, 11 Jun 2004 11:49:56 -0700
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: RFC: Cisco HDLC bridging
+Date: Fri, 11 Jun 2004 23:29:08 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <C6F5CF431189FA4CBAEC9E7DD5441E0103AF626C@orsmsx402.amr.corp.intel.com>
+Message-ID: <m3vfhxkcm3.fsf@defiant.pm.waw.pl>
+References: <C060DFCD9697A842B3189B458524FDC205D2C3@AIMAIL1.ai.aiinet.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8bit
-Cc: <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-Content-class: urn:content-classes:message
-To: "Gertjan van Wingerde" <gwingerde@home.nl>
+To: "Eble, Dan" <DanE@aiinet.com>
+In-Reply-To: <C060DFCD9697A842B3189B458524FDC205D2C3@AIMAIL1.ai.aiinet.com> (Dan
+ Eble's message of "Fri, 11 Jun 2004 09:01:20 -0400")
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> I was thinking along the same lines, however I was taking the 
-> ethtool interface as the starting point (using a single ioctl 
-> for all wireless operations). The private handlers would just 
-> have to be converted to plain ioctls handled by the driver itself.
-> 
-> The attached patch can be used as a starting point for this.
-> It is not complete (not by far), but it shows the basic structure.
-> I've called the structure wlantool_ops, again using the 
-> example set by ethtool.
-> 
-> Comments?
+"Eble, Dan" <DanE@aiinet.com> writes:
 
-What if we just use the ethtool ioctl that's already defined, and extend
-ethtool with a wireless option:
+> I am about to implement Ethernet/802.3 over Cisco HDLC.  My plan is to
+> enhance hdlc_cisco.c to provide a new ethernet-like device, "cbeX"
+> (cisco-bridged ethernet),
 
-ethtool -w DEVNAME \
-	[ nwid N|off|on} ] \
-	[ freq x.xx ] \
-	[ mode ad-hoc|managed|master|repeater|... ] \
-	[ sens N ] \
-	[ ... ]
+I would rather call it "hdlcXsomething", "cbeX" would not be very
+obvious to newcomers. And I would make it conditional (for example,
+with CONFIG_ option _and_ runtime ioctl creating the slave device).
 
-Each one of the sub-options to -w would have it's own ETHTOOL_[G|S]W...
-command as well as a type-safe ethtool_op.
+> corresponding to the existing "hdlcX" device that
+> encapsulates the ethernet frames.  The "cbeX" device will suddenly appear
+> when "sethdlc hdlcX cisco ..." is run, and disappear when "hdlcX" is taken
+> out of Cisco mode.
 
-Running ethtool DEVNAME dumps ETHTOOL_GW... :
+How are the packets encapsulated? What about 802.1q VLANs?
 
-Wireless settings for eth0:
-        nwid: AB34
-        freq: 2.422G
-        mode: managed
-        sens: -80
+> Using a separate device for the bridged frames provides a way to get
+> ethernet-like behavior without obscuring the Cisco nature of "hdlcX".  For
+> example, a tcpdump of "hdlcX" would still show SLARP keepalive frames and
+> other ciscoey stuff.
 
-Good/bad idea?
+... + Ethernet traffic with Cisco HDLC headers, that's it.
 
--scott        
+However I don't feel like convinced to use the second network device.
+Certainly there is no problem with tcpdump/libpcap, we could have
+Cisco hdlcX device with SLARPs, Ethernet framing, regular IPv4/6
+and anything we want.
+
+The only problem I can see (a serious one, though) is the protocol
+"routing" in Linux. If we "ip addr add" IP address to hdlcX, does
+it mean we want native IP or IP/Ethernet? It would be nice to be able
+to:
+        ifconfig hdlc0 10.0.0.1/24 hw cisco-hdlc
+        ifconfig hdlc0 10.0.1.1/24 hw ether
+at a time.
+
+The same applies to Frame Relay (we have pvcX and ethpvcX).
+-- 
+Krzysztof Halasa, B*FH
