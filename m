@@ -1,41 +1,29 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH - RFC] [1/2] 2.6 must-fix list - kernel error reporting
-Date: Fri, 11 Jul 2003 22:41:42 -0700
+Subject: Re: 2.5.74 X.25+LAPB still kills the kernel
+Date: Fri, 11 Jul 2003 22:44:13 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030711224142.557b5b5e.davem@redhat.com>
-References: <3F0DB9A5.23723BE1@us.ibm.com>
-	<Mutt.LNX.4.44.0307120135120.21806-100000@excalibur.intercode.com.au>
+Message-ID: <20030711224413.6aa70649.davem@redhat.com>
+References: <m3y8z5dldr.fsf@defiant.pm.waw.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jkenisto@us.ibm.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-   akpm@osdl.org, jgarzik@pobox.com, alan@lxorguk.ukuu.org.uk,
-   rddunlap@osdl.org, kuznet@ms2.inr.ac.ru
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: James Morris <jmorris@intercode.com.au>
-In-Reply-To: <Mutt.LNX.4.44.0307120135120.21806-100000@excalibur.intercode.com.au>
+To: Krzysztof Halasa <khc@pm.waw.pl>
+In-Reply-To: <m3y8z5dldr.fsf@defiant.pm.waw.pl>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 12 Jul 2003 01:37:44 +1000 (EST)
-James Morris <jmorris@intercode.com.au> wrote:
+On 11 Jul 2003 19:27:28 +0200
+Krzysztof Halasa <khc@pm.waw.pl> wrote:
 
-> Indeed, the kernel socket buffer fills up.
-> 
-> I think this needs to be addressed in the netlink code, per the patch 
-> below.
-...
-> +	/* Don't bother queuing skb if kernel socket has no input function */
-> +        if (nlk->pid == 0 && !nlk->data_ready)
-> +        	goto no_dst;
-> +
+> No need to actually use X.25+LAPB, it's enough to just compile it in.
 
-Oops, turns out this doesn't work.  data_ready is never NULL, look at
-how netlink_kernel_create() works.
+Hmmm, if nobody is listening on linux-x25 and neither is
+the listed "MAINTAINER" eis@baty.hanse.de we should update
+the linux/MAINTAINERS file to be in sync with reality.
 
-Also, the broadcast case probably needs to be handled
-too?
+Anyways, I'll try to look into this if nobody else does.
 
-As an aside, to be honest what's so wrong with the socket receive
-buffer filling up?  The damage is limited to the receive buffer size
-of the kernel netlink socket, but that's it.
+Thanks for reporting this to the right place finally, as
+a reward your bug will be looked at and hopefully fixed.
