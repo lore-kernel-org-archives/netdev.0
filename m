@@ -1,41 +1,48 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: 2.6.9-rc1-bk11+ and 2.6.9-rc1-mm3,4 r8169: freeze during boot (FIX included)
-Date: Sun, 19 Sep 2004 23:39:52 +0200
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
+Date: Mon, 20 Sep 2004 07:53:28 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040919213952.GA32570@electric-eye.fr.zoreil.com>
-References: <200409130035.50823.hfvogt@arcor.de> <20040916070211.GA32592@electric-eye.fr.zoreil.com> <200409161320.16526.jdmason@us.ltcfwd.linux.ibm.com> <200409171043.21772.jdmason@us.ltcfwd.linux.ibm.com> <20040917160151.GA29337@electric-eye.fr.zoreil.com> <414DF773.7060402@myrealbox.com>
+Message-ID: <20040919215328.GA9573@gondor.apana.org.au>
+References: <414D0CCD.90209@eurodev.net> <E1C8way-0000aH-00@gondolin.me.apana.org.au> <20040919120249.GA5963@gondor.apana.org.au> <20040919120730.GA6005@gondor.apana.org.au> <414DF111.3080409@eurodev.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Hans-Frieder Vogt <hfvogt@arcor.de>, linux-kernel@vger.kernel.org,
-        jgarzik@pobox.com, netdev@oss.sgi.com
+Cc: davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andy Lutomirski <luto@myrealbox.com>
+To: Pablo Neira <pablo@eurodev.net>
 Content-Disposition: inline
-In-Reply-To: <414DF773.7060402@myrealbox.com>
+In-Reply-To: <414DF111.3080409@eurodev.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andy Lutomirski <luto@myrealbox.com> :
-[...]
-> FWIW, it looks like init_board is setting PCIDAC in tp->cp_cmd but that 
-> isn't updated to the card until after the rx ring is filled in 
-> r8169_open.  This seems suspicious, since DMA memory is being allocated 
-> possibly in >32-bit addresses but the card hasn't been told to support 
-> that.  Fixing this doesn't seem to help, though...
+On Sun, Sep 19, 2004 at 10:50:25PM +0200, Pablo Neira wrote:
+>
+> yes, you are totally right, but as I told you before, I'm not focusing 
+> my efforts in improving netlink sockets for tools like iproute, for 
+> those MSG_DONTWAIT is fairly ok.
 
-rtl8169_hw_start() writes the CPlusCmd register before the ring descriptor
-adresses are set. Can you elaborate why it would not be enough ?
+No I'm talking not about iproute, I'm talking the kernel callers of
+unicast/broadcast.  They never wait.
+ 
+> I don't agree, enlarging the queue size for applications that send a lot 
+> of information in a short period of time is just a workaround.
 
-Btw the r8169 driver in 2.6.9-rcX does not advertise NETIF_F_HIGHDMA: where
-would a >32 bit address come from ?
+Workaround for what? Please define your problem.
 
-> Turning off high DMA fixes it.  Maybe it just needs to be disabled until 
-> someone figures out what's going on.
+Your original message mentioned a dead-lock, which is now obviously
+non-existant.
 
-I am cooking a patch for it (+ check for PCI error).
+> Herbert, I don't agree, my patch isn't related to stuff that you've 
+> mentioned. It's fairly true that most ?of application use socket timeout 
+> 0, but my patch is not for those! :-) well, still disagree?
 
-As a side note, the r8169 chipset does not like DAC to be enabled on a
-32bit system. I got the usual PCI error reported while trying it.
+Please reread my messages.  I'm not talking about user-space applications
+setting timeout to 0.  Most of them don't.
 
---
-Ueimor
+I'm talking about every single kernel netlink sender.  They never wait.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
