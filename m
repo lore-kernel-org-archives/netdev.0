@@ -1,40 +1,37 @@
-From: kuznet@ms2.inr.ac.ru
-Subject: Re: [PATCH] IPV6_V6ONLY Support, v2 (is Re: [PATCH] IPv6: Allow Both
-Date: Thu, 24 Oct 2002 20:24:11 +0400 (MSD)
+From: "Jon Fraser" <J_Fraser@bit-net.com>
+Subject: RE: [Question] SMP for Linux
+Date: Thu, 24 Oct 2002 17:00:51 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200210241624.UAA02873@sex.inr.ac.ru>
-References: <Pine.LNX.4.44.0210231312070.28208-100000@netcore.fi>
+Message-ID: <001701c27ba0$6ff02c70$3701020a@CONCORDIA>
+References: <15793.3958.926796.634263@robur.slu.se>
+Reply-To: <J_Fraser@bit-net.com>
 Mime-Version: 1.0
-Cc: yoshfuji@linux-ipv6.org, davem@redhat.com, netdev@oss.sgi.com,
-   usagi@linux-ipv6.org
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: pekkas@netcore.fi (Pekka Savola)
-In-Reply-To: <Pine.LNX.4.44.0210231312070.28208-100000@netcore.fi> from "Pekka Savola" at Oct 23, 2 01:15:26 pm
+To: <netdev@oss.sgi.com>
+In-Reply-To: <15793.3958.926796.634263@robur.slu.se>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
+>  Hope to verify this for "kfree-route" test. Did you use oprofile
+>  for performance counters?
 
-Late question:
+I used perfctr-2.4.0-pre2 to grab the CPU performance counters.
+I was interested in cache invalidates, etc.
 
-> ::, at least previously.  That worked e.g. on BSD.  Does that work now, 
-> too?
+I guess I'll try using oprofile to see where in the code I'm really 
+spending the time.
 
-Provided it uses IPV6_V6ONLY.
+> 
+>  > I'll repeat the same tests on Monday with 82543 based cards.
+>  > I would expect similar results.
+>  > Oh, I used top and vmstat to collect cpu percentages, 
+> interrupts/second,
+> 
+>  Hmm top and vmstat doesn't give you time spent in 
+> irq/softirq's except for 
+>  softirq's run via ksoftird?
 
-
-> tcp4       0      0  127.0.0.1.53           *.*                    LISTEN
-> tcp4       0      0  193.166.4.206.53       *.*                    LISTEN
-> tcp4       0      0  193.166.187.10.53      *.*                    LISTEN
-> tcp6       0      0  *.53                   *.*                    LISTEN
-...
-> Will this work too?
-
-No.
-
-The question follows: what the hell does it make this? What is special
-in ipv4 that it needs to bind to its addresses? With IPV6_V6ONLY connections
-to all the IPv4 addresses but listed ones will be refused. I guess it is
-not _that_ thing which bind expects.
-
-Alexey
+Right.
