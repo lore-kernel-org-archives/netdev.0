@@ -1,43 +1,35 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 1/4] Prefix List against 2.5.73
-Date: Wed, 16 Jul 2003 17:39:26 +0900 (JST)
+From: Mads Martin =?iso-8859-1?Q?J=F8rgensen?= <mmj@suse.de>
+Subject: /usr/src/linux/Documentation/networking/ifenslave.c
+Date: Wed, 16 Jul 2003 11:23:54 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030716.173926.81875946.yoshfuji@linux-ipv6.org>
-References: <3F14492C.30708@us.ibm.com>
-	<200307160021.EAA10195@dub.inr.ac.ru>
+Message-ID: <20030716092354.GC24077@suse.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: krkumar@us.ibm.com, davem@redhat.com, netdev@oss.sgi.com,
-   yoshfuji@linux-ipv6.org, linux-net@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
-In-Reply-To: <200307160021.EAA10195@dub.inr.ac.ru>
+To: "David S. Miller" <davem@redhat.com>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello.
+$SUBJECT is a userspace tool, but includes kernel headers. This small
+obvious patch against 2.6.0-test1 should fix it.
 
-In article <200307160021.EAA10195@dub.inr.ac.ru> (at Wed, 16 Jul 2003 04:21:33 +0400 (MSD)), kuznet@ms2.inr.ac.ru says:
-
-> Select yourself: either IFA_IFFLAGS or translated flags in ifa_flags.
-> I prefer the second way just because it is too unpleasant to add
-> a new attribute for sake of two bits with no visible candidates
-> to use remaining ones.
-
-Well, I dislike ifa_flags because 
- - it is conceptually wrong to combine them.
-   e.g. even if all autoconf addresses expired, flags lasts and 
-   we should report it to userspace.
- - ifa_flags is extremely expensive resource.
-   There are only 8 bits. Use it only for addresses.
-
-My suggestion is:
- - create L3 per-interface RTM, say, RTM_xxxIFACE.
- - provide inet_device / inet6_dev things via this RTM.
-    e.g. per-interface statistics, flags etc.
+--- ifenslave.c
++++ ifenslave.c
+@@ -97,8 +97,7 @@
+ #include <sys/types.h>
+ #include <sys/socket.h>
+ #include <sys/ioctl.h>
+-#include <linux/if.h>
+-#include <linux/if_arp.h>
++#include <net/if_arp.h>
+ #include <linux/if_ether.h>
+ #include <linux/if_bonding.h>
+ #include <linux/sockios.h>
 
 -- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Mads Martin Joergensen, http://mmj.dk
+"Why make things difficult, when it is possible to make them cryptic
+ and totally illogical, with just a little bit more effort?"
+                                -- A. P. J.
