@@ -1,26 +1,25 @@
-From: "chas williams (contractor)" <chas@cmf.nrl.navy.mil>
-Subject: Re: [PATCH][ATM]: [lec] put back pressure on network stack
-Date: Thu, 26 Feb 2004 15:12:19 -0500
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: 2.6: net/core.c should export sysctl_optmem_max for modular
+ IPV6
+Date: Thu, 26 Feb 2004 12:14:15 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200402262012.i1QKCHg5021427@ginger.cmf.nrl.navy.mil>
-References: <davem@redhat.com>
-Cc: netdev@oss.sgi.com
+Message-ID: <20040226121415.4836150a.davem@redhat.com>
+References: <20040226015907.GA10986@merlin.emma.line.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: Message from "David S. Miller" <davem@redhat.com>
-   of "Thu, 26 Feb 2004 12:10:36 PST." <20040226121036.7472a38a.davem@redhat.com>
+To: Matthias Andree <matthias.andree@gmx.de>
+In-Reply-To: <20040226015907.GA10986@merlin.emma.line.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-i probably managed to combine two patches again.  i will get it
-sorted out.
+On Thu, 26 Feb 2004 02:59:07 +0100
+Matthias Andree <matthias.andree@gmx.de> wrote:
 
-In message <20040226121036.7472a38a.davem@redhat.com>,"David S. Miller" writes:
->This conflicts with a previous patch you sent me in this group entitled:
->
->[ATM]: [lec] send queued packets immediately after path switch
->
->So it fully rejected when I tried to apply this one, it looks to me
->like the changes this is trying to add are already in there as a result
->of the previous change.
->
+> IPv6 built as a module fails (in 2.6 BitKeeper tree) because it cannot
+> link to sysctl_optmem_max, trivial patch:
+
+Applied, thanks Matthias.
+(2.4.x is going to need this too so I added your change there too)
