@@ -1,27 +1,61 @@
-From: Andrea Arcangeli <andrea@suse.de>
-Subject: Re: kernel BUG at page_alloc.c:98 -- compiling with distcc
-Date: Fri, 30 Apr 2004 02:15:21 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040430001521.GV29954@dualathlon.random>
-References: <382320000.1082759593@taltos.ny.ficc.gs.com> <16527.4259.174536.629347@segfault.boston.redhat.com> <20040429210951.GB20453@logos.cnet> <20040429142807.1fa4c5ea.akpm@osdl.org> <20040429224936.GT29954@dualathlon.random> <20040429162632.689fa7fe.akpm@osdl.org>
-Mime-Version: 1.0
+From: "panemade" <panemade@indiatimes.com>
+Subject: Re: Re: HELP ipt_hook: happy cracking message
+Date: Fri, 30 Apr 2004 13:05:07 +0530
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <200404300701.MAA22398@WS0005.indiatimes.com>
+Reply-To: "panemade" <panemade@indiatimes.com>
 Content-Type: text/plain; charset=us-ascii
-Cc: marcelo.tosatti@cyclades.com, jmoyer@redhat.com, carson@taltos.org,
-        linux-kernel@vger.kernel.org, netdev@oss.sgi.com, davem@redhat.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20040429162632.689fa7fe.akpm@osdl.org>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: "kernerl mail" <linux-kernel@vger.kernel.org>,
+	<netdev@oss.sgi.com>, <linux-net@vger.kernel.org>,
+	"netfilter" <netfilter-devel@lists.netfilter.org>,
+	<linux-net@vger.kernel.org>
+Return-path: <linux-net-owner@vger.kernel.org>
+To: "Rusty Russell" <rusty@rustcorp.com.au>
 List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 29, 2004 at 04:26:32PM -0700, Andrew Morton wrote:
-> The only application which we know will exercise that code is the distcc
-> server.  Making that little change while testing the patch will increase
-> the chance of shaking out any problems.
 
-if you're scared it has bugs I think it'd be more useful to change it to
-"|| 1" and run it under some stress test, and then remove the "|| 1".
-the aio code in unmap_kvec is also a big user of that.  a schedule every
-40M of ram freed isn't too nice to my eyes (but I doubt it can be
-measured).
+hello,
+Because of i increase icmp header by 8 bytes the next layer IP headers are not
+fully added to skbuff that is they become short and i am repeatedly getting
+ip_hook : happy cracking message
+so where can i modify the total size of alloc_skb to satisfy my constraints
+for icmp header?
+i got one reference mail that some person has done adding his own header to
+ping packet and send it to other machine.he actually added that successfully.
+i am unable to contact him. might be his email address has been changed.
+regards,
+parag.
+
+"Rusty Russell"<rusty@rustcorp.com.au> wrote:
+On Tue, 2004-04-27 at 01:12, Parag Nemade wrote:
+> hi,
+>         i modified kernel so that it will create
+> /proc/net/myproc file entry.
+> the function of this entry is to crate a 16 byte char
+> string from random no.s
+> i used net_srandom and net_random and sys_time for
+> that puspose. the problem is that i write program to
+> generate string after 120 seconds but it is changing
+> contents of myproc file every seconds. what can i do?
+>  Also i am getting ipt_hook: happy cracking. message
+> again and again why?
+
+You're sending out IP packets which don't even contain the IP header,
+and you're running connection tracking or some filtering.
+
+The message is not serious.
+
+Rusty.
+-- 
+Anyone who quotes me in their signature is an idiot -- Rusty Russell
+
+-
+To unsubscribe from this list: send the line "unsubscribe linux-net" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Get Your Private, Free E-mail from Indiatimes at http://email.indiatimes.com
+
+ Buy The Best In BOOKS at http://www.bestsellers.indiatimes.com
+
+Bid for for Air Tickets @ Re.1 on Air Sahara Flights. Just log on to http://airsahara.indiatimes.com and Bid Now!
+
