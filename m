@@ -1,49 +1,98 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [TRIVIAL] Fix recent bug in fib_semantics.c
-Date: Fri, 17 Sep 2004 23:31:08 -0700
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040917233108.561c88d6.davem@davemloft.net>
-References: <9e47339104091717215e9be08b@mail.gmail.com>
-	<E1C8T4t-0006ug-00@gondolin.me.apana.org.au>
-	<9e473391040917183726113e91@mail.gmail.com>
-	<20040918041627.GA12356@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jonsmirl@gmail.com, david@gibson.dropbear.id.au, akpm@osdl.org,
-	trivial@rustcorp.com.au, linux-kernel@vger.kernel.org,
-	netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S269146AbUIRGer@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040918041627.GA12356@gondor.apana.org.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
+Date: Sat, 18 Sep 2004 20:25:49 +1000
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <E1C8cPd-0006K8-00@gondolin.me.apana.org.au>
+References: <412F1269.8090303@eurodev.net>
+Cc: davem@redhat.com, linux-net@vger.kernel.org, netdev@oss.sgi.com,
+	kaber@trash.net
+Return-path: <linux-net-owner@vger.kernel.org>
+To: pablo@eurodev.net (Pablo Neira)
+In-Reply-To: <412F1269.8090303@eurodev.net>
 List-Id: netdev.vger.kernel.org
 
-On Sat, 18 Sep 2004 14:16:28 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+Pablo Neira <pablo@eurodev.net> wrote:
+> 
+> thanks, I fixed, I shouldn't type at 5 a.m. If any other problem, please 
+> let me know.
 
-> Thanks.  The following bug is probably your problem.
+Sorry I should've reviewed this patch sooner.  It finally caught my
+attention as I went to update the 2.4 IPsec backport.
 
-Good catch on this fix, but really he's hitting the
-BUG_ON() in fib_sync_down()  (I hate i386 backtraces,
-it's an art to decode them properly)
+Firstly there is a sock leak there.  The following patch fixes it.
+The white space damage is not mine :)
 
-So if you rmmod() a device before any routes are ever
-created in ipv4, this triggers.  I didn't think this
-was possible, but it is.
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-The fix is simple enough.
+Secondly, I'm dubious about the patch as a whole.  For instance, what
+exactly is the wake_up_process() bit trying to do? Surely that process
+would've been woken up multiple times already if its queue is full.  If
+it can't empty the queue fast enough, what is this extra wake up going
+to achieve?
 
-===== net/ipv4/fib_semantics.c 1.16 vs edited =====
---- 1.16/net/ipv4/fib_semantics.c	2004-09-17 11:11:04 -07:00
-+++ edited/net/ipv4/fib_semantics.c	2004-09-17 23:14:44 -07:00
-@@ -1040,9 +1040,7 @@
- 	if (force)
- 		scope = -1;
+And what is it going to do with thread groups?
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+===== net/netlink/af_netlink.c 1.52 vs edited =====
+--- 1.52/net/netlink/af_netlink.c	2004-08-28 10:11:04 +10:00
++++ 2.6/net/netlink/af_netlink.c	2004-09-18 20:09:20 +10:00
+@@ -630,7 +630,8 @@
  
--	BUG_ON(!fib_info_laddrhash);
--
--	if (local) {
-+	if (local && fib_info_laddrhash) {
- 		unsigned int hash = fib_laddr_hashfn(local);
- 		struct hlist_head *head = &fib_info_laddrhash[hash];
- 		struct hlist_node *node;
+ 			if (!nlwork)
+ 				return -1;
+-		
++
++			sock_hold(sk);
+ 			INIT_WORK(&nlwork->work, netlink_wq_handler, nlwork);
+ 			nlwork->sk = sk;
+ 			nlwork->len = skb->len;
+@@ -683,14 +684,13 @@
+ 			netlink_overrun(sk);
+ 			/* Clone failed. Notify ALL listeners. */
+ 			failure = 1;
+-			sock_put(sk);
+ 		} else if (netlink_broadcast_deliver(sk, skb2)) {
+ 			netlink_overrun(sk);
+-			sock_put(sk);
+ 		} else {
+ 			delivered = 1;
+ 			skb2 = NULL;
+ 		}
++		sock_put(sk);
+ 	}
+ 
+ 	netlink_unlock_table();
+--
+===== net/netlink/af_netlink.c 1.15 vs edited =====
+--- 1.15/net/netlink/af_netlink.c	2004-08-31 10:04:34 +10:00
++++ 2.4/net/netlink/af_netlink.c	2004-09-18 20:25:29 +10:00
+@@ -549,7 +549,8 @@
+ 		
+ 			if  (!nlwork) 
+ 				return -EAGAIN;
+-		
++
++			sock_hold(sk);
+ 			INIT_TQUEUE(&nlwork->work, netlink_tq_handler, nlwork);
+ 			nlwork->sk = sk;
+ 			nlwork->len = skb->len;
+@@ -601,12 +602,11 @@
+ 			netlink_overrun(sk);
+ 			/* Clone failed. Notify ALL listeners. */
+ 			failure = 1;
+-			sock_put(sk);
+ 		} else if (netlink_broadcast_deliver(sk, skb2)) {
+ 			netlink_overrun(sk);
+-			sock_put(sk);
+ 		} else
+ 			skb2 = NULL;
++		sock_put(sk);
+ 	}
+ 
+ 	netlink_unlock_table();
