@@ -1,127 +1,88 @@
-From: Max Krasnyansky <maxk@qualcomm.com>
-Subject: Re: [BK ChangeSet@1.1118.1.1] new module infrastructure for
-  net_proto_family
-Date: Thu, 24 Apr 2003 17:40:28 -0700
+From: bmariamu <bmariamu@telstra.com>
+Subject: am/ab-12
+Date: Fri, 25 Apr 2003 07:10:51 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <5.1.0.14.2.20030424170208.102ee6c8@unixmail.qualcomm.com>
-References: <5.1.0.14.2.20030424094431.080b5320@unixmail.qualcomm.com>
- <5.1.0.14.2.20030423134636.100e5c60@unixmail.qualcomm.com>
- <5.1.0.14.2.20030423114915.10840678@unixmail.qualcomm.com>
- <5.1.0.14.2.20030423114915.10840678@unixmail.qualcomm.com>
- <5.1.0.14.2.20030423134636.100e5c60@unixmail.qualcomm.com>
- <5.1.0.14.2.20030424094431.080b5320@unixmail.qualcomm.com>
+Message-ID: <1d59ef1d0a76.1d0a761d59ef@bigpond.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-In-Reply-To: <20030424230202.GB2931@conectiva.com.br>
+To: adamartins@eboarding@.net
+Content-Language: en
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-At 04:02 PM 4/24/2003, Arnaldo Carvalho de Melo wrote:
->Em Thu, Apr 24, 2003 at 12:33:35PM -0700, Max Krasnyansky escreveu:
->> Hi Arnaldo,
->> 
->> >I did, there are several valid points, I forgot the sys_accept case, I'm
->> >studying the code to see how to properly fix it,
->
->> It's pretty easy if we have sock->owner. Take a look how my patch does it 
->> (try_module_get should be replaced with __module_get()).
->> It also covers the case when net_family_owner transferred ownership to the
->> other module.
->
->Yes, this gives us more flexibility, but as well some more overhead in the
->common struct sock, I have worked in 2.5 to reduce its size, and want to
->reduce it further, if possible. 
-Easy.
-struct sock {
-        ...
-        struct sock             *next;
-        struct sock             **pprev;
-        struct sock             *bind_next;
-        struct sock             **bind_pprev;
-        struct sock             *prev;
+Hajia Mariam Abacha=20
+Abacha court,=20
+11 Gidado Crescent,=20
+Kano State, Nigeria.
 
-At least one of the prev can go.
+Dear Sir,
 
->> >Think about protecting the module with the top level network protocol family
->> >->create code on sock_create level and the modules with specific protocols at
->> ><net_proto_family>_sock_create level.
->
->> With the current infrastructure you'd need some kind of callback from
->> sk_free() for that to work.  I think it's simpler with sk->owner.
->
->not a callback, it'd be in sk_free itself (talking from the top of my head,
->just arrived home and will be further studying this now), I pretty much want to
->have protocol family maintainers not worrying about module refcounting at all
->in the default case of no further modularisation per specific prococol, that
->would save, for instance, Steven Whitehouse some work on DecNET :)
+I am Hajia Mariam Abacha the wife of Late Genaral Sani Abacha the=20
+former head of States Federal Republic of Nigeria. Following the sudden=20
+death of my husband in August 1998, I have been thrown into a state of=20
+utter  confusion, frustration and hopelessness by the present civilian=20
+administration, I have been subjected to  physical and psychological=20
+torture by the security agents in the country. I have lost confidence=20
+with anybody within the country. You must have heard over the media=20
+reports and the  internet on the recovery of various huge sums of =20
+money deposited by my late husband in different security  firms abroad,=20
+some companies willingly gave up their secrets and disclosed our money=20
+confidently lodged there or many out right blackmail. In fact the total=20
+sum discovered by the Government so far is in the tune of $700 Million=20
+dollars. And they are not relenting to make me poor for life.=20
 
-sk_free() doesn't know which module owns the socket in 
-"net_proto_family owner != socket owner" case. 
+I got your contacts through my personal research and out of desperation=20
+and decided to reach you. I will give you more information as to this=20
+regard as soon as you  reply through my lawyer with his details below.=20
+I repose great confidence in you hence my approach to you due to=20
+security network placed on my daily affairs. I cannot afford to visit=20
+the embassy hence I decided to contact you and I hope you will not=20
+betray my confidence in you. I have deposited the sum of 38.5 million=20
+dollars with a security firm  abroad whose name is withheld for now=20
+until we open up communication.=20
 
-BTW Let's call that case "NOnSO" I'm referring to it way too often :)
+I shall be grateful if you could receive these funds into your account=20
+for a safe keeping. My son, Mustapha Abacha has just been released by=20
+the Federal Government, so my lawyer will deal directly with you as=20
+security is up my whole being.
 
->> Sure. Transfer of the ownership has to be done on that level. What I'm saying
->> is that everything else can be done in generic code. 
->
->So we're in agreement on having most of this infrastructure in generic code :)
-I guess so :). But haven't seen a generic solution for the NOnSO from you yet ;-). 
+If you decided to assist us, contact my lawyer;=20
 
->> struct socket uses net_proto_family ops and stuff and therefor is related.
->> But struct sock is just a callbacks.
->
->But I want to avoid having another thing to worry about for net protocol
->family writers, i.e. not having to add a sk_set_owner if one decides it has
->to change one of the default callbacks.
-Well, that means that refcounting overhead will affect even the protocols that 
-don't have to keep track of 'struct sock'. It also means that those protocols 
-will not unloadable until all sk's are killed. Even though sk's have no references 
-whatsoever to the module that created them. 
+Br. Martins Sul Adamu.
+M. S. Adamu & Co.
+19B, Kingsway Road,=20
+Ikoyi, Lagos-Nigeria.
+E-mail:adamartins@eboarding@.net
 
->> Let's just get rid of the net_family_get/put thing. Each socket will have
->> owner field so we know who owns it and there is no need to access global
->> net_family table.
->
->I'm trying to avoid adding a pointer to struct sock, if it is not possible
->at all to avoid, ok, we do it, but I think we can have this at just one
->place, the net_family table.
-Killing one of the list pointers from 'struct sock' shouldn't be a problem (see above). 
+This code: (am/ab-12) must be referred to in your letter to him to=20
+enable him know that you are from me, and he will furnish you with more=20
+details. I have mandated him to relate with you while the business last=20
+for security reasons. If you have any questions or anything that you=20
+would like to know, please you are free to ask for explanation.
 
-One net_family table won't handle NOnSO. Even if it will, protocol writers will have to 
-worry about proper initialization of the tables anyway. Especially if someone comes up 
-with something like:
-        Family X (module X.ko)
-                Proto X1 (module X1.ko)
-                        Subproto X1-A (module X1-A.ko)
-not that it makes a lot of sense right now but why restrict it if we don't have to. 
+I am seriously considering relocation in abroad in a more friendly
+environment like yours as soon as these funds are secured in your=20
+account.=20
 
->> void sk_set_owner(struct module *owner)
->> {
->>         /* Module must already hold reference when it call this function. */
->>         __module_get(owner);
->>         sk->owner = owner;
->> }
->
->This is the additional rule I'm trying to avoid.
+You will be compensated for your efforts and assistance for the=20
+diversion of the funds into your account. By so doing, you will be=20
+entitled to 35% of the total sum while I retain 65%.  Please honesty is=20
+the watch word in this transaction. In case you don=92t accept this=20
+offer, please do not let me out to the security Agents in Nigeria as I=20
+am giving you this information in total trust and confidence. I will=20
+greatly appreciate your acceptance of this offer in good faith. Please=20
+expedite action by getting in touch with my lawyer immediately.
 
-It's not a big deal rule. All protocols do hold reference when they allocate sk.
+Sincerely Yours
 
->> sk_free()
->>         ...
->>         module_put(sk->owner);
->>         ...
->
->this is already in BK tree.
-No. I mean NOnSO ;-). 
-What's in BK is net_family_put(family) which is by no means the same.
+Hajia Mariam Abacha.
 
->> >>>        IPv4/6 - Private cache, non-default callbacks.
->> >>>                Must call sk_set_owner() (cannot be a module, so we don't really care)
->
->Well, I care, I wish to have this as a module at some point, if allowed by
->DaveM, of course 8)
-If I remember correctly DaveM was one of those are strongly against that.
 
-Max
+
+----------------
+Powered by telstra.com
+
+=20
