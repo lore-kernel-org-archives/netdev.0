@@ -1,32 +1,30 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: Fw: [Bugme-new] [Bug 4177] New: Please consider adding
-	possibility to have multiple PPPoE sessions with different MAC addresses
-Date: 06 Feb 2005 16:45:08 -0500
-Message-ID: <1107726307.1054.38.camel@jzny.localdomain>
-References: <20050206122604.74a41796.akpm@osdl.org>
-	 <1107723057.1055.28.camel@jzny.localdomain>
-	 <20050206212500.GF17682@torres.l21.ma.zugschlus.de>
-Reply-To: hadi@cyberus.ca
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: patch: annoying u32 double listing
+Date: Sun, 06 Feb 2005 22:47:22 +0100
+Message-ID: <4206906A.2060501@trash.net>
+References: <1107719343.1055.22.camel@jzny.localdomain> <20050206212928.GV31837@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com
-To: Marc Haber <mh+kernel-bugzilla@zugschlus.de>
-In-Reply-To: <20050206212500.GF17682@torres.l21.ma.zugschlus.de>
+Cc: jamal <hadi@cyberus.ca>, "David S. Miller" <davem@davemloft.net>,
+        netdev@oss.sgi.com
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050206212928.GV31837@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2005-02-06 at 16:25, Marc Haber wrote:
-> On Sun, Feb 06, 2005 at 03:50:57PM -0500, jamal wrote:
-> > Does that patch help at all?
-> 
-> It helps with the user space pppoed, yes.
+Thomas Graf wrote:
 
-Remind me again: With user space pppoe if you have a web server that
-people access from outside world, all packets go to user space and then
-back to the kernel before hitting user space again? Only in such a case
-can i see this working ...
+>Another
+>quite anoying detail is the fact that cbq uses the same handle for
+>both the root qdisc and root class which makes it impossible to uniquely
+>assign filters attached to it, i.e. listing filters based on
+>parent == XX: && dev == %DEV will result in the filters being listed
+>for both the qdisc and the class.
+>
+CBQ and HFSC only support filters attached to classes for exactly this
+reason :) Shouldn't make any difference from a users perspective.
 
-cheers,
-jamal
+Regards
+Patrick
