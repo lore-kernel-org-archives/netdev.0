@@ -1,30 +1,74 @@
-From: Stefan Schmidt <s.schmidt@mcbone.net>
-Subject: Re: Fw: 2.6.11-mm2 weird ethernet RTTs
-Date: Fri, 18 Mar 2005 10:11:40 +0100
-Message-ID: <20050318091140.GE30259@giscard.mcbone.net>
-References: <20050317115254.4f8e462a.akpm@osdl.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [22/*] [NETFILTER] Use correct IPsec MTU in TCPMSS
+Date: Fri, 18 Mar 2005 20:11:29 +1100
+Message-ID: <20050318091129.GA28658@gondor.apana.org.au>
+References: <20050214221607.GC18465@gondor.apana.org.au> <20050306213214.7d8a143d.davem@davemloft.net> <20050307103536.GB7137@gondor.apana.org.au> <20050308102741.GA23468@gondor.apana.org.au> <20050314102614.GA9610@gondor.apana.org.au> <20050314105313.GA21001@gondor.apana.org.au> <20050314111002.GA29156@gondor.apana.org.au> <20050315091904.GA6256@gondor.apana.org.au> <20050315095837.GA7130@gondor.apana.org.au> <20050318090310.GA28443@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stefan Schmidt <s.schmidt@mcbone.net>, netdev@oss.sgi.com
-To: Andrew Morton <akpm@osdl.org>
+Content-Type: multipart/mixed; boundary="sdtB3X0nJg68CQEu"
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>, netdev@oss.sgi.com
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20050317115254.4f8e462a.akpm@osdl.org>
+In-Reply-To: <20050318090310.GA28443@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 17, 2005 at 11:52:54AM -0800, Andrew Morton wrote:
-> Thanks, Stefan.
-> 
-> I'm not aware of any changes which would cause this.  Generally -mm's
-> networking is the same as Linus's.  Could you test Linus's latest tree?
-> (-rc1 should be out very soon, so that would be appropriate)
-2.6.10-mm1 was the kernel i ran before 2.6.11-mm2 on this machine which
-did not show this behaviour. I will try the latest vanilla as soon as
-i'm in office. Perhaps this problem is e1000-driver inflicted, i am
-using it as a module - will try latest vanilla with the same setup.
 
-	Stefan
+--sdtB3X0nJg68CQEu
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+Hi Dave:
+
+This patch makes ipt_TCPMSS use the correct MTU value for clamping.
+This is a bit tricky actually since TCPMSS can be used in FORWARD,
+LOCAL_OUT as well as POST_ROUTING.
+
+In the first two cases we haven't performed IPsec yet so dst_mtu
+obviously does the right thing.  As it is, POST_ROUTING is performed
+after xfrm_output so MSS clamping is useless there.
+
+With Patrick's IPsec netfilter stuff, there will be a POST_ROUTING
+processing before IPsec processing, in which case dst_mtu also returns
+exactly what we want.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+BTW Patrick, how is the IPsec netfilter stuff going?
+
+Cheers,
 -- 
-- The truth is usually just an excuse for a lack of imagination.
-Garak, "Improbable Cause", ST-DS9
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--sdtB3X0nJg68CQEu
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=xfrm-22
+
+===== net/ipv4/netfilter/ipt_TCPMSS.c 1.13 vs edited =====
+--- 1.13/net/ipv4/netfilter/ipt_TCPMSS.c	2004-06-04 15:04:05 +10:00
++++ edited/net/ipv4/netfilter/ipt_TCPMSS.c	2005-03-18 19:56:34 +11:00
+@@ -87,14 +87,14 @@
+ 			return NF_DROP; /* or IPT_CONTINUE ?? */
+ 		}
+ 
+-		if(dst_pmtu((*pskb)->dst) <= (sizeof(struct iphdr) + sizeof(struct tcphdr))) {
++		if(dst_mtu((*pskb)->dst) <= (sizeof(struct iphdr) + sizeof(struct tcphdr))) {
+ 			if (net_ratelimit())
+ 				printk(KERN_ERR
+-		       			"ipt_tcpmss_target: unknown or invalid path-MTU (%d)\n", dst_pmtu((*pskb)->dst));
++		       			"ipt_tcpmss_target: unknown or invalid path-MTU (%d)\n", dst_mtu((*pskb)->dst));
+ 			return NF_DROP; /* or IPT_CONTINUE ?? */
+ 		}
+ 
+-		newmss = dst_pmtu((*pskb)->dst) - sizeof(struct iphdr) - sizeof(struct tcphdr);
++		newmss = dst_mtu((*pskb)->dst) - sizeof(struct iphdr) - sizeof(struct tcphdr);
+ 	} else
+ 		newmss = tcpmssinfo->mss;
+ 
+
+--sdtB3X0nJg68CQEu--
