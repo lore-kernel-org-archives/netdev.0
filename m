@@ -1,48 +1,59 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: primary and secondary ip addresses
-Date: Sun, 19 Dec 2004 23:02:11 +0100
-Message-ID: <20041219220211.GQ17998@postel.suug.ch>
-References: <200412161153.51251.hasso@estpak.ee> <Pine.LNX.4.61.0412161103320.30452@filer.marasystems.com> <200412161302.42357.hasso@estpak.ee> <41C2F6E5.5010607@cs.columbia.edu> <Pine.LNX.4.61.0412171621200.15793@filer.marasystems.com> <41C30212.6000906@cs.columbia.edu> <20041217112025.27688eb6.davem@davemloft.net> <Pine.LNX.4.61.0412172046320.18698@filer.marasystems.com> <1103487517.1047.181.camel@jzny.localdomain> <20041219214120.GX17302@sunbeam.de.gnumonks.org>
+From: Tommy Christensen <tommy.christensen@tpack.net>
+Subject: Re: [patch 4/10] s390: network driver.
+Date: Sun, 19 Dec 2004 23:29:43 +0100
+Message-ID: <41C600D7.70005@tpack.net>
+References: <OF28701C56.81E1D26E-ONC1256F6B.00513EDD-C1256F6B.0052AF84@de.ibm.com> <1103484552.1046.155.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jamal <hadi@cyberus.ca>, Henrik Nordstrom <hno@marasystems.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrea G Forte <andreaf@cs.columbia.edu>, hasso@estpak.ee,
-	nhorman@redhat.com, linux-net@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Harald Welte <laforge@gnumonks.org>
-Content-Disposition: inline
-In-Reply-To: <20041219214120.GX17302@sunbeam.de.gnumonks.org>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Spatzier <thomas.spatzier@de.ibm.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Hasso Tepper <hasso@estpak.ee>,
+        Herbert Xu <herbert@gondor.apana.org.au>, jgarzik@pobox.com,
+        netdev@oss.sgi.com, Paul Jakma <paul@clubi.ie>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: hadi@cyberus.ca
+In-Reply-To: <1103484552.1046.155.camel@jzny.localdomain>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Harald Welte <20041219214120.GX17302@sunbeam.de.gnumonks.org> 2004-12-19 22:41
-> On Sun, Dec 19, 2004 at 03:18:37PM -0500, jamal wrote:
+jamal wrote:
+> On Wed, 2004-12-15 at 10:03, Thomas Spatzier wrote:
 > 
-> > Having said the above, I think it would make sense to have a "promotion"
-> > scheme so that in the case a primary address is deleted, one could
-> > promote the next secondary address in line. But that should be optional.
+>>jamal <hadi@cyberus.ca> wrote on 15.12.2004 14:50:27:
+>>
+>>
+>>>When you netif_stop_queue you should never receive packets anymore
+>>>at the device level. If you receive any its a bug and you should drop
+>>>them and bitch violently. In other words i think what you have at the
+>>>moment is bandaid not the solution.
+>>
+>>When we do a netif_stop_queue, we do not get any more packets.
+>>So this behaviour is ok. The problem is that the socket write
+>>queues fill up then and get blocked as soon as they are full.
+>>
 > 
-> Oh yes, please.  This would save a lot of headache.  I'm much in favour
-> of such a proposal.
+> This is the strange part. Anyone still willing to provide a sample
+> program that hangs?
 
-Agreed, would be nice to have.
+I haven't tried this myself, but surely it can happen when the
+socket send-buffer is smaller than what can be queued up for
+transmission: i.e. in the qdisc queue and device DMA ring.
+And even more so, when sending to multiple devices from one socket.
 
-> > Now where is the fireman who wants to do this? I could help cheering
-> > since i know the code.
+> Look at e1000 they do it right there. 
 > 
-> how would you think it fits best into the current netlink messages?
+> On link up:
+> 	netif_carrier_on(netdev);
+> 	netif_wake_queue(netdev);
+> On Link Down:
+> 	netif_carrier_off(netdev); // wonder if these need swapping
+> 	netif_stop_queue(netdev);
+> 
 
- 1) IFA_F_PROM_CAND flag and have inet_del_ifa* iterate over its
-    secondary addresses and elect the first with the flag set.
+Well, this is the same as what started this whole thread.
+I believe that stopping the queue on link-down events is simply
+bad behavior of the driver.
 
- 2) IFA_PROM_PRIO TLV of type u32 holding a priority where 0 means no
-    candiate. inet_del_ifa* iterates over its secondary addresses and
-    elects the one with the highest prio as new primary address or
-    deletes all addresses if none is found.
-
-* respectively the equivalent function of the other address families.
-
-Second variant requires more work but is more flexible so it's
-definitely my favourite. I'm willing to put some effort into this,
-I'm not familiar with all address families though.
+-Tommy
