@@ -1,60 +1,44 @@
-From: Antti Tuominen <ajtuomin@morphine.tml.hut.fi>
-Subject: [PATCHSET] Mobile IPv6 for 2.5.43
-Date: Thu, 17 Oct 2002 19:26:25 +0300
+From: Greg KH <greg@kroah.com>
+Subject: Re: [RFC] change format of LSM hooks
+Date: Thu, 17 Oct 2002 09:55:41 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021017162624.GC16370@morphine.tml.hut.fi>
+Message-ID: <20021017165541.GC31464@kroah.com>
+References: <20021015194545.GC15864@kroah.com> <20021015.124502.130514745.davem@redhat.com> <20021015201209.GE15864@kroah.com> <20021015.131037.96602290.davem@redhat.com> <20021015202828.GG15864@kroah.com> <20021016000706.GI16966@kroah.com> <20021017142149.A23181@infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: yoshfuji@wide.ad.jp, pekkas@netcore.fi, torvalds@transmeta.com,
-   jagana@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
-   linux-kernel@vger.kernel.org
+To: Christoph Hellwig <hch@infradead.org>, netdev@oss.sgi.com,
+   linux-security-module@wirex.com, linux-kernel@vger.kernel.org
 Content-Disposition: inline
+In-Reply-To: <20021017142149.A23181@infradead.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello Alexey, Dave, everyone,
+On Thu, Oct 17, 2002 at 02:21:49PM +0100, Christoph Hellwig wrote:
+> On Tue, Oct 15, 2002 at 05:07:06PM -0700, Greg KH wrote:
+> > On Tue, Oct 15, 2002 at 01:28:28PM -0700, Greg KH wrote:
+> > > On Tue, Oct 15, 2002 at 01:10:37PM -0700, David S. Miller wrote:
+> > > > 
+> > > > I will not even look at the networking LSM bits until
+> > > > CONFIG_SECURITY=n is available.
+> 
+> BTW, there's another big issues with LSM:  so far all those hook
+> have no user in a mergeable shape.  For all other additions
+> there is a strong need to present something mergable but LSM
+> doesn't.  IMHO we should require a pointer to a module in mergaable
+> shape (i.e. certainly not selinux) for each new hook addition.
 
-We are resending our code for kernel inclusion consideration.  I hope
-with this submission we have addressed all the concerns raised on the
-list (i.e. draft revision) as well as offline (splitting the patch to
-smaller chunks).
+Heh, require this, and oops, all of the hooks disappear :)
 
-To Pekka and Hideaki,
+Seriously, no, I don't agree with this.  SELinux is currently being
+audited by a number of different companies (include some Linux distros),
+and after that happens, and the code is cleaned up, I think they will
+probably want their module merged (but I don't speak for them at all.)
 
-Intermediate revision of the specification "Draft 18++" appeared a few
-days ago, which addressed most of the issues with earlier drafts (16,
-17, 18).  This made it possible to update our code to something usable
-(later than 15).  This patch set has support for most of it.
+As for the other modules, I think the OWL-based one is good enough right
+now, and I have a very simple module that is in the November issue of
+Linux Journal that is probably clean enough to merge.
 
-To Alexey, (and everyone else)
+thanks,
 
-The patch has been split for easier reading as follows:
-
-ipv6_tunnel.patch	6over6 tunneling
-network_mods.patch	Modifications to network code and hooks
-mipv6_cn_support.patch	Correspondent node support (+common code)
-mipv6_mn_support.patch	Mobile node support (+common code with HA)
-mipv6_ha_support.patch	Home agent support
-
-The patches are incremental, so they must be applied in this order.
-Patches are not included in this mail, but you can find them at:
-
-http://www.mipl.mediapoli.com/patches/ipv6_tunnel.patch
-http://www.mipl.mediapoli.com/patches/network_mods.patch
-http://www.mipl.mediapoli.com/patches/mipv6_cn_support.patch
-http://www.mipl.mediapoli.com/patches/mipv6_mn_support.patch
-http://www.mipl.mediapoli.com/patches/mipv6_ha_support.patch
-
-Userspace tools are available at:
-http://www.mipl.mediapoli.com/download/mipv6-tools/
-
-Regards,
-
-Antti
-
--- 
-Antti J. Tuominen, Gyldenintie 8A 11, 00200 Helsinki, Finland.
-Research assistant, Institute of Digital Communications at HUT
-work: ajtuomin@tml.hut.fi; home: tuominen@iki.fi
+greg k-h
