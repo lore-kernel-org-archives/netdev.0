@@ -1,32 +1,36 @@
-From: James Morris <jmorris@intercode.com.au>
-Subject: Re: [PATCH] [IPV6] clean-up advmss calculation (fwd)
-Date: Mon, 23 Jun 2003 20:26:40 +1000 (EST)
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: patch for common networking error messages
+Date: 23 Jun 2003 12:54:12 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Mutt.LNX.4.44.0306232011440.2333-100000@excalibur.intercode.com.au>
-References: <Mutt.LNX.4.44.0306230150330.578-100000@excalibur.intercode.com.au>
+Message-ID: <1056369251.13529.17.camel@dhcp22.swansea.linux.org.uk>
+References: <OFC2446DB8.6D4DA3ED-ON85256D47.007C79EE@us.ibm.com>
+	 <20030616.155533.63022973.davem@redhat.com>
+	 <1056199013.25974.27.camel@dhcp22.swansea.linux.org.uk>
+	 <20030622.174641.74727201.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com, "David S. Miller" <davem@redhat.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: girouard@us.ibm.com, stekloff@us.ibm.com, janiceg@us.ibm.com,
+   jgarzik@pobox.com, kenistonj@us.ibm.com, lkessler@us.ibm.com,
+   Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+   netdev@oss.sgi.com, niv@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: =?iso-2022-jp?Q?YOSHIFUJI_Hideaki_=2F_=1B$B5HF#1QL=40=1B=28B?= <yoshfuji@linux-ipv6.org>
-In-Reply-To: <Mutt.LNX.4.44.0306230150330.578-100000@excalibur.intercode.com.au>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030622.174641.74727201.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 23 Jun 2003, James Morris wrote:
+On Llu, 2003-06-23 at 01:46, David S. Miller wrote:
+>    From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+>    Date: 21 Jun 2003 13:36:54 +0100
+>    
+>    Standardising strings is a real help for end users,
+> 
+> I agree.  But my objections are in the context of doing this
+> inside the kernel, where such things do not belong.
 
-> This patch introduces ipv6_advmss() and clean-up advmss calculation.
-> Thanks.
+Standardising strings for end users in the kernel is also good
+because it both saves space and makes things more consistent for
+the poor human wondering what blew up.
 
-I've applied this to a bk tree at:
-bk://kernel.bkbits.net/jmorris/net-2.5
-
-I'll be trialling collecting some of the networking patches here so that
-Dave can pull them into his tree, instead of having to apply every single
-patch which is posted.
-
-
-- James
--- 
-James Morris
-<jmorris@intercode.com.au>
+Standardising them for programs to parse is not a good idea
