@@ -1,31 +1,35 @@
 From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH] BSD Jail LSM (2/3)
-Date: Mon, 13 Sep 2004 11:56:39 +0100
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1095072996.14355.12.camel@localhost.localdomain>
-References: <1094847705.2188.94.camel@serge.austin.ibm.com>
-	 <1094847787.2188.101.camel@serge.austin.ibm.com>
-	 <1094844708.18107.5.camel@localhost.localdomain>
-	 <20040912233342.GA12097@escher.cs.wm.edu>
+Subject: Re: 2.6.9-rc1-mm4: r8169: irq 16: nobody cared!/TX Timeout
+Date: Mon, 13 Sep 2004 12:38:01 +0100
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <1095075479.14374.47.camel@localhost.localdomain>
+References: <6upt4s4cro.fsf@zork.zork.net>
+	 <20040912110614.GA20942@electric-eye.fr.zoreil.com>
+	 <6u8ybf2w3f.fsf@zork.zork.net>
+	 <20040912204319.GA27282@electric-eye.fr.zoreil.com>
+	 <6uisaj19m4.fsf@zork.zork.net>
+	 <20040912215933.GB27282@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Chris Wright <chrisw@osdl.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        akpm@osdl.org, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "Serge E. Hallyn" <serue@us.ibm.com>
-In-Reply-To: <20040912233342.GA12097@escher.cs.wm.edu>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: Sean Neakums <sneakums@zork.net>, jgarzik@pobox.com, akpm@osdl.org,
+	netdev@oss.sgi.com,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S266616AbUIMMlq@vger.kernel.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20040912215933.GB27282@electric-eye.fr.zoreil.com>
 List-Id: netdev.vger.kernel.org
 
-On Llu, 2004-09-13 at 00:33, Serge E. Hallyn wrote:
-> Right now one must choose between either an ipv4 or ipv6 interface.
-> Is typical ipv6 usage such that it would be preferable to be able to
-> specify one of each?  
+On Sul, 2004-09-12 at 22:59, Francois Romieu wrote:
+> > Same result on starting X:
+> > 
+> > irq 16: nobody cared!
+> 
+> It slightly sounds like a broken irq routing.
+> 
+> Any taker for the hot potato ?
 
-Its normal to have both yes.
-
-A more interesting question is whether all of the "which socket for
-which use" stuff could be addressed by netfilter chains run at
-bind/connect time ?
+Try booting the -mm kernel with "irqpoll" as a boot option and see if it
+survives but struggles. At least I think mm4 has the irqpoll hack in. If
+so then you can work back and try and see whether things like acpi=off
+work
