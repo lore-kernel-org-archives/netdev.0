@@ -1,8 +1,8 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: [2/6]: Move hash masking to call sites
-Date: Thu, 23 Sep 2004 22:49:21 -0700
+Subject: [3/6]: Move neigh hash masks
+Date: Thu, 23 Sep 2004 22:49:57 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040923224921.3461f7a8.davem@davemloft.net>
+Message-ID: <20040923224957.624361a6.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -13,131 +13,100 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-Another step towards moving all hashing details
-into net/core/neighbour.c
+This actually moves the mask macros into
+net/core/neighbour.c
 
 # This is a BitKeeper generated diff -Nru style patch.
 #
 # ChangeSet
-#   2004/09/23 15:20:38-07:00 davem@nuts.davemloft.net 
-#   [NET]: Apply NEIGH_HASHMASK at tbl->hash() caller.
-#   
-#   Now there is no reason for any neigh implementation
-#   to know the value of {P,}NEIGH_HASHMASK
-#   
-#   Signed-off-by: David S. Miller <davem@davemloft.net>
-# 
-# net/ipv6/ndisc.c
-#   2004/09/23 15:20:09-07:00 davem@nuts.davemloft.net +1 -1
-#   [NET]: Apply NEIGH_HASHMASK at tbl->hash() caller.
-#   
-#   Now there is no reason for any neigh implementation
-#   to know the value of {P,}NEIGH_HASHMASK
-#   
-#   Signed-off-by: David S. Miller <davem@davemloft.net>
-# 
-# net/ipv4/arp.c
-#   2004/09/23 15:20:09-07:00 davem@nuts.davemloft.net +1 -1
-#   [NET]: Apply NEIGH_HASHMASK at tbl->hash() caller.
-#   
-#   Now there is no reason for any neigh implementation
-#   to know the value of {P,}NEIGH_HASHMASK
-#   
-#   Signed-off-by: David S. Miller <davem@davemloft.net>
-# 
-# net/decnet/dn_neigh.c
-#   2004/09/23 15:20:09-07:00 davem@nuts.davemloft.net +1 -1
-#   [NET]: Apply NEIGH_HASHMASK at tbl->hash() caller.
-#   
-#   Now there is no reason for any neigh implementation
-#   to know the value of {P,}NEIGH_HASHMASK
+#   2004/09/23 16:47:26-07:00 davem@nuts.davemloft.net 
+#   [NET]: Privatize {P,}NEIGH_HASHMASK.
 #   
 #   Signed-off-by: David S. Miller <davem@davemloft.net>
 # 
 # net/core/neighbour.c
-#   2004/09/23 15:20:09-07:00 davem@nuts.davemloft.net +2 -2
-#   [NET]: Apply NEIGH_HASHMASK at tbl->hash() caller.
-#   
-#   Now there is no reason for any neigh implementation
-#   to know the value of {P,}NEIGH_HASHMASK
-#   
-#   Signed-off-by: David S. Miller <davem@davemloft.net>
+#   2004/09/23 16:46:50-07:00 davem@nuts.davemloft.net +23 -0
+#   [NET]: Privatize {P,}NEIGH_HASHMASK.
 # 
-# net/atm/clip.c
-#   2004/09/23 15:20:09-07:00 davem@nuts.davemloft.net +1 -1
-#   [NET]: Apply NEIGH_HASHMASK at tbl->hash() caller.
-#   
-#   Now there is no reason for any neigh implementation
-#   to know the value of {P,}NEIGH_HASHMASK
-#   
-#   Signed-off-by: David S. Miller <davem@davemloft.net>
+# include/net/neighbour.h
+#   2004/09/23 16:46:50-07:00 davem@nuts.davemloft.net +2 -5
+#   [NET]: Privatize {P,}NEIGH_HASHMASK.
 # 
-diff -Nru a/net/atm/clip.c b/net/atm/clip.c
---- a/net/atm/clip.c	2004-09-23 22:26:08 -07:00
-+++ b/net/atm/clip.c	2004-09-23 22:26:08 -07:00
-@@ -334,7 +334,7 @@
- 	hash_val ^= (hash_val>>16);
- 	hash_val ^= hash_val>>8;
- 	hash_val ^= hash_val>>3;
--	hash_val = (hash_val^dev->ifindex)&NEIGH_HASHMASK;
-+	hash_val = (hash_val^dev->ifindex);
+diff -Nru a/include/net/neighbour.h b/include/net/neighbour.h
+--- a/include/net/neighbour.h	2004-09-23 22:26:24 -07:00
++++ b/include/net/neighbour.h	2004-09-23 22:26:24 -07:00
+@@ -140,9 +140,6 @@
+ 	u8			key[0];
+ };
  
- 	return hash_val;
- }
+-#define NEIGH_HASHMASK		0x1F
+-#define PNEIGH_HASHMASK		0xF
+-
+ /*
+  *	neighbour table manipulation
+  */
+@@ -176,8 +173,8 @@
+ 	struct neigh_parms	*parms_list;
+ 	kmem_cache_t		*kmem_cachep;
+ 	struct neigh_statistics	stats;
+-	struct neighbour	*hash_buckets[NEIGH_HASHMASK+1];
+-	struct pneigh_entry	*phash_buckets[PNEIGH_HASHMASK+1];
++	struct neighbour	**hash_buckets;
++	struct pneigh_entry	**phash_buckets;
+ };
+ 
+ /* flags for neigh_update() */
 diff -Nru a/net/core/neighbour.c b/net/core/neighbour.c
---- a/net/core/neighbour.c	2004-09-23 22:26:08 -07:00
-+++ b/net/core/neighbour.c	2004-09-23 22:26:08 -07:00
-@@ -291,7 +291,7 @@
+--- a/net/core/neighbour.c	2004-09-23 22:26:24 -07:00
++++ b/net/core/neighbour.c	2004-09-23 22:26:24 -07:00
+@@ -47,6 +47,9 @@
+ #define NEIGH_PRINTK2 NEIGH_PRINTK
+ #endif
+ 
++#define NEIGH_HASHMASK		0x1F
++#define PNEIGH_HASHMASK		0xF
++
+ static void neigh_timer_handler(unsigned long arg);
+ #ifdef CONFIG_ARPD
+ static void neigh_app_notify(struct neighbour *n);
+@@ -1205,6 +1208,7 @@
+ void neigh_table_init(struct neigh_table *tbl)
  {
- 	struct neighbour *n;
- 	int key_len = tbl->key_len;
--	u32 hash_val = tbl->hash(pkey, dev);
-+	u32 hash_val = tbl->hash(pkey, dev) & NEIGH_HASHMASK;
+ 	unsigned long now = jiffies;
++	unsigned long hsize, phsize;
  
- 	read_lock_bh(&tbl->lock);
- 	for (n = tbl->hash_buckets[hash_val]; n; n = n->next) {
-@@ -336,7 +336,7 @@
+ 	atomic_set(&tbl->parms.refcnt, 1);
+ 	INIT_RCU_HEAD(&tbl->parms.rcu_head);
+@@ -1220,6 +1224,18 @@
+ 	if (!tbl->kmem_cachep)
+ 		panic("cannot create neighbour cache");
  
- 	n->confirmed = jiffies - (n->parms->base_reachable_time << 1);
- 
--	hash_val = tbl->hash(pkey, dev);
-+	hash_val = tbl->hash(pkey, dev) & NEIGH_HASHMASK;
- 
- 	write_lock_bh(&tbl->lock);
- 	if (n->parms->dead) {
-diff -Nru a/net/decnet/dn_neigh.c b/net/decnet/dn_neigh.c
---- a/net/decnet/dn_neigh.c	2004-09-23 22:26:08 -07:00
-+++ b/net/decnet/dn_neigh.c	2004-09-23 22:26:08 -07:00
-@@ -128,7 +128,7 @@
- 	hash_val ^= (hash_val >> 10);
- 	hash_val ^= (hash_val >> 3);
- 
--	return hash_val & NEIGH_HASHMASK;
-+	return hash_val;
++	hsize = (NEIGH_HASHMASK + 1) * sizeof(struct neighbour *);
++	tbl->hash_buckets = kmalloc(hsize, GFP_KERNEL);
++
++	phsize = (PNEIGH_HASHMASK + 1) * sizeof(struct pneigh_entry *);
++	tbl->phash_buckets = kmalloc(phsize, GFP_KERNEL);
++
++	if (!tbl->hash_buckets || !tbl->phash_buckets)
++		panic("cannot allocate neighbour cache hashes");
++
++	memset(tbl->hash_buckets, 0, hsize);
++	memset(tbl->phash_buckets, 0, phsize);
++
+ 	tbl->lock	       = RW_LOCK_UNLOCKED;
+ 	init_timer(&tbl->gc_timer);
+ 	tbl->gc_timer.data     = (unsigned long)tbl;
+@@ -1260,6 +1276,13 @@
+ 		}
+ 	}
+ 	write_unlock(&neigh_tbl_lock);
++
++	kfree(tbl->hash_buckets);
++	tbl->hash_buckets = NULL;
++
++	kfree(tbl->phash_buckets);
++	tbl->phash_buckets = NULL;
++
+ 	return 0;
  }
  
- static int dn_neigh_construct(struct neighbour *neigh)
-diff -Nru a/net/ipv4/arp.c b/net/ipv4/arp.c
---- a/net/ipv4/arp.c	2004-09-23 22:26:08 -07:00
-+++ b/net/ipv4/arp.c	2004-09-23 22:26:08 -07:00
-@@ -229,7 +229,7 @@
- 	hash_val ^= (hash_val>>16);
- 	hash_val ^= hash_val>>8;
- 	hash_val ^= hash_val>>3;
--	hash_val = (hash_val^dev->ifindex)&NEIGH_HASHMASK;
-+	hash_val = (hash_val^dev->ifindex);
- 
- 	return hash_val;
- }
-diff -Nru a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
---- a/net/ipv6/ndisc.c	2004-09-23 22:26:08 -07:00
-+++ b/net/ipv6/ndisc.c	2004-09-23 22:26:08 -07:00
-@@ -276,7 +276,7 @@
- 	hash_val ^= (hash_val>>16);
- 	hash_val ^= hash_val>>8;
- 	hash_val ^= hash_val>>3;
--	hash_val = (hash_val^dev->ifindex)&NEIGH_HASHMASK;
-+	hash_val = (hash_val^dev->ifindex);
- 
- 	return hash_val;
- }
