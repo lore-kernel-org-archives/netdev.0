@@ -1,52 +1,83 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [NETLINK] Kill export of netlink_broadcast_deliver
-Date: Tue, 28 Sep 2004 13:47:36 +1000
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: Re: Patch submission for S2io Xframe driver to 2.6 kernel
+Date: Mon, 27 Sep 2004 20:54:53 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040928034736.GA10589@gondor.apana.org.au>
+Message-ID: <20040927205453.79f9628f.rddunlap@osdl.org>
+References: <414A3562.2090803@pobox.com>
+	<005801c4a4f4$1598d6d0$a010100a@S2IOtech.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="4Ckj6UjgE2iN1+kY"
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com, leonid.grossman@s2io.com,
+        raghavendra.koushik@s2io.com, rapuru.sriram@s2io.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
-Content-Disposition: inline
+To: <ravinandan.arakali@s2io.com>
+In-Reply-To: <005801c4a4f4$1598d6d0$a010100a@S2IOtech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Mon, 27 Sep 2004 17:42:51 -0700 Ravinandan Arakali wrote:
 
---4Ckj6UjgE2iN1+kY
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+| Hi,
+| Attached are the updated patches. It is designed to work on the latest
+| kernel. Also, this time the submission is split to 3 patches(they need
+| to applied in the order mentioned below).
+| 
+| s2io_styling_level1  - Contains
+|                              a. styling related, function name changes.
+|                              b. fix for 32-bit systems.
+|                              c. modified Transmit descriptor allocation
+| strategy.
+|                              d. miscellaneous fixes.
+| with_napi_level2     - Fixes/tunes NAPI feature
+| with_2buff_level3    - Adds support for 2-buffer mode.
+| 
+| Please review and get back with your comments.
 
-Hi Dave:
+The focused nature of the NAPI and 2BUFF patches are good IMO.
 
-netlink_broadcast_deliver is marked as static as well as exported.
-It certainly isn't doing anything that should be needed by any
-netlink modules.  There aren't any in-kernel users either.
+It would be very helpful if the styling patch had all comments/whitespace/style
+changes split out from it (maybe 3000 of the 4000 lines of the patch).
+Then we (reviewers) could spend time focusing on the important parts of
+your patches, and the styling patch could go with some lighter review.
 
-So let's remove the bogus export.
+I'd like to help Jeff with some review here, but it's become too painful &
+time-consuming for me to wade thru the patches looking for the
+more-important parts of such a large patch, so I'll have to leave it to
+Jeff and other netdev regulars.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+| Thanks,
+| Ravi
+| 
+| -----Original Message-----
+| From: Jeff Garzik [mailto:jgarzik@pobox.com]
+| Sent: Thursday, September 16, 2004 5:53 PM
+| To: ravinandan.arakali@s2io.com
+| Cc: netdev@oss.sgi.com; leonid.grossman@s2io.com;
+| raghavendra.koushik@s2io.com; rapuru.sriram@s2io.com
+| Subject: Re: Patch submission for S2io Xframe driver to 2.6 kernel
+| 
+| 
+| Ravinandan Arakali wrote:
+| > Jeff,
+| > We tried it out with 2.6.7. Can you pls specify the kernel version
+| > on which you tried and we will send a patch which works for that version.
+| > We will also send a more detailed description of the changes along with
+| > that.
+| 
+| 
+| Always diff against the latest version of the kernel.  You can find out
+| the latest version by going to http://www.kernel.org/  You'll typically
+| want the latest snapshot (preferably), or the latest pre-patch.
+| 
+| Standard patch submission format is described at
+| http://linux.yyz.us/patch-format.html and in
+| Documentation/SubmittingPatches.
+| 
+| When submitting a series of patches, it is normal patches to depend on
+| preceding patches.
 
---4Ckj6UjgE2iN1+kY
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
 
-===== net/netlink/af_netlink.c 1.53 vs edited =====
---- 1.53/net/netlink/af_netlink.c	2004-09-22 12:32:44 +10:00
-+++ edited/net/netlink/af_netlink.c	2004-09-28 13:45:28 +10:00
-@@ -1220,7 +1220,6 @@
- 
- EXPORT_SYMBOL(netlink_ack);
- EXPORT_SYMBOL(netlink_broadcast);
--EXPORT_SYMBOL(netlink_broadcast_deliver);
- EXPORT_SYMBOL(netlink_dump_start);
- EXPORT_SYMBOL(netlink_kernel_create);
- EXPORT_SYMBOL(netlink_register_notifier);
-
---4Ckj6UjgE2iN1+kY--
+--
+~Randy
