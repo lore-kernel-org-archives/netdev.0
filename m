@@ -1,8 +1,8 @@
 From: "Larry Sendlosky" <Larry.Sendlosky@storigen.com>
 Subject: RE: via-rhine "reset did not complete" errors
-Date: Mon, 28 Oct 2002 16:20:19 -0500
+Date: Mon, 28 Oct 2002 17:38:34 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <7BFCE5F1EF28D64198522688F5449D5A03C07B@xchangeserver2.storigen.com>
+Message-ID: <7BFCE5F1EF28D64198522688F5449D5A03C07C@xchangeserver2.storigen.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="iso-8859-1"
@@ -14,6 +14,29 @@ To: "Larry Sendlosky" <Larry.Sendlosky@storigen.com>,
    "Donald Becker" <becker@scyld.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
+
+More info/possible solution:
+
+I remembered the Via linuxfet driver and dug it up.
+The linuxfet close routine does acknowledge some
+problems and does some special casing and action when
+the recvr does not turn off in a certain amount of time.
+
+I put that code in the our via-rhine driver and my
+'ifconfig eth0 down; ifconfig eth0 up; ping -c2 xxxx; sleep 2;'
+loop has been running for about 20 minutes. Without changes
+it usually took less than a minute for "fail".
+
+larry
+
+
+-----Original Message-----
+From: Larry Sendlosky 
+Sent: Monday, October 28, 2002 4:20 PM
+To: Larry Sendlosky; Donald Becker
+Cc: linux-net@vger.kernel.org; netdev@oss.sgi.com; rl@hellgate.ch
+Subject: RE: via-rhine "reset did not complete" errors
+
 
 Oop, litte red-faced here....basically, I can't count.
 
