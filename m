@@ -1,110 +1,32 @@
-From: "생중개" <892892@ssex.com>
-Subject: =?ISO-8859-1?Q?=A1=D9=A1=D9=B1=E4=B1=DE=C0=D4=BC=F6!!=BF=B7=C1=FD?=
-	=?ISO-8859-1?Q?=B4=A9=B3=AA=20=BD=C7=C1=A6=20=BA=FC=B1=B8=B8=AE?=
-	=?ISO-8859-1?Q?=B8=F4=C4=AB!!?= uoychiml os
-Date: Sun, 18 Apr 04 17:48:36 GMT
+From: "Jimmy Oleary" <47kxlxus@nate.com>
+Subject: =?ISO-8859-1?Q?=B3=EB=C8=AD=BF=AA=C0=FC"=BC=BA=C0=E5=C8=A3=B8=A3=B8=F3"=C7=F4=B9=D8=BF=A1?=
+	=?ISO-8859-1?Q?=BB=D1=B8=AE=B4=C2=20=BD=BA=C7=C1=B7=B9=C0=CC.Made?= in U.S.A =?ISO-8859-1?Q?=B9=CCFDA=BD=C2=C0=CE=C1=A6=C7=B0!!!?= l r bhjjr
+Date: Sun, 18 Apr 04 22:46:18 GMT
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4tx$$d0o7$2r6z1$$5@0bvcq.r68342>
-Reply-To: "생중개" <892892@ssex.com>
+Message-ID: <61690-5i4o6qy@4bnc5.w3.b9tr>
+Reply-To: "Jimmy Oleary" <47kxlxus@nate.com>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="2EFA1924.DBEF9D.F"
+	boundary="D9_.A.C_C._50DFD339"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: majordomo@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---2EFA1924.DBEF9D.F
+--D9_.A.C_C._50DFD339
 Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
-<html>
-<head>
-<meta http-equiv=3D"content-type" content=3D"text/html; charset=3Deuc-kr">=
+<body bgcolor=3D"white" text=3D"black" link=3D"blue" vlink=3D"purple" alin=
+k=3D"red" leftmargin=3D"0" marginwidth=3D"0" topmargin=3D"0"
+marginheight=3D=
+"0">
+<p><a href=3D"http://www.okbody.com"><img src=3D"http://pub.hitel.net/iooi=
+yetoiyew/Service%20Files/Hompy/photo/20040114/1074023758552MegaHGH_Mail_Im=
+age_2.jpg" border=3D"0"></a></p>
+</body>xusorexusig yx xeygcqlc
+szqiqzp 
+st pffahnr jwsdokr
 
-<title>=FFFFFFC1=FFFFFFA6=FFFFFFB8=FFFFFFF1
-=FFFFFFBE=FFFFFFF8=FFFFFFC0=FFFFFFBD</title>
-<meta name=3D"generator" content=3D"Namo WebEditor v5.0">
-</head><body bgcolor=3D"red" text=3D"black" link=3D"blue" vlink=3D"purple"=
- alink=3D"red">
-<p align=3D"center">
-<a href=3D"http://www.69sexvidio.com/index.php?pid=3D500cdm&did=3D1" targe=
-t=3D_blank ><img src=3D"http://365sexsale.com/join/images1_1/top2.gif" wid=
-th=3D"750" height=3D"50" border=3D"0"></a>&nbsp;<br>
-<a href=3D"http://www.365sexsale.com/index.php?pid=3D500cdm&did=3D1" targe=
-t=3D_blank ><img src=3D"http://www.pornobogi.com/join/images2/244X278_2.gi=
-f" width=3D"200" height=3D"240" border=3D"0"></a>
-<a href=3D"http://www.69liveporno.com/index.php?pid=3D500cdm&did=3D1" targ=
-et=3D_blank ><img src=3D"http://www.pornobogi.com/join/images2/01.gif" wid=
-th=3D"200" height=3D"240" border=3D"0"></a>&nbsp;
-<a href=3D"http://www.10porno10.com/index.php?pid=3D500cdm&did=3D1" target=
-=3D_blank ><img src=3D"http://www.pornobogi.com/join/images1/up.gif" width=
-=3D"200" height=3D"240" border=3D"0"></a><br>
-
-<a href=3D"http://www.pornobogi.com/index.php?pid=3D500cdm&did=3D1" target=
-=3D_blank ><img src=3D"http://www.2004pornotape.com/join/images1_1/center_=
-img_3.gif" width=3D"130" height=3D"140" border=3D"0"></a>
-<a href=3D"http://www.69sexvidio.com/index.php?pid=3D500cdm&did=3D1" targe=
-t=3D_blank ><img src=3D"http://www.2004pornotape.com/join/images1_1/center=
-_img_2.gif" width=3D"130" height=3D"140" border=3D"0"></a>
-<a href=3D"http://www.365sexsale.com/index.php?pid=3D500cdm&did=3D1" targe=
-t=3D_blank ><img src=3D"http://www.2004pornotape.com/join/images1_1/center=
-_img_4.gif" width=3D"130" height=3D"140" border=3D"0"></a>
-<a href=3D"http://www.10porno10.com/index.php?pid=3D500cdm&did=3D1" target=
-=3D_blank ><img src=3D"http://www.2004pornotape.com/join/images1_1/squbase=
-x-1.gif" width=3D"130" height=3D"140" border=3D"0"></a>
-</a><br><a href=3D"http://www.pornobogi.com/index.php?pid=3D500cdm&did=3D1=
-" target=3D_blank ><img src=3D"http://www.playbozi.co.kr/data/banner/192.g=
-if" width=3D"130" height=3D"140" border=3D"0">
-<img src=3D"http://www.2004pornotape.com/join/images1_1/sora-1.gif"
-width=3D=
-"130" height=3D"140" border=3D"0"></a>
-<a href=3D"http://www.69liveporno.com/index.php?pid=3D500cdm&did=3D1" targ=
-et=3D_blank >
-<img src=3D"http://www.2004pornotape.com/join/images3_1/img_l_1.gif" width=
-=3D"130" height=3D"140" border=3D"0">
-<img src=3D"http://www.2004pornotape.com/join/images3_1/img_l_2.gif" width=
-=3D"130" height=3D"140" border=3D"0"><br>
-<img src=3D"http://www.pornobogi.com/join/images2/img_3_10.gif" width=3D"1=
-30" height=3D"140" border=3D"0"></a>
-<a href=3D"http://www.69sexvidio.com/index.php?pid=3D500cdm&did=3D1" targe=
-t=3D_blank ><img src=3D"http://www.2004pornotape.com/join/images1_1/my-1.g=
-if" width=3D"130" height=3D"140" border=3D"0"></a>
-<a href=3D"http://www.365bubuporno.com/index.php?pid=3D500cdm&did=3D1"targ=
-et=3D_blank>
-<img src=3D"http://www.pornobogi.com/join/images2/img_3_1.gif" width=3D"13=
-0" height=3D"140" border=3D"0">
-<img src=3D"http://www.playbozi.co.kr/data/banner/195.gif" width=3D"130" h=
-eight=3D"140" border=3D"0"></a><br>
-<a href=3D"http://www.69sexvidio.com/index.php?pid=3D500cdm&did=3D1" targe=
-t=3D_blank ><img src=3D"http://www.pornobogi.com/join/images2/img_3_7.gif"=
- width=3D"130" height=3D"140" border=3D"0"></a>
-<a href=3D"http://www.365sexsale.com/index.php?pid=3D500cdm&did=3D1" targe=
-t=3D_blank ><img src=3D"http://www.pornobogi.com/join/images2/img_3_8.gif"=
- width=3D"130" height=3D"140" border=3D"0"></a>
-<a href=3D"http://www.365bubuporno.com/index.php?pid=3D500cdm&did=3D1" tar=
-get=3D_blank ><img src=3D"http://www.2004pornotape.com/join/images3_1/img_=
-b_7.gif" width=3D"130" height=3D"140" border=3D"0">&nbsp;<img src=3D"http:=
-//www.365sexsale.com/join/images1_1/s_img_001_1.gif" width=3D"130"
-height=3D=
-"140" border=3D"0"></a><br>
-
-
-<a href=3D"http://www.69sexvidio.com/index.php?pid=3D500cdm&did=3D1" targe=
-t=3D_blank ><img src=3D"http://100bogsex.com/banner/200240_02.gif"
-width=3D=
-"200" height=3D"240" border=3D"0"></a>
-<a href=3D"http://www.365sexsale.com/index.php?pid=3D500cdm&did=3D1" targe=
-t=3D_blank ><img src=3D"http://yoohofilm.co.kr/banner/200240_02.gif" width=
-=3D"200" height=3D"240" border=3D"0"></a> 
-<a href=3D"http://www.pornobogi.com/index.php?pid=3D500cdm&did=3D1" target=
-=3D_blank ><img src=3D"http://xx892girl.com/banner/1209/200-240-1.gif" wid=
-th=3D"200" height=3D"240" border=3D"0"></a>
-</body></html>kmep e
-flupnxerrlqmhs djwgn f
-zr
-  ppl
- jdxqk
-
---2EFA1924.DBEF9D.F--
+--D9_.A.C_C._50DFD339--
