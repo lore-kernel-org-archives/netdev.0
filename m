@@ -1,24 +1,26 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] 2.6.0-test5-bk11 PKT_CAN_SHARE_SKB [1/3]
- include/linux/netdevice.h
-Date: Thu, 25 Sep 2003 03:49:56 -0700
+Subject: Re: [Patch]: IPv6 Connection Tracking
+Date: Thu, 25 Sep 2003 03:51:49 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030925034956.01ebcb77.davem@redhat.com>
-References: <1064442780.15437.25.camel@localhost.localdomain>
-	<Pine.LNX.4.44.0309241536340.9506-100000@home.osdl.org>
+Message-ID: <20030925035149.4886e0cf.davem@redhat.com>
+References: <200309250521.OAA29293@toshiba.co.jp>
+	<20030925092806.GC5758@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Cc: yasuyuki.kozakai@toshiba.co.jp, coreteam@netfilter.org,
+        netfilter-devel@lists.netfilter.org, netdev@oss.sgi.com,
+        usagi-core@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Linus Torvalds <torvalds@osdl.org>
-In-Reply-To: <Pine.LNX.4.44.0309241536340.9506-100000@home.osdl.org>
+To: Harald Welte <laforge@netfilter.org>
+In-Reply-To: <20030925092806.GC5758@sunbeam.de.gnumonks.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 24 Sep 2003 15:36:45 -0700 (PDT)
-Linus Torvalds <torvalds@osdl.org> wrote:
+On Thu, 25 Sep 2003 11:28:06 +0200
+Harald Welte <laforge@netfilter.org> wrote:
 
-> David, will you pick these up?
+> On the other hand, I'd much rather see some work done on a layer 3
+> independent connection tracking core.
 
-Yes, I will.
+Me too.
