@@ -1,56 +1,70 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: Re: bugs in net/ipv6/mcast.c (fwd)
-Date: Mon, 27 Oct 2003 11:07:10 +0900 (JST)
+From: Linus Torvalds <torvalds@osdl.org>
+Subject: Re: Linux 2.6.0-test9
+Date: Sun, 26 Oct 2003 18:10:03 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031027.110710.54972254.yoshfuji@linux-ipv6.org>
-References: <Pine.LNX.4.44.0310252226470.12162-100000@netcore.fi>
+Message-ID: <Pine.LNX.4.44.0310261752160.3157-100000@home.osdl.org>
+References: <UTC200310270148.h9R1mqO06057.aeb@smtp.cwi.nl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, niteowl@austin.rr.com, pekkas@netcore.fi,
-        yoshfuji@linux-ipv6.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: akpm@osdl.org, <davem@redhat.com>, <kuznet@ms2.inr.ac.ru>,
+        <linux-kernel@vger.kernel.org>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
-In-Reply-To: <Pine.LNX.4.44.0310252226470.12162-100000@netcore.fi>
+To: Andries.Brouwer@cwi.nl
+In-Reply-To: <UTC200310270148.h9R1mqO06057.aeb@smtp.cwi.nl>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <Pine.LNX.4.44.0310252226470.12162-100000@netcore.fi> (at Sat, 25 Oct 2003 22:27:27 +0300 (EEST)), Pekka Savola <pekkas@netcore.fi> says:
 
-> Probably fixed already, but just in case...
-
-Not yet in the bk tree.
-
-> Hi.  In the latest linux-2.6.0-test8 source there are 2 bugs in 
-> net/ipv6/mcast.c
-> In function inet6_mc_check() the if statements on lines 607 and 609 have
-> extra semicolons that will cause the code to fail.
+On Mon, 27 Oct 2003 Andries.Brouwer@cwi.nl wrote:
 > 
->                 if (mc->sfmode == MCAST_INCLUDE && i >= psl->sl_count);
->                         rv = 0;
->                 if (mc->sfmode == MCAST_EXCLUDE && i < psl->sl_count);
->                         rv = 0;
+> rlogin followed by "emacs -nw".
 
-Exactly. Patch follows.
+Ok. I bet I've never seen it partly because I only use ssh (I don't even
+allow rlogin to any of my machines). But you're right, rlogin certainly
+not only uses OOB data, but uses SIGURG itself. I would actually expect 
+that if we delay the SIGURG until after we've read the URG data, the child 
+process that wants to actually read the URG data will trivially hang, 
+waiting for it.
 
-===== net/ipv6/mcast.c 1.39 vs edited =====
---- 1.39/net/ipv6/mcast.c	Fri Oct 17 17:05:20 2003
-+++ edited/net/ipv6/mcast.c	Mon Oct 27 11:01:27 2003
-@@ -604,9 +604,9 @@
- 			if (ipv6_addr_cmp(&psl->sl_addr[i], src_addr) == 0)
- 				break;
- 		}
--		if (mc->sfmode == MCAST_INCLUDE && i >= psl->sl_count);
-+		if (mc->sfmode == MCAST_INCLUDE && i >= psl->sl_count)
- 			rv = 0;
--		if (mc->sfmode == MCAST_EXCLUDE && i < psl->sl_count);
-+		if (mc->sfmode == MCAST_EXCLUDE && i < psl->sl_count)
- 			rv = 0;
- 	}
- 	read_unlock(&ipv6_sk_mc_lock);
+If this is easily repeatable for you, can you test just applying this
+patch on top of plain -test9? It's not the patch I'd actually do in real 
+life, but it's the minimal patch to verify that it's really SIGURG and 
+urgent data that is the thing you see. Sounds very likely, but it would be 
+good to really verify.
 
+I think that this is, btw, the _right_ place for checking that SIGURG
+anyway.
 
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+The case of being at urgent data really is a special case, and I think it
+was a mistake to try to have the signal_pending() check in a common code
+sequence - it's really two totally differenct cases when we check for
+"should we stop here due to SIGURG handling", or "should we return because
+we would have to wait for more data and we have a signal pending".
+
+Yes, both cases test for "signal_pending(current)", but the SIGURG case
+really could test for just "do we have SIGURG pending", not just "any
+signal".
+
+		Linus
+
+--- 1.49/net/ipv4/tcp.c	Mon Oct 20 22:27:42 2003
++++ edited/net/ipv4/tcp.c	Sun Oct 26 17:59:14 2003
+@@ -1536,9 +1536,15 @@
+ 		struct sk_buff *skb;
+ 		u32 offset;
+ 
+-		/* Are we at urgent data? Stop if we have read anything. */
+-		if (copied && tp->urg_data && tp->urg_seq == *seq)
+-			break;
++		/* Are we at urgent data? Stop if we have read anything or have SIGURG pending. */
++		if (tp->urg_data && tp->urg_seq == *seq) {
++			if (copied)
++				break;
++			if (signal_pending(current)) {
++				copied = timeo ? sock_intr_errno(timeo) : -EAGAIN;
++				break;
++			}
++		}
+ 
+ 		/* Next get a buffer. */
+ 
