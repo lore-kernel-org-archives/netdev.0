@@ -1,29 +1,30 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [NETLINK] Remove netlink_sock_nr
-Date: Wed, 27 Oct 2004 14:17:38 +0900 (JST)
+Date: Wed, 27 Oct 2004 15:32:08 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041027.141738.132559035.yoshfuji@linux-ipv6.org>
-References: <20041027051107.GA8784@gondor.apana.org.au>
+Message-ID: <20041027053208.GA8971@gondor.apana.org.au>
+References: <20041027051107.GA8784@gondor.apana.org.au> <20041027.141738.132559035.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: herbert@gondor.apana.org.au, davem@davemloft.net
-In-Reply-To: <20041027051107.GA8784@gondor.apana.org.au>
+To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
+Content-Disposition: inline
+In-Reply-To: <20041027.141738.132559035.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20041027051107.GA8784@gondor.apana.org.au> (at Wed, 27 Oct 2004 15:11:07 +1000), Herbert Xu <herbert@gondor.apana.org.au> says:
-
-> This patch removes netlink_sock_nr which is only used by a printk
-> statement in af_netlink.c.  Even that's only there if
-> NETLINK_REFCNT_DEBUG is defined.
+On Wed, Oct 27, 2004 at 02:17:38PM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ wrote:
 > 
-> If we were really looking for netlink refcnt bugs there are probably
-> better places to do that anyway.
+> Alternatively, how about enclosing them with NETLINK_REFCNT_DEBUG
+> for future reference?
 
-Alternatively, how about enclosing them with NETLINK_REFCNT_DEBUG
-for future reference?
+Well if we really wanted to do refcnt debugging there then there are
+much better ways to do it than this.
 
---yoshfuji
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
