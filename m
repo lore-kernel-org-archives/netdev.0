@@ -1,30 +1,41 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] Clean up fib_hash datastructures
-Date: Tue, 21 Sep 2004 19:32:52 +1000
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Three way TCP handshake : can we avoid the third packet ?
+Date: Tue, 21 Sep 2004 11:47:43 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040921093252.GA32545@gondor.apana.org.au>
-References: <20040918203319.24004d6e.davem@davemloft.net> <1095645106.1048.190.camel@jzny.localdomain> <20040919195351.0b3560e6.davem@davemloft.net> <1095686672.1049.301.camel@jzny.localdomain> <20040920121123.70baf895.davem@davemloft.net> <20040921034212.GA28462@gondor.apana.org.au> <20040920231805.3f18479c.davem@davemloft.net> <20040921090423.GE8058@wotan.suse.de>
+Message-ID: <414FF8BF.4070302@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, hadi@cyberus.ca,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
-Content-Disposition: inline
-In-Reply-To: <20040921090423.GE8058@wotan.suse.de>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 21, 2004 at 11:04:23AM +0200, Andi Kleen wrote:
-> 
-> I think you should remove the TOS support completely because
-> it's obsolete with fwmark.  And maybe remove it will allow
-> some tuning later.
+Hi
 
-If we were doing this from scratch then we should do that.  But as it
-is we must keep the TOS code for compatibility.
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I discovered today that some TCP stackes are able to initiate TCP 
+sockets with 2 packets "only".
+
+The third packet (ACK packet) is just delayed and integrated into the 
+data packet.
+
+11:07:15.551507 host1.11906 > host2.80: S 1522618044:1522618044(0) win 
+64240 <mss 1452,nop,nop,sackOK> (DF)
+
+11:07:15.551523 host2.80 > host1.11906: S 751859039:751859039(0) ack 
+1522618045 win 5840 <mss 1460> (DF)
+
+11:07:16.112451 host1.11906 > host2.80: P 1:92(91) ack 1 win 65340
+
+11:07:16.151800 host2.80 > host1.11906: . ack 92 win 5840 (DF)
+
+It seems to be valid (host2 is linux in this tcpdump output), and saves 
+one packet.
+
+Is it possible to achieve the same thing with linux 2.4/2.6 ?
+
+A magical setsockopt() thing like TCP_CORK, TCP_QUICKACK, after the 
+socket() call and before the connect() ?
+
+Thank you
+Eric Dumazet
