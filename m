@@ -1,61 +1,56 @@
-From: "Carlos Velasco" <carlosev@newipnet.com>
-Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
-Date: Sun, 17 Aug 2003 15:16:09 +0200
+From: "w.szukalski" <szukw000@students.uni-mainz.de>
+Subject: linux-2.4.21 and IPv6: problem solved
+Date: Sun, 17 Aug 2003 15:27:25 GMT
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200308171516090038.0043F977@192.168.128.16>
-References: <Pine.LNX.3.96.1030728222606.21100A-100000@gatekeeper.tmr.com>
- <20030728213933.F81299@coredump.scriptkiddie.org>
- <200308171509570955.003E4FEC@192.168.128.16>
-Content-Type: text/plain; charset="us-ascii"
-Cc: "David S. Miller" <davem@redhat.com>, bloemsaa@xs4all.nl,
-   marcelo@conectiva.com.br, netdev@oss.sgi.com, linux-net@vger.kernel.org,
-   layes@loran.com, torvalds@osdl.org, linux-kernel@vger.kernel.org
+Message-ID: <20030817152725.A2212@keun>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <200308171509570955.003E4FEC@192.168.128.16>
-To: "Carlos Velasco" <carlosev@newipnet.com>,
-   "Lamont Granquist" <lamont@scriptkiddie.org>,
-   "Bill Davidsen" <davidsen@tmr.com>
+To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-So,
+First I regret: I did not mention the socket creation:
 
-According to RFC 1027:
-http://www.ietf.org/rfc/rfc1027.txt
+	reader = socket(AF_INET6, SOCK_DGRAM, PF_UNSPEC);
+	writer = socket(AF_INET6, SOCK_DGRAM, PF_UNSPEC);
 
-===
-2.4  Sanity checks
-    If the IP networks of the source and target hosts of an ARP request
-    are different, an ARP subnet gateway implementation should not
-    reply.  This is to prevent the ARP subnet gateway from being used
-to
-    reach foreign IP networks and thus possibly bypass security checks
-    provided by IP gateways.
-===
+In the meantime I inserted some 'printk(KERN_DEBUG "")' into the
+kernel code.
 
-According to RFC 985:
-http://www.ietf.org/rfc/rfc0985.txt?number=985
+Test program without connect():
 
-===
-   A.3.  ARP datagram
+linux/net/ipv6/af_inet6.c, inet6_bind():
 
-      An ARP reply is discarded if the destination IP address does not
-      match the local host address.  An ARP request is discarded if the
-      source IP address is not in the same subnet.  It is desirable
-that
-      this test be overridden by a configuration parameter, in order to
-      support the infrequent cases where more than one subnet may
-      coexist on the same cable (see RFC-925 for examples).  An ARP
-      reply is generated only if the destination protocol IP address is
-      reachable from the local host (as determined by the routing
-      algorithm) and the next hop is not via the same interface.  If
-the
-      local host functions as a gateway, this may result in ARP replies
-      for destinations not in the same subnet.
-===
+        /* Binding to link-local address requires an interface */
+        if (sk->bound_dev_if == 0) {
+            release_sock(sk);
+printk(KERN_DEBUG "%s:%d:link-local address without IF:EINVAL\n", 
+__FILE__,__LINE__);
+            return -EINVAL;
+        }
+After setting for 'ff02::1':
+	read6.sin6_scope_id = 2;
 
-Linux is doing the things _WRONG_ and on its own way without any switch
-to change its behaviour.
+the reader succeeded.
 
-Regards,
-Carlos Velasco
+Test program with connect():
+
+linux/net/ipv6/udp.c, udpv6_connect():
+	
+        /* Connect to link-local address requires an interface */
+        if (sk->bound_dev_if == 0)
+  {
+printk(KERN_DEBUG "%s:%d:sk->bound_dev_if == 0:EINVAL\n", 
+__FILE__,__LINE__);
+            return -EINVAL;
+  }
+
+After setting for 'ff02::1':
+	write6.sin6_scope_id = 2;
+
+the writer succeeded.
+
+
+winfried
