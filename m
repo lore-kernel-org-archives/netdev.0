@@ -1,56 +1,61 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [ANNOUNCE] NF-HIPAC: High Performance Packet Classification for
- Netfilter
-Date: Fri, 27 Sep 2002 10:12:26 -0400 (EDT)
+Subject: Re: netlink sockets and rtm_newlink messages
+Date: Fri, 27 Sep 2002 10:36:39 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.30.0209270958210.4401-100000@shell.cyberus.ca>
-References: <20020926.135259.62665945.davem@redhat.com>
+Message-ID: <Pine.GSO.4.30.0209271014150.4401-100000@shell.cyberus.ca>
+References: <20020927134806.GA12745@ducksong.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: <jmorris@intercode.com.au>, <rusty@rustcorp.com.au>, <nf@hipac.org>,
-   <linux-kernel@vger.kernel.org>, <netdev@oss.sgi.com>
+Cc: <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20020926.135259.62665945.davem@redhat.com>
+To: "Patrick R. McManus" <mcmanus@ducksong.com>
+In-Reply-To: <20020927134806.GA12745@ducksong.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
 
-Dave,
-
-now that i followed the thread on lk (slrn is great; thanks Jason);
-I am actually interested to find out how you are going to pull what
-you propose ;-> There are not that many things that will work well
-with a dst-cache like idea. I actually considered the stacking idea
-when i first was trying to prototype code that i posted. It is much harder
-to make use of in practise. At least this is my experience.
-If you look at the scheme i posted, youll see that the policy
-could be to direct the packets to a IPV4-forwarding block or
-totaly bypass it etc (i just didnt wanna jump into that step yet sicne it
-is quiet involved architecturaly)
-In any case we need to encourage people like the hipac authors to be
-putting out things (i only wish theyd incorporate it into the tc
-framework!); whatever changes made should consider that there is
-more than one way to do things and people will always come with better
-ways to do certain portions of the packet path.
+ifi_change is valid in RTM_NEWLINK messages;
+You need to check IFF_RUNNING and IFF_UP to see if the
+device went admin up or down.
+Another reference point for you at: section 3.3.3.1 of
+http://www.ietf.org/internet-drafts/draft-ietf-forces-netlink-03.txt
+print out all the flags in the message headers that you receive.
+[I just realized the draft also doesnt mention your issue, probably too
+late o change it now that it is going into RFC status]
 
 cheers,
 jamal
 
-On Thu, 26 Sep 2002, David S. Miller wrote:
+On Fri, 27 Sep 2002, Patrick R. McManus wrote:
 
->    From: James Morris <jmorris@intercode.com.au>
->    Date: Fri, 27 Sep 2002 01:27:41 +1000 (EST)
+> for the sake of google, I'll followup to my own query. Sanity checks
+> are appreciated too.
 >
->    So, this could be used for generic network layer encapsulation, and be
->    used for GRE tunnels, SIT etc. without the kinds of kludges currently in
->    use?  Sounds nice.
+> the messages weren't identical - ifi_change had IFF_RUNNING set in one
+> message and not the other. the man page says "ifi_change is reserved
+> for future use" so I didn't know what to make of it before digging
+> into the kernel src (2.4.19).
 >
-> Such IPIP tunnels have very real problems though, since only 64-bits
-> of packet quoting are required in ICMP errors, it is often impossible
-> to deal with PMTU requests properly, see "#ifndef
-> I_WISH_WORLD_WERE_PERFECT" in net/ipv4/ip_gre.c
+> -Pat
+>
+> [pat atducksong: Sep 26 18:38]
+> > hello -
+> >
+> > I've got a little userspace app that listens to a netlink socket and
+> > filters for messages of type RTM_NEWLINK to check for interfaces going
+> > up or down (checking ifi_flags to make that determination)..
+> >
+> > the only stumbling point is that I each time I do something like
+> > "ifconfig eth4 down" my app reads 2 identical RTM_NEWLINK messages
+> > instead of one (same behavior on up case too.)
+> >
+> > any thoughts on why? I didn't really know how to interpret sockaddr
+> > nl.nl_groups.. 1 seems to give me the same duplicates as ~0.. 0 gives me nothing.
+> >
+> >
+> > -Pat
+> >
 >
 >
 >
