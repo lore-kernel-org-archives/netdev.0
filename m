@@ -1,49 +1,33 @@
 From: "David S. Miller" <davem@redhat.com>
 Subject: Re: ipt_physdev.c alignment problems on parisc64
-Date: Tue, 16 Sep 2003 18:16:03 -0700
-Sender: netfilter-devel-admin@lists.netfilter.org
-Message-ID: <20030916181603.366b7c06.davem@redhat.com>
+Date: Tue, 16 Sep 2003 18:23:35 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20030916182335.359c419f.davem@redhat.com>
 References: <200309022116.41697.bdschuym@pandora.be>
-	<200309132159.37834.bdschuym@pandora.be>
-	<20030915155903.12a3f95d.davem@redhat.com>
-	<200309160805.08171.bdschuym@pandora.be>
-	<20030915230259.79f5a545.davem@redhat.com>
-	<1063703910.5948.85.camel@henrik.marasystems.com>
-	<20030916140918.GF810@obroa-skai.de.gnumonks.org>
+	<20030916140621.GE810@obroa-skai.de.gnumonks.org>
+	<20030916151533.GA28380@home.tig-grr.com>
+	<200309161757.50682.bdschuym@pandora.be>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: hno@marasystems.com, bdschuym@pandora.be, acme@conectiva.com.br,
-        netfilter-devel@lists.netfilter.org, netdev@oss.sgi.com
-Return-path: <netfilter-devel-admin@lists.netfilter.org>
-To: Harald Welte <laforge@netfilter.org>
-In-Reply-To: <20030916140918.GF810@obroa-skai.de.gnumonks.org>
-Errors-To: netfilter-devel-admin@lists.netfilter.org
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: <https://lists.netfilter.org/pipermail/netfilter-devel/>
+Cc: tommy@home.tig-grr.com, laforge@netfilter.org, acme@conectiva.com.br,
+   netfilter-devel@lists.netfilter.org, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Bart De Schuymer <bdschuym@pandora.be>
+In-Reply-To: <200309161757.50682.bdschuym@pandora.be>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 16 Sep 2003 16:09:18 +0200
-Harald Welte <laforge@netfilter.org> wrote:
+On Tue, 16 Sep 2003 17:57:50 +0200
+Bart De Schuymer <bdschuym@pandora.be> wrote:
 
-> On Tue, Sep 16, 2003 at 11:18:34AM +0200, Henrik Nordstrom wrote:
-> > tis 2003-09-16 klockan 08.02 skrev David S. Miller:
-> > 
-> > unfortunately iptables does not allow such differences between userspace
-> > and kernel representation..
-> 
-> yes. yes. yes.  The whole 'kernel internal data structure exported to
-> userspace' is a fundamental design flaw of iptables.  There's nothing we
-> can do about it, we'll have to live with it :(
+> 2.4 hasn't got ipt_physdev
 
-Why can't you change this?
+But recall that there are other netfilter modules doing this
+"compare chars using cast to long" trick that need to be fixed
+too.
 
-Just because the user gives the kernel the data in one format, this
-does not at all prevent the actual iptables kernel implementation from
-using some other structure to store the data.  You just have to translate
-things on the way in and out, that's all.
+Also, adding attributes to user exported structures would need
+to be done _very_ carefully, as compilation when using such
+gcc extensions will fail when the user uses '-ansi' on the
+compiler command line.
