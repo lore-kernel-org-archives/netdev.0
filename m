@@ -1,53 +1,65 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: 8390.c workaround for interrupt storm
-Date: Fri, 13 Aug 2004 16:17:34 -0400
+From: Nuno Silva <nuno.silva@vgertech.com>
+Subject: Re: 2.6.8-rc4-bk1 problem: unregister_netdevice: waiting for ppp0
+ to become free. Usage count = 1
+Date: Fri, 13 Aug 2004 21:35:49 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <411D21DE.2050804@pobox.com>
-References: <20040813153047.GC28640@logos.cnet>
+Message-ID: <411D2625.2070908@vgertech.com>
+References: <411BC284.6080807@vgertech.com> <20040813080334.GA13337@tentacle.sectorb.msk.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Marcelo Tosatti <marcelo.tosatti@cyclades.com>
-In-Reply-To: <20040813153047.GC28640@logos.cnet>
+To: "Vladimir B. Savkin" <master@sectorb.msk.ru>
+In-Reply-To: <20040813080334.GA13337@tentacle.sectorb.msk.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Marcelo Tosatti wrote:
-> Hi netdev, 
-> 
-> We've been seeing an interrupt storm on our 
-> embedded PowerPC systems with Linksys PCMLM56 (network+modem) 
-> PCMCIA cards (network part of it driven by pcnet_cs.c) as soon as the network 
-> cable is  pluged/unpluged and after some activity on the serial
-> line. 
-> 
-> The card goes nuts, and doesnt stop sending interrupts. 
-> 
-> So I hacked up this patch which resets the 8390 chip
-> as soon as 256 empty interrupts are triggered. Works fine,
-> the card comes back to sanity after resetting.
-> 
-> Not sure if its specific to our boards, but I believe
-> it might happen on other archs also, so I'm posting it 
-> here in the hope it might be useful for someone with the
-> same problem.
-> 
-> Not likely to be included in mainline driver, but hey, why not,
-> its protection against hardware insanity.
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
+Vladimir B. Savkin wrote:
+| On Thu, Aug 12, 2004 at 08:18:28PM +0100, Nuno Silva wrote:
+|
+|>Hi!
+|>
+|>With 2.6.8-rc4-bk1 I get "Aug 12 17:33:10 puma kernel:
+|>unregister_netdevice: waiting for ppp0 to become free. Usage count = 1"
+|>in the logs after pppd exit.
+|>
+|>Also, the box won't reboot and print that message forever in the
+|>console. sysrq-U && sysrq-R did it :-)
+|>
+|>The last version I tried was 2.6.8-rc2-bk11 and, wrt this prob, is
+|>running fine. So, the problem is in that window and the changelog for
+|>rc4 mentions something about ppp:
+|>http://kernel.org/pub/linux/kernel/v2.6/testing/ChangeLog-2.6.8-rc4
+|>
+|>If someone requires more information or tests feel free to ask!
+|
+|
+| I saw this too, with 2.6.7-rc3-mm1.
+| I have discovered that it happens because of idle TCP socket
+| holds a reference to a network device.
+| After killing associated process, device was freed immediately.
+|
 
-You have stumbled on a common class of problems, I think.
+I waited for 5 mins before sysrq-U && sysrq-R.
+Anyway, if I 'killall pppd' and then issue 'ifconfig -a' the ifconfig
+command will hang.
 
-IMO interrupt storms are almost always caused by the platform or bus.  I 
-see tons of bug reports for ethernet drivers which turn out to be 
-interrupt routing, interrupt handling, or interrupt storms unrelated to 
-the ethernet driver itself.
+This didn't happen with 2.6.8-rc2-bk11 (the one I'm running now), so
+something changed... I'm I the only one with ppp/pppd/pppoe who tried
+2.6.8-rc4-bk1? :-) Any success reports?
 
-Yes, you can sometimes work around this in the driver, but that tends to 
-wind up hiding the problem.
+Regards,
+Nuno Silva
 
-PCMCIA debugging isn't fun, to be sure, maybe RMK has some ideas?
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (GNU/Linux)
+Comment: Using GnuPG with Thunderbird - http://enigmail.mozdev.org
 
-	Jeff
+iD8DBQFBHSYlOPig54MP17wRAs1NAJ0dMRd7tqnpRk/tnxZj7xSeoUL3UgCgrk50
+tnzeT6sy3CauOI5WK7HF16o=
+=mkWf
+-----END PGP SIGNATURE-----
