@@ -1,51 +1,69 @@
-From: <kzjbdkvcjbdlv@yahoo.co.jp>
-Subject: =?iso-2022-jp?B?GyRCNls1XkIuSnMhKiM3M2RKfSROI1AjQyU9JVUlSCQsIzUbKEI=?=
-	=?iso-2022-jp?B?GyRCIzAjMCMwMV82UTBsJEckNEp0O0UhKiEqISohKhsoQg==?=
-Date: Sat, 13 Dec 2003 01:11:49 +0900
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: [PATCH] option for large routing hash
+Date: Sat, 13 Dec 2003 00:10:16 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <093901c3c0ca$a5e411a0$6a00a8c0@OEMCOMPUTER6>
+Message-ID: <16346.19160.434671.377642@robur.slu.se>
+References: <16343.12816.917811.588853@robur.slu.se>
+	<20031210150537.5fd0edb0.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>, kuznet@ms2.inr.ac.ru,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
-Content-Class: urn:content-classes:message
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20031210150537.5fd0edb0.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-緊急速報！７割方のＰＣソフトが５０００円均一でご奉仕！！！！
 
-★今、当店でＡの商品を３タイトル以上ご購入頂いた方全員に
-お好きな商品どれでも１点無料でサービスします！
+David S. Miller writes:
 
-※ただし特別商品の表示のある物を除く
-＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
+ > I wish we had resolved that in the long thread we had about it
+ > a few months ago.  We should really reestablish the point we had
+ > reached, and try to make some more forward progress.
+ > 
+ > This problem is not going to go away, as you say.
 
-当店自慢のラインナップ！<<最新ソフトが続々入荷！>>
-URL http://yamatec2003.netfirms.com
-●●●●●●●●目玉商品！Office2003Pro日本語版！●●●●●●
-  しかもボリュームライセンス版！(認証不要)特別価格\7000！！
-  OneNOTE2003J Visio2003JPro Project2003JPro
-  Frontpage2003 SharePoint2003 Publisher2003 他　　　　　　
-  最大７枚組みで取り揃えております。　　　　　　　　　　　
-●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●
+ No I will not. I revisited the patches and they seems to some help but 
+ here must be some other problem too. Seems we have to start over. Well 
+ let me add the patch with the debugging from Sarma to start with. At 
+ least there is no problem to trigger the overflows.
 
-黒船2003全国版                           (怒涛の６枚組み！)
-Adobe Premiere Pro ＆ EncoreDVD入荷！！（WinXPのみ動作）
-新入荷！PRO/ENGINEER2003(3枚組)         (売れてます！一押し)
-ADOBE/Macromedia各種
-Inventor7J
-Vector&Render Works10J　For Mac Ready!
-Mechanical Desktop2004J/CatiaV5R10
-                                 他多数。MACもお任せください
-全商品リストはHPをご覧ください。
-URL http://yamatec2003.netfirms.com
 
-※当HPがご覧になれない場合は、
-http://yamatec2003.netfirms.com/HP.zip
-をダウンロード、解凍したあとにindex.htmをダブルクリック！
-※※今後メールの配信を希望されない方は
-irimasen2003jp@yahoo.co.jp　までご一報ください。
-※※※申し訳ございませんがメール配信用のアドレス
-kzjbdkvcjbdlv@yahoo.co.jp 　に受信拒否のメールを頂いても
-配信解除することができませんので悪しからずご了承下さい。
+ > I think I see what you're saying though, and in my opinion there
+ > is way too much black magic in choosing gc_thresh etc. routing cache
+ > parameters.
+ > 
+ > Other caches in the kernel grow to fill the needs of the system.  The
+ > routing cache grows only as large as it has been configured to be
+ > allowed to grow, and afterwards it no longer responds to increasing
+ > system needs.
+ > 
+ > The IPV4 routing front end has exactly this kind of logic.  As you
+ > load more and more routing table entries into the kernel it grows
+ > the hashes in response.
+ > 
+ > > So it crucial to distinguish between the cases. Can it be done from
+ > > incoming traffic? 
+ > 
+ > This is the real question, and the other is how to implement dynamic
+ > hash table growth in the routing cache.  The locking is particularly
+ > problematic, but RCU may be able to help us with this.
+ > 
+ > Monitoring traffic to make this decision is hard because to determine
+ > whether cache misses are due to not well formed traffic vs. too small
+ > cache sizing we'd need the entry we garbage collected to determine the
+ > latter.  It's the chicken and egg problem.
+
+ Yes. Well for desktop systems and system with not too much flows there is 
+ no problem. For hi-flow servers and routers we should expect administrators
+ do some manual setup according their environment. As we started this
+ thread IMO increasing just hash size is the most continent in this case
+ a as most routing cache parameters is derived from it so the black
+ magic is untouched but still doing it's magic. We have used this for some
+ time on our routers. Of course things can be done better but RCU is probably 
+ the most annoying for now.
+
+ Cheers.
+						--ro
