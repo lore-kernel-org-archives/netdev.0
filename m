@@ -1,43 +1,93 @@
-From: Laurens <masterpe@xs4all.nl>
-Subject: New found issues with forcedeth
-Date: Thu, 06 Nov 2003 17:55:41 +0100
+From: Patrick McHardy <kaber@trash.net>
+Subject: [PATCH]: fix skb_copy_expand offset calculation
+Date: Thu, 06 Nov 2003 18:21:46 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1068137741.3611.9.camel@lawbox.int.mpe.xs4all.nl>
-References: <1068059045.3618.3.camel@lawbox.int.mpe.xs4all.nl>
+Message-ID: <3FAA832A.6000505@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/mixed;
+ boundary="------------080502050700020003090802"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <1068059045.3618.3.camel@lawbox.int.mpe.xs4all.nl>
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Further testing revealed several other problems, let me first start with
-my specs:
+This is a multi-part message in MIME format.
+--------------080502050700020003090802
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Kernel: Linux 2.6.0-test9-mm2 
-Distro: Gentoo Base System version 1.4.3.11
-CPU: AMD Athlon(tm) XP 2700+
-Disk: Maxtor 6Y120P0
-Ethernet: nVidia Corporation nForce2
-XFree86: 4.3.0
-Monitor: Iiyama AS4314UT, TFT-Master Pro 17
-Videocard: nVidia Corporation NV15DDR [GeForce2 Ti]
-Audio: Creative Labs SB Live! EMU10k1
+Hi Dave,
+this patch fixes offset calculation in skb_copy_expand.
 
-Issues: 
-- dhcpcd eth0 takes longer to load
-- emerge sync (gentoo update tool) hangs in the middle of updating
-(confirmed not to happen with nvnet)
-- modprobe segfaulted on "modprobe -r forcedeth" (note: eth0 was not
-active)
+        head_copy_len = skb_headroom(skb);
+        head_copy_off = 0;
+        if (newheadroom < head_copy_len) {
+                head_copy_off = head_copy_len - newheadroom;
+                head_copy_len = newheadroom;
+        }
+ 
+        /* Copy the linear header and data. */
+        if (skb_copy_bits(skb, -head_copy_len, n->head + head_copy_off,
+                          skb->len + head_copy_len))
 
-On the good side:
-- nvnet seems to mess up my framebuffer, forcedeth does not :)
 
-Should you require more information just ask.
+It looks like it is intended to copy as much as possible, cutting off
+bytes at the beginning is there is not enough room. For the case
+newheadroom < head_copy_len that means it needs to copy newheadroom
+bytes from skb->data - newheadroom to n->head, so head_copy_off
+needs to be 0. I don't know how the data copied is used later on
+but I assume it is intended to stay continous. That means in
+the case that newheadroom > skb_headroom(skb) we need to copy
+skb_headroom(skb) bytes to n->head + newheadroom - skb_headroom(skb),
+so head_copy_off becomes newheadroom - head_copy_len.
 
-good luck,
+In the patch the case newheadroom == skb_headroom(skb) is handled with
+the first condition to save either a jump or a subtraction.
 
-Lawrence
+The patch is verified to fix the problem that led me to this, ipt_REJECT
+produced broken RSTs which triggered the "ipt_hook: happy cracking!"
+line in ip_conntrack_standalone.c.
+
+Best regards,
+Patrick
+
+--------------080502050700020003090802
+Content-Type: text/plain;
+ name="2.6-skb_copy_expand.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="2.6-skb_copy_expand.diff"
+
+# This is a BitKeeper generated patch for the following project:
+# Project Name: Linux kernel tree
+# This patch format is intended for GNU patch command version 2.5 or higher.
+# This patch includes the following deltas:
+#	           ChangeSet	1.1413  -> 1.1414 
+#	   net/core/skbuff.c	1.32    -> 1.33   
+#
+# The following is the BitKeeper ChangeSet Log
+# --------------------------------------------
+# 03/11/06	kaber@trash.net	1.1414
+# Fix skb_copy_expand offset calculation
+# --------------------------------------------
+#
+diff -Nru a/net/core/skbuff.c b/net/core/skbuff.c
+--- a/net/core/skbuff.c	Thu Nov  6 17:34:55 2003
++++ b/net/core/skbuff.c	Thu Nov  6 17:34:55 2003
+@@ -595,10 +595,10 @@
+ 
+ 	head_copy_len = skb_headroom(skb);
+ 	head_copy_off = 0;
+-	if (newheadroom < head_copy_len) {
+-		head_copy_off = head_copy_len - newheadroom;
++	if (newheadroom <= head_copy_len)
+ 		head_copy_len = newheadroom;
+-	}
++	else
++		head_copy_off = newheadroom - head_copy_len;
+ 
+ 	/* Copy the linear header and data. */
+ 	if (skb_copy_bits(skb, -head_copy_len, n->head + head_copy_off,
+
+--------------080502050700020003090802--
