@@ -1,62 +1,38 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [KJ] [PATCH 9/18] drivers/net/ remove pci_find_{device, subsys}
-Date: Mon, 14 Feb 2005 10:46:15 -0800
-Message-ID: <20050214184613.GP7815@kroah.com>
-References: <200502141125.25185.amitg@calsoftinc.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [patch 2.6.11-rc3 5/5] r8169: synchronization and balancing when the device is closed
+Date: Mon, 14 Feb 2005 20:31:06 +0100
+Message-ID: <20050214193106.GA14409@electric-eye.fr.zoreil.com>
+References: <20050211233918.GB8792@electric-eye.fr.zoreil.com> <20050211234403.GC13644@electric-eye.fr.zoreil.com> <20050211234522.GD13644@electric-eye.fr.zoreil.com> <200502141116.54441.jdmason@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============5488872609210631=="
-Cc: netdev@oss.sgi.com, jgarzik@pobox.com, gud@eth.net,
-   kernel-janitors@lists.osdl.org
-To: Amit Gud <amitg@calsoftinc.com>
-In-Reply-To: <200502141125.25185.amitg@calsoftinc.com>
-List-Unsubscribe: <http://lists.osdl.org/mailman/listinfo/kernel-janitors>,
-	<mailto:kernel-janitors-request@lists.osdl.org?subject=unsubscribe>
-List-Archive: <http://lists.osdl.org/pipermail/kernel-janitors>
-List-Post: <mailto:kernel-janitors@lists.osdl.org>
-List-Help: <mailto:kernel-janitors-request@lists.osdl.org?subject=help>
-List-Subscribe: <http://lists.osdl.org/mailman/listinfo/kernel-janitors>,
-	<mailto:kernel-janitors-request@lists.osdl.org?subject=subscribe>
-Sender: kernel-janitors-bounces@lists.osdl.org
-Errors-To: kernel-janitors-bounces@lists.osdl.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, akpm@osdl.org, netdev@oss.sgi.com
+To: Jon Mason <jdmason@us.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <200502141116.54441.jdmason@us.ibm.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---===============5488872609210631==
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Jon Mason <jdmason@us.ibm.com> :
+> [...]
+> > @@ -2399,6 +2398,8 @@ static int rtl8169_close(struct net_devi
+> >  
+> >   free_irq(dev->irq, dev);
+> >  
+> > + netif_poll_enable(dev);
+> > +
+> >   pci_free_consistent(pdev, R8169_RX_RING_BYTES, tp->RxDescArray,
+> >         tp->RxPhyAddr);
+> >   pci_free_consistent(pdev, R8169_TX_RING_BYTES, tp->TxDescArray,
+> > 
+> > _
+> 
+> Dumb question....Why is this needed?  dev_close has already checked for the 
 
-On Mon, Feb 14, 2005 at 11:25:23AM +0530, Amit Gud wrote:
-> diff -uprN orig/drivers/net/gt96100eth.c linux-2.6.11-rc3/drivers/net/gt96100eth.c
-> --- orig/drivers/net/gt96100eth.c	2005-02-11 15:19:48.000000000 +0530
-> +++ linux-2.6.11-rc3/drivers/net/gt96100eth.c	2005-02-14 02:07:09.000000000 +0530
-> @@ -615,9 +615,9 @@ static int gt96100_init_module(void)
->  	/*
->  	 * Stupid probe because this really isn't a PCI device
->  	 */
-> -	if (!(pci = pci_find_device(PCI_VENDOR_ID_MARVELL,
-> +	if (!(pci = pci_get_device(PCI_VENDOR_ID_MARVELL,
->  	                            PCI_DEVICE_ID_MARVELL_GT96100, NULL)) &&
-> -	    !(pci = pci_find_device(PCI_VENDOR_ID_MARVELL,
-> +	    !(pci = pci_get_device(PCI_VENDOR_ID_MARVELL,
->  		                    PCI_DEVICE_ID_MARVELL_GT96100A, NULL))) {
->  		printk(KERN_ERR __FILE__ ": GT96100 not found!\n");
->  		return -ENODEV;
+dev_open() after dev_close(): netif_rx_schedule_prep() always fails in
+rtl8169_interrupt() and the device can not be scheduled for poll. Sucky.
 
-This (and many other parts of this patch) are incorrect.  Please do not
-apply.
+So, if someone wants to push it before 2.6.11 goes out...
 
-thanks,
-
-greg k-h
-
---===============5488872609210631==
-Content-Type: text/plain; charset="iso-8859-1"
-MIME-Version: 1.0
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
-
-_______________________________________________
-Kernel-janitors mailing list
-Kernel-janitors@lists.osdl.org
-http://lists.osdl.org/mailman/listinfo/kernel-janitors
-
---===============5488872609210631==--
+-- 
+Ueimor
