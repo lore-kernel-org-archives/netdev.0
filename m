@@ -1,73 +1,47 @@
-From: "Divulgador de Artistas" <divulgadorssp@openline.com.br>
-Subject: =?ISO-8859-1?Q?Divulga=E7=E3o?= de Artistas em =?ISO-8859-1?Q?R=E1dios?= do Interior de SP
-Date: Thu, 13 Feb 2003 06:49:24 -0300
+From: Peter Bieringer <pb@bieringer.de>
+Subject: Re: Re: IPv6 enabled Network services
+Date: Thu, 13 Feb 2003 09:59:34 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200302130840.h1D8eg3v012059@oss.sgi.com>
+Message-ID: <15100000.1045126774@gate.muc.bieringer.de>
+References: <20030213085238.4096.qmail@webmail18.rediffmail.com>
 Mime-Version: 1.0
-Content-Type: text/html; charset="ISO-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
+To: netdev@oss.sgi.com
+In-Reply-To: <20030213085238.4096.qmail@webmail18.rediffmail.com>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-<html>
-
-<head>
-<title></title>
-</head>
-
-<body bgcolor=3D"#000000"
-<p align=3D"center" topmargin=3D"10">
-<p align=3D"center"><img border=3D"0"
-src=3D"http://www.divulgadorsp.kit.net/banner468x60.gif" width=3D"468"
-height=3D"60"></p>
-  <table border=3D"0" width=3D"697" cellpadding=3D"0" cellspacing=3D"0" h=
-eight=3D"208">
-    <tr>
-      <td width=3D"687" height=3D"1" bgcolor=3D"#FFFFCC" valign=3D"middle=
-"
-align=3D"center">
-        <b><font size=3D"3" face=3D"Arial">Realizo a divulga=E7=E3o de ar=
-tistas dos
-        mais variados g=EAneros musicais nas principais r=E1dios do inter=
-ior de
-        S=E3o Paulo, sendo esta divulga=E7=E3o de extrema import=E2ncia p=
-ara os
-        novos artistas que buscam atrair a aten=E7=E3o de gravadoras e da=
-s
-grandes r=E1dios
-        da capital de SP.</font></b>
-        <p><b><font size=3D"3" face=3D"Arial">Para maiores informa=E7=F5e=
-s acesse o
-        site <a
-href=3D"http://www.divulgadorsp.kit.net">www.divulgadorsp.kit.net</a>
-&nbsp;</font></b></td>
-    </tr>
-  </table>
-<p align=3D"center"><font color=3D"#FFFFCC">&nbsp;</font><font color=3D"#=
-FFFFFF"
-size=3D"1" face=3D"Arial" <p>Caso n=E3o queira mais receber nossos
-informativos
 
 
-</font>
+--On Thursday, February 13, 2003 08:52:38 AM +0000 santosh kumar
+gowda <ipv6_san@rediffmail.com> wrote:
 
+> Hi Marc
+> i tried for
+> telnet> 3ffe::102:304:1234
+> still i get
+> 3ffe::102:304:1234: unknown host
 
-<font color=3D"#FFFFCC" size=3D"1" face=3D"Arial" <p> </font>
+Can you ping6 this address? Are the shown addresses configured in
+real or are they rewritten for public ML posting?
 
+They look a little bit strange to me.
 
-<font color=3D"#FFFF00" size=3D"1" face=3D"Arial" <p>
-<a
-href=3D"mailto:remover@rockshows.com.br?Subject=3D::REMOVER::&amp;
-Body=3Dnetdev@oss.sgi.com" style=3D"text-decoration: blink; color: #FF000=
-0">Click
-aqui</a>
+Also try
+$ telnet <ipv6address>
 
+perhaps this kind will work.
 
-</font>
+If not, telnet has perhaps no IPv6 support (which version/RPM do you
+use)? Check also 
+$ which telnet
+to be sure you're using the right one.
 
-
-</body>
-
-</html>
+        Peter
+-- 
+Dr. Peter Bieringer                     http://www.bieringer.de/pb/
+GPG/PGP Key 0x958F422D               mailto: pb at bieringer dot de 
+Deep Space 6 Co-Founder and Core Member  http://www.deepspace6.net/
