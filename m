@@ -1,34 +1,40 @@
-From: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
-Subject: Re: register_dev
-Date: Mon, 28 Mar 2005 16:11:06 +0300 (EEST)
-Message-ID: <Pine.LNX.4.62.0503281610530.25430@webhosting.rdsbv.ro>
-References: <Pine.LNX.4.62.0503281451090.25430@webhosting.rdsbv.ro>
- <20050328122356.GX3086@postel.suug.ch>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: cls_u32 compile failure in current 2.6.12-rc1+BK tree
+Date: 28 Mar 2005 08:15:25 -0500
+Message-ID: <1112015725.1089.1045.camel@jzny.localdomain>
+References: <Pine.SOC.4.61.0503272249040.5086@math.ut.ee>
+	 <1111972035.1091.946.camel@jzny.localdomain>
+	 <Pine.SOC.4.61.0503281017060.21333@math.ut.ee>
+	 <1112012657.1089.1013.camel@jzny.localdomain>
+	 <20050328123801.GY3086@postel.suug.ch>
+	 <1112014261.1089.1018.camel@jzny.localdomain>
+	 <20050328125802.GZ3086@postel.suug.ch>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Meelis Roos <mroos@linux.ee>, netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050328122356.GX3086@postel.suug.ch>
+In-Reply-To: <20050328125802.GZ3086@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 28 Mar 2005, Thomas Graf wrote:
+On Mon, 2005-03-28 at 07:58, Thomas Graf wrote:
 
-> * Catalin(ux aka Dino) BOIE <Pine.LNX.4.62.0503281451090.25430@webhosting.rdsbv.ro> 2005-03-28 14:56
->> I do a register_netdev inside a _init function of a home made qdisc.
->> 2. the module is not loaded and I let tc trigger module loading
->> 	tc blocks on modprobe
->> How I can resolve this problem?
->
-> Port the fix done for classifiers and actions to sch_api.c, see comments
-> around request_module in cls_api.c
+> Not sure what you mean, I don't want any ifdefs or actions bits
+> in the classifiers itself anymore. Everytime we dump the actions
+> we must be able to also dump the statistics so I think we can
+> safely move tcf_exts_dump_stats into tcf_exts_dump and hide all
+> dumping in that single API.
+> 
 
-Thanks, Thomas!
-I prepare a patch.
+But you cant completely do this for u32 tcf_exts_dump_stats.
+in the case of ACTION compiled in but someone using old API.
+The code that Meelis just mention that compiler complained about. 
+There was no problem with u32 and tcf_exts_dump - with that you can hide
+all #ifedfs. 
 
----
-Catalin(ux aka Dino) BOIE
-catab at deuroconsult.ro
-http://kernel.umbrella.ro/
+cheers,
+jamal
