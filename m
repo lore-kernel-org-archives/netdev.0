@@ -1,44 +1,44 @@
-From: Matti Aarnio <matti.aarnio@zmailer.org>
-Subject: Re: udp weirdness
-Date: Fri, 27 Sep 2002 18:04:12 +0300
+From: Petr Baudis <pasky@pasky.ji.cz>
+Subject: Re: Linux problems with hundreds of interfaces/routes
+Date: Fri, 27 Sep 2002 17:14:13 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20020927150412.GI30392@mea-ext.zmailer.org>
-References: <20020927120223.GH343@hookipa> <Pine.GSO.4.30.0209271048160.4401-100000@shell.cyberus.ca>
+Message-ID: <20020927151413.GA6548@pasky.ji.cz>
+References: <20020927114309.GR2655@pasky.ji.cz> <200209271449.SAA21026@sex.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Lemoine <Eric.Lemoine@ens-lyon.fr>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Petr Baudis <pasky@xs26.net>, pekkas@netcore.fi, netdev@oss.sgi.com,
+   xs26-dev@xs26.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
+To: kuznet@ms2.inr.ac.ru
 Content-Disposition: inline
-In-Reply-To: <Pine.GSO.4.30.0209271048160.4401-100000@shell.cyberus.ca>
+In-Reply-To: <200209271449.SAA21026@sex.inr.ac.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 27, 2002 at 10:53:00AM -0400, jamal wrote:
-> On Fri, 27 Sep 2002, Eric Lemoine wrote:
->=20
-> > I figured out that packets can be dropped in pfifo_fast_enqueue()
-> > [the default qdisc's enqueue func], even though the driver/kernel
-> > flow control has triggered.
-=2E..
-> What trigger do you suggest to wake up the process again?
-> A better idea maybe to return something to the socket so it can
-> manage things instead -- not sure what to return though that wouldnt
-> break some standard;
+Dear diary, on Fri, Sep 27, 2002 at 04:49:00PM CEST, I got a letter,
+where kuznet@ms2.inr.ac.ru told me, that...
+> Hello!
 
+Hello,
 
-"man sendto" error return codes:
+> > 2002/09/27 11:11:03 ZEBRA: netlink-listen error: No buffer space available, type=RTM_NEWROUTE(24), seq=426, pid=0
+> 
+> This means that you exceeded limit on size of neighbour table,
+> which is quite predictable when you have lots of interfaces.
+> Tune neighbour table size, it is net/ipv6/neigh/default/gc_thresh3 mostly.
 
-       ENOBUFS
-              The  output queue for a network interface was full.
-              This generally indicates  that  the  interface  has
-              stopped  sending,  but  may  be caused by transient
-              congestion.  (This cannot occur in  Linux,  packets
-              are just silently dropped when a device queue over=AD
-              flows.)
+Thanks a lot, that fixed the issue! I personally did some research about how
+to raise that, but didn't found anything.. I hope that google will get this
+post and rank it high ;-).
 
-> cheers,
-> jamal
-
-/Matti Aarnio
+-- 
+ 
+				Petr "Pasky" Baudis
+ 
+* ELinks maintainer                * IPv6 guy (XS26 co-coordinator)
+* IRCnet operator                  * FreeCiv AI occassional hacker
+.
+<Beeth> Girls are like internet domain names, the ones I like are already taken.
+<honx> Well, you can still get one from a strange country :-P
+.
+Public PGP key && geekcode && homepage: http://pasky.ji.cz/~pasky/
