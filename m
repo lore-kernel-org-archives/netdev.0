@@ -1,42 +1,39 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 1/4] [NETLINK] fix broken indentation in netlink.h
-Date: Thu, 10 Feb 2005 17:32:01 -0800
-Message-ID: <20050210173201.21da89e5.davem@davemloft.net>
-References: <420BF8C3.3050305@eurodev.net>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [Bugme-new] [Bug 4189] New: IPv6 link local addresses are not
+ assigned correctly on multiple-bonding enviromrnts
+Date: Thu, 10 Feb 2005 17:40:21 -0800
+Message-ID: <420C0D05.6020408@hp.com>
+References: <20050210002356.500401f7.akpm@osdl.org>	<20050210.182225.07335127.yoshfuji@linux-ipv6.org>	<20050210122523.41276d5a.davem@davemloft.net> <20050211.092916.50162307.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: davem@davemloft.net, ikebe.takashi@lab.ntt.co.jp, akpm@osdl.org,
+        ctindel@users.sourceforge.net, fubar@us.ibm.com,
+        bonding-devel@lists.sourceforge.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Pablo Neira <pablo@eurodev.net>
-In-Reply-To: <420BF8C3.3050305@eurodev.net>
+To: netdev@oss.sgi.com
+In-Reply-To: <20050211.092916.50162307.yoshfuji@linux-ipv6.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 11 Feb 2005 01:13:55 +0100
-Pablo Neira <pablo@eurodev.net> wrote:
+>>I guess this causes problems for ipv6 local addresses, it
+>>will need to catch some callback to handle these events and
+>>thus adjust the local address properly.
+> 
+> 
+> Okay, I'll try to solve it:
+> 1) catch NETDEV_CHANGEADDR
+> 2) (try to) add new link-local address and deprecate old one.
+> 3) (when DAD finishes) RS will be sent.
 
-> the subject says all
+At present, for IPv4 if someone changes the MAC address of an interface, 
+existing TCP connections don't really care right?  The ARP caches will be 
+updated with a new IPv4 to MAC translation and happiness and joy ensues.
 
-Don't split up lines like from:
+So, what would happen to TCP connections over IPv6 using link-local addresses? 
+If the old address is taken away (deprecated), and a new address generated, 
+doesn't that mean that TCP connections (using link-local addresses anyway) will 
+fail on a MAC change?
 
-extern int func(...);
-
-into:
-
-extern int
-func(...);
-
-That's just gross and means that when I run grep on the tree I
-won't see the function's return type for hits, I'll only see the
-args.
-
-Just keep the long declarations.
-
-Why don't you bypass all the cleanup diffs and just do the functionality
-change instead?  When you mix whitespace and coding style cleanups
-with real changes, it puts your real changes at risk if we think your
-cleanups are ugly or bogus since you've created a patch dependency.
-
-One thing at a time.
+rick jones
