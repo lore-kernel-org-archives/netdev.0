@@ -1,38 +1,37 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: [PATCH] IPV6: Mark MLDv2 Report as known
-Date: Fri, 09 Apr 2004 21:05:10 +0900 (JST)
+From: "Ronnie Sahlberg" <ronnie_sahlberg@ozemail.com.au>
+Subject: Re: IPv4 and IPv6 stack multi-FIB, scalable in the million of entries.
+Date: Fri, 9 Apr 2004 23:16:10 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040409.210510.64268862.yoshfuji@linux-ipv6.org>
+Message-ID: <014801c41e34$d3759e50$6501010a@C5043436>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+	charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
+To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello.
+For fast routing lookups for IPv4, has anyone considered :
 
-Mark MLDv2 Report as known ICMPv6 type.
-(We just ignore MLDv2 Reports on hosts as the spec says.)
+Treat all addresses as class c networks, dont route on anything else than
+class c networks.
+Limit the number of next-hop routers to 256.  With next-hop-router index 0
+meaning  no route to that network.
 
-Same patch applies linux-2.4.x.
+Use a 16Mbyte large lookup table of bytes, where each byte represents the
+next hop router.
 
-Thanks in advance.
+Let the route to A.B.C.x re represented by the next-hop router described in
+   table[A*65536+B*256+C]
 
-===== net/ipv6/icmp.c 1.47 vs edited =====
---- 1.47/net/ipv6/icmp.c	Tue Feb 24 07:09:00 2004
-+++ edited/net/ipv6/icmp.c	Fri Apr  9 20:56:08 2004
-@@ -646,6 +646,7 @@
- 		break;
- 
- 	case ICMPV6_MGM_REDUCTION:
-+	case ICMPV6_MLD2_REPORT:
- 		break;
- 
- 	default:
+Then a route lookup would be O(1), a simple table lookup.
 
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Route insertions/deletions would take longer but anyway, the lookup would be
+fast,  essentially a shift by 8 bits
+and one memory read from the table.  At the cost of 16Mbyte wasted of kernel
+memory.
+
+
+Wasteful, yes, only really useful if you have enormous routing tables, can
+not do policy routing   but fast.
