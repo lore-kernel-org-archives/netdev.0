@@ -1,28 +1,27 @@
 From: Andi Kleen <ak@suse.de>
-Subject: Re: possible bug in tcp_input.c
-Date: 24 Oct 2003 19:57:24 +0200
+Subject: Re: status of ipchains in 2.6?
+Date: 28 Oct 2003 15:31:09 +0100
 Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <p73ptgma58b.fsf@oldwotan.suse.de>
-References: <20031024162959.GB11154@louise.pinerecords.com.suse.lists.linux.kernel>
+Message-ID: <p733cdda0ya.fsf@oldwotan.suse.de>
+References: <200310280127.h9S1RM5d002140@napali.hpl.hp.com.suse.lists.linux.kernel>
+	<20031028090304.GA19302@lps.ens.fr.suse.lists.linux.kernel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, grof@dragon.cz,
-	davem@redhat.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davidm@hpl.hp.com, linux-kernel@vger.kernel.org,
+	netdev@oss.sgi.com, davem@redhat.com
 Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: Tomas Szepe <szepe@pinerecords.com>
-In-Reply-To: <20031024162959.GB11154@louise.pinerecords.com.suse.lists.linux.kernel>
+To: =?iso-8859-1?q?=C9ric?= Brunet <Eric.Brunet@lps.ens.fr>
+In-Reply-To: <20031028090304.GA19302@lps.ens.fr.suse.lists.linux.kernel>
 List-Id: netdev.vger.kernel.org
 
-Tomas Szepe <szepe@pinerecords.com> writes:
+=C9ric Brunet <Eric.Brunet@lps.ens.fr> writes:
+>=20
+> In my case, 2.6.0-test4 is working fine.
 
-> /* tcp_input.c, line 1138 */
-> static inline int tcp_head_timedout(struct sock *sk, struct tcp_opt *tp)
-> {
->   return tp->packets_out && tcp_skb_timedout(tp, skb_peek(&sk->write_queue));
-> }
+Can you do a binary search in the versions to see which version
+broke it?=20
 
-tp->packets_out > 0 implies that there is at least one packet in the write 
-queue (it counts the number of unacked packets in flight, which are kept
-in the write queue). When that's not the case something else is wrong.
+test5-test8 all had netfilter changes.
 
 -Andi
