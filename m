@@ -1,43 +1,24 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] Clean up fib_hash datastructures
-Date: Sun, 19 Sep 2004 20:17:35 -0700
+From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Subject: Re: Protocol handler question
+Date: Mon, 20 Sep 2004 00:32:35 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040919201735.3d9e1d6d.davem@davemloft.net>
-References: <1095640781.1047.168.camel@jzny.localdomain>
-	<E1C9Edi-00033O-00@gondolin.me.apana.org.au>
+Message-ID: <20040920033235.GB29504@conectiva.com.br>
+References: <20040919021839.20368.qmail@web41406.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1C9Edi-00033O-00@gondolin.me.apana.org.au>
+To: cranium2003 <cranium2003@yahoo.com>
+Content-Disposition: inline
+In-Reply-To: <20040919021839.20368.qmail@web41406.mail.yahoo.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 20 Sep 2004 13:14:54 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+Em Sat, Sep 18, 2004 at 07:18:39PM -0700, cranium2003 escreveu:
+> Hello,
+>  can it be possible to have two packet types to have
+> same protocol handler?
 
-> jamal <hadi@cyberus.ca> wrote:
-> > 
-> > --- a/net/ipv4/fib_hash.c       2004/09/20 00:35:16     1.1
-> > +++ b/net/ipv4/fib_hash.c       2004/09/20 00:36:16
-> > @@ -915,7 +915,7 @@
-> >             iter->zone = iter->zone->fz_next) {
-> >                int maxslot;
-> > 
-> > -               if (!iter->zone->fz_next)
-> > +               if (!iter->zone->fz_nent)
-> >                        continue;
-> 
-> Good catch.  There seems to be another problem with the seq_file
-> conversion.  Why is this check only in fib_get_first(), but not
-> in fib_get_next()?
-> 
-> Either it's needed in fib_get_next() as well, or it can be removed here.
+see net/ipx/af_ipx.c
 
-It's an optimization, the hash list traversal will find no entries
-even if we don't do this test.
-
-It does belong in fib_get_next(), so I'll happily add it there.
-Thanks.
+- Arnaldo
