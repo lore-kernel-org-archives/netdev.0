@@ -1,22 +1,17 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: Patch: netif_carrier_on()/off() for xircom_tulip_cb
-Date: Wed, 18 Feb 2004 18:53:26 -0500
+Subject: Re: [PATCH 1/3][bonding][2.6] Add support for HW accel. slaves
+Date: Wed, 18 Feb 2004 18:59:52 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4033FAF6.2090200@pobox.com>
-References: <200402151504.22648.srompf@isg.de>
+Message-ID: <4033FC78.4030502@pobox.com>
+References: <200402081811.12359.shmulik.hen@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, ionut@cs.columbia.edu
+Cc: linux-netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stefan Rompf <srompf@isg.de>
-In-Reply-To: <200402151504.22648.srompf@isg.de>
+To: Shmuel Hen <shmulik.hen@intel.com>
+In-Reply-To: <200402081811.12359.shmulik.hen@intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Your two patches look OK to me, but they break my scripts.
-
-Please resend patches that may be applied with "patch -p1",
-not "patch -p0".
-
-	Jeff
+applied patches 1-3 in this series to 2.6.x
