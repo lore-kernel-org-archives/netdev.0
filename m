@@ -1,34 +1,45 @@
-From: James Morris <jmorris@redhat.com>
-Subject: Re: RFC: pskb_expand_head instead of skb_copy in skb_checksum_help
-Date: Tue, 24 Aug 2004 16:53:16 -0400 (EDT)
+From: Andy Fleming <afleming@freescale.com>
+Subject: DHCP and keventd
+Date: Tue, 24 Aug 2004 16:28:02 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Xine.LNX.4.44.0408241652320.21615-100000@thoron.boston.redhat.com>
-References: <20040824115541.52955b2a.davem@redhat.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, <netdev@oss.sgi.com>
+Message-ID: <7A755E44-F614-11D8-942E-000393C30512@freescale.com>
+Mime-Version: 1.0 (Apple Message framework v618)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040824115541.52955b2a.davem@redhat.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 24 Aug 2004, David S. Miller wrote:
+I'm having issues with using DHCP and nfs at boot time on my 85xx 
+system, using the gianfar ethernet driver.  Currently, the gianfar 
+driver handles changes in link status through either an interrupt or a 
+timer, depending on the board configuration.  My board is using 
+interrupts, but I have tried using the timer, and had the same problem.
 
-> On Tue, 24 Aug 2004 21:05:32 +1000
-> Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> 
-> > The idea is simple.  None of the callers of skb_checksum are passing it
-> > skb's which are shared.  They may be cloned however.  But the application
-> > checksum is always in the skb header so there is no need to linearise it.
-> 
-> What about looping back of multicast packets via netif_rx(),
-> is that handled correctly too?
+Anyway, whenever a phy interrupt or timer fires, it calls 
+schedule_work() to do the actual PHY reads and writes in a 
+non-interrupt thread.  However, when DHCP is coming up during boot to 
+get the IP for loading NFS, the driver has yet to find out the link 
+state from the PHY, and the work thread it schedules doesn't get 
+activated until after the DHCP request times out.
 
-They are clones.  I can easily regression test it if needed.
+My current theory is that keventd is not active, or that it is locked 
+out during DHCP's send loop.  I have confirmed that the interrupt is 
+called, but my worker function is not called until the 30 seconds have 
+expired.  Fortunately, after the timeout, the link is seen to be up, 
+and when it tries again, it succeeds, so this isn't a HUGE thing, but 
+it seems wrong to me to have to wait so long for the board to boot.
 
+1) Has anyone else had this problem with another driver?  I saw in the 
+source that the eepro100 had a problem which sounded similar.  If any 
+one else has seen this, how did you solve it?
 
-- James
--- 
-James Morris
-<jmorris@redhat.com>
+2) Is this a kernel bug, or a bug in my driver?  The driver is in 
+drivers/net/gianfar.c (at least, the parts that matter are).
+
+3) Any suggestions?
+
+Andy Fleming
+PowerPC Software Enablement
+Freescale Semiconductor, Inc.
