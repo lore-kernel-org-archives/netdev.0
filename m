@@ -1,52 +1,35 @@
-From: Scott Feldman <sfeldma@pobox.com>
-Subject: Re: [RFC] Wireless extensions rethink
-Date: Wed, 16 Jun 2004 12:06:21 -0700
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: 2.6.7-rc3: unregister_netdevice: waiting for tun0 to become free. Usage count = 1
+Date: Wed, 16 Jun 2004 23:37:31 +0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1087412780.3351.34.camel@sfeldma-mobl2.dsl-verizon.net>
-References: <C6F5CF431189FA4CBAEC9E7DD5441E0103AF626C@orsmsx402.amr.corp.intel.com>
-	 <40CF263E.70009@home.nl>
-	 <1087377197.25912.54.camel@sfeldma-mobl2.dsl-verizon.net>
-	 <40D08769.3070106@home.nl>
-Reply-To: sfeldma@pobox.com
+Message-ID: <20040616193731.GB29781@ms2.inr.ac.ru>
+References: <20040613121514.6b3c1c8a.davem@redhat.com> <E1BZeW1-0008Ny-00@gondolin.me.apana.org.au> <20040613234142.GA32329@gondor.apana.org.au> <20040613183622.3a814506.davem@redhat.com> <20040614015013.GA11048@gondor.apana.org.au> <20040613210725.70dbd016.davem@redhat.com> <20040614042216.GA28669@gondor.apana.org.au> <20040614102858.GA12343@gondor.apana.org.au> <20040614124402.GA28519@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, jkmaline@cc.hut.fi, jt@hpl.hp.com, jgarzik@pobox.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@redhat.com>, schwab@suse.de, netdev@oss.sgi.com,
+        yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Gertjan van Wingerde <gwingerde@home.nl>
-In-Reply-To: <40D08769.3070106@home.nl>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Disposition: inline
+In-Reply-To: <20040614124402.GA28519@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2004-06-16 at 10:46, Gertjan van Wingerde wrote:
+Hello!
 
-> I'm afraid that this isn't enough. I think we have to split up the various settings over
-> multiple commands. If we add just two commands (one for GET and one for SET) we have to
-> change the binary ioctl-interface every time a new setting arrives (e.g. see how new
-> settings will be added due to WPA support. That solution just isn't future-proof.
+> Alexey, if I've missed any subtle piece of logic there, please
+> scream :)
 
-There is some reserved space at the bottom of the struct to add new
-commands.  The question is: how many new commands are needed for the
-future?  I think we need to be very careful in keeping the standard
-settings for wireless bounded.  In fact, we should take a careful look
-at the standard settings already defined and really question their need.
+The "logic" behind the check ("logic" is double quoted because
+of that comment)  with dst_discard_out was to make
+release only on the second attempt to unregister. In the past
+unregister event used to be rebroadcast periodically until the unregister
+finally succeeds. Now logic is different, so this check really
+does not make sense.
 
-For example, do we really want to burden the user with the decision of
-whether they need to set a maximum fragment size?  Or what the
-sensitivity threshold should be?  The point is, we need to find the
-minimal set of settings to get the job done.
+Anyway, the comment remains damn true and the place is still
+bug. It makes sense to think about waiting for at least one quiescent
+state after detaching the stale device from dst and real dev_put() it.
+Reference to RCU is not occasional, the job looks natural for it.
 
-So let's have this discussion first before getting back to the
-implementation details.
-
-What is the minimal set of settings to expose to the user[1]?  I would
-group them into basic, advanced, and authentication.  Which ones are
-read-only?  What's new in the near future?
-
-Once we agree on that set, the implementation falls out.
-
--scott
-
-[1] By user, I mean someone that's just trying to get their wireless
-device to attach to a network, but doesn't know the difference between
-11b and 11g or the meaning of RTS.
+Alexey
