@@ -1,26 +1,36 @@
-From: James Morris <jmorris@intercode.com.au>
-Subject: Re: PATCH: IPSecv6 in tunnel won't work with ext hdrs
-Date: Tue, 1 Jul 2003 11:40:40 +1000 (EST)
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] IPV4: convert /proc/net/mcfilter to seq_file
+Date: Tue, 01 Jul 2003 13:15:52 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Mutt.LNX.4.44.0307011140100.26214-100000@excalibur.intercode.com.au>
-References: <200306301906.h5UJ6wwV000537@faith.austin.ibm.com>
+Message-ID: <20030701.131552.10422805.yoshfuji@linux-ipv6.org>
+References: <20030701.015752.117028166.yoshfuji@linux-ipv6.org>
+	<Mutt.LNX.4.44.0307011025480.26034-100000@excalibur.intercode.com.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: davem@redhat.com, <kuznet@ms2.inr.ac.ru>, <netdev@oss.sgi.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: latten@austin.ibm.com
-In-Reply-To: <200306301906.h5UJ6wwV000537@faith.austin.ibm.com>
+To: jmorris@intercode.com.au
+In-Reply-To: <Mutt.LNX.4.44.0307011025480.26034-100000@excalibur.intercode.com.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 30 Jun 2003 latten@austin.ibm.com wrote:
+In article <Mutt.LNX.4.44.0307011025480.26034-100000@excalibur.intercode.com.au> (at Tue, 1 Jul 2003 10:29:37 +1000 (EST)), James Morris <jmorris@intercode.com.au> says:
 
-> Let me know if it is ok.
+> > This patch, depends on "[PATCH] IPV4: convert /proc/net/igmp to 
+> > seq_file patch," converts /proc/net/mcfilter to seq_file.
+> 
+> None of these either compile or applies cleanly without the previous 
+> patches.
 
-Looks correct to me, applied to bk://kernel.bkbits.net/jmorris/net-2.5
+What do you mean by "previous patches?"
 
+/proc/net/mcfilter patch depends on /proc/net/igmp patch 
+as I wrote.
 
-- James
+Thanks.
+
 -- 
-James Morris
-<jmorris@intercode.com.au>
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
