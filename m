@@ -1,35 +1,33 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Allowing netlink_family to be any integer (was: [PATCH 2.6] iptables CLUSTERIP target)
-Date: Fri, 22 Oct 2004 21:39:39 +1000
+From: Lukasz Trabinski <lukasz@trabinski.net>
+Subject: Re: unregister_netdevice 2.6.9
+Date: Fri, 22 Oct 2004 13:56:01 +0200 (CEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041022113939.GA812@gondor.apana.org.au>
-References: <E1CKkWZ-0005x5-00@gondolin.me.apana.org.au> <1098444579.1112.66.camel@jzny.localdomain>
+Message-ID: <Pine.LNX.4.58LT.0410221351580.2616@lt.wsisiz.edu.pl>
+References: <Pine.LNX.4.58LT.0410191738420.2725@lt.wsisiz.edu.pl>
+ <20041020.154045.128392519.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-        Harald Welte <laforge@netfilter.org>, lmb@suse.de, ahu@ds9a.nl,
-        hch@infradead.org, netdev@oss.sgi.com,
-        "David S. Miller" <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=ISO-8859-2
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1098444579.1112.66.camel@jzny.localdomain>
+To: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20041020.154045.128392519.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 22, 2004 at 07:29:39AM -0400, jamal wrote:
-> 
-> Evgeniy Polyakov(aka mr. Sean Paul) posted code a while back for
-> something that uses netlink that he calls  "kernel Konnector". I think
+On Wed, 20 Oct 2004, YOSHIFUJI Hideaki / ???? wrote:
 
-That patch puts the ID in each message, right?
+> > After shutdown/reboot :
+> >=20
+> > unregister_netdevice: waiting for xxxx to become free. Usage count =3D=
+ 1
+> >=20
+> > and still wait.
+>=20
+> Does this fix your problem?
 
-That would mean paying the lookup cost for each message rather than
-once when you create the socket.
+I have just applied this patch, but i have still problem with=20
+unregister_netdevice.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--=20
+=A3T
