@@ -1,37 +1,24 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [netdrvr] netdev-2.6 queue updated
-Date: Mon, 15 Nov 2004 12:09:47 -0500
-Message-ID: <4198E2DB.5010800@pobox.com>
-References: <3ACA40606221794F80A5670F0AF15F8403BD583B@pdsmsx403>
+From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Subject: Re: 2.6.10-rc2: still no ipv6 link-local addresses
+Date: Mon, 15 Nov 2004 15:34:55 -0200
+Message-ID: <4198E8BF.70104@conectiva.com.br>
+References: <Pine.SOC.4.61.0411151159230.3321@math.ut.ee>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org, akpm@osdl.org,
-        Jouni Malinen <jkmaline@cc.hut.fi>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Zhu, Yi" <yi.zhu@intel.com>
-In-Reply-To: <3ACA40606221794F80A5670F0AF15F8403BD583B@pdsmsx403>
+To: Meelis Roos <mroos@linux.ee>
+In-Reply-To: <Pine.SOC.4.61.0411151159230.3321@math.ut.ee>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Zhu, Yi wrote:
-> Jeff Garzik wrote:
+Can you try disabling ipv6 privacy extensions?
+
+Meelis Roos wrote:
+> I tried 2.6.10-rc2 and it still does not give lipv6 link-local address 
+> to Ethernet interfaces (I tried NICs with e100 and 8139too drivers).
 > 
->>The most notable thing is the addition of HostAP.
+> This is broken since 2.6.9.
 > 
-> 
-> How about move HostAP 802.11 stack and crypt related files to
-> net/80211? It is generic and some other drivers (i.e. ipw2100) share
-> the code. Do you receive patches to do this?
-
-
-Jouni mentioned he wanted to do a few things before we started renaming?
-
-I would like someone at Intel to submit the ipw drivers, and start 
-working on them via the wireless-2.6 tree eventually[1]
-
-	Jeff
-
-
-[1] once we have permission to put the firmware in the kernel
