@@ -1,83 +1,64 @@
-From: Kovacs Krisztian <hidden@balabit.hu>
-Subject: Re: Fw: Re: [PATCH] ipv4 tcp autobind problem
-Date: Tue, 30 Sep 2003 16:19:39 +0200
+From: Donald Becker <becker@scyld.com>
+Subject: Re: copybreak and gige network drivers
+Date: Mon, 29 Sep 2003 19:14:07 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F7990FB.7030606@balabit.hu>
-References: <200309301237.QAA01426@yakov.inr.ac.ru>
+Message-ID: <Pine.LNX.4.44.0309291834330.2166-100000@training.scyld.com>
+References: <3F787908.7000305@nortelnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, jmorris@redhat.com,
-        netdev@oss.sgi.com, linux-net@vger.rutgers.edu,
-        Balazs Scheidler <bazsi@balabit.hu>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: davem@redhat.com, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
-In-Reply-To: <200309301237.QAA01426@yakov.inr.ac.ru>
+To: Chris Friesen <cfriesen@nortelnetworks.com>
+In-Reply-To: <3F787908.7000305@nortelnetworks.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Mon, 29 Sep 2003, Chris Friesen wrote:
 
-   Hi,
-
-kuznet@ms2.inr.ac.ru wrote:
->>in inet_sendmsg() is that when an RST is received, sk->num is set to zero, 
+> I'm looking at doing some work on a driver for the gige portion of the 
+> Marvell Disco2.
 > 
-> Yes, I remember this. This funny thing was added to avoid using reserved
-> ports obtained from accept() to do connect(). Before that sockets were never
-> unbound after they bound once exactly to avoid weirdness of the kind
-> descibed in your mail, but this happened to be insecure.
-> 
-> From this mail I still do not see why autobinding of void socket is so
-> bad thing, that it requires marginal fixing at the place which is already
-> marginal. What is the real problem? So, bad sendmsg() selects some port as
-> a side effect. It makes it on udp and tcp. What is the deal? If it is disaster
-> for tcp, why it is not bad for udp?
-> 
->>local port (sk->sport) remains unchanged until the socket is closed.
-> 
-> Socket is _closed_. Local port is reset only after socket is closed,
-> unless PORT_USERLOCK is set. And sk->sport remains unchanged even
-> after socket is closed, btw, so... 
+> The existing driver allocates mtu-sized buffers and always passes them 
+> off to the network stack.  I'm thinking about adding some copybreak 
+> optimizations, but I'm not sure what value I should use for the 
+> copybreak.  I would expect most packets to be on the smaller side.
 
-   No, sk->sport does not remain unchanged. Imagine the following 
-situation: the TCP stack receives an RST, tcp_reset() gets called. It 
-calls tcp_done() -> tcp_set_state(TCP_CLOSE) -> tcp_put_port() -> 
-__tcp_put_port(). __tcp_put_port() sets sk->num to zero. So, when you call 
-send() from userspace, the mentioned part of inet_sendmsg() calls 
-inet_autobind(), which changes sk->sport, too...
+The initial reason for implementing 'copybreak' was primarily to
+mitigate the memory usage impact of the then-new idea of directly
+receiving into full-sized skbuffs.
 
-> I do recognize that current behaviour is weird, but I still want to know
-> how this marginal weirdness escaped to be seen in reality.
+Copying small packets has several subtle benefits / mitigated costs:
+   Better VM and cache line usage.
+   The copied data of a small packet is largely header info.  This will
+     end up in CPU cache for type dispatching anyway, and a copy might
+     do this more efficiently than unaligned byte reads.
+   The skbuff allocator now only has to allocate from one fixed-sized
+     (set as 1536 packet bytes, independent of the driver details) set and
+     a limited set of smaller sizes.
 
-   Yes, it is our "transparent proxy kernel hack" ((C) davem :) that have 
-problem with this behaviour. Transparent proxying works the following way:
+In the old days, copybreak was also used (abused) rather than correctly
+implementing unaligned word reads when IP header processing on the
+Alpha.  Ignore this "benefit".
 
-- You have to assign a foreign address to a bound socket using a specific 
-setsockopt call. This creates a new entry in the tproxy local IP hash 
-table, and the hash key is based on the local ip:port.
-- tproxy registers its Netfilter hooks, and if a new connection comes in, 
-it looks up its hash tables, to see if it is a transparent proxied 
-connection (it uses Netfilter's connection tracking subsystem). If it has 
-to be proxyed, the appropriate NAT mappings are applied to the connection.
-- When the socket is closed (inet_release() is called, tproxy has its 
-"callback" function here), the corresponding entries are deleted from 
-tproxy's hash tables, again, based on the local ip:port pair.
+To decide the optimal value for copybreak you must take into account the
+cache and VM characteristics of your machine.  But you don't have to
+actually be that precise to be close enough.  Just look at the packet size
+distribution and the usage of those packets.  You'll find a bimodal
+packet size distribution:
+    full sized bulk data packets,
+    near-minimal sized ACK, DDOS and protocol packets, which are either
+        immediately processed and benefit from the hot cache
+	will be held for a long time before processing, and should
+	  have minimal memory usage.
 
-   So, the weirdness causes the following problem: since sk->sport changes 
-after the corresponding entry was inserted into the hash table, it 
-changes, so the entry cannot be deleted when userspace calls close() on 
-the socket.
-
-   Eventually, it should be enough if inet_sendmsg() did not call 
-inet_autobind() if the socket is in an errorneous state, but I had no idea 
-how this could be implemented. (sk->err gets zeroed by sock_error(), so it 
-cannot be checked twice.)
-
-   In the case of UDP, you cannot get an RST-like thing, so AFAIK there is 
-no such situation in which sk->num of a bound socket could be reset to 
-zero. This is why inet_sendmsg()'s mentioned part did not cause problems 
-for us.
+The decision point is pretty much break-even in the range of 150-400
+bytes, and most packets are either smaller or much larger, so just pick
+a likely value.  I tried to look at the bin sizes for the skbuff
+allocator, but you'll find that the overhead changes faster than you can
+possibly track.
 
 -- 
-   Regards,
-     Krisztian KOVACS
+Donald Becker				becker@scyld.com
+Scyld Computing Corporation		http://www.scyld.com
+914 Bay Ridge Road, Suite 220		Scyld Beowulf cluster system
+Annapolis MD 21403			410-990-9993
