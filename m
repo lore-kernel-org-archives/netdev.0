@@ -1,8 +1,8 @@
 From: "David S. Miller" <davem@redhat.com>
 Subject: Re: [2.4/2.6 PATCHES] Change some ip_fragment checks to help IPVS
-Date: Sat, 11 Oct 2003 11:08:18 -0700
+Date: Sat, 11 Oct 2003 11:53:57 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031011110818.6219d2f0.davem@redhat.com>
+Message-ID: <20031011115357.0c756785.davem@redhat.com>
 References: <Pine.LNX.4.44.0310111956070.31823-100000@u.domain.uli>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -14,12 +14,16 @@ In-Reply-To: <Pine.LNX.4.44.0310111956070.31823-100000@u.domain.uli>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Sat, 11 Oct 2003 20:18:33 +0300 (EEST)
+Julian Anastasov <ja@ssi.bg> wrote:
 
-My bad, I just saw netdev in the CC, sorry about that.
+> # [IPV4]: ip_copy_metadata must copy the nfcache field
 
-I really do hate when people email me crap privately.  Because
-even if I wanted to forward it to netdev I can't do that without
-asking their permission which takes even more time, so that's why
-I just chew people out when they make this mistake.
+I can't believe we missed this, I'll definitely apply
+these patches.
 
-Sorry again.
+Thanks.
+
+> # [IPV4]: ip_fragment should not reassemble if all frags do not have owner
+
+This one I have to think about some more.
