@@ -1,49 +1,49 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [RFC] netif_rx: receive path optimization
-Date: Fri, 01 Apr 2005 10:22:51 -0800
-Message-ID: <424D917B.2060108@hp.com>
-References: <20050330132815.605c17d0@dxpl.pdx.osdl.net>	<20050331120410.7effa94d@dxpl.pdx.osdl.net>	<1112303431.1073.67.camel@jzny.localdomain> <424C6A98.1070509@hp.com>	<1112305084.1073.94.camel@jzny.localdomain> <424C7CDC.8050801@hp.com>	<1112312206.1096.25.camel@jzny.localdomain> <424C90DA.7030600@hp.com> <1112318229.1090.63.camel@jzny.localdomain>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [ANNOUNCE] iproute2 2.6.11-050330
+Date: Fri, 1 Apr 2005 12:07:27 -0800
+Message-ID: <20050401120727.62700e8c@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev <netdev@oss.sgi.com>
-In-Reply-To: <1112318229.1090.63.camel@jzny.localdomain>
+To: lartc@mailman.ds9a.nl, linux-kernel@vger.kernel.org
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
->>The main idea behind TOPS and prior to that IPS was to spread-out 
->>the processing of packets across as many CPUs as we could, as "correctly" as we 
->>could.
-> 
-> 
-> Very very hard to do. 
+An updated version of the iproute2 utilities is available at:
+http://developer.osdl.org/dev/iproute2/download/iproute2-2.6.11-050330.tar.gz
 
-Why do you say that?  "Correct" can be defined as either the same CPU for each 
-packet in a given flow (IPS) or the same CPU as last accessed the endpoint (TOPS).
+It supports the latest features from 2.6, but is backwards compatiable
+with 2.4.
 
-> Isnt MSI supposed to give you ability such that a 
-> NIC can pick a CPU to interupt? That would help in a small way
+This update includes several bugfixes and build clean from
+the previous version (2.6.11-050314):
 
-That gives the NIC the knowledge of how to direct to a CPU, but as you know does 
-not tell it how to decide where.  Since I doubt that the NIC wants to reach-out 
-and touch connection state in the host (nor I suppose do we want it to either) 
-the best a NIC with MSI could do would be IPS
+[Jamal Hadi Salim]
+	* Proper verison of iptables headers (from 1.3.1)
+	* Set revision file in m_ipt
+	* Fix action_util naming in mirred
+	* don't call ll_init_map in mirred
 
->>TOPS lets the process (I suppose the scheduler really) decide where some of the 
->>processing for the packet will happen - the part after the handoff.
->>
-> 
-> I think this last part should be easy to do - but perhaps the expense of
-> landing on the wrong CPU may override any benefits perceived.
+[Thomas Graf]
 
-Unless one has a scheduler that likes to migrate processes, the chances of 
-landing on the wrong CPU are minimal and shortlived, and overall, the chances of 
-being right are greater than if not doing anything and sticking with the 
-interrupt CPU. (Handwaving based on experience-driven intuition and a bit of 
-math as one increases the CPU count)  This is all on the premis that one is 
-running with numNIC << numCPU.  With numNIC == numCPU one does things as seen in 
-certain networking-intensive benchmarks :)
-
-rick jones
+	* Warn about wildcard deletions and provide IFA_ADDRESS upon
+	  deletions to enforce prefix length validation for IPv4.
+	* Fix netlink message alignment when the last routing attribute added
+	  has a data length not aligned to RTA_ALIGNTO.
+	
+[Masahide NAKAMURA]
+	
+	* ipv6 xfrm allocspi and monitor support.
+	
+[Stephen Hemminger]
+	* include/linux/netfilter_ipv4/ip_tables.h dont include compiler.h
+	  because it isn't needed and not on all systems
+	* Update rtnetlink.h and pkt_cls.h to be stripped versions
+	  of headers from 2.6.12-rc1
+	* switch to stack for netem tables
+	* add -force option to batch mode
+	* handle midline comments in batch mode
+	* sum per cpu fields in lnstat correctly
