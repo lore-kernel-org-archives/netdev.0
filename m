@@ -1,36 +1,38 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: [PATCH] network configs: disconnect network options from drivers
-Date: Tue, 5 Apr 2005 10:42:25 -0700 (PDT)
-Message-ID: <Pine.LNX.4.61.0504051033310.5053@localhost.localdomain>
-References: <20050330234709.1868eee5.randy.dunlap@verizon.net>
- <20050331185226.GA8146@mars.ravnborg.org> <424C5745.7020501@osdl.org>
- <20050331203010.GA8034@mars.ravnborg.org> <4250B4C5.2000200@osdl.org>
- <20050404195051.GA12364@mars.ravnborg.org>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: take 2-2  WAS(Re: PATCH: IPSEC xfrm events
+Date: Tue, 5 Apr 2005 10:46:41 -0700
+Message-ID: <20050405104641.11bdbbfb.davem@davemloft.net>
+References: <20050404121641.GA12103@gondor.apana.org.au>
+	<1112619096.1088.473.camel@jzny.localdomain>
+	<20050404130224.GA12546@gondor.apana.org.au>
+	<1112620614.1088.489.camel@jzny.localdomain>
+	<20050404213149.GA15222@gondor.apana.org.au>
+	<1112653217.1088.2.camel@jzny.localdomain>
+	<20050404152506.15e1404b.davem@davemloft.net>
+	<1112654575.1089.17.camel@jzny.localdomain>
+	<42523FD3.8010400@linux-ipv6.org>
+	<1112696301.1089.30.camel@jzny.localdomain>
+	<20050405102238.GC23226@gondor.apana.org.au>
+	<1112702303.1095.107.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: "Randy.Dunlap" <rddunlap@osdl.org>, ioe-lkml@axxeo.de, matthew@wil.cx,
-        lkml <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com,
-        hadi@cyberus.ca, cfriesen@nortel.com, tgraf@suug.ch
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, nakam@linux-ipv6.org, kaber@trash.net,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Sam Ravnborg <sam@ravnborg.org>
-In-Reply-To: <20050404195051.GA12364@mars.ravnborg.org>
+To: hadi@cyberus.ca
+In-Reply-To: <1112702303.1095.107.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 4 Apr 2005, Sam Ravnborg wrote:
+On 05 Apr 2005 07:58:23 -0400
+jamal <hadi@cyberus.ca> wrote:
 
->
-> Only bit that I am worried about is the statement in SCTP:
-> 	depends on IPV6 || IPV6=n
->
-> That looked like a noop to me. It had the sideeffect that SCTP
-> menu entries where idented an extra level which was not desireable
-> with currect layout.
->
+> On Tue, 2005-04-05 at 06:22, Herbert Xu wrote:
+> 
+> > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> 
+> I have a feeling that Dave is not following this thread.
 
-No. This is not a noop. This is required to restrict SCTP configured as
-static when IPV6 is configured as module.
-
-Thanks
-Sridhar
+Believe it or not I have been :-)
