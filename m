@@ -1,132 +1,44 @@
-From: Erik Hensema <erik@hensema.net>
-Subject: Demonstration code on how to trigger tcp6_sock leak
-Date: Sat, 24 Jan 2004 14:13:07 +0100
+From: Andi Kleen <ak@suse.de>
+Subject: Re: FW: Submission for S2io 10GbE driver
+Date: Sat, 24 Jan 2004 15:58:09 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040124131307.GB2666@bender.home.hensema.net>
-Reply-To: erik@hensema.net
+Message-ID: <20040124155809.15fe167e.ak@suse.de>
+References: <1074914062.1036.39.camel@jzny.localdomain>
+	<000001c3e238$62efbb30$0400a8c0@S2IOtech.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="fdj2RfSjLxBAspz7"
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: hadi@cyberus.ca, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: "Leonid Grossman" <leonid.grossman@s2io.com>
+In-Reply-To: <000001c3e238$62efbb30$0400a8c0@S2IOtech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
---fdj2RfSjLxBAspz7
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-Hi,
-
-I wrote some quick&dirty code showing the tcp6_sock leak in Linux 2.6.x.
-The server part listens for incoming connections and accept()'s them. The
-client will simply connect() to the server and close the connection.
-
-Do a 'grep tcp6_sock /proc/slabinfo' before and after running the programs,
-and you will clearly see the leak.
-
--- 
-Erik Hensema (erik@hensema.net)
-
---fdj2RfSjLxBAspz7
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="server.c"
-
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <strings.h>
-#include <stdio.h>
-
-#define port 4000
-
-int
-main(
-		int argc,
-		char **argv
-    )
-{
-	int fd;
-	struct sockaddr_in6 myaddr;
-	struct sockaddr addr;
-	socklen_t len;
-	int i;
-
-	if((fd = socket(PF_INET6, SOCK_STREAM, 0)) < 0) {
-		perror("socket");
-	}
-
-	bzero(&myaddr, sizeof(myaddr));
-	myaddr.sin6_family = AF_INET6;
-	myaddr.sin6_port = htons(port);
-	myaddr.sin6_addr = in6addr_any;
-
-	if(bind(fd, (struct sockaddr *)&myaddr, sizeof(myaddr)) < 0) {
-		perror("bind");
-	}
-
-	if(listen(fd, 32) < 0) {
-		perror("listen");
-	}
-
-	for(i = 0; i < 1000; i++) {
-		if(accept(fd, &addr, &len) < 0) {
-			perror("accept");
-		} else {
-			printf("Accept: %d\n", i);
-		}
-	}
-
-	return 0;
-}
-
---fdj2RfSjLxBAspz7
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="client.c"
-
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <string.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <stdio.h>
-
-#define port 4000
-
-int
-main(
-		int argc,
-		char **argv
-    )
-{
-	int fd;
-	struct sockaddr_in6 srvaddr;
-	int i;
+On Fri, 23 Jan 2004 21:10:28 -0800
+"Leonid Grossman" <leonid.grossman@s2io.com> wrote:
 
 
-	bzero(&srvaddr, sizeof(srvaddr));
+> In Linux, there are couple performance issues that we see
+> - transmit performance is noticeably worse than in Windows
 
-	srvaddr.sin6_family = AF_INET6;
-	srvaddr.sin6_port = htons(port);
-	srvaddr.sin6_addr = in6addr_loopback;
+In Linux 2.6 with TSO?
 
-	for(i = 0; 1; i++) {
-		if((fd = socket(PF_INET6, SOCK_STREAM, 0)) < 0) {
-			perror("socket");
-			exit(0);
-		}
+Other than that I would suggest to enable oprofile on 2.6 and post 
+the profile numbers on the list.
 
-		if(connect(fd, (const struct sockaddr *)&srvaddr, sizeof(srvaddr)) < 0) {
-			perror("connect");
-		} else {
-			printf("Connect %d\n", i);
-			close(fd);
-		}
-	}
+> - checksum in 2.4 seems to be calculated by the host even if the device
+> enables checksum offload
 
-	return 0;
-}
+You have to use sendfile() for TX checksum off load. Without that the 
+data needs to be copied anyways and a copy+csum is about the same cost
+as a simple copy.
 
---fdj2RfSjLxBAspz7--
+> - Large Send Offload in 2.6 (no LSO in 2.4) give much smaller boost
+> comparing to Windows; on some systems there is no gain from LSO at all.
+
+You mean TSO? Are you sure the test programs submitted big enough 
+buffers to the TCP stack?
+ 
+
+-Andi
