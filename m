@@ -1,48 +1,79 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: 1.03Mpps on e1000 (was: Re: [E1000-devel] Transmission limit)
-Date: Sun, 5 Dec 2004 22:25:59 +0100
-Message-ID: <20041205212559.GA4338@xi.wantstofly.org>
-References: <20041130134600.GA31515@xi.wantstofly.org> <1101824754.1044.126.camel@jzny.localdomain> <20041201001107.GE4203@xi.wantstofly.org> <1101863399.4663.54.camel@sfeldma-mobl.dsl-verizon.net> <20041201182943.GA14470@xi.wantstofly.org> <20041201213550.GF14470@xi.wantstofly.org> <1101967983.4782.9.camel@localhost.localdomain> <20041205145051.GA647@xi.wantstofly.org> <Pine.LNX.4.58.0412051559350.29474@tux.rsn.bth.se> <1102281141.3343.138.camel@sfeldma-mobl.dsl-verizon.net>
+From: Peter Kjellstroem <cap@nsc.liu.se>
+Subject: Re: e1000>5.2.30 unstable with InterruptThrottleRate=0
+Date: Sun, 5 Dec 2004 22:39:42 +0100 (CET)
+Message-ID: <Pine.LNX.4.44.0412052230410.13794-100000@papput.nsc.liu.se>
+References: <1102278893.3343.116.camel@sfeldma-mobl.dsl-verizon.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Martin Josefsson <gandalf@wlug.westbo.se>, jamal <hadi@cyberus.ca>,
-        Robert Olsson <Robert.Olsson@data.slu.se>, P@draigBrady.com,
-        mellia@prezzemolo.polito.it, e1000-devel@lists.sourceforge.net,
-        Jorge Manuel Finochietto <jorge.finochietto@polito.it>,
-        Giulio Galante <galante@polito.it>, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Scott Feldman <sfeldma@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <1102281141.3343.138.camel@sfeldma-mobl.dsl-verizon.net>
+In-Reply-To: <1102278893.3343.116.camel@sfeldma-mobl.dsl-verizon.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Dec 05, 2004 at 01:12:22PM -0800, Scott Feldman wrote:
+On Sun, 5 Dec 2004, Scott Feldman wrote:
 
-> Would Martin or Lennert run these test for a longer duration so we can
-> get some data, maybe adding in Rx.  It could be that removing the Tx
-> interrupts and descriptor write-backs, prefetching may be ok.  I don't
-> know.  Intel?
+> On Sun, 2004-12-05 at 06:04, Peter Kjellstroem wrote:
+> >  *
+> >  * 5.2.39       3/12/04
+> >  * ...
+> >  *   o Back out the CSA fix for 82547 as it continues to cause
+> >  *     systems lock-ups with production systems.
+> 
 
-What your patch does is (correct me if I'm wrong):
-- Masking TXDW, effectively preventing it from delivering TXdone ints.
-- Not setting E1000_TXD_CMD_IDE in the TXD command field, which causes
-  the chip to 'ignore the TIDV' register, which is the 'TX Interrupt
-  Delay Value'.  What exactly does this?
-- Not setting the "Report Packet Sent"/"Report Status" bits in the TXD
-  command field.  Is this the equivalent of the TXdone interrupt?
+Yes I found that out and verified it earlier today. The fix in question is 
+basically if'ed irq_enable/disable around a small chunk of code like this:
 
-Just exactly which bit avoids the descriptor writeback?
+        if(hw->mac_type == e1000_82547 || hw->mac_type == e1000_82547_rev_2)
+                e1000_irq_disable(adapter);
 
-I'm also a bit worried that only freeing packets 1ms later will mess up
-socket accounting and such.  Any ideas on that?
+this is the original fix and triggers for both e1000_82547 (your 547EI 
+right?) and e1000_82547_rev_2 (my 547GI). If your NIC can't stand the fix 
+and mine needs it isn't the obvious solution the following?
 
+        if(hw->mac_type == e1000_82547_rev_2)
+                e1000_irq_disable(adapter);
 
-> Also, wouldn't it be great if someone wrote a document capturing all of
-> the accumulated knowledge for future generations?
+I put this (and corresponding enable chung) in the current e1000 in 2.4.28 
+and it works lika a charm (and shouldn't bite your 82547EI).
 
-I'll volunteer for that.
+The rev2 part, 82547GI, pci_id 1075. Is present in a vast number of new 
+systems including all (as far as I know) Dell 700, 750, 1750, 1700 and all 
+Supermicro p4SC mobos.
 
+Best Regards,
+ Peter
 
---L
+> Yes, there was a driver "fix" for this problem that has since been
+> pulled out of the production driver because it caused lockups on some
+> systems.  I have one of these such systems.  Here's the results on my
+> systems with an 82547EI:
+> 
+> 5.2.22		lockup
+> 5.2.30.1	lockup
+> 5.2.39		NETDEV reset
+> 5.2.52		NETDEV reset
+> 5.4.11		NETDEV reset
+> 
+> For you, with an 82547GI, any driver between 5.2.22 and 5.2.30.1 will
+> work because it has the "fix".  See the comment in e1000_intr for these
+> drivers.
+> 
+> So I guess you're not out of luck if you use the 5.2.30 driver.  You
+> just can't move forward to a newer driver unless you port the "fix"
+> forward.
+> 
+> -scott
+> 
+> 
+> 
+
+-- 
+------------------------------------------------------------
+  Peter Kjellstroem              | E-mail: cap@nsc.liu.se
+  National Supercomputer Centre  | Office: +46(0)13 281492
+  Linkoeping University          | Fax   : +46(0)13 282535
+  SE-581 83 Linkoeping           | 
+  Sweden                         | http://www.nsc.liu.se
