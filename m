@@ -1,35 +1,56 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Increase snd/rcv buffers in pppoe
-Date: Thu, 26 Feb 2004 14:22:14 -0800
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: 2.4.26-pre1: SCTP compile error
+Date: Thu, 26 Feb 2004 15:53:58 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040226142214.76d35e22.davem@redhat.com>
-References: <20040223105359.GA91938@colin2.muc.de>
-	<20040223.200101.39143636.yoshfuji@linux-ipv6.org>
-	<20040223111659.GB10681@colin2.muc.de>
-	<20040223.203843.04073965.yoshfuji@linux-ipv6.org>
-	<20040223102613.33838132.davem@redhat.com>
-	<20040225211526.74478066.ak@suse.de>
-	<20040223133233.71eecc99.davem@redhat.com>
-	<20040226194900.GA8230@colin2.muc.de>
-	<20040226124245.5b3c77bf.davem@redhat.com>
-	<20040226205220.GA29457@colin2.muc.de>
-	<20040226220316.GA56782@colin2.muc.de>
+Message-ID: <Pine.LNX.4.58.0402261533500.19577@localhost.localdomain>
+References: <Pine.LNX.4.58L.0402251605360.5003@logos.cnet>
+ <20040226212759.GV5499@fs.tum.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: ak@muc.de, ak@suse.de, yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Marcelo Tosatti <marcelo.tosatti@cyclades.com>, netdev@oss.sgi.com,
+        linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@muc.de>
-In-Reply-To: <20040226220316.GA56782@colin2.muc.de>
+To: Adrian Bunk <bunk@fs.tum.de>
+In-Reply-To: <20040226212759.GV5499@fs.tum.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 26 Feb 2004 23:03:16 +0100
-Andi Kleen <ak@muc.de> wrote:
+On Thu, 26 Feb 2004, Adrian Bunk wrote:
 
-> > I will test now if your change really fixes the DSL performance problem.
-> 
-> It seems to, but I guess that was by accident.
+> On Wed, Feb 25, 2004 at 04:09:20PM -0300, Marcelo Tosatti wrote:
+> >...
+> > It contains a big SCTP merge (to match 2.6 API), networking updates,
+> >...
+>
+> I got the compile error forwarded below using gcc 2.95.3 .
+>
+> cu
+> Adrian
+>
+>
+>
+> ...
+> gcc-2.95 -D__KERNEL__ -I/home/bunk/linux/kernel-2.4/linux-2.4.26-pre1-full/include -Wall -Wstrict-prototypes -Wno-trigraphs -O2 -fno-strict-aliasing -fno-common -fomit-frame-pointer -pipe -mpreferred-stack-boundary=2 -march=i686 -malign-functions=4   -nostdinc -iwithprefix include -DKBUILD_BASENAME=ipv6  -c -o ipv6.o ipv6.c
+> In file included from ipv6.c:77:
+> /home/bunk/linux/kernel-2.4/linux-2.4.26-pre1-full/include/net/sctp/sctp.h:119: warning: `MSECS_TO_JIFFIES' redefined
+> /home/bunk/linux/kernel-2.4/linux-2.4.26-pre1-full/include/net/irda/irda.h:89: warning: this is the location of the previous definition
 
-Nope, fully intentional.  It should end up doing the same thing your
-original patch did, check the send buffer size the pppoe socket gets :)
+I missed this warning as i don't have irda enabled in my config.
+A simple fix would be to rename the macro in sctp.h to
+SCTP_MSECS_TO_JIFFIES.
+
+> ipv6.c: In function `sctp_v6_xmit':
+> ipv6.c:189: request for member `in6_u' in something not a structure or union
+> ipv6.c:189: request for member `in6_u' in something not a structure or union
+
+I am not seeing these errors with either gcc3.2.2 or gcc2.96. But, looking at the
+code, this definitely seems to be a problem. Not sure why the newer versions of
+gcc didn't catch them.
+
+looks like while backporting from 2.6, i missed the fact that in 2.4, fl6_src,
+fl6_dst in struct flowi are pointers to struct in6_addr.
+
+I will work on a patch to fix these issues shortly.
+
+Thanks
+Sridhar
