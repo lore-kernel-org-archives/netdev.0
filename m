@@ -1,46 +1,81 @@
-From: "Chad N. Tindel" <chad@tindel.net>
-Subject: Re: udp_recvmsg: possible bug causing infinite hang?
-Date: Sat, 9 Oct 2004 21:54:32 -0400
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20041010015432.GA38395@calma.pair.com>
-References: <Pine.LNX.4.44.0303270917290.29072-100000@home.transmeta.com> <Pine.GSO.4.44.0410091824350.14026-100000@falcon.csc.calpoly.edu> <20041009184503.7fc5c105.davem@davemloft.net>
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: Re: [PATCH 2.6.9-rc2 4/8] S2io: hardware fixes
+Date: Sat, 09 Oct 2004 20:24:40 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <4168AB78.50704@osdl.org>
+References: <004301c4ad97$be6a7010$9810100a@S2IOtech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20041009184503.7fc5c105.davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "'Jeff Garzik'" <jgarzik@pobox.com>,
+        "'Francois Romieu'" <romieu@fr.zoreil.com>, netdev@oss.sgi.com,
+        leonid.grossman@s2io.com, raghavendra.koushik@s2io.com,
+        rapuru.sriram@s2io.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: ravinandan.arakali@s2io.com
+In-Reply-To: <004301c4ad97$be6a7010$9810100a@S2IOtech.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Oct 09, 2004 at 06:45:03PM -0700, David S. Miller wrote:
-> On Sat, 9 Oct 2004 18:38:58 -0700 (PDT)
-> "Chad N. Tindel" <ctindel@falcon.csc.calpoly.edu> wrote:
+Ravinandan Arakali wrote:
+> Jeff,
+> Sorry about that. We'll add the signed-off-by line.
+> We are sending the patches as and when they are completed.
+> In the next couple of days, the remaining patches should
+> be done. Do you want us to send them after all are complete
+> or is it okay to send each patch as and when completed ?
 > 
-> > User space code sends a datagram on a blocking socket, and then calls
-> > select() or poll() to wait for the reply.
+> Thanks,
+> Ravi
 > 
-> If you wish the socket not to block, mark the file descriptor
-> as non-blocking or pass in the appropriate MSG_* flag into
-> recvmsg().
+> -----Original Message-----
+> From: Jeff Garzik [mailto:jgarzik@pobox.com]
+> Sent: Friday, October 08, 2004 5:11 PM
+> To: ravinandan.arakali@s2io.com
+> Cc: 'Francois Romieu'; netdev@oss.sgi.com; leonid.grossman@s2io.com;
+> raghavendra.koushik@s2io.com; rapuru.sriram@s2io.com
+> Subject: Re: [PATCH 2.6.9-rc2 4/8] S2io: hardware fixes
 > 
-> Select() returning that a filedescriptor is readable does not
-> guarentee that a blocking socket will not block in the ead
-> call.
 > 
-> This behavior has been in the Linux kernel for an enourmous
-> amount of them, the change you are noticing going from EL 3 update
-> 2 to update 3 is that previously we were returning -EAGAIN to
-> blocking sockets, instead we are properly blocking to wait for
-> another packet.
+> 48 hours passed between patch #3 and patch #4.  Is there a problem with 
+> your email system?
 > 
-> There is an enormous and long thread about this topic on the
-> linux-kernel list, please read there before we duplicate such
-> a long and tiring thread here.
+> Also, your patches do not include the "signed-off-by" line described in 
+> the two documents I referenced.  The "signed-off-by" line makes the 
+> lawyers happy.
+> 
+> Since you missed that major legal item, please _read_ the following 
+> documents:
+> 
+> http://linux.yyz.us/patch-format.html (see #5, "Sign your work")
+> http://www.zip.com.au/~akpm/linux/patches/stuff/tpp.txt
 
-OK, so what you're saying is that the C-library has a bug because it isn't 
-using a non-blocking socket when doing DNS lookups?
+Hi,
 
-Thanks,
+Maybe you already have this planned or patched, but it wasn't
+in the "cosmetic" patch file.
 
-Chad
+In s2io.c, please convert this struct to C99 syntax:
+static struct pci_driver s2io_driver = {
+       name:"S2IO",
+       id_table:s2io_tbl,
+       probe:s2io_init_nic,
+       remove:__devexit_p(s2io_rem_nic),
+};
+
+so that sparse won't complain like so:
+drivers/net/s2io.c:238:7: warning: obsolete struct initializer, use 
+C99 syntax
+drivers/net/s2io.c:239:7: warning: obsolete struct initializer, use 
+C99 syntax
+drivers/net/s2io.c:240:7: warning: obsolete struct initializer, use 
+C99 syntax
+drivers/net/s2io.c:241:7: warning: obsolete struct initializer, use 
+C99 syntax
+
+and if you haven't tried sparse on the driver, that would be a
+good idea.
+
+
+-- 
+~Randy
