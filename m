@@ -1,122 +1,98 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: [PATCH 2/2] [SKBUFF] introduce tr_hdr(skb)
-Date: Wed, 06 Oct 2004 15:41:04 -0300
+From: akepner@sgi.com
+Subject: [RFC] using mmiowb() in dev->poll() method
+Date: Wed, 6 Oct 2004 11:24:19 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41643C40.8070605@conectiva.com.br>
+Message-ID: <Pine.LNX.4.33.0410061116160.15729-100000@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------050802010205050405020501"
-Cc: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: <davem@redhat.com>, <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------050802010205050405020501
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
 
-Hi David,
-	
+A recent patch which defines an I/O space memory write barrier 
+(http://marc.theaimsgroup.com/?l=linux-kernel&m=109649911100740&w=2.)
+allows for significant performance improvement in the tg3 driver. 
+Although I've only experimented with tg3, the same thing should work 
+for other drivers which use NAPI. 
 
-	Please consider pulling from:
+This would mean a slight change to the semantics of the driver's 
+polling method, however, which is why I'm sending this patch for 
+comments now. The patch below is only an example, and it's not 
+intended to be applied in its present form. But once the mmiowb() 
+patch gets in, something similar to the following patch could be 
+considered. 
 
-bk://kernel.bkbits.net/acme/sk_buff-2.6
+Currently, returning 0 from "dev->poll()" indicates that the 
+PIO write which enables interrupts has been flushed to the NIC 
+(or at least that's my understanding.) The change below allows 
+"dev->poll()" to return with that PIO write pending, but not 
+necessarily flushed. This allows a potentially expensive PIO 
+flush to be avoided. I've found that this can significantly 
+reduce CPU utilization and improve throughput. 
 
-Regards,
+On my test system (Altix - using only 1 of 4 CPUs, 1GHz Itanium 2, 
+Broadcom 5704 NIC) I got the following the results for one workload 
+with and without this patch:
 
-- Arnaldo
+                   CPU Utilization [%]        Throughput [MB/sec]
+                   -------------------        -------------------
+2.6.5                     100                       110
+2.6.5+patch                80                       124
 
---------------050802010205050405020501
-Content-Type: text/plain;
- name="tr_hdr.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="tr_hdr.patch"
+That's the best case performance improvement, but there's no case 
+where performance suffers from this change.
 
-===================================================================
+8<--------------------- tg3_poll.mmiowb.patch ---------------------
 
-
-ChangeSet@1.2056, 2004-10-06 15:33:22-03:00, acme@conectiva.com.br
-  [SKBUFF] introduce tr_hdr(skb)
-  
-  The token ring code in the kernel is bitrotting (no surprise :) ),
-  it uses skb->data all around... I have an assortment of token ring
-  cards but no MAU, can anybody send me one, please? I promise to
-  make ssh work over LLC over Token Ring networks! Duh... :o)
-  
-  Signed-off-by: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-  Signed-off-by: David S. Miller <davem@redhat.com>
-
-
- include/linux/if_tr.h |    9 +++++++++
- include/net/llc_pdu.h |    4 ++--
- net/llc/llc_output.c  |    4 ++--
- 3 files changed, 13 insertions(+), 4 deletions(-)
-
-
-diff -Nru a/include/linux/if_tr.h b/include/linux/if_tr.h
---- a/include/linux/if_tr.h	2004-10-06 15:34:53 -03:00
-+++ b/include/linux/if_tr.h	2004-10-06 15:34:53 -03:00
-@@ -48,6 +48,15 @@
- 	__u16 rseg[8];			/* routing registers */
- };
+--- linux.orig/drivers/net/tg3.c	2004-10-06 09:26:04.000000000 -0700
++++ linux/drivers/net/tg3.c	2004-10-06 10:22:38.000000000 -0700
+@@ -345,6 +345,9 @@
+ #define tr16(reg)		readw(tp->regs + (reg))
+ #define tr8(reg)		readb(tp->regs + (reg))
  
-+#ifdef __KERNEL__
-+#include <linux/skbuff.h>
++#define mmiowb()		sn_mmiob() /* XXX this goes away once mmiowb() 
++				            * is available for all arches */
 +
-+static inline struct trh_hdr *tr_hdr(const struct sk_buff *skb)
+ static void tg3_write_mem(struct tg3 *tp, u32 off, u32 val)
+ {
+ 	unsigned long flags;
+@@ -395,6 +398,20 @@
+ 	tg3_cond_int(tp);
+ }
+ 
++/* tg3_restart_ints()
++ * similar to tg3_enable_ints(), but it can return before the write which 
++ * will enable interrupts has reached the card.
++ */
++static void tg3_restart_ints(struct tg3 *tp)
 +{
-+	return (struct trh_hdr *)skb->mac.raw;
-+}
-+#endif
++	tw32(TG3PCI_MISC_HOST_CTRL,
++		(tp->misc_host_ctrl & ~MISC_HOST_CTRL_MASK_PCI_INT));
++	tw32_mailbox(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW, 0x00000000);
++	mmiowb(); 
 +
- /* This is an Token-Ring LLC structure */
- struct trllc {
- 	__u8  dsap;			/* destination SAP */
-diff -Nru a/include/net/llc_pdu.h b/include/net/llc_pdu.h
---- a/include/net/llc_pdu.h	2004-10-06 15:34:53 -03:00
-+++ b/include/net/llc_pdu.h	2004-10-06 15:34:53 -03:00
-@@ -255,7 +255,7 @@
- 	if (skb->protocol == ntohs(ETH_P_802_2))
- 		memcpy(sa, eth_hdr(skb)->h_source, ETH_ALEN);
- 	else if (skb->protocol == ntohs(ETH_P_TR_802_2))
--		memcpy(sa, ((struct trh_hdr *)skb->mac.raw)->saddr, ETH_ALEN);
-+		memcpy(sa, tr_hdr(skb)->saddr, ETH_ALEN);
- }
- 
- /**
-@@ -270,7 +270,7 @@
- 	if (skb->protocol == ntohs(ETH_P_802_2))
- 		memcpy(da, eth_hdr(skb)->h_dest, ETH_ALEN);
- 	else if (skb->protocol == ntohs(ETH_P_TR_802_2))
--		memcpy(da, ((struct trh_hdr *)skb->mac.raw)->daddr, ETH_ALEN);
-+		memcpy(da, tr_hdr(skb)->daddr, ETH_ALEN);
- }
- 
- /**
-diff -Nru a/net/llc/llc_output.c b/net/llc/llc_output.c
---- a/net/llc/llc_output.c	2004-10-06 15:34:53 -03:00
-+++ b/net/llc/llc_output.c	2004-10-06 15:34:53 -03:00
-@@ -40,7 +40,8 @@
- 		struct net_device *dev = skb->dev;
- 		struct trh_hdr *trh;
- 		
--		trh = (struct trh_hdr *)skb_push(skb, sizeof(*trh));
-+		skb->mac.raw = skb_push(skb, sizeof(*trh));
-+		trh = tr_hdr(skb);
- 		trh->ac = AC;
- 		trh->fc = LLC_FRAME;
- 		if (sa)
-@@ -51,7 +52,6 @@
- 			memcpy(trh->daddr, da, dev->addr_len);
- 			tr_source_route(skb, trh, dev);
- 		}
--		skb->mac.raw = skb->data;
- 		break;
++	tg3_cond_int(tp);
++}
++
+ static inline void tg3_netif_stop(struct tg3 *tp)
+ {
+ 	netif_poll_disable(tp->dev);
+@@ -2489,7 +2506,7 @@
+ 	if (done) {
+ 		spin_lock_irqsave(&tp->lock, flags);
+ 		__netif_rx_complete(netdev);
+-		tg3_enable_ints(tp);
++		tg3_restart_ints(tp);
+ 		spin_unlock_irqrestore(&tp->lock, flags);
  	}
- #endif
+ 
 
+8<-----------------------------------------------------------------
 
---------------050802010205050405020501--
+Comments?
+
+-- 
+Arthur
