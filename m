@@ -1,31 +1,32 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: kernel-2.6.8.1 EIP is at velocity_netdev_event+0x16/0x50
-Date: Sun, 15 Aug 2004 20:49:38 +0200
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040815184937.GA9105@electric-eye.fr.zoreil.com>
-References: <20040815095814.GA32195@trot.local> <20040815110625.GA2829@electric-eye.fr.zoreil.com> <20040815155457.GB32195@trot.local>
+From: Michael Renzmann <mrenzmann@web.de>
+Subject: Re: Deleting incoming network packets / sk_buff
+Date: Sun, 15 Aug 2004 20:57:21 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <411FB211.1050400@web.de>
+References: <411E642C.9010708@web.de> <411E8EE4.70900@candelatech.com> <411FA5D0.6000004@web.de> <411FA902.8070402@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S264791AbUHOSxZ@vger.kernel.org>
-To: netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
-	alan@lxorguk.ukuu.org.uk
-Content-Disposition: inline
-In-Reply-To: <20040815155457.GB32195@trot.local>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <411FA902.8070402@candelatech.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-George Georgalis <george@galis.org> :
-[...]
-> ...that patch doesn't build
-> 
->   26674 Aug 15 06:51 ../20040815-2.6.8-via-velocity-test.patch
+Hi.
 
-The patch has been updated. Same location.
+Ben Greear wrote:
+>> Bottom line: the easiest way to solve this problem would be to have 
+>> some way for blocking packets on eth1 from being processed (after they 
+>> have been passed to the packet socket - else my userspace program 
+>> won't be able to "bridge" incoming packets to tap0).
+> Can't you have no IP on eth1 and have your IP on tap0 instead?  That would
+> at least keep any pkts received on eth1 from being processed by the
+> IP stack.
 
-[...]
-> Also note, I don't actually have one of these devices to test, I only
-> included it in case I come across one.
+This is infact what I have done. The result is still that every packet 
+will be dup'ed - which can be seen for example when pinging from that 
+host, every reply is shown twice (and ping says "DUP" for every reply).
 
-Nobody's perfect.
-
---
-Ueimor
+Bye, Mike
