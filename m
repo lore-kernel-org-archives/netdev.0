@@ -1,29 +1,46 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH] r8169 tx_timeout recovery and automatic DAC step-down
-Date: Mon, 27 Sep 2004 01:09:28 +0200
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: bad TSO performance in 2.6.9-rc2-BK
+Date: Mon, 27 Sep 2004 11:27:24 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040926230928.GA28817@electric-eye.fr.zoreil.com>
-References: <20040919224102.GA32577@electric-eye.fr.zoreil.com> <200409231558.29821.jdmason@us.ltcfwd.linux.ibm.com> <20040923220519.GD8018@electric-eye.fr.zoreil.com> <200409231840.12539.jdmason@us.ltcfwd.linux.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jon Mason <jdmason@us.ibm.com>
+Message-ID: <E1CBkIW-0001dF-00@gondolin.me.apana.org.au>
+References: <20040923164149.5368d291.davem@davemloft.net>
+Cc: herbert@gondor.apana.org.au, ak@suse.de, niv@us.ibm.com,
+        andy.grover@gmail.com, anton@samba.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
-In-Reply-To: <200409231840.12539.jdmason@us.ltcfwd.linux.ibm.com>
+To: davem@davemloft.net (David S. Miller)
+In-Reply-To: <20040923164149.5368d291.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Untested patches of the day (it's late and I need to sleep):
+David S. Miller <davem@davemloft.net> wrote:
+> 
+> Previously we counted TSO frames as single "packets" as long as
+> we could fit one more frame into the congestion window we'd spit
+> out the whole TSO frame, and this kept the pipe full.
 
-http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.9-rc2-mm2/r8169-200.patch
-http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.9-rc2-mm2/r8169-210.patch
+Indeed, I think the new code means that Minshall's check will disable
+Nagle which is what was keeping TSO working properly.
 
-The first one should perform a clean reset of the device under TX_TIMEOUT.
-The second one should be able to detect a broken setup wrt pci dac
-transaction and downgrade the advertised features of the driver accordingly.
+Anton, could you please try this patch which disables Minshall's check
+and see what it does?
 
-The quality of my untested patches past 00 AM is not guaranteed.
-
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 --
-Ueimor
+===== include/net/tcp.h 1.88 vs edited =====
+--- 1.88/include/net/tcp.h	2004-09-15 06:57:07 +10:00
++++ edited/include/net/tcp.h	2004-09-27 11:25:56 +10:00
+@@ -1461,8 +1461,7 @@
+ 		!(TCP_SKB_CB(skb)->flags & TCPCB_FLAG_FIN) &&
+ 		((nonagle&TCP_NAGLE_CORK) ||
+ 		 (!nonagle &&
+-		  tcp_get_pcount(&tp->packets_out) &&
+-		  tcp_minshall_check(tp))));
++		  tcp_get_pcount(&tp->packets_out))));
+ }
+ 
+ extern void tcp_set_skb_tso_factor(struct sk_buff *, unsigned int);
