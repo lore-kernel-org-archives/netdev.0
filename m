@@ -1,34 +1,52 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] remove historic entries in Documentation/Changes
-Date: Tue, 28 Oct 2003 08:18:16 -0800
+From: "Kevin Lahey" <kml@patheticgeek.net>
+Subject: [PATCH]  tcp_ack_update_window window scaling bug
+Date: Tue, 28 Oct 2003 08:17:59 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031028081816.10d1ebce.davem@redhat.com>
-References: <20031029.012202.105420248.yoshfuji@linux-ipv6.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Message-ID: <20031028161759.14346.qmail@patheticgeek.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "YOSHIFUJI Hideaki / _$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20031029.012202.105420248.yoshfuji@linux-ipv6.org>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 29 Oct 2003 01:22:02 +0900 (JST)
-YOSHIFUJI Hideaki / _$B5HF#1QL@ <yoshfuji@linux-ipv6.org> wrote:
 
-> It seems that these entries are out-of-date;
-> "bk annotate" tells these lines are very old.
-> 
-> Please ensure if it is correct.
 
-Well, just removing all references to iproute2 would not
-be correct, we should mention the current location one
-can obtain the latest iproute2 sources from.
+Using ttcp to test TSO on 2.5.75, I noticed an odd problem with
+receiver windows larger than 64KB.  The initial data packet after
+the three-way handshake was delayed by around 200 milliseconds.
 
-Actually, all of these random changes are beginning to become cleanup
-in nature and therefore not the kind of changes Linus wants going into
-the tree right now.
+Further investigation revealed that TSO support for the connection
+was being turned off at the same time by the SWS avoidance code.
+The same ttcp transfer without the large receiver window showed no
+delay, and didn't turn off TSO.
 
-Can you make these Kconfig and documentation fixes at some later time?
-Thank you.
+It appears that tcp_ack_update_window is window scaling the offered
+TCP receiver window even on the SYN packet.  As noted in no less
+than two other places in the networking code, RFC 1323 insists that
+initial window advertisements are unscaled.
+
+This meant that tp->max_window was too large initially, resulting
+in an inappropriately large TSO segment size.  The initial TSO segment 
+was delayed by the SWS code, causing the 200ms pause.  I'm not sure
+whether this bug could ever be tickled by anything *but* TSO, but
+I suppose in some contrived situations with non-Linux remote hosts,
+it could wind up being significant.
+
+Here's a patch that solves my performance problem:
+
+--- linux-2.5.75/net/ipv4/tcp_input.c.orig	Mon Oct 27 19:02:55 2003
++++ linux-2.5.75/net/ipv4/tcp_input.c	Mon Oct 27 19:04:34 2003
+@@ -1966,7 +1966,8 @@
+ 				 struct sk_buff *skb, u32 ack, u32 ack_seq)
+ {
+ 	int flag = 0;
+-	u32 nwin = ntohs(skb->h.th->window) << tp->snd_wscale;
++	u32 nwin = (skb->h.th->syn ? ntohs(skb->h.th->window) :
++			ntohs(skb->h.th->window) << tp->snd_wscale);
+ 
+ 	if (tcp_may_update_window(tp, ack, ack_seq, nwin)) {
+ 		flag |= FLAG_WIN_UPDATE;
+
+Thanks,
+
+Kevin
+kml@patheticgeek.net
