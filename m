@@ -1,54 +1,59 @@
-From: "Venkata Jagana" <jagana@us.ibm.com>
+From: "Krishna Kumar" <kumarkr@us.ibm.com>
 Subject: Re: [PATCHSET] Mobile IPv6 for 2.5.45
-Date: Fri, 1 Nov 2002 16:32:13 -0800
+Date: Fri, 1 Nov 2002 17:15:09 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OF5B9EF40F.E3D52B05-ON88256C65.000191C7@boulder.ibm.com>
+Message-ID: <OFCFEE31E7.E8F27031-ON88256C65.00068E7B@boulder.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: yoshfuji@wide.ad.jp, kkumar@beaverton.ibm.com.sgi.com,
-   kuznet@ms2.inr.ac.ru, ajtuomin@tml.hut.fi, lpetande@tml.hut.fi,
-   netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Cc: ajtuomin@tml.hut.fi, kkumar@beaverton.ibm.com.sgi.com,
+   kuznet@ms2.inr.ac.ru, linux-kernel@vger.kernel.org, lpetande@tml.hut.fi,
+   netdev@oss.sgi.com, "Venkata Jagana" <jagana@us.ibm.com>,
+   yoshfuji@wide.ad.jp
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
+Hi Dave,
 
+> None of the things you've listed make it desirable to put the home
+> agent registration into the kernel.  All of the operations you
+> describe could be invoked by the userland home agent daemon using very
+> minimal glue logic in the kernel (invoked, for example, via netlink
+> messages).
 
-Hello Dave,
+I had a couple of comments about putting the registration part in
+userspace.
+When the HA gets a registration request, it needs to perform the following
+actions :
+        1. perform DAD
+        2. get the list of prefixes supported on the home link of the MN.
+        3. create a tunnel between the HA and the MN
+        4. join the solicited node multicast group of the MN's home
+address.
+        5. add the MN's home address to the list of proxy neigh cache entry
+for the HA.
+        6. Send NA on behalf of the MN
+        7. add the new location of the MN in the binding cache.
+        8. and finally send the Binding Registration Success/Failure
+message.
 
->Just like a router changes and monitors routes, a home agent daemon
->would change and monitor mipv6 state.  So for the same reason we don't
->put OSPF routing databases into the kernel, we do not put the home
->agent registration into the kernel :-)
+In the above list, the only activities which can be done in userspace are
+#7 and #8 (that I am aware of). The rest of the items can only be done in
+the
+kernel, atleast we need to move the support to kernel. If the HA
+registration
+is completely moved to userspace, it would still need these facilities (#1
+to #6) in the kernel to perform the actions for registration. So even with
+netlink
+we still need the infrastructure in the kernel.
 
-I absolutely understand your concerns about keeping the Home Agent
-registration in the kernel. However, I still believe that keeping
-this code in userspace would cause problems for handoffs. (btw, this
-code will never get executed on a regular host - only routers configured
-as Home Agents would be running this code as a module).
+We can move the #7 and #8 pieces to userspace, but that is a relatively
+small code, and is it worth doing that ?
 
-Currently, when a Home Agent receives a registration request during the
-Mobile Node's handoff mechanism, it needs to respond in a reasonably
-quick time period so that the sessions on the MN can continue without
-experiencing delays. Longer delays could be harmful for applications
-such as VoIP, for which the latencies are quite critical.
-
-By moving this registration process to userspace, we have no control
-over when the home registration would complete, since there are no
-guarantees when the home agent daemon would run. BTW, according to
-ongoing discussions at Mobile IP WG, it is believed that even few
-hundred millisecs of latencies are not acceptable to critical apps,
-during which time the IP packet transfer is completely stopped.
-With such latency issues, I still believe that moving the registration
-to userspace would create issues for the MN.
+Overall I feel that this should still be part of the kernel...
 
 Thanks,
-Venkat
 
-----------------------------------------------------------------
-Venkata R Jagana
-IBM Linux Technology Centre, Beaverton
-jagana@us.ibm.com
-Tel: (503) 578 3430 T/L 775-3430
+- KK
