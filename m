@@ -1,36 +1,21 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: bad TSO performance in 2.6.9-rc2-BK
-Date: Wed, 22 Sep 2004 11:12:09 -0700
+Subject: Re: [RFC][PATCH 1/2] ipv4 multipath routing, bk head
+Date: Wed, 22 Sep 2004 11:14:16 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040922111209.7887df53.davem@davemloft.net>
-References: <20040920063012.GL2825@krispykreme>
-	<20040920203021.GD4242@wotan.suse.de>
-	<20040921155835.18aee381.davem@davemloft.net>
-	<20040922140000.GD27432@wotan.suse.de>
+Message-ID: <20040922111416.66563786.davem@davemloft.net>
+References: <4151A8E5.6060600@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: ak@suse.de, anton@samba.org, netdev@oss.sgi.com
+Cc: elueck@de.ibm.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <20040922140000.GD27432@wotan.suse.de>
+To: lkml@einar-lueck.de
+In-Reply-To: <4151A8E5.6060600@de.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 22 Sep 2004 16:00:00 +0200
-Andi Kleen <ak@suse.de> wrote:
 
-> I tried it with rc2bk8 again and the performance is much better (22MB/s) 
-> that what I got earlier with 2.6.8rc2, but still far below what 2.6.5 gets 
-> on the same hardware (68MB/s) 
-> 
-> Both tests with netperf over e1000.
+We've all seen your patches already, you don't need to send them
+again.
 
-Great, please try one more thing to help me narrow this down.
-Rerun your e1000 tests after going:
-
-ethtool -K eth? tso off
-
-and see if that gets you back to 2.6.5 era performance.
-
-Thanks Andi.
+Thanks.
