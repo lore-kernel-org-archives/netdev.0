@@ -1,107 +1,47 @@
-From: Brian Haley <Brian.Haley@hp.com>
-Subject: Re: [PATCH, TAKE 2] [IPV6] XFRM: extract xfrm_lookup() from ip6_dst_lookup()
- (is Re: [PATCH][IPv6] separation xfrm_lookup from ip6_dst_lookup)
-Date: Mon, 25 Oct 2004 17:27:44 -0400
+From: Mirko Lindner <demon@pro-linux.de>
+Subject: Re: [PATCH] sk98lin: Driver update v7.09
+Date: Mon, 25 Oct 2004 23:38:33 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <417D6FD0.7010903@hp.com>
-References: <20040730171205.114f22ba.kazunori@miyazawa.org>	<20040801195135.16734846.davem@redhat.com> <20040828.014935.131415609.yoshfuji@linux-ipv6.org>
+Message-ID: <417D7259.2020800@pro-linux.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080602020509050608080305"
-Cc: davem@davemloft.net, netdev@oss.sgi.com, kazunori@miyazawa.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20040828.014935.131415609.yoshfuji@linux-ipv6.org>
+To: hch@infradead.org, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------080602020509050608080305
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: quoted-printable
-X-MIME-Autoconverted: from 8bit to quoted-printable by oss.sgi.com id i9PLULtE023143
+On Fri, Oct 22, 2004 at 03:14:41PM +0200, Mirko Lindner wrote:
+ >> Hi dev-list,
+ >> Hi Jeff,
+ >>
+ >> here is the new version (v7.09) from our sk98lin driver for Kernel 2.6.
+ >> Sorry for this huge patch but this version has a lot of new functions
+ >> and changes. The driver was tested by our Test & Verification group and
+ >> our OEM customers and include all kernel changes during the latest
+ >> kernel release.
+ >>
+ >> Please send me an email if you like a version of the driver for kernel
+ >> 2.4 or if you have any problems or questions.
+ >>
+ >> The new patch for BK version 2.6.9 bk6 can be find at:
+ >> http://www.syskonnect.de/support/temp/sk98lin_v7.09_2.6.9-bk6_patch
+
+ > Standard disclaimer:  please submit small incremental patches that fix
+ > specific issue.
 
 
-YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
+Sorry for the big patch but it's not possible to split the driver into
+small pieces. As mentioned the submission isn't a bugfix release of the
+old v6 driver with small additions. The new version 7.09 is a new driver
+based on the old sk98lin driver with a support for two new chipsets from
+Marvell (Yukon EC and Yukon FE). Yes, I know. The patch is huge but the
+Yukon chipset has a different buffer handling and many register and hw
+changes
 
-> Here's the updated patch.
+I will be out of the office till Thursday. After the LWE we will merge
+the new changes from Stephen into the new driver version. We have also
+small fixes for the 7.09 and I think I'll release the 7.10 at the end of
+the next week.
 
-<snip>
-
-Hi,
-
-I finally tracked-down the patch that fixed the IPv6 routing header=20
-problems I'd been seeing :)  But I think you missed one code path from=20
-the original patch Kazunori posted in tcp_v6_xmit(), which I think is=20
-only called from the ND code.
-
-Attached is a patch that fixes that and also brings the rt0_hdr struct=20
-in-line with RFC 3542 by removing the "bitmap" field.
-
-Thanks,
-
--Brian
-
---
-Brian Haley, HP Linux and Open Source Lab
-
---------------080602020509050608080305
-Content-Type: text/plain;
- name="rt0.diffs"
-Content-Disposition: inline;
- filename="rt0.diffs"
-Content-Transfer-Encoding: base64
-
-U2lnbmVkLW9mZi1ieTogQnJpYW4uSGFsZXlAaHAuY29tCgotLS0gbGludXgtMi42Ljkub3Jp
-Zy9pbmNsdWRlL2xpbnV4L2lwdjYuaAkyMDA0LTEwLTE4IDE3OjU0OjM5LjAwMDAwMDAwMCAt
-MDQwMAorKysgbGludXgtMi42LjkucnQwL2luY2x1ZGUvbGludXgvaXB2Ni5oCTIwMDQtMTAt
-MjIgMTc6MTU6NTIuMDAwMDAwMDAwIC0wNDAwCkBAIC02OCw3ICs2OCw3IEBACiAKIHN0cnVj
-dCBydDBfaGRyIHsKIAlzdHJ1Y3QgaXB2Nl9ydF9oZHIJcnRfaGRyOwotCV9fdTMyCQkJYml0
-bWFwOwkJLyogc3RyaWN0L2xvb3NlIGJpdCBtYXAgKi8KKwlfX3UzMgkJCXJlc2VydmVkOwog
-CXN0cnVjdCBpbjZfYWRkcgkJYWRkclswXTsKIAogI2RlZmluZSBydDBfdHlwZQkJcnRfaGRy
-LnR5cGUKLS0tIGxpbnV4LTIuNi45Lm9yaWcvbmV0L2lwdjYvbmV0ZmlsdGVyL2lwNnRfcnQu
-YwkyMDA0LTEwLTIyIDE2OjA5OjMyLjAwMDAwMDAwMCAtMDQwMAorKysgbGludXgtMi42Ljku
-cnQwL25ldC9pcHY2L25ldGZpbHRlci9pcDZ0X3J0LmMJMjAwNC0xMC0yMiAxNzoxNDo1NS40
-MTA4MDA2MTcgLTA0MDAKQEAgLTE1OSw4ICsxNTksOCBAQAogICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgKChydGluZm8tPmhkcmxlbiA9PSBoZHJsZW4pIF4KICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICEhKHJ0aW5mby0+aW52ZmxhZ3MgJiBJUDZUX1JUX0lOVl9MRU4pKSkp
-OwogICAgICAgIERFQlVHUCgicmVzICUwMlggJTAyWCAlMDJYICIsIAotICAgICAgIAkJKHJ0
-aW5mby0+ZmxhZ3MgJiBJUDZUX1JUX1JFUyksICgoc3RydWN0IHJ0MF9oZHIgKilyb3V0ZSkt
-PmJpdG1hcCwKLSAgICAgICAJCSEoKHJ0aW5mby0+ZmxhZ3MgJiBJUDZUX1JUX1JFUykgJiYg
-KCgoc3RydWN0IHJ0MF9oZHIgKilyb3V0ZSktPmJpdG1hcCkpKTsKKyAgICAgICAJCShydGlu
-Zm8tPmZsYWdzICYgSVA2VF9SVF9SRVMpLCAoKHN0cnVjdCBydDBfaGRyICopcm91dGUpLT5y
-ZXNlcnZlZCwKKyAgICAgICAJCSEoKHJ0aW5mby0+ZmxhZ3MgJiBJUDZUX1JUX1JFUykgJiYg
-KCgoc3RydWN0IHJ0MF9oZHIgKilyb3V0ZSktPnJlc2VydmVkKSkpOwogCiAgICAgICAgcmV0
-ID0gKHJvdXRlICE9IE5VTEwpCiAgICAgICAgCQkmJgpAQCAtMTc2LDcgKzE3Niw3IEBACiAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAoKHJ0aW5mby0+cnRfdHlwZSA9PSByb3V0ZS0+
-dHlwZSkgXgogICAgICAgICAgICAgICAgICAgICAgICAgICAgISEocnRpbmZvLT5pbnZmbGFn
-cyAmIElQNlRfUlRfSU5WX1RZUCkpKQogCQkmJgotICAgICAgIAkJISgocnRpbmZvLT5mbGFn
-cyAmIElQNlRfUlRfUkVTKSAmJiAoKChzdHJ1Y3QgcnQwX2hkciAqKXJvdXRlKS0+Yml0bWFw
-KSk7CisgICAgICAgCQkhKChydGluZm8tPmZsYWdzICYgSVA2VF9SVF9SRVMpICYmICgoKHN0
-cnVjdCBydDBfaGRyICopcm91dGUpLT5yZXNlcnZlZCkpOwogCiAJREVCVUdQKCIjJWQgIixy
-dGluZm8tPmFkZHJucik7CiAgICAgICAgdGVtcCA9IGxlbiA9IHB0ciA9IDA7Ci0tLSBsaW51
-eC0yLjYuOS5vcmlnL25ldC9pcHY2L3RjcF9pcHY2LmMJMjAwNC0xMC0xOCAxNzo1NDozMi4w
-MDAwMDAwMDAgLTA0MDAKKysrIGxpbnV4LTIuNi45LnJ0MC9uZXQvaXB2Ni90Y3BfaXB2Ni5j
-CTIwMDQtMTAtMjIgMTc6MTM6NDMuMzg2Mzg3NDM3IC0wNDAwCkBAIC0xODAyLDYgKzE4MDIs
-NyBAQAogCXN0cnVjdCBpcHY2X3BpbmZvICpucCA9IGluZXQ2X3NrKHNrKTsKIAlzdHJ1Y3Qg
-Zmxvd2kgZmw7CiAJc3RydWN0IGRzdF9lbnRyeSAqZHN0OworCXN0cnVjdCBpbjZfYWRkciAq
-ZmluYWxfcCA9IE5VTEwsIGZpbmFsOwogCiAJbWVtc2V0KCZmbCwgMCwgc2l6ZW9mKGZsKSk7
-CiAJZmwucHJvdG8gPSBJUFBST1RPX1RDUDsKQEAgLTE4MTUsNyArMTgxNiw5IEBACiAKIAlp
-ZiAobnAtPm9wdCAmJiBucC0+b3B0LT5zcmNydCkgewogCQlzdHJ1Y3QgcnQwX2hkciAqcnQw
-ID0gKHN0cnVjdCBydDBfaGRyICopIG5wLT5vcHQtPnNyY3J0OworCQlpcHY2X2FkZHJfY29w
-eSgmZmluYWwsICZmbC5mbDZfZHN0KTsKIAkJaXB2Nl9hZGRyX2NvcHkoJmZsLmZsNl9kc3Qs
-IHJ0MC0+YWRkcik7CisJCWZpbmFsX3AgPSAmZmluYWw7CiAJfQogCiAJZHN0ID0gX19za19k
-c3RfY2hlY2soc2ssIG5wLT5kc3RfY29va2llKTsKQEAgLTE4MjgsNiArMTgzMSw5IEBACiAJ
-CQlyZXR1cm4gZXJyOwogCQl9CiAKKwkJaWYgKGZpbmFsX3ApCisJCQlpcHY2X2FkZHJfY29w
-eSgmZmwuZmw2X2RzdCwgZmluYWxfcCk7CisKIAkJaWYgKChlcnIgPSB4ZnJtX2xvb2t1cCgm
-ZHN0LCAmZmwsIHNrLCAwKSkgPCAwKSB7CiAJCQlzay0+c2tfcm91dGVfY2FwcyA9IDA7CiAJ
-CQlkc3RfcmVsZWFzZShkc3QpOwotLS0gbGludXgtMi42Ljkub3JpZy9uZXQvaXB2Ni9leHRo
-ZHJzLmMJMjAwNC0xMC0xOCAxNzo1MzowNy4wMDAwMDAwMDAgLTA0MDAKKysrIGxpbnV4LTIu
-Ni45LnJ0MC9uZXQvaXB2Ni9leHRoZHJzLmMJMjAwNC0xMC0yMiAxNzoxNDoxMi40MTM3MzA4
-MzEgLTA0MDAKQEAgLTQwNCw4ICs0MDQsNyBAQAogCiAJbWVtY3B5KG9wdC0+c3JjcnQsIGhk
-ciwgc2l6ZW9mKCpoZHIpKTsKIAlpcnRoZHIgPSAoc3RydWN0IHJ0MF9oZHIqKW9wdC0+c3Jj
-cnQ7Ci0JLyogT2Jzb2xldGUgZmllbGQsIE1CWiwgd2hlbiBvcmlnaW5hdGVkIGJ5IHVzICov
-Ci0JaXJ0aGRyLT5iaXRtYXAgPSAwOworCWlydGhkci0+cmVzZXJ2ZWQgPSAwOwogCW9wdC0+
-c3JjcnQtPnNlZ21lbnRzX2xlZnQgPSBuOwogCWZvciAoaT0wOyBpPG47IGkrKykKIAkJbWVt
-Y3B5KGlydGhkci0+YWRkcitpLCBydGhkci0+YWRkcisobi0xLWkpLCAxNik7Cg==
---------------080602020509050608080305--
+Mirko
