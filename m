@@ -1,7 +1,7 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 2/5] r8169: add NAPI suffix
-Date: Wed, 9 Mar 2005 11:36:47 -0800
-Message-ID: <20050309113647.174b1b5c@dxpl.pdx.osdl.net>
+Subject: [PATCH 5/5] r8169: ethtool hardware statistics support
+Date: Wed, 9 Mar 2005 11:36:26 -0800
+Message-ID: <20050309113626.6708c93e@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -11,34 +11,142 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-To tell if driver is configured for NAPI or not, put -NAPI on driver
-version rather than putting message on console.
+Add ethtool support for dumping the chip statistics. There aren't lots
+of statistics available, but this is what is available according to the RealTek
+documentation.
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
 diff -Nru a/drivers/net/r8169.c b/drivers/net/r8169.c
---- a/drivers/net/r8169.c	2005-03-09 11:24:24 -08:00
-+++ b/drivers/net/r8169.c	2005-03-09 11:24:24 -08:00
-@@ -69,7 +69,13 @@
- #include <asm/io.h>
- #include <asm/irq.h>
+--- a/drivers/net/r8169.c	2005-03-09 11:26:04 -08:00
++++ b/drivers/net/r8169.c	2005-03-09 11:26:04 -08:00
+@@ -195,6 +195,8 @@
+ enum RTL8169_registers {
+ 	MAC0 = 0,		/* Ethernet hardware address. */
+ 	MAR0 = 8,		/* Multicast filter. */
++	CounterAddrLow = 0x10,
++	CounterAddrHigh = 0x14,
+ 	TxDescStartAddrLow = 0x20,
+ 	TxDescStartAddrHigh = 0x24,
+ 	TxHDescStartAddrLow = 0x28,
+@@ -336,6 +338,9 @@
  
--#define RTL8169_VERSION "2.2LK"
-+#ifdef CONFIG_R8169_NAPI
-+#define NAPI_SUFFIX	"-NAPI"
-+#else
-+#define NAPI_SUFFIX	""
-+#endif
+ 	/* _TBICSRBit */
+ 	TBILinkOK = 0x02000000,
 +
-+#define RTL8169_VERSION "2.2LK" NAPI_SUFFIX
- #define MODULENAME "r8169"
- #define PFX MODULENAME ": "
++	/* DumpCounterCommand */
++	CounterDump = 0x8,
+ };
  
-@@ -1364,7 +1370,6 @@
- #ifdef CONFIG_R8169_NAPI
- 	dev->poll = rtl8169_poll;
- 	dev->weight = R8169_NAPI_WEIGHT;
--	printk(KERN_INFO PFX "NAPI enabled\n");
- #endif
+ enum _DescStatusBit {
+@@ -897,6 +902,100 @@
+ 	tp->msg_enable = value;
+ }
  
- #ifdef CONFIG_R8169_VLAN
++static const char rtl8169_gstrings[][ETH_GSTRING_LEN] = {
++	"tx_packets",
++	"rx_packets",
++	"tx_errors",
++	"rx_errors",
++	"rx_missed",
++	"align_errors",
++	"tx_single_collisions",
++	"tx_multi_collisions",
++	"unicast",
++	"broadcast",
++	"multicast",
++	"tx_aborted",
++	"tx_underrun",
++};
++
++struct rtl8169_counters {
++	u64	tx_packets;
++	u64	rx_packets;
++	u64	tx_errors;
++	u32	rx_errors;
++	u16	rx_missed;
++	u16	align_errors;
++	u32	tx_one_collision;
++	u32	tx_multi_collision;
++	u64	rx_unicast;
++	u64	rx_broadcast;
++	u32	rx_multicast;
++	u16	tx_aborted;
++	u16	tx_underun;
++};
++
++static int rtl8169_get_stats_count(struct net_device *dev)
++{
++	return 13;
++}
++
++static void rtl8169_get_ethtool_stats(struct net_device *dev,
++				      struct ethtool_stats *stats, u64 *data)
++{
++        struct rtl8169_private *tp = netdev_priv(dev);
++	struct rtl8169_counters *counters;
++	void __iomem *ioaddr = tp->mmio_addr;
++	int i;
++	dma_addr_t paddr;
++	u32 cmd;
++
++	ASSERT_RTNL();
++
++	counters = pci_alloc_consistent(tp->pci_dev, sizeof(*counters),
++					&paddr);
++	if (!counters)
++		return;
++	
++	RTL_W32(CounterAddrHigh, (u64)paddr >> 32);
++	cmd = (u64) paddr & DMA_32BIT_MASK;
++	RTL_W32(CounterAddrLow, cmd);
++	RTL_W32(CounterAddrLow, cmd | CounterDump);
++
++	for (i = 0; i < 1000; i++) {
++		if (!RTL_R32(CounterAddrLow) & CounterDump)
++			break;
++		udelay(10);
++	}
++	RTL_W32(CounterAddrLow, 0);
++	RTL_W32(CounterAddrHigh, 0);
++
++	data[0]	= le64_to_cpu(counters->tx_packets);
++	data[1] = le64_to_cpu(counters->rx_packets);
++	data[2] = le64_to_cpu(counters->tx_errors);
++	data[3] = le32_to_cpu(counters->rx_errors);
++	data[4] = le16_to_cpu(counters->rx_missed);
++	data[5] = le16_to_cpu(counters->align_errors);
++	data[6] = le32_to_cpu(counters->tx_one_collision);
++	data[7] = le32_to_cpu(counters->tx_multi_collision);
++	data[8] = le64_to_cpu(counters->rx_unicast);
++	data[9] = le64_to_cpu(counters->rx_broadcast);
++	data[10] = le32_to_cpu(counters->rx_multicast);
++	data[11] = le16_to_cpu(counters->tx_aborted);
++	data[12] = le16_to_cpu(counters->tx_underun);
++
++	pci_free_consistent(tp->pci_dev, sizeof(*counters), counters, paddr);
++}
++
++static void rtl8169_get_strings(struct net_device *dev, u32 stringset, u8 *data)
++{
++	switch(stringset) {
++	case ETH_SS_STATS:
++		memcpy(data, *rtl8169_gstrings, sizeof(rtl8169_gstrings));
++		break;
++	}
++}
++
++
+ static struct ethtool_ops rtl8169_ethtool_ops = {
+ 	.get_drvinfo		= rtl8169_get_drvinfo,
+ 	.get_regs_len		= rtl8169_get_regs_len,
+@@ -914,6 +1013,9 @@
+ 	.get_tso		= ethtool_op_get_tso,
+ 	.set_tso		= ethtool_op_set_tso,
+ 	.get_regs		= rtl8169_get_regs,
++	.get_strings		= rtl8169_get_strings,
++	.get_stats_count	= rtl8169_get_stats_count,
++	.get_ethtool_stats	= rtl8169_get_ethtool_stats,
+ };
+ 
+ static void rtl8169_write_gmii_reg_bit(void __iomem *ioaddr, int reg, int bitnum,
