@@ -1,33 +1,48 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: 2.6.4-rc1 + hp100 EISA, not working
-Date: Thu, 4 Mar 2004 09:26:50 -0800
+From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
+Subject: Re: linux-wireless mailing list
+Date: Thu, 4 Mar 2004 09:34:10 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040304092650.2575fd1c@dell_ss3.pdx.osdl.net>
-References: <Pine.LNX.4.58.0402292149230.25624@don.falconne.eu.org>
-	<wrpk724yicq.fsf@hina.wild-wind.fr.eu.org>
-	<20040303122541.4dbcf0fc@dell_ss3.pdx.osdl.net>
-	<Pine.LNX.4.58.0403040550150.25624@don.falconne.eu.org>
+Message-ID: <20040304173410.GA4197@bougret.hpl.hp.com>
+References: <Pine.LNX.4.58.0403031656090.22365@marabou.research.att.com> <40469DA1.9090502@pobox.com>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: falcon@muflon.linux.pl, mzyngier@freesurf.fr, netdev@oss.sgi.com,
-        jgarzik@pobox.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Pavel Roskin <proski@gnu.org>, Netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: pawel.sokolowski@muflon.linux.pl
-In-Reply-To: <Pine.LNX.4.58.0403040550150.25624@don.falconne.eu.org>
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <40469DA1.9090502@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
- 
-> eisa_bus_match dev sig='HWPC061' state=0x1 eids=HWPF180
-> eisa_bus_match dev sig='HWP1940' state=0x3 eids=HWPF180
+On Wed, Mar 03, 2004 at 10:08:17PM -0500, Jeff Garzik wrote:
 > 
-> without:
-> 
-> eisa_bus_match dev sig='HWPC061' state=0x1 eids=HWPF180
-> eisa_bus_match dev sig='HWP1940' state=0x0 eids=HWPF180
-> 
-> when modprobing hp100.
+> The wireless extensions are utility -- they work, but are not beautiful. 
+>  I am presently writing the driver for the RealTek wireless card, and 
+> in the process creating a small wireless driver API.  The ideal is to 
+> avoid ioctls, and instead to present extensible, type-safe interfaces. 
+> This is what I would like wireless extensions to morph into.
 
-The name HWP1940 is in the table, so that looks okay.
-Can you build with HP100_DEBUG defined?
+	Just for the record. The new driver API of WE is no longer
+tied to ioctls. The goal was to change the external API to RtNetlink,
+but I got distracted. But, you could imagine plugging the driver API
+to a file system (there is so many of them, take your pick).
+	I believe that migrating the external API to RtNetlink would
+address 99% of your concerns, isn't it ? If this is the case, then we
+could work to make this happen.
+	I've always say that the mechanism of the API does not matter,
+what matter is the standardisation of the parameters and data types.
+
+> Absolutely.  David Miller, Arnaldo Carvalho de Melo, and myself all seem 
+> to feel that a net/802_11 directory and associated code would be useful. 
+>  There is definitely an area for code commonality across drivers.
+
+	1) Please don't start from scratch.
+	2) Please keep the 802.2 and 802.11 part separated. Actually,
+getting 802.2 alone would be so useful.
+
+> Best regards and welcome,
+> 
+> 	Jeff
+
+	Jean
