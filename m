@@ -1,18 +1,14 @@
 From: "Leonid Grossman" <leonid.grossman@neterion.com>
 Subject: RE: Intel and TOE in the news
-Date: Tue, 22 Feb 2005 14:17:35 -0800
-Message-ID: <200502222218.j1MMIVDD007619@guinness.s2io.com>
-References: <20050222214345.GA51890@muc.de>
+Date: Tue, 22 Feb 2005 14:10:36 -0800
+Message-ID: <200502222211.j1MMBWDD006726@guinness.s2io.com>
+References: <421BA741.4050201@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "'Stephen Hemminger'" <shemminger@osdl.org>, <hadi@cyberus.ca>,
-        "'rick jones'" <rick.jones2@hp.com>, <netdev@oss.sgi.com>,
-        "'Alex Aizman'" <alex@neterion.com>
-To: "'Andi Kleen'" <ak@muc.de>,
-        "'Leonid Grossman'" <leonid.grossman@neterion.com>
-In-Reply-To: <20050222214345.GA51890@muc.de>
+To: "'Rick Jones'" <rick.jones2@hp.com>, <netdev@oss.sgi.com>
+In-Reply-To: <421BA741.4050201@hp.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
@@ -20,40 +16,37 @@ List-Id: netdev.vger.kernel.org
  
 
 > -----Original Message-----
-> From: Andi Kleen [mailto:ak@muc.de] 
-> Sent: Tuesday, February 22, 2005 1:44 PM
-> To: Leonid Grossman
-> Cc: 'Stephen Hemminger'; hadi@cyberus.ca; 'rick jones'; 
-> netdev@oss.sgi.com; 'Alex Aizman'
+> From: netdev-bounce@oss.sgi.com 
+> [mailto:netdev-bounce@oss.sgi.com] On Behalf Of Rick Jones
+> Sent: Tuesday, February 22, 2005 1:42 PM
+> To: netdev@oss.sgi.com
 > Subject: Re: Intel and TOE in the news
 > 
-> > TSO case is probably different - TSO hardware just sets PSH on the 
-> > last fragment only (and only if the flag was set on the 
-> original large 
-> > tx packet). Receiver doesn't really know if the sender is 
-> TSO-capable 
-> > or not and will ACK the same way - will it not?
-> > Anyway, with LRO we do change rx packet count so affecting parts of 
-> > TCP that depend on packet count is indeed a concern; I guess we'll 
-> > find out soon enough whether there are real issues with the 
-> approach 
-> > :-)
+> Leonid Grossman wrote:
+> > No wait, "paste in" only packets that are already received when a 
+> > traffic interrupt comes...
 > 
-> Linux doesn't depend on packet count; it keeps an estimate 
-> called rcv_mss about the biggest seen packet size and acks 
-> every 2*rcv_mss worth of data.
-> 
-> Your scheme would likely result in acking every two of your 
-> large packets as soon as the connection is out of "quickack" 
-> mode. So there would be on wire differences. 
+> Ah, so it is ass-u-me-ing that there is little or no packet loss?
 
-Sounds good, thanks! We should be OK then.
+This is a reasonable assumption in a datacenter, isn't it :-)?
+At any rate, no wait still - if the driver doesn't find the next sequence
+(no matter if the packet is lost or it is just not received yet at the time
+the driver is looking at the receive buffer) it will indicate the
+accumulated RSO right away.
+ 
+> 
+> How about when the driver is polling instead of taking 
+> interrupts?  Will the driver "see" the RSO 
+> segment-in-progress or will it be hidden?
+
+It doesn't matter what triggered the driver to wake up and look at the
+receive buffer.
+It will still see in real time the packets that have been received - no
+matter if the interrupts for these packets arrived or not.
+
 Leonid
+
 > 
-> > > Linux TCP RX path didn't care about PSH last time I checked. 
+> rick jones
 > 
-> Actually it does for measuring the rcv_mss for very small MTUs. 
-> Shouldn't matter in practice though.
-> 
-> -Andi
 > 
