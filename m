@@ -1,39 +1,19 @@
-From: Administrator <admin@mlinfomap.com>
-Subject: ALERT FROM PostMaster AVAC
-Date: Sat, 16 Oct 2004 17:14:25 +0530
+From: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
+Subject: [Patch 2.5 0/3] e100/e1000/ixgb: Configuration and user guide updates
+Date: Mon, 18 Oct 2004 03:22:33 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <8853797.1097927065294.JavaMail.Administrator@vsnl>
+Message-ID: <Pine.LNX.4.44.0410180256530.20965-100000@isotope.jf.intel.com>
+References: <Pine.LNX.4.44.0410150509370.31227-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Post <post@mlinfomap.com>
+To: "jgarzik@pobox.com" <jgarzik@pobox.com>,
+        Ganesh Venkatesan <ganesh.venkatesan@intel.com>
+In-Reply-To: <Pine.LNX.4.44.0410150509370.31227-100000@isotope.jf.intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-===========================================================
-System Generated Message - DO NOT REPLY TO THIS !
-===========================================================
-PostMaster AvAc has processed the mail detailed below
-and has generated this alert for your reference.
-
-Message Details:
------------------------------------------------------------------------------------
-Message ID        : <E1CIn29-0007XC-Cp@pop.net4india.com>
-Message From      : netdev@oss.sgi.com
-Message To        : Post <post@mlinfomap.com>
-Message Subject   : Re: Old photos
-Message Rcvd Date : Sat Oct 16 17:11:45 IST 2004
------------------------------------------------------------------------------------
-
-PostMaster AvAc has found that the following file(s) / attachment(s)
-have infected or malicious content:
------------------------------------------------------------------------------------
- File Scanned: letter.zip  Virus Found: W32.NetSky.Q
-
-PostMaster AvAc is configured to delete file(s) / attachment(s) if attempt
-at cleaning infection fails. Accordingly the following action has been taken:
------------------------------------------------------------------------------------
- File Deleted: letter.zip  Virus Name: W32.NetSky.Q
-
-!-- Virus-Free Mail Using PostMaster AvAc & QuickHeal Engine --!
+1. Configuration and user guide for e1000
+2. Configuration and user guide for e100
+3. Configuration and user guide for ixgb
