@@ -1,41 +1,54 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Checking SPI in xfrm_state_find
-Date: Tue, 29 Mar 2005 09:39:17 +1000
-Message-ID: <20050328233917.GB15369@gondor.apana.org.au>
-References: <20050214221006.GA18415@gondor.apana.org.au> <20050214221200.GA18465@gondor.apana.org.au> <20050214221433.GB18465@gondor.apana.org.au> <20050214221607.GC18465@gondor.apana.org.au> <424864CE.5060802@trash.net>
+From: "Dale Farnsworth" <dale@farnsworth.org>
+Subject: mv643xx(1/20): Add mv643xx_enet support for PPC Pegasos platform
+Date: Mon, 28 Mar 2005 16:40:53 -0700
+Message-ID: <20050328234053.GA29098@xyzzy>
+References: <20050328233807.GA28423@xyzzy>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@redhat.com>,
-        YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, netdev@oss.sgi.com
+Cc: Ralf Baechle <ralf@linux-mips.org>, Manish Lachwani <mlachwani@mvista.com>,
+        Brian Waite <brian@waitefamily.us>,
+        "Steven J. Hill" <sjhill@realitydiluted.com>,
+        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+        James Chapman <jchapman@katalix.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
+To: Netdev <netdev@oss.sgi.com>, Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <424864CE.5060802@trash.net>
+In-Reply-To: <20050328233807.GA28423@xyzzy>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 28, 2005 at 10:10:54PM +0200, Patrick McHardy wrote:
-> 
-> Something unrelated I was also wondering about, from xfrm_find_state():
-> 
->         list_for_each_entry(x, xfrm_state_bydst+h, bydst) {
->                 if (x->props.family == family &&
->                     x->props.reqid == tmpl->reqid &&
->                     xfrm_state_addr_check(x, daddr, saddr, family) &&
->                     tmpl->mode == x->props.mode &&
->                     tmpl->id.proto == x->id.proto) {
-> 
-> Shouldn't we check for (tmpl->id.spi == x->id.spi || !tmpl->id.spi) ?
+Set SA_SHIRQ flag on call to request_irq()
 
-Absolutely.  We should also fix the larval state generation in that
-same function to fail the operation if that SPI already exists.
+Add MV643XX_ETH dependency on PPC_MULTIPLATFORM
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Signed-off-by: Nicolas DET <nd@bplan-gmbh.de>
+Signed-off-by: Sven Luther <sl@bplan-gmbh.de>
+Signed-off-by: Dale Farnsworth <dale@farnsworth.org>
+
+Index: linux-2.5-enet/drivers/net/mv643xx_eth.c
+===================================================================
+--- linux-2.5-enet.orig/drivers/net/mv643xx_eth.c
++++ linux-2.5-enet/drivers/net/mv643xx_eth.c
+@@ -668,7 +668,7 @@
+ 	spin_lock_irq(&mp->lock);
+ 
+ 	err = request_irq(dev->irq, mv643xx_eth_int_handler,
+-			SA_INTERRUPT | SA_SAMPLE_RANDOM, dev->name, dev);
++			SA_SHIRQ | SA_SAMPLE_RANDOM, dev->name, dev);
+ 
+ 	if (err) {
+ 		printk(KERN_ERR "Can not assign IRQ number to MV643XX_eth%d\n",
+Index: linux-2.5-enet/drivers/net/Kconfig
+===================================================================
+--- linux-2.5-enet.orig/drivers/net/Kconfig
++++ linux-2.5-enet/drivers/net/Kconfig
+@@ -2066,7 +2066,7 @@
+ 
+ config MV643XX_ETH
+ 	tristate "MV-643XX Ethernet support"
+-	depends on MOMENCO_OCELOT_C || MOMENCO_JAGUAR_ATX || MV64360 || MOMENCO_OCELOT_3
++	depends on MOMENCO_OCELOT_C || MOMENCO_JAGUAR_ATX || MV64360 || MOMENCO_OCELOT_3 || PPC_MULTIPLATFORM
+ 	help
+ 	  This driver supports the gigabit Ethernet on the Marvell MV643XX
+ 	  chipset which is used in the Momenco Ocelot C and Jaguar ATX and
