@@ -1,46 +1,31 @@
-From: Antonio Miguel Trindade <trindade@student.dei.uc.pt>
-Subject: Status of implementations
-Date: Thu, 25 Jul 2002 15:59:56 +0100
+From: Jos Vos <jos@xos.nl>
+Subject: Re: Status of implementations
+Date: Thu, 25 Jul 2002 17:05:35 +0200
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <200207251600.00785.trindade@student.dei.uc.pt>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Message-ID: <200207251505.RAA06891@minnie.xos.nl>
+References: <200207251600.00785.trindade@student.dei.uc.pt>
+Cc: netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Antonio Miguel Trindade <trindade@student.dei.uc.pt>
+In-Reply-To: Your message of "Thu, 25 Jul 2002 15:59:56 BST."
+             <200207251600.00785.trindade@student.dei.uc.pt>
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+Hi,
 
+>    What I would like know is, if possible, what is the status of several IPv6
+> implementations. I thought of using SuSE, as it already boasts a good Linux
+> implementation, but I would like to hear from you.
 
-   Hello all!
+Better don't start political discussions about "good Linux implementations"
+(i.e., flame wars about distributions ;-)), but you might want to look at
+this excellent page for IPv6 support:
 
-   I am finishing my graduate degree in Computer Science and the work=20
-assignment is about Multicasting over IPv6.
+   http://www.bieringer.de/linux/IPv6/status/IPv6+Linux-status.html
 
-   What I would like know is, if possible, what is the status of several =
-IPv6=20
-implementations. I thought of using SuSE, as it already boasts a good Lin=
-ux=20
-implementation, but I would like to hear from you.
+Have fun,
 
-   Thanks in advance.
-
-- --=20
-- ----------------------------------------------------------
-         Antonio Miguel Ferreira Marques Trindade
-                trindade@student.dei.uc.pt
-            Faculdade de Ci=EAncias e Tecnologia
-                 Universidade de Coimbra
-                        PORTUGAL
-- ----------------------------------------------------------
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.0.6 (GNU/Linux)
-Comment: For info see http://www.gnupg.org
-
-iD8DBQE9QBJwBCmuJFX6u2cRAv2cAKCnPLbBXN0gSRwvFpCvJFBpUvFPvgCfQ0kl
-W4vrzQRRWzmdVIAZs1ywQcM=3D
-=3DmCLG
------END PGP SIGNATURE-----
+-- 
+--    Jos Vos <jos@xos.nl>
+--    X/OS Experts in Open Systems BV   |   Phone: +31 20 6938364
+--    Amsterdam, The Netherlands        |     Fax: +31 20 6948204
