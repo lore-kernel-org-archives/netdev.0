@@ -1,18 +1,31 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [patch 1/3 2.5] e100 - Use pci_device_name for syslog messages
- till registering netdevice
-Date: Fri, 17 Sep 2004 10:29:08 -0400
+From: James Morris <jmorris@redhat.com>
+Subject: Re: Crypto tests via tcrypt.o modules failes
+Date: Fri, 17 Sep 2004 10:58:35 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <414AF4B4.2090806@pobox.com>
-References: <Pine.LNX.4.44.0409170206350.15233-100000@isotope.jf.intel.com>
+Message-ID: <Xine.LNX.4.44.0409171056470.7996-100000@thoron.boston.redhat.com>
+References: <1095358282.3359.83.camel@swoop.gemtek.lt>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
-In-Reply-To: <Pine.LNX.4.44.0409170206350.15233-100000@isotope.jf.intel.com>
+To: Zilvinas Valinskas <zilvinas@gemtek.lt>
+In-Reply-To: <1095358282.3359.83.camel@swoop.gemtek.lt>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-applied 3 patches to 2.6.x.
+On Thu, 16 Sep 2004, Zilvinas Valinskas wrote:
+
+> I would say Xscale IXP425 has a rather interesting 32, 16 bits
+> read/write results if address is not aligned properly. In the same
+> directory - http://www.gemtek.lt/~zilvinas/crypto/ i've put *.pdf
+> describing what exactly is happening. 
+
+I've had a report that all is well on an Xscale PXA (SoC) system, with a 
+2.6.7-rc2 kernel.  Are there any significant differences between that and 
+what you have?
+
+
+- James
+-- 
+James Morris
+<jmorris@redhat.com>
