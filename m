@@ -1,122 +1,98 @@
-From: Willy Tarreau <willy@w.ods.org>
-Subject: [PATCH] 2.4.22-pre9-bk : bonding bug fixes
-Date: Wed, 30 Jul 2003 16:06:58 +0200
+From: Harald Welte <laforge@netfilter.org>
+Subject: Re: port-based filtering of ESP packets with in-kernel IPsec?
+Date: Wed, 30 Jul 2003 16:24:11 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030730140658.GA14437@alpha.home.local>
+Message-ID: <20030730142411.GD4553@sunbeam.de.gnumonks.org>
+References: <1059540296.16545.305.camel@k7.localnet>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, bonding-devel@lists.sourceforge.net,
-   linux-kernel@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="kvUQC+jR9YzypDnK"
+Cc: netfilter@lists.netfilter.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com, jgarzik@pobox.com, marcelo@conectiva.com.br
+To: netfilter-devel@lists.netfilter.org
 Content-Disposition: inline
+In-Reply-To: <1059540296.16545.305.camel@k7.localnet>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-Hi Marcelo, David, Jeff...
+--kvUQC+jR9YzypDnK
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-there are still a few bugs in the current bonding driver. I've reported them
-several times now, but perhaps not at the right places...
+On Tue, Jul 29, 2003 at 11:44:57PM -0500, Rick Kennell wrote:
+> I asked about this last week in the general netfilter list, but it
+> appears that most folks are still using FreeS/WAN for IPsec.
 
-So :
-  - the first patch fixes a typo in the MODULE_PARM_DESC
+yes, most people will use a stable kernel rather than a development one
+;)
 
-  - the second one adds a comment and a warning around some code I don't
-    understand, but which cannot be executed. It's within function
-    bond_xmit_activebackup, and only executes if bond->mode != ACTIVEBACKUP....
+> I'm using the in-kernel IPsec and want to be able to filter ESP packets
+> based on protocol or port number.  These values are encapsulated in the
+> ESP payload and are unavailable to netfilter.  If I were using
+> FreeS/WAN, I could use standard netfilter techniques on the ipsec0
+> device.  With the in-kernel IPsec, there's no extra pseudo-device with
+> which to examine unencapsulated ESP packets.
 
-  - now the last one fixes a kernel panic due to a cheap hack which was introduced
-    to determine the source IP address to use with ARP checks. It takes the first
-    address of the first slave, and puts a lock on it. If there's no address, its
-    ip_ptr is NULL, and the kernel panics while trying to get the lock. You can
-    reproduce it easily this way :
+true.
 
-    # modprobe eth0
-    # modprobe bonding mode=active-backup miimon=1000
-    # ip link set bond0 up
-    # ifenslave bond0 eth0
-    => kernel panic !
+> It looks too me like netfilter sees the packet as ESP in all chains in
+> all tables.  (I'd be delighted to be corrected.)
 
-Now here are the patches. I really hope to get them into 2.4.22, since I'm a
-bit fed up with my server panicing each time I try a vanilla new kernel which
-I forget to patch...
+I haven't investigated the new in-kernel ESP implementation that far,
+but your observation sounds reasonable (although I don't say this is the
+desired behaviour).
 
-Cheers,
-Willy
+> Since ESP packets that reach the mangle INPUT chain are destined for a
+> local process, why not unencapsulate them just before that point? =20
 
+Because NF_IP_LOCAL_IN (like all other hooks) are in the layer 3 stack,
+and decapsulating ESP is inside a layer 4 protocol - thus it happens
+after the ip stack has handed it over to the esp4 protocol engine.
 
-======== first one ==========
+> It might still be nice to have an indication that this was once an ESP
+> packet for filtering, but that could be done by setting a mark in the
+> mangle PREROUTING chain.
 
---- linux-2.4.22-pre9-bk/drivers/net/bonding/bond_main.c	Wed Jul 30 09:49:48 2003
-+++ linux-2.4.22-pre9-bk-bond/drivers/net/bonding/bond_main.c	Wed Jul 30 15:09:15 2003
-@@ -524,7 +524,7 @@
- MODULE_PARM(miimon, "i");
- MODULE_PARM_DESC(miimon, "Link check interval in milliseconds");
- MODULE_PARM(use_carrier, "i");
--MODULE_PARM_DESC(use_carrier, "Use netif_carrier_ok (vs MII ioctls) in miimon; 09 for off, 1 for on (default)");
-+MODULE_PARM_DESC(use_carrier, "Use netif_carrier_ok (vs MII ioctls) in miimon; 0 for off, 1 for on (default)");
- MODULE_PARM(mode, "s");
- MODULE_PARM_DESC(mode, "Mode of operation : 0 for round robin, 1 for active-backup, 2 for xor");
- MODULE_PARM(arp_interval, "i");
+no. My preferred solution was something like adding a netfilter hook to
+the xfrm4 engine, exactly after decapsulation / decryption of one layer,
+i.e.  after xfrm_type.input was called.=20
 
+iptables could then register the INPUT chain (or probably even a
+seperate POSTXFRM chain) in order to filter on the respective packets.
 
+> I realize that this would probably require some heavy lifting in the
+> network layer to accomplish this nesting of functionality.
 
-======== second one ==========
+yes, this is why this should be discussed on the netdev list (Cc'ed).
 
---- linux-2.4.22-pre9-bk/drivers/net/bonding/bond_main.c	Wed Jul 30 15:12:11 2003
-+++ linux-2.4.22-pre9-bk-bond/drivers/net/bonding/bond_main.c	Wed Jul 30 15:31:01 2003
-@@ -3281,6 +3281,19 @@
- 		memcpy(&my_ip, the_ip, 4);
- 	}
- 
-+	/* w.tarreau - 2003/07/30
-+	 * I don't understand the logic here :
-+	 * - this code should be run only if we're NOT in active-backup mode, which
-+	 *   is the only mode for which this function will be called.
-+	 * - the comment says the code tries to avoid sending broadcasts for ARP
-+	 *   requests when the destination is known. This is obviously wrong since
-+	 *   it will prevent you from changing the dead equipment you were checking
-+	 *   without reloading the bonding driver ! High availability and low
-+	 *   network usage never mix well ...
-+	 */
-+#warning "This code may need a fix !"
-+#ifdef HOW_CAN_THIS_BE_CALLED
-+
- 	/* if we are sending arp packets and don't know 
- 	 * the target hw address, save it so we don't need 
- 	 * to use a broadcast address.
-@@ -3302,6 +3315,7 @@
- 				memcpy(arp_target_hw_addr, eth_hdr->h_dest, ETH_ALEN);
- 		}
- 	}
-+#endif
- 
- 	read_lock(&bond->lock);
- 
+I think this needs to be sorted out before 2.6.0-final will be released.
 
-========= third one ==========
+Any comments are appreciated.
 
+> Am I missing something obvious?
 
---- linux-2.4.22-pre9-bk/drivers/net/bonding/bond_main.c	Wed Jul 30 15:09:15 2003
-+++ linux-2.4.22-pre9-bk-bond/drivers/net/bonding/bond_main.c	Wed Jul 30 15:12:11 2003
-@@ -1594,11 +1594,14 @@
- #endif
- 			bond_set_slave_inactive_flags(new_slave);
- 		}
--		read_lock_irqsave(&(((struct in_device *)slave_dev->ip_ptr)->lock), rflags);
--		ifap= &(((struct in_device *)slave_dev->ip_ptr)->ifa_list);
--		ifa = *ifap;
--		my_ip = ifa->ifa_address;
--		read_unlock_irqrestore(&(((struct in_device *)slave_dev->ip_ptr)->lock), rflags);
-+		if (((struct in_device *)slave_dev->ip_ptr) != NULL) {
-+			read_lock_irqsave(&(((struct in_device *)slave_dev->ip_ptr)->lock), rflags);
-+			ifap= &(((struct in_device *)slave_dev->ip_ptr)->ifa_list);
-+			ifa = *ifap;
-+			if (ifa != NULL)
-+				my_ip = ifa->ifa_address;
-+			read_unlock_irqrestore(&(((struct in_device *)slave_dev->ip_ptr)->lock), rflags);
-+		}
- 
- 		/* if there is a primary slave, remember it */
- 		if (primary != NULL) {
+--=20
+- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+  "Fragmentation is like classful addressing -- an interesting early
+   architectural error that shows how much experimentation was going
+   on while IP was being designed."                    -- Paul Vixie
+
+--kvUQC+jR9YzypDnK
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.2 (GNU/Linux)
+
+iD8DBQE/J9ULXaXGVTD0i/8RApDKAJ9Khp7Ne+MXX8f1gKyXpIwDUWegdgCfYY6g
+xKhlDsfWItUGVBtroYz8EOs=
+=qqO8
+-----END PGP SIGNATURE-----
+
+--kvUQC+jR9YzypDnK--
