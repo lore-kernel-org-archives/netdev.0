@@ -1,52 +1,42 @@
-From: Parag Nemade <cranium2003@yahoo.com>
-Subject: ping takes much time to myself?
-Date: Mon, 26 Apr 2004 08:44:37 -0700 (PDT)
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20040426154437.67657.qmail@web41402.mail.yahoo.com>
+From: "Richard B. Johnson" <root@chaos.analogic.com>
+Subject: Re: ping takes much time to myself?
+Date: Mon, 26 Apr 2004 12:02:29 -0400 (EDT)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <Pine.LNX.4.53.0404261159510.1494@chaos>
+References: <20040426154437.67657.qmail@web41402.mail.yahoo.com>
+Reply-To: root@chaos.analogic.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kernerl mail <linux-kernel@vger.kernel.org>,
-	linux net <linux-net@vger.kernel.org>
-Return-path: <linux-net-owner@vger.kernel.org>
-To: net dev <netdev@oss.sgi.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: net dev <netdev@oss.sgi.com>, kernerl mail <linux-kernel@vger.kernel.org>,
+        linux net <linux-net@vger.kernel.org>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Parag Nemade <cranium2003@yahoo.com>
+In-Reply-To: <20040426154437.67657.qmail@web41402.mail.yahoo.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-hello,
-     i want to add my own variables with icmp header.
-so i modified icmp header and added 2 variables to
-make icmp header len is 16 bytes. but when i build
-kernel image and boot it and then ping to myself why
-am i still getting 8 bytes header i.e. 84 bytes packet
-and why not 92 bytes packet?
-56 bytes data + 16 bytes icmp header + 20 bytes ip
-header = 92 bytes
-also ping results shown below takes much time to ping
-myself. what gone wrong? how to make it behave like
-normal ping?
+On Mon, 26 Apr 2004, Parag Nemade wrote:
 
-[root@localhost root]# ping localhost
-PING localhost.localdomain (127.0.0.1) 56(84) bytes of
-data.
-64 bytes from localhost.localdomain (127.0.0.1):
-icmp_seq=1 ttl=64 time=1488806
-ms
-64 bytes from localhost.localdomain (127.0.0.1):
-icmp_seq=2 ttl=64 time=1489805
-ms
-
---- localhost.localdomain ping statistics ---
-2 packets transmitted, 2 received, 0% packet loss,
-time 999ms
-rtt min/avg/max/mdev =
-1488806.484/1489305.976/1489805.469/500.981 ms
-[root@localhost root]#
-regards,
-parag.
+> hello,
+>      i want to add my own variables with icmp header.
+> so i modified icmp header and added 2 variables to
+> make icmp header len is 16 bytes. but when i build
+> kernel image and boot it and then ping to myself why
+> am i still getting 8 bytes header i.e. 84 bytes packet
+> and why not 92 bytes packet?
+> 56 bytes data + 16 bytes icmp header + 20 bytes ip
+> header = 92 bytes
+> also ping results shown below takes much time to ping
+> myself. what gone wrong? how to make it behave like
+> normal ping?
 
 
-	
-		
-__________________________________
-Do you Yahoo!?
-Yahoo! Photos: High-quality 4x6 digital prints for 25¢
-http://photos.yahoo.com/ph/print_splash
+You don't modify the kernel to make a new ICMP packet!
+You modify `ping` or make your own. If you change the
+length of the header, it is no longer ICMP. Your
+tools will misinterpret what you have.
+
+Cheers,
+Dick Johnson
+Penguin : Linux version 2.4.26 on an i686 machine (5557.45 BogoMips).
+            Note 96.31% of all statistics are fiction.
