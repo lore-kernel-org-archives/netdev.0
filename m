@@ -1,64 +1,69 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: pktgen
-Date: 29 Nov 2004 08:49:52 -0500
-Message-ID: <1101736191.1044.196.camel@jzny.localdomain>
-References: <20041124170948.GC18059@xi.wantstofly.org>
-	 <16804.60621.990421.525393@robur.slu.se>
-	 <20041125030450.GA24417@xi.wantstofly.org>
-	 <16805.40983.937641.670275@robur.slu.se>
-	 <20041127002841.GA17184@xi.wantstofly.org>
-	 <20041127004325.GA17401@xi.wantstofly.org>
-	 <16808.28005.74903.881087@robur.slu.se>
-	 <20041127135354.GA24617@xi.wantstofly.org>
-	 <20041127143923.GA25155@xi.wantstofly.org>
-	 <1101567861.1044.87.camel@jzny.localdomain>
-	 <20041128183143.GD6045@xi.wantstofly.org>
-Reply-To: hadi@cyberus.ca
+From: Bill Crowell <bill@crowellsystems.com>
+Subject: Re: Fw: ipsec hang
+Date: Mon, 29 Nov 2004 09:16:29 -0500
+Message-ID: <41AB2F3D.5060903@crowellsystems.com>
+References: <E1CXGlt-00069n-00@gondolin.me.apana.org.au> <41A5D1CF.10504@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>, netdev@oss.sgi.com,
-        Grant Grundler <grundler@parisc-linux.org>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        James Morris <jmorris@redhat.com>, akpm@osdl.org, netdev@oss.sgi.com,
+        mg@iceni.pl
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-In-Reply-To: <20041128183143.GD6045@xi.wantstofly.org>
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <41A5D1CF.10504@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2004-11-28 at 13:31, Lennert Buytenhek wrote:
-> On Sat, Nov 27, 2004 at 10:04:22AM -0500, jamal wrote:
+I will attempt to load the patch today and rerun the test. It is very 
+reproduceable. I've been trying to read the diff view on kernel.org to 
+see about any updates, but the server keeps giving me nasty messages: 
+internal server error, too many users, etc. I prefer to read the diff 
+before patching from bk to see if anything else is impacted.
 
-> 
-> > It would be interesting to see a study in this area though.
-> 
-> Indeed.  Right now it feels like I'm just poking around in the dark.  I'm
-> really interested by now in finding out exactly what part of packet TX is
-> taking how long and where all my cycles are going.
-> 
-> I don't have an Itanic but it's still possible to instrument the driver
-> and do some stuff Grant talks about in his OLS paper, something like the
-> attached.  (Exports # of MMIO reads/writes/flushes in the RX frame/
-> TX carrier/collision stats field.  Beware, flushes are double-counted
-> as reads.  Produces lots of output.)
-> 
-> During a 10Mpkt pktgen session (~16 seconds), I'm seeing:
-> - 131757 interrupts, ~8k ints/sec, ~76 pkts/int
-> - 131789 pure MMIO reads (i.e. not counting MMIO reads intended as write
-> 	flushes), which is E1000_READ_REG(icr) in the irq handler
-> - 10263536 MMIO writes (which would be 1 per packet plus 2 per interrupt)
-> - 131757 MMIO write flushes (readl() of the e1000 status register after
-> 	re-enabling IRQs in dev->poll())
-> 
-> Pretty consistent with what Grant was seeing.
-> 
-> MMIO reads from the e1000 are somewhere between 2000 and 3000 cycles a
-> pop on my hardware.  2400MHz CPU -> ~1us/each.  (Reading netdevice stats
-> does ~50 of those in a row.)
-> 
+We'll give it a go this afternoon. As a backup, I've successfully 
+installed and tested OpenVPN, though it doesn't provide connectivity to 
+other systems (read Cisco) running IPSec.
 
-Reads are known to be expensive. Good to see how much they are reduced. 
-Not sure if this applies to MMIO reads though. Grant?
+I'll keep all informed as to the progress.
 
-cheers,
-jamal
+Thanks for the quick response! I sent a bug report to Redmond about 7 
+years ago and am still awaiting a reply ;-)
+
+Bill
+
+Patrick McHardy wrote:
+
+> Herbert Xu wrote:
+>
+>> James Morris <jmorris@redhat.com> wrote:
+>>  
+>>
+>>> I wonder if it's the same bug as 
+>>> http://bugme.osdl.org/show_bug.cgi?id=3796
+>>>   
+>>
+>>
+>> Quite likely.
+>>
+>> Bill, can you please try the latest BK tree and see if you can
+>> still reproduce the hang?
+>>  
+>>
+> The patch is not in Linus's tree yet, so you need to apply it
+> yourself.
+>
+> Regards
+> Patrick
+>
+>
+>
+
+-- 
+William G. Crowell, VP & CTO            | Phone    704.665.2000
+Crowell Systems                         | Fax      704.665.2180
+4235 South Stream Blvd Suite 100        | NOC      704.357.1885
+Charlotte  NC 28217  USA
+
+Computers are like airconditioners: They stop working properly if you open Windows.
