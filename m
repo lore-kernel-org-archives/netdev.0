@@ -1,123 +1,35 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] deinline sock_i_uid,sock_i_ino
-Date: Wed, 7 Jul 2004 09:54:43 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040707095443.7b54b63d@dell_ss3.pdx.osdl.net>
+Subject: Re: [PATCH] fix tcp_default_win_scale.
+Date: Wed, 7 Jul 2004 11:06:53 -0700
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20040707110653.7c49bef1@dell_ss3.pdx.osdl.net>
+References: <20040629222751.392f0a82.davem@redhat.com>
+	<20040630152750.2d01ca51@dell_ss3.pdx.osdl.net>
+	<20040630153049.3ca25b76.davem@redhat.com>
+	<20040701133738.301b9e46@dell_ss3.pdx.osdl.net>
+	<20040701140406.62dfbc2a.davem@redhat.com>
+	<20040702013225.GA24707@conectiva.com.br>
+	<20040706093503.GA8147@outpost.ds9a.nl>
+	<20040706114741.1bf98bbe@dell_ss3.pdx.osdl.net>
+	<20040706194034.GA11021@mail.shareable.org>
+	<20040706131235.10b5afa8.davem@redhat.com>
+	<20040706224453.GA6694@outpost.ds9a.nl>
+	<20040706154907.422a6b73.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
+Cc: bert hubert <ahu@ds9a.nl>, jamie@shareable.org, netdev@oss.sgi.com,
+	linux-net@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
 To: "David S. Miller" <davem@redhat.com>
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <20040706154907.422a6b73.davem@redhat.com>
 List-Id: netdev.vger.kernel.org
 
-The sock_i_uid and sock_i_ino functions are only called by /proc type interfaces,
-so they don't need to be inlined. 
+I do not argue with that the correct thing to do is to use window scaling
+and find/fix the poor sop's stuck behind busted networks.
 
-Also, the inline functions writeable, rcvtimeo, sndtimeo are test for value functions
-that don't change their argument.
-
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
-
-diff -Nru a/include/net/sock.h b/include/net/sock.h
---- a/include/net/sock.h	2004-07-06 13:41:40 -07:00
-+++ b/include/net/sock.h	2004-07-06 13:41:40 -07:00
-@@ -917,25 +917,8 @@
- 	write_unlock_bh(&sk->sk_callback_lock);
- }
- 
--static inline int sock_i_uid(struct sock *sk)
--{
--	int uid;
--
--	read_lock(&sk->sk_callback_lock);
--	uid = sk->sk_socket ? SOCK_INODE(sk->sk_socket)->i_uid : 0;
--	read_unlock(&sk->sk_callback_lock);
--	return uid;
--}
--
--static inline unsigned long sock_i_ino(struct sock *sk)
--{
--	unsigned long ino;
--
--	read_lock(&sk->sk_callback_lock);
--	ino = sk->sk_socket ? SOCK_INODE(sk->sk_socket)->i_ino : 0;
--	read_unlock(&sk->sk_callback_lock);
--	return ino;
--}
-+extern int sock_i_uid(struct sock *sk);
-+extern unsigned long sock_i_ino(struct sock *sk);
- 
- static inline struct dst_entry *
- __sk_dst_get(struct sock *sk)
-@@ -1219,7 +1202,7 @@
- /*
-  *	Default write policy as shown to user space via poll/select/SIGIO
-  */
--static inline int sock_writeable(struct sock *sk) 
-+static inline int sock_writeable(const struct sock *sk) 
- {
- 	return atomic_read(&sk->sk_wmem_alloc) < (sk->sk_sndbuf / 2);
- }
-@@ -1229,17 +1212,17 @@
- 	return in_softirq() ? GFP_ATOMIC : GFP_KERNEL;
- }
- 
--static inline long sock_rcvtimeo(struct sock *sk, int noblock)
-+static inline long sock_rcvtimeo(const struct sock *sk, int noblock)
- {
- 	return noblock ? 0 : sk->sk_rcvtimeo;
- }
- 
--static inline long sock_sndtimeo(struct sock *sk, int noblock)
-+static inline long sock_sndtimeo(const struct sock *sk, int noblock)
- {
- 	return noblock ? 0 : sk->sk_sndtimeo;
- }
- 
--static inline int sock_rcvlowat(struct sock *sk, int waitall, int len)
-+static inline int sock_rcvlowat(const struct sock *sk, int waitall, int len)
- {
- 	return (waitall ? len : min_t(int, sk->sk_rcvlowat, len)) ? : 1;
- }
-diff -Nru a/net/core/sock.c b/net/core/sock.c
---- a/net/core/sock.c	2004-07-06 13:41:40 -07:00
-+++ b/net/core/sock.c	2004-07-06 13:41:40 -07:00
-@@ -711,6 +711,27 @@
- 	atomic_sub(skb->truesize, &sk->sk_rmem_alloc);
- }
- 
-+
-+int sock_i_uid(struct sock *sk)
-+{
-+	int uid;
-+
-+	read_lock(&sk->sk_callback_lock);
-+	uid = sk->sk_socket ? SOCK_INODE(sk->sk_socket)->i_uid : 0;
-+	read_unlock(&sk->sk_callback_lock);
-+	return uid;
-+}
-+
-+unsigned long sock_i_ino(struct sock *sk)
-+{
-+	unsigned long ino;
-+
-+	read_lock(&sk->sk_callback_lock);
-+	ino = sk->sk_socket ? SOCK_INODE(sk->sk_socket)->i_ino : 0;
-+	read_unlock(&sk->sk_callback_lock);
-+	return ino;
-+}
-+
- /*
-  * Allocate a skb from the socket's send buffer.
-  */
-@@ -1379,6 +1400,8 @@
- EXPORT_SYMBOL(sock_setsockopt);
- EXPORT_SYMBOL(sock_wfree);
- EXPORT_SYMBOL(sock_wmalloc);
-+EXPORT_SYMBOL(sock_i_uid);
-+EXPORT_SYMBOL(sock_i_ino);
- #ifdef CONFIG_SYSCTL
- EXPORT_SYMBOL(sysctl_optmem_max);
- EXPORT_SYMBOL(sysctl_rmem_max);
+But: isn't it better to have just one sysctl parameter set (tcp_rmem)
+and set the window scale as needed rather than increasing the already
+bewildering array of dials and knobs?  I can't see why it would be advantageous
+to set a window scale of 7 if the largest possible window ever offered
+is limited to a smaller value? 
