@@ -1,79 +1,36 @@
-From: Jeroen Massar <jeroen@unfix.org>
-Subject: Re: (usagi-users 03249) Re: support of IPv6 by NFS
-Date: Sun, 06 Mar 2005 16:40:13 +0100
-Message-ID: <1110123613.24625.48.camel@firenze.zurich.ibm.com>
-References: <42243F8D.5030302@bull.net>
-	 <200503010744.38339.Info@Quantum-Sci.com>
-	 <1109689712.17484.6.camel@firenze.zurich.ibm.com>
-	 <20050306110442.GW30487@sunbeam.de.gnumonks.org>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: [patch 01/26] list_for_each: net-ipv6-ip6_fib.c
+Date: Mon, 07 Mar 2005 01:40:40 +0900 (JST)
+Message-ID: <20050307.014040.48352532.yoshfuji@linux-ipv6.org>
+References: <20050306103238.86F181E46E@trashy.coderock.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-pC7KyXYB44plltdaJnHI"
-Cc: netdev@oss.sgi.com
-To: usagi-users@linux-ipv6.org
-In-Reply-To: <20050306110442.GW30487@sunbeam.de.gnumonks.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com, janitor@sternwelten.at,
+        yoshfuji@linux-ipv6.org
+To: domen@coderock.org
+In-Reply-To: <20050306103238.86F181E46E@trashy.coderock.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+In article <20050306103238.86F181E46E@trashy.coderock.org> (at Sun, 06 Mar 2005 11:32:38 +0100), domen@coderock.org says:
 
---=-pC7KyXYB44plltdaJnHI
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+> s/for/list_for_each/
+> Compile tested.
+:
+> +++ kj-domen/net/ipv6/ip6_fib.c	2005-03-05 16:09:09.000000000 +0100
+> @@ -99,7 +99,7 @@ struct fib6_walker_t fib6_walker_list = 
+>  	.next	= &fib6_walker_list, 
+>  };
+>  
+> -#define FOR_WALKERS(w) for ((w)=fib6_walker_list.next; (w) != &fib6_walker_list; (w)=(w)->next)
+> +#define FOR_WALKERS(w) list_for_each((w), &fib6_walker_list)
+>  
+>  static __inline__ u32 fib6_new_sernum(void)
+>  {
 
-On Sun, 2005-03-06 at 12:04 +0100, Harald Welte wrote:
->On Tue, Mar 01, 2005 at 04:08:32PM +0100, Jeroen Massar wrote:
->> >My experience is that IPV6 is extremely difficult to figure out how
->> >to set up securely, for the time being, due to lack of
->> >connection-sharing.
->>=20
->> NAT is not a firewall. Get that into your brain.
->
->oh, that was what he meant.  I wasn't familiar with the term 'connection
->sharing'. =20
+Please don't. fib6_walker_list is not for fib6_walker_t but list_head.
+(Or, why don't you convert fib6_walker_t to use list_head families?)
 
-That is the Windows term for it ;)
-
->I've stated numerous time that IPv6<->IPv6 NAT will only end up in
->netfilter/iptables over my dead body.
-
-Hmmm..... then I guess that I'll have to kill you at some point ;)
-But I'll leave it to printing out a kernel source and throwing it on
-your casket in a year or 100 or so.
-
->IPv4<->IPv6 NAT-PT is a different issue, obviously.
->
->btw, the IETF BEHAVE group is actually demanding that a NAT device does
->not NAT ipv6 traffic!!
-
-Doing the NAT as in the 'connection sharing', or better said, "rewriting
-source/dest addresses and packet contents" is evil. But the other method
-for which we are going to use a "translation of addresses", but on both
-sides will be very interesting and will cost you your dead body <grin>.
-
->> And indeed there is no Linux firewalling code yet, in the mainstream
->> that can do connection tracking.=20
->
->still, ip6_conntrack is shipped by commercial distributions like SuSE...
-
-There is nothing wrong with connection tracking as that can be used for
-checking if a certain packet is allowed to come back into the firewall
-or not, one of the basic principles of stateful firewalling
-
-Greets,
- Jeroen
-
-
---=-pC7KyXYB44plltdaJnHI
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.0 (GNU/Linux)
-Comment: Jeroen Massar / http://unfix.org/~jeroen/
-
-iD8DBQBCKyRdKaooUjM+fCMRAqe5AJ9+1cBxSpto5AE7bXgfEquJS6mIjwCfTqO8
-6eMpfRgnxJbSqfGc18SQyYk=
-=uq9A
------END PGP SIGNATURE-----
-
---=-pC7KyXYB44plltdaJnHI--
+--yoshfuji
