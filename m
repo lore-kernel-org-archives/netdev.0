@@ -1,31 +1,34 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: ethernet QoS support?
-Date: 12 Jul 2004 22:36:50 -0400
+Subject: Re: [RFC] netem - add jitter support.
+Date: 12 Jul 2004 22:39:36 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1089686209.1045.20.camel@jzny.localdomain>
-References: <1C440F3C-D110-11D8-8B61-000393DBC2E8@freescale.com>
-	 <200407092126.43021.vkondra@mail.ru>
-	 <1089634701.1055.260.camel@jzny.localdomain>
-	 <200407122107.29389.vkondra@mail.ru>
-	 <1089685567.1046.9.camel@jzny.localdomain>
+Message-ID: <1089686376.1044.24.camel@jzny.localdomain>
+References: <20040708135320.03366bd7@dell_ss3.pdx.osdl.net>
+	 <1089335650.1046.150.camel@jzny.localdomain>
+	 <20040712081239.21697179@dell_ss3.pdx.osdl.net>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Jeff Garzik <jgarzik@pobox.com>,
-        Kumar Gala <kumar.gala@freescale.com>
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Vladimir Kondratiev <vkondra@mail.ru>
-In-Reply-To: <1089685567.1046.9.camel@jzny.localdomain>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20040712081239.21697179@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2004-07-12 at 22:26, jamal wrote:
+On Mon, 2004-07-12 at 11:12, Stephen Hemminger wrote:
 
-> If you have 8 priorities then priority 7 would be the highest in 
-> IEEE speak (i.e most important) but priority 0 would be the one
-> considered most important for IEEE. 
-                         that   ^^^^ should be IETF.
+> > - Could that table be computed in user space instead? This way you are
+> > not restricted to just the normal distribution. I could also use them
+> > if available from within tc sources,
+> 
+> That wouldn't be hard, maybe even the ability to do correlated distributions.
+
+Exactly - i have a standard action which is currently programmable for
+randomization as well; so if you have a standard way to send from user
+space(tc) i will use it. Actually those tables are well done in NIST. I
+am suprised i missed them before now. 
 
 cheers,
 jamal
