@@ -1,8 +1,8 @@
 From: Don Fry <brazilnut@us.ibm.com>
-Subject: [PATCH 1/2 2.6.6-rc1-bk5] pcnet32 add register dump capability
-Date: Tue, 20 Apr 2004 15:54:56 -0700 (PDT)
+Subject: [PATCH 2/2 2.6.6-rc1-bk5] pcnet32 timer to free tx skbs for 79C971/972
+Date: Tue, 20 Apr 2004 15:57:28 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200404202254.i3KMsva13912@DYN318364BLD.beaverton.ibm.com>
+Message-ID: <200404202257.i3KMvSr13923@DYN318364BLD.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -11,138 +11,176 @@ To: tsbogend@alpha.franken.de, jgarzik@pobox.com, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-At the next opportunity to add new code to 2.6.6, please apply the following
-patch to include the capability to dump chip registers.  Ethtool -d support.
+At the next opportunity to add new code to 2.6.6, please apply the following:
 
---- linux-2.6.6-rc1-bk5/drivers/net/good.pcnet32.c	Tue Apr 20 15:46:32 2004
-+++ linux-2.6.6-rc1-bk5/drivers/net/pcnet32.c	Tue Apr 20 15:43:34 2004
-@@ -132,6 +132,8 @@
- };
- #define PCNET32_TEST_LEN (sizeof(pcnet32_gstrings_test) / ETH_GSTRING_LEN)
- 
-+#define PCNET32_NUM_REGS 146
-+
- #define MAX_UNITS 8	/* More are supported, limit only on options */
- static int options[MAX_UNITS];
- static int full_duplex[MAX_UNITS];
-@@ -234,7 +236,7 @@
-  *	   Jim Lewis <jklewis@us.ibm.com> added ethernet loopback test.
+This patch uses an on-chip timer to free completed transmit skb's for the
+79C971 and 972 versions which currently will leave completed transmit
+skb's on the transmit ring until new transmit traffic occurs.
+
+--- linux-2.6.6-rc1-bk5/drivers/net/dump.pcnet32.c	Tue Apr 20 15:47:47 2004
++++ linux-2.6.6-rc1-bk5/drivers/net/pcnet32.c	Tue Apr 20 15:48:49 2004
+@@ -237,6 +237,8 @@
   *	   Thomas Munck Steenholdt <tmus@tmus.dk> non-mii ioctl corrections.
   * v1.29   6 Apr 2004 Jim Lewis <jklewis@us.ibm.com> added physical
-- *	   identification code (blink led's).
-+ *	   identification code (blink led's) and register dump.
+  *	   identification code (blink led's) and register dump.
++ *	   Don Fry added timer for 971/972 so skbufs don't remain on tx ring
++ *	   forever.
   */
  
  
-@@ -372,6 +374,9 @@
- static int pcnet32_loopback_test(struct net_device *dev, uint64_t *data1);
- static int pcnet32_phys_id(struct net_device *dev, u32 data);
- static void pcnet32_led_blink_callback(struct net_device *dev);
-+static int pcnet32_get_regs_len(struct net_device *dev);
-+static void pcnet32_get_regs(struct net_device *dev, struct ethtool_regs *regs,
-+	void *ptr);
- 
- enum pci_flags_bit {
-     PCI_USES_IO=1, PCI_USES_MEM=2, PCI_USES_MASTER=4,
-@@ -681,7 +686,7 @@
- 	    for (i=0; i<6; i++)
- 		*packet++ = dev->dev_addr[i];
- 	    for (i=0; i<6; i++)
--		*packet++ = dev->dev_addr[i]; 
-+		*packet++ = dev->dev_addr[i];
- 	    /* type */
- 	    *packet++ = 0x08;
- 	    *packet++ = 0x06;
-@@ -837,6 +842,72 @@
-     return 0;
+@@ -497,9 +499,9 @@
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ static void pcnet32_poll_controller(struct net_device *dev)
+ {
+-	disable_irq(dev->irq);
+-	pcnet32_interrupt(0, dev, NULL);
+-	enable_irq(dev->irq);
++    disable_irq(dev->irq);
++    pcnet32_interrupt(0, dev, NULL);
++    enable_irq(dev->irq);
  }
+ #endif
  
-+int pcnet32_get_regs_len(struct net_device *dev)
-+{
-+    return(PCNET32_NUM_REGS * sizeof(u16));
-+}
+@@ -1105,6 +1107,13 @@
+ 	ltint = 1;
+     }
+ 
++    if (ltint) {
++	/* Enable timer to prevent skbuffs from remaining on the tx ring
++	 * forever if no other tx being done.  Set timer period to about
++	 * 122 ms */
++	a->write_bcr(ioaddr, 31, 0x253b);
++    }
 +
-+void pcnet32_get_regs(struct net_device *dev, struct ethtool_regs *regs,
-+	void *ptr)
-+{
-+    int i, csr0;
-+    u16 *buff = ptr;
-+    struct pcnet32_private *lp = dev->priv;
-+    struct pcnet32_access *a = &lp->a;
-+    ulong ioaddr = dev->base_addr;
-+    int ticks;
-+    unsigned long flags;
+     dev = alloc_etherdev(0);
+     if (!dev) {
+ 	if (pcnet32_debug & NETIF_MSG_PROBE)
+@@ -1451,6 +1460,11 @@
+     lp->a.write_csr (ioaddr, 4, 0x0915);
+     lp->a.write_csr (ioaddr, 0, 0x0001);
+ 
++    if (lp->ltint) {
++	/* start the software timer */
++	lp->a.write_csr(ioaddr, 7, 0x0400);	/* set STINTE */
++    }
 +
+     netif_start_queue(dev);
+ 
+     /* If we have mii, print the link status and start the watchdog */
+@@ -1652,13 +1666,13 @@
+     int entry;
+     unsigned long flags;
+ 
 +    spin_lock_irqsave(&lp->lock, flags);
 +
-+    csr0 = a->read_csr(ioaddr, 0);
-+    if (!(csr0 & 0x0004)) {	/* If not stopped */
-+	/* set SUSPEND (SPND) - CSR5 bit 0 */
-+	a->write_csr(ioaddr, 5, 0x0001);
+     if (netif_msg_tx_queued(lp)) {
+ 	printk(KERN_DEBUG "%s: pcnet32_start_xmit() called, csr0 %4.4x.\n",
+ 	       dev->name, lp->a.read_csr(ioaddr, 0));
+     }
+ 
+-    spin_lock_irqsave(&lp->lock, flags);
+-
+     /* Default status -- will not enable Successful-TxDone
+      * interrupt when that option is available to us.
+      */
+@@ -1719,7 +1733,7 @@
+     struct net_device *dev = dev_id;
+     struct pcnet32_private *lp;
+     unsigned long ioaddr;
+-    u16 csr0,rap;
++    u16 csr0, csr7, rap;
+     int boguscnt =  max_interrupt_work;
+     int must_restart;
+ 
+@@ -1736,13 +1750,19 @@
+     spin_lock(&lp->lock);
+ 
+     rap = lp->a.read_rap(ioaddr);
+-    while ((csr0 = lp->a.read_csr (ioaddr, 0)) & 0x8600 && --boguscnt >= 0) {
++    csr0 = lp->a.read_csr (ioaddr, 0);
++    csr7 = lp->ltint ? lp->a.read_csr(ioaddr, 7) : 0;
 +
-+	/* poll waiting for bit to be set */
-+	ticks = 0;
-+	while (!(a->read_csr(ioaddr, 5) & 0x0001)) {
-+	    spin_unlock_irqrestore(&lp->lock, flags);
-+	    mdelay(1);
-+	    spin_lock_irqsave(&lp->lock, flags);
-+	    ticks++;
-+	    if (ticks > 200) {
-+		if (netif_msg_hw(lp))
-+		    printk(KERN_DEBUG "%s: Error getting into suspend!\n",
-+			    dev->name);
-+		break;
-+	    }
-+	}
++    while ((csr0 & 0x8600 || csr7 & 0x0800) && --boguscnt >= 0) {
+ 	if (csr0 == 0xffff) {
+ 	    break;			/* PCMCIA remove happened */
+ 	}
+ 	/* Acknowledge all of the current interrupt sources ASAP. */
+ 	lp->a.write_csr (ioaddr, 0, csr0 & ~0x004f);
+ 
++	if (csr7 & 0x0800)
++	    lp->a.write_csr(ioaddr, 7, csr7);
++
+ 	must_restart = 0;
+ 
+ 	if (netif_msg_intr(lp))
+@@ -1752,7 +1772,7 @@
+ 	if (csr0 & 0x0400)		/* Rx interrupt */
+ 	    pcnet32_rx(dev);
+ 
+-	if (csr0 & 0x0200) {		/* Tx-done interrupt */
++	if (csr0 & 0x0200 || csr7 & 0x0800) {	/* Tx-done or Timer interrupt */
+ 	    unsigned int dirty_tx = lp->dirty_tx;
+ 	    int delta;
+ 
+@@ -1859,6 +1879,9 @@
+ 	    lp->a.write_csr (ioaddr, 0, 0x0004);
+ 	    pcnet32_restart(dev, 0x0002);
+ 	}
++
++	csr0 = lp->a.read_csr (ioaddr, 0);
++	csr7 = lp->ltint ? lp->a.read_csr(ioaddr, 7) : 0;
+     }
+ 
+     /* Clear any other interrupt, and set interrupt enable. */
+@@ -1945,6 +1968,7 @@
+ 		    if (i > RX_RING_SIZE -2) {
+ 			lp->stats.rx_dropped++;
+ 			lp->rx_ring[entry].status |= le16_to_cpu(0x8000);
++			wmb();	/* Make sure adapter sees owner change */
+ 			lp->cur_rx++;
+ 		    }
+ 		    break;
+@@ -2008,6 +2032,10 @@
+     /* We stop the PCNET32 here -- it occasionally polls memory if we don't. */
+     lp->a.write_csr (ioaddr, 0, 0x0004);
+ 
++    if (lp->ltint) {	/* Disable timer interrupts */
++	lp->a.write_csr(ioaddr, 7, 0x0000);
 +    }
 +
-+    /* read address PROM */
-+    for (i=0; i<16; i += 2)
-+	*buff++ = inw(ioaddr + i);
+     /*
+      * Switch back to 16bit mode to avoid problems with dumb
+      * DOS packet driver after a warm reboot
+@@ -2018,9 +2046,12 @@
+ 
+     free_irq(dev->irq, dev);
+ 
++    spin_lock_irqsave(&lp->lock, flags);
 +
-+    for (i = 0; i <= 89; i++) {
-+	*buff++ = a->read_csr(ioaddr, i);
-+    }
-+
-+    *buff++ = a->read_csr(ioaddr, 112);
-+    *buff++ = a->read_csr(ioaddr, 114);
-+
-+    for (i = 0; i <= 35; i++) {
-+	*buff++ = a->read_bcr(ioaddr, i);
-+    }
-+
-+    if (!(csr0 & 0x0004)) {	/* If not stopped */
-+	/* clear SUSPEND (SPND) - CSR5 bit 0 */
-+	a->write_csr(ioaddr, 5, 0x0000);
-+    }
-+
-+    i = buff - (u16 *)ptr;
-+    for (; i < PCNET32_NUM_REGS; i++)
-+	*buff++ = 0;
-+
+     /* free all allocated skbuffs */
+     for (i = 0; i < RX_RING_SIZE; i++) {
+ 	lp->rx_ring[i].status = 0;
++	wmb();		/* Make sure adapter sees owner change */
+ 	if (lp->rx_skbuff[i]) {
+ 	    pci_unmap_single(lp->pci_dev, lp->rx_dma_addr[i], PKT_BUF_SZ-2,
+ 		    PCI_DMA_FROMDEVICE);
+@@ -2031,6 +2062,8 @@
+     }
+ 
+     for (i = 0; i < TX_RING_SIZE; i++) {
++	lp->tx_ring[i].status = 0;	/* CPU owns buffer */
++	wmb();		/* Make sure adapter sees owner change */
+ 	if (lp->tx_skbuff[i]) {
+ 	    pci_unmap_single(lp->pci_dev, lp->tx_dma_addr[i],
+ 		    lp->tx_skbuff[i]->len, PCI_DMA_TODEVICE);
+@@ -2040,6 +2073,8 @@
+ 	lp->tx_dma_addr[i] = 0;
+     }
+ 
 +    spin_unlock_irqrestore(&lp->lock, flags);
-+}
 +
- static struct ethtool_ops pcnet32_ethtool_ops = {
-     .get_settings	= pcnet32_get_settings,
-     .set_settings	= pcnet32_set_settings,
-@@ -853,6 +924,8 @@
-     .self_test_count	= pcnet32_self_test_count,
-     .self_test		= pcnet32_ethtool_test,
-     .phys_id		= pcnet32_phys_id,
-+    .get_regs_len	= pcnet32_get_regs_len,
-+    .get_regs		= pcnet32_get_regs,
- };
- 
- /* only probes for non-PCI devices, the rest are handled by
-@@ -1371,7 +1444,7 @@
- 
-     /* Re-initialize the PCNET32, and start it when done. */
-     lp->a.write_csr (ioaddr, 1, (lp->dma_addr +
--	     offsetof(struct pcnet32_private, init_block)) & 0xffff);
-+		offsetof(struct pcnet32_private, init_block)) & 0xffff);
-     lp->a.write_csr (ioaddr, 2, (lp->dma_addr +
- 		offsetof(struct pcnet32_private, init_block)) >> 16);
+     return 0;
+ }
  
 
 -- 
