@@ -1,49 +1,49 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [EXPERIMENTAL PATCH] 2.4 tulip jumbo frames
-Date: Tue, 09 Dec 2003 09:28:23 -0800
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] option for large routing hash
+Date: Tue, 9 Dec 2003 12:20:31 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3FD60637.2080009@candelatech.com>
-References: <20031209160632.D1345@sygehus.dk>
+Message-ID: <20031209122031.048b406f.davem@redhat.com>
+References: <16341.58771.558850.163216@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, jgarzik@pobox.com
+Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, Robert.Olsson@data.slu.se
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Rask Ingemann Lambertsen <rask@sygehus.dk>
-In-Reply-To: <20031209160632.D1345@sygehus.dk>
+To: Robert Olsson <Robert.Olsson@data.slu.se>
+In-Reply-To: <16341.58771.558850.163216@robur.slu.se>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Rask Ingemann Lambertsen wrote:
-> Attached is a patch which enables jumbo frames on tulip based boards. It  
-> makes it possible to set an MTU of up to 2025 bytes. However, testing
-> against an NE3200 board using 10base-2 shows assorted problems when going
-> above 2018 bytes (for frames without VLAN tags). The problems show up as
-> framing errors, bad CRCs and such (in both directions).
-> 
-> The patch is against 2.4.22-bk45.
+On Tue, 9 Dec 2003 16:09:07 +0100
+Robert Olsson <Robert.Olsson@data.slu.se> wrote:
 
-> +static int tulip_change_mtu (struct net_device *dev, int mtu)
-> +{
-> +	if (netif_running (dev))
-> +		return (-EBUSY);
-> +
-> +	if (mtu < 0 || mtu > PKT_BUF_SZ_MAX - VLAN_ETH_HLEN - 4)
-> +		return (-EINVAL);
+> I think patch should be useful as it helps performance a lot during high 
+> flow load. I have some numbers if you are interested.
 
-I suppose you could let them ignore the VLAN_ETH_HLEN if you
-really wanted to (in case they are not running VLANs).
+I'm very hesitant about this, and it is not because I don't believe
+that it brings better performance in your tests on your machines :)
 
-But, this should work fine too.
+Recently there was a thread on linux-kernel by the folks, such as Jes,
+working on super-duper-huge NUMA boxes and how big the hash tables
+get sized to on these machines.
 
---Ben
+In some of their configurations it was trying to allocate 1GB TCP
+hash tables or something totally rediculious like this.
 
-> +
-> +	dev->mtu = mtu;
-> +	return (0);
-> +}
-> +
+The problem with all of our current algorithms for size selection is
+that it considers only one parameter when there are actually two.
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+It considers currently only relative memory consumption.  It needs
+to also consider hard limits that exist for useful hash table sizes.
+
+There is a point at which hash table size exceeds it's usefulness in
+that the gains you are getting from the O(1) lookup are offset by the
+fact that the access to the hash table heads are constantly taking cpu
+cache misses.
+
+You've obtained good results in your tests with a _specific_ hash
+table size for the routing cache, but the algorithm you are proposing
+for the kernel computes things relative to the amount of memory in the
+machine.  It cannot be a function of only this parameter.
+
+Do you see my point?
