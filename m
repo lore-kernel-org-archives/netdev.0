@@ -1,54 +1,31 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: generic 802.11 stack
-Date: Sun, 12 Sep 2004 17:45:44 -0700
-Sender: acx100-devel-admin@lists.sourceforge.net
-Message-ID: <20040912174544.630a0b44.davem@davemloft.net>
-References: <200408312111.02438.vda@port.imtp.ilyichevsk.odessa.ua>
-	<200409090815.40358.vkondra@mail.ru>
-	<41408D8A.5010307@atheros.com>
-	<200409122103.21770.vkondra@mail.ru>
-	<4144E524.1050306@pobox.com>
-Reply-To: acx100-devel@lists.sourceforge.net
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] IPV6: fix an oops in rt6_device_match()
+Date: Mon, 13 Sep 2004 09:49:50 +0900 (JST)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040913.094950.47321151.yoshfuji@linux-ipv6.org>
+References: <20040911.201029.21582458.yoshfuji@linux-ipv6.org>
+	<20040912163216.7f49673a.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vkondra@mail.ru, greg@atheros.com, netdev@oss.sgi.com,
- acx100-devel@lists.sourceforge.net, hadi@cyberus.ca, jkmaline@cc.hut.fi,
- prism54-devel@prism54.org, sam@errno.com,
- vda@port.imtp.ilyichevsk.odessa.ua
-Return-path: <acx100-devel-admin@lists.sourceforge.net>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <4144E524.1050306@pobox.com>
-Errors-To: acx100-devel-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
-	<mailto:acx100-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:acx100-devel@lists.sourceforge.net>
-List-Help: <mailto:acx100-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
-	<mailto:acx100-devel-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
+Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: davem@davemloft.net
+In-Reply-To: <20040912163216.7f49673a.davem@davemloft.net>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 12 Sep 2004 20:09:08 -0400
-Jeff Garzik <jgarzik@pobox.com> wrote:
+In article <20040912163216.7f49673a.davem@davemloft.net> (at Sun, 12 Sep 2004 16:32:16 -0700), "David S. Miller" <davem@davemloft.net> says:
 
-> Vladimir Kondratiev wrote:
-> > To inform about status:
-> > I started to work on idea of 802.11 generic stack. I start from code by Dave. 
-> > This far I fixed it to compile for 2.6 (Makefile and couple of syntax 
-> > errors).
-> > I am going to implement minimum functionality, at this stage I will somehow 
-> > publish the project. Anyone can suggest what it the right solution for 
-> > hosting? Sourceforge? Something else?
+> > Well, rt->rt6i_idev is always set if it is dynamically allocated.
+> > However, when we hit ip6_null_entry here, its rt6i_idev is NULL.
+> > This patch is minimum fix to avoid the oops for now.
+> > 
+> > Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 > 
-> I can put it into the wireless-2.6 queue, which is where I would prefer 
-> that work on a generic 802.11 stack went.
+> Ok, as long as we fix this more cleanly eventually.
 
-This is fine with me as well.
+Thanks.
+I'll revisit when we introduce more users (per-interface stats.).
 
-
--------------------------------------------------------
-This SF.Net email is sponsored by: YOU BE THE JUDGE. Be one of 170
-Project Admins to receive an Apple iPod Mini FREE for your judgement on
-who ports your project to Linux PPC the best. Sponsored by IBM. 
-Deadline: Sept. 13. Go here: http://sf.net/ppc_contest.php
+--yoshfuji
