@@ -1,49 +1,44 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: IMQ again WAS(Re: iptables breakage WAS(Re:
-	dummy	as	IMQ	replacement
-Date: 28 Mar 2005 14:27:21 -0500
-Message-ID: <1112038041.1118.2.camel@jzny.localdomain>
-References: <1107123123.8021.80.camel@jzny.localdomain>
-	 <4241C478.5030309@dsl.pipex.com>
-	 <1111607112.1072.48.camel@jzny.localdomain>
-	 <4241D764.2030306@dsl.pipex.com>
-	 <1111612042.1072.53.camel@jzny.localdomain>
-	 <4241F1D2.9050202@dsl.pipex.com>  <4241F7F0.2010403@dsl.pipex.com>
-	 <1111625608.1037.16.camel@jzny.localdomain> <424212F7.10106@dsl.pipex.com>
-	 <1111663947.1037.24.camel@jzny.localdomain>
-	 <1111665450.1037.27.camel@jzny.localdomain>
-	 <4242DFB5.9040802@dsl.pipex.com>
-	 <1111749220.1092.457.camel@jzny.localdomain>
-	 <42446DB2.9070809@dsl.pipex.com>
-	 <1111781443.1092.631.camel@jzny.localdomain>
-	 <4244802C.7020202@dsl.pipex.com>
-	 <1111788760.1090.712.camel@jzny.localdomain>
-	 <42470AF9.8050402@dsl.pipex.com>  <424808F7.50101@dsl.pipex.com>
-	 <1112017546.1089.1048.camel@jzny.localdomain>
-	 <1112018231.1090.1051.camel@jzny.localdomain>
-	 <424810C5.7080707@dsl.pipex.com>
+Subject: Re: cls_u32 compile failure in current 2.6.12-rc1+BK tree
+Date: 28 Mar 2005 14:28:49 -0500
+Message-ID: <1112038128.1119.5.camel@jzny.localdomain>
+References: <Pine.SOC.4.61.0503272249040.5086@math.ut.ee>
+	 <1111972035.1091.946.camel@jzny.localdomain>
+	 <Pine.SOC.4.61.0503281017060.21333@math.ut.ee>
+	 <1112012657.1089.1013.camel@jzny.localdomain>
+	 <20050328123801.GY3086@postel.suug.ch>
+	 <1112014261.1089.1018.camel@jzny.localdomain>
+	 <20050328125802.GZ3086@postel.suug.ch>
+	 <1112015725.1089.1045.camel@jzny.localdomain>
+	 <20050328155523.GD3086@postel.suug.ch>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Harald Welte <laforge@gnumonks.org>, Patrick McHardy <kaber@trash.net>,
-        Remus <rmocius@auste.elnet.lt>, netdev <netdev@oss.sgi.com>,
-        Nguyen Dinh Nam <nguyendinhnam@gmail.com>, Andre Tomt <andre@tomt.net>,
-        syrius.ml@no-log.org, Damion de Soto <damion@snapgear.com>
+Cc: Meelis Roos <mroos@linux.ee>, netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andy Furniss <andy.furniss@dsl.pipex.com>
-In-Reply-To: <424821B1.1060501@dsl.pipex.com>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050328155523.GD3086@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2005-03-28 at 10:24, Andy Furniss wrote:
+On Mon, 2005-03-28 at 10:55, Thomas Graf wrote:
+> * jamal <1112015725.1089.1045.camel@jzny.localdomain> 2005-03-28 08:15
+> > On Mon, 2005-03-28 at 07:58, Thomas Graf wrote:
 
+> > But you cant completely do this for u32 tcf_exts_dump_stats.
+> > in the case of ACTION compiled in but someone using old API.
+> > The code that Meelis just mention that compiler complained about. 
+> > There was no problem with u32 and tcf_exts_dump - with that you can hide
+> > all #ifedfs. 
 > 
-> Played a bit more, it seems liks the qdisc has to be classful
-> 
+> I think we can avoid your fixes. 
 
-Sorry, yes, should have made that clear.
+You are still missing the question;->
+
+You can do this for every classifier but u32. Or is it me who is missing
+something?
 
 cheers,
 jamal
