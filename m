@@ -1,30 +1,68 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] proportional share accept()
-Date: Sun, 29 Feb 2004 22:05:13 -0800
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: Submission #3  for S2io 10GbE driver
+Date: Mon, 01 Mar 2004 01:53:33 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040229220513.68eed11f.davem@redhat.com>
-References: <Pine.LNX.4.44.0402251119060.3691-100000@dyn319495.beaverton.ibm.com>
-	<Pine.GSO.4.51.0402261659350.24561@mamba.cs.Virginia.EDU>
+Message-ID: <4042DDED.9070709@pobox.com>
+References: <4223A04BF7D1B941A25246ADD0462FF50115AD10@blr-m3-msg.wipro.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: kashyapv@us.ibm.com, shemminger@osdl.org, netdev@oss.sgi.com
+Cc: leonid.grossman@s2io.com, netdev@oss.sgi.com, shemminger@osdl.org,
+        hch@infradead.org, ravinandan.arakali@s2io.com,
+        raghavendra.koushik@s2io.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ronghua Zhang <rz5b@cs.virginia.edu>
-In-Reply-To: <Pine.GSO.4.51.0402261659350.24561@mamba.cs.Virginia.EDU>
+To: raghavendra.koushik@wipro.com
+In-Reply-To: <4223A04BF7D1B941A25246ADD0462FF50115AD10@blr-m3-msg.wipro.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 26 Feb 2004 17:08:23 -0500 (EST)
-Ronghua Zhang <rz5b@cs.virginia.edu> wrote:
+raghavendra.koushik@wipro.com wrote:
+> Jeff,
+>  Regarding Point # 37
+> 
+> 
+>>>37) kill all of this:
+>>>
+>>>+/*  OS related system calls */
+>>>+
+>>>+#ifndef readq
+>>>+static inline u64 read64(void *addr)
+>>>+{
+>>>+       u64 ret = 0;
+>>>+       ret = readl(addr + 4);
+>>>+       (u64) ret <<= 32;
+>>>+       (u64) ret |= readl(addr);
+> 
+> 	[....]
+> 
+> I agree that read/write(32,16,8) are not used so can be eliminated,
+> but the read/write64 macros are essential because not all platforms
+> have defined the readq and writeq system calls. i386 for example
+> doesn't have readq/writeq and to write into the 64 bit registers
+> of the NIC, I use 2 successive 32 bits (readl/writel) operation to
+> achieve the 64 bit equivalent. This procedure does work on all the
+> platforms that we have tested on.
 
-> www.cs.virginia.edu/~rz5b/research/kernel-qos.htm
+The code should use the kernel API -- readq/writeq -- not define its own 
+API.  With regards to the missing readq/writeq on some architectures...
 
-I looked at this, it's basically netfilter TCP port rewriting
-which knows about per-socket quotas and limits.
+Short term, if some arches do not provide readq/writeq, provide your own 
+definition (i.e. rename your write64 to a conditionally-defined writeq).
 
-You could write this as a 10 line netfilter module, with zero
-modifications to any of the core net/ipv4 TCP code at all.
-And that's how I'd like to see something like this done.
+Long term, all Linux platforms need to provide readq/writeq, so we need 
+to modify the architectures with the missing pieces.
 
-Otherwise it looks like a nice way of doing this.
+
+> Confidentiality Notice
+> 
+> The information contained in this electronic message and any attachments to this message are intended
+> for the exclusive use of the addressee(s) and may contain confidential or privileged information. If
+> you are not the intended recipient, please notify the sender at Wipro or Mailadmin@wipro.com immediately
+> and destroy all copies of this message and any attachments.
+
+Oh really?  ;-)  You should talk to your lawyers and sysadmins about 
+sending email to open source people and lists...
+
+Regards,
+
+	Jeff
