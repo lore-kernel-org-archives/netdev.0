@@ -1,37 +1,24 @@
 From: davej@redhat.com
-Subject: [PATCH] ipv4 reuses freed mem
+Subject: [PATCH] Duplicate access_ok in sunrpc
 Date: Mon, 11 Aug 2003 17:48:57 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <E19mFqr-00068Q-00@tetrachloride>
+Message-ID: <E19mFqr-00068W-00@tetrachloride>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-cat /proc/net/pnp will return garbage, as the fields it
-dumps are initdata.
+Already checked some lines above.
 
-diff -urpN --exclude-from=/home/davej/.exclude bk-linus/net/ipv4/ipconfig.c linux-2.5/net/ipv4/ipconfig.c
---- bk-linus/net/ipv4/ipconfig.c	2003-07-10 01:02:21.000000000 +0100
-+++ linux-2.5/net/ipv4/ipconfig.c	2003-08-09 16:08:13.000000000 +0100
-@@ -125,14 +125,14 @@ int ic_proto_enabled __initdata = 0
- 
- int ic_host_name_set __initdata = 0;		/* Host name set by us? */
- 
--u32 ic_myaddr __initdata = INADDR_NONE;		/* My IP address */
--u32 ic_netmask __initdata = INADDR_NONE;	/* Netmask for local subnet */
--u32 ic_gateway __initdata = INADDR_NONE;	/* Gateway IP address */
-+u32 ic_myaddr = INADDR_NONE;		/* My IP address */
-+u32 ic_netmask = INADDR_NONE;	/* Netmask for local subnet */
-+u32 ic_gateway = INADDR_NONE;	/* Gateway IP address */
- 
--u32 ic_servaddr __initdata = INADDR_NONE;	/* Boot server IP address */
-+u32 ic_servaddr = INADDR_NONE;	/* Boot server IP address */
- 
--u32 root_server_addr __initdata = INADDR_NONE;	/* Address of NFS server */
--u8 root_server_path[256] __initdata = { 0, };	/* Path to mount as root */
-+u32 root_server_addr = INADDR_NONE;	/* Address of NFS server */
-+u8 root_server_path[256] = { 0, };	/* Path to mount as root */
- 
- /* Persistent data: */
- 
+diff -urpN --exclude-from=/home/davej/.exclude bk-linus/net/sunrpc/sysctl.c linux-2.5/net/sunrpc/sysctl.c
+--- bk-linus/net/sunrpc/sysctl.c	2003-06-30 14:01:04.000000000 +0100
++++ linux-2.5/net/sunrpc/sysctl.c	2003-06-30 16:04:03.000000000 +0100
+@@ -102,7 +102,7 @@ proc_dodebug(ctl_table *table, int write
+ 		len = sprintf(tmpbuf, "%d", *(unsigned int *) table->data);
+ 		if (len > left)
+ 			len = left;
+-		copy_to_user(buffer, tmpbuf, len);
++		__copy_to_user(buffer, tmpbuf, len);
+ 		if ((left -= len) > 0) {
+ 			put_user('\n', (char *)buffer + len);
+ 			left--;
