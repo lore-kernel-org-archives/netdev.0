@@ -1,100 +1,69 @@
-From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
-Subject: [PATCH 3 of 5][ATM]: [nicstar] small cleanup for some globals
-Date: Wed, 26 Jan 2005 11:57:29 -0500
-Message-ID: <200501261657.j0QGvSuw018864@ginger.cmf.nrl.navy.mil>
-Cc: davem@redhat.com
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH 2.6.10] tg3: 5750 fixes
+Date: Wed, 26 Jan 2005 10:01:42 -0800
+Message-ID: <B1508D50A0692F42B217C22C02D84972020F3D4D@NT-IRVA-0741.brcm.ad.broadcom.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="----_=_NextPart_001_01C503D1.17A18391"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+Content-class: urn:content-classes:message
+To: "David S. Miller" <davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-please apply to 2.6
+This is a multi-part message in MIME format.
 
-thanks!
+------_=_NextPart_001_01C503D1.17A18391
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: quoted-printable
 
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2005/01/25 09:29:05-05:00 chas@relax.cmf.nrl.navy.mil 
-#   [ATM]: [nicstar] small cleanup for some globals
-#   
-#     Signed-off-by: Adrian Bunk <bunk@stusta.de>
-#     Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
-# 
-# drivers/atm/nicstarmac.c
-#   2005/01/25 09:28:46-05:00 chas@relax.cmf.nrl.navy.mil +4 -2
-#   [ATM]: [nicstar] small cleanup for some globals
-#   
-#     Signed-off-by: Adrian Bunk <bunk@stusta.de>
-#     Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
-# 
-# drivers/atm/nicstar.c
-#   2005/01/25 09:28:46-05:00 chas@relax.cmf.nrl.navy.mil +0 -1
-#   [ATM]: [nicstar] small cleanup for some globals
-#   
-#     Signed-off-by: Adrian Bunk <bunk@stusta.de>
-#     Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
-# 
-# BitKeeper/deleted/.del-nicstarmac.h~194ffda535e62654
-#   2005/01/25 09:27:38-05:00 chas@relax.cmf.nrl.navy.mil +0 -0
-#   Delete: drivers/atm/nicstarmac.h
-# 
-diff -Nru a/drivers/atm/nicstar.c b/drivers/atm/nicstar.c
---- a/drivers/atm/nicstar.c	2005-01-25 09:38:21 -05:00
-+++ b/drivers/atm/nicstar.c	2005-01-25 09:38:21 -05:00
-@@ -54,7 +54,6 @@
- #include <asm/uaccess.h>
- #include <asm/atomic.h>
- #include "nicstar.h"
--#include "nicstarmac.h"
- #ifdef CONFIG_ATM_NICSTAR_USE_SUNI
- #include "suni.h"
- #endif /* CONFIG_ATM_NICSTAR_USE_SUNI */
-diff -Nru a/drivers/atm/nicstarmac.c b/drivers/atm/nicstarmac.c
---- a/drivers/atm/nicstarmac.c	2005-01-25 09:38:21 -05:00
-+++ b/drivers/atm/nicstarmac.c	2005-01-25 09:38:21 -05:00
-@@ -7,6 +7,8 @@
-  * Read this ForeRunner's MAC address from eprom/eeprom
-  */
- 
-+typedef void __iomem *virt_addr_t;
-+
- #define CYCLE_DELAY 5
- 
- /* This was the original definition
-@@ -213,7 +215,7 @@
- }
- 
- 
--void
-+static void
- nicstar_init_eprom( virt_addr_t base )
- {
-     u_int32_t val;
-@@ -246,7 +248,7 @@
-  * above.
-  */ 
- 
--void
-+static void
- nicstar_read_eprom(
-     virt_addr_t	base,
-     u_int8_t	prom_offset,
-diff -Nru a/drivers/atm/nicstarmac.h b/drivers/atm/nicstarmac.h
---- a/drivers/atm/nicstarmac.h	2005-01-25 09:38:21 -05:00
-+++ /dev/null	Wed Dec 31 16:00:00 196900
-@@ -1,13 +0,0 @@
--/******************************************************************************
-- *
-- * nicstarmac.h
-- *
-- * Header file for nicstarmac.c
-- *
-- ******************************************************************************/
--
--
--typedef void __iomem *virt_addr_t;
--
--void nicstar_init_eprom( virt_addr_t base );
--void nicstar_read_eprom( virt_addr_t, u_int8_t, u_int8_t *, u_int32_t);
+Some misc. fixes for 5750. The first 2 fixes below are for correctness.
+
+- Do not set extended MAC addresses for 5750
+- Do not set NIC ring addresses in send ring and receive return ring =
+RCBs for
+5750
+- Check eeprom write protect bit for 5750
+
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+
+------_=_NextPart_001_01C503D1.17A18391
+Content-Type: application/octet-stream;
+ name=tg3_5750.patch
+Content-Transfer-Encoding: base64
+Content-Description: tg3_5750.patch
+Content-Disposition: attachment;
+ filename=tg3_5750.patch
+
+ZGlmZiAtTnJ1IDMvdGczLmMgNC90ZzMuYwotLS0gMy90ZzMuYwkyMDA1LTAxLTIzIDEzOjM3OjE2
+LjAwMDAwMDAwMCAtMDgwMAorKysgNC90ZzMuYwkyMDA1LTAxLTI1IDA5OjE2OjM0LjAwMDAwMDAw
+MCAtMDgwMApAQCAtNDg1OCw5ICs0ODU4LDggQEAKIAkJdHczMihNQUNfQUREUl8wX0xPVyArIChp
+ICogOCksIGFkZHJfbG93KTsKIAl9CiAKLQlpZiAoR0VUX0FTSUNfUkVWKHRwLT5wY2lfY2hpcF9y
+ZXZfaWQpICE9IEFTSUNfUkVWXzU3MDAgJiYKLQkgICAgR0VUX0FTSUNfUkVWKHRwLT5wY2lfY2hp
+cF9yZXZfaWQpICE9IEFTSUNfUkVWXzU3MDEgJiYKLQkgICAgR0VUX0FTSUNfUkVWKHRwLT5wY2lf
+Y2hpcF9yZXZfaWQpICE9IEFTSUNfUkVWXzU3MDUpIHsKKwlpZiAoR0VUX0FTSUNfUkVWKHRwLT5w
+Y2lfY2hpcF9yZXZfaWQpID09IEFTSUNfUkVWXzU3MDMgfHwKKwkgICAgR0VUX0FTSUNfUkVWKHRw
+LT5wY2lfY2hpcF9yZXZfaWQpID09IEFTSUNfUkVWXzU3MDQpIHsKIAkJZm9yIChpID0gMDsgaSA8
+IDEyOyBpKyspIHsKIAkJCXR3MzIoTUFDX0VYVEFERFJfMF9ISUdIICsgKGkgKiA4KSwgYWRkcl9o
+aWdoKTsKIAkJCXR3MzIoTUFDX0VYVEFERFJfMF9MT1cgKyAoaSAqIDgpLCBhZGRyX2xvdyk7CkBA
+IC00OTA2LDcgKzQ5MDUsOCBAQAogCQkgICAgICAoYmRpbmZvX2FkZHIgKyBURzNfQkRJTkZPX01B
+WExFTl9GTEFHUyksCiAJCSAgICAgICBtYXhsZW5fZmxhZ3MpOwogCi0JaWYgKEdFVF9BU0lDX1JF
+Vih0cC0+cGNpX2NoaXBfcmV2X2lkKSAhPSBBU0lDX1JFVl81NzA1KQorCWlmICgoR0VUX0FTSUNf
+UkVWKHRwLT5wY2lfY2hpcF9yZXZfaWQpICE9IEFTSUNfUkVWXzU3MDUpICYmCisJICAgIChHRVRf
+QVNJQ19SRVYodHAtPnBjaV9jaGlwX3Jldl9pZCkgIT0gQVNJQ19SRVZfNTc1MCkpCiAJCXRnM193
+cml0ZV9tZW0odHAsCiAJCQkgICAgICAoYmRpbmZvX2FkZHIgKyBURzNfQkRJTkZPX05JQ19BRERS
+KSwKIAkJCSAgICAgIG5pY19hZGRyKTsKQEAgLTc1NjksOSArNzU2OSw4IEBACiAJCSAgICB0cC0+
+cGRldi0+c3Vic3lzdGVtX3ZlbmRvciA9PSBQQ0lfVkVORE9SX0lEX0RFTEwpCiAJCQl0cC0+bGVk
+X2N0cmwgPSBMRURfQ1RSTF9NT0RFX1BIWV8yOwogCi0JCWlmICgoKEdFVF9BU0lDX1JFVih0cC0+
+cGNpX2NoaXBfcmV2X2lkKSA9PSBBU0lDX1JFVl81NzAzKSB8fAotCQkgICAgIChHRVRfQVNJQ19S
+RVYodHAtPnBjaV9jaGlwX3Jldl9pZCkgPT0gQVNJQ19SRVZfNTcwNCkgfHwKLQkJICAgICAoR0VU
+X0FTSUNfUkVWKHRwLT5wY2lfY2hpcF9yZXZfaWQpID09IEFTSUNfUkVWXzU3MDUpKSAmJgorCQlp
+ZiAoKEdFVF9BU0lDX1JFVih0cC0+cGNpX2NoaXBfcmV2X2lkKSAhPSBBU0lDX1JFVl81NzAwKSAm
+JgorCQkgICAgKEdFVF9BU0lDX1JFVih0cC0+cGNpX2NoaXBfcmV2X2lkKSAhPSBBU0lDX1JFVl81
+NzAxKSAmJgogCQkgICAgKG5pY19jZmcgJiBOSUNfU1JBTV9EQVRBX0NGR19FRVBST01fV1ApKQog
+CQkJdHAtPnRnM19mbGFncyB8PSBURzNfRkxBR19FRVBST01fV1JJVEVfUFJPVDsKIAo=
+
+------_=_NextPart_001_01C503D1.17A18391--
