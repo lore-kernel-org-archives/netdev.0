@@ -1,30 +1,28 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH][IPv6] separation xfrm_lookup from ip6_dst_lookup
-Date: Tue, 10 Aug 2004 10:38:30 +0900 (JST)
+From: Lee Revell <rlrevell@joe-job.com>
+Subject: Re: [0/3] via-rhine: experimental patches
+Date: Mon, 09 Aug 2004 22:08:14 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040810.103830.13065766.yoshfuji@linux-ipv6.org>
-References: <20040801195135.16734846.davem@redhat.com>
-	<20040803.020015.44364045.yoshfuji@linux-ipv6.org>
-	<20040809163520.2873a3c8.davem@redhat.com>
+Message-ID: <1092103694.761.5.camel@mindpipe>
+References: <20040808140216.GA8181@k3.hellgate.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: kazunori@miyazawa.org, herbert@gondor.apana.org.au, netdev@oss.sgi.com,
-        usagi-core@linux-ipv6.org
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com,
+        linux-kernel <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
-In-Reply-To: <20040809163520.2873a3c8.davem@redhat.com>
+To: Roger Luethi <rl@hellgate.ch>
+In-Reply-To: <20040808140216.GA8181@k3.hellgate.ch>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20040809163520.2873a3c8.davem@redhat.com> (at Mon, 9 Aug 2004 16:35:20 -0700), "David S. Miller" <davem@redhat.com> says:
+On Sun, 2004-08-08 at 10:02, Roger Luethi wrote:
+> The following batch needs testing. I don't expect any notable
+> regressions, but I could do with some reports on WOL (already in -mm)
+> and suspend/resume.
+> 
 
-> Instead, I would try to arrange order of events such that
-> single stack copy can be modified.  Something like:
+Maybe this is a known issue by now, but the via-rhine bug is still not
+fixed in 2.6.8-rc3.  I had to replace it with the via-rhine.c from -mm2
+to get online.
 
-Thanks for clarification.
-
-Miyazawa-san will take care of this when he has returned from another 
-conference.
-
---yoshfuji
+Lee
