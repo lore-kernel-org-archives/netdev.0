@@ -1,16 +1,17 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [RFC 2.6.10 1/22] xfrm: Add direction information to xfrm_state
-Date: Fri, 21 Jan 2005 14:38:57 -0800
-Message-ID: <20050121143857.69282605.davem@davemloft.net>
-References: <20041230035000.01@ori.thedillows.org>
-	<20041230035000.10@ori.thedillows.org>
+Subject: Re: [RFC 2.6.10 2/22] xfrm: Add xfrm offload management calls to
+ struct netdevice
+Date: Fri, 21 Jan 2005 14:40:45 -0800
+Message-ID: <20050121144045.74d30ef2.davem@davemloft.net>
+References: <20041230035000.10@ori.thedillows.org>
+	<20041230035000.11@ori.thedillows.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com, dave@thedillows.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: David Dillow <dave@thedillows.org>
-In-Reply-To: <20041230035000.10@ori.thedillows.org>
+In-Reply-To: <20041230035000.11@ori.thedillows.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
@@ -21,15 +22,24 @@ David Dillow <dave@thedillows.org> wrote:
 > # This is a BitKeeper generated diff -Nru style patch.
 > #
 > # ChangeSet
-> #   2004/12/30 00:27:15-05:00 dave@thedillows.org 
-> #   Add direction information to xfrm_state. This will be needed to
-> #   offload xfrm processing to the NIC.
+> #   2004/12/30 00:28:25-05:00 dave@thedillows.org 
+> #   Add the xfrm offload management calls to struct netdevice.
+> #   
+> #   xfrm_state_add() is called for inbound xfrm states
+> #   xfrm_bundle_add() is called for outbound xfrm bundles
+> #   xfrm_state_del() is called for all offloaded xfrms,
+> #   	inbound or outbound.
+> #   
+> #   If a driver adds NETIF_F_IPSEC to its features, it must
+> #   provide all three callbacks.
+> #   
+> #   Signed-off-by: David Dillow <dave@thedillows.org>
 
-And xfrm_state, when actually used, does not exist in a vacuum.
-It is being used in terms of a particular xfrm_policy which has
-a direction indicator already.
+I have no problems with this interface.  In fact, just about
+whatever works for the card you have would be fine for an
+initial implementation.
 
-Given that, it seems the xfrm_state is not only unnecessary, but
-also slightly illogical in fact.  If you need the direction, you
-should make sure that at those places you can get back to the
-policy in order to obtain that piece of information.
+We know this interface will likely need to change over time
+so we should explicitly mark these callbacks as in a state
+of flux so that nobody who tries to play with this gets surprised
+when we tweak it.
