@@ -1,29 +1,37 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: netlink tester program
-Date: Mon, 02 Jun 2003 14:56:19 -0700 (PDT)
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: Re: Is there already a doc available for the new IPsec code?
+Date: Mon, 2 Jun 2003 14:59:17 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030602.145619.71112623.davem@redhat.com>
-References: <32804.4.64.196.31.1054351332.squirrel@www.osdl.org>
-	<20030530.234211.102567405.davem@redhat.com>
-	<20030602140452.039248de.rddunlap@osdl.org>
+Message-ID: <20030602145917.33fbd05d.rddunlap@osdl.org>
+References: <36990000.1054588328@worker.muc.bieringer.de>
+	<20030602215815.GL9312@conectiva.com.br>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
+Cc: pb@bieringer.de, netdev@oss.sgi.com, usagi-users@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: rddunlap@osdl.org
-In-Reply-To: <20030602140452.039248de.rddunlap@osdl.org>
+To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+In-Reply-To: <20030602215815.GL9312@conectiva.com.br>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: "Randy.Dunlap" <rddunlap@osdl.org>
-   Date: Mon, 2 Jun 2003 14:04:52 -0700
+On Mon, 2 Jun 2003 18:58:15 -0300 Arnaldo Carvalho de Melo <acme@conectiva.com.br> wrote:
 
-   Does anyone have documentation (or semantics) for rtnl_talk()?
-   or just some blurb about it?
+| Em Mon, Jun 02, 2003 at 11:12:08PM +0200, Peter Bieringer escreveu:
+| > Hi,
+| > 
+| > i want to play a little bit with the new IPsec code.
+| > 
+| > Is there already a doc available how to use it (config file of IKE daemon,
+| > etc., e.g. compared against the FreeS/WAN code).
+| > 
+| > Thank you very much for input,
+| 
+| Look at Bert Hubert's LART
+| 
+| - Arnaldo
 
-I always have to wonder about someone who can't live with just
-working code to study, and absolutely requires some document
-describing it.
+that's www.lartc.org ...
 
-What is better or more accurate description than code itself!?!?!
+--
+~Randy
