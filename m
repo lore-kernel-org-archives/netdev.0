@@ -1,29 +1,28 @@
-From: Linus Torvalds <torvalds@osdl.org>
+From: Christoph Hellwig <hch@infradead.org>
 Subject: Re: [PATCH] tulip: de2104x, fix init. sections
-Date: Tue, 1 Mar 2005 23:14:20 -0800 (PST)
-Message-ID: <Pine.LNX.4.58.0503012313120.25732@ppc970.osdl.org>
-References: <20050301214438.4653810e.randy.dunlap@verizon.net>
- <422558B2.6020105@pobox.com> <Pine.LNX.4.58.0503012253530.25732@ppc970.osdl.org>
- <20050302070325.GA19643@havoc.gtf.org>
+Date: Wed, 2 Mar 2005 07:25:10 +0000
+Message-ID: <20050302072510.GA12464@infradead.org>
+References: <20050301214438.4653810e.randy.dunlap@verizon.net> <422558B2.6020105@pobox.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Cc: "Randy.Dunlap" <randy.dunlap@verizon.net>, netdev@oss.sgi.com,
-        akpm <akpm@osdl.org>
+        torvalds <torvalds@osdl.org>, akpm <akpm@osdl.org>
 To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <20050302070325.GA19643@havoc.gtf.org>
+Content-Disposition: inline
+In-Reply-To: <422558B2.6020105@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
-
-On Wed, 2 Mar 2005, Jeff Garzik wrote:
+On Wed, Mar 02, 2005 at 01:09:54AM -0500, Jeff Garzik wrote:
+> Randy.Dunlap wrote:
+> >tulip/de2104x: some __devinit functions were calling __init
+> >  functions, made the latter __devinit also;
 > 
-> Nope -- You are thinking of the 2114x stuff.  You even bought me a
-> cardbus card of my own to get things going on that, way back when.  :)
+> Should go the other way:  all the stuff in de2104x should be __init, not 
+> __devinit.
 > 
-> 2104x is truly ancient.
+> Nobody ever hotplugs a de2104x.
 
-Ahh, ok. Goodie.
-
-		Linus
+How comes that you want to dictate what cards I put into my hotplug
+PCI slots?
