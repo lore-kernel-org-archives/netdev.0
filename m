@@ -1,35 +1,34 @@
-From: Marcin Kaminski <maxiu@man.poznan.pl>
-Subject: Re: New IPv6 Draft Implementation
-Date: Thu, 11 Sep 2003 23:58:30 +0200 (CEST)
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [e1000 2.6 10/11] TxDescriptors -> 1024 default
+Date: Thu, 11 Sep 2003 18:00:27 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.44.0309112356120.24045-100000@rose.man.poznan.pl>
-References: <OF214DECF9.D994A353-ON87256D9E.00760932@us.ibm.com>
+Message-ID: <3F60F07B.8060005@pobox.com>
+References: <OFAFA77EE1.3E4E4085-ON85256D9E.00777520-86256D9E.0077947E@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com, <linux-net@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@redhat.com>, greearb@candelatech.com,
+   scott.feldman@intel.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Shirley Ma <xma@us.ibm.com>
-In-Reply-To: <OF214DECF9.D994A353-ON87256D9E.00760932@us.ibm.com>
+To: Ricardo C Gonzalez <ricardoz@us.ibm.com>
+In-Reply-To: <OFAFA77EE1.3E4E4085-ON85256D9E.00777520-86256D9E.0077947E@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 11 Sep 2003, Shirley Ma wrote:
+Ricardo C Gonzalez wrote:
+> 
+> 
+>>IP transmit is black hole that may drop packets at any moment,
+>>any datagram application not prepared for this should be prepared
+>>for troubles or choose to move over to something like TCP.
+> 
+> 
+> 
+> As I said before, please do not make this a UDP issue. The data I sent out
+> was taken using a TCP_STREAM test case. Please review it.
 
-> I am going to implement the support for the new IP MIBs draft for IPv6 MIBs
-> only.
->
-> Below is the draft link:
->
-> http://www.ietf.org/internet-drafts/draft-ietf-ipv6-rfc2011-update-03.txt.
-> I am going to start from
-> ipv6nterfaceTable. Any thoughts about this?
 
-We are really waiting for this :)
-I don't know any existing implementation of SNMP agent with support for
-most IPv6 MIBs (especially with IPv6 adresses included in OIDs), but that
-is thing which I am really looking for.
+Your own words say "CPUs can fill TX queue".  We already know this. 
+CPUs have been doing wire speed for ages.
 
-Please inform us about Your results :)
-
-Marcin Kaminski
-6Net project
+	Jeff
