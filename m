@@ -1,51 +1,38 @@
-From: Mike Fedyk <mfedyk@matchmail.com>
-Subject: Re: Stale Filehandles was: [2.6] nfs_rename: target $file busy, d_count=2
-Date: Fri, 16 Jan 2004 12:16:23 -0800
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] IPv6 MIB:ipv6RouterAdvert netlink notification
+Date: Sat, 17 Jan 2004 05:23:48 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040116201623.GO1748@srv-lnx2600.matchmail.com>
-References: <20040116050642.GF1748@srv-lnx2600.matchmail.com> <20040116130336.GA5220@oscar.prima.de> <20040116184031.GM1748@srv-lnx2600.matchmail.com> <20040116185504.GN1748@srv-lnx2600.matchmail.com>
+Message-ID: <20040117.052348.44213733.yoshfuji@linux-ipv6.org>
+References: <OF6E7E4DFA.6824D151-ON87256E1D.006A89B5@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davem@redhat.com, mashirle@us.ibm.com, kuznet@ms2.inr.ac.ru,
+        netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick Mau <mau@oscar.ping.de>, linux-kernel@vger.kernel.org,
-        netdev@oss.sgi.com
-Content-Disposition: inline
-In-Reply-To: <20040116185504.GN1748@srv-lnx2600.matchmail.com>
+To: xma@us.ibm.com
+In-Reply-To: <OF6E7E4DFA.6824D151-ON87256E1D.006A89B5@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 16, 2004 at 10:55:04AM -0800, Mike Fedyk wrote:
-> On Fri, Jan 16, 2004 at 10:40:31AM -0800, Mike Fedyk wrote:
-> > I only had a few nfs clients doing light load, (kde home directories, and
-> > such) and was able to reproduce stale nfs file handles just by running "find
-> > > /dev/null" on the nfs share.
-> > 
-> > Have you tried the -mm tree recently?  2.6.1-mm4 even has some new nfsd
-> > patches in there (maybe you should wait until -mm5 though, there are a few
-> 
-> Stale filehandles is the main problem right now, and I don't see how
-> nfs_raname would be related (just that it was there while I was having
-> trouble with the stale file handles...)
-> 
-> http://www.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.1/2.6.1-mm4/broken-out/nfsd-01-stale-filehandles-fixes.patch
-> 
-> This one looks particularly interesting...
-> 
+In article <OF6E7E4DFA.6824D151-ON87256E1D.006A89B5@us.ibm.com> (at Fri, 16 Jan 2004 11:41:59 -0800), Shirley Ma <xma@us.ibm.com> says:
 
-Most of the nfs client patches are for NFS4 or RPCSEC_GSS.  Except for:
+> Yes. radvd should provide all these information. But radvd doesn't support
+> this right now. I talked to someone who is patching SNMP to support new IP
+> MIBs, he said it's better to support this through netlink, since netlink
+> supports all other MIBs. Does netlink support user-user communication?
 
-http://www.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.1/2.6.1-mm4/broken-out/
+Yes, netlink is one option and is possibly a good candidate.
+I believe netlink supports user-user communication and 
+rtadvd can use it to provide information to other entities.
 
-nfs-26-sock_disconnect.patch
-nfs-31-attr.patch
-nfs-client-deadlock-fix.patch
-nfs-fix-bogus-setattr-calls.patch
-nfs-open-intent-fix.patch
-nfs-optimise-COMMIT-calls.patch
-nfs-readonly-mounts-fix.patch
-nfs-rpc-debug-oops-fix.patch
+> Anyway I will talk to radvd maintainers to ask them to support this if you
+> think this netlink notification is not needed.
 
-These might be interesting to test, but so far I haven't had troubles with
-the stock Linus 2.6 nfs3 client.
+I do not think netlink RA notification is required in kernel.
+What you (or the radvd maintainer) need to do is to 
+allocate some constants and structures for the message.
 
-Mike
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
