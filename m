@@ -1,38 +1,42 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH,RFC] [NET] ALIGN
-Date: Mon, 9 Feb 2004 11:20:07 -0800
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: [BK PATCH] 2.6.2 SCTP updates
+Date: Mon, 9 Feb 2004 12:01:20 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040209112007.08023ba6.davem@redhat.com>
-References: <20040209.134528.28683257.yoshfuji@linux-ipv6.org>
+Message-ID: <Pine.LNX.4.58.0402091155070.10043@localhost.localdomain>
+References: <Pine.LNX.4.58.0402061649001.10831@localhost.localdomain>
+ <20040206194518.56787717.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20040209.134528.28683257.yoshfuji@linux-ipv6.org>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20040206194518.56787717.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 09 Feb 2004 13:45:28 +0900 (JST)
-YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
+On Sun, 8 Feb 2004, David S. Miller wrote:
 
-> D: Use ALIGN() where appricable.
-> 
-> BTW, 
->  1. do we really need this ALIGN?
->  2. should 16 be BYTES_PER_WORD (in mm/slab.c)?
+> On Sun, 8 Feb 2004 09:07:48 -0800 (PST)
+> Sridhar Samudrala <sri@us.ibm.com> wrote:
+>
+> > I guess i was influenced by the TCP specific tcp_rmem/tcp_wmem. But TCP
+> > seems to be using them as a vector of 3 values and tuning the buffer sizes
+> > dynamically based on these values.
+> > As of now, SCTP doesn't do any tuning dynamically so i could have used the
+> > core rmem_default/wmem_default.
+> >
+> > Do you want me to remove the specialized SCTP sysctl's?
+>
+> It seems as duplication if there is no specific need to have seperate
+> controls right?
 
-Let's hold on this patch.
+OK. I removed the SCTP specific rmem/wmem. Please do a pull again from
+	http://linux-lksctp.bkbits.net/lksctp-2.5.work
+to get the following cset.
 
-Why does it want to align the table entry size to 16 bytes
-anyways?
+ChangeSet@1.1551, 2004-02-09 11:14:24-08:00, sri@us.ibm.com
+  [SCTP] Removed SCTP specific rmem/wmem sysctl's and use the global
+         rmem_default/wmem_default values for SCTP socket buffer sizes.
 
-I think this is complete nonsense, and that the alignment is not
-necessary.  I can't even come up with a performance reason as SLAB
-is going to align things to hw cache line size anyways.
-
-Can anybody come up with some theory ? :-)
-
-Else let's just remove this bogus 16 byte alignment in the
-kmem_cache_create() call.
+Thanks
+Sridhar
