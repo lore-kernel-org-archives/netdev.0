@@ -1,28 +1,23 @@
-From: Jan Olderdissen <jan@ixiacom.com>
-Subject: RE: OSDL Bugzilla #2399: A user can remotely route a packet throu
-	gh eth0 on a Linux machine
-Date: Tue, 11 May 2004 11:44:42 -0700
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: OSDL Bugzilla #2399: A user can remotely route a packet through eth0 on
+ a Linux machine
+Date: Tue, 11 May 2004 12:53:46 -0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <15FDCE057B48784C80836803AE3598D50627ACCF@racerx.ixiacom.com>
+Message-ID: <OF94DCEE79.E30FBAF0-ON88256E91.0067773D-88256E91.0067C495@us.ibm.com>
+References: <40A11644.7090402@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Cc: snortwiz@hotmail.com, "'Nivedita Singhvi'" <niv@us.ibm.com>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: netdev@oss.sgi.com, snortwiz@hotmail.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+In-Reply-To: <40A11644.7090402@us.ibm.com>
+To: niv@us.ibm.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jared,
+Routing is something done between different hosts. Hosts normally
+will accept packets for any local  address, regardless of
+which interface it was received on.
 
-I can't shake the feeling that the service didn't actually bind to eth1, but
-instead bound to INADDR_ANY. You can find out with 'netstat -lnp'. Would you
-mind posting the output?
+That's not a bug; that's how almost everything works.
 
-> A 'cat' or 
-> /proc/sys/net/ipv4/ip_forward
-> on the Linux laptop was "0" so ip forwarding was not enabled.
-
-I don't think the ip_forward flag applies here. 
-
-Jan
+                                +-DLS
