@@ -1,56 +1,26 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH][IPv6] separation xfrm_lookup from ip6_dst_lookup
-Date: Mon, 9 Aug 2004 16:35:20 -0700
+Subject: Re: [PATCH 2.6] vlan ioctl propagation (rev.2)
+Date: Mon, 9 Aug 2004 16:45:27 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040809163520.2873a3c8.davem@redhat.com>
-References: <20040730171205.114f22ba.kazunori@miyazawa.org>
-	<20040801195135.16734846.davem@redhat.com>
-	<20040803.020015.44364045.yoshfuji@linux-ipv6.org>
+Message-ID: <20040809164527.66c2bf82.davem@redhat.com>
+References: <20040806091305.4d405664@dell_ss3.pdx.osdl.net>
+	<20040806132145.675fd17d.davem@redhat.com>
+	<20040806143928.711d92eb@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: kazunori@miyazawa.org, herbert@gondor.apana.org.au, netdev@oss.sgi.com,
-        usagi-core@linux-ipv6.org, yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20040803.020015.44364045.yoshfuji@linux-ipv6.org>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20040806143928.711d92eb@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 03 Aug 2004 02:00:15 -0700 (PDT)
-YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
+On Fri, 6 Aug 2004 14:39:28 -0700
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> In article <20040801195135.16734846.davem@redhat.com> (at Sun, 1 Aug 2004 19:51:35 -0700), "David S. Miller" <davem@redhat.com> says:
-> 
-> > On Fri, 30 Jul 2004 17:12:05 +0900
-> > Kazunori Miyazawa <kazunori@miyazawa.org> wrote:
-> > 
-> > > I consider copying flowi(fl_rt) uses too much stack at the moment.
-> > > I'll re-send the fixed patch again.
-> > 
-> > I agree, and let's defer this patch until we
-> > resolve that.
-> 
-> Is the overhead for allocating memory okay?
-> Or, do we allcoate some per-cpu memory while ipv6.o initalization phase?
-> (check: lock? preemption?)
-> Or, will we allocate fl (and fl_rt) per sock{} (ipv6_pinfo{})?
-> (ditto.)
-> 
-> We have similar stack usage in other codes, and 
-> I would fix them at the same time.
+> Here is a redo of the patch to propagate ethtool and mii ioctl's
+> on vlan's to the underlying real device.  This time the request
+> is copied to a new buffer, to avoid the colon name rewrite issues.
 
-I think memory allocation will make it worse.
-
-Instead, I would try to arrange order of events such that
-single stack copy can be modified.  Something like:
-
-	fl.foo = a;
-	fl.bar = b;
-	x = flow_lookup(&fl);
-
-	fl.foo = a_2;
-	y = other_lookup(&fl);
-
-And I believe this is possible in most if not all of
-these cases.
+Applied.
