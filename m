@@ -1,164 +1,268 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] skfddi - convert to new pci model.
-Date: Tue, 16 Dec 2003 00:43:26 -0500
+Subject: [BK PATCHES] 2.6.x experimental net driver updates
+Date: Tue, 16 Dec 2003 01:32:26 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031216054326.GA8825@gtf.org>
-References: <20031204163928.0f34d5d1.shemminger@osdl.org> <20031205005915.GD31510@devserv.devel.redhat.com> <20031205151249.44a067df.shemminger@osdl.org>
+Message-ID: <3FDEA6FA.4010906@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexander Viro <aviro@redhat.com>, netdev@oss.sgi.com
+Content-Type: multipart/mixed;
+ boundary="------------000800080303090907080207"
+Cc: Linux Kernel <linux-kernel@vger.kernel.org>,
+        Al Viro <viro@parcelfarce.linux.theplanet.co.uk>, akpm@osdl.org,
+        davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20031205151249.44a067df.shemminger@osdl.org>
+To: Netdev <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 05, 2003 at 03:12:49PM -0800, Stephen Hemminger wrote:
-> Second revision of the cleanup of skfddi driver.
->  * use new pci device bus initialization
->  * allocate network device with alloc_fddidev
->     and use dev->priv
->   * get rid of special module/non module distinctions.
-> 
->   * fix error unwinds and return values on initialization
->   * call driver_init directly not via register_netdev
->   * reset internal queue count after purge
->   * get rid of h[iy]sterical comment that is no longer true
-> 
-> diff -Nru a/drivers/net/skfp/skfddi.c b/drivers/net/skfp/skfddi.c
-> --- a/drivers/net/skfp/skfddi.c	Fri Dec  5 14:49:12 2003
-> +++ b/drivers/net/skfp/skfddi.c	Fri Dec  5 14:49:12 2003
-> @@ -39,12 +39,6 @@
->   *   are skfddi.c, h/types.h, h/osdef1st.h, h/targetos.h.
->   *   The others belong to the SysKonnect FDDI Hardware Module and
->   *   should better not be changed.
-> - * NOTE:
-> - *   Compiling this driver produces some warnings, but I did not fix
-> - *   this, because the Hardware Module source is used for different
-> - *   drivers, and fixing it for Linux might bring problems on other
-> - *   projects. To keep the source common for all those drivers (and
-> - *   thus simplify fixes to it), please do not clean it up!
->   *
->   * Modification History:
->   *              Date            Name    Description
-> @@ -58,6 +52,7 @@
->   *		07-May-00	DM	64 bit fixes, new dma interface
->   *		31-Jul-03	DB	Audit copy_*_user in skfp_ioctl
->   *					  Daniele Bellucci <bellucda@tiscali.it>
-> + *		03-Dec-03	SH	Convert to PCI device model
->   *
->   * Compilation options (-Dxxx):
->   *              DRIVERDEBUG     print lots of messages to log file
-> @@ -70,7 +65,7 @@
->  
->  /* Version information string - should be updated prior to */
->  /* each new release!!! */
-> -#define VERSION		"2.06"
-> +#define VERSION		"2.07"
->  
->  static const char *boot_msg = 
->  	"SysKonnect FDDI PCI Adapter driver v" VERSION " for\n"
-> @@ -80,15 +75,11 @@
->  
->  #include <linux/module.h>
->  #include <linux/kernel.h>
-> -#include <linux/string.h>
-> -#include <linux/ptrace.h>
->  #include <linux/errno.h>
->  #include <linux/ioport.h>
->  #include <linux/slab.h>
->  #include <linux/interrupt.h>
->  #include <linux/pci.h>
-> -#include <linux/delay.h>
-> -#include <linux/ctype.h>	// isdigit
->  #include <linux/netdevice.h>
->  #include <linux/fddidevice.h>
->  #include <linux/skbuff.h>
-> @@ -107,11 +98,6 @@
->  
->  
->  // Define module-wide (static) routines
-> -static struct net_device *alloc_device(struct net_device *dev, u_long iobase);
-> -static struct net_device *insert_device(struct net_device *dev);
-> -static int fddi_dev_index(unsigned char *s);
-> -static void init_dev(struct net_device *dev, u_long iobase);
-> -static void link_modules(struct net_device *dev, struct net_device *tmp);
->  static int skfp_driver_init(struct net_device *dev);
->  static int skfp_open(struct net_device *dev);
->  static int skfp_close(struct net_device *dev);
-> @@ -188,15 +174,6 @@
->  // Define module-wide (static) variables
->  
->  static int num_boards;	/* total number of adapters configured */
-> -static int num_fddi;
-> -static int autoprobed;
-> -
-> -#ifdef MODULE
-> -static struct net_device *unlink_modules(struct net_device *p);
-> -static int loading_module = 1;
-> -#else
-> -static int loading_module;
-> -#endif				// MODULE
->  
->  #ifdef DRIVERDEBUG
->  #define PRINTK(s, args...) printk(s, ## args)
-> @@ -207,9 +184,9 @@
->  #define PRIV(dev) (&(((struct s_smc *)dev->priv)->os))
->  
->  /*
-> - * ==============
-> - * = skfp_probe =
-> - * ==============
-> + * =================
-> + * = skfp_init_one =
-> + * =================
->   *   
->   * Overview:
->   *   Probes for supported FDDI PCI controllers
-> @@ -218,30 +195,11 @@
->   *   Condition code
->   *       
->   * Arguments:
-> - *   dev - pointer to device information
-> + *   pdev - pointer to PCI device information
->   *
->   * Functional Description:
-> - *   This routine is called by the OS for each FDDI device name (fddi0,
-> - *   fddi1,...,fddi6, fddi7) specified in drivers/net/Space.c.
-> - *   If loaded as a module, it will detect and initialize all 
-> - *   adapters the first time it is called.
-> - *
-> - *   Let's say that skfp_probe() is getting called to initialize fddi0.
-> - *   Furthermore, let's say there are three supported controllers in the
-> - *   system.  Before skfp_probe() leaves, devices fddi0, fddi1, and fddi2
-> - *   will be initialized and a global flag will be set to indicate that
-> - *   skfp_probe() has already been called.
-> - *
-> - *   However...the OS doesn't know that we've already initialized
-> - *   devices fddi1 and fddi2 so skfp_probe() gets called again and again
-> - *   until it reaches the end of the device list for FDDI (presently,
-> - *   fddi7).  It's important that the driver "pretend" to probe for
-> - *   devices fddi1 and fddi2 and return success.  Devices fddi3
-> - *   through fddi7 will return failure since they weren't initialized.
-> - *
-> - *   This algorithm seems to work for the time being.  As other FDDI
-> - *   drivers are written for Linux, a more generic approach (perhaps
-> - *   similar to the Ethernet card approach) may need to be implemented.
-> + *   This is now called by PCI driver registration process
-> + *   for each board found.
->   *   
->   * Return Codes:
->   *   0           - This device (fddi0, fddi1, etc) configured successfully
-> @@ -254,370 +212,176 @@
->   *   initialized and the board resources are read and stored in
->   *   the device structure.
->   */
-> -static int skfp_probe(struct net_device *dev)
-> +static __init int skfp_init_one(struct pci_dev *pdev,
+This is a multi-part message in MIME format.
+--------------000800080303090907080207
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-I take back my private email... patch doesn't apply.
 
-Can you please rediff, and also remove the above "__init" ?
+Another edition of net driver updates.
 
-	Jeff
+Summary of new changes:
+* revert skfddi janitorial patches.  no skfddi changes are included in 
+this patchkit anymore.  Stephen Hemminger has a much better skfddi patch 
+which obsoleted the already-merged skfddi changes.
+* atmel wireless SKB leak fix
+* 3c574_cs deadlock fix
+* bonding destruction fix
+* more work from Al making net_device allocation dynamic and sane 
+(including fast, const-offset private structure allocation for drivers)
+* sk98lin update from vendor
+* TG3 update from DaveM
+* new pc200syn WAN driver from WAN maintainer Krzysztof Halasa
+* r8169 fixes from Francois Romieu
+
+
+Summary of patchkit:
+* new e100 driver (rewritten from scratch)
+* new nVidia nForce NIC driver
+* new pc200syn WAN driver
+
+* tg3 bug fixes
+* r8169 major bug fixes
+* e1000 minor updates / fixes
+* sk98lin vendor updates / fixes
+* misc bug fixes
+
+* 8139too NAPI support
+* tulip NAPI support
+
+* netconsole / netdump support
+* net_device allocation and reference counting work
+
+
+Patch:
+http://www.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/2.6.0-test11-bk11-netdrvr-exp1.patch.bz2
+
+Full changelog:
+http://www.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/2.6.0-test11-bk11-netdrvr-exp1.log
+
+BK repo:
+bk://gkernel.bkbits.net/net-drivers-2.5-exp
+
+Changelog delta attached.
+
+
+--------------000800080303090907080207
+Content-Type: text/plain;
+ name="2.6.0-test11-bk11-netdrvr-exp1.txt"
+Content-Disposition: inline;
+ filename="2.6.0-test11-bk11-netdrvr-exp1.txt"
+Content-Transfer-Encoding: quoted-printable
+X-MIME-Autoconverted: from 8bit to quoted-printable by oss.sgi.com id hBG6YpTa016579
+
+ChangeSet@1.1548, 2003-12-16 01:13:32-05:00, jgarzik@redhat.com
+  Cset exclude: shemminger@osdl.org|ChangeSet|20031029195339|20158
+ =20
+  Revert more skfddi stuff... better patch coming.
+
+ChangeSet@1.1545, 2003-12-16 00:57:23-05:00, scott.feldman@intel.com
+  [PATCH] ICH6 IDs + ia64 memcpy fix + module_param
+ =20
+  * Add ICH6 device IDs.  Devices funcionally equivalent to supported ICH=
+5
+    devices, but new IDs.
+  * Fixed unaligned access to casted skb->data (Matt Willcox
+    [willy@debian.org]).
+  * MODULE_PARM -> module_param
+  * Bug printk after register_netdev to identify nic details.
+  * misc cleanups.
+
+ChangeSet@1.1474.1.30, 2003-12-16 00:56:37-05:00, dtor_core@ameritech.net
+  [PATCH] Fwd: Re: Atmel - possible SKB leak?
+ =20
+  Jeff,
+ =20
+  Atmel driver in 2.6.0-test11 is leaking SKBs if card gets disassociated
+  from an AP when it's about to transfer packet. Simon (atmel maintainer)
+  is OK with the patch. Given the fact that we are leaking memory I think
+  it may be beneficial to push it to Linus (if you like the patch).
+ =20
+  Dmitry
+ =20
+  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+ =20
+ =20
+  ChangeSet@1.1517, 2003-12-11 01:44:56-05:00, dtor_core@ameritech.net
+    NET: atmel - do not leak SKBs when dropping packets
+ =20
+ =20
+   atmel.c |    6 ++++--
+   1 files changed, 4 insertions(+), 2 deletions(-)
+ =20
+ =20
+  =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+
+ChangeSet@1.1474.1.29, 2003-12-16 00:52:31-05:00, akpm@osdl.org
+  [PATCH] Re: Deadlock in 3c574_cs.c (fwd)
+ =20
+  Patch looks fine to me, thanks.   I've queued up the below.
+ =20
+ =20
+  From: Ville Nuorvala <vnuorval@tcs.hut.fi>
+ =20
+  I've experienced random lockups witch become almost certain under heavy
+  loads, like when doing ping6 -f. The culprit seems to be the 3c574_cs
+  driver, which locks lp->window_lock twice when calling update_stats() f=
+rom
+  el3_interrupt().
+ =20
+ =20
+ =20
+   drivers/net/pcmcia/3c574_cs.c |   15 +++++++++------
+   1 files changed, 9 insertions(+), 6 deletions(-)
+
+ChangeSet@1.1543, 2003-12-16 00:47:59-05:00, jgarzik@redhat.com
+  Cset exclude: felipewd@terra.com.br|ChangeSet|20031014182245|09592
+ =20
+  Revert skfddi request_region patch...  better patch coming.
+
+ChangeSet@1.1541, 2003-12-16 00:25:32-05:00, viro@parcelfarce.linux.thepl=
+anet.co.uk
+  [netdrvr axnet_cs] use embedded private struct
+
+ChangeSet@1.1540, 2003-12-16 00:23:22-05:00, viro@parcelfarce.linux.thepl=
+anet.co.uk
+  [NET] s/kfree/free_netdev/ in bridge driver
+
+ChangeSet@1.1474.1.27, 2003-12-16 00:16:23-05:00, viro@parcelfarce.linux.=
+theplanet.co.uk
+  [netdrvr bonding] use destructor to properly free net device
+ =20
+  (required because of driver's use of rtnl_lock/unlock)
+
+ChangeSet@1.1539, 2003-12-16 00:14:52-05:00, viro@parcelfarce.linux.thepl=
+anet.co.uk
+  [netdrvr 8390] convert 8390 lib to use const-offset priv struct
+
+ChangeSet@1.1538, 2003-12-16 00:14:01-05:00, viro@parcelfarce.linux.thepl=
+anet.co.uk
+  [netdrvr pcnet_cs] alloc_ei_netdev-associated cleanups
+ =20
+  Create __alloc_ei_netdev() helper, which takes a size argument for
+  allocation of driver-private structures.
+ =20
+  Use __alloc_ei_netdev in pcnet_cs, for embedded priv struct.
+
+ChangeSet@1.1537, 2003-12-16 00:10:35-05:00, viro@parcelfarce.linux.thepl=
+anet.co.uk
+  [netdrvr smc-mca] alloc_ei_netdev(), other fixes
+ =20
+  Move all initialization between alloc_ei_netdev() and register_netdev()=
+,
+  and fix bugs on error paths.  Also s/kfree/free_netdev/
+
+ChangeSet@1.1536, 2003-12-16 00:08:57-05:00, viro@parcelfarce.linux.thepl=
+anet.co.uk
+  [netdrvr] convert most 8390 drivers to using alloc_ei_netdev()
+
+ChangeSet@1.1535, 2003-12-16 00:03:04-05:00, viro@parcelfarce.linux.thepl=
+anet.co.uk
+  [wireless wl3501_cs] remove unused constructor
+
+ChangeSet@1.1534, 2003-12-16 00:02:37-05:00, viro@parcelfarce.linux.thepl=
+anet.co.uk
+  [netdrvr] s/kfree/free_netdev/ where appropriate
+ =20
+  Affected drivers:  ixgb, sk98lin, ibmtr, airport, orinoco, wl3501_cs
+
+ChangeSet@1.1533, 2003-12-15 23:55:18-05:00, mlindner@syskonnect.de
+  [PATCH] sk98lin-2.6: pci.ids Update to Driver Version v6.21
+ =20
+  Patch 4/4 (Update to version 6.21)
+  * Add: Update of the Vendors list
+
+ChangeSet@1.1532, 2003-12-15 23:54:52-05:00, mlindner@syskonnect.de
+  [PATCH] sk98lin-2.6: Kconfig Update to Driver Version v6.21
+ =20
+  Patch 3/4 (Update to version 6.21)
+  * Add: Update of the Vendors list
+
+ChangeSet@1.1531, 2003-12-15 23:54:31-05:00, mlindner@syskonnect.de
+  [PATCH] sk98lin-2.6: Readme Update to Driver Version v6.21
+ =20
+  Patch 2/4 (Update to version 6.21)
+  * Fix: Readme changes
+
+ChangeSet@1.1530, 2003-12-15 23:54:21-05:00, mlindner@syskonnect.de
+  [PATCH] sk98lin-2.6: Kernel Update to Driver Version v6.21
+ =20
+  Patch 1/4 (Update to version 6.21)
+  * Add: Common module update
+  * Add: New function for PCI initialization (SkGeInitPCI)
+  * Add: Yukon Plus changes (ChipID, PCI...)
+  * Add: Code for DIAG tool
+  * Fix: Problems while unloading the linux driver
+  * Fix: PrefPort=3DB not allowed on single NICs
+  * Fix: Fixed Linux System crash when using vlans
+  * Fix: Remove useless register_netdev
+  * Fix: Initalize Board before network configuration
+  * Fix: Modifications regarding try_module_get() and capable()
+
+ChangeSet@1.1474.12.6, 2003-12-08 21:54:23-08:00, xose@wanadoo.es
+  [TG3]: Add new device IDs.
+
+ChangeSet@1.1529, 2003-12-07 19:17:51-05:00, khc@pm.waw.pl
+  [wan] add new pc200syn driver
+
+ChangeSet@1.1528, 2003-12-07 19:00:04-05:00, romieu@fr.zoreil.com
+  [netdrvr r8169] Stats fix (Fernando Alencar Mar=C3=B3tica <famarost@uni=
+mep.br>).
+
+ChangeSet@1.1527, 2003-12-07 18:59:29-05:00, romieu@fr.zoreil.com
+  [netdrvr r8169] Endianness update (original idea from Alexandra N. Koss=
+ovsky):
+  - descriptors status (bitfields enumerated as _DescStatusBit);
+  - address of buffers stored in Rx/Tx descriptors.
+
+ChangeSet@1.1474.12.5, 2003-12-02 19:42:50-08:00, davem@nuts.ninka.net
+  [TG3]: Update to latest non-5705 TSO firmware.
+
+ChangeSet@1.1474.12.4, 2003-12-02 02:35:21-08:00, davem@nuts.ninka.net
+  [TG3]: Update version and release date.
+
+ChangeSet@1.1474.12.3, 2003-12-02 02:34:45-08:00, davem@nuts.ninka.net
+  [TG3]: Clear on-chip stats/status block after resetting flow-through qu=
+eues.
+ =20
+  On systems where the config cycles might take a long time, we
+  can end up with the ASF firmware using the FTQs before we get
+  to resetting them.
+
+ChangeSet@1.1474.12.2, 2003-12-02 02:34:13-08:00, davem@nuts.ninka.net
+  [TG3]: Do not set RX_MODE_KEEP_VLAN_TAG when ASF is enabled.
+
+ChangeSet@1.1474.12.1, 2003-12-02 02:33:45-08:00, davem@nuts.ninka.net
+  [TG3]: Do not drop existing GRC_MODE_HOST_STACKUP when writing to GRC_M=
+ODE.
+
+
+--------------000800080303090907080207--
