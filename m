@@ -1,43 +1,60 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [patch 2.6.9-rc2] 3c59x: do not mask reset of aism logic at rmmod
-Date: Tue, 28 Sep 2004 14:54:55 -0400
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040928145455.C12480@tuxdriver.com>
+From: Vladimir Kondratiev <vkondra@mail.ru>
+Subject: Re: [RFC] acx100 inclusion in mainline; generic 802.11 stack
+Date: Tue, 28 Sep 2004 22:29:48 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <200409282229.53349.vkondra@mail.ru>
+References: <200408312111.02438.vda@port.imtp.ilyichevsk.odessa.ua> <413F70F0.6020709@atheros.com> <20040928122028.GK30131@ruslug.rutgers.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S267767AbUI1UIO@vger.kernel.org>
-To: akpm@osdl.org
-Content-Disposition: inline
+Content-Type: multipart/signed;
+  boundary="nextPart15673523.bRENPlNFVd";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: greg chesson <greg@atheros.com>, netdev@oss.sgi.com,
+        "David S. Miller" <davem@davemloft.net>,
+        acx100-devel@lists.sourceforge.net, hadi@cyberus.ca, jgarzik@pobox.com,
+        jkmaline@cc.hut.fi, prism54-devel@prism54.org, sam@errno.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "Luis R. Rodriguez" <mcgrof@studorgs.rutgers.edu>
+In-Reply-To: <20040928122028.GK30131@ruslug.rutgers.edu>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Some (earlier?) versions of the 3c905(B) card get confused and refuse to
-work again after the 3c59x module is removed (even after reloading the
-module).  Changing vortex_remove_one() to allow the auto-initialize
-state machine logic to be reset when the module is removed alleviates
-this problem.
+--nextPart15673523.bRENPlNFVd
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-Signed-off-by: John W. Linville <linville@tuxdriver.com>
---- 
-See http://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=133388 for more
-details.
+On Tuesday 28 September 2004 14:20, Luis R. Rodriguez wrote:
+LR> RFC: what are the chances we can implement our own generic "softmac" th=
+at
+ may LR> be usable by the different chipsets out there?
 
-If anyone can suggest a better way to fix this problem, please do so.
-I'll be happy to pursue it.
+Coming days, I will submit "framework" consisting of stack based on Dave's=
+=20
+code and debug driver which will be able to imitate Rx. I have working basi=
+c=20
+Tx/Rx. Then, I'd like to concentrate on interfaces stack-driver and=20
+stack-upper layers. It would be great if someone will do MAC algorithms. I'=
+ll=20
+appreciate this for sure.
 
- drivers/net/3c59x.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
+Vladimir.
 
-This patch should apply (with a little fuzz) to 2.4 as well...
+P.S. My ... provider complains about "too many recipients". I removed one o=
+r=20
+2. Sorry.
 
---- linux-2.6/drivers/net/3c59x.c.orig
-+++ linux-2.6/drivers/net/3c59x.c
-@@ -3162,7 +3162,7 @@ static void __devexit vortex_remove_one 
- 			pci_restore_state(VORTEX_PCI(vp), vp->power_state);
- 	}
- 	/* Should really use issue_and_wait() here */
--	outw(TotalReset|0x14, dev->base_addr + EL3_CMD);
-+	outw(TotalReset|0x04, dev->base_addr + EL3_CMD);
- 
- 	pci_free_consistent(pdev,
- 						sizeof(struct boom_rx_desc) * RX_RING_SIZE
+--nextPart15673523.bRENPlNFVd
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.6 (GNU/Linux)
+
+iD8DBQBBWcnBqxdj7mhC6o0RAsZVAJ0ZEXrrodpotOLgYIWN8x8+w7oeLACfXfvE
+zVu9wkndLuqAVfgxYV856eQ=
+=gsqL
+-----END PGP SIGNATURE-----
+
+--nextPart15673523.bRENPlNFVd--
