@@ -1,32 +1,26 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] remove net/README
-Date: Thu, 4 Sep 2003 22:58:23 -0700
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [PATCH] (2/8) convert sdla to new initialization
+Date: Fri, 5 Sep 2003 07:06:19 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030904225823.68a7b7cd.davem@redhat.com>
-References: <20030904145204.GA27953@compsoc.man.ac.uk>
-	<20030904074520.5dceff3e.davem@redhat.com>
-	<20030905010725.5ee10cbf.ak@suse.de>
+Message-ID: <20030905070619.A13947@infradead.org>
+References: <20030903164925.5c44ce73.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: levon@movementarian.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@redhat.com>, mike.mclagan@linux.org,
+   Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <20030905010725.5ee10cbf.ak@suse.de>
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20030903164925.5c44ce73.shemminger@osdl.org>; from shemminger@osdl.org on Wed, Sep 03, 2003 at 04:49:25PM -0700
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 5 Sep 2003 01:07:25 +0200
-Andi Kleen <ak@suse.de> wrote:
+On Wed, Sep 03, 2003 at 04:49:25PM -0700, Stephen Hemminger wrote:
+>  extern int mac8390_probe(struct net_device *dev);
+>  extern int mac89x0_probe(struct net_device *dev);
+>  extern int mc32_probe(struct net_device *dev);
+> +#ifdef CONFIG_SDLA
+> +extern struct net_device *sdla_init(void);
+> +#endif
 
-> When you're doing janitor type stuff currently I would also suggest
-> an update of the NET4 version numbers:
-
-I don't think we need to print all this crap out at all.
-
-The only reason I really kept it in there was to keep
-giving credit to the Swansea Computer Society, but Alan
-indicated that that isn't necessary any more.
-
-Really, if someone says they're running kernel x.y.z we
-know what networking code they're running :)
+Please don't add ifdefs around prototypes.
