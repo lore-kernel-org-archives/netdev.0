@@ -1,8 +1,8 @@
 From: "Hen, Shmulik" <shmulik.hen@intel.com>
-Subject: RE: [PATCH 3/6][8021q][2.6] Use VLAN tag set functionality in 8021q module
-Date: Sun, 25 Jan 2004 14:26:31 +0200
+Subject: RE: [PATCH 3/6][8021q][2.4] Use VLAN tag set functionality in 8021q module
+Date: Sun, 25 Jan 2004 14:28:51 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <E791C176A6139242A988ABA8B3D9B38A014C96A3@hasmsx403.iil.intel.com>
+Message-ID: <E791C176A6139242A988ABA8B3D9B38A014C96A4@hasmsx403.iil.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="iso-8859-1"
@@ -16,22 +16,26 @@ List-Id: netdev.vger.kernel.org
 
 -----Original Message-----
 From: David S. Miller [mailto:davem@redhat.com]
-Sent: Friday, January 23, 2004 5:57 AM
+Sent: Thursday, January 22, 2004 8:07 PM
 To: Hen, Shmulik
 Cc: netdev@oss.sgi.com; bonding-devel@lists.sourceforge.net
-Subject: Re: [PATCH 3/6][8021q][2.6] Use VLAN tag set functionality in 8021q module
+Subject: Re: [PATCH 3/6][8021q][2.4] Use VLAN tag set functionality in 8021q module
 
-> Shmuel, please stop sending all of this VLAN and ARP stuff the
-> bonding code wants.
+> On Thu, 22 Jan 2004 17:57:19 +0200
+> Shmuel Hen <shmulik.hen@intel.com> wrote:
 > 
-> I told you yesterday that at best I will put this stuff into
-> the next 2.6.x release, so please send it at that time.
+> > Make the regular/HW accelerated xmit functions in the 8021q module
+> > use the new set VLAN tag functionality to reduce code duplication.
 > 
-> Thanks.
+> I'm fine with this and the ARP change, I am pretty sure.
+> 
+> But we have way too much stuff pending for the next 2.6.x release,
+> so I'm going to defer adding these changes until Linus puts something
+> final out.
+> 
+> Please resend these two changes after he does a release.
 
-Terribly sorry, must be something wrong with the mail server.
-I only sent this out once, on Thursday, but got it myself at
-least 3 times by this morning :( .
+Fair enough. What about 2.4 ?
 
-
+Thanks,
 Shmulik.
