@@ -1,96 +1,175 @@
-From: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
-Subject: Re: [PATCH] Make netif_rx_ni preempt-safe
-Date: Wed, 20 Oct 2004 18:11:44 +0300
+From: Bob Wirka <bobwirka@rtcworks.com>
+Subject: Re: NFS and Network Driver Question
+Date: Wed, 20 Oct 2004 10:47:11 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200410201811.44419.vda@port.imtp.ilyichevsk.odessa.ua>
-References: <1098230132.23628.28.camel@krustophenia.net> <20041020000009.GA17246@gondor.apana.org.au> <1098231737.23628.42.camel@krustophenia.net>
+Message-ID: <4176887F.3030406@rtcworks.com>
+References: <41704198.8000206@rtcworks.com>  <4175AEFE.7090002@rtcworks.com> <7126.1098233641@marajade.sandelman.ottawa.on.ca>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="koi8-r"
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, linux-kernel <linux-kernel@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-kernel@gondor.apana.org.au, maxk@qualcomm.com,
-        irda-users@lists.sourceforge.net,
-        Linux Network Development <netdev@oss.sgi.com>,
-        Alain Schroeder <alain@parkautomat.net>
+Content-Type: multipart/alternative;
+ boundary="------------060600040306010000040906"
+Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Lee Revell <rlrevell@joe-job.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <1098231737.23628.42.camel@krustophenia.net>
-Content-Disposition: inline
+To: Michael Richardson <mcr@sandelman.ottawa.on.ca>
+In-Reply-To: <7126.1098233641@marajade.sandelman.ottawa.on.ca>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> How about this:
-> 
-> Signed-Off-By: Lee Revell <rlrevell@joe-job.com>
-> 
-> --- include/linux/netdevice.h~	2004-10-19 20:16:48.000000000 -0400
-> +++ include/linux/netdevice.h	2004-10-19 20:21:01.000000000 -0400
-> @@ -696,9 +696,12 @@
->   */
->  static inline int netif_rx_ni(struct sk_buff *skb)
->  {
-> -       int err = netif_rx(skb);
-> +       int err;
-> +       preempt_disable();
-> +       err = netif_rx(skb);
->         if (softirq_pending(smp_processor_id()))
->                 do_softirq();
-> +       preempt_enable();
->         return err;
->  }
+This is a multi-part message in MIME format.
+--------------060600040306010000040906
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-#include <linux/netdevice.h>
+Yes, you are correct; thank you.
 
-int netif_rx_ni_(struct sk_buff *skb)
-{
-    int err;
-    preempt_disable();
-    err = netif_rx(skb);
-    if (softirq_pending(smp_processor_id()))
-        do_softirq();
-    preempt_enable();
-    return err;
-}
+So now I've got an embedded x86 system that boots from a (detachable) 
+floppy drive to the root file system on my laptop host. Syslinux works 
+very well for the boot disk function.
 
-objdump -d:
-00000000 <netif_rx_ni_>:
-   0:   55                      push   %ebp
-   1:   89 e5                   mov    %esp,%ebp
-   3:   56                      push   %esi
-   4:   53                      push   %ebx
-   5:   bb 00 f0 ff ff          mov    $0xfffff000,%ebx
-   a:   21 e3                   and    %esp,%ebx
-   c:   ff 43 14                incl   0x14(%ebx)
-   f:   8b 4d 08                mov    0x8(%ebp),%ecx
-  12:   51                      push   %ecx
-  13:   e8 fc ff ff ff          call   14 <netif_rx_ni_+0x14>
-  18:   89 c6                   mov    %eax,%esi
-  1a:   8b 43 10                mov    0x10(%ebx),%eax
-  1d:   c1 e0 07                shl    $0x7,%eax
-  20:   8b 80 00 00 00 00       mov    0x0(%eax),%eax
-  26:   85 c0                   test   %eax,%eax
-  28:   5a                      pop    %edx
-  29:   75 25                   jne    50 <netif_rx_ni_+0x50>
-  2b:   8b 43 08                mov    0x8(%ebx),%eax
-  2e:   ff 4b 14                decl   0x14(%ebx)
-  31:   a8 08                   test   $0x8,%al
-  33:   75 09                   jne    3e <netif_rx_ni_+0x3e>
-  35:   8d 65 f8                lea    0xfffffff8(%ebp),%esp
-  38:   5b                      pop    %ebx
-  39:   89 f0                   mov    %esi,%eax
-  3b:   5e                      pop    %esi
-  3c:   5d                      pop    %ebp
-  3d:   c3                      ret
-  3e:   e8 fc ff ff ff          call   3f <netif_rx_ni_+0x3f>
-  43:   eb f0                   jmp    35 <netif_rx_ni_+0x35>
-  45:   8d 74 26 00             lea    0x0(%esi,1),%esi
-  49:   8d bc 27 00 00 00 00    lea    0x0(%edi,1),%edi
-  50:   e8 fc ff ff ff          call   51 <netif_rx_ni_+0x51>
-  55:   eb d4                   jmp    2b <netif_rx_ni_+0x2b>
+This system is very cool; it will be used to initialize new units in 
+production, and for providing a platform for easy debugging of applications.
 
-0x57 == 87 bytes is too big for inline.
---
-vda
+The lessons learned here will also be used on the embedded ARM projects.
+
+Thanks again to all who have helped.
+
+Best regards,
+
+Bob Wirka
+Realtime Control Works
+
+Michael Richardson wrote:
+
+>-----BEGIN PGP SIGNED MESSAGE-----
+>
+>
+>  
+>
+>>>>>>"Bob" == Bob Wirka <bobwirka@rtcworks.com> writes:
+>>>>>>            
+>>>>>>
+>    Bob> Ok, now I feel like I'm taking crazy pills...
+>
+>    Bob> The embedded system boots up and mounts the root file system on
+>    Bob> my host laptop. The 'rc.sysinit' startup script executes the
+>    Bob> command 'mount -a' which should mount /proc, /dev/pts, and
+>    Bob> /dev/shm, as listed in /etc/fstab. When executed, that command
+>    Bob> returns "mount: only root can do that".
+>
+>    Bob> When I get to the bash prompt, 'whoami' reports that I am,
+>    Bob> indeed, root. A 'mount -a' from the command prompt gives the
+>    Bob> same result; it doesn't think I'm root for the mount command.
+>
+>  The mount command is perhaps setuid root, but you aren't mounting the
+>root file system in a way that permits it to be identified as such.
+>  Or, the file is in fact not owned by root, and is in fact setuid not-root.
+>
+>- --
+>]     "Elmo went to the wrong fundraiser" - The Simpson         |  firewalls  [
+>]   Michael Richardson,    Xelerance Corporation, Ottawa, ON    |net architect[
+>] mcr@xelerance.com      http://www.sandelman.ottawa.on.ca/mcr/ |device driver[
+>] panic("Just another Debian GNU/Linux using, kernel hacking, security guy"); [
+>-----BEGIN PGP SIGNATURE-----
+>Version: GnuPG v1.2.2 (GNU/Linux)
+>Comment: Finger me for keys
+>
+>iQCVAwUBQXW3KIqHRg3pndX9AQFERwQAhUpzaFDzVch+W2TEU2SFDtSJZObQ5yZ3
+>7hhVtiDI5igzO/MHkipXm89LrNnfwSg+6jfMIo8MlWU+nuqHFWiHkrPeWj8jaFmd
+>QQ+aHhryTn06fyU4UQg1OjEpcHHvo4pLr8lqPwebMjL2JKgk8CM/X2d1N6m9xT+2
+>Nx8H0Rq84sM=
+>=Dso2
+>-----END PGP SIGNATURE-----
+>
+>
+>  
+>
+
+
+--------------060600040306010000040906
+Content-Type: text/html; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+  <meta content="text/html;charset=ISO-8859-1" http-equiv="Content-Type">
+  <title></title>
+</head>
+<body bgcolor="#ffffff" text="#000000">
+Yes, you are correct; thank you.<br>
+<br>
+So now I've got an embedded x86 system that boots from a (detachable)
+floppy drive to the root file system on my laptop host. Syslinux works
+very well for the boot disk function.<br>
+<br>
+This system is very cool; it will be used to initialize new units in
+production, and for providing a platform for easy debugging of
+applications.<br>
+<br>
+The lessons learned here will also be used on the embedded ARM projects.<br>
+<br>
+Thanks again to all who have helped.<br>
+<br>
+Best regards,<br>
+<br>
+Bob Wirka<br>
+Realtime Control Works<br>
+<br>
+Michael Richardson wrote:<br>
+<blockquote cite="mid7126.1098233641@marajade.sandelman.ottawa.on.ca"
+ type="cite">
+  <pre wrap="">-----BEGIN PGP SIGNED MESSAGE-----
+
+
+  </pre>
+  <blockquote type="cite">
+    <blockquote type="cite">
+      <blockquote type="cite">
+        <blockquote type="cite">
+          <blockquote type="cite">
+            <pre wrap="">"Bob" == Bob Wirka <a class="moz-txt-link-rfc2396E" href="mailto:bobwirka@rtcworks.com">&lt;bobwirka@rtcworks.com&gt;</a> writes:
+            </pre>
+          </blockquote>
+        </blockquote>
+      </blockquote>
+    </blockquote>
+  </blockquote>
+  <pre wrap=""><!---->    Bob&gt; Ok, now I feel like I'm taking crazy pills...
+
+    Bob&gt; The embedded system boots up and mounts the root file system on
+    Bob&gt; my host laptop. The 'rc.sysinit' startup script executes the
+    Bob&gt; command 'mount -a' which should mount /proc, /dev/pts, and
+    Bob&gt; /dev/shm, as listed in /etc/fstab. When executed, that command
+    Bob&gt; returns "mount: only root can do that".
+
+    Bob&gt; When I get to the bash prompt, 'whoami' reports that I am,
+    Bob&gt; indeed, root. A 'mount -a' from the command prompt gives the
+    Bob&gt; same result; it doesn't think I'm root for the mount command.
+
+  The mount command is perhaps setuid root, but you aren't mounting the
+root file system in a way that permits it to be identified as such.
+  Or, the file is in fact not owned by root, and is in fact setuid not-root.
+
+- --
+]     "Elmo went to the wrong fundraiser" - The Simpson         |  firewalls  [
+]   Michael Richardson,    Xelerance Corporation, Ottawa, ON    |net architect[
+] <a class="moz-txt-link-abbreviated" href="mailto:mcr@xelerance.com">mcr@xelerance.com</a>      <a class="moz-txt-link-freetext" href="http://www.sandelman.ottawa.on.ca/mcr/">http://www.sandelman.ottawa.on.ca/mcr/</a> |device driver[
+] panic("Just another Debian GNU/Linux using, kernel hacking, security guy"); [
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.2 (GNU/Linux)
+Comment: Finger me for keys
+
+iQCVAwUBQXW3KIqHRg3pndX9AQFERwQAhUpzaFDzVch+W2TEU2SFDtSJZObQ5yZ3
+7hhVtiDI5igzO/MHkipXm89LrNnfwSg+6jfMIo8MlWU+nuqHFWiHkrPeWj8jaFmd
+QQ+aHhryTn06fyU4UQg1OjEpcHHvo4pLr8lqPwebMjL2JKgk8CM/X2d1N6m9xT+2
+Nx8H0Rq84sM=
+=Dso2
+-----END PGP SIGNATURE-----
+
+
+  </pre>
+</blockquote>
+<br>
+</body>
+</html>
+
+--------------060600040306010000040906--
