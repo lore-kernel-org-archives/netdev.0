@@ -1,8 +1,8 @@
 From: Scott Feldman <scott.feldman@intel.com>
-Subject: [PATCH 2.6 1/3] e100: stepping over err return code
-Date: Thu, 10 Jun 2004 11:16:32 -0700 (PDT)
+Subject: [PATCH 2.6 2/3] e100: fix skb leak in tx timeout
+Date: Thu, 10 Jun 2004 11:21:00 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0406101110270.5831@sfeldma-ich5.jf.intel.com>
+Message-ID: <Pine.LNX.4.58.0406101116340.5831@sfeldma-ich5.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@oss.sgi.com, scott.feldman@intel.com
@@ -12,24 +12,34 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-* Spotted by Jay Vosburgh [fubar@us.ibm.com].  err return code was getting
-stepped on in the case where we need to report low or no cb resources,
-which in turn messed up the netif_stop_queue logic in xmit_frame.
+* If e100 experiences a transmit timeout, and the tx ring is completely
+full at the time, it will leak all of the skbs on the tx ring (because
+extra logic is needed to distinguish ring full from ring empty).  Jay
+Vosburgh [fubar@us.ibm.com].
 
 Signed-off by: scott.feldman@intel.com
 
---------
 
---- linux-2.5/drivers/net/e100.c	2004-06-10 11:06:03.457155768 -0700
-+++ linux-2.5/drivers/net/e100.c.mod	2004-06-10 11:06:59.105695904 -0700
-@@ -827,8 +827,8 @@ static inline int e100_exec_cb(struct ni
- 	cb->prev->command &= cpu_to_le16(~cb_s);
+-----------
 
- 	while(nic->cb_to_send != nic->cb_to_use) {
--		if(unlikely((err = e100_exec_cmd(nic, nic->cuc_cmd,
--			nic->cb_to_send->dma_addr)))) {
-+		if(unlikely(e100_exec_cmd(nic, nic->cuc_cmd,
-+			nic->cb_to_send->dma_addr))) {
- 			/* Ok, here's where things get sticky.  It's
- 			 * possible that we can't schedule the command
- 			 * because the controller is too busy, so
+--- linux-2.5/drivers/net/e100.c	2004-06-10 11:07:00.015557584 -0700
++++ linux-2.5/drivers/net/e100.c.mod	2004-06-10 11:07:18.487749384 -0700
+@@ -1323,7 +1323,7 @@ static inline int e100_tx_clean(struct n
+ static void e100_clean_cbs(struct nic *nic)
+ {
+ 	if(nic->cbs) {
+-		while(nic->cb_to_clean != nic->cb_to_use) {
++		while(nic->cbs_avail != nic->params.cbs.count) {
+ 			struct cb *cb = nic->cb_to_clean;
+ 			if(cb->skb) {
+ 				pci_unmap_single(nic->pdev,
+@@ -1333,8 +1333,8 @@ static void e100_clean_cbs(struct nic *n
+ 				dev_kfree_skb(cb->skb);
+ 			}
+ 			nic->cb_to_clean = nic->cb_to_clean->next;
++			nic->cbs_avail++;
+ 		}
+-		nic->cbs_avail = nic->params.cbs.count;
+ 		pci_free_consistent(nic->pdev,
+ 			sizeof(struct cb) * nic->params.cbs.count,
+ 			nic->cbs, nic->cbs_dma_addr);
