@@ -1,41 +1,73 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [TG3] Always load TSO firmware
-Date: Thu, 20 Nov 2003 12:41:17 -0500
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: MLDv1 bug [PATCH]
+Date: Thu, 20 Nov 2003 15:33:52 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3FBCFCBD.5060609@pobox.com>
-References: <20031117093225.GA12420@gondor.apana.org.au>	<20031117123836.2f8e70af.davem@redhat.com>	<20031120095605.GA6572@gondor.apana.org.au> <20031120092530.4dfe9016.davem@redhat.com>
+Message-ID: <OF57EBC173.5A7DDA2A-ON88256DE4.007B48CB@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com
+Content-Type: multipart/mixed;
+	Boundary="0__=07BBE777DFE8CE5B8f9e8a93df938690918c07BBE777DFE8CE5B"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20031120092530.4dfe9016.davem@redhat.com>
+To: davem@redhat.com, netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> On Thu, 20 Nov 2003 20:56:05 +1100
-> Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> 
-> 
->>OK, I've cross-checked with the Broadcom drivers and the problem seems
->>to be specific to 5705 A1 which is the chipset in question.
->>
->>The Broadcom drivers limit the number of rx descriptors to 63 while
->>tg3.c only limits it to 64.  It has been confirmed that lowering
->>the limit makes the problem go away.
->>
->>Here is the patch.
-> 
-> 
-> Great work.
-> 
-> Jeff, please push this around.  I think it's serious enough for
-> 2.4.23-rcX personally.
+--0__=07BBE777DFE8CE5B8f9e8a93df938690918c07BBE777DFE8CE5B
+Content-type: text/plain; charset=US-ASCII
 
 
-Will do, though I first need to check and see if non-power-of-two has 
-any implications in the implementation...
 
-	Jeff
+
+
+Dave,
+      Someone pointed out to me this apparently old bug in MLDv1. According
+to RFC 2710:
+
+"MLD messages are never sent for multicast addresses whose scope is 0
+(reserved) or 1 (node-local).
+
+MLD messages ARE sent for multicast addresses whose scope is 2
+(link-local), including Solicited-Node multicast addersses [ADDR-ARCH],
+except for the link-scope, all-nodes address (FF02::1)."
+
+      The current MLDv1 code does not send reports for link-scope addresses
+and doesn't restrict scope 0. This may break switches that snoop reports for
+determining which ports should receive particular addresses.  Patch below.
+
+                        +-DLS
+
+--- linux-2.6.0-test9-bk23/net/ipv6/mcast.c     2003-11-18 23:20:56.000000000 -0800
++++ linux-2.6.0-test9-bk23F2/net/ipv6/mcast.c   2003-11-20 14:22:51.910526392 -0800
+@@ -960,8 +960,9 @@
+ {
+      unsigned long delay = resptime;
+
+-     /* Do not start timer for addresses with link/host scope */
+-     if (ipv6_addr_type(&ma->mca_addr)&(IPV6_ADDR_LINKLOCAL|IPV6_ADDR_LOOPBACK))
++     /* Do not start timer for these addresses */
++     if (ipv6_addr_is_ll_all_nodes(&ma->mca_addr) ||
++         IPV6_ADDR_MC_SCOPE(&ma->mca_addr) < IPV6_ADDR_SCOPE_LINKLOCAL)
+            return;
+
+      if (del_timer(&ma->mca_timer)) {
+
+(See attached file: MLDv1LL.patch)
+--0__=07BBE777DFE8CE5B8f9e8a93df938690918c07BBE777DFE8CE5B
+Content-type: application/octet-stream;
+	name="MLDv1LL.patch"
+Content-Disposition: attachment; filename="MLDv1LL.patch"
+Content-transfer-encoding: base64
+
+LS0tIGxpbnV4LTIuNi4wLXRlc3Q5LWJrMjMvbmV0L2lwdjYvbWNhc3QuYwkyMDAzLTExLTE4IDIz
+OjIwOjU2LjAwMDAwMDAwMCAtMDgwMAorKysgbGludXgtMi42LjAtdGVzdDktYmsyM0YyL25ldC9p
+cHY2L21jYXN0LmMJMjAwMy0xMS0yMCAxNDoyMjo1MS45MTA1MjYzOTIgLTA4MDAKQEAgLTk2MCw4
+ICs5NjAsOSBAQAogewogCXVuc2lnbmVkIGxvbmcgZGVsYXkgPSByZXNwdGltZTsKIAotCS8qIERv
+IG5vdCBzdGFydCB0aW1lciBmb3IgYWRkcmVzc2VzIHdpdGggbGluay9ob3N0IHNjb3BlICovCi0J
+aWYgKGlwdjZfYWRkcl90eXBlKCZtYS0+bWNhX2FkZHIpJihJUFY2X0FERFJfTElOS0xPQ0FMfElQ
+VjZfQUREUl9MT09QQkFDSykpCisJLyogRG8gbm90IHN0YXJ0IHRpbWVyIGZvciB0aGVzZSBhZGRy
+ZXNzZXMgKi8KKwlpZiAoaXB2Nl9hZGRyX2lzX2xsX2FsbF9ub2RlcygmbWEtPm1jYV9hZGRyKSB8
+fAorCSAgICBJUFY2X0FERFJfTUNfU0NPUEUoJm1hLT5tY2FfYWRkcikgPCBJUFY2X0FERFJfU0NP
+UEVfTElOS0xPQ0FMKQogCQlyZXR1cm47CiAKIAlpZiAoZGVsX3RpbWVyKCZtYS0+bWNhX3RpbWVy
+KSkgewo=
+
+--0__=07BBE777DFE8CE5B8f9e8a93df938690918c07BBE777DFE8CE5B--
