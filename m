@@ -1,54 +1,145 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [Fwd: Receiving MLDv1 reports in a daemon]
-Date: Tue, 16 Mar 2004 12:06:54 -0700
+From: "Steven J. Hill" <Steve.Hill@timesys.com>
+Subject: Re: [PATCH] fix natsemi PCI mapping
+Date: Tue, 16 Mar 2004 14:15:42 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OF549FEB55.4E52AD1D-ON88256E59.00681B50-88256E59.0068B106@us.ibm.com>
-References: <4057176D.8050206@us.ibm.com>
+Message-ID: <4057525E.6020205@timesys.com>
+References: <40574227.8020302@pobox.com>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	Boundary="0__=07BBE4CADFFB9DC08f9e8a93df938690918c07BBE4CADFFB9DC0"
-Cc: netdev <netdev@oss.sgi.com>
+Content-Type: multipart/mixed;
+ boundary="------------060301070001030109080002"
+Cc: Netdev <netdev@oss.sgi.com>, Tim Hockin <thockin@sun.com>,
+        Linux Kernel <linux-kernel@vger.kernel.org>, ralf@linux-mips.org
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <4057176D.8050206@us.ibm.com>
-To: niv@us.ibm.com
-Content-Disposition: inline
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <40574227.8020302@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---0__=07BBE4CADFFB9DC08f9e8a93df938690918c07BBE4CADFFB9DC0
-Content-type: text/plain; charset=US-ASCII
+This is a multi-part message in MIME format.
+--------------060301070001030109080002
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
+Jeff Garzik wrote:
+> 
+> Somebody wanna review and/or test?
+>
+Hey Jeff.
 
+I have tested this on 2.4 and it works great on MIPS with one
+minor change below. Remove the 16 byte alignment of the IP
+header. I discovered this when trying to do a BOOTP and mount
+my NFS root filesystem. The BOOTP never succeeds. Patch against
+latest 2.4.25 attached.
 
+-Steve
 
+@@ -1467,13 +1469,16 @@
+  		struct sk_buff *skb;
+  		int entry = np->dirty_rx % RX_RING_SIZE;
+  		if (np->rx_skbuff[entry] == NULL) {
+-			skb = dev_alloc_skb(np->rx_buf_sz);
++			unsigned int buflen = np->rx_buf_sz + RX_OFFSET;
++			skb = dev_alloc_skb(buflen);
+  			np->rx_skbuff[entry] = skb;
+  			if (skb == NULL)
+  				break; /* Better luck next round. */
+  			skb->dev = dev; /* Mark as being used by this device. */
++			/* 16 byte align the IP header */
++			skb_reserve(skb, RX_OFFSET);
+  			np->rx_dma[entry] = pci_map_single(np->pci_dev,
+-				skb->data, skb->len, PCI_DMA_FROMDEVICE);
++				skb->tail, buflen, PCI_DMA_FROMDEVICE);
+  			np->rx_ring[entry].addr = cpu_to_le32(np->rx_dma[entry]);
+  		}
 
+--------------060301070001030109080002
+Content-Type: text/x-patch;
+ name="natsemi-pci-mapping.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="natsemi-pci-mapping.patch"
 
-> Is there any other way to get the MLDv1 reports to my daemon. Any
-solution
-> to this problem would be very helpful to me.
+diff -urN -X /home/sjhill/diff-exc linux-2.4.25/drivers/net/natsemi.c linux-2.4.25-patched/drivers/net/natsemi.c
+--- linux-2.4.25/drivers/net/natsemi.c	Tue Mar 16 14:05:21 2004
++++ linux-2.4.25-patched/drivers/net/natsemi.c	Tue Mar 16 13:58:15 2004
+@@ -175,6 +175,8 @@
+ #define DRV_VERSION	"1.07+LK1.0.17"
+ #define DRV_RELDATE	"Sep 27, 2002"
+ 
++#define RX_OFFSET	2
++
+ /* Updated to recommendations in pci-skeleton v2.03. */
+ 
+ /* The user-configurable values.
+@@ -1466,13 +1467,14 @@
+ 		struct sk_buff *skb;
+ 		int entry = np->dirty_rx % RX_RING_SIZE;
+ 		if (np->rx_skbuff[entry] == NULL) {
+-			skb = dev_alloc_skb(np->rx_buf_sz);
++			unsigned int buflen = np->rx_buf_sz + RX_OFFSET;
++			skb = dev_alloc_skb(buflen);
+ 			np->rx_skbuff[entry] = skb;
+ 			if (skb == NULL)
+ 				break; /* Better luck next round. */
+ 			skb->dev = dev; /* Mark as being used by this device. */
+ 			np->rx_dma[entry] = pci_map_single(np->pci_dev,
+-				skb->data, skb->len, PCI_DMA_FROMDEVICE);
++				skb->tail, buflen, PCI_DMA_FROMDEVICE);
+ 			np->rx_ring[entry].addr = cpu_to_le32(np->rx_dma[entry]);
+ 		}
+ 		np->rx_ring[entry].cmd_status = cpu_to_le32(np->rx_buf_sz);
+@@ -1542,6 +1544,7 @@
+ static void drain_ring(struct net_device *dev)
+ {
+ 	struct netdev_private *np = dev->priv;
++	unsigned int buflen = np->rx_buf_sz + RX_OFFSET;
+ 	int i;
+ 
+ 	/* Free all the skbuffs in the Rx queue. */
+@@ -1550,7 +1553,7 @@
+ 		np->rx_ring[i].addr = 0xBADF00D0; /* An invalid address. */
+ 		if (np->rx_skbuff[i]) {
+ 			pci_unmap_single(np->pci_dev,
+-				np->rx_dma[i], np->rx_skbuff[i]->len,
++				np->rx_dma[i], buflen,
+ 				PCI_DMA_FROMDEVICE);
+ 			dev_kfree_skb(np->rx_skbuff[i]);
+ 		}
+@@ -1746,6 +1745,7 @@
+ 	int entry = np->cur_rx % RX_RING_SIZE;
+ 	int boguscnt = np->dirty_rx + RX_RING_SIZE - np->cur_rx;
+ 	s32 desc_status = le32_to_cpu(np->rx_head_desc->cmd_status);
++	unsigned int buflen = np->rx_buf_sz + RX_OFFSET;
+ 
+ 	/* If the driver owns the next entry it's a new packet. Send it up. */
+ 	while (desc_status < 0) { /* e.g. & DescOwn */
+@@ -1784,13 +1784,13 @@
+ 			/* Check if the packet is long enough to accept
+ 			 * without copying to a minimally-sized skbuff. */
+ 			if (pkt_len < rx_copybreak
+-			    && (skb = dev_alloc_skb(pkt_len + 2)) != NULL) {
++			    && (skb = dev_alloc_skb(pkt_len + RX_OFFSET)) != NULL) {
+ 				skb->dev = dev;
+ 				/* 16 byte align the IP header */
+-				skb_reserve(skb, 2);
++				skb_reserve(skb, RX_OFFSET);
+ 				pci_dma_sync_single(np->pci_dev,
+ 					np->rx_dma[entry],
+-					np->rx_skbuff[entry]->len,
++					buflen,
+ 					PCI_DMA_FROMDEVICE);
+ #if HAS_IP_COPYSUM
+ 				eth_copy_and_sum(skb,
+@@ -1802,8 +1802,7 @@
+ #endif
+ 			} else {
+ 				pci_unmap_single(np->pci_dev, np->rx_dma[entry],
+-					np->rx_skbuff[entry]->len,
+-					PCI_DMA_FROMDEVICE);
++					buflen, PCI_DMA_FROMDEVICE);
+ 				skb_put(skb = np->rx_skbuff[entry], pkt_len);
+ 				np->rx_skbuff[entry] = NULL;
+ 			}
 
-To receive all MLDv1 reports, you need the interface to be in
-multicast promiscuous mode. You can do this by setting the
-interface flag "IFF_ALLMULTI".
-
-For MLDv2, reports are sent to the all-multicast-routers group
-address, so you only need to join that group in MLDv2.
-
-                                    +-DLS
---0__=07BBE4CADFFB9DC08f9e8a93df938690918c07BBE4CADFFB9DC0
-Content-type: text/html; charset=US-ASCII
-Content-Disposition: inline
-
-<html><body>
-<p><tt>&gt; Is there any other way to get the MLDv1 reports to my daemon. Any solution<br>
-&gt; to this problem would be very helpful to me.</tt><br>
-<br>
-<tt>To receive all MLDv1 reports, you need the interface to be in</tt><br>
-<tt>multicast promiscuous mode. You can do this by setting the</tt><br>
-<tt>interface flag &quot;IFF_ALLMULTI&quot;.</tt><br>
-<br>
-<tt>For MLDv2, reports are sent to the all-multicast-routers group</tt><br>
-<tt>address, so you only need to join that group in MLDv2.<br>
-</tt><br>
-<tt>						+-DLS</tt></body></html>
---0__=07BBE4CADFFB9DC08f9e8a93df938690918c07BBE4CADFFB9DC0--
+--------------060301070001030109080002--
