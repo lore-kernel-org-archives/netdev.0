@@ -1,24 +1,17 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [RFC PATCH] Fix double dereference (Re: IPv6 badness continues)
-Date: Thu, 6 Jan 2005 19:53:33 -0800
-Message-ID: <20050106195333.2a90f6cb.davem@davemloft.net>
-References: <41DA3A60.8050102@pobox.com>
-	<20050107.111806.27181187.yoshfuji@linux-ipv6.org>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] 8139too: use iomap for pio/mmio
+Date: Thu, 06 Jan 2005 23:03:01 -0500
+Message-ID: <41DE09F5.5020902@pobox.com>
+References: <1099689836.5732.2.camel@cherry>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com, herbert@gondor.apana.org.au
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20050107.111806.27181187.yoshfuji@linux-ipv6.org>
+To: Pekka Enberg <penberg@cs.helsinki.fi>
+In-Reply-To: <1099689836.5732.2.camel@cherry>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 07 Jan 2005 11:18:06 +0900 (JST)
-YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
-
-> Am I miss something?
-
-Does every path which destroys an ipv6 socket do the
-sk_dst_reset()?  If so, your patch should be valid.
+applied
