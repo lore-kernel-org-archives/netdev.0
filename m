@@ -1,46 +1,33 @@
-From: "MMS Notifier" <mms-notifier@aaa-calif.com>
-Subject: SecureMail Server notification
-Date: Sat, 22 Jan 2005 02:43:42 -0800
-Message-ID: <6DECF1D95JO1565372-01@MMS__aaa-calif.com_>
+From: Richard Dawe <rich@phekda.gotadsl.co.uk>
+Subject: Re: Acer Aspire 1524WLMi and RealTek 8169 - very slow
+Date: Sat, 22 Jan 2005 13:10:41 +0000
+Message-ID: <41F250D1.8000207@phekda.gotadsl.co.uk>
+References: <41A09541.5040405@phekda.gotadsl.co.uk> <41A0F0D5.9050702@phekda.gotadsl.co.uk> <20041121205814.GA22460@electric-eye.fr.zoreil.com> <41A24F35.5080106@phekda.gotadsl.co.uk> <20041122213008.GA9618@electric-eye.fr.zoreil.com> <41D2844E.5070204@phekda.gotadsl.co.uk> <20041229235203.GA5465@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="_-==6DECF1D4BSK77364==-_"
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, Me <rich@phekda.gotadsl.co.uk>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20041229235203.GA5465@electric-eye.fr.zoreil.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hello.
 
---_-==6DECF1D4BSK77364==-_
-Content-Type: text/plain;
- charset=iso-8859-1
-Content-Disposition: inline
+I created a bug in the kernel bug tracker for this issue:
 
-Our EMail system has detected a virus that cannot be cleaned in your
-original email sent to one of our users.  Please take action to clean
-your system. Virus Scanner found the 
- W32/Lovgate.x@MM!zip virus
-   in the attached file: readme.zip
- 
+   http://bugme.osdl.org/show_bug.cgi?id=4049
 
---_-==6DECF1D4BSK77364==-_
-Content-Type: message/rfc822
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+I think it may just be an issue with x86_64 and ACPI, but I'm not sure 
+yet. I don't yet have any definite reports that this laptop works fine 
+in 32-bit mode.
 
-Received: from 69.224.107.86 by mail.aaa-calif.com with ESMTP (
- Tumbleweed MMS SMTP Relay); Sat, 22 Jan 2005 02:43:31 -0800
-X-Server-Uuid: 0C5A08D0-32A3-4639-8D0C-F6C8FC676303
-From: netdev@oss.sgi.com
-To: john@aaa-calif.com
-Subject: test
-Date: Sat, 22 Jan 2005 02:43:13 -0800
-MIME-Version: 1.0
-X-Priority: 3
-X-MSMail-Priority: Normal
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Thanks, bye, Rich =]
 
+-- 
+Richard Dawe [ http://homepages.nildram.co.uk/~phekda/richdawe/ ]
 
---_-==6DECF1D4BSK77364==-_--
+"You can't evaluate a man by logic alone."
+   -- McCoy, "I, Mudd", Star Trek
