@@ -1,49 +1,32 @@
-From: "Aravind Ceyardass" <aravind1001@speedpost.net>
-Subject: Re: Re: pci-skeleton duplex check
-Date: Mon, 16 Dec 2002 14:55:13 -0400
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: Mailling list archive URL broken?
+Date: Tue, 17 Dec 2002 01:42:40 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021216185513.43F023D56F@server2.fastmail.fm>
-References: <200212141428.TAA32351@WS0005.indiatimes.com>
+Message-ID: <20021217014240.A14491@linux-mips.org>
+References: <70060000.1040055045@worker.muc.bieringer.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: aravind1001@speedpost.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Maillist netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
+To: Peter Bieringer <pb@bieringer.de>
 Content-Disposition: inline
-To: "arun4linux" <arun4linux@indiatimes.com>,
-   "Michael Richardson" <mcr@sandelman.ottawa.on.ca>, netdev@oss.sgi.com,
-   "Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>
-In-Reply-To: <200212141428.TAA32351@WS0005.indiatimes.com>
+In-Reply-To: <70060000.1040055045@worker.muc.bieringer.de>; from pb@bieringer.de on Mon, Dec 16, 2002 at 05:10:45PM +0100
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Mon, Dec 16, 2002 at 05:10:45PM +0100, Peter Bieringer wrote:
 
-Hi,
+> some time ago I found this archive URL:
+> 
+> http://oss.sgi.com/projects/netdev/archive/
+> 
+> Unfortunately, it's broken (forbidden). Temp failure or is archive
+> moved? If second, pls. send me the new URL.
 
-A good scheme for numbering kernels or software components in general is
-as follows
+A glitch in the recent conversion from Majordomo to Ecartis, I just fixed
+this.
 
-For stable releases. (x.even.y=major.minor.patch)
+This is just the URL of the mbox archives maintained by Ecartis.  There's
+also a webarchive ...
 
-increment patch for any bug fixes.
-increment minor for any enhancements or new interfaces.
-increment major for interface changes or interface deletions.(dangerous
-or poor design)
-
-We should increment major even if interface remains same but behaviour
-has changed.(again may be poor design)
-
-For development releases we can't follow the above scheme, because the
-interfaces are in a flux and we may end up
-in version 589.201.700 from 2.4.20. So, we decide to increment patch
-number for all changes and deletions.
-
-Hope it helps!
-
-Regards
-
-Aravind
-
-
--- 
-http://fastmail.fm - IMAP accessible web-mail
+  Ralf
