@@ -1,23 +1,51 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [atmdrvr lanai] PATCH: update to modern DMA/PCI api, etc
-Date: Mon, 28 Jul 2003 07:39:40 -0700
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [Fwd: kernel 2.4.21]
+Date: Mon, 28 Jul 2003 11:07:37 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030728073940.419ffb98.davem@redhat.com>
-References: <20030728045620.GJ32831@gaz.sfgoth.com>
-	<200307281353.h6SDrHsG009681@ginger.cmf.nrl.navy.mil>
+Message-ID: <20030728150737.GB1399@gtf.org>
+References: <1058634345.22000.2.camel@dhcp22.swansea.linux.org.uk> <20030719191723.0821227f.davem@redhat.com> <3F1E53F7.5000803@unixtech.be> <20030723023528.76b0f69c.davem@redhat.com> <3F1E58EE.5010109@unixtech.be> <20030723024648.2e4b6a62.davem@redhat.com> <3F1E7435.4060308@unixtech.be> <20030727163422.28e44736.davem@redhat.com> <3F24D31F.5050904@unixtech.be> <20030728073240.03ff1c2e.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: chas@cmf.nrl.navy.mil, mitch@sfgoth.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Cedric Gavage <cedric.gavage@unixtech.be>, alan@lxorguk.ukuu.org.uk,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: chas3@users.sourceforge.net
-In-Reply-To: <200307281353.h6SDrHsG009681@ginger.cmf.nrl.navy.mil>
+To: "David S. Miller" <davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20030728073240.03ff1c2e.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 28 Jul 2003 09:50:35 -0400
-chas williams <chas@cmf.nrl.navy.mil> wrote:
+On Mon, Jul 28, 2003 at 07:32:40AM -0700, David S. Miller wrote:
+> On Mon, 28 Jul 2003 09:39:11 +0200
+> Cedric Gavage <cedric.gavage@unixtech.be> wrote:
+> 
+> > David S. Miller wrote:
+> > > On Wed, 23 Jul 2003 13:40:37 +0200
+> > > Cedric Gavage <cedric.gavage@unixtech.be> wrote:
+> > >
+> > >>Ok, now it's e100 driver, I will wait some hours to see if we have again 
+> > >>problems, thanks for your help.
+> > > 
+> > > Any problems yet?
+> > 
+> > It's ok now... I was waiting some hours (days) to see if it was really ok ;)
+> > 
+> > Thanks for your help.
+> 
+> No problem.
+> 
+> Alan and Jeff, please note, executive summary:
+> 
+> 1) 'eepro100' driver in 2.4.x + high end EFNET IRC server == crashes
+> 2) same as #1 using 'e100' driver == works
 
-> dave, please apply the following patch from mitch:
+My Official Story(tm) is currently
 
-Done, thanks guys.
+* use e100
+* unless you really really want to use eepro100
+
+eepro100 in the kernel tree is essentially unmaintained.  One of the
+big reasons I merged e100 is that it has an active maintainer with
+full access to docs.
+
+	Jeff
