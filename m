@@ -1,52 +1,68 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 2.6.1] Allow pcnet_cs to work with shared irq
-Date: Tue, 20 Jan 2004 16:22:51 -0800
+From: chas williams (contractor) <chas@cmf.nrl.navy.mil>
+Subject: [PATCH][ATM]: [horizon] avoid warning about limited range of data type
+Date: Tue, 20 Jan 2004 20:24:37 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040120162251.291a0e39.shemminger@osdl.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Message-ID: <200401210124.i0L1OZRr014516@ginger.cmf.nrl.navy.mil>
+Reply-To: chas3@users.sourceforge.net
+Cc: netdev@oss.sgi.com, "Randy.Dunlap" <rddunlap@osdl.org>,
+        Daniele Venzano <venza@libero.it>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>, Paul Gortmaker <p_gortmaker@yahoo.com>
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On some laptops, the pcmcia card shares an irq with other things
-like the serial or irda ports.  The pcnet_cs driver did not correctly
-handle shared interrupts, this fixes it for me.
+this patch fixes the horizon driver so that it will compile
+without a warning.
 
-ei_interrupt now returns IRQ_HANDLED if some frames have been serviced,
-and the wrapper routine propagates the error code.
-
-diff -Nru a/drivers/net/8390.c b/drivers/net/8390.c
---- a/drivers/net/8390.c	Tue Jan 20 16:21:00 2004
-+++ b/drivers/net/8390.c	Tue Jan 20 16:21:00 2004
-@@ -520,7 +520,7 @@
- 		}
- 	}
- 	spin_unlock(&ei_local->page_lock);
--	return IRQ_HANDLED;
-+	return IRQ_RETVAL(nr_serviced > 0);
- }
+# This is a BitKeeper generated patch for the following project:
+# Project Name: Linux kernel tree
+# This patch format is intended for GNU patch command version 2.5 or higher.
+# This patch includes the following deltas:
+#	           ChangeSet	1.1389  -> 1.1390 
+#	drivers/atm/horizon.c	1.4     -> 1.5    
+#
+# The following is the BitKeeper ChangeSet Log
+# --------------------------------------------
+# 04/01/20	chas@relax.cmf.nrl.navy.mil	1.1390
+# [ATM]: [horizon] avoid warning about limited range of data type
+# --------------------------------------------
+#
+diff -Nru a/drivers/atm/horizon.c b/drivers/atm/horizon.c
+--- a/drivers/atm/horizon.c	Tue Jan 20 19:57:59 2004
++++ b/drivers/atm/horizon.c	Tue Jan 20 19:57:59 2004
+@@ -359,8 +359,8 @@
  
- /**
-diff -Nru a/drivers/net/pcmcia/pcnet_cs.c b/drivers/net/pcmcia/pcnet_cs.c
---- a/drivers/net/pcmcia/pcnet_cs.c	Tue Jan 20 16:21:00 2004
-+++ b/drivers/net/pcmcia/pcnet_cs.c	Tue Jan 20 16:21:00 2004
-@@ -1193,10 +1193,11 @@
- static irqreturn_t ei_irq_wrapper(int irq, void *dev_id, struct pt_regs *regs)
- {
-     pcnet_dev_t *info = dev_id;
--    info->stale = 0;
--    ei_interrupt(irq, dev_id, regs);
--    /* FIXME! Was it really ours? */
--    return IRQ_HANDLED;
-+    irqreturn_t ret = ei_interrupt(irq, dev_id, regs);
-+
-+    if (ret == IRQ_HANDLED)
-+	    info->stale = 0;
-+    return ret;
- }
+ static unsigned short debug = 0;
+ static unsigned short vpi_bits = 0;
+-static unsigned short max_tx_size = 9000;
+-static unsigned short max_rx_size = 9000;
++static int max_tx_size = 9000;
++static int max_rx_size = 9000;
+ static unsigned char pci_lat = 0;
  
- static void ei_watchdog(u_long arg)
+ /********** access functions **********/
+@@ -2919,11 +2919,11 @@
+     PRINTK (KERN_ERR, "vpi_bits has been limited to %hu",
+ 	    vpi_bits = HRZ_MAX_VPI);
+   
+-  if (max_tx_size > TX_AAL5_LIMIT)
++  if (max_tx_size < 0 || max_tx_size > TX_AAL5_LIMIT)
+     PRINTK (KERN_NOTICE, "max_tx_size has been limited to %hu",
+ 	    max_tx_size = TX_AAL5_LIMIT);
+   
+-  if (max_rx_size > RX_AAL5_LIMIT)
++  if (max_rx_size < 0 || max_rx_size > RX_AAL5_LIMIT)
+     PRINTK (KERN_NOTICE, "max_rx_size has been limited to %hu",
+ 	    max_rx_size = RX_AAL5_LIMIT);
+   
+@@ -2938,8 +2938,8 @@
+ MODULE_LICENSE("GPL");
+ MODULE_PARM(debug, "h");
+ MODULE_PARM(vpi_bits, "h");
+-MODULE_PARM(max_tx_size, "h");
+-MODULE_PARM(max_rx_size, "h");
++MODULE_PARM(max_tx_size, "i");
++MODULE_PARM(max_rx_size, "i");
+ MODULE_PARM(pci_lat, "b");
+ MODULE_PARM_DESC(debug, "debug bitmap, see .h file");
+ MODULE_PARM_DESC(vpi_bits, "number of bits (0..4) to allocate to VPIs");
