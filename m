@@ -1,8 +1,8 @@
-From: Stephan von Krawczynski <skraw@ithnet.com>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
-Date: Mon, 18 Aug 2003 14:34:01 +0200
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20030818143401.1352d158.skraw@ithnet.com>
+Date: Mon, 18 Aug 2003 05:30:07 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20030818053007.7852ca77.davem@redhat.com>
 References: <20030728213933.F81299@coredump.scriptkiddie.org>
 	<200308171509570955.003E4FEC@192.168.128.16>
 	<200308171516090038.0043F977@192.168.128.16>
@@ -17,42 +17,31 @@ References: <20030728213933.F81299@coredump.scriptkiddie.org>
 	<20030817223118.3cbc497c.davem@redhat.com>
 	<20030818133957.3d3d51d2.skraw@ithnet.com>
 	<20030818044419.0bc24d14.davem@redhat.com>
+	<20030818143401.1352d158.skraw@ithnet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: willy@w.ods.org, alan@lxorguk.ukuu.org.uk, carlosev@newipnet.com,
-	lamont@scriptkiddie.org, davidsen@tmr.com, bloemsaa@xs4all.nl,
-	marcelo@conectiva.com.br, netdev@oss.sgi.com,
-	linux-net@vger.kernel.org, layes@loran.com, torvalds@osdl.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030818044419.0bc24d14.davem@redhat.com>
+   lamont@scriptkiddie.org, davidsen@tmr.com, bloemsaa@xs4all.nl,
+   marcelo@conectiva.com.br, netdev@oss.sgi.com, linux-net@vger.kernel.org,
+   layes@loran.com, torvalds@osdl.org, linux-kernel@vger.kernel.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Stephan von Krawczynski <skraw@ithnet.com>
+In-Reply-To: <20030818143401.1352d158.skraw@ithnet.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 18 Aug 2003 04:44:19 -0700
-"David S. Miller" <davem@redhat.com> wrote:
+On Mon, 18 Aug 2003 14:34:01 +0200
+Stephan von Krawczynski <skraw@ithnet.com> wrote:
 
-> On Mon, 18 Aug 2003 13:39:57 +0200
-> Stephan von Krawczynski <skraw@ithnet.com> wrote:
-> 
-> > Can you please give us a striking example of a widespread application where
-> > current behaviour is a requirement or at least a very positive thing?
-> 
-> [ I've been waiting what seems like centuries for someone
->   to even consider talking about source address selection,
->   alas I have to bring it up myself :( ]
-> 
-> I'll responsd by asking questions of you.
+> what is the _positive_ outcome of this
+> implementation compared to others?
 
-David, this is the wrong way round. Others'/my question was not about the
-implementation and technical considerations leading to it (bottom up), but pure
-and simple (and top down): what is the _positive_ outcome of this
-implementation compared to others? We are always talking of setups that seem to
-be more complicated because of the current situation. So one would expect that
-there are advantages that make up the discussed disadvantages.
-And since I obviously don't have the knowledge to see them, I'd like to learn
-and therefore ask: what are the advantages on the _users_ side?
+If you're not willing to think I can't help you resolve
+the questions you have.
 
-Regards,
-Stephan
+If you don't understand source address selection, than it's
+not possible for me to have an intellegent conversation about
+this topic.
+
+So you need to make this crucial first step.
