@@ -1,53 +1,41 @@
-From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
-Subject: Re: [PATCH] (1/11) Irda dongle module owner support (revised)
-Date: Fri, 3 Oct 2003 10:31:31 -0700
+From: "Leech, Christopher" <christopher.leech@intel.com>
+Subject: RE: e1000 -> 82540EM on linux 2.6.0-test[45] very slow in one direction
+Date: Fri, 3 Oct 2003 11:27:30 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031003173131.GB14313@bougret.hpl.hp.com>
-References: <20031002152026.4bfd2c67.shemminger@osdl.org> <20031002233335.GA7945@bougret.hpl.hp.com> <20031003102133.2e5a41a2.shemminger@osdl.org>
-Reply-To: jt@hpl.hp.com
+Message-ID: <E3A930D59AFC3345AEBA35189102A8A6193289@orsmsx404.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>, irda-users@lists.sourceforge.net,
-        netdev@oss.sgi.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8bit
+Cc: <linux-kernel@vger.kernel.org>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20031003102133.2e5a41a2.shemminger@osdl.org>
+content-class: urn:content-classes:message
+To: <ookhoi@humilis.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 03, 2003 at 10:21:33AM -0700, Stephen Hemminger wrote:
-> Revised version of the dongle module owner patch, incorporating Jean's comments.
-> This replaces the original patch.  It provides an owner field an appropriate 
-> ref counting for IRDA dongles.
-> 
-> Changes since list version:
-> 	s/dongle_lock/dongles->hb_spinlock/
-> 	get lock on device_cleanup
-> 	replace ASSERT() about in_interrupt with might_sleep().
+> Btw, I had to compile the e1000 driver as a module. Compiled in it
+> doesn't work, as is stated on the intel support page:
 
-	Perfect ! Thanks for the quick turnaround, and sorry for the
-extra work.
+> This is not clear from the kernel config help. A patch against
+> 2.6.0-test6 is attached (I don't know how to only give n/m as an
+> option).
 
-> In case your curious about locking, the callers are:
-> 	module_init -> irda_device_init
-> 	module_exit -> irda_device_cleanup
-> 	irport_net_ioctl -> irda_device_dongle_init
-> 	module_init -> XXX_dongle_init -> irda_device_register_dongle
-> 	module_exit -> XXX_dongle_exit -> irda_device_unregister_dongle
-> 
-> In other words, no interrupt or BH access to the dongle list.
-> Obviously, hashing this list is overkill,
+This patch is not necessary or desired.  The version of e1000 that ships
+with the kernel source should work fine statically linked, and the
+comment on the Intel support web page applies to the separate download
+of the e1000 source.  If you download the driver source from Intel and
+do the work to add it into a kernel source tree yourself, Intel customer
+support may not help you when you have problems.
 
-	Ok.
+If you are having problems compiling in the version of e1000 that ships
+with the kernel, please report it on netdev and we'll try and help.
+ 
+> Btw2, can somebody please explain what the option E1000_NAPI does?
 
-> but "when in Rome"...
+NAPI is a network driver polling mode interface.  It enables a form of
+software managed interrupt moderation, and may result in better
+performance under some traffic patterns (specifically sustained high
+packet rate reception).
 
-	Eat some pasta ?
-	Maintaining others people code is very much like archeological
-excavation, sometimes you find treasures buried in the various
-stratas, but most of the time...
-
-	Have fun...
-
-	Jean
+-- Chris
