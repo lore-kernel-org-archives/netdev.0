@@ -1,59 +1,69 @@
-From: Srihari Vijayaraghavan <harisri@bigpond.com>
-Subject: Re: [PROBLEM] r8169 deadlocks
-Date: Tue, 20 Jan 2004 21:50:12 +1100
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] IPV6: add missing sentinel for addrconf procfs
+Date: Tue, 20 Jan 2004 10:48:20 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200401202150.12892.harisri@bigpond.com>
-References: <200401152039.00182.harisri@bigpond.com> <200401192251.41323.harisri@bigpond.com> <20040120002422.A19029@electric-eye.fr.zoreil.com>
+Message-ID: <20040120104820.77ff135f.shemminger@osdl.org>
+References: <20040120.094223.76534381.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: davem@redhat.com, yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20040120002422.A19029@electric-eye.fr.zoreil.com>
-Content-Disposition: inline
+To: YOSHIFUJI Hideaki / =?ISO-8859-1?B?X19fX19fX19fX19f?=
+ <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20040120.094223.76534381.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello Francois,
+On Tue, 20 Jan 2004 09:42:23 +0900 (JST)
+YOSHIFUJI Hideaki / ____________ <yoshfuji@linux-ipv6.org> wrote:
 
-On Tuesday 20 January 2004 10:24, Francois Romieu wrote:
-> > The r8169-tc-index-overflow.patch does not (cleanly) apply on 2.6.1-bk2 +
-> > netdev4.
->
-> Can you verify that your kernel tree is fine or give an (sh-)history of
-> the applied patches ?
+> Sorry, I forgot to increase the number of members in the array and 
+> that the sentinel was removed.
+> So, add missing sentinel explicitly.
 
-cd /usr/local/src
-tar xfj /media/cdrecorder/v2.6/linux-2.6.0.tar.bz2
-cd linux-2.6.0
-bunzip2 -c /media/cdrecorder/v2.6/patch-2.6.1.bz2 |patch -p1
-bunzip2 -c ~/linux/patch-2.6.1-bk2.bz2 |patch -p1
-bunzip2 -c ~/linux/2.6.1-bk1-netdev4.patch.bz2 |patch -p1
-patch -p1 --dry-run < ~/linux/r8169/r8169-tx-index-overflow.patch
-patching file drivers/net/r8169.c
-Hunk #1 succeeded at 1341 (offset 364 lines).
-Hunk #2 FAILED at 1351.
-Hunk #3 succeeded at 1365 with fuzz 1 (offset 367 lines).
-1 out of 3 hunks FAILED -- saving rejects to file drivers/net/r8169.c.rej
+How about adding all them explicitly to prevent future errors?
 
-> I have just checked and the patch applies cleanly on kernel 2.6.1-bk2 +
-> Jeff's 2.6.1-bk1-netdev4 as well as on kernel 2.6.1-bk4 + Jeff's
-> 2.6.1-bk4-netdev1.
-
-Interesting.
-
-In this very thread you mentioned (in which you did not cc me BTW :-) that you 
-welcomed AMD64-RTL8169 users, that gave me an idea. I tested this computer 
-under 32 bit kernel (vanilla Fedora + 2.6.1-mm4) in which it survives my 
-torture test (I have verified for no more than 5 minutes though, but then it 
-does not survive for more than 5 secs under the 64 bit kernel).
-
-(And BTW I do not like binary only kernel modules, and I do these bug 
-reporting "for fun", and there is no fun in binary only modules. I have been 
-reading lkml for long enough to understand that :-)
-
-Thanks for help and suggestions so far, I appreciate them.
-
-Hari
+diff -Nru a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+--- a/net/ipv6/addrconf.c	Tue Jan 20 10:51:20 2004
++++ b/net/ipv6/addrconf.c	Tue Jan 20 10:51:20 2004
+@@ -3191,6 +3191,9 @@
+ 			.mode		=	0555,
+ 			.child		=	addrconf_sysctl.addrconf_vars,
+ 		},
++		{
++			.ctl_name	=	0,	/* sentinel */
++		}
+ 	},
+ 	.addrconf_conf_dir = {
+ 		{
+@@ -3199,6 +3202,9 @@
+ 			.mode		=	0555,
+ 			.child		=	addrconf_sysctl.addrconf_dev,
+ 		},
++		{
++			.ctl_name	=	0,	/* sentinel */
++		}
+ 	},
+ 	.addrconf_proto_dir = {
+ 		{
+@@ -3207,6 +3213,9 @@
+ 			.mode		=	0555,
+ 			.child		=	addrconf_sysctl.addrconf_conf_dir,
+ 		},
++		{
++			.ctl_name	=	0,	/* sentinel */
++		}
+ 	},
+ 	.addrconf_root_dir = {
+ 		{
+@@ -3215,6 +3224,9 @@
+ 			.mode		=	0555,
+ 			.child		=	addrconf_sysctl.addrconf_proto_dir,
+ 		},
++		{
++			.ctl_name	=	0,	/* sentinel */
++		}
+ 	},
+ };
+ 
