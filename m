@@ -1,52 +1,23 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [2.6 patch] net/bluetooth/: misc possible cleanups
-Date: Tue, 14 Dec 2004 10:54:59 +0100
-Message-ID: <1103018099.2143.127.camel@pegasus>
-References: <20041214041352.GZ23151@stusta.de>
-	 <1103009649.2143.65.camel@pegasus>  <20041214094543.GA963@infradead.org>
-Reply-To: bluez-devel@lists.sourceforge.net
+From: Harshal Nemade <hanemade@gmail.com>
+Subject: loopback packet processing.
+Date: Tue, 14 Dec 2004 16:12:26 +0530
+Message-ID: <cfc9593604121402424f2a9ba5@mail.gmail.com>
+Reply-To: Harshal Nemade <hanemade@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Adrian Bunk <bunk@stusta.de>, Max Krasnyansky <maxk@qualcomm.com>,
-   BlueZ Mailing List <bluez-devel@lists.sourceforge.net>,
-   Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-   Network Development Mailing List <netdev@oss.sgi.com>
-Return-path: <bluez-devel-admin@lists.sourceforge.net>
-To: Christoph Hellwig <hch@infradead.org>
-In-Reply-To: <20041214094543.GA963@infradead.org>
-Sender: bluez-devel-admin@lists.sourceforge.net
-Errors-To: bluez-devel-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
-	<mailto:bluez-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:bluez-devel@lists.sourceforge.net>
-List-Help: <mailto:bluez-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
-	<mailto:bluez-devel-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=bluez-devel>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Christoph,
-
-> > these functions must stay. They have users outside the mainline kernel
-> > that are not merged back yet. Otherwise they won't be exported ;)
-> 
-> But we traditionally don't keep APIs only for the sake of external modules.
-> Exceptions are made if you have short- to mid-term plans to merge them.
-
-it is a short term plan, because otherwise I won't have submitted it in
-the first place. And as I said, they are not merged back yet. They are
-not tested enough for mainline at the moment.
-
-Regards
-
-Marcel
-
-
-
-
--------------------------------------------------------
-SF email is sponsored by - The IT Product Guide
-Read honest & candid reviews on hundreds of IT Products from real users.
-Discover which products truly live up to the hype. Start reading now. 
-http://productguide.itmanagersjournal.com/
+Hi all,
+       I want to know that when i send a packet on loopback on
+127.0.0.1 the packet is given to netif_rx without MAC header adding. I
+want to know Is that correct? If yes then what happen to that 14 byte
+MAC header bytes space in case Ping packet? Is that space free? Why
+eth_type_trans is called that checks eth->h_proto field ?
+     Please correct me if i am wrong.
+Thanks in advance,
+harsh.
