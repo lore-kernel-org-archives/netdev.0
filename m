@@ -1,54 +1,37 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] [2.4.20] filter_list destroy fix in net/sched/sch_prio.c
-Date: Thu, 10 Apr 2003 13:57:46 -0400 (EDT)
+Subject: Re: Netlink as an IP Services Protocol to Informational
+Date: Thu, 10 Apr 2003 14:22:41 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030410135727.M86925@shell.cyberus.ca>
-References: <E1B7C89B8DCB084C809A22D7FEB90B381773AD@frodo.avalon.ru>
+Message-ID: <20030410141149.E86925@shell.cyberus.ca>
+References: <200304091749.h39Hn6XU029346@marajade.sandelman.ottawa.on.ca>
+ <1049911087.6957.6.camel@averell> <16020.27926.342127.52157@robur.slu.se>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com, "" <linux-kernel@vger.kernel.org>,
-   "" <kuznet@ms2.inr.ac.ru>
+Cc: Andi Kleen <ak@suse.de>, Michael Richardson <mcr@sandelman.ottawa.on.ca>,
+   "" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Dimitry V. Ketov" <Dimitry.Ketov@avalon.ru>
-In-Reply-To: <E1B7C89B8DCB084C809A22D7FEB90B381773AD@frodo.avalon.ru>
+To: Robert Olsson <Robert.Olsson@data.slu.se>
+In-Reply-To: <16020.27926.342127.52157@robur.slu.se>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
 
-Looks good to me.
+On Wed, 9 Apr 2003, Robert Olsson wrote:
+
+>
+>  > >   Congrats to Jamal for this hard work on this.
+>  >
+>  > Yes congratulations from me too.
+>
+>    From me as well... This was not was an easy job.
+
+Next steps:
+http://www.ietf.org/internet-drafts/draft-jhsrha-forces-netlink2-00.txt
+draft needs update. Slightly more uptodate:
+http://www.sstanamera.com/~forces/Ietf56/netlink2.pdf
+
+We'll be putting out GPL code for the extensions.
 
 cheers,
 jamal
-
-On Thu, 10 Apr 2003, Dimitry V. Ketov wrote:
-
-> The prio qdisc does not destroy its filter list, when someone deletes
-> qdisc from interface without explicit filter deleting.
-> This patch fixes that behavior.
->
-> --- linux-2.4.20/net/sched/sch_prio.c	Sat Aug  3 04:39:46 2002
-> +++ linux/net/sched/sch_prio.c	Thu Apr 10 17:52:55 2003
-> @@ -158,11 +158,19 @@
->  {
->  	int prio;
->  	struct prio_sched_data *q = (struct prio_sched_data *)sch->data;
-> +	struct tcf_proto *tp;
->
->  	for (prio=0; prio<q->bands; prio++) {
->  		qdisc_destroy(q->queues[prio]);
->  		q->queues[prio] = &noop_qdisc;
->  	}
-> +
-> +	while((tp = q->filter_list) != NULL)
-> +	{
-> +		q->filter_list = tp->next;
-> +		tp->ops->destroy(tp);
-> +	}
-> +
->  	MOD_DEC_USE_COUNT;
->  }
->
->
->
->
