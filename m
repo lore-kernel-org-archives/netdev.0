@@ -1,16 +1,13 @@
 From: "arun4linux" <arun4linux@indiatimes.com>
 Subject: Re: Re: pci-skeleton duplex check
-Date: Sat, 14 Dec 2002 20:05:17 +0530
+Date: Sat, 14 Dec 2002 20:05:30 +0530
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200212141428.TAA32276@WS0005.indiatimes.com>
+Message-ID: <200212141428.TAA32351@WS0005.indiatimes.com>
 Reply-To: "arun4linux"<arun4linux@indiatimes.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "Michael Richardson"<mcr@sandelman.ottawa.on.ca>, <netdev@oss.sgi.com>,
    "Linux Kernel Mailing List"<linux-kernel@vger.kernel.org>
-Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
@@ -59,9 +56,10 @@ Microsoft is not the real enemy. Gratuitous change is.
 ] panic("Just another Debian GNU/Linux using, kernel hacking, security guy"); [
 
 
-Get Your Private, Free E-mail from Indiatimes at  http://email.indiatimes.com
-Buy the best in Movies at http://www.videos.indiatimes.com
-Change the way you talk. Indiatimes presents "Valufon", Your PC to Phone service with clear voice at rates far less than the normal ISD rates. Go to http://www.valufon.indiatimes.com. Choose your plan. BUY NOW.
 
 
-[[HTML alternate version deleted]]
+Get Your Private, Free E-mail from Indiatimes at http://email.indiatimes.com
+
+ Buy the best in Movies at http://www.videos.indiatimes.com
+
+Change the way you talk. Indiatimes presents Valufon, Your PC to Phone service with clear voice at rates far less than the normal ISD rates. Go to http://www.valufon.indiatimes.com. Choose your plan. BUY NOW.
