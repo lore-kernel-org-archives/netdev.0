@@ -1,31 +1,22 @@
-From: Asim Shankar <asimshankar@gmail.com>
-Subject: Re: filtering packtes before OS takes care about them
-Date: Mon, 28 Feb 2005 14:09:56 -0600
-Message-ID: <7bca1cb50502281209798e8a00@mail.gmail.com>
-References: <09766A6E64A068419B362367800D50C0B58A17@moritz.faps.uni-erlangen.de>
-Reply-To: Asim Shankar <asimshankar@gmail.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 1/2] r8169: Jumbo Frames mini-increase
+Date: Mon, 28 Feb 2005 15:19:40 -0500
+Message-ID: <42237CDC.4060408@pobox.com>
+References: <4220ADA6.2040506@phekda.gotadsl.co.uk> <20050226203518.GA14688@electric-eye.fr.zoreil.com> <42224CF5.5090601@phekda.gotadsl.co.uk> <20050227235210.GA27271@electric-eye.fr.zoreil.com> <20050228172753.GA13280@us.ibm.com> <20050228193204.GA8186@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-To: Weber Matthias <weber@faps.uni-erlangen.de>
-In-Reply-To: <09766A6E64A068419B362367800D50C0B58A17@moritz.faps.uni-erlangen.de>
+Cc: Jon Mason <jdmason@us.ibm.com>, netdev@oss.sgi.com
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20050228193204.GA8186@electric-eye.fr.zoreil.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> i need a possibility to catch IP4 packets (from ethernet devices) before OS' netmodules (IP, UDP, TCP, ICMP, ARP, ROUTE, NETFILTER ...) takes care about them and
-> * to delete them from input buffer such that OS' netmodules can't receive them
-> * to modify packet headers and move packets to interface related output buffers
-> * to keep them in input buffers such that OS' netmodules can take care about them.
 
-You can process packets even before ip_rcv() gets them by registering
-your own packet handler (struct packet_type) using dev_add_pack().  I
-have a small sample at:
-http://limnos.csrd.uiuc.edu/notes/code-samples/samples/kernel/packet_type/packet_type_test.c
-This may not be the cleanest way, but it isn't that dirty either.
+Random comment.
 
-Also see:
-http://www.phrack.org/show.php?p=55&a=12
+I think it's terribly cute that the max packet size is 8169.  Why not 
+represent that in decimal, as opposed to hexidecimal?
 
--- Asim
+	Jeff
