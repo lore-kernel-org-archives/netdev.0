@@ -1,29 +1,25 @@
-From: James Morris <jmorris@intercode.com.au>
-Subject: Re: Bug in Linux 2.5.74 IPv6 routing
-Date: Thu, 10 Jul 2003 11:30:55 +1000 (EST)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] PPP handling fragmented skbuff's
+Date: Wed, 09 Jul 2003 19:08:38 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Mutt.LNX.4.44.0307101130460.15193-100000@excalibur.intercode.com.au>
-References: <20030710.034425.55677522.yoshfuji@linux-ipv6.org>
+Message-ID: <20030709.190838.70200577.davem@redhat.com>
+References: <20030627163524.347b2c8e.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Cc: davem@redhat.com, <Jean-Luc.Richier@imag.fr>, <pekkas@netcore.fi>,
-   <netdev@oss.sgi.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20030710.034425.55677522.yoshfuji@linux-ipv6.org>
+To: shemminger@osdl.org
+In-Reply-To: <20030627163524.347b2c8e.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 10 Jul 2003, YOSHIFUJI Hideaki / [iso-2022-jp] 吉藤英明 wrote:
+   From: Stephen Hemminger <shemminger@osdl.org>
+   Date: Fri, 27 Jun 2003 16:35:24 -0700
 
-> Please apply this patch.
-> 
-> D: Fix ipv6_addr_prefix() for prefixlen != 0 (mod 8).
-> D: Patch from Jean-Luc RICHIER <Jean-Luc.Richier@Imag.Fr>.
+   Don't think this ever happens today, but if PPP ever gets a
+   fragmented a skbuff and decides to copy it then bad things will
+   happen.  The following replaces the places that memcpy() with
+   skb_copy_bits().
 
-Applied to bk://kernel.bkbits.net/jmorris/net-2.5
-
-
--- 
-James Morris
-<jmorris@intercode.com.au>
+Applied, thanks Stephen.
