@@ -1,40 +1,56 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] Add /proc/net/tcp_listen
-Date: Fri, 18 Jun 2004 12:01:15 +0900 (JST)
+From: "" <927868@yahoo.co.kr>
+Subject: =?ISO-8859-1?Q?=BC=B3=B9=AE=20=C5=AC=B8=AF=C0=B8=B7=CE?=
+	=?ISO-8859-1?Q?=BB=E7=C0=BA=C7=B0=20=B9=DE=B0=ED..?=
+Date: Thu, 17 Jun 04 21:12:36 GMT
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040618.120115.21661713.yoshfuji@linux-ipv6.org>
-References: <20040618043151.0483c158.ak@suse.de>
+Message-ID: <88v-m$$83nai@zv1x4vl8>
+Reply-To: "" <927868@yahoo.co.kr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, netdev@oss.sgi.com
+Content-Type: multipart/alternative;
+	boundary="806A..C4D323_AE.FF9AF9."
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ak@suse.de
-In-Reply-To: <20040618043151.0483c158.ak@suse.de>
+To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20040618043151.0483c158.ak@suse.de> (at Fri, 18 Jun 2004 04:31:51 +0200), Andi Kleen <ak@suse.de> says:
 
->  int __init tcp4_proc_init(void)
->  {
-> -	return tcp_proc_register(&tcp4_seq_afinfo);
-> +	int err = tcp_proc_register(&tcp4_seq_afinfo);
-> +	if (err) 
-> +		return err;
-> +	return tcp_proc_register(&tcp4_listen_seq_afinfo);
->  }
->  
->  void tcp4_proc_exit(void)
->  {
->  	tcp_proc_unregister(&tcp4_seq_afinfo);
-> +	tcp_proc_unregister(&tcp4_listen_seq_afinfo);
->  }
->  #endif /* CONFIG_PROC_FS */
->  
+--806A..C4D323_AE.FF9AF9.
+Content-Type: text/html;
+Content-Transfer-Encoding: quoted-printable
 
-If you register A then B, it is better to unregister B then A (symmetric).
-Yes, it does not matter in this case, but it is better coding style
-since there often are dependencies.
+<html>
+<head>
+<title>procreate</title>
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Deuc-kr">=
 
---yoshfuji
+</head>
+
+<body>
+
+<table width=3D"660" border=3D"0" cellspacing=3D"0" cellpadding=3D"0">
+  <tr> 
+    <td width=3D"993"><a href=3D"http://myhome.hanafos.com/down2/28/27/89/=
+01/14/poz_survey.htm"><img src=3D"http://myhome.hanafos.com/down3/28/27/89=
+/01/11/1111.jpg" width=3D"660" height=3D"536" border=3D"0"></a></td>
+  </tr>
+  <tr>
+    <td><a href=3D"http://myhome.hanafos.com/down2/28/27/89/01/14/poz_surv=
+ey.htm"><img src=3D"http://myhome.hanafos.com/down0/28/27/89/01/12/2222.jp=
+g" width=3D"660" height=3D"517" border=3D"0"></a></td>
+  </tr>
+  <tr>
+    <td><a href=3D"http://myhome.hanafos.com/down3/78/50/88/01/15/reject.h=
+tm"><img src=3D"http://myhome.hanafos.com/down1/28/27/89/01/13/3333.jpg" w=
+idth=3D"660" height=3D"69" border=3D"0"></a></td>
+  </tr>
+</table>
+
+</body>
+</html>
+wnllkr ugvlo owsxsqvx
+chbedmc re
+ck
+o 
+kionkgargq az zkp uj
+
+--806A..C4D323_AE.FF9AF9.--
