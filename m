@@ -1,74 +1,86 @@
-From: Richard Dawe <rich@phekda.gotadsl.co.uk>
-Subject: Re: Acer Aspire 1524WLMi and RealTek 8169 - very slow
-Date: Sun, 23 Jan 2005 19:08:34 +0000
-Message-ID: <41F3F632.3060800@phekda.gotadsl.co.uk>
-References: <41A09541.5040405@phekda.gotadsl.co.uk> <41A0F0D5.9050702@phekda.gotadsl.co.uk> <20041121205814.GA22460@electric-eye.fr.zoreil.com> <41A24F35.5080106@phekda.gotadsl.co.uk> <20041122213008.GA9618@electric-eye.fr.zoreil.com> <41D2844E.5070204@phekda.gotadsl.co.uk> <20041229235203.GA5465@electric-eye.fr.zoreil.com> <41F250D1.8000207@phekda.gotadsl.co.uk> <41F26FD1.2060407@phekda.gotadsl.co.uk> <20050122230156.GC24461@electric-eye.fr.zoreil.com>
+From: Russell King <rmk+lkml@arm.linux.org.uk>
+Subject: Re: Memory leak in 2.6.11-rc1?
+Date: Sun, 23 Jan 2005 20:03:15 +0000
+Message-ID: <20050123200315.A25351@flint.arm.linux.org.uk>
+References: <20050121161959.GO3922@fi.muni.cz> <1106360639.15804.1.camel@boxen> <20050123091154.GC16648@suse.de> <20050123011918.295db8e8.akpm@osdl.org> <20050123095608.GD16648@suse.de> <20050123023248.263daca9.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Me <rich@phekda.gotadsl.co.uk>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20050122230156.GC24461@electric-eye.fr.zoreil.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Jens Axboe <axboe@suse.de>, alexn@dsv.su.se, kas@fi.muni.cz,
+	linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261347AbVAWUDe@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20050123023248.263daca9.akpm@osdl.org>; from akpm@osdl.org on Sun, Jan 23, 2005 at 02:32:48AM -0800
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
-
-Francois Romieu wrote:
-> Richard Dawe <rich@phekda.gotadsl.co.uk> :
-> [...]
+On Sun, Jan 23, 2005 at 02:32:48AM -0800, Andrew Morton wrote:
+> Jens Axboe <axboe@suse.de> wrote:
+> >
+> > But I'm still stuck with all of my ram gone after a
+> >  600MB fillmem, half of it is just in swap.
 > 
->>So I looked at the latest RealTek driver for Linux (version 220) and 
->>that has some separate initialisation code for RTL_GIGA_MAC_VER_X 
->>(MCFG_METHOD_4, they call it). I ported that over to r8169.c in 
->>2.6.11-rc1 and it appears to work.
+> Well.  Half of it has gone so far ;)
 > 
+> > 
+> >  Attaching meminfo and sysrq-m after fillmem.
 > 
-> Nice. Have you checked that ethtool performs correctly when you try to
-> set the link parameters with the new code (+ plug/unplug cable) ?
-
-It detects the cable being removed and reinserted OK.
-
-I can set the link speed and duplex fine using the "media=..." parameter 
-on insmod.
-
-My ADSL router doesn't have an interface (GUI or CLI) for setting the 
-port speed and duplex. A Linksys WRT54GS wireless router is turning up 
-tomorrow, so I may be able to set the port speed & duplex with that. But 
-for now I can't test autodetection when the switch offers less than 
-100Mbps full-duplex. I also have no GigE equipment to test with.
-
-If I try setting the speed & duplex using something like this:
-
-   ethtool -s eth0 speed 10 duplex half
-
-it fails. I get no errors, but the "ethtool eth0" shows the link speed & 
-duplex to be 100Mbps full-duplex. I think I managed to get it into 
-100Mbps half-duplex once
-
-When I try to "ethtool -s eth0 speed 10", the link lights on my ADSL 
-router change to orange, which indicates 10Mbps. Then the light goes out 
-and comes back green, which indicates 100Mbps.
-
-So maybe the driver isn't waiting long enough for something.
-
->>Attached is the patch against 2.6.11-rc1. I'm not sure if it caters to 
->>your tastes. Maybe you'll want to rename RTL_GIGA_MAC_VER_X. 
+> (I meant a really big fillmem: a couple of 2GB ones.  Not to worry.)
 > 
+> It's not in slab and the pagecache and anonymous memory stuff seems to be
+> working OK.  So it has to be something else, which does a bare
+> __alloc_pages().  Low-level block stuff, networking, arch code, perhaps.
 > 
-> I'll change the braces placement, the tab/spaces mix and push it.
+> I don't think I've ever really seen code to diagnose this.
 > 
-> Please include something like the line below in your future patches:
-> Signed-off-by: Richard Dawe <rich@phekda.gotadsl.co.uk>
+> A simplistic approach would be to add eight or so ulongs into struct page,
+> populate them with builtin_return_address(0...7) at allocation time, then
+> modify sysrq-m to walk mem_map[] printing it all out for pages which have
+> page_count() > 0.  That'd find the culprit.
 
-Thanks, will do.
+I think I may be seeing something odd here, maybe a possible memory leak.
+The only problem I have is wondering whether I'm actually comparing like
+with like.  Maybe some networking people can provide a hint?
 
-Bye, Rich =]
+Below is gathered from 2.6.11-rc1.
+
+bash-2.05a# head -n2 /proc/slabinfo
+slabinfo - version: 2.1
+# name            <active_objs> <num_objs> <objsize> <objperslab> <pagesperslab>
+bash-2.05a# cat /proc/net/rt_cache | wc -l; grep ip_dst /proc/slabinfo
+115
+ip_dst_cache         759    885    256   15    1
+bash-2.05a# cat /proc/net/rt_cache | wc -l; grep ip_dst /proc/slabinfo
+117
+ip_dst_cache         770    885    256   15    1
+bash-2.05a# cat /proc/net/rt_cache | wc -l; grep ip_dst /proc/slabinfo
+133
+ip_dst_cache         775    885    256   15    1
+bash-2.05a# cat /proc/net/rt_cache | wc -l; grep ip_dst /proc/slabinfo
+18
+ip_dst_cache         664    885    256   15    1
+bash-2.05a# cat /proc/net/rt_cache | wc -l; grep ip_dst /proc/slabinfo
+20
+ip_dst_cache         664    885    256   15    1
+bash-2.05a# cat /proc/net/rt_cache | wc -l; grep ip_dst /proc/slabinfo
+22
+ip_dst_cache         673    885    256   15    1
+bash-2.05a# cat /proc/net/rt_cache | wc -l; grep ip_dst /proc/slabinfo
+23
+ip_dst_cache         670    885    256   15    1
+bash-2.05a# cat /proc/net/rt_cache | wc -l; grep ip_dst /proc/slabinfo
+24
+ip_dst_cache         675    885    256   15    1
+bash-2.05a# cat /proc/net/rt_cache | wc -l; grep ip_dst /proc/slabinfo
+24
+ip_dst_cache         669    885    256   15    1
+
+I'm fairly positive when I rebooted the machine a couple of days ago,
+ip_dst_cache was significantly smaller for the same number of lines in
+/proc/net/rt_cache.
 
 -- 
-Richard Dawe [ http://homepages.nildram.co.uk/~phekda/richdawe/ ]
-
-"You can't evaluate a man by logic alone."
-   -- McCoy, "I, Mudd", Star Trek
+Russell King
+ Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
+ maintainer of:  2.6 PCMCIA      - http://pcmcia.arm.linux.org.uk/
+                 2.6 Serial core
