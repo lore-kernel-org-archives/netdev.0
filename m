@@ -1,34 +1,46 @@
-From: Andy Furniss <andy.furniss@dsl.pipex.com>
-Subject: Re: IMQ again WAS(Re: iptables breakage WAS(Re:	dummy	as	IMQ	replacement
-Date: Mon, 28 Mar 2005 21:13:33 +0100
-Message-ID: <4248656D.6000101@dsl.pipex.com>
-References: <1107123123.8021.80.camel@jzny.localdomain>	 <4241D764.2030306@dsl.pipex.com>	 <1111612042.1072.53.camel@jzny.localdomain>	 <4241F1D2.9050202@dsl.pipex.com>  <4241F7F0.2010403@dsl.pipex.com>	 <1111625608.1037.16.camel@jzny.localdomain> <424212F7.10106@dsl.pipex.com>	 <1111663947.1037.24.camel@jzny.localdomain>	 <1111665450.1037.27.camel@jzny.localdomain>	 <4242DFB5.9040802@dsl.pipex.com>	 <1111749220.1092.457.camel@jzny.localdomain>	 <42446DB2.9070809@dsl.pipex.com>	 <1111781443.1092.631.camel@jzny.localdomain>	 <4244802C.7020202@dsl.pipex.com>	 <1111788760.1090.712.camel@jzny.localdomain>	 <42470AF9.8050402@dsl.pipex.com>  <424808F7.50101@dsl.pipex.com>	 <1112017546.1089.1048.camel@jzny.localdomain>	 <1112018231.1090.1051.camel@jzny.localdomain>	 <424810C5.7080707@dsl.pipex.com>	 <1112019614.1090.1068.camel@jzny.localdomain>	 <42481499.1060103@dsl.pipex.com> <4248165E.405050
+From: Don Fry <brazilnut@us.ibm.com>
+Subject: [PATCH 2.4.30-rc3] pcnet32: 79C975 fiber fix
+Date: Mon, 28 Mar 2005 12:13:22 -0800
+Message-ID: <20050328201322.GA21428@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Harald Welte <laforge@gnumonks.org>, Patrick McHardy <kaber@trash.net>,
-        Remus <rmocius@auste.elnet.lt>, netdev <netdev@oss.sgi.com>,
-        Nguyen Dinh Nam <nguyendinhnam@gmail.com>, Andre Tomt <andre@tomt.net>,
-        syrius.ml@no-log.org, Damion de Soto <damion@snapgear.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1112038041.1118.2.camel@jzny.localdomain>
+To: jgarzik@pobox.com
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> On Mon, 2005-03-28 at 10:24, Andy Furniss wrote:
-> 
-> 
->>Played a bit more, it seems liks the qdisc has to be classful
->>
-> 
-> 
-> Sorry, yes, should have made that clear.
-> 
+From: "HARDY, Steven" <steven.hardy@astrium.eads.net>
 
-My fault - You said try prio but I read it as try pfifo - at least I 
-know classless don't work now :-)
+I have found a bug in the pcnet32 driver (drivers/net/pcnet32.c)
+affecting all ethernet cards based on the AMD79C975 chip, using the
+fiber interface.
 
-Andy.
+It's a one line fix, where some config registers get corrupted during
+initialisation (which stops the Fiber interface working with this chip)
+
+This bug was introduced somewhere betweeen 2.4.17 and 2.6.x (noticed
+whilst upgrading to 2.6), and it may affect other chips too.  I have
+checked all versions up to 2.6.11-bk6 and they are all broken.
+
+Signed-off-by: Andrew Morton <akpm@osdl.org>
+Signed-off-by: Don Fry <brazilnut@us.ibm.com>
+
+--- linux-2.4.30-rc1/drivers/net/orig.pcnet32.c	Wed Jan 19 06:09:56 2005
++++ linux-2.4.30-rc1/drivers/net/pcnet32.c	Wed Mar 23 16:12:03 2005
+@@ -1348,7 +1348,8 @@ pcnet32_probe1(unsigned long ioaddr, int
+ 	printk(KERN_INFO "%s: registered as %s\n", dev->name, lp->name);
+     cards_found++;
+ 
+-    a->write_bcr(ioaddr, 2, 0x1002);	/* enable LED writes */
++    /* enable LED writes */
++    a->write_bcr(ioaddr, 2, a->read_bcr(ioaddr, 2) | 0x1000);
+ 
+     return 0;
+ 
+
+-- 
+Don Fry
+brazilnut@us.ibm.com
