@@ -1,55 +1,37 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: igmp warning (was: Re: Linux 2.4.27-pre6)
-Date: Thu, 17 Jun 2004 21:05:51 +0200 (MEST)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: 2.6.7-rc3: unregister_netdevice: waiting for tun0 to become
+ free. Usage count = 1
+Date: Thu, 17 Jun 2004 12:16:18 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.58.0406172058000.1495@waterleaf.sonytel.be>
-References: <20040616183343.GA9940@logos.cnet> <Pine.GSO.4.58.0406171139020.22919@waterleaf.sonytel.be>
+Message-ID: <20040617121618.12fe245b.davem@redhat.com>
+References: <20040614124402.GA28519@gondor.apana.org.au>
+	<20040616193731.GB29781@ms2.inr.ac.ru>
+	<20040616130950.6aadde3c.davem@redhat.com>
+	<20040616203748.GA30675@ms2.inr.ac.ru>
+	<20040616134711.499209c9.davem@redhat.com>
+	<20040617081722.GA8559@gondor.apana.org.au>
+	<20040617083303.GA8810@gondor.apana.org.au>
+	<20040617101016.44512cb1.davem@redhat.com>
+	<20040617172449.GA10303@ms2.inr.ac.ru>
+	<20040617105324.554c631b.davem@redhat.com>
+	<20040617190739.GB10925@ms2.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Linux Kernel Development <linux-kernel@vger.kernel.org>,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, schwab@suse.de, netdev@oss.sgi.com,
+        yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Marcelo Tosatti <marcelo.tosatti@cyclades.com>,
-        "David S. Miller" <davem@redhat.com>
-In-Reply-To: <Pine.GSO.4.58.0406171139020.22919@waterleaf.sonytel.be>
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+In-Reply-To: <20040617190739.GB10925@ms2.inr.ac.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Thu, 17 Jun 2004 23:07:39 +0400
+Alexey Kuznetsov <kuznet@ms2.inr.ac.ru> wrote:
 
-And this is a new one (compared to -pre3):
+> >						 and that we need to
+> > add another call in unregister_netdevice() right before final dev_put().
+> 
+> This should be enough.
 
-| igmp.c: In function `igmpv3_newpack':
-| igmp.c:279: warning: `skb' might be used uninitialized in this function
-
-And it seems to be a real bug, not a compiler glitch:
-
-| static struct sk_buff *igmpv3_newpack(struct net_device *dev, int size)
-| {
-|         struct sk_buff *skb;
-                          ^^^
-|         struct rtable *rt;
-|         struct iphdr *pip;
-|         struct igmpv3_report *pig;
-|         u32     dst;
-|
-|         dst = IGMPV3_ALL_MCR;
-|         if (ip_route_output(&rt, dst, 0, 0, dev->ifindex))
-|                 return 0;
-|         if (rt->rt_src == 0) {
-|                 kfree_skb(skb);
-                            ^^^
-|                 ip_rt_put(rt);
-|                 return 0;
-|         }
-
-
-Gr{oetje,eeting}s,
-
-						Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-							    -- Linus Torvalds
+Perfect, that's what I'll do in my tree.
