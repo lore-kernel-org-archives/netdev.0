@@ -1,99 +1,42 @@
-From: Stephen Waters <swaters@amicus.com>
-Subject: [Fwd: Re: macmace transmit timeout]
-Date: 11 Nov 2002 22:37:42 -0600
+From: "Tarun Chopra" <iss1000@vsnl.net>
+Subject: Hi
+Date: Tue, 12 Nov 2002 12:31:28 +0530
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1037075862.3036.21.camel@arrakeen>
+Message-ID: <027a01c28a49$23b7f7e0$2b01a8c0@eth.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature";
-	boundary="=-lPHg0K8L+jGol/37CcXo"
-Cc: Ben Stanley <bds02@uow.edu.au>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: <netdev@oss.sgi.com>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---=-lPHg0K8L+jGol/37CcXo
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
 
-Ben, I'm forwarding this to netdev in hopes someone there might have a
-clue...
+Hello !!
 
--s
+It is my pleasure to introduce India Software Solution, a service providing company for Web Designing and Web Development.
+We also undertake annual maintainance contract ( AMC ).
+ 
+I have a clientele spread over the United States and Europe . I have been designing, developing and maintaining their sites since their inception.
+ 
+I would like to put forward my services for your site's Redesigning and maintainance. If you are currently have a website which needs some modification's or updates then please consider my service for the same.
+ 
+I know it's really difficult & risky to entrust  maintainence of a  site which has been running continously as there are chances that the site's image will be seriously hampered if it's not up & running in the specified time and manner, but I can gurantee with a backing of an experienced and highly skilled Design and Development team who have been in the field for not less than five years.
 
-Ben Stanley wrote:
->=20
-> Kernel version:
->=20
-> Linux version 2.4.20-pre4 (kato@hiryu) (gcc version 2.95.4 20010319
-> (prerelease/franzo/20010623)) #1 2002=C7=AF 8=B7=EE 20=C6=FC =B2=D0=CD=CB=
-=C6=FC 12:25:37 JST
-> it was built by Etsushi Kato, so it's the file
-> MachKernel-2.4.20-pre4-020820=20
-> from his ftp site.
->=20
-> This message has been in the kernel ever since I started using the
-> nubus-pmac port about 2 years ago.
->=20
-> Network setup:
->=20
->      --------------------------------------------------------------
->      |                 |                         |                |
-> 192.168.1.2        192.168.12               192.168.1.13     192.168.1.1
-> nfs and x server   mp3 player (6100/66)      xterminal         firewall
->   dragon            kangaeru                  komodo            ipcop
->                                                         xxx.xxx.xxx.xxx
->                                                                   |
->                                              outside world --------
->=20
->=20
-> There's lots of traffic on the network when the x terminal is in use.
-> The network uses hubs, not switches.
->=20
-> kernel startup detects the network controller as:
-> Nov 12 10:58:40 kangaeru kernel: eth0: MACE at 08:00:07:37:04:95, chip
-> revision 0x0940
->=20
-> The problem hasn't happened today, and I didn't notice it happen while
-> it was playing all day yesterday. It's quite intermittent. However,
-> yesterday's logs are full of the message:
->=20
-> Nov 11 17:30:35 kangaeru kernel: macmace: transmit timeout - resetting
-> Nov 11 18:01:35 kangaeru kernel: macmace: transmit timeout - resetting
-> Nov 11 18:21:07 kangaeru kernel: macmace: transmit timeout - resetting
-> Nov 11 18:22:57 kangaeru kernel: macmace: transmit timeout - resetting
-> Nov 11 18:27:41 kangaeru kernel: macmace: transmit timeout - resetting
->=20
-> So maybe there is no association after all. I'm not sure.
->=20
-> Ben.
->=20
-> On Tue, 2002-11-12 at 01:54, Stephen Waters wrote:
-> >=20
-> > kernel version? your network setup?
-> >=20
-> > On Sat, 2002-11-09 at 19:55, Ben Stanley wrote:
-> > >
-> > > I use my 6100/66 as a network mp3 player, and periodically it stops f=
-or
-> > > about 30 seconds, for no apparent reason.  checked the logs, and at
-> > > about the time of the silence, I see this message:
-> > >
-> > > Nov 10 12:29:37 kangaeru kernel: macmace: transmit timeout - resetting
-> > >
-> > > what's going on?
+If you have any questions please feel free to contact me on either of the following email-id or IM's. We can even give you a call if required, as per the time favourable to you. Let me know your phone number.
+
+Email -: iss1000@vsnl.net
+Yahoo Messenger -: tarunchopra_in@yahoo.com
+MSN -: tarunchopra@hotmail.com
+ICQ Number -: 95017045
+
+Looking forward to long term relationship.
+
+Thanking You,
+
+Tarun Chopra
+(www.indiasoftwaresolution.com) 
 
 
---=-lPHg0K8L+jGol/37CcXo
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.1 (GNU/Linux)
-
-iD8DBQA90IWWvSyJ32tBS68RAgL6AKCtFc+0Y28Ew5/0o5BGZ7jCZwzr5wCg3br4
-55bituQxOVyOB/o1V6RMwF8=
-=VLGN
------END PGP SIGNATURE-----
-
---=-lPHg0K8L+jGol/37CcXo--
+[[HTML alternate version deleted]]
