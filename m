@@ -1,90 +1,72 @@
-From: Harald Welte <laforge@gnumonks.org>
-Subject: Re: [PATCH] remove historic entries in Documentation/Changes
-Date: Sun, 2 Nov 2003 09:58:35 +0100
+From: Amir Noam <amir.noam@intel.com>
+Subject: Re: [Bonding-devel] Re: [PATCH 2/10] [bonding 2.6] fix monitoring functions
+Date: Sun, 2 Nov 2003 16:53:51 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031102085835.GH1536@sunbeam.de.gnumonks.org>
-References: <20031029.012202.105420248.yoshfuji@linux-ipv6.org>
+Message-ID: <200311021653.51194.amir.noam@intel.com>
+References: <E6F7D288B394A64585E67497E5126BA601F99145@hasmsx403.iil.intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="aF3LVLvitz/VQU3c"
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: "Jeff Garzik" <jgarzik@pobox.com>, <davem@redhat.com>,
+        <bonding-devel@lists.sourceforge.net>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
-Content-Disposition: inline
-In-Reply-To: <20031029.012202.105420248.yoshfuji@linux-ipv6.org>
+To: "Jay Vosburgh" <fubar@us.ibm.com>
+In-Reply-To: <E6F7D288B394A64585E67497E5126BA601F99145@hasmsx403.iil.intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Thursday 30 October 2003 07:12 pm, Jay Vosburgh wrote:
+> >However, the following patch that restores backward
+> > compatibility with old ifenslave is still needed for 2.6. I
+> > see that it's already been applied by David Miller to 2.4.
+>
+>         I thought we were dropping the ancient
+> (SIOCDEVPRIVATE) backwards compatibility in 2.6.
 
---aF3LVLvitz/VQU3c
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+This patch restores compatibility with old ifenslave versions that
+still use the SIOCBONDSETHWADDR command, not necessarily the
+SIOCDEVPRIVATE ioctls, so this patch is definitely needed for now. If
+we really want to remove backward compatibility in 2.6 we should do
+it for all bonding commands and replace them with the new interface.
 
-Hi Yoshifuji!
+The problem is, since 2.6 is in effect in code freeze I'm not sure if
+we can actually replace the bonding<->ifenslave interface at this time
+(as much as I'd like to do it).
 
-Please consider the following update for netfilter/iptables, instead of
-removing any reference to it.
 
---- linux-old/Documentation/Changes	2003-09-29 21:20:11.000000000 +0200
-+++ linux/Documentation/Changes	2003-11-02 09:56:09.000000000 +0100
-@@ -237,13 +237,15 @@
- General changes
- ---------------
-=20
--The IP firewalling and NAT code has been replaced again.  The new
--netfilter software (including ipfwadm and ipchains backwards-
--compatible modules) is currently distributed separately.
--
- If you have advanced network configuration needs, you should probably
- consider using the network tools from ip-route2.
-=20
-+Packet Filter / NAT
-+-------------------
-+The packet filtering and NAT code uses the same tools like the previous 2.=
-4.x
-+kernel series (iptables).  It still includes backwards-compatibility modul=
-es
-+for 2.2.x-style ipchains and 2.0.x-style ipfwadm.
-+
- PPP
- ---
-=20
-@@ -400,11 +402,9 @@
- ---------
- o  <http://sourceforge.net/project/showfiles.php?group_id=3D14>
-=20
--Netfilter
-----------
--o  <http://netfilter.filewatcher.org/iptables-1.2.tar.bz2>
--o  <http://netfilter.samba.org/iptables-1.2.tar.bz2>
--o  <http://netfilter.kernelnotes.org/iptables-1.2.tar.bz2>
-+Iptables
-+--------
-+o  <http://www.iptables.org/downloads.html>
-=20
- Ip-route2
- ---------
+Jeff, David,
+We haven't heard from either one of you on this issue: We want to drop
+support for SIOCDEVPRIVATE in 2.6. As a side effect this will force
+users to upgrade their user land tools anyway, so we might as well
+use this opportunity to insert the new interface to replace the
+current one. (Obviously, it would be preferable for such a change to
+take effect before 2.6.0 is made final)
 
---=20
-- Harald Welte <laforge@gnumonks.org>               http://www.gnumonks.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-Programming is like sex: One mistake and you have to support it your lifeti=
-me
+What do you think about making changes to the 2.6 bonding that will
+force users to upgrade their ifenslave application? (this new 
+ifenslave will be, of course, backward compatible with 2.4 bonding).
 
---aF3LVLvitz/VQU3c
-Content-Type: application/pgp-signature
-Content-Disposition: inline
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.3 (GNU/Linux)
+For now, however, this patch that restores backward compatibility is
+still needed for 2.6. I've noticed I'd sent out the wrong patch
+before (on 2003/10/30), so here is the corrected patch.
+Sorry for the mix up.
 
-iD8DBQE/pMc7XaXGVTD0i/8RAmDRAJ49qfDwKFF2UtCIjbkj/TietFzzeACePjPS
-EJbFH95MuNC4KJzCm4cm9ds=
-=Emx2
------END PGP SIGNATURE-----
+Amir
 
---aF3LVLvitz/VQU3c--
+
+diff -Naurp a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+--- a/drivers/net/bonding/bond_main.c	Thu Oct 30 10:38:34 2003
++++ b/drivers/net/bonding/bond_main.c	Sun Nov  2 15:14:21 2003
+@@ -3047,6 +3047,10 @@ static int bond_ioctl(struct net_device 
+ 		case SIOCBONDRELEASE:	
+ 			ret = bond_release(master_dev, slave_dev); 
+ 			break;
++		case BOND_SETHWADDR_OLD:
++		case SIOCBONDSETHWADDR:
++			ret = bond_sethwaddr(master_dev, slave_dev);
++			break;
+ 		case BOND_CHANGE_ACTIVE_OLD:
+ 		case SIOCBONDCHANGEACTIVE:
+ 			if (USES_PRIMARY(bond_mode)) {
