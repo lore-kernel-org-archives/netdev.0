@@ -1,25 +1,28 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Route cache performance under stress
-Date: Thu, 22 May 2003 15:33:30 -0700 (PDT)
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20030522.153330.74735095.davem@redhat.com>
-References: <20030522.015815.91322249.davem@redhat.com>
-	<20030522.034058.71558626.davem@redhat.com>
-	<20030522114438.GD2961@netnation.com>
+Subject: Re: IPSec: IPv6 random failures
+Date: Thu, 22 May 2003 15:54:08 -0700 (PDT)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20030522.155408.85396915.davem@redhat.com>
+References: <OF5D0301D4.91C949F2-ON86256D2E.0061C9C3-86256D2E.006456C0@pok.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org, kuznet@ms2.inr.ac.ru
-Return-path: <linux-net-owner@vger.kernel.org>
-To: sim@netnation.com
-In-Reply-To: <20030522114438.GD2961@netnation.com>
+Cc: netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru
+Return-path: <netdev-bounce@oss.sgi.com>
+To: toml@us.ibm.com
+In-Reply-To: <OF5D0301D4.91C949F2-ON86256D2E.0061C9C3-86256D2E.006456C0@pok.ibm.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Simon Kirby <sim@netnation.com>
-   Date: Thu, 22 May 2003 04:44:38 -0700
+   From: "Tom Lendacky" <toml@us.ibm.com>
+   Date: Thu, 22 May 2003 13:15:58 -0500
+   
+   It would seem that the flowi structure should use the actual IPv6
+   addresses instead of pointers to them, like the IPv4 section does.
+   Feedback?
 
-   If you'd like I can try to regenerate a profile, but you probably
-   already know what it will look like.
+Yes, precisely, thanks for spotting this.  I introduced this
+bug when I split out the policy flow cache into a generic spot.
 
-I obviously know some things that will change, but I am still
-very much interested in new profiles.
+I'll see how much work it is to change all of ipv6 to store
+addresses directly into the flowi's instead of via pointers.
