@@ -1,34 +1,46 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] compat bug in sys_recvmsg, MSG_CMSG_COMPAT check
- missing
-Date: Sat, 5 Jun 2004 14:05:44 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040605140544.0de4034d.davem@redhat.com>
+From: Olaf Hering <olh@suse.de>
+Subject: Re: [PATCH] compat bug in sys_recvmsg, MSG_CMSG_COMPAT check missing
+Date: Sat, 5 Jun 2004 23:14:09 +0200
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040605211409.GC1134@suse.de>
 References: <20040605204334.GA1134@suse.de>
-	<20040605140153.6c5945a0.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: olh@suse.de, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040605140153.6c5945a0.davem@redhat.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Olaf Hering <olh@suse.de>
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S262422AbUFEVOR@vger.kernel.org>
+To: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Disposition: inline
+In-Reply-To: <20040605204334.GA1134@suse.de>
 List-Id: netdev.vger.kernel.org
 
+ On Sat, Jun 05, Olaf Hering wrote:
 
-[ Replying to myself :-) ]
+>=20
+> packet_recvmsg() gets the flags from the compat_sys_socketcall(), but=
+ it
+> does not check for the active MSG_CMSG_COMPAT bit. As a result, it
+> returns -EINVAL and makes the user rather unhappy
 
-On Sat, 5 Jun 2004 14:01:53 -0700
-"David S. Miller" <davem@redhat.com> wrote:
+possible related bugs are in:
 
-> Let's ask a better question, why do we need to pass this thing down
-> into the implementations anyways?
+ipx_sendmsg
+pfkey_recvmsg
+x25_sendmsg
+ax25_sendmsg
+irda_sendmsg
+irda_sendmsg_dgram
+irda_sendmsg_ultra
+rose_sendmsg
+atalk_sendmsg
+dn_recvmsg
+dn_sendmsg
+econet_sendmsg
+wanpipe_sendmsg
+nr_sendmsg
 
-It's for net/core/scm.c handling, sigh.
 
-This means also that Olaf's patch is broken, when CONFIG_COMPAT is not
-set, MSG_CMSG_COMPAT is zero, thus ~MSG_CMSG_COMPAT is the unexpected
-value all 1's thus breaking the tests for unexpected flags completely.
+--=20
+USB is for mice, FireWire is for men!
 
-Any better ideas?
+sUse lINUX ag, n=C3=9CRNBERG
