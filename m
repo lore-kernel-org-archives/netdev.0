@@ -1,8 +1,8 @@
 From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: Re: [janitor] use netdev_priv() in net/wan drivers
-Date: Thu, 4 Mar 2004 13:19:48 -0800
+Subject: Re: [janitor] use netdev_priv() in net/wireless/ drivers
+Date: Thu, 4 Mar 2004 13:20:00 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040304131948.36158994.rddunlap@osdl.org>
+Message-ID: <20040304132000.623fcda4.rddunlap@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -22,565 +22,806 @@ List-Id: netdev.vger.kernel.org
 
 
 
- linux-264-302-priv-rddunlap/drivers/net/wan/comx-hw-locomx.c |   22 +++---
- linux-264-302-priv-rddunlap/drivers/net/wan/comx-hw-munich.c |   32 ++++----
- linux-264-302-priv-rddunlap/drivers/net/wan/comx.c           |   40 +++++------
- linux-264-302-priv-rddunlap/drivers/net/wan/cosa.c           |   20 ++---
- linux-264-302-priv-rddunlap/drivers/net/wan/lapbether.c      |   10 +-
- 5 files changed, 62 insertions(+), 62 deletions(-)
+ linux-264-302-priv-rddunlap/drivers/net/wireless/atmel.c   |   72 ++++-----
+ linux-264-302-priv-rddunlap/drivers/net/wireless/orinoco.c |  104 ++++++-------
+ 2 files changed, 88 insertions(+), 88 deletions(-)
 
-diff -puN drivers/net/wan/comx.c~net_wan_casts drivers/net/wan/comx.c
---- linux-264-302-priv/drivers/net/wan/comx.c~net_wan_casts	2004-03-03 09:12:10.000000000 -0800
-+++ linux-264-302-priv-rddunlap/drivers/net/wan/comx.c	2004-03-03 09:30:17.000000000 -0800
-@@ -119,7 +119,7 @@ struct comx_debugflags_struct	comx_debug
+diff -puN drivers/net/wireless/atmel.c~net_wireless_casts drivers/net/wireless/atmel.c
+--- linux-264-302-priv/drivers/net/wireless/atmel.c~net_wireless_casts	2004-03-03 10:02:14.000000000 -0800
++++ linux-264-302-priv-rddunlap/drivers/net/wireless/atmel.c	2004-03-03 10:24:16.000000000 -0800
+@@ -796,7 +796,7 @@ static void tx_update_descriptor(struct 
  
- int comx_debug(struct net_device *dev, char *fmt, ...)
+ static int start_tx (struct sk_buff *skb, struct net_device *dev)
  {
--	struct comx_channel *ch = dev->priv;
-+	struct comx_channel *ch = netdev_priv(dev);
- 	char *page,*str;
- 	va_list args;
- 	int len;
-@@ -162,7 +162,7 @@ int comx_debug(struct net_device *dev, c
- 
- int comx_debug_skb(struct net_device *dev, struct sk_buff *skb, char *msg)
- {
--	struct comx_channel *ch = dev->priv;
-+	struct comx_channel *ch = netdev_priv(dev);
- 
- 	if (!ch->debug_area) return 0;
- 	if (!skb) comx_debug(dev, "%s: %s NULL skb\n\n", dev->name, msg);
-@@ -175,7 +175,7 @@ int comx_debug_bytes(struct net_device *
- 		char *msg)
- {
- 	int pos = 0;
--	struct comx_channel *ch = dev->priv;
-+	struct comx_channel *ch = netdev_priv(dev);
- 
- 	if (!ch->debug_area) return 0;
- 
-@@ -207,7 +207,7 @@ int comx_debug_bytes(struct net_device *
- static void comx_loadavg_timerfun(unsigned long d)
- {
- 	struct net_device *dev = (struct net_device *)d;
--	struct comx_channel *ch = dev->priv;
-+	struct comx_channel *ch = netdev_priv(dev);
- 
- 	ch->avg_bytes[ch->loadavg_counter] = ch->current_stats->rx_bytes;
- 	ch->avg_bytes[ch->loadavg_counter + ch->loadavg_size] = 
-@@ -222,7 +222,7 @@ static void comx_loadavg_timerfun(unsign
- static void comx_reset_timerfun(unsigned long d)
- { 
- 	struct net_device *dev = (struct net_device *)d;
--	struct comx_channel *ch = dev->priv;
-+	struct comx_channel *ch = netdev_priv(dev);
- 
- 	if(!(ch->line_status & (PROTO_LOOP | PROTO_UP))) {
- 		if(test_and_set_bit(0,&ch->reset_pending) && ch->HW_reset) {
-@@ -236,7 +236,7 @@ static void comx_reset_timerfun(unsigned
- 
- static int comx_open(struct net_device *dev)
- {
--	struct comx_channel *ch = dev->priv;
-+	struct comx_channel *ch = netdev_priv(dev);
- 	struct proc_dir_entry *comxdir = ch->procdir->subdir;
- 	int ret=0;
- 
-@@ -268,7 +268,7 @@ static int comx_open(struct net_device *
- 
- static int comx_close(struct net_device *dev)
- {
--	struct comx_channel *ch = dev->priv;
-+	struct comx_channel *ch = netdev_priv(dev);
- 	struct proc_dir_entry *comxdir = ch->procdir->subdir;
- 	int ret = -ENODEV;
- 
-@@ -303,7 +303,7 @@ static int comx_close(struct net_device 
- 
- void comx_status(struct net_device *dev, int status)
- {
--	struct comx_channel *ch = dev->priv;
-+	struct comx_channel *ch = netdev_priv(dev);
- 
- #if 0
- 	if(status & (PROTO_UP | PROTO_LOOP)) {
-@@ -321,7 +321,7 @@ void comx_status(struct net_device *dev,
- 
- static int comx_xmit(struct sk_buff *skb, struct net_device *dev)
- {
--	struct comx_channel *ch = dev->priv;
-+	struct comx_channel *ch = netdev_priv(dev);
- 	int rc;
- 
- 	if (skb->len > dev->mtu + dev->hard_header_len) {
-@@ -342,7 +342,7 @@ static int comx_xmit(struct sk_buff *skb
- static int comx_header(struct sk_buff *skb, struct net_device *dev, 
- 	unsigned short type, void *daddr, void *saddr, unsigned len) 
- {
--	struct comx_channel *ch = dev->priv;
-+	struct comx_channel *ch = netdev_priv(dev);
- 
- 	if (ch->LINE_header) {
- 		return (ch->LINE_header(skb, dev, type, daddr, saddr, len));
-@@ -354,7 +354,7 @@ static int comx_header(struct sk_buff *s
- static int comx_rebuild_header(struct sk_buff *skb) 
- {
- 	struct net_device *dev = skb->dev;
--	struct comx_channel *ch = dev->priv;
-+	struct comx_channel *ch = netdev_priv(dev);
- 
- 	if (ch->LINE_rebuild_header) {
- 		return(ch->LINE_rebuild_header(skb));
-@@ -365,7 +365,7 @@ static int comx_rebuild_header(struct sk
- 
- int comx_rx(struct net_device *dev, struct sk_buff *skb)
- {
--	struct comx_channel *ch = dev->priv;
-+	struct comx_channel *ch = netdev_priv(dev);
- 
- 	if (ch->debug_flags & DEBUG_COMX_RX) {
- 		comx_debug_skb(dev, skb, "comx_rx skb");
-@@ -379,7 +379,7 @@ int comx_rx(struct net_device *dev, stru
- 
- static struct net_device_stats *comx_stats(struct net_device *dev)
- {
--	struct comx_channel *ch = (struct comx_channel *)dev->priv;
-+	struct comx_channel *ch = netdev_priv(dev);
- 
- 	return ch->current_stats;
- }
-@@ -387,7 +387,7 @@ static struct net_device_stats *comx_sta
- void comx_lineup_func(unsigned long d)
- {
- 	struct net_device *dev = (struct net_device *)d;
--	struct comx_channel *ch = dev->priv;
-+	struct comx_channel *ch = netdev_priv(dev);
- 
- 	del_timer(&ch->lineup_timer);
- 	clear_bit(0, &ch->lineup_pending);
-@@ -405,7 +405,7 @@ void comx_lineup_func(unsigned long d)
- 
- static int comx_statistics(struct net_device *dev, char *page)
- {
--	struct comx_channel *ch = dev->priv;
-+	struct comx_channel *ch = netdev_priv(dev);
- 	int len = 0;
- 	int tmp;
- 	int i = 0;
-@@ -472,7 +472,7 @@ static int comx_statistics(struct net_de
- 
- static int comx_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- {
--	struct comx_channel *ch = dev->priv;
-+	struct comx_channel *ch = netdev_priv(dev);
- 
- 	if (ch->LINE_ioctl) {
- 		return(ch->LINE_ioctl(dev, ifr, cmd));
-@@ -535,7 +535,7 @@ static int comx_read_proc(char *page, ch
- {
- 	struct proc_dir_entry *file = (struct proc_dir_entry *)data;
- 	struct net_device *dev = file->parent->data;
--	struct comx_channel *ch=(struct comx_channel *)dev->priv;
-+	struct comx_channel *ch = netdev_priv(dev);
- 	int len = 0;
- 
- 	if (strcmp(file->name, FILENAME_STATUS) == 0) {
-@@ -599,7 +599,7 @@ static int comx_write_proc(struct file *
- {
- 	struct proc_dir_entry *entry = (struct proc_dir_entry *)data;
- 	struct net_device *dev = (struct net_device *)entry->parent->data;
--	struct comx_channel *ch=(struct comx_channel *)dev->priv;
-+	struct comx_channel *ch = netdev_priv(dev);
- 	char *page;
- 	struct comx_hardware *hw = comx_channels;
- 	struct comx_protocol *line = comx_lines;
-@@ -821,7 +821,7 @@ static int comx_mkdir(struct inode *dir,
- 	if (register_netdevice(dev)) {
- 		goto cleanup_filename_debug;
- 	}
--	ch=dev->priv;
-+	ch = netdev_priv(dev);
- 	if((ch->if_ptr = (void *)kmalloc(sizeof(struct ppp_device), 
- 				 GFP_KERNEL)) == NULL) {
- 		goto cleanup_register;
-@@ -874,7 +874,7 @@ static int comx_rmdir(struct inode *dir,
- 
- 	lock_kernel();
- 	dev = entry->data;
--	ch = dev->priv;
-+	ch = netdev_priv(dev);
- 	if (dev->flags & IFF_UP) {
- 		printk(KERN_ERR "%s: down interface before removing it\n", dev->name);
- 		unlock_kernel();
-diff -puN drivers/net/wan/comx-hw-locomx.c~net_wan_casts drivers/net/wan/comx-hw-locomx.c
---- linux-264-302-priv/drivers/net/wan/comx-hw-locomx.c~net_wan_casts	2004-03-03 09:12:10.000000000 -0800
-+++ linux-264-302-priv-rddunlap/drivers/net/wan/comx-hw-locomx.c	2004-03-03 09:42:59.000000000 -0800
-@@ -77,7 +77,7 @@ struct locomx_data {
- 
- static int LOCOMX_txe(struct net_device *dev)
- {
--	struct comx_channel *ch = dev->priv;
-+	struct comx_channel *ch = netdev_priv(dev);
- 	struct locomx_data *hw = ch->HW_privdata;
- 
- 	return (!hw->board.chanA.tx_next_skb);
-@@ -86,8 +86,8 @@ static int LOCOMX_txe(struct net_device 
- 
- static void locomx_rx(struct z8530_channel *c, struct sk_buff *skb)
- {
--	struct net_device *dev=c->netdevice;
--	struct comx_channel *ch=dev->priv;
-+	struct net_device *dev = c->netdevice;
-+	struct comx_channel *ch = netdev_priv(dev);
- 	
- 	if (ch->debug_flags & DEBUG_HW_RX) {
- 		comx_debug_skb(dev, skb, "locomx_rx receiving");
-@@ -97,7 +97,7 @@ static void locomx_rx(struct z8530_chann
- 
- static int LOCOMX_send_packet(struct net_device *dev, struct sk_buff *skb) 
- {
--	struct comx_channel *ch = (struct comx_channel *)dev->priv;
-+	struct comx_channel *ch = netdev_priv(dev);
- 	struct locomx_data *hw = ch->HW_privdata;
- 
- 	if (ch->debug_flags & DEBUG_HW_TX) {
-@@ -126,9 +126,9 @@ static int LOCOMX_send_packet(struct net
- 
- static void locomx_status_timerfun(unsigned long d)
- {
--	struct net_device *dev=(struct net_device *)d;
--	struct comx_channel *ch=dev->priv;
--	struct locomx_data *hw=ch->HW_privdata;
-+	struct net_device *dev = (struct net_device *)d;
-+	struct comx_channel *ch = netdev_priv(dev);
-+	struct locomx_data *hw = ch->HW_privdata;
- 
- 	if(!(ch->line_status & LINE_UP) &&
- 	    (hw->board.chanA.status & CTS)) {
-@@ -144,7 +144,7 @@ static void locomx_status_timerfun(unsig
- 
- static int LOCOMX_open(struct net_device *dev)
- {
--	struct comx_channel *ch = dev->priv;
-+	struct comx_channel *ch = netdev_priv(dev);
- 	struct locomx_data *hw = ch->HW_privdata;
- 	struct proc_dir_entry *procfile = ch->procdir->subdir;
+-	struct atmel_private *priv = (struct atmel_private *)dev->priv;
++	struct atmel_private *priv = netdev_priv(dev);
+ 	struct ieee802_11_hdr header;
  	unsigned long flags;
-@@ -256,7 +256,7 @@ irq_fail:
- 
- static int LOCOMX_close(struct net_device *dev)
+ 	u16 buff, frame_ctl, len = (ETH_ZLEN < skb->len) ? skb->len : ETH_ZLEN;
+@@ -1167,7 +1167,7 @@ static void reset_irq_status(struct atme
+ static irqreturn_t service_interrupt(int irq, void *dev_id, struct pt_regs *regs)
  {
--	struct comx_channel *ch = dev->priv;
-+	struct comx_channel *ch = netdev_priv(dev);
- 	struct locomx_data *hw = ch->HW_privdata;
- 	struct proc_dir_entry *procfile = ch->procdir->subdir;
+ 	struct net_device *dev = (struct net_device *) dev_id;
+-	struct atmel_private *priv = (struct atmel_private *) dev->priv;
++	struct atmel_private *priv = netdev_priv(dev);
+ 	u8 isr;
+ 	
+ 	if (priv->card && priv->present_callback && 
+@@ -1234,13 +1234,13 @@ static irqreturn_t service_interrupt(int
  
-@@ -376,7 +376,7 @@ static int locomx_write_proc(struct file
- 
- static int LOCOMX_init(struct net_device *dev) 
+ static struct net_device_stats *atmel_get_stats (struct net_device *dev)
  {
--	struct comx_channel *ch = (struct comx_channel *)dev->priv;
-+	struct comx_channel *ch = netdev_priv(dev);
- 	struct locomx_data *hw;
- 	struct proc_dir_entry *new_file;
+-	struct atmel_private *priv = (struct atmel_private *)dev->priv;
++	struct atmel_private *priv = netdev_priv(dev);
+ 	return &priv->stats;
+ }
  
-@@ -449,7 +449,7 @@ cleanup_HW_privdata:
- 
- static int LOCOMX_exit(struct net_device *dev)
+ static struct iw_statistics *atmel_get_wireless_stats (struct net_device *dev)
  {
--	struct comx_channel *ch = (struct comx_channel *)dev->priv;
-+	struct comx_channel *ch = netdev_priv(dev);
+-	struct atmel_private *priv = (struct atmel_private *)dev->priv;
++	struct atmel_private *priv = netdev_priv(dev);
  
- 	ch->HW_access_board = NULL;
- 	ch->HW_release_board = NULL;
-diff -puN drivers/net/wan/comx-hw-munich.c~net_wan_casts drivers/net/wan/comx-hw-munich.c
---- linux-264-302-priv/drivers/net/wan/comx-hw-munich.c~net_wan_casts	2004-03-03 09:12:10.000000000 -0800
-+++ linux-264-302-priv-rddunlap/drivers/net/wan/comx-hw-munich.c	2004-03-03 09:32:01.000000000 -0800
-@@ -373,7 +373,7 @@ static munich_board_t pcicom_boards[MAX_
+ 	/* update the link quality here in case we are seeing no beacons 
+ 	   at all to drive the process */
+@@ -1287,7 +1287,7 @@ static int atmel_set_mac_address(struct 
  
- void rework_idle_channels(struct net_device *dev)
+ static int atmel_open (struct net_device *dev)
  {
--    struct comx_channel *ch = dev->priv;
-+    struct comx_channel *ch = netdev_priv(dev);
-     struct slicecom_privdata *hw = ch->HW_privdata;
-     munich_board_t *board = slicecom_boards + hw->boardnum;
-     munich_ccb_t *ccb = board->ccb;
-@@ -731,7 +731,7 @@ static void pcicom_modemline(unsigned lo
+-	struct atmel_private *priv = (struct atmel_private *) dev->priv;
++	struct atmel_private *priv = netdev_priv(dev);
+ 	priv->station_state = STATION_STATE_INITIALIZING;
+ 	if (!reset_atmel_card(dev)) {
+ 		priv->station_state = STATION_STATE_DOWN;
+@@ -1298,7 +1298,7 @@ static int atmel_open (struct net_device
+ 
+ static int atmel_close (struct net_device *dev)
  {
-     munich_board_t *board = (munich_board_t *) b;
-     struct net_device *dev = board->twins[0];
--    struct comx_channel *ch = dev->priv;
-+    struct comx_channel *ch = netdev_priv(dev);
-     unsigned long regs;
- 
-     regs = readl((void *)(&board->bar1[GPDATA]));
-@@ -765,7 +765,7 @@ static void pcicom_modemline(unsigned lo
- 
- static int MUNICH_txe(struct net_device *dev)
+-	struct atmel_private *priv = (struct atmel_private *) dev->priv;
++	struct atmel_private *priv = netdev_priv(dev);
+ 		
+ 	netif_carrier_off(dev);	
+ 	if (netif_running(dev))
+@@ -1378,7 +1378,7 @@ static int atmel_proc_output (char *buf,
+ static int atmel_read_proc(char *page, char **start, off_t off,
+ 			   int count, int *eof, void *data)
  {
--    struct comx_channel *ch = dev->priv;
-+    struct comx_channel *ch = netdev_priv(dev);
-     struct slicecom_privdata *hw = ch->HW_privdata;
+-        struct atmel_private *priv = (struct atmel_private *)data;
++        struct atmel_private *priv = data;
+ 	int len = atmel_proc_output (page, priv);
+         if (len <= off+count) *eof = 1;
+         *start = page + off;
+@@ -1406,7 +1406,7 @@ struct net_device *init_atmel_card( unsi
+ 		goto err_out_free;
+ 	}
  
-     return (hw->busy < TX_DESC_MAX - 1);
-@@ -905,7 +905,7 @@ static int munich_probe(void)
- #if 0
- static int slicecom_reset(struct net_device *dev)
+-	priv = dev->priv;
++	priv = netdev_priv(dev);
+ 	priv->dev = dev;
+ 	priv->sys_dev = sys_dev;
+ 	priv->present_callback = card_present;
+@@ -1525,7 +1525,7 @@ EXPORT_SYMBOL(init_atmel_card);
+ 
+ void stop_atmel_card(struct net_device *dev, int freeres)
  {
--    struct comx_channel *ch = dev->priv;
-+    struct comx_channel *ch = netdev_priv(dev);
- 
-     printk("slicecom_reset: resetting the hardware\n");
- 
-@@ -933,7 +933,7 @@ static int slicecom_reset(struct net_dev
- 
- static int MUNICH_send_packet(struct net_device *dev, struct sk_buff *skb)
+-	struct atmel_private *priv = dev->priv;
++	struct atmel_private *priv = netdev_priv(dev);
+ 		
+ 	/* put a brick on it... */
+ 	if (priv->bus_type == BUS_TYPE_PCCARD) 
+@@ -1582,7 +1582,7 @@ static int atmel_set_essid(struct net_de
+ 			   struct iw_point *dwrq,
+ 			   char *extra)
  {
--    struct comx_channel *ch = (struct comx_channel *)dev->priv;
-+    struct comx_channel *ch = netdev_priv(dev);
-     struct slicecom_privdata *hw = ch->HW_privdata;
+-	struct atmel_private *priv = dev->priv;
++	struct atmel_private *priv = netdev_priv(dev);
  
-     /* Send it to the debug facility too if needed: */
-@@ -1085,7 +1085,7 @@ static irqreturn_t MUNICH_interrupt(int 
- 		goto go_for_next_interrupt;
- 	    }
- 
--	    ch = (struct comx_channel *)dev->priv;
-+	    ch = netdev_priv(dev);
- 	    hw = (struct slicecom_privdata *)ch->HW_privdata;
- 
- 	    //      printk("Rx STAT=0x%08x int_info=0x%08x rx_desc_ptr=%d rx_desc.status=0x%01x\n",
-@@ -1125,7 +1125,7 @@ static irqreturn_t MUNICH_interrupt(int 
- 
- 	    if (dev != NULL)
- 	    {
--		ch = (struct comx_channel *)dev->priv;
-+		ch = netdev_priv(dev);
- 		hw = (struct slicecom_privdata *)ch->HW_privdata;
- 
- 		rx_status = hw->rx_desc[hw->rx_desc_ptr].status;
-@@ -1261,7 +1261,7 @@ static irqreturn_t MUNICH_interrupt(int 
- 		goto go_for_next_tx_interrupt;
- 	    }
- 
--	    ch = (struct comx_channel *)dev->priv;
-+	    ch = netdev_priv(dev);
- 	    hw = (struct slicecom_privdata *)ch->HW_privdata;
- 
- 	    //      printk("Tx STAT=0x%08x int_info=0x%08x tiq_ptr=%d\n", stat, int_info.all, board->tiq_ptr );
-@@ -1295,7 +1295,7 @@ static irqreturn_t MUNICH_interrupt(int 
- 	    {
- 		int newbusy;
- 
--		ch = (struct comx_channel *)dev->priv;
-+		ch = netdev_priv(dev);
- 		hw = (struct slicecom_privdata *)ch->HW_privdata;
- 
- 		/* We don't trust the "Tx available" info from the TIQ, but check        */
-@@ -1398,7 +1398,7 @@ static irqreturn_t MUNICH_interrupt(int 
- 
- static int MUNICH_open(struct net_device *dev)
+ 	/* Check if we asked for `any' */
+ 	if(dwrq->flags == 0) {
+@@ -1610,7 +1610,7 @@ static int atmel_get_essid(struct net_de
+ 			   struct iw_point *dwrq,
+ 			   char *extra)
  {
--    struct comx_channel *ch = dev->priv;
-+    struct comx_channel *ch = netdev_priv(dev);
-     struct slicecom_privdata *hw = ch->HW_privdata;
-     struct proc_dir_entry *procfile = ch->procdir->subdir;
-     munich_board_t *board;
-@@ -1891,7 +1891,7 @@ static int MUNICH_open(struct net_device
+-	struct atmel_private *priv = dev->priv;
++	struct atmel_private *priv = netdev_priv(dev);
  
- static int MUNICH_close(struct net_device *dev)
+ 	/* Get the current SSID */
+ 	if (priv->SSID_size == 0) {
+@@ -1633,7 +1633,7 @@ static int atmel_get_wap(struct net_devi
+ 			 struct sockaddr *awrq,
+ 			 char *extra)
  {
--    struct comx_channel *ch = dev->priv;
-+    struct comx_channel *ch = netdev_priv(dev);
-     struct slicecom_privdata *hw = ch->HW_privdata;
-     struct proc_dir_entry *procfile = ch->procdir->subdir;
-     munich_board_t *board;
-@@ -2028,7 +2028,7 @@ static int MUNICH_close(struct net_devic
+-	struct atmel_private *priv = dev->priv;
++	struct atmel_private *priv = netdev_priv(dev);
+ 	memcpy(awrq->sa_data, priv->CurrentBSSID, 6);
+ 	awrq->sa_family = ARPHRD_ETHER;
  
- static int MUNICH_minden(struct net_device *dev, char *page)
+@@ -1645,7 +1645,7 @@ static int atmel_set_encode(struct net_d
+ 			    struct iw_point *dwrq,
+ 			    char *extra)
  {
--    struct comx_channel *ch = dev->priv;
-+    struct comx_channel *ch = netdev_priv(dev);
-     struct slicecom_privdata *hw = ch->HW_privdata;
-     munich_board_t *board;
-     struct net_device *devp;
-@@ -2290,7 +2290,7 @@ static int munich_read_proc(char *page, 
+-	struct atmel_private *priv = dev->priv;
++	struct atmel_private *priv = netdev_priv(dev);
+ 
+ 	/* Basic checking: do we have a key to set ?
+ 	 * Note : with the new API, it's impossible to get a NULL pointer.
+@@ -1736,7 +1736,7 @@ static int atmel_get_encode(struct net_d
+ 			    struct iw_point *dwrq,
+ 			    char *extra)
  {
-     struct proc_dir_entry *file = (struct proc_dir_entry *)data;
-     struct net_device *dev = file->parent->data;
--    struct comx_channel *ch = dev->priv;
-+    struct comx_channel *ch = netdev_priv(dev);
-     struct slicecom_privdata *hw = ch->HW_privdata;
-     munich_board_t *board;
- 
-@@ -2388,7 +2388,7 @@ static int munich_write_proc(struct file
+-	struct atmel_private *priv = dev->priv;
++	struct atmel_private *priv = netdev_priv(dev);
+ 	int index = (dwrq->flags & IW_ENCODE_INDEX) - 1;
+ 	
+ 	if (!priv->wep_is_on)
+@@ -1776,7 +1776,7 @@ static int atmel_set_rate(struct net_dev
+ 			  struct iw_param *vwrq,
+ 			  char *extra)
  {
-     struct proc_dir_entry *entry = (struct proc_dir_entry *)data;
-     struct net_device *dev = (struct net_device *)entry->parent->data;
--    struct comx_channel *ch = dev->priv;
-+    struct comx_channel *ch = netdev_priv(dev);
-     struct slicecom_privdata *hw = ch->HW_privdata;
-     munich_board_t *board;
- 
-@@ -2656,7 +2656,7 @@ static int init_escape(struct comx_chann
- 
- static int BOARD_init(struct net_device *dev)
+-	struct atmel_private *priv = dev->priv;
++	struct atmel_private *priv = netdev_priv(dev);
+ 	
+ 	if (vwrq->fixed == 0) {
+ 		priv->tx_rate = 3;
+@@ -1808,7 +1808,7 @@ static int atmel_set_mode(struct net_dev
+ 			  __u32 *uwrq,
+ 			  char *extra)
  {
--    struct comx_channel *ch = (struct comx_channel *)dev->priv;
-+    struct comx_channel *ch = netdev_priv(dev);
-     struct slicecom_privdata *hw;
-     struct proc_dir_entry *new_file;
+-	struct atmel_private *priv = dev->priv;
++	struct atmel_private *priv = netdev_priv(dev);
  
-@@ -2772,7 +2772,7 @@ static int BOARD_init(struct net_device 
-  */
- static int BOARD_exit(struct net_device *dev)
+ 	if (*uwrq != IW_MODE_ADHOC && *uwrq != IW_MODE_INFRA)
+ 		return -EINVAL;
+@@ -1822,7 +1822,7 @@ static int atmel_get_mode(struct net_dev
+ 			  __u32 *uwrq,
+ 			  char *extra)
  {
--    struct comx_channel *ch = (struct comx_channel *)dev->priv;
-+    struct comx_channel *ch = netdev_priv(dev);
- 
-     /* Free private data area */
- //    board = hw->boardnum + (ch->hardware == &pcicomhw ? pcicom_boards : slicecom_boards);
-diff -puN drivers/net/wan/cosa.c~net_wan_casts drivers/net/wan/cosa.c
---- linux-264-302-priv/drivers/net/wan/cosa.c~net_wan_casts	2004-03-03 09:12:10.000000000 -0800
-+++ linux-264-302-priv-rddunlap/drivers/net/wan/cosa.c	2004-03-03 09:26:33.000000000 -0800
-@@ -639,7 +639,7 @@ static void sppp_channel_delete(struct c
- 
- static int cosa_sppp_open(struct net_device *d)
+-	struct atmel_private *priv = dev->priv;
++	struct atmel_private *priv = netdev_priv(dev);
+ 	
+ 	*uwrq = priv->operating_mode;
+ 	return 0;
+@@ -1833,7 +1833,7 @@ static int atmel_get_rate(struct net_dev
+ 			 struct iw_param *vwrq,
+ 			 char *extra)
  {
--	struct channel_data *chan = d->priv;
-+	struct channel_data *chan = netdev_priv(d);
+-	struct atmel_private *priv = dev->priv;
++	struct atmel_private *priv = netdev_priv(dev);
+ 
+ 	if (priv->auto_tx_rate) {
+ 		vwrq->fixed = 0;
+@@ -1855,7 +1855,7 @@ static int atmel_set_power(struct net_de
+ 			   struct iw_param *vwrq,
+ 			   char *extra)
+ {
+-	struct atmel_private *priv = dev->priv;
++	struct atmel_private *priv = netdev_priv(dev);
+ 	priv->power_mode = vwrq->disabled ? 0 : 1;
+ 	return -EINPROGRESS;
+ }
+@@ -1865,7 +1865,7 @@ static int atmel_get_power(struct net_de
+ 			   struct iw_param *vwrq,
+ 			   char *extra)
+ {
+-	struct atmel_private *priv = dev->priv;
++	struct atmel_private *priv = netdev_priv(dev);
+ 	vwrq->disabled = priv->power_mode ? 0 : 1;
+ 	vwrq->flags = IW_POWER_ON;
+ 	return 0;
+@@ -1876,7 +1876,7 @@ static int atmel_set_retry(struct net_de
+ 			   struct iw_param *vwrq,
+ 			   char *extra)
+ {
+-	struct atmel_private *priv = dev->priv;
++	struct atmel_private *priv = netdev_priv(dev);
+ 	
+ 	if(!vwrq->disabled && (vwrq->flags & IW_RETRY_LIMIT)) {
+ 		if(vwrq->flags & IW_RETRY_MAX)
+@@ -1899,7 +1899,7 @@ static int atmel_get_retry(struct net_de
+ 			   struct iw_param *vwrq,
+ 			   char *extra)
+ {
+-	struct atmel_private *priv = dev->priv;
++	struct atmel_private *priv = netdev_priv(dev);
+ 
+ 	vwrq->disabled = 0;      /* Can't be disabled */
+ 
+@@ -1922,7 +1922,7 @@ static int atmel_set_rts(struct net_devi
+ 			 struct iw_param *vwrq,
+ 			 char *extra)
+ {
+-	struct atmel_private *priv = dev->priv;
++	struct atmel_private *priv = netdev_priv(dev);
+ 	int rthr = vwrq->value;
+ 
+ 	if(vwrq->disabled)
+@@ -1940,7 +1940,7 @@ static int atmel_get_rts(struct net_devi
+ 			 struct iw_param *vwrq,
+ 			 char *extra)
+ {
+-	struct atmel_private *priv = dev->priv;
++	struct atmel_private *priv = netdev_priv(dev);
+ 	
+ 	vwrq->value = priv->rts_threshold;
+ 	vwrq->disabled = (vwrq->value >= 2347);
+@@ -1954,7 +1954,7 @@ static int atmel_set_frag(struct net_dev
+ 			  struct iw_param *vwrq,
+ 			  char *extra)
+ {
+-	struct atmel_private *priv = dev->priv;
++	struct atmel_private *priv = netdev_priv(dev);
+ 	int fthr = vwrq->value;
+ 
+ 	if(vwrq->disabled)
+@@ -1973,7 +1973,7 @@ static int atmel_get_frag(struct net_dev
+ 			  struct iw_param *vwrq,
+ 			  char *extra)
+ {
+-	struct atmel_private *priv = dev->priv;
++	struct atmel_private *priv = netdev_priv(dev);
+ 
+ 	vwrq->value = priv->frag_threshold;
+ 	vwrq->disabled = (vwrq->value >= 2346);
+@@ -1990,7 +1990,7 @@ static int atmel_set_freq(struct net_dev
+ 			  struct iw_freq *fwrq,
+ 			  char *extra)
+ {
+-	struct atmel_private *priv = dev->priv;
++	struct atmel_private *priv = netdev_priv(dev);
+ 	int rc = -EINPROGRESS;		/* Call commit handler */
+ 	
+ 	/* If setting by frequency, convert to a channel */
+@@ -2024,7 +2024,7 @@ static int atmel_get_freq(struct net_dev
+ 			  struct iw_freq *fwrq,
+ 			  char *extra)
+ {
+-	struct atmel_private *priv = dev->priv;
++	struct atmel_private *priv = netdev_priv(dev);
+ 
+ 	fwrq->m = priv->channel;
+ 	fwrq->e = 0;
+@@ -2036,7 +2036,7 @@ static int atmel_set_scan(struct net_dev
+ 			  struct iw_param *vwrq,
+ 			  char *extra)
+ {
+-	struct atmel_private *priv = dev->priv;
++	struct atmel_private *priv = netdev_priv(dev);
+ 
+ 	/* Note : you may have realised that, as this is a SET operation,
+ 	 * this is privileged and therefore a normal user can't
+@@ -2074,7 +2074,7 @@ static int atmel_get_scan(struct net_dev
+ 			  struct iw_point *dwrq,
+ 			  char *extra)
+ {
+-	struct atmel_private *priv = dev->priv;
++	struct atmel_private *priv = netdev_priv(dev);
+ 	int i;
+ 	char *current_ev = extra;
+ 	struct iw_event	iwe;
+@@ -2126,7 +2126,7 @@ static int atmel_get_range(struct net_de
+ 			   struct iw_point *dwrq,
+ 			   char *extra)
+ {
+-	struct atmel_private *priv = dev->priv;
++	struct atmel_private *priv = netdev_priv(dev);
+ 	struct iw_range *range = (struct iw_range *) extra;
+ 	int k,i,j;
+ 
+@@ -2193,7 +2193,7 @@ static int atmel_set_wap(struct net_devi
+ 			 struct sockaddr *awrq,
+ 			 char *extra)
+ {
+-	struct atmel_private *priv = dev->priv;
++	struct atmel_private *priv = netdev_priv(dev);
+ 	int i;
+ 	static const u8 bcast[] = { 255, 255, 255, 255, 255, 255 };
+ 	
+@@ -2318,7 +2318,7 @@ static const struct iw_handler_def	atmel
+ static int atmel_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ {
+ 	int rc = 0;
+-	struct atmel_private *priv = (struct atmel_private *) dev->priv;
++	struct atmel_private *priv = netdev_priv(dev);
+ 	atmel_priv_ioctl com;
+ 	struct iwreq *wrq = (struct iwreq *) rq;
+ 	unsigned char *new_firmware;
+@@ -3053,7 +3053,7 @@ static void atmel_management_frame(struc
+ static void atmel_management_timer(u_long a)
+ {
+   struct net_device *dev = (struct net_device *) a;
+-  struct atmel_private *priv = (struct atmel_private *)dev->priv;
++  struct atmel_private *priv = netdev_priv(dev);
+   unsigned long flags;
+   
+   /* Check if the card has been yanked. */
+@@ -3297,7 +3297,7 @@ static int atmel_wakeup_firmware(struct 
+ static int probe_atmel_card(struct net_device *dev)
+ {
+ 	int rc = 0;
+-	struct atmel_private *priv = dev->priv;
++	struct atmel_private *priv = netdev_priv(dev);
+ 	 
+ 	/* reset pccard */
+ 	if (priv->bus_type == BUS_TYPE_PCCARD) 
+@@ -3486,7 +3486,7 @@ int reset_atmel_card(struct net_device *
+ 	   which is the route into the rest of the firmare datastructures. */
+ 
+ 	int channel;
+-	struct atmel_private *priv = dev->priv;
++	struct atmel_private *priv = netdev_priv(dev);
+ 	u8 configuration;
+ 	
+ 	/* data to add to the firmware names, in priority order
+diff -puN drivers/net/wireless/orinoco.c~net_wireless_casts drivers/net/wireless/orinoco.c
+--- linux-264-302-priv/drivers/net/wireless/orinoco.c~net_wireless_casts	2004-03-03 10:02:14.000000000 -0800
++++ linux-264-302-priv-rddunlap/drivers/net/wireless/orinoco.c	2004-03-03 10:27:06.000000000 -0800
+@@ -599,7 +599,7 @@ static int orinoco_debug_dump_recs(struc
+ 
+ int __orinoco_up(struct net_device *dev)
+ {
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	struct hermes *hw = &priv->hw;
+ 	int err;
+ 
+@@ -626,7 +626,7 @@ int __orinoco_up(struct net_device *dev)
+ 
+ int __orinoco_down(struct net_device *dev)
+ {
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	struct hermes *hw = &priv->hw;
+ 	int err;
+ 
+@@ -657,7 +657,7 @@ int __orinoco_down(struct net_device *de
+ 
+ int orinoco_reinit_firmware(struct net_device *dev)
+ {
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	struct hermes *hw = &priv->hw;
+ 	int err;
+ 
+@@ -685,7 +685,7 @@ int orinoco_reinit_firmware(struct net_d
+ 
+ static int orinoco_open(struct net_device *dev)
+ {
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	unsigned long flags;
+ 	int err;
+ 
+@@ -705,7 +705,7 @@ static int orinoco_open(struct net_devic
+ 
+ int orinoco_stop(struct net_device *dev)
+ {
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	int err = 0;
+ 
+ 	/* We mustn't use orinoco_lock() here, because we need to be
+@@ -724,7 +724,7 @@ int orinoco_stop(struct net_device *dev)
+ 
+ static int __orinoco_program_rids(struct net_device *dev)
+ {
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	hermes_t *hw = &priv->hw;
+ 	int err;
+ 	struct hermes_idstring idbuf;
+@@ -912,7 +912,7 @@ ESSID in IBSS-Ad-Hoc mode.\n", dev->name
+ /* xyzzy */
+ static int orinoco_reconfigure(struct net_device *dev)
+ {
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	struct hermes *hw = &priv->hw;
+ 	unsigned long flags;
+ 	int err = 0;
+@@ -965,7 +965,7 @@ static int orinoco_reconfigure(struct ne
+  * schedule_work() */
+ static void orinoco_reset(struct net_device *dev)
+ {
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	struct hermes *hw = &priv->hw;
  	int err;
  	unsigned long flags;
- 
-@@ -679,7 +679,7 @@ static int cosa_sppp_open(struct net_dev
- 
- static int cosa_sppp_tx(struct sk_buff *skb, struct net_device *dev)
+@@ -1070,7 +1070,7 @@ is_ethersnap(struct header_struct *hdr)
+ static void
+ orinoco_set_multicast_list(struct net_device *dev)
  {
--	struct channel_data *chan = dev->priv;
-+	struct channel_data *chan = netdev_priv(dev);
- 
- 	netif_stop_queue(dev);
- 
-@@ -690,7 +690,7 @@ static int cosa_sppp_tx(struct sk_buff *
- 
- static void cosa_sppp_timeout(struct net_device *dev)
- {
--	struct channel_data *chan = dev->priv;
-+	struct channel_data *chan = netdev_priv(dev);
- 
- 	if (test_bit(RXBIT, &chan->cosa->rxtx)) {
- 		chan->stats.rx_errors++;
-@@ -709,7 +709,7 @@ static void cosa_sppp_timeout(struct net
- 
- static int cosa_sppp_close(struct net_device *d)
- {
--	struct channel_data *chan = d->priv;
-+	struct channel_data *chan = netdev_priv(d);
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
  	unsigned long flags;
  
- 	netif_stop_queue(d);
-@@ -789,7 +789,7 @@ static int sppp_tx_done(struct channel_d
- 
- static struct net_device_stats *cosa_net_stats(struct net_device *dev)
+ 	if (orinoco_lock(priv, &flags) != 0) {
+@@ -1433,7 +1433,7 @@ static void show_rx_frame(struct orinoco
+ irqreturn_t orinoco_interrupt(int irq, void *dev_id, struct pt_regs *regs)
  {
--	struct channel_data *chan = dev->priv;
-+	struct channel_data *chan = netdev_priv(dev);
- 	return &chan->stats;
+ 	struct net_device *dev = (struct net_device *)dev_id;
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	hermes_t *hw = &priv->hw;
+ 	int count = MAX_IRQLOOPS_PER_IRQ;
+ 	u16 evstat, events;
+@@ -1561,7 +1561,7 @@ static void print_linkstatus(struct net_
+ 
+ static void __orinoco_ev_info(struct net_device *dev, hermes_t *hw)
+ {
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	u16 infofid;
+ 	struct {
+ 		u16 len;
+@@ -1662,7 +1662,7 @@ static void __orinoco_ev_info(struct net
+ 
+ static void __orinoco_ev_rx(struct net_device *dev, hermes_t *hw)
+ {
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	struct net_device_stats *stats = &priv->stats;
+ 	struct iw_statistics *wstats = &priv->wstats;
+ 	struct sk_buff *skb = NULL;
+@@ -1814,7 +1814,7 @@ static void __orinoco_ev_rx(struct net_d
+ 
+ static void __orinoco_ev_txexc(struct net_device *dev, hermes_t *hw)
+ {
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	struct net_device_stats *stats = &priv->stats;
+ 	u16 fid = hermes_read_regn(hw, TXCOMPLFID);
+ 	struct hermes_tx_descriptor desc;
+@@ -1840,7 +1840,7 @@ static void __orinoco_ev_txexc(struct ne
+ 
+ static void __orinoco_ev_tx(struct net_device *dev, hermes_t *hw)
+ {
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	struct net_device_stats *stats = &priv->stats;
+ 
+ 	stats->tx_packets++;
+@@ -1850,7 +1850,7 @@ static void __orinoco_ev_tx(struct net_d
+ 
+ static void __orinoco_ev_alloc(struct net_device *dev, hermes_t *hw)
+ {
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 
+ 	u16 fid = hermes_read_regn(hw, ALLOCFID);
+ 
+@@ -1886,7 +1886,7 @@ static int determine_firmware_type(struc
+ 
+ static void determine_firmware(struct net_device *dev)
+ {
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	hermes_t *hw = &priv->hw;
+ 	int err;
+ 	struct sta_id sta_id;
+@@ -2024,7 +2024,7 @@ static void determine_firmware(struct ne
+ static int
+ orinoco_init(struct net_device *dev)
+ {
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	hermes_t *hw = &priv->hw;
+ 	int err = 0;
+ 	struct hermes_idstring nickbuf;
+@@ -2204,7 +2204,7 @@ orinoco_init(struct net_device *dev)
+ struct net_device_stats *
+ orinoco_get_stats(struct net_device *dev)
+ {
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	
+ 	return &priv->stats;
  }
- 
-@@ -807,7 +807,7 @@ static ssize_t cosa_read(struct file *fi
+@@ -2212,7 +2212,7 @@ orinoco_get_stats(struct net_device *dev
+ struct iw_statistics *
+ orinoco_get_wireless_stats(struct net_device *dev)
  {
- 	DECLARE_WAITQUEUE(wait, current);
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	hermes_t *hw = &priv->hw;
+ 	struct iw_statistics *wstats = &priv->wstats;
+ 	int err = 0;
+@@ -2271,7 +2271,7 @@ orinoco_get_wireless_stats(struct net_de
+ static inline void orinoco_spy_gather(struct net_device *dev, u_char *mac,
+ 				    int level, int noise)
+ {
+-	struct orinoco_private *priv = (struct orinoco_private *)dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	int i;
+ 
+ 	/* Gather wireless spy statistics: for each packet, compare the
+@@ -2290,7 +2290,7 @@ orinoco_stat_gather(struct net_device *d
+ 		    struct sk_buff *skb,
+ 		    struct hermes_rx_descriptor *desc)
+ {
+-	struct orinoco_private *priv = (struct orinoco_private *)dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 
+ 	/* Using spy support with lots of Rx packets, like in an
+ 	 * infrastructure (AP), will really slow down everything, because
+@@ -2311,7 +2311,7 @@ orinoco_stat_gather(struct net_device *d
+ static int
+ orinoco_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+-	struct orinoco_private *priv = (struct orinoco_private *)dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	struct net_device_stats *stats = &priv->stats;
+ 	hermes_t *hw = &priv->hw;
+ 	int err = 0;
+@@ -2449,7 +2449,7 @@ orinoco_xmit(struct sk_buff *skb, struct
+ static void
+ orinoco_tx_timeout(struct net_device *dev)
+ {
+-	struct orinoco_private *priv = (struct orinoco_private *)dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	struct net_device_stats *stats = &priv->stats;
+ 	struct hermes *hw = &priv->hw;
+ 
+@@ -2466,7 +2466,7 @@ orinoco_tx_timeout(struct net_device *de
+ static int
+ orinoco_change_mtu(struct net_device *dev, int new_mtu)
+ {
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 
+ 	if ( (new_mtu < ORINOCO_MIN_MTU) || (new_mtu > ORINOCO_MAX_MTU) )
+ 		return -EINVAL;
+@@ -2484,7 +2484,7 @@ orinoco_change_mtu(struct net_device *de
+ static void
+ __orinoco_set_multicast_list(struct net_device *dev)
+ {
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	hermes_t *hw = &priv->hw;
+ 	int err = 0;
+ 	int promisc, mc_count;
+@@ -2554,7 +2554,7 @@ __orinoco_set_multicast_list(struct net_
+ 
+ static int orinoco_ioctl_getiwrange(struct net_device *dev, struct iw_point *rrq)
+ {
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	int err = 0;
+ 	int mode;
+ 	struct iw_range range;
+@@ -2699,7 +2699,7 @@ static int orinoco_ioctl_getiwrange(stru
+ 
+ static int orinoco_ioctl_setiwencode(struct net_device *dev, struct iw_point *erq)
+ {
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	int index = (erq->flags & IW_ENCODE_INDEX) - 1;
+ 	int setindex = priv->tx_key;
+ 	int enable = priv->wep_on;
+@@ -2794,7 +2794,7 @@ static int orinoco_ioctl_setiwencode(str
+ 
+ static int orinoco_ioctl_getiwencode(struct net_device *dev, struct iw_point *erq)
+ {
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	int index = (erq->flags & IW_ENCODE_INDEX) - 1;
+ 	u16 xlen = 0;
+ 	char keybuf[ORINOCO_MAX_KEY_SIZE];
+@@ -2841,7 +2841,7 @@ static int orinoco_ioctl_getiwencode(str
+ 
+ static int orinoco_ioctl_setessid(struct net_device *dev, struct iw_point *erq)
+ {
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	char essidbuf[IW_ESSID_MAX_SIZE+1];
+ 	int err;
  	unsigned long flags;
--	struct channel_data *chan = (struct channel_data *)file->private_data;
-+	struct channel_data *chan = file->private_data;
- 	struct cosa_data *cosa = chan->cosa;
- 	char *kbuf;
+@@ -2874,7 +2874,7 @@ static int orinoco_ioctl_setessid(struct
  
-@@ -881,7 +881,7 @@ static ssize_t cosa_write(struct file *f
- 	const char *buf, size_t count, loff_t *ppos)
+ static int orinoco_ioctl_getessid(struct net_device *dev, struct iw_point *erq)
  {
- 	DECLARE_WAITQUEUE(wait, current);
--	struct channel_data *chan = (struct channel_data *)file->private_data;
-+	struct channel_data *chan = file->private_data;
- 	struct cosa_data *cosa = chan->cosa;
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	char essidbuf[IW_ESSID_MAX_SIZE+1];
+ 	int active;
+ 	int err = 0;
+@@ -2907,7 +2907,7 @@ static int orinoco_ioctl_getessid(struct
+ 
+ static int orinoco_ioctl_setnick(struct net_device *dev, struct iw_point *nrq)
+ {
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	char nickbuf[IW_ESSID_MAX_SIZE+1];
+ 	int err;
  	unsigned long flags;
- 	char *kbuf;
-@@ -990,7 +990,7 @@ static int cosa_open(struct inode *inode
+@@ -2935,7 +2935,7 @@ static int orinoco_ioctl_setnick(struct 
  
- static int cosa_release(struct inode *inode, struct file *file)
+ static int orinoco_ioctl_getnick(struct net_device *dev, struct iw_point *nrq)
  {
--	struct channel_data *channel = (struct channel_data *)file->private_data;
-+	struct channel_data *channel = file->private_data;
- 	struct cosa_data *cosa;
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	char nickbuf[IW_ESSID_MAX_SIZE+1];
+ 	int err;
+ 	unsigned long flags;
+@@ -2957,7 +2957,7 @@ static int orinoco_ioctl_getnick(struct 
+ 
+ static int orinoco_ioctl_setfreq(struct net_device *dev, struct iw_freq *frq)
+ {
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	int chan = -1;
+ 	int err;
+ 	unsigned long flags;
+@@ -2999,7 +2999,7 @@ static int orinoco_ioctl_setfreq(struct 
+ 
+ static int orinoco_ioctl_getsens(struct net_device *dev, struct iw_param *srq)
+ {
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	hermes_t *hw = &priv->hw;
+ 	u16 val;
+ 	int err;
+@@ -3025,7 +3025,7 @@ static int orinoco_ioctl_getsens(struct 
+ 
+ static int orinoco_ioctl_setsens(struct net_device *dev, struct iw_param *srq)
+ {
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	int val = srq->value;
+ 	int err;
+ 	unsigned long flags;
+@@ -3047,7 +3047,7 @@ static int orinoco_ioctl_setsens(struct 
+ 
+ static int orinoco_ioctl_setrts(struct net_device *dev, struct iw_param *rrq)
+ {
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	int val = rrq->value;
+ 	int err;
+ 	unsigned long flags;
+@@ -3070,7 +3070,7 @@ static int orinoco_ioctl_setrts(struct n
+ 
+ static int orinoco_ioctl_setfrag(struct net_device *dev, struct iw_param *frq)
+ {
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	int err = 0;
  	unsigned long flags;
  
-@@ -1205,7 +1205,7 @@ static int cosa_sppp_ioctl(struct net_de
- 	int cmd)
- {
- 	int rv;
--	struct channel_data *chan = (struct channel_data *)dev->priv;
-+	struct channel_data *chan = netdev_priv(dev);
- 	rv = cosa_ioctl_common(chan->cosa, chan, cmd, (unsigned long)ifr->ifr_data);
- 	if (rv == -ENOIOCTLCMD) {
- 		return sppp_do_ioctl(dev, ifr, cmd);
-@@ -1216,7 +1216,7 @@ static int cosa_sppp_ioctl(struct net_de
- static int cosa_chardev_ioctl(struct inode *inode, struct file *file,
- 	unsigned int cmd, unsigned long arg)
- {
--	struct channel_data *channel = (struct channel_data *)file->private_data;
-+	struct channel_data *channel = file->private_data;
- 	struct cosa_data *cosa = channel->cosa;
- 	return cosa_ioctl_common(cosa, channel, cmd, arg);
- }
-diff -puN drivers/net/wan/lapbether.c~net_wan_casts drivers/net/wan/lapbether.c
---- linux-264-302-priv/drivers/net/wan/lapbether.c~net_wan_casts	2004-03-03 09:12:10.000000000 -0800
-+++ linux-264-302-priv-rddunlap/drivers/net/wan/lapbether.c	2004-03-03 09:37:46.000000000 -0800
-@@ -198,7 +198,7 @@ drop:
+@@ -3105,7 +3105,7 @@ supported on this firmware. Using MWO ro
  
- static void lapbeth_data_transmit(struct net_device *ndev, struct sk_buff *skb)
+ static int orinoco_ioctl_getfrag(struct net_device *dev, struct iw_param *frq)
  {
--	struct lapbethdev *lapbeth = ndev->priv;
-+	struct lapbethdev *lapbeth = netdev_priv(ndev);
- 	unsigned char *ptr;
- 	struct net_device *dev;
- 	int size = skb->len;
-@@ -269,7 +269,7 @@ static void lapbeth_disconnected(struct 
-  */
- static struct net_device_stats *lapbeth_get_stats(struct net_device *dev)
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	hermes_t *hw = &priv->hw;
+ 	int err = 0;
+ 	u16 val;
+@@ -3143,7 +3143,7 @@ static int orinoco_ioctl_getfrag(struct 
+ 
+ static int orinoco_ioctl_setrate(struct net_device *dev, struct iw_param *rrq)
  {
--	struct lapbethdev *lapbeth = (struct lapbethdev *)dev->priv;
-+	struct lapbethdev *lapbeth = netdev_priv(dev);
- 	return &lapbeth->stats;
- }
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	int err = 0;
+ 	int ratemode = -1;
+ 	int bitrate; /* 100s of kilobits */
+@@ -3186,7 +3186,7 @@ static int orinoco_ioctl_setrate(struct 
  
-@@ -278,7 +278,7 @@ static struct net_device_stats *lapbeth_
-  */
- static int lapbeth_set_mac_address(struct net_device *dev, void *addr)
+ static int orinoco_ioctl_getrate(struct net_device *dev, struct iw_param *rrq)
  {
--	struct sockaddr *sa = (struct sockaddr *)addr;
-+	struct sockaddr *sa = addr;
- 	memcpy(dev->dev_addr, sa->sa_data, dev->addr_len);
- 	return 0;
- }
-@@ -355,7 +355,7 @@ static int lapbeth_new_device(struct net
- 	if (!ndev)
- 		goto out;
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	hermes_t *hw = &priv->hw;
+ 	int err = 0;
+ 	int ratemode;
+@@ -3253,7 +3253,7 @@ static int orinoco_ioctl_getrate(struct 
  
--	lapbeth = ndev->priv;
-+	lapbeth = netdev_priv(ndev);
- 	lapbeth->axdev = ndev;
- 
- 	dev_hold(dev);
-@@ -397,7 +397,7 @@ static int lapbeth_device_event(struct n
- 				unsigned long event, void *ptr)
+ static int orinoco_ioctl_setpower(struct net_device *dev, struct iw_param *prq)
  {
- 	struct lapbethdev *lapbeth;
--	struct net_device *dev = (struct net_device *)ptr;
-+	struct net_device *dev = ptr;
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	int err = 0;
+ 	unsigned long flags;
  
- 	if (!dev_is_ethdev(dev))
- 		return NOTIFY_DONE;
+@@ -3306,7 +3306,7 @@ static int orinoco_ioctl_setpower(struct
+ 
+ static int orinoco_ioctl_getpower(struct net_device *dev, struct iw_param *prq)
+ {
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	hermes_t *hw = &priv->hw;
+ 	int err = 0;
+ 	u16 enable, period, timeout, mcast;
+@@ -3356,7 +3356,7 @@ static int orinoco_ioctl_getpower(struct
+ #if WIRELESS_EXT > 10
+ static int orinoco_ioctl_getretry(struct net_device *dev, struct iw_param *rrq)
+ {
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	hermes_t *hw = &priv->hw;
+ 	int err = 0;
+ 	u16 short_limit, long_limit, lifetime;
+@@ -3409,7 +3409,7 @@ static int orinoco_ioctl_getretry(struct
+ 
+ static int orinoco_ioctl_setibssport(struct net_device *dev, struct iwreq *wrq)
+ {
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	int val = *( (int *) wrq->u.name );
+ 	int err;
+ 	unsigned long flags;
+@@ -3429,7 +3429,7 @@ static int orinoco_ioctl_setibssport(str
+ 
+ static int orinoco_ioctl_getibssport(struct net_device *dev, struct iwreq *wrq)
+ {
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	int *val = (int *)wrq->u.name;
+ 	int err;
+ 	unsigned long flags;
+@@ -3446,7 +3446,7 @@ static int orinoco_ioctl_getibssport(str
+ 
+ static int orinoco_ioctl_setport3(struct net_device *dev, struct iwreq *wrq)
+ {
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	int val = *( (int *) wrq->u.name );
+ 	int err = 0;
+ 	unsigned long flags;
+@@ -3488,7 +3488,7 @@ static int orinoco_ioctl_setport3(struct
+ 
+ static int orinoco_ioctl_getport3(struct net_device *dev, struct iwreq *wrq)
+ {
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	int *val = (int *)wrq->u.name;
+ 	int err;
+ 	unsigned long flags;
+@@ -3507,7 +3507,7 @@ static int orinoco_ioctl_getport3(struct
+  * Jean II */
+ static int orinoco_ioctl_setspy(struct net_device *dev, struct iw_point *srq)
+ {
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	struct sockaddr address[IW_MAX_SPY];
+ 	int number = srq->length;
+ 	int i;
+@@ -3554,7 +3554,7 @@ static int orinoco_ioctl_setspy(struct n
+ 
+ static int orinoco_ioctl_getspy(struct net_device *dev, struct iw_point *srq)
+ {
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	struct sockaddr address[IW_MAX_SPY];
+ 	struct iw_quality spy_stat[IW_MAX_SPY];
+ 	int number;
+@@ -3601,7 +3601,7 @@ static int orinoco_ioctl_getspy(struct n
+ static int
+ orinoco_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ {
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	struct iwreq *wrq = (struct iwreq *)rq;
+ 	int err = 0;
+ 	int tmp;
+@@ -4057,7 +4057,7 @@ struct {
+ 
+ static int orinoco_debug_dump_recs(struct net_device *dev)
+ {
+-	struct orinoco_private *priv = dev->priv;
++	struct orinoco_private *priv = netdev_priv(dev);
+ 	hermes_t *hw = &priv->hw;
+ 	u8 *val8;
+ 	u16 *val16;
+@@ -4131,7 +4131,7 @@ struct net_device *alloc_orinocodev(int 
+ 	dev = alloc_etherdev(sizeof(struct orinoco_private) + sizeof_card);
+ 	if (!dev)
+ 		return NULL;
+-	priv = (struct orinoco_private *)dev->priv;
++	priv = netdev_priv(dev);
+ 	priv->ndev = dev;
+ 	if (sizeof_card)
+ 		priv->card = (void *)((unsigned long)dev->priv + sizeof(struct orinoco_private));
 
 _
 
