@@ -1,61 +1,96 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: packet re-ordering on SMP machines.
-Date: Sun, 25 Aug 2002 20:52:18 -0400 (EDT)
+Subject: Re: [Lse-tech] Re: (RFC): SKB Initialization
+Date: Sun, 25 Aug 2002 21:02:31 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.30.0208252046250.675-100000@shell.cyberus.ca>
-References: <3D6922B2.1020400@candelatech.com>
+Message-ID: <45283.7822413587$1030324913@news.gmane.org>
+References: <OF7A029023.8004C095-ON87256C20.005B4894@boulder.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 8bit
-Cc: <netdev@oss.sgi.com>
+Cc: <linux-kernel@vger.kernel.org>, <netdev@oss.sgi.com>,
+   Robert Olsson <Robert.Olsson@data.slu.se>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <3D6922B2.1020400@candelatech.com>
+To: Mala Anand <manand@us.ibm.com>
+In-Reply-To: <OF7A029023.8004C095-ON87256C20.005B4894@boulder.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
 
 
-On Sun, 25 Aug 2002, Ben Greear wrote:
-
-> jamal wrote:
-> >
-> >
-> >
-> > NAPI fixes packet reordering problems.
->
-> It does indeed.  I just patched the e1000 with the latest NAPI patch
-> I could find (from Aug 15 or so), and the re-ordering problems went away.
->
-> The amount of packets dropped decreased too, but I still see about 1 out of
-> 1000 packets dropped due to rx-FIFO or rx-dropped.  This is when trying to run
-> 60,000 pps of 1514 byte packets from one port to the other on the same dual-port e1000
-> NIC (copper).  It will generate up to about 72,000 pps without dropping too many
-> more...
->
-
-That doesnt sound impressive at all. I know it's about .8 of wire rate
-but you should be able to exceed that.
-Robert was generating in the range of 800Kpps with that NIC if i recall
-corectly
-
-> I will do some more tests on two single-port NICs soon to see if that
-> performs better.
-
-You should see better numbers.
-Also if you have SMP, tie each onto a CPU.
-Additionaly get the skb recycler patch from Robert, it should improve
-things even more.
+On Sun, 25 Aug 2002, Mala Anand wrote:
 
 >
-> Also, I see the hard_start_xmit call failing 5876 times out of 2719493
-> calls (for example).  The code that calls the method looks like this:
+> Jamal wrote ..
+>
+> >Can you repeat your tests with the hotlist turned off (i.e set to 0)?
+>
+>  Even if I turned the hot list, the slab allocator has a per cpu array of
+> objects. In this case it keeps by default 60 objects and hot list keeps
+> 126 objects. So there may be a difference. I will try this.
 >
 
-I dont have access to that NIC. But a stoopid question: Have you tried
-increasing the transmit queue via ifconfig? 1000 packets is reasonable
-for gige.
+Well, the hotlist is supposed to be one way to reduce the effect of
+initialization.
+
+>  This skb init work is the result of my probing in to the slab cache work.
+> Read
+> my posting on slab cache:
+> http://marc.theaimsgroup.com/?l=linux-kernel&m=102773718023056&w=2
+> This work triggered the skb init patch. To quantify the effect of bouncing
+> the objects between cpus, I choose skb to measure. And it turns out that
+> the
+> limited cpu array is not the culprit in this case, it is how the objects
+> are
+> allocated in one cpu and freed in another cpu is what causing the bouncing
+> of objects between cpus.
+>
+
+Same conclusion as us then
+
+> >Also Robert and i did a few tests and we did find skb recycling (based on
+> >a patch from Robert a few years back) was infact giving perfomance
+> >improvements of upto 15% over regular slab.
+> >Did you test with that patch for the e1000 he pointed you at?
+> >I repeated the tests (around June/July) with the tulip with input rates of
+> >a few 100K packets/sec and noticed a improvement over regular NAPI by
+> >about 10%. Theres one bug on the tulip which we are chasing that
+> >might be related to tulips alignment requirements;
+>
+> Yes I got the patch from Robert and I am planning on testing the patch. My
+> understanding is that skbs are recylced in other operating systems as well
+> to
+> improve performance. And it particularly helps in architectures where pci
+> mapping is expensive and when skbs are recycled, remapping is eliminated.
+
+standard practise for eons on networking in rtoses at least.
+Slab on Linux was supposed to get rid of this. Thats why Robert
+hid his original patch.
+
+>I think the skbinit patch and recycling skbs are mutually exclusive.
+
+I would say they are more orthogonal than mutually exclusive.
+Although ou still need to prove that relocating the code actually helps in
+real life. On paper it looks good.
+
+> Recycling
+> skbs will reduce the number of times we hit alloc_skb and __kfree_skb.
+>
+
+Thats what we see.
+
+> >The idea of only freeing on the same CPU a skb allocated is free with
+> >the e1000 NAPI driver style but not in the tulip NAPI  where a txmit
+> >interupt might happen on a different CPU. The skb recycler patch only
+> >recylces if allocation and freeing are happening on the same CPU;
+> >otherwise we let the slab take the hit. On the tulip this happens about
+> >50% of the time.
+>  So skbinit patch will help the other case.
+>
+
+It will. Note, however that on the e1000 style coding, the hit ration is
+much higher -- almost 100% in theory at least.
+Perhaps its time to convert the tulip ...
 
 cheers,
 jamal
