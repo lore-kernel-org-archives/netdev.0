@@ -1,36 +1,71 @@
-From: Olaf Hering <olh@suse.de>
-Subject: Re: limited number if iptable rules on 64bit hosts
-Date: Wed, 2 Feb 2005 23:25:16 +0100
-Message-ID: <20050202222516.GA15440@suse.de>
-References: <20050202133851.GA9680@suse.de>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH 2.4] PKT_SCHED: Fix ingress qdisc to pick up IPv6 packets
+Date: Wed, 2 Feb 2005 23:36:29 +0100
+Message-ID: <20050202223629.GS31837@postel.suug.ch>
+References: <20050131184827.GH31837@postel.suug.ch> <20050202130743.065bc627.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20050202133851.GA9680@suse.de>
+In-Reply-To: <20050202130743.065bc627.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
- On Wed, Feb 02, Olaf Hering wrote:
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-> 
-> What buffer or sysctrl value has to change to allow more than 3445 rules
-> like this (on a 64bit host with 64bit iptables)?
-> 
-> iptables -A FORWARD -j ACCEPT
-> 
-> setsockopt(3, SOL_IP, 0x40 /* IP_??? */,
-> "filter\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 524368) =
-> -1 ENOMEM (Cannot allocate memory)
-
-it triggers the first -ENOMEM in
-net/ipv4/netfilter/ip_tables.c:do_replace
-
-sizeof(struct ipt_table_info)+SMP_ALIGN(tmp.size)*NR_CPUS == 67108992 bytes
-
-128+524288*128==67108992
-
-(sizeof(struct ipt_table_info) + (((tmp.size) + (1 << 7)-1) & ~((1 << 7)-1)) * 128)
-
-hmm, no braces missing.
+--- linux-2.4.29-bk8.orig/net/sched/sch_ingress.c	2005-02-02 22:32:51.000000000 +0100
++++ linux-2.4.29-bk8/net/sched/sch_ingress.c	2005-02-02 22:56:33.000000000 +0100
+@@ -14,6 +14,7 @@
+ #include <linux/netdevice.h>
+ #include <linux/rtnetlink.h>
+ #include <linux/netfilter_ipv4.h>
++#include <linux/netfilter_ipv6.h>
+ #include <linux/netfilter.h>
+ #include <linux/smp.h>
+ #include <net/pkt_sched.h>
+@@ -241,6 +242,15 @@
+ 	NF_IP_PRI_FILTER + 1
+ };
+ 
++static struct nf_hook_ops ing6_ops =
++{
++	{ NULL, NULL},
++	ing_hook,
++	PF_INET6,
++	NF_IP6_PRE_ROUTING,
++	NF_IP6_PRI_FILTER + 1
++};
++
+ int ingress_init(struct Qdisc *sch,struct rtattr *opt)
+ {
+ 	struct ingress_qdisc_data *p = PRIV(sch);
+@@ -249,8 +259,13 @@
+ 		if (nf_register_hook(&ing_ops) < 0) {
+ 			printk("ingress qdisc registration error \n");
+ 			goto error;
+-			}
++		}
+ 		nf_registered++;
++		if (nf_register_hook(&ing6_ops) < 0) {
++			printk("IPv6 ingress qdisc registration error, " \
++			    "disabling IPv6 support.\n");
++		} else
++			nf_registered++;
+ 	}
+ 
+ 	DPRINTK("ingress_init(sch %p,[qdisc %p],opt %p)\n",sch,p,opt);
+@@ -374,8 +389,11 @@
+ void cleanup_module(void) 
+ {
+ 	unregister_qdisc(&ingress_qdisc_ops);
+-	if (nf_registered)
++	if (nf_registered) {
+ 		nf_unregister_hook(&ing_ops);
++		if (nf_registered > 1)
++			nf_unregister_hook(&ing6_ops);
++	}
+ }
+ #endif
+ MODULE_LICENSE("GPL");
