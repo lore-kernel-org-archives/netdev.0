@@ -1,35 +1,27 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] IPV6: strategy hander for net.ipv6.conf.*.forwarding
- (is Re: problem setting net.ipvX.conf.all.forwarding via sysctl() system
- call)
-Date: Sat, 9 Aug 2003 14:44:16 -0700
+From: kuznet@ms2.inr.ac.ru
+Subject: Re: Fw: [PATCH] set NLM_F_MULTI in answer of RTM_GETADDR dump answer
+Date: Sun, 10 Aug 2003 07:03:48 +0400 (MSD)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030809144416.181cbad1.davem@redhat.com>
-References: <20030808093704.GA18131@wsx.ksp.sk>
-	<20030808.185135.112441851.yoshfuji@linux-ipv6.org>
-	<20030809010845.01ebcbe9.davem@redhat.com>
-	<20030809.192158.47862071.yoshfuji@linux-ipv6.org>
+Message-ID: <200308100303.HAA20709@dub.inr.ac.ru>
+References: <20030809011153.46a99ef2.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jan.oravec@6com.sk, netdev@oss.sgi.com
+Cc: hadi@cyberus.ca, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "YOSHIFUJI Hideaki / _$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20030809.192158.47862071.yoshfuji@linux-ipv6.org>
+To: davem@redhat.com (David S. Miller)
+In-Reply-To: <20030809011153.46a99ef2.davem@redhat.com> from "David S. Miller" at Aug 09, 2003 01:11:53 AM
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 09 Aug 2003 19:21:58 +0900 (JST)
-YOSHIFUJI Hideaki / _$B5HF#1QL@ <yoshfuji@linux-ipv6.org> wrote:
+Hello!
 
-> In article <20030809010845.01ebcbe9.davem@redhat.com> (at Sat, 9 Aug 2003 01:08:45 -0700), "David S. Miller" <davem@redhat.com> says:
-> 
-> > As I mentioned for the ipv4 forwarding sysctl bug fix,
-> > if you will set table->data yourself you should return
-> > > 0 (for example "1") from your strategy handler.
-> :
-> > Please fix this, thank you.
-> 
-> Here it is.
+> After sending RTM_GETADDR dump request to netlink socket, received multipart
+> answer does not have NLM_F_MULTI set on each message. This patch fix that.
 
-Patch applied, thank you.
+OK.
+
+Actually, this flag was never used because of its redundancy
+it is not the only place where it is not set.
+
+Alexey
