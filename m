@@ -1,8 +1,8 @@
 From: rask@sygehus.dk (Rask Ingemann Lambertsen)
-Subject: Is a driver allowed to modify dev->flags?
-Date: Tue, 1 Apr 2003 18:49:39 +0200
+Subject: net_device_stats questions
+Date: Tue, 1 Apr 2003 19:00:58 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3100.13188650391$1049216161@news.gmane.org>
+Message-ID: <586.817044723098$1049216660@news.gmane.org>
 Reply-To: rask@sygehus.dk
 Mime-Version: 1.0
 Content-Type: text/plain; charset="iso-8859-1"
@@ -14,12 +14,11 @@ List-Id: netdev.vger.kernel.org
 
 Hi.
 
-Is a network device driver allowed to modify dev->flags? For example:
+When updating net_device_stats.tx_bytes, should I just add skb->len (like e.g. tulip does) or add skb->len plus any padding (like e.g. 3c59x does)?
 
-if (dev->flags & IFF_ALLMULTI)
-        dev->flags |= IFF_PROMISC;
+Let's say a TX heartbeat error occurs. Am I then supposed to update both net_device_stats.tx_errors and net_device_stats.tx_heartbeat_errors or just net_device_stats.tx_heartbeat_errors?
 
-I've found it to cause the IFF_PROMISC flag to stick when using "tcpdump -p", which to my surprice sets the IFF_ALLMULTI flag.
+Which events should cause an update of net_device_stats.tx_aborted?
 
 Regards,
 Rask Ingemann Lambertsen
