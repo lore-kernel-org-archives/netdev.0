@@ -1,31 +1,23 @@
-From: Eric Mudama <edmudama@gmail.com>
-Subject: Re: The ultimate TOE design
-Date: Wed, 22 Sep 2004 17:25:38 -0600
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <311601c904092216257bfd5752@mail.gmail.com>
-References: <4148991B.9050200@pobox.com>
-	 <OF8783A4F6.D566336C-ON88256F10.006E51CE-88256F10.006EDA93@us.ibm.com>
-	 <311601c90409162346184649eb@mail.gmail.com>
-	 <200409172027.i8HKRVwY005444@turing-police.cc.vt.edu>
-Reply-To: Eric Mudama <edmudama@gmail.com>
+From: Srihari Vijayaraghavan <sriharivijayaraghavan@yahoo.com.au>
+Subject: Re: r8169 - panic and a fix
+Date: Thu, 23 Sep 2004 10:03:17 +1000
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <200409231003.17255.sriharivijayaraghavan@yahoo.com.au>
+References: <200409082224.23829.sriharivijayaraghavan@yahoo.com.au> <200409121832.57233.sriharivijayaraghavan@yahoo.com.au> <20040912231516.GA27299@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: David Stevens <dlstevens@us.ibm.com>, Netdev <netdev@oss.sgi.com>,
-	leonid.grossman@s2io.com,
-	Linux Kernel <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S268119AbUIVXZl@vger.kernel.org>
-To: "valdis.kletnieks@vt.edu" <valdis.kletnieks@vt.edu>
-In-Reply-To: <200409172027.i8HKRVwY005444@turing-police.cc.vt.edu>
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20040912231516.GA27299@electric-eye.fr.zoreil.com>
+Content-Disposition: inline
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 17 Sep 2004 16:27:31 -0400, valdis.kletnieks@vt.edu
-<valdis.kletnieks@vt.edu> wrote:
-> No, he means "offload the processing of the filesystem to the disk itself".
+I see your patch for r8169 in Linus' bk tree. I have tried 2.6.9-rc2-bk8, and 
+it works just fine.
 
-I know what was meant.
-
-I'm not saying the filesystem on the drive is very advanced, but it's
-still a filesystem.  Our "Record ID" is the LBA identifier, and all
-records are 1 block in size.  We can handle defects, reallocations,
-and other issues, with some success.
+Thank you.
+Hari
