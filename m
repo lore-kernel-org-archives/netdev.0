@@ -1,66 +1,41 @@
 From: Richard Dawe <rich@phekda.gotadsl.co.uk>
 Subject: Re: Acer Aspire 1524WLMi and RealTek 8169 - very slow
-Date: Sun, 02 Jan 2005 13:51:21 +0000
-Message-ID: <41D7FC59.2040503@phekda.gotadsl.co.uk>
-References: <41A09541.5040405@phekda.gotadsl.co.uk> <41A0F0D5.9050702@phekda.gotadsl.co.uk> <20041121205814.GA22460@electric-eye.fr.zoreil.com> <41A24F35.5080106@phekda.gotadsl.co.uk> <20041122213008.GA9618@electric-eye.fr.zoreil.com> <41D2844E.5070204@phekda.gotadsl.co.uk> <20041229235203.GA5465@electric-eye.fr.zoreil.com>
+Date: Sun, 02 Jan 2005 15:23:37 +0000
+Message-ID: <41D811F9.7030202@phekda.gotadsl.co.uk>
+References: <41A09541.5040405@phekda.gotadsl.co.uk> <41A0F0D5.9050702@phekda.gotadsl.co.uk> <20041121205814.GA22460@electric-eye.fr.zoreil.com> <41A24F35.5080106@phekda.gotadsl.co.uk> <20041122213008.GA9618@electric-eye.fr.zoreil.com> <41D2844E.5070204@phekda.gotadsl.co.uk> <20041229235203.GA5465@electric-eye.fr.zoreil.com> <41D7FC59.2040503@phekda.gotadsl.co.uk>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------090209010003000801020701"
-Cc: netdev@oss.sgi.com, Me <rich@phekda.gotadsl.co.uk>
+ boundary="------------050102090004090802060504"
+Cc: Richard Dawe <rich@phekda.gotadsl.co.uk>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20041229235203.GA5465@electric-eye.fr.zoreil.com>
+In-Reply-To: <41D7FC59.2040503@phekda.gotadsl.co.uk>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------090209010003000801020701
+--------------050102090004090802060504
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
 
 Hello.
 
-Francois Romieu wrote:
-> Richard Dawe <rich@phekda.gotadsl.co.uk> :
-> [...]
+Richard Dawe wrote:
 > 
->>IRQ routing seems to be disabled in 2.6.10. I got a warning about an 
->>unhandled interrupt for the VIA 8255 (I think that's the right number) 
->>on shutdown. I'm wondering if there is some bad interaction between the 
->>VIA chipset and the 8110 chipset.
-> 
-> 
-> Possible. I hope the networking does not perform better when you are
-> listening to music.
-
-No, it doesn't.
-
-I even built a kernel with no sound support, but this had the same 
-problems. In this case /proc/interrupts showed that there was no driver 
-handling the interrupts for the VIA 8233 sound chip.
-
+> Francois Romieu wrote:
 [snip]
-> Could you send an updated dmesg, lspci -vvx, /proc/interrupts please ?
+>> Could you send an updated dmesg, lspci -vvx, /proc/interrupts please ?
+> 
+> 
+> Please see the attached, which are for running with 2.6.10. I included 
+> .config, Just In Case.
+[snip]
 
-Please see the attached, which are for running with 2.6.10. I included 
-.config, Just In Case.
+Sorry, I booted into 2.6.9-1.681_FC3 by mistake. Attached are the ones 
+from 2.6.10.
 
-> Did you remove the other OS from the laptop ? I'd be curious to know
-> if it can teach us something.
-
-I removed Windows XP Home. I only have Fedora Core 3 on it.
-
-I've spoken with someone else who's had problems with Acer laptops and 
-networking. He has the laptop mentioned on this page:
-
-   http://www.latzinator.com/acer_aspire_1705SMi.html
-
-Apparently it works fine with FreeBSD 5.3, even booting from cold. So 
-this seems like a Linux ACPI-specific problem. Note that the 1705SMi is 
-a Pentium IV-based laptop.
-
-Thanks, bye, Rich =]
+Bye, Rich =]
 
 -- 
 Richard Dawe [ http://homepages.nildram.co.uk/~phekda/richdawe/ ]
@@ -68,7 +43,7 @@ Richard Dawe [ http://homepages.nildram.co.uk/~phekda/richdawe/ ]
 "You can't evaluate a man by logic alone."
    -- McCoy, "I, Mudd", Star Trek
 
---------------090209010003000801020701
+--------------050102090004090802060504
 Content-Type: text/plain;
  name="2.6.10-dmesg.txt"
 Content-Transfer-Encoding: 7bit
@@ -76,7 +51,7 @@ Content-Disposition: inline;
  filename="2.6.10-dmesg.txt"
 
 Bootdata ok (command line is ro root=/dev/VolGroup00/LogVol00)
-Linux version 2.6.9-1.678_FC3 (bhcompile@dolly.build.redhat.com) (gcc version 3.4.2 20041017 (Red Hat 3.4.2-6.fc3)) #1 Mon Nov 15 18:27:45 EST 2004
+Linux version 2.6.10 (rich@meelo.int.phekda.gotadsl.co.uk) (gcc version 3.4.2 20041017 (Red Hat 3.4.2-6.fc3)) #1 Wed Dec 29 00:43:22 GMT 2004
 BIOS-provided physical RAM map:
  BIOS-e820: 0000000000000000 - 000000000009f800 (usable)
  BIOS-e820: 000000000009f800 - 00000000000a0000 (reserved)
@@ -107,6 +82,7 @@ ACPI: INT_SRC_OVR (bus 0 bus_irq 0 global_irq 2 high edge)
 ACPI: IRQ0 used by override.
 ACPI: IRQ2 used by override.
 ACPI: IRQ9 used by override.
+Setting APIC routing to flat
 Using ACPI (MADT) for SMP configuration information
 Checking aperture...
 CPU 0: aperture @ d0000000 size 256 MB
@@ -115,22 +91,22 @@ Kernel command line: ro root=/dev/VolGroup00/LogVol00 console=tty0
 Initializing CPU#0
 PID hash table entries: 2048 (order: 11, 65536 bytes)
 time.c: Using 1.193182 MHz PIT timer.
-time.c: Detected 2201.330 MHz processor.
+time.c: Detected 2201.348 MHz processor.
 Console: colour VGA+ 80x25
 Dentry cache hash table entries: 131072 (order: 8, 1048576 bytes)
 Inode-cache hash table entries: 65536 (order: 7, 524288 bytes)
-Memory: 508340k/523712k available (2403k kernel code, 14612k reserved, 1285k data, 164k init)
+Memory: 508232k/523712k available (2585k kernel code, 14724k reserved, 1202k data, 184k init)
 Calibrating delay loop... 4325.37 BogoMIPS (lpj=2162688)
-Security Scaffold v1.0.0 initialized
+Security Framework v1.0.0 initialized
 SELinux:  Initializing.
 SELinux:  Starting in permissive mode
-There is already a security framework initialized, register_security failed.
 selinux_register_security:  Registering secondary module capability
 Capability LSM initialized as secondary
 Mount-cache hash table entries: 256 (order: 0, 4096 bytes)
 CPU: L1 I Cache: 64K (64 bytes/line), D cache 64K (64 bytes/line)
 CPU: L2 Cache: 1024K (64 bytes/line)
 CPU: AMD Athlon(tm) 64 Processor 3400+ stepping 0a
+    ACPI-0294: *** Info: Table [DSDT] replaced by host OS
 Using local APIC NMI watchdog using perfctr0
 Using local APIC timer interrupts.
 Detected 12.507 MHz APIC timer.
@@ -138,7 +114,7 @@ checking if image is initramfs... it is
 NET: Registered protocol family 16
 PCI: Using configuration type 1
 mtrr: v2.0 (20020519)
-ACPI: Subsystem revision 20040816
+ACPI: Subsystem revision 20041105
 ACPI: Interpreter enabled
 ACPI: Using IOAPIC for interrupt routing
 ACPI: PCI Root Bridge [PCI0] (00:00)
@@ -153,47 +129,33 @@ ACPI: PCI Interrupt Link [LNKB] (IRQs 3 4 5 7 *10 12 14 15)
 ACPI: PCI Interrupt Link [LNKC] (IRQs 3 4 5 7 *11 12 14 15)
 ACPI: PCI Interrupt Link [LNKD] (IRQs 3 4 5 7 9 10 *11 12 14 15)
 ACPI: Embedded Controller [EC] (gpe 11)
+Linux Plug and Play Support v0.97 (c) Adam Belay
 usbcore: registered new driver usbfs
 usbcore: registered new driver hub
 PCI: Using ACPI for IRQ routing
-ACPI: PCI interrupt 0000:00:0a.0[A] -> GSI 21 (level, low) -> IRQ 169
-ACPI: PCI interrupt 0000:00:0b.0[A] -> GSI 17 (level, low) -> IRQ 177
-ACPI: PCI interrupt 0000:00:0b.1[B] -> GSI 18 (level, low) -> IRQ 185
-ACPI: PCI interrupt 0000:00:0b.2[C] -> GSI 19 (level, low) -> IRQ 193
-ACPI: PCI interrupt 0000:00:0c.0[A] -> GSI 22 (level, low) -> IRQ 201
-ACPI: PCI interrupt 0000:00:10.0[A] -> GSI 21 (level, low) -> IRQ 169
-ACPI: PCI interrupt 0000:00:10.1[B] -> GSI 21 (level, low) -> IRQ 169
-ACPI: PCI interrupt 0000:00:10.2[C] -> GSI 21 (level, low) -> IRQ 169
-ACPI: PCI interrupt 0000:00:10.3[D] -> GSI 21 (level, low) -> IRQ 169
-ACPI: PCI interrupt 0000:00:11.1[A]: no GSI
-ACPI: PCI interrupt 0000:00:11.5[C] -> GSI 22 (level, low) -> IRQ 201
-ACPI: PCI interrupt 0000:00:11.6[C] -> GSI 22 (level, low) -> IRQ 201
-ACPI: PCI interrupt 0000:01:00.0[A] -> GSI 16 (level, low) -> IRQ 209
+** PCI interrupts are no longer routed automatically.  If this
+** causes a device to stop working, it is probably because the
+** driver failed to call pci_enable_device().  As a temporary
+** workaround, the "pci=routeirq" argument restores the old
+** behavior.  If this argument makes the device work again,
+** please email the output of "lspci" to bjorn.helgaas@hp.com
+** so I can fix the driver.
 agpgart: Detected AGP bridge 0
 agpgart: Maximum main memory to use for agp memory: 439M
 agpgart: AGP aperture is 256M @ 0xd0000000
 PCI-DMA: Disabling IOMMU.
 IA32 emulation $Id: sys_ia32.c,v 1.32 2002/03/24 13:02:28 ak Exp $
 audit: initializing netlink socket (disabled)
-audit(1104670420.329:0): initialized
+audit(1104678976.354:0): initialized
 Total HugeTLB memory allocated, 0
 VFS: Disk quotas dquot_6.5.1
 Dquot-cache hash table entries: 512 (order 0, 4096 bytes)
 SELinux:  Registering netfilter hooks
 Initializing Cryptographic API
-ksign: Installing public key data
-Loading keyring
-- Added public key A523A41F30C2FAFE
-- User ID: Red Hat, Inc. (Kernel Module GPG key)
-PCI: Via IRQ fixup for 0000:00:10.0, from 0 to 9
-PCI: Via IRQ fixup for 0000:00:10.1, from 0 to 9
-PCI: Via IRQ fixup for 0000:00:10.2, from 0 to 9
-PCI: Via IRQ fixup for 0000:00:11.6, from 11 to 9
 pci_hotplug: PCI Hot Plug PCI Core version: 0.5
 vesafb: probe of vesafb0 failed with error -6
-ACPI: Processor [CPU0] (supports C1)
-ACPI: Thermal Zone [THRS] (18 C)
-ACPI: Thermal Zone [THRC] (38 C)
+ACPI: Thermal Zone [THRS] (42 C)
+ACPI: Thermal Zone [THRC] (51 C)
 Real Time Clock Driver v1.12
 Linux agpgart interface v0.100 (c) Dave Jones
 i8042.c: Detected active multiplexing controller, rev 1.1.
@@ -204,12 +166,16 @@ serio: i8042 AUX3 port at 0x60,0x64 irq 12
 serio: i8042 KBD port at 0x60,0x64 irq 1
 Serial: 8250/16550 driver $Revision: 1.90 $ 8 ports, IRQ sharing enabled
 ttyS1 at I/O 0x2f8 (irq = 3) is a 16550A
+io scheduler noop registered
+io scheduler anticipatory registered
+io scheduler deadline registered
+io scheduler cfq registered
 RAMDISK driver initialized: 16 RAM disks of 16384K size 1024 blocksize
 divert: not allocating divert_blk for non-ethernet device lo
 Uniform Multi-Platform E-IDE driver Revision: 7.00alpha2
 ide: Assuming 33MHz system bus speed for PIO modes; override with idebus=xx
 VP_IDE: IDE controller at PCI slot 0000:00:11.1
-ACPI: PCI interrupt 0000:00:11.1[A]: no GSI
+ACPI: PCI interrupt 0000:00:11.1[A]: no GSI - using IRQ 0
 VP_IDE: chipset revision 6
 VP_IDE: not 100% native mode: will probe irqs later
 VP_IDE: VIA vt8235 (rev 00) IDE UDMA133 controller on pci0000:00:11.1
@@ -217,7 +183,7 @@ VP_IDE: VIA vt8235 (rev 00) IDE UDMA133 controller on pci0000:00:11.1
     ide1: BM-DMA at 0x1c88-0x1c8f, BIOS settings: hdc:DMA, hdd:pio
 Probing IDE interface ide0...
 hda: IC25N060ATMR04-0, ATA DISK drive
-Using cfq io scheduler
+elevator: using anticipatory as default io scheduler
 ide0 at 0x1f0-0x1f7,0x3f6 on irq 14
 Probing IDE interface ide1...
 hdc: TSSTcorpCD/DVDW TS-L532A, ATAPI CD/DVD-ROM drive
@@ -252,30 +218,30 @@ Synaptics Touchpad, model: 1
  -> multifinger detection
  -> palm detection
 input: SynPS/2 Synaptics TouchPad on isa0060/serio4
-md: md driver 0.90.0 MAX_MD_DEVS=256, MD_SB_DISKS=27
+md: md driver 0.90.1 MAX_MD_DEVS=256, MD_SB_DISKS=27
 NET: Registered protocol family 2
 IP: routing cache hash table of 512 buckets, 28Kbytes
 TCP: Hash tables configured (established 32768 bind 4681)
 Initializing IPsec netlink socket
 NET: Registered protocol family 1
 NET: Registered protocol family 17
-powernow-k8: Found 1 AMD Athlon 64 / Opteron processors (version 1.00.09b)
+powernow-k8: Found 1 AMD Athlon 64 / Opteron processors (version 1.00.09e)
 powernow-k8:    0 : fid 0xe (2200 MHz), vid 0x2 (1500 mV)
 powernow-k8:    1 : fid 0xc (2000 MHz), vid 0x6 (1400 mV)
 powernow-k8:    2 : fid 0xa (1800 MHz), vid 0xa (1300 mV)
 powernow-k8:    3 : fid 0x0 (800 MHz), vid 0x12 (1100 mV)
-powernow-k8: cpu_init done, current fid 0xe, vid 0x0
+cpu_init done, current fid 0xe, vid 0x0
 powernow-k8: ph2 null fid transition 0xe
-ACPI: (supports S0 S3 S4 S5)
 ACPI wakeup devices: 
 PCI0 Z007 GLAN  LID SLPB 
-Freeing unused kernel memory: 164k freed
-device-mapper: 4.1.0-ioctl (2003-12-10) initialised: dm@uk.sistina.com
+ACPI: (supports S0 S3 S4 S5)
+Freeing unused kernel memory: 184k freed
+device-mapper: 4.3.0-ioctl (2004-09-30) initialised: dm-devel@redhat.com
 cdrom: open failed.
 kjournald starting.  Commit interval 5 seconds
 EXT3-fs: mounted filesystem with ordered data mode.
 security:  3 users, 4 roles, 316 types, 20 bools
-security:  53 classes, 7072 rules
+security:  53 classes, 7085 rules
 SELinux:  Completing initialization.
 SELinux:  Setting up existing superblocks.
 SELinux: initialized (dev dm-0, type ext3), uses xattr
@@ -285,79 +251,84 @@ SELinux: initialized (dev mqueue, type mqueue), not configured for labeling
 SELinux: initialized (dev hugetlbfs, type hugetlbfs), not configured for labeling
 SELinux: initialized (dev devpts, type devpts), uses transition SIDs
 SELinux: initialized (dev eventpollfs, type eventpollfs), uses genfs_contexts
-SELinux: initialized (dev pipefs, type pipefs), uses task SIDs
 SELinux: initialized (dev tmpfs, type tmpfs), uses transition SIDs
 SELinux: initialized (dev futexfs, type futexfs), uses genfs_contexts
+SELinux: initialized (dev pipefs, type pipefs), uses task SIDs
 SELinux: initialized (dev sockfs, type sockfs), uses task SIDs
 SELinux: initialized (dev proc, type proc), uses genfs_contexts
 SELinux: initialized (dev bdev, type bdev), uses genfs_contexts
 SELinux: initialized (dev rootfs, type rootfs), uses genfs_contexts
 SELinux: initialized (dev sysfs, type sysfs), uses genfs_contexts
 SELinux: initialized (dev usbfs, type usbfs), uses genfs_contexts
-inserting floppy driver for 2.6.9-1.678_FC3
+inserting floppy driver for 2.6.10
 floppy0: no floppy controllers found
 r8169 Gigabit Ethernet driver 1.2 loaded
-ACPI: PCI interrupt 0000:00:0c.0[A] -> GSI 22 (level, low) -> IRQ 201
+ACPI: PCI interrupt 0000:00:0c.0[A] -> GSI 22 (level, low) -> IRQ 169
 r8169: NAPI enabled
 divert: allocating divert_blk for eth0
 eth0: Identified chip type is 'RTL8169'.
-eth0: RTL8169 at 0xffffff0000022400, 00:0a:e4:5f:3e:85, IRQ 201
+eth0: RTL8169 at 0xffffff000001a400, 00:0a:e4:5f:3e:85, IRQ 169
 r8169: media option is deprecated.
 via82xx: Assuming DXS channels with 48k fixed sample rate.
          Please try dxs_support=1 or dxs_support=4 option
          and report if it works on your machine.
-ACPI: PCI interrupt 0000:00:11.5[C] -> GSI 22 (level, low) -> IRQ 201
+ACPI: PCI interrupt 0000:00:11.5[C] -> GSI 22 (level, low) -> IRQ 169
+PCI: Via IRQ fixup for 0000:00:11.5, from 11 to 9
 PCI: Setting latency timer of device 0000:00:11.5 to 64
-ACPI: PCI interrupt 0000:00:10.3[D] -> GSI 21 (level, low) -> IRQ 169
+ACPI: PCI interrupt 0000:00:10.3[D] -> GSI 21 (level, low) -> IRQ 177
 ehci_hcd 0000:00:10.3: EHCI Host Controller
-ehci_hcd 0000:00:10.3: irq 169, pci mem ffffff0000024800
-SELinux: initialized (dev usbdevfs, type usbdevfs), uses genfs_contexts
+ehci_hcd 0000:00:10.3: irq 177, pci mem 0xc0006800
 ehci_hcd 0000:00:10.3: new USB bus registered, assigned bus number 1
-ehci_hcd 0000:00:10.3: USB 2.0 enabled, EHCI 1.00, driver 2004-May-10
+ehci_hcd 0000:00:10.3: USB 2.0 initialized, EHCI 1.00, driver 26 Oct 2004
 hub 1-0:1.0: USB hub found
 hub 1-0:1.0: 6 ports detected
 USB Universal Host Controller Interface driver v2.2
-ACPI: PCI interrupt 0000:00:10.0[A] -> GSI 21 (level, low) -> IRQ 169
+ACPI: PCI interrupt 0000:00:10.0[A] -> GSI 21 (level, low) -> IRQ 177
+PCI: Via IRQ fixup for 0000:00:10.0, from 0 to 1
 uhci_hcd 0000:00:10.0: UHCI Host Controller
-uhci_hcd 0000:00:10.0: irq 169, io base 0000000000001c20
+uhci_hcd 0000:00:10.0: irq 177, io base 0x1c20
 uhci_hcd 0000:00:10.0: new USB bus registered, assigned bus number 2
 hub 2-0:1.0: USB hub found
 hub 2-0:1.0: 2 ports detected
-ACPI: PCI interrupt 0000:00:10.1[B] -> GSI 21 (level, low) -> IRQ 169
+ACPI: PCI interrupt 0000:00:10.1[B] -> GSI 21 (level, low) -> IRQ 177
+PCI: Via IRQ fixup for 0000:00:10.1, from 0 to 1
 uhci_hcd 0000:00:10.1: UHCI Host Controller
-uhci_hcd 0000:00:10.1: irq 169, io base 0000000000001c40
+uhci_hcd 0000:00:10.1: irq 177, io base 0x1c40
 uhci_hcd 0000:00:10.1: new USB bus registered, assigned bus number 3
 hub 3-0:1.0: USB hub found
 hub 3-0:1.0: 2 ports detected
-ACPI: PCI interrupt 0000:00:10.2[C] -> GSI 21 (level, low) -> IRQ 169
+ACPI: PCI interrupt 0000:00:10.2[C] -> GSI 21 (level, low) -> IRQ 177
+PCI: Via IRQ fixup for 0000:00:10.2, from 0 to 1
 uhci_hcd 0000:00:10.2: UHCI Host Controller
-uhci_hcd 0000:00:10.2: irq 169, io base 0000000000001c60
+uhci_hcd 0000:00:10.2: irq 177, io base 0x1c60
 uhci_hcd 0000:00:10.2: new USB bus registered, assigned bus number 4
 hub 4-0:1.0: USB hub found
 hub 4-0:1.0: 2 ports detected
 Linux Kernel Card Services
   options:  [pci] [cardbus] [pm]
-ACPI: PCI interrupt 0000:00:0b.0[A] -> GSI 17 (level, low) -> IRQ 177
+ACPI: PCI interrupt 0000:00:0b.0[A] -> GSI 17 (level, low) -> IRQ 185
 Yenta: CardBus bridge found at 0000:00:0b.0 [1025:006e]
-Yenta: ISA IRQ mask 0x0cf8, PCI irq 177
-Socket status: 30000006
-PCI: Enabling device 0000:00:0b.1 (0000 -> 0002)
-ACPI: PCI interrupt 0000:00:0b.1[B] -> GSI 18 (level, low) -> IRQ 185
-Yenta: CardBus bridge found at 0000:00:0b.1 [1025:006e]
 Yenta: ISA IRQ mask 0x0cf8, PCI irq 185
 Socket status: 30000006
+PCI: Enabling device 0000:00:0b.1 (0000 -> 0002)
+ACPI: PCI interrupt 0000:00:0b.1[B] -> GSI 18 (level, low) -> IRQ 193
+Yenta: CardBus bridge found at 0000:00:0b.1 [1025:006e]
+Yenta: ISA IRQ mask 0x0cf8, PCI irq 193
+Socket status: 30000006
 ohci1394: $Rev: 1223 $ Ben Collins <bcollins@debian.org>
-ACPI: PCI interrupt 0000:00:0b.2[C] -> GSI 19 (level, low) -> IRQ 193
-ohci1394: fw-host0: OHCI-1394 1.1 (PCI): IRQ=[193]  MMIO=[c0005800-c0005fff]  Max Packet=[2048]
+ACPI: PCI interrupt 0000:00:0b.2[C] -> GSI 19 (level, low) -> IRQ 201
+ohci1394: fw-host0: OHCI-1394 1.1 (PCI): IRQ=[201]  MMIO=[c0005800-c0005fff]  Max Packet=[2048]
 md: Autodetecting RAID arrays.
 md: autorun ...
 md: ... autorun DONE.
 ieee1394: Host added: ID:BUS[0-00:1023]  GUID[000ae40444105af8]
-ACPI: AC Adapter [AC] (off-line)
+ACPI: AC Adapter [AC] (on-line)
 ACPI: Battery Slot [BAT0] (battery present)
 ACPI: Power Button (FF) [PWRF]
 ACPI: Lid Switch [LID]
 ACPI: Sleep Button (CM) [SLPB]
+ibm_acpi: ec object not found
+ACPI: Video Device [VGA] (multi-head: yes  rom: no  post: no)
 EXT3 FS on dm-0, internal journal
 cdrom: open failed.
 kjournald starting.  Commit interval 5 seconds
@@ -367,24 +338,25 @@ SELinux: initialized (dev hda1, type ext3), uses xattr
 SELinux: initialized (dev tmpfs, type tmpfs), uses transition SIDs
 Adding 1015800k swap on /dev/VolGroup00/LogVol01.  Priority:-1 extents:1
 SELinux: initialized (dev binfmt_misc, type binfmt_misc), uses genfs_contexts
+parport_pc: Ignoring new-style parameters in presence of obsolete ones
 parport0: PC-style at 0x378 (0x778) [PCSPP,TRISTATE]
 parport0: irq 7 detected
 ip_tables: (C) 2000-2002 Netfilter core team
-ip_conntrack version 2.1 (2045 buckets, 16360 max) - 496 bytes per conntrack
+ip_conntrack version 2.1 (2045 buckets, 16360 max) - 504 bytes per conntrack
 r8169: eth0: link up
 SELinux: initialized (dev rpc_pipefs, type rpc_pipefs), uses genfs_contexts
-i2c /dev entries driver
+parport_pc: Ignoring new-style parameters in presence of obsolete ones
 parport0: PC-style at 0x378 (0x778) [PCSPP,TRISTATE]
 parport0: irq 7 detected
 lp0: using parport0 (polling).
 lp0: console ready
 NET: Registered protocol family 10
-Disabled Privacy Extensions on device ffffffff80450020(lo)
+Disabled Privacy Extensions on device ffffffff80470ae0(lo)
 IPv6 over IPv4 tunneling driver
 divert: not allocating divert_blk for non-ethernet device sit0
 eth0: no IPv6 routers present
 
---------------090209010003000801020701
+--------------050102090004090802060504
 Content-Type: text/plain;
  name="2.6.10-lspci-vvx.txt"
 Content-Transfer-Encoding: 7bit
@@ -483,7 +455,7 @@ Content-Disposition: inline;
 	Subsystem: AMBIT Microsystem Corp.: Unknown device 0305
 	Control: I/O+ Mem+ BusMaster- SpecCycle+ MemWINV+ VGASnoop- ParErr- Stepping- SERR- FastB2B-
 	Status: Cap+ 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-	Interrupt: pin A routed to IRQ 169
+	Interrupt: pin A routed to IRQ 10
 	Region 0: I/O ports at 1c00 [size=32]
 	Region 1: Memory at c0006000 (32-bit, non-prefetchable) [size=32]
 	Region 2: Memory at c0005000 (32-bit, non-prefetchable) [size=2K]
@@ -500,7 +472,7 @@ Content-Disposition: inline;
 	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
 	Status: Cap+ 66Mhz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
 	Latency: 168, Cache Line Size 20
-	Interrupt: pin A routed to IRQ 177
+	Interrupt: pin A routed to IRQ 185
 	Region 0: Memory at 20000000 (32-bit, non-prefetchable) [size=4K]
 	Bus: primary=00, secondary=02, subordinate=05, sec-latency=176
 	Memory window 0: 20400000-207ff000 (prefetchable)
@@ -523,7 +495,7 @@ Content-Disposition: inline;
 	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
 	Status: Cap+ 66Mhz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
 	Latency: 168, Cache Line Size 20
-	Interrupt: pin B routed to IRQ 185
+	Interrupt: pin B routed to IRQ 193
 	Region 0: Memory at 20001000 (32-bit, non-prefetchable) [size=4K]
 	Bus: primary=00, secondary=06, subordinate=09, sec-latency=176
 	Memory window 0: 20c00000-20fff000 (prefetchable)
@@ -546,7 +518,7 @@ Content-Disposition: inline;
 	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- Stepping- SERR- FastB2B-
 	Status: Cap+ 66Mhz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
 	Latency: 64 (500ns min, 1000ns max), Cache Line Size 10
-	Interrupt: pin C routed to IRQ 193
+	Interrupt: pin C routed to IRQ 201
 	Region 0: Memory at c0005800 (32-bit, non-prefetchable) [size=2K]
 	Region 1: Memory at c0000000 (32-bit, non-prefetchable) [size=16K]
 	Capabilities: [44] Power Management version 2
@@ -562,7 +534,7 @@ Content-Disposition: inline;
 	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- Stepping- SERR- FastB2B-
 	Status: Cap+ 66Mhz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
 	Latency: 64 (8000ns min, 16000ns max), Cache Line Size 10
-	Interrupt: pin A routed to IRQ 201
+	Interrupt: pin A routed to IRQ 169
 	Region 0: I/O ports at 1000 [size=256]
 	Region 1: Memory at c0006400 (32-bit, non-prefetchable) [size=256]
 	Capabilities: [dc] Power Management version 2
@@ -578,7 +550,7 @@ Content-Disposition: inline;
 	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- Stepping- SERR- FastB2B-
 	Status: Cap+ 66Mhz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
 	Latency: 64, Cache Line Size 10
-	Interrupt: pin A routed to IRQ 169
+	Interrupt: pin A routed to IRQ 177
 	Region 4: I/O ports at 1c20 [size=32]
 	Capabilities: [80] Power Management version 2
 		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
@@ -586,14 +558,14 @@ Content-Disposition: inline;
 00: 06 11 38 30 17 00 10 02 80 00 03 0c 10 40 80 00
 10: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
 20: 21 1c 00 00 00 00 00 00 00 00 00 00 25 10 6e 00
-30: 00 00 00 00 80 00 00 00 00 00 00 00 09 01 00 00
+30: 00 00 00 00 80 00 00 00 00 00 00 00 01 01 00 00
 
 00:10.1 USB Controller: VIA Technologies, Inc. VT82xxxxx UHCI USB 1.1 Controller (rev 80) (prog-if 00 [UHCI])
 	Subsystem: Acer Incorporated [ALI]: Unknown device 006e
 	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- Stepping- SERR- FastB2B-
 	Status: Cap+ 66Mhz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
 	Latency: 64, Cache Line Size 10
-	Interrupt: pin B routed to IRQ 169
+	Interrupt: pin B routed to IRQ 177
 	Region 4: I/O ports at 1c40 [size=32]
 	Capabilities: [80] Power Management version 2
 		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
@@ -601,14 +573,14 @@ Content-Disposition: inline;
 00: 06 11 38 30 17 00 10 02 80 00 03 0c 10 40 80 00
 10: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
 20: 41 1c 00 00 00 00 00 00 00 00 00 00 25 10 6e 00
-30: 00 00 00 00 80 00 00 00 00 00 00 00 09 02 00 00
+30: 00 00 00 00 80 00 00 00 00 00 00 00 01 02 00 00
 
 00:10.2 USB Controller: VIA Technologies, Inc. VT82xxxxx UHCI USB 1.1 Controller (rev 80) (prog-if 00 [UHCI])
 	Subsystem: Acer Incorporated [ALI]: Unknown device 006e
 	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- Stepping- SERR- FastB2B-
 	Status: Cap+ 66Mhz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
 	Latency: 64, Cache Line Size 10
-	Interrupt: pin C routed to IRQ 169
+	Interrupt: pin C routed to IRQ 177
 	Region 4: I/O ports at 1c60 [size=32]
 	Capabilities: [80] Power Management version 2
 		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
@@ -616,14 +588,14 @@ Content-Disposition: inline;
 00: 06 11 38 30 17 00 10 02 80 00 03 0c 10 40 80 00
 10: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
 20: 61 1c 00 00 00 00 00 00 00 00 00 00 25 10 6e 00
-30: 00 00 00 00 80 00 00 00 00 00 00 00 09 03 00 00
+30: 00 00 00 00 80 00 00 00 00 00 00 00 01 03 00 00
 
 00:10.3 USB Controller: VIA Technologies, Inc. USB 2.0 (rev 82) (prog-if 20 [EHCI])
 	Subsystem: Acer Incorporated [ALI]: Unknown device 006e
 	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- Stepping- SERR- FastB2B-
 	Status: Cap+ 66Mhz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
 	Latency: 64, Cache Line Size 10
-	Interrupt: pin D routed to IRQ 169
+	Interrupt: pin D routed to IRQ 177
 	Region 0: Memory at c0006800 (32-bit, non-prefetchable) [size=256]
 	Capabilities: [80] Power Management version 2
 		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=375mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
@@ -665,7 +637,7 @@ Content-Disposition: inline;
 	Subsystem: Acer Incorporated [ALI]: Unknown device 0046
 	Control: I/O+ Mem- BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
 	Status: Cap+ 66Mhz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-	Interrupt: pin C routed to IRQ 201
+	Interrupt: pin C routed to IRQ 169
 	Region 0: I/O ports at 1400 [size=256]
 	Capabilities: [c0] Power Management version 2
 		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
@@ -673,13 +645,13 @@ Content-Disposition: inline;
 00: 06 11 59 30 01 00 10 02 50 00 01 04 00 00 00 00
 10: 01 14 00 00 00 00 00 00 00 00 00 00 00 00 00 00
 20: 00 00 00 00 00 00 00 00 00 00 00 00 25 10 46 00
-30: 00 00 00 00 c0 00 00 00 00 00 00 00 0b 03 00 00
+30: 00 00 00 00 c0 00 00 00 00 00 00 00 09 03 00 00
 
 00:11.6 Communication controller: VIA Technologies, Inc. Intel 537 [AC97 Modem] (rev 80)
 	Subsystem: Acer Incorporated [ALI]: Unknown device 0046
 	Control: I/O+ Mem- BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
 	Status: Cap+ 66Mhz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-	Interrupt: pin C routed to IRQ 201
+	Interrupt: pin C routed to IRQ 11
 	Region 0: I/O ports at 1800 [size=256]
 	Capabilities: [d0] Power Management version 2
 		Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
@@ -687,7 +659,7 @@ Content-Disposition: inline;
 00: 06 11 68 30 01 00 10 02 80 00 80 07 00 00 00 00
 10: 01 18 00 00 00 00 00 00 00 00 00 00 00 00 00 00
 20: 00 00 00 00 00 00 00 00 00 00 00 00 25 10 46 00
-30: 00 00 00 00 d0 00 00 00 00 00 00 00 09 03 00 00
+30: 00 00 00 00 d0 00 00 00 00 00 00 00 0b 03 00 00
 
 00:18.0 Host bridge: Advanced Micro Devices [AMD] K8 [Athlon64/Opteron] HyperTransport Technology Configuration
 	Control: I/O- Mem- BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
@@ -732,7 +704,7 @@ Content-Disposition: inline;
 	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
 	Status: Cap+ 66Mhz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
 	Latency: 64 (1250ns min, 250ns max)
-	Interrupt: pin A routed to IRQ 209
+	Interrupt: pin A routed to IRQ 10
 	Region 0: Memory at c1000000 (32-bit, non-prefetchable) [size=16M]
 	Region 1: Memory at e0000000 (32-bit, prefetchable) [size=256M]
 	Capabilities: [60] Power Management version 2
@@ -747,7 +719,7 @@ Content-Disposition: inline;
 30: 00 00 00 00 60 00 00 00 00 00 00 00 0a 01 05 01
 
 
---------------090209010003000801020701
+--------------050102090004090802060504
 Content-Type: text/plain;
  name="2.6.10-proc-interrupts.txt"
 Content-Transfer-Encoding: 7bit
@@ -755,24 +727,24 @@ Content-Disposition: inline;
  filename="2.6.10-proc-interrupts.txt"
 
            CPU0       
-  0:     261994    IO-APIC-edge  timer
+  0:     132568    IO-APIC-edge  timer
   1:         14    IO-APIC-edge  i8042
   8:          0    IO-APIC-edge  rtc
-  9:          1   IO-APIC-level  acpi
+  9:          0   IO-APIC-level  acpi
  12:        100    IO-APIC-edge  i8042
- 14:       4433    IO-APIC-edge  ide0
- 15:       1934    IO-APIC-edge  ide1
-169:          0   IO-APIC-level  ehci_hcd, uhci_hcd, uhci_hcd, uhci_hcd
-177:          0   IO-APIC-level  yenta
+ 14:       4750    IO-APIC-edge  ide0
+ 15:        729    IO-APIC-edge  ide1
+169:        548   IO-APIC-level  VIA8233, eth0
+177:          0   IO-APIC-level  ehci_hcd, uhci_hcd, uhci_hcd, uhci_hcd
 185:          0   IO-APIC-level  yenta
-193:          3   IO-APIC-level  ohci1394
-201:        652   IO-APIC-level  VIA8233, eth0
-NMI:         11 
-LOC:     261884 
+193:          0   IO-APIC-level  yenta
+201:          3   IO-APIC-level  ohci1394
+NMI:         12 
+LOC:     132480 
 ERR:          0
 MIS:          0
 
---------------090209010003000801020701
+--------------050102090004090802060504
 Content-Type: text/plain;
  name="config-2.6.10"
 Content-Transfer-Encoding: 7bit
@@ -3177,4 +3149,13 @@ CONFIG_LIBCRC32C=m
 CONFIG_ZLIB_INFLATE=y
 CONFIG_ZLIB_DEFLATE=m
 
---------------090209010003000801020701--
+--------------050102090004090802060504
+Content-Type: text/plain;
+ name="2.6.10-uname.txt"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="2.6.10-uname.txt"
+
+Linux meelo.int.phekda.gotadsl.co.uk 2.6.10 #1 Wed Dec 29 00:43:22 GMT 2004 x86_64 x86_64 x86_64 GNU/Linux
+
+--------------050102090004090802060504--
