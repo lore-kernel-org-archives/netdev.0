@@ -1,28 +1,40 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: SIOCADDMULTI for unicast broken
-Date: Sat, 04 Jan 2003 02:32:54 -0500
+From: Dave Hansen <haveblue@us.ibm.com>
+Subject: Send-Q not being emptied
+Date: Sat, 04 Jan 2003 07:51:14 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3E168E26.1030006@pobox.com>
-References: <Pine.LNX.4.44.0301032100340.29812-100000@beohost.scyld.com> <20030103224852.L48869@shell.cyberus.ca>
+Message-ID: <3E1702F2.9000105@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Donald Becker <becker@scyld.com>, Ben Greear <greearb@candelatech.com>,
-   netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-In-Reply-To: <20030103224852.L48869@shell.cyberus.ca>
+To: niv@us.ibm.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I wonder if there are any good uses for more advanced RX filtering that 
-is beginning to appear.  I could certainly imagine an interface that was 
-a more generic RX filtering interface, and [just by accident] happened 
-to support existing unicast and multicast rx-mode-related controls.
+I'm seeing some strange behavior running Specweb99 with 
+2.4.19-64GB-SMP on the clients, and 2.5.50 on the server.  I'm using 
+Apache/2.0.43.  The load is fairly low, ~1000 (this is an 8-way P4).
 
-As vendors stuff features onto cards and try to figure out where is the 
-best dividing line between TCP stack acceleration and TCP stack offload, 
-it seems to me that recent cards more often than not have nice RX 
-filtering capabilities.  If you look at the world through GigE-colored 
-glasses, the RX filtering picture gets even better.  There are some fun 
-SMP implications with flexible enough RX filtering, for example.
+The client program is sitting blocked on a socket read().  It's 
+netstat entry looks like this (I clipped off the PID/Program part):
+Recv-Q Send-Q Local Address       Foreign Address      State
+      0      0 192.168.1.100:35486 192.168.1.1:80       ESTABLISHED
+The server side's netstat (httpd):
+      0 120184 192.168.1.1:80      192.168.1.100:35486  ESTABLISHED
+
+It will stay like this for several minutes at a time, until the 
+Specweb99 client program usually times out complaining with something 
+like this:
+Sat Jan  4 10:05:28 2003 HTTPGetReply: got 272144, expected 614400
+
+But, this doesn't always happen to the client, and sometimes it will 
+stay blocking on that socket read() forever.  This keeps me from 
+getting any completed benchmark runs because there are always 1 or two 
+of these stragglers.
+
+Why isn't the client's read ever completing, even if the server has 
+data in its send queue?  I'm sure that the cable is plugged in :)
+-- 
+Dave Hansen
+haveblue@us.ibm.com
