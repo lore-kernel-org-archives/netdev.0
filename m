@@ -1,19 +1,16 @@
 From: "Pranav" <pranav@nodeinfotech.com>
 Subject: HELP NEEDED!!!
-Date: Mon, 4 Oct 2004 23:37:14 +0530
+Date: Mon, 4 Oct 2004 23:39:04 +0530
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <BLEAIJDEHOOAGALIAAKBGEDBCCAA.pranav@nodeinfotech.com>
-References: <20041003145909.6dc704dc.davem@davemloft.net>
+Message-ID: <BLEAIJDEHOOAGALIAAKBOEDBCCAA.pranav@nodeinfotech.com>
 Reply-To: <pranav@nodeinfotech.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset="us-ascii"
+	charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev-bounce@oss.sgi.com>, <netdev@oss.sgi.com>,
-        <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20041003145909.6dc704dc.davem@davemloft.net>
+To: <netdev-bounce@oss.sgi.com>, <netdev@oss.sgi.com>,
+        <linux-kernel@vger.kernel.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
