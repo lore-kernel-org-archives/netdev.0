@@ -1,30 +1,32 @@
-From: Nivedita Singhvi <niv@us.ibm.com>
+From: Martin Josefsson <gandalf@wlug.westbo.se>
 Subject: Re: Favorite network stress tests?
-Date: Wed, 30 Apr 2003 16:56:56 -0700
+Date: 01 May 2003 02:00:57 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3EB062C8.3000203@us.ibm.com>
-References: <20030430163542.4e09076f.shemminger@osdl.org> <3EB060AE.9050708@candelatech.com>
+Message-ID: <1051747257.8214.195.camel@tux.rsn.bth.se>
+References: <20030430163542.4e09076f.shemminger@osdl.org>
+	 <3EB060AE.9050708@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>,
-   "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Ben Greear <greearb@candelatech.com>
 In-Reply-To: <3EB060AE.9050708@candelatech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Ben Greear wrote:
->> Does any one have a favorite network stress test?
->> There are the usual benchmarks like ttcp, netbench, are there others?
->> NFS?
-> 
-> 
+On Thu, 2003-05-01 at 01:47, Ben Greear wrote:
+
 > pktgen is good for testing/abusing drivers, below the IP stacks.
 
-netperf is another for TCP/UDP stream and req/response
-kind of stuff. There is support for sendfile, IPV6, etc.
+Since Stephen is bridge maintainer now I assume he might like esic from
+the isic package. It can send packets with random source/destination
+macaddresses.
+There's a bunch of other small programs in that package as well.
 
-thanks,
-Nivedita
+Then there's testlvs and of course diffrent scriptkiddieprograms for
+syn/ack/udp/fragment floods with random ip's and ports, they stress the
+routingcache and conntrack a lot.
+
+-- 
+/Martin
