@@ -1,30 +1,39 @@
 From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [patch 2.6.11] bonding: avoid tx balance for IGMP (alb/tlb mode)
-Date: Wed, 16 Mar 2005 09:37:45 -0500
-Message-ID: <20050316143743.GC18393@tuxdriver.com>
-References: <20050315215128.GA18262@tuxdriver.com> <4237833E.9080809@hp.com>
+Subject: Re: [patch 04/13] e100: NAPI fixes
+Date: Wed, 16 Mar 2005 10:45:00 -0500
+Message-ID: <20050316154458.GE18393@tuxdriver.com>
+References: <200503152222.j2FMMawn016802@shell0.pdx.osdl.net> <20050315231632.GA18393@tuxdriver.com> <20050315152332.7c938b30.akpm@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, ctindel@users.sourceforge.net,
-        fubar@us.ibm.com, bonding-devel@lists.sourceforge.net,
-        netdev@oss.sgi.com, jgarzik@pobox.com
-To: Rick Jones <rick.jones2@hp.com>
+Cc: davem@davemloft.net, jgarzik@pobox.com, netdev@oss.sgi.com,
+        jesse.brandeburg@intel.com, ganesh.venkatesan@intel.com,
+        john.ronciak@intel.com
+To: Andrew Morton <akpm@osdl.org>
 Content-Disposition: inline
-In-Reply-To: <4237833E.9080809@hp.com>
+In-Reply-To: <20050315152332.7c938b30.akpm@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 15, 2005 at 04:52:14PM -0800, Rick Jones wrote:
-> Is that switch behaviour "normal" or "correct?"  I know next to nothing 
+On Tue, Mar 15, 2005 at 03:23:32PM -0800, Andrew Morton wrote:
+> "John W. Linville" <linville@tuxdriver.com> wrote:
+> >
+> > On Tue, Mar 15, 2005 at 02:22:41PM -0800, akpm@osdl.org wrote:
+> > > 
+> > > From: "John W. Linville" <linville@tuxdriver.com>
+> > > 
+> > > Just curious...wanna try this patch I got from Intel?  I think it
+> > > may help...
+> > 
+> > Hmmm...I didn't really mean for that one to be a submission...
+> 
+> Yeah, I know.  But the problem it fixes is real.  It's one of my "hold onto
+> this patch so I remember we need to fix it" patches.
 
-As Jay Vosburgh points-out, this patch only effects ALB and TLB modes.
-These are modes where the link partner is unaware of the bonded
-configuration.  In effect, we are tricking the switch into behaving
-the way we desire.
+Well, I can't argue with you there...at least let me repost it w/
+proper changlog info?
 
-Since the switch is unaware of our bonded behaviour, I think it makes
-sense to accomodate this quirk related to IGMP snooping.
+Patch to follow...
 
 John
 -- 
