@@ -1,32 +1,41 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH 2.6 1/5]: Fix locking in __qdisc_destroy rcu-callback
-Date: Wed, 4 Aug 2004 09:33:28 -0700
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Inaccuracies with SCH_CLK_CPU
+Date: Wed, 4 Aug 2004 09:43:10 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040804093328.4ee56d30.davem@redhat.com>
-References: <410FAD44.7020503@trash.net>
+Message-ID: <20040804094310.1d054b3a@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <410FAD44.7020503@trash.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 03 Aug 2004 17:20:36 +0200
-Patrick McHardy <kaber@trash.net> wrote:
+I noticed that the netem delay values are off if using 
+CONFIG_NET_SCH_CKL_CPU. For example, if the latency is set to 500ms
+ a ping reports the time as much less (343ms).
 
-> The __qdisc_destroy rcu-callback doesn't do any locking when calling
-> ops->reset and ops->destroy. qdisc_destroy is often called from both
-> of these functions and it changes dev->qdisc_list. This patch adds proper
-> locking to __qdisc_destroy. Unfortunately when using qdisc_tree_lock in
-> process context we now also need to disable local bh's to avoid beeing
-> interrupted by the rcu-callback. I'm not sure if RCU callback can be
-> scheduled while the kernel is running in process context, so this may
-> be unneccessary.
+Requested	JIFFIES	GETTIMEODAY	CPU
+0		.1	.1		.1
+1		2	2		1
+5		5	6		4
+10		10	11		7
+100		98	101		69
+500		489	500		343
+1000		976	1000		685
 
-RCU callbacks run via tasklets, and thus in softirq context,
-thus your locking changes to _bh() are indeed necessary.
+The 1ms value is affected by the clock granularity.  Larger jiffie values
+are inaccurate due to the optimization of using shift to do divide (ie 1024 > 1000).
 
-I will apply this patch, thanks Patrick.
+With CLK_CPU /proc/net/psched is:
+000005d9 00000400 000f4240 000003e8
+
+
+Instead of computing own values of psched_us_per_tick
+and psched_clock_per_hz, couldn't the values already done
+in timers code be used?  
+
+Also doesn't PSCHED_US2JIFFIE need to be doing a do_div()
+in order to correctly do u64 divided by u32. Otherwise
+it ends up just doing an u32 divide.
