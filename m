@@ -1,47 +1,81 @@
-From: Richard Guy Briggs <rgb@conscoop.ottawa.on.ca>
-Subject: Re: RFC: [2.6 patch] disallow modular IPv6
-Date: Tue, 30 Sep 2003 11:13:21 -0400
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [Bonding-devel] Re: [bonding] compatibilty issues
+Date: Tue, 30 Sep 2003 09:39:52 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030930151321.GI17855@conscoop.ottawa.on.ca>
-References: <20030928225941.GW15338@fs.tum.de> <20030928231842.GE1039@conectiva.com.br> <20030928232403.GX15338@fs.tum.de> <20030929220916.19c9c90d.davem@redhat.com> <1064903562.6154.160.camel@imladris.demon.co.uk> <20030930000302.3e1bf8bb.davem@redhat.com> <1064907572.21551.31.camel@hades.cambridge.redhat.com> <20030930010855.095c2c35.davem@redhat.com> <1064910398.21551.41.camel@hades.cambridge.redhat.com> <20030930013025.697c786e.davem@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Message-ID: <200309301639.h8UGdqCq026858@death.ibm.com>
+References: <shmulik.hen@intel.com>
+Cc: "David S. Miller" <davem@redhat.com>, "Jeff Garzik" <jgarzik@pobox.com>,
+        chad@tindel.net, bonding-devel@lists.sourceforge.net,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
-Content-Disposition: inline
-In-Reply-To: <20030930013025.697c786e.davem@redhat.com>
+To: shmulik.hen@intel.com
+In-Reply-To: Message from Shmulik Hen <shmulik.hen@intel.com>
+   of "Tue, 30 Sep 2003 14:42:31 +0300." <200309301442.31991.shmulik.hen@intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 30, 2003 at 01:30:25AM -0700, David S. Miller wrote:
-> On Tue, 30 Sep 2003 09:26:38 +0100
-> David Woodhouse <dwmw2@infradead.org> wrote:
-> 
-> > Why would he run 'make'? He'll only run 'make modules' since he only
-> > enabled one extra module, and then he expects to be able to load it
-> > without a reboot.
-> 
-> If 'make modules' doesn't check if the config change has hit a
-> dependency that requires the core kernel image to be rebuilt, we need
-> to fix that.  'make modules' depends upon the kernel image.
 
-If a module depends on core kernel functionality, that module option
-should not be visible in the config until the core kernel functionality
-has been turned on.  Otherwise, maybe that core kernel functionality
-should also be a module.
+>I'm going to need a ruling here :)
+>Re-creating those 19 trees each time is killing me and I would like to 
+>reduce the number of iterations to a minimum.
 
-> At the very least, it should refuse to build the modules and tell the
-> user what he needs to do first.
+	I say:
 
-That would also work.
+	Toast the whatever_OLD guys (the backwards compat ioctls) in
+both 2.4 and 2.6.  Backwards compatibility is good, but there are
+limits, and I think these have reached their limit.
 
-> All you've shown me is a bug in the build system, not a fundamental
-> issue with module enables creating changes to the main kernel image.
+	Keep the ABI versioning stuff in both 2.4 and 2.6.  As I've
+said, that slimmed down ifenslave really makes my mouth water in
+anticipation, but I don't think we can escape our fate that easily
+just yet.  Someday....
 
-	slainte mhath, RGB
+	Any comments from the usual gang?
 
--- 
-Richard Guy Briggs           --    ~\                 Auto-Free Ottawa! Canada
-<www.TriColour.net>            --    \@       @           <www.flora.org/afo/>
-No Internet Wiretapping!        --   _\\/\%___\\/\%        Vote! -- <Green.ca>
-<www.FreeSWAN.org>_______GTVS6#790__(*)_______(*)(*)_______<www.Marillion.com>
+>I'm currently working on putting back all compatibility stuff for 2.4. 
+>I would like to also get any input/reservations about other issues 
+>(besides compatibility and the multicast param) so I may get a chance 
+>to get them all in at once.
+
+	I'm still looking through the patch set; I generally like what
+I see, and think it's probably all good to go for 2.6 (modulo the
+various changes we're discussing).  I was thinking the same for 2.4,
+but then I had a long chat with Chad, and now he's got me worried
+about potential stability problems from such a large set of changes.
+
+	I'm wondering if we should apply the set to 2.6 first, and
+give it some air time in that environment before going on to 2.4.
+
+	The only nit I have thus far is that you need to remove the
+documentation for multicast_mode along with the option (which I've
+mentioned before somewhere; just reminding, not whining).  Or perhaps
+better, leave some text explaining that the option is no longer
+supported (and why).  Chad and I were discussing whether or not we
+should leave a dummy option (that silently does nothing, or prints
+some sort of useful message) so that end users don't get a warning if
+they supply a multicast_mode module parameter.  If there is no
+paramter at all, users get a warning from modprobe (or insmod or
+somewhere) that the option does not exist, but the insmod does
+complete.
+
+	Another possibility would be a parameter that does nothing,
+unless the user selects a setting that conflicts with the calculated
+choice.  In that case, fail the insmod.  This way, end users won't get
+a warning as long as they're doing the right thing.  I haven't decided
+if I like this idea just because it seems kind of clever, or because
+it would actually be the right thing to do.
+
+>Once we get that settled, I can start working on a 2.6 version that 
+>also handles any compatibility issues (preferrably as the last patch 
+>of the series). I'm working in the assumption that 2.4-2.6 similarity 
+>is no longer an option for bonding.
+
+	Unfortunately, no, it doesn't seem to be feasible to keep the
+2.4 and 2.6 source bases identical (which I was pretty jazzed about).
+I still want to try to keep them as close as is reasonable, which is
+why I'd like to put the full cleanup set into 2.4 if we can.
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
