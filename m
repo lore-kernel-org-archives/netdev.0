@@ -1,140 +1,516 @@
-From: Chris Wright <chrisw@osdl.org>
-Subject: Re: [PATCH] Add audit uid to netlink credentials
-Date: Wed, 9 Feb 2005 17:11:15 -0800
-Message-ID: <20050209171115.G24171@build.pdx.osdl.net>
-References: <20050204165840.GA2320@IBM-BWN8ZTBWA01.austin.ibm.com> <1107958621.19262.524.camel@hades.cambridge.redhat.com> <1107960659.4837.9.camel@serge> <1107973381.17568.97.camel@moss-spartans.epoch.ncsc.mil> <20050209103747.Y24171@build.pdx.osdl.net> <1107974448.17568.108.camel@moss-spartans.epoch.ncsc.mil> <20050209153816.B24171@build.pdx.osdl.net>
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: serious netpoll bug w/NAPI
+Date: Wed, 9 Feb 2005 17:11:04 -0800
+Message-ID: <20050210011104.GF2366@waste.org>
+References: <20050208201634.03074349.davem@davemloft.net> <20050209183219.GA2366@waste.org> <20050209164658.409f8950.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Smalley <sds@epoch.ncsc.mil>, netdev@oss.sgi.com,
-        Linux Audit Discussion <linux-audit@redhat.com>, davem@davemloft.net,
-        kuznet@ms2.inr.ac.ru
-To: Chris Wright <chrisw@osdl.org>
+Content-Type: multipart/mixed; boundary="opJtzjQTFsWo+cga"
+Cc: jmoyer@redhat.com, netdev@oss.sgi.com
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20050209153816.B24171@build.pdx.osdl.net>; from chrisw@osdl.org on Wed, Feb 09, 2005 at 03:38:16PM -0800
+In-Reply-To: <20050209164658.409f8950.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Chris Wright (chrisw@osdl.org) wrote:
-> Hmm, perhaps we could eliminate the whole asynchronous issue by allowing
-> registration of a netlink link specific security handler.  Something like:
+
+--opJtzjQTFsWo+cga
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+On Wed, Feb 09, 2005 at 04:46:58PM -0800, David S. Miller wrote:
+> On Wed, 9 Feb 2005 10:32:19 -0800
+> Matt Mackall <mpm@selenic.com> wrote:
 > 
-> netlink_kernel_create_sec(unit, rx, sec_handler)
+> > On closer inspection, there's a couple other related failure cases
+> > with the new ->poll logic in netpoll. I'm afraid it looks like
+> > CONFIG_NETPOLL will need to guard ->poll() with a per-device spinlock
+> > on netpoll-enabled devices.
+> > 
+> > This will mean putting a pointer to struct netpoll in struct
+> > net_device (which I should have done in the first place) and will take
+> > a few patches to sort out.
 > 
-> Then the check would be done before the packet was ever queued.  This
-> would eliminate the if (NETLINK_CREDS(skb)->$cred == bad) on receipt
-> side, and push it to sender side.  It would also be link specific so
-> audit could do it's audit payload loginuid check here.  I think it would
-> also eliminate SELinux's need to tag the packet for later checking on
-> receipt.  Thoughts?
+> Will this ->poll() guarding lock be acquired only in the netpoll
+> code or system-wide?  If the latter, this introduced an incredible
+> performance regression for devices using the LLTX locking scheme
+> (ie. the most important high-performance gigabit drivers in the
+> tree use this).
 
-Here's an example of what I mean.  It's quite rough, doesn't yet eliminate
-any of the code that it eventually could, and doesn't deal with broadcast.
-I gave it a quick test with audit netlink, and it does what I expect.
+The lock will only be taken in net_rx_action iff netpoll is enabled
+for the given device. Lock contention should be basically nil.
 
-thanks,
--chris
--- 
-Linux Security Modules     http://lsm.immunix.org     http://lsm.bkbits.net
+Here's my current patch (on top of -mm), which I'm struggling to find
+an appropriate test box for (my dual box with NAPI got pressed into
+service as a web server a couple weeks ago). I've attached the other
+two patches it relies on as well.
 
-===== kernel/audit.c 1.9 vs edited =====
---- 1.9/kernel/audit.c	2005-01-30 22:33:47 -08:00
-+++ edited/kernel/audit.c	2005-02-09 17:07:22 -08:00
-@@ -333,6 +333,15 @@ static int audit_netlink_ok(kernel_cap_t
- 	return err;
- }
- 
-+static int audit_check_sender(struct sk_buff *skb)
-+{
-+	struct nlmsghdr *nlh = (struct nlmsghdr *)skb->data;
-+	u16		msg_type = nlh->nlmsg_type;
-+
-+	return audit_netlink_ok(NETLINK_CB(skb).eff_cap, msg_type);
-+
-+}
-+
- static int audit_receive_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
- {
- 	u32			uid, pid, seq;
-@@ -551,7 +560,7 @@ int __init audit_init(void)
- {
- 	printk(KERN_INFO "audit: initializing netlink socket (%s)\n",
- 	       audit_default ? "enabled" : "disabled");
--	audit_sock = netlink_kernel_create(NETLINK_AUDIT, audit_receive);
-+	audit_sock = netlink_kernel_create_check(NETLINK_AUDIT, audit_receive, audit_check_sender);
- 	if (!audit_sock)
- 		audit_panic("cannot initialize netlink socket");
- 
-===== net/netlink/af_netlink.c 1.69 vs edited =====
---- 1.69/net/netlink/af_netlink.c	2005-01-21 12:25:32 -08:00
-+++ edited/net/netlink/af_netlink.c	2005-02-09 16:39:15 -08:00
-@@ -71,6 +71,7 @@ struct netlink_opt
- 	struct netlink_callback	*cb;
- 	spinlock_t		cb_lock;
- 	void			(*data_ready)(struct sock *sk, int bytes);
-+	int			(*send_check)(struct sk_buff *skb);
+--------------
+
+Introduce a per-client poll lock and flag. The lock assures we never
+have more than one caller in dev->poll(). The flag provides recursion
+avoidance on UP where the lock disappears.
+
+Index: mm1npc/include/linux/netpoll.h
+===================================================================
+--- mm1npc.orig/include/linux/netpoll.h	2005-02-09 14:15:12.471051000 -0800
++++ mm1npc/include/linux/netpoll.h	2005-02-09 14:46:22.374083000 -0800
+@@ -21,6 +21,8 @@
+ 	u32 local_ip, remote_ip;
+ 	u16 local_port, remote_port;
+ 	unsigned char local_mac[6], remote_mac[6];
++	spinlock_t poll_lock;
++	int poll_flag;
  };
  
- #define nlk_sk(__sk) ((struct netlink_opt *)(__sk)->sk_protinfo)
-@@ -639,6 +640,14 @@ int netlink_sendskb(struct sock *sk, str
- 	int len = skb->len;
- 
- 	nlk = nlk_sk(sk);
-+
-+	if (nlk->send_check)
-+		if (nlk->send_check(skb)) {
-+			kfree_skb(skb);
-+			sock_put(sk);
-+			return -EPERM;
-+		}
-+
- #ifdef NL_EMULATE_DEV
- 	if (nlk->handler) {
- 		skb_orphan(skb);
-@@ -1033,7 +1042,8 @@ static void netlink_data_ready(struct so
-  */
- 
- struct sock *
--netlink_kernel_create(int unit, void (*input)(struct sock *sk, int len))
-+netlink_kernel_create_check(int unit, void (*input)(struct sock *sk, int len),
-+			    int (*check)(struct sk_buff *skb))
+ void netpoll_poll(struct netpoll *np);
+@@ -37,8 +39,27 @@
  {
- 	struct socket *sock;
- 	struct sock *sk;
-@@ -1053,8 +1063,10 @@ netlink_kernel_create(int unit, void (*i
- 	}
- 	sk = sock->sk;
- 	sk->sk_data_ready = netlink_data_ready;
--	if (input)
-+	if (input) {
- 		nlk_sk(sk)->data_ready = input;
-+		nlk_sk(sk)->send_check = check;
-+	}
- 
- 	if (netlink_insert(sk, 0)) {
- 		sock_release(sock);
-@@ -1459,7 +1471,7 @@ MODULE_ALIAS_NETPROTO(PF_NETLINK);
- EXPORT_SYMBOL(netlink_ack);
- EXPORT_SYMBOL(netlink_broadcast);
- EXPORT_SYMBOL(netlink_dump_start);
--EXPORT_SYMBOL(netlink_kernel_create);
-+EXPORT_SYMBOL(netlink_kernel_create_check);
- EXPORT_SYMBOL(netlink_register_notifier);
- EXPORT_SYMBOL(netlink_set_err);
- EXPORT_SYMBOL(netlink_set_nonroot);
-===== include/linux/netlink.h 1.23 vs edited =====
---- 1.23/include/linux/netlink.h	2005-02-06 21:59:39 -08:00
-+++ edited/include/linux/netlink.h	2005-02-09 16:36:45 -08:00
-@@ -116,7 +116,11 @@ struct netlink_skb_parms
- #define NETLINK_CREDS(skb)	(&NETLINK_CB((skb)).creds)
- 
- 
--extern struct sock *netlink_kernel_create(int unit, void (*input)(struct sock *sk, int len));
-+extern struct sock *netlink_kernel_create_check(int unit, void (*input)(struct sock *sk, int len), int (*check)(struct sk_buff *skb));
-+static inline struct sock *netlink_kernel_create(int unit, void (*input)(struct sock *sk, int len)) 
+ 	return skb->dev->np && skb->dev->np->rx_flags && __netpoll_rx(skb);
+ }
++
++static inline void netpoll_poll_lock(struct net_device *dev)
 +{
-+	return netlink_kernel_create_check(unit, input, NULL);
++	if (dev->np) {
++		spin_lock(&dev->np->poll_lock);
++		dev->np->poll_flag = 1;
++	}
 +}
- extern void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err);
- extern int netlink_unicast(struct sock *ssk, struct sk_buff *skb, __u32 pid, int nonblock);
- extern int netlink_broadcast(struct sock *ssk, struct sk_buff *skb, __u32 pid,
++
++static inline void netpoll_poll_unlock(struct net_device *dev)
++{
++	if (dev->np) {
++		dev->np->poll_flag = 0;
++		spin_unlock(&dev->np->poll_lock);
++	}
++}
++
+ #else
+ #define netpoll_rx(a) 0
++#define netpoll_poll_lock(a)
++#define netpoll_poll_unlock(a)
+ #endif
+ 
+ #endif
+Index: mm1npc/net/core/dev.c
+===================================================================
+--- mm1npc.orig/net/core/dev.c	2005-02-09 14:15:11.236086000 -0800
++++ mm1npc/net/core/dev.c	2005-02-09 14:15:13.710042000 -0800
+@@ -1772,6 +1772,7 @@
+ 
+ 		dev = list_entry(queue->poll_list.next,
+ 				 struct net_device, poll_list);
++		netpoll_poll_lock(dev);
+ 
+ 		if (dev->quota <= 0 || dev->poll(dev, &budget)) {
+ 			local_irq_disable();
+@@ -1782,9 +1783,11 @@
+ 			else
+ 				dev->quota = dev->weight;
+ 		} else {
++			netpoll_poll_unlock(dev);
+ 			dev_put(dev);
+ 			local_irq_disable();
+ 		}
++		netpoll_poll_unlock(dev);
+ 
+ #ifdef CONFIG_KGDBOE
+ 		kgdb_process_breakpoint();
+Index: mm1npc/net/core/netpoll.c
+===================================================================
+--- mm1npc.orig/net/core/netpoll.c	2005-02-09 14:15:12.466070000 -0800
++++ mm1npc/net/core/netpoll.c	2005-02-09 14:48:44.506107000 -0800
+@@ -36,7 +36,6 @@
+ static struct sk_buff *skbs;
+ 
+ static atomic_t trapped;
+-static DEFINE_SPINLOCK(netpoll_poll_lock);
+ 
+ #define NETPOLL_RX_ENABLED  1
+ #define NETPOLL_RX_DROP     2
+@@ -63,8 +62,15 @@
+ }
+ 
+ /*
+- * Check whether delayed processing was scheduled for our current CPU,
+- * and then manually invoke NAPI polling to pump data off the card.
++ * Check whether delayed processing was scheduled for our NIC. If so,
++ * we attempt to grab the poll lock and use ->poll() to pump the card.
++ * If this fails, either we've recursed in ->poll() or it's already
++ * running on another CPU.
++ *
++ * Note: we don't mask interrupts with this lock because we're using
++ * trylock here and interrupts are already disabled in the softirq
++ * case. Further, we test the poll_flag to avoid recursion on UP
++ * systems where the lock doesn't exist.
+  *
+  * In cases where there is bi-directional communications, reading only
+  * one message at a time can lead to packets being dropped by the
+@@ -74,13 +80,9 @@
+ static void poll_napi(struct netpoll *np)
+ {
+ 	int budget = 16;
+-	unsigned long flags;
+-	struct softnet_data *queue;
+ 
+-	spin_lock_irqsave(&netpoll_poll_lock, flags);
+-	queue = &__get_cpu_var(softnet_data);
+ 	if (test_bit(__LINK_STATE_RX_SCHED, &np->dev->state) &&
+-	    !list_empty(&queue->poll_list)) {
++	    !np->poll_flag && spin_trylock(&np->poll_lock)) {
+ 		np->rx_flags |= NETPOLL_RX_DROP;
+ 		atomic_inc(&trapped);
+ 
+@@ -88,8 +90,8 @@
+ 
+ 		atomic_dec(&trapped);
+ 		np->rx_flags &= ~NETPOLL_RX_DROP;
++		spin_unlock(&np->poll_lock);
+ 	}
+-	spin_unlock_irqrestore(&netpoll_poll_lock, flags);
+ }
+ 
+ void netpoll_poll(struct netpoll *np)
+@@ -276,7 +278,6 @@
+ 	int size, type = ARPOP_REPLY, ptype = ETH_P_ARP;
+ 	u32 sip, tip;
+ 	struct sk_buff *send_skb;
+-	unsigned long flags;
+ 	struct netpoll *np = skb->dev->np;
+ 
+ 	if (!np) return;
+@@ -360,7 +361,7 @@
+ 	int proto, len, ulen;
+ 	struct iphdr *iph;
+ 	struct udphdr *uh;
+-	struct netpoll *np;
++	struct netpoll *np = skb->dev->np;
+ 
+ 	if (!np->rx_hook)
+ 		goto out;
+@@ -618,6 +619,7 @@
+ 
+ 	if(np->rx_hook)
+ 		np->rx_flags = NETPOLL_RX_ENABLED;
++	np->poll_lock = SPIN_LOCK_UNLOCKED;
+ 	np->dev = ndev;
+ 	ndev->np = np;
+ 
+
+ 
+> I know you want to do anything except drop the packet.  What you
+> may do instead, therefore, is add the packet to the normal device
+> mid-layer queue and kick NET_TX_ACTION if netif_queue_stopped() is
+> true.
+
+Actually, I think it's better to keep the midlayer out of it. Netpoll
+clients like netdump and kgdb basically stop the machine so queueing
+to avoid deadlock is just not going to work. 
+
+> As an aside, ipt_LOG is a great stress test for netpoll, because 4
+> incoming packets can generate 8 outgoing packets worth of netconsole
+> traffic :-)
+
+-- 
+Mathematics is the supreme nostalgia of our time.
+
+--opJtzjQTFsWo+cga
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="netpoll-helpers.patch"
+
+Add netpoll rx helpers 
+Move skb_free for rx into __netpoll_rx
+
+Index: mm1/net/core/netpoll.c
+===================================================================
+--- mm1.orig/net/core/netpoll.c	2005-02-09 10:51:43.000000000 -0800
++++ mm1/net/core/netpoll.c	2005-02-09 11:36:15.000000000 -0800
+@@ -368,7 +368,7 @@
+ 	netpoll_send_skb(np, send_skb);
+ }
+ 
+-int netpoll_rx(struct sk_buff *skb)
++int __netpoll_rx(struct sk_buff *skb)
+ {
+ 	int proto, len, ulen;
+ 	struct iphdr *iph;
+@@ -440,12 +440,18 @@
+ 				    (char *)(uh+1),
+ 				    ulen - sizeof(struct udphdr));
+ 
++		kfree_skb(skb);
+ 		return 1;
+ 	}
+ 	spin_unlock_irqrestore(&rx_list_lock, flags);
+ 
+ out:
+-	return atomic_read(&trapped);
++	if (atomic_read(&trapped)) {
++		kfree_skb(skb);
++		return 1;
++	}
++
++	return 0;
+ }
+ 
+ int netpoll_parse_options(struct netpoll *np, char *opt)
+Index: mm1/include/linux/netpoll.h
+===================================================================
+--- mm1.orig/include/linux/netpoll.h	2005-02-09 10:40:59.000000000 -0800
++++ mm1/include/linux/netpoll.h	2005-02-09 11:36:15.000000000 -0800
+@@ -30,7 +30,15 @@
+ int netpoll_trap(void);
+ void netpoll_set_trap(int trap);
+ void netpoll_cleanup(struct netpoll *np);
+-int netpoll_rx(struct sk_buff *skb);
++int __netpoll_rx(struct sk_buff *skb);
+ 
++#ifdef CONFIG_NETPOLL
++static inline int netpoll_rx(struct sk_buff *skb)
++{
++	return skb->dev->netpoll_rx && __netpoll_rx(skb);
++}
++#else
++#define netpoll_rx(a) 0
++#endif
+ 
+ #endif
+Index: mm1/net/core/dev.c
+===================================================================
+--- mm1.orig/net/core/dev.c	2005-02-09 10:40:59.000000000 -0800
++++ mm1/net/core/dev.c	2005-02-09 11:36:20.000000000 -0800
+@@ -1425,13 +1425,10 @@
+ 	struct softnet_data *queue;
+ 	unsigned long flags;
+ 
+-#ifdef CONFIG_NETPOLL
+-	if (skb->dev->netpoll_rx && netpoll_rx(skb)) {
+-		kfree_skb(skb);
++	/* if netpoll wants it, pretend we never saw it */
++	if (netpoll_rx(skb))
+ 		return NET_RX_DROP;
+-	}
+-#endif
+-	
++
+ 	if (!skb->stamp.tv_sec)
+ 		net_timestamp(&skb->stamp);
+ 
+@@ -1627,12 +1624,9 @@
+ 	int ret = NET_RX_DROP;
+ 	unsigned short type;
+ 
+-#ifdef CONFIG_NETPOLL
+-	if (skb->dev->netpoll_rx && skb->dev->poll && netpoll_rx(skb)) {
+-		kfree_skb(skb);
++	/* if we've gotten here through NAPI, check netpoll */
++	if (skb->dev->poll && netpoll_rx(skb))
+ 		return NET_RX_DROP;
+-	}
+-#endif
+ 
+ 	if (!skb->stamp.tv_sec)
+ 		net_timestamp(&skb->stamp);
+
+--opJtzjQTFsWo+cga
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="netpoll-in-dev.patch"
+
+Add struct netpoll pointer to struct netdevice
+Move netpoll rx flags to netpoll struct
+Stop traversing rx_list and get np pointer from skb->dev->np
+Remove now unneeded rx_list
+
+Index: mm1/include/linux/netdevice.h
+===================================================================
+--- mm1.orig/include/linux/netdevice.h	2005-02-09 11:36:15.000000000 -0800
++++ mm1/include/linux/netdevice.h	2005-02-09 11:36:39.000000000 -0800
+@@ -41,7 +41,7 @@
+ struct divert_blk;
+ struct vlan_group;
+ struct ethtool_ops;
+-
++struct netpoll;
+ 					/* source back-compat hooks */
+ #define SET_ETHTOOL_OPS(netdev,ops) \
+ 	( (netdev)->ethtool_ops = (ops) )
+@@ -471,7 +471,7 @@
+ 	int			(*neigh_setup)(struct net_device *dev, struct neigh_parms *);
+ 	int			(*accept_fastpath)(struct net_device *, struct dst_entry*);
+ #ifdef CONFIG_NETPOLL
+-	int			netpoll_rx;
++	struct netpoll		*np;
+ #endif
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	void                    (*poll_controller)(struct net_device *dev);
+Index: mm1/net/core/netpoll.c
+===================================================================
+--- mm1.orig/net/core/netpoll.c	2005-02-09 11:36:15.000000000 -0800
++++ mm1/net/core/netpoll.c	2005-02-09 11:37:38.000000000 -0800
+@@ -35,9 +35,6 @@
+ static int nr_skbs;
+ static struct sk_buff *skbs;
+ 
+-static DEFINE_SPINLOCK(rx_list_lock);
+-static LIST_HEAD(rx_list);
+-
+ static atomic_t trapped;
+ static DEFINE_SPINLOCK(netpoll_poll_lock);
+ 
+@@ -84,13 +81,13 @@
+ 	queue = &__get_cpu_var(softnet_data);
+ 	if (test_bit(__LINK_STATE_RX_SCHED, &np->dev->state) &&
+ 	    !list_empty(&queue->poll_list)) {
+-		np->dev->netpoll_rx |= NETPOLL_RX_DROP;
++		np->rx_flags |= NETPOLL_RX_DROP;
+ 		atomic_inc(&trapped);
+ 
+ 		np->dev->poll(np->dev, &budget);
+ 
+ 		atomic_dec(&trapped);
+-		np->dev->netpoll_rx &= ~NETPOLL_RX_DROP;
++		np->rx_flags &= ~NETPOLL_RX_DROP;
+ 	}
+ 	spin_unlock_irqrestore(&netpoll_poll_lock, flags);
+ }
+@@ -280,17 +277,7 @@
+ 	u32 sip, tip;
+ 	struct sk_buff *send_skb;
+ 	unsigned long flags;
+-	struct list_head *p;
+-	struct netpoll *np = NULL;
+-
+-	spin_lock_irqsave(&rx_list_lock, flags);
+-	list_for_each(p, &rx_list) {
+-		np = list_entry(p, struct netpoll, rx_list);
+-		if ( np->dev == skb->dev )
+-			break;
+-		np = NULL;
+-	}
+-	spin_unlock_irqrestore(&rx_list_lock, flags);
++	struct netpoll *np = skb->dev->np;
+ 
+ 	if (!np) return;
+ 
+@@ -374,9 +361,9 @@
+ 	struct iphdr *iph;
+ 	struct udphdr *uh;
+ 	struct netpoll *np;
+-	struct list_head *p;
+-	unsigned long flags;
+ 
++	if (!np->rx_hook)
++		goto out;
+ 	if (skb->dev->type != ARPHRD_ETHER)
+ 		goto out;
+ 
+@@ -420,30 +407,19 @@
+ 		goto out;
+ 	if (checksum_udp(skb, uh, ulen, iph->saddr, iph->daddr) < 0)
+ 		goto out;
++	if (np->local_ip && np->local_ip != ntohl(iph->daddr))
++		goto out;
++	if (np->remote_ip && np->remote_ip != ntohl(iph->saddr))
++		goto out;
++	if (np->local_port && np->local_port != ntohs(uh->dest))
++		goto out;
+ 
+-	spin_lock_irqsave(&rx_list_lock, flags);
+-	list_for_each(p, &rx_list) {
+-		np = list_entry(p, struct netpoll, rx_list);
+-		if (np->dev && np->dev != skb->dev)
+-			continue;
+-		if (np->local_ip && np->local_ip != ntohl(iph->daddr))
+-			continue;
+-		if (np->remote_ip && np->remote_ip != ntohl(iph->saddr))
+-			continue;
+-		if (np->local_port && np->local_port != ntohs(uh->dest))
+-			continue;
+-
+-		spin_unlock_irqrestore(&rx_list_lock, flags);
+-
+-		if (np->rx_hook)
+-			np->rx_hook(np, ntohs(uh->source),
+-				    (char *)(uh+1),
+-				    ulen - sizeof(struct udphdr));
++	np->rx_hook(np, ntohs(uh->source),
++		    (char *)(uh+1),
++		    ulen - sizeof(struct udphdr));
+ 
+-		kfree_skb(skb);
+-		return 1;
+-	}
+-	spin_unlock_irqrestore(&rx_list_lock, flags);
++	kfree_skb(skb);
++	return 1;
+ 
+ out:
+ 	if (atomic_read(&trapped)) {
+@@ -639,17 +615,11 @@
+ 		       np->name, HIPQUAD(np->local_ip));
+ 	}
+ 
+-	np->dev = ndev;
+-
+-	if(np->rx_hook) {
+-		unsigned long flags;
+-
+-		np->dev->netpoll_rx = NETPOLL_RX_ENABLED;
+ 
+-		spin_lock_irqsave(&rx_list_lock, flags);
+-		list_add(&np->rx_list, &rx_list);
+-		spin_unlock_irqrestore(&rx_list_lock, flags);
+-	}
++	if(np->rx_hook)
++		np->rx_flags = NETPOLL_RX_ENABLED;
++	np->dev = ndev;
++	ndev->np = np;
+ 
+ 	return 0;
+  release:
+@@ -659,16 +629,8 @@
+ 
+ void netpoll_cleanup(struct netpoll *np)
+ {
+-	if (np->rx_hook) {
+-		unsigned long flags;
+-
+-		spin_lock_irqsave(&rx_list_lock, flags);
+-		list_del(&np->rx_list);
+-		spin_unlock_irqrestore(&rx_list_lock, flags);
+-	}
+-
+ 	if (np->dev)
+-		np->dev->netpoll_rx = 0;
++		np->dev->np = NULL;
+ 	dev_put(np->dev);
+ 	np->dev = NULL;
+ }
+Index: mm1/include/linux/netpoll.h
+===================================================================
+--- mm1.orig/include/linux/netpoll.h	2005-02-09 11:36:15.000000000 -0800
++++ mm1/include/linux/netpoll.h	2005-02-09 11:36:39.000000000 -0800
+@@ -16,11 +16,11 @@
+ struct netpoll {
+ 	struct net_device *dev;
+ 	char dev_name[16], *name;
++	int rx_flags;
+ 	void (*rx_hook)(struct netpoll *, int, char *, int);
+ 	u32 local_ip, remote_ip;
+ 	u16 local_port, remote_port;
+ 	unsigned char local_mac[6], remote_mac[6];
+-	struct list_head rx_list;
+ };
+ 
+ void netpoll_poll(struct netpoll *np);
+@@ -35,7 +35,7 @@
+ #ifdef CONFIG_NETPOLL
+ static inline int netpoll_rx(struct sk_buff *skb)
+ {
+-	return skb->dev->netpoll_rx && __netpoll_rx(skb);
++	return skb->dev->np && skb->dev->np->rx_flags && __netpoll_rx(skb);
+ }
+ #else
+ #define netpoll_rx(a) 0
+
+--opJtzjQTFsWo+cga--
