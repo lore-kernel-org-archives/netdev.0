@@ -1,55 +1,90 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [8390] Do not use dev->name before register_netdev
-Date: Sun, 14 Mar 2004 17:53:12 +1100
+From: Arjen Verweij <A.Verweij2@ewi.tudelft.nl>
+Subject: Re: [Forcedeth] Wake-on-LAN support?
+Date: Sun, 14 Mar 2004 13:01:09 +0100 (MET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040314065312.GA22999@gondor.apana.org.au>
-References: <20040313025859.GA8186@gondor.apana.org.au>
+Message-ID: <Pine.GHP.4.44.0403141258440.29651-100000@elektron.its.tudelft.nl>
+References: <Pine.GHP.4.44.0402280130470.13221-100000@elektron.its.tudelft.nl>
+Reply-To: a.verweij@student.tudelft.nl
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="FL5UXtIhxfXey3p5"
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com
-Content-Disposition: inline
-In-Reply-To: <20040313025859.GA8186@gondor.apana.org.au>
+To: Carl-Daniel Hailfinger <c-d.hailfinger.kernel.2003@gmx.net>
+In-Reply-To: <Pine.GHP.4.44.0402280130470.13221-100000@elektron.its.tudelft.nl>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hello again,
 
---FL5UXtIhxfXey3p5
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+I added a section on my nforce2 woes website that describes how to play
+with Wake-on-LAN.
 
-On Sat, Mar 13, 2004 at 01:58:59PM +1100, herbert wrote:
-> 
-> This patch replaces/removes all uses of dev->name in 8390 drivers.
-> As it is, these drivers will do printks or allocate resources with
-> the name eth%d.
+http://atlas.et.tudelft.nl/verwei90/nforce2/wol.html
 
-I forgot to export register_ei_netdev for the modules.  Here is a
-patch on top of the last one which does this.
--- 
-Debian GNU/Linux 3.0 is out! ( http://www.debian.org/ )
-Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Regards,
 
---FL5UXtIhxfXey3p5
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
+Arjen
 
-Index: kernel-2.5/drivers/net/8390.c
-===================================================================
-RCS file: /home/gondolin/herbert/src/CVS/debian/kernel-source-2.5/drivers/net/8390.c,v
-retrieving revision 1.2
-diff -u -r1.2 8390.c
---- kernel-2.5/drivers/net/8390.c	13 Mar 2004 02:27:30 -0000	1.2
-+++ kernel-2.5/drivers/net/8390.c	14 Mar 2004 06:51:59 -0000
-@@ -1148,6 +1148,7 @@
- EXPORT_SYMBOL(ei_tx_timeout);
- EXPORT_SYMBOL(NS8390_init);
- EXPORT_SYMBOL(__alloc_ei_netdev);
-+EXPORT_SYMBOL(register_ei_netdev);
- 
- #if defined(MODULE)
- 
+On Sat, 28 Feb 2004, Arjen Verweij wrote:
 
---FL5UXtIhxfXey3p5--
+> Version 0.23 of forcedeth probably adds nice irq quirk checking for when
+> the kernel is running, but when I do evil stuff, like putting the NIC to
+> sleep (hard setting it to D3 with pci-config), the kernel keeps printing
+> one or more of the debug messages (when halting) about irqs that were
+> added and will no longer shut down.
+>
+> My current fix is replacing the v0.23 from 2.6.3 with the v0.18. v0.18
+> also complains about the receiver remaining busy, but at least the
+> shutdown process is continued.
+>
+> What I still don't understand is why I need a device driver at all to set
+> the power state of the NIC. If I unload forcedeth before shutting down, I
+> can set D3 all I want, but the machine will not listen to magic packets.
+>
+> I'll add a section to my page about nforce2-c1-disconnect related lockups
+> about how to get functional WOL, and post the link here when it's ready. I
+> feel that this is useful information, because I cannot get a cheap card
+> with a WOL cable for my mobo, since there is no WOL connector *sigh*
+>
+> Regards,
+>
+> Arjen
+>
+>
+> On Tue, 20 Jan 2004, Carl-Daniel Hailfinger wrote:
+>
+> > Arjen Verweij wrote:
+> > > L.S.,
+> > >
+> > > First, many thanks for your efforts. The driver works beautifully here,
+> > > with 2.4.23 and 2.6.0-test11 alike.
+> > >
+> > > I was wondering if it is possible to add Wake-on-LAN support to the
+> > > driver. NVidia claims their binary driver supports WOL, but it doesn't
+> > > work one bit. It is possible to look into this?
+> > >
+> > > I have filed a bugtracker with the ACPI people, but they are somewhat
+> > > understandably preoccupied with fixing laptop woes.
+> > >
+> > > URL:
+> > > http://bugzilla.kernel.org/show_bug.cgi?id=1636
+> > >
+> > > I am able to enable WOL at shutdown with pci-config from scyld.com, but
+> > > this is obviously an ugly fix.
+> >
+> > Hmmm... normally I would say enabling WOL is the job of the BIOS.
+> >
+> > Comments anyone?
+> >
+> > Setting Wake-on-LAN patterns will be supported in a future version of
+> > forcedeth but right now I'm swamped with university work.
+> >
+> >
+> > Carl-Daniel
+> > --
+> > http://www.hailfinger.org/
+> >
+> >
+> >
+>
+>
