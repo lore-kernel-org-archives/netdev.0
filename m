@@ -1,19 +1,28 @@
-From: Mike_Phillips@URSCorp.com
-Subject: Re: [PATCH] ibmtr -- convert to new probeing
-Date: Fri, 14 Nov 2003 20:50:04 -0800
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: af_packet & CHECKSUM_HW
+Date: Sat, 15 Nov 2003 13:44:34 +1100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OFC01F9F8F.2EDB286F-ON88256DDF.001A8469-88256DDF.001A8E8D@urscorp.com>
+Message-ID: <20031115024434.GA12276@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, Stephen Hemminger <shemminger@osdl.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi:
 
-Jeff,
+Should the packet socket compute the checksums of CHECKSUM_HW packets
+before sending them to userspace?
 
-Thanks. I'll try this out over the weekend and provide the feedback.
+In other words, what do I tell confused users who see bad checksums
+in the tcpdump output over loopback and interfaces capable of
+hardware checksums?
 
-Mike
+Cheers,
+-- 
+Debian GNU/Linux 3.0 is out! ( http://www.debian.org/ )
+Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
