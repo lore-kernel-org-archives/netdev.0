@@ -1,51 +1,32 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: udp weirdness
-Date: Mon, 30 Sep 2002 08:23:51 -0400 (EDT)
+From: ur_business@hotmail.com
+Subject: Quixtar help, from me!
+Date: Mon, 30 Sep 2002 09:17:21 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.30.0209300822150.11444-100000@shell.cyberus.ca>
-References: <Pine.GSO.4.30.0209300753550.11444-100000@shell.cyberus.ca>
+Message-ID: <412-220029130131721330@oemcomputer>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Eric Lemoine <Eric.Lemoine@ens-lyon.fr>, <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Eric Lemoine <Eric.Lemoine@sun.com>
-In-Reply-To: <Pine.GSO.4.30.0209300753550.11444-100000@shell.cyberus.ca>
+To: "netdev@oss.sgi.com" <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi, my name is Mike Betancur.
+I will introduce you to  very successful ways !!!
 
+~~QUIXTAR MEMBERSHIP OR BUSINESS~~
 
-On Mon, 30 Sep 2002, jamal wrote:
+What is QUIXSTAR, you ask??
 
-> was to use sk->protinfo.af_inet.recverr only in the case of all is
-> clean from the device layer.
+It follows a system that  we Leading Independent Business Owners (IBO) from the Britt World wide *TM* Team call,  " THE BRITT WORLD WIDE  *TM*  Business System (BWW *TM*) "
 
-Of course if you want to say sk->protinfo.af_inet.recverr is higher
-priority then the patch becomes;->
+Technology is changing everything-from shopping to communications to the world of commerce.  Now tap into the technology with a dynamic new way to build an independent business or if you would not like to be independent then you would enjoy the luxury of having all your life essentials and everything you would already be buying at the store, delivered directly to you're home at no cost.  
 
---- ip_output.c	2002/09/29 08:50:36	1.1
-+++ ip_output.c	2002/09/30 06:38:32
-@@ -603,8 +603,9 @@
- 		err = NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL,
- 			      skb->dst->dev, output_maybe_reroute);
- 		if (err) {
--			if (err > 0)
--				err = sk->protinfo.af_inet.recverr ? net_xmit_errno(err) : 0;
-+			if (err > 0) {
-+				 err = sk->protinfo.af_inet.recverr ? sk->protinfo.af_inet.recverr:net_xmit_errno(err);
-+			}
- 			if (err)
- 				goto error;
- 		}
-@@ -713,8 +714,9 @@
+Seriously,  I will not waist any more of our time if your not interested.  After you listen to a full in-depth explanation, you're self will see how close to COMMON sense this is.
 
- 	err = NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL, rt->u.dst.dev,
- 		      output_maybe_reroute);
--	if (err > 0)
--		err = sk->protinfo.af_inet.recverr ? net_xmit_errno(err) : 0;
-+	if (err > 0) {
-+			err = sk->protinfo.af_inet.recverr ? sk->protinfo.af_inet.recverr:net_xmit_errno(err);
-+	}
- 	if (err)
- 		goto error;
- out:
+LIKE I SAID BEFORE, **COMMON SENSE**...  YOU'LL BE THE JUDGE.
+
+Reply with your full name so I can respond to you with all the information you need to make up your mind.
+or if not interested in this matter, simply reply with "off" on the subject line.
+
+May you have a very successful day, and a happy one at that. 
