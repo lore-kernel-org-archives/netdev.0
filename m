@@ -1,41 +1,68 @@
-From: jamal <hadi@cyberus.ca>
+From: Mark Mielke <mark@mark.mielke.cc>
 Subject: Re: RFC: per-socket statistics on received/dropped packets
-Date: Mon, 10 Jun 2002 08:24:44 -0400 (EDT)
+Date: Mon, 10 Jun 2002 09:57:02 -0400
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <Pine.GSO.4.30.0206100821310.20296-100000@shell.cyberus.ca>
-References: <20020610.051857.97850707.davem@redhat.com>
+Message-ID: <20020610095702.A27037@mark.mielke.cc>
+References: <20020610.051857.97850707.davem@redhat.com> <Pine.GSO.4.30.0206100821310.20296-100000@shell.cyberus.ca>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: <ltd@cisco.com>, <greearb@candelatech.com>, <mark@mark.mielke.cc>,
-   <cfriesen@nortelnetworks.com>, <linux-kernel@vger.kernel.org>,
-   <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@redhat.com>, ltd@cisco.com,
+   greearb@candelatech.com, cfriesen@nortelnetworks.com,
+   linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20020610.051857.97850707.davem@redhat.com>
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <Pine.GSO.4.30.0206100821310.20296-100000@shell.cyberus.ca>; from hadi@cyberus.ca on Mon, Jun 10, 2002 at 08:24:44AM -0400
 List-Id: netdev.vger.kernel.org
 
+On Mon, Jun 10, 2002 at 08:24:44AM -0400, jamal wrote:
+> On Mon, 10 Jun 2002, David S. Miller wrote:
+> >    From: Lincoln Dale <ltd@cisco.com>
+> >    Date: Mon, 10 Jun 2002 22:03:25 +1000
+> >    would you be willing to accept a patch that enables per-socket
+> >    accounting with a CONFIG_ option?
+> > What is the point?
+> > If all the dists will enable it then everybody eats the overhead.
+> > If the dists don't enable it, how useful is it and what's so wrong
+> > with it being an external patch people just apply when they need to
+> > diagnose something like this?
+> I think i would agree with Dave for it to be an external patch. You
+> really only need this during debugging. I had a similar patch when
+> debugging NAPI about a year ago. I didnt find it that useful after
+> a while because i could deduce the losses from SNMP/netstat output.
 
+In your case you found that you could solve it once by debugging the
+application.
 
-On Mon, 10 Jun 2002, David S. Miller wrote:
+This doesn't mean that other applications would not be better at
+determining the code path to use at execution time.
 
->    From: Lincoln Dale <ltd@cisco.com>
->    Date: Mon, 10 Jun 2002 22:03:25 +1000
->
->    would you be willing to accept a patch that enables per-socket
->    accounting with a CONFIG_ option?
->
-> What is the point?
->
-> If all the dists will enable it then everybody eats the overhead.
-> If the dists don't enable it, how useful is it and what's so wrong
-> with it being an external patch people just apply when they need to
-> diagnose something like this?
->
+Just because eth1 is behaving perfectly (i.e. low overall dropped UDP
+packets, or low TCP/IP retransmission) does not mean that a specific
+socket currently on eth1 heading to China should assume that it can
+take the 'average' observation as adequate for observing the specific
+socket.
 
-I think i would agree with Dave for it to be an external patch. You
-really only need this during debugging. I had a similar patch when
-debugging NAPI about a year ago. I didnt find it that useful after
-a while because i could deduce the losses from SNMP/netstat output.
+There *are* applications that would benefit from making this decision
+at run time on a socket-by-socket basis. It is not a common requirement
+for most desktop users, but it remains a valid requirement.
 
-cheers,
-jamal
+Providing it as a patch, can have the effect that it becomes more trouble
+than it is worth to grant other people access to the feature, especially
+from a corporate environment that has signed off on being able to release
+patches made to Linux back to the Linux source tree.
+
+Seems somewhat of a loss...
+
+mark
+
+-- 
+mark@mielke.cc/markm@ncf.ca/markm@nortelnetworks.com __________________________
+.  .  _  ._  . .   .__    .  . ._. .__ .   . . .__  | Neighbourhood Coder
+|\/| |_| |_| |/    |_     |\/|  |  |_  |   |/  |_   | 
+|  | | | | \ | \   |__ .  |  | .|. |__ |__ | \ |__  | Ottawa, Ontario, Canada
+
+  One ring to rule them all, one ring to find them, one ring to bring them all
+                       and in the darkness bind them...
+
+                           http://mark.mielke.cc/
