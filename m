@@ -1,46 +1,32 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: Fw: [BUG/PATCH] CONFIG_NET_HW_FLOWCONTROL and SMP
-Date: Thu, 02 Oct 2003 13:47:40 -0400
+From: Mitchell Blank Jr <mitch@sfgoth.com>
+Subject: Re: [PATCH] skbuff more likely/unlikely
+Date: Thu, 2 Oct 2003 19:34:31 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F7C64BC.7030701@pobox.com>
-References: <20030929123734.5bd97a47.akpm@osdl.org>	<16248.41796.797321.700866@robur.slu.se>	<3F78A691.1040406@pobox.com> <16252.17618.866515.952549@robur.slu.se>
+Message-ID: <20031003023431.GC42593@gaz.sfgoth.com>
+References: <20031002102420.6e1cece9.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, dfages@arkoon.net
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Robert Olsson <Robert.Olsson@data.slu.se>, Andrew Morton <akpm@osdl.org>
-In-Reply-To: <16252.17618.866515.952549@robur.slu.se>
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20031002102420.6e1cece9.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Robert Olsson wrote:
+Stephen Hemminger wrote:
+> A couple more places where we can help by hinting the compiler
+> for 2.6.0-test6.  If we are pulling off header, is is likely there;
+> and skb alloc's succeed in the normal case.
 > 
-> Jeff Garzik writes:
->  > 
->  > If someone had a NAPI patch for tulip, we could remove HW_FLOWCONTROL 
->  > option altogether :)
-> 
-> Hello!
-> Here is something for 2.6.0-test6:
-> 
-> * ifdef's to keep current non-NAPI tulip intact
-> 
-> * Port based on Alexey's orig NAPI tulip design
->   (Only RX handled by dev->poll)
-> 
-> * tulip HW_FLOW removed
-> 
-> * NAPI and HW-mitigation options in Kconfig
+> Thought I saw an earlier similar patch, but here is my take on it.
 
+Yes, my patch from a couple weeks ago does the same thing (but also
+did a lot in skbuff.c)  I haven't had a chance to rediff and test
+after the const parts went in.  Do you want to adopt the rest of the
+changes?
 
-Looks great to me.  I'll give it some testing here, and 99% likely will 
-apply it.
+Original patch:
+  http://oss.sgi.com/projects/netdev/archive/2003-09/msg00036.html
 
-Andrew, would you be willing to merge this into -mm for some 
-simultaneous netwide testing?
-
-FWIW, I seem to recall that the older NAPI patch you sent didn't apply 
-for some reason.  But forget about that, this one looks good.
-
-	Jeff
+-Mitch
