@@ -1,35 +1,48 @@
-From: David Dillow <dave@thedillows.org>
-Subject: [BK netdev-2.6] Update Typhoon firmware
-Date: Fri, 17 Dec 2004 15:07:05 -0500
-Message-ID: <1103314025.4217.1.camel@ori.thedillows.org>
+From: Hasso Tepper <hasso@estpak.ee>
+Subject: Re: primary and secondary ip addresses
+Date: Fri, 17 Dec 2004 22:55:21 +0200
+Message-ID: <200412172255.21316.hasso@estpak.ee>
+References: <41912F7A.6000408@redhat.com> <200412172053.28016.hasso@estpak.ee> <Pine.LNX.4.61.0412172021190.18385@filer.marasystems.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: "Martin A. Brown" <mabrown@securepipe.com>,
+	linux-net@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Henrik Nordstrom <hno@marasystems.com>
+In-Reply-To: <Pine.LNX.4.61.0412172021190.18385@filer.marasystems.com>
+Content-Disposition: inline
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff, please do a
+Henrik Nordstrom wrote:
+> On Fri, 17 Dec 2004, Hasso Tepper wrote:
+> > All these tricks don't help if you are using dynamic routing.
+>
+> Are you seriously saying you are doing dynamic routing for your locally
+> attached lans?
+>
+> source address assignment for routed traffic via gateways is
+> automatically derived by the source address assignment for traffic
+> addressed to the gateway itself.
 
-	bk pull http://typhoon.bkbits.net/typhoon-2.6-firmware
+So? Router learns via rip that default route should go via 10.0.0.1 and it 
+has 10.0.0.2/24 and 10.0.0.3/24 addresses on eth0.
 
-This will update the following files:
+> So even with routing protocols etc you 
+> can control the source address assignment simply by setting up routing to
+> use the correct source address to speak to your gateways, the added
+> routes will then inherit the intended source address.
 
- drivers/net/typhoon-firmware.h | 5568 ++++++++++++++++++-----------------------
- drivers/net/typhoon.c          |   13 
- 2 files changed, 2533 insertions(+), 3048 deletions(-)
-
-through these ChangeSets:
-
-<dave@thedillows.org> (04/12/17 1.2099)
-   Update the Typhoon firmware to the latest version from 3Com.
-
-
-Due to the size of the patch (~400K), I've put it up at
-http://www.thedillows.org/typhoon-firmware-03.001.008.patch.bz2
+No. It would be true in very trivial case only - ie. "use address I'm using 
+for announcing these routes as gateway for these routes". All routing 
+protocols can carry nexthop information. Moreover, addresses routing 
+protocols use for transport don't have to have anything common with 
+addresses used for routing. You can even carry IPv4 routing info with 
+routing protocol using IPv6 for transport (ospfv3) or iso (is-is).
 
 -- 
-David Dillow <dave@thedillows.org>
+Hasso Tepper
+Elion Enterprises Ltd.
+WAN administrator
