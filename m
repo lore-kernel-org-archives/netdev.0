@@ -1,32 +1,56 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Change MAC without bringing interface down
-Date: Mon, 18 Aug 2003 09:06:54 -0700
+From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
+Subject: Re: [PATCH] (1/5) get rid of useless hashbin in irtty
+Date: Mon, 18 Aug 2003 09:50:24 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030818090654.7f44a16e.davem@redhat.com>
-References: <20030818091312.GA4889@lapdog>
-	<20030818041911.358c3437.davem@redhat.com>
-	<1061208824.16010.2119.camel@jzny.localdomain>
-	<20030818051227.4f35f2f3.davem@redhat.com>
-	<20030818160422.GB1793@lapdog>
+Message-ID: <20030818165024.GB5992@bougret.hpl.hp.com>
+References: <20030815154608.56cf0551.shemminger@osdl.org> <20030815230546.GA31831@bougret.hpl.hp.com> <20030816052048.5858d68a.davem@redhat.com> <20030817001405.GA1916@bougret.hpl.hp.com> <20030816175851.58a2c179.davem@redhat.com> <20030817011131.GA2120@bougret.hpl.hp.com> <20030818090313.7f153d7a.shemminger@osdl.org>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@redhat.com>, irda-users@lists.sourceforge.net,
+   netdev@oss.sgi.com, lists@mdiehl.de
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Tommi Virtanen <tv@debian.org>
-In-Reply-To: <20030818160422.GB1793@lapdog>
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20030818090313.7f153d7a.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 18 Aug 2003 19:04:22 +0300
-Tommi Virtanen <tv@debian.org> wrote:
+On Mon, Aug 18, 2003 at 09:03:13AM -0700, Stephen Hemminger wrote:
+> On Sat, 16 Aug 2003 18:11:31 -0700
+> Jean Tourrilhes <jt@bougret.hpl.hp.com> wrote:
+> 
+> > On Sat, Aug 16, 2003 at 05:58:51PM -0700, David S. Miller wrote:
+> > > On Sat, 16 Aug 2003 17:14:05 -0700
+> > > Jean Tourrilhes <jt@bougret.hpl.hp.com> wrote:
+> > > 
+> > > > 	Curently driver do work properly (including SMP).
+> > > 
+> > > Users can hold onto procfs files after the driver
+> > > modules are unloaded.  For example:
+> > > 
+> > > rmmod eth0 </proc/sys/net/ipv4/eth0/whatever
+> > > 
+> > > If IRDA creates any procfs files for devices that are
+> > > registered, you have this problem too.
+> > > 
+> > > This is not fixable without first making sure every net driver in the
+> > > entire tree abides by a few rules, and that is what Stephen is doing.
+> > 
+> > 	No problem, it's just that with the total lack of testing of
+> > IrDA in 2.6.0, I'm a bit nervous, as always. Would it be possible for
+> > Stephen to use some real IrDA hardware so that he can double check
+> > what he is doing ?
+> > 	Have fun...
+> 
+> I have some, but haven't used it so far.
+> For the load/unload testing, it is possible to setup irtty (and irlan)
+> without real hardware.  So far, haven't had to change the hardware drivers.
 
-> ===== net/ipv6/ndisc.c 1.22 vs edited =====
-> --- 1.22/net/ipv6/ndisc.c	Tue Jun 24 02:21:28 2003
-> +++ edited/net/ipv6/ndisc.c	Mon Aug 18 18:51:40 2003
- ...
-> +	case NETDEV_CHANGEADDR:
-> +		neigh_changeaddr(&nd_tbl, dev);
-> +		rt_cache_flush(0);
+	You can use irtty-sir with a cross-over serial cable between
+two PCs. IrLAN is a bit flaky and no longer maintained, I would
+recommend to try IrNET or RfCOMM.
 
-Don't flush the ipv4 routing cache from ipv6 please :-)
+	Thanks !
+
+	Jean
