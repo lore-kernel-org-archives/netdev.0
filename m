@@ -1,60 +1,79 @@
-From: Emilio Calicchio <ecalicchio@yahoo.it>
-Subject: questions about ipsec-tools-0.4 and linux kernel 2.6
-Date: Mon, 28 Feb 2005 08:55:43 +0100 (CET)
-Message-ID: <20050228075543.18185.qmail@web26804.mail.ukl.yahoo.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [Lse-tech] Re: A common layer for Accounting packages
+Date: Mon, 28 Feb 2005 11:04:36 +0300
+Message-ID: <1109577876.28266.9.camel@uganda>
+References: <42168D9E.1010900@sgi.com>
+	 <20050218171610.757ba9c9.akpm@osdl.org> <421993A2.4020308@ak.jp.nec.com>
+	 <421B955A.9060000@sgi.com> <421C2B99.2040600@ak.jp.nec.com>
+	 <421CEC38.7010008@sgi.com> <421EB299.4010906@ak.jp.nec.com>
+	 <20050224212839.7953167c.akpm@osdl.org> <20050227094949.GA22439@logos.cnet>
+	 <4221E548.4000008@ak.jp.nec.com> <20050227140355.GA23055@logos.cnet>
+	 <42227AEA.6050002@ak.jp.nec.com>
+	 <1109575236.8549.14.camel@frecb000711.frec.bull.fr>
+	 <20050227233943.6cb89226.akpm@osdl.org>
+Reply-To: johnpol@2ka.mipt.ru
 Mime-Version: 1.0
-Content-Type: multipart/alternative; boundary="0-429138855-1109577343=:17771"
-To: netdev@oss.sgi.com
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-FTo98wD54o5/gw974zAM"
+Cc: Guillaume Thouvenin <guillaume.thouvenin@bull.net>, kaigai@ak.jp.nec.com,
+        marcelo.tosatti@cyclades.com, davem@redhat.com, jlan@sgi.com,
+        lse-tech@lists.sourceforge.net, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com, elsa-devel@lists.sourceforge.net
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20050227233943.6cb89226.akpm@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---0-429138855-1109577343=:17771
-Content-Type: text/plain; charset=iso-8859-1
+
+--=-FTo98wD54o5/gw974zAM
+Content-Type: text/plain
 Content-Transfer-Encoding: quoted-printable
-X-MIME-Autoconverted: from 8bit to quoted-printable by oss.sgi.com id j1S7vNSd027522
 
-I am a student of engineering in first university of Rome (=93La Sapienza=
-=94) and I=92m working to my degree thesis whose title is: =93End-to-end =
-real-time applications performance measurements on VPN network (both terr=
-estrial and satellite), blocks encryption algorithms vs stream cipher one=
-s.=94 Since I have to use a Linux based test bed, I must integrate the st=
-ream cipher algorithms (like Scream and Seal cipher algorithm)in the Linu=
-x ipsec implementation; at aim I wonder whether you can help me by provid=
-ing the following information: Architectural description of the ipsec Lin=
-ux implementation (both tools and kernel modules) the files of kernel ver=
-sion 2.6 and ipsec-tools-0.4 that I should modify in order to add chiper =
-stream algorithm if someone else is facing the same topic. Thanks for you=
-r help Best regards CALICCHIO EMILIO rogaway@cs.ucdavis.edu=20
+On Sun, 2005-02-27 at 23:39 -0800, Andrew Morton wrote:
+> Guillaume Thouvenin <guillaume.thouvenin@bull.net> wrote:
+> >
+> >    Ok the protocol is maybe too "basic" but with this mechanism the use=
+r
+> >  space application that uses the fork connector can start and stop the
+> >  send of messages. This implementation needs somme improvements because
+> >  currently, if two application are using the fork connector one can
+> >  enable it and the other don't know if it is enable or not, but the ide=
+a
+> >  is here I think.
+>=20
+> Yes.  But this problem can be solved in userspace, with a little library
+> function and a bit of locking.
+>=20
+> IOW: use the library to enable/disable the fork connector rather than
+> directly doing syscalls.
+>=20
+> It has the problem that if a client of that library crashes, the counter
+> gets out of whack, but really, it's not all _that_ important, and to hand=
+le
+> this properly in-kernel each client would need an open fd against some
+> object so we can do the close-on-exit thing properly.  You'd need to crea=
+te
+> a separate netlink socket for the purpose.
 
-			=09
----------------------------------
-Nuovo Yahoo! Messenger E' molto pi=F9 divertente: Audibles, Avatar, Webca=
-m, Giochi, Rubrica=85 Scaricalo ora!=20
---0-429138855-1109577343=:17771
-Content-Type: text/html; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-X-MIME-Autoconverted: from 8bit to quoted-printable by oss.sgi.com id j1S7vNSd027522
+Why dont just extend protocol a bit?
+Add header after cn_msg, which will have get/set field and that is all.
+Properly using seq/ack fields userspace can avoid locks.
 
-<DIV>I am a student of engineering in first university of Rome (=93La Sap=
-ienza=94) and I=92m working to my degree thesis whose title is: =93End-to=
--end real-time applications performance measurements on VPN network (both=
- terrestrial and satellite), blocks encryption algorithms vs stream ciphe=
-r ones.=94 Since I have to use a Linux based test bed, I must integrate t=
-he stream cipher algorithms (like Scream and Seal cipher algorithm)in the=
- Linux ipsec implementation; at aim I wonder whether you can help me by p=
-roviding the following information: Architectural description of the ipse=
-c Linux implementation (both tools and kernel modules) the files of kerne=
-l version 2.6 and ipsec-tools-0.4 that I should modify in order to add ch=
-iper stream algorithm if someone else is facing the same topic. Thanks fo=
-r your help Best regards CALICCHIO EMILIO rogaway@cs.ucdavis.edu </DIV><p=
->
-=09
+--=20
+        Evgeniy Polyakov
 
-=09
-		<hr size=3D1><font face=3D"Arial" size=3D"2"><a href=3D"http://it.rd.ya=
-hoo.com/mail/taglines/*http://it.messenger.yahoo.com"><b>Nuovo Yahoo! Mes=
-senger</b></a> E' molto pi=F9 divertente: Audibles, Avatar, Webcam, Gioch=
-i, Rubrica=85 Scaricalo ora!=20
-</font>
---0-429138855-1109577343=:17771--
+Crash is better than data corruption -- Arthur Grabowski
+
+--=-FTo98wD54o5/gw974zAM
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.6 (GNU/Linux)
+
+iD8DBQBCItCUIKTPhE+8wY0RAjszAJ9EWkRLT5e/B2IsghRvFg/dWsYbMwCdGmoi
+Gl6xamHltDiX087q/rr05hw=
+=g7P/
+-----END PGP SIGNATURE-----
+
+--=-FTo98wD54o5/gw974zAM--
