@@ -1,29 +1,31 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] (4/4) convert irlan to seq_file interface
-Date: Tue, 19 Aug 2003 21:19:17 -0700
+Subject: Re: [PATCH] convert ircomm to seq_file interface
+Date: Tue, 19 Aug 2003 21:20:09 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030819211917.69f4dde0.davem@redhat.com>
-References: <20030818122702.67e9162d.shemminger@osdl.org>
-	<20030818232554.A7779@electric-eye.fr.zoreil.com>
-	<20030818150514.310f6f5d.shemminger@osdl.org>
-	<20030819002637.B7779@electric-eye.fr.zoreil.com>
-	<20030820003648.A23942@electric-eye.fr.zoreil.com>
+Message-ID: <20030819212009.36a8dc03.davem@redhat.com>
+References: <20030818123142.6369fbff.shemminger@osdl.org>
+	<20030818200923.GC6577@bougret.hpl.hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, jt@bougret.hpl.hp.com,
+Cc: jt@bougret.hpl.hp.com, shemminger@osdl.org,
    irda-users@lists.sourceforge.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20030820003648.A23942@electric-eye.fr.zoreil.com>
+To: jt@hpl.hp.com
+In-Reply-To: <20030818200923.GC6577@bougret.hpl.hp.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 20 Aug 2003 00:36:48 +0200
-Francois Romieu <romieu@fr.zoreil.com> wrote:
+On Mon, 18 Aug 2003 13:09:23 -0700
+Jean Tourrilhes <jt@bougret.hpl.hp.com> wrote:
 
-> Apply on top of Stephen's serie [1-4]. Compile ok.
+> On Mon, Aug 18, 2003 at 12:31:42PM -0700, Stephen Hemminger wrote:
+> > Convert ircomm /proc interface to seq_file.
+> > 
+> > Note: don't need spin_lock_irq because list is not ever locked
+> > from inside interrupt context.
 > 
-> Style: separate data from code.
+> 	I don't agree with this change.
 
-Applied, thanks Francois.
+I'll let you guys work this one out.  Let me know when a
+final version of the patch is ready.
