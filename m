@@ -1,53 +1,53 @@
-From: Antti Tuominen <ajtuomin@tml.hut.fi>
-Subject: ANN: MIPL Mobile IPv6 for Linux 0.9.2 Released
-Date: Sat, 13 Apr 2002 11:43:53 +0300 (EEST)
-Sender: owner-netdev@oss.sgi.com
-Message-ID: <a98rca$j7s$2@main.gmane.org>
+From: Dmitry Kasatkin <dmitry.kasatkin@nokia.com>
+Subject: [new release] Affix-0_99  --- Bluetooth Protocol Stack. OBEX and GUI available now.
+Date: Sun, 14 Apr 2002 17:47:37 +0300
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <3CB99689.7090105@nokia.com>
+References: <3C500D09.4080206@nokia.com> <3C5AB093.5050405@nokia.com> <3C5E4991.6010707@nokia.com> <3C628D6A.2050900@nokia.com> <3C628DCF.40700@nokia.com> <3C6D25F6.4010905@nokia.com> <3C766511.5050808@nokia.com> <3C7F6C0C.6030204@nokia.com> <3C877AC7.8090008@nokia.com> <3C92111C.1070107@nokia.com> <3CA3A149.1080905@nokia.com> <3CAE2484.8090304@nokia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Return-path: <owner-netdev@oss.sgi.com>
-To: netdev@oss.sgi.com (Netdev Mailing List),
-   linux-kernel@vger.kernel.org (Linux-kernel Mailing List),
-   usagi-users@linux-ipv6.org (USAGI Users Mailing List)
+Cc: affix-devel@lists.sourceforge.net,
+	Affix support <affix-support@lists.sourceforge.net>,
+	linux-net <linux-net@vger.kernel.org>,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Dmitry Kasatkin <dmitry.kasatkin@nokia.com>
 List-Id: netdev.vger.kernel.org
 
-Hello all!
+Hi All.
 
-MIPL Mobile IPv6 for Linux is an implementation of the IETF mobile-ip
-working group draft Mobility Support in IPv6.  Project goal is to
-create a high quality implementation of Mobile IPv6 for inclusion in
-the mainline Linux kernel tree.
+Find new Affix release Affix-0_99 on http://affix.sourceforge.net
 
-Version 0.9.2 is the 7th public release.  It complies with the Mobile
-IPv6 draft revision 15.  MIPL implementation includes all three MIPv6
-entities Correspondent Node, Mobile Node and Home Agent.  Release
-includes a kernel patch and a set of user tools and scripts.
+Profiles supported:
+- Service Discovery.
+- Serial Port.
+- LAN Access.
+- Dialup Networking.
+- OBEX Object Push.
+- OBEX File Transfer.
+- PAN.
 
-A group of four persons at Helsinki University of Technology's
-Telecommunications Software and Multimedia Laboratory make up the core
-development team.  MIPL has a solid user base and receives
-contributions from all over the world.
-
-MIPL has been tested in several interoperability and conformance
-testing events with excellent results.
-
- * ETSI IPv6 Bake-off 2000, Sophia Antipolis, France.
- * Connectathon 2001, San Jose, California, US.
- * ETSI IPv6 Plugtest 2001, Cannes, France.
- * Connectathon 2002, San Jose, California, US.
-
-Interoperability has been successfully tested with all major Mobile
-IPv6 vendors.  Conformance test suites used include Ericsson Telebit,
-TAHI, UNH, and ENST/IRISA.  MIPL is widely considered the most
-complete and up-to-date Mobile IPv6 implementation in the world.
-
-To download the source code or to read more about MIPL Mobile IPv6 for
-Linux, see our web site http://www.mipl.mediapoli.com/.  You can also
-just download the latest release at the following URL:
-http://www.mipl.mediapoli.com/download/mipv6-0.9.2-v2.4.18.tar.gz
+GUI environment A.F.E - Affix Frontend Environment available for use.
+http://affix.sourceforge.net/afe
+Link can be found on Affix WEB site in *Links* section.
 
 
-Best regards,
+CHANGES.
 
-Antti
+Version 0.99 [14.04.2002]
+- [fix/changes] some SDP parts re-written.
+- [changes] sockaddr_{hci,l2cap,rfcomm} repleaced by *sockaddr_affix*
+	!NOTE: it requires to recompile and reinstall whole affix
+- [new] *btctl* has now *prompt* (ftp) command - interactive shell &
+	File Transfer Console (OBEX).
+- [new] OBEX client now full featured (in ftp mode).
+	commands: open, close, put, get, push, rm, cd, mkdir
+- [new] Linux kernel 2.5.x supported (not well tested)
+- [new] added new info to README (usage examples, commands explanation).
+
+
+br, Dmitry
+
+
+
