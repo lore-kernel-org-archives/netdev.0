@@ -1,24 +1,33 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] add more tg3 hardware stats to ethtool -S
-Date: Wed, 19 May 2004 21:17:42 -0700
+Subject: Re: [PATCH] fix "ethtool -S" for tg3
+Date: Wed, 19 May 2004 21:26:39 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040519211742.075d9460.davem@redhat.com>
-References: <40A1FE56.37308F98@melbourne.sgi.com>
+Message-ID: <20040519212639.6b164454.davem@redhat.com>
+References: <Pine.SGI.4.56.0405111251080.7038576@neteng.engr.sgi.com>
+	<20040512120810.464aaee6.davem@redhat.com>
+	<Pine.SGI.4.56.0405121256510.7328714@neteng.engr.sgi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Greg Banks <gnb@melbourne.sgi.com>
-In-Reply-To: <40A1FE56.37308F98@melbourne.sgi.com>
+To: Arthur Kepner <akepner@sgi.com>
+In-Reply-To: <Pine.SGI.4.56.0405121256510.7328714@neteng.engr.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 12 May 2004 20:37:10 +1000
-Greg Banks <gnb@melbourne.sgi.com> wrote:
+On Wed, 12 May 2004 13:00:24 -0700
+Arthur Kepner <akepner@sgi.com> wrote:
 
-> This patch adds a bunch of the more obscure tg3 hardware stats to the
-> output of "ethtool -S".  Some of these are useful for diagnosing
-> performance problems, others are just for completeness.
+> On Wed, 12 May 2004, David S. Miller wrote:
+> 
+> > .....
+> > Patch doesn't apply, your mail client turned all the tabs
+> > into spaces.  Use attachments if necessary, thanks.
+> >
+> 
+> OK. Attached is the patch.
 
-Patch applied, thanks.
+Thanks a lot for following up on this Arthur.
+
+Patch applied.
