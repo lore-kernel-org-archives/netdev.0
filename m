@@ -1,54 +1,39 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] tcp_vegas_cong_avoid doc
-Date: Mon, 26 Apr 2004 16:32:21 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040426163221.56a08130.davem@redhat.com>
-References: <20040426101210.461726d2@dell_ss3.pdx.osdl.net>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: HELP ipt_hook: happy cracking message
+Date: Tue, 27 Apr 2004 13:33:17 +1000
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <1083036797.2150.14.camel@bach>
+References: <20040426151220.85059.qmail@web41403.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040426101210.461726d2@dell_ss3.pdx.osdl.net>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: kernerl mail <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com,
+	linux-net@vger.kernel.org,
+	netfilter <netfilter-devel@lists.netfilter.org>
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Parag Nemade <cranium2003@yahoo.com>
+In-Reply-To: <20040426151220.85059.qmail@web41403.mail.yahoo.com>
 List-Id: netdev.vger.kernel.org
 
-On Mon, 26 Apr 2004 10:12:10 -0700
-Stephen Hemminger <shemminger@osdl.org> wrote:
+On Tue, 2004-04-27 at 01:12, Parag Nemade wrote:
+> hi,
+>         i modified kernel so that it will create
+> /proc/net/myproc file entry.
+> the function of this entry is to crate a 16 byte char
+> string from random no.s
+> i used net_srandom and net_random and sys_time for
+> that puspose. the problem is that i write program to
+> generate string after 120 seconds but it is changing
+> contents of myproc file every seconds. what can i do?
+>  Also i am getting ipt_hook: happy cracking. message
+> again and again why?
 
-> Patch to update sysctl documentation to include tcp_vegas.
-> Feel free to rewrite for better explanation.
+You're sending out IP packets which don't even contain the IP header,
+and you're running connection tracking or some filtering.
 
-I applied this, only changing a minor grammatical error at the
-end.  See attached...
+The message is not serious.
 
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2004/04/26 16:31:03-07:00 shemminger@osdl.org 
-#   [TCP]: Add vegas sysctl docs.
-# 
-# Documentation/networking/ip-sysctl.txt
-#   2004/04/26 16:30:36-07:00 shemminger@osdl.org +9 -0
-#   [TCP]: Add vegas sysctl docs.
-# 
-diff -Nru a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
---- a/Documentation/networking/ip-sysctl.txt	Mon Apr 26 16:31:29 2004
-+++ b/Documentation/networking/ip-sysctl.txt	Mon Apr 26 16:31:29 2004
-@@ -307,6 +307,15 @@
- 	wired networks and throughput over wireless links.   
-         Default: 0
- 
-+tcp_vegas_cong_avoid - BOOLEAN
-+	Enable TCP Vegas congestion avoidance algorithm.
-+	TCP Vegas is a sender-side only change to TCP that anticipates
-+	the onset of congestion by estimating the bandwidth. TCP Vegas
-+	adjusts the sending rate by modifying the congestion
-+	window. TCP Vegas should provide less packet loss, but it is
-+	not as aggressive as TCP Reno.
-+	Default:0
-+
- ip_local_port_range - 2 INTEGERS
- 	Defines the local port range that is used by TCP and UDP to
- 	choose the local port. The first number is the first, the 
+Rusty.
+-- 
+Anyone who quotes me in their signature is an idiot -- Rusty Russell
+
