@@ -1,43 +1,54 @@
-From: Andi Kleen <ak@muc.de>
-Subject: Re: [RFC] netif_rx: receive path optimization
-Date: Fri, 01 Apr 2005 18:40:07 +0200
-Message-ID: <m1mzsi1me0.fsf@muc.de>
-References: <20050330132815.605c17d0@dxpl.pdx.osdl.net>
-	<20050331120410.7effa94d@dxpl.pdx.osdl.net>
-	<1112303431.1073.67.camel@jzny.localdomain> <424C6A98.1070509@hp.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: RFC:  Redirect-Device
+Date: Fri, 01 Apr 2005 08:58:52 -0800
+Message-ID: <424D7DCC.5030202@candelatech.com>
+References: <424C6089.1080507@candelatech.com> <1112303627.1073.71.camel@jzny.localdomain> <424C6B10.6030200@candelatech.com> <1112306031.1073.109.camel@jzny.localdomain> <424C7813.4000101@candelatech.com> <20050331143531.30f4eb8f.davem@davemloft.net> <424C7F96.4070002@candelatech.com> <1112311618.1090.20.camel@jzny.localdomain> <424C8E2C.70302@candelatech.com> <20050401090116.GA21361@outpost.ds9a.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: hadi@cyberus.ca, "David S. Miller" <davem@davemloft.net>,
+        netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Rick Jones <rick.jones2@hp.com>
-In-Reply-To: <424C6A98.1070509@hp.com> (Rick Jones's message of "Thu, 31 Mar
- 2005 13:24:40 -0800")
+To: bert hubert <ahu@ds9a.nl>
+In-Reply-To: <20050401090116.GA21361@outpost.ds9a.nl>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Rick Jones <rick.jones2@hp.com> writes:
+bert hubert wrote:
+> On Thu, Mar 31, 2005 at 03:56:28PM -0800, Ben Greear wrote:
+> 
+> 
+>>>I think you are more comfortable with using netdevices and ioctls and
+>>>/proc. 
+>>
+>>Definately.  Ever tried to sniff a socket with ethereal? :)
+> 
+> 
+> On loopback, all the time. I'm probably dense but I don't understand what
+> problem you've solved with this interface. Could you elaborate a bit?
 
-> At the risk of again chewing on my toes (yum), if multiple CPUs are
-> pulling packets from the per-device queue there will be packet
-> reordering.  HP-UX 10.0 did just that and it was quite nasty even at
-> low CPU counts (<=4).  It was changed by HP-UX 10.20 (ca 1995) to
-> per-CPU queues with queue selection computed from packet headers (hash
-> the IP and TCP/UDP header to pick a CPU) It was called IPS for Inbound
-> Packet Scheduling.  11.0 (ca 1998) later changed that to "find where
-> the connection last ran and queue to that CPU" That was called TOPS -
-> Thread Optimized Packet Scheduling.
+It allows me to place a software bridge that can intercept all packets
+from user-space via raw packet sockets, and kernel space via registering
+an 'all' protocol on the device.  Please note that to bridge in this manner
+I have to remove the IP protocol (set IP to 0.0.0.0), otherwise the IP stack
+can interfere with the bridging behaviour.
 
-We went over this a lot several years ago when Linux got multi threaded RX
-with softnet in 2.1.  You might want to go over the archives.
+By using a virtual pair of interfaces that are looped back, I can add an
+IP to the second virtual network interface that does not interfere with
+the two bridged interfaces (one physical, one redirect, both with 0.0.0.0 IP
+addresses).
 
-Some things that came out of it was a sender side TCP optimization
-to tolerate reordering without slowing down (works great with other
-Linux peers) and NAPI style polling mode (which was mostly designed for routing
-and still seems to have regressions for the client/server case :/)
+If there were an API to register handlers dynamically that act like the
+netpoll hook (ie, with ability to consume frames), then I would not have to
+remove the IP from the physical interface and I probably would not have had
+to create these redirect devices.  But, when I was suggesting such a hook
+in the past, it was shot down because it could allow someone to write their
+own TCP stack, and the network guys did not want to allow this possibility.
 
-Something like TOPS was discussed, but afaik nobody ever implemented
-it. Of course benchmark guys do it manually by setting interrupt
-and scheduler affinity.
+Thanks,
+Ben
 
--Andi
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
