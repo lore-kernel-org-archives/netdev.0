@@ -1,84 +1,51 @@
-From: mcgrof@ruslug.rutgers.edu (Luis R. Rodriguez)
-Subject: Re: Re: [patch 2/3]
-	drivers/net/wireless/prism54/islpci_hotplug: Use the DMA_{64,
-	32}BIT_MASK constants
-Date: Tue, 8 Mar 2005 10:22:44 -0500
-Message-ID: <20050308152244.GF3936@ruslug.rutgers.edu>
-References: <20050306222355.6686C1ED3D@trashy.coderock.org>
-	<20050307171418.GT3936@ruslug.rutgers.edu>
-	<422C8E48.9000006@pobox.com>
-	<20050307172957.GW3936@ruslug.rutgers.edu>
+From: =?iso-8859-1?Q?J=F6rn?= Engel <joern@wohnheim.fh-wedel.de>
+Subject: [PATCH] reduce stack usage for arlan
+Date: Tue, 8 Mar 2005 16:34:57 +0100
+Message-ID: <20050308153457.GB8703@wohnheim.fh-wedel.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1054932060=="
-To: Jeff Garzik <jgarzik@pobox.com>, domen@coderock.org,
-	prism54-private@prism54.org, netdev@oss.sgi.com,
-	tklauser@nuerscht.ch, prism54-devel@prism54.org
-In-Reply-To: <20050307172957.GW3936@ruslug.rutgers.edu>
-List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
-List-Archive: <http://prism54.org/pipermail/prism54-devel>
-List-Post: <mailto:prism54-devel@prism54.org>
-List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
-List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
-Mime-version: 1.0
-Sender: prism54-devel-bounces@prism54.org
-Errors-To: prism54-devel-bounces@prism54.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@oss.sgi.com
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Jean Tourrilhes indicated that this driver is currently unmaintained.
+Jeff, do you want this patch?
 
---===============1054932060==
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="Xivtt9Q8Gazzyu1i"
-Content-Disposition: inline
-
-
---Xivtt9Q8Gazzyu1i
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Mon, Mar 07, 2005 at 12:29:57PM -0500, Luis R. Rodriguez wrote:
->=20
-> Alright, I'll add DMA_32BIT_MASK through compat and leave
-> pci_module_init as is.  That said:
->=20
-> Patch 1 applied
-> Patch 2 will be applied after compat work
-> Patch 3 rejected per Jeff's recomendation due to 2.4 compat
->=20
-> 	Luis
-
-This has been committed on to prism54 tree.
-
-	Luis
+J=F6rn
 
 --=20
-GnuPG Key fingerprint =3D 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
+Fancy algorithms are slow when n is small, and n is usually small.
+Fancy algorithms have big constants. Until you know that n is
+frequently going to be big, don't get fancy.
+-- Rob Pike
 
---Xivtt9Q8Gazzyu1i
-Content-Type: application/pgp-signature
-Content-Disposition: inline
+SARLSTR is never called with nn bigger than 48.  This patch should be
+safe and severly reduces stack consumption.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
+Signed-off-by: J=F6rn Engel <joern@wohnheim.fh-wedel.de>
+---
 
-iD8DBQFCLcNEat1JN+IKUl4RAscUAKCD5c1x7GVgeM87CaWQw/D7YMx3BwCeIekZ
-CcImIvbt4ARf4QcDCSrhV34=
-=WGO/
------END PGP SIGNATURE-----
+ drivers/net/wireless/arlan-proc.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
---Xivtt9Q8Gazzyu1i--
-
---===============1054932060==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Prism54-devel mailing list
-Prism54-devel@prism54.org
-http://prism54.org/mailman/listinfo/prism54-devel
-
---===============1054932060==--
+--- linux-2.6.10cow/drivers/net/wireless/arlan-proc.c~arlan_stack	2004-09=
+-04 22:59:04.000000000 +0200
++++ linux-2.6.10cow/drivers/net/wireless/arlan-proc.c	2005-02-03 21:29:33=
+.000000000 +0100
+@@ -28,9 +28,9 @@
+ 	}
+=20
+ #define SARLSTR(var,nn) {\
+-	char tmpStr[400];\
++	char tmpStr[50];\
+ 	int  tmpLn =3D nn;\
+-	if (nn > 399 ) tmpLn =3D 399; \
++	BUG_ON(tmpLn > 49);\
+ 	memcpy(tmpStr,(char *) priva->conf->var,tmpLn);\
+ 	tmpStr[tmpLn] =3D 0; \
+ 	pos +=3D sprintf(arlan_drive_info+pos, "%s\t=3D\t%s \n",#var,priva->con=
+f->var);\
