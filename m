@@ -1,12 +1,12 @@
 From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: [janitor] get_stats: collapse conditionals
-Date: Sat, 24 Jan 2004 22:19:28 -0800
+Subject: [janitor] tc35815: handle ioremap() failure
+Date: Sat, 24 Jan 2004 22:29:30 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040124221928.16f4c708.rddunlap@osdl.org>
+Message-ID: <20040124222930.3da1ce43.rddunlap@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com
+Cc: jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
@@ -21,43 +21,42 @@ Thanks,
 ~Randy
 
 
-From: Domen Puncer <domen@coderock.org>
+From: Leann Ogasawara <ogasawara@osdl.org>
 
 
+Hi All,
 
-Hi.
+Patch to check if ioremap() failed.  If so, handle error accordingly. 
+Was unable to test so feedback appreciated.
 
-Get rid of one comparison, improve readability.
+diffed against 2.6.1
 
-diff -puN net/core/dev.c~netdev_get_stats net/core/dev.c
+Leann
+
+===== drivers/net/tc35815.c 1.15 vs edited =====
+
+diff -puN drivers/net/tc35815.c~tc35815.c_iounmap drivers/net/tc35815.c
+
+diff -puN drivers/net/tc35815.c~tc35815.c_iounmap drivers/net/tc35815.c
 
 
- linux-262-rc1-bk1-rddunlap/net/core/dev.c |    7 ++++---
- 1 files changed, 4 insertions(+), 3 deletions(-)
+ linux-262-rc1-bk1-rddunlap/drivers/net/tc35815.c |    5 +++++
+ 1 files changed, 5 insertions(+)
 
-diff -puN net/core/dev.c~netdev_get_stats net/core/dev.c
---- linux-262-rc1-bk1/net/core/dev.c~netdev_get_stats	2004-01-23 15:52:33.000000000 -0800
-+++ linux-262-rc1-bk1-rddunlap/net/core/dev.c	2004-01-23 15:52:33.000000000 -0800
-@@ -1940,9 +1940,9 @@ void dev_seq_stop(struct seq_file *seq, 
- 
- static void dev_seq_printf_stats(struct seq_file *seq, struct net_device *dev)
- {
--	struct net_device_stats *stats = dev->get_stats ? dev->get_stats(dev) :
--							  NULL;
--	if (stats)
-+	if (dev->get_stats) {
-+		struct net_device_stats *stats = dev->get_stats(dev);
-+
- 		seq_printf(seq, "%6s:%8lu %7lu %4lu %4lu %4lu %5lu %10lu %9lu "
- 				"%8lu %7lu %4lu %4lu %4lu %5lu %7lu %10lu\n",
- 			   dev->name, stats->rx_bytes, stats->rx_packets,
-@@ -1960,6 +1960,7 @@ static void dev_seq_printf_stats(struct 
- 			     stats->tx_window_errors +
- 			     stats->tx_heartbeat_errors,
- 			   stats->tx_compressed);
+diff -puN drivers/net/tc35815.c~tc35815.c_iounmap drivers/net/tc35815.c
+--- linux-262-rc1-bk1/drivers/net/tc35815.c~tc35815.c_iounmap	2004-01-23 15:49:36.000000000 -0800
++++ linux-262-rc1-bk1-rddunlap/drivers/net/tc35815.c	2004-01-23 15:49:36.000000000 -0800
+@@ -554,6 +554,11 @@ static int __devinit tc35815_probe1(stru
+ 	dev->irq = irq;
+ 	dev->base_addr = (unsigned long)ioremap(base_addr,
+ 						sizeof(struct tc35815_regs));
++	if (!dev->base_addr) {
++		unregister_netdev(dev);
++		free_netdev(dev);
++		return -ENOMEM;
 +	}
- 	else
- 		seq_printf(seq, "%6s: No statistics available.\n", dev->name);
- }
+ 	tr = (struct tc35815_regs*)dev->base_addr;
+ 
+ 	tc35815_chip_reset(dev);
 
 _
