@@ -1,9 +1,9 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 2.6.9-rc2 1/8] S2io: cosmetic changes
-Date: Thu, 14 Oct 2004 10:39:25 -0400
+Subject: Re: [PATCH 2.6.9-rc2 2/8] S2io: sw bug fixes
+Date: Thu, 14 Oct 2004 10:44:21 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <416E8F9D.7040300@pobox.com>
-References: <003e01c4b18b$0578cd70$6c10100a@S2IOtech.com>
+Message-ID: <416E90C5.2090307@pobox.com>
+References: <004201c4b18b$14b2f720$6c10100a@S2IOtech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -12,116 +12,89 @@ Cc: "'Francois Romieu'" <romieu@fr.zoreil.com>, netdev@oss.sgi.com,
         rapuru.sriram@s2io.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: ravinandan.arakali@s2io.com
-In-Reply-To: <003e01c4b18b$0578cd70$6c10100a@S2IOtech.com>
+In-Reply-To: <004201c4b18b$14b2f720$6c10100a@S2IOtech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 Ravinandan Arakali wrote:
-> Hi All,
-> This is the first patch in the 8 part series. I'll be sending
-> the remaining immediately following this patch.
-
-OK this is MUCH improved, thanks much.
-
-There is one final problem with your patches:  your email program 
-(Outlook, it appears?) is mangling patches, preventing them from being 
-applied by a script that looks directly at the email.  Example from the 
-first few lines of your first patch:
-> --- vanilla-linux/drivers/net/s2io.c	2004-10-06 11:31:09.552305224 -0700
-> +++ linux-2.6.8.1/drivers/net/s2io.c	2004-10-06 13:03:08.087360376 -0700
-> @@ -69,7 +69,7 @@
-> =20
->  /* S2io Driver name & version. */
->  static char s2io_driver_name[] =3D "s2io";
-> -static char s2io_driver_version[] =3D "Version 1.0";
-> +static char s2io_driver_version[] =3D "Version 1.7.5.1";
-> =20
->  #define LINK_IS_UP(val64) (!(val64 & (ADAPTER_STATUS_RMAC_REMOTE_FAULT =
-> | \
->  				      ADAPTER_STATUS_RMAC_LOCAL_FAULT)))
-> @@ -99,45 +99,45 @@
->  };
-> =20
->  static char ethtool_stats_keys[][ETH_GSTRING_LEN] =3D {
-
-
-Now we move on the content portion of the review :)
-
-> This first patch contains cosmetic changes such as indentation, 
-> change in comment styles, variable name changes etc.
+> Hi,
+> Attached is the second patch in this submission. It contains the following
+> software bug fixes.
 > 
-> Randy, we'll implement your comment about C99 syntax along with
-> all the other comments received, in the next submission.
+> 1. In free_rx_buffers clearing out RxDs not owned by Xena.
+> 
+> 2. In alarm_intr_handler, when a serr error occurs, schedule a task to reset
+> the card rather than stopping Tx queue.
+> 
+> 3. In s2io_close freeing IRQ before calling s2io_reset also added a new call
+> to flush queued tasks. This is not done if the s2io_close itself is called
+> from a queued task like s2io_restart_nic.
+> 
+> 4. read_eeprom function has been changed such that data to be returned is
+> sent as an input argument and the return value represents a pass/fail. The
+> previous implementation as Randy had pointed out was error prone as on
+> failure it returned -1 which can be interpreted as all ff's, so any data
+> area which contained ff's in the eeprom was likely to be treated as an
+> error.
+> 
+> 5. Added a flag "task_flag" to track if the call to s2io_close is coming
+> from the s2io_restart_nic function or from the ifconfig <I/F> down called by
+> user.
+> 
+> 6. Moved register_netdev call from just after setting entry points to the
+> end of the s2io_init_nic function.
+> 
+> 7. In s2io.h field added a new member into the s2io_nic structure called
+> "task_flag".
+> 
 > 
 > Signed-off-by: Raghavendra Koushik <raghavendra.koushik@s2io.com>
 
-Patch 1 comments:
 
-1) undescribed non-cosmetic change:
+Comments:
 
-> @@ -1240,82 +1290,72 @@
->          * force link down. Since link is already up, we will get
->          * link state change interrupt after this reset
->          */
-> -       writeq(0x8007051500000000ULL, &bar0->dtx_control);
-> +       writeq(0x80010515001E0000ULL, &bar0->dtx_control);
->         val64 = readq(&bar0->dtx_control);
-> -       writeq(0x80070515000000E0ULL, &bar0->dtx_control);
-> +       udelay(50);
-> +       writeq(0x80010515001E00E0ULL, &bar0->dtx_control);
->         val64 = readq(&bar0->dtx_control);
-> +       udelay(50);
->         writeq(0x80070515001F00E4ULL, &bar0->dtx_control);
->         val64 = readq(&bar0->dtx_control);
-> +       udelay(50);
+1) the following code looks wrong:
+
+>                 DBG_PRINT(ERR_DBG, "%s: Device indicates ", dev->name);
+>                 DBG_PRINT(ERR_DBG, "serious error!!\n");
+> -               netif_stop_queue(dev);
+> +               schedule_work(&nic->rst_timer_task);
+
+Typically you want to stop the queue _and_ schedule_work().  Otherwise, 
+the net stack will continually call your ->hard_start_xmit() hook with 
+new skbs, _during_ your rst_timer_task.
+
+2) can this 'if' test be removed?  there is no harm in unconditionally 
+calling flush_scheduled_work()
+
+> +       /* Flush all scheduled tasks */
+> +       if (sp->task_flag == 1) {
+> +               DBG_PRINT(INFO_DBG, "%s: Calling close from a task\n",
+> +                         dev->name);
+> +       } else {
+> +               flush_scheduled_work();
+> +       }
+
+3) I do not think that s2io_close should be called from anywhere except 
+the net stack...
+
+The following code should not be needed, unless I am missing something:
+> 
+>         nic_t *sp = dev->priv;
 >  
->         return SUCCESS;
-
-Resolution:  describe change in patch description, or move change to 
-another patch
-
-
-2) undescribed non-cosmetic change:
-
->  #ifdef CONFIG_S2IO_NAPI
->         dev->poll = s2io_poll;
-> -       dev->weight = 128;      /* For now. */
-> +       dev->weight = 90;       /* For now. */
->  #endif
-
-Resolution:  describe change in patch description, or move change to 
-another patch
-
-3) non-cosmetic change, that should not be present in upstream sources:
-
-> +#ifdef SET_ETHTOOL_OPS
->         SET_ETHTOOL_OPS(dev, &netdev_ethtool_ops);
-> -
-> +#endif
-
-Compatibility defines should be kept in an external package, to keep the 
-kernel source relatively clean.  There exist compatibility packages such 
-as "kcompat" (http://sf.net/projects/gkernel/) that allow you to develop 
-a driver using the current kernel API, and then add the needed compat 
-definitions in a separate module.
-
-Resolution:  remove #ifdef
-
-4) non-cosmetic change, that should not be present in upstream sources:
-
-> +#ifndef SET_ETHTOOL_OPS
-> +#define SUPPORTED_10000baseT_Full (1 << 12)
-> +#endif
-
-Resolution:  remove all three lines I quoted
-
-5) don't add this #ifdef either:
-
-> +#ifdef SET_ETHTOOL_OPS
->  static struct ethtool_ops netdev_ethtool_ops;
-> +#endif
+> +       sp->task_flag = 1;
+>         s2io_close(dev);
+> +       sp->task_flag = 0;
+>         sp->device_close_flag = TRUE;
 
 
+4) the following code is correct, but should additional propagate the 
+register_netdev() error code back to its caller, upon failure:
 
-
-More comments follow in upcoming emails.
+>         sp->rx_csum = 1;        /* Rx chksum verify enabled by default */
+>  
+> +       if (register_netdev(dev)) {
+> +               DBG_PRINT(ERR_DBG, "Device registration failed\n");
+> +               goto register_failed;
+> +       }
+> +
