@@ -1,63 +1,50 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [25/*] [NET] Kill unnecessary uses of dst_path_metric
-Date: Fri, 18 Mar 2005 21:11:26 +1100
-Message-ID: <20050318101126.GA29583@gondor.apana.org.au>
-References: <20050308102741.GA23468@gondor.apana.org.au> <20050314102614.GA9610@gondor.apana.org.au> <20050314105313.GA21001@gondor.apana.org.au> <20050314111002.GA29156@gondor.apana.org.au> <20050315091904.GA6256@gondor.apana.org.au> <20050315095837.GA7130@gondor.apana.org.au> <20050318090310.GA28443@gondor.apana.org.au> <20050318091129.GA28658@gondor.apana.org.au> <20050318091918.GA28944@gondor.apana.org.au> <20050318100757.GA29433@gondor.apana.org.au>
+From: Colin Leroy <colin@colino.net>
+Subject: [PATCH] Missing hunk in drivers/usb/Makefile
+Date: Fri, 18 Mar 2005 11:43:19 +0100
+Message-ID: <20050318114319.350a39e9@jack.colino.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="zhXaljGHf11kAtnf"
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>, netdev@oss.sgi.com
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20050318100757.GA29433@gondor.apana.org.au>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
+To: linux-usb-devel@lists.sf.net
+Sender: linux-usb-devel-admin@lists.sourceforge.net
+Errors-To: linux-usb-devel-admin@lists.sourceforge.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
+	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Post: <mailto:linux-usb-devel@lists.sourceforge.net>
+List-Help: <mailto:linux-usb-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-usb-devel>,
+	<mailto:linux-usb-devel-request@lists.sourceforge.net?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=linux-usb-devel>
 List-Id: netdev.vger.kernel.org
 
+Hi,
 
---zhXaljGHf11kAtnf
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+[re-send so that linux-usb-devel gets it too]
 
-Hi Dave:
+I see there's been a driver for zd1201 added in drivers/usb/net/.
+There's a hunk missing in drivers/usb/Makefile, the driver doesn't
+get built if nothing else in drivers/usb/net is configured in :
 
-This gets rid of the last unnecessary use of dst_path_metric.  In
-decnet dst->path is always equal to dst.
+Signed-off-by: Colin Leroy <colin@colino.net>
+--- a/drivers/usb/Makefile	2005-03-18 10:26:38.000000000 +0100
++++ b/drivers/usb/Makefile	2005-03-18 10:27:22.000000000 +0100
+@@ -50,6 +50,7 @@
+ obj-$(CONFIG_USB_PEGASUS)	+= net/
+ obj-$(CONFIG_USB_RTL8150)	+= net/
+ obj-$(CONFIG_USB_USBNET)	+= net/
++obj-$(CONFIG_USB_ZD1201)	+= net/
  
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+ obj-$(CONFIG_USB_HPUSBSCSI)	+= image/
+ obj-$(CONFIG_USB_MDC800)	+= image/
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
---zhXaljGHf11kAtnf
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=xfrm-25
-
-===== net/decnet/af_decnet.c 1.51 vs edited =====
---- 1.51/net/decnet/af_decnet.c	2005-03-16 09:50:25 +11:00
-+++ edited/net/decnet/af_decnet.c	2005-03-18 21:01:24 +11:00
-@@ -811,7 +811,7 @@
- 		return -EINVAL;
- 
- 	scp->state = DN_CC;
--	scp->segsize_loc = dst_path_metric(__sk_dst_get(sk), RTAX_ADVMSS);
-+	scp->segsize_loc = dst_metric(__sk_dst_get(sk), RTAX_ADVMSS);
- 	dn_send_conn_conf(sk, allocation);
- 
- 	prepare_to_wait(sk->sk_sleep, &wait, TASK_INTERRUPTIBLE);
-@@ -940,7 +940,7 @@
- 	sk->sk_route_caps = sk->sk_dst_cache->dev->features;
- 	sock->state = SS_CONNECTING;
- 	scp->state = DN_CI;
--	scp->segsize_loc = dst_path_metric(sk->sk_dst_cache, RTAX_ADVMSS);
-+	scp->segsize_loc = dst_metric(sk->sk_dst_cache, RTAX_ADVMSS);
- 
- 	dn_nsp_send_conninit(sk, NSP_CI);
- 	err = -EINPROGRESS;
-
---zhXaljGHf11kAtnf--
+-------------------------------------------------------
+SF email is sponsored by - The IT Product Guide
+Read honest & candid reviews on hundreds of IT Products from real users.
+Discover which products truly live up to the hype. Start reading now.
+http://ads.osdn.com/?ad_id=6595&alloc_id=14396&op=click
+_______________________________________________
+linux-usb-devel@lists.sourceforge.net
+To unsubscribe, use the last form field at:
+https://lists.sourceforge.net/lists/listinfo/linux-usb-devel
