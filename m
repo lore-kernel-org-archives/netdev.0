@@ -1,41 +1,53 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: Yasuyuki KOZAKAI <yasuyuki.kozakai@toshiba.co.jp>
 Subject: Re: Memory leak in 2.6.11-rc1?
-Date: Mon, 31 Jan 2005 16:40:52 +1100
-Message-ID: <20050131054052.GA20227@gondor.apana.org.au>
-References: <41FD2043.3070303@trash.net> <E1CvSuS-00056x-00@gondolin.me.apana.org.au> <20050131.134559.125426676.yoshfuji@linux-ipv6.org> <41FDBB78.2050403@trash.net> <20050130211150.464d1c62.davem@davemloft.net>
+Date: Mon, 31 Jan 2005 14:42:52 +0900 (JST)
+Message-ID: <200501310542.j0V5grsI029994@toshiba.co.jp>
+References: <20050131.134559.125426676.yoshfuji@linux-ipv6.org>
+	<41FDBB78.2050403@trash.net>
+	<20050131.141636.20664459.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, yoshfuji@linux-ipv6.org,
-	rmk+lkml@arm.linux.org.uk, Robert.Olsson@data.slu.se,
-	akpm@osdl.org, torvalds@osdl.org, alexn@dsv.su.se, kas@fi.muni.cz,
-	linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261925AbVAaFmh@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20050130211150.464d1c62.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: kaber@trash.net, kozakai@linux-ipv6.org, herbert@gondor.apana.org.au,
+        davem@davemloft.net, rmk+lkml@arm.linux.org.uk,
+        Robert.Olsson@data.slu.se, akpm@osdl.org, torvalds@osdl.org,
+        alexn@dsv.su.se, kas@fi.muni.cz, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20050131.141636.20664459.yoshfuji@linux-ipv6.org>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jan 30, 2005 at 09:11:50PM -0800, David S. Miller wrote:
-> On Mon, 31 Jan 2005 06:00:40 +0100
-> Patrick McHardy <kaber@trash.net> wrote:
+
+Hi,
+
+From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+Date: Mon, 31 Jan 2005 14:16:36 +0900 (JST)
+
+> In article <41FDBB78.2050403@trash.net> (at Mon, 31 Jan 2005 06:00:40 +0100), Patrick McHardy <kaber@trash.net> says:
 > 
-> > We don't need this for IPv6 yet. Once we get nf_conntrack in we
-> > might need this, but its IPv6 fragment handling is different from
-> > ip_conntrack, I need to check first.
+> |We don't need this for IPv6 yet. Once we get nf_conntrack in we
+> |might need this, but its IPv6 fragment handling is different from
+> |ip_conntrack, I need to check first.
 > 
-> Right, ipv6 netfilter cannot create this situation yet.
+> Ok. It would be better to have some comment but anyway...
+> kozakai-san?
 
-Not through netfilter but I'm not convinced that other paths
-won't do this.
+IMO, fix for nf_conntrack isn't needed yet. Because someone may change
+IPv6 fragment handling in nf_conntrack.
 
-For instance, what about ipv6_frag_rcv -> esp6_input -> ... -> ip6_fragment?
-That would seem to be a potential path for a non-NULL dst to survive
-through to ip6_fragment, no?
+Anyway, current nf_conntrack passes the original (not de-fragmented) skb to
+IPv6 stack. nf_conntrack doesn't touch its dst.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Regards,
+----------------------------------------
+Yasuyuki KOZAKAI
+
+Communication Platform Laboratory,
+Corporate Research & Development Center,
+Toshiba Corporation
+
+yasuyuki.kozakai@toshiba.co.jp
+----------------------------------------
