@@ -1,7 +1,7 @@
 From: maximilian attems <janitor@sternwelten.at>
-Subject: Re: [patch 2.4] back port msleep(), msleep_interruptible()
-Date: Sun, 31 Oct 2004 15:43:53 +0100
-Message-ID: <20041031144353.GA28667__34228.8444554017$1099234073$gmane$org@stro.at>
+Subject: [patch 4/6] char/shwdt remove duplicate msecs_to_jiffies()
+Date: Sun, 31 Oct 2004 15:45:03 +0100
+Message-ID: <20041031144503.GE28667@stro.at>
 References: <20040923221303.GB13244@us.ibm.com> <20040923221303.GB13244@us.ibm.com> <5.1.0.14.2.20040924074745.00b1cd40@pop.t-online.de> <415CD9D9.2000607@pobox.com> <20041030222228.GB1456@stro.at> <41841886.2080609@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -18,28 +18,36 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 30 Oct 2004, Jeff Garzik wrote:
-
-> I'm pretty sure more than one of these symbols clashes with a symbol 
-> defined locally in a driver.  I like the patch but we can't apply it 
-> until the impact on existing code is evaluated.
-> 
-> 	Jeff
-
-current 2.4 has no ssleep() nor jiffies_to_usecs() nor jiffies_to_msecs()
-users. so no namespace conflicts on them.
-
-i found a strange unsupported "msleep" syscall in
-./arch/parisc/hpux/sys_hpux.c
-
-left this one appart, i resend the msleep patch + 5 cleanup patches.
-they remove duplicate msleep() or msecs_to_jiffies() definitions.
-they are all compile tested, but the one touching drivers/char/shwdt.c
-please show me if i forgot something.
-
---
-maks
-kernel janitor  	http://janitor.kernelnewbies.org/
 
 
-ps dropped  prism54-devel@prism54.org from cc as this ml rejects my mails.
+remove duplicate msecs_to_jiffies() definition.
+add include <delay.h>.
+
+Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
+
+
+---
+
+ linux-2.4.28-rc1-max/drivers/char/shwdt.c |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
+
+diff -puN drivers/char/shwdt.c~remove-msecs_to_jiffies-drivers_char_shwdt drivers/char/shwdt.c
+--- linux-2.4.28-rc1/drivers/char/shwdt.c~remove-msecs_to_jiffies-drivers_char_shwdt	2004-10-31 13:40:49.000000000 +0100
++++ linux-2.4.28-rc1-max/drivers/char/shwdt.c	2004-10-31 13:42:05.000000000 +0100
+@@ -27,6 +27,7 @@
+ #include <linux/reboot.h>
+ #include <linux/notifier.h>
+ #include <linux/ioport.h>
++#include <linux/delay.h>
+ 
+ #include <asm/io.h>
+ #include <asm/uaccess.h>
+@@ -113,7 +114,6 @@
+  */
+ static int clock_division_ratio = WTCSR_CKS_4096;
+ 
+-#define msecs_to_jiffies(msecs)	(jiffies + (HZ * msecs + 9999) / 10000)
+ #define next_ping_period(cks)	msecs_to_jiffies(cks - 4)
+ 
+ static unsigned long shwdt_is_open;
+_
