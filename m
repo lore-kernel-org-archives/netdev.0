@@ -1,34 +1,28 @@
-From: Ben Greear <greearb@candelatech.com>
+From: jamal <hadi@cyberus.ca>
 Subject: Re: [PATCH]  Break 'budget' dependency on netdev_max_backlog.
-Date: Tue, 22 Oct 2002 21:00:59 -0700
+Date: Tue, 22 Oct 2002 23:58:27 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3DB61EFB.4020401@candelatech.com>
-References: <Pine.GSO.4.30.0210222340520.24323-100000@shell.cyberus.ca>
+Message-ID: <Pine.GSO.4.30.0210222355410.24323-100000@shell.cyberus.ca>
+References: <3DB61EFB.4020401@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <3DB61EFB.4020401@candelatech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
 
-> What i recall is 64 was a good number and thats why we had it as default.
-> I cant remember who changed the value to 16(Robert?), but it does seem to
-> be a good value as well. If that was the only driver and it had a lot of
-> packets, it would still get to use all the 300 packets in the budget; it
-> will just have to do it in 300/16 times ..
 
-Is there any way to influence how often the poll loop gets run?
+On Tue, 22 Oct 2002, Ben Greear wrote:
 
-I'll have a patch to set the weight via IOCTL soon....
+> Is there any way to influence how often the poll loop gets run?
 
-Thanks,
-Ben
+the softirq is scheduled like others. You could play with niceness of
+ksoftirqd, however note that you may starve user space etc.
+You could also increase that backlog queue, but you will be preempted if
+that softirq runs for too long.
 
--- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+cheers,
+jamal
