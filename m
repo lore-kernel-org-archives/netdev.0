@@ -1,43 +1,58 @@
-From: Bill Davidsen <davidsen@tmr.com>
-Subject: Re: netdevices.txt update
-Date: Fri, 21 Feb 2003 09:56:21 -0500 (EST)
+From: Adrian Bunk <bunk@fs.tum.de>
+Subject: [2.5 patch] remove an unneeded #if from net/ipv6/af_inet6.c (fwd)
+Date: Fri, 21 Feb 2003 16:57:49 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.3.96.1030221095221.21493A-100000@gatekeeper.tmr.com>
-References: <3E53093F.5050502@pobox.com>
+Message-ID: <20030221155749.GR531@fs.tum.de>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY=------------040403030109020202050704
-Cc: lkml <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, trivial@rustcorp.com.au
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <3E53093F.5050502@pobox.com>
-Content-ID: <Pine.LNX.3.96.1030221095221.21493B@gatekeeper.tmr.com>
+To: Linus Torvalds <torvalds@transmeta.com>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-  Send mail to mime@docserver.cac.washington.edu for more info.
+Hi Linus,
 
---------------040403030109020202050704
-Content-Type: TEXT/PLAIN; CHARSET=us-ascii; FORMAT=flowed
-Content-ID: <Pine.LNX.3.96.1030221095221.21493C@gatekeeper.tmr.com>
+the trivial patch forwarded below still applies against and compiles in 
+2.5.62.
 
-On Tue, 18 Feb 2003, Jeff Garzik wrote:
+Please apply
+Adrian
 
-> Just made a minor update to Documentation/networking/netdevices.txt, and 
-> thought I would take the opportunity to pass it around once again.
-> 
-> Even though this doc has existed for quite a while now, I still come 
-> across code that loves to violate these locking rules in various ways.
-> 
-> Comments and additions welcome
 
-I wish other kernel interfaces were as well documented, or documented at
-all other than the source code using them. Thank you so much!
+----- Forwarded message from Adrian Bunk <bunk@fs.tum.de> -----
 
--- 
-bill davidsen <davidsen@tmr.com>
-  CTO, TMR Associates, Inc
-Doing interesting things with little computers since 1979.
+Date: Sat, 18 Jan 2003 18:19:22 +0100
+From: Adrian Bunk <bunk@fs.tum.de>
+To: Pedro Roque <roque@di.fc.ul.pt>
+Cc: netdev@oss.sgi.com
+Subject: [2.5 patch] remove an unneeded #if from net/ipv6/af_inet6.c
 
---------------040403030109020202050704--
+The patch below removes an unneeded #if from net/ipv6/af_inet6.c:
+- kernel 2.0 is too ancient to check for
+- the MODULE_* macros have empty definitions #if !MODULE
+
+I've tested the compilation with 2.5.59.
+
+Please apply
+Adrian
+
+
+--- linux-2.5.59-full/net/ipv6/af_inet6.c.old	2003-01-18 18:11:08.000000000 +0100
++++ linux-2.5.59-full/net/ipv6/af_inet6.c	2003-01-18 18:11:38.000000000 +0100
+@@ -67,11 +67,9 @@
+ 			      module for allowing unload */
+ #endif
+ 
+-#if defined(MODULE) && LINUX_VERSION_CODE > 0x20115
+ MODULE_AUTHOR("Cast of dozens");
+ MODULE_DESCRIPTION("IPv6 protocol stack for Linux");
+ MODULE_PARM(unloadable, "i");
+-#endif
+ 
+ /* IPv6 procfs goodies... */
+ 
+
+
+----- End forwarded message -----
