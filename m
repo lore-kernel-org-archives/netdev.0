@@ -1,49 +1,33 @@
 From: Anton Blanchard <anton@samba.org>
 Subject: Re: e1000 performance hack for ppc64 (Power4)
-Date: Sat, 14 Jun 2003 10:03:42 +1000
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030614000342.GE32097@krispykreme>
-References: <C6F5CF431189FA4CBAEC9E7DD5441E010107D93A@orsmsx402.jf.intel.com>
+Date: Sat, 14 Jun 2003 10:55:34 +1000
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20030614005534.GF32097@krispykreme>
+References: <C6F5CF431189FA4CBAEC9E7DD5441E010107D93A@orsmsx402.jf.intel.com> <20030613.165250.41635765.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>, haveblue@us.ibm.com,
-   hdierks@us.ibm.com, dwg@au1.ibm.com, linux-kernel@vger.kernel.org,
-   milliner@us.ibm.com, ricardoz@us.ibm.com, twichell@us.ibm.com,
-   netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "Feldman, Scott" <scott.feldman@intel.com>
+Cc: scott.feldman@intel.com, haveblue@us.ibm.com, hdierks@us.ibm.com,
+	dwg@au1.ibm.com, linux-kernel@vger.kernel.org, milliner@us.ibm.com,
+	ricardoz@us.ibm.com, twichell@us.ibm.com, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
+To: "David S. Miller" <davem@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <C6F5CF431189FA4CBAEC9E7DD5441E010107D93A@orsmsx402.jf.intel.com>
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <20030613.165250.41635765.davem@redhat.com>
 List-Id: netdev.vger.kernel.org
 
  
-> I thought the answer was no, so I double checked with a couple of
-> hardware guys, and the answer is still no.
+> So Anton, when the PCI controller gets a set of sub-cacheline word
+> reads from the device, it reads the value from memory once for every
+> one of those words?  ROFL, if so...  I can't believe they wouldn't
+> put caches on the PCI controller for this, at least a one-behind that
+> snoops the bus :(
 
-Hi Scott,
+There is a cache in the host bridge and the PCI-PCI bridge. I dont
+think we go back to memory for sub cacheline reads.
 
-Thats a pity, the e100 docs on sourceforge show it can do what we want,
-it would be nice if e1000 had this feature too :)
+What I think is happening is that we arent tripping the prefetch logic.
+We should take a latency hit for only the first cacheline at which point
+the host bridge decides to start prefetching for us. If not then we take
+take the latency hit on each transaction.
 
-4.2.2 Read Align
-
-The Read Align feature is aimed to enhance performance in cache line
-oriented systems. Starting a PCI transaction in these systems on a
-non-cache line aligned address may result in low  performance. To solve
-this performance problem, the controller can be configured to terminate
-Transmit DMA cycles on a cache line boundary, and start the next
-transaction on a cache line aligned address. This  feature is enabled
-when the Read Align Enable bit is set in device Configure command
-(Section 6.4.2.3, "Configure (010b)").
-
-If this bit is set, the device operates as follows:
-
-* When the device is close to running out of resources on the Transmit
-* DMA (in other words, the Transmit FIFO is almost full), it attempts to
-* terminate the read transaction on the nearest cache line boundary when 
-* possible.
-
-* When the arbitration counters feature is enabled (maximum Transmit DMA
-* byte count value is set in configuration space), the device switches
-* to other pending DMAs on cache line boundary only.
+Anton
