@@ -1,8 +1,9 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 2.6] (3/4) netem - support packet duplication
-Date: Wed, 25 Aug 2004 10:59:06 -0700
+Subject: [PATCH 2.6] (4/4) netem - change parameters shouldn't destroy child
+ qdisc
+Date: Wed, 25 Aug 2004 11:01:08 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040825105906.2f192f28@dell_ss3.pdx.osdl.net>
+Message-ID: <20040825110108.6a79216a@dell_ss3.pdx.osdl.net>
 References: <20040825105339.30210e84@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -14,99 +15,111 @@ In-Reply-To: <20040825105339.30210e84@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Add support for duplicating packets.
+Fix netem to allow changing parameters without zapping the underlying
+qdisc.
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
-
-diff -Nru a/net/sched/sch_netem.c b/net/sched/sch_netem.c
---- a/net/sched/sch_netem.c	2004-08-24 16:58:13 -07:00
-+++ b/net/sched/sch_netem.c	2004-08-24 16:58:13 -07:00
-@@ -62,6 +62,7 @@
- 	u32 counter;
- 	u32 gap;
- 	u32 jitter;
-+	u32 duplicate;
- };
  
- /* Time stamp put into socket buffer control block */
-@@ -624,22 +625,13 @@
- /* Enqueue packets with underlying discipline (fifo)
-  * but mark them with current time first.
-  */
--static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
-+static int netem_add_packet(struct Qdisc *sch, struct sk_buff *skb)
+diff -Nru a/net/sched/sch_netem.c b/net/sched/sch_netem.c
+--- a/net/sched/sch_netem.c	2004-08-24 16:58:27 -07:00
++++ b/net/sched/sch_netem.c	2004-08-24 16:58:27 -07:00
+@@ -795,37 +795,17 @@
+ static int netem_change(struct Qdisc *sch, struct rtattr *opt)
  {
  	struct netem_sched_data *q = qdisc_priv(sch);
- 	struct netem_skb_cb *cb = (struct netem_skb_cb *)skb->cb;
- 	psched_time_t now;
- 	long delay;
+-	struct tc_netem_qopt *qopt = RTA_DATA(opt);
+-	struct Qdisc *child;
+-	int ret;
++	const struct tc_netem_qopt *qopt = RTA_DATA(opt);
  
--	pr_debug("netem_enqueue skb=%p @%lu\n", skb, jiffies);
+ 	if (opt->rta_len < RTA_LENGTH(sizeof(*qopt)))
+ 		return -EINVAL;
+ 
+-	child = qdisc_create_dflt(sch->dev, &pfifo_qdisc_ops);
+-	if (!child)
+-		return -EINVAL;
 -
--	/* Random packet drop 0 => none, ~0 => all */
--	if (q->loss && q->loss >= net_random()) {
--		sch->stats.drops++;
--		return 0;	/* lie about loss so TCP doesn't know */
+-	ret = set_fifo_limit(child, qopt->limit);
+-	if (ret) {
+-		qdisc_destroy(child);
+-		return ret;
 -	}
 -
--
- 	/* If doing simple delay then gap == 0 so all packets
- 	 * go into the delayed holding queue
- 	 * otherwise if doing out of order only "1 out of gap"
-@@ -671,7 +663,7 @@
- 		sch->q.qlen++;
- 		sch->stats.bytes += skb->len;
- 		sch->stats.packets++;
--		return 0;
-+		return NET_XMIT_SUCCESS;
- 	}
+-	sch_tree_lock(sch);
+-	if (child) {
+-		child = xchg(&q->qdisc, child);
+-		if (child != &noop_qdisc)
+-			qdisc_destroy(child);
+-	
+-		q->latency = qopt->latency;
+-		q->jitter = qopt->jitter;
+-		q->limit = qopt->limit;
+-		q->gap = qopt->gap;
+-		q->loss = qopt->loss;
+-		q->duplicate = qopt->duplicate;
+-	}
+-	sch_tree_unlock(sch);
++	q->latency = qopt->latency;
++	q->jitter = qopt->jitter;
++	q->limit = qopt->limit;
++	q->gap = qopt->gap;
++	q->loss = qopt->loss;
++	q->duplicate = qopt->duplicate;
  
- 	sch->stats.drops++;
-@@ -679,6 +671,31 @@
- 	return NET_XMIT_DROP;
+ 	return 0;
+ }
+@@ -833,19 +813,42 @@
+ static int netem_init(struct Qdisc *sch, struct rtattr *opt)
+ {
+ 	struct netem_sched_data *q = qdisc_priv(sch);
++	const struct tc_netem_qopt *qopt;
++	int ret;
+ 
+-	if (!opt)
++	if (!opt || opt->rta_len < RTA_LENGTH(sizeof(*qopt)))
+ 		return -EINVAL;
+ 
+ 	skb_queue_head_init(&q->delayed);
+-	q->qdisc = &noop_qdisc;
+-
+ 	init_timer(&q->timer);
+ 	q->timer.function = netem_watchdog;
+ 	q->timer.data = (unsigned long) sch;
+ 	q->counter = 0;
+ 
+-	return netem_change(sch, opt);
++	q->qdisc = qdisc_create_dflt(sch->dev, &pfifo_qdisc_ops);
++	if (!q->qdisc) {
++		pr_debug("netem: qdisc create failed\n");
++		return -ENOMEM;
++	}
++
++	qopt = RTA_DATA(opt);
++	ret = set_fifo_limit(q->qdisc, qopt->limit);
++	if (ret) {
++		pr_debug("netem: can't set fifo limit\n");
++		goto error;
++	}
++
++	ret = netem_change(sch, opt);
++	if (ret) {
++		pr_debug("netem: change failed\n");
++		goto error;
++	}
++
++	return 0;
++
++ error:
++	qdisc_destroy(q->qdisc);
++	return ret;
  }
  
-+static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
-+{
-+	struct netem_sched_data *q = qdisc_priv(sch);
-+
-+	pr_debug("netem_enqueue skb=%p @%lu\n", skb, jiffies);
-+
-+	/* Random packet drop 0 => none, ~0 => all */
-+	if (q->loss && q->loss >= net_random()) {
-+		pr_debug("netem_enqueue: random loss\n");
-+		sch->stats.drops++;
-+		return 0;	/* lie about loss so TCP doesn't know */
-+	}
-+
-+	/* Random duplication */
-+	if (q->duplicate && q->duplicate >= net_random()) {
-+		struct sk_buff *skb2 = skb_clone(skb, GFP_ATOMIC);
-+
-+		pr_debug("netem_enqueue: dup %p\n", skb2);
-+		if (skb2)
-+			netem_add_packet(sch, skb2);
-+	}
-+
-+	return netem_add_packet(sch, skb);
-+}
-+
- /* Requeue packets but don't change time stamp */
- static int netem_requeue(struct sk_buff *skb, struct Qdisc *sch)
- {
-@@ -806,6 +823,7 @@
- 		q->limit = qopt->limit;
- 		q->gap = qopt->gap;
- 		q->loss = qopt->loss;
-+		q->duplicate = qopt->duplicate;
- 	}
- 	sch_tree_unlock(sch);
+ static void netem_destroy(struct Qdisc *sch)
+@@ -862,6 +865,7 @@
+ 	unsigned char	 *b = skb->tail;
+ 	struct tc_netem_qopt qopt;
  
-@@ -849,6 +867,7 @@
++	memset(&qopt, 0, sizeof(qopt));
+ 	qopt.latency = q->latency;
+ 	qopt.jitter = q->jitter;
  	qopt.limit = q->limit;
- 	qopt.loss = q->loss;
- 	qopt.gap = q->gap;
-+	qopt.duplicate = q->duplicate;
- 
- 	RTA_PUT(skb, TCA_OPTIONS, sizeof(qopt), &qopt);
- 
