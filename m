@@ -1,43 +1,36 @@
-From: Andy Fleming <afleming@freescale.com>
-Subject: Re: [PATCH: 2.6.12-rc1] mii: Add test for GigE support
-Date: Tue, 22 Mar 2005 19:21:56 -0600
-Message-ID: <212e5bf54766a68d2ab8716574225203@freescale.com>
-References: <20050322231746.GA27770@xyzzy> <4240A9F3.5040704@pobox.com>
-Mime-Version: 1.0 (Apple Message framework v619.2)
-Content-Type: text/plain; charset=US-ASCII; format=flowed
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: iptables breakage WAS(Re: dummy as IMQ replacement
+Date: Wed, 23 Mar 2005 02:31:58 +0100
+Message-ID: <4240C70E.8060503@trash.net>
+References: <1107123123.8021.80.camel@jzny.localdomain>	 <0fcf01c5077f$579e4b80$6e69690a@RIMAS>	 <1107174142.8021.121.camel@jzny.localdomain>	 <00c301c524b4$938cd240$6e69690a@RIMAS>	 <1110379135.1091.143.camel@jzny.localdomain>	 <1110416767.1111.76.camel@jzny.localdomain>	 <025501c52552$2dbf87c0$6e69690a@RIMAS>	 <1110453757.1108.87.camel@jzny.localdomain>  <423B7BCB.10400@dsl.pipex.com> <1111410890.1092.195.camel@jzny.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Dale Farnsworth <dale@farnsworth.org>,
-        James Chapman <jchapman@katalix.com>, Netdev <netdev@oss.sgi.com>
-In-Reply-To: <4240A9F3.5040704@pobox.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+Cc: Andy Furniss <andy.furniss@dsl.pipex.com>,
+        Harald Welte <laforge@gnumonks.org>, Remus <rmocius@auste.elnet.lt>,
+        netdev@oss.sgi.com, Nguyen Dinh Nam <nguyendinhnam@gmail.com>,
+        Andre Tomt <andre@tomt.net>, syrius.ml@no-log.org,
+        Damion de Soto <damion@snapgear.com>,
+        Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
+To: hadi@cyberus.ca
+In-Reply-To: <1111410890.1092.195.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+jamal wrote:
+> As i was suspecting this is related to iptables breaking backwards
+> compatibility. Starting with 1.3.0 the target structure changed ;->
+> (right at the top is a new field called version)
+> I suspect the iptables folks maybe unaware that there are other users of
+> iptables and assume that anyone needing to use new iptables will
+> recompile everything from scratch. BAD! BAD!
+> I am ccing the necessary evil doers (Harald and Patrick - at least they
+> would know who the real evildoer is). 
 
-On Mar 22, 2005, at 17:27, Jeff Garzik wrote:
->>  +int mii_check_gmii_support(struct mii_if_info *mii)
->> +{
->> +	int reg;
->> +
->> +	reg = mii->mdio_read(mii->dev, mii->phy_id, MII_BMSR);
->> +	if (reg & BMSR_HAS_EXTSTAT1000) {
->> +		reg = mii->mdio_read(mii->dev, mii->phy_id, MII_EXTSTAT1000);
->> +		if (reg & (ESR_1000_BASE_X_FD | ESR_1000_BASE_T_FD |
->> +			   ESR_1000_BASE_X_HD | ESR_1000_BASE_T_HD))
->> +			return 1;
->> +	}
->> +
->> +	return 0;
->
-> 2) Reading a non-existent register will return all 1's in most cases, 
-> so I am not sure if this is the best test.
+We'll try to keep this in mind in the future. We could move
+the version field to the end, but I guess its already too
+late. What do you think?
 
-He reads a standard register (BMSR) to determine whether or not 
-EXTSTAT1000 exists.  This is part of the 802.3 standard, so it should 
-work.
-
-Andy
-
-
-Andy Fleming
+Regards
+Patrick
