@@ -1,82 +1,46 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: wireless-2.6 queue updated
-Date: Wed, 11 Aug 2004 18:01:07 -0400
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040811220107.GA1923@havoc.gtf.org>
+From: Adrian Bunk <bunk@fs.tum.de>
+Subject: 2.6: rxrpc compile errors with SYSCTL=n
+Date: Thu, 12 Aug 2004 00:32:25 +0200
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040811223225.GN26174@fs.tum.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, davem@redhat.com, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S268281AbUHKWch@vger.kernel.org>
+To: David Howells <dhowells@redhat.com>
 Content-Disposition: inline
-Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+I'm getting tons of the following compile errors in 2.6.8-rc4-mm1 (but 
+it doesn't seem to be specific to -mm) with CONFIG_SYSCTL=n:
 
-Just updated to latest kernel.  No new changes committed.
+<--  snip  -->
 
-BK users:
+...
+  LD      .tmp_vmlinux1
+net/built-in.o(.text+0x154127): In function `__rxrpc_call_acks_timeout':
+: undefined reference to `rxrpc_kdebug'
+net/built-in.o(.text+0x154167): In function `__rxrpc_call_rcv_timeout':
+: undefined reference to `rxrpc_kdebug'
+net/built-in.o(.text+0x1541a7): In function `__rxrpc_call_ackr_timeout':
+: undefined reference to `rxrpc_kdebug'
+net/built-in.o(.text+0x15421e): In function `rxrpc_create_call':
+: undefined reference to `rxrpc_ktrace'
+net/built-in.o(.text+0x154242): In function `rxrpc_create_call':
+: undefined reference to `rxrpc_ktrace'
+net/built-in.o(.text+0x154272): In function `rxrpc_create_call':
+: undefined reference to `rxrpc_ktrace'
+...
+make: *** [.tmp_vmlinux1] Error 1
 
-	bk pull bk://gkernel.bkbits.net/wireless-2.6
+<--  snip  -->
 
-Patch:
-http://www.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/2.6.8-rc4-bk1-wireless1.patch.bz2
+cu
+Adrian
 
-This will update the following files:
+-- 
 
- MAINTAINERS                                     |    7 
- drivers/net/wireless/Kconfig                    |    2 
- drivers/net/wireless/Makefile                   |    2 
- drivers/net/wireless/hostap/Kconfig             |  101 
- drivers/net/wireless/hostap/Makefile            |    8 
- drivers/net/wireless/hostap/hostap.c            | 1178 ++++++++
- drivers/net/wireless/hostap/hostap.h            |   57 
- drivers/net/wireless/hostap/hostap_80211.h      |  107 
- drivers/net/wireless/hostap/hostap_80211_rx.c   | 1066 +++++++
- drivers/net/wireless/hostap/hostap_80211_tx.c   |  510 +++
- drivers/net/wireless/hostap/hostap_ap.c         | 3227 +++++++++++++++++++++
- drivers/net/wireless/hostap/hostap_ap.h         |  271 +
- drivers/net/wireless/hostap/hostap_common.h     |  556 +++
- drivers/net/wireless/hostap/hostap_config.h     |   86 
- drivers/net/wireless/hostap/hostap_crypt.c      |  167 +
- drivers/net/wireless/hostap/hostap_crypt.h      |   50 
- drivers/net/wireless/hostap/hostap_crypt_ccmp.c |  486 +++
- drivers/net/wireless/hostap/hostap_crypt_tkip.c |  696 ++++
- drivers/net/wireless/hostap/hostap_crypt_wep.c  |  281 +
- drivers/net/wireless/hostap/hostap_cs.c         |  771 +++++
- drivers/net/wireless/hostap/hostap_download.c   |  758 +++++
- drivers/net/wireless/hostap/hostap_hw.c         | 3525 ++++++++++++++++++++++++
- drivers/net/wireless/hostap/hostap_info.c       |  469 +++
- drivers/net/wireless/hostap/hostap_ioctl.c      | 3468 +++++++++++++++++++++++
- drivers/net/wireless/hostap/hostap_pci.c        |  413 ++
- drivers/net/wireless/hostap/hostap_plx.c        |  598 ++++
- drivers/net/wireless/hostap/hostap_proc.c       |  466 +++
- drivers/net/wireless/hostap/hostap_wlan.h       | 1074 +++++++
- 28 files changed, 20400 insertions(+)
-
-through these ChangeSets:
-
-<jkmaline@cc.hut.fi> (04/06/03 1.1722.86.2)
-   [PATCH] fix hostap crypto bugs
-   
-   On Wed, Jun 02, 2004 at 09:36:34PM -0700, David S. Miller wrote:
-   
-   > You cannot invoke virt_to_page() on addresses on the kernel stack,
-   > and that is what the various HostAP crypto modules are doing.
-   >
-   > This happens to work on some platforms, but it is going to explode
-   > on others.
-   
-   Thanks! I have not updated my non-x86 platforms to 2.6 kernels, so I had
-   not yet had a change to explode anything with this..
-   
-   > Allocate these little header scratch area blobs in the per-crypto-instance
-   > structs you kmalloc instead.
-   
-   This patch (for wireless-2.6) should do this. I used separate buffers
-   for RX and TX because they could be in theory called concurrently.
-   Better to get this first working, but it might be worthwhile to consider
-   the memory use at some point. This version uses 112 bytes of additional
-   scratch buffers per key for CCMP.
-
-<jkmaline@cc.hut.fi> (04/06/02 1.1722.86.1)
-   Add HostAP wireless driver.
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
