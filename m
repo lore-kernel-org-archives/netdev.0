@@ -1,33 +1,31 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: bk16 changes to cbq
-Date: Tue, 6 Jul 2004 00:27:27 +0400
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] broadcast address on subnet
+Date: Mon, 5 Jul 2004 15:35:38 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040705202727.GA21226@ms2.inr.ac.ru>
-References: <1088861810.1039.298.camel@jzny.localdomain>
+Message-ID: <20040705153538.51efe4a5.davem@redhat.com>
+References: <20040630125858.K68876-100000@xs1.xs4all.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>,
-        Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1088861810.1039.298.camel@jzny.localdomain>
+To: Jaap Keuter <jaap.keuter@xs4all.nl>
+In-Reply-To: <20040630125858.K68876-100000@xs1.xs4all.nl>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
+On Wed, 30 Jun 2004 13:02:16 +0200 (CEST)
+Jaap Keuter <jaap.keuter@xs4all.nl> wrote:
 
-> What i remember is this (4-5 years back) used to cure a bug - cant
-> remember the details unfortunately, but Alexey may remember.
+> Digging a bit deeper revealed that it actually is an issue with
+> SIOIFNETMASK. Once you bring up an interface with SIOIFADDR, a classfull
+> netmask and broadcast address is set (if applicable for the type of
+> interface), in order to get a properly configured interface. But if you
+> subnet the network using SIOIFNETMASK no proper broadcast address is
+> set. So you always have to calculate it yourself, obviously leading to
+> configuration errors.
 
-Actually, I do not. It looks like an optimization: if the device is
-throttled we just do not need to add timer, qdisc will be woken up
-by unthrottle. I do not see any race condition here, but also I do not
-see why this check could be important.
+Indeed that's odd behavior.  I like this patch and will apply it
+to my trees.
 
-> At the expense of repeating a discussion that may have already happened,
-
-To be honest, I wish to be reminded. If this check cured something,
-it would be interesting to know what was this.
-
-Alexey
+Thanks.
