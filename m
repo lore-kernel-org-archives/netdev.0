@@ -1,29 +1,43 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: Re: [patch]: ipv6 tunnel for MIPv6
-Date: Sat, 07 Jun 2003 19:41:51 +0900 (JST)
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH 2.5.70] Add release_netdev -- hook for sysfs/net device
+ cleanup
+Date: Sat, 7 Jun 2003 08:25:15 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030607.194151.112395246.yoshfuji@linux-ipv6.org>
-References: <20030603.213458.112594590.davem@redhat.com>
-	<Pine.LNX.4.44.0306041454460.26066-200000@rhea.tcs.hut.fi>
-	<20030607.033059.48393210.davem@redhat.com>
+Message-ID: <20030607082515.6168be46.shemminger@osdl.org>
+References: <20030606145835.3a263df8.shemminger@osdl.org>
+	<20030607.020528.68152135.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, ajtuomin@morphine.tml.hut.fi,
-   lpetande@morphine.tml.hut.fi, jagana@us.ibm.com, kumarkr@us.ibm.com
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com,
+   viro@parcelfarce.linux.theplanet.co.uk
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com, vnuorval@tcs.hut.fi
-In-Reply-To: <20030607.033059.48393210.davem@redhat.com>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030607.020528.68152135.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20030607.033059.48393210.davem@redhat.com> (at Sat, 07 Jun 2003 03:30:59 -0700 (PDT)), "David S. Miller" <davem@redhat.com> says:
+On Sat, 07 Jun 2003 02:05:28 -0700 (PDT)
+"David S. Miller" <davem@redhat.com> wrote:
 
-> I promise to apply it after you fix this stuff up :)))
+>    From: Stephen Hemminger <shemminger@osdl.org>
+>    Date: Fri, 6 Jun 2003 14:58:35 -0700
+>    
+>    Phase I:  introduces release_netdev which is the hook to allow later
+>       changes to hold onto the net device after the device has potentially
+>       unloaded.  Includes patch for the easy to fix devices. 
+> 
+> Besides naming (thought this was going to be named netdev_drop)
+> I have no problems.
+> 
+> Al?
 
-Please be sure not to include "for MIPv6" from the changeset. :-)
+My (admittedly weak) rational for this was:
+	- it seemed more like part of the register/unregister process
+	  and those functions are named {un}register_netdevice
+	- RTNL should not be held, same as unregister_netdev
+	  (vs unregister_netdevice which requires it).
+	- release rather than drop because release is used as name
+	  in the kobject callback hook
 
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+But it's easy to change now.
