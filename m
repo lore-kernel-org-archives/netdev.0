@@ -1,39 +1,30 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [11/*] [NET] Move dst_release out of dst->ops->check
-Date: Thu, 10 Mar 2005 18:17:50 -0800
-Message-ID: <20050310181750.420c073d.davem@davemloft.net>
-References: <20050214221006.GA18415@gondor.apana.org.au>
-	<20050214221200.GA18465@gondor.apana.org.au>
-	<20050214221433.GB18465@gondor.apana.org.au>
-	<20050214221607.GC18465@gondor.apana.org.au>
-	<20050306213214.7d8a143d.davem@davemloft.net>
-	<20050307103536.GB7137@gondor.apana.org.au>
-	<20050308102741.GA23468@gondor.apana.org.au>
+Subject: Re: [PATCH] kill ->accept_fastpath hook
+Date: Thu, 10 Mar 2005 18:19:39 -0800
+Message-ID: <20050310181939.4283ff02.davem@davemloft.net>
+References: <20050309092628.3c9014db@dxpl.pdx.osdl.net>
+	<422F44D8.3010009@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@redhat.com, yoshfuji@linux-ipv6.org,
-        netdev@oss.sgi.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050308102741.GA23468@gondor.apana.org.au>
+Cc: netdev@oss.sgi.com, shemminger@osdl.org
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <422F44D8.3010009@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 8 Mar 2005 21:27:41 +1100
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Wed, 09 Mar 2005 13:47:52 -0500
+Jeff Garzik <jgarzik@pobox.com> wrote:
 
-> On Mon, Mar 07, 2005 at 09:35:36PM +1100, herbert wrote:
+> Stephen Hemminger wrote:
+> > Trivial reordering of netdevice structure to save four bytes.
 > > 
-> > Here's the patch to fix those two problems.  Yes I know
-> > my dst_check implementation is lame.  I'll come back and
-> > fix up all the dst_check functions by moving their dst_release
-> > calls out.  It proves that you were right in that IPv6 dst
-> > leak thread :)
+> > Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 > 
-> As promised here is the patch that moves dst_release out of
-> dst->ops->check.  It bloats sk_dst_check/__sk_dst_check slightly
-> but they're only used in a handful of places so it isn't too bad.
-> I actually counted, it's about a few hundred bytes.
+> If we are twiddling struct net_device, might as well kill this hook. 
+> Never called AFAICS, and only assigned -- to a no-op stub -- in one driver.
+> 
+> Signed-off-by: Jeff Garzik <jgarzik@pobox.com>
 
-Applied, thanks Herbert.
+Applied, thanks Jeff.
