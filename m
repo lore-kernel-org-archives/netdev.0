@@ -1,8 +1,8 @@
 From: Peter Bieringer <pb@bieringer.de>
-Subject: ICMPv6 ratelimiting, which /proc-settings related?
-Date: Sat, 13 Jul 2002 09:57:46 +0200
+Subject: IPv6-proc-FS neigh/* and route/* information available?
+Date: Sat, 13 Jul 2002 10:49:41 +0200
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <17380000.1026547066@localhost>
+Message-ID: <19920000.1026550181@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -16,26 +16,22 @@ Hash: SHA1
 
 Hi,
 
-extending my IPv6-howto with information about the /proc-FS I found
-that there is no setting for ICMPv6 rate limiting.
+is there already somewhere information about the entries in
+/proc/sys/net/ipv6/neigh/*/* and /proc/sys/net/ipv6/route/* available?
 
-But in "ipv6/icmp.c" there are some " if (net_ratelimit())" calls.
+Kernel sources Documentation/networking/ip-sysctl.txt tells
+unfortunately nothing about the values.
 
-How can this limit be controlled? Is it the
-        "/proc/sys/net/ipv4/icmp_ratelimit"
-switch?
-
-I see no reaction turning the value from 1 to 10000 and running a 
-              ping6 -i 0.1 ::1
-
+If still not, perhaps someone can contribute information. For the
+meantime, IPv6 howto contains "To be filled".
 
 TIA,
- Peter
+        Peter
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.0.6 (GNU/Linux)
 Comment: For info see http://www.gnupg.org
 
-iD8DBQE9L917e1eqe5WPQi0RAgXrAJ404K8wy03ZUdVFVZpOOlAeQ9OdogCgsfUD
-/QaVWS9anK4WPPvYEPNOFx4=
-=H2fP
+iEYEARECAAYFAj0v6aYACgkQe1eqe5WPQi2k9wCfY0QyVsP4KzwYdbSyq7ZpQnt5
+PKoAoP1HcTToDsgflNZpzEFB4Xq5PCMA
+=/EKX
 -----END PGP SIGNATURE-----
