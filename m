@@ -1,84 +1,144 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Fw: Frequent Oops on Shutdown 2.6.10
-Date: Sun, 20 Feb 2005 22:03:04 -0800
-Message-ID: <20050220220304.1f2bd42f.akpm@osdl.org>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: Frequent Oops on Shutdown 2.6.10
+Date: Mon, 21 Feb 2005 16:22:41 +0900 (JST)
+Message-ID: <20050221.162241.24618885.yoshfuji@linux-ipv6.org>
+References: <20050220220304.1f2bd42f.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: AndyLiebman@aol.com
-To: netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, davem@davemloft.net, akpm@osdl.org,
+        yoshfuji@linux-ipv6.org
+To: AndyLiebman@aol.com, terryg@axian.com
+In-Reply-To: <20050220220304.1f2bd42f.akpm@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hello.
 
+In article <20050220220304.1f2bd42f.akpm@osdl.org> (at Sun, 20 Feb 2005 22:03:04 -0800), Andrew Morton <akpm@osdl.org> says:
 
-Begin forwarded message:
+> EIP is at remove_proc_entry+0x2a/0x166
+:
+> [<f8c4f051>] snmp6_unregister_dev+0x41/0x57  [ipv6]
+> [<f8c2cc7b>] in6_dev_finish_destroy+0x35/0xb6  [ipv6]
+> [<c0289967>] dst_destroy+0xa2/0xcd
 
-Date: Sun, 20 Feb 2005 09:56:04 EST
-From: AndyLiebman@aol.com
-To: linux-kernel@vger.kernel.org
-Subject: Frequent Oops on Shutdown 2.6.10
+Would you test this patch, please?
+Thanks.
 
+------
+[IPV6] Don't remove dev_snmp6 procfs entry until all users gone.
 
-Hi, 
-I compiled the 2.6.10 kernel with HyperThreading optimization (I'm  running a 
-3.06 Ghz single Xeon processor with HT enabled). More or less, I'm  running 
-Mandrake 10 Official, but with my own kernel. Can anybody help explain  why I'm 
-getting this Oops on shutdown? It doesn't happen all the time -- about  50 
-percent of the time. Never happens with the 2.6.6 kernel. I configured the  
-2.6.10 kernel with mostly the same settings -- saying "no" to everything new,  
-except optimizing for P4/Xeon processor, enabling HT optimization, and NOT  
-enabling lots of "ham radio" and "ISDN" stuff that seemed to be enabled in the  
-Mandrake kernel. 
+Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+
+===== net/ipv6/proc.c 1.25 vs edited =====
+--- 1.25/net/ipv6/proc.c	2004-07-08 07:17:29 +09:00
++++ edited/net/ipv6/proc.c	2005-02-21 16:05:49 +09:00
+@@ -31,7 +31,9 @@
+ #include <net/ipv6.h>
  
-Some relevant things about the machine: 
-Single Xeon 3.06 processor
-2 GB ECC RAM
-2x 3ware 9500S-8 SATA RAID Cards
-16 SATA drives
-2 built-in GigE ports on motherboard
-2 Intel 1000 MT Server Adapters on each of the two 133 Mhz  PCI-X slots
+ #ifdef CONFIG_PROC_FS
+-static struct proc_dir_entry *proc_net_devsnmp6;
++struct proc_dir_entry *proc_net_devsnmp6;
++static DECLARE_MUTEX(proc_net_devsnmp6_sem);
++static unsigned int proc_net_devsnmp6_users;
  
-Here's the output from the Oops
-
-
-*pde = 00000000
-Oops:  0000 [#1]
-SMP
-Modules linked in: raid) appletalk xfs sd_mod sg sr_mod  3w_9xxx scsi_mod 
-nfsd exportfs ipv6 af_packet raw ide_floppy ide_tape ide_cd  cdrom e1000 uhci_hcd 
-usbcore rtc ext3 jbd
-CPU: 1
-EIP:  0060:[<c018b600>] Not tainted VLI
-EFLAGS: 00010246  (2.6.10es-feb06)
-EIP is at remove_proc_entry+0x2a/0x166
-eax: 00000000 ebx:  f66a4e00 ecx: ffffffff edx: f6da1300
-esi: f7cfb000 edi: 00000005 ebp:  c2183eb4 esp: c2183e94
-ds: 007b es: 007b ss: 0068
-Process swapper (pid: 0,  threadinfo=c2182000 task=c214e520)
-Stack: c043402c c043402c 00000000 c2024980  00000005 f66a4e00 f7cfb000 
-00000000 c2183ec8 f8c4f051 00000005 f6da1300 f66a4e00  c2183ee8 f8c2cc7b f66a4e00 
-c2024980 00000002 00000000 f6da7e80 f6da6080 c2183f04  c0289967 f66a4e00
-Call Trace: 
-[<c0103352>]  show_stack+0xaf/0xb7
-[<c01034d9>]  show_registers+0x15f/0x1d2
-[<c01036dd>]  die+0xfa/0x180
-[<c011365e>]  do_page_fault+0x464/0x646
-[<c0102fbf>]  error_code+0x2b/0x30
-[<f8c4f051>] snmp6_unregister_dev+0x41/0x57  [ipv6]
-[<f8c2cc7b>] in6_dev_finish_destroy+0x35/0xb6  [ipv6]
-[<c0289967>] dst_destroy+0xa2/0xcd
-[<c028969a>]  dst_run_gc+0x72/0xfb
-[<c0123584>]  run_timer_softirq+0xc4/0x185
-[<c011f631>]  __do_softirq+0x65/0xd3
-[<c011f6d0>]  do_softirq+0x31/0x33
-[<c0102f18>]  apic_timer_interrupt+0x1c/0x24
-[<c0100747>]  cpu_idle+0x31/0x3f
-[<00000000>] 0x0
-[<c2183fbc>]  0xc2183fbc
-Code: e2 55 89 ef 83 ec 20 8b 55 0c 8b 4d 08 89 5d f4 85 d2 89 75  f8 89 7d 
-fc 89 4d f0 0f 84 b0 00 00 00 8b 7d f0 31 c0 b9 ff ff ff ff <f2>  ae f7 d1 49 
-8b 42 34 8d 5a 34 85 c0 89 ce 0f 84 84 00 00 00 
-<0>Kernel  panic ___ not syncing: Fatal exception in interrupt
+ static int fold_prot_inuse(struct proto *proto)
+ {
+@@ -211,13 +213,26 @@
+ 			   __alignof__(struct icmpv6_mib)) < 0)
+ 		goto err_icmp;
  
+-	if (!proc_net_devsnmp6) {
+-		err = -ENOENT;
+-		goto err_proc;
++	down(&proc_net_devsnmp6_sem);
++	if (!proc_net_devsnmp6_users) {
++		proc_net_devsnmp6 = proc_mkdir("dev_snmp6", proc_net);
++		if (!proc_net_devsnmp6) {
++			err = -ENOMEM;
++			printk(KERN_ERR "%s(): failed to create dev_snmp6.\n",
++			       __FUNCTION__);
++			goto err_proc;
++		}
+ 	}
+ 	p = create_proc_entry(idev->dev->name, S_IRUGO, proc_net_devsnmp6);
+-	if (!p)
++	if (!p) {
++		if (!proc_net_devsnmp6_users)
++			proc_net_remove("dev_snmp6");
+ 		goto err_proc;
++	}
++
++	proc_net_devsnmp6_users++;
++	up(&proc_net_devsnmp6_sem);
++
+ 	p->data = idev;
+ 	p->proc_fops = &snmp6_seq_fops;
+ 
+@@ -225,6 +240,7 @@
+ 	return 0;
+ 
+ err_proc:
++	up(&proc_net_devsnmp6_sem);
+ 	snmp6_mib_free((void **)idev->stats.icmpv6);
+ err_icmp:
+ 	return err;
+@@ -232,12 +248,23 @@
+ 
+ int snmp6_unregister_dev(struct inet6_dev *idev)
+ {
+-	if (!proc_net_devsnmp6)
++	down(&proc_net_devsnmp6_sem);
++	if (!proc_net_devsnmp6) {
++		up(&proc_net_devsnmp6_sem);
+ 		return -ENOENT;
+-	if (!idev || !idev->stats.proc_dir_entry)
++	}
++	if (!idev || !idev->stats.proc_dir_entry) {
++		up(&proc_net_devsnmp6_sem);
+ 		return -EINVAL;
++	}
+ 	remove_proc_entry(idev->stats.proc_dir_entry->name,
+ 			  proc_net_devsnmp6);
++	if (!--proc_net_devsnmp6_users) {
++		proc_net_remove("dev_snmp6");
++		proc_net_devsnmp6 = NULL;
++	}
++	up(&proc_net_devsnmp6_sem);
++
+ 	snmp6_mib_free((void **)idev->stats.icmpv6);
+ 
+ 	return 0;
+@@ -250,18 +277,12 @@
+ 	if (!proc_net_fops_create("snmp6", S_IRUGO, &snmp6_seq_fops))
+ 		goto proc_snmp6_fail;
+ 
+-	proc_net_devsnmp6 = proc_mkdir("dev_snmp6", proc_net);
+-	if (!proc_net_devsnmp6)
+-		goto proc_dev_snmp6_fail;
+-
+ 	if (!proc_net_fops_create("sockstat6", S_IRUGO, &sockstat6_seq_fops))
+ 		goto proc_sockstat6_fail;
+ out:
+ 	return rc;
+ 
+ proc_sockstat6_fail:
+-	proc_net_remove("dev_snmp6");
+-proc_dev_snmp6_fail:
+ 	proc_net_remove("snmp6");
+ proc_snmp6_fail:
+ 	rc = -ENOMEM;
+@@ -271,7 +292,6 @@
+ void ipv6_misc_proc_exit(void)
+ {
+ 	proc_net_remove("sockstat6");
+-	proc_net_remove("dev_snmp6");
+ 	proc_net_remove("snmp6");
+ }
+ 
+
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
