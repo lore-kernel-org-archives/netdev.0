@@ -1,76 +1,58 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: packet forward tests w. 2.5.46
-Date: Tue, 12 Nov 2002 16:15:34 +0100
+From: kuznet@ms2.inr.ac.ru
+Subject: Re: off by one error in 3des cbc keying
+Date: Tue, 12 Nov 2002 18:29:06 +0300 (MSK)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <15825.6934.241737.714418@robur.slu.se>
+Message-ID: <200211121529.SAA00584@sex.inr.ac.ru>
+References: <20021112151638.GA18488@outpost.ds9a.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Cc: davem@redhat.com, gem@asplinux.ru, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
+To: ahu@ds9a.nl (bert hubert)
+In-Reply-To: <20021112151638.GA18488@outpost.ds9a.nl> from "bert hubert" at Nov 12, 2 04:16:38 pm
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
 Hello!
 
-Here are some the of the packet forwarding tests we did before. Now moved to 
-recent 2.5.46 w. XEON 1.8 GHz, SeverWorks, e1000 dual-port w. 82546. and 4.4.12-k1 
-from kernel tree. 10 Mpkts at rate of 817 kpps (64 bytes pkts) injected into 
-eth0 and forwarded to eth1. TX-OK on eth1 gives the throughput.
+> > The problem with expiration remains unsolved. I still cannot reproduce this
+> > and cannot find a situation when kernel can create two larvals with one
+> > identity. :-( Searching.
+> 
+> Sure you saw that? I only saw the one larval in the output I sent you,
 
-Vanlilla NAPI
-=============
+Sure, unless my sick cisco router corrupts mails. But I hope it is not
+so malicious. :-)
 
-netstat -i
-eth0   1500   0 4488490 7703683 7703683 5511514     22      0      0      0 BRU
-eth1   1500   0     22      0      0      0 4488490      0      0      0 BRU
+Joke aparts, of course, I did not see this, it exists for short time,
+you see one of them already grown to mature.
 
-irq's
- 24:         47   IO-APIC-level  eth0
- 25:      39744   IO-APIC-level  eth1
+10.0.0.216 10.0.0.11 
+	esp mode=transport spi=57115683(0x03678423) reqid=0(0x00000000)
+	E: 3des-cbc  cc8e8e4f 91d41b7b ea6cbb3c 24a465cb a08b33aa c8ec1274
+	A: hmac-sha1  f454ab03 3a803ca4 05239de3 100ce68f d283f10a
+	seq=0x00000000 replay=4 flags=0x00000000 state=mature 
+	created: Nov 11 22:42:38 2002	current: Nov 11 22:43:05 2002
+	diff: 27(s)	hard: 600(s)	soft: 480(s)
+	last:                     	hard: 0(s)	soft: 0(s)
+	current: 0(bytes)	hard: 0(bytes)	soft: 0(bytes)
+	allocated: 0	hard: 0	soft: 0
+	sadb_seq=2 pid=8126 refcnt=0
+10.0.0.216 10.0.0.11 
+	esp mode=transport spi=0(0x00000000) reqid=0(0x00000000)
+	seq=0x00000000 replay=0 flags=0x00000000 state=larval 
+	created: Nov 11 22:42:37 2002	current: Nov 11 22:43:05 2002
+	diff: 28(s)	hard: 30(s)	soft: 0(s)
+	last:                     	hard: 0(s)	soft: 0(s)
+	current: 0(bytes)	hard: 0(bytes)	soft: 0(bytes)
+	allocated: 0	hard: 0	soft: 0
+	sadb_seq=1 pid=8126 refcnt=0
 
-softnet_stat
-00447d48 00000000 00003af5 00000000 00000000 00000000 00000000 00000000 00000000
+This MUST NOT happen. The first one was larval while for a second
+before line:
 
-Vanilla kernel (w. NAPI) has now a very decent performance of 367 kpps.
+22:42:38: INFO: pfkey.c:1106:pk_recvupdate(): IPsec-SA
+established: ESP/Transport 10.0.0.11->10.0.0.216 spi=222275495(0xd3fa7a7)
 
+Essentially, seeing this you see a bug in kernel.
 
-Vanilla above plus exerimental skb-recycling.
-=============================================
-robur.slu.se:/pub/Linux/net-development/skb_recycling/ 
-recycle14.pat and e1000-RC-021112.pat
-
-eth0   1500   0 5635546 6762949 6762949 4364460     26      0      0      0 BRU
-eth1   1500   0     26      0      0      0 5635550      0      0      0 BRU
-
- 24:         56   IO-APIC-level  eth0
- 25:      68406   IO-APIC-level  eth1
-
-0055fdfc 00000000 00004a44 00000000 00000000 00000000 00000000 00000000 00000000
-
-We improve to 460 kpps which is about 25% increase in packet budget.
-
-
-Vanilla without NAPI and RC.
-============================
-eth0   1500   0 7512826 5116105 5116105 2487178      9      0      0      0 BRU
-eth1   1500   0     11      0      0      0    305      0      0      0 BRU
-
- 24:      11803   IO-APIC-level  eth0
- 25:         68   IO-APIC-level  eth1
- 
-0072a447 0072a1cb 00000002 00000001 00000000 00000000 00000000 00000000 00000000
-
-0 pps :-) Enabling link-flowcontol would proably have helped. But there are
-equipment around that misses it... 
-
-SMP next...
-
-Cheers.
-						--ro
-
-PS!
-Note interface counters RX-ERR, RX-DRP get screwed up in this tests. But RX-OK+
-RX-OVR counts the RX-pkts.
+Alexey
