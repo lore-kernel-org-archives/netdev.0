@@ -1,30 +1,28 @@
-From: "Larry Sendlosky" <Larry.Sendlosky@storigen.com>
-Subject: e1000 in 2.4.21 and carrier errors
-Date: Wed, 2 Jul 2003 10:59:31 -0400
+From: James Morris <jmorris@intercode.com.au>
+Subject: Re: Fw: [PATCH 2.4.22-bk] dev->promiscuity refcounting broken in
+Date: Thu, 3 Jul 2003 02:00:09 +1000 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <7BFCE5F1EF28D64198522688F5449D5A01FF2AF7@xchangeserver2.storigen.com>
+Message-ID: <Mutt.LNX.4.44.0307030159230.32293-100000@excalibur.intercode.com.au>
+References: <200307020517.JAA05258@dub.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@redhat.com>, <jmorris@redhat.com>,
+   <netdev@oss.sgi.com>, <lunz@falooley.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-content-class: urn:content-classes:message
-To: <netdev@oss.sgi.com>
+To: kuznet@ms2.inr.ac.ru
+In-Reply-To: <200307020517.JAA05258@dub.inr.ac.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-We started running 2.4.21 and use the
-e1000 driver in the kernel. Our NICs are
-PRO-1000 82543GC based copper. Using the
-new driver we see constant increase in
-carrier errors. Loading the Intel
-e1000 v3.6.8.1 driver we have no carrier errors.
-This happens on all our systems with the
-PR0-1000 card using 2.4.21 and RH9. Switches
-are a mixture of Dell, Asante, Cisco, and Extreme.
+On Wed, 2 Jul 2003 kuznet@ms2.inr.ac.ru wrote:
 
-Any ideas?
+> Dave, the patch looks OK.
 
-thanks
+Applied to bk://kernel.bkbits.net/jmorris/net-2.5 and 
+bk://kernel.bkbits.net/jmorris/net-2.4
 
-larry
+
+- James
+-- 
+James Morris
+<jmorris@intercode.com.au>
