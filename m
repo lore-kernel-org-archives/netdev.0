@@ -1,44 +1,93 @@
-From: bert hubert <ahu@ds9a.nl>
-Subject: Re: [PATCH 2.6] iptables CLUSTERIP target
-Date: Thu, 21 Oct 2004 17:08:56 +0200
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [RESEND 16/16] ATM: Use gnet_stats for class statistics and dump them
+Date: Thu, 21 Oct 2004 17:42:00 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041021150856.GA27191@outpost.ds9a.nl>
-References: <20041020223828.GP19899@sunbeam.de.gnumonks.org> <20041021075530.GA1278@infradead.org> <20041021091229.GA3551@sunbeam.de.gnumonks.org> <20041021110513.GA21579@outpost.ds9a.nl> <20041021130327.GD3551@sunbeam.de.gnumonks.org> <20041021133346.GL3911@marowsky-bree.de> <20041021142527.GG3551@sunbeam.de.gnumonks.org>
+Message-ID: <20041021154200.GV21977@postel.suug.ch>
+References: <20041021123209.GE21977@postel.suug.ch> <20041021125201.GU21977@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Lars Marowsky-Bree <lmb@suse.de>, Christoph Hellwig <hch@infradead.org>,
-        Linux Netdev List <netdev@oss.sgi.com>
+Cc: netdev@oss.sgi.com, hadi@cyberus.ca
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Harald Welte <laforge@netfilter.org>
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20041021142527.GG3551@sunbeam.de.gnumonks.org>
+In-Reply-To: <20041021125201.GU21977@postel.suug.ch>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 21, 2004 at 04:25:27PM +0200, Harald Welte wrote:
+Braindead as I am, I forgot to tell my text editor to write the file
+before diffing it. This way an unused variable made it into the patch,
+revised version:
 
-> I'm not a big fan of inventing new kernel/userspace interfaces.  We
-> don't have any associated device, so we don't have any ioctl()s or stuff
-> like that.
+Makes ATM qdisc use gnet_stats for class statistic counters and
+adds dumping bits to actually dump those. Althought the counters
+were updated they never got dumped to userspace.
 
-Or use netlink.
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-> So instead of introducing a new syscall, I think /proc is just the right
-> way to deal with this :)
-
-Or even more modern, clusteripfs.
-
-> Let me give it some testing, I'll re-submit it later today or tomorrow.
-
-I'll test it at home to see if it does the right thing too.
-
-> > > > And yes, I've received hate mail over this from switch engineers :-)
-
-The hate mail originated from a large telco, I think the innovation just
-offended their sensitive minds.
-
-	Bert
-
--- 
-http://www.PowerDNS.com      Open source, database driven DNS Software 
-http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
+--- linux-2.6.9-bk6.orig/net/sched/sch_atm.c	2004-10-21 17:30:11.000000000 +0200
++++ linux-2.6.9-bk6/net/sched/sch_atm.c	2004-10-21 17:29:28.000000000 +0200
+@@ -69,7 +69,8 @@
+ 	struct socket		*sock;		/* for closing */
+ 	u32			classid;	/* x:y type ID */
+ 	int			ref;		/* reference count */
+-	struct tc_stats		stats;
++	struct gnet_stats_basic	bstats;
++	struct gnet_stats_queue	qstats;
+ 	spinlock_t		*stats_lock;
+ 	struct atm_flow_data	*next;
+ 	struct atm_flow_data	*excess;	/* flow for excess traffic;
+@@ -450,13 +451,13 @@
+ #endif
+ 	    (ret = flow->q->enqueue(skb,flow->q)) != 0) {
+ 		sch->qstats.drops++;
+-		if (flow) flow->stats.drops++;
++		if (flow) flow->qstats.drops++;
+ 		return ret;
+ 	}
+ 	sch->bstats.bytes += skb->len;
+ 	sch->bstats.packets++;
+-	flow->stats.bytes += skb->len;
+-	flow->stats.packets++;
++	flow->bstats.bytes += skb->len;
++	flow->bstats.packets++;
+ 	/*
+ 	 * Okay, this may seem weird. We pretend we've dropped the packet if
+ 	 * it goes via ATM. The reason for this is that the outer qdisc
+@@ -550,7 +551,7 @@
+         sch->qstats.requeues++;
+     } else {
+ 		sch->qstats.drops++;
+-		p->link.stats.drops++;
++		p->link.qstats.drops++;
+ 	}
+ 	return ret;
+ }
+@@ -666,6 +667,20 @@
+ 	skb_trim(skb,b-skb->data);
+ 	return -1;
+ }
++static int
++atm_tc_dump_class_stats(struct Qdisc *sch, unsigned long arg,
++	struct gnet_dump *d)
++{
++	struct atm_flow_data *flow = (struct atm_flow_data *) arg;
++
++	flow->qstats.qlen = flow->q->q.qlen;
++
++	if (gnet_stats_copy_basic(d, &flow->bstats) < 0 ||
++	    gnet_stats_copy_queue(d, &flow->qstats) < 0)
++		return -1;
++
++	return 0;
++}
+ 
+ static int atm_tc_dump(struct Qdisc *sch, struct sk_buff *skb)
+ {
+@@ -684,6 +699,7 @@
+ 	.bind_tcf	=	atm_tc_bind_filter,
+ 	.unbind_tcf	=	atm_tc_put,
+ 	.dump		=	atm_tc_dump_class,
++	.dump_stats	=	atm_tc_dump_class_stats,
+ };
+ 
+ static struct Qdisc_ops atm_qdisc_ops = {
