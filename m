@@ -1,56 +1,144 @@
-From: Krishna Kumar <krkumar@us.ibm.com>
-Subject: [PATCH 5/5] schedule() bug in xfrm_lookup()
-Date: Tue, 13 Jan 2004 13:26:21 -0800 (PST)
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH 2.6.X] SIOCSIFNAME wilcard suppor & name validation
+Date: Tue, 13 Jan 2004 14:22:04 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0401131324340.25742-100000@linux-udp14999547uds>
-References: <Pine.LNX.4.44.0401131319510.25742-100000@linux-udp14999547uds>
+Message-ID: <20040113142204.0b41403b.shemminger@osdl.org>
+References: <20040112234332.GA1785@bougret.hpl.hp.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com, KK <krkumar@us.ibm.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jt@bougret.hpl.hp.com, Jeff Garzik <jgarzik@pobox.com>,
+        "David S.
+ Miller" <davem@redhat.com>, netdev@oss.sgi.com,
+        Linux kernel mailing list
+ <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <Pine.LNX.4.44.0401131319510.25742-100000@linux-udp14999547uds>
+To: jt@hpl.hp.com
+In-Reply-To: <20040112234332.GA1785@bougret.hpl.hp.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Here is an enhanced version of the previous patch.
+It adds both the wildcard support that Jean did, and validation of network
+device names.
 
-When xfrm_tmpl_resolve fails, schedule() before retrying. Also, cleaned
-up the set_task_* routines to use set_current_*, etc.
+It doesn't check the error return from class_device_rename because
+that will not fail unless object or name are null.
 
-This needs to be applied after [PATCH 3/5].
-
-thanks,
-
-- KK
-
-diff -ruN linux-2.6.0-rc2-bk6.org/net/xfrm/xfrm_policy.c linux-2.6.0-rc2-bk6/net/xfrm/xfrm_policy.c
---- linux-2.6.0-rc2-bk6.org/net/xfrm/xfrm_policy.c	2004-01-09 12:42:53.000000000 -0800
-+++ linux-2.6.0-rc2-bk6/net/xfrm/xfrm_policy.c	2004-01-12 09:55:26.000000000 -0800
-@@ -775,20 +775,17 @@
-
- 		if (unlikely(nx<0)) {
- 			err = nx;
--			if (err == -EAGAIN) {
--				struct task_struct *tsk = current;
--				DECLARE_WAITQUEUE(wait, tsk);
--				if (!flags)
--					goto error;
-+			if (err == -EAGAIN && !flags) {
-+				DECLARE_WAITQUEUE(wait, current);
-
--				__set_task_state(tsk, TASK_INTERRUPTIBLE);
- 				add_wait_queue(&km_waitq, &wait);
--				nx = xfrm_tmpl_resolve(policy, fl, xfrm, family);
--				if (nx == -EAGAIN)
--					schedule();
--				__set_task_state(tsk, TASK_RUNNING);
-+				set_current_state(TASK_INTERRUPTIBLE);
-+				schedule();
-+				set_current_state(TASK_RUNNING);
- 				remove_wait_queue(&km_waitq, &wait);
-
-+				nx = xfrm_tmpl_resolve(policy, fl, xfrm, family);
+diff -Nru a/net/core/dev.c b/net/core/dev.c
+--- a/net/core/dev.c	Tue Jan 13 14:20:51 2004
++++ b/net/core/dev.c	Tue Jan 13 14:20:51 2004
+@@ -621,6 +621,21 @@
+ }
+ 
+ /**
++ *	dev_valid_name - check if name is okay for network device
++ *	@name: name string
++ *
++ *	Network device names need to be valid file names to
++ *	to allow sysfs to work
++ */
++int dev_valid_name(const char *name)
++{
++	return !(*name == '\0' 
++		 || !strcmp(name, ".")
++		 || !strcmp(name, "..")
++		 || strchr(name, '/'));
++}
 +
- 				if (nx == -EAGAIN && signal_pending(current)) {
- 					err = -ERESTART;
- 					goto error;
++/**
+  *	dev_alloc_name - allocate a name for a device
+  *	@dev: device
+  *	@name: name format string
+@@ -660,6 +675,41 @@
+ 	return -ENFILE;	/* Over 100 of the things .. bail out! */
+ }
+ 
++
++/**
++ *	dev_change_name - change name of a device
++ *	@dev: device
++ *	@name: name (or format string) must be at least IFNAMSIZ
++ *
++ *	Change name of a device, can pass format strings "eth%d".
++ *	for wildcarding.
++ */
++int dev_change_name(struct net_device *dev, char *newname)
++{
++	ASSERT_RTNL();
++
++	if (dev->flags & IFF_UP)
++		return -EBUSY;
++
++	if (!dev_valid_name(newname))
++		return -EINVAL;
++
++	if (strchr(newname, '%')) {
++		int err = dev_alloc_name(dev, newname);
++		if (err)
++			return err;
++		strcpy(newname, dev->name);
++	}
++	else if (__dev_get_by_name(newname))
++		return -EEXIST;
++	else
++		strlcpy(dev->name, newname, IFNAMSIZ);
++
++	class_device_rename(&dev->class_dev, dev->name);
++	notifier_call_chain(&netdev_chain, NETDEV_CHANGENAME, dev);
++	return 0;
++}
++
+ /**
+  *	dev_alloc - allocate a network device and name
+  *	@name: name format string
+@@ -2359,20 +2409,8 @@
+ 			return 0;
+ 
+ 		case SIOCSIFNAME:
+-			if (dev->flags & IFF_UP)
+-				return -EBUSY;
+ 			ifr->ifr_newname[IFNAMSIZ-1] = '\0';
+-			if (__dev_get_by_name(ifr->ifr_newname))
+-				return -EEXIST;
+-			err = class_device_rename(&dev->class_dev, 
+-						  ifr->ifr_newname);
+-			if (!err) {
+-				strlcpy(dev->name, ifr->ifr_newname, IFNAMSIZ);
+-
+-				notifier_call_chain(&netdev_chain,
+-						    NETDEV_CHANGENAME, dev);
+-			}
+-			return err;
++			return dev_change_name(dev, ifr->ifr_newname);
+ 
+ 		/*
+ 		 *	Unknown or private ioctl
+@@ -2505,6 +2543,7 @@
+ 		 */
+ 		case SIOCGMIIPHY:
+ 		case SIOCGMIIREG:
++		case SIOCSIFNAME:
+ 			if (!capable(CAP_NET_ADMIN))
+ 				return -EPERM;
+ 			dev_load(ifr.ifr_name);
+@@ -2536,7 +2575,6 @@
+ 		case SIOCDELMULTI:
+ 		case SIOCSIFHWBROADCAST:
+ 		case SIOCSIFTXQLEN:
+-		case SIOCSIFNAME:
+ 		case SIOCSMIIREG:
+ 		case SIOCBONDENSLAVE:
+ 		case SIOCBONDRELEASE:
+@@ -2685,6 +2723,11 @@
+ 				ret = -EIO;
+ 			goto out_err;
+ 		}
++	}
++ 
++	if (!dev_valid_name(dev->name)) {
++		ret = -EINVAL;
++		goto out_err;
+ 	}
+ 
+ 	dev->ifindex = dev_new_index();
