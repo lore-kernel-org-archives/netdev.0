@@ -1,8 +1,8 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 2.6.9-rc4 3/3] ns83820: use netdev_priv properly
-Date: Fri, 15 Oct 2004 15:45:20 -0700
+Subject: [PATCH 2.6.9-rc4] 8139too: use netdev_priv
+Date: Fri, 15 Oct 2004 15:33:54 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041015154520.3f0b3ac9@zqx3.pdx.osdl.net>
+Message-ID: <20041015153354.0c007eae@zqx3.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -12,253 +12,356 @@ To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Replace ugly local inline with call to netdev_priv.
+Use netdev_priv where appropriate, and get rid of "can't happen anymore" assert's.
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+
+diff -Nru a/drivers/net/8139too.c b/drivers/net/8139too.c
+--- a/drivers/net/8139too.c	2004-10-15 15:25:02 -07:00
++++ b/drivers/net/8139too.c	2004-10-15 15:25:02 -07:00
+@@ -734,13 +734,10 @@
  
-diff -Nru a/drivers/net/ns83820.c b/drivers/net/ns83820.c
---- a/drivers/net/ns83820.c	2004-10-15 15:30:43 -07:00
-+++ b/drivers/net/ns83820.c	2004-10-15 15:30:43 -07:00
-@@ -482,16 +482,11 @@
- 	struct timer_list	tx_watchdog;
- };
+ static void __rtl8139_cleanup_dev (struct net_device *dev)
+ {
+-	struct rtl8139_private *tp;
++	struct rtl8139_private *tp = netdev_priv(dev);
+ 	struct pci_dev *pdev;
  
--static inline struct ns83820 *PRIV(struct net_device *dev)
--{
--	return netdev_priv(dev);
--}
+ 	assert (dev != NULL);
+-	assert (dev->priv != NULL);
 -
- #define __kick_rx(dev)	writel(CR_RXE, dev->base + CR)
+-	tp = dev->priv;
+ 	assert (tp->pci_dev != NULL);
+ 	pdev = tp->pci_dev;
  
- static inline void kick_rx(struct net_device *ndev)
- {
--	struct ns83820 *dev = PRIV(ndev);
-+	struct ns83820 *dev = netdev_priv(ndev);
- 	dprintk("kick_rx: maybe kicking\n");
- 	if (test_and_clear_bit(0, &dev->rx_info.idle)) {
- 		dprintk("actually kicking\n");
-@@ -513,7 +508,7 @@
- #ifdef NS83820_VLAN_ACCEL_SUPPORT 
- static void ns83820_vlan_rx_register(struct net_device *ndev, struct vlan_group *grp)
- {
--	struct ns83820 *dev = PRIV(ndev);
-+	struct ns83820 *dev = netdev_priv(ndev);
+@@ -792,7 +789,7 @@
  
- 	spin_lock_irq(&dev->misc_lock);
- 	spin_lock(&dev->tx_lock);
-@@ -526,7 +521,7 @@
+ 	*dev_out = NULL;
  
- static void ns83820_vlan_rx_kill_vid(struct net_device *ndev, unsigned short vid)
- {
--	struct ns83820 *dev = PRIV(ndev);
-+	struct ns83820 *dev = netdev_priv(ndev);
+-	/* dev and dev->priv zeroed in alloc_etherdev */
++	/* dev and priv zeroed in alloc_etherdev */
+ 	dev = alloc_etherdev (sizeof (*tp));
+ 	if (dev == NULL) {
+ 		printk (KERN_ERR PFX "%s: Unable to alloc new net device\n", pci_name(pdev));
+@@ -801,7 +798,7 @@
+ 	SET_MODULE_OWNER(dev);
+ 	SET_NETDEV_DEV(dev, &pdev->dev);
  
- 	spin_lock_irq(&dev->misc_lock);
- 	spin_lock(&dev->tx_lock);
-@@ -602,7 +597,7 @@
+-	tp = dev->priv;
++	tp = netdev_priv(dev);
+ 	tp->pci_dev = pdev;
  
- static inline int rx_refill(struct net_device *ndev, int gfp)
- {
--	struct ns83820 *dev = PRIV(ndev);
-+	struct ns83820 *dev = netdev_priv(ndev);
- 	unsigned i;
- 	unsigned long flags = 0;
+ 	/* enable device (incl. PCI PM wakeup and hotplug setup) */
+@@ -983,8 +980,8 @@
+ 		return i;
  
-@@ -652,7 +647,7 @@
- static inline void queue_refill(void *_dev)
- {
- 	struct net_device *ndev = _dev;
--	struct ns83820 *dev = PRIV(ndev);
-+	struct ns83820 *dev = netdev_priv(ndev);
+ 	assert (dev != NULL);
+-	tp = dev->priv;
+-	assert (tp != NULL);
++	tp = netdev_priv(dev);
++
+ 	ioaddr = tp->mmio_addr;
+ 	assert (ioaddr != NULL);
  
- 	rx_refill(ndev, GFP_KERNEL);
- 	if (dev->rx_info.up)
-@@ -667,7 +662,7 @@
- static void FASTCALL(phy_intr(struct net_device *ndev));
- static void fastcall phy_intr(struct net_device *ndev)
- {
--	struct ns83820 *dev = PRIV(ndev);
-+	struct ns83820 *dev = netdev_priv(ndev);
- 	static char *speeds[] = { "10", "100", "1000", "1000(?)", "1000F" };
- 	u32 cfg, new_cfg;
- 	u32 tbisr, tanar, tanlpar;
-@@ -762,7 +757,7 @@
+@@ -1017,8 +1014,8 @@
  
- static int ns83820_setup_rx(struct net_device *ndev)
- {
--	struct ns83820 *dev = PRIV(ndev);
-+	struct ns83820 *dev = netdev_priv(ndev);
- 	unsigned i;
- 	int ret;
+ 	dev->irq = pdev->irq;
  
-@@ -854,7 +849,7 @@
- static void FASTCALL(ns83820_rx_kick(struct net_device *ndev));
- static void fastcall ns83820_rx_kick(struct net_device *ndev)
- {
--	struct ns83820 *dev = PRIV(ndev);
-+	struct ns83820 *dev = netdev_priv(ndev);
- 	/*if (nr_rx_empty(dev) >= NR_RX_DESC/4)*/ {
- 		if (dev->rx_info.up) {
- 			rx_refill_atomic(ndev);
-@@ -876,7 +871,7 @@
- static void FASTCALL(rx_irq(struct net_device *ndev));
- static void fastcall rx_irq(struct net_device *ndev)
- {
--	struct ns83820 *dev = PRIV(ndev);
-+	struct ns83820 *dev = netdev_priv(ndev);
- 	struct rx_info *info = &dev->rx_info;
- 	unsigned next_rx;
- 	int rx_rc, len;
-@@ -988,7 +983,7 @@
- static void rx_action(unsigned long _dev)
- {
- 	struct net_device *ndev = (void *)_dev;
--	struct ns83820 *dev = PRIV(ndev);
-+	struct ns83820 *dev = netdev_priv(ndev);
- 	rx_irq(ndev);
- 	writel(ihr, dev->base + IHR);
+-	/* dev->priv/tp zeroed and aligned in alloc_etherdev */
+-	tp = dev->priv;
++	/* tp zeroed and aligned in alloc_etherdev */
++	tp = netdev_priv(dev);
  
-@@ -1015,7 +1010,7 @@
-  */
- static void do_tx_done(struct net_device *ndev)
+ 	/* note: tp->chipset set in rtl8139_init_board */
+ 	tp->drv_flags = board_info[ent->driver_data].hw_flags;
+@@ -1123,11 +1120,8 @@
+ static void __devexit rtl8139_remove_one (struct pci_dev *pdev)
  {
--	struct ns83820 *dev = PRIV(ndev);
-+	struct ns83820 *dev = netdev_priv(ndev);
- 	u32 cmdsts, tx_done_idx, *desc;
+ 	struct net_device *dev = pci_get_drvdata (pdev);
+-	struct rtl8139_private *np;
  
- 	spin_lock_irq(&dev->tx_lock);
-@@ -1107,7 +1102,7 @@
-  */
- static int ns83820_hard_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 	assert (dev != NULL);
+-	np = dev->priv;
+-	assert (np != NULL);
+ 
+ 	unregister_netdev (dev);
+ 
+@@ -1241,7 +1235,7 @@
+ 
+ static int mdio_read (struct net_device *dev, int phy_id, int location)
  {
--	struct ns83820 *dev = PRIV(ndev);
-+	struct ns83820 *dev = netdev_priv(ndev);
- 	u32 free_idx, cmdsts, extsts;
- 	int nr_free, nr_frags;
- 	unsigned tx_done_idx, last_idx;
-@@ -1264,7 +1259,7 @@
- 
- static struct net_device_stats *ns83820_get_stats(struct net_device *ndev)
+-	struct rtl8139_private *tp = dev->priv;
++	struct rtl8139_private *tp = netdev_priv(dev);
+ 	int retval = 0;
+ #ifdef CONFIG_8139TOO_8129
+ 	void *mdio_addr = tp->mmio_addr + Config4;
+@@ -1283,7 +1277,7 @@
+ static void mdio_write (struct net_device *dev, int phy_id, int location,
+ 			int value)
  {
--	struct ns83820 *dev = PRIV(ndev);
-+	struct ns83820 *dev = netdev_priv(ndev);
+-	struct rtl8139_private *tp = dev->priv;
++	struct rtl8139_private *tp = netdev_priv(dev);
+ #ifdef CONFIG_8139TOO_8129
+ 	void *mdio_addr = tp->mmio_addr + Config4;
+ 	int mii_cmd = (0x5002 << 16) | (phy_id << 23) | (location << 18) | value;
+@@ -1326,7 +1320,7 @@
  
- 	/* somewhat overkill */
- 	spin_lock_irq(&dev->misc_lock);
-@@ -1276,7 +1271,7 @@
- 
- static void ns83820_get_drvinfo(struct net_device *ndev, struct ethtool_drvinfo *info)
+ static int rtl8139_open (struct net_device *dev)
  {
--	struct ns83820 *dev = PRIV(ndev);
-+	struct ns83820 *dev = netdev_priv(ndev);
- 	strcpy(info->driver, "ns83820");
- 	strcpy(info->version, VERSION);
- 	strcpy(info->bus_info, pci_name(dev->pci_dev));
-@@ -1284,7 +1279,7 @@
+-	struct rtl8139_private *tp = dev->priv;
++	struct rtl8139_private *tp = netdev_priv(dev);
+ 	int retval;
+ 	void *ioaddr = tp->mmio_addr;
  
- static u32 ns83820_get_link(struct net_device *ndev)
+@@ -1374,7 +1368,7 @@
+ 
+ static void rtl_check_media (struct net_device *dev, unsigned int init_media)
  {
--	struct ns83820 *dev = PRIV(ndev);
-+	struct ns83820 *dev = netdev_priv(ndev);
- 	u32 cfg = readl(dev->base + CFG) ^ SPDSTS_POLARITY;
- 	return cfg & CFG_LNKSTS ? 1 : 0;
+-	struct rtl8139_private *tp = dev->priv;
++	struct rtl8139_private *tp = netdev_priv(dev);
+ 
+ 	if (tp->phys[0] >= 0) {
+ 		mii_check_media(&tp->mii, netif_msg_link(tp), init_media);
+@@ -1384,7 +1378,7 @@
+ /* Start the hardware at open or resume. */
+ static void rtl8139_hw_start (struct net_device *dev)
+ {
+-	struct rtl8139_private *tp = dev->priv;
++	struct rtl8139_private *tp = netdev_priv(dev);
+ 	void *ioaddr = tp->mmio_addr;
+ 	u32 i;
+ 	u8 tmp;
+@@ -1451,7 +1445,7 @@
+ /* Initialize the Rx and Tx rings, along with various 'dev' bits. */
+ static void rtl8139_init_ring (struct net_device *dev)
+ {
+-	struct rtl8139_private *tp = dev->priv;
++	struct rtl8139_private *tp = netdev_priv(dev);
+ 	int i;
+ 
+ 	tp->cur_rx = 0;
+@@ -1618,7 +1612,7 @@
+ static int rtl8139_thread (void *data)
+ {
+ 	struct net_device *dev = data;
+-	struct rtl8139_private *tp = dev->priv;
++	struct rtl8139_private *tp = netdev_priv(dev);
+ 	unsigned long timeout;
+ 
+ 	daemonize("%s", dev->name);
+@@ -1650,7 +1644,7 @@
+ 
+ static void rtl8139_start_thread(struct net_device *dev)
+ {
+-	struct rtl8139_private *tp = dev->priv;
++	struct rtl8139_private *tp = netdev_priv(dev);
+ 
+ 	tp->thr_pid = -1;
+ 	tp->twistie = 0;
+@@ -1678,7 +1672,7 @@
+ 
+ static void rtl8139_tx_timeout (struct net_device *dev)
+ {
+-	struct rtl8139_private *tp = dev->priv;
++	struct rtl8139_private *tp = netdev_priv(dev);
+ 	void *ioaddr = tp->mmio_addr;
+ 	int i;
+ 	u8 tmp8;
+@@ -1723,7 +1717,7 @@
+ 
+ static int rtl8139_start_xmit (struct sk_buff *skb, struct net_device *dev)
+ {
+-	struct rtl8139_private *tp = dev->priv;
++	struct rtl8139_private *tp = netdev_priv(dev);
+ 	void *ioaddr = tp->mmio_addr;
+ 	unsigned int entry;
+ 	unsigned int len = skb->len;
+@@ -1771,7 +1765,6 @@
+ 	unsigned long dirty_tx, tx_left;
+ 
+ 	assert (dev != NULL);
+-	assert (tp != NULL);
+ 	assert (ioaddr != NULL);
+ 
+ 	dirty_tx = tp->dirty_tx;
+@@ -2130,7 +2123,7 @@
+ 
+ static int rtl8139_poll(struct net_device *dev, int *budget)
+ {
+-	struct rtl8139_private *tp = dev->priv;
++	struct rtl8139_private *tp = netdev_priv(dev);
+ 	void *ioaddr = tp->mmio_addr;
+ 	int orig_budget = min(*budget, dev->quota);
+ 	int done = 1;
+@@ -2168,7 +2161,7 @@
+ 			       struct pt_regs *regs)
+ {
+ 	struct net_device *dev = (struct net_device *) dev_instance;
+-	struct rtl8139_private *tp = dev->priv;
++	struct rtl8139_private *tp = netdev_priv(dev);
+ 	void *ioaddr = tp->mmio_addr;
+ 	u16 status, ackstat;
+ 	int link_changed = 0; /* avoid bogus "uninit" warning */
+@@ -2244,7 +2237,7 @@
+ 
+ static int rtl8139_close (struct net_device *dev)
+ {
+-	struct rtl8139_private *tp = dev->priv;
++	struct rtl8139_private *tp = netdev_priv(dev);
+ 	void *ioaddr = tp->mmio_addr;
+ 	int ret = 0;
+ 	unsigned long flags;
+@@ -2307,7 +2300,7 @@
+    other threads or interrupts aren't messing with the 8139.  */
+ static void rtl8139_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
+ {
+-	struct rtl8139_private *np = dev->priv;
++	struct rtl8139_private *np = netdev_priv(dev);
+ 	void *ioaddr = np->mmio_addr;
+ 
+ 	spin_lock_irq(&np->lock);
+@@ -2341,7 +2334,7 @@
+    aren't messing with the 8139.  */
+ static int rtl8139_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
+ {
+-	struct rtl8139_private *np = dev->priv;
++	struct rtl8139_private *np = netdev_priv(dev);
+ 	void *ioaddr = np->mmio_addr;
+ 	u32 support;
+ 	u8 cfg3, cfg5;
+@@ -2381,7 +2374,7 @@
+ 
+ static void rtl8139_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
+ {
+-	struct rtl8139_private *np = dev->priv;
++	struct rtl8139_private *np = netdev_priv(dev);
+ 	strcpy(info->driver, DRV_NAME);
+ 	strcpy(info->version, DRV_VERSION);
+ 	strcpy(info->bus_info, pci_name(np->pci_dev));
+@@ -2390,7 +2383,7 @@
+ 
+ static int rtl8139_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ {
+-	struct rtl8139_private *np = dev->priv;
++	struct rtl8139_private *np = netdev_priv(dev);
+ 	spin_lock_irq(&np->lock);
+ 	mii_ethtool_gset(&np->mii, cmd);
+ 	spin_unlock_irq(&np->lock);
+@@ -2399,7 +2392,7 @@
+ 
+ static int rtl8139_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ {
+-	struct rtl8139_private *np = dev->priv;
++	struct rtl8139_private *np = netdev_priv(dev);
+ 	int rc;
+ 	spin_lock_irq(&np->lock);
+ 	rc = mii_ethtool_sset(&np->mii, cmd);
+@@ -2409,25 +2402,25 @@
+ 
+ static int rtl8139_nway_reset(struct net_device *dev)
+ {
+-	struct rtl8139_private *np = dev->priv;
++	struct rtl8139_private *np = netdev_priv(dev);
+ 	return mii_nway_restart(&np->mii);
  }
-@@ -1305,7 +1300,7 @@
- static irqreturn_t ns83820_irq(int foo, void *data, struct pt_regs *regs)
+ 
+ static u32 rtl8139_get_link(struct net_device *dev)
  {
- 	struct net_device *ndev = data;
--	struct ns83820 *dev = PRIV(ndev);
-+	struct ns83820 *dev = netdev_priv(ndev);
- 	u32 isr;
- 	dprintk("ns83820_irq(%p)\n", ndev);
+-	struct rtl8139_private *np = dev->priv;
++	struct rtl8139_private *np = netdev_priv(dev);
+ 	return mii_link_ok(&np->mii);
+ }
  
-@@ -1319,7 +1314,7 @@
- 
- static void ns83820_do_isr(struct net_device *ndev, u32 isr)
+ static u32 rtl8139_get_msglevel(struct net_device *dev)
  {
--	struct ns83820 *dev = PRIV(ndev);
-+	struct ns83820 *dev = netdev_priv(ndev);
- #ifdef DEBUG
- 	if (isr & ~(ISR_PHY | ISR_RXDESC | ISR_RXEARLY | ISR_RXOK | ISR_RXERR | ISR_TXIDLE | ISR_TXOK | ISR_TXDESC))
- 		Dprintk("odd isr? 0x%08x\n", isr);
-@@ -1435,7 +1430,7 @@
+-	struct rtl8139_private *np = dev->priv;
++	struct rtl8139_private *np = netdev_priv(dev);
+ 	return np->msg_enable;
+ }
  
- static int ns83820_stop(struct net_device *ndev)
+ static void rtl8139_set_msglevel(struct net_device *dev, u32 datum)
  {
--	struct ns83820 *dev = PRIV(ndev);
-+	struct ns83820 *dev = netdev_priv(ndev);
+-	struct rtl8139_private *np = dev->priv;
++	struct rtl8139_private *np = netdev_priv(dev);
+ 	np->msg_enable = datum;
+ }
  
- 	/* FIXME: protect against interrupt handler? */
- 	del_timer_sync(&dev->tx_watchdog);
-@@ -1464,7 +1459,7 @@
- 
- static void ns83820_tx_timeout(struct net_device *ndev)
+@@ -2438,13 +2431,13 @@
+ #else
+ static int rtl8139_get_regs_len(struct net_device *dev)
  {
--	struct ns83820 *dev = PRIV(ndev);
-+	struct ns83820 *dev = netdev_priv(ndev);
-         u32 tx_done_idx, *desc;
+-	struct rtl8139_private *np = dev->priv;
++	struct rtl8139_private *np = netdev_priv(dev);
+ 	return np->regs_len;
+ }
+ 
+ static void rtl8139_get_regs(struct net_device *dev, struct ethtool_regs *regs, void *regbuf)
+ {
+-	struct rtl8139_private *np = dev->priv;
++	struct rtl8139_private *np = netdev_priv(dev);
+ 
+ 	regs->version = RTL_REGS_VER;
+ 
+@@ -2461,7 +2454,7 @@
+ 
+ static void rtl8139_get_ethtool_stats(struct net_device *dev, struct ethtool_stats *stats, u64 *data)
+ {
+-	struct rtl8139_private *np = dev->priv;
++	struct rtl8139_private *np = netdev_priv(dev);
+ 
+ 	data[0] = np->xstats.early_rx;
+ 	data[1] = np->xstats.tx_buf_mapped;
+@@ -2493,7 +2486,7 @@
+ 
+ static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ {
+-	struct rtl8139_private *np = dev->priv;
++	struct rtl8139_private *np = netdev_priv(dev);
+ 	int rc;
+ 
+ 	if (!netif_running(dev))
+@@ -2509,7 +2502,7 @@
+ 
+ static struct net_device_stats *rtl8139_get_stats (struct net_device *dev)
+ {
+-	struct rtl8139_private *tp = dev->priv;
++	struct rtl8139_private *tp = netdev_priv(dev);
+ 	void *ioaddr = tp->mmio_addr;
  	unsigned long flags;
  
-@@ -1501,7 +1496,7 @@
- static void ns83820_tx_watch(unsigned long data)
+@@ -2528,7 +2521,7 @@
+ 
+ static void __set_rx_mode (struct net_device *dev)
  {
- 	struct net_device *ndev = (void *)data;
--	struct ns83820 *dev = PRIV(ndev);
-+	struct ns83820 *dev = netdev_priv(ndev);
- 
- #if defined(DEBUG)
- 	printk("ns83820_tx_watch: %u %u %d\n",
-@@ -1523,7 +1518,7 @@
- 
- static int ns83820_open(struct net_device *ndev)
+-	struct rtl8139_private *tp = dev->priv;
++	struct rtl8139_private *tp = netdev_priv(dev);
+ 	void *ioaddr = tp->mmio_addr;
+ 	u32 mc_filter[2];	/* Multicast hash filter */
+ 	int i, rx_mode;
+@@ -2577,7 +2570,7 @@
+ static void rtl8139_set_rx_mode (struct net_device *dev)
  {
--	struct ns83820 *dev = PRIV(ndev);
-+	struct ns83820 *dev = netdev_priv(ndev);
- 	unsigned i;
- 	u32 desc;
- 	int ret;
-@@ -1593,7 +1588,7 @@
+ 	unsigned long flags;
+-	struct rtl8139_private *tp = dev->priv;
++	struct rtl8139_private *tp = netdev_priv(dev);
  
- static void ns83820_set_multicast(struct net_device *ndev)
+ 	spin_lock_irqsave (&tp->lock, flags);
+ 	__set_rx_mode(dev);
+@@ -2589,7 +2582,7 @@
+ static int rtl8139_suspend (struct pci_dev *pdev, u32 state)
  {
--	struct ns83820 *dev = PRIV(ndev);
-+	struct ns83820 *dev = netdev_priv(ndev);
- 	u8 *rfcr = dev->base + RFCR;
- 	u32 and_mask = 0xffffffff;
- 	u32 or_mask = 0;
-@@ -1619,7 +1614,7 @@
+ 	struct net_device *dev = pci_get_drvdata (pdev);
+-	struct rtl8139_private *tp = dev->priv;
++	struct rtl8139_private *tp = netdev_priv(dev);
+ 	void *ioaddr = tp->mmio_addr;
+ 	unsigned long flags;
  
- static void ns83820_run_bist(struct net_device *ndev, const char *name, u32 enable, u32 done, u32 fail)
+@@ -2621,7 +2614,7 @@
+ static int rtl8139_resume (struct pci_dev *pdev)
  {
--	struct ns83820 *dev = PRIV(ndev);
-+	struct ns83820 *dev = netdev_priv(ndev);
- 	int timed_out = 0;
- 	long start;
- 	u32 status;
-@@ -1779,7 +1774,7 @@
+ 	struct net_device *dev = pci_get_drvdata (pdev);
+-	struct rtl8139_private *tp = dev->priv;
++	struct rtl8139_private *tp = netdev_priv(dev);
  
- static void ns83820_probe_phy(struct net_device *ndev)
- {
--	struct ns83820 *dev = PRIV(ndev);
-+	struct ns83820 *dev = netdev_priv(ndev);
- 	static int first;
- 	int i;
- #define MII_PHYIDR1	0x02
-@@ -1852,7 +1847,7 @@
- 	}
- 
- 	ndev = alloc_etherdev(sizeof(struct ns83820));
--	dev = PRIV(ndev);
-+	dev = netdev_priv(ndev);
- 	err = -ENOMEM;
- 	if (!dev)
- 		goto out;
-@@ -2156,7 +2151,7 @@
- static void __devexit ns83820_remove_one(struct pci_dev *pci_dev)
- {
- 	struct net_device *ndev = pci_get_drvdata(pci_dev);
--	struct ns83820 *dev = PRIV(ndev); /* ok even if NULL */
-+	struct ns83820 *dev = netdev_priv(ndev); /* ok even if NULL */
- 
- 	if (!ndev)			/* paranoia */
- 		return;
+ 	pci_restore_state (pdev, tp->pci_state);
+ 	if (!netif_running (dev))
