@@ -1,27 +1,81 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] don't require ip_forwarding for reset on a bridge
-Date: Mon, 29 Mar 2004 20:30:25 -0800
+From: Srivatsa Vaddagiri <vatsa@in.ibm.com>
+Subject: Re: route cache DoS testing and softirqs
+Date: Tue, 30 Mar 2004 10:36:14 +0530
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040329203025.4d272b55.davem@redhat.com>
-References: <200403292314.12855.bdschuym@pandora.be>
+Message-ID: <20040330050614.GA4669@in.ibm.com>
+References: <20040329184550.GA4540@in.ibm.com> <20040329222926.GF3808@dualathlon.random>
+Reply-To: vatsa@in.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Dipankar Sarma <dipankar@in.ibm.com>, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com, Robert Olsson <Robert.Olsson@data.slu.se>,
+        "Paul E. McKenney" <paulmck@us.ibm.com>,
+        Dave Miller <davem@redhat.com>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, Andrew Morton <akpm@osdl.org>,
+        rusty@au1.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Bart De Schuymer <bdschuym@pandora.be>
-In-Reply-To: <200403292314.12855.bdschuym@pandora.be>
+To: Andrea Arcangeli <andrea@suse.de>
+Content-Disposition: inline
+In-Reply-To: <20040329222926.GF3808@dualathlon.random>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 29 Mar 2004 23:14:12 +0200
-Bart De Schuymer <bdschuym@pandora.be> wrote:
+On Tue, Mar 30, 2004 at 01:07:12AM +0000, Andrea Arcangeli wrote:
+> btw, the set_current_state(TASK_INTERRUPTIBLE) before
+> kthread_should_stop seems overkill w.r.t. smp locking, plus the code is
+> written in the wrong way around, all set_current_state are in the wrong
+> place. It's harmless but I cleaned up that bit as well.
 
-> Currently, to be able to send a reset in the FORWARD chain of iptables
-> for bridged traffic, ip forwarding must be enabled. This causes confusion
-> and in some situations people really don't want to enable ip forwarding.
-> The patch below lets the user send reset packets for bridged frames in
-> the FORWARD chain, with ip forwarding disabled (as long as there is a
-> route).
+I think set_current_state(TASK_INTERRUPTIBLE) before kthread_should_stop()
+_is_ required, otherwise kthread_stop can fail to destroy a kthread.
 
-I want an ACK from the netfilter folks before applying this one.
+
+kthread_stop does:
+
+	1. kthread_stop_info.k = k;
+        2. wake_up_process(k);
+
+and if ksoftirqd were to do :
+
+	a. while (!kthread_should_stop()) {
+        b.         __set_current_state(TASK_INTERRUPTIBLE);
+        c.         schedule();
+           }
+
+
+There is a (narrow) possibility here that a) happens _after_ 1) as well as 
+b) _after_ 2).
+
+In such a case kthread_stop would have failed to wake up the kthread!
+
+
+The same race is avoided if ksoftirqd does:
+
+        a. __set_current_state(TASK_INTERRUPTIBLE);
+	b. while (!kthread_should_stop()) {
+        c.         schedule();
+        d.         __set_current_state(TASK_INTERRUPTIBLE);
+           }
+
+        e. __set_current_state(TASK_RUNNING);
+
+In this case, even if b) happens _after_ 1) and c) _after_ 2), schedule
+simply returns immediately because task's state would have been set to 
+TASK_RUNNING by 2). It goes back to the kthread_should_stop() check and 
+exits!
+
+
+
+
+
+
+
+
+-- 
+
+
+Thanks and Regards,
+Srivatsa Vaddagiri,
+Linux Technology Center,
+IBM Software Labs,
+Bangalore, INDIA - 560017
