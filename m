@@ -1,26 +1,50 @@
-From: Tomasz Torcz <zdzichu@irc.pl>
-Subject: Re: Kernel 2.6 IPV6 Busted
-Date: Tue, 1 Mar 2005 21:46:15 +0100
-Message-ID: <20050301204615.GC15329@irc.pl>
-References: <200502270928.44402.Info@Quantum-Sci.com> <200502271410.39611.Info@quantum-sci.com> <20050227133517.578884df.davem@davemloft.net> <200503011207.34029.vda@port.imtp.ilyichevsk.odessa.ua> <422497BA.9090606@pobox.com>
+From: Paul Jackson <pj@sgi.com>
+Subject: Re: [Lse-tech] Re: A common layer for Accounting packages
+Date: Tue, 1 Mar 2005 12:40:41 -0800
+Message-ID: <20050301124041.2403d641.pj@sgi.com>
+References: <42168D9E.1010900@sgi.com>
+	<20050218171610.757ba9c9.akpm@osdl.org>
+	<421993A2.4020308@ak.jp.nec.com>
+	<421B955A.9060000@sgi.com>
+	<421C2B99.2040600@ak.jp.nec.com>
+	<421CEC38.7010008@sgi.com>
+	<421EB299.4010906@ak.jp.nec.com>
+	<20050224212839.7953167c.akpm@osdl.org>
+	<20050227094949.GA22439@logos.cnet>
+	<4221E548.4000008@ak.jp.nec.com>
+	<20050227140355.GA23055@logos.cnet>
+	<42227AEA.6050002@ak.jp.nec.com>
+	<1109575236.8549.14.camel@frecb000711.frec.bull.fr>
+	<20050227233943.6cb89226.akpm@osdl.org>
+	<1109592658.2188.924.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@oss.sgi.com
-Content-Disposition: inline
-In-Reply-To: <422497BA.9090606@pobox.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: akpm@osdl.org, guillaume.thouvenin@bull.net, kaigai@ak.jp.nec.com,
+        marcelo.tosatti@cyclades.com, davem@redhat.com, jlan@sgi.com,
+        lse-tech@lists.sourceforge.net, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com, elsa-devel@lists.sourceforge.net
+To: hadi@cyberus.ca
+In-Reply-To: <1109592658.2188.924.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 01, 2005 at 11:26:34AM -0500, Jeff Garzik wrote:
-> Just write sane firewall rules that don't allow incoming.
+Jamal wrote:
+> What was wrong with just going ahead and just always
+> invoking your netlink_send()? 
 
- Isn't this thread about non-working stateful firewalling? Specifically
-situation where -m state --state RELATED or ESTABLISHED isn't allowin
-any packets because there is no connection tracking? Without allowing
-incoming packets there could be no 2-way communication (for UDP at
-least).
+I think the hope was to reduce the cost of the accounting hook in fork
+to "next-to-zero" if accounting is not being used on that system.
+
+See Andrew's query earlier:
+> b) they are next-to-zero cost if something is listening on the netlink
+>    socket but no accounting daemon is running.
+
+Presumably sending an ignored packet costs something, quite possibly
+more than "next-to-zero".
 
 -- 
-Tomasz Torcz               "Never underestimate the bandwidth of a station
-zdzichu@irc.-nie.spam-.pl    wagon filled with backup tapes." -- Jim Gray
+                  I won't rest till it's the best ...
+                  Programmer, Linux Scalability
+                  Paul Jackson <pj@sgi.com> 1.650.933.1373, 1.925.600.0401
