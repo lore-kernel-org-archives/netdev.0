@@ -1,41 +1,44 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: Re: way of figuring out total number of retransmitted packets on
- a TCP socket?
-Date: Wed, 20 Oct 2004 22:18:03 -0300
+From: Jeff Chua <jeffchua@silk.corp.fedex.com>
+Subject: Re: [ANNOUNCE] iproute2 2.6.9-041019
+Date: Thu, 21 Oct 2004 10:53:12 +0800 (SGT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41770E4B.1040906@conectiva.com.br>
-References: <20041020130134.GC24757@xi.wantstofly.org>	<20041020151448.51209278.davem@davemloft.net>	<20041020223547.GJ29583@xi.wantstofly.org>	<20041020155352.1c9b70f6.davem@davemloft.net>	<20041020230405.GE995@wotan.suse.de>	<20041020160728.1d5a337e.davem@davemloft.net>	<20041020232719.GG995@wotan.suse.de> <20041020164241.5f29cea5.davem@davemloft.net>
+Message-ID: <Pine.LNX.4.61.0410211049400.4927@boston.corp.fedex.com>
+References: <41758014.4080502@osdl.org> <Pine.LNX.4.61.0410200805110.8475@boston.corp.fedex.com>
+ <20041020091554.57e60936@zqx3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <ak@suse.de>, buytenh@wantstofly.org, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Jeff Chua <jeffchua@silk.corp.fedex.com>,
+        Linux Kernel <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com,
+        linux-net@vger.kernel.org, LARTC@mailman.ds9a.nl
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20041020164241.5f29cea5.davem@davemloft.net>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20041020091554.57e60936@zqx3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
+On Wed, 20 Oct 2004, Stephen Hemminger wrote:
 
-David S. Miller wrote:
-> On Thu, 21 Oct 2004 01:27:19 +0200
-> Andi Kleen <ak@suse.de> wrote:
-> 
-> 
->>ok. good. I remember the times when you made jokes about the size
->>of TCBs in some other OSes. I bet we beat them all now in bloat, but it's 
->>good that things are shrinking again.
-> 
-> 
-> Nope, Solaris's TCB is still 3 times the size of ours.
-> 
-> BSD's is about the same size, yet they lack most of the
-> congestion control and ECN functionality we have.
+> Try this, ss was dragging in byteorder.h and it didn't need to.
+>
+> diff -Nru a/misc/ss.c b/misc/ss.c
+> --- a/misc/ss.c	2004-10-20 09:13:56 -07:00
+> +++ b/misc/ss.c	2004-10-20 09:13:56 -07:00
+> @@ -33,7 +33,6 @@
+> #include "libnetlink.h"
+> #include "SNAPSHOT.h"
+>
+> -#include <asm/byteorder.h>
+> #include <linux/tcp.h>
+> #include <linux/tcp_diag.h>
 
-<joke>
-That doesn't mean we should keep trying to get to their level ;)
-</joke>
 
-/me goes back to his pile of sk_buff layer header pointers patches :-)
+same problem.
 
-- Arnaldo
+"#include <linux/tcp.h>" is dragging in "#include <asm/byteorder.h>".
+
+Same thing goes for <linux/ip.h>.
+
+All these kernel headers need cleanup, and I don't know enough to fix it.
+
+Jeff.
