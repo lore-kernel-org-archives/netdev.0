@@ -1,51 +1,37 @@
-From: David Dillow <dave@thedillows.org>
-Subject: Re: Network device driver probe issues
-Date: 16 Jul 2004 00:49:04 -0400
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1089953344.23577.15.camel@ori.thedillows.org>
-References: <20040715135244.GD27715@krispykreme>
-	 <40F71477.2020408@pobox.com>
-	 <1089939860.1709.70.camel@ibm-ni9dztukfq8.beaverton.ibm.com>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [PATCH] Drop ISA dependencies from IRDA drivers
+Date: Fri, 16 Jul 2004 07:36:52 +0200
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040716053652.GA662@wotan.suse.de>
+References: <m34qo96x8m.fsf@averell.firstfloor.org> <40F6B547.7050800@pobox.com> <20040715205001.GA2527@muc.de> <40F6F076.2080001@pobox.com> <20040715215552.GA46635@muc.de> <20040715223528.GA4645@bougret.hpl.hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, Anton Blanchard <anton@samba.org>,
-        Netdev <netdev@oss.sgi.com>, cramerj@intel.com, john.ronciak@intel.com,
-        ganesh.venkatesan@intel.com, jonmason@us.ibm.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Jim Keniston <jkenisto@us.ibm.com>
-In-Reply-To: <1089939860.1709.70.camel@ibm-ni9dztukfq8.beaverton.ibm.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <ak@muc.de>, Jeff Garzik <jgarzik@pobox.com>,
+	netdev@oss.sgi.com, irda-users@lists.sourceforge.net,
+	the_nihilant@autistici.org,
+	Linux Kernel <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S266472AbUGPFgz@vger.kernel.org>
+To: jt@hpl.hp.com
+Content-Disposition: inline
+In-Reply-To: <20040715223528.GA4645@bougret.hpl.hp.com>
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2004-07-15 at 21:04, Jim Keniston wrote:
-> On Thu, 2004-07-15 at 16:34, Jeff Garzik wrote:
-[snip]
-> > > We should instead use something stable to attach to printks during
-> > > probe. pci_name() is the obvious choice, perhaps using dev_printk().
-> > > The failure then becomes:
-> > > 
-> > > 0000:01:01.0 Intel(R) PRO/1000 Network Connection
-> > > 0000:01:01.0 The EEPROM Checksum Is Not Valid
-> > > 0000:02:01.0 Intel(R) PRO/1000 Network Connection
+On Thu, Jul 15, 2004 at 03:35:28PM -0700, Jean Tourrilhes wrote:
+> On Thu, Jul 15, 2004 at 11:55:52PM +0200, Andi Kleen wrote:
 > > 
-> > pci_name() or a simple counter of devices found.  I prefer pci_name()
-> > 
-> > 	Jeff
+> > Anyways, this is only tangential to the original reason for the patch.
+> > Can you please drop the bogus ISA dependencies. Jean has clearly stated
+> > that the drivers have nothing to do with ISA itself.
 > 
-> Delay registration until the end of the probe, and make DPRINTK smarter.
-> DPRINTK should check
-> 	adapter->netdev->reg_state == NETREG_REGISTERED
-> and use the interface name (eth0) if the device is registered, or
-> pci_name() if it's not.
-> 
-> Jim
+> 	Andy, I never said that, please quote me accurately. I
+> personally don't have strong opinions on whether those drivers should
+> be tagged with CONFIG_ISA or not, but those hardware are definitely
+> mapped on the ISA bus.
 
-In the typhoon driver, I have tp->name, and most everything that prints
-info/errors about the card use it. During probing, it is initially set
-to point to pci_name(), and once registered, it gets pointed to
-netdev->name.
+More likely on LPC interface.  And not on a ISA slot.
 
-This seems fairly clean, though maybe a bit redundant.
+Anyways, if you want them to work on x86-64 you will have to drop
+that bogus dependency.  I have no plans to ever define CONFIG_ISA
+on x86-64.
 
-Dave
+-Andi
