@@ -1,36 +1,72 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [E1000-devel] Transmission limit
-Date: Mon, 29 Nov 2004 16:19:40 +0100
-Message-ID: <20041129151940.GA19184@xi.wantstofly.org>
-References: <1101467291.24742.70.camel@mellia.lipar.polito.it> <41A73826.3000109@draigBrady.com> <20041127200030.GD27762@xi.wantstofly.org> <1101732267.14930.75.camel@verza.polito.it>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: pktgen
+Date: Mon, 29 Nov 2004 16:27:57 +0100
+Message-ID: <16811.16381.487066.667426@robur.slu.se>
+References: <20041111233507.GA3202@xi.wantstofly.org>
+	<20041124161848.GA18059@xi.wantstofly.org>
+	<16804.48120.375307.718766@robur.slu.se>
+	<20041124170948.GC18059@xi.wantstofly.org>
+	<16804.60621.990421.525393@robur.slu.se>
+	<20041125030450.GA24417@xi.wantstofly.org>
+	<16805.40983.937641.670275@robur.slu.se>
+	<20041127002841.GA17184@xi.wantstofly.org>
+	<20041127004325.GA17401@xi.wantstofly.org>
+	<16808.28005.74903.881087@robur.slu.se>
+	<20041127135354.GA24617@xi.wantstofly.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: e1000-devel@lists.sourceforge.net,
-        Jorge Manuel Finochietto <jorge.finochietto@polito.it>,
-        Giulio Galante <galante@polito.it>, netdev@oss.sgi.com
+Content-Transfer-Encoding: 7bit
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>, hadi@cyberus.ca,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Marco Mellia <mellia@prezzemolo.polito.it>
-Content-Disposition: inline
-In-Reply-To: <1101732267.14930.75.camel@verza.polito.it>
+To: Lennert Buytenhek <buytenh@wantstofly.org>
+In-Reply-To: <20041127135354.GA24617@xi.wantstofly.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 29, 2004 at 01:44:27PM +0100, Marco Mellia wrote:
 
-> This "resets" the registers and writes in the TDFPC that there are 10
-> pkts in the TX queue.
-> Now when we do:
-> 
-> ping -c 1 x.x.x.x
-> 
-> You will see that the NIC will transmit 11 pkts (10 we "preloaded" + the
-> new one).
-> If you try to measure the TX speed you will see that it is ~ the wire
-> speed.
+Lennert Buytenhek writes:
+ > Your data is a bit noisy -- can you rerun the test for the 60-200 byte
+ > packet range but using 10M packets per run instead of 1M?
 
-How are you measuring this?
+ OK!
 
+60	825976
+64	746730
+68	730215
+72	720942
+76	721090
+80	721772
+84	704472
+88	704489
+92	705184
+96	714750
+100	694178
+104	700853
+108	703332
+112	715865
+116	692223
+120	677893
+124	678306
+128	736908
+132	712328
+136	722271
+140	706784
+144	716770
+148	694497
+152	647868
+156	647693
+160	678071
+164	663694
+168	649894
+172	636478
+176	623761
+180	611580
+184	599835
+188	588540
+192	577549
+196	567044
+200	556967
 
-cheers,
-Lennert
+						--ro
