@@ -1,85 +1,175 @@
-From: Michael Bellion and Thomas Heinz <nf@hipac.org>
-Subject: [RFC] High Performance Packet Classifiction for tc framework
-Date: Mon, 14 Jul 2003 10:45:40 +0200
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <200307141045.40999.nf@hipac.org>
-Reply-To: nf@hipac.org
+From: "Paul Rolland" <rol@as2917.net>
+Subject: Re: [BUG]:   problem when shutting down ppp connection since 2.5.70
+Date: Mon, 14 Jul 2003 11:16:04 +0200
+Sender: linux-ppp-owner@vger.kernel.org
+Message-ID: <017701c349e8$8dfeeb40$2101a8c0@witbe>
+References: <20030709114334.5b8cf7c6.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="us-ascii"
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Return-path: <linux-net-owner@vger.kernel.org>
-To: linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
-	netdev@oss.sgi.com
-Content-Disposition: inline
+Cc: <linux-ppp@vger.kernel.org>, <netdev@oss.sgi.com>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+To: "'Stephen Hemminger'" <shemminger@osdl.org>,
+	<cfriesen@nortelnetworks.com>, <paulus@samba.org>
+In-Reply-To: <20030709114334.5b8cf7c6.shemminger@osdl.org>
 List-Id: netdev.vger.kernel.org
 
-Hi
+Hello,
 
-We are planning to port our HIPAC algorithm to the tc framework and we
-ask you for some comments about several issues.
+I've applied the patch from Stephen on top of the 2.6.0-test1 kernel,
+and here is the result :
 
-HIPAC is a novel packet classification framework which replaces the
-common linear approach with a more advanced data structure
-which offers highly efficient and locking friendly packet matching.
+Jul 14 10:57:01 donald kernel: dst route cache has 0 references
+Jul 14 10:57:01 donald kernel: unregister_netdevice: waiting for tap0 to become free. Usage count = -3
+Jul 14 10:57:10 donald kernel: dst route cache has 0 references
+Jul 14 10:57:10 donald kernel: unregister_netdevice: waiting for tap0 to become free. Usage count = -3
+Jul 14 10:57:20 donald kernel: dst route cache has 0 references
+Jul 14 10:57:20 donald kernel: unregister_netdevice: waiting for tap0 to become free. Usage count = -3
+Jul 14 10:57:31 donald kernel: dst route cache has 0 references
+Jul 14 10:57:31 donald kernel: unregister_netdevice: waiting for tap0 to become free. Usage count = -3
 
-Currently, people using lots of filters suffer from a big performance
-penalty. In contrast, HIPAC is able to handle thousands of filters
-without much slowdown compared to having no filters at all.
+This is a big change compared to 2.5.74 (.75 not tested).
 
-There already exists one application of the HIPAC algorithm for the
-netfilter framework: nf-hipac. Details about the project can be found
-at our website http://www.hipac.org or our sourceforge project page at
-http://www.sourceforge.net/projects/nf-hipac
+I guess a negative usage count should be considered as valid
+by unregister_netdevice.
 
-Several performance tests of nf-hipac have been done so far (see our
-website) and have proven our claims. So it would be great if tc users
-could benefit from HIPAC too.
+What about :
 
-Certainly, we'd like to know first whether HIPAC makes sense for the
-tc framework at all. From the nf-hipac worst case performance tests
-we know that our algorithm should be faster in all cases as soon as
-you have approx. 20 filters. Below 20 filters there is no difference
-between nf-hipac and the iptables filter table.
-So basically the question is: Are people using the tc framework with
-lots of filters? Some numbers would be helpful.
-
-Since we can only improve performance of u32 and fw filters it's also
-interesting whether such rulesets typically consist of those filters
-in the main.
-
-The tc framework is very flexible with respect to where filters can be
-attached. Unfortunately this cannot be mapped into one HIPAC data
-structure. Our current design allows to attach filters anywhere but
-only the filters attached to the top level qdisc would benefit from the
-HIPAC algorithm. Would this be a noticeable restriction?
-
-
-Here is a short overview of the main design goals:
-
-- new qdisc for HIPAC which is basically a container for the filters;
-  it can only be attached as top level qdisc
-- new HIPAC classifier which supports all native nf-hipac matches
-  (src/dst ip, proto, src/dst port, ttl, state, in_iface, icmp type,
-  tcpflags, fragments) and additionally fwmark
-- the HIPAC classifier can only be attached to the HIPAC qdisc and vice
-  versa the HIPAC qdisc only accepts HIPAC classifiers
-- the HIPAC qdisc consists of only one single class to which the "next"
-  qdisc must be attached
-- the HIPAC classifier can contain a number of existing classifiers
-  (u32, fw, route, rsvp, tcindex) whereby the semantics is as follows:
-  a HIPAC classifier matches if the native matches and also each of the
-  embedded classifiers match; the returned tcf_result is the one from
-  the final classifier (=> intermediate classifiers are reduced to a
-  match)
-- it is still possible to attach non-hipac classifiers to other qdiscs
-  and classes
-
+--- dev.c       2003-07-14 11:13:23.000000000 +0200
++++ dev.c.orig  2003-07-14 11:13:01.000000000 +0200
+@@ -2746,7 +2746,7 @@
+        unsigned long rebroadcast_time, warning_time;
+ 
+        rebroadcast_time = warning_time = jiffies;
+-       while (atomic_read(&dev->refcnt) > 0) {
++       while (atomic_read(&dev->refcnt) != 0) {
+                if (time_after(jiffies, rebroadcast_time + 1 * HZ)) {
+                        rtnl_shlock();
+                        rtnl_exlock();
 
 Regards,
+Paul
 
-+-----------------------+----------------------+
-|   Michael Bellion     |     Thomas Heinz     |
-| <mbellion@hipac.org>  |  <creatix@hipac.org> |
-+-----------------------+----------------------+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+REHAB is for quitters. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+Paul Rolland, rol@witbe.net
+Witbe.net SA
+Directeur Associe
+
+--
+
+Please no HTML, I'm not a browser - Pas d'HTML, je ne suis pas un navigateur
+
+"Some people dream of success... while others wake up and work hard at it"
+
+> -----Original Message-----
+> From: Stephen Hemminger [mailto:shemminger@osdl.org]
+> Sent: Wednesday, July 09, 2003 8:44 PM
+> To: Paul Rolland; cfriesen@nortelnetworks.com; paulus@samba.org
+> Cc: linux-ppp@vger.kernel.org; netdev@oss.sgi.com
+> Subject: Re: [BUG]: problem when shutting down ppp connection
+> since 2.5.70
+> 
+> 
+> The problem is that some protocol is still holding a reference to the 
+> device. This is a bug in the protocol, and needs to be fixed (ie not a 
+> ppp bug).
+> 
+> Try building a kernel with only IPv4, eliminate all others then add 
+> back until you find the culprit.
+> 
+> The following patch may help also.
+> 
+> diff -Nru a/net/core/dev.c b/net/core/dev.c
+> --- a/net/core/dev.c	Wed Jul  9 11:40:56 2003
+> +++ b/net/core/dev.c	Wed Jul  9 11:40:56 2003
+> @@ -72,6 +72,8 @@
+>   *				        - netif_rx() feedback
+>   */
+>  
+> +#define DEBUG 1
+> +
+>  #include <asm/uaccess.h>
+>  #include <asm/system.h>
+>  #include <asm/bitops.h>
+> @@ -2704,6 +2706,8 @@
+>  	goto out;
+>  }
+>  
+> +extern void dst_dumpref(const struct net_device *dev);
+> +
+>  static void netdev_wait_allrefs(struct net_device *dev)
+>  {
+>  	unsigned long rebroadcast_time, warning_time;
+> @@ -2740,6 +2744,30 @@
+>  		current->state = TASK_RUNNING;
+>  
+>  		if (time_after(jiffies, warning_time + 10 * HZ)) {
+> +#ifdef DEBUG
+> +			dst_dumpref(dev);
+> +
+> +			if (dev->atalk_ptr)
+> +				printk(KERN_INFO
+> "unregister_netdevice: "
+> +				       " %s: probably in use as
+> AppleTalk device\n", dev->name);
+> +			if (dev->ip_ptr)
+> +				printk(KERN_INFO
+> "unregister_netdevice: "
+> +				       " %s: probably in use as
+> IPv4 device\n", dev->name);
+> +
+> +			if (dev->atalk_ptr)
+> +				printk(KERN_INFO
+> "unregister_netdevice: "
+> +				       " %s: probably in use as
+> DECnet device\n", dev->name);
+> +			if (dev->ip6_ptr)
+> +				printk(KERN_INFO
+> "unregister_netdevice: "
+> +				       " %s: probably in use as
+> IPv6 device\n", dev->name);
+> +
+> +			if (dev->ec_ptr)
+> +				printk(KERN_INFO
+> "unregister_netdevice: "
+> +				       " %s: probably in use as
+> Econet device\n", dev->name);
+> +			if (dev->ax25_ptr)
+> +				printk(KERN_INFO
+> "unregister_netdevice: "
+> +				       " %s: probably in use as
+> AX.25 device\n", dev->name); #endif
+>  			printk(KERN_EMERG "unregister_netdevice: "
+>  			       "waiting for %s to become free. Usage "
+>  			       "count = %d\n",
+> diff -Nru a/net/core/dst.c b/net/core/dst.c
+> --- a/net/core/dst.c	Wed Jul  9 11:40:56 2003
+> +++ b/net/core/dst.c	Wed Jul  9 11:40:56 2003
+> @@ -41,6 +41,21 @@
+>  static struct timer_list dst_gc_timer =
+>  	TIMER_INITIALIZER(dst_run_gc, 0, DST_GC_MIN);
+>  
+> +
+> +void dst_dumpref(const struct net_device *dev)
+> +{
+> +	struct dst_entry *dst;
+> +	int count = 0;
+> +
+> +	spin_lock_bh(&dst_lock);
+> +	for (dst = dst_garbage_list; dst; dst = dst->next) {
+> +		if (dst->dev == dev) ++count;
+> +	}
+> +	spin_unlock_bh(&dst_lock);
+> +
+> +	printk(KERN_INFO "dst route cache has %d references\n",
+> count); }
+> +
+>  static void dst_run_gc(unsigned long dummy)
+>  {
+>  	int    delayed = 0;
+> 
 
