@@ -1,34 +1,42 @@
-From: kuznet@ms2.inr.ac.ru
-Subject: Re: [PATCH] IPv6: Default Route Support on Router
-Date: Sun, 29 Sep 2002 00:47:05 +0400 (MSD)
+From: Eric Lemoine <Eric.Lemoine@ens-lyon.fr>
+Subject: Re: udp weirdness
+Date: Fri, 27 Sep 2002 17:19:08 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200209282047.AAA03890@sex.inr.ac.ru>
-References: <20020928.151959.131438421.yoshfuji@linux-ipv6.org>
+Message-ID: <20020927151908.GL343@hookipa>
+References: <20020927120223.GH343@hookipa> <Pine.GSO.4.30.0209271048160.4401-100000@shell.cyberus.ca>
 Mime-Version: 1.0
-Cc: netdev@oss.sgi.com, davem@redhat.com (Dave Miller)
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Lemoine <Eric.Lemoine@ens-lyon.fr>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.ORG (YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=)
-In-Reply-To: <20020928.151959.131438421.yoshfuji@linux-ipv6.org> from "YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=" at Sep 28, 2 10:45:00 am
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <Pine.GSO.4.30.0209271048160.4401-100000@shell.cyberus.ca>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
+On Fri, Sep 27, 2002 at 10:53:00AM -0400, jamal wrote:
+>
+> On Fri, 27 Sep 2002, Eric Lemoine wrote:
+> 
+> > I figured out that packets can be dropped in pfifo_fast_enqueue()
+> > [the default qdisc's enqueue func], even though the driver/kernel
+> > flow control has triggered.
+> >
+> > And sendto does not notify the user when packet gets dropped because
+> > the output queue overflows (as indicated in sendto manpage).
+> >
+> > Why doesn't the kernel just put the process into sleep instead of
+> > dropping packets?
+> >
+> 
+> What trigger do you suggest to wake up the process again?
+> A better idea maybe to return something to the socket so it can
+> manage things instead -- not sure what to return though that wouldnt
+> break some standard;
 
-> Following patch is against linux-2.4.19.
+Linux seems to be the only one to not return ENOBUFS in this overflow
+case (from sendto manpage), so i suspect it should not break any
+standard.
 
-OK!
-
-
-One question, what is this chunk for?
-
-> @@ -675,7 +690,7 @@
->  
->  	fn = fib6_lookup_1(root, args);
->  
-> -	if (fn == NULL)
-> +	if (fn == NULL || fn->fn_flags & RTN_TL_ROOT)
->  		fn = root;
->  
->  	return fn;
-
-Alexey
+-- 
+Eric
