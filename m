@@ -1,29 +1,32 @@
-From: "Rask Ingemann Lambertsen" <rask@sygehus.dk>
-Subject: Re: network interface cards native vlans support in linux kernel?
-Date: Thu, 11 Sep 2003 15:57:36 +0100
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 0/10] [bonding 2.6] propagating master's settings to slaves
+Date: Thu, 11 Sep 2003 10:55:24 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030911145555.M56042@sygehus.dk>
-References: <Pine.LNX.4.44.0307091816280.1313-100000@hl.kauneta.net> <20030709152814.GC15293@gtf.org>
+Message-ID: <3F608CDC.4020103@pobox.com>
+References: <200309111737.15424.amir.noam@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <20030709152814.GC15293@gtf.org>
+To: Amir Noam <amir.noam@intel.com>
+In-Reply-To: <200309111737.15424.amir.noam@intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 9 Jul 2003 11:28:15 -0400, Jeff Garzik wrote
-> On Wed, Jul 09, 2003 at 06:19:51PM +0300, Andrius Kasparavicius wrote:
-> > hello, as far as i know, currently there is no native vlan support in
-> > network device drivers. I mean, always need patching MTU.. add 4 bytes..
-[cut]
-> A few drivers still need patching, and unfortunately the VLAN driver
-> patches floating around all need cleaning up.
+Amir Noam wrote:
+> The following set ports to 2.6 the propagation patch set that went into
+> 2.4.23-pre3. Also, fix a free_netdev() error that the previous patch set
+> introduced and fix a compile error using ipx_hdr().
 
-What does a network device driver need to do to ensure VLAN compatibility? Is 
-it as simple as allocating buffer space for MTU + 4 bytes or is there more to 
-it than that?
+Thanks!
 
--- 
-Regards,
-Rask Ingemann Lambertsen
+
+> Patches should be applied after the previous patch set (sent 2003/09/04)
+> that ported bug fixes from 2.4.
+
+Today is my work-at-home day, and I was actually putting these ("these" 
+== previous patch set you mention) in my queue right now.  Hopefully I 
+can get to this new set today as well.
+
+	Jeff
