@@ -1,43 +1,46 @@
-From: 7979 <7979@4videostudy.co.kr>
-Subject: =?ISO-8859-1?Q?[=BC=BA=C0=CE=B1=A4=B0=ED]id:samsam?=  =?ISO-8859-1?Q?=BA=F1=B9=D0=B9=F8=C8=A3:56328?=   =?ISO-8859-1?Q?(=C0=FD=B4=EB=20=BC=BA=C0=CE=B8=B8=20=C5=AC=B8=AF)?=
-Date: Thu, 24 Oct 2002 06:13:39 +0900
+From: Mauro Tortonesi <mauro@ferrara.linux.it>
+Subject: Re: Fwd: Question about kernel and IPv6...
+Date: Wed, 23 Oct 2002 13:29:00 +0200 (CEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200210232113.g9NLDBuR007951@oss.sgi.com>
-Reply-To: 7979@4videostudy.co.kr
+Message-ID: <Pine.LNX.4.44.0210231319250.11284-100000@trantor.ferrara.linux.it>
+References: <1035360350.3db6585e0bdce@webmail.debianlinux.dk>
 Mime-Version: 1.0
-Content-Type: text/html; charset="ks_c_5601-1987"
-Content-Transfer-Encoding: base64
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
+To: michael@albog.dk
+In-Reply-To: <1035360350.3db6585e0bdce@webmail.debianlinux.dk>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-PGh0bWw+DQo8aGVhZD4NCgk8dGl0bGU+U2V4eWRlc2suY28ua3I8L3RpdGxlPg0KPC9oZWFk
-Pg0KPGJvZHkgYmdjb2xvcj0iIzAwMDAwMCI+DQo8Y2VudGVyPg0KPHRhYmxlIGNlbGxzcGFj
-aW5nPSIwIiBjZWxscGFkZGluZz0iMCI+DQogPHRyPg0KICA8dGQ+PGEgaHJlZj0iaHR0cDov
-L3d3dy5zZXh5ZGVzay5jby5rci8/cF9pZD1tYWlsIj48aW1nIHNyYz0iaHR0cDovL3d3dy5z
-ZXh5ZGVzay5jby5rci9tLWltZy9kZXNrMDIxMDExLmpwZyIgd2lkdGg9IjUwMCIgaGVpZ2h0
-PSI3MTgiIGJvcmRlcj0iMCIgYWx0PSIiPjwvYT48L3RkPg0KIDwvdHI+DQogPHRyPg0KIDx0
-cj48dGQgaGVpZ2h0PTEwPjwvdGQ+PC90cj4NCiAgPFRSPg0KICA8dGQgaGVpZ2h0PSI1MCIg
-Ymdjb2xvcj0iIzAwMDAwMCIgc3R5bGU9IkZPTlQtU0laRTogOXB0IiB3aWR0aD01MTAgPg0K
-ICAgICAgPGZvbnQgY29sb3I9IiNmZmZmZmYiPsGkurjF673FuMEgwMy/68PLwfggudcgwaS6
-uLq4yKMgte6/oSCw/MfRILn9t/y/oSDBpiA1MMG2v6EgwMewxcfPv6kgKLy6wM6xpLDtKbbz
-sO0gx6W9w8fRIA0KCSAguN7Az8DUtM+02S48cD4NCgkgIA0KICAgICAgwMwgwaS6uLO7v+vA
-uiDDu7zSs+IgwK/H2LjFw7y5sLfOvK0gwaS6uMXrvcW4wSDAzL/rw8vB+CC51yDBpLq4urjI
-oyC17r+hILD8x9Eguf23/CC51yDDuzxicj4NCgkgILzSs+K6uMijuf3AxyCx1MGkv6EgwMfH
-z7+pIDE5vLy5zLi4wMcgw7u80rPiwMwgwMy/6yDH0iC89iC++L3AtM+02S48YnI+DQoJICCx
-zcfPwMcguN7Az8HWvNK0wiDApbytx84gwd+/oSC+y7DUtcggsM3AuLfOILHixbggtNm4pSCw
-s8DOwaS6uLTCIL74wL3AuyC+y7fBteW4s7TPtNkuPGJyPg0KCSAgursguN7Az8C6ILi4IDE5
-vLwgwMy78yC8usDOuLjAuyC067vzwLi3ziC537zbtce0wiC43sDPwNS0z7TZLjxicj4NCgkg
-ILnMvLqz4rKyvK0gvPa9xcffwLsgsOa/7CDB773DILvowaa52bb4tM+02S4gutLG7cC7ILOi
-w8S15bfBvK0gwcu828fVtM+02S4gPGJyPg0KCSAgsO2wtLTUsNS8rSC+1cC4t84gODI0NDQu
-Y29twMcguN7Az7z2vcWwxbrOuKYgv/jHz73DuOkgPHN0cm9uZz48YSBocmVmPSJodHRwOi8v
-d3d3LjgyNDQ0LmNvbS9tYWlsL3JlZnVzZS5hc3A/bWFpbD1uZXRkZXZAb3NzLnNnaS5jb20i
-IHRhcmdldD1fYmxhbms+uN7Az7z2vcWwxbrOufbGsDwvYT48L3N0cm9uZz48L2ZvbnQ+PGZv
-bnQgY29sb3I9IiMwMGZmZmYiPsC7ILStt6/B1ry8v+QhPHA+DQoJICANCiAgICAgIMfjtvS+
-+MDMILjewM/AuyC6uLO7vK0gwaS4uyDBy7zbx9W0z7TZLjxwPiANCiAgICAgILnfvcXA2jog
-c2V4eWRlc2suY28ua3IgLyCw5rHitbUgus7Dtb3Dv8DBpCCw7bCttb8gMzYzLTI1PGJyPg0K
-ICAgICAgu+e+98Date63z7n4yKMgOiAxMDktMDItMDE5ODg8YnI+DQogICAgICC5rsDHw7M6
-IDxBIGhyZWY9Im1haWx0bzpzZXh5ZGVza0BzZXh5ZGVzay5jby5rciI+c2V4eWRlc2tAc2V4
-eWRlc2suY28ua3I8L2E+PC9wPjwvZm9udD4NCiAgIA0KICA8L3RkPjwvVFI+DQogDQo8L3Rh
-YmxlPg0KPC9jZW50ZXI+DQo8L2JvZHk+DQo8L2h0bWw+DQoNCg0K
+On Wed, 23 Oct 2002 michael@albog.dk wrote:
+
+> - What kernel version have most IPv6 features build-in ?? (Maybe a feature is 
+> missing in 2.4.19. I have read an article about patching the kernel: 
+> http://project6.ferrara.linux.it/papers/best_ipv6_support_4_linux/best_ipv6_supp
+> ort_4_linux.html, it is necessary?).
+
+micheal, that article is a bit obsolete. i will update it as soon as 
+possible, but until next week there is no chance i can do it (friday i 
+will get my MS degree in electronic engineering and i am __very__ busy 
+now).
+
+however, the choice of the kernel to use is quite simple: if you need the 
+advanced features in usagi kernel (e.g. ISATAP, drop packets with fake 
+ipv4-mapped address, RFC 3041 support, anycast support, allow default 
+route when forwarding is enabled, Node Information Queries, IPSEC, MIPv6, 
+IPv6-in-IPv6 tunneling) you should install the usagi kit. if not, use the 
+standard vanilla kernel.
+
+
+p.s. i wouldn't spend too much time working on ripng. if you wish 
+     to analyze routing protocols, perhaps OSPF and BGP4+ would be 
+     better choices.
+
+-- 
+Aequam memento rebus in arduis servare mentem...
+
+Mauro Tortonesi			mauro@ferrara.linux.it
+				mauro.tortonesi@ing.unife.it
+Ferrara Linux Users Group	http://www.ferrara.linux.it
+Project6 - IPv6 for Linux	http://project6.ferrara.linux.it
