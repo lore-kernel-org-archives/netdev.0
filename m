@@ -1,39 +1,32 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 2.6] iptables CLUSTERIP target, seq_file version
-Date: Thu, 21 Oct 2004 22:52:08 -0700
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Message-ID: <20041021225208.44ddaa10.davem@davemloft.net>
-References: <20041020223828.GP19899@sunbeam.de.gnumonks.org>
-	<20041021163655.GK3551@sunbeam.de.gnumonks.org>
+Subject: Re: 2.6.9 failed assertion in tcp_timer.c
+Date: Thu, 21 Oct 2004 22:53:32 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20041021225332.7f6bcfaf.davem@davemloft.net>
+References: <20041019215054.GA17565@linuxace.com>
+	<E1CK3Az-0004P2-00@gondolin.me.apana.org.au>
+	<20041020164748.GA20905@linuxace.com>
+	<20041020212651.GA8534@gondor.apana.org.au>
+	<20041020225536.GA22179@linuxace.com>
+	<20041021130339.GA19345@gondor.apana.org.au>
+	<20041021165224.GA25399@linuxace.com>
+	<20041021215743.GA23062@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org, lmb@suse.de
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Harald Welte <laforge@netfilter.org>
-In-Reply-To: <20041021163655.GK3551@sunbeam.de.gnumonks.org>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Cc: kernel@linuxace.com, linux-net@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20041021215743.GA23062@gondor.apana.org.au>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 21 Oct 2004 18:36:55 +0200
-Harald Welte <laforge@netfilter.org> wrote:
+On Fri, 22 Oct 2004 07:57:43 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> This is the 'CLUSTERIP' target for iptables, this time no core kernel
-> changes required, please apply.
+> Dave, we need to use the skb's MSS in trim_head as otherwise the
+> counters will be screwed up.
 > 
-> This enables you to build a static load sharing cluster between multiple
-> nodes - without the requirement to have a load balancer.  It uses a
-> series of [evil] tricks like replying with linklayer multicast addresses
-> to ARP requests, and using CONNMARK for stateful blocking all traffic
-> not intended for the local node.
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-It's clever and nasty, I like it :-)
-
-Thanks for cleaning it up to use seq_file.  Patch applied.
+Excellent catch.  Patch applied, thanks Herbert.
