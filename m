@@ -1,114 +1,240 @@
-From: cbtraxler.vm@aolms.com
-Subject: VERE:Free Gift Confirmation
-Date: Fri, 10 May 2002 07:50:07 -0700
+From: x-eagle16@imagine.com
+Subject: Spy Software
+Date: Sat, 11 May 2002 00:50:06 -0500
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <200205101450.g4AEo7wJ010753@oss.sgi.com>
-Content-Type: text/html
+Message-ID: <E176Qn5-0001lG-00@falcon.prod.itd.earthlink.net>
 Return-path: <owner-netdev@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: 
 List-Id: netdev.vger.kernel.org
 
-<!-- 
-VEREMAIL Anti Spam Security eMail verification
-***********************************************************
-You, netdev@oss.sgi.com, or someone using your
-email address have requested information about our free Internet leads system
-or we are attempting to transfer you to this list from a recent list we acquired,
-with your permission of course. 	 	 	
 
-Your submission must process through our verification system. Verification
-protects you from UCE, protects us from complaints and allows us to inform
-you of the multitude of free marketing services available to our Optin list.
-NOTE: This procedure for verifying unconfirmed lists and submissions follows
-MAPS Principles found at http://www.veremail.com/MAPS/" MAPS guidelines 
-are recognized as the legitimate process to prevent abuse. Veremail by Inetekk's
-privacy.html is found here: http://www.veremail.com/privacy.html
+READY TO KNOW?
 
-Until you verify, you are not on our list. If you wish to be blocked from
-future verification requests, please read on.    	  
-***********************************************************
-To utilize this offer, please click on the following link.
-http://veremail.com/subscribe.cgi?ud=cbtraxler.aolms.com&email=netdev@oss.sgi.com
-Or, return this email by simply replying.
+ 
 
-By doing so you are giving me permission to send you verified 
-optin email. This message is an automated verification request from
-the Inetekk system and Cheryl Traxler.
+ CONFIDENTIAL!
 
-If you wish to block your email from receiving verifications:
-http://inetekk.com/block
-NOTE: There are no logs kept on submission verifications. 
-This request came from IP address 205.188.196.63
-..
-c:/htdocs/wwcfa/letters/vere-o26x27u5kkpkvtpy54.txt
--->
-<HTML>
-<HEAD>
-  <TITLE>Optin-Request-PLUS-FREE-Gift RE: netdev@oss.sgi.com</TITLE>
-</HEAD>
-<BODY BGCOLOR="#ffffff">
-<CENTER>
-  <TABLE BORDER="0" CELLSPACING="0" CELLPADDING="0" ALIGN="Center" WIDTH="500">
-    <TR>
-      <TD><IMG SRC="http://veremail.com/pics/postmark-verify.gif" BORDER="0" WIDTH="108"
-	    HEIGHT="108" WEIGHT="o26x27u5kkpkvtpy54"> 
-	  <HR>
-	<FONT face=arial size=2>You, netdev@oss.sgi.com, or someone using your
-	email address have requested information about our free Internet leads system
-	or we are attempting to transfer you to this list from a recent list we acquired,
-	with your permission of course. <BR>
-	<BR>
-	Your submission must process through our verification system. Verification
-	protects you from UCE, protects us from complaints and allows us to inform
-	you of the multitude of free marketing services available to our Optin list.
-	NOTE: This procedure for verifying unconfirmed lists and submissions follows
-	<A HREF="http://www.veremail.com/MAPS/">MAPS<SUP><FONT size=1>SM</FONT></SUP>
-	Principles</A>. MAPS guidelines are recognized as the legitimate process
-	to prevent abuse. Veremail by Inetekk's
-	<A HREF="http://www.veremail.com/privacy.html">privacy policy</A>.<BR>
-	<BR>
-	Until you verify, you are not on our list. If you wish to be blocked from
-	future verification requests, please read on.</FONT> <FONT face=arial size=2>
-	</FONT>
-	  <HR>
-      </TD>
-    </TR>
-    <TR>
-      <TD bgcolor=cfcfcf><FONT face=arial size=2 color=ff0000><B>Please allow at
-	least 48 hours for your subscribe request to be processed.</B></FONT></TD>
-    </TR>
-    <TR>
-      <TD bgcolor=dfdfdf><FONT face=arial size=2><I>To utilize this offer, you
-	must add yourself to this list by either:</I></FONT></TD>
-    </TR>
-    <TR>
-      <TD bgcolor=efefef><FONT face=arial size=2>Submitting to the list&nbsp;by
-	clicking the subscribe me button:</FONT>
-	<A href="http://veremail.com/cgi-local/subscribe.cgi?email=netdev@oss.sgi.com&ud=cbtraxler.aolms.com"><IMG
-	    src="http://inetekk.com/pics/subscribe_me.gif" border=0></A></TD>
-    </TR>
-    <TR>
-      <TD><P ALIGN=Center>
-	<FONT face=arial size=2=><B><I>OR</I></B></FONT></TD>
-    </TR>
-    <TR>
-      <TD bgcolor=efefef><FONT face=arial size=2>Hit reply to this message:</FONT>
-	<FONT face=arial size=2> </FONT></TD>
-    </TR>
-    <TR>
-      <TD><P ALIGN=Left>
-	<FONT face=arial size=2>By doing so you are giving me permission to send
-	you verified optin email. This message is an automated verification request
-	from the Inetekk system and
-	<A HREF="mailto:cbtraxler@aolms.com">Cheryl Traxler<BR>
-	</A>If you wish to block your email from receiving verifications:
-	<A HREF="http://inetekk.com/block/?o26x27u5kkpkvtpy54">http://inetekk.com/block</A><BR>
-	NOTE: There are no logs kept on submission verifications. <BR>
-	This request came from IP address 205.188.196.63</FONT><BR>
-	<IMG SRC="http://inetekk.com/pics/post-mark.gif" BORDER="0" WIDTH="33" HEIGHT="12"></TD>
-    </TR>
-  </TABLE>
-</CENTER>
-<P>
-<IMG SRC="http://www.aolms.com/cgi-local/makelog.pl?Veremail=free=gift=verification,o26x27u5kkpkvtpy54,cbtraxler">
-</BODY></HTML>
+ 
+
+ The SOFTWARE They Want BANNED In all 50 STATES.
+
+ Why?  Because these secrets were never intended to reach your eyes...
+
+ Get the facts on anyone
+
+ 
+
+ Locate Missing Persons, find Lost Relatives, obtain Addresses
+
+ and Phone Numbers of old school friends, even Skip Trace Dead
+
+ Beat Spouses.  This is not a Private Investigator, but a
+
+ sophisticated SOFTWARE program DESIGNED to automatically
+
+ CRACK YOUR CASE with links to thousands of Public Record databases.
+
+ 
+
+ Find out SECRETS about your relatives, friends, enemies,
+
+ and everyone else!  Even your spouse!  With the New,
+
+               INTERNET SPY AND YOU!
+
+ 
+
+ It's absolutely astounding!  Here's what you can learn.
+
+
+ License plate number
+
+ Get anyone's name and address with just a license plate number
+
+ (Find that girl you met in traffic!
+
+  Driving record!
+ Get anyone's driving record!
+
+  Social security number!
+
+ Trace anyone by social security number!
+
+ 
+
+ Address!
+
+ Get anyone's address with just a name!
+ Unlisted phone numbers
+
+ Get anyone's phone number with just a
+ name even unlisted numbers!
+
+  Locate!
+
+ Long lost friends, relatives, a past lover who broke your heart!
+
+  E-mail
+
+ Send anonymous e-mail completely untraceable!
+
+  Dirty secrets!
+
+ Discover dirty secrets your in-laws don't want you to know!
+
+ Investigate anyone! Use the sources that private investigators
+ use (all on the Internet)
+
+ secretly!
+
+ 
+
+ Ex-spouse!
+
+ Learn how to get information on an ex-spouse that will help you
+
+ win in court! (Dig up old skeletons)
+
+ 
+Criminal search Background check!
+
+ Find out about your daughter's boyfriend!
+ 
+
+ Find out!
+
+ If you are being investigated!
+
+ 
+
+ Neighbors!
+
+ Learn all about your mysterious neighbors!  Find out what they
+
+ have to hide!
+
+ 
+People you work with! Be astonished by what you'll learn 
+ about people you work with!
+
+
+ Education verification!
+
+ Did he really graduate college?  Find out!
+
+ 
+
+ Internet Spy and You!
+
+ Software will help you discover ANYTHING about anyone, with
+ clickable hyperlinks and no typing in Internet addresses!  Just
+
+ insert the floppy disk and Go!
+
+ 
+
+ You will be shocked and amazed by the secrets that can be
+
+ discovered about absolutely everyone!  Find out the secrets
+
+ they don't want you to know!  About others, about yourself!
+
+ 
+
+ It's INCREDIBLE what you can find out using Internet Spy and You
+
+ and the Internet!  You'll be riveted to your computer screen!
+
+ Get the software they're trying to ban!  Before it's too late!
+
+ 
+ ACT NOW!!   ONLY $19.95!!
+
+ REGULAR PRICE $24.95
+
+ ORDER NOW AND RECEIVE THE SPY SOFTWARE FOR $19.95!
+
+  THAT'S RIGHT ONLY $19.95
+
+ 
+
+ We will SEND YOU our Internet Spy and You SOFTWARE so you can
+
+ begin discovering all the secrets you ever wanted to know!
+
+ 
+
+ You can Know EVERYTHING about ANYONE with our Internet Spy and
+
+ You Software.  Works with all browsers and all versions of AOL!
+
+ REGULAR PRICE IS $24.95
+
+ ORDER TODAY AND SAVE!!  SEND ONLY $19.95
+
+ US FUNDS , MONEY ORDER, CASH, CHECK, OR CREDIT CARD
+ 
+
+ Foreign money orders must be payable on a US BANK AND IN US FUNDS
+
+ NO EXCEPTIONS!
+
+ 
+
+ DON'T WAIT TO GET STARTED...It's as easy as 1, 2, 3.
+
+ 
+
+  STEP 1 - Print the order form text below.
+ 
+
+  STEP 2 - Type or print your order information
+  into the order form section.
+
+ 
+
+  STEP 3 - Mail order form and payment to the address below.
+
+ 
+
+   Send to:
+
+  GOODWINN COMMUNICATIONS
+  390 SOUTH TYNDALL PKWY #108
+   PARKER, FL 32404
+ 
+ 
+  Name:  ________________________________________ 
+
+  Address: ________________________________________
+
+ 
+
+  City/State/Zip: ______________________________________
+ 
+
+   FOR MASTER CARD AND VISA  CREDIT CARD ORDERS ONLY!
+
+
+  Account Number: ____________________________________
+
+ 
+  Exp. Date: ________________________
+
+  Phone number required______________________________
+
+ 
+ Signature______________________
+
+
+   DISCLAIMER:  The seller of this powerful software resource will not 
+
+
+  be  held responsible for how the purchaser chooses to use it's resources.
+
+ 
+
+  To be removed from our mailing list homer3842002@yahoo.com
+
+
+     and put off in the subject.  Thank you
