@@ -1,32 +1,35 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] kill rtnl_exlock stubs
-Date: Wed, 28 Jul 2004 18:59:23 -0700
+Subject: Re: [PATCH]Fix adding SA through netlink(xfrm_user)
+Date: Wed, 28 Jul 2004 19:07:28 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040728185923.304bac86.davem@redhat.com>
-References: <20040727095057.78c7419c@dell_ss3.pdx.osdl.net>
-	<4106A132.8040207@trash.net>
+Message-ID: <20040728190728.2dcf06f7.davem@redhat.com>
+References: <20040729001058.48cd1791@localhost>
+	<Xine.LNX.4.44.0407281134500.11200-100000@dhcp83-76.boston.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, netdev@oss.sgi.com, hadi@znyx.com
+Cc: nakam@linux-ipv6.org, netdev@oss.sgi.com, herbert@gondor.apana.org.au
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <4106A132.8040207@trash.net>
+To: James Morris <jmorris@redhat.com>
+In-Reply-To: <Xine.LNX.4.44.0407281134500.11200-100000@dhcp83-76.boston.redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 27 Jul 2004 20:38:42 +0200
-Patrick McHardy <kaber@trash.net> wrote:
+On Wed, 28 Jul 2004 11:41:33 -0400 (EDT)
+James Morris <jmorris@redhat.com> wrote:
 
-> Stephen Hemminger wrote:
-> > Rtnetlink has some macro's that are relics from earlier locking.
-> > They are only used a couple of places so are easy to kill.
+> On Thu, 29 Jul 2004, Masahide Nakamura wrote:
 > 
-> The variable "exclusive" in rtnetlink_rcv_msg becomes useless with
-> this patch. This patch (on top of Stephen's patch) removes it.
+> > When adding IPsec SA with PF_KEY (pfkey_add()),
+> > xfrm_probe_algs() is called to make all algorithms valid.
+> > However, it is missing to call it with netlink (xfrm_user) case and
+> > it causes xfrm_aalg_get_byname() return NULL even if the name of
+> > algorithm seems to be correct.
+> 
+> Looks ok, but odd that this has not been picked up before.
 
-Both patches look fine, thanks guys.
+As discovered, this never got picked up before mostly
+because the most popular user of xfrm_user (Openswan)
+is still using PF_KEY to probe the algorithms.
 
-I thought maybe Alexey might have had some fantastic
-plan with exclusive locks, but this stuff has gone
-beyond bitrot :-)
+Patch applied, arigato Masahide-san.
