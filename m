@@ -1,37 +1,94 @@
-From: kuznet@ms2.inr.ac.ru
-Subject: Re: shutdown() and SHUT_RD on TCP sockets - broken?
-Date: Tue, 8 Jul 2003 21:03:07 +0400 (MSD)
+From: "Paul Albrecht" <palbrecht@qwest.net>
+Subject: Re: question about linux tcp request queue handling
+Date: Tue, 8 Jul 2003 12:23:37 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200307081703.VAA13437@dub.inr.ac.ru>
-References: <Mutt.LNX.4.44.0307090227050.9091-100000@excalibur.intercode.com.au>
+Message-ID: <001401c34586$6f955e20$6801a8c0@oemcomputer>
+References: <3F08858E.8000907@us.ibm.com.suse.lists.linux.kernel><001a01c3441c$6fe111a0$6801a8c0@oemcomputer.suse.lists.linux.kernel><3F08B7E2.7040208@us.ibm.com.suse.lists.linux.kernel><000d01c3444f$e6439600$6801a8c0@oemcomputer.suse.lists.linux.kernel><3F090A4F.10004@us.ibm.com.suse.lists.linux.kernel><001401c344df$ccbc63c0$6801a8c0@oemcomputer.suse.lists.linux.kernel> <p73fzliqa91.fsf@oldwotan.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mtk-lists@gmx.net, netdev@oss.sgi.com
+Content-Type: multipart/mixed;
+	boundary="----=_NextPart_000_0011_01C3454B.C1D79260"
+Cc: niv@us.ibm.com, linux-kernel@vger.kernel.org,
+   "netdev" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jmorris@intercode.com.au (James Morris)
-In-Reply-To: <Mutt.LNX.4.44.0307090227050.9091-100000@excalibur.intercode.com.au> from "James Morris" at È¿Ã 09, 2003 02:28:12 
+To: "Andi Kleen" <ak@suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
+This is a multi-part message in MIME format.
 
-> blocks.  I see that this also occurs on FreeBSD 4.8, Tru64 5.1B,
-> HP/UX 11 and Solaris 8.  Have I misunderstood Stevens,
+------=_NextPart_000_0011_01C3454B.C1D79260
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
 
-Most likely, it is that rare case when Stevens forgot to check the statement.
+Andi Kleen writes:
 
->From viewpoint of TCP the behaviour described in Stevens' book
-is highly unnatural. SHUT_RD on TCP does not make any sense.
+>
+> The 4.4BSD-Lite code described in Stevens is long outdated. All modern
+> BSDs (and probably most other Unixes too) do it in a similar way to what
+> Nivedita described. The keywords are "syn flood attack" and "DoS".
+>
 
+I have attached a copy of tcpdump output for two linux systems connected
+over ether replaying the scenario for incoming request queue handling given
+in Stevens's TCP/IP Illustrated Volume 1: The Protocols.  What I don't
+understand about the third handshake is if the server is going to send the
+syn/ack in response the client's initial syn then why does server repeatly
+ignore the subsequent ack from the client?
 
-> described here.  But, why do things happen in this way on Linux?
+------=_NextPart_000_0011_01C3454B.C1D79260
+Content-Type: text/plain;
+	name="trace.txt"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: attachment;
+	filename="trace.txt"
 
-Actually, you could check one more thing. What does happen after freebsd 4.8
-returns 0 on read()? Does it open window eventually?
-
-As you checked, all the stacks ignore SHUT_RD, when receiving data
-and queue it anyway. And when read()ing Linux and, apparently Solaris,
-prefer to return this data.
-
-Alexey
+01:12:09.622208 client.acme.net.1024 > server.acme.net.7777: S =
+2730884988:2730884988(0) win 5840 <mss 1460,sackOK,timestamp 133507 =
+0,nop,wscale 0> (DF)
+01:12:09.623457 server.acme.net.7777 > client.acme.net.1024: S =
+1682786145:1682786145(0) ack 2730884989 win 5792 <mss =
+1460,sackOK,timestamp 42960 133507,nop,wscale 0> (DF)
+01:12:09.623963 client.acme.net.1024 > server.acme.net.7777: . ack =
+1682786146 win 5840 <nop,nop,timestamp 133508 42960> (DF)
+01:12:11.858191 client.acme.net.1025 > server.acme.net.7777: S =
+2743503110:2743503110(0) win 5840 <mss 1460,sackOK,timestamp 134652 =
+0,nop,wscale 0> (DF)
+01:12:11.858991 server.acme.net.7777 > client.acme.net.1025: S =
+1690738882:1690738882(0) ack 2743503111 win 5792 <mss =
+1460,sackOK,timestamp 43183 134652,nop,wscale 0> (DF)
+01:12:11.859535 client.acme.net.1025 > server.acme.net.7777: . ack =
+1690738883 win 5840 <nop,nop,timestamp 134653 43183> (DF)
+01:12:13.909895 client.acme.net.1026 > server.acme.net.7777: S =
+2736891141:2736891141(0) win 5840 <mss 1460,sackOK,timestamp 135702 =
+0,nop,wscale 0> (DF)
+01:12:13.910636 server.acme.net.7777 > client.acme.net.1026: S =
+1692403887:1692403887(0) ack 2736891142 win 5792 <mss =
+1460,sackOK,timestamp 43388 135702,nop,wscale 0> (DF)
+01:12:13.911144 client.acme.net.1026 > server.acme.net.7777: . ack =
+1692403888 win 5840 <nop,nop,timestamp 135703 43388> (DF)
+01:12:17.502319 server.acme.net.7777 > client.acme.net.1026: S =
+1692403887:1692403887(0) ack 2736891142 win 5792 <mss =
+1460,sackOK,timestamp 43748 135703,nop,wscale 0> (DF)
+01:12:17.502909 client.acme.net.1026 > server.acme.net.7777: . ack =
+1692403888 win 5840 <nop,nop,timestamp 137542 43748,nop,nop,sack sack 1 =
+{1692403887:1692403888} > (DF)
+01:12:23.502350 server.acme.net.7777 > client.acme.net.1026: S =
+1692403887:1692403887(0) ack 2736891142 win 5792 <mss =
+1460,sackOK,timestamp 44348 137542,nop,wscale 0> (DF)
+01:12:23.502969 client.acme.net.1026 > server.acme.net.7777: . ack =
+1692403888 win 5840 <nop,nop,timestamp 140614 44348,nop,nop,sack sack 1 =
+{1692403887:1692403888} > (DF)
+01:12:35.702302 server.acme.net.7777 > client.acme.net.1026: S =
+1692403887:1692403887(0) ack 2736891142 win 5792 <mss =
+1460,sackOK,timestamp 45568 140614,nop,wscale 0> (DF)
+01:12:35.702840 client.acme.net.1026 > server.acme.net.7777: . ack =
+1692403888 win 5840 <nop,nop,timestamp 146859 45568,nop,nop,sack sack 1 =
+{1692403887:1692403888} > (DF)
+01:12:59.702343 server.acme.net.7777 > client.acme.net.1026: S =
+1692403887:1692403887(0) ack 2736891142 win 5792 <mss =
+1460,sackOK,timestamp 47968 146859,nop,wscale 0> (DF)
+01:12:59.702994 client.acme.net.1026 > server.acme.net.7777: . ack =
+1692403888 win 5840 <nop,nop,timestamp 159147 47968,nop,nop,sack sack 1 =
+{1692403887:1692403888} > (DF)
+------=_NextPart_000_0011_01C3454B.C1D79260--
