@@ -1,31 +1,32 @@
-From: Donald Becker <becker@scyld.com>
-Subject: Re: Network oops
-Date: Tue, 11 Jun 2002 21:35:23 -0400 (EDT)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: RFC: per-socket statistics on received/dropped packets
+Date: Tue, 11 Jun 2002 20:41:19 -0700 (PDT)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <ae68ng$ofp$2@main.gmane.org>
-References: <OFFF217683.8ACE4FCF-ON85256BD4.004D1229@raleigh.ibm.com>
+Message-ID: <20020611.204119.58650447.davem@redhat.com>
+References: <20020609.213440.04716391.davem@redhat.com>
+	<Pine.LNX.3.96.1020611183218.29598A-100000@gatekeeper.tmr.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: <linux-net@vger.kernel.org>, <linux-net-owner@vger.kernel.org>,
-   <netdev@oss.sgi.com>, <pekkas@netcore.fi>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: greearb@candelatech.com, mark@mark.mielke.cc, cfriesen@nortelnetworks.com,
+   linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: Mala Anand <manand@us.ibm.com>
-In-Reply-To: <OFFF217683.8ACE4FCF-ON85256BD4.004D1229@raleigh.ibm.com>
+To: davidsen@tmr.com
+In-Reply-To: <Pine.LNX.3.96.1020611183218.29598A-100000@gatekeeper.tmr.com>
 List-Id: netdev.vger.kernel.org
 
-On Mon, 10 Jun 2002, Mala Anand wrote:
+   From: Bill Davidsen <davidsen@tmr.com>
+   Date: Tue, 11 Jun 2002 18:41:16 -0400 (EDT)
 
->  I have see this problem with this NIC.  You need to increase
-> the number of buffers in the RX and TX ring in eepro100.c file.
-> Right now it is set to 32, change it to 256 or 128 this error
-> will go away.
+     Actually your arguments sound like you have a solution to your problem
+   and you want everyone to use it even if it doesn't help them. Have you
+   some emotional tie to SNMP, like being an author?
+   
+After a comment like this, I have no interest in listening to anything
+else you have to say.  I've been maintaining the Linux networking for
+5 or more years now, and the most important thing I do is say no to
+changes.
 
-Changing the Tx queue size or number of Rx skbuffs waiting to be filled
-will not fix a problem.  It might mask some problem e.g. a temporary
-shortage of skbuffs, but it doesn't fix anything.
-
--- 
-Donald Becker				becker@scyld.com
-Scyld Computing Corporation		http://www.scyld.com
-410 Severn Ave. Suite 210		Second Generation Beowulf Clusters
-Annapolis MD 21403			410-990-9993
+Franks a lot,
+David S. Miller
+davem@redhat.com
