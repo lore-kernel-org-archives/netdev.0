@@ -1,185 +1,167 @@
-From: Shmuel Hen <shmulik.hen@intel.com>
-Subject: [PATCH] [8021q] Export VLAN tag get/set functionality (resend)
-Date: Thu, 5 Feb 2004 16:24:40 +0200
+From: Kazunori Miyazawa <kazunori@miyazawa.org>
+Subject: [PATCH][IPV6][NDISC] unify ipv6 output routine
+Date: Sat, 7 Feb 2004 02:32:33 +0900
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200402051624.42303.shmulik.hen@intel.com>
+Message-ID: <200402070232.33771.kazunori@miyazawa.org>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@oss.sgi.com>, "Jeff Garzik" <jgarzik@pobox.com>
+Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com, usagi-core@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: davem@redhat.com
 Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Enable intermediate network drivers like bonding to get or set a 
-VLAN tag in an skb without a need to know about how tagging is done 
-according to a network adapter's capabilities. 
+Hello, 
 
-Tested for patch application and compilation against linux-2.6.2. 
+Yoshifuji-san and I send the patch which unifies IPv6 output routine and remove
+RTF_NDISC again. It resolves an issue of IPv6 IPsec with neighbor discovery
+without a flag.
 
--- 
-| Shmulik Hen   Advanced Network Services  |
-| Israel Design Center, Jerusalem          |
-| LAN Access Division, Platform Networking |
-| Intel Communications Group, Intel corp.  |
+This patch is against linux-2.6.2.
 
+Best regards,
 
-diff -Nuarp a/include/linux/if_vlan.h b/include/linux/if_vlan.h
---- a/include/linux/if_vlan.h	Wed Jan 21 16:56:09 2004
-+++ b/include/linux/if_vlan.h	Wed Jan 21 16:56:11 2004
-@@ -200,6 +200,152 @@ static inline int vlan_hwaccel_receive_s
- {
- 	return __vlan_hwaccel_rx(skb, grp, vlan_tag, 1);
- }
-+
-+/**
-+ * __vlan_put_tag - regular VLAN tag inserting
-+ * @skb: skbuff to tag
-+ * @tag: VLAN tag to insert
-+ *
-+ * Inserts the VLAN tag into @skb as part of the payload
-+ * Returns a VLAN tagged skb. If a new skb is created, @skb is freed.
-+ * 
-+ * Following the skb_unshare() example, in case of error, the calling function
-+ * doesn't have to worry about freeing the original skb.
-+ */
-+static inline struct sk_buff *__vlan_put_tag(struct sk_buff *skb, unsigned short tag)
-+{
-+	struct vlan_ethhdr *veth;
-+
-+	if (skb_headroom(skb) < VLAN_HLEN) {
-+		struct sk_buff *sk_tmp = skb;
-+		skb = skb_realloc_headroom(sk_tmp, VLAN_HLEN);
-+		kfree_skb(sk_tmp);
-+		if (!skb) {
-+			printk(KERN_ERR "vlan: failed to realloc headroom\n");
-+			return NULL;
-+		}
-+	} else {
-+		skb = skb_unshare(skb, GFP_ATOMIC);
-+		if (!skb) {
-+			printk(KERN_ERR "vlan: failed to unshare skbuff\n");
-+			return NULL;
-+		}
-+	}
-+
-+	veth = (struct vlan_ethhdr *)skb_push(skb, VLAN_HLEN);
-+
-+	/* Move the mac addresses to the beginning of the new header. */
-+	memmove(skb->data, skb->data + VLAN_HLEN, 2 * VLAN_ETH_ALEN);
-+
-+	/* first, the ethernet type */
-+	veth->h_vlan_proto = __constant_htons(ETH_P_8021Q);
-+
-+	/* now, the tag */
-+	veth->h_vlan_TCI = htons(tag);
-+
-+	skb->protocol = __constant_htons(ETH_P_8021Q);
-+	skb->mac.raw -= VLAN_HLEN;
-+	skb->nh.raw -= VLAN_HLEN;
-+
-+	return skb;
-+}
-+
-+/**
-+ * __vlan_hwaccel_put_tag - hardware accelerated VLAN inserting
-+ * @skb: skbuff to tag
-+ * @tag: VLAN tag to insert
-+ *
-+ * Puts the VLAN tag in @skb->cb[] and lets the device do the rest
-+ */
-+static inline struct sk_buff *__vlan_hwaccel_put_tag(struct sk_buff *skb, unsigned short tag)
-+{
-+	struct vlan_skb_tx_cookie *cookie;
-+
-+	cookie = VLAN_TX_SKB_CB(skb);
-+	cookie->magic = VLAN_TX_COOKIE_MAGIC;
-+	cookie->vlan_tag = tag;
-+
-+	return skb;
-+}
-+
-+#define HAVE_VLAN_PUT_TAG
-+
-+/**
-+ * vlan_put_tag - inserts VLAN tag according to device features
-+ * @skb: skbuff to tag
-+ * @tag: VLAN tag to insert
-+ *
-+ * Assumes skb->dev is the target that will xmit this frame.
-+ * Returns a VLAN tagged skb.
-+ */
-+static inline struct sk_buff *vlan_put_tag(struct sk_buff *skb, unsigned short tag)
-+{
-+	if (skb->dev->features & NETIF_F_HW_VLAN_TX) {
-+		return __vlan_hwaccel_put_tag(skb, tag);
-+	} else {
-+		return __vlan_put_tag(skb, tag);
-+	}
-+}
-+
-+/**
-+ * __vlan_get_tag - get the VLAN ID that is part of the payload
-+ * @skb: skbuff to query
-+ * @tag: buffer to store vlaue
-+ * 
-+ * Returns error if the skb is not of VLAN type
-+ */
-+static inline int __vlan_get_tag(struct sk_buff *skb, unsigned short *tag)
-+{
-+	struct vlan_ethhdr *veth = (struct vlan_ethhdr *)skb->data;
-+
-+	if (veth->h_vlan_proto != __constant_htons(ETH_P_8021Q)) {
-+		return -EINVAL;
-+	}
-+
-+	*tag = ntohs(veth->h_vlan_TCI);
-+
-+	return 0;
-+}
-+
-+/**
-+ * __vlan_hwaccel_get_tag - get the VLAN ID that is in @skb->cb[]
-+ * @skb: skbuff to query
-+ * @tag: buffer to store vlaue
-+ * 
-+ * Returns error if @skb->cb[] is not set correctly
-+ */
-+static inline int __vlan_hwaccel_get_tag(struct sk_buff *skb, unsigned short *tag)
-+{
-+	struct vlan_skb_tx_cookie *cookie;
-+
-+	cookie = VLAN_TX_SKB_CB(skb);
-+	if (cookie->magic == VLAN_TX_COOKIE_MAGIC) {
-+		*tag = cookie->vlan_tag;
-+		return 0;
-+	} else {
-+		*tag = 0;
-+		return -EINVAL;
-+	}
-+}
-+
-+#define HAVE_VLAN_GET_TAG
-+
-+/**
-+ * vlan_get_tag - get the VLAN ID from the skb
-+ * @skb: skbuff to query
-+ * @tag: buffer to store vlaue
-+ * 
-+ * Returns error if the skb is not VLAN tagged
-+ */
-+static inline int vlan_get_tag(struct sk_buff *skb, unsigned short *tag)
-+{
-+	if (skb->dev->features & NETIF_F_HW_VLAN_TX) {
-+		return __vlan_hwaccel_get_tag(skb, tag);
-+	} else {
-+		return __vlan_get_tag(skb, tag);
-+	}
-+}
-+
- #endif /* __KERNEL__ */
+--Kazunori Miyazawa
+
+===== include/linux/ipv6_route.h 1.4 vs edited =====
+--- 1.4/include/linux/ipv6_route.h	Sun Aug 31 13:26:12 2003
++++ edited/include/linux/ipv6_route.h	Mon Jan 26 15:09:34 2004
+@@ -24,7 +24,6 @@
+ #define RTF_CACHE	0x01000000	/* cache entry			*/
+ #define RTF_FLOW	0x02000000	/* flow significant route	*/
+ #define RTF_POLICY	0x04000000	/* policy route			*/
+-#define RTF_NDISC	0x08000000	/* ndisc route			*/
  
- /* VLAN IOCTLs are found in sockios.h */
+ #define RTF_LOCAL	0x80000000
+ 
+===== include/net/ipv6.h 1.28 vs edited =====
+--- 1.28/include/net/ipv6.h	Wed Jan 14 09:36:24 2004
++++ edited/include/net/ipv6.h	Mon Jan 26 15:10:50 2004
+@@ -355,6 +355,7 @@
+  */
+ 
+ extern int			ip6_output(struct sk_buff *skb);
++extern int			ip6_output2(struct sk_buff *skb);
+ extern int			ip6_forward(struct sk_buff *skb);
+ extern int			ip6_input(struct sk_buff *skb);
+ extern int			ip6_mc_input(struct sk_buff *skb);
+===== net/ipv6/ndisc.c 1.64 vs edited =====
+--- 1.64/net/ipv6/ndisc.c	Thu Jan 22 15:38:40 2004
++++ edited/net/ipv6/ndisc.c	Mon Jan 26 15:10:16 2004
+@@ -390,20 +390,6 @@
+  *	Send a Neighbour Advertisement
+  */
+ 
+-static int ndisc_output(struct sk_buff *skb)
+-{
+-	if (skb) {
+-		struct neighbour *neigh = (skb->dst ? skb->dst->neighbour : NULL);
+-		if (ndisc_build_ll_hdr(skb, skb->dev, &skb->nh.ipv6h->daddr, neigh, skb->len) == 0) {
+-			kfree_skb(skb);
+-			return -EINVAL;
+-		}
+-		dev_queue_xmit(skb);
+-		return 0;
+-	}
+-	return -EINVAL;
+-}
+-
+ static inline void ndisc_flow_init(struct flowi *fl, u8 type,
+ 			    struct in6_addr *saddr, struct in6_addr *daddr)
+ {
+@@ -446,7 +432,7 @@
+ 
+ 	ndisc_flow_init(&fl, NDISC_NEIGHBOUR_ADVERTISEMENT, src_addr, daddr);
+ 
+-	dst = ndisc_dst_alloc(dev, neigh, ndisc_output);
++	dst = ndisc_dst_alloc(dev, neigh, ip6_output2);
+ 	if (!dst)
+ 		return;
+ 
+@@ -533,7 +519,7 @@
+ 
+ 	ndisc_flow_init(&fl, NDISC_NEIGHBOUR_SOLICITATION, saddr, daddr);
+ 
+-	dst = ndisc_dst_alloc(dev, neigh, ndisc_output);
++	dst = ndisc_dst_alloc(dev, neigh, ip6_output2);
+ 	if (!dst)
+ 		return;
+ 
+@@ -605,7 +591,7 @@
+ 
+ 	ndisc_flow_init(&fl, NDISC_ROUTER_SOLICITATION, saddr, daddr);
+ 
+-	dst = ndisc_dst_alloc(dev, NULL, ndisc_output);
++	dst = ndisc_dst_alloc(dev, NULL, ip6_output2);
+ 	if (!dst)
+ 		return;
+ 
+===== net/ipv6/route.c 1.63 vs edited =====
+--- 1.63/net/ipv6/route.c	Sun Jan 25 03:09:52 2004
++++ edited/net/ipv6/route.c	Mon Jan 26 15:11:39 2004
+@@ -578,7 +578,7 @@
+ 	rt->rt6i_dev	  = dev;
+ 	rt->rt6i_nexthop  = neigh;
+ 	rt->rt6i_expires  = 0;
+-	rt->rt6i_flags    = RTF_LOCAL | RTF_NDISC;
++	rt->rt6i_flags    = RTF_LOCAL;
+ 	rt->rt6i_metric   = 0;
+ 	atomic_set(&rt->u.dst.__refcnt, 1);
+ 	rt->u.dst.metrics[RTAX_HOPLIMIT-1] = 255;
+@@ -832,7 +832,7 @@
+ 		}
+ 	}
+ 
+-	rt->rt6i_flags = rtmsg->rtmsg_flags & ~RTF_NDISC;
++	rt->rt6i_flags = rtmsg->rtmsg_flags;
+ 
+ install_route:
+ 	if (rta && rta[RTA_METRICS-1]) {
+@@ -1124,8 +1124,6 @@
+ static struct rt6_info * ip6_rt_copy(struct rt6_info *ort)
+ {
+ 	struct rt6_info *rt = ip6_dst_alloc();
+-
+-	BUG_ON(ort->rt6i_flags & RTF_NDISC);
+ 
+ 	if (rt) {
+ 		rt->u.dst.input = ort->u.dst.input;
+===== net/ipv6/xfrm6_policy.c 1.14 vs edited =====
+--- 1.14/net/ipv6/xfrm6_policy.c	Fri Oct 24 21:39:33 2003
++++ edited/net/ipv6/xfrm6_policy.c	Mon Jan 26 15:12:35 2004
+@@ -55,13 +55,6 @@
+ __xfrm6_find_bundle(struct flowi *fl, struct rtable *rt, struct xfrm_policy *policy)
+ {
+ 	struct dst_entry *dst;
+-	u32 ndisc_bit = 0;
+-
+-	if (fl->proto == IPPROTO_ICMPV6 &&
+-	    (fl->fl_icmp_type == NDISC_NEIGHBOUR_ADVERTISEMENT ||
+-	     fl->fl_icmp_type == NDISC_NEIGHBOUR_SOLICITATION  ||
+-	     fl->fl_icmp_type == NDISC_ROUTER_SOLICITATION))
+-		ndisc_bit = RTF_NDISC;
+ 
+ 	/* Still not clear if we should set fl->fl6_{src,dst}... */
+ 	read_lock_bh(&policy->lock);
+@@ -69,9 +62,6 @@
+ 		struct xfrm_dst *xdst = (struct xfrm_dst*)dst;
+ 		struct in6_addr fl_dst_prefix, fl_src_prefix;
+ 
+-		if ((xdst->u.rt6.rt6i_flags & RTF_NDISC) != ndisc_bit)
+-			continue;
+-
+ 		ipv6_addr_prefix(&fl_dst_prefix,
+ 				 &fl->fl6_dst,
+ 				 xdst->u.rt6.rt6i_dst.plen);
+@@ -169,7 +159,7 @@
+ 		dst_prev->output	= dst_prev->xfrm->type->output;
+ 		/* Sheit... I remember I did this right. Apparently,
+ 		 * it was magically lost, so this code needs audit */
+-		x->u.rt6.rt6i_flags    = rt0->rt6i_flags&(RTCF_BROADCAST|RTCF_MULTICAST|RTCF_LOCAL|RTF_NDISC);
++		x->u.rt6.rt6i_flags    = rt0->rt6i_flags&(RTCF_BROADCAST|RTCF_MULTICAST|RTCF_LOCAL);
+ 		x->u.rt6.rt6i_metric   = rt0->rt6i_metric;
+ 		x->u.rt6.rt6i_node     = rt0->rt6i_node;
+ 		x->u.rt6.rt6i_gateway  = rt0->rt6i_gateway;
