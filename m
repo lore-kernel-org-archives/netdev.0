@@ -1,41 +1,29 @@
-From: Andrea Arcangeli <andrea@novell.com>
-Subject: Re: gettimeofday scalability
-Date: Tue, 5 Oct 2004 20:55:53 +0200
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: Race between neigh_timer_handler and neigh_event_send
+Date: Tue, 5 Oct 2004 11:57:25 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041005185553.GG26820@dualathlon.random>
-References: <4162CD76.4070204@draigBrady.com>
+Message-ID: <20041005115725.7aa6c739.davem@davemloft.net>
+References: <20041005101532.GA935@sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, Ingo Molnar <mingo@elte.hu>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: P@draigBrady.com
-Content-Disposition: inline
-In-Reply-To: <4162CD76.4070204@draigBrady.com>
+To: Greg Banks <gnb@sgi.com>
+In-Reply-To: <20041005101532.GA935@sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 05, 2004 at 05:36:06PM +0100, P@draigBrady.com wrote:
-> I've seen various gettimeofday locking speedup patches floating
-> around for 2.4. There is a version from Stephen and Andrea
-> that uses frlock, claiming 18%, and one from ingo that uses brlock.
-> 2.6.8.1 uses seqlock, which contains the comment
-> that it's not as cache friendly as brlock.
 
-seqlock and frlock are the same thing. I don't see how the brlock can
-work well given the fact you'll have to take it in write mode at every
-timer irq. Maybe it works on a 2-way, sure not more than that. brlock
-should be totally replaced by RCU anyways. brlock can also starve the
-writer, which make it a security DoS (at least for some architecture,
-there were two implementations, maybe one is safe).
+Good catch Greg.
 
-> So can anyone summarise the relative merits of these locking
-> mechanisms, before I start benchmarking?
+All of this trouble is because this is the one spot where we
+make reference to the arp_queue packets without neigh->lock
+held.
 
-frlock/seqlock (2.4/2.6 respectively) is the way to go, no write
-starvation, and zero cacheline bouncing. 
+I wish we could avoiding dropping the lock instead, but that
+is not the case.  All of these ->solicit() methods can end
+up calling back down into the neighbour layer and try to grab
+the lock again.
 
-upgrade to x86-64, there I implemented gettimeofday with vsyscalls which
-also avoids entering exiting userspace which becomes the by far biggest
-overhead after using seqlock. (speedup is tenfold or so)
-
-Hope this helps.
+I'll apply your patch, thanks.
