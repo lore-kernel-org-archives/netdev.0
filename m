@@ -1,7 +1,7 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (18/23) sk98: update pci_id table
-Date: Thu, 11 Nov 2004 16:07:30 -0800
-Message-ID: <20041111160730.72772168@zqx3.pdx.osdl.net>
+Subject: [PATCH] (4/23) sk98: use netdev_priv
+Date: Thu, 11 Nov 2004 15:54:10 -0800
+Message-ID: <20041111155410.2a5b0d87@zqx3.pdx.osdl.net>
 References: <4192C60A.1050205@designassembly.de>
 	<20041111154225.5cf85567@zqx3.pdx.osdl.net>
 Mime-Version: 1.0
@@ -17,72 +17,207 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Reformat and update pci id table.  Add values from lastest SysKonnect
-driver, and use pci_id defines if available.
+Use netdev_priv when dereferenceing net_device private
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
 diff -Nru a/drivers/net/sk98lin/skge.c b/drivers/net/sk98lin/skge.c
---- a/drivers/net/sk98lin/skge.c	2004-11-04 10:30:02 -08:00
-+++ b/drivers/net/sk98lin/skge.c	2004-11-04 10:30:02 -08:00
-@@ -277,24 +277,45 @@
- static uintptr_t TxQueueAddr[SK_MAX_MACS][2] = {{0x680, 0x600},{0x780, 0x700}};
- static uintptr_t RxQueueAddr[SK_MAX_MACS] = {0x400, 0x480};
+--- a/drivers/net/sk98lin/skge.c	2004-11-03 14:07:58 -08:00
++++ b/drivers/net/sk98lin/skge.c	2004-11-03 14:07:58 -08:00
+@@ -337,22 +337,20 @@
+ DEV_NET		*pNet;
+ SK_AC		*pAC;
  
--
--static struct pci_device_id sk98lin_pci_tbl[] = {
--	{ PCI_VENDOR_ID_3COM, 0x1700, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
--	{ PCI_VENDOR_ID_3COM, 0x80eb, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
--	{ PCI_VENDOR_ID_SYSKONNECT, 0x4300, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
--	{ PCI_VENDOR_ID_SYSKONNECT, 0x4320, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
--	{ PCI_VENDOR_ID_DLINK, 0x4c00, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
--	{ PCI_VENDOR_ID_MARVELL, 0x4320, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
-+static struct pci_device_id sk98lin_pci_tbl[] __devinitdata = {
-+	{ PCI_VENDOR_ID_3COM, PCI_DEVICE_ID_3COM_3C940, 
-+	  PCI_ANY_ID, PCI_ANY_ID }, 
-+	{ PCI_VENDOR_ID_3COM, PCI_DEVICE_ID_3COM_3C940B, 
-+	  PCI_ANY_ID, PCI_ANY_ID }, 
-+	{ PCI_VENDOR_ID_SYSKONNECT, PCI_DEVICE_ID_SYSKONNECT_GE,
-+	  PCI_ANY_ID, PCI_ANY_ID },
-+	{ PCI_VENDOR_ID_SYSKONNECT, PCI_DEVICE_ID_SYSKONNECT_YU,
-+	  PCI_ANY_ID, PCI_ANY_ID },
-+	{ PCI_VENDOR_ID_SYSKONNECT, 0x9E00, /* SK-9Exx 10/100/1000Base-T Adapter */
-+	  PCI_ANY_ID, PCI_ANY_ID },
-+	{ PCI_VENDOR_ID_DLINK, PCI_DEVICE_ID_DLINK_DGE510T,
-+	  PCI_ANY_ID, PCI_ANY_ID },
-+	{ PCI_VENDOR_ID_MARVELL, 0x4320, /* Gigabit Ethernet Controller */
-+	  PCI_ANY_ID, PCI_ANY_ID },
- #if 0	/* don't handle Yukon2 cards at the moment -- mlindner@syskonnect.de */
--	{ PCI_VENDOR_ID_MARVELL, 0x4360, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
--	{ PCI_VENDOR_ID_MARVELL, 0x4361, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
-+	{ PCI_VENDOR_ID_MARVELL, 0x4350, /* Fast Ethernet Controller */
-+	  PCI_ANY_ID, PCI_ANY_ID },
-+	{ PCI_VENDOR_ID_MARVELL, 0x4351, /* Fast Ethernet Controller */
-+	  PCI_ANY_ID, PCI_ANY_ID },
-+	{ PCI_VENDOR_ID_MARVELL, 0x4360, /* Gigabit Ethernet Controller */
-+	  PCI_ANY_ID, PCI_ANY_ID },
-+	{ PCI_VENDOR_ID_MARVELL, 0x4361, /* Gigabit Ethernet Controller */
-+	  PCI_ANY_ID, PCI_ANY_ID },
-+	{ PCI_VENDOR_ID_MARVELL, 0x4362, /* Gigabit Ethernet Controller */
-+	  PCI_ANY_ID, PCI_ANY_ID },
+-	if (dev->priv) {
+-		pNet = (DEV_NET*) dev->priv;
+-		pAC = pNet->pAC;
+-		AllocFlag = pAC->AllocFlag;
+-		if (pAC->PciDev) {
+-			pci_release_regions(pAC->PciDev);
+-		}
+-		if (AllocFlag & SK_ALLOC_IRQ) {
+-			free_irq(dev->irq, dev);
+-		}
+-		if (pAC->IoBase) {
+-			iounmap(pAC->IoBase);
+-		}
+-		if (pAC->pDescrMem) {
+-			BoardFreeMem(pAC);
+-		}
++	pNet = netdev_priv(dev);
++	pAC = pNet->pAC;
++	AllocFlag = pAC->AllocFlag;
++	if (pAC->PciDev) {
++		pci_release_regions(pAC->PciDev);
++	}
++	if (AllocFlag & SK_ALLOC_IRQ) {
++		free_irq(dev->irq, dev);
++	}
++	if (pAC->IoBase) {
++		iounmap(pAC->IoBase);
++	}
++	if (pAC->pDescrMem) {
++		BoardFreeMem(pAC);
+ 	}
+ 	
+ } /* FreeResources */
+@@ -887,7 +885,7 @@
+ SK_AC		*pAC;
+ SK_U32		IntSrc;		/* interrupts source register contents */	
+ 
+-	pNet = (DEV_NET*) dev->priv;
++	pNet = netdev_priv(dev);
+ 	pAC = pNet->pAC;
+ 	
+ 	/*
+@@ -1036,7 +1034,7 @@
+ SK_AC		*pAC;
+ SK_U32		IntSrc;		/* interrupts source register contents */	
+ 
+-	pNet = (DEV_NET*) dev->priv;
++	pNet = netdev_priv(dev);
+ 	pAC = pNet->pAC;
+ 	
+ 	/*
+@@ -1152,7 +1150,7 @@
+ 	int				i;
+ 	SK_EVPARA		EvPara;		/* an event parameter union */
+ 
+-	pNet = (DEV_NET*) dev->priv;
++	pNet = netdev_priv(dev);
+ 	pAC = pNet->pAC;
+ 	
+ 	SK_DBG_MSG(NULL, SK_DBGMOD_DRV, SK_DBGCAT_DRV_ENTRY,
+@@ -1273,7 +1271,7 @@
+ 	SK_DBG_MSG(NULL, SK_DBGMOD_DRV, SK_DBGCAT_DRV_ENTRY,
+ 		("SkGeClose: pAC=0x%lX ", (unsigned long)pAC));
+ 
+-	pNet = (DEV_NET*) dev->priv;
++	pNet = netdev_priv(dev);
+ 	pAC = pNet->pAC;
+ 
+ #ifdef SK_DIAG_SUPPORT
+@@ -1284,7 +1282,7 @@
+ 			** by operator interaction must not be started up 
+ 			** again when the DIAG has finished. 
+ 			*/
+-			newPtrNet = (DEV_NET *) pAC->dev[0]->priv;
++			newPtrNet = netdev_priv(pAC->dev[0]);
+ 			if (newPtrNet == pNet) {
+ 				pAC->WasIfUp[0] = SK_FALSE;
+ 			} else {
+@@ -1394,7 +1392,7 @@
+ SK_AC		*pAC;
+ int			Rc;	/* return code of XmitFrame */
+ 
+-	pNet = (DEV_NET*) dev->priv;
++	pNet = netdev_priv(dev);
+ 	pAC = pNet->pAC;
+ 
+ 	if ((!skb_shinfo(skb)->nr_frags) ||
+@@ -2490,7 +2488,7 @@
+ static int SkGeSetMacAddr(struct SK_NET_DEVICE *dev, void *p)
+ {
+ 
+-DEV_NET *pNet = (DEV_NET*) dev->priv;
++DEV_NET *pNet = netdev_priv(dev);
+ SK_AC	*pAC = pNet->pAC;
+ 
+ struct sockaddr	*addr = p;
+@@ -2547,7 +2545,7 @@
+ 	SK_DBG_MSG(NULL, SK_DBGMOD_DRV, SK_DBGCAT_DRV_ENTRY,
+ 		("SkGeSetRxMode starts now... "));
+ 
+-	pNet = (DEV_NET*) dev->priv;
++	pNet = netdev_priv(dev);
+ 	pAC = pNet->pAC;
+ 	if (pAC->RlmtNets == 1)
+ 		PortIdx = pAC->ActivePort;
+@@ -2619,7 +2617,7 @@
+ 	SK_DBG_MSG(NULL, SK_DBGMOD_DRV, SK_DBGCAT_DRV_ENTRY,
+ 		("SkGeChangeMtu starts now...\n"));
+ 
+-	pNet = (DEV_NET*) dev->priv;
++	pNet = netdev_priv(dev);
+ 	pAC  = pNet->pAC;
+ 
+ 	if ((NewMtu < 68) || (NewMtu > SK_JUMBO_MTU)) {
+@@ -2641,7 +2639,7 @@
  #endif
--	{ PCI_VENDOR_ID_MARVELL, 0x5005, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
--	{ PCI_VENDOR_ID_CNET, 0x434e, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
--	{ PCI_VENDOR_ID_LINKSYS, 0x1032, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
--	{ PCI_VENDOR_ID_LINKSYS, 0x1064, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
--	{ 0, }
-+	{ PCI_VENDOR_ID_MARVELL, 0x5005, /* Marvell (11ab), Belkin */
-+	  PCI_ANY_ID, PCI_ANY_ID },
-+	{ PCI_VENDOR_ID_CNET, PCI_DEVICE_ID_CNET_GIGACARD,
-+	  PCI_ANY_ID, PCI_ANY_ID },
-+	{ PCI_VENDOR_ID_LINKSYS, PCI_DEVICE_ID_LINKSYS_EG1032,
-+	  PCI_ANY_ID, PCI_ANY_ID },
-+	{ PCI_VENDOR_ID_LINKSYS, PCI_DEVICE_ID_LINKSYS_EG1064,
-+	  PCI_ANY_ID, PCI_ANY_ID },
-+	{ 0 }
- };
-+
-+MODULE_DEVICE_TABLE(pci, sk98lin_pci_tbl);
  
- static struct pci_driver skge_driver = {
- 	.name		= DRIVER_FILE_NAME,
+ 	pNet->Mtu = NewMtu;
+-	pOtherNet = (DEV_NET*)pAC->dev[1 - pNet->NetNr]->priv;
++	pOtherNet = netdev_priv(pAC->dev[1 - pNet->NetNr]);
+ 	if ((pOtherNet->Mtu>1500) && (NewMtu<=1500) && (pOtherNet->Up==1)) {
+ 		return(0);
+ 	}
+@@ -2847,7 +2845,7 @@
+  */
+ static struct net_device_stats *SkGeStats(struct SK_NET_DEVICE *dev)
+ {
+-DEV_NET *pNet = (DEV_NET*) dev->priv;
++DEV_NET *pNet = netdev_priv(dev);
+ SK_AC	*pAC = pNet->pAC;
+ SK_PNMI_STRUCT_DATA *pPnmiStruct;       /* structure for all Pnmi-Data */
+ SK_PNMI_STAT    *pPnmiStat;             /* pointer to virtual XMAC stat. data */
+@@ -2945,7 +2943,7 @@
+ 	SK_DBG_MSG(NULL, SK_DBGMOD_DRV, SK_DBGCAT_DRV_ENTRY,
+ 		("SkGeIoctl starts now...\n"));
+ 
+-	pNet = (DEV_NET*) dev->priv;
++	pNet = netdev_priv(dev);
+ 	pAC = pNet->pAC;
+ 	
+ 	if(copy_from_user(&Ioctl, rq->ifr_data, sizeof(SK_GE_IOCTL))) {
+@@ -4531,11 +4529,8 @@
+ int SkDrvEnterDiagMode(
+ SK_AC   *pAc)   /* pointer to adapter context */
+ {
+-	SK_AC   *pAC  = NULL;
+-	DEV_NET *pNet = NULL;
+-
+-	pNet = (DEV_NET *) pAc->dev[0]->priv;
+-	pAC = pNet->pAC;
++	DEV_NET *pNet = netdev_priv(pAc->dev[0]);
++	SK_AC   *pAC  = pNet->pAC;
+ 
+ 	SK_MEMCPY(&(pAc->PnmiBackup), &(pAc->PnmiStruct), 
+ 			sizeof(SK_PNMI_STRUCT_DATA));
+@@ -4550,8 +4545,8 @@
+ 		} else {
+ 			pAC->WasIfUp[0] = SK_FALSE;
+ 		}
+-		if (pNet != (DEV_NET *) pAc->dev[1]->priv) {
+-			pNet = (DEV_NET *) pAc->dev[1]->priv;
++		if (pNet != netdev_priv(pAC->dev[1])) {
++			pNet = netdev_priv(pAC->dev[1]);
+ 			if (pNet->Up) {
+ 				pAC->WasIfUp[1] = SK_TRUE;
+ 				pAC->DiagFlowCtrl = SK_TRUE; /* for SkGeClose */
+@@ -4897,7 +4892,7 @@
+ 		goto out_disable_device;
+ 	}
+ 
+-	pNet = dev->priv;
++	pNet = netdev_priv(dev);
+ 	pNet->pAC = kmalloc(sizeof(SK_AC), GFP_KERNEL);
+ 	if (!pNet->pAC) {
+ 		printk(KERN_ERR "Unable to allocate adapter "
+@@ -4997,7 +4992,7 @@
+ 		}
+ 
+ 		pAC->dev[1]   = dev;
+-		pNet          = dev->priv;
++		pNet          = netdev_priv(dev);
+ 		pNet->PortNr  = 1;
+ 		pNet->NetNr   = 1;
+ 		pNet->pAC     = pAC;
+@@ -5073,7 +5068,7 @@
+ static void __devexit skge_remove_one(struct pci_dev *pdev)
+ {
+ 	struct net_device *dev = pci_get_drvdata(pdev);
+-	DEV_NET *pNet = (DEV_NET *) dev->priv;
++	DEV_NET *pNet = netdev_priv(dev);
+ 	SK_AC *pAC = pNet->pAC;
+ 	int have_second_mac = 0;
+ 
