@@ -1,35 +1,47 @@
-From: kuznet@ms2.inr.ac.ru
-Subject: Re: netlink sockets and rtm_newlink messages
-Date: Mon, 30 Sep 2002 19:43:05 +0400 (MSD)
+From: "Dave Santucci" <dave_santucci@vivato.net>
+Subject: RE: [VLAN] VLAN patches
+Date: Mon, 30 Sep 2002 08:55:59 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200209301543.TAA15388@sex.inr.ac.ru>
-References: <Pine.GSO.4.30.0209291105410.8253-100000@shell.cyberus.ca>
+Message-ID: <D8B86D9BB607124BA1D54EDB7944DB0B140BC4@exchange.mabuhay>
 Mime-Version: 1.0
-Cc: mcmanus@ducksong.COM, netdev@oss.sgi.com
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca (jamal)
-In-Reply-To: <Pine.GSO.4.30.0209291105410.8253-100000@shell.cyberus.ca> from "jamal" at Sep 29, 2 11:09:10 am
+content-class: urn:content-classes:message
+To: <vlan@Scry.WANfear.com>, <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
+Bjorn
+	Since the data type for the vlan_id is specified as an "unsigned short",
+	The comparison (vlan_id < 0) will always be false due to the range of th=
+e data
+ 	type.
 
-> So that you dont forget, heres the patch:
+	-ds
+=09
 
-Thanks. Indeed, you ar right, I have already forgotten this. :-)
+-----Original Message-----
+From: Andersson Bj=F6rn [mailto:Bjorn.Andersson@ebc.ericsson.se]=20
+Sent: Monday, September 30, 2002 1:24 AM
+To: netdev@oss.sgi.com
+Subject: [VLAN] VLAN patches
 
-> Wouldnt that spot be the best for NETDEV_UP/DOWN since thats the notifier
-> callback?
+Hi,
+I hope you are the right receiver of 8021q-patches.
+We are running SuSe 8.0, i.e kernel 2.4.18.
 
-It was moved out of there to support ifa_change bits. But apparently
-I have made copy instead of move.
+- When addding several egress-mappings we get stuck in an eternal
+loop if they end up in the same hash-bucket, see vlan_dev.c.path.
 
-> Also, can you remind me what if_change was for? netcarrier events?
+- If we try to remove a vlan with VID 0, ifconfig stops working
+completly.
+We fixed it with vlan.c.patch.
 
-ifa_change was for unimplemented control part to allow atomic changes
-of state not affecting another flags.
 
-Someone spotted that it would be convenient to have this flag set
-valid in all the kinds of RTM_NEWLINK messages.
-
-Alexey
+--=20
+* Bj=F6rn Andersson                   bjorn.andersson@ebc.ericsson.se *
+* Ericsson Enterprise AB            NA/EBC/BEES/DNCC                *
+* Nacka Strand                      tel: +46-8-422 3512             *
+* 13 189 Stockholm, Sweden          fax: +46-8-422 1010             *
