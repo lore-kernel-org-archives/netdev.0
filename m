@@ -1,8 +1,8 @@
 From: deliver_photo@yahoo.co.jp
 Subject: =?iso-2022-jp?B?g2aDioNvg4qBW1BIT1RPIJP8ie+Krpe5?=
-Date: Wed, 27 Oct 2004 22:13:39 +0900 (JST)
+Date: Wed, 27 Oct 2004 22:29:08 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041027131339.7905A588041@mail.zl8.jp>
+Message-ID: <20041027132908.0D15B588041@mail.zl8.jp>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
