@@ -1,75 +1,29 @@
-From: netdev-bounce@oss.sgi.com
-Subject: (no subject)
-Date: Tue, 29 Oct 2002 14:04:42 +1100 (EST)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: sctp snmp mib stats in /proc/net/snmp
+Date: Tue, 29 Oct 2002 05:49:42 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021029030442.437EE12D03E__8867.53108720786$1035897626@blammo.its.monash.edu.au>
-Content-Transfer-Encoding: 7BIT
+Message-ID: <20021029.054942.106663164.davem@redhat.com>
+References: <Pine.LNX.4.44.0210281540240.1647-100000@w-nivedita.beaverton.ibm.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: undisclosed-recipients: ;
+To: niv@us.ibm.com
+In-Reply-To: <Pine.LNX.4.44.0210281540240.1647-100000@w-nivedita.beaverton.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> >
-> > 905182 total                                      0.4741
-> > 121426 csum_partial_copy_generic                474.3203
->
-> Well, maybe take a look at this func and try to optimize it?
+   From: Nivedita Singhvi <niv@us.ibm.com>
+   Date: Mon, 28 Oct 2002 15:51:14 -0800 (PST)
 
-I don't know assembly that good - sorry.
+   I'm posting this to netdev and linux-net in case
+   anyone has any issues with the /proc/net/snmp
+   display  altering (post feature freeze and all
+   that) even though I dont think that really applies 
+   here (or for any additional such changes in 
+   the near future)..
 
-> >  93633 default_idle                             1800.6346
-> >  74665 do_wp_page                               111.1086
->
-> What's this?
-
-do_wp_page is Defined as a function in: mm/memory.c
-
-comments from the file:
-
-/*
- * This routine handles present pages, when users try to write
- * to a shared page. It is done by copying the page to a new address
- * and decrementing the shared-page counter for the old page.
- *
- * Goto-purists beware: the only reason for goto's here is that it results
- * in better assembly code.. The "default" path will see no jumps at all.
- *
- * Note that this routine assumes that the protection checks have been
- * done by the caller (the low-level page fault routine in most cases).
- * Thus we can safely just mark it writable once we've done any necessary
- * COW.
- *
- * We also mark the page dirty at this point even though the page will
- * change only once the write actually happens. This avoids a few races,
- * and potentially makes it more efficient.
- *
- * We hold the mm semaphore and the page_table_lock on entry and exit
- * with the page_table_lock released.
- */
-
->
-> >  65857 ide_intr                                 184.9916
->
-> You have 1 ide_intr per 2 csum_partial_copy_generic... hmmm...
-> how large is your readahead? I assume you'd like to fetch
-> more sectors from ide per interrupt. (I hope you do DMA ;)
-
-doing DMA - RAID-0 with 1MB chunk size on 4 disks.
-
-> >  53636 handle_IRQ_event                         432.5484
-> >  21973 do_softirq                               107.7108
-> >  20498 e1000_intr                               244.0238
->
-> I know zero about networking, but why 120 000 csum_partial_copy_generic
-> and inly 20 000 nic interrupts? That may be abnormal.
-
-sorry
-I don't know
-
--- 
-Roy Sigurd Karlsbakk, Datavaktmester
-ProntoTV AS - http://www.pronto.tv/
-Tel: +47 9801 3356
-
-Computers are like air conditioners.
-They stop working when you open Windows.
+I can barely parse this, please output bitkeeper patches
+in gnupatch format (pass "-tu" to bk export) when you wish
+humans to read it. :-)
