@@ -1,33 +1,68 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: bad TSO performance in 2.6.9-rc2-BK
-Date: Fri, 24 Sep 2004 09:41:04 +1000
+Subject: [TCP] Fix tcp_current_mss when MTU changes
+Date: Fri, 24 Sep 2004 09:45:52 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <E1CAdCy-0001FM-00@gondolin.me.apana.org.au>
-References: <20040923161141.4ea9be4c.davem@davemloft.net>
-Cc: ak@suse.de, niv@us.ibm.com, andy.grover@gmail.com, anton@samba.org,
-        netdev@oss.sgi.com
+Message-ID: <20040923234552.GA4846@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="C7zPtVaVf+AK4Oqc"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@davemloft.net (David S. Miller)
-In-Reply-To: <20040923161141.4ea9be4c.davem@davemloft.net>
+To: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller <davem@davemloft.net> wrote:
-> 
-> That means as the window fills up, we have to see 44 ACKs
-> before we are able to send the next TSO frame.  Needless to
-> say that breaks ACK clocking completely.
 
-Hang on a second, the same problem would occur before the congestion
-changes were made, right? I thought Anton was saying that with the
-old kernels he was getting 100MB/s with TSO enabled...
+--C7zPtVaVf+AK4Oqc
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Anton, can you please get tcpdump to somehow show the length of the
-TSO packets so that we know what the factor is being set to?
+Hi Dave:
 
-Thanks,
+There is a small bug in tcp_current_mss where it can return the real
+MSS when MTU changes even if the TSO MSS is what is intended.  This
+patch fixes it.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Cheers,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--C7zPtVaVf+AK4Oqc
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
+
+===== include/net/tcp.h 1.88 vs edited =====
+--- 1.88/include/net/tcp.h	2004-09-15 06:57:07 +10:00
++++ edited/include/net/tcp.h	2004-09-24 09:35:22 +10:00
+@@ -1049,17 +1049,20 @@
+ 	struct dst_entry *dst = __sk_dst_get(sk);
+ 	int do_large, mss_now;
+ 
+-	do_large = (large &&
+-		    (sk->sk_route_caps & NETIF_F_TSO) &&
+-		    !tp->urg_mode);
+-	mss_now = do_large ? tp->mss_cache : tp->mss_cache_std;
+-
++	mss_now = tp->mss_cache_std;
+ 	if (dst) {
+ 		u32 mtu = dst_pmtu(dst);
+ 		if (mtu != tp->pmtu_cookie ||
+ 		    tp->ext2_header_len != dst->header_len)
+ 			mss_now = tcp_sync_mss(sk, mtu);
+ 	}
++
++	do_large = (large &&
++		    (sk->sk_route_caps & NETIF_F_TSO) &&
++		    !tp->urg_mode);
++	if (do_large)
++		mss_now = tp->mss_cache;
++
+ 	if (tp->eff_sacks)
+ 		mss_now -= (TCPOLEN_SACK_BASE_ALIGNED +
+ 			    (tp->eff_sacks * TCPOLEN_SACK_PERBLOCK));
+
+--C7zPtVaVf+AK4Oqc--
