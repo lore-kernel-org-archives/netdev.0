@@ -1,7 +1,9 @@
 From: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
-Subject: [PATCH 2.6 3/9] ixgb: Add support for LR device ID
-Date: Thu, 6 Jan 2005 17:23:08 -0800 (PST)
-Message-ID: <Pine.LNX.4.44.0501061548390.7330-100000@isotope.jf.intel.com>
+Subject: [PATCH 2.6 4/9] ixgb: Include Tx workdone in deciding when to quit
+ polling, Robert Olsson's fix for NAPI quit condition, avoid polling routine
+ racing with the interface down routine
+Date: Thu, 6 Jan 2005 17:25:12 -0800 (PST)
+Message-ID: <Pine.LNX.4.44.0501061549290.7330-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev <netdev@oss.sgi.com>
@@ -12,34 +14,40 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
-diff -up net-drivers-2.6/drivers/net/ixgb/ixgb_ids.h net-drivers-2.6/drivers/net/ixgb.new/ixgb_ids.h
---- net-drivers-2.6/drivers/net/ixgb/ixgb_ids.h	2005-01-05 17:13:27.000000000 -0800
-+++ net-drivers-2.6/drivers/net/ixgb.new/ixgb_ids.h	2005-01-05 17:13:29.000000000 -0800
-@@ -43,6 +43,7 @@
- #define IXGB_DEVICE_ID_82597EX_SR	0x1A48   
- #define IXGB_SUBDEVICE_ID_A11F  	0xA11F   
- #define IXGB_SUBDEVICE_ID_A01F		0xA01F   
-+#define IXGB_DEVICE_ID_82597EX_LR   0x1B48
- 
- #endif /* #ifndef _IXGB_IDS_H_ */
- 
 diff -up net-drivers-2.6/drivers/net/ixgb/ixgb_main.c net-drivers-2.6/drivers/net/ixgb.new/ixgb_main.c
 --- net-drivers-2.6/drivers/net/ixgb/ixgb_main.c	2005-01-05 17:13:27.000000000 -0800
 +++ net-drivers-2.6/drivers/net/ixgb.new/ixgb_main.c	2005-01-05 17:13:29.000000000 -0800
-@@ -51,6 +51,8 @@ static struct pci_device_id ixgb_pci_tbl
- 	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
- 	{INTEL_VENDOR_ID, IXGB_DEVICE_ID_82597EX_SR,
- 	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
-+	{INTEL_VENDOR_ID, IXGB_DEVICE_ID_82597EX_LR,  
-+	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
+@@ -1701,22 +1701,27 @@ ixgb_clean(struct net_device *netdev, in
+ {
+ 	struct ixgb_adapter *adapter = netdev->priv;
+ 	int work_to_do = min(*budget, netdev->quota);
++	int tx_cleaned;
+ 	int work_done = 0;
++	
++	if (!netif_carrier_ok(netdev))
++		goto quit_polling;
  
- 	/* required last entry */
- 	{0,}
-@@ -548,6 +533,7 @@ ixgb_sw_init(struct ixgb_adapter *adapte
- 	hw->max_frame_size = netdev->mtu + ENET_HEADER_SIZE + ENET_FCS_LENGTH;
+-	ixgb_clean_tx_irq(adapter);
++	tx_cleaned = ixgb_clean_tx_irq(adapter);
+ 	ixgb_clean_rx_irq(adapter, &work_done, work_to_do);
  
- 	if((hw->device_id == IXGB_DEVICE_ID_82597EX)
-+	   ||(hw->device_id == IXGB_DEVICE_ID_82597EX_LR)
- 	   ||(hw->device_id == IXGB_DEVICE_ID_82597EX_SR))
- 			hw->mac_type = ixgb_82597;
- 	else {
+ 	*budget -= work_done;
+ 	netdev->quota -= work_done;
+-
+-	if (work_done < work_to_do || !netif_running(netdev)) {
+-		netif_rx_complete(netdev);
+-		/* RAIDC will be automatically restarted by irq_enable */
++	
++	/* if cleanup and not enough Rx work done, exit the polling mode */
++	if((!tx_cleaned && (work_done < work_to_do)) || 
++				!netif_running(netdev)) {
++quit_polling:	netif_rx_complete(netdev);
+ 		ixgb_irq_enable(adapter);
+ 		return 0;
+ 	}
+ 
+-	return (work_done >= work_to_do);
++	return 1;
+ }
+ #endif
+ 
