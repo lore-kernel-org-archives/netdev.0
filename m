@@ -1,51 +1,55 @@
-From: "Leyla" <lolita_200@hotmail.com>
-Subject: El_mejor_masaje_sensual_desde_$30  (581221)
-Date: 27 Nov 2003 16:05:40 -0800
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH 2.6]: IPv6: strcpy -> strlcpy
+Date: Fri, 28 Nov 2003 09:23:26 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <BAY8-DAV50taGzW3yZt00004aaa@hotmail.com>
+Message-ID: <20031128.092326.39861126.yoshfuji@linux-ipv6.org>
+References: <1069970770.2138.10.camel@teapot.felipe-alfaro.com>
+	<20031127221928.F25015@flint.arm.linux.org.uk>
+	<1069974209.5349.7.camel@teapot.felipe-alfaro.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: rmk+lkml@arm.linux.org.uk, davem@redhat.com, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
+To: felipe_alfaro@linuxmail.org
+In-Reply-To: <1069974209.5349.7.camel@teapot.felipe-alfaro.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
- =0DPENSASTE LO QUE UN BUEN MASAJE SENSUAL PUEDE
-      HACER POR VOS!!! NO TE LO PODES PERDER...
+In article <1069974209.5349.7.camel@teapot.felipe-alfaro.com> (at Fri, 28 Nov 2003 00:03:29 +0100), Felipe Alfaro Solana <felipe_alfaro@linuxmail.org> says:
 
-     **** PROMOCIONES MES DE NOVIEMBRE ****
+> So, as I see:
+> 
+> 1. We should fix strncpy()
+> 2. I should replace strlcpy() with strncpy() in my patches.
 
-Disfruta hoy del mejor masaje sensual en Buenos Aires.
-Con aranceles s=FAper c=F3modos y accesibles. Ahora, ten=E9s la
-posibilidad de disfrutar novedosas t=E9cnicas de masajes llenas
-de erotismo y de sensaciones placenteras, que lograr=E1n que
-tu cuerpo experimente el sensacional relax que siempre has
-so=F1ado. Manos sutiles y delicadas pueden hacer que la fatiga
-y el cansancio desaparezcan completamente. Con aranceles
-desde $30 pesos, no puedes perderte esta oportunidad.
+I think it is NOT correct. 
+It SEEMS unsafe to use strncpy() even if it terminated 
+string correctly.
 
-Date un gusto y conoce ahora mismo a las mejores masajistas
-sensuales de Buenos Aires. Solo accede a esta direcci=F3n:
+So, I'd suggest to replace
 
-           http://masajesalucinantes.50megs.com
+    strlcpy(dst, src, len);
 
- ...Encontrar=E1s a las profesionales que te brindar=E1n el masaje
-que necesitas, con la dedicaci=F3n  y atenci=F3n que vos mereces.=20
-Te atendemos en nuestros consultorios. Nivel y atenci=F3n VIP.
-Privacidad y confort. Masajes descontracturantes, sensitivos,
-sedativos y de relax sensual total. =BFTe anim=E1s a recibir tu relax
-sensual del dia? Ll=E1manos y responderemos todas tus dudas...
+with 
 
-Somos una selecci=F3n de masajistas atrevidamente simp=E1ticas
-y con los aranceles mas bajos que puedas imaginar!
+ 1)   strlcpy0(dst, src, len);
 
-=BFQue est=E1s esperando?. No dudes mas. Llamanos y te daremos
-mas detalles de los diferentes servicios que podemos brindarte.
+where strlcpy0() is provided in my previous mail,
+or with
 
+ 2)   memset(dst, 0, len);
+      strncpy(dst, src, len);
 
+(or say, strncpy0())
+or, with
 
+ 3)   if (len)
+         strncpy(dst, src, len - 1);
+      dst[len] = 0;
 
+(or, say, strncpy0()).
 
-  W8FK-VBHWEEFT-3G77-NSER-WINF##-0
+--yoshfuji
