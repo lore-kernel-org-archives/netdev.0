@@ -1,43 +1,40 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH AND RFC_PATCH] 1. Leak corking option in ipv4 2. ipv6
- opt panic
-Date: Wed, 10 Mar 2004 14:47:58 -0800
+From: James Ketrenos <jketreno@linux.co.intel.com>
+Subject: Re: [PATCH 2.6] Intersil Prism54 wireless driver
+Date: Wed, 10 Mar 2004 17:37:16 -0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040310144758.5e0b4c7c.davem@redhat.com>
-References: <Pine.LNX.4.44.0403091754440.6308-100000@linux-009047018241>
+Message-ID: <404FA6AC.7040009@linux.co.intel.com>
+References: <20040304023524.GA19453@bougret.hpl.hp.com> <20040310165548.A24693@infradead.org> <20040310172114.GA8867@bougret.hpl.hp.com> <404F5097.4040406@pobox.com> <20040310175200.GA9531@bougret.hpl.hp.com> <404F5744.1040201@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, krkumar@us.ibm.com
+Cc: jt@hpl.hp.com, Christoph Hellwig <hch@infradead.org>,
+        "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
+        Linux kernel mailing list <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Krishna Kumar <kkumar@us.ibm.com>
-In-Reply-To: <Pine.LNX.4.44.0403091754440.6308-100000@linux-009047018241>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <404F5744.1040201@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 9 Mar 2004 18:05:48 -0800 (PST)
-Krishna Kumar <kkumar@us.ibm.com> wrote:
+Jeff Garzik wrote:
 
-> Patch1 :
-> --------
-> I think every socket can leak memory when it allocates a cork.opt and
-> calls ip_append_data()/ip_push_pending_frames(). This get released in
-> ip_flush_pending_frames() which may not get called.
+ > Yes, it would be good to end the cycle of re-implementing 802.11 over
+ > and over again ;-)
 
-Looks correct, applied.
+< snip >
 
-> Patch2 :
-> ---------
-> I am not sure about this possible bug which is the RFC part of the
-> subject. In IPv6 ip6_append_data(), if it is possible to add extra ipv6
-> options during multiple calls to append_data(), then the check for
-> cork.opt could end up panicing the system because it is allocated
-> for a smaller size of options. If this is a problem, then ipv4 might have
-> a similar issue too. Note: Patch2 has a question embedded in it, I can
-> send a better patch if you think the idea is right.
+ > * start working on generic 802.11 stack in wireless-2.6 queue
 
-This is possible, but an APP trying to do this is buggy as I cannot
-see any sane semantics for this.
+As we're currently walking the path of implementing the same thing for the 
+IPW2100 driver,  being able to re-use this code would be _very nice_.
 
-I would rather we -EINVAL on such socket option changes if cork.opt is
-non-NULL.  Could you whip up a patch for that?  Thanks.
+I'd like to get WEP into IPW2100 as soon as possible, and would like to do so in 
+a way that would make transitioning to a common 802.11 layer seamless (or at 
+least reasonably isolated).  Any suggestions on how to best do this, or where we 
+might be able to help, would be much appreciated.
+
+I'm very interested in these discussions, so if they move to or are being 
+discussed on another list (besides netdev), please let me know where.
+
+Thanks,
+James
