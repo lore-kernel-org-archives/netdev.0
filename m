@@ -1,32 +1,103 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH 2.6.9] hp100: use module_param and netdev_priv
-Date: Mon, 18 Oct 2004 13:40:02 -0700
+From: Patrick McHardy <kaber@trash.net>
+Subject: [PATCH 2.6]: Fix policy update bug when increasing priority of last
+ policy
+Date: Mon, 18 Oct 2004 22:48:36 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041018134002.695c347e@zqx3.pdx.osdl.net>
-References: <20041018121527.053b3309@zqx3.pdx.osdl.net>
+Message-ID: <41742C24.6070305@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/mixed;
+ boundary="------------000009030309030704020409"
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>, Jean Tourrilhes <jt@bougret.hpl.hp.com>
-In-Reply-To: <20041018121527.053b3309@zqx3.pdx.osdl.net>
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-One more module_param here.
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+This is a multi-part message in MIME format.
+--------------000009030309030704020409
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
 
-diff -Nru a/drivers/net/hp100.c b/drivers/net/hp100.c
---- a/drivers/net/hp100.c	2004-10-18 13:38:10 -07:00
-+++ b/drivers/net/hp100.c	2004-10-18 13:38:10 -07:00
-@@ -3003,7 +3003,8 @@
- #define HP100_DEVICES 5
- /* Parameters set by insmod */
- static int hp100_port[HP100_DEVICES] = { 0, [1 ... (HP100_DEVICES-1)] = -1 };
--MODULE_PARM(hp100_port, "1-" __MODULE_STRING(HP100_DEVICES) "i");
-+static int nports;
-+module_param_array(hp100_port, int, nports, 0);
- 
- /* List of devices */
- static struct net_device *hp100_devlist[HP100_DEVICES];
+When the last policy for a direction is replaced by a policy
+with equal selector but a higher priority, insertion of the
+new policy fails.
+
+in xfrm_policy_insert:
+
+        for (p = &xfrm_policy_list[dir]; (pol=*p)!=NULL; p = &pol->next) {
+                if (!delpol && memcmp(&policy->selector, &pol->selector, 
+sizeof(pol->selector)) == 0) {
+                        if (excl) {
+                                write_unlock_bh(&xfrm_policy_lock);
+                                return -EEXIST;
+                        }
+                        *p = pol->next;
+                        delpol = pol;
+X                       if (policy->priority > pol->priority)
+X                                continue;
+                } else if (policy->priority >= pol->priority)
+                        continue;
+                if (!newpos)
+                        newpos = p;
+                if (delpol)
+                        break;
+        }
+
+If the new policy has a higher priority than the old one, the
+loop will be continued in the lines marked with X, but because
+there are no further elements, it will leave the loop without
+setting newpos.
+
+The problem can be verified with ip xfrm:
+# ip xfrm policy list
+# ip xfrm policy update dir fwd src 10.0.0.1 dst 10.0.0.2 action allow 
+priority 0
+# ip xfrm policy list
+src 10.0.0.1/32 dst 10.0.0.2/32
+        dir fwd priority 0
+# ip xfrm policy update dir fwd src 10.0.0.1 dst 10.0.0.2 action allow 
+priority 1
+# ip xfrm policy list
+#
+
+This patch checks for *p != NULL before continuing the loop.
+
+Regards
+Patrick
+
+
+--------------000009030309030704020409
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2004/10/18 21:57:18+02:00 kaber@coreworks.de 
+#   [XFRM]: Fix policy update bug when increasing priority of last policy
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+# net/xfrm/xfrm_policy.c
+#   2004/10/18 21:56:41+02:00 kaber@coreworks.de +1 -1
+#   [XFRM]: Fix policy update bug when increasing priority of last policy
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+diff -Nru a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+--- a/net/xfrm/xfrm_policy.c	2004-10-18 21:58:24 +02:00
++++ b/net/xfrm/xfrm_policy.c	2004-10-18 21:58:24 +02:00
+@@ -340,7 +340,7 @@
+ 			}
+ 			*p = pol->next;
+ 			delpol = pol;
+-			if (policy->priority > pol->priority)
++			if (policy->priority > pol->priority && *p != NULL)
+ 				continue;
+ 		} else if (policy->priority >= pol->priority)
+ 			continue;
+
+--------------000009030309030704020409--
