@@ -1,69 +1,40 @@
-From: linux lover <linux_lover2004@yahoo.com>
-Subject: which are these packet types??
-Date: Sat, 22 Jan 2005 20:22:09 -0800 (PST)
-Message-ID: <20050123042209.23825.qmail@web52210.mail.yahoo.com>
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: [PATCH] prism54: use NULL for pointer
+Date: Sat, 22 Jan 2005 22:53:35 -0800
+Message-ID: <20050122225335.225f8042.rddunlap@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik <jgarzik@pobox.com>, prism54-private@prism54.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello all,
-             I have added some debug statements in
-linux kernel 2.4.24 in /usr/src/linux/net/core/dev.c
-printk(KERN_DEBUG "in netif_receive_skb after skb->len
-= %d and address = %p\n",skb->len,skb->data);
-printk(KERN_DEBUG "In netif_receive_skb
-skb->nh.iph->ihl = %d && skb->nh.iph->version =
-%d\n",skb->nh.iph->ihl,skb->nh.iph->version);
-printk(KERN_DEBUG "packet type is =%d\n",type);
-where all these 3 statemets are placed in
-netif_receive_skb function of dev.c and type is
-defined as unsigned short type = skb->protocol;
-Then i rebuild kernel and check it on network and
-found following results.
 
-in netif_receive_skb after skb->len = 186 and address
-= c75ec620
-In netif_receive_skb skb->nh.iph->ihl = 0 &&
-skb->nh.iph->version = 14
-packet type is =1024
+Use NULL instead of 0 for pointer:
 
-in netif_receive_skb after skb->len = 46 and address =
-c74633a0
-In netif_receive_skb skb->nh.iph->ihl = 0 &&
-skb->nh.iph->version = 0
-packet type is =1544
+drivers/net/wireless/prism54/isl_ioctl.c:1753:16: warning: Using plain integer as NULL pointer
+drivers/net/wireless/prism54/isl_ioctl.c:1753:26: warning: Using plain integer as NULL pointer
 
-in netif_receive_skb after skb->len = 84 and address =
-c7463aa0
-In netif_receive_skb skb->nh.iph->ihl = 0 &&
-skb->nh.iph->version = 14
-packet type is =1024
+Signed-off-by: Randy Dunlap <rddunlap@osdl.org>
 
-in netif_receive_skb after skb->len = 100 and address
-= c74639a0
-In netif_receive_skb skb->nh.iph->ihl = 0 &&
-skb->nh.iph->version = 14
-packet type is =1024
+diffstat:=
+ drivers/net/wireless/prism54/isl_ioctl.c |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
 
-in netif_receive_skb after skb->len = 78 and address =
-c7463aa0
-In netif_receive_skb skb->nh.iph->ihl = 5 &&
-skb->nh.iph->version = 4
-packet type is =8
+diff -Naurp ./drivers/net/wireless/prism54/isl_ioctl.c~prism54_isl_null ./drivers/net/wireless/prism54/isl_ioctl.c
+--- ./drivers/net/wireless/prism54/isl_ioctl.c~prism54_isl_null	2005-01-22 21:53:00.599920368 -0800
++++ ./drivers/net/wireless/prism54/isl_ioctl.c	2005-01-22 21:53:58.223160304 -0800
+@@ -1750,7 +1750,7 @@ prism54_process_trap_helper(islpci_priva
+ 	u8 wpa_ie[MAX_WPA_IE_LEN];
+ 	int wpa_ie_len;
+ 	size_t len = 0; /* u16, better? */
+-	u8 *payload = 0, *pos = 0;
++	u8 *payload = NULL, *pos = NULL;
+ 	int ret;
+ 
+ 	/* I think all trapable objects are listed here.
 
-I want to know which are these packet types?
-I know only values 8 for IP and 2054 for ARP packets
-then which are these packets 1024,1544.
-regards,
-linux_lover
-
-
-		
-__________________________________ 
-Do you Yahoo!? 
-Yahoo! Mail - now with 250MB free storage. Learn more.
-http://info.mail.yahoo.com/mail_250
+--
