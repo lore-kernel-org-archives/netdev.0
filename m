@@ -1,51 +1,53 @@
-From: Michal Vanco <vanco@satro.sk>
-Subject: Re: e1000 packet corruption problem
-Date: Wed, 06 Apr 2005 16:27:17 +0200
-Message-ID: <4253F1C5.2090203@satro.sk>
+From: Dmitry Yusupov <dmitry_yus@yahoo.com>
+Subject: Re: [PATCH] NETLINK_UESTABLISHED notifier event
+Date: Wed, 06 Apr 2005 08:16:42 -0700
+Message-ID: <1112800602.9213.27.camel@mylaptop>
+References: <E1DJ0YI-0003PR-00@gondolin.me.apana.org.au>
+	 <1112766901.7488.16.camel@mylaptop>
+	 <20050406060343.GA14059@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig4B8D84CEE253ECADAA3D4E31"
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, davem@davemloft.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050406060343.GA14059@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig4B8D84CEE253ECADAA3D4E31
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
+On Wed, 2005-04-06 at 16:03 +1000, Herbert Xu wrote:
+> On Tue, Apr 05, 2005 at 10:55:01PM -0700, Dmitry Yusupov wrote:
+> > 
+> > main reason for this is to have clear way to notify netlink user that
+> > new socket created and bound.
+> 
+> Why do you want to exclude sockets that listen to multicast
+> messages? They can still do unicast transactions.
 
-Hello,
+this probably makes sense. I didn't do that intentionally, all I wanted
+is to have the clean way to initialize control structures in proper time
+- NETLINK_UESTABLISHED so it will work with my application. If you want
+to extent change for multicast - feel free.
 
-I've made some more testing. This one was pretty surprising:
+> > one reason is for consistency with sock interface. sk_allocation is
+> > equal to GFP_KERNEL by default, so nothing changed. but. in some cases
+> > application might require non-blocking kmalloc behavior. one real life
+> > example is networking block device used for swap partition. this way any
+> > GFP_KERENL allocation on recovery path might lead to deadlock condition.
+> 
+> Setting of sk_allocation is controlled by the protocol itself.  In this
+> case this is af_netlink.c.  As you can see, we never set this to anything
+> other than GFP_KERNEL.
+> 
+> Using sk_allocation will only confuse those who are not familiar with
+> netlink into thinking that this can be atomic.
 
->From 192.168.0.2:
+I don't think so. It is not clean enough to call alloc_skb() with hard-
+coded vm priority. And it limits netlink in the way I described before.
+If we want to defer critical processing to the user-space(like number of
+applications includes: iscsi, lvm, multipath, fuse...), this change is
+essential. Having GFP_KERNEL hard-coded will lead to deadlock on "down"
+calls in some cases. So, we do need this change to make a progress.
 
-# sudo ping 192.168.0.1 -p fefffefffefffeff -i 0.01 -c 100
-100 packets transmitted, 100 received, 0% packet loss, time 901ms
-
-# sudo ping 192.168.0.1 -p fffefffefffefffe -i 0.01 -c 100
-100 packets transmitted, 18 received, 82% packet loss, time 1068ms
-
-Any ideas of how to solve this?
-
-regards,
-michal
-
---------------enig4B8D84CEE253ECADAA3D4E31
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
-Comment: Using GnuPG with Thunderbird - http://enigmail.mozdev.org
-
-iD8DBQFCU/HI2/VqJwUsLAMRAovXAKCmFiyuXZJ1Xd1oO43U94V5zorX0QCeMJ7b
-w16LIMIw8AibB+fZ4KOdCp8=
-=aRIa
------END PGP SIGNATURE-----
-
---------------enig4B8D84CEE253ECADAA3D4E31--
+> Cheers,
