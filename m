@@ -1,88 +1,48 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Check connect address in NETLINK
-Date: Thu, 1 Jul 2004 09:01:47 +1000
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: A problem with a large static arp table
+Date: Thu, 01 Jul 2004 11:12:46 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040630230147.GA6136@gondor.apana.org.au>
-References: <20040629082252.GA26866@ms2.inr.ac.ru> <20040629084552.GA6202@gondor.apana.org.au> <20040629111433.GA28463@ms2.inr.ac.ru> <20040629111833.GA22880@gondor.apana.org.au> <20040630112751.GA31160@gondor.apana.org.au> <20040630120045.GA7973@ms2.inr.ac.ru> <20040630120828.GA31498@gondor.apana.org.au> <20040630121420.GA8183@ms2.inr.ac.ru> <20040630124050.GA1619@gondor.apana.org.au> <20040630153606.3493581b.davem@redhat.com>
+Message-ID: <1088644366.8180.2.camel@bach>
+References: <1835705734.20040630181449@techas.lt>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="8t9RHnE3ZwKMSgU+"
-Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20040630153606.3493581b.davem@redhat.com>
+To: Roman Zagustin <zagustin@techas.lt>
+In-Reply-To: <1835705734.20040630181449@techas.lt>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Thu, 2004-07-01 at 01:14, Roman Zagustin wrote:
+> Hello!
 
---8t9RHnE3ZwKMSgU+
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Hi,
 
-On Wed, Jun 30, 2004 at 03:36:06PM -0700, David S. Miller wrote:
+	Not really my area; pinging netdev to see if they can help.
+
+> I have a router with >800 static ip/mac records.
+> It does not work :(
+> With small table it is fine.
+> The kernel is 2.6 (tried with different patches and versions
+>  2.4 - the same)
 > 
-> Why don't you combine the two "ERR_PTR(-ECONNREFUSED)" tests
-> into one test like:
+> Just for example(real):
+>  
+> root@stargate:/proc/sys/net/ipv4/neigh/default# arp -n|grep 172.16.3.230
+> 172.16.3.230             ether   00:50:04:6C:50:9E   CM                    eth3
+> root@stargate:/proc/sys/net/ipv4/neigh/default#
+> root@stargate:/proc/sys/net/ipv4/neigh/default# tcpdump -i eth3 host 172.16.3.230  -e
+> tcpdump: listening on eth3
+> 15:38:10.660144 0:6:29:ee:c3:d8 0:2:b3:b4:34:e2 ip 448: 172.16.3.230.1060 > medium.cs.microlink.lt.http: P 1268207798:1268208192(394) ack 3537529644 win 64240 (DF)
+> 15:38:10.674698 0:6:29:ee:c3:d8 0:2:b3:b4:34:e2 ip 453: 172.16.3.230.1077 > medium.cs.microlink.lt.http: P 1279539300:1279539699(399) ack 2683450794 win 63095 (DF)
 > 
-> 	if ((nlk->pid == 0 && !nlk->data_ready) ||
-> 	    (sock->sk_state == NELTINK_CONNECTED &&
-> 	     nlk->dst_pid != nlk_sk(ssk)->pid)) {
-> 		sock_put(sock);
-> 		return ERR_PTR(-ECONNREFUSED);
-> 	}
+> There are no errors/warnings in the log files about neighbour table.
 > 
-> so we don't have two copies of the "sock_put(); return ERR_PTR()"
-> thing emitted by the compiler?
-
-Well at least under i386, gcc (3.3.4) is smart enough to merge these
-common exit paths.
-
-But yes we could merge them.  What about the following incremental
-patch?
+> >From the server I can't ping the 172.16.3.230, but it can ping the
+> server. In general, server do not check the ip/mac table at all
+> when forwarding received packets.
+> 
+> I don't know where is the problem :(
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---8t9RHnE3ZwKMSgU+
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
-
---- work-2.6/net/netlink/af_netlink.c.orig	2004-07-01 08:56:55.000000000 +1000
-+++ work-2.6/net/netlink/af_netlink.c	2004-07-01 08:59:14.000000000 +1000
-@@ -425,21 +425,23 @@
- 
- 	sock = netlink_lookup(protocol, pid);
- 	if (!sock)
--		return ERR_PTR(-ECONNREFUSED);
-+		goto err;
- 
- 	/* Don't bother queuing skb if kernel socket has no input function */
- 	nlk = nlk_sk(sock);
--	if (nlk->pid == 0 && !nlk->data_ready) {
--		sock_put(sock);
--		return ERR_PTR(-ECONNREFUSED);
--	}
-+	if (nlk->pid == 0 && !nlk->data_ready)
-+		goto err_sock;
- 
- 	if (sock->sk_state == NETLINK_CONNECTED &&
--	    nlk->dst_pid != nlk_sk(ssk)->pid) {
--		sock_put(sock);
--		return ERR_PTR(-ECONNREFUSED);
--	}
-+	    nlk->dst_pid != nlk_sk(ssk)->pid)
-+		goto err_sock;
-+
- 	return sock;
-+
-+err_sock:
-+	sock_put(sock);
-+err:
-+	return ERR_PTR(-ECONNREFUSED);
- }
- 
- struct sock *netlink_getsockbyfilp(struct file *filp)
-
---8t9RHnE3ZwKMSgU+--
+Anyone who quotes me in their signature is an idiot -- Rusty Russell
