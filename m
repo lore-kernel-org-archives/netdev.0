@@ -1,46 +1,40 @@
-From: Marcelo Tosatti <marcelo.tosatti@cyclades.com>
-Subject: Re: [PATCH 2.4.26] prism54: add prism54 1.2
-Date: Thu, 24 Jun 2004 15:34:39 -0300
-Sender: prism54-devel-bounces@prism54.org
-Message-ID: <20040624183439.GA21798@logos.cnet>
-References: <20040623054348.GV6253@ruslug.rutgers.edu>
-	<40D96E10.1060203@pobox.com>
-	<20040623164134.GT6253@ruslug.rutgers.edu>
+From: Cheng Jin <chengjin@cs.caltech.edu>
+Subject: Re: TCP receiver's window calculation problem
+Date: Thu, 24 Jun 2004 12:18:19 -0700 (PDT)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <Pine.LNX.4.44.0406241209280.1272-100000@orchestra.cs.caltech.edu>
+References: <Pine.NEB.4.33.0406241301010.28506-100000@dexter.psc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Return-path: <prism54-devel-bounces@prism54.org>
-To: Marcelo Tosatti <marcelo@conectiva.com.br>,
-	Andrew Morton <akpm@osdl.org>, Netdev <netdev@oss.sgi.com>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	prism54-devel@prism54.org, Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <20040623164134.GT6253@ruslug.rutgers.edu>
-List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
-List-Archive: <http://prism54.org/pipermail/prism54-devel>
-List-Post: <mailto:prism54-devel@prism54.org>
-List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
-List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
-Errors-To: prism54-devel-bounces@prism54.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "netdev@oss.sgi.com" <netdev@oss.sgi.com>,
+        "fast-support@cs.caltech.edu" <fast-support@cs.caltech.edu>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: John Heffner <jheffner@psc.edu>
+In-Reply-To: <Pine.NEB.4.33.0406241301010.28506-100000@dexter.psc.edu>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 23, 2004 at 12:41:34PM -0400, Luis R. Rodriguez wrote:
-> On Wed, Jun 23, 2004 at 07:48:32AM -0400, Jeff Garzik wrote:
-> > mcgrof@ruslug.rutgers.edu wrote:
-> > >Andrew,
-> > >
-> > >2.6.7-bk5 and 2.6.7-mm1 are both in perfect sync with prism54 
-> > >cvs tree now. This completes our 1.2 release. As promised, 
-> > >the attached patch adds prism54 1.2 to 2.4 kernel tree.
-> > 
-> > Andrew is a 2.6-only guy.
-> > 
-> > This is totally up to Marcelo whether to merge this new wireless stuff 
-> > or not...
-> 
-> Marcelo, 
-> 
-> what do you say?
+Hi, John,
 
-OK for 2.4.28-pre.
+Thanks for confirming this problem.
+
+> I've run in to this problem, too.  This code prevents advertising more
+> rcvbuf space than you are likely to need.  This is good for something like
+> an X11 connection, but obviously very bad for the bulk transfer mixed MTU
+
+I would think this is already taken care of at the sender by application
+limited cwnd so cwnd wouldn't increase beyond what is being actually used.
+
+> I think the most desirable answer is to not have a hard per-connection
+> memory bound, but this is problematic because of denial-of-service
+> conerns.
+
+I think having a default limit on tcp memory is acceptable to prevent DoS, 
+but when a user increases the memory limit by explicitly setting tcp_rmem,
+that should take effect.  The code itself shouldnt pose any limit like it 
+does now.
+
+Actually, I am not clear what that window-calculation algorithm is.  Is it 
+recommended by some RFC?
+
+Cheng
