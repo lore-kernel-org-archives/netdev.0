@@ -1,60 +1,28 @@
-From: Russell King <rmk+lkml@arm.linux.org.uk>
-Subject: Re: [patch 2.4.28-pre3] 3c59x: resync with 2.6
-Date: Fri, 8 Oct 2004 19:13:24 +0100
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] Update tcp_tso_win_divisor sysctl information in
+ ip-sysctl.txt
+Date: Fri, 8 Oct 2004 11:20:32 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041008191324.J17999@flint.arm.linux.org.uk>
-References: <20041008121307.C14378@tuxdriver.com>
+Message-ID: <20041008112032.769b632e.davem@davemloft.net>
+References: <1886784988.20041008141045@dns.toxicfilms.tv>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, akpm@osdl.org,
-        jgarzik@pobox.com, marcelo.tosatti@cyclades.com
-Content-Disposition: inline
-In-Reply-To: <20041008121307.C14378@tuxdriver.com>; from linville@tuxdriver.com on Fri, Oct 08, 2004 at 12:13:07PM -0400
+To: Maciej Soltysiak <solt2@dns.toxicfilms.tv>
+In-Reply-To: <1886784988.20041008141045@dns.toxicfilms.tv>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 08, 2004 at 12:13:07PM -0400, John W. Linville wrote:
-> Backport of current 3c59x driver (minus EISA/sysfs stuff) from 2.6 to
-> 2.4.  This should ease further maintenance in 2.4.
-> ---
-> I've been chasing some 3c59x driver problems on both 2.4.x and 2.6.x
-> kernels.  The 3c59x driver was pretty far out of sync between the two
-> trees, so I thought it made sense to sync them back up.
+On Fri, 8 Oct 2004 14:10:45 +0200
+Maciej Soltysiak <solt2@dns.toxicfilms.tv> wrote:
 
-Ah, if someone's looking at the 3c59x driver then please look into the
-NWAY autonegotiation code - even maybe update it to use mii.c.
+> I noticed that newly added tcp_tso_win_divisor did not go
+> with a description to ip-sysctl.txt
+> 
+> This patch updates this information.
 
-Currently 3c59x is rather buggy - it's a fairly simple bug.  Consider
-this:
-
-# mii-tool -v
-eth0: negotiated 100baseTx-HD, link ok
-  product info: TDK 78Q2120 rev 11
-  basic mode:   autonegotiation enabled
-  basic status: autonegotiation complete, link ok
-  capabilities: 100baseTx-HD 10baseT-HD
-  advertising:  100baseTx-HD 10baseT-HD
-  link partner: 100baseTx-FD 100baseTx-HD 10baseT-FD 10baseT-HD flow-control
-
-and then wonder why we end up like this:
-
-eth0: Setting full-duplex based on MII #0 link partner capability of 45e1.
-
-Obviously completely bogus.  Luckily, there isn't that much traffic
-to this card _and_ it's connected to a switch so it doesn't interfere
-much with other network traffic.  However, it is _dog_ slow when doing
-large transfers to/from it.
-
-FYI, it's:
-
-04:00.0 Ethernet controller: 3Com Corporation 3c575 [Megahertz] 10/100 LAN CardBus (rev 01)
-
-aka 3CCFE575BT.  The BT version only has a HD-capable MII transceiver,
-whereas the CT version has a FD-capable MII transceiver fitted.
-
--- 
-Russell King
- Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
- maintainer of:  2.6 PCMCIA      - http://pcmcia.arm.linux.org.uk/
-                 2.6 Serial core
+The implementation isn't cast in stone yet, I still want to play
+with including tp->max_window in the clamps somehow and I'll add
+the docs after I'm doing experimenting with that.
