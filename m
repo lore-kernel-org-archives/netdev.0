@@ -1,42 +1,24 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: MSEC_TO_JIFFIES is messed up...
-Date: Wed, 12 May 2004 14:42:02 -0400
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <40A26FFA.4030701@pobox.com>
-References: <20040512020700.6f6aa61f.akpm@osdl.org> <20040512181903.GG13421@kroah.com>
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] fix "ethtool -S" for tg3
+Date: Wed, 12 May 2004 12:08:10 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040512120810.464aaee6.davem@redhat.com>
+References: <Pine.SGI.4.56.0405111251080.7038576@neteng.engr.sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, mingo@elte.hu,
-	linux-kernel@vger.kernel.org, Netdev <netdev@oss.sgi.com>
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S265162AbUELSmX@vger.kernel.org>
-To: Greg KH <greg@kroah.com>
-In-Reply-To: <20040512181903.GG13421@kroah.com>
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Arthur Kepner <akepner@sgi.com>
+In-Reply-To: <Pine.SGI.4.56.0405111251080.7038576@neteng.engr.sgi.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Greg KH wrote:
-> On Wed, May 12, 2004 at 02:07:00AM -0700, Andrew Morton wrote:
-> 
->>drivers/usb/host/ehci.h:599: warning: `MSEC_TO_JIFFIES' redefined
->>include/asm/param.h:9: warning: this is the location of the previous definition
->>In file included from drivers/usb/host/ohci-hcd.c:127:
->>drivers/usb/host/ohci.h:400: warning: `MSEC_TO_JIFFIES' redefined
->>include/asm/param.h:9: warning: this is the location of the previous definition
-> 
-> 
-> Woah, that's new.  And wrong.  The code in include/asm-i386/param.h that
-> says:
-> 	# define JIFFIES_TO_MSEC(x)     (x)
-> 	# define MSEC_TO_JIFFIES(x)     (x)
-> 
-> Is not correct.  Look at kernel/sched.c for verification of this :)
+On Tue, 11 May 2004 12:57:42 -0700
+Arthur Kepner <akepner@sgi.com> wrote:
 
+> --- linux/drivers/net/tg3.c     2004-05-11 12:11:45.000000000 -0700
+> +++ linux.orig/drivers/net/tg3.c        2004-05-11 12:34:47.000000000 -0700
 
-Yes, that is _massively_ broken.
-
-Tangent:
-One of the SCTP folks was cleaning up all the random jif-to-msec and 
-msec-to-jif macros into include/linux/time.h.  Need to dig that up and 
-merge it.
-
-	Jeff
+Patch doesn't apply, your mail client turned all the tabs
+into spaces.  Use attachments if necessary, thanks.
