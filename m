@@ -1,63 +1,41 @@
-From: Krishna Kumar <krkumar@us.ibm.com>
-Subject: Re: O/M flags against 2.6.0-test1
-Date: Wed, 23 Jul 2003 15:32:23 -0700
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: Bug? ARP with wrong src IP address
+Date: Thu, 24 Jul 2003 02:01:46 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F1F0CF7.5020909@us.ibm.com>
-References: <200307210155.FAA31320@dub.inr.ac.ru>	<Pine.LNX.4.44.0307221415140.14683-100000@DYN318430.beaverton.ibm.com> <20030723031351.4e9db07c.davem@redhat.com>
+Message-ID: <Pine.LNX.4.44.0307240149480.1181-100000@u.domain.uli>
+References: <200307231712000985.1CE20A63@192.168.128.16>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030723031351.4e9db07c.davem@redhat.com>
+To: Carlos Velasco <carlosev@newipnet.com>
+In-Reply-To: <200307231712000985.1CE20A63@192.168.128.16>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
 
-> 1) Remove "void *sysctl;" from ipv6_devconf, move it into
->    inet6_dev ie. "void *cnf_sysctl;" update all code users.
+	Hello,
 
-There is one problem with this that I am not able to figure out, perhaps I am
-overlooking it. addrconf_sysctl_register() gets called for ipv6_devconf_dflt,
-but there is no inet6_dev for this configuration, so is it possible to move the
-sysctl up (there is no 'up' :-). I don't want to create a dummy inet6_dev for
-this. One way is to embed the actual config structure as follows :
+On Wed, 23 Jul 2003, Carlos Velasco wrote:
 
-struct ipv6_devconf {
-	void *sysctl;
-	struct {
-		forwarding;
-		hop_limit;
-		...
-	} u;
-};
-and follow it up with #defines for all the elements, etc. Then I can use
-sizeof(ipv6_devconf.u) without this problem. Another way to do this is using
-pointer arithmetic :
-	RTA_PUT(skb, IFLA_INET6_CONF, &idev->cnf.sysctl-&idev->cnf.forwarding,
-			&idev->cnf);
-(guess you may not like it based on your statement "pointers in it which makes
-usage sloppy").
+> When linux machine tries to find out the mac address of 192.168.128.60 with
+> ARP, it uses the loopback IP address (lo:2) as source insted of the IP address
+> of the ethernet interface (eth0).
 
-I also noticed there is no sysctl_register for ipv6_devconf, but there is a
-unregister for that conf. Is that correct ?
+	You are right but the kernel tries to preserve the sender's
+IP. This helps the receiver to select the best interface
+to answer this ARP probe - the same where the IP packet will be
+accepted later. As there are different setups, the tuning of the
+ARP handling can be done better with user tools such as arptables
+and iparp.
 
-> 2) Move "struct ipv6_devconf" into some linux/*.h ipv6 header
->    usable by users.  Use an existing one if possible.  Then
->    make sure net/if_inet6.h includes this thing.
+http://sourceforge.net/projects/ebtables/
+http://www.ssi.bg/~ja/#iparp
 
-The only two ipv6 specific files in linux are ipv6.h and ipv6_route.h, neither
-are appropriate for sysctl stuff I think. So should I create a new file like the
-one for ipv4_devconf exists in inetdevice.h ?
+> Regards,
+> Carlos Velasco
 
-> 3) Change "int" members of struct "ipv6_devconf" to "s32".
+Regards
 
-All members (except use_tempaddr) seem to be >=0, should I change the definition
-to __u32 instead ? I am OK either way, just wondering which is the right way to
-do this.
-
-Thanks,
-
-- KK
+--
+Julian Anastasov <ja@ssi.bg>
