@@ -1,37 +1,26 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH]  802.1Q VLAN
-Date: Thu, 28 Oct 2004 16:35:12 -0700
+Subject: Re: [2.6 patch] irda/qos.c: remove an unused function
+Date: Thu, 28 Oct 2004 16:27:37 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041028163512.1e9d1629.davem@davemloft.net>
-References: <41797696.9070905@candelatech.com>
-	<20041022214611.GA4948@electric-eye.fr.zoreil.com>
-	<41798506.1030909@candelatech.com>
-	<417D675F.3000909@candelatech.com>
-	<4181838B.6040002@tpack.net>
+Message-ID: <20041028162737.3d2debdf.davem@davemloft.net>
+References: <20041028222238.GP3207@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: greearb@candelatech.com, netdev@oss.sgi.com, vlan@candelatech.com,
-        romieu@fr.zoreil.com, davem@redhat.com
+Cc: dagb@cs.uit.no, jt@hpl.hp.com, irda-users@lists.sourceforge.net,
+        netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Tommy Christensen <tommy.christensen@tpack.net>
-In-Reply-To: <4181838B.6040002@tpack.net>
+To: Adrian Bunk <bunk@stusta.de>
+In-Reply-To: <20041028222238.GP3207@stusta.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 29 Oct 2004 01:40:59 +0200
-Tommy Christensen <tommy.christensen@tpack.net> wrote:
 
-> Dave, I think this part of the patch should be reverted until someone comes up with a
-> general scheme for flow_control handling through virtual devices.
+Ok, it looks like this whole enormous set of diffs are corrupted.
+They all are "patches of a patch" which won't apply correctly.
 
-It's certainly more correct, I think, than the code which
-was there previously.
-
-But in a way you're right, this is inconsistent with how IP and all
-sorts of other tunnels behave, and if we change things we should
-do it across the board.
-
-So I will revert this part of his changes for now.
+If you're going to send such a huge set of diffs out, please test
+them our and make sure they do apply properly before mailing
+them out.
 
 Thanks.
