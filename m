@@ -1,27 +1,30 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: patch for common networking error messages
-Date: Mon, 16 Jun 2003 13:51:24 -0700 (PDT)
+From: Chris Friesen <cfriesen@nortelnetworks.com>
+Subject: is it expected behaviour to receive one's own broadcast messages?
+Date: Mon, 16 Jun 2003 17:00:04 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030616.135124.71580008.davem@redhat.com>
-References: <3EEE28DE.6040808@us.ibm.com>
-	<20030616.133841.35533284.davem@redhat.com>
-	<20030616205342.GH30400@wotan.suse.de>
+Message-ID: <3EEE2FD4.6060207@nortelnetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: janiceg@us.ibm.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-   stekloff@us.ibm.com, girouard@us.ibm.com, lkessler@us.ibm.com,
-   kenistonj@us.ibm.com, jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ak@suse.de
-In-Reply-To: <20030616205342.GH30400@wotan.suse.de>
+To: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Andi Kleen <ak@suse.de>
-   Date: Mon, 16 Jun 2003 22:53:42 +0200
-   
-   Why? It will make supporting netconsole easier which has to be careful
-   to never recurse in the network driver.
 
-printk can check this
+I have an app that is sending out broadcast messages to the local network using 
+255.255.255.255.  It is registered for INADDR_ANY.  The thing that seems strange 
+is that it receives a copy of every packet that it sends out.  Is this expected?
+
+The kernel is 2.4.18.
+
+Thanks,
+
+Chris
+
+-- 
+Chris Friesen                    | MailStop: 043/33/F10
+Nortel Networks                  | work: (613) 765-0557
+3500 Carling Avenue              | fax:  (613) 765-2986
+Nepean, ON K2H 8E9 Canada        | email: 
+cfriesen@nortelnetworks.comnetdev@oss.sgi.comnetdev@oss.sgi.com
