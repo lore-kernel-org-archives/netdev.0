@@ -1,30 +1,100 @@
-From: Jouni Malinen <jkmaline@cc.hut.fi>
-Subject: Re: wireless ping?
-Date: Thu, 29 Apr 2004 08:08:07 -0700
+From: Marcelo Tosatti <marcelo.tosatti@cyclades.com>
+Subject: Re: kernel BUG at page_alloc.c:98 -- compiling with distcc
+Date: Thu, 29 Apr 2004 18:09:51 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040429150806.GA6052@jm.kir.nu>
-References: <40908931.8030406@pobox.com>
+Message-ID: <20040429210951.GB20453@logos.cnet>
+References: <382320000.1082759593@taltos.ny.ficc.gs.com> <16527.4259.174536.629347@segfault.boston.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev@oss.sgi.com>
+Cc: Carson Gaspar <carson@taltos.org>, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com, akpm@osdl.org, andrea@suse.de, davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+To: Jeff Moyer <jmoyer@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <40908931.8030406@pobox.com>
+In-Reply-To: <16527.4259.174536.629347@segfault.boston.redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 29, 2004 at 12:48:49AM -0400, Jeff Garzik wrote:
+On Tue, Apr 27, 2004 at 10:02:11PM -0400, Jeff Moyer wrote:
+> 
+> >FYI, we see the exact same panic with the tg3 driver using 2.4.25 and 
+> >distcc with sendfile(). The bcm5700 driver also panics, but I haven't 
+> >captured a panic message to be certain it's the same bug.
+> 
+> >kernel BUG at page_alloc.c:98!
+> 
+> Andrea fixed this in his tree by deferring the page free to process context
+> instead of BUG()ing on PageLRU(page).
 
-> Anybody know what's up with the HostAP driver?
+Yeap, his fix looks OK.
 
-Unfortunately, I have been way too busy with other projects during the
-last weeks. I finally reserved some time to start going through my
-pending to do list for Host AP yesterday. I'll try to get to the 2.6
-cleaning part shortly, but I cannot yet give an estimate on when this
-will be ready to be submitted. My current plan is to limit to minimal
-number of changes (i.e., skip CCMP for the time being) to speed this up
-a bit.
+Can you please people seeing the oops try this, from Andrea (on top of 2.4.26):
 
--- 
-Jouni Malinen                                            PGP id EFC895FA
+--- a/mm/page_alloc.c.orig	2004-04-29 17:38:14.184021976 -0300
++++ b/mm/page_alloc.c	2004-04-29 17:47:27.906843312 -0300
+@@ -46,6 +46,34 @@
+ 
+ int vm_gfp_debug = 0;
+ 
++static void FASTCALL(__free_pages_ok (struct page *page, unsigned int order));
++
++static spinlock_t free_pages_ok_no_irq_lock = SPIN_LOCK_UNLOCKED;
++struct page * free_pages_ok_no_irq_head;
++
++static void do_free_pages_ok_no_irq(void * arg)
++{
++       struct page * page, * __page;
++
++       spin_lock_irq(&free_pages_ok_no_irq_lock);
++
++       page = free_pages_ok_no_irq_head;
++       free_pages_ok_no_irq_head = NULL;
++
++       spin_unlock_irq(&free_pages_ok_no_irq_lock);
++
++       while (page) {
++               __page = page;
++               page = page->next_hash;
++               __free_pages_ok(__page, __page->index);
++       }
++}
++
++static struct tq_struct free_pages_ok_no_irq_task = {
++       .routine        = do_free_pages_ok_no_irq,
++};
++
++
+ /*
+  * Temporary debugging check.
+  */
+@@ -81,7 +109,6 @@
+  * -- wli
+  */
+ 
+-static void FASTCALL(__free_pages_ok (struct page *page, unsigned int order));
+ static void __free_pages_ok (struct page *page, unsigned int order)
+ {
+ 	unsigned long index, page_idx, mask, flags;
+@@ -94,8 +121,20 @@
+ 	 * a reference to a page in order to pin it for io. -ben
+ 	 */
+ 	if (PageLRU(page)) {
+-		if (unlikely(in_interrupt()))
+-			BUG();
++		if (unlikely(in_interrupt())) {
++			unsigned long flags;
++
++			spin_lock_irqsave(&free_pages_ok_no_irq_lock, flags);
++			page->next_hash = free_pages_ok_no_irq_head;
++			free_pages_ok_no_irq_head = page;
++			page->index = order;
++	
++			spin_unlock_irqrestore(&free_pages_ok_no_irq_lock, flags);
++	
++			schedule_task(&free_pages_ok_no_irq_task);
++			return;
++		}
++		
+ 		lru_cache_del(page);
+ 	}
+ 
