@@ -1,35 +1,23 @@
-From: Richard Dawe <rich@phekda.gotadsl.co.uk>
-Subject: Re: [PATCH 4/5] r8169: ethtool message level control
-Date: Sat, 12 Mar 2005 15:12:28 +0000
-Message-ID: <423306DC.40105@phekda.gotadsl.co.uk>
-References: <20050309113402.05d25e49@dxpl.pdx.osdl.net> <4232DA4F.5050804@phekda.gotadsl.co.uk> <20050312143324.GA15154@electric-eye.fr.zoreil.com>
+From: Jouni Malinen <jkmaline@cc.hut.fi>
+Subject: [PATCH wireless-2.6 0/10] hostap: Updates from Host AP repository
+Date: Sat, 12 Mar 2005 16:17:06 -0800
+Message-ID: <20050313001706.GA8253@jm.kir.nu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20050312143324.GA15154@electric-eye.fr.zoreil.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, jkmaline@cc.hut.fi
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello.
-
-Francois Romieu wrote:
-[snip]
-> I'll fix it and convert the remaining printk as well during the merge
-> of your version with this one.
-
-I think you should disregard my patch and just use Stephen's. His patch 
-is what I was hoping to end up with, after fixing my patch. ;)
-
-Likewise for my statistics patch - please use Stephen's, if you're happy 
-with setting up the DMA mappings on each get_ethtool_stats call.
-
-Thanks, bye, Rich =]
+Following patches bring wireless-2.6 tree up to date with the Host AP
+repository. First nine patches in the series do not have other
+dependencies. The last patch requires an update for the Linux wireless
+extensions which is not yet in the wireless-2.6, so this patch may
+remain pending for now. I updated the proposal for WE-18 earlier today
+and sent it to Jean. Hopefully, it will get to wireless-2.6 tree some
+time soon.
 
 -- 
-Richard Dawe [ http://homepages.nildram.co.uk/~phekda/richdawe/ ]
-
-"You can't evaluate a man by logic alone."
-   -- McCoy, "I, Mudd", Star Trek
+Jouni Malinen                                            PGP id EFC895FA
