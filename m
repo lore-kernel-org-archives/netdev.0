@@ -1,55 +1,36 @@
-From: jchapman@katalix.com
-Subject: Re: How to improve small packet performance
-Date: Wed, 13 Aug 2003 23:23:43 -0500
+From: Ralph Doncaster <ralph@istop.com>
+Subject: Re: [RFC] High Performance Packet Classifiction for tc framework
+Date: Wed, 13 Aug 2003 17:10:56 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1060835023.3f3b0ecfc97b4@webmail.katalix.com>
+Message-ID: <Pine.LNX.4.51.0308131707280.21992@ns.istop.com>
+References: <3F16A0E5.1080007@hipac.org> <1059934468.1103.41.camel@jzny.localdomain>
+ <3F2E5CD6.4030500@hipac.org> <1060012260.1103.380.camel@jzny.localdomain>
+ <3F302E04.1090503@hipac.org> <1060286331.1025.73.camel@jzny.localdomain>
+ <3F381B3E.6080807@hipac.org> <20030811224050.59bc36fe.davem@redhat.com>
+ <20030812142913.GB18802@mail.jlokier.co.uk> <Pine.LNX.4.51.0308131320470.13253@ns.istop.com>
+ <20030813191757.GE4405@mail.jlokier.co.uk>
+Reply-To: ralph+d@istop.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "netdev@oss.sgi.com" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: minniewkitty@yahoo.com.cn
+To: Jamie Lokier <jamie@shareable.org>
+In-Reply-To: <20030813191757.GE4405@mail.jlokier.co.uk>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I downloaded the eepro100 NAPI patch and tried it in my test setup (a
-1GHz P-III configured as a 2-port bridge, 2.4.20-8 RH9 kernel).  I see
-e100-napi perform much better than eepro100, which is what I was 
-expecting.
+On Wed, 13 Aug 2003, Jamie Lokier wrote:
 
-  e100-v3.0.0dev12-napi     93k packets/sec
-  eepro100-napi-020619	    49k packets/sec
+> You would start by search for a 217.109.0.0/16 entry.  That's
+> the root in the search tree.
+>
+> That would match, and the matching tree node would tell you to search
+> a specific table for 217.109.118.0/24.  (Actually, just
+> 0.0.118.0/0.0.255.0, because this node can assume the first 16 bits).
 
-When doing a bidirectional test, the eepro100 driver locks up
-completely, although it seems to survive with 128 byte packets (where
-the event rate is less).
-  
-What's your test setup? How are you generating your test traffic? Do
-your NIC cards share the same irq?
+So you have to put an entry in the /16 table for every /16 that you have a
+more specific route for, right?
+Then what if I have 3 different routes; one for 217.109.0.0/16, another
+for 217.109.118.0/24 and one for 217.109.118.68/32?
 
--jc
-
-minnie wu wrote:
-
-> Hi, all!
->      I tried e100-napi, but it's performance is still worse than 
->      eepro100-napi. It seems that napi cannot meet my needs. Any ideas?
->  
-> jchapman@katalix.com wrote:
->  
-> > Try the latest e100 development driver from sf.net/projects/e1000. 
-> > Make >sure you compile it with NAPI enabled.
-> 
-> minnie wu wrote:
-> 
-> > Hi, all!
-> >      I'm working on e100/eepro100, kernel version 2.4.20. I 
-> >      used NAPI, but the 64 byte small packet dual throughout
-> >      is only 28M/s. How to improve small packet performance further?
-> 
-
-
-
-
--------------------------------------------------
-This mail sent through IMP: http://horde.org/imp/
+-Ralph
