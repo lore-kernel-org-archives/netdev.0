@@ -1,26 +1,21 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [janitor] pppoe: remove unneeded ifdef/endif
-Date: Mon, 23 Feb 2004 15:16:42 -0800
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] remove useless MOD_{INC,DEC}_USE_COUNT in lasi_82596.c
+Date: Mon, 23 Feb 2004 18:46:17 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040223151642.6b76944a.davem@redhat.com>
-References: <20040223134207.656a5213.rddunlap@osdl.org>
+Message-ID: <403A90C9.2020009@pobox.com>
+References: <20040222183504.GA28040@lst.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Randy.Dunlap" <rddunlap@osdl.org>
-In-Reply-To: <20040223134207.656a5213.rddunlap@osdl.org>
+To: Christoph Hellwig <hch@lst.de>
+In-Reply-To: <20040222183504.GA28040@lst.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 23 Feb 2004 13:42:07 -0800
-"Randy.Dunlap" <rddunlap@osdl.org> wrote:
+I'll look through these.
 
-> Please apply to 2.6.3-current.
- ...
-> From: Luiz Fernando Capitulino <lcapitulino@prefeitura.sp.gov.br>
- ...
-> diff -X dontdiff -Nru linux-2.6.2-rc2-bk2/drivers/net/pppoe.c linux-2.6.2-rc2-bk2~/drivers/net/pppoe.c
+Please CC drivers/net/* patches to me.
 
-Applied, thanks.
+	Jeff
