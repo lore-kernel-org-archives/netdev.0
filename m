@@ -1,36 +1,48 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [PATCH 2.6] ixgb: fix ixgb_intr looping checks
-Date: Wed, 10 Nov 2004 11:19:33 -0800
-Message-ID: <20041110111933.0021cf37.akpm@osdl.org>
-References: <20041108151048.4bf605c1.akpm@osdl.org>
-	<Pine.LNX.4.44.0411101712080.16936-100000@localhost.localdomain>
+From: Randolph Chung <randolph@tausq.org>
+Subject: [patch] gcc-4.0 fix for acenic
+Date: Wed, 10 Nov 2004 11:44:01 -0800
+Message-ID: <20041110194401.GL15714@tausq.org>
+Reply-To: Randolph Chung <randolph@tausq.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: jesse.brandeburg@intel.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jesse Brandeburg <jesse.brandeburg@intel.com>
-In-Reply-To: <Pine.LNX.4.44.0411101712080.16936-100000@localhost.localdomain>
+To: torvalds@osdl.org
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jesse Brandeburg <jesse.brandeburg@intel.com> wrote:
->
-> On Mon, 8 Nov 2004, Andrew Morton wrote:
->  > > This patch undoes a change that we believe will impact performance
->  > adversely,
->  > > by creating possibly too long a delay between servicing completion=
-s.
->  >=20
->  > Maybe.=A0 But now take a look at how much additional pointless work =
-will be
->  > done in the common case.=A0 For instance, every tx completion will i=
-ncur a
->  > call to ixgb_clean_rx_irq(), which then calls ixgb_alloc_rx_buffers(=
-).
->=20
->  Is your common case transmits only?
+Small fix to compile acenic with gcc-4.0. gcc no longer accepts static
+function prototypes inside a function definition. This is ugly anyway...
 
-hm, good question.  Usually not, I guess.  IIRC TCP normally runs with
-2Tx:1Rx.  NFS-over-UDP will send and receive a lot of back-to-back frames.
+Signed-off-by: Randolph Chung <tausq@debian.org>
+Acked-by: Jes Sorensen
+
+Index: drivers/net/acenic.c
+===================================================================
+RCS file: /var/cvs/linux-2.6/drivers/net/acenic.c,v
+retrieving revision 1.12
+diff -u -p -r1.12 acenic.c
+--- linux/drivers/net/acenic.c	21 Oct 2004 18:59:05 -0000	1.12
++++ linux/drivers/net/acenic.c	10 Nov 2004 19:33:43 -0000
+@@ -450,6 +450,7 @@ static char version[] __initdata = 
+ static int ace_get_settings(struct net_device *, struct ethtool_cmd *);
+ static int ace_set_settings(struct net_device *, struct ethtool_cmd *);
+ static void ace_get_drvinfo(struct net_device *, struct ethtool_drvinfo *);
++static void ace_watchdog(struct net_device *dev);
+ 
+ static struct ethtool_ops ace_ethtool_ops = {
+ 	.get_settings = ace_get_settings,
+@@ -485,7 +486,6 @@ static int __devinit acenic_probe_one(st
+ 	dev->vlan_rx_kill_vid = ace_vlan_rx_kill_vid;
+ #endif
+ 	if (1) {
+-		static void ace_watchdog(struct net_device *dev);
+ 		dev->tx_timeout = &ace_watchdog;
+ 		dev->watchdog_timeo = 5*HZ;
+ 	}
+-- 
+Randolph Chung
+Debian GNU/Linux Developer, hppa/ia64 ports
+http://www.tausq.org/
