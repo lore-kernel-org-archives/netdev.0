@@ -1,11 +1,11 @@
 From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: [BRIDGE] convert __constant_htons(constant) to htons
-Date: Sat, 02 Oct 2004 16:31:27 -0300
+Subject: [SKBUFF] use eth_hdr(skb), skb->mac.raw cases
+Date: Sat, 02 Oct 2004 16:50:24 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <415F020F.7010909@conectiva.com.br>
+Message-ID: <415F0680.7040200@conectiva.com.br>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------020908070200080805000100"
+ boundary="------------040208030207070501080502"
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
@@ -13,7 +13,7 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------020908070200080805000100
+--------------040208030207070501080502
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 
@@ -23,148 +23,217 @@ Hi David,
 
 bk://kernel.bkbits.net/acme/sk_buff-2.6
 
-	Now there are two outstanding changesets in this tree.
+	Now there are 3 outstanding changesets in this tree.
 
 Regards,
 
 - Arnaldo
 
---------------020908070200080805000100
+--------------040208030207070501080502
 Content-Type: text/plain;
- name="bridge.patch"
+ name="eth_hdr2.patch"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="bridge.patch"
-
-You can import this changeset into BK by piping this whole message to:
-'| bk receive [path to repository]' or apply the patch as usual.
+ filename="eth_hdr2.patch"
 
 ===================================================================
 
 
-ChangeSet@1.2031, 2004-10-02 16:27:19-03:00, acme@amd64.kerneljanitors.org
-  [BRIDGE] convert __constant_htons(constant) to htons
+ChangeSet@1.2032, 2004-10-02 16:44:12-03:00, acme@amd64.kerneljanitors.org
+  [SKBUFF] use eth_hdr(skb), skb->mac.raw cases
   
   Signed-off-by: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
   Signed-off-by: David S. Miller <davem@redhat.com>
-  
 
 
- ebt_arp.c      |    4 ++--
- ebt_arpreply.c |    6 +++---
- ebt_ip.c       |    2 +-
- ebt_log.c      |    2 +-
- ebt_vlan.c     |    2 +-
- 5 files changed, 8 insertions(+), 8 deletions(-)
+ drivers/ieee1394/eth1394.c        |    2 +-
+ drivers/ieee1394/eth1394.h        |    7 +++++++
+ drivers/net/hamradio/bpqether.c   |    2 +-
+ drivers/net/wireless/orinoco.c    |    2 +-
+ drivers/net/wireless/wavelan.c    |    5 ++---
+ drivers/net/wireless/wavelan_cs.c |    4 ++--
+ include/net/llc_pdu.h             |    6 +++---
+ net/bluetooth/bnep/core.c         |    6 +++---
+ net/llc/llc_input.c               |    2 +-
+ net/llc/llc_output.c              |    2 +-
+ 10 files changed, 22 insertions(+), 16 deletions(-)
 
 
-diff -Nru a/net/bridge/netfilter/ebt_arp.c b/net/bridge/netfilter/ebt_arp.c
---- a/net/bridge/netfilter/ebt_arp.c	2004-10-02 16:29:01 -03:00
-+++ b/net/bridge/netfilter/ebt_arp.c	2004-10-02 16:29:01 -03:00
-@@ -108,8 +108,8 @@
+diff -Nru a/drivers/ieee1394/eth1394.c b/drivers/ieee1394/eth1394.c
+--- a/drivers/ieee1394/eth1394.c	2004-10-02 16:44:56 -03:00
++++ b/drivers/ieee1394/eth1394.c	2004-10-02 16:44:56 -03:00
+@@ -850,7 +850,7 @@
  
- 	if (datalen != EBT_ALIGN(sizeof(struct ebt_arp_info)))
- 		return -EINVAL;
--	if ((e->ethproto != __constant_htons(ETH_P_ARP) &&
--	   e->ethproto != __constant_htons(ETH_P_RARP)) ||
-+	if ((e->ethproto != htons(ETH_P_ARP) &&
-+	   e->ethproto != htons(ETH_P_RARP)) ||
- 	   e->invflags & EBT_IPROTO)
- 		return -EINVAL;
- 	if (info->bitmask & ~EBT_ARP_MASK || info->invflags & ~EBT_ARP_MASK)
-diff -Nru a/net/bridge/netfilter/ebt_arpreply.c b/net/bridge/netfilter/ebt_arpreply.c
---- a/net/bridge/netfilter/ebt_arpreply.c	2004-10-02 16:29:01 -03:00
-+++ b/net/bridge/netfilter/ebt_arpreply.c	2004-10-02 16:29:01 -03:00
-@@ -29,9 +29,9 @@
- 	if (ap == NULL)
- 		return EBT_DROP;
+ 	skb->mac.raw = skb->data;
+ 	skb_pull (skb, ETH1394_HLEN);
+-	eth = (struct eth1394hdr*)skb->mac.raw;
++	eth = eth1394_hdr(skb);
  
--	if (ap->ar_op != __constant_htons(ARPOP_REQUEST) ||
-+	if (ap->ar_op != htons(ARPOP_REQUEST) ||
- 	    ap->ar_hln != ETH_ALEN ||
--	    ap->ar_pro != __constant_htons(ETH_P_IP) ||
-+	    ap->ar_pro != htons(ETH_P_IP) ||
- 	    ap->ar_pln != 4)
- 		return EBT_CONTINUE;
+ 	if (*eth->h_dest & 1) {
+ 		if (memcmp(eth->h_dest, dev->broadcast, dev->addr_len)==0)
+diff -Nru a/drivers/ieee1394/eth1394.h b/drivers/ieee1394/eth1394.h
+--- a/drivers/ieee1394/eth1394.h	2004-10-02 16:44:56 -03:00
++++ b/drivers/ieee1394/eth1394.h	2004-10-02 16:44:56 -03:00
+@@ -81,7 +81,14 @@
+ 	unsigned short	h_proto;		/* packet type ID field	*/
+ }  __attribute__((packed));
  
-@@ -65,7 +65,7 @@
- 		return -EINVAL;
- 	if (BASE_CHAIN && info->target == EBT_RETURN)
- 		return -EINVAL;
--	if (e->ethproto != __constant_htons(ETH_P_ARP) ||
-+	if (e->ethproto != htons(ETH_P_ARP) ||
- 	    e->invflags & EBT_IPROTO)
- 		return -EINVAL;
- 	CLEAR_BASE_CHAIN_BIT;
-diff -Nru a/net/bridge/netfilter/ebt_ip.c b/net/bridge/netfilter/ebt_ip.c
---- a/net/bridge/netfilter/ebt_ip.c	2004-10-02 16:29:01 -03:00
-+++ b/net/bridge/netfilter/ebt_ip.c	2004-10-02 16:29:01 -03:00
-@@ -80,7 +80,7 @@
++#ifdef __KERNEL__
++#include <linux/skbuff.h>
  
- 	if (datalen != EBT_ALIGN(sizeof(struct ebt_ip_info)))
- 		return -EINVAL;
--	if (e->ethproto != __constant_htons(ETH_P_IP) ||
-+	if (e->ethproto != htons(ETH_P_IP) ||
- 	   e->invflags & EBT_IPROTO)
- 		return -EINVAL;
- 	if (info->bitmask & ~EBT_IP_MASK || info->invflags & ~EBT_IP_MASK)
-diff -Nru a/net/bridge/netfilter/ebt_log.c b/net/bridge/netfilter/ebt_log.c
---- a/net/bridge/netfilter/ebt_log.c	2004-10-02 16:29:01 -03:00
-+++ b/net/bridge/netfilter/ebt_log.c	2004-10-02 16:29:01 -03:00
-@@ -121,7 +121,7 @@
++static inline struct eth1394hdr *eth1394_hdr(const struct sk_buff *skb)
++{
++	return (struct eth1394hdr *)skb->mac.raw;
++}
++#endif
  
- 		/* If it's for Ethernet and the lengths are OK,
- 		 * then log the ARP payload */
--		if (ah->ar_hrd == __constant_htons(1) &&
-+		if (ah->ar_hrd == htons(1) &&
- 		    ah->ar_hln == ETH_ALEN &&
- 		    ah->ar_pln == sizeof(uint32_t)) {
- 			struct arppayload _arpp, *ap;
-diff -Nru a/net/bridge/netfilter/ebt_vlan.c b/net/bridge/netfilter/ebt_vlan.c
---- a/net/bridge/netfilter/ebt_vlan.c	2004-10-02 16:29:01 -03:00
-+++ b/net/bridge/netfilter/ebt_vlan.c	2004-10-02 16:29:01 -03:00
-@@ -104,7 +104,7 @@
+ typedef enum {ETH1394_GASP, ETH1394_WRREQ} eth1394_tx_type;
+ 
+diff -Nru a/drivers/net/hamradio/bpqether.c b/drivers/net/hamradio/bpqether.c
+--- a/drivers/net/hamradio/bpqether.c	2004-10-02 16:44:56 -03:00
++++ b/drivers/net/hamradio/bpqether.c	2004-10-02 16:44:56 -03:00
+@@ -193,7 +193,7 @@
+ 
+ 	bpq = (struct bpqdev *)dev->priv;
+ 
+-	eth = (struct ethhdr *)skb->mac.raw;
++	eth = eth_hdr(skb);
+ 
+ 	if (!(bpq->acpt_addr[0] & 0x01) &&
+ 	    memcmp(eth->h_source, bpq->acpt_addr, ETH_ALEN))
+diff -Nru a/drivers/net/wireless/orinoco.c b/drivers/net/wireless/orinoco.c
+--- a/drivers/net/wireless/orinoco.c	2004-10-02 16:44:56 -03:00
++++ b/drivers/net/wireless/orinoco.c	2004-10-02 16:44:56 -03:00
+@@ -1009,7 +1009,7 @@
+ 	/* Note : gcc will optimise the whole section away if
+ 	 * WIRELESS_SPY is not defined... - Jean II */
+ 	if (SPY_NUMBER(priv)) {
+-		orinoco_spy_gather(dev, skb->mac.raw + ETH_ALEN,
++		orinoco_spy_gather(dev, eth_hdr(skb)->h_source,
+ 				   desc->signal, desc->silence);
  	}
+ }
+diff -Nru a/drivers/net/wireless/wavelan.c b/drivers/net/wireless/wavelan.c
+--- a/drivers/net/wireless/wavelan.c	2004-10-02 16:44:56 -03:00
++++ b/drivers/net/wireless/wavelan.c	2004-10-02 16:44:56 -03:00
+@@ -2521,7 +2521,7 @@
+ 	skb->protocol = eth_type_trans(skb, dev);
  
- 	/* Is it 802.1Q frame checked? */
--	if (e->ethproto != __constant_htons(ETH_P_8021Q)) {
-+	if (e->ethproto != htons(ETH_P_8021Q)) {
- 		DEBUG_MSG
- 		    ("passed entry proto %2.4X is not 802.1Q (8100)\n",
- 		     (unsigned short) ntohs(e->ethproto));
-
-===================================================================
-
-
-This BitKeeper patch contains the following changesets:
-1.2031
-## Wrapped with gzip_uu ##
-
-
-M'XL( 'T!7T$  ^U876_;-A1]MGX%AP)%BD$ROT1*1ATD38S6V(JZ3O,T# 8E
-MT99F63(DQELP_OA15)IX21K;:OMFV:!HB9?WZ/+<HTN_ M>UK 8]$:^D\PI\
-M*&LUZ,5E(6.5;807ERLOJLR-:5F:&WWYCZI$OQG<CY;]>CF+;N9S%WO,,6,F
-M0L4IV,BJ'O201^ZOJ-NU'/2FH_?7OY]/'6<X!!>I*!;R2BHP'#JJK#8B3^HS
-MH=*\+#SCH:A74EGO^GZHQA!B\_$1)]!G&C%(N8Y1@I"@2"80TX!1I\%V]O@!
-M_C\+168FQ"CV0^V'(<7.)4 >A@0!2/L(]B$&B TP'Z#0A60 (;"SBE7"J+>4
-M52'SOT21&>"U5U8+\*L/7.B\ S_V22Z<&/SQ;CJ^?#_Z$Y@G,H%58#8SO5J)
-M0LU297HG7W^^,=Z!O63,S/<J6Q0R<4NS/-'M )Q7A4%6@@O10$Q+D$CP4>8E
-M>/MLP$Z?SG I-ED"KCSP,<MS68&WB=C(U5DEDU2HQJRQ<7X##&/"G<G#&CON
-M@8?C0 &=4Q E=9S>W*[.UJ)(RDIXD=2%5/VHRI*%[)ON/,N5K/HR4C-1K2NY
-MSF^]N DO@0&F"!%$F:8,<:XI1)3BF!-"6)C$XN4EW==/2Z40<T@UHP%I8+=Q
-M*6Y4[159L12>F>#;\V7K=B8,0\0P00@S32@,B$;()WZ$!4(\A',8=T7\U<,V
-M5LH8H0=C-<_^#%C"@E 'B3!P&:."B@3&R7>$]RE:A'WF'XQVDXOB,5RN+0TT
-M];D448AP,#=P&>T*]\''-E[LD^#PZ.;EXCDJ&"YH:I9?(.D+%,(PX%%7N/<N
-MMM'ZC%-D97D/TC>"_5/STMD*FNWFY5SMI.5V2L+ 1,G,ZA,-,>?(JCMY+.V0
-M[B?M!+CD*.UWTFX5[A-PJ[_OOD;G]UB6#F^ 2V(6RAG;MI?-P8E8NZ>BFI5K
-M\,NP#<;)^73R:3*;CCY?CZZ^O %:&RMJK9JV!\QQ9[6NR@>ST9</L\EL/&DM
-M6-!8V-;ZD>ZI5*DQ4$],C#]KLRM5VBSY:=+:+4.>)@>B04!L<O"NR8&!BX_)
-MT29'^Y(Z(#FZY05""&!G;/AA3I:Q.RG[^K5-AA>&39MQN[F==:+V_A5.!V9G
-MSQ";<AZVQ ZZ$AL!%QV)W1*[K17W)7;6D=<!:738MKMT>+R'#-M*YW"N'E"#
-M?6.GN6_MU6P_H?8-\>&1JC^*JFTINR]5[8ITTF!LRXSVU&O+D]06&FF5&-+=
-ML159Z7V1INW^X7">'K*WZ:"J6]L:4[!#%!*S5="8^;355?/R.;+UN]G:;A/W
-M96N[)IWH"KFEJSWM$M? :--G4PO\^_"/7IS*>%G?K(9Q..<XP8'S'Y#WT^ V
-#%   
+ #ifdef DEBUG_RX_INFO
+-	wv_packet_info(skb->mac.raw, sksize, dev->name, "wv_packet_read");
++	wv_packet_info(eth_hdr(skb)->h_dest, sksize, dev->name, "wv_packet_read");
+ #endif				/* DEBUG_RX_INFO */
  
+ 	/* Statistics-gathering and associated stuff.
+@@ -2557,8 +2557,7 @@
+ 
+ 		/* Spying stuff */
+ #ifdef IW_WIRELESS_SPY
+-		wl_spy_gather(dev, skb->mac.raw + WAVELAN_ADDR_SIZE,
+-			      stats);
++		wl_spy_gather(dev, eth_hdr(skb)->h_source, stats);
+ #endif /* IW_WIRELESS_SPY */
+ #ifdef HISTOGRAM
+ 		wl_his_gather(dev, stats);
+diff -Nru a/drivers/net/wireless/wavelan_cs.c b/drivers/net/wireless/wavelan_cs.c
+--- a/drivers/net/wireless/wavelan_cs.c	2004-10-02 16:44:56 -03:00
++++ b/drivers/net/wireless/wavelan_cs.c	2004-10-02 16:44:56 -03:00
+@@ -2943,7 +2943,7 @@
+   skb->protocol = eth_type_trans(skb, dev);
+ 
+ #ifdef DEBUG_RX_INFO
+-  wv_packet_info(skb->mac.raw, sksize, dev->name, "wv_packet_read");
++  wv_packet_info(eth_hdr(skb)->h_dest, sksize, dev->name, "wv_packet_read");
+ #endif	/* DEBUG_RX_INFO */
+      
+   /* Statistics gathering & stuff associated.
+@@ -2977,7 +2977,7 @@
+ #endif	/* WAVELAN_ROAMING */
+ 	  
+ #ifdef WIRELESS_SPY
+-      wl_spy_gather(dev, skb->mac.raw + WAVELAN_ADDR_SIZE, stats);
++      wl_spy_gather(dev, eth_hdr(skb)->h_source, stats);
+ #endif	/* WIRELESS_SPY */
+ #ifdef HISTOGRAM
+       wl_his_gather(dev, stats);
+diff -Nru a/include/net/llc_pdu.h b/include/net/llc_pdu.h
+--- a/include/net/llc_pdu.h	2004-10-02 16:44:56 -03:00
++++ b/include/net/llc_pdu.h	2004-10-02 16:44:56 -03:00
+@@ -253,7 +253,7 @@
+ static inline void llc_pdu_decode_sa(struct sk_buff *skb, u8 *sa)
+ {
+ 	if (skb->protocol == ntohs(ETH_P_802_2))
+-		memcpy(sa, ((struct ethhdr *)skb->mac.raw)->h_source, ETH_ALEN);
++		memcpy(sa, eth_hdr(skb)->h_source, ETH_ALEN);
+ 	else if (skb->protocol == ntohs(ETH_P_TR_802_2))
+ 		memcpy(sa, ((struct trh_hdr *)skb->mac.raw)->saddr, ETH_ALEN);
+ }
+@@ -268,7 +268,7 @@
+ static inline void llc_pdu_decode_da(struct sk_buff *skb, u8 *da)
+ {
+ 	if (skb->protocol == ntohs(ETH_P_802_2))
+-		memcpy(da, ((struct ethhdr *)skb->mac.raw)->h_dest, ETH_ALEN);
++		memcpy(da, eth_hdr(skb)->h_dest, ETH_ALEN);
+ 	else if (skb->protocol == ntohs(ETH_P_TR_802_2))
+ 		memcpy(da, ((struct trh_hdr *)skb->mac.raw)->daddr, ETH_ALEN);
+ }
+@@ -347,7 +347,7 @@
+ 		struct llc_pdu_un *ev_pdu = llc_pdu_un_hdr(ev_skb);
+ 		int dsize;
+ 
+-		dsize = ntohs(((struct ethhdr *)ev_skb->mac.raw)->h_proto) - 3;
++		dsize = ntohs(eth_hdr(ev_skb)->h_proto) - 3;
+ 		memcpy(((u8 *)pdu) + 3, ((u8 *)ev_pdu) + 3, dsize);
+ 		skb_put(skb, dsize);
+ 	}
+diff -Nru a/net/bluetooth/bnep/core.c b/net/bluetooth/bnep/core.c
+--- a/net/bluetooth/bnep/core.c	2004-10-02 16:44:56 -03:00
++++ b/net/bluetooth/bnep/core.c	2004-10-02 16:44:56 -03:00
+@@ -364,17 +364,17 @@
+ 	
+ 	case BNEP_COMPRESSED_SRC_ONLY:
+ 		memcpy(__skb_put(nskb, ETH_ALEN), s->eh.h_dest, ETH_ALEN);
+-		memcpy(__skb_put(nskb, ETH_ALEN), skb->mac.raw, ETH_ALEN);
++		memcpy(__skb_put(nskb, ETH_ALEN), eth_hdr(skb), ETH_ALEN);
+ 		put_unaligned(s->eh.h_proto, (u16 *) __skb_put(nskb, 2));
+ 		break;
+ 
+ 	case BNEP_COMPRESSED_DST_ONLY:
+-		memcpy(__skb_put(nskb, ETH_ALEN), skb->mac.raw, ETH_ALEN);
++		memcpy(__skb_put(nskb, ETH_ALEN), eth_hdr(skb), ETH_ALEN);
+ 		memcpy(__skb_put(nskb, ETH_ALEN + 2), s->eh.h_source, ETH_ALEN + 2);
+ 		break;
+ 
+ 	case BNEP_GENERAL:
+-		memcpy(__skb_put(nskb, ETH_ALEN * 2), skb->mac.raw, ETH_ALEN * 2);
++		memcpy(__skb_put(nskb, ETH_ALEN * 2), eth_hdr(skb), ETH_ALEN * 2);
+ 		put_unaligned(s->eh.h_proto, (u16 *) __skb_put(nskb, 2));
+ 		break;
+ 	}
+diff -Nru a/net/llc/llc_input.c b/net/llc/llc_input.c
+--- a/net/llc/llc_input.c	2004-10-02 16:44:56 -03:00
++++ b/net/llc/llc_input.c	2004-10-02 16:44:56 -03:00
+@@ -111,7 +111,7 @@
+ 	skb->h.raw += llc_len;
+ 	skb_pull(skb, llc_len);
+ 	if (skb->protocol == htons(ETH_P_802_2)) {
+-		u16 pdulen = ((struct ethhdr *)skb->mac.raw)->h_proto,
++		u16 pdulen = eth_hdr(skb)->h_proto,
+ 		    data_size = ntohs(pdulen) - llc_len;
+ 
+ 		skb_trim(skb, data_size);
+diff -Nru a/net/llc/llc_output.c b/net/llc/llc_output.c
+--- a/net/llc/llc_output.c	2004-10-02 16:44:56 -03:00
++++ b/net/llc/llc_output.c	2004-10-02 16:44:56 -03:00
+@@ -61,7 +61,7 @@
+ 		struct ethhdr *eth;
+ 
+ 		skb->mac.raw = skb_push(skb, sizeof(*eth));
+-		eth = (struct ethhdr *)skb->mac.raw;
++		eth = eth_hdr(skb);
+ 		eth->h_proto = htons(len);
+ 		memcpy(eth->h_dest, da, ETH_ALEN);
+ 		memcpy(eth->h_source, sa, ETH_ALEN);
 
---------------020908070200080805000100--
+
+--------------040208030207070501080502--
