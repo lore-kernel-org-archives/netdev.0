@@ -1,49 +1,37 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: atomic_dec_and_test for child dst needed in dst_destroy?
-Date: Tue, 5 Apr 2005 13:12:59 -0700
-Message-ID: <20050405131259.4b00b8de.davem@davemloft.net>
-References: <Pine.LNX.4.58.0504051155260.13697@server.graphe.net>
-	<20050405123438.28f02423.davem@davemloft.net>
-	<Pine.LNX.4.58.0504051238390.14264@server.graphe.net>
-	<20050405125014.1ce46c66.davem@davemloft.net>
-	<Pine.LNX.4.58.0504051252280.14264@server.graphe.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: High CPU utilization with Bonding driver ?
+Date: Tue, 05 Apr 2005 13:31:26 -0700
+Message-ID: <200504052031.j35KVQiR027629@death.nxdomain.ibm.com>
+References: <ravinandan.arakali@neterion.com>
+Cc: "'Arthur Kepner'" <akepner@sgi.com>, netdev@oss.sgi.com,
+        bonding-devel@lists.sourceforge.net,
+        "'Leonid. Grossman (E-mail)'" <leonid.grossman@neterion.com>,
+        "'Raghavendra. Koushik (E-mail)'" <raghavendra.koushik@neterion.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Christoph Lameter <christoph@lameter.com>
-In-Reply-To: <Pine.LNX.4.58.0504051252280.14264@server.graphe.net>
+To: "Ravinandan Arakali" <ravinandan.arakali@neterion.com>
+In-Reply-To: Message from "Ravinandan Arakali" <ravinandan.arakali@neterion.com>
+   of "Tue, 05 Apr 2005 12:04:56 PDT." <002a01c53a12$5b876770$3a10100a@pc.s2io.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 5 Apr 2005 12:58:15 -0700 (PDT)
-Christoph Lameter <christoph@lameter.com> wrote:
+Ravinandan Arakali <ravinandan.arakali@neterion.com> wrote:
 
-> On Tue, 5 Apr 2005, David S. Miller wrote:
-> 
-> > > I fail to see what the point of having a single instance of
-> > > atomic_dec_and_test for __refcnt is. In particular since the upper layers
-> > > guarantee that dst_destroy is not called multiple times for the same dst
-> > > entry.
-> >
-> > If this is true, what performance improvement could you possibly be
-> > seeing from this change?
-> 
-> We could make refcnt into an array of pointers that point to node specific
-> memory. This avoids cache line bouncing. However, you cannot atomically
-> dec_and_test an array. This is the only location where a dec_and_test is
-> used on dst->__refcnt.
+>The problem does not seem to be due to your patch because
+>the bonding driver built without your patch crashes too on load.
+>However, the pre-existing binary under /lib/modules/`uname -r`/...
+>works fine.
+>Any idea why this may be happening ?
+>
+>Given below is the output of trying to insmod the bonding driver.
+>
+>linux:/usr/src/linux-2.6.5-7.135/drivers/net/bonding # insmod bonding.ko
+>mode=4 miimon=100
 
-The dst object is already too large.  You have to show a serious
-performance improvement to justify bloating it up further.
+	What's this kernel from, and do you have the config file
+available?
 
-> We can put an explicit barier in if that is the only reason for the
-> atomic_dec_and_test.
+	-J
 
-Then we lose the optimizations of those memory barriers that platforms
-do in their atomic_op assembly.
-
-Let me check out if your assertions about dst_destroy() usage are correct
-first, hold on for a bit.
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
