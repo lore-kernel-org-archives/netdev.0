@@ -1,101 +1,72 @@
-From: "Kambo Lohan" <kambo77@hotmail.com>
-Subject: [PATCH] [UPDATED] pktgen fixes ....
-Date: Thu, 10 Jul 2003 13:40:04 -0400
+From: Jim Keniston <jkenisto@us.ibm.com>
+Subject: Re: [PATCH - RFC] [1/2] 2.6 must-fix list - kernel error reporting
+Date: Thu, 10 Jul 2003 12:08:21 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Sea2-F408r8e4DjaQhm0000e1a4__11670.0677354403$1057860353@hotmail.com>
+Message-ID: <3F0DB9A5.23723BE1@us.ibm.com>
+References: <Mutt.LNX.4.44.0307101419080.15602-100000@excalibur.intercode.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed
-Cc: robert.olsson@its.uu.se
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com,
+   Andrew Morton <akpm@osdl.org>, "David S. Miller" <davem@redhat.com>,
+   Jeff Garzik <jgarzik@pobox.com>, Alan Cox <alan@lxorguk.ukuu.org.uk>,
+   Randy Dunlap <rddunlap@osdl.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-Resent-Message-Id: <20030711.030723.108590257.yoshfuji@wide.ad.jp>
-To: linux-kernel@vger.kernel.org
+To: James Morris <jmorris@intercode.com.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-That last fix was bad... the skb->users refcount change made it possible for 
-the skb to get double freed as skb->users  was only incremented from one 
-immediately after calling dev_hard_xmit, this should address that I hope.  I 
-now see thats what the old code was trying to avoid, but  the old way fails 
-if the first packet attempted failed dev_hard_xmit.  So it needs a fix 
-somehow.  I am testing this by looping a script that starts pktgen with 
-count=10000 and clone_skb=100.  Making sure it does not soft hang (requiring 
-a control c)  or cause mem leaks.
+James Morris wrote:
+> 
+> On Tue, 8 Jul 2003, Jim Keniston wrote:
+> 
+> +       kerror_nl = netlink_kernel_create(NETLINK_KERROR, kerror_netlink_rcv);
+> +       if (kerror_nl == NULL)
+> +               panic("kerror_init: cannot initialize kerror_nl\n");
+> 
+> You can simply use NULL instead of passing the dummy kerror_netlink_rcv
+> function.
 
-Here is the updated patch.
->>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+That begs the question: do we trust that nobody but the kernel will send
+packets to a NETLINK_KERROR socket?  Ordinary users can't, but any root
+application can.  Without kerror_netlink_rcv(), such packets don't get
+dequeued.
 
---- linux-2.4.21/net/core/pktgen.c	2002-11-28 18:53:15.000000000 -0500
-+++ linux-2.4-kjp/net/core/pktgen.c	2003-07-10 13:22:17.000000000 -0400
-@@ -34,6 +34,7 @@
-  *   *  The new changes seem to have a performance impact of around 1%,
-  *       as far as I can tell.
-  *   --Ben Greear <greearb@candelatech.com>
-+ * Fix refcount off by one if first packet fails, potential null deref, 
-memleak 030710- KJP
-  *
-  * Renamed multiskb to clone_skb and cleaned up sending core for two 
-distinct
-  * skb modes. A clone_skb=0 mode for Ben "ranges" work and a clone_skb != 0
-@@ -84,9 +85,9 @@
-#define cycles()	((u32)get_cycles())
+> 
+> +struct kern_log_entry {
+> +       __u16   log_kmagic;     /* always LOGREC_KMAGIC */
+> +       __u16   log_kversion;   /* which version of this struct? */
+> +       char    log_facility[FACILITY_MAXLEN];  /* e.g., driver name */
+> 
+> These fields should generally be specified in ascending order to help with
+> alignment.
 
+We include log_kmagic and log_kversion so the receiving app (e.g. the evlog
+daemon) can figure out which version of the kernel header it's getting.  Note
+that we're up to #3 (going on #4, with the changes you and others have
+suggested).  As long as we have to include log_kmagic and log_kversion, they
+need to be first.
 
--#define VERSION "pktgen version 1.2"
-+#define VERSION "pktgen version 1.2.1"
-static char version[] __initdata =
--  "pktgen.c: v1.2: Packet Generator for packet performance testing.\n";
-+  "pktgen.c: v1.2.1: Packet Generator for packet performance testing.\n";
+That said, I get the impression that people would be more comfortable if
+log_facility[] were moved to the end.  Other than that, can anybody point
+out a specific area where there's likely to be an alignment problem?  The
+various members' offsets are the same on i386, ppc32, and ppc64.  This should
+also be true for s390 and s390x.  I'd think it'd really matter only when kernel
+and user on the same system are different architectures.  ppc64K/ppc32U,
+at least, works.
 
-/* Used to help with determining the pkts on receive */
+> 
+> It may also be worth looking at how the ULOG code batches messages to
+> improve peformance.
 
-@@ -613,12 +614,11 @@
-                                 kfree_skb(skb);
-                                 skb = fill_packet(odev, info);
-                                 if (skb == NULL) {
--                                        break;
-+					goto out_reldev;
-                                 }
-                                 fp++;
-                                 fp_tmp = 0; /* reset counter */
-                         }
--                        atomic_inc(&skb->users);
-                 }
+Thanks for the pointer.  Looks nice.  If performance turns out to be an issue
+(e.g., if for some reason people want to cc all printk messages through this
+interface), I'll keep that in mind.
 
-                 nr_frags = skb_shinfo(skb)->nr_frags;
-@@ -626,7 +626,9 @@
-		spin_lock_bh(&odev->xmit_lock);
-		if (!netif_queue_stopped(odev)) {
+> 
+> - James
+> --
+> James Morris
+> <jmorris@intercode.com.au>
 
-+			atomic_inc(&skb->users);
-			if (odev->hard_start_xmit(skb, odev)) {
-+				atomic_dec(&skb->users);
-				if (net_ratelimit()) {
-                                    printk(KERN_INFO "Hard xmit error\n");
-                                 }
-@@ -634,9 +636,9 @@
-				last_ok = 0;
-			}
-                         else {
--		           last_ok = 1;
--                           info->sofar++;
--                           info->seq_num++;
-+				last_ok = 1;
-+				info->sofar++;
-+				info->seq_num++;
-                         }
-		}
-		else {
-@@ -731,6 +733,8 @@
-			     (unsigned long long) info->errors
-			     );
-	}
-+
-+	kfree_skb(skb);
-
-out_reldev:
-         if (odev) {
-
-_________________________________________________________________
-MSN 8 with e-mail virus protection service: 2 months FREE*  
-http://join.msn.com/?page=features/virus
-
+Jim K.
