@@ -1,30 +1,38 @@
-From: Felipe W Damasio <felipewd@terra.com.br>
-Subject: RE: NIC on 2.4.19 SMP (mii-diag output)
-Date: 22 Oct 2002 21:49:49 +0000
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <1035323389.714.33.camel@tank>
-References: <FMEDJKFPPLANNCCEABDMCEKLCBAA.ph@digitalquake.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH]  Break 'budget' dependency on netdev_max_backlog.
+Date: Tue, 22 Oct 2002 20:47:19 -0400 (EDT)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <Pine.GSO.4.30.0210222033210.24323-100000@shell.cyberus.ca>
+References: <3DB42A90.1030709@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	Linux-net <linux-net@vger.kernel.org>, netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Paul Hernandez <ph@digitalquake.com>
-In-Reply-To: <FMEDJKFPPLANNCCEABDMCEKLCBAA.ph@digitalquake.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <3DB42A90.1030709@candelatech.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2002-10-21 at 15:16, Paul Hernandez wrote:
->  I'm advertising 05e1: Flow-control 100baseTx-FD 100baseTx 10baseT-FD
-> 10baseT
->    Advertising no additional info pages.
->    IEEE 802.3 CSMA/CD protocol.
->  Link partner capability is 0000:.
->    Negotiation did not complete.
 
-	The link partner is not advertising it's capabilities.
 
-	Can you reproduce this bug with 2.4.19 stock?
+On Mon, 21 Oct 2002, Ben Greear wrote:
 
-Felipe
+> jamal wrote:
+> > Patch looks fine except for the 300 number. What are you smoking?
+> > Please retain the original value.
+>
+> The original value was 300, what do you want it to be?
+>
 
+Ok, i take back what i said then. Your patch is not that useful.
+For some reason i thought you were introducing NET_CORE_DEV_WEIGHT
+which happens to already exist with default value of 64.
+The value you put out MUST be the same as netdev_max_backlog in order
+to be fair to non-NAPI devices.
+Any change to one must be reflected to the other. So a useful patch
+will try to shadow NET_CORE_MAX_BACKLOG to that value and allow only
+changes to happen to NET_CORE_MAX_BACKLOG; i.e no need for two separate
+parameters.
+
+cheers,
+jamal
