@@ -1,50 +1,43 @@
-From: Olivier Galibert <galibert@pobox.com>
-Subject: Re: RFC: [2.6 patch] disallow modular IPv6
-Date: Tue, 30 Sep 2003 14:06:23 +0200
+From: kuznet@ms2.inr.ac.ru
+Subject: Re: Fw: Re: [PATCH] ipv4 tcp autobind problem
+Date: Tue, 30 Sep 2003 16:37:48 +0400 (MSD)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030930120622.GA24747@dspnet.fr.eu.org>
-References: <20030928225941.GW15338@fs.tum.de> <20030928231842.GE1039@conectiva.com.br> <20030928232403.GX15338@fs.tum.de> <20030929220916.19c9c90d.davem@redhat.com> <1064903562.6154.160.camel@imladris.demon.co.uk> <20030930000302.3e1bf8bb.davem@redhat.com> <1064907572.21551.31.camel@hades.cambridge.redhat.com> <20030930010855.095c2c35.davem@redhat.com>
+Message-ID: <200309301237.QAA01426@yakov.inr.ac.ru>
+References: <20030930024320.5aca8ddc.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Woodhouse <dwmw2@infradead.org>, bunk@fs.tum.de,
-        acme@conectiva.com.br, netdev@oss.sgi.com, pekkas@netcore.fi,
-        lksctp-developers@lists.sourceforge.net, linux-kernel@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: jmorris@redhat.com, hidden@balabit.hu, netdev@oss.sgi.com,
+        linux-net@vger.rutgers.edu
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20030930010855.095c2c35.davem@redhat.com>
+To: davem@redhat.com (David S. Miller)
+In-Reply-To: <20030930024320.5aca8ddc.davem@redhat.com> from "David S. Miller" at Сен 30, 2003 02:43:20 
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 30, 2003 at 01:08:55AM -0700, David S. Miller wrote:
-> On Tue, 30 Sep 2003 08:39:33 +0100
-> David Woodhouse <dwmw2@infradead.org> wrote:
-> > 99% or more of tristate options can be enabled without affecting the
-> > kernel, and it is expected that such options can be set to 'm' later,
-> > while the kernel in question is actually running, then built and loaded
-> > without a reboot.
-> 
-> Expected by whom?  Not by me.
+Hello!
 
-By me for instance.  I'm used to modules having no influence until
-loaded, even at compilation time.  I'm used to in-tree and out-of-tree
-modules to have exactly the same status (ignoring the binary-only
-modules crap).
+> in inet_sendmsg() is that when an RST is received, sk->num is set to zero, 
+
+Yes, I remember this. This funny thing was added to avoid using reserved
+ports obtained from accept() to do connect(). Before that sockets were never
+unbound after they bound once exactly to avoid weirdness of the kind
+descibed in your mail, but this happened to be insecure.
+
+>From this mail I still do not see why autobinding of void socket is so
+bad thing, that it requires marginal fixing at the place which is already
+marginal. What is the real problem? So, bad sendmsg() selects some port as
+a side effect. It makes it on udp and tcp. What is the deal? If it is disaster
+for tcp, why it is not bad for udp?
 
 
-> > We should strive to keep this true.
-> 
-> For things _OUTSIDE_ the kernel, surely.  But inside the kernel
-> tree I don't see any value in this new restriction.
-> 
-> > 	Allow this kernel to ever support IPv6? Y/N
-> > 	Build IPv6 support? Y/M/N
-> 
-> And I still think this is a complete joke.
+> local port (sk->sport) remains unchanged until the socket is closed.
 
-I suspect what you _really_ want is a "disable ipv6 entirely"
-depending on CONFIG_EMBEDDED which would remove the then bloat.
-Normal users would never see it and the meaning would be obvious for
-the ones who care.
+Socket is _closed_. Local port is reset only after socket is closed,
+unless PORT_USERLOCK is set. And sk->sport remains unchanged even
+after socket is closed, btw, so... 
 
-  OG.
+I do recognize that current behaviour is weird, but I still want to know
+how this marginal weirdness escaped to be seen in reality.
+
+Alexey
