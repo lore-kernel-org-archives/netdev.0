@@ -1,32 +1,32 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [RFC/PATCH] Convert architecture dependent rtnetlink attribute
- to fixed sized ones
-Date: Tue, 24 Aug 2004 15:44:00 -0700
+Subject: Re: RFC: pskb_expand_head instead of skb_copy in skb_checksum_help
+Date: Tue, 24 Aug 2004 17:17:09 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040824154400.73d8f176.davem@redhat.com>
-References: <20040824094952.GF21073@postel.suug.ch>
-	<E1BzYMJ-000208-00@gondolin.me.apana.org.au>
-	<20040824120442.GA21296@postel.suug.ch>
-	<20040824103205.1ea9c999.davem@redhat.com>
-	<20040824204704.GM21296@postel.suug.ch>
+Message-ID: <20040824171709.57a613bd.davem@redhat.com>
+References: <20040824110532.GA10241@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, kuznet@ms2.inr.ac.ru, hadi@cyberus.ca,
-        netdev@oss.sgi.com
+Cc: jmorris@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20040824204704.GM21296@postel.suug.ch>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040824110532.GA10241@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 24 Aug 2004 22:47:04 +0200
-Thomas Graf <tgraf@suug.ch> wrote:
+On Tue, 24 Aug 2004 21:05:32 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> Below is a patch which fixes some of the obvious architecture
-> dependent and easy to fix attributes. But there are dozens more of
-> them such as the int in struct tcf_police.
+> Here is the patch that you wanted to shoot holes at :)
+> 
+> The idea is simple.  None of the callers of skb_checksum are passing it
+> skb's which are shared.  They may be cloned however.  But the application
+> checksum is always in the skb header so there is no need to linearise it.
+> 
+> Supposing all these assumptions are correct, then we can avoid the overhead
+> of skb_copy() and get away with pskb_expand_head().
 
-'int' happens to be fine, since it is the same size on 32-bit vs.
-64-bit systems.  The conversion to explicitly sized types is
-a nice cleanup, thanks.
+I'm going to apply this.
+
+If your assertion is wrong, then the skb_shared() BUG() will trigger
+in pskb_expand_head() and we will know :-)
