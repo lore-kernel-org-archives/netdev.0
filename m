@@ -1,33 +1,47 @@
-From: jamal <hadi@cyberus.ca>
+From: Troy Wilson <tcw@tempest.prismnet.com>
 Subject: Re: Early SPECWeb99 results on 2.5.33 with TSO on e1000
-Date: Thu, 5 Sep 2002 16:59:47 -0400 (EDT)
+Date: Thu, 5 Sep 2002 17:11:15 -0500 (CDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.30.0209051648020.17973-100000@shell.cyberus.ca>
-References: <200209051830.g85IUMdH096254@tempest.prismnet.com>
+Message-ID: <200209052211.g85MBFdm099387@tempest.prismnet.com>
+References: <Pine.GSO.4.30.0209051648020.17973-100000@shell.cyberus.ca>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: <linux-kernel@vger.kernel.org>, <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Troy Wilson <tcw@tempest.prismnet.com>
-In-Reply-To: <200209051830.g85IUMdH096254@tempest.prismnet.com>
+In-Reply-To: <Pine.GSO.4.30.0209051648020.17973-100000@shell.cyberus.ca>
+ "from jamal at Sep 5, 2002 04:59:47 pm"
+To: jamal <hadi@cyberus.ca>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+> So if i understood correctly (looking at the intel site) the main value
+> add of this feature is probably in having the CPU avoid reassembling and
+> retransmitting.
 
-Hey, thanks for crossposting to netdev
+Quoting David S. Miller:
 
-So if i understood correctly (looking at the intel site) the main value
-add of this feature is probably in having the CPU avoid reassembling and
-retransmitting. I am willing to bet that the real value in your results is
-in saving on retransmits; I would think shoving the data down the NIC
-and avoid the fragmentation shouldnt give you that much significant CPU
-savings. Do you have any stats from the hardware that could show
-retransmits etc; have you tested this with zero copy as well (sendfile)
-again, if i am right you shouldnt see much benefit from that either?
+dsm> The performance improvement comes from the fact that the card
+dsm> is given huge 64K packets, then the card (using the given ip/tcp
+dsm> headers as a template) spits out 1500 byte mtu sized packets.
+dsm> 
+dsm> Less data DMA'd to the device per normal-mtu packet and less
+dsm> per-packet data structure work by the cpu is where the improvement
+dsm> comes from.
 
-I would think it probably works well with things like partial ACKs too?
-(I am almost sure it does or someone needs to be spanked, so just
-checking).
 
-cheers,
-jamal
+> Do you have any stats from the hardware that could show
+> retransmits etc;
+
+  I'll gather netstat -s after runs with and without TSO enabled.
+Anything else you'd like to see?
+
+
+> have you tested this with zero copy as well (sendfile)
+
+  Yes.  My webserver is Apache 2.0.36, which uses sendfile for anything
+over 8k in size.  But, iirc, Apache sends the http headers using writev.
+
+Thanks,
+
+- Troy
