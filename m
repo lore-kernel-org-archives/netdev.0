@@ -1,311 +1,288 @@
-From: Roman Kagan <rkagan@mail.ru>
-Subject: [RFC][PATCH] Very basic sysfs support for ATM devices (updated)
-Date: Fri, 21 Jan 2005 11:51:23 +0300
-Message-ID: <20050121085123.GA2471@katya>
-References: <20050119174543.GA2418@katya>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [XFRM] Probe selected algorithm only
+Date: Fri, 21 Jan 2005 21:19:38 +1100
+Message-ID: <20050121101938.GA1133@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: usbatm@lists.infradead.org
+Content-Type: multipart/mixed; boundary="G4iJoqBmSsgzjUCe"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, linux-atm-general@lists.sourceforge.net
+To: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <20050119174543.GA2418@katya>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-  Hi,
 
-Here's a quick patch to add very basic sysfs support to ATM devices.  It
-creates class/atm and provides a couple of attributes for each ATM
-device and hotplug callout for device addition/removal, which was the
-main motivation for me to write it up.
+--G4iJoqBmSsgzjUCe
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-With this patch, an utility to set up a network interface on the newly
-registered ATM device can be called automatically via hotplug, just as
-it is done with net_device.
+Hi Dave:
 
-Compared to the first version sent to linux-atm-general mailing list, it
-fixes the accidentally sneaked in bug using class_device_unregister
-instead of class_device_del, and replaces mutual references of
-class_device and atm_dev with container_of.
+This patch removes an annoying problem in xfrm_user.  As it is every
+time an SA is added it probes every known algorithm in the universe.
+Now if they all existed it would be OK.  However, for the ones which
+don't actually exist this causes multiple /sbin/modprobe processes to
+be spawned which slows the system down when you're adding hundreds of
+SAs.
 
-The patch is against 2.6.10.  Please comment.
+Since we know the type of algorithm required when we're adding a new
+SA, we can get away with only probing the selected algorithms.  This
+is what the following patch does for xfrm_user.
 
-Thanks,
-  Roman.
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
- include/linux/atmdev.h |    2
- net/atm/Makefile       |    2
- net/atm/atm_sysfs.c    |  113 +++++++++++++++++++++++++++++++++++++++++++++++++
- net/atm/common.c       |    7 ++-
- net/atm/common.h       |    2
- net/atm/resources.c    |   31 ++++++++++---
- net/atm/resources.h    |    3 +
- 7 files changed, 152 insertions(+), 8 deletions(-)
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
+--G4iJoqBmSsgzjUCe
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
 
-diff -rupN -x '*~' linux-2.6.10.orig/include/linux/atmdev.h linux-2.6.10/include/linux/atmdev.h
---- linux-2.6.10.orig/include/linux/atmdev.h	2004-12-25 00:35:24.000000000 +0300
-+++ linux-2.6.10/include/linux/atmdev.h	2005-01-19 16:44:09.000000000 +0300
-@@ -8,6 +8,7 @@
+===== include/linux/crypto.h 1.31 vs edited =====
+--- 1.31/include/linux/crypto.h	2004-12-01 17:00:21 +11:00
++++ edited/include/linux/crypto.h	2005-01-21 21:11:45 +11:00
+@@ -16,6 +16,7 @@
+ #ifndef _LINUX_CRYPTO_H
+ #define _LINUX_CRYPTO_H
  
- 
- #include <linux/config.h>
-+#include <linux/device.h>
- #include <linux/atmapi.h>
- #include <linux/atm.h>
- #include <linux/atmioc.h>
-@@ -337,6 +338,7 @@ struct atm_dev {
- 	struct proc_dir_entry *proc_entry; /* proc entry */
- 	char *proc_name;		/* proc entry name */
- #endif
-+	struct class_device class_dev;	/* sysfs class device */
- 	struct list_head dev_list;	/* linkage */
- };
- 
-diff -rupN -x '*~' linux-2.6.10.orig/net/atm/atm_sysfs.c linux-2.6.10/net/atm/atm_sysfs.c
---- linux-2.6.10.orig/net/atm/atm_sysfs.c	1970-01-01 03:00:00.000000000 +0300
-+++ linux-2.6.10/net/atm/atm_sysfs.c	2005-01-21 04:03:46.000000000 +0300
-@@ -0,0 +1,113 @@
-+/* ATM driver model support. */
-+
 +#include <linux/config.h>
-+#include <linux/kernel.h>
-+#include <linux/init.h>
-+#include <linux/kobject.h>
-+#include <linux/atmdev.h>
-+#include "common.h"
-+#include "resources.h"
-+
-+#define to_atm_dev(cldev) container_of(cldev, struct atm_dev, class_dev)
-+
-+static ssize_t show_type(struct class_device *cdev, char *buf)
+ #include <linux/module.h>
+ #include <linux/kernel.h>
+ #include <linux/types.h>
+@@ -121,7 +122,14 @@
+ /*
+  * Algorithm query interface.
+  */
++#ifdef CONFIG_CRYPTO
+ int crypto_alg_available(const char *name, u32 flags);
++#else
++static inline int crypto_alg_available(const char *name, u32 flags)
 +{
-+	struct atm_dev *adev = to_atm_dev(cdev);
-+	return sprintf(buf, "%s\n", adev->type);
-+}
-+
-+static ssize_t show_address(struct class_device *cdev, char *buf)
-+{
-+	int i;
-+	char *pos = buf;
-+	struct atm_dev *adev = to_atm_dev(cdev);
-+
-+	for (i = 0; i < sizeof(adev->esi); i++)
-+		pos += sprintf(pos, "%02x:", adev->esi[i]);
-+	pos += sprintf(pos, "%02x\n", adev->esi[i]);
-+
-+	return pos - buf;
-+}
-+
-+static CLASS_DEVICE_ATTR(type, S_IRUGO, show_type, NULL);
-+static CLASS_DEVICE_ATTR(address, S_IRUGO, show_address, NULL);
-+
-+static struct class_device_attribute *atm_attrs[] = {
-+	&class_device_attr_type,
-+	&class_device_attr_address,
-+	NULL
-+};
-+
-+#ifdef CONFIG_HOTPLUG
-+static int atm_hotplug(struct class_device *cdev, char **envp, int num_envp, char *buf, int size)
-+{
-+	struct atm_dev *adev;
-+	int i = 0;
-+	int length = 0;
-+
-+	if (!cdev)
-+		return -ENODEV;
-+
-+	adev = to_atm_dev(cdev);
-+	if (!adev)
-+		return -ENODEV;
-+
-+        if (add_hotplug_env_var(envp, num_envp, &i, buf, size, &length,
-+				"INTERFACE=%d", adev->number))
-+		return -ENOMEM;
-+
-+	envp[i] = NULL;
 +	return 0;
 +}
 +#endif
-+
-+static void atm_release(struct class_device *cdev)
-+{
-+	struct atm_dev *adev = to_atm_dev(cdev);
-+
-+	kfree(adev);
-+}
-+
-+static struct class atm_class = {
-+	.name		= "atm",
-+	.release	= atm_release,
-+#ifdef CONFIG_HOTPLUG
-+	.hotplug	= atm_hotplug,
-+#endif
-+};
-+
-+int atm_register_sysfs(struct atm_dev *adev)
-+{
-+	struct class_device *cdev = &adev->class_dev;
-+	int i, err;
-+
-+	cdev->class = &atm_class;
-+	class_set_devdata(cdev, adev);
-+
-+	snprintf(cdev->class_id, BUS_ID_SIZE, "%d", adev->number);
-+	err = class_device_register(cdev);
-+	if (err < 0)
-+		return err;
-+
-+	for (i = 0; atm_attrs[i]; i++)
-+		class_device_create_file(cdev, atm_attrs[i]);
-+
-+	return 0;
-+}
-+
-+void atm_unregister_sysfs(struct atm_dev *adev)
-+{
-+	struct class_device *cdev = &adev->class_dev;
-+
-+	class_device_del(cdev);
-+}
-+
-+int __init atm_sysfs_init(void)
-+{
-+	return class_register(&atm_class);
-+}
-+
-+void __exit atm_sysfs_exit(void)
-+{
-+	class_unregister(&atm_class);
-+}
-diff -rupN -x '*~' linux-2.6.10.orig/net/atm/common.c linux-2.6.10/net/atm/common.c
---- linux-2.6.10.orig/net/atm/common.c	2004-12-25 00:35:50.000000000 +0300
-+++ linux-2.6.10/net/atm/common.c	2005-01-19 17:01:26.000000000 +0300
-@@ -793,6 +793,10 @@ static int __init atm_init(void)
- 		printk(KERN_ERR "atm_proc_init() failed with %d\n",error);
- 		goto failure;
+ 
+ /*
+  * Transforms: user-instantiated objects which encapsulate algorithms
+===== include/net/xfrm.h 1.73 vs edited =====
+--- 1.73/include/net/xfrm.h	2004-12-28 14:49:57 +11:00
++++ edited/include/net/xfrm.h	2005-01-21 21:02:36 +11:00
+@@ -873,9 +873,9 @@
+ extern struct xfrm_algo_desc *xfrm_aalg_get_byid(int alg_id);
+ extern struct xfrm_algo_desc *xfrm_ealg_get_byid(int alg_id);
+ extern struct xfrm_algo_desc *xfrm_calg_get_byid(int alg_id);
+-extern struct xfrm_algo_desc *xfrm_aalg_get_byname(char *name);
+-extern struct xfrm_algo_desc *xfrm_ealg_get_byname(char *name);
+-extern struct xfrm_algo_desc *xfrm_calg_get_byname(char *name);
++extern struct xfrm_algo_desc *xfrm_aalg_get_byname(char *name, int probe);
++extern struct xfrm_algo_desc *xfrm_ealg_get_byname(char *name, int probe);
++extern struct xfrm_algo_desc *xfrm_calg_get_byname(char *name, int probe);
+ 
+ struct crypto_tfm;
+ typedef void (icv_update_fn_t)(struct crypto_tfm *, struct scatterlist *, unsigned int);
+===== net/ipv4/ah4.c 1.40 vs edited =====
+--- 1.40/net/ipv4/ah4.c	2004-08-22 15:00:07 +10:00
++++ edited/net/ipv4/ah4.c	2005-01-21 21:03:39 +11:00
+@@ -236,7 +236,7 @@
+ 	 * we need for AH processing.  This lookup cannot fail here
+ 	 * after a successful crypto_alloc_tfm().
+ 	 */
+-	aalg_desc = xfrm_aalg_get_byname(x->aalg->alg_name);
++	aalg_desc = xfrm_aalg_get_byname(x->aalg->alg_name, 0);
+ 	BUG_ON(!aalg_desc);
+ 
+ 	if (aalg_desc->uinfo.auth.icv_fullbits/8 !=
+===== net/ipv4/esp4.c 1.54 vs edited =====
+--- 1.54/net/ipv4/esp4.c	2004-08-22 15:00:07 +10:00
++++ edited/net/ipv4/esp4.c	2005-01-21 21:04:37 +11:00
+@@ -392,7 +392,7 @@
+ 			goto error;
+ 		esp->auth.icv = esp_hmac_digest;
+ 
+-		aalg_desc = xfrm_aalg_get_byname(x->aalg->alg_name);
++		aalg_desc = xfrm_aalg_get_byname(x->aalg->alg_name, 0);
+ 		BUG_ON(!aalg_desc);
+ 
+ 		if (aalg_desc->uinfo.auth.icv_fullbits/8 !=
+===== net/ipv4/ipcomp.c 1.30 vs edited =====
+--- 1.30/net/ipv4/ipcomp.c	2004-09-11 07:36:51 +10:00
++++ edited/net/ipv4/ipcomp.c	2005-01-21 21:04:40 +11:00
+@@ -472,7 +472,7 @@
+ 			goto error_tunnel;
  	}
-+        if ((error = atm_sysfs_init()) < 0) {
-+		printk(KERN_ERR "atm_sysfs_init() failed with %d\n",error);
-+		goto failure;
-+	}
- 	return 0;
  
- failure:
-@@ -804,11 +808,12 @@ failure:
- static void __exit atm_exit(void)
+-	calg_desc = xfrm_calg_get_byname(x->calg->alg_name);
++	calg_desc = xfrm_calg_get_byname(x->calg->alg_name, 0);
+ 	BUG_ON(!calg_desc);
+ 	ipcd->threshold = calg_desc->uinfo.comp.threshold;
+ 	x->data = ipcd;
+===== net/ipv6/ah6.c 1.41 vs edited =====
+--- 1.41/net/ipv6/ah6.c	2004-08-22 15:00:07 +10:00
++++ edited/net/ipv6/ah6.c	2005-01-21 21:04:45 +11:00
+@@ -375,7 +375,7 @@
+ 	 * we need for AH processing.  This lookup cannot fail here
+ 	 * after a successful crypto_alloc_tfm().
+ 	 */
+-	aalg_desc = xfrm_aalg_get_byname(x->aalg->alg_name);
++	aalg_desc = xfrm_aalg_get_byname(x->aalg->alg_name, 0);
+ 	BUG_ON(!aalg_desc);
+ 
+ 	if (aalg_desc->uinfo.auth.icv_fullbits/8 !=
+===== net/ipv6/esp6.c 1.37 vs edited =====
+--- 1.37/net/ipv6/esp6.c	2004-08-22 15:00:07 +10:00
++++ edited/net/ipv6/esp6.c	2005-01-21 21:04:48 +11:00
+@@ -329,7 +329,7 @@
+ 			goto error;
+ 		esp->auth.icv = esp_hmac_digest;
+  
+-		aalg_desc = xfrm_aalg_get_byname(x->aalg->alg_name);
++		aalg_desc = xfrm_aalg_get_byname(x->aalg->alg_name, 0);
+ 		BUG_ON(!aalg_desc);
+  
+ 		if (aalg_desc->uinfo.auth.icv_fullbits/8 !=
+===== net/ipv6/ipcomp6.c 1.19 vs edited =====
+--- 1.19/net/ipv6/ipcomp6.c	2004-09-11 07:36:51 +10:00
++++ edited/net/ipv6/ipcomp6.c	2005-01-21 21:04:51 +11:00
+@@ -468,7 +468,7 @@
+ 			goto error_tunnel;
+ 	}
+ 
+-	calg_desc = xfrm_calg_get_byname(x->calg->alg_name);
++	calg_desc = xfrm_calg_get_byname(x->calg->alg_name, 0);
+ 	BUG_ON(!calg_desc);
+ 	ipcd->threshold = calg_desc->uinfo.comp.threshold;
+ 	x->data = ipcd;
+===== net/xfrm/xfrm_algo.c 1.15 vs edited =====
+--- 1.15/net/xfrm/xfrm_algo.c	2004-12-28 13:33:32 +11:00
++++ edited/net/xfrm/xfrm_algo.c	2005-01-21 21:17:12 +11:00
+@@ -13,6 +13,7 @@
+ #include <linux/module.h>
+ #include <linux/kernel.h>
+ #include <linux/pfkeyv2.h>
++#include <linux/crypto.h>
+ #include <net/xfrm.h>
+ #if defined(CONFIG_INET_AH) || defined(CONFIG_INET_AH_MODULE) || defined(CONFIG_INET6_AH) || defined(CONFIG_INET6_AH_MODULE)
+ #include <net/ah.h>
+@@ -346,58 +347,48 @@
+ 	return NULL;
+ }
+ 
+-struct xfrm_algo_desc *xfrm_aalg_get_byname(char *name)
++static struct xfrm_algo_desc *xfrm_get_byname(struct xfrm_algo_desc *list,
++					      int entries, char *name,
++					      int probe)
  {
- 	atm_proc_exit();
-+	atm_sysfs_exit();
- 	atmsvc_exit();
- 	atmpvc_exit();
- }
+-	int i;
++	int i, status;
  
--module_init(atm_init);
-+subsys_initcall(atm_init);
- module_exit(atm_exit);
+ 	if (!name)
+ 		return NULL;
  
- MODULE_LICENSE("GPL");
-diff -rupN -x '*~' linux-2.6.10.orig/net/atm/common.h linux-2.6.10/net/atm/common.h
---- linux-2.6.10.orig/net/atm/common.h	2004-12-25 00:35:23.000000000 +0300
-+++ linux-2.6.10/net/atm/common.h	2005-01-19 16:09:16.000000000 +0300
-@@ -28,6 +28,8 @@ int atmpvc_init(void);
- void atmpvc_exit(void);
- int atmsvc_init(void);
- void atmsvc_exit(void);
-+int atm_sysfs_init(void);
-+void atm_sysfs_exit(void);
- 
- #ifdef CONFIG_PROC_FS
- int atm_proc_init(void);
-diff -rupN -x '*~' linux-2.6.10.orig/net/atm/Makefile linux-2.6.10/net/atm/Makefile
---- linux-2.6.10.orig/net/atm/Makefile	2004-12-25 00:34:00.000000000 +0300
-+++ linux-2.6.10/net/atm/Makefile	2005-01-19 17:04:29.000000000 +0300
-@@ -2,7 +2,7 @@
- # Makefile for the ATM Protocol Families.
- #
- 
--atm-y		:= addr.o pvc.o signaling.o svc.o ioctl.o common.o atm_misc.o raw.o resources.o
-+atm-y		:= addr.o pvc.o signaling.o svc.o ioctl.o common.o atm_misc.o raw.o resources.o atm_sysfs.o
- mpoa-objs	:= mpc.o mpoa_caches.o mpoa_proc.o
- 
- obj-$(CONFIG_ATM) += atm.o
-diff -rupN -x '*~' linux-2.6.10.orig/net/atm/resources.c linux-2.6.10/net/atm/resources.c
---- linux-2.6.10.orig/net/atm/resources.c	2004-12-25 00:35:29.000000000 +0300
-+++ linux-2.6.10/net/atm/resources.c	2005-01-21 04:03:01.000000000 +0300
-@@ -47,6 +47,12 @@ static void __free_atm_dev(struct atm_de
- 	kfree(dev);
- }
- 
-+static void release_atm_dev(struct atm_dev *dev)
-+{
-+	/* will free via class release */
-+	class_device_put(&dev->class_dev);
-+}
+-	for (i=0; i < aalg_entries(); i++) {
+-		if (strcmp(name, aalg_list[i].name) == 0) {
+-			if (aalg_list[i].available)
+-				return &aalg_list[i];
+-			else
+-				break;
+-		}
++	for (i = 0; i < entries; i++) {
++		if (!strcmp(name, list[i].name))
++			continue;
 +
- static struct atm_dev *__atm_dev_lookup(int number)
++		if (list[i].available)
++			return &list[i];
++
++		if (!probe)
++			break;
++
++		status = crypto_alg_available(name, 0);
++		if (!status)
++			break;
++
++		list[i].available = status;
++		return &list[i];
+ 	}
+ 	return NULL;
+ }
+ 
+-struct xfrm_algo_desc *xfrm_ealg_get_byname(char *name)
++struct xfrm_algo_desc *xfrm_aalg_get_byname(char *name, int probe)
  {
- 	struct atm_dev *dev;
-@@ -114,14 +120,25 @@ struct atm_dev *atm_dev_register(const c
- 		printk(KERN_ERR "atm_dev_register: "
- 		       "atm_proc_dev_register failed for dev %s\n",
- 		       type);
--		spin_lock(&atm_dev_lock);
--		list_del(&dev->dev_list);
--		spin_unlock(&atm_dev_lock);
--		__free_atm_dev(dev);
+-	int i;
+-
+-	if (!name)
 -		return NULL;
-+		goto reg_fail;
-+	}
-+
-+	if (atm_register_sysfs(dev) < 0) {
-+		printk(KERN_ERR "atm_dev_register: "
-+		       "atm_register_sysfs failed for dev %s\n",
-+		       type);
-+		atm_proc_dev_deregister(dev);
-+		goto reg_fail;
- 	}
- 
- 	return dev;
-+	
-+reg_fail:
-+	spin_lock(&atm_dev_lock);
-+	list_del(&dev->dev_list);
-+	spin_unlock(&atm_dev_lock);
-+	__free_atm_dev(dev);
-+	return NULL;
+-
+-	for (i=0; i < ealg_entries(); i++) {
+-		if (strcmp(name, ealg_list[i].name) == 0) {
+-			if (ealg_list[i].available)
+-				return &ealg_list[i];
+-			else
+-				break;
+-		}
+-	}
+-	return NULL;
++	return xfrm_get_byname(aalg_list, aalg_entries(), name, probe);
  }
  
- 
-@@ -129,6 +146,8 @@ void atm_dev_deregister(struct atm_dev *
+-struct xfrm_algo_desc *xfrm_calg_get_byname(char *name)
++struct xfrm_algo_desc *xfrm_ealg_get_byname(char *name, int probe)
  {
- 	unsigned long warning_time;
+-	int i;
+-
+-	if (!name)
+-		return NULL;
++	return xfrm_get_byname(ealg_list, ealg_entries(), name, probe);
++}
  
-+	atm_unregister_sysfs(dev);
-+
- 	atm_proc_dev_deregister(dev);
- 
- 	spin_lock(&atm_dev_lock);
-@@ -147,7 +166,7 @@ void atm_dev_deregister(struct atm_dev *
-                 }
-         }
- 
--	__free_atm_dev(dev);
-+	release_atm_dev(dev);
+-	for (i=0; i < calg_entries(); i++) {
+-		if (strcmp(name, calg_list[i].name) == 0) {
+-			if (calg_list[i].available)
+-				return &calg_list[i];
+-			else
+-				break;
+-		}
+-	}
+-	return NULL;
++struct xfrm_algo_desc *xfrm_calg_get_byname(char *name, int probe)
++{
++	return xfrm_get_byname(calg_list, calg_entries(), name, probe);
  }
  
- void shutdown_atm_dev(struct atm_dev *dev)
-diff -rupN -x '*~' linux-2.6.10.orig/net/atm/resources.h linux-2.6.10/net/atm/resources.h
---- linux-2.6.10.orig/net/atm/resources.h	2004-12-25 00:36:01.000000000 +0300
-+++ linux-2.6.10/net/atm/resources.h	2005-01-19 16:55:20.000000000 +0300
-@@ -43,4 +43,7 @@ static inline void atm_proc_dev_deregist
+ struct xfrm_algo_desc *xfrm_aalg_get_byidx(unsigned int idx)
+===== net/xfrm/xfrm_user.c 1.51 vs edited =====
+--- 1.51/net/xfrm/xfrm_user.c	2004-12-28 13:33:32 +11:00
++++ edited/net/xfrm/xfrm_user.c	2005-01-21 21:05:50 +11:00
+@@ -156,7 +156,7 @@
+ }
  
- #endif /* CONFIG_PROC_FS */
+ static int attach_one_algo(struct xfrm_algo **algpp, u8 *props,
+-			   struct xfrm_algo_desc *(*get_byname)(char *),
++			   struct xfrm_algo_desc *(*get_byname)(char *, int),
+ 			   struct rtattr *u_arg)
+ {
+ 	struct rtattr *rta = u_arg;
+@@ -168,7 +168,7 @@
  
-+int atm_register_sysfs(struct atm_dev *adev);
-+void atm_unregister_sysfs(struct atm_dev *adev);
-+
- #endif
+ 	ualg = RTA_DATA(rta);
+ 
+-	algo = get_byname(ualg->alg_name);
++	algo = get_byname(ualg->alg_name, 1);
+ 	if (!algo)
+ 		return -ENOSYS;
+ 	*props = algo->desc.sadb_alg_id;
+@@ -272,8 +272,6 @@
+ 	err = verify_newsa_info(p, (struct rtattr **) xfrma);
+ 	if (err)
+ 		return err;
+-
+-	xfrm_probe_algs();
+ 
+ 	x = xfrm_state_construct(p, (struct rtattr **) xfrma, &err);
+ 	if (!x)
+
+--G4iJoqBmSsgzjUCe--
