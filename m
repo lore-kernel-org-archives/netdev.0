@@ -1,119 +1,181 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 2/3] r8169: code clean-up
-Date: Sat, 19 Feb 2005 23:30:12 +0100
-Message-ID: <20050219223012.GA3601@electric-eye.fr.zoreil.com>
-References: <200502161823.43562.jdmason@us.ibm.com> <200502181918.07859.jdmason@us.ibm.com> <20050219104640.GA31035@electric-eye.fr.zoreil.com> <200502191147.14845.jdmason@us.ibm.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [XFRM]: Fix ICMP tempsel
+Date: Sun, 20 Feb 2005 06:30:42 +0100
+Message-ID: <42182082.9060301@trash.net>
+References: <4217266F.6090700@trash.net> <20050219184351.GB10773@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
-To: Jon Mason <jdmason@us.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <200502191147.14845.jdmason@us.ibm.com>
+Content-Type: multipart/mixed;
+ boundary="------------070001030401070402070602"
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Maillist netdev <netdev@oss.sgi.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050219184351.GB10773@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jon Mason <jdmason@us.ibm.com> :
-[...]
-> I never said it was pretty, simply a working snapshot of my test driver.  I 
-> figured that I had been promising you this update for so long, I better send 
-> it out before you get upset with me.  ;-)
+This is a multi-part message in MIME format.
+--------------070001030401070402070602
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-No, no, I meant mangled as in "kmail fcuked the tabs again".
+Herbert Xu wrote:
 
-[...]
-> The change to opts1 seems cleaner to me.  As the only the that the adapter 
-> needs to know is the RingEnd.  I can try removing it and see if it makes any 
-> difference.
-
-Until there is a stability or performance reason for it, I will not take
-the change:
-- it would add one extra parameter in any future problem report;
-- neither me nor you can reproduce on it the testing done on the current form.
-
-I would lazily label it as too much work with too low a priority.
-
-> Opts2 is VERY necessary to zero.  Without this zero, the adapter will change 
-> the partition point randomly of each packet (random because I have yet to 
-> determine the rhyme or reason).  I didn't want to spend too much time trying 
-> to determine the bahavior of this since I found out that zeroing it solved 
-> the problem.  If you can think of a reason why this doesn't work, I can 
-> always go back and try to figure it out.
-
-Ok, this one really changes the behavior of the driver.
-
-[...]
-> See above for reason.  I can re-order the operations and a mb (rmd I would 
-> think).  
-
-So this one changes the behavior of the driver as well, right ?
-
-The window may be narrow but I'll sleep more quietly if the ordering is
-modified and the memory barrier added.
-
-[...]
-> > Why is rtl8169_rx_csum() moved around ?
+> I know this comment is probably a bit late but why didn't we simply put
+> type/code into sport/dport in struct flowi instead of introducing the
+> monstrosities of xfrm_flowi_sport/xfrm_flowi_dport?
 > 
-> Seemed to make more sense to me to have it after the 
-> pci_dma_sync_single_for_cpu.  If you disagree, I can move it back.  
-
-rtl8169_rx_csum() only uses the consistent DMA mapping so it does not
-care.
-
-[skb_put/memcpy duplication]
+> Something like
 > 
-> Me too, but I couldn't think of a better way.  Suggestions welcomed.
-
-Nothing fancy. Something like:
-	len  = (pkt_size > rx_copybreak) ? tp->desc_part : pkt_size;
-	memcpy(skb->data, sk_buff[0]->tail, len);
-	skb_put(skb, len);
-
-
-> > 5 - rtl8169_return_to_asic() in rtl8169_rx_copy() seems suspect
-> >     when FirstFrag is true and the skb allocation failed.
+> struct {
+> 	__u16	type;
+> 	__u16	code;
+> } icmpt;
 > 
-> In this case the desc is only a portion of the whole packet.  I thought it 
-> best to toss the whole packet if the driver couldn't alloc a skb, and return 
-> the descriptor so that it can be used again.  
+> would've done (and still would do) the trick, no?
 
-1 - the packet could be under rx_copybreak as well;
-2 - the driver currently defers the loss of a packet until there is no memory
-    pointed by the current descriptor used for Rx DMA from the adapter. If it
-    is refilled soon enough, no one notices it.
+Here is an updated patch that kills xfrm_flowi_{sport,dport}.
+I've checked around, there seems to be nothing that relies
+on type and code beeing u8.
 
-> Actually, talking about this gave me an idea.  Since desc_part is the largest 
-> skb we will ever need (aside from when they are combined), it would be more 
-> efficient to use that instead of the full size.  I will create a patch for 
-> this (and the mb changes) and resubmit it.  Let me know if you want me to 
-> return other things to their original spot.
 
-I am not sure I understand exactly what you mean. If you are saying that
-the max size is known and can be allocated in advance so that only the
-rx_copybreak calls for an instant allocation, we are saying the same thing
-(actually this should have been point 3- above :o) ).
+--------------070001030401070402070602
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
-It will make my life easier if the patch only contains the minimal amount of
-changes (easier reviewing, testing, confidence, blah blah, it's boring but
-you got the idea).
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2005/02/20 06:19:59+01:00 kaber@coreworks.de 
+#   [XFRM]: Fix ICMP tempsel
+#   
+#   The selector ports are initialized to fl_ip_sport/fl_ip_dport instead
+#   of xfrm_flowi_sport(fl)/xfrm_flowi_dport(fl). This is wrong for ICMP,
+#   type and code should be stored in sport and dport, in struct flowi both
+#   are contained in fl_ip_sport.
+#   
+#   This patch adjusts struct flowi to store ICMP type/code in sport/dport
+#   and kills xfrm_flowi_sport/dport instead of changing xfrm_init_tempsel(),
+#   as suggested by Herbert Xu.
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+# include/net/xfrm.h
+#   2005/02/20 06:19:50+01:00 kaber@coreworks.de +4 -44
+#   [XFRM]: Fix ICMP tempsel
+#   
+#   The selector ports are initialized to fl_ip_sport/fl_ip_dport instead
+#   of xfrm_flowi_sport(fl)/xfrm_flowi_dport(fl). This is wrong for ICMP,
+#   type and code should be stored in sport and dport, in struct flowi both
+#   are contained in fl_ip_sport.
+#   
+#   This patch adjusts struct flowi to store ICMP type/code in sport/dport
+#   and kills xfrm_flowi_sport/dport instead of changing xfrm_init_tempsel(),
+#   as suggested by Herbert Xu.
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+# include/net/flow.h
+#   2005/02/20 06:19:50+01:00 kaber@coreworks.de +2 -2
+#   [XFRM]: Fix ICMP tempsel
+#   
+#   The selector ports are initialized to fl_ip_sport/fl_ip_dport instead
+#   of xfrm_flowi_sport(fl)/xfrm_flowi_dport(fl). This is wrong for ICMP,
+#   type and code should be stored in sport and dport, in struct flowi both
+#   are contained in fl_ip_sport.
+#   
+#   This patch adjusts struct flowi to store ICMP type/code in sport/dport
+#   and kills xfrm_flowi_sport/dport instead of changing xfrm_init_tempsel(),
+#   as suggested by Herbert Xu.
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+diff -Nru a/include/net/flow.h b/include/net/flow.h
+--- a/include/net/flow.h	2005-02-20 06:20:34 +01:00
++++ b/include/net/flow.h	2005-02-20 06:20:34 +01:00
+@@ -58,8 +58,8 @@
+ 		} ports;
+ 
+ 		struct {
+-			__u8	type;
+-			__u8	code;
++			__u16	type;
++			__u16	code;
+ 		} icmpt;
+ 
+ 		struct {
+diff -Nru a/include/net/xfrm.h b/include/net/xfrm.h
+--- a/include/net/xfrm.h	2005-02-20 06:20:34 +01:00
++++ b/include/net/xfrm.h	2005-02-20 06:20:34 +01:00
+@@ -417,53 +417,13 @@
+ 	return 1;
+ }
+ 
+-static __inline__
+-u16 xfrm_flowi_sport(struct flowi *fl)
+-{
+-	u16 port;
+-	switch(fl->proto) {
+-	case IPPROTO_TCP:
+-	case IPPROTO_UDP:
+-	case IPPROTO_SCTP:
+-		port = fl->fl_ip_sport;
+-		break;
+-	case IPPROTO_ICMP:
+-	case IPPROTO_ICMPV6:
+-		port = htons(fl->fl_icmp_type);
+-		break;
+-	default:
+-		port = 0;	/*XXX*/
+-	}
+-	return port;
+-}
+-
+-static __inline__
+-u16 xfrm_flowi_dport(struct flowi *fl)
+-{
+-	u16 port;
+-	switch(fl->proto) {
+-	case IPPROTO_TCP:
+-	case IPPROTO_UDP:
+-	case IPPROTO_SCTP:
+-		port = fl->fl_ip_dport;
+-		break;
+-	case IPPROTO_ICMP:
+-	case IPPROTO_ICMPV6:
+-		port = htons(fl->fl_icmp_code);
+-		break;
+-	default:
+-		port = 0;	/*XXX*/
+-	}
+-	return port;
+-}
+-
+ static inline int
+ __xfrm4_selector_match(struct xfrm_selector *sel, struct flowi *fl)
+ {
+ 	return  addr_match(&fl->fl4_dst, &sel->daddr, sel->prefixlen_d) &&
+ 		addr_match(&fl->fl4_src, &sel->saddr, sel->prefixlen_s) &&
+-		!((xfrm_flowi_dport(fl) ^ sel->dport) & sel->dport_mask) &&
+-		!((xfrm_flowi_sport(fl) ^ sel->sport) & sel->sport_mask) &&
++		!((fl->fl_ip_dport ^ sel->dport) & sel->dport_mask) &&
++		!((fl->fl_ip_sport ^ sel->sport) & sel->sport_mask) &&
+ 		(fl->proto == sel->proto || !sel->proto) &&
+ 		(fl->oif == sel->ifindex || !sel->ifindex);
+ }
+@@ -473,8 +433,8 @@
+ {
+ 	return  addr_match(&fl->fl6_dst, &sel->daddr, sel->prefixlen_d) &&
+ 		addr_match(&fl->fl6_src, &sel->saddr, sel->prefixlen_s) &&
+-		!((xfrm_flowi_dport(fl) ^ sel->dport) & sel->dport_mask) &&
+-		!((xfrm_flowi_sport(fl) ^ sel->sport) & sel->sport_mask) &&
++		!((fl->fl_ip_dport ^ sel->dport) & sel->dport_mask) &&
++		!((fl->fl_ip_sport ^ sel->sport) & sel->sport_mask) &&
+ 		(fl->proto == sel->proto || !sel->proto) &&
+ 		(fl->oif == sel->ifindex || !sel->ifindex);
+ }
 
-> > 6 - skb_put() ends duplicated. It should be possible to avoid it.
-> 
-> Is it?  I was specifically trying to aviod that.  Where do you see that?
-
-->
-+   if (rtl8169_rx_copy(&skb, pkt_size, desc, tp)) {
-     pci_action = pci_unmap_single;
-     tp->Rx_skbuff[entry] = NULL;
-+    skb_put(skb, pkt_size);
-    }
-
--> rtl8169_rx_copy()
-Lots of skb_put()
-
-Don't bother too much about this one. I had expected to keep the
-skb->dev = ...; skb_put(...); skb->proto = ... sequence as is to
-minimize the changes but it is not necessarily doable/sane.
-
---
-Ueimor
+--------------070001030401070402070602--
