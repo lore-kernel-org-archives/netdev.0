@@ -1,29 +1,33 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Convert pppoe to new style protocol
-Date: Wed, 18 Jun 2003 16:36:00 -0700 (PDT)
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Flow cache flush oops
+Date: Thu, 19 Jun 2003 10:07:04 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030618.163600.71097155.davem@redhat.com>
-References: <20030617.150751.52901849.davem@redhat.com>
-	<20030618080118.GC23037@wotan.suse.de>
-	<20030618092126.A28100@almesberger.net>
+Message-ID: <20030619000704.GA25135@gondor.apana.org.au>
+References: <OFF5CE2037.3D4C9104-ON86256D49.007EAEAD-86256D49.007F5519@pok.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ak@muc.de, netdev@oss.sgi.com, mostrows@speakeasy.net, paulus@au.ibm.com
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@redhat.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: wa@almesberger.net
-In-Reply-To: <20030618092126.A28100@almesberger.net>
+To: Tom Lendacky <toml@us.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <OFF5CE2037.3D4C9104-ON86256D49.007EAEAD-86256D49.007F5519@pok.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Werner Almesberger <wa@almesberger.net>
-   Date: Wed, 18 Jun 2003 09:21:26 -0300
+On Wed, Jun 18, 2003 at 06:10:48PM -0500, Tom Lendacky wrote:
+> 
+> The compiler version output is:
+>   gcc version 3.2 20020903 (Red Hat Linux 8.0 3.2-7)
 
-   + *
-   + *	DO NOT USE THIS IN NEW CODE ! skb_linearize will be for internal
-   + *	use by net/core/dev.c only.
-     */
-    int skb_linearize(struct sk_buff *skb, int gfp);
+Thanks, you've found two bugs in my code :) Firstly it's only initialising
+one CPU so only that one has a flow cache.  Secondly flow_flush_cache is
+not checking whether the calling CPU has been initialised.
 
-I have a better idea, I just added the __deprecated tag
-to this function declaration :-)
+I'll post a patch tonight.
+
+Cheers,
+-- 
+Debian GNU/Linux 3.0 is out! ( http://www.debian.org/ )
+Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
