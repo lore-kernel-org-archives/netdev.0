@@ -1,28 +1,35 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH][Doc][Trivial] fix spelling error related to IPComp help
- in Kconfig
-Date: Tue, 26 Oct 2004 12:47:24 -0700
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH 2.6.10-rc1 1/15] wireless/orinoco: Use msleep() instead
+	of hardcoded schedule_timeout()s
+Date: Tue, 26 Oct 2004 15:55:12 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041026124724.023962cc.davem@davemloft.net>
-References: <Pine.LNX.4.61.0410262038040.3277@dragon.hygekrogen.localhost>
+Message-ID: <1098820512.9874.13.camel@dcbw.boston.redhat.com>
+References: <1098814320.3663.24.camel@dcbw.boston.redhat.com>
+	 <1098815604.3663.35.camel@dcbw.boston.redhat.com>
+	 <20041026184749.GA16621@infradead.org>
+	 <1098819336.9874.11.camel@dcbw.boston.redhat.com>
+	 <20041026194219.GA17343@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, trivial@rustcorp.com.au
+Cc: netdev@oss.sgi.com, jgarzik@redhat.com, hermes@gibson.dropbear.id.au
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jesper Juhl <juhl-lkml@dif.dk>
-In-Reply-To: <Pine.LNX.4.61.0410262038040.3277@dragon.hygekrogen.localhost>
+To: Christoph Hellwig <hch@infradead.org>
+In-Reply-To: <20041026194219.GA17343@infradead.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 26 Oct 2004 20:44:35 +0200 (CEST)
-Jesper Juhl <juhl-lkml@dif.dk> wrote:
+I will leave that do David/jgarzik since I didn't actually write any of
+this code, I just broke the megadiff down.
 
-> Small patch that fixes a spelling error (Payload misspelled as Paylod)in 
-> the IPComp help text in Kconfig (also expands the text to "IP Payload 
-> Compression Protocol (IPComp)" which is the title of RFC3173).
-> Please consider applying.
+Dan
+
+On Tue, 2004-10-26 at 20:42 +0100, Christoph Hellwig wrote:
+> On Tue, Oct 26, 2004 at 03:35:36PM -0400, Dan Williams wrote:
+> > New description:
+> > 
+> > o Use msleep() instead of hardcoded schedule_timeout()s
+> > o Normalize sleep calls to use msleep() everywhere
 > 
-> Signed-off-by: Jesper Juhl <juhl-lkml@dif.dk>
-
-Applied, thanks Jasper.
+> care to explain what's the point of the latter?
+> 
