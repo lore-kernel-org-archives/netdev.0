@@ -1,55 +1,49 @@
-From: george anzinger <george@mvista.com>
-Subject: Re: Network oops
-Date: Fri, 21 Jun 2002 08:12:29 -0700
+From: "Thomas 'Dent' Mirlacher" <dent@cosy.sbg.ac.at>
+Subject: dev->type oddities
+Date: Fri, 21 Jun 2002 18:55:44 +0200 (MET DST)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <aevfvm$onj$2@main.gmane.org>
-References: <3D120EAE.5A0D365E@mvista.com>
-		<20020620.173805.55219901.davem@redhat.com>
-		<3D133538.60B6810C@mvista.com> <20020621.071720.07439917.davem@redhat.com>
+Message-ID: <Pine.GSO.4.05.10206211840080.16167-100000@mausmaki.cosy.sbg.ac.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, linux-net@vger.kernel.org,
-   ak@muc.de, pekkas@netcore.fi, andrew.r.cress@intel.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <owner-netdev@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: netdev@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-"David S. Miller" wrote:
-> 
->    From: george anzinger <george@mvista.com>
->    Date: Fri, 21 Jun 2002 07:16:24 -0700
-> 
-> [ BTW please start using newlines in your emails, instead of 1,000
->   character monstrosities lacking them.  Thanks ]
+hi list,
 
-Sure.  I am trying to find something that works with patches
-as well as text.  Still looking I guess.
-> 
->    On the other hand, I prefer to think of the linux community as a
->    group of folks working on making one of the best OSs on the planet
->    even better.
-> 
-> Right, and I don't think CONFIG_PREEMPT makes the planet better.
-> In fact, now that you mention it, I think CONFIG_PREEMPT is a pile
-> of crap.
+can someone please send a comment the stuff below?
 
-Can we agree to disagree :)
-> 
->    > It requires a full audit of the networking in the new preemption
->    > environment.
-> 
->    Any pointers on what to look for would be welcome.
-> 
-> And you go right back to asking me to do the work for you.
-> What is wrong with you?
+net_device->type:
+	o holds the interface hardware type (according to netdevice.h)
+	o is set to ARPHRD_* (which should be ARP hardware identifiers)
+	o in the arp code there are a couple of places where the type
+		gets mapped to the correct ARP hardware header type
 
-I said they would be welcome, not that you have to reply...
+hmm, so the type doesn't specify the arp hardware type, it specifies
+the mac/datalink type.
+
+wouldn't it be cleaner to split dev->type into
+
+	dev->datalink_type (or dev->mac_type)
+and
+	dev->arp_type
+?
+
+plus defining DLT_* or whatever defines for the mac/datalink type.
+
+this would cost an int per device, but would improve readability? and
+helps getting rid of the type to arp type mappings in the arp code.
+(plus userspace apps could also benefit - using datalink_type as we do
+ right now, will keep libpcap and friends happy, and dhcp apps could
+ use the arp type (so they can support new datalink types, which use
+ an already known arp_type) without the need to add a switch for the
+ new datalink type - 802.11 for example)
+
+any comments?
+
+thanks,
+
+	tm
 
 -- 
-George Anzinger   george@mvista.com
-High-res-timers: 
-http://sourceforge.net/projects/high-res-timers/
-Real time sched:  http://sourceforge.net/projects/rtsched/
-Preemption patch:
-http://www.kernel.org/pub/linux/kernel/people/rml
+in some way i do, and in some way i don't.
