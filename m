@@ -1,87 +1,167 @@
-From: "Krishnakumar. R" <krishnakumar@naturesoft.net>
-Subject: [PATCH] PIO register dump support for 8139 driver
-Date: Tue, 17 Feb 2004 17:25:54 +0530
+From: Olaf Kirch <okir@suse.de>
+Subject: [PATCH] 2.6 UDP recvmsg vs POSIX
+Date: Tue, 17 Feb 2004 13:17:26 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200402171725.54339.krishnakumar@naturesoft.net>
-Reply-To: krishnakumar@naturesoft.net
+Message-ID: <20040217121726.GD8554@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/mixed; boundary="7AUc2qLy4jB3hD7Z"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jgarzik@pobox.com
+To: netdev@oss.sgi.com
 Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+
+--7AUc2qLy4jB3hD7Z
+Content-Type: text/plain; charset=iso-8859-15
+Content-Disposition: inline
+
 Hi,
 
-The following patch adds the pio register dump
-support for the 8139too.c. The register dump can 
-be now obtained when we are using PIO mode.
-(eg: ethtool -d eth0 will give the register dump
-in the PIO mode after this patch is applied.)
+I'm currently investigating a problem in udp recvmsg. In short, a test
+program selects on the socket, gets woken up as a packet arrives, but
+recvmsg return EAGAIN because the UDP checksum was wrong.
 
-The patch is against linux-2.6.1-bk4-netdev1.
+This broke one real-life application, and reportedly this violates POSIX,
+as operations on a blocking socket must never return EAGAIN.
 
-Please do apply.
+The quick and dirty fix would be to always do the checksum in
+udp_queue_rcv_skb, but I assume this "checksum-outside-the-bottom-half"
+approach is there because it improves performance, so I've tried to
+come up with a different solution.
 
-Regards,
-KK.
+Please find attached a patch that tries to pluck bad udp packets from the
+receive queue as part of poll/select handling, so that we never mark a
+udp socket as POLLIN when there are only bad packets in the queue. This
+is admittedly not very elegant, and it may have side effects I'm not
+seeing yet. But it seems to fix things for me here, without slowing
+the bottom half handlers down.
 
-Diffstat output:
----------------------
-8139too.c |   24 +++++++++++++++++++-----
-1 files changed, 19 insertions(+), 5 deletions(-)
+The second half of the patch deals with bad checksums in recvmsg.  If an
+application calls recvmsg on a blocking socket, and we find a packet
+with a bad checksum (this may happen if the application didn't select
+first), we start over at the top of the function, so that we block in
+skb_datagram_receive rather than returning EAGAIN.
 
-The Patch:
----------------
---- linux-2.6.1-bk4-netdev1/drivers/net/8139too.orig.c	2004-02-09 
-14:09:22.000000000 +0530
-+++ linux-2.6.1-bk4-netdev1/drivers/net/8139too.c	2004-02-17 
-14:55:05.681637552 +0530
-@@ -2391,17 +2391,31 @@
- 	np->msg_enable = datum;
- }
- 
--/* TODO: we are too slack to do reg dumping for pio, for now */
--#ifdef CONFIG_8139TOO_PIO
--#define rtl8139_get_regs_len	NULL
--#define rtl8139_get_regs	NULL
--#else
- static int rtl8139_get_regs_len(struct net_device *dev)
- {
- 	struct rtl8139_private *np = dev->priv;
- 	return np->regs_len;
- }
- 
-+#ifdef CONFIG_8139TOO_PIO
-+static void rtl8139_get_regs(struct net_device *dev, 
-+                             struct ethtool_regs *regs, void *regbuf)
-+{
-+	struct rtl8139_private *np = dev->priv;
-+	int i;
-+	char *p;
-+	void *ioaddr = np->mmio_addr;
-+	
-+	regs->version = RTL_REGS_VER;
-+	p = (char *)regbuf;
-+
-+	spin_lock_irq(&np->lock);
-+	for ( i=0 ; i<np->regs_len ; i++ ) {
-+		p[i] =  RTL_R8 (i);
-+	}
-+	spin_unlock_irq(&np->lock);
-+}
-+#else
- static void rtl8139_get_regs(struct net_device *dev, struct ethtool_regs 
-*regs, void *regbuf)
- {
- 	struct rtl8139_private *np = dev->priv;
+Any comments welcome.
 
-
-
-
+Olaf
 -- 
-HomePage: http://puggy.symonds.net/~krishnakumar
+Olaf Kirch     |  Stop wasting entropy - start using predictable
+okir@suse.de   |  tempfile names today!
+---------------+ 
+
+--7AUc2qLy4jB3hD7Z
+Content-Type: text/plain; charset=iso-8859-15
+Content-Disposition: attachment; filename="linux-2.6.2-udpfix.patch"
+
+--- linux-2.6.2/include/net/udp.h.udpfix	2004-02-17 10:10:03.000000000 +0100
++++ linux-2.6.2/include/net/udp.h	2004-02-17 10:10:18.000000000 +0100
+@@ -74,6 +74,10 @@
+ extern int	udp_ioctl(struct sock *sk, int cmd, unsigned long arg);
+ extern int	udp_disconnect(struct sock *sk, int flags);
+ 
++extern unsigned int udp_poll(struct file *file,
++			    struct socket *sock,
++			    struct poll_table_struct *wait);
++
+ DECLARE_SNMP_STAT(struct udp_mib, udp_statistics);
+ #define UDP_INC_STATS(field)		SNMP_INC_STATS(udp_statistics, field)
+ #define UDP_INC_STATS_BH(field)		SNMP_INC_STATS_BH(udp_statistics, field)
+--- linux-2.6.2/net/ipv4/af_inet.c.udpfix	2004-02-04 04:43:12.000000000 +0100
++++ linux-2.6.2/net/ipv4/af_inet.c	2004-02-17 10:36:00.000000000 +0100
+@@ -912,7 +912,7 @@
+ 	.socketpair =	sock_no_socketpair,
+ 	.accept =	sock_no_accept,
+ 	.getname =	inet_getname,
+-	.poll =		datagram_poll,
++	.poll =		udp_poll,
+ 	.ioctl =	inet_ioctl,
+ 	.listen =	sock_no_listen,
+ 	.shutdown =	inet_shutdown,
+--- linux-2.6.2/net/ipv4/udp.c.udpfix	2004-02-13 16:07:30.000000000 +0100
++++ linux-2.6.2/net/ipv4/udp.c	2004-02-17 10:35:41.000000000 +0100
+@@ -766,6 +766,64 @@
+ }
+ 
+ /*
++ * Packets queued on the UDP socket may have a bad checksum,
++ * and need to be discarded. On the other hand, recvmsg is not
++ * allowed to return EAGAIN on a blocking socket, especially
++ * if select() indicated that data is available.
++ *
++ * To solve this, udp_poll makes sure that the next packet in
++ * the queue has a valid checksum. This fixes the select/recvmsg
++ * case.
++ * The general case of recvmsg on a blocking socket is solved by
++ * simply looping over in udp_recvmsg when the checksum is bad. --okir
++ */
++unsigned int
++udp_poll(struct file *file, struct socket *sock, struct poll_table_struct *wait)
++{
++	struct sock *sk = sock->sk;
++  	struct sk_buff *skb;
++	int error;
++
++	do {
++		spin_lock_irq(&sk->sk_receive_queue.lock);
++		skb = skb_peek(&sk->sk_receive_queue);
++		if (skb != NULL)
++			atomic_inc(&skb->users);
++		spin_unlock_irq(&sk->sk_receive_queue.lock);
++
++		if (skb == NULL)
++			break;
++
++		error = 0;
++		if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
++			/* All is well */
++		} else if (!(error = __udp_checksum_complete(skb))) {
++			skb->ip_summed = CHECKSUM_UNNECESSARY;
++		} else {
++			/* Bad checksum. Pluck it from there queue */
++			UDP_INC_STATS_BH(UdpInErrors);
++
++			spin_lock_irq(&sk->sk_receive_queue.lock);
++			if (skb == skb_peek(&sk->sk_receive_queue)) {
++				__skb_unlink(skb, &sk->sk_receive_queue);
++				spin_unlock_irq(&sk->sk_receive_queue.lock);
++				kfree_skb(skb);
++			} else {
++				spin_unlock_irq(&sk->sk_receive_queue.lock);
++			}
++		}
++
++		skb_free_datagram(sk, skb);
++	} while (error);
++
++	/* We have made sure there's at least one valid
++	 * UDP packet in the queue, so do the normal datagram
++	 * poll now */
++	return datagram_poll(file, sock, wait);
++}
++
++
++/*
+  * 	This should be easy, if there is something there we
+  * 	return it, otherwise we block.
+  */
+@@ -787,6 +845,7 @@
+ 	if (flags & MSG_ERRQUEUE)
+ 		return ip_recv_error(sk, msg, len);
+ 
++try_again:
+ 	skb = skb_recv_datagram(sk, flags, noblock, &err);
+ 	if (!skb)
+ 		goto out;
+@@ -852,7 +911,7 @@
+ 
+ 	skb_free_datagram(sk, skb);
+ 
+-	return -EAGAIN;	
++	goto try_again;
+ }
+ 
+ int udp_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
+
+--7AUc2qLy4jB3hD7Z--
