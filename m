@@ -1,31 +1,46 @@
-From: Geoffrey Lee <glee@gnupilgrims.org>
-Subject: Re: [PATCH] connect() return value.
-Date: Thu, 15 Aug 2002 21:02:10 +1000
+From: Alan Robertson <alanr@unix.sh>
+Subject: Resend:  SIOCGIFBRDADDR?
+Date: Thu, 15 Aug 2002 09:03:09 -0600
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <20020815110210.GA15218@anakin.wychk.org>
-References: <20020814045755.GB32315@anakin.wychk.org> <200208141725.VAA24463@sex.inr.ac.ru> <20020815032543.GA3083@gandalf.chinesecodefoo.org> <20020814.201514.30457132.davem@redhat.com>
+Message-ID: <3D5BC2AD.3070905@unix.sh>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=big5
-Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Kevin Dwyer <kevin@pheared.net>
 Return-path: <owner-netdev@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20020814.201514.30457132.davem@redhat.com>
+To: netdev@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 14, 2002 at 08:15:14PM -0700, David S. Miller wrote:
->    From: glee@gnupilgrims.org
->    Date: Thu, 15 Aug 2002 11:25:43 +0800
->    
->    I research how sockets are done on various Unix as a hobby.
-> 
-> How extensive are your notes on poll() behavior on TCP
-> sockets? :-)
+I sent this earlier, but I got no reply, and can't seem to find it in the 
+archives.  If you reply to this, could you please copy both Kevin Dwyer and 
+myself on the reply?  Many thanks!
+
+Hi,
+
+Some folks using the linux-ha (heartbeat) software have been running into
+some network-related problems, and Alan Cox suggested that you folks could
+help us out.
+
+One of the ways you can configure linux-ha protocols is to send broadcast
+packets.  In this case, our software needs to get the broadcast address from
+the OS, so we can proceed.  We currently use the SIOCGIFBRDADDR ioctl to do
+this for us.  This has worked pretty well for us for quite some time, but
+recently some users have run into some problems.
+
+It appears that if one configures an interface using ifconfig, then the
+SIOCGIFBRDADDR ioctl works quite nicely to determine the broadcast address
+of an interface.
+
+However, if one uses the iproute2 tools to configure the interface, then it
+appears that the SIOCGIFBRDADDR ioctl returns bogus results on that interface.
+
+Is this supposed to be the case?
+
+Is there a different method we're supposed to use instead of SIOCGIFBRDADDR?
 
 
-Hmm, in which regard?
+	Thanks!
 
-Is there something specific that you are searching for? :-)
-
-
-	-- G.
+	-- Alan Robertson
+	   alanr@unix.sh
+	   http://linux-ha.org/
