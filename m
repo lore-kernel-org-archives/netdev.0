@@ -1,60 +1,41 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCH 2.6] ip_nat_ftp - manip at the right place
-Date: Sat, 11 Sep 2004 10:53:53 +0300 (EEST)
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: [PATCH] IPV6: fix an oops in rt6_device_match()
+Date: Sat, 11 Sep 2004 20:10:29 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0409111042580.1315@u.domain.uli>
+Message-ID: <20040911.201029.21582458.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com, Rusty Russell <rusty@rustcorp.com.au>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Harald Welte <laforge@netfilter.org>
+To: davem@davemloft.net
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hello.
 
-	Hello,
+This fixes panic in rt6_device_match().
 
-	This is a resend/resync for v2.6.9-rc1-bk17: change the
-way the ip_nat_ftp helper manipulates the packets:
+Well, rt->rt6i_idev is always set if it is dynamically allocated.
+However, when we hit ip6_null_entry here, its rt6i_idev is NULL.
+This patch is minimum fix to avoid the oops for now.
 
-- no manips => no fixup
+Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 
-- check the direction, do manip once and at the same time when the
-headers are changed
+===== net/ipv6/route.c 1.89 vs edited =====
+--- 1.89/net/ipv6/route.c	2004-08-25 03:20:43 +09:00
++++ edited/net/ipv6/route.c	2004-09-11 19:31:24 +09:00
+@@ -184,7 +184,8 @@
+ 			if (dev->ifindex == oif)
+ 				return sprt;
+ 			if (dev->flags & IFF_LOOPBACK) {
+-				if (sprt->rt6i_idev->dev->ifindex != oif) {
++				if (sprt->rt6i_idev == NULL ||
++				    sprt->rt6i_idev->dev->ifindex != oif) {
+ 					if (strict && oif)
+ 						continue;
+ 					if (local && (!oif || 
 
-	This is needed mostly for IPVS setups and I hope we do not
-create troubles for other setups or FTP software.
-
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-
-diff -ur v2.6.9-rc1-bk17/linux/net/ipv4/netfilter/ip_nat_ftp.c linux/net/ipv4/netfilter/ip_nat_ftp.c
---- v2.6.9-rc1-bk17/linux/net/ipv4/netfilter/ip_nat_ftp.c	2004-09-11 09:35:33.000000000 +0300
-+++ linux/net/ipv4/netfilter/ip_nat_ftp.c	2004-09-11 10:29:38.343165344 +0300
-@@ -237,17 +237,23 @@
- 	unsigned int datalen;
- 	int dir;
- 	struct ip_ct_ftp_expect *exp_ftp_info;
-+	int i, do_manip = 0;
- 
- 	if (!exp)
- 		DEBUGP("ip_nat_ftp: no exp!!");
- 
- 	exp_ftp_info = &exp->help.exp_ftp_info;
- 
--	/* Only mangle things once: original direction in POST_ROUTING
--	   and reply direction on PRE_ROUTING. */
-+	/* Only mangle things once: for the first manip in this direction. */
- 	dir = CTINFO2DIR(ctinfo);
--	if (!((hooknum == NF_IP_POST_ROUTING && dir == IP_CT_DIR_ORIGINAL)
--	      || (hooknum == NF_IP_PRE_ROUTING && dir == IP_CT_DIR_REPLY))) {
-+	for (i = 0; i < info->num_manips; i++) {
-+		if (info->manips[i].direction == dir) {
-+			if (info->manips[i].hooknum == hooknum)
-+				do_manip = 1;
-+			break;
-+		}
-+	}
-+	if (!do_manip) {
- 		DEBUGP("nat_ftp: Not touching dir %s at hook %s\n",
- 		       dir == IP_CT_DIR_ORIGINAL ? "ORIG" : "REPLY",
- 		       hooknum == NF_IP_POST_ROUTING ? "POSTROUTING"
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
