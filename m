@@ -1,71 +1,46 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [IPV4] Disable MULTIPATH_CACHED on input path
-Date: Tue, 5 Apr 2005 23:04:41 +1000
-Message-ID: <20050405130441.GA5604@gondor.apana.org.au>
+From: Wang Jian <lark@linux.net.cn>
+Subject: Re: [PATCH] improvement on net/sched/cls_fw.c's hash function
+Date: Tue, 05 Apr 2005 21:29:50 +0800
+Message-ID: <20050405212711.0253.LARK@linux.net.cn>
+References: <20050405202039.0250.LARK@linux.net.cn> <20050405125237.GN26731@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="NzB8fVQJ5HfG6fxh"
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, jamal <hadi@cyberus.ca>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, netdev@oss.sgi.com
-Content-Disposition: inline
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050405125237.GN26731@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi Thomas Graf,
 
---NzB8fVQJ5HfG6fxh
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
 
-Hi Dave:
+On Tue, 5 Apr 2005 14:52:37 +0200, Thomas Graf <tgraf@suug.ch> wrote:
 
-Since we're not doing multipath selection on the input path yet,
-we should disable the code that inserts the multipath route
-entries for the input path.
+> 
+> > When linux's QoS control capability is widely used, such web interface
+> > sooner or later comes into being.
+> 
+> That might be true but I will never ack on something that makes zero
+> collision use of cls_fw impossible. I'm all for improving this but
+> not at the cost of reduced performance for the most obvious use case
+> of cls_fw.
 
-As it is we are inserting a whole bunch of useless entries as
-well as breaking multipath routing for the input path (forwarded
-packets) completely.
+Agree.
 
-I left the code around since we're planning to do this at
-some point.
+> 
+> > Your suggestion is very considerable. But that needs some more work. And,
+> > isn't that some bloated?
+> 
+> The shift + bitmask might be bloated and can be deferred a bit until
+> someone comes up with this need. I can cook up a patch for this
+> if you want, it's not much work.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+I am glad that you are willing to help to hook them up. I really need
+the new hashing way.
 
-As this code is going to stick around, I'm going to fix it :)
-Expect more patches soon.
 
-Cheers,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---NzB8fVQJ5HfG6fxh
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
-
-===== net/ipv4/route.c 1.108 vs edited =====
---- 1.108/net/ipv4/route.c	2005-03-23 15:06:23 +11:00
-+++ edited/net/ipv4/route.c	2005-04-05 23:00:28 +10:00
-@@ -1720,7 +1720,7 @@
- 	}
- 
- 	rth->u.dst.flags= DST_HOST;
--#ifdef CONFIG_IP_ROUTE_MULTIPATH_CACHED
-+#if 0
- 	if (res->fi->fib_nhs > 1)
- 		rth->u.dst.flags |= DST_BALANCED;
- #endif
-@@ -1792,7 +1792,7 @@
- 				   struct in_device *in_dev,
- 				   u32 daddr, u32 saddr, u32 tos)
- {
--#ifdef CONFIG_IP_ROUTE_MULTIPATH_CACHED
-+#if 0
- 	struct rtable* rth;
- 	unsigned char hop, hopcount, lasthop;
- 	int err = -EINVAL;
-
---NzB8fVQJ5HfG6fxh--
+  lark
