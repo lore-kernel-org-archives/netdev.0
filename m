@@ -1,56 +1,65 @@
-From: "Martin J. Bligh" <mbligh@aracnet.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
 Subject: Re: Early SPECWeb99 results on 2.5.33 with TSO on e1000
-Date: Wed, 11 Sep 2002 08:27:21 -0700
+Date: 11 Sep 2002 09:31:53 -0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <481681441.1031732839@[10.10.2.3]>
-References: <m1d6rko9ab.fsf@frodo.biederman.org>
-Reply-To: "Martin J. Bligh" <mbligh@aracnet.com>
+Message-ID: <m18z28o846.fsf@frodo.biederman.org>
+References: <m1hegwoppm.fsf@frodo.biederman.org>
+	<477096648.1031728254@[10.10.2.3]>
+	<m1d6rko9ab.fsf@frodo.biederman.org>
+	<20020911.081521.103561835.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, hadi@cyberus.ca,
-   tcw@tempest.prismnet.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-   Nivedita Singhvi <niv@us.ibm.com>
+Cc: mbligh@aracnet.com, hadi@cyberus.ca, tcw@tempest.prismnet.com,
+   linux-kernel@vger.kernel.org, netdev@oss.sgi.com, niv@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-In-Reply-To: <m1d6rko9ab.fsf@frodo.biederman.org>
-Content-Disposition: inline
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20020911.081521.103561835.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> Sounds about average for a P3.  I have pushed the full 800MiB/s out of
-> a P3 processor to memory but it was a very optimized loop.  Is
-> that 420MB/sec of IO on this test?
+"David S. Miller" <davem@redhat.com> writes:
 
-Yup, Fibre channel disks. So we know we can push at least that.
+>    From: ebiederm@xmission.com (Eric W. Biederman)
+>    Date: 11 Sep 2002 09:06:36 -0600
+> 
+>    "Martin J. Bligh" <mbligh@aracnet.com> writes:
+>    
+>    > We can push about 420MB/s of IO out of this thing (out of that 
+>    > theoretical 800Mb/s). 
+>    
+>    Sounds about average for a P3.  I have pushed the full 800MiB/s out of
+>    a P3 processor to memory but it was a very optimized loop.
+> 
+> You pushed that over the PCI bus of your P3?  Just to RAM
+> doesn't count, lots of cpu's can do that.
+> 
+> That's what makes his number interesting.
 
-> Note quite.  But you suck at least 240MB/s of your memory bandwidth with
-> DMA from disk, and then DMA to the nic.  Unless there is a highly
-> cached component.  So I doubt you can effectively use more than 1 gige
-> card, maybe 2.  And you have 8?
+I agree. Getting 420MB/s to the pci bus is nice, especially with a P3.  
+The 800MB/s to memory was just the test I happened to conduct about 2 years
+ago when I was still messing with slow P3 systems.  It was a proof of
+concept test to see if we could plug in an I/O card into a memory
+slot.  
 
-Nope, it's operating totally out of pagecache, there's no real disk 
-IO to speak of.
+On a current P4 system with the E7500 chipset this kind of thing is
+easy.  I have gotten roughly 450MB/s to a single myrinet card.  And there 
+is enough theoretical bandwidth to do 4 times that.  I haven't had a
+chance to get it working in practice.  When I attempted to run to gige
+cards simultaneously I had some weird problem (probably interrupt
+related) where adding additional pci cards did not deliver any extra
+performance.  
 
-> Wow the hardware designers really believed in over-subscription.
-> If the busses are just running 64bit/33Mhz you are oversubscribed.
-> And at 64bit/66Mhz the pci busses can easily swamp the system 
-> 533*4 ~= 2128MB/s. 
+On a P3 to get writes from the cpu to hit 800MB/s you use the special
+cpu instructions that bypass the cache.  
 
-Two 32bit buses (or maybe it was just one) and two 64bit buses,
-all at 66MHz. Yes, the PCI buses can push more than the backplane,
-but things are never perfectly balanced in reality, so I'd prefer
-it that way around ... it's not a perfect system, but hey, it's
-Intel hardware - this is high volume market, not real high end ;-)
+My point was that I have tested the P3 bus in question and I achieved
+a real world 800MB/s over it.  So I expect that on the system in
+question unless another bottleneck is hit, it should be possible to
+achieve a real world 800MB/s of I/O.  There are enough pci busses
+to support that kind of traffic.
 
-> What kind of memory bandwidth does the system have, and on which
-> bus are the memory controllers?  I'm just curious  
+Unless the memory controller is carefully placed on the system though
+doing 400+MB/s could easily eat up most of the available memory
+bandwidth and reduce the system to doing some very slow cache line fills.
 
-Memory controllers are hung off the interconnect, slightly difficult
-to describe. Look for docs on the Intel profusion chipset, or I can
-send you a powerpoint (yeah, yeah) presentation when I get into work
-later today if you can't find it. Theoretical mem bandwidth should
-be 1600MB/s if you're balanced across the CPUs, in practice I'd
-expect to be able to push somewhat over 800Mb/s.
-
-M.
+Eric
