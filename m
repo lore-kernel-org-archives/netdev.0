@@ -1,149 +1,47 @@
-From: Sebastian Benoit <benoit-lists@fb12.de>
-Subject: network connection gets stuck with 2.5.44
-Date: Mon, 21 Oct 2002 17:44:10 +0200
+From: Çý¿µ<tnt707@orgio.net>
+Subject: =?ISO-8859-1?Q?<=BC=BA=C0=CE=B1=A4=B0=ED>=A1=E1?= 100% =?ISO-8859-1?Q?=B0=F8=C2=A5=20=BC=BA=C0=CE=B5=BF=BF=B5=BB=F3?=
+	=?ISO-8859-1?Q?=B9=CC=BC=D2=B3=E0=20=B0=A8=BB=F3...=20=A1=E1?=
+Date: Tue, 22 Oct 2002 05:40:25 +0900
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021021174410.B8190@turing.fb12.de>
-References: <20021018124717.A21622@turing.fb12.de>
+Message-ID: <200210212040.g9LKe8uR017124@oss.sgi.com>
+Reply-To: tnt707@orgio.net
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-md5;
-	protocol="application/pgp-signature"; boundary="qcHopEYAB45HaUaB"
+Content-Type: text/html; charset="euc-kr"
+Content-Transfer-Encoding: base64
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
-Content-Disposition: inline
-In-Reply-To: <20021018124717.A21622@turing.fb12.de>; from benoit-lists@fb12.de on Fri, Oct 18, 2002 at 12:47:17PM +0200
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---qcHopEYAB45HaUaB
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-
-Still happens...
-
-/B.
-
-Sebastian Benoit(benoit-lists@fb12.de)@2002.10.18 12:47:17 +0000:
-> Subject: Re: network connection gets stuck with 2.5.43-bk1/mm2
->=20
-> Hi,
->=20
-> i posted the message below to linux-mm yesterday, Andrew Morton told me t=
-hat
-> it might be one of the changes in networking in -bk1.
->=20
-> removing these changes solved the problem:
->=20
->  include/linux/ip.h        |   16=20
->  include/linux/tcp.h       |    2=20
->  include/linux/udp.h       |   31 -
->  include/net/dst.h         |   56 --
->  include/net/ip.h          |   16=20
->  include/net/sock.h        |    2=20
->  include/net/tcp.h         |    2=20
->  include/net/udp.h         |    2=20
->  net/core/dst.c            |   25 -
->  net/ipv4/af_inet.c        |   17=20
->  net/ipv4/icmp.c           |    4=20
->  net/ipv4/ip_output.c      |  880 +++++++--------------------------------=
--------
->  net/ipv4/ip_proc.c        |   74 ---
->  net/ipv4/ip_sockglue.c    |    4=20
->  net/ipv4/raw.c            |    7=20
->  net/ipv4/tcp.c            |   49 --
->  net/ipv4/tcp_ipv4.c       |    6=20
->  net/ipv4/tcp_minisocks.c  |   10=20
->  net/ipv4/udp.c            |  296 ---------------
->  net/ipv6/tcp_ipv6.c       |    5=20
->  net/netsyms.c             |    1=20
->=20
-> (this is the diffstat of the reverse patch)
->=20
-> Is this fixed already?
-> /B.
->=20
->=20
->=20
-> ----------------- quote -----------------
-> Hi,=20
->=20
-> funny problem w. 2.5.43-mm2:
->=20
-> i'm running 2.5.43-mm2 on my workstation. Normal workload, X-windows, a f=
-ew
-> xterms, editor, mozilla, etc. (host A)
->=20
-> I have a NFS/SAMBA-mount (both show the problem) to host B. Host B runs
-> 2.4.19rc5aa1.
->=20
-> I can get a xterm, in which i have a ssh-connection to a third host C
-> 'stuck' by simply cat'ing a large file from the NFS/SAMBA server to
-> /dev/null.
->=20
-> The xterm/ssh seems stuck, that is no key i press is received on the other
-> end, but output of the program running on host C is updated in the xterm.=
- I
-> checked with tcpdump: the keypress does not generate a packet, my host on=
-ly
-> sends ACK's on that ssh connection to host C.
->=20
-> The ssh-connection is not unstuck by stopping the data transfer from host=
- B.
->=20
-> I checked that plain 2.5.42 and 2.5.43-mm1 do not have this problem: here=
- my
-> input goes through to C. At least for small amounts of input, i did not t=
-est
-> anything beyond typing a few hundret chars.
->=20
-> recap:
->=20
->  "mount /mnt/hostB"
->  "ssh hostC" -> type random stuff in that connection
->  at the same time do "cat /mnt/hostB/bigfile > /dev/null"
->  ssh gets stuck.
->=20
-> hardware: PIII/600, 3c905B on 10baseT half-duplex
->=20
-> I'm sorry i cant do any further checks until Friday afternoon (MET).
->=20
-> /B.
-> --------------- quote ends ---------------
->=20
->=20
->=20
-> --=20
-> Sebastian Benoit <benoit-lists@fb12.de>
-> My mail is GnuPG signed -- Unsigned ones are bogus -- http://www.gnupg.or=
-g/
-> GnuPG 0x5BA22F00 2001-07-31 2999 9839 6C9E E4BF B540  C44B 4EC4 E1BE 5BA2=
- 2F00
->=20
-> Oxymoron #633: Mutual Differences
-
-
-
---=20
-Sebastian Benoit <benoit-lists@fb12.de>
-My mail is GnuPG signed -- Unsigned ones are bogus -- http://www.gnupg.org/
-GnuPG 0x5BA22F00 2001-07-31 2999 9839 6C9E E4BF B540  C44B 4EC4 E1BE 5BA2 2=
-F00
-
-The political and commercial morals of the United States are not merely food
-for laughter, they are an entire banquet. -- Mark Twain
-
---qcHopEYAB45HaUaB
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.0.6 (GNU/Linux)
-Comment: For info see http://www.gnupg.org
-
-iEYEARECAAYFAj20IMoACgkQTsThvluiLwAA/gCgptDWmYvz6P9IVOc85yfC/xN2
-fvkAn1yogypzNBSgr4Fjge92BTYe5FYv
-=ciQV
------END PGP SIGNATURE-----
-
---qcHopEYAB45HaUaB--
+PCEtLTUwMDYzLS0+DQo8SFIgY29sb3I9IzhiYjVlMj4NCjxESVYgYWxpZ249Y2VudGVyPg0K
+PEZPTlQgZmFjZT2xvLiyIHNpemU9MiBjb2xvcj0jOGJiNWUyPrq7ILjewM/AuiDBpLq4xeu9
+xbrOILHHsO0gu+fH17+hIMDHsMUNCsGmuPG/oSBbsaSw7V228yDHpb3DtcggsaSw7SC43sDP
+wNS0z7TZLjwvRk9OVD48QlI+DQo8QSBzdHlsZT0iUEFERElORy1SSUdIVDogM3B4OyBQQURE
+SU5HLUxFRlQ6IDNweDsgRk9OVC1TSVpFOiAxMnB4Ow0KUEFERElORy1CT1RUT006IDNweDsg
+Q09MT1I6ICNmZmZmMDA7IFBBRERJTkctVE9QOiAzcHg7IEZPTlQtRkFNSUxZOiCxvLiyOw0K
+QkFDS0dST1VORC1DT0xPUjogIzhiYjVlMjsgVEVYVC1ERUNPUkFUSU9OOiBub25lIg0KaHJl
+Zj0ibWFpbHRvOnRudDcwN0Bvcmdpby5uZXQ/c3ViamVjdD289r3FsMW6ziZhbXA7Ym9keT28
+9r3FsMW6zsfVtM+02SI+vPa9xbDFus4gZGVueTwvQT4NCjxGT05UIGNvbG9yPSM4YmI1ZTIg
+IHNpemU9MiBjb2xvcj0jOGJiNWUyPrn2xrDAuyDFrLivx8+9w7jpILz2vcWwxbrOw7O4rrCh
+IMDMt+e+7iDB/bTPtNkuPC9GT05UPg0KPC9ESVY+DQo8SFIgY29sb3I9IzhiYjVlMj4NCjwv
+Qk9EWT48L0hUTUw+DQo8Y2VudGVyPg0KPEJPRFkgYmdDb2xvcj1ibHVlPjxCPjxGT05UIGNv
+bG9yPXJlZD48QlI+PEJSPsbyu/0hISC5q7fht84gwfGx5rz2wNa0wiC8usDOu+fAzMauILju
+sLMgvNKws8fVtM+02S4uDQo8QlI+PEJSPr7utMAgsPfAzCC09SDBwbTZsO0guLu+uLXluLEg
+vPYgvvi9wLTPtNkuLiA8QlI+PEJSPsH3waIgyK7AzsfYuri8vL/kLi7IxMi4tMIgvvjAuyCw
+zLTPtNkuLiA8QlI+PEJSPra4trjHz7DUDQrB8bHivcq9w7/kLi4hISA8QlI+PEJSPr+pt8G6
+0MC7IMivv7XH1bTPtNkuLiEhIDxCUj48QlI+PEJSPjxCUj48QQ0KaHJlZj0iaHR0cDovL3d3
+dy5nb29kZXJvLmNvbS9iYW5uZXIuaHRtbD9wX2lkPWxvdmUiIHRhcmdldD1fYmxhbms+PElN
+Rw0Kc3JjPSJodHRwOi8vd3d3LnNzYW5nMTBsaXZlLmNvbS9jcC9iYW5uZXIvMTMzLmdpZiIg
+Ym9yZGVyPTA+IDwvQT48QlI+PEJSPjxBDQpocmVmPSJodHRwOi8vc2Vrb29ucy5jb20vbW9u
+ZXkvY291bnQucGhwP3NpdGVpZD1hdnBvcm5vdHYmYW1wO3JlZmVyaWQ9bG92ZSINCnRhcmdl
+dD1fYmxhbms+PElNRyBzcmM9Imh0dHA6Ly8yMTEuMTY5LjI0OS4yMTEvdXNhYmFubmVyL3dp
+ZHRoLzEzLmdpZiINCmJvcmRlcj0wPjwvQT4gPEJSPjxCUj48QSBocmVmPSJodHRwOi8vd3d3
+LjEwMTBib3ppLmNvbS9pbmRleC5waHA/cmVjX2lkPWxvdmUiDQp0YXJnZXQ9X2JsYW5rPjxJ
+TUcgc3JjPSJodHRwOi8vMjExLjE2OS4yNDkuMjExL3VzYWJhbm5lci93aWR0aC8xNS5naWYi
+DQpib3JkZXI9MD48L0E+IDxCUj48QlI+PEEgc3R5bGU9IlBBRERJTkctUklHSFQ6IDNweDsg
+UEFERElORy1MRUZUOiAzcHg7IEZPTlQtU0laRTogMTJweDsgUEFERElORy1CT1RUT006IDNw
+eDsgQ09MT1I6ICNmZmZmMDA7IFBBRERJTkctVE9QOiAzcHg7IEZPTlQtRkFNSUxZOiCxvLiy
+OyBCQUNLR1JPVU5ELUNPTE9SOiAjOGJiNWUyOyBURVhULURFQ09SQVRJT046IG5vbmUiIGhy
+ZWY9Im1haWx0bzp0bnQ3MDdAb3JnaW8ubmV0P3N1YmplY3Q9vPa9xbDFus4mYW1wO2JvZHk9
+vPa9xbDFus7H1bTPtNkiPrz2vcWwxbrODQpkZW55PC9BPg0KPENFTlRFUj48L0NFTlRFUj48
+L0ZPTlQ+PC9CPjwvQk9EWT48L0hUTUw+DQoNCg0K
