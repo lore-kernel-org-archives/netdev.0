@@ -1,62 +1,34 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
+From: Julian Anastasov <ja@ssi.bg>
 Subject: Re: suggestion for routing code improvement
-Date: Thu, 11 Apr 2002 01:02:23 +0200
+Date: Thu, 11 Apr 2002 02:24:36 +0000 (GMT)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <15540.50303.858294.986710@robur.slu.se>
-References: <3CB47B90.B4CF1FAD@nortelnetworks.com>
-	<15540.40277.772027.111512@robur.slu.se>
-	<3CB4A6FB.F9146FDB@nortelnetworks.com>
+Message-ID: <Pine.LNX.4.44.0204110213230.15041-100000@u.domain.uli>
+References: <15540.50303.858294.986710@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Chris Friesen <cfriesen@nortelnetworks.com>, <netdev@oss.sgi.com>
 Return-path: <owner-netdev@oss.sgi.com>
-To: Chris Friesen <cfriesen@nortelnetworks.com>
-In-Reply-To: <3CB4A6FB.F9146FDB@nortelnetworks.com>
+To: Robert Olsson <Robert.Olsson@data.slu.se>
+In-Reply-To: <15540.50303.858294.986710@robur.slu.se>
 List-Id: netdev.vger.kernel.org
 
 
-Chris Friesen writes:
- > The box(es) which inspired this sit on a private network, and once they are
- > brought into service, the routes never change.  However, there is a command from
- > our gui to manually drop and raise the ethernet link (just in case something
- > goes wrong and can't be handled automatically) and it would simplify our code
- > greatly if the routes that are automatically deleted would be automatically put
- > back.
+	Hello,
 
- If we limit us to "static routes" for the other routes we must definitely leave to 
- some with routing/topologi knowledge and we must not break systems with "routing 
- daemons".
+On Thu, 11 Apr 2002, Robert Olsson wrote:
 
- If we look into the routing world a "route" can come from different origins/routing
- protocols static/ospf/rip/bgp and there is preferences to decide which one to 
- install.
+>  If we limit us to "static routes" for the other routes we must definitely leave to 
+>  some with routing/topologi knowledge and we must not break systems with "routing 
+>  daemons".
 
- So
+	include/linux/rtnetlink.h already contains the needed RTPROT_xxx
+definitions. The most used daemons don't use RTPROT_STATIC. The kernel
+does not know that the daemon registers static routes, they all
+have its own RTPROT_value. The static routes are marked as such only
+in the daemon's config file. May be it is possible value RTPROT_STATIC
+to be marked in comments as a kernel property.
 
- ip route add x y proto static 
+Regards
 
- Is registered by routing daemon and installed if it has the best pref. and the 
- route is hidden otherwise to be restored when appropriate. And the route is invalid 
- but kept by the daemon over "link downs" 
-
- And I think
-
- ip route rep x y proto static 
-
- or something similar at link up for restoring "static" routes would not break 
- for the daemons either. But I got a feeling it can hurt more than it helps.
-
-
- > In this case, my software *is* essentially the routing daemon, and I want it to
- > be simpler to maintain.
- 
- Well router daemons belongs to "user space" and via netlink you should be able to 
- do most of what you want.
-
- 
- Cheers.
-
-							--ro
-
- 
+--
+Julian Anastasov <ja@ssi.bg>
