@@ -1,51 +1,33 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] PKT_SCHED: Fix double locking in tcindex destroy path
-Date: Mon, 20 Dec 2004 15:36:24 -0800
-Message-ID: <20041220153624.58a1d93e.davem@davemloft.net>
-References: <20041210014918.GT1371@postel.suug.ch>
-	<41B90B81.1020102@trash.net>
-	<20041210124445.GV1371@postel.suug.ch>
+Subject: Re: [PATCH] tcp: efficient port randomistion (rev 3)
+Date: Mon, 20 Dec 2004 15:39:16 -0800
+Message-ID: <20041220153916.6c00c114.davem@davemloft.net>
+References: <20041027092531.78fe438c@guest-251-240.pdx.osdl.net>
+	<20041202135252.04e64f51.davem@davemloft.net>
+	<41B14E57.5080803@osdl.org>
+	<200412060918.04441.michael.vittrup.larsen@ericsson.com>
+	<20041206094234.34861c78@dxpl.pdx.osdl.net>
+	<20041208235524.202ff3a1.davem@davemloft.net>
+	<20041210170900.11d41d56.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@oss.sgi.com
+Cc: michael.vittrup.larsen@ericsson.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20041210124445.GV1371@postel.suug.ch>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20041210170900.11d41d56.shemminger@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 10 Dec 2004 13:44:45 +0100
-Thomas Graf <tgraf@suug.ch> wrote:
+On Fri, 10 Dec 2004 17:09:00 -0800
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> * Patrick McHardy <41B90B81.1020102@trash.net> 2004-12-10 03:35
-> > Thomas Graf wrote:
-> > 
-> > >tcindex's destroy uses its own delete functions to destroy its
-> > >configuration. The delete function (correctly) takes the qdisc_tree_lock
-> > >to prevent list walkings from happening while removing from the list.
-> > >The qdisc_tree_lock is already held if we're comming via the destroy
-> > >path and thus a double locking takes place.
-> > >
-> > >Patch not needed for 2.4 since both destroy paths are unlocked but will
-> > >be needed if we add them.
-> > > 
-> > >
-> > Looks correct, but 2.4 does need this. qdisc_destroy in 2.4 always
-> > happens under dev->queue_lock. For example dev_shutdown from 2.4:
+> okay, here is the revised version. Testing shows that it
+> is more consistent, and just as fast as existing code,
+> probably because of the getting rid of portalloc_lock and
+> better distribution.
 > 
-> Not 100% correct since cls_api.c drops the lock before calling
-> tcf_destroy but the patch is indeed needed and it's not a problem
-> if dev->queue_lock is not taken since it is already unlinked as you
-> correctly stated in your previous mail. Thanks Patrick.
-> 
-> Patch also applies to 2.4 with some fuzz.
-> 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-I think the conditional locking is quite ugly, but I can't
-suggest something better at this time.
-
-Patch applied to both 2.4.x and 2.6.x, thanks Patrick
-and Thomas.
+Queued up for 2.6.11, thanks Stephen.
