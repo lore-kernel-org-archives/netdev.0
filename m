@@ -1,40 +1,32 @@
-From: "Feldman, Scott" <scott.feldman@intel.com>
-Subject: RE: e100 "Ferguson" release
-Date: Tue, 5 Aug 2003 07:28:58 -0700
+From: David Brownell <david-b@pacbell.net>
+Subject: Re: e100 "Ferguson" release
+Date: Mon, 04 Aug 2003 10:38:17 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <C6F5CF431189FA4CBAEC9E7DD5441E01022292A3@orsmsx402.jf.intel.com>
+Message-ID: <3F2E9A09.7000707@pacbell.net>
+References: <C6F5CF431189FA4CBAEC9E7DD5441E010222927D@orsmsx402.jf.intel.com>	<3F2CA65F.8060105@pobox.com>	<3F2CBA71.2070503@candelatech.com>	<20030803003239.4257ef24.davem@redhat.com>	<3F2DCE56.6030601@pacbell.net>	<20030803200851.7d46a605.davem@redhat.com>	<3F2DD6BD.7070504@pacbell.net>	<20030803204642.684c6075.davem@redhat.com>	<3F2DDC3A.2040707@pacbell.net> <20030803211333.12839f66.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8bit
-Cc: <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: greearb@candelatech.com, jgarzik@pobox.com, scott.feldman@intel.com,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-content-class: urn:content-classes:message
-To: "Jeff Garzik" <jgarzik@pobox.com>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030803211333.12839f66.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> > if(unlikely(e100_exec_cb(nic, skb, e100_xmit_prepare) == -ENOMEM)) {
-> >         netif_stop_queue(netdev);
-> >         nic->net_stats.tx_dropped++;
-> >         dev_kfree_skb(skb);
-> >         return 0;
-> > }
-> 
-> Yes.  I would also printk(KERN_ERR "we have a bug!") or 
-> somesuch, like several other drivers do, too.
+David S. Miller wrote:
+>
+> For example, what do USB block device drivers do when -ENOMEM comes
+> back?  Do they just drop the request on the floor?  No, rather they
+> resubmit the request later without the scsi/block layer knowing
+> anything about what happened, right?
 
-It's there, sorry, was trying to keep the code snippet small.
+I didn't notice any code to retry, but I did see some that morphed
+ENOMEM into a generic scsi "error".  Scsi presumably does something
+more or less intelligent then.
 
-> >>* (minor) use a netif_msg_xxx wrapper/constant in
-> >>e100_init_module test?
-> > 
-> > 
-> > Can't - don't have nic->msg_enable allocated yet.  :(
-> 
-> You could always use "(1 << debug) - 1"... :)  I dunno if it's worth 
-> worrying about.
+The network layer on the other hand _does_ have hooks for retrying,
+not that they're used much.
 
-(1 << debug) - 1) & NETIF_MSG_DRV is what's there now.
-
--scott
+- Dave
