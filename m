@@ -1,40 +1,58 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] linux 2.9.10-rc1: Fix oops in unix_dgram_sendmsg when
- using SELinux and SOCK_SEQPACKET
-Date: Thu, 18 Nov 2004 14:34:51 -0800
-Message-ID: <20041118143451.3dae3ffb.davem@davemloft.net>
-References: <Xine.LNX.4.44.0411181158110.5096-100000@thoron.boston.redhat.com>
-	<Xine.LNX.4.44.0411181219590.5236-100000@thoron.boston.redhat.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH] MII bus API for PHY devices
+Date: Fri, 19 Nov 2004 10:26:31 +1100
+Message-ID: <1100820391.25521.14.camel@gaston>
+References: <069B6F33-341C-11D9-9652-000393DBC2E8@freescale.com>
+	 <9B0D9272-398A-11D9-96F6-000393C30512@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: chrisw@osdl.org, ross.axe@blueyonder.co.uk, netdev@oss.sgi.com,
-        sds@epoch.ncsc.mil, linux-kernel@vger.kernel.org
+Cc: jason.mcmullan@timesys.com, netdev@oss.sgi.com,
+        Linux Kernel list <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: James Morris <jmorris@redhat.com>
-In-Reply-To: <Xine.LNX.4.44.0411181219590.5236-100000@thoron.boston.redhat.com>
+To: Andy Fleming <afleming@freescale.com>
+In-Reply-To: <9B0D9272-398A-11D9-96F6-000393C30512@freescale.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 18 Nov 2004 12:25:21 -0500 (EST)
-James Morris <jmorris@redhat.com> wrote:
+On Thu, 2004-11-18 at 11:52 -0600, Andy Fleming wrote:
 
-> Updated patch below (with Chris Wright's wrapper idea).
-> 
-> This now fixes both issues.
-> 
-> 1) Don't call security_unix_may_send() hook during sendmsg() for 
-> SOCK_SEQPACKET, and ensure that sendmsg() can only be called on a 
-> connected socket so as not to bypass the security_unix_stream_connect() 
-> hook.
-> 
-> 2) Return -EINVAL if sendto() is called on SOCK_SEQPACKET with an address 
-> supplied.
-> 
-> Please review and apply if ok.
-> 
-> 
-> Signed-off-by: James Morris <jmorris@redhat.com>
+> 1) How should we pass initialization information from the system to the 
+> bus.  Information like which irq to use for each PHY, and what the 
+> address space for the bus's controls is.  I would like to enforce 
+> encapsulation so that the ethernet drivers don't need to know this 
+> information, or pass it to the bus.
 
-Looks good, applied thanks James.
+Unfortunately, this is all quite platform specific and the ethernet
+driver may be the only one to know what to do here... add to that
+various special cases of the way the PHY is wired or controlled, I think
+we can't completely avoid special casing...
+
+> 2) How should we reflect the dependency of the ethernet driver on the 
+> mii bus driver?
+
+The ethernet driver can instanciate the PHYs at it's childs, though the
+case of several MACs sharing PHYs will be difficult to represent...
+
+> 3) How should we bind ethernet drivers to PHY drivers?
+
+I would have them instanciated by the ethernet driver. Besides, the PHY
+driver will need to be able to identify it's "parent" driver in some
+ways to deal with special cases. It would be nice to have a library of
+utility code to independently deal with link tracking (basically what
+drivers like sungem do independently), with a callback to the ethernet
+driver to inform it of actual changes (notifier ?). MACs often have
+autopoll features and PHY often have interrupts, but from experience,
+that's not very useful and a good old timer based polling tend to do a
+better job most of the time.
+
+> Oh, and a 4th side-issue:
+> Should each PHY have its own file?  Or should we dump all the PHY 
+> drivers in one file?  And if so, should THAT file be separate from the 
+> mii bus implementation file?
+
+I'd put all bcm5xxx in the same file ... they can be put together by
+families...
+
+Also, 
