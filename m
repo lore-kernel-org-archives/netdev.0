@@ -1,29 +1,47 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: Intel and TOE in the news
-Date: Mon, 21 Feb 2005 14:28:44 +0100
-Message-ID: <20050221132844.GU31837@postel.suug.ch>
-References: <20050220230713.GA62354@muc.de> <200502210332.j1L3WkDD014744@guinness.s2io.com> <20050221115006.GB87576@muc.de>
+From: Baruch Even <baruch@ev-en.org>
+Subject: Re: many outgoing tcp sockets are slower than a few
+Date: Mon, 21 Feb 2005 13:59:19 +0000
+Message-ID: <4219E937.6030108@ev-en.org>
+References: <421925DB.2060602@rapidforum.com> <42192AAF.8020609@us.ibm.com> <42192CD5.5090401@rapidforum.com> <20050221090121.GA7478@outpost.ds9a.nl> <4219B99E.1000603@rapidforum.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Leonid Grossman <leonid.grossman@neterion.com>,
-        "'rick jones'" <rick.jones2@hp.com>, netdev@oss.sgi.com,
-        "'Alex Aizman'" <alex@neterion.com>
-To: Andi Kleen <ak@muc.de>
-Content-Disposition: inline
-In-Reply-To: <20050221115006.GB87576@muc.de>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: bert hubert <ahu@ds9a.nl>, Nivedita Singhvi <niv@us.ibm.com>,
+        netdev@oss.sgi.com
+To: Christian Schmid <webmaster@rapidforum.com>
+In-Reply-To: <4219B99E.1000603@rapidforum.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Andi Kleen <20050221115006.GB87576@muc.de> 2005-02-21 12:50
-> The main problem is that someone has to go through all the protocol layers
-> and make sure they can process lists. Also it needs careful handling
-> in netfilter.
+Christian Schmid wrote:
+> bert hubert wrote:
+> 
+>> On Mon, Feb 21, 2005 at 01:35:33AM +0100, Christian Schmid wrote:
+> Outgoing data. I am using sendfile() to send the file on a non-blocking 
+> socket but the call blocks for 100 ms per socket if I get over 3000 
+> sockets. Thats causing the massive slowdown in sum. I first thought its 
+> a disk-issue but I tried with pure-cache data as well and it still blocks.
+> 
+>>> 3000 sockets = no slowdown at all (500 MBit in use)
+>>> 3300 sockets = 10% slowdown
+>>> 3600 sockets = 30% slowdown
+>>> 4000 sockets = 60% slowdown (i aborted here, as it only uses 200 MBit 
+>>> for sending... catastrophy!)
+>>>
+[snip]
+>> I'm a bit confused, it is a download service so you are probably 
+>> *sending*
+>> data? 
+> 
+> Only sending. Receiving ACKs of course.
 
-Special handling is also required for the ingress qdisc. The classifiers
-or tc_classify() must be changed to iterate over the lists and unlink
-the skbs if one of them is to be dropped. The mirred action must probably
-split the list after cloning the skbs. Given the lists are session based
-all session based qdiscs could benefit from this and enqueue/dequeue the
-lists rather than single skbs. Other qdiscs would have to split the lists
-but could return a new list upon dequeue.
+I've been doing some work to improve ACK performance, you can find some 
+patches for Linux 2.6.6 at http://hamilton.ie/net/
+
+I've only tested these patches for a single (or few) very fast 
+connections, but I'd expect the problem might manifest itself for a very 
+large number of connections as well. Though then you might hit other 
+bottlenecks (memory access for different structures).
+
+Baruch
