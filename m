@@ -1,35 +1,58 @@
-From: Jeroen Vreeken <pe1rxq@amsat.org>
-Subject: Re: [PATCH] ax25 & netrom fixes for 2.6
-Date: Tue, 12 Aug 2003 23:09:51 +0200
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [Bonding-devel] Re: [SET 2][PATCH 2/8][bonding] Propagating
+	master's settings toslaves
+Date: 11 Aug 2003 22:33:31 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030812230951.E28977@jeroen.pe1rxq.ampr.org>
-References: <20030812194653.A28977@jeroen.pe1rxq.ampr.org> <20030812135655.7334887b.shemminger@osdl.org>
+Message-ID: <1060655610.1029.53.camel@jzny.localdomain>
+References: <200308112141.h7BLftpS015012@death.ibm.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: Jeroen Vreeken <pe1rxq@amsat.org>, linux-hams@vger.kernel.org,
-   ralf@linux-mips.org, davem@redhat.com, netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>, shmulik.hen@intel.com,
+   Laurent DENIEL <laurent.deniel@thalesatm.com>,
+   bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20030812135655.7334887b.shemminger@osdl.org>; from shemminger@osdl.org on Tue, Aug 12, 2003 at 22:56:55 +0200
+To: Jay Vosburgh <fubar@us.ibm.com>
+In-Reply-To: <200308112141.h7BLftpS015012@death.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 2003.08.12 22:56:55 +0200 Stephen Hemminger wrote:
-> It looks like af_x25 is advertising itself as a new style protocol, yet
-> if
-> I walk the receive path:
-> 	ax25_kiss_rcv -> ax25_rcv -> ax25_addr_parse
-> there is no place that checks that the address portion of the buffer
-> isn't fragmented
-> into a non_linear skb.
+On Mon, 2003-08-11 at 17:41, Jay Vosburgh wrote: 
+> 	Anyway, for most of the core bonding failover logic, I don't
+> see how a user space daemon implementation can perform equivalently to
+> a kernel-only implementation.  I could be wrong (I haven't done any
+> testing) but for the core "eth0 is dead, enable eth1" type stuff, it
+> seems to me that in-kernel beats "user space yakking with kernel" for
+> reliability and speed, particularly on heavily loaded systems.
 
-Since at the moment the only zero-copy path I can imagine is from packets
-over a bpq ethernet device wouldn't it be the easiest to just check at
-ax25_rcv() for non-linear packets and call skb_linearize() for them? That
-way we would be safe untill we can make sure that the whole of the ax25
-stack is non-linear safe?
-Should I make a new patch with this included? (and possibly the ifconfig
-problem you mentioned?)
+for "Eth0 dead migrate activity to eth1" thing - i claim thats basic.
+Leave it in the kernel.
 
-Jeroen
+> 	Now, that said, I can see a use for a user space monitoring /
+> control program, for the "strategic" problems (as opposed to the
+> "tactical" problems, like the previous paragraph).  If we want to,
+> e.g., monitor bandwidth usage and add or remove links from the
+> aggregation, that is (a) not as time critical, and (b) somewhat
+> fuzzier in definition.  Such a user space program could also interface
+> with various system management or HA thingies and report status for
+> its activities as well as the activities that bonding performs
+> independent of it.
+
+Now thats an interesting app. Bandwidth on demand. Probabaly also bring
+down the number of links when they are not being used.
+Imagine if you had to push this to the kernel.
+
+> 	One thought I've had (which dovetails somewhat with an earlier
+> comment from Laurent) is a tcpdump/bpf-style "policy engine" blob in
+> the kernel, which is programmed from user space with enough brains to
+> handle the "tactical" level problems (the "strategic" problems might
+> be more than such a blob could handle, and if its easy enough to yak
+> with user space for those problems, it may not be necessary).  I
+> haven't done much more than think about this, though; it may very well
+> be overkill for the basic stuff.
+
+It exists. It's called netlink.
+
+cheers,
+jamal
