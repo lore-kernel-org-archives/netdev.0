@@ -1,57 +1,34 @@
-From: Alex Pankratov <ap@swapped.cc>
-Subject: Re: ENOBUFS and dev_queue_xmit()
-Date: Tue, 15 Jun 2004 08:39:27 -0700
+From: Don Fry <brazilnut@us.ibm.com>
+Subject: Re: Ethernet MAC address question
+Date: Tue, 15 Jun 2004 08:38:19 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40CF182F.4060401@swapped.cc>
-References: <40CE818C.2090906@swapped.cc> <1087304060.1043.72.camel@jzny.localdomain>
+Message-ID: <200406151538.i5FFcJ720553@localhost.localdomain>
+References: <20040615095817.GA16523@projectcolo.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1087304060.1043.72.camel@jzny.localdomain>
+To: broonie@sirena.org.uk (Mark Brown)
+In-Reply-To: <20040615095817.GA16523@projectcolo.org.uk> from "Mark Brown" at Jun 15, 2004 10:58:17 AM
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
+So how does the driver distinguish between a valid, but incorrect MAC
+address, and the 'correct' MAC address?  The incorrect one that is the
+value that just happened to be in the uninitialized volatile registers,
+and the correct address which some magic platform means loaded into the
+same, but this time initialized, volatile registers.
 
-> On Tue, 2004-06-15 at 00:56, Alex Pankratov wrote:
+> > However there are a few cases where some magic platform means loads the 
+> > MAC address into the (volatile) MAC address registers, and that's the 
+> > only source of an accurate MAC address for those people.
 > 
->>I've been poking around rather weird problem today where send()
-
-[snip]
-
->>meaning that the device's queue was stopped. The comment there
->>implies that only a broken virtual device may end up $here,
-> 
-> 
-> How did you end up there with a real phy device?? Are you trying to
-> circumvent the qdisc subsystem? If yes, you are responsible for how
-> all this gets handled.
-
-Now that I looked at dev.c code again I ask myself the very same
-questions :) I am not circumventing qdisc, at least intentionally,
-and I don't do anything fancy with dev->qdisc. It must be a bug
-due to some of my changes, ignore the original question. Thanks
-for your help.
-
->>
->>Is this a known (pseudo?) issue ? ENOBUFS makes much more sense
->>in this context. I can certainly check interface status (IFF_UP)
->>on every ENETDOWN to see what's the real cause, but that's kind
->>of ugly.
-> 
-> Did you mean when no space is left in the ring? Thats different
-> from ENOBUFF. If not, not sure i see how a driver xmit path gets
-> involved in kmallocing.
-> Look at the return code the driver returns. In case of a full ring, it
-> should return a busy signal and the top layer will retry later.
-> You dont have to worry about any of that if you are running the 
-> std linux semantics, of course. I have a feeling you have attempted to
-> bypass it otherwise the question becomes: how you even ended in this
-> situation. 
+> This is reasonably common on embedded systems - often there won't be
+> SEPROMs for individual devices and the MAC address will be stored in
+> flash or similar and read by the bootloader.
 > 
 
-I'm pretty sure you're right about breaking the semantics. I'll check
-it out, and re-complain if it's not my problem. Thanks again.
+-- 
+Don Fry
+brazilnut@us.ibm.com
