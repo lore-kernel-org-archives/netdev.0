@@ -1,37 +1,38 @@
-From: Ben Greear <greearb@candelatech.com>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
 Subject: Re: [PATCH,pktgen] account for preamble and inter-packet gap
-Date: Sun, 28 Nov 2004 19:21:31 -0800
-Message-ID: <41AA95BB.7060400@candelatech.com>
-References: <20041128213251.GA9330@xi.wantstofly.org>
+Date: Mon, 29 Nov 2004 07:37:42 +0100
+Message-ID: <20041129063742.GA14493@xi.wantstofly.org>
+References: <20041128213251.GA9330@xi.wantstofly.org> <41AA95BB.7060400@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: robert.olsson@data.slu.se, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-In-Reply-To: <20041128213251.GA9330@xi.wantstofly.org>
+To: Ben Greear <greearb@candelatech.com>
+Content-Disposition: inline
+In-Reply-To: <41AA95BB.7060400@candelatech.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Lennert Buytenhek wrote:
-> Hi!
+On Sun, Nov 28, 2004 at 07:21:31PM -0800, Ben Greear wrote:
+
+> >If you account for the Frame Check Sequence when computing bandwidth
+> >stats, it's only fair that you count the preamble and inter-packet gap
+> >as well.  Suggested patch attached.
 > 
-> If you account for the Frame Check Sequence when computing bandwidth
-> stats, it's only fair that you count the preamble and inter-packet gap
-> as well.  Suggested patch attached.
+> a) When an ethernet NIC claims 100Mbps, does this count the preamble and 
+> IPG?
 
-a) When an ethernet NIC claims 100Mbps, does this count the preamble and IPG?
+Yes.  That's how we arrive at the 148kpps 'max pps for fast ethernet'
+figure -- 100000000 bits per second, each packet taking 8*(8+60+4+12)
+bits on the wire.
 
-b) Or, can send and receive 100Mbps of data by only counting
-    the ethernet header + payload + CRC?
+Another person suggested in private that what I'm after is properly
+called '% utilization'.  It might not be possible to determine the
+speed of the physical medium though.
 
-If b is true, then I definately would not want to see the IPG and preamble
-counted.  If a is true, then I still don't want it counted, but I would
-agree that it is worth considering :)
+In either case, it seems wrong to count the FCS but not the preamble/IPG.
+Maybe it's more appropriate to remove the FCS from the calculations.
 
-Ben
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+--L
