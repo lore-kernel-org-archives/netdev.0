@@ -1,59 +1,77 @@
-From: =?ISO-8859-2?Q?Micha=B3_Margula?= <alchemyx@uznam.net.pl>
-Subject: Re: Fw: [Bugme-new] [Bug 3746] New: Bridge causes machine lockups
-Date: Mon, 15 Nov 2004 22:57:50 +0100
-Message-ID: <4199265E.7030404@uznam.net.pl>
-References: <20041115122046.1413527e.akpm@osdl.org>	<200411152146.02851.bdschuym@pandora.be> <20041115124843.4c3dd72f.akpm@osdl.org>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 2.6.9-rc2 12/12] S2io: styling
+Date: Mon, 15 Nov 2004 17:34:00 -0500
+Message-ID: <41992ED8.7080906@pobox.com>
+References: <000e01c4cb5b$20018710$9810100a@S2IOtech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2; format=flowed
-Content-Transfer-Encoding: quoted-printable
-Cc: Bart De Schuymer <bdschuym@pandora.be>, netdev@oss.sgi.com
+Content-Type: multipart/mixed;
+ boundary="------------030709010805020108030200"
+Cc: raghavendra.koushik@s2io.com, romieu@fr.zoreil.com, netdev@oss.sgi.com,
+        leonid.grossman@s2io.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20041115124843.4c3dd72f.akpm@osdl.org>
+To: ravinandan.arakali@s2io.com
+In-Reply-To: <000e01c4cb5b$20018710$9810100a@S2IOtech.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton napisa=B3(a):
+This is a multi-part message in MIME format.
+--------------030709010805020108030200
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
->Originator added to Cc..
->
->Bart De Schuymer <bdschuym@pandora.be> wrote:
-> =20
->
->>Can you do something similar with iptables rules to see if it's specifi=
-c to=20
->>ebtables (which I doubt)?
->>
->>   =20
->>
-OK. Done. I have tried to mimic ebtables rules as similar as possible.=20
-Only difference is that iptables module mac has only --mac-source=20
-option. Now I need to wait about 24 to 48 hours, to see if everything is=20
-OK. I will tell you as soon I have more information.
+Ravinandan Arakali wrote:
+> Jeff,
+> We received couple of comments from Krishna Kumar. Other than that
+> we are waiting for further comments. If there are no other, we can
+> submit one final patch to address Krishna Kumar's comments.
+> 
+> In one of your earlier mails(on 10/28), you mentioned "patches pass 
+> review".
+> Pls let us know.
 
->>>The only weird thing I noticed is when I initalise my bridge, is somet=
-hing
->>>about that it can't get speed of some interfaces (guessing it is about
->>>e1000). I can't give you full error message at the moment, because tho=
-se
->>>have been rotated by logrotate.
->>>     =20
->>>
->>I don't know what that is about...
->>
->>   =20
->>
+See attached for the list of patches I've applied.
 
-Found it in kernel sources, it was giving error from line 62 of=20
-net/bridge/br_if.c:
+If I am missing any, please let me know.
 
-pr_info("bridge: can't decode speed from %s: %d\n",
-                                dev->name, ecmd.speed);
+	Jeff
 
-Thanks!
 
---=20
 
-Micha=B3 Margula, alchemyx@uznam.net.pl, http://alchemyx.uznam.net.pl/
-"W =BFyciu pi=EAkne s=B1 tylko chwile" [Ryszard Riedel]
+--------------030709010805020108030200
+Content-Type: text/plain;
+ name="linus.txt"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="linus.txt"
+
+Please do a
+
+	bk pull bk://gkernel.bkbits.net/s2io
+
+This will update the following files:
+
+ drivers/net/Kconfig     |   11 
+ drivers/net/s2io-regs.h |    3 
+ drivers/net/s2io.c      | 3114 ++++++++++++++++++++++++++++--------------------
+ drivers/net/s2io.h      |  295 ++--
+ 4 files changed, 2018 insertions(+), 1405 deletions(-)
+
+through these ChangeSets:
+
+<raghavendra.koushik:s2io.com>:
+  o S2io: styling
+  o S2io: modified loadable parameters
+  o S2io: 2 buffer mode with copy
+  o S2io: new functions for card restart
+  o S2io: two buffer mode
+  o S2io: NAPI fix
+  o S2io: new txd allocation
+  o S2io: module loadable parameters
+  o S2io: hardware fixes
+  o S2io: optimizations
+  o S2io: sw bug fixes
+  o S2io: cosmetic changes
+
+
+--------------030709010805020108030200--
