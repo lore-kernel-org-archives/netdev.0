@@ -1,62 +1,80 @@
-From: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
-Subject: [patch 8/8 2.5] e1000 - White space changes, driver version number
- update and others
-Date: Fri, 17 Sep 2004 02:58:29 -0700 (PDT)
+From: "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>
+Subject: RE: [PATCH][resend] Update e1000 to use module_param()
+Date: Fri, 17 Sep 2004 03:05:00 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0409170239280.15233-100000@isotope.jf.intel.com>
+Message-ID: <468F3FDA28AA87429AD807992E22D07E028C8E99@orsmsx408>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: ganesh.venkatesan@intel.com, <netdev@oss.sgi.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8bit
+Cc: <jgarzik@pobox.com>, <netdev@oss.sgi.com>, <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jgarzik@pobox.com
+Content-class: urn:content-classes:message
+To: "Roland Dreier" <roland@topspin.com>, "cramerj" <cramerj@intel.com>,
+        "Ronciak, John" <john.ronciak@intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-diff -up linux-2.5/drivers/net/e1000/e1000_ethtool.c linux-2.5/drivers/net/e1000.new/e1000_ethtool.c
---- linux-2.5/drivers/net/e1000/e1000_ethtool.c	2004-09-09 11:17:11.000000000 -0700
-+++ linux-2.5/drivers/net/e1000.new/e1000_ethtool.c	2004-09-09 11:17:12.000000000 -0700
-@@ -637,7 +637,6 @@ err_setup_rx:
- 	return err;
- }
+Roland:
+
+Thanks for the patch. Based on some feedback from the community we had
+developed a patch several weeks ago. We just submitted the patch. Please
+let me know if you see any issues with it.
+
+Thanks,
+Ganesh.
+
+-----Original Message-----
+From: Roland Dreier [mailto:roland@topspin.com] 
+Sent: Thursday, September 16, 2004 9:37 AM
+To: cramerj; Ronciak, John; Venkatesan, Ganesh
+Cc: jgarzik@pobox.com; netdev@oss.sgi.com; linux-kernel@vger.kernel.org
+Subject: [PATCH][resend] Update e1000 to use module_param()
+
+(resending because this seems to have been lost; e1000 still has mixed
+MODULE_PARM and module_param use)
+
+The change to e1000_main.c in
+
+    ChangeSet@1.1722.32.6, 2004-05-27 13:44:06-04:00,
+ganesh.venkatesan@intel.com
+      [PATCH] e1000 7/7: Support for ethtool msglevel based error
+
+added module_param(debug, ...) to e1000_main.c.  Since e1000_param.c
+still uses MODULE_PARM(), this means that one gets
+
+    e1000: Ignoring new-style parameters in presence of obsolete ones
+
+when e1000 is loaded, so the debug parameter cannot even be set.
+
+The patch below fixes this by updating e1000_param.c to use
+module_param() as well.  Since module_param might make the parameters
+visible in sysfs, I removed the __devinitdata notation from the
+parameter arrays as well, just to be safe.
+
+Thanks,
+  Roland
+
+Signed-off-by: Roland Dreier <roland@topspin.com>
+
+Index: linux-2.6.8.1/drivers/net/e1000/e1000_param.c
+===================================================================
+--- linux-2.6.8.1.orig/drivers/net/e1000/e1000_param.c	2004-08-14
+03:55:48.000000000 -0700
++++ linux-2.6.8.1/drivers/net/e1000/e1000_param.c	2004-08-15
+08:16:31.109671753 -0700
+@@ -55,9 +55,11 @@
+  * over and over (plus this helps to avoid typo bugs).
+  */
  
--
- #define REG_PATTERN_TEST(R, M, W)                                              \
- {                                                                              \
- 	uint32_t pat, value;                                                   \
-diff -up linux-2.5/drivers/net/e1000/e1000.h linux-2.5/drivers/net/e1000.new/e1000.h
---- linux-2.5/drivers/net/e1000/e1000.h	2004-09-09 11:17:11.000000000 -0700
-+++ linux-2.5/drivers/net/e1000.new/e1000.h	2004-09-09 11:17:12.000000000 -0700
-@@ -75,6 +75,8 @@
- #define BAR_0		0
- #define BAR_1		1
- #define BAR_5		5
-+#define PCI_DMA_64BIT	0xffffffffffffffffULL
-+#define PCI_DMA_32BIT	0x00000000ffffffffULL
++static int param_count;
++
+ #define E1000_PARAM(X, S) \
+-static const int __devinitdata X[E1000_MAX_NIC + 1] = E1000_PARAM_INIT;
+\
+-MODULE_PARM(X, "1-" __MODULE_STRING(E1000_MAX_NIC) "i"); \
++static int X[E1000_MAX_NIC + 1] = E1000_PARAM_INIT; \
++module_param_array(X, int, param_count, 0); \
+ MODULE_PARM_DESC(X, S);
  
- #define INTEL_E1000_ETHERNET_DEVICE(device_id) {\
- 	PCI_DEVICE(PCI_VENDOR_ID_INTEL, device_id)}
-diff -up linux-2.5/drivers/net/e1000/e1000_main.c linux-2.5/drivers/net/e1000.new/e1000_main.c
---- linux-2.5/drivers/net/e1000/e1000_main.c	2004-09-09 11:17:11.000000000 -0700
-+++ linux-2.5/drivers/net/e1000.new/e1000_main.c	2004-09-09 11:17:12.000000000 -0700
-@@ -48,7 +48,7 @@ char e1000_driver_string[] = "Intel(R) P
- #else
- #define DRIVERNAPI "-NAPI"
- #endif
--char e1000_driver_version[] = "5.3.19-k2"DRIVERNAPI;
-+char e1000_driver_version[] = "5.4.11"DRIVERNAPI;
- char e1000_copyright[] = "Copyright (c) 1999-2004 Intel Corporation.";
- 
- /* e1000_pci_tbl - PCI Device ID Table
-@@ -386,10 +386,10 @@ e1000_probe(struct pci_dev *pdev,
- 	if((err = pci_enable_device(pdev)))
- 		return err;
- 
--	if(!(err = pci_set_dma_mask(pdev, DMA_64BIT_MASK))) {
-+	if(!(err = pci_set_dma_mask(pdev, PCI_DMA_64BIT))) {
- 		pci_using_dac = 1;
- 	} else {
--		if((err = pci_set_dma_mask(pdev, DMA_32BIT_MASK))) {
-+		if((err = pci_set_dma_mask(pdev, PCI_DMA_32BIT))) {
- 			E1000_ERR("No usable DMA configuration, aborting\n");
- 			return err;
- 		}
+ /* Transmit Descriptor Count
