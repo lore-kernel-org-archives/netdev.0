@@ -1,7 +1,7 @@
 From: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
-Subject: [PATCH 2.6 9/9] ixgb: White space/driver version number update
-Date: Thu, 6 Jan 2005 17:26:32 -0800 (PST)
-Message-ID: <Pine.LNX.4.44.0501061556250.7330-100000@isotope.jf.intel.com>
+Subject: [PATCH 2.6 8/9] ixgb: Support for 2.6.x style module parameters
+Date: Thu, 6 Jan 2005 17:26:26 -0800 (PST)
+Message-ID: <Pine.LNX.4.44.0501061555280.7330-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev <netdev@oss.sgi.com>
@@ -12,117 +12,260 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
-diff -up net-drivers-2.6/drivers/net/ixgb/ixgb_main.c net-drivers-2.6/drivers/net/ixgb.new/ixgb_main.c
---- net-drivers-2.6/drivers/net/ixgb/ixgb_main.c	2005-01-05 17:13:27.000000000 -0800
-+++ net-drivers-2.6/drivers/net/ixgb.new/ixgb_main.c	2005-01-05 17:13:29.000000000 -0800
-@@ -35,7 +35,7 @@ char ixgb_driver_string[] = "Intel(R) PR
- #else
- #define DRIVERNAPI "-NAPI"
- #endif
--char ixgb_driver_version[] = "1.0.82-k2"DRIVERNAPI;
-+char ixgb_driver_version[] = "1.0.87-k2"DRIVERNAPI;
- char ixgb_copyright[] = "Copyright (c) 1999-2004 Intel Corporation.";
+diff -up net-drivers-2.6/drivers/net/ixgb/ixgb_param.c net-drivers-2.6/drivers/net/ixgb.new/ixgb_param.c
+--- net-drivers-2.6/drivers/net/ixgb/ixgb_param.c	2005-01-05 18:01:29.000000000 -0800
++++ net-drivers-2.6/drivers/net/ixgb.new/ixgb_param.c	2005-01-05 18:01:31.000000000 -0800
+@@ -38,27 +38,17 @@
+ #define OPTION_DISABLED 0
+ #define OPTION_ENABLED  1
  
- /* ixgb_pci_tbl - PCI Device ID Table
-@@ -62,8 +62,6 @@ MODULE_DEVICE_TABLE(pci, ixgb_pci_tbl);
+-/* Module Parameters are always initialized to -1, so that the driver
+- * can tell the difference between no user specified value or the
+- * user asking for the default value.
+- * The true default values are loaded in when ixgb_check_options is called.
+- *
+- * This is a GCC extension to ANSI C.
+- * See the item "Labeled Elements in Initializers" in the section
+- * "Extensions to the C Language Family" of the GCC documentation.
+- */
+-
+-#define IXGB_PARAM_INIT { [0 ... IXGB_MAX_NIC] = OPTION_UNSET }
+-
+ /* All parameters are treated the same, as an integer array of values.
+  * This macro just reduces the need to repeat the same declaration code
+  * over and over (plus this helps to avoid typo bugs).
+  */
  
- /* Local Function Prototypes */
+-#define IXGB_PARAM(X, S) \
+-static const int __devinitdata X[IXGB_MAX_NIC + 1] = IXGB_PARAM_INIT; \
+-MODULE_PARM(X, "1-" __MODULE_STRING(IXGB_MAX_NIC) "i"); \
+-MODULE_PARM_DESC(X, S);
++#define IXGB_PARAM_INIT { [0 ... IXGB_MAX_NIC] = OPTION_UNSET }
++#define IXGB_PARAM(X, desc) \
++	static int __devinitdata X[IXGB_MAX_NIC+1] = IXGB_PARAM_INIT; \
++	static int num_##X = 0; \
++	module_param_array_named(X, X, int, &num_##X, 0); \
++	MODULE_PARM_DESC(X, desc);
  
--static inline void ixgb_irq_disable(struct ixgb_adapter *adapter);
--static inline void ixgb_irq_enable(struct ixgb_adapter *adapter);
- int ixgb_up(struct ixgb_adapter *adapter);
- void ixgb_down(struct ixgb_adapter *adapter, boolean_t kill_watchdog);
- void ixgb_reset(struct ixgb_adapter *adapter);
-@@ -93,9 +94,6 @@ static void ixgb_clean_rx_ring(struct ix
- static int ixgb_set_mac(struct net_device *netdev, void *p);
- static irqreturn_t ixgb_intr(int irq, void *data, struct pt_regs *regs);
- static boolean_t ixgb_clean_tx_irq(struct ixgb_adapter *adapter);
--static inline void ixgb_rx_checksum(struct ixgb_adapter *adapter,
--				    struct ixgb_rx_desc *rx_desc,
--				    struct sk_buff *skb);
- #ifdef CONFIG_IXGB_NAPI
- static int ixgb_clean(struct net_device *netdev, int *budget);
- static boolean_t ixgb_clean_rx_irq(struct ixgb_adapter *adapter,
-@@ -107,14 +94,12 @@ 
- void set_ethtool_ops(struct net_device *netdev);
- static void ixgb_tx_timeout(struct net_device *dev);
- static void ixgb_tx_timeout_task(struct net_device *dev);
--static void ixgb_vlan_rx_register(struct net_device *netdev,
--				  struct vlan_group *grp);
-+static void ixgb_vlan_rx_register(struct net_device *netdev, struct vlan_group *grp);
- static void ixgb_vlan_rx_add_vid(struct net_device *netdev, uint16_t vid);
- static void ixgb_vlan_rx_kill_vid(struct net_device *netdev, uint16_t vid);
- static void ixgb_restore_vlan(struct ixgb_adapter *adapter);
- 
--static int ixgb_notify_reboot(struct notifier_block *, unsigned long event,
--			      void *ptr);
-+static int ixgb_notify_reboot(struct notifier_block *, unsigned long event, void *ptr);
- static int ixgb_suspend(struct pci_dev *pdev, uint32_t state);
- 
- #ifdef CONFIG_NET_POLL_CONTROLLER
-@@ -198,7 +191,8 @@ module_exit(ixgb_exit_module);
-  * @adapter: board private structure
-  **/
- 
--static inline void ixgb_irq_disable(struct ixgb_adapter *adapter)
-+static inline void
-+ixgb_irq_disable(struct ixgb_adapter *adapter)
- {
- 	atomic_inc(&adapter->irq_sem);
- 	IXGB_WRITE_REG(&adapter->hw, IMC, ~0);
-@@ -211,7 +221,8 @@ static inline void ixgb_irq_disable(stru
-  * @adapter: board private structure
-  **/
- 
--static inline void ixgb_irq_enable(struct ixgb_adapter *adapter)
-+static inline void
-+ixgb_irq_enable(struct ixgb_adapter *adapter)
- {
- 	if (atomic_dec_and_test(&adapter->irq_sem)) {
- 		IXGB_WRITE_REG(&adapter->hw, IMS,
-@@ -706,11 +701,11 @@ ixgb_configure_tx(struct ixgb_adapter *a
- 
- 	/* don't set up txdctl, it induces performance problems if
- 	 * configured incorrectly
--	 txdctl  = TXDCTL_PTHRESH_DEFAULT; // prefetch txds below this threshold
--	 txdctl |= (TXDCTL_HTHRESH_DEFAULT // only prefetch if there are this many ready
--	 << IXGB_TXDCTL_HTHRESH_SHIFT);
--	 IXGB_WRITE_REG (hw, TXDCTL, txdctl);
--	 */
-+	txdctl  = TXDCTL_PTHRESH_DEFAULT; // prefetch txds below this threshold
-+	txdctl |= (TXDCTL_HTHRESH_DEFAULT // only prefetch if there are this many ready
-+			   << IXGB_TXDCTL_HTHRESH_SHIFT);
-+	IXGB_WRITE_REG (hw, TXDCTL, txdctl);
-+	*/
- 
- 	/* Set the Tx Interrupt Delay register */
- 
-@@ -1634,7 +1629,7 @@ ixgb_intr(int irq, void *data, struct pt
- 		*/
- 
- 		atomic_inc(&adapter->irq_sem);
--		IXGB_WRITE_REG(hw, IMC, ~0);
-+		IXGB_WRITE_REG(&adapter->hw, IMC, ~0);
- 		__netif_rx_schedule(netdev);
+ /* Transmit Descriptor Count
+  *
+@@ -275,7 +265,6 @@ ixgb_check_options(struct ixgb_adapter *
+ 		printk(KERN_NOTICE
+ 			   "Warning: no configuration for board #%i\n", bd);
+ 		printk(KERN_NOTICE "Using defaults for all values\n");
+-		bd = IXGB_MAX_NIC;
  	}
- #else
-@@ -1754,8 +1795,8 @@ ixgb_clean_tx_irq(struct ixgb_adapter *a
- 	/* Ignore Checksum bit is set OR
- 	 * TCP Checksum has not been calculated
- 	 */
--	if ((rx_desc->status & IXGB_RX_DESC_STATUS_IXSM) ||
--	    (!(rx_desc->status & IXGB_RX_DESC_STATUS_TCPCS))) {
-+	if((rx_desc->status & IXGB_RX_DESC_STATUS_IXSM) ||
-+	   (!(rx_desc->status & IXGB_RX_DESC_STATUS_TCPCS))) {
- 		skb->ip_summed = CHECKSUM_NONE;
- 		return;
- 	}
-@@ -1762,7 +1795,7 @@ 
  
- 	/* At this point we know the hardware did the TCP checksum */
- 	/* now look at the TCP checksum error bit */
--	if (rx_desc->errors & IXGB_RX_DESC_ERRORS_TCPE) {
-+	if(rx_desc->errors & IXGB_RX_DESC_ERRORS_TCPE) {
- 		/* let the stack verify checksum errors */
- 		skb->ip_summed = CHECKSUM_NONE;
- 		adapter->hw_csum_rx_error++;
+ 	{ /* Transmit Descriptor Count */
+@@ -289,8 +278,12 @@ ixgb_check_options(struct ixgb_adapter *
+ 		};
+ 		struct ixgb_desc_ring *tx_ring = &adapter->tx_ring;
+ 
+-		tx_ring->count = TxDescriptors[bd];
+-		ixgb_validate_option(&tx_ring->count, &opt);
++		if (num_TxDescriptors > bd) {
++			tx_ring->count = TxDescriptors[bd];
++			ixgb_validate_option(&tx_ring->count, &opt);
++		} else {
++			tx_ring->count = opt.def;
++		}
+ 		IXGB_ROUNDUP(tx_ring->count, IXGB_REQ_TX_DESCRIPTOR_MULTIPLE);
+ 	}
+ 	{ /* Receive Descriptor Count */
+@@ -304,8 +297,12 @@ ixgb_check_options(struct ixgb_adapter *
+ 		};
+ 		struct ixgb_desc_ring *rx_ring = &adapter->rx_ring;
+ 
+-		rx_ring->count = RxDescriptors[bd];
+-		ixgb_validate_option(&rx_ring->count, &opt);
++		if (num_RxDescriptors > bd) {
++			rx_ring->count = RxDescriptors[bd];
++			ixgb_validate_option(&rx_ring->count, &opt);
++		} else {
++			rx_ring->count = opt.def;
++		}
+ 		IXGB_ROUNDUP(rx_ring->count, IXGB_REQ_RX_DESCRIPTOR_MULTIPLE);
+ 	}
+ 	{ /* Receive Checksum Offload Enable */
+@@ -316,9 +313,13 @@ ixgb_check_options(struct ixgb_adapter *
+ 			.def  = OPTION_ENABLED
+ 		};
+ 
+-		int rx_csum = XsumRX[bd];
+-		ixgb_validate_option(&rx_csum, &opt);
+-		adapter->rx_csum = rx_csum;
++		if (num_XsumRX > bd) {
++			int rx_csum = XsumRX[bd];
++			ixgb_validate_option(&rx_csum, &opt);
++			adapter->rx_csum = rx_csum;
++		} else {
++			adapter->rx_csum = opt.def;
++		}
+ 	}
+ 	{ /* Flow Control */
+ 
+@@ -338,23 +339,30 @@ ixgb_check_options(struct ixgb_adapter *
+ 					 .p = fc_list }}
+ 		};
+ 
+-		int fc = FlowControl[bd];
+-		ixgb_validate_option(&fc, &opt);
+-		adapter->hw.fc.type = fc;
++		if (num_FlowControl > bd) {
++			int fc = FlowControl[bd];
++			ixgb_validate_option(&fc, &opt);
++			adapter->hw.fc.type = fc;
++		} else {
++			adapter->hw.fc.type = opt.def;
++		}
+ 	}
+ 	{ /* Receive Flow Control High Threshold */
+ 		struct ixgb_option opt = {
+ 			.type = range_option,
+ 			.name = "Rx Flow Control High Threshold",
+-			.err =
+-			    "using default of " __MODULE_STRING(DEFAULT_FCRTH),
+-			.def = DEFAULT_FCRTH,
+-			.arg = {.r = {.min = MIN_FCRTH,
+-				      .max = MAX_FCRTH}}
++			.err  = "using default of " __MODULE_STRING(DEFAULT_FCRTH),
++			.def  = DEFAULT_FCRTH,
++			.arg  = { .r = { .min = MIN_FCRTH,
++					 .max = MAX_FCRTH}}
+ 		};
+ 
+-		adapter->hw.fc.high_water = RxFCHighThresh[bd];
+-		ixgb_validate_option(&adapter->hw.fc.high_water, &opt);
++		if (num_RxFCHighThresh > bd) {
++			adapter->hw.fc.high_water = RxFCHighThresh[bd];
++			ixgb_validate_option(&adapter->hw.fc.high_water, &opt);
++		} else {
++			adapter->hw.fc.high_water = opt.def;
++		}
+ 		if ( !(adapter->hw.fc.type & ixgb_fc_rx_pause) )
+ 			printk (KERN_INFO 
+ 				"Ignoring RxFCHighThresh when no RxFC\n");
+@@ -363,15 +371,18 @@ ixgb_check_options(struct ixgb_adapter *
+ 		struct ixgb_option opt = {
+ 			.type = range_option,
+ 			.name = "Rx Flow Control Low Threshold",
+-			.err =
+-			    "using default of " __MODULE_STRING(DEFAULT_FCRTL),
+-			.def = DEFAULT_FCRTL,
+-			.arg = {.r = {.min = MIN_FCRTL,
+-				      .max = MAX_FCRTL}}
++			.err  = "using default of " __MODULE_STRING(DEFAULT_FCRTL),
++			.def  = DEFAULT_FCRTL,
++			.arg  = { .r = { .min = MIN_FCRTL,
++					 .max = MAX_FCRTL}}
+ 		};
+ 
+-		adapter->hw.fc.low_water = RxFCLowThresh[bd];
+-		ixgb_validate_option(&adapter->hw.fc.low_water, &opt);
++		if (num_RxFCLowThresh > bd) {
++			adapter->hw.fc.low_water = RxFCLowThresh[bd];
++			ixgb_validate_option(&adapter->hw.fc.low_water, &opt);
++		} else {
++			adapter->hw.fc.low_water = opt.def;
++		}
+ 		if ( !(adapter->hw.fc.type & ixgb_fc_rx_pause) )
+ 			printk (KERN_INFO 
+ 				"Ignoring RxFCLowThresh when no RxFC\n");
+@@ -380,21 +391,22 @@ ixgb_check_options(struct ixgb_adapter *
+ 		struct ixgb_option opt = {
+ 			.type = range_option,
+ 			.name = "Flow Control Pause Time Request",
+-			.err =
+-			    "using default of "
+-			    __MODULE_STRING(DEFAULT_FCPAUSE),
+-			.def = DEFAULT_FCPAUSE,
+-			.arg = {.r = {.min = MIN_FCPAUSE,
+-				      .max = MAX_FCPAUSE}}
++			.err  = "using default of "__MODULE_STRING(DEFAULT_FCPAUSE),
++			.def  = DEFAULT_FCPAUSE,
++			.arg = { .r = { .min = MIN_FCPAUSE,
++					.max = MAX_FCPAUSE}}
+ 		};
+ 
+-		int pause_time = FCReqTimeout[bd];
+-
+-		ixgb_validate_option(&pause_time, &opt);
++		if (num_FCReqTimeout > bd) {
++			int pause_time = FCReqTimeout[bd];
++			ixgb_validate_option(&pause_time, &opt);
++			adapter->hw.fc.pause_time = pause_time;
++		} else {
++			adapter->hw.fc.pause_time = opt.def;
++		}
+ 		if ( !(adapter->hw.fc.type & ixgb_fc_rx_pause) )
+ 			printk (KERN_INFO 
+ 				"Ignoring FCReqTimeout when no RxFC\n");
+-		adapter->hw.fc.pause_time = pause_time;
+ 	}
+ 	/* high low and spacing check for rx flow control thresholds */
+ 	if (adapter->hw.fc.type & ixgb_fc_rx_pause) {
+@@ -412,28 +424,35 @@ ixgb_check_options(struct ixgb_adapter *
+ 		struct ixgb_option opt = {
+ 			.type = range_option,
+ 			.name = "Receive Interrupt Delay",
+-			.err = "using default of " __MODULE_STRING(DEFAULT_RDTR),
+-			.def = DEFAULT_RDTR,
+-			.arg = { .r = { .min = MIN_RDTR,
++			.err  = "using default of " __MODULE_STRING(DEFAULT_RDTR),
++			.def  = DEFAULT_RDTR,
++			.arg  = { .r = { .min = MIN_RDTR,
+ 					 .max = MAX_RDTR}}
+ 		};
+ 
+-		adapter->rx_int_delay = RxIntDelay[bd];
+-		ixgb_validate_option(&adapter->rx_int_delay, &opt);
+-	}
++		if (num_RxIntDelay > bd) {
++			adapter->rx_int_delay = RxIntDelay[bd];
++			ixgb_validate_option(&adapter->rx_int_delay, &opt);
++		} else {
++			adapter->rx_int_delay = opt.def;
++		}
+ 	}
+ 	{ /* Transmit Interrupt Delay */
+ 		struct ixgb_option opt = {
+ 			.type = range_option,
+ 			.name = "Transmit Interrupt Delay",
+-			.err = "using default of " __MODULE_STRING(DEFAULT_TIDV),
+-			.def = DEFAULT_TIDV,
+-			.arg = { .r = { .min = MIN_TIDV,
++			.err  = "using default of " __MODULE_STRING(DEFAULT_TIDV),
++			.def  = DEFAULT_TIDV,
++			.arg  = { .r = { .min = MIN_TIDV,
+ 					 .max = MAX_TIDV}}
+ 		};
+ 
+-		adapter->tx_int_delay = TxIntDelay[bd];
+-		ixgb_validate_option(&adapter->tx_int_delay, &opt);
++		if (num_TxIntDelay > bd) {
++			adapter->tx_int_delay = TxIntDelay[bd];
++			ixgb_validate_option(&adapter->tx_int_delay, &opt);
++		} else {
++			adapter->tx_int_delay = opt.def;
++		}
+ 	}
+ 
+ 	{ /* Transmit Interrupt Delay Enable */
+@@ -443,9 +462,14 @@ ixgb_check_options(struct ixgb_adapter *
+ 			.err  = "defaulting to Enabled",
+ 			.def  = OPTION_ENABLED
+ 		};
+-		int ide = IntDelayEnable[bd];
+ 
+-		ixgb_validate_option(&ide, &opt);
+-		adapter->tx_int_delay_enable = ide;
++		if (num_IntDelayEnable > bd) {
++			int ide = IntDelayEnable[bd];
++			ixgb_validate_option(&ide, &opt);
++			adapter->tx_int_delay_enable = ide;
++		} else {
++			adapter->tx_int_delay_enable = opt.def;
++		}
+ 	}
+ }
++
