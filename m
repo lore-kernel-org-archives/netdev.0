@@ -1,28 +1,94 @@
-From: photo_deliver@yahoo.co.jp
-Subject: =?iso-2022-jp?B?g2aDioNvg4qBW1BIT1RPIJP8ie+Krpe5?=
-Date: Tue,  2 Nov 2004 15:57:22 +0900 (JST)
-Message-ID: <20041102065722.8C78E588041@mail.zl8.jp>
+From: Michael Vittrup Larsen <michael.vittrup.larsen@ericsson.com>
+Subject: Re: [PATCH] tcp: efficient port randomisation
+Date: Tue, 2 Nov 2004 09:54:44 +0200
+Message-ID: <200411020854.44745.michael.vittrup.larsen@ericsson.com>
+References: <20041027092531.78fe438c@guest-251-240.pdx.osdl.net> <200411011058.23141.michael.vittrup.larsen@ericsson.com> <20041101092027.2a741e82@zqx3.pdx.osdl.net>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20041101092027.2a741e82@zqx3.pdx.osdl.net>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-¦‚±‚Ìƒ[ƒ‹‚Í“o˜^ŽÒ‚Ö‚ÌŽ©“®•ÔMƒ[ƒ‹‚Å‚·B
+On Monday 01 November 2004 18:20, Stephen Hemminger wrote:
+> > * It is probably a good strategy to set 'tcp_rover_next' such that
+> > =A0 the next search is resumed from the previous port found to be fre=
+e.
+> > =A0 (similar to the old algorithm). =A0I don't see this in your patch=
+,
+> > =A0 but of course I could have missed it.
+>
+> It was intentional since it would require holding a lock around the sea=
+rch.
+> The tradeoff is better SMP performance in the sparsely filled port spac=
+e
+> (more typical) vs. better UP performance in the case of a mostly full p=
+ort
+> space.
 
-‹M•û‚ÌŒÂlŽ¯•ÊƒR[ƒh‚Æƒ[ƒ‹ƒAƒhƒŒƒX‚ð”FØ‚µ‰ïˆõ“o˜^‚ªŠ®—¹‚µ‚Ü‚µ‚½B
+I think a typical scenario is many short-lived (e.g. minutes) TCP connect=
+ions,=20
+few long-lived (e.g. hours) connections and an ephemeral port wrap-around=
+=20
+probably also in hours - at least a long time compared to the life-time o=
+f=20
+the short-lived connections.
 
-ŽŸ‰ñ‚©‚ç‚Í‚±‚¿‚ç‚æ‚è‚²“üê‰º‚³‚¢B
+This would result in a closely spaced 'group' of ports being occupied=20
+somewhere in the ephemeral port range, and 'tcp_rover_next' would point a=
+t=20
+the uppermost extreme of this group and thus always guarantee a free port=
+ on=20
+first try (collisions will only happen with long-lived connections).  If =
+you=20
+don't update 'tcp_rover_next', and this somehow gets to lag behind this=20
+'group' of ports (say point at the lower extreme) you will need to search=
+=20
+through this group first before you enter the unoccupied port space.
 
-http://www.eyc.jp/~gazou/gallery.php?id=bmV0ZGV2QG9zcy5zZ2kuY29t
+Your scheme works initially because you do not lag behind the free port s=
+pace,=20
+but eventually you will, and I think this will result in less optimal=20
+performance compared to the old behaviour.
 
-—˜—p—¿‹à‚Í“o˜^‚³‚ê‚½“ú‚©‚ç‚R“úˆÈ“à‚É‚¨Už‰º‚³‚¢B
+Since updating the 'tcp_rover_next' practically always result in a free p=
+ort=20
+on first try, I think SMP performance will not suffer even though the loc=
+k=20
+was held all through the port search (except when the port space is very=20
+crowded).
 
-ƒ—˜—p‹K–ñ„
-http://www.eyc.jp/~gazou/kiyaku.html
+And yes, I do use Linux exclusively, so I do care :-))
 
-yƒTƒ|[ƒgƒZƒ“ƒ^[z
+>From a statistically point of view, if the connection life-times are unif=
+ormly=20
+distributed from zero to infinite (theoretical scenario), it does not mat=
+ter=20
+what starting point you use. However, soon as life-times are not uniforml=
+y=20
+distributed, this kind of search algorithm will benefit from good startin=
+g=20
+point defining where the probability of used vs. unused port drop from hi=
+gh=20
+to low.
 
-–â‡‚¹æ@photo_deliver@yahoo.co.jp
+The BSD solution with a pure random rover suffers similarly, especially w=
+hen=20
+the port space becomes crowded.
 
-‰^‰cŽÒ ƒfƒŠƒoƒŠ[PHOTOŽ––±‹Ç
+
+> > * connect_port_offset() does not (at least from an algorithm point
+> > =A0 of view) need to return an u32, an u16 is sufficient.
+>
+> If it is truncated to u16, then compiler has to take extra effort to
+> truncate is unnecessary given later =A0modulo operation.
+
+I agree (in fact thats what I argued in the draft) - it probably depends =
+on=20
+your platform - you are assuming a 32-bit platform I guess.
