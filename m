@@ -1,86 +1,50 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Constant errors with pktgen
-Date: Tue, 15 Mar 2005 16:39:18 +0100
-Message-ID: <16951.422.818446.117190@robur.slu.se>
-References: <20050314133404.2528647f@es175>
+From: "Leonid Grossman" <leonid.grossman@neterion.com>
+Subject: RE: [ANNOUNCE] Experimental Driver for Neterion/S2io 10GbE Adapters
+Date: Tue, 15 Mar 2005 07:55:51 -0800
+Message-ID: <200503151555.j2FFtqDD019050@guinness.s2io.com>
+References: <200503151507.j2FF7sDD011131@guinness.s2io.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Robert.Olsson@data.slu.se, netdev@oss.sgi.com
-To: cliff white <cliffw@osdl.org>
-In-Reply-To: <20050314133404.2528647f@es175>
+Cc: <netdev@oss.sgi.com>, <leonid@neterion.com>, <jgarzik@pobox.com>,
+        "'Andi Kleen'" <ak@muc.de>
+To: "'Leonid Grossman'" <leonid.grossman@neterion.com>, <alex@neterion.com>,
+        <davem@davemloft.net>
+In-Reply-To: <200503151507.j2FF7sDD011131@guinness.s2io.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-cliff white writes:
+> 
+> > Leonid Grossman writes:
+> It's not the best maintenance option (both for us and arguably, even for a
+> non-primary-author kernel hackers) but it's workable.
 
- > My test rig is two machines with an e100 card, connected by crossover 
- > cable.
- > 
- > When i run pktgen, the error counter == packet count, always. 
+The statement about non-primary-author kernel hacker interests needs some
+clarification, before people started to throw things at me. 
+This is the last argument before I shut up, I promise :-)
 
- I see. Try the patch patch below it cleans up the code a bit and
- restores the old meaning of error. It also has the minor fix from 
- Adrian Bunk
+Arguably, a hacker will be much more interested in changing the non-HAL part
+of a driver. This part of the code has to look and feel the same as any
+other Linux net driver. If it doesn't, then we've done a poor job and need
+to go back.
 
-						--ro
+In our experience, the vast majority of code fixes and new features in the
+HAL code comes from our team (hey, we planted all these bugs to begin with
+:-)), and to a much lesser extend from other OS developers, and only then
+from Linux community. 
 
---- net/core/pktgen.c.050315	2005-03-11 10:48:43.000000000 +0100
-+++ net/core/pktgen.c	2005-03-15 16:16:01.000000000 +0100
-@@ -151,7 +151,7 @@
- #include <asm/timex.h>
- 
- 
--#define VERSION  "pktgen v2.60: Packet Generator for packet performance testing.\n"
-+#define VERSION  "pktgen v2.61: Packet Generator for packet performance testing.\n"
- 
- /* #define PG_DEBUG(a) a */
- #define PG_DEBUG(a) 
-@@ -2590,7 +2590,7 @@
-         thread_unlock();
- }
- 
--__inline__ void pktgen_xmit(struct pktgen_dev *pkt_dev)
-+static __inline__ void pktgen_xmit(struct pktgen_dev *pkt_dev)
- {
- 	struct net_device *odev = NULL;
- 	__u64 idle_start = 0;
-@@ -2654,7 +2654,6 @@
- 	
- 	spin_lock_bh(&odev->xmit_lock);
- 	if (!netif_queue_stopped(odev)) {
--		u64 now;
- 
- 		atomic_inc(&(pkt_dev->skb->users));
- retry_now:
-@@ -2678,24 +2677,18 @@
- 			
- 			pkt_dev->errors++;
- 			pkt_dev->last_ok = 0;
--			pkt_dev->next_tx_us = getCurUs(); /* TODO */
--			pkt_dev->next_tx_ns = 0;
- 		}
- 
-+		pkt_dev->next_tx_us = getCurUs();
-+		pkt_dev->next_tx_ns = 0;
-+
- 		pkt_dev->next_tx_us += pkt_dev->delay_us;
- 		pkt_dev->next_tx_ns += pkt_dev->delay_ns;
-+
- 		if (pkt_dev->next_tx_ns > 1000) {
- 			pkt_dev->next_tx_us++;
- 			pkt_dev->next_tx_ns -= 1000;
- 		}
--
--		now = getCurUs();
--		if (now > pkt_dev->next_tx_us) {
--			/* TODO: this code is slightly wonky.  */
--			pkt_dev->errors++;
--			pkt_dev->next_tx_us = now - pkt_dev->delay_us;
--			pkt_dev->next_tx_ns = 0;
--		}
- 	} 
- 
- 	else {  /* Retry it next time */
+This is normal - for example, if Large Receive Offload that was discussed
+earlier is to be done, I'd expect a hacker to focus on the kernel changes
+and generic driver changes (to make a feature common to all net driver that
+want it), and a Neterion developer to focus on the hw-specific changes. 
+
+There will be nothing wrong if they trade places, but the first scenario
+seems more likely.
+
+So, for a hacker it's harder to understand HAL part of the code - but then
+he is not doing the bulk of the maintenance of the ASIC -specific code that
+he's arguably least interested in maintaining...
+Leonid
