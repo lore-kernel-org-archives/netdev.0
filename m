@@ -1,29 +1,23 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [IPSEC] Use add_timer instead of mod_timer in find_acq
-Date: Tue, 25 May 2004 11:02:44 -0700
+Subject: Re: [IPSEC] Update out-of-date comment in __xfrm_state_delete
+Date: Tue, 25 May 2004 11:01:59 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040525110244.6284b806.davem@redhat.com>
-References: <20040524115357.GA28827@gondor.apana.org.au>
-	<20040525121055.GA15690@gondor.apana.org.au>
+Message-ID: <20040525110159.07219230.davem@redhat.com>
+References: <20040525120016.GA15487@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040525121055.GA15690@gondor.apana.org.au>
+In-Reply-To: <20040525120016.GA15487@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 25 May 2004 22:10:55 +1000
+On Tue, 25 May 2004 22:00:16 +1000
 Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> On Mon, May 24, 2004 at 09:53:57PM +1000, herbert wrote:
-> > 
-> > Here is a tiny optimisation to use add_timer instead of mod_timer
-> > on the create path in find_acq.
-> 
-> Here is the same optimisation for the creation path in xfrm_state_find.
-> It also fixes the timer so that it actually expires :)
+> The comment at the end of __xfrm_state_delete no longer matches the
+> status quo.  This patch brings it up-to-date again.
 
-Also applied, thanks.
+Applied.
