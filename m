@@ -1,36 +1,33 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH]: fix queue limits in multiple qdiscs
-Date: Tue, 18 Nov 2003 17:34:57 -0800
+Subject: Re: [PATCH]: Check for leaf-class when classifying by priority
+Date: Tue, 18 Nov 2003 17:37:00 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031118173457.5c85c671.davem@redhat.com>
-References: <3FB39A2D.5020000@trash.net>
-	<1069076955.1076.23.camel@jzny.localdomain>
-	<3FB8DF9F.7030509@trash.net>
-	<1069081284.1024.23.camel@jzny.localdomain>
+Message-ID: <20031118173700.213b646b.davem@redhat.com>
+References: <3FB39CA2.401@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@oss.sgi.com
+Cc: devik@cdi.cz, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1069081284.1024.23.camel@jzny.localdomain>
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <3FB39CA2.401@trash.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 17 Nov 2003 10:01:24 -0500
-jamal <hadi@cyberus.ca> wrote:
+On Thu, 13 Nov 2003 16:00:50 +0100
+Patrick McHardy <kaber@trash.net> wrote:
 
-> Like i said it is valid - but i wouldnt go out of my way to fix it
-> (especially when 2.6 is frozen).
+> this patch makes htb_classify check if a class is a leaf when classifying
+> by priority. It also adds a check from cbq to skip htb_find if the majors
+> of skb->priority and sch->handle differ.
 
-I agree with this sentiment, but only in part.
+I'm going to hold on this patch for two reasons:
 
-Considering:
+1) To allow Martin to respond and review it.
+2) I want the OOPS'er we have pending on the HTB scheduler
+   resolved first.
 
-1) The output from 'tc' is very confusing and quite stupid.
-2) Patrick did all the work to fix this bug.
-3) His patch is %100 straight forward, simply, and easy to verify.
+Martin, have you made any progress with that HTB 2.6.x oops
+issue yet?
 
-I am going to apply his patch.
-
-Thanks Patrick.
+Thanks guys.
