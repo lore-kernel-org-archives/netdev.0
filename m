@@ -1,68 +1,63 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: [PATCH] e1000 poll behavior
-Date: Fri, 10 Dec 2004 18:28:48 +0100
-Message-ID: <16825.56528.212904.417227@robur.slu.se>
-References: <16824.30773.125766.220826@robur.slu.se>
-	<1102695576.12078.22.camel@tux.rsn.bth.se>
+From: Robin Holt <holt@sgi.com>
+Subject: [RFC] Limit the size of the IPV4 route hash.
+Date: Fri, 10 Dec 2004 13:00:25 -0600
+Message-ID: <20041210190025.GA21116@lnx-holt.americas.sgi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
+        ^Greg Banks <gnb@sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Martin Josefsson <gandalf@wlug.westbo.se>
-In-Reply-To: <1102695576.12078.22.camel@tux.rsn.bth.se>
+To: yoshfuji@linux-ipv6.org, akpm@osdl.org, hirofumi@parknet.co.jp,
+        davem@davemloft.net, torvalds@osdl.org, dipankar@ibm.com,
+        laforge@gnumonks.org, bunk@stusta.de, herbert@apana.org.au,
+        paulmck@ibm.com
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-Martin Josefsson writes:
+I have sent a couple emails concerning the IPv4 route hash size in the
+past week with no response.  I am now sending to everyone that has made
+changes to the net/ipv4/route.c file in the last six months to hopefully
+get some direction.  Sorry for the wide net, but I do not know how to
+proceed.
 
- > What about the case where tx_cleaned is true but (work_done <
- > work_to_do) is true. Then the statement is false and we continue, later
- > we return (work_done >= work_to_do) which equals 0 (not seen in patch).
- > We are not allowed to return 0 when still on poll_list. That will sort
- > of continue polling in a degraded way (no increase in quota) but will
- > screw up device refcounting badly.
- > 
- > That final return must be changed into "return 1;"
+The first post was asking for direction on the maximum size for the
+route cache.  The link is here:  (NOTE: I never saw this come back from
+the netdev list)
 
- Ohoh thanks yes...
+What is a reasonable upper limit to the rt_hash_table.
+http://marc.theaimsgroup.com/?l=linux-kernel&m=110244057617765&w=2
 
---- drivers/net/e1000/e1000_main.c.orig	2004-12-09 17:49:56.000000000 +0100
-+++ drivers/net/e1000/e1000_main.c	2004-12-10 20:13:57.000000000 +0100
-@@ -2179,15 +2179,15 @@
- 	*budget -= work_done;
- 	netdev->quota -= work_done;
- 	
--	/* if no Rx and Tx cleanup work was done, exit the polling mode */
--	if(!tx_cleaned || (work_done < work_to_do) || 
-+	/* if no Tx and not enough Rx work done, exit the polling mode */
-+	if((!tx_cleaned && (work_done < work_to_do)) || 
- 				!netif_running(netdev)) {
- 		netif_rx_complete(netdev);
- 		e1000_irq_enable(adapter);
- 		return 0;
- 	}
- 
--	return (work_done >= work_to_do);
-+	return 1;
- }
- 
- #endif
+I then did some testing/experimenting with systems that are in production,
+determined the size calculation is definitely too large and then came
+to the following conclusion:
 
-Same experiment again.
+Limit the route hash size.
+http://marc.theaimsgroup.com/?l=linux-kernel&m=110260977405809&w=2
 
-Iface   MTU Met  RX-OK RX-ERR RX-DRP RX-OVR  TX-OK TX-ERR TX-DRP TX-OVR Flags
-eth0   1500   0 4351378 8252365 8252365 5648874    155      0      0      0 BRU
-eth1   1500   0      1      0      0      0 4350771      0      0      0 BRU
-eth2   1500   0 4352289 8383841 8383841 5647711      5      0      0      0 BRU
-eth3   1500   0      1      0      0      0 4352126      0      0      0 BRU
+In the second, I included the patch, but did not intend this to be a
+patch submission.  Sorry for the Signed-off-by.
 
-           CPU0       
- 26:        434   IO-APIC-level  eth0
- 27:        109   IO-APIC-level  eth1
- 28:        112   IO-APIC-level  eth2
- 29:        112   IO-APIC-level  eth3
 
-						--ro
+Where do I go from here?  I hate to just submit this as a patch without
+any other discussion.  I have checked route cache size on many machines
+and they have all been in the 30-100 range except for some on ISP machines
+that are serving web pages where I have seen three machines with a cache
+size of up to 800 entries.  And one university email server where they
+have set the secret_interval to 86,400 which has peaked at 18,434 entries.
+
+With those sizes noted, the cache size of one page does not appear to
+have any negative impact for any except the email server.  For that
+machine, they have already reviewed the code and decided to adjust
+tunable values so I can not believe they would be upset with having to
+provide an rhash_entries= append on the boot line.
+
+Are there any benchmarks I am supposed to run prior to asking for this
+patch to be incorporated?
+
+Any guidance would be greatly appreciated.  Thank you for you attention.
+Again, sorry for the wide net.
+
+Robin Holt
