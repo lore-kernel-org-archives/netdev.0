@@ -1,152 +1,57 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: Re: IPv6 6to4 on site-local networks.
-Date: Thu, 11 Sep 2003 19:40:04 +0300 (EEST)
+From: allen@oss.sgi.com
+Subject: =?ISO-8859-1?B?pbyo07dzwc221SynQaSjpWmko6q+uUQspKO1TbROuKil7qRG?=
+Date: 12 Sep 2003 02:15:15 +0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0309111928330.14358-100000@netcore.fi>
-References: <1063288826.23778.243.camel@hades.cambridge.redhat.com>
+Message-ID: <200309111811.h8BIBEYa011516@oss.sgi.com>
+Reply-To: tbd234@mail.ht.net.tw
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com
+Content-Type: text/html
+Content-Transfer-Encoding: base64
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Woodhouse <dwmw2@infradead.org>
-In-Reply-To: <1063288826.23778.243.camel@hades.cambridge.redhat.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 11 Sep 2003, David Woodhouse wrote:
-> On Thu, 2003-09-11 at 16:20 +0300, Pekka Savola wrote:
-> > > That's why we'd want outgoing-connections-only for all the internal IPv6
-> > > machines, just as they have in the IPv4 world by virtue of being behind
-> > > NAT.
-> > 
-> > Right.  (This is a bit tricker with Linux IPv6 firewalling as it doesn't
-> > support connection tracking, but still roughly doable.)
-> 
-> This is a fundamental requirement before we will be permitted allow
-> connectivity to the outside world, I think.
-
-Yep.
- 
-> > > In fact, we don't have to get it 100% correct -- as long as we ensure
-> > > that the failure mode where we route to internal hosts using our
-> > > non-HQ-derived IPv6 address isn't going to happen, 
-> > 
-> > This is a bit tricky.  There are two ways to hack around this:
-> > 
-> >  1) at your HQ, create an inbound firewall filter, so that you'll disallow 
-> > any incoming packets to the "internal blocks" from the Internet.  If a 
-> > host happens to start fall back to using global connectivity, the 
-> > connectivity fails utterly.
-> 
-> Nono, talking to the outside world using HQ-derived addresses is _OK_.
-> It's just a bit slower than using the locally-derived addresses, since
-> we go through the tunnels.
-> 
-> What's going to break is talking to _internal_ machines using our
-> locally-derived address. Our packets will get to them fine, over the
-> internal tunnels, but their route back to us will then be over the
-> Internet rather than through the internal tunnels, and hence it'll get
-> firewalled.
-
-.. which is exactly why I proposed the above.  Breaking connectivity
-indicates that something is wrong.. better than communicating insecurely 
-while believing the communication is secure :-)
- 
-> It's just a source-address-selection issue. If our HQ-assigned network
-> is 2001:200:0::/48 and we are both 2001:200:0:8002::<EUI-64> and some
-> other locally-obtained address, then we MUST use our 2001:200:0::
-> (internal) address as source for all destinations in 2001:200:0::/48. It
-> would be _nice_ if we use the other address for all other destinations,
-> but it's not imperative.
-> 
-> AFAICT Rule 8 of RFC2484 is going to give us that anyway, and isn't
-> going to be superseded by Rules 1-7 either. It should be fine.
-
-Note that there is still the problem with destination address selection
-(or not, if you follow good DNS naming conventions), and those (old)
-versions that don't implement the source address selection.
-
-> >  2) at your edge sites, make a firewall filter which prevents reaching
-> > "internal blocks" through the Internet (automated installation could be
-> > achieved using any number of mechanisms, whichever you're using).
-> 
-> We'll be routing 'internal' addresses through our tunnels rather than
-> out the site's IPv6 link to the Internet anyway.
-
-Right, this is just a safeguard to prevent your internal stuff going out 
-over the internet by mistake.
- 
-> > .. in addition, up-to-date source address selection in the kernel should 
-> > ensure that does not happen when you'd use only "internal addresses" in 
-> > your DNS, or give internal addresses as command-line.  
-> > 
-> > Destination address selection is a bit trickier (hence the methods above) 
-> > because if you'd get "internal address" and "external address" from the 
-> > DNS, and the glibc getaddrinfo() implementation would pick one at random, 
-> > this would lead to using the external connectivity half of the times, 
-> > unless prevented with e.g. those filters or by administration (about the 
-> > DNS names)
-> 
-> We can avoid this question entirely. The 'company.internal' domain would
-> have only the HQ-derived addresses in it. The IPv6 addresses obtained
-> for external connectivity at each site are irrelevant for internal
-> communication. 
-
-Agreed.
- 
-> Likewise, since ingress from the public Internet isn't going to be
-> permitted, there's no real need for there to be AAAA records for the
-> site-derived addresses in the 'company.com' domain.
-> 
-> It's only source-address selection which we need to care about, and that
-> should be fine.
-
-In your particular case, should be, yes (but I'd still keep the safeguards 
-in place :-).
- 
-> > Kernel looks up all the v4 broadcast addresses from all the interfaces..?  
-> > Should be pretty doable.
-> 
-> Oh, it knows its _own_ and shouldn't actually send a broadcast IPv4
-> packet after decapsulating a 6to4 packet -- but it's also supposed to
-> magically know not to encapsulate into IPv4 a packet with an IPv4
-> address encoded which _happens_ to be a subnet broadcast elsewhere. It
-> can't know that.
-
-Of course, that cannot be known .. and I don't think the document even 
-claims so.
- 
-> > > Do you reckon there are boxen out there which will refuse to
-> > > route for 2002:c35c:f9ff::1 just as some refuse to route for
-> > > 195.92.249.255?
-> > 
-> > I'm not sure if such implementations exist, but if they don't, there are 
-> > specific threats (though minor) if such check are implemented.
-> 
-> That was a valid IPv4 address; it just happens to have a 255 in its last
-> octet. There _are_ some people who can't route to it though, because
-> some router in between thinks it's a subnet broadcast.
-
-Right.
- 
-> > Mobile IPv6 won't help with that, in practice.  That's because the binding 
-> > between care-of and home addresses must be secured.
->  <...>
-> > So, this would create many new roundtrips, which is not really what you'd 
-> > want..
-> 
-> Well, the _initial_ connection would all be tunnelled, and the binding
-> would be set up in parallel, so that you end up routing optimally; just
-> going via the tunnel to start with. 
-
-I don't see how that would be different from a VPN scenario, but yes; I
-guess if you deployed MIPv6 on every host, you could use it to communicate
-securely and in ad-hoc fashion between the mobile node and the home agent.  
-You could even forget about CIPE for v6. Mobile IPv6 requires IPv6
-connectivity too, though.  But I'm not sure if that buys you much in this 
-scenario.
-
--- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+PGh0bWw+DQoNCjxoZWFkPg0KPG1ldGEgaHR0cC1lcXVpdj0iQ29udGVudC1UeXBlIiBjb250
+ZW50PSJ0ZXh0L2h0bWw7IGNoYXJzZXQ9YmlnNSI+DQo8bWV0YSBuYW1lPSJHRU5FUkFUT1Ii
+IGNvbnRlbnQ9Ik1pY3Jvc29mdCBGcm9udFBhZ2UgRXhwcmVzcyAyLjAiPg0KPHRpdGxlPjwv
+dGl0bGU+DQo8Ymdzb3VuZCBzcmM9IkklMjBCRUxJRVZFJTIwv/u1XqqpLm1pZCIgbG9vcD0i
+MSI+DQo8L2hlYWQ+DQoNCjxib2R5IGJnY29sb3I9IiM5OUZGOTkiPg0KDQo8cD6xeqZuLCCv
+daW/MTAwJaZirmGkdadAqHSyziy2V6dDqvnCZSynS6VYqvksp0uxwL5QPGJyPg0KQW1hem9u
+LFlhaG9vs6Okd7Z9qWzA8qdRLLr0uPS0wKfarczByL/6qrquyaVOqOykRjxicj4NCqdLtk+l
+ZKbsKML5rXmo7ikspf2lZKX9xLk8YnI+DQqn2jSk6zOk6aVbt/kspmKuYaSjpViq+SykS6Tr
+pfequrz6qvc1MSw3OTWkuLdzpXi59Dxicj4NCjxhIGhyZWY9Imh0dHA6Ly93d3cub25lLXRv
+dWNoLmNvbS50dy81MDA4OTg1Lmh0bSIgdGFyZ2V0PSJfYmxhbmsiPjxpbWcNCnNyYz0iaHR0
+cDovL3d3dy5vbmUtdG91Y2guY29tLnR3L2FkNDY4NjAuZ2lmIiBib3JkZXI9IjAiDQp3aWR0
+aD0iNDY4IiBoZWlnaHQ9IjYwIj48L2E+PGJyPg0KPGEgaHJlZj0iaHR0cDovL3d3dy5vbmUt
+dG91Y2guY29tLnR3LzUwMDg5ODUuaHRtIiB0YXJnZXQ9Il9ibGFuayI+PGltZw0Kc3JjPSJo
+dHRwOi8vd3d3Lm9uZS10b3VjaC5jb20udHcvODg4OC5naWYiIGJvcmRlcj0iMCIgd2lkdGg9
+IjQ2OCINCmhlaWdodD0iNjAiPjwvYT48YnI+DQo8YSBocmVmPSJodHRwOi8vd3d3Lm9uZS10
+b3VjaC5jb20udHcvNTAwODk4NS5odG0iIHRhcmdldD0iX2JsYW5rIj48aW1nDQpzcmM9Imh0
+dHA6Ly93d3cub25lLXRvdWNoLmNvbS50dy84OC5naWYiIGJvcmRlcj0iMCIgd2lkdGg9IjQ2
+OCINCmhlaWdodD0iNjAiPjwvYT48YnI+DQo8L3A+DQoNCjxoMT48Zm9udCBzaXplPSIzIj6i
+qLr0uPTByqqrsU6sT6W8qNPBzbbVLLJ7pmKlZKbspb+sT67JrdQspVukSqdLtk+41aXOt3yt
++yzF6cXnJm5ic3A7DQqiqTxicj4NCjwvZm9udD48YQ0KaHJlZj0iaHR0cDovL3d3dy52aXBt
+YWxsLmNvbS50dy9zZXJ2aWNlL3BhZ2UvaW5kZXgucGhwP21lbWJlcj01MDA4OTg1Ig0KdGFy
+Z2V0PSJfYmxhbmsiPjxmb250IHNpemU9IjMiPmh0dHA6Ly93d3cudmlwbWFsbC5jb20udHcv
+c2VydmljZS9wYWdlL2luZGV4LnBocD9tZW1iZXI9NTAwODk4NTwvZm9udD48L2E+PGZvbnQN
+CnNpemU9IjMiPjxicj4NCrr0uPS2famxqrq81r3sLLZ9t724YKx5pEDBfKjisW8spKOlzr/w
+usMstmmo06zdrN2nYSEhtbS576qrtlep0g0KJm5ic3A7Jm5ic3A7IK3ILKfapHe4Z6dptkSn
+QaRGLKhTpVukSiylSKvhpWmnT6nHp9qssKSwu/Kko7FqraKnQaVbpEqz4SE8aW1nDQpzcmM9
+Imh0dHA6Ly91cy5pMS55aW1nLmNvbS91cy55aW1nLmNvbS9pL21lc2cvdHNtaWxleXMyLzE4
+LmdpZiINCndpZHRoPSIxOCIgaGVpZ2h0PSIxOCI+IDwvZm9udD48L2gxPg0KDQo8aDE+PGZv
+bnQgc2l6ZT0iMyI+obkmbmJzcDun2qq6VklQTUFMTKFHPC9mb250PjxhDQpocmVmPSJodHRw
+Oi8vd3d3LnZpcG1hbGwuY29tLnR3L2FsbGVuIiB0YXJnZXQ9Il9ibGFuayI+PGZvbnQNCnNp
+emU9IjMiPmh0dHA6Ly93d3cudmlwbWFsbC5jb20udHcvYWxsZW48L2ZvbnQ+PC9hPjwvaDE+
+DQoNCjxwPjxmb250IHNpemU9IjMiPqG5Jm5ic3A7p9qquqtIvWOhRzwvZm9udD48Zm9udA0K
+Y29sb3I9IiM0MDAwNDAiIGZhY2U9IrLTqfrF6SI+YWxsZW5AdmlwbWFsbC5jb20udHc8L2Zv
+bnQ+PC9wPg0KDQo8aDE+PGZvbnQgc2l6ZT0iMyI+obkgp9qquqpBsMixTb11oUcgMDk0NTAx
+MjAwMA0KwuCkwL73vVggNTAwODk4NSCr9iAxPC9mb250PjwvaDE+DQoNCjxoMT48Zm9udCBz
+aXplPSIzIj6iqi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS2xeqq6pm6qQqTNLS0tLS0tLS3EWbOwrbgtLS0tLS0toqs8YnI+DQo8L2ZvbnQ+PC9oMT4N
+Cg0KPHA+PGZvbnQgc2l6ZT0iNCI+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLTwvZm9udD48L3A+DQoNCjxoMT48Zm9udCBzaXplPSI0Ij6xerd8pqyo7Ka5q0isT6Zd
+rLCko6q+uUSssKSwu/Kxeqq6q0i9Y6Zip9qqum91dGxvb2u4zK2xoUGmcLF6t1Go+q74bWFp
+bKFBvdCmXsLQprmrSKdpqr6h46HjXm9epbTCWrF6r3Wp6rpww7mh4zwvZm9udD48L2gxPg0K
+PC9ib2R5Pg0KPC9odG1sPg0KDQoNCg0K
