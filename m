@@ -1,61 +1,45 @@
-From: devnetfs <devnetfs@yahoo.com>
-Subject: fragmentation
-Date: Sat, 1 Feb 2003 10:22:35 -0800 (PST)
+From: Ben Greear <greearb@candelatech.com>
+Subject: problems achieving decent throughput with latency.
+Date: Sat, 01 Feb 2003 14:13:01 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030201182235.89076.qmail@web20422.mail.yahoo.com>
+Message-ID: <3E3C466D.7030602@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-net@vger.kernel.org, netdev@oss.sgi.com
+To: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello,
+I am testing my latency-insertion tool, and I notice that tcp will not use
+all of the available bandwidth if there is any significant amount of latency
+on the wire.
 
-I have a skb whose data I want to fragment into fixed size
-chunks with each fragment having its own (fixed size) header.
+For example, with 25ms latency in both directions, I see about 8Mbps
+bi-directional throughput.
 
-What is the fastest way to do this, with minimal copying of data
-around? The easiest approach looks to be:
+If I lower that to 15ms, I see 12Mbps bi-directional throughput.
 
-1. allocated a *new* skb of size=header_size+fragement_size
-2. *copy* part of data from my original skb into this new pkt
-3. setup the header in the fragmented-packet
-4. xmit this sk_buff (dev_queue_xmit)
+I see 27Mbps at 5ms.
 
-What I dont like is the *new* and (extra) *copy* part. As my original
-skb in in the kernel itself an additional copy (of fragment-size)
-before xmit seems wasteful to me.
+Here is the /proc/net/tcp output at 5ms latency.
 
-Is it possible to allocate buffer-space for just the header and then
-have pointers into the original skb for the fragement data, avoiding
-the extra *copy* of the fragment-data.
+machine demo2
+   13: 050302AC:80EB 070302AC:80EB 01 0005900C:0002012E 01:00000016 00000000     0        0 578943 3 c6628a80 22 4 1 45 -1
 
-So the question(s) are:
+machine demo1
+   11: 070302AC:80EB 050302AC:80EB 01 00010DDB:00000000 01:00000014 00000000     0        0 513094 3 c62c5080 21 4 1 45 -1
 
-[1] can I submit a packet (a sk_buff)to low level device (using
-    dev_queue_xmit()) that has its buffer/data in discontinuous 
-    blocks in the kernel -- some kind of iovec. 
-    And if the network device supports DMA gather -- this would 
-    make the xmit path very fast. right?
-OR
-[2] can I submit a chain of sk_buff's that need to be xmited as ONE
-    ether frame to dev_queue_xmit()?
-OR
-[2] such a chaining is not very useful and the above approach 
-    (steps 1-4) is ok.
 
-[btw this data is being generated in the kernel and sent over ether]
+Any ideas why it is so slow at the higher latencies?  Any other info
+I can gather to help determine the cause?
 
-Any insights or possible solutions would be helpful.
+(UDP does not experience this slowdown, so I believe my latency
+insertion tool is working as designed, but it's always possible it is
+to blame...)
 
-Thanks,
-A.
 
-ps: I've just subscribed to netdev, so not sure if I will get the reply
-to this mail. So please Cc: me the reply -- thanks.
-
-__________________________________________________
-Do you Yahoo!?
-Yahoo! Mail Plus - Powerful. Affordable. Sign up now.
-http://mailplus.yahoo.com
+-- 
+Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
+President of Candela Technologies Inc      http://www.candelatech.com
+ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
