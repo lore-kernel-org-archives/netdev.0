@@ -1,82 +1,84 @@
-From: Harald Welte <laforge@netfilter.org>
-Subject: [RFC] MASQUERADE / policy routing ("Route send us somewhere else")
-Date: Mon, 30 Aug 2004 22:19:57 +0200
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Message-ID: <20040830201957.GY5824@sunbeam.de.gnumonks.org>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] net_random_init needs to get seed later in boot process
+Date: Mon, 30 Aug 2004 13:20:30 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040830132030.32d071d0@dell_ss3.pdx.osdl.net>
+References: <64243634.20040830173251@huno.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="I0oWFe1KborvVxk0"
-Cc: netdev@oss.sgi.com, Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: thomas <tom@huno.net>, "David S. Miller" <davem@redhat.com>
+In-Reply-To: <64243634.20040830173251@huno.net>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Argh.. random_init isn't called until the device's are initialized.
+Rather than mess with random.c initialization, how about this; it resets
+the net_random state late in initialization when get_random_bytes is ready.
 
---I0oWFe1KborvVxk0
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-Hi!
-
-Apparently a lot of people still have issues when combining MASQUERADE
-and policy routing. =20
-
-In those cases, the error path from net/ipv4/netfilter/ipt_MASQUERADE.c:
-
-		if (rt->u.dst.dev !=3D out) {
-			if (net_ratelimit())
-				printk("MASQUERADE:"
-				       " Route sent us somewhere else.\n");
-			ip_rt_put(rt);
-			return NF_DROP;
-		}
-
-is taken.
-
-A couple of questions:
-
-1) Why do we have this check in the first place?  What would be wrong
-   with re-routing if the user requests us by configuration?
-
-2) Why don't we include 'oif' in the routing key?  If we wanted to make
-   sure that oif doesn't change, then we should tell the routing lookup
-   rather than complaining afterwards, shouldn't we ?
-
-I think the current code makes it hard (if not impossible?) for the
-system adminsitrator to get it right (for no apparent reason to me).
-
-Comments, anyone?
---=20
-- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-  "Fragmentation is like classful addressing -- an interesting early
-   architectural error that shows how much experimentation was going
-   on while IP was being designed."                    -- Paul Vixie
-
---I0oWFe1KborvVxk0
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
-
-iD8DBQFBM4vtXaXGVTD0i/8RAjdSAKCCUFOPkWulwqfJqMtVHE0w6zJ5PgCeIsZ8
-9YmgqQxEdALrQ9aH2g0poVg=
-=5HdN
------END PGP SIGNATURE-----
-
---I0oWFe1KborvVxk0--
+ 
+diff -Nru a/net/core/utils.c b/net/core/utils.c
+--- a/net/core/utils.c	2004-08-30 11:56:15 -07:00
++++ b/net/core/utils.c	2004-08-30 11:56:15 -07:00
+@@ -21,6 +21,7 @@
+ #include <linux/types.h>
+ #include <linux/random.h>
+ #include <linux/percpu.h>
++#include <linux/init.h>
+ 
+ #include <asm/system.h>
+ #include <asm/uaccess.h>
+@@ -77,10 +78,8 @@
+ 	return (state->s1 ^ state->s2 ^ state->s3);
+ }
+ 
+-static void __net_srandom(struct nrnd_state *state, unsigned long entropy)
++static void __net_srandom(struct nrnd_state *state, unsigned long s)
+ {
+-	u32 s = state->s1 ^ entropy;
+-
+ 	if (s == 0)
+ 		s = 1;      /* default seed is 1 */
+ 
+@@ -112,24 +111,33 @@
+ void net_srandom(unsigned long entropy)
+ {
+ 	struct nrnd_state *state = &get_cpu_var(net_rand_state);
+-	__net_srandom(state, entropy);
++	__net_srandom(state, state->s1^entropy);
+ 	put_cpu_var(state);
+ }
+ 
+ void __init net_random_init(void)
+ {
+ 	int i;
++
++	for (i = 0; i < NR_CPUS; i++) {
++		struct nrnd_state *state = &per_cpu(net_rand_state,i);
++		__net_srandom(state, i+jiffies);
++	}
++}
++
++static int net_random_reseed(void)
++{
++	int i;
+ 	unsigned long seed[NR_CPUS];
+ 
+ 	get_random_bytes(seed, sizeof(seed));
+-
+ 	for (i = 0; i < NR_CPUS; i++) {
+ 		struct nrnd_state *state = &per_cpu(net_rand_state,i);
+-
+-		memset(state, 0, sizeof(*state));
+ 		__net_srandom(state, seed[i]);
+ 	}
++	return 0;
+ }
++late_initcall(net_random_reseed);
+ 
+ int net_msg_cost = 5*HZ;
+ int net_msg_burst = 10;
