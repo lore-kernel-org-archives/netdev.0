@@ -1,38 +1,34 @@
-From: Florian Weimer <fw@deneb.enyo.de>
+From: alex@pilosoft.com
 Subject: Re: tcp vulnerability?  haven't seen anything on it here...
-Date: Fri, 23 Apr 2004 15:55:33 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <87u0zare7e.fsf@deneb.enyo.de>
-References: <XFMail.20040422102359.pochini@shiny.it>
-	<1082640135.1059.93.camel@jzny.localdomain>
+Date: Fri, 23 Apr 2004 10:15:54 -0400 (EDT)
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <Pine.LNX.4.44.0404231006440.8887-100000@paix.pilosoft.com>
+References: <1082640135.1059.93.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Giuliano Pochini <pochini@shiny.it>, "David S. Miller"
- <davem@redhat.com>,
-        linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-        cfriesen@nortelnetworks.com,
-        =?iso-8859-1?q?J=F6rn_Engel?= <joern@wohnheim.fh-wedel.de>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1082640135.1059.93.camel@jzny.localdomain> (hadi@cyberus.ca's
- message of "22 Apr 2004 09:22:16 -0400")
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, <netdev@oss.sgi.com>
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S264824AbUDWOSW@vger.kernel.org>
+To: jamal <hadi@cyberus.ca>
+In-Reply-To: <1082640135.1059.93.camel@jzny.localdomain>
 List-Id: netdev.vger.kernel.org
 
-jamal <hadi@cyberus.ca> writes:
+> And for something like a huge download to just regular joe, this is more
+> of a nuisance assuming some kiddie has access between you and the
+> server. OTOH, long lived BGP sessions are affected assuming you are
+> going across hostile path to your peer.
+Again - no hostile path necessary. Attack is brute-force and does not rely 
+on MITM.
 
-> OTOH, long lived BGP sessions are affected assuming you are going across
-> hostile path to your peer.
+> So whats all this ado about nothing? Local media made it appear we are
+> all about to die.
+Pretty much.
+> 
+> Is anyone working on some fix?
+In networking world, there was a craze of enabling TCP-MD5 for BGP
+sessions reacting to this attack. There is alternative solution, "TTL
+hack", relying that most BGP sessions are between directly-connected 
+routers, so if connection originator sets TTL to 255 and receiver verifies 
+that TTL on incoming packet is 255, you can be reasonably certain that the 
+packet was sent by someone directly connected to you. ;)
 
-Jamal, please forget that "hostile path to your peer" part.  It's just
-wrong.
-
-You are entitled to your opinion that this isssue is being overhyped
-(I tend to share it, at least until some evidence shows up that
-there's also a 4.4BSD-like RST bug), but please try to understand the
-issue before making any judgement.
-
--- 
-Current mail filters: many dial-up/DSL/cable modem hosts, and the
-following domains: atlas.cz, bigpond.com, postino.it, tiscali.co.uk,
-tiscali.cz, tiscali.it, voila.fr.
+-alex
