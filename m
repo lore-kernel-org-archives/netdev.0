@@ -1,8 +1,8 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 15/16] HFSC: Use dump_stats for class statistics dumping
-Date: Thu, 21 Oct 2004 14:51:11 +0200
+Subject: [PATCH 16/16] ATM: Use gnet_stats for class statistics and dump them
+Date: Thu, 21 Oct 2004 14:52:01 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041021125111.GT21977@postel.suug.ch>
+Message-ID: <20041021125201.GU21977@postel.suug.ch>
 References: <20041021123209.GE21977@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -14,100 +14,77 @@ In-Reply-To: <20041021123209.GE21977@postel.suug.ch>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Makes HFSC use dump_stats to dump class statistics, i.e.
-moves the statistics dump code from hfsc_dump_class to
-hfsc_dump_class_stats.
+Makes ATM qdisc use gnet_stats for class statistic counters and
+adds dumping bits to actually dump those. Althought the counters
+were updated they never got dumped to userspace.
 
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
---- linux-2.6.9-rc5.orig/net/sched/sch_hfsc.c	2004-10-21 13:13:16.000000000 +0200
-+++ linux-2.6.9-rc5/net/sched/sch_hfsc.c	2004-10-21 13:13:46.000000000 +0200
-@@ -1404,36 +1404,6 @@
+--- linux-2.6.9-rc5.orig/net/sched/sch_atm.c	2004-10-21 11:07:46.000000000 +0200
++++ linux-2.6.9-rc5/net/sched/sch_atm.c	2004-10-21 13:26:05.000000000 +0200
+@@ -69,7 +69,8 @@
+ 	struct socket		*sock;		/* for closing */
+ 	u32			classid;	/* x:y type ID */
+ 	int			ref;		/* reference count */
+-	struct tc_stats		stats;
++	struct gnet_stats_basic	bstats;
++	struct gnet_stats_queue	qstats;
+ 	spinlock_t		*stats_lock;
+ 	struct atm_flow_data	*next;
+ 	struct atm_flow_data	*excess;	/* flow for excess traffic;
+@@ -450,13 +451,13 @@
+ #endif
+ 	    (ret = flow->q->enqueue(skb,flow->q)) != 0) {
+ 		sch->qstats.drops++;
+-		if (flow) flow->stats.drops++;
++		if (flow) flow->qstats.drops++;
+ 		return ret;
+ 	}
+ 	sch->bstats.bytes += skb->len;
+ 	sch->bstats.packets++;
+-	flow->stats.bytes += skb->len;
+-	flow->stats.packets++;
++	flow->bstats.bytes += skb->len;
++	flow->bstats.packets++;
+ 	/*
+ 	 * Okay, this may seem weird. We pretend we've dropped the packet if
+ 	 * it goes via ATM. The reason for this is that the outer qdisc
+@@ -550,7 +551,7 @@
+         sch->qstats.requeues++;
+     } else {
+ 		sch->qstats.drops++;
+-		p->link.stats.drops++;
++		p->link.qstats.drops++;
+ 	}
+ 	return ret;
+ }
+@@ -666,6 +667,21 @@
+ 	skb_trim(skb,b-skb->data);
  	return -1;
  }
- 
--static inline int
--hfsc_dump_stats(struct sk_buff *skb, struct hfsc_class *cl)
--{
--	cl->stats.qlen = cl->qdisc->q.qlen;
--	if (qdisc_copy_stats(skb, &cl->stats, cl->stats_lock) < 0)
--		goto rtattr_failure;
--
--	return skb->len;
--
-- rtattr_failure:
--	return -1;
--}
--
--static inline int
--hfsc_dump_xstats(struct sk_buff *skb, struct hfsc_class *cl)
--{
--	struct tc_hfsc_stats xstats;
--
--	xstats.level  = cl->level;
--	xstats.period = cl->cl_vtperiod;
--	xstats.work   = cl->cl_total;
--	xstats.rtwork = cl->cl_cumul;
--	RTA_PUT(skb, TCA_XSTATS, sizeof(xstats), &xstats);
--
--	return skb->len;
--
-- rtattr_failure:
--	return -1;
--}
--
- static int
- hfsc_dump_class(struct Qdisc *sch, unsigned long arg, struct sk_buff *skb,
-                 struct tcmsg *tcm)
-@@ -1451,11 +1421,6 @@
- 	if (hfsc_dump_curves(skb, cl) < 0)
- 		goto rtattr_failure;
- 	rta->rta_len = skb->tail - b;
--
--	if ((hfsc_dump_stats(skb, cl) < 0) ||
--	    (hfsc_dump_xstats(skb, cl) < 0))
--		goto rtattr_failure;
--
- 	return skb->len;
- 
-  rtattr_failure:
-@@ -1463,6 +1428,31 @@
- 	return -1;
- }
- 
 +static int
-+hfsc_dump_class_stats(struct Qdisc *sch, unsigned long arg,
++atm_tc_dump_class_stats(struct Qdisc *sch, unsigned long arg,
 +	struct gnet_dump *d)
 +{
-+	struct hfsc_class *cl = (struct hfsc_class *)arg;
-+	struct tc_hfsc_stats xstats;
++	struct atm_qdisc_data *p = PRIV(sch);
++	struct atm_flow_data *flow = (struct atm_flow_data *) arg;
 +
-+	cl->qstats.qlen = cl->qdisc->q.qlen;
-+	xstats.level   = cl->level;
-+	xstats.period  = cl->cl_vtperiod;
-+	xstats.work    = cl->cl_total;
-+	xstats.rtwork  = cl->cl_cumul;
++	flow->qstats.qlen = flow->q->q.qlen;
 +
-+	if (gnet_stats_copy_basic(d, &cl->bstats) < 0 ||
-+#ifdef CONFIG_NET_ESTIMATOR
-+	    gnet_stats_copy_rate_est(d, &cl->rate_est) < 0 ||
-+#endif
-+	    gnet_stats_copy_queue(d, &cl->qstats) < 0)
++	if (gnet_stats_copy_basic(d, &flow->bstats) < 0 ||
++	    gnet_stats_copy_queue(d, &flow->qstats) < 0)
 +		return -1;
 +
-+	return gnet_stats_copy_app(d, &xstats, sizeof(xstats));
++	return 0;
 +}
-+
-+
-+
- static void
- hfsc_walk(struct Qdisc *sch, struct qdisc_walker *arg)
+ 
+ static int atm_tc_dump(struct Qdisc *sch, struct sk_buff *skb)
  {
-@@ -1819,6 +1809,7 @@
- 	.unbind_tcf	= hfsc_unbind_tcf,
- 	.tcf_chain	= hfsc_tcf_chain,
- 	.dump		= hfsc_dump_class,
-+	.dump_stats	= hfsc_dump_class_stats,
- 	.walk		= hfsc_walk
+@@ -684,6 +700,7 @@
+ 	.bind_tcf	=	atm_tc_bind_filter,
+ 	.unbind_tcf	=	atm_tc_put,
+ 	.dump		=	atm_tc_dump_class,
++	.dump_stats	=	atm_tc_dump_class_stats,
  };
  
+ static struct Qdisc_ops atm_qdisc_ops = {
