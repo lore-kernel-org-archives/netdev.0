@@ -1,65 +1,81 @@
-From: Kovacs Krisztian <hidden@balabit.hu>
-Subject: [PATCH] ipv4 tcp autobind problem
-Date: Mon, 29 Sep 2003 15:05:35 +0200
+From: Chas Williams <chas@cmf.nrl.navy.mil>
+Subject: [PATCH][ATM]: Remove modules.txt in drivers/atm/Kconfig (Nicolas Kaiser <nikai@nikai.net>)
+Date: Mon, 29 Sep 2003 10:04:51 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F782E1F.4030500@balabit.hu>
-Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------060207040000040509080909"
+Message-ID: <200309291404.h8TE4qkT027322@ginger.cmf.nrl.navy.mil>
+Reply-To: chas3@users.sourceforge.net
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, linux-net@vger.kernel.org
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------060207040000040509080909
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+please apply to 2.6 -- thanks
 
 
-   Hi,
+[ATM]: Remove modules.txt in drivers/atm/Kconfig (Nicolas Kaiser <nikai@nikai.net>)
 
-   While testing the tproxy (transparent proxying) patch for linux-2.4
-(http://www.balabit.com/downloads/tproxy/linux-2.4), Stas Grabois has
-found a quite strange aspect of Linux 2.4 TCP. Imagine the following
-scenario: you create a new socket (AF_INET, SOCK_STREAM), bind it to local
-port 0, and try to connect() to a closed port. Of course, the peer sends
-back an RST, indicating no one is listening on that port. However, if your
-application does not care about the return value of connect(), and calls
-send() on the not connected socket, inet_autobind() is called and a new
-local port is allocated for the socket. So, besides returning an error,
-there is also a side effect of the send(). The same thing happens with an
-established TCP session if the peer sends an RST between two send() calls,
-the second call will autobind the socket, and then return error.
-
-   Is this behaviour intentional? Isn't rebinding a TCP socket to a new
-local port a bug? I mean, possibly inet_sendmsg() should check if the
-socket is SOCK_STREAM before calling inet_autobind() if sk->num is zero. 
-The attached patch adds this check to inet_sendmsg(). We've been using it 
-for a while, and it looks it did not break anything.
-
--- 
-   Regards,
-     Krisztian KOVACS
-
-
---------------060207040000040509080909
-Content-Type: text/plain;
- name="inet_tcp_autobind_fix.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="inet_tcp_autobind_fix.diff"
-
---- linux-2.4.22/net/ipv4/af_inet.c.orig	Thu Sep 18 10:02:49 2003
-+++ linux-2.4.22/net/ipv4/af_inet.c	Thu Sep 18 10:03:56 2003
-@@ -751,7 +751,7 @@
- 	struct sock *sk = sock->sk;
+--- trivial-2.6.0-test5-bk10/drivers/atm/Kconfig.orig	2003-09-24 12:27:31.000000000 +1000
++++ trivial-2.6.0-test5-bk10/drivers/atm/Kconfig	2003-09-24 12:27:31.000000000 +1000
+@@ -32,9 +32,8 @@
+ 	  The driver works with MMF (-MF or ...F) and UTP-5 (-U5 or ...D)
+ 	  adapters.
  
- 	/* We may need to bind the socket. */
--	if (sk->num==0 && inet_autobind(sk) != 0)
-+	if (sk->num==0 && sock->type != SOCK_STREAM && inet_autobind(sk) != 0)
- 		return -EAGAIN;
+-	  This driver is also available as a module.  If you want to compile
+-	  it as a module, say M here and read
+-	  <file:Documentation/modules.txt>.  The module will be called eni.
++	  To compile this driver as a module, choose M here: the module will
++	  be called eni.
  
- 	return sk->prot->sendmsg(sk, msg, size);
-
---------------060207040000040509080909--
+ config ATM_ENI_DEBUG
+ 	bool "Enable extended debugging"
+@@ -138,10 +137,8 @@
+ 	  Driver for the Fujitsu FireStream 155 (MB86697) and
+ 	  FireStream 50 (MB86695) ATM PCI chips.
+ 
+-	  This driver is also available as a module.  If you want to compile
+-	  it as a module, say M here and read
+-	  <file:Documentation/modules.txt>.  The module will be called
+-	  firestream.
++	  To compile this driver as a module, choose M here: the module will
++	  be called firestream.
+ 
+ config ATM_ZATM
+ 	tristate "ZeitNet ZN1221/ZN1225"
+@@ -150,9 +147,8 @@
+ 	  Driver for the ZeitNet ZN1221 (MMF) and ZN1225 (UTP-5) 155 Mbps ATM
+ 	  adapters.
+ 
+-	  This driver is also available as a module.  If you want to compile
+-	  it as a module, say M here and read
+-	  <file:Documentation/modules.txt>.  The module will be called zatm.
++	  To compile this driver as a module, choose M here: the module will
++	  be called zatm.
+ 
+ config ATM_ZATM_DEBUG
+ 	bool "Enable extended debugging"
+@@ -176,10 +172,8 @@
+ 	  25 and for 155 Mbps, including IDT cards and the Fore ForeRunnerLE
+ 	  series. Say Y if you have one of those.
+ 
+-	  This driver is also available as a module.  If you want to compile
+-	  it as a module, say M here and read
+-	  <file:Documentation/modules.txt>. The module will be called
+-	  nicstar.
++	  To compile this driver as a module, choose M here: the module will
++	  be called nicstar.
+ 
+ config ATM_NICSTAR_USE_SUNI
+ 	bool "Use suni PHY driver (155Mbps)"
+@@ -209,9 +203,8 @@
+ 	help
+ 	  Driver for the IDT 77252 ATM PCI chips.
+ 
+-	  This driver is also available as a module.  If you want to compile
+-	  it as a module, say M here and read
+-	  <file:Documentation/modules.txt>. The module will be called idt77252
++	  To compile this driver as a module, choose M here: the module will
++	  be called idt77252.
+ 
+ config ATM_IDT77252_DEBUG
+ 	bool "Enable debugging messages"
