@@ -1,54 +1,47 @@
-From: James Turner <jturner@gemini.edu>
-Subject: Re: [2.6.10-rc1-bk5] e1000 broken badly on IBM T42
-Date: Sun, 14 Nov 2004 17:25:42 -0300
-Message-ID: <4197BF46.8060802@gemini.edu>
-References: <200410270033.22804.shawn.starr@rogers.com> <200410270054.30313.shawn.starr@rogers.com> <200410270521.56816.shawn.starr@rogers.com>
+From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Subject: Re: [PATCH 6/8] Use SLAB_PANIC when creating critical slab cache
+Date: Sun, 14 Nov 2004 18:27:49 -0200
+Message-ID: <4197BFC5.5080800@conectiva.com.br>
+References: <20041114121837.X2357@build.pdx.osdl.net> <20041114122400.D2357@build.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Cc: davem@davemloft.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Shawn Starr <shawn.starr@rogers.com>
-In-Reply-To: <200410270521.56816.shawn.starr@rogers.com>
+To: Chris Wright <chrisw@osdl.org>
+In-Reply-To: <20041114122400.D2357@build.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
->On October 27, 2004 00:33, Shawn Starr wrote:
->
->>NETDEV WATCHDOG: eth0: transmit timed out
->>e1000: eth0: e1000_watchdog: NIC Link is Up 1000 Mbps Full Duplex
->>NETDEV WATCHDOG: eth0: transmit timed out
->>
->>eth0      Link encap:Ethernet  HWaddr 00:0D:60:CA:C1:97
->>          inet addr:192.168.10.5  Bcast:192.168.10.255 
->>Mask:255.255.255.0 UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
->>          RX packets:4294883167 errors:4294370903 dropped:4294796898
->>overruns:4294882097 frame:4294711699 TX packets:4294883949
->>errors:4294796898 dropped:0 overruns:0 carrier:4294711699
->>collisions:4294882097 txqueuelen:1000
->>          RX bytes:470309 (459.2 KiB)  TX bytes:108971 (106.4 KiB)
->>          Base address:0x8000 Memory:c0220000-c0240000
+Chris,
 
-I also get 4bn errors reported using e1000 on a T42 (2378-DXU) after
-coming out of APM suspend. However, my network interface seems to work
-normally otherwise, as far as I can tell. It always reports 100Mbps.
+	I think somebody proposed this in the past and it was refused
+because we better get rid of the panics and return an error, propagate
+it and refuse to load the module, better have the machine still alive
+but without networking than panic it.
 
-eth0      Link encap:Ethernet  HWaddr 00:0D:60:FF:0D:9A
-           inet addr:172.16.22.206  Bcast:172.16.22.255 Mask:255.255.255.0
-           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-           RX packets:887386 errors:4294967254 dropped:4294967284
-overruns:4294967290 frame:4294967278
-           TX packets:452521 errors:4294967284 dropped:0 overruns:0
-carrier:4294967278
-           collisions:4294967290 txqueuelen:1000
-           RX bytes:1319970165 (1.2 GiB)  TX bytes:32622656 (31.1 MiB)
-           Base address:0x8000 Memory:c0220000-c0240000
+- Arnaldo
 
-I'm using 2.6.9 (FC3), which includes e1000 version 5.3.19-k2. Looks
-like there is a newer version at http://sourceforge.net/projects/e1000/
-(maybe the same as in 2.6.10-rc1?).
-
-James.
-
-Please cc: any replies to me - thanks (IANAKH).
+Chris Wright wrote:
+> Use SLAB_PANIC when creating a critical slab cache.
+> 
+> Signed-off-by: Chris Wright <chrisw@osdl.org>
+> 
+> ===== net/ipv6/ip6_fib.c 1.33 vs edited =====
+> --- 1.33/net/ipv6/ip6_fib.c	2004-11-09 22:57:03 -08:00
+> +++ edited/net/ipv6/ip6_fib.c	2004-11-14 11:56:01 -08:00
+> @@ -1242,10 +1242,8 @@ void __init fib6_init(void)
+>  {
+>  	fib6_node_kmem = kmem_cache_create("fib6_nodes",
+>  					   sizeof(struct fib6_node),
+> -					   0, SLAB_HWCACHE_ALIGN,
+> +					   0, SLAB_HWCACHE_ALIGN|SLAB_PANIC,
+>  					   NULL, NULL);
+> -	if (!fib6_node_kmem)
+> -		panic("cannot create fib6_nodes cache");
+>  }
+>  
+>  void __exit fib6_gc_cleanup(void)
+> 
+> 
