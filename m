@@ -1,31 +1,32 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: Please ignore the corrupt patches sent earlier.
-Date: Mon, 08 Nov 2004 11:57:10 +0000
-Message-ID: <1099915029.4542.46.camel@hades.cambridge.redhat.com>
-References: <200411050523.49239.raghavendra.koushik@s2io.com>
-	 <418BE6EC.3060103@pobox.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Bug in ipv6_ifa_notify?
+Date: Mon, 8 Nov 2004 23:10:40 +1100
+Message-ID: <20041108121040.GA3618@gondor.apana.org.au>
+References: <20041108061529.GA1774@gondor.apana.org.au> <20041108073441.GA2200@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: koushik <raghavendra.koushik@s2io.com>, romieu@fr.zoreil.com,
-        netdev@oss.sgi.com, leonid.grossman@s2io.com,
-        ravinandan.arakali@s2io.com, rapuru.sriram@s2io.com,
-        alicia.pena@s2io.com
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <418BE6EC.3060103@pobox.com>
+To: "David S. Miller" <davem@davemloft.net>,
+        Arnaldo Carvalho de Melo <acme@conectiva.com.br>,
+        YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, netdev@oss.sgi.com
+Content-Disposition: inline
+In-Reply-To: <20041108073441.GA2200@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2004-11-05 at 15:47 -0500, Jeff Garzik wrote:
-> FWIW, I have found that use of "cat email-01.txt | sendmail -t" on a 
-> Unix system is the easiest way to send a large number of patches.
+On Mon, Nov 08, 2004 at 06:34:41PM +1100, herbert wrote:
 > 
-> You simply have to provide a minimal email header, a blank line, and 
-> then the patch content itself, in a single text file.
+> RTM_DELADDR will call ip6_del_rt which will free the rt using
+> dst_free.  Since it is still referenced it gets put on the gc
+> list.  The next RTM_NEWADDR will put it back in the table.
+> From this point onwards anything that gets linked after it will
+> be on the gc list!
 
-And References: headers to keep the mails together in a thread, please.
-
+Actually, address objects dont't seem to be kept across interface
+down/up operations, so this probably can't happen...
 -- 
-dwmw2
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
