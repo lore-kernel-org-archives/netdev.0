@@ -1,26 +1,25 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: via-rhine unable to send back-to-back packets?
-Date: Mon, 29 Nov 2004 17:25:40 -0800
-Message-ID: <20041129172540.6b959858.davem@davemloft.net>
-References: <20041129222700.GA22918@xi.wantstofly.org>
+Subject: Re: [BK PATCH] [IPV6] Multiple locking fixes/improvements
+Date: Mon, 29 Nov 2004 19:23:05 -0800
+Message-ID: <20041129192305.4008be86.davem@davemloft.net>
+References: <20041122.223205.14979415.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: rl@hellgate.ch, netdev@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-In-Reply-To: <20041129222700.GA22918@xi.wantstofly.org>
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20041122.223205.14979415.yoshfuji@linux-ipv6.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 29 Nov 2004 23:27:00 +0100
-Lennert Buytenhek <buytenh@wantstofly.org> wrote:
+On Mon, 22 Nov 2004 22:32:05 -0500 (EST)
+YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
 
-> For example, when transmitting 300-byte packets, I can TX 38261 packets
-> per second, but I should be able to TX ~38580.  When doing the math, it
-> turns out that 38261 is exactly the number of 302-byte packets you can
-> stuff into Fast Ethernet per second.
+> Please pull the following changesets available at:
+>     <bk://bk.skbuff.net:20610/linux-2.6-inet6/>
 
-Is the packet length in those calculations taking into consideration
-the CRC et al. bytes that the card adds to the packet?
+It all looks good to me, pulled.
+
+Thank you Yoshifuji-san.
