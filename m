@@ -1,55 +1,37 @@
-From: Werner Almesberger <werner@almesberger.net>
-Subject: Re: [PATCH]: Adjust qlen when grafting in multiple qdiscs
-Date: Mon, 17 Nov 2003 16:38:34 -0300
+From: Petr Vandrovec <vandrove@vc.cvut.cz>
+Subject: Re: af_packet & CHECKSUM_HW
+Date: Mon, 17 Nov 2003 20:44:52 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031117163834.V1330@almesberger.net>
-References: <3FB3996A.6080008@trash.net> <1069076786.1075.19.camel@jzny.localdomain> <3FB8DDE0.1070105@trash.net> <1069081153.1022.20.camel@jzny.localdomain> <3FB8F3BF.6050509@trash.net> <1069090210.1022.64.camel@jzny.localdomain>
+Message-ID: <20031117194452.GB18448@vana.vc.cvut.cz>
+References: <20031115024434.GA12276@gondor.apana.org.au> <Xine.LNX.4.44.0311160841500.31201-100000@thoron.boston.redhat.com> <20031116205146.GA8477@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, "David S. Miller" <davem@redhat.com>,
-        netdev@oss.sgi.com
+Cc: James Morris <jmorris@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Content-Disposition: inline
-In-Reply-To: <1069090210.1022.64.camel@jzny.localdomain>; from hadi@cyberus.ca on Mon, Nov 17, 2003 at 12:30:10PM -0500
+In-Reply-To: <20031116205146.GA8477@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> My opinion is that since these interfaces (ex qdisc) exist they
-> exist to be (ab)used. 
+On Mon, Nov 17, 2003 at 07:51:46AM +1100, Herbert Xu wrote:
+> On Sun, Nov 16, 2003 at 08:44:38AM -0500, James Morris wrote:
+> > On Sat, 15 Nov 2003, Herbert Xu wrote:
+> >
+> > > In other words, what do I tell confused users who see bad checksums
+> > > in the tcpdump output over loopback and interfaces capable of
+> > > hardware checksums?
+> > 
+> > That this functionality does not belong in the kernel, as it serves no
+> > real purpose.
+> 
+> OK, I will quote you on that :)
 
-Stated in such a general way, that sounds dangerous ;-)
-
-> Dsmark happens to work well with the single queue - maybe thats what
-> needs to be documented as opposed to saying it deviates from a purist
-> angle.
-
-tcio, section 2, towards the end:
-
-| Typically, each class ``owns'' one queue, but it is in principle
-| also possible that several classes share the same queue or even
-| that a single queue is used by all classes of the respective
-| queuing discipline.
-
-Now, I've of course only documented the status quo, and one could
-argue whether this actually makes sense. But then, it works well
-for dsmark, and doesn't seem to break anything else.
-
-I'm a bit confused about what the problem is here (or if there is
-one at all): if dsmark_graft is changed to adjust the statistics
-(which makes perfect sense to me), I don't see a reason why either
-subtracting the queue length of the former inner qdisc, or simply
-setting dsmark's queue lenghth to zero wouldn't work.
-
-Patrick, was the experiment "I've now verified experimentally the
-problem also exists in dsmark" done with or without your
-"sch->q.qlen -= (*old)->q.qlen;" patch ? This looks just like the
-behaviour I'd expect your patch to fix, no ?
-
-- Werner
-
--- 
-  _________________________________________________________________________
- / Werner Almesberger, Buenos Aires, Argentina     werner@almesberger.net /
-/_http://www.almesberger.net/____________________________________________/
+It would be nice if at least kernel did not stomp on skb2->h.raw so
+ptype callback could cope with situation and report to userspace where
+to put checksum. I already discussed it here two or so months ago, and
+only solution I was able to find is that VMware's vmnet have to parse
+itself network headers to find where to put checksum. Nothing for IPv6
+users...
+						Best regards,
+							Petr Vandrovec
