@@ -1,44 +1,49 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: inter-packet gap in pktgen
-Date: Fri, 10 Dec 2004 15:01:45 -0800
-Message-ID: <41BA2AD9.7040404@candelatech.com>
-References: <20041207222522.GA30266@xi.wantstofly.org> <41B632F3.1090104@candelatech.com> <20041208073858.GA4027@xi.wantstofly.org> <16822.54722.755218.745451@robur.slu.se> <41B756BE.3050504@candelatech.com> <20041210222913.GC5984@xi.wantstofly.org>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: [PATCH,RFC] pktgen sleeping/timing rework
+Date: Sat, 11 Dec 2004 00:07:33 +0100
+Message-ID: <16826.11317.848178.621626@robur.slu.se>
+References: <20041210222058.GA5984@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>, hadi@cyberus.ca,
-        netdev@oss.sgi.com
+Cc: robert.olsson@data.slu.se, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Lennert Buytenhek <buytenh@wantstofly.org>
-In-Reply-To: <20041210222913.GC5984@xi.wantstofly.org>
+In-Reply-To: <20041210222058.GA5984@xi.wantstofly.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Lennert Buytenhek wrote:
-> On Wed, Dec 08, 2004 at 11:32:14AM -0800, Ben Greear wrote:
-> 
-> 
->>Actually, yes.  My pktgen no longer busy-spins.  [...]
-> 
-> 
-> If you post a patch we can all perhaps have a look at it?
 
-My consolidated patch, which includes pktgen (with rx-pktgen logic),
-macvlans, my send-to-self patch, some e100 and e1000 diagnostics work, etc,
-can be found here:
+Lennert Buytenhek writes:
+ > 
+ > Below is a patch against your latest pktgen devel version which does
+ > the following:
+ > - Remove usage of get_cycles(), mhz calibration, pg_cycles_per_*,
+ >   getRelativeCur[UM]s(), and everything related to reading the CPU
+ >   cycle counter directly.  For one, it can't work correctly on
+ >   machines that can change clock frequency on the fly 
 
-http://www.candelatech.com/oss/candela_2.6.9.patch
+ Yeep it's for fixed frequency. If it can be done for variable frequency
+ w/o to much pain it's fine. Haven't even thought this thought.
 
-The pktgen diff is about the same size as the pktgen.c file, so I also
-uploaded the pktgen files here:
+ > - Fix up handling of inter-packet gap.  There was some code for
+ >   enforcing a certain IPG, but the actual (CPU) cost of the sending
+ >   of the packet was not substracted from that, so the effective IPG
+ >   ended up being IPG+random_overhead.  This now works somewhat better
 
-http://www.candelatech.com/oss/pktgen.h
-http://www.candelatech.com/oss/pktgen.c
+ Currently ipg is just a delay to hard_xmit and left to tester to tune.
+ 
 
-Enjoy,
-Ben
+ > - When ipg is set close to the HW limit, behavior becomes a bit wonky.
+ >   On my EPIA board I can generate ~110kpps when I set ipg=0, but when I
+ >   set ipg=10000 (which would give 100kpps), I only get ~85kps.
+ > - We should rename 'ipg' to something different since in our case it
+ >   never was and never will be the same as what the ethernet folks mean
+ >   with it.
+ > 
+ > Comments welcome.
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+ Let me play with it. Hopefully in the beginning of the week.
+
+						--ro
