@@ -1,52 +1,58 @@
-From: Donald Becker <becker@scyld.com>
-Subject: Re: ifconfig TX/RX errors
-Date: Wed, 13 Nov 2002 11:45:02 -0500 (EST)
+From: Thomas Graf <tgr@reeler.org>
+Subject: leak in netlink_dump()?
+Date: Wed, 13 Nov 2002 20:53:34 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0211131127510.1024-100000@beohost.scyld.com>
-References: <Pine.GSO.4.30.0211082056180.16360-100000@shell.cyberus.ca>
+Message-ID: <20021113195334.GM27787@reeler.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-In-Reply-To: <Pine.GSO.4.30.0211082056180.16360-100000@shell.cyberus.ca>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 8 Nov 2002, jamal wrote:
-> On Fri, 8 Nov 2002, Donald Becker wrote:
-> > On Fri, 8 Nov 2002, Cheng Jin wrote:
-> >
-> > > What does a large number of RX/TX errors from ifconfig output generally
-> > > mean?  Does it also include drop/overruns/frame errors?
-> >
-> > The 'ifconfig' program doesn't have a defined behavior.  It reads
-> > /proc/net/dev and sums some of the available error counts.  You should
-> > read /proc/net/dev directly to find out what is going wrong.
-> >
-> 
-> Actually, unbelievable as it may sound, the ifconfig data
-> matches SNMP stats as defined in RFC1213 interfaces table;
-> same with things like netstat -s in the tcp data etc
+Hello!
 
-Are you certain about that Jamal?  This is /proc/net/dev numbers
-covering the network interface device layer, not the protocol layers,
-The numbers Linux 'ifconfig' reports are similar, but not the same as
-the very limited counts that the old BSDs used.
+Used Kernel: 2.4.18 (same for 2.4.19pre6)
 
-When I wrote the /proc/net/dev statistics count output, I unwisely
-summarized some of the independent fields the drivers recorded to fit
-into an 79 column output(1).  I should have output all of the
-statistics, and let user-level programs summarize as they saw fit.
-Even today there is no way to get out the individual numbers.
+I think I've found a memory leak in netlink_dump (af_netlink.c):
 
-(1) That effort at human readability was discarded when new fields
-were added, making the output incompatible with earlier versions of
-ifconfig.  So now the output is longer than a line, but it still
-doesn't break out the important error counts.  
+the netlink callback (sk->protinfo.af_netlink->cb) is allocated
+in the calling funtion netlink_dump_start and is not freed
+after the call to netlink_dump.
+
+    ...
+
+    netlink_dump.len = cb->dump(skb, cb);
+
+    len = cb->dump(skb, cb);
+
+    if (len > 0) {
+        spin_unlock(&sk->protinfo.af_netlink->cb_lock);
+        skb_queue_tail(&sk->receive_queue, skb);
+        sk->data_ready(sk, len);
+        
+        /*
+         * Isn't a netlink_destroy_callback(cb) missing here?
+         */
+
+        return 0;
+    }
+
+    ...
+
+    netlink_destroy_callback(cb);   /* cb gets freed here */
+    sock_put(sk);
+    return 0;
+}
+
+
+The only other call to netlink_destroy_callback is in
+netlink_release which is called from sock_release which is
+called if the socket gets closed.
+
+>From my point of view, this is a memory leak, but I'm new to
+kernel code and I might be telling shit.
 
 -- 
-Donald Becker				becker@scyld.com
-Scyld Computing Corporation		http://www.scyld.com
-410 Severn Ave. Suite 210		Scyld Beowulf cluster system
-Annapolis MD 21403			410-990-9993
+Thomas GRAF
