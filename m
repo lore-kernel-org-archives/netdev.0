@@ -1,33 +1,41 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] (resend) fix sock_raw behaviour
-Date: Fri, 10 Oct 2003 04:16:33 -0700
+From: Ingo Oeser <ioe-lkml@rameria.de>
+Subject: Re: [PATCH] kfree_skb() bug in 2.4.22
+Date: Fri, 10 Oct 2003 14:53:44 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031010041633.3274c654.davem@redhat.com>
-References: <20031008235150.A207@jeroen.pe1rxq.ampr.org>
-	<20031009235338.7335b635.davem@redhat.com>
-	<20031010132157.A4188@jeroen.pe1rxq.ampr.org>
+Message-ID: <200310101453.44353.ioe-lkml@rameria.de>
+References: <1065617075.1514.29.camel@localhost> <3F840C9C.9050704@pobox.com> <20031008064735.7373227b.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: linux-hams@vger.kernel.org, netdev@oss.sgi.com, ralf@linux-mips.org
+Cc: toby@cbcg.net, netdev@oss.sgi.com, linux-net@vger.kernel.org,
+        linux-kernel@vger.kernel.org, coreteam@netfilter.org,
+        netfilter@lists.netfilter.org, akpm@zip.com.au, kuznet@ms2.inr.ac.ru,
+        pekkas@netcore.fi, jmorris@intercode.com.au, yoshfuji@linux-ipv6.org,
+        Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeroen Vreeken <pe1rxq@amsat.org>
-In-Reply-To: <20031010132157.A4188@jeroen.pe1rxq.ampr.org>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20031008064735.7373227b.davem@redhat.com>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 10 Oct 2003 13:21:57 +0200
-Jeroen Vreeken <pe1rxq@amsat.org> wrote:
+On Wednesday 08 October 2003 15:47, David S. Miller wrote:
+> On Wed, 08 Oct 2003 09:09:48 -0400
+>
+> Jeff Garzik <jgarzik@pobox.com> wrote:
+> > I would prefer that you fix your code instead, to not pass NULL to
+> > kfree_skb()...
+>
+> Absolutely, there is no valid reason to pass NULL into these
+> routines.
 
-> On 2003.10.10 08:53:38 +0200 David S. Miller wrote:
-> > While we're talking about this, who is going to maintain AX25
-> > in 2.6.x?  I don't want to be taking bug fixes and other changes
-> > to AX25 from random people, I'd like to have a single contact
-> > that will review the AX25 patches from other people and then
-> > forward them off to me.
-> 
-> The official maintainer for ax25 and netrom is Ralf Baechle. but he seems
-> to have some problems fitting it into his schedule....
+Would you mind __attribute_nonnull__ for these functions, if we
+enable GCC 3.3 support for this[1]?
 
-If that's the case why don't we have someone like you take
-care of things until he is less busy?
+
+[1] Which includes editing the compiler.h and gcc3-compiler.h and so on.
+
+Regards
+
+Ingo Oeser
