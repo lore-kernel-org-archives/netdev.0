@@ -1,27 +1,23 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [patch] clean up tcp_sk(), 2.6.0
-Date: Tue, 30 Dec 2003 14:46:08 -0800
+Subject: Re: [PATCH] [NET] missing sysctl strategy in
+ net/{core,ipv6,appletalk}
+Date: Tue, 30 Dec 2003 15:42:52 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031230144608.4c7e66f2.davem@redhat.com>
-References: <20031230163230.GA12553@elte.hu>
+Message-ID: <20031230154252.2aeb3fc7.davem@redhat.com>
+References: <20031226.022335.34767838.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ingo Molnar <mingo@elte.hu>
-In-Reply-To: <20031230163230.GA12553@elte.hu>
+To: "YOSHIFUJI Hideaki / _$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20031226.022335.34767838.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 30 Dec 2003 17:32:30 +0100
-Ingo Molnar <mingo@elte.hu> wrote:
+On Fri, 26 Dec 2003 02:23:35 +0900 (JST)
+YOSHIFUJI Hideaki / _$B5HF#1QL@ <yoshfuji@linux-ipv6.org> wrote:
 
-> i recently wasted a few hours on a bug where i used "tcp_sk(sock)"
-> instead of "tcp_sk(sock->sk)" - the former, while being blatantly
-> incorrect, compiles just fine on 2.6.0. The patch below is equivalent to
-> the define but is also type-safe. Compiles cleanly & boots fine on
-> 2.6.0.
+> added missing strategy handlers.
 
-Applied, and I'll happily accept patches for udp_sk() and all
-the other ones too :)
+Patch applied, thank you Yoshfuji-san.
