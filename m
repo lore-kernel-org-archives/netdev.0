@@ -1,25 +1,28 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: TCP's reaction to soft errors
-Date: Fri, 1 Oct 2004 15:13:25 -0700
+Subject: Re: [PATCH] [NET] NEIGHBOUR: hold refcnt of net_device from proxy
+ neighbor entries.
+Date: Fri, 1 Oct 2004 15:17:32 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041001151325.1bf112a5.davem@davemloft.net>
-References: <4.3.2.7.2.20040915112853.00cf9980@mail.daleclick.com>
+Message-ID: <20041001151732.60899c38.davem@davemloft.net>
+References: <20040930.170729.51800585.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Fernando Gont <fernando@gont.com.ar>
-In-Reply-To: <4.3.2.7.2.20040915112853.00cf9980@mail.daleclick.com>
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20040930.170729.51800585.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 15 Sep 2004 11:44:14 -0300
-Fernando Gont <fernando@gont.com.ar> wrote:
+On Thu, 30 Sep 2004 17:07:29 +0900 (JST)
+YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
 
-> The draft proposes to change TCP's reaction to soft errors so that 
-> connections that are in the SYN-SENT or SYN-RECEIVED states are aborted 
-> upon receipt of an ICMP error message that indicates a soft error.
+> [NET] NEIGHBOUR: hold refcnt of net_device from proxy neighbor entries.
+>  
+> We did not hold refcnt of net_device from proxy neighbor entries
+> while we did from neighbor entries.
+>  
+> Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 
-I have verified that Linux behaves in a way compliant to this
-proposal.  No changes are necessary.
+Applied, thanks.
