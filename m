@@ -1,55 +1,92 @@
-From: "Gallery-a" <1cat_a_lqe@rin.ru>
-Subject: Art-catalogue update (1156729506)@-d-v -SCs
-Date: 01 Oct 2003 13:18:02 +0400
+From: Andi Kleen <ak@muc.de>
+Subject: [PATCH] Fix ppro csum_partial for 1 byte unaligned buffers
+Date: Wed, 1 Oct 2003 14:12:26 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <2003.10.01.456D7E0E1D5E1FF1@rin.ru>
+Message-ID: <20031001121226.GA11676@averell>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset=us-ascii
+Cc: mingo@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Dear Ladies and Gentlemen,
 
-Dear Ladies and Gentlemen,
-We are pleased to inform you, that during the process of our site=20
-modernization, due to every day updating of our link system, we became on=
-e=20
-of the most full world art catalogues, as well as the largest catalogue o=
-f=20
-the art sites and museums.
-                http://www.gallery-a.ru/links
-If you are the owner of a art-website than you have a chance to register=20
-yourself in our catalogue, to add a link and banner to your site via this=
-=20
-registration form: http://www.gallery-a.ru/links/register.php
+When using sendfile it can happen that csum_partial is called for memory
+areas that are not aligned to a 2 byte boundary. The ppro optimized i386
+checksum code handled this slowly, but read upto 3 bytes over the end of the 
+buffer. When the skb contents are mapped from highmem this can be fatal
+because the end of the buffer can be unmapped.
 
-Now in the =93Links=94 section you can find more than 5000 links to the a=
-rt-
-sites all round the world.   1074 of them are Russian sites, 20003 are=20
-links to the sites of the former USSR.
-We have plans to enlarge this system up to the size of art-portal in the=20
-nearest future.=20
-If you would like to be informed about the new events in art and art-
-business, to get acquainted with the contemporary creative work of the=20
-contemporary artists, welcome to our web site!
-Gallery curator.
+This patch fixes this in a simple non intrusive way by handling the 
+possible fault and recovering from it by using a tolerant byte-by-byte copy.
+It does not attempt to align one byte unaligned buffers, because that's 
+rather complicated and probably not worth the effort.
 
-Also available on our site
-E-Cards:http://www.gallery-a.ru/ecards/compose.php
-Wallpapers: http://www.gallery-a.ru/luxury.php
+Other architectures may want to audit their csum_partial if it handles
+this case correctly.
 
-Welcome to our website!
-Gallery curator.
+Bug is in 2.4 and 2.6
+
+-Andi
+
+diff -u linux/arch/i386/lib/checksum.S-o linux/arch/i386/lib/checksum.S
+--- linux/arch/i386/lib/checksum.S-o	2003-03-07 16:48:01.000000000 +0100
++++ linux/arch/i386/lib/checksum.S	2003-10-01 14:01:31.000000000 +0200
+@@ -48,6 +48,9 @@
+ 	   * least a twofold speedup on 486 and Pentium if it is 4-byte aligned.
+ 	   * Fortunately, it is easy to convert 2-byte alignment to 4-byte
+ 	   * alignment for the unrolled loop.
++	   *
++	   * Danger, Will Robinson: with sendfile 2 byte alignment is not guaranteed.
++	   *
+ 	   */		
+ csum_partial:	
+ 	pushl %esi
+@@ -237,18 +240,37 @@
+ 	movl $0xffffff,%ebx	# by the shll and shrl instructions
+ 	shll $3,%ecx
+ 	shrl %cl,%ebx
+-	andl -128(%esi),%ebx	# esi is 4-aligned so should be ok
++.Ltail:	
++	andl -128(%esi),%ebx
++.Ttail_finished	
+ 	addl %ebx,%eax
+ 	adcl $0,%eax
+ 80: 
+ 	testl $1, 12(%esp)
+ 	jz 90f
+ 	roll $8, %eax
+-90: 
++90:  
+ 	popl %ebx
+ 	popl %esi
+ 	ret
+-				
++	
++	.section __ex_table,"a"
++	.long .Ltail,tail_recover
++	.long .Ltail_byte3,.Ltail_byte1
++	.long .Ltail_byte2,.Ltail_finished
++	.previous
++		
++tail_recover:	
++	xorl %ebx,%ebx
++.Ltail_byte3:	
++	movb -126(%esi),%bl
++	shl  $16,%ebx
++.Ltail_byte1:			
++	movb -128(%esi),%bl
++.Ltail_byte2:	
++	movb -127(%esi),%bh
++	jmp .Ltailfinished
++					
+ #endif
+ 
+ /*
 
 
-Sorry if that information not interesting for You and we disturb You with=
-=20
-our message!
-For removing yor address from this mailing list just replay this message=20
-with word 'unsubscribe' in subject field
-or simple click this link:
- http://www.gallery-a.ru/unsubscribe.php?e=3DbmV0ZGV2QG9zcy5zZ2kuY29tOjE2=
-OTg0NjYw
+
+
+ 
