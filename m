@@ -1,8 +1,8 @@
 From: janitor@sternwelten.at
-Subject: [patch 10/16]  net/mac89x0: replace schedule_timeout() 	with msleep()
-Date: Wed, 01 Sep 2004 23:03:26 +0200
+Subject: [patch 11/16]  net/ni65: replace schedule_timeout() with 	msleep()
+Date: Wed, 01 Sep 2004 23:03:32 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <E1C2cGN-0007rW-0B@sputnik>
+Message-ID: <E1C2cGS-0007sE-Ej@sputnik>
 Cc: jgarzik@pobox.com, janitor@sternwelten.at
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
@@ -15,22 +15,7 @@ List-Id: netdev.vger.kernel.org
 
 
 
-I would appreciate any comments from the janitor@sternweltens list. This is one (of
-many) cases where I made a decision about replacing
-
-set_current_state(TASK_INTERRUPTIBLE);
-schedule_timeout(some_time);
-
-with
-
-msleep(jiffies_to_msecs(some_time));
-
-msleep() is not exactly the same as the previous code, but I only did
-this replacement where I thought long delays were *desired*. If this is
-not the case here, then just disregard this patch. 
-
-Thanks,
-Nish
+I would appreciate any comments from the janitor@sternweltens list. 
 
 
 
@@ -44,21 +29,21 @@ Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
 
 ---
 
- linux-2.6.9-rc1-bk7-max/drivers/net/mac89x0.c |    3 +--
+ linux-2.6.9-rc1-bk7-max/drivers/net/ni65.c |    3 +--
  1 files changed, 1 insertion(+), 2 deletions(-)
 
-diff -puN drivers/net/mac89x0.c~msleep-drivers_net_max89x0 drivers/net/mac89x0.c
---- linux-2.6.9-rc1-bk7/drivers/net/mac89x0.c~msleep-drivers_net_max89x0	2004-09-01 19:35:34.000000000 +0200
-+++ linux-2.6.9-rc1-bk7-max/drivers/net/mac89x0.c	2004-09-01 19:35:34.000000000 +0200
-@@ -308,8 +308,7 @@ void __init reset_chip(struct net_device
- 	writereg(dev, PP_SelfCTL, readreg(dev, PP_SelfCTL) | POWER_ON_RESET);
- 
- 	/* wait 30 ms */
--	current->state = TASK_INTERRUPTIBLE;
--	schedule_timeout(30*HZ/1000);
-+	msleep(30);
- 
- 	/* Wait until the chip is reset */
- 	reset_start_time = jiffies;
+diff -puN drivers/net/ni65.c~msleep-drivers_net_ni65 drivers/net/ni65.c
+--- linux-2.6.9-rc1-bk7/drivers/net/ni65.c~msleep-drivers_net_ni65	2004-09-01 19:35:35.000000000 +0200
++++ linux-2.6.9-rc1-bk7-max/drivers/net/ni65.c	2004-09-01 19:35:35.000000000 +0200
+@@ -526,8 +526,7 @@ static int __init ni65_probe1(struct net
+ 			ni65_init_lance(p,dev->dev_addr,0,0);
+ 			irq_mask = probe_irq_on();
+ 			writereg(CSR0_INIT|CSR0_INEA,CSR0); /* trigger interrupt */
+-			set_current_state(TASK_UNINTERRUPTIBLE);
+-			schedule_timeout(HZ/50);
++			msleep(20);
+ 			dev->irq = probe_irq_off(irq_mask);
+ 			if(!dev->irq)
+ 			{
 
 _
