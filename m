@@ -1,61 +1,50 @@
-From: Xose Vazquez Perez <xose@wanadoo.es>
-Subject: [PATCH ] more ne2k-pci clone boards
-Date: Tue, 18 Nov 2003 21:48:54 +0100
+From: Sam Creasey <sammy@sammy.net>
+Subject: Re: [BK PATCHES] 2.6.x experimental net driver queue
+Date: Tue, 18 Nov 2003 21:08:25 +0000 (UTC)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3FBA85B6.8010008@wanadoo.es>
+Message-ID: <Pine.LNX.4.40.0311191703120.6278-100000@sun3>
+References: <Pine.GSO.4.21.0311181205460.6448-100000@waterleaf.sonytel.be>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040005060409030706010906"
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jeff Garzik <jgarzik@pobox.com>, <netdev@oss.sgi.com>,
+        Linux Kernel <linux-kernel@vger.kernel.org>,
+        Andrew Morton <akpm@osdl.org>,
+        Al Viro <viro@parcelfarce.linux.theplanet.co.uk>,
+        Linux/m68k <linux-m68k@lists.linux-m68k.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, jgarzik@pobox.com
+Date: Wed, 19 Nov 2003 17:08:01 -0500 (EST)
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+In-Reply-To: <Pine.GSO.4.21.0311181205460.6448-100000@waterleaf.sonytel.be>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------040005060409030706010906
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
 
 
-0x8c4a 0x1980 Winbond W89C940(misprogrammed)
+On Tue, 18 Nov 2003, Geert Uytterhoeven wrote:
 
---
-HTML mails are going to trash automagically
+> On Mon, 17 Nov 2003, Geert Uytterhoeven wrote:
+> > On Sun, 16 Nov 2003, Jeff Garzik wrote:
+> > > Yet more updates.  Syncing with Andrew Morton, and more syncing with Al
+> > > Viro.
+> > >
+> > > No users of init_etherdev remain in the tree.  (yay!)
+> >
+> > Here are some (untested, except for cross-gcc) fixes for the m68k-related
+> > drivers:
+>
+> I forget to test the Sun-3 drivers:
+>   - sun3_82586.c:
+>       o add missing casts to iounmap() calls
+>       o fix parameter of free_netdev()
+>   - sun3lance.c: add missing casts to iounmap() calls
+>
+> Note that sun3_82586.c no longer compiles since SUN3_82586_TOTAL_SIZE is not
+> defined. Sammy, is it OK to use PAGE_SIZE for that, since that's what's passed
+> to ioremap()?
 
+Should be...  I looked back through a few versions of the code, and I'm
+not even sure what SUN3_82586_TOTAL_SIZE even was (appears I commented
+that line out long ago anyway).  (I'm also amazed just how much of that
+driver I've forgotten in the last year or two :)
 
---------------040005060409030706010906
-Content-Type: text/plain;
- name="ne2k-pci_idents.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="ne2k-pci_idents.diff"
-
---- linux/drivers/net/ne2k-pci.c	2003-11-15 16:47:29.000000000 +0100
-+++ new/drivers/net/ne2k-pci.c	2003-11-18 21:16:28.000000000 +0100
-@@ -116,6 +116,7 @@
- 	CH_Winbond_W89C940F,
- 	CH_Holtek_HT80232,
- 	CH_Holtek_HT80229,
-+	CH_Winbond_89C940_8c4a,
- };
- 
- 
-@@ -133,6 +134,7 @@
- 	{"Winbond W89C940F", 0},
- 	{"Holtek HT80232", ONLY_16BIT_IO | HOLTEK_FDX},
- 	{"Holtek HT80229", ONLY_32BIT_IO | HOLTEK_FDX | STOP_PG_0x60 },
-+	{"Winbond W89C940(misprogrammed)", 0},
- 	{0,}
- };
- 
-@@ -148,6 +150,7 @@
- 	{ 0x1050, 0x5a5a, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CH_Winbond_W89C940F },
- 	{ 0x12c3, 0x0058, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CH_Holtek_HT80232 },
- 	{ 0x12c3, 0x5598, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CH_Holtek_HT80229 },
-+	{ 0x8c4a, 0x1980, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CH_Winbond_89C940_8c4a },
- 	{ 0, }
- };
- MODULE_DEVICE_TABLE(pci, ne2k_pci_tbl);
-
-
---------------040005060409030706010906--
+-- Sam
