@@ -1,137 +1,106 @@
-From: David Dillow <dave@thedillows.org>
-Subject: [RFC 2.6.10 16/22] typhoon: collect crypto offload capabilities
-Date: Thu, 30 Dec 2004 03:48:37 -0500
-Message-ID: <20041230035000.25@ori.thedillows.org>
-References: <20041230035000.24@ori.thedillows.org>
-Cc: linux-kernel@vger.kernel.org, dave@thedillows.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261634AbUL3JXS@vger.kernel.org>
-To: netdev@oss.sgi.com
-Sender: linux-kernel-owner@vger.kernel.org
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH PKT_SCHED 0/17]: tc action cleanup + fixes
+Date: Thu, 30 Dec 2004 15:16:42 +0100
+Message-ID: <41D40DCA.7090706@trash.net>
+References: <41D3785F.3040909@trash.net>	 <1104382562.1048.39.camel@jzny.localdomain>  <41D3F5EC.9050808@trash.net> <1104413400.1047.123.camel@jzny.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Maillist netdev <netdev@oss.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: hadi@cyberus.ca
+In-Reply-To: <1104413400.1047.123.camel@jzny.localdomain>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2004/12/30 00:56:40-05:00 dave@thedillows.org 
-#   Collect some information about the Typhoon's offload capabilities,
-#   and store it for future use.
-#   
-#   Signed-off-by: David Dillow <dave@thedillows.org>
-# 
-# drivers/net/typhoon.h
-#   2004/12/30 00:56:22-05:00 dave@thedillows.org +14 -0
-#   Add the reply message format for the crypto capability query command.
-#   
-#   Signed-off-by: David Dillow <dave@thedillows.org>
-# 
-# drivers/net/typhoon.c
-#   2004/12/30 00:56:22-05:00 dave@thedillows.org +56 -0
-#   Collect some information about the Typhoon's offload capabilities,
-#   and store it for future use.
-#   
-#   Signed-off-by: David Dillow <dave@thedillows.org>
-# 
-diff -Nru a/drivers/net/typhoon.c b/drivers/net/typhoon.c
---- a/drivers/net/typhoon.c	2004-12-30 01:08:58 -05:00
-+++ b/drivers/net/typhoon.c	2004-12-30 01:08:58 -05:00
-@@ -305,6 +305,12 @@
- 	u16			wol_events;
- 	u32			offload;
- 
-+	u16			tx_sa_max;
-+	u16			rx_sa_max;
-+	u16			tx_sa_avail;
-+	u16			rx_sa_avail;
-+	int			sa_count;
-+
- 	/* unused stuff (future use) */
- 	int			capabilities;
- 	struct transmit_ring 	txHiRing;
-@@ -2105,6 +2111,53 @@
- 	return 0;
- }
- 
-+static inline int
-+typhoon_ipsec_init(struct typhoon *tp)
-+{
-+	struct cmd_desc xp_cmd;
-+	struct resp_desc xp_resp;
-+	struct ipsec_info_desc *info = (struct ipsec_info_desc *) &xp_resp;
-+	u16 last_tx, last_rx, last_cap;
-+	int err;
-+
-+	last_tx = tp->tx_sa_max;
-+	last_rx = tp->rx_sa_max;
-+	last_cap = tp->capabilities;
-+
-+	INIT_COMMAND_WITH_RESPONSE(&xp_cmd, TYPHOON_CMD_READ_IPSEC_INFO);
-+	err = typhoon_issue_command(tp, 1, &xp_cmd, 1, &xp_resp);
-+	if(err < 0)
-+		goto out;
-+
-+	/* We're not up yet, so no need to lock this -- we cannot modify
-+	 * these fields yet.
-+	 */
-+	tp->tx_sa_avail = tp->tx_sa_max = le16_to_cpu(info->tx_sa_max);
-+	tp->rx_sa_avail = tp->rx_sa_max = le16_to_cpu(info->rx_sa_max);
-+	tp->sa_count = 0;
-+
-+	/* Typhoon2 was originally going to have variable crypto capabilities,
-+	 * subject to registration with 3Com. It appears they have decided
-+	 * to just enable 3DES as well.
-+	 */
-+	if(tp->capabilities & TYPHOON_CRYPTO_VARIABLE) {
-+		tp->capabilities &= ~TYPHOON_CRYPTO_VARIABLE;
-+		tp->capabilities |= TYPHOON_CRYPTO_DES | TYPHOON_CRYPTO_3DES;
-+	}
-+
-+	if(last_tx != tp->tx_sa_max || last_rx != tp->rx_sa_max ||
-+					last_cap != tp->capabilities) {
-+		printk(KERN_INFO "%s: IPSEC offload %s%s %d Tx %d Rx\n",
-+			tp->name,
-+			tp->capabilities & TYPHOON_CRYPTO_DES ? "DES " : "",
-+			tp->capabilities & TYPHOON_CRYPTO_3DES ? "3DES" : "",
-+			tp->tx_sa_max, tp->rx_sa_max);
-+	}
-+
-+out:
-+	return err;
-+}
-+
- static int
- typhoon_start_runtime(struct typhoon *tp)
- {
-@@ -2127,6 +2180,9 @@
- 		err = -EIO;
- 		goto error_out;
- 	}
-+
-+	if(typhoon_ipsec_init(tp))
-+		goto error_out;
- 
- 	INIT_COMMAND_NO_RESPONSE(&xp_cmd, TYPHOON_CMD_SET_MAX_PKT_SIZE);
- 	xp_cmd.parm1 = cpu_to_le16(PKT_BUF_SZ);
-diff -Nru a/drivers/net/typhoon.h b/drivers/net/typhoon.h
---- a/drivers/net/typhoon.h	2004-12-30 01:08:58 -05:00
-+++ b/drivers/net/typhoon.h	2004-12-30 01:08:58 -05:00
-@@ -487,6 +487,20 @@
- 	u32 unused2;
- } __attribute__ ((packed));
- 
-+/* TYPHOON_CMD_READ_IPSEC_INFO response descriptor
-+ */
-+struct ipsec_info_desc {
-+	u8  flags;
-+	u8  numDesc;
-+	u16 cmd;
-+	u16 seqNo;
-+	u16 des_enabled;
-+	u16 tx_sa_max;
-+	u16 rx_sa_max;
-+	u16 tx_sa_count;
-+	u16 rx_sa_count;
-+} __attribute__ ((packed));
-+
- /* TYPHOON_CMD_SET_OFFLOAD_TASKS bits (cmd.parm2 (Tx) & cmd.parm3 (Rx))
-  * This is all for IPv4.
-  */
+jamal wrote:
+
+>>>b)Other things which i have seen compilers whine about in the past of
+>>>the form:
+>>>
+>>>a missing cast
+>>>-       a->priv = (void *) p;
+>>>+       a->priv = p;
+>>
+>>No need to cast a pointer to void *, except if a->priv
+>>was of some different type.
+>> 
+> So as long as lvalue was void you dont cast? p is certainly not void.
+
+Exactly.
+
+>>>4) Some of those messages are actually still useful and dont really
+>>>harm to leave around for a little while longer;
+>>>-       if (tb[TCA_PEDIT_PARMS - 1] == NULL) {
+>>>-               printk("BUG: tcf_pedit_init called with NULL params\n");
+>>>
+>>>I realize the fixes you have to return -ENOMEN/NOENT etc are an
+>>>improvement but a little ascii puking wont harm for somebody writting
+>>>a user space app until we get better netlink error propagation
+>>>in place.
+>>
+>>Agreed for some messages, but those should be DEBUGs. Anyway,
+>>I didn't want to judge for every message and possible convert
+>>it, so I deleted all printks that got replaced by error codes.
+>>
+> 
+> the printks are meant to help a little more (and are mostly on the slow
+> path); when the error propagation for netlink works well, those sorts of
+> ascii messages will probably be transported back to user space. On any
+> newer patches I suggest to just keep them.
+
+Ok.
+
+> Heres something else:
+> Re: [PATCH PKT_SCHED 15/17]: Remove checks for impossible conditions in
+> pedit action, you say:
+> 
+> 
+>>Remove checks for impossible conditions in pedit action.
+> 
+> 
+> ________________________________________________________________________
+> [..]
+> -	if (p == NULL) {
+> 
+>>-		printk("BUG: tcf_pedit_dump called with NULL params\n");
+>>-		goto rtattr_failure;
+>>-	}
+>>-
+> 
+> 
+> You have these type changes all over. These are certainly artifacts of the 
+> development time, I may have have caught a bug or two via these checks at 
+> the time. It is highly likely those bugs are fixed in the code merged.
+
+Yes, I checked all paths before removing them.
+
+> If they happen, however, they are a BUG and the possibility of a bug is
+> still there ;-> i.e the word "impossible" is too strong a description. 
+> Having said that:
+> Is it better to have an oops catch this or have something print on the
+> console or syslog indicating a bug? This is more a philosphical question
+> and an answer could be "good practise is to let oops catch it". I am
+> actually indifferent if those checks go - however if i had caught them
+> myself i would have put unlikely() around them.
+
+I prefer an Oops because it gives a backtrace, without requiring
+additional checks in the code. The other reason I deleted them was
+that not all of them printed something on the console, so some
+bugs were just quietly ignored. And I didn't want to add more printks :)
+
+> I will wait for you to finish before i start working on the eactions.
+> 
+> So a general comment to all the patches. All look good - I would prefer
+> a check against size instead of EOPNOTSUPP for the two i pointed at.
+> And going forward, prefer you leave the printks i had for errors but fix
+> the return codes to be more meaningful. So only those two i pointed at
+> with EOPNOTSUPP i am not ACKing (my basic tests will break) - rest Dave
+> can push in.
+
+Thanks. Dave is on holidays until next week, I'll fix them
+up until then.
+
+Regards
+Patrick
