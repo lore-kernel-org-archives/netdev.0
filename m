@@ -1,66 +1,37 @@
-From: Don Fry <brazilnut@us.ibm.com>
-Subject: [PATCH 2.4.27-pre3] pcnet32: limit frames received during interrupt.
-Date: Sat, 22 May 2004 15:30:02 -0700 (PDT)
+From: Christoph Hellwig <hch@lst.de>
+Subject: [PATCH] remove broken bitfield use from via-rhine
+Date: Sun, 23 May 2004 01:11:17 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200405222230.i4MMU2H12986@DYN318364BLD.beaverton.ibm.com>
+Message-ID: <20040522231117.GA3416@infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: tsbogend@alpha.franken.de, jgarzik@pobox.com, netdev@oss.sgi.com
+To: jgarzik@pobox.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The current code will allow an infinite number of frames to be received
-during one interrupt.  Tested ia32.
+From: Debian kernel package, author probably Herbert Xu
 
---- linux-2.4.27-pre3/drivers/net/ltint.pcnet32.c	Fri May 21 12:43:19 2004
-+++ linux-2.4.27-pre3/drivers/net/pcnet32.c	Sat May 22 13:26:44 2004
-@@ -22,8 +22,8 @@
-  *************************************************************************/
- 
- #define DRV_NAME	"pcnet32"
--#define DRV_VERSION	"1.30"
--#define DRV_RELDATE	"05.18.2004"
-+#define DRV_VERSION	"1.30a"
-+#define DRV_RELDATE	"05.22.2004"
- #define PFX		DRV_NAME ": "
- 
- static const char *version =
-@@ -86,7 +86,7 @@
- 
- static struct net_device *pcnet32_dev;
- 
--static int max_interrupt_work = 80;
-+static int max_interrupt_work = 2;
- static int rx_copybreak = 200;
- 
- #define PCNET32_PORT_AUI      0x00
-@@ -241,6 +241,7 @@
-  *	   forever.
-  * v1.30   18 May 2004 Don Fry removed timer and Last Transmit Interrupt
-  *	   (ltint) as they added complexity and didn't give good throughput.
-+ * v1.30a  22 May 2004 Don Fry limit frames received during interrupt.
-  */
- 
- 
-@@ -1857,6 +1858,7 @@
- {
-     struct pcnet32_private *lp = dev->priv;
-     int entry = lp->cur_rx & RX_RING_MOD_MASK;
-+    int boguscnt = RX_RING_SIZE / 2;
- 
-     /* If we own the next entry, it's a new packet. Send it up. */
-     while ((short)le16_to_cpu(lp->rx_ring[entry].status) >= 0) {
-@@ -1955,6 +1957,7 @@
- 	wmb(); /* Make sure owner changes after all others are visible */
- 	lp->rx_ring[entry].status |= le16_to_cpu(0x8000);
- 	entry = (++lp->cur_rx) & RX_RING_MOD_MASK;
-+	if (--boguscnt <= 0) break;	/* don't stay in loop forever */
-     }
- 
-     return 0;
 
--- 
-Don Fry
-brazilnut@us.ibm.com
+we're using it to assign if_port to it only anyway so it should have the
+same type.
+
+
+
+ * Fixed size of default_port in drivers/net/via-rhine.c
+
+diff -urN kernel-source-2.6.6/drivers/net/via-rhine.c kernel-source-2.6.6-1/drivers/net/via-rhine.c
+--- kernel-source-2.6.6/drivers/net/via-rhine.c	2004-05-10 19:47:56.000000000 +1000
++++ kernel-source-2.6.6-1/drivers/net/via-rhine.c	2004-05-10 22:21:34.000000000 +1000
+@@ -523,8 +523,8 @@
+ 	u16 chip_cmd;						/* Current setting for ChipCmd */
+ 
+ 	/* These values are keep track of the transceiver/media in use. */
+-	unsigned int default_port:4;		/* Last dev->if_port value. */
+ 	u8 tx_thresh, rx_thresh;
++	unsigned int default_port;		/* Last dev->if_port value. */
+ 
+ 	/* MII transceiver section. */
+ 	unsigned char phys[MAX_MII_CNT];			/* MII device addresses. */
