@@ -1,211 +1,136 @@
 From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] bluetooth/rfcomm/: make some code static
-Date: Sun, 19 Dec 2004 17:13:23 +0100
-Message-ID: <20041219161323.GZ21288@stusta.de>
+Subject: [2.6 patch] bluetooth: make some code static
+Date: Sun, 19 Dec 2004 17:34:42 +0100
+Message-ID: <20041219163442.GC21288@stusta.de>
 References: <20041214041352.GZ23151@stusta.de> <1103009649.2143.65.camel@pegasus> <20041219160758.GY21288@stusta.de>
-Reply-To: bluez-devel@lists.sourceforge.net
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Max Krasnyansky <maxk@qualcomm.com>, bluez-devel@lists.sf.net,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Network Development Mailing List <netdev@oss.sgi.com>
-Return-path: <bluez-devel-admin@lists.sourceforge.net>
+Cc: Max Krasnyansky <maxk@qualcomm.com>, bluez-devel@lists.sourceforge.net,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Network Development Mailing List <netdev@oss.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
 To: Marcel Holtmann <marcel@holtmann.org>
 Content-Disposition: inline
 In-Reply-To: <20041219160758.GY21288@stusta.de>
-Sender: bluez-devel-admin@lists.sourceforge.net
-Errors-To: bluez-devel-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
-	<mailto:bluez-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:bluez-devel@lists.sourceforge.net>
-List-Help: <mailto:bluez-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
-	<mailto:bluez-devel-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=bluez-devel>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 The patch below makes some needlessly global code static.
 
 
 diffstat output:
- include/net/bluetooth/rfcomm.h |   27 ------------------------
- net/bluetooth/rfcomm/core.c    |   37 ++++++++++++++++++++++++++-------
- net/bluetooth/rfcomm/sock.c    |    4 +--
- 3 files changed, 32 insertions(+), 36 deletions(-)
+ include/net/bluetooth/hci_core.h |    2 --
+ net/bluetooth/hci_conn.c         |    2 +-
+ net/bluetooth/hci_core.c         |    4 ++--
+ net/bluetooth/hci_sock.c         |   10 +++++-----
+ net/bluetooth/l2cap.c            |    2 +-
+ 5 files changed, 9 insertions(+), 11 deletions(-)
 
 
 Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
---- linux-2.6.10-rc3-mm1-full/include/net/bluetooth/rfcomm.h.old	2004-12-14 02:19:37.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/include/net/bluetooth/rfcomm.h	2004-12-14 02:27:24.000000000 +0100
-@@ -216,22 +216,6 @@
- #define RFCOMM_CFC_DISABLED 0
- #define RFCOMM_CFC_ENABLED  RFCOMM_MAX_CREDITS
- 
--extern struct task_struct *rfcomm_thread;
--extern unsigned long rfcomm_event;
--
--static inline void rfcomm_schedule(uint event)
--{
--	if (!rfcomm_thread)
--		return;
--	//set_bit(event, &rfcomm_event);
--	set_bit(RFCOMM_SCHED_WAKEUP, &rfcomm_event);
--	wake_up_process(rfcomm_thread);
--}
--
--extern struct semaphore rfcomm_sem;
--#define rfcomm_lock()	down(&rfcomm_sem);
--#define rfcomm_unlock()	up(&rfcomm_sem);
--
- /* ---- RFCOMM DLCs (channels) ---- */
- struct rfcomm_dlc *rfcomm_dlc_alloc(int prio);
- void rfcomm_dlc_free(struct rfcomm_dlc *d);
-@@ -271,11 +255,6 @@
- }
- 
- /* ---- RFCOMM sessions ---- */
--struct rfcomm_session *rfcomm_session_add(struct socket *sock, int state);
--struct rfcomm_session *rfcomm_session_get(bdaddr_t *src, bdaddr_t *dst);
--struct rfcomm_session *rfcomm_session_create(bdaddr_t *src, bdaddr_t *dst, int *err);
--void   rfcomm_session_del(struct rfcomm_session *s);
--void   rfcomm_session_close(struct rfcomm_session *s, int err);
- void   rfcomm_session_getaddr(struct rfcomm_session *s, bdaddr_t *src, bdaddr_t *dst);
- 
- static inline void rfcomm_session_hold(struct rfcomm_session *s)
-@@ -283,12 +262,6 @@
- 	atomic_inc(&s->refcnt);
- }
- 
--static inline void rfcomm_session_put(struct rfcomm_session *s)
--{
--	if (atomic_dec_and_test(&s->refcnt))
--		rfcomm_session_del(s);
--}
--
- /* ---- RFCOMM chechsum ---- */
- extern u8 rfcomm_crc_table[];
- 
---- linux-2.6.10-rc3-mm1-full/net/bluetooth/rfcomm/core.c.old	2004-12-14 02:19:43.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/bluetooth/rfcomm/core.c	2004-12-14 02:27:41.000000000 +0100
-@@ -61,8 +61,12 @@
- struct proc_dir_entry *proc_bt_rfcomm;
- #endif
- 
--struct task_struct *rfcomm_thread;
--DECLARE_MUTEX(rfcomm_sem);
-+static struct task_struct *rfcomm_thread;
-+
-+static DECLARE_MUTEX(rfcomm_sem);
-+#define rfcomm_lock()	down(&rfcomm_sem);
-+#define rfcomm_unlock()	up(&rfcomm_sem);
-+
- unsigned long rfcomm_event;
- 
- static LIST_HEAD(session_list);
-@@ -81,6 +85,10 @@
- 
- static void rfcomm_process_connect(struct rfcomm_session *s);
- 
-+static struct rfcomm_session *rfcomm_session_create(bdaddr_t *src, bdaddr_t *dst, int *err);
-+static struct rfcomm_session *rfcomm_session_get(bdaddr_t *src, bdaddr_t *dst);
-+static void rfcomm_session_del(struct rfcomm_session *s);
-+
- /* ---- RFCOMM frame parsing macros ---- */
- #define __get_dlci(b)     ((b & 0xfc) >> 2)
- #define __get_channel(b)  ((b & 0xf8) >> 3)
-@@ -111,6 +119,21 @@
- #define __get_rpn_stop_bits(line) (((line) >> 2) & 0x1)
- #define __get_rpn_parity(line)    (((line) >> 3) & 0x3)
- 
-+static inline void rfcomm_schedule(uint event)
-+{
-+	if (!rfcomm_thread)
-+		return;
-+	//set_bit(event, &rfcomm_event);
-+	set_bit(RFCOMM_SCHED_WAKEUP, &rfcomm_event);
-+	wake_up_process(rfcomm_thread);
-+}
-+
-+static inline void rfcomm_session_put(struct rfcomm_session *s)
-+{
-+	if (atomic_dec_and_test(&s->refcnt))
-+		rfcomm_session_del(s);
-+}
-+
- /* ---- RFCOMM FCS computation ---- */
- 
- /* CRC on 2 bytes */
-@@ -458,7 +481,7 @@
- }
- 
- /* ---- RFCOMM sessions ---- */
--struct rfcomm_session *rfcomm_session_add(struct socket *sock, int state)
-+static struct rfcomm_session *rfcomm_session_add(struct socket *sock, int state)
- {
- 	struct rfcomm_session *s = kmalloc(sizeof(*s), GFP_KERNEL);
- 	if (!s)
-@@ -487,7 +510,7 @@
- 	return s;
- }
- 
--void rfcomm_session_del(struct rfcomm_session *s)
-+static void rfcomm_session_del(struct rfcomm_session *s)
- {
- 	int state = s->state;
- 
-@@ -505,7 +528,7 @@
- 		module_put(THIS_MODULE);
- }
- 
--struct rfcomm_session *rfcomm_session_get(bdaddr_t *src, bdaddr_t *dst)
-+static struct rfcomm_session *rfcomm_session_get(bdaddr_t *src, bdaddr_t *dst)
- {
- 	struct rfcomm_session *s;
- 	struct list_head *p, *n;
-@@ -521,7 +544,7 @@
+--- linux-2.6.10-rc3-mm1-full/include/net/bluetooth/hci_core.h.old	2004-12-14 02:13:54.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/include/net/bluetooth/hci_core.h	2004-12-14 02:31:34.000000000 +0100
+@@ -277,7 +277,6 @@
  	return NULL;
  }
  
--void rfcomm_session_close(struct rfcomm_session *s, int err)
-+static void rfcomm_session_close(struct rfcomm_session *s, int err)
+-void hci_acl_connect(struct hci_conn *conn);
+ void hci_acl_disconn(struct hci_conn *conn, __u8 reason);
+ void hci_add_sco(struct hci_conn *conn, __u16 handle);
+ 
+@@ -589,6 +583,5 @@
+ #define hci_req_unlock(d)	up(&d->req_lock)
+ 
+ void hci_req_complete(struct hci_dev *hdev, int result);
+-void hci_req_cancel(struct hci_dev *hdev, int err);
+ 
+ #endif /* __HCI_CORE_H */
+--- linux-2.6.10-rc3-mm1-full/net/bluetooth/hci_conn.c.old	2004-12-14 02:14:10.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/bluetooth/hci_conn.c	2004-12-14 02:14:15.000000000 +0100
+@@ -53,7 +53,7 @@
+ #define BT_DBG(D...)
+ #endif
+ 
+-void hci_acl_connect(struct hci_conn *conn)
++static void hci_acl_connect(struct hci_conn *conn)
  {
- 	struct rfcomm_dlc *d;
- 	struct list_head *p, *n;
-@@ -542,7 +565,7 @@
- 	rfcomm_session_put(s);
+ 	struct hci_dev *hdev = conn->hdev;
+ 	struct inquiry_entry *ie;
+--- linux-2.6.10-rc3-mm1-full/net/bluetooth/hci_core.c.old	2004-12-14 02:14:53.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/bluetooth/hci_core.c	2004-12-14 02:31:09.000000000 +0100
+@@ -59,7 +59,7 @@
+ static void hci_tx_task(unsigned long arg);
+ static void hci_notify(struct hci_dev *hdev, int event);
+ 
+-rwlock_t hci_task_lock = RW_LOCK_UNLOCKED;
++static rwlock_t hci_task_lock = RW_LOCK_UNLOCKED;
+ 
+ /* HCI device list */
+ LIST_HEAD(hci_dev_list);
+@@ -106,7 +106,7 @@
+ 	}
  }
  
--struct rfcomm_session *rfcomm_session_create(bdaddr_t *src, bdaddr_t *dst, int *err)
-+static struct rfcomm_session *rfcomm_session_create(bdaddr_t *src, bdaddr_t *dst, int *err)
+-void hci_req_cancel(struct hci_dev *hdev, int err)
++static void hci_req_cancel(struct hci_dev *hdev, int err)
  {
- 	struct rfcomm_session *s = NULL;
- 	struct sockaddr_l2 addr;
---- linux-2.6.10-rc3-mm1-full/net/bluetooth/rfcomm/sock.c.old	2004-12-14 02:28:14.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/bluetooth/rfcomm/sock.c	2004-12-14 02:28:33.000000000 +0100
-@@ -393,7 +393,7 @@
- 	return err;
+ 	BT_DBG("%s err 0x%2.2x", hdev->name, err);
+ 
+--- linux-2.6.10-rc3-mm1-full/net/bluetooth/hci_sock.c.old	2004-12-14 02:16:59.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/bluetooth/hci_sock.c	2004-12-14 02:17:59.000000000 +0100
+@@ -447,7 +447,7 @@
+ 	goto done;
  }
  
--int rfcomm_sock_listen(struct socket *sock, int backlog)
-+static int rfcomm_sock_listen(struct socket *sock, int backlog)
+-int hci_sock_setsockopt(struct socket *sock, int level, int optname, char __user *optval, int len)
++static int hci_sock_setsockopt(struct socket *sock, int level, int optname, char __user *optval, int len)
  {
+ 	struct hci_ufilter uf = { .opcode = 0 };
  	struct sock *sk = sock->sk;
- 	int err = 0;
-@@ -437,7 +437,7 @@
+@@ -514,7 +514,7 @@
  	return err;
  }
  
--int rfcomm_sock_accept(struct socket *sock, struct socket *newsock, int flags)
-+static int rfcomm_sock_accept(struct socket *sock, struct socket *newsock, int flags)
+-int hci_sock_getsockopt(struct socket *sock, int level, int optname, char __user *optval, int __user *optlen)
++static int hci_sock_getsockopt(struct socket *sock, int level, int optname, char __user *optval, int __user *optlen)
  {
- 	DECLARE_WAITQUEUE(wait, current);
- 	struct sock *sk = sock->sk, *nsk;
-
-
-
--------------------------------------------------------
-SF email is sponsored by - The IT Product Guide
-Read honest & candid reviews on hundreds of IT Products from real users.
-Discover which products truly live up to the hype. Start reading now. 
-http://productguide.itmanagersjournal.com/
+ 	struct hci_ufilter uf;
+ 	struct sock *sk = sock->sk;
+@@ -567,7 +567,7 @@
+ 	return 0;
+ }
+ 
+-struct proto_ops hci_sock_ops = {
++static struct proto_ops hci_sock_ops = {
+ 	.family		= PF_BLUETOOTH,
+ 	.owner		= THIS_MODULE,
+ 	.release	= hci_sock_release,
+@@ -647,13 +647,13 @@
+ 	return NOTIFY_DONE;
+ }
+ 
+-struct net_proto_family hci_sock_family_ops = {
++static struct net_proto_family hci_sock_family_ops = {
+ 	.family	= PF_BLUETOOTH,
+ 	.owner	= THIS_MODULE,
+ 	.create	= hci_sock_create,
+ };
+ 
+-struct notifier_block hci_sock_nblock = {
++static struct notifier_block hci_sock_nblock = {
+ 	.notifier_call = hci_sock_dev_event
+ };
+ 
+--- linux-2.6.10-rc3-mm1-full/net/bluetooth/l2cap.c.old	2004-12-14 02:18:13.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/bluetooth/l2cap.c	2004-12-14 02:18:21.000000000 +0100
+@@ -61,7 +61,7 @@
+ 
+ static struct proto_ops l2cap_sock_ops;
+ 
+-struct bt_sock_list l2cap_sk_list = {
++static struct bt_sock_list l2cap_sk_list = {
+ 	.lock = RW_LOCK_UNLOCKED
+ };
+ 
