@@ -1,102 +1,48 @@
-From: Tomas Szepe <szepe@pinerecords.com>
-Subject: Re: [RFC/PATCH] IMQ port to 2.6
-Date: Tue, 27 Jan 2004 12:59:17 +0100
+From: Shmuel Hen <shmulik.hen@intel.com>
+Subject: Re: [PATCH 3/6][8021q][2.4] Use VLAN tag set functionality in 8021q module
+Date: Wed, 28 Jan 2004 18:57:25 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040127115917.GA19166@louise.pinerecords.com>
-References: <1075058539.1747.92.camel@jzny.localdomain> <20040125202148.GA10599@usr.lcm.msu.ru> <1075074316.1747.115.camel@jzny.localdomain> <20040126001102.GA12303@usr.lcm.msu.ru> <1075086588.1732.221.camel@jzny.localdomain> <20040126093230.GA17811@usr.lcm.msu.ru> <1075124312.1732.292.camel@jzny.localdomain> <20040126135545.GA19497@usr.lcm.msu.ru> <20040126152409.GA10053@louise.pinerecords.com> <1075173275.1039.53.camel@jzny.localdomain>
+Message-ID: <200401281857.25642.shmulik.hen@intel.com>
+References: <E791C176A6139242A988ABA8B3D9B38A03A9CCD5@hasmsx403.iil.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Vladimir B. Savkin" <master@sectorb.msk.ru>, netdev@oss.sgi.com,
-        volf@dragon.cz
+Content-Type: text/plain;
+  charset="tscii"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@oss.sgi.com>, <bonding-devel@lists.sourceforge.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
+To: "Jeff Garzik" <jgarzik@pobox.com>
+In-Reply-To: <E791C176A6139242A988ABA8B3D9B38A03A9CCD5@hasmsx403.iil.intel.com>
 Content-Disposition: inline
-In-Reply-To: <1075173275.1039.53.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Jan-26 2004, Mon, 22:14 -0500
-jamal <hadi@cyberus.ca> wrote:
+On Monday 26 January 2004 19:42, Jeff Garzik wrote:
+> Shmuel Hen wrote:
+> > Also, speaking of the bonding changes queued in netdev-2.4, some
+> > of those have been queued there since 2.4.23 came out. Will those
+> > be pushed to Marcelo during 2.4.25 or do you intend to hold them
+> > until 2.4.26-preX starts?
+>
+> Sounds like DaveM and I will need to coordinate a bit, then.
 
-> On Mon, 2004-01-26 at 10:24, Tomas Szepe wrote:
-> [..]
-> > Actually, this is very much like what we're using IMQ for:
-> > 
-> >                   +-----------+ eth1 --- \
-> >                   | shaper    + eth2 ---
-> > Internet --- eth0 + in bridge + .    ---    ... WAN (10 C's of customer IPs)
-> >                   | setup     + .    ---
-> >                   +-----------+ ethN --- /
-> > 
-> > We're shaping single IPs and groups of IPs, applying tariff rates
-> > on the sum of inbound and outbound flow (this last point, I'm told,
-> > is the primary reason for our use of IMQ).]
-> 
-> This does not IMQ. I am going to type an example at the end of the
-> email.
+By coordinate, do you mean that you'll take in all of our patches and 
+forward them to Dave at the appropriate time, or instead wait for 
+Dave to take in the first half (which is not bonding specific) and 
+only then take the last half ?
 
-Thanks for your reply, Jamal.  Unfortunately, we don't really understand
-your example.  Please see below.
+> Note that at some point, IMO you need to plan on 2.6-only
+> development, since keeping bonding the same in 2.4 and 2.6 -through
+> ABI changes- may not be feasible past the short term.  2.4
+> developmnent is intentionally slowing down on Marcelo's side, even
+> though vendors are still shipping 2.4.x stuff.
 
-[snip]
-> BTW, how are you going to do SNAT with bridging?
-
-We aren't.  :) We won't need bridging on those firewalls, it's only
-necessary for the main shaper box.  I apologize for not making that
-clear in my previous post.
-
-> The example below tries to show many things. Example sharing of
-> policers across many flows within a device, and across devices.
-> Also shows how to do it so that inbound and outbound are summed up.
-> [snip]
-
-What's the mechanism for matching the IPs?  We need to insert
-thousands of these rules and shape constant 20+ Mbit flow of
-traffic.  If it doesn't use a hash or similar, we're back to
-where we started.
-
-> # On the return path from internet to eth1, packets from
-> # internet to 10.0.0.21 are forced to use policer index 1
-> # and therefore ensuring that the bandwidth is allocated
-> # is the sum of inbound and outbound for that flow ..
-> # 
-> #
-> #add ingress qdisc
-> tc qdisc add dev eth1 ingress
-> #
-> tc filter add dev eth1 parent ffff: protocol ip prio 1 \
-> u32 match ip src 10.0.0.21/32 flowid 1:15 \
-> # first give it a mark of 1
-> action ipt -j mark --set-mark 1 index 2 \
-> # ensure policer index 1 is used
-> action police index 1 rate 1kbit burst 9k pipe \
-> # exceeded flows bound rate ..
-> action ipt -j mark --set-mark 2 \
-> #
-> action police index 200 mtu 5000 rate 1kbit burst 10k pipe \
-> action ipt -j mark --set-mark 3 \
-> action police index 300 mtu 5000 rate 1kbit burst 90k drop
-> #
-> #
-> # do something on eth0 with these firewall marks
-> # example use them to send packets to different classes/queue
-> # give priority to marks 1 then 2 then 3
-> #
-> .
-> .
-> .
-> # now the return path to 10.0.0.21 ...
-> tc qdisc add dev eth1 handle 1:0 root prio 
-> #
-> # note how exactly the same policer is used ("index 1")
-> tc filter add dev eth1 parent 1:0 protocol ip prio 1 \
-> u32 match ip dst 10.0.0.21/32 flowid 1:25 \
-> action police index 1 rate 1kbit burst 9k pipe 
-
-Would you know of any real documentation on tc/ingress that
-we could use to deconstruct this example and understand it?
-
-At this moment we can only guess at what's happening. :(
+That is our intention. The VLAN enhancements and dynamic configuration 
+are the last features we wanted to get into 2.4 before closing (maybe 
+zero copy too, since it is trivial). The only thing we do intend to 
+keep sending for both 2.4 and 2.6 are bug fixes.
 
 -- 
-Tomas Szepe <szepe@pinerecords.com>
+| Shmulik Hen   Advanced Network Services  |
+| Israel Design Center, Jerusalem          |
+| LAN Access Division, Platform Networking |
+| Intel Communications Group, Intel corp.  |
