@@ -1,23 +1,28 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: ethernet QoS support?
-Date: 12 Jul 2004 08:18:22 -0400
+From: Jamal Hadi Salim <hadi@znyx.com>
+Subject: [Fwd: Re: ethernet QoS support?]
+Date: 12 Jul 2004 08:21:01 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1089634701.1055.260.camel@jzny.localdomain>
-References: <1C440F3C-D110-11D8-8B61-000393DBC2E8@freescale.com>
-	 <200407091641.35651.vkondra@mail.ru>
-	 <1089383622.1030.21.camel@jzny.localdomain>
-	 <200407092126.43021.vkondra@mail.ru>
-Reply-To: hadi@cyberus.ca
+Message-ID: <1089634861.1056.264.camel@jzny.localdomain>
+Reply-To: hadi@znyx.com
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Jeff Garzik <jgarzik@pobox.com>,
-        Kumar Gala <kumar.gala@freescale.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Vladimir Kondratiev <vkondra@mail.ru>
-In-Reply-To: <200407092126.43021.vkondra@mail.ru>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
+
+
+Didnt see the echo - and we all know how enthusiastic the firewall admin
+at oss.sgi.com - so heres a resend
+
+-----Forwarded Message-----
+
+From: jamal <hadi@cyberus.ca>
+To: Vladimir Kondratiev <vkondra@mail.ru>
+Cc: netdev@oss.sgi.com, Jeff Garzik <jgarzik@pobox.com>, Kumar Gala <kumar.gala@freescale.com>
+Subject: Re: ethernet QoS support?
+Date: 12 Jul 2004 08:18:22 -0400
 
 On Fri, 2004-07-09 at 14:26, Vladimir Kondratiev wrote:
 
