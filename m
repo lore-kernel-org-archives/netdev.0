@@ -1,78 +1,40 @@
-From: Cal Peake <cp@absolutedigital.net>
-Subject: [PATCH] Fix readw/writew warnings in drivers/net/wireless/hermes.h
-Date: Mon, 11 Oct 2004 07:34:00 -0400 (EDT)
+From: Jan Dittmer <j.dittmer@portrix.net>
+Subject: Re: [PATCH] Fix readw/writew warnings in drivers/net/wireless/hermes.h
+Date: Mon, 11 Oct 2004 13:54:44 +0200
 Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <Pine.LNX.4.61.0410110702590.7899@linaeum.absolutedigital.net>
+Message-ID: <416A7484.1030703@portrix.net>
+References: <Pine.LNX.4.61.0410110702590.7899@linaeum.absolutedigital.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: NetDev Mailing List <netdev@oss.sgi.com>, proski@gnu.org,
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	NetDev Mailing List <netdev@oss.sgi.com>, proski@gnu.org,
 	hermes@gibson.dropbear.id.au
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S268817AbUJKLe1@vger.kernel.org>
-To: Kernel Mailing List <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S268824AbUJKLzY@vger.kernel.org>
+To: Cal Peake <cp@absolutedigital.net>
+In-Reply-To: <Pine.LNX.4.61.0410110702590.7899@linaeum.absolutedigital.net>
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Cal Peake wrote:
+> Hi,
+> 
+> This patch fixes several dozen warnings spit out when compiling the hermes 
+> wireless driver.
+> 
+> In file included from drivers/net/wireless/orinoco.c:448:
+> drivers/net/wireless/hermes.h: In function `hermes_present':
+> drivers/net/wireless/hermes.h:398: warning: passing arg 1 of `readw' makes pointer from integer without a cast
+> drivers/net/wireless/hermes.h: In function `hermes_set_irqmask':
+> drivers/net/wireless/hermes.h:404: warning: passing arg 2 of `writew' makes pointer from integer without a cast
+> ...
 
-This patch fixes several dozen warnings spit out when compiling the hermes 
-wireless driver.
+>  	inw((hw)->iobase + ( (off) << (hw)->reg_spacing )) : \
+> -	readw((hw)->iobase + ( (off) << (hw)->reg_spacing )))
+> +	readw((void __iomem *)(hw)->iobase + ( (off) << (hw)->reg_spacing )))
+>  #define hermes_write_reg(hw, off, val) do { \
 
-In file included from drivers/net/wireless/orinoco.c:448:
-drivers/net/wireless/hermes.h: In function `hermes_present':
-drivers/net/wireless/hermes.h:398: warning: passing arg 1 of `readw' makes pointer from integer without a cast
-drivers/net/wireless/hermes.h: In function `hermes_set_irqmask':
-drivers/net/wireless/hermes.h:404: warning: passing arg 2 of `writew' makes pointer from integer without a cast
-...
+Isn't the correct fix to declare iobase as (void __iomem *) ?
 
-thanks,
+Thanks,
 
--- Cal
-
-
-Signed-off-by: Cal Peake <cp@absolutedigital.net>
-
-
-diff -Nru linux-2.6.9-rc4/drivers/net/wireless/hermes.h linux-2.6.9-rc4-1/drivers/net/wireless/hermes.h
---- linux-2.6.9-rc4/drivers/net/wireless/hermes.h	2004-10-11 02:38:38.000000000 -0400
-+++ linux-2.6.9-rc4-1/drivers/net/wireless/hermes.h	2004-10-11 06:56:01.000000000 -0400
-@@ -364,12 +364,12 @@
- /* Register access convenience macros */
- #define hermes_read_reg(hw, off) ((hw)->io_space ? \
- 	inw((hw)->iobase + ( (off) << (hw)->reg_spacing )) : \
--	readw((hw)->iobase + ( (off) << (hw)->reg_spacing )))
-+	readw((void __iomem *)(hw)->iobase + ( (off) << (hw)->reg_spacing )))
- #define hermes_write_reg(hw, off, val) do { \
- 	if ((hw)->io_space) \
- 		outw_p((val), (hw)->iobase + ((off) << (hw)->reg_spacing)); \
- 	else \
--		writew((val), (hw)->iobase + ((off) << (hw)->reg_spacing)); \
-+		writew((val), (void __iomem *)(hw)->iobase + ((off) << (hw)->reg_spacing)); \
- 	} while (0)
- #define hermes_read_regn(hw, name) hermes_read_reg((hw), HERMES_##name)
- #define hermes_write_regn(hw, name, val) hermes_write_reg((hw), HERMES_##name, (val))
-@@ -442,7 +442,7 @@
- 		 * gcc is smart enough to fold away the two swaps on
- 		 * big-endian platforms. */
- 		for (i = 0, p = buf; i < count; i++) {
--			*p++ = cpu_to_le16(readw(hw->iobase + off));
-+			*p++ = cpu_to_le16(readw((void __iomem *)hw->iobase + off));
- 		}
- 	}
- }
-@@ -462,7 +462,7 @@
- 		 * hope gcc is smart enough to fold away the two swaps
- 		 * on big-endian platforms. */
- 		for (i = 0, p = buf; i < count; i++) {
--			writew(le16_to_cpu(*p++), hw->iobase + off);
-+			writew(le16_to_cpu(*p++), (void __iomem *)hw->iobase + off);
- 		}
- 	}
- }
-@@ -478,7 +478,7 @@
- 			outw(0, hw->iobase + off);
- 	} else {
- 		for (i = 0; i < count; i++)
--			writew(0, hw->iobase + off);
-+			writew(0, (void __iomem *)hw->iobase + off);
- 	}
- }
- 
+Jank
