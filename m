@@ -1,12 +1,12 @@
 From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: [janitor] tc35815: handle ioremap() failure
-Date: Sat, 24 Jan 2004 22:29:30 -0800
+Subject: [janitor] netfilter: propogate return values
+Date: Sat, 24 Jan 2004 22:23:37 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040124222930.3da1ce43.rddunlap@osdl.org>
+Message-ID: <20040124222337.752a768a.rddunlap@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com
+Cc: davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
@@ -21,42 +21,130 @@ Thanks,
 ~Randy
 
 
-From: Leann Ogasawara <ogasawara@osdl.org>
+From: Daniele Bellucci <bellucda@tiscali.it>
 
 
-Hi All,
+Patch apply cleany (against 2.6.1-mm3) and compile good to me.
 
-Patch to check if ioremap() failed.  If so, handle error accordingly. 
-Was unable to test so feedback appreciated.
+Please Apply.
 
-diffed against 2.6.1
+diff -puN net/ipv4/netfilter/ipt_CLASSIFY.c~ipt_register_target_retval net/ipv4/netfilter/ipt_CLASSIFY.c
 
-Leann
-
-===== drivers/net/tc35815.c 1.15 vs edited =====
-
-diff -puN drivers/net/tc35815.c~tc35815.c_iounmap drivers/net/tc35815.c
-
-diff -puN drivers/net/tc35815.c~tc35815.c_iounmap drivers/net/tc35815.c
+diff -puN net/ipv4/netfilter/ipt_CLASSIFY.c~ipt_register_target_retval net/ipv4/netfilter/ipt_CLASSIFY.c
 
 
- linux-262-rc1-bk1-rddunlap/drivers/net/tc35815.c |    5 +++++
- 1 files changed, 5 insertions(+)
+ linux-262-rc1-bk1-rddunlap/net/ipv4/netfilter/ipt_CLASSIFY.c |    5 +----
+ linux-262-rc1-bk1-rddunlap/net/ipv4/netfilter/ipt_DSCP.c     |    5 +----
+ linux-262-rc1-bk1-rddunlap/net/ipv4/netfilter/ipt_ECN.c      |    5 +----
+ linux-262-rc1-bk1-rddunlap/net/ipv4/netfilter/ipt_LOG.c      |    5 +----
+ linux-262-rc1-bk1-rddunlap/net/ipv4/netfilter/ipt_MARK.c     |    5 +----
+ linux-262-rc1-bk1-rddunlap/net/ipv4/netfilter/ipt_REJECT.c   |    4 +---
+ linux-262-rc1-bk1-rddunlap/net/ipv4/netfilter/ipt_TOS.c      |    5 +----
+ 7 files changed, 7 insertions(+), 27 deletions(-)
 
-diff -puN drivers/net/tc35815.c~tc35815.c_iounmap drivers/net/tc35815.c
---- linux-262-rc1-bk1/drivers/net/tc35815.c~tc35815.c_iounmap	2004-01-23 15:49:36.000000000 -0800
-+++ linux-262-rc1-bk1-rddunlap/drivers/net/tc35815.c	2004-01-23 15:49:36.000000000 -0800
-@@ -554,6 +554,11 @@ static int __devinit tc35815_probe1(stru
- 	dev->irq = irq;
- 	dev->base_addr = (unsigned long)ioremap(base_addr,
- 						sizeof(struct tc35815_regs));
-+	if (!dev->base_addr) {
-+		unregister_netdev(dev);
-+		free_netdev(dev);
-+		return -ENOMEM;
-+	}
- 	tr = (struct tc35815_regs*)dev->base_addr;
+diff -puN net/ipv4/netfilter/ipt_CLASSIFY.c~ipt_register_target_retval net/ipv4/netfilter/ipt_CLASSIFY.c
+--- linux-262-rc1-bk1/net/ipv4/netfilter/ipt_CLASSIFY.c~ipt_register_target_retval	2004-01-23 15:46:14.000000000 -0800
++++ linux-262-rc1-bk1-rddunlap/net/ipv4/netfilter/ipt_CLASSIFY.c	2004-01-23 15:46:14.000000000 -0800
+@@ -71,10 +71,7 @@ static struct ipt_target ipt_classify_re
  
- 	tc35815_chip_reset(dev);
+ static int __init init(void)
+ {
+-	if (ipt_register_target(&ipt_classify_reg))
+-		return -EINVAL;
+-
+-	return 0;
++	return ipt_register_target(&ipt_classify_reg);
+ }
+ 
+ static void __exit fini(void)
+diff -puN net/ipv4/netfilter/ipt_DSCP.c~ipt_register_target_retval net/ipv4/netfilter/ipt_DSCP.c
+--- linux-262-rc1-bk1/net/ipv4/netfilter/ipt_DSCP.c~ipt_register_target_retval	2004-01-23 15:46:14.000000000 -0800
++++ linux-262-rc1-bk1-rddunlap/net/ipv4/netfilter/ipt_DSCP.c	2004-01-23 15:46:14.000000000 -0800
+@@ -91,10 +91,7 @@ static struct ipt_target ipt_dscp_reg = 
+ 
+ static int __init init(void)
+ {
+-	if (ipt_register_target(&ipt_dscp_reg))
+-		return -EINVAL;
+-
+-	return 0;
++	return ipt_register_target(&ipt_dscp_reg);
+ }
+ 
+ static void __exit fini(void)
+diff -puN net/ipv4/netfilter/ipt_ECN.c~ipt_register_target_retval net/ipv4/netfilter/ipt_ECN.c
+--- linux-262-rc1-bk1/net/ipv4/netfilter/ipt_ECN.c~ipt_register_target_retval	2004-01-23 15:46:14.000000000 -0800
++++ linux-262-rc1-bk1-rddunlap/net/ipv4/netfilter/ipt_ECN.c	2004-01-23 15:46:14.000000000 -0800
+@@ -155,10 +155,7 @@ static struct ipt_target ipt_ecn_reg = {
+ 
+ static int __init init(void)
+ {
+-	if (ipt_register_target(&ipt_ecn_reg))
+-		return -EINVAL;
+-
+-	return 0;
++	return ipt_register_target(&ipt_ecn_reg);
+ }
+ 
+ static void __exit fini(void)
+diff -puN net/ipv4/netfilter/ipt_LOG.c~ipt_register_target_retval net/ipv4/netfilter/ipt_LOG.c
+--- linux-262-rc1-bk1/net/ipv4/netfilter/ipt_LOG.c~ipt_register_target_retval	2004-01-23 15:46:14.000000000 -0800
++++ linux-262-rc1-bk1-rddunlap/net/ipv4/netfilter/ipt_LOG.c	2004-01-23 15:46:14.000000000 -0800
+@@ -404,10 +404,7 @@ static struct ipt_target ipt_log_reg = {
+ 
+ static int __init init(void)
+ {
+-	if (ipt_register_target(&ipt_log_reg))
+-		return -EINVAL;
+-
+-	return 0;
++	return ipt_register_target(&ipt_log_reg);
+ }
+ 
+ static void __exit fini(void)
+diff -puN net/ipv4/netfilter/ipt_MARK.c~ipt_register_target_retval net/ipv4/netfilter/ipt_MARK.c
+--- linux-262-rc1-bk1/net/ipv4/netfilter/ipt_MARK.c~ipt_register_target_retval	2004-01-23 15:46:14.000000000 -0800
++++ linux-262-rc1-bk1-rddunlap/net/ipv4/netfilter/ipt_MARK.c	2004-01-23 15:46:14.000000000 -0800
+@@ -59,10 +59,7 @@ static struct ipt_target ipt_mark_reg = 
+ 
+ static int __init init(void)
+ {
+-	if (ipt_register_target(&ipt_mark_reg))
+-		return -EINVAL;
+-
+-	return 0;
++	return ipt_register_target(&ipt_mark_reg);
+ }
+ 
+ static void __exit fini(void)
+diff -puN net/ipv4/netfilter/ipt_REJECT.c~ipt_register_target_retval net/ipv4/netfilter/ipt_REJECT.c
+--- linux-262-rc1-bk1/net/ipv4/netfilter/ipt_REJECT.c~ipt_register_target_retval	2004-01-23 15:46:14.000000000 -0800
++++ linux-262-rc1-bk1-rddunlap/net/ipv4/netfilter/ipt_REJECT.c	2004-01-23 15:46:14.000000000 -0800
+@@ -449,9 +449,7 @@ static struct ipt_target ipt_reject_reg 
+ 
+ static int __init init(void)
+ {
+-	if (ipt_register_target(&ipt_reject_reg))
+-		return -EINVAL;
+-	return 0;
++	return ipt_register_target(&ipt_reject_reg);
+ }
+ 
+ static void __exit fini(void)
+diff -puN net/ipv4/netfilter/ipt_TOS.c~ipt_register_target_retval net/ipv4/netfilter/ipt_TOS.c
+--- linux-262-rc1-bk1/net/ipv4/netfilter/ipt_TOS.c~ipt_register_target_retval	2004-01-23 15:46:14.000000000 -0800
++++ linux-262-rc1-bk1-rddunlap/net/ipv4/netfilter/ipt_TOS.c	2004-01-23 15:46:14.000000000 -0800
+@@ -84,10 +84,7 @@ static struct ipt_target ipt_tos_reg = {
+ 
+ static int __init init(void)
+ {
+-	if (ipt_register_target(&ipt_tos_reg))
+-		return -EINVAL;
+-
+-	return 0;
++	return ipt_register_target(&ipt_tos_reg);
+ }
+ 
+ static void __exit fini(void)
 
 _
