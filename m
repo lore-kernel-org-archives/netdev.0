@@ -1,32 +1,37 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: ip addr flush hangs
-Date: Wed, 10 Mar 2004 12:32:30 +0900 (JST)
+From: Roman Zippel <zippel@linux-m68k.org>
+Subject: Re: Cleaner way to conditionally disallow a CONFIG option as static
+Date: Wed, 10 Mar 2004 04:38:23 +0100 (CET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040310.123230.86301894.yoshfuji@linux-ipv6.org>
-References: <20040309152932.36a42997.davem@redhat.com>
-	<OF34091B26.07758A8E-ON87256E52.00833C04-88256E53.00004022@us.ibm.com>
+Message-ID: <Pine.LNX.4.58.0403100437040.27654@serv>
+References: <Pine.LNX.4.58.0403081659170.1656@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: okir@suse.de, yoshfuji@linux-ipv6.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: kaos@ocs.com.au, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com, netdev@oss.sgi.com, xma@us.ibm.com
-In-Reply-To: <OF34091B26.07758A8E-ON87256E52.00833C04-88256E53.00004022@us.ibm.com>
+To: Sridhar Samudrala <sri@us.ibm.com>
+In-Reply-To: <Pine.LNX.4.58.0403081659170.1656@localhost.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <OF34091B26.07758A8E-ON87256E52.00833C04-88256E53.00004022@us.ibm.com> (at Tue, 9 Mar 2004 15:56:00 -0800), Shirley Ma <xma@us.ibm.com> says:
+Hi,
 
-> This fix causes a problem for SNMP IPv6 MIBs. It requires to dump all
-> interface
-> address types unicast/mcast/anycast. I would like suggest to fix the ip
-> command to fix the problem.
+On Mon, 8 Mar 2004, Sridhar Samudrala wrote:
 
-Grr... Putting anycast/multicast is not good idea.
-(Sorry, I did not notice at that time...)
+> In 2.6, net/sctp/Kconfig
+>
+> config IPV6_SCTP__
+> 	tristate
+> 	default y if IPV6=n
+> 	default IPV6 if IPV6
+>
+> config IP_SCTP
+> 	tristate "The SCTP Protocol (EXPERIMENTAL)"
+> 	depends on IPV6_SCTP__
 
-Anycast should use IFA_ANYCAST ifaddrmsg instead of IFA_ADDRESS.
-Multicast should be provided in a different way (different rtmsg),
-or use IFA_MULTICAST or something like that.
+This can be written as:
 
---yoshfuji
+config IP_SCTP
+	tristate "The SCTP Protocol (EXPERIMENTAL)"
+	depends on IPV6 || IPV6=n
+
+bye, Roman
