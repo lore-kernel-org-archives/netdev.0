@@ -1,53 +1,54 @@
-From: Martin Josefsson <gandalf@wlug.westbo.se>
-Subject: [PATCH resend] zero rt_cache_stat statistics at init
-Date: 18 Feb 2003 16:17:45 +0100
+From: Manfred Spraul <manfred@colorfullife.com>
+Subject: Re: NAPI note
+Date: Tue, 18 Feb 2003 17:31:20 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1045581465.18515.139.camel@tux.rsn.bth.se>
+Message-ID: <3E525FD8.1060009@colorfullife.com>
+References: <3E4D66DF.3040800@colorfullife.com>	<3E4D8295.2050400@pobox.com> <20030217.185719.28797590.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: jgarzik@pobox.com, zaitcev@redhat.com, jbourne@mtroyal.ab.ca,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030217.185719.28797590.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+David S. Miller wrote:
 
-I'm running 2.5.58-mm1 with slab-debugging enabled and noticed this in
-/proc/net/rt_cache_stat (long line):
+>   From: Jeff Garzik <jgarzik@pobox.com>
+>   Date: Fri, 14 Feb 2003 18:58:13 -0500
+>
+>   Manfred Spraul wrote:
+>   > It seems to be a generic NAPI restriction:
+>   > The caller of netif_receive_skb() must not own a spinlock that is 
+>   > acquired from an interrupt handler.
+>   
+>   Thanks much for noticing this, Manfred.
+>
+>I think this logic is buggy.
+>
+>In the example I've seen posted, only a NAPI implementation bug
+>could cause the situation to occur.
+>
+>If cpu1 is in ->poll() for the driver, then by definition the
+>device shall not cause interrupts.  The device's interrupts
+>are disabled before we enter the ->poll() handler, and as such
+>the "cpu2 take device interrupt and takes driver->lock" cannot
+>occur.
+>  
+>
+No. I think the rule is that drivers that use the NAPI interface must 
+not cause interrupts for packet receive and out-of-rx-buffers conditions.
+But what about media error interrupts, or tx interrupts? Or MIB counter 
+overflow, etc. What about shared pci interrupts?
+All of them could occur, and if they take a spinlock that is held across 
+netif_receive_skb(), then it can deadlock.
 
-000000ae  5b61f6cf 5ab13072 5a5a5a5a 5a5a5a5a 5a5d0c9a 5a5a5a7f 5a5a5aa6  5a61e025 5a5a961a 5a5a5aea 5a5a5a5a 5a5a5a5a 5a5a5a5a 5a5a5a5a
+OTHO if it's guaranteed that no interrupt occurs, then the nic should 
+not take a spinlock at all and rely on the synchronization provided by 
+NAPI. (->poll is single-threaded).
 
-Here's a patch against 2.5.58(-mm1) to memset() it at init, I believe
-this was missed when it was converted to percpu.
-It also includes a whitespace change to conform to the other sizeof's in
-ip_rt_init():
-
---- linux-2.5.58/net/ipv4/route.c.orig	2003-02-14 16:07:46.000000000 +0100
-+++ linux-2.5.58/net/ipv4/route.c	2003-02-14 16:43:11.000000000 +0100
-@@ -2652,11 +2652,18 @@
- 	ipv4_dst_ops.gc_thresh = (rt_hash_mask + 1);
- 	ip_rt_max_size = (rt_hash_mask + 1) * 16;
- 
--	rt_cache_stat = kmalloc_percpu(sizeof (struct rt_cache_stat),
-+	rt_cache_stat = kmalloc_percpu(sizeof(struct rt_cache_stat),
- 					GFP_KERNEL);
- 	if (!rt_cache_stat) 
- 		goto out_enomem1;
- 
-+	for (i = 0; i < NR_CPUS; i++) {
-+		if (!cpu_possible(i))
-+			continue;
-+		memset(per_cpu_ptr(rt_cache_stat, i), 0,
-+		       sizeof(struct rt_cache_stat));
-+	}
-+
- 	devinet_init();
- 	ip_fib_init();
- 
-
--- 
-/Martin
-
-Never argue with an idiot. They drag you down to their level, then beat you with experience.
+--
+    Manfred
