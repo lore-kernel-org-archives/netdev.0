@@ -1,23 +1,19 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] via-rhine: references __init code during resume
-Date: Fri, 05 Nov 2004 02:57:58 -0500
-Message-ID: <418B3286.5050102@pobox.com>
-References: <4179543F.1020407@osdl.org> <418390F2.7080901@pobox.com> <418670AC.7010801@osdl.org>
+Subject: Re: [PATCH] 8139too: use iomap for pio/mmio
+Date: Fri, 05 Nov 2004 03:00:05 -0500
+Message-ID: <418B3305.8040303@pobox.com>
+References: <1099228076.9571.12.camel@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, rl@hellgate.ch
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Randy.Dunlap" <rddunlap@osdl.org>
-In-Reply-To: <418670AC.7010801@osdl.org>
+To: Pekka Enberg <penberg@cs.helsinki.fi>
+In-Reply-To: <1099228076.9571.12.camel@localhost>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-[jgarzik@pretzel net-drivers-2.6]$ dotest < /g/tmp/mbox
-bk import -tpatch -CR -yvia-rhine: references __init code during resume 
-/tmp/patch21199 .
-Patching...
-Patch failed.  **** patch log follows ****
-Patching file drivers/net/via-rhine.c
-1 out of 1 hunk FAILED -- saving rejects to file drivers/net/via-rhine.c.rej
+Find someone who will test it... then resend and I'll apply :)
+
+	Jeff
