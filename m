@@ -1,46 +1,32 @@
-From: Boris Protopopov <borisp@mc.com>
-Subject: bonding vs 802.3ad/Cisco EtherChannel link agregation
-Date: Thu, 12 Sep 2002 14:39:11 -0400
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: Early SPECWeb99 results on 2.5.33 with TSO on e1000
+Date: Thu, 12 Sep 2002 16:12:25 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3D80DF4F.5B218F19@mc.com>
+Message-ID: <20020912.161225.20790415.davem@redhat.com>
+References: <Pine.LNX.4.44.0209120119580.25406-100000@gp>
+	<Pine.GSO.4.30.0209120811300.16149-100000@shell.cyberus.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
+Cc: todd@osogrande.com, tcw@tempest.prismnet.com, linux-kernel@vger.kernel.org,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-net@vger.kernel.org, netdev@oss.sgi.com
+To: hadi@cyberus.ca
+In-Reply-To: <Pine.GSO.4.30.0209120811300.16149-100000@shell.cyberus.ca>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi, I got couple questions about bonding vs link agregation in GigE space. I may
-be doing something wrong on the user level, or there might be system-level
-issues I am not aware of. 
+   From: jamal <hadi@cyberus.ca>
+   Date: Thu, 12 Sep 2002 08:30:44 -0400 (EDT)
+   
+   In regards to the receive side CPU utilization improvements: I think
+   that NAPI does a good job at least in getting ridding of the biggest
+   offender -- interupt overload.
 
-I am trying to increase bandwidth of GigE connecitons between boxes in my
-cluster by means of bonding or aggregating several GigE links together. The
-simplest setup that I have is two boxes with dual GigE e1000 cards connected to
-each other directly by means of crossover cables. The boxes are running Redhat
-7.3. I can successfully bond the links; however, I do not see any increase in
-Netpipe bandwidth as compared to the case of a single GigE link. My CPU
-utilization is around 20%, and I can get ~900Mbits/sec over a single link (MTU
-7500). With bonding, CPU utilization is marginally higher, and there is no
-increase (or some decrease) in Netpipe numbers. Looking at the ifconfig eth*
-statistics, I can see that the traffic is distributed evenly between the
-connections. The cards are plugged into 100Mhz PCI-X 64. Memory bw seems to be
-sufficient (estimated with "stream" to be ~ 1200MB/s). Can anybody offer an
-explanation ? 
+I disagree, at least for bulk receivers.  We have no way currently to
+get rid of the data copy.  We desperately need sys_receivefile() and
+appropriate ops all the way into the networking, then the necessary
+driver level support to handle the cards that can do this.
 
-Another question is about link agregation. Intel offers "teaming" option (with
-the driver and utils) for agregating the e1000 cards in EtherChannel- or 802.3ad
-- compatible way. From a few docs I could find that have any technical merit
-(802.3ad doc on order), it appears that there are some sort of Ethernet frame
-ordering restrictions that EtherChannel and 802.3ad impose on the traffic spread
-across the aggregated links. So, in my case, I can see (ifconfig statistics)
-that one link is always sending GigE frames, whereas the other clink is always
-receiving. Obviously, in this arrangement, Netpipe will not benefit from the
-aggregation. A response that I got from Intel customer support indicated that
-"this is how EtherChannel works". Can someone explain why there are some
-ordering restrictions ? If I am not mistaken, TCP/IP would handle out-of-order
-frames transparently because it is designed to do so.
-
-Thanks in advance for your help,
-Boris Protopopov.
+Once 10gbit cards start hitting the shelves this will convert from a
+nice perf improvement into a must have.
