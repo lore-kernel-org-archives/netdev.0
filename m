@@ -1,40 +1,57 @@
-From: Krishna Kumar <krkumar@us.ibm.com>
-Subject: [PATCH] bug in xfrm_lookup [bugzilla 2017]
-Date: Wed, 4 Feb 2004 17:41:48 -0800 (PST)
+From: Anton Blanchard <anton@samba.org>
+Subject: Re: FW: Submission for S2io 10GbE driver
+Date: Thu, 5 Feb 2004 12:51:49 +1100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0402041735320.6034-100000@DYN318430BLD.beaverton.ibm.com>
-References: <20040119211156.4bff1640.davem@redhat.com>
+Message-ID: <20040205015149.GN19011@krispykreme>
+References: <20040123232209.2739e6aa.ak@suse.de> <004201c3eb5f$ac4e9f00$740efea9@S2IOtech.com> <20040205023209.4abf2342.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Leonid Grossman <leonid.grossman@s2io.com>, netdev@oss.sgi.com,
+        raghava.vatsavayi@s2io.com, iod00d@hp.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040119211156.4bff1640.davem@redhat.com>
+To: Andi Kleen <ak@suse.de>
+Content-Disposition: inline
+In-Reply-To: <20040205023209.4abf2342.ak@suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
 
-One of my earlier patches had a bug in xfrm_lookup() causin schedule()
-to get called though MSG_DONTWAIT was specified. I am going to send
-the following patch to the bugzilla user who created this bug report
-and ask them to test it. I thought I will let you know of this problem
-and I will send you a confirmation once I get a response that the problem
-is solved.
+> > 1) We did't find quad word memory operations(writeq and readq) on PCI
+> > bus for PPC64 architecture.
+> 
+> That's a bug in ppc64 then. Can you complain to them?  I would go
+> ahead and just use them in the driver unconditionally and wait for the
+> ppc64 to fix it. Or just add them there, it's probably simple.
 
-Thanks,
+Yep ppc64 should define them. If you are submitting a driver for
+inclusion in 2.6 leave these bits out, its my fault they arent defined
+and I'll get them added in.
 
-- KK
+Turns out lots of architectures are missing these, I'll fire an email
+off to linux-arch about it.
 
-diff -ruN linux-2.6.2/net/xfrm/xfrm_policy.c linux-2.6.2.new/net/xfrm/xfrm_policy.c
---- linux-2.6.2/net/xfrm/xfrm_policy.c	2004-02-04 17:33:51.000000000 -0800
-+++ linux-2.6.2.new/net/xfrm/xfrm_policy.c	2004-02-04 17:34:37.000000000 -0800
-@@ -775,7 +775,7 @@
+> > On a little endian m/c like IA32 also writel writes same values in a
+> > similar manner as shown above. 
+> > So the question is -
+> > Do all big endian machines with linux OS swap the values and write in
+> > little endian format?? 
+> 
+> I hope not.
 
- 		if (unlikely(nx<0)) {
- 			err = nx;
--			if (err == -EAGAIN && !flags) {
-+			if (err == -EAGAIN && flags) {
- 				DECLARE_WAITQUEUE(wait, current);
+Thats how all big endian platforms work. in* and out*, read* and write*
+byteswap. 
 
- 				add_wait_queue(&km_waitq, &wait);
+> > 3)In PPC64 architecture dma_addr_t is u32, unlike remaining 64 bit
+> > architectures where it is defined as u64. Because
+> > of this we have to deal separately for PP64. 
+> > So any suggestions will be useful, .i.e. generally how PPC64 developers
+> > deal with this?
+> 
+> You could just use u64 in your structure definitions for now.
+
+Its up to the architecture as to what a dma_addr_t looks like. On our
+current machines we only support operating through the IOMMU, so all
+PCI bus address are in fact 32bit. Most drivers dont care how big a
+dma_addr_t is, is there something you are doing that does?
+
+Anton
