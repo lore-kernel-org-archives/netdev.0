@@ -1,101 +1,38 @@
-From: Donald Becker <becker@scyld.com>
-Subject: Re: [PATCH] 2.4.20-pre sundance.c update
-Date: Thu, 19 Sep 2002 09:23:58 -0400 (EDT)
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: Info: NAPI performance at "low" loads
+Date: 19 Sep 2002 08:58:49 -0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0209190903050.29420-100000@beohost.scyld.com>
-References: <3D89519C.1020809@mandrakesoft.com>
+Message-ID: <m1d6rakouu.fsf@frodo.biederman.org>
+References: <3D87A59C.410FFE3E@digeo.com>
+	<Pine.GSO.4.30.0209172053360.3686-100000@shell.cyberus.ca>
+	<20020917.180014.07882539.davem@redhat.com>
+	<m1hegnky2h.fsf@frodo.biederman.org>
+	<1032371453.20463.139.camel@irongate.swansea.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com, Jason Lunz <lunz@falooley.org>,
-   Richard Gooch <rgooch@ras.ucalgary.ca>,
-   "Patrick R. McManus" <mcmanus@ducksong.com>,
-   Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@redhat.com>, hadi@cyberus.ca, akpm@digeo.com,
+   manfred@colorfullife.com, netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@mandrakesoft.com>
-In-Reply-To: <3D89519C.1020809@mandrakesoft.com>
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+In-Reply-To: <1032371453.20463.139.camel@irongate.swansea.linux.org.uk>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 19 Sep 2002, Jeff Garzik wrote:
+Alan Cox <alan@lxorguk.ukuu.org.uk> writes:
 
-> Attached is the patch I have against 2.4.20-pre-latest, to start fixing 
-> from as a baseline.
+> On Wed, 2002-09-18 at 18:27, Eric W. Biederman wrote:
+> > Plus I have played with calibrating the TSC with outb to port
+> > 0x80 and there was enough variation that it was unuseable.  On some
+> > newer systems it would take twice as long as on some older ones.
+> 
+> port 0x80 isnt going to PCI space.
 
-diff -Nru a/drivers/net/sundance.c b/drivers/net/sundance.c
-> --- a/drivers/net/sundance.c	Thu Sep 19 00:22:26 2002
-> +++ b/drivers/net/sundance.c	Thu Sep 19 00:22:26 2002
-...
->  /* Maximum events (Rx packets, etc.) to handle at each interrupt. */
-> -static int max_interrupt_work = 30;
-> +static int max_interrupt_work = 0;
+Agreed.  It isn't going anywhere, and it takes it a while to recogonize
+that.
+ 
+> x86 generally posts mmio write but not io write. Thats quite measurable.
 
-Please don't change the semantics of module parameters.  All of my PCI
-network drivers have used this name for years with the same semantics.
-Arbitrarily changing is A Bad Thing.
+The difference timing difference between posted and non-posted writes
+I can see.
 
-> static int mtu;
-
-Get rid of this.  See the MTU setting code in my driver release.
-
->     bonding and packet priority, and more than 128 requires modifying the
->     Tx error recovery.
->     Large receive rings merely waste memory. */
-> -#define TX_RING_SIZE	16
-> -#define TX_QUEUE_LEN	10		/* Limit ring entries actually used.  */
-> -#define RX_RING_SIZE	32
-> +#define TX_RING_SIZE	64
-> +#define TX_QUEUE_LEN	(TX_RING_SIZE - 1) /* Limit ring entries actually used.  */
-
-Did you miss reading the comment?  A Tx ring size of 64 is a bad idea.
-Increasing the Rx ring size is fine, considering that most current
-machines have plenty of memory and the kernel hasn't always been good
-about keeping skbuffs available.
-
-+MODULE_PARM(flowctrl, "i");
-
-Flow control should be negotiated, not set.
-
-> -	TxThreshold = 0x3c,
-> +	TxStartThresh = 0x3c,
-> +	RxEarlyThresh = 0x3e,
-
-[[ Many other name changes omitted ]]
-
-Why change the symbolic names for the registers?
-
-> 	/* Frequently used values: keep some adjacent for cache effect. */
-> 	spinlock_t lock;
-> +	spinlock_t rx_lock;					/* Group with Tx control cache line. */
-
-Uhmmm, again, read the comment.  This comment was originally with the
-'txlock' variable
-
- 	} else if (dev->mc_count) {
- 		struct dev_mc_list *mclist;
--		memset(mc_filter, 0, sizeof(mc_filter));
-+		int bit;
-+		int index;
-+		int crc;
-+		memset (mc_filter, 0, sizeof (mc_filter));
- 		for (i = 0, mclist = dev->mc_list; mclist && i < dev->mc_count;
--			 i++, mclist = mclist->next) {
--			set_bit(ether_crc_le(ETH_ALEN, mclist->dmi_addr) & 0x3f,
--					mc_filter);
-+		     i++, mclist = mclist->next) {
-+			crc = ether_crc_le (ETH_ALEN, mclist->dmi_addr);
-+			for (index=0, bit=0; bit < 6; bit++, crc <<= 1)
-+				if (crc & 0x80000000) index |= 1 << bit;
-+			mc_filter[index/16] |= (1 << (index % 16));
- 		}
-
-Uhhmmm, perhaps calling a function to do the wrong-endian CRC and then
-bit-reversing the result is not an improved way to do this?  That's why
-there needs to be two Ethernet CRC functions -- so that you don't
-need to bit bit-reverse the result.
-
-
--- 
-Donald Becker				becker@scyld.com
-Scyld Computing Corporation		http://www.scyld.com
-410 Severn Ave. Suite 210		Second Generation Beowulf Clusters
-Annapolis MD 21403			410-990-9993
+Eric
