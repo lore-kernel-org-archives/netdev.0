@@ -1,33 +1,36 @@
-From: Thomas Graf <tgraf@suug.ch>
+From: jamal <hadi@cyberus.ca>
 Subject: Re: memory leak in net/sched/ipt.c?
-Date: Wed, 23 Mar 2005 13:55:16 +0100
-Message-ID: <20050323125516.GP3086@postel.suug.ch>
-References: <E1DE44X-0001QM-00@gondolin.me.apana.org.au> <1111581618.1088.72.camel@jzny.localdomain>
+Date: 23 Mar 2005 08:11:37 -0500
+Message-ID: <1111583497.1089.92.camel@jzny.localdomain>
+References: <E1DE44X-0001QM-00@gondolin.me.apana.org.au>
+	 <1111581618.1088.72.camel@jzny.localdomain>
+	 <20050323125516.GP3086@postel.suug.ch>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-        Yichen Xie <yxie@cs.stanford.edu>, linux-kernel@vger.kernel.org,
-        netdev@oss.sgi.com, "David S. Miller" <davem@davemloft.net>,
-        kaber@trash.net
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1111581618.1088.72.camel@jzny.localdomain>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+	Yichen Xie <yxie@cs.stanford.edu>,
+	linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+	"David S. Miller" <davem@davemloft.net>, kaber@trash.net
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050323125516.GP3086@postel.suug.ch>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* jamal <1111581618.1088.72.camel@jzny.localdomain> 2005-03-23 07:40
-> On Wed, 2005-03-23 at 06:30, Herbert Xu wrote:
-> > Yichen Xie <yxie@cs.stanford.edu> wrote:
-> > > Is the memory block allocated on line 315 leaked every time tcp_ipt_dump 
-> > > is called?
-> > 
-> > It seems to be.  This patch should free it.
-> > 
-> > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+On Wed, 2005-03-23 at 07:55, Thomas Graf wrote:
+> * jamal <1111581618.1088.72.camel@jzny.localdomain> 2005-03-23 07:40
 
-> Just a small correction to patchlet:
-> The second kfree should check for existence of t.
+> > Just a small correction to patchlet:
+> > The second kfree should check for existence of t.
+> 
+> t is either valid or NULL so it's not a problem, unless you want
+> to create janitor work of course. ;->
 
-t is either valid or NULL so it's not a problem, unless you want
-to create janitor work of course. ;->
+if t is null you still goto rtattr_failure
+I have seen people put little comments of "kfree will work if you
+pass it NULL" - are you saying such assumptions exist all over
+net/sched? didnt understand the janitor part.
+
+cheers,
+jamal
