@@ -1,8 +1,8 @@
 From: Per Hedeland <per@hedeland.org>
-Subject: [PATCH] [bonding 2.4] Add balance-xor-ip bonding mode
-Date: Wed, 7 Jan 2004 21:58:32 +0100 (CET)
+Subject: [PATCH] [bonding 2.6] Add balance-xor-ip bonding mode
+Date: Wed, 7 Jan 2004 22:01:38 +0100 (CET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200401072058.i07KwWba054481@pluto.hedeland.org>
+Message-ID: <200401072101.i07L1cOw054664@pluto.hedeland.org>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
@@ -12,16 +12,17 @@ This patch adds a new bonding policy, similar to the previously existing
 balance-xor, but using the IP addresses rather than MAC addresses for IP
 packets, with fallback to MAC-based balance-xor for non-IP packets.
 
-The patch is against the netdev-2.4 tree (with Shmulik's 'update comment
-blocks' and Amir's 'using per-bond parameters' patches applied).
+The patch is against the net-drivers-2.5-exp tree (with Shmulik's
+'update comment blocks' and Amir's 'using per-bond parameters' patches
+applied).
 
 --Per Hedeland
 per@hedeland.org
 
 
 diff -Nru a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
---- a/Documentation/networking/bonding.txt	Wed Jan  7 16:31:56 2004
-+++ b/Documentation/networking/bonding.txt	Wed Jan  7 16:33:42 2004
+--- a/Documentation/networking/bonding.txt	Wed Jan  7 16:18:11 2004
++++ b/Documentation/networking/bonding.txt	Wed Jan  7 16:45:11 2004
 @@ -368,6 +368,17 @@
  		fails it's hw address is swapped with the new curr_active_slave
  		that was chosen.
@@ -41,8 +42,8 @@ diff -Nru a/Documentation/networking/bonding.txt b/Documentation/networking/bond
  
          A string (eth0, eth2, etc) to equate to a primary device. If this
 diff -Nru a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
---- a/drivers/net/bonding/bond_main.c	Wed Jan  7 16:26:59 2004
-+++ b/drivers/net/bonding/bond_main.c	Wed Jan  7 16:41:28 2004
+--- a/drivers/net/bonding/bond_main.c	Wed Jan  7 16:16:19 2004
++++ b/drivers/net/bonding/bond_main.c	Wed Jan  7 16:45:11 2004
 @@ -476,6 +476,7 @@
  #include <linux/ioport.h>
  #include <linux/in.h>
@@ -68,7 +69,7 @@ diff -Nru a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
  	case BOND_MODE_BROADCAST :
  		return "fault-tolerance (broadcast)";
  	case BOND_MODE_8023AD:
-@@ -3658,16 +3662,17 @@
+@@ -3657,16 +3661,17 @@
  
  /*
   * in XOR mode, we determine the output device by performing xor on
@@ -89,7 +90,7 @@ diff -Nru a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
  
  	read_lock(&bond->lock);
  
-@@ -3675,7 +3680,30 @@
+@@ -3674,7 +3679,30 @@
  		goto free_out;
  	}
  
@@ -121,7 +122,7 @@ diff -Nru a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
  
  	bond_for_each_slave(bond, slave, i) {
  		slave_no--;
-@@ -3708,6 +3736,16 @@
+@@ -3707,6 +3735,16 @@
  	goto out;
  }
  
@@ -138,7 +139,7 @@ diff -Nru a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
  /*
   * in broadcast mode, we send everything to all usable interfaces.
   */
-@@ -3794,7 +3832,10 @@
+@@ -3793,7 +3831,10 @@
  		bond_dev->hard_start_xmit = bond_xmit_activebackup;
  		break;
  	case BOND_MODE_XOR:
@@ -150,7 +151,7 @@ diff -Nru a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
  		break;
  	case BOND_MODE_BROADCAST:
  		bond_dev->hard_start_xmit = bond_xmit_broadcast;
-@@ -3915,8 +3956,7 @@
+@@ -3914,8 +3955,7 @@
  	for (i = 0; tbl[i].modename; i++) {
  		if ((isdigit(*mode_arg) &&
  		     tbl[i].mode == simple_strtol(mode_arg, NULL, 0)) ||
@@ -161,8 +162,8 @@ diff -Nru a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
  		}
  	}
 diff -Nru a/include/linux/if_bonding.h b/include/linux/if_bonding.h
---- a/include/linux/if_bonding.h	Wed Jan  7 16:24:48 2004
-+++ b/include/linux/if_bonding.h	Wed Jan  7 16:33:42 2004
+--- a/include/linux/if_bonding.h	Wed Jan  7 16:21:37 2004
++++ b/include/linux/if_bonding.h	Wed Jan  7 16:45:11 2004
 @@ -67,6 +67,7 @@
  #define BOND_MODE_8023AD        4
  #define BOND_MODE_TLB           5
