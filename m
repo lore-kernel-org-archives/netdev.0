@@ -1,110 +1,48 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: [2.4/2.6 PATCHES] Change some ip_fragment checks to help IPVS
-Date: Sat, 11 Oct 2003 20:18:33 +0300 (EEST)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: Tigon3 5701 PCI-X recv performance problem
+Date: Sat, 11 Oct 2003 10:50:54 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0310111956070.31823-100000@u.domain.uli>
+Message-ID: <20031011105054.0e16a607.davem@redhat.com>
+References: <3F844578.40306@sgi.com>
+	<20031008101046.376abc3b.davem@redhat.com>
+	<3F8455BE.8080300@sgi.com>
+	<20031008183742.GA24822@wotan.suse.de>
+	<20031008122223.1ba5ac79.davem@redhat.com>
+	<20031008202248.GA15611@oldwotan.suse.de>
+	<3F8702FF.70500@sgi.com>
+	<20031010192036.GA31727@wotan.suse.de>
+	<3F8802E6.5030601@sgi.com>
+	<20031011131921.GC21763@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Wensong Zhang <wensong@linux-vs.org>, <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: modica@sgi.com, ak@suse.de, johnip@sgi.com, netdev@oss.sgi.com,
+        jgarzik@pobox.com, jes@sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <20031011131921.GC21763@wotan.suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Sat, 11 Oct 2003 15:19:21 +0200
+Andi Kleen <ak@suse.de> wrote:
 
-	Hello,
+> Then just don't set the argument to zero in modules.conf on the 5704cards. 
+> That could be even handled somewhere in user space.  Switching over sounds 
+> best of course, because the performance with the copying won't be great
 
-	The included changes help IPVS to correctly forward
-fragmented packets. The first problem is that IPVS relies on
-skb->nfcache to contain valid information in all hooks but
-ip_fragment does not copy this field, both in 2.4 and 2.6.
-I just realize that this is the cause for the problem one
-IPVS user reported for 2.4.
+There is no "argument" we don't have a variable in the tg3 driver
+that determines the "copybreak", it's a hard-coded macro define.
 
-	The second problem is that 2.6 does not allow IPVS to
-transmit fragmented skbs, they are reassembled just because one of
-the frags has no owner. Now we add check to avoid the
-reassembling if the first skb is not owned and by this way we
-have reason to be happy with all recent non-linear handling
-changes.
+For them it's really easy to know when the 5701 hw bug case is present,
+so they can do something like:
 
-	First is the nfcache patch for 2.4, followed by 2 csets
-for 2.6:
+	if (len > RX_COPY_THRESHOLD
+#ifdef CONFIG_UNALIGNED_EXPENSIVE
+	    || tp->rx_offset == 2
+#endif
+	    ) {
+        ...
 
---- linux/net/ipv4/ip_output.c.orig	Mon Aug 25 22:06:13 2003
-+++ linux/net/ipv4/ip_output.c	Sat Oct 11 19:54:34 2003
-@@ -879,6 +879,7 @@
- #endif
- #ifdef CONFIG_NETFILTER
- 		skb2->nfmark = skb->nfmark;
-+		skb2->nfcache = skb->nfcache;
- 		/* Connection association is same as pre-frag packet */
- 		skb2->nfct = skb->nfct;
- 		nf_conntrack_get(skb2->nfct);
-
-
-
-===
-
-# This is a BitKeeper generated patch for the following project:
-# Project Name: Linux kernel tree
-# This patch format is intended for GNU patch command version 2.5 or higher.
-# This patch includes the following deltas:
-#	           ChangeSet	1.1502  -> 1.1503 
-#	net/ipv4/ip_output.c	1.45    -> 1.46   
-#
-# The following is the BitKeeper ChangeSet Log
-# --------------------------------------------
-# 03/10/11	ja@ssi.bg	1.1503
-# [IPV4]: ip_copy_metadata must copy the nfcache field
-# --------------------------------------------
-#
-diff -Nru a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
---- a/net/ipv4/ip_output.c	Sat Oct 11 19:35:15 2003
-+++ b/net/ipv4/ip_output.c	Sat Oct 11 19:35:15 2003
-@@ -412,6 +412,7 @@
- #endif
- #ifdef CONFIG_NETFILTER
- 	to->nfmark = from->nfmark;
-+	to->nfcache = from->nfcache;
- 	/* Connection association is same as pre-frag packet */
- 	to->nfct = from->nfct;
- 	nf_conntrack_get(to->nfct);
-
-
-
-===
-
-
-# This is a BitKeeper generated patch for the following project:
-# Project Name: Linux kernel tree
-# This patch format is intended for GNU patch command version 2.5 or higher.
-# This patch includes the following deltas:
-#	           ChangeSet	1.1503  -> 1.1504 
-#	net/ipv4/ip_output.c	1.46    -> 1.47   
-#
-# The following is the BitKeeper ChangeSet Log
-# --------------------------------------------
-# 03/10/11	ja@ssi.bg	1.1504
-# [IPV4]: ip_fragment should not reassemble if all frags do not have owner
-# --------------------------------------------
-#
-diff -Nru a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
---- a/net/ipv4/ip_output.c	Sat Oct 11 19:49:38 2003
-+++ b/net/ipv4/ip_output.c	Sat Oct 11 19:49:38 2003
-@@ -493,7 +493,7 @@
- 			    goto slow_path;
- 
- 			/* Correct socket ownership. */
--			if (frag->sk == NULL)
-+			if (frag->sk == NULL && skb->sk)
- 				goto slow_path;
- 
- 			/* Partially cloned skb? */
-
-===
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+And then only their platform and only when the buggy chips are present,
+will get the desired change in behavior.
