@@ -1,30 +1,56 @@
-From: Manfred Spraul <manfred@colorfullife.com>
-Subject: Re: [PATCH 2.4.28-pre4-bk3] forcedeth: Gigabit ethernet support and
- media detection changes
-Date: Sun, 17 Oct 2004 16:10:46 +0200
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: [patch 2.6.9-rc2] 3c59x: remove EEPROM_RESET for 3c905B
+Date: Sun, 17 Oct 2004 11:05:11 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41727D66.8070007@colorfullife.com>
-References: <Pine.LNX.4.44.0410171216490.29815-100000@dbl.q-ag.de> <417277B7.8000705@pobox.com>
+Message-ID: <20041017150511.GC13491@tuxdriver.com>
+References: <20040928145455.C12480@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: marcelo.tosatti@cyclades.com, blazara@nvidia.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <417277B7.8000705@pobox.com>
+To: akpm@osdl.org
+Content-Disposition: inline
+In-Reply-To: <20040928145455.C12480@tuxdriver.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
+Remove the EEPROM_RESET flag for the 3c905B cards.
 
->
->> - module_param call changed to MODULE_PARM
->
->
-> OK
->
-Not true anymore - module_param was backported as well. I'll post an 
-updated patch.
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+---
+Looks like I over-reached.  Apparently only the 3c905 cards actually
+need the EEPROM reset, and the 3c905B cards don't like it...
 
---
-    Manfred
+ drivers/net/3c59x.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
+
+--- linux-2.6/drivers/net/3c59x.c.orig	2004-10-17 10:53:38.142281232 -0400
++++ linux-2.6/drivers/net/3c59x.c	2004-10-17 10:54:25.975009552 -0400
+@@ -508,12 +508,12 @@ static struct vortex_chip_info {
+ 	{"3c905 Boomerang 100baseT4",
+ 	 PCI_USES_IO|PCI_USES_MASTER, IS_BOOMERANG|HAS_MII|EEPROM_RESET, 64, },
+ 	{"3c905B Cyclone 100baseTx",
+-	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|HAS_NWAY|HAS_HWCKSM|EXTRA_PREAMBLE|EEPROM_RESET, 128, },
++	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|HAS_NWAY|HAS_HWCKSM|EXTRA_PREAMBLE, 128, },
+ 
+ 	{"3c905B Cyclone 10/100/BNC",
+-	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|HAS_NWAY|HAS_HWCKSM|EEPROM_RESET, 128, },
++	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|HAS_NWAY|HAS_HWCKSM, 128, },
+ 	{"3c905B-FX Cyclone 100baseFx",
+-	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|HAS_HWCKSM|EEPROM_RESET, 128, },
++	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|HAS_HWCKSM, 128, },
+ 	{"3c905C Tornado",
+ 	PCI_USES_IO|PCI_USES_MASTER, IS_TORNADO|HAS_NWAY|HAS_HWCKSM|EXTRA_PREAMBLE, 128, },
+ 	{"3c920B-EMB-WNM (ATI Radeon 9100 IGP)",
+@@ -564,7 +564,7 @@ static struct vortex_chip_info {
+ 	{"3c982 Hydra Dual Port B",
+ 	 PCI_USES_IO|PCI_USES_MASTER, IS_TORNADO|HAS_HWCKSM|HAS_NWAY, 128, },
+ 	{"3c905B-T4",
+-	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|HAS_NWAY|HAS_HWCKSM|EXTRA_PREAMBLE|EEPROM_RESET, 128, },
++	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|HAS_NWAY|HAS_HWCKSM|EXTRA_PREAMBLE, 128, },
+ 	{"3c920B-EMB-WNM Tornado",
+ 	 PCI_USES_IO|PCI_USES_MASTER, IS_TORNADO|HAS_NWAY|HAS_HWCKSM, 128, },
+ 
+-- 
+John W. Linville
+linville@tuxdriver.com
