@@ -1,66 +1,40 @@
 From: Werner Almesberger <werner@almesberger.net>
 Subject: Re: TOE brain dump
-Date: Sat, 2 Aug 2003 18:49:01 -0300
+Date: Sat, 2 Aug 2003 19:14:11 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030802184901.G5798@almesberger.net>
-References: <20030802140444.E5798@almesberger.net> <3F2BF5C7.90400@us.ibm.com> <3F2C0C44.6020002@pobox.com>
+Message-ID: <20030802191411.H5798@almesberger.net>
+References: <20030802140444.E5798@almesberger.net> <1059857864.20305.14.camel@dhcp22.swansea.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Nivedita Singhvi <niv@us.ibm.com>, netdev@oss.sgi.com,
-   linux-kernel@vger.kernel.org
+Cc: netdev@oss.sgi.com,
+   Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Content-Disposition: inline
-In-Reply-To: <3F2C0C44.6020002@pobox.com>; from jgarzik@pobox.com on Sat, Aug 02, 2003 at 03:08:52PM -0400
+In-Reply-To: <1059857864.20305.14.camel@dhcp22.swansea.linux.org.uk>; from alan@lxorguk.ukuu.org.uk on Sat, Aug 02, 2003 at 09:57:44PM +0100
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> jabbering at the same time.  TCP is a "one size fits all" solution, but 
-> it doesn't work well for everyone.
+Alan Cox wrote:
+> It moves the cost it doesnt make it vanish
 
-But then, ten "optimized xxPs" that work well in two different
-scenarios each, but not so good in the 98 others, wouldn't be
-much fun either.
+I don't think it really can. What it can do is reduce the
+overhead (which usually translates to latency and burstiness)
+and the sharing.
 
-It's been tried a number of times. Usually, real life sneaks
-in at one point or another, leaving behind a complex mess.
-When they've sorted out these problems, regular TCP has caught
-up with the great optimized transport protocols. At that point,
-they return to their niche, sometimes tail between legs and
-muttering curses, sometimes shaking their fist and boldly
-proclaiming how badly they'll rub TCP in the dirt in the next
-round. Maybe they shed off some of the complexity, and trade it
-for even more aggressive optimization, which puts them into
-their niche even more firmly. Eventually, they fade away.
+> If I read you right you are arguing for a second processor running
+> Linux.with its own independant memory bus. AMD make those already its
+> called AMD64. I don't know anyone thinking at that level about
+> partitioning one as an I/O processor.
 
-There are cases where TCP doesn't work well, like a path of
-badly mismatched link layers, but such paths don't treat any
-protocol following the end-to-end principle kindly.
+That's taking this idea to an extreme, yes. I'd think of
+using something as big as an amd64 for this as "too
+expensive", but perhaps it's cheap enough in the long run,
+compared to some "optimized" design.
 
-Another problem of TCP is that it has grown a bit too many
-knobs you need to turn before it works over your really fast
-really long pipe. (In one of the OLS after dinner speeches,
-this was quite appropriately called the "wizard gap".)
-
-> It's obviously not over a WAN...
-
-That's why NFS turned off UDP checksums ;-) As soon as you put
-it on IP, it will crawl to distances you didn't imagine in your
-wildest dreams. It always does.
-
-> So, fix the other end of the pipeline too, otherwise this fast network 
-> stuff is flashly but pointless.  If you want to serve up data from disk, 
-> then start creating PCI cards that have both Serial ATA and ethernet 
-> connectors on them :)  Cut out the middleman of the host CPU and host 
-> memory bus instead of offloading portions of TCP that do not need to be 
-> offloaded.
-
-That's a good point. A hierarchical memory structure can help
-here. Moving one end closer to the hardware, and letting it
-know (e.g. through sendfile) that also the other end is close
-(or can be reached more directly that through some hopelessly
-crowded main bus) may help too.
+It would certainly have the advantage of already solving
+various consistency and compatibility issues. (That is, if
+your host CPUs is/are also amd64.)
 
 - Werner
 
