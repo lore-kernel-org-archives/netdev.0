@@ -1,44 +1,37 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 1/5] r8169: auto detect 32-bit slot
-Date: Thu, 10 Mar 2005 01:45:25 +0100
-Message-ID: <20050310004525.GA12735@electric-eye.fr.zoreil.com>
-References: <20050309112925.7f7900ab@dxpl.pdx.osdl.net> <m17jkgwp6i.fsf@muc.de> <20050309214023.GA9502@electric-eye.fr.zoreil.com> <20050309135530.5c5c80b6@dxpl.pdx.osdl.net> <20050309230809.GC9502@electric-eye.fr.zoreil.com> <20050309232024.GC63395@muc.de>
+From: Jon Mason <jdmason@us.ibm.com>
+Subject: Re: ethtool -d no longer works for e1000
+Date: Wed, 9 Mar 2005 18:54:34 -0600
+Message-ID: <200503091854.34466.jdmason@us.ibm.com>
+References: <76FA8CF8F1F53240BB5B962A3385A5800256F787@orsmsx405>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com
-To: Andi Kleen <ak@muc.de>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "Ben Greear" <greearb@candelatech.com>,
+        "Ganesh Venkatesan" <ganesh.venkatesan@gmail.com>, netdev@oss.sgi.com
+To: "cramerj" <cramerj@intel.com>
+In-Reply-To: <76FA8CF8F1F53240BB5B962A3385A5800256F787@orsmsx405>
 Content-Disposition: inline
-In-Reply-To: <20050309232024.GC63395@muc.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andi Kleen <ak@muc.de> :
-[...]
-> The concept of "64bit systems" is useless here anyways. Even on a 32bit
-> system with highmem like i386 you can get >32bit addresses to deal
-> with. One usecase for that would be sendfile() out of user space.
-> This is widely used these days.
+On Wednesday 09 March 2005 06:35 pm, cramerj wrote:
+> Ah!  Yes, if you're running ethtool 1.8, then this was an issue (or
+> rather, an annoyance) in e1000.c where we would default to mac_type =
+> e1000_undefined for any newer hardware.  Continuous updates to this file
+> for every piece of hardware we released got old pretty quick.  We've
+> since changed the default mac_type to e1000_82543, which has a basic set
+> of registers that haven't changed with each hardware release.  And
+> although the e1000_82546 mac_type exists, it isn't yet being assigned to
+> the 82546GB hardware (again, see e1000.c), thus the error.
+>
+> Long story short, an updated ethtool should do the trick.
+>
+> Thanks,
+> -Jeb
 
-The combination "32 bit system with weird addressing mode + r8169 adapter"
-has accounted for 0 bug/success report so far and I do not know a single
-tester for it anyway. Whence my narrow-minded view of the issue :o)
+Ah, I am running ethtool 3 on a 82545 chip, that is probably why mine works.
 
-[...]
-> Again are you sure it depends on 64bit slots? Normally 64bit slots
-> only offer more bandwidth, but the address protocol is the same
-> as 32bit and both support DAC in the same way.
-
-I do not know. The 8169 includes a register which tells (various things +)
-the bus width. Without further documentation, I do not see how the relevance
-of this register can be established/discarded if the aforementioned
-test-cases are not experienced.
-
-[...]
-> You really should forget about amd64 or not, all that counts is
-> sizeof(dma_addr_t) 
-
-(assuming the on-board 8169 is wired correctly, be it on-board or not, yes)
-
---
-Ueimor
+Thanks,
+Jon
