@@ -1,79 +1,35 @@
-From: Vladimir Kondratiev <vkondra@mail.ru>
-Subject: Re: [RFC] Wireless extensions rethink
-Date: Tue, 15 Jun 2004 20:22:29 +0300
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: Ethernet MAC address question
+Date: Tue, 15 Jun 2004 12:11:18 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200406152022.34904.vkondra@mail.ru>
-References: <C6F5CF431189FA4CBAEC9E7DD5441E0103AF626C@orsmsx402.amr.corp.intel.com> <40CF263E.70009@home.nl>
+Message-ID: <40CF1FA6.3020701@pobox.com>
+References: <200406151538.i5FFcJ720553@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: Gertjan van Wingerde <gwingerde@home.nl>,
-        "Feldman, Scott" <scott.feldman@intel.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Mark Brown <broonie@sirena.org.uk>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <40CF263E.70009@home.nl>
-Content-Disposition: inline
+To: Don Fry <brazilnut@us.ibm.com>
+In-Reply-To: <200406151538.i5FFcJ720553@localhost.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+Don Fry wrote:
+> So how does the driver distinguish between a valid, but incorrect MAC
+> address, and the 'correct' MAC address?  The incorrect one that is the
+> value that just happened to be in the uninitialized volatile registers,
+> and the correct address which some magic platform means loaded into the
+> same, but this time initialized, volatile registers.
 
-I'd like this idea too. When patches will be ready, I am willing to convert my 
-driver to use this interface, and I'll provide feedback.
-Vladimir.
 
-On Tuesday 15 June 2004 19:39, Gertjan van Wingerde wrote:
-> Scott,
->
-> Sounds like a good idea. I'll start refactoring my work towards that
-> approach. Please bear with me for a couple of days and I'll post a draft
-> patch for this.
->
-> --- Gertjan.
->
-> Feldman, Scott wrote:
-> >>I was thinking along the same lines, however I was taking the
-> >>ethtool interface as the starting point (using a single ioctl
-> >>for all wireless operations). The private handlers would just
-> >>have to be converted to plain ioctls handled by the driver itself.
-> >>
-> >>The attached patch can be used as a starting point for this.
-> >>It is not complete (not by far), but it shows the basic structure.
-> >>I've called the structure wlantool_ops, again using the
-> >>example set by ethtool.
-> >>
-> >>Comments?
-> >
-> > What if we just use the ethtool ioctl that's already defined, and extend
-> > ethtool with a wireless option:
-> >
-> > ethtool -w DEVNAME \
-> > 	[ nwid N|off|on} ] \
-> > 	[ freq x.xx ] \
-> > 	[ mode ad-hoc|managed|master|repeater|... ] \
-> > 	[ sens N ] \
-> > 	[ ... ]
-> >
-> > Each one of the sub-options to -w would have it's own ETHTOOL_[G|S]W...
-> > command as well as a type-safe ethtool_op.
-> >
-> > Running ethtool DEVNAME dumps ETHTOOL_GW... :
-> >
-> > Wireless settings for eth0:
-> >         nwid: AB34
-> >         freq: 2.422G
-> >         mode: managed
-> >         sens: -80
-> >
-> > Good/bad idea?
-> >
-> > -scott
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
+You have to notice that certain platform-specific attributes are 
+present, that tells your code to search in <this magic place> rather 
+than the standard place for MAC address.
 
-iD8DBQFAzzBaqxdj7mhC6o0RAjveAJ94RhRFBBYxewaSYuELds8HJXkntACcCQDW
-7SxvO7j/88hGxeAL3g8zQ8k=
-=iYxo
------END PGP SIGNATURE-----
+For example, some Compaqs have a magic MAC address location (this might 
+even be pcnet32), and one solution proposed was looking for the 
+platform's DMI table identifiers.  Another solution -- working -- was to 
+load the MAC address registers when the driver loads, and just hope it 
+is a correct address.
+
+	Jeff
