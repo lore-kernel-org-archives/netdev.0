@@ -1,27 +1,25 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] lksctp 0.6.9 backport on 2.4.23-pre3
-Date: Fri, 12 Sep 2003 17:21:19 -0700
+From: Jes Sorensen <jes@wildopensource.com>
+Subject: Re: [PATCH] Road Runner HIPPI driver (rrunner)
+Date: 12 Sep 2003 23:22:27 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030912172119.57470c91.davem@redhat.com>
-References: <B320F712053ED411869200D0B747A3CA0FE474E9@laplace.grenoble.hp.com>
+Message-ID: <m38yotid8s.fsf@trained-monkey.org>
+References: <20030912144208.2886e2b9.shemminger@osdl.org>
+	<3F62437F.9080202@pobox.com>
+	<20030912152506.693fe997.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com, samudrala@us.ibm.com,
-   lksctp-developers@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "MORANGE,DAMIEN (HP-France,ex1)" <damien.morange@hp.com>
-In-Reply-To: <B320F712053ED411869200D0B747A3CA0FE474E9@laplace.grenoble.hp.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20030912152506.693fe997.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 12 Sep 2003 15:45:40 +0200
-"MORANGE,DAMIEN (HP-France,ex1)" <damien.morange@hp.com> wrote:
+>>>>> "Stephen" == Stephen Hemminger <shemminger@osdl.org> writes:
 
-> Catching up on moving 2.4.20+ target, here is a set of patches to backport
-> lksctp on top of 2.4.23-pre3[*], ready (IMHO) for integration into 2.4.x.
+Stephen> Okay, how about this..  --- linux-2.5/drivers/net/rrunner.c
 
-Care to provide this as a BK tree I can pull from?
-(please don't combine the patches into one big changeset,
- keep them seperate, comment them properly, and preserve the
- revision history, that's the whole point of this)
+Looks pretty good to me!
+
+Cheers,
+Jes
