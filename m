@@ -1,44 +1,49 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] NETIF_F_LLTX for devices 2
-Date: 07 Sep 2004 17:53:04 -0400
+From: <Rezwanul_Kabir@Dell.com>
+Subject: RE: ioctl() to get MAC address from EEPROM
+Date: Tue, 7 Sep 2004 16:55:00 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1094593729.1079.32.camel@jzny.localdomain>
-References: <20040907120532.GB25051@wotan.suse.de>
-Reply-To: hadi@cyberus.ca
+Message-ID: <06226F23984D7A49A694576CF06603F908BBCE@ausx2kmpc106.aus.amer.dell.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <20040907120532.GB25051@wotan.suse.de>
+content-class: urn:content-classes:message
+To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2004-09-07 at 08:05, Andi Kleen wrote:
-> New version of the NETIF_F_LLTX for network devices patch. 
+
+ Any comments on below?
+ If this is not the right forum  to ask such questions, could anyone pls point me to an appropriate forum?
+ I really need to figure out the best way to do it...
+ Thanks..
+     --rez
+
+>  -----Original Message-----
+> From: 	Kabir, Rezwanul  
+> Sent:	Friday, September 03, 2004 12:06 PM
+> To:	netdev@oss.sgi.com
+> Subject:	ioctl() to get MAC address from EEPROM
 > 
-> This allows network drivers to set the NETIF_F_LLTX flag
-
-> The drivers can use try lock if they want and return -1
-> when the lock wasn't grabbed. In this case the packet
-> will be requeued. For better compatibility this is only
-> done for drivers with LLTX set, others don't give a special
-> meaning to -1.
-
-Are you reinventing the rules or changing them?
-
-hard_start_xmit() return codes are intepreted as follows:
-
-0: typically means the packet was put in the ring. 
-It is being abused by a few drivers to mean a retry depending on the
-device state (which while may work results in a longer code path). 
-1: means packet was not put on the ring. i.e if you return
-1, the toplayer will retry later with the same skb. 
-[of course If you stash it on the ring, the danger is tx complete will
-try to free it later while the toplayer code is still referencing it. A
-good oops].
-
-
-cheers,
-jamal
+> 
+> Hi
+> 
+>     There seems to be no standard way to retrieve the MAC 
+> address of a NIC stored in the EEPROM ( ETHTOOL_GEEPROM ioctl 
+> may be used to do such thing but there's a need for a more 
+> direct standard interface).This is sometimes necessary when 
+> the MAC address in EEPROM may differ from the one associated 
+> with the software interface (i.e. dev_addr in struct 
+> net_device).For example, in some modes of channel bonding , 
+> the MAC address of the active NIC is duplicated on the rest 
+> of the members of the specific bond/team. How to fetch the 
+> "permanent" MAC address in this case?
+>     Any plan to include such commands in ethtool ioctls? Is 
+> there  a better way to do this?
+>     Any suggestions would be appreciated..
+>     Thanks..
+>          --rez
+> 
+> 
+>  
