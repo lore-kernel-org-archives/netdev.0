@@ -1,8 +1,8 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 2.5.68+] [BRIDGE] Inline and _rcu change.
-Date: Mon, 28 Apr 2003 13:46:39 -0700
+Subject: [PATCH 2.5.68] [BRIDGE] More user hz conversions
+Date: Mon, 28 Apr 2003 13:48:54 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030428134639.0011347c.shemminger@osdl.org>
+Message-ID: <20030428134854.21622b2b.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -12,90 +12,87 @@ To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Two small changes:
-* Need _rcu on the list_for_each_entry in br_get_port because called in
-  read path for some ioctl's
-* Move two small functions is_root_bridge and is_designated_port into
-  inline's because they are so short.
+Several more places need USER/KERNEL HZ conversion.  Without these the timer
+values in 'brctl showmacs' and 'brctl showstp' are off.
 
-diff -Nru a/net/bridge/br_private.h b/net/bridge/br_private.h
---- a/net/bridge/br_private.h	Mon Apr 28 13:43:22 2003
-+++ b/net/bridge/br_private.h	Mon Apr 28 13:43:22 2003
-@@ -116,6 +116,13 @@
- extern struct notifier_block br_device_notifier;
- extern unsigned char bridge_ula[6];
+diff -Nru a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+--- a/net/bridge/br_fdb.c	Mon Apr 28 13:42:51 2003
++++ b/net/bridge/br_fdb.c	Mon Apr 28 13:42:51 2003
+@@ -41,15 +41,15 @@
+ 	return 0;
+ }
  
-+/* called under bridge lock */
-+static inline int br_is_root_bridge(const struct net_bridge *br)
-+{
-+	return !memcmp(&br->bridge_id, &br->designated_root, 8);
-+}
-+
-+
- /* br_device.c */
- extern void br_dev_setup(struct net_device *dev);
- extern int br_dev_xmit(struct sk_buff *skb, struct net_device *dev);
-@@ -182,7 +189,6 @@
- extern void br_netfilter_fini(void);
- 
- /* br_stp.c */
--extern int br_is_root_bridge(struct net_bridge *br);
- extern struct net_bridge_port *br_get_port(struct net_bridge *br,
- 				    int port_no);
- extern void br_init_port(struct net_bridge_port *p);
-diff -Nru a/net/bridge/br_private_stp.h b/net/bridge/br_private_stp.h
---- a/net/bridge/br_private_stp.h	Mon Apr 28 13:43:22 2003
-+++ b/net/bridge/br_private_stp.h	Mon Apr 28 13:43:22 2003
-@@ -32,12 +32,18 @@
- 	int		forward_delay;
- };
- 
-+/* called under bridge lock */
-+static inline int br_is_designated_port(const struct net_bridge_port *p)
-+{
-+	return !memcmp(&p->designated_bridge, &p->br->bridge_id, 8) &&
-+		(p->designated_port == p->port_id);
-+}
-+
-+
- /* br_stp.c */
- extern void br_become_root_bridge(struct net_bridge *br);
- extern void br_config_bpdu_generation(struct net_bridge *);
- extern void br_configuration_update(struct net_bridge *);
--extern int  br_is_designated_port(struct net_bridge_port *p);
--extern int  br_is_root_bridge(struct net_bridge *br);
- extern void br_port_state_selection(struct net_bridge *);
- extern void br_received_config_bpdu(struct net_bridge_port *p, struct br_config_bpdu *bpdu);
- extern void br_received_tcn_bpdu(struct net_bridge_port *p);
-diff -Nru a/net/bridge/br_stp.c b/net/bridge/br_stp.c
---- a/net/bridge/br_stp.c	Mon Apr 28 13:43:22 2003
-+++ b/net/bridge/br_stp.c	Mon Apr 28 13:43:22 2003
-@@ -20,27 +20,12 @@
- #include "br_private.h"
- #include "br_private_stp.h"
- 
--
--
--/* called under bridge lock */
--int br_is_root_bridge(struct net_bridge *br)
--{
--	return !memcmp(&br->bridge_id, &br->designated_root, 8);
--}
--
--/* called under bridge lock */
--int br_is_designated_port(struct net_bridge_port *p)
--{
--	return !memcmp(&p->designated_bridge, &p->br->bridge_id, 8) &&
--		(p->designated_port == p->port_id);
--}
--
- /* called under bridge lock */
- struct net_bridge_port *br_get_port(struct net_bridge *br, int port_no)
+-static __inline__ void copy_fdb(struct __fdb_entry *ent, struct net_bridge_fdb_entry *f)
++static __inline__ void copy_fdb(struct __fdb_entry *ent, 
++				const struct net_bridge_fdb_entry *f)
  {
- 	struct net_bridge_port *p;
+ 	memset(ent, 0, sizeof(struct __fdb_entry));
+ 	memcpy(ent->mac_addr, f->addr.addr, ETH_ALEN);
+ 	ent->port_no = f->dst?f->dst->port_no:0;
+ 	ent->is_local = f->is_local;
+-	ent->ageing_timer_value = 0;
+-	if (!f->is_static)
+-		ent->ageing_timer_value = jiffies - f->ageing_timer;
++	ent->ageing_timer_value = f->is_static ? 0 
++		: ((jiffies - f->ageing_timer) * USER_HZ) / HZ;
+ }
  
--	list_for_each_entry(p, &br->port_list, list) {
-+	list_for_each_entry_rcu(p, &br->port_list, list) {
- 		if (p->port_no == port_no)
- 			return p;
- 	}
+ static __inline__ int br_mac_hash(unsigned char *mac)
+diff -Nru a/net/bridge/br_ioctl.c b/net/bridge/br_ioctl.c
+--- a/net/bridge/br_ioctl.c	Mon Apr 28 13:43:08 2003
++++ b/net/bridge/br_ioctl.c	Mon Apr 28 13:43:08 2003
+@@ -19,19 +19,22 @@
+ #include <asm/uaccess.h>
+ #include "br_private.h"
+ 
++/* import values in USER_HZ  */
++static inline unsigned long user_to_ticks(unsigned long utick)
++{
++	return (utick * HZ) / USER_HZ;
++}
+ 
+-/* Report time remaining in user HZ for compatibility. */
+-static inline unsigned long timer_residue(const struct br_timer *timer)
++/* export values in USER_HZ */
++static inline unsigned long ticks_to_user(unsigned long tick)
+ {
+-	return timer->running 
+-		? ((jiffies - timer->expires) * USER_HZ)/HZ 
+-		: 0;
++	return (tick * USER_HZ) / HZ;
+ }
+ 
+-/* Convert API times in USER_HZ to kernel */
+-static inline unsigned long user_to_ticks(unsigned long utick)
++/* Report time remaining in user HZ  */
++static unsigned long timer_residue(const struct br_timer *timer)
+ {
+-	return (utick * HZ) / USER_HZ;
++	return ticks_to_user(timer->running ? (jiffies - timer->expires) : 0);
+ }
+ 
+ static int br_ioctl_device(struct net_bridge *br,
+@@ -73,18 +76,18 @@
+ 		memcpy(&b.designated_root, &br->designated_root, 8);
+ 		memcpy(&b.bridge_id, &br->bridge_id, 8);
+ 		b.root_path_cost = br->root_path_cost;
+-		b.max_age = br->max_age;
+-		b.hello_time = br->hello_time;
++		b.max_age = ticks_to_user(br->max_age);
++		b.hello_time = ticks_to_user(br->hello_time);
+ 		b.forward_delay = br->forward_delay;
+ 		b.bridge_max_age = br->bridge_max_age;
+ 		b.bridge_hello_time = br->bridge_hello_time;
+-		b.bridge_forward_delay = br->bridge_forward_delay;
++		b.bridge_forward_delay = ticks_to_user(br->bridge_forward_delay);
+ 		b.topology_change = br->topology_change;
+ 		b.topology_change_detected = br->topology_change_detected;
+ 		b.root_port = br->root_port;
+ 		b.stp_enabled = br->stp_enabled;
+-		b.ageing_time = br->ageing_time;
+-		b.gc_interval = br->gc_interval;
++		b.ageing_time = ticks_to_user(br->ageing_time);
++		b.gc_interval = ticks_to_user(br->gc_interval);
+ 		b.hello_timer_value = timer_residue(&br->hello_timer);
+ 		b.tcn_timer_value = timer_residue(&br->tcn_timer);
+ 		b.topology_change_timer_value = timer_residue(&br->topology_change_timer);
