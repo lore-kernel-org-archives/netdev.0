@@ -1,55 +1,55 @@
-From: Sven Suhl <S.Suhl@assenmacher.net>
-Subject: Patch: drivers/net/3c59x.c
-Date: Thu, 6 May 2004 14:30:36 +0200
+From: Eric.Chacron@alcatel.fr
+Subject: OSDL  CGL 3.0 performance draft announcement
+Date: Thu, 6 May 2004 14:53:14 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <A30ABA3AC41ED411B66A00E07D7D5F2F3C7613@inter01.assenmacher.net>
+Message-ID: <OFBA6BD670.88A33B4D-ONC1256E8C.0046BA0E@netfr.alcatel.fr>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
+Content-Type: text/plain; charset=us-ascii
+Cc: Peter Badovinatz <tabmowzo@us.ibm.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi anybody,
+
+Hi,
+
+I would like to announce the availability of an
+early public draft of the OSDL Carrier Grade Linux v3.0 Performance
+specification, available at:
+
+http://www.osdl.org/docs/cgl_perf_req_def_30.pdf
+
+
+This draft includes requirements made from telecom industry perspective
+on Linux performances and scalability.
+
+Thanks in advance for your comments.
+
+-Eric
 
 
 
-got some problems with my laptop's ethernet device (it's a medion laptop
-based on an ati board, using a 3com etherlink3). It seems that medion is
-modyfing some parts of the used hardware. So here is what I got: Under w2k
-the eth-dev says it is an '3c902B-WMB-ENM Integrated Fast Ethernet'. To
-linux it introduces itself as 10b7:9202. Reading the eeprom out of it says
-it is in fact a 9201 chip. So I tried the settings from the 9201. With the
-following options in modules.conf (or modprobe.conf) this card will start to
-work correctly:
 
-alias eth0 3c59x
-options eth0 options=0x206 
+Notes:
 
-I have to force it to use mii and full-duplex - I think this depends on the
-used network. Without this option the card (or driver???) will only use
-10baseT (as defined in eeprom) and won't detect correct bandwith... Maybe
-someone knows how to fix this problem and tells it to me so that I can test
-it out.
+-I acknowledge that the requirements in this draft are being implemented
+in a variety of ways and many of the requirements in this document exist
+in current implementations.  I am contacting this mailing list because I
+believe your projects and expertise may address some of the requirements
+and we'd like to solicit feedback.
 
-Btw. Could somebody do me the favour to add the following lines to the
-3c59x.c source in the kernel to make this card available to it? Currently
-I'm using kernel 2.6.5. Sorry that I do not know how to use patch and those
-diff utitilities...:
+-Again, this is an early draft document of the v3.0 performance
+requirements spec.  Past OSDL Carrier Grade Linux technical documents
+have contained all requirements in a single document.  For OSDL CGL
+v3.0 draft releases, we are releasing them as more granular sections,
+roughly split on functional boundaries.  These boundaries are
+Standards, Availability, Clustering, Hardware,
+Performance (this document), Security, and Serviceability .
 
-// added to the end of 'enum vortex_chips'
-CH_902B_EMB_WNM, 
+-More information on Carrier Grade Linux and the Carrier Grade Linux
+Working Group can be found at:
+http://osdl.org/lab_activities/carrier_grade_linux/.
 
-// added to the end of 'static struct vortex_chip_info'
-{"3c902B-EMB-WNM Integrated Fast Ethernet",
- PCI_USES_IO|PCI_USES_MASTER, IS_TORNADO|HAS_NWAY|HAS_HWCKSM, 128, },
-
-// added to the end of 'vortex_pci_tbl'
-{ 0x10B7, 0x9202, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CH_902B_EMB_WNM },
-
-
-
-Thx and a nice day
-
-Sven Suhl
+-Feel free to direct any comments on the spec to me directly at
+eric.chacron@alcatel.fr or to cgl_discussion@osdl.org.
