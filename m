@@ -1,27 +1,36 @@
-From: Matthew Wilcox <willy@debian.org>
-Subject: Bonding driver makes bad use of ethtool
-Date: Fri, 12 Sep 2003 15:27:30 +0100
+From: Chris Friesen <cfriesen@nortelnetworks.com>
+Subject: firewalling PPPOE stream without terminating it
+Date: Fri, 12 Sep 2003 10:32:04 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030912142730.GA21596@parcelfarce.linux.theplanet.co.uk>
+Message-ID: <3F61D8E4.6020309@nortelnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: bonding-devel@lists.sourceforge.net, Amir Noam <amir.noam@intel.com>
-Content-Disposition: inline
+To: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-ethtool is being abused by the bonding driver.  ifenslave is passing
-in which ABI version it wants to use via the ETHTOOL_GDRVINFO call.
-This cannot continue in the ethtool_ops scheme, and it's my opinion this
-shouldn't've been done in the first place.
+I've got a PPPOE DSL line coming into my house, and I and my roommates 
+each terminate our own connection and get our own dynamic IP address.
 
-I suggest a new ioctl to set your ABI version and delete this bad use
-of ETHTOOL_GDRVINFO.
+With the recent bunch of viruses/worms, a couple of us were thinking 
+about setting up a box as a transparent firewalling bridge.  The only 
+tricky bit is that we don't want to terminate the PPPOE connection at 
+that box, since that would then force us to do NAT/ipmasq.
+
+Does anyone know of any way to filter the contents of a tunnelled packet 
+(PPPOE in particular) using standard tools like ebtables/iptables?
+
+The other possibility I had considered was a netfilter module that tied 
+into the ebtables hooks and knew how to look inside the PPPOE packet, 
+but then I wouldn't get the userspace interface from ebtables/iptables.
+
+Chris
 
 -- 
-"It's not Hollywood.  War is real, war is primarily not about defeat or
-victory, it is about death.  I've seen thousands and thousands of dead bodies.
-Do you think I want to have an academic debate on this subject?" -- Robert Fisk
+Chris Friesen                    | MailStop: 043/33/F10
+Nortel Networks                  | work: (613) 765-0557
+3500 Carling Avenue              | fax:  (613) 765-2986
+Nepean, ON K2H 8E9 Canada        | email: cfriesen@nortelnetworks.com
