@@ -1,69 +1,45 @@
-From: Tony Lee <tony.p.lee@gmail.com>
-Subject: Re: The ultimate TOE design
-Date: Wed, 15 Sep 2004 14:59:03 -0700
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH 2.6] ip_nat_ftp - manip at the right place
+Date: Thu, 16 Sep 2004 08:13:20 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <470b63970409151459635625f5@mail.gmail.com>
-References: <4148991B.9050200@pobox.com>
-	 <Pine.LNX.4.61.0409152102050.23011@fogarty.jakma.org>
-Reply-To: Tony Lee <tony.p.lee@gmail.com>
+Message-ID: <1095286400.1940.8.camel@bach>
+References: <Pine.LNX.4.58.0409111042580.1315@u.domain.uli>
+	 <20040913163002.35aae28c.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@oss.sgi.com>, leonid.grossman@s2io.com,
-        Linux Kernel <linux-kernel@vger.kernel.org>
+Cc: Julian Anastasov <ja@ssi.bg>, Harald Welte <laforge@netfilter.org>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Paul Jakma <paul@clubi.ie>
-In-Reply-To: <Pine.LNX.4.61.0409152102050.23011@fogarty.jakma.org>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20040913163002.35aae28c.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 15 Sep 2004 21:04:38 +0100 (IST), Paul Jakma <paul@clubi.ie> wrote:
-> On Wed, 15 Sep 2004, Jeff Garzik wrote:
+On Tue, 2004-09-14 at 09:30, David S. Miller wrote:
+> On Sat, 11 Sep 2004 10:53:53 +0300 (EEST)
+> Julian Anastasov <ja@ssi.bg> wrote:
 > 
-> > Put simply, the "ultimate TOE card" would be a card with network ports, a
-> > generic CPU (arm, mips, whatever.), some RAM, and some flash.  This card's
-> > "firmware" is the Linux kernel, configured to run as a _totally indepenent
-> > network node_, with IP address(es) all its own.
-> >
-> > Then, your host system OS will communicate with the Linux kernel running on
-> > the card across the PCI bus, using IP packets (64K fixed MTU).
+> > 	This is a resend/resync for v2.6.9-rc1-bk17: change the
+> > way the ip_nat_ftp helper manipulates the packets:
+> > 
+> > - no manips => no fixup
+> > 
+> > - check the direction, do manip once and at the same time when the
+> > headers are changed
+> > 
+> > 	This is needed mostly for IPVS setups and I hope we do not
+> > create troubles for other setups or FTP software.
 > 
-> > My dream is that some vendor will come along and implement such a
-> > design, and sell it in enough volume that it's US$100 or less.
-> > There are a few cards on the market already where implementing this
-> > design _may_ be possible, but they are all fairly expensive.
-> 
-> The intel IXP's are like the above, XScale+extra-bits host-on-a-PCI
-> card running Linux. Or is that what you were referring to with
-> "<cards exist> but they are all fairly expensive."?
-> 
-> >       Jeff
-> 
-> regards,
-> --
-> Paul Jakma      paul@clubi.ie   paul@jakma.org  Key ID: 64A2FF6A
+> I'm still waiting for ACK/NACK of this.  I know Rusty is travelling
+> and Harald is probably busy too, so I know the delay in response is not
+> because these guys are slackers :-)
 
+Mine is because I'm porting the existing FTP testsuite to nfsim, so I
+can test the patch doesn't break anything.  As far as I can tell, this
+change isn't vital, so I'm not losing sleep to do it...
 
-
-I believe Broadcom 5704 (570x) chip/nic card come with 2 MIPS CPUs (133 MHz)
-one each for both Tx and Rx data path.   The GIGE nic card cost < $50
-couple years ago.
-
-
-Too bad, the software SDK for them is closed (quoted at $96K couple years ago) .
-
-Otherwise, there can be some interesting applications with that extremely
-inexpensive chip/nic card.
-
-RDMA over TCP/UDP with that chip/nic card over gige can be very interesting.
-
-so is SSL proxy, SSH tunnel, etc.
-
-With the right distributing processing design, it might even possible
-to offload SMB,
-NFS to the "right" nic card.
-
-
--Tony
---
-Having fun with Xilinx Virtex Pro II reconfigurable HW +  integrated PPC + Linux
+Thanks,
+Rusty.
+-- 
+Anyone who quotes me in their signature is an idiot -- Rusty Russell
