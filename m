@@ -1,24 +1,26 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] dst allocation problem in ndisc
-Date: Thu, 10 Jun 2004 22:08:02 -0700
+Subject: Re: [PATCH] some condition check error in ipsec v6
+Date: Thu, 10 Jun 2004 22:11:47 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040610220802.63e92631.davem@redhat.com>
-References: <OFCE4F5928.1D42CFA2-ON87256EAF.006E4EBF-07256EAF.006E5443@us.ibm.com>
-	<OF9A5F0961.756FB5EE-ON87256EAF.0071FA7B-07256EAF.00720E64@us.ibm.com>
+Message-ID: <20040610221147.2bef231d.davem@redhat.com>
+References: <OF3E88B8EA.382D75F6-ON87256E5C.00272BAC-88256E5C.0027A5ED@us.ibm.com>
+	<200403311326.43647.mashirle@us.ibm.com>
+	<200405261308.54281.mashirle@us.ibm.com>
+	<200406091629.17365.mashirle@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: xma@us.ibm.com, mashirle@us.ibm.com, netdev@oss.sgi.com,
-        yoshfuji@linux-ipv6.org
+Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org, xma@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Shirley Ma <xma@us.ibm.com>
-In-Reply-To: <OF9A5F0961.756FB5EE-ON87256EAF.0071FA7B-07256EAF.00720E64@us.ibm.com>
+To: Shirley Ma <mashirle@us.ibm.com>
+In-Reply-To: <200406091629.17365.mashirle@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 10 Jun 2004 14:46:20 -0600
-Shirley Ma <xma@us.ibm.com> wrote:
+On Wed, 9 Jun 2004 16:29:17 -0700
+Shirley Ma <mashirle@us.ibm.com> wrote:
 
-> Change ip6_output2 to static also. This patch is against 2.6.7-rc3.
+> Here is a small patch for condition checking in ah6.c and esp6.c. This patch 
+> is against 2.6.6 kernel.
 
-Patch applied, thanks a lot!
+Applied, thanks a lot!
