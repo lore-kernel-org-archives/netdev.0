@@ -1,120 +1,161 @@
-From: Manfred Spraul <manfred@colorfullife.com>
-Subject: Re: [PATCH] Gigabit Ethernet support for forcedeth
-Date: Wed, 30 Jun 2004 20:55:35 +0200
+From: Andre Tomt <andre@tomt.net>
+Subject: [Fwd: Remote DoS vulnerability in Linux kernel 2.6.x]
+Date: Wed, 30 Jun 2004 21:38:44 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40E30CA7.3020209@colorfullife.com>
-References: <40E25328.8020102@colorfullife.com> <40E25944.8010200@pobox.com> <40E2E618.5020601@colorfullife.com>
+Message-ID: <40E316C4.30205@tomt.net>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------000006020406060009000704"
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+ boundary="------------050502080407020203090706"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <40E2E618.5020601@colorfullife.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------000006020406060009000704
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+--------------050502080407020203090706
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
 
-Manfred Spraul wrote:
+I would guess you guys know about this one - but just in case.
 
->>
->> your driver needs to call pci_set_dma_mask() and 
->> pci_set_consistent_dma_mask().
->>
-> I'll add that.
->
-I've checked the pci layer: 32-bit is the default, thus no calls are 
-required. What's missing is error handling for pci_map, I'll add that later.
+Is the patch provided safe? Is the problem real?
 
-Attached is an incremental patch that fixes the simple issues you 
-mentioned. Could you merge both patches together to your tree? They 
-improve the driver significantly and I want some test input from users.
-
-I've added message flags and pci_map error handling to my todo list.
---
-    Manfred
-
---------------000006020406060009000704
-Content-Type: text/plain;
- name="patch-forced-candidate-inc"
+--------------050502080407020203090706
+Content-Type: message/rfc822;
+ name="Remote DoS vulnerability in Linux kernel 2.6.x"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="patch-forced-candidate-inc"
+ filename="Remote DoS vulnerability in Linux kernel 2.6.x"
 
-// $Header$
-// Kernel Version:
-//  VERSION = 2
-//  PATCHLEVEL = 6
-//  SUBLEVEL = 7
-//  EXTRAVERSION = -mm2
---- 2.6/drivers/net/forcedeth.c	2004-06-30 18:45:23.000000000 +0200
-+++ build-2.6/drivers/net/forcedeth.c	2004-06-30 18:45:05.000000000 +0200
-@@ -348,18 +348,22 @@ struct ring_desc {
- 
- /* General driver defaults */
- #define NV_WATCHDOG_TIMEO	(5*HZ)
--#define DEFAULT_MTU		1500	/* also maximum supported, at least for now */
- 
- #define RX_RING		128
- #define TX_RING		64
--/* limited to 1 packet until we understand NV_TX_LASTPACKET */
-+/* 
-+ * If your nic mysteriously hangs then try to reduce the limits
-+ * to 1/0: It might be required to set NV_TX_LASTPACKET in the
-+ * last valid ring entry. But this would be impossible to
-+ * implement - probably a disassembly error.
-+ */
- #define TX_LIMIT_STOP	63
- #define TX_LIMIT_START	62
- 
- /* rx/tx mac addr + type + vlan + align + slack*/
--#define RX_NIC_BUFSIZE		(DEFAULT_MTU + 64)
-+#define RX_NIC_BUFSIZE		(ETH_DATA_LEN + 64)
- /* even more slack */
--#define RX_ALLOC_BUFSIZE	(DEFAULT_MTU + 128)
-+#define RX_ALLOC_BUFSIZE	(ETH_DATA_LEN + 128)
- 
- #define OOM_REFILL	(1+HZ/20)
- #define POLL_WAIT	(1+HZ/100)
-@@ -988,7 +992,7 @@ static void nv_tx_done(struct net_device
- 	while (np->nic_tx != np->next_tx) {
- 		i = np->nic_tx % TX_RING;
- 
--		Flags = cpu_to_le32(np->tx_ring[i].FlagLen);
-+		Flags = le32_to_cpu(np->tx_ring[i].FlagLen);
- 
- 		dprintk(KERN_DEBUG "%s: nv_tx_done: looking at packet %d, Flags 0x%x.\n",
- 					dev->name, np->nic_tx, Flags);
-@@ -1077,7 +1081,7 @@ static void nv_rx_process(struct net_dev
- 			break;	/* we scanned the whole ring - do not continue */
- 
- 		i = np->cur_rx % RX_RING;
--		Flags = cpu_to_le32(np->rx_ring[i].FlagLen);
-+		Flags = le32_to_cpu(np->rx_ring[i].FlagLen);
- 		len = nv_descr_getlength(&np->rx_ring[i], np->desc_ver);
- 
- 		dprintk(KERN_DEBUG "%s: nv_rx_process: looking at packet %d, Flags 0x%x.\n",
-@@ -1193,7 +1197,7 @@ next_pkt:
-  */
- static int nv_change_mtu(struct net_device *dev, int new_mtu)
+Return-Path: <bugtraq-return-14993-andre=tomt.net@securityfocus.com>
+Delivered-To: andre@tomt.net
+Received: (qmail 20334 invoked by uid 107); 30 Jun 2004 19:09:12 -0000
+Received: from bugtraq-return-14993-andre=tomt.net@securityfocus.com by ns1 by uid 1003 with qmail-scanner-1.21
+ (clamdscan: 0.72. spamassassin: 2.63.  Clear:RC:0(205.206.231.26):SA:0(1.9/5.0):.
+ Processed in 1.463814 secs); 30 Jun 2004 19:09:12 -0000
+X-Spam-Level: *
+Received: from unknown (HELO outgoing2.securityfocus.com) (205.206.231.26)
+  by mail.skjellin.no with SMTP; 30 Jun 2004 19:09:10 -0000
+Received: from lists2.securityfocus.com (lists2.securityfocus.com [205.206.231.20])
+	by outgoing2.securityfocus.com (Postfix) with QMQP
+	id 8E2F0143784; Wed, 30 Jun 2004 17:49:20 -0600 (MDT)
+Mailing-List: contact bugtraq-help@securityfocus.com; run by ezmlm
+Precedence: bulk
+List-Id: <bugtraq.list-id.securityfocus.com>
+List-Post: <mailto:bugtraq@securityfocus.com>
+List-Help: <mailto:bugtraq-help@securityfocus.com>
+List-Unsubscribe: <mailto:bugtraq-unsubscribe@securityfocus.com>
+List-Subscribe: <mailto:bugtraq-subscribe@securityfocus.com>
+Delivered-To: mailing list bugtraq@securityfocus.com
+Delivered-To: moderator for bugtraq@securityfocus.com
+Received: (qmail 30875 invoked from network); 30 Jun 2004 04:45:26 -0000
+Date: Wed, 30 Jun 2004 12:57:17 +0200
+From: Adam Osuchowski <adwol@polsl.gliwice.pl>
+To: bugtraq@securityfocus.com
+Subject: Remote DoS vulnerability in Linux kernel 2.6.x
+Message-ID: <20040630105717.GA4294@polsl.gliwice.pl>
+Reply-To: Adam Osuchowski <adwol@polsl.gliwice.pl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Organization: Computer Centre of The Silesian University of Technology
+X-nic-hdl: AO3196-RIPE
+X-Spam-Checker-Version: SpamAssassin 2.63 (2004-01-11) on ns1.skjellin.no
+X-Spam-Status: No, hits=1.9 required=5.0 tests=DATE_IN_FUTURE_06_12
+	autolearn=no version=2.63
+
+1. Overview
+-----------
+
+There is a remotely exploitable bug in all Linux kernel 2.6 series due to
+using incorrect variable type. Vulnerability is connected to netfilter
+subsystem and may cause DoS. It's disclosed only when using iptables with
+rules matching TCP options (i.e.  --tcp-option). There is no difference
+what action is taking up by matching rule.
+
+Vulnerability was detected on i386 architecture. The other ones weren't tested
+but it seems to be vulnerable too.
+
+2. Details
+----------
+
+Problem lies in tcp_find_option() function (net/ipv4/netfilter/ip_tables.c).
+There is local array `opt' defined as:
+
+    char opt[60 - sizeof(struct tcphdr)];
+
+which contains TCP options extracted from packet. Function mentioned above
+searches for specified option in this array.
+
+Options in TCP packet, with some exceptions, are organized in the following
+way:
+
+	Octet no.	Length	Field
+	-----------------------------
+		0	1	Opcode
+		1	1	Length of all option (N + 2)
+		2	N	Params
+
+
+The function iterates over options in array:
+
+    for (i = 0; i < optlen; ) {
+	    if (opt[i] == option) return !invert;
+	    if (opt[i] < 2) i++;
+	    else i += opt[i+1]?:1;
+    }
+
+moving counter by the option length.
+
+But, in case the `length' value is greater than 127, the value of this octet
+in `opt' is implicitly casted to char, which results in negative number and
+the loop counter moving back. In some cases it is possible, that counter
+cycles throught the contents of this array infinitely.
+
+3. Impact
+---------
+
+After sending one suitably prepared TCP packet to victim host, kernel goes
+into infinite loop consuming all CPU resources, rendering the box
+unresponsable. Of course, there is no need to have a shell access to attacked
+host.
+
+4. Exploitation
+---------------
+
+Example of packet-of-death:
+
+0x0000:  4500 0030 1234 4000 ff06 e83f c0a8 0001
+0x0010:  c0a8 0002 0400 1000 0000 0064 0000 0064
+0x0020:  7000 0fa0 dc6a 0000 0204 05b4 0101 04fd
+
+5. Fix
+------
+
+There is only need to change type of `opt' array from signed char to unsigned
+(or, better to u_int8_t) as it was defined in 2.4 kernel or prior to version
+1.16 of net/ipv4/netfilter/ip_tables.c file.
+
+--- net/ipv4/netfilter/ip_tables.c.orig	2004-04-04 05:36:47.000000000 +0200
++++ net/ipv4/netfilter/ip_tables.c	2004-06-24 21:24:26.000000000 +0200
+@@ -1461,7 +1461,7 @@
+ 		int *hotdrop)
  {
--	if (new_mtu > DEFAULT_MTU)
-+	if (new_mtu > ETH_DATA_LEN)
- 		return -EINVAL;
- 	dev->mtu = new_mtu;
- 	return 0;
-@@ -1999,7 +2003,7 @@ static void __exit exit_nic(void)
- 	pci_unregister_driver(&driver);
- }
+ 	/* tcp.doff is only 4 bits, ie. max 15 * 4 bytes */
+-	char opt[60 - sizeof(struct tcphdr)];
++	u_int8_t opt[60 - sizeof(struct tcphdr)];
+ 	unsigned int i;
  
--MODULE_PARM(max_interrupt_work, "i");
-+module_param(max_interrupt_work, int, 0);
- MODULE_PARM_DESC(max_interrupt_work, "forcedeth maximum events handled per interrupt");
- 
- MODULE_AUTHOR("Manfred Spraul <manfred@colorfullife.com>");
+ 	duprintf("tcp_match: finding option\n");
 
---------------000006020406060009000704--
+6. Credits
+----------
+
+Vulnerability was discovered, identified and fixed by Adam Osuchowski
+and Tomasz Dubinski.
+
+-- 
+##  Adam Osuchowski   adwol@polsl.gliwice.pl, adwol@silesia.linux.org.pl
+##  Silesian University of Technology, Computer Centre   Gliwice, Poland
+
+--------------050502080407020203090706--
