@@ -1,65 +1,57 @@
-From: Pekka Pietikainen <pp@ee.oulu.fi>
-Subject: Re: Multicast on b44
-Date: Sun, 16 Jan 2005 02:08:09 +0200
-Message-ID: <20050116000809.GB5334@ee.oulu.fi>
-References: <f3ddc6d305011320416635914@mail.gmail.com> <20050115233836.GA5334@ee.oulu.fi>
+From: Andre Tomt <andre@tomt.net>
+Subject: 2.6.10 ipv6/8021q lockup on vconfig on interface removal
+Date: Sun, 16 Jan 2005 07:30:25 +0100
+Message-ID: <41EA0A01.2020707@tomt.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: James Hubbard <jameshubbard@gmail.com>
-Content-Disposition: inline
-In-Reply-To: <20050115233836.GA5334@ee.oulu.fi>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jan 16, 2005 at 01:38:36AM +0200, Pekka Pietikainen wrote:
-> It looks like the b44 driver is limited to 32 entries (B44_MCAST_TABLE_SIZE)
-> whereas bcm4400 goes up to 63. It's just a #define so you should be able to
-> up it to that and be safe, might be worth upping it to that in b44 by
-> default. 
-> 
-> If you need more than that you're stuck with allmulti, which if I remember
-> correctly didn't work. Yup, from a previous mail of mine I did test it at
-> one point:
-> 
-> "Ok, after some digging around ALLMULTI breaking is not a bug, the
-> vendor-provided driver seems to break in similar ways, at least on 2.6,
-> so that's a feature unless they fix it in theirs so I can copy the fix :-)"
-> 
-But do try with RXCONFIG_ALLMULTI instead of _PROMISC. Anyway, here's
-something totally untested:
+I sent this initially about a week ago, but nobody have said anything, 
+not even a confirmation that its beeing looked into, or about me beeing 
+silly - highly unusual on netdev! So I'm reposting (with slight 
+modifications), boo, shame on me. Just a bit worried it slipped through 
+the cracks.
 
-X-It-Compiles-Lets-Ship-It-By: pp@ee.oulu.fi
---- ./b44.h.2	2005-01-16 02:00:27.000000000 +0200
-+++ ./b44.h	2005-01-16 02:00:52.000000000 +0200
-@@ -358,7 +358,7 @@
- 	DECLARE_PCI_UNMAP_ADDR(mapping);
- };
- 
--#define B44_MCAST_TABLE_SIZE	32
-+#define B44_MCAST_TABLE_SIZE	63
- #define B44_BOUNCEBUF_SHIFT	3
- #define B44_NUM_BOUNCEBUFS	(1 << B44_BOUNCEBUF_SHIFT)
- 
---- ./b44.c.2	2005-01-16 02:00:25.000000000 +0200
-+++ ./b44.c	2005-01-16 02:04:06.000000000 +0200
-@@ -1425,12 +1425,14 @@
- 	} else {
- 		__b44_set_mac_addr(bp);
- 
--		if (dev->flags & IFF_ALLMULTI)
--			val |= RXCONFIG_ALLMULTI;
-+		if ((dev->flags & IFF_ALLMULTI) || (dev->mc_count > B44_MCAST_TABLE_SIZE))
-+			/* RXCONFIG_ALLMULTI seems to disable unicast packets :-( */
-+			val |= RXCONFIG_PROMISC;
- 		else
- 			i=__b44_load_mcast(bp, dev);
- 		
--		for(;i<64;i++) {
-+		/* Fill in remaining entries with zero */
-+		for(;i<B44_MCAST_TABLE_SIZE+1;i++) {
- 			__b44_cam_write(bp, zero, i);			
- 		}
- 		bw32(bp, B44_RXCONFIG, val);
+
+
+Hi!
+
+Another "unregister_netdevice: waiting for eth0.1 to become free. Usage
+count = 1" issue coming up.. Fun fun fun! And this one also seems to be
+related to the ipv6 stack.
+
+I can reproduce this reliably this by ifdown lo before ifdown'ing
+eth0.1. That is, if lo goes down first, vconfig rem eth0.1 gets stuck
+when run later. This only happens with ipv6.ko loaded. I havn't added
+*any* ipv6 adresses to any interace, the only one are those the
+ipv6-stack adds itself.
+
+This is hitting us often on our routers, as we have ipv6.ko loaded, and
+Debian runs ifdown -a (bring down all configured interfaces, starting
+with lo unfortunatly) on shutdown and reboot. I've currently 
+workarounded the problem by making sure ifdown -a is not run on reboot 
+or shutdown, but this is, well, a workaround.
+
+Bringing down non-vlan interfaces works just fine after killing lo. I 
+have not attempted to *remove* them like vconfig does, though.
+
+a backtrace from vconfing captured with sysrq-T (quickly typed off-screen):
+
+shedule_timeout
+process_timeout
+netdev_wait_allrefs
+netdev_wait_allrefs
+netdev_run_todo
+unregister_vlan_device [8021q]
+vlan_ioctl_handler [8021q]
+sock_ioctl
+sys_ioctl
+syscall_call
+
+The lab machine is running with a minimalist config, no listeners
+besides sshd, ipv6.ko and 8021q.ko loaded.
