@@ -1,57 +1,34 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: [PATCH] UDP/IPv6 multicasting
-Date: Fri, 14 Nov 2003 16:11:50 -0700
+From: kuznet@ms2.inr.ac.ru
+Subject: Re: RFC 3484 support
+Date: Sat, 15 Nov 2003 02:45:46 +0300 (MSK)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OF974281CA.F4EE30F2-ON88256DDE.007F34F9@us.ibm.com>
+Message-ID: <200311142345.CAA03631@yakov.inr.ac.ru>
+References: <3FB40FE5.5040709@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	Boundary="0__=07BBE74DDFECB2698f9e8a93df938690918c07BBE74DDFECB269"
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com, netdev@oss.sgi.com
-Content-Disposition: inline
+To: drepper@redhat.com (Ulrich Drepper)
+In-Reply-To: <3FB40FE5.5040709@redhat.com> from "Ulrich Drepper" at Nov 13, 2003 03:12:37 PM
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---0__=07BBE74DDFECB2698f9e8a93df938690918c07BBE74DDFECB269
-Content-type: text/plain; charset=US-ASCII
+Hello!
 
+> Wouldn't this require to set up a socket and connect it to each target
+> address?  The point of the whole source and destination address
+> selection is it to avoid making connections
 
+Datagram connect() is exactly selection of the addresses, nothing more.
 
+I do not mind against specialized interface, but I still see plain
+connect() as a reasonable and, the most important, universal solution.
 
+> provided.  The address which has the highest rate of success and the
+> highest quality for the connection should be tried first.
 
-Dave,
-      Below is a patch to fix a problem reported by Brian Buesker. When
-binding to
-two different multicast addresses on the same UDP port, a copy sent to
-either multicast
-address is delivered to both.
+Hmm... We do not account for this. Do you really propose to gather
+this kind of statistics in the kernel? I am afraid this is really difficult.
 
-                        +-DLS
-
---- linux-2.6.0-test9-bk12/net/ipv6/udp.c 2003-11-07 14:13:21.000000000 -0800
-+++ linux-2.6.0-test9-bk12F1/net/ipv6/udp.c     2003-11-14 14:51:05.000000000 -0800
-@@ -551,6 +551,7 @@
-                  if (!ipv6_addr_any(&np->rcv_saddr)) {
-                        if (!ipv6_addr_cmp(&np->rcv_saddr, loc_addr))
-                              return s;
-+                       continue;
-                  }
-                  if(!inet6_mc_check(s, loc_addr, rmt_addr))
-                        continue;
-
-(See attached file: mcfix.patch.txt)
---0__=07BBE74DDFECB2698f9e8a93df938690918c07BBE74DDFECB269
-Content-type: application/octet-stream;
-	name="mcfix.patch.txt"
-Content-Disposition: attachment; filename="mcfix.patch.txt"
-Content-transfer-encoding: base64
-
-LS0tIGxpbnV4LTIuNi4wLXRlc3Q5LWJrMTIvbmV0L2lwdjYvdWRwLmMJMjAwMy0xMS0wNyAxNDox
-MzoyMS4wMDAwMDAwMDAgLTA4MDAKKysrIGxpbnV4LTIuNi4wLXRlc3Q5LWJrMTJGMS9uZXQvaXB2
-Ni91ZHAuYwkyMDAzLTExLTE0IDE0OjUxOjA1LjAwMDAwMDAwMCAtMDgwMApAQCAtNTUxLDYgKzU1
-MSw3IEBACiAJCQlpZiAoIWlwdjZfYWRkcl9hbnkoJm5wLT5yY3Zfc2FkZHIpKSB7CiAJCQkJaWYg
-KCFpcHY2X2FkZHJfY21wKCZucC0+cmN2X3NhZGRyLCBsb2NfYWRkcikpCiAJCQkJCXJldHVybiBz
-OworCQkJCWNvbnRpbnVlOwogCQkJfQogCQkJaWYoIWluZXQ2X21jX2NoZWNrKHMsIGxvY19hZGRy
-LCBybXRfYWRkcikpCiAJCQkJY29udGludWU7Cg==
-
---0__=07BBE74DDFECB2698f9e8a93df938690918c07BBE74DDFECB269--
+Alexey
