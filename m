@@ -1,49 +1,54 @@
-From: janitor@sternwelten.at
-Subject: [patch 18/18]  net/orinoco_plx: replace 	schedule_timeout() with ssleep()
-Date: Sun, 31 Oct 2004 00:43:17 +0200
-Message-ID: <E1CO1wL-0002nU-B8@sputnik>
-Cc: netdev@oss.sgi.com, janitor@sternwelten.at, nacc@us.ibm.com
+From: Nish Aravamudan <nish.aravamudan@gmail.com>
+Subject: Re: [KJ] Re: [patch 2.4] back port msleep(), msleep_interruptible()
+Date: Sat, 30 Oct 2004 15:59:20 -0700
+Message-ID: <29495f1d041030155953a9a776__31707.2200974964$1099177245$gmane$org@mail.gmail.com>
+References: <20040923221303.GB13244@us.ibm.com>
+	 <5.1.0.14.2.20040924074745.00b1cd40@pop.t-online.de>
+	 <415CD9D9.2000607@pobox.com> <20041030222228.GB1456@stro.at>
+	 <41841886.2080609@pobox.com>
+Reply-To: Nish Aravamudan <nish.aravamudan@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: maximilian attems <janitor@sternwelten.at>, netdev@oss.sgi.com,
+        Margit Schubert-While <margitsw@t-online.de>,
+        kernel-janitors@lists.osdl.org, mcgrof@studorgs.rutgers.edu,
+        prism54-devel@prism54.org, Domen Puncer <domen@coderock.org>,
+        linux-kernel@vger.kernel.org, hvr@gnu.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jgarzik@pobox.com
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <41841886.2080609@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Sat, 30 Oct 2004 18:41:10 -0400, Jeff Garzik <jgarzik@pobox.com> wrote:
+> maximilian attems wrote:
+> > diff -puN include/linux/delay.h~add-msleep-2.4 include/linux/delay.h
+> > --- a/include/linux/delay.h~add-msleep-2.4    2004-10-30 22:48:46.000000000 +0200
+> > +++ b/include/linux/delay.h   2004-10-30 22:48:46.000000000 +0200
+> > @@ -34,4 +34,12 @@ extern unsigned long loops_per_jiffy;
+> >       ({unsigned long msec=(n); while (msec--) udelay(1000);}))
+> >  #endif
+> >
+> > +void msleep(unsigned int msecs);
+> > +unsigned long msleep_interruptible(unsigned int msecs);
+> > +
+> > +static inline void ssleep(unsigned int seconds)
+> [...]
+> > +static inline unsigned int jiffies_to_msecs(const unsigned long j)
+> 
+> > +static inline unsigned int jiffies_to_usecs(const unsigned long j)
+> 
+> > +static inline unsigned long msecs_to_jiffies(const unsigned int m)
+> 
+> 
+> I'm pretty sure more than one of these symbols clashes with a symbol
+> defined locally in a driver.  I like the patch but we can't apply it
+> until the impact on existing code is evaluated.
 
+More than likely much of the code cleanup that was done before I began
+my patches, like removing custom msleep()s from drivers will need to
+be done again, as Jeff points out.
 
-
-Any comments would be appreciated.
-
-Description: Use ssleep() instead of schedule_timeout()
-to guarantee the task delays as expected.
-
-Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
-Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
-
----
-
- linux-2.6.10-rc1-max/drivers/net/wireless/orinoco_plx.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff -puN drivers/net/wireless/orinoco_plx.c~ssleep-drivers_net_wireless_orinoco_plx drivers/net/wireless/orinoco_plx.c
---- linux-2.6.10-rc1/drivers/net/wireless/orinoco_plx.c~ssleep-drivers_net_wireless_orinoco_plx	2004-10-24 17:06:13.000000000 +0200
-+++ linux-2.6.10-rc1-max/drivers/net/wireless/orinoco_plx.c	2004-10-24 17:06:13.000000000 +0200
-@@ -136,6 +136,7 @@
- #include <linux/list.h>
- #include <linux/pci.h>
- #include <linux/fcntl.h>
-+#include <linux/delay.h>
- 
- #include <pcmcia/cisreg.h>
- 
-@@ -352,8 +353,7 @@ static int __init orinoco_plx_init(void)
- static void __exit orinoco_plx_exit(void)
- {
- 	pci_unregister_driver(&orinoco_plx_driver);
--	current->state = TASK_UNINTERRUPTIBLE;
--	schedule_timeout(HZ);
-+	ssleep(1);
- }
- 
- module_init(orinoco_plx_init);
-_
+-Nish
