@@ -1,48 +1,99 @@
-From: "Graham Gaines" <qqyja@terra.com>
-Subject: Re: OOVUYX, but only three
-Date: Sat, 27 Dec 2003 17:57:30 -0600
+From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Subject: [PATCH-2.6.0-tiny] "uninline" {lock,release}_sock
+Date: Sun, 28 Dec 2003 05:54:27 -0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <QZMKZRI-0007628961257@larry>
-Reply-To: "Graham Gaines" <qqyja@terra.com>
+Message-ID: <20031228075426.GB24351@conectiva.com.br>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="--ALT--WOKP31974136179811"
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Networking Development Mailing List <netdev@oss.sgi.com>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev-bounce@oss.sgi.com, netdev@oss.sgi.com
+To: Matt Mackall <mpm@selenic.com>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----ALT--WOKP31974136179811
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8bit
+Hi Matt,
 
-chlordane zan atwater ruckus tina castro pomade 
-dimple abbe sightseeing ineligible toxicology cyclorama imperishable 
-ugly embouchure bloomfield roy declarator eigenvector 
+	Please apply on top of your 2.6.0-tiny1 tree, CC to netdev for
+eventual comments.
 
-----ALT--WOKP31974136179811
-Content-Type: text/html; charset=us-ascii
-Content-Transfer-Encoding: 8bit
+	With this patch we save more 3.321 bytes. At a first compilation
+on top of plain 2.6.0 I thought I had seen it save more, will perhaps check
+this later... if you optimized some of the kernel primitives that are called
+by the current lock_sock/release_sock... Nah, too sleepy now :)
 
-<HTML><HEAD>
-<BODY>
-<p>Ban</moreover>ned C</lily>D Gov</controlled>ernment d</ambush>on't wan</victrola>t m</suburbia>e t</alimony>o s</broadside>ell i</pony>t. Se</pier>e N</crisp>ow _</p>
-<a href="http://www.530000x.com/cd/">
-<img border="0" src="http://www.530000x.com/cd/ads.jpg"></a>
-chungking jut brisbane englewood powerful devotion i'm apology my braille transcript tess deterring dogberry choreography fang bulwark bey conscionable resumption adonis brandt dewey anhydrous recent convertible <BR>
-choose showdown blackboard colonist parlay overhang nettlesome equilateral muzzle deuterium programming telephonic metropolitan citizenry contract dutiful alkaloid airman borne jackdaw edmonds deuce iliac northrop polygonal wrongdoer deal foul conducive check cosmic throwaway bleeker basilar abound <BR>
-dignity grumman dogmatism hose foot emplace hyphen composition amplitude baste help lessee old adage assent flimsy discussant cup obese dispersive deploy timberland sacrament petition <BR>
-galatea fiberboard schoolmate bath finesse feldspar shuffle lunchroom sanitary mitigate doyle geography univac hippo deprecatory meet hoagland helmet newborn fafnir cutaneous melodramatic appendix <BR>
-stinkpot lysine thundershower mayst efflorescent brahms tart elves skiddy circe ivy denigrate demurrer detector seagram ticket putative compacter inappeasable vatican aloha fay holman counterpoise alger poverty hearten laurentian councilmen pareto legerdemain diatribe squeaky marketplace cane setscrew surname <BR>
-forthright ideologue cia consolidate lapidary okinawa dominate expositor kong morass boost millet glitter explanation smart effaceable delineament brennan delude blind chapel able keyed agouti approach cardiac rueful blaspheme canterelle barbados barbados responsive lexical marble agatha <BR>
-silken beige healthful lampblack iowa begonia mana berman commingle boatman sibilant ecumenic bhoy boron streamside admiral stairwell sudanese inaccessible chaise <BR>
-huntsville delimit ambivalent ave therewith porch defrost annals burt talcum taiwan apse conjoint dependent <BR>
-wound contiguity radiotherapy sciatica adams catlike bluebill were beatify nullify singapore rancho engel we've sniffly jeffersonian mock crud moonlit foamflower basis advocate pomegranate peer blank bahama supranational lesson convince intimacy emerge coincident atkinson bock flap <BR>
-contention lutz wherever amputee snowfall calypso pertinacious rob seldom bug lineal indies snagging humility carefree sanatorium consular coco kepler sanderling <BR>
-conversant rockabye otis tenterhooks chowder ambient empire larry rho drone dateline marque cinderella salivate justine commendatory fiddle lydia ail stealthy historiography pupal billie napoleon louvre communion harlem rachmaninoff stricture summertime circe appleton postmark elegiac <BR>
+	Will test too with lock_sock/release_sock as an inline (or not if
+CONFIG_NET_SMALL is selected) and not as a macro as it is today, does anybody
+knows why it isn't already inline? Dave? /me must be missing something here...
 
-</BODY>
-</HTML>
+   text    data     bss     dec     hex filename  patch        savings
+ 858052  163460   65068 1086580  109474 vmlinux   2.6.0-tiny1
+ 854697  163494   65068 1083259  10877b vmlinux   lock_sock       3321
 
+Best Regards,
 
-----ALT--WOKP31974136179811--
+- Arnaldo
+
+diff -urp linux-2.6.0.tiny.orig/include/net/sock.h linux-2.6.0.tiny.acme/include/net/sock.h
+--- linux-2.6.0.tiny.orig/include/net/sock.h	2003-12-18 00:59:15.000000000 -0200
++++ linux-2.6.0.tiny.acme/include/net/sock.h	2003-12-28 01:32:50.000000000 -0200
+@@ -542,7 +542,7 @@ static inline struct inode *SOCK_INODE(s
+ extern void __lock_sock(struct sock *sk);
+ extern void __release_sock(struct sock *sk);
+ #define sock_owned_by_user(sk)	((sk)->sk_lock.owner)
+-#define lock_sock(__sk) \
++#define _lock_sock(__sk) \
+ do {	might_sleep(); \
+ 	spin_lock_bh(&((__sk)->sk_lock.slock)); \
+ 	if ((__sk)->sk_lock.owner) \
+@@ -551,7 +551,7 @@ do {	might_sleep(); \
+ 	spin_unlock_bh(&((__sk)->sk_lock.slock)); \
+ } while(0)
+ 
+-#define release_sock(__sk) \
++#define _release_sock(__sk) \
+ do {	spin_lock_bh(&((__sk)->sk_lock.slock)); \
+ 	if ((__sk)->sk_backlog.tail) \
+ 		__release_sock(__sk); \
+@@ -561,6 +561,14 @@ do {	spin_lock_bh(&((__sk)->sk_lock.sloc
+ 	spin_unlock_bh(&((__sk)->sk_lock.slock)); \
+ } while(0)
+ 
++#ifdef CONFIG_NET_SMALL
++extern void lock_sock(struct sock *sk);
++extern void release_sock(struct sock *sk);
++#else
++#define lock_sock(__sk) _lock_sock(__sk)
++#define release_sock(__sk) _release_sock(__sk)
++#endif
++
+ /* BH context may only use the following locking interface. */
+ #define bh_lock_sock(__sk)	spin_lock(&((__sk)->sk_lock.slock))
+ #define bh_unlock_sock(__sk)	spin_unlock(&((__sk)->sk_lock.slock))
+diff -urp linux-2.6.0.tiny.orig/net/core/sock.c linux-2.6.0.tiny.acme/net/core/sock.c
+--- linux-2.6.0.tiny.orig/net/core/sock.c	2003-12-18 00:59:15.000000000 -0200
++++ linux-2.6.0.tiny.acme/net/core/sock.c	2003-12-28 01:32:50.000000000 -0200
+@@ -1119,6 +1119,22 @@ void sock_init_data(struct socket *sock,
+ 	atomic_set(&sk->sk_refcnt, 1);
+ }
+ 
++#ifdef CONFIG_NET_SMALL
++void lock_sock(struct sock *sk)
++{
++	_lock_sock(sk);
++}
++
++EXPORT_SYMBOL(lock_sock);
++
++void release_sock(struct sock *sk)
++{
++	_release_sock(sk);
++}
++
++EXPORT_SYMBOL(release_sock);
++#endif
++
+ EXPORT_SYMBOL(__lock_sock);
+ EXPORT_SYMBOL(__release_sock);
+ EXPORT_SYMBOL(sk_alloc);
