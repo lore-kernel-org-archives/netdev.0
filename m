@@ -1,8 +1,8 @@
 From: David Dillow <dave@thedillows.org>
-Subject: [RFC BK 10/22] xfrm offload v2: Add offloading of outbound AH & ESP packets
-Date: Mon, 10 Jan 2005 10:37:01 -0500
-Message-ID: <20040110014300.19@ori.thedillows.org>
-References: <20040110014300.18@ori.thedillows.org>
+Subject: [RFC BK 5/22] xfrm offload v2: Attempt to offload bundled xfrm_states for outbound xfrms
+Date: Mon, 10 Jan 2005 10:37:00 -0500
+Message-ID: <20040110014300.14@ori.thedillows.org>
+References: <20040110014300.13@ori.thedillows.org>
 Cc: dave@thedillows.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
@@ -13,162 +13,125 @@ List-Id: netdev.vger.kernel.org
 # This is a BitKeeper generated diff -Nru style patch.
 #
 # ChangeSet
-#   2005/01/10 00:50:28-05:00 dave@thedillows.org 
-#   Add crypto processing for outbound AH and ESP xfrms (IPv4).
+#   2005/01/10 00:39:35-05:00 dave@thedillows.org 
+#   Plumb in offloading new bundles for outgoing packets.
 #   
 #   Signed-off-by: David Dillow <dave@thedillows.org>
 # 
-# net/ipv4/esp4.c
-#   2005/01/10 00:50:12-05:00 dave@thedillows.org +35 -21
-#   Add crypto offload for outbound ESP (IPv4) xfrms. Note that we always
-#   generate a random IV, as we are not guaranteed to have any state in
-#   the software crypto engine (we may have always been offloaded), and
-#   we cannot rely on secure IV generation by the NIC driver/hw.
+# net/xfrm/xfrm_policy.c
+#   2005/01/10 00:39:18-05:00 dave@thedillows.org +47 -0
+#   When we create a new bundle for an outbound flow, try to
+#   offload as much as the destination driver will allow.
+#   
+#   Don't forget to clean up....
 #   
 #   Signed-off-by: David Dillow <dave@thedillows.org>
 # 
-# net/ipv4/ah4.c
-#   2005/01/10 00:50:12-05:00 dave@thedillows.org +31 -21
-#   Add crypto offload for outbound AH (IPv4) xfrms. Note that the NIC
-#   driver/hw is responsible for zeroing the mutable IP header fields.
+# include/net/dst.h
+#   2005/01/10 00:39:18-05:00 dave@thedillows.org +2 -0
+#   Add a field to store the offload information for this part
+#   of the outgoing bundle (non-NULL if this dst is offloaded.)
 #   
 #   Signed-off-by: David Dillow <dave@thedillows.org>
 # 
-diff -Nru a/net/ipv4/ah4.c b/net/ipv4/ah4.c
---- a/net/ipv4/ah4.c	2005-01-10 01:18:48 -05:00
-+++ b/net/ipv4/ah4.c	2005-01-10 01:18:48 -05:00
-@@ -83,31 +83,41 @@
- 	ah->spi = x->id.spi;
- 	ah->seq_no = htonl(x->replay.oseq + 1);
+diff -Nru a/include/net/dst.h b/include/net/dst.h
+--- a/include/net/dst.h	2005-01-10 01:19:50 -05:00
++++ b/include/net/dst.h	2005-01-10 01:19:50 -05:00
+@@ -65,6 +65,8 @@
+ 	struct neighbour	*neighbour;
+ 	struct hh_cache		*hh;
+ 	struct xfrm_state	*xfrm;
++	struct xfrm_offload	*xfrm_offload;
++	struct dst_entry	*offload_next;
  
--	iph->tos = top_iph->tos;
--	iph->ttl = top_iph->ttl;
--	iph->frag_off = top_iph->frag_off;
--
--	if (top_iph->ihl != 5) {
--		iph->daddr = top_iph->daddr;
--		memcpy(iph+1, top_iph+1, top_iph->ihl*4 - sizeof(struct iphdr));
--		err = ip_clear_mutable_options(top_iph, &top_iph->daddr);
--		if (err)
-+	if (dst->xfrm_offload) {
-+		err = -ENOMEM;
-+		xfrm_offload_hold(dst->xfrm_offload);
-+		if (skb_push_xfrm_offload(skb, dst->xfrm_offload)) {
-+			xfrm_offload_release(dst->xfrm_offload);
- 			goto error;
--	}
-+		}
-+	} else {
-+		/* Not offloaded, manually calculate the auth hash */
-+		iph->tos = top_iph->tos;
-+		iph->ttl = top_iph->ttl;
-+		iph->frag_off = top_iph->frag_off;
+ 	int			(*input)(struct sk_buff*);
+ 	int			(*output)(struct sk_buff*);
+diff -Nru a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+--- a/net/xfrm/xfrm_policy.c	2005-01-10 01:19:50 -05:00
++++ b/net/xfrm/xfrm_policy.c	2005-01-10 01:19:50 -05:00
+@@ -40,6 +40,10 @@
+ 	LIST_HEAD_INIT(xfrm_policy_gc_list);
+ static spinlock_t xfrm_policy_gc_lock = SPIN_LOCK_UNLOCKED;
+ 
++static struct work_struct xfrm_accel_work;
++static struct dst_entry *xfrm_accel_list;
++static spinlock_t xfrm_accel_lock = SPIN_LOCK_UNLOCKED;
 +
-+		if (top_iph->ihl != 5) {
-+			iph->daddr = top_iph->daddr;
-+			memcpy(iph+1, top_iph+1, top_iph->ihl*4 - sizeof(struct iphdr));
-+			err = ip_clear_mutable_options(top_iph, &top_iph->daddr);
-+			if (err)
-+				goto error;
-+		}
+ static struct xfrm_policy_afinfo *xfrm_policy_get_afinfo(unsigned short family);
+ static void xfrm_policy_put_afinfo(struct xfrm_policy_afinfo *afinfo);
  
--	top_iph->tos = 0;
--	top_iph->frag_off = 0;
--	top_iph->ttl = 0;
--	top_iph->check = 0;
-+		top_iph->tos = 0;
-+		top_iph->frag_off = 0;
-+		top_iph->ttl = 0;
-+		top_iph->check = 0;
+@@ -707,8 +711,47 @@
+ 	};
+ }
  
--	ahp->icv(ahp, skb, ah->auth_data);
-+		ahp->icv(ahp, skb, ah->auth_data);
++static void xfrm_accel_bundle(struct dst_entry *dst)
++{
++	if (dst->dev && (dst->dev->features & NETIF_F_IPSEC)) {
++		dst_hold(dst);
++
++		spin_lock_bh(&xfrm_accel_lock);
++		dst->offload_next = xfrm_accel_list;
++		xfrm_accel_list = dst;
++		spin_unlock_bh(&xfrm_accel_lock);
++		schedule_work(&xfrm_accel_work);
++	}
++}
++
+ static int stale_bundle(struct dst_entry *dst);
  
--	top_iph->tos = iph->tos;
--	top_iph->ttl = iph->ttl;
--	top_iph->frag_off = iph->frag_off;
--	if (top_iph->ihl != 5) {
--		top_iph->daddr = iph->daddr;
--		memcpy(top_iph+1, iph+1, top_iph->ihl*4 - sizeof(struct iphdr));
-+		top_iph->tos = iph->tos;
-+		top_iph->ttl = iph->ttl;
-+		top_iph->frag_off = iph->frag_off;
-+		if (top_iph->ihl != 5) {
-+			top_iph->daddr = iph->daddr;
-+			memcpy(top_iph+1, iph+1, top_iph->ihl*4 - sizeof(struct iphdr));
-+		}
++static void xfrm_accel_task(void *data)
++{
++	struct dst_entry *dst, *next;
++	struct net_device *dev;
++
++	spin_lock_bh(&xfrm_accel_lock);
++	dst = xfrm_accel_list;
++	xfrm_accel_list = NULL;
++	spin_unlock_bh(&xfrm_accel_lock);
++
++	while (dst) {
++		next = dst->offload_next;
++		dst->offload_next = NULL;
++		dev = dst->dev;
++
++		/* stale_bundle() validates that we have a dev, and that it
++		* is currently running.
++		*/
++		if (!stale_bundle(dst) && (dev->features & NETIF_F_IPSEC))
++			dev->xfrm_bundle_add(dev, dst);
++
++		dst_release(dst);
++		dst = next;
++	}
++}
++
+ /* Main function: finds/creates a bundle for given flow.
+  *
+  * At the moment we eat a raw IP route. Mostly to speed up lookups
+@@ -834,6 +877,7 @@
+ 		dst->next = policy->bundles;
+ 		policy->bundles = dst;
+ 		dst_hold(dst);
++		xfrm_accel_bundle(dst);
+ 		write_unlock_bh(&policy->lock);
  	}
+ 	*dst_p = dst;
+@@ -1025,8 +1069,10 @@
+ {
+ 	if (!dst->xfrm)
+ 		return;
++	xfrm_offload_release(dst->xfrm_offload);
+ 	xfrm_state_put(dst->xfrm);
+ 	dst->xfrm = NULL;
++	dst->xfrm_offload = NULL;
+ }
  
- 	/* Delay incrementing the replay sequence until we know we're going
-diff -Nru a/net/ipv4/esp4.c b/net/ipv4/esp4.c
---- a/net/ipv4/esp4.c	2005-01-10 01:18:48 -05:00
-+++ b/net/ipv4/esp4.c	2005-01-10 01:18:48 -05:00
-@@ -98,33 +98,47 @@
- 	esph->spi = x->id.spi;
- 	esph->seq_no = htonl(++x->replay.oseq);
+ static void xfrm_link_failure(struct sk_buff *skb)
+@@ -1238,6 +1284,7 @@
+ 		panic("XFRM: failed to allocate xfrm_dst_cache\n");
  
--	if (esp->conf.ivlen)
--		crypto_cipher_set_iv(tfm, esp->conf.ivec, crypto_tfm_alg_ivsize(tfm));
-+	if (dst->xfrm_offload) {
-+		xfrm_offload_hold(dst->xfrm_offload);
-+		if (skb_push_xfrm_offload(skb, dst->xfrm_offload)) {
-+			xfrm_offload_release(dst->xfrm_offload);
-+			goto error;
-+		}
-+
-+		if (esp->conf.ivlen)
-+			get_random_bytes(esph->enc_data, esp->conf.ivlen);
-+	} else {
-+		if (esp->conf.ivlen)
-+			crypto_cipher_set_iv(tfm, esp->conf.ivec, crypto_tfm_alg_ivsize(tfm));
-+
-+		do {
-+			struct scatterlist *sg = &esp->sgbuf[0];
- 
--	do {
--		struct scatterlist *sg = &esp->sgbuf[0];
-+			if (unlikely(nfrags > ESP_NUM_FAST_SG)) {
-+				sg = kmalloc(sizeof(struct scatterlist)*nfrags, GFP_ATOMIC);
-+				if (!sg)
-+					goto error;
-+			}
-+			skb_to_sgvec(skb, sg, esph->enc_data+esp->conf.ivlen-skb->data, clen);
-+			crypto_cipher_encrypt(tfm, sg, sg, clen);
-+			if (unlikely(sg != &esp->sgbuf[0]))
-+				kfree(sg);
-+		} while (0);
- 
--		if (unlikely(nfrags > ESP_NUM_FAST_SG)) {
--			sg = kmalloc(sizeof(struct scatterlist)*nfrags, GFP_ATOMIC);
--			if (!sg)
--				goto error;
-+		if (esp->conf.ivlen) {
-+			memcpy(esph->enc_data, esp->conf.ivec, crypto_tfm_alg_ivsize(tfm));
-+			crypto_cipher_get_iv(tfm, esp->conf.ivec, crypto_tfm_alg_ivsize(tfm));
-+		}
-+
-+		if (esp->auth.icv_full_len) {
-+			esp->auth.icv(esp, skb, (u8*)esph-skb->data,
-+		              	sizeof(struct ip_esp_hdr) + esp->conf.ivlen+clen, trailer->tail);
- 		}
--		skb_to_sgvec(skb, sg, esph->enc_data+esp->conf.ivlen-skb->data, clen);
--		crypto_cipher_encrypt(tfm, sg, sg, clen);
--		if (unlikely(sg != &esp->sgbuf[0]))
--			kfree(sg);
--	} while (0);
--
--	if (esp->conf.ivlen) {
--		memcpy(esph->enc_data, esp->conf.ivec, crypto_tfm_alg_ivsize(tfm));
--		crypto_cipher_get_iv(tfm, esp->conf.ivec, crypto_tfm_alg_ivsize(tfm));
- 	}
- 
--	if (esp->auth.icv_full_len) {
--		esp->auth.icv(esp, skb, (u8*)esph-skb->data,
--		              sizeof(struct ip_esp_hdr) + esp->conf.ivlen+clen, trailer->tail);
-+	/* Need to account for auth data, offloading or not... */
-+	if (esp->auth.icv_full_len)
- 		pskb_put(skb, trailer, alen);
--	}
- 
- 	ip_send_check(top_iph);
+ 	INIT_WORK(&xfrm_policy_gc_work, xfrm_policy_gc_task, NULL);
++	INIT_WORK(&xfrm_accel_work, xfrm_accel_task, NULL);
+ 	register_netdevice_notifier(&xfrm_dev_notifier);
+ }
  
