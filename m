@@ -1,28 +1,47 @@
-From: Jeff Garzik <jgarzik@mandrakesoft.com>
-Subject: FreeBSD attempts NAPI...
-Date: Sun, 16 Jun 2002 18:31:06 -0400
+From: Sridhar Samudrala <samudrala@mail.com>
+Subject: Re: some queries
+Date: Mon, 17 Jun 2002 16:21:03 -0700
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <3D0D11AA.7070406@mandrakesoft.com>
+Message-ID: <3D0E6EDF.9010207@mail.com>
+References: <Pine.LNX.4.33L2.0206151420410.4436-100000@radical.corewars.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: netdev@oss.sgi.com, linux-net@vger.kernel.org
+To: Ankit Jain <radical@corewars.org>
 List-Id: netdev.vger.kernel.org
 
-[snip from release notes]
+Ankit Jain wrote:
 
-Selected network drivers now implement a semi-polling mode, which makes 
-systems much more resilient to attacks and overloads. To enable polling, 
-the following options are required in a kernel configuration file:
+>Hi,
+>
+>I have been trying to find answers to some queries but noone seems to be
+>able to help. My queries are: (kernel 2.4.18)
+>
+>1. what is tcp_ehash_bucket used for? hash table for tcp sockets? what
+>does the "e" is the ehash mean/represent?
+>
+It is a hash table of all tcp sockets in ESTABLISHED state.
 
-     options DEVICE_POLLING
-     options HZ=1000 # not compulsory but strongly recommended
+>
+>2. Why is a tcp control socket created at init time in tcp_v4_init(..) ?
+>Its of SOCK_RAW type and its unhashed to make sure that it doesnt receive
+>any incoming packets. why? is it used to set some options or something?
+>Where is it used?
+>
+The main purpose of this socket is to send RSTs when a packet is 
+received for a non-existing socket.
 
-The kern.polling.enable sysctl variable will then activate polling mode; 
-with the kern.polling.user_frac sysctl indicating the percentage of CPU 
-time to be reserved for userland. The devices initially supporting 
-polling are dc(4), fxp(4), rl(4), and sis(4). More details can be found 
-in the polling(4) manual page.
+Thanks
+Sridhar
 
-[end snip]
+>
+>Hoping for a reply!! :)
+>
+>-Ankit
+>
+>
+>
+>  
+>
