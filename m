@@ -1,47 +1,52 @@
 From: Chris Wright <chrisw@osdl.org>
-Subject: Re: [RFC][PATCH 2/3] netlink check sender, audit
-Date: Mon, 14 Feb 2005 16:13:34 -0800
-Message-ID: <20050215001334.GB27645@shell0.pdx.osdl.net>
-References: <20050212010109.V24171@build.pdx.osdl.net> <20050212010243.W24171@build.pdx.osdl.net> <20050212010504.X24171@build.pdx.osdl.net> <420E334B.8060805@eurodev.net> <420E77FA.6080007@eurodev.net>
+Subject: Re: [RFC][PATCH 1/3] netlink check sender
+Date: Mon, 14 Feb 2005 16:17:38 -0800
+Message-ID: <20050215001738.GC27645@shell0.pdx.osdl.net>
+References: <20050212010109.V24171@build.pdx.osdl.net> <20050212010243.W24171@build.pdx.osdl.net> <1108385999.15437.18.camel@moss-spartans.epoch.ncsc.mil>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Chris Wright <chrisw@osdl.org>, netdev@oss.sgi.com, davem@davemloft.net,
-        jmorris@redhat.com, sds@epoch.ncsc.mil, serue@us.ibm.com
-To: Pablo Neira <pablo@eurodev.net>
+        James Morris <jmorris@redhat.com>,
+        "Serge E. Hallyn" <serue@us.ibm.com>
+To: Stephen Smalley <sds@epoch.ncsc.mil>
 Content-Disposition: inline
-In-Reply-To: <420E77FA.6080007@eurodev.net>
+In-Reply-To: <1108385999.15437.18.camel@moss-spartans.epoch.ncsc.mil>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Pablo Neira (pablo@eurodev.net) wrote:
-> Pablo Neira wrote:
+* Stephen Smalley (sds@epoch.ncsc.mil) wrote:
+> On Sat, 2005-02-12 at 04:02, Chris Wright wrote:
+> > ===== net/netlink/af_netlink.c 1.69 vs edited =====
+> > --- 1.69/net/netlink/af_netlink.c	2005-01-21 12:25:32 -08:00
+> > +++ edited/net/netlink/af_netlink.c	2005-02-11 18:05:59 -08:00
+> >  int netlink_sendskb(struct sock *sk, struct sk_buff *skb, int protocol)
+> >  {
+> >  	struct netlink_opt *nlk;
+> > -	int len = skb->len;
+> > -
+> > +	int err, len = skb->len;
+> > +	
+> >  	nlk = nlk_sk(sk);
+> > +
+> > +	printk("%s: %s(%d) send_check %p\n", __FUNCTION__, current->comm, current->pid, nlk->check_sender);
+> > +	if (nlk->check_sender)
+> > +		if ((err = nlk->check_sender(skb))) {
+> > +			netlink_detachskb(sk, skb);
+> > +			return err;
+> > +		}
+> > +
 > 
-> >I also see another option which is passing as parameter such function 
-> >which check for capabilities/audit stuff to my netlink_process_skb 
-> >function, calling it before process_msg. But in that case, the packet 
-> >sent by a sender that doesn't has the right to was already enqueued. I 
-> >understand that this is exactly what you are trying to avoid.
-> 
-> 
-> With your patch, a message from user space process that doesn't have the 
-> capabilites follows this path:
-> 
-> sys_sendmsg() -> netlink_sendmsg() -> netlink_unicast() -> 
-> netlink_sendskb() = discarded here.
-> 
-> Currently, it continues, for example in case of rtnetlink:
-> 
-> ... -> netlink_sendskb() -> sk_data_ready(sk, len) -> rtnetlink_rcv() -> 
-> rtnetlink_rcv_skb() -> rtnetlink_rcv_msg() = discarded here.
-> 
-> Nowadays the message is enqueued but it's discarded later. So if I'm not 
-> missing anything, I don't see the point of adding a new function to 
-> check for capabilities/audit stuff just a bit before.
+> printk() is a leftover from debugging, I assume.  
 
-The purpose is to guarantee that the checks are done in the sender's
-context to avoid having to cache values such as capabilities, SELinux
-SID, audit loginuid.
+Heh, yeah, just leftover gargabe.
+
+> Why place the check_sender() call here vs. just replacing the existing
+> security_netlink_send() call in netlink_sendmsg() with this new call?
+
+That's fine, however it needs to be this late, to get the receiver looked up.
+I think the sk would change in _send hook, so for RFC, I just left them
+separate.  Ideal would be complete consolidation.
 
 thanks,
 -chris
