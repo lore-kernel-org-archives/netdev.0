@@ -1,69 +1,29 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] IPV6: add missing sentinel for addrconf procfs
-Date: Tue, 20 Jan 2004 10:48:20 -0800
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040120104820.77ff135f.shemminger@osdl.org>
-References: <20040120.094223.76534381.yoshfuji@linux-ipv6.org>
+From: Rask Ingemann Lambertsen <rask@sygehus.dk>
+Subject: Re: [PATCH 2.6.1] Net device error logging
+Date: Tue, 20 Jan 2004 19:51:22 +0100
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040120195122.A1087@sygehus.dk>
+References: <400C3D3E.BFCC25CE@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: davem@redhat.com, yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: YOSHIFUJI Hideaki / =?ISO-8859-1?B?X19fX19fX19fX19f?=
- <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20040120.094223.76534381.yoshfuji@linux-ipv6.org>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: LKML <linux-kernel@vger.kernel.org>, netdev <netdev@oss.sgi.com>,
+	Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>,
+	"Feldman, Scott" <scott.feldman@intel.com>,
+	Larry Kessler <kessler@us.ibm.com>
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
+To: Jim Keniston <jkenisto@us.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <400C3D3E.BFCC25CE@us.ibm.com>; from jkenisto@us.ibm.com on Mon, Jan 19, 2004 at 12:25:34PM -0800
 List-Id: netdev.vger.kernel.org
 
-On Tue, 20 Jan 2004 09:42:23 +0900 (JST)
-YOSHIFUJI Hideaki / ____________ <yoshfuji@linux-ipv6.org> wrote:
+On Mon, Jan 19, 2004 at 12:25:34PM -0800, Jim Keniston wrote:
+> The enclosed patch implements the netdev_* error-logging macros for
+> network drivers.  These macros have been discussed at length on the
+> linux-kernel and linux-netdev lists.  All issues that reviewers have
+> raised were addressed previously.  This is just an update for v2.6.1.
 
-> Sorry, I forgot to increase the number of members in the array and 
-> that the sentinel was removed.
-> So, add missing sentinel explicitly.
+How about a message rate limit?
 
-How about adding all them explicitly to prevent future errors?
-
-diff -Nru a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
---- a/net/ipv6/addrconf.c	Tue Jan 20 10:51:20 2004
-+++ b/net/ipv6/addrconf.c	Tue Jan 20 10:51:20 2004
-@@ -3191,6 +3191,9 @@
- 			.mode		=	0555,
- 			.child		=	addrconf_sysctl.addrconf_vars,
- 		},
-+		{
-+			.ctl_name	=	0,	/* sentinel */
-+		}
- 	},
- 	.addrconf_conf_dir = {
- 		{
-@@ -3199,6 +3202,9 @@
- 			.mode		=	0555,
- 			.child		=	addrconf_sysctl.addrconf_dev,
- 		},
-+		{
-+			.ctl_name	=	0,	/* sentinel */
-+		}
- 	},
- 	.addrconf_proto_dir = {
- 		{
-@@ -3207,6 +3213,9 @@
- 			.mode		=	0555,
- 			.child		=	addrconf_sysctl.addrconf_conf_dir,
- 		},
-+		{
-+			.ctl_name	=	0,	/* sentinel */
-+		}
- 	},
- 	.addrconf_root_dir = {
- 		{
-@@ -3215,6 +3224,9 @@
- 			.mode		=	0555,
- 			.child		=	addrconf_sysctl.addrconf_proto_dir,
- 		},
-+		{
-+			.ctl_name	=	0,	/* sentinel */
-+		}
- 	},
- };
- 
+-- 
+Regards,
+Rask Ingemann Lambertsen
