@@ -1,9 +1,9 @@
 From: domen@coderock.org
-Subject: [patch 14/19] janitor: net/gt96100eth: pci_find_device to pci_get_device
-Date: Wed, 12 Jan 2005 00:10:50 +0100
-Message-ID: <20050111231050.D3AD51F226@trashy.coderock.org>
-Cc: netdev@oss.sgi.com, domen@coderock.org, sfeldma@pobox.com,
-        janitor@sternwelten.at
+Subject: [patch 13/19] net/cycx_drv: replace delay_cycx() with msleep_interruptible()
+Date: Wed, 12 Jan 2005 00:10:47 +0100
+Message-ID: <20050111231047.6E6501F225@trashy.coderock.org>
+Cc: netdev@oss.sgi.com, domen@coderock.org, nacc@us.ibm.com,
+        acme@conectiva.com.br, janitor@sternwelten.at
 Return-path: <netdev-bounce@oss.sgi.com>
 To: jgarzik@pobox.com
 Sender: netdev-bounce@oss.sgi.com
@@ -13,46 +13,106 @@ List-Id: netdev.vger.kernel.org
 
 
 
-Replace pci_find_device with pci_get_device/pci_dev_put to plug
-race with pci_find_device.
+Any comments would be appreciated.
 
-Signed-off-by: Scott Feldman <sfeldma@pobox.com>
+Description: Use msleep_interruptible() instead of delay_cycx()
+to guarantee the task delays as expected. Remove the prototype and
+definition of delay_cycx().
+
+Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
+Acked-by: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
 Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
 Signed-off-by: Domen Puncer <domen@coderock.org>
 ---
 
 
- kj-domen/drivers/net/gt96100eth.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
+ kj-domen/drivers/net/wan/cycx_drv.c |   24 ++++++++----------------
+ 1 files changed, 8 insertions(+), 16 deletions(-)
 
-diff -puN drivers/net/gt96100eth.c~remove-pci-find-device-drivers_net_gt96100eth drivers/net/gt96100eth.c
---- kj/drivers/net/gt96100eth.c~remove-pci-find-device-drivers_net_gt96100eth	2005-01-10 18:00:17.000000000 +0100
-+++ kj-domen/drivers/net/gt96100eth.c	2005-01-10 18:00:17.000000000 +0100
-@@ -615,9 +615,9 @@ static int gt96100_init_module(void)
- 	/*
- 	 * Stupid probe because this really isn't a PCI device
- 	 */
--	if (!(pci = pci_find_device(PCI_VENDOR_ID_MARVELL,
-+	if (!(pci = pci_get_device(PCI_VENDOR_ID_MARVELL,
- 	                            PCI_DEVICE_ID_MARVELL_GT96100, NULL)) &&
--	    !(pci = pci_find_device(PCI_VENDOR_ID_MARVELL,
-+	    !(pci = pci_get_device(PCI_VENDOR_ID_MARVELL,
- 		                    PCI_DEVICE_ID_MARVELL_GT96100A, NULL))) {
- 		printk(KERN_ERR __FILE__ ": GT96100 not found!\n");
- 		return -ENODEV;
-@@ -627,12 +627,14 @@ static int gt96100_init_module(void)
- 	if (cpuConfig & (1<<12)) {
- 		printk(KERN_ERR __FILE__
- 		       ": must be in Big Endian mode!\n");
-+		pci_dev_put(pci);
- 		return -ENODEV;
+diff -puN drivers/net/wan/cycx_drv.c~msleep_interruptible-drivers_net_wan_cycx_drv drivers/net/wan/cycx_drv.c
+--- kj/drivers/net/wan/cycx_drv.c~msleep_interruptible-drivers_net_wan_cycx_drv	2005-01-10 18:00:08.000000000 +0100
++++ kj-domen/drivers/net/wan/cycx_drv.c	2005-01-10 18:00:08.000000000 +0100
+@@ -56,7 +56,7 @@
+ #include <linux/sched.h>	/* for jiffies, HZ, etc. */
+ #include <linux/cycx_drv.h>	/* API definitions */
+ #include <linux/cycx_cfm.h>	/* CYCX firmware module definitions */
+-#include <linux/delay.h>	/* udelay */
++#include <linux/delay.h>	/* udelay, msleep */
+ #include <asm/io.h>		/* read[wl], write[wl], ioremap, iounmap */
+ 
+ #define	MOD_VERSION	0
+@@ -74,7 +74,6 @@ static int reset_cyc2x(void __iomem *add
+ static int detect_cyc2x(void __iomem *addr);
+ 
+ /* Miscellaneous functions */
+-static void delay_cycx(int sec);
+ static int get_option_index(long *optlist, long optval);
+ static u16 checksum(u8 *buf, u32 len);
+ 
+@@ -259,7 +258,7 @@ static int memory_exists(void __iomem *a
+ 			if (readw(addr + 0x10) == TEST_PATTERN)
+ 				return 1;
+ 
+-		delay_cycx(1);
++		msleep_interruptible(1000);
  	}
  
- 	for (i=0; i < NUM_INTERFACES; i++)
- 		retval |= gt96100_probe1(pci, i);
+ 	return 0;
+@@ -316,7 +315,7 @@ static void cycx_reset_boot(void __iomem
  
-+	pci_dev_put(pci);
- 	return retval;
+ 	/* 80186 was in hold, go */
+ 	writeb(0, addr + START_CPU);
+-	delay_cycx(1);
++	msleep_interruptible(1000);
  }
  
+ /* Load data.bin file through boot (reset) interface. */
+@@ -462,13 +461,13 @@ static int load_cyc2x(struct cycx_hw *hw
+ 		cycx_reset_boot(hw->dpmbase, reset_image, img_hdr->reset_size);
+ 		/* reset is waiting for boot */
+ 		writew(GEN_POWER_ON, pt_cycld);
+-		delay_cycx(1);
++		msleep_interruptible(1000);
+ 
+ 		for (j = 0 ; j < 3 ; j++)
+ 			if (!readw(pt_cycld))
+ 				goto reset_loaded;
+ 			else
+-				delay_cycx(1);
++				msleep_interruptible(1000);
+ 	}
+ 
+ 	printk(KERN_ERR "%s: reset not started.\n", modname);
+@@ -495,7 +494,7 @@ reset_loaded:
+ 
+ 	/* Arthur Ganzert's tip: wait a while after the firmware loading...
+ 	   seg abr 26 17:17:12 EST 1999 - acme */
+-	delay_cycx(7);
++	msleep_interruptible(7000);
+ 	printk(KERN_INFO "%s: firmware loaded!\n", modname);
+ 
+ 	/* enable interrupts */
+@@ -547,20 +546,13 @@ static int get_option_index(long *optlis
+ static int reset_cyc2x(void __iomem *addr)
+ {
+ 	writeb(0, addr + RST_ENABLE);
+-	delay_cycx(2);
++	msleep_interruptible(2000);
+ 	writeb(0, addr + RST_DISABLE);
+-	delay_cycx(2);
++	msleep_interruptible(2000);
+ 
+ 	return memory_exists(addr);
+ }
+ 
+-/* Delay */
+-static void delay_cycx(int sec)
+-{
+-	set_current_state(TASK_INTERRUPTIBLE);
+-	schedule_timeout(sec * HZ);
+-}
+-
+ /* Calculate 16-bit CRC using CCITT polynomial. */
+ static u16 checksum(u8 *buf, u32 len)
+ {
 _
