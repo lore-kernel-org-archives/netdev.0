@@ -1,42 +1,41 @@
 From: Ben Greear <greearb@candelatech.com>
-Subject: Re: VLAN patches
-Date: Sun, 06 Oct 2002 20:35:38 -0700
+Subject: Re: Update on e1000 troubles (over-heating!)
+Date: Sun, 06 Oct 2002 20:46:42 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3DA1010A.8020202@candelatech.com>
-References: <20021005.220549.15266753.davem@redhat.com>	<Pine.GSO.4.30.0210061839210.1861-100000@shell.cyberus.ca> <20021006.194654.35505461.davem@redhat.com>
+Message-ID: <3DA103A2.1060901@candelatech.com>
+References: <Pine.GSO.4.30.0210061835350.1861-100000@shell.cyberus.ca>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, Bjorn.Andersson@ebc.ericsson.se, netdev@oss.sgi.com
+Cc: Andre Hedrick <andre@pyxtechnologies.com>,
+   linux-kernel <linux-kernel@vger.kernel.org>,
+   "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: jamal <hadi@cyberus.ca>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
->    From: jamal <hadi@cyberus.ca>
->    Date: Sun, 6 Oct 2002 18:47:50 -0400 (EDT)
->    
->    A packet with VLANid 0 and an 802.1p tag > 0 is legal. I
->    think its known as a "priority tagged" packet (not 100% sure
->    about the term). Therefore VLANid 0 MUST be accepted and ability to send
->    it should be there.
-> 
-> Great, I stand corrected, please send me a patch which therefore
-> accepts VID 0 on create and destroy.
+jamal wrote:
 
-It already accepts on create, you just need to add the patch that
-was already sent to allow for delete.
+> It seems like the prerequisite to reproduce it is you beat the NIC heavily
+> with a lot of packets/sec and then run it at that sustained rate for at
+> least 30 minutes. isci would tend to use MTU sized packets which will
+> not be that effective.
 
-> 
->    BTW, what about VLANid 0xFFF?
+I can reproduce my crash using mtu sized pkts running only 50Mbps send + receive
+on 2 nics.  It took over-night to do it though.  Running as hard as I can with
+MTU packets will crash it as well, and much quicker.
 
-I think it is reserved, but my spec is 3 years old, and I don't know
-where it is right now, so whatever it is now, let's not touch it :)
+Interestingly enough, the tg3 NIC (netgear 302t), registered 57 deg C between
+the fins of it's heat sink in the 32-bit slots.  Makes me wonder if my PCI bus
+is running too hot :P
 
-> 
-> Your guess is as good as mine ;-)
-> 
+Dave says I'm wierd and no one else sees these bizarre problems, btw :)
+
+More trouble-shooting to follow this next week.
+
+Thanks,
+Ben
 
 
 -- 
