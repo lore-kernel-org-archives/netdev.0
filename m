@@ -1,52 +1,42 @@
 From: netdev-bounce@oss.sgi.com
 Subject: (no subject)
-Date: Tue, 29 Oct 2002 17:35:27 +1100 (EST)
+Date: Tue, 29 Oct 2002 18:16:01 +1100 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021029063527.2888C12C7AE@blammo.its.monash.edu.au>
+Message-ID: <20021029071601.44DE912C1C6@blammo.its.monash.edu.au>
 Content-Transfer-Encoding: 7BIT
 Return-path: <netdev-bounce@oss.sgi.com>
 To: undisclosed-recipients: ;
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-All,
+On Wed, 23 Oct 2002 michael@albog.dk wrote:
 
-Just tried 2.4.20-pre11 and all NIC issues seem to be resolved.
-Both eepro100 and e100 drivers work correctly.
+> - What kernel version have most IPv6 features build-in ?? (Maybe a feature is 
+> missing in 2.4.19. I have read an article about patching the kernel: 
+> http://project6.ferrara.linux.it/papers/best_ipv6_support_4_linux/best_ipv6_supp
+> ort_4_linux.html, it is necessary?).
 
-			Paul
+micheal, that article is a bit obsolete. i will update it as soon as 
+possible, but until next week there is no chance i can do it (friday i 
+will get my MS degree in electronic engineering and i am __very__ busy 
+now).
 
------Original Message-----
-From: Donald Becker [mailto:becker@scyld.com]
-Sent: Tuesday, October 22, 2002 7:21 PM
-To: Felipe W Damasio
-Cc: Paul Hernandez; Jeff Garzik; Linux-net; netdev@oss.sgi.com
-Subject: RE: NIC on 2.4.19 SMP (mii-diag output)
+however, the choice of the kernel to use is quite simple: if you need the 
+advanced features in usagi kernel (e.g. ISATAP, drop packets with fake 
+ipv4-mapped address, RFC 3041 support, anycast support, allow default 
+route when forwarding is enabled, Node Information Queries, IPSEC, MIPv6, 
+IPv6-in-IPv6 tunneling) you should install the usagi kit. if not, use the 
+standard vanilla kernel.
 
 
-On 22 Oct 2002, Felipe W Damasio wrote:
-
-> On Mon, 2002-10-21 at 15:16, Paul Hernandez wrote:
-> >  I'm advertising 05e1: Flow-control 100baseTx-FD 100baseTx 10baseT-FD
-> > 10baseT
-> >    Advertising no additional info pages.
-> >    IEEE 802.3 CSMA/CD protocol.
-> >  Link partner capability is 0000:.
-> >    Negotiation did not complete.
-> 
-> 	The link partner is not advertising it's capabilities.
-
-No! There is not link partner.
-
-0000 is the default value for the register when there is no negotiation
-going on.
-If you have link beat _and_ the register is 0000, then no
-autonegotiation took place.
-If the link partner advertised "not capable of anything", the register
-will report 0001.
+p.s. i wouldn't spend too much time working on ripng. if you wish 
+     to analyze routing protocols, perhaps OSPF and BGP4+ would be 
+     better choices.
 
 -- 
-Donald Becker				becker@scyld.com
-Scyld Computing Corporation		http://www.scyld.com
-410 Severn Ave. Suite 210		Scyld Beowulf cluster system
-Annapolis MD 21403			410-990-9993
+Aequam memento rebus in arduis servare mentem...
+
+Mauro Tortonesi			mauro@ferrara.linux.it
+				mauro.tortonesi@ing.unife.it
+Ferrara Linux Users Group	http://www.ferrara.linux.it
+Project6 - IPv6 for Linux	http://project6.ferrara.linux.it
