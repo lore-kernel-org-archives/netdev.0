@@ -1,31 +1,41 @@
 From: Ethan Sommer <sommere@ethanet.com>
 Subject: Re: [Fwd: [ANNOUNCE] Layer-7 Filter for Linux QoS]
-Date: Wed, 21 May 2003 10:42:40 -0500
+Date: Wed, 21 May 2003 10:46:50 -0500
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <3ECB9E70.8090101@ethanet.com>
-References: <1053313298.3909.5.camel@rth.ninka.net>
- <20030519202756.I39498@shell.cyberus.ca> <3EC9B815.4000504@ethanet.com>
- <20030520080940.E40885@shell.cyberus.ca> <3ECA3E2C.20805@ethanet.com>
- <20030520105356.U41173@shell.cyberus.ca>
- <1053443703.17386.138.camel@tux.rsn.bth.se>
- <20030521075617.N43477@shell.cyberus.ca>
+Message-ID: <3ECB9F6A.20004@ethanet.com>
+References: <Pine.LNX.4.44.0305211447270.12543-100000@deneb.intranet.cartel-securite.net>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed; charset=us-ascii
+Content-Type: text/plain; format=flowed; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Martin Josefsson <gandalf@wlug.westbo.se>,
+Cc: Jamal Hadi <hadi@shell.cyberus.ca>,
+	Martin Josefsson <gandalf@wlug.westbo.se>,
 	"David S. Miller" <davem@redhat.com>, linux-net@vger.kernel.org,
-	netdev@oss.sgi.com, biondi@cartel-securite.fr
+	netdev@oss.sgi.com
 Return-path: <linux-net-owner@vger.kernel.org>
-In-reply-to: <20030521075617.N43477@shell.cyberus.ca>
-To: Jamal Hadi <hadi@shell.cyberus.ca>
+In-reply-to: <Pine.LNX.4.44.0305211447270.12543-100000@deneb.intranet.cartel-securite.net>
+To: Philippe Biondi <biondi@cartel-securite.fr>
 List-Id: netdev.vger.kernel.org
 
-Jamal Hadi wrote:
+Philippe Biondi wrote:
 
->I think you should do some measurements - "it  doesnt slow 100Mbps" and
->"lets worry about it when we get to 1 or 10Gbps" are handwaving at best.
->Infact i would strongly recommend looking at the libqpsearch above.
+>regexp support was planned but not done yet. (if someone know where I can
+>download more free time !).
+>
+>The implementation should not be that hard, once you have the compiler to
+>transform the string describing the regexp to an automaton.
+>
+>Note that to respect the framework, you have to deal with multiple
+>patterns (should not be that hard). If you have pat1 and pat2, searching
+>for (pat1|pat2) is not sufficient because for each match, you have to
+>point which pattern matched.
 >  
 >
-Agreed. However, libqpsearch doesn't do regex yet, so we can't use it.
+
+We actually planned on doing that initially. You should note that if you 
+want to generate one automaton for multiple patterns, that is not a 
+regular language (and thus can not be represented by a FA or DFA.)  You 
+will have to try matching against the first pattern, then the next and 
+so on.
+
+Ethan
 
