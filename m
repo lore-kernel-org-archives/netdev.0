@@ -1,32 +1,31 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: fealnx oopses
-Date: Wed, 31 Mar 2004 23:01:25 +0200
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [RFC] Use RCU for fib_rules
+Date: Wed, 31 Mar 2004 13:11:07 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040331230125.A9130@electric-eye.fr.zoreil.com>
-References: <200403261214.58127.vda@port.imtp.ilyichevsk.odessa.ua> <20040330002047.D4744@electric-eye.fr.zoreil.com> <200403300050.42367.vda@port.imtp.ilyichevsk.odessa.ua> <200403300116.41377.vda@port.imtp.ilyichevsk.odessa.ua>
+Message-ID: <20040331131107.151005a7.davem@redhat.com>
+References: <20040331112839.02e8d4c2@dell_ss3.pdx.osdl.net>
+	<406B2828.7070800@us.ibm.com>
+	<20040331130541.4b1e8b0d@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andreas Henriksson <andreas@fjortis.info>, Jeff Garzik <jgarzik@pobox.com>,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: niv@us.ibm.com, Paul.McKenney@us.ibm.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
-Content-Disposition: inline
-In-Reply-To: <200403300116.41377.vda@port.imtp.ilyichevsk.odessa.ua>; from vda@port.imtp.ilyichevsk.odessa.ua on Tue, Mar 30, 2004 at 01:16:41AM +0200
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20040331130541.4b1e8b0d@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua> :
-[...]
-> I just verified that even if I stop remote netcat,
-> box does not recover. Console fills with
-> "Too much work at interrupt, status=0x0020"
-> 0x0020 is RBU = 0x00000020, /* receive buffer unavailable */
+On Wed, 31 Mar 2004 13:05:41 -0800
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-There too much work in my daily interrupt handler as well so this get
-scheduled for a few days/nights :o)
+> No, don't have enough rules or load in this area to cause an impact.
+> But also, I don't have the test environment to really stress this
+> (ie 1000's of rules).
 
-If anything else, I'll probably cook up a nice patch for the current changes
-once things settle down a bit. 
+You really don't need 1000's of rules.  Every time the routing cache
+misses, it's going to dive into this code, so on SMP that would show up.
 
---
-Ueimor
+You could use stream.c (http://www.securiteam.com/unixfocus/5YP0I000DG.html)
+as the DoS workload in order to thrash the routing cache and force the
+rule codepath.
