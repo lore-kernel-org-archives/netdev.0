@@ -1,32 +1,28 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] Conntrack leak with raw sockets
-Date: Mon, 28 Mar 2005 22:16:34 +0200
-Message-ID: <42486622.9080802@trash.net>
-References: <20050325201127.GA3400@linuxace.com> <4244766D.2020001@trash.net>
-	<20050326060543.GA4791@linuxace.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: af_packet.c bug?
+Date: Mon, 28 Mar 2005 22:17:38 +0200
+Message-ID: <20050328201738.GG3086@postel.suug.ch>
+References: <424858D4.8060604@candelatech.com> <20050328195557.GF3086@postel.suug.ch> <4248642E.40304@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Phil Oester <kernel@linuxace.com>
-In-Reply-To: <20050326060543.GA4791@linuxace.com>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Ben Greear <greearb@candelatech.com>
+Content-Disposition: inline
+In-Reply-To: <4248642E.40304@candelatech.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Phil Oester wrote:
-> Something like the attached?
+* Ben Greear <4248642E.40304@candelatech.com> 2005-03-28 12:08
+> >Seems so, please adopt the size of spkt_device in struct sockaddr_pkt
+> 
+> you mean adapt maybe?
 
-Perfect, thanks. I'll push it to Dave with the next batch of netfilter
-patches.
+Of course, stupid typo. ;->
 
-Regards
-Patrick
+> I was also wondering why we couldn't hold a reference to the net-device
+> instead of just it's ifindex when dealing with a bound raw socket.
+
+Saving a netdevice handle in the packet socket is not a problem but
+doing the same for the packet socket address seems to be non trivial.
