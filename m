@@ -1,8 +1,8 @@
 From: Colin Leroy <colin@colino.net>
 Subject: Re: [PATCH] Prevent netpoll hanging when link is down
-Date: Fri, 8 Oct 2004 08:54:11 +0200
+Date: Fri, 8 Oct 2004 09:06:10 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041008085411.1437f6c8@pirandello>
+Message-ID: <20041008090610.70d7e183@pirandello>
 References: <20041006232544.53615761@jack.colino.net>
 	<20041006214322.GG31237@waste.org>
 	<20041007075319.6b31430d@jack.colino.net>
@@ -10,49 +10,40 @@ References: <20041006232544.53615761@jack.colino.net>
 	<20041007160532.60c3f26b@pirandello>
 	<20041007112846.5c85b2d9.davem@davemloft.net>
 	<20041007224422.1c1bea95@jack.colino.net>
-	<20041007150850.7ba2a387.davem@davemloft.net>
+	<20041007214505.GB31558@wotan.suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: mpm@selenic.com, akpm@osdl.org, netdev@oss.sgi.com
+Cc: "David S. Miller" <davem@davemloft.net>, mpm@selenic.com, akpm@osdl.org,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20041007150850.7ba2a387.davem@davemloft.net>
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <20041007214505.GB31558@wotan.suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 07 Oct 2004 at 15h10, David S. Miller wrote:
+On 07 Oct 2004 at 23h10, Andi Kleen wrote:
 
 Hi, 
 
+> > This patch should do that. It works OK for me, but I'd like it
+> > checked before sent upstream...
+> > 
 > > However, it doesn't fix the hang. it looks like this hang is really
 > > coming from sungem.
 > 
-> Is it hanging inside of the ->hard_start_xmit() call 
+> IMHO it's not needed. Taking xmit_lock is harmless even when
+> the NETIF_F_LLTX flag is set. 
 
-I think so, but my way of discovering it may not be very good: I tested
-by replacing 
+Should that be completely dropped, or is it still ok ? (I think
+differenciating action based on hard_start_xmit status, that is, don't
+goto repeat undefinitely when NETDEV_TX_BUSY, could be a good idea).
+I mean, should I rework that patch, forget about it or leave it as-is?
 
-status = np->dev->hard_start_xmit(...);
+Concerning the hang, I see that Andrew has put my first patch, the one
+checking for netif_carrier_ok(), in his tree. Is it an OK solution from
+your (net dev hackers) point of view?
 
-by 
-status = NETDEV_TX_OK, then status = NETDEV_TX_BUSY, then status =
-NETDEV_TX_LOCKED 
-
-in netpoll.c (avoiding to call hard_start_xmit()), and it didn't hang. 
-
-> or somewhere else?  Do you have a way to determine this without adding
-> printk()'s and thus causing recursion as you mentioned earlier? :-)
-
-Well, that's my big problem :-) I can't use the spinlock debugging
-neither, because I'm on uniprocessor and on PPC.
-
-I tried removing printk()s from gem_start_xmit() codepath, but it didn't
-help either, so I don't think the lock comes from a printk()
-recursion... 
-
-(It's really hard to debug that kind of stuff! I'm learning quite a few
-things :))
-
+Thanks,
 -- 
 Colin
