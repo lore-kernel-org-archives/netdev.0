@@ -1,167 +1,131 @@
-From: Andreas Henriksson <andreas@fjortis.info>
-Subject: Re: [PATCH] Re: fealnx oopses
-Date: Sat, 27 Mar 2004 03:13:05 +0100
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH 1/8]  2.6.5-rc2 - sis190 update
+Date: Sat, 27 Mar 2004 03:11:31 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040327021305.GA20101@scream.fjortis.info>
-References: <200403261214.58127.vda@port.imtp.ilyichevsk.odessa.ua> <20040326192211.GA15319@scream.fjortis.info> <4064857E.2050603@pobox.com>
+Message-ID: <20040327031131.A31053@electric-eye.fr.zoreil.com>
+References: <20040327030853.A30849@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andreas Henriksson <andreas@fjortis.info>,
-        Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>,
-        netdev@oss.sgi.com, Marcelo Tosatti <marcelo@conectiva.com.br>,
-        Linux Kernel <linux-kernel@vger.kernel.org>
+Cc: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+To: netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <4064857E.2050603@pobox.com>
+In-Reply-To: <20040327030853.A30849@electric-eye.fr.zoreil.com>; from romieu@fr.zoreil.com on Sat, Mar 27, 2004 at 03:08:54AM +0100
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-On Fri, Mar 26, 2004 at 02:33:18PM -0500, Jeff Garzik wrote:
-> Andreas Henriksson wrote:
-> >On Fri, Mar 26, 2004 at 12:14:57PM +0200, Denis Vlasenko wrote:
-> >
-> ><snip>
-> >
-> >>BTW, my box is indeed slow and low on RAM, this fits.
-> >>
-> >
-> >
-> >I have only been looking at problems with races between the interrupt
-> >handler and the rest of the driver code.. there might be a bunch of
-> >problems with failed memory allocations that hasn't bitten me.
-> >
-> >
-> >>Regarding your patch: I looked in start_tx(). Apart from latent
-> >>bug in commented out part of code:
-> >>	next = (struct fealnx *) np->cur_tx_copy.next_desc_logical;
-> >>which must be
-> >>	next = (struct fealnx_desc *) np->cur_tx_copy->next_desc_logical;
-> >>I can't see anything racy there. The function just submits more
-> >>tx buffers for the card, it never touch cur_tx or cur_tx->skbuff...
-> >
-> >
-> >Francois Romieu explains the race in a comment to the bug I opened in
-> >the bugzilla.
-> >
-> >http://bugzilla.kernel.org/show_bug.cgi?id=1902#c1
-> >
-> >The problem is that really_tx_count and similar parts of the private
-> >structure isn't atomically updated and both the interrupt handler and
-> >the start_tx function updates them.
-> >(they are regular integers instead of atomic_t)
-> >
-> >
-> >>If I miss something and it indeed races with interrupt, you
-> >>definitely need to add
-> >>       spin_lock(&np->lock);
-> >>...
-> >>       spin_unlock(&np->lock);
-> >>around interrupt handler body or at least around tx part
-> >>of it, or else your patch is incomplete (race will still
-> >>be possible on SMP).
-> >>
-> >
-> >
-> >I came to the conclusion that there should be a spinlock in the
-> >interrupt handler yesterday, but it won't effect me at all since I don't
-> >have SMP (nor preempt) so I'll leave it for now anyway.
-> >
-> >
-> >>Anyway, I applied your patch and flooded with UDP again.
-> >>My box did not oops. Unfortunately, it did not oops when
-> >>I reverted back to old, presumably buggy driver. I cannot
-> >>reproduce it anymore with old driver too! Bad. :(
-> >
-> >
-> >I haven't been able to reproduce a kernel panic with my patch eighter.
-> >And I've been transfering Terabytes of traffic during the last weeks (or
-> >maybee it's months, well anyway.. I've done enough testing to say that
-> >the card works "good enough" in this machine atleast).
-> >And I've even tried your udp test..
-> >
-> >Although I now have the myson/fealnx card in my p3-900 (256Mb)
-> >workstation instead of the old p-166 (40Mb) which served as a gateway 
-> >before.
-> >It might just be that it's harder to trigger on newer/bigger machines.
-> >Maybee I should power up my p-166 again.. I actually have 2 of these
-> >cards so I can have one in each machine.. :)
-> 
-> Well really, somebody needs to port Donald Becker's myson driver to 2.6 
-> APIs...  I would like to get rid of fealnx, or somebody needs to spend a 
-> decent amount of time fixing it.
-> 
+Endianness issues.
+Use of le32_to_cpu/cpu_to_le32 in the code which handles the different
+components of the Rx descriptors (PSize/status/buf_addr/buf_Len).
 
-Ok, didn't know someone actually had a better driver.. I though "fix up
-the current to not panic and wait for people to forget that the hardware
-ever existed" was the proper "fix". ;)
 
-Although I doubt I'm able to even get donalds driver to even compile
-without the middle layer... I'm not anywhere near a kernel developer.
-But I'd certainly love to try to get it working.. but don't hold your
-breath. :)
+ drivers/net/sis190.c |   45 +++++++++++++++++++++------------------------
+ 1 files changed, 21 insertions(+), 24 deletions(-)
 
->
-> Does the attached patch fix the issue?
-> 
+diff -puN drivers/net/sis190.c~sis190-rx-path-le32_to_cpu drivers/net/sis190.c
+--- linux-2.6.5-rc2/drivers/net/sis190.c~sis190-rx-path-le32_to_cpu	2004-03-26 23:12:05.000000000 +0100
++++ linux-2.6.5-rc2-fr/drivers/net/sis190.c	2004-03-26 23:13:10.000000000 +0100
+@@ -824,18 +824,19 @@ SiS190_init_ring(struct net_device *dev)
+ 	}
+ 	for (i = 0; i < NUM_RX_DESC; i++) {
+ 		struct RxDesc *desc = tp->RxDescArray + i;
++		dma_addr_t mapping;
++		u32 len;
+ 
+ 		desc->PSize = 0x0;
+ 
+-		if (i == (NUM_RX_DESC - 1))
+-			desc->buf_Len = BIT_31 + RX_BUF_SIZE;	//bit 31 is End bit
+-		else
+-			desc->buf_Len = RX_BUF_SIZE;
++		len = RX_BUF_SIZE + ENDbit * !((i + 1) % NUM_RX_DESC);
+ 
+ 		tp->RxBufferRing[i] = tp->RxBufferRings + i * RX_BUF_SIZE;
+-		desc->buf_addr = pci_map_single(tp->pci_dev,
++		mapping = pci_map_single(tp->pci_dev,
+ 			tp->RxBufferRing[i], RX_BUF_SIZE, PCI_DMA_FROMDEVICE);
+-		desc->status = OWNbit | INTbit;
++		desc->buf_addr = cpu_to_le32(mapping);
++		desc->buf_Len = cpu_to_le32(len);
++		desc->status = cpu_to_le32(OWNbit | INTbit);
+ 	}
+ 
+ }
+@@ -1001,13 +1002,13 @@ SiS190_rx_interrupt(struct net_device *d
+ 	assert(tp != NULL);
+ 	assert(ioaddr != NULL);
+ 
+-	while ((desc->status & OWNbit) == 0) {
++	while ((le32_to_cpu(desc->status) & OWNbit) == 0) {
+ 
+-		if (desc->PSize & 0x0080000) {
++		if (cpu_to_le32(desc->PSize) & RxCRC) {
+ 			printk(KERN_INFO "%s: Rx ERROR!!!\n", dev->name);
+ 			tp->stats.rx_errors++;
+ 			tp->stats.rx_length_errors++;
+-		} else if (!(desc->PSize & 0x0010000)) {
++		} else if (!(cpu_to_le32(desc->PSize) & 0x0010000)) {
+ 			printk(KERN_INFO "%s: Rx ERROR!!!\n", dev->name);
+ 			tp->stats.rx_errors++;
+ 			tp->stats.rx_crc_errors++;
+@@ -1015,37 +1016,32 @@ SiS190_rx_interrupt(struct net_device *d
+ 			struct sk_buff *skb;
+ 			int pkt_size;
+ 
+-			pkt_size = (int) (desc->PSize & 0x0000FFFF) - 4;
++			pkt_size = (cpu_to_le32(desc->PSize) & 0x0000FFFF) - 4;
+ 			skb = dev_alloc_skb(pkt_size + 2);
+ 			if (skb != NULL) {
+ 				skb->dev = dev;
+ 				skb_reserve(skb, 2);	// 16 byte align the IP fields. //
+ 				pci_dma_sync_single_for_cpu(tp->pci_dev,
+-							    desc->buf_addr,
+-							    RX_BUF_SIZE,
+-							    PCI_DMA_FROMDEVICE);
++					le32_to_cpu(desc->buf_addr),
++					RX_BUF_SIZE, PCI_DMA_FROMDEVICE);
+ 				eth_copy_and_sum(skb, tp->RxBufferRing[cur_rx],
+ 						 pkt_size, 0);
+ 				pci_dma_sync_single_for_device(tp->pci_dev,
+-							    desc->buf_addr,
+-							    RX_BUF_SIZE,
+-							    PCI_DMA_FROMDEVICE);
++					le32_to_cpu(desc->buf_addr),
++					RX_BUF_SIZE, PCI_DMA_FROMDEVICE);
+ 				skb_put(skb, pkt_size);
+ 				skb->protocol = eth_type_trans(skb, dev);
+ 				netif_rx(skb);
+ 
+ 				desc->PSize = 0x0;
+ 
+-				if (cur_rx == (NUM_RX_DESC - 1))
+-					desc->buf_Len = ENDbit + RX_BUF_SIZE;
+-				else
+-					desc->buf_Len = RX_BUF_SIZE;
+-
++				desc->buf_Len = cpu_to_le32(RX_BUF_SIZE +
++					ENDbit * !((cur_rx + 1) % NUM_RX_DESC));
+ 				dev->last_rx = jiffies;
+ 				tp->stats.rx_bytes += pkt_size;
+ 				tp->stats.rx_packets++;
+ 
+-				desc->status = OWNbit | INTbit;
++				desc->status = cpu_to_le32(OWNbit | INTbit);
+ 			} else {
+ 				printk(KERN_WARNING
+ 				       "%s: Memory squeeze, deferring packet.\n",
+@@ -1142,8 +1138,9 @@ SiS190_close(struct net_device *dev)
+ 		tp->rx_dma);
+ 	tp->TxDescArray = NULL;
+ 	for (i = 0; i < NUM_RX_DESC; i++) {
+-		pci_unmap_single(tp->pci_dev, tp->RxDescArray[i].buf_addr,
+-			RX_BUF_SIZE, PCI_DMA_FROMDEVICE);
++		pci_unmap_single(tp->pci_dev,
++			le32_to_cpu(tp->RxDescArray[i].buf_addr), RX_BUF_SIZE,
++			PCI_DMA_FROMDEVICE);
+ 		tp->RxBufferRing[i] = NULL;
+ 	}
+ 	tp->RxDescArray = NULL;
 
-Probably... it includes the lock I've added... though it could take me
-up to 3 weeks to get a kernel panic on my p-166 (although it could
-happen twice a day as well as it did when I wrote the bugreport in the bugzilla).
-
-> 	Jeff
-> 
-> 
-
-I'll try your patch and if you don't hear from me it works "good
-enough". Anyway... adding a lock or two will probably not make the
-situation worse then it is today..
-
-> ===== drivers/net/fealnx.c 1.34 vs edited =====
-> --- 1.34/drivers/net/fealnx.c	Sun Mar 14 01:54:58 2004
-> +++ edited/drivers/net/fealnx.c	Fri Mar 26 14:31:07 2004
-> @@ -1303,14 +1303,15 @@
->  	/* for the last tx descriptor */
->  	np->tx_ring[i - 1].next_desc = np->tx_ring_dma;
->  	np->tx_ring[i - 1].next_desc_logical = &np->tx_ring[0];
-> -
-> -	return;
->  }
->  
->  
->  static int start_tx(struct sk_buff *skb, struct net_device *dev)
->  {
->  	struct netdev_private *np = dev->priv;
-> +	unsigned long flags;
-> +
-> +	spin_lock_irqsave(&np->lock, flags);
->  
->  	np->cur_tx_copy->skbuff = skb;
->  
-> @@ -1377,6 +1378,7 @@
->  	writel(0, dev->base_addr + TXPDR);
->  	dev->trans_start = jiffies;
->  
-> +	spin_unlock_irqrestore(&np->lock, flags);
->  	return 0;
->  }
->  
-> @@ -1423,6 +1425,8 @@
->  	unsigned int num_tx = 0;
->  	int handled = 0;
->  
-> +	spin_lock(&np->lock);
-> +
->  	writel(0, dev->base_addr + IMR);
->  
->  	ioaddr = dev->base_addr;
-> @@ -1564,6 +1568,8 @@
->  		       dev->name, readl(ioaddr + ISR));
->  
->  	writel(np->imrvalue, ioaddr + IMR);
-> +
-> +	spin_unlock(&np->lock);
->  
->  	return IRQ_RETVAL(handled);
->  }
+_
