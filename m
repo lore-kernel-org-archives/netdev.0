@@ -1,42 +1,65 @@
-From: Thomas Themel <themel@iwoars.net>
-Subject: Source addresses of rerouted packets
-Date: Tue, 28 Oct 2003 22:56:00 +0100
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Subject: Re: status of ipchains in 2.6?
+Date: Tue, 28 Oct 2003 16:16:04 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031028215600.GE15501@iwoars.net>
+Message-ID: <16287.1732.427119.22477@napali.hpl.hp.com>
+References: <200310280127.h9S1RM5d002140@napali.hpl.hp.com>
+	<1067365417.14002.18.camel@tux.rsn.bth.se>
+Reply-To: davidm@hpl.hp.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davidm@hpl.hp.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+        davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: Martin Josefsson <gandalf@wlug.westbo.se>
+In-Reply-To: <1067365417.14002.18.camel@tux.rsn.bth.se>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Yes, Rusty mentioned the same patch yesterday.  I tried it now and
+ipchain masquerading seems to be working fine again.
 
-I've recently tried to do policy routing of locally generated traffic
-based on a netfilter fwmark.  This works, in a way, but doesn't achieve
-the result I want. I want to route locally originating connections
-differently based on their fwmark, but the packets always end up with
-the wrong source address (that of the interface they would go out on if
-they hadn't been marked).
+	--david
 
-After seeing this both with 2.4.20 and 2.6.0-test9, I've had a quick
-look at the routing code, and what I believe is happening is
+>>>>> On Tue, 28 Oct 2003 19:23:37 +0100, Martin Josefsson <gandalf@wlug.westbo.se> said:
 
-- the new socket doesn't yet have a source address
-- the SYN packet is queued and routed, thus the socket gets a source address
-- the SYN packet is caught by the netfilter rule and marked
-- the SYN packet is rerouted, but at that point, it/its socket already
-  has the source address of the original route and doesn't get the
-  address of the different route it is now sent on.
+  Martin> Please try this patch that just got included in linus tree.
 
-Is this behaviour intended? Following the principle of least surprise, I
-would expect a locally generated packet to get the source address of the
-last route it traverses.
+  Martin> ChangeSet 1.1360, 2003/10/27 00:01:25-08:00, rusty@rustcorp.com.au
 
-ciao,
--- 
-[*Thomas  Themel*]      'To a hardcore geek, "Open" and "Source" are like
-[extended contact]   the nipples on the breasts of Jennifer Love Hewitt.'
-[info provided in]              - Mr. Cranky reviewing "Antitrust"
-[*message header*]   <URL:http://www.mrcranky.com/movies/antitrust.html>
+  Martin> [NETFILTER]: Fix ipchains oops in NAT
+
+  Martin> We updated ip_nat_setup_info to set the initialized flag and call
+  Martin> place_in_hashes, but *didn't* change the call in ip_fw_compat_masq.c
+  Martin> which also calls place_in_hashes() itself (again!).  Result: corrupt
+  Martin> list, and next thing which lands in the same hash bucket goes boom.
+
+  Martin> Thanks to Andy Polyakov for chasing this down.
+
+
+  Martin> # This patch includes the following deltas:
+  Martin> #	           ChangeSet	1.1359  -> 1.1360 
+  Martin> #	net/ipv4/netfilter/ip_fw_compat_masq.c	1.11    -> 1.12   
+  Martin> #
+
+  Martin> ip_fw_compat_masq.c |    3 ---
+  Martin> 1 files changed, 3 deletions(-)
+
+
+  Martin> diff -Nru a/net/ipv4/netfilter/ip_fw_compat_masq.c b/net/ipv4/netfilter/ip_fw_compat_masq.c
+  Martin> --- a/net/ipv4/netfilter/ip_fw_compat_masq.c	Mon Oct 27 12:07:33 2003
+  Martin> +++ b/net/ipv4/netfilter/ip_fw_compat_masq.c	Mon Oct 27 12:07:33 2003
+  Martin> @@ -91,9 +91,6 @@
+  Martin> WRITE_UNLOCK(&ip_nat_lock);
+  Martin> return ret;
+  Martin> }
+  Martin> -
+  Martin> -		place_in_hashes(ct, info);
+  Martin> -		info->initialized = 1;
+  Martin> } else
+  Martin> DEBUGP("Masquerading already done on this conn.\n");
+  Martin> WRITE_UNLOCK(&ip_nat_lock);
+
+  Martin> -- 
+  Martin> /Martin
