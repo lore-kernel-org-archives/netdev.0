@@ -1,57 +1,61 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: 8169 driver with NetGear GA511 card.
-Date: Thu, 28 Oct 2004 15:49:45 -0700
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] : remove an unused function
+Date: Fri, 29 Oct 2004 01:00:32 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41817789.4000703@candelatech.com>
-References: <41802CA8.8070900@candelatech.com> <20041028074827.GA3572@electric-eye.fr.zoreil.com> <418130C4.3010207@candelatech.com> <20041028223754.GA20521@electric-eye.fr.zoreil.com>
+Message-ID: <20041028230032.GU3207@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii; x-action=pgp-signed
+Cc: linux-hams@vger.kernel.org, davem@davemloft.net, netdev@oss.sgi.com,
+        linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20041028223754.GA20521@electric-eye.fr.zoreil.com>
+To: ralf@linux-mips.org
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu wrote:
-> Ben Greear <greearb@candelatech.com> :
-> [...]
-> 
->>I'm running tests at the ethernet frame (skb) level, so I would not
->>expect the IP offload to help much.
->>
->>Do you have any performance numbers for your 8169 cards for me to
->>compare against?
-> 
-> 
-> Gross numbers:
-> - with a receiving amd64, nttcp should saturate the GigaE link;
-> - halved bandwidth for Tx on the same setup. Untested since changes in -mm;
-> - 10% cpu on a 100bt link;
-> - TSO saves 5~7% of the cpu when it can be used.
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-Cool, I am glad to know the chipset can handle it at least...
+The patch below removes an unused function from net/ax25/ax25_route.c
 
->>I'll get this in a bit, as I have locked up the keyboard again.  This time,
->>I was still using the non-NAPI code which had run over-night at around 
->>5Mbps...
->>
->>I tried a different network setup, and noticed that the 8169 was only
->>negotiating 10bt/HD.  That would explain the poor performance numbers.
-> 
-> Call me dense but... Are the 5Mbps below in the same unit as the 30Mbps
-> in your previous message (are they bytes or bits) ? If yes something is
-> badly broken.
 
-Yes, but I think now the problem is that it was stuck at 10bt/HD for whatever
-reason.  There seems to be a way to lock the keyboard by trying to make the
-NIC change it's negotiate settings.  I am going to try to track down exactly
-how this can be reproduced with minimum number of steps...
+diffstat output:
+ net/ax25/ax25_route.c |   16 ----------------
+ 1 files changed, 16 deletions(-)
 
-Thanks,
-Ben
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
+
+- --- linux-2.6.10-rc1-mm1-full/net/ax25/ax25_route.c.old	2004-10-28 23:50:25.000000000 +0200
++++ linux-2.6.10-rc1-mm1-full/net/ax25/ax25_route.c	2004-10-28 23:50:41.000000000 +0200
+@@ -41,22 +41,6 @@
+ 
+ static ax25_route *ax25_get_route(ax25_address *, struct net_device *);
+ 
+- -/*
+- - * small macro to drop non-digipeated digipeaters and reverse path
+- - */
+- -static inline void ax25_route_invert(ax25_digi *in, ax25_digi *out)
+- -{
+- -	int k;
+- -
+- -	for (k = 0; k < in->ndigi; k++)
+- -		if (!in->repeated[k])
+- -			break;
+- -
+- -	in->ndigi = k;
+- -
+- -	ax25_digi_invert(in, out);
+- -}
+- -
+ void ax25_rt_device_down(struct net_device *dev)
+ {
+ 	ax25_route *s, *t, *ax25_rt;
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.6 (GNU/Linux)
+
+iD8DBQFBgXoQmfzqmE8StAARAqLLAKCZRsBxw7oCIFnvPVFFZ6ss4QRuOgCfcu4e
+++CuY/BJjph1Fr/xntu1j/o=
+=5M44
+-----END PGP SIGNATURE-----
