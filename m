@@ -1,40 +1,41 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: gigabit trouble
-Date: Fri, 30 Jul 2004 20:54:12 +0200
+From: Tim Mattox <tmattox@gmail.com>
+Subject: Re: [RFC,PATCH] fastroute dead code...
+Date: Fri, 30 Jul 2004 15:29:25 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040730205412.A15669@electric-eye.fr.zoreil.com>
-References: <b71082d8040729094537e59a11@mail.gmail.com> <20040729210401.A32456@electric-eye.fr.zoreil.com> <b71082d80407291541f9d6f93@mail.gmail.com> <b71082d804073008157cf1d6c0@mail.gmail.com>
+Message-ID: <ea86ce220407301229522be64f@mail.gmail.com>
+References: <20040730060348.GA22854@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@redhat.com, hadi@cyberus.ca, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Bart Alewijnse <scarfboy@gmail.com>
-Content-Disposition: inline
-In-Reply-To: <b71082d804073008157cf1d6c0@mail.gmail.com>; from scarfboy@gmail.com on Fri, Jul 30, 2004 at 05:15:41PM +0200
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <20040730060348.GA22854@havoc.gtf.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Bart Alewijnse <scarfboy@gmail.com> :
-[...]
-> Definately. I've now seen speeds up to 22MB/s, but only in pure
-> network benching (netio), and only with udp, although I guess
-> that makes a some sense.
+I looked into fastroute about a year ago as well.  It's been used in
+some clusters
+AFAIK, but I'm not sure if it's still being actively used.  I was
+considering trying to
+use it myself in some cluster FNN research work I'm doing.  But that's probably
+still 6 months away if I get to it.  Since I'd be having to patch
+other things anyway,
+I have no qualms with it going away from mainline...  Especially with GigE so
+cheap today, and legacy PCI bandwidths so low, it's not particularly economical
+today to route through nodes in an HPC cluster that uses TCP/IP interconnect.
 
-It seems low. On a non-napi setup, I'd expect your celeron box to
-stand at least 20~30 kIRQ/s if the hardware is not flawed.
+I don't know if the webserver/load balancing community would mind it going
+away though.
 
-[...]
-> I assume the 20MB/s top speed on my gbit cards is io limiting,
-> and possibly the fact that they're 32bit cards in 33mhz slots.
-> Still, it's far from impressive. Any suggestions (on where to
-> go) about improving it?
+On Fri, 30 Jul 2004 02:03:48 -0400, Jeff Garzik <jgarzik@pobox.com> wrote:
+[snip]
+> This actually does something, dependent upon options from the packet
+> socket, so I left it alone.  The rest was dead code.
+> 
+> If nobody objects I can push to David, but right now this is more
+> an RFC than a merge request for David.
+[snip]
 
-See Documentation/networking/ip-sysctl.txt and the r/wmem parameters
-for a start. The 2.6.8-rc2-mm1 version of the r8169 driver is suggested.
-
-A dumb 'vmstat 1' output during test could give some hint.
-
-Can I assume that the systems are stable if not fast ?
-
---
-Ueimor 
+-- 
+Tim Mattox - tmattox@gmail.com - http://homepage.mac.com/tmattox/
