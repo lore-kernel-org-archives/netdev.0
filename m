@@ -1,52 +1,63 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 2.5.72] ppp_async tty discipline module ref counting
-Date: Thu, 19 Jun 2003 15:19:14 -0700
-Sender: linux-ppp-owner@vger.kernel.org
-Message-ID: <20030619151914.22988936.shemminger@osdl.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Flow cache flush oops
+Date: Fri, 20 Jun 2003 08:43:08 +1000
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20030619224308.GA32165@gondor.apana.org.au>
+References: <OFF5CE2037.3D4C9104-ON86256D49.007EAEAD-86256D49.007F5519@pok.ibm.com> <20030619000704.GA25135@gondor.apana.org.au> <20030619093518.GA27025@gondor.apana.org.au> <20030619.121108.21920417.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-ppp@vger.kernel.org
-Return-path: <linux-ppp-owner@vger.kernel.org>
-To: "David S. Miller" <davem@redhat.com>,
-	Paul Mackerras <paulus@samba.org>
+Content-Type: multipart/mixed; boundary="vtzGhvizbBRQ85DL"
+Cc: toml@us.ibm.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20030619.121108.21920417.davem@redhat.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Change ppp_async to use the owner field to do the module reference counting
-and eliminate the the MOD_INC/DEC calls.
 
-diff -Nru a/drivers/net/ppp_async.c b/drivers/net/ppp_async.c
---- a/drivers/net/ppp_async.c	Thu Jun 19 15:15:56 2003
-+++ b/drivers/net/ppp_async.c	Thu Jun 19 15:15:56 2003
-@@ -147,7 +147,6 @@
- 	struct asyncppp *ap;
- 	int err;
+--vtzGhvizbBRQ85DL
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+On Thu, Jun 19, 2003 at 12:11:08PM -0700, David S. Miller wrote:
+> 
+> Reviewing this made me notice that we don't check the
+> __get_free_pages() return value.  I'll fix that.
+
+Thanks.  Perhaps we should check that in the init function as well.
+
+Cheers,
+-- 
+Debian GNU/Linux 3.0 is out! ( http://www.debian.org/ )
+Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--vtzGhvizbBRQ85DL
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
+
+--- x/net/core/flow.c.orig	2003-06-20 08:35:54.000000000 +1000
++++ x/net/core/flow.c	2003-06-20 08:41:37.000000000 +1000
+@@ -388,11 +388,14 @@
+ 	add_timer(&flow_hash_rnd_timer);
  
--	MOD_INC_USE_COUNT;
- 	err = -ENOMEM;
- 	ap = kmalloc(sizeof(*ap), GFP_KERNEL);
- 	if (ap == 0)
-@@ -183,7 +182,6 @@
-  out_free:
- 	kfree(ap);
-  out:
--	MOD_DEC_USE_COUNT;
- 	return err;
+ 	register_cpu_notifier(&flow_cache_cpu_nb);
+-	for (i = 0; i < NR_CPUS; i++)
+-		if (cpu_online(i)) {
+-			flow_cache_cpu_prepare(i);
+-			flow_cache_cpu_online(i);
+-		}
++	for (i = 0; i < NR_CPUS; i++) {
++		if (!cpu_online(i))
++			continue;
++		if (flow_cache_cpu_prepare(i) == NOTIFY_OK &&
++		    flow_cache_cpu_online(i) == NOTIFY_OK)
++			continue;
++		panic("NET: failed to initialise flow cache hash table\n");
++	}
+ 
+ 	return 0;
  }
- 
-@@ -223,7 +221,6 @@
- 	if (ap->tpkt != 0)
- 		kfree_skb(ap->tpkt);
- 	kfree(ap);
--	MOD_DEC_USE_COUNT;
- }
- 
- /*
-@@ -351,6 +348,7 @@
- 
- 
- static struct tty_ldisc ppp_ldisc = {
-+	.owner  = THIS_MODULE,
- 	.magic	= TTY_LDISC_MAGIC,
- 	.name	= "ppp",
- 	.open	= ppp_asynctty_open,
+
+--vtzGhvizbBRQ85DL--
