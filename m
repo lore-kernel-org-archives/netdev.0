@@ -1,24 +1,43 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] IPv6: use ipv6_addr_any() for testing unspecified
- address
-Date: Sun, 23 Mar 2003 21:41:47 -0800 (PST)
+From: Eric Lemoine <Eric.Lemoine@Sun.com>
+Subject: EmbryonicRsts between two Linux boxes
+Date: Fri, 21 Mar 2003 19:17:06 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030323.214147.104238225.davem@redhat.com>
-References: <20030323.013535.60875023.yoshfuji@linux-ipv6.org>
+Message-ID: <20030321181706.GD1103@udine>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru,
-   usagi@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20030323.013535.60875023.yoshfuji@linux-ipv6.org>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-   Date: Sun, 23 Mar 2003 01:35:35 +0900 (JST)
+Hi,
 
-   Use ipv6_addr_any() for testing unspecified address.
+I have three Linux boxes on the same physical network. One runs a web
+server (webfs) and the other two run an HTTP traffic generator. Under 
+high load, with many simultaneous open connections (~1000) one of the
+clients gets a TCP RST ("read: Connection reset by peer").
 
-Applied, thank you.
+netstat -s on the server box gives:
+
+...
+
+TcpExt:
+    3002 resets received for embryonic SYN_RECV sockets
+
+...
+
+Which, if I understand correctly, means that the server TCP stack
+receives a SYN|ACK or a RST|ACK from one of the clients for a 
+SYN_RECV socket.
+
+How can this happen?
+
+Thx.
+
+PS: there's 100ms network latency between the server and the clients
+(emulated by NistNet). And I want to saturate the server. That's the
+reason I need so many simultaneous connections.
+
+-- 
+Eric
