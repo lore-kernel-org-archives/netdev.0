@@ -1,24 +1,33 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: Network driver test suite?
-Date: Wed, 05 Jan 2005 17:10:35 -0500
-Message-ID: <41DC65DB.1010907@pobox.com>
-References: <1104956386.3877.58.camel@dhollis-lnx.centricconsulting.com>
+Subject: Re: [RFC] tulip VLAN support
+Date: Wed, 05 Jan 2005 17:12:57 -0500
+Message-ID: <41DC6669.9090407@pobox.com>
+References: <20050105193425.GY18847@sventech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@oss.sgi.com>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Hollis <dhollis@davehollis.com>
-In-Reply-To: <1104956386.3877.58.camel@dhollis-lnx.centricconsulting.com>
+To: Johannes Erdfelt <johannes@erdfelt.com>
+In-Reply-To: <20050105193425.GY18847@sventech.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David Hollis wrote:
-> Is there any kind of test suite (automated or list of tests) available
-> for testing Linux network drivers?  I'm completing the addition of a few
+Johannes Erdfelt wrote:
+> @@ -259,7 +259,7 @@
+>  #define RX_RING_SIZE	128 
+>  #define MEDIA_MASK     31
+>  
+> -#define PKT_BUF_SZ		1536	/* Size of each temporary Rx buffer. */
+> +#define PKT_BUF_SZ		1540	/* Size of each temporary Rx buffer. */
 
 
-No, but I would love to someone to write one!!!
+This is the reason why the tulip "vlan" patch is continually rejected. 
+You shouldn't need to increase this constant, but rather follow the 
+other "large MTU" driver conversions.
 
-	Jeff (in a rare case of multi-exclamation-point use)
+Donald Becker's tulip.c (on which the kernel tulip is based) supports 
+proper MTU changing: ftp://ftp.scyld.com/pub/network/
+
+	Jeff
