@@ -1,49 +1,61 @@
-From: Nishanth Aravamudan <nacc@us.ibm.com>
-Subject: Re: msleep changes
-Date: Thu, 23 Sep 2004 09:08:10 -0700
+From: "chas williams (contractor)" <chas@cmf.nrl.navy.mil>
+Subject: Re: [PATCH][ATM]: [drivers] use msleep() instead of schedule_timeout() (from Nishanth Aravamudan <nacc@us.ibm.com>)
+Date: Thu, 23 Sep 2004 12:26:05 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040923160810.GC1699@us.ibm.com>
-References: <5.1.0.14.2.20040923050120.0257f490@pop.t-online.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@oss.sgi.com
+Message-ID: <200409231626.i8NGQ44f014489@ginger.cmf.nrl.navy.mil>
+References: <nacc@us.ibm.com>
+Cc: netdev@oss.sgi.com, davem@redhat.com, kernel-janitors@lists.osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Margit Schubert-While <margitsw@t-online.de>
-Content-Disposition: inline
-In-Reply-To: <5.1.0.14.2.20040923050120.0257f490@pop.t-online.de>
+To: Nishanth Aravamudan <nacc@us.ibm.com>
+In-Reply-To: Message from Nishanth Aravamudan <nacc@us.ibm.com>
+   of "Thu, 23 Sep 2004 09:07:10 PDT." <20040923160710.GB1699@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 23, 2004 at 05:24:33AM +0200, Margit Schubert-While wrote:
-> Hi Nish,
-> In latest BK :
-> 
-> # drivers/atm/lanai.c
-> # 2004/09/21 14:58:17-07:00 chas@cmf.nrl.navy.mil +1 -1
-> # [ATM]: [drivers] Use msleep() instead of schedule_timeout()
-> # From Nishanth Aravamudan <nacc@us.ibm.com>
-> 
-> diff -Nru a/drivers/atm/lanai.c b/drivers/atm/lanai.c
-> --- a/drivers/atm/lanai.c	2004-09-21 17:11:30 -07:00
-> +++ b/drivers/atm/lanai.c	2004-09-21 17:11:30 -07:00
-> @@ -813,7 +813,7 @@
->  			DPRINTK("read, write = %d, %d\n", read, write);
->  			break;
->  		}
-> -		schedule_timeout(HZ / 25);
-> +		msleep(4);
-> 
-> 
-> ??????
-> 
-> Just one that immediately lept to my eye.
-> I am not going to check them all.
-> That's your job :-)
+oops. sorry about that.  dave, please apply the following patch.
 
-Thanks for catching this. I actually have re-pushed the patch already
-with the correct time, but it is only going to be in the latest kjt
-(which was sent yesterday, I think). Ahh, I see the problem; somehow the
-maintainer's patch had msleep(4) in it, even though my patch had
-msleep(40). It should be corrected soon. Thanks for seeing this, again.
+thanks!
 
--Nish
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2004/09/23 12:24:28-04:00 chas@relax.cmf.nrl.navy.mil 
+#   [ATM]: [lanai] get sleep interval right
+# 
+# drivers/atm/lanai.c
+#   2004/09/23 12:24:12-04:00 chas@relax.cmf.nrl.navy.mil +1 -1
+#   [ATM]: [lanai] get sleep interval right
+# 
+diff -Nru a/drivers/atm/lanai.c b/drivers/atm/lanai.c
+--- a/drivers/atm/lanai.c	2004-09-23 12:25:36 -04:00
++++ b/drivers/atm/lanai.c	2004-09-23 12:25:36 -04:00
+@@ -813,7 +813,7 @@
+ 			DPRINTK("read, write = %d, %d\n", read, write);
+ 			break;
+ 		}
+-		msleep(4);
++		msleep(40);
+ 	}
+ 	/* 15.2.2 - clear out all tx registers */
+ 	cardvcc_write(lvcc, 0, vcc_txreadptr);
+
+In message <20040923160710.GB1699@us.ibm.com>,Nishanth Aravamudan writes:
+>On Tue, Sep 21, 2004 at 04:29:19PM -0400, chas williams (contractor) wrote:
+>
+><snip>
+>> diff -Nru a/drivers/atm/lanai.c b/drivers/atm/lanai.c
+>> --- a/drivers/atm/lanai.c	2004-09-21 12:48:17 -04:00
+>> +++ b/drivers/atm/lanai.c	2004-09-21 12:48:17 -04:00
+>> @@ -813,7 +813,7 @@
+>>  			DPRINTK("read, write = %d, %d\n", read, write);
+>>  			break;
+>>  		}
+>> -		schedule_timeout(HZ / 25);
+>> +		msleep(4);
+>
+>Somehow this got changed for msleep(40); to msleep(4); !! :) The patch I
+>sent on 15 September had msleep(40); in it, at least. If you could make
+>the change in your bk, that would be great!
+>
+>-Nish
+>
