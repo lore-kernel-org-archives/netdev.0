@@ -1,23 +1,39 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [Fwd: kernel 2.4.21]
-Date: Sat, 19 Jul 2003 19:17:23 -0700
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH] missing __KERNEL__ ifdef in include/linux/device.h
+Date: Sun, 20 Jul 2003 04:55:29 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030719191723.0821227f.davem@redhat.com>
-References: <1058634345.22000.2.camel@dhcp22.swansea.linux.org.uk>
+Message-ID: <20030720025528.GA30577@rei.rakuen>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, cedric.gavage@unixtech.be
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-In-Reply-To: <1058634345.22000.2.camel@dhcp22.swansea.linux.org.uk>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 19 Jul 2003 18:05:45 +0100
-Alan Cox <alan@lxorguk.ukuu.org.uk> wrote:
+Hello
 
-> > Jul 17 06:31:00 fazer kernel: KERNEL: assertion (newsk->state != 
-> > TCP_SYN_RECV) failed at tcp.c(2229)
+device.h should be protected with __KERNEL__ because it uses
+__KERNEL__ protected structures. Userspace applications
+including if_arp.h such as iproute2 will fail because
+it finally includes device.h as well.
 
-This one was fixed in 2.4.21
+ - thomas
+
+
+Index: include/linux/device.h
+===================================================================
+RCS file: /cvs/tgr/linux-25/include/linux/device.h,v
+retrieving revision 1.1.1.2
+diff -u -r1.1.1.2 device.h
+--- include/linux/device.h	10 Jul 2003 22:58:31 -0000	1.1.1.2
++++ include/linux/device.h	20 Jul 2003 02:49:12 -0000
+@@ -8,7 +8,7 @@
+  * See Documentation/driver-model/ for more information.
+  */
+ 
+-#ifndef _DEVICE_H_
++#if defined __KERNEL__ && !defined _DEVICE_H_
+ #define _DEVICE_H_
+ 
+ #include <linux/config.h>
