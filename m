@@ -1,28 +1,34 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: Update FarSync WAN driver in 2.4 and 2.6
-Date: Thu, 27 May 2004 13:24:51 -0400
+Subject: Re: [PATCH 2.6] Nuke HAS_IP_COPYSUM for net drivers
+Date: Thu, 27 May 2004 13:36:16 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40B62463.2030605@pobox.com>
-References: <7C078C66B7752B438B88E11E5E20E72E25CD7E@general.hq.farsitecommunications.com>
+Message-ID: <40B62710.8010602@pobox.com>
+References: <20040525191115.GA18454@k3.hellgate.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, davem@redhat.com, jgarzik@redhat.com,
-        Dermot Smith <dermot.smith@farsite.co.uk>,
-        Steve Scott <steve.scott@farsite.co.uk>
+Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Kevin Curtis <kevin.curtis@farsite.co.uk>
-In-Reply-To: <7C078C66B7752B438B88E11E5E20E72E25CD7E@general.hq.farsitecommunications.com>
+To: Roger Luethi <rl@hellgate.ch>
+In-Reply-To: <20040525191115.GA18454@k3.hellgate.ch>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Kevin Curtis wrote:
-> Hi,
-> 	can you please respond to this e-mail and let me know when we
-> might expect to see our driver changes implemented in the 2.4 and 2.6
-> Kernels.
+Roger Luethi wrote:
+> Entirely untested, but Obviously Correct(TM). HAS_IP_COPYSUM has been
+> utterly meaningless for a long time.
+
+I will apply to netdev-2.6 queue, which means it will get testing and 
+review via Andrew's -mm tree.
+
+After 2.6.7 is released, I'll push upstream.
 
 
-Ok, I applied your update to both 2.4 and 2.6 kernels.
+> Respective patch for via-rhine follows once I know the state of its
+> pending patches (which I wouldn't mind getting feedback on (hint,
+> hint!)).
+
+Working through the backlog today, yell at me if you haven't heard 
+anything by the end of the day :)
 
 	Jeff
