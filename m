@@ -1,40 +1,46 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] IPSec: IPv6 AH/ESP fixes
-Date: Sat, 29 Mar 2003 04:12:15 -0800 (PST)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030329.041215.124919097.davem@redhat.com>
-References: <1048870457.16800.5.camel@tomlt2.tomloffice.austin.ibm.com>
+From: bert hubert <ahu@ds9a.nl>
+Subject: NIC renaming does not rename /proc/sys/net/ipv4 Was: Re: NICs trading places ?
+Date: Sat, 29 Mar 2003 13:17:55 +0100
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20030329121755.GA17169@outpost.ds9a.nl>
+References: <20030328221037.GB25846@suse.de.suse.lists.linux.kernel> <p73isu2zsmi.fsf@oldwotan.suse.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru
-Return-path: <netdev-bounce@oss.sgi.com>
-To: toml@us.ibm.com
-In-Reply-To: <1048870457.16800.5.camel@tomlt2.tomloffice.austin.ibm.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Dave Jones <davej@codemonkey.org.uk>, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
+To: Andi Kleen <ak@suse.de>, netdev@oss.sgi.com
+Content-Disposition: inline
+In-Reply-To: <p73isu2zsmi.fsf@oldwotan.suse.de>
 List-Id: netdev.vger.kernel.org
 
-   From: Tom Lendacky <toml@us.ibm.com>
-   Date: 28 Mar 2003 10:54:16 -0600
-   
-   Below is a patch for your consideration for some AH/ESP problems
-   that I encountered during tunnel mode testings.
-   
-   Please review and let me know if any changes are required.
-   
-Looks good, applied.
-   
-One comment:
+On Sat, Mar 29, 2003 at 05:47:17AM +0100, Andi Kleen wrote:
+> Dave Jones <davej@codemonkey.org.uk> writes:
+> 
+> > I just upgraded a box with 2 NICs in it to 2.5.66, and found
+> > that what was eth0 in 2.4 is now eth1, and vice versa.
+> > Is this phenomenon intentional ? documented ?
+> 
+> Just assign mac addresses to names and run nameif early in boot.
 
-   @@ -287,7 +287,7 @@
-    	
-    	x->props.header_len = XFRM_ALIGN8(ahp->icv_trunc_len + AH_HLEN_NOICV);
-    	if (x->props.mode)
-   -		x->props.header_len += 20;
-   +		x->props.header_len += 40;
-    	x->data = ahp;
-    
-    	return 0;
+A slight problem with that is that not all parts of /proc/sys get renamed
+this way:
 
-Yuck, let's get rid of these constants and use sizeof(ipv6_hdr) or
-whatever this is supposed to me :-)
+snapcount:/proc/sys/net/ipv4/conf# ifconfig lo down
+snapcount:/proc/sys/net/ipv4/conf# ip link set name lo0 lo
+snapcount:/proc/sys/net/ipv4/conf# ls -l
+total 0
+dr-xr-xr-x    2 root     root            0 Mar 29 13:16 all
+dr-xr-xr-x    2 root     root            0 Mar 29 13:16 default
+dr-xr-xr-x    2 root     root            0 Mar 29 13:16 eth0
+dr-xr-xr-x    2 root     root            0 Mar 29 13:16 lo
+
+Which can be very confusing. This problem exists in both 2.5 and 2.4.
+
+Regards,
+
+bert
+
+
+-- 
+http://www.PowerDNS.com      Open source, database driven DNS Software 
+http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
