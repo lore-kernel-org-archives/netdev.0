@@ -1,36 +1,34 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [TCP] Fixed mss in tcp_init_cwnd
-Date: Mon, 27 Sep 2004 16:04:54 -0700
+Subject: Re: [6/6]: jenkins hash for neigh / Statistics
+Date: Mon, 27 Sep 2004 16:06:36 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040927160454.67cd1e11.davem@davemloft.net>
-References: <20040927080828.GA12056@gondor.apana.org.au>
-	<20040927120031.55fb4a49.davem@davemloft.net>
-	<20040927220240.GA7633@gondor.apana.org.au>
+Message-ID: <20040927160636.7741d973.davem@davemloft.net>
+References: <20040925005623.2faf8faf.davem@davemloft.net>
+	<E1CBu70-00010X-00@gondolin.me.apana.org.au>
+	<20040927121403.767e2308.davem@davemloft.net>
+	<20040927222613.GE3236@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: herbert@gondor.apana.org.au, netdev@oss.sgi.com, shemminger@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040927220240.GA7633@gondor.apana.org.au>
+To: Harald Welte <laforge@gnumonks.org>
+In-Reply-To: <20040927222613.GE3236@sunbeam.de.gnumonks.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 28 Sep 2004 08:02:40 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Tue, 28 Sep 2004 00:26:13 +0200
+Harald Welte <laforge@gnumonks.org> wrote:
 
-> On Mon, Sep 27, 2004 at 12:00:31PM -0700, David S. Miller wrote:
-> > On Mon, 27 Sep 2004 18:08:28 +1000
-> > Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> > 
-> > > The MSS in tcp_init_cwnd should be the real one instead of the TSO value.
-> > 
-> > This happens too early in the connections lifetime
-> > to make a difference for anything.
-> 
-> I know.  That's why I put it in a different thread.
-> 
-> IMHO we should still fix it though at least for consistency.
+> As stated before, I would like to change rt_stat and ct_stat in order to
+> include a first 'template' line, too.  This way it is easier to write a
+> generic foo_stat program, that could deal with any of those statistics
+> files, even with new ones...  but this of course would break existing
+> rtstat binaries.  I personally  don't care, since it's a little-known
+> and little-used feature, which to my knowledge is in a lot of
+> distributions either non-existant [Debian] or incompatible [SuSE]. What
+> do you think?
 
-That early on in the connection, it should be setting both
-values, right?  If so your patch still needs a tweak. :)
+I agree.  And while we're add it let's get a fixed rtstat into
+iproute2 and make sure that binary gets installed by default
+so maybe the dists will start shipping it properly.
