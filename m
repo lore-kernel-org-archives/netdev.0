@@ -1,92 +1,78 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH]  802.1Q VLAN
-Date: Thu, 28 Oct 2004 17:23:53 -0700
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH 4/6] cls_fw: Use generic routines to dump action/policer
+Date: Fri, 29 Oct 2004 02:24:59 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41818D99.9020300@candelatech.com>
-References: <41797696.9070905@candelatech.com>	<20041022214611.GA4948@electric-eye.fr.zoreil.com> <41798506.1030909@candelatech.com> <417D675F.3000909@candelatech.com> <4181838B.6040002@tpack.net>
+Message-ID: <20041029002459.GC12289@postel.suug.ch>
+References: <20041029002113.GY12289@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>,
-        "Linux 802.1Q VLAN" <vlan@candelatech.com>,
-        Francois Romieu <romieu@fr.zoreil.com>,
-        "David S. Miller" <davem@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, hadi@cyberus.ca
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Tommy Christensen <tommy.christensen@tpack.net>
-In-Reply-To: <4181838B.6040002@tpack.net>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20041029002113.GY12289@postel.suug.ch>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Tommy Christensen wrote:
-> Ben Greear wrote:
-> 
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-> Hi Ben,
-> 
-> I am not happy with this change to vlan_dev_hard_start_xmit().
-> 
-> I certainly appreciate the idea of avoiding flow-control "black-holes", 
-> but that would
-> take more than just this change. You have to consider (at least) these 
-> issues:
-> 
->  o It is considered an error if a queue-less device returns anything but 
-> zero from its
->    hard_start_xmit() function (see dev_queue_xmit()).
-
-This certainly was not clear to me.  The comments in dev_queue_xmit are
-wrong about the return value (failure cases can be > zero too).  Are
-there other errors or ommissions there?
-
-What sorts of things go wrong if you do return an error here when you don't
-have a queue?
-
->  o So, lets add a tx queue to it. Sure, that would be nice. Now we can 
-> even do shaping
->    and other fancy stuff. But then how do we manage netif_queue_stopped? 
-> Especially
->    restarting the queue could be tricky.
-
-Right... it would probably be an O(N) thing to wake the queues for all virtual
-devices on a physical device, and we certainly don't want to do that
-often.  Maybe if you only tried to wake the blocked queues (ie, kept a list
-of just blocked queues), then that would be less painful on average,
-but the worst-case is still bad.
-
->  o But couldn't we skip netif_stop_queue() and just return 
-> NETDEV_TX_BUSY when congested?
->    No, that would make the qdisc system "busy-retry" untill it succeeds. 
-> BAD.
-> 
->  o It is unsafe to pass a shared skb to dev_queue_xmit() unless you 
-> control all the
->    references yourself. (It will likely be enqueued on a list.)
-
-Since we either free the duplicate copy, or pass it to the queue and forget
-about it, this last point does not matter in the patch I submitted, right?
-
-
-> And specifically for this patch:
-> 
->  o The skb could be freed (replaced) in __vlan_put_tag(), so you cannot 
-> tell the caller
->    to hang on to it.
-
-Yep, that is quite nasty...I had not noticed.  If I kept a copy of the original
-pointer (using skb_get() to bump the reference) passed in,
-that would fix this particular problem?
-
->  o If rv is NET_XMIT_CN (and probably also rv < 0) you have to return 0, 
-> in order to
->    make the caller forget about this skb.
-
-Is there a complete list of what return codes are possible?  Maybe we could make
-it return an enum instead of an integer so we can more easily track these
-sorts of things down??
-
-Thanks for noticing!
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+--- linux-2.6.10-rc1-bk7.orig/net/sched/cls_fw.c	2004-10-29 00:28:59.000000000 +0200
++++ linux-2.6.10-rc1-bk7/net/sched/cls_fw.c	2004-10-29 00:35:27.000000000 +0200
+@@ -375,48 +375,18 @@
+ 	if (f->res.classid)
+ 		RTA_PUT(skb, TCA_FW_CLASSID, 4, &f->res.classid);
+ #ifdef CONFIG_NET_CLS_ACT
+-               /* again for backward compatible mode - we want
+-               *  to work with both old and new modes of entering
+-               *  tc data even if iproute2  was newer - jhs
+-               */
+-	if (f->action) {
+-		struct rtattr * p_rta = (struct rtattr*)skb->tail;
+-
+-		if (f->action->type != TCA_OLD_COMPAT) {
+-			RTA_PUT(skb, TCA_FW_ACT, 0, NULL);
+-			if (tcf_action_dump(skb,f->action,0,0) < 0) {
+-				goto rtattr_failure;
+-			}
+-		} else {
+-			RTA_PUT(skb, TCA_FW_POLICE, 0, NULL);
+-			if (tcf_action_dump_old(skb,f->action,0,0) < 0) {
+-				goto rtattr_failure;
+-			}
+-		}
+-
+-		p_rta->rta_len = skb->tail - (u8*)p_rta;
+-	}
++	if (tcf_dump_act(skb, f->action, TCA_FW_ACT, TCA_FW_POLICE) < 0)
++		goto rtattr_failure;
+ #ifdef CONFIG_NET_CLS_IND
+-	if(strlen(f->indev)) {
+-		struct rtattr * p_rta = (struct rtattr*)skb->tail;
++	if (strlen(f->indev))
+ 		RTA_PUT(skb, TCA_FW_INDEV, IFNAMSIZ, f->indev);
+-		p_rta->rta_len = skb->tail - (u8*)p_rta;
+-	}
+-#endif
+-#else
++#endif /* CONFIG_NET_CLS_IND */
++#else /* CONFIG_NET_CLS_ACT */
+ #ifdef CONFIG_NET_CLS_POLICE
+-	if (f->police) {
+-		struct rtattr * p_rta = (struct rtattr*)skb->tail;
+-
+-		RTA_PUT(skb, TCA_FW_POLICE, 0, NULL);
+-
+-		if (tcf_police_dump(skb, f->police) < 0)
+-			goto rtattr_failure;
+-
+-		p_rta->rta_len = skb->tail - (u8*)p_rta;
+-	}
+-#endif
+-#endif
++	if (tcf_dump_police(skb, f->police, TCA_FW_POLICE) < 0)
++		goto rtattr_failure;
++#endif /* CONFIG_NET_CLS_POLICE */
++#endif /* CONFIG_NET_CLS_ACT */
+ 
+ 	rta->rta_len = skb->tail - b;
+ #ifdef CONFIG_NET_CLS_ACT
