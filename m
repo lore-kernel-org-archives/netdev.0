@@ -1,292 +1,100 @@
-From: Wensong Zhang <wensong@linux-vs.org>
-Subject: Re: [PATCH] (4/6) ipvs -- use reader locks and refcounts correctly.
-Date: Thu, 18 Sep 2003 00:44:16 +0800 (CST)
+From: Jim Keniston <jkenisto@us.ibm.com>
+Subject: Re: [PATCH] Net device error logging, revised
+Date: Wed, 17 Sep 2003 10:55:20 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0309180014470.15676-200000@penguin.linux-vs.org>
-References: <20030916142116.58a05005.shemminger@osdl.org>
+Message-ID: <3F68A008.12EF3AC1@us.ibm.com>
+References: <C6F5CF431189FA4CBAEC9E7DD5441E010124F051@orsmsx402.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-1463755008-979933807-1063817056=:15676"
-Cc: lvs-users@LinuxVirtualServer.org, <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>, netdev <netdev@oss.sgi.com>,
+   Jeff Garzik <jgarzik@pobox.com>, Larry Kessler <kessler@us.ibm.com>,
+   Greg KH <greg@kroah.com>, Randy Dunlap <rddunlap@osdl.org>,
+   Alan Cox <alan@lxorguk.ukuu.org.uk>, Andrew Morton <akpm@osdl.org>,
+   David Brownell <david-b@pacbell.net>,
+   Stephen Hemminger <shemminger@osdl.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20030916142116.58a05005.shemminger@osdl.org>
+To: "Feldman, Scott" <scott.feldman@intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-  Send mail to mime@docserver.cac.washington.edu for more info.
-
----1463755008-979933807-1063817056=:15676
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-
-
-
-Hi,
-
-The locking change may be not very correct.
-
-On Tue, 16 Sep 2003, Stephen Hemminger wrote:
-
-> The code to get the service table was not taking a reader lock
-> because it needed to copy_to_user.
+"Feldman, Scott" wrote:
 > 
-> Do it right:
-> 	- hold refcnt when copying out, and use a read lock
-
-There is no need to hold lock, because thread has already gained 
-__ip_vs_mutex, there is no writer of service table, although net softirq 
-may read service table, there is no conflict in reading the service table 
-and copying out.
-
-> 	- make lock local to ip_svc
-
-Good.
-
-> 	- get rid of IP_VS_WAIT_WHILE, use proper read locks and refcounts.
-
-We have to use IP_VS_WAIT_WHILE to wait that all service users put back 
-the service, because the user doesn't hold read locks all the time while 
-using the service, it just increase the usecnt to indicate that the 
-service is used and release the read lock immediately. Before the user put 
-back the service, we cannot remove it.
-
-> 	- move write_lock_bh in flush to outside of loop
-
-Not necessary, because it has already hold __ip_vs_mutex, there is only 
-one writer.
-
-> 	- tag user pointers (for sparse).
+> > 3. A new macro, netdev_fatal, is included.  Given the call
+> >         netdev_fatal(dev, HW, "NIC fried!\n");
+> > the indicated message is always logged: the msglevel arg (HW, in this
+> > case) is NOT consulted.  In fact, the msglevel arg to netdev_fatal
+> > is ignored in this implementation.  (As previously discussed, in some
+> > future implementation, the msglevel could be logged to help indicate
+> > the circumstances under which the event was logged.)
 > 
-
-OK.
-
-So, maybe we just apply the simple patch with making the lock local and 
-tagging user pointers.
-
-Thanks,
-
-Wensong
-
-> diff -Nru a/include/net/ip_vs.h b/include/net/ip_vs.h
-> --- a/include/net/ip_vs.h	Tue Sep 16 14:08:55 2003
-> +++ b/include/net/ip_vs.h	Tue Sep 16 14:08:55 2003
-> @@ -319,8 +319,6 @@
->  #define LeaveFunction(level)   do {} while (0)
->  #endif
->  
-> -#define	IP_VS_WAIT_WHILE(expr)	while (expr) { cpu_relax(); }
-> -
->  
->  /*
->   *      The port number of FTP service (in network order).
-> diff -Nru a/net/ipv4/ipvs/ip_vs_ctl.c b/net/ipv4/ipvs/ip_vs_ctl.c
-> --- a/net/ipv4/ipvs/ip_vs_ctl.c	Tue Sep 16 14:08:55 2003
-> +++ b/net/ipv4/ipvs/ip_vs_ctl.c	Tue Sep 16 14:08:55 2003
-> @@ -48,7 +48,7 @@
->  static DECLARE_MUTEX(__ip_vs_mutex);
->  
->  /* lock for service table */
-> -rwlock_t __ip_vs_svc_lock = RW_LOCK_UNLOCKED;
-> +static rwlock_t __ip_vs_svc_lock = RW_LOCK_UNLOCKED;
->  
->  /* lock for table with the real services */
->  static rwlock_t __ip_vs_rs_lock = RW_LOCK_UNLOCKED;
-> @@ -808,11 +808,6 @@
->  
->  		write_lock_bh(&__ip_vs_svc_lock);
->  
-> -		/*
-> -		 * Wait until all other svc users go away.
-> -		 */
-> -		IP_VS_WAIT_WHILE(atomic_read(&svc->usecnt) > 1);
-> -
->  		list_add(&dest->n_list, &svc->destinations);
->  		svc->num_dests++;
->  
-> @@ -838,11 +833,6 @@
->  
->  	write_lock_bh(&__ip_vs_svc_lock);
->  
-> -	/*
-> -	 * Wait until all other svc users go away.
-> -	 */
-> -	IP_VS_WAIT_WHILE(atomic_read(&svc->usecnt) > 1);
-> -
->  	list_add(&dest->n_list, &svc->destinations);
->  	svc->num_dests++;
->  
-> @@ -980,12 +970,6 @@
->  	}
->  
->  	write_lock_bh(&__ip_vs_svc_lock);
-> -
-> -	/*
-> -	 *	Wait until all other svc users go away.
-> -	 */
-> -	IP_VS_WAIT_WHILE(atomic_read(&svc->usecnt) > 1);
-> -
->  	/*
->  	 *	Unlink dest from the service
->  	 */
-> @@ -1118,11 +1102,6 @@
->  	write_lock_bh(&__ip_vs_svc_lock);
->  
->  	/*
-> -	 * Wait until all other svc users go away.
-> -	 */
-> -	IP_VS_WAIT_WHILE(atomic_read(&svc->usecnt) > 1);
-> -
-> -	/*
->  	 * Set the flags and timeout value
->  	 */
->  	svc->flags = u->flags | IP_VS_SVC_F_HASHED;
-> @@ -1235,11 +1214,6 @@
->  
->  	ip_vs_svc_unhash(svc);
->  
-> -	/*
-> -	 * Wait until all the svc users go away.
-> -	 */
-> -	IP_VS_WAIT_WHILE(atomic_read(&svc->usecnt) > 1);
-> -
->  	__ip_vs_del_service(svc);
->  
->  	write_unlock_bh(&__ip_vs_svc_lock);
-> @@ -1259,16 +1233,11 @@
->  	/*
->  	 * Flush the service table hashed by <protocol,addr,port>
->  	 */
-> +	write_lock_bh(&__ip_vs_svc_lock);
->  	for(idx = 0; idx < IP_VS_SVC_TAB_SIZE; idx++) {
->  		list_for_each_entry_safe(svc, nxt, &ip_vs_svc_table[idx], s_list) {
-> -			write_lock_bh(&__ip_vs_svc_lock);
->  			ip_vs_svc_unhash(svc);
-> -			/*
-> -			 * Wait until all the svc users go away.
-> -			 */
-> -			IP_VS_WAIT_WHILE(atomic_read(&svc->usecnt) > 0);
->  			__ip_vs_del_service(svc);
-> -			write_unlock_bh(&__ip_vs_svc_lock);
->  		}
->  	}
->  
-> @@ -1278,16 +1247,11 @@
->  	for(idx = 0; idx < IP_VS_SVC_TAB_SIZE; idx++) {
->  		list_for_each_entry_safe(svc, nxt, 
->  					 &ip_vs_svc_fwm_table[idx], f_list) {
-> -			write_lock_bh(&__ip_vs_svc_lock);
->  			ip_vs_svc_unhash(svc);
-> -			/*
-> -			 * Wait until all the svc users go away.
-> -			 */
-> -			IP_VS_WAIT_WHILE(atomic_read(&svc->usecnt) > 0);
->  			__ip_vs_del_service(svc);
-> -			write_unlock_bh(&__ip_vs_svc_lock);
->  		}
->  	}
-> +	write_unlock_bh(&__ip_vs_svc_lock);
->  
->  	return 0;
->  }
-> @@ -1926,7 +1890,7 @@
->  
->  static inline int
->  __ip_vs_get_service_entries(const struct ip_vs_get_services *get,
-> -			    struct ip_vs_get_services *uptr)
-> +			    struct ip_vs_get_services __user *uptr)
->  {
->  	int idx, count=0;
->  	struct ip_vs_service *svc;
-> @@ -1966,7 +1930,7 @@
->  
->  static inline int
->  __ip_vs_get_dest_entries(const struct ip_vs_get_dests *get,
-> -			 struct ip_vs_get_dests *uptr)
-> +			 struct ip_vs_get_dests __user *uptr)
->  {
->  	struct ip_vs_service *svc;
->  	int ret = 0;
-> @@ -1981,6 +1945,7 @@
->  		struct ip_vs_dest *dest;
->  		struct ip_vs_dest_entry entry;
->  
-> +		read_lock_bh(&__ip_vs_svc_lock);
->  		list_for_each_entry(dest, &svc->destinations, n_list) {
->  			if (count >= get->num_dests)
->  				break;
-> @@ -1994,15 +1959,25 @@
->  			entry.activeconns = atomic_read(&dest->activeconns);
->  			entry.inactconns = atomic_read(&dest->inactconns);
->  			entry.persistconns = atomic_read(&dest->persistconns);
-> +
->  			ip_vs_copy_stats(&entry.stats, &dest->stats);
-> +
-> +			atomic_inc(&dest->refcnt);
-> +			read_unlock_bh(&__ip_vs_svc_lock);
->  			if (copy_to_user(&uptr->entrytable[count],
->  					 &entry, sizeof(entry))) {
->  				ret = -EFAULT;
->  				break;
->  			}
->  			count++;
-> +
-> +			read_lock_bh(&__ip_vs_svc_lock);
-> +			if (atomic_dec_and_test(&dest->refcnt)) 
-> +				kfree(dest);
-> +
->  		}
->  		ip_vs_service_put(svc);
-> +		read_unlock_bh(&__ip_vs_svc_lock);
->  	} else
->  		ret = -ESRCH;
->  	return ret;
-> @@ -2043,7 +2018,7 @@
->  };
->  
->  static int
-> -do_ip_vs_get_ctl(struct sock *sk, int cmd, void *user, int *len)
-> +do_ip_vs_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
->  {
->  	unsigned char arg[128];
->  	int ret = 0;
+> I couldn't find the previous discussion on netdev_fatal, so sorry if
+> this has already been worked out.  It uses KERN_ERR; did you mean
+> something stronger?  If not, why not just use netdev_err(dev, ALL,
+> "...")?  What is the situation in the driver where we'd want to use
+> _fatal?  How do I know when to use _fatal and when to use _err?
 > 
+> -scott
 
+Good question.  There was a discussion thread where somebody pared down
+the cc list (no LKML, no netdev, an apparently no Scott).  I saved most
+of the messages, and can send them along to you if you want.
 
----1463755008-979933807-1063817056=:15676
-Content-Type: TEXT/PLAIN; charset=US-ASCII; name="typetidyup.patch"
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.44.0309180044160.15676@penguin.linux-vs.org>
-Content-Description: 
-Content-Disposition: attachment; filename="typetidyup.patch"
+Anyway, in support of passing the NETIF_MSG_* msglevel as an arg to the 
+netdev_* macros, I said that it...
+> also opens the door for logging more clearly what part of the driver (PROBE,
+> TX, RX, etc.) the message comes from.
 
-ZGlmZiAtTnJ1IGEvbmV0L2lwdjQvaXB2cy9pcF92c19jdGwuYyBiL25ldC9p
-cHY0L2lwdnMvaXBfdnNfY3RsLmMNCi0tLSBhL25ldC9pcHY0L2lwdnMvaXBf
-dnNfY3RsLmMgVGh1IFNlcCAxOCAwMDo0MzowMCAyMDAzDQorKysgYi9uZXQv
-aXB2NC9pcHZzL2lwX3ZzX2N0bC5jIFRodSBTZXAgMTggMDA6NDM6MDAgMjAw
-Mw0KQEAgLTQ2LDcgKzQ2LDcgQEANCiBzdGF0aWMgREVDTEFSRV9NVVRFWChf
-X2lwX3ZzX211dGV4KTsNCiANCiAvKiBsb2NrIGZvciBzZXJ2aWNlIHRhYmxl
-ICovDQotcndsb2NrX3QgX19pcF92c19zdmNfbG9jayA9IFJXX0xPQ0tfVU5M
-T0NLRUQ7DQorc3RhdGljIHJ3bG9ja190IF9faXBfdnNfc3ZjX2xvY2sgPSBS
-V19MT0NLX1VOTE9DS0VEOw0KIA0KIC8qIGxvY2sgZm9yIHRhYmxlIHdpdGgg
-dGhlIHJlYWwgc2VydmljZXMgKi8NCiBzdGF0aWMgcndsb2NrX3QgX19pcF92
-c19yc19sb2NrID0gUldfTE9DS19VTkxPQ0tFRDsNCkBAIC0xOTEyLDcgKzE5
-MTIsNyBAQA0KIA0KIHN0YXRpYyBpbmxpbmUgaW50DQogX19pcF92c19nZXRf
-c2VydmljZV9lbnRyaWVzKGNvbnN0IHN0cnVjdCBpcF92c19nZXRfc2Vydmlj
-ZXMgKmdldCwNCi0gICAgICAgICAgICAgICAgICAgc3RydWN0IGlwX3ZzX2dl
-dF9zZXJ2aWNlcyAqdXB0cikNCisgICAgICAgICAgICAgICAgICAgc3RydWN0
-IGlwX3ZzX2dldF9zZXJ2aWNlcyBfX3VzZXIgKnVwdHIpDQogew0KICAgICAg
-aW50IGlkeCwgY291bnQ9MDsNCiAgICAgIHN0cnVjdCBpcF92c19zZXJ2aWNl
-ICpzdmM7DQpAQCAtMTk1NSw3ICsxOTU1LDcgQEANCiANCiBzdGF0aWMgaW5s
-aW5lIGludA0KIF9faXBfdnNfZ2V0X2Rlc3RfZW50cmllcyhjb25zdCBzdHJ1
-Y3QgaXBfdnNfZ2V0X2Rlc3RzICpnZXQsDQotICAgICAgICAgICAgICAgIHN0
-cnVjdCBpcF92c19nZXRfZGVzdHMgKnVwdHIpDQorICAgICAgICAgICAgICAg
-IHN0cnVjdCBpcF92c19nZXRfZGVzdHMgX191c2VyICp1cHRyKQ0KIHsNCiAg
-ICAgIHN0cnVjdCBpcF92c19zZXJ2aWNlICpzdmM7DQogICAgICBpbnQgcmV0
-ID0gMDsNCkBAIC0yMDM0LDcgKzIwMzQsNyBAQA0KIH07DQogDQogc3RhdGlj
-IGludA0KLWRvX2lwX3ZzX2dldF9jdGwoc3RydWN0IHNvY2sgKnNrLCBpbnQg
-Y21kLCB2b2lkICp1c2VyLCBpbnQgKmxlbikNCitkb19pcF92c19nZXRfY3Rs
-KHN0cnVjdCBzb2NrICpzaywgaW50IGNtZCwgdm9pZCBfX3VzZXIgKnVzZXIs
-IGludCAqbGVuKQ0KIHsNCiAgICAgIHVuc2lnbmVkIGNoYXIgYXJnWzEyOF07
-DQogICAgICBpbnQgcmV0ID0gMDsNCg==
----1463755008-979933807-1063817056=:15676--
+David Brownell replied:
+> This is a different issue.  Why wouldn't it be enough
+> to have unique messages?
+
+I replied:
+> First, I don't want acceptance of the netdev_* idea to hinge on this
+> minor issue.  Everything below is blue(r) sky...
+>
+> That said, it could be useful for an error-analysis utility to know that
+> the message is (say) a WARNING categorized as an RX_ERR, especially if the
+> utility hasn't been configured to recognized that specific message string.
+> That's probably info that wouldn't come to you via printk (e.g., since
+> syslog discards the severity level), but could come via another logging
+> or monitoring system that plugs in (along with printk) via netdev_*.
+>
+> One problem with this idea is that, as I read Becker's document
+> (URL above), "fatal" errors should always be logged, and therefore
+> not tagged as PROBE, TX_ERR, etc.  If we wanted to pursue this idea,
+> we could implement
+>         netdev_fatal(dev, PROBE, "...")
+> which logs the message unconditionally (KERN_ERR) and categorizes it as
+> a PROBE error.
+
+Jeff Garzik replied:
+> printk'ing probe errors is definitely something I want to encourage.
+> Probe errors are the most visible indication of what went wrong, if the
+> driver fails to load.  These are the messages that help developers
+> figure out the problem.  So I like the direction you suggest, in "If we
+> wanted to pursue[...]"
+
+In summary, the idea for netdev_fatal() is based on the idea that the msglevel
+arg can not only be used for verbosity control, but can be logged as yet
+another useful piece of info.  For printk-based logging, it could easily be
+added to the message prefix:
+	eth2: PROBE: Invalid Ethernet address
+If you log this message using
+	netdev_err(dev, PROBE, "Invalid Ethernet address\n")
+it will be logged only if the PROBE flag is set in the msg_enable bitmap.
+If you log it using
+	netdev_fatal(dev, PROBE, "Invalid Ethernet address\n")
+it will always be logged.
+
+As mentioned above, I don't think the netdev_fatal idea is central to the
+whole netdev_printk idea.
+
+By the way, regarding using KERN_ERR vs. something stronger: It's pretty
+unusual for a driver to log anything as KERN_CRIT or worse -- presumably
+due to a desire not to overreact if the nth of n redundant devices happens
+to fail.  So unless we can agree on a definition of KERN_CRIT (e.g., it
+applies to any failure that makes a device unavailable pending human
+intervention), I'd prefer to steer clear of that.
+
+Jim
