@@ -1,8 +1,8 @@
 From: Brad House <brad@mcve.com>
-Subject: Re: [PATCH] 2.6.0-test10-bk27-netdrvr-exp1 - r8169 update
-Date: Tue, 25 Nov 2003 19:45:17 -0500
+Subject: r8169 -- bad patch
+Date: Tue, 25 Nov 2003 19:55:04 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3FC3F79D.1070202@mcve.com>
+Message-ID: <3FC3F9E8.7040403@mcve.com>
 References: <20031122183001.GA16993@gtf.org> <20031124000939.A456@electric-eye.fr.zoreil.com> <20031126004550.A25408@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
@@ -14,34 +14,12 @@ In-Reply-To: <20031126004550.A25408@electric-eye.fr.zoreil.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Well, I didn't get to do all the testing, but here's what I've done
-so far, with results, all as modules, not statically built in:
-- 2.6.0-test10 w/v1.6 realtek patch I provided
-   - loads ok
-   - dhcpcd works fine
-   - rmmod ok
-- 2.6.0-test10 vanilla
-   - loads ok
-   - dhcpcd eth0 hangs (but eventually times out)
-   - oops on rmmod
-- 2.6.0-test10 + 2.6.0-test9-bk25-netdrvr-exp1 + r8169-mac-phy-version
-   - loads ok
-   - dhcpcd eth0 locks entire system
-   - rmmod -- no idea ;)
-- 2.6.0-test10 + 2.6.0-test9-bk25-netdrvr-exp1
-   - loads ok
-   - dhcpcd eth0 locks entire system
-   - rmmod -- no idea ;)
-- 2.6.0-test10 + 2.6.0-test9-bk25-netdrvr-exp1 - r8169-rx_copybreak
-   (yes, I manually removed the reject as well)
-   - loads ok
-   - dhcpcd eth0 locks entire system
-   - rmmod -- no idea ;)
-
-do you want me to continue ??
+it appears as though the
+r8169-start-xmit-fixes.patch
+is the culprit for the system lockups ...
+After reverting that patch, it went back to vanilla behavior.
 
 -Brad
-
 
 Francois Romieu wrote:
 > More Brad/Realtek's merging. Bugs are mine, of course.
