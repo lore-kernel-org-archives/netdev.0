@@ -1,69 +1,34 @@
-From: "Shawn Starr" <shawn.starr@rogers.com>
-Subject: [BUG][2.6.5 final][e100/ee100pro] NETDEV_WATCHDOG Timeout - Related to i2c interface?
-Date: Sat, 10 Apr 2004 02:23:06 -0400
+From: Hugo Santos <hugo@innerghost.net>
+Subject: sch_dsmark bug
+Date: Sun, 11 Apr 2004 13:43:06 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <000001c41ec4$5b937430$0200080a@panic>
-References: <C6F5CF431189FA4CBAEC9E7DD5441E0103AF5FB7@orsmsx402.jf.intel.com>
+Message-ID: <40793D5A.9060706@innerghost.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8bit
-Cc: <linux-kernel@vger.kernel.org>, <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'Feldman, Scott'" <scott.feldman@intel.com>,
-        "'Brown, Len'" <len.brown@intel.com>
-In-Reply-To: <C6F5CF431189FA4CBAEC9E7DD5441E0103AF5FB7@orsmsx402.jf.intel.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi there,
 
-Ok, did disable ACPI but still get these errors. I have noticed that if I
-start loading/unloading any i2c drivers I start getting eth0 timeouts....the
-question is why?
+I tried to contact the person whose name is in the source file but with
+no success. While developing some code that handles with kernel's TC
+objects direcly (by netlink) i found a small problem with dsmark (maybe
+other scheds have it too, but i haven't checked). This is in linux 2.6.4
+(there is no change in this context in 2.6.5); in dsmark_init, if opt is
+NULL, the module will crash and TC will get stuck. the module will have a
+ref count of 1 so i can't unload it, and i can't change any other TC
+stuff since the netlink socket gets stuck when dsmark crashes. So, a simple
 
-coredump kernel: i2c_adapter i2c-2: Transaction (post): CNT=08, CMD=3a,
-ADD=50, DAT0=3e, DAT1=00
-Apr 10 01:56:44 coredump kernel: i2c-core: unregister_driver - looking for
-clients.
-Apr 10 01:56:44 coredump kernel: i2c_adapter i2c-2: examining adapter
-Apr 10 01:56:44 coredump kernel: i2c-core.o: detaching client lm80:
-Apr 10 01:56:44 coredump kernel: i2c-core.o: detaching client lm80:
-Apr 10 01:56:44 coredump kernel: i2c-core: driver unregistered: lm80
-Apr 10 01:56:48 coredump kernel: i2c_adapter i2c-2: Adapter unregistered
-Apr 10 01:56:48 coredump kernel: i2c_adapter i2c-2: adapter unregistered
-Apr 10 01:56:55 coredump kernel: eth0: wait_for_cmd_done timeout!
-Apr 10 01:56:55 coredump kernel: Command 00ff never accepted (201 polls)!
-Apr 10 01:56:55 coredump kernel: Command 0006 was not accepted after 20001
-polls!  Current status ffffffff.
-Apr 10 01:56:55 coredump kernel: Command 00ff never accepted (201 polls)!
-Apr 10 01:56:55 coredump kernel: Command 0060 was not accepted after 20001
-polls!  Current status ffffffff.
-Apr 10 01:56:55 coredump kernel: eth0: wait_for_cmd_done timeout!
-Apr 10 01:56:55 coredump kernel: Command 00ff never accepted (201 polls)!
-Apr 10 01:56:55 coredump kernel: Command 0001 was not accepted after 20001
-polls!  Current status ffffffff.
-Apr 10 01:56:55 coredump kernel: Command 00ff never accepted (201 polls)!
-Apr 10 01:56:56 coredump kernel: Command 0070 was not accepted after 20001
-polls!  Current status ffffffff.
-Apr 10 01:56:56 coredump kernel: eth0: wait_for_cmd_done timeout!
-Apr 10 01:57:27 coredump last message repeated 26 times
-Apr 10 01:57:29 coredump last message repeated 3 times
+if (!opt) return -EINVAL;
 
------Original Message-----
-From: Feldman, Scott [mailto:scott.feldman@intel.com] 
-Sent: Wednesday, April 07, 2004 02:31 PM
-To: Brown, Len; Shawn Starr
-Subject: RE: [BUG][2.6.5 final][e100] NETDEV_WATCHDOG Timeout - Was not a
-problem with 2.6.5-rc3
+would prevent such problems.
 
+If you prefer i may send a patch, but since it's only a one line patch i didn't
+send one.
 
-> >Shawn, try turning off ACPI for interrupt routing.  Load the kernel
-> >with the kernel parameter "noapci" set.
-> 
-> You mean "acpi=off", or "pci=noacpi".  If either of these fix
-> the problem, please let me know.  (and send me the dmesg and 
-> /proc/interrupts for both cases)
-
-Yes, sorry.  Can't believe I posted that to lkml.  Oh well.
-
--scott
+Best regards,
+Hugo Santos
