@@ -1,26 +1,28 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Fw: [Kernel-janitors] net/atm/clip.c: check kmem_cache_create()
- #1
-Date: Wed, 4 Feb 2004 23:24:14 -0800
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: FW: Submission for S2io 10GbE driver
+Date: Thu, 05 Feb 2004 04:27:25 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040204232414.05dc8702.davem@redhat.com>
-References: <20040128091803.1da4cf1c.rddunlap@osdl.org>
-	<200402041904.i14J4GRr017777@ginger.cmf.nrl.navy.mil>
+Message-ID: <40220C7D.2060503@pobox.com>
+References: <20040205015149.GN19011@krispykreme> <005701c3eb92$55dc7650$7310100a@S2IOtech.com> <20040205032519.GR19011@krispykreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: rddunlap@osdl.org, netdev@oss.sgi.com
+Cc: Leonid Grossman <leonid.grossman@s2io.com>, "'Andi Kleen'" <ak@suse.de>,
+        netdev@oss.sgi.com, raghava.vatsavayi@s2io.com, iod00d@hp.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: chas williams (contractor) <chas@cmf.nrl.navy.mil>
-In-Reply-To: <200402041904.i14J4GRr017777@ginger.cmf.nrl.navy.mil>
+To: Anton Blanchard <anton@samba.org>
+In-Reply-To: <20040205032519.GR19011@krispykreme>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 04 Feb 2004 14:04:17 -0500
-chas williams (contractor) <chas@cmf.nrl.navy.mil> wrote:
+Anton Blanchard wrote:
+> Well there are non byteswapping versions on some architectures
+> (__raw_read*/__raw_write*). However at least on ppc32 they dont contain
+> memory barriers so you could into trouble using them.
 
-> randy, i think it should probably return -ENOMEM instead of -1.
-> 
-> dave, please apply the following to both the 2.6 and 2.4 trees.
 
-Applied, thanks guys.
+FWIW the __raw_xxx are not supposed to contain memory barriers.  That's 
+for when the driver writer decides he is smart enough to do the byte 
+swapping and barriers himself, for possibly increased speed :)
+
+	Jeff
