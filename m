@@ -1,73 +1,95 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: Re: [patch]: CONFIG_IPV6_SUBTREES fix for MIPv6
-Date: Thu, 05 Jun 2003 19:12:24 +0900 (JST)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030605.191224.68706097.yoshfuji@linux-ipv6.org>
-References: <20030424132559.GA15894@morphine.tml.hut.fi>
-	<Pine.LNX.4.44.0305301712300.3584-200000@rhea.tcs.hut.fi>
-	<20030531.000319.114704530.yoshfuji@linux-ipv6.org>
+From: "Dr. Peter Bieringer" <pb@bieringer.de>
+Subject: (usagi-users 02409) 2.5.70-bk9: no IPsec modules are autoloaded
+Date: Thu, 05 Jun 2003 13:21:40 +0200
+Message-ID: <29980000.1054812100@klopffest.muc.aerasec.de>
+Reply-To: usagi-users@linux-ipv6.org
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
-   ajtuomin@morphine.tml.hut.fi, lpetande@morphine.tml.hut.fi,
-   jagana@us.ibm.com, kumarkr@us.ibm.com, yoshfuji@linux-ipv6.org,
-   nakam@linux-ipv6.org, usagi-core@linux-ipv6.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: vnuorval@tcs.hut.fi
-In-Reply-To: <20030531.000319.114704530.yoshfuji@linux-ipv6.org>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: usagi-users@linux-ipv6.org
+Return-path: <usagi-users-admin@linux-ipv6.org>
+To: Maillist netdev <netdev@oss.sgi.com>
+Content-Disposition: inline
+List-Software: fml [fml 4.0.3 release (20011202/4.0.3)]
+List-Post: <mailto:usagi-users@linux-ipv6.org>
+List-Owner: <mailto:usagi-users-admin@linux-ipv6.org>
+List-Help: <mailto:usagi-users-ctl@linux-ipv6.org?body=help>
+List-Unsubscribe: <mailto:usagi-users-ctl@linux-ipv6.org?body=unsubscribe>
 List-Id: netdev.vger.kernel.org
 
-In article <20030531.000319.114704530.yoshfuji@linux-ipv6.org> (at Sat, 31 May 2003 00:03:19 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
+Hi again,
 
-> In article <Pine.LNX.4.44.0305301712300.3584-200000@rhea.tcs.hut.fi> (at Fri, 30 May 2003 17:34:40 +0300 (EEST)), Ville Nuorvala <vnuorval@tcs.hut.fi> says:
-> 
-> > here is a patch that fixes CONFIG_IPV6_SUBTREES and allows overriding
-> > normal routes with source address specific ones. This is for example
-> > needed in MIPv6 for handling the traffic to and from a mobile node's home
-> > address correctly.
-> 
-> Let us test the patch.  It seemed buggy when USAGI tested before.
-
-I've re-tested your latest CONFIG_IPV6_SUBTREE patch.
-The results of the restesting seems fine.
-However, I won't accept your patch as-is for now.
-
-The patch consists of several parts:
-
- 1. fixing bugs in IPv6 code
- 2. fixing bugs in CONFIG_IPV6_SUBTREE code
- 3. changing majority of keys of routing table.
-
-There's no problems with 1 and 2.  
-However, We need to discuss on 3.
+now playing around with 2.5.70-bk9...which still not solves the 
+interoperability problem with FreeS/WAN. Are they talking different ESP?
 
 
-As I said in other thread, the policy routing should be done in the 
-other way.  And, it is not good to change the semantics of 
-CONFIG_IPV6_SUBTREE.
 
-In original, routing is looked up by destination address, and then,
-looked up by the source address; destination takes precedence over source.
-Your patch changes this. Source address takes precedence over destination 
-address.
+Sure known that autoloading of IPsec modules is broken...is this a bug or 
+by design?
 
->From the point of the policy routing, both (and other attributes) should be 
-considered equally, and this is what IPv4 routing table does.
-
-Well, I won't hurry intorducing IPv6 policy routing just because of MIP6.
-The reason why I won't hurry is because I still believe it is not
-required for MIP6.  Nakamura, one of our member, will describe the details.
-It takes precedence over "limited" policy(?) routing to introcuce generic 
-policy routing.
+The error messages of racoon are not very useful:
 
 
-Anyway, will you split up your patch (into 1-3 above) first, please?
+2003-06-05 11:34:34: INFO: main.c:174:main(): @(#)racoon 20001216 20001216 
+sakane@kame.net
+2003-06-05 11:34:34: INFO: main.c:175:main(): @(#)This product linked 
+OpenSSL 0.9.6b [engine] 9 Jul 2001 (http://www.openssl.org/)
+racoon: something error happened while pfkey initializing.
+2003-06-05 11:34:34: ERROR: pfkey.c:364:pfkey_init(): libipsec failed pfkey 
+open (Address family not supported by protocol)
 
-Thanks.
+-> missing module "af_key"
 
+
+2003-06-05 11:42:07: INFO: isakmp.c:1048:isakmp_ph2begin_r(): respond new 
+phase 2 negotiation: 10.3.62.31[0]<=>10.3.62.35[0]
+2003-06-05 11:42:08: ERROR: pfkey.c:209:pfkey_handler(): pfkey UPDATE 
+failed: No buffer space available
+2003-06-05 11:42:08: ERROR: pfkey.c:209:pfkey_handler(): pfkey ADD failed: 
+No buffer space available
+2003-06-05 11:42:22: ERROR: pfkey.c:740:pfkey_timeover(): *remote* give up 
+to get IPsec-SA due to time up to wait.
+2003-06-05 11:42:37: INFO: pfkey.c:1367:pk_recvexpire(): IPsec-SA expired: 
+ESP/Transport *remote*->*local* spi=256398122(0xf48532a)
+2003-06-05 11:43:07: INFO: isakmp.c:1520:isakmp_ph1expire(): ISAKMP-SA 
+expired *local*[500]-*remote*[500] spi:3087159632fe32b6:88a45a3eabd327fd
+2003-06-05 11:43:08: INFO: isakmp.c:1568:isakmp_ph1delete(): ISAKMP-SA 
+deleted *remote*[500]-*local*[500] spi:3087159632fe32b6:88a45a3eabd327fd
+
+-> missing module "ah" and "esp"
+
+(not so funny, cost me about 15 min to find the solution for "No buffer 
+space available" - "why it worked yesterday and not today")
+
+
+None of the above ones are automagically loaded, while others (e.g. the 
+encrytion ones) are.
+
+
+
+BTW: is this normal? (host is IPv4 only at the moment):
+
+
+2003-06-05 13:17:03: INFO: isakmp.c:1362:isakmp_open(): 127.0.0.1[500] used 
+as isakmp port (fd=7)
+2003-06-05 13:17:03: INFO: isakmp.c:1362:isakmp_open(): *ip1*[500] used as 
+isakmp port (fd=8)
+2003-06-05 13:17:03: INFO: isakmp.c:1362:isakmp_open(): *ip2*[500] used as 
+isakmp port (fd=9)
+2003-06-05 13:17:03: INFO: isakmp.c:1362:isakmp_open(): *ip3*[500] used as 
+isakmp port (fd=10)
+2003-06-05 13:17:03: ERROR: isakmp.c:1354:isakmp_open(): failed to bind 
+(Address already in use).
+2003-06-05 13:17:03: ERROR: isakmp.c:1354:isakmp_open(): failed to bind 
+(Address already in use).
+2003-06-05 13:17:03: ERROR: isakmp.c:1354:isakmp_open(): failed to bind 
+(Address already in use).
+2003-06-05 13:17:03: ERROR: isakmp.c:1354:isakmp_open(): failed to bind 
+(Address already in use).
+
+
+	Peter
 -- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Dr. Peter Bieringer                     http://www.bieringer.de/pb/
+GPG/PGP Key 0x958F422D               mailto: pb at bieringer dot de
+Deep Space 6 Co-Founder and Core Member  http://www.deepspace6.net/
