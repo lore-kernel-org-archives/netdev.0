@@ -1,28 +1,67 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: automatic keying works! Re: off by one error in 3des cbc keying
-Date: Thu, 14 Nov 2002 08:51:09 -0800 (PST)
+From: Peter Bieringer <pb@bieringer.de>
+Subject: Re: why cannot unload ipv6 module ?
+Date: Thu, 14 Nov 2002 20:54:07 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021114.085109.06389530.davem@redhat.com>
-References: <20021113085517.GA9134@outpost.ds9a.nl>
-	<200211132046.XAA12943@sex.inr.ac.ru>
+Message-ID: <18430000.1037303647@localhost>
+References: <001801c28bb8$cd749c50$6c06a8c0@zhengjp>
+ <20021114.180104.77076139.yoshfuji@linux-ipv6.org>
+ <000e01c28bd1$ffdaf2c0$6c06a8c0@zhengjp>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ahu@ds9a.nl, gem@asplinux.ru, netdev@oss.sgi.com
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="==========1825439384=========="
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
-In-Reply-To: <200211132046.XAA12943@sex.inr.ac.ru>
+To: netdev@oss.sgi.com
+In-Reply-To: <000e01c28bd1$ffdaf2c0$6c06a8c0@zhengjp>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: kuznet@ms2.inr.ac.ru
-   Date: Wed, 13 Nov 2002 23:46:40 +0300 (MSK)
+--==========1825439384==========
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-   Log message for Dave:
-   
-   - xfrm_state.c: never return mature SAs on getspi.
-   - af_key.c: do not forget to delete dummy super-larvals when they are resolved
-   - af_key.c: wow! specially for this case I added gfp argument
-               to xfrm_alloc_policy() and forgot to use it really.
 
-Applied, thanks.
+
+--On Thursday, November 14, 2002 07:35:57 PM +0800 Zheng Jianping
+<zjp@iscas.ac.cn> wrote:
+
+> 
+>> > I complie IPv6 as module and install it. But when I try to
+>> > unload it, I
+> failed.
+>> > How can I make IPv6 module unload?
+>> 
+>> unloading ipv6 module is not supported.
+>> 
+> Can I modify the IPv6 source code to make unloading supported?
+> If yes, how to modify it?
+
+A little bit offtopic:
+
+does anyone know the state about the work on the ipv*4* module? There
+was some rumour some months ago.
+
+Would be nice if some day in the future an IPv6-only Linux box would
+be possible.
+
+        Peter
+
+---
+Dr. Peter Bieringer
+mailto: pb at bieringer dot de
+http://www.bieringer.de/pb/
+Key 0x958F422D : B501 24F4 9418 23E2 C0F3  F833 7B57 AA7B 958F 422D
+--==========1825439384==========
+Content-Type: application/pgp-signature
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.0 (GNU/Linux)
+
+iD8DBQE90/9te1eqe5WPQi0RAk+yAKDBU9xqItqXk9NMJachzbTvWGEp3ACg61Kq
+ON9EdhVXbHzuvP1RaSpFvTE=
+=1fDb
+-----END PGP SIGNATURE-----
+
+--==========1825439384==========--
