@@ -1,36 +1,49 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] Fix 64bit warnings in rtl8139too
-Date: Tue, 14 Oct 2003 14:13:04 -0400
+From: "Petr Vandrovec" <VANDROVE@vc.cvut.cz>
+Subject: Re: [PATCH?] Fix sniffing of ARP replies
+Date: Thu, 16 Oct 2003 12:07:23 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F8C3CB0.9090502@pobox.com>
-References: <20031007175638.GA1754@averell>
+Message-ID: <32A9D366A0B@vcnet.vc.cvut.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@muc.de>
-In-Reply-To: <20031007175638.GA1754@averell>
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andi Kleen wrote:
-> Fix a harmless 64bit pointer/integer mismatch warning in 8139too.
+On 15 Oct 03 at 20:47, David S. Miller wrote:
+> On Wed, 15 Oct 2003 19:11:12 +0200
+> Petr Vandrovec <vandrove@vc.cvut.cz> wrote:
 > 
-> diff -u linux-2.5-cleanup/drivers/net/8139too.c-o linux-2.5-cleanup/drivers/net/8139too.c
-> --- linux-2.5-cleanup/drivers/net/8139too.c-o	2003-09-08 00:02:03.000000000 +0200
-> +++ linux-2.5-cleanup/drivers/net/8139too.c	2003-12-02 17:13:24.634752560 +0100
-> @@ -746,7 +746,8 @@
->  	u8 tmp8;
->  	int rc;
->  	unsigned int i;
-> -	u32 pio_start, pio_end, pio_flags, pio_len;
-> +	unsigned long pio_start;
-> +	u32 pio_end, pio_flags, pio_len;
->  	unsigned long mmio_start, mmio_end, mmio_flags, mmio_len;
->  	u32 version;
+> >   after recent changes in packet_type interface I stopped setting
+> > af_packet_priv - as you told that it is only for AF_PACKET, for nobody
+> > else. And - things stopped working.
+> 
+> "Where" did you stop doing this?
 
+vmnet. http://platan.vc.cvut.cz/ftp/pub/vmware/vmware-any-any-update42.tar.gz,
+vmnet.tar -> bridge.c.
+ 
+> Nothing in the current kernel should be broken at all by said
+> changes I did to 2.6.x
+> 
+> If it has broken something you are working on external to the tree
+> you have to say what it is.  I can only guess that it's making
+> assumptions that never truly existed.
 
-Why not just make this look like mmio_*?
+It behaves same way it behaved. But recently you renamed packet_type.data
+to packet_type.af_packet_priv, saying that af_packet_priv should be used
+only by AF_PACKET code, by nobody else. So I trusted you, removed
+packet_type.data (and packet_type.af_packet_priv) references from the
+code - and things stopped working, as with af_packet_priv==NULL ARP
+replies are not delivered to the registered packet_type callback, as
+these packets match skb->sk == pt->af_packet_priv for af_packet_priv == NULL.
 
-	Jeff
+I can of course set 'af_packet_priv' to some non-NULL value - but in such 
+case I do not understand why you renamed it, if semantic is same as it was 
+before.
+                                                    Best regards,
+                                                        Petr Vandrovec
+                                                        vandrove@vc.cvut.cz
+                                                        
