@@ -1,270 +1,134 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Add ability to receive and transmit ethernet frames with bad CRC
- (e1000)
-Date: Mon, 25 Oct 2004 14:43:06 -0700
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: 2.6.9 SMP: via-rhine cannot be upped.
+Date: Mon, 25 Oct 2004 15:29:13 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <417D736A.6080207@candelatech.com>
+Message-ID: <20041025152913.1f003eb4@zqx3.pdx.osdl.net>
+References: <200410231559.28215.vda@port.imtp.ilyichevsk.odessa.ua>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+        Jeff Garzik
+ <jgarzik@pobox.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+To: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
+In-Reply-To: <200410231559.28215.vda@port.imtp.ilyichevsk.odessa.ua>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I have patched the e1000 driver to allow one to send frames with bad (ie, custom)
-CRCs, as well as receive packets with bad CRCs and other errors.  The receive logic
-should be very useful for packet sniffing, and the tx is useful for testing error
-cases for ethernet equipment.
+On Sat, 23 Oct 2004 15:59:28 +0300
+Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua> wrote:
 
-The rest of the patch to turn on/off these bits is tangled in with ethtool
-changes and several other files, but I will dis-entangle them if it is agreed
-that this feature is desired.  I also have driver support for the e100 driver.
+> I reported this yesterday but somehow managed to mess up configs
+> and accidentally compiled 2.6.9 for SMP! :(
+>=20
+> I just checked that it does not happen on non-SMP 2.6.9.
+> 2.6.9-preempt is working too.
+>=20
+> Here goes a problem description again.
+>=20
+> I have an onboard VIA eth:
+>=20
+> # lspci
+> 00:00.0 Host bridge: VIA Technologies, Inc. VT8366/A/7 [Apollo KT266/A/=
+333]
+> 00:01.0 PCI bridge: VIA Technologies, Inc. VT8366/A/7 [Apollo KT266/A/3=
+33 AGP]
+> 00:0a.0 Network controller: Texas Instruments ACX 111 54Mbps Wireless I=
+nterface
+> 00:0c.0 Network controller: Harris Semiconductor D-Links DWL-g650 A1 (r=
+ev 01)
+> 00:10.0 USB Controller: VIA Technologies, Inc. VT6202 [USB 2.0 controll=
+er] (rev 80)
+> 00:10.1 USB Controller: VIA Technologies, Inc. VT6202 [USB 2.0 controll=
+er] (rev 80)
+> 00:10.2 USB Controller: VIA Technologies, Inc. VT6202 [USB 2.0 controll=
+er] (rev 80)
+> 00:10.3 USB Controller: VIA Technologies, Inc. USB 2.0 (rev 82)
+> 00:11.0 ISA bridge: VIA Technologies, Inc. VT8235 ISA Bridge
+> 00:11.1 IDE interface: VIA Technologies, Inc. VT82C586A/B/VT82C686/A/B/=
+VT823x/A/C/VT8235 PIPC Bus Master IDE (rev 06)
+> 00:11.5 Multimedia audio controller: VIA Technologies, Inc. VT8233/A/82=
+35/8237 AC97 Audio Controller (rev 50)
+> 00:12.0 Ethernet controller: VIA Technologies, Inc. VT6102 [Rhine-II] (=
+rev 74)
+> 01:00.0 VGA compatible controller: nVidia Corporation NV11 [GeForce2 MX=
+/MX 400] (rev a1)
+>=20
+> It cannot be upped:
+>=20
+> # ip l set dev if up
+> SIOCSIFFLAGS: Function not implemented
+> # ifconfig if up
+> SIOCSIFFLAGS: Function not implemented
+> # busybox ip l set dev if up
+> SIOCSIFFLAGS: Function not implemented
+>=20
+> (NB: ip and ifconfig are not busyboxed, they are "standard" ones)
+>=20
+> Strace (busybox one is smallest):
+>=20
+> execve("/usr/bin/busybox", ["busybox", "ip", "l", "set", "dev", "if", "=
+up"], [/* 28 vars */]) =3D 0
+> fcntl64(0, F_GETFD) =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =3D 0
+> fcntl64(1, F_GETFD) =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =3D 0
+> fcntl64(2, F_GETFD) =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =3D 0
+> uname({sys=3D"Linux", node=3D"shadow", ...}) =3D 0
+> geteuid32() =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =3D=
+ 0
+> getuid32() =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=3D=
+ 0
+> getegid32() =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =3D=
+ 0
+> getgid32() =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=3D=
+ 0
+> brk(0) =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
+=A0=3D 0x81ab000
+> brk(0x81ac000) =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=3D 0=
+x81ac000
+> socket(PF_INET, SOCK_DGRAM, IPPROTO_IP) =3D 4
+> ioctl(4, 0x8913, 0xbffff9e0) =A0 =A0 =A0 =A0 =A0 =A0=3D 0
+> ioctl(4, 0x8914, 0xbffff9e0) =A0 =A0 =A0 =A0 =A0 =A0=3D -1 ENOSYS (Func=
+tion not implemented)
+> dup(2) =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
+=A0=3D 5
+> fcntl64(5, F_GETFL) =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =3D 0x2 (fl=
+ags O_RDWR)
+> fstat64(5, {st_mode=3DS_IFCHR|0600, st_rdev=3Dmakedev(136, 2), ...}) =3D=
+ 0
+> old_mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -=
+1, 0) =3D 0x40000000
+> _llseek(5, 0, 0xbffff830, SEEK_CUR) =A0 =A0 =3D -1 ESPIPE (Illegal seek=
+)
+> write(5, "SIOCSIFFLAGS: Function not imple"..., 39) =3D 39
+> close(5) =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+=3D 0
+> munmap(0x40000000, 4096) =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=3D 0
+> close(4) =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+=3D 0
+> write(2, "BusyBox v1.00-pre8 (2004.03.31-2"..., 295) =3D 295
+> _exit(1)
+>=20
+> I booted with init=3D/bin/sh and ran 'ip l set dev eth0 up'
+> - it fails under 2.6.9-smp. This rules out my userspace setup
+> being somehow involved (for example, the fact that I rename iface
+> from 'eth0' to 'if' does not contribute to the bug).
+>=20
+> My 2.6.9-smp config is attached.
 
-Comments welcome, and let me know if it's worth my time to break out the
-other components of this feature from my big patch.
+My suspicion is that the eth0 device is not actually the VIA driver
+at all. Since your config builds many drivers directly into the kernel,
+probably one of the others created an eth0 device.  There is no
+guarantee of initialization order about which device gets created first
+(at least the way network devices are done in 2.6).=20
 
-Thanks,
-Ben
+You should investigate if there are multiple devices present
+(ifconfig -a or ls /sys/class/net).  Perhaps one of the other drivers
+does not correctly handle the case of hardware not being present
+and leaves a ghost behind..
 
-
---- linux-2.6.9/drivers/net/e1000/e1000_main.c	2004-10-18 14:53:50.000000000 -0700
-+++ linux-2.6.9.p4s/drivers/net/e1000/e1000_main.c	2004-10-22 12:35:22.000000000 -0700
-@@ -1,4 +1,4 @@
--/*******************************************************************************
-+/** -*-linux-c -*- ***************************************************************
-
-
-    Copyright(c) 1999 - 2004 Intel Corporation. All rights reserved.
-@@ -120,7 +120,7 @@
-  static void e1000_setup_rctl(struct e1000_adapter *adapter);
-  static void e1000_clean_tx_ring(struct e1000_adapter *adapter);
-  static void e1000_clean_rx_ring(struct e1000_adapter *adapter);
--static void e1000_set_multi(struct net_device *netdev);
-+void e1000_set_multi(struct net_device *netdev);
-  static void e1000_update_phy_info(unsigned long data);
-  static void e1000_watchdog(unsigned long data);
-  static void e1000_82547_tx_fifo_stall(unsigned long data);
-@@ -499,6 +499,10 @@
-  	if(pci_using_dac)
-  		netdev->features |= NETIF_F_HIGHDMA;
-
-+	/* Has ability to receive all frames (even bad CRCs and such) */
-+	netdev->features |= NETIF_F_RX_ALL | NETIF_F_SAVE_CRC;
-+
-+	
-   	/* hard_start_xmit is safe against parallel locking */
-   	netdev->features |= NETIF_F_LLTX;
-
-@@ -1269,7 +1273,7 @@
-   * promiscuous mode, and all-multi behavior.
-   **/
-
--static void
-+void
-  e1000_set_multi(struct net_device *netdev)
-  {
-  	struct e1000_adapter *adapter = netdev->priv;
-@@ -1297,6 +1301,35 @@
-
-  	E1000_WRITE_REG(hw, RCTL, rctl);
-
-+
-+	/* This is useful for using ethereal or tcpdump to sniff
-+        * packets in promiscuous mode without stripping VLAN/priority
-+        * information, and also letting bad packets through.
-+        *
-+        * THIS IS NOT PRODUCTION CODE - FOR INTERNAL USE ONLY!!!
-+        *
-+        */
-+        if (netdev->priv_flags & IFF_ACCEPT_ALL_FRAMES) {
-+		uint32_t ctrl;
-+		/*printk("%s: Enabling acceptance of ALL frames (bad CRC too).\n",
-+		  netdev->name); */
-+		/* store bad packets, promisc/multicast all, no VLAN
-+		 * filter */
-+		rctl = E1000_READ_REG(hw, RCTL);
-+		rctl |= (E1000_RCTL_SBP | E1000_RCTL_UPE | E1000_RCTL_MPE);
-+		rctl &= ~(E1000_RCTL_VFE | E1000_RCTL_CFIEN);
-+		E1000_WRITE_REG(hw, RCTL, rctl);
-+		/* disable VLAN tagging/striping */
-+		ctrl = E1000_READ_REG(hw, CTRL);
-+		ctrl &= ~E1000_CTRL_VME;
-+		E1000_WRITE_REG(hw, CTRL, ctrl);
-+	}
-+	else {
-+		/* TODO:  Do we need a way to explicitly turn this off if it was
-+		 * previously enabled, or will it magically go back to normal??? --Ben
-+		 */
-+	}
-+	
-  	/* 82542 2.0 needs to be in reset to write receive address registers */
-
-  	if(hw->mac_type == e1000_82542_rev2_0)
-@@ -1493,6 +1526,7 @@
-  #define E1000_TX_FLAGS_CSUM		0x00000001
-  #define E1000_TX_FLAGS_VLAN		0x00000002
-  #define E1000_TX_FLAGS_TSO		0x00000004
-+#define E1000_TX_FLAGS_NO_FCS		0x00000008
-  #define E1000_TX_FLAGS_VLAN_MASK	0xffff0000
-  #define E1000_TX_FLAGS_VLAN_SHIFT	16
-
-@@ -1697,6 +1731,13 @@
-  		txd_upper |= (tx_flags & E1000_TX_FLAGS_VLAN_MASK);
-  	}
-
-+#ifdef CONFIG_SUPPORT_SEND_BAD_CRC
-+	if (unlikely(tx_flags & E1000_TX_FLAGS_NO_FCS)) {
-+		txd_lower &= ~(E1000_TXD_CMD_IFCS);
-+		/* printk("Disabling CRC in tx_queue, txd_lower: 0x%x\n", txd_lower); */
-+	}
-+#endif
-+	
-  	i = tx_ring->next_to_use;
-
-  	while(count--) {
-@@ -1711,6 +1752,14 @@
-
-  	tx_desc->lower.data |= cpu_to_le32(adapter->txd_cmd);
-
-+#ifdef CONFIG_SUPPORT_SEND_BAD_CRC
-+	/* txd_cmd re-enables FCS, so we'll re-disable it here as desired. */
-+	if (unlikely(tx_flags & E1000_TX_FLAGS_NO_FCS)) {
-+		tx_desc->lower.data &= ~(cpu_to_le32(E1000_TXD_CMD_IFCS));
-+		/* printk("Disabling2 CRC in tx_queue, txd_lower: 0x%x\n", tx_desc->lower.data); */
-+	}
-+#endif
-+	
-  	/* Force memory writes to complete before letting h/w
-  	 * know there are new descriptors to fetch.  (Only
-  	 * applicable for weak-ordered memory model archs,
-@@ -1849,6 +1898,12 @@
-  	else if(likely(e1000_tx_csum(adapter, skb)))
-  		tx_flags |= E1000_TX_FLAGS_CSUM;
-
-+#ifdef CONFIG_SUPPORT_SEND_BAD_CRC
-+	if (unlikely(skb->general_flags & DONT_DO_TX_CRC)) {
-+		tx_flags |= E1000_TX_FLAGS_NO_FCS;
-+	}
-+#endif	
-+
-  	e1000_tx_queue(adapter,
-  		e1000_tx_map(adapter, skb, first, max_per_txd, nr_frags, mss),
-  		tx_flags);
-@@ -2307,7 +2362,11 @@
-  			goto next_desc;
-  		}
-
--		if(unlikely(rx_desc->errors & E1000_RXD_ERR_FRAME_ERR_MASK)) {
-+		/* If we are accepting all frames, then do not pay attention to the
-+		 * framing errors.
-+		 */
-+ 		if (unlikely(rx_desc->errors & E1000_RXD_ERR_FRAME_ERR_MASK) &&
-+		    !(netdev->priv_flags & IFF_ACCEPT_ALL_FRAMES)) {
-  			last_byte = *(skb->data + length - 1);
-  			if(TBI_ACCEPT(&adapter->hw, rx_desc->status,
-  			              rx_desc->errors, length, last_byte)) {
-@@ -2325,7 +2384,12 @@
-  		}
-
-  		/* Good Receive */
--		skb_put(skb, length - ETHERNET_FCS_SIZE);
-+		if (netdev->priv_flags & IFF_SAVE_FCS) {
-+			skb_put(skb, length);
-+		}
-+		else {
-+			skb_put(skb, length - ETHERNET_FCS_SIZE);
-+		}
-
-  		/* Receive Checksum Offload */
-  		e1000_rx_checksum(adapter, rx_desc, skb);
---- linux-2.6.9/drivers/net/e1000/e1000_ethtool.c	2004-10-18 14:54:07.000000000 -0700
-+++ linux-2.6.9.p4s/drivers/net/e1000/e1000_ethtool.c	2004-10-22 12:14:24.000000000 -0700
-@@ -1,4 +1,4 @@
--/*******************************************************************************
-+/*** -*-linux-c-*- **************************************************************
-
-
-    Copyright(c) 1999 - 2004 Intel Corporation. All rights reserved.
-@@ -39,6 +39,7 @@
-  extern void e1000_down(struct e1000_adapter *adapter);
-  extern void e1000_reset(struct e1000_adapter *adapter);
-  extern int e1000_set_spd_dplx(struct e1000_adapter *adapter, uint16_t spddplx);
-+extern void e1000_set_multi(struct net_device *netdev);
-  extern int e1000_setup_rx_resources(struct e1000_adapter *adapter);
-  extern int e1000_setup_tx_resources(struct e1000_adapter *adapter);
-  extern void e1000_free_rx_resources(struct e1000_adapter *adapter);
-@@ -1612,6 +1613,58 @@
-  	}
-  }
-
-+static int e1000_ethtool_setrxall(struct net_device *netdev, uint32_t val) {
-+	unsigned short old_flags = netdev->priv_flags;
-+	if (val) {
-+		netdev->priv_flags |= IFF_ACCEPT_ALL_FRAMES;
-+	}
-+	else {
-+		netdev->priv_flags &= ~(IFF_ACCEPT_ALL_FRAMES);
-+	}
-+
-+	/* printk("e1000_ethtool_setrxall (%s) val: %d\n",
-+	   netdev->name, val); */
-+	if (old_flags != netdev->priv_flags) {
-+		spin_lock_bh(&netdev->xmit_lock);
-+		if (netif_running(netdev)) {
-+			/*printk("Kicking e1000 for setrxall..\n");*/
-+			e1000_set_multi(netdev);
-+		} else {
-+			/* Value will be flushed into the hardware when the device is
-+			 * brought up.
-+			 */
-+		}
-+		spin_unlock_bh(&netdev->xmit_lock);
-+	}
-+	return 0;
-+}
-+
-+static int e1000_ethtool_set_save_fcs(struct net_device *netdev, uint32_t val) {
-+	spin_lock_bh(&netdev->xmit_lock);
-+	if (val) {
-+		netdev->priv_flags |= IFF_SAVE_FCS;
-+	}
-+	else {
-+		netdev->priv_flags &= ~IFF_SAVE_FCS;
-+	}
-+	spin_unlock_bh(&netdev->xmit_lock);
-+	return 0;
-+}
-+
-+static int e1000_ethtool_get_save_fcs(struct net_device *netdev, uint32_t* val) {
-+	*val = !!(netdev->priv_flags & IFF_SAVE_FCS);
-+	/*printk("GETRXALL, data: %d  priv_flags: %hx\n",
-+	  edata.data, netdev->priv_flags);*/
-+	return 0;
-+}
-+
-+static int e1000_ethtool_getrxall(struct net_device *netdev, uint32_t* val) {
-+	*val = !!(netdev->priv_flags & IFF_ACCEPT_ALL_FRAMES);
-+	/*printk("GETRXALL, data: %d  priv_flags: %hx\n",
-+	  edata.data, netdev->priv_flags);*/
-+	return 0;
-+}		
-+
-  struct ethtool_ops e1000_ethtool_ops = {
-  	.get_settings           = e1000_get_settings,
-  	.set_settings           = e1000_set_settings,
-@@ -1647,6 +1700,10 @@
-  	.phys_id                = e1000_phys_id,
-  	.get_stats_count        = e1000_get_stats_count,
-  	.get_ethtool_stats      = e1000_get_ethtool_stats,
-+	.get_rx_all             = e1000_ethtool_getrxall,
-+	.set_rx_all             = e1000_ethtool_setrxall,
-+	.set_save_fcs           = e1000_ethtool_set_save_fcs,
-+	.get_save_fcs           = e1000_ethtool_get_save_fcs,
-  };
-
-  void set_ethtool_ops(struct net_device *netdev)
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+One way to find out would be to look at:
+	/sys/class/net/eth0/device/vendor
+	/sys/class/net/eth0/device/device
+	/sys/class/net/eth0/device/subsystem_vendor
+	/sys/class/net/eth0/device/subsystem_device
