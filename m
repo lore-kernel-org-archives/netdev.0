@@ -1,37 +1,63 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: [PATCH] [IPV6] reability improvement
-Date: Sat, 21 Aug 2004 01:34:34 +0900 (JST)
+From: Zhikui Chen <zhikui.chen@rus.uni-stuttgart.de>
+Subject: An issue on one network development.
+Date: Fri, 20 Aug 2004 19:17:57 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040821.013434.102361441.yoshfuji@linux-ipv6.org>
+Message-ID: <41263245.8050305@rus.uni-stuttgart.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
+To: netdev@oss.sgi.com, majordomo@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello.
+Dear all,
 
-D: Improve readability.
+HELP!
 
-Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+I am writing a DCCP code in Linux kernel 2.6.6,  I met a problem, which 
+bored me about two weeks. Hope you to give me some hints, thanks in 
+advance. The problem is on structure sock in dccp_lookup_listen of 
+dccp_lookup.
 
-===== net/ipv6/ip6_flowlabel.c 1.15 vs edited =====
---- 1.15/net/ipv6/ip6_flowlabel.c	2004-07-08 07:49:52 +09:00
-+++ edited/net/ipv6/ip6_flowlabel.c	2004-08-21 01:18:30 +09:00
-@@ -538,7 +538,8 @@
- 
- 		/* Do not check for fault */
- 		if (!freq.flr_label)
--			copy_to_user(optval + ((u8*)&freq.flr_label - (u8*)&freq), &fl->label, sizeof(fl->label));
-+			copy_to_user(&((struct in6_flowlabel_req __user *) optval)->flr_label,
-+				     &fl->label, sizeof(fl->label));
- 
- 		sfl1->fl = fl;
- 		sfl1->next = np->ipv6_fl_list;
+When dccp_rcv (similar to udp_rcv and TCP_*_rcv) called dccp_v4_lookup( 
+similar to TCP_v4_lookup),  the dccp_v4_lookup will call 
+dccp_v4_lookup_listen. Running is dead when the 7th line is implemented, 
+I checked, problem is from sk=__sk_head(head).  And I also checked the 
+printed value of __sk_head(head) is correct.
+The other way, I changed the first line as struct sock *sk; (remove 
+"=NULL"), running is dead here. I doubt the problem belongs to memory.
 
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+My dccp_v4_lookup is so that:
+static inline struct sock *dccp_v4_lookup_listen(u32 daddr, u16 
+dport,int dif)
+{
+   struct sock *sk = NULL;
+   struct hlist_head *head;
+
+  read_lock(&dccp_lhash_lock);
+ head = &dccp_hash[ntohs(dport) & (DCCP_HTABLE_SIZE - 1)];
+   if (!hlist_empty(head)) {
+       struct inet_opt *inet = inet_sk(sk  = __sk_head(head));
+
+       if (inet->num == ntohs(dport) && !(sk->sk_node.next &&
+           (!inet->rcv_saddr || inet->rcv_saddr == daddr) &&
+           (sk->sk_family == PF_INET || !ipv6_only_sock(sk)) &&
+           !sk->sk_bound_dev_if)
+           goto sherry_cache;
+   printk("dccp_v4_lookup_listen: sk:%x\n",(__sk_head(head)));
+       //sk = __dccp_v4_lookup_listen(head, daddr, ntohs(dport), dif);
+   }
+   if (sk) {
+sherry_cache:
+       sock_hold(sk);
+   }
+   read_unlock(&dccp_lhash_lock);
+   return (sk);
+
+}
+
+Best regards,
+
+Zhikui Chen
+In stuttgart university.
