@@ -1,48 +1,47 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: 2.6.0-test9 : bridge freezes
-Date: Mon, 15 Dec 2003 17:17:32 -0800
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031215171732.4877acd1.davem@redhat.com>
-References: <Pine.LNX.4.44.0312151304350.8670-200000@sorbus2.navaho>
+From: Chris Wright <chrisw@osdl.org>
+Subject: Re: [RFC] SO_PEERSEC - security credentials for Unix stream sockets
+Date: Mon, 15 Dec 2003 17:32:41 -0800
+Sender: linux-security-module-bounces@wirex.com
+Message-ID: <20031215173241.B14552@osdlab.pdx.osdl.net>
+References: <20031212161617.C24246@osdlab.pdx.osdl.net>
+	<Xine.LNX.4.44.0312122219530.4813-100000@thoron.boston.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Steve Hill <steve@navaho.co.uk>
-In-Reply-To: <Pine.LNX.4.44.0312151304350.8670-200000@sorbus2.navaho>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@redhat.com>, kuznet@ms2.inr.ac.ru,
+	linux-security-module@wirex.com,
+	Stephen Smalley <sds@epoch.ncsc.mil>, netdev@oss.sgi.com
+Return-path: <linux-security-module-bounces@wirex.com>
+To: James Morris <jmorris@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <Xine.LNX.4.44.0312122219530.4813-100000@thoron.boston.redhat.com>;
+	from jmorris@redhat.com on Fri, Dec 12, 2003 at 10:44:24PM -0500
+List-Unsubscribe: <http://mail.wirex.com/mailman/listinfo/linux-security-module>,
+	<mailto:linux-security-module-request@mail.wirex.com?subject=unsubscribe>
+List-Archive: <http://mail.immunix.com/pipermail/linux-security-module>
+List-Post: <mailto:linux-security-module@mail.wirex.com>
+List-Help: <mailto:linux-security-module-request@mail.wirex.com?subject=help>
+List-Subscribe: <http://mail.wirex.com/mailman/listinfo/linux-security-module>,
+	<mailto:linux-security-module-request@mail.wirex.com?subject=subscribe>
+Errors-To: linux-security-module-bounces@wirex.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 15 Dec 2003 13:15:44 +0000 (GMT)
-Steve Hill <steve@navaho.co.uk> wrote:
+* James Morris (jmorris@redhat.com) wrote:
+> I'm not sure how this would be a namespace issue -- do you mean a data 
+> format issue?
 
-> The memory that is leaking seems to be being allocated on line 299 on
-> net/bridge/br_netfilter.c:
+I just mean, applications are coded for specific security module.
+
+> Yep, allowing the security module to update the returned length is now
+> implemented.
 > 
->         if ((nf_bridge = nf_bridge_alloc(skb)) == NULL)
->                 return NF_DROP;
+> > Perhaps buffer is too small, can len be vector for that info?
 > 
-> Only the first fragment gets freed later on.
+> I would not advise updating len on error -- it's a bad idea in general to
+> interpret any returned data from failed syscalls except the error number.
 
-I see.
+Right, in some cases a NULL buffer or 0 buflen is a probe for size.
 
-> The patch attached fixes the problem by freeing nf_bridge when the 
-> packets are defragmented, however I am sure this is not the right place 
-> to do this.  Where would the skb's for the fragments usually get freed?
-> 
-> Bart De Schuymer suggested that they should be freed in 
-> skbuff.c::skb_release_data(), but having looked at this it seems to do 
-> this already.  skb_release_data() calls skb_drop_fraglist(), which does 
-> kfree_skb() on each fragment, and kfree_skb calls nf_bridge_put correctly 
-> so this isn't the problem.
-
-There must be something in particular that the IPV4 fragmentation code
-is doing that makes these fragment reference drops get forgotten.  Hmmm...
-
-I just noticed that both bridge netfilter and IPV4 fragmentation make much
-use of the skb->cb[] control block, this may be the true source of the
-troubles.
-
-In fact, since bridge netfilter expects pointers to be there, I'm surprised
-this does not cause a crash.
+thanks,
+-chris
+-- 
+Linux Security Modules     http://lsm.immunix.org     http://lsm.bkbits.net
