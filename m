@@ -1,30 +1,57 @@
-From: Steve Hill <steve@navaho.co.uk>
-Subject: Re: 2.6.0-test9 : bridge freezes
-Date: Tue, 16 Dec 2003 09:00:23 +0000 (GMT)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0312160859290.16778-100000@sorbus2.navaho>
-References: <200312160843.58992.bdschuym@pandora.be>
+From: James Morris <jmorris@redhat.com>
+Subject: Re: [RFC] SO_PEERSEC - security credentials for Unix stream sockets
+Date: Tue, 16 Dec 2003 08:19:44 -0500 (EST)
+Sender: linux-security-module-bounces@wirex.com
+Message-ID: <Xine.LNX.4.44.0312160816350.16300-100000@thoron.boston.redhat.com>
+References: <20031215173241.B14552@osdlab.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@redhat.com>, <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Bart De Schuymer <bdschuym@pandora.be>
-In-Reply-To: <200312160843.58992.bdschuym@pandora.be>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: "David S. Miller" <davem@redhat.com>, kuznet@ms2.inr.ac.ru,
+	linux-security-module@wirex.com,
+	Stephen Smalley <sds@epoch.ncsc.mil>, netdev@oss.sgi.com
+Return-path: <linux-security-module-bounces@wirex.com>
+To: Chris Wright <chrisw@osdl.org>
+In-Reply-To: <20031215173241.B14552@osdlab.pdx.osdl.net>
+List-Unsubscribe: <http://mail.wirex.com/mailman/listinfo/linux-security-module>,
+	<mailto:linux-security-module-request@mail.wirex.com?subject=unsubscribe>
+List-Archive: <http://mail.immunix.com/pipermail/linux-security-module>
+List-Post: <mailto:linux-security-module@mail.wirex.com>
+List-Help: <mailto:linux-security-module-request@mail.wirex.com?subject=help>
+List-Subscribe: <http://mail.wirex.com/mailman/listinfo/linux-security-module>,
+	<mailto:linux-security-module-request@mail.wirex.com?subject=subscribe>
+Errors-To: linux-security-module-bounces@wirex.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 16 Dec 2003, Bart De Schuymer wrote:
+On Mon, 15 Dec 2003, Chris Wright wrote:
 
-> Steve, does this patch fix things? Of course, first remove your code from
-> ip_fragment.c. I haven't tested this patch yet, this will have to wait
-> until this evening.
+> * James Morris (jmorris@redhat.com) wrote:
+> > I'm not sure how this would be a namespace issue -- do you mean a data 
+> > format issue?
+> 
+> I just mean, applications are coded for specific security module.
 
-No, it still leaks I'm afraid :(
+Applications which are security aware (i.e. only a few of them) will need 
+to know the semantics of the security model that they are interacting 
+with, so I'm not sure that namespace is going to be the biggest challenge.  
 
+A good way to handle this is to use external pluggable modules like PAM.
+
+> 
+> > Yep, allowing the security module to update the returned length is now
+> > implemented.
+> > 
+> > > Perhaps buffer is too small, can len be vector for that info?
+> > 
+> > I would not advise updating len on error -- it's a bad idea in general to
+> > interpret any returned data from failed syscalls except the error number.
+> 
+> Right, in some cases a NULL buffer or 0 buflen is a probe for size.
+
+It's not reliable: the required buffer size could change between calls.  
+Do you know of any examples of syscalls which do this?
+
+
+- James
 -- 
-
-- Steve Hill
-Senior Software Developer                        Email: steve@navaho.co.uk
-Navaho Technologies Ltd.                           Tel: +44-870-7034015
-
-        ... Alcohol and calculus don't mix - Don't drink and derive! ...
+James Morris
+<jmorris@redhat.com>
