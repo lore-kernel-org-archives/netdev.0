@@ -1,37 +1,42 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: Change proxy_arp to respond only for valid neighbours
-Date: Mon, 9 Feb 2004 13:30:56 +0200 (EET)
+From: <RAV@post.ott.idt.com>
+Subject: RAV AntiVirus scan results
+Date: Mon, 09 Feb 2004 07:02:18 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0402091329140.3176-100000@l>
-References: <Pine.LNX.4.44.0402090806040.11837-100000@netcore.fi>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Message-ID: <20040209120218.B626B1F0079@post.ott.idt.com>
+Cc: dan@solidum.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Pekka Savola <pekkas@netcore.fi>
-In-Reply-To: <Pine.LNX.4.44.0402090806040.11837-100000@netcore.fi>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-	Hello,
+RAV AntiVirus for NetBSD i386 version: 8.3.2 (snapshot-20020111)
+Copyright (c) 1996-2001 GeCAD The Software Company. All rights reserved.
+Registered version for 2 domain(s).
+Running on host: post.ott.idt.com
 
-On Mon, 9 Feb 2004, Pekka Savola wrote:
+-----------------------
+ RAV Antivirus results
+-----------------------
 
-> As this seems to make the proxy_arp more intelligent, maybe you should
-> take a look at:
->
-> http://www.ietf.org/internet-drafts/draft-thaler-ipv6-ndproxy-01.txt
->
-> (which, at the moment, specifies proxy arp/ND for both IPv4 and IPv6)
->
-> and see how close our implementation is wrt. to that spec, whether the
-> above spec is better or worse, or whether there may be room for
-> improvement otherwise as well?
+The infected file was saved to quarantine with name: 1076328136-RAV22478.
+The file (part0002:body.pif) attached to mail (with subject:Hi) sent by netdev@oss.sgi.com to dan@solidum.com, 
+is infected with virus: Win32/Mydoom.A@mm.
+Cannot clean this file.
+The file was successfully deleted by RAV AntiVirus.
+------------------------
+this is a copy of the e-mail header:
 
-	Thanks, I'll check it later today.
+Received: from gigabit.solidum.com (gigabit.solidum.com [207.35.224.241])
+Received: (from spamfilter@localhost)
 
-Regards
 
---
-Julian Anastasov <ja@ssi.bg>
+
+Scan engine 8.11 () for i386.
+Last update: Sat, 07 Feb 2004 22:02:25 -05
+Scanning for 89781 malwares (viruses, trojans and worms).
+
+To get a free 60-days evaluation version of RAV AntiVirus v8
+(yet fully functional) please visit:
+
+   http://www.ravantivirus.com
