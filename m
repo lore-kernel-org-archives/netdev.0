@@ -1,30 +1,40 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: net/sctp/sm_make_chunk.c alignment problems on parisc64
-Date: Fri, 12 Sep 2003 13:46:28 -0300
+From: Max Krasnyansky <maxk@qualcomm.com>
+Subject: Re: [RFT][PATCH] Convert bluetooth to dynamic net_device.
+Date: Fri, 12 Sep 2003 09:50:40 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030912164628.GF8713@conectiva.com.br>
+Message-ID: <5.1.0.14.2.20030912094654.061eb128@unixmail.qualcomm.com>
+References: <20030811224851.18d41430.davem@redhat.com>
+ <20030811115334.4bd4521a.shemminger@osdl.org>
+ <20030811115334.4bd4521a.shemminger@osdl.org> <5.1.0.14.2.20030812094908.08cca600@unixmail.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Networking Development Mailing List <netdev@oss.sgi.com>,
-   lksctp-developers@lists.sourceforge.net
+Content-Type: text/plain; charset="us-ascii"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Sridhar Samudrala <sri@us.ibm.com>
-Content-Disposition: inline
+To: "David S. Miller" <davem@redhat.com>,
+   Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <5.1.0.14.2.20030812094908.08cca600@unixmail.qualcomm.com>
+References: <20030811224851.18d41430.davem@redhat.com>
+ <20030811115334.4bd4521a.shemminger@osdl.org>
+ <20030811115334.4bd4521a.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Latest 2.6 bk tree, but I think this is hanging there for quite a while.
+At 09:49 AM 8/12/2003, Max Krasnyansky wrote:
+>At 10:48 PM 8/11/2003, David S. Miller wrote:
+>>On Mon, 11 Aug 2003 11:53:34 -0700
+>>Stephen Hemminger <shemminger@osdl.org> wrote:
+>>
+>>> Since the initialization code changed slightly, I would like to have
+>>> someone do a basic sanity test before it is merged.
+>>
+>>Ok, ping me when you believe this has occurred :-)
+>
+>I'll test this patch and let you guys know. So far it looks ok to me.
+I finally had a chance to test it. Works fine. 
+So I applied the patch to my tree. 
 
-CC [M]  net/sctp/sm_make_chunk.o
-{standard input}: Assembler messages:
-{standard input}:2386: Error: Field not properly aligned [8] (52).
-{standard input}:2386: Error: Invalid operands
-{standard input}:2398: Error: Field not properly aligned [8] (52).
-{standard input}:2398: Error: Invalid operands
-make[2]: *** [net/sctp/sm_make_chunk.o] Error 1
-make[1]: *** [net/sctp] Error 2
-make: *** [net] Error 2
+Dave, I'm going to send you a bunch of Bluetooth updates in next email.
+Those include above patch from Stephen.
 
-it happens in the sctp_pack_cookie function.
-
-- Arnaldo
+Thanks
+Max
