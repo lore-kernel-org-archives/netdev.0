@@ -1,37 +1,30 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [IPCOMP6] Fix ICMP type check
-Date: Thu, 22 Jul 2004 12:19:52 -0700
+Subject: Re: [INET] Create enum of ECN bits
+Date: Thu, 22 Jul 2004 12:22:38 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040722121952.407cc9c2.davem@redhat.com>
-References: <20040722113429.GA15083@gondor.apana.org.au>
-	<Pine.LNX.4.58.0407221025010.7557@devserv.devel.redhat.com>
+Message-ID: <20040722122238.6759b75b.davem@redhat.com>
+References: <20040722120021.GA18293@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@oss.sgi.com, xma@us.ibm.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: James Morris <jmorris@redhat.com>
-In-Reply-To: <Pine.LNX.4.58.0407221025010.7557@devserv.devel.redhat.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040722120021.GA18293@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 22 Jul 2004 10:25:24 -0400 (EDT)
-James Morris <jmorris@redhat.com> wrote:
+On Thu, 22 Jul 2004 22:00:21 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> On Thu, 22 Jul 2004, Herbert Xu wrote:
+> This patch is a preparation for an update of the ECN encap/decap
+> code with respect to RFC3168.
 > 
-> > It looks like IPCOMP was missed when the same problem was fixed in
-> > AH/ESP.
+> It creates an enum of the four code-points defined by RFC3168
+> and uses them throughout the inet_ecn.h file.
 > 
-> What about esp4/ah4/ipcomp?  They look wrong too.
+> The only non-trivial bit is in IP_ECN_set_ce/IP6_ECN_set_ce where
+> the patch uses INET_ECN_CE instead of 1.  This is OK as those
+> functions assume that the ECT bit is already set.
 
-Those are testing something else, and I believe their tests
-are correct.  They are saying:
-
-	if (type != X || code != Y)
-		return;
-
-in these cases Herbert is mentioning it is testing against multiple
-possible settings of just "type".
-
-Herbert, I'll apply your patch, thanks.
+Looks great, applied.
