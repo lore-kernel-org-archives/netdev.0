@@ -1,39 +1,38 @@
-From: Patrick McHardy <kaber@trash.net>
+From: Thomas Graf <tgraf@suug.ch>
 Subject: Re: iptables breakage WAS(Re: dummy as IMQ replacement
-Date: Fri, 25 Mar 2005 22:00:40 +0100
-Message-ID: <42447BF8.5090806@trash.net>
-References: <1107123123.8021.80.camel@jzny.localdomain>	 <423B7BCB.10400@dsl.pipex.com>	 <1111410890.1092.195.camel@jzny.localdomain>	 <423F41AD.3010902@dsl.pipex.com>	 <1111444869.1072.51.camel@jzny.localdomain>	 <423F71C2.8040802@dsl.pipex.com> <1111462263.1109.6.camel@jzny.localdomain>	 <42408998.5000202@dsl.pipex.com>	 <1111550254.1089.21.camel@jzny.localdomain>	 <4241C478.5030309@dsl.pipex.com>	 <1111607112.1072.48.camel@jzny.localdomain>	 <4241D764.2030306@dsl.pipex.com>	 <1111612042.1072.53.camel@jzny.localdomain>	 <4241F1D2.9050202@dsl.pipex.com>  <4241F7F0.2010403@dsl.pipex.com>	 <1111625608.1037.16.camel@jzny.localdomain> <424212F7.10106@dsl.pipex.com>	 <1111663947.1037.24.camel@jzny.localdomain>	 <1111665450.1037.27.camel@jzny.localdomain>	 <4242DFB5.9040802@dsl.pipex.com>	 <1111749220.1092.457.camel@jzny.localdomain>	 <42446DB2.9070809@dsl.pipex.com>	 <1111781443.1092.631.cam
+Date: Fri, 25 Mar 2005 22:01:02 +0100
+Message-ID: <20050325210102.GG3086@postel.suug.ch>
+References: <1111625608.1037.16.camel@jzny.localdomain> <424212F7.10106@dsl.pipex.com> <1111663947.1037.24.camel@jzny.localdomain> <1111665450.1037.27.camel@jzny.localdomain> <4242DFB5.9040802@dsl.pipex.com> <1111749220.1092.457.camel@jzny.localdomain> <42446DB2.9070809@dsl.pipex.com> <1111781443.1092.631.camel@jzny.localdomain> <20050325202014.GE3086@postel.suug.ch> <1111783686.1089.661.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: Andy Furniss <andy.furniss@dsl.pipex.com>,
-        Harald Welte <laforge@gnumonks.org>, Remus <rmocius@auste.elnet.lt>,
-        netdev <netdev@oss.sgi.com>, Nguyen Dinh Nam <nguyendinhnam@gmail.com>,
-        Andre Tomt <andre@tomt.net>, syrius.ml@no-log.org,
-        Damion de Soto <damion@snapgear.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1111784131.1090.668.camel@jzny.localdomain>
+        Harald Welte <laforge@gnumonks.org>, Patrick McHardy <kaber@trash.net>,
+        Remus <rmocius@auste.elnet.lt>, netdev <netdev@oss.sgi.com>,
+        Nguyen Dinh Nam <nguyendinhnam@gmail.com>, Andre Tomt <andre@tomt.net>,
+        syrius.ml@no-log.org, Damion de Soto <damion@snapgear.com>
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1111783686.1089.661.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> On Fri, 2005-03-25 at 15:39, Patrick McHardy wrote:
+* jamal <1111783686.1089.661.camel@jzny.localdomain> 2005-03-25 15:48
+> On Fri, 2005-03-25 at 15:20, Thomas Graf wrote:
 > 
+> > 7/10 because the meta ematch could make great use of this. Matching
+> > on netfilter meta data is in my local tree but I guess I won't
+> > have time to test everything in the next 2 weeks so it will probably
+> > be too late for 2.6.12.
 > 
->>Thinking again, is it really necessary? Please look at the problem
->>and patch Phil Oester just posted, I would prefer if we could keep
->>conntrack out of areas with queues :)
->>
-> 
-> 
-> But it is already there ;-> Recall you are already end up in the qdisc
-> queues today ;->
+> /me looks at Thomas ;-> Could you be convinced to do this so i can play
+> with my ipsec toy? ;->
 
-I asked Phil to send a new patch which drops the reference when
-the packet leaves IP. We can't make assumptions about the packets
-fate after that, and the problem with hanging conntrack unload
-really should get fixed once and for all.
+I can enqueue it to the following working queue, won't be dequeued
+for quite a while though.
+ resolve an open htb+gred issue
+ libqsearch thing + ematch
+ push meta ematch changes
+ libnl + netconfig release
 
-Regards
-Patrick
+If you want to see results soon, look for someone else. ;->
