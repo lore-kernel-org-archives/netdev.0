@@ -1,38 +1,36 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [RFC] moving the test for sockaddr->sa_family up
-Date: Mon, 17 Nov 2003 12:44:43 -0800
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH]: Adjust qlen when grafting in multiple qdiscs
+Date: Mon, 17 Nov 2003 22:10:31 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031117124443.7590c1d4.davem@redhat.com>
-References: <20031115212034.GA16326@conectiva.com.br>
-	<Xine.LNX.4.44.0311160855020.31201-100000@thoron.boston.redhat.com>
-	<20031116190757.GA18416@conectiva.com.br>
+Message-ID: <3FB93947.2090804@trash.net>
+References: <3FB3996A.6080008@trash.net> <1069076786.1075.19.camel@jzny.localdomain> <3FB8DDE0.1070105@trash.net> <1069081153.1022.20.camel@jzny.localdomain> <3FB8F3BF.6050509@trash.net> <1069090210.1022.64.camel@jzny.localdomain> <20031117163834.V1330@almesberger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jmorris@redhat.com, netdev@oss.sgi.com
+Cc: jamal <hadi@cyberus.ca>, "David S. Miller" <davem@redhat.com>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-In-Reply-To: <20031116190757.GA18416@conectiva.com.br>
+To: Werner Almesberger <werner@almesberger.net>
+In-Reply-To: <20031117163834.V1330@almesberger.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 16 Nov 2003 17:07:58 -0200
-Arnaldo Carvalho de Melo <acme@conectiva.com.br> wrote:
+Werner Almesberger wrote:
 
-> Em Sun, Nov 16, 2003 at 08:56:04AM -0500, James Morris escreveu:
-> > On Sat, 15 Nov 2003, Arnaldo Carvalho de Melo wrote:
-> > 
-> > > Does anybody see any problem with this simplification? Not for 2.6.0, of
-> > > course...
-> > 
-> > No, looks like a good idea.  Might be able to push address length 
-> > verification up there too.
-> 
-> Not really, look at the ax25 code... :-\ They have to support two address types,
-> if we want to keep this flexibility we can't check it at the upper layer,
-> does anybody here knows if we want or if we can ditch that thing in ax25? this:
+>Patrick, was the experiment "I've now verified experimentally the
+>problem also exists in dsmark" done with or without your
+>"sch->q.qlen -= (*old)->q.qlen;" patch ? This looks just like the
+>behaviour I'd expect your patch to fix, no ?
+>  
+>
+Correct, it was done without the patch and the patch is supposed to fix
+it. I'm going to send a new version which just sets q.qlen to 0 later.
 
-Right, this is the area where you need to be careful, where people
-need special semantics just like this ax25 case.
+Best regards,
+Patrick
 
-I'm %100 fine with the original cleanup for 2.6.1 or later.
+
+>- Werner
+>
+>  
+>
