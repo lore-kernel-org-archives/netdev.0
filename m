@@ -1,27 +1,24 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH PKT_SCHED 0/22]: tc action cleanups
-Date: Mon, 10 Jan 2005 13:45:53 -0800
-Message-ID: <20050110134553.63d57dd3.davem@davemloft.net>
-References: <41E2D97A.1060400@trash.net>
+Subject: Re: [RESEND 9/9] PKT_SCHED: Actions are now available for all
+ classifiers & Fix police Kconfig dependencies
+Date: Mon, 10 Jan 2005 13:56:46 -0800
+Message-ID: <20050110135646.59c5a46b.davem@davemloft.net>
+References: <20041230122652.GM32419@postel.suug.ch>
+	<20041230123617.GV32419@postel.suug.ch>
+	<20041231141721.GL32419@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, netdev@oss.sgi.com
+Cc: hadi@cyberus.ca, kaber@trash.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <41E2D97A.1060400@trash.net>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20041231141721.GL32419@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 10 Jan 2005 20:37:30 +0100
-Patrick McHardy <kaber@trash.net> wrote:
 
-> following are the reorganized tc action cleanup patches with some
-> additional fixes. Please review and comment, I would like to ask
-> Dave to pull them in soon so I don't get more clashes.
+Ok, all 9 patches are in my tree now Thomas.
+Thanks.
 
-Lots of activity in this area :-)  I'll try to put Thomas's tcf_exts
-patches in, then Patrick's on top.  I'll do merge conflict resolution
-as necessary but if it gets too hairy we'll need to work on redoing
-these patches.
+Let's now see how merging in Patrick's stuff goes.
