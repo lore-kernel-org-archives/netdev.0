@@ -1,82 +1,85 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] NETIF_F_LLTX for devices 2
-Date: 11 Sep 2004 16:15:32 -0400
+Subject: Re: [RFC] Extend netlink error codes
+Date: 11 Sep 2004 17:10:35 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1094933731.2343.109.camel@jzny.localdomain>
-References: <20040908065152.GC27886@wotan.suse.de>
-	 <E1C4wYe-0005qT-00@gondolin.me.apana.org.au>
-	 <20040908072408.GI27886@wotan.suse.de>
-	 <1094629677.1089.155.camel@jzny.localdomain>
-	 <20040908134713.1bcd46d3.davem@davemloft.net>
-	 <1094823215.1121.129.camel@jzny.localdomain>
-	 <20040911142116.GL4431@wotan.suse.de>
+Message-ID: <1094937035.2344.189.camel@jzny.localdomain>
+References: <20040910225158.GO20088@postel.suug.ch>
+	 <20040911155839.GN4431@wotan.suse.de>
+	 <20040911162433.GC21181@postel.suug.ch>
+	 <3A0D075D-0423-11D9-BBE1-000A95AD0668@errno.com>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, herbert@gondor.apana.org.au,
-        netdev@oss.sgi.com
+Cc: Thomas Graf <tgraf@suug.ch>, Andi Kleen <ak@suse.de>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <20040911142116.GL4431@wotan.suse.de>
+To: Sam Leffler <sam@errno.com>
+In-Reply-To: <3A0D075D-0423-11D9-BBE1-000A95AD0668@errno.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2004-09-11 at 10:21, Andi Kleen wrote:
-> On Fri, Sep 10, 2004 at 09:33:35AM -0400, jamal wrote:
-
-> > 
-> > I am not 100% happy but let me do some testing on it. Would the best
-> > image be the latest bk snapshot?
+On Sat, 2004-09-11 at 14:48, Sam Leffler wrote:
+> On Sep 11, 2004, at 9:24 AM, Thomas Graf wrote:
 > 
-> What exactly are you not happy about?
-> 
+> > * Andi Kleen <20040911155839.GN4431@wotan.suse.de> 2004-09-11 17:58
+> >> IMHO it would be far better to just pass text errors
+> >> in a variable length packet back.  It's a bit plan9ish,
+> >> but it would work nicely here and be a bit improvement
+> >> (especially for the qdiscs)
+> >
+> > I had the same idea and the only good way to do so would
+> > be to add a char * errbuf or alike to struct netlink_opt
+> > and access it via skb.sk.sk_protinfo.
+> >
+> > The bad side is that the for example cls and sch api don't
+> > provide the skb to the implementing modules and therefore
+> > they can't access the error buffer. I don't want to change
+> > all netlink users because of this.
+> >
+> > Changing all paths back to netlink_ack to provide a struct
+> > containing the errno and an additional text error buffer is
+> > no option for me either.
+> >
+> > Correct me if I'm wrong.
+> >
 
-Grr, Andi, Did you really have to force me to explain why i am unhappy?
-As a general principle i  think it is against human nature to be happy. 
-In this specific case, though:
-Remember that famous movie breakup line "its just me not you"? 
-Well, this is along those lines;-> I am not as conservative as say
-Donald Becker, but it worries me messing with code that might have
-repurcassions (as innocent as that code seems). It doesnt help that
-recently theres more breakages in the netsched code than there have been
-in the last few years put together.
-If Alexey(who knows that piece of code better than anybody) was awake
-and he ACKed i wouldnt be commenting. 
+just reuse skb->cb[] and intepret it in rtnetlink in the case of
+failures.
 
-Having said that, when i saw your patch with the comment:
-/* 	hard_start_xmit returns: 
- 	0  device not ready
- 	1  everything ok
- 	-1 didn't get device lock (for LLTX)
-*/
+> A technique used for mbuf packet tags in FreeBSD is to define a 32-bit 
+> cookie that uniquely identifies a module or ABI code and concatenate 
+> this with the 16-bit tag number.  The ABI code is defined as the 
+> date+time that the module is created, expressed as the number of 
+> seconds since the epoch (e.g. the output of date -u +'%s').  Tag 
+> numbers are meaningful only within the context of the module/ABI.  A 
+> default/compatibility cookie is used for compatibility with previously 
+> defined tag values.  This scheme effectively distributes management of 
+> tags (so far there have been no collisions).
 
-my mythical level of unhapiness went up;-> 
-Clearly for 0 and 1 your comments are misleading/wrong (even though your
-code does the right thing).
+This sounds similar to the skb tags of different sorts that exist.
+It does however bring out a good point into the discussion.
+I think we need to identify errors by IDs - dont think we can avoid
+that. The IDs could be the T in TLV; their scope is per socket level (eg
+at rtnetlink); This means there are 16 bits space per socket type.
+The next level to addressing is at each submodule level eg qdisc,
+ipv4route, etc. Assuming we have 8 bits there that leaves upto 8 bits
+per submodule for different error types. 256 error codes per submodule
+liek a qdisc sounds very reasonable to me. We could reserve the last
+entry for future extensions. Example:
 
-If i was the one who had thought of the need for this new lock-riddance
-then i would have done it as follows:
-- have a devices xmit_lock as an alias to this other lock in case of
-NETIF_F_LLTX 
-Then you wouldnt have to touch this code. Infact if it is not too late
-why not do it like that?
+socket: rtnetlink
+submodule: qdisc (module 1)
+error id: Q_NASTYTHING which is 0x10
+qdisc_errors[Q_NASTYTHING] is "something really nasty just happened"
 
-To add to all this, theres well known semantics of what the return code
-means:
+Then T = 0x110
+L length(qdisc_errors[Q_NASTYTHING])
+V = qdisc_errors[Q_NASTYTHING]
 
--> 0 means the packet was swallowed by driver.
--> 1 means packet was not swallowed.
+BTW, there was someone from IBM a while back who was talking about
+having drivers send error messages via netlink; someone needs to look at
+the ideas they have maybe we can borrow something.
 
-I dont know why you would need to introduce a new return code. 
-All the device is saying is "sorry, I am busy, come back later". Infact
-in the pre-softnet days the flag was called precisely "tbusy".
-Now, it would make a lot of sense to introduce new return code if you
-actually have plans to use it. You probably do but havent stated it. Do
-you have plans to use that return code?
-
-Does that explain my unhappiness? ;-> Does that make you happy? ;->
-Now i need to refill my coffee.
 
 cheers,
 jamal
