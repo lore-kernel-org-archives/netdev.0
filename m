@@ -1,409 +1,587 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: 2.6.x wanXL driver update
-Date: Mon, 08 Mar 2004 01:00:09 +0100
+From: Russell King <rmk+pcmcia@arm.linux.org.uk>
+Subject: [PATCH] 2.6 PCMCIA netdevice ordering issues
+Date: Mon, 8 Mar 2004 00:47:05 +0000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <m3llmc6wdy.fsf@defiant.pm.waw.pl>
+Message-ID: <20040308004705.D7065@flint.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-=-="
-Cc: <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+To: linux-pcmcia@lists.infradead.org, netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---=-=-=
+This is an *untested* patch (PCMCIA people, please test) to fix
+initialisation ordering issues in these network device drivers.
+I don't have the hardware to be able to test these changes, although
+it passes a modular build without warnings.
 
-Hi,
+Andrew - it may be worth sticking these in -mm so they get some
+visibility via your tree as well.
 
-The attached patch updates wanXL card driver. Please apply to Linux 2.6.
-Thanks.
+Many of these drivers were calling register_netdev() before they had
+completed their initialisation.
 
-Changes:
-* fixed initialization kernel panic, introduced with recent alloc_netdev()
-  wan patch,
-* wanxl_rx_intr() port# now checked before accessing port structure,
-* cleanups etc.
--- 
-Krzysztof Halasa, B*FH
+In addition, they were calling register_netdev with the
+"DEV_CONFIG_PENDING" flag still set, which prevents hotplug scripts
+from bringing up the interface.
 
---=-=-=
-Content-Type: text/x-patch
-Content-Disposition: inline; filename=wanxl-2.6.4rc2.patch
+Also, we take care to ensure that link->dev is correctly set - this
+is used to tell the PCMCIA release code if the netdev is currently
+registered (yes, that's probably racy at present, but lets sort one
+problem at a time.)
 
---- linux/drivers/net/wan/wanxl.c	26 Feb 2004 16:26:48 -0000	1.5
-+++ linux/drivers/net/wan/wanxl.c	7 Mar 2004 21:50:38 -0000
-@@ -31,7 +31,7 @@
+I've arranged that all drivers register the netdevice as close as
+possible to the end of their initialisation, copy the net device's
+name for cardmgr to pass to it's network scripts, and then print out
+whatever information the driver wants to.
+
+Finally, a note about ibmtr - it seemed to assume that cardmgr wanted
+"tr0" or "tr1" depending on the base address, and completely ignoring
+the real device which the netdev layer allocated it.  I've assumed
+that this is wrong (since the netdev name is used in printk messages),
+and changed it to behave the same as the other drivers.
+
+diff -urpN orig/drivers/net/pcmcia/3c574_cs.c linux/drivers/net/pcmcia/3c574_cs.c
+--- orig/drivers/net/pcmcia/3c574_cs.c	Wed Feb 18 22:34:14 2004
++++ linux/drivers/net/pcmcia/3c574_cs.c	Mon Mar  8 00:31:46 2004
+@@ -384,6 +384,8 @@ static void tc574_detach(dev_link_t *lin
+ #define CS_CHECK(fn, ret) \
+   do { last_fn = (fn); if ((last_ret = (ret)) != 0) goto cs_failed; } while (0)
  
- #include "wanxl.h"
- 
--static const char* version = "wanXL serial card driver version: 0.47";
-+static const char* version = "wanXL serial card driver version: 0.48";
- 
- #define PLX_CTL_RESET   0x40000000 /* adapter reset */
- 
-@@ -73,12 +73,11 @@
- 
- 	u8 *plx;		/* PLX PCI9060 virtual base address */
- 	struct pci_dev *pdev;	/* for pdev->slot_name */
--	port_t *ports[4];
- 	int rx_in;
- 	struct sk_buff *rx_skbs[RX_QUEUE_LENGTH];
- 	card_status_t *status;	/* shared between host and card */
- 	dma_addr_t status_address;
--	port_t __ports[0];
-+	port_t ports[0];	/* 1 - 4 port_t structures follow */
- }card_t;
- 
- 
-@@ -89,18 +88,6 @@
- }
- 
- 
--static inline struct net_device *port_to_dev(port_t* port)
--{
--        return port->dev;
--}
--
--
--static inline const char* port_name(port_t *port)
--{
--	return port_to_dev(port)->name;
--}
--
--
- static inline const char* card_name(struct pci_dev *pdev)
- {
- 	return pdev->slot_name;
-@@ -165,9 +152,9 @@
- 		dte = (value & STATUS_CABLE_DCE) ? " DCE" : " DTE";
- 	}
- 	printk(KERN_INFO "%s: %s%s module, %s cable%s%s\n",
--	       port_name(port), pm, dte, cable, dsr, dcd);
-+	       port->dev->name, pm, dte, cable, dsr, dcd);
- 
--	hdlc_set_carrier(value & STATUS_CABLE_DCD, port_to_dev(port));
-+	hdlc_set_carrier(value & STATUS_CABLE_DCD, port->dev);
- }
- 
- 
-@@ -175,7 +162,7 @@
- /* Transmit complete interrupt service */
- static inline void wanxl_tx_intr(port_t *port)
- {
--	struct net_device *dev = port_to_dev(port);
-+	struct net_device *dev = port->dev;
- 	struct net_device_stats *stats = hdlc_stats(dev);
- 	while (1) {
-                 desc_t *desc = &get_status(port)->tx_descs[port->tx_in];
-@@ -210,47 +197,49 @@
- static inline void wanxl_rx_intr(card_t *card)
- {
- 	desc_t *desc;
--	while(desc = &card->status->rx_descs[card->rx_in],
--	      desc->stat != PACKET_EMPTY) {
--		struct sk_buff *skb = card->rx_skbs[card->rx_in];
--		port_t *port = card->ports[desc->stat & PACKET_PORT_MASK];
--		struct net_device *dev = port_to_dev(port);
--		struct net_device_stats *stats = hdlc_stats(dev);
--
-+	while (desc = &card->status->rx_descs[card->rx_in],
-+	       desc->stat != PACKET_EMPTY) {
- 		if ((desc->stat & PACKET_PORT_MASK) > card->n_ports)
- 			printk(KERN_CRIT "wanXL %s: received packet for"
- 			       " nonexistent port\n", card_name(card->pdev));
--
--		else if (!skb)
--			stats->rx_dropped++;
--
- 		else {
--			pci_unmap_single(card->pdev, desc->address,
--					 BUFFER_LENGTH, PCI_DMA_FROMDEVICE);
--			skb_put(skb, desc->length);
-+			struct sk_buff *skb = card->rx_skbs[card->rx_in];
-+			port_t *port = &card->ports[desc->stat &
-+						    PACKET_PORT_MASK];
-+			struct net_device *dev = port->dev;
-+			struct net_device_stats *stats = hdlc_stats(dev);
++static char *ram_split[] = {"5:3", "3:1", "1:1", "3:5"};
 +
-+			if (!skb)
-+				stats->rx_dropped++;
-+			else {
-+				pci_unmap_single(card->pdev, desc->address,
-+						 BUFFER_LENGTH,
-+						 PCI_DMA_FROMDEVICE);
-+				skb_put(skb, desc->length);
+ static void tc574_config(dev_link_t *link)
+ {
+ 	client_handle_t handle = link->handle;
+@@ -396,6 +398,7 @@ static void tc574_config(dev_link_t *lin
+ 	ioaddr_t ioaddr;
+ 	u16 *phys_addr;
+ 	char *cardname;
++	union wn3_config config;
  
- #ifdef DEBUG_PKT
--			printk(KERN_DEBUG "%s RX(%i):", port_name(port),
--			       skb->len);
--			debug_frame(skb);
-+				printk(KERN_DEBUG "%s RX(%i):", dev->name,
-+				       skb->len);
-+				debug_frame(skb);
- #endif
--			stats->rx_packets++;
--			stats->rx_bytes += skb->len;
--			skb->mac.raw = skb->data;
--			skb->dev = dev;
--			dev->last_rx = jiffies;
--			skb->protocol = hdlc_type_trans(skb, dev);
--			netif_rx(skb);
--			skb = NULL;
--		}
+ 	phys_addr = (u16 *)dev->dev_addr;
+ 
+@@ -431,15 +434,7 @@ static void tc574_config(dev_link_t *lin
+ 	dev->irq = link->irq.AssignedIRQ;
+ 	dev->base_addr = link->io.BasePort1;
+ 
+-	if (register_netdev(dev) != 0) {
+-		printk(KERN_NOTICE "3c574_cs: register_netdev() failed\n");
+-		goto failed;
+-	}
 -
--		if (!skb) {
--			skb = dev_alloc_skb(BUFFER_LENGTH);
--			desc->address = skb ?
--				pci_map_single(card->pdev, skb->data,
--					       BUFFER_LENGTH,
--					       PCI_DMA_FROMDEVICE) : 0;
--			card->rx_skbs[card->rx_in] = skb;
-+				stats->rx_packets++;
-+				stats->rx_bytes += skb->len;
-+				skb->mac.raw = skb->data;
-+				skb->dev = dev;
-+				dev->last_rx = jiffies;
-+				skb->protocol = hdlc_type_trans(skb, dev);
-+				netif_rx(skb);
-+				skb = NULL;
-+			}
+ 	ioaddr = dev->base_addr;
+-	strcpy(lp->node.dev_name, dev->name);
+-	link->dev = &lp->node;
+-	link->state &= ~DEV_CONFIG_PENDING;
+ 
+ 	/* The 3c574 normally uses an EEPROM for configuration info, including
+ 	   the hardware address.  The future products may include a modem chip
+@@ -467,24 +462,14 @@ static void tc574_config(dev_link_t *lin
+ 	} else
+ 		cardname = "3Com 3c574";
+ 
+-	printk(KERN_INFO "%s: %s at io %#3lx, irq %d, hw_addr ",
+-		   dev->name, cardname, dev->base_addr, dev->irq);
+-
+-	for (i = 0; i < 6; i++)
+-		printk("%02X%s", dev->dev_addr[i], ((i<5) ? ":" : ".\n"));
+-
+ 	{
+-		u_char mcr, *ram_split[] = {"5:3", "3:1", "1:1", "3:5"};
+-		union wn3_config config;
++		u_char mcr;
+ 		outw(2<<11, ioaddr + RunnerRdCtrl);
+ 		mcr = inb(ioaddr + 2);
+ 		outw(0<<11, ioaddr + RunnerRdCtrl);
+ 		printk(KERN_INFO "  ASIC rev %d,", mcr>>3);
+ 		EL3WINDOW(3);
+ 		config.i = inl(ioaddr + Wn3_Config);
+-		printk(" %dK FIFO split %s Rx:Tx, %sMII interface.\n",
+-			   8 << config.u.ram_size, ram_split[config.u.ram_split],
+-			   config.u.autoselect ? "autoselect " : "");
+ 		lp->default_media = config.u.xcvr;
+ 		lp->autoselect = config.u.autoselect;
+ 	}
+@@ -531,6 +516,25 @@ static void tc574_config(dev_link_t *lin
+ 		}
+ 	}
+ 
++	link->state &= ~DEV_CONFIG_PENDING;
++	link->dev = &lp->node;
 +
-+			if (!skb) {
-+				skb = dev_alloc_skb(BUFFER_LENGTH);
-+				desc->address = skb ?
-+					pci_map_single(card->pdev, skb->data,
-+						       BUFFER_LENGTH,
-+						       PCI_DMA_FROMDEVICE) : 0;
-+				card->rx_skbs[card->rx_in] = skb;
-+			}
- 		}
- 		desc->stat = PACKET_EMPTY; /* Free descriptor */
- 		card->rx_in = (card->rx_in + 1) % RX_QUEUE_LENGTH;
-@@ -273,9 +262,9 @@
- 
-                 for (i = 0; i < card->n_ports; i++) {
- 			if (stat & (1 << (DOORBELL_FROM_CARD_TX_0 + i)))
--				wanxl_tx_intr(card->ports[i]);
-+				wanxl_tx_intr(&card->ports[i]);
- 			if (stat & (1 << (DOORBELL_FROM_CARD_CABLE_0 + i)))
--				wanxl_cable_intr(card->ports[i]);
-+				wanxl_cable_intr(&card->ports[i]);
- 		}
- 		if (stat & (1 << DOORBELL_FROM_CARD_RX))
- 			wanxl_rx_intr(card);
-@@ -297,8 +286,7 @@
-         if (desc->stat != PACKET_EMPTY) {
-                 /* should never happen - previous xmit should stop queue */
- #ifdef DEBUG_PKT
--                printk(KERN_DEBUG "%s: transmitter buffer full\n",
--		       port_name(port));
-+                printk(KERN_DEBUG "%s: transmitter buffer full\n", dev->name);
- #endif
- 		netif_stop_queue(dev);
- 		spin_unlock_irq(&port->lock);
-@@ -306,7 +294,7 @@
- 	}
- 
- #ifdef DEBUG_PKT
--	printk(KERN_DEBUG "%s TX(%i):", port_name(port), skb->len);
-+	printk(KERN_DEBUG "%s TX(%i):", dev->name, skb->len);
- 	debug_frame(skb);
- #endif
- 
-@@ -324,8 +312,7 @@
- 	if (get_status(port)->tx_descs[port->tx_out].stat != PACKET_EMPTY) {
- 		netif_stop_queue(dev);
- #ifdef DEBUG_PKT
--		printk(KERN_DEBUG "%s: transmitter buffer full\n",
--		       port_name(port));
-+		printk(KERN_DEBUG "%s: transmitter buffer full\n", dev->name);
- #endif
- 	}
- 
-@@ -417,7 +404,7 @@
- 	int i;
- 
- 	if (get_status(port)->open) {
--		printk(KERN_ERR "%s: port already open\n", port_name(port));
-+		printk(KERN_ERR "%s: port already open\n", dev->name);
- 		return -EIO;
- 	}
- 	if ((i = hdlc_open(dev)) != 0)
-@@ -435,7 +422,7 @@
- 			return 0;
- 	while (time_after(timeout, jiffies));
- 
--	printk(KERN_ERR "%s: unable to open port\n", port_name(port));
-+	printk(KERN_ERR "%s: unable to open port\n", dev->name);
- 	/* ask the card to close the port, should it be still alive */
- 	writel(1 << (DOORBELL_TO_CARD_CLOSE_0 + port->node), dbr);
- 	return -EFAULT;
-@@ -461,7 +448,7 @@
- 	while (time_after(timeout, jiffies));
- 
- 	if (get_status(port)->open)
--		printk(KERN_ERR "%s: unable to close port\n", port_name(port));
-+		printk(KERN_ERR "%s: unable to close port\n", dev->name);
- 
- 	for (i = 0; i < TX_BUFFERS; i++) {
- 		desc_t *desc = &get_status(port)->tx_descs[i];
-@@ -528,11 +515,10 @@
- 	card_t *card = pci_get_drvdata(pdev);
- 	int i;
- 
--	for (i = 0; i < 4; i++)
--		if (card->ports[i]) {
--			struct net_device *dev = port_to_dev(card->ports[i]);
--			unregister_hdlc_device(dev);
--		}
-+	for (i = 0; i < card->n_ports; i++) {
-+		unregister_hdlc_device(card->ports[i].dev);
-+		free_netdev(card->ports[i].dev);
++	if (register_netdev(dev) != 0) {
++		printk(KERN_NOTICE "3c574_cs: register_netdev() failed\n");
++		link->dev = NULL;
++		goto failed;
 +	}
++
++	strcpy(lp->node.dev_name, dev->name);
++
++	printk(KERN_INFO "%s: %s at io %#3lx, irq %d, hw_addr ",
++		   dev->name, cardname, dev->base_addr, dev->irq);
++	for (i = 0; i < 6; i++)
++		printk("%02X%s", dev->dev_addr[i], ((i<5) ? ":" : ".\n"));
++	printk(" %dK FIFO split %s Rx:Tx, %sMII interface.\n",
++		   8 << config.u.ram_size, ram_split[config.u.ram_split],
++		   config.u.autoselect ? "autoselect " : "");
++
+ 	return;
  
- 	/* unregister and free all host resources */
- 	if (card->irq)
-@@ -555,13 +541,10 @@
- 		pci_free_consistent(pdev, sizeof(card_status_t),
- 				    card->status, card->status_address);
+ cs_failed:
+diff -urpN orig/drivers/net/pcmcia/3c589_cs.c linux/drivers/net/pcmcia/3c589_cs.c
+--- orig/drivers/net/pcmcia/3c589_cs.c	Wed Feb 18 22:34:14 2004
++++ linux/drivers/net/pcmcia/3c589_cs.c	Mon Mar  8 00:09:45 2004
+@@ -308,7 +308,7 @@ static void tc589_config(dev_link_t *lin
+     tuple_t tuple;
+     cisparse_t parse;
+     u16 buf[32], *phys_addr;
+-    int last_fn, last_ret, i, j, multi = 0;
++    int last_fn, last_ret, i, j, multi = 0, fifo;
+     ioaddr_t ioaddr;
+     char *ram_split[] = {"5:3", "3:1", "1:1", "3:5"};
+     
+@@ -357,11 +357,6 @@ static void tc589_config(dev_link_t *lin
+ 	
+     dev->irq = link->irq.AssignedIRQ;
+     dev->base_addr = link->io.BasePort1;
+-    if (register_netdev(dev) != 0) {
+-	printk(KERN_ERR "3c589_cs: register_netdev() failed\n");
+-	goto failed;
+-    }
+-    
+     ioaddr = dev->base_addr;
+     EL3WINDOW(0);
  
--	for (i = 0; i < card->n_ports; i++)
--		if (card->__ports[i].dev)
--			free_netdev(card->__ports[i].dev);
--
-+	pci_release_regions(pdev);
-+	pci_disable_device(pdev);
- 	pci_set_drvdata(pdev, NULL);
- 	kfree(card);
--	pci_release_regions(pdev);
- }
- 
- 
-@@ -599,13 +582,15 @@
- 	   work on most platforms */
- 	if (pci_set_consistent_dma_mask(pdev, 0x0FFFFFFF) ||
- 	    pci_set_dma_mask(pdev, 0x0FFFFFFF)) {
--		printk(KERN_ERR "No usable DMA configuration\n");
-+		printk(KERN_ERR "wanXL: No usable DMA configuration\n");
- 		return -EIO;
+@@ -382,13 +377,10 @@ static void tc589_config(dev_link_t *lin
  	}
+     }
  
- 	i = pci_request_regions(pdev, "wanXL");
--	if (i)
-+	if (i) {
-+		pci_disable_device(pdev);
- 		return i;
-+	}
+-    strcpy(lp->node.dev_name, dev->name);
+-    link->dev = &lp->node;
+-    link->state &= ~DEV_CONFIG_PENDING;
+-    
+     /* The address and resource configuration register aren't loaded from
+        the EEPROM and *must* be set to 0 and IRQ3 for the PCMCIA version. */
+     outw(0x3f00, ioaddr + 8);
++    fifo = inl(ioaddr);
  
- 	switch (pdev->device) {
- 	case PCI_DEVICE_ID_SBE_WANXL100: ports = 1; break;
-@@ -619,23 +604,13 @@
- 		printk(KERN_ERR "wanXL %s: unable to allocate memory\n",
- 		       card_name(pdev));
- 		pci_release_regions(pdev);
-+		pci_disable_device(pdev);
- 		return -ENOBUFS;
- 	}
- 	memset(card, 0, alloc_size);
+     /* The if_port symbol can be set when the module is loaded */
+     if ((if_port >= 0) && (if_port <= 3))
+@@ -396,14 +388,24 @@ static void tc589_config(dev_link_t *lin
+     else
+ 	printk(KERN_ERR "3c589_cs: invalid if_port requested\n");
+     
++    link->dev = &lp->node;
++    link->state &= ~DEV_CONFIG_PENDING;
++
++    if (register_netdev(dev) != 0) {
++	printk(KERN_ERR "3c589_cs: register_netdev() failed\n");
++	link->dev = NULL;
++	goto failed;
++    }
++    
++    strcpy(lp->node.dev_name, dev->name);
++    
+     printk(KERN_INFO "%s: 3Com 3c%s, io %#3lx, irq %d, hw_addr ",
+ 	   dev->name, (multi ? "562" : "589"), dev->base_addr,
+ 	   dev->irq);
+     for (i = 0; i < 6; i++)
+ 	printk("%02X%s", dev->dev_addr[i], ((i<5) ? ":" : "\n"));
+-    i = inl(ioaddr);
+     printk(KERN_INFO "  %dK FIFO split %s Rx:Tx, %s xcvr\n",
+-	   (i & 7) ? 32 : 8, ram_split[(i >> 16) & 3],
++	   (fifo & 7) ? 32 : 8, ram_split[(fifo >> 16) & 3],
+ 	   if_names[dev->if_port]);
+     return;
  
- 	pci_set_drvdata(pdev, card);
- 	card->pdev = pdev;
--	card->n_ports = ports;
+diff -urpN orig/drivers/net/pcmcia/axnet_cs.c linux/drivers/net/pcmcia/axnet_cs.c
+--- orig/drivers/net/pcmcia/axnet_cs.c	Wed Feb 18 22:34:15 2004
++++ linux/drivers/net/pcmcia/axnet_cs.c	Mon Mar  8 00:10:15 2004
+@@ -430,19 +430,11 @@ static void axnet_config(dev_link_t *lin
+     ei_status.block_input = &block_input;
+     ei_status.block_output = &block_output;
+ 
+-    strcpy(info->node.dev_name, dev->name);
 -
--	for (i = 0; i < ports; i++) {
--		card->__ports[i].dev = alloc_hdlcdev(&card->__ports[i]);
--		if (!card->__ports[i].dev) {
--			printk(KERN_ERR "wanXL %s: unable to allocate memory\n",
--			       card_name(pdev));
--			wanxl_pci_remove_one(pdev);
--			return -ENOMEM;
--		}
+     if (inb(dev->base_addr + AXNET_TEST) != 0)
+ 	info->flags |= IS_AX88790;
+     else
+ 	info->flags |= IS_AX88190;
+ 
+-    printk(KERN_INFO "%s: Asix AX88%d90: io %#3lx, irq %d, hw_addr ",
+-	   dev->name, ((info->flags & IS_AX88790) ? 7 : 1),
+-	   dev->base_addr, dev->irq);
+-    for (i = 0; i < 6; i++)
+-	printk("%02X%s", dev->dev_addr[i], ((i<5) ? ":" : "\n"));
+-
+     if (info->flags & IS_AX88790)
+ 	outb(0x10, dev->base_addr + AXNET_GPIO);  /* select Internal PHY */
+ 
+@@ -463,19 +455,27 @@ static void axnet_config(dev_link_t *lin
+     }
+ 
+     info->phy_id = (i < 32) ? i : -1;
+-    if (i < 32) {
+-	DEBUG(0, "  MII transceiver at index %d, status %x.\n", i, j);
+-    } else {
+-	printk(KERN_NOTICE "  No MII transceivers found!\n");
+-    }
++    link->dev = &info->node;
++    link->state &= ~DEV_CONFIG_PENDING;
+ 
+     if (register_netdev(dev) != 0) {
+ 	printk(KERN_NOTICE "axnet_cs: register_netdev() failed\n");
++	link->dev = NULL;
+ 	goto failed;
+     }
+ 
+-    link->dev = &info->node;
+-    link->state &= ~DEV_CONFIG_PENDING;
++    strcpy(info->node.dev_name, dev->name);
++
++    printk(KERN_INFO "%s: Asix AX88%d90: io %#3lx, irq %d, hw_addr ",
++	   dev->name, ((info->flags & IS_AX88790) ? 7 : 1),
++	   dev->base_addr, dev->irq);
++    for (i = 0; i < 6; i++)
++	printk("%02X%s", dev->dev_addr[i], ((i<5) ? ":" : "\n"));
++    if (info->phy_id != -1) {
++	DEBUG(0, "  MII transceiver at index %d, status %x.\n", info->phy_id, j);
++    } else {
++	printk(KERN_NOTICE "  No MII transceivers found!\n");
++    }
+     return;
+ 
+ cs_failed:
+diff -urpN orig/drivers/net/pcmcia/com20020_cs.c linux/drivers/net/pcmcia/com20020_cs.c
+--- orig/drivers/net/pcmcia/com20020_cs.c	Wed Feb 18 22:34:15 2004
++++ linux/drivers/net/pcmcia/com20020_cs.c	Mon Mar  8 00:19:18 2004
+@@ -141,7 +141,6 @@ static dev_link_t *dev_list;
+ 
+ typedef struct com20020_dev_t {
+     struct net_device       *dev;
+-    int dev_configured;
+     dev_node_t          node;
+ } com20020_dev_t;
+ 
+@@ -277,13 +276,10 @@ static void com20020_detach(dev_link_t *
+ 	dev = info->dev;
+ 	if (dev)
+ 	{
+-	    if (info->dev_configured)
++	    if (link->dev)
+ 	    {
+ 		DEBUG(1,"unregister...\n");
+ 
+-		if (netif_running(dev))
+-		    dev->stop(dev);
+-
+ 		unregister_netdev(dev);
+ 	    
+ 		/*
+@@ -398,17 +394,18 @@ static void com20020_config(dev_link_t *
+     lp->card_name = "PCMCIA COM20020";
+     lp->card_flags = ARC_CAN_10MBIT; /* pretend all of them can 10Mbit */
+ 
++    link->dev = &info->node;
++    link->state &= ~DEV_CONFIG_PENDING;
++
+     i = com20020_found(dev, 0);	/* calls register_netdev */
+     
+     if (i != 0) {
+ 	DEBUG(1,KERN_NOTICE "com20020_cs: com20020_found() failed\n");
++	link->dev = NULL;
+ 	goto failed;
+     }
+ 
+-    info->dev_configured = 1;
+     strcpy(info->node.dev_name, dev->name);
+-    link->dev = &info->node;
+-    link->state &= ~DEV_CONFIG_PENDING;
+ 
+     DEBUG(1,KERN_INFO "%s: port %#3lx, irq %d\n",
+            dev->name, dev->base_addr, dev->irq);
+diff -urpN orig/drivers/net/pcmcia/fmvj18x_cs.c linux/drivers/net/pcmcia/fmvj18x_cs.c
+--- orig/drivers/net/pcmcia/fmvj18x_cs.c	Wed Feb 18 22:34:15 2004
++++ linux/drivers/net/pcmcia/fmvj18x_cs.c	Mon Mar  8 00:13:01 2004
+@@ -510,10 +510,6 @@ static void fmvj18x_config(dev_link_t *l
+     CS_CHECK(RequestConfiguration, pcmcia_request_configuration(link->handle, &link->conf));
+     dev->irq = link->irq.AssignedIRQ;
+     dev->base_addr = link->io.BasePort1;
+-    if (register_netdev(dev) != 0) {
+-	printk(KERN_NOTICE "fmvj18x_cs: register_netdev() failed\n");
+-	goto failed;
+-    }
+ 
+     if (link->io.BasePort2 != 0)
+ 	fmvj18x_setup_mfc(link);
+@@ -575,7 +571,6 @@ static void fmvj18x_config(dev_link_t *l
+ 	/* Read MACID from Buggy CIS */
+ 	if (fmvj18x_get_hwinfo(link, tuple.TupleData) == -1) {
+ 	    printk(KERN_NOTICE "fmvj18x_cs: unable to read hardware net address.\n");
+-	    unregister_netdev(dev);
+ 	    goto failed;
+ 	}
+ 	for (i = 0 ; i < 6; i++) {
+@@ -592,10 +587,18 @@ static void fmvj18x_config(dev_link_t *l
+ 	break;
+     }
+ 
+-    strcpy(lp->node.dev_name, dev->name);
++    lp->cardtype = cardtype;
+     link->dev = &lp->node;
++    link->state &= ~DEV_CONFIG_PENDING;
++
++    if (register_netdev(dev) != 0) {
++	printk(KERN_NOTICE "fmvj18x_cs: register_netdev() failed\n");
++	link->dev = NULL;
++	goto failed;
++    }
++
++    strcpy(lp->node.dev_name, dev->name);
+ 
+-    lp->cardtype = cardtype;
+     /* print current configuration */
+     printk(KERN_INFO "%s: %s, sram %s, port %#3lx, irq %d, hw_addr ", 
+ 	   dev->name, card_name, sram_config == 0 ? "4K TX*2" : "8K TX*2", 
+@@ -603,7 +606,6 @@ static void fmvj18x_config(dev_link_t *l
+     for (i = 0; i < 6; i++)
+ 	printk("%02X%s", dev->dev_addr[i], ((i<5) ? ":" : "\n"));
+ 
+-    link->state &= ~DEV_CONFIG_PENDING;
+     return;
+     
+ cs_failed:
+diff -urpN orig/drivers/net/pcmcia/ibmtr_cs.c linux/drivers/net/pcmcia/ibmtr_cs.c
+--- orig/drivers/net/pcmcia/ibmtr_cs.c	Wed Feb 18 22:34:15 2004
++++ linux/drivers/net/pcmcia/ibmtr_cs.c	Mon Mar  8 00:24:13 2004
+@@ -317,13 +317,10 @@ static void ibmtr_config(dev_link_t *lin
+     /* Try PRIMARY card at 0xA20-0xA23 */
+     link->io.BasePort1 = 0xA20;
+     i = pcmcia_request_io(link->handle, &link->io);
+-    if (i == CS_SUCCESS) {
+-	memcpy(info->node.dev_name, "tr0\0", 4);
+-    } else {
++    if (i != CS_SUCCESS) {
+ 	/* Couldn't get 0xA20-0xA23.  Try ALTERNATE at 0xA24-0xA27. */
+ 	link->io.BasePort1 = 0xA24;
+ 	CS_CHECK(RequestIO, pcmcia_request_io(link->handle, &link->io));
+-	memcpy(info->node.dev_name, "tr1\0", 4);
+     }
+     dev->base_addr = link->io.BasePort1;
+ 
+@@ -367,15 +364,17 @@ static void ibmtr_config(dev_link_t *lin
+         Adapters Technical Reference"  SC30-3585 for this info.  */
+     ibmtr_hw_setup(dev, mmiobase);
+ 
++    link->dev = &info->node;
++    link->state &= ~DEV_CONFIG_PENDING;
++
+     i = ibmtr_probe_card(dev);
+-    
+     if (i != 0) {
+ 	printk(KERN_NOTICE "ibmtr_cs: register_netdev() failed\n");
++	link->dev = NULL;
+ 	goto failed;
+     }
+ 
+-    link->dev = &info->node;
+-    link->state &= ~DEV_CONFIG_PENDING;
++    strcpy(info->node.dev_name, dev->name);
+ 
+     printk(KERN_INFO "%s: port %#3lx, irq %d,",
+            dev->name, dev->base_addr, dev->irq);
+diff -urpN orig/drivers/net/pcmcia/nmclan_cs.c linux/drivers/net/pcmcia/nmclan_cs.c
+--- orig/drivers/net/pcmcia/nmclan_cs.c	Wed Feb 18 22:34:15 2004
++++ linux/drivers/net/pcmcia/nmclan_cs.c	Mon Mar  8 00:13:42 2004
+@@ -734,11 +734,6 @@ static void nmclan_config(dev_link_t *li
+   CS_CHECK(RequestConfiguration, pcmcia_request_configuration(handle, &link->conf));
+   dev->irq = link->irq.AssignedIRQ;
+   dev->base_addr = link->io.BasePort1;
+-  i = register_netdev(dev);
+-  if (i != 0) {
+-    printk(KERN_NOTICE "nmclan_cs: register_netdev() failed\n");
+-    goto failed;
+-  }
+ 
+   ioaddr = dev->base_addr;
+ 
+@@ -777,10 +772,18 @@ static void nmclan_config(dev_link_t *li
+   else
+     printk(KERN_NOTICE "nmclan_cs: invalid if_port requested\n");
+ 
+-  strcpy(lp->node.dev_name, dev->name);
+   link->dev = &lp->node;
+   link->state &= ~DEV_CONFIG_PENDING;
+ 
++  i = register_netdev(dev);
++  if (i != 0) {
++    printk(KERN_NOTICE "nmclan_cs: register_netdev() failed\n");
++    link->dev = NULL;
++    goto failed;
++  }
++
++  strcpy(lp->node.dev_name, dev->name);
++
+   printk(KERN_INFO "%s: nmclan: port %#3lx, irq %d, %s port, hw_addr ",
+ 	 dev->name, dev->base_addr, dev->irq, if_names[dev->if_port]);
+   for (i = 0; i < 6; i++)
+diff -urpN orig/drivers/net/pcmcia/smc91c92_cs.c linux/drivers/net/pcmcia/smc91c92_cs.c
+--- orig/drivers/net/pcmcia/smc91c92_cs.c	Wed Feb 18 22:34:15 2004
++++ linux/drivers/net/pcmcia/smc91c92_cs.c	Mon Mar  8 00:14:06 2004
+@@ -901,6 +901,7 @@ static void smc91c92_config(dev_link_t *
+     char *name;
+     int i, j, rev;
+     ioaddr_t ioaddr;
++    u_long mir;
+ 
+     DEBUG(0, "smc91c92_config(0x%p)\n", link);
+ 
+@@ -952,11 +953,6 @@ static void smc91c92_config(dev_link_t *
+     else
+ 	printk(KERN_NOTICE "smc91c92_cs: invalid if_port requested\n");
+ 
+-    if (register_netdev(dev) != 0) {
+-	printk(KERN_ERR "smc91c92_cs: register_netdev() failed\n");
+-	goto config_undo;
+-    }
+-
+     switch (smc->manfid) {
+     case MANFID_OSITECH:
+     case MANFID_PSION:
+@@ -977,8 +973,6 @@ static void smc91c92_config(dev_link_t *
+ 	goto config_undo;
+     }
+ 
+-    strcpy(smc->node.dev_name, dev->name);
+-    link->dev = &smc->node;
+     smc->duplex = 0;
+     smc->rx_ovrn = 0;
+ 
+@@ -993,25 +987,16 @@ static void smc91c92_config(dev_link_t *
+ 	case 8: name = "100-FD"; break;
+ 	case 9: name = "110"; break;
+ 	}
+-    printk(KERN_INFO "%s: smc91c%s rev %d: io %#3lx, irq %d, "
+-	   "hw_addr ", dev->name, name, (rev & 0x0f), dev->base_addr,
+-	   dev->irq);
+-    for (i = 0; i < 6; i++)
+-	printk("%02X%s", dev->dev_addr[i], ((i<5) ? ":" : "\n"));
+ 
+     ioaddr = dev->base_addr;
+     if (rev > 0) {
+-	u_long mir, mcr;
++	u_long mcr;
+ 	SMC_SELECT_BANK(0);
+ 	mir = inw(ioaddr + MEMINFO) & 0xff;
+ 	if (mir == 0xff) mir++;
+ 	/* Get scale factor for memory size */
+ 	mcr = ((rev >> 4) > 3) ? inw(ioaddr + MEMCFG) : 0x0200;
+ 	mir *= 128 * (1<<((mcr >> 9) & 7));
+-	if (mir & 0x3ff)
+-	    printk(KERN_INFO "  %lu byte", mir);
+-	else
+-	    printk(KERN_INFO "  %lu kb", mir>>10);
+ 	SMC_SELECT_BANK(1);
+ 	smc->cfg = inw(ioaddr + CONFIG) & ~CFG_AUI_SELECT;
+ 	smc->cfg |= CFG_NO_WAIT | CFG_16BIT | CFG_STATIC;
+@@ -1019,9 +1004,8 @@ static void smc91c92_config(dev_link_t *
+ 	    smc->cfg |= CFG_IRQ_SEL_1 | CFG_IRQ_SEL_0;
+ 	if ((rev >> 4) >= 7)
+ 	    smc->cfg |= CFG_MII_SELECT;
+-	printk(" buffer, %s xcvr\n", (smc->cfg & CFG_MII_SELECT) ?
+-	       "MII" : if_names[dev->if_port]);
+-    }
++    } else
++	mir = 0;
+ 
+     if (smc->cfg & CFG_MII_SELECT) {
+ 	SMC_SELECT_BANK(3);
+@@ -1031,16 +1015,45 @@ static void smc91c92_config(dev_link_t *
+ 	    if ((j != 0) && (j != 0xffff)) break;
+ 	}
+ 	smc->mii_if.phy_id = (i < 32) ? i : -1;
+-	if (i < 32) {
+-	    DEBUG(0, "  MII transceiver at index %d, status %x.\n", i, j);
+-	} else {
+-    	    printk(KERN_NOTICE "  No MII transceivers found!\n");
 -	}
  
- 	card->status = pci_alloc_consistent(pdev, sizeof(card_status_t),
- 					    &card->status_address);
-@@ -655,7 +630,7 @@
- 	   to indicate the card can do 32-bit DMA addressing */
- 	if (pci_set_consistent_dma_mask(pdev, 0xFFFFFFFF) ||
- 	    pci_set_dma_mask(pdev, 0xFFFFFFFF)) {
--		printk(KERN_ERR "No usable DMA configuration\n");
-+		printk(KERN_ERR "wanXL: No usable DMA configuration\n");
- 		wanxl_pci_remove_one(pdev);
- 		return -EIO;
- 	}
-@@ -767,17 +742,11 @@
- 	ramsize = stat;
- #endif
+ 	SMC_SELECT_BANK(0);
+     }
  
--	printk(KERN_INFO "wanXL %s: at 0x%X, %u KB of RAM at 0x%X, irq"
--	       " %u\n" KERN_INFO "wanXL %s: port", card_name(pdev),
--	       plx_phy, ramsize / 1024, mem_phy, pdev->irq, card_name(pdev));
++    link->dev = &smc->node;
+     link->state &= ~DEV_CONFIG_PENDING;
++
++    if (register_netdev(dev) != 0) {
++	printk(KERN_ERR "smc91c92_cs: register_netdev() failed\n");
++	link->dev = NULL;
++	goto config_undo;
++    }
++
++    strcpy(smc->node.dev_name, dev->name);
++
++    printk(KERN_INFO "%s: smc91c%s rev %d: io %#3lx, irq %d, "
++	   "hw_addr ", dev->name, name, (rev & 0x0f), dev->base_addr,
++	   dev->irq);
++    for (i = 0; i < 6; i++)
++	printk("%02X%s", dev->dev_addr[i], ((i<5) ? ":" : "\n"));
++
++    if (rev > 0) {
++	if (mir & 0x3ff)
++	    printk(KERN_INFO "  %lu byte", mir);
++	else
++	    printk(KERN_INFO "  %lu kb", mir>>10);
++	printk(" buffer, %s xcvr\n", (smc->cfg & CFG_MII_SELECT) ?
++	       "MII" : if_names[dev->if_port]);
++    }
++
++    if (smc->cfg & CFG_MII_SELECT) {
++	if (smc->mii_if.phy_id != -1) {
++	    DEBUG(0, "  MII transceiver at index %d, status %x.\n",
++		  smc->mii_if.phy_id, j);
++	} else {
++    	    printk(KERN_NOTICE "  No MII transceivers found!\n");
++	}
++    }
++
+     return;
+ 
+ config_undo:
+diff -urpN orig/drivers/net/pcmcia/xirc2ps_cs.c linux/drivers/net/pcmcia/xirc2ps_cs.c
+--- orig/drivers/net/pcmcia/xirc2ps_cs.c	Wed Feb 18 22:34:15 2004
++++ linux/drivers/net/pcmcia/xirc2ps_cs.c	Mon Mar  8 00:14:21 2004
+@@ -1114,17 +1114,20 @@ xirc2ps_config(dev_link_t * link)
+     /* we can now register the device with the net subsystem */
+     dev->irq = link->irq.AssignedIRQ;
+     dev->base_addr = link->io.BasePort1;
++
++    if (local->dingo)
++	do_reset(dev, 1); /* a kludge to make the cem56 work */
++
++    link->dev = &local->node;
++    link->state &= ~DEV_CONFIG_PENDING;
++
+     if ((err=register_netdev(dev))) {
+ 	printk(KNOT_XIRC "register_netdev() failed\n");
++	link->dev = NULL;
+ 	goto config_error;
+     }
+ 
+     strcpy(local->node.dev_name, dev->name);
+-    link->dev = &local->node;
+-    link->state &= ~DEV_CONFIG_PENDING;
 -
--	for (i = 0; i < ports; i++)
--		printk("%s #%i: %s", i ? "," : "", i,
--		       port_name(card->ports[i]));
--	printk("\n");
-+	printk(KERN_INFO "wanXL %s: at 0x%X, %u KB of RAM at 0x%X, irq %u\n",
-+	       card_name(pdev), plx_phy, ramsize / 1024, mem_phy, pdev->irq);
+-    if (local->dingo)
+-	do_reset(dev, 1); /* a kludge to make the cem56 work */
  
- 	/* Allocate IRQ */
--	if(request_irq(pdev->irq, wanxl_intr, SA_SHIRQ, "wanXL", card)) {
-+	if (request_irq(pdev->irq, wanxl_intr, SA_SHIRQ, "wanXL", card)) {
- 		printk(KERN_WARNING "wanXL %s: could not allocate IRQ%i.\n",
- 		       card_name(pdev), pdev->irq);
- 		wanxl_pci_remove_one(pdev);
-@@ -786,9 +755,18 @@
- 	card->irq = pdev->irq;
- 
- 	for (i = 0; i < ports; i++) {
--		port_t *port = &card->__ports[i];
--		struct net_device *dev = port_to_dev(port);
--		hdlc_device *hdlc = dev_to_hdlc(dev);
-+		hdlc_device *hdlc;
-+		port_t *port = &card->ports[i];
-+		struct net_device *dev = alloc_hdlcdev(port);
-+		if (!dev) {
-+			printk(KERN_ERR "wanXL %s: unable to allocate"
-+			       " memory\n", card_name(pdev));
-+			wanxl_pci_remove_one(pdev);
-+			return -ENOMEM;
-+		}
-+
-+		port->dev = dev;
-+		hdlc = dev_to_hdlc(dev);
- 		spin_lock_init(&port->lock);
- 		SET_MODULE_OWNER(dev);
- 		dev->tx_queue_len = 50;
-@@ -797,7 +775,6 @@
- 		dev->stop = wanxl_close;
- 		hdlc->attach = wanxl_attach;
- 		hdlc->xmit = wanxl_xmit;
--		card->ports[i] = port;
- 		dev->get_stats = wanxl_get_stats;
- 		port->card = card;
- 		port->node = i;
-@@ -805,11 +782,21 @@
- 		if (register_hdlc_device(dev)) {
- 			printk(KERN_ERR "wanXL %s: unable to register hdlc"
- 			       " device\n", card_name(pdev));
--			card->ports[i] = NULL;
-+			free_netdev(dev);
- 			wanxl_pci_remove_one(pdev);
- 			return -ENOBUFS;
- 		}
-+		card->n_ports++;
- 	}
-+
-+	printk(KERN_INFO "wanXL %s: port", card_name(pdev));
-+	for (i = 0; i < ports; i++)
-+		printk("%s #%i: %s", i ? "," : "", i,
-+		       card->ports[i].dev->name);
-+	printk("\n");
-+
-+	for (i = 0; i < ports; i++)
-+		wanxl_cable_intr(&card->ports[i]); /* get carrier status etc.*/
- 
- 	return 0;
- }
+     /* give some infos about the hardware */
+     printk(KERN_INFO "%s: %s: port %#3lx, irq %d, hwaddr",
 
---=-=-=--
+-- 
+Russell King
+ Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
+ maintainer of:  2.6 PCMCIA      - http://pcmcia.arm.linux.org.uk/
+                 2.6 Serial core
