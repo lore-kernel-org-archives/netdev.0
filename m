@@ -1,18 +1,19 @@
 From: Paolo Pumilia <paolo.pumilia@acm.org>
 Subject: ioport.h fixed in 2.2.22
-Date: Sun, 10 Nov 2002 14:00:19 +0100
+Date: Sun, 10 Nov 2002 14:07:23 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021110130019.GA14897@wigner.cstc.lan>
+Message-ID: <20021110130723.GA15090@wigner.cstc.lan>
 Reply-To: paolo.pumilia@inwind.it
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="jI8keyz6grp/JLjh"
+Content-Type: multipart/mixed; boundary="oyUTqETQ0mS9luUI"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: linux-laptop@vger.kernel.org, linux-config@vger.kernel.org,
+   netdev@oss.sgi.com
 Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---jI8keyz6grp/JLjh
+--oyUTqETQ0mS9luUI
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
@@ -33,7 +34,8 @@ AICA OpenSource WorkGroup Coordinator
 Website: http//www.linfe.it/AICA-OpenSource
 
 
---jI8keyz6grp/JLjh
+
+--oyUTqETQ0mS9luUI
 Content-Type: text/x-chdr; charset=us-ascii
 Content-Disposition: attachment; filename="v2.2.22-fixed-ioport.h"
 
@@ -99,4 +101,4 @@ extern int autoirq_report(int waittime);
 
 #endif	/* _LINUX_PORTIO_H */
 
---jI8keyz6grp/JLjh--
+--oyUTqETQ0mS9luUI--
