@@ -1,59 +1,47 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: ip_route_me_harder -> xfrm_lookup
-Date: Mon, 8 Mar 2004 22:03:31 +1100
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: resend [PATCH 2.6.4-rc2] netdevice.h add netif_msg_init helper
+Date: Fri, 05 Mar 2004 14:25:09 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040308110331.GA20719@gondor.apana.org.au>
+Message-ID: <4048D415.4060701@pobox.com>
+References: <200403051743.i25Hh5B02111@DYN318364BLD.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="zYM0uCDKw75PZbzx"
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
-        netfilter-devel@lists.netfilter.org
-Content-Disposition: inline
+To: Don Fry <brazilnut@us.ibm.com>
+In-Reply-To: <200403051743.i25Hh5B02111@DYN318364BLD.beaverton.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Don Fry wrote:
+> This patch adds a helper function to initialize the debug bit mask
+> for use with netif_msg_*.  When the debug_value is out of range
+> it returns the default_msg_enable_bits.
+> 
+> --- linux-2.6.4-rc2/include/linux/orig.netdevice.h	Thu Mar  4 09:59:08 2004
+> +++ linux-2.6.4-rc2/include/linux/netdevice.h	Thu Mar  4 10:56:19 2004
+> @@ -774,6 +774,17 @@
+>  #define netif_msg_hw(p)		((p)->msg_enable & NETIF_MSG_HW)
+>  #define netif_msg_wol(p)	((p)->msg_enable & NETIF_MSG_WOL)
+>  
+> +static inline u32 netif_msg_init(int debug_value, int default_msg_enable_bits)
+> +{
+> +	/* use default */
+> +	if (debug_value < 0 || debug_value > (sizeof(u32) * 8))
+> +		return default_msg_enable_bits;
+> +	if (debug_value == 0)	/* no output */
+> +		return 0;
+> +	/* set low N bits */
+> +	return(((debug_value == (sizeof(u32)*8)) ? 0 : (1 << debug_value)) - 1);
+> +}
+> +
 
---zYM0uCDKw75PZbzx
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Oh, my apologies.  I didn't see you had made the additional change I 
+requested.
 
-Hi:
+This version looks better, but we still have an out of range value (32) 
+resulting in no-messages, rather than the default value.  I would change 
+the first ">" to ">=", and simply eliminate the final test.
 
-I've received a number of reports that the any packets that are modified
-by the PREROUTING mangle table will not be protected by IPsec.
-
-The reason is that ip_route_me_harder which is called upon the exit
-of the mangle table does not set the proto field.  This means that
-xfrm_lookup is never called.
-
-The following patch sets the proto field so that the packet can be
-protected by IPsec.
-
-Cheers,
--- 
-Debian GNU/Linux 3.0 is out! ( http://www.debian.org/ )
-Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---zYM0uCDKw75PZbzx
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
-
-Index: kernel-2.5/net/core/netfilter.c
-===================================================================
-RCS file: /home/gondolin/herbert/src/CVS/debian/kernel-source-2.5/net/core/netfilter.c,v
-retrieving revision 1.1.1.10
-diff -u -r1.1.1.10 netfilter.c
---- kernel-2.5/net/core/netfilter.c	8 Oct 2003 19:24:04 -0000	1.1.1.10
-+++ kernel-2.5/net/core/netfilter.c	8 Mar 2004 10:52:39 -0000
-@@ -639,6 +639,7 @@
- #ifdef CONFIG_IP_ROUTE_FWMARK
- 		fl.nl_u.ip4_u.fwmark = (*pskb)->nfmark;
- #endif
-+		fl.proto = iph->protocol;
- 		if (ip_route_output_key(&rt, &fl) != 0)
- 			return -1;
- 
-
---zYM0uCDKw75PZbzx--
+	Jeff
