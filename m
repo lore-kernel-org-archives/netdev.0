@@ -1,105 +1,68 @@
-From: Roger Luethi <rl@hellgate.ch>
-Subject: [8/9][PATCH 2.6] Add rhine_power_init(): get power regs into sane state
-Date: Wed, 2 Jun 2004 13:59:06 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040602115906.GA17612@k3.hellgate.ch>
-References: <20040602115703.GA16079@k3.hellgate.ch>
+From: Jouni Malinen <jkmaline@cc.hut.fi>
+Subject: Re: Prism54 WPA Support - wpa_supplicant - Linux general wpa support
+Date: Wed, 2 Jun 2004 06:23:14 -0700
+Sender: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
+Message-ID: <20040602132313.GB7341@jm.kir.nu>
+References: <20040602071449.GJ10723@ruslug.rutgers.edu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>
+Cc: Netdev <netdev@oss.sgi.com>,
+	Jean Tourrilhes <jt@bougret.hpl.hp.com>,
+	Jeff Garzik <jgarzik@pobox.com>,
+	Linux Kernel <linux-kernel@vger.kernel.org>, hostap@shmoo.com,
+	prism54-devel@prism54.org
+Return-path: <hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com>
+To: "Luis R. Rodriguez" <mcgrof@studorgs.rutgers.edu>
 Content-Disposition: inline
-In-Reply-To: <20040602115703.GA16079@k3.hellgate.ch>
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <20040602071449.GJ10723@ruslug.rutgers.edu>
+List-Unsubscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
+	<mailto:hostap-request@shmoo.com?subject=unsubscribe>
+List-Archive: <http://sisyphus.iocaine.com/pipermail/hostap>
+List-Post: <mailto:hostap@shmoo.com>
+List-Help: <mailto:hostap-request@shmoo.com?subject=help>
+List-Subscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
+	<mailto:hostap-request@shmoo.com?subject=subscribe>
+Errors-To: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
 List-Id: netdev.vger.kernel.org
 
-Add rhine_power_init(): get power regs into sane state.
-Move the respective code out of rhine_init_one. Add code for
-two additional patterns (Rhine III).
+On Wed, Jun 02, 2004 at 03:14:49AM -0400, Luis R. Rodriguez wrote:
 
-Signed-off-by: Roger Luethi <rl@hellgate.ch>
+> I'm glad wpa_supplicant exists :). Interacting with it *is* our missing
+> link to getting full WPA support (great job Jouni). In wpa_supplicant 
+> cvs I see a base code for driver_prism54.c (empty routines, just providing skeleton).
+> Well I'll be diving in it now and see where I can get. If anyone else is
+> interested in helping with WPA support for prism54, working with
+> wpa_supplicant is the way to go.
 
---- orig/drivers/net/via-rhine.c
-+++ mod/drivers/net/via-rhine.c
-@@ -408,8 +408,10 @@
- 	MIICmd=0x70, MIIRegAddr=0x71, MIIData=0x72, MACRegEEcsr=0x74,
- 	ConfigA=0x78, ConfigB=0x79, ConfigC=0x7A, ConfigD=0x7B,
- 	RxMissed=0x7C, RxCRCErrs=0x7E, MiscCmd=0x81,
--	StickyHW=0x83, IntrStatus2=0x84, WOLcrClr=0xA4, WOLcgClr=0xA7,
--	PwrcsrClr=0xAC,
-+	StickyHW=0x83, IntrStatus2=0x84,
-+	WOLcrSet=0xA0, WOLcrClr=0xA4, WOLcrClr1=0xA6,
-+	WOLcgClr=0xA7,
-+	PwrcsrSet=0xA8, PwrcsrSet1=0xA9, PwrcsrClr=0xAC, PwrcsrClr1=0xAD,
- };
- 
- /* Bits in ConfigD */
-@@ -548,6 +550,35 @@
- 	return intr_status;
- }
- 
-+/*
-+ * Get power related registers into sane state.
-+ * Returns content of power-event (WOL) registers.
-+ */
-+static void rhine_power_init(struct net_device *dev)
-+{
-+	long ioaddr = dev->base_addr;
-+	struct rhine_private *rp = netdev_priv(dev);
-+
-+	if (rp->quirks & rqWOL) {
-+		/* Make sure chip is in power state D0 */
-+		writeb(readb(ioaddr + StickyHW) & 0xFC, ioaddr + StickyHW);
-+
-+		/* Disable "force PME-enable" */
-+		writeb(0x80, ioaddr + WOLcgClr);
-+
-+		/* Clear power-event config bits (WOL) */
-+		writeb(0xFF, ioaddr + WOLcrClr);
-+		/* More recent cards can manage two additional patterns */
-+		if (rp->quirks & rq6patterns)
-+			writeb(0x03, ioaddr + WOLcrClr1);
-+
-+		/* Clear power-event status bits */
-+		writeb(0xFF, ioaddr + PwrcsrClr);
-+		if (rp->quirks & rq6patterns)
-+			writeb(0x03, ioaddr + PwrcsrClr1);
-+	}
-+}
-+
- static void wait_for_reset(struct net_device *dev, u32 quirks, char *name)
- {
- 	long ioaddr = dev->base_addr;
-@@ -722,29 +753,13 @@
- 		}
- 	}
- #endif /* USE_MMIO */
-+	dev->base_addr = ioaddr;
- 
--	/* D-Link provided reset code (with comment additions) */
--	if (quirks & rqWOL) {
--		unsigned char byOrgValue;
--
--		/* clear sticky bit before reset & read ethernet address */
--		byOrgValue = readb(ioaddr + StickyHW);
--		byOrgValue = byOrgValue & 0xFC;
--		writeb(byOrgValue, ioaddr + StickyHW);
--
--		/* (bits written are cleared?) */
--		/* disable force PME-enable */
--		writeb(0x80, ioaddr + WOLcgClr);
--		/* disable power-event config bit */
--		writeb(0xFF, ioaddr + WOLcrClr);
--		/* clear power status (undocumented in vt6102 docs?) */
--		writeb(0xFF, ioaddr + PwrcsrClr);
--	}
-+	rhine_power_init(dev);
- 
- 	/* Reset the chip to erase previous misconfiguration. */
- 	writew(CmdReset, ioaddr + ChipCmd);
- 
--	dev->base_addr = ioaddr;
- 	wait_for_reset(dev, quirks, shortname);
- 
- 	/* Reload the station address from the EEPROM. */
+I have a bit more code for this in my work directory somewhere (setting
+the WPA IE and a new ioctl for this for the driver). I did not submit
+these yet since the extended MLME mode was not working and the changes
+were not yet really working properly. I can try to find these patches
+somewhere.. Anyway, I would first like to see the extended MLME mode
+working with any (even plaintext) AP and then somehow add the WPA IE to
+the AssocReq. After that, it should be only TKIP/CCMP key configuration
+and that's about it..
+
+> I'm curious though -- wpa_supplicant is pretty much userspace. This was
+> done with good intentions from what I read but before we get dirty 
+> with wpa_supplicant I'm wondering if we should just integrate a lot of 
+> wpa_supplicant into kernel space (specifically wireless tools).
+
+Why? Which functionality would you like to move into kernel? Not that
+I'm against moving some parts, but I would certainly like to hear good
+reasons whenever moving something to kernel space if it can be done (or
+in this case, has already been done) in user space..
+
+> Regardless, as Jouni points out, there is still a framework for WPA that needs
+> to be written for all linux wireless drivers, whether it's to assist
+> wpa_supplicant framework or to integrate wpa_supplicant into kernel space.
+
+The first thing I would like to see is an addition to  Linux wireless
+extensions for WPA/WPA2 so that we can get rid of the private ioctls in
+the drivers. Even though these can often be similar, it would be nice to
+just write one driver interface code in wpa_supplicant and have it
+working with all Linu drivers.. I hope to find some time to write a
+proposal for this.
+
+-- 
+Jouni Malinen                                            PGP id EFC895FA
