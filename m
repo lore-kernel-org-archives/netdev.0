@@ -1,54 +1,31 @@
-From: latten@austin.ibm.com
-Subject: IPsecv6 integrity failures not dropped
-Date: Fri, 18 Apr 2003 15:17:04 -0500
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: IPsecv6 integrity failures not dropped
+Date: Fri, 18 Apr 2003 14:10:14 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200304182017.h3IKH4ng019821@faith.austin.ibm.com>
-Cc: linux-kernel@vger.kernel.org
+Message-ID: <20030418.141014.17269641.davem@redhat.com>
+References: <200304182017.h3IKH4ng019821@faith.austin.ibm.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
+To: latten@austin.ibm.com
+In-Reply-To: <200304182017.h3IKH4ng019821@faith.austin.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I am running IPSecv6 on 2.5.67 with patch-2.5.67-bk8.
+   From: latten@austin.ibm.com
+   Date: Fri, 18 Apr 2003 15:17:04 -0500
 
-If AH authentication or ESP encryption integrity check for an 
-incoming packet fails, result is an ICMPv6 Parameter problem 
-of Unknown-Next-Header, instead of just dropping packet. This 
-is because xfrm6_rcv() expects an unsigned-8-bit return value 
-from the input handler, i.e. ah6_input() or esp6_input(). But handler 
-returns a signed int (-EINVAL) that seems to be getting converted into 
-a "u8" via 2's complement, because ah6_input() says it is returning
--EINVAL/-22, but xfrm6_rcv() says it got a return value of 234,
-which it believes to be valid and passes to ip6_input() who thinks it is 
-the next header.  
+   I modified ah6_input() and esp6_input() to return zero instead of -EINVAL
+   in the fix below. I tested it and it works.
+   
+   Please let me know if this is ok. 
 
-I modified ah6_input() and esp6_input() to return zero instead of -EINVAL
-in the fix below. I tested it and it works.
+I think it would be better if ipv6's upper-layer interface worked
+like ipv4's.  ie. a < 0 return value means:
 
-Please let me know if this is ok. 
+	next_proto =- ret;
+	goto resubmit;
 
-Joy
--------------------------------------------------------------------------
-
---- ah6.c.orig	2003-04-17 16:04:07.000000000 -0500
-+++ ah6.c	2003-04-18 14:15:37.000000000 -0500
-@@ -212,7 +212,7 @@
- free_out:
- 	kfree(tmp_hdr);
- out:
--	return -EINVAL;
-+	return 0;
- }
- 
- void ah6_err(struct sk_buff *skb, struct inet6_skb_parm *opt, 
---- esp6.c.orig	2003-04-17 17:07:25.000000000 -0500
-+++ esp6.c	2003-04-17 17:08:17.000000000 -0500
-@@ -346,7 +346,7 @@
- 	return ret_nexthdr;
- 
- out:
--	return -EINVAL;
-+	return 0;
- }
- 
- static u32 esp6_get_max_size(struct xfrm_state *x, int mtu)
+The less that is different between ipv4/ipv6 the better.
