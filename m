@@ -1,49 +1,31 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: bk16 changes to cbq
-Date: 07 Jul 2004 14:11:32 -0400
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] mark CSZ scheduler as broken
+Date: Wed, 7 Jul 2004 11:19:36 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1089223892.1026.309.camel@jzny.localdomain>
-References: <1088861810.1039.298.camel@jzny.localdomain>
-	 <20040705202727.GA21226@ms2.inr.ac.ru>
-	 <20040706221317.2f0585d1.davem@redhat.com>
-	 <20040707155958.GA9797@ms2.inr.ac.ru>
-Reply-To: hadi@cyberus.ca
+Message-ID: <20040707111936.760586b0@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, shemminger@osdl.org,
-        netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-In-Reply-To: <20040707155958.GA9797@ms2.inr.ac.ru>
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2004-07-07 at 11:59, Alexey Kuznetsov wrote:
-> Hello!
-> 
-> > e1000 would hang the delay scheduler sometimes
-> > 
-> > Let me look for the exact email from Stephen.  Here it is:
-> > 
-> > http://mailman.ds9a.nl/pipermail/lartc/2004q2/012736.html
-> 
-> Well, that test was really meaningless. So, Stephen's patch is right.
+Since the configuration help for CSZ is broken, and other documentation
+says it just doesn't work.  Why not mark it as broken to make it obvious?
 
-Not totaly Alexey. Its like you said before, the code there was an
-optimization.
-Heres a scenario especialy with drivers returning 0 on everything
-in their txmit() (discussion going elsewhere with Jeff Garzik):
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-Driver does netif_queue_stop() because of full ring and returns 0.
-qdisc gets called and it decides to throttle. In that case if it starts
-watchdog (because it doesnt look at device state). 
-That would be two possible future reschedules of device.
-One because of qdisc throttle timer and another because of netif_stop.
-Its not much code difference or cpu cycles, but still an optimization
-for that case.
-OTOH, this would not happen if the driver returned a 1 along with skb
-(the way e1000 does).
-
-cheers,
-jamal
+diff -Nru a/net/sched/Kconfig b/net/sched/Kconfig
+--- a/net/sched/Kconfig	2004-07-07 11:18:01 -07:00
++++ b/net/sched/Kconfig	2004-07-07 11:18:01 -07:00
+@@ -51,7 +51,7 @@
+ 
+ config NET_SCH_CSZ
+ 	tristate "CSZ packet scheduler"
+-	depends on NET_SCHED
++	depends on NET_SCHED && BROKEN
+ 	---help---
+ 	  Say Y here if you want to use the Clark-Shenker-Zhang (CSZ) packet
+ 	  scheduling algorithm for some of your network devices.  At the
