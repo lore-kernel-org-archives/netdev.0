@@ -1,77 +1,76 @@
-From: Octave <oles@ovh.net>
+From: Marcello <voloterreno@tin.it>
 Subject: Re: NAPI 8139too.c for 2.4.23
-Date: Tue, 2 Dec 2003 00:00:13 +0100
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031201230013.GM4313@ovh.net>
-References: <20031201205038.GK10711@ovh.net> <20031201205533.GA15846@gtf.org>
+Date: Mon, 01 Dec 2003 23:54:50 +0100
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <3FCBC6BA.3090106@tin.it>
+References: <20031201205038.GK10711@ovh.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com,
-        linux-net@vger.kernel.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <20031201205533.GA15846@gtf.org>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@osdl.org>,
+	Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com,
+	linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Octave <oles@ovh.net>
+In-Reply-To: <20031201205038.GK10711@ovh.net>
 List-Id: netdev.vger.kernel.org
 
-> Is there any chance you could do some benchmark runs with ttcp or
-> somesuch?
+Octave ha scritto:
 
-I tested on 6-7 servers running with 
-eepro eth0: Intel Corp. 82557/8/9 [Ethernet Pro 100], 00:E0:18:01:78:6C, IRQ 10.
-realtek 8139too with NAPI 8139too Fast Ethernet driver 0.9.27 
-realtek 8139too with no NAPI (standard driver with soft polling)
+>Stephen,
+>I get your patch from http://lwn.net/Articles/54815/ for 2.6.X and 
+>I rewrote it for 2.4.23. Tested with 2.4.23 on high load servers. I 
+>have no more "Too much work at interrupt".                                     
+>
+>I dropped it on ftp://ftp.ovh.net/made-in-ovh/8139too.c-2.4-0.9.27
+>
+>Hope it helps.
+>Octave
+>
+>before:  
+>-------  
+># ps auxw
+>root       256  0.0  0.0     0    0 ?        SW   Nov28   0:00 [eth0]
+># ifconfig
+>          RX packets:40940899 errors:250542 dropped:7052 overruns:250542 frame:0
+>          TX packets:33057049 errors:0 dropped:0 overruns:20 carrier:0
+># dmesg
+>eth0: Setting 100mbps full-duplex based on auto-negotiated partner ability 41e1.
+>nfs: server X.X.X.X not responding, still trying
+>nfs: server X.X.X.X OK
+>eth0: Too much work at interrupt, IntrStatus=0x0040.
+>
+>with NAPI
+>---------
+>          RX packets:428253 errors:0 dropped:0 overruns:0 frame:0
+>          TX packets:357949 errors:0 dropped:0 overruns:0 carrier:0
+>8139too Fast Ethernet driver 0.9.27
+>PCI: Found IRQ 11 for device 00:0b.0
+>eth0: RealTek RTL8139 at 0xec00, 00:e0:4c:91:03:b0, IRQ 11
+>eth0:  Identified 8139 chip type 'RTL-8100B/8139D'
+>
+>-
+>To unsubscribe from this list: send the line "unsubscribe linux-net" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>  
+>
+Sorry , my happiness was a bit premature :D
 
-If this quick test is correct, realtek 8139too's driver works as good as
-eepro's driver. 
+This doesn't recognize with autonegotiation the Speed correctly .
 
-Octave 
+My ethernet device is connected to an ethernet ADSL Router , speed 
+10Mbit/HD , but the autonegotiation recongnize 10Mbit/FD , and this 
+makes the connection very slow , because of the very much errors , but 
+the strange thing is that ifconfig doesn't reports any error (but , of 
+course, I know that there are as with the previous driver ) , for 
+ifconfig all is OK , but my connection is veeeeery slow .
 
->> from realtek (no NAPI) to realtek (no NAPI)
-ttcp-r: buflen=8192, nbuf=2048, align=16384/0, port=5001  tcp
-ttcp-r: socket
-ttcp-r: accept from
-ttcp-r: 327680000 bytes in 42.90 real seconds = 59671.99 Kbit/sec +++
-ttcp-r: 224852 I/O calls, msec/call = 0.20, calls/sec = 5241.16
-ttcp-r: 0.1user 1.5sys 0:42real 3% 0i+0d 0maxrss 0+2pf 0+0csw  
+Forcing the 10MBps/HD with MII-TOOL makes my connection the same as ever .
 
->> from eepro to eepro
-ttcp-r: buflen=8192, nbuf=2048, align=16384/0, port=5001  tcp
-ttcp-r: socket
-ttcp-r: accept from
-ttcp-r: 327680000 bytes in 28.33 real seconds = 90379.31 Kbit/sec +++
-ttcp-r: 225058 I/O calls, msec/call = 0.13, calls/sec = 7945.54
-ttcp-r: 0.2user 4.2sys 0:28real 15% 0i+0d 0maxrss 0+2pf 0+0csw 
+Bye
 
->> from realtek (NAPI) to realtek (NAPI)
-ttcp-r: buflen=8192, nbuf=2048, align=16384/0, port=5001  tcp
-ttcp-r: socket
-ttcp-r: accept from
-ttcp-r: 327680000 bytes in 29.21 real seconds = 87644.11 Kbit/sec +++
-ttcp-r: 225735 I/O calls, msec/call = 0.13, calls/sec = 7728.26
-ttcp-r: 0.0user 1.7sys 0:29real 6% 0i+0d 0maxrss 0+2pf 0+0csw  
+Marcello
 
->> from eepro to realtek (no NAPI)
-ttcp-r: buflen=8192, nbuf=2048, align=16384/0, port=5001  tcp
-ttcp-r: socket
-ttcp-r: accept from
-ttcp-t: 327680000 bytes in 34.32 real seconds = 74594.99 Kbit/sec +++
-ttcp-t: 40000 I/O calls, msec/call = 0.88, calls/sec = 1165.55
-ttcp-t: 0.0user 1.2sys 0:34real 3% 0i+0d 0maxrss 0+2pf 0+0csw
 
->> from realtek (NAPI) to realtek (no NAPI)
-ttcp-r: buflen=8192, nbuf=2048, align=16384/0, port=5001  tcp
-ttcp-r: socket
-ttcp-r: accept from
-ttcp-r: 327680000 bytes in 32.60 real seconds = 78532.74 Kbit/sec +++
-ttcp-r: 225544 I/O calls, msec/call = 0.15, calls/sec = 6918.98
-ttcp-r: 0.1user 1.6sys 0:32real 5% 0i+0d 0maxrss 0+2pf 0+0csw
-
->> from realtek (NAPI) to eepro
-ttcp-r: buflen=8192, nbuf=2048, align=16384/0, port=5001  tcp
-ttcp-r: socket
-ttcp-r: accept from
-ttcp-r: 327680000 bytes in 34.02 real seconds = 75250.05 Kbit/sec +++
-ttcp-r: 225685 I/O calls, msec/call = 0.15, calls/sec = 6633.91
-ttcp-r: 0.1user 3.7sys 0:34real 11% 0i+0d 0maxrss 0+2pf 0+0csw
