@@ -1,67 +1,23 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] (3/8) ltpc - convert to new initialization
-Date: Wed, 03 Sep 2003 20:48:42 -0400
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: bridge bug
+Date: Thu, 4 Sep 2003 04:26:08 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F568BEA.50904@pobox.com>
-References: <20030903164916.2809d4a5.shemminger@osdl.org>
+Message-ID: <20030904042608.79b57ad2.davem@redhat.com>
+References: <20030904101900.GA32077@mt.lv>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20030903164916.2809d4a5.shemminger@osdl.org>
+To: Karlis Peisenieks <karlis@mt.lv>
+In-Reply-To: <20030904101900.GA32077@mt.lv>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> -int __init ltpc_probe(struct net_device *dev)
-> +struct net_device * __init ltpc_probe(void)
-[...]
->  	/* probe for the I/O port address */
-> -	if (io != 0x240 && request_region(0x220,8,"ltpc")) {
-> -		x = inb_p(0x220+6);
-> -		if ( (x!=0xff) && (x>=0xf0) ) {
-> -			io = 0x220;
-> -			portfound=1;
-> -		}
-> -		else {
-> -			release_region(0x220,8);
-> -		}
-> -	}
->  	
->  	if (io != 0x220 && request_region(0x240,8,"ltpc")) {
->  		y = inb_p(0x240+6);
->  		if ( (y!=0xff) && (y>=0xf0) ){ 
->  			io = 0x240;
-> -			portfound=1;
-> -		}
-> -		else {
-> -			release_region(0x240,8);
-> +			goto got_port;
->  		}
-> +		release_region(0x240,8);
->  	} 
-> -
-> -	if(io && !portfound && request_region(io,8,"ltpc")){
-> -		portfound = 1;
-> -	}
-> -	if(!portfound) {
-> -		/* give up in despair */
-> -		printk(KERN_ERR "LocalTalk card not found; 220 = %02x, 240 = %02x.\n", x,y);
-> -		return -1;
-> +	if (io != 0x240 && request_region(0x220,8,"ltpc")) {
-> +		x = inb_p(0x220+6);
-> +		if ( (x!=0xff) && (x>=0xf0) ) {
-> +			io = 0x220;
-> +			goto got_port;
-> +		}
-> +		release_region(0x220,8);
->  	}
+On Thu, 4 Sep 2003 13:19:00 +0300
+Karlis Peisenieks <karlis@mt.lv> wrote:
 
+> Attached patch fixed memory leak in 2.4.22 bridge. Have not checked 
+> 2.6.x versions.
 
-why did the order of probing change?
-
-It used to be "0x220 -> 0x240", now it's "0x240 -> 0x220"
-
-	Jeff
+Applied, fix was already in 2.6.x
