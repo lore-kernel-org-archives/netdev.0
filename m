@@ -1,25 +1,31 @@
-From: "Feldman, Scott" <scott.feldman@intel.com>
-Subject: RE: e100 in 2.5.59 through 2.5.61
-Date: Sun, 16 Feb 2003 21:06:59 -0800
+From: "CIT/Paul" <xerox@foonet.net>
+Subject: Bad problem with route cache using as a large router
+Date: Mon, 17 Feb 2003 00:15:22 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <C6F5CF431189FA4CBAEC9E7DD5441E01780B72@orsmsx402.jf.intel.com>
+Message-ID: <004301c2d643$92567e10$4a00000a@badass>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "James H. Cloos Jr." <cloos@jhcloos.com>, netdev@oss.sgi.com
-content-class: urn:content-classes:message
+To: <netdev@oss.sgi.com>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> The switch is fine with other 100 devices, such as the 
-> printer and the 802.11 gateway.  It is also happy with the 
-> 3com card in the laptop's port duplicator.
-
-Switch vendor/model?
+I'm having a BAD cpu usage problem using linux routers for routing an
+extreme number of flows at high pps rates.
+Take for instance, random source ips, single destination, or random
+destinations at 100kpps and it destroys the route cache even on a dual
+p3 1.26.
+The k_softirqd processes spend their entire times updating the running
+gc on the cache and the machine can't do anything else.  Is there a way
+to TURN OFF
+the route cache (Like Cisco) so that it doesn't exist any more, maybe
+use more of an 'adjacency cache' ?
  
-> Both the e100 and the eepro100 modules fail at 100baseT.
+Thanks!
 
-Is the switch port forced or autoneg?
+Paul
 
--scott
+
+[[HTML alternate version deleted]]
