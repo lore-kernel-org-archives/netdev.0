@@ -1,11 +1,13 @@
 From: Julian Anastasov <ja@ssi.bg>
-Subject: [2.6 PATCH] sctp - provide valid tos and oif values for ip_route_output_key
-Date: Wed, 3 Dec 2003 01:49:12 +0200 (EET)
+Subject: [2.6 PATCH] bridge - provide valid tos value for ip_route_output_key
+Date: Wed, 3 Dec 2003 02:03:20 +0200 (EET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0312030140300.1237-200000@u.domain.uli>
+Message-ID: <Pine.LNX.4.44.0312030156410.1237-200000@u.domain.uli>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="1607745702-506488201-1070408952=:1237"
-Cc: Sridhar Samudrala <sri@us.ibm.com>, "David S. Miller" <davem@redhat.com>
+Content-Type: MULTIPART/MIXED; BOUNDARY="1607745702-1706568113-1070409800=:1237"
+Cc: Bart De Schuymer <bdschuym@pandora.be>,
+        Stephen Hemminger <shemminger@osdl.org>,
+        "David S. Miller" <davem@redhat.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
@@ -15,48 +17,49 @@ List-Id: netdev.vger.kernel.org
   while the remaining parts are likely unreadable without MIME-aware tools.
   Send mail to mime@docserver.cac.washington.edu for more info.
 
---1607745702-506488201-1070408952=:1237
+--1607745702-1706568113-1070409800=:1237
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 
 
 	Hello,
 
-	I'm not sure if this change is needed (it is not tested).
-Is SO_BINDTODEVICE supported for SCTP? It seems it is bad for
-PMTUD not to provide valid tos and oif values for the routing call.
+	The attached patch changes bridging to provide valid
+tos value to routing.
 
 Regards
 
 --
 Julian Anastasov <ja@ssi.bg>
 
---1607745702-506488201-1070408952=:1237
-Content-Type: TEXT/PLAIN; charset=US-ASCII; name="tos-sctp-1.diff"
+--1607745702-1706568113-1070409800=:1237
+Content-Type: TEXT/PLAIN; charset=US-ASCII; name="tos-bridge-1.diff"
 Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.44.0312030149120.1237@u.domain.uli>
-Content-Description: SCTP tos and oif
-Content-Disposition: attachment; filename="tos-sctp-1.diff"
+Content-ID: <Pine.LNX.4.44.0312030203200.1237@u.domain.uli>
+Content-Description: bridge tos
+Content-Disposition: attachment; filename="tos-bridge-1.diff"
 
 IyBUaGlzIGlzIGEgQml0S2VlcGVyIGdlbmVyYXRlZCBwYXRjaCBmb3IgdGhl
 IGZvbGxvd2luZyBwcm9qZWN0Og0KIyBQcm9qZWN0IE5hbWU6IExpbnV4IGtl
 cm5lbCB0cmVlDQojIFRoaXMgcGF0Y2ggZm9ybWF0IGlzIGludGVuZGVkIGZv
 ciBHTlUgcGF0Y2ggY29tbWFuZCB2ZXJzaW9uIDIuNSBvciBoaWdoZXIuDQoj
 IFRoaXMgcGF0Y2ggaW5jbHVkZXMgdGhlIGZvbGxvd2luZyBkZWx0YXM6DQoj
-CSAgICAgICAgICAgQ2hhbmdlU2V0CTEuMTM1NCAgLT4gMS4xMzU1IA0KIwkg
-bmV0L3NjdHAvcHJvdG9jb2wuYwkxLjU4ICAgIC0+IDEuNTkgICANCiMNCiMg
-VGhlIGZvbGxvd2luZyBpcyB0aGUgQml0S2VlcGVyIENoYW5nZVNldCBMb2cN
-CiMgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0NCiMgMDMvMTIvMDMJamFAc3NpLmJnCTEuMTM1NQ0KIyBbU0NUUF06IHBy
-b3ZpZGUgdmFsaWQgdG9zIGFuZCBvaWYgdmFsdWVzIGZvciBpcF9yb3V0ZV9v
-dXRwdXRfa2V5DQojIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tDQojDQpkaWZmIC1OcnUgYS9uZXQvc2N0cC9wcm90b2Nv
-bC5jIGIvbmV0L3NjdHAvcHJvdG9jb2wuYw0KLS0tIGEvbmV0L3NjdHAvcHJv
-dG9jb2wuYwlXZWQgRGVjICAzIDAxOjA4OjMxIDIwMDMNCisrKyBiL25ldC9z
-Y3RwL3Byb3RvY29sLmMJV2VkIERlYyAgMyAwMTowODozMSAyMDAzDQpAQCAt
-NDQ0LDYgKzQ0NCw4IEBADQogDQogCW1lbXNldCgmZmwsIDB4MCwgc2l6ZW9m
-KHN0cnVjdCBmbG93aSkpOw0KIAlmbC5mbDRfZHN0ICA9IGRhZGRyLT52NC5z
-aW5fYWRkci5zX2FkZHI7DQorCWZsLmZsNF90b3MgID0gUlRfQ09OTl9GTEFH
-Uyhhc29jLT5iYXNlLnNrKTsNCisJZmwub2lmICAgICAgPSBhc29jLT5iYXNl
-LnNrLT5za19ib3VuZF9kZXZfaWY7DQogCWZsLnByb3RvID0gSVBQUk9UT19T
-Q1RQOw0KIA0KIAlpZiAoc2FkZHIpDQo=
---1607745702-506488201-1070408952=:1237--
+CSAgICAgICAgICAgQ2hhbmdlU2V0CTEuMTM1MSAgLT4gMS4xMzUyIA0KIwlu
+ZXQvYnJpZGdlL2JyX25ldGZpbHRlci5jCTEuMTUgICAgLT4gMS4xNiAgIA0K
+Iw0KIyBUaGUgZm9sbG93aW5nIGlzIHRoZSBCaXRLZWVwZXIgQ2hhbmdlU2V0
+IExvZw0KIyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLQ0KIyAwMy8xMi8wMglqYUBzc2kuYmcJMS4xMzUyDQojIFtCUklE
+R0VdOiBwcm92aWRlIHZhbGlkIHRvcyB2YWx1ZSBmb3IgaXBfcm91dGVfb3V0
+cHV0X2tleQ0KIyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLQ0KIw0KZGlmZiAtTnJ1IGEvbmV0L2JyaWRnZS9icl9uZXRm
+aWx0ZXIuYyBiL25ldC9icmlkZ2UvYnJfbmV0ZmlsdGVyLmMNCi0tLSBhL25l
+dC9icmlkZ2UvYnJfbmV0ZmlsdGVyLmMJVHVlIERlYyAgMiAyMzo1NTozMCAy
+MDAzDQorKysgYi9uZXQvYnJpZGdlL2JyX25ldGZpbHRlci5jCVR1ZSBEZWMg
+IDIgMjM6NTU6MzAgMjAwMw0KQEAgLTE4MCw3ICsxODAsNyBAQA0KIAkJCXN0
+cnVjdCBydGFibGUgKnJ0Ow0KIAkJCXN0cnVjdCBmbG93aSBmbCA9IHsgLm5s
+X3UgPSANCiAJCQl7IC5pcDRfdSA9IHsgLmRhZGRyID0gaXBoLT5kYWRkciwg
+LnNhZGRyID0gMCAsDQotCQkJCSAgICAgLnRvcyA9IGlwaC0+dG9zfSB9LCAu
+cHJvdG8gPSAwfTsNCisJCQkJICAgICAudG9zID0gUlRfVE9TKGlwaC0+dG9z
+KX0gfSwgLnByb3RvID0gMH07DQogDQogCQkJaWYgKCFpcF9yb3V0ZV9vdXRw
+dXRfa2V5KCZydCwgJmZsKSkgew0KIAkJCQkvKiBCcmlkZ2VkLWFuZC1ETkFU
+J2VkIHRyYWZmaWMgZG9lc24ndA0K
+--1607745702-1706568113-1070409800=:1237--
