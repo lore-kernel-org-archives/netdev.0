@@ -1,30 +1,60 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [AH6] Disallow mutable bits after AH header
-Date: Wed, 28 Jul 2004 09:11:48 -0700
+From: Niranjan <niranjan_cs2905@yahoo.com>
+Subject: Re: kernel bug at sched.c:564! + linux kernel 2.4.25
+Date: Wed, 28 Jul 2004 09:30:29 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040728091148.63defec2.davem@redhat.com>
-References: <20040723135320.GA26000@gondor.apana.org.au>
-	<20040723133737.447a9598.davem@redhat.com>
-	<20040728114632.GA7103@gondor.apana.org.au>
+Message-ID: <20040728163029.55069.qmail@web53001.mail.yahoo.com>
+References: <Xine.LNX.4.44.0407281210270.11261-100000@dhcp83-76.boston.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: kazunori@miyazawa.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Vladimir Kondratiev <vkondra@mail.ru>, Matt Mackall <mpm@selenic.com>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040728114632.GA7103@gondor.apana.org.au>
+To: James Morris <jmorris@redhat.com>
+In-Reply-To: <Xine.LNX.4.44.0407281210270.11261-100000@dhcp83-76.boston.redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 28 Jul 2004 21:46:32 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+The driver code is in kernel loadable module. The
+linux-wlan-ng driver for the linux wireless cards has
+two kernel loadable modules - prism2_cs and p80211.
+I included the encrypt() and decrypt() function of
+cryptoapi inside the p80211.o kernel module instead of
+using cipher-<cipher_name>.o module for encryption and
+decryption. The cipher context (cipher name and cipher
+mode) and key (key length and cipher key) is still set
+through cryptoapi.o module.
 
-> In that patch I removed the nh_offset parameter to ipv6_clear_mutable_options.
-> That broke ah6_input() because it relies on that variable to set the nexthdr.
+Warm Regards,
+-Niranjan
+
+--- James Morris <jmorris@redhat.com> wrote:
+
+> On Wed, 28 Jul 2004, Niranjan wrote:
 > 
-> The following patch fixes this by moving this work out to the caller
-> xfrm6_rcv() where the information is already available.  It also removes
-> an unnecessary call to ip6_find_1stfragopt() in xfrm6_rcv() since nhoffp
-> already points to the nexthdr preceding the current header.
+> > Hi,
+> > I got the code working by including the encrypt()
+> and
+> > decrypt() function inside the WLAN driver. 
+> > Is there any better way to get the CrytoAPI code
+> > working from the driver or some other CryptoAPI
+> > implementation ?
+> 
+> Where is the driver code?
+> 
+> 
+> - James
+> -- 
+> James Morris
+> <jmorris@redhat.com>
+> 
+> 
+> 
+> 
 
-Applied, thanks.
+
+
+		
+__________________________________
+Do you Yahoo!?
+Yahoo! Mail - 50x more storage than other providers!
+http://promotions.yahoo.com/new_mail
