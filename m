@@ -1,35 +1,27 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: do_gettimeofday
-Date: Fri, 3 Oct 2003 02:23:38 -0700
+Subject: Re: [BK PATCH] 2.6 SCTP updates.
+Date: Fri, 3 Oct 2003 02:48:05 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031003022338.6ffed45d.davem@redhat.com>
-References: <3F7C6F3B.6070502@sgi.com>
-	<20031002125625.72b8c0a7.shemminger@osdl.org>
-	<20031003004133.3148c39a.davem@redhat.com>
-	<20031003082642.GF42593@gaz.sfgoth.com>
-	<20031003012754.23de3f66.davem@redhat.com>
-	<20031003084847.GH42593@gaz.sfgoth.com>
-	<20031003015220.7ee6e451.davem@redhat.com>
-	<20031003092617.GI42593@gaz.sfgoth.com>
+Message-ID: <20031003024805.5bd85a56.davem@redhat.com>
+References: <Pine.LNX.4.44.0310021631550.2530-100000@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Mitchell Blank Jr <mitch@sfgoth.com>
-In-Reply-To: <20031003092617.GI42593@gaz.sfgoth.com>
+To: Sridhar Samudrala <sri@us.ibm.com>
+In-Reply-To: <Pine.LNX.4.44.0310021631550.2530-100000@localhost.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 3 Oct 2003 02:26:17 -0700
-Mitchell Blank Jr <mitch@sfgoth.com> wrote:
+On Thu, 2 Oct 2003 16:46:06 -0700 (PDT)
+Sridhar Samudrala <sri@us.ibm.com> wrote:
 
-> I was more thinking about the other timestamp users.  I don't consider
-> tcpdump something that needs as much optimization.
+> Please do a
+> 	bk pull http://linux-lksctp.bkbits.net/lksctp-2.5
+> to get the following udpates to SCTP on top of linux 2.6.0-test6
+> 
+> The changesets include fixes for a couple of arch specific issues with ppc64 
+> and parisc64, few ADDIP extension related patches and a bug fix.
 
-Well, it's is the fact that usage of the timestamp is rare which we're
-trying to take advantage of.
-
-The whole idea is that fast_timestamp_to_timeval() can be a bit slow
-or suboptimal in order to make store_fast_timestamp() a lot faster
-or access less shared or locked state.
+Pulled, thanks a lot Sridhar.
