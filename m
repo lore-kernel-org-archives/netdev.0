@@ -1,72 +1,82 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: [PATCH] tg3: reading eeprom via ethtool: not __init
-Date: Tue, 19 Oct 2004 21:28:05 -0700
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH 2.6] CBQ: Destroy filters before destroying classes
+Date: Tue, 19 Oct 2004 21:39:06 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4175E955.6070807@osdl.org>
+Message-ID: <20041019213906.2aced91d.davem@davemloft.net>
+References: <20041007175313.GA19628@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030104020507020302040509"
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev <netdev@oss.sgi.com>, davem@davemloft.net,
-        jgarzik <jgarzik@pobox.com>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20041007175313.GA19628@postel.suug.ch>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------030104020507020302040509
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+On Thu, 7 Oct 2004 19:53:13 +0200
+Thomas Graf <tgraf@suug.ch> wrote:
 
+> CBQ destroys its classes by traversing the hashtable and thus classes
+> are not destroyed from root to leafs which means that class Y being
+> a subclass of class X may be destroyed before X. This is a problem
+> if a filter is attached to class X (parent) classifying into class Y
+> (result). In case Y gets deleted before X the filter references an
+> already deleted class while trying to unbind (cbq_unbind_filter).
+> Therefore all filters must be destroyed before destroying classes. An
+> additional BUG_TRAP has been added to document this not so obvious case.
 
--- 
-~Randy
+Applied, thanks a lot Thomas.
 
---------------030104020507020302040509
-Content-Type: text/x-patch;
- name="tg3_init.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="tg3_init.patch"
+> Patch is relative to  "Convert Qdiscs to use generic network
+> statistics/estimator" patchset.
 
+BTW, that patch set forgot to handle sch_atm.c, I'm beginning to
+believe that I'm the only developer with this packet scheduler
+enabled in his test builds :-)  Most people don't have it enabled
+because it requires CONFIG_ATM to be on.
 
-tg3_get_eeprom calls:  tg3_nvram_read_using_eeprom __init:
-but the latter cannot be __init if it can be called (via ethtool)
-after driver-init:
-Error: ./drivers/net/tg3.o .text refers to 0000000000007220 R_X86_64_PC32     .init.text+0xfffffffffffffffc
-Error: ./drivers/net/tg3.o .text refers to 000000000000725d R_X86_64_PC32     .init.text+0xfffffffffffffffc
-Error: ./drivers/net/tg3.o .text refers to 00000000000072a7 R_X86_64_PC32     .init.text+0xfffffffffffffffc
-Error: ./drivers/net/tg3.o .text refers to 00000000000072e8 R_X86_64_PC32     .init.text+0xfffffffffffffffc
+Anyways, I fixed that up as follows.
 
-Signed-off-by: Randy Dunlap <rddunlap@osdl.org>
-
-diffstat:=
- drivers/net/tg3.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
-
-diff -Naurp ./drivers/net/tg3.c~tg3_init ./drivers/net/tg3.c
---- ./drivers/net/tg3.c~tg3_init	2004-10-18 14:54:31.000000000 -0700
-+++ ./drivers/net/tg3.c	2004-10-19 20:43:44.510473240 -0700
-@@ -6319,8 +6319,8 @@ static int tg3_get_eeprom_len(struct net
- 	return EEPROM_CHIP_SIZE;
- }
- 
--static int __devinit tg3_nvram_read_using_eeprom(struct tg3 *tp,
--						 u32 offset, u32 *val);
-+static int tg3_nvram_read_using_eeprom(struct tg3 *tp,
-+					u32 offset, u32 *val);
- static int tg3_get_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom, u8 *data)
- {
- 	struct tg3 *tp = dev->priv;
-@@ -6851,8 +6851,8 @@ static void __devinit tg3_nvram_init(str
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2004/10/19 21:11:02-07:00 davem@nuts.davemloft.net 
+#   [PKT_SCHED]: Fix sch_atm build.
+#   
+#   Move it over to use qstats/bstats.
+#   
+#   Signed-off-by: David S. Miller <davem@davemloft.net>
+# 
+# net/sched/sch_atm.c
+#   2004/10/19 21:10:26-07:00 davem@nuts.davemloft.net +4 -4
+#   [PKT_SCHED]: Fix sch_atm build.
+# 
+diff -Nru a/net/sched/sch_atm.c b/net/sched/sch_atm.c
+--- a/net/sched/sch_atm.c	2004-10-19 21:21:59 -07:00
++++ b/net/sched/sch_atm.c	2004-10-19 21:21:59 -07:00
+@@ -449,12 +449,12 @@
+ 	    result == TC_POLICE_SHOT ||
+ #endif
+ 	    (ret = flow->q->enqueue(skb,flow->q)) != 0) {
+-		sch->stats.drops++;
++		sch->qstats.drops++;
+ 		if (flow) flow->stats.drops++;
+ 		return ret;
  	}
- }
- 
--static int __devinit tg3_nvram_read_using_eeprom(struct tg3 *tp,
--						 u32 offset, u32 *val)
-+static int tg3_nvram_read_using_eeprom(struct tg3 *tp,
-+					u32 offset, u32 *val)
- {
- 	u32 tmp;
- 	int i;
-
---------------030104020507020302040509--
+-	sch->stats.bytes += skb->len;
+-	sch->stats.packets++;
++	sch->bstats.bytes += skb->len;
++	sch->bstats.packets++;
+ 	flow->stats.bytes += skb->len;
+ 	flow->stats.packets++;
+ 	/*
+@@ -547,7 +547,7 @@
+ 	ret = p->link.q->ops->requeue(skb,p->link.q);
+ 	if (!ret) sch->q.qlen++;
+ 	else {
+-		sch->stats.drops++;
++		sch->qstats.drops++;
+ 		p->link.stats.drops++;
+ 	}
+ 	return ret;
