@@ -1,41 +1,44 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: pktgen problem (skb refcount) in 2.6.12-rc1
-Date: Mon, 4 Apr 2005 13:41:27 +0200
-Message-ID: <16977.10215.725020.64329@robur.slu.se>
-References: <20050402191132.GF1890@sunbeam.de.gnumonks.org>
-	<16976.16774.728707.368646@robur.slu.se>
-	<20050404052642.GE9155@sunbeam.de.gnumonks.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [IPSEC]: Protect against BHs in xfrm_user_policy()
+Date: Mon, 4 Apr 2005 21:55:08 +1000
+Message-ID: <20050404115508.GA12171@gondor.apana.org.au>
+References: <4250160D.2040405@trash.net> <20050404012040.GA16960@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>, netdev@oss.sgi.com
+Cc: "David S. Miller" <davem@davemloft.net>, netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Harald Welte <laforge@gnumonks.org>
-In-Reply-To: <20050404052642.GE9155@sunbeam.de.gnumonks.org>
+To: Patrick McHardy <kaber@trash.net>
+Content-Disposition: inline
+In-Reply-To: <20050404012040.GA16960@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Mon, Apr 04, 2005 at 11:20:40AM +1000, herbert wrote:
+> On Sun, Apr 03, 2005 at 06:13:01PM +0200, Patrick McHardy wrote:
+> >
+> > # This is a BitKeeper generated diff -Nru style patch.
+> > #
+> > # ChangeSet
+> > #   2005/04/03 17:36:10+02:00 kaber@coreworks.de 
+> > #   [IPSEC]: Protect against BHs in xfrm_user_policy()
+> > #   
+> > #   Signed-off-by: Patrick McHardy <kaber@trash.net>
+> 
+> Looks good.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Harald Welte writes:
+Actually, I now think this patch is unnecessary for mainline.
 
- Hello!
+The read_lock()'s only need to be protected from the write_lock()'s.
 
- >>>   I've tried to track the problem down, and I've confirmed that skb->users
- >>> never goes down to 1 but instead stays at '2'.
+Since all the write_lock()'s are made in process context, we don't
+need to disable BH on the read_lock()'s.
 
- > no changes in kernel config.  I've reviewed pktgen changes and couldn't
- > find something that would cause the problem.  It always only
- > atomic_inc'ed the ussage cound (and decrements only in error path) which
- > is perfectly fine.
-
- OK! Thanks.
-
- > As for e1000 and or generic TX path changes, I don't have the time to
- > review them now, sorry :(  That's why I posted it to netdev, to let
- > people who have an idea about the committed changes know that there is
- > an issue.
- 
- Well if it's skb leak it will be seen.
- 
-					--ro
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
