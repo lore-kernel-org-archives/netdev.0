@@ -1,59 +1,76 @@
-From: crochu nicolas <nicolas.crochu@sgam.com>
-Subject: Re: [update] 2.6.4-rc2 - Realtek 8169 patches
-Date: Fri, 12 Mar 2004 14:40:57 +0100
+From: "Kevin Curtis" <kevin.curtis@farsite.co.uk>
+Subject: RE: Update FarSync WAN driver in 2.6
+Date: Fri, 12 Mar 2004 16:57:25 -0000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1079098857.2791.10.camel@localhost>
-References: <20040307023748.A7829@electric-eye.fr.zoreil.com>
-	 <1078822878.2408.8.camel@pinacola>
-	 <20040311193937.A14638@electric-eye.fr.zoreil.com>
+Message-ID: <7C078C66B7752B438B88E11E5E20E72E25CC5B@general.hq.farsitecommunications.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-UqbdjlJhQ5H9sQYKNmrD"
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8bit
+Cc: <netdev@oss.sgi.com>, <davem@redhat.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20040311193937.A14638@electric-eye.fr.zoreil.com>
+content-class: urn:content-classes:message
+To: "Kevin Curtis" <kevin.curtis@farsite.co.uk>,
+        "Jeff Garzik" <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
---=-UqbdjlJhQ5H9sQYKNmrD
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-Le jeu 11/03/2004 =E0 19:39, Francois Romieu a =E9crit :
-> crochu nicolas <nicolas.crochu@sgam.com> :
-> > If i apply only these patch, everything goes fine
-> [...]
-> Did you stress the driver, say (rsync), ping -f -s 8, ttcp ?
-> --
-> Ueimor
-
-I tested with unison, ping -f -s 8
-as did a friend with the same hardware.
-
-My kernel : 2.6.3 + patched driver ( except the last 3 patch )
-My friend : a stock 2.6.4-mm1 kernel.
-
-everything goes fine.
-
-my friend told me something about the io/schedulers as a source=20
-of instability .. i'm investigatng.
-
-C.Nicolas.
+Any progress on getting the farsync patches into the 2.4 and 2.6
+Kernels?
 
 
+Kevin
 
---=-UqbdjlJhQ5H9sQYKNmrD
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: Ceci est une partie de message
-	=?ISO-8859-1?Q?num=E9riquement?= =?ISO-8859-1?Q?_sign=E9e?=
+-----Original Message-----
+From: Kevin Curtis 
+Sent: 01 March 2004 13:56
+To: Kevin Curtis; 'Jeff Garzik'
+Cc: 'netdev@oss.sgi.com'; 'davem@redhat.com'
+Subject: RE: Update FarSync WAN driver in 2.6
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.3 (GNU/Linux)
 
-iD8DBQBAUb3pxsSeKWK8V4QRApt9AJ4hVhUEko5pOvq7Kugi7V286pN25ACcDriX
-FZpegsGLQ//UOzabAH5ACoo=
-=2YOV
------END PGP SIGNATURE-----
+Here is the modified patch.
+It installs against 2.6.4-pre1
 
---=-UqbdjlJhQ5H9sQYKNmrD--
+Best get it in quick before net_device is given back to the hdlc layer
+again :->
+
+
+Kevin
+
+-----Original Message-----
+From: Kevin Curtis 
+Sent: 01 March 2004 09:15
+To: 'Jeff Garzik'; Kevin Curtis
+Cc: netdev@oss.sgi.com; davem@redhat.com
+Subject: RE: Update FarSync WAN driver in 2.6
+
+
+Hi,
+	looks as though the 2.6.4-pre1 patch has changed farsync.c,
+which is probably why the patch will not apply.  I would re-work the
+patch against this release.
+
+	What is the status of the 2.4.x patch that I sent a while back?
+I still need to make one more change to it.  I need to know if to resend
+the whole patch, or a n additional patch with the change?
+
+
+Kevin
+
+-----Original Message-----
+From: Jeff Garzik [mailto:jgarzik@pobox.com] 
+Sent: 29 February 2004 18:53
+To: Kevin Curtis
+Cc: netdev@oss.sgi.com; davem@redhat.com
+Subject: Re: Update FarSync WAN driver in 2.6
+
+
+hum...  Patch looks OK to appy, but does not apply against the latest 
+2.6.x kernel.
+
+Also, it is possible to split your patch into two pieces:  one patch 
+with nothing but indentation/whitespace cleanups, and the other patch 
+with functional changes?
+
+	Jeff
