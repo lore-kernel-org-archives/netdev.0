@@ -1,25 +1,55 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: Fw: [Bugme-new] [Bug 3784] New: Kernel Panic on huge portrange TCP scan (using nmap portscanner).
-Date: Sun, 21 Nov 2004 00:52:13 +0100
-Message-ID: <20041120235213.GZ31969@postel.suug.ch>
-References: <20041120132749.5001bef1.akpm@osdl.org>
+From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Subject: Re: Assertions when lowering tcp_tso_win_divisor
+Date: Sat, 20 Nov 2004 22:44:39 -0200
+Message-ID: <419FE4F7.8000700@conectiva.com.br>
+References: <Pine.LNX.4.58.0411160931080.31882@w-sridhar.beaverton.ibm.com> <E1CUAQ2-0002jT-00@gondolin.me.apana.org.au> <20041116163106.3b62a39a.davem@davemloft.net> <Pine.LNX.4.58.0411191755160.2567@w-sridhar.beaverton.ibm.com> <20041119223527.1f243d6e.davem@davemloft.net> <Pine.LNX.4.58.0411201503510.6242@w-sridhar.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, Andrew Morton <akpm@osdl.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, herbert@gondor.apana.org.au,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: czkaw@poczta.fm
-Content-Disposition: inline
-In-Reply-To: <20041120132749.5001bef1.akpm@osdl.org>
+To: Sridhar Samudrala <sri@us.ibm.com>
+In-Reply-To: <Pine.LNX.4.58.0411201503510.6242@w-sridhar.beaverton.ibm.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Andrew Morton <20041120132749.5001bef1.akpm@osdl.org> 2004-11-20 13:27
->            Summary: Kernel Panic on huge portrange TCP scan (using nmap
->                     portscanner).
->     Kernel Version: Linux version 2.6.9 (slawek@ivision) (gcc version 3.3.4)
 
-2.6.9 has a buggy TCP, can you please confirm against at least 2.6.10-rc2.
-I was not able to repdroduce this in the described way.
 
-Thanks.
+Sridhar Samudrala wrote:
+> On Fri, 19 Nov 2004, David S. Miller wrote:
+> 
+> 
+>>On Fri, 19 Nov 2004 18:00:21 -0800 (PST)
+>>Sridhar Samudrala <sri@us.ibm.com> wrote:
+>>
+>>
+>>>Unfortunately as we cannot upgrade to 2.6.10-rc2
+>>
+>>This doesn't work.  You cannot expect upstream maintainers
+>>to work with you if you're not willing to or able to
+>>try things out with the latest kernels.
+>>
+>>I have an inkling as to the reason why you're restricted
+>>in this way, which is that you're limited to some vendor's
+>>kernel.  Am I right?
+> 
+> 
+> Yes. You are right. It is a vendor kernel based on 2.6.9 along
+> with some vendor specific kernel patches.
+> I agree that it is not always possible to support older kernels
+> and i was not expecting you to do that.
+> I tried to do this myself by identifying the tso related patches
+> that went in after 2.6.9 and just wanted to find out if i missed
+> any other patches that may have fixed the tso related assertions.
+> 
+> We will try to see if this problem can be reproduced with
+> 2.6.10-rc2.
+
+That will help figuring out the problem, even if afterwards you
+continue using 2.6.9, by determining if the problem was solved already
+8) i.e. it may be another bug, not the tso related ones solved in
+2.6.10-rc2.
+
+- Arnaldo
