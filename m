@@ -1,67 +1,32 @@
-From: Bogdan Costescu <bogdan.costescu@iwr.uni-heidelberg.de>
-Subject: [3c59x] Add support for ATI Radeon 9100 IGP
-Date: Tue, 1 Jun 2004 18:48:57 +0200 (CEST)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [IPSEC] Fix xfrm_tunnel leak
+Date: Tue, 1 Jun 2004 12:35:42 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0406011746340.32516-100000@kenzo.iwr.uni-heidelberg.de>
+Message-ID: <20040601123542.48e364e4.davem@redhat.com>
+References: <20040601122559.GA19761@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew Morton <akpm@osdl.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040601122559.GA19761@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Tue, 1 Jun 2004 22:25:59 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-Hi!
+> Turns out that the IPIP tunnel used by IPCOMP states are only freed
+> if the IPCOMP state is deleted by xfrm_state_delete.
+> 
+> This is not the case for all states.  For example, an immature IPCOMP
+> state that dies in add_sa will not go through xfrm_state_delete.
+> 
+> The following patch moves the delete_tunnel call into IPCOMP's
+> destructor.  I think it makes more sense there as IPCOMP is the
+> only user of the tunnel anyway.
 
-[ I don't know if Andrew (3c59x maintainer) still reads the vortex
-mailing list where I just posted the same patch, so I thought
-mentioning it on netdev as well would be a good idea. ]
+Looks perfect, patch applied.
 
-The patch adds support for the 3Com networking core found in the ATI
-Radeon 9100 IGP southbridge used on boards like Asus P4R800-VM. The
-patch is against the 3c59x driver from 2.6.6; it should apply cleanly
-to most other 2.6 versions and applies with some offsets also for
-2.4.2x.
-
-A bit of discussion about the patch can be found on the vortex list 
-archives, like:
-
-http://marc.theaimsgroup.com/?l=linux-vortex&m=108610754614149&w=2
-
-
---- linux-2.6.6-orig/drivers/net/3c59x.c	2004-05-10 04:31:55.000000000 +0200
-+++ linux-2.6.6/drivers/net/3c59x.c	2004-05-25 23:45:29.000000000 +0200
-@@ -446,6 +446,7 @@
- 	CH_3C905B_2,
- 	CH_3C905B_FX,
- 	CH_3C905C,
-+	CH_3C9202,
- 	CH_3C980,
- 	CH_3C9805,
- 
-@@ -521,6 +522,8 @@
- 	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|HAS_HWCKSM, 128, },
- 	{"3c905C Tornado",
- 	 PCI_USES_IO|PCI_USES_MASTER, IS_TORNADO|HAS_NWAY|HAS_HWCKSM, 128, },
-+	{"3C920B-EMB-WNM (ATI Radeon 9100 IGP)",
-+	 PCI_USES_IO|PCI_USES_MASTER, IS_TORNADO|HAS_MII|HAS_HWCKSM, 128, },
- 	{"3c980 Cyclone",
- 	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|HAS_HWCKSM, 128, },
- 	{"3c980C Python-T",
-@@ -597,6 +600,7 @@
- 	{ 0x10B7, 0x9058, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CH_3C905B_2 },
- 	{ 0x10B7, 0x905A, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CH_3C905B_FX },
- 	{ 0x10B7, 0x9200, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CH_3C905C },
-+	{ 0x10B7, 0x9202, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CH_3C9202 },
- 	{ 0x10B7, 0x9800, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CH_3C980 },
- 	{ 0x10B7, 0x9805, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CH_3C9805 },
- 
-
--- 
-Bogdan Costescu
-
-IWR - Interdisziplinaeres Zentrum fuer Wissenschaftliches Rechnen
-Universitaet Heidelberg, INF 368, D-69120 Heidelberg, GERMANY
-Telephone: +49 6221 54 8869, Telefax: +49 6221 54 8868
-E-mail: Bogdan.Costescu@IWR.Uni-Heidelberg.De
+Thanks Herbert.
