@@ -1,84 +1,88 @@
-From: Lorenzo =?ISO-8859-1?Q?Hern=E1ndez_?= =?ISO-8859-1?Q?Garc=EDa-Hierro?= <lorenzo@gnu.org>
-Subject: Re: [PATCH] OpenBSD Networking-related randomization port
-Date: Mon, 31 Jan 2005 18:23:38 +0100
-Message-ID: <1107192218.3754.86.camel@localhost.localdomain>
-References: <1106932637.3778.92.camel@localhost.localdomain>
-	 <20050128100229.5c0e4ea1@dxpl.pdx.osdl.net>
-	 <1106937110.3864.5.camel@localhost.localdomain>
-	 <20050128105217.1dc5ef42@dxpl.pdx.osdl.net>
-	 <1106944492.3864.30.camel@localhost.localdomain>
-	 <1106945266.7776.41.camel@laptopd505.fenrus.org>
-	 <200501290915.j0T9FkVY012948@turing-police.cc.vt.edu>
-	 <20050131165025.GN18316@stusta.de>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: [PATCH] gc_min_interval in milleseconds via /proc (fwd)
+Date: Mon, 31 Jan 2005 19:01:05 +0100
+Message-ID: <16894.29281.293401.832567@robur.slu.se>
+References: <16888.56016.608929.340640@robur.slu.se>
+	<20050130225627.4feecd2e.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-sVRmgpnA8TFRirAc9KXF"
-Cc: Valdis.Kletnieks@vt.edu, Arjan van de Ven <arjan@infradead.org>,
-        Stephen Hemminger <shemminger@osdl.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Chris Wright <chrisw@osdl.org>, netdev@oss.sgi.com,
-        Hank Leininger <hlein@progressive-comp.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Adrian Bunk <bunk@stusta.de>
-In-Reply-To: <20050131165025.GN18316@stusta.de>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050130225627.4feecd2e.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---=-sVRmgpnA8TFRirAc9KXF
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+David S. Miller writes:
 
-El lun, 31-01-2005 a las 17:50 +0100, Adrian Bunk escribi=F3:
-> On Sat, Jan 29, 2005 at 04:15:43AM -0500, Valdis.Kletnieks@vt.edu wrote:
-> > On Fri, 28 Jan 2005 21:47:45 +0100, Arjan van de Ven said:
-> >=20
-> > > as for obsd_get_random_long().. would it be possible to use the
-> > > get_random_int() function from the patches I posted the other day? Th=
-ey
-> > > use the existing random.c infrastructure instead of making a copy...
-> > >=20
-> > > I still don't understand why you need a obsd_rand.c and can't use the
-> > > normal random.c
-> >=20
-> > Note that obsd_rand.c started off life as a BSD-licensed file - I was t=
-old
-> > that was a show-stopper when I submitted basically the same patch a whi=
-le back.
-> >...
->=20
-> At least the three clause BSD license is GPL compatible.
->=20
+ > We must pick a new sysctl number too, for sysctl() system call.
+ > If the only access possible were through /proc then yes your
+ > change would be valid, but due to sysctl() system call the
+ > .ctl_name defines that dimension of the sysctl namespace.
 
-Yes, AFAIK :)
+ Ok!
+ NET_IPV4_ROUTE_GC_MIN_INTERVAL_MS was added last in list to avoid
+ renumbering. Feel free to change.
 
-I will try to follow Arjan's recommendations on using his functions
-instead of obsd ones, even if I think it should be alone in the current
-file.
-Also I will split up the patch.
+					--ro
 
-I will do it as soon as I get time for it, I need first to work out a
-cleaner vsec (no more code in headers and such) and also a sys_chroot()
-hook that I requested yesterday on the bugzilla, among the SELinux 2.4
-backport which needs several fixes due to last 2.6 bk-commits reports.
-
-Thanks for the comments,
-Cheers.
---=20
-Lorenzo Hern=E1ndez Garc=EDa-Hierro <lorenzo@gnu.org>=20
-[1024D/6F2B2DEC] & [2048g/9AE91A22][http://tuxedo-es.org]
-
---=-sVRmgpnA8TFRirAc9KXF
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: Esta parte del mensaje =?ISO-8859-1?Q?est=E1?= firmada
-	digitalmente
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-
-iD8DBQBB/mmZDcEopW8rLewRAlqbAJwNTBNH7ugNu10emnGg6YxKw0q/SQCeOpLj
-Z4J7CgJ7BoxQu4HwPGcAmkM=
-=7prp
------END PGP SIGNATURE-----
-
---=-sVRmgpnA8TFRirAc9KXF--
+--- include/linux/sysctl.h.orig	2005-01-31 18:36:11.524393024 +0100
++++ include/linux/sysctl.h	2005-01-31 18:37:41.843662408 +0100
+@@ -365,6 +365,7 @@
+ 	NET_IPV4_ROUTE_MIN_PMTU=16,
+ 	NET_IPV4_ROUTE_MIN_ADVMSS=17,
+ 	NET_IPV4_ROUTE_SECRET_INTERVAL=18,
++	NET_IPV4_ROUTE_GC_MIN_INTERVAL_MS=19
+ };
+ 
+ enum
+--- net/ipv4/route.c.orig	2005-01-27 11:19:37.000000000 +0100
++++ net/ipv4/route.c	2005-01-31 18:35:20.552141984 +0100
+@@ -2529,6 +2529,8 @@
+ 		.proc_handler	= &proc_dointvec,
+ 	},
+ 	{
++		/*  Deprecated. Use gc_min_interval_ms */
++ 
+ 		.ctl_name	= NET_IPV4_ROUTE_GC_MIN_INTERVAL,
+ 		.procname	= "gc_min_interval",
+ 		.data		= &ip_rt_gc_min_interval,
+@@ -2538,6 +2540,15 @@
+ 		.strategy	= &sysctl_jiffies,
+ 	},
+ 	{
++		.ctl_name	= NET_IPV4_ROUTE_GC_MIN_INTERVAL_MS,
++		.procname	= "gc_min_interval_ms",
++		.data		= &ip_rt_gc_min_interval,
++		.maxlen		= sizeof(unsigned long),
++		.mode		= 0644,
++		.proc_handler	= &proc_doulongvec_ms_jiffies_minmax,
++		.strategy	= &sysctl_jiffies,
++	},
++	{
+ 		.ctl_name	= NET_IPV4_ROUTE_GC_TIMEOUT,
+ 		.procname	= "gc_timeout",
+ 		.data		= &ip_rt_gc_timeout,
+--- Documentation/filesystems/proc.txt.orig	2005-01-27 12:35:02.000000000 +0100
++++ Documentation/filesystems/proc.txt	2005-01-27 12:46:30.000000000 +0100
+@@ -1709,12 +1709,13 @@
+ 
+ Writing to this file results in a flush of the routing cache.
+ 
+-gc_elasticity, gc_interval, gc_min_interval, gc_tresh, gc_timeout,
+-gc_thresh, gc_thresh1, gc_thresh2, gc_thresh3
+---------------------------------------------------------------
++gc_elasticity, gc_interval, gc_min_interval_ms, gc_timeout, gc_thresh
++---------------------------------------------------------------------
+ 
+ Values to  control  the  frequency  and  behavior  of  the  garbage collection
+-algorithm for the routing cache.
++algorithm for the routing cache. gc_min_interval is deprecated and replaced
++by gc_min_interval_ms.
++
+ 
+ max_size
+ --------
