@@ -1,19 +1,19 @@
 From: Harald Welte <laforge@netfilter.org>
-Subject: Re: [PATCH 2.6] iptables CLUSTERIP target
-Date: Thu, 21 Oct 2004 11:12:29 +0200
+Subject: Re: [PATCH 2.6] iptables CONNMARK match+target
+Date: Thu, 21 Oct 2004 11:16:32 +0200
 Sender: netfilter-devel-bounces@lists.netfilter.org
-Message-ID: <20041021091229.GA3551@sunbeam.de.gnumonks.org>
-References: <20041020223828.GP19899@sunbeam.de.gnumonks.org>
-	<20041021075530.GA1278@infradead.org>
+Message-ID: <20041021091632.GB3551@sunbeam.de.gnumonks.org>
+References: <20041020222102.GO19899@sunbeam.de.gnumonks.org>
+	<Pine.LNX.4.61.0410210912280.18310@filer.marasystems.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="3V7upXqbjpZ4EhLz"
+	protocol="application/pgp-signature"; boundary="MW5yreqqjyrRcusr"
 Cc: Linux Netdev List <netdev@oss.sgi.com>,
 	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
 Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Christoph Hellwig <hch@infradead.org>
+To: Henrik Nordstrom <hno@marasystems.com>
 Content-Disposition: inline
-In-Reply-To: <20041021075530.GA1278@infradead.org>
+In-Reply-To: <Pine.LNX.4.61.0410210912280.18310@filer.marasystems.com>
 List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
 	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
 List-Archive: </pipermail/netfilter-devel>
@@ -25,25 +25,30 @@ Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
 
---3V7upXqbjpZ4EhLz
+--MW5yreqqjyrRcusr
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-On Thu, Oct 21, 2004 at 08:55:30AM +0100, Christoph Hellwig wrote:
-> btw, please stop crossposting to public and private lists, or even better
-> allow posting to netfiler-devel without subscription like every sane list
-> allows to.
+On Thu, Oct 21, 2004 at 09:12:48AM +0200, Henrik Nordstrom wrote:
+> On Thu, 21 Oct 2004, Harald Welte wrote:
+>=20
+> >This is the first patch, adding something similar like nfmark, but on a
+> >per-conntrack (as opposed to per-skb) level.  Very useful especially for
+> >asymmatric routing in combination with MASQUERADE, as often found on
+> >home DSL setups with dymamic IP address that also have e.g. a tunnel
+> >device with static IP.
+>=20
+> Is this with or without the mark operations?
 
-We allow posting, your posting will just await moderator approval.  Our
-listmaster usuall checks more than once per day. =20
+What is 'this' you are referring to?=20
 
-Developers who happen to post more often (like davem) will be added to
-an explicit sender filter.
+'patch'? Well you should know your patch ;)
 
-Unfortunately wi didn't find any other reliable way to catch all the
-spam we receive, sorry.  And yes, we already run spamassassin, as well
-as mimetype-based and HTML filters.
+'very useful'? Yes, indeed.  I think it is already very useful, even
+without MARK bit-wise operations (which AFAIK are not implemented with
+the required compatibility issues we discussed at the netfilter
+workshop, but which will be submitted once this is done).
 
 --=20
 - Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
@@ -55,7 +60,7 @@ as mimetype-based and HTML filters.
    architectural error that shows how much experimentation was going
    on while IP was being designed."                    -- Paul Vixie
 
---3V7upXqbjpZ4EhLz
+--MW5yreqqjyrRcusr
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: Digital signature
 Content-Disposition: inline
@@ -63,9 +68,9 @@ Content-Disposition: inline
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.2.5 (GNU/Linux)
 
-iD8DBQFBd319XaXGVTD0i/8RAuZcAKCK1CJSlFGCJ09DsY7bOLpFbfvSlACgmajt
-uL86f+THZ5QD+MT+xEFwIZw=
-=dIGC
+iD8DBQFBd35wXaXGVTD0i/8RAijmAJ4oHZSAHJ3wSN9eODFhVoqibYEkbQCfdP/Q
+oORpoVyrPojTod4DV94OR58=
+=UZ31
 -----END PGP SIGNATURE-----
 
---3V7upXqbjpZ4EhLz--
+--MW5yreqqjyrRcusr--
