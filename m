@@ -1,39 +1,53 @@
-From: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
-Subject: Re: fealnx oopses
-Date: Mon, 29 Mar 2004 09:52:01 +0200
+From: Valentijn Sessink <netdev1080549435@mail.v.sessink.nl>
+Subject: IPsec 2.6 fragmentation issue(s)
+Date: Mon, 29 Mar 2004 10:37:38 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200403290952.01687.vda@port.imtp.ilyichevsk.odessa.ua>
-References: <200403261214.58127.vda@port.imtp.ilyichevsk.odessa.ua> <200403282219.56799.vda@port.imtp.ilyichevsk.odessa.ua> <20040328232707.GA17524@scream.fjortis.info>
+Message-ID: <20040329083738.GA14167@openoffice.nl>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>, Jeff Garzik <jgarzik@pobox.com>,
-        Andreas Henriksson <andreas@fjortis.info>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andreas Henriksson <andreas@fjortis.info>
-In-Reply-To: <20040328232707.GA17524@scream.fjortis.info>
+To: Linux networking <netdev@oss.sgi.com>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Monday 29 March 2004 01:27, Andreas Henriksson wrote:
-> On Sun, Mar 28, 2004 at 10:19:56PM +0200, Denis Vlasenko wrote:
-> > I tested on 2.4.25, patch applied with minimal manual correction
-> > in last hunk (rediffed patch attached).
->
-> I tested on 2.6.5-rc2-bk7 ... with both jeffs (which was exactly the
-> same patch I had except for removing the return at the end of the void
-> function) and francis patches...
->
-> Btw. I haven't seen any panics at all because of rx, just tx, and that
-> problem seems solved. But I thought testing additional patches that
-> is supposed to cure other problems won't hurt me.. ;)
+Hello list,
 
-Thank you, you verified that _I_ did not caused it.
-(I could, I was a bit tired at the time)
+I'm having various problems with 2.6 native IPsec and fragmentation. Most
+notably, the following - between host valentijn (2.6.1) and host21 there's a
+Wifi IPsec tunnel:
 
-You need to make your box very RAM starved for this.
-I boot with mem=16M and load all iptables NAT/conntrack
-modules to make network processing more CPU/RAM intensive.
+  valentijn:~# ping -s 1435 host21
+  PING host21.wireless.palmgracht.nl (10.15.67.21): 1435 data bytes
+  ping: sendto: Message too long
+  ping: wrote host21.wireless.palmgracht.nl 1443 chars, ret=-1
+  ping: sendto: Message too long
+  ping: wrote host21.wireless.palmgracht.nl 1443 chars, ret=-1
+
+Resetting the MTU on the network interface helps:
+
+  valentijn:~# ifconfig eth1 mtu 1400
+  valentijn:~# ping -s 1417 host21
+  PING host21.wireless.palmgracht.nl (10.15.67.21): 1417 data bytes
+  1425 bytes from 10.15.67.21: icmp_seq=0 ttl=64 time=93.0 ms
+  1425 bytes from 10.15.67.21: icmp_seq=1 ttl=64 time=78.2 ms
+
+Then, resetting it to 1500 again does this:
+valentijn:~# ifconfig eth1 mtu 1500
+valentijn:~# ping -s 1435 host21
+  PING host21.wireless.palmgracht.nl (10.15.67.21): 1435 data bytes
+  ping: sendto: Message too long
+  ping: wrote host21.wireless.palmgracht.nl 1443 chars, ret=-1
+  1443 bytes from 10.15.67.21: icmp_seq=1 ttl=64 time=89.0 ms
+  1443 bytes from 10.15.67.21: icmp_seq=2 ttl=64 time=79.9 ms
+
+These MTU difficulties seem to propagate to a whole set of tunneling
+difficulties, none of them clear enough to mention here, as my other side is
+still a 2.4.24-with-IPsec backport.
+
+Best regards,
+
+Valentijn
 -- 
-vda
+http://www.openoffice.nl/   Open Office - Linux Office Solutions
+Valentijn Sessink  valentyn+sessink@nospam.openoffice.nl
