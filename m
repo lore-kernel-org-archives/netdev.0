@@ -1,46 +1,36 @@
-From: Henrik Nordstrom <hno@marasystems.com>
-Subject: Re: netfilter query
-Date: Mon, 22 Nov 2004 13:03:23 +0100 (CET)
-Message-ID: <Pine.LNX.4.61.0411221245470.20973@filer.marasystems.com>
-References: <20041121153354.99557.qmail@web41404.mail.yahoo.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 2.6 PKT_SCHED]: Fix overflow on 64bit in times reported
+	to userspace by tc actions
+Date: 22 Nov 2004 08:24:34 -0500
+Message-ID: <1101129873.1093.300.camel@jzny.localdomain>
+References: <41908D1D.50405@trash.net>
+	 <20041111150314.576ce699.davem@davemloft.net>
+	 <1101059233.1093.151.camel@jzny.localdomain>  <41A1C99B.6010202@trash.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: kernelnewbies@nl.linux.org, netdev@oss.sgi.com,
-	netfilter-devel@lists.netfilter.org, linux-kernel@vger.kernel.org
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: cranium2003 <cranium2003@yahoo.com>
-In-Reply-To: <20041121153354.99557.qmail@web41404.mail.yahoo.com>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <41A1C99B.6010202@trash.net>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 21 Nov 2004, cranium2003 wrote:
+On Mon, 2004-11-22 at 06:12, Patrick McHardy wrote:
+> jamal wrote:
+> 
+> >Patrick are you going to work on the other cleanups you were thuinking
+> >of? ( etc)
+> >
+> I will send you a batch of patches in one or two weeks, right now I'm
+> waiting for you to ACK the tc_action_init patch so I can resync my
+> tree with Dave's.
 
-> Also,which headers are added when packet
-> reaches to netfilter hook NF_IP_LOCAL_OUT? I found
-> TCP/UDP/ICMP ,IP. Is that correct?
+I think thats the one I am acking, no? Can you resend it just to be
+sure. Note that i had no issues with any of the other patches (other
+than one i explicitly flagged to test).
 
-Yes.
-
-netfilter is running at the IP layer and only reliably have access to IP 
-headers and up. Lower level headers such as Ethernet MAC header is 
-transport dependent and not always available, and certainly not available 
-in NF_IP_LOCAL_OUT as it is not yet known the packet will be sent to an 
-Ethernet.
-
-In some netfilter hooks it is possible to rewind back to the Ethernet MAC 
-header but one must be careful to verify that it really is an Ethernet 
-packet one is looking at when doing this. Unfortunately there is no 
-perfect solution how to detect this.. For an example of how one may try to 
-look at the Ethernet MAC header see ipt_mac.c. But be warned that it is 
-possible for non-Ethernet frames to pass the simple checks done there..
-
-Regards
-Henrik
+cheers,
+jamal
