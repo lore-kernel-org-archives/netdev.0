@@ -1,67 +1,59 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
+From: Jon D Mason <jonmason@us.ibm.com>
 Subject: Re: [PATCH r8169] ethtool support and sane speed selection/detection
-Date: Sat, 24 Apr 2004 17:01:02 +0200
+Date: Sat, 24 Apr 2004 14:44:59 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040424170102.A27531@electric-eye.fr.zoreil.com>
-References: <20040424050931.14C341D4F@luto.stanford.edu> <20040424124453.A25284@electric-eye.fr.zoreil.com> <408A8252.5040006@stanford.edu>
+Message-ID: <OFD9C928E8.B270E69A-ON87256E80.0069EECE-86256E80.006C0C7E@us.ibm.com>
+References: <408A8252.5040006@stanford.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andy Lutomirski <luto@myrealbox.com>, netdev@oss.sgi.com,
-        jgarzik@pobox.com, Jon D Mason <jonmason@us.ibm.com>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: jgarzik@pobox.com, Andy Lutomirski <luto@myrealbox.com>,
+        netdev@oss.sgi.com, netdev-bounce@oss.sgi.com,
+        Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-bounce@oss.sgi.com>
+In-Reply-To: <408A8252.5040006@stanford.edu>
 To: Andy Lutomirski <luto@stanford.edu>
-Content-Disposition: inline
-In-Reply-To: <408A8252.5040006@stanford.edu>; from luto@stanford.edu on Sat, Apr 24, 2004 at 08:05:54AM -0700
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Re,
+>>>As an added benefit, my 8001S often fails to negotiate 1000Mbps when 
+the
+>>>driver loads but will successfully negotiate it after a while.  Running
+>>>'ethtool -s ethx autoneg on' fixes it, but that's absurd.  This patch
+>>>will, ten seconds after the driver starts, check if 1000Mbps is 
+advertised
+>>>but not selected, and, if so, force a renegotiation.
+>> 
+>> 
+>> So you can not reliably remove the phy timer and simply use the LinkChg 
+status
+>> change, right ?
+>
+>Apparently.  The timer only fires when necessary with my patch, though 
+>(see the return statements in rtl8169_phy_timer).
+>
+>BTW, what was it there for in the first place?  I can get gigabit to 
+>fail to negotiate, but I always pick up a 100Mbps/full duplex link when 
+>that happens.  I've never seen a complete absense of link.  I left the 
+>original semantics around because I assumed there was a reason, but if 
+>it's unnecessary, then the timer should only need to fire once during 
+>the lifetime of the device (and the assorted bookkeeping can go away).
 
-Andy Lutomirski <luto@stanford.edu> :
-[...]
-> done - my bad.
+I have an 8110S version of the chipset, and I don't have any problems with 
+it getting an improper link speed form the outset.  Though, I am running 
+point-to-point with an e1000 adapter.  Are you running this through a 
+switch?
 
-No problem.
+BTW, good work doing the link changes.  Though it might be beneficial to 
+do a "printk(KERN_INFO "%s: Link Down\n", dev->name);" in the interrupt 
+handler to show that the link is down in the dmesg (and a Link Up message 
+too).
 
-[...]
-> > So you can not reliably remove the phy timer and simply use the LinkChg
-> > status change, right ?
-> 
-> Apparently.  The timer only fires when necessary with my patch, though 
-> (see the return statements in rtl8169_phy_timer).
-> 
-> BTW, what was it there for in the first place?  I can get gigabit to 
-> fail to negotiate, but I always pick up a 100Mbps/full duplex link when 
-> that happens.  I've never seen a complete absense of link.  I left the 
-> original semantics around because I assumed there was a reason, but if 
-> it's unnecessary, then the timer should only need to fire once during 
-> the lifetime of the device (and the assorted bookkeeping can go away).
+>> Is everybody fine if I cook up a series of patches for -netdev/-mm 
+inclusion
+>> which includes:
+>> - your link related changes
+>> - start of a 8139cp.c genetic mutation on top of those
+>> - reworked Jon D Mason's NAPI changes
 
-The timer is a survival of Realtek's changes as they appeared in their
-release 1.6 of the driver but it does not necessarily means that it can
-not be done differently. As Jeff suggested/expects a merge of the r8169
-driver within the 8139cp one, a removal of the timer would push the r8169
-driver in the right direction. At least that's how I have read your patch
-this morning :o)
-
-[completely unresponsive r8169 chipset]
-> Do you know any way to do an extra hard reset of the chipset?
-
-It has already been reported but I have not digged it. A comparison of
-the registers of the device when it is functionnal/frost may shed some
-light on this issue.
-
-[...]
-> Any thoughts on what's wrong with my tx csum offload patch?  If I can 
-> get that working, I'll do rx csum offload and TSO as well.
-
-So far I have not had time to look closely at your TSO patch. If you want
-a working TSO support with minimal pain, getting some inspiration from the
-8139cp driver would be imho the way to go. One can expect this kind of new
-functions (from a r8169 pov) to be gained from the merge with the 8139cp.c.
-So, if you want to publish some TSO patch, it would be nice to write it in
-such a way that it does not make the r8169 more different from the 8139cp
-driver than it currently is.
-
---
-Ueimor
+Looks like a fair amount of work to convert 8139cp to r8169.  Let me know 
+if you need any help.
