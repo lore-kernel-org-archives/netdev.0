@@ -1,93 +1,42 @@
-From: Ralph Doncaster <ralph@istop.com>
-Subject: Re: [RFC] High Performance Packet Classifiction for tc framework
-Date: Wed, 13 Aug 2003 13:28:28 -0400 (EDT)
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: RFR: new SiS gige driver
+Date: Sat, 09 Aug 2003 11:10:45 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.51.0308131320470.13253@ns.istop.com>
-References: <200307141045.40999.nf@hipac.org> <1058328537.1797.24.camel@jzny.localdomain>
- <3F16A0E5.1080007@hipac.org> <1059934468.1103.41.camel@jzny.localdomain>
- <3F2E5CD6.4030500@hipac.org> <1060012260.1103.380.camel@jzny.localdomain>
- <3F302E04.1090503@hipac.org> <1060286331.1025.73.camel@jzny.localdomain>
- <3F381B3E.6080807@hipac.org> <20030811224050.59bc36fe.davem@redhat.com>
- <20030812142913.GB18802@mail.jlokier.co.uk>
-Reply-To: ralph+d@istop.com
+Message-ID: <3F353925.3030106@candelatech.com>
+References: <20030808173932.GA4077@gtf.org> <20030809141533.GB4539@wotan.suse.de> <3F350CC8.3090605@pobox.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "netdev@oss.sgi.com" <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andi Kleen <ak@suse.de>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jamie Lokier <jamie@shareable.org>
-In-Reply-To: <20030812142913.GB18802@mail.jlokier.co.uk>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <3F350CC8.3090605@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Jeff Garzik wrote:
+> Andi Kleen wrote:
+> 
+>> * netif_stop_queue in hard_start_xmit is not protected against the 
+>> interrupt by the spinlock. That's racy, isn't it?
+> 
+> 
+> Shouldn't be, if done right.  If the interrupt runs a TX completion 
+> cycle, it will run the code
+>     if (work_done && netif_queue_stopped(dev))
+>         netif_wake_queue(dev)
+> 
 
-On Tue, 12 Aug 2003, Jamie Lokier wrote:
-> David S. Miller wrote:
-> > On Tue, 12 Aug 2003 00:39:58 +0200
-> > The ipv4 FIB hash tables tackle exactly this problem.  The resulting
-> > worse cast complexity is O(n_bits_in_prefix_mask).
-> >
-> > The problem you've described is exactly the same as trying to use
-> > hashing for routing tables.
->
-> You can do it in O(log(n_bits_in_prefix_mask)).
->
-> This is achieved using binary search on the prefix lengths which
-> appear in the table.  (So if only a few prefix lengths are used, the
-> tree is small).
->
-> Illustrated by an example.  The example assumes 32 bits total and
-> every prefix length appears in the table.  Each node in the search
-> tree has one or more of these fields:
->
->    - TABLE: Sparse (hash) or dense (direct) mapping of some
->      subset of input bits to subtree nodes.
->    - SHORTER: Subtree node, for matching shorter prefixes than the
->      one which lead to the current node.
->    - BEST: Best matching result given the prefix that lead to this node.
->      This is either an exact match for that prefix, or the best
->      shorter-prefix match for it.
->      (On the root node, this will be the default value).
->
-> In the worst case of N bits in the prefix, and every prefix length is
-> actually used, there would by N tree nodes, however the depth of the
-> search tree is ceil(log2(N)).
->
-> This is the lookup algorithm:
->
->    - Start with the root tree node.
->      Note that this isn't the shortest prefix matcher.
->      It will match the "middle" prefix length, given your set of lengths.
->      E.g. on a 32-bit address, with rules of all prefix lenghts, the root
->      tree node would match 16 bits.
-> LOOP:
->    - If NODE->TABLE exists, lookup the appropriate subset of input bits in it.
->      For sparse tables, this involves a hash lookup.
->      If a match is found, select that as the new tree node and goto LOOP.
->    - Otherwise there is no table or no match in the table.
->    - If NODE->SHORTER exists, select that as the new tree node and goto LOOP.
->    - Otherwise, return NODE->BEST.
->
-> This generalises to multiple dimensions e.g. for doing multiple
-> prefixes on source+target + different combinations of other bits such
-> as protocol, TOS etc. - i.e. arbitrary bit-subset classifiers.  The
-> basic principle and the algorithm are the same.
->
-> In some cases it is worth reducing the tree size a little, e.g. if
-> prefix lengths P and P+1 appear, you may as well just hash on P+1 bits
-> and insert all the P prefix matches into the P+1 table, instead of
-> having a P table.  The cost is up to twice the number of entries in
-> the P+1 table (depending on how dense your set of P+1 rules is), but
-> this may be better than the cost of a extra hash lookup.  Naturally,
-> there are other optimisations too.
+> Since ->hard_start_xmit is guaranteed never to be called if the queue is 
+> stopped, you also guaranteed that netif_wake_queue and ->hard_start_xmit 
+> are mutually exclusive.
 
-Most of this doesn't make sense to me.  The part about merging
-prefix-length tables is OK (i.e. 10.10.0.0/16 and 10.10.1.0/17 becomes
-10.10.0.0/17 and 10.10.1.0/17).
+Is this really guaranteed?  What if the queue is stopped between the check
+to see if it's stopped and the call to hard_start_xmit?
 
-However if you have 32 tables (one for each prefix length) I can't see any
-possible way of avoiding a search in each table for the worst case.  So if
-my packet is destined to 217.109.118.70 you need to start looking for a
-match for a /32 route, and if not found continue checking each prefix size
-until you've reached /0.
+Ben
 
--Ralph
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
