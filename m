@@ -1,28 +1,24 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [RFT] convert syskonnect gigabit ether driver to PCI module interface
-Date: Tue, 22 Jun 2004 19:23:15 -0400
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] [sparse] rtentry->rt_dev is __user
+Date: Tue, 22 Jun 2004 17:09:46 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40D8BF63.9010308@pobox.com>
-References: <20040622161130.0adaac78@dell_ss3.pdx.osdl.net>
+Message-ID: <20040622170946.193420fc.davem@redhat.com>
+References: <20040622155453.564ede17@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Mirko Lindner <mlinder@syskonnect.de>,
-        Ralph Roesler <rroesler@syskonnect.de>, netdev@oss.sgi.com,
-        Christoph Hellwig <hch@lst.de>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040622161130.0adaac78@dell_ss3.pdx.osdl.net>
+In-Reply-To: <20040622155453.564ede17@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> This patch converts the SysKonnect Gigabit Ethernet (Yukon) driver from
-> the old pci_find_class infrastructure, to the current 2.4/2.6 pci_module probing
-> model.  The device identification is no longer done in the macro, but in a pci_device_id
-> table like other drivers.
+On Tue, 22 Jun 2004 15:54:53 -0700
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
+> The device entry in the route ioctl's needs annotation.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-Didn't Christoph just submit this same patch?  :)
-
-	Jeff
+Applied.
