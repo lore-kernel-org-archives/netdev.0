@@ -1,61 +1,108 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: Re: netlink tester program
-Date: Mon, 2 Jun 2003 10:07:54 -0700
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20030602100754.1e3e1ca8.rddunlap@osdl.org>
-References: <20030530090015.7c435c9a.rddunlap@osdl.org>
-	<20030530.171111.71099698.davem@redhat.com>
-	<32804.4.64.196.31.1054351332.squirrel@www.osdl.org>
-	<20030530.234211.102567405.davem@redhat.com>
-	<20030531120940.GB11898@wotan.suse.de>
+From: Krishna Kumar <krkumar@us.ibm.com>
+Subject: Re: [PATCH] Prefix List patch against 2.5.70
+Date: Mon, 02 Jun 2003 10:32:49 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <3EDB8A41.2080305@us.ibm.com>
+References: <3ED80230.2030508@us.ibm.com> <20030531.110249.12960077.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <20030531120940.GB11898@wotan.suse.de>
+Cc: davem@redhat.com, kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org,
+   netdev@oss.sgi.com, linux-net@vger.kernel.org
+Return-path: <netdev-bounce@oss.sgi.com>
+In-Reply-To: <20030531.110249.12960077.yoshfuji@linux-ipv6.org>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 31 May 2003 14:09:40 +0200 Andi Kleen <ak@suse.de> wrote:
+Hi Yoshifuji,
 
-| > You really need something like rtnl_talk() or rtnl_dump_filter()
-| > from libnetlink to do this properly.
-| 
-| In case it's helpful I wrote manpages for libnetlink some time ago.
-| 
-| I also have some simple example programs using it. Other examples
-| can be found in the zebra or bird source code.
+Thanks for your comments.
 
-Does this man page live somewhere?  Do some distros ship it?
+>>+/* prefix list returned to user space in this structure */
+>>+struct plist_user_info {
+> 
+>           ^ip6 or ipv6 or so.
+> 
+>>+	char name[IFNAMSIZ];		/* interface name */
+> 
+>         ~~~~~~~~~~~~~~~~~~~duplicate information.
+> 
 
-Where can I find your example programs that use it?
+Point noted. That can be removed (prefer to have name instead of ifindex).
 
-Couple of corrections below....
+>>+	int ifindex;			/* interface index */
+>>+	int nprefixes;			/* number of elements in 'prefix' */
+>>+	struct var_plist_user_info {	/* multiple elements */
+>>+		char flags[3];		/* router advertised flags */
+> 
+>                      ~~~~~~~~this is not good interface.
 
-
-|        rtnl_listen
-|               Receive netlink data after a request and pass it to
-|               handler.   handler is a callback that gets the mes-
-|               sage source address, the message  itself,  and  the
-|               jarg  cookie  as  arguments. It will get called for
-+                                            It will be called for
-{'get' should usually be avoided when easily done}
-|               all received messages.  Only one message bundle  is
-|               received.  Unless  there is no message pending this
-|               function does not block.
-| 
-| 
-|        rta_addattr32
-|               Initialize the rtnetlink attribute rta with a __u32
-|               data value.
-| 
-| 
-|        rta_addattr32
-+        rta_addattr_l
-|               Initialize the rtnetlink attribute rta with a vari-
-|               able length data value.
+This is my mistake. When I added the original interface, it was using the proc
+filesystem and it made sense at that time for a user to cat /proc/net/<file> and
+actually see the flags. While converting to use netlink, I forgot to change this
+to real flags. This was not intended interface :-)
 
 
---
-~Randy
+>>+		int plen;		/* prefix length */
+>>+		__u32 valid;		/* valid lifetime */
+>>+		struct in6_addr ra_addr;/* advertising router */
+>>+		struct in6_addr prefix;	/* prefix */
+>>+	} plist_vars[0];
+>>+};
+>>+
+>>  extern void			addrconf_init(void);
+>>  extern void			addrconf_cleanup(void);
+>>
+> 
+> 
+> :
+> 
+> I think we should use 1 fixed-length message per prefix,
+> instead of variable length message.
+
+I had got this idea from "struct fib_info" which also has variable size
+structure, but probably it is not worth the extra effort to save a few bytes.
+
+>>+			ipv6_addr_copy(&pinfo->plist_vars[count].ra_addr,
+>>+			    &p_el->ra_addr);
+>>+			for (i = 0; i < 8; i++)
+>>+				pinfo->plist_vars[count].ra_addr.s6_addr16[i] =
+>>+				    __constant_ntohs(pinfo->plist_vars[count].ra_addr.s6_addr16[i]);
+>>+			ipv6_addr_copy(&pinfo->plist_vars[count].prefix,
+>>+			    &p_el->pinfo.prefix);
+>>+			for (i = 0; i < p_el->pinfo.prefix_len/16; i++)
+>>+				pinfo->plist_vars[count].prefix.s6_addr16[i] =
+>>+				    __constant_ntohs(pinfo->plist_vars[count].prefix.s6_addr16[i]);
+> 
+> 
+> Absoletely nasty.
+> - don't use charaters to represent flags; use real flags.
+> - use network-byte order.
+
+network-byte order ? User will get prefix in network byte order, is that correct  ?
+
+>>+static int prefix_list_proc_dump(char *buffer, char **start, off_t offset,
+>>+			   int length)
+>>+{
+> 
+> :
+> 
+> Please use seq_file.
+
+OK.
+
+> Again, what I proposed was to store prefix information on fib with 
+> some flags to represent advertised by routers and give user-space 
+> the RA information using new rtattr (RTA_RA6INFO or something like that).
+> 
+> struct rta_ra6info {
+>      u32 rta_ra6flags;
+> };
+>
+
+In my mail, I had given problems with doing that in the fib. I can look to
+convert to fib, but please let me know which kernel routines I should look at.
+
+Thanks,
+
+- KK
