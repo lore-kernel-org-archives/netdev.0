@@ -1,29 +1,28 @@
-From: gozdal@gozdal.eu.org (Marcin Gozdalik)
-Subject: Handling a few hundred thousand TCP flows
-Date: Sun, 1 Feb 2004 22:58:36 +0100
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: netdevice->generate_eui64
+Date: Sun, 1 Feb 2004 15:24:35 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040201215836.GC16978@gozdal.eu.org>
+Message-ID: <20040201152435.34f4231e.davem@redhat.com>
+References: <20040130170316.789e8939.zaitcev@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: schwidefsky@de.ibm.com, zaitcev@redhat.com, utz.bacher@de.ibm.com,
+        pavlic@de.ibm.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: Pete Zaitcev <zaitcev@redhat.com>
+In-Reply-To: <20040130170316.789e8939.zaitcev@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello
+On Fri, 30 Jan 2004 17:03:16 -0800
+Pete Zaitcev <zaitcev@redhat.com> wrote:
 
-I've been successfully using Linux 2.4 for handling many thousands TCP
-flows (300k non-stop). I've been wondering which options I should use to
-minimize CPU and memory consumption.
-I've followed the thread from December about handling 90k TCP streams
-and suggestions contained there. I thought however of some more radical
-solutions: disabling rt_cache altogether. The routing table contains
-whole 2 entries (for eth0 subnet and default gateway) so I'd assume that
-walking linearily such short list would be a win cache-wise compared to
-huge rt_cache? Or is it a completely stupid idea not worth implementing?
-Additionally, I've disabled ECN and SACKs. Does it make any sense? Or
-are performance/memory gains negligible?
+> Does anyone know where I can find a patch to add dev->generate_eui64?
+> The qeth in 2.6 tree requires it to be built (with IPv6). I am talking
+> about a descendant of this patch:
+>  http://www.ussg.iu.edu/hypermail/linux/net/0303.0/0037.html
 
-Cheers,
-Marcin
+I don't want to see this btw, as I mentioned ipv6 specific things do not
+belong in the generic device struct.  There surely are better ways and I'm
+totally open to suggestions.
