@@ -1,48 +1,44 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Fw: [Bugme-new] [Bug 3200] New: linux-2.6.8-rc4-mm1: IPv6-in-IPv6 undefined references
-Date: Sun, 15 Aug 2004 17:41:36 +1000
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: strange network performance degradation 2.6.8-rc3-mm1 -> 2.6.8-rc4-mm1
+Date: Sun, 15 Aug 2004 11:59:00 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <E1BwFe4-0007hy-00@gondolin.me.apana.org.au>
-References: <20040814233108.51a04d33.akpm@osdl.org>
-Cc: netdev@oss.sgi.com, davem@redhat.com
+Message-ID: <20040815095900.GA2846@electric-eye.fr.zoreil.com>
+References: <20040814060948.GA7842@middle.of.nowhere> <20040814121533.GB18754@electric-eye.fr.zoreil.com> <20040814135606.GA6001@middle.of.nowhere> <20040814150824.GA21843@electric-eye.fr.zoreil.com> <20040814161039.GA1985@middle.of.nowhere> <20040814172835.GA23427@electric-eye.fr.zoreil.com> <20040814190140.GA1954@middle.of.nowhere> <20040814192740.GB23427@electric-eye.fr.zoreil.com> <20040815055455.GA1496@middle.of.nowhere>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Pasi Sjoholm <ptsjohol@cc.jyu.fi>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: akpm@osdl.org (Andrew Morton)
-In-Reply-To: <20040814233108.51a04d33.akpm@osdl.org>
+To: Jurriaan <thunder7@xs4all.nl>
+Content-Disposition: inline
+In-Reply-To: <20040815055455.GA1496@middle.of.nowhere>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton <akpm@osdl.org> wrote:
-> 
-> As module:
-> 
-> **********
-> make[1]: `arch/i386/kernel/asm-offsets.s' is up to date.
->  CHK     include/linux/compile.h
-> Kernel: arch/i386/boot/bzImage is ready
->  Building modules, stage 2.
->  MODPOST
-> *** Warning: "xfrm6_tunnel_deregister" [net/ipv6/ip6_tunnel.ko] undefined!
-> *** Warning: "xfrm6_tunnel_register" [net/ipv6/ip6_tunnel.ko] undefined!
+Jurriaan <thunder7@xs4all.nl> :
+> > > 2.6.8-rc4-mm1 + 8139too-mm-revert + 8139too-10 + 8139too-20: doesn't boot
+> > 
+> > Thanks. Erm... not exactly what I had expected.
+> > 
+> > Could you return to 2.6.8-rc4-mm1 + 8139too-mm-revert.patch and try each
+> > of the three patches attached ?
+> > 
+> patch #1 boots
+> patch #2 doesn't boot
+> patch #3 boots
 
-This patch should fix it.
+Ok, the early read of the interrupt status register is the culprit.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+I have modified 8139too-10.patch so that it behaves like patch #1 and 
+resynced the whole serie.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Can you both apply the updated patches below ?
+
+If M.Sjoholm's setup works fine, I'll forward the update for inclusion
+in -mm/-netdev.
+
+http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.8-rc4-mm1/8139too-mm-revert.patch
+http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.8-rc4-mm1/8139too-10.patch
+http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.8-rc4-mm1/8139too-20.patch
+
 --
-===== net/ipv6/Kconfig 1.9 vs edited =====
---- 1.9/net/ipv6/Kconfig	2004-07-30 08:48:33 +10:00
-+++ edited/net/ipv6/Kconfig	2004-08-15 17:39:29 +10:00
-@@ -59,6 +59,7 @@
- config IPV6_TUNNEL
- 	tristate "IPv6: IPv6-in-IPv6 tunnel"
- 	depends on IPV6
-+	select XFRM
- 	---help---
- 	  Support for IPv6-in-IPv6 tunnels described in RFC 2473.
- 
+Ueimor
