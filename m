@@ -1,44 +1,42 @@
-From: Bogdan Costescu <bogdan.costescu@iwr.uni-heidelberg.de>
-Subject: Re: how to set the configuration EEPROM  back to the default setting
-Date: Mon, 3 Feb 2003 13:24:19 +0100 (CET)
+From: "TintasInk" <tintasink@techniciansupport.com.ar>
+Subject: TINTAS PARA IMPRESORAS
+Date: Mon, 3 Feb 2003 23:49:02 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0302031319240.27729-100000@kenzo.iwr.uni-heidelberg.de>
-References: <20030203082920.38177.qmail@web13306.mail.yahoo.com>
+Message-ID: <117523-220032242492956@pentium3>
+Reply-To: "TintasInk" <tintasink@techniciansupport.com.ar>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: =?iso-8859-1?q?nadia=20houziri?= <hona0005@yahoo.fr>
-In-Reply-To: <20030203082920.38177.qmail@web13306.mail.yahoo.com>
+To: "netdev@oss.sgi.com" <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 3 Feb 2003, [iso-8859-1] nadia houziri wrote:
+Hola !=20
+Le ofrecemos TINTAS PARA IMPRESORAS CHORRO DE TINTA, para todas
+las marcas y modelos (HP - EPSON - CANON - LEXMARK).
+TINTAS PIGMENTADAS - CALIDAD ORIGINAL
 
->   1)how can i please Set the configuration EEPROM back 
+1 LITRO DE TINTA NEGRA $ 90.-
+1 LITRO DE TINTA COLOR $ 105.-
+Tambi=E9n por 1/2 Litro,a $ 60.- el negro y $ 70 cada color.
+Y por 1/4 litro a $ 40.- cualquier color, inclu=EDdo el negro.
+Todos Precios Netos. Proveemos cargadores e instrucciones sin cargo.
 
-By using the DOS-based tool that you used to set it to coaxial :-)
+RECARGUE HASTA 70 VECES SU CARTUCHO!!!!
 
-> 2)but how can i to explicitly set the media 
+Env=EDos al Interior por ContraReembolso.
+Tiene toda la informacion necesaria en
+NUESTRO SITIO WEB: www.techniciansupport.com.ar/tintasink
 
-The Scyld page that you mentioned exoplains this. IN /etc/modules.conf, 
-you need something like:
+CONSULTENOS:
+POR TELEFONO AL (011) 4666-6733
+POR E-MAIL A tintasink@techniciansupport.com.ar
+O EN NUESTRO SITIO WEB: www.techniciansupport.com.ar/tintasink
+O POR ICQ: 159631730
 
-options 3c59x 3
+Para no recibir m=E1s estos mails, por favor, RESPONDA con la palabra REM=
+OVE en el
+asunto. Todos los pedidos son procesados.
 
-to select BNC.
-
-> 3)how to change the EEPROM to switch?
-
-If you mean by this to just change the EEPROM every time you boot to 
-switch to a different media type, then you shouldn't do it !
-The EEPROM has a limited amount of writes and at some point you will not 
-be able to write to it anymore.
-
--- 
-Bogdan Costescu
-
-IWR - Interdisziplinaeres Zentrum fuer Wissenschaftliches Rechnen
-Universitaet Heidelberg, INF 368, D-69120 Heidelberg, GERMANY
-Telephone: +49 6221 54 8869, Telefax: +49 6221 54 8868
-E-mail: Bogdan.Costescu@IWR.Uni-Heidelberg.De
+Muchas Gracias
