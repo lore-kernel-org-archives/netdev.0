@@ -1,70 +1,84 @@
-From: Harald Welte <laforge@gnumonks.org>
-Subject: [BUG] sundance "Something Wicked happened!" (IntrPCIErr)
-Date: Mon, 31 Jan 2005 17:59:48 +0100
-Message-ID: <20050131165947.GJ6878@sunbeam.de.gnumonks.org>
+From: Lorenzo =?ISO-8859-1?Q?Hern=E1ndez_?= =?ISO-8859-1?Q?Garc=EDa-Hierro?= <lorenzo@gnu.org>
+Subject: Re: [PATCH] OpenBSD Networking-related randomization port
+Date: Mon, 31 Jan 2005 18:23:38 +0100
+Message-ID: <1107192218.3754.86.camel@localhost.localdomain>
+References: <1106932637.3778.92.camel@localhost.localdomain>
+	 <20050128100229.5c0e4ea1@dxpl.pdx.osdl.net>
+	 <1106937110.3864.5.camel@localhost.localdomain>
+	 <20050128105217.1dc5ef42@dxpl.pdx.osdl.net>
+	 <1106944492.3864.30.camel@localhost.localdomain>
+	 <1106945266.7776.41.camel@laptopd505.fenrus.org>
+	 <200501290915.j0T9FkVY012948@turing-police.cc.vt.edu>
+	 <20050131165025.GN18316@stusta.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="sl5MdczEF/OU2Miu"
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-sVRmgpnA8TFRirAc9KXF"
+Cc: Valdis.Kletnieks@vt.edu, Arjan van de Ven <arjan@infradead.org>,
+        Stephen Hemminger <shemminger@osdl.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Chris Wright <chrisw@osdl.org>, netdev@oss.sgi.com,
+        Hank Leininger <hlein@progressive-comp.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: Adrian Bunk <bunk@stusta.de>
+In-Reply-To: <20050131165025.GN18316@stusta.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---sl5MdczEF/OU2Miu
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+--=-sVRmgpnA8TFRirAc9KXF
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: quoted-printable
 
-Hi!
+El lun, 31-01-2005 a las 17:50 +0100, Adrian Bunk escribi=F3:
+> On Sat, Jan 29, 2005 at 04:15:43AM -0500, Valdis.Kletnieks@vt.edu wrote:
+> > On Fri, 28 Jan 2005 21:47:45 +0100, Arjan van de Ven said:
+> >=20
+> > > as for obsd_get_random_long().. would it be possible to use the
+> > > get_random_int() function from the patches I posted the other day? Th=
+ey
+> > > use the existing random.c infrastructure instead of making a copy...
+> > >=20
+> > > I still don't understand why you need a obsd_rand.c and can't use the
+> > > normal random.c
+> >=20
+> > Note that obsd_rand.c started off life as a BSD-licensed file - I was t=
+old
+> > that was a show-stopper when I submitted basically the same patch a whi=
+le back.
+> >...
+>=20
+> At least the three clause BSD license is GPL compatible.
+>=20
 
-I have one machine with 8 sundance interfaces.  The machine spits tons
-(16G Logfile in a couple of hours) of the Error message "Something Wicked
-happened!":
+Yes, AFAIK :)
 
-2005:01:26-17:25:02 (none) kernel: eth5: Something Wicked happened! 0003.
-2005:01:26-17:25:02 (none) kernel: eth5: Something Wicked happened! 0007.
-2005:01:26-17:25:02 (none) kernel: eth5: Something Wicked happened! 0003.
-2005:01:26-17:25:02 (none) kernel: eth5: Something Wicked happened! 0003.
-2005:01:26-17:25:02 (none) kernel: eth5: Something Wicked happened! 0013.  =
-                    =20
-The system is a DELL PowerEdge 1850 Dual Xeon 2.8GHz with two DFE-580TX
-fourport Ethernet cards.
+I will try to follow Arjan's recommendations on using his functions
+instead of obsd ones, even if I think it should be alone in the current
+file.
+Also I will split up the patch.
 
-Looking at the source code, the error message only happens if IntrPCIErr
-is set. =20
+I will do it as soon as I get time for it, I need first to work out a
+cleaner vsec (no more code in headers and such) and also a sys_chroot()
+hook that I requested yesterday on the bugzilla, among the SELinux 2.4
+backport which needs several fixes due to last 2.6 bk-commits reports.
 
-What kind of PCI Error is this status bit referring to? =20
-Does anyone have the sundance specs and could help me out? =20
-Do you think it's good indication that hardware is broken?
-
-Also, the source contains a comment about resetting DMA, which isn't
-actually implemented.
-
-Any ideas?
-
+Thanks for the comments,
+Cheers.
 --=20
-- Harald Welte <laforge@gnumonks.org>               http://www.gnumonks.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-"Privacy in residential applications is a desirable marketing option."
-                                                  (ETSI EN 300 175-7 Ch. A6)
+Lorenzo Hern=E1ndez Garc=EDa-Hierro <lorenzo@gnu.org>=20
+[1024D/6F2B2DEC] & [2048g/9AE91A22][http://tuxedo-es.org]
 
---sl5MdczEF/OU2Miu
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
+--=-sVRmgpnA8TFRirAc9KXF
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: Esta parte del mensaje =?ISO-8859-1?Q?est=E1?= firmada
+	digitalmente
 
 -----BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
+Version: GnuPG v1.2.4 (GNU/Linux)
 
-iD8DBQFB/mQDXaXGVTD0i/8RAqLBAJ44KdG1UeDevTpCLESmjhAk4Djr/wCgicni
-+2y1E0wbZOzfhVut+ucXlWI=
-=NGH5
+iD8DBQBB/mmZDcEopW8rLewRAlqbAJwNTBNH7ugNu10emnGg6YxKw0q/SQCeOpLj
+Z4J7CgJ7BoxQu4HwPGcAmkM=
+=7prp
 -----END PGP SIGNATURE-----
 
---sl5MdczEF/OU2Miu--
+--=-sVRmgpnA8TFRirAc9KXF--
