@@ -1,39 +1,40 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] Prevent crash on ip_conntrack removal
-Date: Sat, 21 Aug 2004 17:10:20 +0200
-Sender: netfilter-devel-admin@lists.netfilter.org
-Message-ID: <412765DC.30600@trash.net>
-References: <20040818091352.GB6507@suse.de>	<20040819101159.GC3921@sunbeam.de.gnumonks.org>	<20040819071846.2d0d6120.davem@redhat.com>	<4124BF7E.7090304@trash.net> <20040819081428.5243e314.davem@redhat.com>
+From: Olaf Hering <olh@suse.de>
+Subject: [PATCH] remove old version check from mac8390
+Date: Sat, 21 Aug 2004 17:49:06 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040821154906.GA14498@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: laforge@netfilter.org, okir@suse.de, netdev@oss.sgi.com,
-	netfilter-devel@lists.netfilter.org
-Return-path: <netfilter-devel-admin@lists.netfilter.org>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040819081428.5243e314.davem@redhat.com>
-Errors-To: netfilter-devel-admin@lists.netfilter.org
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: <https://lists.netfilter.org/pipermail/netfilter-devel/>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com
+Content-Disposition: inline
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
 
->I have a better idea.
->
->Instead of setting skb->dst to NULL, it should set it to some
->NULL destination entry which just frees up the packets.  Then
->no special case handling.  skb->dst==NULL packets should never
->get into the fragment queue to begin with.
->
-The problem is that conntrack unload can cause packets without a
-dst_entry to appear in ip_local_deliver, which is already after
-the call to dst_input.
+This 'netdevice' define will end up in the 'tags' file.
+Its not used, so just remove it.
 
-Regards
-Patrick
+
+diff -p -purN linux-2.6.8.1.kaputt/drivers/net/mac8390.c linux-2.6.8.1/dr=
+ivers/net/mac8390.c
+--- linux-2.6.8.1.kaputt/drivers/net/mac8390.c	2004-08-14 12:55:33.000000=
+000 +0200
++++ linux-2.6.8.1/drivers/net/mac8390.c	2004-08-21 17:45:12.000000000 +02=
+00
+@@ -42,10 +42,6 @@
+=20
+ #include "8390.h"
+=20
+-#if (LINUX_VERSION_CODE < 0x02030e)
+-#define net_device device
+-#endif
+-
+ #define WD_START_PG			0x00	/* First page of TX buffer */
+ #define CABLETRON_RX_START_PG		0x00    /* First page of RX buffer */
+ #define CABLETRON_RX_STOP_PG		0x30    /* Last page +1 of RX ring */
+--=20
+USB is for mice, FireWire is for men!
+
+sUse lINUX ag, n=C3=9CRNBERG
