@@ -1,173 +1,269 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH] 2.6.5-rc2 - more epic100 napi
-Date: Thu, 25 Mar 2004 01:27:52 +0100
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040325012752.B30067@electric-eye.fr.zoreil.com>
-References: <20040320152109.A31118@electric-eye.fr.zoreil.com> <405DDDC6.7030007@pobox.com> <8765cvmyaq.fsf@devron.myhome.or.jp> <20040323195119.A14062@electric-eye.fr.zoreil.com> <871xnjgwrs.fsf@devron.myhome.or.jp> <20040324014140.A16202@electric-eye.fr.zoreil.com>
+From: Dmitry Torokhov <dtor_core@ameritech.net>
+Subject: Re: [PATCH 2/2 (resend)] TBF trailing whitespace fixes
+Date: Wed, 24 Mar 2004 23:54:22 -0500
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <200403242354.23584.dtor_core@ameritech.net>
+References: <200403230108.08384.dtor_core@ameritech.net> <200403230108.58006.dtor_core@ameritech.net> <20040324135939.4dff0560.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20040324135939.4dff0560.davem@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <20040324014140.A16202@electric-eye.fr.zoreil.com>; from romieu@fr.zoreil.com on Wed, Mar 24, 2004 at 01:41:40AM +0100
-Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu <romieu@fr.zoreil.com> :
-[...]
-> diff -puN drivers/net/epic100.c~epic100-napi-30 drivers/net/epic100.c
-> --- linux-2.6.5-rc2/drivers/net/epic100.c~epic100-napi-30	2004-03-24 01:18:25.000000000 +0100
-> +++ linux-2.6.5-rc2-fr/drivers/net/epic100.c	2004-03-24 01:19:35.000000000 +0100
-> @@ -1355,7 +1356,6 @@ static int epic_poll(struct net_device *
->  
->  	orig_budget = (*budget > dev->quota) ? dev->quota : *budget;
->  
-> -rx_action:
->  	outl(EpicNapiEvent, ioaddr + INTSTAT);
->  
->  	epic_tx(dev, ep);
-> @@ -1369,18 +1369,18 @@ rx_action:
->  
->  	if (netif_running(dev) && (work_done < orig_budget)) {
->  		unsigned long flags;
-> -		int status;
->  
-> -		spin_lock_irqsave(&ep->napi_lock, flags);
->  		epic_napi_irq_on(dev, ep);
-> +
-> +		spin_lock_irqsave(&ep->napi_lock, flags);
->  		__netif_rx_complete(dev);
-> -		spin_unlock_irqrestore(&ep->napi_lock, flags);
->  
-> -		status = inl(ioaddr + INTSTAT);
-> -		if (status & EpicNapiEvent) {
-> +		if (ep->reschedule_in_poll) {
->  			epic_napi_irq_off(dev, ep);
-> -			goto rx_action;
-> +			__netif_rx_schedule(dev);
-                        ^^^^^^^^^^^^^^^^^^^^^^^^^
+On Wednesday 24 March 2004 04:59 pm, David S. Miller wrote:
+> 
+> Dmitry, I applied the first patch to both 2.4.x and 2.6.x
+> The whitespace patch (the second one) only applies to 2.6.x,
+> so a 2.4.x version would be appreciated.
+> 
+> Thanks.
+> 
 
-While in poll() handler, brilliant :o(
+Here it is, against the today's Marcelo's BK plus the first patch.
+It compiles.
 
-Please apply (tested) patch below on top of the acked patches (i.e 1/4...4/4):
-- issuing commands via the serial console under an incoming stream of 40k
-  short sized pps sucks but it is possible;
-- does not leak refcount (it rmmods fine).
-
-Next step: identify the best performer amongst the previously discussed changes.
+--
+Dmitry
 
 
-Multiple invocation of __netif_rx_schedule() in epic_interrupt() while
-epic_poll loops over __netif_rx_complete() leads to serious device
-refcount leak.
+===================================================================
 
 
- drivers/net/epic100.c |   33 ++++++++++++++++++---------------
- 1 files changed, 18 insertions(+), 15 deletions(-)
+ChangeSet@1.1321, 2004-03-24 23:50:16-05:00, dtor_core@ameritech.net
+  NET: TBF trailing whitespace cleanup
 
-diff -puN drivers/net/epic100.c~epic100-napi-30 drivers/net/epic100.c
---- linux-2.6.5-rc2/drivers/net/epic100.c~epic100-napi-30	2004-03-24 01:18:25.000000000 +0100
-+++ linux-2.6.5-rc2-fr/drivers/net/epic100.c	2004-03-25 00:51:30.000000000 +0100
-@@ -337,6 +337,7 @@ struct epic_private {
- 	/* Ring pointers. */
- 	spinlock_t lock;				/* Group with Tx control cache line. */
- 	spinlock_t napi_lock;
-+	unsigned int reschedule_in_poll;
- 	unsigned int cur_tx, dirty_tx;
+
+ sch_tbf.c |   68 +++++++++++++++++++++++++++++++-------------------------------
+ 1 files changed, 34 insertions(+), 34 deletions(-)
+
+
+===================================================================
+
+
+
+diff -Nru a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+--- a/net/sched/sch_tbf.c	Wed Mar 24 23:50:55 2004
++++ b/net/sched/sch_tbf.c	Wed Mar 24 23:50:55 2004
+@@ -62,7 +62,7 @@
  
- 	unsigned int cur_rx, dirty_rx;
-@@ -472,7 +473,9 @@ static int __devinit epic_init_one (stru
- 	dev->base_addr = ioaddr;
- 	dev->irq = irq;
+ 	Algorithm.
+ 	----------
+-	
++
+ 	Let N(t_i) be B/R initially and N(t) grow continuously with time as:
  
--	spin_lock_init (&ep->lock);
-+	spin_lock_init(&ep->lock);
-+	spin_lock_init(&ep->napi_lock);
-+	ep->reschedule_in_poll = 0;
- 
- 	/* Bring the chip out of low-power mode. */
- 	outl(0x4200, ioaddr + GENCTL);
-@@ -981,8 +984,6 @@ static void epic_init_ring(struct net_de
- 	int i;
- 
- 	ep->tx_full = 0;
--	spin_lock_init(&ep->lock);
--	spin_lock_init(&ep->napi_lock);
- 	ep->dirty_tx = ep->cur_tx = 0;
- 	ep->cur_rx = ep->dirty_rx = 0;
- 	ep->rx_buf_sz = (dev->mtu <= 1500 ? PKT_BUF_SZ : dev->mtu + 32);
-@@ -1152,7 +1153,6 @@ static void epic_tx(struct net_device *d
+ 	N(t+delta) = min{B/R, N(t) + delta}
+@@ -146,15 +146,15 @@
+ 		if (sch->reshape_fail == NULL || sch->reshape_fail(skb, sch))
+ #endif
+ 			kfree_skb(skb);
+-	
++
+ 		return NET_XMIT_DROP;
  	}
+-	
++
+ 	if ((ret = q->qdisc->enqueue(skb, q->qdisc)) != 0) {
+ 		sch->stats.drops++;
+ 		return ret;
+-	}	
+-	
++	}
++
+ 	sch->q.qlen++;
+ 	sch->stats.bytes += skb->len;
+ 	sch->stats.packets++;
+@@ -165,10 +165,10 @@
+ {
+ 	struct tbf_sched_data *q = (struct tbf_sched_data *)sch->data;
+ 	int ret;
+-	
++
+ 	if ((ret = q->qdisc->ops->requeue(skb, q->qdisc)) == 0)
+-		sch->q.qlen++; 
+-	
++		sch->q.qlen++;
++
+ 	return ret;
  }
  
--
- /* The interrupt handler does all of the Rx thread work and cleans up
-    after the Tx thread. */
- static irqreturn_t epic_interrupt(int irq, void *dev_instance, struct pt_regs *regs)
-@@ -1177,14 +1177,16 @@ static irqreturn_t epic_interrupt(int ir
- 			break;
- 		handled = 1;
- 
--		if (status & EpicNapiEvent) {
-+		if ((status & EpicNapiEvent) && !ep->reschedule_in_poll) {
- 			spin_lock(&ep->napi_lock);
- 			if (netif_rx_schedule_prep(dev)) {
- 				epic_napi_irq_off(dev, ep);
- 				__netif_rx_schedule(dev);
--			}
-+			} else
-+				ep->reschedule_in_poll++;
- 			spin_unlock(&ep->napi_lock);
- 		}
-+		status &= ~EpicNapiEvent;
- 
- 		/* Check uncommon events all at once. */
- 		if (status &
-@@ -1211,7 +1213,7 @@ static irqreturn_t epic_interrupt(int ir
- 			/* Clear all error sources. */
- 			outl(status & 0x7f18, ioaddr + INTSTAT);
- 		}
--		if (status & EpicNormalEvent)
-+		if (!(status & EpicNormalEvent))
- 			break;
- 		if (--boguscnt < 0) {
- 			printk(KERN_ERR "%s: Too much work at interrupt, "
-@@ -1356,7 +1358,6 @@ static int epic_poll(struct net_device *
- 	orig_budget = (*budget > dev->quota) ? dev->quota : *budget;
- 
- rx_action:
--	outl(EpicNapiEvent, ioaddr + INTSTAT);
- 
- 	epic_tx(dev, ep);
- 
-@@ -1369,18 +1370,20 @@ rx_action:
- 
- 	if (netif_running(dev) && (work_done < orig_budget)) {
- 		unsigned long flags;
--		int status;
- 
- 		spin_lock_irqsave(&ep->napi_lock, flags);
--		epic_napi_irq_on(dev, ep);
--		__netif_rx_complete(dev);
--		spin_unlock_irqrestore(&ep->napi_lock, flags);
- 
--		status = inl(ioaddr + INTSTAT);
--		if (status & EpicNapiEvent) {
--			epic_napi_irq_off(dev, ep);
-+		if (ep->reschedule_in_poll) {
-+			ep->reschedule_in_poll--;
-+			spin_unlock_irqrestore(&ep->napi_lock, flags);
- 			goto rx_action;
- 		}
+@@ -176,7 +176,7 @@
+ {
+ 	struct tbf_sched_data *q = (struct tbf_sched_data *)sch->data;
+ 	unsigned int len;
+-	
 +
-+		outl(EpicNapiEvent, ioaddr + INTSTAT);
-+		epic_napi_irq_on(dev, ep);
-+		__netif_rx_complete(dev);
+ 	if ((len = q->qdisc->ops->drop(q->qdisc)) != 0) {
+ 		sch->q.qlen--;
+ 		sch->stats.drops++;
+@@ -196,7 +196,7 @@
+ {
+ 	struct tbf_sched_data *q = (struct tbf_sched_data *)sch->data;
+ 	struct sk_buff *skb;
+-	
 +
-+		spin_unlock_irqrestore(&ep->napi_lock, flags);
+ 	skb = q->qdisc->dequeue(q->qdisc);
+ 
+ 	if (skb) {
+@@ -204,7 +204,7 @@
+ 		long toks;
+ 		long ptoks = 0;
+ 		unsigned int len = skb->len;
+-		
++
+ 		PSCHED_GET_TIME(now);
+ 
+ 		toks = PSCHED_TDIFF_SAFE(now, q->t_c, q->buffer, 0);
+@@ -248,13 +248,13 @@
+ 		   This is the main idea of all FQ algorithms
+ 		   (cf. CSZ, HPFQ, HFSC)
+ 		 */
+-		
++
+ 		if (q->qdisc->ops->requeue(skb, q->qdisc) != NET_XMIT_SUCCESS) {
+-			/* When requeue fails skb is dropped */ 
++			/* When requeue fails skb is dropped */
+ 			sch->q.qlen--;
+ 			sch->stats.drops++;
+-		}	
+-		
++		}
++
+ 		sch->flags |= TCQ_F_THROTTLED;
+ 		sch->stats.overlimits++;
+ 	}
+@@ -279,24 +279,24 @@
+ 	struct Qdisc *q = qdisc_create_dflt(dev, &bfifo_qdisc_ops);
+         struct rtattr *rta;
+ 	int ret;
+-	
++
+ 	if (q) {
+ 		rta = kmalloc(RTA_LENGTH(sizeof(struct tc_fifo_qopt)), GFP_KERNEL);
+ 		if (rta) {
+ 			rta->rta_type = RTM_NEWQDISC;
+-			rta->rta_len = RTA_LENGTH(sizeof(struct tc_fifo_qopt)); 
++			rta->rta_len = RTA_LENGTH(sizeof(struct tc_fifo_qopt));
+ 			((struct tc_fifo_qopt *)RTA_DATA(rta))->limit = limit;
+-			
++
+ 			ret = q->ops->change(q, rta);
+ 			kfree(rta);
+-			
++
+ 			if (ret == 0)
+ 				return q;
+ 		}
+ 		qdisc_destroy(q);
  	}
  
- 	return (work_done >= orig_budget);
-
-_
+-	return NULL;	
++	return NULL;
+ }
+ 
+ static int tbf_change(struct Qdisc* sch, struct rtattr *opt)
+@@ -340,7 +340,7 @@
+ 	}
+ 	if (max_size < 0)
+ 		goto done;
+-	
++
+ 	if (q->qdisc == &noop_qdisc) {
+ 		if ((child = tbf_create_dflt_qdisc(sch->dev, qopt->limit)) == NULL)
+ 			goto done;
+@@ -370,19 +370,19 @@
+ {
+ 	int err;
+ 	struct tbf_sched_data *q = (struct tbf_sched_data *)sch->data;
+-	
++
+ 	if (opt == NULL)
+ 		return -EINVAL;
+-	
++
+ 	MOD_INC_USE_COUNT;
+-	
++
+ 	PSCHED_GET_TIME(q->t_c);
+ 	init_timer(&q->wd_timer);
+ 	q->wd_timer.function = tbf_watchdog;
+ 	q->wd_timer.data = (unsigned long)sch;
+ 
+ 	q->qdisc = &noop_qdisc;
+-	
++
+ 	if ((err = tbf_change(sch, opt)) != 0) {
+ 		MOD_DEC_USE_COUNT;
+ 	}
+@@ -399,7 +399,7 @@
+ 		qdisc_put_rtab(q->P_tab);
+ 	if (q->R_tab)
+ 		qdisc_put_rtab(q->R_tab);
+-	
++
+ 	qdisc_destroy(q->qdisc);
+ 	q->qdisc = &noop_qdisc;
+ 
+@@ -412,10 +412,10 @@
+ 	unsigned char	 *b = skb->tail;
+ 	struct rtattr *rta;
+ 	struct tc_tbf_qopt opt;
+-	
++
+ 	rta = (struct rtattr*)b;
+ 	RTA_PUT(skb, TCA_OPTIONS, 0, NULL);
+-	
++
+ 	opt.limit = q->limit;
+ 	opt.rate = q->R_tab->rate;
+ 	if (q->P_tab)
+@@ -439,9 +439,9 @@
+ {
+ 	struct tbf_sched_data *q = (struct tbf_sched_data*)sch->data;
+ 
+-	if (cl != 1) 	/* only one class */ 
++	if (cl != 1) 	/* only one class */
+ 		return -ENOENT;
+-    
++
+ 	tcm->tcm_handle |= TC_H_MIN(1);
+ 	tcm->tcm_info = q->qdisc->handle;
+ 
+@@ -456,12 +456,12 @@
+ 	if (new == NULL)
+ 		new = &noop_qdisc;
+ 
+-	sch_tree_lock(sch);	
++	sch_tree_lock(sch);
+ 	*old = xchg(&q->qdisc, new);
+ 	qdisc_reset(*old);
+ 	sch->q.qlen = 0;
+ 	sch_tree_unlock(sch);
+-	
++
+ 	return 0;
+ }
+ 
+@@ -480,7 +480,7 @@
+ {
+ }
+ 
+-static int tbf_change_class(struct Qdisc *sch, u32 classid, u32 parentid, 
++static int tbf_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
+ 			struct rtattr **tca, unsigned long *arg)
+ {
+ 	return -ENOSYS;
+@@ -542,7 +542,7 @@
+ 	return register_qdisc(&tbf_qdisc_ops);
+ }
+ 
+-void cleanup_module(void) 
++void cleanup_module(void)
+ {
+ 	unregister_qdisc(&tbf_qdisc_ops);
+ }
