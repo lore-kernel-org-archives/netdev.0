@@ -1,16 +1,16 @@
 From: mcgrof@ruslug.rutgers.edu (Luis R. Rodriguez)
-Subject: Re: [PATCH] #1: cleanup, add reset debug message
-Date: Tue, 10 Aug 2004 20:18:09 -0400
+Subject: Re: [PATCH] #2: add more reset debug messages
+Date: Tue, 10 Aug 2004 20:24:12 -0400
 Sender: prism54-devel-bounces@prism54.org
-Message-ID: <20040811001809.GF26262@ruslug.rutgers.edu>
-References: <200408101823.15792.vda@port.imtp.ilyichevsk.odessa.ua>
+Message-ID: <20040811002412.GG26262@ruslug.rutgers.edu>
+References: <200408101824.28368.vda@port.imtp.ilyichevsk.odessa.ua>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com, prism54-devel@prism54.org
 Return-path: <prism54-devel-bounces@prism54.org>
 To: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
 Content-Disposition: inline
-In-Reply-To: <200408101823.15792.vda@port.imtp.ilyichevsk.odessa.ua>
+In-Reply-To: <200408101824.28368.vda@port.imtp.ilyichevsk.odessa.ua>
 List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
 	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
 List-Archive: <http://prism54.org/pipermail/prism54-devel>
@@ -22,28 +22,22 @@ Errors-To: prism54-devel-bounces@prism54.org
 List-Id: netdev.vger.kernel.org
 
 
-Denis,
-
-this one seems fine to me  although for netdev we'll need a patch
-against linux kernel dirs (linux-2.6.8-rc4/drivers/net/prism54/) instead
-of cvs tarball.
-
-Jeff if you accept I'll apply to our CVS.
+Same here, looks good we'll just need a patch against the kernel tree
+too for netdev.
 
 	Luis
 
-On Tue, Aug 10, 2004 at 06:23:15PM +0300, Denis Vlasenko wrote:
+On Tue, Aug 10, 2004 at 06:24:28PM +0300, Denis Vlasenko wrote:
 > Hi Luis,
 > 
-> This is a mostly trivial patch on top of today's prism54 CVS.
+> On top of previous one:
 > 
-> * Move assignment out of if()
-> * Remove trailing space from printk
-> * Eliminate not needed local 'u32 reg'
-> * Add a comment about undoc bits
-> * Add #define VEC_SIZE, use it as appropriate
-> * Add a pair of printks to reset error code path (our current area of trouble)
-> * Make printk text less confusing
+> * Some not needed NULL assignments removed
+> * Add some more printks to reset code path
+> * mgt_commit_list(): tell which oid has failed
+> 
+> All previous concerns about this patch are addressed
+> (some of removed NULL assignments were indeed needed).
 > 
 > Please apply.
 > --
