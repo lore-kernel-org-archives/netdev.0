@@ -1,46 +1,48 @@
-From: Michael Renzmann <netdev@nospam.otaku42.de>
-Subject: Re: Broadcom 43xx first results
-Date: Tue, 06 Dec 2005 08:17:58 +0100
-Message-ID: <1133853478.4468.9.camel@gimli>
-References: <E1Eiyw4-0003Ab-FW@www1.emo.freenet-rz.de>
-	 <20051205190038.04b7b7c1@griffin.suse.cz> <1133806444.4498.35.camel@gimli>
-	 <43948B13.2090509@pobox.com>
-Reply-To: netdev@nospam.otaku42.de
+From: "¸¶ È«±¤" <dsdfsfasd@daum.net>
+Subject: =?ISO-8859-1?Q?=A1=D9=C8=B8=BB=E7=BF=F8,=B0=F8=B9=AB=BF=F8=C8=AF=BF=B5,=B3=E25.8~12.5%=C0=C7=C3=D6=C0=FA=B1=DD=B8=AE?=
+Date: Mon, 06 Dec 2004 10:41:43 +0300
+Message-ID: <VMOQJUTKNOIZEJPXTYAQRV@kr.co.kr>
+Reply-To: "¸¶ È«±¤" <ertewr@empal.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@nospam.otaku42.de, Jiri Benc <jbenc@suse.cz>,
-	mbuesch@freenet.de, linux-kernel@vger.kernel.org,
-	bcm43xx-dev@lists.berlios.de, NetDev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel-3=40m.gmane.org-S1750727AbVLFH3K@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <43948B13.2090509@pobox.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/alternative;
+	boundary="--59646866649756459146"
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi.
+----638563511913558
+Content-Type: text/html;
+Content-Transfer-Encoding: quoted-printable
 
-On Mon, 2005-12-05 at 13:46 -0500, Jeff Garzik wrote:
-> > Although I'm a bit biased towards MadWifi, I'd second your suggestion to
-> > make use of the Devicescape code. The benefit of having a fully-blown
-> > 802.11 stack in the kernel that drivers can make use of has been
-> > discussed before, so I won't go into that yet again.
-> Use the stack that's already in the kernel.
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<title>=B9=CF=C0=BD=C0=D6=B4=C2 =C8=AE=BD=C7=C7=D1 =B4=EB=C3=E2=BC=AD=BA=F1=
+=BD=BA!</title>
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Deuc-kr">=
 
-Sorry, that was my bad. I thought that the Devicescape code found its
-way to the kernel (didn't follow the discussion some months ago too
-closely). Although I think there probably are better alternatives to the
-802.11 stack that is in the kernel right now, having a central 802.11
-stack at all is a great improvement that should be used where possible.
+</head>
 
-> Encouraging otherwise hinders continued wireless progress under Linux.
+<body topmargin=3D"0">
+<table width=3D"520" border=3D"0" align=3D"center" cellpadding=3D"0" cells=
+pacing=3D"0">
+  <tr> 
+    <td><a href=3D"http://www.keep-loan.com/0919/jik_argee.html?cp=3Dtwwf1=
+&grade=3Djik"><img src=3D"http://www.keep-loan.com/m_img2/left.jpg" width=3D=
+"269" height=3D"492" border=3D"0"></a></td>
+    <td><a href=3D"http://www.keep-loan.com/jik_argeec.html?cp=3Dtwwf1&gra=
+de=3Dcard"><img src=3D"http://www.keep-loan.com/m_img2/right.jpg" width=3D=
+"251" height=3D"492" border=3D"0"></a></td>
+  </tr>
+  <tr> 
+    <td colspan=3D"2"><a href=3D"#"><img src=3D"http://www.keep-loan.com/m=
+_img2/bottom.jpg" width=3D"520" height=3D"108" border=3D"0"></a></td>
+  </tr>
+</table>
+</body>
+</html>
 
-That depends. If the encouraging is about an alternative, more complete
-and superior 802.11 stack for Linux which could be integrated with less
-effort than extending the existing code, that should be worth to talk
-about. 
 
-Please note that I'm not refering here to any of the related suggestions
-which have been made during the past months - it's a general statement.
-
-Bye, Mike
+----52704153636098043104--
