@@ -1,92 +1,46 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: 2.6.9-rc1-mm5: TCP oopses
-Date: Mon, 13 Sep 2004 19:08:58 -0700
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RFC][PATCH 2/2] ip multipath, bk head (EXPERIMENTAL)
+Date: 13 Sep 2004 22:40:24 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040913190858.12544431.davem@davemloft.net>
-References: <20040913015003.5406abae.akpm@osdl.org>
-	<Xine.LNX.4.44.0409132019170.22477-200000@thoron.boston.redhat.com>
+Message-ID: <1095129624.1060.45.camel@jzny.localdomain>
+References: <41457848.6040808@de.ibm.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: James Morris <jmorris@redhat.com>
-In-Reply-To: <Xine.LNX.4.44.0409132019170.22477-200000@thoron.boston.redhat.com>
+To: lkml@einar-lueck.de
+In-Reply-To: <41457848.6040808@de.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 13 Sep 2004 20:25:38 -0400 (EDT)
-James Morris <jmorris@redhat.com> wrote:
+On Mon, 2004-09-13 at 06:36, Einar Lueck wrote:
+[..]
+> The basic idea of the proposed patch is to utilize a new flag at the
+> "struct dst_entry" flags field to indicate that further routes having 
+> the same key follow in the routing cache chain. Consequently, at cache lookup time
+> we recognize this flag and may apply different load balancing policies 
+> to the available routes having the same key. The Garbage Collection is modified in
+> a way that ensures that all routes having the same target  are removed
+> together from the cache.
 
-> I'm experiencing TCP related oopses with this kernel (not seen in -mm4), 
-> .config file attached.
-> 
-> Here are two backtraces, the first happened a few seconds after logging 
-> in via ssh, the second happened soon after boot (using selinux=0, just to 
-> make sure).
+As long as whatever arrangement ensures that no packet reordering
+happens, should be sane. Yes, current scheme is broken in some ways (but
+guarantees packet ordering within a flow).
+Clearly the better way is to have all N equal path routes in an array of
+size N somehow also attached to the hash chain. Then policy flag selects
+algorithm executed to select 1 of N. The real difference between all of
+them is what the nexhop is (oif and NH MAC and maybe src IP if local).
 
-I think I fixed this one yesterday.  Callers of tcp_fragment()
-in tcp_output.c were not accounting packets correctly.  I
-believe this is what will fix it, and this is in Linus's
-tree already.
+My opinion: we should kill the current code altogether and do this as
+post routing decision to make it more flexible. I have a tc action i am
+working on that could have a preprocessor of an action like a policer
+"flow X has now exceeded 10Mbps we need to select new route". Of course
+there could be a lot of other state used in overruling routing
+decisions; eg attached contracking information could be useful etc.
+There are a few challeneges to make this reality (other than the ReMAC
+action i am working on).
 
-I guess you have an e1000 in this box? :)
-(either that or some other card whose driver
-enables TSO by default)
-
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2004/09/10 15:21:43-07:00 davem@nuts.davemloft.net 
-#   [TCP]: Fix packet counting when fragmenting already sent packets.
-#   
-#   Calls to tcp_fragment() change the tso_factor of
-#   an SKB, so we need to deal with that.
-#   
-#   Signed-off-by: David S. Miller <davem@davemloft.net>
-# 
-# net/ipv4/tcp_output.c
-#   2004/09/10 15:21:13-07:00 davem@nuts.davemloft.net +12 -2
-#   [TCP]: Fix packet counting when fragmenting already sent packets.
-#   
-#   Calls to tcp_fragment() change the tso_factor of
-#   an SKB, so we need to deal with that.
-#   
-#   Signed-off-by: David S. Miller <davem@davemloft.net>
-# 
-diff -Nru a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
---- a/net/ipv4/tcp_output.c	2004-09-13 18:51:38 -07:00
-+++ b/net/ipv4/tcp_output.c	2004-09-13 18:51:38 -07:00
-@@ -681,8 +681,12 @@
- 			TCP_SKB_CB(skb)->when = tcp_time_stamp;
- 			if (tcp_transmit_skb(sk, skb_clone(skb, GFP_ATOMIC)))
- 				break;
--			/* Advance the send_head.  This one is sent out. */
-+
-+			/* Advance the send_head.  This one is sent out.
-+			 * This call will increment packets_out.
-+			 */
- 			update_send_head(sk, tp, skb);
-+
- 			tcp_minshall_update(tp, mss_now, skb);
- 			sent_pkts = 1;
- 		}
-@@ -968,11 +972,17 @@
- 		return -EAGAIN;
- 
- 	if (skb->len > cur_mss) {
-+		int old_factor = TCP_SKB_CB(skb)->tso_factor;
-+		int new_factor;
-+
- 		if (tcp_fragment(sk, skb, cur_mss))
- 			return -ENOMEM; /* We'll try again later. */
- 
- 		/* New SKB created, account for it. */
--		tcp_inc_pcount(&tp->packets_out, skb);
-+		new_factor = TCP_SKB_CB(skb)->tso_factor;
-+		tcp_dec_pcount_explicit(&tp->packets_out,
-+					new_factor - old_factor);
-+		tcp_inc_pcount(&tp->packets_out, skb->next);
- 	}
- 
- 	/* Collapse two adjacent packets if worthwhile and we can. */
+cheers,
+jamal
