@@ -1,135 +1,70 @@
-From: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
-Subject: [PATCH] Use nfmark as a key for u32 classifier
-Date: Fri, 5 Nov 2004 13:38:33 +0200 (EET)
-Message-ID: <Pine.LNX.4.61.0411051317330.23651@webhosting.rdsbv.ro>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: PROBLEM: IProute hangs after running traffic shaping scripts
+Date: Fri, 5 Nov 2004 12:54:31 +0100
+Message-ID: <20041105115430.GP19714@rei.reeler.org>
+References: <418B4C7C.8000402@crocom.com.pl>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-1646943047-1849353369-1099654713=:19155"
-Return-path: <linux-net-owner@vger.kernel.org>
-To: linux-net@vger.kernel.org, lartc@mailman.ds9a.nl,
-	netdev@oss.sgi.com
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru, jmorris@redhat.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Szymon Miotk <spam@crocom.com.pl>
+Content-Disposition: inline
+In-Reply-To: <418B4C7C.8000402@crocom.com.pl>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+> [2.] Full description of the problem/report:
+> I have a server with 3 links to ISPs and 1 link for internal network.
+> I shape my clients to certain speeds, depending on the time of the day.
+> I have HTB shaping on each interface, about 2250 classes and 2250 qdisc
+> on each, so it makes total ~9000 classes (HTB) and ~9000 qdisc (SFQ).
+> I run shaping scripts 4 times/day.
 
----1646943047-1849353369-1099654713=:19155
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Could you send me the rules via private email or explain the
+basic architecutre of it?
 
-Hello!
+My first thought was that you might run out of stack space while
+dumping the qdisc tree but it doesn't seem so regarding your
+oops reports.
 
-I am glad to announce a patch for u32 to allow matches on nfmark.
-The patch is non intrusive (few lines).
+> Sometimes it makes a kernel oops, hangs at some 'tc ...' command (it
+> differs).
+> Then the shaping works so-so (usually it works, but doesn't fully
+> utilize the bandwidth) and every iproute command hangs.
+> Killing the hanging processes kills them, but still every iproute
+> command hangs, including ip and tc.
+> Sometimes the server stops forwarding, but usually it does so few hours
+> after kernel oops.
+> Reboot always helps.A
 
-Why I did this? Because fw classifier cannot be used together with u32. 
-For example, now, you cannot match a mark of 0x90 and a destination 
-port of 80. I know you can do it with iptables to do the marking, but if 
-you use Jamal actions to apply mark to policed packets, you need this.
+There have been at least 2 slab corruptions in CBQ and some
+might have been ported over to HTB. I will look into it.
 
-All stuff can be found at http://kernel.umbrella.ro/ also.
+> Oct 31 15:02:38 cerber kernel:  [<c037325c>] tc_modify_qdisc+0x0/0x6e3
+> Oct 31 15:02:38 cerber kernel:  [<c0373353>] tc_modify_qdisc+0xf7/0x6e3
+> Oct 31 15:02:38 cerber kernel:  [<c01044e5>] error_code+0x2d/0x38
+> Oct 31 15:02:38 cerber kernel:  [<c037325c>] tc_modify_qdisc+0x0/0x6e3
 
-Dave, please consider adding this patch.
+Something is wrong here and qdisc_lookup has something to do
+with it. I will audit qdisc_list changes.
 
-Stephen, if Dave accepts the patch, please apply the iproute2 patch. Thank 
-you.
+> my traffic shaping scripts are rather huge and they don't always cause
+> kernel oops. I tried to run them together (so classes and qdisc on every
+> interface were changed in parallel), but it didn't help.
+> I can send you them if you wish.
 
-Signed-off-by: Catalin(ux aka Dino) BOIE <catab at umbrella.ro>
+My first guess is that something corrupts qdisc_list of the
+device. I'm not sure what causes this but I will look into it
+today.
 
-Thank you for you time.
----
-Catalin(ux aka Dino) BOIE
-catab at deuroconsult.ro
-http://kernel.umbrella.ro/
----1646943047-1849353369-1099654713=:19155
-Content-Type: TEXT/PLAIN; charset=US-ASCII; name="iproute2-match-mark-in-u32.patch"
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.61.0411051338330.19155@webhosting.rdsbv.ro>
-Content-Description: 
-Content-Disposition: attachment; filename="iproute2-match-mark-in-u32.patch"
+> The default kernel has serious problems with traffic shaping, that was
+> resolved in 2.6.9 kernel line.
 
-LS0tIGlwcm91dGUyLTIuNi45L3RjL2ZfdTMyLmMub3JpZwkyMDA0LTExLTA0
-IDE1OjM4OjUzLjAwMDAwMDAwMCArMDIwMA0KKysrIGlwcm91dGUyLTIuNi45
-L3RjL2ZfdTMyLmMJMjAwNC0xMS0wNSAxMjoyMzo0NC4wMDAwMDAwMDAgKzAy
-MDANCkBAIC03LDYgKzcsNyBAQA0KICAqCQkyIG9mIHRoZSBMaWNlbnNlLCBv
-ciAoYXQgeW91ciBvcHRpb24pIGFueSBsYXRlciB2ZXJzaW9uLg0KICAqDQog
-ICogQXV0aG9yczoJQWxleGV5IEt1em5ldHNvdiwgPGt1em5ldEBtczIuaW5y
-LmFjLnJ1Pg0KKyAqCQlNYXRjaCBtYXJrIGFkZGVkIGJ5IENhdGFsaW4odXgg
-YWthIERpbm8pIEJPSUUgPGNhdGFiIGF0IHVtYnJlbGxhLnJvPiBbNSBub3Yg
-MjAwNF0NCiAgKg0KICAqLw0KIA0KQEAgLTMzLDcgKzM0LDcgQEAgc3RhdGlj
-IHZvaWQgZXhwbGFpbih2b2lkKQ0KIAlmcHJpbnRmKHN0ZGVyciwgIm9yICAg
-ICAgICAgdTMyIGRpdmlzb3IgRElWSVNPUlxuIik7DQogCWZwcmludGYoc3Rk
-ZXJyLCAiXG4iKTsNCiAJZnByaW50ZihzdGRlcnIsICJXaGVyZTogU0VMRUNU
-T1IgOj0gU0FNUExFIFNBTVBMRSAuLi5cbiIpOw0KLQlmcHJpbnRmKHN0ZGVy
-ciwgIiAgICAgICBTQU1QTEUgOj0geyBpcCB8IGlwNiB8IHVkcCB8IHRjcCB8
-IGljbXAgfCB1ezMyfDE2fDh9IH0gU0FNUExFX0FSR1NcbiIpOw0KKwlmcHJp
-bnRmKHN0ZGVyciwgIiAgICAgICBTQU1QTEUgOj0geyBpcCB8IGlwNiB8IHVk
-cCB8IHRjcCB8IGljbXAgfCB1ezMyfDE2fDh9IHwgbWFyayB9IFNBTVBMRV9B
-UkdTXG4iKTsNCiAJZnByaW50ZihzdGRlcnIsICIgICAgICAgRklMVEVSSUQg
-Oj0gWDpZOlpcbiIpOw0KIH0NCiANCkBAIC01OTAsNyArNTkxLDI3IEBAIGRv
-bmU6DQogCXJldHVybiByZXM7DQogfQ0KIA0KK3N0YXRpYyBpbnQgcGFyc2Vf
-bWFyayhpbnQgKmFyZ2NfcCwgY2hhciAqKiphcmd2X3AsIHN0cnVjdCB0Y191
-MzJfc2VsICpzZWwpDQorew0KKwlpbnQgcmVzID0gLTE7DQorCWludCBhcmdj
-ID0gKmFyZ2NfcDsNCisJY2hhciAqKmFyZ3YgPSAqYXJndl9wOw0KKw0KKwlp
-ZiAoYXJnYyA8PSAwKQ0KKwkJcmV0dXJuIC0xOw0KIA0KKwlpZiAoZ2V0X3Uz
-MigmcmVzLCAqYXJndiwgMCkpIHsNCisJCWZwcmludGYoc3RkZXJyLCAiSWxs
-ZWdhbCBcIm1hcmtcIlxuIik7DQorCQlyZXR1cm4gLTE7DQorCX0NCisJTkVY
-VF9BUkcoKTsNCisJc2VsLT5tYXJrID0gcmVzOw0KKwlyZXMgPSAwOw0KKw0K
-KwkqYXJnY19wID0gYXJnYzsNCisJKmFyZ3ZfcCA9IGFyZ3Y7DQorCXJldHVy
-biByZXM7DQorfQ0KIA0KIHN0YXRpYyBpbnQgcGFyc2Vfc2VsZWN0b3IoaW50
-ICphcmdjX3AsIGNoYXIgKioqYXJndl9wLCBzdHJ1Y3QgdGNfdTMyX3NlbCAq
-c2VsKQ0KIHsNCkBAIC02NDEsNiArNjYyLDEyIEBAIHN0YXRpYyBpbnQgcGFy
-c2Vfc2VsZWN0b3IoaW50ICphcmdjX3AsIGMNCiAJCXJlcyA9IHBhcnNlX2lj
-bXAoJmFyZ2MsICZhcmd2LCBzZWwpOw0KIAkJZ290byBkb25lOw0KIAl9DQor
-CWlmIChtYXRjaGVzKCphcmd2LCAibWFyayIpID09IDApIHsNCisJCU5FWFRf
-QVJHKCk7DQorCQlyZXMgPSBwYXJzZV9tYXJrKCZhcmdjLCAmYXJndiwgc2Vs
-KTsNCisJCWdvdG8gZG9uZTsNCisJfQ0KKw0KIAlyZXR1cm4gLTE7DQogDQog
-ZG9uZToNCkBAIC05NjksNiArOTk2LDggQEAgc3RhdGljIGludCB1MzJfcHJp
-bnRfb3B0KHN0cnVjdCBmaWx0ZXJfdQ0KIAkJc3RydWN0IHRjX3UzMl9rZXkg
-KmtleSA9IHNlbC0+a2V5czsNCiAJCWlmIChzaG93X3N0YXRzICYmIE5VTEwg
-IT0gcGYpDQogCQkJZnByaW50ZihmLCAiIChydWxlIGhpdCAlbGx1IHN1Y2Nl
-c3MgJWxsdSkiLHBmLT5yY250LHBmLT5yaGl0KTsNCisJCWlmIChzZWwtPm1h
-cmspDQorCQkJZnByaW50ZihmLCAiIG1hcmsgMHgleCIsIHNlbC0+bWFyayk7
-DQogCQlpZiAoc2VsLT5ua2V5cykgew0KIAkJCWZvciAoaT0wOyBpPHNlbC0+
-bmtleXM7IGkrKywga2V5KyspIHsNCiAJCQkJZnByaW50ZihmLCAiXG4gIG1h
-dGNoICUwOHgvJTA4eCBhdCAlcyVkIiwNCi0tLSBpcHJvdXRlMi0yLjYuOS9p
-bmNsdWRlL2xpbnV4L3BrdF9jbHMuaC5vcmlnCTIwMDQtMTEtMDQgMTU6NDI6
-MjcuMDAwMDAwMDAwICswMjAwDQorKysgaXByb3V0ZTItMi42LjkvaW5jbHVk
-ZS9saW51eC9wa3RfY2xzLmgJMjAwNC0xMS0wNSAxMToxMjoyMi4wMDAwMDAw
-MDAgKzAyMDANCkBAIC0yMDgsNiArMjA4LDcgQEAgc3RydWN0IHRjX3UzMl9z
-ZWwNCiAJdW5zaWduZWQgY2hhcgkJZmxhZ3M7DQogCXVuc2lnbmVkIGNoYXIJ
-CW9mZnNoaWZ0Ow0KIAl1bnNpZ25lZCBjaGFyCQlua2V5czsNCisJX191MzIJ
-CQltYXJrOw0KIA0KIAlfX3UxNgkJCW9mZm1hc2s7DQogCV9fdTE2CQkJb2Zm
-Ow0K
+Can you be more exact? Those were different issues, right?
 
----1646943047-1849353369-1099654713=:19155
-Content-Type: TEXT/PLAIN; charset=US-ASCII; name="net-match-nfmark-in-u32.patch"
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.61.0411051338331.19155@webhosting.rdsbv.ro>
-Content-Description: 
-Content-Disposition: attachment; filename="net-match-nfmark-in-u32.patch"
+> Without recompiling iproute, it hanged every time two iproute commands
+> were run in parallel.
 
-LS0tIGxpbnV4Lm9yaWcvbmV0L3NjaGVkL2Nsc191MzIuYwkyMDA0LTEwLTE5
-IDAwOjUzOjQ1LjAwMDAwMDAwMCArMDMwMA0KKysrIGxpbnV4L25ldC9zY2hl
-ZC9jbHNfdTMyLmMJMjAwNC0xMS0wNSAxMjoxNDozMS4wMDAwMDAwMDAgKzAy
-MDANCkBAIC0yNyw2ICsyNyw3IEBADQogICoJSkhTOiBXZSBzaG91bGQgcmVt
-b3ZlIHRoZSBDT05GSUdfTkVUX0NMU19JTkQgZnJvbSBoZXJlDQogICoJZXZl
-bnR1YWxseSB3aGVuIHRoZSBtZXRhIG1hdGNoIGV4dGVuc2lvbiBpcyBtYWRl
-IGF2YWlsYWJsZQ0KICAqDQorICoJbmZtYXJrIG1hdGNoIGFkZGVkIGJ5IENh
-dGFsaW4odXggYWthIERpbm8pIEJPSUUgPGNhdGFiIGF0IHVtYnJlbGxhLnJv
-Pg0KICAqLw0KIA0KICNpbmNsdWRlIDxhc20vdWFjY2Vzcy5oPg0KQEAgLTEz
-OSw2ICsxNDAsMTEgQEAgbmV4dF9rbm9kZToNCiAJCW4tPnBmLT5yY250ICs9
-MTsNCiAJCWogPSAwOw0KICNlbmRpZg0KKwkJaWYgKChuLT5zZWwubWFyayA+
-IDApICYmIChuLT5zZWwubWFyayAhPSBza2ItPm5mbWFyaykpIHsNCisJCQlu
-ID0gbi0+bmV4dDsNCisJCQlnb3RvIG5leHRfa25vZGU7DQorCQl9DQorDQog
-CQlmb3IgKGkgPSBuLT5zZWwubmtleXM7IGk+MDsgaS0tLCBrZXkrKykgew0K
-IA0KIAkJCWlmICgoKih1MzIqKShwdHIra2V5LT5vZmYrKG9mZjIma2V5LT5v
-ZmZtYXNrKSlea2V5LT52YWwpJmtleS0+bWFzaykgew0KLS0tIGxpbnV4Lm9y
-aWcvaW5jbHVkZS9saW51eC9wa3RfY2xzLmgJMjAwNC0xMC0xOSAwMDo1Mzow
-Ny4wMDAwMDAwMDAgKzAzMDANCisrKyBsaW51eC9pbmNsdWRlL2xpbnV4L3Br
-dF9jbHMuaAkyMDA0LTExLTA1IDExOjAwOjI3LjAwMDAwMDAwMCArMDIwMA0K
-QEAgLTIwOCw2ICsyMDgsNyBAQCBzdHJ1Y3QgdGNfdTMyX3NlbA0KIAl1bnNp
-Z25lZCBjaGFyCQlmbGFnczsNCiAJdW5zaWduZWQgY2hhcgkJb2Zmc2hpZnQ7
-DQogCXVuc2lnbmVkIGNoYXIJCW5rZXlzOw0KKwl1MzIJCQltYXJrOw0KIA0K
-IAlfX3UxNgkJCW9mZm1hc2s7DQogCV9fdTE2CQkJb2ZmOw0K
-
----1646943047-1849353369-1099654713=:19155--
+iproute2 problem or kernel problem? Can you give an example how
+to trigger it?
