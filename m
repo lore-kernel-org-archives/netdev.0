@@ -1,48 +1,45 @@
-From: Pascal de Bruijn <keizerflipje@home.nl>
-Subject: Re: r8169 1.6LK lockup
-Date: Fri, 03 Sep 2004 00:05:43 +0200
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH 2.6]: Fix suboptimal fragment sizing for last fragment
+Date: Thu, 2 Sep 2004 15:08:30 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41379937.5060301@home.nl>
-References: <4137418D.2040706@home.nl> <20040902174437.GA12068@electric-eye.fr.zoreil.com>
+Message-ID: <20040902150830.6585cfc5.davem@redhat.com>
+References: <4137681D.3000902@trash.net>
+	<20040902144436.2c8c1337.davem@redhat.com>
+	<20040902220343.GA3250@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: kaber@trash.net, yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20040902174437.GA12068@electric-eye.fr.zoreil.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040902220343.GA3250@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Right,
-I've patched my kernel, and now everything works like a breeze...
+On Fri, 3 Sep 2004 08:03:44 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-I enabled all features:
-ethtool -K eth0 rx on tx on sg on tso on
+> That could also tie into another optimisation.  But it's
+> an ugly one :) The sk->csum values are added up at the end of
+> the processing so when we move bytes to and fro the total csum
+> value stays the same even if the fragment csum values change.
+> 
+> Therefore we can get rid of the csum adjustments except for the
+> parity bit in the getfrag call.
+> 
+> Is this an acceptable optimisation to you guys?
 
-Then I uploaded 10GB and downloaded about 2GB (in an alternating style).
+I have no problems with this.
 
-No more lockups...
+> Another thing we can do is to not always fill up the frags in the middle
+> and then move bytes off them.  As it is if you do a send that spans
+> multiple packets each fragment will be filled up to the full and then
+> chopped off when the next one is started.
 
-Good work!
+Please elaborate.
 
-Thanks,
-Pascal de Bruijn
+> And to finish it off, here is a really trivial patch to shave off 27
+> bytes from the source code :) It does nothing else, well unless your
+> compiler decides to compile csum_block_sub out-of-line.
 
-
-Francois Romieu wrote:
-
->Pascal de Bruijn <keizerflipje@home.nl> :
->[francois messed the r8169 update]
->
->How does the system perform if you apply the patches below as well:
->http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.9-rc1-mm1/r8169-130.patch
->http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.9-rc1-mm1/r8169-140.patch
->
->Please Cc: netdev@oss.sgi.com
->
->--
->Ueimor
->
->  
->
+Applied :-)
