@@ -1,31 +1,50 @@
-From: "David S. Miller" <davem@davemloft.net>
+From: Ben Greear <greearb@candelatech.com>
 Subject: Re: af_packet.c bug?
-Date: Mon, 28 Mar 2005 12:18:06 -0800
-Message-ID: <20050328121806.3208ac40.davem@davemloft.net>
-References: <424858D4.8060604@candelatech.com>
-	<20050328195557.GF3086@postel.suug.ch>
-	<4248642E.40304@candelatech.com>
+Date: Mon, 28 Mar 2005 12:30:25 -0800
+Message-ID: <42486961.9060609@candelatech.com>
+References: <424858D4.8060604@candelatech.com>	<20050328195557.GF3086@postel.suug.ch>	<4248642E.40304@candelatech.com> <20050328121806.3208ac40.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: tgraf@suug.ch, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <4248642E.40304@candelatech.com>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050328121806.3208ac40.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 28 Mar 2005 12:08:14 -0800
-Ben Greear <greearb@candelatech.com> wrote:
+David S. Miller wrote:
+> On Mon, 28 Mar 2005 12:08:14 -0800
+> Ben Greear <greearb@candelatech.com> wrote:
+> 
+> 
+>>I was also wondering why we couldn't hold a reference to the net-device
+>>instead of just it's ifindex when dealing with a bound raw socket.
+> 
+> 
+> Because then raw sockets could make unloading of netdevices
+> hang forever.  That is, unless you add some netdev notifier
+> to af_packet.c that walks all the raw sockets looking for netdev
+> references.
 
-> I was also wondering why we couldn't hold a reference to the net-device
-> instead of just it's ifindex when dealing with a bound raw socket.
+ > I guess it also would make things like leaving a dump running
+ > while you quickly down/up and interface stop working.
+ >
 
-Because then raw sockets could make unloading of netdevices
-hang forever.  That is, unless you add some netdev notifier
-to af_packet.c that walks all the raw sockets looking for netdev
-references.
+I was thinking of removing the reference only when the NETDEV_UNREGISTER
+event was sent.  That will allow sockets to work through UP and DOWN transitions
+of the device as it does currently.
 
-I guess it also would make things like leaving a dump running
-while you quickly down/up and interface stop working.
+We could also save the name of the interface in the socket struct and resolve
+the device in a lazy manner.  That way, even if the device is truly gone, the
+worst case performance will be like it is today.
+
+It would be nice to have a list of all of these sockets so we could get info
+on them similar to the 'netstat -an' output anyway...
+
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
