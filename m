@@ -1,82 +1,219 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: route cache DoS testing and softirqs
-Date: Thu, 1 Apr 2004 15:44:57 +0200
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <16492.7385.765579.771428@robur.slu.se>
-References: <20040329222926.GF3808@dualathlon.random>
-	<200403302005.AAA00466@yakov.inr.ac.ru>
-	<20040330211450.GI3808@dualathlon.random>
-	<20040330133000.098761e2.davem@redhat.com>
-	<20040330213742.GL3808@dualathlon.random>
-	<20040331171023.GA4543@in.ibm.com>
-	<16491.4593.718724.277551@robur.slu.se>
-	<20040331203750.GB4543@in.ibm.com>
-	<20040331212817.GQ2143@dualathlon.random>
-	<16491.18384.536778.338660@robur.slu.se>
-	<20040331225259.GT2143@dualathlon.random>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [PATCH]dump interface IPv6 multicast/anycast addresses through netlink
+Date: Thu, 1 Apr 2004 10:28:12 -0800
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <200404011028.13048.mashirle@us.ibm.com>
+References: <OF8F6A9EBE.82E160C6-ON87256E69.001BB337-88256E69.001D33A3@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-	Dipankar Sarma <dipankar@in.ibm.com>,
-	"David S. Miller" <davem@redhat.com>, kuznet@ms2.inr.ac.ru,
-	linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-	paulmck@us.ibm.com, akpm@osdl.org
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: Andrea Arcangeli <andrea@suse.de>
-In-Reply-To: <20040331225259.GT2143@dualathlon.random>
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_88FbAl5YLjSg82h"
+Cc: davem@redhat.com, netdev@oss.sgi.com,
+        "Hideaki YOSHIFUJI" <yoshfuji@cerberus.hongo.wide.ad.jp>,
+        yoshfuji@linux-ipv6.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Shirley Ma <xma@us.ibm.com>,
+        YOSHIFUJI Hideaki / =?utf-8?q?=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?= <yoshfuji@linux-ipv6.org>
+In-Reply-To: <OF8F6A9EBE.82E160C6-ON87256E69.001BB337-88256E69.001D33A3@us.ibm.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-Andrea Arcangeli writes:
+--Boundary-00=_88FbAl5YLjSg82h
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
- > But I feel like we should change the softirq code so that the irqexit
- > runs only the softirq setup by the current (or nested) irq handler. This
- > way the timer irq will stop executing the softirqs posted by the network
- > stack and it may very well fix the problem completely. This definitely
- > will help fairness too.
+Here is the new patch. It has been tested against linux 2.6.4 kernel.
 
- How would softirq's scheduled be softirq's be run? 
+Thanks
+Shirley Ma
+IBM Linux Technology Center
 
- For a definitive solution a think Alexey analysis make sense:
 
- "All of them happening outside of ksoftirqd are equally bad, unaccountable,
- uncontrollable and will show up in some situation."
+--Boundary-00=_88FbAl5YLjSg82h
+Content-Type: text/x-diff;
+  charset="iso-8859-1";
+  name="linux-2.6.4-ipv6mib.patch.new1"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="linux-2.6.4-ipv6mib.patch.new1"
 
-FYI. I did some more experiments:
-
-Simple sycall test: user app = ank-time-loop (does gettimeofday in a loop)
-=========================================================================
-Before
-
-total    droppped tsquz    throttl  bh_enbl  ksoftird irqexit  other   
-00000099 00000000 00000000 00000000 0000005d 00000005 000163a2 00000000
-00000008 00000000 00000000 00000000 00000009 00000000 000162f6 00000000
-
-ank-time-loop 
-
-After 10 sec. 
-000000c0 00000000 00000000 00000000 0000005d 00000005 0001c3d2 00000000
-00000008 00000000 00000000 00000000 00000009 00000000 0001c2f3 00000000
-
-So syscalls "in this context" seems to do_softirq() via irqexit.
-
-Route DoS while BGP tables are loading. ank-time-loop is running.
-================================================================
-total    droppped tsquz    throttl  bh_enbl  ksoftird irqexit  other   
-000000c2 00000000 00000000 00000000 00000042 00000005 0001aef8 00000000
-00000008 00000000 00000000 00000000 00000017 00000001 0001adba 00000000
-
-After run:
-000b3a10 00000000 00000eda 00000000 000006f6 0000052e 00041c06 00000000
-000b0500 00000000 00000ec1 00000000 0000075e 00000197 000419f2 00000000
-
-Most softirq's are run from irqexit but we see local_bh_enable is running
-softirq's too. And only a minority of softirq's is running under scheduler 
-control. As discussed we before with 100Hz timer we would expect lower 
-rates from irqexit.
-
-Cheers.
-						--ro
-
+diff -urN linux-2.6.4/include/linux/rtnetlink.h linux-2.6.4-ipv6mib/include/linux/rtnetlink.h
+--- linux-2.6.4/include/linux/rtnetlink.h	2004-03-10 18:55:42.000000000 -0800
++++ linux-2.6.4-ipv6mib/include/linux/rtnetlink.h	2004-04-01 09:18:16.165353048 -0800
+@@ -47,7 +47,11 @@
+ #define RTM_NEWPREFIX	(RTM_BASE+36)
+ #define RTM_GETPREFIX	(RTM_BASE+38)
  
+-#define	RTM_MAX		(RTM_BASE+39)
++#define	RTM_GETMULTICAST (RTM_BASE+42)
++
++#define	RTM_GETANYCAST	(RTM_BASE+46)
++
++#define	RTM_MAX		(RTM_BASE+47)
+ 
+ /* 
+    Generic structure for encapsulation of optional route information.
+@@ -340,7 +344,8 @@
+ 	IFA_LABEL,
+ 	IFA_BROADCAST,
+ 	IFA_ANYCAST,
+-	IFA_CACHEINFO
++	IFA_CACHEINFO,
++	IFA_MULTICAST
+ };
+ 
+ #define IFA_MAX IFA_CACHEINFO
+diff -urN linux-2.6.4/net/ipv6/addrconf.c linux-2.6.4-ipv6mib/net/ipv6/addrconf.c
+--- linux-2.6.4/net/ipv6/addrconf.c	2004-03-10 18:55:44.000000000 -0800
++++ linux-2.6.4-ipv6mib/net/ipv6/addrconf.c	2004-04-01 09:56:16.340713704 -0800
+@@ -2571,7 +2571,7 @@
+ 	if (ipv6_addr_scope(&ifmca->mca_addr)&IFA_SITE)
+ 		ifm->ifa_scope = RT_SCOPE_SITE;
+ 	ifm->ifa_index = ifmca->idev->dev->ifindex;
+-	RTA_PUT(skb, IFA_ADDRESS, 16, &ifmca->mca_addr);
++	RTA_PUT(skb, IFA_MULTICAST, 16, &ifmca->mca_addr);
+ 	ci.cstamp = (__u32)(TIME_DELTA(ifmca->mca_cstamp, INITIAL_JIFFIES) / HZ
+ 		    * 100 + TIME_DELTA(ifmca->mca_cstamp, INITIAL_JIFFIES) % HZ
+ 		    * 100 / HZ);
+@@ -2608,7 +2608,7 @@
+ 	if (ipv6_addr_scope(&ifaca->aca_addr)&IFA_SITE)
+ 		ifm->ifa_scope = RT_SCOPE_SITE;
+ 	ifm->ifa_index = ifaca->aca_idev->dev->ifindex;
+-	RTA_PUT(skb, IFA_ADDRESS, 16, &ifaca->aca_addr);
++	RTA_PUT(skb, IFA_ANYCAST, 16, &ifaca->aca_addr);
+ 	ci.cstamp = (__u32)(TIME_DELTA(ifaca->aca_cstamp, INITIAL_JIFFIES) / HZ
+ 		    * 100 + TIME_DELTA(ifaca->aca_cstamp, INITIAL_JIFFIES) % HZ
+ 		    * 100 / HZ);
+@@ -2627,7 +2627,14 @@
+ 	return -1;
+ }
+ 
+-static int inet6_dump_ifaddr(struct sk_buff *skb, struct netlink_callback *cb)
++enum addr_type_t
++{
++	UNICAST_ADDR,
++	MULTICAST_ADDR,
++	ANYCAST_ADDR,
++};
++static int inet6_dump_addr(struct sk_buff *skb, struct netlink_callback *cb,
++			   enum addr_type_t type)
+ {
+ 	int idx, ip_idx;
+ 	int s_idx, s_ip_idx;
+@@ -2651,28 +2658,58 @@
+ 		if ((idev = in6_dev_get(dev)) == NULL)
+ 			continue;
+ 		read_lock_bh(&idev->lock);
+-		/* unicast address */
+-		for (ifa = idev->addr_list; ifa;
+-		     ifa = ifa->if_next, ip_idx++) {
+-			if (ip_idx < s_ip_idx)
+-				continue;
+-			if ((err = inet6_fill_ifaddr(skb, ifa, 
+-			    NETLINK_CB(cb->skb).pid, 
+-			    cb->nlh->nlmsg_seq, RTM_NEWADDR)) <= 0)
+-				goto done;
+-		}
+-		/* temp addr */
++		switch (type) {
++		case UNICAST_ADDR:
++			/* unicast address */
++			for (ifa = idev->addr_list; ifa;
++			     ifa = ifa->if_next, ip_idx++) {
++				if (ip_idx < s_ip_idx)
++					continue;
++				if ((err = inet6_fill_ifaddr(skb, ifa, 
++				    NETLINK_CB(cb->skb).pid, 
++				    cb->nlh->nlmsg_seq, RTM_NEWADDR)) <= 0)
++					goto done;
++			}
++			/* temp addr */
+ #ifdef CONFIG_IPV6_PRIVACY
+-		for (ifa = idev->tempaddr_list; ifa; 
+-		     ifa = ifa->tmp_next, ip_idx++) {
+-			if (ip_idx < s_ip_idx)
+-				continue;
+-			if ((err = inet6_fill_ifaddr(skb, ifa, 
+-			    NETLINK_CB(cb->skb).pid, 
+-			    cb->nlh->nlmsg_seq, RTM_NEWADDR)) <= 0) 
+-				goto done;
+-		}
++			for (ifa = idev->tempaddr_list; ifa; 
++			     ifa = ifa->tmp_next, ip_idx++) {
++				if (ip_idx < s_ip_idx)
++					continue;
++				if ((err = inet6_fill_ifaddr(skb, ifa, 
++				    NETLINK_CB(cb->skb).pid, 
++				    cb->nlh->nlmsg_seq, RTM_NEWADDR)) <= 0) 
++					goto done;
++			}
+ #endif
++			break;
++		case MULTICAST_ADDR:
++			/* multicast address */
++			for (ifmca = idev->mc_list; ifmca; 
++			     ifmca = ifmca->next, ip_idx++) {
++				if (ip_idx < s_ip_idx)
++					continue;
++				if ((err = inet6_fill_ifmcaddr(skb, ifmca, 
++				    NETLINK_CB(cb->skb).pid, 
++				    cb->nlh->nlmsg_seq, RTM_GETMULTICAST)) <= 0)
++					goto done;
++			}
++			break;
++		case ANYCAST_ADDR:
++			/* anycast address */
++			for (ifaca = idev->ac_list; ifaca;
++			     ifaca = ifaca->aca_next, ip_idx++) {
++				if (ip_idx < s_ip_idx)
++					continue;
++				if ((err = inet6_fill_ifacaddr(skb, ifaca, 
++				    NETLINK_CB(cb->skb).pid, 
++				    cb->nlh->nlmsg_seq, RTM_GETANYCAST)) <= 0) 
++					goto done;
++			}
++			break;
++		default:
++			break;
++		}
+ 		read_unlock_bh(&idev->lock);
+ 		in6_dev_put(idev);
+ 	}
+@@ -2687,6 +2724,25 @@
+ 	return skb->len;
+ }
+ 
++static int inet6_dump_ifaddr(struct sk_buff *skb, struct netlink_callback *cb)
++{
++	enum addr_type_t type = UNICAST_ADDR;
++	return inet6_dump_addr(skb, cb, type);
++}
++
++static int inet6_dump_ifmcaddr(struct sk_buff *skb, struct netlink_callback *cb)
++{
++	enum addr_type_t type = MULTICAST_ADDR;
++	return inet6_dump_addr(skb, cb, type);
++}
++
++
++static int inet6_dump_ifacaddr(struct sk_buff *skb, struct netlink_callback *cb)
++{
++	enum addr_type_t type = ANYCAST_ADDR;
++	return inet6_dump_addr(skb, cb, type);
++}
++
+ static void inet6_ifa_notify(int event, struct inet6_ifaddr *ifa)
+ {
+ 	struct sk_buff *skb;
+@@ -2911,6 +2967,8 @@
+ 	[RTM_NEWADDR - RTM_BASE] = { .doit	= inet6_rtm_newaddr, },
+ 	[RTM_DELADDR - RTM_BASE] = { .doit	= inet6_rtm_deladdr, },
+ 	[RTM_GETADDR - RTM_BASE] = { .dumpit	= inet6_dump_ifaddr, },
++	[RTM_GETMULTICAST - RTM_BASE] = { .dumpit = inet6_dump_ifmcaddr, },
++	[RTM_GETANYCAST - RTM_BASE] = { .dumpit	= inet6_dump_ifacaddr, },
+ 	[RTM_NEWROUTE - RTM_BASE] = { .doit	= inet6_rtm_newroute, },
+ 	[RTM_DELROUTE - RTM_BASE] = { .doit	= inet6_rtm_delroute, },
+ 	[RTM_GETROUTE - RTM_BASE] = { .doit	= inet6_rtm_getroute,
+
+--Boundary-00=_88FbAl5YLjSg82h--
