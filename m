@@ -1,29 +1,24 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [BK PATCH] 2.6 and 2.4 SCTP updates
-Date: Mon, 10 Jan 2005 12:33:38 -0800
-Message-ID: <20050110123338.20363b62.davem@davemloft.net>
-References: <Pine.LNX.4.58.0412301645380.6939@w-sridhar.beaverton.ibm.com>
+Subject: Re: [PATCH] [IPVS] run master/backup sync daemon at a time
+Date: Mon, 10 Jan 2005 12:43:07 -0800
+Message-ID: <20050110124307.0a55d3f7.davem@davemloft.net>
+References: <Pine.LNX.4.61.0501040034520.2538@penguin.linux-vs.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, lksctp-developers@lists.sourceforge.net
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Sridhar Samudrala <sri@us.ibm.com>
-In-Reply-To: <Pine.LNX.4.58.0412301645380.6939@w-sridhar.beaverton.ibm.com>
+To: Wensong Zhang <wensong@linux-vs.org>
+In-Reply-To: <Pine.LNX.4.61.0501040034520.2538@penguin.linux-vs.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 30 Dec 2004 16:53:56 -0800 (PST)
-Sridhar Samudrala <sri@us.ibm.com> wrote:
+On Tue, 4 Jan 2005 00:40:25 +0800 (CST)
+Wensong Zhang <wensong@linux-vs.org> wrote:
 
-> Please do a
-> 	bk pull http://linux-lksctp.bkbits.net/lksctp-2.5.work &
-> 	bk pull http://linux-lksctp.bkbits.net/lksctp-2.4.work
-> 
-> to get the following SCTP updates to 2.6 and 2.4.
-> 
-> The 2.4 csets include a patch that gets rid of sk_xxx macros that were
-> causing backporting issues for other networking components.
+> Here is the back port patch from kernel 2.6, which is to run master/backup 
+> sync daemon at a time with SyncID support. Please check and apply it to 
+> kernel 2.4.
 
-All pulled, thanks Sridhar.
+Applied, thanks Wensong.
