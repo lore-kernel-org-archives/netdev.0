@@ -1,173 +1,145 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: FIB reorg (1)
-Date: Tue, 30 Nov 2004 22:01:43 -0800
-Message-ID: <20041130220143.3786e400.davem@davemloft.net>
-References: <16804.56438.318740.779153@robur.slu.se>
+Subject: Re: FIB reorg (2)
+Date: Tue, 30 Nov 2004 22:10:04 -0800
+Message-ID: <20041130221004.7fa2d526.davem@davemloft.net>
+References: <16804.56817.259589.279556@robur.slu.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Robert Olsson <Robert.Olsson@data.slu.se>
-In-Reply-To: <16804.56438.318740.779153@robur.slu.se>
+In-Reply-To: <16804.56817.259589.279556@robur.slu.se>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 24 Nov 2004 20:09:42 +0100
+On Wed, 24 Nov 2004 20:16:01 +0100
 Robert Olsson <Robert.Olsson@data.slu.se> wrote:
 
-> rtmsg_fib() can be made a bit more generic and put in fib_semantics.c
-> something like below. 
+> And a variant of fib_find_alias for fib_semantics
 
-Looks nice.  I've made a minor modification as I applied it to
-my 2.6.11 pending tree.
+Applied to my 2.6.11 pending tree.
 
-We have a private header for routines shared between
-fib_hash and fib_semantics, namely net/ipv4/fib_lookup.h
-so that's where I placed the rtmsg_fib() extern declaration.
-
-This is the final patch I applied.
+I made the same fixup here as I did for the
+first FIB reorg patch, namely making use of
+the net/ipv4/fib_lookup.h header file.
 
 Thanks Robert.
 
 # This is a BitKeeper generated diff -Nru style patch.
 #
 # ChangeSet
-#   2004/11/30 21:37:16-08:00 davem@nuts.davemloft.net 
-#   [IPV4]: FIB cleanup, rtmsg_fib()
+#   2004/11/30 21:45:25-08:00 robert.olsson@data.slu.se 
+#   [IPV4]: FIB cleanup, fib_find_alias()
 #   
-#   Based largely upon a patch by Robert Olsson.
-#   
-#   Abstract out rtmsg_fib() so that it does not depend
-#   upon fib_hash internal datastructures, move it to
-#   fib_semantics.c
+#   Abstract out fib_node arg usage in fib_find_alias(),
+#   move to fib_semantics.c
 #   
 #   Signed-off-by: David S. Miller <davem@davemloft.net>
 # 
 # net/ipv4/fib_semantics.c
-#   2004/11/30 21:36:06-08:00 davem@nuts.davemloft.net +27 -0
-#   [IPV4]: FIB cleanup, rtmsg_fib()
+#   2004/11/30 21:44:45-08:00 robert.olsson@data.slu.se +18 -0
+#   [IPV4]: FIB cleanup, fib_find_alias()
 # 
 # net/ipv4/fib_lookup.h
-#   2004/11/30 21:36:06-08:00 davem@nuts.davemloft.net +3 -0
-#   [IPV4]: FIB cleanup, rtmsg_fib()
+#   2004/11/30 21:44:45-08:00 robert.olsson@data.slu.se +2 -0
+#   [IPV4]: FIB cleanup, fib_find_alias()
 # 
 # net/ipv4/fib_hash.c
-#   2004/11/30 21:36:06-08:00 davem@nuts.davemloft.net +2 -34
-#   [IPV4]: FIB cleanup, rtmsg_fib()
+#   2004/11/30 21:44:45-08:00 robert.olsson@data.slu.se +10 -22
+#   [IPV4]: FIB cleanup, fib_find_alias()
 # 
 diff -Nru a/net/ipv4/fib_hash.c b/net/ipv4/fib_hash.c
---- a/net/ipv4/fib_hash.c	2004-11-30 21:37:44 -08:00
-+++ b/net/ipv4/fib_hash.c	2004-11-30 21:37:44 -08:00
-@@ -376,11 +376,6 @@
- 	read_unlock(&fib_hash_lock);
+--- a/net/ipv4/fib_hash.c	2004-11-30 21:45:41 -08:00
++++ b/net/ipv4/fib_hash.c	2004-11-30 21:45:41 -08:00
+@@ -399,26 +399,6 @@
+ 	return NULL;
  }
  
--static void rtmsg_fib(int, struct fib_node *, struct fib_alias *,
--		      int, int,
--		      struct nlmsghdr *n,
--		      struct netlink_skb_parms *);
+-/* Return the first fib alias matching TOS with
+- * priority less than or equal to PRIO.
+- */
+-static struct fib_alias *fib_find_alias(struct fib_node *fn, u8 tos, u32 prio)
+-{
+-	if (fn) {
+-		struct list_head *head = &fn->fn_alias;
+-		struct fib_alias *fa;
 -
- /* Insert node F to FZ. */
- static inline void fib_insert_node(struct fn_zone *fz, struct fib_node *f)
- {
-@@ -565,7 +560,7 @@
- 		fz->fz_nent++;
- 	rt_cache_flush(-1);
- 
--	rtmsg_fib(RTM_NEWROUTE, f, new_fa, z, tb->tb_id, n, req);
-+	rtmsg_fib(RTM_NEWROUTE, key, new_fa, z, tb->tb_id, n, req);
- 	return 0;
- 
- out_free_new_fa:
-@@ -631,7 +626,7 @@
- 		int kill_fn;
- 
- 		fa = fa_to_delete;
--		rtmsg_fib(RTM_DELROUTE, f, fa, z, tb->tb_id, n, req);
-+		rtmsg_fib(RTM_DELROUTE, key, fa, z, tb->tb_id, n, req);
- 
- 		kill_fn = 0;
- 		write_lock_bh(&fib_hash_lock);
-@@ -794,33 +789,6 @@
- 	read_unlock(&fib_hash_lock);
- 	cb->args[1] = m;
- 	return skb->len;
+-		list_for_each_entry(fa, head, fa_list) {
+-			if (fa->fa_tos > tos)
+-				continue;
+-			if (fa->fa_info->fib_priority >= prio ||
+-			    fa->fa_tos < tos)
+-				return fa;
+-		}
+-	}
+-	return NULL;
 -}
 -
--static void rtmsg_fib(int event, struct fib_node *f, struct fib_alias *fa,
--		      int z, int tb_id,
--		      struct nlmsghdr *n, struct netlink_skb_parms *req)
--{
--	struct sk_buff *skb;
--	u32 pid = req ? req->pid : 0;
--	int size = NLMSG_SPACE(sizeof(struct rtmsg)+256);
--
--	skb = alloc_skb(size, GFP_KERNEL);
--	if (!skb)
--		return;
--
--	if (fib_dump_info(skb, pid, n->nlmsg_seq, event, tb_id,
--			  fa->fa_type, fa->fa_scope, &f->fn_key, z,
--			  fa->fa_tos,
--			  fa->fa_info) < 0) {
--		kfree_skb(skb);
--		return;
--	}
--	NETLINK_CB(skb).dst_groups = RTMGRP_IPV4_ROUTE;
--	if (n->nlmsg_flags&NLM_F_ECHO)
--		atomic_inc(&skb->users);
--	netlink_broadcast(rtnl, skb, pid, RTMGRP_IPV4_ROUTE, GFP_KERNEL);
--	if (n->nlmsg_flags&NLM_F_ECHO)
--		netlink_unicast(rtnl, skb, pid, MSG_DONTWAIT);
- }
+ static int
+ fn_hash_insert(struct fib_table *tb, struct rtmsg *r, struct kern_rta *rta,
+ 	       struct nlmsghdr *n, struct netlink_skb_parms *req)
+@@ -458,7 +438,11 @@
+ 		fn_rehash_zone(fz);
  
- #ifdef CONFIG_IP_MULTIPLE_TABLES
+ 	f = fib_find_node(fz, key);
+-	fa = fib_find_alias(f, tos, fi->fib_priority);
++
++	if (!f)
++		fa = NULL;
++	else
++		fa = fib_find_alias(&f->fn_alias, tos, fi->fib_priority);
+ 
+ 	/* Now fa, if non-NULL, points to the first fib alias
+ 	 * with the same keys [prefix,tos,priority], if such key already
+@@ -598,7 +582,11 @@
+ 	}
+ 
+ 	f = fib_find_node(fz, key);
+-	fa = fib_find_alias(f, tos, 0);
++
++	if (!f)
++		fa = NULL;
++	else
++		fa = fib_find_alias(&f->fn_alias, tos, 0);
+ 	if (!fa)
+ 		return -ESRCH;
+ 
 diff -Nru a/net/ipv4/fib_lookup.h b/net/ipv4/fib_lookup.h
---- a/net/ipv4/fib_lookup.h	2004-11-30 21:37:44 -08:00
-+++ b/net/ipv4/fib_lookup.h	2004-11-30 21:37:44 -08:00
-@@ -30,5 +30,8 @@
- extern int fib_dump_info(struct sk_buff *skb, u32 pid, u32 seq, int event,
- 			 u8 tb_id, u8 type, u8 scope, void *dst,
- 			 int dst_len, u8 tos, struct fib_info *fi);
-+extern void rtmsg_fib(int event, u32 key, struct fib_alias *fa,
-+		      int z, int tb_id,
-+		      struct nlmsghdr *n, struct netlink_skb_parms *req);
+--- a/net/ipv4/fib_lookup.h	2004-11-30 21:45:41 -08:00
++++ b/net/ipv4/fib_lookup.h	2004-11-30 21:45:41 -08:00
+@@ -33,5 +33,7 @@
+ extern void rtmsg_fib(int event, u32 key, struct fib_alias *fa,
+ 		      int z, int tb_id,
+ 		      struct nlmsghdr *n, struct netlink_skb_parms *req);
++extern struct fib_alias *fib_find_alias(struct list_head *fah,
++					u8 tos, u32 prio);
  
  #endif /* _FIB_LOOKUP_H */
 diff -Nru a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
---- a/net/ipv4/fib_semantics.c	2004-11-30 21:37:44 -08:00
-+++ b/net/ipv4/fib_semantics.c	2004-11-30 21:37:44 -08:00
-@@ -270,6 +270,33 @@
- 	return -1;
+--- a/net/ipv4/fib_semantics.c	2004-11-30 21:45:41 -08:00
++++ b/net/ipv4/fib_semantics.c	2004-11-30 21:45:41 -08:00
+@@ -297,6 +297,24 @@
+ 		netlink_unicast(rtnl, skb, pid, MSG_DONTWAIT);
  }
  
-+void rtmsg_fib(int event, u32 key, struct fib_alias *fa,
-+	       int z, int tb_id,
-+	       struct nlmsghdr *n, struct netlink_skb_parms *req)
++/* Return the first fib alias matching TOS with
++ * priority less than or equal to PRIO.
++ */
++struct fib_alias *fib_find_alias(struct list_head *fah, u8 tos, u32 prio)
 +{
-+	struct sk_buff *skb;
-+	u32 pid = req ? req->pid : 0;
-+	int size = NLMSG_SPACE(sizeof(struct rtmsg)+256);
-+
-+	skb = alloc_skb(size, GFP_KERNEL);
-+	if (!skb)
-+		return;
-+
-+	if (fib_dump_info(skb, pid, n->nlmsg_seq, event, tb_id,
-+			  fa->fa_type, fa->fa_scope, &key, z,
-+			  fa->fa_tos,
-+			  fa->fa_info) < 0) {
-+		kfree_skb(skb);
-+		return;
++	if (fah) {
++		struct fib_alias *fa;
++		list_for_each_entry(fa, fah, fa_list) {
++			if (fa->fa_tos > tos)
++				continue;
++			if (fa->fa_info->fib_priority >= prio ||
++			    fa->fa_tos < tos)
++				return fa;
++		}
 +	}
-+	NETLINK_CB(skb).dst_groups = RTMGRP_IPV4_ROUTE;
-+	if (n->nlmsg_flags&NLM_F_ECHO)
-+		atomic_inc(&skb->users);
-+	netlink_broadcast(rtnl, skb, pid, RTMGRP_IPV4_ROUTE, GFP_KERNEL);
-+	if (n->nlmsg_flags&NLM_F_ECHO)
-+		netlink_unicast(rtnl, skb, pid, MSG_DONTWAIT);
++	return NULL;
 +}
 +
  #ifdef CONFIG_IP_ROUTE_MULTIPATH
