@@ -1,79 +1,142 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: Re: 2.6.7 kernel boot-time configuration of a non-modular tulip
- driver
-Date: Sun, 1 Aug 2004 10:22:47 -0700
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Fw: hfsc and huge set of rules
+Date: Sun, 01 Aug 2004 19:53:52 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040801102247.33363e99.rddunlap@osdl.org>
-References: <200407311521.i6VFLcOC022100@nlp0.cs.usyd.edu.au>
+Message-ID: <410D2E30.2050104@trash.net>
+References: <20040729211844.61e8d328.davem@redhat.com> <410A2449.3020701@trash.net> <20040730110815.GA7812@krezus.e-wro.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@oss.sgi.com>
+Cc: "David S. Miller" <davem@redhat.com>, hadi@cyberus.ca, devik@cdi.cz,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: bruce@it.usyd.edu.au (Bruce Janson)
-In-Reply-To: <200407311521.i6VFLcOC022100@nlp0.cs.usyd.edu.au>
+To: Tomasz Paszkowski <tomasz.paszkowski@e-wro.pl>
+In-Reply-To: <20040730110815.GA7812@krezus.e-wro.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Tomasz Paszkowski wrote:
 
-(moving this to netdev mailing list)
+>On Fri, Jul 30, 2004 at 12:34:49PM +0200, Patrick McHardy wrote:
+>  
+>
+>>hfsc_destroy_qdisc takes O(n) time wrt. the number of classes,
+>>but 5-6 seconds is still long. If all these classes contain inner
+>>qdiscs other than the default, I guess removing the classes from
+>>dev->qdisc_list in qdisc_destroy takes up most of the time, with
+>>n O(n) operations. The __qdisc_destroy rcu callback also calls
+>>reset before destroy, I don't know any qdisc where this is really
+>>neccessary. Without inner qdiscs, I need to see the script first to
+>>judge what's going wrong. Tomasz ?
+>>    
+>>
+>
+>http://www.e-wro.pl/~acid/tc.batch.gz. In my opinion it's not the case
+>of expensive algorithms, but the number of classes. With this rule set loaded
+>(tc -b tc.batch) command:
+>
+>for i in 'e1.903 e0.930 e0.931 e0.932' ; do
+>	tc qdisc del dev ${i} root
+>done
+>completly freezes machine for about 5-6 seconds.
+>  
+>
+I've done some profiles with your script (on an old kernel without
+the lockless loopback patch), qdisc_destroy takes up 89% of the time
+when destroying the qdiscs.
 
-On Sun, 01 Aug 2004 00:48:22 +1000 Bruce Janson wrote:
+These are the exact results:
 
-| I have a linux 2.6.7 kernel which contains a compiled-in tulip driver.
-| I would like to be able to boot the kernel with parameters that
-| will allow control of the tulip device.  On some ethernet devices
-| this used to be possible via (something like):
-| 
-|   ether=0,0,1,0,eth0
-| 
-| which would pass the four numeric parameters (as, I think, dev->irq,
-| dev->ioaddr, dev->mem_start and dev->mem_end) to the net driver that
-| controlled eth0.  A convention adopted by some net drivers then allowed
-| dev->mem_start to be interpretted as a set of flags that would control
-| device characteristics (e.g. full-duplex vs half-duplex mode).
-| In .../linux-2.6.7/drivers/net/tulip/tulip_core.c:1587:
-| 
-|   if (dev->mem_start & MEDIA_MASK)
-|     tp->default_port = dev->mem_start & MEDIA_MASK;
-| 
-| suggests that this might still work.  However, I have been unable
-| to force dev->mem_start in that driver to become non-zero via any
-| kernel boot-time parameters.  My limited understanding of the code
-| that precedes the above lines in that file suggests that the "dev"
-| structure is not what it used to be...
+- execute the script on unpatched kernel:
 
-The driver never calls netdev_boot_setup_check(), which is
-what would give the driver its command line parameters.
+time:
+real    2m28.822s
+user    0m2.347s
+sys     2m25.395s
 
-Did this work in early 2.6.x?  There have been several changes
-in this area.
+top 5 in profile:
+799773   65.4986  vmlinux                  vmlinux                  
+qdisc_lookup
+199964   16.3763  vmlinux                  vmlinux                  
+qdisc_destroy
+92504     7.5758  sch_hfsc.ko              sch_hfsc                 
+hfsc_adjust_levels
+36722     3.0074  sch_hfsc.ko              sch_hfsc                 
+hfsc_get_class
+12471     1.0213  vmlinux                  vmlinux                  
+mark_offset_tsc
 
-The driver can't do a simple call to netdev_boot_setup_check()
-because that will overwrite dev-> {irq, base_addr, mem_start, mem_end},
-and those values come from PCI config space for PCI drivers.
-The driver could create a fake <dev> for that purpose, but it's
-more likely that ethtool or mii-tool should be used to change
-media/speed etc...  Although now that I look at the driver source
-code, I don't see ethtool or mii-tool support for those options.
 
-| ../linux-2.6.7/Documentation/kernel-parameters.txt:402 still
-| mentions "ether=..." but marks it as obsolete, replaced by
-| the equivalent "netdev=...".  Elsewhere in that file, the entry
-| for "netdev=..." describes what appears to be the functionality
-| that I seek.
-| 
-| So, is it still possible to perform the same sort of control
-| operations on a tulip driver via kernel boot-time parameters
-| as one can do via module load-time parameters?  If so, how?
+- execute the script on kernel using double-linked lists for 
+dev->qdisc_list:
 
-The current tulip-core driver supports setting only the default transceiver
-(media type) on the kernel boot/command line when the driver is built into
-the kernel image (using mem_start, as you noted above).
-When modular, it supports that plus forcing full duplex and MTU for jumbo
-frames.
+time:
+real    0m51.804s
+user    0m2.286s
+sys     0m48.795s
 
-Anyone have more definite answers on this?
+top 5 in profile:
+201152   49.6049  vmlinux                  vmlinux                  
+qdisc_lookup
+92706    22.8617  sch_hfsc.ko              sch_hfsc                 
+hfsc_adjust_levels
+37140     9.1589  sch_hfsc.ko              sch_hfsc                 
+hfsc_get_class
+12310     3.0357  sch_hfsc.ko              sch_hfsc                 
+hfsc_bind_tcf
+12190     3.0061  sch_hfsc.ko              sch_hfsc                 
+hfsc_change_class
 
---
-~Randy
+- destroy the qdiscs on unpatched kernel:
+
+time:
+real    0m13.258s
+user    0m0.019s
+sys     0m13.206s
+
+top 5 in profile:
+29839    89.5367  vmlinux                  vmlinux                  
+qdisc_destroy
+1229      3.6878  sch_hfsc.ko              sch_hfsc                 
+hfsc_reset_class
+338       1.0142  vmlinux                  vmlinux                  
+mark_offset_tsc
+289       0.8672  vmlinux                  vmlinux                  
+qdisc_reset
+287       0.8612  sch_hfsc.ko              sch_hfsc                 
+rtsc_init
+
+- destroy the qdiscs on kernel using double-linked lists for 
+dev->qdisc_list:
+
+time:
+real    0m0.389s
+user    0m0.019s
+sys     0m0.363s
+
+top 5 in profile:
+1261     33.6896  sch_hfsc.ko              sch_hfsc                 
+hfsc_reset_class
+311       8.3088  sch_hfsc.ko              sch_hfsc                 
+rtsc_init
+277       7.4005  vmlinux                  vmlinux                  
+qdisc_reset
+187       4.9960  vmlinux                  vmlinux                  
+free_block
+181       4.8357  vmlinux                  vmlinux                  kfree
+
+So double-linked lists clearly solve your problem. Using a hash would 
+speed up
+creating the qdiscs even more, but it wastes too much memory in my opinion.
+I'm going to send a patch after I've fixed the other problems with 
+qdisc_destroy.
+
+>I was trying do modify the code od hfsc_qdisc_destroy scheduling another
+>task using schedule_task (), but i don't have enough knowledge to do deal
+>with proper locking of qdisc structures.
+>  
+>
+That doesn't work, hfsc_qdisc_destroy is called under a lock.
+
+Regards
+Patrick
