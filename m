@@ -1,31 +1,71 @@
-From: chas williams <chas@cmf.nrl.navy.mil>
-Subject: Re: [PATCH][ATM][2.4] export try_atm_clip_ops not atm_clip_ops_mutex
-Date: Wed, 30 Jul 2003 10:32:31 -0400
+From: Andreas Jellinghaus <aj@dungeon.inka.de>
+Subject: Re: port-based filtering of ESP packets with in-kernel IPsec?
+Date: 30 Jul 2003 16:51:41 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200307301435.h6UEZDsG010062@ginger.cmf.nrl.navy.mil>
-References: <20030730102437.B3901@infradead.org>
-Reply-To: chas3@users.sourceforge.net
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Message-ID: <1059576701.4586.20.camel@simulacron>
+References: <1059540296.16545.305.camel@k7.localnet>
+	 <20030730142411.GD4553@sunbeam.de.gnumonks.org>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@lists.netfilter.org, netfilter@lists.netfilter.org,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Christoph Hellwig <hch@infradead.org>
-In-reply-to: Your message of "Wed, 30 Jul 2003 10:24:37 BST."
-             <20030730102437.B3901@infradead.org>
+To: Harald Welte <laforge@netfilter.org>
+In-Reply-To: <20030730142411.GD4553@sunbeam.de.gnumonks.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In message <20030730102437.B3901@infradead.org>,Christoph Hellwig writes:
->On Tue, Jul 29, 2003 at 10:33:27PM -0700, David S. Miller wrote:
->> On Tue, 29 Jul 2003 13:57:05 -0400
->> chas williams <chas@cmf.nrl.navy.mil> wrote:
->> 
->> > please apply to 2.4 -- thanks
->> > 
->> > [atm]: export try_atm_clip_ops not atm_clip_ops_mutex
->> 
->> Applied, will go into 2.4.23-preX
->
->Hmm, this looks like a fix for modular compilation and should
->probably go into 2.4.22..
+Hi,
 
-i would prefer it to be applied to 2.4.22 but if it cant be done
-it cant be done.  i am not pressed.
+if you are using ipsec from kernel 2.6.* there is no "ipsec0"
+interface, and thus using netfilter isn't as easy as it was with
+freeswan.
+
+three ways to solve the problem, only tried the first one so far:
+1.) configure ipsec in tunnel mode, add your tunnel ip to 
+    the outgoing interface, change the default route to
+    set the source ip to the tunnel ip.
+note: there is no routing step after encapsulating a packet
+with ipsec, there was one with freeswan, so this is different.
+
+2.) set a fwmark on an esp packet, it should be there after
+    unpacking/decryption. didn't try this one.
+
+3.) do not use the build in tunneling. use an explicit ipip tunnel.
+	that way you have the interface, can use it in netfilter,
+	can route into it, and the interface will set the right
+	source address.
+
+[netfilter]
+incoming encrypted packets are seen as ESP/AH in INPUT
+and then as decrypted packet in INPUT or FORWARD.
+
+outgoing packets are only seen as ESP in OUTPUT.
+
+> > Since ESP packets that reach the mangle INPUT chain are destined for a
+> > local process, why not unencapsulate them just before that point?  
+
+INPUT only means the ESP will be decrypted/unecapsulated.
+after that the decrypted packet will show up in INPUT or FORWARD.
+
+> no. My preferred solution was something like adding a netfilter hook to
+> the xfrm4 engine, exactly after decapsulation / decryption of one layer,
+> i.e.  after xfrm_type.input was called. 
+>
+> iptables could then register the INPUT chain (or probably even a
+> seperate POSTXFRM chain) in order to filter on the respective packets.
+
+you can already filter incoming packets. The problem is you
+don't know if they came in that way they look now, or if they
+came in via ESP packets and got decrypted.
+
+maybe decryption/unencapsulating could leave a mark on the
+packet, so we know packets without that mark came in without
+ipsec and are bad / attempts to access resources without ipsec?
+(maybe fwmark works on that. or an explicit ipip tunnel, so you
+have "ipip0" or something as incoming interface).
+
+> Any comments are appreciated.
+
+Regards, Andreas
