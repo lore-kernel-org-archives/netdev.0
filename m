@@ -1,68 +1,62 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: V2.4 policy router operates faster/better than V2.6
-Date: Thu, 13 Jan 2005 22:12:14 +0100
-Message-ID: <16870.58414.767012.96364@robur.slu.se>
-References: <Pine.LNX.4.44.0501071416060.5818-100000@localhost.localdomain>
-	<200501121723.21969.jeremy.guthrie@berbee.com>
-	<16870.14259.701771.389978@robur.slu.se>
-	<200501131328.34449.jeremy.guthrie@berbee.com>
+From: Eugene Surovegin <ebs@ebshome.net>
+Subject: Re: [RFC] Patch to Abstract Ethernet PHY support (using driver model)
+Date: Thu, 13 Jan 2005 13:21:52 -0800
+Message-ID: <20050113212152.GA16041@gate.ebshome.net>
+References: <FC6D9B81-5514-11D9-8D51-000393C30512@freescale.com> <A3A281FF-5525-11D9-80ED-000393C30512@freescale.com> <20050106070245.GA6539@gate.ebshome.net> <61A37C72-659C-11D9-8D70-000393C30512@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Robert Olsson <Robert.Olsson@data.slu.se>
+Cc: Kumar Gala <kumar.gala@freescale.com>, Netdev <netdev@oss.sgi.com>,
+        Embedded PPC Linux list <linuxppc-embedded@ozlabs.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jeremy.guthrie@berbee.com
-In-Reply-To: <200501131328.34449.jeremy.guthrie@berbee.com>
+To: Andy Fleming <afleming@freescale.com>
+Content-Disposition: inline
+In-Reply-To: <61A37C72-659C-11D9-8D70-000393C30512@freescale.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Thu, Jan 13, 2005 at 01:50:31PM -0600, Andy Fleming wrote:
+> >I suspect that _all_ XXX_read_status functions for different PHYs in
+> >your patch can be easily handled by generic IEEE 802.3 compliant code
+> >(you need to update genphy_read_status to properly handle GigE of
+> >course).
+>
+> Ok, I understand this, but a part of me rebels.  The "standard"
+> procedure is to read the Link Partner Advertisement, AND it with the
+> Advertisement, and then find the highest setting that works.  It seems
+> to me that this is replicating work that is already done by the PHY,
+> and I hate to do work that's already been done.
 
-Jeremy M. Guthrie writes:
- > I after a few revs I just bumped rhash_entries to 2.4mil in an attempt to get 
- > well above my actual usage. 
+Well, some PHYs have a non-standard way to get this info, some PHYs
+don't. I don't understand why do you want to bloat kernel with
+knowledge of this PHY-specific registers when there is a standard way
+to get this info? In fact I use IBM EMAC with a lot of different PHYs
+and never needed this special code, except only PHY initialization
+maybe.
 
- A bit hefty size :-) But the stats are looking much better as we do much
- less linear search (in_search) in hash and less fib lookups (tot) 
+> I also have one worry about this technique (though I'm still reading
+> the 802.3 spec to see if my worry is valid).  Is it possible that the
+> PHY would choose a setting which is lower than the highest possible,
+> and therefore render the method above inaccurate?
 
- And you have now "dst cache overflows"?
- Is the e1000 patch I sent in use?
+It's a standard, period. If there is a PHY which isn't compliant I
+guess it will not work anyway, but in this case, yes, we can use
+PHY-specific link detection, but only in this case. I suspect you'll
+have a hard time finding such PHY :)
 
- > You can see below I am over 600K entries before it blows them away and 
- > restarts. 
+> Yeah, that's not a problem.  I just wasn't sure if the bits were
+> properly defined on non-gigabit PHYs.  I will change this, as long as
+> the relevant bits are always correct on 10/100 PHYs
 
- This is a part of GC process to reclaim memory and reclaim unused dst entries.
- This 
+I use ES bit in MII_BMSR register to detect availability of MII_ESR
+register. So far it worked OK with number of 10/100 PHYs.
 
- >  size   IN: hit     tot    mc no_rt bcast madst masrc  OUT: hit     tot     mc 
- > GC: tot ignored goal_miss ovrf HASH: in_search out_search
+> >4) Pause negotiation/advertising is completely missing.
+>
+> Sigh... I knew someone would ask for that.  I will get right on this.
 
+This is not that difficult, I have example code in NAPI IBM EMAC
+driver (http://kernel.ebshome.net).
 
- > 615852     86368     626     0     0     0     0     0         8       0      
- > 0     624     622         0    0           56504         10
- > 493558     47553    4603     0     0     0     0     0         2       0      
- > 0    4166    4164         0    0           28346          0
- > 10091     46526    7096     0     0     0     0     0         2       3      0       
- > 0       0         0    0             554          0
- > 16238     80565    6145     0     0     0     0     0         6       3      0       
- > 0       0         0    0            1334          0
-
- In short we reduce the hash size to remove unused flows and let it grow again. 
- You see from (tot) that we have recreate may of the flows at this point. Most 
- likely this is where we drop the packets. We have monitored small drops in our 
- system when GC happens. The GC can be smoothen out but we leave that for now.
-
- Is the e1000 patch I sent in use?
-
- > How do I bump up the time from 10 minutes to something longer?  
-
- Davem pointed out another periodic task thats flushes the cache totally it's
-
-   /proc/sys/net/ipv4/route/secret_interval
-
- It flushes the cache totally we so all current flows has be recreated. You
- probably drop packets here in your setup. Yes it can be idea to increase it
- or run the flush manually. But most routers drop packets now and then.
-
-
-						--ro
+--
+Eugene
