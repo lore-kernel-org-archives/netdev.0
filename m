@@ -1,61 +1,77 @@
-From: Bill Davidsen <davidsen@tmr.com>
-Subject: Re: [Coverity] Untrusted user data in kernel
-Date: Fri, 17 Dec 2004 13:37:16 -0500
-Message-ID: <41C3275C.2010505@tmr.com>
-References: <41C2FF99.3020908@tmr.com><Xine.LNX.4.44.0412170144410.12579-100000@thoron.boston.redhat.com> <Pine.LNX.4.61.0412171108340.4216@chaos.analogic.com>
+From: Hasso Tepper <hasso@estpak.ee>
+Subject: Re: primary and secondary ip addresses
+Date: Fri, 17 Dec 2004 20:53:27 +0200
+Message-ID: <200412172053.28016.hasso@estpak.ee>
+References: <41912F7A.6000408@redhat.com> <200412172003.22319.hasso@estpak.ee> <Pine.LNX.4.61.0412171206200.10943@gargoyle.wi.securepipe.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: James Morris <jmorris@redhat.com>, Patrick McHardy <kaber@trash.net>,
-        Bryan Fulton <bryan@coverity.com>, netdev@oss.sgi.com,
-        netfilter-devel@lists.netfilter.org, linux-kernel@vger.kernel.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-os@analogic.com
-In-Reply-To: <Pine.LNX.4.61.0412171108340.4216@chaos.analogic.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Henrik Nordstrom <hno@marasystems.com>,
+	Andrea G Forte <andreaf@cs.columbia.edu>,
+	Harald Welte <laforge@gnumonks.org>,
+	Neil Horman <nhorman@redhat.com>, linux-net@vger.kernel.org,
+	netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: "Martin A. Brown" <mabrown@securepipe.com>
+In-Reply-To: <Pine.LNX.4.61.0412171206200.10943@gargoyle.wi.securepipe.com>
+Content-Disposition: inline
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-linux-os wrote:
-> On Fri, 17 Dec 2004, Bill Davidsen wrote:
-> 
->> James Morris wrote:
->>
->>> On Fri, 17 Dec 2004, Patrick McHardy wrote:
->>>
->>>
->>>> James Morris wrote:
->>>>
->>>>
->>>>> This at least needs CAP_NET_ADMIN.
->>>>>
->>>>
->>>> It is already checked in do_ip6t_set_ctl(). Otherwise anyone could
->>>> replace iptables rules :)
->>>
->>>
->>>
->>> That's what I meant, you need the capability to do anything bad :-)
->>
->>
->> Are you saying that processes with capability don't make mistakes? 
->> This isn't a bug related to untrusted users doing privileged 
->> operations, it's a case of using unchecked user data.
->>
-> 
-> But isn't there always the possibility of "unchecked user data"?
-> I can, as root, do `cp /dev/zero /dev/mem` and have the most
-> spectacular crask you've evet seen. I can even make my file-
-> systems unrecoverable.
+=DChel kenal p=E4eval (reede 17 detsember 2004 20:37) kirjutas Martin A=
+=2E Brown:
+> Hello Hasso and Andrea,
+>
+> We've gotten a little far afield from Neil Horman's initial question
+> about why there are primary and secondary IPs, and I can't address yo=
+ur
+> concern Andrea about the (route cache?) 500ms latency between the tim=
+e
+> that an address is added (or removed) from an interface and the time =
+that
+> the address is actually used.  Even so, the Linux routing code allows=
+ the
+> kernel to suggest an IP with the "src" keyword.
 
-But that's not the type of thing you would do by accident. The kernel 
-can't protect against deliberate abuse by trusted users, nor should it. 
-But the type of problem caused by an application program bug can, and I 
-believe should, be caught.
+I know.
 
-The difference between "oops" and "take that!"
+>  : > Why change the primary address? What is wrong with simply changi=
+ng
+>  : > the route to use the other source IP?
+>  :
+>  : There is no support for it in most of user space software.
+>  : None of the routing protocols suites support it etc.
+>
+> Though some software provides support for explicit configuration of
+> source address for initiated sockets, you can use INADDR_ANY and let =
+the
+> kernel perform source address selection for you.
 
--- 
-    -bill davidsen (davidsen@tmr.com)
-"The secret to procrastination is to put things off until the
-  last possible moment - but no longer"  -me
+Well, that's the point - we want to have full control over this selecti=
+on=20
+process without doing fancy things in user space.=20
+
+> Linux select an IP based on the routing table. [0]  Example:
+>
+>   # ip route show 192.168.90.0/24
+>   192.168.90.0/24 dev eth0  scope link  src 192.168.90.250
+>   # ip route change 192.168.88.0/24 dev eth0 scope link src $SECONDAR=
+Y
+>
+> If you want to be fancy about it, you can have a higher preference
+> routing table (make sure there's an entry in /etc/iproute2/rt_tables =
+for
+> $SECONDARY_TABLE).  Then you can add and remove tables in this routin=
+g
+> table instead of changing the route in the main routing table.
+>
+>   # ip rule add prio table $SECONDARY_TABLE
+>   # ip route add table $SECONDARY_TABLE $DESTNET dev $REALDEV src
+> $SECONDARY
+
+All these tricks don't help if you are using dynamic routing.
+
+--=20
+Hasso Tepper
+Elion Enterprises Ltd.
+WAN administrator
