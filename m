@@ -1,54 +1,87 @@
-From: jamal <hadi@cyberus.ca>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
 Subject: Re: Early SPECWeb99 results on 2.5.33 with TSO on e1000
-Date: Fri, 6 Sep 2002 05:54:09 -0400 (EDT)
+Date: Fri, 6 Sep 2002 13:44:34 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.30.0209060528390.21835-100000@shell.cyberus.ca>
-References: <20020906.002253.32989079.davem@redhat.com>
+Message-ID: <15736.38178.445310.714015@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: <akpm@zip.com.au>, <Martin.Bligh@us.ibm.com>, <tcw@tempest.prismnet.com>,
-   <linux-kernel@vger.kernel.org>, <netdev@oss.sgi.com>, <niv@us.ibm.com>,
-   Robert Olsson <Robert.Olsson@data.slu.se>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@zip.com.au, Martin.Bligh@us.ibm.com, hadi@cyberus.ca,
+   tcw@tempest.prismnet.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+   niv@us.ibm.com, Robert.Olsson@data.slu.se
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20020906.002253.32989079.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
+David S. Miller writes:
+ >    Mala did some testing on this a couple of weeks back.  It appears that
+ >    NAPI damaged performance significantly.
+ > 
+ >    http://www-124.ibm.com/developerworks/opensource/linuxperf/netperf/results/july_02/netperf2.5.25results.htm
+ > 
 
-On Fri, 6 Sep 2002, David S. Miller wrote:
+ > Robert can comment on optimal settings
 
->    Mala did some testing on this a couple of weeks back.  It appears that
->    NAPI damaged performance significantly.
->
->    http://www-124.ibm.com/developerworks/opensource/linuxperf/netperf/results/july_02/netperf2.5.25results.htm
->
-> Unfortunately it is not listed what e1000 and core NAPI
-> patch was used.  Also, not listed, are the RX/TX mitigation
-> and ring sizes given to the kernel module upon loading.
->
-> Robert can comment on optimal settings
->
-> Robert and Jamal can make a more detailed analysis of Mala's
-> graphs than I.
+Hopefully yes...
+
+I see other numbers so we have to sort out the differences. Andrew Morton
+pinged me about this test last week. So I've had a chance to run some tests. 
+
+Some comments:
+Scale to CPU can be dangerous measure w. NAPI due to its adapting behaviour 
+where RX interrupts decreases in favour of successive polls.
+
+And NAPI scheme behaves different since we can not assume that all network 
+traffic is well-behaved like TCP. System has to be manageable and to "perform"
+under any network load not only for well-behaved TCP. So of course we will 
+see some differences -- there are no free lunch. Simply we can not blindly
+look at one test. IMO NAPI is the best overall performer. The number speaks 
+for themselves.
+
+Here is the most recent test...
+
+NAPI kernel path is included in 2.4.20-pre4 the comparison below is mainly 
+between e1000 driver w and w/o NAPI and the NAPI port to e1000 is still 
+evolving. 
+
+Linux 2.4.20-pre4/UP PIII @ 933 MHz w. Intel's e100 2 port GIGE adapter.
+e1000 4.3.2-k1 (current kernel version) and current NAPI patch. For NAPI 
+e1000 driver uses RxIntDelay=1. RxIntDewlay=0 caused problem. Non-NAPI
+driver RxIntDelay=64. (default)
+
+Three tests: TCP, UDP, packet forwarding.
+
+Netperf. TCP socket size 131070, Single TCP stream. Test length 30 s.
+
+M-size   e1000    NAPI-e1000
+============================
+      4   20.74    20.69  Mbit/s data received.
+    128  458.14   465.26 
+    512  836.40   846.71 
+   1024  936.11   937.93 
+   2048  940.65   939.92 
+   4096  940.86   937.59
+   8192  940.87   939.95 
+  16384  940.88   937.61
+  32768  940.89   939.92
+  65536  940.90   939.48
+ 131070  940.84   939.74
+
+Netperf. UDP_STREAM. 1440 pkts. Single UDP stream. Test length 30 s.
+         e1000    NAPI-e1000
+====================================
+         955.7    955.7   Mbit/s data received.
+
+Forwarding test. 1 Mpkts at 970 kpps injected.
+          e1000   NAPI-e1000
+=============================================
+T-put       305   298580    pkts routed.
+
+NOTE! 
+With non-NAPI driver this system is "dead" an performes nothing.
 
 
-I looked at those graphs, but the lack of information makes them useless.
-For example there are too many variables to the tests --  what is the
-effect the message size? and then look at the socket buffer size, would
-you set it to 64K if you are trying to show perfomance numbers? What
-other tcp settings are there?
-Manfred Spraul about a year back complained about some performance issues
-in low load setups (which is what this IBM setup seems to be if you count
-the pps to the server); its one of those things that have been low in
-the TODO deck.
-The issue maybe legit not because NAPI is bad but because it is too good.
-I dont have the e1000, but i have some Dlinks giges still in boxes and i
-have a two-CPU SMP machine; I'll setup the testing this weekend.
-In the case of Manfred, we couldnt reproduce the tests because he had this
-odd weird NIC; in this case at least access to the e1000 doesnt require
-a visit to the museum.
-
-cheers,
-jamal
+Cheers.
+						--ro
