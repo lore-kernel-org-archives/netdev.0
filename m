@@ -1,34 +1,33 @@
-From: kuznet@ms2.inr.ac.ru
-Subject: Re: [patch] bug prematurely setting nr_frags
-Date: Wed, 14 Aug 2002 02:27:56 +0400 (MSD)
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: raw ipv6 broken in 2.4.19
+Date: Wed, 14 Aug 2002 01:38:40 +0000 (GMT)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <200208132227.CAA22255@sex.inr.ac.ru>
-References: <20020813143120.C12730@redhat.com>
+Message-ID: <Pine.LNX.4.44.0208140125130.1701-100000@u.domain.uli>
+References: <200208132218.CAA22224@sex.inr.ac.ru>
 Mime-Version: 1.0
-Cc: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: gandalf@wlug.westbo.se, <netdev@oss.sgi.com>
 Return-path: <owner-netdev@oss.sgi.com>
-To: bcrl@redhat.com (Benjamin LaHaise)
-In-Reply-To: <20020813143120.C12730@redhat.com> from "Benjamin LaHaise" at Aug 13, 2 02:31:20 pm
+To: kuznet@ms2.inr.ac.ru
+In-Reply-To: <200208132218.CAA22224@sex.inr.ac.ru>
 List-Id: netdev.vger.kernel.org
 
-Hello!
 
-> Ah, I see.  Care for a patch to remove it altogether then?
+	Hello,
 
-Well, someone wrote it for some purpose. :-) 
+On Wed, 14 Aug 2002 kuznet@ms2.inr.ac.ru wrote:
 
+> Well, if this is only in combination with zero length, it is not a disaster.
 
->							  As for the 
-> bug, does anyone else see a place where nr_frags can be set without 
-> initializing a page pointer? 
+	May be. It seems there were no such callers but they
+appeared. I'm not sure a comment can avoid further problems.
+As for the fix, we don't see often lengths of 0 and 1 for
+unaligned addrs, it is in the slow path in csum_partial. IMHO,
+it will not hurt if we apply the fix instead of auditing everything.
 
-No. When does this happen?
+> Alexey
 
+Regards
 
-> Otherwise it looks like a random memory corruption... what fun.
-
-Well, even if this is corruption, it is unlikely to be random.
-This maybe write beyond end of an skb, corrupting skb_shared_info.
-At least, we had such place in netfilter fixed some time ago.
-
-Alexey
+--
+Julian Anastasov <ja@ssi.bg>
