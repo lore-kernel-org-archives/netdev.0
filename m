@@ -1,113 +1,39 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 2.6.10] tg3: 5704 serdes fixes
-Date: Thu, 27 Jan 2005 14:43:34 -0800
-Message-ID: <B1508D50A0692F42B217C22C02D84972020F3D56@NT-IRVA-0741.brcm.ad.broadcom.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH/RFC] Reduce call chain length in netfilter
+Date: Thu, 27 Jan 2005 23:48:04 +0100
+Message-ID: <41F96FA4.4000105@trash.net>
+References: <1131604877.20041218092730@mail.ru.suse.lists.linux.kernel>	<p73zn0ccaee.fsf@verdi.suse.de>	<1105117559.11753.34.camel@baythorne.infradead.org>	<20050107100017.454ddadc@dxpl.pdx.osdl.net>	<1105133241.3375.16.camel@localhost.localdomain>	<20050118135735.4b77d38d.davem@davemloft.net>	<1106433059.4486.11.camel@localhost.localdomain>	<1106436153.20995.42.camel@tux.rsn.bth.se>	<1106484019.3376.5.camel@localhost.localdomain>	<1106496509.1085.1.camel@tux.rsn.bth.se>	<20050125220558.6e824f8a.davem@davemloft.net>	<1106730510.4041.4.camel@localhost.localdomain>	<41F82C6D.7020006@trash.net>	<20050126231801.7bf90338.davem@davemloft.net>	<41F929FA.3050800@trash.net> <20050127114726.2205b4ed.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="----_=_NextPart_001_01C504C1.A1F676E4"
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: bdschuym@pandora.be, netdev@oss.sgi.com,
+        netfilter-devel@lists.netfilter.org, snort2004@mail.ru,
+        rusty@rustcorp.com.au, ak@suse.de, bridge@osdl.org,
+        gandalf@wlug.westbo.se, dwmw2@infradead.org, shemminger@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
-Content-class: urn:content-classes:message
 To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050127114726.2205b4ed.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
+David S. Miller wrote:
 
-------_=_NextPart_001_01C504C1.A1F676E4
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: quoted-printable
+>In the generated asm on sparc64, invoke2() gets a tail-call
+>whereas invoke() does not.  Hmmm...
+>
+>
+Apparently support for indirect tail-calls was added to gcc 3.4.
 
-Some 5704S and related fixes:
+gcc-3.3.5:
+0x0000000000000000 <invoke+0>:  sub    $0x8,%rsp
+0x0000000000000004 <invoke+4>:  callq  *%esi
+0x0000000000000006 <invoke+6>:  add    $0x8,%rsp
+0x000000000000000a <invoke+10>: retq  
 
-- Fix capacitive coupling detection by reading the correct offset in =
-sram
-- Add support for different signal pre-emphasis on 5704S (used in some =
-blade
-servers)
-- Improve 5704S link parallel detection. When autonegotiation fails, we =
-only
-detect link-up if we have PCS_SYNC and we are not receiving config code
-words. This will prevent false link-up when only the rx cable is =
-attached.
+gcc-3.4.4:
+0x0000000000000000 <invoke+0>:  mov    %rsi,%r11
+0x0000000000000003 <invoke+3>:  jmpq   *%r11d
 
-
-Signed-off-by: Michael Chan <mchan@broadcom.com>
-
-------_=_NextPart_001_01C504C1.A1F676E4
-Content-Type: application/octet-stream;
- name=tg3_5704s.patch
-Content-Transfer-Encoding: base64
-Content-Description: tg3_5704s.patch
-Content-Disposition: attachment;
- filename=tg3_5704s.patch
-
-ZGlmZiAtTnJ1IDQvdGczLmMgNS90ZzMuYwotLS0gNC90ZzMuYwkyMDA1LTAxLTI1IDA5OjE2OjM0
-LjAwMDAwMDAwMCAtMDgwMAorKysgNS90ZzMuYwkyMDA1LTAxLTI2IDE0OjIwOjA3LjAwMDAwMDAw
-MCAtMDgwMApAQCAtMjE0Miw4ICsyMTQyLDkgQEAKIAkJaWYgKHRyMzIoVEczUENJX0RVQUxfTUFD
-X0NUUkwpICYgRFVBTF9NQUNfQ1RSTF9JRCkKIAkJCXBvcnRfYSA9IDA7CiAKLQkJc2VyZGVzX2Nm
-ZyA9IHRyMzIoTUFDX1NFUkRFU19DRkcpICYKLQkJCSgoMSA8PCAyMykgfCAoMSA8PCAyMikgfCAo
-MSA8PCAyMSkgfCAoMSA8PCAyMCkpOworCQkvKiBwcmVzZXJ2ZSBiaXRzIDAtMTEsMTMsMTQgZm9y
-IHNpZ25hbCBwcmUtZW1waGFzaXMgKi8KKwkJLyogcHJlc2VydmUgYml0cyAyMC0yMyBmb3Igdm9s
-dGFnZSByZWd1bGF0b3IgKi8KKwkJc2VyZGVzX2NmZyA9IHRyMzIoTUFDX1NFUkRFU19DRkcpICYg
-MHgwMGYwNmZmZjsKIAl9CiAKIAlzZ19kaWdfY3RybCA9IHRyMzIoU0dfRElHX0NUUkwpOwpAQCAt
-MjE1NCw5ICsyMTU1LDkgQEAKIAkJCQl1MzIgdmFsID0gc2VyZGVzX2NmZzsKIAogCQkJCWlmIChw
-b3J0X2EpCi0JCQkJCXZhbCB8PSAweGMwMTA4ODA7CisJCQkJCXZhbCB8PSAweGMwMTAwMDA7CiAJ
-CQkJZWxzZQotCQkJCQl2YWwgfD0gMHg0MDEwODgwOworCQkJCQl2YWwgfD0gMHg0MDEwMDAwOwog
-CQkJCXR3MzJfZihNQUNfU0VSREVTX0NGRywgdmFsKTsKIAkJCX0KIAkJCXR3MzJfZihTR19ESUdf
-Q1RSTCwgMHgwMTM4ODQwMCk7CkBAIC0yMTc5LDcgKzIxODAsNyBAQAogCiAJaWYgKHNnX2RpZ19j
-dHJsICE9IGV4cGVjdGVkX3NnX2RpZ19jdHJsKSB7CiAJCWlmICh3b3JrYXJvdW5kKQotCQkJdHcz
-Ml9mKE1BQ19TRVJERVNfQ0ZHLCBzZXJkZXNfY2ZnIHwgMHhjMDExODgwKTsKKwkJCXR3MzJfZihN
-QUNfU0VSREVTX0NGRywgc2VyZGVzX2NmZyB8IDB4YzAxMTAwMCk7CiAJCXR3MzJfZihTR19ESUdf
-Q1RSTCwgZXhwZWN0ZWRfc2dfZGlnX2N0cmwgfCAoMSA8PCAzMCkpOwogCQl1ZGVsYXkoNSk7CiAJ
-CXR3MzJfZihTR19ESUdfQ1RSTCwgZXhwZWN0ZWRfc2dfZGlnX2N0cmwpOwpAQCAtMjIyMCw5ICsy
-MjIxLDkgQEAKIAkJCQkJdTMyIHZhbCA9IHNlcmRlc19jZmc7CiAKIAkJCQkJaWYgKHBvcnRfYSkK
-LQkJCQkJCXZhbCB8PSAweGMwMTA4ODA7CisJCQkJCQl2YWwgfD0gMHhjMDEwMDAwOwogCQkJCQll
-bHNlCi0JCQkJCQl2YWwgfD0gMHg0MDEwODgwOworCQkJCQkJdmFsIHw9IDB4NDAxMDAwMDsKIAog
-CQkJCQl0dzMyX2YoTUFDX1NFUkRFU19DRkcsIHZhbCk7CiAJCQkJfQpAQCAtMjIzMCw4ICsyMjMx
-LDEyIEBACiAJCQkJdHczMl9mKFNHX0RJR19DVFJMLCAweDAxMzg4NDAwKTsKIAkJCQl1ZGVsYXko
-NDApOwogCisJCQkJLyogTGluayBwYXJhbGxlbCBkZXRlY3Rpb24gLSBsaW5rIGlzIHVwICovCisJ
-CQkJLyogb25seSBpZiB3ZSBoYXZlIFBDU19TWU5DIGFuZCBub3QgKi8KKwkJCQkvKiByZWNlaXZp
-bmcgY29uZmlnIGNvZGUgd29yZHMgKi8KIAkJCQltYWNfc3RhdHVzID0gdHIzMihNQUNfU1RBVFVT
-KTsKLQkJCQlpZiAobWFjX3N0YXR1cyAmIE1BQ19TVEFUVVNfUENTX1NZTkNFRCkgeworCQkJCWlm
-ICgobWFjX3N0YXR1cyAmIE1BQ19TVEFUVVNfUENTX1NZTkNFRCkgJiYKKwkJCQkgICAgIShtYWNf
-c3RhdHVzICYgTUFDX1NUQVRVU19SQ1ZEX0NGRykpIHsKIAkJCQkJdGczX3NldHVwX2Zsb3dfY29u
-dHJvbCh0cCwgMCwgMCk7CiAJCQkJCWN1cnJlbnRfbGlua191cCA9IDE7CiAJCQkJfQpAQCAtNTQw
-OCw4ICs1NDEzLDEwIEBACiAJdWRlbGF5KDEwKTsKIAogCWlmICh0cC0+dGczX2ZsYWdzMiAmIFRH
-M19GTEcyX1BIWV9TRVJERVMpIHsKLQkJaWYgKEdFVF9BU0lDX1JFVih0cC0+cGNpX2NoaXBfcmV2
-X2lkKSA9PSBBU0lDX1JFVl81NzA0KSB7CisJCWlmICgoR0VUX0FTSUNfUkVWKHRwLT5wY2lfY2hp
-cF9yZXZfaWQpID09IEFTSUNfUkVWXzU3MDQpICYmCisJCQkhKHRwLT50ZzNfZmxhZ3MyICYgVEcz
-X0ZMRzJfU0VSREVTX1BSRUVNUEhBU0lTKSkgewogCQkJLyogU2V0IGRyaXZlIHRyYW5zbWlzc2lv
-biBsZXZlbCB0byAxLjJWICAqLworCQkJLyogb25seSBpZiB0aGUgc2lnbmFsIHByZS1lbXBoYXNp
-cyBiaXQgaXMgbm90IHNldCAgKi8KIAkJCXZhbCA9IHRyMzIoTUFDX1NFUkRFU19DRkcpOwogCQkJ
-dmFsICY9IDB4ZmZmZmYwMDA7CiAJCQl2YWwgfD0gMHg4ODA7CkBAIC03NTA1LDYgKzc1MTIsOCBA
-QAogCQl0ZzNfcmVhZF9tZW0odHAsIE5JQ19TUkFNX0RBVEFfQ0ZHLCAmbmljX2NmZyk7CiAJCXRw
-LT5uaWNfc3JhbV9kYXRhX2NmZyA9IG5pY19jZmc7CiAKKwkJdGczX3JlYWRfbWVtKHRwLCBOSUNf
-U1JBTV9EQVRBX0NGR18yLCAmY2ZnMik7CisKIAkJZWVwcm9tX3NpZ25hdHVyZV9mb3VuZCA9IDE7
-CiAKIAkJaWYgKChuaWNfY2ZnICYgTklDX1NSQU1fREFUQV9DRkdfUEhZX1RZUEVfTUFTSykgPT0K
-QEAgLTc1MjMsOCArNzUzMiw3IEBACiAJCQllZXByb21fcGh5X2lkID0gMDsKIAogCQlpZiAoR0VU
-X0FTSUNfUkVWKHRwLT5wY2lfY2hpcF9yZXZfaWQpID09IEFTSUNfUkVWXzU3NTApIHsKLQkJCXRn
-M19yZWFkX21lbSh0cCwgTklDX1NSQU1fREFUQV9DRkdfMiwgJmxlZF9jZmcpOwotCQkJbGVkX2Nm
-ZyAmPSAoTklDX1NSQU1fREFUQV9DRkdfTEVEX01PREVfTUFTSyB8CisJCQlsZWRfY2ZnID0gY2Zn
-MiAmIChOSUNfU1JBTV9EQVRBX0NGR19MRURfTU9ERV9NQVNLIHwKIAkJCQkgICAgU0hBU1RBX0VY
-VF9MRURfTU9ERV9NQVNLKTsKIAkJfSBlbHNlCiAJCQlsZWRfY2ZnID0gbmljX2NmZyAmIE5JQ19T
-UkFNX0RBVEFfQ0ZHX0xFRF9NT0RFX01BU0s7CkBAIC03NTgyLDkgKzc1OTAsMTMgQEAKIAkJaWYg
-KG5pY19jZmcgJiBOSUNfU1JBTV9EQVRBX0NGR19GSUJFUl9XT0wpCiAJCQl0cC0+dGczX2ZsYWdz
-IHw9IFRHM19GTEFHX1NFUkRFU19XT0xfQ0FQOwogCi0JCXRnM19yZWFkX21lbSh0cCwgTklDX1NS
-QU1fREFUQV9QSFlfSUQsICZjZmcyKTsKIAkJaWYgKGNmZzIgJiAoMSA8PCAxNykpCiAJCQl0cC0+
-dGczX2ZsYWdzMiB8PSBURzNfRkxHMl9DQVBBQ0lUSVZFX0NPVVBMSU5HOworCisJCS8qIHNlcmRl
-cyBzaWduYWwgcHJlLWVtcGhhc2lzIGluIHJlZ2lzdGVyIDB4NTkwIHNldCBieSAqLworCQkvKiBi
-b290Y29kZSBpZiBiaXQgMTggaXMgc2V0ICovCisJCWlmIChjZmcyICYgKDEgPDwgMTgpKQorCQkJ
-dHAtPnRnM19mbGFnczIgfD0gVEczX0ZMRzJfU0VSREVTX1BSRUVNUEhBU0lTOwogCX0KIAogCS8q
-IFJlYWRpbmcgdGhlIFBIWSBJRCByZWdpc3RlciBjYW4gY29uZmxpY3Qgd2l0aCBBU0YKZGlmZiAt
-TnJ1IDQvdGczLmggNS90ZzMuaAotLS0gNC90ZzMuaAkyMDA1LTAxLTI0IDIyOjQxOjM4LjAwMDAw
-MDAwMCAtMDgwMAorKysgNS90ZzMuaAkyMDA1LTAxLTI2IDE0OjIwOjEwLjAwMDAwMDAwMCAtMDgw
-MApAQCAtMjEwNiw2ICsyMTA2LDcgQEAKICNkZWZpbmUgVEczX0ZMRzJfQ0FQQUNJVElWRV9DT1VQ
-TElORwkweDAwMDA0MDAwCiAjZGVmaW5lIFRHM19GTEcyX0ZMQVNICQkJMHgwMDAwODAwMAogI2Rl
-ZmluZSBURzNfRkxHMl9IV19UU08JCQkweDAwMDEwMDAwCisjZGVmaW5lIFRHM19GTEcyX1NFUkRF
-U19QUkVFTVBIQVNJUwkweDAwMDIwMDAwCiAKIAl1MzIJCQkJc3BsaXRfbW9kZV9tYXhfcmVxczsK
-ICNkZWZpbmUgU1BMSVRfTU9ERV81NzA0X01BWF9SRVEJCTMK
-
-------_=_NextPart_001_01C504C1.A1F676E4--
+Regards
+Patrick
