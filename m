@@ -1,7 +1,7 @@
 From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [patch 2.6.10-rc2] 3c59x: reload EEPROM values at rmmod for needy cards
-Date: Wed, 17 Nov 2004 16:01:22 -0500
-Message-ID: <20041117160122.A4824@tuxdriver.com>
+Subject: [patch 2.4.28-rc3] 3c59x: reload EEPROM values at rmmod for needy cards
+Date: Wed, 17 Nov 2004 16:02:57 -0500
+Message-ID: <20041117160257.A4933@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com, jgarzik@pobox.com, akpm@osdl.org
@@ -27,9 +27,9 @@ previously regarding EEPROM_NORESET.
  drivers/net/3c59x.c |    9 +++++----
  1 files changed, 5 insertions(+), 4 deletions(-)
 
---- 3c59x-reset-2.6/drivers/net/3c59x.c.orig
-+++ 3c59x-reset-2.6/drivers/net/3c59x.c
-@@ -417,7 +417,7 @@ enum {	IS_VORTEX=1, IS_BOOMERANG=2, IS_C
+--- 3c59x-reset-2.4/drivers/net/3c59x.c.orig
++++ 3c59x-reset-2.4/drivers/net/3c59x.c
+@@ -413,7 +413,7 @@ enum {	IS_VORTEX=1, IS_BOOMERANG=2, IS_C
  	HAS_PWR_CTRL=0x20, HAS_MII=0x40, HAS_NWAY=0x80, HAS_CB_FNS=0x100,
  	INVERT_MII_PWR=0x200, INVERT_LED_PWR=0x400, MAX_COLLISION_RESET=0x800,
  	EEPROM_OFFSET=0x1000, HAS_HWCKSM=0x2000, WNO_XCVR_PWR=0x4000,
@@ -38,7 +38,7 @@ previously regarding EEPROM_NORESET.
  
  enum vortex_chips {
  	CH_3C590 = 0,
-@@ -505,9 +505,9 @@ static struct vortex_chip_info {
+@@ -502,9 +502,9 @@ static struct vortex_chip_info {
  	{"3c900B-FL Cyclone 10base-FL",
  	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|HAS_HWCKSM, 128, },
  	{"3c905 Boomerang 100baseTx",
@@ -50,8 +50,8 @@ previously regarding EEPROM_NORESET.
  	{"3c905B Cyclone 100baseTx",
  	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|HAS_NWAY|HAS_HWCKSM|EXTRA_PREAMBLE, 128, },
  
-@@ -3169,7 +3169,8 @@ static void __devexit vortex_remove_one 
- 			pci_restore_state(VORTEX_PCI(vp));
+@@ -3094,7 +3094,8 @@ static void __devexit vortex_remove_one 
+ 			pci_restore_state(VORTEX_PCI(vp), vp->power_state);
  	}
  	/* Should really use issue_and_wait() here */
 -	outw(TotalReset|0x14, dev->base_addr + EL3_CMD);
