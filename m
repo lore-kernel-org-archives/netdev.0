@@ -1,31 +1,32 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [BK PATCH] 2.4 SCTP updates
-Date: Fri, 13 Feb 2004 21:54:03 -0800
+Subject: Re: [IPSEC] Move hardware headers for decaped packets
+Date: Fri, 13 Feb 2004 23:10:27 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040213215403.23894e36.davem@redhat.com>
-References: <Pine.LNX.4.58.0402131540330.2339@localhost.localdomain>
+Message-ID: <20040213231027.1e483332.davem@redhat.com>
+References: <20030925121131.GA17968@gondor.apana.org.au>
+	<200309251228.QAA11650@yakov.inr.ac.ru>
+	<20030925124102.GA18188@gondor.apana.org.au>
+	<20031207090205.GA2358@gondor.apana.org.au>
+	<20031207014714.03e79cd2.davem@redhat.com>
+	<20031207095527.GA2767@gondor.apana.org.au>
+	<20031207165516.1edfde10.davem@redhat.com>
+	<20040214035534.GA25965@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, lksctp-developers@lists.sourceforge.net
+Cc: kuznet@ms2.inr.ac.ru, jmorris@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Sridhar Samudrala <sri@us.ibm.com>
-In-Reply-To: <Pine.LNX.4.58.0402131540330.2339@localhost.localdomain>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040214035534.GA25965@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 13 Feb 2004 16:07:29 -0800 (PST)
-Sridhar Samudrala <sri@us.ibm.com> wrote:
+On Sat, 14 Feb 2004 14:55:34 +1100
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> Please do a
-> 	bk pull http://linux-lksctp.bkbits.net/lksctp-2.4.work
-> to get the following udpates to SCTP on top fo linux 2.4.25-rc2
+> Looks like I've forgotten about this mac moving patch.  Here it is again.
 > 
-> These set of csets bring 2.4 in sync with 2.6 lksctp.
+> Just to recap, this moves the hardware header so that it appears
+> next to the payload for AF_PACKET sockets.
 
-Pulled, thanks for following up on this for me.
-
-Please remember that if you make the suggested modification to ssnmap
-allocation, that the 2.4.x tree will need it as well.  In fact, in general,
-please try to keep these two trees in sync now that you've done the hard
-part :-)
+Queued for 2.6.4-pre1, thanks Herbert.
