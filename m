@@ -1,48 +1,31 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] resolve probe difference
-Date: Mon, 13 Oct 2003 11:48:52 -0700
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [2.6 PATCH] Fix IPVS sync state check
+Date: Mon, 13 Oct 2003 12:25:40 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031013114852.74b547d0.shemminger@osdl.org>
+Message-ID: <20031013122540.0446f173.davem@redhat.com>
+References: <Pine.LNX.4.44.0310132306490.1216-200000@penguin.linux-vs.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, ja@ssi.bg
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: Wensong Zhang <wensong@linux-vs.org>
+In-Reply-To: <Pine.LNX.4.44.0310132306490.1216-200000@penguin.linux-vs.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In the change to get rid of the list of ISA devices to programmatic probing
-of old devices, a behaviour change was introduced which might cause problems.
+On Mon, 13 Oct 2003 23:15:26 +0800 (CST)
+Wensong Zhang <wensong@linux-vs.org> wrote:
 
-Before, it was possible to specify a parameter on the boot line for a second
-device and skip the first, as in:
-	netdev=4,0x280,0,0,eth1
-Well, now we stop after eth0 if we don't find it..
-Somebody, might depend on the old behaviour, so this patch restores it..
+> Here is a one-line fix in the sync state check for the connection to be
+> synchronized. Since both the primay and the backup IPVS sync daemon can be
+> started in a box at a time now, we must check if the MASTER bit is set in
+> the sync state exactly.
+> 
+> Please check and apply it.
 
-diff -Nru a/drivers/net/Space.c b/drivers/net/Space.c
---- a/drivers/net/Space.c	Fri Oct 10 10:03:42 2003
-+++ b/drivers/net/Space.c	Fri Oct 10 10:03:42 2003
-@@ -433,17 +433,15 @@
- 	
- #ifdef CONFIG_SBNI
- 	for (num = 0; num < 8; ++num)
--		if (sbni_probe(num))
--			break;
-+		sbni_probe(num);
- #endif
- #ifdef CONFIG_TR
- 	for (num = 0; num < 8; ++num)
--		if (trif_probe(num))
--			break;
-+		trif_probe(num);
- #endif
- 	for (num = 0; num < 8; ++num)
--		if (ethif_probe(num))
--			break;
-+		ethif_probe(num);
-+
- #ifdef CONFIG_COPS
- 	cops_probe(0);
- 	cops_probe(1);
+Looks good, applied.  Thanks.
+
+BTW, on the 2.4.x side the IPVS code still has the NF_DROP return
+which Julian changed in the 2.6.x version of the IPVS code.  Maybe
+this 2.6.x NF_DROP change needs to be propagated into the 2.4.x code?
