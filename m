@@ -1,205 +1,54 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [RFT][PATCH] convert 802/tr to seq_file
-Date: Tue, 19 Aug 2003 14:13:26 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030819141326.2a63bad0.shemminger@osdl.org>
+From: Stephan von Krawczynski <skraw@ithnet.com>
+Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
+Date: Tue, 19 Aug 2003 23:53:26 +0200
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20030819235326.2920dacf.skraw@ithnet.com>
+References: <353568DCBAE06148B70767C1B1A93E625EAB58@post.pc.aspectgroup.co.uk>
+	<1061320099.30567.55.camel@dhcp23.swansea.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-tr@linuxtr.net, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Mike Phillips <mikep@linuxtr.net>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: richard@aspectgroup.co.uk, davem@redhat.com, willy@w.ods.org,
+	carlosev@newipnet.com, lamont@scriptkiddie.org, davidsen@tmr.com,
+	bloemsaa@xs4all.nl, marcelo@conectiva.com.br, netdev@oss.sgi.com,
+	linux-net@vger.kernel.org, layes@loran.com, torvalds@osdl.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+In-Reply-To: <1061320099.30567.55.camel@dhcp23.swansea.linux.org.uk>
 List-Id: netdev.vger.kernel.org
 
-Convert the /proc interface to tokenring routing information
-to the new seq_file interface.
+On 19 Aug 2003 20:08:20 +0100
+Alan Cox <alan@lxorguk.ukuu.org.uk> wrote:
 
-Builds and loads on 2.6.0-test3, but I don't have any real tokenring hardware
-to make entries show up in table.
+> > 	But if I was to do this in the other direction (arp -d 172.20.240.1;
+> > ping -I 172.24.0.1 172.20.240.1) then I'd lose connectivity over my default
+> > route because 172.20.240.1 won't accept ARP packets from IP numbers not on
+> > the connected subnet. The <incomplete> ARP entry will block any further ARP
+> > requests from valid IP numbers.
+> 
+> One thing I agree with you about is that an ARP resolution for an
+> address via one path should not block a resolution for it by another
+> path since to begin with the two paths may be to different routers
+> one of which is down.
 
-diff -Nru a/net/802/tr.c b/net/802/tr.c
---- a/net/802/tr.c	Tue Aug 19 14:07:56 2003
-+++ b/net/802/tr.c	Tue Aug 19 14:07:56 2003
-@@ -33,6 +33,7 @@
- #include <linux/timer.h>
- #include <linux/net.h>
- #include <linux/proc_fs.h>
-+#include <linux/seq_file.h>
- #include <linux/init.h>
- #include <net/arp.h>
- 
-@@ -456,84 +457,108 @@
-  *	routing.
-  */
-  
--#ifndef CONFIG_PROC_FS
--static int rif_get_info(char *buffer,char **start, off_t offset, int length)  { return 0;}
--#else
--static int rif_get_info(char *buffer,char **start, off_t offset, int length) 
--{
--	int len=0;
--	off_t begin=0;
--	off_t pos=0;
--	int size,i,j,rcf_len,segment,brdgnmb;
--	unsigned long now=jiffies;
-+#ifdef CONFIG_PROC_FS
-+/* Magic token to indicate first entry (header line) */
-+#define RIF_PROC_START	((void *)1)
-+
-+static struct rif_cache_s *rif_get_idx(loff_t pos)
-+{
-+	int i;
-+	struct rif_cache_s *entry;
-+	loff_t off = 0;
-+
-+	for(i=0;i < RIF_TABLE_SIZE;i++) 
-+		for(entry=rif_table[i];entry;entry=entry->next) {
-+			if (off == pos)
-+				return entry;
-+			++off;
-+		}
-+
-+	return NULL;
-+}
-+
-+static void *rif_seq_start(struct seq_file *seq, loff_t *pos)
-+{
- 	unsigned long flags;
- 
--	rif_cache entry;
-+	spin_lock_irqsave(&rif_lock, flags);
-+	seq->private = (void *) flags;
-+
-+	return *pos ? rif_get_idx(*pos - 1) : RIF_PROC_START;
-+}
-+
-+static void *rif_seq_next(struct seq_file *seq, void *v, loff_t *pos)
-+{
-+	return rif_get_idx(*pos++);
-+}
-+
-+static void rif_seq_stop(struct seq_file *seq, void *v)
-+{
-+	unsigned long flags = (unsigned long) seq->private;
-+	spin_lock_irqsave(&rif_lock, flags);
-+}
- 
--	size=sprintf(buffer,
-+static int rif_seq_show(struct seq_file *seq, void *v)
-+{
-+	int j, rcf_len, segment, brdgnmb;
-+	rif_cache entry = v;
-+
-+	if (v == RIF_PROC_START)
-+		seq_puts(seq,
- 		     "if     TR address       TTL   rcf   routing segments\n");
--	pos+=size;
--	len+=size;
-+	else {
-+		struct net_device *dev = dev_get_by_index(entry->iface);
- 
--	spin_lock_irqsave(&rif_lock,flags);
--	for(i=0;i < RIF_TABLE_SIZE;i++) 
--	{
--		for(entry=rif_table[i];entry;entry=entry->next) {
--			struct net_device *dev = __dev_get_by_index(entry->iface);
-+		seq_printf(seq, "%s %02X:%02X:%02X:%02X:%02X:%02X %7li ",
-+			   dev?dev->name:"?",
-+			   entry->addr[0],entry->addr[1],entry->addr[2],
-+			   entry->addr[3],entry->addr[4],entry->addr[5],
-+			   sysctl_tr_rif_timeout-(jiffies-entry->last_used));
- 
--			size=sprintf(buffer+len,"%s %02X:%02X:%02X:%02X:%02X:%02X %7li ",
--				     dev?dev->name:"?",entry->addr[0],entry->addr[1],entry->addr[2],entry->addr[3],entry->addr[4],entry->addr[5],
--				     sysctl_tr_rif_timeout-(now-entry->last_used));
--			len+=size;
--			pos=begin+len;
- 			if (entry->local_ring)
--			        size=sprintf(buffer+len,"local\n");
-+			        seq_puts(seq, "local\n");
- 			else {
--			        size=sprintf(buffer+len,"%04X", ntohs(entry->rcf));
-+
-+				seq_printf(seq, "%04X", ntohs(entry->rcf));
- 				rcf_len = ((ntohs(entry->rcf) & TR_RCF_LEN_MASK)>>8)-2; 
- 				if (rcf_len)
- 				        rcf_len >>= 1;
- 				for(j = 1; j < rcf_len; j++) {
- 					if(j==1) {
- 						segment=ntohs(entry->rseg[j-1])>>4;
--						len+=size;
--						pos=begin+len;
--						size=sprintf(buffer+len,"  %03X",segment);
-+						seq_printf(seq,"  %03X",segment);
- 					};
- 					segment=ntohs(entry->rseg[j])>>4;
- 					brdgnmb=ntohs(entry->rseg[j-1])&0x00f;
--					len+=size;
--					pos=begin+len;
--					size=sprintf(buffer+len,"-%01X-%03X",brdgnmb,segment);
-+					seq_printf(seq,"-%01X-%03X",brdgnmb,segment);
- 				}
--				len+=size;
--				pos=begin+len;
--			        size=sprintf(buffer+len,"\n");
--			}
--			len+=size;
--			pos=begin+len;
--
--			if(pos<offset) 
--			{
--				len=0;
--				begin=pos;
-+				seq_putc(seq, '\n');
- 			}
--			if(pos>offset+length)
--				break;
- 	   	}
--		if(pos>offset+length)
--			break;
--	}
--	spin_unlock_irqrestore(&rif_lock,flags);
-+	return 0;
-+}
-+
-+
-+static struct seq_operations rif_seq_ops = {
-+	.start = rif_seq_start,
-+	.next  = rif_seq_next,
-+	.stop  = rif_seq_stop,
-+	.show  = rif_seq_show,
-+};
- 
--	*start=buffer+(offset-begin); /* Start of wanted data */
--	len-=(offset-begin);    /* Start slop */
--	if(len>length)
--		len=length;    /* Ending slop */
--	if (len<0)
--		len=0;
--	return len;
-+static int rif_seq_open(struct inode *inode, struct file *file)
-+{
-+	return seq_open(file, &rif_seq_ops);
- }
-+
-+static struct file_operations rif_seq_fops = {
-+	.owner	 = THIS_MODULE,
-+	.open    = rif_seq_open,
-+	.read    = seq_read,
-+	.llseek  = seq_lseek,
-+	.release = seq_release,
-+};
-+
- #endif
- 
- /*
-@@ -549,7 +574,7 @@
- 	rif_timer.function = rif_check_expire;
- 	add_timer(&rif_timer);
- 
--	proc_net_create("tr_rif",0,rif_get_info);
-+	proc_net_fops_create("tr_rif", S_IRUGO, &rif_seq_fops);
- 	return 0;
- }
- 
+Sounds logical.
+
+Can you explain to me why there should be a difference in the source ip of an
+arp request originated by an ip packet from another address of the same host
+compared to a forwarded packet from another host, coming in on some secondary
+interface?
+If I understood David correctly the first case will do an arp request with
+source ip equal to source ip of the packet (originated locally).
+In the second case (the box has to forward some foreign packet) for sure its
+interface address will be used, correct? Or does that read: _some_ interface
+address will be used?
+Why this difference? The destination host cannot distinguish between these two
+cases, so they can be as well handled just the same. But it seems obvious that
+a foreign IP cannot be used as a source for an arp request.
+And overall, looking at an arp table, what is visible is: interface, MAC and
+corresponding IP. So as soon as an arp request is successfully completed the
+box doesn't even remember the source ip of the former arp request, right?
+
+Regards,
+Stephan
