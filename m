@@ -1,43 +1,111 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [patch 1/9] arcnet fixes
-Date: Fri, 29 Oct 2004 13:39:23 -0700
+From: Mike Waychison <Michael.Waychison@Sun.COM>
+Subject: [PATCH] TG3: fiber hw autoneg bounces
+Date: Fri, 29 Oct 2004 17:31:19 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041029133923.66dd719f.akpm@osdl.org>
-References: <20041028164111.5ffaca70.davem@redhat.com>
-	<Pine.OSF.4.05.10410291603000.5037-100000@da410.ifa.au.dk>
+Message-ID: <4182B6A7.90700@sun.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, jgarzik@pobox.com, netdev@oss.sgi.com
+Content-Type: multipart/mixed; boundary="Boundary_(ID_t4iqKJrvjhPq07Zcg938/g)"
+Cc: Brian Somers <Brian.Somers@Sun.COM>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Esben Nielsen <simlo@phys.au.dk>
-In-Reply-To: <Pine.OSF.4.05.10410291603000.5037-100000@da410.ifa.au.dk>
+To: "David S. Miller" <davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Esben Nielsen <simlo@phys.au.dk> wrote:
->
-> > One problem with the patch though.
->  > 
->  > > diff -puN include/linux/if_ether.h~arcnet-fixes include/linux/if_ether.h
->  > > --- 25/include/linux/if_ether.h~arcnet-fixes	2004-10-28 00:17:07.230704752 -0700
->  > > +++ 25-akpm/include/linux/if_ether.h	2004-10-28 00:17:07.247702168 -0700
->  > > @@ -91,6 +91,7 @@
->  > >  #define ETH_P_IRDA	0x0017		/* Linux-IrDA			*/
->  > >  #define ETH_P_ECONET	0x0018		/* Acorn Econet			*/
->  > >  #define ETH_P_HDLC	0x0019		/* HDLC frames			*/
->  > > +#define ETH_P_ARCNET	0x0020		/* ArcNet			*/
->  > 
->  > You should use 0x001a or similar, so you don't have
->  > to do this next part of your patch, bumping NPROTO
->  > in net.h
->  > 
-> 
->  Doh! I can't count in hex it seems. This would probably also mean I won't
->  have to recompile the whole kernel but just the modules and I don't have 
->  to reboot to make it work on a new machine - but just until somebody else
->  picks the same protocol number ofcourse.
-> 
->  Do I have to fix the problem and resubmit?
+This is a multi-part message in MIME format.
 
-Yes please.  A patch relative to the previous one would be nice.
+--Boundary_(ID_t4iqKJrvjhPq07Zcg938/g)
+Content-type: text/plain; charset=ISO-8859-1
+Content-transfer-encoding: 7BIT
+
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+
+Hi David,
+
+We've recently noticed that the autonegotiation cleanup made a while
+back (between tg3 3.8 and 3.9) has issues which make the link bounce up
+and down.
+
+I've traced it to be caused by the tg3_timer 1 second work noticing that
+MAC_STATUS_LNKSTATE_CHANGED was set, which driver would see as the link
+going down.
+
+Upon further inspection, it appears that we don't wait long enough
+between setting SG_DIG_CTRL and reading the SG_DIG_STATUS for the result.
+
+The following patch (from a quasi recent bk tree) makes this code path
+wait up to 200ms for the link to establish.  In my testing, I'm seeing
+it take around 20ms for the negotiation to complete.
+
+I haven't had the chance to test how this patch affects the case where
+the switch doesn't have autoneg enabled, although I suspect fallback
+should work correctly.
+
+Please consider applying, thanks,
+
+Signed-off-by: Mike Waychison <michael.waychison@sun.com>
+
+- --
+Mike Waychison
+Sun Microsystems, Inc.
+1 (650) 352-5299 voice
+1 (416) 202-8336 voice
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+NOTICE:  The opinions expressed in this email are held by me,
+and may not represent the views of Sun Microsystems, Inc.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (GNU/Linux)
+Comment: Using GnuPG with Thunderbird - http://enigmail.mozdev.org
+
+iD8DBQFBgrandQs4kOxk3/MRAhWnAJ9eD+qmG8/NCImsRuLCksXbLfwVCgCcDn8G
+dnOG2USQhPV1q13rXr4xot8=
+=GSM2
+-----END PGP SIGNATURE-----
+
+--Boundary_(ID_t4iqKJrvjhPq07Zcg938/g)
+Content-type: text/x-patch; name=tg3-hw-autoneg-wait.patch
+Content-transfer-encoding: 7BIT
+Content-disposition: inline; filename=tg3-hw-autoneg-wait.patch
+
+# This is a BitKeeper generated patch for the following project:
+# Project Name: Linux kernel tree
+# This patch format is intended for GNU patch command version 2.5 or higher.
+# This patch includes the following deltas:
+#	           ChangeSet	1.2192  -> 1.2193 
+#	   drivers/net/tg3.c	1.204   -> 1.205  
+#
+# The following is the BitKeeper ChangeSet Log
+# --------------------------------------------
+# 04/10/29	michael.waychison@sun.com	1.2193
+# The tg3 driver's fiber hw autonegotiation path wasn't waiting for the
+# negotiation to complete.  This caused a delayed change in link state which was
+# picked up by the per-second timer and caused the link to bounce up and down
+# once every second.  The attached patch fixes this by waiting up to 200ms to get
+# a success or error from the chip's built in autonegotiation.
+# --------------------------------------------
+#
+diff -Nru a/drivers/net/tg3.c b/drivers/net/tg3.c
+--- a/drivers/net/tg3.c	Fri Oct 29 20:08:53 2004
++++ b/drivers/net/tg3.c	Fri Oct 29 20:08:53 2004
+@@ -2140,7 +2140,16 @@
+ 		tp->tg3_flags2 |= TG3_FLG2_PHY_JUST_INITTED;
+ 	} else if (mac_status & (MAC_STATUS_PCS_SYNCED |
+ 				 MAC_STATUS_SIGNAL_DET)) {
+-		sg_dig_status = tr32(SG_DIG_STATUS);
++		int i;
++
++		/* Giver time to negotiate (~200ms) */
++		for (i = 0; i < 40000; i++) {
++			sg_dig_status = tr32(SG_DIG_STATUS);
++			if (sg_dig_status & (0x3))
++				break;
++			udelay(5);
++		}
++		mac_status = tr32(MAC_STATUS);
+ 
+ 		if ((sg_dig_status & (1 << 1)) &&
+ 		    (mac_status & MAC_STATUS_PCS_SYNCED)) {
+
+--Boundary_(ID_t4iqKJrvjhPq07Zcg938/g)--
