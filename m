@@ -1,48 +1,77 @@
-From: Hasso Tepper <hasso@estpak.ee>
+From: Andrea G Forte <andreaf@cs.columbia.edu>
 Subject: Re: primary and secondary ip addresses
-Date: Fri, 17 Dec 2004 22:55:21 +0200
-Message-ID: <200412172255.21316.hasso@estpak.ee>
-References: <41912F7A.6000408@redhat.com> <200412172053.28016.hasso@estpak.ee> <Pine.LNX.4.61.0412172021190.18385@filer.marasystems.com>
+Date: Fri, 17 Dec 2004 15:54:32 -0500
+Message-ID: <41C34788.4070203@cs.columbia.edu>
+References: <41912F7A.6000408@redhat.com> <41C30212.6000906@cs.columbia.edu> <Pine.LNX.4.61.0412171736210.17463@filer.marasystems.com> <200412172003.22319.hasso@estpak.ee> <Pine.LNX.4.61.0412171206200.10943@gargoyle.wi.securepipe.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Martin A. Brown" <mabrown@securepipe.com>,
-	linux-net@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Henrik Nordstrom <hno@marasystems.com>
-In-Reply-To: <Pine.LNX.4.61.0412172021190.18385@filer.marasystems.com>
-Content-Disposition: inline
-Sender: linux-net-owner@vger.kernel.org
+Cc: Hasso Tepper <hasso@estpak.ee>, Henrik Nordstrom <hno@marasystems.com>,
+        Harald Welte <laforge@gnumonks.org>, Neil Horman <nhorman@redhat.com>,
+        linux-net@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "Martin A. Brown" <mabrown@securepipe.com>
+In-Reply-To: <Pine.LNX.4.61.0412171206200.10943@gargoyle.wi.securepipe.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Henrik Nordstrom wrote:
-> On Fri, 17 Dec 2004, Hasso Tepper wrote:
-> > All these tricks don't help if you are using dynamic routing.
+Martin A. Brown wrote:
+
+>Hello Hasso and Andrea,
 >
-> Are you seriously saying you are doing dynamic routing for your locally
-> attached lans?
+>We've gotten a little far afield from Neil Horman's initial question about 
+>why there are primary and secondary IPs, and I can't address your concern 
+>Andrea about the (route cache?) 500ms latency between the time that an 
+>address is added (or removed) from an interface and the time that the 
+>address is actually used.  Even so, the Linux routing code allows the 
+>kernel to suggest an IP with the "src" keyword.
 >
-> source address assignment for routed traffic via gateways is
-> automatically derived by the source address assignment for traffic
-> addressed to the gateway itself.
+>  
+>
+I apologize if I moved the topic too far from its original scope.
 
-So? Router learns via rip that default route should go via 10.0.0.1 and it 
-has 10.0.0.2/24 and 10.0.0.3/24 addresses on eth0.
+> : > Why change the primary address? What is wrong with simply changing the
+> : > route to use the other source IP?
+> : 
+> : There is no support for it in most of user space software.
+> : None of the routing protocols suites support it etc.
+>
+>Though some software provides support for explicit configuration of source 
+>address for initiated sockets, you can use INADDR_ANY and let the kernel 
+>perform source address selection for you.  
+>
+>Linux select an IP based on the routing table. [0]  Example:
+>
+>  # ip route show 192.168.90.0/24
+>  192.168.90.0/24 dev eth0  scope link  src 192.168.90.250
+>  # ip route change 192.168.88.0/24 dev eth0 scope link src $SECONDARY
+>
+>If you want to be fancy about it, you can have a higher preference routing 
+>table (make sure there's an entry in /etc/iproute2/rt_tables for 
+>$SECONDARY_TABLE).  Then you can add and remove tables in this routing 
+>table instead of changing the route in the main routing table.
+>
+>  # ip rule add prio table $SECONDARY_TABLE
+>  # ip route add table $SECONDARY_TABLE $DESTNET dev $REALDEV src $SECONDARY
+>
+>  
+>
+I will give it a try and see if I get any improvement.
+However, as last question (after this I will stop moving this topic 
+further away from its original scope), do you guys know where I can find 
+the code related to the routing cache in the kernel? I would like to see 
+if there is a kind of timer for the update of such a cache.
 
-> So even with routing protocols etc you 
-> can control the source address assignment simply by setting up routing to
-> use the correct source address to speak to your gateways, the added
-> routes will then inherit the intended source address.
+Thank you again for all of your help.
+Andrea
 
-No. It would be true in very trivial case only - ie. "use address I'm using 
-for announcing these routes as gateway for these routes". All routing 
-protocols can carry nexthop information. Moreover, addresses routing 
-protocols use for transport don't have to have anything common with 
-addresses used for routing. You can even carry IPv4 routing info with 
-routing protocol using IPv6 for transport (ospfv3) or iso (is-is).
 
--- 
-Hasso Tepper
-Elion Enterprises Ltd.
-WAN administrator
+>Best of luck!
+>
+>-Martin
+>
+> [0] http://linux-ip.net/gl/ip-cref/node155.html
+>
+>  
+>
