@@ -1,77 +1,95 @@
-From: John Wong <kernel@implode.net>
-Subject: Re: forcedeth and kernel 2.6.5 has "no link"
-Date: Sat, 17 Apr 2004 13:20:43 -0700
+From: Andy Furniss <andy.furniss@dsl.pipex.com>
+Subject: Re: IMQ / new Dummy device post.
+Date: Sat, 17 Apr 2004 22:56:52 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040417202043.GA5282@gambit.implode.net>
-References: <20040416183844.GA2923@gambit.implode.net> <40802EC0.2070108@colorfullife.com>
+Message-ID: <4081A824.5020107@dsl.pipex.com>
+References: <407E5905.9070108@dsl.pipex.com>	 <1082031313.1039.13.camel@jzny.localdomain>	 <407EE3E5.8060200@dsl.pipex.com>	 <1082087553.1035.287.camel@jzny.localdomain>	 <4080356F.4020609@dsl.pipex.com>	 <1082145341.1026.125.camel@jzny.localdomain>	 <40810957.6030209@dsl.pipex.com> <1082203795.1043.18.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: c-d.hailfinger.kernel.2004@gmx.net, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Manfred Spraul <manfred@colorfullife.com>
-Content-Disposition: inline
-In-Reply-To: <40802EC0.2070108@colorfullife.com>
+To: hadi@cyberus.ca
+In-Reply-To: <1082203795.1043.18.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
-
-After applying the patch to 2.6.5, I still get the timeouts:
-
-NETDEV WATCHDOG: eth1: transmit timed out
-eth1: tx_timeout: dead entries!
-NETDEV WATCHDOG: eth1: transmit timed out
-eth1: tx_timeout: dead entries!
-
-John
-
-On Fri, Apr 16, 2004 at 09:06:40PM +0200, Manfred Spraul wrote:
-> John Wong wrote:
-> 
-> >Under kernel 2.6.4, ethtool reports:
-> >
-> >Settings for eth0:
-> >       Link detected: yes
-> >
-> >This is with forcedeth 0.23
-> >
-> >Under kernel 2.6.5, ethtool reports:
-> >
-> >Settings for eth0:
-> >       Supports Wake-on: g
-> >       Wake-on: d
-> >       Link detected: no
-> >
-> >This is with forcedeth 0.25
-> > 
-> >
-> Odd. I'm not aware of any changes that might cause that difference. I'll 
-> check the diff.
-> 
-> >I had submitted the bugzilla id 2283.  2496 is something that I am
-> >experiencing too.
-> > 
-> >
-> Could you try the attached patch?
+jamal wrote:
+> On Sat, 2004-04-17 at 06:39, Andy Furniss wrote:
 > 
 > 
-> --
->    Manfred
+>>>No i dont plan to. Why do you want to go that path?
+>>
+>>I think it's the only way I can shape/share my ingress traffic between a 
+>>  process (eg. bittorrent/squid) running on my shaping machine and 
+>>traffic that is forwarded to my LAN. I masquerade onto one real dynamic IP.
+> 
+> 
+> I think i am almost understanding you now. Your main concern is people
+> using bittorrent to upload to you, correct? 
+> Is there a way to recognize packets going to/from bittorent?
 
-> --- 2.6/drivers/net/forcedeth.c	2004-04-10 09:52:45.000000000 +0200
-> +++ build-2.6/drivers/net/forcedeth.c	2004-04-13 18:58:59.000000000 +0200
-> @@ -1263,6 +1263,14 @@
->  				dev->name, id1, id2, i);
->  		np->phyaddr = i;
->  
-> +		if (id1 == 0x0015 && (id2 &0xfff0) == 0xf440) {
-> +			printk(KERN_DEBUG "%s: open: Found ICS, applying workaround.\n", dev->name);
-> +        		/* workaround for ICS1893 PHY */
-> +            		mii_rw(dev, i, 0x0018, 0xD200);
-> +			set_current_state(TASK_UNINTERRUPTIBLE);
-> +			schedule_timeout(HZ);
-> +		}
-> +
->  		spin_lock_irq(&np->lock);
->  		nv_update_linkspeed(dev);
->  		spin_unlock_irq(&np->lock);
+Quite possibly (though I think it uses connmark which I can't use as I 
+use connbytes to get new tcps out of slowstart).
+
+I also sometimes use wget and I've seen posts on LARTC from people who 
+use squid and need to solve the same problem.
+
+> 
+> 
+>>In the case of pre nat outbound - I know people can mark pre NAT and 
+>>shape on that, but it would allow people with big LANs doing NAT to use 
+>>WRR/ESFQ on src for egress traffic.
+> 
+> 
+> Dont jump into the HOW; lets get to your setup and dissect it. Like i
+> said, dont think in terms of IMQ but still think in terms of meeting
+> your requirements.
+> Your setup is certainly new to me (at least from what i have been told 
+> or read on how people use IMQ) - so thanks for posting. This is the kind
+> of thing i needed to hear about.
+> 
+> 
+>>My setup is very simple - the only reason I use IMQ+NAT patch is because 
+>>I want to use my gateway/shaping PC to run bittorrent and I want the LAN 
+>>machines to have priority/fair share of incoming traffic. I guess my 
+>>setup is not that common - more common are people who run squid on the 
+>>same PC they shape/do NAT on.
+>>
+>>ppp0 one dynamic real IP ->  gateway PC -> eth0 -> LAN 192.168.0.0/24
+>>                                   |
+>>                                    -> local process.
+> 
+> 
+> 
+> Ok good. Assuming you have attached your HTB etc on one or more dummy
+> devices.
+> 
+> - packets from local Lan can be marked at ingress and redirect to a
+> dummy if needed. Infact you can do this on the egress at ppp0 as well
+> using the new tc -i <inputdev> that i introduced. So this is easy.
+> 
+> - packets from the bittorent process can be marked by iptables before
+> they get NATed (is this right?). Such packets can then be redirected to
+> dummy from egress of ppp0 using fw classifier. So again this is easy.
+
+Yes - egress is sortable without IMQ.
+
+> 
+> - The third path is packets that come in from ppp0, get demasquareded,
+> then have to either go a) to the LAN/eth0 or b)localhost bittorent
+> process. You want to restrict b)
+
+Well not just restrict - dynamically share per IP total incoming 
+bandwidth with LAN traffic using HTB.
+
+
+Andy.
+
+  - is that correct? I have some
+> suggestion, but need you to verify this part.
+> 
+> cheers,
+> jamal
+> 
+> 
