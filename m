@@ -1,44 +1,40 @@
-From: Christoph Lameter <christoph@graphe.net>
-Subject: Compile Error with r8179.c
-Date: Sat, 24 Jan 2004 12:25:54 -0800 (PST)
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Compile Error with r8169.c
+Date: Sat, 24 Jan 2004 21:40:09 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0401241222570.19565@duron.home>
+Message-ID: <20040124214009.A2069@electric-eye.fr.zoreil.com>
+References: <Pine.LNX.4.58.0401241222570.19565@duron.home>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: romieu@fr.zoreil.com
+To: Christoph Lameter <christoph@graphe.net>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.58.0401241222570.19565@duron.home>; from christoph@graphe.net on Sat, Jan 24, 2004 at 12:25:54PM -0800
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Could you provide a diff against the current kernel? I applied all the
-patches and get the following when compiling:
+Christoph Lameter <christoph@graphe.net> :
+> Could you provide a diff against the current kernel? I applied all the
 
-  CC [M]  drivers/net/8139too.o
-  CC [M]  drivers/net/tun.o
-  CC [M]  drivers/net/r8169.o
-drivers/net/r8169.c:383: error: conflicting types for `timer_t'
-include/linux/types.h:32: error: previous declaration of `timer_t'
-drivers/net/r8169.c: In function `rtl8169_init_one':
-drivers/net/r8169.c:739: error: structure has no member named
-`driver_data'
-drivers/net/r8169.c: In function `rtl8169_remove_one':
-drivers/net/r8169.c:866: error: structure has no member named
-`driver_data'
-drivers/net/r8169.c:880: error: structure has no member named
-`driver_data'
-drivers/net/r8169.c: In function `rtl8169_open':
-drivers/net/r8169.c:903: warning: passing arg 2 of `request_irq' from
-incompatib
-le pointer type
-drivers/net/r8169.c: In function `rtl8169_set_rx_mode':
-drivers/net/r8169.c:1593: warning: passing arg 2 of `set_bit' from
-incompatible
-pointer type
-make[2]: *** [drivers/net/r8169.o] Error 1
-make[1]: *** [drivers/net] Error 2
+Yes, just tell me what your current is. :o)
 
-My main problem with the existing driver is that the driver will hang when
-I insmod it on my duron system with a VIA mainboard (KLE133). Only the
-insmod hangs. I can still login to other sessions and the system operates
-normally apart from the hanging process in D state.
+(side note: if you do not send it now, you will have to wait until tomorrow
+evening as saturday evening is getting closer)
+
+Send your .config (off-list) if you think there is something wrong so that
+I can reproduce the problem. I have tested that the patches apply fine and
+compile modular against plain 2.4.2-rc1.
+
+[...]
+> My main problem with the existing driver is that the driver will hang when
+                           ^^^^^^^^ -> which kernel ? (un)patched ?
+> I insmod it on my duron system with a VIA mainboard (KLE133). Only the
+> insmod hangs. I can still login to other sessions and the system operates
+> normally apart from the hanging process in D state.
+
+You can try the first 10 patches (i.e. including r8169-intr_mask.patch)
+from the last serie.
+
+--
+Ueimor
