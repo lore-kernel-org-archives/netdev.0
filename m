@@ -1,12 +1,12 @@
 From: "Jeremy M. Guthrie" <jeremy.guthrie@berbee.com>
 Subject: Re: V2.4 policy router operates faster/better than V2.6
-Date: Wed, 12 Jan 2005 14:30:00 -0600
-Message-ID: <200501121430.03763.jeremy.guthrie@berbee.com>
+Date: Wed, 12 Jan 2005 14:45:48 -0600
+Message-ID: <200501121445.51780.jeremy.guthrie@berbee.com>
 References: <Pine.LNX.4.44.0501071416060.5818-100000@localhost.localdomain> <200501121411.49293.jeremy.guthrie@berbee.com> <16869.34519.31321.977100@robur.slu.se>
 Reply-To: jeremy.guthrie@berbee.com
 Mime-Version: 1.0
 Content-Type: multipart/signed;
-  boundary="nextPart3725316.Z5xNv7sXvu";
+  boundary="nextPart7627456.7K3XhOKuEN";
   protocol="application/pgp-signature";
   micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
@@ -20,59 +20,13 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---nextPart3725316.Z5xNv7sXvu
+--nextPart7627456.7K3XhOKuEN
 Content-Type: text/plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
 Content-Disposition: inline
 
-Sorry, here is the latest.  BTW, it is VERY sluggish now.
-
-Wed Jan 12 14:25:03 CST 2005
-eth3      Link encap:Ethernet  HWaddr 00:02:B3:D5:7E:30
-          RX packets:32030222 errors:105026820 dropped:105026820=20
-overruns:100748696 frame:0
-9651ffeb 150dc67c 00c814c1 000d2659 00000000 00000000 00000000 00000000=20
-0073d527
-00044681 00000000 000000f8 00000000 00000000 00000000 00000000 00000000=20
-00097d42
-entries  in_hit in_slow_tot in_no_route in_brd in_martian_dst in_martian_sr=
-c =20
-out_hit out_slow_tot out_slow_mc  gc_total gc_ignored gc_goal_miss=20
-gc_dst_overflow in_hlist_search out_hlist_search
-00020000  41c25a6f 34daaca8 00000000 00000000 0000b11d 00006a40 00000002 =20
-00272af5 00041525 00000000 2f6a27e5 2f4b712d 000f2bd8 000f1b0e 84036c96=20
-00c5e8a8
-00020000  0000e336 0003256f 00000000 00000000 00004292 00000000 00000000 =20
-0000001e 000000c0 00000002 00004762 0000462a 0000010e 0000010b 0016b898=20
-0000024c
-           CPU0       CPU1
- 18: 3586173518       1815   IO-APIC-level  eth3
- 20:          2 2464382507   IO-APIC-level  eth2
-
-Wed Jan 12 14:26:03 CST 2005
-eth3      Link encap:Ethernet  HWaddr 00:02:B3:D5:7E:30
-          RX packets:32097966 errors:110579564 dropped:110579564=20
-overruns:106248073 frame:0
-965308aa 150dc67c 00c818e4 000d2659 00000000 00000000 00000000 00000000=20
-0073d527
-0004468b 00000000 000000f8 00000000 00000000 00000000 00000000 00000000=20
-00097d42
-entries  in_hit in_slow_tot in_no_route in_brd in_martian_dst in_martian_sr=
-c =20
-out_hit out_slow_tot out_slow_mc  gc_total gc_ignored gc_goal_miss=20
-gc_dst_overflow in_hlist_search out_hlist_search
-00020000  41c2602e 34dbaf9f 00000000 00000000 0000b11e 00006a40 00000002 =20
-00272af5 00041527 00000000 2f6b2ad8 2f4b9a88 00100571 000ff4a4 84036c9e=20
-00c5e8a8
-00020000  0000e336 00032578 00000000 00000000 00004292 00000000 00000000 =20
-0000001e 000000c0 00000002 00004762 0000462a 0000010e 0000010b 0016b898=20
-0000024c
-           CPU0       CPU1
- 18: 3586173518       1815   IO-APIC-level  eth3
- 20:          2 2464387985   IO-APIC-level  eth2
-
-
+My throughput dropped from 500 mbps to 8mbps.  8(
 
 
 On Wednesday 12 January 2005 02:21 pm, Robert Olsson wrote:
@@ -204,15 +158,15 @@ Berbee                           Fax: 608-288-3007
 5520 Research Park Drive         NOC: 608-298-1102
 Madison, WI 53711
 
---nextPart3725316.Z5xNv7sXvu
+--nextPart7627456.7K3XhOKuEN
 Content-Type: application/pgp-signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.2.4 (GNU/Linux)
 
-iD8DBQBB5YjLqtjaBHGZBeURAsH+AJ0efVnD+xMKqNPI20V57D1VNckiFwCdGErU
-XYeWyG64OPtmrDUj7/SJQkU=
-=4akK
+iD8DBQBB5Yx/qtjaBHGZBeURAhVPAJwMiwM+Ziz+1diuBLP8T9A3+z8D8QCfZD2w
+Si9Pix2G10nqfI+aC0PEpbA=
+=ZRDB
 -----END PGP SIGNATURE-----
 
---nextPart3725316.Z5xNv7sXvu--
+--nextPart7627456.7K3XhOKuEN--
