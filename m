@@ -1,40 +1,77 @@
-From: Dave Dillow <dave@thedillows.org>
-Subject: Re: [0/3] mc_filter on big-endian arch
-Date: Thu, 10 Jun 2004 09:37:59 -0400
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: 2.6.7-rc3: waiting for eth0 to become free
+Date: Thu, 10 Jun 2004 08:36:52 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1086874679.23004.17.camel@dillow.idleaire.com>
-References: <20040607115921.GB32569@k3.hellgate.ch>
-	 <OFCBC67DF9.898B09C6-ON88256EAF.001BFC9E-88256EAF.001C4AB8@us.ibm.com>
-	 <20040610102045.GA11616@k3.hellgate.ch>
+Message-ID: <20040610083652.6f3ba3a6@dell_ss3.pdx.osdl.net>
+References: <1086722310.1682.1.camel@teapot.felipe-alfaro.com>
+	<20040608124215.291a7072@dell_ss3.pdx.osdl.net>
+	<1086725369.1806.1.camel@teapot.felipe-alfaro.com>
+	<20040608140200.2ddaa6f4@dell_ss3.pdx.osdl.net>
+	<1086794282.1706.2.camel@teapot.felipe-alfaro.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Stevens <dlstevens@us.ibm.com>, Andrew Morton <akpm@osdl.org>,
-        Jeff Garzik <jgarzik@pobox.com>, Netdev <netdev@oss.sgi.com>
+Cc: NetDev Mailinglist <netdev@oss.sgi.com>,
+        Kernel Mailinglist
+ <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Roger Luethi <rl@hellgate.ch>
-In-Reply-To: <20040610102045.GA11616@k3.hellgate.ch>
+To: Felipe Alfaro Solana <felipe_alfaro@linuxmail.org>
+In-Reply-To: <1086794282.1706.2.camel@teapot.felipe-alfaro.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2004-06-10 at 06:20, Roger Luethi wrote:
-> Multicast Driver Testing Quick How-To (version 0.2)
-> =====================================
+On Wed, 09 Jun 2004 17:18:02 +0200
+Felipe Alfaro Solana <felipe_alfaro@linuxmail.org> wrote:
 
-Thank you guys for all the info. I've done some testing, and sure
-enough, there are some problems in typhoon, which I'll fix this weekend.
-But I think the cpu_to_le32() calls are correct -- it would seem that
-crc32_be() is needed rather than ether_crc() (which does little endian).
-I'm assuming the results will be different, but I haven't done the math,
-nor am I very familiar with the properties of the crc.
+> On Tue, 2004-06-08 at 14:02 -0700, Stephen Hemminger wrote:
+> > On Tue, 08 Jun 2004 22:09:29 +0200
+> > Felipe Alfaro Solana <felipe_alfaro@linuxmail.org> wrote:
+> > 
+> > > On Tue, 2004-06-08 at 12:42 -0700, Stephen Hemminger wrote:
+> > > > On Tue, 08 Jun 2004 21:18:30 +0200
+> > > > Felipe Alfaro Solana <felipe_alfaro@linuxmail.org> wrote:
+> > > > 
+> > > > > Hi!
+> > > > > 
+> > > > > On my laptop, when using a CardBus 3c59x-based NIC, I need to run
+> > > > > "cardctl eject" so the system won't freeze when resuming. "cardctl
+> > > > > eject" worked fine in 2.6.7-rc2-mm2, even when there were programs with
+> > > > > network sockets opened (for example, Evolution mantaining a connection
+> > > > > against an IMAP server): the card is ejected (well, not physically),
+> > > > > even when there are ESTABLISHED connections.
+> > > > > 
+> > > > > However, starting with 2.6.7-rc3, "cardctl eject" hangs if a program
+> > > > > holds any socket open. After a while the "unregister_netdevice: waiting
+> > > > > for eth0 to become free" message starts appearing on the kernel message
+> > > > > ring. The only apparent solution is killing that program, ejecting the
+> > > > > card from its slot and wait until 3c59x.o usage count reaches zero.
+> > > > > 
+> > > > > Can someone tell me what's going on here?
+> > > > > Thank you very much.
+> > > > 
+> > > > What protocols are you running? Is IPV6 loaded?
+> > > 
+> > > I'm using IPv4, IPv6 and IPSec ESP with AES/CBC.
+> > > Do you want .config?
+> > 
+> > Not really, could you see if it is an IPv6 vs IPSec problem by not running/loading
+> > one or the other.
+> > 
+> > What is happening is that some subsystem is holding a reference to the device (calling dev_hold())
+> > but not cleaning up (calling dev_put).  It can be a hard to track which of the many
+> > things routing, etc are not being cleared properly.  Look for routes that still
+> > get stuck (ip route) and neighbor cache entries.  Most of these end up being
+> > protocol bugs.
+> 
+> The two attached patches, one for net/ipv4/route.c, the other for net/
+> ipv6/route.c fix all my problems when running "cardctl eject" while a
+> program mantains an open network socket (ESTABLISHED).
+> 
+> Both patches apply cleanly against 2.6.7-rc3 and 2.6.7-rc3-mm1.
+> I'm not completely sure what has changed in 2.6.7-rc3 that is breaking
+> cardctl for me, as it Just Worked(TM) fine in 2.6.7-rc2.
+> 
+> Hope this can throw some light at this issue.
 
-Even then, I'm not sure that's my real problem -- if it was setting the
-wrong bits in the hash -- my working hypothesis -- I shouldn't be
-receiving the 224.0.0.1 frames. I am.
-
-I am also seeing 224.1.1.37 frames come up the stack in tcpdump (with
--p), before running "ip maddr ..." so something seems wonky. It seems to
-be getting into ALL_MULTI mode, but I don't see how in the driver. I'm
-going to add some printks and see what's going on.
--- 
-Dave Dillow <dave@thedillows.org>
+Since you effectively remove rth->idev, why not remove it from the structure
+to make sure no code is still expecting it to be set.
