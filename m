@@ -1,12 +1,9 @@
 From: jamal <hadi@cyberus.ca>
 Subject: Re: [RFC] ematch API, u32 ematch, nbyte ematch, basic classifier
-Date: 04 Jan 2005 21:54:54 -0500
-Message-ID: <1104893694.1124.37.camel@jzny.localdomain>
+Date: 04 Jan 2005 22:12:08 -0500
+Message-ID: <1104894728.1117.56.camel@jzny.localdomain>
 References: <20050103125635.GB26856@postel.suug.ch>
-	 <1104812028.1085.50.camel@jzny.localdomain>
-	 <20050104122738.GG26856@postel.suug.ch>
-	 <1104844935.1085.103.camel@jzny.localdomain>
-	 <20050104134126.GJ26856@postel.suug.ch>
+	 <20050104223612.GN26856@postel.suug.ch>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -14,45 +11,39 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050104134126.GJ26856@postel.suug.ch>
+In-Reply-To: <20050104223612.GN26856@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2005-01-04 at 08:41, Thomas Graf wrote:
-> * jamal <1104844935.1085.103.camel@jzny.localdomain> 2005-01-04 08:22
-> > On Tue, 2005-01-04 at 07:27, Thomas Graf wrote:
- 
-> > I am pretty sure someone who knows u32 well can outperform you (in the
-> > scenarios where u32 works using AND etc).
-> > Start hitting 50K rules then lets talk ;->
-> 
-> Sure but I'd call a filter with 50K ANDed rules an unlikely scenario ;->
+On Tue, 2005-01-04 at 17:36, Thomas Graf wrote:
 
-50K matches is probably senseless - i was talking about rules (which
-contain matches). 
+>  * TCF_EM_SIMPLE flag which marks an ematch config as simple, meaning
+>    that the data consists of a u32 value.
 
-> In most cases logic will beat brute force. I used to have a u32 setup
-> with 4K matches and hashing, it was not only error prone but could be
-> replaced with 12 egp filters gaining 90kpps. Why's that? Simply because
-> it was easier to optimize the logic behind it. egp itself is terribly
-> slow compared to u32.
+This is 1 of 2 parts i think thats still an issue; otherwise looks very
+good. 
+Why do i need to signal something as simple? AND why does it have to be
+32 bit type - what edge does that give you?
+I should be able to specify a struct with two 32 bits and 
+encap it in a TLV and the classifier can treat it the same way - it
+knows the type and length - thats sufficient to create, destroy and
+dump.
+The other issue is still on the ematch/match interleaving i.e i should
+be able to say something along the lines:
 
-I think this is a debate that can be easily settled ;->
-Agreed logic will beat brute force smartness and u32 is not exactly
-for the faint hearted. And its usability is extremely poor - but lets
-maintain its power as is.
+//simple slammer-worm or code-red ACL detector rule 
+//using u32 classifier and ematches
+(match ip protocol udp port 1434 AND
+ematch packetlen minsize 404 maxsize 404) OR
+(match ip protocol tcp http AND 
+ematch urlscanner "*.ida") 
+action ipt -j ULOG "Virus detected and dropped"
+action drop
 
-> > If your intent is to write an ematch holder, then it would be worth to
-> > at least go as far as making it some basic hash - as basic as fw does;
-> > where collision leads toa linked list. If it is just to show an example,
-> > then it is fine.
-> 
-> Using what key? We have no knowledge about what the ematches want to
-> see or not.
-
-Ok, good question ;->
-Maybe you should have own some 32 bit key?
+Not a very good example - but you can see how powerfull this is when you
+can quickly use a string scanner such as the one you have as an ematch
+while maintaining u32 as is. 
 
 cheers,
 jamal
