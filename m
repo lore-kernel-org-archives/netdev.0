@@ -1,43 +1,76 @@
-From: Matthew Wilcox <willy@debian.org>
-Subject: Re: [PATCH] ethtool_ops rev 4
-Date: Fri, 1 Aug 2003 16:46:56 +0100
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: [BK PATCHES] 2.6.x net driver merges
+Date: Fri, 1 Aug 2003 15:44:20 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030801154656.GW22222@parcelfarce.linux.theplanet.co.uk>
-References: <20030801150232.GV22222@parcelfarce.linux.theplanet.co.uk> <20030801154021.GA7696@gtf.org>
+Message-ID: <20030801194420.GD3571@gtf.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Matthew Wilcox <willy@debian.org>, netdev@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+To: torvalds@osdl.org
 Content-Disposition: inline
-In-Reply-To: <20030801154021.GA7696@gtf.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 01, 2003 at 11:40:21AM -0400, Jeff Garzik wrote:
-> Comments:
-> 
-> * need SET_ETHTOOL_OPS macro or HAVE_ETHTOOL_OPS test macro or similar
 
-DaveM disagreed with that...
+Linus, please do a
 
-> * I still do not see the need to change a simple storage of a constant
->   (into ethtool_gdrvinfo) into _four_ separate function call hooks (reg
->   dump len, eeprom dump len, nic-specific stats len, self-test len).
->   Internal kernel code that needs this information is always a slow path
->   anyway, so just call the ->get_drvinfo hook internally.
+	bk pull bk://gkernel.bkbits.net/net-drivers-2.5
 
-slow path, sure, but increased stack usage.  it's a tradeoff, and this way
-feels more clean to me.
+Others may download the patch from
 
-> * I prefer not to add '#include <linux/types.h>' to ethtool.h
+ftp://ftp.??.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/2.6.0-test2-netdrvr1.patch.bz2
 
-That means that any code which includes ethtool.h has to include types.h
-first (either implicitly or explicitly).  The rule so far has been that
-header files should call out their dependencies explictly with an include
-of the appropriate file.  So why *don't* you want it?
+This will update the following files:
 
--- 
-"It's not Hollywood.  War is real, war is primarily not about defeat or
-victory, it is about death.  I've seen thousands and thousands of dead bodies.
-Do you think I want to have an academic debate on this subject?" -- Robert Fisk
+ Documentation/networking/bonding.txt |  343 ++++++++++++++++++++++++-----------
+ Documentation/networking/ifenslave.c |    3 
+ drivers/net/arcnet/com20020-isa.c    |    2 
+ drivers/net/tokenring/ibmtr.c        |    3 
+ drivers/net/wireless/airo.c          |  104 +++++++---
+ 5 files changed, 309 insertions(+), 146 deletions(-)
+
+through these ChangeSets:
+
+<jgarzik@redhat.com> (03/08/01 1.1547.8.10)
+   Cset exclude: jgarzik@redhat.com|ChangeSet|20030731201437|53548
+   
+   My fix was wrong, and, mainline now has a better fix.
+
+<jgarzik@redhat.com> (03/07/31 1.1547.8.9)
+   [tokenring ibmtr_cs] fix build, due to missing ibmtr.c build
+   
+   Note: Better fix is needed.
+   
+   Contributed by Mike Phillips.
+
+<jgarzik@redhat.com> (03/07/31 1.1547.8.8)
+   [arcnet com20020-isa] fix build broken by lack of ->owner
+
+<jgarzik@redhat.com> (03/07/31 1.1547.8.7)
+   [netdrvr bonding] fix ifenslave build on ia64
+   
+   Forward port from 2.4.
+
+<jgarzik@redhat.com> (03/07/31 1.1547.8.6)
+   [netdrvr bonding] update docs
+
+<achirica@telefonica.net> (03/07/29 1.1547.8.5)
+   [wireless airo] adds support for noise level reporting (if available)
+
+<achirica@telefonica.net> (03/07/29 1.1547.8.4)
+   [wireless airo] makes the card passive when entering monitor mode
+
+<achirica@telefonica.net> (03/07/29 1.1547.8.3)
+   [wireless airo] eliminate infinite loop
+   
+   makes sure a possible (never happened, but just in case) infinite
+   loop in the transmission code terminates.
+
+<achirica@telefonica.net> (03/07/29 1.1547.8.2)
+   [wireless airo] safer shutdown sequence
+   
+   changes the card shutdown sequence to a safer one
+
+<achirica@telefonica.net> (03/07/29 1.1547.8.1)
+   [wireless airo] fix Tx race
