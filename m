@@ -1,108 +1,38 @@
-From: Krishna Kumar <krkumar@us.ibm.com>
-Subject: Re: [PATCH] Prefix List patch against 2.5.70
-Date: Mon, 02 Jun 2003 10:32:49 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3EDB8A41.2080305@us.ibm.com>
-References: <3ED80230.2030508@us.ibm.com> <20030531.110249.12960077.yoshfuji@linux-ipv6.org>
+From: Simon Kirby <sim@netnation.com>
+Subject: Re: Route cache performance under stress
+Date: Mon, 2 Jun 2003 11:05:37 -0700
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20030602180537.GB30957@netnation.com>
+References: <20030522.015815.91322249.davem@redhat.com> <20030522.034058.71558626.davem@redhat.com> <20030522114438.GD2961@netnation.com> <20030522.153330.74735095.davem@redhat.com> <20030529205125.GA30058@netnation.com> <16091.11735.721251.925522@robur.slu.se> <20030602151852.GA6070@netnation.com> <16091.32021.75335.227150@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org,
-   netdev@oss.sgi.com, linux-net@vger.kernel.org
-Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <20030531.110249.12960077.yoshfuji@linux-ipv6.org>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
+	linux-net@vger.kernel.org, kuznet@ms2.inr.ac.ru
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Robert Olsson <Robert.Olsson@data.slu.se>
+Content-Disposition: inline
+In-Reply-To: <16091.32021.75335.227150@robur.slu.se>
 List-Id: netdev.vger.kernel.org
 
-Hi Yoshifuji,
+On Mon, Jun 02, 2003 at 06:36:37PM +0200, Robert Olsson wrote:
 
-Thanks for your comments.
+>  We are given more work than we have resources for (max_size) what else than 
+>  refuse can we do?  But yes we have invested pretty much work already. 
 
->>+/* prefix list returned to user space in this structure */
->>+struct plist_user_info {
-> 
->           ^ip6 or ipv6 or so.
-> 
->>+	char name[IFNAMSIZ];		/* interface name */
-> 
->         ~~~~~~~~~~~~~~~~~~~duplicate information.
-> 
+Well, this is the problem.  We do not and cannot know which entries we
+really want to remember (legitimate traffic).  Adding code to actually
+refuse new dst entries is just going to make the DoS effective, which is
+NOT what we want.
 
-Point noted. That can be removed (prefer to have name instead of ifindex).
+>  Also remember we are looking into runs were 100% of incoming traffic has one 
+>  new dst for every packet. So how is the situation in "real life"? 
+>  In case of multiple devices at least NAPI gives all devs it's share. 
 
->>+	int ifindex;			/* interface index */
->>+	int nprefixes;			/* number of elements in 'prefix' */
->>+	struct var_plist_user_info {	/* multiple elements */
->>+		char flags[3];		/* router advertised flags */
-> 
->                      ~~~~~~~~this is not good interface.
+Right, so, when we are traffic saturated, we want to make sure the whole
+route cache and route path is as fast as possible.  Recycling dst entries
+by simpy rewriting and rehashing them rather than allocating new and
+eventually freeing them all in the garbage collection cycle should reduce
+allocator overhead.  If this is only done when the table is full, I don't
+see any downside...if this is in fact doable, that is. :)
 
-This is my mistake. When I added the original interface, it was using the proc
-filesystem and it made sense at that time for a user to cat /proc/net/<file> and
-actually see the flags. While converting to use netlink, I forgot to change this
-to real flags. This was not intended interface :-)
-
-
->>+		int plen;		/* prefix length */
->>+		__u32 valid;		/* valid lifetime */
->>+		struct in6_addr ra_addr;/* advertising router */
->>+		struct in6_addr prefix;	/* prefix */
->>+	} plist_vars[0];
->>+};
->>+
->>  extern void			addrconf_init(void);
->>  extern void			addrconf_cleanup(void);
->>
-> 
-> 
-> :
-> 
-> I think we should use 1 fixed-length message per prefix,
-> instead of variable length message.
-
-I had got this idea from "struct fib_info" which also has variable size
-structure, but probably it is not worth the extra effort to save a few bytes.
-
->>+			ipv6_addr_copy(&pinfo->plist_vars[count].ra_addr,
->>+			    &p_el->ra_addr);
->>+			for (i = 0; i < 8; i++)
->>+				pinfo->plist_vars[count].ra_addr.s6_addr16[i] =
->>+				    __constant_ntohs(pinfo->plist_vars[count].ra_addr.s6_addr16[i]);
->>+			ipv6_addr_copy(&pinfo->plist_vars[count].prefix,
->>+			    &p_el->pinfo.prefix);
->>+			for (i = 0; i < p_el->pinfo.prefix_len/16; i++)
->>+				pinfo->plist_vars[count].prefix.s6_addr16[i] =
->>+				    __constant_ntohs(pinfo->plist_vars[count].prefix.s6_addr16[i]);
-> 
-> 
-> Absoletely nasty.
-> - don't use charaters to represent flags; use real flags.
-> - use network-byte order.
-
-network-byte order ? User will get prefix in network byte order, is that correct  ?
-
->>+static int prefix_list_proc_dump(char *buffer, char **start, off_t offset,
->>+			   int length)
->>+{
-> 
-> :
-> 
-> Please use seq_file.
-
-OK.
-
-> Again, what I proposed was to store prefix information on fib with 
-> some flags to represent advertised by routers and give user-space 
-> the RA information using new rtattr (RTA_RA6INFO or something like that).
-> 
-> struct rta_ra6info {
->      u32 rta_ra6flags;
-> };
->
-
-In my mail, I had given problems with doing that in the fib. I can look to
-convert to fib, but please let me know which kernel routines I should look at.
-
-Thanks,
-
-- KK
+Simon-
