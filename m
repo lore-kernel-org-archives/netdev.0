@@ -1,50 +1,92 @@
 From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH,RFC] [NET] ALIGN
-Date: Tue, 10 Feb 2004 13:05:43 +0900 (JST)
+Subject: Re: Source Specific Query of MLDv2 [PATCH]
+Date: Tue, 10 Feb 2004 12:51:24 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040210.130543.130923643.yoshfuji@linux-ipv6.org>
-References: <20040209.134528.28683257.yoshfuji@linux-ipv6.org>
-	<20040209112007.08023ba6.davem@redhat.com>
+Message-ID: <20040210.125124.97248371.yoshfuji@linux-ipv6.org>
+References: <20040207.154603.51160771.yoshfuji@linux-ipv6.org>
+	<OF40DCBAE1.2110C762-ON88256E35.007F7C77-88256E35.0080020D@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: davem@redhat.com, hibi665@oki.com, netdev@oss.sgi.com,
+        yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
-In-Reply-To: <20040209112007.08023ba6.davem@redhat.com>
+To: dlstevens@us.ibm.com
+In-Reply-To: <OF40DCBAE1.2110C762-ON88256E35.007F7C77-88256E35.0080020D@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20040209112007.08023ba6.davem@redhat.com> (at Mon, 9 Feb 2004 11:20:07 -0800), "David S. Miller" <davem@redhat.com> says:
+In article <OF40DCBAE1.2110C762-ON88256E35.007F7C77-88256E35.0080020D@us.ibm.com> (at Mon, 9 Feb 2004 16:20:52 -0700), David Stevens <dlstevens@us.ibm.com> says:
 
-> > BTW, 
-> >  1. do we really need this ALIGN?
-> >  2. should 16 be BYTES_PER_WORD (in mm/slab.c)?
-:
-> I think this is complete nonsense, and that the alignment is not
-> necessary.  I can't even come up with a performance reason as SLAB
-> is going to align things to hw cache line size anyways.
+> Here's a revised version with all the comments incorporated.
 
-Agreed.
+> @@ -211,50 +219,21 @@
+> 
+>  int ip6_mc_input(struct sk_buff *skb)
+>  {
+> -     struct ipv6hdr *hdr;
+> -     int deliver = 0;
+> -     int discard = 1;
+> +     struct ipv6hdr *hdr;
+> +     int deliver;
+> 
+>       IP6_INC_STATS_BH(Ip6InMcastPkts);
+> 
+>       hdr = skb->nh.ipv6h;
+> -     if (ipv6_chk_mcast_addr(skb->dev, &hdr->daddr, &hdr->saddr))
+> -           deliver = 1;
+> -
+> -     /*
+> -      *    IPv6 multicast router mode isnt currently supported.
+> -      */
+> -#if 0
+> -     if (ipv6_config.multicast_route) {
+> -           int addr_type;
+> -
+> -           addr_type = ipv6_addr_type(&hdr->daddr);
+> -
+> -           if (!(addr_type & (IPV6_ADDR_LOOPBACK | IPV6_ADDR_LINKLOCAL))) {
+> -                 struct sk_buff *skb2;
+> -                 struct dst_entry *dst;
+> -
+> -                 dst = skb->dst;
+> -
+> -                 if (deliver) {
+> -                       skb2 = skb_clone(skb, GFP_ATOMIC);
+> -                 } else {
+> -                       discard = 0;
+> -                       skb2 = skb;
+> -                 }
+> -
+> -                 dst_output(skb2);
+> -           }
+> -     }
+> -#endif
+> +     deliver = !(skb->dev->flags & (IFF_PROMISC|IFF_ALLMULTI)) ||
+> +         ipv6_chk_mcast_addr(skb->dev, &hdr->daddr, NULL);
+> 
+> -     if (deliver) {
+> -           discard = 0;
+> +     if (likely(deliver)) {
+>             ip6_input(skb);
+> +           return 0;
+>       }
+> -
+> -     if (discard)
+> -           kfree_skb(skb);
+> +     /* discard */
+> +     kfree_skb(skb);
+> 
+>       return 0;
 
-> Else let's just remove this bogus 16 byte alignment in the
-> kmem_cache_create() call.
+likely(!(skb->dev->flags & (IFF_PROMISC|IFF_ALLMULTI)))?
 
-Let's kill it. It is very likely safe.
+Where is pskb_pull()?
+I'd suggest to check the protocol number != icmp there.
+After doing pskb_pull() in icmpv6_rcv(), we see type field.
 
-===== net/core/neighbour.c 1.24 vs edited =====
---- 1.24/net/core/neighbour.c	Tue Jan 20 14:31:23 2004
-+++ edited/net/core/neighbour.c	Tue Feb 10 13:01:15 2004
-@@ -1164,8 +1164,7 @@
- 
- 	if (!tbl->kmem_cachep)
- 		tbl->kmem_cachep = kmem_cache_create(tbl->id,
--						     (tbl->entry_size +
--						      15) & ~15,
-+						     tbl->entry_size,
- 						     0, SLAB_HWCACHE_ALIGN,
- 						     NULL, NULL);
- 	tbl->lock	       = RW_LOCK_UNLOCKED;
+BTW, I want to keep #if 0 ... #endif portion.
+We're working on this... :-)
 
 -- 
 Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
