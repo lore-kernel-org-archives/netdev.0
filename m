@@ -1,53 +1,160 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [Prism54] CVS -> bk tree update
-Date: Tue, 15 Jun 2004 23:10:28 -0400
-Sender: prism54-devel-bounces@prism54.org
-Message-ID: <40CFBA24.7030307@pobox.com>
-References: <20040614191651.GC6253@ruslug.rutgers.edu>
-	<40CE2754.1020109@pobox.com>
-	<20040616022008.GM6253@ruslug.rutgers.edu>
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [DOCUMENTATION PATCH] Missing net sysctls, some fixed, rest
+ flagged
+Date: Tue, 15 Jun 2004 20:19:12 -0700
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040615201912.691ffe35.davem@redhat.com>
+References: <20040609175242.GA13875@outpost.ds9a.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Luis R. Rodriguez" <mcgrof@studorgs.rutgers.edu>,
-	Netdev <netdev@oss.sgi.com>, prism54-devel@prism54.org
-Return-path: <prism54-devel-bounces@prism54.org>
-To: "Luis R. Rodriguez" <mcgrof@ruslug.rutgers.edu>
-In-Reply-To: <20040616022008.GM6253@ruslug.rutgers.edu>
-List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
-List-Archive: <http://prism54.org/pipermail/prism54-devel>
-List-Post: <mailto:prism54-devel@prism54.org>
-List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
-List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
-Errors-To: prism54-devel-bounces@prism54.org
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S266108AbUFPDmV@vger.kernel.org>
+To: bert hubert <ahu@ds9a.nl>
+In-Reply-To: <20040609175242.GA13875@outpost.ds9a.nl>
 List-Id: netdev.vger.kernel.org
 
-Luis R. Rodriguez wrote:
-> Thanks Jeff. I did, and a diff of Andrew's -mm tree Vs our cvs tree
-> 2.6.7-prism54 gives a 1898 line diff. This is excluding spaces,
-> newlines, and tabbing and all of Andew's .orig, .rej's. 
-> 
-> This time it's going to be a *real* pain to provide a changelog and split the
-> diffs.. so can I just send you that 1898 line diff and then another for
-> space changes? Everything has already been reviewed on the lists here...
-> 
-> I promise this will be our last big patch too. I'll ask our team
-> to send patches from now on to netdev after each ChangeLog entry, for
-> more public review and to not loose sync of our trees. Let us know if
-> you think we should do otherwise.
 
+Looks fine, I applied it with some minor changes as follows:
 
-Sorry, no.  You knew that split-up patches would be needed, once the 
-initial driver merge is complete (which was complete before the most 
-recent series of 17 patches).
-
-This is one of the big downsides to developing in CVS, and it bites 
-people again and again.
-
-Linux kernel development relies on split-up patches for review, testing, 
-  and narrowing down which patch in a series introduced a bug.  There 
-are real, engineering-related reasons we do things this way.
-
-	Jeff
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2004/06/15 20:20:25-07:00 ahu@ds9a.nl 
+#   [NET]: Update some sysctl documentation.
+#   
+#   I ran the following (crappy) script:
+#    ...
+#   In /proc/sys/ and found a host of undocumented sysctls. This patch documents
+#   a number of them, and at least mentions the rest as 'TODO'. Please verify my
+#   code-inspired documentation before applying!
+#   
+#   Signed-off-by: Bert Hubert <ahu@ds9a.nl>
+#   Signed-off-by: David S. Miller <davem@redhat.com>
+# 
+# Documentation/networking/ip-sysctl.txt
+#   2004/06/15 20:19:32-07:00 ahu@ds9a.nl +57 -0
+#   [NET]: Update some sysctl documentation.
+#   
+#   I ran the following (crappy) script:
+#    ...
+#   In /proc/sys/ and found a host of undocumented sysctls. This patch documents
+#   a number of them, and at least mentions the rest as 'TODO'. Please verify my
+#   code-inspired documentation before applying!
+#   
+#   Signed-off-by: Bert Hubert <ahu@ds9a.nl>
+#   Signed-off-by: David S. Miller <davem@redhat.com>
+# 
+# Documentation/filesystems/proc.txt
+#   2004/06/15 20:19:32-07:00 ahu@ds9a.nl +2 -1
+#   [NET]: Update some sysctl documentation.
+#   
+#   I ran the following (crappy) script:
+#    ...
+#   In /proc/sys/ and found a host of undocumented sysctls. This patch documents
+#   a number of them, and at least mentions the rest as 'TODO'. Please verify my
+#   code-inspired documentation before applying!
+#   
+#   Signed-off-by: Bert Hubert <ahu@ds9a.nl>
+#   Signed-off-by: David S. Miller <davem@redhat.com>
+# 
+diff -Nru a/Documentation/filesystems/proc.txt b/Documentation/filesystems/proc.txt
+--- a/Documentation/filesystems/proc.txt	2004-06-15 20:20:56 -07:00
++++ b/Documentation/filesystems/proc.txt	2004-06-15 20:20:56 -07:00
+@@ -1640,7 +1640,8 @@
+ 
+ Writing to this file results in a flush of the routing cache.
+ 
+-gc_elastic, gc_interval, gc_min_interval, gc_tresh, gc_timeout
++gc_elasticity, gc_interval, gc_min_interval, gc_tresh, gc_timeout,
++gc_thresh, gc_thresh1, gc_thresh2, gc_thresh3
+ --------------------------------------------------------------
+ 
+ Values to  control  the  frequency  and  behavior  of  the  garbage collection
+diff -Nru a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+--- a/Documentation/networking/ip-sysctl.txt	2004-06-15 20:20:56 -07:00
++++ b/Documentation/networking/ip-sysctl.txt	2004-06-15 20:20:56 -07:00
+@@ -17,6 +17,16 @@
+ 	Disable Path MTU Discovery.
+ 	default FALSE
+ 
++min_pmtu - INTEGER
++	default 562 - minimum discovered Path MTU
++
++mtu_expires - INTEGER
++	Time, in seconds, that cached PMTU information is kept.
++
++min_adv_mss - INTEGER
++	The advertised MSS depends on the first hop route MTU, but will
++	never be lower than this setting.
++
+ IP Fragmentation:
+ 
+ ipfrag_high_thresh - INTEGER
+@@ -345,6 +355,19 @@
+ 	conections.
+ 	Default: 7
+ 
++
++tcp_frto - BOOLEAN
++	Enables F-RTO, an enhanced recovery algorithm for TCP retransmission
++	timeouts.  It is particularly beneficial in wireless environments
++	where packet loss is typically due to random radio interference
++	rather than intermediate router congestion.
++
++somaxconn - INTEGER
++	Limit of TCP listen backlog, known in userspace as SOMAXCONN.
++	Defaults to 128
++
++IP Variables:
++
+ ip_local_port_range - 2 INTEGERS
+ 	Defines the local port range that is used by TCP and UDP to
+ 	choose the local port. The first number is the first, the 
+@@ -586,6 +609,19 @@
+ 	The max value from conf/{all,interface}/arp_ignore is used
+ 	when ARP request is received on the {interface}
+ 
++app_solicit - INTEGER
++	The maximum number of probes to send to the user space ARP daemon
++	via netlink before dropping back to multicast probes (see
++	mcast_solicit).  Defaults to 0.
++
++disable_policy - BOOLEAN
++	Disable IPSEC policy (SPD) for this interface
++
++disable_xfrm - BOOLEAN
++	Disable IPSEC encryption on this interface, whatever the policy
++
++
++
+ tag - INTEGER
+ 	Allows you to write a number, which can be used as required.
+ 	Default value is 0.
+@@ -803,5 +839,26 @@
+ 	0 : disable this.
+ 	Default: 1
+ 
++
++UNDOCUMENTED:
++
++dev_weight FIXME
++discovery_slots FIXME
++discovery_timeout FIXME
++fast_poll_increase FIXME
++ip6_queue_maxlen FIXME
++lap_keepalive_time FIXME
++lo_cong FIXME
++max_baud_rate FIXME
++max_dgram_qlen FIXME
++max_noreply_time FIXME
++max_tx_data_size FIXME
++max_tx_window FIXME
++min_tx_turn_time FIXME
++mod_cong FIXME
++no_cong FIXME
++no_cong_thresh FIXME
++slot_timeout FIXME
++warn_noreply_time FIXME
+ 
+ $Id: ip-sysctl.txt,v 1.20 2001/12/13 09:00:18 davem Exp $
