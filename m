@@ -1,29 +1,31 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: PROBLEM: network driver causes kernel panic
-Date: Sat, 05 Jun 2004 22:43:32 +0200
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] compat bug in sys_recvmsg, MSG_CMSG_COMPAT check
+ missing
+Date: Sat, 5 Jun 2004 15:29:49 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <m38yf1viq3.fsf@defiant.pm.waw.pl>
-References: <200406051215.i55CF4hH004189@harpo.it.uu.se>
+Message-ID: <20040605152949.785a9e41.davem@redhat.com>
+References: <20040605204334.GA1134@suse.de>
+	<20040605140153.6c5945a0.davem@redhat.com>
+	<20040605140544.0de4034d.davem@redhat.com>
+	<jer7st7lam.fsf@sykes.suse.de>
+	<20040605143649.3fd6c22b.davem@redhat.com>
+	<jen03h7k45.fsf@sykes.suse.de>
+	<20040605145333.11c80173.davem@redhat.com>
+	<jeise57j95.fsf@sykes.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, dctucker@hotmail.com, linux-kernel@vger.kernel.org,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: olh@suse.de, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Mikael Pettersson <mikpe@csd.uu.se>
-In-Reply-To: <200406051215.i55CF4hH004189@harpo.it.uu.se> (Mikael
- Pettersson's message of "Sat, 5 Jun 2004 14:15:04 +0200 (MEST)")
+To: Andreas Schwab <schwab@suse.de>
+In-Reply-To: <jeise57j95.fsf@sykes.suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Mikael Pettersson <mikpe@csd.uu.se> writes:
+On Sun, 06 Jun 2004 00:05:58 +0200
+Andreas Schwab <schwab@suse.de> wrote:
 
-> Booting 2.6.7-rc1 with the de2104x driver built-in and eth0
-> disconnected from the LAN leads to the following oops about
-> a second after INIT tried to ifup eth0:
->
-> eth0: timeout expired stopping DMA
-> kernel BUG in de_set_media at drivers/net/tulip/de2104x.c:919!
+> Can you say DeMorgan?
 
-Same here, i386, SMC EtherPower^2 (dual 21040 + 21050 PCI bridge).
--- 
-Krzysztof Halasa, B*FH
+Sorry, thought I had put enough caffeine in my system.
+Aparently not :)
