@@ -1,33 +1,63 @@
-From: =?koi8-r?Q?=22=E1=CE=C1=D4=CF=CC=C9=CA=20=F7=C5=D2=C8=CF=D7=D3=CB=C9=CA=22=20?= <xx13@mail.ru>
-Subject: forcedeth halts system
-Date: Sat, 21 Feb 2004 13:18:20 +0300
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] 2.6 UDP recvmsg vs POSIX
+Date: Sat, 21 Feb 2004 13:08:53 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <E1AuUDE-000Nx5-00.xx13-mail-ru@f17.mail.ru>
-Reply-To: =?koi8-r?Q?=22=E1=CE=C1=D4=CF=CC=C9=CA=20=F7=C5=D2=C8=CF=D7=D3=CB=C9=CA=22=20?= <xx13@mail.ru>
+Message-ID: <20040221130853.4c98bad6.davem@redhat.com>
+References: <20040217121726.GD8554@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Content-Transfer-Encoding: 8bit
-Cc: c-d.hailfinger.kernel.2004@gmx.net
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Olaf Kirch <okir@suse.de>
+In-Reply-To: <20040217121726.GD8554@suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Tue, 17 Feb 2004 13:17:26 +0100
+Olaf Kirch <okir@suse.de> wrote:
 
-I have nforce2 based system, and chaintech mobo (7nif2).  I'm runnig gentoo, 
-with stock kernels from kernel.org.  2.4.22 with nvnet works fine.  Now i'm 
-trying to move over to kernel 2.6 (the mobo has lots of buggy ACPI code). 
-I've tried 2.6.1 2.6.2 (with forcedeth patches 23) and 2.6.3 (comes with forcedeth).
+> I'm currently investigating a problem in udp recvmsg. In short, a test
+> program selects on the socket, gets woken up as a packet arrives, but
+> recvmsg return EAGAIN because the UDP checksum was wrong.
+> 
+> This broke one real-life application, and reportedly this violates POSIX,
+> as operations on a blocking socket must never return EAGAIN.
 
-With each 2.6 kernel i have the same problem, the system halts at random times
-and there's nothing helpfull i can find in the logs.  Averge uptime is something 
-like 4 hours.  I think there is a correlation between launching of bittorent 
-and mldonkey and system crashes.  I'm not 100% sure that the reason for halts is 
-the forcedeth driver, but it is my first suspect. 
+Well, first things first, using blocking sockets with select/poll is kind
+of stupid programming.
 
-(What i should do is run the system for couple of days without loading the network 
-driver to see if that improves the stability, but living without network is hard.)
+Nonetheless, udp_recvmsg() can't return -EAGAIN on a blocking socket.
 
-Cheers
+Andi, TCP does not have this issue, it simply goes back to sleep waiting
+for more data to arrive if the prequeue delayed checksumming fails.
 
-Anatoly V.
+I think we should fix it like the following, which is basically the last
+part of Olaf's original patch in this thread.  Just wait for another packet
+if a blocking socket and checksum fails, else if non-blocking -EAGAIN is OK.
+
+To be honest, I believe this was Alexey's original intention when he wrote this
+code.
+
+===== net/ipv4/udp.c 1.56 vs edited =====
+--- 1.56/net/ipv4/udp.c	Fri Jan  9 01:50:23 2004
++++ edited/net/ipv4/udp.c	Sat Feb 21 13:03:05 2004
+@@ -787,6 +787,7 @@
+ 	if (flags & MSG_ERRQUEUE)
+ 		return ip_recv_error(sk, msg, len);
+ 
++try_again:
+ 	skb = skb_recv_datagram(sk, flags, noblock, &err);
+ 	if (!skb)
+ 		goto out;
+@@ -852,7 +853,9 @@
+ 
+ 	skb_free_datagram(sk, skb);
+ 
+-	return -EAGAIN;	
++	if (noblock)
++		return -EAGAIN;	
++	goto try_again;
+ }
+ 
+ int udp_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
