@@ -1,38 +1,33 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [RFC] inet_opt space saving?
-Date: Thu, 16 Sep 2004 13:44:05 -0700
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Minor IPSec bug + solution
+Date: Fri, 17 Sep 2004 07:19:23 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040916134405.4093e659.davem@redhat.com>
-References: <20040914151232.115c3eca@dell_ss3.pdx.osdl.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Message-ID: <E1C83f1-0002X7-00@gondolin.me.apana.org.au>
+References: <1095327372.4466.87.camel@mabouzek>
+Cc: linux-kernel@vger.kernel.org, davem@davemloft.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040914151232.115c3eca@dell_ss3.pdx.osdl.net>
+To: martin.bouzek@radas-atc.cz
+In-Reply-To: <1095327372.4466.87.camel@mabouzek>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 14 Sep 2004 15:12:32 -0700
-Stephen Hemminger <shemminger@osdl.org> wrote:
+Martin Bouzek <martin.bouzek@radas-atc.cz> wrote:
+> 
+> I was setting up an VPN via IPSec in kernel 2.6.x on IPv4 and found the
+> following bug. It is not possible to set up an IPComp/ESP tunnel with
+> IPComp set as mandatory. The following setup works fine for me:
 
-> It looks like there are lots of wasted bytes in the inet information
-> per socket. Does this look right? 
+You can never set IPComp as mandatory because ipcomp_output() will not
+compress anything that is incompressible.
 
-I see one error at least.
+> function. For tunnels it returns 
+> 
+> tmpl->optional && !xfrm_state_addr_cmp(tmpl, x, family);
 
-> +				cmsg_flags: 4,
-
-There are 5 bits, not 4.
-
-#define IP_CMSG_PKTINFO		1
-#define IP_CMSG_TTL		2
-#define IP_CMSG_TOS		4
-#define IP_CMSG_RECVOPTS	8
-#define IP_CMSG_RETOPTS		16
-
-This is also the number of right shifts, plus one, made
-by ip_cmsg_recv().
-
-The rest of your transformations look perfectly fine.
+The check is correct as it is.  Internal states must never match any
+required transform.
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
