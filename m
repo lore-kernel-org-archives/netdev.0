@@ -1,138 +1,40 @@
-From: Jeroen Vreeken <pe1rxq@amsat.org>
-Subject: [PATCH] fix sock_raw behaviour
-Date: Wed, 24 Sep 2003 23:45:44 +0200
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH] 2.6.0-test5-bk11 PKT_CAN_SHARE_SKB [1/3]
+	include/linux/netdevice.h
+Date: Wed, 24 Sep 2003 15:33:00 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030924234544.A10634@jeroen.pe1rxq.ampr.org>
+Message-ID: <1064442780.15437.25.camel@localhost.localdomain>
+References: <Pine.LNX.4.44.0309241012110.3178-100000@home.osdl.org>
+	 <1064423867.15283.11.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="AWniW0JNca5xppdA"
-Content-Transfer-Encoding: 8bit
-Cc: linux-hams@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David S Miller <davem@redhat.com>,
+        Kernel Mailing List <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ralf@linux-mips.org, "David S . Miller" <davem@redhat.com>
+To: Linus Torvalds <torvalds@osdl.org>
+In-Reply-To: <1064423867.15283.11.camel@localhost.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
---AWniW0JNca5xppdA
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-
-Hi,
-
-The attached patch fixes the behaviour of SOCK_RAW sockets in 2.6.0test5
-Address and port matching is now being done.
-A locking problem is also solved.
-And in the recv function the source address is reported back instead of the
-destination.
-(This was solved earlier in 2.2.x but appearantly didn't make it into 2.4
-and further.)
-
-Jeroen
-
---AWniW0JNca5xppdA
-Content-Type: application/octet-stream; charset=us-ascii
-Content-Disposition: attachment; filename="sock-raw.diff"
-
---- linux-2.6.0-test5/net/ax25/af_ax25.c.org	2003-09-23 23:26:17.000000000 +0200
-+++ linux-2.6.0-test5/net/ax25/af_ax25.c	2003-09-24 23:33:32.000000000 +0200
-@@ -231,42 +231,29 @@
- /*
-  *	Look for any matching address - RAW sockets can bind to arbitrary names
+On Wed, 2003-09-24 at 10:17, Joe Perches wrote: 
+> On Wed, 2003-09-24 at 10:13, Linus Torvalds wrote:
+> > Looks sane, but wouldn't it be cleaner to put this ugly special case logic
+> > with casts etc in an inline function and make the code a bit more readable
+> > at the same time?
+> 
+> I've got those.
+> 
+> I've done the ((void*)1) conversions to PKT_SHARED_SKBs
+> and found this missing.  I'll submit those separately.
+diff -urN linux-2.6.0-test5/include/linux/netdevice.h shared_skb/include/linux/netdevice.h
+-- linux-2.6.0-test5/include/linux/netdevice.h	2003-09-22 08:04:03.000000000 -0700
++++ shared_skb/include/linux/netdevice.h	2003-09-22 13:10:07.000000000 -0700
+@@ -477,6 +477,7 @@
   */
--struct sock *ax25_addr_match(ax25_address *addr)
-+void ax25_send_to_raw(ax25_address *addr, struct sk_buff *skb, int proto)
+ #define SET_NETDEV_DEV(net, pdev)	((net)->class_dev.dev = (pdev))
+ 
++#define PKT_CAN_SHARE_SKB	((void*)1)
+ 
+ struct packet_type 
  {
--	struct sock *sk = NULL;
-+	struct sock *sk;
- 	ax25_cb *s;
-+	struct sk_buff *copy;
- 	struct hlist_node *node;
- 
- 	spin_lock_bh(&ax25_list_lock);
- 	ax25_for_each(s, node, &ax25_list) {
- 		if (s->sk != NULL && ax25cmp(&s->source_addr, addr) == 0 &&
--		    s->sk->sk_type == SOCK_RAW) {
-+		    s->sk->sk_type == SOCK_RAW &&
-+		    s->sk->sk_protocol == proto &&
-+		    (!s->ax25_dev || s->ax25_dev->dev == skb->dev)) {
- 			sk = s->sk;
--			lock_sock(sk);
--			break;
-+			bh_lock_sock(sk);
-+			if (atomic_read(&sk->sk_rmem_alloc) <= sk->sk_rcvbuf &&
-+			    (copy = skb_clone(skb, GFP_ATOMIC)) != NULL)
-+				if (sock_queue_rcv_skb(sk, copy) != 0)
-+					kfree_skb(copy);
-+			bh_unlock_sock(sk);
- 		}
- 	}
--
- 	spin_unlock_bh(&ax25_list_lock);
--
--	return sk;
--}
--
--void ax25_send_to_raw(struct sock *sk, struct sk_buff *skb, int proto)
--{
--	struct sk_buff *copy;
--	struct hlist_node *node;
--
--	sk_for_each_from(sk, node)
--		if (sk->sk_type == SOCK_RAW &&
--		    sk->sk_protocol == proto &&
--		    atomic_read(&sk->sk_rmem_alloc) <= sk->sk_rcvbuf) {
--			if ((copy = skb_clone(skb, GFP_ATOMIC)) == NULL)
--				return;
--
--			if (sock_queue_rcv_skb(sk, copy) != 0)
--				kfree_skb(copy);
--		}
- }
- 
- /*
-@@ -1633,16 +1620,16 @@
- 	if (msg->msg_namelen != 0) {
- 		struct sockaddr_ax25 *sax = (struct sockaddr_ax25 *)msg->msg_name;
- 		ax25_digi digi;
--		ax25_address dest;
-+		ax25_address src;
- 
--		ax25_addr_parse(skb->mac.raw+1, skb->data-skb->mac.raw-1, NULL, &dest, &digi, NULL, NULL);
-+		ax25_addr_parse(skb->mac.raw+1, skb->data-skb->mac.raw-1, &src, NULL, &digi, NULL, NULL);
- 
- 		sax->sax25_family = AF_AX25;
- 		/* We set this correctly, even though we may not let the
- 		   application know the digi calls further down (because it
- 		   did NOT ask to know them).  This could get political... **/
- 		sax->sax25_ndigis = digi.ndigi;
--		sax->sax25_call   = dest;
-+		sax->sax25_call   = src;
- 
- 		if (sax->sax25_ndigis != 0) {
- 			int ct;
---- linux-2.6.0-test5/include/net/ax25.h.org	2003-09-24 23:21:27.000000000 +0200
-+++ linux-2.6.0-test5/include/net/ax25.h	2003-09-24 23:21:55.000000000 +0200
-@@ -227,8 +227,7 @@
- struct sock *ax25_find_listener(ax25_address *, int, struct net_device *, int);
- struct sock *ax25_get_socket(ax25_address *, ax25_address *, int);
- extern ax25_cb *ax25_find_cb(ax25_address *, ax25_address *, ax25_digi *, struct net_device *);
--extern struct sock *ax25_addr_match(ax25_address *);
--extern void ax25_send_to_raw(struct sock *, struct sk_buff *, int);
-+extern void ax25_send_to_raw(ax25_address *, struct sk_buff *, int);
- extern void ax25_destroy_socket(ax25_cb *);
- extern ax25_cb *ax25_create_cb(void);
- extern void ax25_fillin_cb(ax25_cb *, ax25_dev *);
---- linux-2.6.0-test5/include/net/ax25.h.org	2003-09-24 23:21:27.000000000 +0200
-+++ linux-2.6.0-test5/include/net/ax25.h	2003-09-24 23:21:55.000000000 +0200
-@@ -227,8 +227,7 @@
- struct sock *ax25_find_listener(ax25_address *, int, struct net_device *, int);
- struct sock *ax25_get_socket(ax25_address *, ax25_address *, int);
- extern ax25_cb *ax25_find_cb(ax25_address *, ax25_address *, ax25_digi *, struct net_device *);
--extern struct sock *ax25_addr_match(ax25_address *);
--extern void ax25_send_to_raw(struct sock *, struct sk_buff *, int);
-+extern void ax25_send_to_raw(ax25_address *, struct sk_buff *, int);
- extern void ax25_destroy_socket(ax25_cb *);
- extern ax25_cb *ax25_create_cb(void);
- extern void ax25_fillin_cb(ax25_cb *, ax25_dev *);
-
---AWniW0JNca5xppdA--
