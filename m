@@ -1,37 +1,43 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Route cache performance tests
-Date: Tue, 17 Jun 2003 13:36:35 -0700 (PDT)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030617.133635.84366118.davem@redhat.com>
-References: <20030617200721.GA25773@netnation.com>
-	<1055881034.3199.43.camel@tux.rsn.bth.se>
-	<20030617203703.GB25773@netnation.com>
+From: Krishna Kumar <krkumar@us.ibm.com>
+Subject: Re: [PATCH] Prefix List patch against 2.5.70
+Date: Tue, 17 Jun 2003 13:46:01 -0700
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <3EEF7E09.8080608@us.ibm.com>
+References: <3ED80230.2030508@us.ibm.com>	<20030531.110249.12960077.yoshfuji@linux-ipv6.org> <20030530.233257.21920899.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: gandalf@wlug.westbo.se, Robert.Olsson@data.slu.se, ralph+d@istop.com,
-   hadi@shell.cyberus.ca, xerox@foonet.net, fw@deneb.enyo.de,
-   netdev@oss.sgi.com, linux-net@vger.kernel.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: sim@netnation.com
-In-Reply-To: <20030617203703.GB25773@netnation.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: yoshfuji@linux-ipv6.org, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
+	linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030530.233257.21920899.davem@redhat.com>
 List-Id: netdev.vger.kernel.org
 
-   From: Simon Kirby <sim@netnation.com>
-   Date: Tue, 17 Jun 2003 13:37:03 -0700
-   
-   Forwarding rate more than doubles when I turn off
-   rp_filter off (Debian turns it on by default).
+Hi Dave and Yoshfuji,
 
-I have no idea why they do this, it's the stupidest thing
-you can possibly do by default.
+I have a question about the following, which seems to be the
+approach both of you prefer. I thought we need a new routing
+message type called RTM_GETPLIST which will return full prefix
+list. If you use RTA_RA6INFO, then should that trigger only
+when the prefix list has changed (add or delete) ? Should I
+have both interfaces, one for returning entire list (RTM) and
+one for changes in prefix list (RTA) ?
 
-If we thought it was a good idea to turn this on by default
-we would have done so in the kernel.
+Please let me know if my understanding is correct.
 
-Does anyone have some cycles to spare to try and urge whoever is
-repsponsible for this in Debian to leave the kernel's default setting
-alone?
+Thanks,
 
-Thanks.
+- KK
+
+David S. Miller wrote:
+>    From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+>    Date: Sat, 31 May 2003 11:02:49 +0900 (JST)
+>    
+>    Again, what I proposed was to store prefix information on fib with 
+>    some flags to represent advertised by routers and give user-space 
+>    the RA information using new rtattr (RTA_RA6INFO or something like that).
+> 
+> This sounds very reasonable.
+> 
+
