@@ -1,18 +1,24 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] SMP support on 3c527 net driver for 2.6
-Date: Wed, 29 Oct 2003 14:45:24 -0500
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: SOMAXCONN too low
+Date: Wed, 29 Oct 2003 11:45:20 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3FA018D4.30006@pobox.com>
-References: <Pine.LNX.4.21.0310212004550.588-300000@ps2.local>
+Message-ID: <20031029114520.644dc146.davem@redhat.com>
+References: <200310290658.h9T6w04k015302@napali.hpl.hp.com>
+	<20031029105809.0a1f27a1.davem@redhat.com>
+	<20031029204707.67f9a2e1.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, felipewd@terra.com.br, netdev@oss.sgi.com,
-        linux-net@vger.kernel.org
+Cc: davidm@hpl.hp.com, davidm@napali.hpl.hp.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Richard Procter <rnp@paradise.net.nz>
-In-Reply-To: <Pine.LNX.4.21.0310212004550.588-300000@ps2.local>
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <20031029204707.67f9a2e1.ak@suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-applied both patches to my net-drivers-2.5-exp queue.
+On Wed, 29 Oct 2003 20:47:07 +0100
+Andi Kleen <ak@suse.de> wrote:
+
+> Can I respectfully ask to name the sysctl net/core/somaxconn  ? 
+
+Sure, no problem.
