@@ -1,44 +1,73 @@
-From: "Steve Kelly"<Cranfordlines.claimscenter@verizon.net>
-Subject: What happened with your forms processing idea?
-Date: Tue, 10 Sep 2002 04:01:58 -0400
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: Early SPECWeb99 results on 2.5.33 with TSO on e1000
+Date: Tue, 10 Sep 2002 14:02:20 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200209100811.g8A8BktG023782@oss.sgi.com>
-Reply-To: cranfordlines.claimscenter@verizon.net
+Message-ID: <15741.57164.402952.136812@robur.slu.se>
+References: <3D78F55C.4020207@colorfullife.com>
+	<20020906.113829.65591342.davem@redhat.com>
+	<3D790499.8020501@colorfullife.com>
+	<20020906.123428.28085660.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: manfred@colorfullife.com, haveblue@us.ibm.com, hadi@cyberus.ca,
+   netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "" <netdev@oss.sgi.com>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20020906.123428.28085660.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-We are struggling with the decisions related to wether or not to
-          go ahead with our plans to purchase an OCR and forms
-          scanning solution.
 
-          An outside consultant mentioned that he had heard that not to
-          long ago you folks were considering implementing OCR
-          technology to reduce data entry costs and improve efficiency.
-          If you could let us know if you did move forward with any
-          plans in that direction it would be of great help to us.
+Manfred Spraul:
 
+>> But what if the backlog queue is empty all the time? Then NAPI thinks 
+>> that the system is idle, and reenables the interrupts after each packet :-(
+
+Yes and this happens even with without NAPI. Just set RxIntDelay=X and send 
+pkts at >= X+1 interval.
+
+>>   Dave, do you have interrupt rates from the clients with and without NAPI?
+
+DaveM:
+> Robert does.
+
+
+Yes we get into this interesting discussion now... Since with NAPI we can 
+safely use RxIntDelay=0 (e1000 terminologi). With the classical IRQ we simply 
+had to add latency (RxIntDelay of 64-128 us common for GIGE) this just to 
+survive at higher speeds  (GIGE max is 1.48 Mpps) and with the interrupt latency 
+also comes higher network latencies... IMO this delay was a "work-around" 
+for the old interrupt scheme.
+
+So we now have the option of removing it... But we are trading less latency 
+for for more interrupts. So yes Manfred is correct...
+
+So is there a decent setting/compromise? 
+
+Well first approximation is just to do just what DaveM suggested.
+RxIntDelay=0. This solved many problems with buggy hardware and complicated 
+tuning and RxIntDelay used to be combined with other mitigation parameters to 
+compensate for different packets sizes etc. This leading to very "fragile" 
+performance where a NIC could perform excellent w. single TCP stream but 
+to be seriously broke in many other tests. So tuning to just one "test" 
+can cause a lot of mis-tuning as well. 
+
+Anyway. A tulip NAPI variant added mitigation when we reached "some load" to 
+avoid the static interrupt delay. (Still keeping things pretty simple):
  
-           May I  ask
-          what initialy prompted you to consider OCR? Did you decide it
-          could help your compamy? What software did you go with?
-          Would you recomend we take a look at it?
+Load   "Mode"
+-------------------
+Lo  1) RxIntDelay=0
+Mid 2) RxIntDelay=fix (When we had X pkts on the RX ring)
+Hi  3) Consecutive polling. No RX interrupts.
 
-          At present we are still planning to continue our research until
-          we decide which OCR system best suits our needs, then
-          implement it quickly.
-          If you are just starting to consider this
-          technology feel free to stay in touch.
+Is it worth the effort? 
 
- We will let you know what
-          we decide on and if it works for us.
-          If you cannot advise on this please forward this E-mail to the
-          proper individual in your company who might be able to help with
-          this.
+For SMP w/o affinity the delay could eventually reduce the cache bouncing 
+since the packets becomes more "batched" at cost the of latency of course. 
+We use RxIntDelay=0 for production use. (IP-forwarding on UP)
 
+Cheers.
 
-          Thanks,
-          Steve
+						--ro
