@@ -1,47 +1,30 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: Source Specific Query of MLDv2 [PATCH]
-Date: Wed, 11 Feb 2004 22:45:31 -0800
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: Problem with 3c59x, WOL and Intel 440LX/EX or 430TX
+Date: Wed, 11 Feb 2004 23:46:22 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OFAEDE3A58.C3EA4739-ON88256E38.0024ADB6-88256E38.0024E0EA@us.ibm.com>
-References: <20040211224113.1a80c1a8.davem@redhat.com>
+Message-ID: <20040211234622.4a5bce7a.akpm@osdl.org>
+References: <20040211170727.GC18571@smtp.west.cox.net>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	Boundary="0__=07BBE4ABDFB72B268f9e8a93df938690918c07BBE4ABDFB72B26"
-Cc: hibi665@oki.com, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, chris@k-rad.org
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <20040211224113.1a80c1a8.davem@redhat.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
+To: Tom Rini <trini@kernel.crashing.org>
+In-Reply-To: <20040211170727.GC18571@smtp.west.cox.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---0__=07BBE4ABDFB72B268f9e8a93df938690918c07BBE4ABDFB72B26
-Content-type: text/plain; charset=US-ASCII
+Tom Rini <trini@kernel.crashing.org> wrote:
+>
+> Hello.  I believe I have tracked down a problem with the WOL support in
+>  the 3c59x driver (2.6 varriant only right now).  The problem has been
+>  seen I belive by a few people:
+>  (my own reports)
+>  http://marc.theaimsgroup.com/?l=linux-kernel&m=106297008218993&w=2
+>  http://lkml.org/lkml/2003/9/2/167
 
+I have a suspicion that this may be a bug in the driver's PM handling but I
+don't really have time to reacquaint myself with the driver.  Or it could
+be a BIOS bug.
 
-
-
-
-
-
-"David S. Miller" <davem@redhat.com> wrote on 02/11/2004 10:41:13 PM:
-
-> Someone give me a condensed one-line description for the patch, thanks.
-
-"This patch excepts MLD packets from source filtering." :-)
-
-            +-DLS
---0__=07BBE4ABDFB72B268f9e8a93df938690918c07BBE4ABDFB72B26
-Content-type: text/html; charset=US-ASCII
-Content-Disposition: inline
-
-<html><body>
-<p><tt>&quot;David S. Miller&quot; &lt;davem@redhat.com&gt; wrote on 02/11/2004 10:41:13 PM:<br>
-</tt><br>
-<tt>&gt; Someone give me a condensed one-line description for the patch, thanks.<br>
-</tt><br>
-<tt>&quot;This patch excepts MLD packets from source filtering.&quot; :-)</tt><br>
-<br>
-<tt>		+-DLS</tt><br>
-</body></html>
---0__=07BBE4ABDFB72B268f9e8a93df938690918c07BBE4ABDFB72B26--
+I've put the enable_wol module parameter back.
