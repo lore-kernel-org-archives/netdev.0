@@ -1,41 +1,56 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [RFC] using mmiowb() in dev->poll() method
-Date: Wed, 6 Oct 2004 12:10:31 -0700
+From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Subject: Re: [PATCH 2/2] [SKBUFF] introduce tr_hdr(skb)
+Date: Wed, 06 Oct 2004 16:18:49 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041006121031.488f33c5.davem@redhat.com>
-References: <Pine.LNX.4.33.0410061116160.15729-100000@localhost.localdomain>
+Message-ID: <41644519.6040405@conectiva.com.br>
+References: <41643C40.8070605@conectiva.com.br> <20041006185835.GB19714@rei.reeler.org> <4164424E.6000504@conectiva.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com
+Cc: Thomas Graf <tgraf@suug.ch>, "David S. Miller" <davem@redhat.com>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: akepner@sgi.com
-In-Reply-To: <Pine.LNX.4.33.0410061116160.15729-100000@localhost.localdomain>
+To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+In-Reply-To: <4164424E.6000504@conectiva.com.br>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 6 Oct 2004 11:24:19 -0700 (PDT)
-<akepner@sgi.com> wrote:
 
-> Currently, returning 0 from "dev->poll()" indicates that the 
-> PIO write which enables interrupts has been flushed to the NIC 
-> (or at least that's my understanding.) The change below allows 
-> "dev->poll()" to return with that PIO write pending, but not 
-> necessarily flushed. This allows a potentially expensive PIO 
-> flush to be avoided. I've found that this can significantly 
-> reduce CPU utilization and improve throughput. 
 
-Of course, this is a known area for exploration to some of
-us already.
+Arnaldo Carvalho de Melo wrote:
+> 
+> 
+> Thomas Graf wrote:
+> 
+>> * Arnaldo Carvalho de Melo <41643C40.8070605@conectiva.com.br> 
+>> 2004-10-06 15:41
+>>
+>>> -        trh = (struct trh_hdr *)skb_push(skb, sizeof(*trh));
+>>> +        skb->mac.raw = skb_push(skb, sizeof(*trh));
+>>> +        trh = tr_hdr(skb);
+>>>         trh->ac = AC;
+>>>         trh->fc = LLC_FRAME;
+>>>         if (sa)
+>>> @@ -51,7 +52,6 @@
+>>>             memcpy(trh->daddr, da, dev->addr_len);
+>>>             tr_source_route(skb, trh, dev);
+>>>         }
+>>> -        skb->mac.raw = skb->data;
+>>
+>>
+>>
+>> Are you sure the bevhaviour is the same? There is an skb_pull
+>> in tr_source_route so skb->data gets modified.
+>>
+> 
+> 
+> Thanks for reviewing, checking...
+> 
+> 
 
-There is a similar place for this kind of toying around in
-tg3_interrupt()'s disabling of the chips IRQs.  e1000 optimizes
-things in this area, last time I checked.
+You're right, if tr_source_route is called, skb->mac.raw has to be set
+to skb->data, to maintain the old behaviour, if it is right? Oh well,
+as I said there aren't many people using Token Ring, let alone LLC over
+token ring, I'll be posting a patch in some minutes.
 
-You have to be really careful when doing things like this.
-I think your dev->poll() case would work.  In theory the
-write can be posted for a long time but I doubt that matters
-in practice.
-
-I intend to play around in this area of the tg3 driver some time
-soon.
+- Arnaldo
