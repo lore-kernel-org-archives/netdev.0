@@ -1,8 +1,8 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 2.6.9 3/3] hp100: use module_param
-Date: Tue, 19 Oct 2004 14:19:25 -0700
+Subject: [PATCH 2.6.9 2/3] hp100: use inline for comple usage of dev->priv
+Date: Tue, 19 Oct 2004 14:18:18 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041019141925.054addc4@zqx3.pdx.osdl.net>
+Message-ID: <20041019141818.10ecb40c@zqx3.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -12,39 +12,33 @@ To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Convert hp100 to use module_param
+Make a separate function for the one more complex usage of netdev_priv.
+
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
 diff -Nru a/drivers/net/hp100.c b/drivers/net/hp100.c
---- a/drivers/net/hp100.c	2004-10-18 16:11:05 -07:00
-+++ b/drivers/net/hp100.c	2004-10-18 16:11:05 -07:00
-@@ -98,6 +98,7 @@
+--- a/drivers/net/hp100.c	2004-10-18 15:57:57 -07:00
++++ b/drivers/net/hp100.c	2004-10-18 15:57:57 -07:00
+@@ -284,6 +284,12 @@
+ 	return ((u_long) ptr) + lp->whatever_offset;
+ }
  
- #include <linux/version.h>
- #include <linux/module.h>
-+#include <linux/moduleparam.h>
- #include <linux/kernel.h>
- #include <linux/string.h>
- #include <linux/errno.h>
-@@ -224,9 +225,9 @@
- static int hp100_priority_tx = HP100_DEFAULT_PRIORITY_TX;
- static int hp100_mode = 1;
++static inline u_int pdl_map_data(struct hp100_private *lp, void *data)
++{
++	return pci_map_single(lp->pci_dev, data, 
++			      MAX_ETHER_SIZE, PCI_DMA_FROMDEVICE);
++}
++
+ /* TODO: This function should not really be needed in a good design... */
+ static void wait(void)
+ {
+@@ -1273,7 +1279,8 @@
+ 		/* Conversion to new PCI API : map skbuf data to PCI bus.
+ 		 * Doc says it's OK for EISA as well - Jean II */
+ 		ringptr->pdl[0] = 0x00020000;	/* Write PDH */
+-		ringptr->pdl[3] = ((u_int) pci_map_single(((struct hp100_private *) (dev->priv))->pci_dev, ringptr->skb->data, MAX_ETHER_SIZE, PCI_DMA_FROMDEVICE));
++		ringptr->pdl[3] = pdl_map_data(netdev_priv(dev), 
++					       ringptr->skb->data);
+ 		ringptr->pdl[4] = MAX_ETHER_SIZE;	/* Length of Data */
  
--MODULE_PARM(hp100_rx_ratio, "1i");
--MODULE_PARM(hp100_priority_tx, "1i");
--MODULE_PARM(hp100_mode, "1i");
-+module_param(hp100_rx_ratio, int, 0);
-+module_param(hp100_priority_tx, int, 0);
-+module_param(hp100_mode, int, 0);
- 
- /*
-  *  prototypes
-@@ -3005,7 +3006,8 @@
- #define HP100_DEVICES 5
- /* Parameters set by insmod */
- static int hp100_port[HP100_DEVICES] = { 0, [1 ... (HP100_DEVICES-1)] = -1 };
--MODULE_PARM(hp100_port, "1-" __MODULE_STRING(HP100_DEVICES) "i");
-+static int nports;
-+module_param_array(hp100_port, int, nports, 0);
- 
- /* List of devices */
- static struct net_device *hp100_devlist[HP100_DEVICES];
+ #ifdef HP100_DEBUG_BM
