@@ -1,31 +1,35 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH 2.5.70] remove if_port_text
-Date: Thu, 29 May 2003 14:48:53 -0700 (PDT)
+From: Nivedita Singhvi <niv@us.ibm.com>
+Subject: Re: Dump of TCP hang in established state
+Date: Thu, 29 May 2003 14:50:08 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030529.144853.88480047.davem@redhat.com>
-References: <20030529.140828.78714529.davem@redhat.com>
-	<20030529142820.5f657d77.shemminger@osdl.org>
-	<3ED67E01.6060906@pobox.com>
+Message-ID: <3ED68090.5040903@us.ibm.com>
+References: <1052841090.13492.20.camel@tux.rsn.bth.se>	 <20030529.024114.78714066.davem@redhat.com>	 <1054217010.757.39.camel@tux.rsn.bth.se> <1054238230.709.1.camel@tux.rsn.bth.se>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, scott.feldman@intel.com, netdev@oss.sgi.com
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jgarzik@pobox.com
-In-Reply-To: <3ED67E01.6060906@pobox.com>
+To: Martin Josefsson <gandalf@wlug.westbo.se>
+In-Reply-To: <1054238230.709.1.camel@tux.rsn.bth.se>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Jeff Garzik <jgarzik@pobox.com>
-   Date: Thu, 29 May 2003 17:39:13 -0400
+Martin Josefsson wrote:
 
-   Stephen Hemminger wrote:
-   > Eliminate necrophilic code, net-sysfs shouldn't support
-   > deprecated if_port.  Since nowhere else is using if_port_text,
-   > eliminate it.
-   
-   Looks good to me...  David?
-   
-I'm fine with it.  I'll apply to 2.5.x
+> I've just tested 2.5-bk and I can still reproduce it.
+> The wording of my mail might have been a bit wrong, I don't see complete
+> hangs, just ~2 minute stalls in ESTABLISHED state and then it continues
+> like nothing happened.
+> 
 
-Jeff what do you think about 2.4.x?
+This actually addresses a situation of memory corruption
+and illegal reference panics, correct? And should potentially
+fix such issues or other seeming weirdnesses that might be
+happening in both sendmsg() and sendfile() code paths? Any other
+symptoms or particulars? I'm wondering if this addresses
+might explain some other bugs we have run into (not
+identified as TCP yet)?
+
+
+thanks,
+Nivedita
