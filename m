@@ -1,174 +1,45 @@
-From: Per Hedeland <per@hedeland.org>
-Subject: [PATCH] [bonding 2.6] Add balance-xor-ip bonding mode
-Date: Wed, 7 Jan 2004 22:01:38 +0100 (CET)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200401072101.i07L1cOw054664@pluto.hedeland.org>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+From: Willy Tarreau <willy@w.ods.org>
+Subject: Re: Problem with 2.4.24 e1000 and keepalived
+Date: Wed, 7 Jan 2004 22:02:55 +0100
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20040107210255.GA545@alpha.home.local>
+References: <20040107200556.0d553c40.skraw@ithnet.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com,
+	linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Stephan von Krawczynski <skraw@ithnet.com>
+Content-Disposition: inline
+In-Reply-To: <20040107200556.0d553c40.skraw@ithnet.com>
 List-Id: netdev.vger.kernel.org
 
-This patch adds a new bonding policy, similar to the previously existing
-balance-xor, but using the IP addresses rather than MAC addresses for IP
-packets, with fallback to MAC-based balance-xor for non-IP packets.
+Hi Stephan,
 
-The patch is against the net-drivers-2.5-exp tree (with Shmulik's
-'update comment blocks' and Amir's 'using per-bond parameters' patches
-applied).
+On Wed, Jan 07, 2004 at 08:05:56PM +0100, Stephan von Krawczynski wrote:
+> Setup is a simple pair of routers with 2 nics each, all e1000. If you start a
+> vrrp setup with keepalived and interface state is down during keepalived
+> startup, then the failover does not work. If the nics are UP during startup
+> everything works well. Now the kernel part of the story: the exact same setup
+> works with tulip cards.
+> Is there a difference regarding UP/DOWN state handling/events in e1000 and
+> tulip. e100 and eepro100 show the same problem btw.
 
---Per Hedeland
-per@hedeland.org
+I noticed the exact same problem about 1 year ago with the early 2.4
+bonding code and eepro100. At this time, I attributed this to a yet
+undiscovered but in the bonding state machine, and could not investigate
+much since it was on a remote production machine. Someone went there and
+rebooted it and everything went OK. Before the reboot, the switch alredy
+detected an UP link, while the bonding code saw it down (using MII at this
+time, not ethtool). I recently read one report (here or on keepalived list)
+about someone who got the same problem with another eepro100. I wonder
+whether there would not be a bug either in the driver or in the chip itself.
 
+What I noticed is that if you load the driver while the cable is unplugged,
+and then plug it, the MII status says the link is still down. Unfortunately,
+the only e100 I have access to are in prod at a customer's and I really
+cannot make tests there.
 
-diff -Nru a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
---- a/Documentation/networking/bonding.txt	Wed Jan  7 16:18:11 2004
-+++ b/Documentation/networking/bonding.txt	Wed Jan  7 16:45:11 2004
-@@ -368,6 +368,17 @@
- 		fails it's hw address is swapped with the new curr_active_slave
- 		that was chosen.
- 
-+	balance-xor-ip or 7
-+
-+		XOR IP policy: Transmit based on [(source IP address
-+		XOR'd with destination IP address) modula slave count].
-+		I.e. similar to balance-xor, but uses the IP addresses
-+		rather than MAC addresses for IP packets, which provides
-+		better load balancing in some cases (e.g. most traffic
-+		sent to a default gateway). For non-IP packets, it will
-+		fall back to MAC-based balance-xor. This mode provides
-+		load balancing and fault tolerance.
-+
- primary
- 
-         A string (eth0, eth2, etc) to equate to a primary device. If this
-diff -Nru a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
---- a/drivers/net/bonding/bond_main.c	Wed Jan  7 16:16:19 2004
-+++ b/drivers/net/bonding/bond_main.c	Wed Jan  7 16:45:11 2004
-@@ -476,6 +476,7 @@
- #include <linux/ioport.h>
- #include <linux/in.h>
- #include <linux/ip.h>
-+#include <linux/ipv6.h>
- #include <linux/slab.h>
- #include <linux/string.h>
- #include <linux/init.h>
-@@ -585,6 +586,7 @@
- {	"balance-rr",		BOND_MODE_ROUNDROBIN},
- {	"active-backup",	BOND_MODE_ACTIVEBACKUP},
- {	"balance-xor",		BOND_MODE_XOR},
-+{	"balance-xor-ip",	BOND_MODE_XOR_IP},
- {	"broadcast",		BOND_MODE_BROADCAST},
- {	"802.3ad",		BOND_MODE_8023AD},
- {	"balance-tlb",		BOND_MODE_TLB},
-@@ -607,6 +609,8 @@
- 		return "fault-tolerance (active-backup)";
- 	case BOND_MODE_XOR :
- 		return "load balancing (xor)";
-+	case BOND_MODE_XOR_IP:
-+		return "load balancing (xor-ip)";
- 	case BOND_MODE_BROADCAST :
- 		return "fault-tolerance (broadcast)";
- 	case BOND_MODE_8023AD:
-@@ -3657,16 +3661,17 @@
- 
- /*
-  * in XOR mode, we determine the output device by performing xor on
-- * the source and destination hw adresses.  If this device is not
-+ * the source and destination adresses.  If this device is not
-  * enabled, find the next slave following this xor slave.
-  */
--static int bond_xmit_xor(struct sk_buff *skb, struct net_device *bond_dev)
-+static int bond_xmit_xor(struct sk_buff *skb, struct net_device *bond_dev, int use_ip)
- {
- 	struct bonding *bond = bond_dev->priv;
- 	struct ethhdr *data = (struct ethhdr *)skb->data;
- 	struct slave *slave, *start_at;
--	int slave_no;
-+	int slave_no = 0;
- 	int i;
-+	__u32 u;
- 
- 	read_lock(&bond->lock);
- 
-@@ -3674,7 +3679,30 @@
- 		goto free_out;
- 	}
- 
--	slave_no = (data->h_dest[5]^bond_dev->dev_addr[5]) % bond->slave_cnt;
-+	if (use_ip) {
-+		switch (ntohs(skb->protocol)) {
-+		case ETH_P_IP:
-+			u = skb->nh.iph->saddr ^ skb->nh.iph->daddr;
-+			u ^= (u >> 24) ^ (u >> 16) ^ (u >> 8);
-+			slave_no = (u & 0xff) % bond->slave_cnt;
-+			break;
-+		case ETH_P_IPV6:
-+			for (u = 0, i = 0; i < 4; i++) {
-+				u ^= skb->nh.ipv6h->saddr.s6_addr32[i] ^
-+					skb->nh.ipv6h->daddr.s6_addr32[i];
-+			}
-+			u ^= (u >> 24) ^ (u >> 16) ^ (u >> 8);
-+			slave_no = (u & 0xff) % bond->slave_cnt;
-+			break;
-+		default:
-+			use_ip = 0;
-+			break;
-+		}
-+	}
-+
-+	if (!use_ip) {
-+		slave_no = (data->h_dest[5]^bond_dev->dev_addr[5]) % bond->slave_cnt;
-+	}
- 
- 	bond_for_each_slave(bond, slave, i) {
- 		slave_no--;
-@@ -3707,6 +3735,16 @@
- 	goto out;
- }
- 
-+static int bond_xmit_xor_mac(struct sk_buff *skb, struct net_device *bond_dev)
-+{
-+	return bond_xmit_xor(skb, bond_dev, 0);
-+}
-+
-+static int bond_xmit_xor_ip(struct sk_buff *skb, struct net_device *bond_dev)
-+{
-+	return bond_xmit_xor(skb, bond_dev, 1);
-+}
-+
- /*
-  * in broadcast mode, we send everything to all usable interfaces.
-  */
-@@ -3793,7 +3831,10 @@
- 		bond_dev->hard_start_xmit = bond_xmit_activebackup;
- 		break;
- 	case BOND_MODE_XOR:
--		bond_dev->hard_start_xmit = bond_xmit_xor;
-+		bond_dev->hard_start_xmit = bond_xmit_xor_mac;
-+		break;
-+	case BOND_MODE_XOR_IP:
-+		bond_dev->hard_start_xmit = bond_xmit_xor_ip;
- 		break;
- 	case BOND_MODE_BROADCAST:
- 		bond_dev->hard_start_xmit = bond_xmit_broadcast;
-@@ -3914,8 +3955,7 @@
- 	for (i = 0; tbl[i].modename; i++) {
- 		if ((isdigit(*mode_arg) &&
- 		     tbl[i].mode == simple_strtol(mode_arg, NULL, 0)) ||
--		    (strncmp(mode_arg, tbl[i].modename,
--			     strlen(tbl[i].modename)) == 0)) {
-+		    (strcmp(mode_arg, tbl[i].modename) == 0)) {
- 			return tbl[i].mode;
- 		}
- 	}
-diff -Nru a/include/linux/if_bonding.h b/include/linux/if_bonding.h
---- a/include/linux/if_bonding.h	Wed Jan  7 16:21:37 2004
-+++ b/include/linux/if_bonding.h	Wed Jan  7 16:45:11 2004
-@@ -67,6 +67,7 @@
- #define BOND_MODE_8023AD        4
- #define BOND_MODE_TLB           5
- #define BOND_MODE_ALB		6 /* TLB + RLB (receive load balancing) */
-+#define BOND_MODE_XOR_IP	7
- 
- /* each slave's link has 4 states */
- #define BOND_LINK_UP    0           /* link is up and running */
+Cheers,
+Willy
+
