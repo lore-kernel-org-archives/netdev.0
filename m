@@ -1,64 +1,48 @@
-From: Scott Feldman <scott.feldman@intel.com>
-Subject: [PATCH 2.6] Update MAINTAINERS with new e100/e1000/ixgb maintainers
-Date: Fri, 26 Mar 2004 15:32:16 -0800 (PST)
+From: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
+Subject: Re: fealnx oopses
+Date: Sat, 27 Mar 2004 02:03:40 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0403261526120.15875@localhost.localdomain>
+Message-ID: <200403270203.18971.vda@port.imtp.ilyichevsk.odessa.ua>
+References: <200403261214.58127.vda@port.imtp.ilyichevsk.odessa.ua> <200403270014.23088.vda@port.imtp.ilyichevsk.odessa.ua> <20040326233514.B26347@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: scott.feldman@intel.com, netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
-        john.ronciak@intel.com, ganesh.venkatesan@intel.com, cramerj@intel.com,
-        ayyappan.veeriayan@intel.com
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>, Andreas Henriksson <andreas@fjortis.info>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jgarzik@pobox.com
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20040326233514.B26347@electric-eye.fr.zoreil.com>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Saturday 27 March 2004 00:35, Francois Romieu wrote:
+> Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua> :
+> [...]
+>
+> > Yes. But on x86 a++ is atomic vs interrupts - it's a single instruction
+> > and interrupts happen on instruction boundaries only.
+>
+> Do you realize that you are saying that the CPU can atomically increment an
+> integer which sits _in memory_ ?
 
-Jeff, Adding John/Ganesh/Ayyappan for e100/e100/ixgb in 2.6.  Keeping
-myself on for e100 for a couple more 2.6.x releases.
+Not exactly. CPU does not atomically increment memory.
+I am saying that x86 CPU can't be interrupted in the middle
+of read-modify-write operation, like
 
--scott
+		incl	(%eax)
 
---------------
+because it is single machine instruction. Interrupt either
+happens before it, and handler see 'old' value, or after it,
+and handler see 'new' value. Interrupt cannot happen 'inside' it.
 
---- linux-2.6.4/MAINTAINERS.orig	2004-03-26 10:07:24.000000000 -0800
-+++ linux-2.6.4/MAINTAINERS	2004-03-26 10:11:51.000000000 -0800
-@@ -1055,23 +1055,33 @@
- S:	Maintained
-
- INTEL PRO/100 ETHERNET SUPPORT
-+P:	John Ronciak
-+M:	john.ronciak@intel.com
-+P:	Ganesh Venkatesan
-+M:	ganesh.venkatesan@intel.com
- P:	Scott Feldman
- M:	scott.feldman@intel.com
-+W:	http://sourceforge.net/projects/e1000/
- S:	Supported
-
- INTEL PRO/1000 GIGABIT ETHERNET SUPPORT
- P:	Jeb Cramer
- M:	cramerj@intel.com
--P:	Scott Feldman
--M:	scott.feldman@intel.com
-+P:	John Ronciak
-+M:	john.ronciak@intel.com
-+P:	Ganesh Venkatesan
-+M:	ganesh.venkatesan@intel.com
- W:	http://sourceforge.net/projects/e1000/
- S:	Supported
-
- INTEL PRO/10GbE SUPPORT
-+P:	Ayyappan Veeraiyan
-+M:	ayyappan.veeraiyan@intel.com
- P:	Ganesh Venkatesan
--M:	Ganesh.Venkatesan@intel.com
--P:	Scott Feldman
--M:	scott.feldman@intel.com
-+M:	ganesh.venkatesan@intel.com
-+P:	John Ronciak
-+M:	john.ronciak@intel.com
-+W:	http://sourceforge.net/projects/e1000/
- S:	Supported
-
- INTERMEZZO FILE SYSTEM
+Some RISC processors lack such single-instruction RMW ops.
+Bug can thrigger on those CPUs:
+		load	(%r1),r2
+		inc	v2	
+			<-------- interrupt here. Ouch!
+		store	v2,(%r1)
+Not on x86.
+--
+vda
