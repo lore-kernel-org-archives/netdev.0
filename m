@@ -1,98 +1,50 @@
-From: Jan Rychter <jan@rychter.com>
-Subject: Re: networking bugs and bugme.osdl.org
-Date: Sat, 12 Jul 2003 10:07:42 -0700
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <m2vfu765cx.fsf@tnuctip.rychter.com>
-References: <1056755336.5459.16.camel@dhcp22.swansea.linux.org.uk> <20030627.172123.78713883.davem@redhat.com>
- <1056827972.6295.28.camel@dhcp22.swansea.linux.org.uk>
- <20030628.150328.74739742.davem@redhat.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] Move eth_mac_addr and eth_change_mtu
+Date: Fri, 11 Jul 2003 17:17:03 -0400
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <3F0F294F.4060804@pobox.com>
+References: <20030711181946.GG20424@parcelfarce.linux.theplanet.co.uk> <20030711182330.GC16037@gtf.org> <20030711182530.GH20424@parcelfarce.linux.theplanet.co.uk> <3F0F24B1.5050200@pobox.com> <20030711210522.GM20424@parcelfarce.linux.theplanet.co.uk>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="=-=-=";
-	micalg=pgp-sha1; protocol="application/pgp-signature"
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: linux-net@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Matthew Wilcox <willy@debian.org>
+In-Reply-To: <20030711210522.GM20424@parcelfarce.linux.theplanet.co.uk>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---=-=-=
-Content-Transfer-Encoding: quoted-printable
+Matthew Wilcox wrote:
+> On Fri, Jul 11, 2003 at 04:57:21PM -0400, Jeff Garzik wrote:
+> 
+>>Well, I don't see/understand this next-stage, so elaboration would be 
+>>nice.  As-is, I do not support merging this patch.
+> 
+> 
+> It's the next stage you're calling for -- move these functions:
+> 
+>         dev->change_mtu         = eth_change_mtu;
+>         dev->hard_header        = eth_header;
+>         dev->rebuild_header     = eth_rebuild_header;
+>         dev->set_mac_address    = eth_mac_addr;
+>         dev->hard_header_cache  = eth_header_cache;
+>         dev->header_cache_update= eth_header_cache_update;
+>         dev->hard_header_parse  = eth_header_parse;
+> 
+> into netdev_ops.  Which means each driver will need to see them.
 
->>>>> "David" =3D=3D David S Miller <davem@redhat.com> writes:
- David> From: Alan Cox <alan@lxorguk.ukuu.org.uk> Date: 28 Jun 2003
- David> 20:19:32 +0100
+Drivers don't need to see them now, they shouldn't need to see them 
+after netdev_ops.
 
- David> On Sad, 2003-06-28 at 01:21, David S. Miller wrote:
- >> I respond to private reports with "please send this to the lists,
- >> what if I were on vacation for the next month?"  I never actually
- >> process or analyze such reports.
-=20=20=20
- David> Which means you miss stuff.
+It's hidden by ether_setup.
 
- David> Not my problem Alan.  If the user gives a crap about their
- David> report mattering, they'll do what I ask them to do.  If users
- David> send their report to the wrong place, it will get lost, just
- David> like if their cat their report into /dev/null.  I have no reason
- David> to feel bad about the information getting lost.
 
- David> If it's too much for them to do as I ask, it's too much for me
- David> to consider their report.
-[...]
+> I thought I could justify moving these functions already on the grounds
+> that if you were looking for the definition of eth_change_mtu(),
+> net_init.c would be a much less likely place to look than
+> net/ethernet/eth.c
 
-I think this is one of the largest problems of the current Linux
-development model.
+If you're gonna do that, move all of ether_setup, alloc_etherdev, etc. 
+Don't just move two out of ~10 functions.
 
-Many people seem to divide people into 'users' (who aren't particularly
-useful) and 'developers', who actually do something. People (like me),
-who can devote a _little_ time to narrowing down and reporting bugs fall
-into the 'user-whiner' class. And get ignored.
-
-What results is that you only get bug reports from active
-developers. Which means that rare bugs don't get fixed.
-
- David> It is not a dream, it works perfectly fine and has done so for
- David> 5+ years of Linux maintainence.
-
-It hasn't. The result is a system that works for you (and other active
-developers), but not for everyone. As an example -- try running Linux on
-a modern laptop, connecting some USB devices, using ACPI, or
-bluetooth. Observe the resulting problems and crashes. You'll hit loads
-of obscure bugs that have been reported, but never got looked at in
-detail. I certainly have hit them and reported most, and most got
-dropped in various places.
-
-Does this mean these are unimportant bugs? No. This does indeed mean
-(following your thinking) that these aren't important bugs for me. I
-have worked around them in various ways, some involving actually buying
-new hardware, or not using certain features at all. And the cycle will
-go on -- others will hit the bugs, report them once, see them dropped,
-move on.
-
- David> Let's see, what makes more sense from my perspective.  Should I
- David> reward and put forth effort for the people who fart a bug report
- David> onto the lists and expect everyone to stop what they're doing
- David> and fix the bug, or should I reward and put forth effort for the
- David> guy who spent the time to put together a stellar bug report and
- David> also doesn't mind retransmitting it from time to time whilst
- David> everyone is busy?
-
-Interesting you should think you're 'rewarding' people. I thought your
-goal was to have fun working on cool software and making it
-better. I also thought I had the same goal as a bug-reporter.
-
-When I write software, I care about every bug report and consider people
-doing the reporting a very valuable resource.
-
-=2D-J.
-
---=-=-=
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.2 (GNU/Linux)
-
-iD8DBQA/EEBjLth4/7/QhDoRAra7AKDtnJwjGSrjhkFYu4jPKWcdBD/uagCcCl1c
-J0eXeqyfh5xI4A8QMxI5PkE=
-=MxwA
------END PGP SIGNATURE-----
---=-=-=--
-
+	Jeff
