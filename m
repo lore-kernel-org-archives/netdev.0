@@ -1,19 +1,20 @@
 From: Jeff Sipek <jeffpc@optonline.net>
 Subject: Re: [PATCH - RFC] [1/5] 64-bit network statistics - generic net
-Date: Fri, 04 Jul 2003 01:27:56 -0400
+Date: Fri, 04 Jul 2003 02:02:03 -0400
 Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <200307040128.11894.jeffpc@optonline.net>
-References: <Pine.LNX.4.44.0307032005340.8468-100000@home.osdl.org>
+Message-ID: <200307040200.08574.jeffpc@optonline.net>
+References: <200307032231.39842.jeffpc@optonline.net>
+ <3F04EAA0.2050102@pobox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: 7BIT
 Cc: Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	Andrew Morton <akpm@digeo.com>,
 	Dave Jones <davej@codemonkey.org.uk>,
-	Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com
+	Linus Torvalds <torvalds@osdl.org>, netdev@oss.sgi.com
 Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-In-reply-to: <Pine.LNX.4.44.0307032005340.8468-100000@home.osdl.org>
-To: Linus Torvalds <torvalds@osdl.org>
+In-reply-to: <3F04EAA0.2050102@pobox.com>
+To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
 Content-description: clearsigned data
 List-Id: netdev.vger.kernel.org
@@ -21,54 +22,59 @@ List-Id: netdev.vger.kernel.org
 -----BEGIN PGP SIGNED MESSAGE-----
 Hash: SHA1
 
-On Thursday 03 July 2003 23:08, Linus Torvalds wrote:
-> Please do this in user space. The "overflow every 2^32 packets" thing is
-> _not_ a problem, if you just gather the statistics at any kind of
-> reasonable interval.
+On Thursday 03 July 2003 22:46, Jeff Garzik wrote:
+> Jeff Sipek wrote:
+> > +	spinlock_t	rx_packets;
+<snip>
+> > +	spinlock_t	tx_compressed;
+>
+> That's a fat daddy list of locks you got there.
 
-The packet counters are fine (for now, that is), but the tx_bytes and rx_bytes 
-counters need those 64-bits. 4GB (= 2^32 bytes) is not enough. For example:
+Yeah, I know, I am sure there is a way of getting rid of some of those.. (i.e.
+the tx functions are inside a spinlock from struct net_device.)
 
-- - gigabit ethernet will cause 32-bit counters to overflow about every 34 
-seconds (at full speed.)
-- - 10Gb/s ethernet will only take about 3.4 seconds
-- - a user like me, who has 5Mbit/s connection to the net can cause the counter 
-to overflow in 1 hour 54 minutes
+> > +	NETSTAT_TYPE	_rx_packets;		/* total packets received	*/
+> > +	NETSTAT_TYPE	_tx_packets;		/* total packets transmitted	*/
+> > +	NETSTAT_TYPE	_rx_bytes;		/* total bytes received 	*/
+> > +	NETSTAT_TYPE	_tx_bytes;		/* total bytes transmitted	*/
+> > +	NETSTAT_TYPE	_rx_errors;		/* bad packets received		*/
+> > +	NETSTAT_TYPE	_tx_errors;		/* packet transmit problems	*/
+> > +	NETSTAT_TYPE	_rx_dropped;		/* no space in linux buffers	*/
+> > +	NETSTAT_TYPE	_tx_dropped;		/* no space available in linux	*/
+> > +	NETSTAT_TYPE	_multicast;		/* multicast packets received	*/
+> > +	NETSTAT_TYPE	_collisions;
+>
+> Increasing user-visible sizes arbitrarily breaks stuff.  Having
+> config-dependent types like this increases complexity.
 
-(Most of the time, the devices are not maxed out, but we have to check the 
-worst case scenario.) Now, how often should the user space 
-statistics-gathering program should run? Well, at least every 30 seconds, for 
-now that should be good, but the rein of 10Gb/s is approaching...
+Not really, those macros used to change the variables hide everything from the
+driver programmer. Besides those changes in procfs and sysfs which always
+return 64-bits, everything else is type casted (if needed) by those macros -
+depending on CONFIG_NETSTATS64.
 
-> I'd hate to penalise performance for something like this. We have
-> generally avoided locking _entirely_ for statistics, exactly because
-> people felt that there are major performance issues wrt network packet
-> handling, and that "perfect statistics" aren't important enough to
-> penalize performance over.
+> Short term, just sample the stats more rapidly.
 
-I agree with you, that is why I made it optional so the user may choose to 
-sacrifice performace for statistics when needed.
+That's what Linus said. But it is only a temporary fix.
 
-Additionally, I am sure there is a way of optimizing the patch I wrote (i.e. 
-actual transmition is locked with a lock from struct net_device.) I am aware 
-that this patch is a major undertaking, but it is only a matter of time 
-before someone will have to do it anyway.
+> Long term, I suppose with 10GbE we should start thinking about this.
+> Personally, I would prefer to make the standard net device stats
+> available in the format already exported by ETHTOOL_GSTATS -- which I
+> note uses u64's for its counters, and it's easily extensible.  I
+> received a request for this just today, even.
 
-> Remember: "perfect is the enemy of good".
-
-Very true.
-
+I was thinking about making the 64-bit stats mandatory, but then I opted to
+make in an option in the config. (As Linus pointed out, some people want
+performance, not statistics.)
 
 Jeff.
 
-- -- 
-Only two things are infinite, the universe and human stupidity, and I'm 
-not sure about the former.
-		- Albert Einstein
+- --
+I'm somewhere between geek and normal.
+		- Linus Torvalds
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.2.2 (GNU/Linux)
 
-iD8DBQE/BRBjwFP0+seVj/4RAnDSAJ90uOIpgtk0O7YLSsdj97kNbhr/jgCgrmlS
-GYbA4luLnY7bli1jYVuZD3s=
-=7zXz
+iD8DBQE/BRhfwFP0+seVj/4RAtBbAJ4nmbs8ZQLgFagfb4KrJGZ55AYTmwCgzkcs
+1uPma124BorLUdrcsbF2Txs=
+=EIag
 -----END PGP SIGNATURE-----
