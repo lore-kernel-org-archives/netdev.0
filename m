@@ -1,81 +1,47 @@
-From: Wichert Akkerman <wichert@wiggy.net>
+From: Mika Liljeberg <mika.liljeberg@welho.com>
 Subject: Re: ipv6 stack seems to forget to send ACKs
-Date: Thu, 9 Jan 2003 17:03:21 +0100
+Date: 10 Jan 2003 00:12:33 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030109160321.GA7510@wiggy.net>
-References: <20030108130850.GQ22951@wiggy.net> <20030109123857.A15625@bitwizard.nl> <20030109155214.GX22951@wiggy.net>
+Message-ID: <1042150352.4688.15.camel@devil>
+References: <20030108150201.GA30490@wiggy.net>
+	 <Pine.LNX.4.44.0301081718340.4542-100000@dns.toxicfilms.tv>
+	 <20030108170139.GL22951@wiggy.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, Maciej Soltysiak <solt@dns.toxicfilms.tv>,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-kernel@vger.kernel.org
-Content-Disposition: inline
-In-Reply-To: <20030109155214.GX22951@wiggy.net>
+To: Wichert Akkerman <wichert@wiggy.net>
+In-Reply-To: <20030108170139.GL22951@wiggy.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Previously Wichert Akkerman wrote:
-> It seems no packets are dropped:
+Hi Wichert,
 
-And now for ipv6 statistics from /proc/net/snmp6 (thanks Jamal):
+Looking at your trace it seems that the receiving machine is dropping
+all packets that do not have traffic class set. Note that all segments
+received with [class 0x2] get properly acked. The others probably don't
+get to TCP at all. You might want to check your filters and QoS
+policies.
 
-Ip6InReceives                   	27011
-Ip6InHdrErrors                  	0
-Ip6InTooBigErrors               	0
-Ip6InNoRoutes                   	0
-Ip6InAddrErrors                 	0
-Ip6InUnknownProtos              	0
-Ip6InTruncatedPkts              	0
-Ip6InDiscards                   	0
-Ip6InDelivers                   	26885
-Ip6OutForwDatagrams             	0
-Ip6OutRequests                  	26848
-Ip6OutDiscards                  	0
-Ip6OutNoRoutes                  	0
-Ip6ReasmTimeout                 	0
-Ip6ReasmReqds                   	0
-Ip6ReasmOKs                     	0
-Ip6ReasmFails                   	0
-Ip6FragOKs                      	0
-Ip6FragFails                    	0
-Ip6FragCreates                  	0
-Ip6InMcastPkts                  	40
-Ip6OutMcastPkts                 	0
-Icmp6InMsgs                     	123
-Icmp6InErrors                   	0
-Icmp6InDestUnreachs             	0
-Icmp6InPktTooBigs               	0
-Icmp6InTimeExcds                	0
-Icmp6InParmProblems             	0
-Icmp6InEchos                    	0
-Icmp6InEchoReplies              	0
-Icmp6InGroupMembQueries         	0
-Icmp6InGroupMembResponses       	0
-Icmp6InGroupMembReductions      	0
-Icmp6InRouterSolicits           	0
-Icmp6InRouterAdvertisements     	40
-Icmp6InNeighborSolicits         	45
-Icmp6InNeighborAdvertisements   	38
-Icmp6InRedirects                	0
-Icmp6OutMsgs                    	86
-Icmp6OutDestUnreachs            	0
-Icmp6OutPktTooBigs              	0
-Icmp6OutTimeExcds               	0
-Icmp6OutParmProblems            	0
-Icmp6OutEchoReplies             	0
-Icmp6OutRouterSolicits          	1
-Icmp6OutNeighborSolicits        	40
-Icmp6OutNeighborAdvertisements  	45
-Icmp6OutRedirects               	0
-Icmp6OutGroupMembResponses      	0
-Icmp6OutGroupMembReductions     	0
-Udp6InDatagrams                 	0
-Udp6NoPorts                     	0
-Udp6InErrors                    	0
-Udp6OutDatagrams                	0
+BR,
 
-Wichert.
+	MikaL
 
--- 
-Wichert Akkerman <wichert@wiggy.net>           http://www.wiggy.net/
-A random hacker
+
+On Wed, 2003-01-08 at 19:01, Wichert Akkerman wrote:
+> Previously Maciej Soltysiak wrote:
+> > I seem to be getting better results than you, i think that it is not an
+> > issue of ipv6 implementation but simply the case of time sensitive
+> > traffic fighting with other Internet traffic over tunnels through ipv4
+> > networks.
+> 
+> Actually, I don't follow this. How could any kind of traffic shaping
+> result in my client not sending ACKs, which is what the tcpdump
+> seems to indicate? I can understand packets being dropped which
+> would result in retransmits, but that is not the case here.
+> 
+> Wichert.
+> 
+> (usual I'm-no-network-guru-and-might-be-misreading-things disclaimer here)
