@@ -1,45 +1,47 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 2.6]: Check against correct policy list in ip_forward/ip6_forward
-Date: Mon, 18 Oct 2004 22:34:23 +0200
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH 2.6.9-rc4 1/2] typhoon: use module_param
+Date: Mon, 18 Oct 2004 13:46:28 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <417428CF.2050802@trash.net>
-References: <4172943B.8050904@trash.net> <20041017212317.GA28615@gondor.apana.org.au> <4172F1AB.4020305@trash.net> <20041017231258.GA29294@gondor.apana.org.au>
+Message-ID: <20041018134628.5876a261@zqx3.pdx.osdl.net>
+References: <20041015135353.53b1f263@zqx3.pdx.osdl.net>
+	<41706186.5090904@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
-        ipsec-tools-devel@lists.sourceforge.net
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20041017231258.GA29294@gondor.apana.org.au>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <41706186.5090904@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
+Here is the diff between my current and your netdev tree.
 
->
->Well it's too late to change the default policy.  People rely on the
->default policy being allow so changing it will wreak havoc.  Even if
->you do it only for packets with an IPsec encapsulation by checking
->skb->sp it may still break people who use manual keying and rely on
->the property that you can always add optional SAs.
->
-You're right.
-
->  More importantly that it'll stick out like a sore thumb in terms of
->
- > its semantics.
-
-__xfrm_policy_check already rejects packets without a matching policy
-and skb->sp set, but it is skipped while the policy list is empty.
-What, from a semantics point of view, would be wrong with making
-xfrm_policy_check behave the same way ?
-
->
->So let's just fix racoon.
->
-Agreed. I have a patch I'm currently testing. Judging from a quick
-grep isakmpd also doesn't add forward policies.
-
-Regards
-Patrick
+--- netdev-2.6/drivers/net/typhoon.c	2004-09-22 14:39:42.000000000 -0700
++++ tcp-2.6/drivers/net/typhoon.c	2004-10-18 12:59:51.000000000 -0700
+@@ -99,6 +99,7 @@
+ #define ERR_PFX			KERN_ERR PFX
+ 
+ #include <linux/module.h>
++#include <linux/moduleparam.h>
+ #include <linux/kernel.h>
+ #include <linux/string.h>
+ #include <linux/timer.h>
+@@ -132,7 +133,7 @@
+ MODULE_AUTHOR("David Dillow <dave@thedillows.org>");
+ MODULE_LICENSE("GPL");
+ MODULE_DESCRIPTION("3Com Typhoon Family (3C990, 3CR990, and variants)");
+-MODULE_PARM(rx_copybreak, "i");
++module_param(rx_copybreak, int, 0);
+ 
+ #if defined(NETIF_F_TSO) && MAX_SKB_FRAGS > 32
+ #warning Typhoon only supports 32 entries in its SG list for TSO, disabling TSO
+@@ -1777,7 +1778,7 @@
+ typhoon_interrupt(int irq, void *dev_instance, struct pt_regs *rgs)
+ {
+ 	struct net_device *dev = (struct net_device *) dev_instance;
+-	struct typhoon *tp = dev->priv;
++	struct typhoon *tp = netdev_priv(dev);
+ 	void __iomem *ioaddr = tp->ioaddr;
+ 	u32 intr_status;
+ 
