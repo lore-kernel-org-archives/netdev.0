@@ -1,8 +1,8 @@
 From: "DataCenter" <todoarg@uol.com.ar>
 Subject: Mejor Imposible...
-Date: Fri, 6 Sep 2002 02:19:09 -0300
+Date: Sat, 7 Sep 2002 01:30:41 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <123114-220029565199641@uol.com.ar>
+Message-ID: <397514-2200296743041276@uol.com.ar>
 Reply-To: datacenter@uol.com.ar
 Mime-Version: 1.0
 Content-Type: text/plain; charset="US-ASCII"
