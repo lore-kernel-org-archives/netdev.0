@@ -1,96 +1,40 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
+From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
 Subject: Re: Make ipconfig.c work as a loadable module.
-Date: 08 Mar 2003 11:01:05 -0700
+Date: Sun, 9 Mar 2003 01:46:33 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <m1r89hkaam.fsf@frodo.biederman.org>
-References: <Pine.LNX.4.44.0303081132030.12316-100000@kenzo.iwr.uni-heidelberg.de>
-	<m14r6dlu4w.fsf@frodo.biederman.org>
-	<20030308161936.C1896@flint.arm.linux.org.uk>
-	<m1zno5kdnz.fsf@frodo.biederman.org>
-	<20030308170532.D1896@flint.arm.linux.org.uk>
+Message-ID: <20030309044633.GC9359@conectiva.com.br>
+References: <Pine.LNX.4.44.0303061500310.31368-100000@mandrake.americas.sgi.com> <1046990052.18158.121.camel@irongate.swansea.linux.org.uk> <20030306221136.GB26732@gtf.org> <20030306222546.K838@flint.arm.linux.org.uk> <1046996037.18158.142.camel@irongate.swansea.linux.org.uk> <20030306231905.M838@flint.arm.linux.org.uk> <1046996987.17718.144.camel@irongate.swansea.linux.org.uk> <200303070715.IAA27138@fire.malware.de> <1047041676.20793.12.camel@irongate.swansea.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Bogdan Costescu <bogdan.costescu@iwr.uni-heidelberg.de>,
-   Chris Dukes <pakrat@www.uk.linux.org>, Alan Cox <alan@lxorguk.ukuu.org.uk>,
+Cc: Michael Mueller <malware@t-online.de>, Russell King <rmk@arm.linux.org.uk>,
    Jeff Garzik <jgarzik@pobox.com>, Robin Holt <holt@sgi.com>,
    Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
    netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Russell King <rmk@arm.linux.org.uk>
-In-Reply-To: <20030308170532.D1896@flint.arm.linux.org.uk>
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Content-Disposition: inline
+In-Reply-To: <1047041676.20793.12.camel@irongate.swansea.linux.org.uk>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Russell King <rmk@arm.linux.org.uk> writes:
-
-> On Sat, Mar 08, 2003 at 09:48:16AM -0700, Eric W. Biederman wrote:
-> > I can change the contents of my ramdisk as easily as I can change
-> > the kernel command line.  For the complex setups just placing
-> > a configuration file in the ramdisk is what seems to work the best
-> > in practice.
+Em Fri, Mar 07, 2003 at 12:54:36PM +0000, Alan Cox escreveu:
+> On Fri, 2003-03-07 at 07:15, Michael Mueller wrote:
+> > Hi Alan,
+> > Sorry, but I must join Russel here. I have atleast one machine which has
+> > a bootloader able to load exactly one file only. There is currently no
+> > way to load an initrd. It would need to implement the whole (BOOTP+)TFTP
+> > stuff again, just to get the initrd. So I was quite happy linux 2.4
+> > still knows about mounting a NFS root filesystem without user-space
+> > help.
 > 
-> You'll forgive me if I don't think that "change the contents of ramdisk"
-> is as easy as changing the kernel command line.
-> 
-> Last time I checked, to change the contents of a ramdisk image, you needed
-> to ungzip it, mount it, make some changes, unmount it, re-gzip it, and
-> re-install the thing.  Or, in the case of initramfs, you need to rebuild
-> the kernel image.  Compare this to changing the kernel command line from
-> "root=/dev/hda1" to "root=/dev/nfs ip=dhcp" in the boot loader by hitting
-> a few keys on the keyboard before the kernel loads, and I think you'll
-> start to get my point here.
+> Just glue the initrd to the kernel. This is not rocket science
 
+arch/sparc/boot/piggyback.c
 
-Currently on systems I am talking I have a directory structured like:
+   Simple utility to make a single-image install kernel with initial ramdisk
+   for Sparc tftpbooting without need to set up nfs.
 
-dir/config
-dir/bzImage
-dir/ramdisk
-dir/ramdisk/sbin/init
-dir/ramdisk/etc/
-.....
+   Copyright (C) 1996 Jakub Jelinek (jj@sunsite.mff.cuni.cz)
+   Pete Zaitcev <zaitcev@yahoo.com> endian fixes for cross-compiles, 2000.
 
-So I edit dir/ramdisk/etc/somefile.conf and run a script that rebuilds
-everything.  Or I edit dir/config which has my command line in it
-and run the script again.
-
-Getting to this point took a bit of effort but that is where I am
-at now.
-
-With initramfs it becomes as designed it becomes easier because it easier
-to build a cpio archive.  But mkcramfs has similar properties for
-building filesystems.   The whole building the initramfs thing into
-the kernel is something that probably needs to be worked so the
-initramfs can be attached to the kernel separately.  When the bootable
-kernel image is ELF that is easy.  With something like bzImage on x86
-it can be a pain, as there isn't any room to extend the things.
-
-And all I asserted is that for ``me'' it is equally simple to change
-the ramdisk contents as to changes those of a file.  
-
-For something like /bin/kinit that contains the default kernel
-polices on how to mount root it should certainly be command line
-driven.  
-
-For complicated setups where I am partitioning the hard drives,
-making filesystems, and installing over the network.  A configuration
-file has proven to be easier, and that is what I do.  The fundamental
-issue is that after a certain point the command line just does not
-have room for all of the parameters needed.
-
-Possibly I answered the wrong question? 
-
-As for hitting a few keys on the keyboard in the bootloader before
-the kernel loads well....  That is good on one machine, it gets to be
-a pain on 4.  And at a 1000 I have much better things to do with my
-time.  Which just shows my bias from working on with clusters.  On a
-cluster the only time you want to treat a machine as an individual is
-when you are replacing bad hardware.
-
-I have played with parsing command line options.  And messing
-with /proc/cmdline or being /sbin/init and just getting those options
-from the kernel is not difficult.  For prototyping it may be a good
-idea to read /proc/cmdline so the kernel can eat the options before
-kinit does.
-
-Eric
+- Arnaldo
