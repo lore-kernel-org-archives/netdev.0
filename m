@@ -1,26 +1,28 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] IPV6: Incorrect hoplimit in ip6_push_pending_frames()
-Date: Sat, 2 Aug 2003 22:59:48 -0700
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: e100 "Ferguson" release
+Date: Sun, 03 Aug 2003 02:12:49 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030802225948.01c96fb7.davem@redhat.com>
-References: <Pine.LNX.4.44.0307041601570.15229-100000@rhea.tcs.hut.fi>
-	<Pine.LNX.4.44.0308011353520.16201-100000@rhea.tcs.hut.fi>
+Message-ID: <3F2CA7E1.6060800@pobox.com>
+References: <C6F5CF431189FA4CBAEC9E7DD5441E010222927D@orsmsx402.jf.intel.com> <3F2CA65F.8060105@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ville Nuorvala <vnuorval@tcs.hut.fi>
-In-Reply-To: <Pine.LNX.4.44.0308011353520.16201-100000@rhea.tcs.hut.fi>
+To: "Feldman, Scott" <scott.feldman@intel.com>
+In-Reply-To: <3F2CA65F.8060105@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 1 Aug 2003 14:15:21 +0300 (EEST)
-Ville Nuorvala <vnuorval@tcs.hut.fi> wrote:
+Jeff Garzik wrote:
+> * (extremely minor) some people (like me :)) consider dead reads like 
+> the readb() call in e100_write_flush
 
-> I noticed the hop limit passed to ip6_append_data() isn't used by
-> ip6_push_pending_frames(), which might lead to unexpected behavior with
-> multicast and (ipv6-in-ipv6) tunneled packets. This patch (against Linux
-> 2.6.0-test2 and cset 1.1595) fixes the problem.
+er, that was a bit incomplete.
 
-Applied, thank you.
+completing:
+
+  ... needing to be marked explicitly with a "(void) " prefix, 
+indicating it is intentionally a dead read.
+
+Maintainer's call, ultimately, though...
