@@ -1,82 +1,66 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: e100 "Ferguson" release
-Date: Tue, 05 Aug 2003 01:29:41 -0400
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: O/M flags against 2.6.0-test1
+Date: Mon, 4 Aug 2003 16:57:46 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F2F40C5.9070601@pobox.com>
-References: <C6F5CF431189FA4CBAEC9E7DD5441E010222929E@orsmsx402.jf.intel.com>
+Message-ID: <20030804165746.133f370a.davem@redhat.com>
+References: <20030730220223.4c25fcfe.davem@redhat.com>
+	<Pine.LNX.4.44.0307311330200.27478-100000@DYN318430>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org, netdev@oss.sgi.com,
+   krkumar@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Feldman, Scott" <scott.feldman@intel.com>
-In-Reply-To: <C6F5CF431189FA4CBAEC9E7DD5441E010222929E@orsmsx402.jf.intel.com>
+To: Krishna Kumar <krkumar@us.ibm.com>
+In-Reply-To: <Pine.LNX.4.44.0307311330200.27478-100000@DYN318430>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Feldman, Scott wrote:
->>* (API) Does the out-of-tx-resources condition in 
->>e100_xmit_frame ever really happen?  I am under the
->>impression that returning non-zero in ->hard_start_xmit
->>results in the packet sometimes being requeued and
->>sometimes dropped.  I prefer to guarantee a more-steady 
->>state, by simply dropping the packet unconditionally,
->>when this uncommon condition occurs.  So, I would
->>a) mark the failure condition with unlikely(), and
->>b) if the condition occurs, simply drop the packet 
->>(tx_dropped++, kfree 
->>skb), and return zero.
+On Thu, 31 Jul 2003 13:33:27 -0700 (PDT)
+Krishna Kumar <krkumar@us.ibm.com> wrote:
+
+> > Ok, but then please use "__s32".
 > 
+> OK, slowly getting there :-)
 > 
-> Stop the queue also?
-> 
-> if(unlikely(e100_exec_cb(nic, skb, e100_xmit_prepare) == -ENOMEM)) {
->         netif_stop_queue(netdev);
->         nic->net_stats.tx_dropped++;
->         dev_kfree_skb(skb);
->         return 0;
-> }
+> Latest patch follows :
 
-Yes.  I would also printk(KERN_ERR "we have a bug!") or somesuch, like 
-several other drivers do, too.
+Krishna is away, but let us make more progress on this patch.
+I see some problem with it that still need to be resolved:
 
+> +/* Subtype attributes for IFLA_PROTINFO */
+> +enum
+> +{
+> +	IFLA_INET6_UNSPEC,
+> +	IFLA_INET6_FLAGS,	/* link flags			*/
+> +	IFLA_INET6_CONF,	/* sysctl parameters		*/
+> +	IFLA_INET6_STATS,	/* statistics			*/
+> +	IFLA_INET6_MCAST,	/* MC things. What of them?	*/
+> +};
+> +
+> +#define IFLA_INET6_MAX	IFLA_INET6_MCAST
 
->>* IIRC Donald's MII phy scanning code scans MII phy ids like this: 
->>1..31,0.  Or maybe 1..31, and then 0 iff no MII phys were found.  In 
->>general I would prefer to follow his eepro100.c probe order.  
->>Some phys need this because they will report on both phy id #0 (which 
->>is magical) and phy id #(non-zero).  Donald would know more than me,
-> 
-> here.
-> 
-> [kernel] eepro100 gets the ID from the eeprom, so no scanning there.
-> Current e100 goes 1, 0..31, which is what we've always done, IIRC.
+Ok, how does this actually work?  The code does RTA_PUT(...IFLA_INET6_*...)
+but IFLA_PROTINFO is not actually used anywhere.  This cannot work, it makes
+these RTA attributes just look like whatever IFLA_* ones have the
+same values as the inet6 ones in this enumeration.
 
-hmmm.  I prefer the phy scanning to checking eeprom, since it reduces 
-the chance of eeprom screwups.  However, I still think there's some 
-issue related to phy id #0.  Oh well, fine for now, I guess.
+Alexey, how did you intend this stuff to be done?  Cerainly not
+like this :-)
 
+> +	/* return the device sysctl params */
+> +	if ((array = kmalloc(DEVCONF_MAX * sizeof(*array), GFP_KERNEL)) == NULL)
+> +		goto rtattr_failure;
+> +	ipv6_store_devconf(&idev->cnf, array);
+> +	RTA_PUT(skb, IFLA_INET6_CONF, DEVCONF_MAX * sizeof(*array), array);
 
->>* do we care about spinlocks around the update_stats and 
->>get_stats code?
-> 
-> 
-> Not sure.  update_stats runs in a timer callback.  Can get_stats jump
-> in?
+This is what I'm talking about.  Maybe there is something I'm missing.
+How does APP know to interpret IFLA_INET6_CONF as "sub-attribute"
+of IFLA_PROTINFO?
 
-Well, the ->get_stats only returns a pointer to the stats, which are 
-then accessed in an unlocked manner.  Since the net stats are unsigned 
-longs, asynchronously reading and updating them isn't a big deal in 
-practice.
+Also, missing "memset(array, 0, sizeof(*array));" else we leak
+uninitialized kernel memory into user space.
 
+Another bug, GFP_KERNEL memory allocation with dev_base_lock held.
 
->>* (minor) use a netif_msg_xxx wrapper/constant in 
->>e100_init_module test?
-> 
-> 
-> Can't - don't have nic->msg_enable allocated yet.  :(
-
-You could always use "(1 << debug) - 1"... :)  I dunno if it's worth 
-worrying about.
-
-	Jeff
+Otherwise I am OK with the patch.
