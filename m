@@ -1,71 +1,57 @@
 From: Harald Welte <laforge@netfilter.org>
-Subject: Re: Do you know about skb_header_pointer() ?
-Date: Thu, 19 Aug 2004 11:44:01 +0200
-Sender: netfilter-devel-admin@lists.netfilter.org
-Message-ID: <20040819094401.GY3921@sunbeam.de.gnumonks.org>
-References: <200408190721.QAA02944@toshiba.co.jp>
+Subject: Re: [PATCH] Prevent crash on ip_conntrack removal
+Date: Thu, 19 Aug 2004 12:11:59 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040819101159.GC3921@sunbeam.de.gnumonks.org>
+References: <20040818091352.GB6507@suse.de>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="MdJ3p2aQbVp3YFXz"
-Cc: kaber@trash.net, kadlec@blackhole.kfki.hu, kisza@securityaudit.hu,
-	netfilter-devel@lists.netfilter.org, usagi-core@linux-ipv6.org,
-	netdev@oss.sgi.com, David Miller <davem@redhat.com>
-Return-path: <netfilter-devel-admin@lists.netfilter.org>
-To: Yasuyuki Kozakai <yasuyuki.kozakai@toshiba.co.jp>
+	protocol="application/pgp-signature"; boundary="xsILJLaVOAbiPmXa"
+Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org,
+        David Miller <davem@redhat.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Olaf Kirch <okir@suse.de>
 Content-Disposition: inline
-In-Reply-To: <200408190721.QAA02944@toshiba.co.jp>
-Errors-To: netfilter-devel-admin@lists.netfilter.org
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: <https://lists.netfilter.org/pipermail/netfilter-devel/>
+In-Reply-To: <20040818091352.GB6507@suse.de>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---MdJ3p2aQbVp3YFXz
+--xsILJLaVOAbiPmXa
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-[Cc'ing davem]
+On Wed, Aug 18, 2004 at 11:13:52AM +0200, Olaf Kirch wrote:
+> Hi,
+>=20
+> here's a patch that keeps us from crashing on removal of ip_conntrack.
+> This problem came up during IBM's testing of SLES.
 
-On Thu, Aug 19, 2004 at 04:21:19PM +0900, Yasuyuki Kozakai wrote:
+Thanks for this detailed bugreport and fix.
 
-> According to a message in "netdev" mailing list, skb_header_pointer() wil=
-l be
-> introduced in mainline kernel. (see attached message)
+> I'm not sure if this issue has been submitted already.
 
-yes, David Miller did so. =20
+Not that I'm aware of.
 
-If I remember correctly, his reasoning for skb_header_pointer() was that
-even though we are not guaranteed a completely linear transport layer
-header, it doesn't really happen at any point in the network stack at
-this time.
+> To fix this, the patch below simply drops such skbs. A different fix
+> could be to change the conntrack module to flush out all unassembled
+> fragments when unloaded; an alternative patch for this is attached as
+> well (this one is completely untested).
 
-I personally still like Yasuyuki's implementation[1] better, especially as
-long as I'm not convinced that even in the event of IPv6 extension
-headers, tunnels, ipsec, whaetever we're can still assume that
-everything up to (and including) tcp option headers is linear.
+Since I don't want to put any more conntrack-specific code into the core
+network stack, I'd rather go for the 'alternative patch'.
 
-And I still owe Dave some profiles on whether skb_header_pointer() as
-opoosed to skb_copy_bits() actually still shows up in the profiles or not.
+I'm not sure whether it's worth the effort to combine the two, i.e. only
+flush entries with skb->dst =3D=3D NULL.
 
-I'll do this _right now_ before some customer starts to annoy me again
-with some stupid problem ;)
+But especially since module unloading is EXPERIMENTAL anyway, I think
+it's ok when we completely flush the fragemnt queue.
 
-> If I remember correctly, this approach was rejected in the result of our
-> discussions. And I sent a patch to this mailing list at 2004/08/08.
+Dave, is this fine with you?  What solution would you prefer?
 
-Yes, I thought your approach is better ;)  But maybe I'm just
-overgeneralizing or trying to be too perfect.  Anyway, in the end it's
-Dave's call.
-
-[1]
-http://lists.netfilter.org/pipermail/netfilter-devel/2004-August/016277.html
-
+> Cheers
+> Olaf
 --=20
 - Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
@@ -76,7 +62,7 @@ http://lists.netfilter.org/pipermail/netfilter-devel/2004-August/016277.html
    architectural error that shows how much experimentation was going
    on while IP was being designed."                    -- Paul Vixie
 
---MdJ3p2aQbVp3YFXz
+--xsILJLaVOAbiPmXa
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: Digital signature
 Content-Disposition: inline
@@ -84,9 +70,9 @@ Content-Disposition: inline
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.2.5 (GNU/Linux)
 
-iD8DBQFBJHZhXaXGVTD0i/8RAjF7AJ9kc+PqF3NCP29LkJY8+A2+iaTwPACfQc/C
-cU/CU1EeTYEbrZcwb3w32L4=
-=0fpc
+iD8DBQFBJHzuXaXGVTD0i/8RAoUwAJ4pt8h/EGR14G0hNFLWKBM4fLXF2ACbBj6N
+z3ThhO8OwdNK1tSfWX4n/+g=
+=T3Q9
 -----END PGP SIGNATURE-----
 
---MdJ3p2aQbVp3YFXz--
+--xsILJLaVOAbiPmXa--
