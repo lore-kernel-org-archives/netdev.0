@@ -1,42 +1,34 @@
-From: jamal <hadi@cyberus.ca>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: RFC/PATCH capture qdisc requeue event in stats
-Date: 30 Aug 2004 18:56:32 -0400
+Date: Mon, 30 Aug 2004 16:00:52 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1093906592.1037.32.camel@jzny.localdomain>
+Message-ID: <20040830160052.548c4846.davem@redhat.com>
 References: <1093799632.1073.410.camel@jzny.localdomain>
-	 <20040830144033.2265a6e6.davem@redhat.com>
-	 <1093904088.1043.12.camel@jzny.localdomain>
-	 <20040830154430.769d1d59.davem@redhat.com>
-Reply-To: hadi@cyberus.ca
+	<20040830144033.2265a6e6.davem@redhat.com>
+	<1093904088.1043.12.camel@jzny.localdomain>
+	<20040830154430.769d1d59.davem@redhat.com>
+	<1093906592.1037.32.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Stephen Hemminger <shemminger@osdl.org>
+Cc: netdev@oss.sgi.com, shemminger@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040830154430.769d1d59.davem@redhat.com>
+To: hadi@cyberus.ca
+In-Reply-To: <1093906592.1037.32.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2004-08-30 at 18:44, David S. Miller wrote:
-> On 30 Aug 2004 18:14:48 -0400
-> jamal <hadi@cyberus.ca> wrote:
+On 30 Aug 2004 18:56:32 -0400
+jamal <hadi@cyberus.ca> wrote:
 
-> Check the size, if it matches the older tc_stats size sans
-> requeue stat addition, then don't try to reference that struct member.
+> Sounds reasonable to me. Some of the BSDs do this to maintain old compat
+> - just means keeping old struct around. Steve, agreeable to you? 
 > 
-> 	if (RTA_PAYLOAD(tb[TCA_STATS]) == sizeof(struct tc_stats_old)) {
-> 		/* report everything sans requeue */
-> 	} else if (RTA_PAYLOAD(tb[TCA_STATS]) == sizeof(struct tc_stats)) {
-> 		/* report all stats, including requeue */
-> 	} else {
-> 		/* report error, etc. */
-> 	}
+> Change to both kernel and user space or just user space?
 
-Sounds reasonable to me. Some of the BSDs do this to maintain old compat
-- just means keeping old struct around. Steve, agreeable to you? 
+But this takes care of 'tc' only.  What about other programs
+grabbing TC_STATS?  The whole world of netlink is not the
+iproute2 tree.
 
-Change to both kernel and user space or just user space?
-
-cheers,
-jamal
+Maybe instead we should create TC_STATS2?  That's a lot of
+work just to add this one new statistic, I must say.
