@@ -1,32 +1,60 @@
-From: Russell King <rmk@arm.linux.org.uk>
-Subject: Re: [PATCH] sa1100ir - fix for 2.6
-Date: Sat, 6 Dec 2003 08:38:11 +0000
+From: Adrian Bunk <bunk@fs.tum.de>
+Subject: [patch] remove com20020-isa.c unused variables
+Date: Sat, 6 Dec 2003 09:57:36 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031206083811.A9622@flint.arm.linux.org.uk>
-References: <20031205150601.68c52de3.shemminger@osdl.org>
+Message-ID: <20031206085736.GQ20739@fs.tum.de>
+References: <20031205192828.GA15907@gtf.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, Jean Tourrilhes <jt@bougret.hpl.hp.com>,
-        Alexander Viro <aviro@redhat.com>, netdev@oss.sgi.com,
-        irda-users@sourceforge.net
+Cc: netdev@oss.sgi.com, torvalds@osdl.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
+To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <20031205150601.68c52de3.shemminger@osdl.org>; from shemminger@osdl.org on Fri, Dec 05, 2003 at 03:06:01PM -0800
+In-Reply-To: <20031205192828.GA15907@gtf.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 05, 2003 at 03:06:01PM -0800, Stephen Hemminger wrote:
-> Update the ARM SA1100 irda driver to current 2.6 network device model
->   * allocate network device with alloc_irdadev - get rid of dev_alloc
->   * change to current system device class model - looks like it was using early
->     old version of interface from 2.5
->   * better error unwind
+Hi Jeff,
 
-It isn't a system device though.  Please revery the sysdev changes.
+your experimental net driver queue patch introduced the following
+compile warnings when compiling com20020-isa statically into the kernel:
+
+<--  snip  -->
+
+...
+  CC      drivers/net/arcnet/com20020-isa.o
+drivers/net/arcnet/com20020-isa.c: In function `com20020isa_setup':
+drivers/net/arcnet/com20020-isa.c:189: warning: unused variable `lp'
+drivers/net/arcnet/com20020-isa.c:188: warning: unused variable `dev'
+...
+
+<--  snip  -->
+
+
+The fix is trivial (the net driver queue patch removes all uses of 
+these variables):
+
+
+--- linux-2.6.0-test11-full-no-smp/drivers/net/arcnet/com20020-isa.c.old	2003-12-06 09:51:10.000000000 +0100
++++ linux-2.6.0-test11-full-no-smp/drivers/net/arcnet/com20020-isa.c	2003-12-06 09:53:41.000000000 +0100
+@@ -185,8 +185,6 @@
+ #ifndef MODULE
+ static int __init com20020isa_setup(char *s)
+ {
+-	struct net_device *dev;
+-	struct arcnet_local *lp;
+ 	int ints[8];
+ 
+ 	s = get_options(s, 8, ints);
+
+
+
+cu
+Adrian
 
 -- 
-Russell King
- Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
- maintainer of:  2.6 PCMCIA      - http://pcmcia.arm.linux.org.uk/
-                 2.6 Serial core
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
