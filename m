@@ -1,8 +1,8 @@
 From: Jan Oravec <jan.oravec@6com.sk>
-Subject: [PATCH] IPv6, mcast: deactivate timers before ipv6_mc_destroy_dev()
-Date: Sun, 5 Oct 2003 11:06:10 +0200
+Subject: BUG_ON() while creating/removing ipip interfaces
+Date: Sun, 5 Oct 2003 11:37:31 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031005090610.GA23600@wsx.ksp.sk>
+Message-ID: <20031005093731.GA24023@wsx.ksp.sk>
 Reply-To: Jan Oravec <jan.oravec@6com.sk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -15,33 +15,58 @@ List-Id: netdev.vger.kernel.org
 Hello,
 
 
-the following patch calls ipv6_mc_down(idev) to deactivate timers. If we do
-not deactivate them, the following may happen:
+Assume that we have application 'A' and application 'B':
 
-1) remove last IPv6 address from the interface
-  - mld_ifc_timer may be active, thus referencing idev
-  - addrconf_ifdown() is called (which calls ipv6_mc_destroy_dev()),
-    removing all references to idev except the timer reference
-  - timer expires, mld_ifc_timer_expire() is called, reference to idev is
-    removed, but not tested (__in6_dev_put())
-  - idev is not removed and it is referencing dev
-2) destroy interface
-  - idev's reference to dev never disappears
+A:
+  cnt=0;
+  while(1)
+  {
+    if_index=create_ipip("name%i", cnt++);
+    listen_on_netlink_and_wait_for_if_destroy(if_index);
+  }
+
+B:
+  for i in `seq 0 100`
+  do
+    iptunnel del name$i
+  done
+
+'A' is written in C so it is much faster than 'B'.
+
+We run 'A', then 'B' (on linux-2.6.0-test5). Shortly after that this
+happens:
 
 
---- linux/net/ipv6/mcast.c.orig	2003-09-28 02:50:53.000000000 +0200
-+++ linux/net/ipv6/mcast.c	2003-10-05 10:42:57.535993672 +0200
-@@ -2029,6 +2029,9 @@
- 	struct ifmcaddr6 *i;
- 	struct in6_addr maddr;
+kernel BUG at net/core/dev.c:2912!
+invalid operand: 0000 [#1]
+CPU:    0
+EIP:    0060:[<c045ecbf>]    Not tainted
+EFLAGS: 00010297
+EIP is at unregister_netdevice+0x19f/0x1fc
+eax: 00000001   ebx: 000089f2   ecx: c06b68e0   edx: c0f1c000
+esi: c62b1c00   edi: 00000000   ebp: c62b1c00   esp: c0f1de8c
+ds: 007b   es: 007b   ss: 0068
+Process iptunnel (pid: 8369, threadinfo=c0f1c000 task=c3218100)
+Stack: 00000025 0000000a c0f1df19 000089f2 ffffffff c04c67e6 c62b1c00 ffffffff
+       00003878 00000000 0000000a ffffffff 00000004 00000000 00000292 ffffffff
+       ffffffff 00000000 c016ce20 cfef7b2c 000000d0 c0317b87 c0f1df18 3f0e20e8
+Call Trace:
+ [<c04c67e6>] ipip_tunnel_ioctl+0x236/0x440
+ [<c016ce20>] d_alloc+0x20/0x1d0
+ [<c0317b87>] vsprintf+0x27/0x30
+ [<c045de60>] dev_ifsioc+0x130/0x4b0
+ [<c045bde1>] dev_get+0x21/0x50
+ [<c045e2c0>] dev_ioctl+0xe0/0x350
+ [<c0454d20>] sock_ioctl+0x0/0x260
+ [<c0454e30>] sock_ioctl+0x110/0x260
+ [<c0167537>] sys_ioctl+0x277/0x300
+ [<c010946b>] syscall_call+0x7/0xb
  
-+	/* Deactivate timers */
-+	ipv6_mc_down(idev);
-+
- 	/* Delete all-nodes address. */
- 	ipv6_addr_all_nodes(&maddr);
- 
+Code: 0f 0b 60 0b 14 e1 62 c0 e9 9c fe ff ff c7 44 24 04 8f 0b 00
 
+
+I have seen some recent patches for tunnel devices on netdev, but was not
+able to test it yet.
 
 
 Best Regards,
