@@ -1,85 +1,112 @@
-From: Martin Josefsson <gandalf@wlug.westbo.se>
-Subject: Re: TODO list before feature freeze
-Date: 30 Jul 2002 15:08:24 +0200
+From: bert hubert <ahu@ds9a.nl>
+Subject: 3c59x 2.4.18 userspace seeing UDP packets with bad checksum?
+Date: Tue, 30 Jul 2002 15:14:25 +0200
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <1028034504.12617.135.camel@tux>
-References: <Pine.GSO.4.30.0207300818480.15727-100000@shell.cyberus.ca>
+Message-ID: <20020730131424.GA25238@outpost.ds9a.nl>
+References: <20020730104815.GA22307@outpost.ds9a.nl> <200207301240.QAA03021@sex.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Patrick Schaaf <bof@bof.de>, Andi Kleen <ak@suse.de>,
-   Rusty Russell <rusty@rustcorp.com.au>,
-   Netfilter-devel <netfilter-devel@lists.netfilter.org>, netdev@oss.sgi.com,
-   netfilter-core@lists.netfilter.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, akpm@zip.com.au, jgarzik@mandrakesoft.com,
+   becker@scyld.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-In-Reply-To: <Pine.GSO.4.30.0207300818480.15727-100000@shell.cyberus.ca>
+To: kuznet@ms2.inr.ac.ru
+Content-Disposition: inline
+In-Reply-To: <200207301240.QAA03021@sex.inr.ac.ru>
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2002-07-30 at 14:29, jamal wrote:
+On Tue, Jul 30, 2002 at 04:40:38PM +0400, kuznet@ms2.inr.ac.ru wrote:
+> Hello!
+> 
+> > I'm under the strong impression that 2.4.18 lets userspace see packets with
+> > incorrect UDP checksums.
+> 
+> How did you get this impression?
 
-> On Tue, 30 Jul 2002, Patrick Schaaf wrote:
-> > Most likely things leading to such a result, in no specific suborder:
-> >
-> > - skb linearization
-> > - always-defragment
-> > - ip_conntrack_lock contention
-> > - per-packet timer management
+The hardware:
 
-> If i was to use instinct i would say
-> the last two items you list are probably the things you may want to chase.
+3c59x: Donald Becker and others. www.scyld.com/network/vortex.html
+01:02.0: 3Com PCI 3c905C Tornado at 0xd800. Vers LK1.1.16
+01:02.0 Ethernet controller: 3Com Corporation 3c905C-TX [Fast Etherlink]
+(rev 78)
 
-Here's two small patches.
+The packet is subtly corrupted and contains an invalid DNS label which our
+nameserver tripped over (oops). It looks like a single byte error. PowerDNS
+lives inside a wrapper, once every second the wrapper calls wait(), to see
+if the child is well:
 
-The first is a small patch to avoid updating the per-connection timer
-for every packet. With this patch you get one update per second per
-connection. Things are complicated by the fact that connections can
-change timeouts. This patch isn't verified for correctness, YMMV.
-(the pptp helper needs updating to work in combination with this patch)
+Jul 30 07:04:44 knife pdns-powerdns[2983]: Our pdns instance (6595) exited
+after signal 11
 
-The second patch changes the hashtable lookup slightly so we don't hash
-the tuple each iteration, once is enough.
+These are the relevant packets, grouped by question/answer.
 
-I don't have any numbers for these patches and I can't find the url to
-the tests one of the netfilter-devel people has done.
+07:04:42.902162 200.171.175.165.14760 > 213.244.168.217.53:  [udp sum ok]
+4170 CNAME? ifm.com.br. [|domain] (ttl 112, id 41767, len 56)
 
+07:04:42.902198 213.244.168.217.53 > 200.171.175.165.14760:  [udp sum ok]
+4170*- q: CNAME? ifm.com.br. 0/0/0 (28) (DF) (ttl 64, id 0, len 56)
 
-diff -x *.orig -urN linux.orig/net/ipv4/netfilter/ip_conntrack_core.c linux/net/ipv4/netfilter/ip_conntrack_core.c
---- linux.orig/net/ipv4/netfilter/ip_conntrack_core.c	Tue Jul 30 14:38:41 2002
-+++ linux/net/ipv4/netfilter/ip_conntrack_core.c	Tue Jul 30 14:40:06 2002
-@@ -855,8 +855,10 @@
- 	if (!is_confirmed(ct))
- 		ct->timeout.expires = extra_jiffies;
- 	else {
--		/* Need del_timer for race avoidance (may already be dying). */
--		if (del_timer(&ct->timeout)) {
-+		/* Don't update timer for each packet, only if it's been >HZ
-+		 * ticks since last update or change is negative.
-+		 * Need del_timer for race avoidance (may already be dying). */
-+		if ((unsigned long)(jiffies + extra_jiffies - ct->timeout.expires) >= HZ && del_timer(&ct->timeout)) {
- 			ct->timeout.expires = jiffies + extra_jiffies;
- 			add_timer(&ct->timeout);
- 		}
+==
 
+07:04:43.147215 202.239.113.18.56146 > 213.244.168.217.53:  [udp sum ok]
+32295 A? failte.powernap.org. [|domain] (ttl 241, id 11501, len 65)
 
+07:04:43.149494 213.244.168.217.53 > 202.239.113.18.56146:  [udp sum ok]
+32295*- q: A? failte.powernap.org. 1/0/0 failte.powernap.org. A 213.106.2.65
+(53) (DF) (ttl 64, id 0, len 81)
 
---- linux-2.4.19-pre10/net/ipv4/netfilter/ip_conntrack_core.c.orig	Sat Jun  8 00:48:59 2002
-+++ linux-2.4.19-pre10/net/ipv4/netfilter/ip_conntrack_core.c	Sat Jun  8 00:49:56 2002
-@@ -292,9 +292,10 @@
- 		    const struct ip_conntrack *ignored_conntrack)
- {
- 	struct ip_conntrack_tuple_hash *h;
-+	size_t hash = hash_conntrack(tuple);
- 
- 	MUST_BE_READ_LOCKED(&ip_conntrack_lock);
--	h = LIST_FIND(&ip_conntrack_hash[hash_conntrack(tuple)],
-+	h = LIST_FIND(&ip_conntrack_hash[hash],
- 		      conntrack_tuple_cmp,
- 		      struct ip_conntrack_tuple_hash *,
- 		      tuple, ignored_conntrack);
+==
+
+This is the packet I mean. Note that no answers are sent out after this
+one:
+
+07:04:43.505166 61.222.31.205.62361 > 213.244.168.217.53:  [bad udp cksum
+25f1!] 49 op5 [2a][|domain] (ttl 112, id 51330, len 109)
+
+== 
+
+07:04:43.698853 194.25.2.147.34441 > 213.244.168.217.53:  [udp sum ok] 53889
+[1au] AAAA? DNS-EU1.POWERDNS.NET. . OPT  UDPsize=4096 (49) (DF) (ttl 248, id
+23358, len 77)
+
+==
+
+07:04:43.699074 194.25.2.147.34441 > 213.244.168.217.53:  [udp sum ok] 32420
+[1au] A6 ? DNS-EU1.POWERDNS.NET. . OPT  UDPsize=4096 (49) (DF) (ttl 248, id
+23359, len 77)
+
+==
+
+Until a few seconds later when the parent respawns a new PowerDNS.
+
+> > Is this policy?
+> 
+> This is impossible unless requested explicitly with SO_NO_CHECK
+> or a buggy hardware incorrectly reports checksum is valid.
+
+We don't supply SO_NO_CHECK. As the driver source mentions hardware
+checksumming I've cc'd in Andrew, Donald & Jeff.
+
+Regarding Andi's message, isn't it so that recvfrom() may return but in that
+case returns -1 and sets errno to EAGAIN? I've seen that when trying to
+reproduce this bug by using tcpreplay.
+
+Anything I can do to help, let me know. I get in the order of 20 of these
+corrupted packets each night from our Taiwanese friends at Hinet, and only
+at night.
+
+Netstat -s output after 81 days:
+
+Udp:
+    112974784 packets received
+    10386 packets to unknown port received.
+    3840 packet receive errors
+    112889199 packets sent
+
+Regards,
+
+bert
 
 -- 
-/Martin
-
-Never argue with an idiot. They drag you down to their level, then beat
-you with experience.
+http://www.PowerDNS.com          Versatile DNS Software & Services
+http://www.tk                              the dot in .tk
+http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
