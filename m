@@ -1,35 +1,109 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [bonding][2/3] Synchronizing 2.4-2.6
-Date: Wed, 27 Aug 2003 17:51:52 -0400
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [BUG] Interrupted appletalk echo request
+Date: Wed, 27 Aug 2003 16:43:14 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F4D27F8.9050500@pobox.com>
-References: <200308272003.09957.shmulik.hen@intel.com>
+Message-ID: <20030827164314.606f7877.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, linux-atalk@lists.netspace.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: shmulik.hen@intel.com
-In-Reply-To: <200308272003.09957.shmulik.hen@intel.com>
+To: "David S. Miller" <davem@redhat.com>, Jay Schulist <jschlst@samba.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Shmulik Hen wrote:
-> This is set 2 that merges parts of Jay Vosburgh's experimental
-> propagation stuff from 5/22 with all the fixes/enhancements
-> we've developed according to the RFC published on bond-devel
-> list on 6/2.
-> 
-> Applies on 2.4.22. Assumes patch set 1 was already applied.
+Testing some other things and ran into a problem (2.4 and 2.6)
+if DDP socket program is interrupted while AARP entries are unresolved.
+
+Enclosed is a instrumented version console log.
+
+What is happening is that the AARP entry is getting expired when the
+retries get exhausted.  This cause it flush all the skb's in its 
+packet_queue. The socket for the socket buffer is still okay,
+but the sleep task_list is garbage and points to poisoned entries.
+
+DDP is doing the right thing and not destroying the socket if there
+are outstanding writes. Does it need to clean up the socket sleep
+queue or is that need to be done at a higher level.
 
 
-As Jay mentioned he had approved through the end of set 2, and set 2 
-looks good to me, I applied all 8 patches to 2.4.
+Also, AARP shouldn't have an unbounded packet_queue for unresolved
+entries...
 
-Let's now take an operational pause in 2.4, and get 2.6 back into sync. 
-  Would some hearty bonding team member(s) be willing to do that?
+[root@zqx3 root]# aecho 6.101
+send f588b610 
+kick retry f588b610
+kick retry f588b610
+kick retry f588b610
+kick retry f588b610
+kick retry f588b610
+kick retry f588b610
+kick retry f588b610
+kick retry f588b610
+kick retry f588b610
+kick retry limit f588b610
+expire f588b610
 
-I would _really_ prefer that the revision history be maintained, which 
-makes it a non-trivial exercise, time-wise...
+send f588b610 
+kick retry f588b610
+kick retry f588b610
+kick retry f588b610
+kick retry f588b610
 
-	Jeff
+atalk_remove_socket
+atalk_destroy socket wmem=292
+
+----6.101 AEP Statistics----
+4 packets sent, 0 packets received, 100% packet loss
+[root@zqx3 root]# 
+
+
+kick retry f588b610
+kick retry f588b610
+kick retry f588b610
+kick retry f588b610
+kick retry f588b610
+kick retry limit f588b610
+expire f588b610
+
+eip: c011dbf9
+------------[ cut here ]------------
+kernel BUG at include/asm/spinlock.h:120!
+invalid operand: 0000 [#1]
+CPU:    0
+EIP:    0060:[<c011dc89>]    Not tainted
+EFLAGS: 00010086
+EIP is at __wake_up+0x90/0x9a
+eax: 0000000e   ebx: f5069244   ecx: 00000001   edx: c02e7ee0
+esi: 00000001   edi: 00000001   ebp: c035de64   esp: c035de3c
+ds: 007b   es: 007b   ss: 0068
+Process swapper (pid: 0, threadinfo=c035c000 task=c02e5280)
+Stack: c02afefe c011dbf9 00000282 00004ef0 00000296 00000000 ffffffac f5069244 
+       eac71104 f588b610 c035de80 c024aa4f c03894ff f5794e44 c0389121 eac71104 
+       f588b614 c035de90 c024a123 eac71104 00000000 c035dea8 c024afaf f5794e44 
+Call Trace:
+ [<c011dbf9>] __wake_up+0x0/0x9a
+ [<c024aa4f>] sock_def_write_space+0xa8/0xbd
+ [<c024a123>] sock_wfree+0x48/0x4a
+ [<c024afaf>] __kfree_skb+0x49/0xd9
+ [<fa4f40cb>] __aarp_expire+0xcb/0x115 [appletalk]
+ [<fa4f45d9>] __aarp_kick+0x3b/0x6a [appletalk]
+ [<fa4f46be>] aarp_expire_timeout+0x6c/0xd7 [appletalk]
+ [<fa4f4652>] aarp_expire_timeout+0x0/0xd7 [appletalk]
+ [<c012bb6b>] run_timer_softirq+0xed/0x226
+ [<c011d2a0>] scheduler_tick+0xf2/0x3df
+ [<c011c786>] wake_up_process+0x26/0x2a
+ [<c012723f>] do_softirq+0xd3/0xd5
+ [<c0118878>] smp_apic_timer_interrupt+0xd9/0x141
+ [<c0108d59>] default_idle+0x0/0x32
+ [<c010bd36>] apic_timer_interrupt+0x1a/0x20
+ [<c0108d59>] default_idle+0x0/0x32
+ [<c0108d86>] default_idle+0x2d/0x32
+ [<c0108e04>] cpu_idle+0x3a/0x43
+ [<c0105000>] rest_init+0x0/0x80
+ [<c035e872>] start_kernel+0x1a5/0x1ef
+ [<c035e427>] unknown_bootoption+0x0/0xfa
+
+Code: 0f 0b 78 00 a6 fe 2a c0 eb 89 55 89 e5 83 ec 10 c7 44 24 0c 
+ <0>Kernel panic: Fatal exception in interrupt
+In interrupt handler - not syncing
