@@ -1,38 +1,43 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: 2.4.23 and CONFIG_PROC_FS=n
-Date: Sun, 30 Nov 2003 10:58:29 -0800
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031130105829.478e408a.davem@redhat.com>
-References: <Pine.GSO.4.21.0311301949180.23461-100000@waterleaf.sonytel.be>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH][2.6] e100_phy.c uses free'd .text after init
+Date: Sun, 30 Nov 2003 14:08:24 -0500
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <3FCA4028.7050201@pobox.com>
+References: <Pine.LNX.4.58.0311290033120.1674@montezuma.fsmlabs.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-In-Reply-To: <Pine.GSO.4.21.0311301949180.23461-100000@waterleaf.sonytel.be>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: Linux Kernel <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
+To: Zwane Mwaikambo <zwane@arm.linux.org.uk>
+In-Reply-To: <Pine.LNX.4.58.0311290033120.1674@montezuma.fsmlabs.com>
 List-Id: netdev.vger.kernel.org
 
-On Sun, 30 Nov 2003 19:55:48 +0100 (MET)
-Geert Uytterhoeven <geert@linux-m68k.org> wrote:
-
+Zwane Mwaikambo wrote:
+> diff -u -p -B -r1.1.1.1 e100_phy.c
+> --- linux-2.6.0-test11/drivers/net/e100/e100_phy.c	28 Nov 2003 18:03:05 -0000	1.1.1.1
+> +++ linux-2.6.0-test11/drivers/net/e100/e100_phy.c	29 Nov 2003 05:39:53 -0000
+> @@ -132,7 +132,7 @@ e100_mdi_read(struct e100_private *bdp,
+>  	}
+>  }
 > 
-> When compiling 2.4.23 with CONFIG_PROC_FS disabled, I found a few
-> network-related files that don't compile:
->   1. net/atm/br2684.c 
->   2. net/core/pktgen.c
->   3. net/ipv4/netfilter/ipt_recent.c
+> -static unsigned char __devinit
+> +static unsigned char
+>  e100_phy_valid(struct e100_private *bdp, unsigned int phy_address)
+>  {
+>  	u16 ctrl_reg, stat_reg;
+> @@ -150,7 +150,7 @@ e100_phy_valid(struct e100_private *bdp,
+>  	return true;
+>  }
 > 
-> The patch below fixes 1 and 3. Note that 3 still generates a compiler warning
-> (`ip_list_perms' defined but not used).
+> -static void __devinit
+> +static void
+>  e100_phy_address_detect(struct e100_private *bdp)
+>  {
+>  	unsigned int addr;
 
-Thanks Geert, I'll review and probably apply this.
 
-> The packet generator is a bit trickier, since its functionality seems to
-> depend completely on the proc file system.
+I should probably move that patch from net-drivers-2.5-exp to mainline, 
+it sounds like...
 
-Yes, it does, should just add the dependency to the config.
-
-Thanks again.
+	Jeff
