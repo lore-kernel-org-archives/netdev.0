@@ -1,89 +1,152 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: e1000: driver reboot/kexec bug.
-Date: 17 Feb 2005 10:57:47 -0700
-Message-ID: <m1is4rt6g4.fsf@ebiederm.dsl.xmission.com>
-References: <468F3FDA28AA87429AD807992E22D07E044A1285@orsmsx408>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [XFRM]: Always reroute in tunnel mode
+Date: Thu, 17 Feb 2005 19:15:55 +0100
+Message-ID: <4214DF5B.3010608@trash.net>
+References: <4214381F.5020507@trash.net> <20050217113654.GA10346@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: <jgarzik@pobox.com>,
-        "Chilakala, Mallikarjuna" <mallikarjuna.chilakala@intel.com>,
-        <netdev@oss.sgi.com>
-To: "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>
-In-Reply-To: <468F3FDA28AA87429AD807992E22D07E044A1285@orsmsx408>
+Content-Type: multipart/mixed;
+ boundary="------------020808020108000603000808"
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Maillist netdev <netdev@oss.sgi.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050217113654.GA10346@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-"Venkatesan, Ganesh" <ganesh.venkatesan@intel.com> writes:
+This is a multi-part message in MIME format.
+--------------020808020108000603000808
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> Hi Eric:
-> 
-> Could you send us 'lspci -vvv' output for 3:4.0? Could you also help us
-> with some more information on the platform you are using?
+Herbert Xu wrote:
 
-> Please send me 'ethtool -e eth?' for the interface corresponding to one
-> of the 8086:1079 devices.
+>I understand the inconsistency and agree that it should be fixed.
+>However, I think the way you did it has created a new inconsistency.
+>
+>Tunnel mode SAs are not always used to carry subnets.  It can also
+>be used for host-to-host configurations where the aim is to protect
+>the IP header.  Therefore it would be inconsistent to look up a
+>new route for host-to-host tunnel mode SAs.
+>
+>Perhaps we can simply expand the check to include local as well,
+>i.e.,
+>
+>	if (local != fl->fl4_src || remote != fl->fl4_dst) {
+>
+>What do you think?
+>  
+>
 
-The motherboard is an Intel Jarell motherboard with the Lindenhurst
-aka E7520 chipset.  I have seen the same symptoms on a recent
-Supermicro system as well.
+I don't think this solves the inconsistency. By reuseing routes in tunnel
+mode we allow routing by different criteria when the inner packet is headed
+for the remote gateway. Your suggestion limits this a bit further, but we
+can still have a situation where all packets going through a tunnel take
+one path, except when the inner packet is heading for the remote gateway
+itself. I think it is logically correct to reroute all packets in tunnel
+mode, if we want to allow full policy routing for tunnel mode packets we
+should hand tos and fwmark to xfrm_dst_lookup(). I don't think we should
+do this currently because of a different problem. __xfrm4_find_bundle()
+uses a different key than routing for looking up cached bundles. When the
+original route was reused it is used even if fwmark/tos don't match. Fixing
+this is easy, but it causes alot more cached bundles to exist. My last patch
+limits this situation to transport mode because we always choose a new route
+in tunnel mode based only on src/dst. Please see the attached patch for a
+possible fix (ugly and compile tested only). If we want to do this for 
+tunnel
+mode we probably need a hash for the cached bundles first, which has its
+own set of problems.
 
-Do you know enough about kexec to attempt to reproduce this problem
-that way?
-
-Anyway hopefully this is enough to get you started.
-
-Eric
-
-
-03:04.0 Ethernet controller: Intel Corp.: Unknown device 1079 (rev 03)
-	Subsystem: Intel Corp.: Unknown device 1079
-	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr+ Stepping- SERR+ FastB2B-
-	Status: Cap+ 66Mhz+ UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-	Latency: 64 (63750ns min), cache line size 10
-	Interrupt: pin A routed to IRQ 54
-	Region 0: Memory at fe000000 (64-bit, non-prefetchable) [size=128K]
-	Region 4: I/O ports at 1000 [size=64]
-	Capabilities: [dc] Power Management version 2
-		Flags: PMEClk- DSI+ D1- D2- AuxCurrent=0mA PME(D0+,D1-,D2-,D3hot+,D3cold+)
-		Status: D0 PME-Enable- DSel=0 DScale=1 PME-
-	Capabilities: [e4] #07 [0002]
-	Capabilities: [f0] Message Signalled Interrupts: 64bit+ Queue=0/0 Enable-
-		Address: 0000000000000000  Data: 0000
+Regards
+Patrick
 
 
-ethtool -e eth0
-Offset		Values
-------		------
-0x0000		00 02 b3 e8 fa c8 b0 0c ff ff ff ff ff ff ff ff 
-0x0010		00 00 00 00 08 46 1a 34 86 80 79 10 86 80 e8 b2 
-0x0020		0c c3 00 00 00 00 05 01 88 1c ff ff ff ff ff ff 
-0x0030		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
-0x0040		0c c3 21 00 0c 28 05 01 86 0c ff ff ff ff ff ff 
-0x0050		ff ff ff ff ff ff ff ff ff ff ff ff ff ff 02 06 
-0x0060		0c 01 00 40 13 12 ff ff 0c 01 00 40 08 11 ff ff 
-0x0070		ff ff ff ff ff ff ff ff ff ff ff ff ff ff 5e 37 
-0x0080		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
-0x0090		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
-0x00a0		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
-0x00b0		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
-0x00c0		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
-0x00d0		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
-0x00e0		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
-0x00f0		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
-0x0100		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
-0x0110		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
-0x0120		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
-0x0130		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
-0x0140		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
-0x0150		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
-0x0160		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
-0x0170		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
-0x0180		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
-0x0190		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
-0x01a0		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
-0x01b0		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
-0x01c0		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
-0x01d0		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
-0x01e0		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 6f 
-0x01f0		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
+--------------020808020108000603000808
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+===== include/net/xfrm.h 1.76 vs edited =====
+--- 1.76/include/net/xfrm.h	2005-02-15 22:46:16 +01:00
++++ edited/include/net/xfrm.h	2005-02-17 18:57:39 +01:00
+@@ -857,7 +857,7 @@
+ extern void xfrm_policy_flush(void);
+ extern int xfrm_sk_policy_insert(struct sock *sk, int dir, struct xfrm_policy *pol);
+ extern int xfrm_flush_bundles(void);
+-extern int xfrm_bundle_ok(struct xfrm_dst *xdst, struct flowi *fl, int family);
++extern int xfrm_bundle_ok(struct xfrm_dst *xdst, struct flowi *fl, int family, int *is_tunnel);
+ 
+ extern wait_queue_head_t km_waitq;
+ extern int km_new_mapping(struct xfrm_state *x, xfrm_address_t *ipaddr, u16 sport);
+===== net/ipv4/xfrm4_policy.c 1.15 vs edited =====
+--- 1.15/net/ipv4/xfrm4_policy.c	2005-02-17 07:09:55 +01:00
++++ edited/net/ipv4/xfrm4_policy.c	2005-02-17 19:04:45 +01:00
+@@ -26,6 +26,7 @@
+ __xfrm4_find_bundle(struct flowi *fl, struct xfrm_policy *policy)
+ {
+ 	struct dst_entry *dst;
++	int is_tunnel = 0;
+ 
+ 	read_lock_bh(&policy->lock);
+ 	for (dst = policy->bundles; dst; dst = dst->next) {
+@@ -33,7 +34,13 @@
+ 		if (xdst->u.rt.fl.oif == fl->oif &&	/*XXX*/
+ 		    xdst->u.rt.fl.fl4_dst == fl->fl4_dst &&
+ 	    	    xdst->u.rt.fl.fl4_src == fl->fl4_src &&
+-		    xfrm_bundle_ok(xdst, fl, AF_INET)) {
++		    xfrm_bundle_ok(xdst, fl, AF_INET, &is_tunnel) &&
++		    (!is_tunnel || (!(xdst->u.rt.fl.fl4_tos ^ fl->fl4_tos) &
++		                                (IPTOS_RT_MASK|RTO_ONLINK) &&
++#ifdef CONFIG_IP_ROUTE_FWMARK
++		                      xdst->u.rt.fl.fl4_fwmark == fl->fl4_fwmark
++#endif
++		                    ))) {
+ 			dst_clone(dst);
+ 			break;
+ 		}
+===== net/ipv6/xfrm6_policy.c 1.26 vs edited =====
+--- 1.26/net/ipv6/xfrm6_policy.c	2005-02-17 07:09:55 +01:00
++++ edited/net/ipv6/xfrm6_policy.c	2005-02-17 18:59:31 +01:00
+@@ -50,7 +50,7 @@
+ 				 xdst->u.rt6.rt6i_src.plen);
+ 		if (ipv6_addr_equal(&xdst->u.rt6.rt6i_dst.addr, &fl_dst_prefix) &&
+ 		    ipv6_addr_equal(&xdst->u.rt6.rt6i_src.addr, &fl_src_prefix) &&
+-		    xfrm_bundle_ok(xdst, fl, AF_INET6)) {
++		    xfrm_bundle_ok(xdst, fl, AF_INET6, NULL)) {
+ 			dst_clone(dst);
+ 			break;
+ 		}
+===== net/xfrm/xfrm_policy.c 1.66 vs edited =====
+--- 1.66/net/xfrm/xfrm_policy.c	2005-02-16 00:16:04 +01:00
++++ edited/net/xfrm/xfrm_policy.c	2005-02-17 18:59:03 +01:00
+@@ -1021,7 +1021,7 @@
+ 
+ static int stale_bundle(struct dst_entry *dst)
+ {
+-	return !xfrm_bundle_ok((struct xfrm_dst *)dst, NULL, AF_UNSPEC);
++	return !xfrm_bundle_ok((struct xfrm_dst *)dst, NULL, AF_UNSPEC, NULL);
+ }
+ 
+ static void xfrm_dst_destroy(struct dst_entry *dst)
+@@ -1101,7 +1101,7 @@
+  * still valid.
+  */
+ 
+-int xfrm_bundle_ok(struct xfrm_dst *xdst, struct flowi *fl, int family)
++int xfrm_bundle_ok(struct xfrm_dst *xdst, struct flowi *fl, int family, int *is_tunnel)
+ {
+ 	struct dst_entry *dst = &xdst->u.dst;
+ 
+@@ -1114,6 +1114,8 @@
+ 			return 0;
+ 		if (dst->xfrm->km.state != XFRM_STATE_VALID)
+ 			return 0;
++		if (is_tunnel && dst->xfrm->props.mode)
++			*is_tunnel = 1;
+ 		dst = dst->child;
+ 	} while (dst->xfrm);
+ 
+
+--------------020808020108000603000808--
