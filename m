@@ -1,27 +1,32 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: patch for common networking error messages
-Date: Sun, 22 Jun 2003 17:46:41 -0700 (PDT)
+From: James Morris <jmorris@intercode.com.au>
+Subject: Re: [PATCH] [IPV6] clean-up advmss calculation (fwd)
+Date: Mon, 23 Jun 2003 20:26:40 +1000 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030622.174641.74727201.davem@redhat.com>
-References: <OFC2446DB8.6D4DA3ED-ON85256D47.007C79EE@us.ibm.com>
-	<20030616.155533.63022973.davem@redhat.com>
-	<1056199013.25974.27.camel@dhcp22.swansea.linux.org.uk>
+Message-ID: <Mutt.LNX.4.44.0306232011440.2333-100000@excalibur.intercode.com.au>
+References: <Mutt.LNX.4.44.0306230150330.578-100000@excalibur.intercode.com.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: girouard@us.ibm.com, stekloff@us.ibm.com, janiceg@us.ibm.com,
-   jgarzik@pobox.com, kenistonj@us.ibm.com, lkessler@us.ibm.com,
-   linux-kernel@vger.kernel.org, netdev@oss.sgi.com, niv@us.ibm.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com, "David S. Miller" <davem@redhat.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: alan@lxorguk.ukuu.org.uk
-In-Reply-To: <1056199013.25974.27.camel@dhcp22.swansea.linux.org.uk>
+To: =?iso-2022-jp?Q?YOSHIFUJI_Hideaki_=2F_=1B$B5HF#1QL=40=1B=28B?= <yoshfuji@linux-ipv6.org>
+In-Reply-To: <Mutt.LNX.4.44.0306230150330.578-100000@excalibur.intercode.com.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-   Date: 21 Jun 2003 13:36:54 +0100
-   
-   Standardising strings is a real help for end users,
+On Mon, 23 Jun 2003, James Morris wrote:
 
-I agree.  But my objections are in the context of doing this
-inside the kernel, where such things do not belong.
+> This patch introduces ipv6_advmss() and clean-up advmss calculation.
+> Thanks.
+
+I've applied this to a bk tree at:
+bk://kernel.bkbits.net/jmorris/net-2.5
+
+I'll be trialling collecting some of the networking patches here so that
+Dave can pull them into his tree, instead of having to apply every single
+patch which is posted.
+
+
+- James
+-- 
+James Morris
+<jmorris@intercode.com.au>
