@@ -1,101 +1,359 @@
-From: Marco Mellia <mellia@prezzemolo.polito.it>
-Subject: Re: [E1000-devel] Transmission limit
-Date: 02 Dec 2004 18:24:34 +0100
-Message-ID: <1102008274.19646.14.camel@mellia.lipar.polito.it>
-References: <1101467291.24742.70.camel@mellia.lipar.polito.it>
-	 <41A73826.3000109@draigBrady.com>
-	 <1101483081.24742.174.camel@mellia.lipar.polito.it>
-	 <1101498963.1076.39.camel@jzny.localdomain>
-	 <1101738118.14930.142.camel@verza.polito.it>
-	 <1101822364.1044.60.camel@jzny.localdomain>
-Reply-To: mellia@prezzemolo.polito.it
+From: Shaun Jackman <sjackman@gmail.com>
+Subject: Re: Multicast filtering for tun.c [PATCH]
+Date: Thu, 2 Dec 2004 09:28:36 -0800
+Message-ID: <7f45d9390412020928f298944@mail.gmail.com>
+References: <7f45d9390411251715138b35d0@mail.gmail.com>
+	 <20041127011006.03232bb6.akpm@osdl.org>
+	 <7f45d939041201140329d0273f@mail.gmail.com>
+	 <20041201233400.45078efe.akpm@osdl.org>
+Reply-To: Shaun Jackman <sjackman@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: mellia@prezzemolo.polito.it, P@draigBrady.com,
-        e1000-devel@lists.sourceforge.net,
-        Jorge Manuel Finochietto <jorge.finochietto@polito.it>,
-        Giulio Galante <galante@polito.it>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1101822364.1044.60.camel@jzny.localdomain>
+To: netdev@oss.sgi.com
+In-Reply-To: <20041201233400.45078efe.akpm@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> > In our experiments, we modified the kernel to drop packets just after
-> > receiving them. skb are just deallocated (using standerd kernel
-> > routines, i.e., no recycling is used). Logically, that happen when the
-> > netif_rx() is called.
-> > 
-> > Now, we have three cases
-> > 1) just mofify the netif_rx() to drop packets.
-> > 2) as in one, plus remove the protocol check in the driver
-> > (i.e., comment the line
-> >       skb->protocol = eth_type_trans(skb, netdev);
-> > ) to avoid to access the real packet data.
-> > 3) as in 2, but dealloc is performed at the driver level, instead of
-> > calling the netif_rx()
-> > 
-> > In the first case, we can receive about 1.1Mpps (~80% of packets)
+Thanks for your careful review, Andrew. I appreciate your help.
+
+> You're sure this shouldn't be using crc-ccitt?
+
+I used ether_crc because every driver in drivers/net except 
+ppp_async.c does. Either would work as long as the chosen hash
+function is used consistently.
+
+>         del_multi(u32 *filter, const u8 *addr)
 > 
-> Possible. I was able to receive 900Kpps or so in my experiments with
-> gact drop which is slightly above this with a 2.4 Ghz machine with IRQ
-> affinity.
+> would be a more typical layout.
 
-I double checked with the people that actually did the job. They indeed
-tested both cases, i.e., dropping packets either using IRQ (therefore
-using netif_rx()) or using NAPI (therefore using netif_receive_skb()).
+I prefer the asterisk with the rest of the type information, but I
+know the latter is more typical. Fixed.
 
-In both cases, disabling the eth_type_trans() check, we receive 100% of
-packets...
-
-> > In the third case, we can NOT receive 100% of packets!
-> > The only difference is that we actually _REMOVED_ a funcion call. This
-> > reduces the overhead, and the compiler/cpu/whatever can not optimize the
-> > data path to access to the skb which must be freed.
+> > +             const u8 ones[ ETH_ALEN] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 > 
-> It doesnt seem like you were runing NAPI if you depended on calling
-> netif_rx
-> In that case, #3 would be freeing in hard IRQ context while #2 is
-> softIRQ.
-
-Again, it was my mistake. Case #3 was performed using the NAPI stack,
-i.e., freeing up skb instead of calling the netif_receive_skb().
-Doing that, we observed a performance drop, that we hint to some caching
-isses. Indeed, investigating with a Oprofile, in case #3 it registers
-about twice the number of cache miss than in case #2.
-Again, we do not have any plain explanation, but our intuition is that
-adding a function call with  pointer as argument might allow the
-compiler/cpu to prefecth the skb and speed up the memory release...
-
-
-> > Our guess is that by freeing up the skb in the netif_rx() function
-> > actually allows the compiler/cpu to prefetch the skb itself, and
-> > therefore keep the pipeline working...
-> > 
-> > My guess is that if you change compiler, cpu, memory subsystem, you may
-> > get very counterintuitive results...
+> The space after the `[' is gratuitous.
 > 
-> Refer to my comment above.
-> Repeat tests with NAPI and see if you get same results.
+> This array will be allocated onthe stack and populated by hand each time
+> this function is called.   It should be made static.
+> 
+> > +             u8 addr[ ETH_ALEN];
+> 
+> extraneous space.
 
-We were using NAPI. Sorry for the misunderstanding.
-Hope this helps.
+Fixed.
+ 
+> > +             memcpy(addr, skb->data, min(sizeof addr, skb->len));
+> 
+> We normally put parentheses around the argument of the sizeof operator, for
+> no particular reason ;)
+>
+> > +             if (copy_from_user(&ifr, argp, sizeof ifr))
+> 
+> Ditto
+
+I prefer not to add the extraneous punctuation. I find it makes it
+harder to read.
+ 
+> > +     case SIOCGIFFLAGS:
+> > +             ifr.ifr_flags = tun->if_flags;
+> > +             if (copy_to_user( argp, &ifr, sizeof ifr))
+> 
+> extraneous space.
+> 
+> > +             if (copy_to_user( argp, &ifr, sizeof ifr))
+> 
+> ditto
+
+Fixed.
+
+> > +             DBG(KERN_DEBUG "%s: add multi: %x:%x:%x:%x:%x:%x\n",
+> > +                             tun->dev->name,
+> > +                             (u8)ifr.ifr_hwaddr.sa_data[0], (u8)ifr.ifr_hwaddr.sa_data[1],
+> > +                             (u8)ifr.ifr_hwaddr.sa_data[2], (u8)ifr.ifr_hwaddr.sa_data[3],
+> > +                             (u8)ifr.ifr_hwaddr.sa_data[4], (u8)ifr.ifr_hwaddr.sa_data[5]);
+> 
+> Why all the typecasts?
+[clip] 
+> ditto.
+
+sa_data is signed for some reason, which causes the signed byte to be
+sign extended resulting in the mac address being printed as
+0:c:6e:14:ffffffa0:5a, for example.
+
+Here's a short diff of the changes to my patch. The full patch follows.
+
+27c27
+< +add_multi(u32* filter, const u8* addr)
+---
+> +add_multi(u32 *filter, const u8 *addr)
+38c38
+< +del_multi(u32* filter, const u8* addr)
+---
+> +del_multi(u32 *filter, const u8 *addr)
+71,72c71,72
+< +             const u8 ones[ ETH_ALEN] = { 0xff, 0xff, 0xff, 0xff,
+0xff, 0xff };
+< +             u8 addr[ ETH_ALEN];
+---
+> +             static const u8 ones[ETH_ALEN] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+> +             u8 addr[ETH_ALEN];
+137c137
+< +     void __user* argp = (void __user*)arg;
+---
+> +     void __user *argp = (void __user*)arg;
+168c168
+< +             if (copy_to_user( argp, &ifr, sizeof ifr))
+---
+> +             if (copy_to_user(argp, &ifr, sizeof ifr))
+183c183
+< +             if (copy_to_user( argp, &ifr, sizeof ifr))
+---
+> +             if (copy_to_user(argp, &ifr, sizeof ifr))
+
+Cheers,
+Shaun
 
 
+2004-11-25  Shaun Jackman  <sjackman@gmail.com>
 
--- 
-Ciao,                    /\/\/\rco
+	* drivers/net/tun.c: Add multicast filtering for packets
+	travelling from the network device to the character device.
 
-+--+  
-| Marco Mellia - Assistant Professor|
-| Tel: 39-011-2276-608              |
-| Tel: 39-011-564-4173              |
-| Cel: 39-340-9674888               |   /"\  .. . . . . . . . . . . . .
-| Politecnico di Torino             |   \ /  . ASCII Ribbon Campaign  .
-| Corso Duca degli Abruzzi 24       |    X   .- NO HTML/RTF in e-mail .
-| Torino - 10129 - Italy            |   / \  .- NO Word docs in e-mail.
-| http://www1.tlc.polito.it/mellia  |        .. . . . . . . . . . . . .
-+--+
-The box said "Requires Windows 95 or Better." So I installed Linux.
+	* include/linux/if_tun.h (tun_struct): Add interface flags,
+	a hardware device addres, and a multicast filter.
+
+diff -ur linux-2.6.8.1.orig/drivers/net/tun.c linux-2.6.8.1/drivers/net/tun.c
+--- linux-2.6.8.1.orig/drivers/net/tun.c	2004-08-14 03:55:23.000000000 -0700
++++ linux-2.6.8.1/drivers/net/tun.c	2004-11-25 17:00:22.000000000 -0800
+@@ -41,6 +41,7 @@
+ #include <linux/if_arp.h>
+ #include <linux/if_ether.h>
+ #include <linux/if_tun.h>
++#include <linux/crc32.h>
+ 
+ #include <asm/system.h>
+ #include <asm/uaccess.h>
+@@ -104,11 +105,42 @@
+ 	return 0;
+ }
+ 
+-static void tun_net_mclist(struct net_device *dev)
++/** Add the specified Ethernet address to this multicast filter. */
++static void
++add_multi(u32 *filter, const u8 *addr)
+ {
+-	/* Nothing to do for multicast filters. 
+-	 * We always accept all frames. */
+-	return;
++	int bit_nr = ether_crc(ETH_ALEN, addr) >> 26;
++	filter[bit_nr >> 5] |= 1 << (bit_nr & 31);
++}
++
++/** Remove the specified Ethernet addres from this multicast filter. */
++static void
++del_multi(u32 *filter, const u8 *addr)
++{
++	int bit_nr = ether_crc(ETH_ALEN, addr) >> 26;
++	filter[bit_nr >> 5] &= ~(1 << (bit_nr & 31));
++}
++
++/** Update the list of multicast groups to which the network device belongs.
++ * This list is used to filter packets being sent from the character device to
++ * the network device. */
++static void
++tun_net_mclist(struct net_device *dev)
++{
++	struct tun_struct *tun = netdev_priv(dev);
++	const struct dev_mc_list *mclist;
++	int i;
++	DBG(KERN_DEBUG "%s: tun_net_mclist: mc_count %d\n",
++			dev->name, dev->mc_count);
++	memset(tun->chr_filter, 0, sizeof tun->chr_filter);
++	for (i = 0, mclist = dev->mc_list; i < dev->mc_count && mclist != NULL;
++			i++, mclist = mclist->next) {
++		add_multi(tun->net_filter, mclist->dmi_addr);
++		DBG(KERN_DEBUG "%s: tun_net_mclist: %x:%x:%x:%x:%x:%x\n",
++				dev->name,
++				mclist->dmi_addr[0], mclist->dmi_addr[1], mclist->dmi_addr[2],
++				mclist->dmi_addr[3], mclist->dmi_addr[4], mclist->dmi_addr[5]);
++	}
+ }
+ 
+ static struct net_device_stats *tun_net_stats(struct net_device *dev)
+@@ -301,6 +333,10 @@
+ 
+ 	add_wait_queue(&tun->read_wait, &wait);
+ 	while (len) {
++		static const u8 ones[ETH_ALEN] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
++		u8 addr[ETH_ALEN];
++		int bit_nr;
++
+ 		current->state = TASK_INTERRUPTIBLE;
+ 
+ 		/* Read frames from the queue */
+@@ -320,10 +356,37 @@
+ 		}
+ 		netif_start_queue(tun->dev);
+ 
+-		ret = tun_put_user(tun, skb, (struct iovec *) iv, len);
+-
+-		kfree_skb(skb);
+-		break;
++		/** Decide whether to accept this packet. This code is designed to
++		 * behave identically to an Ethernet interface. Accept the packet if
++		 * - we are promiscuous.
++		 * - the packet is addressed to us.
++		 * - the packet is broadcast.
++		 * - the packet is multicast and
++		 *   - we are multicast promiscous.
++		 *   - we belong to the multicast group.
++		 */
++		memcpy(addr, skb->data, min(sizeof addr, skb->len));
++		bit_nr = ether_crc(sizeof addr, addr) >> 26;
++		if ((tun->if_flags & IFF_PROMISC) ||
++				memcmp(addr, tun->dev_addr, sizeof addr) == 0 ||
++				memcmp(addr, ones, sizeof addr) == 0 ||
++				(((addr[0] == 1 && addr[1] == 0 && addr[2] == 0x5e) ||
++				  (addr[0] == 0x33 && addr[1] == 0x33)) &&
++				 ((tun->if_flags & IFF_ALLMULTI) ||
++				  (tun->chr_filter[bit_nr >> 5] & (1 << (bit_nr & 31)))))) {
++			DBG(KERN_DEBUG "%s: tun_chr_readv: accepted: %x:%x:%x:%x:%x:%x\n",
++					tun->dev->name, addr[0], addr[1], addr[2],
++					addr[3], addr[4], addr[5]);
++			ret = tun_put_user(tun, skb, (struct iovec *) iv, len);
++			kfree_skb(skb);
++			break;
++		} else {
++			DBG(KERN_DEBUG "%s: tun_chr_readv: rejected: %x:%x:%x:%x:%x:%x\n",
++					tun->dev->name, addr[0], addr[1], addr[2],
++					addr[3], addr[4], addr[5]);
++			kfree_skb(skb);
++			continue;
++		}
+ 	}
+ 
+ 	current->state = TASK_RUNNING;
+@@ -417,6 +480,12 @@
+ 		tun = netdev_priv(dev);
+ 		tun->dev = dev;
+ 		tun->flags = flags;
++		/* Be promiscuous by default to maintain previous behaviour. */
++		tun->if_flags = IFF_PROMISC;
++		/* Generate random Ethernet address. */
++		*(u16 *)tun->dev_addr = htons(0x00FF);
++		get_random_bytes(tun->dev_addr + sizeof(u16), 4);
++		memset(tun->chr_filter, 0, sizeof tun->chr_filter);
+ 
+ 		tun_net_init(dev);
+ 
+@@ -457,13 +526,16 @@
+ 			 unsigned int cmd, unsigned long arg)
+ {
+ 	struct tun_struct *tun = file->private_data;
++	void __user *argp = (void __user*)arg;
++	struct ifreq ifr;
++
++	if (cmd == TUNSETIFF || _IOC_TYPE(cmd) == 0x89)
++		if (copy_from_user(&ifr, argp, sizeof ifr))
++			return -EFAULT;
+ 
+ 	if (cmd == TUNSETIFF && !tun) {
+-		struct ifreq ifr;
+ 		int err;
+ 
+-		if (copy_from_user(&ifr, (void __user *)arg, sizeof(ifr)))
+-			return -EFAULT;
+ 		ifr.ifr_name[IFNAMSIZ-1] = '\0';
+ 
+ 		rtnl_lock();
+@@ -473,7 +545,7 @@
+ 		if (err)
+ 			return err;
+ 
+-		if (copy_to_user((void __user *)arg, &ifr, sizeof(ifr)))
++		if (copy_to_user(argp, &ifr, sizeof(ifr)))
+ 			return -EFAULT;
+ 		return 0;
+ 	}
+@@ -519,6 +591,61 @@
+ 		break;
+ #endif
+ 
++	case SIOCGIFFLAGS:
++		ifr.ifr_flags = tun->if_flags;
++		if (copy_to_user(argp, &ifr, sizeof ifr))
++			return -EFAULT;
++		return 0;
++	
++	case SIOCSIFFLAGS:
++		/** Set the character device's interface flags. Currently only
++		 * IFF_PROMISC and IFF_ALLMULTI are used. */
++		tun->if_flags = ifr.ifr_flags;
++		DBG(KERN_INFO "%s: interface flags 0x%lx\n",
++				tun->dev->name, tun->if_flags);
++		return 0;
++	
++	case SIOCGIFHWADDR:
++		memcpy(ifr.ifr_hwaddr.sa_data, tun->dev_addr,
++				min(sizeof ifr.ifr_hwaddr.sa_data, sizeof tun->dev_addr));
++		if (copy_to_user(argp, &ifr, sizeof ifr))
++			return -EFAULT;
++		return 0;
++	
++	case SIOCSIFHWADDR:
++		/** Set the character device's hardware address. This is used when
++		 * filtering packets being sent from the network device to the character
++		 * device. */
++		memcpy(tun->dev_addr, ifr.ifr_hwaddr.sa_data,
++				min(sizeof ifr.ifr_hwaddr.sa_data, sizeof tun->dev_addr));
++		DBG(KERN_DEBUG "%s: set hardware address: %x:%x:%x:%x:%x:%x\n",
++				tun->dev->name,
++				tun->dev_addr[0], tun->dev_addr[1], tun->dev_addr[2],
++				tun->dev_addr[3], tun->dev_addr[4], tun->dev_addr[5]);
++		return 0;
++	
++	case SIOCADDMULTI:
++		/** Add the specified group to the character device's multicast filter
++		 * list. */
++		add_multi(tun->chr_filter, ifr.ifr_hwaddr.sa_data);
++		DBG(KERN_DEBUG "%s: add multi: %x:%x:%x:%x:%x:%x\n",
++				tun->dev->name,
++				(u8)ifr.ifr_hwaddr.sa_data[0], (u8)ifr.ifr_hwaddr.sa_data[1],
++				(u8)ifr.ifr_hwaddr.sa_data[2], (u8)ifr.ifr_hwaddr.sa_data[3],
++				(u8)ifr.ifr_hwaddr.sa_data[4], (u8)ifr.ifr_hwaddr.sa_data[5]);
++		return 0;
++	
++	case SIOCDELMULTI:
++		/** Remove the specified group from the character device's multicast
++		 * filter list. */
++		del_multi(tun->chr_filter, ifr.ifr_hwaddr.sa_data);
++		DBG(KERN_DEBUG "%s: del multi: %x:%x:%x:%x:%x:%x\n",
++				tun->dev->name,
++				(u8)ifr.ifr_hwaddr.sa_data[0], (u8)ifr.ifr_hwaddr.sa_data[1],
++				(u8)ifr.ifr_hwaddr.sa_data[2], (u8)ifr.ifr_hwaddr.sa_data[3],
++				(u8)ifr.ifr_hwaddr.sa_data[4], (u8)ifr.ifr_hwaddr.sa_data[5]);
++		return 0;
++
+ 	default:
+ 		return -EINVAL;
+ 	};
+diff -ur linux-2.6.8.1.orig/include/linux/if_tun.h
+linux-2.6.8.1/include/linux/if_tun.h
+--- linux-2.6.8.1.orig/include/linux/if_tun.h	2004-08-14
+03:55:09.000000000 -0700
++++ linux-2.6.8.1/include/linux/if_tun.h	2004-11-25 16:47:31.000000000 -0800
+@@ -45,6 +45,11 @@
+ 
+ 	struct fasync_struct    *fasync;
+ 
++	unsigned long if_flags;
++	u8 dev_addr[ETH_ALEN];
++	u32 chr_filter[2];
++	u32 net_filter[2];
++
+ #ifdef TUN_DEBUG	
+ 	int debug;
+ #endif
