@@ -1,36 +1,59 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] allow setting mtu and txqlen via RTM_SETLINK and provide txqlen via RTM_GETLINK
-Date: Tue, 24 Aug 2004 20:16:55 +1000
+From: Russell King <rmk+lkml@arm.linux.org.uk>
+Subject: [PATCH] 2.6.9-rc1 compile fix: ip_conntrack_proto_udp.c / ip_conntrack_proto_icmp.c
+Date: Tue, 24 Aug 2004 11:27:44 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <E1BzYMJ-000208-00@gondolin.me.apana.org.au>
-References: <20040824094952.GF21073@postel.suug.ch>
-Cc: herbert@gondor.apana.org.au, davem@redhat.com, kuznet@ms2.inr.ac.ru,
-        hadi@cyberus.ca, netdev@oss.sgi.com
+Message-ID: <20040824112744.B23041@flint.arm.linux.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: tgraf@suug.ch (Thomas Graf)
-In-Reply-To: <20040824094952.GF21073@postel.suug.ch>
+To: Linux Kernel List <linux-kernel@vger.kernel.org>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Thomas Graf <tgraf@suug.ch> wrote:
-> * Herbert Xu <E1BzR1C-0000c4-00@gondolin.me.apana.org.au> 2004-08-24 12:26
->> Thomas Graf <tgraf@suug.ch> wrote:
->> >
->> > +       RTA_PUT(skb, IFLA_TXQLEN, sizeof(unsigned long), &dev->tx_queue_len);
->> 
->> Please use a fixed width type like u32.
-> 
-> I used the same type as it is stored in struct net_device to avoid data
-> loss on certain architectures. Due to the fact that the size of the
-> attribute is provided to the userspace receiver, no guessing is involved.
-> Using u32 would mean to do an unnecessary cast.
+These seem to suffer from the same problem that ip_conntrack_proto_tcp.c
+does (see Felipe Alfaro Solana recent mail on lkml.)
 
-Please think about the meaning of the value.  Is anyone going to have a queue
-bigger than 2^32?
+net/ipv4/netfilter/ip_conntrack_proto_udp.c: In function `udp_error':
+net/ipv4/netfilter/ip_conntrack_proto_udp.c:120: error: `NF_IP_PRE_ROUTING' undeclared (first use in this function)
+net/ipv4/netfilter/ip_conntrack_proto_udp.c:120: error: (Each undeclared identifier is reported only once
+net/ipv4/netfilter/ip_conntrack_proto_udp.c:120: error: for each function it appears in.)
 
-And if the answer is yes, then please use u64.
+and:
+
+net/ipv4/netfilter/ip_conntrack_proto_icmp.c: In function `icmp_error_message':
+net/ipv4/netfilter/ip_conntrack_proto_icmp.c:180: error: `NF_IP_LOCAL_OUT' undeclared (first use in this function)
+net/ipv4/netfilter/ip_conntrack_proto_icmp.c:180: error: (Each undeclared identifier is reported only once
+net/ipv4/netfilter/ip_conntrack_proto_icmp.c:180: error: for each function it appears in.)
+net/ipv4/netfilter/ip_conntrack_proto_icmp.c: In function `icmp_error':
+net/ipv4/netfilter/ip_conntrack_proto_icmp.c:216: error: `NF_IP_PRE_ROUTING' undeclared (first use in this function)
+
+diff -up -x BitKeeper -x ChangeSet -x SCCS -x _xlk -x *.orig -x *.rej orig/net/ipv4/netfilter/ip_conntrack_proto_udp.c linux/net/ipv4/netfilter/ip_conntrack_proto_udp.c
+--- orig/net/ipv4/netfilter/ip_conntrack_proto_udp.c	Tue Aug 24 09:57:21 2004
++++ linux/net/ipv4/netfilter/ip_conntrack_proto_udp.c	Tue Aug 24 11:22:48 2004
+@@ -14,6 +14,7 @@
+ #include <linux/udp.h>
+ #include <net/checksum.h>
+ #include <linux/netfilter.h>
++#include <linux/netfilter_ipv4.h>
+ #include <linux/netfilter_ipv4/ip_conntrack_protocol.h>
+ 
+ unsigned long ip_ct_udp_timeout = 30*HZ;
+diff -up -x BitKeeper -x ChangeSet -x SCCS -x _xlk -x *.orig -x *.rej orig/net/ipv4/netfilter/ip_conntrack_proto_icmp.c linux/net/ipv4/netfilter/ip_conntrack_proto_icmp.c
+--- orig/net/ipv4/netfilter/ip_conntrack_proto_icmp.c	Tue Aug 24 09:57:21 2004
++++ linux/net/ipv4/netfilter/ip_conntrack_proto_icmp.c	Tue Aug 24 11:24:27 2004
+@@ -15,6 +15,7 @@
+ #include <net/ip.h>
+ #include <net/checksum.h>
+ #include <linux/netfilter.h>
++#include <linux/netfilter_ipv4.h>
+ #include <linux/netfilter_ipv4/ip_conntrack.h>
+ #include <linux/netfilter_ipv4/ip_conntrack_core.h>
+ #include <linux/netfilter_ipv4/ip_conntrack_protocol.h>
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Russell King
+ Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
+ maintainer of:  2.6 PCMCIA      - http://pcmcia.arm.linux.org.uk/
+                 2.6 Serial core
