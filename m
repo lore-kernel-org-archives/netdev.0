@@ -1,273 +1,254 @@
-From: Shmulik Hen <shmulik.hen@intel.com>
-Subject: Re: [PATCH 10/10] [bonding 2.6] Fix ipx_hdr compile error
-Date: Sun, 21 Sep 2003 14:03:26 +0300
+From: Vinay K Nallamothu <vinay.nallamothu@gsecone.com>
+Subject: [PATCH 2.6.0-test5][NETROM] timer code cleanup
+Date: Sun, 21 Sep 2003 17:32:19 +0530
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200309211403.26831.shmulik.hen@intel.com>
-References: <E791C176A6139242A988ABA8B3D9B38A02A464E2@hasmsx403.iil.intel.com>
-Reply-To: shmulik.hen@intel.com
+Message-ID: <1064145739.4349.28.camel@lima.royalchallenge.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: <bonding-devel@lists.sourceforge.net>, <netdev@oss.sgi.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Jeff Garzik" <jgarzik@pobox.com>, "Noam, Amir" <amir.noam@intel.com>
-In-Reply-To: <E791C176A6139242A988ABA8B3D9B38A02A464E2@hasmsx403.iil.intel.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Saturday 20 September 2003 09:18 pm, Jeff Garzik wrote:
-> All patches in this series applied except patch2.
->
->
-> patch2 looks OK, but did not apply cleanly.  I suspect that Shmulik
-> Hen's forward somehow garbled the patch.
->
->
-> Please resend patch2 (again).
->
->
->         Jeff
+Compiles fine. Untested.
+
+1. move timer initialization into nr_init_timers so that we can use mod_timer
+2. remove skb queue purge in af_netrom as its already done by nr_clear_queues
+3. Use del_timer_sync in nr_loopback_clear
 
 
-Damn non-unix mailer can't do anything right :(
-Amir is out till Tuesday, so here it is once again, hope this
-time there are no problems.
 
--- 
-| Shmulik Hen   Advanced Network Services  |
-| Israel Design Center, Jerusalem          |
-| LAN Access Division, Platform Networking |
-| Intel Communications Group, Intel corp.  |
+ af_netrom.c   |   18 +++-------------
+ nr_loopback.c |   31 +++++++----------------------
+ nr_timer.c    |   62 ++++++++++++++++++++++++++--------------------------------
+ 3 files changed, 40 insertions(+), 71 deletions(-)
 
-diff -Nuarp a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
---- a/drivers/net/bonding/bond_main.c	Thu Sep 11 16:48:14 2003
-+++ b/drivers/net/bonding/bond_main.c	Thu Sep 11 16:48:15 2003
-@@ -2191,8 +2191,9 @@ out:
- static void bond_mii_monitor(struct net_device *master)
+
+diff -urN linux-2.6.0-test5/net/netrom/af_netrom.c linux-2.6.0-test5-nvk/net/netrom/af_netrom.c
+--- linux-2.6.0-test5/net/netrom/af_netrom.c	2003-09-09 11:12:08.000000000 +0530
++++ linux-2.6.0-test5-nvk/net/netrom/af_netrom.c	2003-09-21 16:36:12.000000000 +0530
+@@ -62,6 +62,7 @@
+ static spinlock_t nr_list_lock = SPIN_LOCK_UNLOCKED;
+ 
+ static struct proto_ops nr_proto_ops;
++void nr_init_timers(struct sock *sk);
+ 
+ static struct sock *nr_alloc_sock(void)
  {
- 	bonding_t *bond = (struct bonding *) master->priv;
--	slave_t *slave, *bestslave, *oldcurrent;
-+	slave_t *slave, *oldcurrent;
- 	int slave_died = 0;
-+	int do_failover = 0;
+@@ -279,17 +280,12 @@
  
- 	read_lock(&bond->lock);
+ 		kfree_skb(skb);
+ 	}
+-	while ((skb = skb_dequeue(&sk->sk_write_queue)) != NULL) {
+-		kfree_skb(skb);
+-	}
  
-@@ -2202,7 +2203,6 @@ static void bond_mii_monitor(struct net_
- 	 * program could monitor the link itself if needed.
- 	 */
+ 	if (atomic_read(&sk->sk_wmem_alloc) ||
+ 	    atomic_read(&sk->sk_rmem_alloc)) {
+ 		/* Defer: outstanding buffers */
+-		init_timer(&sk->sk_timer);
+-		sk->sk_timer.expires  = jiffies + 2 * HZ;
+ 		sk->sk_timer.function = nr_destroy_timer;
+-		sk->sk_timer.data     = (unsigned long)sk;
++		sk->sk_timer.expires  = jiffies + 2 * HZ;
+ 		add_timer(&sk->sk_timer);
+ 	} else
+ 		sock_put(sk);
+@@ -442,10 +438,7 @@
+ 	skb_queue_head_init(&nr->reseq_queue);
+ 	skb_queue_head_init(&nr->frag_queue);
  
--	bestslave = NULL;
- 	slave = (slave_t *)bond;
+-	init_timer(&nr->t1timer);
+-	init_timer(&nr->t2timer);
+-	init_timer(&nr->t4timer);
+-	init_timer(&nr->idletimer);
++	nr_init_timers(sk);
  
- 	read_lock(&bond->ptrlock);
-@@ -2210,8 +2210,6 @@ static void bond_mii_monitor(struct net_
- 	read_unlock(&bond->ptrlock);
+ 	nr->t1     = sysctl_netrom_transport_timeout;
+ 	nr->t2     = sysctl_netrom_transport_acknowledge_delay;
+@@ -491,10 +484,7 @@
+ 	skb_queue_head_init(&nr->reseq_queue);
+ 	skb_queue_head_init(&nr->frag_queue);
  
- 	while ((slave = slave->prev) != (slave_t *)bond) {
--		/* use updelay+1 to match an UP slave even when updelay is 0 */
--		int mindelay = updelay + 1;
- 		struct net_device *dev = slave->dev;
- 		int link_state;
- 		u16 old_speed = slave->speed;
-@@ -2222,14 +2220,7 @@ static void bond_mii_monitor(struct net_
- 		switch (slave->link) {
- 		case BOND_LINK_UP:	/* the link was up */
- 			if (link_state == BMSR_LSTATUS) {
--				/* link stays up, tell that this one
--				   is immediately available */
--				if (IS_UP(dev) && (mindelay > -2)) {
--					/* -2 is the best case :
--					   this slave was already up */
--					mindelay = -2;
--					bestslave = slave;
--				}
-+				/* link stays up, nothing more to do */
- 				break;
- 			}
- 			else { /* link going down */
-@@ -2269,6 +2260,7 @@ static void bond_mii_monitor(struct net_
- 					    (bond_mode == BOND_MODE_8023AD)) {
- 						bond_set_slave_inactive_flags(slave);
- 					}
-+
- 					printk(KERN_INFO
- 						"%s: link status definitely down "
- 						"for interface %s, disabling it",
-@@ -2285,12 +2277,10 @@ static void bond_mii_monitor(struct net_
- 						bond_alb_handle_link_change(bond, slave, BOND_LINK_DOWN);
- 					}
+-	init_timer(&nr->t1timer);
+-	init_timer(&nr->t2timer);
+-	init_timer(&nr->t4timer);
+-	init_timer(&nr->idletimer);
++	nr_init_timers(sk);
  
--					write_lock(&bond->ptrlock);
--					if (slave == bond->current_slave) {
--						/* find a new interface and be verbose */
--						reselect_active_interface(bond);
-+					if (slave == oldcurrent) {
-+						do_failover = 1;
- 					}
--					write_unlock(&bond->ptrlock);
-+
- 					slave_died = 1;
- 				} else {
- 					slave->delay--;
-@@ -2305,13 +2295,6 @@ static void bond_mii_monitor(struct net_
- 					master->name,
- 					(downdelay - slave->delay) * miimon,
- 					dev->name);
+ 	onr = nr_sk(osk);
+ 
+diff -urN linux-2.6.0-test5/net/netrom/nr_loopback.c linux-2.6.0-test5-nvk/net/netrom/nr_loopback.c
+--- linux-2.6.0-test5/net/netrom/nr_loopback.c	2003-09-09 11:12:08.000000000 +0530
++++ linux-2.6.0-test5-nvk/net/netrom/nr_loopback.c	2003-09-21 13:36:05.000000000 +0530
+@@ -14,19 +14,17 @@
+ #include <net/netrom.h>
+ #include <linux/init.h>
+ 
+-static struct sk_buff_head loopback_queue;
+-static struct timer_list loopback_timer;
++static void nr_loopback_timer(unsigned long);
+ 
+-static void nr_set_loopback_timer(void);
++static struct sk_buff_head loopback_queue;
++static struct timer_list loopback_timer = TIMER_INITIALIZER(nr_loopback_timer, 0, 0);
+ 
+-void nr_loopback_init(void)
++void __init nr_loopback_init(void)
+ {
+ 	skb_queue_head_init(&loopback_queue);
 -
--				if (IS_UP(dev) && (mindelay > -1)) {
--					/* -1 is a good case : this slave went
--					   down only for a short time */
--					mindelay = -1;
--					bestslave = slave;
--				}
- 			}
- 			break;
- 		case BOND_LINK_DOWN:	/* the link was down */
-@@ -2381,26 +2364,12 @@ static void bond_mii_monitor(struct net_
- 						bond_alb_handle_link_change(bond, slave, BOND_LINK_UP);
- 					}
+-	init_timer(&loopback_timer);
+ }
  
--					write_lock(&bond->ptrlock);
--					if ( (bond->primary_slave != NULL)
--					  && (slave == bond->primary_slave) )
--						reselect_active_interface(bond); 
--					write_unlock(&bond->ptrlock);
--				}
--				else
-+					if ((oldcurrent == NULL) ||
-+					    (slave == bond->primary_slave)) {
-+						do_failover = 1;
-+					}
-+				} else {
- 					slave->delay--;
--
--				/* we'll also look for the mostly eligible slave */
--				if (bond->primary_slave == NULL)  {
--				    if (IS_UP(dev) && (slave->delay < mindelay)) {
--					mindelay = slave->delay;
--					bestslave = slave;
--				    } 
--				} else if ( (IS_UP(bond->primary_slave->dev))  || 
--				          ( (!IS_UP(bond->primary_slave->dev))  && 
--				          (IS_UP(dev) && (slave->delay < mindelay)) ) ) {
--					mindelay = slave->delay;
--					bestslave = slave;
- 				}
- 			}
- 			break;
-@@ -2419,26 +2388,17 @@ static void bond_mii_monitor(struct net_
+-static int nr_loopback_running(void)
++static inline int nr_loopback_running(void)
+ {
+ 	return timer_pending(&loopback_timer);
+ }
+@@ -42,26 +40,13 @@
+ 		skb_queue_tail(&loopback_queue, skbn);
  
- 	} /* end of while */
- 
--	/* 
--	 * if there's no active interface and we discovered that one
--	 * of the slaves could be activated earlier, so we do it.
--	 */
--	read_lock(&bond->ptrlock);
--	oldcurrent = bond->current_slave;
--	read_unlock(&bond->ptrlock);
-+	if (do_failover) {
-+		write_lock(&bond->ptrlock);
- 
--	/* no active interface at the moment or need to bring up the primary */
--	if (oldcurrent == NULL)  { /* no active interface at the moment */
--		if (bestslave != NULL) { /* last chance to find one ? */
--			write_lock(&bond->ptrlock);
--			change_active_interface(bond, bestslave);
--			write_unlock(&bond->ptrlock);
--		} else if (slave_died) {
--			/* print this message only once a slave has just died */
-+		reselect_active_interface(bond);
-+		if (oldcurrent && !bond->current_slave) {
- 			printk(KERN_INFO
- 				"%s: now running without any active interface !\n",
- 				master->name);
- 		}
-+
-+		write_unlock(&bond->ptrlock);
+ 		if (!nr_loopback_running())
+-			nr_set_loopback_timer();
++			mod_timer(&loopback_timer, jiffies + 10);
  	}
  
- 	read_unlock(&bond->lock);
-@@ -2456,9 +2416,10 @@ static void bond_mii_monitor(struct net_
- static void loadbalance_arp_monitor(struct net_device *master)
+ 	kfree_skb(skb);
+ 	return 1;
+ }
+ 
+-static void nr_loopback_timer(unsigned long);
+-
+-static void nr_set_loopback_timer(void)
+-{
+-	del_timer(&loopback_timer);
+-
+-	loopback_timer.data     = 0;
+-	loopback_timer.function = &nr_loopback_timer;
+-	loopback_timer.expires  = jiffies + 10;
+-
+-	add_timer(&loopback_timer);
+-}
+-
+ static void nr_loopback_timer(unsigned long param)
  {
- 	bonding_t *bond;
--	slave_t *slave;
-+	slave_t *slave, *oldcurrent;
- 	int the_delta_in_ticks =  arp_interval * HZ / 1000;
- 	int next_timer = jiffies + (arp_interval * HZ / 1000);
-+	int do_failover = 0;
+ 	struct sk_buff *skb;
+@@ -80,12 +65,12 @@
+ 			dev_put(dev);
  
- 	bond = (struct bonding *) master->priv; 
- 	if (master->priv == NULL) {
-@@ -2482,6 +2443,10 @@ static void loadbalance_arp_monitor(stru
- 
- 	read_lock(&bond->lock);
- 
-+	read_lock(&bond->ptrlock);
-+	oldcurrent = bond->current_slave;
-+	read_unlock(&bond->ptrlock);
-+
- 	/* see if any of the previous devices are up now (i.e. they have
- 	 * xmt and rcv traffic). the current_slave does not come into
- 	 * the picture unless it is null. also, slave->jiffies is not needed
-@@ -2508,21 +2473,19 @@ static void loadbalance_arp_monitor(stru
- 				 * current_slave being null after enslaving
- 				 * is closed.
- 				 */
--				write_lock(&bond->ptrlock);
--				if (bond->current_slave == NULL) {
-+				if (oldcurrent == NULL) {
- 					printk(KERN_INFO
- 						"%s: link status definitely up "
- 						"for interface %s, ",
- 						master->name,
- 						slave->dev->name);
--					reselect_active_interface(bond); 
-+					do_failover = 1;
- 				} else {
- 					printk(KERN_INFO
- 						"%s: interface %s is now up\n",
- 						master->name,
- 						slave->dev->name);
- 				}
--				write_unlock(&bond->ptrlock);
- 			} 
- 		} else {
- 			/* slave->link == BOND_LINK_UP */
-@@ -2545,11 +2508,9 @@ static void loadbalance_arp_monitor(stru
- 				       master->name,
- 				       slave->dev->name);
- 
--				write_lock(&bond->ptrlock);
--				if (slave == bond->current_slave) {
--					reselect_active_interface(bond);
-+				if (slave == oldcurrent) {
-+					do_failover = 1;
- 				}
--				write_unlock(&bond->ptrlock);
- 			}
- 		} 
- 
-@@ -2563,6 +2524,19 @@ static void loadbalance_arp_monitor(stru
- 		if (IS_UP(slave->dev)) {
- 			arp_send_all(slave);
- 		}
-+	}
-+
-+	if (do_failover) {
-+		write_lock(&bond->ptrlock);
-+
-+		reselect_active_interface(bond);
-+		if (oldcurrent && !bond->current_slave) {
-+			printk(KERN_INFO
-+				"%s: now running without any active interface !\n",
-+				master->name);
-+		}
-+
-+		write_unlock(&bond->ptrlock);
+ 		if (!skb_queue_empty(&loopback_queue) && !nr_loopback_running())
+-			nr_set_loopback_timer();
++			mod_timer(&loopback_timer, jiffies + 10);
  	}
+ }
  
- 	read_unlock(&bond->lock);
+ void __exit nr_loopback_clear(void)
+ {
+-	del_timer(&loopback_timer);
++	del_timer_sync(&loopback_timer);
+ 	skb_queue_purge(&loopback_queue);
+ }
+diff -urN linux-2.6.0-test5/net/netrom/nr_timer.c linux-2.6.0-test5-nvk/net/netrom/nr_timer.c
+--- linux-2.6.0-test5/net/netrom/nr_timer.c	2003-09-09 11:12:08.000000000 +0530
++++ linux-2.6.0-test5-nvk/net/netrom/nr_timer.c	2003-09-21 15:23:46.000000000 +0530
+@@ -36,69 +36,63 @@
+ static void nr_t4timer_expiry(unsigned long);
+ static void nr_idletimer_expiry(unsigned long);
+ 
+-void nr_start_t1timer(struct sock *sk)
++void nr_init_timers(struct sock *sk)
+ {
+ 	nr_cb *nr = nr_sk(sk);
+ 
+-	del_timer(&nr->t1timer);
+-
++	init_timer(&nr->t1timer);
+ 	nr->t1timer.data     = (unsigned long)sk;
+ 	nr->t1timer.function = &nr_t1timer_expiry;
+-	nr->t1timer.expires  = jiffies + nr->t1;
++	
++	init_timer(&nr->t2timer);
++	nr->t2timer.data     = (unsigned long)sk;
++	nr->t2timer.function = &nr_t2timer_expiry;
++
++	init_timer(&nr->t4timer);
++	nr->t4timer.data     = (unsigned long)sk;
++	nr->t4timer.function = &nr_t4timer_expiry;
++
++	init_timer(&nr->idletimer);
++	nr->idletimer.data     = (unsigned long)sk;
++	nr->idletimer.function = &nr_idletimer_expiry;
+ 
+-	add_timer(&nr->t1timer);
++	/* initialized by sock_init_data */
++	sk->sk_timer.data     = (unsigned long)sk;
++	sk->sk_timer.function = &nr_heartbeat_expiry;
+ }
+ 
+-void nr_start_t2timer(struct sock *sk)
++void nr_start_t1timer(struct sock *sk)
+ {
+ 	nr_cb *nr = nr_sk(sk);
+ 
+-	del_timer(&nr->t2timer);
++	mod_timer(&nr->t1timer, jiffies + nr->t1);
++}
+ 
+-	nr->t2timer.data     = (unsigned long)sk;
+-	nr->t2timer.function = &nr_t2timer_expiry;
+-	nr->t2timer.expires  = jiffies + nr->t2;
++void nr_start_t2timer(struct sock *sk)
++{
++	nr_cb *nr = nr_sk(sk);
+ 
+-	add_timer(&nr->t2timer);
++	mod_timer(&nr->t2timer, jiffies + nr->t2);
+ }
+ 
+ void nr_start_t4timer(struct sock *sk)
+ {
+ 	nr_cb *nr = nr_sk(sk);
+ 
+-	del_timer(&nr->t4timer);
+-
+-	nr->t4timer.data     = (unsigned long)sk;
+-	nr->t4timer.function = &nr_t4timer_expiry;
+-	nr->t4timer.expires  = jiffies + nr->t4;
+-
+-	add_timer(&nr->t4timer);
++	mod_timer(&nr->t4timer, jiffies + nr->t4);
+ }
+ 
+ void nr_start_idletimer(struct sock *sk)
+ {
+ 	nr_cb *nr = nr_sk(sk);
+ 
+-	del_timer(&nr->idletimer);
+-
+-	if (nr->idle > 0) {
+-		nr->idletimer.data     = (unsigned long)sk;
+-		nr->idletimer.function = &nr_idletimer_expiry;
+-		nr->idletimer.expires  = jiffies + nr->idle;
+-
+-		add_timer(&nr->idletimer);
+-	}
++	if (nr->idle > 0)
++		mod_timer(&nr->idletimer, jiffies + nr->idle);
+ }
+ 
+ void nr_start_heartbeat(struct sock *sk)
+ {
+-	del_timer(&sk->sk_timer);
+-
+-	sk->sk_timer.data     = (unsigned long)sk;
+-	sk->sk_timer.function = &nr_heartbeat_expiry;
+-	sk->sk_timer.expires  = jiffies + 5 * HZ;
+-
+-	add_timer(&sk->sk_timer);
++	mod_timer(&sk->sk_timer, jiffies + 5 * HZ);
+ }
+ 
+ void nr_stop_t1timer(struct sock *sk)
