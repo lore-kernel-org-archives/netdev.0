@@ -1,53 +1,27 @@
-From: "Mr. James W. Laferriere" <babydr@baby-dragons.com>
-Subject: Re: netlink tester program
-Date: Mon, 9 Jun 2003 10:37:01 -0400 (EDT)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: ipv6 tunnel patch
+Date: Mon, 09 Jun 2003 07:55:34 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.56.0306091033130.6485@filesrv1.baby-dragons.com>
-References: <20030603075742.34434.qmail@web14305.mail.yahoo.com>
- <20030608212033.Y33230@shell.cyberus.ca>
+Message-ID: <20030609.075534.124074402.davem@redhat.com>
+References: <20030607.033059.48393210.davem@redhat.com>
+	<Pine.LNX.4.44.0306091422430.13811-200000@rhea.tcs.hut.fi>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Linux networking maillist <linux-net@vger.kernel.org>, netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org, netdev@oss.sgi.com,
+   ajtuomin@morphine.tml.hut.fi, lpetande@morphine.tml.hut.fi,
+   jagana@us.ibm.com, kumarkr@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jamal Hadi <hadi@shell.cyberus.ca>
-In-Reply-To: <20030608212033.Y33230@shell.cyberus.ca>
+To: vnuorval@tcs.hut.fi
+In-Reply-To: <Pine.LNX.4.44.0306091422430.13811-200000@rhea.tcs.hut.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-	Hello Jamal ,  Is there a time frame to update the draft ?
-	Many people do not see these lists .  Yours & Mr. Haas's work is
-	only viewable to these thru the ietf draft/rfc/... process .
-	Rather narrow veiw but necessary at times .  Tia ,  JimL
+   From: Ville Nuorvala <vnuorval@tcs.hut.fi>
+   Date: Mon, 9 Jun 2003 14:43:11 +0300 (EEST)
 
-On Sun, 8 Jun 2003, Jamal Hadi wrote:
-...snip...
-> apologies, I actually have a unrelated daytime job that tends to keep me
-> too occupied at times ;->
->
-> Netlink2 draft is work in progress. The draft tends to lag reality.
-> I believe what you refer to has been fixed. Refer to the slides at:
-> http://www.zurich.ibm.com/~rha/netlink2.pdf
->
-> > BTW, is netlink2 support planned for linux in the near
-> > future?
->
-> You will see code from us that is GPL. Consider netlink2 as a distributed
-> netlink. netlink is already proven so why reinvent the wheel?
-> Essentially you should be able to manager clusters of linux network
-> devices (think firewalls, routers etc) with netlink/netlink2.
-> There are some mechanisms for distributdness that are missing. These are
-> the holes we are going to fill.
->
-> Note some of the stuff i am working on at:
-> www.cyberus.ca/~hadi/patches/action which fits the whole forces paradigm
-> and works quiet well with netlink today and netlink2 next.
-> (I stopped updating that web page for sometime now, talk to me if
-> interested in the patches and if you would like to help in testing,
-> coding, etc)
+   Ok here's the last revision of the patch :)
+   
+   It's done against ChangeSet 1.1308.
 
--- 
-       +------------------------------------------------------------------+
-       | James   W.   Laferriere | System    Techniques | Give me VMS     |
-       | Network        Engineer |     P.O. Box 854     |  Give me Linux  |
-       | babydr@baby-dragons.com | Coudersport PA 16915 |   only  on  AXP |
-       +------------------------------------------------------------------+
+Applied, thank you.
