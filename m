@@ -1,49 +1,61 @@
-From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
+From: Martin Diehl <lists-d9SKjHWnQKCzQB+pC5nmwQ@public.gmane.org>
 Subject: Re: [PATCH] Drop ISA dependencies from IRDA drivers
-Date: Thu, 15 Jul 2004 15:42:35 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040715224235.GA5164@bougret.hpl.hp.com>
-References: <20040715215552.GA46635@muc.de> <Pine.LNX.4.44.0407160027410.14037-100000@notebook.home.mdiehl.de>
-Reply-To: jt@hpl.hp.com
+Date: Fri, 16 Jul 2004 00:57:59 +0200 (CEST)
+Sender: irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Message-ID: <Pine.LNX.4.44.0407160055360.14037-100000@notebook.home.mdiehl.de>
+References: <20040715224235.GA5164@bougret.hpl.hp.com>
+Reply-To: irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <ak@muc.de>, Jeff Garzik <jgarzik@pobox.com>,
-        netdev@oss.sgi.com, irda-users@lists.sourceforge.net, jt@hpl.hp.com,
-        the_nihilant@autistici.org,
-        Linux Kernel <linux-kernel@vger.kernel.org>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Martin Diehl <lists@mdiehl.de>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.44.0407160027410.14037-100000@notebook.home.mdiehl.de>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andi Kleen <ak-h9bWGtP8wOw@public.gmane.org>, Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>,
+   <netdev-VZNHf3L845pBDgjK7y7TUQ@public.gmane.org>, <irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+   Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>, <the_nihilant-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>,
+   Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: Jean Tourrilhes <jt-yAE0UhLNZJawPNPzzlOzwdBPR1lH4CV8@public.gmane.org>
+In-Reply-To: <20040715224235.GA5164-yAE0UhLNZJawPNPzzlOzwdBPR1lH4CV8@public.gmane.org>
+Errors-To: irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Unsubscribe: <http://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5utDmRdBvX5/5ji9XKYC2TYK4Io4DoRGLOrNAH6kLmebB@public.gmane.org>
+List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5utDmRdBvX5/5lLLH9aP38KF1pqr+6INuaA@public.gmane.org>
+List-Subscribe: <http://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5utDmRdBvX5/5R9m/fhtKvoLKtGCp0j7rLg@public.gmane.org>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=irda-users>
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 16, 2004 at 12:32:44AM +0200, Martin Diehl wrote:
-> On 15 Jul 2004, Andi Kleen wrote:
-> 
-> > Remove wrong ISA dependencies for IRDA drivers.
-> > 
-> > 
-> > diff -u linux-2.6.8rc1-amd64/drivers/net/irda/Kconfig-o linux-2.6.8rc1-amd64/drivers/net/irda/Kconfig
-> > --- linux-2.6.8rc1-amd64/drivers/net/irda/Kconfig-o	2004-07-12 06:09:05.000000000 +0200
-> > +++ linux-2.6.8rc1-amd64/drivers/net/irda/Kconfig	2004-07-15 18:33:48.000000000 +0200
-> > @@ -310,7 +310,7 @@
-> >  
-> >  config NSC_FIR
-> >  	tristate "NSC PC87108/PC87338"
-> > -	depends on IRDA && ISA
-> > +	depends on IRDA
-> 
-> 
-> Admittedly I haven't tried either, but I'm pretty sure this patch will 
-> break building those drivers because they are calling irda_setup_dma - 
-> which is CONFIG_ISA. Maybe this can be dropped but I don't see what's 
-> wrong with !64BIT instead.
+On Thu, 15 Jul 2004, Jean Tourrilhes wrote:
 
-	irda_setup_dma was (supposedly) fixed in 2.6.8-rc1, and no
-longer depend on CONFIG_ISA. Those driver are supposed to work on 64
-bits.
+> 	irda_setup_dma was (supposedly) fixed in 2.6.8-rc1, and no
+> longer depend on CONFIG_ISA. Those driver are supposed to work on 64
+> bits.
 
-> Martin
+Ok, so maybe the following is missing in addition to Andi's patch?
 
-	Jean
+Martin
+
+-----------
+
+--- linux-2.6.8-rc1/net/irda/irda_device.c	Tue Jul 13 00:31:34 2004
++++ v2.6.8-rc1-md/net/irda/irda_device.c	Fri Jul 16 00:45:08 2004
+@@ -529,7 +529,6 @@ int irda_device_set_mode(struct net_devi
+ 	return ret;
+ }
+ 
+-#ifdef CONFIG_ISA
+ /*
+  * Function setup_dma (idev, buffer, count, mode)
+  *
+@@ -552,4 +551,3 @@ void irda_setup_dma(int channel, dma_add
+ 	release_dma_lock(flags);
+ }
+ EXPORT_SYMBOL(irda_setup_dma);
+-#endif
+
+
+
+-------------------------------------------------------
+This SF.Net email is sponsored by BEA Weblogic Workshop
+FREE Java Enterprise J2EE developer tools!
+Get your free copy of BEA WebLogic Workshop 8.1 today.
+http://ads.osdn.com/?ad_id=4721&alloc_id=10040&op=click
