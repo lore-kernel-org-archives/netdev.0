@@ -1,34 +1,30 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [bonding] compatibilty issues
-Date: Mon, 29 Sep 2003 22:54:25 -0700
+Subject: Re: [PATCH] irda 2.6.0-test6
+Date: Mon, 29 Sep 2003 22:56:01 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030929225425.42d5f84a.davem@redhat.com>
-References: <20030929232534.GB93323@calma.pair.com>
-	<3F78C262.30109@pobox.com>
+Message-ID: <20030929225601.7b3811ed.davem@redhat.com>
+References: <20030929175938.GA11698@bougret.hpl.hp.com>
+	<20030929170606.09a2a767.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: chad@tindel.net, netdev@oss.sgi.com
+Cc: irda-users@lists.sourceforge.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <3F78C262.30109@pobox.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20030929170606.09a2a767.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 29 Sep 2003 19:38:10 -0400
-Jeff Garzik <jgarzik@pobox.com> wrote:
+On Mon, 29 Sep 2003 17:06:06 -0700
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> Well, if that's David's sentiment, then I respectfully disagree with that.
+> Here is a patch for all the pieces that are missing in 2.6.0-test6,
+> it contains all the pieces that didn't get picked up from my earlier
+> patches. 
 
-I really really really did intend to move these deprecated as fast as
-possible.  This is because these bonding ioctls use SIOCDEVPRIVATE
-values.
+Please, one patch per email so I can get the changelogs correct
+and reject individual parts of the changes without having to toss
+the entire thing.
 
-I don't think it's much of a burdon to remove their existence from
-the 2.6.x copy of the driver, and I really wish you guys would do
-this because then people would fix their tools.
-
-You can very simply compile a copy of the tool that works with the
-non-SIOCDEVPRIVATE ioctls we added to the bonding driver a LONG time
-ago and it'll work with 2.4.x as well.  It doesn't break because
-you made it work with the non-ambiguous ioctl values.
+Stephen, you've done this twice today, once to Jeff and once to me.
+Never resubmit a bunch of individual patches as one big patch.
