@@ -1,28 +1,18 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 2.4.26-pre2] netdevice.h: add netif_msg_init helper
-Date: Mon, 08 Mar 2004 21:20:29 -0500
+Subject: Re: 2.6.4-rc1 + hp100 EISA, not working
+Date: Mon, 08 Mar 2004 21:26:01 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <404D29ED.7050003@pobox.com>
-References: <200403081910.i28JAli10587@DYN318364BLD.beaverton.ibm.com>
+Message-ID: <404D2B39.4050306@pobox.com>
+References: <Pine.LNX.4.58.0402292149230.25624@don.falconne.eu.org>	<wrpptbwyiyx.fsf@hina.wild-wind.fr.eu.org>	<Pine.LNX.4.58.0403012353560.25624@don.falconne.eu.org> <wrpu10zf1gr.fsf@hina.wild-wind.fr.eu.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: pawel.sokolowski@muflon.linux.pl, netdev@oss.sgi.com,
+        Stephen Hemminger <shemminger@osdl.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Don Fry <brazilnut@us.ibm.com>
-In-Reply-To: <200403081910.i28JAli10587@DYN318364BLD.beaverton.ibm.com>
+To: mzyngier@freesurf.fr
+In-Reply-To: <wrpu10zf1gr.fsf@hina.wild-wind.fr.eu.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Don Fry wrote:
-> Please apply the following patch to 2.4.26-pre2
-> 
-> This patch adds a helper function to initialize the debug bit mask
-> for use with netif_msg_*.  When the debug_value is out of range
-> it returns the default_msg_enable_bits.  Tested IA32.
-
-
-Applying to 2.4 and 2.6...  will be after 2.6.4 is released though, 
-since this is a new feature and not Release Candidate material.
-
-	Jeff
+applied
