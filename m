@@ -1,12 +1,12 @@
 From: margitsw@t-online.de (Margit Schubert-While)
-Subject: [PATCH 1/4 linux-2.6.9-rc3/linux-2.4.28-pre3]
-	prism54 remove TRACE
-Date: Sat, 2 Oct 2004 16:39:48 +0200
+Subject: [PATCH 2/4 linux-2.6.9-rc3/linux-2.4.28-pre3]
+	prism54 Bug in timeout scheduling
+Date: Sat, 2 Oct 2004 16:43:40 +0200
 Sender: prism54-devel-bounces@prism54.org
-Message-ID: <200410021639.48960.margitsw@t-online.de>
+Message-ID: <200410021643.40328.margitsw@t-online.de>
 Mime-Version: 1.0
 Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_02rXBe1fWCdgDwu"
+  boundary="Boundary-00=_c6rXBEu8/u0bS+K"
 Cc: netdev@oss.sgi.com, prism54-devel@prism54.org
 Return-path: <prism54-devel-bounces@prism54.org>
 To: jgarzik@pobox.com
@@ -21,7 +21,7 @@ Errors-To: prism54-devel-bounces@prism54.org
 List-Id: netdev.vger.kernel.org
 
 
---Boundary-00=_02rXBe1fWCdgDwu
+--Boundary-00=_c6rXBEu8/u0bS+K
 Content-Type: text/plain;
   charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -29,8 +29,11 @@ Content-Disposition: inline
 
 2004-10-02 Margit Schubert-While <margitsw@t-online.de>
 
-* 01_remtrace.patch
-*  Remove TRACE to please the janitors
+* 02_schedbug.patch
+*  Bug in loop around schedule_timeout
+*  We must rearm the task
+*
+*  Make timeout message meaningful
 
 Margit
 
@@ -50,41 +53,55 @@ Margit
 
 
 
---Boundary-00=_02rXBe1fWCdgDwu
+--Boundary-00=_c6rXBEu8/u0bS+K
 Content-Type: text/x-diff;
   charset="us-ascii";
-  name="01_remtrace.patch"
+  name="02_schedbug.patch"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: attachment;
-	filename="01_remtrace.patch"
+	filename="02_schedbug.patch"
 
-diff -Naur linux-2.6.9rc2/drivers/net/wireless/prism54/islpci_hotplug.c linux-2.6.9-rc2msw/drivers/net/wireless/prism54/islpci_hotplug.c
---- linux-2.6.9rc2/drivers/net/wireless/prism54/islpci_hotplug.c	2004-08-14 07:36:57.000000000 +0200
-+++ linux-2.6.9-rc2msw/drivers/net/wireless/prism54/islpci_hotplug.c	2004-09-25 11:15:41.000000000 +0200
-@@ -107,9 +107,6 @@
- 	islpci_private *priv;
- 	int rvalue;
+diff -Naur linux-2.6.9rc2/drivers/net/wireless/prism54/islpci_dev.c linux-2.6.9-rc2msw/drivers/net/wireless/prism54/islpci_dev.c
+--- linux-2.6.9rc2/drivers/net/wireless/prism54/islpci_dev.c	2004-10-02 12:23:39.000000000 +0200
++++ linux-2.6.9-rc2msw/drivers/net/wireless/prism54/islpci_dev.c	2004-10-02 12:26:51.000000000 +0200
+@@ -486,6 +486,7 @@
+ 		/* The software reset acknowledge needs about 220 msec here.
+ 		 * Be conservative and wait for up to one second. */
+ 	
++		set_current_state(TASK_UNINTERRUPTIBLE);
+ 		remaining = schedule_timeout(HZ);
  
--	/* TRACE(DRV_NAME); */
--	
--	
- 	/* Enable the pci device */
- 	if (pci_enable_device(pdev)) {
- 		printk(KERN_ERR "%s: pci_enable_device() failed.\n", DRV_NAME);
-diff -Naur linux-2.6.9rc2/drivers/net/wireless/prism54/islpci_mgt.h linux-2.6.9-rc2msw/drivers/net/wireless/prism54/islpci_mgt.h
---- linux-2.6.9rc2/drivers/net/wireless/prism54/islpci_mgt.h	2004-08-14 07:36:18.000000000 +0200
-+++ linux-2.6.9-rc2msw/drivers/net/wireless/prism54/islpci_mgt.h	2004-09-25 11:15:54.000000000 +0200
-@@ -31,8 +31,6 @@
- #define K_DEBUG(f, m, args...) do { if(f & m) printk(KERN_DEBUG args); } while(0)
- #define DEBUG(f, args...) K_DEBUG(f, pc_debug, args)
+ 		if(remaining > 0) {
+@@ -496,14 +497,14 @@
+ 		/* If we're here it's because our IRQ hasn't yet gone through. 
+ 		 * Retry a bit more...
+ 		 */
+-		printk(KERN_ERR "%s: reset problem: no 'reset complete' IRQ seen\n",
++		printk(KERN_ERR "%s: no 'reset complete' IRQ seen - retrying\n",
+ 			priv->ndev->name);
+ 	}
  
--#define TRACE(devname)   K_DEBUG(SHOW_TRACING, VERBOSE, "%s:  -> " __FUNCTION__ "()\n", devname)
--
- extern int pc_debug;
- #define init_wds 0	/* help compiler optimize away dead code */
+ 	finish_wait(&priv->reset_done, &wait);
  
+ 	if (result) {
+-		printk(KERN_ERR "%s: islpci_reset_if: failure\n", priv->ndev->name);
++		printk(KERN_ERR "%s: interface reset failure\n", priv->ndev->name);
+ 		return result;
+ 	}
+ 
+diff -Naur linux-2.6.9rc2/drivers/net/wireless/prism54/islpci_mgt.c linux-2.6.9-rc2msw/drivers/net/wireless/prism54/islpci_mgt.c
+--- linux-2.6.9rc2/drivers/net/wireless/prism54/islpci_mgt.c	2004-10-02 12:23:40.000000000 +0200
++++ linux-2.6.9-rc2msw/drivers/net/wireless/prism54/islpci_mgt.c	2004-10-02 12:27:10.000000000 +0200
+@@ -473,6 +473,7 @@
+ 		int timeleft;
+ 		struct islpci_mgmtframe *frame;
+ 
++		set_current_state(TASK_UNINTERRUPTIBLE);
+ 		timeleft = schedule_timeout(wait_cycle_jiffies);
+ 		frame = xchg(&priv->mgmt_received, NULL);
+ 		if (frame) {
 
---Boundary-00=_02rXBe1fWCdgDwu
+--Boundary-00=_c6rXBEu8/u0bS+K
 Content-Type: text/plain; charset="us-ascii"
 MIME-Version: 1.0
 Content-Transfer-Encoding: 7bit
@@ -95,4 +112,4 @@ Prism54-devel mailing list
 Prism54-devel@prism54.org
 http://prism54.org/mailman/listinfo/prism54-devel
 
---Boundary-00=_02rXBe1fWCdgDwu--
+--Boundary-00=_c6rXBEu8/u0bS+K--
