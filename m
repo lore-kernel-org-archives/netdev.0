@@ -1,51 +1,51 @@
 From: jamal <hadi@cyberus.ca>
 Subject: Re: TODO list before feature freeze
-Date: Tue, 30 Jul 2002 07:58:42 -0400 (EDT)
+Date: Tue, 30 Jul 2002 08:04:42 -0400 (EDT)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <Pine.GSO.4.30.0207300750240.15727-100000@shell.cyberus.ca>
-References: <20020729182659.D570@oknodo.bof.de>
+Message-ID: <Pine.GSO.4.30.0207300800440.15727-100000@shell.cyberus.ca>
+References: <20020729224724.91A3A4B7F@lists.samba.org>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andi Kleen <ak@suse.de>, Rusty Russell <rusty@rustcorp.com.au>,
-   <netfilter-devel@lists.netfilter.org>, <netdev@oss.sgi.com>,
-   <netfilter-core@lists.netfilter.org>
+Cc: <netfilter-devel@lists.netfilter.org>, <netdev@oss.sgi.com>
 Return-path: <owner-netdev@oss.sgi.com>
-To: Patrick Schaaf <bof@bof.de>
-In-Reply-To: <20020729182659.D570@oknodo.bof.de>
+To: Rusty Russell <rusty@rustcorp.com.au>
+In-Reply-To: <20020729224724.91A3A4B7F@lists.samba.org>
 List-Id: netdev.vger.kernel.org
 
 
 
-On Mon, 29 Jul 2002, Patrick Schaaf wrote:
+On Tue, 30 Jul 2002, Rusty Russell wrote:
 
-> Jamal,
+> In message <Pine.GSO.4.30.0207290648020.12604-100000@shell.cyberus.ca> you writ
+> e:
+> > > Connection tracking:
+> >
+> > Fix perfomance problems with this thing. You may have seen reports of
+> > performance degradation it introduces. I was hoping to take a look at some
+> > point time hasnt been visiting this side.
 >
-> > They also have a lot of problems with their per-packet computations.
-> > Robert and I spent a short time looking at "this thing that is making
-> > us look bad" (perfomance wise) and talked to Harald.
->
-> Do you have written up somewhere what kind of performance problems you were
-> seeing, under which conditions (hash bucket count, number of tracked
-> connections, packet load)
->
-
-Just standard setup in forwarding. Infact you only need one or two flows
-active to verify this -- which leads me to believe hashing may play a
-smaller role in the whole problem.
-What i have seen and reported by many people (someone seems to have gone
-one step further and documented numbers, but cant find his email right
-now). Take Linux as a router, it routes at x% of wire rate. Load
-conntracking and watch it go down another 25% at least.
-
-> > Something that looked like needs improvement at first glance was the aging
-> > and hashing schemes.
->
-> Regarding the hashing schemes, please see discussions on netfilter-devel
-> over the last weeks:
+> There are several simple things to do here.  One is to improve the
+> hashing (fine for internet traffic, but frequently sucks under LAN
+> conditions), which is easy.  The other is to modify the
+> one-timer-per-connection approach to a "sweep once a second, or when
+> full" approach.
 >
 
-I think hashing is one of the problems. What performance improvemet are
-you seeing? (couldnt tell from looking at your data)
+Thats the right direction. From code inspection, fixing the later problem
+would give you a lot more punch.
+
+> Both these are simple patches, but I want to see benchmarks showing
+> that they improve things.
+>
+
+Indeed.
+
+> Yes, that's exactly the plan.  It'd be more like the old-style
+> insert/delete (probably not replace), except with a "commit"
+> interface, implemented by copying the rules when they start modifying.
+>
+
+Why not take a look at the way tc does things and emulate that?
 
 cheers,
 jamal
