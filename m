@@ -1,34 +1,54 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH] sk98lin: Driver update v7.09
-Date: Fri, 22 Oct 2004 16:04:02 +0100
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: [PATCH] via-rhine: references __init code during resume
+Date: Fri, 22 Oct 2004 11:41:03 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041022150402.GA19928@infradead.org>
-References: <417907C1.6050407@syskonnect.de>
+Message-ID: <4179543F.1020407@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, jgarzik@pobox.com
+Content-Type: multipart/mixed;
+ boundary="------------090704010809020703050304"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Mirko Lindner <mlindner@syskonnect.de>
-Content-Disposition: inline
-In-Reply-To: <417907C1.6050407@syskonnect.de>
+To: jgarzik@pobox.net, netdev@oss.sgi.com, rl@hellgate.ch
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 22, 2004 at 03:14:41PM +0200, Mirko Lindner wrote:
-> Hi dev-list,
-> Hi Jeff,
-> 
-> here is the new version (v7.09) from our sk98lin driver for Kernel 2.6. 
-> Sorry for this huge patch but this version has a lot of new functions 
-> and changes. The driver was tested by our Test & Verification group and 
-> our OEM customers and include all kernel changes during the latest 
-> kernel release.
-> 
-> Please send me an email if you like a version of the driver for kernel 
-> 2.4 or if you have any problems or questions.
-> 
-> The new patch for BK version 2.6.9 bk6 can be find at:
-> http://www.syskonnect.de/support/temp/sk98lin_v7.09_2.6.9-bk6_patch
+This is a multi-part message in MIME format.
+--------------090704010809020703050304
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Standard disclaimer:  please submit small incremental patches that fix
-specific issue.
+
+-- 
+~Randy
+
+--------------090704010809020703050304
+Content-Type: text/x-patch;
+ name="via_rhine_mmio.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="via_rhine_mmio.patch"
+
+
+Fix __init section usage:
+rhine_resume calls enable_mmio, so latter cannot be __devinit;
+Error: ./drivers/net/via-rhine.o .text refers to 0000000000000925 R_X86_64_PC32     .init.text+0xfffffffffffffffc
+
+Signed-off-by: Randy Dunlap <rddunlap@osdl.org>
+
+diffstat:=
+ drivers/net/via-rhine.c |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
+
+diff -Naurp ./drivers/net/via-rhine.c~via_rhine_mmio ./drivers/net/via-rhine.c
+--- ./drivers/net/via-rhine.c~via_rhine_mmio	2004-10-18 14:55:28.000000000 -0700
++++ ./drivers/net/via-rhine.c	2004-10-22 10:10:58.928311448 -0700
+@@ -627,7 +627,7 @@ static void rhine_chip_reset(struct net_
+ }
+ 
+ #ifdef USE_MMIO
+-static void __devinit enable_mmio(long pioaddr, u32 quirks)
++static void enable_mmio(long pioaddr, u32 quirks)
+ {
+ 	int n;
+ 	if (quirks & rqRhineI) {
+
+--------------090704010809020703050304--
