@@ -1,59 +1,56 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: [PATCH] repairing rtcache killer
-Date: Thu, 7 Aug 2003 00:57:28 +0200
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: [BK PATCH] Minor updates to SCTP
+Date: Wed, 6 Aug 2003 16:32:01 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <16177.34776.207150.232716@robur.slu.se>
-References: <20030806005224.4798f744.davem@redhat.com>
-	<200308062123.BAA02118@dub.inr.ac.ru>
+Message-ID: <Pine.LNX.4.44.0308051515120.6261-100000@w-sridhar.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com (David S. Miller), Robert.Olsson@data.slu.se,
-   netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
-In-Reply-To: <200308062123.BAA02118@dub.inr.ac.ru>
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi Dave,
 
-kuznet@ms2.inr.ac.ru writes:
+Please do a
+	bk pull http://linux-lksctp.bkbits.net/lksctp-2.5 
 
- > Robert, look, the idea is:
- > 
- > 1. Periodically we reset elasticity2 to 2*elasticity, f.e. from
- >    periodic gc timer.
+to get the following updates to SCTP on top of linux 2.6.0-test2.
 
- This solve the "positive" feedback. Actually the code I tested moved
- from elasticity2=1 to elasticity*2 as well but this seems more reliable.
- 
- > 2. We measure hits and misses with higher frequency, f.e. from
- >    forced gc. The measurement are suppressed for some time
- >    after each flush while cache collects new fresh entries.
+# This patch includes the following deltas:
+#	           ChangeSet	1.1595  -> 1.1597 
+#	net/sctp/associola.c	1.57    -> 1.58   
+#	    net/sctp/input.c	1.34    -> 1.35   
+#	net/sctp/sm_statefuns.c	1.61    -> 1.62   
+#	net/sctp/endpointola.c	1.27    -> 1.28   
+#	net/sctp/sm_make_chunk.c	1.57    -> 1.58   
+#	include/net/sctp/constants.h	1.15    -> 1.16   
+#	    net/sctp/debug.c	1.8     -> 1.9    
+#	     net/sctp/proc.c	1.6     -> 1.7    
+#	include/net/sctp/sm.h	1.26    -> 1.27   
+#	 net/sctp/protocol.c	1.56    -> 1.57   
+#	include/linux/sctp.h	1.6     -> 1.7    
+#	net/sctp/sm_sideeffect.c	1.47    -> 1.48   
+#	net/sctp/sm_statetable.c	1.18    -> 1.19   
+#	include/net/sctp/command.h	1.13    -> 1.14   
+#	include/net/sctp/structs.h	1.69    -> 1.71   
+#	   net/sctp/socket.c	1.88    -> 1.89   
+#
+# The following is the BitKeeper ChangeSet Log
+# --------------------------------------------
+# 03/08/04	sri@us.ibm.com	1.1596
+# [SCTP] ADDIP basic infrastructure support. (Ardelle.Fan)
+# --------------------------------------------
+# 03/08/04	sri@us.ibm.com	1.1597
+# [SCTP] Fix to avoid large kmalloc failures on 64-bit platforms.
+# 
+# When spinlock debugging is enabled, the size of assoc hash table and
+# port hash table for a fixed value of 4096 entries exceeds the size
+# of the largest possible kmalloc() on 64-bit platforms. This problem is
+# avoided by using page allocations similar to the methodology followed
+# for tcp hash table allocations.
+# --------------------------------------------
 
- And the measure (forced gc) should not be inhibited by any elastiticy2 
- setting. 
-
-
- >     if (misses > rt_hash_mask+1 && hits < misses)
- >            elasticity2 = 0;
- >     else
- >            elasticity2 = 2*elasticity;
-
-	( hits < misses )
- 
- Delicate balancing point but actually it didn't look too bad in the
- lab setup.
- 
- > misses > rt_hash_mask+1 guarantees that cache is populated and probed
- > enough, rt_hash_mask+1 is not a random number, it corresponds
- > to maximal size with elasticity2 = 0.
-
- Yes better.
-
- > Seems, it should work. And it is simple enough.
-
- Let's try... ;-)
-
- Cheers.
-						--ro
+Thanks
+Sridhar
