@@ -1,101 +1,35 @@
-From: cliff white <cliffw@osdl.org>
-Subject: Re: Constant errors with pktgen
-Date: Tue, 15 Mar 2005 11:04:14 -0800
-Message-ID: <20050315110414.3310bf96@es175>
-References: <20050314133404.2528647f@es175>
-	<16951.422.818446.117190@robur.slu.se>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [3/4] [IPSEC] Add route element to xfrm_dst
+Date: Tue, 15 Mar 2005 20:05:43 +0100
+Message-ID: <42373207.9090308@trash.net>
+References: <20050214221006.GA18415@gondor.apana.org.au> <20050214221200.GA18465@gondor.apana.org.au> <20050214221433.GB18465@gondor.apana.org.au> <42357AF0.4080205@trash.net> <20050314203208.GA15146@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Robert Olsson <Robert.Olsson@data.slu.se>, netdev@oss.sgi.com
-In-Reply-To: <16951.422.818446.117190@robur.slu.se>
+Cc: netdev@oss.sgi.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050314203208.GA15146@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 15 Mar 2005 16:39:18 +0100
-Robert Olsson <Robert.Olsson@data.slu.se> wrote:
+Herbert Xu wrote:
+> On Mon, Mar 14, 2005 at 12:52:16PM +0100, Patrick McHardy wrote:
+>
+>>Since the tunnel dst is not necessarily the last in the bundle anymore,
+>>we might miss to initialize some dsts, for example with ipcomp/tunnel +
+>>esp/transport. If we have nested tunnels we'll fiddle with entries in
+>>the routing cache.
+> 
+> 
+> Sorry, but I don't get it :) First of all what do you mean by the
+> tunnel dst?
+> 
+> If you mean &rt->u.dst then as far as I can see it's still the last
+> child in the bundle.  It may also appear in ->route elements earlier
+> on but that does not come into play in this loop.
 
-> 
-> cliff white writes:
-> 
->  > My test rig is two machines with an e100 card, connected by crossover 
->  > cable.
->  > 
->  > When i run pktgen, the error counter == packet count, always. 
-> 
->  I see. Try the patch patch below it cleans up the code a bit and
->  restores the old meaning of error. It also has the minor fix from 
->  Adrian Bunk
-> 
-Works for me
-Current:
-     pkts-sofar: 7400227  errors: 0
-( now i have to force some errors... )
-cliffw
+You're right, I must have misread the code somehow. Sorry for the noise.
 
-> 						--ro
-> 
-> --- net/core/pktgen.c.050315	2005-03-11 10:48:43.000000000 +0100
-> +++ net/core/pktgen.c	2005-03-15 16:16:01.000000000 +0100
-> @@ -151,7 +151,7 @@
->  #include <asm/timex.h>
->  
->  
-> -#define VERSION  "pktgen v2.60: Packet Generator for packet performance testing.\n"
-> +#define VERSION  "pktgen v2.61: Packet Generator for packet performance testing.\n"
->  
->  /* #define PG_DEBUG(a) a */
->  #define PG_DEBUG(a) 
-> @@ -2590,7 +2590,7 @@
->          thread_unlock();
->  }
->  
-> -__inline__ void pktgen_xmit(struct pktgen_dev *pkt_dev)
-> +static __inline__ void pktgen_xmit(struct pktgen_dev *pkt_dev)
->  {
->  	struct net_device *odev = NULL;
->  	__u64 idle_start = 0;
-> @@ -2654,7 +2654,6 @@
->  	
->  	spin_lock_bh(&odev->xmit_lock);
->  	if (!netif_queue_stopped(odev)) {
-> -		u64 now;
->  
->  		atomic_inc(&(pkt_dev->skb->users));
->  retry_now:
-> @@ -2678,24 +2677,18 @@
->  			
->  			pkt_dev->errors++;
->  			pkt_dev->last_ok = 0;
-> -			pkt_dev->next_tx_us = getCurUs(); /* TODO */
-> -			pkt_dev->next_tx_ns = 0;
->  		}
->  
-> +		pkt_dev->next_tx_us = getCurUs();
-> +		pkt_dev->next_tx_ns = 0;
-> +
->  		pkt_dev->next_tx_us += pkt_dev->delay_us;
->  		pkt_dev->next_tx_ns += pkt_dev->delay_ns;
-> +
->  		if (pkt_dev->next_tx_ns > 1000) {
->  			pkt_dev->next_tx_us++;
->  			pkt_dev->next_tx_ns -= 1000;
->  		}
-> -
-> -		now = getCurUs();
-> -		if (now > pkt_dev->next_tx_us) {
-> -			/* TODO: this code is slightly wonky.  */
-> -			pkt_dev->errors++;
-> -			pkt_dev->next_tx_us = now - pkt_dev->delay_us;
-> -			pkt_dev->next_tx_ns = 0;
-> -		}
->  	} 
->  
->  	else {  /* Retry it next time */
-> 
-
-
--- 
-"Ive always gone through periods where I bolt upright at four in the morning; 
-now at least theres a reason." -Michael Feldman
+Regards
+Patrick
