@@ -1,39 +1,62 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH] PKT_SCHED: Initialize list field in dummy qdiscs
-Date: Sat, 6 Nov 2004 02:59:31 +0100
-Message-ID: <20041106015931.GA28715@postel.suug.ch>
-References: <418B4C7C.8000402@crocom.com.pl> <20041105141640.GQ19714@rei.reeler.org> <418BA66A.60804@trash.net> <20041105163951.GY12289@postel.suug.ch> <418BB7D2.6060908@trash.net> <20041105175812.GZ12289@postel.suug.ch> <418BC40E.8080402@trash.net> <20041105194303.GA12289@postel.suug.ch> <20041106011843.GI12289@postel.suug.ch> <418C2D40.9020300@trash.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [IPV6] Fix dst leak in ipv6_add_addr
+Date: Sat, 6 Nov 2004 15:41:21 +1100
+Message-ID: <20041106044121.GA16397@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@oss.sgi.com, spam@crocom.com.pl,
-        kuznet@ms2.inr.ac.ru, jmorris@redhat.com
+Content-Type: multipart/mixed; boundary="gKMricLos+KVdGMg"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
+To: "David S. Miller" <davem@davemloft.net>,
+        YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <418C2D40.9020300@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Patrick McHardy <418C2D40.9020300@trash.net> 2004-11-06 02:47
-> Nice work, I was really beginning to wonder. There's not that
-> much that touches qdisc_list :)
 
-Which might have been the problem, I've been focusing on this for
-hours overlooking the obvious. The bug report was very well done,
-maybe too good so I was at the root of the problem too fast. ;->
+--gKMricLos+KVdGMg
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-> The __qdisc_destroy rcu-callback is called in softirq context, when
-> destroying a classful qdisc the qdisc destroy function might call
-> qdisc_destroy again for an inner class.
+Hi:
 
-Ahh... of course. I was looking through all callers of destroy multiple
-times but somehow I managed to overlook the one in __qdisc_destroy
-over and over.  Thanks!
+Found another error-path dst leak.  If the idev->dead check is
+triggered in ipv6_add_addr the rt entry will leak.
 
-> >I guess I'm missing that little bit of experience but it would
-> >help to use _rcu list variantes, would it?
-> >
-> Yes. Are you going to send a patch ?
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au> 
 
-Sure, tomorrow, if nobody preempts. I need some rest.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--gKMricLos+KVdGMg
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
+
+===== net/ipv6/addrconf.c 1.115 vs edited =====
+--- 1.115/net/ipv6/addrconf.c	2004-10-26 14:11:35 +10:00
++++ edited/net/ipv6/addrconf.c	2004-11-06 15:37:54 +11:00
+@@ -484,7 +484,7 @@
+ 	      int scope, unsigned flags)
+ {
+ 	struct inet6_ifaddr *ifa = NULL;
+-	struct rt6_info *rt;
++	struct rt6_info *rt = NULL;
+ 	int hash;
+ 	static spinlock_t lock = SPIN_LOCK_UNLOCKED;
+ 	int err = 0;
+@@ -572,6 +572,10 @@
+ 	if (unlikely(err == 0))
+ 		notifier_call_chain(&inet6addr_chain, NETDEV_UP, ifa);
+ 	else {
++		if (rt) {
++			dst_release(&rt->u.dst);
++			dst_free(&rt->u.dst);
++		}
+ 		kfree(ifa);
+ 		ifa = ERR_PTR(err);
+ 	}
+
+--gKMricLos+KVdGMg--
