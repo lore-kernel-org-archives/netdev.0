@@ -1,25 +1,87 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: sysctl variable to force MLD version [PATCH]
-Date: Mon, 16 Feb 2004 22:52:51 -0800
+From: "Krishnakumar. R" <krishnakumar@naturesoft.net>
+Subject: [PATCH] PIO register dump support for 8139 driver
+Date: Tue, 17 Feb 2004 17:25:54 +0530
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040216225251.00a44597.davem@redhat.com>
-References: <m3wu6p6c3f.wl@sfc.wide.ad.jp>
-	<OF2AD6D710.B1604DA1-ON88256E3D.001C2A6D-88256E3D.001C8122@us.ibm.com>
+Message-ID: <200402171725.54339.krishnakumar@naturesoft.net>
+Reply-To: krishnakumar@naturesoft.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: sekiya@wide.ad.jp, hibi665@oki.com, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Stevens <dlstevens@us.ibm.com>
-In-Reply-To: <OF2AD6D710.B1604DA1-ON88256E3D.001C2A6D-88256E3D.001C8122@us.ibm.com>
+To: jgarzik@pobox.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 16 Feb 2004 22:14:09 -0700
-David Stevens <dlstevens@us.ibm.com> wrote:
+Hi,
 
->       Below is a patch for 2.6.2 that adds a sysctl variable
-> to force the MLD version to version 1, for MLD-snooping switches
-> that don't understand version 2 packet formats.
+The following patch adds the pio register dump
+support for the 8139too.c. The register dump can 
+be now obtained when we are using PIO mode.
+(eg: ethtool -d eth0 will give the register dump
+in the PIO mode after this patch is applied.)
 
-Queued up for 2.6.4, thanks David.
+The patch is against linux-2.6.1-bk4-netdev1.
+
+Please do apply.
+
+Regards,
+KK.
+
+Diffstat output:
+---------------------
+8139too.c |   24 +++++++++++++++++++-----
+1 files changed, 19 insertions(+), 5 deletions(-)
+
+The Patch:
+---------------
+--- linux-2.6.1-bk4-netdev1/drivers/net/8139too.orig.c	2004-02-09 
+14:09:22.000000000 +0530
++++ linux-2.6.1-bk4-netdev1/drivers/net/8139too.c	2004-02-17 
+14:55:05.681637552 +0530
+@@ -2391,17 +2391,31 @@
+ 	np->msg_enable = datum;
+ }
+ 
+-/* TODO: we are too slack to do reg dumping for pio, for now */
+-#ifdef CONFIG_8139TOO_PIO
+-#define rtl8139_get_regs_len	NULL
+-#define rtl8139_get_regs	NULL
+-#else
+ static int rtl8139_get_regs_len(struct net_device *dev)
+ {
+ 	struct rtl8139_private *np = dev->priv;
+ 	return np->regs_len;
+ }
+ 
++#ifdef CONFIG_8139TOO_PIO
++static void rtl8139_get_regs(struct net_device *dev, 
++                             struct ethtool_regs *regs, void *regbuf)
++{
++	struct rtl8139_private *np = dev->priv;
++	int i;
++	char *p;
++	void *ioaddr = np->mmio_addr;
++	
++	regs->version = RTL_REGS_VER;
++	p = (char *)regbuf;
++
++	spin_lock_irq(&np->lock);
++	for ( i=0 ; i<np->regs_len ; i++ ) {
++		p[i] =  RTL_R8 (i);
++	}
++	spin_unlock_irq(&np->lock);
++}
++#else
+ static void rtl8139_get_regs(struct net_device *dev, struct ethtool_regs 
+*regs, void *regbuf)
+ {
+ 	struct rtl8139_private *np = dev->priv;
+
+
+
+
+-- 
+HomePage: http://puggy.symonds.net/~krishnakumar
