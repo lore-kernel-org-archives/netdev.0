@@ -1,33 +1,67 @@
-From: Jason McMullan <jason.mcmullan@timesys.com>
-Subject: Re: [PATCH] MII bus API for PHY devices
-Date: Fri, 19 Nov 2004 11:41:38 -0500
-Message-ID: <1100882498.14467.58.camel@jmcmullan>
-References: <069B6F33-341C-11D9-9652-000393DBC2E8@freescale.com>
-	 <9B0D9272-398A-11D9-96F6-000393C30512@freescale.com>
-	 <1100820391.25521.14.camel@gaston>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Andy Fleming <afleming@freescale.com>, netdev@oss.sgi.com,
-	Linux Kernel list <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261478AbUKSQll@vger.kernel.org>
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-In-Reply-To: <1100820391.25521.14.camel@gaston>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Daniel Risacher <magnus@alum.mit.edu>
+Subject: source address for UDP broadcasts with aliased interfaces?
+Date: Fri, 19 Nov 2004 12:13:38 -0500
+Message-ID: <E1CVCKI-0006S1-00@m5.risacher.org>
+Reply-To: magnus@alum.mit.edu
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2004-11-19 at 10:26 +1100, Benjamin Herrenschmidt wrote:
-> The ethernet driver can instanciate the PHYs at it's childs, though the
-> case of several MACs sharing PHYs will be difficult to represent...
 
-I think *requiring* a binding to ethernet devices is a bad idea. 
+(previously posted on LKML; resent here per suggestion from Alan Cox)
 
-For example, on many MPC8260 embedded systems, the MII bus is controlled
-by GPIO pins, not an ethernet MDIO system.
+I'm not sure if this is a bug or a feature.
 
-Some applications may use the MII bus to control non-PHY devices, such
-as Broadcom ethernet switches. I'm working for a general MII bus that
-ethernet PHYs and other devices can all use.
+There seems to be no way to get the kernel to send a UDP broadcast
+packet to INADDR_BROADCAST from a specific address, short of using
+iptables.
 
--- 
-Jason McMullan <jason.mcmullan@timesys.com>
+I would think that bind()ing a socket to a local address would
+determine the source address, but the kernel seems to ignore the bound
+address.
+
+I'm trying to write a program that communicates with multiple hosts on
+a local net, several of which have firewall rules that drop packets
+from external addresses. The source computer has multiple aliased
+addresses on the eth0 interface. I therefore want to broadcast from a
+specific non-routable internal address. I've experimented with bind()
+and setsockopt(,SO_BINDTODEVICE,) to determine the source address
+and/or interface but the kernel seems to pick whatever it wants.
+
+Is there a correct way to specify the sender address/interface?
+
+Dan Risacher
+
+(reference code follows; testing was done on Linux 2.6.9)
+
+struct sockaddr_in to_addr;
+struct sockaddr_in my_addr;
+my_addr.sin_family = AF_INET;
+my_addr.sin_port = htons(0);
+
+/***** find_if_addr() will return 10.0.0.7 (the address of eth0)  ******/
+my_addr.sin_addr.s_addr = find_if_addr(interface);
+to_addr.sin_family = AF_INET;
+to_addr.sin_port = htons(11415);
+to_addr.sin_addr.s_addr = INADDR_BROADCAST;
+
+fd = socket(PF_INET, SOCK_DGRAM, 0);
+
+res = setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &one, sizeof(one));
+if (res) perror ("setsockopt (SO_BROADCAST)");
+
+/***** this should bind the source to 10.0.0.7, I think *****/
+res = bind(fd, (struct sockaddr*) &my_addr, sizeof(struct sockaddr_in));
+if (res) perror ("bind");
+
+res = setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, interface,
+                 1+strlen(interface));
+if (res) perror ("setsockopt (SO_BINDTODEVICE)");
+
+/***** when sent, the packet is actually coming from 66.92.162.116 (eth0:wan) *****/
+res = sendto(fd, mesg, strlen(mesg), MSG_DONTROUTE,
+             (struct sockaddr *)&to_addr,
+             sizeof(struct sockaddr_in));
+if (res == -1) perror ("sendto");
