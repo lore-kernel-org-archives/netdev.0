@@ -1,71 +1,30 @@
-From: Harsh <hanemade@gmail.com>
-Subject: Re: help in using eth_change_mtu
-Date: Tue, 25 Jan 2005 11:50:06 +0530
-Message-ID: <cfc9593605012422204db19d04@mail.gmail.com>
-References: <cfc9593605012400595e529682@mail.gmail.com>
-	 <41F5C109.7060801@gmail.com>
-Reply-To: Harsh <hanemade@gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: skb_checksum_help
+Date: Tue, 25 Jan 2005 22:23:46 +1100
+Message-ID: <20050125112346.GA20704@gondor.apana.org.au>
+References: <20050124005348.GL23931@postel.suug.ch> <E1Cst4o-0007bD-00@gondolin.me.apana.org.au> <20050123202715.281ac87c.davem@davemloft.net> <20050124121610.GP23931@postel.suug.ch> <41F50B6C.6010107@davidcoulson.net> <20050124151510.GV23931@postel.suug.ch> <20050124225423.GA15405@gondor.apana.org.au> <20050124234515.GA31837@postel.suug.ch> <20050125000759.GA15883@gondor.apana.org.au> <20050124164049.3b939791.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Neema <neema.network@gmail.com>
-In-Reply-To: <41F5C109.7060801@gmail.com>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: tgraf@suug.ch, david@davidcoulson.net, kaber@trash.net, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20050124164049.3b939791.davem@davemloft.net>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello ,
-             Extra info mean IPSEC headers. How can they sent in
-2.4.24 kernel? where can i find Packets being using IPSEC headers and
-is that require to reduce MTU by AH/ESP header bytes???
-            Also can you tellme in which condition eth_change_mtu used?
-reagards,
-Harsh.
+On Mon, Jan 24, 2005 at 04:40:49PM -0800, David S. Miller wrote:
+> 
+> Good catch Herbert, I'll integrate this fix.  2.4.x needs it too
+> I'm pretty sure.
 
+Well I just had a look there and no, this clever frag reuse code
+was added in 2.5.
 
-On Tue, 25 Jan 2005 09:16:17 +0530, Neema <neema.network@gmail.com> wrote:
-> Hi,
-> 
->     What ever u may send,the maximum size of the packet in ethernet
-> should be 1514bytes, that includes ethernet header (And also minimum is
-> 82bytes).
-> I think u are using old libnet version. That function sets the MTU with
-> the given value if neither exceeded max and nor minimum.
-> 
-> HTH,
-> Neema
-> 
-> Harsh wrote:
-> 
-> >Hello,
-> >         If some extra information is required to be sent with each
-> >packet then does that require to change Ethernet MTU 1500 to
-> >1500-(Bytes in extra info) or its ok with 1500 value of MTU? While
-> >checking source code of net_init.c in drivers/net dir i found one
-> >function eth_change_mtu. I want to know does that helps? why its given
-> >there in source code?
-> >regards,
-> >Harsh.
-> >
-> >static int eth_change_mtu(struct net_device *dev, int new_mtu)
-> > {
-> >        if ((new_mtu < 68) || (new_mtu > 1500))
-> >                 return -EINVAL;
-> >        dev->mtu = new_mtu;
-> >        return 0;
-> > }
-> >-
-> >To unsubscribe from this list: send the line "unsubscribe linux-net" in
-> >the body of a message to majordomo@vger.kernel.org
-> >More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> >
-> >
-> >
-> 
-> --
-> 
-> Thanks & Regards,
-> Neema
-> 
->
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
