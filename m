@@ -1,97 +1,39 @@
-From: Don Fry <brazilnut@us.ibm.com>
-Subject: [PATCH 2.6.3] pcnet32.c non-mii errors with ethtool
-Date: Fri, 20 Feb 2004 14:29:30 -0800 (PST)
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH] 2.6.3 - incorrect handling of the status code from skge_probe
+Date: Fri, 20 Feb 2004 23:50:40 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200402202229.i1KMTVe07355@DYN318364BLD.beaverton.ibm.com>
+Message-ID: <20040220235040.B26032@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Cc: mlindner@syskonnect.de, jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: tsbogend@alpha.franken.de, jgarzik@pobox.com, netdev@oss.sgi.com
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-pcnet32 devices which do not contain an mii respond incorrectly to
-ethtool commands.
 
-Reported by VANDROVE@vc.cvut.cz and Thomas Munck Steenholdt.
+skge_probe() can return -ENODEV as well as number of detected adapters.
 
---- linux-2.6.3/drivers/net/clean.pcnet32.c	Fri Feb 20 10:59:38 2004
-+++ linux-2.6.3/drivers/net/pcnet32.c	Fri Feb 20 14:21:27 2004
-@@ -474,22 +474,28 @@
- {
- 	struct pcnet32_private *lp = dev->priv;
- 	unsigned long flags;
-+	int r = -EOPNOTSUPP;
+
+ drivers/net/sk98lin/skge.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
+
+diff -puN drivers/net/sk98lin/skge.c~sk98-bad-test drivers/net/sk98lin/skge.c
+--- linux-2.6.3/drivers/net/sk98lin/skge.c~sk98-bad-test	2004-02-20 23:39:41.000000000 +0100
++++ linux-2.6.3-fr/drivers/net/sk98lin/skge.c	2004-02-20 23:43:59.000000000 +0100
+@@ -779,9 +779,10 @@ static int __init skge_init_module(void)
  
--	spin_lock_irqsave(&lp->lock, flags);
--	mii_ethtool_gset(&lp->mii_if, cmd);
--	spin_unlock_irqrestore(&lp->lock, flags);
--	return 0;
-+	if (lp->mii) {
-+	    spin_lock_irqsave(&lp->lock, flags);
-+	    mii_ethtool_gset(&lp->mii_if, cmd);
-+	    spin_unlock_irqrestore(&lp->lock, flags);
-+	    r = 0;
-+	}
-+	return r;
- }
+ 	cards = skge_probe();
+ 	if (cards == 0) {
+-		printk("sk98lin: No adapter found.\n");
++		printk(KERN_INFO "sk98lin: No adapter found.\n");
++		cards = -ENODEV;
+ 	}
+-	return cards ? 0 : -ENODEV;
++	return (cards > 0 ) ? 0 : cards;
+ } /* skge_init_module */
  
- static int pcnet32_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- {
- 	struct pcnet32_private *lp = dev->priv;
- 	unsigned long flags;
--	int r;
-+	int r = -EOPNOTSUPP;
- 
--	spin_lock_irqsave(&lp->lock, flags);
--	r = mii_ethtool_sset(&lp->mii_if, cmd);
--	spin_unlock_irqrestore(&lp->lock, flags);
-+	if (lp->mii) {
-+	    spin_lock_irqsave(&lp->lock, flags);
-+	    r = mii_ethtool_sset(&lp->mii_if, cmd);
-+	    spin_unlock_irqrestore(&lp->lock, flags);
-+	}
- 	return r;
- }
- 
-@@ -509,11 +515,13 @@
- {
- 	struct pcnet32_private *lp = dev->priv;
- 	unsigned long flags;
--	int r;
-+	int r = 1;
- 
--	spin_lock_irqsave(&lp->lock, flags);
--	r = mii_link_ok(&lp->mii_if);
--	spin_unlock_irqrestore(&lp->lock, flags);
-+	if (lp->mii) {
-+	    spin_lock_irqsave(&lp->lock, flags);
-+	    r = mii_link_ok(&lp->mii_if);
-+	    spin_unlock_irqrestore(&lp->lock, flags);
-+	}
- 	return r;
- }
- 
-@@ -533,11 +541,13 @@
- {
- 	struct pcnet32_private *lp = dev->priv;
- 	unsigned long flags;
--	int r;
-+	int r = -EOPNOTSUPP;
- 
--	spin_lock_irqsave(&lp->lock, flags);
--	r = mii_nway_restart(&lp->mii_if);
--	spin_unlock_irqrestore(&lp->lock, flags);
-+	if (lp->mii) {
-+	    spin_lock_irqsave(&lp->lock, flags);
-+	    r = mii_nway_restart(&lp->mii_if);
-+	    spin_unlock_irqrestore(&lp->lock, flags);
-+	}
- 	return r;
- }
  
 
--- 
-Don Fry
-brazilnut@us.ibm.com
+_
