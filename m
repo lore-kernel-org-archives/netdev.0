@@ -1,56 +1,32 @@
-From: bert hubert <ahu@ds9a.nl>
-Subject: PLS help fix: recent 2.6.7 won't connect to anything Re: [PATCH] fix tcp_default_win_scale.
-Date: Wed, 7 Jul 2004 01:01:47 +0200
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20040706230147.GB6694@outpost.ds9a.nl>
-References: <20040701133738.301b9e46@dell_ss3.pdx.osdl.net> <20040701140406.62dfbc2a.davem@redhat.com> <20040702013225.GA24707@conectiva.com.br> <20040706093503.GA8147@outpost.ds9a.nl> <20040706114741.1bf98bbe@dell_ss3.pdx.osdl.net> <20040706194034.GA11021@mail.shareable.org> <20040706130549.31daa8e0@dell_ss3.pdx.osdl.net> <20040706132822.70c8174a.davem@redhat.com> <20040706133641.4a58af30@dell_ss3.pdx.osdl.net> <20040706133559.70b6380d.davem@redhat.com>
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [RFC] TCP burst control
+Date: Tue, 6 Jul 2004 16:04:47 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040706160447.3c2efffa.davem@redhat.com>
+References: <20040706155858.11b368e6@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@osdl.org>, jamie@shareable.org,
-	netdev@oss.sgi.com, linux-net@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20040706133559.70b6380d.davem@redhat.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, rhee@ncsu.edu
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20040706155858.11b368e6@dell_ss3.pdx.osdl.net>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 06, 2004 at 01:35:59PM -0700, David S. Miller wrote:
+On Tue, 6 Jul 2004 15:58:58 -0700
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> Therefore we do not know which of the following two it really is:
+> When using advanced congestion control it is possible for TCP to decide that
+> it has a large window to fill with data right away. The problem is that if TCP
+> creates long bursts, it becomes unfriendly to other flows and is more likely
+> to overrun intermediate queues.
+> 
+> This patch limits the amount of data in flight. It came from BICTCP 1.1 but it 
+> has been generalized to all TCP congestion algorithms. It has had some testing,
+> but needs to be more widely tested.
 
-Anybody with this problem is kindly invited to try to connect to
-213.244.168.210, port 10000, http://213.244.168.210:10000/ should work.
+Both the New Reno and Westwood+ algorithms implement rate-halving to
+solve this problem.
 
-If you have a problem, email me with your IP address, I have a tcpdump
-running.
-
-> 1) window scale option being stripped from SYN+ACK
-
-The remote is in fact zeus-pub.kernel.org. I assume it does not have a
-broken firewall, and I sure haven't, and it sends out to me:
-
-00:46:31.936667 192.168.1.4.34018 > 204.152.189.116.80: S 2786942165:2786942165(0) win 5840 
-	<mss 1460,sackOK,timestamp 269093190,nop,wscale 7> (DF)
-
-00:46:32.097745 204.152.189.116.80 > 192.168.1.4.34018: S 2888442437:2888442437(0) 
-	ack 2786942166 win 5792 <mss 1460,sackOK,timestamp 3563902477 26909319,nop,wscale 0> (DF)
-	                                                                                  ^
-00:46:32.098170 192.168.1.4.34018 > 204.152.189.116.80: . ack 1 win 45 
-	<nop,nop,timestamp 26909481 3563902477> (DF)
-
-So I would rule out 1), as this is a network that does not have the problem. 
-
-> 2) non-zero window option being patched into a zero window
->    scale option
-
-This looks more likely, on the outgoing SYN. We'll know tomorrow evening
-(CEST) or earlier if somebody with the problem volunteers.
-
-Regards,
-
-bert
-
--- 
-http://www.PowerDNS.com      Open source, database driven DNS Software 
-http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
+Why can't BICTCP use that instead of this special burst control hack?
