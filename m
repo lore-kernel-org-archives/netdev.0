@@ -1,68 +1,82 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: Patch: Device operative state notification against 2.5.7
-Date: Mon, 8 Apr 2002 07:59:29 -0400 (EDT)
+From: Kazunori Miyazawa <miyazawa@mrj.biglobe.ne.jp>
+Subject: USAGI stable release
+Date: Tue, 9 Apr 2002 01:15:23 +0900
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <Pine.GSO.4.30.0204072343250.12041-100000@shell.cyberus.ca>
-References: <200204072211.g37MB3v06124@marajade.sandelman.ottawa.on.ca>
+Message-ID: <20020409011523.07e9a540.miyazawa@mrj.biglobe.ne.jp>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: <netdev@oss.sgi.com>
-To: Michael Richardson <mcr@sandelman.ottawa.on.ca>
-In-Reply-To: <200204072211.g37MB3v06124@marajade.sandelman.ottawa.on.ca>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: USAGI Core <usagi-core@linux-ipv6.org>
+To: netdev@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hello,
+
+We are glad to announce the USAGI[1] STABLE RELEASE 3.1, dated on April 8th,
+2002.  Although this is a maintenance release of the STABLE RELEASE 3 dated 
+on January 1st, 2002, it comes with a latest kernel and couple of new 
+features.  
+
+The new / updated features are:
+	- based on latest kernel linux-2.4.18 
+	  (linux-2.2.20 for linux-2.2 systems)
+	- based on radvd-0.7.1, a router advertisement daemon
+	- ISATAP (Intra-Site Automatic Tunnel Addressing Protocol) support
+	- IPv4 and/or IPv6 over IPv4 Tunnel on a single driver support
+	- Privacy Extensions for linux-2.2 systems
+
+We also fixed the following bugs of the previous release:
+	- Fixed a bug, which devices, such as PCMCIA devices, could not
+	  finish correctly when using Privacy Extensions.
+	- Fixed a bug, which getifaddrs(3) did not report local/remote 
+	  addresses of point-to-point devices.
+	- Fixed a bug, which tcp_wrapper was not compiled correctly,
+	  so that ipv6 support was not enabled.
+	and so on.
+
+You can get our complete kit which includes kernel tree, library and 
+applications from the following URL.
+	<ftp://ftp.linux-ipv6.org/pub/usagi/stable/kit/>
+
+We also provide separate patches against the main-line kernel and the tools.
+	<ftp://ftp.linux-ipv6.org/pub/usagi/stable/split/>
+
+We have a plan to provide the binary packages for some distributions.
+They will appear under
+	<ftp://ftp.linux-ipv6.org/pub/usagi/stable/package/>
+within several weeks.
 
 
-On Sun, 7 Apr 2002, Michael Richardson wrote:
+We announce the latest information on our web pages.  
+Please check our web site <http://www.linux-ipv6.org>.
 
-> -----BEGIN PGP SIGNED MESSAGE-----
->
->
-> >>>>> "jamal" == jamal  <hadi@cyberus.ca> writes:
->     >> -IFOP_DOWN_LOWERLAYER
->     >> Lower layer is down, f.e. ethernet interfaces below a VLAN
->     >> -IFOP_DOWN_NOCARRIER
->     >> Interface link beat/framing is missing (current netif_carrier_o* maps
->     >> here)
->
->   Are there docs on these interfaces somewhere?
->
+We also manage the mailing list for USAGI users. 
+If you have questions, please join the mailing list.
+Comments and advises are also welcome on that mailing list.  
+Please visit <http://www.linux-ipv6.org/ml/> for further
+information.
 
-I guess this discussion will result in some documentation...
 
->     jamal> Good naming convention for the above two.
->
->     >> -IFOP_DOWN_KEEPALIVE
->     >> Another form of keepalive is missing
->
->     jamal> Not clear on this one.
->
->   PPP, for instance, does keepalives.
->   An IPsec tunnel might also use such a mechanism (we have plans).
->
+Thanks.
 
-Well, in that case the device is actually IFOP_UP. And the keepalives
-could be looked at as "carrier/link level diagnostics". Should the
-heartbeats disappear, it would be fair to transition the device to
-IFOP_DOWN_NOCARRIER. Should the device underneath have its carrier
-dissapear (eg a cable removed on an ethernet which ipsec0 uses), then
-the transition is very quickly to IFOP_DOWN_LOWERLAYER.... I guess the
-device(ipsec0) may also transition to IFOP_DOWN_NOCARRIER since its
-carrier path is doewn etc.
 
->     jamal> Also the only time IFOP_DOWN_LOWERLAYER makes sense is when the top
->     jamal> stacked device is actually admin up (but none of the lower devices are
->     jamal> operationally UP)
->
->   There are very good operational reasons why this is often done...
->   It would be nice to see this kind of stuff in diagnostics.
+About USAGI Project:
 
-I think they should be accessible; whether you send netlink
-advertisements everytime there is some state transition is the question.
-In my opinion the only interesting things are the a transition from a case
-where a carrier (ethernet cable) is connected to where it is disconnected.
-The other direction is also important. For example, i think these are the
-only two route daemons need to know about.
+The USAGI Project is managed by volunteers and aims to provide better
+IPv6 environment on Linux freely.  We are tightly collaborating with
+WIDE Project[2], KAME Project[3] and TAHI Project[4], and trying to
+improve Linux kernel, IPv6 related libraries and IPv6 applications.
+Our snapshots are released every two weeks and stable release is
+released several times a year.  Please check our web site
+<http://www.linux-ipv6.org> for the latest information.
 
-cheers,
-jamal
+
+References:
+
+	[1] USAGI Project       <http://www.linux-ipv6.org>
+	[2] WIDE Project        <http://www.wide.ad.jp>
+	[3] KAME Project        <http://www.kame.net>
+	[4] TAHI Project        <http://www.tahi.org>
+
+-- 
+USAGI Project <http://www.linux-ipv6.org>
