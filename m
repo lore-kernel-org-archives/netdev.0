@@ -1,27 +1,30 @@
-From: "Thomas 'Dent' Mirlacher" <dent@cosy.sbg.ac.at>
-Subject: simple networking clenaup questions
-Date: Tue, 25 Jun 2002 15:57:16 +0200 (MET DST)
+From: "Memon, Mazhar I" <mimemon@sandia.gov>
+Subject: skb_copy() for private linear skb->data
+Date: Thu, 27 Jun 2002 10:52:38 -0600
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <Pine.GSO.4.05.10206251556150.13531-100000@mausmaki.cosy.sbg.ac.at>
+Message-ID: <B51F0C636E578A4E832D3958690CD73E0BCA4D7B@es04snlnt>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain;
+ charset=iso-8859-1
+Content-Transfer-Encoding: 7bit
 Return-path: <owner-netdev@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 List-Id: netdev.vger.kernel.org
 
-hi list,
+According to the comment above skb_copy():
+"As by-product this function converts non-linear &sk_buff to linear one, so
+that &sk_buff becomes completely private and caller is allowed to modify all
+the data of returned buffer. "
+So in order to do some sort  of  data transformation on skb->data:
+new_skb = skb_copy(skb, GFP_ATOMIC);
+encrypt(new_skb->data)
+<nuke skb> 			with skb_unlink(skb)?
+<send new_skb>		with dev_kfree_skb(new_skb)?
+This causes an oops.
+Or instead of nuking, and sending, should the list pointers of the two skb's
+be swapped so that the new_skb appears in the list where 'skb' once lived,
+and then kfree(skb)?  I've tried to find an answer to this simple question
+in many places without luck.  Also, I cannot use skb_linearize, since not
+all data is made private to the caller.
 
-i have a some uestions about networking cleanups:
-
-1) is moving the ifmap struct into net_device still on the todo list?
-	(it is according to the comments in the header file)
-2) what about getting rid of dev->set_config, and just pass SIOCSIFMAP
-	to the device?
-
-thanks,
-
-	tm
-
--- 
-"They that can give up liberty to obtain a little temporary safety
- deserve neighter liberty nor safety" - Benjamin Franklin
+-Mazhar
