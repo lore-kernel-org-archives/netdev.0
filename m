@@ -1,21 +1,25 @@
-From: "Feldman, Scott" <scott.feldman@intel.com>
-Subject: RE: [ANNOUNCE] Intel PRO/100 software developer manual released
-Date: Wed, 18 Dec 2002 14:41:07 -0800
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: ip6_route_output() does not fill in the src. addr.
+Date: Wed, 18 Dec 2002 15:12:56 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <288F9BF66CD9D5118DF400508B68C44604758F86@orsmsx113.jf.intel.com>
+Message-ID: <Pine.LNX.4.33.0212181454260.9875-100000@dyn9-47-18-86.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-   LOSTeam
-	 <losteam@intel.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'James Morris'" <jmorris@intercode.com.au>
+To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> Any chance of releasing documentation on 
-> the crypto hardware which resides on the PRO/100 S?
+The ipv6 version of the 'get route entry' function ip6_route_output() does not
+fill in the source address of the route even when a valid appropriate source 
+address is passed. 
+Is this the expected behavior or a bug which is going to be fixed in the future 
+releases of 2.5?   
 
-No plans, sorry.
+The ipv4 version 'ip_route_output_key()' works as expected.
 
--scott
+SCTP calls these routines to get and cache a route entry and uses the cached
+entry to fill in skb->dst before passing the skb to ip. 
+
+Thanks
+Sridhar
