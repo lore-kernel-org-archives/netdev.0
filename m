@@ -1,41 +1,46 @@
 From: "David S. Miller" <davem@davemloft.net>
 Subject: Re: bad TSO performance in 2.6.9-rc2-BK
-Date: Thu, 30 Sep 2004 13:20:31 -0700
+Date: Thu, 30 Sep 2004 13:23:21 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040930132031.3264000b.davem@davemloft.net>
-References: <Pine.NEB.4.33.0409291648560.3434-100000@dexter.psc.edu>
-	<415B24C0.2020208@us.ibm.com>
-	<20040929145050.71afa1ac.davem@davemloft.net>
-	<20040929215613.GC26714@wotan.suse.de>
-	<20040929162923.796d142e.davem@davemloft.net>
-	<20040930000515.GA10496@gondor.apana.org.au>
-	<20040929213310.40f5f33a.davem@davemloft.net>
-	<20040930092926.GA18353@wotan.suse.de>
+Message-ID: <20040930132321.523c9490.davem@davemloft.net>
+References: <Pine.NEB.4.33.0409292008110.3434-100000@dexter.psc.edu>
+	<Pine.NEB.4.33.0409301320510.13549-100000@dexter.psc.edu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, ak@suse.de, niv@us.ibm.com, jheffner@psc.edu,
+Cc: ak@suse.de, niv@us.ibm.com, herbert@gondor.apana.org.au,
         andy.grover@gmail.com, anton@samba.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <20040930092926.GA18353@wotan.suse.de>
+To: John Heffner <jheffner@psc.edu>
+In-Reply-To: <Pine.NEB.4.33.0409301320510.13549-100000@dexter.psc.edu>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 30 Sep 2004 11:29:26 +0200
-Andi Kleen <ak@suse.de> wrote:
+On Thu, 30 Sep 2004 13:25:46 -0400 (EDT)
+John Heffner <jheffner@psc.edu> wrote:
 
-> Talking to another rc3 kernel with tg3 tso on is as fast as tso off now.
-> Unfortunately the ACKs still look funny. 
+> On Wed, 29 Sep 2004, John Heffner wrote:
+> 
+> > On Wed, 29 Sep 2004, John Heffner wrote:
+> >
+> > > Using iperf, I'm getting ~ the same speed to a slow p3 receiver (680
+> > > Mbits) with TSO on or off right now.  Haven't tried netperf.
+> >
+> > Netperf does not work well for me (350 Mbits).  Something to investigate.
+> 
+> I tried again, and it does not even work this well.  The connection hangs
+> at the end in state FIN_WAIT1 with 101361 bytes in the Send-Q.  It seems
+> that the whole interface dies.  (Maybe it's sending something invalid to
+> the TSO engine?)  When I bring the interface down then back up again, the
+> connection terminates normally.
+> 
+> Don't have this problem with iperf, strange.
 
-Can you help us debug this instead of just running tests over
-and over Andi?  It's frustrating because I cannot reproduce
-the problem here, else I would be adding checks to the receiver
-on my systems here. :-/
+Even stranger is that with current netperf tg3-->tg3 works perfectly fine
+for me with TSO enabled.  I'm getting clean 700Mbit transfers through
+my D-Link DGS-1008T switch as long as netperf doesn't do something silly
+like use tiny send/receiver buffers.
 
-Please put some checks into the ACK tests on your 2.6.5 receiver
-to determine why it does not want to ACK every other frame like
-it is supposed to.  We need to figure out where the stretch
-ACKs are coming from.
+I've never had a transfer stall either.
 
-Thanks.
+Please help debug this John since I'm not seeing this here.
