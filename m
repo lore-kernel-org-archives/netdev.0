@@ -1,110 +1,103 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Fw: ipsec hang
-Date: Wed, 24 Nov 2004 19:10:57 +0100
-Message-ID: <41A4CEB1.7000001@trash.net>
-References: <20041123173111.1b74fabb.akpm@osdl.org>
+From: Nitin Hande <nitin.hande@gmail.com>
+Subject: Recv path on bonding driver question
+Date: Wed, 24 Nov 2004 10:43:12 -0800
+Message-ID: <78a6df57041124104367acffe0@mail.gmail.com>
+Reply-To: Nitin Hande <nitin.hande@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030605060200040204090409"
-Cc: netdev@oss.sgi.com, =?ISO-8859-1?Q?Marcin_Gibu=B3a?= <mg@iceni.pl>,
-        jmorris@redhat.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20041123173111.1b74fabb.akpm@osdl.org>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------030605060200040204090409
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: quoted-printable
-X-MIME-Autoconverted: from 8bit to quoted-printable by oss.sgi.com id iAOIDnvS026896
-
-Andrew Morton wrote:
-
->Looks like one of the chains off xfrm_policy_list[] might have gone
->circular?
->
-This patch fixes it. When a policy with a priority lower than an
-existing policy is inserted, it loops forever on the existing policy.
-
-Regards
-Patrick
-
->Begin forwarded message:
->
->Date: Wed, 24 Nov 2004 01:34:49 +0100
->From: Marcin Gibu=B3a <mg@iceni.pl>
->To: linux-kernel@vger.kernel.org
->Subject: ipsec hang
->
->
->Hi,
->today I tried to configure ipsec on my linux workstation (with openswan)=
- and=20
->it hanged just after the init had run /etc/rc.d/init.d/ipsec start.=20
->It was on linux-2.6.10-rc1-bk20, so I upgraded to 2.6.10-rc2-mm3 but it =
-didn't=20
->make any difference.=20
->
->The alt-sysrq-p shows the following call trace:
->xfrm_policy_insert
->xfrm_netlink_rcv
->netlink_data_ready
->netlink_sendmsg
->sock_aio_write
->do_sync_write
->sock_map_fd
->sys_select
->vfs_write
->system_call
->
-
-
---------------030605060200040204090409
-Content-Type: text/plain;
- name="x"
-Content-Disposition: inline;
- filename="x"
-Content-Transfer-Encoding: 7bit
-
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2004/11/23 18:21:09-08:00 kaber@trash.net 
-#   [XFRM]: Fix endless loop in xfrm_policy_insert
-#   
-#   The patch 'Fix policy update bug when increasing
-#   priority of last policy' broke this, when a policy
-#   with lower priority than an existing policy is inserted
-#   xfrm_policy_insert loops forever.
-#   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-#   Signed-off-by: David S. Miller <davem@davemloft.net>
-# 
-# net/xfrm/xfrm_policy.c
-#   2004/11/23 18:20:49-08:00 kaber@trash.net +1 -0
-#   [XFRM]: Fix endless loop in xfrm_policy_insert
-#   
-#   The patch 'Fix policy update bug when increasing
-#   priority of last policy' broke this, when a policy
-#   with lower priority than an existing policy is inserted
-#   xfrm_policy_insert loops forever.
-#   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-#   Signed-off-by: David S. Miller <davem@davemloft.net>
-# 
-diff -Nru a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
---- a/net/xfrm/xfrm_policy.c	2004-11-24 19:01:38 +01:00
-+++ b/net/xfrm/xfrm_policy.c	2004-11-24 19:01:38 +01:00
-@@ -353,6 +353,7 @@
- 			newpos = p;
- 		if (delpol)
- 			break;
-+		p = &pol->next;
- 	}
- 	if (newpos)
- 		p = newpos;
-
---------------030605060200040204090409--
+Hello All,
+ 
+ I am new to Linux networking code. I am trying to understand recv path
+ of a packet after bonding. I have a regular peer ether interface
+ connected over a switch. On one side I enslave one of the ether
+ interface, so I get the following setup:
+ 
+ bond0     Link encap:Ethernet  HWaddr 00:09:3D:00:3D:3B
+           inet addr:192.168.1.1  Bcast:192.168.1.255  Mask:255.255.255.0
+           inet6 addr: fe80::200:ff:fe00:0/64 Scope:Link
+           UP BROADCAST RUNNING MASTER MULTICAST  MTU:1500  Metric:1
+           RX packets:13783 errors:0 dropped:0 overruns:0 frame:0
+           TX packets:757 errors:0 dropped:0 overruns:0 carrier:0
+           collisions:0 txqueuelen:0
+           RX bytes:1308089 (1.2 Mb)  TX bytes:76076 (74.2 Kb)
+ 
+ eth1      Link encap:Ethernet  HWaddr 00:09:3D:00:3D:3B
+           inet addr:192.168.1.1  Bcast:192.168.1.255  Mask:255.255.255.0
+           inet6 addr: fe80::209:3dff:fe00:3d3b/64 Scope:Link
+           UP BROADCAST RUNNING SLAVE MULTICAST  MTU:1500  Metric:1
+           RX packets:13783 errors:0 dropped:0 overruns:0 frame:0
+           TX packets:757 errors:0 dropped:0 overruns:0 carrier:0
+           collisions:0 txqueuelen:1000
+           RX bytes:1308089 (1.2 Mb)  TX bytes:76076 (74.2 Kb)
+           Interrupt:26
+ 
+ The other side remains a plain ether interface.
+ Peer side:
+ eth0      Link encap:Ethernet  HWaddr 00:09:3D:00:1D:5F
+           inet addr:192.168.1.6  Bcast:192.168.1.255  Mask:255.255.255.0
+           inet6 addr: fe80::209:3dff:fe00:1d5f/64 Scope:Link
+           UP BROADCAST NOTRAILERS RUNNING MULTICAST  MTU:1500  Metric:1
+           RX packets:569584 errors:0 dropped:0 overruns:0 frame:0
+           TX packets:262048 errors:0 dropped:0 overruns:0 carrier:0
+           collisions:0 txqueuelen:1000
+           RX bytes:46057796 (43.9 Mb)  TX bytes:29189722 (27.8 Mb)
+           Interrupt:25
+ 
+ While I ping from 192.168.1.6 to 192.168.1.1, ping works fine. Now, if I
+ run tcpdump on eth1 interface, I only see the icmp replies getting out
+ of interface.
+ 
+ sins-stinger-04:/var/tmp/linux-2.6.9 # ping 192.168.1.1
+ PING 192.168.1.1 (192.168.1.1) 56(84) bytes of data.
+ 64 bytes from 192.168.1.1: icmp_seq=1 ttl=64 time=1.07 ms
+ 64 bytes from 192.168.1.1: icmp_seq=2 ttl=64 time=0.091 ms
+ 64 bytes from 192.168.1.1: icmp_seq=3 ttl=64 time=0.095 ms
+ 64 bytes from 192.168.1.1: icmp_seq=4 ttl=64 time=0.085 ms
+ 64 bytes from 192.168.1.1: icmp_seq=5 ttl=64 time=0.083 ms
+ 
+ --- 192.168.1.1 ping statistics ---
+ 5 packets transmitted, 5 received, 0% packet loss, time 4000ms
+ rtt min/avg/max/mdev = 0.083/0.286/1.078/0.396 ms
+ -------------
+ sins-stinger-8:/var/tmp/linux-2.6.9/ # tcpdump -xv -i eth1 -n icmp
+ tcpdump: listening on eth1, link-type EN10MB (Ethernet), capture size 96
+ bytes
+ 15:04:31.433060 IP (tos 0x0, ttl  64, id 25225, offset 0, flags [none],
+ length: 84) 192.168.1.1 > 192.168.1.6: icmp 64: echo reply seq 1
+ 			 4500 0054 6289 0000 4001 94c8 c0a8 0101
+ 			 c0a8 0106 0000 65b1 fd69 0001 2db4 a341
+ 			 0000 0000 011b 0c00 0000 0000 1011 1213
+ 			 1415 1617 1819 1a1b 1c1d 1e1f 2021 2223
+ 			 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233
+ 			 3435
+ 15:04:32.432857 IP (tos 0x0, ttl  64, id 25226, offset 0, flags [none],
+ length: 84) 192.168.1.1 > 192.168.1.6: icmp 64: echo reply seq 2
+ 			 4500 0054 628a 0000 4001 94c7 c0a8 0101
+ 			 c0a8 0106 0000 2bad fd69 0002 2eb4 a341
+ 			 0000 0000 3a1e 0c00 0000 0000 1011 1213
+ 			 1415 1617 1819 1a1b 1c1d 1e1f 2021 2223
+ 			 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233
+ 			 3435
+ 15:04:33.432709 IP (tos 0x0, ttl  64, id 25227, offset 0, flags [none],
+ length: 84) 192.168.1.1 > 192.168.1.6: icmp 64: echo reply seq 3
+ 			 4500 0054 628b 0000 4001 94c6 c0a8 0101
+ 			 c0a8 0106 0000 afac fd69 0003 2fb4 a341
+ 			 0000 0000 b51d 0c00 0000 0000 1011 1213
+ 			 1415 1617 1819 1a1b 1c1d 1e1f 2021 2223
+ 			 2425 2627 2829 2a2b 2c2d 2e2f 3031 3233
+ 
+ My question is seems like netdev_set_master(??) makes some routing
+ socket changes etc in the Linux kernel. How does that affect
+ the receive path such that one cannot see the incoming icmp request on
+ the actual interface after bonding ? And then why can one see the packet
+ in the outgoing path? Any ideas ??
+ 
+ Thanks in advance.
+ Nitin
