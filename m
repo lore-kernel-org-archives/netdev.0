@@ -1,37 +1,25 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: Patch: Backport of link state notification to 2.4.20
-Date: Tue, 03 Dec 2002 19:45:27 -0500
+Subject: Re: Patch resubmission: RFC2863 operstatus for 2.5.50
+Date: Tue, 03 Dec 2002 19:52:57 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3DED5027.7070807@pobox.com>
-References: <3DD2D204.C9B7FA2D@isg.de> <3DED302A.E3DEB585@isg.de> <3DED4FB4.5070700@pobox.com>
+Message-ID: <3DED51E9.1080408@pobox.com>
+References: <3DE33D6D.25B9C9B4@isg.de> <20021126.021546.91313706.davem@redhat.com> <3DED2EA9.D812C881@isg.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, netdev@oss.sgi.com
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Stefan Rompf <srompf@isg.de>
-In-Reply-To: <3DED4FB4.5070700@pobox.com>
+In-Reply-To: <3DED2EA9.D812C881@isg.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Stefan Rompf wrote:
-> 
->> Hi David,
->>
->> attached is the recent backport of link state notification for the
->> stable kernel series. The feature is optional and can be configured away
->> to nothing, and tested on several systems.
->>
-> 
-> It might be a backport, but I haven't seen a 2.5.x version posted in a 
-> while.  If this is going into the stable series, it should already be 
-> merged in 2.5.x at the same time, if not first.
+Pardon my dumb question, but what parts of RFC2863 require kernel 
+additions over and above your link state patch?
 
+Your second patch I am less enthusiastic about than the first... :(
 
+I wonder if userspace cannot figure out ifOperStatus from existing data 
+we make available?
 
-...and of course this email arrives immediately in my inbox ;-)
-
-Which leads to the question:  why CONFIG_LINKWATCH in 2.4 but not 2.5?
-
-Let's do the same in both kernels unless there is a good reason not to...
+	Jeff
