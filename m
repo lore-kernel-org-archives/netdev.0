@@ -1,26 +1,33 @@
-From: davej@redhat.com
-Subject: [PATCH] Missing break in switch statement.
-Date: Mon, 11 Aug 2003 17:48:57 +0100
+From: YOSHIFUJI Hideaki <yoshfuji@hongo.wide.ad.jp>
+Subject: Re: [PATCH] Missing break in switch statement.
+Date: Tue, 12 Aug 2003 02:14:14 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <E19mFqr-00068T-00@tetrachloride>
+Message-ID: <20030812.021414.128414948.yoshfuji@hongo.wide.ad.jp>
+References: <E19mFqr-00068T-00@tetrachloride>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: davem@redhat.com, davej@redhat.com
+In-Reply-To: <E19mFqr-00068T-00@tetrachloride>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Is this intentional? It should at least have a 
-/* FALLTHROUGH */ or similar if so.
+In article <E19mFqr-00068T-00@tetrachloride> (at Mon, 11 Aug 2003 17:48:57 +0100), davej@redhat.com says:
 
-		Dave
+> Is this intentional? It should at least have a 
+> /* FALLTHROUGH */ or similar if so.
 
-diff -urpN --exclude-from=/home/davej/.exclude bk-linus/net/ipv6/raw.c linux-2.5/net/ipv6/raw.c
---- bk-linus/net/ipv6/raw.c	2003-07-11 13:57:41.000000000 +0100
-+++ linux-2.5/net/ipv6/raw.c	2003-07-11 14:08:05.000000000 +0100
-@@ -833,6 +833,7 @@ static int rawv6_getsockopt(struct sock 
- 			val = -1;
- 		else
- 			val = opt->offset;
-+		break;
- 
- 	default:
- 		return -ENOPROTOOPT;
+Of course not.
+
+>  		else
+>  			val = opt->offset;
+> +		break;
+>  
+>  	default:
+>  		return -ENOPROTOOPT;
+
+agreed.
+
+--yoshfuji
