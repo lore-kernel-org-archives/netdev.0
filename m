@@ -1,42 +1,91 @@
-From: Daniele Bellucci <bellucda@tiscali.it>
-Subject: [PATCH] make pktgen depends on procfs [2.6.0-test3]
-Date: Mon, 18 Aug 2003 23:26:10 +0200
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] (4/4) convert irlan to seq_file interface
+Date: Mon, 18 Aug 2003 23:25:54 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200308182326.10798.bellucda@tiscali.it>
-Reply-To: bellucda@tiscali.it
+Message-ID: <20030818232554.A7779@electric-eye.fr.zoreil.com>
+References: <20030818122702.67e9162d.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 8bit
-Cc: davem@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Jean Tourrilhes <jt@bougret.hpl.hp.com>,
+   "David S. Miller" <davem@redhat.com>, irda-users@lists.sourceforge.net,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20030818122702.67e9162d.shemminger@osdl.org>; from shemminger@osdl.org on Mon, Aug 18, 2003 at 12:27:02PM -0700
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-IMHO pktgen should depends on proc fs to avoid the following compilation error:
+Stephen Hemminger <shemminger@osdl.org> :
+> Convert irlan /proc interface to safer seq_file library.
+[...]
+> diff -Nru a/net/irda/irlan/irlan_filter.c b/net/irda/irlan/irlan_filter.c
+> --- a/net/irda/irlan/irlan_filter.c	Mon Aug 18 11:11:02 2003
+> +++ b/net/irda/irlan/irlan_filter.c	Mon Aug 18 11:11:02 2003
+[...]
+> @@ -216,26 +217,24 @@
+>   *    Print status of filter. Used by /proc file system
+>   *
+>   */
+> -int irlan_print_filter(int filter_type, char *buf)
+> +#ifdef CONFIG_PROC_FS
+> +void irlan_print_filter(struct seq_file *seq, int filter_type)
+>  {
+> -	int len = 0;
+> -
+>  	if (filter_type & IRLAN_DIRECTED)
+> -		len += sprintf(buf+len, "%s", "DIRECTED ");
+> +		seq_printf(seq, "%s", "DIRECTED ");
+>  	if (filter_type & IRLAN_FUNCTIONAL)
+> -		len += sprintf(buf+len, "%s", "FUNCTIONAL ");
+> +		seq_printf(seq, "%s", "FUNCTIONAL ");
+>  	if (filter_type & IRLAN_GROUP)
+> -		len += sprintf(buf+len, "%s", "GROUP ");
+> +		seq_printf(seq, "%s", "GROUP ");
+>  	if (filter_type & IRLAN_MAC_FRAME)
+> -		len += sprintf(buf+len, "%s", "MAC_FRAME ");
+> +		seq_printf(seq, "%s", "MAC_FRAME ");
+>  	if (filter_type & IRLAN_MULTICAST)
+> -		len += sprintf(buf+len, "%s", "MULTICAST ");
+> +		seq_printf(seq, "%s", "MULTICAST ");
+>  	if (filter_type & IRLAN_BROADCAST)
+> -		len += sprintf(buf+len, "%s", "BROADCAST ");
+> +		seq_printf(seq, "%s", "BROADCAST ");
+>  	if (filter_type & IRLAN_IPX_SOCKET)
+> -		len += sprintf(buf+len, "%s", "IPX_SOCKET");
+> -
+> -	len += sprintf(buf+len, "\n");
+> +		seq_printf(seq, "%s", "IPX_SOCKET");
+>  
+> -	return len;
+> +	seq_putc(seq, '\n');
+>  }
+> +#endif
 
-net/core/pktgen.c: In function `create_proc_dir':
-net/core/pktgen.c:1296: `proc_net' undeclared (first use in this function)
-net/core/pktgen.c:1296: (Each undeclared identifier is reported only once
-net/core/pktgen.c:1296: for each function it appears in.)
-make[2]: *** [net/core/pktgen.o] Error 1
-make[1]: *** [net/core] Error 2
-make: *** [net] Error 2
+(Ugly) variable naming apart, what about:
 
+void irlan_print_filter(struct seq_file *seq, int filter_type)
+{
+	static struct {
+		int mask;
+		char *str;
+	} filter_mask2str[] = {
+		{ IRLAN_DIRECTED,	"DIRECTED" },
+		{ IRLAN_FUNCTIONAL,	"FUNCTIONAL" },
+		{ IRLAN_GROUP,		"GROUP" },
+		{ IRLAN_MAC_FRAME,	"MAC_FRAME" },
+		{ IRLAN_MULTICAST,	"MULTICAST" },
+		{ IRLAN_BROADCAST,	"BROADCAST" },
+		{ IRLAN_IPX_SOCKET,	"IPX_SOCKET" },
+		{ 0,			NULL }
+	}, *p;
 
-diff -urN 1.0/net/Kconfig 1.1/net/Kconfig
---- 1.0/net/Kconfig	2003-08-18 23:25:02.000000000 +0200
-+++ 1.1/net/Kconfig	2003-08-18 23:25:13.000000000 +0200
-@@ -661,6 +661,7 @@
- 
- config NET_PKTGEN
- 	tristate "Packet Generator (USE WITH CAUTION)"
-+	depends on CONFIG_PROC_FS
- 	---help---
- 	  This module will inject preconfigured packets, at a configurable
- 	  rate, out of a given interface.  It is used for network interface
+	for (p = filter_mask2str; p->str; p++) {
+		if (filter_type & p->mask)
+			seq_printf(seq, "%s ", p->str);
+	}
+	seq_putc(seq, '\n');
+}
 
-
--- 
-Daniele.
+--
+Ueimor
