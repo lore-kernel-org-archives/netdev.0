@@ -1,20 +1,38 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: Re: [Bug 4177] New: Please consider adding possibility to have multiple
- PPPoE sessions with different MAC addresses
-Date: Sun, 06 Feb 2005 18:53:31 -0200
-Message-ID: <420683CB.2010205@conectiva.com.br>
-References: <200502061207.j16C7UOB009882@fire-1.osdl.org>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Fw: [Bugme-new] [Bug 4177] New: Please consider adding
+	possibility to have multiple PPPoE sessions with different MAC addresses
+Date: 06 Feb 2005 15:50:57 -0500
+Message-ID: <1107723057.1055.28.camel@jzny.localdomain>
+References: <20050206122604.74a41796.akpm@osdl.org>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Networking Team <netdev@oss.sgi.com>
-To: mostrows@speakeasy.net
-In-Reply-To: <200502061207.j16C7UOB009882@fire-1.osdl.org>
+Cc: netdev@oss.sgi.com, mh+kernel-bugzilla@zugschlus.de
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20050206122604.74a41796.akpm@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-bugme-daemon@osdl.org escreveu:
+
+Does that patch help at all?
+Seems to me all it enables is session setup, but after that what
+happens? Do packets go out with the MAC address you just spoofed
+for the data as well?
+
+cheers,
+jamal
+
+On Sun, 2005-02-06 at 15:26, Andrew Morton wrote:
+> Begin forwarded message:
+> 
+> Date: Sun, 6 Feb 2005 04:08:01 -0800
+> From: bugme-daemon@osdl.org
+> To: bugme-new@lists.osdl.org
+> Subject: [Bugme-new] [Bug 4177] New: Please consider adding possibility to have multiple PPPoE sessions with different MAC addresses
+> 
+> 
 > http://bugme.osdl.org/show_bug.cgi?id=4177
 > 
 >            Summary: Please consider adding possibility to have multiple
@@ -46,14 +64,14 @@ bugme-daemon@osdl.org escreveu:
 > Sven Geggus has a patch against rp-pppoed, which allows to fake the 
 > sending MAC address for additional PPPoE sessions, circumventing the 
 > artificially introduced limitation of the T-DSL connection. The patch 
-> is available on http://geggus.net/sven/rp-pppoe-fakemac.diff 
->  
+> is available on http://geggus.net/sven/rp-pppoe-fakemac.diff
+> 
 > Please consider adding that possibility to the kernel PPPoE code as well. 
 >  
 > Greetings 
 > Marc
 > 
 > ------- You are receiving this mail because: -------
-> You are the assignee for the bug, or are watching the assignee.
+> You are on the CC list for the bug, or are watching someone who is.
 > 
 > 
