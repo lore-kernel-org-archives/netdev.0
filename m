@@ -1,26 +1,29 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: skb_checksum_help
-Date: Tue, 25 Jan 2005 22:23:46 +1100
-Message-ID: <20050125112346.GA20704@gondor.apana.org.au>
-References: <20050124005348.GL23931@postel.suug.ch> <E1Cst4o-0007bD-00@gondolin.me.apana.org.au> <20050123202715.281ac87c.davem@davemloft.net> <20050124121610.GP23931@postel.suug.ch> <41F50B6C.6010107@davidcoulson.net> <20050124151510.GV23931@postel.suug.ch> <20050124225423.GA15405@gondor.apana.org.au> <20050124234515.GA31837@postel.suug.ch> <20050125000759.GA15883@gondor.apana.org.au> <20050124164049.3b939791.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tgraf@suug.ch, david@davidcoulson.net, kaber@trash.net, netdev@oss.sgi.com
+Subject: Re: [PATCH 2.6]: keep fragment queues private to each user
+Date: Tue, 25 Jan 2005 22:57:03 +1100
+Message-ID: <E1CtPJf-0005RG-00@gondolin.me.apana.org.au>
+References: <41F5D1CB.9050804@trash.net>
+Cc: davem@davemloft.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20050124164049.3b939791.davem@davemloft.net>
+To: kaber@trash.net (Patrick McHardy)
+In-Reply-To: <41F5D1CB.9050804@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 24, 2005 at 04:40:49PM -0800, David S. Miller wrote:
+Patrick McHardy <kaber@trash.net> wrote:
 > 
-> Good catch Herbert, I'll integrate this fix.  2.4.x needs it too
-> I'm pretty sure.
+> This patch keeps fragment queues private to each ip_defrag user to avoid
+> skbs jumping between different callers. It shouldn't change any wanted
+> behaviour, the only questionable one was ip_call_ra_chain, but the RA
+> option is included in each fragment. If you're fine with the patch I'm going
+> to send a 2.4 version later.
 
-Well I just had a look there and no, this clever frag reuse code
-was added in 2.5.
+Patch looks good.
+
+However, I think this is still not enough.  What about fragments
+that come from different interfaces? Fragments with different
+security paths?
 
 Cheers,
 -- 
