@@ -1,26 +1,28 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] remove dead extern's in netdevice.h
-Date: Wed, 9 Mar 2005 21:14:52 -0800
-Message-ID: <20050309211452.40ed9d8e.davem@davemloft.net>
-References: <20050302105902.72f2b983@dxpl.pdx.osdl.net>
+Subject: Re: [Patch] sctp: add receive buffer accounting to sctp (fwd)
+Date: Wed, 9 Mar 2005 21:16:32 -0800
+Message-ID: <20050309211632.6f70fe41.davem@davemloft.net>
+References: <Pine.LNX.4.61.0503030027590.8076@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20050302105902.72f2b983@dxpl.pdx.osdl.net>
+Cc: nhorman@redhat.com, netdev@oss.sgi.com,
+        lksctp-developers@lists.sourceforge.net
+To: Sridhar Samudrala <sri@us.ibm.com>
+In-Reply-To: <Pine.LNX.4.61.0503030027590.8076@localhost.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2 Mar 2005 10:59:02 -0800
-Stephen Hemminger <shemminger@osdl.org> wrote:
+On Thu, 3 Mar 2005 00:32:12 +0530 (IST)
+Sridhar Samudrala <sri@us.ibm.com> wrote:
 
-> The following definitions are historical relics.
+> Please apply the following SCTP patch submitted by Neil.
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
 
-Good catch, I missed this when we ripped out the hw flow
-control stuff.
+This patch doesn't apply cleanly right now.  Could you
+please cook up a fresh version, and also supply a 2.4.x
+version of the patch as well?
 
-Applied, thanks Stephen.
+Thanks a lot Sridhar.
