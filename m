@@ -1,33 +1,29 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: tcp vulnerability?  haven't seen anything on it here...
-Date: Thu, 22 Apr 2004 11:28:01 -0700
+From: syrius.ml@no-log.org
+Subject: Re: IMQ / new Dummy device post.
+Date: Thu, 22 Apr 2004 19:43:50 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040422112801.2a1a4a57.davem@redhat.com>
-References: <XFMail.20040422102359.pochini@shiny.it>
-	<Pine.LNX.4.53.0404220734330.8039@chaos>
+Message-ID: <87oepjx65r.87n053x65r@87llknx65r.message.id>
+References: <wazza.87ad18jbdl.fsf@message.id>
+	<1082427350.1034.70.camel@jzny.localdomain>
+	<wazza.87fzayw1fy.fsf@message.id> <wazza.87fzaxmr6x.fsf@message.id>
+	<wazza.87hdvddqxq.fsf@message.id>
+	<1082639764.1059.81.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: pochini@shiny.it, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-        cfriesen@nortelnetworks.com, joern@wohnheim.fh-wedel.de
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: root@chaos.analogic.com
-In-Reply-To: <Pine.LNX.4.53.0404220734330.8039@chaos>
+To: hadi@cyberus.ca
+In-Reply-To: <1082639764.1059.81.camel@jzny.localdomain> (hadi@cyberus.ca's
+ message of "22 Apr 2004 09:16:04 -0400")
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 22 Apr 2004 07:35:54 -0400 (EDT)
-"Richard B. Johnson" <root@chaos.analogic.com> wrote:
 
-> Has anybody checked to see what Linux does if it receives a
-> RST to the broadcast address? It would be a shame if all
-> connections were dropped!
+Hi,
 
-int tcp_v4_rcv(struct sk_buff *skb)
-{
- ...
-	if (skb->pkt_type != PACKET_HOST)
-		goto discard_it;
+It oops when using the ingress qdisc + action mirred egress redirect
+filter on tun0. (no egress at all, no ingress on eth0)
+It doesn't oops using an ingress qdisc + a simple police+drop filter
+on tun0...
 
-Packets which are multicast or broadcast do not get marked
-as "PACKET_HOST".
+-- 
