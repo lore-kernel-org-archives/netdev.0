@@ -1,30 +1,17 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] make {send|recv}msg return code 1003.1 compatible
-Date: Wed, 09 Jul 2003 22:52:41 -0700 (PDT)
+From: "Feldman, Scott" <scott.feldman@intel.com>
+Subject: RE: [PATCH] netdev_ops
+Date: Thu, 10 Jul 2003 00:47:13 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030709.225241.98880784.davem@redhat.com>
-References: <20030709193628.GR2702@rei.rakuen>
+Message-ID: <C6F5CF431189FA4CBAEC9E7DD5441E0102229133@orsmsx402.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8bit
+Cc: <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: tgraf@suug.ch
-In-Reply-To: <20030709193628.GR2702@rei.rakuen>
+content-class: urn:content-classes:message
+To: "Matthew Wilcox" <willy@debian.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Thomas Graf <tgraf@suug.ch>
-   Date: Wed, 9 Jul 2003 21:36:28 +0200
-
-   1003.1 says:
-   
-   [EMSGSIZE]
-       The msg_iovlen member of the msghdr structure pointed to by
-       message is less than or equal to 0, or is greater than
-       {IOV_MAX}.
-   
-   The patch changes the return code of {send|recv}msg from EINVAL
-   to EMSGSIZE.
-
-Patch applied, thanks.
+Can we get a HAVE_NETDEV_OPS?
