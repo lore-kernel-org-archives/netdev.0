@@ -1,26 +1,25 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [XFRM] Move xfrm4_rcv export to its site
-Date: Mon, 1 Nov 2004 16:59:10 -0800
-Message-ID: <20041101165910.138a0f94.davem@davemloft.net>
-References: <20041029021352.GA22550@gondor.apana.org.au>
+Subject: Re: [IPSEC] Make ah4/esp4/ipcomp depend on INET
+Date: Mon, 1 Nov 2004 16:59:58 -0800
+Message-ID: <20041101165958.674c0485.davem@davemloft.net>
+References: <20041029033900.GA23206@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20041029021352.GA22550@gondor.apana.org.au>
+In-Reply-To: <20041029033900.GA23206@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 29 Oct 2004 12:13:52 +1000
+On Fri, 29 Oct 2004 13:39:00 +1000
 Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> Here is a trivial patch that moves xfrm4_rcv's export to the
-> site of its definition.  Currently it lives in net/xfrm which
-> is miles away.
+> As it is someone could disable INET and still enable ah4/esp4/ipcomp.
+> This patch adds the dependency on INET to prevent this.
 > 
 > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Applied, thanks Herbert.
+Applied, thanks a lot Herbert.
