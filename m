@@ -1,60 +1,63 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: PATCH: bonding might sleep with lock held
-Date: Thu, 13 May 2004 10:20:53 +0200
+From: "J. M." <snortwiz@hotmail.com>
+Subject: RE: OSDL Bugzilla #2399: A user can remotely route a packet through eth0 on a Li
+Date: Thu, 13 May 2004 12:16:18 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040513082053.GC27682@wotan.suse.de>
-References: <200405130215.i4D2FX52016740@death.nxdomain.ibm.com>
+Message-ID: <BAY15-F23oD2goa4pNv00053eea@hotmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; format=flowed
+Cc: niv@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jay Vosburgh <fubar@us.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <200405130215.i4D2FX52016740@death.nxdomain.ibm.com>
+To: jan@ixiacom.com, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 12, 2004 at 07:15:33PM -0700, Jay Vosburgh wrote:
-> 
-> 	In 802.3ad mode, the bond_close() function will eventually call
-> dev_remove_pack() with a lock held.  In turn, dev_remove_pack() calls
-> synchronize_net() which eventually might sleep in wait_for_completion().
-> Probably not good.
-> 
-> 	This patch replaces dev_remove_pack() with __dev_remove_pack()
-> and adds a synchronize_net() call outside the lock.  The patch is
-> against 2.6.5, but applied to 2.6.6 for me.
+Applicable snip of netstat -lnp output:
 
-I would rather fix bond_close to not call this with the lock hold.
-You can just move the call a few lines up. dev->close has own
-synchronization anyways and dev_remove_pack has a lock too, so this
-should be safe.
+Active Internet connections (only servers)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State    
+    PID/Program name
+tcp        0      0 10.10.10.10:22          0.0.0.0:*               LISTEN   
+    2836/sshd
 
-Patch to do that appeneded.
+No, ip_forward probably doesn't apply, but this is my first bug post so I 
+figured I'd better include anything remotely possible :)
 
--Andi
+-Jared
 
 
-diff -u linux/drivers/net/bonding/bond_main.c-o linux/drivers/net/bonding/bond_main.c
---- linux/drivers/net/bonding/bond_main.c-o	1970-01-01 01:12:51.000000000 +0100
-+++ linux/drivers/net/bonding/bond_main.c	2004-05-13 10:20:06.000000000 +0200
-@@ -3566,15 +3566,15 @@
- {
- 	struct bonding *bond = bond_dev->priv;
- 
--	write_lock_bh(&bond->lock);
--
--	bond_mc_list_destroy(bond);
--
- 	if (bond->params.mode == BOND_MODE_8023AD) {
- 		/* Unregister the receive of LACPDUs */
- 		bond_unregister_lacpdu(bond);
- 	}
- 
-+	write_lock_bh(&bond->lock);
-+
-+	bond_mc_list_destroy(bond);
-+
- 	/* signal timers not to re-arm */
- 	bond->kill_timers = 1;
- 
+>From: Jan Olderdissen <jan@ixiacom.com>
+>To: netdev@oss.sgi.com
+>CC: snortwiz@hotmail.com, 'Nivedita Singhvi' <niv@us.ibm.com>
+>Subject: RE: OSDL Bugzilla #2399: A user can remotely route a packet 
+>through eth0 on a Linux machine
+>Date: Tue, 11 May 2004 11:44:42 -0700
+>MIME-Version: 1.0
+>Received: from racerx.ixiacom.com ([64.60.75.69]) by mc8-f42.hotmail.com 
+>with Microsoft SMTPSVC(5.0.2195.6824); Tue, 11 May 2004 11:45:06 -0700
+>Received: by racerx.ixiacom.com with Internet Mail Service (5.5.2657.72)id 
+><JTCQGADG>; Tue, 11 May 2004 11:44:43 -0700
+>X-Message-Info: 6sSXyD95QpVUIaPMW1t2diBZvRcT4xCR
+>Message-ID: <15FDCE057B48784C80836803AE3598D50627ACCF@racerx.ixiacom.com>
+>X-Mailer: Internet Mail Service (5.5.2657.72)
+>Return-Path: jan@ixiacom.com
+>X-OriginalArrivalTime: 11 May 2004 18:45:08.0007 (UTC) 
+>FILETIME=[14F7A370:01C43788]
+>
+>Jared,
+>
+>I can't shake the feeling that the service didn't actually bind to eth1, 
+>but
+>instead bound to INADDR_ANY. You can find out with 'netstat -lnp'. Would 
+>you
+>mind posting the output?
+>
+> > A 'cat' or
+> > /proc/sys/net/ipv4/ip_forward
+> > on the Linux laptop was "0" so ip forwarding was not enabled.
+>
+>I don't think the ip_forward flag applies here.
+>
+>Jan
+
+_________________________________________________________________
+Check out the coupons and bargains on MSN Offers! http://youroffers.msn.com
