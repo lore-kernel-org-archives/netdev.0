@@ -1,26 +1,30 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] PKT_SCHED: Make rate estimator work for all platforms
-Date: Mon, 4 Oct 2004 17:38:01 -0700
+From: Andi Kleen <ak@suse.de>
+Subject: Re: Hang when testing with AMD64 with Tg3
+Date: Tue, 5 Oct 2004 02:41:35 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041004173801.2157c71b.davem@davemloft.net>
-References: <20041004211152.GF15898@postel.suug.ch>
-	<1096933654.2163.1.camel@jzny.localdomain>
+Message-ID: <20041005004135.GE13106@wotan.suse.de>
+References: <1096935071.22155.6.camel@localhost.localdomain> <20041005001527.GB13106@wotan.suse.de> <20041004172948.2023a75e.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <ak@suse.de>, shemminger@osdl.org, davem@redhat.com,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1096933654.2163.1.camel@jzny.localdomain>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20041004172948.2023a75e.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 04 Oct 2004 19:47:34 -0400
-jamal <hadi@cyberus.ca> wrote:
+On Mon, Oct 04, 2004 at 05:29:48PM -0700, David S. Miller wrote:
+> On Tue, 5 Oct 2004 02:15:27 +0200
+> Andi Kleen <ak@suse.de> wrote:
+> 
+> > I don't see things like this on my boxes with rc3, also with tg3s.
+> > 
+> > Of what nature is the hang? Does the machine crash?
+> 
+> And what tg3 revisions do you have?
 
-> Dave, Please apply all the patches (earlier 3 + this one) that Thomas
-> posted.
+Mostly 5701s.
 
-Will do after I review it a bit more.
-
-Thanks.
+-Andi
