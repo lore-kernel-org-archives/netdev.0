@@ -1,266 +1,452 @@
-From: Dipankar Sarma <dipankar@in.ibm.com>
-Subject: Re: route cache DoS testing and softirqs
-Date: Tue, 6 Apr 2004 02:52:20 +0530
+From: Don Fry <brazilnut@us.ibm.com>
+Subject: [PATCH 2.6.5 2/4] pcnet32 all printk under netif_msg
+Date: Mon, 5 Apr 2004 14:26:32 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040405212220.GH4003@in.ibm.com>
-References: <200403302005.AAA00466@yakov.inr.ac.ru> <20040330211450.GI3808@dualathlon.random> <20040330133000.098761e2.davem@redhat.com> <20040330213742.GL3808@dualathlon.random> <20040331171023.GA4543@in.ibm.com> <16491.4593.718724.277551@robur.slu.se> <20040331203750.GB4543@in.ibm.com> <20040331212817.GQ2143@dualathlon.random> <20040331214342.GD4543@in.ibm.com> <16497.37720.607342.193544@robur.slu.se>
-Reply-To: dipankar@in.ibm.com
+Message-ID: <200404052126.i35LQWc10992@DYN318364BLD.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andrea Arcangeli <andrea@suse.de>, "David S. Miller" <davem@redhat.com>,
-        kuznet@ms2.inr.ac.ru, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-        paulmck@us.ibm.com, akpm@osdl.org
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Robert Olsson <Robert.Olsson@data.slu.se>
-Content-Disposition: inline
-In-Reply-To: <16497.37720.607342.193544@robur.slu.se>
+To: tsbogend@alpha.franken.de, jgarzik@pobox.com, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 05, 2004 at 07:11:52PM +0200, Robert Olsson wrote:
-> 
-> Dipankar Sarma writes:
-> 
->  > Robert, btw, this rcu-softirq patch is slightly different
->  > from the earlier one in the sense that now every softirq
->  > handler completion is a quiescent point. Earlier each iteration
->  > of softirqs was a quiescent point. So this has more quiescent
->  > points.
-> 
-> Hello!
-> 
-> Yes it seems reduce RCU latency in our setup as well. It does not eliminate 
-> overflows but reduces with ~50% and increases the throughput a bit. dst cache 
-> overflow depends on RCU-delay + gc_min_interval and the number of entries
-> freed per sec so this means RCU has improved. Also the user app doing gettimeofday 
-> seems to be better scheduled. The worst starvation improved from ~7.5 to ~4.4 sec. 
+Please apply the following patch to 2.6.5.
 
-Looks better atleast. Can you apply the following patch (rs-throttle-rcu)
-on top of rcu-softirq.patch in your tree and see if helps a little bit more ?
-Please make sure to set the kernel paramenters rcupdate.maxbatch to 4
-and rcupdate.plugticks to 0. You can make sure of those parameters
-by looking at dmesg (rcu prints them out during boot). I just merged
-it, but have not tested this patch yet.
+All printk's are now done under netif_msg debug level tests.
 
-Thanks
-Dipankar
-
-
-
-Throttle rcu by forcing a limit on how many callbacks per softirq
-and also implement a configurable plug. Applies on top of the
-rcu-softirq (hence rs-) patch.
-
-
- include/linux/list.h     |   21 +++++++++++++++++++++
- include/linux/rcupdate.h |    7 ++++++-
- kernel/rcupdate.c        |   33 +++++++++++++++++++++++++--------
- kernel/sched.c           |    2 ++
- 4 files changed, 54 insertions(+), 9 deletions(-)
-
-diff -puN include/linux/list.h~rs-throttle-rcu include/linux/list.h
---- linux-2.6.4-rcu/include/linux/list.h~rs-throttle-rcu	2004-04-06 02:05:13.000000000 +0530
-+++ linux-2.6.4-rcu-dipankar/include/linux/list.h	2004-04-06 02:05:13.000000000 +0530
-@@ -251,6 +251,27 @@ static inline void list_splice(struct li
- 		__list_splice(list, head);
- }
+--- linux-2.6.5/drivers/net/add.pcnet32.c	Mon Apr  5 11:40:57 2004
++++ linux-2.6.5/drivers/net/pcnet32.c	Mon Apr  5 13:37:56 2004
+@@ -22,8 +22,8 @@
+  *************************************************************************/
  
-+static inline void __list_splice_tail(struct list_head *list,
-+			struct list_head *head)
+ #define DRV_NAME	"pcnet32"
+-#define DRV_VERSION	"1.28"
+-#define DRV_RELDATE	"02.20.2004"
++#define DRV_VERSION	"1.29"
++#define DRV_RELDATE	"04.06.2004"
+ #define PFX		DRV_NAME ": "
+ 
+ static const char *version =
+@@ -484,11 +484,11 @@
+ 
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ static void pcnet32_poll_controller(struct net_device *dev)
+-{ 
 +{
-+	struct list_head *first = list->next;
-+	struct list_head *last = list->prev;
-+	struct list_head *at = head->prev;
-+
-+	first->prev = at;
-+	at->next = first;
-+	head->prev = last;
-+	last->next = head;
+ 	disable_irq(dev->irq);
+ 	pcnet32_interrupt(0, dev, NULL);
+ 	enable_irq(dev->irq);
+-} 
 +}
-+
-+
-+static inline void list_splice_tail(struct list_head *list, 
-+			struct list_head *head)
-+{
-+	if (!list_empty(list))
-+		__list_splice_tail(list, head);
-+}
-+
- /**
-  * list_splice_init - join two lists and reinitialise the emptied list.
-  * @list: the new list to add.
-diff -puN include/linux/rcupdate.h~rs-throttle-rcu include/linux/rcupdate.h
---- linux-2.6.4-rcu/include/linux/rcupdate.h~rs-throttle-rcu	2004-04-06 02:05:13.000000000 +0530
-+++ linux-2.6.4-rcu-dipankar/include/linux/rcupdate.h	2004-04-06 02:27:29.000000000 +0530
-@@ -96,10 +96,12 @@ struct rcu_data {
-         long  	       	batch;           /* Batch # for current RCU batch */
-         struct list_head  nxtlist;
-         struct list_head  curlist;
-+	struct list_head  donelist;
- };
+ #endif
  
- DECLARE_PER_CPU(struct rcu_data, rcu_data);
- DECLARE_PER_CPU(struct rcu_data, rcu_bh_data);
-+DECLARE_PER_CPU(int, rcu_plugticks);
- extern struct rcu_ctrlblk rcu_ctrlblk;
- extern struct rcu_ctrlblk rcu_bh_ctrlblk;
-   
-@@ -107,6 +109,8 @@ extern struct rcu_ctrlblk rcu_bh_ctrlblk
- #define RCU_nxtlist(cpu) 	(per_cpu(rcu_data, (cpu)).nxtlist)
- #define RCU_bh_qsctr(cpu) 	(per_cpu(rcu_bh_data, (cpu)).qsctr)
- #define RCU_bh_nxtlist(cpu) 	(per_cpu(rcu_bh_data, (cpu)).nxtlist)
-+
-+#define RCU_plugticks(cpu) 	(per_cpu(rcu_plugticks, (cpu)))
-   
- #define RCU_QSCTR_INVALID	0
  
-@@ -117,7 +121,8 @@ static inline int __rcu_pending(int cpu,
- 	     rcu_batch_before(rdp->batch, rcp->curbatch)) ||
- 	    (list_empty(&rdp->curlist) &&
- 			 !list_empty(&rdp->nxtlist)) ||
--	    cpu_isset(cpu, rcp->rcu_cpu_mask))
-+	    cpu_isset(cpu, rcp->rcu_cpu_mask) ||
-+	    (!list_empty(&rdp->donelist) && RCU_plugticks(cpu) == 0))
- 		return 1;
- 	else
- 		return 0;
-diff -puN kernel/rcupdate.c~rs-throttle-rcu kernel/rcupdate.c
---- linux-2.6.4-rcu/kernel/rcupdate.c~rs-throttle-rcu	2004-04-06 02:05:13.000000000 +0530
-+++ linux-2.6.4-rcu-dipankar/kernel/rcupdate.c	2004-04-06 02:47:10.000000000 +0530
-@@ -39,6 +39,7 @@
- #include <asm/atomic.h>
- #include <asm/bitops.h>
- #include <linux/module.h>
-+#include <linux/moduleparam.h>
- #include <linux/completion.h>
- #include <linux/percpu.h>
- #include <linux/notifier.h>
-@@ -59,6 +60,10 @@ DEFINE_PER_CPU(struct rcu_data, rcu_bh_d
- /* Fake initialization required by compiler */
- static DEFINE_PER_CPU(struct tasklet_struct, rcu_tasklet) = {NULL};
- #define RCU_tasklet(cpu) (per_cpu(rcu_tasklet, cpu))
-+DEFINE_PER_CPU(int, rcu_plugticks) = 0;
-+
-+static int maxbatch = 1000000;
-+static int plugticks = 4;
+@@ -611,7 +611,7 @@
+ 	    test->flags |= ETH_TEST_FL_FAILED;
+ 	} else if (netif_msg_hw(lp))
+ 	    printk(KERN_DEBUG "%s: Loopback test passed.\n", dev->name);
+-    } else
++    } else if (netif_msg_hw(lp))
+ 	printk(KERN_DEBUG "%s: No tests to run (specify 'Offline' on ethtool).",	    dev->name);
+ } /* end pcnet32_ethtool_test */
  
- /**
-  * call_rcu - Queue an RCU update request.
-@@ -112,16 +117,23 @@ void call_rcu_bh(struct rcu_head *head, 
-  * Invoke the completed RCU callbacks. They are expected to be in
-  * a per-cpu list.
-  */
--static void rcu_do_batch(struct list_head *list)
-+static void rcu_do_batch(int cpu, struct list_head *list)
- {
- 	struct list_head *entry;
- 	struct rcu_head *head;
-+	int count = 0;
+@@ -793,23 +793,27 @@
  
- 	while (!list_empty(list)) {
- 		entry = list->next;
- 		list_del(entry);
- 		head = list_entry(entry, struct rcu_head, list);
- 		head->func(head->arg);
-+		if (++count >= maxbatch) {
-+			RCU_plugticks(cpu) = plugticks;
-+			if (!RCU_plugticks(cpu))
-+				tasklet_hi_schedule(&RCU_tasklet(cpu));
-+			break;
-+		}
+     err = pci_enable_device(pdev);
+     if (err < 0) {
+-	printk(KERN_ERR PFX "failed to enable device -- err=%d\n", err);
++	if (pcnet32_debug & NETIF_MSG_PROBE)
++	    printk(KERN_ERR PFX "failed to enable device -- err=%d\n", err);
+ 	return err;
+     }
+     pci_set_master(pdev);
+ 
+     ioaddr = pci_resource_start (pdev, 0);
+     if (!ioaddr) {
+-	printk (KERN_ERR PFX "card has no PCI IO resources, aborting\n");
++	if (pcnet32_debug & NETIF_MSG_PROBE)
++	    printk (KERN_ERR PFX "card has no PCI IO resources, aborting\n");
+ 	return -ENODEV;
+     }
+ 
+     if (!pci_dma_supported(pdev, PCNET32_DMA_MASK)) {
+-	printk(KERN_ERR PFX "architecture does not support 32bit PCI busmaster DMA\n");
++	if (pcnet32_debug & NETIF_MSG_PROBE)
++	    printk(KERN_ERR PFX "architecture does not support 32bit PCI busmaster DMA\n");
+ 	return -ENODEV;
+     }
+     if (request_region(ioaddr, PCNET32_TOTAL_SIZE, "pcnet32_probe_pci") == NULL) {
+-	printk(KERN_ERR PFX "io address range already allocated\n");
++	if (pcnet32_debug & NETIF_MSG_PROBE)
++	    printk(KERN_ERR PFX "io address range already allocated\n");
+ 	return -EBUSY;
+     }
+ 
+@@ -847,14 +851,15 @@
+ 	if (pcnet32_dwio_read_csr(ioaddr, 0) == 4 && pcnet32_dwio_check(ioaddr)) {
+ 	    a = &pcnet32_dwio;
+ 	} else
+-		goto err_release_region;
++	    goto err_release_region;
+     }
+ 
+     chip_version = a->read_csr(ioaddr, 88) | (a->read_csr(ioaddr,89) << 16);
+-    if (pcnet32_debug & NETIF_MSG_PROBE)
++    if ((pcnet32_debug & NETIF_MSG_PROBE) && (pcnet32_debug & NETIF_MSG_HW))
+ 	printk(KERN_INFO "  PCnet chip version is %#x.\n", chip_version);
+     if ((chip_version & 0xfff) != 0x003) {
+-	printk(KERN_INFO PFX "Unsupported chip version.\n");
++	if (pcnet32_debug & NETIF_MSG_PROBE)
++	    printk(KERN_INFO PFX "Unsupported chip version.\n");
+ 	goto err_release_region;
+     }
+ 
+@@ -914,8 +919,9 @@
+ 	fdx = 1; mii = 1;
+ 	break;
+     default:
+-	printk(KERN_INFO PFX "PCnet version %#x, no PCnet32 chip.\n",
+-		chip_version);
++	if (pcnet32_debug & NETIF_MSG_PROBE)
++	    printk(KERN_INFO PFX "PCnet version %#x, no PCnet32 chip.\n",
++		    chip_version);
+ 	goto err_release_region;
+     }
+ 
+@@ -935,13 +941,15 @@
+ 
+     dev = alloc_etherdev(0);
+     if (!dev) {
+-	printk(KERN_ERR PFX "Memory allocation failed.\n");
++	if (pcnet32_debug & NETIF_MSG_PROBE)
++	    printk(KERN_ERR PFX "Memory allocation failed.\n");
+ 	ret = -ENOMEM;
+ 	goto err_release_region;
+     }
+     SET_NETDEV_DEV(dev, &pdev->dev);
+ 
+-    printk(KERN_INFO PFX "%s at %#3lx,", chipname, ioaddr);
++    if (pcnet32_debug & NETIF_MSG_PROBE)
++	printk(KERN_INFO PFX "%s at %#3lx,", chipname, ioaddr);
+ 
+     /* In most chips, after a chip reset, the ethernet address is read from the
+      * station address PROM at the base address and programmed into the
+@@ -970,8 +978,10 @@
+ 	if (!is_valid_ether_addr(dev->dev_addr)
+ 	    && is_valid_ether_addr(promaddr)) {
+ #endif
+-	    printk(" warning: CSR address invalid,\n");
+-	    printk(KERN_INFO "    using instead PROM address of");
++	    if (pcnet32_debug & NETIF_MSG_PROBE) {
++		printk(" warning: CSR address invalid,\n");
++		printk(KERN_INFO "    using instead PROM address of");
++	    }
+ 	    memcpy(dev->dev_addr, promaddr, 6);
  	}
- }
+     }
+@@ -980,36 +990,40 @@
+     if (!is_valid_ether_addr(dev->dev_addr))
+ 	memset(dev->dev_addr, 0, sizeof(dev->dev_addr));
  
-@@ -178,7 +190,7 @@ out_unlock:
- 	spin_unlock(&rcp->mutex);
- }
-   
--static void __rcu_process_callbacks(struct rcu_ctrlblk *rcp,
-+static void __rcu_process_callbacks(int cpu, struct rcu_ctrlblk *rcp,
- 					struct rcu_data *rdp)
+-    for (i = 0; i < 6; i++)
+-	printk(" %2.2x", dev->dev_addr[i] );
+-
+-    if (((chip_version + 1) & 0xfffe) == 0x2624) { /* Version 0x2623 - 0x2624 */
+-	i = a->read_csr(ioaddr, 80) & 0x0C00;  /* Check tx_start_pt */
+-	printk("\n" KERN_INFO "    tx_start_pt(0x%04x):",i);
+-	switch(i>>10) {
+-	    case 0: printk("  20 bytes,"); break;
+-	    case 1: printk("  64 bytes,"); break;
+-	    case 2: printk(" 128 bytes,"); break;
+-	    case 3: printk("~220 bytes,"); break;
++    if (pcnet32_debug & NETIF_MSG_PROBE) {
++	for (i = 0; i < 6; i++)
++	    printk(" %2.2x", dev->dev_addr[i] );
++
++	/* Version 0x2623 and 0x2624 */
++	if (((chip_version + 1) & 0xfffe) == 0x2624) {
++	    i = a->read_csr(ioaddr, 80) & 0x0C00;  /* Check tx_start_pt */
++	    printk("\n" KERN_INFO "    tx_start_pt(0x%04x):",i);
++	    switch(i>>10) {
++		case 0: printk("  20 bytes,"); break;
++		case 1: printk("  64 bytes,"); break;
++		case 2: printk(" 128 bytes,"); break;
++		case 3: printk("~220 bytes,"); break;
++	    }
++	    i = a->read_bcr(ioaddr, 18);  /* Check Burst/Bus control */
++	    printk(" BCR18(%x):",i&0xffff);
++	    if (i & (1<<5)) printk("BurstWrEn ");
++	    if (i & (1<<6)) printk("BurstRdEn ");
++	    if (i & (1<<7)) printk("DWordIO ");
++	    if (i & (1<<11)) printk("NoUFlow ");
++	    i = a->read_bcr(ioaddr, 25);
++	    printk("\n" KERN_INFO "    SRAMSIZE=0x%04x,",i<<8);
++	    i = a->read_bcr(ioaddr, 26);
++	    printk(" SRAM_BND=0x%04x,",i<<8);
++	    i = a->read_bcr(ioaddr, 27);
++	    if (i & (1<<14)) printk("LowLatRx");
+ 	}
+-	i = a->read_bcr(ioaddr, 18);  /* Check Burst/Bus control */
+-	printk(" BCR18(%x):",i&0xffff);
+-	if (i & (1<<5)) printk("BurstWrEn ");
+-	if (i & (1<<6)) printk("BurstRdEn ");
+-	if (i & (1<<7)) printk("DWordIO ");
+-	if (i & (1<<11)) printk("NoUFlow ");
+-	i = a->read_bcr(ioaddr, 25);
+-	printk("\n" KERN_INFO "    SRAMSIZE=0x%04x,",i<<8);
+-	i = a->read_bcr(ioaddr, 26);
+-	printk(" SRAM_BND=0x%04x,",i<<8);
+-	i = a->read_bcr(ioaddr, 27);
+-	if (i & (1<<14)) printk("LowLatRx");
+     }
+ 
+     dev->base_addr = ioaddr;
+     /* pci_alloc_consistent returns page-aligned memory, so we do not have to check the alignment */
+     if ((lp = pci_alloc_consistent(pdev, sizeof(*lp), &lp_dma_addr)) == NULL) {
+-	printk(KERN_ERR PFX "Consistent memory allocation failed.\n");
++	if (pcnet32_debug & NETIF_MSG_PROBE)
++	    printk(KERN_ERR PFX "Consistent memory allocation failed.\n");
+ 	ret = -ENOMEM;
+ 	goto err_free_netdev;
+     }
+@@ -1045,7 +1059,8 @@
+ 	lp->options |= PCNET32_PORT_FD;
+ 
+     if (!a) {
+-	printk(KERN_ERR PFX "No access methods\n");
++	if (pcnet32_debug & NETIF_MSG_PROBE)
++	    printk(KERN_ERR PFX "No access methods\n");
+ 	ret = -ENODEV;
+ 	goto err_free_consistent;
+     }
+@@ -1079,9 +1094,10 @@
+ 	dev->irq = irq_line;
+     }
+ 
+-    if (dev->irq >= 2)
+-	printk(" assigned IRQ %d.\n", dev->irq);
+-    else {
++    if (dev->irq >= 2) {
++	if (pcnet32_debug & NETIF_MSG_PROBE)
++	    printk(" assigned IRQ %d.\n", dev->irq);
++    } else {
+ 	unsigned long irq_mask = probe_irq_on();
+ 
+ 	/*
+@@ -1095,11 +1111,13 @@
+ 
+ 	dev->irq = probe_irq_off (irq_mask);
+ 	if (!dev->irq) {
+-	    printk(", failed to detect IRQ line.\n");
++	    if (pcnet32_debug & NETIF_MSG_PROBE)
++		printk(", failed to detect IRQ line.\n");
+ 	    ret = -ENODEV;
+ 	    goto err_free_consistent;
+ 	}
+-	printk(", probed IRQ %d.\n", dev->irq);
++	if (pcnet32_debug & NETIF_MSG_PROBE)
++	    printk(", probed IRQ %d.\n", dev->irq);
+     }
+ 
+     /* Set the mii phy_id so that we can query the link state */
+@@ -1123,7 +1141,7 @@
+ 
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+     dev->poll_controller = pcnet32_poll_controller;
+-#endif    
++#endif
+ 
+     /* Fill in the generic fields of the device structure. */
+     if (register_netdev(dev))
+@@ -1136,7 +1154,8 @@
+ 	pcnet32_dev = dev;
+     }
+ 
+-    printk(KERN_INFO "%s: registered as %s\n",dev->name, lp->name);
++    if (pcnet32_debug & NETIF_MSG_PROBE)
++	printk(KERN_INFO "%s: registered as %s\n", dev->name, lp->name);
+     cards_found++;
+     return 0;
+ 
+@@ -1265,7 +1284,7 @@
+ 
+     /* If we have mii, print the link status and start the watchdog */
+     if (lp->mii) {
+-	mii_check_media (&lp->mii_if, 1, 1);
++	mii_check_media (&lp->mii_if, netif_msg_link(lp), 1);
+ 	mod_timer (&(lp->watchdog_timer), PCNET32_WATCHDOG_TIMEOUT);
+     }
+ 
+@@ -1358,8 +1377,9 @@
+ 	if (rx_skbuff == NULL) {
+ 	    if (!(rx_skbuff = lp->rx_skbuff[i] = dev_alloc_skb (PKT_BUF_SZ))) {
+ 		/* there is not much, we can do at this point */
+-		printk(KERN_ERR "%s: pcnet32_init_ring dev_alloc_skb failed.\n",
+-			dev->name);
++		if (pcnet32_debug & NETIF_MSG_DRV)
++		    printk(KERN_ERR "%s: pcnet32_init_ring dev_alloc_skb failed.\n",
++			    dev->name);
+ 		return -1;
+ 	    }
+ 	    skb_reserve (rx_skbuff, 2);
+@@ -1421,8 +1441,9 @@
+ 
+     spin_lock_irqsave(&lp->lock, flags);
+     /* Transmitter timeout, serious problems. */
+-    printk(KERN_ERR "%s: transmit timed out, status %4.4x, resetting.\n",
+-	   dev->name, lp->a.read_csr(ioaddr, 0));
++    if (pcnet32_debug & NETIF_MSG_DRV)
++	printk(KERN_ERR "%s: transmit timed out, status %4.4x, resetting.\n",
++		dev->name, lp->a.read_csr(ioaddr, 0));
+     lp->a.write_csr (ioaddr, 0, 0x0004);
+     lp->stats.tx_errors++;
+     if (netif_msg_tx_err(lp)) {
+@@ -1530,7 +1551,8 @@
+     int must_restart;
+ 
+     if (!dev) {
+-	printk (KERN_DEBUG "%s(): irq %d for unknown device\n",
++	if (pcnet32_debug & NETIF_MSG_INTR)
++	    printk (KERN_DEBUG "%s(): irq %d for unknown device\n",
+ 		__FUNCTION__, irq);
+ 	return IRQ_NONE;
+     }
+@@ -1582,8 +1604,9 @@
+ 			lp->stats.tx_fifo_errors++;
+ 			/* Ackk!  On FIFO errors the Tx unit is turned off! */
+ 			/* Remove this verbosity later! */
+-			printk(KERN_ERR "%s: Tx FIFO error! CSR0=%4.4x\n",
+-			       dev->name, csr0);
++			if (netif_msg_tx_err(lp))
++			    printk(KERN_ERR "%s: Tx FIFO error! CSR0=%4.4x\n",
++				    dev->name, csr0);
+ 			must_restart = 1;
+ 		    }
+ #else
+@@ -1592,8 +1615,9 @@
+ 			if (! lp->dxsuflo) {  /* If controller doesn't recover ... */
+ 			    /* Ackk!  On FIFO errors the Tx unit is turned off! */
+ 			    /* Remove this verbosity later! */
+-			    printk(KERN_ERR "%s: Tx FIFO error! CSR0=%4.4x\n",
+-				   dev->name, csr0);
++			    if (netif_msg_tx_err(lp))
++				printk(KERN_ERR "%s: Tx FIFO error! CSR0=%4.4x\n",
++					dev->name, csr0);
+ 			    must_restart = 1;
+ 			}
+ 		    }
+@@ -1617,8 +1641,9 @@
+ 
+ 	    delta = (lp->cur_tx - dirty_tx) & (TX_RING_MOD_MASK + TX_RING_SIZE);
+ 	    if (delta >= TX_RING_SIZE) {
+-		printk(KERN_ERR "%s: out-of-sync dirty pointer, %d vs. %d, full=%d.\n",
+-			dev->name, dirty_tx, lp->cur_tx, lp->tx_full);
++		if (netif_msg_drv(lp))
++		    printk(KERN_ERR "%s: out-of-sync dirty pointer, %d vs. %d, full=%d.\n",
++			    dev->name, dirty_tx, lp->cur_tx, lp->tx_full);
+ 		dirty_tx += TX_RING_SIZE;
+ 		delta -= TX_RING_SIZE;
+ 	    }
+@@ -1650,8 +1675,9 @@
+ 	    lp->stats.rx_errors++; /* Missed a Rx frame. */
+ 	}
+ 	if (csr0 & 0x0800) {
+-	    printk(KERN_ERR "%s: Bus master arbitration failure, status %4.4x.\n",
+-		   dev->name, csr0);
++	    if (netif_msg_drv(lp))
++		printk(KERN_ERR "%s: Bus master arbitration failure, status %4.4x.\n",
++			dev->name, csr0);
+ 	    /* unlike for the lance, there is no restart needed */
+ 	}
+ 
+@@ -1668,7 +1694,7 @@
+ 
+     if (netif_msg_intr(lp))
+ 	printk(KERN_DEBUG "%s: exiting interrupt, csr0=%#4.4x.\n",
+-	       dev->name, lp->a.read_csr (ioaddr, 0));
++		dev->name, lp->a.read_csr (ioaddr, 0));
+ 
+     spin_unlock(&lp->lock);
+ 
+@@ -1705,7 +1731,8 @@
+ 	    struct sk_buff *skb;
+ 
+ 	    if (pkt_len < 60) {
+-		printk(KERN_ERR "%s: Runt packet!\n",dev->name);
++		if (netif_msg_rx_err(lp))
++		    printk(KERN_ERR "%s: Runt packet!\n", dev->name);
+ 		lp->stats.rx_errors++;
+ 	    } else {
+ 		int rx_in_place = 0;
+@@ -1734,8 +1761,9 @@
+ 
+ 		if (skb == NULL) {
+ 		    int i;
+-		    printk(KERN_ERR "%s: Memory squeeze, deferring packet.\n",
+-			    dev->name);
++		    if (netif_msg_drv(lp))
++			printk(KERN_ERR "%s: Memory squeeze, deferring packet.\n",
++				dev->name);
+ 		    for (i = 0; i < RX_RING_SIZE; i++)
+ 			if ((short)le16_to_cpu(lp->rx_ring[(entry+i)
+ 				    & RX_RING_MOD_MASK].status) < 0)
+@@ -1904,7 +1932,8 @@
+     spin_lock_irqsave(&lp->lock, flags);
+     if (dev->flags&IFF_PROMISC) {
+ 	/* Log any net taps. */
+-	printk(KERN_INFO "%s: Promiscuous mode enabled.\n", dev->name);
++	if (netif_msg_hw(lp))
++	    printk(KERN_INFO "%s: Promiscuous mode enabled.\n", dev->name);
+ 	lp->init_block.mode = le16_to_cpu(0x8000 | (lp->options & PCNET32_PORT_PORTSEL) << 7);
+     } else {
+ 	lp->init_block.mode = le16_to_cpu((lp->options & PCNET32_PORT_PORTSEL) << 7);
+@@ -1979,7 +2008,7 @@
+     /* Print the link status if it has changed */
+     if (lp->mii) {
+ 	spin_lock_irqsave(&lp->lock, flags);
+-	mii_check_media (&lp->mii_if, 1, 0);
++	mii_check_media (&lp->mii_if, netif_msg_link(lp), 0);
+ 	spin_unlock_irqrestore(&lp->lock, flags);
+     }
+ 
+@@ -2027,6 +2056,8 @@
+ MODULE_DESCRIPTION("Driver for PCnet32 and PCnetPCI based ethercards");
+ MODULE_LICENSE("GPL");
+ 
++#define PCNET32_MSG_DEFAULT (NETIF_MSG_DRV | NETIF_MSG_PROBE | NETIF_MSG_LINK)
++
+ /* An additional parameter that may be passed in... */
+ static int debug = -1;
+ static int tx_start_pt = -1;
+@@ -2036,8 +2067,7 @@
  {
-   	LIST_HEAD(list);
-@@ -186,6 +198,7 @@ static void __rcu_process_callbacks(stru
- 	if (!list_empty(&rdp->curlist) &&
- 	    rcu_batch_after(rcp->curbatch, rdp->batch)) {
- 		list_splice(&rdp->curlist, &list);
-+		list_splice_tail(&rdp->curlist, &rdp->donelist);
- 		INIT_LIST_HEAD(&rdp->curlist);
-   	}
-   
-@@ -206,13 +219,13 @@ static void __rcu_process_callbacks(stru
-   		local_irq_enable();
-   	}
- 	rcu_check_quiescent_state(rcp, rdp);
--  	if (!list_empty(&list))
--  		rcu_do_batch(&list);
-+	if (!list_empty(&rdp->donelist) && !RCU_plugticks(cpu))
-+		rcu_do_batch(cpu, &rdp->donelist);
- }
-   
- void rcu_process_callbacks_bh(int cpu)
- {
--	__rcu_process_callbacks(&rcu_bh_ctrlblk, &per_cpu(rcu_bh_data, cpu));
-+	__rcu_process_callbacks(cpu, &rcu_bh_ctrlblk, &per_cpu(rcu_bh_data, cpu));
- }
+     printk(KERN_INFO "%s", version);
+ 
+-    if (debug >= 0 && debug < (sizeof(int) - 1))
+-	pcnet32_debug = 1 << debug;
++    pcnet32_debug = netif_msg_init(debug, PCNET32_MSG_DEFAULT);
+ 
+     if ((tx_start_pt >= 0) && (tx_start_pt <= 3))
+ 	tx_start = tx_start_pt;
+@@ -2050,7 +2080,7 @@
+     if (pcnet32vlb)
+ 	pcnet32_probe_vlbus();
+ 
+-    if (cards_found)
++    if (cards_found && (pcnet32_debug & NETIF_MSG_PROBE))
+ 	printk(KERN_INFO PFX "%d cards_found.\n", cards_found);
+ 
+     return (pcnet32_have_pci + cards_found) ? 0 : -ENODEV;
+@@ -2079,7 +2109,6 @@
  
  /*
-@@ -221,8 +234,8 @@ void rcu_process_callbacks_bh(int cpu)
- static void rcu_process_callbacks(unsigned long unused)
- {
- 	int cpu = smp_processor_id();
--	__rcu_process_callbacks(&rcu_ctrlblk, &per_cpu(rcu_data, cpu));
--	__rcu_process_callbacks(&rcu_bh_ctrlblk, &per_cpu(rcu_bh_data, cpu));
-+	__rcu_process_callbacks(cpu, &rcu_ctrlblk, &per_cpu(rcu_data, cpu));
-+	__rcu_process_callbacks(cpu, &rcu_bh_ctrlblk, &per_cpu(rcu_bh_data, cpu));
- }
- 
- void rcu_check_callbacks(int cpu, int user)
-@@ -234,7 +247,7 @@ void rcu_check_callbacks(int cpu, int us
- 		RCU_bh_qsctr(cpu)++;
- 	} else if (!in_softirq())
- 		RCU_bh_qsctr(cpu)++;
--  	tasklet_schedule(&RCU_tasklet(cpu));
-+  	tasklet_hi_schedule(&RCU_tasklet(cpu));
- }
-   
- static void __devinit rcu_online_cpu(struct rcu_data *rdp)
-@@ -242,6 +255,7 @@ static void __devinit rcu_online_cpu(str
- 	memset(rdp, 0, sizeof(*rdp));
- 	INIT_LIST_HEAD(&rdp->nxtlist);
-  	INIT_LIST_HEAD(&rdp->curlist);
-+ 	INIT_LIST_HEAD(&rdp->donelist);
- }
-   
- static int __devinit rcu_cpu_notify(struct notifier_block *self, 
-@@ -277,6 +291,7 @@ void __init rcu_init(void)
- 			(void *)(long)smp_processor_id());
- 	/* Register notifier for non-boot CPUs */
- 	register_cpu_notifier(&rcu_nb);
-+	printk("RCU: maxbatch = %d, plugticks = %d\n", maxbatch, plugticks);
- }
- 
- 
-@@ -302,6 +317,8 @@ void synchronize_kernel(void)
- 	wait_for_completion(&completion);
- }
- 
-+module_param(maxbatch, int, 0);
-+module_param(plugticks, int, 0);
- 
- EXPORT_SYMBOL(call_rcu);
- EXPORT_SYMBOL(call_rcu_bh);
-diff -puN kernel/sched.c~rs-throttle-rcu kernel/sched.c
---- linux-2.6.4-rcu/kernel/sched.c~rs-throttle-rcu	2004-04-06 02:05:13.000000000 +0530
-+++ linux-2.6.4-rcu-dipankar/kernel/sched.c	2004-04-06 02:05:13.000000000 +0530
-@@ -1486,6 +1486,8 @@ void scheduler_tick(int user_ticks, int 
- 
- 	if (rcu_pending(cpu))
- 		rcu_check_callbacks(cpu, user_ticks);
-+	if (RCU_plugticks(cpu))
-+		RCU_plugticks(cpu)--;
- 
- 	/* note: this timer irq context must be accounted for as well */
- 	if (hardirq_count() - HARDIRQ_OFFSET) {
+  * Local variables:
+- *  compile-command: "gcc -D__KERNEL__ -I/usr/src/linux/net/inet -Wall -Wstrict-prototypes -O6 -m486 -c pcnet32.c"
+  *  c-indent-level: 4
+  *  tab-width: 8
+  * End:
 
-_
+-- 
+Don Fry
+brazilnut@us.ibm.com
