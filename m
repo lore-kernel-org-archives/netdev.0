@@ -1,47 +1,41 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: Allowing netlink_family to be any integer (was: [PATCH 2.6]
-	iptables CLUSTERIP target)
-Date: 22 Oct 2004 08:53:02 -0400
+From: Mirko Lindner <mlindner@syskonnect.de>
+Subject: [PATCH] sk98lin: Driver update v7.09
+Date: Fri, 22 Oct 2004 15:14:41 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1098449582.1106.92.camel@jzny.localdomain>
-References: <20041021142527.GG3551@sunbeam.de.gnumonks.org>
-	 <E1CKkWZ-0005x5-00@gondolin.me.apana.org.au>
-	 <20041021225315.GH19714@rei.reeler.org>
-	 <20041022122533.GA9713@gondor.apana.org.au>
-Reply-To: hadi@cyberus.ca
+Message-ID: <417907C1.6050407@syskonnect.de>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, Harald Welte <laforge@netfilter.org>,
-        lmb@suse.de, ahu@ds9a.nl, hch@infradead.org, netdev@oss.sgi.com,
-        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20041022122533.GA9713@gondor.apana.org.au>
+To: netdev@oss.sgi.com, jgarzik@pobox.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2004-10-22 at 08:25, Herbert Xu wrote:
-> On Fri, Oct 22, 2004 at 12:53:15AM +0200, Thomas Graf wrote:
-> > 
-> > The only real problem I see is sk_protocol being only 8bit as
-> > limiting factor.
-> 
-> Well we wouldn't be using sk_protocol to look things up anymore.
-> We'd be holding a reference on the family directly once the socket
-> is created.
+Hi dev-list,
+Hi Jeff,
 
-Thats why i said:
-This does not exclude the use of the netlink numbers, but should ease
-them. I think that rtnetlink is already overloaded and would benefit
-from having a clean split. As an example things like links and IPaddress
-should probably reside elsewhere since they are generic enough a
-service.
+here is the new version (v7.09) from our sk98lin driver for Kernel 2.6. 
+Sorry for this huge patch but this version has a lot of new functions 
+and changes. The driver was tested by our Test & Verification group and 
+our OEM customers and include all kernel changes during the latest 
+kernel release.
 
-Orthogal to this:
-If we could get more people to use the work from Evgeniy as opposed to
-creating a new netlink protocols, then it would benefit people - Harald
-could have used that scheme in what he was trying to do for example.
+Please send me an email if you like a version of the driver for kernel 
+2.4 or if you have any problems or questions.
 
-cheers,
-jamal
+The new patch for BK version 2.6.9 bk6 can be find at:
+http://www.syskonnect.de/support/temp/sk98lin_v7.09_2.6.9-bk6_patch
+
+Cheers
+Mirko
+
+
+======================
+Patch 1/1]
+[SK98LIN]:
+Add: Support for PCI Express based chipsets
+Add: Support for Yukon EC chipset
+Add: Support for FE chipset
+Add: Support for wake on lan
+Add: Support for Ethtool
+Add: Support for rx polling interface
