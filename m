@@ -1,60 +1,44 @@
-From: Vladimir Kondratiev <vkondra@mail.ru>
-Subject: Re: [RFC] acx100 inclusion in mainline; generic 802.11 stack
-Date: Tue, 28 Sep 2004 22:29:48 +0200
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: bad TSO performance in 2.6.9-rc2-BK
+Date: Tue, 28 Sep 2004 13:38:30 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200409282229.53349.vkondra@mail.ru>
-References: <200408312111.02438.vda@port.imtp.ilyichevsk.odessa.ua> <413F70F0.6020709@atheros.com> <20040928122028.GK30131@ruslug.rutgers.edu>
+Message-ID: <20040928133830.1eba4476.davem@davemloft.net>
+References: <20040923161141.4ea9be4c.davem@davemloft.net>
+	<Pine.NEB.4.33.0409271416360.14606-100000@dexter.psc.edu>
+	<20040927160411.22b44f48.davem@davemloft.net>
+	<20040927233639.GA8333@gondor.apana.org.au>
+	<20040927171356.6a59d039.davem@davemloft.net>
+	<415910D2.7010808@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart15673523.bRENPlNFVd";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: greg chesson <greg@atheros.com>, netdev@oss.sgi.com,
-        "David S. Miller" <davem@davemloft.net>,
-        acx100-devel@lists.sourceforge.net, hadi@cyberus.ca, jgarzik@pobox.com,
-        jkmaline@cc.hut.fi, prism54-devel@prism54.org, sam@errno.com
+Cc: herbert@gondor.apana.org.au, jheffner@psc.edu, ak@suse.de,
+        andy.grover@gmail.com, anton@samba.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Luis R. Rodriguez" <mcgrof@studorgs.rutgers.edu>
-In-Reply-To: <20040928122028.GK30131@ruslug.rutgers.edu>
+To: Nivedita Singhvi <niv@us.ibm.com>
+In-Reply-To: <415910D2.7010808@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---nextPart15673523.bRENPlNFVd
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+On Tue, 28 Sep 2004 00:20:50 -0700
+Nivedita Singhvi <niv@us.ibm.com> wrote:
 
-On Tuesday 28 September 2004 14:20, Luis R. Rodriguez wrote:
-LR> RFC: what are the chances we can implement our own generic "softmac" th=
-at
- may LR> be usable by the different chipsets out there?
+> David S. Miller wrote:
+> 
+> > Bright minds think alike.  :-)  We have to keep all the other
+> > packet counts in sync as well.
+> > 
+> > Andi, others, forget my previous hack patch to tcp_clean_rtx_queue()
+> > and give this more complete patch a try.
+> > 
+> > I'm getting really good results here on my tg3<-->tg3 setup using
+> > this patch.
+> 
+> Dave, were you seeing a significant number of retransmissions
+> and sacks in your tests?
 
-Coming days, I will submit "framework" consisting of stack based on Dave's=
-=20
-code and debug driver which will be able to imitate Rx. I have working basi=
-c=20
-Tx/Rx. Then, I'd like to concentrate on interfaces stack-driver and=20
-stack-upper layers. It would be great if someone will do MAC algorithms. I'=
-ll=20
-appreciate this for sure.
+None.  I am working on a local network through a gigabit switch.
 
-Vladimir.
-
-P.S. My ... provider complains about "too many recipients". I removed one o=
-r=20
-2. Sorry.
-
---nextPart15673523.bRENPlNFVd
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.6 (GNU/Linux)
-
-iD8DBQBBWcnBqxdj7mhC6o0RAsZVAJ0ZEXrrodpotOLgYIWN8x8+w7oeLACfXfvE
-zVu9wkndLuqAVfgxYV856eQ=
-=gsqL
------END PGP SIGNATURE-----
-
---nextPart15673523.bRENPlNFVd--
+I will work on making sure cases involving loss work correctly,
+via the netem module, before I submit these fixes upstream to
+Linus.  Likely I will complete this work today.
