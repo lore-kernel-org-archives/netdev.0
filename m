@@ -1,32 +1,26 @@
-From: Martin Devera <devik@cdi.cz>
-Subject: Re: PSCHED_GET_TIME related bug: jiffies wraparound
-Date: Thu, 23 May 2002 17:22:16 +0200 (CEST)
+From: Chris Friesen <cfriesen@nortelnetworks.com>
+Subject: how to get per-socket stats on udp rx buffer overflow?
+Date: Thu, 23 May 2002 14:15:47 -0400
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0205231705160.788-100000@luxik.cdi.cz>
-References: <200205231444.SAA11574@sex.inr.ac.ru>
+Message-ID: <3CED31D3.B5892DF4@nortelnetworks.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Return-path: <owner-netdev@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
-In-Reply-To: <200205231444.SAA11574@sex.inr.ac.ru>
+To: netdev@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello,
 
-> > I hope the 0xffffffff change will go into pre9.
->
-> Did Dave ack that patch? I did not resend it, to be honest.
+Is there any way for me to see how many incoming packets were dropped on a udp
+socket due to overflowing the input buffer?  I specifically want this
+information on a per-socket basis.
 
-He didn't (at least not to me). I've to admit I've no experience
-with submitting patches to main kernel. A sent them to you because
-you are author of these parts and I haven't wanted to bypass you.
+Thanks,
 
-> > I've another potential bug for you ;)
->
-> OK. I will pack both of them.
+Chris
 
-Thanks. I should say that I didn't tested the change extensively but
-seems to work (I didn't tested it 497 days however :).
-Probably the change is simple enough to be validated at the first
-sight.
+-- 
+Chris Friesen                    | MailStop: 043/33/F10  
+Nortel Networks                  | work: (613) 765-0557
+3500 Carling Avenue              | fax:  (613) 765-2986
+Nepean, ON K2H 8E9 Canada        | email: cfriesen@nortelnetworks.com
