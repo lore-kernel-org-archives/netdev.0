@@ -1,32 +1,50 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH] support for large number of network devices.
-Date: Tue, 13 Jan 2004 16:23:25 -0800
+From: "Feldman, Scott" <scott.feldman@intel.com>
+Subject: RE: [PATCH] make tg3 NAPI support configurable
+Date: Tue, 13 Jan 2004 16:23:27 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40048BFD.4010303@candelatech.com>
-References: <20040113154610.38f5934c.shemminger@osdl.org>
+Message-ID: <C6F5CF431189FA4CBAEC9E7DD5441E0102229CE5@orsmsx402.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8bit
+Cc: "Greg Banks" <gnb@melbourne.sgi.com>, "David S. Miller" <davem@redhat.com>,
+        "Linux Network Development list" <netdev@oss.sgi.com>,
+        <jchapman@katalix.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040113154610.38f5934c.shemminger@osdl.org>
+Content-Class: urn:content-classes:message
+To: "Robert Olsson" <Robert.Olsson@data.slu.se>,
+        "Jeff Garzik" <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> When using pseudo network devices, and really big machines; there is
-> sometimes a need to have a lot of network devices.  This replaces the
-> existing 2.6.1 limit of 100 entries an was O(n^2)
-> with a algorithm that will handle up to 32768 entries with O(n) behaviour.
+> I was thinking of a variant JC [jchapman@katalix.com] 
+> mentioned on this list some time ago. He also sent me
+> the patch for e1000. A test and the patch is below.
 
-Might be a good time to put in hash tables to find network devices by
-name and by device-id.  There are a few parts of the networking stack
-that do lookups, and walking the device list when it's 4k entries
-long takes a while...
+JC contributed almost the exact patch for the e100 rewrite and it did
+help Tx, but I don't remember how much.  JC, do you remember?  Here is
+the snippet:
 
-Ben
+static int e100_poll(struct net_device *netdev, int *budget)
+{
+        struct nic *nic = netdev->priv;
+        unsigned int work_to_do = min(netdev->quota, *budget);
+        unsigned int work_done = 0;
+        int tx_cleaned;
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+        e100_rx_clean(nic, &work_done, work_to_do);
+        tx_cleaned = e100_tx_clean(nic);
+
+        /* If no Rx and Tx cleanup work was done, exit polling mode. */
+        if((!tx_cleaned && (work_done == 0)) || !netif_running(netdev))
+{
+                netif_rx_complete(netdev);
+                e100_enable_irq(nic);
+                return 0;
+        }
+
+        *budget -= work_done;
+        netdev->quota -= work_done;
+
+        return 1;
+}
