@@ -1,26 +1,32 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [APPLETALK]: Use '%Z' for size_t.
-Date: Thu, 19 Feb 2004 11:04:00 -0800
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] wandev_show single_open confusion
+Date: Thu, 19 Feb 2004 11:27:05 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040219110400.75c7ff31.davem@redhat.com>
-References: <200402190209.i1J29KF2020707@hera.kernel.org>
-	<1077204436.18703.412.camel@hades.cambridge.redhat.com>
-	<20040219100914.1a17e797.davem@redhat.com>
-	<1077216615.7832.3.camel@imladris.demon.co.uk>
+Message-ID: <20040219112705.05416945@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Woodhouse <dwmw2@infradead.org>
-In-Reply-To: <1077216615.7832.3.camel@imladris.demon.co.uk>
+To: "David S. Miller" <davem@redhat.com>,
+        Arnaldo Carvalho de Melo
+ <acme@conectiva.com.br>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 19 Feb 2004 18:50:15 +0000
-David Woodhouse <dwmw2@infradead.org> wrote:
+Fix single_open interface confusion in wanrouter.  The argument passed
+to single_open gets passed through via seq->private; not the void * argument
+as assumed by this code.
 
-> the request was that you refrain from putting
-> _new_ ones in. That's not so hard, now is it?
-
-Sure, no problem.
+diff -Nru a/net/wanrouter/wanproc.c b/net/wanrouter/wanproc.c
+--- a/net/wanrouter/wanproc.c	Thu Feb 19 11:24:49 2004
++++ b/net/wanrouter/wanproc.c	Thu Feb 19 11:24:49 2004
+@@ -207,7 +207,7 @@
+ 
+ static int wandev_show(struct seq_file *m, void *v)
+ {
+-	struct wan_device *wandev = v;
++	struct wan_device *wandev = m->private;
+ 
+ 	if (wandev->magic != ROUTER_MAGIC)
+ 		return 0;
