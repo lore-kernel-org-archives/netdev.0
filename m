@@ -1,54 +1,16 @@
-From: Michael Renzmann <mrenzmann@web.de>
-Subject: Minor bug in tun.c
-Date: Fri, 15 Oct 2004 13:14:01 +0200
+From: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
+Subject: [Patch 0/3 2.5] e100/e1000/ixgb: Confuguration and user guide updates
+Date: Fri, 15 Oct 2004 06:50:10 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <416FB0F9.6040203@web.de>
+Message-ID: <Pine.LNX.4.44.0410150509370.31227-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "jgarzik@pobox.com" <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi all.
-
-I'm currently trying to learn a bit more about driver programming, 
-therefore I'm working a little with tun.c (using the version that comes 
-with 2.6.7). I have some experience with C programming in general, but 
-I'm a newbie when it comes to kernel stuff.
-
-Have a look at the following code (taken from the function tun_net_xmit()):
-
-=== cut ===
-	/* Queue packet */
-	if (!(tun->flags & TUN_ONE_QUEUE)) {
-		/* Normal queueing mode.
-		 * Packet scheduler handles dropping. */
-		if (skb_queue_len(&tun->readq) >= TUN_READQ_SIZE)
-			netif_stop_queue(dev);
-	} else {
-		/* Single queue mode.
-		 * Driver handles dropping itself. */
-		if (skb_queue_len(&tun->readq) >= dev->tx_queue_len)
-			goto drop;
-	}
-	skb_queue_tail(&tun->readq, skb);
-=== cut ===
-
-Look at the code that is executed when TUN_ONE_QUEUE isn't set in 
-tun->flags. If the length of the queue has reached its maximum value 
-(given as TUN_READQ_SIZE), the current packet still is appended to the 
-queue, thereby exceeding the maximum length by 1.
-
-In my eyes the simplest way to correct that would be to change
-
-		if (skb_queue_len(&tun->readq) >= TUN_READQ_SIZE)
-
-to read
-
-		if (skb_queue_len(&tun->readq) >= TUN_READQ_SIZE - 1)
-
-Please correct me if I'm wrong.
-
-Bye, Mike
+1. Configuration and user guide for e1000
+2. Configuration and user guide for e100
+3. Configuration and user guide for ixgb
