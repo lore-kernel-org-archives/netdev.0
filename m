@@ -1,32 +1,25 @@
-From: <michalou@europe.com>
-Subject: RE: 3115hSwj6-40-11
-Date: Wed, 12 Jun 0102 14:47:59 +0900
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [RFC] SNMP_ADD_STATS
+Date: Thu, 13 Jun 2002 02:11:19 +0200
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <005e13e42b8d$4743a8e1$1aa03bd1@mahigi>
-Reply-To: <michalou@europe.com>
+Message-ID: <20020613021119.A11732@wotan.suse.de>
+References: <20020612182348.GP1073@conectiva.com.br>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_NextPart_000_00D6_53A45E6A.E4277D81"
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S.Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: michalou@europe.com
+To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Content-Disposition: inline
+In-Reply-To: <20020612182348.GP1073@conectiva.com.br>
 List-Id: netdev.vger.kernel.org
 
-------=_NextPart_000_00D6_53A45E6A.E4277D81
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: base64
+> #define IP_ADD_STATS(field,incr) SNMP_ADD_STATS(ip_statistics, field, incr)
+> 
+> Any objections?
 
+Better use per_cpu data in 2.5 (<asm/percpu.h>) for the MIBs.
 
-c2FsdXQNCmhpDQoNCkonYWkgcmVncm91cGUgc3VyIHVuIHNpdGUgbGVzIG1l
-aWxsZXVycyBzaXRlcyB4IGdyYXR1aXRzIHF1ZSBqJ2FpIHB1IHRyb3V2ZXIN
-CmVuIDUgYW5zIGRlIHN1cmYhDQoNCkkndmUgcmVncm91cCBoZXJlIHRoZSBi
-ZXN0IGZyZWUgYWR1bHQgc2l0ZXMgaSd2ZSBmaW5kIG9uIHRoZSB3ZWIgZHVy
-aW5nIDUgeWVhcnMgb2Ygc3VyZiENCg0KbCdhZHJlc3NlICh0aGUgYWRkcmVz
-cykgOg0KDQpodHRwOi8vd3d3LnRoZXpzLmNvbS8wMDMwDQoNCnZpc2l0ZXog
-bW9uIHNwb25zb3IgcG91ciBtJ2FpZGVyIQ0KUGxlYXNlIHZpc2l0IG15IHNw
-b25zb3IgdG8gaGVscCBtZSENCg0KUG91ciBuZSBwbHVzIHJlY2V2b2lyIGQn
-ZW1haWwgZWNyaXZleiBtb2kg4CByZW1vdmVAcmVtb3ZlLXRvcC5jb20gYXZl
-YyBjb21tZSBzdWpldCByZW1vdmUNCklmIHlvdSB3YW50IHRvIHN0b3AgdG8g
-cmVjZWl2ZSBtYWlscyBlbWFpbCBtZSBhdCAgcmVtb3ZlQHJlbW92ZS10b3Au
-Y29tIHdpdGggdGhlIHN1YmplY3QgcmVtb3ZlDQoNCjMNCg0KIA0KMzQ3MWhw
-dFY1LTE2MXhxUUk5MzY0TEhzTjUtMjU4bDI4
-------=_NextPart_000_00D6_53A45E6A.E4277D81--
+That's much more efficient on some architectures, uses less memory on all
+and is also cleaner.
+
+-Andi
