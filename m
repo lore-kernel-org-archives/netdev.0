@@ -1,34 +1,35 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: way of figuring out total number of retransmitted packets on a
- TCP socket?
-Date: Wed, 20 Oct 2004 16:07:28 -0700
+Subject: Re: [Openswan Users] 	DPD Problem - message from kernel malformed:
+ unknown address family
+Date: Wed, 20 Oct 2004 16:08:49 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041020160728.1d5a337e.davem@davemloft.net>
-References: <20041020130134.GC24757@xi.wantstofly.org>
-	<20041020151448.51209278.davem@davemloft.net>
-	<20041020223547.GJ29583@xi.wantstofly.org>
-	<20041020155352.1c9b70f6.davem@davemloft.net>
-	<20041020230405.GE995@wotan.suse.de>
+Message-ID: <20041020160849.085bb075.davem@davemloft.net>
+References: <417675C6.3040704@gmx.ch>
+	<E1CKOXc-0002Kq-00@gondolin.me.apana.org.au>
+	<20041020230929.GA9390@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: buytenh@wantstofly.org, netdev@oss.sgi.com
+Cc: mailing-lists@gmx.ch, users@openswan.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <20041020230405.GE995@wotan.suse.de>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20041020230929.GA9390@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 21 Oct 2004 01:04:05 +0200
-Andi Kleen <ak@suse.de> wrote:
+On Thu, 21 Oct 2004 09:09:29 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> Is it really necessary? Our struct sock is already bloated enough 
-> as is ... If Lennert needs it for some obscure purpose it's probably
-> better if he just does it locally.
+> On Thu, Oct 21, 2004 at 08:02:44AM +1000, Herbert Xu wrote:
+> > 
+> > Looks like nobody has tested shunt routes for a while.
+> > 
+> > It's a kernel bug.  We're not setting the family field in the selector.
+> > This patch fixes it.
+> 
+> Dave, please scratch that patch.  The family is already being set
+> elsewhere.  Until we have real cross-family transforms this won't
+> be needed.
 
-There are a couple of "__u32" holes before pointers in tcp_opt
-which is the space I was going to use for this new item.
-
-tcp_opt will be getting smaller some time soon as well, since
-we can consolidate most of the congestion control knobs into
-a single set of datums or some kind of union.
+So why is the unknown address error occuring for this case?
+Is it just a case we don't need to worry about at this time?
