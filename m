@@ -1,60 +1,36 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: pktgen
-Date: Sat, 27 Nov 2004 14:53:54 +0100
-Message-ID: <20041127135354.GA24617@xi.wantstofly.org>
-References: <20041111233507.GA3202@xi.wantstofly.org> <20041124161848.GA18059@xi.wantstofly.org> <16804.48120.375307.718766@robur.slu.se> <20041124170948.GC18059@xi.wantstofly.org> <16804.60621.990421.525393@robur.slu.se> <20041125030450.GA24417@xi.wantstofly.org> <16805.40983.937641.670275@robur.slu.se> <20041127002841.GA17184@xi.wantstofly.org> <20041127004325.GA17401@xi.wantstofly.org> <16808.28005.74903.881087@robur.slu.se>
+From: Ilya Pashkovsky <ilya.pashkovsky@gmail.com>
+Subject: tcp port reuse checking TCP_LISTEN state
+Date: Sat, 27 Nov 2004 16:13:34 +0200
+Message-ID: <fcb9aa2904112706135928497@mail.gmail.com>
+References: <fcb9aa29041123022027c1ec06@mail.gmail.com>
+Reply-To: Ilya Pashkovsky <ilya.pashkovsky@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hadi@cyberus.ca, netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Robert Olsson <Robert.Olsson@data.slu.se>
-Content-Disposition: inline
-In-Reply-To: <16808.28005.74903.881087@robur.slu.se>
+To: netdev@oss.sgi.com
+In-Reply-To: <fcb9aa29041123022027c1ec06@mail.gmail.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Nov 27, 2004 at 01:04:53PM +0100, Robert Olsson wrote:
+Hello, fellow developers.
 
-> 60	825789
-> 64	748975
-> 68	729149
-> 72	719721
-> 76	720204
-> 80	720127
-> 84	702722
-> 88	702799
-> 92	705107
-> 96	701711
-> 100	703858
-> 104	692120
-> 108	696139
-> 112	708936
-> 116	697780
-> 120	677887
-> 124	678158
-> 128	739290
-> 132	737070
-> 136	736894
-> 140	737645
-> 144	737816
-> 148	682755
-> 152	648547
-> 156	646464
+While BSD (and thus, MacOS X) has the SO_REUSEPORT socket option, and
+Windows has SO_REUSEADDR socket option that integrates the port reuse
+functionality, linux tends to differ.
+Though the socket matching should be made using the tuple consisting
+of both source address+port and destination address+port, there's a
+check in the tcp implementation of linux kernel for TCP_LISTEN state,
+which inhibits port reuse. While its logical to allow only one
+listener on a socket, this can be accomplished by checking for the
+socket state during the call to listen(). The current behavior breaks
+applications that want to both listen on an port and initiate outgoing
+connections from it (same port).
+Can anyone please explain the logic behind the TCP_LISTEN check being
+done on bind() calls and not listen() calls ?
 
-This part is strange.  In my case the pps rate for 132-byte packets is
-100kpps lower than for 60-byte packets, in your case the curve is rather
-flat.  Perhaps you're CPU-bound here (or hitting some NIC limit.)
+p.s. Please cc your reply directly to ilya.pashkovsky@gmail.com
 
-Your data is a bit noisy -- can you rerun the test for the 60-200 byte
-packet range but using 10M packets per run instead of 1M?
-
-
-> 160	679270
-
->From this point onwards your HW can saturate the pipe, this is the
-boring part of the graph.
-
-
-thanks,
-Lennert
+--
+ilya
