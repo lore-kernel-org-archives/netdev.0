@@ -1,43 +1,65 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: [PATCH] NET: use proc_net_fops_create() for /proc/net/wireless
-Date: Sat, 13 Sep 2003 14:29:29 +0900 (JST)
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] tiny af_packet.c cleanup
+Date: Sat, 13 Sep 2003 09:35:59 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030913.142929.91737848.yoshfuji@linux-ipv6.org>
+Message-ID: <20030913093559.A23840@electric-eye.fr.zoreil.com>
+References: <20030913055033.GB94744@gaz.sfgoth.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
+To: Mitchell Blank Jr <mitch@sfgoth.com>
+Content-Disposition: inline
+In-Reply-To: <20030913055033.GB94744@gaz.sfgoth.com>; from mitch@sfgoth.com on Fri, Sep 12, 2003 at 10:50:33PM -0700
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-use proc_net_fops_create() for /proc/net/wireless
+Mitchell Blank Jr <mitch@sfgoth.com> :
+[...]
+> --- linux-2.6.0-test5-VIRGIN/net/packet/af_packet.c	2003-09-08 12:39:53.000000000 -0700
+> +++ linux-2.6.0-test5mnb1/net/packet/af_packet.c	2003-09-12 13:28:53.857179768 -0700
+> @@ -433,9 +433,9 @@
+>  		struct sk_filter *filter;
+>  
+>  		bh_lock_sock(sk);
+> -		if ((filter = sk->sk_filter) != NULL)
+> -			res = sk_run_filter(skb, sk->sk_filter->insns,
+> -					    sk->sk_filter->len);
+> +		filter = sk->sk_filter;
+> +		if (likely(filter != NULL))	/* re-check under lock */
+> +			res = sk_run_filter(skb, filter->insns, filter->len);
 
-===== net/core/wireless.c 1.13 vs edited =====
---- 1.13/net/core/wireless.c	Tue Sep  9 10:35:35 2003
-+++ edited/net/core/wireless.c	Sat Sep 13 14:09:03 2003
-@@ -495,15 +495,10 @@
- 
- int __init wireless_proc_init(void)
- {
--	struct proc_dir_entry *p;
--	int rc = 0;
-+	if (!proc_net_fops_create("wireless", S_IRUGO, &wireless_seq_fops))
-+		return -ENOMEM;
- 
--	p = create_proc_entry("wireless", S_IRUGO, proc_net);
--	if (p)
--		p->proc_fops = &wireless_seq_fops;
--	else
--		rc = -ENOMEM;
--	return rc;
-+	return 0;
- }
- #endif	/* CONFIG_PROC_FS */
- 
+1 - pointers tests against NULL are naturally supposed "unlikely" by gcc.
+2 - I am not completely convinced that the "/* re-check under lock */" 
+    comment is really useful either: the lock statement is on the line before.
 
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Make it more spartan:
+
+--- linux-2.6.0-test5-VIRGIN/net/packet/af_packet.c	2003-09-08 12:39:53.000000000 -0700
++++ linux-2.6.0-test5mnb1/net/packet/af_packet.c	2003-09-12 13:28:53.857179768 -0700
+@@ -433,9 +433,9 @@
+ 		struct sk_filter *filter;
+ 
+ 		bh_lock_sock(sk);
+-		if ((filter = sk->sk_filter) != NULL)
+-			res = sk_run_filter(skb, sk->sk_filter->insns,
+-					    sk->sk_filter->len);
++		filter = sk->sk_filter;
++		if (filter)
++			res = sk_run_filter(skb, filter->insns, filter->len);
+ 		bh_unlock_sock(sk);
+ 
+ 		if (res == 0)
+@@ -537,9 +537,9 @@
+ 		struct sk_filter *filter;
+ 
+ 		bh_lock_sock(sk);
+-		if ((filter = sk->sk_filter) != NULL)
+-			res = sk_run_filter(skb, sk->sk_filter->insns,
+-					    sk->sk_filter->len);
++		filter = sk->sk_filter;
++		if (filter)
++			res = sk_run_filter(skb, filter->insns, filter->len);
+ 		bh_unlock_sock(sk);
+ 
+ 		if (res == 0)
