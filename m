@@ -1,529 +1,274 @@
-From: Andi Kleen <ak@colin2.muc.de>
-Subject: Re: [PATCH] Make XFRM optional
-Date: 4 Aug 2003 15:04:08 +0200
+From: Michael Bellion and Thomas Heinz <nf@hipac.org>
+Subject: Re: [RFC] High Performance Packet Classifiction for tc framework
+Date: Mon, 04 Aug 2003 15:17:10 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030804130408.GA36367@colin2.muc.de>
-References: <20030804125022.GA8167@averell> <20030804.215801.124854897.yoshfuji@linux-ipv6.org>
+Message-ID: <3F2E5CD6.4030500@hipac.org>
+References: <200307141045.40999.nf@hipac.org>	 <1058328537.1797.24.camel@jzny.localdomain>  <3F16A0E5.1080007@hipac.org> <1059934468.1103.41.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ak@muc.de, netdev@oss.sgi.com
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig1F772C011F16724D016A230F"
+Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-Date: Mon, 4 Aug 2003 15:04:08 +0200
-To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
-Content-Disposition: inline
-In-Reply-To: <20030804.215801.124854897.yoshfuji@linux-ipv6.org>
+To: hadi@cyberus.ca
+In-Reply-To: <1059934468.1103.41.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 04, 2003 at 09:58:01PM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ wrote:
-> Hello.
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig1F772C011F16724D016A230F
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+
+Hi Jamal
+
+You wrote:
+> Apologies for late response. Its funny how i thought i was going to have
+> more time in the last 2 weeks but due to bad scheduling that wasnt the
+> case.
+
+No problemo ...
+
+> I think i will have to look at your code to make comments.
+
+Curious about it.
+
+> Not entirely accurate. Depends which tc classifier. u32 hash tables are
+> infact like iptables chains.
+
+Hm, we don't think so. Unfortunately, there does not seem to be much
+information about the inner workings of u32 and we currently don't have
+the time to deduce the whole algorithm from the code.
+
+Here is a short overview of our current view on u32:
+      - each u32 filter "rule" consists of possibly several u32 matches,
+        i.e. tc_u32_sel with nkeys tc_u32_key's
+        => one rule is basically represented as a struct tc_u_knode
+      - a set of u32 filter rules with same priority is in general a
+        tree of hashes like for example:
+                        hash1: |--|--|
+                                /   \
+                hash2: |--|--|--|    hash3: |--|--|--|--|
+                         |  |  |              |  |  |  |
+                        r1 r2 r3             r4 r5 r6 r7
+        where the r_i are in fact lists of rules (-> hashing with
+        chaining)
+        => if there is more than one single filter with same prio
+           there is always a tree of hashes (with possibly only 1 node
+           (=hash))
+      - within such a tree of u32 filters (with same prio) there is
+        no concept of prioritizing them any further => the rules must
+        be conflict free
+      - there is no way of optimizing filters with different priorities
+        since one cannot assume that the intermediate classifiers are all
+        of the same type
+
+If this is not the way it _really_ works we'd appreciate it if you could
+describe the general principles behind u32.
+
+> Note, the concept of priorities which is used for conflict resolution as
+> well as further separating sets of rules doesnt exist in iptables.
+
+Well, iptables rule position and tc filter priorities are just the
+same apart from the fact that iptables does not allow multiple rules
+to have the same priority (read: position). Therefore iptables rulesets
+don't suffer from conflicts.
+
+> You can also have them use different priorities and with the continue
+> operator first clasify based on packet data then on metadata or on
+> another packet header filter.
+
+Ok but then you fall back to the linear approach. Since with u32 only
+blocks of rules with same prio can be optimized one has to implement a
+ruleset using as few different prioritized blocks of filters as possible
+to achieve maximum performance.
+
+>>One disadvantage of this concept is that the hashed filters
+>>must be compact, i.e. there cannot be other classifiers in between.
 > 
-> In article <20030804125022.GA8167@averell> (at Mon, 4 Aug 2003 14:50:22 +0200), Andi Kleen <ak@muc.de> says:
+> I didnt understand this. Are you talking about conflict resolving of
+> overlapping filters?
+
+No, the issue is just that within a block of filters with same prio
+there cannot be another type of filter, e.g. one cannot put a route
+classifier inside a hash of u32 classifiers.
+
+>>Another major disadvantage is caused by the hashing scheme.
+>>If you use the hash for 1 dimension you have to make sure that
+>>either all filters in a certain bucket are disjoint or you must have
+>>an implicit ordering of the rules (according to the insertion order
+>>or something). This scheme is not extendable to 2 or more dimensions,
+>>i.e. 1 hash for src ip, #(src ip buckets) many dst ip hashes and so
+>>on, because you simply cannot express arbitrary rulesets.
 > 
-> > diff -u linux-work/net/ipv6/Kconfig-XFRM linux-work/net/ipv6/Kconfig
-> > --- linux-work/net/ipv6/Kconfig-XFRM	2003-07-18 02:39:29.000000000 +0200
-> > +++ linux-work/net/ipv6/Kconfig	2003-08-03 23:12:25.000000000 +0200
-> > @@ -4,6 +4,7 @@
-> >  config IPV6_PRIVACY
-> >  	bool "IPv6: Privacy Extensions (RFC 3041) support"
-> >  	depends on IPV6
-> > +	select XFRM
-> >  	select CRYPTO
-> >  	select CRYPTO_MD5
-> >  	---help---
+> If i understood you - you are refering to a way to reduce the number of
+> lookups by having disjoint hashes. I suppose for something as simple as 
+> a five tuple lookup, this is almost solvable by hardcoding the different
+> fields into multiway hashes. Its when you try to generalize that it
+> becomes an issue. 
+
+What do you mean exactly by "five tuple"? Do you refer to rules which
+consist of 5 punctiform matches, i.e. no masks or ranges or wildcards
+allowed, like (src ip 1.2.3.4, dst ip 3.4.5.6, proto tcp, src port 123,
+dst port 456)?
+
+Of course the scheme works for such cases (which consist of
+non-conflicting rules) although the user must be aware of the
+concrete hash function: divisor & u32_hash_fold(key, sel)
+because the mask would be 0xffffffff for the ip's.
+
+If ranges or overlapping masks are involved it gets really complicated
+and we doubt that people are able to manage such scenarios.
+
+>>Another general problem is of course that the user has to manually
+>>setup the hash which is rather inconvenient.
 > 
-> We do not need this.
+> Yes. Take a look at Werners tcng - he has a clever way to hide things
+> from the user. I did experimentation on u32 with a kernel thread which
+> rearranged things when they seemed out of balance but i havent
+> experimented with a lot of rules.
 
-Thanks for the feedback. Here is a new patch with the two hunks 
-removed.
+We had a look at the tcng paper. Here it says that the u32 classifier
+is not used in the optimal way. Since we didn't have a look at the
+current tcng release it might well be that these problems are already
+addressed. Is that the case?
 
--Andi
+BTW, why do you want to rearrange the tree of hashes and based on which
+heuristics? Why is there a kernel thread needed? Isn't it possible to
+arrange the tree directly after insert/delete operations?
+
+>>Now, what are the implications on the matching performance:
+>>tc vs. nf-hipac? As long as the extended hashing stuff is not used
+>>nf-hipac is clearly superior to tc. 
+> 
+> You are refering to u32. You mean as long as u32 stored things in a
+> single linked list, you win - correct?
+
+Yes, but this is not only true for u32. As long as the ruleset
+looks like: "n filters with n different priorities which can
+be translated into n nf-hipac rules" nf-hipac is clearly faster
+because in this case tc uses the linear approach.
+
+>>When hashing is used it _really_
+>>depends. If there is only one classifier (with hashing) per interface
+>>and the number of rules per bucket is very small the performance should
+>>be comparable. As soon as you add other classifiers nf-hipac will
+>>outperform tc again.
+> 
+> If we take a simple user interface abstraction like tcng which hides the
+> evil of u32 and then take simple 5 tuple rules - i doubt you will see
+> any difference. For more generic setup, the kernel thread i refer to
+> would work - but may slow insertion. 
+
+For the simple punctiform examples like described above you may be right
+that nf-hipac and tc should perform similar but it's not clear to us
+how you want to achieve universality (including mask, ranges and
+wildcards) by this kernel thread rearranging approach. Basically you
+have to address the following problem: Given an arbitrary set of u32
+rules with different priorities you have to compute an semantically
+equivalent representation with a tree of hashes.
+
+>>So, basically HIPAC is just a normal classifier like any other
+>>with two exceptions:
+>>   a) it can occur only once per interface
+>>   b) the rules within the classifier can contain other classifiers,
+>>      e.g. u32, fw, tc_index, as matches
+> 
+> But why restriction a)? 
+
+Well, the restriction is necessary because of the new hipac design in
+which nf-hipac (i.e. firewalling), routing and cls_hipac (i.e. tc) are
+just applications for the classification framework. The basic idea is
+to reduce the number of classifications on the forwarding path to a
+single one (in the best case). In order to truly understand the
+requirement it would be necessary to explain the idea behind the new
+stage concept which is beyond the scope of this e-mail :-/.
+
+> Also why should we need hipac to hold other filters when the
+> infrastructure itself can hold the extended filters just fine?
+> I think you may actually be trying to say why somewhere in the email,
+> but it must not be making a significant impression on my brain.
+
+The idea is to reduce the embedded classifiers to a match, i.e.
+their return value is ignored. This offers the possibility of
+expressing a conjunction of native matches and classifiers in the
+very same way nf-hipac rules support iptables matches. This enhances
+the expressiveness of classification rules.
+A rule |nat. match 1|...|nat. match n|emb. cls 1|...|emb. cls m|
+matches if nat. match 1-n and emb. cls 1-m match.
+
+>>There is just one problem with the current tc framework. Once
+>>a new filter is inserted into the chain it is not removed even
+>>if the change function of the classifier returns < 0
+>>(2.6.0-test1: net/sched/cls_api.c: line 280f).
+>>This should be changed anyway, shouldn't it?
+> 
+> Are you refering to this piece of code?:
+> ----
+>         err = tp->ops->change(tp, cl, t->tcm_handle, tca, &fh);
+>         if (err == 0)
+>                 tfilter_notify(skb, n, tp, fh, RTM_NEWTFILTER);
+> 
+> errout:
+>         if (cl)
+>                 cops->put(q, cl);
+>         return err;
+> ---
+
+Yes.
+
+> change() should not return <0 if it has installed the filter i think.
+> Should the top level code be responsible for removing filters?
+
+The top level code (cls_hipac.c:tc_ctl_filter) is responsible for
+creating new tcf_proto structs (if not existent) and enqueuing the
+struct into the chain. Therefore it is also responsible for taking
+the stuff out of the chain again if necessary. In case we have just
+created a new tcf_proto and change fails it would be better if the new
+tcf_proto is removed afterwards, i.e.
+                     write_lock(&qdisc_tree_lock);
+                     spin_lock_bh(&dev->queue_lock);
+                     *back = tp->next;
+                     spin_unlock_bh(&dev->queue_lock);
+                     write_unlock(&qdisc_tree_lock);
+                     tp->ops->destroy(tp);
+                     module_put(tp->ops->owner);
+                     kfree(tp);
+is issued.
+Do you agree?
+
+> Consider what i said above. I'll try n cobble together some examples to
+> demonstrate (although it seems you already know this).
+> To allow for anyone to install classifiers-du-jour without being
+> dependet on hipac would be very useful. So ideas that you have for
+> enabling this cleanly should be moved to cls_api.
+
+Nobody will be forced to use hipac :-). It's just another classifier
+like u32. We don't even had to modify cls_api so far. Everything
+integrates just fine.
 
 
+Regards,
 
-diff -u linux-work/include/net/dst.h-XFRM linux-work/include/net/dst.h
---- linux-work/include/net/dst.h-XFRM	2003-07-18 02:40:02.000000000 +0200
-+++ linux-work/include/net/dst.h	2003-08-03 23:12:24.000000000 +0200
-@@ -247,8 +247,16 @@
- extern void		dst_init(void);
- 
- struct flowi;
-+#ifndef CONFIG_XFRM
-+static inline int xfrm_lookup(struct dst_entry **dst_p, struct flowi *fl,
-+		       struct sock *sk, int flags)
-+{
-+	return 0;
-+} 
-+#else
- extern int xfrm_lookup(struct dst_entry **dst_p, struct flowi *fl,
- 		       struct sock *sk, int flags);
- #endif
-+#endif
- 
- #endif /* _NET_DST_H */
-diff -u linux-work/include/net/xfrm.h-XFRM linux-work/include/net/xfrm.h
---- linux-work/include/net/xfrm.h-XFRM	2003-07-28 23:12:30.000000000 +0200
-+++ linux-work/include/net/xfrm.h	2003-08-03 23:14:04.000000000 +0200
-@@ -587,6 +587,8 @@
- 	return !0;
- }
- 
-+#ifdef CONFIG_XFRM
-+
- extern int __xfrm_policy_check(struct sock *, int dir, struct sk_buff *skb, unsigned short family);
- 
- static inline int xfrm_policy_check(struct sock *sk, int dir, struct sk_buff *skb, unsigned short family)
-@@ -652,6 +654,26 @@
- 	}
- }
- 
-+#else
-+
-+static inline void xfrm_sk_free_policy(struct sock *sk) {}
-+static inline int xfrm_sk_clone_policy(struct sock *sk) { return 0; }
-+static inline int xfrm6_route_forward(struct sk_buff *skb) { return 1; }  
-+static inline int xfrm4_route_forward(struct sk_buff *skb) { return 1; } 
-+static inline int xfrm6_policy_check(struct sock *sk, int dir, struct sk_buff *skb)
-+{ 
-+	return 1; 
-+} 
-+static inline int xfrm4_policy_check(struct sock *sk, int dir, struct sk_buff *skb)
-+{
-+	return 1;
-+}
-+static inline int xfrm_policy_check(struct sock *sk, int dir, struct sk_buff *skb, unsigned short family)
-+{
-+	return 1;
-+}
-+#endif
-+
- static __inline__
- xfrm_address_t *xfrm_flowi_daddr(struct flowi *fl, unsigned short family)
- {
-@@ -782,12 +804,32 @@
- extern int xfrm_check_selectors(struct xfrm_state **x, int n, struct flowi *fl);
- extern int xfrm_check_output(struct xfrm_state *x, struct sk_buff *skb, unsigned short family);
- extern int xfrm4_rcv(struct sk_buff *skb);
--extern int xfrm4_rcv_encap(struct sk_buff *skb, __u16 encap_type);
- extern int xfrm4_tunnel_register(struct xfrm_tunnel *handler);
- extern int xfrm4_tunnel_deregister(struct xfrm_tunnel *handler);
- extern int xfrm4_tunnel_check_size(struct sk_buff *skb);
- extern int xfrm6_rcv(struct sk_buff **pskb, unsigned int *nhoffp);
-+
-+#ifdef CONFIG_XFRM
-+extern int xfrm4_rcv_encap(struct sk_buff *skb, __u16 encap_type);
- extern int xfrm_user_policy(struct sock *sk, int optname, u8 *optval, int optlen);
-+extern int xfrm_dst_lookup(struct xfrm_dst **dst, struct flowi *fl, unsigned short family);
-+#else
-+static inline int xfrm_user_policy(struct sock *sk, int optname, u8 *optval, int optlen)
-+{
-+ 	return -ENOPROTOOPT;
-+} 
-+
-+static inline int xfrm4_rcv_encap(struct sk_buff *skb, __u16 encap_type)
-+{
-+ 	/* should not happen */
-+ 	kfree_skb(skb);
-+	return 0;
-+}
-+static inline int xfrm_dst_lookup(struct xfrm_dst **dst, struct flowi *fl, unsigned short family)
-+{
-+	return -EINVAL;
-+} 
-+#endif
- 
- void xfrm_policy_init(void);
- void xfrm4_policy_init(void);
-@@ -809,7 +851,6 @@
- extern int xfrm_sk_policy_insert(struct sock *sk, int dir, struct xfrm_policy *pol);
- extern struct xfrm_policy *xfrm_sk_policy_lookup(struct sock *sk, int dir, struct flowi *fl);
- extern int xfrm_flush_bundles(struct xfrm_state *x);
--extern int xfrm_dst_lookup(struct xfrm_dst **dst, struct flowi *fl, unsigned short family);
- 
- extern wait_queue_head_t km_waitq;
- extern void km_state_expired(struct xfrm_state *x, int hard);
-diff -u linux-work/net/core/skbuff.c-XFRM linux-work/net/core/skbuff.c
---- linux-work/net/core/skbuff.c-XFRM	2003-07-18 02:39:47.000000000 +0200
-+++ linux-work/net/core/skbuff.c	2003-08-03 23:12:25.000000000 +0200
-@@ -225,7 +225,7 @@
- 	}
- 
- 	dst_release(skb->dst);
--#ifdef CONFIG_INET
-+#ifdef CONFIG_XFRM
- 	secpath_put(skb->sp);
- #endif
- 	if(skb->destructor) {
-diff -u linux-work/net/ipv4/Kconfig-XFRM linux-work/net/ipv4/Kconfig
---- linux-work/net/ipv4/Kconfig-XFRM	2003-07-18 02:42:42.000000000 +0200
-+++ linux-work/net/ipv4/Kconfig	2003-08-03 23:12:25.000000000 +0200
-@@ -187,6 +187,7 @@
- config NET_IPIP
- 	tristate "IP: tunneling"
- 	depends on INET
-+	select XFRM
- 	---help---
- 	  Tunneling means encapsulating data of one protocol type within
- 	  another protocol and sending it over a channel that understands the
-@@ -205,6 +206,7 @@
- config NET_IPGRE
- 	tristate "IP: GRE tunnels over IP"
- 	depends on INET
-+	select XFRM
- 	help
- 	  Tunneling means encapsulating data of one protocol type within
- 	  another protocol and sending it over a channel that understands the
-@@ -343,6 +345,7 @@
- 
- config INET_AH
- 	tristate "IP: AH transformation"
-+	select XFRM
- 	select CRYPTO
- 	select CRYPTO_HMAC
- 	select CRYPTO_MD5
-@@ -354,6 +357,7 @@
- 
- config INET_ESP
- 	tristate "IP: ESP transformation"
-+	select XFRM
- 	select CRYPTO
- 	select CRYPTO_HMAC
- 	select CRYPTO_MD5
-@@ -366,6 +370,7 @@
- 
- config INET_IPCOMP
- 	tristate "IP: IPComp transformation"
-+	select XFRM
- 	select CRYPTO
- 	select CRYPTO_DEFLATE
- 	---help---
-diff -u linux-work/net/ipv4/Makefile-XFRM linux-work/net/ipv4/Makefile
---- linux-work/net/ipv4/Makefile-XFRM	2003-07-18 02:42:42.000000000 +0200
-+++ linux-work/net/ipv4/Makefile	2003-08-03 23:12:25.000000000 +0200
-@@ -23,4 +23,4 @@
- obj-$(CONFIG_NETFILTER)	+= netfilter/
- obj-$(CONFIG_IP_VS) += ipvs/
- 
--obj-y += xfrm4_policy.o xfrm4_state.o xfrm4_input.o xfrm4_tunnel.o
-+obj-$(CONFIG_XFRM) += xfrm4_policy.o xfrm4_state.o xfrm4_input.o xfrm4_tunnel.o
-diff -u linux-work/net/ipv4/route.c-XFRM linux-work/net/ipv4/route.c
---- linux-work/net/ipv4/route.c-XFRM	2003-07-18 02:39:31.000000000 +0200
-+++ linux-work/net/ipv4/route.c	2003-08-03 23:12:25.000000000 +0200
-@@ -2785,8 +2785,10 @@
- 	create_proc_read_entry("net/rt_acct", 0, 0, ip_rt_acct_read, NULL);
- #endif
- #endif
-+#ifdef CONFIG_XFRM
- 	xfrm_init();
- 	xfrm4_init();
-+#endif
- out:
- 	return rc;
- out_enomem:
-diff -u linux-work/net/ipv4/udp.c-XFRM linux-work/net/ipv4/udp.c
---- linux-work/net/ipv4/udp.c-XFRM	2003-07-18 02:42:43.000000000 +0200
-+++ linux-work/net/ipv4/udp.c	2003-08-03 23:31:05.000000000 +0200
-@@ -938,6 +938,9 @@
-  */
- static int udp_encap_rcv(struct sock * sk, struct sk_buff *skb)
- {
-+#ifndef CONFIG_XFRM
-+	return 1; 
-+#else
- 	struct udp_opt *up = udp_sk(sk);
-   	struct udphdr *uh = skb->h.uh;
- 	struct iphdr *iph;
-@@ -997,10 +1000,12 @@
- 		return -1;
- 
- 	default:
--		printk(KERN_INFO "udp_encap_rcv(): Unhandled UDP encap type: %u\n",
--		       encap_type);
-+		if (net_ratelimit())
-+			printk(KERN_INFO "udp_encap_rcv(): Unhandled UDP encap type: %u\n",
-+			       encap_type);
- 		return 1;
- 	}
-+#endif
- }
- 
- /* returns:
-diff -u linux-work/net/ipv6/Kconfig-XFRM linux-work/net/ipv6/Kconfig
---- linux-work/net/ipv6/Kconfig-XFRM	2003-07-18 02:39:29.000000000 +0200
-+++ linux-work/net/ipv6/Kconfig	2003-08-03 23:12:25.000000000 +0200
-@@ -22,6 +23,7 @@
- config INET6_AH
- 	tristate "IPv6: AH transformation"
- 	depends on IPV6
-+	select XFRM
- 	select CRYPTO
- 	select CRYPTO_HMAC
- 	select CRYPTO_MD5
-@@ -34,6 +36,7 @@
- config INET6_ESP
- 	tristate "IPv6: ESP transformation"
- 	depends on IPV6
-+	select XFRM
- 	select CRYPTO
- 	select CRYPTO_HMAC
- 	select CRYPTO_MD5
-@@ -47,6 +50,7 @@
- config INET6_IPCOMP
- 	tristate "IPv6: IPComp transformation"
- 	depends on IPV6
-+	select XFRM
- 	select CRYPTO
- 	select CRYPTO_DEFLATE
- 	---help---
-diff -u linux-work/net/ipv6/Makefile-XFRM linux-work/net/ipv6/Makefile
---- linux-work/net/ipv6/Makefile-XFRM	2003-07-18 02:39:29.000000000 +0200
-+++ linux-work/net/ipv6/Makefile	2003-08-03 23:12:25.000000000 +0200
-@@ -8,8 +8,9 @@
- 		route.o ip6_fib.o ipv6_sockglue.o ndisc.o udp.o raw.o \
- 		protocol.o icmp.o mcast.o reassembly.o tcp_ipv6.o \
- 		exthdrs.o sysctl_net_ipv6.o datagram.o proc.o \
--		ip6_flowlabel.o ipv6_syms.o \
--		xfrm6_policy.o xfrm6_state.o xfrm6_input.o
-+		ip6_flowlabel.o ipv6_syms.o
-+
-+obj-$(CONFIG_XFRM) += xfrm6_policy.o xfrm6_state.o xfrm6_input.o
- 
- obj-$(CONFIG_INET6_AH) += ah6.o
- obj-$(CONFIG_INET6_ESP) += esp6.o
-diff -u linux-work/net/ipv6/ipv6_syms.c-XFRM linux-work/net/ipv6/ipv6_syms.c
---- linux-work/net/ipv6/ipv6_syms.c-XFRM	2003-07-18 02:39:31.000000000 +0200
-+++ linux-work/net/ipv6/ipv6_syms.c	2003-08-03 23:14:41.000000000 +0200
-@@ -36,7 +36,9 @@
- EXPORT_SYMBOL(in6addr_loopback);
- EXPORT_SYMBOL(in6_dev_finish_destroy);
- EXPORT_SYMBOL(ip6_find_1stfragopt);
-+#ifdef CONFIG_XFRM
- EXPORT_SYMBOL(xfrm6_rcv);
-+#endif
- EXPORT_SYMBOL(rt6_lookup);
- EXPORT_SYMBOL(fl6_sock_lookup);
- EXPORT_SYMBOL(ipv6_ext_hdr);
-diff -u linux-work/net/ipv6/route.c-XFRM linux-work/net/ipv6/route.c
---- linux-work/net/ipv6/route.c-XFRM	2003-07-28 23:12:32.000000000 +0200
-+++ linux-work/net/ipv6/route.c	2003-08-03 23:12:25.000000000 +0200
-@@ -1988,7 +1988,9 @@
- 	if (p)
- 		p->proc_fops = &rt6_stats_seq_fops;
- #endif
-+#ifdef CONFIG_XFRM
- 	xfrm6_init();
-+#endif
- }
- 
- #ifdef MODULE
-diff -u linux-work/net/xfrm/Kconfig-XFRM linux-work/net/xfrm/Kconfig
---- linux-work/net/xfrm/Kconfig-XFRM	2003-05-27 03:00:40.000000000 +0200
-+++ linux-work/net/xfrm/Kconfig	2003-08-03 23:12:25.000000000 +0200
-@@ -1,9 +1,13 @@
- #
- # XFRM configuration
- #
-+config XFRM
-+       bool
-+       depends on NET
-+
- config XFRM_USER
- 	tristate "IPsec user configuration interface"
--	depends on INET
-+	depends on INET && XFRM
- 	---help---
- 	  Support for IPsec user configuration interface used
- 	  by native Linux tools.
-diff -u linux-work/net/xfrm/Makefile-XFRM linux-work/net/xfrm/Makefile
---- linux-work/net/xfrm/Makefile-XFRM	2003-05-27 03:01:03.000000000 +0200
-+++ linux-work/net/xfrm/Makefile	2003-08-03 23:12:25.000000000 +0200
-@@ -2,6 +2,7 @@
- # Makefile for the XFRM subsystem.
- #
- 
--obj-y := xfrm_policy.o xfrm_state.o xfrm_input.o xfrm_algo.o xfrm_output.o
-+obj-$(CONFIG_XFRM) := xfrm_policy.o xfrm_state.o xfrm_input.o xfrm_algo.o xfrm_output.o \
-+	xfrm_export.o
- obj-$(CONFIG_XFRM_USER) += xfrm_user.o
- 
-diff -u linux-work/net/xfrm/xfrm_export.c-XFRM linux-work/net/xfrm/xfrm_export.c
---- linux-work/net/xfrm/xfrm_export.c-XFRM	2003-08-03 23:12:25.000000000 +0200
-+++ linux-work/net/xfrm/xfrm_export.c	2003-08-03 23:16:06.000000000 +0200
-@@ -0,0 +1,76 @@
-+#include <linux/module.h>
-+#include <net/xfrm.h>
-+
-+EXPORT_SYMBOL(xfrm_user_policy);
-+EXPORT_SYMBOL(km_waitq);
-+EXPORT_SYMBOL(km_new_mapping);
-+EXPORT_SYMBOL(xfrm_cfg_sem);
-+EXPORT_SYMBOL(xfrm_policy_alloc);
-+EXPORT_SYMBOL(__xfrm_policy_destroy);
-+EXPORT_SYMBOL(xfrm_lookup);
-+EXPORT_SYMBOL(__xfrm_policy_check);
-+EXPORT_SYMBOL(__xfrm_route_forward);
-+EXPORT_SYMBOL(xfrm_state_alloc);
-+EXPORT_SYMBOL(__xfrm_state_destroy);
-+EXPORT_SYMBOL(xfrm_state_find);
-+EXPORT_SYMBOL(xfrm_state_insert);
-+EXPORT_SYMBOL(xfrm_state_add);
-+EXPORT_SYMBOL(xfrm_state_update);
-+EXPORT_SYMBOL(xfrm_state_check_expire);
-+EXPORT_SYMBOL(xfrm_state_check_space);
-+EXPORT_SYMBOL(xfrm_state_lookup);
-+EXPORT_SYMBOL(xfrm_state_register_afinfo);
-+EXPORT_SYMBOL(xfrm_state_unregister_afinfo);
-+EXPORT_SYMBOL(xfrm_state_get_afinfo);
-+EXPORT_SYMBOL(xfrm_state_put_afinfo);
-+EXPORT_SYMBOL(xfrm_state_delete_tunnel);
-+EXPORT_SYMBOL(xfrm_replay_check);
-+EXPORT_SYMBOL(xfrm_replay_advance);
-+EXPORT_SYMBOL(xfrm_check_selectors);
-+EXPORT_SYMBOL(xfrm_check_output);
-+EXPORT_SYMBOL(__secpath_destroy);
-+EXPORT_SYMBOL(xfrm_get_acqseq);
-+EXPORT_SYMBOL(xfrm_parse_spi);
-+EXPORT_SYMBOL(xfrm4_rcv);
-+EXPORT_SYMBOL(xfrm4_tunnel_register);
-+EXPORT_SYMBOL(xfrm4_tunnel_deregister);
-+EXPORT_SYMBOL(xfrm4_tunnel_check_size);
-+EXPORT_SYMBOL(xfrm_register_type);
-+EXPORT_SYMBOL(xfrm_unregister_type);
-+EXPORT_SYMBOL(xfrm_get_type);
-+EXPORT_SYMBOL(inet_peer_idlock);
-+EXPORT_SYMBOL(xfrm_register_km);
-+EXPORT_SYMBOL(xfrm_unregister_km);
-+EXPORT_SYMBOL(xfrm_state_delete);
-+EXPORT_SYMBOL(xfrm_state_walk);
-+EXPORT_SYMBOL(xfrm_find_acq_byseq);
-+EXPORT_SYMBOL(xfrm_find_acq);
-+EXPORT_SYMBOL(xfrm_alloc_spi);
-+EXPORT_SYMBOL(xfrm_state_flush);
-+EXPORT_SYMBOL(xfrm_policy_kill);
-+EXPORT_SYMBOL(xfrm_policy_bysel);
-+EXPORT_SYMBOL(xfrm_policy_insert);
-+EXPORT_SYMBOL(xfrm_policy_walk);
-+EXPORT_SYMBOL(xfrm_policy_flush);
-+EXPORT_SYMBOL(xfrm_policy_byid);
-+EXPORT_SYMBOL(xfrm_policy_list);
-+EXPORT_SYMBOL(xfrm_dst_lookup);
-+EXPORT_SYMBOL(xfrm_policy_register_afinfo);
-+EXPORT_SYMBOL(xfrm_policy_unregister_afinfo);
-+EXPORT_SYMBOL(xfrm_policy_get_afinfo);
-+EXPORT_SYMBOL(xfrm_policy_put_afinfo);
-+
-+EXPORT_SYMBOL_GPL(xfrm_probe_algs);
-+EXPORT_SYMBOL_GPL(xfrm_count_auth_supported);
-+EXPORT_SYMBOL_GPL(xfrm_count_enc_supported);
-+EXPORT_SYMBOL_GPL(xfrm_aalg_get_byidx);
-+EXPORT_SYMBOL_GPL(xfrm_ealg_get_byidx);
-+EXPORT_SYMBOL_GPL(xfrm_calg_get_byidx);
-+EXPORT_SYMBOL_GPL(xfrm_aalg_get_byid);
-+EXPORT_SYMBOL_GPL(xfrm_ealg_get_byid);
-+EXPORT_SYMBOL_GPL(xfrm_calg_get_byid);
-+EXPORT_SYMBOL_GPL(xfrm_aalg_get_byname);
-+EXPORT_SYMBOL_GPL(xfrm_ealg_get_byname);
-+EXPORT_SYMBOL_GPL(xfrm_calg_get_byname);
-+
-+EXPORT_SYMBOL_GPL(skb_icv_walk);
-diff -u linux-work/net/Kconfig-XFRM linux-work/net/Kconfig
---- linux-work/net/Kconfig-XFRM	2003-05-27 03:00:21.000000000 +0200
-+++ linux-work/net/Kconfig	2003-08-03 23:12:24.000000000 +0200
-@@ -143,6 +143,7 @@
- 
- config NET_KEY
- 	tristate "PF_KEY sockets"
-+	select XFRM
- 	---help---
- 	  PF_KEYv2 socket family, compatible to KAME ones.
- 	  They are required if you are going to use IPsec tools ported
-diff -u linux-work/net/netsyms.c-XFRM linux-work/net/netsyms.c
---- linux-work/net/netsyms.c-XFRM	2003-07-28 23:12:33.000000000 +0200
-+++ linux-work/net/netsyms.c	2003-08-03 23:16:23.000000000 +0200
-@@ -56,7 +56,6 @@
- #include <linux/inet.h>
- #include <linux/mroute.h>
- #include <linux/igmp.h>
--#include <net/xfrm.h>
- #if defined(CONFIG_INET_AH) || defined(CONFIG_INET_AH_MODULE) || defined(CONFIG_INET6_AH) || defined(CONFIG_INET6_AH_MODULE)
- #include <net/ah.h>
- #endif
-@@ -294,78 +293,6 @@
- /* needed for ip_gre -cw */
- EXPORT_SYMBOL(ip_statistics);
- 
--EXPORT_SYMBOL(xfrm_user_policy);
--EXPORT_SYMBOL(km_waitq);
--EXPORT_SYMBOL(km_new_mapping);
--EXPORT_SYMBOL(xfrm_cfg_sem);
--EXPORT_SYMBOL(xfrm_policy_alloc);
--EXPORT_SYMBOL(__xfrm_policy_destroy);
--EXPORT_SYMBOL(xfrm_lookup);
--EXPORT_SYMBOL(__xfrm_policy_check);
--EXPORT_SYMBOL(__xfrm_route_forward);
--EXPORT_SYMBOL(xfrm_state_alloc);
--EXPORT_SYMBOL(__xfrm_state_destroy);
--EXPORT_SYMBOL(xfrm_state_find);
--EXPORT_SYMBOL(xfrm_state_insert);
--EXPORT_SYMBOL(xfrm_state_add);
--EXPORT_SYMBOL(xfrm_state_update);
--EXPORT_SYMBOL(xfrm_state_check_expire);
--EXPORT_SYMBOL(xfrm_state_check_space);
--EXPORT_SYMBOL(xfrm_state_lookup);
--EXPORT_SYMBOL(xfrm_state_register_afinfo);
--EXPORT_SYMBOL(xfrm_state_unregister_afinfo);
--EXPORT_SYMBOL(xfrm_state_get_afinfo);
--EXPORT_SYMBOL(xfrm_state_put_afinfo);
--EXPORT_SYMBOL(xfrm_state_delete_tunnel);
--EXPORT_SYMBOL(xfrm_replay_check);
--EXPORT_SYMBOL(xfrm_replay_advance);
--EXPORT_SYMBOL(xfrm_check_selectors);
--EXPORT_SYMBOL(xfrm_check_output);
--EXPORT_SYMBOL(__secpath_destroy);
--EXPORT_SYMBOL(xfrm_get_acqseq);
--EXPORT_SYMBOL(xfrm_parse_spi);
--EXPORT_SYMBOL(xfrm4_rcv);
--EXPORT_SYMBOL(xfrm4_tunnel_register);
--EXPORT_SYMBOL(xfrm4_tunnel_deregister);
--EXPORT_SYMBOL(xfrm4_tunnel_check_size);
--EXPORT_SYMBOL(xfrm_register_type);
--EXPORT_SYMBOL(xfrm_unregister_type);
--EXPORT_SYMBOL(xfrm_get_type);
--EXPORT_SYMBOL(inet_peer_idlock);
--EXPORT_SYMBOL(xfrm_register_km);
--EXPORT_SYMBOL(xfrm_unregister_km);
--EXPORT_SYMBOL(xfrm_state_delete);
--EXPORT_SYMBOL(xfrm_state_walk);
--EXPORT_SYMBOL(xfrm_find_acq_byseq);
--EXPORT_SYMBOL(xfrm_find_acq);
--EXPORT_SYMBOL(xfrm_alloc_spi);
--EXPORT_SYMBOL(xfrm_state_flush);
--EXPORT_SYMBOL(xfrm_policy_kill);
--EXPORT_SYMBOL(xfrm_policy_bysel);
--EXPORT_SYMBOL(xfrm_policy_insert);
--EXPORT_SYMBOL(xfrm_policy_walk);
--EXPORT_SYMBOL(xfrm_policy_flush);
--EXPORT_SYMBOL(xfrm_policy_byid);
--EXPORT_SYMBOL(xfrm_policy_list);
--EXPORT_SYMBOL(xfrm_dst_lookup);
--EXPORT_SYMBOL(xfrm_policy_register_afinfo);
--EXPORT_SYMBOL(xfrm_policy_unregister_afinfo);
--EXPORT_SYMBOL(xfrm_policy_get_afinfo);
--EXPORT_SYMBOL(xfrm_policy_put_afinfo);
--
--EXPORT_SYMBOL_GPL(xfrm_probe_algs);
--EXPORT_SYMBOL_GPL(xfrm_count_auth_supported);
--EXPORT_SYMBOL_GPL(xfrm_count_enc_supported);
--EXPORT_SYMBOL_GPL(xfrm_aalg_get_byidx);
--EXPORT_SYMBOL_GPL(xfrm_ealg_get_byidx);
--EXPORT_SYMBOL_GPL(xfrm_calg_get_byidx);
--EXPORT_SYMBOL_GPL(xfrm_aalg_get_byid);
--EXPORT_SYMBOL_GPL(xfrm_ealg_get_byid);
--EXPORT_SYMBOL_GPL(xfrm_calg_get_byid);
--EXPORT_SYMBOL_GPL(xfrm_aalg_get_byname);
--EXPORT_SYMBOL_GPL(xfrm_ealg_get_byname);
--EXPORT_SYMBOL_GPL(xfrm_calg_get_byname);
--EXPORT_SYMBOL_GPL(skb_icv_walk);
- #if defined(CONFIG_INET_ESP) || defined(CONFIG_INET_ESP_MODULE) || defined(CONFIG_INET6_ESP) || defined(CONFIG_INET6_ESP_MODULE)
- EXPORT_SYMBOL_GPL(skb_cow_data);
- EXPORT_SYMBOL_GPL(pskb_put);
++-----------------------+----------------------+
+|   Michael Bellion     |     Thomas Heinz     |
+| <mbellion@hipac.org>  |  <creatix@hipac.org> |
++-----------------------+----------------------+
+|    High Performance Packet Classification    |
+|       nf-hipac: http://www.hipac.org/        |
++----------------------------------------------+
+
+
+--------------enig1F772C011F16724D016A230F
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.2 (GNU/Linux)
+Comment: Using GnuPG with Debian - http://enigmail.mozdev.org
+
+iD8DBQE/LlzdtXh2AYIMjggRAtcvAKCUZykozfMnI5MmRMo0j/zH6TDg7gCdGl20
+ngF9kmhPF45vfAYjTq6sd/U=
+=qy5Z
+-----END PGP SIGNATURE-----
+
+--------------enig1F772C011F16724D016A230F--
