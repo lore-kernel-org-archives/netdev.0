@@ -1,33 +1,101 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH + RFC] neighbour/ARP cache scalability
-Date: Thu, 23 Sep 2004 22:53:21 -0700
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [1/1] connector: Kernel connector - userspace <-> kernelspace
+	"linker".
+Date: Fri, 24 Sep 2004 10:14:30 +0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040923225321.7a19117d.davem@davemloft.net>
-References: <20040920225140.GH1307@sunbeam.de.gnumonks.org>
-	<20040921203118.734a0a7e.davem@davemloft.net>
-	<20040922111447.GP3236@sunbeam.de.gnumonks.org>
+Message-ID: <1096006470.17587.37.camel@uganda>
+References: <1095331899.18219.58.camel@uganda>
+	 <20040921124623.GA6942@uganda.factory.vocord.ru>
+	 <20040924000739.112f07dd@zanzibar.2ka.mipt.ru>
+	 <20040923215447.GD30131@ruslug.rutgers.edu>
+	 <1095997232.17587.8.camel@uganda>
+	 <20040924054844.GO30131@ruslug.rutgers.edu>
+Reply-To: johnpol@2ka.mipt.ru
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-OUKycYtgexc6m67+nI/q"
+Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com,
+        linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Harald Welte <laforge@gnumonks.org>
-In-Reply-To: <20040922111447.GP3236@sunbeam.de.gnumonks.org>
+To: "Luis R. Rodriguez" <mcgrof@studorgs.rutgers.edu>
+In-Reply-To: <20040924054844.GO30131@ruslug.rutgers.edu>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 22 Sep 2004 13:14:47 +0200
-Harald Welte <laforge@gnumonks.org> wrote:
 
-> And I still want to address the "all complete entries flushed due to
-> lots of bogus incomplete entires" issue somehow.  As stated before, I
-> have seen this on happen on live systems.  
-> 
-> Do you agree that this is an existing problem?
+--=-OUKycYtgexc6m67+nI/q
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-I totally agree.  Please scan my 6 patches, let's get that
-all fleshed out, then we can move on to this issue.
+On Fri, 2004-09-24 at 09:48, Luis R. Rodriguez wrote:
+> On Fri, Sep 24, 2004 at 07:40:32AM +0400, Evgeniy Polyakov wrote:
+> > On Fri, 2004-09-24 at 01:54, Luis R. Rodriguez wrote:
+> > > RFC:=20
+> > >=20
+> > > Can and should we work towards using this as interface for drivers th=
+at
+> > > need callbacks from an external (closed source) library/HAL?
+> >=20
+> > As I mentioned to Richard Jonson, it can be considered as
+> > ioctl. ioctl-ng!
+> > Unified interface (as ioctl) can be used for any type of modules.
+> > It is just a bit extended ioctl :)
+> >=20
+> > And _yes_, it can be used to turn on/off binary-only callbacks.
+> > Remember pwc - closed part can register callback and open part can
+> > send message, or even closed part can register notification when
+> > open part registers itself and begin to "trash the kernel".
+> >=20
+> > I understand that it is not right way to include it is into the kernel,
+> > but I personally do not understand how it is different=20
+> > from just extended ioctl. It was designed to be usefull and convenient,
+> > and it is.
+> >=20
+> > BTW, any binary-only module can _itself_ create netlink socket
+> > with input callback. And that is all - it will be absolutely
+> > the same as above.
+> >=20
+> > One may consider connector as yet-another-netlink-helper.
+> >=20
+>=20
+> Eh. I'm just wondering if there's any *right* way of using binary
+> callbacks on a linux driver so that it doesn't *taint* and possibly
+> *trash it*, as you said. I was wondering if perhaps through the
+> connector we could somehow protect the kernel of possibly ill-behaved cal=
+lbacks.
+>=20
+> Comments?
 
-Feel free to backport my 2.6.x neigh patches so far and
-send that work to me, I'll happily integrate them into
-my 2.4.x net tree.
+Yes, we can.
+Connector itself has quite enough information about it's registrants.
+
+For example if it is somehow not good module( for example without GPL in
+it's license string) then connector can be extended to call it's
+callback from thread or in jail. If it is of interest I will think of
+some plugable mechanism for callback environment( probably provide
+->before_callback() and ->after_callback() methods from external policy
+provider which may check callback data and/or confine callback execution
+? ).
+
+We also may confine closed modules from being able to use event
+notification. In this scenario with worned out pwc-closed/open,
+situation will not differ from what we have now.
+
+> 	Luis
+--=20
+	Evgeniy Polyakov
+
+Crash is better than data corruption. -- Art Grabowski
+
+--=-OUKycYtgexc6m67+nI/q
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQBBU7tGIKTPhE+8wY0RAhTqAJ0bDobit+gdUDKlL7W8zi900INwJACdGfC6
+wgjevYUKMLT3Rv2gYXkw7r4=
+=5XJj
+-----END PGP SIGNATURE-----
+
+--=-OUKycYtgexc6m67+nI/q--
