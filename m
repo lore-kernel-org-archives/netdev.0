@@ -1,85 +1,50 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: Submission #3  for S2io 10GbE driver
-Date: Tue, 02 Mar 2004 13:47:09 -0500
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: Re: [janitor] remove casts in drivers/net/arm/
+Date: Tue, 2 Mar 2004 11:02:37 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4044D6AD.9090209@pobox.com>
-References: <4223A04BF7D1B941A25246ADD0462FF50115AFCF@blr-m3-msg.wipro.com>
+Message-ID: <20040302110237.0f580736.rddunlap@osdl.org>
+References: <20040229142516.3d218ed0.rddunlap@osdl.org>
+	<20040229143436.4bb884ee.rddunlap@osdl.org>
+	<20040302121042.A9931@flint.arm.linux.org.uk>
+	<4044D86C.70709@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: leonid.grossman@s2io.com, netdev@oss.sgi.com, shemminger@osdl.org,
-        hch@infradead.org, ravinandan.arakali@s2io.com,
-        raghavendra.koushik@s2io.com
+Cc: rmk@arm.linux.org.uk, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: raghavendra.koushik@wipro.com
-In-Reply-To: <4223A04BF7D1B941A25246ADD0462FF50115AFCF@blr-m3-msg.wipro.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <4044D86C.70709@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-raghavendra.koushik@wipro.com wrote:
-> Hi Jeff,
-> 
-> 	Really sorry about that "confidentiality notice" that gets attached.
-> I have asked my sysAdmin to get rid of it. He has promised to do so ASAP.
-> Hope this mail does not have it attached at the end :-). If at all the
-> message still persists please ignore it as inconsequential to our discussion.
-> 
-> I Have a few more questions.
-> 
-> 
->>>4) just delete the SET_NETDEV_DEV(), FREE_NETDEV, and IRQ_NONE
->>>compatibility defines.  these are in 2.4 just like 2.6.
-> 
-> 
-> Not all 2.4 kernels have them yet right? but since this driver is going
+On Tue, 02 Mar 2004 13:54:36 -0500 Jeff Garzik wrote:
 
-Correct.  But when I merge this driver into 2.4, it will be latest 2.4 
-(which contains these definitions).
+| Russell King wrote:
+| > On Sun, Feb 29, 2004 at 02:34:36PM -0800, Randy.Dunlap wrote:
+| > 
+| >> drivers/net/arm/am79c961a.c |   18 +++++++++---------
+| >> drivers/net/arm/ether1.c    |   18 +++++++++---------
+| >> drivers/net/arm/ether3.c    |   18 +++++++++---------
+| >> drivers/net/arm/etherh.c    |    4 ++--
+| >> 4 files changed, 29 insertions(+), 29 deletions(-)
+| > 
+| > 
+| > I think we should really consider using netdev_priv() in all these places
+| > so the compiler knows that 'dev' and 'priv' are related.
+| 
+| 
+| Good point.
 
-The vendor (s2io) is expected to maintain any old-kernel compatibility 
-outside the kernel.  For example, if you submitting the s2io driver for 
-inclusion in my employer's product, Red Hat Enterprise Linux, then you 
-would submit with the compatibility gunk.
+I respectfully disagree, but if the maintainter won't merge
+them as is, so be it.
 
+I have trouble understanding why this:
+	return (char *)dev + ((sizeof(struct net_device) + 31) & ~31);
+is better than using a structure->field, i.e.,
+	dev->priv
 
-> into 2.6 kernel if you want all these backward compatibility macros eliminated
-> I can do that.
+Can one of you enlighten me?
+Using dev->priv shows that 'dev' and 'priv' are related.
 
-Yes, please.
-
-
->>>13) in s2io_xmit, kfree the skb (drop it) if you don't have enough free
->>>space to queue it.  this is normally a BUG condition, since proper use
->>>of netif_{start,stop,wake}_queue() will guarantee that s2io_xmit will
->>>only be called when there is free space to queue another skb.
-> 
-> 
-> On returning error (non zero) from s2io_xmit, I think the calling function frees
-> the skb.
-
-Not correct in all cases, this is why the driver should drop the skb and 
-free it.  Several existing drivers get this wrong, in fact :/
-
-
-> How s2io_xmit works is when I get a packet for Tx and I find that all the
-> Tx descriptors are owned by the NIC, I stop the queue and return error.
-> So I wouldn't know before hand whether free queue space is available or not.
-
-This is incorrect, and definitely an issue that needs to be addressed.
-
-As I said, the model is, the driver calls netif_stop_queue() after 
-queueing a packet, when it knows there is no more room for a full 
-packet.  The tg3 driver does it like this:
-	
-	...queue an skb to hardware...
-         if (TX_BUFFS_AVAIL(tp) <= (MAX_SKB_FRAGS + 1))
-                 netif_stop_queue(dev);
-
-Therefore you guarantee the queue is stopped until you are 100% certain 
-that another skb (up to MAX_SKB_FRAGS + "main frag" fragments) may be 
-queued to hardware.
-
-You do -not- want to figure out "after the fact" that you cannot queue 
-the skb you were just passed.
-
-	Jeff
+--
+~Randy
