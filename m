@@ -1,27 +1,37 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] 2.6.0-bk6 net/core/dev.c
-Date: Wed, 24 Sep 2003 08:11:30 -0700
+From: Petr Vandrovec <vandrove@vc.cvut.cz>
+Subject: assertion (dev->qdisc_list == NULL) failed at net/sched/sch_generic.c(530)
+Date: Wed, 24 Sep 2003 18:11:52 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1064416289.1804.3.camel@localhost.localdomain>
+Message-ID: <20030924161152.GA8683@vana.vc.cvut.cz>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: torvalds@osdl.org, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+To: davem@redhat.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Symmetric to dev_add_pack.
+Hi Dave,
+  today I noticed that I'm getting assertion below from 2.6.0-test5-xxx
+kernel from monday when I shut down vmnet. After looking at the code
+I found that with CONFIG_NET_SCHED disabled there is nobody who would
+clear dev->qdisc_list... Code which removes dev from the qdisc_list in
+the qdisc_destroy is inside CONFIG_NET_SCHED, and I see no other code
+which could clear qdisc_list...
 
-diff -urN linux-2.6.0-test5/net/core/dev.c shared_skb/net/core/dev.c
---- linux-2.6.0-test5/net/core/dev.c	2003-09-22 08:04:06.000000000 -0700
-+++ shared_skb/net/core/dev.c	2003-09-22 14:02:08.000000000 -0700
-@@ -281,7 +281,7 @@
- 	list_for_each_entry(pt1, head, list) {
- 		if (pt == pt1) {
- #ifdef CONFIG_NET_FASTROUTE
--			if (pt->data)
-+			if (pt->data && (long)pt->data != 1)
- 				netdev_fastroute_obstacles--;
- #endif
- 			list_del_rcu(&pt->list);
+Is this assertion just bogus for CONFIG_NET_SCHED unset, or qdisc_destroy
+should not depend on CONFIG_NET_SCHED, or am I missing something in the 
+vmnet initialization? It just uses ether_setup(), register_netdev() on
+initialization, and unregister_netdev() on module unload.
+
+# insmod vmnet; netifup vmnet1; ifconfig vmnet1 1.2.3.4 up
+/dev/vmnet: open called by PID 7413 (vmnet-netifup)
+/dev/vmnet: port on hub 1 successfully opened
+# ifconfig vmnet1 down
+# rmmod vmnet
+KERNEL: assertion (dev->qdisc_list == NULL) failed at net/sched/sch_generic.c(530)
+
+						Thanks,
+							Petr Vandrovec
+							vandrove@vc.cvut.cz
