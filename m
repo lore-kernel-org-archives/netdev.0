@@ -1,59 +1,44 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: patches for PROC_FS=n (2.6.0-test7)
-Date: Sat, 11 Oct 2003 12:40:25 -0700
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH] Handle shared SKBs in VLAN receive code
+Date: Sat, 11 Oct 2003 12:55:23 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031011124025.6cc2ada8.davem@redhat.com>
-References: <20031010141646.779f10bb.rddunlap@osdl.org>
-	<20031011120852.13fa8ec4.davem@redhat.com>
-	<20031011194008.GA2395@mars.ravnborg.org>
+Message-ID: <3F88602B.7020603@candelatech.com>
+References: <3F87430D.2040000@tpack.net>	<3F87464B.1020908@candelatech.com>	<3F874A30.6010700@tpack.net>	<3F885418.3090407@candelatech.com> <20031011120339.0da631e6.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: rddunlap@osdl.org, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Cc: tommy.christensen@tpack.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Sam Ravnborg <sam@ravnborg.org>
-In-Reply-To: <20031011194008.GA2395@mars.ravnborg.org>
+To: netdev@oss.sgi.com
+In-Reply-To: <20031011120339.0da631e6.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 11 Oct 2003 21:40:08 +0200
-Sam Ravnborg <sam@ravnborg.org> wrote:
-
-> Due to this - the real offender:
+David S. Miller wrote:
+> On Sat, 11 Oct 2003 12:03:52 -0700
+> Ben Greear <greearb@candelatech.com> wrote:
 > 
-> from: net/atm/clip.c:
-> #ifdef CONFIG_PROC_FS
-> #include <linux/proc_fs.h>
-> #include <linux/seq_file.h>
-> #endif
+> 
+>>Maybe we should have a method called:  skb_get_me_an_skb_that_I_can_modify(skb);
+>>
+>>Then the subtle differences between sharing, cloning, etc can be handled
+>>by the skb code internally...
+> 
+> 
+> We can't create this routine, because it depends upon context.
 
-That makes a whole lot more sense, here is the fix I just
-checked in:
+I have read the sk_buf.h file repeatedly trying to get this all straight
+in my head, and I think I'm still missing things.  Is there any other
+documentation around that describes in detail exactly the things you must
+do to handle shared skbs in all contexts?
 
-# This is a BitKeeper generated patch for the following project:
-# Project Name: Linux kernel tree
-# This patch format is intended for GNU patch command version 2.5 or higher.
-# This patch includes the following deltas:
-#	           ChangeSet	1.1352  -> 1.1353 
-#	      net/atm/clip.c	1.26    -> 1.27   
-#
-# The following is the BitKeeper ChangeSet Log
-# --------------------------------------------
-# 03/10/11	davem@nuts.ninka.net	1.1353
-# [ATM]: Kill PROC_FS ifdef around includes.
-# --------------------------------------------
-#
-diff -Nru a/net/atm/clip.c b/net/atm/clip.c
---- a/net/atm/clip.c	Sat Oct 11 12:43:12 2003
-+++ b/net/atm/clip.c	Sat Oct 11 12:43:12 2003
-@@ -24,10 +24,8 @@
- #include <linux/if.h> /* for IFF_UP */
- #include <linux/inetdevice.h>
- #include <linux/bitops.h>
--#ifdef CONFIG_PROC_FS
- #include <linux/proc_fs.h>
- #include <linux/seq_file.h>
--#endif
- #include <net/route.h> /* for struct rtable and routing */
- #include <net/icmp.h> /* icmp_send */
- #include <asm/param.h> /* for HZ */
+I have a question on linearize as well.  Assuming I want to read the IP address
+in a packet.  Do I have to linearize before I start looking at offsets in the
+skb?
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
