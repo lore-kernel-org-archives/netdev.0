@@ -1,31 +1,34 @@
-From: "David S. Miller" <davem@redhat.com>
+From: "Bas Bloemsaat" <bloemsaa@xs4all.nl>
 Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
-Date: Sun, 27 Jul 2003 21:39:56 -0700
+Date: Mon, 28 Jul 2003 09:33:46 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030727213956.6ede8008.davem@redhat.com>
-References: <20030727175557.1d624b36.davem@redhat.com>
-	<Pine.LNX.4.44.0307272133140.24695-100000@dlang.diginsite.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: carlosev@newipnet.com, bloemsaa@xs4all.nl, marcelo@conectiva.com.br,
-   netdev@oss.sgi.com, linux-net@vger.kernel.org, layes@loran.com,
-   torvalds@osdl.org, linux-kernel@vger.kernel.org
+Message-ID: <01a601c354da$9710cc10$cd01a8c0@llewella>
+References: <Pine.LNX.4.53.0307272239570.2743@vialle.bloemsaat.com> <20030727151234.6e2aa57e.davem@redhat.com> <3F248AE5.4000204@candelatech.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Lang <david.lang@digitalinsight.com>
-In-Reply-To: <Pine.LNX.4.44.0307272133140.24695-100000@dlang.diginsite.com>
+To: "Ben Greear" <greearb@candelatech.com>,
+   "David S. Miller" <davem@redhat.com>,
+   "Carlos Velasco" <carlosev@newipnet.com>, <netdev@oss.sgi.com>,
+   <linux-kernel@vger.kernel.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi all,
 
-On Sun, 27 Jul 2003 21:37:10 -0700 (PDT)
-David Lang <david.lang@digitalinsight.com> wrote:
+> > Not a bug.  This behavior is on purpose.
+First of all I'm sorry I rubbed some old sores. I didn't know the behaviour was on purpose, and I did google for it. Could have
+saved my weekend, had I known.
 
-> P.S. there are standards that are written documents and there are
-> standards that are 'how everyone does it' for the most part Linux follows
-> both types of standards, in this case the network team has decided to
-> ignore the 'how everyone else does it' standards becouse there is nothing
-> in a written standard that they are violating
+> >Bas's problem can be solved by him giving a "preferred source"
+> >to each of his IPV4 routes and setting the "arpfilter" sysctl
+> >variable for his devices to "1".
+>
+> Yes, it's another approach to solve his problem. But he must play with routing.
 
-Keep in mind that we implemented sys_sendfile() with different
-arguments and semantics than everyone else.
+Routing isn't solving anything here, it's too dynamic. Only one of the devices has a fixed IP, and handles a link to the outside,
+among others. The other is on DHCP: addresses can change without warning. Both are on the same ethernet segment.
+
+I've looked at the hidden patch, and it's capable of doing this right. I do think this has to be solved at the device layer. It's
+quite counter intuitive the way it is now. My vote goes to hidden.
+
+Regards,
+Bas
