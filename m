@@ -1,53 +1,56 @@
-From: Yasuyuki KOZAKAI <yasuyuki.kozakai@toshiba.co.jp>
-Subject: Re: Memory leak in 2.6.11-rc1?
-Date: Mon, 31 Jan 2005 14:42:52 +0900 (JST)
-Message-ID: <200501310542.j0V5grsI029994@toshiba.co.jp>
-References: <20050131.134559.125426676.yoshfuji@linux-ipv6.org>
-	<41FDBB78.2050403@trash.net>
-	<20050131.141636.20664459.yoshfuji@linux-ipv6.org>
+From: Nigel Cunningham <ncunningham@linuxmail.org>
+Subject: Re: 2.4.29, e100 and a WOL packet causes keventd going mad
+Date: Mon, 31 Jan 2005 17:14:16 +1100
+Message-ID: <1107152056.21273.56.camel@desktop.cunninghams>
+References: <20050130171849.GA3354@hardeman.nu>
+	 <1107143255.18167.428.camel@localhost.localdomain>
+	 <1107143905.21273.33.camel@desktop.cunninghams>
+	 <1107147615.18167.433.camel@localhost.localdomain>
+Reply-To: ncunningham@linuxmail.org
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, kozakai@linux-ipv6.org, herbert@gondor.apana.org.au,
-        davem@davemloft.net, rmk+lkml@arm.linux.org.uk,
-        Robert.Olsson@data.slu.se, akpm@osdl.org, torvalds@osdl.org,
-        alexn@dsv.su.se, kas@fi.muni.cz, linux-kernel@vger.kernel.org,
+Cc: David =?ISO-8859-1?Q?H=E4rdeman?= <david@2gen.com>,
+        Michael Gernoth <simigern@stud.uni-erlangen.de>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
         netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20050131.141636.20664459.yoshfuji@linux-ipv6.org>
+To: sfeldma@pobox.com
+In-Reply-To: <1107147615.18167.433.camel@localhost.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi.
 
-Hi,
-
-From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-Date: Mon, 31 Jan 2005 14:16:36 +0900 (JST)
-
-> In article <41FDBB78.2050403@trash.net> (at Mon, 31 Jan 2005 06:00:40 +0100), Patrick McHardy <kaber@trash.net> says:
+On Mon, 2005-01-31 at 16:00, Scott Feldman wrote:
+> On Sun, 2005-01-30 at 19:58, Nigel Cunningham wrote:
+> > Do you also disable the WOL event when resuming?
 > 
-> |We don't need this for IPv6 yet. Once we get nf_conntrack in we
-> |might need this, but its IPv6 fragment handling is different from
-> |ip_conntrack, I need to check first.
-> 
-> Ok. It would be better to have some comment but anyway...
-> kozakai-san?
+> Good catch.  How's this look?
 
-IMO, fix for nf_conntrack isn't needed yet. Because someone may change
-IPv6 fragment handling in nf_conntrack.
+I looked at it last week because I used it for an example of device
+model drivers at the CELF conference. I got your intel address from the
+top of the .c file, but IIRC it bounced. Providence :>
 
-Anyway, current nf_conntrack passes the original (not de-fragmented) skb to
-IPv6 stack. nf_conntrack doesn't touch its dst.
+[...]
+
+> @@ -2333,6 +2331,7 @@ static int e100_resume(struct pci_dev *p
+>  	struct nic *nic = netdev_priv(netdev);
+>  
+>  	pci_set_power_state(pdev, PCI_D0);
+> +	pci_enable_wake(pdev, PCI_D0, 0);
+>  	pci_restore_state(pdev);
+>  	e100_hw_init(nic);
+
+Shouldn't this be disable_wake?
 
 Regards,
-----------------------------------------
-Yasuyuki KOZAKAI
 
-Communication Platform Laboratory,
-Corporate Research & Development Center,
-Toshiba Corporation
+Nigel
+-- 
+Nigel Cunningham
+Software Engineer, Canberra, Australia
+http://www.cyclades.com
 
-yasuyuki.kozakai@toshiba.co.jp
-----------------------------------------
+Ph: +61 (2) 6292 8028      Mob: +61 (417) 100 574
