@@ -1,92 +1,49 @@
-From: Kevin Dwyer <kevin@pheared.net>
-Subject: Strange UDP binding behavior (SO_BINDTODEVICE)
-Date: Sun, 5 Oct 2003 13:01:54 -0400
-Sender: linux-ha-admin@lists.linux-ha.org
-Message-ID: <20031005130154.5bd9d182.kevin@pheared.net>
-Reply-To: linux-ha@lists.linux-ha.org
+From: Willy TARREAU <willy@w.ods.org>
+Subject: Re: [Bonding-announce] [PATCH SET][bonding] cleanup
+Date: Mon, 6 Oct 2003 00:28:17 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20031005222817.GA2527@pcw.home.local>
+References: <shmulik.hen@intel.com> <200309252011.53960.shmulik.hen@intel.com> <200309251733.h8PHXWpV013559@death.ibm.com> <20030925211259.GA59653@calma.pair.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="pgp-sha1";
- boundary="Signature=_Sun__5_Oct_2003_13_01_54_-0400_MiYcidPLlDoJFbX="
-Cc: linux-ha@lists.linux-ha.org
-Return-path: <linux-ha-admin@lists.linux-ha.org>
-To: netdev@oss.sgi.com
-Errors-To: linux-ha-admin@lists.linux-ha.org
-List-Unsubscribe: <http://lists.linux-ha.org/mailman/listinfo/linux-ha>,
-	<mailto:linux-ha-request@lists.linux-ha.org?subject=unsubscribe>
-List-Post: <mailto:linux-ha@lists.linux-ha.org>
-List-Help: <mailto:linux-ha-request@lists.linux-ha.org?subject=help>
-List-Subscribe: <http://lists.linux-ha.org/mailman/listinfo/linux-ha>,
-	<mailto:linux-ha-request@lists.linux-ha.org?subject=subscribe>
-List-Archive: <http://lists.linux-ha.org/pipermail/linux-ha/>
+Content-Type: text/plain; charset=us-ascii
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Jay Vosburgh <fubar@us.ibm.com>, shmulik.hen@intel.com,
+        "Chad N. Tindel" <chad@tindel.net>,
+        bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com,
+        linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
+        Jeff Garzik <jgarzik@pobox.com>, "Noam, Amir" <amir.noam@intel.com>,
+        "Mendelson, Tsippy" <tsippy.mendelson@intel.com>,
+        "Noam, Marom" <noam.marom@intel.com>
+Content-Disposition: inline
+In-Reply-To: <20030925211259.GA59653@calma.pair.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---Signature=_Sun__5_Oct_2003_13_01_54_-0400_MiYcidPLlDoJFbX=
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: 7bit
+Hi !
 
-Hello,
+On Thu, Sep 25, 2003 at 05:13:00PM -0400, Chad N. Tindel wrote:
+ 
+> I was specifically told by David Miller that we are not to break binary
+> compatibility within a 2.4 release.  Such things had to wait until 2.5 
+> or later.  We can not require a user to upgrade their ifenslave within a 2.4
+> series kernel just to keep using the same functionality they were using in 
+> 2.4.1.
 
-We have come across something that may be a bug, unless this behavior
-was intentional.
+I strongly agree. I have been facing this problem and it was really a pain. I
+used the last bonding version which didn't define the ABI version, together
+with the associated ifenslave, but when the need to upgrade to plain 2.4.22
+came in, I had the surprize of getting a non-working bonding because this
+intermediate ifenslave. Well, I upgraded it to latest version, which prevents
+me from downgrading to the previous kernel because it has ABIv2 with no version,
+so the newer ifenslave thinks it's an ABIv1. So the result is a symlink with
+two versions of ifenslave on the disk, just in case I have to downgrade.
 
-The problem can be simulated by creating a socket, setting
-SO_BINDTODEVICE, and binding to a port.  Then, in a separate process we
-attempt to bind to the same port but without the SO_BINDTODEVICE option.
-The expected behavior is to get EINVAL because the port is already
-bound by a prior call.  However, it succeeds, and the second process
-steals the first process' packets.
+Although I agree it's clearly my fault and I should have been more careful, I
+prefer to warn everyone about the consequences this might have on production
+systems. Schmulik has done quite a great job here, and I believe most of it
+should be integrated, but we have to carefully test each combination of old/new
+ifenslave with old/new driver if we don't want to break some setups or prevent
+admins from downgrading if something goes wrong.
 
-The likely code in question resides in net/ipv4/udp.c:
-
-        for (sk2 = udp_hash[snum & (UDP_HTABLE_SIZE - 1)];
-             sk2 != NULL;
-             sk2 = sk2->next) {
-                if (sk2->num == snum &&
-                    sk2 != sk &&
-                    sk2->bound_dev_if == sk->bound_dev_if &&
-                    (!sk2->rcv_saddr ||
-                     !sk->rcv_saddr ||
-                     sk2->rcv_saddr == sk->rcv_saddr) &&
-                    (!sk2->reuse || !sk->reuse))
-                        goto fail;
-        }
-
-The condition (sk2->bound_dev_if == sk->bound_dev_if) will fail because
-sk2->bound_dev_if will be the ifindex of the interface we bound to, and
-sk->bound_dev_if will be 0, since we didn't bind to a specific
-interface.
-
-Lars Ellenberg suggests something like:
-|       (!sk2->bound_dev_if ||
-|        !sk->bound_dev_if ||
-|        sk2->bound_dev_if == sk->bound_dev_if) &&
-
-Which on its face appears to clear the bug.  I don't see any obvious
-downsides to it either, but this is why I'm here.
-
-So, is this intentional or a bug?
-
-Thanks.
-
--- 
-- kpd
-"If at first you don't succeed, redefine success." - Anonymous
-
---Signature=_Sun__5_Oct_2003_13_01_54_-0400_MiYcidPLlDoJFbX=
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.3 (GNU/Linux)
-
-iD8DBQE/gE6CN4rbBhHCVDkRAhq0AKC8qufYmGQ20xqb9wTJteA8P6QFbQCfXVav
-QPuNUevzS/kGILqDOPuF8sY=
-=GFnq
------END PGP SIGNATURE-----
-
---Signature=_Sun__5_Oct_2003_13_01_54_-0400_MiYcidPLlDoJFbX=--
-_______________________________________________
-Linux-HA mailing list
-Linux-HA@lists.linux-ha.org
-http://lists.linux-ha.org/mailman/listinfo/linux-ha
+Cheers,
+Willy
