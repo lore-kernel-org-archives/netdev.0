@@ -1,55 +1,51 @@
-From: Roger Luethi <rl@hellgate.ch>
-Subject: Re: [9/9][PATCH 2.6] Add WOL support
-Date: Sun, 20 Jun 2004 00:15:13 +0200
+From: Takashi Hibi <hibi665@oki.com>
+Subject: About MLDv2 specification
+Date: Mon, 21 Jun 2004 18:11:46 +0900
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040619221513.GB3313@k3.hellgate.ch>
-References: <20040615175003.GA11382@k3.hellgate.ch> <40D4B049.6070508@pobox.com>
+Message-ID: <20040621181146.20bde98%hibi665@oki.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <40D4B049.6070508@pobox.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 19 Jun 2004 17:29:45 -0400, Jeff Garzik wrote:
-> >+				reason = "Unicast packet";
-> >+				break;
-> >+			case WOLbmcast:
-> >+				reason = "Multicast/broadcast packet";
-> >+				break;
-> >+			default:
-> >+				reason = "Unknown";
-> >+			}
-> >+			printk("%s: Woke system up. Reason: %s.\n",
-> >+			       DRV_NAME, reason);
-> 
-> printk needs  KERN_xxx prefix
+Hi all,
 
-Oops. Fixed.
+MLDv2 was now issued as RFC3810.
+We found a small problem in the current implementation.
+In 5.2.12 of RFC3810, there is a following statement.
 
-> also, use dev->name rather than DRV_NAME, since we are past the probe phase.
+      Value  Name and Meaning
+      -----  ----------------
+        1    MODE_IS_INCLUDE - indicates that the interface has a filter
+             mode of INCLUDE for the specified multicast address.  The
+             Source Address [i] fields in this Multicast Address Record
+             contain the interface's source list for the specified
+             multicast address.  A MODE_IS_INCLUDE Record is never sent
+             with an empty source list.
 
-Can you define probe phase? ... In the code as is, we haven't called
-register_netdev when we execute that part. Getting the probe stuff into
-a sane order is on my todo list as well, but ISTR that calling
-register_netdev way early is frowned upon. No?
+The last part (A MODE_IS_INCLUDE Record is ...) causes a problem.
+This restriction is added since draft 7 of MLDv2.
 
-> >+	/* Enable legacy WOL (for old motherboards) */
-> >+	writeb(0x01, ioaddr + PwcfgSet);
-> >+	writeb(readb(ioaddr + StickyHW) | 0x04, ioaddr + StickyHW);
-> >+
-> >+	/* Hit power state D3 (sleep) */
-> >+	writeb(readb(ioaddr + StickyHW) | 0x03, ioaddr + StickyHW);
-> 
-> would be nice to eliminate these magic numbers (0x04, 0x04), ...
+The current implementation of MLDv2 sends MODE_IS_INCLUDE record with
+an empty list after leaving multicast group.
 
-Mostly agreed. I want to change a bunch of symbol names anyway. However,
-I found it easier to document magic numbers that are used only _once_
-where they occur instead of giving them a name I have to look up later.
-I don't feel strongly about it, though, so feel free to bug me again if
-you do :-).
+I think that it can be fixed easily by:
 
-Roger
+--- linux-2.6.7/net/ipv6/mcast.c.orig   2004-05-10 11:33:13.000000000 +0900
++++ linux-2.6.7/net/ipv6/mcast.c        2004-06-16 19:43:35.000000000 +0900
+@@ -1388,7 +1388,8 @@
+
+        if (!*psf_list) {
+                if (type == MLD2_ALLOW_NEW_SOURCES ||
+-                   type == MLD2_BLOCK_OLD_SOURCES)
++                   type == MLD2_BLOCK_OLD_SOURCES ||
++                   type == MLD2_MODE_IS_INCLUDE)
+                        return skb;
+                if (pmc->mca_crcount || isquery) {
+                        /* make sure we have room for group header and at
+
+
+
+Regards,
+Takashi Hibi
