@@ -1,40 +1,44 @@
-From: Chris Wright <chrisw@osdl.org>
-Subject: Re: [PATCH] linux 2.9.10-rc1: Fix oops in unix_dgram_sendmsg when using SELinux and SOCK_SEQPACKET
-Date: Thu, 18 Nov 2004 23:01:09 -0800
-Message-ID: <20041118230109.V2357@build.pdx.osdl.net>
-References: <1100821144.6005.40.camel@localhost.localdomain> <Xine.LNX.4.44.0411182207080.7831-100000@thoron.boston.redhat.com>
+From: James Morris <jmorris@redhat.com>
+Subject: Re: [PATCH] linux 2.9.10-rc1: Fix oops in unix_dgram_sendmsg when
+ using SELinux and SOCK_SEQPACKET
+Date: Fri, 19 Nov 2004 02:12:58 -0500 (EST)
+Message-ID: <Xine.LNX.4.44.0411190209090.8343-100000@thoron.boston.redhat.com>
+References: <20041118230109.V2357@build.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Ross Kendall Axe <ross.axe@blueyonder.co.uk>,
-	netdev@oss.sgi.com, Stephen Smalley <sds@epoch.ncsc.mil>,
-	lkml <linux-kernel@vger.kernel.org>,
-	Chris Wright <chrisw@osdl.org>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261265AbUKSHBW@vger.kernel.org>
-To: James Morris <jmorris@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <Xine.LNX.4.44.0411182207080.7831-100000@thoron.boston.redhat.com>; from jmorris@redhat.com on Thu, Nov 18, 2004 at 10:12:13PM -0500
-Sender: linux-kernel-owner@vger.kernel.org
+        Ross Kendall Axe <ross.axe@blueyonder.co.uk>, <netdev@oss.sgi.com>,
+        Stephen Smalley <sds@epoch.ncsc.mil>,
+        lkml <linux-kernel@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Chris Wright <chrisw@osdl.org>
+In-Reply-To: <20041118230109.V2357@build.pdx.osdl.net>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* James Morris (jmorris@redhat.com) wrote:
-> On Thu, 18 Nov 2004, Alan Cox wrote:
+On Thu, 18 Nov 2004, Chris Wright wrote:
+
+> > (Also now ignores any supplied address per 
+> > http://www.opengroup.org/onlinepubs/009695399/functions/sendto.html)
 > 
-> > As to the other stuff I think the only change needed is to check the
-> > queued asynchronous error and report that before going on to the
-> > connected test
-> 
-> How about this?
+> Nitpick, but I missed where it said ignore the address.  And it seems
+> counter intuitive to provide address, only to have it ignored and
+> delivered elsewhere.
 
-The other patch is already committed, so relative diff would be needed.
+For sendto():
+  "If the socket is connection-mode, dest_addr shall be ignored."
 
-> (Also now ignores any supplied address per 
-> http://www.opengroup.org/onlinepubs/009695399/functions/sendto.html)
+For sendmsg():
+  "If the socket is connection-mode, the destination address in msghdr 
+   shall be ignored."
 
-Nitpick, but I missed where it said ignore the address.  And it seems
-counter intuitive to provide address, only to have it ignored and
-delivered elsewhere.
+I agree that it's counter intuitive (and surely an application bug), but
+some feedback I've had suggests we follow the spec.
 
-thanks,
--chris
+
+- James
+-- 
+James Morris
+<jmorris@redhat.com>
