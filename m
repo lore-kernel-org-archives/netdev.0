@@ -1,31 +1,32 @@
-From: kuznet@ms2.inr.ac.ru
+From: Benjamin LaHaise <bcrl@redhat.com>
 Subject: Re: [patch] add iocb to network protocols
-Date: Sat, 12 Oct 2002 00:15:48 +0400 (MSD)
+Date: Fri, 11 Oct 2002 16:24:48 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200210112015.AAA28278@sex.inr.ac.ru>
-References: <20021010194025.B13432@redhat.com>
+Message-ID: <20021011162448.A1309@redhat.com>
+References: <20021010194025.B13432@redhat.com> <200210112015.AAA28278@sex.inr.ac.ru>
 Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: bcrl@redhat.COM (Benjamin LaHaise)
-In-Reply-To: <20021010194025.B13432@redhat.com> from "Benjamin LaHaise" at Oct 11, 2 04:15:01 am
+To: kuznet@ms2.inr.ac.ru
+Content-Disposition: inline
+In-Reply-To: <200210112015.AAA28278@sex.inr.ac.ru>; from kuznet@ms2.inr.ac.ru on Sat, Oct 12, 2002 at 12:15:48AM +0400
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
+Hello,
 
-> The private area of an iocb for network operations contains a struct 
-> scm_cookie.  The alternative is to allocate it via kmalloc when needed, 
-> but there isn't currently a way of identifying which network protocols 
-> require the scm_cookie.
+On Sat, Oct 12, 2002 at 12:15:48AM +0400, kuznet@ms2.inr.ac.ru wrote:
+> However, I do not understand this. You need to pass forth and back
+> SCM_RIGHTS is some way. It is quite dubious to make this asynchronously.
+> The same is surely true about credentials, they should be latched
+> on entry, not at the moment of real execution.
 
-Kill it. It was not killed in 2.4 by plain luck, sorry, misfortune.
+You actually do get to execute synchronously in the user's context the 
+first time the function is entered to queue the operation, so collecting 
+the credentials on entry and storing them for future use will work.  I'll 
+submit a cleanup that does this.
 
-However, I do not understand this. You need to pass forth and back
-SCM_RIGHTS is some way. It is quite dubious to make this asynchronously.
-The same is surely true about credentials, they should be latched
-on entry, not at the moment of real execution.
-
-Kill anyway, at least in synchronous calls this was my mistake.
-
-Alexey
+		-ben
+-- 
+"Do you seek knowledge in time travel?"
