@@ -1,114 +1,83 @@
-From: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
-Subject: [PATCH 2.6.9-rc3-mm1] 3c59x: Make use of generic_mii_ioctl
-Date: Sun, 3 Oct 2004 22:45:07 +0200
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: lnstat (rtstat replacement)
+Date: Sun, 3 Oct 2004 23:07:00 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041003204507.GA29546@bayes.mathematik.tu-chemnitz.de>
+Message-ID: <16736.27124.307123.345676@robur.slu.se>
+References: <20041002162120.GT27499@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@oss.sgi.com>, David Miller <davem@davemloft.net>,
+        Robert Olsson <Robert.Olsson@data.slu.se>,
+        Stephen Hemminger <shemminger@osdl.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: akpm@osdl.org
-Content-Disposition: inline
+To: Harald Welte <laforge@gnumonks.org>
+In-Reply-To: <20041002162120.GT27499@sunbeam.de.gnumonks.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-With this patch the driver makes use of the MII lib helper 
-function generic_mii_ioctl.
-Patch is tested with the mii-diag tool and a 3c905-TX, 3c905B-TX NIC.
 
-Signed-off-by: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
+Harald Welte writes:
+
+ > I've finished my work on 'lnstat'.  The current development version is
+ > available from
+ > 	http://svn.gnumonks.org/cgi-bin/viewcvs.cgi/trunk/lnstat/
+
+ I will get a useful tool...
+
+ > Robert: I hope you're fine with the new lnstat tool replacing rtstat.
 
 
---- vanilla-2.6.9-rc3-mm1/drivers/net/3c59x.c	Sat Oct  2 14:54:46 2004
-+++ linux-2.6.9-rc3-mm1/drivers/net/3c59x.c	Sun Oct  3 20:22:31 2004
-@@ -834,6 +834,7 @@
- 	u16 io_size;						/* Size of PCI region (for release_region) */
- 	spinlock_t lock;					/* Serialise access to device & its vortex_private */
- 	spinlock_t mdio_lock;				/* Serialise access to mdio hardware */
-+	struct mii_if_info mii;				/* MII lib hooks/info */
- };
+ I just tried "compatibility mode". Something like patch below makes it closer 
+ to old rtstat. Did the last two fields get switched?
+
+ Cheers.
+							--ro
+
+
+
+--- lnstat.c.orig	2004-10-03 21:01:50.518607296 +0200
++++ lnstat.c	2004-10-03 22:38:25.846513976 +0200
+@@ -54,7 +54,7 @@
+ 		gettimeofday(&lf->last_read, NULL);
  
- #ifdef CONFIG_PCI
-@@ -1218,6 +1219,11 @@
- 	spin_lock_init(&vp->lock);
- 	spin_lock_init(&vp->mdio_lock);
- 	vp->gendev = gendev;
-+	vp->mii.dev = dev;
-+	vp->mii.mdio_read = mdio_read;
-+	vp->mii.mdio_write = mdio_write;
-+	vp->mii.phy_id_mask = 0x1f;
-+	vp->mii.reg_num_mask = 0x1f;
- 
- 	/* Makes sure rings are at least 16 byte aligned. */
- 	vp->rx_ring = pci_alloc_consistent(pdev, sizeof(struct boom_rx_desc) * RX_RING_SIZE
-@@ -1445,6 +1451,7 @@
- 				mdio_write(dev, vp->phys[0], 4, vp->advertising);
- 			}
- 		}
-+		vp->mii.phy_id = vp->phys[0];
+ 		for (j = 0; j < lf->num_fields; j++)
+-			lf->fields[j].values[i] += strtoul(ptr, &ptr, 16);
++			lf->fields[j].values[i] = strtoul(ptr, &ptr, 16);
  	}
+ 	return num_lines;
+ }
+@@ -79,6 +79,7 @@
+ 	struct lnstat_file *lf;
+ 	char buf[FGETS_BUF_SIZE];
+ 	struct timeval tv;
++	time_t told;
  
- 	if (vp->capabilities & CapBusMaster) {
-@@ -2891,41 +2898,6 @@
- };
+ 	gettimeofday(&tv, NULL);
  
- #ifdef CONFIG_PCI
--static int vortex_do_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
--{
--	struct vortex_private *vp = netdev_priv(dev);
--	long ioaddr = dev->base_addr;
--	struct mii_ioctl_data *data = if_mii(rq);
--	int phy = vp->phys[0] & 0x1f;
--	int retval;
--
--	switch(cmd) {
--	case SIOCGMIIPHY:		/* Get address of MII PHY in use. */
--		data->phy_id = phy;
--
--	case SIOCGMIIREG:		/* Read MII PHY register. */
--		EL3WINDOW(4);
--		data->val_out = mdio_read(dev, data->phy_id & 0x1f, data->reg_num & 0x1f);
--		retval = 0;
--		break;
--
--	case SIOCSMIIREG:		/* Write MII PHY register. */
--		if (!capable(CAP_NET_ADMIN)) {
--			retval = -EPERM;
--		} else {
--			EL3WINDOW(4);
--			mdio_write(dev, data->phy_id & 0x1f, data->reg_num & 0x1f, data->val_in);
--			retval = 0;
--		}
--		break;
--	default:
--		retval = -EOPNOTSUPP;
--		break;
--	}
--
--	return retval;
--}
--
- /*
-  *	Must power the device up to do MDIO operations
-  */
-@@ -2933,8 +2905,9 @@
- {
- 	int err;
- 	struct vortex_private *vp = netdev_priv(dev);
-+	long ioaddr = dev->base_addr;
- 	int state = 0;
--
-+	
- 	if(VORTEX_PCI(vp))
- 		state = VORTEX_PCI(vp)->current_state;
+@@ -92,15 +93,22 @@
+ 				/* skip first line */
+ 				fgets(buf, sizeof(buf)-1, lf->fp);
+ 			}
++			told = lf->last_read.tv_sec;
+ 			scan_lines(lf, 1);
  
-@@ -2942,7 +2915,8 @@
+ 			for (i = 0, lfi = &lf->fields[i]; 
+ 			     i < lf->num_fields; i++, lfi = &lf->fields[i]) {
+ 				if (i == 0)
+ 					lfi->result = lfi->values[1];
+-				else
++				else {
++
+ 					lfi->result = (lfi->values[1]-lfi->values[0])
+-				    			/ lf->interval.tv_sec;
++
++					  / ( lf->last_read.tv_sec -told);
++					
++					/* Save current to next diff */
++					lfi->values[0] = lfi->values[1];
++				}
+ 			}
  
- 	if(state != 0)
- 		pci_set_power_state(VORTEX_PCI(vp), 0);
--	err = vortex_do_ioctl(dev, rq, cmd);
-+	EL3WINDOW(4);
-+	err = generic_mii_ioctl(&vp->mii, if_mii(rq), cmd, NULL);;
- 	if(state != 0)
- 		pci_set_power_state(VORTEX_PCI(vp), state);
+ 			rewind(lf->fp);
  
