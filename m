@@ -1,113 +1,36 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Route hash code comparison
-Date: Tue, 20 May 2003 18:12:57 +0200
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: Re: is sk->reuse truly a boolean?
+Date: Wed, 21 May 2003 01:15:20 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <16074.21513.492796.943255@robur.slu.se>
+Message-ID: <20030521.011520.49126007.yoshfuji@linux-ipv6.org>
+References: <20030520155744.GE801@conectiva.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Robert.Olsson@data.slu.se
+Cc: davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: acme@conectiva.com.br
+In-Reply-To: <20030520155744.GE801@conectiva.com.br>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+In article <20030520155744.GE801@conectiva.com.br> (at Tue, 20 May 2003 12:57:45 -0300), Arnaldo Carvalho de Melo <acme@conectiva.com.br> says:
 
-Hello!
+> From what I see in the code and from references in, for instance, Unix
+> Network Programming (W. Richard Stevens) it is, but then how can this work?
+> 
+> net/ipv4/tcp_ipv4.c, line 265
+> 
+>                 if (sk->reuse > 1)
+>                         goto success;
+> 
+> In net/core/sock.c, setsockopt it just assigns 1 or 0, i.e. if userspace
+> passes > 1 it becomes 1, is this the intended behaviour? I think we have a 
+> bug in tcp_ipv4 or in core/sock.c 8)
 
-Route hash code comparison on fairly loaded router at Uppsala Universitet.
-Router is loaded both in terms of packet load but also in IP-flows from 
-(tens) of thousands of users.
+Good point. However, SO_REUSEADDR works because we have tcp_bind_conflict().
 
-The hash table was modified to count linear search in the cache which was
-printed with rtstat (in_search). Router has 32 k hash buckets which is where 
-the GC starts. This point is choosen for hash algorithm comparison as well.
-
-Old hash:
-107694/41990 ==>  2.6 linear searches for a packet look-up at 32 k entries
-
-New hash:
-33334/38927  ==> 0.86 linear searches for a packet look-up at 32 k entries
-
-The new hash have random keys but seems to be pretty consistent in term of 
-hashing at least from observerations. No DoS experiments done.
-
-
-[rstat: Table is edited] 
-
-size       == route cache size
-hit        == IN: total number of cache hits per sec
-tot        == IN: total number of cache misses per sec
-GC         == GC: garbage collection calls per sec
-in_search  == HASH: input hash list search per sec
-
-
- Linux 2.5.66
- size   IN: hit     tot     GC       in_search
-==============================================
- 1467     39622    1255      0           80331 
- 7034     38195    268       0           19382 
- 9743     51429    129       0           32903 
-11633     50069     91       0           40124 
-13316     48456     83       0           41458 
-14846     45883     75       0           47253 
-16233     44672     65       0           52647 
-17574     43786     65       0           57167 
-18855     43227     61       0           61784 
-20106     43341     59       0           65187 
-21316     43389     57       0           68505 
-22481     43386     55       0           73778 
-23694     42748     58       0           77601 
-24819     42549     54       0           83328 
-26180     41474     65       0           82393 
-27331     41754     53       0           90068 
-28408     41626     50       0           94326 
-29415     40731     47       0           97407 
-30424     42193     47       0          102571 
-31382     41313     46       0          102311 
-32348     41990     46       0          107694 * Analys1
-33524     42104     57     377          108611 
-34527     42170     48     501          118257 
-34148     44107     45     468          120707 
-35196     43345     50     524          116961 
-36064     42004     42     434          119295 
-35868     41805     49     504          119121 
-36838     42299     45     487          116961 
-
- Linux 2.5.66 with hash code from 2.5.69.
- size   IN: hit     tot     GC       in_search
-==============================================
- 6031     34776      0       0            7150 
- 8517     38168    119       0            5455 
-10395     38431     86       0            6501 
-11954     37002     73       0            8972 
-13546     37776     74       0           10742 
-14948     38595     65       0           12585 
-16406     37981     67       0           13827 
-17802     38479     64       0           15437 
-18984     38392     54       0           17684 
-20155     37989     54       0           18733 
-21210     39508     48       0           20084 
-22466     40834     57       0           21299 
-23622     39226     52       0           23221 
-24836     40965     56       0           24183 
-26157     39683     63       0           24764 
-27291     40309     54       0           27793 
-28417     38468     54       0           25867 
-29358     39199     44       0           29093 
-30302     39159     45       0           29722 
-31477     38284     56       0           31246 
-32449     38927     46       0           33334 * Analys2
-33386     39031     44     308           31837 
-34300     39432     42     457           35057 
-34117     38106     48     522           33129 
-35155     37887     48     519           32823 
-36187     37222     48     516           31986 
-36326     37125     50     539           33914 
-37257     38814     44     465           35457 
-
-
-
-
-Cheers.
-						--ro
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
