@@ -1,43 +1,24 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: RE: [Fwd: [E1000] NAPI re-insertion w/ changes]
-Date: Sat, 22 Mar 2003 21:28:14 +0100
+From: steve@themovieglobe.com
+Subject: Welcome to  "The Movie Globe" Mailing List
+Date: Sat, 22 Mar 2003 23:34:03 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <15996.51038.928453.501527@robur.slu.se>
-References: <C6F5CF431189FA4CBAEC9E7DD5441E010107D2D8@orsmsx402.jf.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-   Jeff Garzik
-	 <jgarzik@pobox.com>, netdev@oss.sgi.com
+Message-ID: <20030323073403.6B2A6188E90@bidoc.vc.bravenet.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Feldman, Scott" <scott.feldman@intel.com>
-In-Reply-To: <C6F5CF431189FA4CBAEC9E7DD5441E010107D2D8@orsmsx402.jf.intel.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+You have been added to the list.  Thank you.
 
-Feldman, Scott writes:
- > > It's clean but I have some concerns...
- > 
- > Thanks for the feedback.  It's a twist on the previous driver where we
- > disabled/enabled interrupts each time we went in/out of polling.  Trying
- > to avoid those extra PCI writes.  My experience is that you have to
- > really load up the interface to stay in polling mode (get up on step).
 
- True. Making interrupt delay larger will collect more packets on RX-ring
- and have the two PCI-writes to disable/enables irq to be shared by many 
- packets.
+If you wish to UNSUBSCRIBE please visit www.themovieglobe.com and;
 
- > Should be the same interrupt rate with or without NAPI.
- 
- When NAPI stays in polling there are no interrupts and no extra PCI-writes
- so the high-load situation is optimized. 
+1. Enter your email address to the Mailing List Box
+2. Click "Unsubscribe"
+3. Click "Go"
 
- So I fear that interrupts are now added to the high-load situation and this
- will impact top performance -- especially with many NIC's.
+You will automatically be removed from the mailing list.
 
- But lets see what comes out from testing.
- 
- Cheers.
-						--ro
+
+
+-----------------------------------------------------------------------
