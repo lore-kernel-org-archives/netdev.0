@@ -1,45 +1,62 @@
-From: x¾ç <freezoneplus@yahoo.co.kr>
-Subject: =?ISO-8859-1?Q?=BF=E4=C1=F2=20=C8=AD=B2=F6=C7=D1?=
-	=?ISO-8859-1?Q?=BC=BA=C0=CE=B5=BF=BF=B5=BB=F3=B8=B8=20=B8=F0=C0=BA?=
-	=?ISO-8859-1?Q?=C0=DA=B7=E1=BD=C7=B0=F8=B0=B3[=BC=BA=C0=CE=B1=A4=B0=ED]?=
-Date: Tue, 22 Oct 2002 23:58:18 +0900
+From: "Princess Rose Ike" <roseike98@usa.com>
+Subject: PLEA FOR ASSISTANCE
+Date: Tue, 22 Oct 2002 17:16:02 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200210221457.g9MEvNuR008362@oss.sgi.com>
-Reply-To: freezoneplus@yahoo.co.kr
+Message-ID: <200210221607.g9MG76uR012974@oss.sgi.com>
+Reply-To: roseike98@hotmail.com
 Mime-Version: 1.0
-Content-Type: text/html; charset="ks_c_5601-1987"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-PCFET0NUWVBFIEhUTUwgUFVCTElDICItLy9XM0MvL0RURCBIVE1MIDQuMCBUcmFuc2l0aW9u
-YWwvL0VOIj4NCjxIVE1MPjxIRUFEPg0KPE1FVEEgaHR0cC1lcXVpdj1Db250ZW50LVR5cGUg
-Y29udGVudD0idGV4dC9odG1sOyBjaGFyc2V0PWV1Yy1rciI+DQo8TUVUQSBjb250ZW50PSJN
-U0hUTUwgNi4wMC4yNzE5LjIyMDAiIG5hbWU9R0VORVJBVE9SPjwvSEVBRD4NCjxCT0RZPjxQ
-PjxGT05UIHNpemU9Mz48U1RST05HPmO+5yx5vucsbL7nPC9TVFJPTkc+ILXute4gv+TB8iDI
-rcGmwNsgtb+/tbvzsPosPC9GT05UPjwvUD4NCjxQPjxTVFJPTkc+PEZPTlQgc2l6ZT0zPr/c
-sbm8usDOtb+/tbvzK8DPuru1v7+1u/MrPEZPTlQgY29sb3I9I2ZmMDAwMD6xubO7wabA27W/
-v7W78zwvRk9OVD7AuzwvRk9OVD48L1NUUk9ORz48L1A+DQo8UD48Rk9OVCBzaXplPTM+wPrI
-8SA8U1RST05HPsDat+G9xzwvU1RST05HPr+hIL/Dt8Gz9b7SvcC0z7TZLjwvRk9OVD4gPC9Q
-Pg0KPFA+PEZPTlQgc2l6ZT0zPsH2sd252bfOIMiuwM7H2CC6uLy8v+QhPC9GT05UPiAgPC9Q
-Pg0KPFA+PFNUUk9ORz48Rk9OVCBjb2xvcj0jZmYwMDAwIHNpemU9Mz65q8G2sMcgvLrAzri4
-IMDUwOXHz7y8v+R+PC9GT05UPjwvU1RST05HPjwvUD4NCjxQPjxBIGhyZWY9Imh0dHA6Ly9z
-ZXhzZXhvay5jb20iIHRhcmdldD0iYmxhbmsiPjxGT05UIHNpemU9NT5odHRwOi8vc2V4c2V4
-b2suY29tPC9GT05UPjwvQT48L1A+DQo8UD48Rk9OVCBzaXplPTE+vK2/773DILW/tOu5rrG4
-IL3FvLO1vyAyMzAtNTO5+MH2IDPD/iC8vb26vL29ur/AxMnAzLTlxMQ8QlI+waS6uMXrvcW6
-ziCxx7DtILvnx9e/oSDAx7DFIMGmuPG/oSBbvLrAzrGksO1dtvOw7SDHpbHix9EgvLrAzrGk
-sO0guN7Az8DUtM+02S48QlI+vPa9xcC7IL/4xKEgvsrAuL3DuOkgvPa9xbDFus64piC0rbev
-wda8vL/kPC9GT05UPjwvUD4NCjxQPjxGT05UIHNpemU9MT4mbmJzcDsgLSA8Rk9OVCBzaXpl
-PTI+PEEgaHJlZj0ibWFpbHRvOmZyZWV6b25lcGx1c0B5YWhvby5jby5rciI+vPa9xbDFus48
-L0E+PC9GT05UPi08L0ZPTlQ+PC9QPjwvRk9OVD48L0JPRFk+PC9IVE1MPg0KwaS6uMXrvcW4
-wSDAzL/rw8vB+Ln9ILHUwaTAuyDB2Lz2x8+/qSCxpLDtuN7Az8DTwLsgx6W9w8fPv7S9wLTP
-tNkuDQqxzcfPwMcgwPzA2r/sxu3B1rzStMIgwM7FzbPdu/PAxyCw+LCztcggwOW80r+hvK0g
-DQq43sDPw9/D4sfBt86x17elwLi3ziC9wLXmx8+/tMC4uOcswPrI8bTCILHNx8/AxyDA/MDa
-v+zG7cHWvNK/3A0Kvu62sMfRILCzwM7BpLq4tbUgsKHB9rDtIMDWwfa+ysC4uce3ziC+yL3J
-x8+9w7HiILnZtvi0z7TZLiANCrz2vcXAuyC/+MfPwfYgvsrAuL3DuOkgssAgW7z2vcWwxbrO
-KHJlZnVzZSlduKYgtK23r8HWvLy/5A0KvPa9xbDFus63ziDAx7vnx6W9w7imIL7Ix8+9w7jp
-IMHfurnAuLfOIMDMuN7Az8DMILnfvNu1ySC89rW1IMDWvcC0z7TZLg0KKElmIHlvdSBkb24n
-dCB3YW50IHRoaXMgdHlwZSBvZiBpbmZvcm1hdGlvbiBvciBlLW1haWwsIHBsZWFzZSBjbGlj
-ayB0aGUgJ3JlZnVzZScgYnV0dG9uKQ0KDQoNCg==
+IN VIEW OF YOUR PROFESSION
+
+INTRODUCTION:=20
+I am Princess Rose Ike, daughter of Osi Ike, the king of Ogoni Kingdom. I=
+ am 23 years old and a graduate of Mass Communication=20
+My father was in charge of Reviving royalties from the multi-national oil=
+ companies and government on behalf off the oil producing communities in =
+Nigeria before he die.
+But before his death, he called me and told me he has Twelve Million Seve=
+n Hundred thousand Dollars (US$12.7M) cash in his possession, specially d=
+eposited in AFRICAN DEVELOPMENT BANK GROUP (ADBG).
+
+He advised me not to tell anybody except my mother who is the last wife o=
+f the (8) eight wives that he married. My mother did not bear any male ch=
+ild for him.
+
+Which implies that all my father=92s properties, companies etc, we have n=
+o share in them because my mother has no male child according to African =
+tradition.
+
+My father there fore secretly gave me all the relevant document of the sa=
+id money, and told me that I should use this money with my mother and my =
+younger sisters, because he knows that traditionally, if he dies we canno=
+t get anything, as inheritance.
+
+He importantly advised me that I should seek foreign assistance and that =
+I should not invest this money here in Nigeria because of his other wives=
+ and male children who happen to be my elders.
+
+I am soliciting for your immediate assistance to get a bungalow for us, w=
+herein will live with my mother and two younger sisters and further advis=
+e me where and how I will invest the balance money overseas, possibly on =
+products of your company and other profitable ventures.
+
+I believe that by the special grace of God, you will help us move this mo=
+ney out of African Development Bank Group to any country of your choice w=
+here we can invest this money judiciously with you.
+
+You are entitled to a reasonable part of this Money based on our agreemen=
+t, and God will bless you as you help us.  Please reply through my e-mail=
+ roseike98@hotmail.com and please you can as well contract me back prefer=
+ably through my private Fax 234-1-7593342 for security reasons if you did=
+ not hear from me after 3days in regards of your email response.
+Looking forward to hear from you as soon as possible on receipt of this m=
+essage.
+
+Best Regard,
+
+PRINCESS ROSE IKE
