@@ -1,44 +1,56 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [Bonding-devel] Re: [bonding] compatibilty issues
-Date: Wed, 01 Oct 2003 12:25:19 -0700
+From: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
+Subject: Re: RFC: [2.6 patch] disallow modular IPv6
+Date: Wed, 1 Oct 2003 21:47:43 +0200 (CEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200310011925.h91JPJXZ001948@death.ibm.com>
-References: <chad@tindel.net>
+Message-ID: <Pine.LNX.4.44.0310012112440.4364-100000@poirot.grange>
+References: <1064903505.6154.157.camel@imladris.demon.co.uk>
+Reply-To: Guennadi Liakhovetski <g.liakhovetski@web.de>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@redhat.com>, <acme@conectiva.com.br>,
+        <bunk@fs.tum.de>, <netdev@oss.sgi.com>, <pekkas@netcore.fi>,
+        <lksctp-developers@lists.sourceforge.net>,
+        <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Shmulik Hen <shmulik.hen@intel.com>, "David S. Miller" <davem@redhat.com>,
-        "Chad N. Tindel" <chad@tindel.net>, jgarzik@pobox.com,
-        bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
-In-Reply-To: Message from "Chad N. Tindel" <chad@tindel.net>
-   of "Wed, 01 Oct 2003 14:26:10 EDT." <20031001182610.GA25218@calma.pair.com>
+To: David Woodhouse <dwmw2@infradead.org>
+In-Reply-To: <1064903505.6154.157.camel@imladris.demon.co.uk>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Tue, 30 Sep 2003, David Woodhouse wrote:
 
->> So here is what I did in the meantime:
->> * Created a version for 2.4 that puts back all old compatibility stuff 
->>   that was removed either during the propagation set or the cleanup 
->>   set.
->> * Created a version for 2.6 that puts back just the compatibility 
->>   stuff that was removed in the propagation set (BOND_SETHWADDR, since 
->>   we got a complaint from a RH9 user).
->> * Removed the mention of the multicast param from the read-me.
->> * Raised the ABI version to 2 so the new ifenslave keeps propagating 
->>   IP settings to slaves for older drivers, and doesn't do that for new 
->>   ones that contain Willy Tarreau's panic fix.
+> On Mon, 2003-09-29 at 22:17 -0700, David S. Miller wrote:
+> > On Mon, 29 Sep 2003 10:02:55 +0100
+> > David Woodhouse <dwmw2@infradead.org> wrote:
+> >
+> > > The underlying point being that your static kernel should not change if
+> > > you change an option from 'n' to 'm'. It should only affect the kernel
+> > > image if you change options to/from 'y'.
+> >
+> > I totally disagree, what ipv6 is doing is perfectly fine.
 >
->I like this.
+> Your right.
 
-	Same here, but I'd like to have a list somewhere of what each
-of the ABI versions is for and how they're supposed to behave.  It's
-starting to look like we're going to be adding these on a semi-regular
-basis, so we need to keep track of what each one does and why.
+Well, maybe you are right, but I certainly liked the feature, that I could
+just add a module to a currently running kernel's configuration, compile
+and insmod it. But, if this is how it is (going to be) now - that one
+shouldn't rely on this, do you agree, that such attempts should be stopped
+by the build system? If so, I think, a script, trying to find possible
+problems could be of help? It wouldn't be trivial, but maybe there's
+already framework available, that can be taught to do this? Ideally, you
+would want to check:
+for each tristate CONFIG_ find from the respective Makefile(s) which
+source (*.[Sc])-files are involved with obj-$(CONFIG_x). Find depending
+source-files from "depends on x" in respective Kconfig recursively. If
+CONFIG_x appears in any other source-files - it is already a (likely)
+problem. Now headers. Well, if we want to check infinitely deep inclusions
+- it would require a fat cluster / SMP, I guess:-) So, is there a piece of
+software among all automatic checkers, that could be relatively easily
+taught to do this and would it make sense to run such a check on each -pre
+and -rc version?
 
-	I also don't have any major heartburn about leaving the OLD
-thingies in 2.4.  I'd like to remove them, but part of my reason for
-wanting to nuke them was to keep 2.4 and 2.6 identical, but we're not
-doing that, so it's not as big a concern.
+Actually, is anybody checking for recursive includes?
 
-	-J
-
+Guennadi
 ---
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+Guennadi Liakhovetski
