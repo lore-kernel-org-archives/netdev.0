@@ -1,65 +1,116 @@
-From: Manfred Spraul <manfred@colorfullife.com>
-Subject: Re: [PATCH] fix secure tcp sequence number generation
-Date: Tue, 05 Oct 2004 22:41:55 +0200
+From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Subject: PATCH: [SKBUFF] introduce skb_link_header_data_offset(skb)
+Date: Tue, 05 Oct 2004 17:54:50 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41630713.2080606@colorfullife.com>
-References: <415EEF0E.3080808@colorfullife.com> <20041005132724.6a913c48.davem@davemloft.net>
+Message-ID: <41630A1A.5040808@conectiva.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/mixed;
+ boundary="------------050307020301000802030106"
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20041005132724.6a913c48.davem@davemloft.net>
+To: dav@conectiva.com.br
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
+This is a multi-part message in MIME format.
+--------------050307020301000802030106
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
->On Sat, 02 Oct 2004 20:10:22 +0200
->Manfred Spraul <manfred@colorfullife.com> wrote:
->
->  
->
->>Description:
->>The tcp sequence number generator needs a random seed that is reset every
->>few minutes. Since the sequence numbers should be constantly increasing,
->>for each rekey 2^24 is added to the sequence number.
->>The actual use of the sequence number generator is lockless,
->>synchronization is achieved by having two copies of the control structure.
->>
->>The attached patch:
->>- fixes a race in rekey_seq_generator(): schedule_work doesn't
->>   provide synchronization.
->>- Uses schedule_delayed_work() for the rekey: simplifies synchronization
->>   and speeds up the hot path.
->>- replaces do_gettimeofday with get_seconds(): get_seconds is faster and
->>   usec resolution is not required.
->>- removes tmpdata - not needed with new locking.
->>- Adds a late_initcall for the first initialization after boot.
->>   init_call would be too early, I've checked that the late_initcall runs
->>   before net/ipv4/ipconfig.c, i.e. the BOOTP/DHCP autoconfiguration.
->>
->>Signed-Off-By: Manfred Spraul <manfred@colorfullife.com>
->>    
->>
->
->I like this patch, but you may have sent the wrong copy.  You
->mention in the description that you changed over to use
->get_seconds(), yet the only reference to get_seconds() in the
->patch is:
->
->-	keyptr = check_and_rekey(get_seconds());
->+	keyptr = get_keyptr();
->
->Please clarify that this is just a brain fart in the description
->and not the patch.
->  
->
-Right patch but wrong description, sorry:
-I've recycled the description from the previous patch and that one used 
-get_seconds() in rekey_seq_generator(). Now rekey_seq_generator() 
-doesn't access the time at all, that's done within schedule_delayed_work().
+Hi David,
 
---
-    Manfred
+	Please consider pulling from:
+
+bk://kernel.bkbits.net/acme/sk_buff-2.6
+
+	Now there are 15 outstanding changesets in this tree.
+
+Regards,
+
+- Arnaldo
+
+--------------050307020301000802030106
+Content-Type: text/plain;
+ name="skb_link_header_data_offset.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="skb_link_header_data_offset.patch"
+
+===================================================================
+
+
+ChangeSet@1.2044, 2004-10-05 17:51:20-03:00, acme@conectiva.com.br
+  [SKBUFF] introduce skb_link_header_data_offset(skb)
+  
+  Signed-off-by: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+  Signed-off-by: David S. Miller <davem@redhat.com>
+
+
+ include/linux/skbuff.h |    5 +++++
+ net/ax25/af_ax25.c     |    4 +++-
+ net/packet/af_packet.c |    6 +++---
+ 3 files changed, 11 insertions(+), 4 deletions(-)
+
+
+diff -Nru a/include/linux/skbuff.h b/include/linux/skbuff.h
+--- a/include/linux/skbuff.h	2004-10-05 17:52:24 -03:00
++++ b/include/linux/skbuff.h	2004-10-05 17:52:24 -03:00
+@@ -313,6 +313,11 @@
+ 	return skb->nh.raw - skb->mac.raw;
+ }
+ 
++static inline int skb_link_header_data_offset(const struct sk_buff *skb)
++{
++	return skb->data - skb->mac.raw;
++}
++
+ extern void	       __kfree_skb(struct sk_buff *skb);
+ extern struct sk_buff *alloc_skb(unsigned int size, int priority);
+ extern void	       kfree_skbmem(struct sk_buff *skb);
+diff -Nru a/net/ax25/af_ax25.c b/net/ax25/af_ax25.c
+--- a/net/ax25/af_ax25.c	2004-10-05 17:52:24 -03:00
++++ b/net/ax25/af_ax25.c	2004-10-05 17:52:24 -03:00
+@@ -1632,7 +1632,9 @@
+ 		ax25_digi digi;
+ 		ax25_address src;
+ 
+-		ax25_addr_parse(skb->mac.raw+1, skb->data-skb->mac.raw-1, &src, NULL, &digi, NULL, NULL);
++		ax25_addr_parse(skb->mac.raw + 1,
++				skb_link_header_data_offset(skb) - 1,
++				&src, NULL, &digi, NULL, NULL);
+ 
+ 		sax->sax25_family = AF_AX25;
+ 		/* We set this correctly, even though we may not let the
+diff -Nru a/net/packet/af_packet.c b/net/packet/af_packet.c
+--- a/net/packet/af_packet.c	2004-10-05 17:52:24 -03:00
++++ b/net/packet/af_packet.c	2004-10-05 17:52:24 -03:00
+@@ -274,7 +274,7 @@
+ 
+ 	spkt = (struct sockaddr_pkt*)skb->cb;
+ 
+-	skb_push(skb, skb->data-skb->mac.raw);
++	skb_push(skb, skb_link_header_data_offset(skb));
+ 
+ 	/*
+ 	 *	The SOCK_PACKET socket receives _all_ frames.
+@@ -462,7 +462,7 @@
+ 		   never delivered to user.
+ 		 */
+ 		if (sk->sk_type != SOCK_DGRAM)
+-			skb_push(skb, skb->data - skb->mac.raw);
++			skb_push(skb, skb_link_header_data_offset(skb));
+ 		else if (skb->pkt_type == PACKET_OUTGOING) {
+ 			/* Special case: outgoing packets have ll header at head */
+ 			skb_pull(skb, skb->nh.raw - skb->data);
+@@ -559,7 +559,7 @@
+ 
+ 	if (dev->hard_header) {
+ 		if (sk->sk_type != SOCK_DGRAM)
+-			skb_push(skb, skb->data - skb->mac.raw);
++			skb_push(skb, skb_link_header_data_offset(skb));
+ 		else if (skb->pkt_type == PACKET_OUTGOING) {
+ 			/* Special case: outgoing packets have ll header at head */
+ 			skb_pull(skb, skb->nh.raw - skb->data);
+
+
+--------------050307020301000802030106--
