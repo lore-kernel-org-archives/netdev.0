@@ -1,11 +1,11 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 3/7] [tlan]: Use netif_carrier_* intead of IFF_RUNNING
-Date: Mon, 28 Mar 2005 02:08:13 +0200
-Message-ID: <20050328000813.GQ3086@postel.suug.ch>
+Subject: [PATCH 4/7] [lmc]: Use netif_carrier_* instead of IFF_RUNNING
+Date: Mon, 28 Mar 2005 02:08:49 +0200
+Message-ID: <20050328000849.GR3086@postel.suug.ch>
 References: <20050328000610.GN3086@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, chessman@tux.org
+Cc: netdev@oss.sgi.com
 To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
 In-Reply-To: <20050328000610.GN3086@postel.suug.ch>
@@ -16,33 +16,51 @@ List-Id: netdev.vger.kernel.org
 # This is a BitKeeper generated diff -Nru style patch.
 #
 # ChangeSet
-#   2005/03/28 00:13:23+02:00 tgraf@suug.ch 
-#   [tlan]: Use netif_carrier_* intead of IFF_RUNNING
+#   2005/03/28 00:15:07+02:00 tgraf@suug.ch 
+#   [lmc]: Use netif_carrier_* instead of IFF_RUNNING
 #   
 #   Signed-off-by: Thomas Graf <tgraf@suug.ch>
 # 
-# drivers/net/tlan.c
-#   2005/03/28 00:13:12+02:00 tgraf@suug.ch +2 -2
-#   [tlan]: Use netif_carrier_* intead of IFF_RUNNING
+# drivers/net/wan/lmc/lmc_main.c
+#   2005/03/28 00:14:55+02:00 tgraf@suug.ch +2 -6
+#   [lmc]: Use netif_carrier_* instead of IFF_RUNNING
 # 
-diff -Nru a/drivers/net/tlan.c b/drivers/net/tlan.c
---- a/drivers/net/tlan.c	2005-03-28 01:08:02 +02:00
-+++ b/drivers/net/tlan.c	2005-03-28 01:08:02 +02:00
-@@ -2807,7 +2807,7 @@
-  	       if (priv->link) {
- 		      priv->link = 0;
- 	              printk(KERN_DEBUG "TLAN: %s has lost link\n", dev->name);
--	              dev->flags &= ~IFF_RUNNING;
-+		      netif_carrier_off(dev);
- 		      TLan_SetTimer( dev, (2*HZ), TLAN_TIMER_LINK_BEAT );
- 		      return;
- 		}
-@@ -2817,7 +2817,7 @@
-         if ((phy_status & MII_GS_LINK) && !priv->link) {
-  		priv->link = 1;
-         	printk(KERN_DEBUG "TLAN: %s has reestablished link\n", dev->name);
--        	dev->flags |= IFF_RUNNING;
-+		netif_carrier_on(dev);
-         }
+diff -Nru a/drivers/net/wan/lmc/lmc_main.c b/drivers/net/wan/lmc/lmc_main.c
+--- a/drivers/net/wan/lmc/lmc_main.c	2005-03-28 01:07:55 +02:00
++++ b/drivers/net/wan/lmc/lmc_main.c	2005-03-28 01:07:55 +02:00
+@@ -723,7 +723,7 @@
+         /* lmc_reset (sc); Why reset??? The link can go down ok */
  
- 	/* Setup a new monitor */
+         /* Inform the world that link has been lost */
+-        dev->flags &= ~IFF_RUNNING;
++	netif_carrier_off(dev);
+     }
+ 
+     /*
+@@ -736,7 +736,7 @@
+          /* lmc_reset (sc); Again why reset??? */
+ 
+          /* Inform the world that link protocol is back up. */
+-         dev->flags |= IFF_RUNNING;
++	 netif_carrier_on(dev);
+ 
+          /* Now we have to tell the syncppp that we had an outage
+           * and that it should deal.  Calling sppp_reopen here
+@@ -1168,8 +1168,6 @@
+     sc->lmc_media->set_link_status (sc, 1);
+     sc->lmc_media->set_status (sc, NULL);
+ 
+-    //dev->flags |= IFF_RUNNING;
+-    
+     netif_wake_queue(dev);
+ 
+     sc->lmc_txfull = 0;
+@@ -1232,8 +1230,6 @@
+     csr6 &= ~LMC_DEC_ST;		/* Turn off the Transmission bit */
+     csr6 &= ~LMC_DEC_SR;		/* Turn off the Receive bit */
+     LMC_CSR_WRITE (sc, csr_command, csr6);
+-
+-    dev->flags &= ~IFF_RUNNING;
+ 
+     sc->stats.rx_missed_errors +=
+         LMC_CSR_READ (sc, csr_missed_frames) & 0xffff;
