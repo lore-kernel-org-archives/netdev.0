@@ -1,27 +1,25 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Subject: Re: 2.6.4 sunrpc oops.
-Date: Mon, 15 Mar 2004 15:38:53 -0500
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] tun -- name fix
+Date: Mon, 15 Mar 2004 12:40:50 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040315203853.GF3114@fieldses.org>
-References: <20040315194642.GB19555@redhat.com>
+Message-ID: <20040315124050.3e7be662.davem@redhat.com>
+References: <20040313164325.070524df.akpm@osdl.org>
+	<20040315102215.65c26745@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: akpm@osdl.org, kraxel@bytesex.org, rutger@mail.com, netdev@oss.sgi.com,
+        maxk@qualcomm.com, vtun@office.satix.net.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Dave Jones <davej@redhat.com>, Linux Kernel <linux-kernel@vger.kernel.org>,
-        netdev@oss.sgi.com
-Content-Disposition: inline
-In-Reply-To: <20040315194642.GB19555@redhat.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20040315102215.65c26745@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 15, 2004 at 07:46:42PM +0000, Dave Jones wrote:
-> modprobe auth_rpcgss
-> rmmod auth_rpcgss
-> rmmod sunrpc
-> *bang*
-> 
-> Seems to survive rmmod sunrpc usually, so it's the auth_rpcgcc
-> module leaving something around long after its dead perhaps?
+On Mon, 15 Mar 2004 10:22:15 -0800
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-Yes, this is my fault, apologies.  I'll follow up with a patch as soon
-as I've made one....--Bruce Fields
+> This fixes both the devfs name and the /sys name issues.
+> It ends up as /dev/net/tun and /sys/class/misc/tun looks correct.
+
+Applied, thanks Stephen.
