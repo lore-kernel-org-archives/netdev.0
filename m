@@ -1,88 +1,68 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH][IPSEC] IPsec policy can be matched by ICMP type and
- code
-Date: Tue, 10 Aug 2004 23:01:44 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040810230144.2a68914b.davem@redhat.com>
-References: <20040809175404.301bd60a@localhost>
-	<20040809170705.6ab75c5f.davem@redhat.com>
-	<20040810.103229.128092044.yoshfuji@linux-ipv6.org>
+From: James Ketrenos <jketreno@linux.intel.com>
+Subject: Re: ipw2100 wireless driver
+Date: Wed, 11 Aug 2004 05:16:35 -0500
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <4119F203.1070009@linux.intel.com>
+References: <20040714114135.GA25175@elf.ucw.cz> <Pine.LNX.4.60.0407141947270.27995@boston.corp.fedex.com> <20040714115523.GC2269@elf.ucw.cz> <20040809201556.GB9677@louise.pinerecords.com> <Pine.LNX.4.61.0408101258130.1290@boston.corp.fedex.com> <20040810075558.A14154@infradead.org> <20040810101640.GF9034@atrey.karlin.mff.cuni.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: nakam@linux-ipv6.org, netdev@oss.sgi.com, usagi-core@linux-ipv6.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20040810.103229.128092044.yoshfuji@linux-ipv6.org>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Christoph Hellwig <hch@infradead.org>,
+	Jeff Chua <jeffchua@silk.corp.fedex.com>,
+	Tomas Szepe <szepe@pinerecords.com>, netdev@oss.sgi.com,
+	kernel list <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S268019AbUHKKRj@vger.kernel.org>
+To: Pavel Machek <pavel@suse.cz>
+In-Reply-To: <20040810101640.GF9034@atrey.karlin.mff.cuni.cz>
 List-Id: netdev.vger.kernel.org
 
-On Tue, 10 Aug 2004 10:32:29 +0900 (JST)
-YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
-
-> Does it make sense to excude IPPPROTO_RAW sockets and/or hdrincl sockets, 
-> which would be 100% truly raw socket?
-> Or, do we add some socket option for this?
+Pavel Machek wrote:
+> Hi!
 > 
-> Mip6 is required to exchange ipsec'ed datagrams (!= IPPROTO_RAW).
-> (as I told you at Networking Summit if I remember correctly),
-> so we need some sort of the patch, anyway.
-
-This is what Alexey told me when I last spoke with him
-about this:
-
-Return-Path: <kuznet@ms2.inr.ac.ru>
-Received: from localhost (IDENT:davem@localhost.localdomain [127.0.0.1])
-	by pizda.ninka.net (8.9.3/8.9.3) with ESMTP id QAA27793
-	for <davem@localhost>; Sat, 17 May 2003 16:28:26 -0700
-From: kuznet@ms2.inr.ac.ru
-Received: from localhost.localdomain [127.0.0.1]
-	by localhost with POP3 (fetchmail-6.2.2)
-	for davem@localhost (single-drop); Sat, 17 May 2003 16:28:26 -0700 (PDT)
-Received: from int-mx1.corp.redhat.com (int-mx1.corp.redhat.com [172.16.52.254])
-	by devserv.devel.redhat.com (8.11.6/8.11.0) with ESMTP id h4HNSr500334
-	for <davem@devserv.devel.redhat.com>; Sat, 17 May 2003 19:28:53 -0400
-Received: from mx1.redhat.com (mx1.redhat.com [172.16.48.31])
-	by int-mx1.corp.redhat.com (8.11.6/8.11.6) with SMTP id h4HNSrI11137
-	for <davem@redhat.com>; Sat, 17 May 2003 19:28:53 -0400
-Received: from dub.inr.ac.ru (dub.inr.ac.ru [193.233.7.105])
-	by mx1.redhat.com (8.11.6/8.11.6) with SMTP id h4HNSqH20272
-	for <davem@redhat.com>; Sat, 17 May 2003 19:28:52 -0400
-Received: (from kuznet@localhost) by dub.inr.ac.ru (8.6.13/ANK) id DAA10631 for davem@redhat.com; Sun, 18 May 2003 03:28:45 +0400
-Message-Id: <200305172328.DAA10631@dub.inr.ac.ru>
-Subject: Re: dst_pmtu() check in ip_output()
-To: davem@redhat.com (David S. Miller)
-Date: Sun, 18 May 2003 03:28:45 +0400 (MSD)
-In-Reply-To: <20030514.184139.55739273.davem@redhat.com> from "David S. Miller" at May 14, 2003 06:41:39 PM
-X-Mailer: ELM [version 2.5 PL6]
-MIME-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-
-Hello!
-
-> Let's ask the following question: What is difference between adding
-> transformation locally, and adding it at some hop on the way to
-> destination?
+>>>>ipw2100 0.51 from ipw2100.sf.net builds using gcc-2.95.3 "out of the box."
+>>>
+>>>Well, this is really good news!
+>>>
+>>>I just downloaded 0.51 compiled with gcc-2.95.3 and got it working on my 
+>>>IBM X31 with WEP. Even better, 0.51 doesn't need hostap-driver.
+>>
+>>Btw, any vounteer for merging the hostap-based generic ieee80211_* files
+>>from the ipw2100 driver with the hostap driver in the wireless-2.6 tree?
 > 
-> I can already hear answers of the form "It is same difference as
-> that between tunnel and transport mode." :-)
+> I know very little about wireless-2.6 tree (where to get it without
+> bitkeeper?), but...
+> 
+> task is to take ipw2100 driver, drop ieee80211_* files from it, and
+> make it work with ieee80211* files from wireless-2.6?
 
-Exactly.
+The ieee80211_* files in the ipw2100 were partially based on the hostap source, 
+with any HW specific code pulled out.  It handles Tx and Rx right now for BSS, 
+IBSS, and MONITOR mode, supporting wep, etc. It doesn't have all the hooks 
+needed for the host based AP mode that Host AP currently has, nor does it 
+support wpa yet.
 
-Plus one more thing: when you noticed pathology with raw socket
-you referred to "What does user expect?".
+We're also using the stack for the ipw2200 project (which we hope to get another 
+snapshot release out soon)  We've been talking about pulling ieee80211 into its 
+own project as others have expressed an interest in using it in their drivers as 
+well.
 
-Use of raw socket is pathological itself, f.e. IPv6 does not even
-have such a concept. It is used by (and invented by VJ for) traceroute.
-And beyond this it is used by various testing and attacker's software.
-Shortly, the packet which it generates are _tricky_ by user desire,
-when user wants to test (or attack) someone.
+The general goal for the ieee80211 stack has been to be able to take an skb from 
+the xmit handler, fragment and encrypt that skb, and provide that list of those 
+802.11 fragments to the driver for transmission.  On the Rx side, the ieee80211 
+stack expects a standard 802.11 data frame which it then performs any decrypt / 
+defrag and then passes up to the kernel.
 
-So, I would expect the packet is not transformed locally at all.
-Remember f.e. that it can be an _IPsec_ packet already.
+Additional frame code is slowly being added to ieee80211 to support handling of 
+probe response / beacons to manage scan results, etc. and provide default WE 
+handlers for exposing that information.
 
-Alexey
+ieee80211_wx provides some generic implementation for the WE handlers that every 
+driver has to implement the same way.
 
-PS. This is the first mail which I send from new account. Please,
-tell me if it looks unusual.
+We're currently working to clean up ipw2100 and ieee80211 code for submission to 
+netdev for discussion and hopefully inclusion in the future.  The ieee80211 code 
+is still being heavily developed, but its usable.  If anyone wants to help out, 
+or if folks feel its ready as-is to get pulled into wireless-2.6, let me know.
+
+Thanks,
+James
