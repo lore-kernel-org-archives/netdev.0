@@ -1,74 +1,66 @@
-From: "junk" <junk@toutatis.be>
-Subject: Re: ipt_ROUTE and destination MAC address
-Date: Fri, 11 Feb 2005 15:17:12 +0100
-Message-ID: <20050211140611.M58411@toutatis.be>
-References: <S262133AbVBJPBt/20050210150149Z+8411@vger.kernel.org> <20050210141334.M57687@toutatis.be> <Pine.LNX.4.61.0502110100240.13349@filer.marasystems.com>
+From: Vincent Roqueta <vincent.roqueta@ext.bull.net>
+Subject: IP More Fragements bit problem.
+Date: Fri, 11 Feb 2005 17:08:16 +0100
+Message-ID: <200502111708.16024.vincent.roqueta@ext.bull.net>
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset=iso-8859-1
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Trond Myklebust <trond.myklebust@fys.uio.no>,
+        Tony Reix <Tony.Reix@Bull.Net>
 To: netdev@oss.sgi.com
-In-Reply-To: <Pine.LNX.4.61.0502110100240.13349@filer.marasystems.com>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hello all,
 
+I am working on NFSv4 and I found an IP problem while doing interoperability 
+testing with AIX.
 
-On Fri, 11 Feb 2005 01:07:55 +0100 (CET), Henrik Nordstrom wrote
-> On Thu, 10 Feb 2005, junk wrote:
-> 
-> > i'm coding a virtual interface. That virtual interface has to receive packets
-> > coming on eth0. For that purpose, i'm using ipt_ROUTE. That works great, i can
-> > see my packets arriving on red0 (my virtual interface).
-> >
-> > The problem is that the destination MAC is the one of eth0, so, it seems the
-> > kernel doesn't really deliver the packet to my driver. I can see it in tcpdump
-> > but my driver receive function is never called.
-> 
-> It is not due to the destination MAC, but to what ipt_ROUTE does.
-> 
-> ipt_ROUTE reoutes the packet as if it came in on the other interface,
->  all done at the IP layer in the kernel, it does not resubmit the 
-> packet to the driver level.
-> 
-> The MAC is not modified as this is not relevant to the IP layer, and 
-> there really isn't any reason why it should be modified either. The 
-> MAC used in received skbufs is the MAC the sending station was 
-> addressing the packet to, not the MAC of the receiving interface. 
-> Usually they are the same, but not always.
-> 
-> Can you give an more detailed example of what it is you are trying 
-> to accomplish or why you need a custom virtual interface driver? It 
-> is possible (or even likely) there is other better tools for the job.
-> 
-> Also I am a little confused on your virtual interface driver. 
-> Normally virtual interface drivers does not have a receive function, 
-> only a transmit function called when packets are routed to be 
-> transmitted on the interface.. How you make packets arrive at the 
-> interface driver is up to you (emulated hardware or whatever).
-> 
-> Regards 
-> Henrik
-> 
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-net" 
-> in the body of a message to majordomo@vger.kernel.org More majordomo 
-> info at  http://vger.kernel.org/majordomo-info.html
+The More Fragements (MF) bits is set on the last packet sent in a list of 
+packets that sould be reassembled
+ 
+For example :
 
+If we get the A, B, C, D packets that may be reassembled into ABCD we sould 
+have 
 
-The purpose is to run a redundant network.
+A + MF
+B + MF
+C + MF
+D
 
-My virtual interface has to duplicate packets it receive from software, and
-send each copy of it on eth0 and eth1 respectively.
+On kernel 2.6.10rc2 and laters (last tested is 2.6.11-rc3) we have: 
 
->From the application, there is only one interface: red0.
+A + MF
+B + MF
+C + MF
+D + MF
 
-red0 has to:
-- duplicate packets having red0 as outgoing interface (real output iface are
-eth0/eth1)
-- receive packets from eth0/eth1, discarding the copy (as eth0 and eth1
-receive the same data), pass the packet to application
-- alert userland if eth0 or eth1 comes down
+That cause AIX waiting for the last packet with out sending ack
+So Linux suppose  AIX didn't receive all, and re send all packets.
+So AIX is receiving that: 
+A + MF
+B + MF
+C + MF
+D + MF
+*DELAY *
+A + MF
+B + MF
+C + MF
+D + MF
+*DELAY*
+A + MF
+B + MF
+C + MF
+D + MF
+*DELAY*
+...
 
-The problem is that I want my driver to know about incoming packets, not only
-the software.
+After a while AIX destroy first fragments because of the IP fragements life 
+time. Trond Myklebust said me you can do anything for that?
+
+Cher,
+Vincent ROQUETA
