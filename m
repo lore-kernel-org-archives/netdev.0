@@ -1,373 +1,326 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: [PATCH] update networking config menu (v3)
-Date: Sun, 4 Apr 2004 20:03:54 -0700
+From: Kazunori Miyazawa <kazunori@miyazawa.org>
+Subject: [PATCH 2.6][IPSEC] conforming to rfc2406
+Date: Mon, 5 Apr 2004 15:38:35 +0900
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040404200354.50e5dd74.rddunlap@osdl.org>
+Message-ID: <200404051538.35608.kazunori@miyazawa.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, benh@kernel.crashing.org
+Cc: kazunori@miyazawa.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Hello,
 
-This is a modified version of the patch that I posted about 3 weeks ago.
-It no longer puts "Networking support" in the top-level menu because
-it makes more sense to me to keep it close to the Network drivers and
-other protocols, so basically this patch mostly moves some menu items
-around to have a better logical grouping (IMO of course).
+I send patches to make 2.6 IPsec conform to rfc2406.
+In section 3.4.3, RFC saids
 
-Comments/suggestions?
+   All ESP implementations MUST support the anti-replay service, though
+   its use may be enabled or disabled by the receiver on a per-SA basis.
+   This service MUST NOT be enabled unless the authentication service
+   also is enabled for the SA, since otherwise the Sequence Number field
+   has not been integrity protected.
 
-Thanks,
---
-~Randy
+Original code checks sequence number unless integrity check.
 
+I moved sequence number checking and advancing from xfrm[46]_input.c
+to each ah[64].c and esp[64].c.
 
-// linux-2.6.5
+Best regards,
 
-// Networking support/options and Networking drivers have been, uhm,
-// messy to navigate for some time now.   BenH mentioned this
-// and I was already looking into options to clean it up.
-
-// This is a cleanup of Networking support/options and Networking Drivers.
-// It presents a more consistent interface and lists similar driver
-// groups and protocol groups closer together.
-// It also moves the IBMVETH driver so that it no longer breaks the
-// dependency tree, allowing other drivers (nearby in Kconfig file)
-// to be presented in a more linear manner.
-
-diffstat:=
- drivers/net/Kconfig   |   53 ++++++++++-----------
- net/Kconfig           |  123 +++++++++++++++++++++++++-------------------------
- net/ax25/Kconfig      |    7 --
- net/bluetooth/Kconfig |    6 --
- net/irda/Kconfig      |    8 ---
- 5 files changed, 93 insertions(+), 104 deletions(-)
+--Kazunori Miyazawa
 
 
-diff -Naurp ./drivers/net/Kconfig.orig ./drivers/net/Kconfig
---- ./drivers/net/Kconfig.orig	2004-04-03 19:38:10.000000000 -0800
-+++ ./drivers/net/Kconfig	2004-04-04 17:31:22.000000000 -0700
-@@ -21,10 +21,6 @@ config NETDEVICES
+===== include/net/xfrm.h 1.54 vs edited =====
+--- 1.54/include/net/xfrm.h	Sat Mar 20 12:35:32 2004
++++ edited/include/net/xfrm.h	Mon Apr  5 12:24:10 2004
+@@ -869,7 +869,7 @@
+ extern void km_policy_expired(struct xfrm_policy *pol, int dir, int hard);
  
- 	  If unsure, say Y.
+ extern void xfrm_input_init(void);
+-extern int xfrm_parse_spi(struct sk_buff *skb, u8 nexthdr, u32 *spi, u32 
+*seq);
++extern int xfrm_parse_spi(struct sk_buff *skb, u8 nexthdr, u32 *spi);
  
--if NETDEVICES
--	source "drivers/net/arcnet/Kconfig"
--endif
--
- config DUMMY
- 	tristate "Dummy net driver support"
- 	depends on NETDEVICES
-@@ -155,6 +151,10 @@ config NET_SB1000
+ extern void xfrm_probe_algs(void);
+ extern int xfrm_count_auth_supported(void);
+===== net/ipv4/ah4.c 1.29 vs edited =====
+--- 1.29/net/ipv4/ah4.c	Sun Jan 25 03:08:48 2004
++++ edited/net/ipv4/ah4.c	Mon Apr  5 12:11:32 2004
+@@ -166,6 +166,8 @@
+ 		goto out;
  
- 	  If you don't have this card, of course say N.
+ 	ah = (struct ip_auth_hdr*)skb->data;
++	if (x->props.replay_window && xfrm_replay_check(x, ah->seq_no))
++		goto out;
+ 	ahp = x->data;
+ 	ah_hlen = (ah->hdrlen + 2) << 2;
+ 	
+@@ -209,6 +211,8 @@
+ 			goto out;
+ 		}
+ 	}
++	if (x->props.replay_window)
++		xfrm_replay_advance(x, ah->seq_no);
+ 	((struct iphdr*)work_buf)->protocol = ah->nexthdr;
+ 	skb->nh.raw = skb_pull(skb, ah_hlen);
+ 	memcpy(skb->nh.raw, work_buf, iph->ihl*4);
+===== net/ipv4/esp4.c 1.36 vs edited =====
+--- 1.36/net/ipv4/esp4.c	Wed Mar 10 08:21:50 2004
++++ edited/net/ipv4/esp4.c	Mon Apr  5 12:14:10 2004
+@@ -227,6 +227,7 @@
  
-+if NETDEVICES
-+	source "drivers/net/arcnet/Kconfig"
-+endif
+ 	if (!pskb_may_pull(skb, sizeof(struct ip_esp_hdr)))
+ 		goto out;
++	esph = (struct ip_esp_hdr*)skb->data;
+ 
+ 	if (elen <= 0 || (elen & (blksize-1)))
+ 		goto out;
+@@ -236,6 +237,8 @@
+ 		u8 sum[esp->auth.icv_full_len];
+ 		u8 sum1[alen];
+ 		
++		if (x->props.replay_window && xfrm_replay_check(x, esp->seq_no))
++			goto out;
+ 		esp->auth.icv(esp, skb, 0, skb->len-alen, sum);
+ 
+ 		if (skb_copy_bits(skb, skb->len-alen, sum1, alen))
+@@ -245,6 +248,9 @@
+ 			x->stats.integrity_failed++;
+ 			goto out;
+ 		}
 +
- #
- #	Ethernet
- #
-@@ -1178,6 +1178,17 @@ config IBMLANA
- 	  boards with this driver should be possible, but has not been tested
- 	  up to now due to lack of hardware.
++		if (x->props.replay_winodw)
++			xfrm_replay_advance(x, esph->seq_no);
+ 	}
  
-+config IBMVETH
-+	tristate "IBM LAN Virtual Ethernet support"
-+	depends on NETDEVICES && NET_ETHERNET && PPC_PSERIES
-+	---help---
-+	  This driver supports virtual ethernet adapters on newer IBM iSeries
-+	  and pSeries systems.
+ 	if ((nfrags = skb_cow_data(skb, 0, &trailer)) < 0)
+@@ -252,7 +258,6 @@
+ 
+ 	skb->ip_summed = CHECKSUM_NONE;
+ 
+-	esph = (struct ip_esp_hdr*)skb->data;
+ 	iph = skb->nh.iph;
+ 
+ 	/* Get ivec. This can be wrong, check against another impls. */
+===== net/ipv4/xfrm4_input.c 1.10 vs edited =====
+--- 1.10/net/ipv4/xfrm4_input.c	Sat Feb 14 16:06:45 2004
++++ edited/net/ipv4/xfrm4_input.c	Mon Apr  5 12:15:31 2004
+@@ -29,30 +29,29 @@
+ 		IP_ECN_set_ce(inner_iph);
+ }
+ 
+-static int xfrm4_parse_spi(struct sk_buff *skb, u8 nexthdr, u32 *spi, u32 
+*seq)
++static int xfrm4_parse_spi(struct sk_buff *skb, u8 nexthdr, u32 *spi)
+ {
+ 	switch (nexthdr) {
+ 	case IPPROTO_IPIP:
+ 		if (!pskb_may_pull(skb, sizeof(struct iphdr)))
+ 			return -EINVAL;
+ 		*spi = skb->nh.iph->saddr;
+-		*seq = 0;
+ 		return 0;
+ 	}
+ 
+-	return xfrm_parse_spi(skb, nexthdr, spi, seq);
++	return xfrm_parse_spi(skb, nexthdr, spi);
+ }
+ 
+ int xfrm4_rcv_encap(struct sk_buff *skb, __u16 encap_type)
+ {
+ 	int err;
+-	u32 spi, seq;
++	u32 spi;
+ 	struct sec_decap_state xfrm_vec[XFRM_MAX_DEPTH];
+ 	struct xfrm_state *x;
+ 	int xfrm_nr = 0;
+ 	int decaps = 0;
+ 
+-	if ((err = xfrm4_parse_spi(skb, skb->nh.iph->protocol, &spi, &seq)) != 0)
++	if ((err = xfrm4_parse_spi(skb, skb->nh.iph->protocol, &spi)) != 0)
+ 		goto drop;
+ 
+ 	do {
+@@ -69,9 +68,6 @@
+ 		if (unlikely(x->km.state != XFRM_STATE_VALID))
+ 			goto drop_unlock;
+ 
+-		if (x->props.replay_window && xfrm_replay_check(x, seq))
+-			goto drop_unlock;
+-
+ 		if (xfrm_state_check_expire(x))
+ 			goto drop_unlock;
+ 
+@@ -82,9 +78,6 @@
+ 		/* only the first xfrm gets the encap type */
+ 		encap_type = 0;
+ 
+-		if (x->props.replay_window)
+-			xfrm_replay_advance(x, seq);
+-
+ 		x->curlft.bytes += skb->len;
+ 		x->curlft.packets++;
+ 
+@@ -112,7 +105,7 @@
+ 			break;
+ 		}
+ 
+-		if ((err = xfrm_parse_spi(skb, skb->nh.iph->protocol, &spi, &seq)) < 0)
++		if ((err = xfrm_parse_spi(skb, skb->nh.iph->protocol, &spi)) < 0)
+ 			goto drop;
+ 	} while (!err);
+ 
+===== net/ipv6/ah6.c 1.26 vs edited =====
+--- 1.26/net/ipv6/ah6.c	Sun Jan 25 03:08:48 2004
++++ edited/net/ipv6/ah6.c	Mon Apr  5 12:21:22 2004
+@@ -286,6 +286,8 @@
+ 	hdr_len = skb->data - skb->nh.raw;
+ 	cleared_hlen = hdr_len;
+ 	ah = (struct ipv6_auth_hdr*)skb->data;
++	if (x->props.replay_window && xfrm_replay_check(x, ah->seq_no))
++		goto out;
+ 	ahp = x->data;
+ 	nexthdr = ah->nexthdr;
+ 	ah_hlen = (ah->hdrlen + 2) << 2;
+@@ -329,6 +331,8 @@
+ 		}
+ 	}
+ 
++	if (x->props.replay_window)
++		xfrm_replay_advance(x, ah->seq_no);
+ 	skb->nh.raw = skb_pull(skb, ah_hlen);
+ 	memcpy(skb->nh.raw, tmp_hdr, hdr_len);
+ 	if (nexthdr == NEXTHDR_DEST) {
+===== net/ipv6/esp6.c 1.24 vs edited =====
+--- 1.24/net/ipv6/esp6.c	Wed Mar 10 08:21:50 2004
++++ edited/net/ipv6/esp6.c	Mon Apr  5 12:22:39 2004
+@@ -210,6 +210,7 @@
+ 		ret = -EINVAL;
+ 		goto out_nofree;
+ 	}
++	esph = (struct ipv6_esp_hdr*)skb->data;
+ 
+ 	if (elen <= 0 || (elen & (blksize-1))) {
+ 		ret = -EINVAL;
+@@ -228,6 +229,10 @@
+ 		u8 sum[esp->auth.icv_full_len];
+ 		u8 sum1[alen];
+ 
++		if (x->props.replay_window && xfrm_replay_check(x, esph->seq_no)) {
++			ret = -EINVAL;
++			goto out;
++		}
+ 		esp->auth.icv(esp, skb, 0, skb->len-alen, sum);
+ 
+ 		if (skb_copy_bits(skb, skb->len-alen, sum1, alen))
+@@ -238,6 +243,9 @@
+ 			ret = -EINVAL;
+ 			goto out;
+ 		}
 +
-+	  To compile this driver as a module, choose M here and read
-+	  <file:Documentation/networking/net-modules.txt>. The module will
-+	  be called ibmveth.
-+
- config NET_PCI
- 	bool "EISA, VLB, PCI and on board controllers"
- 	depends on NET_ETHERNET && (ISA || EISA || PCI)
-@@ -2103,6 +2114,17 @@ config IXGB_NAPI
++		if (x->props.replay_window)
++			xfrm_replay_advance(x, esph->seq_no);
+ 	}
  
- endmenu
+ 	if ((nfrags = skb_cow_data(skb, 0, &trailer)) < 0) {
+@@ -247,7 +255,6 @@
  
-+source "drivers/net/tokenring/Kconfig"
-+
-+source "drivers/net/wireless/Kconfig"
-+
-+source "drivers/net/pcmcia/Kconfig"
-+
-+source "drivers/net/wan/Kconfig"
-+
-+source "drivers/atm/Kconfig"
-+
-+source "drivers/s390/net/Kconfig"
+ 	skb->ip_summed = CHECKSUM_NONE;
  
- config VETH
- 	tristate "iSeries Virtual Ethernet driver support"
-@@ -2170,17 +2192,6 @@ config HIPPI
- 	  under Linux, say Y here (you must also remember to enable the driver
- 	  for your HIPPI card below). Most people will say N here.
+-	esph = (struct ipv6_esp_hdr*)skb->data;
+ 	iph = skb->nh.ipv6h;
  
--config IBMVETH
--	tristate "IBM LAN Virtual Ethernet support"
--	depends on NETDEVICES && NET_ETHERNET && PPC_PSERIES
--	---help---
--	  This driver supports virtual ethernet adapters on newer IBM iSeries
--	  and pSeries systems.
--
--	  To compile this driver as a module, choose M here and read
--	  <file:Documentation/networking/net-modules.txt>. The module will
--	  be called ibmveth.
--
- config ROADRUNNER
- 	tristate "Essential RoadRunner HIPPI PCI adapter support (EXPERIMENTAL)"
- 	depends on HIPPI && PCI
-@@ -2438,10 +2449,6 @@ config SLIP_MODE_SLIP6
- 	  end of the link as well. It's good enough, for example, to run IP
- 	  over the async ports of a Camtec JNT Pad. If unsure, say N.
+ 	/* Get ivec. This can be wrong, check against another impls. */
+===== net/ipv6/xfrm6_input.c 1.15 vs edited =====
+--- 1.15/net/ipv6/xfrm6_input.c	Sat Feb 14 16:06:45 2004
++++ edited/net/ipv6/xfrm6_input.c	Mon Apr  5 12:23:15 2004
+@@ -29,7 +29,7 @@
+ {
+ 	struct sk_buff *skb = *pskb;
+ 	int err;
+-	u32 spi, seq;
++	u32 spi;
+ 	struct sec_decap_state xfrm_vec[XFRM_MAX_DEPTH];
+ 	struct xfrm_state *x;
+ 	int xfrm_nr = 0;
+@@ -41,7 +41,7 @@
+ 	nexthdr = *prevhdr;
+ 	*nhoffp = prevhdr - skb->nh.raw;
  
--source "drivers/net/wireless/Kconfig"
--
--source "drivers/net/tokenring/Kconfig"
--
- config NET_FC
- 	bool "Fibre Channel driver support"
- 	depends on NETDEVICES && SCSI && PCI
-@@ -2501,11 +2508,3 @@ config NETCONSOLE
- 	---help---
- 	If you want to log kernel messages over the network, enable this.
- 	See Documentation/networking/netconsole.txt for details.
--
--source "drivers/net/wan/Kconfig"
--
--source "drivers/net/pcmcia/Kconfig"
--
--source "drivers/atm/Kconfig"
--
--source "drivers/s390/net/Kconfig"
-diff -Naurp ./net/bluetooth/Kconfig.orig ./net/bluetooth/Kconfig
---- ./net/bluetooth/Kconfig.orig	2004-04-03 19:38:12.000000000 -0800
-+++ ./net/bluetooth/Kconfig	2004-04-03 22:30:19.000000000 -0800
-@@ -2,10 +2,8 @@
- # Bluetooth subsystem configuration
- #
+-	if ((err = xfrm_parse_spi(skb, nexthdr, &spi, &seq)) != 0)
++	if ((err = xfrm_parse_spi(skb, nexthdr, &spi)) != 0)
+ 		goto drop;
+ 	
+ 	do {
+@@ -57,9 +57,6 @@
+ 		if (unlikely(x->km.state != XFRM_STATE_VALID))
+ 			goto drop_unlock;
  
--menu "Bluetooth support"
-+menuconfig BT
- 	depends on NET
+-		if (x->props.replay_window && xfrm_replay_check(x, seq))
+-			goto drop_unlock;
 -
--config BT
- 	tristate "Bluetooth subsystem support"
- 	help
- 	  Bluetooth is low-cost, low-power, short-range wireless technology.
-@@ -62,5 +60,3 @@ source "net/bluetooth/cmtp/Kconfig"
+ 		if (xfrm_state_check_expire(x))
+ 			goto drop_unlock;
  
- source "drivers/bluetooth/Kconfig"
+@@ -67,9 +64,6 @@
+ 		if (nexthdr <= 0)
+ 			goto drop_unlock;
  
--endmenu
+-		if (x->props.replay_window)
+-			xfrm_replay_advance(x, seq);
 -
-diff -Naurp ./net/irda/Kconfig.orig ./net/irda/Kconfig
---- ./net/irda/Kconfig.orig	2004-04-03 19:37:07.000000000 -0800
-+++ ./net/irda/Kconfig	2004-04-03 22:30:19.000000000 -0800
-@@ -2,11 +2,9 @@
- # IrDA protocol configuration
- #
+ 		x->curlft.bytes += skb->len;
+ 		x->curlft.packets++;
  
--menu "IrDA (infrared) support"
-+menuconfig IRDA
- 	depends on NET
--
--config IRDA
--	tristate "IrDA subsystem support"
-+	tristate "IrDA (infrared) subsystem support"
- 	---help---
- 	  Say Y here if you want to build support for the IrDA (TM) protocols.
- 	  The Infrared Data Associations (tm) specifies standards for wireless
-@@ -95,5 +93,3 @@ config IRDA_DEBUG
+@@ -94,7 +88,7 @@
+ 			break;
+ 		}
  
- source "drivers/net/irda/Kconfig"
+-		if ((err = xfrm_parse_spi(skb, nexthdr, &spi, &seq)) < 0)
++		if ((err = xfrm_parse_spi(skb, nexthdr, &spi)) < 0)
+ 			goto drop;
+ 	} while (!err);
  
--endmenu
--
-diff -Naurp ./net/ax25/Kconfig.orig ./net/ax25/Kconfig
---- ./net/ax25/Kconfig.orig	2004-04-03 19:38:13.000000000 -0800
-+++ ./net/ax25/Kconfig	2004-04-03 22:30:19.000000000 -0800
-@@ -6,9 +6,8 @@
- #		Joerg Reuter DL1BKE <jreuter@yaina.de>
- # 19980129	Moved to net/ax25/Config.in, sourcing device drivers.
+===== net/xfrm/xfrm_input.c 1.13 vs edited =====
+--- 1.13/net/xfrm/xfrm_input.c	Mon Jul 28 11:22:27 2003
++++ edited/net/xfrm/xfrm_input.c	Mon Apr  5 12:20:23 2004
+@@ -43,24 +43,21 @@
  
--menu "Amateur Radio support"
--
--config HAMRADIO
-+menuconfig HAMRADIO
-+	depends on NET
- 	bool "Amateur Radio support"
- 	help
- 	  If you want to connect your Linux box to an amateur radio, answer Y
-@@ -109,5 +108,3 @@ source "drivers/net/hamradio/Kconfig"
+ /* Fetch spi and seq from ipsec header */
  
- endmenu
+-int xfrm_parse_spi(struct sk_buff *skb, u8 nexthdr, u32 *spi, u32 *seq)
++int xfrm_parse_spi(struct sk_buff *skb, u8 nexthdr, u32 *spi)
+ {
+-	int offset, offset_seq;
++	int offset;
  
--endmenu
--
-diff -Naurp ./net/Kconfig.orig ./net/Kconfig
---- ./net/Kconfig.orig	2004-04-03 19:36:16.000000000 -0800
-+++ ./net/Kconfig	2004-04-04 19:44:42.000000000 -0700
-@@ -129,59 +129,6 @@ config IPV6
+ 	switch (nexthdr) {
+ 	case IPPROTO_AH:
+ 		offset = offsetof(struct ip_auth_hdr, spi);
+-		offset_seq = offsetof(struct ip_auth_hdr, seq_no);
+ 		break;
+ 	case IPPROTO_ESP:
+ 		offset = offsetof(struct ip_esp_hdr, spi);
+-		offset_seq = offsetof(struct ip_esp_hdr, seq_no);
+ 		break;
+ 	case IPPROTO_COMP:
+ 		if (!pskb_may_pull(skb, sizeof(struct ip_comp_hdr)))
+ 			return -EINVAL;
+ 		*spi = ntohl(ntohs(*(u16*)(skb->h.raw + 2)));
+-		*seq = 0;
+ 		return 0;
+ 	default:
+ 		return 1;
+@@ -70,7 +67,6 @@
+ 		return -EINVAL;
  
- source "net/ipv6/Kconfig"
+ 	*spi = *(u32*)(skb->h.raw + offset);
+-	*seq = *(u32*)(skb->h.raw + offset_seq);
+ 	return 0;
+ }
  
--config DECNET
--	tristate "DECnet Support"
--	---help---
--	  The DECnet networking protocol was used in many products made by
--	  Digital (now Compaq).  It provides reliable stream and sequenced
--	  packet communications over which run a variety of services similar
--	  to those which run over TCP/IP.
--
--	  To find some tools to use with the kernel layer support, please
--	  look at Patrick Caulfield's web site:
--	  <http://linux-decnet.sourceforge.net/>.
--
--	  More detailed documentation is available in
--	  <file:Documentation/networking/decnet.txt>.
--
--	  Be sure to say Y to "/proc file system support" and "Sysctl support"
--	  below when using DECnet, since you will need sysctl support to aid
--	  in configuration at run time.
--
--	  The DECnet code is also available as a module ( = code which can be
--	  inserted in and removed from the running kernel whenever you want).
--	  The module is called decnet.
--
--source "net/decnet/Kconfig"
--
--config BRIDGE
--	tristate "802.1d Ethernet Bridging"
--	---help---
--	  If you say Y here, then your Linux box will be able to act as an
--	  Ethernet bridge, which means that the different Ethernet segments it
--	  is connected to will appear as one Ethernet to the participants.
--	  Several such bridges can work together to create even larger
--	  networks of Ethernets using the IEEE 802.1 spanning tree algorithm.
--	  As this is a standard, Linux bridges will cooperate properly with
--	  other third party bridge products.
--
--	  In order to use the Ethernet bridge, you'll need the bridge
--	  configuration tools; see <file:Documentation/networking/bridge.txt>
--	  for location. Please read the Bridge mini-HOWTO for more
--	  information.
--
--	  If you enable iptables support along with the bridge support then you
--	  turn your bridge into a bridging IP firewall.
--	  iptables will then see the IP packets being bridged, so you need to
--	  take this into account when setting up your firewall rules.
--	  Enabling arptables support when bridging will let arptables see
--	  bridged ARP traffic in the arptables FORWARD chain.
--
--	  To compile this code as a module, choose M here: the module
--	  will be called bridge.
--
--	  If unsure, say N.
--
- menuconfig NETFILTER
- 	bool "Network packet filtering (replaces ipchains)"
- 	---help---
-@@ -345,9 +292,62 @@ config ATM_BR2684_IPFILTER
- 	  large number of IP-only vcc's.  Do not enable this unless you are sure
- 	  you know what you are doing.
- 
-+config BRIDGE
-+	tristate "802.1d Ethernet Bridging"
-+	---help---
-+	  If you say Y here, then your Linux box will be able to act as an
-+	  Ethernet bridge, which means that the different Ethernet segments it
-+	  is connected to will appear as one Ethernet to the participants.
-+	  Several such bridges can work together to create even larger
-+	  networks of Ethernets using the IEEE 802.1 spanning tree algorithm.
-+	  As this is a standard, Linux bridges will cooperate properly with
-+	  other third party bridge products.
-+
-+	  In order to use the Ethernet bridge, you'll need the bridge
-+	  configuration tools; see <file:Documentation/networking/bridge.txt>
-+	  for location. Please read the Bridge mini-HOWTO for more
-+	  information.
-+
-+	  If you enable iptables support along with the bridge support then you
-+	  turn your bridge into a bridging IP firewall.
-+	  iptables will then see the IP packets being bridged, so you need to
-+	  take this into account when setting up your firewall rules.
-+	  Enabling arptables support when bridging will let arptables see
-+	  bridged ARP traffic in the arptables FORWARD chain.
-+
-+	  To compile this code as a module, choose M here: the module
-+	  will be called bridge.
-+
-+	  If unsure, say N.
-+
- config VLAN_8021Q
- 	tristate "802.1Q VLAN Support"
- 
-+config DECNET
-+	tristate "DECnet Support"
-+	---help---
-+	  The DECnet networking protocol was used in many products made by
-+	  Digital (now Compaq).  It provides reliable stream and sequenced
-+	  packet communications over which run a variety of services similar
-+	  to those which run over TCP/IP.
-+
-+	  To find some tools to use with the kernel layer support, please
-+	  look at Patrick Caulfield's web site:
-+	  <http://linux-decnet.sourceforge.net/>.
-+
-+	  More detailed documentation is available in
-+	  <file:Documentation/networking/decnet.txt>.
-+
-+	  Be sure to say Y to "/proc file system support" and "Sysctl support"
-+	  below when using DECnet, since you will need sysctl support to aid
-+	  in configuration at run time.
-+
-+	  The DECnet code is also available as a module ( = code which can be
-+	  inserted in and removed from the running kernel whenever you want).
-+	  The module is called decnet.
-+
-+source "net/decnet/Kconfig"
-+
- source "net/llc/Kconfig"
- 
- config IPX
-@@ -650,14 +650,6 @@ endmenu
- 
- endmenu
- 
--source "drivers/net/Kconfig"
--
--source "net/ax25/Kconfig"
--
--source "net/irda/Kconfig"
--
--source "net/bluetooth/Kconfig"
--
- config NETPOLL
- 	def_bool NETCONSOLE
- 
-@@ -674,4 +666,13 @@ config NETPOLL_TRAP
- config NET_POLL_CONTROLLER
- 	def_bool NETPOLL
- 
-+source "net/ax25/Kconfig"
-+
-+source "net/irda/Kconfig"
-+
-+source "net/bluetooth/Kconfig"
-+
-+source "drivers/net/Kconfig"
-+
- endmenu
-+
