@@ -1,88 +1,42 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: Re: 3c900 Vortex Linux kernel driver documentation
-Date: Tue, 14 Oct 2003 09:53:49 -0700
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: Tigon3 5701 PCI-X recv performance problem
+Date: Tue, 14 Oct 2003 09:53:23 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031014095349.68c96ca8.rddunlap@osdl.org>
-References: <20031013183728.A300@beton.cybernet.src>
+Message-ID: <20031014095323.71c8b9fe.davem@redhat.com>
+References: <3F844578.40306@sgi.com>
+	<20031008101046.376abc3b.davem@redhat.com>
+	<3F8455BE.8080300@sgi.com>
+	<20031008183742.GA24822@wotan.suse.de>
+	<20031008122223.1ba5ac79.davem@redhat.com>
+	<20031008202248.GA15611@oldwotan.suse.de>
+	<3F8702FF.70500@sgi.com>
+	<20031010192036.GA31727@wotan.suse.de>
+	<3F8802E6.5030601@sgi.com>
+	<20031011131921.GC21763@wotan.suse.de>
+	<20031011105054.0e16a607.davem@redhat.com>
+	<3F8C290A.3010508@sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: ak@suse.de, modica@sgi.com, netdev@oss.sgi.com, jgarzik@pobox.com,
+        jes@sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Karel =?ISO-8859-1?Q?Kulhav=FD?= <clock@twibright.com>
-In-Reply-To: <20031013183728.A300@beton.cybernet.src>
+To: johnip@sgi.com
+In-Reply-To: <3F8C290A.3010508@sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 13 Oct 2003 18:37:28 +0200 Karel Kulhav=FD <clock@twibright.com> =
-wrote:
+On Tue, 14 Oct 2003 11:49:14 -0500
+John Partridge <johnip@sgi.com> wrote:
 
-| Hello
-|=20
-| I have a 3c900 and want to set it to AUI and full duplex and
-| having it compiled-in into the kernel, not as a module.
-|=20
-| I have read Documentation/networking/vortex.txt but this documentation
-| covers only the modules. Why is the documentation so incomplete?
-| Please tell me how to set up the card.
+> I do propose that we make the CONFIG a little more descriptive something like
+> 
+>   CONFIG_5701PCIX_UNALIGNED_EXPENSIVE
+> 
+> just to make it easier for users to see what it does.
 
-Please try this, although I'm not yet convinced that the 3c59x
-driver calls all of the right hooks for this to work.
-but good luck, and please report back on it.
+That's grosser than gross.
 
---
-~Randy
-
-
-Parameters when driver is built into kernel image
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-
-There are a few parameters which may be provided to the driver as
-the kernel is loaded if the driver is built into the kernel.
-These parameters are passed as kernel boot options on the kernel
-"command line", after the keyword "ether=3D".  The syntax for ether=3D
-is:
-	ether=3Dirq,base_address,mem_start,mem_end,name
-where mem_start is used for certain driver options (below).
-
-Example:
-	linux console=3Dtty0 debug ether=3D11,0x320,9
-
-If you need to pass options for multiple adapters, use "ether=3D..."
-multiple times, separated by a space.
-
-Supported driver options
-------------------------
-
-  The individual options are composed of a number of bitfields which
-  have the following meanings:
-
-  Possible media type settings
-	0	10baseT
-	1	10Mbs AUI
-	2	undefined
-	3	10base2 (BNC)
-	4	100base-TX
-	5	100base-FX
-	6	MII (Media Independent Interface)
-	7	Use default setting from EEPROM
-	8       Autonegotiate
-	9       External MII
-	10      Use default setting from EEPROM
-
-  When generating a value for the 'options' setting, the above media
-  selection values may be OR'ed (or added to) the following:
-
-  0x8000  Set driver debugging level to 7
-  0x4000  Set driver debugging level to 2
-  0x0400  Enable Wake-on-LAN
-  0x0200  Force full duplex mode.
-  0x0010  Bus-master enable bit (Old Vortex cards only)
-
-  For example:
-
-    ether=3D11,0x320,0x204
-
-  will force full-duplex 100base-TX, rather than allowing the usual
-  autonegotiation.
+We're trying to create a generic mechanism to fix this kind of
+problem in _ALL_ drivers.  I will heavily thwart any attempt to
+make this some kind of "tg3 thing".
