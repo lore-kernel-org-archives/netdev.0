@@ -1,41 +1,45 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: jumbo on 8169
-Date: Mon, 27 Dec 2004 17:38:02 +0100
-Message-ID: <20041227163802.GA27692@electric-eye.fr.zoreil.com>
-References: <41CFF27A.2070008@inet.it> <20041227123136.GA25187@electric-eye.fr.zoreil.com> <41D01562.4090606@inet.it>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH] PKT_SCHED: dsmark should ignore ECN bits
+Date: Mon, 27 Dec 2004 20:38:22 +0100
+Message-ID: <20041227193822.GK7884@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-Resent-Message-Id: <200412271747.iBRHl0CM028784@electric-eye.fr.zoreil.com>
-To: Luca Bortot <l.bortot@inet.it>
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <41D01562.4090606@inet.it>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Luca Bortot <l.bortot@inet.it> :
-[...]
-> based on a simple tcp test I made (writes zeroes to a socket in 32Kb 
-> blocks and prints the write speed), these are the results (win box cpu 
-> not reported - always under 10% load):
-> 
-> BEFORE PATCH (mtu 1500)
-> speed ~38 MB/s
-> cpu idle 10%
-> cpu system 90%
-> 
-> AFTER PATCH (mtu 7000)
-> speed ~45MB/s
-> cpu idle 40%
-> cpu system 60%
+Taking ECN bits into account doesn't make sense. The two bits were
+still unused at the time the code was written so this brings back the
+old behaviour.
 
-TSO may make a difference for a TCP test. See ethtool help to enable it.
-You can experiment with Tx csum/SG as well.
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-I'll welcome a complete dmesg and lspci -vx as they pretty well describe
-the working combinations.
-
---
-Ueimor
+--- linux-2.6.10-bk1.orig/net/sched/sch_dsmark.c	2004-12-27 14:32:33.000000000 +0100
++++ linux-2.6.10-bk1/net/sched/sch_dsmark.c	2004-12-27 20:30:40.000000000 +0100
+@@ -14,6 +14,7 @@
+ #include <linux/rtnetlink.h>
+ #include <net/pkt_sched.h>
+ #include <net/dsfield.h>
++#include <net/inet_ecn.h>
+ #include <asm/byteorder.h>
+ 
+ 
+@@ -198,10 +199,12 @@
+ 		/* FIXME: Safe with non-linear skbs? --RR */
+ 		switch (skb->protocol) {
+ 			case __constant_htons(ETH_P_IP):
+-				skb->tc_index = ipv4_get_dsfield(skb->nh.iph);
++				skb->tc_index = ipv4_get_dsfield(skb->nh.iph)
++					& ~INET_ECN_MASK;
+ 				break;
+ 			case __constant_htons(ETH_P_IPV6):
+-				skb->tc_index = ipv6_get_dsfield(skb->nh.ipv6h);
++				skb->tc_index = ipv6_get_dsfield(skb->nh.ipv6h)
++					& ~INET_ECN_MASK;
+ 				break;
+ 			default:
+ 				skb->tc_index = 0;
