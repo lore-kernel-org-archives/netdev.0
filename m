@@ -1,17 +1,38 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH wireless-2.6 10/16] Host AP: Use void __iomem * with {read,write}{b,w}
-Date: Sun, 14 Nov 2004 18:49:07 -0500
-Message-ID: <4197EEF3.8040708@pobox.com>
-References: <20041108070156.GA1076@jm.kir.nu> <20041108071630.GK1076@jm.kir.nu> <419071D5.8070208@pobox.com> <20041114051847.GB14810@jm.kir.nu>
+From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Subject: Re: [PATCH 6/8] Use SLAB_PANIC when creating critical slab cache
+Date: Sun, 14 Nov 2004 21:51:59 -0200
+Message-ID: <4197EF9F.50300@conectiva.com.br>
+References: <20041114121837.X2357@build.pdx.osdl.net> <20041114122400.D2357@build.pdx.osdl.net> <4197BFC5.5080800@conectiva.com.br> <20041114145157.G2357@build.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: davem@davemloft.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jouni Malinen <jkmaline@cc.hut.fi>
-In-Reply-To: <20041114051847.GB14810@jm.kir.nu>
+To: Chris Wright <chrisw@osdl.org>
+In-Reply-To: <20041114145157.G2357@build.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-applied patches 10-16 to wireless-2.6 (and thus netdev-2.6, and thus -mm).
+
+
+Chris Wright wrote:
+> * Arnaldo Carvalho de Melo (acme@conectiva.com.br) wrote:
+> 
+>>Chris,
+>>
+>>	I think somebody proposed this in the past and it was refused
+>>because we better get rid of the panics and return an error, propagate
+>>it and refuse to load the module, better have the machine still alive
+>>but without networking than panic it.
+> 
+> 
+> Sounds good too.  Part of my thinking was that these patches would be a
+> good chance to review if these are necessarily panic conditions.  What was
+> the plan on error return, since I expect some caches are interdependent?
+
+I lost track, perhaps we should push this to the janitor mailing list?
+
+:-)
+
+- Arnaldo
