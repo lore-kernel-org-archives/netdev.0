@@ -1,104 +1,67 @@
-From: Vinay K Nallamothu <vinay-rc@naturesoft.net>
-Subject: Re: [PATCH 2.6.0-test4][NET] ni5010.c: remove cli/sti
-Date: 25 Aug 2003 17:01:29 +0530
+From: Harald Welte <laforge@gnumonks.org>
+Subject: Re: [PATCH,RFC] explicit connection confirmation
+Date: Mon, 25 Aug 2003 13:09:03 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1061811091.1080.3.camel@lima.royalchallenge.com>
-References: <3F48E870.2070205@colorfullife.com>
+Message-ID: <20030825110903.GA17715@sunbeam.de.gnumonks.org>
+References: <20021107093207.GA30666@gnu.org> <20030814131156.GA21892@gnu.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="oyUTqETQ0mS9luUI"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Manfred Spraul <manfred@colorfullife.com>
-In-Reply-To: <3F48E870.2070205@colorfullife.com>
+To: Lennert Buytenhek <buytenh@gnu.org>
+Content-Disposition: inline
+In-Reply-To: <20030814131156.GA21892@gnu.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
 
-On Sun, 2003-08-24 at 22:01, Manfred Spraul wrote:
-> Vinay wrote:
-> 
-> >drivers/net/ni5010.c:
-> >This patch replaces cli/sti with spinlocks. Compiles fine though
-> >untested.
-> >  
-> >
-> I don't have the hardware either, but the patch seems to be wrong:
-> The cli() call was in hardware_send_packet(). I assume that this 
-> function should be synchronized against concurrent interrupts - both 
-> functions access the hardware. Due to the dev_xmit_lock, the networking 
-> core already guarantees that hardware_send_packet is never reentered. 
-> cli() provided protection against concurrent interrupts on other cpus, 
-> spin_lock_irqsave() doesn't.
-> 
-> Could you add a spin_lock()/spin_unlock() into ni5010_interrupt?
+--oyUTqETQ0mS9luUI
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Thanks for the suggestions. I have updated the patch accordingly. Hope
-the locking is sufficient.
+On Thu, Aug 14, 2003 at 09:11:56AM -0400, Lennert Buytenhek wrote:
+> Hi,
+>=20
+> Below is the original email I sent to netdev about nine months ago
+> announcing selective connection acceptance support for TCP sockets.
+> I have forward-ported the 2.4.18 patch to 2.6.0-test2, included below.
+> No functional changes have been made.
 
-Thanks
-vinay
+That is great!  Thanks for not forgetting about this issue.
 
---- linux-2.6.0-test4/drivers/net/ni5010.c	2003-07-15 17:22:18.000000000 +0530
-+++ linux-2.6.0-test4-nvk/drivers/net/ni5010.c	2003-08-25 16:56:02.000000000 +0530
-@@ -96,6 +96,7 @@
- 	struct net_device_stats stats;
- 	int o_pkt_size;
- 	int i_pkt_size;
-+	spinlock_t lock;
- };
- 
- /* Index to functions, as function prototypes. */
-@@ -280,11 +281,16 @@
- 	/* DMA is not supported (yet?), so no use detecting it */
- 
- 	if (dev->priv == NULL) {
-+		struct ni5010_local* lp;
-+
- 		dev->priv = kmalloc(sizeof(struct ni5010_local), GFP_KERNEL|GFP_DMA);
- 		if (dev->priv == NULL) {
- 			printk(KERN_WARNING "%s: Failed to allocate private memory\n", dev->name);
- 			return -ENOMEM;
- 		}
-+
-+		lp = (struct ni5010_local*)dev->priv;
-+		spin_lock_init(&lp->lock);
- 	}
- 
- 	PRINTK2((KERN_DEBUG "%s: I/O #10 passed!\n", dev->name));
-@@ -463,6 +469,7 @@
- 	ioaddr = dev->base_addr;
- 	lp = (struct ni5010_local *)dev->priv;
- 	
-+	spin_lock(&lp->lock);
- 	status = inb(IE_ISTAT); 
- 	PRINTK3((KERN_DEBUG "%s: IE_ISTAT = %#02x\n", dev->name, status));
- 		
-@@ -479,6 +486,7 @@
- 
- 	if (!xmit_was_error) 
- 		reset_receiver(dev); 
-+	spin_unlock(&lp->lock);
- 	return IRQ_HANDLED;
- }
- 
-@@ -693,8 +701,7 @@
-         buf_offs = NI5010_BUFSIZE - length - pad;
-         lp->o_pkt_size = length + pad;
- 
--	save_flags(flags);	
--	cli();
-+	spin_lock_irqsave(&lp->lock, flags);
- 
- 	outb(0, EDLC_RMASK);	/* Mask all receive interrupts */
- 	outb(0, IE_MMODE);	/* Put Xmit buffer on system bus */
-@@ -712,7 +719,7 @@
- 	outb(MM_EN_XMT | MM_MUX, IE_MMODE); /* Begin transmission */
- 	outb(XM_ALL, EDLC_XMASK); /* Cause interrupt after completion or fail */
- 
--	restore_flags(flags);
-+	spin_unlock_irqrestore(&lp->lock, flags);
- 
- 	netif_wake_queue(dev);
- 	
+I think this feature would really be great to develop _really_
+transparent proxies.
+
+> Could someone have a look at it?
+
+I'm not a core networking guy, but it looks fine to me.
+
+Dave, Andi, Alexey, James: Would this be a candidate for kernel
+inclusion at some point?
+
+> Lennert
+
+--=20
+- Harald Welte <laforge@gnumonks.org>               http://www.gnumonks.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+Programming is like sex: One mistake and you have to support it your lifeti=
+me
+
+--oyUTqETQ0mS9luUI
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.2 (GNU/Linux)
+
+iD8DBQE/Se5PXaXGVTD0i/8RAnsnAKCD+2JPd5DJOUBY6xOtjWROd4rpMgCeO1dB
+j9lZUVR/McLciqfBaKkoT34=
+=MakQ
+-----END PGP SIGNATURE-----
+
+--oyUTqETQ0mS9luUI--
