@@ -1,79 +1,141 @@
-From: "Michael Richardson" <mcr@xelerance.com>
-Subject: Re: v6-in-v4 IPsec and NAT traversal
-Date: Sat, 13 Mar 2004 12:24:56 -0500
+From: Adrian Bunk <bunk@fs.tum.de>
+Subject: [2.6 patch] IPV6 addrconf.c: remove unused functions and variables
+Date: Sat, 13 Mar 2004 20:39:59 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4831.1079198696@marajade.sandelman.ottawa.on.ca>
-References: <Pine.LNX.4.44.0403131137400.22557-100000@netcore.fi>
-Cc: netdev@oss.sgi.com, dev@lists.openswan.org
+Message-ID: <20040313193959.GB14833@fs.tum.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Pekka Savola <pekkas@netcore.fi>
-In-Reply-To: Message from Pekka Savola <pekkas@netcore.fi>
-   of "Sat, 13 Mar 2004 11:43:04 +0200." <Pine.LNX.4.44.0403131137400.22557-100000@netcore.fi>
+To: roque@di.fc.ul.pt, kuznet@ms2.inr.ac.ru
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
+The patch
+
+  [IPV6]: Do not report {multi,any}cast in inet6_dump_ifaddr().
+
+in Linus' tree removed the only uses of two functions and two variables
+and therefore caused the following compile warnings:
+
+<--  snip  -->
+
+...
+  CC      net/ipv6/addrconf.o
+net/ipv6/addrconf.c: In function `inet6_dump_ifaddr':
+net/ipv6/addrconf.c:2638: warning: unused variable `ifmca'
+net/ipv6/addrconf.c:2639: warning: unused variable `ifaca'
+net/ipv6/addrconf.c: At top level:
+net/ipv6/addrconf.c:2558: warning: `inet6_fill_ifmcaddr' defined but not used
+net/ipv6/addrconf.c:2595: warning: `inet6_fill_ifacaddr' defined but not used
+...
+
+<--  snip  -->
 
 
->>>>> "Pekka" == Pekka Savola <pekkas@netcore.fi> writes:
-    Pekka> I'm interested whether Linux IPsec implementations support:
+The patch below removes these functions and variables.
 
-    Pekka>  1) IPv6 payload inside IPv4 IPsec tunnel/transport?
 
-    Pekka>  That is, when the intermediate network doesn't support IPv6,
-    Pekka> you could do IPv6, secured, without first encapsulating in
-    Pekka> IPv6-over-IPv4 tunnel and then running IPv6 IPsec.
+diffstat output: 
 
-  I don't know if 26sec can do it at the bottom layer - I think not.
-  I can tell you that neither racoon nor pluto can negotiate a mixed
-mode SA. Both are pretty close - but at present no real testing is done
-on that.
+net/ipv6/addrconf.c |   76 --------------------------------------------
+ 1 files changed, 76 deletions(-)
 
-    Pekka>  2) NAT-traversal? (There are at least some patches in
-    Pekka> OpenSWAN, etc. for this).  This could be very handy combined
-    Pekka> with the above.
 
-  Both 26sec and KLIPS have support for NAT-Traversal for IPv4, but
-both requires support from the UDP - this is in 2.6, 2.4 backport, and 
-showing up in many distros. The patch is 140 lines.
-  Pluto will detect the kernel support for NAT-Traversal and use it
-if it exists. 
-  I don't know about racoon.
+cu
+Adrian
 
-    Pekka> [[ 3) Some feasible key management method, such as
-    Pekka> certificates.  I think this exists, and doesn't require
-    Pekka> support in the kernel. ]]
 
-  Racoon has poor pkix-self-signed certificate support.
-  Pluto has pkix, raw RSA, RSA-from-DNS. The latest X.509 patches from
-Andreas (not yet integrated) include OCSP (RFC2560). 
-
-    Pekka> I'm considering how viable this kind of NAT -traversal
-    Pekka> supporting v6-in-v4 IPsec would be as an IPv6
-    Pekka> tunneling/transition mechanism.
-
-  Well, I was rather hoping that NAT-traversal for IPsec would have been
-done as:
-     IPv4/ESP/IPv6/Teredo/UDP/IPv4.
-
-    Pekka> What's the status (implementations, planned or future) of
-    Pekka> these features?
-
-  http://www.openswan.org/development/roadmap.php
-
-- --
-]       ON HUMILITY: to err is human. To moo, bovine.           |  firewalls  [
-]   Michael Richardson,    Xelerance Corporation, Ottawa, ON    |net architect[
-] mcr@xelerance.com      http://www.sandelman.ottawa.on.ca/mcr/ |device driver[
-] panic("Just another Debian GNU/Linux using, kernel hacking, security guy"); [
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.2 (GNU/Linux)
-Comment: Finger me for keys
-
-iQCVAwUBQFNDp4qHRg3pndX9AQHmGwP/TsrZQ4etRT4SBWVJtV+FZJ6iqeMytexi
-aqfCcAINlQV5/8wWo45/cwdOuJ/t6dHxffZGYFnbXeZzZyzxGqgraB/UscAX9zcN
-rfDKSgs3ShwR8T5VKnKYeMjqELifGDJKOQFtaOvgcXG0yzQdVLG/XzBhgDUSmmnA
-32OtcTr2tes=
-=J4Bs
------END PGP SIGNATURE-----
+--- linux-2.6.4-mm1-full/net/ipv6/addrconf.c.old	2004-03-13 20:27:45.000000000 +0100
++++ linux-2.6.4-mm1-full/net/ipv6/addrconf.c	2004-03-13 20:35:20.000000000 +0100
+@@ -2553,80 +2553,6 @@
+ 	return -1;
+ }
+ 
+-static int inet6_fill_ifmcaddr(struct sk_buff *skb, struct ifmcaddr6 *ifmca,
+-				u32 pid, u32 seq, int event)
+-{
+-	struct ifaddrmsg *ifm;
+-	struct nlmsghdr  *nlh;
+-	struct ifa_cacheinfo ci;
+-	unsigned char	 *b = skb->tail;
+-
+-	nlh = NLMSG_PUT(skb, pid, seq, event, sizeof(*ifm));
+-	if (pid) nlh->nlmsg_flags |= NLM_F_MULTI;
+-	ifm = NLMSG_DATA(nlh);
+-	ifm->ifa_family = AF_INET6;	
+-	ifm->ifa_prefixlen = 128;
+-	ifm->ifa_flags = IFA_F_PERMANENT;
+-	ifm->ifa_scope = RT_SCOPE_UNIVERSE;
+-	if (ipv6_addr_scope(&ifmca->mca_addr)&IFA_SITE)
+-		ifm->ifa_scope = RT_SCOPE_SITE;
+-	ifm->ifa_index = ifmca->idev->dev->ifindex;
+-	RTA_PUT(skb, IFA_ADDRESS, 16, &ifmca->mca_addr);
+-	ci.cstamp = (__u32)(TIME_DELTA(ifmca->mca_cstamp, INITIAL_JIFFIES) / HZ
+-		    * 100 + TIME_DELTA(ifmca->mca_cstamp, INITIAL_JIFFIES) % HZ
+-		    * 100 / HZ);
+-	ci.tstamp = (__u32)(TIME_DELTA(ifmca->mca_tstamp, INITIAL_JIFFIES) / HZ
+-		    * 100 + TIME_DELTA(ifmca->mca_tstamp, INITIAL_JIFFIES) % HZ
+-		    * 100 / HZ);
+-	ci.ifa_prefered = INFINITY_LIFE_TIME;
+-	ci.ifa_valid = INFINITY_LIFE_TIME;
+-	RTA_PUT(skb, IFA_CACHEINFO, sizeof(ci), &ci);
+-	nlh->nlmsg_len = skb->tail - b;
+-	return skb->len;
+-
+-nlmsg_failure:
+-rtattr_failure:
+-	skb_trim(skb, b - skb->data);
+-	return -1;
+-}
+-
+-static int inet6_fill_ifacaddr(struct sk_buff *skb, struct ifacaddr6 *ifaca,
+-				u32 pid, u32 seq, int event)
+-{
+-	struct ifaddrmsg *ifm;
+-	struct nlmsghdr  *nlh;
+-	struct ifa_cacheinfo ci;
+-	unsigned char	 *b = skb->tail;
+-
+-	nlh = NLMSG_PUT(skb, pid, seq, event, sizeof(*ifm));
+-	if (pid) nlh->nlmsg_flags |= NLM_F_MULTI;
+-	ifm = NLMSG_DATA(nlh);
+-	ifm->ifa_family = AF_INET6;	
+-	ifm->ifa_prefixlen = 128;
+-	ifm->ifa_flags = IFA_F_PERMANENT;
+-	ifm->ifa_scope = RT_SCOPE_UNIVERSE;
+-	if (ipv6_addr_scope(&ifaca->aca_addr)&IFA_SITE)
+-		ifm->ifa_scope = RT_SCOPE_SITE;
+-	ifm->ifa_index = ifaca->aca_idev->dev->ifindex;
+-	RTA_PUT(skb, IFA_ADDRESS, 16, &ifaca->aca_addr);
+-	ci.cstamp = (__u32)(TIME_DELTA(ifaca->aca_cstamp, INITIAL_JIFFIES) / HZ
+-		    * 100 + TIME_DELTA(ifaca->aca_cstamp, INITIAL_JIFFIES) % HZ
+-		    * 100 / HZ);
+-	ci.tstamp = (__u32)(TIME_DELTA(ifaca->aca_tstamp, INITIAL_JIFFIES) / HZ
+-		    * 100 + TIME_DELTA(ifaca->aca_tstamp, INITIAL_JIFFIES) % HZ
+-		    * 100 / HZ);
+-	ci.ifa_prefered = INFINITY_LIFE_TIME;
+-	ci.ifa_valid = INFINITY_LIFE_TIME;
+-	RTA_PUT(skb, IFA_CACHEINFO, sizeof(ci), &ci);
+-	nlh->nlmsg_len = skb->tail - b;
+-	return skb->len;
+-
+-nlmsg_failure:
+-rtattr_failure:
+-	skb_trim(skb, b - skb->data);
+-	return -1;
+-}
+-
+ static int inet6_dump_ifaddr(struct sk_buff *skb, struct netlink_callback *cb)
+ {
+ 	int idx, ip_idx;
+@@ -2635,8 +2561,6 @@
+ 	struct net_device *dev;
+ 	struct inet6_dev *idev = NULL;
+ 	struct inet6_ifaddr *ifa;
+-	struct ifmcaddr6 *ifmca;
+-	struct ifacaddr6 *ifaca;
+ 	
+ 	s_idx = cb->args[0];
+ 	s_ip_idx = ip_idx = cb->args[1];
