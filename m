@@ -1,70 +1,102 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: packet re-ordering on SMP machines.
-Date: Sun, 25 Aug 2002 11:32:18 -0700
+From: KLpetronas@aol.com
+Subject: (no subject)
+Date: Sun, 25 Aug 2002 14:48:33 EDT
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3D6922B2.1020400@candelatech.com>
-References: <Pine.GSO.4.30.0208251149320.29461-100000@shell.cyberus.ca>
+Message-ID: <18017.8834977143$1030303324@news.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 8bit
-Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
+To: abb@gnv.ifas.ufl.edu, aem@miavax.ir.miami.edu, aireyr@ilovephp.com,
+   alan@lxorguk.ukuu.org.uk, andrebalsa@altern.org, anjo@swi.psy.uva.nl,
+   aqua-l@killick.ifmt.nf.ca, aquarium@emuvm1.cc.emory.edu.sgi.com,
+   arber@mit.edu, authors@atlasofcyberspace.com, bec@nysernet.org,
+   bettas@arizvm1.ccit.arizona.edu.sgi.com, brine-l@uga.cc.uga.edu,
+   calcmach@shani.net, chasan@hujiagri.huji.ac.sgi.com, chip@pcc.com,
+   cip-odell@umuc.edu, coastnet@uriacc.uri.edu, colin@nyx.net,
+   crust-l@sivm.si.edu, cturtle@nervm.nerdc.ufl.edu, cyang@brownvm.brown.edu,
+   cyber@dis.org, daniel@futurniture.se, dave.thomas@newcastle.ac.uk,
+   davem@redhat.com, ddvffvs@uvvm.uvic.ca, deepsea@net.bio.net,
+   deepsea-moderator@net.bio.net, dkanagy@gol.com,
+   dkelzenb@blue.weeg.uiowa.edu, dwmw2@infradead.org, ebner@epo.co.at,
+   ecd-request@ssrl04.slac.stanford.edu, ecs-helpdesk-request@mailbase.ac.uk,
+   ecs-news@mailbase.ac.uk, eisen@xtal200.harvard.edu,
+   epo@mlist.austria.eu.net, ferry.byte@ecn.org, fi@access.digex.net,
+   fidi23@irmfao01.bitnet.sgi.com, fippai@irmfao01.bitnet.sgi.com,
+   fish-ecology@vm.se.lsoft.com, fisheries@biome.bio.ns.ca.sgi.com,
+   fishfolk@mitvma.mit.edu, fish-junior@vm.se.lsoft.com, flx@msu.ru,
+   foster@fosterparents.com, frog-net@rana.usc.edu,
+   gd-announce@gwydiondylan.org, gd-announce-subscribe@gwydiondylan.org,
+   gd-chatter@gwydiondylan.org, gd-chatter-subscribe@gwydiondylan.org,
+   gd-hackers@gwydiondylan.org, gd-hackers-subscribe@gwydiondylan.org,
+   gnu@gnu.org, gokhan@cc.itu.edu.tr.sgi.com, grimmon@indiana.edu,
+   gruwez@libertysoftware.be, harold@uga.cc.uga.edu,
+   herp-l@xtal200.harvard.edu, iamslic@ucsd.edu, Meyercyril@aol.com,
+   icam-l@irmfao01.bitnet.sgi.com, info@ncee.net, info@sicilyweb.com,
+   info@sims.berkeley.edu, info@sys-con.com, info@technodyke.net,
+   info@webcom.com, info-dylan@harlequin.co.uk, j1webmaster@sun.com,
+   JackPugh@aol.com, jfirch@cnet.shs.arizona.edu, jim@cgc.ns.ca,
+   jonathan@openhealth.org, kaos@ocs.com.au, kaw@swi.psy.uva.nl,
+   kaw-request@swi.psy.uva.nl, kevinandkell@herdthinners.com,
+   kgb@manjak.knm.org.pl, khardy@ucsd.edu, killies@mejac.palo-alto.ca.us,
+   killies-only@mejac.palo-alto.ca.us, killies-request@mejac.palo-alto.ca.us,
+   kirk@mcelhearn.com, liaw@rana.usc.edu, linux-net@vger.kernel.org,
+   listowner@herdthinners.com, listproc@xtal200.harvard.edu,
+   listserv@aearn.aco.net.sgi.com, listserv@arizvm1.ccit.arizona.edu.sgi.com,
+   listserv@brownvm.brown.edu, listserv@cc.itu.edu.tr.sgi.com,
+   listserv@emuvm1.cc.emory.edu.sgi.com, listserv@irmfao01.bitnet.sgi.com,
+   listserv@listserv.albany.edu, listserv@mitvma.mit.edu,
+   listserv@nervm.nerdc.ufl.edu, listserv@vm.se.lsoft.com,
+   listserv@sivm.si.edu, listserv@techunix.technion.ac.il,
+   listserv@ucf1vm.cc.ucf.edu, listserv@ucmp1.berkeley.edu.sgi.com,
+   listserv@ucsd.edu, listserv@uga.cc.uga.edu, listserv@uriacc.uri.edu,
+   listserv@utcvm.utc.edu.sgi.com, listserv@uvvm.uvic.ca,
+   listserv@vm.tau.ac.il, listserver@cgc.ns.ca, ljackson@uga.cc.uga.edu,
+   mailbase@mailbase.ac.uk, mailbase-helpline@mailbase.ac.uk,
+   mailserv@ac.dal.ca, Lavaudseverine@aol.com, mailserver@henge.demon.co.uk,
+   mailserver@henge.org.uk, majordomo@biome.bio.ns.ca.sgi.com,
+   majordomo@cert.org, majordomo@dis.org, majordomo@killick.ifmt.nf.ca,
+   majordomo@mail.orst.edu, majordomo@mlist.austria.eu.net,
+   majordomo@oss.sgi.com, majordomo@shore.net, majordomo@vger.kernel.org,
+   mar-facil@ac.dal.ca, marine-l@cgc.ns.ca, marine-tech@mailbase.ac.uk,
+   marine-tech-request@mailbase.ac.uk, mark@ihpva.org, marmam@uvvm.uvic.ca,
+   matti.aarnio@sonera.fi, mbancora@imli.com, mbartels@efn.org,
+   medsea-l@aearn.aco.net.sgi.com, meh2o-l@vm.tau.ac.il, meixner@wu-wien.ac.at,
+   mesut.guner@newcastle.ac.uk, mikell@optonline.net, mnhiv002@sivm.si.edu,
+   mnhiv008@sivm.si.edu, mnhiv040@sivm.si.edu,
+   mollusca@ucmp1.berkeley.edu.sgi.com, netdev@oss.sgi.com,
+   nettime@bbs.thing.net, nia-net@mail.orst.edu, njs@watson.ibm.com,
+   oceantech@ucsd.edu, oron-a@inter.net.il, osakb@emuvm1.cc.emory.edu.sgi.com,
+   owner-aqua-l@killick.ifmt.nf.ca, p_gortmaker@yahoo.com,
+   pbrueggeman@ucsd.edu, petryp@ucs.orst.edu, r.e.wolff@bitwizard.nl,
+   rbaird@sfu.ca, reiserfs-list-help@namesys.com,
+   reiserfs-list-subscribe@namesys.com, reiserfs-list-unsubscribe@namesys.com,
+   rgooch@atnf.CSIRO.AU, rml@tech9.net, robertf@astromart.com, rosborn@anl.gov,
+   rpuf4584@uriacc.uri.edu, rreilova@ececs.uc.edu, scuba@cc.itu.edu.tr.sgi.com,
+   scuba-d@brownvm.brown.edu, scuba-l@brownvm.brown.edu,
+   sfer-l@ucf1vm.cc.ucf.edu, shipley@dis.org, silvert@biome.bio.ns.ca.sgi.com,
+   sixdml-dev@xmldb.org, sixdml-dev-request@xmldb.org, solaris@cicei.ulpgc.es,
+   solaris@vm.se.lsoft.com, spork@exo.com, srobeson@indiana.edu,
+   star@matrix.bchs.uh.edu.sgi.com, steerel@umsystem.edu, stratton@ac.dal.ca,
+   KLpetronas@aol.com, system.dynamics@albany.edu, tcort@sover.net,
+   thecml-subscribe@yahoogroups.com, tom@gally.net, translation@monjunet.ne.jp,
+   trevor@jpj.net, tworlton@anl.gov, type@address.here.sgi.com, tytso@mit.edu,
+   umucinfo@umuc.edu, vassilii@tarunz.org, vensim@vensim.com,
+   viro@math.psu.edu, walden_list@rivertext.com,
+   waldenlist-subscribe@yahoogroups.com, webmaster@browbeat.com,
+   webmaster@cert.org, webmaster@fortnet.org, webmaster@pcc.com,
+   webmaster@sims.berkeley.edu, webmaster@songbird.com, webmaster@vhml.com,
+   webmaster@nova.umuc.edu, webmasters@gnu.org, webmasters@www.gnu.org,
+   whide@matrix.bchs.uh.edu.sgi.com, wildnet@tribune.usask.ca,
+   wildnet-request@tribune.usask.ca, willy@thepuffingroup.com,
+   woodsworth@skyway.usask.ca, xapi-dev@xmldb.org, xapi-dev-request@xmldb.org,
+   xmldb@xmldb.org, xmldb-cvs-request@xmldb.org, xmldb-request@xmldb.org,
+   xupdate-dev@xmldb.org, xupdate-dev-request@xmldb.org, eretz@eretz.co.il,
+   subscrib@eretz.co.il, david@eretz.co.il, jugglerabuse@mirage-avm.com,
+   juggler@page-1.com, editor@eretz.com, ducky@webfoot.com,
+   afzadeh@ese-metz.fr, abolfazl.fatholahzadeh@supelec.fr,
+   moonshinecreek@hotmail.com, anarchium@chez.co.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
-jamal wrote:
-> 
-> 
-> 
-> NAPI fixes packet reordering problems.
-
-It does indeed.  I just patched the e1000 with the latest NAPI patch
-I could find (from Aug 15 or so), and the re-ordering problems went away.
-
-The amount of packets dropped decreased too, but I still see about 1 out of
-1000 packets dropped due to rx-FIFO or rx-dropped.  This is when trying to run
-60,000 pps of 1514 byte packets from one port to the other on the same dual-port e1000
-NIC (copper).  It will generate up to about 72,000 pps without dropping too many
-more...
-
-I will do some more tests on two single-port NICs soon to see if that
-performs better.
-
-Also, I see the hard_start_xmit call failing 5876 times out of 2719493
-calls (for example).  The code that calls the method looks like this:
-
-                         spin_lock_bh(&odev->xmit_lock);
-                         if (!netif_queue_stopped(odev)) {
-                                 if (odev->hard_start_xmit(next->skb, odev)) {
-                                         if (net_ratelimit()) {
-                                                 printk(KERN_INFO "Hard xmit error\n");
-                                         }
-                                         next->errors++;
-                                         next->last_ok = 0;
-                                 }
-                                 else {
-                                         next->last_ok = 1;
-                                         next->sofar++;
-                                         next->tx_bytes += (next->cur_pkt_size + 4); /* count csum */
-                                 }
-
-                                 next->next_tx_ns = getRelativeCurNs() + next->ipg;
-                         }
-                         else {  /* Re-try it next time */
-                                 next->last_ok = 0;
-                         }
-
-                         spin_unlock_bh(&odev->xmit_lock);
-
-I have not seen hard_start_xmit fail on other drivers, even when over-driving them
-well beyond their capabilities.  Any ideas what causes the hard_start_xmit errors?
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+3
