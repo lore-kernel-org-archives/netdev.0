@@ -1,26 +1,39 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Dealing with buggy hardware (was: b44 and 4g4g)
-Date: Sat, 5 Jun 2004 13:19:23 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040605131923.232f8950.davem@redhat.com>
-References: <20040531202104.GA8301@ee.oulu.fi>
-	<20040605200643.GA2210@ee.oulu.fi>
+From: Olaf Hering <olh@suse.de>
+Subject: [PATCH] compat bug in sys_recvmsg, MSG_CMSG_COMPAT check missing
+Date: Sat, 5 Jun 2004 22:43:34 +0200
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040605204334.GA1134@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Pekka Pietikainen <pp@ee.oulu.fi>
-In-Reply-To: <20040605200643.GA2210@ee.oulu.fi>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S261913AbUFEUnh@vger.kernel.org>
+To: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Disposition: inline
 List-Id: netdev.vger.kernel.org
 
-On Sat, 5 Jun 2004 23:06:44 +0300
-Pekka Pietikainen <pp@ee.oulu.fi> wrote:
 
-> +	if(virt_to_bus(skb->data) + skb->len > B44_PCI_DMA_MAX) {
+packet_recvmsg() gets the flags from the compat_sys_socketcall(), but i=
+t
+does not check for the active MSG_CMSG_COMPAT bit. As a result, it
+returns -EINVAL and makes the user rather unhappy
 
-You can't use this non-portable interface, you have to:
 
-1) pci_map the data
-2) test the dma_addr_t returned
+diff -purN linux-2.6.7-rc2-bk5.orig/net/packet/af_packet.c linux-2.6.7-=
+rc2-bk5/net/packet/af_packet.c
+--- linux-2.6.7-rc2-bk5.orig/net/packet/af_packet.c	2004-06-05 09:34:48=
+=2E000000000 +0200
++++ linux-2.6.7-rc2-bk5/net/packet/af_packet.c	2004-06-05 22:32:16.0000=
+00000 +0200
+@@ -1037,7 +1037,7 @@ static int packet_recvmsg(struct kiocb *
+ 	int copied, err;
+=20
+ 	err =3D -EINVAL;
+-	if (flags & ~(MSG_PEEK|MSG_DONTWAIT|MSG_TRUNC))
++	if (flags & ~(MSG_PEEK|MSG_DONTWAIT|MSG_TRUNC|MSG_CMSG_COMPAT))
+ 		goto out;
+=20
+ #if 0
+--=20
+USB is for mice, FireWire is for men!
+
+sUse lINUX ag, n=C3=9CRNBERG
