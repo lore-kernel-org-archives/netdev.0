@@ -1,29 +1,41 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [patch] net/core/pktgen.c shouldn't include pci.h
-Date: Sat, 13 Nov 2004 23:18:02 -0800
-Message-ID: <20041113231802.0704083e.davem@davemloft.net>
-References: <20041113145351.GZ2249@stusta.de>
+From: Nir Tzachar <tzachar@cs.bgu.ac.il>
+Subject: Re: network protocol query
+Date: Sun, 14 Nov 2004 09:41:23 +0200 (IST)
+Message-ID: <Pine.LNX.4.50.0411140936040.15336-100000@nexus.cs.bgu.ac.il>
+References: <20041114030157.88091.qmail@web41406.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: robert.olsson@its.uu.se, netdev@oss.sgi.com, linux-kernel@vger.kernel.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Adrian Bunk <bunk@stusta.de>
-In-Reply-To: <20041113145351.GZ2249@stusta.de>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com, "" <kernelnewbies@nl.linux.org>
+Return-path: <kernelnewbies-bounce@nl.linux.org>
+To: cranium2003 <cranium2003@yahoo.com>
+In-Reply-To: <20041114030157.88091.qmail@web41406.mail.yahoo.com>
+Sender: kernelnewbies-bounce@nl.linux.org
+Errors-to: kernelnewbies-bounce@nl.linux.org
+List-help: <mailto:ecartis@nl.linux.org?Subject=help>
+List-unsubscribe: <mailto:kernelnewbies-request@nl.linux.org?Subject=unsubscribe>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:kernelnewbies-request@nl.linux.org?Subject=subscribe>
+List-owner: <mailto:ecartis-owner@nl.linux.org>
+List-post: <mailto:kernelnewbies@nl.linux.org>
+List-archive: <http://mail.nl.linux.org/kernelnewbies/>
 List-Id: netdev.vger.kernel.org
 
-On Sat, 13 Nov 2004 15:53:51 +0100
-Adrian Bunk <bunk@stusta.de> wrote:
+> hello,
+> kernel. Is there any function in kernel that help me
+> to add new protocol?can it be working with existing
 
-> If rebuilding after touching pci.h in 2.6, net/core/pktgen.c is the only 
-> file under net/ that gets rebuilt.
-> 
-> I searched and didn't find any reason why net/core/pktgen.c needs to 
-> include pci.h .
-> 
-> I'm therefore suggesting the patch below (applies against both 2.4
-> and 2.6).
+try looking at existing protocols, and how the register themselves.
+you basically need to inet_add_protocol to add your protocol, after you 
+built the proper struct net_protocol.
 
-Yeah, that's pretty weird.  Patch applied, thanks Adrian :)
+hope this helped.
+
+
+-- 
+========================================================================
+nir.
+
+--
+Kernelnewbies: Help each other learn about the Linux kernel.
+Archive:       http://mail.nl.linux.org/kernelnewbies/
+FAQ:           http://kernelnewbies.org/faq/
