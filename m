@@ -1,29 +1,48 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [2.4/2.6 PATCHES] Change some ip_fragment checks to help IPVS
-Date: Sat, 11 Oct 2003 11:53:57 -0700
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH] Handle shared SKBs in VLAN receive code
+Date: Sat, 11 Oct 2003 12:03:52 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031011115357.0c756785.davem@redhat.com>
-References: <Pine.LNX.4.44.0310111956070.31823-100000@u.domain.uli>
+Message-ID: <3F885418.3090407@candelatech.com>
+References: <3F87430D.2040000@tpack.net> <3F87464B.1020908@candelatech.com> <3F874A30.6010700@tpack.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: wensong@linux-vs.org, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Julian Anastasov <ja@ssi.bg>
-In-Reply-To: <Pine.LNX.4.44.0310111956070.31823-100000@u.domain.uli>
+To: Tommy Christensen <tommy.christensen@tpack.net>
+In-Reply-To: <3F874A30.6010700@tpack.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 11 Oct 2003 20:18:33 +0300 (EEST)
-Julian Anastasov <ja@ssi.bg> wrote:
+Tommy Christensen wrote:
+> Ben Greear wrote:
+> 
+>>> -        if (skb_shared(skb) || skb_cloned(skb)) {
+>>> -            struct sk_buff *nskb = skb_copy(skb, GFP_ATOMIC);
+>>> -            kfree(skb);
+>>> -            skb = nskb;
+>>> -        }
+>>> +        skb = skb_unshare(skb, GFP_ATOMIC);
+>>
+>>
+>>
+>> On 2.4.22, at least, skb_unshare only checks skb_cloned(), so do we
+>> also need to check skb_shared()?  Or was that check in the old patch 
+>> above
+>> not needed?
+> 
+> 
+> skb_shared() is now taken care of by skb_share_check(), called earlier 
+> in the
+> receive routine.
 
-> # [IPV4]: ip_copy_metadata must copy the nfcache field
+Maybe we should have a method called:  skb_get_me_an_skb_that_I_can_modify(skb);
 
-I can't believe we missed this, I'll definitely apply
-these patches.
+Then the subtle differences between sharing, cloning, etc can be handled
+by the skb code internally...
 
-Thanks.
+Ben
 
-> # [IPV4]: ip_fragment should not reassemble if all frags do not have owner
-
-This one I have to think about some more.
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
