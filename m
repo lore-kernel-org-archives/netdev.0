@@ -1,40 +1,34 @@
-From: "iGlobalMedia Marketing Team" <marketing@iglobalmedia.com>
-Subject: Marketing Enquiry
-Date: Fri, 14 Nov 2003 15:20:16 +0530
+From: Mike_Phillips@URSCorp.com
+Subject: Re: [PATCH] ibmtr -- convert to new probeing
+Date: Sat, 15 Nov 2003 00:53:18 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <EKEKJNLNFJHLPAAIKJMEOENBCLAA.marketing@iglobalmedia.com>
-Reply-To: marketing@iglobalmedia.com
+Message-ID: <OF2336FD68.EC98F250-ON05256DDF.001F93EA-05256DDF.00205884@urscorp.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, Stephen Hemminger <shemminger@osdl.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello,
 
-My name is Vipin, and I work with the marketing team of iGlobalMedia Group,
-one of the largest online gaming groups in the world.
-As a group, we manage and own several online Poker, Casino and Bingo rooms,
-our flag ship brands being www.partypoker.com ( the Largest Online Poker
-Room in the world) , www.starluckcasino.com www.planetluck.com &
-www.partybingo.com.
-I was going through your site, wanted to discuss a possible marketing
-relationship with you. Could you please forward this mail to someone from
-your Marketing Team and have them respond (preferably with contact numbers)?
-I can be reached on the numbers mentioned below in my signature.
-I look forward to hearing from you soon.
+Big badda boom !!
 
-Best Regards,
+Applied all patches (including mine to get ibmtr_cs working), insert pcmcia
+card, boom, panic, kernel halt, bye, bye system.
 
-Vipin Goyal
-Affiliate Manager
-iGlobalMedia
-viping@iGlobalMedia.com
-Toll Free : 1 888 206 4659
-Tel  : +91 405 572 1080 ext 3118
-Cell : +91 988 503 0220
-Fax  : +91 405 789 3273
-Time Zone : EST +10 hours*
+It's getting very, very confused. Stephen's patch changes the behaviour in
+ibmtr.c so that it tries to probe the PIOAddr even when call via ibmtr_cs,
+can't do that, ibmtr_cs has already allocated the PIOAddr as part of the
+pcmcia setup. So ibmtr fails to allocate the same port. ibmtr.c tries to
+sanely exit, but ibmtr_cs isn't having any of it. Interrupts then decide to
+arrive, but none of the structures have been setup correctly and the kernel
+panics in the spinlock in tok_interrupt.
+
+Making sure ibmtr_cs is working is actually more important than ibmtr. IBM
+doesn't sell the isa cards anymore (I hope !!), but the pcmcia adapter is
+still being sold (in addition to the olympic based cardbus adapter)
+
+I need to dig up a real ISA adapter to try this with too.
+
+Mike
