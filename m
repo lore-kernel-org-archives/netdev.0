@@ -1,37 +1,33 @@
-From: Markus =?ISO-8859-1?Q?H=E4stbacka?= <midian@ihme.org>
-Subject: Re: [NET] 64 bit byte counter for 2.6.3
-Date: Wed, 18 Feb 2004 22:43:34 +0200
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: Restrict local IP announcements in ARP requests
+Date: Wed, 18 Feb 2004 13:03:00 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1077137014.18843.10.camel@midux>
-References: <1077123078.9223.7.camel@midux>
-	 <20040218101711.25dda791@dell_ss3.pdx.osdl.net>
-	 <Pine.LNX.4.53.0402181527000.7318@chaos>
+Message-ID: <20040218130300.010989f8.davem@redhat.com>
+References: <Pine.LNX.4.58.0402081149001.6268@u.domain.uli>
+	<20040209140853.69ab8bea.davem@redhat.com>
+	<Pine.LNX.4.58.0402100049470.1251@u.domain.uli>
+	<20040209151053.1f63937a.davem@redhat.com>
+	<Pine.LNX.4.58.0402100154010.1251@u.domain.uli>
+	<20040211202251.7b05102c.davem@redhat.com>
+	<Pine.LNX.4.58.0402151153450.1129@u.domain.uli>
+	<20040217190753.238c5ae0.davem@redhat.com>
+	<Pine.LNX.4.58.0402181019190.3189@u.domain.uli>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Kernel Mailinglist <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: root@chaos.analogic.com
-In-Reply-To: <Pine.LNX.4.53.0402181527000.7318@chaos>
+To: Julian Anastasov <ja@ssi.bg>
+In-Reply-To: <Pine.LNX.4.58.0402181019190.3189@u.domain.uli>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2004-02-18 at 22:32, Richard B. Johnson wrote:
-> Manipulation of a 'long long' is not atomic in 32 bit architectures.
-> Please explain how we don't care, if we shouldn't care. Also some
-> /proc entries might get read incorrectly with existing tools.
-Please, tell me all the tools, I'll test them. ifconfig and netstat
-works correctly atleast.
+On Wed, 18 Feb 2004 10:22:09 +0200 (EET)
+Julian Anastasov <ja@ssi.bg> wrote:
 
-And about the caring, is rx/tx bytes so important that they can't use
-long long? I would care to see more than 4GB, and maybe some error in
-the counter at some point (Have you _ever_ seen that happen?) than only
-4GB.
+> > Please make me a 2.4.x version of this patch (again with the other ARP
+> > thing applied already).
+> 
+> 	Thanks, it is attached.
 
-And no, I didn't post this to be merged into the mainline kernel, just
-to let users know that there maybe is an option for seeing maximum 4GB.
-
-This has been working for me since, umm.. let's say 2.4.20. All the
-tools I've needed have worked.
-
-        Markus
+Applied.
