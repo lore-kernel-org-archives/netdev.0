@@ -1,41 +1,53 @@
-From: Roland Dreier <roland@topspin.com>
-Subject: Re: [PATCH][RFC/v1][11/12] Add InfiniBand
-	Documentation files
-Date: Mon, 22 Nov 2004 07:41:47 -0800
-Message-ID: <52k6sdevr8.fsf@topspin.com>
-References: <20041122714.taTI3zcdWo5JfuMd@topspin.com>
-	<20041122714.AyIOvRY195EGFTaO@topspin.com>
-	<20041122153144.GA4821@infradead.org>
+From: Dorn Hetzel <kernel@dorn.hetzel.org>
+Subject: Re: r8169.c
+Date: Mon, 22 Nov 2004 13:13:07 -0500
+Message-ID: <20041122181307.GA3625@lilah.hetzel.org>
+References: <20041119162920.GA26836@lilah.hetzel.org> <20041119201203.GA13522@electric-eye.fr.zoreil.com> <20041120003754.GA32133@lilah.hetzel.org> <20041120002946.GA18059@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
-	openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-To: Christoph Hellwig <hch@infradead.org>
-In-Reply-To: <20041122153144.GA4821@infradead.org> (Christoph Hellwig's
-	message of "Mon, 22 Nov 2004 15:31:44 +0000")
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Cc: Dorn Hetzel <kernel@dorn.hetzel.org>, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com, jgarzik@pobox.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Disposition: inline
+In-Reply-To: <20041120002946.GA18059@electric-eye.fr.zoreil.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-    Christoph> Any reason this doesn't use an interface similar to the
-    Christoph> normal vlan code?
+On Sat, Nov 20, 2004 at 01:29:46AM +0100, Francois Romieu wrote:
+> Dorn Hetzel <kernel@dorn.hetzel.org> :
+> 
+> You have two options (or more) on top of 2.6.10-rc2:
+> - ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.10-rc2/2.6.10-rc2-mm2/2.6.10-rc2-mm2.bz2
+> - http://www.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/2.6.10-rc2-netdev1.patch.bz2
+>
+I have gotten as far as rc2-mm2, which was a fairly complete failure.  After
+just a couple of pings on the interface, the whole system started to freeze
+up fairly hard.  Please see   http://www.hetzel.org/8169/rc2-mm2/   for a
+set of information on the system state this time around.  The last two
+lines in messages.txt are:
 
-The normal vlan code uses an ioctl().  I thought a simple sysfs
-interface would be more palatable than a new socket ioctl.
+illyria kernel: NETDEV WATCHDOG: eth0: transmit timed out
+illyria kernel: eth0: interrupt 0001 taken in poll
 
-    Christoph> And what is a P_Key?
+Then things go south pretty hard and fast...
 
-It is a 16-bit identifier carried by IB packets that says which
-partition the packet is in.  End ports have P_Key tables that list
-which partitions they are members of (a port can be a member of one or
-more partitions, and can only receive packets from that partition).
+I'll try the other patches on top of rc2-mm2 tonight and see if that turns
+out any better :)
 
- - Roland
+> Once you have applied one of the patch above, the patch below will improve
+> your "transmit timed out" (please apply in order and enable NAPI):
+> http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.10-rc2-mm1/r8169-250.patch
+> http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.10-rc2-mm1/r8169-255.patch
+> 
+> If things perform better you may want to use bigger frames and apply as
+> well r8169-260.patch and r8169-265.patch.
+> http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.10-rc2-mm1/r8169-260.patch
+> http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.10-rc2-mm1/r8169-265.patch
+>
+
+Thanks again for all your help!
+
+-Dorn
+ 
