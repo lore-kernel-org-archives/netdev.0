@@ -1,23 +1,28 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH 2/2]: HFSC: Fix requeueing
-Date: Thu, 18 Mar 2004 20:41:57 -0800
+Subject: Re: [PATCH] packet delay scheduler
+Date: Thu, 18 Mar 2004 20:53:46 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040318204157.23314086.davem@redhat.com>
-References: <4059D327.40300@trash.net>
+Message-ID: <20040318205346.3fd7829d.davem@redhat.com>
+References: <20040316151058.3cc2fa28@dell_ss3.pdx.osdl.net>
+	<20040316174134.2f1da12a.davem@redhat.com>
+	<20040318120451.1c9ee286@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, lartc@mailman.ds9a.nl
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <4059D327.40300@trash.net>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20040318120451.1c9ee286@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 18 Mar 2004 17:49:43 +0100
-Patrick McHardy <kaber@trash.net> wrote:
+On Thu, 18 Mar 2004 12:04:51 -0800
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> This patch fixes requeueing in HFSC. Requeued packets are kept in a
-> high-priority queue which is always dequeued first.
+> Okay, here is a very simple QOS scheduler that delays packets for 2.6.
+> It is good for testing, and might be useful for people who want to put
+> some class of traffic into a "penalty box".
 
-Applied, thanks Patrick.
+I'm happy with this and added it to my 2.6.x tree.
+
+Could you cook up a 2.4.x variant for me?  Thanks.
