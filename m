@@ -1,41 +1,35 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: 2.6.9-rc1+bk: assertion tcp_get_pcount failed at
- net/ipv4/tcp_input.c
-Date: Fri, 10 Sep 2004 14:08:52 -0700
+Subject: Re: iproute2 patch introducing mtu/txqlen/weight via rtnetlink
+Date: Fri, 10 Sep 2004 14:14:00 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040910140852.7a970f3c.davem@davemloft.net>
-References: <20040909111233.GA3987@steel.home>
-	<20040910033055.GA26790@gondor.apana.org.au>
-	<20040909222542.7a30c0e4.davem@davemloft.net>
-	<41414C3D.2090606@us.ibm.com>
+Message-ID: <20040910141400.1cdf2e18.davem@davemloft.net>
+References: <20040909164834.GB18994@postel.suug.ch>
+	<20040909103344.5a448b01.davem@davemloft.net>
+	<20040909175411.GB19155@postel.suug.ch>
+	<20040910.103341.28767986.yoshfuji@wide.ad.jp>
+	<20040910092948.GB19930@postel.suug.ch>
+	<20040910024030.28b7c66c@linux.site>
+	<1094822205.1125.113.camel@jzny.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, fork0@users.sourceforge.net,
-        netdev@oss.sgi.com
+Cc: shemminger@osdl.org, tgraf@suug.ch, yoshfuji@wide.ad.jp,
+        eric.lemoine@gmail.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Nivedita Singhvi <niv@us.ibm.com>
-In-Reply-To: <41414C3D.2090606@us.ibm.com>
+To: hadi@cyberus.ca
+In-Reply-To: <1094822205.1125.113.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 09 Sep 2004 23:39:57 -0700
-Nivedita Singhvi <niv@us.ibm.com> wrote:
+On 10 Sep 2004 09:16:46 -0400
+jamal <hadi@cyberus.ca> wrote:
 
-> David S. Miller wrote:
 > 
-> > Herbert did you see my division fix I made today for
-> > tso_factor calculation?  I was dividing by the TSO mss
-> > instead of the normal one :-)
+> On Fri, 2004-09-10 at 05:40, Stephen Hemminger wrote:
+> > Unless there is some compelling reason, I think that keeping the old ioctl
+> > interface for a least a year until the kernel changes become more ubiquitous.
 > 
-> Dave, I'm just catching up with the most recent
-> kernel (from 2.6.8.1 and a hiatus), and I believe
-> the fixes you refer to as well as the change in
-> tcp_init_cwnd (tso_factor etc) make TSO consistent
-> with the standard now.
-> 
-> That correct? (And thanks, much appreciated, I was
-> about to fiddle with the same stuff :)).
+> I think that iproute2 should first attempt to use netlink and on failure
+> switch to ioctls.
 
-That's absolutely correct and this was the purpose
-of these changes.
+This is what I would recommend too.
