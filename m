@@ -1,52 +1,32 @@
-From: Erik Hensema <erik@hensema.net>
-Subject: RFC: promote netfilter MARK value from IPv6 packets to sit packets
-Date: Mon, 17 Feb 2003 15:57:27 +0100
+From: "James H. Cloos Jr." <cloos@jhcloos.com>
+Subject: Re: e100 in 2.5.59 through 2.5.61
+Date: 17 Feb 2003 11:03:18 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030217145727.GA3413@hensema.net>
-Reply-To: erik@hensema.net
+Message-ID: <m37kbyc2t5.fsf@lugabout.jhcloos.org>
+References: <C6F5CF431189FA4CBAEC9E7DD5441E01780B72@orsmsx402.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: "Feldman, Scott" <scott.feldman@intel.com>
+In-Reply-To: <C6F5CF431189FA4CBAEC9E7DD5441E01780B72@orsmsx402.jf.intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+>>>>> "Scott" == Feldman, Scott <scott.feldman@intel.com> writes:
 
-I'm new to the list, so be gentle with your flames ;-)
+>> The switch is fine with other 100 devices, such as the printer and
+>> the 802.11 gateway.  It is also happy with the 3com card in the
+>> laptop's port duplicator.
 
-On my outgoing connection to the internet I provide QoS using ratelimiting
-and prioritizing packets. However, it's a cablemodem and my provider only
-speaks IPv4. Over the connections I run multiple IPv6 tunnels, and I want
-to provide QoS on these tunnels too.
+Scott> Switch vendor/model?
 
-QoS however can only be provided on the physical outgoing interface. On
-that level, I can only see IPv4 packets and therefore it's impossible to
-provide QoS on IPv6 for me.
+Good point.  It is a Belkin F5D5130-8 8-port 10/100.
+ 
+>> Both the e100 and the eepro100 modules fail at 100baseT.
 
-In order to be able to provide QoS on tunneled IPv6 connections, I've
-created a simple patch (definately not ready for inclusion in the kernel,
-since it surely needs a configuration option) which promotes the netfilter
-MARK value from the IPv6 packets to the sit packets.
-Now I can mark packets using ip6tables, and on the ipv4 level I can still
-differentiate between the priorities. Problem solved, I'm happy ;-)
+Scott> Is the switch port forced or autoneg?
 
-Below is the patch, created on Linux 2.4.19:
+Autoneg.  
 
-
---- net/ipv6/sit.c.orig	Mon Feb 17 15:30:41 2003
-+++ net/ipv6/sit.c	Mon Feb 17 15:29:40 2003
-@@ -571,6 +571,9 @@
- 		}
- 		if (skb->sk)
- 			skb_set_owner_w(new_skb, skb->sk);
-+#ifdef CONFIG_NETFILTER
-+		new_skb->nfmark = skb->nfmark;
-+#endif
- 		dev_kfree_skb(skb);
- 		skb = new_skb;
- 	}
-
--- 
-Erik Hensema (erik@hensema.net)
+-JimC
