@@ -1,47 +1,36 @@
-From: Emilio Calicchio <ecalicchio@yahoo.it>
-Subject: questions about ipsec-tools-0.4 and linux kernel 2.6
-Date: Fri, 11 Feb 2005 12:03:21 +0100 (CET)
-Message-ID: <20050211110321.73045.qmail@web26806.mail.ukl.yahoo.com>
+From: Tim Mattox <tmattox@gmail.com>
+Subject: Re: [PATCH 2.6.11-rc3 5/5] bonding: Update/rewrite bonding.txt
+Date: Fri, 11 Feb 2005 07:49:44 -0500
+Message-ID: <ea86ce2205021104496401b980@mail.gmail.com>
+References: <200502110918.j1B9If7r003696@death.nxdomain.ibm.com>
+Reply-To: Tim Mattox <tmattox@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Jay Vosburgh <fubar@us.ibm.com>
+In-Reply-To: <200502110918.j1B9If7r003696@death.nxdomain.ibm.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I am a student of engineering in  first university of=20
-Rome (=93La Sapienza=94) and I=92m working to my degree
-thesis whose title is:=20
-=93End-to-end real-time applications performance
-measurements on VPN  network (both terrestrial  and=20
-satellite),  blocks encryption algorithms vs stream
-cipher ones.=94
+Hi Jay,
+Are you going to add some text about the original
+use of bonding in balanced-rr mode with isolated
+switches that we had discussed at the end of Jan.?
+This method is still used in Beowulf clusters for
+high performance as apposed to high availability.
 
-Since I have to use a Linux based test bed, I must
-integrate the stream cipher algorithms (like Scream
-and Seal cipher algorithm)in the Linux ipsec
-implementation; at aim I wonder whether you can help
-me by providing the following information:
-Architectural description  of the ipsec Linux
-implementation (both tools and kernel modules)=20
-the files of kernel version 2.6 and ipsec-tools-0.4
-that I should modify in order to add chiper stream
-algorithm
-if someone else is facing the same topic.
+BTW - I really like the new detail on configuring bonding
+for the various Linux distributions.  Great work!
 
-Thanks for your help
-Best regards
-
-CALICCHIO EMILIO
-
-
-
-
-
-	=09
-___________________________________=20
-Nuovo Yahoo! Messenger: E' molto pi=F9 divertente: Audibles, Avatar, Webc=
-am, Giochi, Rubrica=85 Scaricalo ora!=20
-http://it.messenger.yahoo.it
+On Fri, 11 Feb 2005 01:18:41 -0800, Jay Vosburgh <fubar@us.ibm.com> wrote:
+> 
+>         This is a complete overhaul of the bonding.txt documentation.
+> 
+> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+[snip]
+-- 
+Tim Mattox - tmattox@gmail.com - http://homepage.mac.com/tmattox/
