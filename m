@@ -1,72 +1,53 @@
-From: Jim Keniston <jkenisto@us.ibm.com>
-Subject: Re: [PATCH - RFC] [1/2] 2.6 must-fix list - kernel error reporting
-Date: Thu, 10 Jul 2003 12:08:21 -0700
+From: =?ISO-8859-1?Q?Mika_Penttil=E4?= <mika.penttila@kolumbus.fi>
+Subject: Re: 2.4.21+ - IPv6 over IPv4 tunneling b0rked
+Date: Thu, 10 Jul 2003 22:57:12 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F0DB9A5.23723BE1@us.ibm.com>
-References: <Mutt.LNX.4.44.0307101419080.15602-100000@excalibur.intercode.com.au>
+Message-ID: <3F0DC518.3010301@kolumbus.fi>
+References: <20030710154302.GE1722@zip.com.au> <20030711.005542.04973601.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com,
-   Andrew Morton <akpm@osdl.org>, "David S. Miller" <davem@redhat.com>,
-   Jeff Garzik <jgarzik@pobox.com>, Alan Cox <alan@lxorguk.ukuu.org.uk>,
-   Randy Dunlap <rddunlap@osdl.org>
+Cc: cat@zip.com.au, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+   pekkas@netcore.fi
 Return-path: <netdev-bounce@oss.sgi.com>
-To: James Morris <jmorris@intercode.com.au>
+To: =?ISO-8859-1?Q?YOSHIFUJI_Hideaki_/_=3F=3F=3F=3F?=
+ <yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-James Morris wrote:
-> 
-> On Tue, 8 Jul 2003, Jim Keniston wrote:
-> 
-> +       kerror_nl = netlink_kernel_create(NETLINK_KERROR, kerror_netlink_rcv);
-> +       if (kerror_nl == NULL)
-> +               panic("kerror_init: cannot initialize kerror_nl\n");
-> 
-> You can simply use NULL instead of passing the dummy kerror_netlink_rcv
-> function.
 
-That begs the question: do we trust that nobody but the kernel will send
-packets to a NETLINK_KERROR socket?  Ordinary users can't, but any root
-application can.  Without kerror_netlink_rcv(), such packets don't get
-dequeued.
 
-> 
-> +struct kern_log_entry {
-> +       __u16   log_kmagic;     /* always LOGREC_KMAGIC */
-> +       __u16   log_kversion;   /* which version of this struct? */
-> +       char    log_facility[FACILITY_MAXLEN];  /* e.g., driver name */
-> 
-> These fields should generally be specified in ascending order to help with
-> alignment.
+But 3ffe:8001:000c:ffff::36 is _not_ subnet routers anycast address. Anyway, looks like a bug to me...
 
-We include log_kmagic and log_kversion so the receiving app (e.g. the evlog
-daemon) can figure out which version of the kernel header it's getting.  Note
-that we're up to #3 (going on #4, with the changes you and others have
-suggested).  As long as we have to include log_kmagic and log_kversion, they
-need to be first.
 
-That said, I get the impression that people would be more comfortable if
-log_facility[] were moved to the end.  Other than that, can anybody point
-out a specific area where there's likely to be an alignment problem?  The
-various members' offsets are the same on i386, ppc32, and ppc64.  This should
-also be true for s390 and s390x.  I'd think it'd really matter only when kernel
-and user on the same system are different architectures.  ppc64K/ppc32U,
-at least, works.
+--Mika
 
-> 
-> It may also be worth looking at how the ULOG code batches messages to
-> improve peformance.
 
-Thanks for the pointer.  Looks nice.  If performance turns out to be an issue
-(e.g., if for some reason people want to cc all printk messages through this
-interface), I'll keep that in mind.
+YOSHIFUJI Hideaki / ???? wrote:
 
-> 
-> - James
-> --
-> James Morris
-> <jmorris@intercode.com.au>
-
-Jim K.
+>In article <20030710154302.GE1722@zip.com.au> (at Fri, 11 Jul 2003 01:43:03 +1000), CaT <cat@zip.com.au> says:
+>
+>  
+>
+>>With 2.4.21-pre2 I can get a nice tunnel going over my ppp connection
+>>and as such get ipv6 connectivity. I think went to 2.4.21 and then to
+>>2.4.22-pre4 and bringing up the tunnel fails as follows:
+>>    
+>>
+>:
+>  
+>
+>>ip addr add 3ffe:8001:000c:ffff::37/127 dev sit1
+>> ip route add ::/0 via 3ffe:8001:000c:ffff::36 
+>>RTNETLINK answers: Invalid argument
+>>    
+>>
+>
+>This is not bug, but rather misconfiguration;
+>you cannot use prefix::, which is mandatory subnet routers 
+>anycast address, as unicast address.
+>
+>Thank you.
+>
+>  
+>
