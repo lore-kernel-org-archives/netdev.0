@@ -1,63 +1,26 @@
-From: Andre Hedrick <andre@pyxtechnologies.com>
-Subject: Re: Update on e1000 troubles (over-heating!)
-Date: Sat, 5 Oct 2002 20:47:21 -0700 (PDT)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: VLAN patches
+Date: Sat, 05 Oct 2002 21:17:53 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.10.10210052045090.22517-100000@master.linux-ide.org>
-References: <3D9FB053.4040001@candelatech.com>
+Message-ID: <20021005.211753.25232925.davem@redhat.com>
+References: <3D980A10.8B06F2C2@ebc.ericsson.se>
+	<3D9F3D13.3080904@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-   "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Bjorn.Andersson@ebc.ericsson.se, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <3D9FB053.4040001@candelatech.com>
+To: greearb@candelatech.com
+In-Reply-To: <3D9F3D13.3080904@candelatech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+   From: Ben Greear <greearb@candelatech.com>
+   Date: Sat, 05 Oct 2002 12:27:15 -0700
 
-I have a pair of Compaq e1000's which have never overheated, and I use
-them for heavy duty iSCSI testing and designing of drivers.  These are
-massive 66/64 cards but still nothing like what you are reporting.
-
-I will look some more at the issue soon.
-
-Cheers,
-
-Andre Hedrick
-iSCSI Software Solutions Provider
-http://www.PyXTechnologies.com/
-
-
-On Sat, 5 Oct 2002, Ben Greear wrote:
-
-> I believe I have figured out why the e1000 crashed my machine
-> after .5 - 1 hours:  The NIC was over-heating.  I measured one of
-> the NICs after the machine crashed with an external (cheap) temp
-> probe.  It registered right at 50 degrees C, and this was about 15-30
-> seconds after it crashed.
-> 
-> The dual e1000 NIC I have seems to run much cooler, and has been
-> running at 430Mbps bi-directional on both ports for about 6 hours now
-> with no obvious problems.
-> 
-> So, I'm going to try to purchase some heat sinks and glue them onto
-> the e1000 server nics, to see if that fixes the problem.
-> 
-> Hope this proves useful to anyone experiencing similar strange
-> crashes!
-> 
-> Thanks,
-> Ben
-> 
-> -- 
-> Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-> President of Candela Technologies Inc      http://www.candelatech.com
-> ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
-> 
-> 
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
-> 
+   This patch looks good too, though the (vlan_id < 0) test
+   is redundant since vlan_id is an unsigned number.  For
+   clarity of code, I wouldn't mind if it stayed in though.
+   
+VLAN ID zero is illegal.  You should not use ifconfig
+with a VID of zero.
