@@ -1,63 +1,102 @@
-From: "Jeremy M. Guthrie" <jeremy.guthrie@berbee.com>
-Subject: Re: V2.4 policy router operates faster/better than V2.6
-Date: Wed, 19 Jan 2005 09:03:42 -0600
-Message-ID: <200501190903.45671.jeremy.guthrie@berbee.com>
-References: <Pine.LNX.4.44.0501071416060.5818-100000@localhost.localdomain> <200501141326.29575.jeremy.guthrie@berbee.com> <16874.24305.461492.48668@robur.slu.se>
-Reply-To: jeremy.guthrie@berbee.com
+From: Werner Almesberger <werner@almesberger.net>
+Subject: Re: [RFC] batched tc to improve change throughput
+Date: Wed, 19 Jan 2005 13:33:53 -0300
+Message-ID: <20050119133353.H15303@almesberger.net>
+References: <20050117152312.GC26856@postel.suug.ch> <1105976711.1078.1.camel@jzny.localdomain> <20050117160539.GD26856@postel.suug.ch> <1105979807.1078.16.camel@jzny.localdomain> <20050117165626.GE26856@postel.suug.ch> <1106002197.1046.19.camel@jzny.localdomain> <20050118134406.GR26856@postel.suug.ch> <1106058592.1035.95.camel@jzny.localdomain> <20050118120737.I15303@almesberger.net> <20050119140804.GZ26856@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1140883.XAXnEGKz2f";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>
+Content-Type: text/plain; charset=us-ascii
+Cc: jamal <hadi@cyberus.ca>, Patrick McHardy <kaber@trash.net>,
+        Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <16874.24305.461492.48668@robur.slu.se>
+To: Thomas Graf <tgraf@suug.ch>
+Content-Disposition: inline
+In-Reply-To: <20050119140804.GZ26856@postel.suug.ch>; from tgraf@suug.ch on Wed, Jan 19, 2005 at 03:08:04PM +0100
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---nextPart1140883.XAXnEGKz2f
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+Thomas Graf wrote:
+> filtering. The mistake they did was to completely rely on the
+> state machine for even the most simple packet classification
+> problems.
 
-On Sunday 16 January 2005 06:32 am, Robert Olsson wrote:
->  Some time ago an "in-flow" GC (as opposed to timer based) was added to
->  the routing code look for cand in route.c. In setup like yours (and ours)
->  it would be better to relay on this process to a higher extent. Anyway
->  in /proc/sys/net/ipv4/route/ you have the files.
->
->  gc_elasticity, gc_interval, gc_thresh etc I would avoid gc_min_interval.
->
->  And you can play with your running system and for drops without causing
->  your users to much pain.
-I have done a little tweaking.  I now hold at around 520K routes in the has=
-h. =20
-I still drop packets every secret_interval but I've upped that counter so I=
-=20
-don't whack all of my hash entries all that often.
+I don't see much of a performance problem: once you have a nice
+FSM with single-bit decisions, you can quite easily construct
+various efficient matcher stages. You can even prepare (or
+compile on the fly) suitable specialized matchers. If doing the
+matching in hardware, you may even use just the FSM.
 
-=2D-=20
+> Basically to get a state machine capable solving almost every
+> problem the following parts must be provided:
+> 
+>  - a small instruction set for basic operations to implement
+>    arithmetic, branching, and loops.
 
-=2D-------------------------------------------------
-Jeremy M. Guthrie        jeremy.guthrie@berbee.com
-Senior Network Engineer        Phone: 608-298-1061
-Berbee                           Fax: 608-288-3007
-5520 Research Park Drive         NOC: 608-298-1102
-Madison, WI 53711
+You need arithmetic only for pointers, and there it's basically
+mask and shift. You can do surprisingly well without loops. E.g.
+tcng doesn't have loops. (Although they would be a nice addition,
+particularly if you move more in the direction of firewalls.)
 
---nextPart1140883.XAXnEGKz2f
-Content-Type: application/pgp-signature
+>  - some abstract way to access data from various sources, be it
+>    packet data, constant values, registers, or meta data.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
+You can just define some "magic" offsets, e.g. negative ones.
 
-iD8DBQBB7nbRqtjaBHGZBeURAlELAKCXBqq6fxLX9IOJiMYzGuTiaeGP6QCffX6C
-5h7IY4v/kvc4yavt1ej7grk=
-=Mgdd
------END PGP SIGNATURE-----
+>  - an advanced instruction set to improve the performance
+>    of the state machine for often used patterns, e.g.
+>    find-byte, classify, byte order transformations, header
+>    length calculation shortcuts, find-next-ipv6-opt, etc.
 
---nextPart1140883.XAXnEGKz2f--
+This can be nicely separated and put into post-processing stages.
+Most of the time, you probably don't notice a difference anyway.
+
+>  - a good optimizer able to transform multiple simple
+>    instructions into a larger instruction, because the main
+>    bottleneck in a software state machine is aver number of
+>    instructions needed to process to get to a result.
+
+Yes, that would be part of the post-processing: combine things,
+detect patterns, and emit the right high-level construct.
+
+>  - stack frames to allow building libraries for often used
+>    problem not worth making a single instruction out of it.
+
+Huh ? Probably too complex already. Also, if you're in software,
+you may very well compile your own helper modules on the fly.
+tcng has this as a proof-of-concept with the "C" target.
+
+> I think the interactive mode is very useful for maintaince.
+
+Hmm, I kind of doubt it. You're quicker with your editor, just
+changing that line. What you need is a nice way for updating the
+in-kernel configuration without loss of state.
+
+You also need some "handles" where you can attach automated
+rule generation and/or modification. That's something tcng doesn't
+support very well.
+
+> It also heavly depends on the usage of tc et al, the normal
+> dscp, port, and address classification schemas perfectly fit
+> into tcng and the big picture is most important.
+
+Ah, but you know that that first thing tcng does when it sees an
+"if" is that it rips the expression apart and then works on
+"anonymous" fields or even single bits ?
+
+> soon as we get to more complex classifiction and the more
+> classification possibilities we get the more important it is
+> to have some way to interactively construct single filters.
+
+I think the contrary is the case :-) If things get complex
+enough, you'll want to dry-run them in tcsim or such. It's
+really not very different from programming - if I want to
+change some complicated expression, I just edit it. It wouldn't
+occur to me to tweak assembler instructions, no matter how
+convenient the assembler is.
+
+- Werner
+
+-- 
+  _________________________________________________________________________
+ / Werner Almesberger, Buenos Aires, Argentina     werner@almesberger.net /
+/_http://www.almesberger.net/____________________________________________/
