@@ -1,36 +1,24 @@
-From: Max Krasnyansky <maxk@qualcomm.com>
-Subject: Re: [PATCH 2.5.70+] tun using alloc_netdev
-Date: Wed, 11 Jun 2003 14:03:08 -0700
+From: Florian Weimer <fw@deneb.enyo.de>
+Subject: Re: Route cache performance under stress
+Date: Wed, 11 Jun 2003 23:09:04 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <5.1.0.14.2.20030611140042.0b8b5950@unixmail.qualcomm.com>
-References: <20030611194317.GE31051@gtf.org>
- <20030609115857.38bb31d6.shemminger@osdl.org>
- <5.1.0.14.2.20030611121155.0b659e20@unixmail.qualcomm.com>
- <20030611194317.GE31051@gtf.org>
+Message-ID: <874r2wb9u7.fsf@deneb.enyo.de>
+References: <Pine.LNX.4.44.0306101432530.21247-100000@netcore.fi>
+	<20030610075702.I37165@shell.cyberus.ca>
+	<Pine.LNX.4.51.0306101125500.21435@ns.istop.com>
+	<87he6wbdkz.fsf@deneb.enyo.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: davem@redhat.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>, Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <20030611132715.76a485c7.shemminger@osdl.org>
+To: "netdev@oss.sgi.com" <netdev@oss.sgi.com>,
+   "linux-net@vger.kernel.org" <linux-net@vger.kernel.org>
+In-Reply-To: <87he6wbdkz.fsf@deneb.enyo.de> (Florian Weimer's message of
+ "Wed, 11 Jun 2003 21:48:12 +0200")
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-At 01:27 PM 6/11/2003, Stephen Hemminger wrote:
->On Wed, 11 Jun 2003 15:43:18 -0400
->Jeff Garzik <jgarzik@pobox.com> wrote:
->
->> > 
->> > This is wrong. register_netdevice() does not expand name (ie %d stuff).
->> > So dev_alloc_name() is still needed. i.e.
->> 
->> Correct.
->> 
->> But, register_netdev() is preferred precisely for this reason.
->> 
->
->Not possible in this case because device is created off socket ioctl so it is
->called with rtnl_lock
-Yep. But not because it's created from socket ioctl. Because it has to guaranty atomicity.
+Florian Weimer <fw@deneb.enyo.de> writes:
 
-Max
+> Yes, these numbers keep growing.  By today's standards, 6000 Mbps
+
+Oops, that's one "0" too many.  6 Gbps is definitely still surprising.
