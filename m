@@ -1,118 +1,93 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (3/42) eexpress
-Date: Wed, 12 Nov 2003 16:40:48 -0800
+Subject: [PATCH] (4/42) eth16i
+Date: Wed, 12 Nov 2003 16:40:58 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200311130040.hAD0em429916@mail.osdl.org>
+Message-ID: <200311130040.hAD0ew229935@mail.osdl.org>
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: jgarzik@pobox.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Based on viro NE27-eexpress
-	* switched eexpress to dynamic allocation
-	* eexpress: embedded ->priv
-	* eexpress: fixed clobbering on autoprobe
-	* eexpress: fixed IO without request_region()
-	* eexpress: fixed resource leaks on failure exits
+NE28-eth16i
+	* switched eth16i to dynamic allocation
+	* eth16i: embedded ->priv
+	* eth16i: fixed resource leaks on failure exits
 
 diff -Nru a/drivers/net/Space.c b/drivers/net/Space.c
---- a/drivers/net/Space.c	Tue Nov 11 09:35:27 2003
-+++ b/drivers/net/Space.c	Tue Nov 11 09:35:27 2003
-@@ -49,7 +49,7 @@
- extern int ne_probe(struct net_device *dev);
- extern int hp_probe(struct net_device *dev);
- extern int hp_plus_probe(struct net_device *dev);
--extern int express_probe(struct net_device *);
-+extern struct net_device *express_probe(int unit);
- extern struct net_device *eepro_probe(int unit);
+--- a/drivers/net/Space.c	Tue Nov 11 09:35:29 2003
++++ b/drivers/net/Space.c	Tue Nov 11 09:35:29 2003
+@@ -54,7 +54,7 @@
  extern int at1500_probe(struct net_device *);
  extern int at1700_probe(struct net_device *);
-@@ -250,13 +250,13 @@
- #ifdef CONFIG_ETH16I
- 	{eth16i_probe, 0},	/* ICL EtherTeam 16i/32 */
+ extern int fmv18x_probe(struct net_device *);
+-extern int eth16i_probe(struct net_device *);
++extern struct net_device *eth16i_probe(int unit);
+ extern struct net_device *i82596_probe(int unit);
+ extern struct net_device *ewrk3_probe(int unit);
+ extern struct net_device *el1_probe(int unit);
+@@ -247,13 +247,13 @@
+ #ifdef CONFIG_FMV18X		/* Fujitsu FMV-181/182 */
+ 	{fmv18x_probe, 0},
  #endif
--#ifdef CONFIG_EEXPRESS		/* Intel EtherExpress */
--	{express_probe, 0},
+-#ifdef CONFIG_ETH16I
+-	{eth16i_probe, 0},	/* ICL EtherTeam 16i/32 */
 -#endif
  	{NULL, 0},
  };
  
  static struct devprobe2 isa_probes2[] __initdata = {
-+#ifdef CONFIG_EEXPRESS		/* Intel EtherExpress */
-+	{express_probe, 0},
++#ifdef CONFIG_ETH16I
++	{eth16i_probe, 0},	/* ICL EtherTeam 16i/32 */
 +#endif
- #ifdef CONFIG_EEXPRESS_PRO	/* Intel EtherExpress Pro/10 */
- 	{eepro_probe, 0},
+ #ifdef CONFIG_EEXPRESS		/* Intel EtherExpress */
+ 	{express_probe, 0},
  #endif
-diff -Nru a/drivers/net/eexpress.c b/drivers/net/eexpress.c
---- a/drivers/net/eexpress.c	Tue Nov 11 09:35:27 2003
-+++ b/drivers/net/eexpress.c	Tue Nov 11 09:35:27 2003
-@@ -244,7 +244,6 @@
-  * Prototypes for Linux interface
-  */
+diff -Nru a/drivers/net/eth16i.c b/drivers/net/eth16i.c
+--- a/drivers/net/eth16i.c	Tue Nov 11 09:35:29 2003
++++ b/drivers/net/eth16i.c	Tue Nov 11 09:35:29 2003
+@@ -369,7 +369,6 @@
+ #define NUM_OF_EISA_IRQS   8
  
--extern int express_probe(struct net_device *dev);
- static int eexp_open(struct net_device *dev);
- static int eexp_close(struct net_device *dev);
- static void eexp_timeout(struct net_device *dev);
-@@ -334,11 +333,13 @@
-  * checks for presence of EtherExpress card
-  */
+ static unsigned int eth16i_tx_buf_map[] = { 2048, 2048, 4096, 8192 };
+-static unsigned int boot = 1;
  
--int __init express_probe(struct net_device *dev)
-+static int __init do_express_probe(struct net_device *dev)
+ /* Use 0 for production, 1 for verification, >2 for debug */
+ #ifndef ETH16I_DEBUG
+@@ -395,8 +394,6 @@
+ 
+ /* Function prototypes */
+ 
+-extern int     eth16i_probe(struct net_device *dev);
+-
+ static int     eth16i_probe1(struct net_device *dev, int ioaddr);
+ static int     eth16i_check_signature(int ioaddr);
+ static int     eth16i_probe_port(int ioaddr);
+@@ -418,7 +415,7 @@
+ static void    eth16i_skip_packet(struct net_device *dev);
+ static void    eth16i_multicast(struct net_device *dev); 
+ static void    eth16i_select_regbank(unsigned char regbank, int ioaddr);
+-static void    eth16i_initialize(struct net_device *dev);
++static void    eth16i_initialize(struct net_device *dev, int boot);
+ 
+ #if 0
+ static int     eth16i_set_irq(struct net_device *dev);
+@@ -432,7 +429,7 @@
+ 
+ static char cardname[] __initdata = "ICL EtherTeam 16i/32";
+ 
+-int __init eth16i_probe(struct net_device *dev)
++static int __init do_eth16i_probe(struct net_device *dev)
  {
- 	unsigned short *port;
- 	static unsigned short ports[] = { 0x240,0x300,0x310,0x270,0x320,0x340,0 };
- 	unsigned short ioaddr = dev->base_addr;
-+	int dev_irq = dev->irq;
-+	int err;
- 
- 	SET_MODULE_OWNER(dev);
- 
-@@ -391,27 +392,58 @@
- 		}
- 	}
- #endif
--	if (ioaddr&0xfe00)
--		return eexp_hw_probe(dev,ioaddr);
--	else if (ioaddr)
-+	if (ioaddr&0xfe00) {
-+		if (!request_region(ioaddr, EEXP_IO_EXTENT, "EtherExpress"))
-+			return -EBUSY;
-+		err = eexp_hw_probe(dev,ioaddr);
-+		release_region(ioaddr, EEXP_IO_EXTENT);
-+		return err;
-+	} else if (ioaddr)
- 		return -ENXIO;
- 
- 	for (port=&ports[0] ; *port ; port++ )
- 	{
- 		unsigned short sum = 0;
- 		int i;
-+		if (!request_region(*port, EEXP_IO_EXTENT, "EtherExpress"))
-+			continue;
- 		for ( i=0 ; i<4 ; i++ )
- 		{
- 			unsigned short t;
- 			t = inb(*port + ID_PORT);
- 			sum |= (t>>4) << ((t & 0x03)<<2);
- 		}
--		if (sum==0xbaba && !eexp_hw_probe(dev,*port))
-+		if (sum==0xbaba && !eexp_hw_probe(dev,*port)) {
-+			release_region(*port, EEXP_IO_EXTENT);
- 			return 0;
-+		}
-+		release_region(*port, EEXP_IO_EXTENT);
-+		dev->irq = dev_irq;
- 	}
+ 	int i;
+ 	int ioaddr;
+@@ -461,14 +458,38 @@
  	return -ENODEV;
  }
  
-+struct net_device * __init express_probe(int unit)
++struct net_device * __init eth16i_probe(int unit)
 +{
-+	struct net_device *dev = alloc_etherdev(sizeof(struct net_local));
++	struct net_device *dev = alloc_etherdev(sizeof(struct eth16i_local));
 +	int err;
 +
 +	if (!dev)
@@ -121,107 +96,155 @@ diff -Nru a/drivers/net/eexpress.c b/drivers/net/eexpress.c
 +	sprintf(dev->name, "eth%d", unit);
 +	netdev_boot_setup_check(dev);
 +
-+	err = do_express_probe(dev);
-+	if (!err) {
-+		err = register_netdev(dev);
-+		if (!err)
-+			return dev;
-+	}
++	err = do_eth16i_probe(dev);
++	if (err)
++		goto out;
++	err = register_netdev(dev);
++	if (err)
++		goto out1;
++	return dev;
++out1:
++	free_irq(dev->irq, dev);
++	release_region(dev->base_addr, ETH16I_IO_EXTENT);
++out:
 +	free_netdev(dev);
 +	return ERR_PTR(err);
 +}
 +
- /*
-  * open and initialize the adapter, ready for use
-  */
-@@ -1058,7 +1090,7 @@
- 	unsigned int memory_size;
- 	int i;
- 	unsigned short xsum = 0;
--	struct net_local *lp;
-+	struct net_local *lp = dev->priv;
+ static int __init eth16i_probe1(struct net_device *dev, int ioaddr)
+ {
+-	struct eth16i_local *lp;
++	struct eth16i_local *lp = dev->priv;
+ 	static unsigned version_printed;
+ 	int retval;
  
- 	printk("%s: EtherExpress 16 at %#x ",dev->name,ioaddr);
- 
-@@ -1108,17 +1140,18 @@
- 		buswidth = !((setupval & 0x400) >> 10);
- 	}
- 
--	dev->priv = lp = kmalloc(sizeof(struct net_local), GFP_KERNEL);
--	if (!dev->priv)
--		return -ENOMEM;
+-	boot = 1;  /* To inform initilization that we are in boot probe */
 -
--	memset(dev->priv, 0, sizeof(struct net_local));
-+	memset(lp, 0, sizeof(struct net_local));
- 	spin_lock_init(&lp->lock);
+ 	/* Let's grab the region */
+ 	if (!request_region(ioaddr, ETH16I_IO_EXTENT, dev->name))
+ 		return -EBUSY;
+@@ -531,22 +552,13 @@
+ 	eth16i_select_regbank(TRANSCEIVER_MODE_RB, ioaddr);
+ 	outb(0x38, ioaddr + TRANSCEIVER_MODE_REG); 
  
-  	printk("(IRQ %d, %s connector, %d-bit bus", dev->irq, 
-  	       eexp_ifmap[dev->if_port], buswidth?8:16);
-  
-+	if (!request_region(dev->base_addr + 0x300e, 1, "EtherExpress"))
-+		return -EBUSY;
-+
-  	eexp_hw_set_interface(dev);
-+ 
-+	release_region(dev->base_addr + 0x300e, 1);
-   
- 	/* Find out how much RAM we have on the card */
- 	outw(0, dev->base_addr + WRITE_PTR);
-@@ -1156,7 +1189,6 @@
- 		break;
- 	default:
- 		printk(") bad memory size (%dk).\n", memory_size);
--		kfree(dev->priv);
- 		return -ENODEV;
- 		break;
- 	}
-@@ -1171,7 +1203,6 @@
- 	dev->set_multicast_list = &eexp_set_multicast;
- 	dev->tx_timeout = eexp_timeout;
- 	dev->watchdog_timeo = 2*HZ;
+-	eth16i_initialize(dev);   /* Initialize rest of the chip's registers */
++	eth16i_initialize(dev, 1); /* Initialize rest of the chip's registers */
+ 
+ 	/* Now let's same some energy by shutting down the chip ;) */
+ 	BITCLR(ioaddr + CONFIG_REG_1, POWERUP);
+ 
+ 	/* Initialize the device structure */
+-	if(dev->priv == NULL) {
+-		dev->priv = kmalloc(sizeof(struct eth16i_local), GFP_KERNEL);
+-		if(dev->priv == NULL) {
+-			free_irq(dev->irq, dev);
+-			retval = -ENOMEM;
+-			goto out;
+-		}
+-	}
+-
+-	memset(dev->priv, 0, sizeof(struct eth16i_local));
++	memset(lp, 0, sizeof(struct eth16i_local));
+ 	dev->open               = eth16i_open;
+ 	dev->stop               = eth16i_close;
+ 	dev->hard_start_xmit    = eth16i_tx;
+@@ -554,15 +566,7 @@
+ 	dev->set_multicast_list = eth16i_multicast;
+ 	dev->tx_timeout 	= eth16i_timeout;
+ 	dev->watchdog_timeo	= TX_TIMEOUT;
+-
+-	lp = (struct eth16i_local *)dev->priv;
+ 	spin_lock_init(&lp->lock);
+-
+-	/* Fill in the fields of the device structure with ethernet values. */
 -	ether_setup(dev);
+-
+-	boot = 0;
+-
  	return 0;
+ out:
+ 	release_region(ioaddr, ETH16I_IO_EXTENT);
+@@ -570,7 +574,7 @@
  }
  
-@@ -1654,7 +1685,7 @@
  
- #define EEXP_MAX_CARDS     4    /* max number of cards to support */
+-static void eth16i_initialize(struct net_device *dev)
++static void eth16i_initialize(struct net_device *dev, int boot)
+ {
+ 	int ioaddr = dev->base_addr;
+ 	int i, node_w = 0;
+@@ -953,7 +957,7 @@
+ 	outb(0xc0 | POWERUP, ioaddr + CONFIG_REG_1);
  
--static struct net_device dev_eexp[EEXP_MAX_CARDS];
-+static struct net_device *dev_eexp[EEXP_MAX_CARDS];
- static int irq[EEXP_MAX_CARDS];
- static int io[EEXP_MAX_CARDS];
+ 	/* Initialize the chip */
+-	eth16i_initialize(dev);  
++	eth16i_initialize(dev, 0);  
  
-@@ -1671,25 +1702,30 @@
-  */
+ 	/* Set the transmit buffer size */
+ 	lp->tx_buf_size = eth16i_tx_buf_map[ETH16I_TX_BUF_SIZE & 0x03];
+@@ -1401,7 +1405,7 @@
+ 
+ #define MAX_ETH16I_CARDS 4  /* Max number of Eth16i cards per module */
+ 
+-static struct net_device dev_eth16i[MAX_ETH16I_CARDS];
++static struct net_device *dev_eth16i[MAX_ETH16I_CARDS];
+ static int io[MAX_ETH16I_CARDS];
+ #if 0
+ static int irq[MAX_ETH16I_CARDS];
+@@ -1431,14 +1435,14 @@
  int init_module(void)
  {
-+	struct net_device *dev;
  	int this_dev, found = 0;
++	struct net_device *dev;
++
++	for (this_dev = 0; this_dev < MAX_ETH16I_CARDS; this_dev++) {
++		dev = alloc_etherdev(sizeof(struct eth16i_local));
++		if (!dev)
++			break;
  
- 	for (this_dev = 0; this_dev < EEXP_MAX_CARDS; this_dev++) {
--		struct net_device *dev = &dev_eexp[this_dev];
-+		dev = alloc_etherdev(sizeof(struct net_local));
- 		dev->irq = irq[this_dev];
+-	for(this_dev = 0; this_dev < MAX_ETH16I_CARDS; this_dev++)
+-	{
+-		struct net_device *dev = &dev_eth16i[this_dev];
+-	
+-		dev->irq = 0; /* irq[this_dev]; */
  		dev->base_addr = io[this_dev];
--		dev->init = express_probe;
- 		if (io[this_dev] == 0) {
--			if (this_dev) break;
-+			if (this_dev)
+-		dev->init = eth16i_probe;
+ 
+ 	        if(debug != -1)
+ 			eth16i_debug = debug;
+@@ -1448,44 +1452,43 @@
+ 
+ 		dev->if_port = eth16i_parse_mediatype(mediatype[this_dev]);
+ 
+-		if(io[this_dev] == 0)
+-		{
+-			if(this_dev != 0) break; /* Only autoprobe 1st one */
++		if(io[this_dev] == 0) {
++			if(this_dev != 0) /* Only autoprobe 1st one */
 +				break;
- 			printk(KERN_NOTICE "eexpress.c: Module autoprobe not recommended, give io=xx.\n");
+ 
+ 			printk(KERN_NOTICE "eth16i.c: Presently autoprobing (not recommended) for a single card.\n");
  		}
--		if (register_netdev(dev) != 0) {
--			printk(KERN_WARNING "eexpress.c: Failed to register card at 0x%x.\n", io[this_dev]);
--			if (found != 0) return 0;
+ 
+-		if(register_netdev(dev) != 0)
+-		{
+-			printk(KERN_WARNING "eth16i.c No Eth16i card found (i/o = 0x%x).\n",
+-			       io[this_dev]);
+-	    
+-			if(found != 0) return 0;
 -			return -ENXIO;
-+		if (do_express_probe(dev) == 0 && register_netdev(dev) == 0) {
-+			dev_eexp[this_dev] = dev;
-+			found++;
-+			continue;
++		if (do_eth16i_probe(dev) == 0) {
++			if (register_netdev(dev) == 0) {
++				dev_eth16i[found++] = dev;
++				continue;
++			}
++			free_irq(dev->irq, dev);
++			release_region(dev->base_addr, ETH16I_IO_EXTENT);
  		}
+-
 -		found++;
-+		printk(KERN_WARNING "eexpress.c: Failed to register card at 0x%x.\n", io[this_dev]);
++		printk(KERN_WARNING "eth16i.c No Eth16i card found (i/o = 0x%x).\n",
++		       io[this_dev]);
 +		free_netdev(dev);
 +		break;
  	}
@@ -230,19 +253,27 @@ diff -Nru a/drivers/net/eexpress.c b/drivers/net/eexpress.c
 +		return 0;
 +	return -ENXIO;
  }
- 
+ 	
  void cleanup_module(void)
-@@ -1697,11 +1733,10 @@
+ {
  	int this_dev;
  
- 	for (this_dev = 0; this_dev < EEXP_MAX_CARDS; this_dev++) {
--		struct net_device *dev = &dev_eexp[this_dev];
--		if (dev->priv != NULL) {
-+		struct net_device *dev = dev_eexp[this_dev];
-+		if (dev) {
+-	for(this_dev = 0; this_dev < MAX_ETH16I_CARDS; this_dev++)
+-	{
+-		struct net_device* dev = &dev_eth16i[this_dev];
++	for(this_dev = 0; this_dev < MAX_ETH16I_CARDS; this_dev++) {
++		struct net_device *dev = dev_eth16i[this_dev];
+ 		
+-		if(dev->priv != NULL)
+-		{
++		if(dev->priv) {
  			unregister_netdev(dev);
 -			kfree(dev->priv);
 -			dev->priv = NULL;
+-			
+ 			free_irq(dev->irq, dev);
+ 			release_region(dev->base_addr, ETH16I_IO_EXTENT);
+-			
 +			free_netdev(dev);
  		}
  	}
