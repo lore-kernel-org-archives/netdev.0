@@ -1,31 +1,34 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] abysmal e1000 performance (DITR)
-Date: Sat, 28 Aug 2004 18:58:22 -0400
+Subject: Re: [PATCH 2.6.8.1-mm4 8/11] r8169: Tx checksum offload
+Date: Sat, 28 Aug 2004 19:15:26 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41310E0E.1060909@pobox.com>
-References: <468F3FDA28AA87429AD807992E22D07E014CEF36@orsmsx408>	 <1093542930.1027.124.camel@jzny.localdomain>	 <1093550644.20769.130.camel@tubarao>  <412E478A.2000806@pobox.com> <1093555737.20769.135.camel@tubarao>
+Message-ID: <4131120E.7010108@pobox.com>
+References: <20040823224100.GA14680@electric-eye.fr.zoreil.com> <20040823224425.GA20726@electric-eye.fr.zoreil.com> <20040823224548.GB20726@electric-eye.fr.zoreil.com> <20040823224706.GC20726@electric-eye.fr.zoreil.com> <20040823224813.GD20726@electric-eye.fr.zoreil.com> <20040823224927.GE20726@electric-eye.fr.zoreil.com> <20040823225120.GF20726@electric-eye.fr.zoreil.com> <20040823225335.GG20726@electric-eye.fr.zoreil.com> <20040823225505.GH20726@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>,
-        netdev@oss.sgi.com, "Feldman, Scott" <scott.feldman@intel.com>,
-        "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Cc: akpm@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: tharbaugh@lnxi.com
-In-Reply-To: <1093555737.20769.135.camel@tubarao>
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20040823225505.GH20726@electric-eye.fr.zoreil.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Thayne Harbaugh wrote:
-> --- drivers/net/e1000/e1000_param.c.broken_ditr 2004-08-26 15:40:34.436456736 -0600
-> +++ drivers/net/e1000/e1000_param.c     2004-08-26 15:49:07.186506880 -0600
-> @@ -212,7 +212,7 @@
->  #define MAX_TXABSDELAY            0xFFFF
->  #define MIN_TXABSDELAY                 0
->   
-> -#define DEFAULT_ITR                    1
-> +#define DEFAULT_ITR                 8000
->  #define MAX_ITR                   100000
->  #define MIN_ITR                      100
+Francois Romieu wrote:
+> +static inline u32 rtl8169_tx_csum(struct sk_buff *skb)
+> +{
+> +	if (skb->ip_summed == CHECKSUM_HW) {
+> +		const struct iphdr *ip = skb->nh.iph;
+> +
+> +		if (ip->protocol == IPPROTO_TCP)
+> +			return IPCS | TCPCS;
+> +		else if (ip->protocol == IPPROTO_UDP)
+> +			return IPCS | UDPCS;
+> +		BUG();
+> +	}
+> +	return 0;
+> +}
 
-applied
+I am applying this patch BUT...  BUG() is a bit too "rude" when you can 
+obviously return safely.  Prefer WARN_ON() because we don't need to kill 
+the machine for this condition.
