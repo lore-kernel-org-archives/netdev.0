@@ -1,45 +1,35 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 2/6] PKT_SCHED: Simple comparison ematch (cmp)
-Date: Mon, 24 Jan 2005 01:55:43 +0100
-Message-ID: <20050124005543.GM23931@postel.suug.ch>
-References: <20050123230012.GB23931@postel.suug.ch> <20050123230221.GD23931@postel.suug.ch> <41F43DD4.8070306@trash.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 1/6] PKT_SCHED: Extended Matches API
+Date: Mon, 24 Jan 2005 01:56:46 +0100
+Message-ID: <41F447CE.6030007@trash.net>
+References: <20050123230012.GB23931@postel.suug.ch> <20050123230132.GC23931@postel.suug.ch> <41F43D6D.30502@trash.net> <20050124004929.GK23931@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <41F43DD4.8070306@trash.net>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050124004929.GK23931@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Patrick McHardy <41F43DD4.8070306@trash.net> 2005-01-24 01:14
-> Thomas Graf wrote:
-> >+static int em_cmp_match(struct sk_buff *skb, struct tcf_ematch *em,
-> >+			struct tcf_pkt_info *info)
-> >+{
-> >+	struct tcf_em_cmp *cmp = (struct tcf_em_cmp *) em->data;
-> >+	unsigned char *ptr = tcf_get_base_ptr(skb, cmp->layer) + cmp->off;
-> >+	u32 val = 0;
-> >+
-> >+	if (!tcf_valid_offset(skb, ptr, cmp->align))
-> >+		return 0;
-> >+
-> >+	switch (cmp->align) {
-> >+		case TCF_EM_ALIGN_U8:
-> >+			val = *ptr;
-> >+			break;
-> >+
-> >+		case TCF_EM_ALIGN_U16:
-> >+			val = *ptr << 8;
-> >+			val |= *(ptr+1);
-> >+
-> >+			if (cmp_needs_transformation(cmp))
-> >+				val = be16_to_cpu(val);
-> > 
-> >
-> Why not simply convert cmp->val in userspace ?
+Thomas Graf wrote:
 
-To allow comparing with lt and gt. I favoured transforming over byte
-order specific comparison routines.
+>* Patrick McHardy <41F43D6D.30502@trash.net> 2005-01-24 01:12
+>  
+>
+>>gcc assumes likely for ptr != NULL by default. Is there a reason why a match
+>>wouldn't have a match function ?
+>>
+>
+>There is no reason but ematches might get written by unexperienced people
+>forgeting to register it. I know, the if partly hides the failure, it's
+>one of theses case where I have the same arguments for both ways.
+>
+I don't care much, but I guess people forgetting to add a match
+function to an ematch will find other ways to do stupid things :)
+How about catching it in tcf_em_register ?
+
+Regards
+Patrick
