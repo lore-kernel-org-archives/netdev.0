@@ -1,59 +1,66 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: Iproute2: update
-Date: Mon, 17 Jan 2005 23:24:37 +0100
-Message-ID: <20050117222437.GI26856@postel.suug.ch>
-References: <20050112125903.64d42737@dxpl.pdx.osdl.net> <1105895352.1091.705.camel@jzny.localdomain> <1105897532.1097.749.camel@jzny.localdomain> <20050117202022.GG26856@postel.suug.ch> <20050117205734.GH26856@postel.suug.ch> <1105997946.1078.308.camel@jzny.localdomain>
+From: Andi Kleen <ak@suse.de>
+Subject: [PATCH] Use unlocked_ioctl for sock_ioctl
+Date: Mon, 17 Jan 2005 23:23:35 +0100
+Message-ID: <20050117222335.GC10882@wotan.suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
+To: davem@redhat.com, netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <1105997946.1078.308.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* jamal <1105997946.1078.308.camel@jzny.localdomain> 2005-01-17 16:39
-> On Mon, 2005-01-17 at 15:57, Thomas Graf wrote:
-> > > I'll put this changes into my tree given you're fine with it and stephen
-> > > can pull them. As I said, the ipt code is still missing, I can merge
-> > > them into my tree as well if you want.
-> > 
-> > Stephen: you can pull jamal's changes with my modifications from
-> > bk://tgr.bkbits.net/iproute2-tgr if you like.
-> 
-> Thomas,
-> 
-> Look at iproute2-2.6.10-ss050112 - ipt is in there and thats where my
-> patches are against.
-> 
-> ----
-> [hadi@jzny hadi]$ find iproute2-2.6.10-ss050112 | grep ipt
-> iproute2-2.6.10-ss050112/examples/dhcp-client-script
-> iproute2-2.6.10-ss050112/tc/m_ipt.c
-> iproute2-2.6.10-ss050112/ip/iptunnel.c
-> iproute2-2.6.10-ss050112/include/iptables.h
-> iproute2-2.6.10-ss050112/include/libiptc
-> iproute2-2.6.10-ss050112/include/libiptc/ipt_kernel_headers.h
-> iproute2-2.6.10-ss050112/include/libiptc/libip6tc.h
-> iproute2-2.6.10-ss050112/include/libiptc/libiptc.h
-> iproute2-2.6.10-ss050112/include/iptables_common.h
-> iproute2-2.6.10-ss050112/include/linux/tc_act/tc_ipt.h
-> -----------
 
-Ah, great. I didn't look at the release and they're not in the
-bk tree. Maybe stephen forgot to push his changes.
+Now that unlocked_ioctl has been merged use it for sock_ioctl.
 
-> So the IPT thing is unneeded. Also note that i had it the way you
-> have it in configure but Stephen didnt like it.
+Signed-off-by: Andi Kleen <ak@suse.de>
 
-OK. I don't care, it's really ugly to compile iproute2 without
-iptables sources though.
-
-> In regards to pedit - wait until the code goes in then shoot at it.
-> Theres plenty of things for you to shoot at ;-> i think last time i
-> really looked at it was ~2 years ago.
-
-I'll keep those changes and eventually merge them sometimes. It's not
-that important.
+diff -u linux-2.6.11-rc1-bk4/net/socket.c-o linux-2.6.11-rc1-bk4/net/socket.c
+--- linux-2.6.11-rc1-bk4/net/socket.c-o	2005-01-17 10:39:43.000000000 +0100
++++ linux-2.6.11-rc1-bk4/net/socket.c	2005-01-17 14:24:21.000000000 +0100
+@@ -104,7 +104,7 @@
+ static int sock_close(struct inode *inode, struct file *file);
+ static unsigned int sock_poll(struct file *file,
+ 			      struct poll_table_struct *wait);
+-static int sock_ioctl(struct inode *inode, struct file *file,
++static long sock_ioctl(struct file *file,
+ 		      unsigned int cmd, unsigned long arg);
+ static int sock_fasync(int fd, struct file *filp, int on);
+ static ssize_t sock_readv(struct file *file, const struct iovec *vector,
+@@ -126,7 +126,7 @@
+ 	.aio_read =	sock_aio_read,
+ 	.aio_write =	sock_aio_write,
+ 	.poll =		sock_poll,
+-	.ioctl =	sock_ioctl,
++	.unlocked_ioctl = sock_ioctl,
+ 	.mmap =		sock_mmap,
+ 	.open =		sock_no_open,	/* special open code to disallow open via /proc */
+ 	.release =	sock_close,
+@@ -829,15 +829,13 @@
+  *	what to do with it - that's up to the protocol still.
+  */
+ 
+-static int sock_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
+-		      unsigned long arg)
++static long sock_ioctl(struct file *file, unsigned cmd, unsigned long arg)
+ {
+ 	struct socket *sock;
+ 	void __user *argp = (void __user *)arg;
+ 	int pid, err;
+ 
+-	unlock_kernel();
+-	sock = SOCKET_I(inode);
++	sock = SOCKET_I(file->f_dentry->d_inode);
+ 	if (cmd >= SIOCDEVPRIVATE && cmd <= (SIOCDEVPRIVATE + 15)) {
+ 		err = dev_ioctl(cmd, argp);
+ 	} else
+@@ -903,8 +901,6 @@
+ 			err = sock->ops->ioctl(sock, cmd, arg);
+ 			break;
+ 	}
+-	lock_kernel();
+-
+ 	return err;
+ }
+ 
