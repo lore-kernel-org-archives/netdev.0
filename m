@@ -1,68 +1,66 @@
-From: Jan-Benedict Glaw <jbglaw@lug-owl.de>
-Subject: Re: [RFC 2.6.10 1/22] xfrm: Add direction information to xfrm_state
-Date: Thu, 30 Dec 2004 17:36:17 +0100
-Message-ID: <20041230163617.GB2460@lug-owl.de>
-References: <20041230035000.01@ori.thedillows.org> <20041230035000.10@ori.thedillows.org> <20041230094839.GX2460@lug-owl.de> <1104423409.23254.9.camel@dillow.idleaire.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PKT_SCHED]: Allow using nfmark as key in U32 classifier.
+Date: Thu, 30 Dec 2004 18:43:13 +0100
+Message-ID: <20041230174313.GB32419@postel.suug.ch>
+References: <20041228221021.GF32419@postel.suug.ch> <1104275197.1100.276.camel@jzny.localdomain> <20041228231916.GG32419@postel.suug.ch> <1104277165.1100.291.camel@jzny.localdomain> <20041229000928.GH32419@postel.suug.ch> <1104282811.1090.314.camel@jzny.localdomain> <20041229124842.GI32419@postel.suug.ch> <1104330054.1089.329.camel@jzny.localdomain> <20041229150140.GJ32419@postel.suug.ch> <1104335620.1025.22.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="5Wo9T3dGHPT+4OQz"
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Dave Dillow <dave@thedillows.org>
+To: jamal <hadi@cyberus.ca>
 Content-Disposition: inline
-In-Reply-To: <1104423409.23254.9.camel@dillow.idleaire.com>
+In-Reply-To: <1104335620.1025.22.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+* jamal <1104335620.1025.22.camel@jzny.localdomain> 2004-12-29 10:53
+> > > Also in the case of u32 (to take this opportunity) i would like to stash
+> > > state inot a 16 bit ID to help in pretty printing the matches.
+> > 
+> > Not sure what you mean. Which "state"?
+> > 
+> 
+> One example of what state you could store:
+> In the case where i enter something readable in english, the display
+> back is raw; 
+> example:
+> match ip src 10.0.0.210/32
+> gets displayed as: match 0a0000d2/ffffffff at 12
+> And a lot of times its tricky to find exactly what "at 12" means.
+> 
+> If i store some ID that would tell me "IP" when i dump then i can pretty
+> print it in english in user space using ip_print().
 
---5Wo9T3dGHPT+4OQz
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Understood, we could store a map in userspace mapping those IDs to
+pretty english match descriptions. I think avoiding to hardcode those
+ids but rather just hold it for userspace is the best thing. OTOH, if
+we give unique ids to matches we can use it instead of a separate ID.
+Unique in terms of parent classid + filter handle + match handle must
+be unique per interface. Thoughts? 
 
-On Thu, 2004-12-30 11:16:49 -0500, Dave Dillow <dave@thedillows.org>
-wrote in message <1104423409.23254.9.camel@dillow.idleaire.com>:
-> On Thu, 2004-12-30 at 04:48, Jan-Benedict Glaw wrote:
-> > On Thu, 2004-12-30 03:48:34 -0500, David Dillow <dave@thedillows.org>
-> > wrote in message <20041230035000.10@ori.thedillows.org>:
-> > > +enum {
-> > > +	XFRM_STATE_DIR_UNKNOWN,
-> > > +	XFRM_STATE_DIR_IN,
-> > > +	XFRM_STATE_DIR_OUT,
-> > > +};
-> >=20
-> > Any specific reason to first define such a nice enum and then using int
-> > in the struct?
->=20
-> Just following the current style in net/xfrm.h, see xfrm_state.km.state
-> and XFRM_STATE_*.
+> Sounds good to me since we have a new sel.
+> It may endup being tricky to be both fast and backward compat; but we'll
+> see what fun awaits when you start coding.
 
-Hmmm... Maybe I'd prepare patches then :)
+I started developing concrete thoughts. The current u32 match could be
+made a generic match just like meta which would give us a u32 w/o hashtables
+on a always-true classifier. The problem arises with exactly those
+hashtables.  u32 uses the same selector for this and furthermore even defines
+stuff like hoff and hmask for this purpose. I have to read up again to
+understand the hashing in full detail but this is the only issue I see that
+we might face.
 
-MfG, JBG
+What I have in mind is, something like u32 but much simpler, w/o the
+overhead of creating additional filters for hashing etc. Basically
+this can be the always-true classifier which just implements the
+generic matches tree. And have the existing u32 with the generic
+matches added when hashing is required.
 
---=20
-Jan-Benedict Glaw       jbglaw@lug-owl.de    . +49-172-7608481             =
-_ O _
-"Eine Freie Meinung in  einem Freien Kopf    | Gegen Zensur | Gegen Krieg  =
-_ _ O
- fuer einen Freien Staat voll Freier B=C3=BCrger" | im Internet! |   im Ira=
-k!   O O O
-ret =3D do_actions((curr | FREE_SPEECH) & ~(NEW_COPYRIGHT_LAW | DRM | TCPA)=
-);
+I planned to write these 2 additional generic matches so far. It's
+pretty simple because I can just take over the code from EGP.
 
---5Wo9T3dGHPT+4OQz
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
-
-iD8DBQFB1C6BHb1edYOZ4bsRAraeAJ4kdi0KY9MbAavAWo1ZpQ8F7bnn3wCbBvjS
-UD3Tby1J+v8hAYqL5uWkgrE=
-=Vrl2
------END PGP SIGNATURE-----
-
---5Wo9T3dGHPT+4OQz--
+ KMP: Knuth-Morris-Pratt text search algorithm
+ NByte: Compares any number of bytes against a pattern, very useful
+        for comparing IPv6 addresses instead of creating 4 ANDed
+        u32 matches.
