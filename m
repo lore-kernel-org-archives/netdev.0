@@ -1,8 +1,8 @@
 From: Nivedita Singhvi <niv@us.ibm.com>
 Subject: Re: [TCP] Fixed mss in tcp_init_cwnd
-Date: Mon, 27 Sep 2004 08:36:33 -0700
+Date: Mon, 27 Sep 2004 08:43:51 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41583381.9090003@us.ibm.com>
+Message-ID: <41583537.2090906@us.ibm.com>
 References: <20040927080828.GA12056@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
@@ -15,17 +15,7 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 Herbert Xu wrote:
-> Hi Dave:
-> 
-> The MSS in tcp_init_cwnd should be the real one instead of the TSO value.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> 
-> Cheers,
-> 
-> 
-> ------------------------------------------------------------------------
-> 
+
 > ===== net/ipv4/tcp_input.c 1.73 vs edited =====
 > --- 1.73/net/ipv4/tcp_input.c	2004-09-13 10:30:58 +10:00
 > +++ edited/net/ipv4/tcp_input.c	2004-09-27 17:00:32 +10:00
@@ -42,3 +32,12 @@ Herbert Xu wrote:
 >  	}
 >  	return min_t(__u32, cwnd, tp->snd_cwnd_clamp);
 >  }
+
+Helps to send after finishing commenting..
+
+I fixed this locally but was still seeing poor throughput,
+though it does correct how many we initially/on restart send out.
+Thought this was fixed in the bk tree?
+
+thanks,
+Nivedita
