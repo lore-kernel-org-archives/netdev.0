@@ -1,55 +1,54 @@
-From: Steven Blake <slblake@petri-meat.com>
-Subject: Re: Move fib_alias out of fib_hash.c
-Date: Wed, 29 Sep 2004 17:20:43 -0400
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: bad TSO performance in 2.6.9-rc2-BK
+Date: Wed, 29 Sep 2004 14:22:52 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1096492842.2344.57.camel@localhost.localdomain>
-References: <20040928214722.11aef8e0.davem@davemloft.net>
-	 <16730.53965.503605.943263@robur.slu.se>
-	 <20040929125359.12a00ba7.davem@davemloft.net>
+Message-ID: <20040929142252.393a976d.davem@davemloft.net>
+References: <20040928223344.GC2975@wotan.suse.de>
+	<Pine.NEB.4.33.0409282323220.27103-100000@dexter.psc.edu>
+	<20040929140016.7ffa4e8b.davem@davemloft.net>
+	<415B2647.8080803@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>, netdev@oss.sgi.com
+Cc: jheffner@psc.edu, ak@suse.de, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20040929125359.12a00ba7.davem@davemloft.net>
+To: Nivedita Singhvi <niv@us.ibm.com>
+In-Reply-To: <415B2647.8080803@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2004-09-29 at 15:53, David S. Miller wrote:
+On Wed, 29 Sep 2004 14:16:55 -0700
+Nivedita Singhvi <niv@us.ibm.com> wrote:
 
-> On Wed, 29 Sep 2004 17:20:45 +0200
-> Robert Olsson <Robert.Olsson@data.slu.se> wrote:
+> That was my point to Herbert, Dave - that we can't
+> rely on Nagle - either we're triggering too early
+> and not utilizing TSO MTU or we're triggering too
+> late (waiting for the full TSO frame) depending
+> on whether we use standard or TSO mss..
 > 
-> >   we can interface new lookups cleanly. For a trie something like:
-> 
-> You are already making a critical logic error.
-> 
-> You cannot find the longest matching prefix and just use that.
-> 
-> Rather, you must iterate through all matching prefixes in the
-> table from longest to shortest, trying fib_semantic_match() on
-> each one until it says OK.
-> 
-> If you don't do that, then you're not providing the same behavior
-> of the current code.  If next hops go down, you have to try the
-> next longest matching prefix and so on and so forth.
+> We need some heuristic to do partial sends under
+> TSO. Is that what you are addressing?
 
-I'm not criticizing the current design, but it is very typical of
-routers to put the burden of fixing up the FIB in the event of a
-next-hop state change on the routing daemon, and not the dataplane.
-Which is one reason why having a FIB datastructure that can be updated
-very efficiently is important.
+It's partial "ACK" of a TSO frame that cause congestion
+window and socket buffer allocation issues.
 
-> It can also
-> be the case that the longest matching prefix entry has no matching
-> TOS key, whereas a shorter prefix does.
+We handle partial sends by just limiting the TSO mss
+to never be larger than the congestion window.
 
-No routing protocols are distributing TOS-specific routes, and there is
-no prospect of that feature ever coming back.  Why pay the cost of
-matching TOS on every packet forwarded?
+We need to handle ACK'ing issues by:
 
+1) Keeping track of "real mss" packet ACKs of TSO
+   frames.  This is implemented currently by advancing
+   the sequence number of the TSO SKB in the retransmit
+   queue.
 
-Regards,
+2) What I'm working on now, which is to liberate send buffer
+   socket space when we do partial acking in #1
 
-// Steve
+I need to see the crash folks are seeing.  Does it only happen
+when you have tcpdump attached to the interface running the
+test?  Does it happen only on the sender or the receiver
+in the netperf test?  Those would be a good clues, indicating
+some SKB sharing bug I've created or similar.
+
+Thanks.
