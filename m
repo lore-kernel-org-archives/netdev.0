@@ -1,32 +1,35 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH] 2.6.0 - r8169 64 bit
-Date: Sat, 20 Dec 2003 01:43:07 +0100
+Subject: Re: [PATCH] 2.6.0 - r8169 64 bit
+Date: Sat, 20 Dec 2003 02:09:46 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031220014307.B2442@electric-eye.fr.zoreil.com>
-References: <20031219233231.A2420@electric-eye.fr.zoreil.com> <20031220011718.A2442@electric-eye.fr.zoreil.com>
+Message-ID: <20031220020946.A4594@electric-eye.fr.zoreil.com>
+References: <20031219233231.A2420@electric-eye.fr.zoreil.com> <20031220011718.A2442@electric-eye.fr.zoreil.com> <20031220014307.B2442@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <20031220011718.A2442@electric-eye.fr.zoreil.com>; from romieu@fr.zoreil.com on Sat, Dec 20, 2003 at 01:17:18AM +0100
+In-Reply-To: <20031220014307.B2442@electric-eye.fr.zoreil.com>; from romieu@fr.zoreil.com on Sat, Dec 20, 2003 at 01:43:07AM +0100
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Patch applies on top of 2.6.0 + Jeff Garzik's 2.6.0-test11-bk5-netdrvr-exp2
+Francois Romieu <romieu@fr.zoreil.com> :
+[...]
+
+Oops, bad patch. Correct version below.
 
 
-- 64bit changes;
+- 64bit/DAC update;
 - provide a decent return status when power state detection fails.
 
 
- drivers/net/r8169.c |   92 +++++++++++++++++++++++++++++++++++++++-------------
- 1 files changed, 70 insertions(+), 22 deletions(-)
+ drivers/net/r8169.c |  100 ++++++++++++++++++++++++++++++++++++++++------------
+ 1 files changed, 77 insertions(+), 23 deletions(-)
 
 diff -puN drivers/net/r8169.c~r8169-addr-high drivers/net/r8169.c
 --- linux-2.6.0-vanilla/drivers/net/r8169.c~r8169-addr-high	2003-12-18 23:01:09.000000000 +0100
-+++ linux-2.6.0-vanilla-fr/drivers/net/r8169.c	2003-12-20 01:03:24.000000000 +0100
++++ linux-2.6.0-vanilla-fr/drivers/net/r8169.c	2003-12-20 02:02:03.000000000 +0100
 @@ -148,8 +148,10 @@ static int rx_copybreak = 200;
  enum RTL8169_registers {
  	MAC0 = 0,		/* Ethernet hardware address. */
@@ -50,7 +53,19 @@ diff -puN drivers/net/r8169.c~r8169-addr-high drivers/net/r8169.c
  	EarlyTxThres = 0xEC,
  	FuncEvent = 0xF0,
  	FuncEventMask = 0xF4,
-@@ -345,6 +348,16 @@ static const unsigned int rtl8169_rx_con
+@@ -227,6 +230,11 @@ enum RTL8169_register_content {
+ 	/*TxConfigBits */
+ 	TxInterFrameGapShift = 24,
+ 	TxDMAShift = 8,		/* DMA burst value (0-7) is shift this many bits */
++	/*CPlusCmd p.31 */
++	RxVlan		= (1 << 6),
++	RxChkSum	= (1 << 5),
++	DAC		= (1 << 4),
++	MulRW		= (1 << 3),
+ 
+ 	/*rtl8169_PHYstatus */
+ 	TBI_Enable = 0x80,
+@@ -345,6 +353,16 @@ static const unsigned int rtl8169_rx_con
  #define PHY_Cap_100_Half_Or_Less PHY_Cap_100_Half | PHY_Cap_10_Full_Or_Less
  #define PHY_Cap_100_Full_Or_Less PHY_Cap_100_Full | PHY_Cap_100_Half_Or_Less
  
@@ -67,7 +82,7 @@ diff -puN drivers/net/r8169.c~r8169-addr-high drivers/net/r8169.c
  void
  mdio_write(void *ioaddr, int RegAddr, int value)
  {
-@@ -628,6 +641,29 @@ static inline void rtl8169_request_timer
+@@ -628,6 +646,29 @@ static inline void rtl8169_request_timer
  	add_timer(timer);
  }
  
@@ -97,7 +112,7 @@ diff -puN drivers/net/r8169.c~r8169-addr-high drivers/net/r8169.c
  static int __devinit
  rtl8169_init_board(struct pci_dev *pdev, struct net_device **dev_out,
  		   void **ioaddr_out)
-@@ -663,6 +699,8 @@ rtl8169_init_board(struct pci_dev *pdev,
+@@ -663,6 +704,8 @@ rtl8169_init_board(struct pci_dev *pdev,
  		goto err_out;
  	}
  
@@ -106,7 +121,7 @@ diff -puN drivers/net/r8169.c~r8169-addr-high drivers/net/r8169.c
  	/* save power state before pci_enable_device overwrites it */
  	pm_cap = pci_find_capability(pdev, PCI_CAP_ID_PM);
  	if (pm_cap) {
-@@ -684,13 +722,11 @@ rtl8169_init_board(struct pci_dev *pdev,
+@@ -684,13 +727,11 @@ rtl8169_init_board(struct pci_dev *pdev,
  	if (!(mmio_flags & IORESOURCE_MEM)) {
  		printk(KERN_ERR PFX
  		       "region #1 not an MMIO resource, aborting\n");
@@ -120,7 +135,7 @@ diff -puN drivers/net/r8169.c~r8169-addr-high drivers/net/r8169.c
  		goto err_out_disable;
  	}
  
-@@ -700,6 +736,10 @@ rtl8169_init_board(struct pci_dev *pdev,
+@@ -700,6 +741,10 @@ rtl8169_init_board(struct pci_dev *pdev,
  		goto err_out_disable;
  	}
  
@@ -131,7 +146,17 @@ diff -puN drivers/net/r8169.c~r8169-addr-high drivers/net/r8169.c
  	// enable PCI bus-mastering
  	pci_set_master(pdev);
  
-@@ -1094,8 +1134,10 @@ rtl8169_hw_start(struct net_device *dev)
+@@ -1085,7 +1130,8 @@ rtl8169_hw_start(struct net_device *dev)
+ 	RTL_W32(TxConfig,
+ 		(TX_DMA_BURST << TxDMAShift) | (InterFrameGap <<
+ 						TxInterFrameGapShift));
+-	RTL_W16(CPlusCmd, RTL_R16(CPlusCmd));
++	RTL_W16(CPlusCmd, ((dev->features & NETIF_F_HIGHDMA) ? DAC : 0) |
++			  RTL_R16(CPlusCmd));
+ 
+ 	if (tp->mac_version == RTL_GIGA_MAC_VER_D) {
+ 		dprintk(KERN_INFO PFX "Set MAC Reg C+CR Offset 0xE0: bit-3 and bit-14 MUST be 1\n");
+@@ -1094,8 +1140,10 @@ rtl8169_hw_start(struct net_device *dev)
  
  	tp->cur_rx = 0;
  
@@ -144,7 +169,7 @@ diff -puN drivers/net/r8169.c~r8169-addr-high drivers/net/r8169.c
  	RTL_W8(Cfg9346, Cfg9346_Lock);
  	udelay(10);
  
-@@ -1115,15 +1157,17 @@ rtl8169_hw_start(struct net_device *dev)
+@@ -1115,15 +1163,17 @@ rtl8169_hw_start(struct net_device *dev)
  
  static inline void rtl8169_make_unusable_by_asic(struct RxDesc *desc)
  {
@@ -165,7 +190,7 @@ diff -puN drivers/net/r8169.c~r8169-addr-high drivers/net/r8169.c
  	dev_kfree_skb(*sk_buff);
  	*sk_buff = NULL;
  	rtl8169_make_unusable_by_asic(desc);
-@@ -1136,7 +1180,7 @@ static inline void rtl8169_return_to_asi
+@@ -1136,7 +1186,7 @@ static inline void rtl8169_return_to_asi
  
  static inline void rtl8169_give_to_asic(struct RxDesc *desc, dma_addr_t mapping)
  {
@@ -174,7 +199,7 @@ diff -puN drivers/net/r8169.c~r8169-addr-high drivers/net/r8169.c
  	desc->status |= cpu_to_le32(OWNbit + RX_BUF_SIZE);
  }
  
-@@ -1233,10 +1277,12 @@ static void rtl8169_unmap_tx_skb(struct 
+@@ -1233,10 +1283,12 @@ static void rtl8169_unmap_tx_skb(struct 
  				 struct TxDesc *desc)
  {
  	u32 len = sk_buff[0]->len;
@@ -190,7 +215,7 @@ diff -puN drivers/net/r8169.c~r8169-addr-high drivers/net/r8169.c
  	*sk_buff = NULL;
  }
  
-@@ -1290,6 +1336,7 @@ rtl8169_start_xmit(struct sk_buff *skb, 
+@@ -1290,6 +1342,7 @@ rtl8169_start_xmit(struct sk_buff *skb, 
  	struct rtl8169_private *tp = dev->priv;
  	void *ioaddr = tp->mmio_addr;
  	int entry = tp->cur_tx % NUM_TX_DESC;
@@ -198,7 +223,7 @@ diff -puN drivers/net/r8169.c~r8169-addr-high drivers/net/r8169.c
  	u32 len = skb->len;
  
  	if (unlikely(skb->len < ETH_ZLEN)) {
-@@ -1301,17 +1348,17 @@ rtl8169_start_xmit(struct sk_buff *skb, 
+@@ -1301,17 +1354,17 @@ rtl8169_start_xmit(struct sk_buff *skb, 
  	
  	spin_lock_irq(&tp->lock);
  
@@ -220,7 +245,7 @@ diff -puN drivers/net/r8169.c~r8169-addr-high drivers/net/r8169.c
  			
  		RTL_W8(TxPoll, 0x40);	//set polling bit
  
-@@ -1424,14 +1471,15 @@ rtl8169_rx_interrupt(struct net_device *
+@@ -1424,14 +1477,15 @@ rtl8169_rx_interrupt(struct net_device *
  			struct RxDesc *desc = tp->RxDescArray + cur_rx;
  			struct sk_buff *skb = tp->Rx_skbuff[cur_rx];
  			int pkt_size = (status & 0x00001FFF) - 4;
