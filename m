@@ -1,8 +1,8 @@
 From: Don Fry <brazilnut@us.ibm.com>
-Subject: [PATCH 2.6.6-bk8] pcnet32: limit frames received during interrupt.
-Date: Sat, 22 May 2004 15:22:19 -0700 (PDT)
+Subject: [PATCH 2.4.27-pre3] pcnet32: limit frames received during interrupt.
+Date: Sat, 22 May 2004 15:30:02 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200405222222.i4MMMJ512917@DYN318364BLD.beaverton.ibm.com>
+Message-ID: <200405222230.i4MMU2H12986@DYN318364BLD.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -12,10 +12,10 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 The current code will allow an infinite number of frames to be received
-during one interrupt.  Tested ia32 and ppc64.
+during one interrupt.  Tested ia32.
 
---- linux-2.6.6-bk8/drivers/net/ltint.pcnet32.c	Fri May 21 15:09:56 2004
-+++ linux-2.6.6-bk8/drivers/net/pcnet32.c	Sat May 22 13:23:24 2004
+--- linux-2.4.27-pre3/drivers/net/ltint.pcnet32.c	Fri May 21 12:43:19 2004
++++ linux-2.4.27-pre3/drivers/net/pcnet32.c	Sat May 22 13:26:44 2004
 @@ -22,8 +22,8 @@
   *************************************************************************/
  
@@ -44,7 +44,7 @@ during one interrupt.  Tested ia32 and ppc64.
   */
  
  
-@@ -1860,6 +1861,7 @@
+@@ -1857,6 +1858,7 @@
  {
      struct pcnet32_private *lp = dev->priv;
      int entry = lp->cur_rx & RX_RING_MOD_MASK;
@@ -52,7 +52,7 @@ during one interrupt.  Tested ia32 and ppc64.
  
      /* If we own the next entry, it's a new packet. Send it up. */
      while ((short)le16_to_cpu(lp->rx_ring[entry].status) >= 0) {
-@@ -1962,6 +1964,7 @@
+@@ -1955,6 +1957,7 @@
  	wmb(); /* Make sure owner changes after all others are visible */
  	lp->rx_ring[entry].status |= le16_to_cpu(0x8000);
  	entry = (++lp->cur_rx) & RX_RING_MOD_MASK;
@@ -60,6 +60,7 @@ during one interrupt.  Tested ia32 and ppc64.
      }
  
      return 0;
+
 -- 
 Don Fry
 brazilnut@us.ibm.com
