@@ -1,42 +1,42 @@
-From: Boian Bonev <boian@bonev.com>
-Subject: tunneling in linux (was: Re: [PATCH][RFC] etherip: Ethernet-in-IPv4 tunneling), GRE Ethernet tunneling
-Date: Sun, 13 Mar 2005 04:14:27 +0200
-Message-ID: <20050313021427.26190.qmail@orange.bonev.com>
+From: Dmitry Torokhov <dtor_core@ameritech.net>
+Subject: Re: Last night Linus bk - netfilter busted?
+Date: Sun, 13 Mar 2005 01:54:02 -0500
+Message-ID: <200503130154.03777.dtor_core@ameritech.net>
+References: <E1D9rZX-0004KE-00@gondolin.me.apana.org.au> <423221FF.8020103@trash.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=_1_1110680067_26188"
-Content-Transfer-Encoding: 8bit
-Cc: netdev@oss.sgi.com
-To: Lennert Buytenhek <buytenh@wantstofly.org>,
-        Pekka Savola <pekkas@netcore.fi>, jamal <hadi@cyberus.ca>,
-        shemminger@osdl.org
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
+        netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
+        netfilter-devel@lists.netfilter.org
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <423221FF.8020103@trash.net>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a MIME-formatted message.  If you see this text it means that your
-E-mail software does not support MIME-formatted messages.
+On Friday 11 March 2005 17:55, Patrick McHardy wrote:
+> Herbert Xu wrote:
+> > Patrick McHardy <kaber@trash.net> wrote:
+> > 
+> >>You're right, good catch. IPT_RETURN is interpreted internally by
+> >>ip_tables, but since the value changed it isn't recognized by ip_tables
+> >>anymore and returned to nf_iterate() as NF_REPEAT. This patch restores
+> >>the old value.
+> > 
+> > 
+> > Please fix netfilter_arp while you're at it since it does exactly
+> > the same thing.
+> 
+> New patch attached, thanks.
+> 
 
---=_1_1110680067_26188
-Content-Type: text/plain; charset=windows-1251
-Content-Transfer-Encoding: quoted-printable
+If this is of any interest, yesterday's pull from Linux plus this patch
+seem to be working fine here.
 
+Thank you.
 
-it really looks stoopid but i found your discussion on linux tunneling wh=
-ile looking for replies to my post on GRE Ethernet tunneling - it was an =
-ask for help :) and all we have walked the same path alone
-
-seems you have concept proof on etherip encap and i did a gre like one
-here is my dirty code: http://purple.bonev.com/ (it is made on 2.4.28, bu=
-t i still use 2.4/e1000/bcm5700/no napi on my high load routers)
-
-in rethinking tunnel creation and management - if i summarize all etherne=
-t like devices shall be ARPHDR_ETHER, best user-kernel proto will be netl=
-ink and also why not support ethtool for virtual ethernets? it will make =
-it easier for userland to know what the heck kind of device it is at leas=
-t
-
-about interoperability - look here: http://www.mikrotik.com/Documentation=
-/manual_2.7/Interface/EoIP.html
-
-b.
---=_1_1110680067_26188--
+-- 
+Dmitry
