@@ -1,44 +1,226 @@
-From: Jesper Juhl <juhl-lkml@dif.dk>
-Subject: Re: [PATCH] remove unused variables in net/sunrpc/auth.c
-Date: Tue, 11 Jan 2005 17:18:22 +0100 (CET)
-Message-ID: <Pine.LNX.4.61.0501111716580.3368@dragon.hygekrogen.localhost>
-References: <Pine.LNX.4.61.0501102239000.2987@dragon.hygekrogen.localhost>
- <20050110221651.GA29578@stusta.de>
+From: "Jeremy M. Guthrie" <jeremy.guthrie@berbee.com>
+Subject: Re: V2.4 policy router operates faster/better than V2.6
+Date: Tue, 11 Jan 2005 11:17:57 -0600
+Message-ID: <200501111118.00601.jeremy.guthrie@berbee.com>
+References: <Pine.LNX.4.44.0501071416060.5818-100000@localhost.localdomain> <20050107145711.367aa159@dxpl.pdx.osdl.net> <200501110917.26621.jeremy.guthrie@berbee.com>
+Reply-To: jeremy.guthrie@berbee.com
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Jesper Juhl <juhl-lkml@dif.dk>,
-        linux-kernel <linux-kernel@vger.kernel.org>,
-        linux-net <linux-net@vger.kernel.org>, netdev <netdev@oss.sgi.com>
+Content-Type: multipart/signed;
+  boundary="nextPart4008070.niflUrAN4L";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@osdl.org>,
+        Jesse Brandeburg <jesse.brandeburg@intel.com>,
+        Robert Olsson <Robert.Olsson@data.slu.se>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Adrian Bunk <bunk@stusta.de>
-In-Reply-To: <20050110221651.GA29578@stusta.de>
+To: netdev@oss.sgi.com
+In-Reply-To: <200501110917.26621.jeremy.guthrie@berbee.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 10 Jan 2005, Adrian Bunk wrote:
+--nextPart4008070.niflUrAN4L
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-> On Mon, Jan 10, 2005 at 10:50:34PM +0100, Jesper Juhl wrote:
-> > 
-> > We have a few unused variables in net/sunrpc/auth.c:320:
-> > 
-> > net/sunrpc/auth.c:320: warning: unused variable `auth'
-> > net/sunrpc/auth.c:333: warning: unused variable `auth'
-> > net/sunrpc/auth.c:345: warning: unused variable `auth'
-> > net/sunrpc/auth.c:385: warning: unused variable `auth'
-> > 
-> > As far as I can see, the patch that caused them to become unused is this 
-> > one (which btw is ~36 months old) :
-> > http://linux.bkbits.net:8080/linux-2.6/diffs/net/sunrpc/auth.c@1.4?nav=index.html|src/|src/net|src/net/sunrpc|hist/net/sunrpc/auth.c
-> > 
-> > Here is a patch to get rid of them (compile tested only).
-> >...
-> 
-> Doesn't this break with CONFIG_SYSCTL=y?
-> 
-Yes, yes it does. I didn't see the CONFIG_SYSCTL connection and thus 
-didn't test that :(   
-Please disregard the patch, it's wrong.
+ ./rtstat
+ size   IN: hit     tot    mc no_rt bcast madst masrc  OUT: hit     tot    =
+ mc=20
+GC: tot ignored goal_miss ovrf HASH: in_search out_search
+63375     86092    2844     0     0     0     0     0         5       1=20
+1610369017    2846    2844         0    0          386039         17
+64870     84431 537031471 537492192     0     0     0     0         1      =
+ 0     =20
+0    2848    2846         0    0          386130         10
+58707     87889    2715     0     0     0     0     0         7       1    =
+  0   =20
+2716    2714         0    0          384782         13
+60617     89993    2796     0     0     0     0     0         5       0    =
+  0   =20
+2795    2793         0    0          384432         17
+62458     93221    2772     0     0     0     0     0         3       0    =
+  0   =20
+2772    2770         0    0          399579          9
+63990     93792    2712     0     0     0     0     0         6       0    =
+  0   =20
+2713    2711         0    0          422585         12
+65499     94235    2846     0     0     0     0     0         2       0    =
+  0   =20
+2846    2844         0    0          424341          9
+59755     90992    2864     0     0     0     0     0         1       1    =
+  0   =20
+2865    2863         0    0          385888         13
+61702     87681    2798     0     0     0     0     0         6       2    =
+  0   =20
+2800    2798         0    0          383276         34
+63334     90557    2734     0     0     0     0     0         5       1    =
+  0   =20
+2735    2733         0    0          422121         28
+64798     88178    2732     0     0     0     0     0         1       0    =
+  0   =20
+2732    2730         0    0          410772         11
+58574     85910    2669     0     0     0     0     0         3       0    =
+  0   =20
+2670    2668         0    0          393331         10
+60538     87238    2705     0     0     0     0     0         4       0    =
+  0   =20
+2705    2703         0    0          382161         20
+62164     85738    2628     0     0     0     0     0         4       0    =
+  0   =20
+2628    2626         0    0          373049         25
+63759     78752    2638     0     0     0     0     0         2       0    =
+  0   =20
+2638    2636         0    0          348411          5
+65052     79832    2482     0     0     0     0     0         3       0    =
+  0   =20
+2481    2479         0    0          365871         20
+58986     82611    2549     0     0     0     0     0         4       1    =
+  0   =20
+2550    2548         0    0          366429         24
+60845     85340    2620     0     0     1     0     0         2       0    =
+  0   =20
+2620    2618         0    0          369963         16
+62465     83122    2591     0     0     0     0     0         5       0    =
+  0   =20
+2591    2589         0    0          371261         18
+ size   IN: hit     tot    mc no_rt bcast madst masrc  OUT: hit     tot    =
+ mc=20
+GC: tot ignored goal_miss ovrf HASH: in_search out_search
+63998     86141    2640     0     0     0     0     0         4       0=20
+537114631    2640    2638         0    0          386452         15
+65294     85989    2527     0     0     0     0     0         5       1=20
+1610369017    2528    2526         0    0          379801         26
+59241     84305    2662     0     0     0     0     0         7       0    =
+  0   =20
+2662    2660         0    0          371925         35
+61194     85397    2837     0     0     0     0     0         3       0    =
+  0   =20
+2837    2835         0    0          374788         17
+62908     88133    2688     0     0     1     0     0         4       1    =
+  0   =20
+2689    2687         0    0          382411         19
+64329     88495    2648     0     0     0     0     0         5       1    =
+  0   =20
+2649    2647         0    0          398763         30
+65560     84994    2447     0     0     1     0     0         6       2    =
+  0   =20
+2449    2447         0    0          394745         33
+59677     81478    2568     0     0     0     0     0         5       0    =
+  0   =20
+2569    2567         0    0          341439         22
+61459     81225    2623     0     0     0     0     0         5       0    =
+  0   =20
+2623    2621         0    0          345996         30
+63038     83660    2544     0     0     0     0     0         3       0    =
+  0   =20
+2544    2542         0    0          381567         21
+64494     86321    2620     0     0     0     0     0         4       0    =
+  0   =20
+2620    2618         0    0          395278         19
+65528     88754    2766     0     0     0     0     0         6       0    =
+  0   =20
+2765    2763         0    0          421075         34
+59948     86443    2990     0     0     0     0     0         5       0    =
+  0   =20
+2990    2988         0    0          373605         29
+61860     81912    2786     0     0     0     0     0         5       1    =
+  0   =20
+2787    2785         0    0          354678         34
+63630     80399    2981     0     0     0     0     0         4       0    =
+  0   =20
+2979    2977         0    0          354983         32
+65215     83600    2934     0     0     0     0     0         6       3    =
+  0   =20
+2937    2935         0    0          371497         41
+59322     85583    2821     0     0     0     0     0         7       0    =
+  0   =20
+2822    2820         0    0          382896         40
+61268     82602    2817     0     0     0     0     0         9       2    =
+  0   =20
+2819    2817         0    0          368078         54
+62989     85336    2760     0     0     1     0     0         9       0    =
+  0   =20
+2760    2758         0    0          394212         39
+64387     84861    2603     0     0     0     0     0         7       0    =
+  0   =20
+2602    2600         0    0          390852         36
+ size   IN: hit     tot    mc no_rt bcast madst masrc  OUT: hit     tot    =
+ mc=20
+GC: tot ignored goal_miss ovrf HASH: in_search out_search
+65681     82848    2625     0     0     0     0     0         8       0=20
+537114631    2625    2623         0    0          370769         49
+59923     82826    2685     0     0     0     0     0         6       0=20
+1610369017    2685    2683         0    0          344094         41
+61700     82705    2706     0     0     0     0     0         7       0    =
+  0   =20
+2706    2704         0    0          368474         39
+63247     91042    2592     0     0     0     0     0         9       1    =
+  0   =20
+2593    2591         0    0          399393         57
+64636     93050    2530     0     0     0     0     0         6       0    =
+  0   =20
+2530    2528         0    0          405903         24
+58301     90662    2554     0     0     0     0     0         5       0    =
+  0   =20
+2555    2553         0    0          404296         39
+60146     88405    2567     0     0     0     0     0         8       1    =
+  0   =20
+2567    2565         0    0          370227         49
+61822     86417    2579     0     0     0     0     0         7       1    =
+  0   =20
+2580    2578         0    0          366323         43
+63351     86517    2594     0     0     1     0     0         9       0    =
+  0   =20
+2594    2592         0    0          363340         51
+64739     87879    2669     0     0     0     0     0         3       0    =
+  0   =20
+2670    2668         0    0          387580         26
+58397     88297    2566     0     0     0     0     0         4       0    =
+  0   =20
+2566    2564         0    0          396980         34
+60352     85039    2707     0     0     0     0     0         6       1    =
+  0   =20
+2709    2707         0    0          367790         47
+62169     87083    2779     0     0     0     0     0         6       0    =
+  0   =20
+2775    2773         0    0          377163         31
+63808     88700    2752     0     0     0     0     0         4       0    =
+  0   =20
+2751    2749         0    0          392830         28
+65189     91242    2725     0     0     0     0     0         5       1    =
+  0   =20
+2727    2725         0    0          416871         31
+59326     84893    2834     0     0     0     0     0         5       1    =
+  0   =20
+2828    2826         0    0          380811         28
+61064     87351    2553     0     0     0     0     0         9       0    =
+  0   =20
+2552    2550         0    0          382053         37
+62637     88761    2551     0     0     0     0     0         5       1    =
+  0   =20
+2553    2551         0    0          384974         29
 
--- 
-Jesper Juhl
+=2D-=20
+
+=2D-------------------------------------------------
+Jeremy M. Guthrie        jeremy.guthrie@berbee.com
+Senior Network Engineer        Phone: 608-298-1061
+Berbee                           Fax: 608-288-3007
+5520 Research Park Drive         NOC: 608-298-1102
+Madison, WI 53711
+
+--nextPart4008070.niflUrAN4L
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQBB5ApIqtjaBHGZBeURAhGLAJ93a2wgpFlElzFgBNjTQ8abukL++wCfVZAW
+CJgJPpVL4yl2/gGMqu9a4zY=
+=Y/U6
+-----END PGP SIGNATURE-----
+
+--nextPart4008070.niflUrAN4L--
