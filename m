@@ -1,27 +1,29 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH/RFC] PATCH: IPV6: Fix multiple leakages (is Re:
- unregister_netdevice: waiting for tun6to4 to become free.)
-Date: Mon, 27 Sep 2004 12:23:47 -0700
+Subject: Re: Set truesize in pskb_expand_head
+Date: Mon, 27 Sep 2004 12:27:00 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040927122347.045d04db.davem@davemloft.net>
-References: <41527796.4010204@tomt.net>
-	<4152843D.6010204@tomt.net>
-	<20040923.172253.125681726.yoshfuji@linux-ipv6.org>
-	<20040925.040506.106641510.yoshfuji@linux-ipv6.org>
+Message-ID: <20040927122700.4696e416.davem@davemloft.net>
+References: <20040924232053.GA7807@gondor.apana.org.au>
+	<20040924163328.7597352c.davem@davemloft.net>
+	<20040924233555.GA7962@gondor.apana.org.au>
+	<20040924233713.GA8001@gondor.apana.org.au>
+	<20040924164540.2d750572.davem@davemloft.net>
+	<20040925000503.GA10873@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: andre@tomt.net, tgraf@suug.ch, pp@ee.oulu.fi, jgarzik@pobox.com,
-        dwmw2@infradead.org, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20040925.040506.106641510.yoshfuji@linux-ipv6.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040925000503.GA10873@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 25 Sep 2004 04:05:06 +0900 (JST)
-YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
+On Sat, 25 Sep 2004 10:05:03 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> bk://bk.skbuff.net:20609/linux-2.6-refcnt/
+> Here is the real patch.
 
-These changes look fine.  Pulled, thank you Yoshifuji.
+Ok.. idea wise.  But, why are you subtracting 'delta' from
+skb->truesize?  That's the amount actually used not the
+amount trimmed by pskb_expand_head().
