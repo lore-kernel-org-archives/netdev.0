@@ -1,21 +1,39 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] [iproute2] XFRM: support ICMP/ICMPv6's type and code
-Date: Tue, 28 Sep 2004 11:46:37 -0700
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <1096397197.21799.17.camel@localhost.localdomain>
-References: <20040906164742.54795bf4@localhost>
+From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
+Subject: WE-17 typo fix
+Date: Tue, 28 Sep 2004 11:46:25 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040928184625.GA8299@bougret.hpl.hp.com>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Masahide Nakamura <nakam@linux-ipv6.org>
-In-Reply-To: <20040906164742.54795bf4@localhost>
+Content-Type: text/plain; charset=us-ascii
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com
+Content-Disposition: inline
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2004-09-06 at 16:47 +0900, Masahide Nakamura wrote:
-> This patch supports ICMP/ICMPv6's type and code in IPsec
-> selector. Kernel has supported this feature from 2.6.9-rc1.
+	Hi Jeff,
 
-The set of XFRM related patches are in the latest version due this week.
+	Felix R. found a typo in the WE-17 patch I sent you and is
+pending in your tree (more correctly, an overzealous
+search&replace). The patch below fix this mistake.
+	I would appreciate you adding this patch to your tree ;-)
 
+	Have fun...
+
+	Jean
+
+------------------------------------------------------------------
+
+diff -u -p linux/net/core/wireless.we17.c linux/net/core/wireless.c
+--- linux/net/core/wireless.we17.c	Tue Sep 28 11:34:04 2004
++++ linux/net/core/wireless.c	Tue Sep 28 11:34:33 2004
+@@ -867,7 +867,7 @@ static inline int ioctl_private_call(str
+ 				return -EFAULT;
+ 
+ 			/* Does it fits within bounds ? */
+-			if(iwr->u.data.length > (descr->get_args &
++			if(iwr->u.data.length > (descr->set_args &
+ 						 IW_PRIV_SIZE_MASK))
+ 				return -E2BIG;
+ 		} else {
