@@ -1,39 +1,34 @@
-From: "Patrick R. McManus" <mcmanus@ducksong.com>
+From: Jeff Garzik <jgarzik@pobox.com>
 Subject: Re: SIOCETHTOOL ioctl() and a corrupted cmd argument
-Date: Wed, 5 Mar 2003 16:32:05 -0500
+Date: Wed, 5 Mar 2003 16:41:55 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030305213205.GA1227@ducksong.com>
-References: <20030305210047.GA10824@ducksong.com>
+Message-ID: <20030305214155.GM13420@gtf.org>
+References: <20030305210047.GA10824@ducksong.com> <20030305213205.GA1227@ducksong.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "Patrick R. McManus" <mcmanus@ducksong.com>
 Content-Disposition: inline
-In-Reply-To: <20030305210047.GA10824@ducksong.com>
+In-Reply-To: <20030305213205.GA1227@ducksong.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-[Patrick R. McManus: Mar 05 16:00]
-
-> as a regular user I get 
-> Mar  5 15:46:57 mcmanus kernel: general ioctl cmd 89F0, magic 8946
+On Wed, Mar 05, 2003 at 04:32:05PM -0500, Patrick R. McManus wrote:
+> but SIOCETHTOOL shouldn't need perms, right? it has some functionality
+> that needs it and some that doesn't, and the driver sorts it
+> out.. there isn't a GIOCETHTOOL at all..
 > 
+> #define ETHTOOL_GSET        0x00000001 /* Get settings. */
+> #define ETHTOOL_SSET        0x00000002 /* Set settings, privileged. */
 
-turns out, as I had expected, my report is bogus.. this ioctl is a
-fallback after the siocethtool fails. the driver do_ioctl() never gets
-invoked at all when the ioctl() is invoked without being root.
 
-this would be because in net/core/dev.c dev_ioctl() they are filtered out:
+You are correct that comment is misleading... all ethtool does current
+requiring CAP_NET_ADMIN.  This is one of the costs of lumping things
+under one ioctl, rather than constantly using new ioctls.
 
-        case SIOCETHTOOL:
-        case SIOCGMIIPHY:
-        case SIOCGMIIREG:
-            if (!capable(CAP_NET_ADMIN))
-                return -EPERM;
+It is certainly possible (and reasonable) that a future kernel peeks at
+the ioctl and then conditionally checks privs, but this is not currently
+the case.
 
-but SIOCETHTOOL shouldn't need perms, right? it has some functionality
-that needs it and some that doesn't, and the driver sorts it
-out.. there isn't a GIOCETHTOOL at all..
-
-#define ETHTOOL_GSET        0x00000001 /* Get settings. */
-#define ETHTOOL_SSET        0x00000002 /* Set settings, privileged. */
+	Jeff
