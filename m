@@ -1,57 +1,62 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
-Date: Wed, 22 Sep 2004 14:52:39 +1000
+From: Dmitry Torokhov <dtor_core@ameritech.net>
+Subject: OOPS when enslaving atmel card to bonded interface (2.6.9-rc2-bk-pull)
+Date: Wed, 22 Sep 2004 01:27:18 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040922045239.GA19573@gondor.apana.org.au>
-References: <414DF11C.1080505@eurodev.net> <20040919215915.GB9573@gondor.apana.org.au> <1095633569.1047.107.camel@jzny.localdomain> <20040919231734.GA10124@gondor.apana.org.au> <1095647944.1046.206.camel@jzny.localdomain> <20040920025802.GA11567@gondor.apana.org.au> <1095683660.1047.254.camel@jzny.localdomain> <414F1E12.6010808@eurodev.net> <20040922000503.GA13218@gondor.apana.org.au> <4150E7E5.2000001@eurodev.net>
+Message-ID: <200409220127.19174.dtor_core@ameritech.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hadi@cyberus.ca, "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Pablo Neira <pablo@eurodev.net>
+To: netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <4150E7E5.2000001@eurodev.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 22, 2004 at 04:48:05AM +0200, Pablo Neira wrote:
-> 
-> b) I'm thinking about netlink sockets as a method to generate event 
-> notifications. My benchmark tool just want to emulate that N events 
-> happen in a *very* short period of time (worst case), that implies 
-> sending N messages. So, forget that my tool sends previously a message 
-> to generate those N messages.
+Hi,
 
-That's what I thought you wanted too, something like ip_queue.
+Getting the following OOPs at startup when PCMCIA discovers an SMC wireless
+card (atmel_cs) and tries to enslave it to bond0. The kernel is last night
+pull form Linus.
 
-You've got to remember that for ip_queue netlink is inherently
-*unreliable*.  Your application must be able to cope with dropped
-packets and recover in a sane way.  The kernel makes it slightly
-easier for you in that it'll tell you if messages have been dropped.
-But in the end it's up to the application to deal with it.
-
-The only knob that you can tweak is the receive queue length.  You
-might think that making the kernel wait/back off is going solve the
-problem.  But it's just another way of extending the receive queue
-length.
- 
-> Jamal, you're getting an overrun dumping ipsec policies. If I'm not 
-> wrong, that tool is doing that as dump operation, but that this 
-> shouldn't happen by using dump. Am I missing something?
-
-I've never seen any overruns with IPsec.  Perhaps there is a bug
-somewhere.
-
-> I would like to have a way to send notifications via netlink sockets 
-> without losing congestion control ability, that is, without losing 
-> messages because of an overrun.
-
-Congestion control similar to the way dumping works may work for you.
-But you need to tell us more about what you're actually using this for.
-
-Cheers,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Dmitry
+
+ep 22 01:12:51 core kernel: eth1: SMC 2632W-V2 index 0x01: Vcc 3.3, irq 3, io 0x0100-0x011f
+Sep 22 01:12:51 core kernel: Unable to handle kernel paging request at virtual address 962da8e8
+Sep 22 01:12:51 core kernel:  printing eip:
+Sep 22 01:12:51 core kernel: c02c5c99
+Sep 22 01:12:51 core kernel: *pde = 00000000
+Sep 22 01:12:51 core kernel: Oops: 0000 [#1]
+Sep 22 01:12:51 core kernel: PREEMPT
+Sep 22 01:12:51 core kernel: Modules linked in: atmel_cs atmel firmware_class crc32 3c59x bonding iptable_filter snd_maestro3 sn
+d_ac97_codec snd_pcm snd_timer snd_page_alloc snd soundcore uhci_hcd usbcore mousedev psmouse
+Sep 22 01:12:51 core kernel: CPU:    0
+Sep 22 01:12:51 core kernel: EIP:    0060:[<c02c5c99>]    Not tainted VLI
+Sep 22 01:12:51 core kernel: EFLAGS: 00010287   (2.6.9-rc2)
+Sep 22 01:12:51 core kernel: EIP is at fn_hash_insert+0x3a9/0x420
+Sep 22 01:12:51 core kernel: eax: 00000000   ebx: de985e68   ecx: 962da8c0   edx: 00000c01
+Sep 22 01:12:51 core kernel: esi: deed7268   edi: dfbad2c0   ebp: de985e00   esp: de985d94
+Sep 22 01:12:51 core kernel: ds: 007b   es: 007b   ss: 0068
+Sep 22 01:12:51 core kernel: Process ifenslave (pid: 2388, threadinfo=de985000 task=df8c6aa0)
+Sep 22 01:12:51 core kernel: Stack: de985dec de9c3440 de985db4 c017eb96 def2b280 00000000 962da8c0 de9e731c
+Sep 22 01:12:51 core kernel:        de980c01 c011e831 00004000 de9c3b60 def2b280 962da8c0 009c3b60 00000002
+Sep 22 01:12:51 core kernel:        00000020 df1e3860 de985e04 deed7260 00000004 dfc9ade0 ffffffef 962da8c0
+Sep 22 01:12:51 core kernel: Call Trace:
+Sep 22 01:12:51 core kernel:  [<c01056aa>] show_stack+0x7a/0x90
+Sep 22 01:12:51 core kernel:  [<c010582a>] show_registers+0x14a/0x1c0
+Sep 22 01:12:51 core kernel:  [<c0105a1b>] die+0xdb/0x170
+Sep 22 01:12:51 core kernel:  [<c01140da>] do_page_fault+0x23a/0x590
+Sep 22 01:12:51 core kernel:  [<c0105295>] error_code+0x2d/0x38
+Sep 22 01:12:51 core kernel:  [<c02c3617>] fib_magic+0xd7/0xf0
+Sep 22 01:12:51 core kernel:  [<c02c3694>] fib_add_ifaddr+0x64/0x160
+Sep 22 01:12:51 core kernel:  [<c02c39db>] fib_inetaddr_event+0x4b/0x50
+Sep 22 01:12:51 core kernel:  [<c0125028>] notifier_call_chain+0x28/0x50
+Sep 22 01:12:51 core kernel:  [<c02bb630>] inet_insert_ifa+0xa0/0x150
+Sep 22 01:12:51 core kernel:  [<c02bbf99>] devinet_ioctl+0x349/0x6f0
+Sep 22 01:12:51 core kernel:  [<c02be193>] inet_ioctl+0x63/0xa0
+Sep 22 01:12:51 core kernel:  [<c0275c02>] sock_ioctl+0x102/0x2a0
+Sep 22 01:12:51 core kernel:  [<c0162206>] sys_ioctl+0xf6/0x240
+Sep 22 01:12:51 core kernel:  [<c01050eb>] syscall_call+0x7/0xb
+Sep 22 01:12:51 core kernel: Code: 8b 46 04 8b 30 8b 0e 89 4d a4 0f 18 01 90 3b 76 04 74 37 8b 47 28 89 45 a8 89 f6 8d bc 27 00
+00 00 00 8b 4e 08 8b 45 a8 89 4d ac <39> 41 28 75 1a 0f b6 46 0d 3b 45 d0 74 25 8b 75 a4 8b 06 89 45
