@@ -1,27 +1,28 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] replace dst_release refcount error with standard
- WARN_ON
-Date: Thu, 21 Oct 2004 22:05:21 -0700
+Subject: Re: [PATCH][ATM]: [ambassador] eliminate pci_find_device()
+Date: Thu, 21 Oct 2004 22:14:20 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041021220521.5314025e.davem@davemloft.net>
-References: <20041021133434.73188fae@zqx3.pdx.osdl.net>
+Message-ID: <20041021221420.1002bfc5.davem@davemloft.net>
+References: <20041021113841.GA3720@infradead.org>
+	<200410220129.i9M1TvPr026209@ginger.cmf.nrl.navy.mil>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: hch@infradead.org, netdev@oss.sgi.com, davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20041021133434.73188fae@zqx3.pdx.osdl.net>
+To: "chas williams (contractor)" <chas@cmf.nrl.navy.mil>
+In-Reply-To: <200410220129.i9M1TvPr026209@ginger.cmf.nrl.navy.mil>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 21 Oct 2004 13:34:34 -0700
-Stephen Hemminger <shemminger@osdl.org> wrote:
+On Thu, 21 Oct 2004 21:29:57 -0400
+"chas williams (contractor)" <chas@cmf.nrl.navy.mil> wrote:
 
-> Replace the dst count underflow bug message with a standard WARN message.
-> This makes errors noticeable and also reduces the kernel text size by 600
-> since we aren't doing as much to setup the printk.
+> better?
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> # This is a BitKeeper generated diff -Nru style patch.
+> #
+> #   [ATM]: [ambassador] eliminate pci_find_device()
+> # 
 
-Applied, thanks Stephen.
+Looks fine to me, applied.
