@@ -1,42 +1,44 @@
-From: Ralph Doncaster <ralph@istop.com>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: Route cache performance under stress
-Date: Tue, 10 Jun 2003 21:17:28 -0400 (EDT)
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <Pine.LNX.4.51.0306102115210.18076@ns.istop.com>
-References: <20030610.152020.59678979.davem@redhat.com>
- <Pine.LNX.4.51.0306101956520.7801@ns.istop.com> <3EE67D2D.80608@candelatech.com>
- <20030610.180120.71112140.davem@redhat.com>
-Reply-To: ralph+d@istop.com
+Date: Tue, 10 Jun 2003 18:22:34 -0700 (PDT)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20030610.182234.74725315.davem@redhat.com>
+References: <3EE67D2D.80608@candelatech.com>
+	<20030610.180120.71112140.davem@redhat.com>
+	<3EE682B8.8060708@candelatech.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "greearb@candelatech.com" <greearb@candelatech.com>,
-	"Robert.Olsson@data.slu.se" <Robert.Olsson@data.slu.se>,
-	"hadi@shell.cyberus.ca" <hadi@shell.cyberus.ca>,
-	"xerox@foonet.net" <xerox@foonet.net>,
-	"sim@netnation.com" <sim@netnation.com>,
-	"fw@deneb.enyo.de" <fw@deneb.enyo.de>,
-	"netdev@oss.sgi.com" <netdev@oss.sgi.com>,
-	"linux-net@vger.kernel.org" <linux-net@vger.kernel.org>
-Return-path: <linux-net-owner@vger.kernel.org>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030610.180120.71112140.davem@redhat.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: greearb@candelatech.com
+In-Reply-To: <3EE682B8.8060708@candelatech.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 10 Jun 2003, David S. Miller wrote:
+   From: Ben Greear <greearb@candelatech.com>
+   Date: Tue, 10 Jun 2003 18:15:36 -0700
+   
+   What determines whether or not we use the "TSC do_gettimeofday".  Does
+   it automagically happen when you compile for P-III or something like
+   that?
+   
+The 2.5.x kernel has x86 platform  drivers that decide this.
 
-> TSC do_gettimeofday() is REALLY cheap (TSC read plus a multiply which
-> x86 does in like 5 cycles).
+   And how big of a "bigger box" are you talking about...regular old
+   SMP, or NUMA?
 
-Aren't the read_lock_irqsave and restore expensive?
+Many laptops cannot even use TSC reliably because of power management
+etc. issues.
 
-        read_lock_irqsave(&xtime_lock, flags);
-        usec = do_gettimeoffset();
-        {
-                unsigned long lost = jiffies - wall_jiffies;
-                if (lost)
-                        usec += lost * (1000000 / HZ);
-        }
-        sec = xtime.tv_sec;
-        usec += xtime.tv_usec;
-        read_unlock_irqrestore(&xtime_lock, flags);
+   > SO_RECVSTAMP, any socket on the machine can ask for this.
+   
+   Do we know when we are being asked for this value?
 
+We have to take the timestamp at netif_receive_skb() for it to
+be accurate.
+
+We don't even know if this packet is for this host until a long
+time later, let alone whether any local sockets want SO_RECVSTAMP
+or whether any IP options want timestamp or whether tcpdump is
+listening etc.
