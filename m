@@ -1,80 +1,36 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: bad TSO performance in 2.6.9-rc2-BK
-Date: Mon, 27 Sep 2004 16:04:11 -0700
+Subject: Re: [TCP] Fixed mss in tcp_init_cwnd
+Date: Mon, 27 Sep 2004 16:04:54 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040927160411.22b44f48.davem@davemloft.net>
-References: <20040923161141.4ea9be4c.davem@davemloft.net>
-	<Pine.NEB.4.33.0409271416360.14606-100000@dexter.psc.edu>
+Message-ID: <20040927160454.67cd1e11.davem@davemloft.net>
+References: <20040927080828.GA12056@gondor.apana.org.au>
+	<20040927120031.55fb4a49.davem@davemloft.net>
+	<20040927220240.GA7633@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: ak@suse.de, niv@us.ibm.com, andy.grover@gmail.com, anton@samba.org,
-        netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: John Heffner <jheffner@psc.edu>
-In-Reply-To: <Pine.NEB.4.33.0409271416360.14606-100000@dexter.psc.edu>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040927220240.GA7633@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 27 Sep 2004 18:38:42 -0400 (EDT)
-John Heffner <jheffner@psc.edu> wrote:
+On Tue, 28 Sep 2004 08:02:40 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> On Thu, 23 Sep 2004, David S. Miller wrote:
+> On Mon, Sep 27, 2004 at 12:00:31PM -0700, David S. Miller wrote:
+> > On Mon, 27 Sep 2004 18:08:28 +1000
+> > Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> > 
+> > > The MSS in tcp_init_cwnd should be the real one instead of the TSO value.
+> > 
+> > This happens too early in the connections lifetime
+> > to make a difference for anything.
 > 
-> >
-> > I think I know what may be going on here.
-> >
-> > Let's say that we even get the congestion window openned up
-> > so that we can build 64K TSO frames, that's around 43 or 44
-> > 1500 mtu frames.
-> >
-> > That means as the window fills up, we have to see 44 ACKs
-> > before we are able to send the next TSO frame.  Needless to
-> > say that breaks ACK clocking completely.
+> I know.  That's why I put it in a different thread.
 > 
-> More specifically, I think it is an interaction with delayed ack (acking
-> less than 1 virtual segment), and the small cwnd.  This works for me, but
-> I'm not sure that aren't some lurking problems still.
+> IMHO we should still fix it though at least for consistency.
 
-Yes, this is supposed to work around the problem, but:
-
-1) It is a hack :-)
-
-2) It doesn't help Andi's case, and I think I know why.
-
-The reason Andi Kleen didn't see any improvements from limiting
-'factor' is that he is using short lived connections.  If you
-have a connection up for long enough, this allows the congestion
-window to grow and then it doesn't matter.
-
-Something like the following is what I have been talking about.
-I am able to reproduce the problem here locally and the following
-makes it go away.
-
-Andi, Anton, and niv, can you confirm it does so for you too?
-
-If tcp_clean_rtx_queue() doesn't return DATA
-acked then no congestion growth is allowed to occur.  So we only
-get a snd_cwnd bump once for every tso_factor frames, that stinks :)
-
-This is not the final fix.  I need to do something like record the
-upper-most virtual ACK within a TSO frame so we don't say DATA acked
-for dup-acks that happen to fall in the middle of a TSO frame.
-
-===== net/ipv4/tcp_input.c 1.75 vs edited =====
---- 1.75/net/ipv4/tcp_input.c	2004-09-27 12:00:32 -07:00
-+++ edited/net/ipv4/tcp_input.c	2004-09-27 15:35:12 -07:00
-@@ -2373,8 +2373,12 @@
- 		 * discard it as it's confirmed to have arrived at
- 		 * the other end.
- 		 */
--		if (after(scb->end_seq, tp->snd_una))
-+		if (after(scb->end_seq, tp->snd_una)) {
-+			if (scb->tso_factor &&
-+			    after(tp->snd_una, scb->seq))
-+				acked |= FLAG_DATA_ACKED;
- 			break;
-+		}
- 
- 		/* Initial outgoing SYN's get put onto the write_queue
- 		 * just like anything else we transmit.  It is not
+That early on in the connection, it should be setting both
+values, right?  If so your patch still needs a tweak. :)
