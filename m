@@ -1,53 +1,41 @@
-From: Daniel Andersen <anddan@linux-user.net>
-Subject: Re: via-velocity heads up (was (Re: Linux 2.6.9-rc4 - pls test (and
- no more patches))
-Date: Mon, 11 Oct 2004 15:32:28 +0200
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <416A8B6C.30206@linux-user.net>
-References: <Pine.LNX.4.58.0410102016180.3897@ppc970.osdl.org> <20041011072307.GA18577@electric-eye.fr.zoreil.com>
+From: viro@parcelfarce.linux.theplanet.co.uk
+Subject: Re: [PATCH] Fix readw/writew warnings in drivers/net/wireless/hermes.h
+Date: Mon, 11 Oct 2004 14:33:02 +0100
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20041011133302.GV23987@parcelfarce.linux.theplanet.co.uk>
+References: <Pine.LNX.4.61.0410110702590.7899@linaeum.absolutedigital.net> <1a50bd3704101105046e66538c@mail.gmail.com> <20041011123137.GB28100@zax> <200410111518.39001.petkov@uni-muenster.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Tejun Heo <tj@home-tj.org>, netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S268944AbUJKN30@vger.kernel.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20041011072307.GA18577@electric-eye.fr.zoreil.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Gibson <hermes@gibson.dropbear.id.au>,
+        Ricky lloyd <ricky.lloyd@gmail.com>,
+        Jan Dittmer <j.dittmer@portrix.net>,
+        Cal Peake <cp@absolutedigital.net>,
+        Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        NetDev Mailing List <netdev@oss.sgi.com>, proski@gnu.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Borislav Petkov <petkov@uni-muenster.de>
+Content-Disposition: inline
+In-Reply-To: <200410111518.39001.petkov@uni-muenster.de>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu wrote:
-> Linus Torvalds <torvalds@osdl.org> :
-> [...]
+On Mon, Oct 11, 2004 at 03:18:38PM +0200, Borislav Petkov wrote:
+> that in a great detail. As a result, the right thing to do here is, I think, to declare all addrs void __iomem*.
+> Which leaves a question: while compiling the following code fragment:
 > 
->>Summary of changes from v2.6.9-rc3 to v2.6.9-rc4
->>============================================
+> <sound/pci/ymfpci/ymfpci_main.c>
+>   static inline u8 snd_ymfpci_readb(ymfpci_t *chip, u32 offset)
+>   {
+>           return readb(chip->reg_area_virt + offset);
+>   }
 > 
-> [...]
+> gcc complains as so:
 > 
->>Fran?ois Romieu:
->>  o via-velocity: properly manage the count of adapters
->>  o via-velocity: removal of unused velocity_info.xmit_lock
->>  o via-velocity: velocity_give_rx_desc() removal
->>  o via-velocity: received ring wrong index and missing barriers
->>  o via-velocity: early invocation of init_cam_filter()
->>  o via-velocity: removal of incomplete endianness handling
->>  o via-velocity: wrong buffer offset in velocity_init_td_ring()
->>  o via-velocity: comment fixes
+> sound/pci/ymfpci/ymfpci_main.c: In function `snd_ymfpci_readb':
+> sound/pci/ymfpci/ymfpci_main.c:57: warning: passing arg 1 of `readb' makes pointer from integer without a cast
 > 
-> 
-> The attribution is a bit misleading as Tejun Heo <tj@home-tj.org>
-> did the real work (he appears in the logs though).
-> 
-> People should really, really, test this code if they have been
-> experiencing issues with the driver lately.
-> 
-> Test reports welcome here or on netdev@oss.sgi.com.
-> 
+> Do we have to cast here or use the new interface?
 
-I'm finally able to successfully use my On board VT6122 10/100/1000 Mb 
-PCI Ethernet Controller on my Abit KV8-Pro. I have not found any 
-problems with the via-velocity driver yet. Great work! :)
-
-Daniel Andersen
-
---
+Make ->reg_area_virt void __iomem *.  *However*, ALSA folks said that they
+have already done iomem annotations in their tree, so that's an area best
+left alone until they merge.
