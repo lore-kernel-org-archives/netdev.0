@@ -1,35 +1,27 @@
-From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH] remove useless MOD_{INC,DEC}_USE_COUNT in wanpipe
-Date: Sun, 22 Feb 2004 20:21:00 +0100
+From: Xose Vazquez Perez <xose@wanadoo.es>
+Subject: Re: Why is ifenslave.c in the kernel tree?
+Date: Sun, 22 Feb 2004 20:21:49 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040222192059.GA28659@lst.de>
+Message-ID: <4039014D.8060202@wanadoo.es>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: netdev@oss.sgi.com, hch@lst.de
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-wanpipe_open/close are used by sub-modules in their open/close handlers,
-thus locking sdlamain into memory by using the exports
+Christoph Hellwig wrote:
 
+> Just looking over the 2.6.3 diffs I see that ifenslave is actively
+> maintained in Documenation/ of the kernel tree.  Isn't that a _really_
+> odd place for a userland tool?  We have a policy of not having any
+> userland tools not used for building in the kernel tree, and especially
+> none of the distributors will pick it up from there.
 
---- 1.21/drivers/net/wan/sdlamain.c	Mon Sep 22 03:01:11 2003
-+++ edited/drivers/net/wan/sdlamain.c	Sun Oct  5 16:23:10 2003
-@@ -1161,7 +1161,6 @@
- void wanpipe_open (sdla_t* card)
- {
- 	++card->open_cnt;
--	MOD_INC_USE_COUNT;
- }
- 
- /*============================================================================
-@@ -1173,7 +1172,6 @@
- void wanpipe_close (sdla_t* card)
- {
- 	--card->open_cnt;
--	MOD_DEC_USE_COUNT;
- }
- 
- /*============================================================================
+The best place could be net-tools package.
+
+But it looks like net-tools is sloppy, last change was done around Apr-2001 !!
+
+--
+x86-64 GenuineIntel
