@@ -1,44 +1,37 @@
-From: Matthias Andree <matthias.andree@gmx.de>
-Subject: 2.6: net/core.c should export sysctl_optmem_max for modular IPV6
-Date: Thu, 26 Feb 2004 02:59:07 +0100
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040226015907.GA10986@merlin.emma.line.org>
+From: James Morris <jmorris@redhat.com>
+Subject: Re: [PATCH] proportional share accept()
+Date: Wed, 25 Feb 2004 21:35:38 -0500 (EST)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <Xine.LNX.4.44.0402252132560.4472-100000@thoron.boston.redhat.com>
+References: <Pine.LNX.4.44.0402250818060.2878-100000@loopback.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: Linux-Kernel mailing list <linux-kernel@vger.kernel.org>
-Content-Disposition: inline
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Vivek Kashyap <kashyapv@us.ibm.com>
+In-Reply-To: <Pine.LNX.4.44.0402250818060.2878-100000@loopback.beaverton.ibm.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Wed, 25 Feb 2004, Vivek Kashyap wrote:
 
-IPv6 built as a module fails (in 2.6 BitKeeper tree) because it cannot
-link to sysctl_optmem_max, trivial patch:
+>  static inline int tcp_synq_is_full(struct sock *sk)
+> @@ -1796,6 +1785,12 @@
+>  	req->acked = 0;
+>  	req->ecn_ok = 0;
+>  	req->rmt_port = skb->h.th->source;
+> +	req->acceptq_start_ticket = 0;
+> +	req->acceptq_time_stamp = 0;
+> +	if (tp->acceptq_max_class)
+> +		req->acceptq_class = (skb->nfmark <= 0) ? 0 :
+> +			((skb->nfmark > NUM_ACCEPT_QUEUES) ?
+> +			 0: skb->nfmark);
+>  }
 
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2004/02/26 02:00:09+01:00 matthias.andree@gmx.de 
-#   EXPORT_SYMBOL(sysctl_optmem_max) to make IPv6 happy.
-# 
-# net/core/sock.c
-#   2004/02/26 01:58:51+01:00 matthias.andree@gmx.de +1 -0
-#   EXPORT_SYMBOL(sysctl_optmem_max) to make IPv6 happy.
-# 
-diff -Nru a/net/core/sock.c b/net/core/sock.c
---- a/net/core/sock.c	Thu Feb 26 02:49:06 2004
-+++ b/net/core/sock.c	Thu Feb 26 02:49:06 2004
-@@ -1186,6 +1186,7 @@
- EXPORT_SYMBOL(sock_wfree);
- EXPORT_SYMBOL(sock_wmalloc);
- #ifdef CONFIG_SYSCTL
-+EXPORT_SYMBOL(sysctl_optmem_max);
- EXPORT_SYMBOL(sysctl_rmem_max);
- EXPORT_SYMBOL(sysctl_wmem_max);
- #endif
+Have you tried compiling this without CONFIG_NETFILTER?
 
+
+- James
 -- 
-Matthias Andree
-
-Encrypt your mail: my GnuPG key ID is 0x052E7D95
+James Morris
+<jmorris@redhat.com>
