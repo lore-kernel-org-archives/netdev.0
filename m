@@ -1,29 +1,30 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] fix oops from acenic ethtool
-Date: Mon, 14 Jun 2004 13:52:35 -0400
+From: Mitchell Blank Jr <mitch@sfgoth.com>
+Subject: Re: [RFC/PATCH] lockless loopback patch for 2.6 (version 2)
+Date: Mon, 14 Jun 2004 11:23:36 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40CDE5E3.7060009@pobox.com>
-References: <20040604145333.34d1600f@dell_ss3.pdx.osdl.net>	<40C9022F.8050102@pobox.com> <20040614094034.7f06445c@dell_ss3.pdx.osdl.net>
+Message-ID: <20040614182336.GC11280@gaz.sfgoth.com>
+References: <Pine.SGI.4.56.0406141000060.479900@neteng.engr.sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jes Sorensen <jes@wildopensource.com>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040614094034.7f06445c@dell_ss3.pdx.osdl.net>
+To: Arthur Kepner <akepner@sgi.com>
+Content-Disposition: inline
+In-Reply-To: <Pine.SGI.4.56.0406141000060.479900@neteng.engr.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> Here is a revised version of the acenic patch:
-> 	* use ethtool_ops - solves OOPS on boot up
-> 	* put firmware and driver version in correct place in ethtool info response
-> 	* get rid of #ifdef SIOCETHTOOL
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+Arthur Kepner wrote:
+> +#define HARD_TX_LOCK_BH(dev, cpu) {			\
+> +	if ( dev->features && NETIF_F_LLTX  == 0 ) {	\
+                           ^^
 
+Don't you mean '&' instead of '&&' here?  It looks like that condition is
+always false, so you've killed the TX locking for all devices with this
+patch.
 
-I apologize...  as per my most recent comment to you, I merged your 
-earlier patch and fixed the ifdef myself.  Latest should be in -mm tree.
+> +	if ( dev->features && NETIF_F_LLTX  == 0 ) {	\
 
-	Jeff
+ditto
+
+-Mitch
