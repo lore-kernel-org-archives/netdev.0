@@ -1,132 +1,158 @@
-From: Terry Griffin <terryg@axian.com>
-Subject: [Fwd: oops in snmp6_unregister_dev()]
-Date: Fri, 07 Jan 2005 13:02:41 -0800
-Message-ID: <1105131761.30138.87.camel@tux.hq.axian.com>
+From: "Jeremy M. Guthrie" <jeremy.guthrie@berbee.com>
+Subject: Re: V2.4 policy router operates faster/better than V2.6
+Date: Fri, 7 Jan 2005 15:06:54 -0600
+Message-ID: <200501071506.57811.jeremy.guthrie@berbee.com>
+References: <200501031455.26980.jeremy.guthrie@berbee.com> <200501071414.05126.jeremy.guthrie@berbee.com> <16862.62424.180929.680029@robur.slu.se>
+Reply-To: jeremy.guthrie@berbee.com
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-rVE9M07o5Af1C/OCb4TM"
+Content-Type: multipart/signed;
+  boundary="nextPart1122471.8x5onAmVJB";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+        Stephen Hemminger <shemminger@osdl.org>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
+In-Reply-To: <16862.62424.180929.680029@robur.slu.se>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
---=-rVE9M07o5Af1C/OCb4TM
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-
-As posted on LKML.
-
-Since first posting this I've found that the user-space
-workaround is not 100% reliable.
-
-Thanks,
-Terry
-
-
---=-rVE9M07o5Af1C/OCb4TM
+--nextPart1122471.8x5onAmVJB
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 Content-Disposition: inline
-Content-Description: Forwarded message - oops in snmp6_unregister_dev()
-Content-Type: message/rfc822
 
-Subject: oops in snmp6_unregister_dev()
-From: Terry Griffin <terryg@axian.com>
-To: linux-kernel@vger.kernel.org
-Content-Type: text/plain
-Message-Id: <1105124721.30138.77.camel@tux.hq.axian.com>
-Mime-Version: 1.0
-X-Mailer: Ximian Evolution 1.4.6 (1.4.6-2) 
-Date: Fri, 07 Jan 2005 11:05:21 -0800
-Content-Transfer-Encoding: 7bit
+On Friday 07 January 2005 02:40 pm, Robert Olsson wrote:
+> Jeremy M. Guthrie writes:
+>  > During a 60 second window the machine received 5,110,164 packets and
+>  > dropped 20461 or roughly 0.4% packet loss.
+>
+>  Around 85 kpps. If you run rtstat we could a feeling how may slow-pathx
+>  that are taken.=20
+I can't run rstat.  The rt_cache_stat file doesn't exist in /proc/net=20
+or /proc/net/stat in either V2.4 or V2.6.
 
-Hi all,
+>  Or save the /proc/net/stat/rt_cache before you 60 sec=20
+>  run.
+lnstat isn't giving me anything other than zeros. =20
 
-I'm getting an oops in snmp6_unregister_dev(). I've replicated the
-problem with these kernels:
+entries  in_hit in_slow_tot in_no_route in_brd in_martian_dst in_martian_sr=
+c =20
+out_hit out_slow_tot out_slow_mc  gc_total gc_ignored gc_goal_miss=20
+gc_dst_overflow in_hlist_search out_hlist_search
+0000f91e  15b1ddab 0b69a32c 00000000 00000000 00001b0a 00001fbd 00000000 =20
+00066f65 0000b943 00000000 087b80a1 0878e81a 00000256 00000000 ca08c77d=20
+0020e549
+0000f91e  00005c59 0000b3ef 00000000 00000000 00000cf7 00000000 00000000 =20
+0000000f 0000004c 00000002 00000fb9 00000fb5 00000000 00000000 0004e8d9=20
+000000b2
 
-  Pre-built 2.6.9-1.6_FC2 (Fedora Core 2)
-  Pre-built 2.6.9-1.11_FC2 (Fedora Core 2)
-  Custom-built 2.6.10 (kernel.org)
+60 seconds......
 
-The oops message below is from 2.6.9-1.11_FC2.
-
-The trigger is these commands in rapid succession:
-
-  service dhcpd stop
-  ifdown eth2
-  ifconfig eth2 0.0.0.0
-
-The ifconfig command is not required to trigger the oops but it
-dramatically increases the odds of it happening to better than
-90%. Without the ifconfig command the odds of getting the oops
-are much lower, less than 10%.
-
-The service and ifdown scripts, and the ifconfig utility
-are those included with FC2.
-
-Interface eth2 is associated with the r8169 device driver. The
-DHCP server is configured to dish out leases on this interface.
-
-The user-space workaround is to insert delays between the commands
-as follows:
-
-  service dhcpd stop
-  sleep 1
-  ifdown eth2
-  sleep 1
-  ifconfig eth2 0.0.0.0
-
-The oops message text below was hand typed so their could be some
-errors.
-
-Thanks,
-Terry
+entries  in_hit in_slow_tot in_no_route in_brd in_martian_dst in_martian_sr=
+c =20
+out_hit out_slow_tot out_slow_mc  gc_total gc_ignored gc_goal_miss=20
+gc_dst_overflow in_hlist_search out_hlist_search
+0000fb3e  15ff4696 0b6bbb65 00000000 00000000 00001b10 00001fc1 00000000 =20
+00067111 0000b974 00000000 087d9903 087b0003 00000256 00000000 cb58b399=20
+0020ee79
+0000fb3e  00005c5b 0000b40d 00000000 00000000 00000cf9 00000000 00000000 =20
+0000000f 0000004c 00000002 00000fbb 00000fb7 00000000 00000000 0004e9ba=20
+000000b2
 
 
-Unable to handle kernel NULL pointer dereference at virtual address
-0000000a
- printing eip:
-c019f200
-*pde = 1faf3067
-Oops: 0000 [#1]
-Modules linked in: r8169 microcode dm_mod uhci_hcd ehci_hdc e100 mii
-appletalk ipx md5 ipv6 ext3 jbd
-CPU:    0
-EIP:    0060:[<c019f200>]    Not tainted VLI
-EFLAGS: 00010286   (2.6.9-1.11_FC2)
-EIP is at remove_proc_entry+0x2f/0xe3
-eax: 00000000   ebx: 0000000a   ecx: ffffffff   edx: de100200
-esi: ddce6000   edi: 0000000a   ebp: c03d9fd0   esp: c03d9f80
-ds: 007b   es: 007b   ss: 0068
-Process swapper (pid: 0, threadinfo=c03d9000 task=c034cb80)
-Stack: de100200 0000000a dfd24800 ddce6000 00000000 c03d9fd0 e09691d7
-dfd24800
-       e094b025 dd9e6e80 dddf2680 c02a63e1 dddf2680 c0421ce0 c03529e0
-c02a606f
-       00000000 c02a5fc4 c0128666 c03d9fd0 c03d9fd0 c03d9fd0 00000000
-00000001
-Call Trace:
- [<e09691d7>] snmp6_unregister_dev+0x2f/0x3e [ipv6]
- [<e094b025>] in6_dev_finish_destroy+0x70/0x7f [ipv6]
- [<c02a63e1>] dst_destroy+0x60/0xa7
- [<c02a606f>] dst_run_gc+0xab/0x18a
- [<c02a5fc4>] dst_run_gc+0x0/0x18a
- [<c0128666>] run_timer_softirq+0x1e3/0x2e1
- [<c0124b41>] __do_softirq+0x35/0x79
- [<c01093e7>] do_softirq+0x3a/0x41
- =======================
- [<c0108993>] do_IRQ+0x239/0x242
- [<c0106468>] common_interrupt+0x18/0x20
- [<c0116418>] apm_bios_call_simple+0x5e/0x95
- [<c02f0000>] __xfrm_state_delete+0xe8/0x160
- [<c0116523>] apm_do_idle+0x12/0x5c
- [<c0116637>] apm_cpu_idle+0xab/0x121
- [<c010408c>] cpu_idle+0x1f/0x34
- [<c03af6bc>] start_kernel+0x20f/0x211
-Code: 56 53 55 55 89 14 24 89 44 24 04 75 13 8d 4c 24 04 89 e2 e8 42 f4
-ff ff 85 c0 0f 85 b7 00 00 00 8b 5c 24 04 31 c0 83 c9 ff 89 df <f2> ae
-f7 d1 49 8b 04 24 89 cd 8d 70 34 83 78 34 00 0f 84 95 00
- <0>Kernel panic - not syncing: Fatal exception in interrupt
+
+>  mpstat I don't trust in this context.
+>
+>  > It has been at 150dc67c for a while now.  So while I am dropping at the
+>  > card, I am not dropping in the stack.
+>
+>  You use NAPI driver then...
+>  Check if the patch below is in your e1000 driver.
+>            --ro
+The drivers should be built as NAPI.
+
+Here is the snippet:
+static int
+e1000_clean(struct net_device *netdev, int *budget)
+{
+        struct e1000_adapter *adapter =3D netdev->priv;
+        int work_to_do =3D min(*budget, netdev->quota);
+        int tx_cleaned;
+        int work_done =3D 0;
+
+        if (!netif_carrier_ok(netdev))
+                goto quit_polling;
+
+        tx_cleaned =3D e1000_clean_tx_irq(adapter);
+        e1000_clean_rx_irq(adapter, &work_done, work_to_do);
+
+        *budget -=3D work_done;
+        netdev->quota -=3D work_done;
+
+        /* if no Rx and Tx cleanup work was done, exit the polling mode */
+        if(!tx_cleaned || (work_done < work_to_do) ||
+                                !netif_running(netdev)) {
+quit_polling:   netif_rx_complete(netdev);
+                e1000_irq_enable(adapter);
+                return 0;
+        }
+
+        return (work_done >=3D work_to_do);
+}
 
 
---=-rVE9M07o5Af1C/OCb4TM--
+
+>
+>  --- drivers/net/e1000/e1000_main.c.orig 2004-02-16 14:46:16.000000000
+> +0100 +++ drivers/net/e1000/e1000_main.c 2004-02-16 15:45:05.000000000
+> +0100 @@ -2161,19 +2161,21 @@
+>   struct e1000_adapter *adapter =3D netdev->priv;
+>   int work_to_do =3D min(*budget, netdev->quota);
+>   int work_done =3D 0;
+> -
+> - e1000_clean_tx_irq(adapter);
+> + static boolean_t tx_cleaned;
+> +
+> + tx_cleaned =3D e1000_clean_tx_irq(adapter);
+>   e1000_clean_rx_irq(adapter, &work_done, work_to_do);
+>
+>   *budget -=3D work_done;
+>   netdev->quota -=3D work_done;
+>
+> - if(work_done < work_to_do || !netif_running(netdev)) {
+> + if( (!tx_cleaned && (work_done =3D=3D 0)) || !netif_running(netdev)) {
+>    netif_rx_complete(netdev);
+>    e1000_irq_enable(adapter);
+> +  return 0;
+>   }
+>
+> - return (work_done >=3D work_to_do);
+> +	return 1;
+>  }
+>  #endif
+
+=2D-=20
+
+=2D-------------------------------------------------
+Jeremy M. Guthrie        jeremy.guthrie@berbee.com
+Senior Network Engineer        Phone: 608-298-1061
+Berbee                           Fax: 608-288-3007
+5520 Research Park Drive         NOC: 608-298-1102
+Madison, WI 53711
+
+--nextPart1122471.8x5onAmVJB
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQBB3vnxqtjaBHGZBeURAqa6AJ95YCgRBAIzM0qXYxDLWsgpjuQW6QCgmyUT
+PAcawdHWqMOb939ioWONMRA=
+=5vpR
+-----END PGP SIGNATURE-----
+
+--nextPart1122471.8x5onAmVJB--
