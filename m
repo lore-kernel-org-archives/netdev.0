@@ -1,72 +1,33 @@
-From: margitsw@t-online.de (Margit Schubert-While)
-Subject: [PATCH 15/17 linux-2.6.7-rc2] prism54: Fix channel stats, bump
-  version to 1.2
-Date: Sun, 30 May 2004 22:06:21 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <5.1.0.14.2.20040530215612.0c1fbd40@pop.t-online.de>
+From: Marcelo Tosatti <marcelo.tosatti@cyclades.com>
+Subject: Re: [PATCH][2.4.27-pre4] tcp_input.c compile-time error
+Date: Mon, 31 May 2004 08:11:15 -0300
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040531111114.GA19839@logos.cnet>
+References: <40BAF132.5010907@ribosome.natur.cuni.cz>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="=====================_50557688==_"
-Cc: jgarzik@pobox.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: mikpe@csd.uu.se, davem@redhat.com, linux-kernel@vger.kernel.org,
+	netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S263370AbUEaLKV@vger.kernel.org>
+To: Martin MOKREJ? <mmokrejs@ribosome.natur.cuni.cz>
+Content-Disposition: inline
+In-Reply-To: <40BAF132.5010907@ribosome.natur.cuni.cz>
 List-Id: netdev.vger.kernel.org
 
---=====================_50557688==_
-Content-Type: text/plain; charset="us-ascii"; format=flowed
+On Mon, May 31, 2004 at 10:47:46AM +0200, Martin MOKREJ? wrote:
+> This patch has helped to me to compile teh kernel at least. Thanks.
+> 
+> 
+> net/ipv4/tcp_input.c in 2.4.27-pre4 fails to compile:
+> 
+> tcp_input.c: In function `tcp_rcv_space_adjust':
+> tcp_input.c:479: error: structure has no member named `sk_rcvbuf'
+> tcp_input.c:480: error: structure has no member named `sk_rcvbuf'
+> make[3]: *** [tcp_input.o] Error 1
+> 
+> The patch below appears to fix this problem, although some netdev
+> person should probably check it.
 
-2004-05-20      Aurelien Alleaume <slts@free.fr>
+Just pulled davem's tree with a fix. -BK is fixed now.
 
-* islpci_eth.c : use dev_kfree_skb_irq instead of dev_kfree_skb where needed.
-
-* isl_ioctl.c : report channel instead of frequency in scan.
-
-* islpci_hotplug.c : bump version to 1.2
---=====================_50557688==_
-Content-Type: application/octet-stream; name="15-fix-channel.patch"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="15-fix-channel.patch"
-
-ZGlmZiAtTmF1ckViQiBsaW51eC0yLjYuNmN0L2RyaXZlcnMvbmV0L3dpcmVsZXNzL3ByaXNtNTQv
-aXNsX2lvY3RsLmMgbGludXgtMi42LjYtMDEvZHJpdmVycy9uZXQvd2lyZWxlc3MvcHJpc201NC9p
-c2xfaW9jdGwuYwotLS0gbGludXgtMi42LjZjdC9kcml2ZXJzL25ldC93aXJlbGVzcy9wcmlzbTU0
-L2lzbF9pb2N0bC5jCTIwMDQtMDUtMjggMTU6NDQ6NDAuODQ5NTgwMDE2ICswMjAwCisrKyBsaW51
-eC0yLjYuNi0wMS9kcml2ZXJzL25ldC93aXJlbGVzcy9wcmlzbTU0L2lzbF9pb2N0bC5jCTIwMDQt
-MDUtMjggMTU6NDk6NDAuNTE2MDIzNzkyICswMjAwCkBAIC02MzIsOCArNjI5LDggQEAKIAljdXJy
-ZW50X2V2ID0gaXdlX3N0cmVhbV9hZGRfcG9pbnQoY3VycmVudF9ldiwgZW5kX2J1ZiwgJml3ZSwg
-TlVMTCk7CiAKIAkvKiBBZGQgZnJlcXVlbmN5LiAoc2hvcnQpIGJzcy0+Y2hhbm5lbCBpcyB0aGUg
-ZnJlcXVlbmN5IGluIE1IeiAqLwotCWl3ZS51LmZyZXEubSA9IGJzcy0+Y2hhbm5lbDsKLQlpd2Uu
-dS5mcmVxLmUgPSA2OworCWl3ZS51LmZyZXEubSA9IGNoYW5uZWxfb2ZfZnJlcShic3MtPmNoYW5u
-ZWwpOworCWl3ZS51LmZyZXEuZSA9IDA7CiAJaXdlLmNtZCA9IFNJT0NHSVdGUkVROwogCWN1cnJl
-bnRfZXYgPQogCSAgICBpd2Vfc3RyZWFtX2FkZF9ldmVudChjdXJyZW50X2V2LCBlbmRfYnVmLCAm
-aXdlLCBJV19FVl9GUkVRX0xFTik7CmRpZmYgLU5hdXJFYkIgbGludXgtMi42LjZjdC9kcml2ZXJz
-L25ldC93aXJlbGVzcy9wcmlzbTU0L2lzbHBjaV9ldGguYyBsaW51eC0yLjYuNi0wMS9kcml2ZXJz
-L25ldC93aXJlbGVzcy9wcmlzbTU0L2lzbHBjaV9ldGguYwotLS0gbGludXgtMi42LjZjdC9kcml2
-ZXJzL25ldC93aXJlbGVzcy9wcmlzbTU0L2lzbHBjaV9ldGguYwkyMDA0LTA1LTI4IDE1OjQ4OjM0
-LjE1NzExMTg4MCArMDIwMAorKysgbGludXgtMi42LjYtMDEvZHJpdmVycy9uZXQvd2lyZWxlc3Mv
-cHJpc201NC9pc2xwY2lfZXRoLmMJMjAwNC0wNS0yOCAxNTo0OTo0MC41MTcwMjM2NDAgKzAyMDAK
-QEAgLTI3NSw3ICsyNzUsNyBAQAogCQkJCQkJCQkJIGF2c184MDIxMV8xX2hlYWRlciksCiAJCQkJ
-CQkJCSAwLCBHRlBfQVRPTUlDKTsKIAkJCWlmIChuZXdza2IpIHsKLQkJCQlrZnJlZV9za2IoKnNr
-Yik7CisJCQkJZGV2X2tmcmVlX3NrYl9pcnEoKnNrYik7CiAJCQkJKnNrYiA9IG5ld3NrYjsKIAkJ
-CX0gZWxzZQogCQkJCXJldHVybiAtMTsKQEAgLTQxOSw3ICs0MTksNyBAQAogCSAgICAgc2tiLT5k
-YXRhWzRdLCBza2ItPmRhdGFbNV0pOwogI2VuZGlmCiAJaWYgKHVubGlrZWx5KGRpc2NhcmQpKSB7
-Ci0JCWRldl9rZnJlZV9za2Ioc2tiKTsKKwkJZGV2X2tmcmVlX3NrYl9pcnEoc2tiKTsKIAkJc2ti
-ID0gTlVMTDsKIAl9IGVsc2UKIAkJbmV0aWZfcngoc2tiKTsKQEAgLTQ2Miw3ICs0NjIsNyBAQAog
-CQkJICAgICAgIkVycm9yIG1hcHBpbmcgRE1BIGFkZHJlc3NcbiIpOwogCiAJCQkvKiBmcmVlIHRo
-ZSBza2J1ZiBzdHJ1Y3R1cmUgYmVmb3JlIGFib3J0aW5nICovCi0JCQlkZXZfa2ZyZWVfc2tiKChz
-dHJ1Y3Qgc2tfYnVmZiAqKSBza2IpOworCQkJZGV2X2tmcmVlX3NrYl9pcnEoKHN0cnVjdCBza19i
-dWZmICopIHNrYik7CiAJCQlza2IgPSBOVUxMOwogCQkJYnJlYWs7CiAJCX0KZGlmZiAtTmF1ckVi
-QiBsaW51eC0yLjYuNmN0L2RyaXZlcnMvbmV0L3dpcmVsZXNzL3ByaXNtNTQvaXNscGNpX2hvdHBs
-dWcuYyBsaW51eC0yLjYuNi0wMS9kcml2ZXJzL25ldC93aXJlbGVzcy9wcmlzbTU0L2lzbHBjaV9o
-b3RwbHVnLmMKLS0tIGxpbnV4LTIuNi42Y3QvZHJpdmVycy9uZXQvd2lyZWxlc3MvcHJpc201NC9p
-c2xwY2lfaG90cGx1Zy5jCTIwMDQtMDUtMjggMTQ6NDA6MjYuOTk3NDU0NTkyICswMjAwCisrKyBs
-aW51eC0yLjYuNi0wMS9kcml2ZXJzL25ldC93aXJlbGVzcy9wcmlzbTU0L2lzbHBjaV9ob3RwbHVn
-LmMJMjAwNC0wNS0yOCAxNTo0OTo0MC41MTkwMjMzMzYgKzAyMDAKQEAgLTMwLDcgKzMwLDcgQEAK
-ICNpbmNsdWRlICJpc2xfb2lkLmgiCiAKICNkZWZpbmUgRFJWX05BTUUJInByaXNtNTQiCi0jZGVm
-aW5lIERSVl9WRVJTSU9OCSIxLjEiCisjZGVmaW5lIERSVl9WRVJTSU9OCSIxLjIiCiAKIE1PRFVM
-RV9BVVRIT1IoIltJbnRlcnNpbF0gUi5CYXN0aW5ncyBhbmQgVy5UZXJtb3JzaHVpemVuLCBUaGUg
-cHJpc201NC5vcmcgRGV2ZWxvcG1lbnQgVGVhbSA8cHJpc201NC1kZXZlbEBwcmlzbTU0Lm9yZz4i
-KTsKIE1PRFVMRV9ERVNDUklQVElPTigiVGhlIFByaXNtNTQgODAyLjExIFdpcmVsZXNzIExBTiBh
-ZGFwdGVyIik7Cg==
---=====================_50557688==_--
+Thanks!
