@@ -1,305 +1,57 @@
-From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH] switch comx over to initcalls
-Date: Sun, 18 May 2003 19:04:24 +0200
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: Re: mtu_expires variable
+Date: Sun, 18 May 2003 17:40:24 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030518190423.A28834@lst.de>
+Message-ID: <20030518174024.014cb734.rddunlap@osdl.org>
+References: <Pine.GSO.4.10.10305162243050.13822-100000@tigre.dcc.unicamp.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: Felipe Massia Pereira <massia@ic.unicamp.br>
+In-Reply-To: <Pine.GSO.4.10.10305162243050.13822-100000@tigre.dcc.unicamp.br>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The link order already is the same as the old init order.  Note that the
-drivers are still full of crap, I don't have the hardware so I refuse to
-poke deeper into the shite..
+On Fri, 16 May 2003 23:16:03 -0300 (EST) Felipe Massia Pereira <massia@ic.unicamp.br> wrote:   [on LKML]
 
+| Hello,
+| 
+| I've been searching for the exact meaning of this variable through
+| Documentation and I've found just empty descriptions (to be filled in, in
+| Advanced Linux Routing HOWTO, and nothing also in
+| Documentation/networking/ip-sysctl.txt). I've tried also to read the
+| kernel source code (net/ipv4/route.c) but I could not figure out what they
+| mean.
 
---- 1.10/drivers/net/setup.c	Sat May 10 09:07:26 2003
-+++ edited/drivers/net/setup.c	Sat May 17 21:12:09 2003
-@@ -16,7 +16,6 @@
- extern int fec_enet_init(void); 
- extern int sdla_setup(void); 
- extern int sdla_c_setup(void); 
--extern int comx_init(void);
- extern int lmc_setup(void);
- 
- extern int madgemc_probe(void);
-@@ -52,10 +51,6 @@
- #if defined(CONFIG_FEC_ENET)
-         {fec_enet_init, 0},
- #endif
--#if defined(CONFIG_COMX)
--	{comx_init, 0},
--#endif
--	 
- #if defined(CONFIG_LANMEDIA)
- 	{lmc_setup, 0},
- #endif
-===== drivers/net/wan/comx-hw-comx.c 1.10 vs edited =====
---- 1.10/drivers/net/wan/comx-hw-comx.c	Mon Apr 28 05:36:20 2003
-+++ edited/drivers/net/wan/comx-hw-comx.c	Sat May 17 20:35:54 2003
-@@ -1427,24 +1427,20 @@
- 	NULL
- };
- 
--#ifdef MODULE
--#define comx_hw_comx_init init_module
--#endif
--
--int __init comx_hw_comx_init(void)
-+static int __init comx_hw_comx_init(void)
- {
- 	comx_register_hardware(&comx_hw);
- 	comx_register_hardware(&cmx_hw);
- 	comx_register_hardware(&hicomx_hw);
--	memset(memory_used, 0, sizeof(memory_used));
- 	return 0;
- }
- 
--#ifdef MODULE
--void cleanup_module(void)
-+static void __exit comx_hw_comx_exit(void)
- {
- 	comx_unregister_hardware("comx");
- 	comx_unregister_hardware("cmx");
- 	comx_unregister_hardware("hicomx");
- }
--#endif
-+
-+module_init(comx_hw_comx_init);
-+module_exit(comx_hw_comx_exit);
-===== drivers/net/wan/comx-hw-locomx.c 1.6 vs edited =====
---- 1.6/drivers/net/wan/comx-hw-locomx.c	Thu Nov 21 23:06:12 2002
-+++ edited/drivers/net/wan/comx-hw-locomx.c	Sat May 17 20:37:07 2003
-@@ -479,20 +479,16 @@
- 	NULL
- };
- 	
--#ifdef MODULE
--#define comx_hw_locomx_init init_module
--#endif
--
--int __init comx_hw_locomx_init(void)
-+static int __init comx_hw_locomx_init(void)
- {
- 	comx_register_hardware(&locomx_hw);
- 	return 0;
- }
- 
--#ifdef MODULE
--void cleanup_module(void)
-+static void __exit comx_hw_locomx_exit(void)
- {
- 	comx_unregister_hardware("locomx");
--	return;
- }
--#endif
-+
-+module_init(comx_hw_locomx_init);
-+module_exit(comx_hw_locomx_exit);
-===== drivers/net/wan/comx-hw-mixcom.c 1.9 vs edited =====
---- 1.9/drivers/net/wan/comx-hw-mixcom.c	Mon Apr 28 05:36:20 2003
-+++ edited/drivers/net/wan/comx-hw-mixcom.c	Sat May 17 20:38:51 2003
-@@ -944,21 +944,15 @@
- 	NULL
- };
- 	
--/* Module management */
--
--#ifdef MODULE
--#define comx_hw_mixcom_init init_module
--#endif
--
--int __init comx_hw_mixcom_init(void)
-+static int __init comx_hw_mixcom_init(void)
- {
--	return(comx_register_hardware(&mixcomhw));
-+	return comx_register_hardware(&mixcomhw);
- }
- 
--#ifdef MODULE
--void
--cleanup_module(void)
-+static void __exit comx_hw_mixcom_exit(void)
- {
- 	comx_unregister_hardware("mixcom");
- }
--#endif
-+
-+module_init(comx_hw_mixcom_init);
-+module_exit(comx_hw_mixcom_exit);
-===== drivers/net/wan/comx-proto-fr.c 1.10 vs edited =====
---- 1.10/drivers/net/wan/comx-proto-fr.c	Thu Nov 21 23:06:12 2002
-+++ edited/drivers/net/wan/comx-proto-fr.c	Sat May 17 20:46:48 2003
-@@ -988,11 +988,7 @@
- 	.hw_dump	= dlci_dump, 
- };
- 
--#ifdef MODULE
--#define comx_proto_fr_init init_module
--#endif
--
--int __init comx_proto_fr_init(void)
-+static int __init comx_proto_fr_init(void)
- {
- 	int ret; 
- 
-@@ -1005,12 +1001,12 @@
- 	return comx_register_protocol(&fr_slave_protocol);
- }
- 
--#ifdef MODULE
--void cleanup_module(void)
-+static void __exit comx_proto_fr_exit(void)
- {
- 	comx_unregister_hardware(fr_dlci.name);
- 	comx_unregister_protocol(fr_master_protocol.name);
- 	comx_unregister_protocol(fr_slave_protocol.name);
- }
--#endif /* MODULE */
- 
-+module_init(comx_proto_fr_init);
-+module_exit(comx_proto_fr_exit);
-===== drivers/net/wan/comx-proto-lapb.c 1.5 vs edited =====
---- 1.5/drivers/net/wan/comx-proto-lapb.c	Tue Feb  5 08:45:17 2002
-+++ edited/drivers/net/wan/comx-proto-lapb.c	Sat May 17 20:45:55 2003
-@@ -523,7 +523,7 @@
- 	NULL 
- };
- 
--int __init comx_proto_lapb_init(void)
-+static int __init comx_proto_lapb_init(void)
- {
- 	int ret;
- 
-@@ -539,9 +539,7 @@
- 	comx_unregister_protocol(comx25_protocol.name);
- }
- 
--#ifdef MODULE
- module_init(comx_proto_lapb_init);
--#endif
- module_exit(comx_proto_lapb_exit);
- 
- MODULE_LICENSE("GPL");
-===== drivers/net/wan/comx-proto-ppp.c 1.4 vs edited =====
---- 1.4/drivers/net/wan/comx-proto-ppp.c	Wed May 22 20:16:37 2002
-+++ edited/drivers/net/wan/comx-proto-ppp.c	Sat May 17 20:45:20 2003
-@@ -247,26 +247,24 @@
- 	NULL 
- };
- 
--
--#ifdef MODULE
--#define comx_proto_ppp_init init_module
--#endif
--
--int __init comx_proto_ppp_init(void)
-+static int __init comx_proto_ppp_init(void)
- {
- 	int ret;
- 
--	if(0!=(ret=comx_register_protocol(&hdlc_protocol))) {
--		return ret;
-+	ret = comx_register_protocol(&hdlc_protocol);
-+	if (!ret) {
-+		ret = comx_register_protocol(&syncppp_protocol);
-+		if (ret)
-+			comx_unregister_protocol(hdlc_protocol.name);
- 	}
--	return comx_register_protocol(&syncppp_protocol);
-+	return ret;
- }
- 
--#ifdef MODULE
--void cleanup_module(void)
-+static void __exit comx_proto_ppp_exit(void)
- {
- 	comx_unregister_protocol(syncppp_protocol.name);
- 	comx_unregister_protocol(hdlc_protocol.name);
- }
--#endif /* MODULE */
- 
-+module_init(comx_proto_ppp_init);
-+module_exit(comx_proto_ppp_exit);
-===== drivers/net/wan/comx.c 1.17 vs edited =====
---- 1.17/drivers/net/wan/comx.c	Sat May 17 21:39:13 2003
-+++ edited/drivers/net/wan/comx.c	Sat May 17 20:48:05 2003
-@@ -81,15 +81,6 @@
- MODULE_DESCRIPTION("Common code for the COMX synchronous serial adapters");
- MODULE_LICENSE("GPL");
- 
--extern int comx_hw_comx_init(void);
--extern int comx_hw_locomx_init(void);
--extern int comx_hw_mixcom_init(void);
--extern int comx_proto_hdlc_init(void);
--extern int comx_proto_ppp_init(void);
--extern int comx_proto_syncppp_init(void);
--extern int comx_proto_lapb_init(void);
--extern int comx_proto_fr_init(void);
--
- static struct comx_hardware *comx_channels = NULL;
- static struct comx_protocol *comx_lines = NULL;
- 
-@@ -1078,11 +1069,7 @@
- 	return -1;
- }
- 
--#ifdef MODULE
--#define comx_init init_module
--#endif
--
--int __init comx_init(void)
-+static int __init comx_init(void)
- {
- 	struct proc_dir_entry *new_file;
- 
-@@ -1115,42 +1102,18 @@
- 
- 	printk(KERN_INFO "COMX: driver version %s (C) 1995-1999 ITConsult-Pro Co. <info@itc.hu>\n", 
- 		VERSION);
--
--#ifndef MODULE
--#ifdef CONFIG_COMX_HW_COMX
--	comx_hw_comx_init();
--#endif
--#ifdef CONFIG_COMX_HW_LOCOMX
--	comx_hw_locomx_init();
--#endif
--#ifdef CONFIG_COMX_HW_MIXCOM
--	comx_hw_mixcom_init();
--#endif
--#ifdef CONFIG_COMX_PROTO_HDLC
--	comx_proto_hdlc_init();
--#endif
--#ifdef CONFIG_COMX_PROTO_PPP
--	comx_proto_ppp_init();
--#endif
--#ifdef CONFIG_COMX_PROTO_LAPB
--	comx_proto_lapb_init();
--#endif
--#ifdef CONFIG_COMX_PROTO_FR
--	comx_proto_fr_init();
--#endif
--#endif
--
- 	return 0;
- }
- 
--#ifdef MODULE
--void cleanup_module(void)
-+static void __exit comx_exit(void)
- {
- 	remove_proc_entry(FILENAME_HARDWARELIST, comx_root_dir);
- 	remove_proc_entry(FILENAME_PROTOCOLLIST, comx_root_dir);
- 	remove_proc_entry(comx_root_dir->name, &proc_root);
- }
--#endif
-+
-+module_init(comx_init);
-+module_exit(comx_exit);
- 
- EXPORT_SYMBOL(comx_register_hardware);
- EXPORT_SYMBOL(comx_unregister_hardware);
+What kernel version?
+And this question would be better asked/answered on either
+linux-net or netdev mailing lists, so I've replied to those.
+
+It (ip_rt_mtu_expires variable) appears not to be used very much.
+
+| I've came accross this var because we want to do some experiments in class
+| with Path MTU discovery.  But it happens that MTU is recorded between
+| experiments (and it's what we expect: that the stack does not do a PMTU
+| every time). BTW where is the PMTU value kept? Is MTU value recorded for
+| each destination or for each route?
+| 
+| So it would be nice if we could make the value found in a experiment to be
+| forgotten by the kernel so the students could execute the ping several
+| times. (ping -c 2 -m want ...) Is mtu_expires what we're looking for?
+
+Maybe someone else can answer this...
+
+| We tried to "echo 1 > /proc/sys/net/ipv4/route/mtu_expires" considering
+| that it's expressed in seconds. The usual value is 600. But I've read that
+| it's expressed in jiffies. Jiffies occur 100 times per sec on a PC, is it?
+| So the value 600 on a PC means 6 seconds?
+
+In 2.4.x there are 100 jiffies / second on a PC (x86 arch).
+However, /proc/sys/net/ipv4/route/mtu_expires is hiding this HZ
+conversion factor from us, so that the value is expressed in seconds
+and not in jiffies, so 600 is 600 seconds = 10 minutes.
+
+--
+~Randy
