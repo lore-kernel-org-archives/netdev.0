@@ -1,32 +1,27 @@
-From: "David S. Miller" <davem@redhat.com>
+From: Andi Kleen <ak@suse.de>
 Subject: Re: [PATCH} ARP auto-sizing for 2.4.24 - 2.4.26-pre3
-Date: Mon, 15 Mar 2004 13:57:53 -0800
+Date: Mon, 15 Mar 2004 23:00:11 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040315135753.28b945fa.davem@redhat.com>
-References: <20040315134412.314b5e23.davem@redhat.com>
-	<Pine.LNX.4.44.0403152350260.6903-100000@netcore.fi>
+Message-ID: <20040315220011.GC20830@wotan.suse.de>
+References: <20040315134412.314b5e23.davem@redhat.com> <Pine.LNX.4.44.0403152350260.6903-100000@netcore.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: timg@tpi.com, anton@samba.org, netdev@oss.sgi.com,
-        linux-net@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@redhat.com>, timg@tpi.com, anton@samba.org,
+        netdev@oss.sgi.com, linux-net@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Pekka Savola <pekkas@netcore.fi>
+Content-Disposition: inline
 In-Reply-To: <Pine.LNX.4.44.0403152350260.6903-100000@netcore.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
-
-On Mon, 15 Mar 2004 23:55:04 +0200 (EET)
-Pekka Savola <pekkas@netcore.fi> wrote:
 
 > Isn't there a problem when an outside attacker brute-force pings every 
 > IP address in some order?  The intent here is to overload the router 
 > to do a lot of ARP/ND requests which result to nothing.
 
-Since another request for the same IP won't spam out another ARP
-request whilst we have an existing entry in state "resolve in progress",
-the damage is quite limited I'd say.
+Note that the max number of active neighbours per interface is limited. There
+is a natural limit on how many entries the hash tables can have.
+The user can increase this with sysctls, but the defaults should be 
+safe.
 
-Sounds to me like the backlog of packets we keep around for each
-"resolve in progress" neighbour cache entry is more interesting
-for DoS purposes :-)
+-Andi
