@@ -1,26 +1,58 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [NETLINK] netlink_ack takes gfp flag as parameter
-Date: Fri, 24 Sep 2004 12:12:55 +1000
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
+Date: 23 Sep 2004 22:56:37 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <E1CAfZv-0001XB-00@gondolin.me.apana.org.au>
-References: <41537473.1090306@eurodev.net>
-Cc: netdev@oss.sgi.com, davem@redhat.com
+Message-ID: <1095994597.1045.26.camel@jzny.localdomain>
+References: <20040919231734.GA10124@gondor.apana.org.au>
+	 <1095647944.1046.206.camel@jzny.localdomain>
+	 <20040920025802.GA11567@gondor.apana.org.au>
+	 <1095683660.1047.254.camel@jzny.localdomain> <414F1E12.6010808@eurodev.net>
+	 <20040922000503.GA13218@gondor.apana.org.au> <4150E7E5.2000001@eurodev.net>
+	 <1095821624.1045.6.camel@jzny.localdomain>
+	 <20040922034634.GA14928@gondor.apana.org.au>
+	 <1095852956.1048.47.camel@jzny.localdomain>
+	 <20040923120520.GA32624@gondor.apana.org.au>
+Reply-To: hadi@cyberus.ca
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Pablo Neira <pablo@eurodev.net>, "David S. Miller" <davem@redhat.com>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: pablo@eurodev.net (Pablo Neira)
-In-Reply-To: <41537473.1090306@eurodev.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040923120520.GA32624@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Pablo Neira <pablo@eurodev.net> wrote:
-> 
-> AFAIK ip_queue, ip6_queue and dn_rtmsg use netlink_ack in interrupt 
-> context which calls alloc_skb with the GFP_KERNEL flag. This patch adds 
-> a new parameter to netlink_ack to set the gfp flag.
+On Thu, 2004-09-23 at 08:05, Herbert Xu wrote:
 
-Bogus.  All of those functions call netlink_ack in the context of the
-sending process.
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> > Try explicitly reducing the socket buffer size and see what happens
+> 
+> What's wrong with the default sizes? If you decrease it far enough
+> of course it's going to overflow.
+
+The idea is to reproduce the overun ;->
+
+> > set i to 10000 or a little more
+> 
+> You might want to optimise your add path.  It was painful with 20000 :)
+
+Probably debug prints slowing things; you could of course do some
+batching like so:
+
+$TC actions add \
+ action drop index 1
+ action drop index 2 
+ action drop index 3 ...
+
+Do 10 a time in the for loop and should be roughly 10 times as fast
+
+> > to dump: tc actions ls action drop
+> 
+> That was much faster, no overflows at all:
+
+I apologize i dont have time right now to chase it and experiment; my
+test machine can be made to reproduce it. Maybe this weekend
+
+cheers,
+jamal
