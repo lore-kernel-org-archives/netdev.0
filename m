@@ -1,77 +1,60 @@
-From: Phil Oester <kernel@linuxace.com>
-Subject: Re: [PATCH] Conntrack leak with raw sockets
-Date: Fri, 25 Mar 2005 22:05:43 -0800
-Message-ID: <20050326060543.GA4791@linuxace.com>
-References: <20050325201127.GA3400@linuxace.com> <4244766D.2020001@trash.net>
+From: Willy Tarreau <willy@w.ods.org>
+Subject: Re: Linux 2.4.30-rc2
+Date: Sat, 26 Mar 2005 11:59:22 +0100
+Message-ID: <20050326105922.GM30052@alpha.home.local>
+References: <20050326004631.GC17637@logos.cnet>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="2fHTh5uZTiUOsy+g"
-Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+To: Marcelo Tosatti <marcelo.tosatti@cyclades.com>, davem@davemloft.net
 Content-Disposition: inline
-In-Reply-To: <4244766D.2020001@trash.net>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+In-Reply-To: <20050326004631.GC17637@logos.cnet>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Marcelo, David,
 
---2fHTh5uZTiUOsy+g
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+could we merge this patch from Mitch Williams in 2.4.30 ? It fixes a
+stack dump when unloading the bonding module in 802.3ad mode if spinlock
+debugging is turned on.
 
-On Fri, Mar 25, 2005 at 09:37:01PM +0100, Patrick McHardy wrote:
-> Great work tracking this down. But I fear the problem will come back
-> haunt us with this patch. The are more places where a packet can be
-> queued indefinitely, for example stopped qdiscs. IMO the best fix
-> is to drop the conntrack reference once the packet leaves IP, so we
-> don't have to make any assumptions about what will happen to the
-> packet - this would be in ip_finish_output2(). Could you send a patch
-
-Something like the attached?
-
-Phil
+Thanks in advance,
+Willy
 
 
-
---2fHTh5uZTiUOsy+g
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=patch-ref2
-
-diff -ru linux-orig/net/ipv4/ip_output.c linux-new/net/ipv4/ip_output.c
---- linux-orig/net/ipv4/ip_output.c	2005-03-25 14:48:13.543911760 -0500
-+++ linux-new/net/ipv4/ip_output.c	2005-03-26 01:01:13.064616240 -0500
-@@ -195,6 +195,8 @@
- 	nf_debug_ip_finish_output2(skb);
- #endif /*CONFIG_NETFILTER_DEBUG*/
+diff -urN linux-2.4.29/drivers/net/bonding/bond_main.c linux-2.4.29-bond-2.6.1/drivers/net/bonding/bond_main.c
+--- linux-2.4.29/drivers/net/bonding/bond_main.c	Sun Dec 12 12:06:28 2004
++++ linux-2.4.29-bond-2.6.1/drivers/net/bonding/bond_main.c	Sun Feb  6 20:32:49 2005
+@@ -469,6 +469,13 @@
+  *	  * Add support for VLAN hardware acceleration capable slaves.
+  *	  * Add capability to tag self generated packets in ALB/TLB modes.
+  *	  Set version to 2.6.0.
++ * 2004/10/29 - Mitch Williams <mitch.a.williams at intel dot com>
++ *	- Fixed bug when unloading module while using 802.3ad.  If
++ *	  spinlock debugging is turned on, this causes a stack dump.
++ *	  Solution is to move call to dev_remove_pack outside of the
++ *	  spinlock.
++ *	  Set version to 2.6.1.
++ *
+  */
  
-+	nf_reset(skb);
-+
- 	if (hh) {
- 		int hh_alen;
- 
-diff -ru linux-orig/net/ipv4/netfilter/ip_conntrack_standalone.c linux-new/net/ipv4/netfilter/ip_conntrack_standalone.c
---- linux-orig/net/ipv4/netfilter/ip_conntrack_standalone.c	2005-03-25 14:48:13.550910696 -0500
-+++ linux-new/net/ipv4/netfilter/ip_conntrack_standalone.c	2005-03-26 01:03:09.916852000 -0500
-@@ -423,13 +423,6 @@
- 				        const struct net_device *out,
- 				        int (*okfn)(struct sk_buff *))
+ //#define BONDING_DEBUG 1
+@@ -3565,14 +3572,14 @@
  {
--#if !defined(CONFIG_IP_NF_NAT) && !defined(CONFIG_IP_NF_NAT_MODULE)
--	/* Previously seen (loopback)?  Ignore.  Do this before
--           fragment check. */
--	if ((*pskb)->nfct)
--		return NF_ACCEPT;
--#endif
+ 	struct bonding *bond = bond_dev->priv;
+ 
+-	write_lock_bh(&bond->lock);
 -
- 	/* Gather fragments. */
- 	if ((*pskb)->nh.iph->frag_off & htons(IP_MF|IP_OFFSET)) {
- 		*pskb = ip_ct_gather_frags(*pskb,
-
---2fHTh5uZTiUOsy+g--
+-	bond_mc_list_destroy(bond);
+-
+ 	if (bond->params.mode == BOND_MODE_8023AD) {
+ 		/* Unregister the receive of LACPDUs */
+ 		bond_unregister_lacpdu(bond);
+ 	}
++
++	write_lock_bh(&bond->lock);
++
++	bond_mc_list_destroy(bond);
+ 
+ 	/* signal timers not to re-arm */
+ 	bond->kill_timers = 1;
