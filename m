@@ -1,21 +1,178 @@
-From: Eric Lemoine <Eric.Lemoine@ens-lyon.fr>
-Subject: socket lock question
-Date: Mon, 17 Feb 2003 17:46:41 +0100
+From: "Frank Pavlic" <pavlic@de.ibm.com>
+Subject: [PATCH] : shared ipv6 cards
+Date: Mon, 17 Feb 2003 19:59:35 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030217164640.GC289@udine>
+Message-ID: <OFF7BE62F0.118F0381-ONC1256CD0.004EFD8B@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: multipart/mixed; boundary="=_mixed 0067A116C1256CD0_="
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
-Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi
+--=_mixed 0067A116C1256CD0_=
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 
-It seems to me that sk->slock.lock is grabbed twice successively in the
-same code path, namely in tcp_v4_rcv() and tcp_v4_do_rcv(). 
+Hi,
+I ask for integration of the attached patch into the
+stock kernel. The patch is against kernel version 2.5.59
 
-Does anyone know how this is possible?
--- 
-Eric
+This patch allows network device drivers to write their own IPv6=20
+address autoconfiguration function which will be then called by the=20
+IPv6 stack.The ipv6_generate_eui64(..) function is used as default.
+The new net_device function pointer as well as the new struct member=20
+dev_id
+is needed to avoid duplicate address conflicts on Linux for z/Series when=
+=20
+shared
+OSA cards are used with IPv6 so that it is allowed to replace the part=20
+0xFFFE
+of an EUI-64 based interface indentifier by another 16 bit value.=20
+The following changes are performed:
+
+
+drivers/net/net_init.c
+        initialization of dev_id and generate_eui64 in ether_setup,
+        tr_setup and fddi_setup.
+include/linux/netdevice.h
+        introduced new function pointer generate_eui64 and new variable=20
+dev_id
+        in net_device structure.
+include/net/addrconf.h
+        function prototype for ipv6_generate_eui64 function=20
+net/ipv6/addrconf.c
+        make ipv6_generate_eui64 non-static
+        replace all ipv6_generate_eui64 calls with dev->generate_eui64
+net/8021q/vlan.c
+         Take it into account for VLAN devices in function
+        register_802_1Q_vlan_device().
+
+
+On Linux for zSeries OSA network cards can be shared among various
+Linuxes. The OSA card has only one MAC address. This leads to
+duplicate address conflicts in conjunction with IPv6 and a vanilla
+kernel if more than one Linux use the same card.  But the device
+driver for the card can deliver a unique 16-bit identifier for each
+Linux sharing the same card. This identifier is placed instead of the
+part 0xFFFE in the interface identifier.
+
+The "u" bit of the interface identifier is not inverted when the new
+feature is used. Hence the resulting interface identifier has local
+scope according to RFC2373.  Consequently this change of the
+autoconfiguration does not violate any RFCs.=20
+
+
+
+Mit  freundlichen Gr=FCssen / Best regards
+Frank Pavlic
+=20
+Linux for eServer Development
+Schoenaicher Str. 220, 71032 Boeblingen
+Phone:  ext. +49-(0)7031/16-2463, int. *120-2463
+mailto:   pavlic@de.ibm.com
+
+
+--=_mixed 0067A116C1256CD0_=
+Content-Type: application/octet-stream; name="shared-ipv6.diff"
+Content-Disposition: attachment; filename="shared-ipv6.diff"
+Content-Transfer-Encoding: base64
+
+ZGlmZiAtTmF1ciBsaW51eC0yLjUuNTktb2xkL2RyaXZlcnMvbmV0L25ldF9p
+bml0LmMgbGludXgtMi41LjU5L2RyaXZlcnMvbmV0L25ldF9pbml0LmMKLS0t
+IGxpbnV4LTIuNS41OS1vbGQvZHJpdmVycy9uZXQvbmV0X2luaXQuYwkyMDAz
+LTAyLTE3IDE4OjQ4OjQwLjAwMDAwMDAwMCArMDEwMAorKysgbGludXgtMi41
+LjU5L2RyaXZlcnMvbmV0L25ldF9pbml0LmMJMjAwMy0wMi0xNyAxODo1Mjo1
+Ny4wMDAwMDAwMDAgKzAxMDAKQEAgLTQxMyw3ICs0MTMsOCBAQAogCWRldi0+
+aGFyZF9oZWFkZXJfY2FjaGUJPSBldGhfaGVhZGVyX2NhY2hlOwogCWRldi0+
+aGVhZGVyX2NhY2hlX3VwZGF0ZT0gZXRoX2hlYWRlcl9jYWNoZV91cGRhdGU7
+CiAJZGV2LT5oYXJkX2hlYWRlcl9wYXJzZQk9IGV0aF9oZWFkZXJfcGFyc2U7
+Ci0KKwlkZXYtPmdlbmVyYXRlX2V1aTY0ICAgICA9IE5VTEw7CisJZGV2LT5k
+ZXZfaWQgICAgICAgICAgICAgPSAwOwogCWRldi0+dHlwZQkJPSBBUlBIUkRf
+RVRIRVI7CiAJZGV2LT5oYXJkX2hlYWRlcl9sZW4gCT0gRVRIX0hMRU47CiAJ
+ZGV2LT5tdHUJCT0gMTUwMDsgLyogZXRoX210dSAqLwpAQCAtNDM5LDYgKzQ0
+MCw4IEBACiAJZGV2LT5jaGFuZ2VfbXR1CQkJPSBmZGRpX2NoYW5nZV9tdHU7
+CiAJZGV2LT5oYXJkX2hlYWRlcgkJPSBmZGRpX2hlYWRlcjsKIAlkZXYtPnJl
+YnVpbGRfaGVhZGVyCQk9IGZkZGlfcmVidWlsZF9oZWFkZXI7CisJZGV2LT5n
+ZW5lcmF0ZV9ldWk2NCAgICAgICAgICAgICA9IE5VTEw7CisJZGV2LT5kZXZf
+aWQgICAgICAgICAgICAgICAgICAgICA9IDA7CiAKIAlkZXYtPnR5cGUJCQkJ
+PSBBUlBIUkRfRkRESTsKIAlkZXYtPmhhcmRfaGVhZGVyX2xlbgk9IEZERElf
+S19TTkFQX0hMRU4rMzsJLyogQXNzdW1lIDgwMi4yIFNOQVAgaGRyIGxlbiAr
+IDMgcGFkIGJ5dGVzICovCkBAIC01ODQsNiArNTg3LDggQEAKIAkKIAlkZXYt
+PmhhcmRfaGVhZGVyCT0gdHJfaGVhZGVyOwogCWRldi0+cmVidWlsZF9oZWFk
+ZXIJPSB0cl9yZWJ1aWxkX2hlYWRlcjsKKwlkZXYtPmdlbmVyYXRlX2V1aTY0
+ICAgICA9IE5VTEw7CisJZGV2LT5kZXZfaWQgICAgICAgICAgICAgPSAwOwog
+CiAJZGV2LT50eXBlCQk9IEFSUEhSRF9JRUVFODAyX1RSOwogCWRldi0+aGFy
+ZF9oZWFkZXJfbGVuCT0gVFJfSExFTjsKZGlmZiAtTmF1ciBsaW51eC0yLjUu
+NTktb2xkL2luY2x1ZGUvbGludXgvbmV0ZGV2aWNlLmggbGludXgtMi41LjU5
+L2luY2x1ZGUvbGludXgvbmV0ZGV2aWNlLmgKLS0tIGxpbnV4LTIuNS41OS1v
+bGQvaW5jbHVkZS9saW51eC9uZXRkZXZpY2UuaAkyMDAzLTAyLTE3IDE4OjQ4
+OjU4LjAwMDAwMDAwMCArMDEwMAorKysgbGludXgtMi41LjU5L2luY2x1ZGUv
+bGludXgvbmV0ZGV2aWNlLmgJMjAwMy0wMi0xNyAxODo1MTo0My4wMDAwMDAw
+MDAgKzAxMDAKQEAgLTQyMiw3ICs0MjIsNyBAQAogCQkJCQkJICAgICB1bnNp
+Z25lZCBjaGFyICpoYWRkcik7CiAJaW50CQkJKCpuZWlnaF9zZXR1cCkoc3Ry
+dWN0IG5ldF9kZXZpY2UgKmRldiwgc3RydWN0IG5laWdoX3Bhcm1zICopOwog
+CWludAkJCSgqYWNjZXB0X2Zhc3RwYXRoKShzdHJ1Y3QgbmV0X2RldmljZSAq
+LCBzdHJ1Y3QgZHN0X2VudHJ5Kik7Ci0KKwlpbnQgICAgICAgICAgICAgICAg
+ICAgICAoKmdlbmVyYXRlX2V1aTY0KSh1OCAqZXVpLCBzdHJ1Y3QgbmV0X2Rl
+dmljZSAqZGV2KTsKIAkvKiBvcGVuL3JlbGVhc2UgYW5kIHVzYWdlIG1hcmtp
+bmcgKi8KIAlzdHJ1Y3QgbW9kdWxlICpvd25lcjsKIApAQCAtNDQwLDYgKzQ0
+MCw4IEBACiAJc3RydWN0IGRpdmVydF9ibGsJKmRpdmVydDsKICNlbmRpZiAv
+KiBDT05GSUdfTkVUX0RJVkVSVCAqLwogCisJLyogdXNlIGRldl9pZCBpbiBj
+b25qdW5jdGlvbiB3aXRoIHNoYXJlZCBuZXR3b3JrIGNhcmRzKi8KKwl1bnNp
+Z25lZCBzaG9ydCAgICAgICAgICAgZGV2X2lkOyAKIAkvKiBnZW5lcmljIG9i
+amVjdCByZXByZXNlbnRhdGlvbiAqLwogCXN0cnVjdCBrb2JqZWN0IGtvYmo7
+CiB9OwpkaWZmIC1OYXVyIGxpbnV4LTIuNS41OS1vbGQvaW5jbHVkZS9uZXQv
+YWRkcmNvbmYuaCBsaW51eC0yLjUuNTkvaW5jbHVkZS9uZXQvYWRkcmNvbmYu
+aAotLS0gbGludXgtMi41LjU5LW9sZC9pbmNsdWRlL25ldC9hZGRyY29uZi5o
+CTIwMDMtMDItMTcgMTg6NDg6NTkuMDAwMDAwMDAwICswMTAwCisrKyBsaW51
+eC0yLjUuNTkvaW5jbHVkZS9uZXQvYWRkcmNvbmYuaAkyMDAzLTAyLTE3IDE4
+OjUyOjE0LjAwMDAwMDAwMCArMDEwMApAQCAtNTksNyArNTksNyBAQAogCQkJ
+CQkgICAgICAgc3RydWN0IGluNl9hZGRyICpkYWRkciwKIAkJCQkJICAgICAg
+IHN0cnVjdCBpbjZfYWRkciAqc2FkZHIpOwogZXh0ZXJuIGludAkJCWlwdjZf
+Z2V0X2xsYWRkcihzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCBzdHJ1Y3QgaW42
+X2FkZHIgKik7Ci0KK2V4dGVybiBpbnQgICAgICAgICAgICAgICAgICAgICAg
+aXB2Nl9nZW5lcmF0ZV9ldWk2NCh1OCAqZXVpLCBzdHJ1Y3QgbmV0X2Rldmlj
+ZSAqZGV2KTsKIC8qCiAgKgltdWx0aWNhc3QgcHJvdG90eXBlcyAobWNhc3Qu
+YykKICAqLwpkaWZmIC1OYXVyIGxpbnV4LTIuNS41OS1vbGQvbmV0LzgwMjFx
+L3ZsYW4uYyBsaW51eC0yLjUuNTkvbmV0LzgwMjFxL3ZsYW4uYwotLS0gbGlu
+dXgtMi41LjU5LW9sZC9uZXQvODAyMXEvdmxhbi5jCTIwMDMtMDItMTcgMTg6
+NDk6NDcuMDAwMDAwMDAwICswMTAwCisrKyBsaW51eC0yLjUuNTkvbmV0Lzgw
+MjFxL3ZsYW4uYwkyMDAzLTAyLTE3IDE4OjUzOjQ4LjAwMDAwMDAwMCArMDEw
+MApAQCAtNDQ0LDEwICs0NDQsMTQgQEAKIAkvKiBJRkZfQlJPQURDQVNUfElG
+Rl9NVUxUSUNBU1Q7ID8/PyAqLwogCW5ld19kZXYtPmZsYWdzID0gcmVhbF9k
+ZXYtPmZsYWdzOwogCW5ld19kZXYtPmZsYWdzICY9IH5JRkZfVVA7Ci0KKwkK
+IAkvKiBNYWtlIHRoaXMgdGhpbmcga25vd24gYXMgYSBWTEFOIGRldmljZSAq
+LwogCW5ld19kZXYtPnByaXZfZmxhZ3MgfD0gSUZGXzgwMl8xUV9WTEFOOwot
+CQkJCQorCQorCS8qIGlwdjYgc2hhcmVkIGNhcmQgcmVsYXRlZCBzdHVmZiAq
+LworCW5ld19kZXYtPmRldl9pZCA9IHJlYWxfZGV2LT5kZXZfaWQ7CisJbmV3
+X2Rldi0+Z2VuZXJhdGVfZXVpNjQgPSByZWFsX2Rldi0+Z2VuZXJhdGVfZXVp
+NjQ7CisKIAkvKiBuZWVkIDQgYnl0ZXMgZm9yIGV4dHJhIFZMQU4gaGVhZGVy
+IGluZm8sCiAJICogaG9wZSB0aGUgdW5kZXJseWluZyBkZXZpY2UgY2FuIGhh
+bmRsZSBpdC4KIAkgKi8KZGlmZiAtTmF1ciBsaW51eC0yLjUuNTktb2xkL25l
+dC9pcHY2L2FkZHJjb25mLmMgbGludXgtMi41LjU5L25ldC9pcHY2L2FkZHJj
+b25mLmMKLS0tIGxpbnV4LTIuNS41OS1vbGQvbmV0L2lwdjYvYWRkcmNvbmYu
+YwkyMDAzLTAyLTE3IDE4OjQ5OjQ3LjAwMDAwMDAwMCArMDEwMAorKysgbGlu
+dXgtMi41LjU5L25ldC9pcHY2L2FkZHJjb25mLmMJMjAwMy0wMi0xNyAxODo1
+NDoxOS4wMDAwMDAwMDAgKzAxMDAKQEAgLTY4NCw3ICs2ODQsNyBAQAogfQog
+CiAKLXN0YXRpYyBpbnQgaXB2Nl9nZW5lcmF0ZV9ldWk2NCh1OCAqZXVpLCBz
+dHJ1Y3QgbmV0X2RldmljZSAqZGV2KQoraW50IGlwdjZfZ2VuZXJhdGVfZXVp
+NjQodTggKmV1aSwgc3RydWN0IG5ldF9kZXZpY2UgKmRldikKIHsKIAlzd2l0
+Y2ggKGRldi0+dHlwZSkgewogCWNhc2UgQVJQSFJEX0VUSEVSOgpAQCAtODk1
+LDcgKzg5NSw3IEBACiAKIAkJaWYgKHBpbmZvLT5wcmVmaXhfbGVuID09IDY0
+KSB7CiAJCQltZW1jcHkoJmFkZHIsICZwaW5mby0+cHJlZml4LCA4KTsKLQkJ
+CWlmIChpcHY2X2dlbmVyYXRlX2V1aTY0KGFkZHIuczZfYWRkciArIDgsIGRl
+dikgJiYKKwkJCWlmIChkZXYtPmdlbmVyYXRlX2V1aTY0KGFkZHIuczZfYWRk
+ciArIDgsIGRldikgJiYKIAkJCSAgICBpcHY2X2luaGVyaXRfZXVpNjQoYWRk
+ci5zNl9hZGRyICsgOCwgaW42X2RldikpIHsKIAkJCQlpbjZfZGV2X3B1dChp
+bjZfZGV2KTsKIAkJCQlyZXR1cm47CkBAIC0xMjQwLDggKzEyNDAsOSBAQAog
+CiAJbWVtc2V0KCZhZGRyLCAwLCBzaXplb2Yoc3RydWN0IGluNl9hZGRyKSk7
+CiAJYWRkci5zNl9hZGRyMzJbMF0gPSBodG9ubCgweEZFODAwMDAwKTsKLQot
+CWlmIChpcHY2X2dlbmVyYXRlX2V1aTY0KGFkZHIuczZfYWRkciArIDgsIGRl
+dikgPT0gMCkKKwlpZiAoIWRldi0+Z2VuZXJhdGVfZXVpNjQpIAorCQlkZXYt
+PmdlbmVyYXRlX2V1aTY0ID0gaXB2Nl9nZW5lcmF0ZV9ldWk2NDsKKwlpZiAo
+ZGV2LT5nZW5lcmF0ZV9ldWk2NChhZGRyLnM2X2FkZHIgKyA4LCBkZXYpID09
+IDApCiAJCWFkZHJjb25mX2FkZF9saW5rbG9jYWwoaWRldiwgJmFkZHIpOwog
+fQogCg==
+
+--=_mixed 0067A116C1256CD0_=--
