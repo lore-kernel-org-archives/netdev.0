@@ -1,25 +1,33 @@
-From: "mail2004_001@yahoo.co.jp" <mail2004_001@yahoo.co.jp>
-Subject: =?iso-2022-jp?Q?=1B$B!y%-%c%s%Z!<%s4|4VCf!*!y=1B(B?=
-Date: Wed, 24 Nov 2004 01:03:44 +0900 (JST)
-Message-ID: <25807908.1101225824540.JavaMail.root@scottie>
+From: Dorn Hetzel <kernel@dorn.hetzel.org>
+Subject: Re: r8169.c
+Date: Thu, 25 Nov 2004 19:36:14 -0500
+Message-ID: <20041126003614.GA5441@lilah.hetzel.org>
+References: <20041119162920.GA26836@lilah.hetzel.org> <20041119201203.GA13522@electric-eye.fr.zoreil.com> <20041120003754.GA32133@lilah.hetzel.org> <20041120002946.GA18059@electric-eye.fr.zoreil.com> <20041122181307.GA3625@lilah.hetzel.org> <20041123144901.GA19005@lilah.hetzel.org> <20041123194740.GA32210@electric-eye.fr.zoreil.com> <20041125220233.GA23850@lilah.hetzel.org> <20041125205411.GA3204@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: Dorn Hetzel <kernel@dorn.hetzel.org>, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com, jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Disposition: inline
+In-Reply-To: <20041125205411.GA3204@electric-eye.fr.zoreil.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-投稿画像は１００％素人女性！
-このチャンスを逃すと絶対後悔！
-★登録無料★
 
-今すぐアクセス
-↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
-http://catchmix.com/real/?code=bmV0ZGV2QG9zcy5zZ2kuY29t
+It did *build* well enough not to blow up the kernel build with 2.95.4,
+it just failed in use...
 
-11/24： エリコ（家事手伝い）画像3枚追加!!
-11/21： いずみ（SHOP店員）画像3枚追加!! 
-11/5： まい（専門学生）画像3枚追加!!
-11/3：ちえ（専業主婦）画像3枚追加!!
+On Thu, Nov 25, 2004 at 09:54:11PM +0100, Francois Romieu wrote:
+> Dorn Hetzel <kernel@dorn.hetzel.org> :
+> [...]
+> > I went ahead and remotely rebuilt using gcc 2.95.4 and upon reboot it
+> > worked long enough to ssh in and then it failed.  So it sounds like the
+> > version of gcc DOES make a difference :)
+> 
+> Ok, I'll have to audit the driver for the typical inline assembler +
+> arithmetic ops which 2.95.x dislikes.
+> 
+> --
+> Ueimor
