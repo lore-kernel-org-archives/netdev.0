@@ -1,32 +1,47 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] packet delay scheduler
-Date: Fri, 19 Mar 2004 14:21:12 -0800
+From: Pavlin Radoslavov <pavlin@icir.org>
+Subject: Deleting tun interface and NETLINK messages ordering
+Date: Fri, 19 Mar 2004 19:14:51 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040319142112.0ad562fe.davem@redhat.com>
-References: <20040316151058.3cc2fa28@dell_ss3.pdx.osdl.net>
-	<20040316174134.2f1da12a.davem@redhat.com>
-	<20040318120451.1c9ee286@dell_ss3.pdx.osdl.net>
-	<1079707927.1032.42.camel@jzny.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, netdev@oss.sgi.com, lartc@mailman.ds9a.nl
+Message-ID: <200403200314.i2K3EpRj032698@possum.icir.org>
+Cc: pavlin@icir.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1079707927.1032.42.camel@jzny.localdomain>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 19 Mar 2004 09:52:07 -0500
-jamal <hadi@cyberus.ca> wrote:
+[ OS: RedHat-7.2 with 2.4.18 kernel ]
 
-> The better alternative is to use the tc extension patches i have
-> because then you could write little modules which do different things
-> and cascade them. 
+I was playing with adding/deleting tunnel interfaces (interface name
+"tun") by using openvpn (http://openvpn.sourceforge.net/), and I
+noticed that when I start openvpn the kernel sends the NETLINK
+upcalls with the new information to user-space in the following
+order:
 
-I agree that this chaining idea of tc actions is the end-all-be-all
-way to do this kind of stuff.
+  1. RTM_NEWLINK
+  2. RTM_NEWADDR
 
-But for now we can put Stephen's delay scheduler in the tree, and I
-don't see any real problem with that until your tc action changes
-are ready for integration.
+I.e., first the "interface added" message, and then the
+"address added" message.
+
+
+However, when I quit openvpn, the NETLINK upcall messages appear in
+the following order:
+
+  1. RTM_DELLINK
+  2. RTM_DELADDR
+
+I.e., first the "interface deleted" message, and then the
+"address deleted" message.
+
+I would have expect that when an interface is deleted, the
+RTM_DELADDR message(s) will appear first, and then the RTM_DELLINK
+message.
+
+Indeed, when the userland process that monitors the network
+interface status receives the RTM_DELLINK message it can remove all
+state about that interface (including its addresses), but then it
+should be aware that it may receive RTM_DELADDR for non-existing
+interface.
+
+Thanks,
+Pavlin
