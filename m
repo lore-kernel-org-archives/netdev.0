@@ -1,33 +1,72 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Deleting incoming network packets / sk_buff
-Date: Sun, 15 Aug 2004 11:18:42 -0700
+From: Vladimir Kondratiev <vkondra@mail.ru>
+Subject: Re: [Prism54-devel] Re: [PATCH/RFC] set_rates support for prism54
+Date: Sun, 15 Aug 2004 21:41:31 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <411FA902.8070402@candelatech.com>
-References: <411E642C.9010708@web.de> <411E8EE4.70900@candelatech.com> <411FA5D0.6000004@web.de>
+Message-ID: <200408152141.48877.vkondra@mail.ru>
+References: <5.1.0.14.2.20040815145122.00afd708@pop.t-online.de> <200408151949.01351.vkondra@mail.ru> <200408152012.18018.vda@port.imtp.ilyichevsk.odessa.ua>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: multipart/signed;
+  boundary="nextPart13660570.kJMNPqysdf";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>,
+        Margit Schubert-While <margitsw@t-online.de>,
+        prism54-devel@prism54.org, mcgrof@studorgs.rutgers.edu,
+        jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Michael Renzmann <mrenzmann@web.de>
-In-Reply-To: <411FA5D0.6000004@web.de>
+To: netdev@oss.sgi.com
+In-Reply-To: <200408152012.18018.vda@port.imtp.ilyichevsk.odessa.ua>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Michael Renzmann wrote:
+--nextPart13660570.kJMNPqysdf
+Content-Type: text/plain;
+  charset="windows-1251"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-> Bottom line: the easiest way to solve this problem would be to have some 
-> way for blocking packets on eth1 from being processed (after they have 
-> been passed to the packet socket - else my userspace program won't be 
-> able to "bridge" incoming packets to tap0).
+DV> > For supported and optional rate, IE (info element) format may be the
+ best DV> > choice.
+DV>
+DV> I did not quite understand you, can you elaborate a bit?
 
-Can't you have no IP on eth1 and have your IP on tap0 instead?  That would
-at least keep any pkts received on eth1 from being processed by the
-IP stack.
+How card know what rates it can use? It parses "supported rates" IE (info=20
+element) from beacon it gets from AP. My point, it is reasonable to use the=
+=20
+same language to specify further restrictions. This way, we will speak the=
+=20
+same language as standard do.
 
-Ben
+In standard, there is no way to say "you can use PBCC, but not for rate 5.5=
+".=20
+PBCC is either permitted or not. For "good" hardware, there is no point of=
+=20
+doing this. You may need to artificially restrict rate/modulation only if=20
+hardware can't find best for current channel conditions, or, of course, for=
+=20
+debug. But, I would say, for this cases, let's use debug hooks. Mainline=20
+should be as close to standard as possible.
 
+It should be as generic as possible, also. Scheme you suggested is not very=
+=20
+scalable. Think of TGn that would for sure add its tricks with modulation. =
+If=20
+we start combining rate with modulation, we will shortly fall into too many=
+=20
+options.
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Does it clarify my point?
+
+--nextPart13660570.kJMNPqysdf
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (GNU/Linux)
+
+iD8DBQBBH65sqxdj7mhC6o0RAi2oAJ0SUm8JiqR9pAAO0eZKM0+5UfHysQCfW+P1
+nDQusW70c6m3S80KD2O6RUU=
+=/shC
+-----END PGP SIGNATURE-----
+
+--nextPart13660570.kJMNPqysdf--
