@@ -1,31 +1,36 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Fix 64bit bugs in dscc44.c II
-Date: Wed, 8 Oct 2003 09:10:50 -0700
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [PATCH] Fix 64bit bugs in dscc44.c
+Date: Wed, 8 Oct 2003 17:55:48 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031008091050.11b2acb7.davem@redhat.com>
-References: <20031007175953.GA1802@averell>
-	<20031008084205.5c81faac.davem@redhat.com>
-	<20031008155548.GB16937@wotan.suse.de>
-	<20031008090132.2b58c067.davem@redhat.com>
-	<20031008160859.GD16937@wotan.suse.de>
-	<20031008161149.GA8134@wotan.suse.de>
+Message-ID: <20031008155548.GB16937@wotan.suse.de>
+References: <20031007175953.GA1802@averell> <20031008084205.5c81faac.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: ak@suse.de, ak@muc.de, ncorbic@sangoma.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <ak@muc.de>, ncorbic@sangoma.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <20031008161149.GA8134@wotan.suse.de>
+To: "David S. Miller" <davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20031008084205.5c81faac.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> BTW my change fixed the warning.
+On Wed, Oct 08, 2003 at 08:42:05AM -0700, David S. Miller wrote:
+> On Tue, 7 Oct 2003 19:59:53 +0200
+> Andi Kleen <ak@muc.de> wrote:
+> 
+> > ioremap_nocache returns unsigned long, not u32. This makes a difference
+> > on 64bit hosts.
+> 
+> Incorrect, like ioremap() it returns "void *".
 
-I know, but it added a new one.
+I knew someone would nit pick this ;-)
 
-> It's somewhat ugly to store pointers in unsigned long I agree,
+I agree it would have been better to write:
+"ioremap and ioremap_nocache return pointers and that should 
+be stored in a pointer variable. However when you really want 
+to store them in a integer variable for unknown reasons always
+use unsigned long, not u32 or int"
 
-I have _NO_ problem with this, all I'm asking you to do is:
+However that was just too long, so I didn't write it.
 
--	foo = ioremap_nocache(...);
-+ 	foo = (unsigned long) ioremap_nocache(...);
+-Andi
