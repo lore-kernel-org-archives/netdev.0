@@ -1,45 +1,51 @@
 From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: Restrict local IP announcements in ARP requests
-Date: Fri, 13 Feb 2004 01:50:32 +0200 (EET)
+Subject: Re: Change proxy_arp to respond only for valid neighbours
+Date: Fri, 13 Feb 2004 02:34:05 +0200 (EET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0402130138540.1149@u.domain.uli>
-References: <Pine.LNX.4.58.0402081149001.6268@u.domain.uli>
- <20040209140853.69ab8bea.davem@redhat.com> <Pine.LNX.4.58.0402100049470.1251@u.domain.uli>
- <20040209151053.1f63937a.davem@redhat.com> <Pine.LNX.4.58.0402100251380.1251@u.domain.uli>
- <20040211201656.4e4f708e.davem@redhat.com>
+Message-ID: <Pine.LNX.4.58.0402130151020.1149@u.domain.uli>
+References: <200402121937.WAA10800@yakov.inr.ac.ru>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
+Cc: hadi@cyberus.ca, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040211201656.4e4f708e.davem@redhat.com>
+To: kuznet@ms2.inr.ac.ru
+In-Reply-To: <200402121937.WAA10800@yakov.inr.ac.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
 	Hello,
 
-On Wed, 11 Feb 2004, David S. Miller wrote:
+On Thu, 12 Feb 2004 kuznet@ms2.inr.ac.ru wrote:
 
-> But I want the docs for the sysctl to talk about this.  Something
-> simple like:
->
-> +	1 - Try to avoid local addresses that are not in the target's
-> +	subnet for this interface as far as we know.  In some environments
-> +	subnets may be active that this system is not aware of, thus this
-> +	setting might cause problems in such cases.
->
-> Tweak it however you wish, just get the idea/warning across.
->
-> I'd also prefer if you at least lightly define what "best" source address
-> means in the context of arp_announce==2.
+> Joining the discussion too late, but let me to reformulate original
+> Jamal's question in another way: are you aware that you relay _broadcast_
+> ARP requests doing the validation?
 
-	I hope I explained them using my non-native english :)
-May be the info is not good enough and can be improved. This is
-against latest bk (there will be no conflict with the recently added 
-flag):
+	Good question. It seems I misunderstood the goal of the
+delaying mechanism.
 
-http://www.ssi.bg/~ja/arp_announce-2.6.2-4.diff
+> I really like the idea, but this aspect bothers me a lot. Is it not storm
+> unsafe? Look, earlier broadcasts on outgoing interface started only when
+> a real unicast IP traffic was pending, so we were sure sender selected some
+> single proxy router, now broadcasts will be sent by _all_ the routers. See?
+
+	Yep, 3 broadcasts per router for one requests which is 3 times
+more than the current code sends in response to fake requests.
+
+	I thought the delay is to lose the race with hosts with
+this IP but now I see it is implemented as random delay. But we never
+can guarantee that only one proxy router will serve the target IP - I see
+the nice effect of using all proxy routers in parallel from
+different senders. Any other hidden features? :)
+
+	As for the proposed changes, any recommendations?
+May be the flag for the incoming interface as Jamal requested
+is already required if we still like to see these new features
+in the kernel and running in a safe environment? Or it is
+better to stay only with the current behaviour?
+
+> Alexey
 
 Regards
 
