@@ -1,43 +1,33 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [BUG] overflow in net/ipv4/route.c rt_check_expire()
-Date: Fri, 1 Apr 2005 13:08:32 -0800
-Message-ID: <20050401130832.1f972a3b.davem@davemloft.net>
-References: <42370997.6010302@cosmosbay.com>
-	<20050315103253.590c8bfc.davem@davemloft.net>
-	<42380EC6.60100@cosmosbay.com>
-	<20050316140915.0f6b9528.davem@davemloft.net>
-	<4239E00C.4080309@cosmosbay.com>
-	<20050331221352.13695124.davem@davemloft.net>
-	<424D5D34.4030800@cosmosbay.com>
-	<20050401122802.7c71afbc.davem@davemloft.net>
-	<424DB7A1.8090803@cosmosbay.com>
+Subject: Re: [PATCH] skb pcount with MTU discovery
+Date: Fri, 1 Apr 2005 13:10:45 -0800
+Message-ID: <20050401131045.4e558f65.davem@davemloft.net>
+References: <Pine.LNX.4.58.0504011340510.17051@dexter.psc.edu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Eric Dumazet <dada1@cosmosbay.com>
-In-Reply-To: <424DB7A1.8090803@cosmosbay.com>
+To: John Heffner <jheffner@psc.edu>
+In-Reply-To: <Pine.LNX.4.58.0504011340510.17051@dexter.psc.edu>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 01 Apr 2005 23:05:37 +0200
-Eric Dumazet <dada1@cosmosbay.com> wrote:
+On Fri, 1 Apr 2005 16:05:49 -0500 (EST)
+John Heffner <jheffner@psc.edu> wrote:
 
-> You mean you prefer :
+> The problem is that when doing MTU discovery, the too-large segments in
+> the write queue will be calculated as having a pcount of >1.  When
+> tcp_write_xmit() is trying to send, tcp_snd_test() fails the cwnd test
+> when pcount > cwnd.
 > 
-> static spinlock_t   *rt_hash_lock ; /* rt_hash_lock =
-> alloc_memory_at_boot_time(...) */
+> The segments are eventually transmitted one at a time by keepalive, but
+> this can take a long time.
 > 
-> instead of
-> 
-> static spinlock_t rt_hash_lock[RT_HASH_LOCK_SZ] ;
-> 
-> In both cases, memory is taken from lowmem, and size of kernel image
-> is roughly the same (bss section takes no space in image)
+> This patch checks if TSO is enabled when setting pcount.
 
-In the former case the kernel image the bootloader has to
-load is smaller.  That's important, believe it or not.  It
-means less TLB entries need to be locked permanently into
-the MMU on certain platforms.
+Why isn't the MSS properly updated at this point in time?
+If it were, the pcount setting would do the right thing.
+
+That's how this code is supposed to work.
