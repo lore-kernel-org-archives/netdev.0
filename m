@@ -1,38 +1,35 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Replace send_unreach with icmp_send
-Date: Wed, 16 Mar 2005 07:40:06 +1100
-Message-ID: <20050315204006.GB22349@gondor.apana.org.au>
-References: <20050307103536.GB7137@gondor.apana.org.au> <20050308102741.GA23468@gondor.apana.org.au> <20050314102614.GA9610@gondor.apana.org.au> <20050314105313.GA21001@gondor.apana.org.au> <20050314111002.GA29156@gondor.apana.org.au> <20050315091904.GA6256@gondor.apana.org.au> <20050315095837.GA7130@gondor.apana.org.au> <20050315100522.GA7275@gondor.apana.org.au> <20050315102450.0f3f1618.davem@davemloft.net> <42373142.6090902@trash.net>
+From: Nivedita Singhvi <niv@us.ibm.com>
+Subject: Re: [PATCH] Optimize loopback stats
+Date: Tue, 15 Mar 2005 12:49:51 -0800
+Message-ID: <42374A6F.50300@us.ibm.com>
+References: <200503151459_MC3-1-989A-61A4@compuserve.com> <4237423E.2040505@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-        yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <42373142.6090902@trash.net>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-netdev <netdev@oss.sgi.com>, Andrew Morton <akpm@osdl.org>,
+        Christoph Lameter <clameter@sgi.com>
+To: Chuck Ebbert <76306.1226@compuserve.com>
+In-Reply-To: <4237423E.2040505@us.ibm.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 15, 2005 at 08:02:26PM +0100, Patrick McHardy wrote:
+Nivedita Singhvi wrote:
+> Chuck Ebbert wrote:
 > 
-> I would prefer to keep it seperately. I have planned to remove xrlim
-> from ipt_REJECT so it behaves similar for TCP and ICMP. Limits should
-> then be handled by the limit match. This can't be done if we switch to
-> icmp_send().
+>>   This patch optimizes the loopback driver's statistics by using a single
+>> counter for rx and tx stats instead of one for rx and one for tx.  It 
+>> also
+>> adds unlikely() to the test for TSO since it's no longer supported by 
+>> default.
+>> (Maybe the TSO code should be bracketed by "#if 0" ?)
+> 
+> 
+> Hmm, some of us want those counters separate - if this is really
+> needed, could it be a configurable option, please?
 
-Well it isn't terribly difficult to create a new version of icmp_send
-that does xrlim conditionally.  icmp_send/ipt_REJECT can then call that
-function.
+Or we could live with the appropriate patches to ip, ifconfig,
+reporting them separately (halving them). That would be fine.
 
-The main reason I'm looking at getting rid of send_unreach is because
-having two implementations of the same code often leads to bugs.  In
-fact, as it is there are multiple IPsec-related bugs in the ipt_REJECT
-code.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+thanks,
+Nivedita
