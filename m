@@ -1,31 +1,29 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] fix select() for SOCK_RAW sockets
-Date: Tue, 7 Dec 2004 21:28:17 -0800
-Message-ID: <20041207212817.1b74671b.davem@davemloft.net>
-References: <20041207003525.GA22933@linuxace.com>
-	<20041207025218.GB61527@gaz.sfgoth.com>
-	<20041207045302.GA23746@linuxace.com>
-	<20041207054840.GD61527@gaz.sfgoth.com>
-	<20041207150834.GA75700@gaz.sfgoth.com>
+Subject: Re: Hard freeze with 2.6.10-rc3 and QoS, worked fine with 2.6.9
+Date: Tue, 7 Dec 2004 21:30:53 -0800
+Message-ID: <20041207213053.6bb602c1.davem@davemloft.net>
+References: <1102380430.6103.6.camel@buffy>
+	<20041206224441.628e7885.akpm@osdl.org>
+	<1102422544.1088.98.camel@jzny.localdomain>
+	<41B5E188.5050800@trash.net>
+	<20041207170748.GF1371@postel.suug.ch>
+	<41B5E722.2080600@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kernel@linuxace.com, shemminger@osdl.org,
-	linux-net@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Mitchell Blank Jr <mitch@sfgoth.com>
-In-Reply-To: <20041207150834.GA75700@gaz.sfgoth.com>
-Sender: linux-net-owner@vger.kernel.org
+Cc: tgraf@suug.ch, hadi@cyberus.ca, akpm@osdl.org, tomc@compaqnet.fr,
+        linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <41B5E722.2080600@trash.net>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 7 Dec 2004 07:08:34 -0800
-Mitchell Blank Jr <mitch@sfgoth.com> wrote:
+On Tue, 07 Dec 2004 18:23:46 +0100
+Patrick McHardy <kaber@trash.net> wrote:
 
-> Davem: I only tested that this doesn't break UDP; if it works for Phil and
-> Stephen can verify that it doesn't break his bad-checksum UDP tests then
-> please push it for 2.6.10.
+> Either one is fine with me, although I would prefer to see
+> the number of ifdefs in this area going down, not up :)
 
-Looks good Mitchell, patch applied.
-
-Thanks.
+I agree, therefore I applied Patrick's patch.
