@@ -1,141 +1,65 @@
-From: Suparna Bhattacharya <suparna@in.ibm.com>
-Subject: Re: net-AIO and real-time TCP (blue sky research)
-Date: Tue, 10 Aug 2004 21:21:48 +0530
+From: Glen Turner <glen.turner@aarnet.edu.au>
+Subject: Re: Question about Cisco's ISL
+Date: Wed, 11 Aug 2004 02:11:44 +0930
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040810155148.GA4630@in.ibm.com>
-References: <20040801235102.K1276@almesberger.net>
-Reply-To: suparna@in.ibm.com
+Message-ID: <1092156104.6767.60.camel@andromache>
+References: <1089121054.22081.31.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Werner Almesberger <werner@almesberger.net>
-Content-Disposition: inline
-In-Reply-To: <20040801235102.K1276@almesberger.net>
+To: Joubert Berger <jberger@trustednetworktech.com>
+In-Reply-To: <1089121054.22081.31.camel@localhost.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello Werner,
+On Tue, 2004-07-06 at 23:07, Joubert Berger wrote:
+> I am writing some code to decode Cisco ISL frames.  I am having a
+> difficult time figuring out how the FCS is calculated at the end of the
+> frame.  Does anyone have any experience with Cisco ISL frames and
+> possibly how to calculate the CRC at the end of the frame.
 
-I was hoping all this while that someone with deeper knowledge
-in this area than me would respond, but well, maybe they were
-all quiet chuckles :) ?
+There are two FCSs in an ISL frame. Grab Document 17056 from the Cisco
+web site for the ISL frame format and observe:
 
-Does your proposal require additional semantics on aio TCP socket
-reads and writes that differ from the synchronous TCP case, besides
-not blocking and indicating completion through aio_complete ?
+ - the encapsulated frame includes its FCS (and DA, SA, Type
+   and Data).
 
-On Sun, Aug 01, 2004 at 11:51:02PM -0300, Werner Almesberger wrote:
-> Hi Suparna,
-> 
-> I'm copying this to netdev, because people there may get a good
-> chuckle out of this outlandish idea as well :-)
-> 
-> At OLS we were chatting about using AIO also for networking.
-> While this concept didn't seem to rank particularly high on the
-> lunacy scale, it didn't appear overly useful either. About the
-> only possibly interesting new functionality, besides the
-> possibility to connect this with some eccentric TCP offloading
-> and zero-copy scheme, would be - when applied to TCP - to make
-> unACKed data in the out-of-order buffer available to user
-> space.
-> 
-> Now, it occurred to me that this may lead to something a lot
-> more exciting: a step towards making TCP real-time capable.
-> I'm using the term "real-time" loosely here, as in "there's a
-> deadline, but we're flexible".
-> 
-> I haven't followed what's going on at IETF in that area for a
-> while, and I'm sure plenty of other people must have thought
-> of similar schemes before, but since this seems nicer and
-> maybe even simpler than some, let me describe it anyway.
-> 
-> First of all, one of the main complaints of the real-time
-> networking people is that TCP stubbornly insists on
-> retransmitting every single segment until it is absolutely
-> certain that the segment has been received, even if the
-> real-time application has long since moved on.
-> 
-> Now, with net-AIO, the application could already get all the
-> data that has arrived after a lost segment. That's a good
+ - the transmitted ISL frame uses a format that is capable
+   of being forwarded by a non-ISL switch (MTU willing).
+   So it has a DA, SA, Type and FCS which is acceptable to
+   any ethernet switch.
 
-> start, but TCP will still try to retransmit. So the next step
-> would be to have a means to indicate that we've lost interest
-> in the outcome of a pending AIO operation, and - as a side
-> effect - communicate this also to TCP, so that TCP can stop
-> trying, and do something more useful instead.
-> 
-> Let's call this operation aio_forget(). For disk IO, this
-> may work just like aio_cancel().
+In both cases the FCS is calculated as per 802.3.
 
-The notion of which segment to aio_forget on the Rx path 
-is a little hazy to me (were you were indeed referring
-to the receive side here ? I can see this more clearly for
-the send side when coupled with zero copy).
+Your thinking might be a bit clearer if you think about a switch taking
+a received frame, wrapping it in a ISL encapsulation and forwarding it
+down the VLAN trunk. The switch at the end of the trunk simply strips
+the encapsulation and drops the unencapsulated frame directly onto the
+wire.
 
-> 
-> Now, aio_forget() would be a great tool for making TCP
-> blissfully ignorant of any losses, actually making it very
-> TCP-unfriendly. So the next step would be to record the fact
-> that we've just forgotten some segments, but still need to
-> make the peer aware of the fact that there (may) have been
-> losses, and to slow down accordingly. Obviously, if we have
-> reason to believe that the peer already knows of a loss in
-> the general vicinity, no action is needed.
-> 
-> Reliably communicating a loss isn't trivial, but there should
-> be good background material in the context of ECN. Of course,
-> if ECN is available, we may just use that. Otherwise, we may
-> have to force a retransmission, to be sure that the peer has
-> noticed. (And, if the forgotten segment(s) should arrive while
-> TCP is trying to indicate a loss, it should stop doing so.)
-> 
-> Now, assuming we have a solution for indicating losses that is
-> satisfying both in terms of congestion control and in terms of
-> efficiency, there are still a few things that would be nice to
-> have, that this approach doesn't solve:
-> 
->  - message boundaries and segment-message alignment. Not being
->    able to use messages just because a few of their bytes
->    ended up in a lost (and then aio_forgotten) segment would
->    be just too bad. In some cases, it may be possible to just
->    set the MSS to a suitable value. Also, recovering message
->    boundaries after a loss may be tricky.
-> 
->  - there's no direct provision for allowing adaptive coding.
->    Of course, this is a fairly orthogonal problem.
-> 
->  - as time passes, the sender may want to remove or substitute
->    data it had already enqueued, e.g because there is less
->    bandwidth than originally anticipated. So there may be a
->    place for aio_forget() at the sender side too.
-> 
-> Now, why could this scheme be "nicer" than just inventing some
-> new protocol that is designed to do all these things ? The
-> main thing that "looks good" is that this mechanism could use
-> all of TCP, and may not even need major maintenance if some
-> minor aspect of TCP congestion control gets changed.
-> 
-> Anyway, this may be peculiar enough for someone to spin the
-> idea a little further. In the worst case, I might just have
-> provided additional evidence that, if you just search long
-> enough, there's a perfectly plausible problem for every
-> solution :-)
+If you are writing software then you need to manually calculate
+the FCS of the encapsulated frame (this FCS is usually calculated by the
+hardware of the ethernet controller). The FCS at the end of the ISL
+frame will be calculated by the ethernet controller hardware.
 
-Thanks for bringing in some fresh perspective :)
+Have a look at the Ethereal source code, it pulls apart ISL frames.
 
-Regards
-Suparna
+There are also two control protocols:
 
-> 
-> - Werner
-> 
-> -- 
->   _________________________________________________________________________
->  / Werner Almesberger, Buenos Aires, Argentina     werner@almesberger.net /
-> /_http://www.almesberger.net/____________________________________________/
+1) Cisco ISL runs 802.1D spanning tree but does so on every ISL VLAN,
+whereas 802.1q runs spanning tree only on the default untagged VLAN.
+
+2) Automated configuration uses Cisco's VLAN Trunking Protocol (VTP). I
+don't know of a spec for this; it looks a bit of a dog's breakfast
+(they're up to version 3 now); and deploying it could be dangerous (some
+Cisco switches run only 32 VLANs and announcing more VLANs through VTP
+can lead to a denial of service on those switches, so why would you
+extend the trust required by VTP out to hosts?). ISL works fine without
+VTP, you just need to manually configure the port as "trunk" rather than
+"auto".
 
 -- 
-Suparna Bhattacharya (suparna@in.ibm.com)
-Linux Technology Center
-IBM Software Lab, India
+Glen Turner         Tel: (08) 8303 3936 or +61 8 8303 3936
+Australian Academic & Research Network   www.aarnet.edu.au
