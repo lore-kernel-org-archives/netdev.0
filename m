@@ -1,36 +1,42 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: Small Help required!!!
-Date: Mon, 1 Nov 2004 13:49:17 -0800
-Message-ID: <OF4B619707.EA6E09C8-ON88256F3F.007783E0-88256F3F.0077DEBE@us.ibm.com>
-References: <BLEAIJDEHOOAGALIAAKBMEPCCCAA.pranav@nodeinfotech.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 2.6] dev.c: clear SIOCGIFHWADDR buffer if !dev->addr_len
+Date: 01 Nov 2004 16:50:49 -0500
+Message-ID: <1099345849.1073.1.camel@jzny.localdomain>
+References: <20041030013700.GA21540@lists.us.dell.com>
+	 <E1CNiOT-0008GU-00@gondolin.me.apana.org.au>
+	 <20041030030936.GA25102@lists.us.dell.com>
+	 <1099163419.1039.97.camel@jzny.localdomain>
+	 <20041101044433.GA18772@lists.us.dell.com>
+	 <20041101173434.GA12437@lists.us.dell.com>
+	 <20041101202754.GA23149@gondor.apana.org.au>
+	 <20041101203821.GA15086@lists.us.dell.com>
+	 <20041101204131.GA23277@gondor.apana.org.au>
+	 <20041101204533.GA17279@lists.us.dell.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <BLEAIJDEHOOAGALIAAKBMEPCCCAA.pranav@nodeinfotech.com>
-To: <pranav@nodeinfotech.com>
+To: Matt Domsch <Matt_Domsch@dell.com>
+In-Reply-To: <20041101204533.GA17279@lists.us.dell.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-netdev-bounce@oss.sgi.com wrote on 10/30/2004 08:32:55 AM:
+My onluy comment is on use of -EOVERFLOW which i have seen only
+being used in the context of floating point computation
+(same as -EUNDERFLOW). I dont know what the right thing to return would
+be.
 
-> hi,
-> I needed some information about how to proceed with implementing a Name
-> Switch Server plugin that
-> allows to resolve multicast DNS names using normal libc calls(such as
-> gethostbyname()).
+cheers,
+jamal
 
-> If someone has knowledge in this regard,please mail me back.
-
-I think this will already work as-is. All you should need to do is
-register the multicast address in the DNS server.
-
-Have you tried it? Some well-known multicast addresses (like NTP's) are
-commonly registered with root servers already.
-
-I haven't tried using "gethostbyame()" on a multicast address that is
-registered, but I'm not aware of any checks on the class of the address
-in any of the code.
-
-                                        +-DLS
+On Mon, 2004-11-01 at 15:45, Matt Domsch wrote:
+> On Tue, Nov 02, 2004 at 07:41:31AM +1100, Herbert Xu wrote:
+> > You don't need the min anymore since you've checked that dev->addr_len
+> > is not greater than sizeof ifr->ifr_hwaddr.sa_data.
+> 
+> Good catch.
+> 
+> Signed-off-by: Matt Domsch <Matt_Domsch@dell.com>
