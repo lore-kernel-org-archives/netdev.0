@@ -1,54 +1,63 @@
-From: Jurriaan <thunder7@xs4all.nl>
-Subject: Re: strange network performance degradation 2.6.8-rc3-mm1 -> 2.6.8-rc4-mm1
-Date: Sat, 14 Aug 2004 21:01:40 +0200
+From: Michael Renzmann <mrenzmann@web.de>
+Subject: Deleting incoming network packets / sk_buff
+Date: Sat, 14 Aug 2004 21:12:44 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040814190140.GA1954@middle.of.nowhere>
-References: <20040814060948.GA7842@middle.of.nowhere> <20040814121533.GB18754@electric-eye.fr.zoreil.com> <20040814135606.GA6001@middle.of.nowhere> <20040814150824.GA21843@electric-eye.fr.zoreil.com> <20040814161039.GA1985@middle.of.nowhere> <20040814172835.GA23427@electric-eye.fr.zoreil.com>
-Reply-To: Jurriaan <thunder7@xs4all.nl>
+Message-ID: <411E642C.9010708@web.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Content-Disposition: inline
-In-Reply-To: <20040814172835.GA23427@electric-eye.fr.zoreil.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Sat, Aug 14, 2004 at 07:28:35PM +0200
-> Jurriaan <thunder7@xs4all.nl> :
-> [...]
-> > Never mind, it seems my patch was saved incorrectly. Anyway, after
-> > applying this patch my network-traffic is as fast as it ever was.
-> > 
-> > There's no difference in dmesg-output, but I reach 450-460 KiB/s again.
-> 
-> Ok. So Jeff was right (TM).
-> 
-> > If there's anything else I can test, please let me know - I gather the
-> > update did work for other people, so if testers are wanted I'm
-> > available.
-> 
-> Can you apply 8139too-10.patch + 8139too-20.patch on top of your working
-> config (namely 2.6.8-rc4-mm1 + 8139too-mm-revert.patch) and tell if things
-> go wrong ?
-> 
-Indeed they do. Both with -10 and with -10+-20 added on my working
-2.6.8-rc4-mm1 the booting process hangs somewhere while iptables is
-installing my ipv6 firewall. This is reproducable, I've not tried to
-install my firewall by hand after booting (call me paranoid).
+Hi all.
 
-Thus:
+I'm just making my first steps in kernel programming, and I have a few 
+questions.
 
-2.6.8-rc4-mm1: boots, slow network
-2.6.8-rc4-mm1 + 8139too-mm-revert: boots, fast network
-2.6.8-rc4-mm1 + 8139too-mm-revert + 8139too-10: doesn't boot
-2.6.8-rc4-mm1 + 8139too-mm-revert + 8139too-10 + 8139too-20: doesn't boot
+It's necessary for me to "delete" network packets that come in on a 
+ethernet device after passing them to an userspace program (through a 
+packet socket that the program has opened). My first idea was to write a 
+kernel module that registers on the NF_IP_PRE_ROUTING netfilter hook and 
+does its job. But there are two downsides on this approach:
 
-Good luck,
-Jurriaan
--- 
-Linux hackers are funny people: They count the time in patchlevels.
-	Gerd Knorr
-Debian (Unstable) GNU/Linux 2.6.8-rc4-mm1 2x6078 bogomips load 0.01
+1. I need to delete every packet, no matter if it is IP or something 
+else. As far as I understood only IP-packets will pass the netfilter 
+hooks, since the netfilter framework only works with IP traffic.
+
+2. The solution also has to work for 2.2.x kernels, as long as there is 
+any way to achieve this functionality for these kernel series and 2.4.x 
+as well.
+
+I continued to dig some documentation, and found a possible solution in 
+a rather old phrack article [1]: "What we do is code our own kernel 
+module that registers our packet_type{} data structure to handle all 
+incoming packets (sk_buff's) right after they come out of the device 
+driver." While the authors use this technique to implement some 
+"protocol obfuscation" or an in-kernel packet sniffer, it seems to be a 
+good way to reach what I want to do.
+
+Now, what I'm wondering about is the way to "correctly" remove an 
+sk_buff so that the upper layer won't see the corresponding packet. I 
+somewhere read that the code for packet sockets have to clone the 
+sk_buff before passing it to the socket, else it would be "lost" and 
+could not be seen by following handlers.
+
+So, the questions I have:
+
+1. What has to be done to delete a bypassing sk_buff, so that upper 
+layer routines don't see it?
+
+2. How can it be achieved to pass a sk_buff to opened packet sockets 
+before deleting the sk_buff? I guess the handler either has to pass the 
+sk_buff "manually" to the packet socket handler packet_rcv() or has to 
+place itself to be called directly after packet_rcv() has been called.
+
+I hope that my description can be understood - not enough that I'm not 
+very keen with kernel programming, but I also am no native english 
+speaker... :) Please let me know if you need further information to clarify.
+
+Bye, Mike
+
+[1] http://www.phrack.org/show.php?p=55&a=12
