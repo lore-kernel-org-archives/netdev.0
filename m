@@ -1,31 +1,35 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: patricia tries vs. hash for routing?
-Date: Fri, 19 Sep 2003 23:37:30 -0700
+Subject: Re: net/sctp/sm_make_chunk.c alignment problems on parisc64
+Date: Fri, 19 Sep 2003 23:39:09 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030919233730.75969de6.davem@redhat.com>
-References: <20030919214837.GA3012@sirius.cs.pdx.edu>
+Message-ID: <20030919233909.7ec3aab0.davem@redhat.com>
+References: <20030918195525.28c17cb1.davem@redhat.com>
+	<Pine.LNX.4.44.0309191440320.4758-100000@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: acme@conectiva.com.br, netdev@oss.sgi.com,
+        lksctp-developers@lists.sourceforge.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Kristen Carlson <kristenc@cs.pdx.edu>
-In-Reply-To: <20030919214837.GA3012@sirius.cs.pdx.edu>
+To: Sridhar Samudrala <sri@us.ibm.com>
+In-Reply-To: <Pine.LNX.4.44.0309191440320.4758-100000@localhost.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 19 Sep 2003 14:48:37 -0700
-Kristen Carlson <kristenc@cs.pdx.edu> wrote:
+On Fri, 19 Sep 2003 15:15:53 -0700 (PDT)
+Sridhar Samudrala <sri@us.ibm.com> wrote:
 
-> I was looking through some very old mail list discussions (1996!) on this 
-> topic, and the feeling then was that the code was optimal for < 60,000 routes.
-> Given that much has happened since then, is it still a fair assumption to say
-> that the linux routing algorithm is optimized for < 60,000 routes, but a
-> more BSD-like algorithm works better for > 60,000 routes?
+> But unfortunately i am not able see this problem with a parisc64 cross compiler 
+> on i386. So it makes it hard to debug or fix it. Looks like this happens only
+> when building natively on a parisc64 machine which i don't have access to.
 
-That's not true at all, the current code can handle many more than
-60,000 routes.
+Did you build with or without SMP enabled?
 
-Don't speak with abstract claims that bear no content, do your own
-experiments with a properly configured system and report them in
-detail here.
+Anyways, try to work with Arnaldo to figure out the precise statement
+causing the problems.
+
+> Also while reviewing the code in sctp_pack_cookie(), i noticed a structure
+> copy. Are structure copies portable across all the archictectures? Should we
+> replace it with a memcpy?
+
+Yes, structure copies are portable.
