@@ -1,43 +1,32 @@
-From: Paul Jakma <paul@clubi.ie>
+From: David Stevens <dlstevens@us.ibm.com>
 Subject: Re: The ultimate TOE design
-Date: Wed, 15 Sep 2004 21:04:38 +0100 (IST)
+Date: Wed, 15 Sep 2004 14:11:04 -0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.61.0409152102050.23011@fogarty.jakma.org>
+Message-ID: <OF8783A4F6.D566336C-ON88256F10.006E51CE-88256F10.006EDA93@us.ibm.com>
 References: <4148991B.9050200@pobox.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: leonid.grossman@s2io.com, Linux Kernel <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: leonid.grossman@s2io.com, Linux Kernel <linux-kernel@vger.kernel.org>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Netdev <netdev@oss.sgi.com>
 In-Reply-To: <4148991B.9050200@pobox.com>
+To: Netdev <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 15 Sep 2004, Jeff Garzik wrote:
+I've never understood why people are so interested in off-loading
+networking. Isn't that just a multi-processor system where you can't
+use any of the network processor cycles for anything else? And, of
+course, to be cheap, the network processor will be slower, and much
+harder to debug and update software.
 
-> Put simply, the "ultimate TOE card" would be a card with network ports, a 
-> generic CPU (arm, mips, whatever.), some RAM, and some flash.  This card's 
-> "firmware" is the Linux kernel, configured to run as a _totally indepenent 
-> network node_, with IP address(es) all its own.
->
-> Then, your host system OS will communicate with the Linux kernel running on 
-> the card across the PCI bus, using IP packets (64K fixed MTU).
+If the PCI bus is too slow, or MTU's too small, wouldn't
+it be better to fix those directly and use a fast host processor that can
+also do other things when not needed for networking? And why have
+memory on a NIC that can't be used by other things?
 
-> My dream is that some vendor will come along and implement such a 
-> design, and sell it in enough volume that it's US$100 or less. 
-> There are a few cards on the market already where implementing this 
-> design _may_ be possible, but they are all fairly expensive.
+Why don't we off-load filesystems to disks instead?  Or a graphics
+card that implements X ? :-) I'd rather have shared system resources--
+more flexible. :-)
 
-The intel IXP's are like the above, XScale+extra-bits host-on-a-PCI 
-card running Linux. Or is that what you were referring to with 
-"<cards exist> but they are all fairly expensive."?
-
-> 	Jeff
-
-regards,
--- 
-Paul Jakma	paul@clubi.ie	paul@jakma.org	Key ID: 64A2FF6A
-Fortune:
-There is nothing so easy but that it becomes difficult when you do it
-reluctantly.
- 		-- Publius Terentius Afer (Terence)
+                                        +-DLS
