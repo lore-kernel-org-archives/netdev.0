@@ -1,81 +1,65 @@
-From: Srivatsa Vaddagiri <vatsa@in.ibm.com>
-Subject: Re: route cache DoS testing and softirqs
-Date: Tue, 30 Mar 2004 10:36:14 +0530
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040330050614.GA4669@in.ibm.com>
-References: <20040329184550.GA4540@in.ibm.com> <20040329222926.GF3808@dualathlon.random>
-Reply-To: vatsa@in.ibm.com
+From: Nagendra Singh Tomar <nagendra_tomar@adaptec.com>
+Subject: Re: BUG in tcp_timer.c:tcp_retransmit_timer()
+Date: Mon, 29 Mar 2004 22:54:14 +0530 (IST)
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <Pine.LNX.4.44.0403292251520.27795-100000@localhost.localdomain>
+References: <20040329200954.7baac255.davem@redhat.com>
+Reply-To: "Tomar, Nagendra" <nagendra_tomar@adaptec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dipankar Sarma <dipankar@in.ibm.com>, linux-kernel@vger.kernel.org,
-        netdev@oss.sgi.com, Robert Olsson <Robert.Olsson@data.slu.se>,
-        "Paul E. McKenney" <paulmck@us.ibm.com>,
-        Dave Miller <davem@redhat.com>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, Andrew Morton <akpm@osdl.org>,
-        rusty@au1.ibm.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrea Arcangeli <andrea@suse.de>
-Content-Disposition: inline
-In-Reply-To: <20040329222926.GF3808@dualathlon.random>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "Tomar, Nagendra" <nagendra_tomar@adaptec.com>,
+	<linux-net@vger.kernel.org>, <netdev@oss.sgi.com>
+Return-path: <linux-net-owner@vger.kernel.org>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20040329200954.7baac255.davem@redhat.com>
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 30, 2004 at 01:07:12AM +0000, Andrea Arcangeli wrote:
-> btw, the set_current_state(TASK_INTERRUPTIBLE) before
-> kthread_should_stop seems overkill w.r.t. smp locking, plus the code is
-> written in the wrong way around, all set_current_state are in the wrong
-> place. It's harmless but I cleaned up that bit as well.
+Dave,
+	Thats right. But what about the other cases of retransmission 
+failures for which we are having a negative return (-ENOMEM, -EAGAIN, 
+-EHOSTUNREACH etc). Even for these cases its not a good idea to 
+artificially increment tp->retransmits, lest in some extreme case we might 
+timeout a connection without a single packet going on the wire.
 
-I think set_current_state(TASK_INTERRUPTIBLE) before kthread_should_stop()
-_is_ required, otherwise kthread_stop can fail to destroy a kthread.
-
-
-kthread_stop does:
-
-	1. kthread_stop_info.k = k;
-        2. wake_up_process(k);
-
-and if ksoftirqd were to do :
-
-	a. while (!kthread_should_stop()) {
-        b.         __set_current_state(TASK_INTERRUPTIBLE);
-        c.         schedule();
-           }
+Thanx,
+tomar
 
 
-There is a (narrow) possibility here that a) happens _after_ 1) as well as 
-b) _after_ 2).
+ On Mon, 29 Mar 2004, David S. Miller wrote:
 
-In such a case kthread_stop would have failed to wake up the kthread!
-
-
-The same race is avoided if ksoftirqd does:
-
-        a. __set_current_state(TASK_INTERRUPTIBLE);
-	b. while (!kthread_should_stop()) {
-        c.         schedule();
-        d.         __set_current_state(TASK_INTERRUPTIBLE);
-           }
-
-        e. __set_current_state(TASK_RUNNING);
-
-In this case, even if b) happens _after_ 1) and c) _after_ 2), schedule
-simply returns immediately because task's state would have been set to 
-TASK_RUNNING by 2). It goes back to the kthread_should_stop() check and 
-exits!
-
-
-
-
-
-
-
+> On Mon, 29 Mar 2004 02:39:01 +0530 (IST)
+> Nagendra Singh Tomar <nagendra_tomar@adaptec.com> wrote:
+> 
+> > While reading the code of tcp_retransmit_timer(), I came across something 
+> > which looks liks a BUG.
+> 
+> It isn't, read below.
+> 
+> > The following line 
+> > 
+> > if (tcp_retransmit_skb(sk, skb_peek(&sk->write_queue)) > 0)
+> > 
+> > should correctly read as
+> > 
+> > if (tcp_retransmit_skb(sk, skb_peek(&sk->write_queue)) < 0)
+> 
+> Nope, it really does want greater than zero.  Less than zero
+> means memory allocation error or something like that, but this is
+> not what this code wants to check for.  Read the comment inside
+> this code block, it says it is the code path for "local congestion"
+> and the device output path indicates congestion via positive valued
+> error codes.
+> 
+> These codes are the NET_XMIT_* and NET_RX_* macros defined in
+> linux/netdevice.h
+> 
+> Thanks for the report though.
+> 
 
 -- 
 
 
-Thanks and Regards,
-Srivatsa Vaddagiri,
-Linux Technology Center,
-IBM Software Labs,
-Bangalore, INDIA - 560017
+
+-- You have moved the mouse. Windows must be restarted for the 
+   changes to take effect.
+
