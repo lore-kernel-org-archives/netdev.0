@@ -1,41 +1,47 @@
-From: "Desenhar é Fácil - Aprenda já" <aprenda.desenho@bol.com.br>
-Subject: (unknown)
-Date: Thu, 8 Jul 2004 22:58:52 -0300
+From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Subject: Re: [PATCH] Add nl_open to libnetlink
+Date: Fri, 9 Jul 2004 12:51:00 +0900
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200407090158.i691wYgi002578@oss.sgi.com>
+Message-ID: <20040709125100.3edce4e9@localhost>
+References: <20040703094632.GA14235@gondor.apana.org.au>
+	<20040705160500.208591b5@localhost>
+	<20040706140550.2d483dc8@dell_ss3.pdx.osdl.net>
+	<20040707130950.0112edf6@localhost>
+	<20040707140533.41c66c03@localhost>
+	<20040707155602.4698121a@localhost>
+	<20040707110315.GA26100@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/html; charset="ISO-8859-1"
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
-Subject: 
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040707110315.GA26100@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
-<html>
-<head>
-<title>Cd-Rom do Sinfr&ocirc;nio</title>
-<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
-<script language="JavaScript" type="text/JavaScript">
-<!--
-function MM_reloadPage(init) {  //reloads the window if Nav4 resized
-  if (init==true) with (navigator) {if
-((appName=="Netscape")&&(parseInt(appVersion)==4)) {
-    document.MM_pgW=innerWidth; document.MM_pgH=innerHeight;
-onresize=MM_reloadPage; }}
-  else if (innerWidth!=document.MM_pgW || innerHeight!=document.MM_pgH)
-location.reload();
-}
-MM_reloadPage(true);
-//-->
-</script>
-</head>
+Hi Herbert,
 
-<body leftmargin="0" topmargin="0" marginwidth="0" marginheight="0">
-<strong><font face="Arial, Helvetica, sans-serif"><a
-href="http://www.sinfronio.com.br/cdrom/pedido.htm"><img
-src="http://www.sinfronio.com.br/cdrom/modelo1.jpg" width="468"
-height="624" border="0"></a></font></strong> 
-</body>
-</html>
+Thanks for comments.
+
+On Wed, 7 Jul 2004 21:03:15 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
+
+> Could you please change the output of ip xfrm policy/state so that
+> it can be fed directly back in? For example the output of ip ro ls
+> can be fed back into ip ro add.
+
+Yes. I'll fix the output to follow current command line option.
+
+> Could you please also make it understand ip x p instead of ip x policy?
+
+Sure.
+
+> And there seems to be something wrong with the keys in the output of
+> ip x state.  There are too many f's for it to be right.
+
+OK. I'll check it.
+
+
+-- 
+Masahide NAKAMURA
