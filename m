@@ -1,9 +1,9 @@
 From: Roy Sigurd Karlsbakk <roy@karlsbakk.net>
-Subject: Re: O_DIRECT sockets? (was [RESEND] tuning linux for high network  performance?)
-Date: Thu, 24 Oct 2002 12:14:59 +0200
+Subject: sendfile64() anyone? (was [RESEND] tuning linux for high network performance?)
+Date: Thu, 24 Oct 2002 12:30:46 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200210241214.59812.roy@karlsbakk.net>
-References: <200210231218.18733.roy@karlsbakk.net> <200210231726.21135.roy@karlsbakk.net> <3DB6CF9E.327E165F@us.ibm.com>
+Message-ID: <200210241230.46848.roy@karlsbakk.net>
+References: <200210231218.18733.roy@karlsbakk.net> <200210231542.48673.roy@karlsbakk.net> <1035432669.9628.1.camel@rth.ninka.net>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
@@ -11,44 +11,55 @@ Content-Transfer-Encoding: 8bit
 Cc: bert hubert <ahu@ds9a.nl>, netdev@oss.sgi.com,
    Kernel mailing list <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Nivedita Singhvi <niv@us.ibm.com>
-In-Reply-To: <3DB6CF9E.327E165F@us.ibm.com>
+To: "David S. Miller" <davem@rth.ninka.net>
+In-Reply-To: <1035432669.9628.1.camel@rth.ninka.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> Hmm, I'm still not clear on why you cannot use sendfile()?
-> I was not aware of any upper limit to the file size in order
-> for sendfile() to be used?  From what little I know, this
-> is exactly the kind of situation that sendfile was intended
-> to benefit.
+On Thursday 24 October 2002 06:11, David S. Miller wrote:
+> On Wed, 2002-10-23 at 06:42, Roy Sigurd Karlsbakk wrote:
+> > As far as I've understood, sendfile() won't do much good with large
+> > files. Is this right?
+>
+> There is always a benefit to using sendfile(), when you use
+> sendfile() the cpu doesn't touch one byte of the data if
+> the network card support TX checksumming.  The disk DMAs
+> to ram, then the net card DMAs from ram.  Simple as that.
 
-I can't use sendfile(). I'm working with files > 4GB, and from man 2 sendfile:
+Are there any plans of implementing sendfile64() or sendfile() support for 
+-D_FILE_OFFSET_BITS=64?
 
+(from man 2 sendfile)
 ssize_t sendfile(int out_fd, int in_fd, off_t *offset, size_t count);
 
 int main() {
-	ssize_t s1;
-	off_t offset;
-	size_t count;
+        ssize_t s1;
+        size_t count;
+        off_t offset;
 
-	printf("sizeof ssize_t: %d\n", sizeof s1);
-	printf("sizeof size_t: %d\n", sizeof count);
-	printf("sizeof off_t: %d\n", sizeof offset);
-	return 0;
+        printf("sizeof ssize_t: %d\n", sizeof s1);
+        printf("sizeof size_t: %d\n", sizeof count);
+        printf("sizeof off_t: %d\n", sizeof offset);
+        return 0;
 }
-
-running it
-
+$ make
+...
 $ ./sendfile_test
 sizeof ssize_t: 4
 sizeof size_t: 4
 sizeof off_t: 4
 $ 
 
-as far as I'm concerned, this will not allow me to address files past the 4GB 
-limit (or was it 2?)
+and - when attempting to build this with -D_FILE_OFFSET_BITS=64 
 
-roy
+[roy@roy-sin micro_httpd-O_DIRECT]$ make sendfile_test
+gcc -D_DEBUG -Wall -W -D_GNU_SOURCE -D_NO_DIR_ACCESS -D_FILE_OFFSET_BITS=64 
+-D_LARGEFILE_SOURCE -DUSE_O_DIRECT -DINETD -Wno-unused -O0 -ggdb -c 
+sendfile_test.c
+In file included from sendfile_test.c:1:
+/usr/include/sys/sendfile.h:26: #error "<sys/sendfile.h> cannot be used with 
+_FILE_OFFSET_BITS=64"
+make: *** [sendfile_test.o] Error 1
 
 -- 
 Roy Sigurd Karlsbakk, Datavaktmester
