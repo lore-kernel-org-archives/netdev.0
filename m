@@ -1,39 +1,72 @@
-From: Petr Vandrovec <vandrove@vc.cvut.cz>
-Subject: Re: 2.6.2 crash after network link failure
-Date: Tue, 10 Feb 2004 15:11:19 +0100
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: [PATCH] pktgen unaligned access on IA-64
+Date: Tue, 10 Feb 2004 19:02:57 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040210141118.GA14719@vana.vc.cvut.cz>
-References: <C6F5CF431189FA4CBAEC9E7DD5441E0102CBDE6C@orsmsx402.jf.intel.com>
+Message-ID: <16425.7377.210243.50268@robur.slu.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
-        linux-kernel@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Feldman, Scott" <scott.feldman@intel.com>
-Content-Disposition: inline
-In-Reply-To: <C6F5CF431189FA4CBAEC9E7DD5441E0102CBDE6C@orsmsx402.jf.intel.com>
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 09, 2004 at 03:37:48PM -0800, Feldman, Scott wrote:
-> > I think what might be happening is that somehow the TX queue 
-> > is corrupted if
-> > e100_config() runs (due to link UP state change) while there 
-> > are active normal SKB packets on the TX queue.  Or perhaps 
-> > some TX queue handling locking issue.
-> > 
-> > Scott, any ideas?
-> 
-> e100 hardware will continue to process the hardware's Tx queue even
-> after link is lost, and then cleanup (return skbs) on interrupt.  I
-> would expect e100 to be holding no Tx skbs when link returned.
-> 
-> Petr, -mm kernel has an updated (and much simpler) e100 driver.  Is this
-> something you can try?  The switch failure can be simulated by manually
-> plugging the cable in/out.
 
-Unfortunately it does not seem easily triggerable. I spent about one
-hour plugging/unplugging cable while transmitting UDP packets as fast
-as possible, sometime interleaved with 'mii-tool -r', and it refused
-to crash...
-						Petr Vandrovec
+Hello!
+Grant Grundler spotted and cured this. 
+
+Cheers.
+					--ro
+
+
+
+--- net/core/pktgen.c.040207	Sat Feb  7 12:54:40 2004
++++ net/core/pktgen.c	Mon Feb  9 00:03:52 2004
+@@ -50,6 +50,8 @@
+  * Fix refcount off by one if first packet fails, potential null deref, 
+  * memleak 030710- KJP
+  *
++ * Fixed unaligned access on IA-64 Grant Grundler <grundler@parisc-linux.org>
++ *
+  * See Documentation/networking/pktgen.txt for how to use this.
+  */
+ 
+@@ -88,7 +90,7 @@
+ #define cycles()	((u32)get_cycles())
+ 
+ 
+-#define VERSION "pktgen version 1.31"
++#define VERSION "pktgen version 1.32"
+ static char version[] __initdata = 
+   "pktgen.c: v1.3: Packet Generator for packet performance testing.\n";
+ 
+@@ -193,7 +195,8 @@
+ struct pktgen_hdr {
+ 	__u32 pgh_magic;
+ 	__u32 seq_num;
+-	struct timeval timestamp;
++	__u32 tv_sec;
++	__u32 tv_usec;
+ };
+ 
+ static int cpu_speed;
+@@ -563,11 +566,14 @@
+ 
+ 	/* Stamp the time, and sequence number, convert them to network byte order */
+ 	if (pgh) {
++		struct timeval timestamp;
++
+ 		pgh->pgh_magic = htonl(PKTGEN_MAGIC);
+-		do_gettimeofday(&(pgh->timestamp));
+-		pgh->timestamp.tv_usec = htonl(pgh->timestamp.tv_usec);
+-		pgh->timestamp.tv_sec = htonl(pgh->timestamp.tv_sec);
+-		pgh->seq_num = htonl(info->seq_num);
++		pgh->seq_num   = htonl(info->seq_num);
++		
++		do_gettimeofday(&timestamp);
++		pgh->tv_sec    = htonl(timestamp.tv_sec);
++		pgh->tv_usec   = htonl(timestamp.tv_usec);
+ 	}
+ 	
+ 	return skb;
