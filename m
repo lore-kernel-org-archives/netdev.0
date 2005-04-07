@@ -1,34 +1,31 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Fwd: atomic_dec_and_test for child dst needed in dst_destroy?
-Date: Thu, 07 Apr 2005 21:23:41 +1000
-Message-ID: <E1DJV6r-0002Nu-00@gondolin.me.apana.org.au>
-References: <4253A3A0.800@calsoftinc.com>
-Cc: christoph@lameter.com, netdev@oss.sgi.com, davem@davemloft.net
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH] NETLINK_UESTABLISHED notifier event
+Date: 07 Apr 2005 07:30:57 -0400
+Message-ID: <1112873457.1119.129.camel@jzny.localdomain>
+References: <E1DJ0YI-0003PR-00@gondolin.me.apana.org.au>
+	 <42540CF3.7070501@cs.wisc.edu> <20050406212906.GA24775@gondor.apana.org.au>
+	 <1112823442.16753.68.camel@beastie>
+	 <20050406220417.GA4443@gondor.apana.org.au>
+	 <1112826385.16753.99.camel@beastie>
+Reply-To: hadi@cyberus.ca
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        Mike Christie <michaelc@cs.wisc.edu>, netdev <netdev@oss.sgi.com>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: pravins@calsoftinc.com (pravin b shelar)
-In-Reply-To: <4253A3A0.800@calsoftinc.com>
+To: Dmitry Yusupov <dmitry_yus@yahoo.com>
+In-Reply-To: <1112826385.16753.99.camel@beastie>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-pravin b shelar <pravins@calsoftinc.com> wrote:
->
-> This patch  will remove the need for atomic_dec_and_test for this 
-> particular case.
-> Now we can break down the atomic_dec_and_test to atomic_dec & atomic_read.
+On Wed, 2005-04-06 at 18:26, Dmitry Yusupov wrote:
 
-Sorry I overlooked your patch.  Otherwise we could have solved this
-one day earlier :)
+> (see Open-iSCSI interface).
 
-> Please comment.
+url?
 
-There is just one problem.  We need an extra barrier before or after
-the goto since we no longer have the implicit barrier given by
-atomic_dec_and_test.
-
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+cheers,
+jamal
