@@ -1,158 +1,77 @@
-From: Wang Jian <lark@linux.net.cn>
-Subject: Re: [RFC] QoS: new per flow queue
-Date: Thu, 07 Apr 2005 21:14:38 +0800
-Message-ID: <20050407203631.02CF.LARK@linux.net.cn>
-References: <20050406210800.0296.LARK@linux.net.cn> <1112871961.1117.121.camel@jzny.localdomain>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [2/*] [NET] Shave 8 bytes off dst_entry on 64-bit
+Date: Thu, 7 Apr 2005 23:25:23 +1000
+Message-ID: <20050407132523.GA20795@gondor.apana.org.au>
+References: <20050407121839.GA9641@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@oss.sgi.com>
+Content-Type: multipart/mixed; boundary="VS++wcV0S1rZb1Fb"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1112871961.1117.121.camel@jzny.localdomain>
+To: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Content-Disposition: inline
+In-Reply-To: <20050407121839.GA9641@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi jamal,
 
+--VS++wcV0S1rZb1Fb
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-On 07 Apr 2005 07:06:01 -0400, jamal <hadi@cyberus.ca> wrote:
-
-> > 
-> > One question:
-> > 
-> > Can I set skb->tc_classid in a qdisc and pass this skb to the specified
-> > class to handle?
-> > 
+On Thu, Apr 07, 2005 at 10:18:39PM +1000, herbert wrote:
 > 
-> Well, remember the qdisc asks the filter what class a packet belongs to
-> every time. The best place to change things is at that point. Why not
-> tell the qdisc whatever class you want it to know instead of passing
-> metadata like skb->tc_classid for it to further intepret?
+> This rearranges dst_entry so that we shave off 8 bytes on 64-bit
+> platforms when CLS_ROUTE is enabled.
 > 
-
-1. a flow (in my perflow queue implementation) is a tuple of five
-elements, but, for some reason, if the users misused this queue and send
-non-flow packet, e.g. ICMP packet here;
-
-2. a queue is configured to handle 100 flows, but the 101st flow comes;
-
-For this two situations, currently, the implementation just drops
-packets. However, a clean way is to reclassify the packet into another
-class (default) and provides no per flow guarantee.
-
-
-
-> > 
-> > Didn't you notice that it is a classless qdisc? The queue is per qdisc,
-> > not per class :) 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 > 
-> Sorry missed that ;->
-> 
-> > It is the parent class's duty to define what kind of
-> > flow this qdisc handle. It is very generic, you can even mix UDP/TCP
-> > flows together but I don't think it is good idea.
-> > 
-> 
-> Doesnt that defeat the purpose of it being "per flow queue" ;->
+> I'll rearrange rtable next which will save us some more.
 
-Per flow queue, is not one queue per flow ;) It is queue which can
-provide bandwidth assurance and constraint per flow.
+Unfortunately that turned out to be a nightmare due to the
+way rt_flags is used.
 
-The implementation can be either one queue per flow, or all flows fit
-into one queue.
+So I came back to dst_entry to look for things to axe :)
 
-> 
-> > Think the scenario
-> > 
-> > 1. You have VoIP flows (UDP)
-> > 2. You have pptp vpn flows (eh, per flow can't handle it at this time, I
-> > think)
-> > 
-> > You create HTBs for them, and use filter to classify them. And then, use
-> > per flow qdisc as the only child of these HTBs. per flow qdisc will
-> > guarantee the per flow QoS.
-> > 
-> 
-> I got this. Of course you understand creating all these filters and
-> queues is taking system resources. It may be sufficient to create
-> heuristics like a simple priority qdisc where you put voip as first
-> class citizen, vpn as second and rest as best effort.
+So instead of moving error down let's move it up and shrink
+it and obsolete which saves a pointer width on both 32-bit
+and 64-bit platforms.
 
-As I already said, this approach has drawbacks
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-1. when flow count overlimit, no guarantee
-2. when flow count is underlimit, the guaranteed sum bandwidth can be
-exploited to waste bandwidth.
+Please note that this is NOT incremental to the last patch.
 
-So, thinking of per flow queue, it is "queue which can provide bandwidth
-assurance and constraint per flow", and with only one queue!
-
-You only need to create one HTB, one filter and one per flow queue for
-VoIP; and one HTB, one filter and one per flow queue for VPN.
-
-I think the "per flow" name does confuse you ;) My fault.
-
-
-> 
-> > > The only unfriendliness to user space is in #1 where you end up having a
-> > > script creating as many classes as you need. It is _not_ bloat because
-> > > you dont add any code at all. It is anti-bloat actually ;->
-> > > 
-> > 
-> > In this way, it is very hard to write good user interface in userspace.
-> > My current implementation takes good user-friendly (or user space
-> > scripter/programmer friendly) into serious consideration.
-> > 
-> 
-> It is not hard - its annoying in user space ;->
-> You could write a for loop to produce them. such as:
-> 
-> for i stating from 1 to 1000
->  tc class add .... rate 10Kbps classid 1:$i
-> endfor
-> 
-> Trying to list those classes will list at least a 1000 lines of course.
-> But this listing issue will happen even when you dynamically create
-> these classes.
-> So annoyance is more descriptive.
->
-
-The problem occurs when you delete and add, and so on. It not good idea
-to reuse a used classid when there is stream classified as old.
-
-For example, you give class 1:1000 htb rate 200kbps ceil 200kbps for
-http, and you delete the class 1:1000 and redefine 1:1000 htb rate
-30kbps ceil 30kbps for ftp.
-
-At this time, the remained http streams carries a CONNMARK and restore
-to MARK and then classified as 1:0000. Then 1:1000 is not what you want.
-
-
->  
-> > > I am suprised no one has compared all the rate control schemes.
-> > > 
-> > > btw, would policing also suffice for you? The only difference is it will
-> > > drop packets if you exceed your rate. You can also do hierachical
-> > > sharing.
-> > 
-> > policy suffices, but doesn't serve the purpose of per flow queue.
-> > 
-> 
-> Policing will achieve the goal of rate control without worrying about
-> any queueing. I like the idea of someone trying to create dynamic queues
-> though ;-> 
->
-
-You need per flow queue to control something, like VoIP streams, or VPN
-streams. If you just use policy, mixed traffic is send to per flow queue.
-That is definitely not the purpose of per flow queue.
-
-The dynamic queue creating is another way to implement the per flow
-control (yes, one class and queue per flow). I think it is more complex
-and wastes resources.
-
-
+Cheers,
 -- 
-  lark
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--VS++wcV0S1rZb1Fb
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=route-2
+
+===== include/net/dst.h 1.32 vs edited =====
+--- 1.32/include/net/dst.h	2005-03-19 05:44:52 +11:00
++++ edited/include/net/dst.h	2005-04-07 23:24:19 +10:00
+@@ -42,7 +42,8 @@
+ 	int			__use;
+ 	struct dst_entry	*child;
+ 	struct net_device       *dev;
+-	int			obsolete;
++	short			error;
++	short			obsolete;
+ 	int			flags;
+ #define DST_HOST		1
+ #define DST_NOXFRM		2
+@@ -60,8 +61,6 @@
+ 
+ 	unsigned long		rate_last;	/* rate limiting for ICMP */
+ 	unsigned long		rate_tokens;
+-
+-	int			error;
+ 
+ 	struct neighbour	*neighbour;
+ 	struct hh_cache		*hh;
+
+--VS++wcV0S1rZb1Fb--
