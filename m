@@ -1,77 +1,41 @@
-From: Radheka Godse <radheka.godse@intel.com>
-Subject: [PATCH 2.6.12-rc2 6/17] bonding: ALB init kmalloc inside spinlock
- bugfix
-Date: Fri, 8 Apr 2005 16:34:15 -0700 (PDT)
-Message-ID: <Pine.LNX.4.61.0504081630390.10355@localhost.localdomain>
+From: Dmitry Yusupov <dmitry_yus@yahoo.com>
+Subject: Re: [PATCH] NETLINK_UESTABLISHED notifier event
+Date: Thu, 07 Apr 2005 16:36:41 -0700
+Message-ID: <1112917001.3893.77.camel@beastie>
+References: <E1DJ0YI-0003PR-00@gondolin.me.apana.org.au>
+	 <42540CF3.7070501@cs.wisc.edu> <20050406212906.GA24775@gondor.apana.org.au>
+	 <1112823442.16753.68.camel@beastie>
+	 <20050406220417.GA4443@gondor.apana.org.au>
+	 <1112826385.16753.99.camel@beastie>
+	 <20050407213231.GA28738@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Mike Christie <michaelc@cs.wisc.edu>, netdev@oss.sgi.com,
+        davem@davemloft.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: fubar@us.ibm.com, bonding-devel@lists.sourceforge.net
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050407213231.GA28738@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This patch corrects bug in ALB init where kmalloc called inside a held
-lock causes stacdump in debug mode
+On Fri, 2005-04-08 at 07:32 +1000, Herbert Xu wrote:
+> On Wed, Apr 06, 2005 at 03:26:25PM -0700, Dmitry Yusupov wrote:
+> > 
+> > Messages from kernel are asynchronous and there are no alloc_skb on "up"
+> > calls. It is "mempooled out" on interface level. (see Open-iSCSI
+> > interface). Messages to kernel requires copy_from_user to newly
+> > allocated skb, here is where we need sk_allocation bit set. Those
+> > messages are synchronous from daemon perspective. If "down" call fails,
+> > we will re-try later or take some other management action. We assuming
+> > that later OOM-killer will free some memory for us and atomic allocation
+> > will succeed eventually.
+> 
+> I presume you only need to send one message at a time of a fixed size.
+> Would it better to always have an skb allocated for the socket so that
+> we don't need to allocate at sendmsg time?
 
-Signed-off-by: Radheka Godse <radheka.godse@intel.com>
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-
-diff -urN -X dontdiff linux-2.6.12-rc2clean/drivers/net/bonding/bond_alb.c linux-2.6.12-rc2/drivers/net/bonding/bond_alb.c
---- linux-2.6.12-rc2clean/drivers/net/bonding/bond_alb.c	2005-04-07 11:24:41.000000000 -0700
-+++ linux-2.6.12-rc2/drivers/net/bonding/bond_alb.c	2005-04-07 13:57:29.000000000 -0700
-@@ -198,20 +198,21 @@
-  {
-  	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
-  	int size = TLB_HASH_TABLE_SIZE * sizeof(struct tlb_client_info);
-+	struct tlb_client_info *new_hashtbl;
-  	int i;
-
-  	spin_lock_init(&(bond_info->tx_hashtbl_lock));
-
--	_lock_tx_hashtbl(bond);
--
--	bond_info->tx_hashtbl = kmalloc(size, GFP_KERNEL);
--	if (!bond_info->tx_hashtbl) {
-+	new_hashtbl = kmalloc(size, GFP_KERNEL);
-+	if (!new_hashtbl) {
-  		printk(KERN_ERR DRV_NAME
-  		       ": Error: %s: Failed to allocate TLB hash table\n",
-  		       bond->dev->name);
--		_unlock_tx_hashtbl(bond);
-  		return -1;
-  	}
-+	_lock_tx_hashtbl(bond);
-+
-+	bond_info->tx_hashtbl = new_hashtbl;
-
-  	memset(bond_info->tx_hashtbl, 0, size);
-
-@@ -798,21 +801,22 @@
-  {
-  	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
-  	struct packet_type *pk_type = &(BOND_ALB_INFO(bond).rlb_pkt_type);
-+	struct rlb_client_info	*new_hashtbl;
-  	int size = RLB_HASH_TABLE_SIZE * sizeof(struct rlb_client_info);
-  	int i;
-
-  	spin_lock_init(&(bond_info->rx_hashtbl_lock));
-
--	_lock_rx_hashtbl(bond);
--
--	bond_info->rx_hashtbl = kmalloc(size, GFP_KERNEL);
--	if (!bond_info->rx_hashtbl) {
-+	new_hashtbl = kmalloc(size, GFP_KERNEL);
-+	if (!new_hashtbl) {
-  		printk(KERN_ERR DRV_NAME
-  		       ": Error: %s: Failed to allocate RLB hash table\n",
-  		       bond->dev->name);
--		_unlock_rx_hashtbl(bond);
-  		return -1;
-  	}
-+	_lock_rx_hashtbl(bond);
-+
-+	bond_info->rx_hashtbl = new_hashtbl;
-
-  	bond_info->rx_hashtbl_head = RLB_NULL_INDEX;
+This actually even better since we will guarantee "down" call delivery.
+My only concern is that it is not very generic. Do you know clean way to
+implement it?
