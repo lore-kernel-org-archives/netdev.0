@@ -1,160 +1,158 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH] [PKT_SCHED]: improve hashing performance of cls_fw
-Date: Thu, 7 Apr 2005 15:09:25 +0200
-Message-ID: <20050407130925.GU26731@postel.suug.ch>
-References: <20050406123036.GO26731@postel.suug.ch> <1112794459.1096.61.camel@jzny.localdomain> <20050406134502.GP26731@postel.suug.ch> <20050406141020.GQ26731@postel.suug.ch> <20050406111509.0462abcf.davem@davemloft.net> <20050406183134.GR26731@postel.suug.ch> <20050407005519.GS26731@postel.suug.ch> <1112870307.1118.91.camel@jzny.localdomain> <20050407105149.GT26731@postel.suug.ch> <1112872055.1117.123.camel@jzny.localdomain>
+From: Wang Jian <lark@linux.net.cn>
+Subject: Re: [RFC] QoS: new per flow queue
+Date: Thu, 07 Apr 2005 21:14:38 +0800
+Message-ID: <20050407203631.02CF.LARK@linux.net.cn>
+References: <20050406210800.0296.LARK@linux.net.cn> <1112871961.1117.121.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lark@linux.net.cn, Jamal Hadi Salim <hadi@cyberus.ca>,
-        netdev <netdev@oss.sgi.com>
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <1112872055.1117.123.camel@jzny.localdomain>
+To: hadi@cyberus.ca
+In-Reply-To: <1112871961.1117.121.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Some test results for the new hashing
-
-Test-1: hash 0..2147483648
-
-old 256 buckets hash (enum):
-empty buckets: 0 average chain length: 8388607.996 min: 8388607 max: 8388608
-
-new 1024 buckets hash (enum):
-empty buckets: 0 average chain length: 2097151.999 min: 2097151 max: 2097152
-
-Test-2: hash 65536*rand()
-
-old 256 buckets hash (rand):
-empty buckets: 0 average chain length: 256.000 min: 222 max: 296
-
-new 1024 buckets hash (rand):
-empty buckets: 0 average chain length: 64.000 min: 40 max: 93
-
-Test-3: hash 1024*rand()
-
-old 256 buckets hash (rand):
-empty buckets: 3 average chain length: 4.047 min: 0 max: 9
-
-new 1024 buckets hash (rand):
-empty buckets: 380 average chain length: 1.590 min: 0 max: 5
-
-Test-4: total time for 2147483648 hashes, 10 runs
-
-      old hashing algorithm    new hashing algorithm
-             1.619s                     1.610s
-             1.623s                     1.611s
-             1.625s                     1.612s
-             1.629s                     1.614s
-             1.633s                     1.616s
-             1.637s                     1.621s
-             1.638s                     1.625s
-             1.639s                     1.630s
-             1.644s                     1.632s
-             1.737s                     1.658s
+Hi jamal,
 
 
-Please do a
+On 07 Apr 2005 07:06:01 -0400, jamal <hadi@cyberus.ca> wrote:
 
-	bk pull bk://kernel.bkbits.net/tgraf/net-2.6-cls_fw
+> > 
+> > One question:
+> > 
+> > Can I set skb->tc_classid in a qdisc and pass this skb to the specified
+> > class to handle?
+> > 
+> 
+> Well, remember the qdisc asks the filter what class a packet belongs to
+> every time. The best place to change things is at that point. Why not
+> tell the qdisc whatever class you want it to know instead of passing
+> metadata like skb->tc_classid for it to further intepret?
+> 
 
-This will update the following files:
+1. a flow (in my perflow queue implementation) is a tuple of five
+elements, but, for some reason, if the users misused this queue and send
+non-flow packet, e.g. ICMP packet here;
 
- net/sched/cls_fw.c |   31 +++++++++++++++++++++++++++----
- 1 files changed, 27 insertions(+), 4 deletions(-)
+2. a queue is configured to handle 100 flows, but the 101st flow comes;
 
-through these ChangeSets:
+For this two situations, currently, the implementation just drops
+packets. However, a clean way is to reclassify the packet into another
+class (default) and provides no per flow guarantee.
 
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2005/04/07 14:23:09+02:00 tgraf@suug.ch 
-#   [PKT_SCHED]: improve hashing performance of cls_fw
-#   
-#   Calculate hashtable size to fit into a page instead of a hardcoded
-#   256 buckets hash table. Results in a 1024 buckets hashtable on
-#   most systems.
-#   
-#   Replace old naive extract-8-lsb-bits algorithm with a better
-#   algorithm xor'ing 3 or 4 bit fields at the size of the hashtable
-#   array index in order to improve distribution if the majority of
-#   the lower bits are unused while keeping zero collision behaviour
-#   for the most common use case.
-#   
-#   Thanks to Wang Jian <lark@linux.net.cn> for bringing this issue
-#   to attention and to Eran Mann <emann@mrv.com> for the initial
-#   idea for this new algorithm.
-#   
-#   Signed-off-by: Thomas Graf <tgraf@suug.ch>
-#   Signed-off-by: David S. Miller <davem@davemloft.net>
-# 
-# net/sched/cls_fw.c
-#   2005/04/07 14:22:58+02:00 tgraf@suug.ch +27 -4
-#   [PKT_SCHED]: improve hashing performance of cls_fw
-# 
-diff -Nru a/net/sched/cls_fw.c b/net/sched/cls_fw.c
---- a/net/sched/cls_fw.c	2005-04-07 14:55:55 +02:00
-+++ b/net/sched/cls_fw.c	2005-04-07 14:55:55 +02:00
-@@ -46,9 +46,11 @@
- #include <net/act_api.h>
- #include <net/pkt_cls.h>
- 
-+#define HTSIZE (PAGE_SIZE/sizeof(struct fw_filter *))
-+
- struct fw_head
- {
--	struct fw_filter *ht[256];
-+	struct fw_filter *ht[HTSIZE];
- };
- 
- struct fw_filter
-@@ -69,7 +71,28 @@
- 
- static __inline__ int fw_hash(u32 handle)
- {
--	return handle&0xFF;
-+	if (HTSIZE == 4096)
-+		return ((handle >> 24) & 0xFFF) ^
-+		       ((handle >> 12) & 0xFFF) ^
-+		       (handle & 0xFFF);
-+	else if (HTSIZE == 2048)
-+		return ((handle >> 22) & 0x7FF) ^
-+		       ((handle >> 11) & 0x7FF) ^
-+		       (handle & 0x7FF);
-+	else if (HTSIZE == 1024)
-+		return ((handle >> 20) & 0x3FF) ^
-+		       ((handle >> 10) & 0x3FF) ^
-+		       (handle & 0x3FF);
-+	else if (HTSIZE == 512)
-+		return (handle >> 27) ^
-+		       ((handle >> 18) & 0x1FF) ^
-+		       ((handle >> 9) & 0x1FF) ^
-+		       (handle & 0x1FF);
-+	else if (HTSIZE == 256) {
-+		u8 *t = (u8 *) &handle;
-+		return t[0] ^ t[1] ^ t[2] ^ t[3];
-+	} else 
-+		return handle & (HTSIZE - 1);
- }
- 
- static int fw_classify(struct sk_buff *skb, struct tcf_proto *tp,
-@@ -152,7 +175,7 @@
- 	if (head == NULL)
- 		return;
- 
--	for (h=0; h<256; h++) {
-+	for (h=0; h<HTSIZE; h++) {
- 		while ((f=head->ht[h]) != NULL) {
- 			head->ht[h] = f->next;
- 			fw_delete_filter(tp, f);
-@@ -291,7 +314,7 @@
- 	if (arg->stop)
- 		return;
- 
--	for (h = 0; h < 256; h++) {
-+	for (h = 0; h < HTSIZE; h++) {
- 		struct fw_filter *f;
- 
- 		for (f = head->ht[h]; f; f = f->next) {
+
+
+> > 
+> > Didn't you notice that it is a classless qdisc? The queue is per qdisc,
+> > not per class :) 
+> 
+> Sorry missed that ;->
+> 
+> > It is the parent class's duty to define what kind of
+> > flow this qdisc handle. It is very generic, you can even mix UDP/TCP
+> > flows together but I don't think it is good idea.
+> > 
+> 
+> Doesnt that defeat the purpose of it being "per flow queue" ;->
+
+Per flow queue, is not one queue per flow ;) It is queue which can
+provide bandwidth assurance and constraint per flow.
+
+The implementation can be either one queue per flow, or all flows fit
+into one queue.
+
+> 
+> > Think the scenario
+> > 
+> > 1. You have VoIP flows (UDP)
+> > 2. You have pptp vpn flows (eh, per flow can't handle it at this time, I
+> > think)
+> > 
+> > You create HTBs for them, and use filter to classify them. And then, use
+> > per flow qdisc as the only child of these HTBs. per flow qdisc will
+> > guarantee the per flow QoS.
+> > 
+> 
+> I got this. Of course you understand creating all these filters and
+> queues is taking system resources. It may be sufficient to create
+> heuristics like a simple priority qdisc where you put voip as first
+> class citizen, vpn as second and rest as best effort.
+
+As I already said, this approach has drawbacks
+
+1. when flow count overlimit, no guarantee
+2. when flow count is underlimit, the guaranteed sum bandwidth can be
+exploited to waste bandwidth.
+
+So, thinking of per flow queue, it is "queue which can provide bandwidth
+assurance and constraint per flow", and with only one queue!
+
+You only need to create one HTB, one filter and one per flow queue for
+VoIP; and one HTB, one filter and one per flow queue for VPN.
+
+I think the "per flow" name does confuse you ;) My fault.
+
+
+> 
+> > > The only unfriendliness to user space is in #1 where you end up having a
+> > > script creating as many classes as you need. It is _not_ bloat because
+> > > you dont add any code at all. It is anti-bloat actually ;->
+> > > 
+> > 
+> > In this way, it is very hard to write good user interface in userspace.
+> > My current implementation takes good user-friendly (or user space
+> > scripter/programmer friendly) into serious consideration.
+> > 
+> 
+> It is not hard - its annoying in user space ;->
+> You could write a for loop to produce them. such as:
+> 
+> for i stating from 1 to 1000
+>  tc class add .... rate 10Kbps classid 1:$i
+> endfor
+> 
+> Trying to list those classes will list at least a 1000 lines of course.
+> But this listing issue will happen even when you dynamically create
+> these classes.
+> So annoyance is more descriptive.
+>
+
+The problem occurs when you delete and add, and so on. It not good idea
+to reuse a used classid when there is stream classified as old.
+
+For example, you give class 1:1000 htb rate 200kbps ceil 200kbps for
+http, and you delete the class 1:1000 and redefine 1:1000 htb rate
+30kbps ceil 30kbps for ftp.
+
+At this time, the remained http streams carries a CONNMARK and restore
+to MARK and then classified as 1:0000. Then 1:1000 is not what you want.
+
+
+>  
+> > > I am suprised no one has compared all the rate control schemes.
+> > > 
+> > > btw, would policing also suffice for you? The only difference is it will
+> > > drop packets if you exceed your rate. You can also do hierachical
+> > > sharing.
+> > 
+> > policy suffices, but doesn't serve the purpose of per flow queue.
+> > 
+> 
+> Policing will achieve the goal of rate control without worrying about
+> any queueing. I like the idea of someone trying to create dynamic queues
+> though ;-> 
+>
+
+You need per flow queue to control something, like VoIP streams, or VPN
+streams. If you just use policy, mixed traffic is send to per flow queue.
+That is definitely not the purpose of per flow queue.
+
+The dynamic queue creating is another way to implement the per flow
+control (yes, one class and queue per flow). I think it is more complex
+and wastes resources.
+
+
+-- 
+  lark
