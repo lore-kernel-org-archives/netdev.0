@@ -1,98 +1,104 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [2/*] [NET] Shave 8 bytes off dst_entry on 64-bit
-Date: Thu, 7 Apr 2005 22:18:39 +1000
-Message-ID: <20050407121839.GA9641@gondor.apana.org.au>
+From: pravin b shelar <pravins@calsoftinc.com>
+Subject: Re: Fwd: atomic_dec_and_test for child dst needed in dst_destroy?
+Date: Thu, 07 Apr 2005 18:00:16 +0530
+Message-ID: <425527D8.4030408@calsoftinc.com>
+References: <E1DJV6r-0002Nu-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="fUYQa+Pmc3FrFX/N"
+Content-Type: multipart/mixed;
+ boundary="------------040604060301020209000207"
+Cc: christoph@lameter.com, netdev@oss.sgi.com, davem@davemloft.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
-Content-Disposition: inline
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1DJV6r-0002Nu-00@gondolin.me.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+This is a multi-part message in MIME format.
+--------------040604060301020209000207
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
---fUYQa+Pmc3FrFX/N
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Herbert Xu wrote:
 
-Hi Dave:
+>pravin b shelar <pravins@calsoftinc.com> wrote:
+>  
+>
+>>This patch  will remove the need for atomic_dec_and_test for this 
+>>particular case.
+>>Now we can break down the atomic_dec_and_test to atomic_dec & atomic_read.
+>>    
+>>
+>
+>Sorry I overlooked your patch.  Otherwise we could have solved this
+>one day earlier :)
+>  
+>
+ah ... I was just waiting :)
 
-This series of patches will be dedicated to the routing cache.
+>  
+>
+>>Please comment.
+>>    
+>>
+>
+>There is just one problem.  We need an extra barrier before or after
+>the goto since we no longer have the implicit barrier given by
+>atomic_dec_and_test.
+>  
+>
+I am attaching updated patch with barrier.
 
-Before I start working on the routing cache itself, I need to fix
-some of the issues with the multipath caching code (it happens to
-be in the critical places where I'll be changing the code).  
-
-I've already sent you one patch that disables the multipath cache
-addition on the input path until we actually start using it.
-
-The next problem I'm going to tackle is to do with how the multipath
-cache entries are handled.
-
-Currently they're added one by one and live a semi-independent life
-once they're in the cache.
-
-This is buggy since two CPUs could both get a routing cache miss and
-then decide to add the multipath entries for the same route.  We will
-then end up with two copies of the same route.
-
-The solution is to create them all and then insert them all at once.
-
-However, the fact that one route can now spawn a large number of 
-routing entries on the chain is bad for chain length management
-since
-
-1) It may look like hash collision when it isn't.
-2) It means that we have to walk over more entries when there is a collision.
-
-The solution is to put the multipath entries of the same route onto
-its own linked list and only link the head of the list into the routing
-cache.
-
-This solution requires the addition of a new pointer into rtable.
-
-Well I felt guilty for doing that so that's why I'm sending you this
-patch :)
+Regards,
+Pravin.
 
 
-This rearranges dst_entry so that we shave off 8 bytes on 64-bit
-platforms when CLS_ROUTE is enabled.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+--------------040604060301020209000207
+Content-Type: text/x-patch;
+ name="dst-atomic_dec_and_test-removed.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="dst-atomic_dec_and_test-removed.patch"
 
-I'll rearrange rtable next which will save us some more.
+This patch removes atomic_dec_and_test from dst_destroy, used to test child dst __refcnt.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Signed-off by: Pravin B. Shelar <pravins@calsoftinc.com>
 
---fUYQa+Pmc3FrFX/N
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=route-2
-
-===== include/net/dst.h 1.32 vs edited =====
---- 1.32/include/net/dst.h	2005-03-19 05:44:52 +11:00
-+++ edited/include/net/dst.h	2005-04-07 11:06:20 +10:00
-@@ -61,14 +61,14 @@
- 	unsigned long		rate_last;	/* rate limiting for ICMP */
- 	unsigned long		rate_tokens;
+Index: linux-2.6.11-dsta/net/core/dst.c
+===================================================================
+--- linux-2.6.11-dsta.orig/net/core/dst.c	2005-04-06 00:18:32.000000000 -0700
++++ linux-2.6.11-dsta/net/core/dst.c	2005-04-07 04:53:28.000000000 -0700
+@@ -198,17 +198,21 @@
  
--	int			error;
--
- 	struct neighbour	*neighbour;
- 	struct hh_cache		*hh;
- 	struct xfrm_state	*xfrm;
- 
- 	int			(*input)(struct sk_buff*);
- 	int			(*output)(struct sk_buff*);
+ 	dst = child;
+ 	if (dst) {
+-		if (atomic_dec_and_test(&dst->__refcnt)) {
+-			/* We were real parent of this dst, so kill child. */
+-			if (dst->flags&DST_NOHASH)
+-				goto again;
+-		} else {
+-			/* Child is still referenced, return it for freeing. */
+-			if (dst->flags&DST_NOHASH)
+-				return dst;
+-			/* Child is still in his hash table */
++		if (dst->flags&DST_NOHASH) {
++			atomic_dec(&dst->__refcnt);
++			smp_mb__after_atomic_dec();
 +
-+	int			error;
++			if (atomic_read(&dst->__refcnt))
++				/*-- Child is still referenced, return it for freeing. */
++				return dst;	
++
++			/*We were real parent of this dst, so kill child. */
++			goto again;
+ 		}
++		else /* Child is still in his hash table */
++			atomic_dec(&dst->__refcnt);
+ 	}
++
+ 	return NULL;
+ }
  
- #ifdef CONFIG_NET_CLS_ROUTE
- 	__u32			tclassid;
 
---fUYQa+Pmc3FrFX/N--
+--------------040604060301020209000207--
