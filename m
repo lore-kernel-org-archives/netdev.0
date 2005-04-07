@@ -1,36 +1,41 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] RTNETLINK: Protocol family wildcard dumping for routing rules
-Date: Fri, 08 Apr 2005 08:09:05 +1000
-Message-ID: <E1DJfBR-0007Ym-00@gondolin.me.apana.org.au>
-References: <20050407213838.GW26731@postel.suug.ch>
-Cc: davem@davemloft.net, netdev@oss.sgi.com
+From: Christoph Lameter <christoph@lameter.com>
+Subject: Re: atomic_dec_and_test for child dst needed in dst_destroy?
+Date: Thu, 7 Apr 2005 15:30:28 -0700 (PDT)
+Message-ID: <Pine.LNX.4.58.0504071520050.3983@graphe.net>
+References: <Pine.LNX.4.58.0504051925250.21486@graphe.net>
+ <E1DJ5y2-0003rF-00@gondolin.me.apana.org.au> <20050406111721.3ac67605.davem@davemloft.net>
+ <20050407110724.GA8760@gondor.apana.org.au> <Pine.LNX.4.58.0504070842420.29731@graphe.net>
+ <20050407212504.GA4939@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
+        pravins@calsoftinc.com, shai@scalesx86.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: tgraf@suug.ch (Thomas Graf)
-In-Reply-To: <20050407213838.GW26731@postel.suug.ch>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050407212504.GA4939@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Thomas Graf <tgraf@suug.ch> wrote:
+On Fri, 8 Apr 2005, Herbert Xu wrote:
+
+> Only child entries with NOHASH unset can be on the GC list.
 >
-> diff -Nru a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-> --- a/net/core/rtnetlink.c      2005-04-07 23:13:33 +02:00
-> +++ b/net/core/rtnetlink.c      2005-04-07 23:13:33 +02:00
-> @@ -647,7 +647,8 @@
->        [RTM_GETROUTE - RTM_BASE] = { .dumpit = rtnetlink_dump_all    },
->        [RTM_NEWNEIGH - RTM_BASE] = { .doit   = neigh_add             },
->        [RTM_DELNEIGH - RTM_BASE] = { .doit   = neigh_delete          },
-> -       [RTM_GETNEIGH - RTM_BASE] = { .dumpit = neigh_dump_info       }
-> +       [RTM_GETNEIGH - RTM_BASE] = { .dumpit = neigh_dump_info       },
-> +       [RTM_GETRULE  - RTM_BASE] = { .dumpit = rtnetlink_dump_all    }
-> };
+> > If its not on the hash table and not on the gc list then how could the
+> > refcnt be > 1 ? Doesnt the refcnt > 1 imply that multiple concurrent
+> > accesses are possible?
+>
+> For NOHASH entries refcnt can be greater than one due to dst_pop.
+> Of course concurrent access is possible.  However, the important
+> thing is that only the "owner" of an entry can call dst_destroy.
+>
+> In the case of NOHASH entries, we are the owner.
 
-Just a trivial comment.  How about adding a comma at the end of the last
-entry so that the next patch won't have to touch it?
+So in case f.e. the refcnt was 2 for a child NOHASH entry, then we
+decrement the refcnt for the child but do not free it. However after
+dst_destroy the parent is gone and presumably some skb->dst are still
+pointing to the dst entry (or is there something else accounting for the
+remaining __refcnt)?
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+What happens to the child dst entry? Will the system simply never
+deallocate it?
