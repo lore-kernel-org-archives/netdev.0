@@ -1,59 +1,61 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH 2.6.12-rc2] bonding: partially back out dev_set_mac_address
-Date: Thu, 07 Apr 2005 14:35:55 -0700
-Message-ID: <200504072135.j37LZt4f004009@death.nxdomain.ibm.com>
-References: <davem@davemloft.net>
-Cc: netdev@oss.sgi.com, jgarzik@pobox.com
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH] RTNETLINK: Protocol family wildcard dumping for routing rules
+Date: Thu, 7 Apr 2005 23:38:38 +0200
+Message-ID: <20050407213838.GW26731@postel.suug.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: Message from "David S. Miller" <davem@davemloft.net>
-   of "Thu, 07 Apr 2005 13:57:56 PDT." <20050407135756.2df03aaa.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller <davem@davemloft.net> wrote:
+Dave,
 
->> 	My presumption is that the above would be unacceptable, if for
->> no other reason than other notifiers could be attached that also make
->> sleepable memory allocations.
->
->You could change it instead to just use gfp_any().
->
->Would that work?  The problematic case occurs from softirq
->not hardirq right?
+I would appreciate if this could go in before 2.6.12, it would
+allow the upcomming netconfig pre release to run on 2.6.12 out
+of the box.
 
-	Yes, that works, and yes, the troublesome calls come from
-softirq (timers).  In that case, the rtnetlink patch would be:
+Please do a
 
-Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
---- linux-2.6.12-rc2-virgin/net/core/rtnetlink.c	2005-03-03 15:53:48.000000000 -0800
-+++ linux-2.6.12-rc2-setmac/net/core/rtnetlink.c	2005-04-07 14:05:29.000000000 -0700
-@@ -441,7 +441,7 @@
- 			       sizeof(struct rtnl_link_ifmap) +
- 			       sizeof(struct rtnl_link_stats) + 128);
+	bk pull bk://kernel.bkbits.net/tgraf/net-2.6-trunk
+
+This will update the following files:
+
+ net/core/rtnetlink.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletion(-)
+
+through these ChangeSets:
+
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2005/04/07 17:41:18+02:00 tgraf@suug.ch 
+#   [RTNETLINK]: Protocol family wildcard dumping for routing rules
+#   
+#   Be kind to userspace and don't force them to hardcode protocol
+#   families just to have it changed again once we support routing
+#   rules for more than one protocol family.
+#   
+#   Signed-off-by: Thomas Graf <tgraf@suug.ch>
+#   Signed-off-by: David S. Miller <davem@davemloft.net>
+# 
+# net/core/rtnetlink.c
+#   2005/04/07 17:41:07+02:00 tgraf@suug.ch +2 -1
+#   [RTNETLINK]: Protocol family wildcard dumping for routing rules
+# 
+diff -Nru a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+--- a/net/core/rtnetlink.c	2005-04-07 23:13:33 +02:00
++++ b/net/core/rtnetlink.c	2005-04-07 23:13:33 +02:00
+@@ -647,7 +647,8 @@
+ 	[RTM_GETROUTE - RTM_BASE] = { .dumpit = rtnetlink_dump_all    },
+ 	[RTM_NEWNEIGH - RTM_BASE] = { .doit   = neigh_add	      },
+ 	[RTM_DELNEIGH - RTM_BASE] = { .doit   = neigh_delete	      },
+-	[RTM_GETNEIGH - RTM_BASE] = { .dumpit = neigh_dump_info	      }
++	[RTM_GETNEIGH - RTM_BASE] = { .dumpit = neigh_dump_info	      },
++	[RTM_GETRULE  - RTM_BASE] = { .dumpit = rtnetlink_dump_all    }
+ };
  
--	skb = alloc_skb(size, GFP_KERNEL);
-+	skb = alloc_skb(size, gfp_any());
- 	if (!skb)
- 		return;
- 
-@@ -450,7 +450,7 @@
- 		return;
- 	}
- 	NETLINK_CB(skb).dst_groups = RTMGRP_LINK;
--	netlink_broadcast(rtnl, skb, 0, RTMGRP_LINK, GFP_KERNEL);
-+	netlink_broadcast(rtnl, skb, 0, RTMGRP_LINK, gfp_any());
- }
- 
- static int rtnetlink_done(struct netlink_callback *cb)
-
-
-
-	This doesn't do anything about other event handlers that might
-also have potential sleeps.
-
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+ static int rtnetlink_event(struct notifier_block *this, unsigned long event, void *ptr)
