@@ -1,38 +1,59 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] NETLINK_UESTABLISHED notifier event
-Date: Fri, 8 Apr 2005 07:32:31 +1000
-Message-ID: <20050407213231.GA28738@gondor.apana.org.au>
-References: <E1DJ0YI-0003PR-00@gondolin.me.apana.org.au> <42540CF3.7070501@cs.wisc.edu> <20050406212906.GA24775@gondor.apana.org.au> <1112823442.16753.68.camel@beastie> <20050406220417.GA4443@gondor.apana.org.au> <1112826385.16753.99.camel@beastie>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mike Christie <michaelc@cs.wisc.edu>, netdev@oss.sgi.com,
-        davem@davemloft.net
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH 2.6.12-rc2] bonding: partially back out dev_set_mac_address
+Date: Thu, 07 Apr 2005 14:35:55 -0700
+Message-ID: <200504072135.j37LZt4f004009@death.nxdomain.ibm.com>
+References: <davem@davemloft.net>
+Cc: netdev@oss.sgi.com, jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Dmitry Yusupov <dmitry_yus@yahoo.com>
-Content-Disposition: inline
-In-Reply-To: <1112826385.16753.99.camel@beastie>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: Message from "David S. Miller" <davem@davemloft.net>
+   of "Thu, 07 Apr 2005 13:57:56 PDT." <20050407135756.2df03aaa.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 06, 2005 at 03:26:25PM -0700, Dmitry Yusupov wrote:
-> 
-> Messages from kernel are asynchronous and there are no alloc_skb on "up"
-> calls. It is "mempooled out" on interface level. (see Open-iSCSI
-> interface). Messages to kernel requires copy_from_user to newly
-> allocated skb, here is where we need sk_allocation bit set. Those
-> messages are synchronous from daemon perspective. If "down" call fails,
-> we will re-try later or take some other management action. We assuming
-> that later OOM-killer will free some memory for us and atomic allocation
-> will succeed eventually.
+David S. Miller <davem@davemloft.net> wrote:
 
-I presume you only need to send one message at a time of a fixed size.
-Would it better to always have an skb allocated for the socket so that
-we don't need to allocate at sendmsg time?
+>> 	My presumption is that the above would be unacceptable, if for
+>> no other reason than other notifiers could be attached that also make
+>> sleepable memory allocations.
+>
+>You could change it instead to just use gfp_any().
+>
+>Would that work?  The problematic case occurs from softirq
+>not hardirq right?
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+	Yes, that works, and yes, the troublesome calls come from
+softirq (timers).  In that case, the rtnetlink patch would be:
+
+Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+--- linux-2.6.12-rc2-virgin/net/core/rtnetlink.c	2005-03-03 15:53:48.000000000 -0800
++++ linux-2.6.12-rc2-setmac/net/core/rtnetlink.c	2005-04-07 14:05:29.000000000 -0700
+@@ -441,7 +441,7 @@
+ 			       sizeof(struct rtnl_link_ifmap) +
+ 			       sizeof(struct rtnl_link_stats) + 128);
+ 
+-	skb = alloc_skb(size, GFP_KERNEL);
++	skb = alloc_skb(size, gfp_any());
+ 	if (!skb)
+ 		return;
+ 
+@@ -450,7 +450,7 @@
+ 		return;
+ 	}
+ 	NETLINK_CB(skb).dst_groups = RTMGRP_LINK;
+-	netlink_broadcast(rtnl, skb, 0, RTMGRP_LINK, GFP_KERNEL);
++	netlink_broadcast(rtnl, skb, 0, RTMGRP_LINK, gfp_any());
+ }
+ 
+ static int rtnetlink_done(struct netlink_callback *cb)
+
+
+
+	This doesn't do anything about other event handlers that might
+also have potential sleeps.
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
