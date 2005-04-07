@@ -1,41 +1,33 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: Re: [PATCH] Too aggressive cwnd backoff
-Date: Thu, 7 Apr 2005 14:37:08 -0400 (EDT)
-Message-ID: <Pine.LNX.4.58.0504071435450.17545@dexter.psc.edu>
-References: <20050407164146.GA6479@ev-en.org> <20050407101653.2cc68db1@dxpl.pdx.osdl.net>
- <42557895.8040004@ev-en.org> <20050407113121.31b71a94.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH 2/5] TCP BIC 1.1 support
+Date: Thu, 7 Apr 2005 12:02:38 -0700
+Message-ID: <20050407120238.47f953fb@dxpl.pdx.osdl.net>
+References: <20050318162211.366ca490@dxpl.pdx.osdl.net>
+	<423B9415.2010906@ev-en.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Baruch Even <baruch@ev-en.org>, shemminger@osdl.org, netdev@oss.sgi.com,
-        werner@almesberger.net
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@digeo.com>, "David S. Miller" <davem@davemloft.net>,
+        netdev@oss.sgi.com, Injong Rhee <rhee@eos.ncsu.edu>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050407113121.31b71a94.davem@davemloft.net>
+To: Baruch Even <baruch@ev-en.org>
+In-Reply-To: <423B9415.2010906@ev-en.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 7 Apr 2005, David S. Miller wrote:
+On Sat, 19 Mar 2005 02:53:09 +0000
+Baruch Even <baruch@ev-en.org> wrote:
 
-> On Thu, 07 Apr 2005 19:14:45 +0100
-> Baruch Even <baruch@ev-en.org> wrote:
->
-> > > Going back to the pre-westwood code in BK, the /2 is still there.
-> >
-> > This wasn't there in 2.4.23 on which on the original work of H-TCP was
-> > done.
->
-> Not true, that division by 2 is in the 2.4.23 sources, I just
-> checked.
->
-> It is there as far back as BK logs go in both the 2.4.x and 2.6.x
-> trees.
->
-> Perhaps the WEB100 guys patched that test, I bet that's why you don't
-> remember it being in 2.4.23
+> Stephen Hemminger wrote:
+> > This patch adds TCP BIC back in as a pluggable TCP congestion mechanism.
+> > This version is closer to the TCP BIC 1.1 released for Web100.
+> > The changes from 2.6.11 are:
+> > 	* congestion window undo fix
+> > 	* delayed ack compensation
 
-This test looks correct to me.  (We never touched it.)  It is the bounding
-parameter specified in rate halving.  If you actually get down that far,
-then rate halving is getting confused, though.
-
-  -John
+The delayed ack calculation code in this patch sequence doesn't work quite right.
+It over estimates the number of delayed acks and this causes BIC to clamp down
+too hard.  I'll look into it later, but just wanted to let people know that it
+this version of BIC performs worse under delay. The problem is in the calculation
+of ack_ratio not in the BIC portion.
