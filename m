@@ -1,34 +1,70 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] Too aggressive cwnd backoff
-Date: Thu, 7 Apr 2005 13:37:54 -0700
-Message-ID: <20050407133754.32d343b2.davem@davemloft.net>
-References: <20050407164146.GA6479@ev-en.org>
-	<20050407113351.17f8c094.davem@davemloft.net>
-	<42558771.1050605@ev-en.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, netdev@oss.sgi.com
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH 2.6.12-rc2] bonding: partially back out dev_set_mac_address
+Date: Thu, 07 Apr 2005 13:55:33 -0700
+Message-ID: <200504072055.j37KtXDf003795@death.nxdomain.ibm.com>
+References: <davem@davemloft.net>
+Cc: netdev@oss.sgi.com, jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Baruch Even <baruch@ev-en.org>
-In-Reply-To: <42558771.1050605@ev-en.org>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: Message from "David S. Miller" <davem@davemloft.net>
+   of "Thu, 07 Apr 2005 13:31:51 PDT." <20050407133151.5887c946.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 07 Apr 2005 20:18:09 +0100
-Baruch Even <baruch@ev-en.org> wrote:
+David S. Miller <davem@davemloft.net> wrote:
 
-> This change seems to be specific to us (Hamilton), I didn't find it as 
-> far back as 2.4.12 [1], it wasn't in any 2.6.x kernel and not even in 
-> web100 version alpha 2.3.2 which corresponds to kernel 2.4.23.
-> 
-> It does appear in the original patches that Doug Leith sent, so the only 
-> explanation left is that it's something he did in his tree originally. 
-> And for some reason I believed it was reverting an old change in the 
-> Linux kernel.
+>On Thu, 07 Apr 2005 12:59:35 -0700
+>Jay Vosburgh <fubar@us.ibm.com> wrote:
+[...]
+>> 	Rearranging the bonding driver to not call this way is a fairly
+>> involved change; this patch merely reverts one part of bonding to the
+>> way it used to be.
+>
+>You can't remove that notifier call, you will break ipv4 ARP,
+>ipv6 neighbour discovery, and bridging if you do that.
 
-That makes sense.
+	Only as they relate to bonding slave device MAC changes in the
+ALB and TLB modes (the "no notifier" version is only called by MAC
+changes that occur in those circumstances, all of which are in
+bond_alb.c).
 
-And as John Heffner has pointed out, this change is correct and is
-part of rate-halving.
+	Until a month ago, none of the bonding calls that change MAC
+addresses issued notifiers, this reverts to that behavior only for ALB
+and TLB modes.  Is that worse than going forward with a potential sleep
+from a timer context with a lock held?
+
+	Another alternative would be to change the rtnetlink handler to
+not use a sleepable memory allocation, e.g.,
+
+--- linux-2.6.12-rc2-virgin/net/core/rtnetlink.c	2005-03-03 15:53:48.000000000 -0800
++++ linux-2.6.12-rc2-setmac/net/core/rtnetlink.c	2005-04-07 09:30:03.000000000 -0700
+@@ -441,7 +441,7 @@
+ 			       sizeof(struct rtnl_link_ifmap) +
+ 			       sizeof(struct rtnl_link_stats) + 128);
+ 
+-	skb = alloc_skb(size, GFP_KERNEL);
++	skb = alloc_skb(size, GFP_ATOMIC);
+ 	if (!skb)
+ 		return;
+ 
+@@ -450,7 +450,7 @@
+ 		return;
+ 	}
+ 	NETLINK_CB(skb).dst_groups = RTMGRP_LINK;
+-	netlink_broadcast(rtnl, skb, 0, RTMGRP_LINK, GFP_KERNEL);
++	netlink_broadcast(rtnl, skb, 0, RTMGRP_LINK, GFP_ATOMIC);
+ }
+ 
+ static int rtnetlink_done(struct netlink_callback *cb)
+
+
+
+	My presumption is that the above would be unacceptable, if for
+no other reason than other notifiers could be attached that also make
+sleepable memory allocations.
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
