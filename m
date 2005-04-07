@@ -1,31 +1,21 @@
-From: Wang Jian <lark@linux.net.cn>
+From: Thomas Graf <tgraf@suug.ch>
 Subject: Re: [RFC] dynamic hash table size & xor hash function for cls_fw
-Date: Thu, 07 Apr 2005 18:47:08 +0800
-Message-ID: <20050407184456.02CC.LARK@linux.net.cn>
-References: <20050407005519.GS26731@postel.suug.ch> <1112870307.1118.91.camel@jzny.localdomain>
+Date: Thu, 7 Apr 2005 12:51:49 +0200
+Message-ID: <20050407105149.GT26731@postel.suug.ch>
+References: <1112717495.1076.22.camel@jzny.localdomain> <20050406143842.026B.LARK@linux.net.cn> <20050406123036.GO26731@postel.suug.ch> <1112794459.1096.61.camel@jzny.localdomain> <20050406134502.GP26731@postel.suug.ch> <20050406141020.GQ26731@postel.suug.ch> <20050406111509.0462abcf.davem@davemloft.net> <20050406183134.GR26731@postel.suug.ch> <20050407005519.GS26731@postel.suug.ch> <1112870307.1118.91.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, "David S. Miller" <davem@davemloft.net>,
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, lark@linux.net.cn,
         netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
 In-Reply-To: <1112870307.1118.91.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi jamal,
-
-I think Thomas decide to only support one hash function at compile time,
-and no switch at runtime.
-
-HSIZE is a constant so the if branch will be optimized by gcc at compile
-time. only one hash is left.
-
-
-On 07 Apr 2005 06:38:27 -0400, jamal <hadi@cyberus.ca> wrote:
-
+* jamal <1112870307.1118.91.camel@jzny.localdomain> 2005-04-07 06:38
 > On Wed, 2005-04-06 at 20:55, Thomas Graf wrote:
 > 
 > >  
@@ -58,14 +48,19 @@ On 07 Apr 2005 06:38:27 -0400, jamal <hadi@cyberus.ca> wrote:
 > 
 > Does HTSIZE change at runtime? How does migrating from one to other take
 > place? 
+
+No, the size is static (PAGE_SIZE/sizeof(unsigned long)) (typically 1024).
+
 > Also why not have a function pointer with a series of these being
-> separate instead of doing the if checks? BTW it does seem any one of
-> those hashes maybe sufficient, no? 
-> 
-> cheers,
-> jamal
+> separate instead of doing the if checks?
 
+Because it is static, gcc will optimize and remove all branches leaving
+only the one that is actually needed, i.e. on most systems the hash
+function will get down to the contents of the if (HTSIZE == 1024) branch.
 
+> BTW it does seem any one of those hashes maybe sufficient, no?
 
--- 
-  lark
+If we want to do the xor'ing to maintain collision free hashing
+for the most common case we need to separate. It would be possible
+to play games and calculate the shifts etc but gcc has a hard
+time optimizing such things.
