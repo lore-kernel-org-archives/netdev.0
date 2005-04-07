@@ -1,39 +1,37 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: atomic_dec_and_test for child dst needed in dst_destroy?
-Date: Fri, 8 Apr 2005 09:07:38 +1000
-Message-ID: <20050407230738.GA29330@gondor.apana.org.au>
-References: <Pine.LNX.4.58.0504051925250.21486@graphe.net> <E1DJ5y2-0003rF-00@gondolin.me.apana.org.au> <20050406111721.3ac67605.davem@davemloft.net> <20050407110724.GA8760@gondor.apana.org.au> <Pine.LNX.4.58.0504070842420.29731@graphe.net> <20050407212504.GA4939@gondor.apana.org.au> <Pine.LNX.4.58.0504071520050.3983@graphe.net>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH] RTNETLINK: Protocol family wildcard dumping for
+	routing rules
+Date: 07 Apr 2005 19:13:36 -0400
+Message-ID: <1112915616.1089.27.camel@jzny.localdomain>
+References: <20050407213838.GW26731@postel.suug.ch>
+	 <E1DJfBR-0007Ym-00@gondolin.me.apana.org.au>
+	 <20050407223847.GX26731@postel.suug.ch>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
-        pravins@calsoftinc.com, shai@scalesx86.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        "David S. Miller" <davem@davemloft.net>, netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Christoph Lameter <christoph@lameter.com>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.58.0504071520050.3983@graphe.net>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050407223847.GX26731@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 07, 2005 at 03:30:28PM -0700, Christoph Lameter wrote:
-> 
-> So in case f.e. the refcnt was 2 for a child NOHASH entry, then we
-> decrement the refcnt for the child but do not free it. However after
-> dst_destroy the parent is gone and presumably some skb->dst are still
-> pointing to the dst entry (or is there something else accounting for the
-> remaining __refcnt)?
-> 
-> What happens to the child dst entry? Will the system simply never
-> deallocate it?
+On Thu, 2005-04-07 at 18:38, Thomas Graf wrote:
+> -	[RTM_GETNEIGH - RTM_BASE] = { .dumpit = neigh_dump_info	      }
+> +	[RTM_GETNEIGH - RTM_BASE] = { .dumpit = neigh_dump_info	      },
+> +	[RTM_GETRULE  - RTM_BASE] = { .dumpit = rtnetlink_dump_all    },
+>  };
+>  
 
-If the refcnt is non-zero after the atomic_dec and the entry is NOHASH,
-we return it and the caller will add it to the GC list.
+Shouldnt this just work (without this change) if you have
+CONFIG_IP_MULTIPLE_TABLES?
 
-See the relevant section in dst_run_gc and dst_free.
+If you want to be funky and have some default dumper always,
+why not make the change to set dumpit to rtnetlink_dump_all in the code
+when dumpit is found to be NULL as a last resort?
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+cheers,
+jamal
