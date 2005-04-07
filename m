@@ -1,30 +1,36 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] Too aggressive cwnd backoff
-Date: Thu, 7 Apr 2005 14:45:07 -0700
-Message-ID: <20050407144507.3695f373.davem@davemloft.net>
-References: <20050407113351.17f8c094.davem@davemloft.net>
-	<E1DJelW-0007Vg-00@gondolin.me.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: baruch@ev-en.org, shemminger@osdl.org, netdev@oss.sgi.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] RTNETLINK: Protocol family wildcard dumping for routing rules
+Date: Fri, 08 Apr 2005 08:09:05 +1000
+Message-ID: <E1DJfBR-0007Ym-00@gondolin.me.apana.org.au>
+References: <20050407213838.GW26731@postel.suug.ch>
+Cc: davem@davemloft.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1DJelW-0007Vg-00@gondolin.me.apana.org.au>
+To: tgraf@suug.ch (Thomas Graf)
+In-Reply-To: <20050407213838.GW26731@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 08 Apr 2005 07:42:18 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+Thomas Graf <tgraf@suug.ch> wrote:
+>
+> diff -Nru a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+> --- a/net/core/rtnetlink.c      2005-04-07 23:13:33 +02:00
+> +++ b/net/core/rtnetlink.c      2005-04-07 23:13:33 +02:00
+> @@ -647,7 +647,8 @@
+>        [RTM_GETROUTE - RTM_BASE] = { .dumpit = rtnetlink_dump_all    },
+>        [RTM_NEWNEIGH - RTM_BASE] = { .doit   = neigh_add             },
+>        [RTM_DELNEIGH - RTM_BASE] = { .doit   = neigh_delete          },
+> -       [RTM_GETNEIGH - RTM_BASE] = { .dumpit = neigh_dump_info       }
+> +       [RTM_GETNEIGH - RTM_BASE] = { .dumpit = neigh_dump_info       },
+> +       [RTM_GETRULE  - RTM_BASE] = { .dumpit = rtnetlink_dump_all    }
+> };
 
-> Looking at the vger tree this was introduced back in 2000:
-> 
-> # ChangeSet
-> #   2000/08/09 11:59:05-00:00 davem@vger.kernel.org
-> #   Many files:
-> #     Merge in ANKs net-000808-23:20 patch.
-> #     Linus better eat this.
+Just a trivial comment.  How about adding a comma at the end of the last
+entry so that the next patch won't have to touch it?
 
-Heh, wish I was better at changelog messages back in the
-CVS days :-)
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
