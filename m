@@ -1,58 +1,71 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [RFC] TCP congestion schedulers
-Date: Fri, 08 Apr 2005 13:20:33 -0700
-Message-ID: <4256E791.7080904@hp.com>
-References: <421CF5E5.1060606@ev-en.org>	<20050223135732.39e62c6c.davem@davemloft.net>	<421D1E66.5090301@osdl.org> <421D30FA.1060900@ev-en.org>	<20050225120814.5fa77b13@dxpl.pdx.osdl.net>	<20050309210442.3e9786a6.davem@davemloft.net>	<4230288F.1030202@ev-en.org>	<20050310182629.1eab09ec.davem@davemloft.net>	<20050311120054.4bbf675a@dxpl.pdx.osdl.net>	<20050311201011.360c00da.davem@davemloft.net>	<20050314151726.532af90d@dxpl.pdx.osdl.net> <m13bur5qyo.fsf@muc.de> <Pine.LNX.4.58.0504081512180.20627@dexter.psc.edu>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH 2.6.12-rc2] bonding: partially back out dev_set_mac_address
+Date: Fri, 08 Apr 2005 13:58:43 -0700
+Message-ID: <200504082059.j38KwhaG009173@death.nxdomain.ibm.com>
+References: <herbert@gondor.apana.org.au>
+Cc: davem@davemloft.net, netdev@oss.sgi.com, jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: John Heffner <jheffner@psc.edu>
-In-Reply-To: <Pine.LNX.4.58.0504081512180.20627@dexter.psc.edu>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: Message from Herbert Xu <herbert@gondor.apana.org.au>
+   of "Fri, 08 Apr 2005 22:36:28 +1000." <E1DJsiq-0006xJ-00@gondolin.me.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> 
-> For the record, here are some benchmarks from an ia64 over GigE.  I
-> set the MTU to 564 so it actually stressed the CPU.  Numbers are
-> throughput (10^6 bits/sec).
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
+[...]
+>However, this is a bit of an eye sore as it is the only place
+>where rtmsg_ifinfo is called from softirq context.  In fact,
+>this is probably the only place where CHANGEADDR (and perhaps
+>even call_netdevice_notifiers) is called from softirq context.
 
-> Command line used: netperf -H 192.168.1.3 -l -1000000000 -c -C -v 2.
+	I looked as well, and didn't find anywhere else doing the netdev
+related notifiers from softirq.  
 
-I so rarely see anyone use the byte count limits for -l - nice to know they 
-still work :)
+[...]
+>Nevertheless, I'd like to ask the possibility for bond to not do
+>this from softirq context.
+>
+>I looked at bond_alb.c briefly and it appears that the MAC addresses
+>aren't actually set from the timers.  It is however set in user
+>context with spin locks held to guard against the timer.
 
-FWIW, the argument to -l is passed through netperf's "convert()" routine which 
-means you can use K|M|G for powers-of-two kilo, mega and giga; or k|m|g for 
-powers of ten:
+	There are several paths from a timer context, e.g.,
 
-     netperf -H 192.168.1.3 -l -1g -c -C -v 2
+timer -> bond_mii_monitor -> bond_change_active_slave ->
+bond_alb_handle_active_change -> alb_set_slave_mac_addr
 
-> The sender was a 1-CPU 900 MHz Itanium2.  The receiver was a 1-CPU 2.4 GHz
-> Pentium 4.  The sender reported over 99% utilization; the receiver
-> reported about 50%.  The NICs were both fiber SysKonnect 9843's connected
-> back to back.
-> 
->    Normal reno    Modular reno
->         392.77          392.59
->         393.96          393.66
->         393.22          393.72
->         393.12          393.81
->         392.09          393.37
->         393.3           393.58
->         391.81          393.22
->         393.11          394.1
->         391.32          393.77
->         392.94          393.03
-> 
-> average 392.76          393.49
-> stdev   0.79            0.44
+	There are also calls that go through bond_select_active_slave
+(then on to bond_change_active_slave).  In all of these cases, the path
+is taken when a link failure is detected.
 
-Looks like noise.  Fair enough.
+	Running the timers function from a work queue instead (to get a
+sleepable context) is technically possible.  I'm not sure how much
+overhead that would add (given that the link monitor timer typically
+runs on intervals in the 10 - 50 ms range).  Getting the locks out is a
+little trickier; I've only looked at it briefly and don't see a simple
+way to do it.  Well, at least that isn't, shall we say, less than
+elegant: e.g., a work queue out of line call that just changes the MAC
+address.  I'm not sure what extra delay that kind of scheme would add to
+the failover time for the link.
 
-rick jones
+>I looked at one of those places: alb_handle_addr_collision_on_attach.
+>As far as I can see, there is no need for the address change to occur
+>under the write_lock.
 
-back to trying to figure-out why netperf IPv6 tests and ping6 won't work with 
-local scope addresses but will with global...
+	That case, yes, could be rearranged to do the assignment outside
+the lock without too much pain.
+
+>So if you have time, could you please comb through the bonding driver
+>and let us know if it is possible to move the setting of the MAC
+>address outside atomic areas.
+
+	As I said above, the timer case doesn't have an obviously good
+way to change it to do the MAC sets in a sleepable context with no
+locks.  I also wonder how expensive it is to run work queue events every
+10ms as compared to running timer events every 10ms?
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
