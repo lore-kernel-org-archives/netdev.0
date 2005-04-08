@@ -1,56 +1,67 @@
-From: Dmitry Yusupov <dmitry_yus@yahoo.com>
-Subject: Re: [PATCH] NETLINK_UESTABLISHED notifier event
-Date: Fri, 08 Apr 2005 08:30:14 -0700
-Message-ID: <1112974214.17165.8.camel@mylaptop>
-References: <E1DJ0YI-0003PR-00@gondolin.me.apana.org.au>
-	 <42540CF3.7070501@cs.wisc.edu> <20050406212906.GA24775@gondor.apana.org.au>
-	 <1112823442.16753.68.camel@beastie>
-	 <20050406220417.GA4443@gondor.apana.org.au>
-	 <1112826385.16753.99.camel@beastie>
-	 <20050407213231.GA28738@gondor.apana.org.au>
-	 <1112917001.3893.77.camel@beastie>
-	 <20050408113654.GA26095@gondor.apana.org.au>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Fw: Re: 2.6.12-rc2-mm2
+Date: Fri, 8 Apr 2005 09:36:30 -0700
+Message-ID: <20050408093630.0ff78c67.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Mike Christie <michaelc@cs.wisc.edu>, netdev@oss.sgi.com,
-        davem@davemloft.net
+Cc: Indrek Kruusa <indrek.kruusa@tuleriit.ee>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050408113654.GA26095@gondor.apana.org.au>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2005-04-08 at 21:36 +1000, Herbert Xu wrote:
-> On Thu, Apr 07, 2005 at 04:36:41PM -0700, Dmitry Yusupov wrote:
-> > 
-> > This actually even better since we will guarantee "down" call delivery.
-> > My only concern is that it is not very generic. Do you know clean way to
-> > implement it?
-> 
-> How generic do you want this? Do you need this for socket types other
-> than netlink?
 
-as discussed on kernel-summit-discuss. yes. we need generic OOM-safety
-solution.
 
-> For a one-packet version, we can pre-allocate an skb/page in response to
-> a setsockopt and store it in sk_send_head/sk_sndmsg_page.
-> 
-> This can then be used at sendmsg time.  Obviously subsequent messages
-> will have to use alloc_skb until that skb is released.
-> 
-> Alternatively, we can let the socket allocate skb's from an emergency
-> pool similar to what was discussed in the thread
-> "Summary of 2005 Kernel Summit Proposed Topics".
+Begin forwarded message:
 
-This is ideally how it should be for sendmsg paths. socket applications
-like iscsi, nbd, etc will use it for TCP/IP type of socket. iscsi could
-re-use the same generic "emergency pool" code for netlink.
+Date: Fri, 08 Apr 2005 15:25:16 +0300
+From: Indrek Kruusa <indrek.kruusa@tuleriit.ee>
+To: Andrew Morton <akpm@osdl.org>
+Cc: linux-kernel@vger.kernel.org
+Subject: Re: 2.6.12-rc2-mm2
 
-> Again this could enabled on a setsockopt.
 
-perfect.
+Andrew Morton wrote:
 
-> Cheers,
+>ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.12-rc2/2.6.12-rc2-mm2/
+>  
+>
+
+Wow... it responds despite the load average of 83.63 :)
+
+http://www.tuleriit.ee/progs/img/pic1.png
+http://www.tuleriit.ee/progs/img/pic2.png
+http://www.tuleriit.ee/progs/img/pic3.png
+
+
+dmesg is not clean though:
+
+TCP: time wait bucket table overflow
+TCP: time wait bucket table overflow
+TCP: time wait bucket table overflow
+printk: 392 messages suppressed.
+TCP: time wait bucket table overflow
+printk: 290 messages suppressed.
+TCP: time wait bucket table overflow
+TCP: time wait bucket table overflow
+TCP: time wait bucket table overflow
+TCP: time wait bucket table overflow
+TCP: time wait bucket table overflow
+TCP: time wait bucket table overflow
+TCP: time wait bucket table overflow
+TCP: time wait bucket table overflow
+TCP: time wait bucket table overflow
+TCP: time wait bucket table overflow
+printk: 295 messages suppressed.
+TCP: time wait bucket table overflow
+
+
+What I did:
+- "bombing" httpd with JMeter (from another computer)
+- copying files from USB memory device to harddisk
+- copying file with scp
+
+
+Indrek
