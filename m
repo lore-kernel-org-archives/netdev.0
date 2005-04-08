@@ -1,26 +1,56 @@
-From: Christoph Lameter <christoph@lameter.com>
-Subject: Re: atomic_dec_and_test for child dst needed in dst_destroy?
-Date: Fri, 8 Apr 2005 08:05:00 -0700 (PDT)
-Message-ID: <Pine.LNX.4.58.0504080803520.22345@graphe.net>
-References: <Pine.LNX.4.58.0504051925250.21486@graphe.net>
- <E1DJ5y2-0003rF-00@gondolin.me.apana.org.au> <20050406111721.3ac67605.davem@davemloft.net>
- <20050407110724.GA8760@gondor.apana.org.au> <Pine.LNX.4.58.0504070842420.29731@graphe.net>
- <20050407212504.GA4939@gondor.apana.org.au> <Pine.LNX.4.58.0504072221190.11242@graphe.net>
- <20050408054831.GA569@gondor.apana.org.au>
+From: Dmitry Yusupov <dmitry_yus@yahoo.com>
+Subject: Re: [PATCH] NETLINK_UESTABLISHED notifier event
+Date: Fri, 08 Apr 2005 08:30:14 -0700
+Message-ID: <1112974214.17165.8.camel@mylaptop>
+References: <E1DJ0YI-0003PR-00@gondolin.me.apana.org.au>
+	 <42540CF3.7070501@cs.wisc.edu> <20050406212906.GA24775@gondor.apana.org.au>
+	 <1112823442.16753.68.camel@beastie>
+	 <20050406220417.GA4443@gondor.apana.org.au>
+	 <1112826385.16753.99.camel@beastie>
+	 <20050407213231.GA28738@gondor.apana.org.au>
+	 <1112917001.3893.77.camel@beastie>
+	 <20050408113654.GA26095@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Mike Christie <michaelc@cs.wisc.edu>, netdev@oss.sgi.com,
+        davem@davemloft.net
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050408054831.GA569@gondor.apana.org.au>
+In-Reply-To: <20050408113654.GA26095@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 8 Apr 2005, Herbert Xu wrote:
+On Fri, 2005-04-08 at 21:36 +1000, Herbert Xu wrote:
+> On Thu, Apr 07, 2005 at 04:36:41PM -0700, Dmitry Yusupov wrote:
+> > 
+> > This actually even better since we will guarantee "down" call delivery.
+> > My only concern is that it is not very generic. Do you know clean way to
+> > implement it?
+> 
+> How generic do you want this? Do you need this for socket types other
+> than netlink?
 
-> This is wrong.  The barrier needs to be after the atomic_read.
-> Please see my patch to Dave.
+as discussed on kernel-summit-discuss. yes. we need generic OOM-safety
+solution.
 
-Ok. How does one get onto the netdev list? The personal cc's of my mail
-to you also always bounces with admin prohibition.
+> For a one-packet version, we can pre-allocate an skb/page in response to
+> a setsockopt and store it in sk_send_head/sk_sndmsg_page.
+> 
+> This can then be used at sendmsg time.  Obviously subsequent messages
+> will have to use alloc_skb until that skb is released.
+> 
+> Alternatively, we can let the socket allocate skb's from an emergency
+> pool similar to what was discussed in the thread
+> "Summary of 2005 Kernel Summit Proposed Topics".
+
+This is ideally how it should be for sendmsg paths. socket applications
+like iscsi, nbd, etc will use it for TCP/IP type of socket. iscsi could
+re-use the same generic "emergency pool" code for netlink.
+
+> Again this could enabled on a setsockopt.
+
+perfect.
+
+> Cheers,
