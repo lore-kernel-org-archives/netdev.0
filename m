@@ -1,7 +1,7 @@
 From: Radheka Godse <radheka.godse@intel.com>
-Subject: [PATCH 2.6.12-rc2 0/17] bonding: sysfs interface...
-Date: Fri, 8 Apr 2005 16:15:24 -0700 (PDT)
-Message-ID: <Pine.LNX.4.61.0504081530560.10355@localhost.localdomain>
+Subject: [PATCH 2.6.12-rc2 1/17] bonding: make some functions not static
+Date: Fri, 8 Apr 2005 16:21:01 -0700 (PDT)
+Message-ID: <Pine.LNX.4.61.0504081615300.10355@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
 Cc: netdev@oss.sgi.com
@@ -11,58 +11,136 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+This patch prepares for adding sysfs functionality to bonding by making
+some functions in bond_main non-static and adding protos into the header.
 
-This patch set implements the sysfs interface for bonding and has a couple 
-bug fixes. We have done a full test pass and consider these patches ready for 
-inclusion upstream. We have submitted them to bonding-devel several 
-times and have incorporated feedback and fixes all known issues.
-
-The interface is pretty simple. Here are some notes on how it could be 
-used:
-
-  The file /sys/class/net/bonding_masters contains the names of all the
-active bonds. To add or remove bonds, write a whitespace-delimited list of
-interface names to this file.  For example:
- 	echo "bond1 bond2 bond3" > /sys/class/net/bonding_masters
- 		will create three bonds with the given names.  If any other
-  		bonds exist, they will be deleted.
-  	echo "bond0 bond2 bond3" > /sys/class/net/bonding_masters
-  		would then create bond0 and remove bond1.
-
-  For each bond, there is a directory /sys/class/net/<bondname>/bonding.
-In this directory are a number of files which control the bond.  The names 
-of these files match the existing module parameters and do the same things.
-
-  The slaves file contains a whitespace-delimited list of interface names,
-  which are slaves to the bond.  This file behaves much the same as the
-  "bonding_masters" file; just write a list of your desired interfaces to 
-this file.
-
-  Likewise, the arp_targets file contains a whitespace-delimited list of IP
-  addresses and should be written to in a similar fashion.
-
-  The other files contain single values(numeric and/or mnemonic), except 
-for stat, which duplicates the slave information in the proc file.
-
-  Some caveats:
-   - slaves can only be assigned when the interface is up
-   - mode can only be changed when the interface is down
-
-  Warnings and status messages will be logged and can be viewed with dmesg.
-
-  Example:
-  modprobe bonding
-  echo "bond0 bond1" > /sys/class/net/bonding_masters
-  echo "6" > /sys/class/net/bond0/bonding/mode
-  echo "1000" > /sys/class/net/bond0/bonding/miimon
-  ifconfig bond0 192.168.0.1
-  echo "eth0 eth1" > /sys/class/net/bond0/bonding/slaves
-  # bond0 is now ready to use
-  echo "1" > /sys/class/net/bond1/bonding/mode
-  # ... and so on for bond1
+Signed-off-by: Radheka Godse <radheka.godse@intel.com>
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 
 
-  These patches apply cleanly to kernel 2.6.12-rc2.
+diff -urN -X dontdiff linux-2.6.12-rc2clean/drivers/net/bonding/bonding.h linux-2.6.12-rc2/drivers/net/bonding/bonding.h
+--- linux-2.6.12-rc2clean/drivers/net/bonding/bonding.h	2005-04-07 11:24:41.000000000 -0700
++++ linux-2.6.12-rc2/drivers/net/bonding/bonding.h	2005-04-07 14:05:31.000000000 -0700
+@@ -247,6 +247,17 @@
 
-- Mitch Williams
-- Radheka Godse
+  struct vlan_entry *bond_next_vlan(struct bonding *bond, struct vlan_entry *curr);
+  int bond_dev_queue_xmit(struct bonding *bond, struct sk_buff *skb, struct net_device *slave_dev);
++void bond_deinit(struct net_device *bond_dev);
++int bond_release(struct net_device *bond_dev, struct net_device *slave_dev);
++int bond_sethwaddr(struct net_device *bond_dev, struct net_device *slave_dev);
++void bond_mii_monitor(struct net_device *bond_dev);
++void bond_loadbalance_arp_mon(struct net_device *bond_dev);
++void bond_activebackup_arp_mon(struct net_device *bond_dev);
++void bond_set_mode_ops(struct net_device *bond_dev, int mode);
++int bond_parse_parm(char *mode_arg, struct bond_parm_tbl *tbl);
++const char *bond_mode_name(int mode);
++void bond_select_active_slave(struct bonding *bond);
++void bond_change_active_slave(struct bonding *bond, struct slave *new_active);
+
+  #endif /* _LINUX_BONDING_H */
+
+diff -urN -X dontdiff linux-2.6.12-rc2clean/drivers/net/bonding/bond_main.c linux-2.6.12-rc2/drivers/net/bonding/bond_main.c
+--- linux-2.6.12-rc2clean/drivers/net/bonding/bond_main.c	2005-04-07 11:24:41.000000000 -0700
++++ linux-2.6.12-rc2/drivers/net/bonding/bond_main.c	2005-04-07 14:35:41.000000000 -0700
+@@ -610,11 +610,10 @@
+
+  /*-------------------------- Forward declarations ---------------------------*/
+
+-static inline void bond_set_mode_ops(struct net_device *bond_dev, int mode);
+
+  /*---------------------------- General routines -----------------------------*/
+
+-static const char *bond_mode_name(int mode)
++const char *bond_mode_name(int mode)
+  {
+  	switch (mode) {
+  	case BOND_MODE_ROUNDROBIN :
+@@ -1428,7 +1427,7 @@
+   *
+   * Warning: Caller must hold curr_slave_lock for writing.
+   */
+-static void bond_change_active_slave(struct bonding *bond, struct slave *new_active)
++void bond_change_active_slave(struct bonding *bond, struct slave *new_active)
+  {
+  	struct slave *old_active = bond->curr_active_slave;
+
+@@ -1501,7 +1500,7 @@
+   *
+   * Warning: Caller must hold curr_slave_lock for writing.
+   */
+-static void bond_select_active_slave(struct bonding *bond)
++void bond_select_active_slave(struct bonding *bond)
+  {
+  	struct slave *best_slave;
+
+@@ -1569,7 +1568,7 @@
+
+  /*---------------------------------- IOCTL ----------------------------------*/
+
+-static int bond_sethwaddr(struct net_device *bond_dev, struct net_device *slave_dev)
++int bond_sethwaddr(struct net_device *bond_dev, struct net_device *slave_dev)
+  {
+  	dprintk("bond_dev=%p\n", bond_dev);
+  	dprintk("slave_dev=%p\n", slave_dev);
+@@ -2004,7 +2003,7 @@
+   *   for Bonded connections:
+   *     The first up interface should be left on and all others downed.
+   */
+-static int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
++int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
+  {
+  	struct bonding *bond = bond_dev->priv;
+  	struct slave *slave, *oldcurrent;
+@@ -2453,7 +2452,7 @@
+  /*-------------------------------- Monitoring -------------------------------*/
+
+  /* this function is called regularly to monitor each slave's link. */
+-static void bond_mii_monitor(struct net_device *bond_dev)
++void bond_mii_monitor(struct net_device *bond_dev)
+  {
+  	struct bonding *bond = bond_dev->priv;
+  	struct slave *slave, *oldcurrent;
+@@ -2713,7 +2712,7 @@
+   * arp is transmitted to generate traffic. see activebackup_arp_monitor for
+   * arp monitoring in active backup mode.
+   */
+-static void bond_loadbalance_arp_mon(struct net_device *bond_dev)
++void bond_loadbalance_arp_mon(struct net_device *bond_dev)
+  {
+  	struct bonding *bond = bond_dev->priv;
+  	struct slave *slave, *oldcurrent;
+@@ -2851,7 +2850,7 @@
+   * may have received.
+   * see loadbalance_arp_monitor for arp monitoring in load balancing mode
+   */
+-static void bond_activebackup_arp_mon(struct net_device *bond_dev)
++void bond_activebackup_arp_mon(struct net_device *bond_dev)
+  {
+  	struct bonding *bond = bond_dev->priv;
+  	struct slave *slave;
+@@ -4208,7 +4207,7 @@
+  /*
+   * set bond mode specific net device operations
+   */
+-static inline void bond_set_mode_ops(struct net_device *bond_dev, int mode)
++void bond_set_mode_ops(struct net_device *bond_dev, int mode)
+  {
+  	switch (mode) {
+  	case BOND_MODE_ROUNDROBIN:
+@@ -4317,7 +4316,7 @@
+  /* De-initialize device specific data.
+   * Caller must hold rtnl_lock.
+   */
+-static inline void bond_deinit(struct net_device *bond_dev)
++void bond_deinit(struct net_device *bond_dev)
+  {
+  	struct bonding *bond = bond_dev->priv;
+
+@@ -4353,7 +4352,7 @@
+   * Convert string input module parms.  Accept either the
+   * number of the mode or its string name.
+   */
+-static inline int bond_parse_parm(char *mode_arg, struct bond_parm_tbl *tbl)
++int bond_parse_parm(char *mode_arg, struct bond_parm_tbl *tbl)
+  {
+  	int i;
