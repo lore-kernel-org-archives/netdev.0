@@ -1,37 +1,91 @@
-From: Baruch Even <baruch@ev-en.org>
-Subject: Re: [PATCH] Too aggressive cwnd backoff
-Date: Fri, 08 Apr 2005 22:33:58 +0100
-Message-ID: <4256F8C6.40704@ev-en.org>
-References: <20050407164146.GA6479@ev-en.org> <20050407101653.2cc68db1@dxpl.pdx.osdl.net> <42557895.8040004@ev-en.org> <20050407113121.31b71a94.davem@davemloft.net> <Pine.LNX.4.58.0504071435450.17545@dexter.psc.edu>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: atomic_dec_and_test for child dst needed in dst_destroy?
+Date: Sat, 9 Apr 2005 07:45:29 +1000
+Message-ID: <20050408214529.GA29716@gondor.apana.org.au>
+References: <Pine.LNX.4.58.0504051925250.21486@graphe.net> <E1DJ5y2-0003rF-00@gondolin.me.apana.org.au> <20050406111721.3ac67605.davem@davemloft.net> <20050407110724.GA8760@gondor.apana.org.au> <Pine.LNX.4.58.0504070842420.29731@graphe.net> <20050407212504.GA4939@gondor.apana.org.au> <Pine.LNX.4.58.0504072221190.11242@graphe.net> <20050408054831.GA569@gondor.apana.org.au> <Pine.LNX.4.58.0504080803520.22345@graphe.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, shemminger@osdl.org,
-        netdev@oss.sgi.com, werner@almesberger.net
+Content-Type: multipart/mixed; boundary="tKW2IUtsqtDRztdT"
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: John Heffner <jheffner@psc.edu>
-In-Reply-To: <Pine.LNX.4.58.0504071435450.17545@dexter.psc.edu>
+To: Christoph Lameter <christoph@lameter.com>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.58.0504080803520.22345@graphe.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-John Heffner wrote:
-> This test looks correct to me.  (We never touched it.)  It is the bounding
-> parameter specified in rate halving.  If you actually get down that far,
-> then rate halving is getting confused, though.
 
-In my tests with either NewReno at high-BDP network settings
-(300Kbit/s, 120ms delay, BDP = 3200 packets), we always go into this
-confused mode.
+--tKW2IUtsqtDRztdT
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-It will always upon a drop go to a point between the one-half and 
-one-quarter of the original cwnd, but then, due to performance problems 
-at that point the queue is filled and lots of packets are getting lost 
-in bursts after I disabled throttling, with throttling it goes even 
-below one quarter.
+On Fri, Apr 08, 2005 at 08:05:00AM -0700, Christoph Lameter wrote:
+> On Fri, 8 Apr 2005, Herbert Xu wrote:
+> 
+> > This is wrong.  The barrier needs to be after the atomic_read.
+> > Please see my patch to Dave.
+> 
+> Ok. How does one get onto the netdev list? The personal cc's of my mail
 
-If I understand you correctly this check (that I changed) is correct and 
-should not be changed but rather that the bug is elsewhere. I'll give it 
-another look when I have some more time.
+echo subscribe netdev | mail majordomo@oss.sgi.com
 
-Baruch
+> to you also always bounces with admin prohibition.
+
+Strange.  I'm getting your direct emails just fine.  In fact I'm
+replying to it now.
+
+Anyway, here is my last patch again.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--tKW2IUtsqtDRztdT
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
+
+--- linux-2.6/net/core/dst.c.orig	2005-04-07 20:48:25.000000000 +1000
++++ linux-2.6/net/core/dst.c	2005-04-07 20:57:33.000000000 +1000
+@@ -169,9 +169,9 @@
+ 	struct neighbour *neigh;
+ 	struct hh_cache *hh;
+ 
++again:
+ 	smp_rmb();
+ 
+-again:
+ 	neigh = dst->neighbour;
+ 	hh = dst->hh;
+ 	child = dst->child;
+@@ -197,19 +197,19 @@
+ 	kmem_cache_free(dst->ops->kmem_cachep, dst);
+ 
+ 	dst = child;
+-	if (dst) {
++	if (unlikely(dst)) {
+ 		int nohash = dst->flags & DST_NOHASH;
+ 
+-		if (atomic_dec_and_test(&dst->__refcnt)) {
++		atomic_dec(&dst->__refcnt);
++
++		if (nohash) {
+ 			/* We were real parent of this dst, so kill child. */
+-			if (nohash)
++			if (!atomic_read(&dst->__refcnt))
+ 				goto again;
+-		} else {
+ 			/* Child is still referenced, return it for freeing. */
+-			if (nohash)
+-				return dst;
+-			/* Child is still in his hash table */
++			return dst;
+ 		}
++		/* Child is still in his hash table or on the GC list. */
+ 	}
+ 	return NULL;
+ }
+
+--tKW2IUtsqtDRztdT--
