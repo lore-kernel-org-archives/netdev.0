@@ -1,59 +1,34 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 2.6.12-rc2] bonding: partially back out dev_set_mac_address
-Date: Sat, 9 Apr 2005 08:16:29 +1000
-Message-ID: <20050408221629.GA21125@gondor.apana.org.au>
-References: <E1DJsiq-0006xJ-00@gondolin.me.apana.org.au> <200504082059.j38KwhaG009173@death.nxdomain.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@oss.sgi.com, jgarzik@pobox.com
+Subject: Re: Fw: Re: 2.6.12-rc2-mm2
+Date: Sat, 09 Apr 2005 08:36:29 +1000
+Message-ID: <E1DK25V-0005Ye-00@gondolin.me.apana.org.au>
+References: <20050408093630.0ff78c67.akpm@osdl.org>
+Cc: netdev@oss.sgi.com, indrek.kruusa@tuleriit.ee
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jay Vosburgh <fubar@us.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <200504082059.j38KwhaG009173@death.nxdomain.ibm.com>
+To: akpm@osdl.org (Andrew Morton)
+In-Reply-To: <20050408093630.0ff78c67.akpm@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 08, 2005 at 01:58:43PM -0700, Jay Vosburgh wrote:
+Andrew Morton <akpm@osdl.org> wrote:
 > 
-> 	There are several paths from a timer context, e.g.,
+> dmesg is not clean though:
 > 
-> timer -> bond_mii_monitor -> bond_change_active_slave ->
-> bond_alb_handle_active_change -> alb_set_slave_mac_addr
+> TCP: time wait bucket table overflow
+> TCP: time wait bucket table overflow
+> TCP: time wait bucket table overflow
+> printk: 392 messages suppressed.
+> 
+> What I did:
+> - "bombing" httpd with JMeter (from another computer)
 
-Is that what it's for.  I sense an opportunity for you to
-greatly clean up this section of code :)
+This is normal.  The number of TCP connections held by
+your server in the TIME_WAIT state is exceeding
+tcp_max_tw_buckets.
 
-The networking drivers are trying to switch over to using
-netif_carrier_ok as the interface for notification and
-monitoring of link status.  In fact, even the bonding driver
-appears to do this by default.
-
-When you're using netif_carrier_ok, you're relying on the
-driver itself to monitor the physical status.  It will usually
-do so in its own timer.
-
-In other words, it's pointless to examine netif_carrier_ok
-more often than the underlying driver timer.  The standard
-interface to monitor its status is through a netdev
-notification (NETDEV_CHANGE). That is called in process
-context by net/core/link_watch.c.
-
-So I'd suggest that we get rid of directly MII monitoring in
-bonding, and always use netif_carrier_ok.  Further more,
-instead of monitoring that in a timer you just move the code
-into bond_netdev_event.
-
-> 	As I said above, the timer case doesn't have an obviously good
-> way to change it to do the MAC sets in a sleepable context with no
-> locks.  I also wonder how expensive it is to run work queue events every
-> 10ms as compared to running timer events every 10ms?
-
-If you really want to keep monitoring the MII status directly, then
-you can still schedule the changing of the MAC address via a work
-queue.
-
-Cheers,
+Check out tcp(7) on what this means and how it may or
+may not be a problem for you.
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
