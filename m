@@ -1,44 +1,68 @@
-From: "John W. Linville" <linville@redhat.com>
-Subject: Re: [PATCH 2.6.12-rc2 0/17] bonding: sysfs interface...
-Date: Fri, 8 Apr 2005 12:53:19 -0400
-Message-ID: <20050408165319.GF32431@redhat.com>
-References: <Pine.LNX.4.61.0504081530560.10355@localhost.localdomain>
+From: John Heffner <jheffner@psc.edu>
+Subject: Re: [RFC] TCP congestion schedulers
+Date: Fri, 8 Apr 2005 15:33:44 -0400 (EDT)
+Message-ID: <Pine.LNX.4.58.0504081512180.20627@dexter.psc.edu>
+References: <421CF5E5.1060606@ev-en.org> <20050223135732.39e62c6c.davem@davemloft.net>
+ <421D1E66.5090301@osdl.org> <421D30FA.1060900@ev-en.org>
+ <20050225120814.5fa77b13@dxpl.pdx.osdl.net> <20050309210442.3e9786a6.davem@davemloft.net>
+ <4230288F.1030202@ev-en.org> <20050310182629.1eab09ec.davem@davemloft.net>
+ <20050311120054.4bbf675a@dxpl.pdx.osdl.net> <20050311201011.360c00da.davem@davemloft.net>
+ <20050314151726.532af90d@dxpl.pdx.osdl.net> <m13bur5qyo.fsf@muc.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: fubar@us.ibm.com, bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Radheka Godse <radheka.godse@intel.com>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.61.0504081530560.10355@localhost.localdomain>
+To: Andi Kleen <ak@muc.de>
+In-Reply-To: <m13bur5qyo.fsf@muc.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 08, 2005 at 04:15:24PM -0700, Radheka Godse wrote:
-> 
-> This patch set implements the sysfs interface for bonding and has a couple 
-> bug fixes. We have done a full test pass and consider these patches ready 
-> for inclusion upstream. We have submitted them to bonding-devel several 
-> times and have incorporated feedback and fixes all known issues.
+On Sat, 19 Mar 2005, Andi Kleen wrote:
 
-I, for one, view these patches as very welcome.  I intend to comment
-further later, but for now...
+> Stephen Hemminger <shemminger@osdl.org> writes:
+>
+> > Since developers want to experiment with different congestion
+> > control mechanisms, and the kernel is getting bloated with overlapping
+> > data structure and code for multiple algorithms; here is a patch to
+> > split out the Reno, Vegas, Westwood, BIC congestion control stuff
+> > into an infrastructure similar to the I/O schedulers.
+>
+> [...]
+>
+> Did you do any benchmarks to check that wont slow it down?
+>
+> I would recommend to try it on a IA64 machine if possible. In the
+> past we found that adding indirect function calls on IA64 to networking
+> caused measurable slowdowns in macrobenchmarks.
+> In that case it was LSM callbacks, but your code looks like it will
+> add even more.
 
-FC3 users are invited to use the test kernels here:
 
-	http://people.redhat.com/linville/kernels/fc3/
+For the record, here are some benchmarks from an ia64 over GigE.  I
+set the MTU to 564 so it actually stressed the CPU.  Numbers are
+throughput (10^6 bits/sec).
 
-I have incorporated the bonding driver from 2.6.12-rc2 plus the bonding
-sysfs patches (along with some unrelated patches) to the current FC3
-kernel sources.  If you are an FC3 user and you want to experiment w/
-these changes, this is the easiest way for you to do so.
+Command line used: netperf -H 192.168.1.3 -l -1000000000 -c -C -v 2.
 
-I'd love to hear feedback, either on the lists or directly to this
-address.
+The sender was a 1-CPU 900 MHz Itanium2.  The receiver was a 1-CPU 2.4 GHz
+Pentium 4.  The sender reported over 99% utilization; the receiver
+reported about 50%.  The NICs were both fiber SysKonnect 9843's connected
+back to back.
 
-Thanks,
+   Normal reno    Modular reno
+        392.77          392.59
+        393.96          393.66
+        393.22          393.72
+        393.12          393.81
+        392.09          393.37
+        393.3           393.58
+        391.81          393.22
+        393.11          394.1
+        391.32          393.77
+        392.94          393.03
 
-John
--- 
-John W. Linville
-linville@redhat.com
+average 392.76          393.49
+stdev   0.79            0.44
+
+  -John
