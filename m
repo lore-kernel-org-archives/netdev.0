@@ -1,53 +1,62 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH 2.6.12-rc2 0/17] bonding: sysfs interface...
-Date: Thu, 07 Apr 2005 17:41:15 -0700
-Message-ID: <200504080041.j380fFAM004902@death.nxdomain.ibm.com>
-References: <shemminger@osdl.org>
-Cc: Radheka Godse <radheka.godse@intel.com>,
-        bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH] RTNETLINK: Protocol family wildcard dumping for
+	routing rules
+Date: 07 Apr 2005 20:48:20 -0400
+Message-ID: <1112921300.1088.54.camel@jzny.localdomain>
+References: <20050407213838.GW26731@postel.suug.ch>
+	 <E1DJfBR-0007Ym-00@gondolin.me.apana.org.au>
+	 <20050407223847.GX26731@postel.suug.ch>
+	 <1112915616.1089.27.camel@jzny.localdomain>
+	 <20050407232427.GY26731@postel.suug.ch>
+Reply-To: hadi@cyberus.ca
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        "David S. Miller" <davem@davemloft.net>, netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: Message from Stephen Hemminger <shemminger@osdl.org>
-   of "Thu, 07 Apr 2005 17:09:34 PDT." <20050407170934.5ca77ab5@dxpl.pdx.osdl.net>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050407232427.GY26731@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger <shemminger@osdl.org> wrote:
+On Thu, 2005-04-07 at 19:24, Thomas Graf wrote:
+> * jamal <1112915616.1089.27.camel@jzny.localdomain> 2005-04-07 19:13
+> > On Thu, 2005-04-07 at 18:38, Thomas Graf wrote:
+> > > -	[RTM_GETNEIGH - RTM_BASE] = { .dumpit = neigh_dump_info	      }
+> > > +	[RTM_GETNEIGH - RTM_BASE] = { .dumpit = neigh_dump_info	      },
+> > > +	[RTM_GETRULE  - RTM_BASE] = { .dumpit = rtnetlink_dump_all    },
+> > >  };
+> > >  
+> > 
+> > Shouldnt this just work (without this change) if you have
+> > CONFIG_IP_MULTIPLE_TABLES?
+> 
+> Not sure what you mean, it doesn't even get into the routing
+> code but already fails in rtnetlink_rcv_msg when it doesn't
+> find a dumpit implementation for family == AF_UNSPEC.
+> 
 
-[...]
->Also: how do you intend to use the ABI version exported? Unless you have  a clear
->plan, it is frowned upon to drop random version numbers around hoping to be able
->to have compatibility.
+Right but if CONFIG_IP_MULTIPLE_TABLES is compiled it will find it in 
+family = PF_INET, no?
+In the minimal shouldnt you have #ifdef CONFIG_IP_MULTIPLE_TABLES around
+that defined?
 
-	If by "ABI version exported," you're referring to this (and the
-associated calls):
+> That is exactly what happens, it will first look up the address
+> family dumpit and if none exist falls back to the rtnetlink_dump_all
+> introduced above.
+> 
+> 	if (link->dumpit == NULL)
+> 		link = &(rtnetlink_links[PF_UNSPEC][type]);
+> 
+> 	if (link->dumpit == NULL)
+> 		goto err_inval; /* <-- we used to fail here for PF_UNSPEC */
+> 
+> 	if ((*errp = netlink_dump_start(rtnl, skb, nlh, ...
 
-+int bond_check_abi_ver(void)
-+{
-+	int retval = 1;
-+ +	if (orig_app_abi_ver == -1) {
-+		orig_app_abi_ver  = BOND_ABI_VERSION;
-+		app_abi_ver = BOND_ABI_VERSION;
-+	}
-+	else {
-+		if (app_abi_ver == 0)
-+			retval = 0;
-+	}
-+
-+	return retval;
-+}
-+
+I mean why dont you just set it there in that last part where it
+currently fails? i.e set link->dumpit to rtnetlink_dump_all
 
-	This enforces the already existing ABI version control stuff in
-bonding (which deals with different versions of the ifenslave control
-program).  This should preserve the existing ifenslave (ioctl based)
-ABI.  I've only skimmed the patch, so I haven't tested it out as yet,
-but at first glance it looks ok.
-
-	Or did you mean something else?
-
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+cheers,
+jamal
