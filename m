@@ -1,29 +1,53 @@
-From: Radheka Godse <radheka.godse@intel.com>
-Subject: [PATCH 2.6.12-rc2 r17/17] bonding: dprintks
-Date: Fri, 8 Apr 2005 00:14:56 +0000 (UTC)
-Message-ID: <Pine.LNX.4.61.0504081712430.10355@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netdev@oss.sgi.com
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH 2.6.12-rc2 0/17] bonding: sysfs interface...
+Date: Thu, 07 Apr 2005 17:41:15 -0700
+Message-ID: <200504080041.j380fFAM004902@death.nxdomain.ibm.com>
+References: <shemminger@osdl.org>
+Cc: Radheka Godse <radheka.godse@intel.com>,
+        bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-Date: Fri, 8 Apr 2005 17:14:57 -0700 (PDT)
-To: fubar@us.ibm.com, bonding-devel@lists.sourceforge.net
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: Message from Stephen Hemminger <shemminger@osdl.org>
+   of "Thu, 07 Apr 2005 17:09:34 PDT." <20050407170934.5ca77ab5@dxpl.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Really trivial dprintk to know when last slave leaves the bond.
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-Signed-off-by: Radheka Godse <radheka.godse@intel.com>
+[...]
+>Also: how do you intend to use the ABI version exported? Unless you have  a clear
+>plan, it is frowned upon to drop random version numbers around hoping to be able
+>to have compatibility.
 
-diff -urN -X dontdiff linux-2.6.12-rc2clean/drivers/net/bonding/bond_main.c linux-2.6.12-rc2/drivers/net/bonding/bond_main.c
---- linux-2.6.12-rc2clean/drivers/net/bonding/bond_main.c	2005-04-07 11:24:41.000000000 -0700
-+++ linux-2.6.12-rc2/drivers/net/bonding/bond_main.c	2005-04-07 14:35:41.000000000 -0700
-@@ -2160,6 +2160,7 @@
-  	}
+	If by "ABI version exported," you're referring to this (and the
+associated calls):
 
-  	if (bond->slave_cnt == 0) {
-+            dprintk("last slave removed\n");
-  		/* if the last slave was removed, zero the mac address
-  		 * of the master so it will be set by the application
-  		 * to the mac address of the first slave
++int bond_check_abi_ver(void)
++{
++	int retval = 1;
++ +	if (orig_app_abi_ver == -1) {
++		orig_app_abi_ver  = BOND_ABI_VERSION;
++		app_abi_ver = BOND_ABI_VERSION;
++	}
++	else {
++		if (app_abi_ver == 0)
++			retval = 0;
++	}
++
++	return retval;
++}
++
+
+	This enforces the already existing ABI version control stuff in
+bonding (which deals with different versions of the ifenslave control
+program).  This should preserve the existing ifenslave (ioctl based)
+ABI.  I've only skimmed the patch, so I haven't tested it out as yet,
+but at first glance it looks ok.
+
+	Or did you mean something else?
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
