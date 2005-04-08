@@ -1,42 +1,50 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] NETLINK_UESTABLISHED notifier event
-Date: Fri, 8 Apr 2005 21:36:55 +1000
-Message-ID: <20050408113654.GA26095@gondor.apana.org.au>
-References: <E1DJ0YI-0003PR-00@gondolin.me.apana.org.au> <42540CF3.7070501@cs.wisc.edu> <20050406212906.GA24775@gondor.apana.org.au> <1112823442.16753.68.camel@beastie> <20050406220417.GA4443@gondor.apana.org.au> <1112826385.16753.99.camel@beastie> <20050407213231.GA28738@gondor.apana.org.au> <1112917001.3893.77.camel@beastie>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mike Christie <michaelc@cs.wisc.edu>, netdev@oss.sgi.com,
-        davem@davemloft.net
+Subject: Re: [PATCH 2.6.12-rc2] bonding: partially back out dev_set_mac_address
+Date: Fri, 08 Apr 2005 22:36:28 +1000
+Message-ID: <E1DJsiq-0006xJ-00@gondolin.me.apana.org.au>
+References: <200504072135.j37LZt4f004009@death.nxdomain.ibm.com>
+Cc: davem@davemloft.net, netdev@oss.sgi.com, jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Dmitry Yusupov <dmitry_yus@yahoo.com>
-Content-Disposition: inline
-In-Reply-To: <1112917001.3893.77.camel@beastie>
+To: fubar@us.ibm.com (Jay Vosburgh)
+In-Reply-To: <200504072135.j37LZt4f004009@death.nxdomain.ibm.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 07, 2005 at 04:36:41PM -0700, Dmitry Yusupov wrote:
+Jay Vosburgh <fubar@us.ibm.com> wrote:
 > 
-> This actually even better since we will guarantee "down" call delivery.
-> My only concern is that it is not very generic. Do you know clean way to
-> implement it?
+>        Yes, that works, and yes, the troublesome calls come from
+> softirq (timers).  In that case, the rtnetlink patch would be:
 
-How generic do you want this? Do you need this for socket types other
-than netlink?
+This should work.
 
-For a one-packet version, we can pre-allocate an skb/page in response to
-a setsockopt and store it in sk_send_head/sk_sndmsg_page.
+However, this is a bit of an eye sore as it is the only place
+where rtmsg_ifinfo is called from softirq context.  In fact,
+this is probably the only place where CHANGEADDR (and perhaps
+even call_netdevice_notifiers) is called from softirq context.
 
-This can then be used at sendmsg time.  Obviously subsequent messages
-will have to use alloc_skb until that skb is released.
+It just so happens that all the CHANGEADDR handlers were coded to be
+on the safe side and this seems to be the only place where it sleeps.
 
-Alternatively, we can let the socket allocate skb's from an emergency
-pool similar to what was discussed in the thread
-"Summary of 2005 Kernel Summit Proposed Topics".
+Nevertheless, I'd like to ask the possibility for bond to not do
+this from softirq context.
 
-Again this could enabled on a setsockopt.
+I looked at bond_alb.c briefly and it appears that the MAC addresses
+aren't actually set from the timers.  It is however set in user
+context with spin locks held to guard against the timer.
 
-Cheers,
+I looked at one of those places: alb_handle_addr_collision_on_attach.
+As far as I can see, there is no need for the address change to occur
+under the write_lock.
+
+It would work just as well if that function returned the MAC address
+to be set and performed the actual setting after dropping the lock.
+
+So if you have time, could you please comb through the bonding driver
+and let us know if it is possible to move the setting of the MAC
+address outside atomic areas.
+
+Thanks,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
