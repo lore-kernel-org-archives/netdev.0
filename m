@@ -1,136 +1,75 @@
-From: "Michael Richardson" <mcr@sandelman.ottawa.on.ca>
-Subject: [Openswan dev] tcpdump and UDP encap on 2.6
-Date: Fri, 08 Apr 2005 14:27:33 -0400
-Message-ID: <21730.1112984853@marajade.sandelman.ottawa.on.ca>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============56073481556368487=="
-Cc: dev@lists.openswan.org
-Return-path: <dev-bounces@openswan.org>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH 2.6.12-rc2] bonding: partially back out dev_set_mac_address
+Date: Fri, 08 Apr 2005 16:55:53 -0700
+Message-ID: <200504082356.j38Ntr7k010144@death.nxdomain.ibm.com>
+References: <herbert@gondor.apana.org.au>
+Cc: davem@davemloft.net, netdev@oss.sgi.com, jgarzik@pobox.com
+Return-path: <netdev-bounce@oss.sgi.com>
 To: Herbert Xu <herbert@gondor.apana.org.au>
-Cc: netdev@oss.sgi.com
-List-Unsubscribe: <http://lists.openswan.org/mailman/listinfo/dev>,
-	<mailto:dev-request@openswan.org?subject=unsubscribe>
-List-Archive: <http://lists.openswan.org/pipermail/dev>
-List-Post: <mailto:dev@openswan.org>
-List-Help: <mailto:dev-request@openswan.org?subject=help>
-List-Subscribe: <http://lists.openswan.org/mailman/listinfo/dev>,
-	<mailto:dev-request@openswan.org?subject=subscribe>
-Sender: dev-bounces@openswan.org
-Errors-To: dev-bounces@openswan.org
+In-Reply-To: Message from Herbert Xu <herbert@gondor.apana.org.au>
+   of "Sat, 09 Apr 2005 08:16:29 +1000." <20050408221629.GA21125@gondor.apana.org.au>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---===============56073481556368487==
-Content-Type: multipart/signed; boundary="=-=-=";
-	micalg=pgp-sha1; protocol="application/pgp-signature"
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
---=-=-=
+[...]
+>The networking drivers are trying to switch over to using
+>netif_carrier_ok as the interface for notification and
+>monitoring of link status.  In fact, even the bonding driver
+>appears to do this by default.
 
+	Yep.  It's been that way for a couple of years, as I recall.
 
-Herbert, I think that there is a bug/mis-feature in net/ipv4/udp.c.
-The skb is modified without having checked if it is in fact shared/cloned.
-The result is that tcpdump sees the wrong thing. This can be confusing:
+[...]
+>In other words, it's pointless to examine netif_carrier_ok
+>more often than the underlying driver timer.  The standard
+>interface to monitor its status is through a netdev
+>notification (NETDEV_CHANGE). That is called in process
+>context by net/core/link_watch.c.
 
-First, get the latest tcpdump 3.9 beta (-096), which decodes UDP port
-4500 packets. 
+	Looking at link_watch.c, it appears that it issues events on a
+one second timer, so there could be a lag of up to one second between
+the time a driver does "netif_carrier_off" and the time bonding would
+receive the event from link_watch.
 
-If I tcpdump on the incoming interface, without the ESP_IN_UDP option
-set (openswan "ikeping" has an option to turn this on):
+	So, yes, it's pointless to check netif_carrier more often that
+the driver updates it, but it's not pointless to check netif_carrier on
+a timer if the granularity of events from link_watch is too slow (which
+it appears to be for a "hot standby" type of application).
 
-west:/testing/klips/west-natt-01# jobs
-[2]-  Running                 tcpdump-3.9 -i eth1 -n -p &
-[3]+  Running                 ipsec ikeping --listen --ikeport 4500 &
-west:/testing/klips/west-natt-01# received 36() packet from 192.1.2.23/4500 of len: 116
-        rcookie=78563412_0f000000 icookie=353bc42c_e2464cf2 msgid=8cf7b22e
-        np=239  version=13.7    xchg=(36)
-18:11:00.673351 IP 192.1.2.23.4500 > 192.1.2.45.4500: UDP-encap: ESP(spi=0x12345678,seq=0xf), length 116
+>So I'd suggest that we get rid of directly MII monitoring in
+>bonding, and always use netif_carrier_ok.  Further more,
+>instead of monitoring that in a timer you just move the code
+>into bond_netdev_event.
 
-I'm clearly getting an UDP encapsulated packet.
+	The direct MII monitor option has stayed because some drivers
+update netif_carrier at fairly long intervals; the extreme example is
+3c59x, which checks every 60 seconds.  For a hot standby use, even one
+second is a pretty long time.
 
-west:/testing/klips/west-natt-01# jobs
-[2]-  Running                 tcpdump-3.9 -i eth1 -n -p &
-[3]+  Running                 ipsec ikeping --listen --ikeport 4500 --nat-t &
+	FWIW, It's been a while since a user has reported trouble with
+bonding link detection with a driver because it didn't support
+netif_carrier; lately, when it comes up it's the notification interval.
 
-west:/testing/klips/west-natt-01# 
-18:12:01.795291 IP 192.1.2.23 > 192.1.2.45: ESP(spi=0x11941194,seq=0x7c0000), length 116
-    
-Notice how the packet has been mangled before being passed to tcpdump.
-This is a problem for anyone trying to debug what's going on.
+	We've also not been discussing the bonding "arp monitor," which
+does link integrity checking by means of detecting traffic flow across
+the link(s) (generating traffic, via ARP requests, when the link is
+idle).  It will trigger the same kinds of failovers that the mii monitor
+does; the saving grace right now is that it doesn't currently run with
+the alb/tlb modes that do the MAC address swapping from the failover.
 
-I think that this fixes the problem. I must admit to being a bit
-ignorant as to which PRIO might be appropriate here. Also is there a
-good FAQ on the difference between cloned SKBs vs shared SKBs? 
+	My other question here is how much time is there left to get
+changes for this into 2.6.12?  Rearchitecting the link monitor /
+failover gizmos is reasonably nontrivial; I don't know if it's feasible
+to make those kind of substantial changes this late in the cycle.  So,
+either 2.6.12 goes out with the potential sleep from timer / with lock,
+the bonding MAC notifier change is partially backed out, the "gfp_any()"
+change goes into rtnetlink.c, or some other solution that eludes me
+occurs.
 
---- /distros/kernel/linux-2.6.11.2/net/ipv4/udp.c	2005-03-09 03:11:09.000000000 -0500
-+++ linux/net/ipv4/udp.c	2005-04-08 14:22:53.000000000 -0400
-@@ -897,8 +897,9 @@
-  *	0  if we should drop this packet
-  * 	-1 if it should get processed by xfrm4_rcv_encap
-  */
--static int udp_encap_rcv(struct sock * sk, struct sk_buff *skb)
-+static int udp_encap_rcv(struct sock * sk, struct sk_buff **pskb)
- {
-+	struct sk_buff *skb = *pskb;
- #ifndef CONFIG_XFRM
- 	return 1; 
- #else
-@@ -968,11 +969,14 @@
- 	 * transport header to point to ESP.  Keep UDP on the stack
- 	 * for later.
- 	 */
-+	skb = skb_unshare(skb, 0);
- 	skb->h.raw = skb_pull(skb, len);
- 
- 	/* modify the protocol (it's ESP!) */
- 	iph->protocol = IPPROTO_ESP;
- 
-+	*pskb = skb;
-+
- 	/* and let the caller know to send this into the ESP processor... */
- 	return -1;
- #endif
-@@ -1010,7 +1014,7 @@
- 		 */
- 		int ret;
- 
--		ret = udp_encap_rcv(sk, skb);
-+		ret = udp_encap_rcv(sk, &skb);
- 		if (ret == 0) {
- 			/* Eat the packet .. */
- 			kfree_skb(skb);
+	-J
 
-
-
-
-    
-
-    
-
-
-
-
---=-=-=
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.2 (GNU/Linux)
-
-iQCVAwUAQlbNFYqHRg3pndX9AQF+6AQA6CDPtnb+JDg4z8GFjjT3qxGvQfdOxn5y
-lhV8XeN53hStUK8xYbdLbBv1emRyaYXGMxy+xCY85U0xDLvsn4HkjFLDWdnP4Cb3
-qkVuVs2UHtIeY0RAniAcjiTclWeBN8nGep2WYnwLXIwCVp5yUL8la5Ff0YpC3V8s
-Z5BUY4l2gk0=
-=2boW
------END PGP SIGNATURE-----
---=-=-=--
-
---===============56073481556368487==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Dev mailing list
-Dev@openswan.org
-http://lists.openswan.org/mailman/listinfo/dev
-
---===============56073481556368487==--
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
