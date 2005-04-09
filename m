@@ -1,41 +1,63 @@
-From: =?iso-8859-1?Q?J=F6rn?= Engel <joern@wohnheim.fh-wedel.de>
-Subject: Re: [PATCH] s390: claw network device driver
-Date: Sat, 9 Apr 2005 15:52:05 +0200
-Message-ID: <20050409135205.GA13305@wohnheim.fh-wedel.de>
-References: <200503290533.j2T5XEYT028850@hera.kernel.org> <4248FBFD.5000809@pobox.com> <20050328230830.5e90396f.akpm@osdl.org> <20050329071002.GA16204@havoc.gtf.org> <20050329152057.GA27840@wohnheim.fh-wedel.de> <4249B52C.2000300@pobox.com> <20050408201606.GA1429@elf.ucw.cz>
+From: Indrek Kruusa <indrek.kruusa@tuleriit.ee>
+Subject: Re: Fw: Re: 2.6.12-rc2-mm2
+Date: Sat, 09 Apr 2005 18:07:52 +0300
+Message-ID: <4257EFC8.3060804@tuleriit.ee>
+References: <E1DK25V-0005Ye-00@gondolin.me.apana.org.au>
+Reply-To: indrek.kruusa@tuleriit.ee
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>,
-	linux-kernel@vger.kernel.org, schwidefsky@de.ibm.com,
-	netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261342AbVDINwM@vger.kernel.org>
-To: Pavel Machek <pavel@ucw.cz>
-Content-Disposition: inline
-In-Reply-To: <20050408201606.GA1429@elf.ucw.cz>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1DK25V-0005Ye-00@gondolin.me.apana.org.au>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 8 April 2005 22:16:07 +0200, Pavel Machek wrote:
->=20
-> More importantly, it is still listed as "the list" for network
-> drivers...
->=20
-> NETWORK DEVICE DRIVERS
-> P:      Andrew Morton
-> M:      akpm@osdl.org
-> P:      Jeff Garzik
-> M:      jgarzik@pobox.com
-> L:      linux-net@vger.kernel.org
-> S:      Maintained
+Herbert Xu wrote:
 
-Maybe one of the two maintainers might want to change that? ;)
+>Andrew Morton <akpm@osdl.org> wrote:
+>  
+>
+>>dmesg is not clean though:
+>>
+>>TCP: time wait bucket table overflow
+>>TCP: time wait bucket table overflow
+>>TCP: time wait bucket table overflow
+>>printk: 392 messages suppressed.
+>>
+>>What I did:
+>>- "bombing" httpd with JMeter (from another computer)
+>>    
+>>
+>
+>This is normal.  The number of TCP connections held by
+>your server in the TIME_WAIT state is exceeding
+>tcp_max_tw_buckets.
+>
+>Check out tcp(7) on what this means and how it may or
+>may not be a problem for you.
+>  
+>
 
-J=F6rn
 
---=20
-There are two ways of constructing a software design: one way is to mak=
-e
-it so simple that there are obviously no deficiencies, and the other is
-to make it so complicated that there are no obvious deficiencies.
--- C. A. R. Hoare
+This poor Celeron machine has only 128MB RAM and tcp_max_tw_buckets were 
+calculated (ipv4/tcp.c) to be 16384. I have found
+that increasing this number by 2048 (that's 12.5%) = 18432 is enough to 
+not get this overflow warning again (load average was over 90). Some 
+other facts:
+
+- my current machine has 512MB RAM and calculated tcp_max_tw_buckets is 
+180000 (!)
+- from Documentation/networking/ip-sysctl.txt: This limit exists only to 
+prevent simple DoS attacks
+
+
+I believe that those values are somewhat miscalculated. At least by 
+changing calculation for machines with low memory a bit you will get 
+some defence against poor shouting students who had to build 
+load-balancing web-clusters ;)
+
+thanks,
+Indrek
