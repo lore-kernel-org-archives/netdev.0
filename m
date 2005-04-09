@@ -1,47 +1,41 @@
-From: Indrek Kruusa <indrek.kruusa@tuleriit.ee>
-Subject: Re: Fw: Re: 2.6.12-rc2-mm2
-Date: Sat, 09 Apr 2005 19:14:20 +0300
-Message-ID: <4257FF5C.2050609@tuleriit.ee>
-References: <E1DK25V-0005Ye-00@gondolin.me.apana.org.au>
-Reply-To: indrek.kruusa@tuleriit.ee
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [-mm patch] net/ieee80211/ieee80211_tx.c: swapped memset arguments
+Date: Sat, 9 Apr 2005 20:03:48 +0200
+Message-ID: <20050409180348.GC3632@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Jesper Juhl <juhl-lkml@dif.dk>, Maciej Soltysiak <solt2@dns.toxicfilms.tv>,
+        "James P. Ketrenos" <ipw2100-admin@linux.intel.com>,
+        netdev@oss.sgi.com, "David S. Miller" <davem@davemloft.net>,
+        linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1DK25V-0005Ye-00@gondolin.me.apana.org.au>
+To: Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
+Fix swapped memset() arguments in  net/ieee80211/ieee80211_tx.c  
+found by Maciej Soltysiak.
 
->Andrew Morton <akpm@osdl.org> wrote:
->  
->
->>dmesg is not clean though:
->>
->>TCP: time wait bucket table overflow
->>TCP: time wait bucket table overflow
->>TCP: time wait bucket table overflow
->>printk: 392 messages suppressed.
->>
->>What I did:
->>- "bombing" httpd with JMeter (from another computer)
->>    
->>
->
->This is normal.  The number of TCP connections held by
->your server in the TIME_WAIT state is exceeding
->tcp_max_tw_buckets.
->
->Check out tcp(7) on what this means and how it may or
->may not be a problem for you.
->  
->
-Wait a moment.... with kernel 2.6.10-oci7 (Sam) load average is 3-4x 
-lower and system does not reach this tcp_max_tw_buckets limit. If it is 
-desired I can do more tests with different kernels.
+Patch by Jesper Juhl.
 
-Indrek
+Signed-off-by: Jesper Juhl <juhl-lkml@dif.dk>
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
+
+---
+
+This patch was sent by Jesper Juhl on:
+- 3 Apr 2005
+
+--- linux-2.6.12-rc1-mm4-orig/net/ieee80211/ieee80211_tx.c	2005-03-31 21:20:08.000000000 +0200
++++ linux-2.6.12-rc1-mm4/net/ieee80211/ieee80211_tx.c	2005-04-03 00:34:22.000000000 +0200
+@@ -223,7 +223,7 @@ struct ieee80211_txb *ieee80211_alloc_tx
+ 	if (!txb)
+ 		return NULL;
+ 
+-	memset(txb, sizeof(struct ieee80211_txb), 0);
++	memset(txb, 0, sizeof(struct ieee80211_txb));
+ 	txb->nr_frags = nr_frags;
+ 	txb->frag_size = txb_size;
+ 
