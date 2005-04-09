@@ -1,57 +1,34 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [2/4] [IPSEC] Kill spurious hard expire messages
-Date: Sun, 10 Apr 2005 05:29:26 +1000
-Message-ID: <20050409192926.GA9423@gondor.apana.org.au>
-References: <1112702604.1089.119.camel@jzny.localdomain> <20050409105452.GA7171@gondor.apana.org.au> <20050409111244.GB7171@gondor.apana.org.au> <1113049844.1090.23.camel@jzny.localdomain>
+Subject: Re: [PATCH] NETLINK_UESTABLISHED notifier event
+Date: Sun, 10 Apr 2005 05:36:35 +1000
+Message-ID: <20050409193635.GC9423@gondor.apana.org.au>
+References: <20050406212906.GA24775@gondor.apana.org.au> <1112823442.16753.68.camel@beastie> <20050406220417.GA4443@gondor.apana.org.au> <1112826385.16753.99.camel@beastie> <20050407213231.GA28738@gondor.apana.org.au> <1112917001.3893.77.camel@beastie> <20050408113654.GA26095@gondor.apana.org.au> <1112974214.17165.8.camel@mylaptop> <20050409014447.GA22607@gondor.apana.org.au> <1113062579.3893.110.camel@beastie>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Masahide NAKAMURA <nakam@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>, netdev <netdev@oss.sgi.com>
+Cc: Mike Christie <michaelc@cs.wisc.edu>, netdev@oss.sgi.com,
+        davem@davemloft.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
+To: Dmitry Yusupov <dmitry_yus@yahoo.com>
 Content-Disposition: inline
-In-Reply-To: <1113049844.1090.23.camel@jzny.localdomain>
+In-Reply-To: <1113062579.3893.110.camel@beastie>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Jamal:
-
-On Sat, Apr 09, 2005 at 08:30:44AM -0400, jamal wrote:
+On Sat, Apr 09, 2005 at 09:02:59AM -0700, Dmitry Yusupov wrote:
 > 
-> This is nice since it seems to go on top of the patch i posted.
-> I didnt get an ACK from Dave - so i assumed that patch is not on his 
-> tree yet. Which tree are you using?
+> "emergency pool" is a big and generic feature, needs design and
+> resolution. it could definitely wait. Do you have something against
+> one liner patch for using sk->sk_allocation instead of hard-coded vm
+> priority?
 
-The Linus tree plus your patch.
+Whatever we come up with will need to be maintained as part of
+the kernel ABI.  So I'd rather not see a temporary hack carried
+around forever.
 
-> On Sat, 2005-04-09 at 07:12, Herbert Xu wrote:
-> 
-> > ===== net/xfrm/xfrm_policy.c 1.75 vs edited =====
-> > --- 1.75/net/xfrm/xfrm_policy.c 2005-04-01 16:24:20 +10:00
-> > +++ edited/net/xfrm/xfrm_policy.c       2005-04-09 18:02:53 +10:00
-> > @@ -216,8 +216,8 @@
-> > 
-> > expired:
-> >        read_unlock(&xp->lock);
-> > -       km_policy_expired(xp, dir, 1);
-> > -       xfrm_policy_delete(xp, dir);
-> > +       if (!xfrm_policy_delete(xp, dir))
-> > +               km_policy_expired(xp, dir, 1);
-> >        xfrm_pol_put(xp);>
-> > }
-> >
-> 
-> If the policy was already dead you will still return a 0 from
-> xfrm_policy_delete(). Fixable by policy_kill returning an int.
+You can always patch your kernels to do whatever you want of course.
 
-You're right.  The other callers of xfrm_policy_kill needs to
-check it too.
-
-I'll fix this up.
-
-Thanks,
+Cheers,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
