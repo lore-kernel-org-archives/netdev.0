@@ -1,45 +1,58 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] drivers/net/ewrk3.c: remove dead code
-Date: Sun, 10 Apr 2005 01:00:34 +0200
-Message-ID: <20050409230034.GN3632@stusta.de>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [4/4] [IPSEC] Set byid for km_event in xfrm_get_policy
+Date: Sun, 10 Apr 2005 17:48:50 +1000
+Message-ID: <20050410074849.GA13259@gondor.apana.org.au>
+References: <1112702604.1089.119.camel@jzny.localdomain> <20050409105452.GA7171@gondor.apana.org.au> <20050409111244.GB7171@gondor.apana.org.au> <20050409111551.GA7378@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Content-Type: multipart/mixed; boundary="FCuugMFkClbJLl1L"
+Cc: Masahide NAKAMURA <nakam@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>, jamal <hadi@cyberus.ca>,
+        netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jgarzik@pobox.com
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
+In-Reply-To: <20050409111551.GA7378@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This patch removes some obviously dead code found by the Coverity 
-checker.
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+--FCuugMFkClbJLl1L
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
----
+Hi:
 
- drivers/net/ewrk3.c |   12 +++---------
- 1 files changed, 3 insertions(+), 9 deletions(-)
+This patch fixes policy deletion in xfrm_user so that it sets
+km_event.data.byid.  This puts xfrm_user on par with what af_key
+does in this case.
+   
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
---- linux-2.6.12-rc2-mm2-full/drivers/net/ewrk3.c.old	2005-04-09 22:03:49.000000000 +0200
-+++ linux-2.6.12-rc2-mm2-full/drivers/net/ewrk3.c	2005-04-09 22:04:15.000000000 +0200
-@@ -1308,15 +1308,9 @@ static int __init eisa_probe(struct net_
- 	if (ioaddr < 0x1000)
- 		goto out;
- 
--	if (ioaddr == 0) {	/* Autoprobing */
--		iobase = EISA_SLOT_INC;		/* Get the first slot address */
--		i = 1;
--		maxSlots = MAX_EISA_SLOTS;
--	} else {		/* Probe a specific location */
--		iobase = ioaddr;
--		i = (ioaddr >> 12);
--		maxSlots = i + 1;
--	}
-+	iobase = ioaddr;
-+	i = (ioaddr >> 12);
-+	maxSlots = i + 1;
- 
- 	for (i = 1; (i < maxSlots) && (dev != NULL); i++, iobase += EISA_SLOT_INC) {
- 		if (EISA_signature(name, EISA_ID) == 0) {
+ xfrm_user.c |    1 +
+ 1 files changed, 1 insertion(+)
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--FCuugMFkClbJLl1L
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=xfrm-event-4
+
+===== net/xfrm/xfrm_user.c 1.54 vs edited =====
+--- 1.54/net/xfrm/xfrm_user.c	2005-04-09 20:40:43 +10:00
++++ edited/net/xfrm/xfrm_user.c	2005-04-09 20:41:29 +10:00
+@@ -877,6 +877,7 @@
+ 					      MSG_DONTWAIT);
+ 		}
+ 	} else {
++		c.data.byid = p->index;
+ 		c.event = XFRM_SAP_DELETED;
+ 		c.seq = nlh->nlmsg_seq;
+ 		c.pid = nlh->nlmsg_pid;
+
+--FCuugMFkClbJLl1L--
