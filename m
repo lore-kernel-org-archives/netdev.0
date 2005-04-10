@@ -1,13 +1,13 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [2/4] [IPSEC] Kill spurious hard expire messages
-Date: 10 Apr 2005 10:10:44 -0400
-Message-ID: <1113142244.1088.287.camel@jzny.localdomain>
+Subject: Re: [5/*] [IPSEC] Use XFRM_MSG_* instead of XFRM_SAP_*
+Date: 10 Apr 2005 10:15:11 -0400
+Message-ID: <1113142510.1091.294.camel@jzny.localdomain>
 References: <1112702604.1089.119.camel@jzny.localdomain>
 	 <20050409105452.GA7171@gondor.apana.org.au>
 	 <20050409111244.GB7171@gondor.apana.org.au>
-	 <1113049844.1090.23.camel@jzny.localdomain>
-	 <20050409192926.GA9423@gondor.apana.org.au>
-	 <20050409200306.GA9660@gondor.apana.org.au>
+	 <20050409111551.GA7378@gondor.apana.org.au>
+	 <20050410074849.GA13259@gondor.apana.org.au>
+	 <20050410090250.GA26022@gondor.apana.org.au>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -17,23 +17,32 @@ Cc: "David S. Miller" <davem@davemloft.net>,
         Patrick McHardy <kaber@trash.net>, netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050409200306.GA9660@gondor.apana.org.au>
+In-Reply-To: <20050410090250.GA26022@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2005-04-09 at 16:03, Herbert Xu wrote:
-
-> xfrm_policy_kill can only be called by the one who removed the
-> policy from the linked list.  Therefore it can never fail.
+On Sun, 2005-04-10 at 05:02, Herbert Xu wrote:
+> Hi:
 > 
-> If this logic is wrong we will be getting fat warnings from
-> xfrm_policy_kill.
+> I spotted some more issues while preparing the last patch of the
+> series.  So I'll extend it a little further.
+> 
+> This patch removes XFRM_SAP_* and converts them over to XFRM_MSG_*.
+> The netlink interface is meant to map directly onto the underlying
+> xfrm subsystem.  Therefore rather than using a new independent
+> representation for the events we can simply use the existing ones
+> from xfrm_user.
 > 
 
-The warning will kick in but it may be as rare as the issue of a delete
-and expire happening on the same policy that your patch was supposed to
-stop ;->
+The main reason i did the XFRM_SAP_* is to be able to cover a case where
+a message was relevant to one KM but not the other. That may not
+exist now (actually it does with policy expiration that pfkey cant
+handle - but thats easy to take care of).
+Hopefully XFRM_MSG_xxx is the superset and will be sufficient.
+
+Do you have anymore patches? If not i can give these a quick test;
+Masahide has a better test setup and if he has time he should as well.
 
 cheers,
 jamal
