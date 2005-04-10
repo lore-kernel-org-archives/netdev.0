@@ -1,117 +1,109 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [Fwd: Re: connector is missing in 2.6.12-rc2-mm1]
-Date: Sun, 10 Apr 2005 14:32:05 +0400
-Message-ID: <20050410143205.18bff80d@zanzibar.2ka.mipt.ru>
-References: <1112942924.28858.234.camel@uganda>
-	<E1DKZ7e-00070D-00@gondolin.me.apana.org.au>
-Reply-To: johnpol@2ka.mipt.ru
+From: Andrew Morton <akpm@osdl.org>
+Subject: Fw: unregister_netdevice(): negative refcnt, suggest patch against
+ 2.6.11
+Date: Sun, 10 Apr 2005 03:44:46 -0700
+Message-ID: <20050410034446.39e3025e.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jmorris@redhat.com, kay.sievers@vrfy.org, ijc@hellion.org.uk,
-        guillaume.thouvenin@bull.net, greg@kroah.com,
-        linux-kernel@vger.kernel.org, akpm@osdl.org, netdev@oss.sgi.com,
-        jamal <hadi@cyberus.ca>
+Content-Type: multipart/mixed;
+ boundary="Multipart=_Sun__10_Apr_2005_03_44_46_-0700_Adc8qDJbGBrDBpST"
+Cc: Felix Palmen <fmp@palmen.homeip.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1DKZ7e-00070D-00@gondolin.me.apana.org.au>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 10 Apr 2005 19:52:54 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+This is a multi-part message in MIME format.
 
-> Please add netdev to the CC list since this discussion pertains to
-> the networking subsystem.
-> 
-> Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
-> > 
-> > User should not know about low-level transport - 
-> > it is like socket layer -  write only data and do not care about
-> > how it will be delivered.
-> 
-> The delineation between transport and upper layer is fuzzy.
-> In one situation the protocol might be transport and in another
-> it could be above the transport.
-> 
-> So I don't buy this argument.
-
-Connector allows to hide transport layer completely - 
-concider acrypto or superio - that subsystems do not know
-about network, author of the temperature driver for superio
-should not know how skb is allocated and processed, 
-and acrypto is not network related system, so why
-they should know about network API?
-Why should they know what is skb, how it is allocated, 
-why shared skb can not be used in netlink and so on?
-Users of the connector are only cared about
-destination ID and how to send/receive message.
-And what to do if we do not want something like connector
-to be used for userspace control - we need to create
-each time new netlink socket unit, like kobject's one,
-or netlink_ulog, we need to register it in netlink.h, 
-where already there too many units.
-
-> > In the previous versions netlink group was assigned as incremented
-> > counter, 
-> > that was not convenient, but now we have 2-way ID, which is better
-> > from users point of view - idx is supposed to be major id, val - 
-> > some subsystem of that set.
-> 
-> Actually netlink does let you bind to a specific ID.
-> 
-> Of course you may argue that a single u32 is not enough.  However,
-> nothing is stopping you from introducing netlink v2 that extends
-> this.
-> 
-> In fact this is my main gripe with your patch: Why aren't you
-> extending netlink instead of hacking something on top of the existing
-> netlink? If the extensions require breaking compatibility: Fine,
-> you just need to call it netlink v2.
-
-When connector was created in the middle of 2004, it's main aim
-was allowing easy userspace control over netlink.
-Creating it's own skb receive parser was acceptible for
-one project, for two, but it is definitely not the solution
-for general use. And also I think it is not so easy to include new
-netlink family unit for some completely unrelated to network subsystem.
-
-So I decided to create only one skb parser, and put all skb processing
-in one place, so any user has to do only registration with it's 
-own receive callback, and sending function.
-
-Thus, transport layer was completely hidden from connector users,
-there are no complex netlink macros there, no network API
-and all complex related issues, no huge code duplication in each device,
-which does not want to mess with 32/64 ioctl issues, but 
-want easy userspace control.
-
-Later connector was changed a bit to allow easy notification
-ability and new bus was added.
-Connector is the solution for d-bus related projects, since
-all control is in one place, there are destination ID,
-there is no complex API.
-
-Concider the latest xfrm event changes - good that we already
-have netlink socket there, but in each sending function 
-[there are at least three new]
-we have all those skb_alloc, skb_put, NLMSG_* and so on which are
-absolutely identical.
-According to names and structures itself, they are too close
-to what connector is for, and how it is implemented, so we already
-have several connectors in the tree, and do we really want 
-to proceed with it all over the place?
+--Multipart=_Sun__10_Apr_2005_03_44_46_-0700_Adc8qDJbGBrDBpST
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 
 
-> Cheers,
-> -- 
-> Visit Openswan at http://www.openswan.org/
-> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-> Home Page: http://gondor.apana.org.au/~herbert/
-> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+That sounds like a bug in appletalk or in the tap driver.  Please describe
+a means by which other developers can reproduce that bug (a sequence of
+shell commands would be ideal).
+
+Thanks.
 
 
-	Evgeniy Polyakov
 
-Only failure makes us experts. -- Theo de Raadt
+Begin forwarded message:
+
+Date: Sun, 10 Apr 2005 11:16:25 +0200
+From: Felix Palmen <fmp@palmen.homeip.net>
+To: linux-kernel@vger.kernel.org
+Subject: unregister_netdevice(): negative refcnt, suggest patch against 2.6.11
+
+
+Hi lkml-members,
+
+I recently had a problem with appletalk. After starting atalkd on a TAP
+interface and stopping it later, unregister_netdevice() just stated
+| unregister_netdevice: waiting for tap0 to become free. Usage count = -1
+
+So I assume there is a problem in the appletalk code, but I didn't try
+reproducing that on other systems so far.
+
+I changed my kernel to "correct" a negative refcnt to 0 and that kind
+of fixes the problem. I'm not sure whether this could break anything,
+but certainly waiting for a device to become free is no use when there
+is a negative number of users, so I think it would be better to allow
+the system to shut down cleanly in this case.
+
+Here's m suggestion:
+
+#v+
+--- linux-2.6.11-orig/net/core/dev.c 2005-03-02 08:38:09.000000000 +0100
++++ linux-2.6.11/net/core/dev.c    2005-04-09 16:44:42.000000000 +0200
+@@ -2876,7 +2876,7 @@
+	unsigned long rebroadcast_time, warning_time;
+
+	rebroadcast_time = warning_time = jiffies;
+-	while (atomic_read(&dev->refcnt) != 0) {
++	while (atomic_read(&dev->refcnt) > 0) {
+		if (time_after(jiffies, rebroadcast_time + 1 * HZ)) {
+			rtnl_shlock();
+
+@@ -2910,6 +2910,13 @@
+			warning_time = jiffies;
+		}
+	}
++	if (atomic_read(&dev->refcnt) != 0) {
++		printk(KERN_ERR "unregister_netdevice: "
++			"%s has negative refcnt (%d). "
++			"This should never happen! Setting refcnt to 0.\n",
++			dev->name, atomic_read(&dev->refcnt));
++		atomic_set(&dev->refcnt, 0);
++	}
+ }
+
+ /* The sequence is:
+#v-
+
+Greets, Felix
+
+PS: Please note I'm not subscribed to lkml and CC me in replies, thanks.
+
+-- 
+ | /"\   ASCII Ribbon   | Felix M. Palmen (Zirias)    http://zirias.ath.cx/ |
+ | \ / Campaign Against | fmp@palmen.homeip.net      encrypted mail welcome |
+ |  X    HTML In Mail   | PGP key: http://zirias.ath.cx/pub.txt             |
+ | / \     And News     | ED9B 62D0 BE39 32F9 2488 5D0C 8177 9D80 5ECF F683 |
+
+
+--Multipart=_Sun__10_Apr_2005_03_44_46_-0700_Adc8qDJbGBrDBpST
+Content-Type: application/pgp-signature;
+ name="signature.asc"
+Content-Disposition: attachment;
+ filename="signature.asc"
+Content-Transfer-Encoding: base64
+
+LS0tLS1CRUdJTiBQR1AgU0lHTkFUVVJFLS0tLS0KVmVyc2lvbjogR251UEcgdjEuMi41IChHTlUv
+TGludXgpCgppUUNWQXdVQlFsanU2UVNxKzNneEc5Y05BUUpHV1FQOENnSFA3NFJCRDdEQldTLzhE
+MXV2U2JrOFUyaEY1TmM5CkUrQmdUT2NGYjM0NVlDVnFTUHluajBjT1IxSVNMMmVTWTdOWERKanBE
+QXhGbkY1U1kvY091bGdxRkozTEhXSjQKa2l2azh1eXNUc1ZhZ2pGandUSmQ2ejRyRnhJd1IwVjR0
+UmpGYk4wQkxhR3RPc2Z3T2Jqd0tkdk82WVQydEJVNwpGc0J3Tm5raWZDWT0KPUZPbU0KLS0tLS1F
+TkQgUEdQIFNJR05BVFVSRS0tLS0tCgo=
+
+--Multipart=_Sun__10_Apr_2005_03_44_46_-0700_Adc8qDJbGBrDBpST--
