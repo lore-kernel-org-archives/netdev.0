@@ -1,58 +1,110 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [4/4] [IPSEC] Set byid for km_event in xfrm_get_policy
-Date: Sun, 10 Apr 2005 17:48:50 +1000
-Message-ID: <20050410074849.GA13259@gondor.apana.org.au>
-References: <1112702604.1089.119.camel@jzny.localdomain> <20050409105452.GA7171@gondor.apana.org.au> <20050409111244.GB7171@gondor.apana.org.au> <20050409111551.GA7378@gondor.apana.org.au>
+From: "Udo van den Heuvel" <udovdh@xs4all.nl>
+Subject: VIA Rhine ethernet driver bug
+Date: Sun, 10 Apr 2005 10:16:21 +0200
+Message-ID: <000501c53da5$944b05d0$450aa8c0@hierzo>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="FCuugMFkClbJLl1L"
-Cc: Masahide NAKAMURA <nakam@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>, jamal <hadi@cyberus.ca>,
-        netdev <netdev@oss.sgi.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8bit
+Cc: <rl@hellgate.ch>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20050409111551.GA7378@gondor.apana.org.au>
+To: <netdev@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hello,
 
---FCuugMFkClbJLl1L
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+I posted about the VIA Rhine ethernet bug to the LKML but received the
+suggestion to also post here.
+Let me explain about the bug, it gives messages like:
 
-Hi:
+Apr  8 18:51:08 epia kernel: eth1: Oversized Ethernet frame spanned multiple
+buffers, entry 0x9 length 0 status 00000600!
+Apr  8 18:51:08 epia kernel: eth1: Oversized Ethernet frame cca77090 vs
+cca77090.
+Apr  8 18:51:08 epia kernel: eth1: Oversized Ethernet frame spanned multiple
+buffers, entry 0xa length 0 status 00000400!
+Apr  8 18:51:08 epia kernel: eth1: Oversized Ethernet frame cca770a0 vs
+cca770a0.
 
-This patch fixes policy deletion in xfrm_user so that it sets
-km_event.data.byid.  This puts xfrm_user on par with what af_key
-does in this case.
-   
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+[....]
 
- xfrm_user.c |    1 +
- 1 files changed, 1 insertion(+)
+Apr  8 18:51:08 epia kernel: eth1: Oversized Ethernet frame spanned multiple
+buffers, entry 0x7 length 0 status 00000400!
+Apr  8 18:51:08 epia kernel: eth1: Oversized Ethernet frame cca77070 vs
+cca77070.
+Apr  8 18:51:08 epia kernel: eth1: Oversized Ethernet frame spanned multiple
+buffers, entry 0x8 length 24436 status 5f748d10!
+Apr  8 18:51:08 epia kernel: eth1: Oversized Ethernet frame cca77080 vs
+cca77080.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
---FCuugMFkClbJLl1L
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=xfrm-event-4
+Most of the time the ethernet connection is gone and needs and ifconfig
+down/up or reboot to make it work again.
+I see this error on a VIA EPIA CL-6000 board. Using google I see the
+mentionings of the error messages in relation to VIA Rhine go back to 1999.
+The other side of eth1 is an Alcatel Speedtouch Home. With different
+firewall hardware (Tulip DT5/xxx but same Alcatel) I did not see the errors.
 
-===== net/xfrm/xfrm_user.c 1.54 vs edited =====
---- 1.54/net/xfrm/xfrm_user.c	2005-04-09 20:40:43 +10:00
-+++ edited/net/xfrm/xfrm_user.c	2005-04-09 20:41:29 +10:00
-@@ -877,6 +877,7 @@
- 					      MSG_DONTWAIT);
- 		}
- 	} else {
-+		c.data.byid = p->index;
- 		c.event = XFRM_SAP_DELETED;
- 		c.seq = nlh->nlmsg_seq;
- 		c.pid = nlh->nlmsg_pid;
+Any ideas? A patch to gather more info so the bug can be fixed?
+Etc?
 
---FCuugMFkClbJLl1L--
+Please post!
+
+
+Info:
+
+eth0: VIA Rhine III at 0x1d000, 00:40:63:d6:xx:xx, IRQ 11.
+eth1: VIA Rhine II at 0x1e800, 00:40:63:d6:xx:xx, IRQ 9.
+
+Linux epia 2.6.11-rc1-mm2 #2 Sat Jan 22 10:51:45 CET 2005 i686 i686 i386
+GNU/Linux
+
+00:0f.0 Ethernet controller: VIA Technologies, Inc. VT6105 [Rhine-III] (rev
+8b)
+00:12.0 Ethernet controller: VIA Technologies, Inc. VT6102 [Rhine-II] (rev
+74)
+
+# cat /proc/interrupts
+           CPU0
+  0:    5739616          XT-PIC  timer
+  1:         78          XT-PIC  i8042
+  2:          0          XT-PIC  cascade
+  3:         12          XT-PIC  serial
+  4:         12          XT-PIC  serial
+  8:          1          XT-PIC  rtc
+  9:     804990          XT-PIC  VIA8233, uhci_hcd, uhci_hcd, eth1
+ 11:     493428          XT-PIC  HiSax, ehci_hcd, uhci_hcd, eth0
+ 12:        512          XT-PIC  i8042
+ 14:     453632          XT-PIC  ide0
+ 15:      50784          XT-PIC  ide1
+NMI:          0
+ERR:          1
+
+(the ERR value has a relation to the bug? I just rebooted the box and the
+error occurred once...)
+
+# ethtool eth1
+Settings for eth1:
+        Supported ports: [ TP MII ]
+        Supported link modes:   10baseT/Half 10baseT/Full
+                                100baseT/Half 100baseT/Full
+        Supports auto-negotiation: Yes
+        Advertised link modes:  10baseT/Half 10baseT/Full
+                                100baseT/Half 100baseT/Full
+        Advertised auto-negotiation: Yes
+        Speed: 10Mb/s
+        Duplex: Half
+        Port: MII
+        PHYAD: 1
+        Transceiver: internal
+        Auto-negotiation: on
+        Supports Wake-on: pumbg
+        Wake-on: d
+        Current message level: 0x00000001 (1)
+        Link detected: yes
+
+
+Kind regards,
+Udo
