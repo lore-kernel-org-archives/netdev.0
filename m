@@ -1,8 +1,8 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [5/*] [IPSEC] Use XFRM_MSG_* instead of XFRM_SAP_*
-Date: Mon, 11 Apr 2005 07:28:48 +1000
-Message-ID: <20050410212848.GB30337@gondor.apana.org.au>
-References: <1112702604.1089.119.camel@jzny.localdomain> <20050409105452.GA7171@gondor.apana.org.au> <20050409111244.GB7171@gondor.apana.org.au> <20050409111551.GA7378@gondor.apana.org.au> <20050410074849.GA13259@gondor.apana.org.au> <20050410090250.GA26022@gondor.apana.org.au> <1113142510.1091.294.camel@jzny.localdomain>
+Subject: Re: [2/4] [IPSEC] Kill spurious hard expire messages
+Date: Mon, 11 Apr 2005 07:27:07 +1000
+Message-ID: <20050410212707.GA30337@gondor.apana.org.au>
+References: <1112702604.1089.119.camel@jzny.localdomain> <20050409105452.GA7171@gondor.apana.org.au> <20050409111244.GB7171@gondor.apana.org.au> <1113049844.1090.23.camel@jzny.localdomain> <20050409192926.GA9423@gondor.apana.org.au> <20050409200306.GA9660@gondor.apana.org.au> <1113142244.1088.287.camel@jzny.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: "David S. Miller" <davem@davemloft.net>,
@@ -11,28 +11,28 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 Return-path: <netdev-bounce@oss.sgi.com>
 To: jamal <hadi@cyberus.ca>
 Content-Disposition: inline
-In-Reply-To: <1113142510.1091.294.camel@jzny.localdomain>
+In-Reply-To: <1113142244.1088.287.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Apr 10, 2005 at 10:15:11AM -0400, jamal wrote:
+On Sun, Apr 10, 2005 at 10:10:44AM -0400, jamal wrote:
+> On Sat, 2005-04-09 at 16:03, Herbert Xu wrote:
 > 
-> The main reason i did the XFRM_SAP_* is to be able to cover a case where
-> a message was relevant to one KM but not the other. That may not
-> exist now (actually it does with policy expiration that pfkey cant
-> handle - but thats easy to take care of).
-> Hopefully XFRM_MSG_xxx is the superset and will be sufficient.
+> > xfrm_policy_kill can only be called by the one who removed the
+> > policy from the linked list.  Therefore it can never fail.
+> > 
+> > If this logic is wrong we will be getting fat warnings from
+> > xfrm_policy_kill.
+> 
+> The warning will kick in but it may be as rare as the issue of a delete
+> and expire happening on the same policy that your patch was supposed to
+> stop ;->
 
-Since xfrm_user is meant to be the native interface, this should never
-happen.
+What I am saying is that this is impossible.  If it really bothers you
+we can turn the WARN_ON into a BUG.
 
-> Do you have anymore patches? If not i can give these a quick test;
-> Masahide has a better test setup and if he has time he should as well.
-
-That's it for now.
-
-Thanks,
+Cheers,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
