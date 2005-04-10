@@ -1,48 +1,54 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [5/*] [IPSEC] Use XFRM_MSG_* instead of XFRM_SAP_*
-Date: 10 Apr 2005 10:15:11 -0400
-Message-ID: <1113142510.1091.294.camel@jzny.localdomain>
-References: <1112702604.1089.119.camel@jzny.localdomain>
-	 <20050409105452.GA7171@gondor.apana.org.au>
-	 <20050409111244.GB7171@gondor.apana.org.au>
-	 <20050409111551.GA7378@gondor.apana.org.au>
-	 <20050410074849.GA13259@gondor.apana.org.au>
-	 <20050410090250.GA26022@gondor.apana.org.au>
+Subject: Re: [Fwd: Re: connector is missing in 2.6.12-rc2-mm1]
+Date: 10 Apr 2005 10:39:19 -0400
+Message-ID: <1113143959.1089.316.camel@jzny.localdomain>
+References: <1112942924.28858.234.camel@uganda>
+	 <E1DKZ7e-00070D-00@gondolin.me.apana.org.au>
+	 <20050410143205.18bff80d@zanzibar.2ka.mipt.ru>
+	 <1113131325.6994.66.camel@localhost.localdomain>
+	 <20050410153757.104fe611@zanzibar.2ka.mipt.ru>
+	 <20050410121005.GF26731@postel.suug.ch>
+	 <20050410161549.3abe4778@zanzibar.2ka.mipt.ru>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Masahide NAKAMURA <nakam@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>, netdev <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050410090250.GA26022@gondor.apana.org.au>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: Thomas Graf <tgraf@suug.ch>, Kay Sievers <kay.sievers@vrfy.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>, jmorris@redhat.com,
+	ijc@hellion.org.uk, guillaume.thouvenin@bull.net, greg@kroah.com,
+	linux-kernel@vger.kernel.org, akpm@osdl.org,
+	netdev <netdev@oss.sgi.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261504AbVDJOjf@vger.kernel.org>
+To: johnpol@2ka.mipt.ru
+In-Reply-To: <20050410161549.3abe4778@zanzibar.2ka.mipt.ru>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2005-04-10 at 05:02, Herbert Xu wrote:
-> Hi:
-> 
-> I spotted some more issues while preparing the last patch of the
-> series.  So I'll extend it a little further.
-> 
-> This patch removes XFRM_SAP_* and converts them over to XFRM_MSG_*.
-> The netlink interface is meant to map directly onto the underlying
-> xfrm subsystem.  Therefore rather than using a new independent
-> representation for the events we can simply use the existing ones
-> from xfrm_user.
-> 
+Evgeniy,
 
-The main reason i did the XFRM_SAP_* is to be able to cover a case where
-a message was relevant to one KM but not the other. That may not
-exist now (actually it does with policy expiration that pfkey cant
-handle - but thats easy to take care of).
-Hopefully XFRM_MSG_xxx is the superset and will be sufficient.
+Please crosspost on netdev - you should know that by now;->
 
-Do you have anymore patches? If not i can give these a quick test;
-Masahide has a better test setup and if he has time he should as well.
+I actually disagreee with Herbert on this. Theres definetely good
+need to have a more usable messaging system that rides on top of
+netlink. It is not that netlink cant be extended (I actually think thats
+a separate topic) - its just that its usability curve is too high.
+Thats what the original motivation for konnector was. To make it easy
+for joe dumbass. And i think if konnector sticks to just doing that it
+will end up being valuable.
+
+I do think (and ive said this before) that Evgeniy is pushing it
+by going beyond this simple agenda/focus. Unfortunately, I actually dont
+think he is listening _at all_ on this specific issue. 
+
+Evgeniy, just stick to the original focus and if it is accepted and
+understood then lets move on to adding new features. Otherwise the
+result of you adding yet one more feature for CBUS or whatever is
+clearly to question what the original motivation was. And i dont think
+you are able to add any other points to justify the existence of any new
+konnector feature other than describe the original goals. At least thats
+what i saw reading this thread. 
+Otherwise if you really dont know what you want yet lets just pull this
+whole thing out IMO.
 
 cheers,
 jamal
