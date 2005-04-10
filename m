@@ -1,58 +1,74 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Fw: [Bug 4467] New: Debug: sleeping function called from invalid
- context at mm/slab.c:2090
-Date: Sun, 10 Apr 2005 13:49:34 -0700
-Message-ID: <20050410134934.0bf9d6b8.akpm@osdl.org>
+From: Felix Palmen <fmp@palmen.homeip.net>
+Subject: Re: Fw: unregister_netdevice(): negative refcnt, suggest patch against 2.6.11
+Date: Sun, 10 Apr 2005 23:27:27 +0200
+Message-ID: <20050410212727.GA13829@palmen.homeip.net>
+References: <20050410034446.39e3025e.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: avvisi@spalletti.it
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="wac7ysb48OaltWcw"
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
+Content-Disposition: inline
+In-Reply-To: <20050410034446.39e3025e.akpm@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-proto_register() is doing kmem_cache_create() inside write_lock().
+--wac7ysb48OaltWcw
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
+* Felix M. Palmen <fmp@palmen.homeip.net> [20050410 11:16]:
+> So I assume there is a problem in the appletalk code, but I didn't try
+> reproducing that on other systems so far.
 
-Begin forwarded message:
+I've now tested this issue on a vanilla 2.6.11.7 kernel. I only applied
+my own patch from the previous post so that I am able to shut down the
+computer cleanly. So I did the following:
 
-Date: Sun, 10 Apr 2005 05:09:39 -0700
-From: bugme-daemon@osdl.org
-To: akpm@digeo.com
-Subject: [Bug 4467] New: Debug: sleeping function called from invalid context at mm/slab.c:2090
+- boot 2.6.11.7
+- create a tap device with 'openvpn --mktun --dev tap0'
+- create /etc/netatalk/atalkd.conf with a single line 'tap0'
+- launch atalkd, wait.
+- stop atalkd.
+- destroy tap device with 'openvpn --rmtun --dev tap0'
 
+refcnt was -256, very strange.
 
-http://bugme.osdl.org/show_bug.cgi?id=4467
+Would you consider my patch harmful? I intend using it for now, because
+otherwise, my system won't shut down cleanly any more...
 
-           Summary: Debug: sleeping function called from invalid context at
-                    mm/slab.c:2090
-    Kernel Version: 2.6.12.rc2
-            Status: NEW
-          Severity: normal
-             Owner: akpm@digeo.com
-         Submitter: avvisi@spalletti.it
+Greets, Felix
 
+PS: Please CC replies to me.
+PPS: I'm sorry for the multipost (lkml and here), at first I didn't
+realize Andrew was directing this thread to linux-netdev
 
-Distribution: Ubuntu 5.04
-Hardware Environment: Asus M6Ne Laptop
-Software Environment: gcc 3.3.5, libc6 2.3.2
-Problem Description:
-On startup, at ipv6 module loading dmesg prints this error:
-Debug: sleeping function called from invalid context at mm/slab.c:2090
-in_atomic():1, irqs_disabled():0
- [<c01160f6>] __might_sleep+0xa6/0xb0
- [<c01345dd>] load_module+0x8cd/0xb70
- [<c014463d>] kmem_cache_alloc+0x6d/0x70
- [<c0143740>] kmem_cache_create+0x100/0x5b0
- [<c02e4324>] proto_register+0xa4/0xd0
- [<e1bb00b9>] inet6_init+0x19/0x200 [ipv6]
- [<c0134a32>] sys_init_module+0x182/0x240
- [<c010319b>] sysenter_past_esp+0x54/0x75
+--=20
+ | /"\   ASCII Ribbon   | Felix M. Palmen (Zirias)    http://zirias.ath.cx/=
+ |
+ | \ / Campaign Against | fmp@palmen.homeip.net      encrypted mail welcome=
+ |
+ |  X    HTML In Mail   | PGP key: http://zirias.ath.cx/pub.txt            =
+ |
+ | / \     And News     | ED9B 62D0 BE39 32F9 2488 5D0C 8177 9D80 5ECF F683=
+ |
 
-I'll attach my config
+--wac7ysb48OaltWcw
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
 
-------- You are receiving this mail because: -------
-You are the assignee for the bug, or are watching the assignee.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (GNU/Linux)
+
+iQCVAwUBQlmaPwSq+3gxG9cNAQIjhAQAkmq9/KH9O76j5nQef9FDnXLdF6bTr7sI
+lMDBqTe6VVC6bUpFzbXbWUz8AHUkcQRxD5UIccUAnRb6eS99ME/VIQ2tyifMxowj
+5ePIY5EAPpYukkk9tX0TxUcFHLs+3ks0OqgXFJaZktpJrrchusMvim9daEWdhglq
+H5mhWeRZRmY=
+=WPAX
+-----END PGP SIGNATURE-----
+
+--wac7ysb48OaltWcw--
