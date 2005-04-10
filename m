@@ -1,40 +1,45 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [2/4] [IPSEC] Kill spurious hard expire messages
-Date: Mon, 11 Apr 2005 07:27:07 +1000
-Message-ID: <20050410212707.GA30337@gondor.apana.org.au>
-References: <1112702604.1089.119.camel@jzny.localdomain> <20050409105452.GA7171@gondor.apana.org.au> <20050409111244.GB7171@gondor.apana.org.au> <1113049844.1090.23.camel@jzny.localdomain> <20050409192926.GA9423@gondor.apana.org.au> <20050409200306.GA9660@gondor.apana.org.au> <1113142244.1088.287.camel@jzny.localdomain>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: Fw: unregister_netdevice(): negative refcnt, suggest patch against 2.6.11
+Date: Sun, 10 Apr 2005 23:50:50 +0200
+Message-ID: <20050410215050.GJ26731@postel.suug.ch>
+References: <20050410034446.39e3025e.akpm@osdl.org> <20050410212727.GA13829@palmen.homeip.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Masahide NAKAMURA <nakam@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>, netdev <netdev@oss.sgi.com>
+Content-Transfer-Encoding: 8bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
+To: Felix Palmen <fmp@palmen.homeip.net>
 Content-Disposition: inline
-In-Reply-To: <1113142244.1088.287.camel@jzny.localdomain>
+In-Reply-To: <20050410212727.GA13829@palmen.homeip.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Apr 10, 2005 at 10:10:44AM -0400, jamal wrote:
-> On Sat, 2005-04-09 at 16:03, Herbert Xu wrote:
+* Felix Palmen <20050410212727.GA13829@palmen.homeip.net> 2005-04-10 23:27
+> I've now tested this issue on a vanilla 2.6.11.7 kernel. I only applied
+> my own patch from the previous post so that I am able to shut down the
+> computer cleanly. So I did the following:
 > 
-> > xfrm_policy_kill can only be called by the one who removed the
-> > policy from the linked list.  Therefore it can never fail.
-> > 
-> > If this logic is wrong we will be getting fat warnings from
-> > xfrm_policy_kill.
+> - boot 2.6.11.7
+> - create a tap device with 'openvpn --mktun --dev tap0'
+> - create /etc/netatalk/atalkd.conf with a single line 'tap0'
+> - launch atalkd, wait.
+> - stop atalkd.
+> - destroy tap device with 'openvpn --rmtun --dev tap0'
 > 
-> The warning will kick in but it may be as rare as the issue of a delete
-> and expire happening on the same policy that your patch was supposed to
-> stop ;->
+> refcnt was -256, very strange.
 
-What I am saying is that this is impossible.  If it really bothers you
-we can turn the WARN_ON into a BUG.
+Is it always 256? Do you have any appletalk routes configured?
+If so, is the 256 dependand on the number of routes?
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I'm asking because:
+ddp.c:          for (nodect = 0; nodect < 256; nodect++) {
+ddp.c:          for (nodect = 0; nodect < 256; nodect++) {
+
+However, I have not checked if this could be invovled at all.
+
+> Would you consider my patch harmful? I intend using it for now, because
+> otherwise, my system won't shut down cleanly any more...
+
+Your system is not fully reliable with and without the patch so
+it doesn't matter at all. ;->
