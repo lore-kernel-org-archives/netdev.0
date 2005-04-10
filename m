@@ -1,74 +1,40 @@
-From: Felix Palmen <fmp@palmen.homeip.net>
-Subject: Re: Fw: unregister_netdevice(): negative refcnt, suggest patch against 2.6.11
-Date: Sun, 10 Apr 2005 23:27:27 +0200
-Message-ID: <20050410212727.GA13829@palmen.homeip.net>
-References: <20050410034446.39e3025e.akpm@osdl.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [5/*] [IPSEC] Use XFRM_MSG_* instead of XFRM_SAP_*
+Date: Mon, 11 Apr 2005 07:28:48 +1000
+Message-ID: <20050410212848.GB30337@gondor.apana.org.au>
+References: <1112702604.1089.119.camel@jzny.localdomain> <20050409105452.GA7171@gondor.apana.org.au> <20050409111244.GB7171@gondor.apana.org.au> <20050409111551.GA7378@gondor.apana.org.au> <20050410074849.GA13259@gondor.apana.org.au> <20050410090250.GA26022@gondor.apana.org.au> <1113142510.1091.294.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="wac7ysb48OaltWcw"
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Masahide NAKAMURA <nakam@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>, netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: jamal <hadi@cyberus.ca>
 Content-Disposition: inline
-In-Reply-To: <20050410034446.39e3025e.akpm@osdl.org>
+In-Reply-To: <1113142510.1091.294.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Sun, Apr 10, 2005 at 10:15:11AM -0400, jamal wrote:
+> 
+> The main reason i did the XFRM_SAP_* is to be able to cover a case where
+> a message was relevant to one KM but not the other. That may not
+> exist now (actually it does with policy expiration that pfkey cant
+> handle - but thats easy to take care of).
+> Hopefully XFRM_MSG_xxx is the superset and will be sufficient.
 
---wac7ysb48OaltWcw
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Since xfrm_user is meant to be the native interface, this should never
+happen.
 
-* Felix M. Palmen <fmp@palmen.homeip.net> [20050410 11:16]:
-> So I assume there is a problem in the appletalk code, but I didn't try
-> reproducing that on other systems so far.
+> Do you have anymore patches? If not i can give these a quick test;
+> Masahide has a better test setup and if he has time he should as well.
 
-I've now tested this issue on a vanilla 2.6.11.7 kernel. I only applied
-my own patch from the previous post so that I am able to shut down the
-computer cleanly. So I did the following:
+That's it for now.
 
-- boot 2.6.11.7
-- create a tap device with 'openvpn --mktun --dev tap0'
-- create /etc/netatalk/atalkd.conf with a single line 'tap0'
-- launch atalkd, wait.
-- stop atalkd.
-- destroy tap device with 'openvpn --rmtun --dev tap0'
-
-refcnt was -256, very strange.
-
-Would you consider my patch harmful? I intend using it for now, because
-otherwise, my system won't shut down cleanly any more...
-
-Greets, Felix
-
-PS: Please CC replies to me.
-PPS: I'm sorry for the multipost (lkml and here), at first I didn't
-realize Andrew was directing this thread to linux-netdev
-
---=20
- | /"\   ASCII Ribbon   | Felix M. Palmen (Zirias)    http://zirias.ath.cx/=
- |
- | \ / Campaign Against | fmp@palmen.homeip.net      encrypted mail welcome=
- |
- |  X    HTML In Mail   | PGP key: http://zirias.ath.cx/pub.txt            =
- |
- | / \     And News     | ED9B 62D0 BE39 32F9 2488 5D0C 8177 9D80 5ECF F683=
- |
-
---wac7ysb48OaltWcw
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
-
-iQCVAwUBQlmaPwSq+3gxG9cNAQIjhAQAkmq9/KH9O76j5nQef9FDnXLdF6bTr7sI
-lMDBqTe6VVC6bUpFzbXbWUz8AHUkcQRxD5UIccUAnRb6eS99ME/VIQ2tyifMxowj
-5ePIY5EAPpYukkk9tX0TxUcFHLs+3ks0OqgXFJaZktpJrrchusMvim9daEWdhglq
-H5mhWeRZRmY=
-=WPAX
------END PGP SIGNATURE-----
-
---wac7ysb48OaltWcw--
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
