@@ -1,51 +1,39 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [Fwd: Re: connector is missing in 2.6.12-rc2-mm1]
-Date: Sun, 10 Apr 2005 16:15:49 +0400
-Message-ID: <20050410161549.3abe4778@zanzibar.2ka.mipt.ru>
-References: <1112942924.28858.234.camel@uganda>
-	<E1DKZ7e-00070D-00@gondolin.me.apana.org.au>
-	<20050410143205.18bff80d@zanzibar.2ka.mipt.ru>
-	<1113131325.6994.66.camel@localhost.localdomain>
-	<20050410153757.104fe611@zanzibar.2ka.mipt.ru>
-	<20050410121005.GF26731@postel.suug.ch>
-Reply-To: johnpol@2ka.mipt.ru
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [2/4] [IPSEC] Kill spurious hard expire messages
+Date: 10 Apr 2005 10:10:44 -0400
+Message-ID: <1113142244.1088.287.camel@jzny.localdomain>
+References: <1112702604.1089.119.camel@jzny.localdomain>
+	 <20050409105452.GA7171@gondor.apana.org.au>
+	 <20050409111244.GB7171@gondor.apana.org.au>
+	 <1113049844.1090.23.camel@jzny.localdomain>
+	 <20050409192926.GA9423@gondor.apana.org.au>
+	 <20050409200306.GA9660@gondor.apana.org.au>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Kay Sievers <kay.sievers@vrfy.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>, jmorris@redhat.com,
-	ijc@hellion.org.uk, guillaume.thouvenin@bull.net, greg@kroah.com,
-	linux-kernel@vger.kernel.org, akpm@osdl.org, netdev@oss.sgi.com,
-	jamal <hadi@cyberus.ca>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261484AbVDJMQl@vger.kernel.org>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050410121005.GF26731@postel.suug.ch>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Masahide NAKAMURA <nakam@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>, netdev <netdev@oss.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050409200306.GA9660@gondor.apana.org.au>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 10 Apr 2005 14:10:05 +0200
-Thomas Graf <tgraf@suug.ch> wrote:
+On Sat, 2005-04-09 at 16:03, Herbert Xu wrote:
 
-> * Evgeniy Polyakov <20050410153757.104fe611@zanzibar.2ka.mipt.ru> 2005-04-10 15:37
-> > --- ./net/netlink/af_netlink.c.orig     2005-04-10 15:46:48.000000000 +0400
-> > +++ ./net/netlink/af_netlink.c  2005-04-10 15:47:04.000000000 +0400
-> > @@ -747,7 +747,7 @@
-> >         if (p->exclude_sk == sk)
-> >                 goto out;
-> >  
-> > -       if (nlk->pid == p->pid || !(nlk->groups & p->group))
-> > +       if (nlk->pid == p->pid || (nlk->groups != p->group))
-> >                 goto out;
-> >  
-> >         if (p->failure) {
+> xfrm_policy_kill can only be called by the one who removed the
+> policy from the linked list.  Therefore it can never fail.
 > 
-> Not valid, would break RTMGRP_*.
+> If this logic is wrong we will be getting fat warnings from
+> xfrm_policy_kill.
+> 
 
-Yes, it will break too many existing application, 
-it would be new API, like do_one_broadcast_direct().
-If I understand Kay right, it is what he needs
-for the new multicast.
+The warning will kick in but it may be as rare as the issue of a delete
+and expire happening on the same policy that your patch was supposed to
+stop ;->
 
-	Evgeniy Polyakov
-
-Only failure makes us experts. -- Theo de Raadt
+cheers,
+jamal
