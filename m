@@ -1,52 +1,43 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [2/4] [IPSEC] Kill spurious hard expire messages
-Date: Mon, 11 Apr 2005 22:08:01 +1000
-Message-ID: <20050411120801.GA26029@gondor.apana.org.au>
-References: <20050409105452.GA7171@gondor.apana.org.au> <20050409111244.GB7171@gondor.apana.org.au> <1113049844.1090.23.camel@jzny.localdomain> <20050409192926.GA9423@gondor.apana.org.au> <20050409200306.GA9660@gondor.apana.org.au> <1113142244.1088.287.camel@jzny.localdomain> <20050410212707.GA30337@gondor.apana.org.au> <1113218420.1090.351.camel@jzny.localdomain> <20050411113040.GA25718@gondor.apana.org.au> <1113220648.1090.364.camel@jzny.localdomain>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: Fw: unregister_netdevice(): negative refcnt, suggest patch against 2.6.11
+Date: Mon, 11 Apr 2005 14:51:13 +0200
+Message-ID: <20050411125113.GL26731@postel.suug.ch>
+References: <20050410034446.39e3025e.akpm@osdl.org> <20050410212727.GA13829@palmen.homeip.net> <20050410215050.GJ26731@postel.suug.ch> <20050411023038.GB13829@palmen.homeip.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Masahide NAKAMURA <nakam@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>, netdev <netdev@oss.sgi.com>
+Content-Transfer-Encoding: 8bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
+To: Felix Palmen <fmp@palmen.homeip.net>
 Content-Disposition: inline
-In-Reply-To: <1113220648.1090.364.camel@jzny.localdomain>
+In-Reply-To: <20050411023038.GB13829@palmen.homeip.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 11, 2005 at 07:57:29AM -0400, jamal wrote:
-> Herbert,
+* Felix Palmen <20050411023038.GB13829@palmen.homeip.net> 2005-04-11 04:30
+> * Thomas Graf <tgraf@suug.ch> [20050410 23:50]:
+> > Is it always 256? Do you have any appletalk routes configured?
+> > If so, is the 256 dependand on the number of routes?
 > 
-> Ok, what you are saying is sensible, but: does this mean there was never
-> an issue then there was never a possibility of delete and expire
-> intefering with each other then?
+> That could really be the case:
+> 
+> - In my test with vanilla 2.6.11.7, there was no other appletalk
+>   station on the net -> refcnt was -256
 
-The problem before was that the timer didn't check the return value
-of xfrm_policy_delete (in fact the latter didn't return anything).
-xfrm_policy_delete tself always checked whether it succeeded in
-deleting the entry from xfrm_policy_list.  This is used to determine
-whether it should call xfrm_policy_kill.
+How long was the interface up before you removed it again? That 256
+might be due to probes still floating around expiring very slowly
+because there is no other station around.
 
-Not checking the return value in the timer allows the following
-situation to occur:
+> - On my working system, I use a single route and get refcnt = -1
 
-CPU 0				CPU 1
-xfrm_policy_timer
-	goto expired
-				xfrm_get_policy(delete == 1)
-					xfrm_policy_byid() succeeds
-					notification is sent
-	xfrm_policy_delete
-	km_policy_expired <--- BUG
+This one I can explain quite easly, I did not found a dev_hold()
+for the dev_put() that is done upon deletion of the routes when
+the interface is removed.
 
-So as long as xfrm_policy_delete returns the correct value and it's
-checked by the xfrm_policy_timer then we're OK.
+> - When I first tried appletalk without configuring anything but the
+>   interface and PearPC with Mac OS X runnning on the other side, refcnt
+>   was -2
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+OK, I think the problem is a few missing dev_hold() when the net_device
+handle is assigned to routes, probes, etc.
