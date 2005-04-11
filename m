@@ -1,67 +1,126 @@
-From: Felix Palmen <fmp@palmen.homeip.net>
-Subject: Re: Fw: unregister_netdevice(): negative refcnt, suggest patch against 2.6.11
-Date: Mon, 11 Apr 2005 04:30:38 +0200
-Message-ID: <20050411023038.GB13829@palmen.homeip.net>
-References: <20050410034446.39e3025e.akpm@osdl.org> <20050410212727.GA13829@palmen.homeip.net> <20050410215050.GJ26731@postel.suug.ch>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [Fwd: Re: connector is missing in 2.6.12-rc2-mm1]
+Date: Mon, 11 Apr 2005 09:22:28 +0400
+Message-ID: <20050411092228.A32699@2ka.mipt.ru>
+References: <1112942924.28858.234.camel@uganda> <E1DKZ7e-00070D-00@gondolin.me.apana.org.au> <20050410143205.18bff80d@zanzibar.2ka.mipt.ru> <1113131325.6994.66.camel@localhost.localdomain> <20050410153757.104fe611@zanzibar.2ka.mipt.ru> <20050410121005.GF26731@postel.suug.ch> <20050410161549.3abe4778@zanzibar.2ka.mipt.ru> <1113143959.1089.316.camel@jzny.localdomain> <20050410192727.GI26731@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="Fba/0zbH8Xs+Fj9o"
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: jamal <hadi@cyberus.ca>, Kay Sievers <kay.sievers@vrfy.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>, jmorris@redhat.com,
+	ijc@hellion.org.uk, guillaume.thouvenin@bull.net, greg@kroah.com,
+	linux-kernel@vger.kernel.org, akpm@osdl.org,
+	netdev <netdev@oss.sgi.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261275AbVDKFXg@vger.kernel.org>
+To: Thomas Graf <tgraf@suug.ch>
 Content-Disposition: inline
-In-Reply-To: <20050410215050.GJ26731@postel.suug.ch>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <20050410192727.GI26731@postel.suug.ch>; from tgraf@suug.ch on Sun, Apr 10, 2005 at 09:27:27PM +0200
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Sun, Apr 10, 2005 at 09:27:27PM +0200, Thomas Graf (tgraf@suug.ch) wrote:
+> * jamal <1113143959.1089.316.camel@jzny.localdomain> 2005-04-10 10:39
+> > Please crosspost on netdev - you should know that by now;->
+> > 
+> > I actually disagreee with Herbert on this. Theres definetely good
+> > need to have a more usable messaging system that rides on top of
+> > netlink. It is not that netlink cant be extended (I actually think thats
+> > a separate topic)
+> 
+> I find it quite easy already but I guess a few macros would improve
+> it even more. The routing attribute macros could be made generic to
+> so can benefit from the advanages of TLVs.
+> 
+> Evgeniy, Sorry for not having time earlier to give your patch a
+> review. I'm not yet through completely and won't comment on the
+> overall architecture until I have understood it all.
+> 
+> diff -Nru /tmp/empty/cn_queue.c linux-2.6/drivers/connector/cn_queue.c
+> --- /tmp/empty/cn_queue.c       1970-01-01 03:00:00.000000000 +0300
+> +++ linux-2.6/drivers/connector/cn_queue.c      2004-09-24 00:01:00.000000000 
+> +int cn_queue_add_callback(struct cn_queue_dev *dev, struct cn_callback *cb)
+> +{
+> +       struct cn_callback_entry *cbq, *n, *__cbq;
+> +       int found = 0;
+> +
+> +       cbq = cn_queue_alloc_callback_entry(cb);
+> +       if (!cbq)
+> +               return -ENOMEM;
+> +
+> +       atomic_inc(&dev->refcnt);
+> +       cbq->pdev = dev;
+> +
+> +       spin_lock(&dev->queue_lock);
+> +       list_for_each_entry_safe(__cbq, n, &dev->queue_list, callback_entry) {
+> 
+> Why _safe? There is no way a entry can be removed here.
 
---Fba/0zbH8Xs+Fj9o
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+No particular reason - it easier to copy-paste it from other line :)
 
-Hallo Thomas,
+> +               if (cn_cb_equal(&__cbq->cb->id, &cb->id)) {
+> +                       found = 1;
+> +                       break;
+> +               }
+> +       }
+> diff -Nru /tmp/empty/connector.c linux-2.6/drivers/connector/connector.c
+> --- /tmp/empty/connector.c      1970-01-01 03:00:00.000000000 +0300
+> +++ linux-2.6/drivers/connector/connector.c     2004-09-24 00:01:00.000000000 
+> +void cn_netlink_send(struct cn_msg *msg, u32 __groups)
+> +{
+> +       struct cn_callback_entry *n, *__cbq;
+> +       unsigned int size;
+> +       struct sk_buff *skb;
+> +       struct nlmsghdr *nlh;
+> +       struct cn_msg *data;
+> +       struct cn_dev *dev = &cdev;
+> +       u32 groups = 0;
+> +       int found = 0;
+> +
+> +       if (!__groups)
+> +       {
+> +               spin_lock(&dev->cbdev->queue_lock);
+> +               list_for_each_entry_safe(__cbq, n, &dev->cbdev->queue_list, callback_entry) {
+> 
+> Same here
+> 
+> +                       if (cn_cb_equal(&__cbq->cb->id, &msg->id)) {
+> +                               found = 1;
+> +                               groups = __cbq->group;
+> +                       }
+> +               }
+> +               spin_unlock(&dev->cbdev->queue_lock);
+> +
+> +               if (!found) {
+> +                       printk(KERN_ERR "Failed to find multicast netlink group for callback[0x%x.0x%x]. seq=%u\n",
+> +                              msg->id.idx, msg->id.val, msg->seq);
+> +                       return;
+> +               }
+> +       }
+> +       else
+> +               groups = __groups;
+> +
+> +       size = NLMSG_SPACE(sizeof(*msg) + msg->len);
+> +
+> +       skb = alloc_skb(size, GFP_ATOMIC);
+> +       if (!skb) {
+> +               printk(KERN_ERR "Failed to allocate new skb with size=%u.\n", size);
+> +               return;
+> +       }
+> +
+> +       nlh = NLMSG_PUT(skb, 0, msg->seq, NLMSG_DONE, size - sizeof(*nlh));
+> 
+> This is not correct, what happens is:
+> size = NLMSG_SPACE(sizeof(*msg) + msg->len);
+>  --> align(hdr)+align(data)
+> size - sizeof(*nlh)
+>  --> (align(hdr)-hdr)+align(data)
+> NLMSG_PUT pads again to get to the end of the data block (NLMSG_LENGTH)
+>  --> align(hdr)+(align(hdr)-hdr)+align(data)
+> 
+> At the moment align(hdr) == hdr since nlmsghdr is already aligned
+> but this might change and your code will break.
 
-* Thomas Graf <tgraf@suug.ch> [20050410 23:50]:
-> Is it always 256? Do you have any appletalk routes configured?
-> If so, is the 256 dependand on the number of routes?
+As far as I remember, header is always supposed to be aligned properly
+"by design", so it even could be nonaligned here.
 
-That could really be the case:
-
-- In my test with vanilla 2.6.11.7, there was no other appletalk
-  station on the net -> refcnt was -256
-- On my working system, I use a single route and get refcnt =3D -1
-- When I first tried appletalk without configuring anything but the
-  interface and PearPC with Mac OS X runnning on the other side, refcnt
-  was -2
-
-I'll try to double-check that tomorrow.
-
-Greets, Felix
-
---=20
- | /"\   ASCII Ribbon   | Felix M. Palmen (Zirias)    http://zirias.ath.cx/=
- |
- | \ / Campaign Against | fmp@palmen.homeip.net      encrypted mail welcome=
- |
- |  X    HTML In Mail   | PGP key: http://zirias.ath.cx/pub.txt            =
- |
- | / \     And News     | ED9B 62D0 BE39 32F9 2488 5D0C 8177 9D80 5ECF F683=
- |
-
---Fba/0zbH8Xs+Fj9o
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
-
-iQCVAwUBQlnhTgSq+3gxG9cNAQKVyQP9FSOgwHSky9rGx8WLFbya25ZBHqJZMQ4H
-whyBqfhCOkA1YG3CvHcDqzqcQMz0zHa7PaZWe8GqiXD4ONIqLzQlvDWMfwuAnuV+
-pX/LwVdYjIUf3BQWX6/JUFUROpmBTQkeUW9f2Hline8tZbx8G4OjkYf2DCwHlel9
-KvGFLNyF3Kk=
-=Oz45
------END PGP SIGNATURE-----
-
---Fba/0zbH8Xs+Fj9o--
+-- 
+	Evgeniy Polyakov ( s0mbre )
