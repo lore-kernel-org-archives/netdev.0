@@ -1,41 +1,82 @@
-From: Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>
-Subject: Re: Why skbuff.h different for 2.4 and 2.6 kernels?
-Date: Mon, 11 Apr 2005 18:01:04 -0300
-Message-ID: <39e6f6c705041114012e5a9ebe@mail.gmail.com>
-References: <20050411163753.20149.qmail@web52210.mail.yahoo.com>
-Reply-To: acme@conectiva.com.br
+From: Jesper Juhl <juhl-lkml@dif.dk>
+Subject: [PATCH] net: remove redundant NULL pointer checks prior to kfree in
+ drivers/net/slip.c
+Date: Mon, 11 Apr 2005 23:15:40 +0200 (CEST)
+Message-ID: <Pine.LNX.4.62.0504112311130.2480@dragon.hyggekrogen.localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Laurence Culhane <loz@holmes.demon.co.uk>,
+        "Fred N. van Kempen" <waltje@uwalt.nl.mugnet.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux lover <linux_lover2004@yahoo.com>
-In-Reply-To: <20050411163753.20149.qmail@web52210.mail.yahoo.com>
+To: linux-kernel@vger.kernel.org
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Apr 11, 2005 1:37 PM, linux lover <linux_lover2004@yahoo.com> wrote:
-> hello,
-> 1) In 2.4 kernel series skbuff.h has following unions
-> for each TCP/IP layer.
+kfree() checks for NULL. Checking prior to calling it is redundant.
+This patch removes these redundant checks from drivers/net/slip.c
 
+Signed-off-by: Jesper Juhl <juhl-lkml@dif.dk>
+---
 
->         union {
->                 unsigned char   *raw;
->         } mac;
-> 
->  why mac union in 2.6 not have ethernet header? Also
-> spxhdr and ipxhdr structures are removed from nh and h
-> unions.
+ slip.c |   30 ++++++++++++------------------
+ 1 files changed, 12 insertions(+), 18 deletions(-)
 
-Work in progress, the ultimate goal is to get rid of all of these unions and
-have just:
-
-        void *transport_header;
-        void *network_header;
-        void *link_header;
-
-So just set mac.raw directly and cast it to the desired type.
-
-- Arnaldo
+--- linux-2.6.12-rc2-mm3-orig/drivers/net/slip.c	2005-03-02 08:38:33.000000000 +0100
++++ linux-2.6.12-rc2-mm3/drivers/net/slip.c	2005-04-11 23:10:06.000000000 +0200
+@@ -185,15 +185,12 @@ sl_alloc_bufs(struct slip *sl, int mtu)
+ 	/* Cleanup */
+ err_exit:
+ #ifdef SL_INCLUDE_CSLIP
+-	if (cbuff)
+-		kfree(cbuff);
++	kfree(cbuff);
+ 	if (slcomp)
+ 		slhc_free(slcomp);
+ #endif
+-	if (xbuff)
+-		kfree(xbuff);
+-	if (rbuff)
+-		kfree(rbuff);
++	kfree(xbuff);
++	kfree(rbuff);
+ 	return err;
+ }
+ 
+@@ -204,13 +201,13 @@ sl_free_bufs(struct slip *sl)
+ 	void * tmp;
+ 
+ 	/* Free all SLIP frame buffers. */
+-	if ((tmp = xchg(&sl->rbuff, NULL)) != NULL)
+-		kfree(tmp);
+-	if ((tmp = xchg(&sl->xbuff, NULL)) != NULL)
+-		kfree(tmp);
++	tmp = xchg(&sl->rbuff, NULL);
++	kfree(tmp);
++	tmp = xchg(&sl->xbuff, NULL);
++	kfree(tmp);
+ #ifdef SL_INCLUDE_CSLIP
+-	if ((tmp = xchg(&sl->cbuff, NULL)) != NULL)
+-		kfree(tmp);
++	tmp = xchg(&sl->cbuff, NULL);
++	kfree(tmp);
+ 	if ((tmp = xchg(&sl->slcomp, NULL)) != NULL)
+ 		slhc_free(tmp);
+ #endif
+@@ -297,13 +294,10 @@ done_on_bh:
+ 	spin_unlock_bh(&sl->lock);
+ 
+ done:
+-	if (xbuff)
+-		kfree(xbuff);
+-	if (rbuff)
+-		kfree(rbuff);
++	kfree(xbuff);
++	kfree(rbuff);
+ #ifdef SL_INCLUDE_CSLIP
+-	if (cbuff)
+-		kfree(cbuff);
++	kfree(cbuff);
+ #endif
+ 	return err;
+ }
