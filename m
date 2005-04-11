@@ -1,82 +1,38 @@
-From: Jesper Juhl <juhl-lkml@dif.dk>
-Subject: [PATCH] net: remove redundant NULL pointer checks prior to kfree in
- drivers/net/slip.c
-Date: Mon, 11 Apr 2005 23:15:40 +0200 (CEST)
-Message-ID: <Pine.LNX.4.62.0504112311130.2480@dragon.hyggekrogen.localhost>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH 2/5] TCP BIC 1.1 support
+Date: Mon, 11 Apr 2005 14:35:59 -0700
+Message-ID: <20050411143559.32a0b764@dxpl.pdx.osdl.net>
+References: <20050318162211.366ca490@dxpl.pdx.osdl.net>
+	<423B9415.2010906@ev-en.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Laurence Culhane <loz@holmes.demon.co.uk>,
-        "Fred N. van Kempen" <waltje@uwalt.nl.mugnet.org>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@digeo.com>, "David S. Miller" <davem@davemloft.net>,
+        netdev@oss.sgi.com, Injong Rhee <rhee@eos.ncsu.edu>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-kernel@vger.kernel.org
+To: Baruch Even <baruch@ev-en.org>
+In-Reply-To: <423B9415.2010906@ev-en.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-kfree() checks for NULL. Checking prior to calling it is redundant.
-This patch removes these redundant checks from drivers/net/slip.c
+On Sat, 19 Mar 2005 02:53:09 +0000
+Baruch Even <baruch@ev-en.org> wrote:
 
-Signed-off-by: Jesper Juhl <juhl-lkml@dif.dk>
----
+> Stephen Hemminger wrote:
+> > This patch adds TCP BIC back in as a pluggable TCP congestion mechanism.
+> > This version is closer to the TCP BIC 1.1 released for Web100.
+> > The changes from 2.6.11 are:
+> > 	* congestion window undo fix
+> > 	* delayed ack compensation
+> 
+> This can cause overshooting if the other side doesn't do delayed acking, 
+> did anyone consider the ABC (Appropriate Byte Counting) patch from 
+> Yee-Ting Li? 
+> http://marc.theaimsgroup.com/?l=linux-netdev&m=110917262615630&w=2
+> 
+> FreeBSD has an option to disable delayed acking so it's not that hard to 
+> work against a host with no delayed acks at all.
 
- slip.c |   30 ++++++++++++------------------
- 1 files changed, 12 insertions(+), 18 deletions(-)
-
---- linux-2.6.12-rc2-mm3-orig/drivers/net/slip.c	2005-03-02 08:38:33.000000000 +0100
-+++ linux-2.6.12-rc2-mm3/drivers/net/slip.c	2005-04-11 23:10:06.000000000 +0200
-@@ -185,15 +185,12 @@ sl_alloc_bufs(struct slip *sl, int mtu)
- 	/* Cleanup */
- err_exit:
- #ifdef SL_INCLUDE_CSLIP
--	if (cbuff)
--		kfree(cbuff);
-+	kfree(cbuff);
- 	if (slcomp)
- 		slhc_free(slcomp);
- #endif
--	if (xbuff)
--		kfree(xbuff);
--	if (rbuff)
--		kfree(rbuff);
-+	kfree(xbuff);
-+	kfree(rbuff);
- 	return err;
- }
- 
-@@ -204,13 +201,13 @@ sl_free_bufs(struct slip *sl)
- 	void * tmp;
- 
- 	/* Free all SLIP frame buffers. */
--	if ((tmp = xchg(&sl->rbuff, NULL)) != NULL)
--		kfree(tmp);
--	if ((tmp = xchg(&sl->xbuff, NULL)) != NULL)
--		kfree(tmp);
-+	tmp = xchg(&sl->rbuff, NULL);
-+	kfree(tmp);
-+	tmp = xchg(&sl->xbuff, NULL);
-+	kfree(tmp);
- #ifdef SL_INCLUDE_CSLIP
--	if ((tmp = xchg(&sl->cbuff, NULL)) != NULL)
--		kfree(tmp);
-+	tmp = xchg(&sl->cbuff, NULL);
-+	kfree(tmp);
- 	if ((tmp = xchg(&sl->slcomp, NULL)) != NULL)
- 		slhc_free(tmp);
- #endif
-@@ -297,13 +294,10 @@ done_on_bh:
- 	spin_unlock_bh(&sl->lock);
- 
- done:
--	if (xbuff)
--		kfree(xbuff);
--	if (rbuff)
--		kfree(rbuff);
-+	kfree(xbuff);
-+	kfree(rbuff);
- #ifdef SL_INCLUDE_CSLIP
--	if (cbuff)
--		kfree(cbuff);
-+	kfree(cbuff);
- #endif
- 	return err;
- }
+I tested with FreeBSD today and see no overshoot, but I do see the undershoot
+(with Reno as well), because of the extra cwnd/2 that you already observed.
