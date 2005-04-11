@@ -1,47 +1,118 @@
-From: Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>
-Subject: Re: Function to read IP address in dot format
-Date: Mon, 11 Apr 2005 11:07:46 -0300
-Message-ID: <39e6f6c7050411070779ddcb07@mail.gmail.com>
-References: <20050411060510.12208.qmail@web52201.mail.yahoo.com>
-Reply-To: acme@conectiva.com.br
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: [2/1] connector/CBUS: new messaging subsystem. Revision number
+ next.
+Date: Mon, 11 Apr 2005 18:49:52 +0400
+Message-ID: <20050411184952.259ec639@zanzibar.2ka.mipt.ru>
+References: <20050411125932.GA19538@uganda.factory.vocord.ru>
+	<20050411133239.GM26731@postel.suug.ch>
+Reply-To: johnpol@2ka.mipt.ru
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: linux lover <linux_lover2004@yahoo.com>
-In-Reply-To: <20050411060510.12208.qmail@web52201.mail.yahoo.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: netdev@oss.sgi.com, Greg KH <greg@kroah.com>,
+	Jamal Hadi Salim <hadi@cyberus.ca>,
+	Kay Sievers <kay.sievers@vrfy.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	James Morris <jmorris@redhat.com>,
+	Guillaume Thouvenin <guillaume.thouvenin@bull.net>,
+	linux-kernel@vger.kernel.org, Andrew Morton <akpm@osdl.org>,
+	Jay Lan <jlan@engr.sgi.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261788AbVDKOvS@vger.kernel.org>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050411133239.GM26731@postel.suug.ch>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Apr 11, 2005 3:05 AM, linux lover <linux_lover2004@yahoo.com> wrote:
-> 
-> Hello,
->           what is the function to read IP address in
-> kernel code as human readable dot quad format? IP
-> address are unsigned int's in ip.h file as
->         __u32   saddr;
->         __u32   daddr;
->          In ip_build_xmit ip header gets IP addresses
-> from rtable struct as
-> iph->saddr=rt->rt_src;
-> iph->daddr=rt->rt_dst;
->            Now if i want to know to which ip current
-> packet is being sent i am using printks but it prints
-> iph->saddr in int format not in user readable format.
-> how to do that?
-> regards,
+Some nlmsg alignment cleanups. Documentation module cleanups.
 
-Use NIPQUAD, as in the example below:
+Thanks, Thomas.
 
-        printk(KERN_DEBUG "dccp rx: packet=%s, "
-                          "source=%u.%u.%u.%u@%d, "
-                          "dest=%u.%u.%u.%u@%d\n",
-               dccp_packet_name(dh->dccph_type),
-               NIPQUAD(skb->nh.iph->saddr),
-               ntohs(dh->dccph_sport),
-               NIPQUAD(skb->nh.iph->daddr),
-               ntohs(dh->dccph_dport));
+Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 
-- Arnaldo
+* looking for johnpol@2ka.mipt.ru-2004/connector--main--0--patch-47 to compare with
+* comparing to johnpol@2ka.mipt.ru-2004/connector--main--0--patch-47
+M  cn_test.c
+M  connector.c
+
+* modified files
+
+--- orig/Documentation/connector/cn_test.c
++++ mod/Documentation/connector/cn_test.c
+@@ -55,14 +55,14 @@
+ 	
+ 	size = NLMSG_SPACE(size0);
+ 
+-	skb = alloc_skb(size, GFP_ATOMIC);
++	skb = alloc_skb(size, GFP_KERNEL);
+ 	if (!skb) {
+ 		printk(KERN_ERR "Failed to allocate new skb with size=%u.\n", size);
+ 
+ 		return -ENOMEM;
+ 	}
+ 
+-	nlh = NLMSG_PUT(skb, 0, 0x123, NLMSG_DONE, size - sizeof(*nlh));
++	nlh = NLMSG_PUT(skb, 0, 0x123, NLMSG_DONE, size0);
+ 
+ 	msg = (struct cn_msg *)NLMSG_DATA(nlh);
+ 
+@@ -104,7 +104,6 @@
+ 	req->range = 10;
+ 	
+ 	NETLINK_CB(skb).dst_groups = ctl->group;
+-	//netlink_broadcast(nls, skb, 0, ctl->group, GFP_ATOMIC);
+ 	netlink_unicast(nls, skb, 0, 0);
+ 
+ 	printk(KERN_INFO "Request was sent. Group=0x%x.\n", ctl->group);
+@@ -124,8 +123,7 @@
+ 	char data[32];
+ 
+ 	m = kmalloc(sizeof(*m) + sizeof(data), GFP_ATOMIC);
+-	if (m)
+-	{
++	if (m) {
+ 		memset(m, 0, sizeof(*m) + sizeof(data));
+ 
+ 		memcpy(&m->id, &cn_test_id, sizeof(m->id));
+@@ -136,8 +134,8 @@
+ 
+ 		memcpy(m+1, data, m->len);
+ 		
+-		cbus_insert(m);
+-		//cn_netlink_send(m, 0);
++		cbus_insert(m, GFP_ATOMIC);
++		//cn_netlink_send(m, 0, GFP_ATOMIC);
+ 		kfree(m);
+ 	}
+ 
+
+
+--- orig/drivers/connector/connector.c
++++ mod/drivers/connector/connector.c
+@@ -100,15 +100,15 @@
+ 	else
+ 		groups = __groups;
+ 
+-	size = NLMSG_SPACE(sizeof(*msg) + msg->len);
++	size = sizeof(*msg) + msg->len;
+ 
+-	skb = alloc_skb(size, gfp_mask);
++	skb = alloc_skb(NLMSG_SPACE(size), gfp_mask);
+ 	if (!skb) {
+-		printk(KERN_ERR "Failed to allocate new skb with size=%u.\n", size);
++		printk(KERN_ERR "Failed to allocate new skb with size=%u.\n", NLMSG_SPACE(size));
+ 		return -ENOMEM;
+ 	}
+ 
+-	nlh = NLMSG_PUT(skb, 0, msg->seq, NLMSG_DONE, size - NLMSG_ALIGN(sizeof(*nlh)));
++	nlh = NLMSG_PUT(skb, 0, msg->seq, NLMSG_DONE, size);
+ 
+ 	data = (struct cn_msg *)NLMSG_DATA(nlh);
+ 
+
+
+
+
+
+	Evgeniy Polyakov
+
+Only failure makes us experts. -- Theo de Raadt
