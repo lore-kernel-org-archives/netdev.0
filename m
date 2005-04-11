@@ -1,118 +1,83 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: [2/1] connector/CBUS: new messaging subsystem. Revision number
- next.
-Date: Mon, 11 Apr 2005 18:49:52 +0400
-Message-ID: <20050411184952.259ec639@zanzibar.2ka.mipt.ru>
-References: <20050411125932.GA19538@uganda.factory.vocord.ru>
-	<20050411133239.GM26731@postel.suug.ch>
-Reply-To: johnpol@2ka.mipt.ru
+From: linux lover <linux_lover2004@yahoo.com>
+Subject: Why skbuff.h different for 2.4 and 2.6 kernels?
+Date: Mon, 11 Apr 2005 09:37:52 -0700 (PDT)
+Message-ID: <20050411163753.20149.qmail@web52210.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Greg KH <greg@kroah.com>,
-	Jamal Hadi Salim <hadi@cyberus.ca>,
-	Kay Sievers <kay.sievers@vrfy.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	James Morris <jmorris@redhat.com>,
-	Guillaume Thouvenin <guillaume.thouvenin@bull.net>,
-	linux-kernel@vger.kernel.org, Andrew Morton <akpm@osdl.org>,
-	Jay Lan <jlan@engr.sgi.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261788AbVDKOvS@vger.kernel.org>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050411133239.GM26731@postel.suug.ch>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Some nlmsg alignment cleanups. Documentation module cleanups.
+hello,
+1) In 2.4 kernel series skbuff.h has following unions
+for each TCP/IP layer.
+       /*Transport Layer*/
+      union
+	{
+		struct tcphdr	*th;
+		struct udphdr	*uh;
+		struct icmphdr	*icmph;
+		struct igmphdr	*igmph;
+		struct iphdr	*ipiph;
+                struct spxhdr	*spxh;
+		unsigned char	*raw;
+	} h;
 
-Thanks, Thomas.
+	/* Network layer header */
+	union
+	{
+		struct iphdr	*iph;
+		struct ipv6hdr	*ipv6h;
+		struct arphdr	*arph;
+		struct ipxhdr	*ipxh;
+		unsigned char	*raw;
+	} nh;
 
-Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+	/* Link layer header */
+	union 
+	{	
+	  	struct ethhdr	*ethernet;
+	  	unsigned char 	*raw;
+	} mac;
 
-* looking for johnpol@2ka.mipt.ru-2004/connector--main--0--patch-47 to compare with
-* comparing to johnpol@2ka.mipt.ru-2004/connector--main--0--patch-47
-M  cn_test.c
-M  connector.c
+AND In 2.6 kernel series skbuff.h has following unions
+for each TCP/IP layer.
+	union {
+		struct tcphdr	*th;
+		struct udphdr	*uh;
+		struct icmphdr	*icmph;
+		struct igmphdr	*igmph;
+		struct iphdr	*ipiph;
+		struct ipv6hdr	*ipv6h;
+		unsigned char	*raw;
+	} h;
 
-* modified files
+	union {
+		struct iphdr	*iph;
+		struct ipv6hdr	*ipv6h;
+		struct arphdr	*arph;
+		unsigned char	*raw;
+	} nh;
 
---- orig/Documentation/connector/cn_test.c
-+++ mod/Documentation/connector/cn_test.c
-@@ -55,14 +55,14 @@
- 	
- 	size = NLMSG_SPACE(size0);
- 
--	skb = alloc_skb(size, GFP_ATOMIC);
-+	skb = alloc_skb(size, GFP_KERNEL);
- 	if (!skb) {
- 		printk(KERN_ERR "Failed to allocate new skb with size=%u.\n", size);
- 
- 		return -ENOMEM;
- 	}
- 
--	nlh = NLMSG_PUT(skb, 0, 0x123, NLMSG_DONE, size - sizeof(*nlh));
-+	nlh = NLMSG_PUT(skb, 0, 0x123, NLMSG_DONE, size0);
- 
- 	msg = (struct cn_msg *)NLMSG_DATA(nlh);
- 
-@@ -104,7 +104,6 @@
- 	req->range = 10;
- 	
- 	NETLINK_CB(skb).dst_groups = ctl->group;
--	//netlink_broadcast(nls, skb, 0, ctl->group, GFP_ATOMIC);
- 	netlink_unicast(nls, skb, 0, 0);
- 
- 	printk(KERN_INFO "Request was sent. Group=0x%x.\n", ctl->group);
-@@ -124,8 +123,7 @@
- 	char data[32];
- 
- 	m = kmalloc(sizeof(*m) + sizeof(data), GFP_ATOMIC);
--	if (m)
--	{
-+	if (m) {
- 		memset(m, 0, sizeof(*m) + sizeof(data));
- 
- 		memcpy(&m->id, &cn_test_id, sizeof(m->id));
-@@ -136,8 +134,8 @@
- 
- 		memcpy(m+1, data, m->len);
- 		
--		cbus_insert(m);
--		//cn_netlink_send(m, 0);
-+		cbus_insert(m, GFP_ATOMIC);
-+		//cn_netlink_send(m, 0, GFP_ATOMIC);
- 		kfree(m);
- 	}
- 
+	union {
+	  	unsigned char 	*raw;
+	} mac;
 
+ why mac union in 2.6 not have ethernet header? Also
+spxhdr and ipxhdr structures are removed from nh and h
+unions.
 
---- orig/drivers/connector/connector.c
-+++ mod/drivers/connector/connector.c
-@@ -100,15 +100,15 @@
- 	else
- 		groups = __groups;
- 
--	size = NLMSG_SPACE(sizeof(*msg) + msg->len);
-+	size = sizeof(*msg) + msg->len;
- 
--	skb = alloc_skb(size, gfp_mask);
-+	skb = alloc_skb(NLMSG_SPACE(size), gfp_mask);
- 	if (!skb) {
--		printk(KERN_ERR "Failed to allocate new skb with size=%u.\n", size);
-+		printk(KERN_ERR "Failed to allocate new skb with size=%u.\n", NLMSG_SPACE(size));
- 		return -ENOMEM;
- 	}
- 
--	nlh = NLMSG_PUT(skb, 0, msg->seq, NLMSG_DONE, size - NLMSG_ALIGN(sizeof(*nlh)));
-+	nlh = NLMSG_PUT(skb, 0, msg->seq, NLMSG_DONE, size);
- 
- 	data = (struct cn_msg *)NLMSG_DATA(nlh);
- 
+2) Why header structures for ipcomp,eh,esp(IPSEC) not
+included in skbuff.h?
+ Then how can skbuff adds/removes those headers in
+skbuff? 
 
+regards,
+linux_lover
 
-
-
-
-	Evgeniy Polyakov
-
-Only failure makes us experts. -- Theo de Raadt
+__________________________________________________
+Do You Yahoo!?
+Tired of spam?  Yahoo! Mail has the best spam protection around 
+http://mail.yahoo.com 
