@@ -1,49 +1,39 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [1/1] connector/CBUS: new messaging subsystem. Revision number next.
-Date: Mon, 11 Apr 2005 15:32:39 +0200
-Message-ID: <20050411133239.GM26731@postel.suug.ch>
-References: <20050411125932.GA19538@uganda.factory.vocord.ru>
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: Re: Function to read IP address in dot format
+Date: Mon, 11 Apr 2005 07:07:23 -0700
+Message-ID: <20050411070723.5de5e286.rddunlap@osdl.org>
+References: <20050411060510.12208.qmail@web52201.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, Greg KH <greg@kroah.com>,
-	Jamal Hadi Salim <hadi@cyberus.ca>,
-	Kay Sievers <kay.sievers@vrfy.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	James Morris <jmorris@redhat.com>,
-	Guillaume Thouvenin <guillaume.thouvenin@bull.net>,
-	linux-kernel@vger.kernel.org, Andrew Morton <akpm@osdl.org>,
-	Jay Lan <jlan@engr.sgi.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261699AbVDKNc2@vger.kernel.org>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Content-Disposition: inline
-In-Reply-To: <20050411125932.GA19538@uganda.factory.vocord.ru>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: linux lover <linux_lover2004@yahoo.com>
+In-Reply-To: <20050411060510.12208.qmail@web52201.mail.yahoo.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Evgeniy Polyakov <20050411125932.GA19538@uganda.factory.vocord.ru> 2005-04-11 16:59
-> +	size = NLMSG_SPACE(sizeof(*msg) + msg->len);
-> +
-> +	skb = alloc_skb(size, gfp_mask);
-> +	if (!skb) {
-> +		printk(KERN_ERR "Failed to allocate new skb with size=%u.\n", size);
-> +		return -ENOMEM;
-> +	}
-> +
-> +	nlh = NLMSG_PUT(skb, 0, msg->seq, NLMSG_DONE, size - sizeof(*nlh));
+On Sun, 10 Apr 2005 23:05:10 -0700 (PDT) linux lover wrote:
 
-Needs same fix.
+| 
+| Hello,
+|           what is the function to read IP address in
+| kernel code as human readable dot quad format? IP
+| address are unsigned int's in ip.h file as
+|         __u32   saddr;
+|         __u32   daddr;
+|          In ip_build_xmit ip header gets IP addresses
+| from rtable struct as
+| iph->saddr=rt->rt_src;
+| iph->daddr=rt->rt_dst;
+|            Now if i want to know to which ip current
+| packet is being sent i am using printks but it prints
+| iph->saddr in int format not in user readable format.
+| how to do that?
 
-> +	size0 = sizeof(*msg) + sizeof(*ctl) + 3*sizeof(*req);
-> +	
-> +	size = NLMSG_SPACE(size0);
-> +
-> +	skb = alloc_skb(size, GFP_ATOMIC);
-> +	if (!skb) {
-> +		printk(KERN_ERR "Failed to allocate new skb with size=%u.\n", size);
-> +
-> +		return -ENOMEM;
-> +	}
-> +
-> +	nlh = NLMSG_PUT(skb, 0, 0x123, NLMSG_DONE, size - NLMSG_ALIGN(sizeof(*nlh)));
+Look at the NIPQUAD() macro in include/linux/kernel.h
+and at some example uses of it.
 
-Just pass size0 instead of reverting the calculation.
+---
+~Randy
