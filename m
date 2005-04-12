@@ -1,27 +1,49 @@
-From: Roger Luethi <rl@hellgate.ch>
-Subject: Re: VIA Rhine ethernet driver bug
-Date: Tue, 12 Apr 2005 17:27:22 +0200
-Message-ID: <20050412152721.GB8897@k3.hellgate.ch>
-References: <000501c53da5$944b05d0$450aa8c0@hierzo>
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: Fw: throttling kernel messages: KERNEL: assertion (flags &
+ MSG_PEEK) failed at net/ipv4/tcp.c (1282)
+Date: Tue, 12 Apr 2005 11:41:48 -0700
+Message-ID: <20050412114148.66283c58.rddunlap@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Udo van den Heuvel <udovdh@xs4all.nl>
-Content-Disposition: inline
-In-Reply-To: <000501c53da5$944b05d0$450aa8c0@hierzo>
+To: netdev <netdev@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 10 Apr 2005 10:16:21 +0200, Udo van den Heuvel wrote:
-> Apr  8 18:51:08 epia kernel: eth1: Oversized Ethernet frame spanned multiple
-> buffers, entry 0x9 length 0 status 00000600!
 
-It's been a while since I looked into this, but here's what I remember:
-This is not supposed to happen. Because this is so peculiar, I talked
-it over with VIA, and they want to know whether their own driver makes
-any difference. I relayed that request to you, but I don't remember
-ever getting a report back. Did I miss something?
+FYI.
 
-Roger
+
+Begin forwarded message:
+
+Date: Tue, 12 Apr 2005 11:41:48 +0200
+From: "Ulrich Windl" <ulrich.windl@rz.uni-regensburg.de>
+To: linux-kernel@vger.kernel.org
+Subject: throttling kernel messages: KERNEL: assertion (flags & MSG_PEEK) failed at net/ipv4/tcp.c (1282)
+
+
+Hi,
+
+I'm affected by the (in)famous bug:
+Apr 12 07:03:02 mailgate kernel: recvmsg bug: copied D640F0D1 seq D640F679
+Apr 12 07:03:02 mailgate kernel: KERNEL: assertion (flags & MSG_PEEK) failed at 
+net/ipv4/tcp.c (1282)
+Apr 12 07:03:02 mailgate kernel: recvmsg bug: copied D640F0D1 seq D640F679
+Apr 12 07:03:02 mailgate kernel: KERNEL: assertion (flags & MSG_PEEK) failed at 
+net/ipv4/tcp.c (1282)
+
+(Kernel of SuSE Linux 9.2, 2.6.8-24.13-default #1 Fri Mar 18 10:19:42 UTC 2005 
+i686 i686 i386 GNU/Linux)
+
+The kernel spits out hundreds to thousand messages per second, making klogd and 
+syslogd quite busy, and my messages file stopped growing at 2GB.
+
+I'd suggest to enable throttling for this message, or trigger a panic/reboot, or 
+maybe even fix the bug or message. ;-)
+
+Regards,
+Ulrich
+
+-
