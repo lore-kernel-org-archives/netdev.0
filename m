@@ -1,60 +1,74 @@
-From: linux lover <linux_lover2004@yahoo.com>
-Subject: Re: Why skbuff.h different for 2.4 and 2.6 kernels?
-Date: Mon, 11 Apr 2005 19:13:57 -0700 (PDT)
-Message-ID: <20050412021357.11194.qmail@web52210.mail.yahoo.com>
+From: "Andrew Hall" <temp02@bluereef.com.au>
+Subject: Dead loop on Virtual device br0
+Date: Tue, 12 Apr 2005 14:58:16 +1000
+Message-ID: <08f801c53f1c$3cf105f0$5001010a@bluereef.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/alternative;
+	boundary="----=_NextPart_000_08F5_01C53F70.0E8B89C0"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: acme@conectiva.com.br
-In-Reply-To: 6667
+To: <netdev@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+This is a multi-part message in MIME format.
 
---- Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>
-wrote:
-> On Apr 11, 2005 10:26 PM, linux lover
+------=_NextPart_000_08F5_01C53F70.0E8B89C0
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 
-Hello,
-            Sorry if my questions are stupid but again
-have one question when skbuff.h is implemeted as
-     void *transport_header;
-        void *network_header;
-        void *link_header;
-          
-            Then how say ESP packet can be constructed
-in network stack. ESP has structure as 
-       New IP header + ESP header + IP header +
-TCP/UDP header + ESP trailer + ESP auth. header
-           Does it then remains only with playing
-skbuff by using skb_push and skb_pull in ESP packet
-processing once skbuff.h will change?
-Please kindly correct me to understand this.
-regards,
-linux_lover.
+Hi,
 
- <linux_lover2004@yahoo.com> wrote:
-> > Hello,
-> >         Thanks for reply. Can you please tell me
-> about
-> > my second question?
-> >       2)But Why header structures for ipcomp, eh,
-> > esp(IPSEC) not included in skbuff.h?
-> 
-> I thought I have answered this, the reason to have
-> the layer pointers in skb
-> be void is that skb is core/generic infrastructure,
-> it should not have any kind
-> of protocol specific structures/information in it.
-> 
-> - Arnaldo
-> 
+Not sure if this is a possible bug, but we are seeing this message a =
+lot.
 
+We are using 2.6.10 and have now tried 2.6.11.5 with native ipsec, =
+brouting, netfilter and HTB queuing enabled. If I shut down the ipsec =
+tunnel, this message goes away.
 
-		
-__________________________________ 
-Do you Yahoo!? 
-Yahoo! Small Business - Try our new resources site!
-http://smallbusiness.yahoo.com/resources/
+Can someone please explain what it means and whether it's a bug?
+
+Please let me know if there is any more information you need.
+
+thanks,
+
+Andrew.
+------=_NextPart_000_08F5_01C53F70.0E8B89C0
+Content-Type: text/html;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML><HEAD>
+<META http-equiv=3DContent-Type content=3D"text/html; =
+charset=3Diso-8859-1">
+<META content=3D"MSHTML 6.00.2900.2604" name=3DGENERATOR>
+<STYLE></STYLE>
+</HEAD>
+<BODY bgColor=3D#ffffff>
+<DIV><FONT face=3DArial size=3D2>Hi,</FONT></DIV>
+<DIV><FONT face=3DArial size=3D2></FONT>&nbsp;</DIV>
+<DIV><FONT face=3DArial size=3D2>Not sure if this is a possible bug, but =
+we are=20
+seeing this message a lot.</FONT></DIV>
+<DIV><FONT face=3DArial size=3D2></FONT>&nbsp;</DIV>
+<DIV><FONT face=3DArial size=3D2>We are using 2.6.10 and have now=20
+tried&nbsp;2.6.11.5 with native ipsec, brouting, netfilter&nbsp;and HTB =
+queuing=20
+enabled. If I shut down the ipsec tunnel, this message goes =
+away.</FONT></DIV>
+<DIV><FONT face=3DArial size=3D2></FONT>&nbsp;</DIV>
+<DIV><FONT face=3DArial size=3D2>Can someone please explain what it =
+means and=20
+whether it's a bug?</FONT></DIV>
+<DIV><FONT face=3DArial size=3D2></FONT>&nbsp;</DIV>
+<DIV><FONT face=3DArial size=3D2>Please let me know if there is any more =
+information=20
+you need.</FONT></DIV>
+<DIV><FONT face=3DArial size=3D2></FONT>&nbsp;</DIV>
+<DIV><FONT face=3DArial size=3D2>thanks,</FONT></DIV>
+<DIV><FONT face=3DArial size=3D2></FONT>&nbsp;</DIV>
+<DIV><FONT face=3DArial size=3D2>Andrew.</FONT></DIV></BODY></HTML>
+
+------=_NextPart_000_08F5_01C53F70.0E8B89C0--
