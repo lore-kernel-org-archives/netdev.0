@@ -1,48 +1,30 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [5/*] [IPSEC] Use XFRM_MSG_* instead of XFRM_SAP_*
-Date: 12 Apr 2005 09:37:03 -0400
-Message-ID: <1113313023.1966.79.camel@jzny.localdomain>
-References: <1112702604.1089.119.camel@jzny.localdomain>
-	 <20050409105452.GA7171@gondor.apana.org.au>
-	 <20050409111244.GB7171@gondor.apana.org.au>
-	 <20050409111551.GA7378@gondor.apana.org.au>
-	 <20050410074849.GA13259@gondor.apana.org.au>
-	 <20050410090250.GA26022@gondor.apana.org.au>
-	 <1113142510.1091.294.camel@jzny.localdomain>
-	 <425A0F00.8070509@linux-ipv6.org>
-	 <1113218805.1089.357.camel@jzny.localdomain>
-	 <425B8401.1010609@linux-ipv6.org>
-Reply-To: hadi@cyberus.ca
+From: "imperishablealbeit" <imperishablealbeit@163.com>
+Subject: how to control the limited cpu resource for actions of transimiting packets from different interface?
+Date: Tue, 12 Apr 2005 15:23:27 +0000 (UTC)
+Message-ID: <200504121523.j3CFN4S3028078@oss.sgi.com>
+Reply-To: imperishablealbeit@163.com
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+	charset="gb2312"
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-        "David S. Miller" <davem@davemloft.net>,
-        Patrick McHardy <kaber@trash.net>, netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Masahide NAKAMURA <nakam@linux-ipv6.org>
-In-Reply-To: <425B8401.1010609@linux-ipv6.org>
+Date: Wed, 13 Apr 2005 23:22:35 -0800
+To: "netdev" <netdev@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2005-04-12 at 04:17, Masahide NAKAMURA wrote:
+hi,everyone, 
 
-> short report:
-> My testing is not completed but, I've tested below and it is fine:
->  add/del/flush SP and their notifications through netlink (using modified iproute2/ip).
-> 
->  new "xfrm_userpolicy_delete" works fine on this case;
->  used byid=1 when deleting SP with specifying SP index.
-> 
-> I'll test the rest case (17 hours later):
-> - using pfkey
-> - using both sockets
-> 
+I meet a problem recently , the situation likes this:
 
-I did basic testing with pfkey generated events (policy/state) showing
-up in both. The vice-versa also looks good.
-Herbert, try to push forward to Dave.
+there are two net card in my laptop, one is wired eth0 and the other is wireless netcard named eth1 . Now I have wroten a script like NAT, that is , the packats from eth0 the forward to  eth1, and the packets from eth1 also will be sent to eth0, so my laptop seems like a AP. What's more, there are two kinds of packets in the direction from etho to eth1, packet0 and packe1 alternatively. In order to meet the need of special requirement, packet0 must be sent with precedence over packet1,  so at any time, the packet0 should be deal with first. How can I deal with it in kernel?
 
-cheers,
-jamal
+I do not know if I can view the two actions, the one is transmiting packet0 from eth0 to eth1 and the other one is transmiting packet1  in the same direction, as two processes and schedule them with different priority ? if not , what I can arrvie at my aim in kernel?
+is there any way particular ?? 
+
+In addition, given that the whole CPU resource is unchangeable, in linux kernel how it can get balance point among actions such as the two presented above and 'who' can control it, a Daemon or 'someone else'?
+
+I don't know how kernel works clearly and any help will be appreciated:) 
+
+thanks !!
