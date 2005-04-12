@@ -1,35 +1,63 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [patch 2.6.12-rc2-mm3 1/1] r8169: new PCI id
-Date: Mon, 11 Apr 2005 23:55:11 +0200
-Message-ID: <20050411215511.GA2819@electric-eye.fr.zoreil.com>
+From: linux lover <linux_lover2004@yahoo.com>
+Subject: Re: Why skbuff.h different for 2.4 and 2.6 kernels?
+Date: Mon, 11 Apr 2005 18:26:13 -0700 (PDT)
+Message-ID: <20050412012614.69495.qmail@web52209.mail.yahoo.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, TommyDrum <mycooc@yahoo.it>, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: akpm@osdl.org
-Content-Disposition: inline
+To: acme@conectiva.com.br
+In-Reply-To: 6667
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The USR 997902 is based on the 8169 chipset.
-
-The value has been extracted from the sources of the driver which
-comes with the manufacturer's cdrom. Heads-up and test by TommyDrum
-<mycooc@yahoo.it>.
-
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-
-diff -puN drivers/net/r8169.c~r8169-610 drivers/net/r8169.c
---- a/drivers/net/r8169.c~r8169-610	2005-04-11 23:00:42.732205462 +0200
-+++ b/drivers/net/r8169.c	2005-04-11 23:01:11.372565356 +0200
-@@ -176,6 +176,7 @@ const static struct {
- static struct pci_device_id rtl8169_pci_tbl[] = {
- 	{0x10ec, 0x8169, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
- 	{0x1186, 0x4300, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
-+	{0x16ec, 0x0116, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
- 	{0,},
- };
+Hello,
+        Thanks for reply. Can you please tell me about
+my second question?
+      2)But Why header structures for ipcomp, eh,
+esp(IPSEC) not included in skbuff.h?
  
+regards,
+linux_lover.
 
-_
+--- Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>
+wrote:
+> On Apr 11, 2005 1:37 PM, linux lover
+> <linux_lover2004@yahoo.com> wrote:
+> > hello,
+> > 1) In 2.4 kernel series skbuff.h has following
+> unions
+> > for each TCP/IP layer.
+> 
+> 
+> >         union {
+> >                 unsigned char   *raw;
+> >         } mac;
+> > 
+> >  why mac union in 2.6 not have ethernet header?
+> Also
+> > spxhdr and ipxhdr structures are removed from nh
+> and h
+> > unions.
+> 
+> Work in progress, the ultimate goal is to get rid of
+> all of these unions and
+> have just:
+> 
+>         void *transport_header;
+>         void *network_header;
+>         void *link_header;
+> 
+> So just set mac.raw directly and cast it to the
+> desired type.
+> 
+> - Arnaldo
+> 
+
+
+		
+__________________________________ 
+Do you Yahoo!? 
+Yahoo! Small Business - Try our new resources site!
+http://smallbusiness.yahoo.com/resources/
