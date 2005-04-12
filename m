@@ -1,132 +1,125 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: [PATCH] IPV6_CHECKSUM socket option can corrupt kernel memory
-Date: Tue, 12 Apr 2005 17:41:25 -0600
-Message-ID: <OF618A0572.CA254DA0-ON88256FE1.0080DB81-88256FE1.0082220B@us.ibm.com>
+From: Baruch Even <baruch@ev-en.org>
+Subject: Re: TCP performance drop 2.6.6->2.6.7
+Date: Wed, 13 Apr 2005 00:59:25 +0100
+Message-ID: <425C60DD.5090007@ev-en.org>
+References: <425C493B.5040206@ev-en.org> <20050412160752.46c82f0c@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=_mixed 0082220788256FE1_="
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/mixed;
+ boundary="------------090709020305080106070102"
+Cc: netdev@oss.sgi.com, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@davemloft.com
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20050412160752.46c82f0c@dxpl.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---=_mixed 0082220788256FE1_=
-Content-Type: text/plain; charset="US-ASCII"
+This is a multi-part message in MIME format.
+--------------090709020305080106070102
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-I was doing some testing with IPV6_CHECKSUM and started getting memory
-corruption (panic when the socket was closed). The bug originally 
-manifested
-itself as a the "csum" pointer in rawv6_push_pending_frames() pointing 
-beyond
-the end of the skb data and trashing skb_shinfo(skb) because it didn't 
-handle
-the case where nr_frags was 1 (and it was being called with an skb like 
-that...).
+Stephen Hemminger wrote:
+> On Tue, 12 Apr 2005 23:18:35 +0100
+> Baruch Even <baruch@ev-en.org> wrote:
+>>The setup for the tests, vanilla kernels, dummynet with 100 Mbit/s and 
+>>40ms rtt using the BIC protocol. No patches applied whatsoever.
+>>
+>>iperf tests for 2.6.6 get about 90Mbit/s while 2.6.7 gets 30Mbit/s.
+> 
+> 
+> Haven't measured old kernels recently. But haven't seen that with the
+> newest stuff I tested last night. At 40ms delay  with netem
+> over 1G to 100M bridge.
+> 	Reno	99.6
+> 	Vegas	61.6
+> 	BIC	  97.8
+> 	Hstcp	 99.4
+> 	Westwood 99.4
 
-After fixing that, I found that the reason nr_frags was nonzero was 
-because
-a prior sendto(), which had an invalid offset (for testing) had returned 
-an error
-but left the packet data in the socket buffer. Subsequent calls wouldn't 
-fit in
-the existing skb, so they resulted in frag buffers and an invalid csum 
-pointer.
+I've now tested 2.6.11.7 and I get about 50Mbit/s, it starts at about 
+100 and drops to about 45. Tested for about a minute but it didn't show 
+signs of recovery.
 
-I don't know if it is possible, after the fix for the second problem, to 
-get an
-skb with nonzero nr_frags in rawv6_push_pending_frames() (maybe with
-corking? or maybe via MSG_MORE?), but this patch includes support for
-non-linear skbs as well as the missing flush on error that caused the 
-problem
-to begin with.
+> What are your sysctl settings. 
 
-in-line with mangled whitespace, and attached for applying.
+Attached.
 
-                                                +-DLS
+Baruch
 
---- linux-2.6.11.7/net/ipv6/raw.c       2005-04-07 11:57:32.000000000 
--0700
-+++ linux-2.6.11.7T1/net/ipv6/raw.c     2005-04-12 15:05:00.000000000 
--0700
-@@ -465,9 +465,28 @@ static int rawv6_push_pending_frames(str
-        if ((skb = skb_peek(&sk->sk_write_queue)) == NULL)
-                goto out;
- 
--       if (rp->offset + 1 < len)
--               csum = (u16 *)(skb->h.raw + rp->offset);
--       else {
-+       if (rp->offset + 1 < len) {
-+               if (rp->offset < skb->tail - skb->h.raw - 1) {
-+                       csum = (u16 *)(skb->h.raw + rp->offset);
-+               } else if (skb_shinfo(skb)->nr_frags) {
-+                       int offset = rp->offset;
-+                       int i;
-+
-+                       offset -= skb->tail - skb->h.raw -1;
-+                       for (i=0; i<skb_shinfo(skb)->nr_frags; ++i) {
-+                               if (offset < 
-skb_shinfo(skb)->frags[i].size)
-+                                       break;
-+                               offset -= skb_shinfo(skb)->frags[i].size;
-+                       }
-+                       csum = (u16 *)
-+ (page_address(skb_shinfo(skb)->frags[i].page) +
-+                               skb_shinfo(skb)->frags[i].page_offset + 
-offset);
-+               } else {
-+                       /* "can't happen"; len already checked, but.. */
-+                       err = -EINVAL;
-+                       goto out;
-+               }
-+       } else {
-                err = -EINVAL;
-                goto out;
-        }
-@@ -771,8 +790,11 @@ back_from_confirm:
- 
-                if (err)
-                        ip6_flush_pending_frames(sk);
--               else if (!(msg->msg_flags & MSG_MORE))
-+               else if (!(msg->msg_flags & MSG_MORE)) {
-                        err = rawv6_push_pending_frames(sk, &fl, rp, len);
-+                       if (err)
-+                               ip6_flush_pending_frames(sk);
-+               }
-        }
- done:
-        ip6_dst_store(sk, dst,
+--------------090709020305080106070102
+Content-Type: text/plain;
+ name="sysctls"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="sysctls"
 
+icmp_echo_ignore_all 0
+icmp_echo_ignore_broadcasts 0
+icmp_ignore_bogus_error_responses 0
+icmp_ratelimit 1000
+icmp_ratemask 6168
+igmp_max_memberships 20
+igmp_max_msf 10
+inet_peer_gc_maxtime 120
+inet_peer_gc_mintime 10
+inet_peer_maxttl 600
+inet_peer_minttl 120
+inet_peer_threshold 65664
+ip_autoconfig 0
+ip_default_ttl 64
+ip_dynaddr 0
+ip_forward 0
+ip_local_port_range 32768 61000
+ip_no_pmtu_disc 0
+ip_nonlocal_bind 0
+ipfrag_high_thresh 262144
+ipfrag_low_thresh 196608
+ipfrag_secret_interval 600
+ipfrag_time 30
+tcp_abort_on_overflow 0
+tcp_adv_win_scale 2
+tcp_app_win 31
+tcp_bic 1
+tcp_bic_beta 819
+tcp_bic_fast_convergence 1
+tcp_bic_low_window 14
+tcp_dsack 1
+tcp_ecn 0
+tcp_fack 1
+tcp_fin_timeout 60
+tcp_frto 0
+tcp_keepalive_intvl 75
+tcp_keepalive_probes 9
+tcp_keepalive_time 7200
+tcp_low_latency 0
+tcp_max_orphans 8192
+tcp_max_syn_backlog 1024
+tcp_max_tw_buckets 180000
+tcp_mem 8388608 8388608 8388608
+tcp_moderate_rcvbuf 1
+tcp_no_metrics_save 0
+tcp_orphan_retries 0
+tcp_reordering 3
+tcp_retrans_collapse 1
+tcp_retries1 3
+tcp_retries2 15
+tcp_rfc1337 0
+tcp_rmem 4096 87380 8388608
+tcp_sack 1
+tcp_stdurg 0
+tcp_syn_retries 5
+tcp_synack_retries 5
+tcp_timestamps 1
+tcp_tso_win_divisor 8
+tcp_tw_recycle 0
+tcp_tw_reuse 0
+tcp_vegas_alpha 2
+tcp_vegas_beta 6
+tcp_vegas_cong_avoid 0
+tcp_vegas_gamma 2
+tcp_westwood 0
+tcp_window_scaling 1
+tcp_wmem 4096 87380 8388608
 
-
---=_mixed 0082220788256FE1_=
-Content-Type: application/octet-stream; name="rawv6.patch"
-Content-Disposition: attachment; filename="rawv6.patch"
-Content-Transfer-Encoding: base64
-
-LS0tIGxpbnV4LTIuNi4xMS43L25ldC9pcHY2L3Jhdy5jCTIwMDUtMDQtMDcgMTE6NTc6MzIuMDAw
-MDAwMDAwIC0wNzAwCisrKyBsaW51eC0yLjYuMTEuN1QxL25ldC9pcHY2L3Jhdy5jCTIwMDUtMDQt
-MTIgMTU6MDU6MDAuMDAwMDAwMDAwIC0wNzAwCkBAIC00NjUsOSArNDY1LDI4IEBAIHN0YXRpYyBp
-bnQgcmF3djZfcHVzaF9wZW5kaW5nX2ZyYW1lcyhzdHIKIAlpZiAoKHNrYiA9IHNrYl9wZWVrKCZz
-ay0+c2tfd3JpdGVfcXVldWUpKSA9PSBOVUxMKQogCQlnb3RvIG91dDsKIAotCWlmIChycC0+b2Zm
-c2V0ICsgMSA8IGxlbikKLQkJY3N1bSA9ICh1MTYgKikoc2tiLT5oLnJhdyArIHJwLT5vZmZzZXQp
-OwotCWVsc2UgeworCWlmIChycC0+b2Zmc2V0ICsgMSA8IGxlbikgeworCQlpZiAocnAtPm9mZnNl
-dCA8IHNrYi0+dGFpbCAtIHNrYi0+aC5yYXcgLSAxKSB7CisJCQljc3VtID0gKHUxNiAqKShza2It
-PmgucmF3ICsgcnAtPm9mZnNldCk7CisJCX0gZWxzZSBpZiAoc2tiX3NoaW5mbyhza2IpLT5ucl9m
-cmFncykgeworCQkJaW50IG9mZnNldCA9IHJwLT5vZmZzZXQ7CisJCQlpbnQgaTsKKworCQkJb2Zm
-c2V0IC09IHNrYi0+dGFpbCAtIHNrYi0+aC5yYXcgLTE7CisJCQlmb3IgKGk9MDsgaTxza2Jfc2hp
-bmZvKHNrYiktPm5yX2ZyYWdzOyArK2kpIHsKKwkJCQlpZiAob2Zmc2V0IDwgc2tiX3NoaW5mbyhz
-a2IpLT5mcmFnc1tpXS5zaXplKQorCQkJCQlicmVhazsKKwkJCQlvZmZzZXQgLT0gc2tiX3NoaW5m
-byhza2IpLT5mcmFnc1tpXS5zaXplOworCQkJfQorCQkJY3N1bSA9ICh1MTYgKikKKwkJCQkocGFn
-ZV9hZGRyZXNzKHNrYl9zaGluZm8oc2tiKS0+ZnJhZ3NbaV0ucGFnZSkgKworCQkJCXNrYl9zaGlu
-Zm8oc2tiKS0+ZnJhZ3NbaV0ucGFnZV9vZmZzZXQgKyBvZmZzZXQpOworCQl9IGVsc2UgeworCQkJ
-LyogImNhbid0IGhhcHBlbiI7IGxlbiBhbHJlYWR5IGNoZWNrZWQsIGJ1dC4uICovCisJCQllcnIg
-PSAtRUlOVkFMOworCQkJZ290byBvdXQ7CisJCX0KKwl9IGVsc2UgewogCQllcnIgPSAtRUlOVkFM
-OwogCQlnb3RvIG91dDsKIAl9CkBAIC03NzEsOCArNzkwLDExIEBAIGJhY2tfZnJvbV9jb25maXJt
-OgogCiAJCWlmIChlcnIpCiAJCQlpcDZfZmx1c2hfcGVuZGluZ19mcmFtZXMoc2spOwotCQllbHNl
-IGlmICghKG1zZy0+bXNnX2ZsYWdzICYgTVNHX01PUkUpKQorCQllbHNlIGlmICghKG1zZy0+bXNn
-X2ZsYWdzICYgTVNHX01PUkUpKSB7CiAJCQllcnIgPSByYXd2Nl9wdXNoX3BlbmRpbmdfZnJhbWVz
-KHNrLCAmZmwsIHJwLCBsZW4pOworCQkJaWYgKGVycikKKwkJCQlpcDZfZmx1c2hfcGVuZGluZ19m
-cmFtZXMoc2spOworCQl9CiAJfQogZG9uZToKIAlpcDZfZHN0X3N0b3JlKHNrLCBkc3QsCg==
-
---=_mixed 0082220788256FE1_=--
+--------------090709020305080106070102--
