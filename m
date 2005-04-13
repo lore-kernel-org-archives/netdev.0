@@ -1,75 +1,52 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Fw: [Bugme-new] [Bug 4482] New: natsemi: incorrect initialization
- of IPv6 Neighbor-discovery multicast
-Date: Wed, 13 Apr 2005 10:36:42 -0700
-Message-ID: <20050413103642.172d3976.akpm@osdl.org>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: TCP performance drop 2.6.6->2.6.7
+Date: Wed, 13 Apr 2005 11:20:36 -0700
+Message-ID: <20050413112036.752a22f4@dxpl.pdx.osdl.net>
+References: <425C493B.5040206@ev-en.org>
+	<20050412160752.46c82f0c@dxpl.pdx.osdl.net>
+	<425C60DD.5090007@ev-en.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: svallet@gmail.com
+Cc: netdev@oss.sgi.com, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Baruch Even <baruch@ev-en.org>
+In-Reply-To: <425C60DD.5090007@ev-en.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Wed, 13 Apr 2005 00:59:25 +0100
+Baruch Even <baruch@ev-en.org> wrote:
 
+> Stephen Hemminger wrote:
+> > On Tue, 12 Apr 2005 23:18:35 +0100
+> > Baruch Even <baruch@ev-en.org> wrote:
+> >>The setup for the tests, vanilla kernels, dummynet with 100 Mbit/s and 
+> >>40ms rtt using the BIC protocol. No patches applied whatsoever.
 
-Begin forwarded message:
+What is the queue length? Better yet what is the exact commandline
+used to setup dummynet.
 
-Date: Wed, 13 Apr 2005 07:19:38 -0700
-From: bugme-daemon@osdl.org
-To: bugme-new@lists.osdl.org
-Subject: [Bugme-new] [Bug 4482] New: natsemi: incorrect initialization of IPv6 Neighbor-discovery multicast
-
-
-http://bugme.osdl.org/show_bug.cgi?id=4482
-
-           Summary: natsemi: incorrect initialization of IPv6 Neighbor-
-                    discovery multicast
-    Kernel Version: 2.6.11.7
-            Status: NEW
-          Severity: normal
-             Owner: jgarzik@pobox.com
-         Submitter: svallet@gmail.com
-
-
-Distribution: Debian Sarge (testing)
-
-Hardware Environment: 
-Arch is PowerPC/BeigeG3
-Problematic NIC has a DP83815 chipset (Netgear FA311)
-
-Software Environment:
-iproute2/ifconfig
-
-Problem Description:
-"ifconfig eth0 up" *apparently* allows multicast on the device :
-# ifconfig eth0
-...
-UP BROADCAST RUNNING MULTICAST
-...
-
-# ip maddr show
-...
-1:   eth0
-     link   33:33:ff:be:0a:ed
-     link   33:33:00:00:00:01
-     ...
-     inet6  ff02::1:ffbe:aed
-     inet6  ff02::1
-
-However, the NIC does *not* reply to neighbor-sollicitation multicasts, neither
-on 33:33:00:00:00:01 (ping6 ff02::1) or on the sollicited-node multicast.
-
-It *is* however responding *after* being brought in promiscuous mode (using
-tcpdump) or an "ifconfig eth0 multicast" has been issued. Shuting down and up
-brings the problem back again
-
-
-Steps to reproduce:
-# ifconfig eth0 down
-# ifconfig eth0 up
-
-------- You are receiving this mail because: -------
-You are on the CC list for the bug, or are watching someone who is.
+> >>
+> >>iperf tests for 2.6.6 get about 90Mbit/s while 2.6.7 gets 30Mbit/s.
+> > 
+> > 
+> > Haven't measured old kernels recently. But haven't seen that with the
+> > newest stuff I tested last night. At 40ms delay  with netem
+> > over 1G to 100M bridge.
+> > 	Reno	99.6
+> > 	Vegas	61.6
+> > 	BIC	  97.8
+> > 	Hstcp	 99.4
+> > 	Westwood 99.4
+> 
+> I've now tested 2.6.11.7 and I get about 50Mbit/s, it starts at about 
+> 100 and drops to about 45. Tested for about a minute but it didn't show 
+> signs of recovery.
+> 
+> > What are your sysctl settings. 
+> 
+> Attached.
+> 
+> Baruch
