@@ -1,49 +1,71 @@
 From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [patch 2.6.12-rc2 5/10] tg3: define TG3_FLG2_5750_PLUS flag
-Date: Wed, 13 Apr 2005 19:38:45 -0400
-Message-ID: <04132005193845.8597@laptop>
-References: <04132005193844.8539@laptop>
+Subject: [patch 2.6.12-rc2 4/10] tg3: use TG3_FLG2_5705_PLUS instead of multi-way if's
+Date: Wed, 13 Apr 2005 19:38:44 -0400
+Message-ID: <04132005193844.8539@laptop>
+References: <04132005193844.8474@laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: jgarzik@pobox.com, davem@davemloft.net
 Return-path: <netdev-bounce@oss.sgi.com>
 To: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-In-Reply-To: <04132005193844.8539@laptop>
+In-Reply-To: <04132005193844.8474@laptop>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Define TG3_FLG2_5750_PLUS flag and set it in tg3_get_invariants for
-ASIC_REV_5750 or ASIC_REV_5752.
+Replace a number of three-way if statements checking for 5705, 5750,
+and 5752 to reference the equivalent TG3_FLG2_5705_PLUS flag instead.
 
 Signed-off-by: John W. Linville <linville@tuxdriver.com>
 ---
 
- drivers/net/tg3.c |    4 ++++
- drivers/net/tg3.h |    1 +
- 2 files changed, 5 insertions(+)
+ drivers/net/tg3.c |   16 ++++------------
+ 1 files changed, 4 insertions(+), 12 deletions(-)
 
---- bcm5752-support/drivers/net/tg3.c.orig	2005-04-08 17:47:31.186930125 -0400
-+++ bcm5752-support/drivers/net/tg3.c	2005-04-08 17:47:16.409928291 -0400
-@@ -7951,6 +7951,10 @@ static int __devinit tg3_get_invariants(
+--- bcm5752-support/drivers/net/tg3.c.orig	2005-04-08 17:42:28.059553796 -0400
++++ bcm5752-support/drivers/net/tg3.c	2005-04-08 17:42:16.584131525 -0400
+@@ -85,9 +85,7 @@
+ /* hardware minimum and maximum for a single frame's data payload */
+ #define TG3_MIN_MTU			60
+ #define TG3_MAX_MTU(tp)	\
+-	((GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5705 && \
+-	  GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5750 && \
+-	  GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5752) ? 9000 : 1500)
++	(!(tp->tg3_flags2 & TG3_FLG2_5705_PLUS) ? 9000 : 1500)
  
- 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5750 ||
- 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5752)
-+		tp->tg3_flags2 |= TG3_FLG2_5750_PLUS;
-+
-+	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5750 ||
-+	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5752)
- 		tp->tg3_flags2 |= TG3_FLG2_HW_TSO;
+ /* These numbers seem to be hard coded in the NIC firmware somehow.
+  * You can't change the ring sizes, but you can change where you place
+@@ -863,9 +861,7 @@ out:
+ 	if ((tp->phy_id & PHY_ID_MASK) == PHY_ID_BCM5401) {
+ 		/* Cannot do read-modify-write on 5401 */
+ 		tg3_writephy(tp, MII_TG3_AUX_CTRL, 0x4c20);
+-	} else if (GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5705 &&
+-		   GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5750 &&
+-		   GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5752) {
++	} else if (!(tp->tg3_flags2 & TG3_FLG2_5705_PLUS)) {
+ 		u32 phy_reg;
  
- 	if (pci_find_capability(tp->pdev, PCI_CAP_ID_EXP) != 0)
---- bcm5752-support/drivers/net/tg3.h.orig	2005-04-08 17:47:35.536341972 -0400
-+++ bcm5752-support/drivers/net/tg3.h	2005-04-08 17:44:48.578234813 -0400
-@@ -2101,6 +2101,7 @@ struct tg3 {
- #define TG3_FLG2_HW_TSO			0x00010000
- #define TG3_FLG2_SERDES_PREEMPHASIS	0x00020000
- #define TG3_FLG2_5705_PLUS		0x00040000
-+#define TG3_FLG2_5750_PLUS		0x00080000
+ 		/* Set bit 14 with read-modify-write to preserve other bits */
+@@ -877,9 +873,7 @@ out:
+ 	/* Set phy register 0x10 bit 0 to high fifo elasticity to support
+ 	 * jumbo frames transmission.
+ 	 */
+-	if (GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5705 &&
+-	    GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5750 &&
+-	    GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5752) {
++	if (!(tp->tg3_flags2 & TG3_FLG2_5705_PLUS)) {
+ 		u32 phy_reg;
  
- 	u32				split_mode_max_reqs;
- #define SPLIT_MODE_5704_MAX_REQ		3
+ 		if (!tg3_readphy(tp, MII_TG3_EXT_CTRL, &phy_reg))
+@@ -8483,9 +8477,7 @@ static int __devinit tg3_test_dma(struct
+ 		/* DMA read watermark not used on PCIE */
+ 		tp->dma_rwctrl |= 0x00180000;
+ 	} else if (!(tp->tg3_flags & TG3_FLAG_PCIX_MODE)) {
+-		if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5705 ||
+-		    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5750 ||
+-		    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5752)
++		if (tp->tg3_flags2 & TG3_FLG2_5705_PLUS)
+ 			tp->dma_rwctrl |= 0x003f0000;
+ 		else
+ 			tp->dma_rwctrl |= 0x003f000f;
