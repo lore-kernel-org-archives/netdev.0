@@ -1,48 +1,49 @@
 From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [patch 2.6.12-rc2 3/10] tg3: add bcm5752 entry to pci_ids.h
-Date: Wed, 13 Apr 2005 19:38:44 -0400
-Message-ID: <04132005193844.8474@laptop>
-References: <04132005193844.8410@laptop>
+Subject: [patch 2.6.12-rc2 5/10] tg3: define TG3_FLG2_5750_PLUS flag
+Date: Wed, 13 Apr 2005 19:38:45 -0400
+Message-ID: <04132005193845.8597@laptop>
+References: <04132005193844.8539@laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: jgarzik@pobox.com, davem@davemloft.net
 Return-path: <netdev-bounce@oss.sgi.com>
 To: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-In-Reply-To: <04132005193844.8410@laptop>
+In-Reply-To: <04132005193844.8539@laptop>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Add proper entry for bcm5752 PCI ID to pci_ids.h, and use it in tg3.
+Define TG3_FLG2_5750_PLUS flag and set it in tg3_get_invariants for
+ASIC_REV_5750 or ASIC_REV_5752.
 
 Signed-off-by: John W. Linville <linville@tuxdriver.com>
 ---
-I did this separately in case patches like this (i.e. new PCI IDs)
-need to come from more "official" sources.
 
- drivers/net/tg3.c       |    2 +-
- include/linux/pci_ids.h |    1 +
- 2 files changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/tg3.c |    4 ++++
+ drivers/net/tg3.h |    1 +
+ 2 files changed, 5 insertions(+)
 
---- bcm5752-support/drivers/net/tg3.c.orig	2005-04-08 17:35:34.834372048 -0400
-+++ bcm5752-support/drivers/net/tg3.c	2005-04-08 17:34:42.536563710 -0400
-@@ -206,7 +206,7 @@ static struct pci_device_id tg3_pci_tbl[
- 	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0UL },
- 	{ PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5751F,
- 	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0UL },
--	{ PCI_VENDOR_ID_BROADCOM, 0x1600, /* TIGON3_5752 */
-+	{ PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5752,
- 	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0UL },
- 	{ PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5753,
- 	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0UL },
---- bcm5752-support/include/linux/pci_ids.h.orig	2005-04-08 17:30:45.655140363 -0400
-+++ bcm5752-support/include/linux/pci_ids.h	2005-04-08 17:31:52.965883217 -0400
-@@ -2065,6 +2065,7 @@
- #define PCI_DEVICE_ID_AFAVLAB_P030	0x2182
+--- bcm5752-support/drivers/net/tg3.c.orig	2005-04-08 17:47:31.186930125 -0400
++++ bcm5752-support/drivers/net/tg3.c	2005-04-08 17:47:16.409928291 -0400
+@@ -7951,6 +7951,10 @@ static int __devinit tg3_get_invariants(
  
- #define PCI_VENDOR_ID_BROADCOM		0x14e4
-+#define PCI_DEVICE_ID_TIGON3_5752	0x1600
- #define PCI_DEVICE_ID_TIGON3_5700	0x1644
- #define PCI_DEVICE_ID_TIGON3_5701	0x1645
- #define PCI_DEVICE_ID_TIGON3_5702	0x1646
+ 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5750 ||
+ 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5752)
++		tp->tg3_flags2 |= TG3_FLG2_5750_PLUS;
++
++	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5750 ||
++	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5752)
+ 		tp->tg3_flags2 |= TG3_FLG2_HW_TSO;
+ 
+ 	if (pci_find_capability(tp->pdev, PCI_CAP_ID_EXP) != 0)
+--- bcm5752-support/drivers/net/tg3.h.orig	2005-04-08 17:47:35.536341972 -0400
++++ bcm5752-support/drivers/net/tg3.h	2005-04-08 17:44:48.578234813 -0400
+@@ -2101,6 +2101,7 @@ struct tg3 {
+ #define TG3_FLG2_HW_TSO			0x00010000
+ #define TG3_FLG2_SERDES_PREEMPHASIS	0x00020000
+ #define TG3_FLG2_5705_PLUS		0x00040000
++#define TG3_FLG2_5750_PLUS		0x00080000
+ 
+ 	u32				split_mode_max_reqs;
+ #define SPLIT_MODE_5704_MAX_REQ		3
