@@ -1,64 +1,83 @@
-From: Horms <horms@verge.net.au>
-Subject: Re: [PATCH] Maintainers list update: linux-net -> netdev
-Date: Wed, 13 Apr 2005 11:14:02 +0900
-Message-ID: <20050413021400.GA1835@verge.net.au>
-References: <20050412062027.GA1614@verge.net.au> <425C1E30.5060405@mvista.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH] IPV6_CHECKSUM socket option can corrupt kernel memory
+Date: Tue, 12 Apr 2005 19:45:34 -0700
+Message-ID: <OF0A4F590E.3F5A449F-ON88256FE2.000E49F8-88256FE2.000F289A@us.ibm.com>
+References: <20050413.095308.124546011.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: =?iso-8859-1?Q?J=F6rn?= Engel <joern@wohnheim.fh-wedel.de>,
-        Pavel Machek <pavel@ucw.cz>, Jeff Garzik <jgarzik@pobox.com>,
-        Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
-        schwidefsky@de.ibm.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset="ISO-2022-JP"
+Cc: davem@davemloft.net, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: George Anzinger <george@mvista.com>
-Content-Disposition: inline
-In-Reply-To: <425C1E30.5060405@mvista.com>
+In-Reply-To: <20050413.095308.124546011.yoshfuji@linux-ipv6.org>
+To: YOSHIFUJI Hideaki /  =?ISO-2022-JP?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 12, 2005 at 12:14:56PM -0700, George Anzinger wrote:
-> Horms wrote:
-> >
-> >Use netdev as the mailing list contact instead of the mostly dead
-> >linux-net list.
-> >
-> ~
-> > PHRAM MTD DRIVER
-> >@@ -1795,7 +1795,7 @@
-> > POSIX CLOCKS and TIMERS
-> > P:	George Anzinger
-> > M:	george@mvista.com
-> >-L:	linux-net@vger.kernel.org
-> >+L:	netdev@oss.sgi.com
-> > S:	Supported
-> > 
-> I don't really know about the rest of them, but I think this should be:
-> L: linux-kernel@vger.kernel.org
+YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote on 04/12/2005 
+05:53:08 PM:
+
+> Please geive up the "singed-off" line.
+
+
+> Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+
+Signed-off-by: David L Stevens <dlstevens@us.ibm.com>
+
+:-)
+
+> Anyway, how about this?
+
+csum has to be a pointer into the packet data, so it can store
+the checksum it computes for the outgoing packet at that (user-provided)
+offset. It looks like skb_header_pointer gives a copy of the
+existing value, pointing to csum_buff, which wouldn't modify the
+packet value, right? So, I don't think that'll work.
+
+Something that would follow the skbuffs to that offset would
+be good, rather than doing it in-line, but I don't know of an
+existing function that does that (looked briefly, without
+success). If there is one, or it'd be used more than once, then
+"skb_offset_pointer" or some such that does the skb & nr_frags
+loop could be used here, as long as the end result is a pointer
+to the packet data and not, unless I'm wrong, a pointer to a copy
+of the packet data in a different buffer.
+
+                                                +-DLS
+
+> ===== net/ipv6/raw.c 1.80 vs edited =====
+> --- 1.80/net/ipv6/raw.c 2005-03-27 08:04:35 +09:00
+> +++ edited/net/ipv6/raw.c 2005-04-13 09:49:37 +09:00
+> @@ -456,7 +456,7 @@
+> {
+> struct sk_buff *skb;
+> int err = 0;
+> - u16 *csum;
+> + u16 csum_buff, *csum;
+> u32 tmp_csum;
+
+> if (!rp->checksum)
+> @@ -465,12 +465,13 @@
+> if ((skb = skb_peek(&sk->sk_write_queue)) == NULL)
+> goto out;
 > 
-> Least wise that is where I look...
+> - if (rp->offset + 1 < len)
+> -  csum = (u16 *)(skb->h.raw + rp->offset);
+> - else {
+> -  err = -EINVAL;
+> + err = -EINVAL;
+> + if (rp->offset + 1 >= len)
+> +  goto out;
+> +
+> + csum = skb_header_pointer(skb, skb->h.raw - skb->data + rp->offset, 
+> sizeof(csum_buff), &csum_buff);
+> + if (!csum)
+> goto out;
+> - }
 
-Yes, I was wondering about that one. Here is a patch that
-adds to my previous patch. Trivial to say the least. 
-I can re-diff the whole thing if that is more convenient.
-
--- 
-Horms
-
-POSIX CLOCKS and TIMERS disscussion is more appropriate
-on linux-kernel than linux-net. As suggested by the maintainer,
-George Anzinger.
-
-Signed-off-by: Horms <horms@verge.net.au>
-
---- a/MAINTAINERS	2005-04-13 11:06:39.000000000 +0900
-+++ b/MAINTAINERS	2005-04-13 11:07:04.000000000 +0900
-@@ -1795,7 +1795,7 @@
- POSIX CLOCKS and TIMERS
- P:	George Anzinger
- M:	george@mvista.com
--L:	linux-net@vger.kernel.org
-+L:	linux-kernel@vger.kernel.org
- S:	Supported
- 
- PNP SUPPORT
+> /* should be check HW csum miyazawa */
+> if (skb_queue_len(&sk->sk_write_queue) == 1) {
+> 
+> --
+> Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+> Homepage: http://www.yoshifuji.org/~hideaki/
+> GPG FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
