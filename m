@@ -1,50 +1,58 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH] IPV6_CHECKSUM socket option can corrupt kernel memory
-Date: Tue, 12 Apr 2005 22:07:06 -0700
-Message-ID: <OF6FA75422.9DE2DCAA-ON88256FE2.001AD3C6-88256FE2.001C1E12@us.ibm.com>
-References: <20050413.130535.121024536.yoshfuji@linux-ipv6.org>
+From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Subject: Re: [5/*] [IPSEC] Use XFRM_MSG_* instead of XFRM_SAP_*
+Date: Wed, 13 Apr 2005 14:07:41 +0900
+Message-ID: <425CA91D.1030506@linux-ipv6.org>
+References: <1112702604.1089.119.camel@jzny.localdomain>	 <20050409105452.GA7171@gondor.apana.org.au>	 <20050409111244.GB7171@gondor.apana.org.au>	 <20050409111551.GA7378@gondor.apana.org.au>	 <20050410074849.GA13259@gondor.apana.org.au>	 <20050410090250.GA26022@gondor.apana.org.au>	 <1113142510.1091.294.camel@jzny.localdomain>	 <425A0F00.8070509@linux-ipv6.org>	 <1113218805.1089.357.camel@jzny.localdomain>	 <425B8401.1010609@linux-ipv6.org> <1113313023.1966.79.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: davem@davemloft.net, netdev@oss.sgi.com, netdev-bounce@oss.sgi.com,
-        yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <20050413.130535.121024536.yoshfuji@linux-ipv6.org>
-To: YOSHIFUJI Hideaki /  =?ISO-2022-JP?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+To: hadi@cyberus.ca, Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <1113313023.1966.79.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-netdev-bounce@oss.sgi.com wrote on 04/12/2005 09:05:35 PM:
+Hello Jamal and Herbert,
 
-> In article 
-<OF0A4F590E.3F5A449F-ON88256FE2.000E49F8-88256FE2.000F289A@us.ibm.
-> com> (at Tue, 12 Apr 2005 19:45:34 -0700), David Stevens 
-<dlstevens@us.ibm.com> says:
+jamal wrote:
+> On Tue, 2005-04-12 at 04:17, Masahide NAKAMURA wrote:
+> 
+> 
+>>short report:
+>>My testing is not completed but, I've tested below and it is fine:
+>> add/del/flush SP and their notifications through netlink (using modified iproute2/ip).
+>>
+>> new "xfrm_userpolicy_delete" works fine on this case;
+>> used byid=1 when deleting SP with specifying SP index.
+>>
+>>I'll test the rest case (17 hours later):
+>>- using pfkey
+>>- using both sockets
+>>
+> 
+> 
+> I did basic testing with pfkey generated events (policy/state) showing
+> up in both. The vice-versa also looks good.
 
-> BTW, I remember that my first intention was that we restrict "checksum"
-> should be placed within the first fragment.
-> In this sense, rp->offset + 1 < len does not make sense to me,
-> if there's more fragments.
+Thanks, Jamal.
+I'm sorry to be late, I've also tested pfkey, both sockets, and using racoon
+(on 2.6.12-rc2 + Jamal's patch + Herbert's 6 patches).
 
-These aren't fragments in the packet sense, of course. These are
-just different buffers. The packet on the wire in my test case was
-66 bytes on an Ethernet (and checksum offset of 20). POSIX has no
-restriction on what the offset is (other than being in the packet),
-and it's not clear to me you can determine easily what boundaries
-sendmsg chooses for allocating the kernel buffers, if there is any
-legitimate case where the nr_frags is nonzero, since it writes as
-much of the data as it can in the existing skb before allocating
-the new memory fragments. So, if nr_frags can ever be nonzero, I
-think IPV6_CHECKSUM has to support it.
+# If somebody is interested in, modified iproute2 for the kernel can be found at:
+# http://www.linux-ipv6.org/~nakam/iproute2-xfrm-event/iproute2-xfrm-event-20050413.tar.gz
+# a patch against the latest iproute2 bk tree
+# http://www.linux-ipv6.org/~nakam/iproute2-xfrm-event/iproute2-xfrm-event-20050413.diff
+# This iproute2 change will be sent to Stephen after the kernel released.
 
-Flushing the pending packets on error fixes the panic by itself, so
-the nr_frags==0 case should work with only that portion of the patch.
-Ordinary sendmsgs will work without corrupting memory with that fix,
-as long as MSG_MORE, corking, or any other methods cannot result in
-the checksum offset being in a memory fragment when nr_frags != 0. I
-don't know if that can happen in other cases or not, but it sendmsg
-certainly supports allocating new nr_frags. It was easy to fix and
-nr_frags != 0 can corrupt memory with even small packets, which is
-why I left that in the patch.
 
-                                                        +-DLS
+> Herbert, try to push forward to Dave.
+
+Agreed.
+
+Regards,
+
+-- 
+Masahide NAKAMURA
