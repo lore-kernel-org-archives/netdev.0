@@ -1,67 +1,64 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] IPV6_CHECKSUM socket option can corrupt kernel memory
-Date: Wed, 13 Apr 2005 09:53:08 +0900 (JST)
-Message-ID: <20050413.095308.124546011.yoshfuji@linux-ipv6.org>
-References: <OF618A0572.CA254DA0-ON88256FE1.0080DB81-88256FE1.0082220B@us.ibm.com>
+From: Horms <horms@verge.net.au>
+Subject: Re: [PATCH] Maintainers list update: linux-net -> netdev
+Date: Wed, 13 Apr 2005 11:14:02 +0900
+Message-ID: <20050413021400.GA1835@verge.net.au>
+References: <20050412062027.GA1614@verge.net.au> <425C1E30.5060405@mvista.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: =?iso-8859-1?Q?J=F6rn?= Engel <joern@wohnheim.fh-wedel.de>,
+        Pavel Machek <pavel@ucw.cz>, Jeff Garzik <jgarzik@pobox.com>,
+        Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
+        schwidefsky@de.ibm.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: dlstevens@us.ibm.com, davem@davemloft.net
-In-Reply-To: <OF618A0572.CA254DA0-ON88256FE1.0080DB81-88256FE1.0082220B@us.ibm.com>
+To: George Anzinger <george@mvista.com>
+Content-Disposition: inline
+In-Reply-To: <425C1E30.5060405@mvista.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <OF618A0572.CA254DA0-ON88256FE1.0080DB81-88256FE1.0082220B@us.ibm.com> (at Tue, 12 Apr 2005 17:41:25 -0600), David Stevens <dlstevens@us.ibm.com> says:
+On Tue, Apr 12, 2005 at 12:14:56PM -0700, George Anzinger wrote:
+> Horms wrote:
+> >
+> >Use netdev as the mailing list contact instead of the mostly dead
+> >linux-net list.
+> >
+> ~
+> > PHRAM MTD DRIVER
+> >@@ -1795,7 +1795,7 @@
+> > POSIX CLOCKS and TIMERS
+> > P:	George Anzinger
+> > M:	george@mvista.com
+> >-L:	linux-net@vger.kernel.org
+> >+L:	netdev@oss.sgi.com
+> > S:	Supported
+> > 
+> I don't really know about the rest of them, but I think this should be:
+> L: linux-kernel@vger.kernel.org
+> 
+> Least wise that is where I look...
 
-> I don't know if it is possible, after the fix for the second problem, to 
-> get an
-> skb with nonzero nr_frags in rawv6_push_pending_frames() (maybe with
-> corking? or maybe via MSG_MORE?), but this patch includes support for
-> non-linear skbs as well as the missing flush on error that caused the 
-> problem
-> to begin with.
-
-Please geive up the "singed-off" line.
-Anyway, how about this?
-
-Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-
-===== net/ipv6/raw.c 1.80 vs edited =====
---- 1.80/net/ipv6/raw.c	2005-03-27 08:04:35 +09:00
-+++ edited/net/ipv6/raw.c	2005-04-13 09:49:37 +09:00
-@@ -456,7 +456,7 @@
- {
- 	struct sk_buff *skb;
- 	int err = 0;
--	u16 *csum;
-+	u16 csum_buff, *csum;
- 	u32 tmp_csum;
- 
- 	if (!rp->checksum)
-@@ -465,12 +465,13 @@
- 	if ((skb = skb_peek(&sk->sk_write_queue)) == NULL)
- 		goto out;
- 
--	if (rp->offset + 1 < len)
--		csum = (u16 *)(skb->h.raw + rp->offset);
--	else {
--		err = -EINVAL;
-+	err = -EINVAL;
-+	if (rp->offset + 1 >= len)
-+		goto out;
-+
-+	csum = skb_header_pointer(skb, skb->h.raw - skb->data + rp->offset, sizeof(csum_buff), &csum_buff);
-+	if (!csum)
- 		goto out;
--	}
- 
- 	/* should be check HW csum miyazawa */
- 	if (skb_queue_len(&sk->sk_write_queue) == 1) {
+Yes, I was wondering about that one. Here is a patch that
+adds to my previous patch. Trivial to say the least. 
+I can re-diff the whole thing if that is more convenient.
 
 -- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-Homepage: http://www.yoshifuji.org/~hideaki/
-GPG FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Horms
+
+POSIX CLOCKS and TIMERS disscussion is more appropriate
+on linux-kernel than linux-net. As suggested by the maintainer,
+George Anzinger.
+
+Signed-off-by: Horms <horms@verge.net.au>
+
+--- a/MAINTAINERS	2005-04-13 11:06:39.000000000 +0900
++++ b/MAINTAINERS	2005-04-13 11:07:04.000000000 +0900
+@@ -1795,7 +1795,7 @@
+ POSIX CLOCKS and TIMERS
+ P:	George Anzinger
+ M:	george@mvista.com
+-L:	linux-net@vger.kernel.org
++L:	linux-kernel@vger.kernel.org
+ S:	Supported
+ 
+ PNP SUPPORT
