@@ -1,56 +1,48 @@
-From: George Anzinger <george@mvista.com>
-Subject: Re: [PATCH] Maintainers list update: linux-net -> netdev
-Date: Wed, 13 Apr 2005 15:42:27 -0700
-Message-ID: <425DA053.8020607@mvista.com>
-References: <20050412062027.GA1614@verge.net.au> <425C1E30.5060405@mvista.com> <20050413021400.GA1835@verge.net.au>
-Reply-To: george@mvista.com
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: [patch 2.6.12-rc2 3/10] tg3: add bcm5752 entry to pci_ids.h
+Date: Wed, 13 Apr 2005 19:38:44 -0400
+Message-ID: <04132005193844.8474@laptop>
+References: <04132005193844.8410@laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: =?ISO-8859-1?Q?J=F6rn_Engel?= <joern@wohnheim.fh-wedel.de>,
-	Pavel Machek <pavel@ucw.cz>, Jeff Garzik <jgarzik@pobox.com>,
-	Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
-	schwidefsky@de.ibm.com, netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261203AbVDMWo0@vger.kernel.org>
-To: Horms <horms@verge.net.au>
-In-Reply-To: <20050413021400.GA1835@verge.net.au>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: jgarzik@pobox.com, davem@davemloft.net
+Return-path: <netdev-bounce@oss.sgi.com>
+To: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+In-Reply-To: <04132005193844.8410@laptop>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Horms wrote:
-> On Tue, Apr 12, 2005 at 12:14:56PM -0700, George Anzinger wrote:
-> 
->>Horms wrote:
->>
->>>Use netdev as the mailing list contact instead of the mostly dead
->>>linux-net list.
->>>
->>
->>~
->>
->>>PHRAM MTD DRIVER
->>>@@ -1795,7 +1795,7 @@
->>>POSIX CLOCKS and TIMERS
->>>P:	George Anzinger
->>>M:	george@mvista.com
->>>-L:	linux-net@vger.kernel.org
->>>+L:	netdev@oss.sgi.com
->>>S:	Supported
->>>
->>
->>I don't really know about the rest of them, but I think this should be:
->>L: linux-kernel@vger.kernel.org
->>
->>Least wise that is where I look...
-> 
-> 
-> Yes, I was wondering about that one. Here is a patch that
-> adds to my previous patch. Trivial to say the least. 
-> I can re-diff the whole thing if that is more convenient.
+Add proper entry for bcm5752 PCI ID to pci_ids.h, and use it in tg3.
 
-Looks good to me.
-> 
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+---
+I did this separately in case patches like this (i.e. new PCI IDs)
+need to come from more "official" sources.
 
--- 
-George Anzinger   george@mvista.com
-High-res-timers:  http://sourceforge.net/projects/high-res-timers/
+ drivers/net/tg3.c       |    2 +-
+ include/linux/pci_ids.h |    1 +
+ 2 files changed, 2 insertions(+), 1 deletion(-)
+
+--- bcm5752-support/drivers/net/tg3.c.orig	2005-04-08 17:35:34.834372048 -0400
++++ bcm5752-support/drivers/net/tg3.c	2005-04-08 17:34:42.536563710 -0400
+@@ -206,7 +206,7 @@ static struct pci_device_id tg3_pci_tbl[
+ 	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0UL },
+ 	{ PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5751F,
+ 	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0UL },
+-	{ PCI_VENDOR_ID_BROADCOM, 0x1600, /* TIGON3_5752 */
++	{ PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5752,
+ 	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0UL },
+ 	{ PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5753,
+ 	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0UL },
+--- bcm5752-support/include/linux/pci_ids.h.orig	2005-04-08 17:30:45.655140363 -0400
++++ bcm5752-support/include/linux/pci_ids.h	2005-04-08 17:31:52.965883217 -0400
+@@ -2065,6 +2065,7 @@
+ #define PCI_DEVICE_ID_AFAVLAB_P030	0x2182
+ 
+ #define PCI_VENDOR_ID_BROADCOM		0x14e4
++#define PCI_DEVICE_ID_TIGON3_5752	0x1600
+ #define PCI_DEVICE_ID_TIGON3_5700	0x1644
+ #define PCI_DEVICE_ID_TIGON3_5701	0x1645
+ #define PCI_DEVICE_ID_TIGON3_5702	0x1646
