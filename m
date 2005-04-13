@@ -1,51 +1,56 @@
-From: Jean-Baptiste Note <jean-baptiste.note@wanadoo.fr>
-Subject: Question on prism54 driver
-Date: Wed, 13 Apr 2005 23:56:48 +0200
-Message-ID: <87fyxu5oin.fsf@gxaafoot.homelinux.org>
+From: George Anzinger <george@mvista.com>
+Subject: Re: [PATCH] Maintainers list update: linux-net -> netdev
+Date: Wed, 13 Apr 2005 15:42:27 -0700
+Message-ID: <425DA053.8020607@mvista.com>
+References: <20050412062027.GA1614@verge.net.au> <425C1E30.5060405@mvista.com> <20050413021400.GA1835@verge.net.au>
+Reply-To: george@mvista.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
-Return-path: <prism54-devel-bounces@prism54.org>
-To: prism54-devel@prism54.org
-List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
-List-Archive: <http://prism54.org/pipermail/prism54-devel>
-List-Post: <mailto:prism54-devel@prism54.org>
-List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
-List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
-Sender: prism54-devel-bounces@prism54.org
-Errors-To: prism54-devel-bounces@prism54.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: =?ISO-8859-1?Q?J=F6rn_Engel?= <joern@wohnheim.fh-wedel.de>,
+	Pavel Machek <pavel@ucw.cz>, Jeff Garzik <jgarzik@pobox.com>,
+	Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
+	schwidefsky@de.ibm.com, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261203AbVDMWo0@vger.kernel.org>
+To: Horms <horms@verge.net.au>
+In-Reply-To: <20050413021400.GA1835@verge.net.au>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Horms wrote:
+> On Tue, Apr 12, 2005 at 12:14:56PM -0700, George Anzinger wrote:
+> 
+>>Horms wrote:
+>>
+>>>Use netdev as the mailing list contact instead of the mostly dead
+>>>linux-net list.
+>>>
+>>
+>>~
+>>
+>>>PHRAM MTD DRIVER
+>>>@@ -1795,7 +1795,7 @@
+>>>POSIX CLOCKS and TIMERS
+>>>P:	George Anzinger
+>>>M:	george@mvista.com
+>>>-L:	linux-net@vger.kernel.org
+>>>+L:	netdev@oss.sgi.com
+>>>S:	Supported
+>>>
+>>
+>>I don't really know about the rest of them, but I think this should be:
+>>L: linux-kernel@vger.kernel.org
+>>
+>>Least wise that is where I look...
+> 
+> 
+> Yes, I was wondering about that one. Here is a patch that
+> adds to my previous patch. Trivial to say the least. 
+> I can re-diff the whole thing if that is more convenient.
 
-Dear list,
-
-Going through the prism54 code for reuse in the softmac driver, i
-stumbled accross inconsistencies in the queue management functions for
-the mgmt rx queue and the data rx queue that i cannot understand.
-
-Is there any reason that we have the following call in
-islpci_mgt_receive (file islpci_mgt.c):
-
-		/* Ensure the results of device DMA are visible to the CPU. */
-		pci_dma_sync_single(priv->pdev, buf->pci_addr,
-				    frag_len, PCI_DMA_FROMDEVICE);
-
-but have nothing of the sort in islpci_eth_receive (file islpci_eth.c) ?
-
-In the same spirit, the control block is also written by DMA by the
-device, I guess ; so how comes we don't have such a syncing call in the
-interrupt handler before accessing the control block's values (file
-islpci_dev.c) ?
-
-Am i missing something very obvious or very subtle ? -- should shared
-memory be always sync'd before reading, or should we avoid it in cases
-where we know it's not necessary, as an optimization ?
-
-JB
+Looks good to me.
+> 
 
 -- 
-Jean-Baptiste Note
-+33 (0)6 83 03 42 38
-jean-baptiste.note@wanadoo.fr
+George Anzinger   george@mvista.com
+High-res-timers:  http://sourceforge.net/projects/high-res-timers/
