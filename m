@@ -1,62 +1,77 @@
-From: Ganesh Venkatesan <ganesh.venkatesan@gmail.com>
-Subject: Re: PCI interrupt problem: e1000 & Super-Micro X6DVA motherboard
-Date: Thu, 14 Apr 2005 11:01:01 -0700
-Message-ID: <5fc59ff305041411013fd35ed4@mail.gmail.com>
-References: <42421FF2.7050501@candelatech.com>
-	 <20050324081003.GA23453@xi.wantstofly.org>
-	 <42431734.3030905@candelatech.com>
-Reply-To: Ganesh Venkatesan <ganesh.venkatesan@gmail.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH] IPV6_CHECKSUM socket option can corrupt kernel memory
+Date: Thu, 14 Apr 2005 12:36:46 -0600
+Message-ID: <OF2DA36C59.2C9530C7-ON88256FE3.00654547-88256FE3.00663E1E@us.ibm.com>
+References: <E1DM3QD-00045e-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "netdev@oss.sgi.com" <netdev@oss.sgi.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Lennert Buytenhek <buytenh@wantstofly.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261564AbVDNSBG@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <42431734.3030905@candelatech.com>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="=_mixed 00663E1988256FE3_="
+Cc: davem@davemloft.com, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Return-path: <netdev-bounce@oss.sgi.com>
+In-Reply-To: <E1DM3QD-00045e-00@gondolin.me.apana.org.au>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Ben:
+--=_mixed 00663E1988256FE3_=
+Content-Type: text/plain; charset="US-ASCII"
 
-Have you checked if the BIOS on the super micro machine is the latest
-and greatest. I have had interrupt routing issues very similar to the
-one you are describing due to a BIOS Interrupt Routing issue. Moving
-to newer BIOS fixed it.
+I'm still looking at your patch.
 
-ganesh.
+Below is a piece of my original patch that I've separated out to make sure
+it doesn't get lost in this discussion. It's the fix for the bug that 
+triggered all
+of this and the real cause of the panic for the ordinary raw-socket cases, 
+where
+nr_frags is supposed to be "0". Attached and in-line below.
 
-On 3/24/05, Ben Greear <greearb@candelatech.com> wrote:
-> Lennert Buytenhek wrote:
-> > On Wed, Mar 23, 2005 at 06:03:30PM -0800, Ben Greear wrote:
-> >
-> >
-> >>I have two 4-port e1000 NICs in the system, on a riser card.
-> >
-> >
-> > How is the riser card wired?  F.e. does it have a single edge
-> > connector, and provides two PCI slots, or does it have a tiny
-> > additional edge connector that routes REQ#/GNT#/INTx from a
-> > nearby PCI slot, etc.?
-> 
-> I was able to reproduce the problem even when the 4-port e1000 NIC
-> is plugged directly into the motherboard, so it's not the
-> riser...
-> 
-> I also tried with a 4-port VIA-Rhine NIC (router-board 44).  It also
-> fails it's third interface, with the same problem.  So, it is not
-> the e1000 NIC nor the e1000 driver that is the problem.
-> 
-> I do notice that it is the same interrupt (26) that is always assigned
-> to the broken port.  I have the lspci and dmesg output for the via-rhine
-> boot if anyone wants it...
-> 
-> Ben
-> 
-> --
-> Ben Greear <greearb@candelatech.com>
-> Candela Technologies Inc  http://www.candelatech.com
-> 
->
+A couple comments initially on your patch: multiple packet support I don't
+think is needed here (in sendmsg). I agree it's good to put it in for 
+other
+possible uses, but IPV6_CHECKSUM doesn't need it, as far as I can tell.
+
+How about a loop instead of a recursive call? If the list is long enough
+and the architecture eats stack a lot of stack space on function calls,
+that could be a problem.
+
+                                                +-DLS
+The fix part of the patch:
+
+Signed-off-by: David L Stevens <dlstevens@us.ibm.com>
+
+--- linux-2.6.11.7/net/ipv6/raw.c       2005-04-07 11:57:32.000000000 
+-0700
++++ linux-2.6.11.7T1/net/ipv6/raw.c     2005-04-12 15:05:00.000000000 
+-0700
+@@ -771,8 +790,11 @@ back_from_confirm:
+ 
+                if (err)
+                        ip6_flush_pending_frames(sk);
+-               else if (!(msg->msg_flags & MSG_MORE))
++               else if (!(msg->msg_flags & MSG_MORE)) {
+                        err = rawv6_push_pending_frames(sk, &fl, rp, len);
++                       if (err)
++                               ip6_flush_pending_frames(sk);
++               }
+        }
+ done:
+        ip6_dst_store(sk, dst,
+
+
+
+--=_mixed 00663E1988256FE3_=
+Content-Type: application/octet-stream; name="rawv6-2.patch"
+Content-Disposition: attachment; filename="rawv6-2.patch"
+Content-Transfer-Encoding: base64
+
+LS0tIGxpbnV4LTIuNi4xMS43L25ldC9pcHY2L3Jhdy5jCTIwMDUtMDQtMDcgMTE6NTc6MzIuMDAw
+MDAwMDAwIC0wNzAwCisrKyBsaW51eC0yLjYuMTEuN1QxL25ldC9pcHY2L3Jhdy5jCTIwMDUtMDQt
+MTIgMTU6MDU6MDAuMDAwMDAwMDAwIC0wNzAwCkBAIC03NzEsOCArNzkwLDExIEBAIGJhY2tfZnJv
+bV9jb25maXJtOgogCiAJCWlmIChlcnIpCiAJCQlpcDZfZmx1c2hfcGVuZGluZ19mcmFtZXMoc2sp
+OwotCQllbHNlIGlmICghKG1zZy0+bXNnX2ZsYWdzICYgTVNHX01PUkUpKQorCQllbHNlIGlmICgh
+KG1zZy0+bXNnX2ZsYWdzICYgTVNHX01PUkUpKSB7CiAJCQllcnIgPSByYXd2Nl9wdXNoX3BlbmRp
+bmdfZnJhbWVzKHNrLCAmZmwsIHJwLCBsZW4pOworCQkJaWYgKGVycikKKwkJCQlpcDZfZmx1c2hf
+cGVuZGluZ19mcmFtZXMoc2spOworCQl9CiAJfQogZG9uZToKIAlpcDZfZHN0X3N0b3JlKHNrLCBk
+c3QsCg==
+
+--=_mixed 00663E1988256FE3_=--
