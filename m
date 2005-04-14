@@ -1,32 +1,43 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: [IPV6] Replace bogus instances of inet->recverr
-Date: Thu, 14 Apr 2005 22:21:24 +0900 (JST)
-Message-ID: <20050414.222124.27105970.yoshfuji@linux-ipv6.org>
-References: <OF618A0572.CA254DA0-ON88256FE1.0080DB81-88256FE1.0082220B@us.ibm.com>
-	<E1DM3QD-00045e-00@gondolin.me.apana.org.au>
-	<20050414123423.GA16334@gondor.apana.org.au>
+From: "rahul N." <rahul8143@gmail.com>
+Subject: packet forwarding understandings
+Date: Thu, 14 Apr 2005 19:16:56 +0530
+Message-ID: <d8d7db9905041406465f294834@mail.gmail.com>
+Reply-To: "rahul N." <rahul8143@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dlstevens@us.ibm.com, davem@davemloft.com, netdev@oss.sgi.com,
-        yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@davemloft.net, herbert@gondor.apana.org.au
-In-Reply-To: <20050414123423.GA16334@gondor.apana.org.au>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20050414123423.GA16334@gondor.apana.org.au> (at Thu, 14 Apr 2005 22:34:23 +1000), Herbert Xu <herbert@gondor.apana.org.au> says:
+hello,
+ Following is code snippet from ip_forward function from ip_forward.c
+........
+  dev2 = rt->u.dst.dev;
+        mtu = rt->u.dst.pmtu;
 
-> While looking at this problem I noticed that IPv6 was sometimes
-> looking at inet->recverr which is bogus.  Here is a patch to
-> correct that and use np->recverr.
->  
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+        /*
+         *      We now generate an ICMP HOST REDIRECT giving the route
+         *      we calculated.
+         */
+        if (rt->rt_flags&RTCF_DOREDIRECT && !opt->srr)
+                ip_rt_send_redirect(skb);
 
-ok, agreed.
+        /* We are about to mangle packet. Copy it! */
+        if (skb_cow(skb, dev2->hard_header_len))
+                goto drop;
+        iph = skb->nh.iph;
+ ...............
 
-Acked-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+ when router takes packet to forward does above code is written to check if
+next dst hop has different network device or if it is using different
+hard_header_len
+so that skb_cow is called?
+ whats use of skb_cow in ip_forward?
+ I am using 2.4 series kernel.
 
---yoshfuji
+regards,
+rahul
