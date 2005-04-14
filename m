@@ -1,60 +1,69 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [patch 2.6.12-rc2 10/10] tg3: add support for bcm5752 rev a1
-Date: Wed, 13 Apr 2005 19:38:46 -0400
-Message-ID: <04132005193846.8893@laptop>
-References: <04132005193846.8835@laptop>
+From: Rainer Weikusat <rainer.weikusat@sncag.com>
+Subject: Re: Question on prism54 driver
+Date: Thu, 14 Apr 2005 11:04:40 +0200
+Message-ID: <87hdi9sp93.fsf@farside.sncag.com>
+References: <87fyxu5oin.fsf@gxaafoot.homelinux.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, davem@davemloft.net
-Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-In-Reply-To: <04132005193846.8835@laptop>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: netdev@oss.sgi.com, prism54-devel@prism54.org
+Return-path: <prism54-devel-bounces@prism54.org>
+To: Jean-Baptiste Note <jean-baptiste.note@wanadoo.fr>
+In-Reply-To: <87fyxu5oin.fsf@gxaafoot.homelinux.org> (Jean-Baptiste Note's
+	message of "Wed, 13 Apr 2005 23:56:48 +0200")
+List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
+List-Archive: <http://prism54.org/pipermail/prism54-devel>
+List-Post: <mailto:prism54-devel@prism54.org>
+List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
+List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
+Sender: prism54-devel-bounces@prism54.org
+Errors-To: prism54-devel-bounces@prism54.org
 List-Id: netdev.vger.kernel.org
 
-Replace existing ASIC_REV_5752 definition with ASIC_REV_5752_A0,
-and add definition for ASIC_REV_5752_A1. Then, add ASIC_REV_5752_A1
-to check for setting TG3_FLG2_5750_PLUS in tg3_get_invariants.
+Jean-Baptiste Note <jean-baptiste.note@wanadoo.fr> writes:
+> Going through the prism54 code for reuse in the softmac driver, i
+> stumbled accross inconsistencies in the queue management functions for
+> the mgmt rx queue and the data rx queue that i cannot understand.
+>
+> Is there any reason that we have the following call in
+> islpci_mgt_receive (file islpci_mgt.c):
+>
+> 		/* Ensure the results of device DMA are visible to the CPU. */
+> 		pci_dma_sync_single(priv->pdev, buf->pci_addr,
+> 				    frag_len, PCI_DMA_FROMDEVICE);
+>
+> but have nothing of the sort in islpci_eth_receive (file islpci_eth.c)?
+>
+> In the same spirit, the control block is also written by DMA by the
+> device, I guess ; so how comes we don't have such a syncing call in the
+> interrupt handler before accessing the control block's values (file
+> islpci_dev.c) ?
+>
+> Am i missing something very obvious or very subtle?
 
-Signed-off-by: John W. Linville <linville@tuxdriver.com>
----
+<sigh>
+No, you are just hacking the code without even having tried to
+understand
 
- drivers/net/tg3.c |    3 ++-
- drivers/net/tg3.h |    5 ++++-
- 2 files changed, 6 insertions(+), 2 deletions(-)
+	a) what it is doing
+        b) why it does this
+[which, "by coincedence", happens to be the reason that this driver is
+ so thouroughly broken]
+</sigh>
 
---- bcm5752-support/drivers/net/tg3.c.orig	2005-04-12 14:19:06.302429500 -0400
-+++ bcm5752-support/drivers/net/tg3.c	2005-04-12 14:17:50.963846711 -0400
-@@ -7929,7 +7929,8 @@ static int __devinit tg3_get_invariants(
- 	tp->pci_bist         = (cacheline_sz_reg >> 24) & 0xff;
- 
- 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5750 ||
--	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5752)
-+	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5752_A0 ||
-+	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5752_A1)
- 		tp->tg3_flags2 |= TG3_FLG2_5750_PLUS;
- 
- 	if ((GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5705) ||
---- bcm5752-support/drivers/net/tg3.h.orig	2005-04-12 14:19:06.288431435 -0400
-+++ bcm5752-support/drivers/net/tg3.h	2005-04-12 14:17:50.981844223 -0400
-@@ -125,6 +125,8 @@
- #define  CHIPREV_ID_5750_A0		 0x4000
- #define  CHIPREV_ID_5750_A1		 0x4001
- #define  CHIPREV_ID_5750_A3		 0x4003
-+#define  CHIPREV_ID_5752_A0		 0x5000
-+#define  CHIPREV_ID_5752_A1		 0x6001
- #define  GET_ASIC_REV(CHIP_REV_ID)	((CHIP_REV_ID) >> 12)
- #define   ASIC_REV_5700			 0x07
- #define   ASIC_REV_5701			 0x00
-@@ -132,7 +134,8 @@
- #define   ASIC_REV_5704			 0x02
- #define   ASIC_REV_5705			 0x03
- #define   ASIC_REV_5750			 0x04
--#define   ASIC_REV_5752			 0x05
-+#define   ASIC_REV_5752_A0		 0x05
-+#define   ASIC_REV_5752_A1		 0x06
- #define  GET_CHIP_REV(CHIP_REV_ID)	((CHIP_REV_ID) >> 8)
- #define   CHIPREV_5700_AX		 0x70
- #define   CHIPREV_5700_BX		 0x71
+The data transfers (all of them) use streaming DMA mappings, which
+have to be synced explicitly between 'bus view' and 'CPU view',
+because they may involve bounce buffers (in 2.4) and to ensure that
+data the CPU has written to the cache is actually in memory and data
+the DMA engine has written is not ignored because of (actually stale)
+cache entries that predate it. The mgmt-queues use persistent
+streaming mapping, which means they have to be synced everytime the
+CPU intends to access them after they were accessed by the DMA engine.
+The skbuffs used by the data transfer code are mapped before they are
+passed to the device and unmapped (which syncs them) before the CPU
+accesses them. This isn't needed for the control block, because it is
+a consistent and not a streaming mapping.
+
+BTW, I shouldn't be telling you how your code works, don't you think
+so?
