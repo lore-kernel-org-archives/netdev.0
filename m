@@ -1,59 +1,27 @@
-From: Jean Tourrilhes <jt@hpl.hp.com>
-Subject: Re : [Prism54-devel] Question on prism54 driver
-Date: Fri, 15 Apr 2005 09:54:55 -0700
-Message-ID: <20050415165455.GA8741@bougret.hpl.hp.com>
-Reply-To: jt@hpl.hp.com
+From: Andre Tomt <andre@tomt.net>
+Subject: Re: FIB alternative fib_hash2.c
+Date: Fri, 15 Apr 2005 19:31:00 +0200
+Message-ID: <425FFA54.9070106@tomt.net>
+References: <16991.54602.218744.163816@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: rainer.weikusat@sncag.com, prism54-devel@prism54.org, netdev@oss.sgi.com
-Content-Disposition: inline
+To: Robert Olsson <Robert.Olsson@data.slu.se>
+In-Reply-To: <16991.54602.218744.163816@robur.slu.se>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Rainer Weikusat wrote :
+Robert Olsson wrote:
+> Hello!
 > 
-> Jean-Baptiste Note <jean-baptiste.note at wanadoo.fr> writes:
-> > Going through the prism54 code for reuse in the softmac driver, i
-> > stumbled accross inconsistencies in the queue management functions for
-> > the mgmt rx queue and the data rx queue that i cannot understand.
-> 
-> <sigh>
-> No, you are just hacking the code without even having tried to
-> understand
-> 
-> 	a) what it is doing
->       b) why it does this
-> [which, "by coincedence", happens to be the reason that this driver is
->  so thouroughly broken]
-> </sigh>
-> 
-> BTW, I shouldn't be telling you how your code works, don't you think
-> so?
+> Don't like to sit on this... originally an experiment to understand what we
+> can expect from FIB lookup in the linux context. Beginning to think it 
+> might be useful as is... memory is cheap. With full bgp and rDoS I see around
+> double FIB lookup performance.  No-one has been brave enough to test it....
+> Patch is for 2.6.11 and includes an Kconfig option different FIB alternatives.
 
-	Ah ! It's so fun to blast an e-mail and flame away. Now, I'm
-sorry to inform you that you got a few important fact wrong, and that
-your critics were totally unjustified.
-	First, Jean-Baptiste is not the author, nor the maintainer of
-the Prism54 driver, and neither a contributor to it. The prism54
-driver in the kernel is in no way "his" code. He is developping the
-softmac driver, which is another beast entirely.
-	Second, he is not hacking the code without trying to
-understand. Jean-Baptiste started working on his driver only 2 months
-ago, and he is asking questions, which demonstrates that he is trying
-and willing to learn. Most of us are still trying to learn...
-	Third, the prism54 driver may be broken, the usual procedure
-is either to send a patch or report specific bugs to the maintainers
-(which Jean-Baptiste is not). I've rarely seen pieces of code which
-are bug free, so having bugs in the prism54 is not the end of the
-world, they just need to be fixed.
-
-	In any case, thanks a lot for explaining clearly the details
-of the pci interface to Jean-Baptiste, in my experience memory
-management is confusing for begginers, and I'm sure more people could
-benefits from your expertise.
-
-	Regards,
-
-	Jean
+Drool. Got some numbers? pps - flows - memory use, on what hardware, 
+that sort of thing.
