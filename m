@@ -1,76 +1,48 @@
-From: 03_dak_hitoduma.deai_navi@docomo.ne.jp
-Subject: =?ISO-2022-JP?B?kVOI9YKqgXmQbI3IgXqK+Y2lj5eQq49vie+CooNUgVuDToOLgsyCsojEk+A=?=
-Date: Fri, 15 Apr 2005 13:33:32 +0900
-Message-ID: <2185.28474583781$1113539339@news.gmane.org>
+From: Baruch Even <baruch@ev-en.org>
+Subject: Re: TCP performance drop 2.6.6->2.6.7
+Date: Fri, 15 Apr 2005 15:37:34 +0100
+Message-ID: <425FD1AE.3060301@ev-en.org>
+References: <425C493B.5040206@ev-en.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="SHIFT_JIS"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, "David S. Miller" <davem@davemloft.net>,
+        Stephen Hemminger <shemminger@osdl.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Baruch Even <baruch@ev-en.org>
+In-Reply-To: <425C493B.5040206@ev-en.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-ikaXbIFBk8uRUoLMg4GBW4OLgqiLloK1ibqCs4KigUINCg0KjoSCzYFBivmNpY+XkKuCzIK9
-gt+CzI9vie+CooNUgVuDToOLgXVEZWFyIEFnYWlugXaCzA0KkeOVXILwgrWCxIKoguiC3IK3
-i2eTY4nBk96CxpBcgrWC3IK3gUINCg0KlnuT+oLNgUGSapCrgsyKRpdsgtaCsojEk+CCqoKy
-grSCooLcgrWCxIFBg4GBW4OLgvCCqA0KkZeC6IKzgrmCxIKigr2CvoKrgtyCt4FCDQoNCpOW
-g1SBW4NOg4uCzYFBlb2QrIJRlE6CyYvgkUuTSYLJjGKC3ILqgsSCooLpivmNpY+XkKsNCpCU
-lryCqoF1juWVd4LMjqmXp4NUgVuDToOLgXaCxoK1gsSQ3ZengrOC6oFBjuWCyYFBivkNCo2l
-j5eQq5PBl0yCzJaegr2Cs4LqgsiCopd+i4GC8Jaegr2Ct5bak0mCyYqIk66C8IpKjm4NCoK1
-gtyCtYK9gUINCoK7gsyM44FBlb2QrIJQglSUToLJjoSBQYtnk2OJwZPegqqR45VcgvCI+IKr
-jHCCrIFBg1QNCoFbg06Di5a8guCMu43dgsyBdURlYXIgQWdhaW6BdoLGgrWBQZDdl6eTlo+J
-gsyW2pNJgvANCo2hguCI+IKrjHCCooLFioiTroLwjXOCwYLEgqiC6ILcgreBQg0KjLuN3YLM
-juWCyInviPWCs4Lxgs2BQY/jj+qK6YvGguKKr4z2kqGCyYKoi86C34LMgrKO5Q0KkGyC8I6d
-gsKO5ZV3guKCso6plaqCxY6Wi8aC8IKzguqCxIKigumV+4LIgseC8JKGkFOCyQ0KguKCzYLo
-i+CRS5NJgsmXXZdUgsyCoILplfuCxYK3gUINCg0KDQqNoYnxgUGV5Y9XgrOCuYLEgqKCvYK+
-gq2CzILNgrGCzILmgqSCyI+XkKuCzJX7gViCzIKoDQqRio7ogvCCtYLEgqKCvYK+gq+C6YJQ
-gleNzojIj+OCzJJqkKuCzJX7gViCxYK3gUINCor5jaWPl5CrgsaCooKkl6eP6oLMgqCC6ZX7
-gViCxYK3gsyCxYFBk7CBWILGkOmTYILwjXMNCoKkjpaCqoLFgquCuIFBgrGCzILmgqSCyIxg
-gsWCzIKyiMST4ILGgsiCwYLEgqiC6ILcgreBQg0KDQoNCoKyivOWXYLMlfuCqoKogueC6oLc
-grWCvYLngUGJuotMgsyDdINIgVuDgIKpgueCsomeleUNCoKigr2CvoKtgqmBQZDql3CDeoFb
-g4CDeYFbg1eCzIN0g0iBW4OAgvCCspeYl3CCzI/jgUENCoKyiZ6V5YKigr2CvoKrgr2CooLG
-jnaCooLcgreBQg0KDQqMu43dgUGJ74j1grOC8YLNkVONkYLJglCCT4JRgleWvIFpglOMjoJQ
-k/qMu43dgWqN3ZDQDQqCtYLEgqiC6ILcgreCzILFgUGCqI9agtyCooLMi9+CrYLFgUGCsorz
-ll2P8IyPgsmNh4KkDQqJ74j1gvCCso/Qie6Cs4K5gsSCooK9gr6Cq4LcgreBQg0KDQqNxYzj
-gtyCxYFBgrKNgpPHgqCC6IKqgsaCpIKygrSCooLcgrWCvYFCDQoNCg0KgUCBQIr5jaWPl5Cr
-gsyCvYLfgsyPb4nvgqKDVIFbg06Diw0KgUCBQIFAgUCBQIFAgUCBQIFAgUCBQIF1RGVhciBB
-Z2FpboF2gUCR45VcgUCLZ5NjicGT3g0KgUCBQA0KDQoqKioqKioqKioqKioqKioqKioqKioq
-KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqDQoNCoKyiZ6V5YLJgqCCvYLokZeQTYK1
-gsSCooK9gr6Cq4K9gqKT4JdlDQoNCoF1gqiWvJFPgXaBQIFpg26Dk4Nog4uDbIFbg4CBRZLK
-j8yWvJOZgsWMi41cgsWCt4FqDQqBdYuPj1qSbojmgXaBaZNzk7mVe4ynlryCzZVLgriCsotM
-k/yJuoKzgqKBag0KgXWK85ZdgreC6Y+XkKuCzINeg0ODdoF2DQoNCpGXkE2Q5pNkjnGDgYFb
-g4uBQG1vb25fMTUxMDdAeWFob28uY29tLnNnDQoNCioqKioqKioqKioqKioqKioqKioqKioq
-KioqKioqKioqKioqKioqKioqKioqKioqKioqKioNCg0Kg3qBW4OAg3mBW4NXg0GDaIOMg1gN
-CoGmg3qBW4OAg3mBW4NXgqmC54LNg3SDSIFbg4CCxYrIklCCyZGXkE2CooK9gr6Cr4LcgrcN
-Cg0KaHR0cDovL3d3dy5kZWFyLWFnYWluLmluZm8vYTAxNi8NCg0KKioqKioqKioqKioqKioq
-KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKg0KDQoNCg0KDQovLy8vLy8v
-Ly8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vDQoNConviPWP
-l5CrgsyI6pWUgvCCso/Qie6CooK9grWC3IK3gUINCoGmg3qBW4OAg3mBW4NXgsWCzYm6i0yP
-l5CrgsyK547KkF6VdIKrj9qCtYKig3aDjYN0g0INCoFAgVuDi4LwgrKP0InugrWCxIKoguiC
-3IK3gUINCg0Kg3qBW4OAg3mBW4NXg0GDaIOMg1gNCg0KaHR0cDovL3d3dy5kZWFyLWFnYWlu
-LmluZm8vYTAxNi8NCg0KLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8v
-Ly8vLy8vLy8vLy8vLw0KDQqXwY5xgUCBQDMxjc6BQDE2MGNtgUA0N0tnDQqBQIFAgUCBQI7l
-kGyCxoLMiWOC3YKqkleUkoK3gqyCxJHPgqaBRYFFgUWRsYKrgs1IUILFDQoNCpT8knGNXYFA
-NDKNzoFAMTU2Y22BQDUwS2cNCoFAgUCBQIFAMTCUToLgjIuNpZC2ioiC8JGXgsGCxIKigumC
-xoFFgUWBRZGxgquCzUhQgsUNCg0KiLuUVIFAgUAyNo3OgUAxNjNjbYFANDlLZw0KgUCBQIFA
-gUCCzYLBgquC6Iy+gsGCxIyLjaWCzZGBgtyCwYK9gUWBRYFFkbGCq4LNSFCCxQ0KDQqLSZT8
-jnGBQDQ1jc6BQDE1NGNtgUA0MktnDQqBQIFAgUCBQIKxgvGCyI3OgsmCyILBgsSC4ILcgr6Q
-q5d+gqqBRYFFgUWRsYKrgs1IUILFDQoNCpT8jbKNXYFAMzWNzoFAMTU5Y22BQDUxS2cNCoFA
-gUCBQIFAgruC64K7guuMkZHTivqCyZP8gsGCxIK1gtyCpIFFgUWBRZGxgquCzUhQgsUNCg0K
-iJ+NspT8gUAyOI3OgUAxNzBjbYFANTNLZw0KgUCBQIFAgUCOhIK9gr+VdpV3gs2DWoNig06D
-WIOMg1iCyILxgUWBRYFFkbGCq4LNSFCCxQ0KDQqU/I5xgUCBQDIyjc6BQDE1NWNtgUA1MEtn
-DQqBQIFAgUCBQI6Egs2VgotDgrOC6oLEgqKC3IK3gUKMi42lgreBRYFFgUWRsYKrgs1IUILF
-DQoNCpdSi0mOcYFANTGNzoFAMTYwY22BQDU0S2cNCoFAgUCBQIFAjIuNpYK1gr2CzIKqkniC
-qYLBgr2CuYKigqmCt4FFgUWBRZGxgquCzUhQgsUNCg0Kk96V25T8gUAyNI3OgUAxNjhjbYFA
-NTNLZw0KgUCBQIFAgUCPrYK1kb6CwYLEgquCvYK5gqKCyILMgqmNxYvfgUWBRYFFkbGCq4LN
-SFCCxQ0KDQqUjpT8gUCBQDM1jc6BQDE1MWNtgUA0M0tnDQqBQIFAgUCBQJBnkreCqo+sgrOC
-ooK5gqKCxY7lkGyCxpXAgvGBRYFFgUWRsYKrgs1IUILFDQoNCpBek96U/IFAMzGNzoFAMTYz
-Y22BQDUwS2cNCoFAgUCBQIFAjIuNpYKqkYGCqYLBgr2C8YLFgreBQpBlgsyUvYFFgUWBRZGx
-gquCzUhQgsUNCg0KLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8v
-Ly8vLy8vLy8vLw0KDQqDeoFbg4CDeYFbg1eDQYNog4yDWA0KDQpodHRwOi8vd3d3LmRlYXIt
-YWdhaW4uaW5mby9hMDE2Lw0KDQovLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8v
-Ly8vLy8vLy8vLy8vLy8vLy8vDQoNCg0KlHqQTZHjjXOO0oFAg4aDTIJsgmuDVIFbg3KDWA0K
-DQqUepBNi5GU24LNgrGCv4LngsyDQYNog4yDWILcgsWBQYOBgVuDi4LFgqiQXIK1lXSCr4Kt
-DQqCvoKzgqINCg0KlHqQTYuRlNsggaggeXVraV9kZWFpX2dyb3VwQHlhaG9vLmNvbS5zZw0K
-DQoNCg==
+I have no clue *why* it happens, but a hint on when it happens. If I 
+remove the ixgb driver from my .config, performance is back to normal. 
+Note though that I don't even use the ixgb driver for my tests, it's 
+just sitting idle on the machine and connected to nothing (the cisco 
+router is turned off to reduce noise polution).
+
+To continue my work I'll disable the ixgb for now.
+
+Baruch
+
+Baruch Even wrote:
+> Hello,
+> 
+> I'm trying to port my H-TCP and SACK improvements to 2.6.11, but I seem 
+> to hit performance problems that are unrelated to what I worked on so far.
+> 
+> My tests show that between 2.6.6 and 2.6.7 the TCP performance dropped 
+> considerably.
+> 
+> The setup for the tests, vanilla kernels, dummynet with 100 Mbit/s and 
+> 40ms rtt using the BIC protocol. No patches applied whatsoever.
+> 
+> iperf tests for 2.6.6 get about 90Mbit/s while 2.6.7 gets 30Mbit/s.
+> 
+> I was wondering if someone can think of a reason why this happens?
+> 
+> Is there a way to get the different network related patches between 
+> these two versions? I don't have access to bk to get it myself.
+> 
+> Baruch
+> 
