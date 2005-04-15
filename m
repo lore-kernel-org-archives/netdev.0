@@ -1,34 +1,49 @@
-From: Jean Tourrilhes <jt@hpl.hp.com>
-Subject: Re: Re : [Prism54-devel] Question on prism54 driver
-Date: Fri, 15 Apr 2005 13:34:01 -0700
-Message-ID: <20050415203401.GA9079@bougret.hpl.hp.com>
-References: <20050415165455.GA8741@bougret.hpl.hp.com> <878y3jrdmh.fsf@farside.sncag.com>
-Reply-To: jt@hpl.hp.com
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH] IPV6_CHECKSUM socket option can corrupt kernel memory
+Date: Fri, 15 Apr 2005 13:42:56 -0700
+Message-ID: <OF44BA08AD.19E86BB6-ON88256FE4.006FB4B2-88256FE4.0071CB74@us.ibm.com>
+References: <20050415004102.GA23462@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: prism54-devel@prism54.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset="US-ASCII"
+Cc: davem@davemloft.net, netdev@oss.sgi.com, netdev-bounce@oss.sgi.com,
+        yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Rainer Weikusat <rainer.weikusat@sncag.com>
-Content-Disposition: inline
-In-Reply-To: <878y3jrdmh.fsf@farside.sncag.com>
+In-Reply-To: <20050415004102.GA23462@gondor.apana.org.au>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 15, 2005 at 10:25:42PM +0200, Rainer Weikusat wrote:
-> Jean Tourrilhes <jt@hpl.hp.com> writes:
-> 
-> > Now, I'm sorry to inform you that you got a few important fact
-> > wrong, and that your critics were totally unjustified.
-> 
-> Documentation on this stuff is available online for free.
+netdev-bounce@oss.sgi.com wrote on 04/14/2005 05:41:02 PM:
 
-	Yes, but that still doesn't justify your particular criticism,
-and you could have replied "RTFM" or ignored the message. Don't worry,
-I also make errors, we are only humans... It's probably because I
-answer to many stupid/rtfm question from begginners that I don't get
-mad about it anymore...
+> On Thu, Apr 14, 2005 at 05:31:38PM -0700, David Stevens wrote:
+> >
+> > > In fact with your patch we can end up calling 
+ip6_flush_pending_frames
+> > > twice.  Granted that it is currently harmless but it isn't nice.
+> >
+> >         I don't see this. My original patch only calls
+> > ip6_flush_pending_frames() once, since the original code already only
 
-	Have fun, enjoy your day, and let's close the case...
+> You called ip6_flush_pending_frames() when rawv6_push_pending_frames
+> returned an error.  However rawv6_push_pending_frames can return an
+> error that was in turn returned by ip6_push_pending_frames.
 
-	Jean
+> As you know ip6_push_pending_frames always frees the cork buffer so
+> this is tantamount to calling ip6_flush_pending_frames twice.
+
+        I missed that, as you know. :-) You're right, of course. Thanks!
+
+> >         I saw that in the code, but I also saw a 2K single skb when 
+the
+> > MTU is 1500. A piece I looked at appeared to be allocating space for
+
+        I tracked this down-- that particular test was running over
+loopback, with its larger MTU. So, no prob. here that I know of here,
+either.
+
+        I've reviewed your patch and looks good to me. I've also
+tested it with my test cases for IPV6_CHECKSUM and they work fine.
+So, I'm good with your patch.
+
+                                                        +-DLS
