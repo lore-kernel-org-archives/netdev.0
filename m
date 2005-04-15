@@ -1,29 +1,59 @@
-From: Nivedita Singhvi <niv@us.ibm.com>
-Subject: Re: TCP performance drop 2.6.6->2.6.7
-Date: Fri, 15 Apr 2005 08:30:35 -0700
-Message-ID: <425FDE1B.6050804@us.ibm.com>
-References: <425C493B.5040206@ev-en.org> <425FD1AE.3060301@ev-en.org>
+From: Jean Tourrilhes <jt@hpl.hp.com>
+Subject: Re : [Prism54-devel] Question on prism54 driver
+Date: Fri, 15 Apr 2005 09:54:55 -0700
+Message-ID: <20050415165455.GA8741@bougret.hpl.hp.com>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, "David S. Miller" <davem@davemloft.net>,
-        Stephen Hemminger <shemminger@osdl.org>
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Baruch Even <baruch@ev-en.org>
-In-Reply-To: <425FD1AE.3060301@ev-en.org>
+To: rainer.weikusat@sncag.com, prism54-devel@prism54.org, netdev@oss.sgi.com
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Baruch Even wrote:
-> I have no clue *why* it happens, but a hint on when it happens. If I 
-> remove the ixgb driver from my .config, performance is back to normal. 
-> Note though that I don't even use the ixgb driver for my tests, it's 
-> just sitting idle on the machine and connected to nothing (the cisco 
-> router is turned off to reduce noise polution).
+Rainer Weikusat wrote :
+> 
+> Jean-Baptiste Note <jean-baptiste.note at wanadoo.fr> writes:
+> > Going through the prism54 code for reuse in the softmac driver, i
+> > stumbled accross inconsistencies in the queue management functions for
+> > the mgmt rx queue and the data rx queue that i cannot understand.
+> 
+> <sigh>
+> No, you are just hacking the code without even having tried to
+> understand
+> 
+> 	a) what it is doing
+>       b) why it does this
+> [which, "by coincedence", happens to be the reason that this driver is
+>  so thouroughly broken]
+> </sigh>
+> 
+> BTW, I shouldn't be telling you how your code works, don't you think
+> so?
 
-Check your interrupts - it's probably sending out a large number
-of interrupts which are clogging the system..
+	Ah ! It's so fun to blast an e-mail and flame away. Now, I'm
+sorry to inform you that you got a few important fact wrong, and that
+your critics were totally unjustified.
+	First, Jean-Baptiste is not the author, nor the maintainer of
+the Prism54 driver, and neither a contributor to it. The prism54
+driver in the kernel is in no way "his" code. He is developping the
+softmac driver, which is another beast entirely.
+	Second, he is not hacking the code without trying to
+understand. Jean-Baptiste started working on his driver only 2 months
+ago, and he is asking questions, which demonstrates that he is trying
+and willing to learn. Most of us are still trying to learn...
+	Third, the prism54 driver may be broken, the usual procedure
+is either to send a patch or report specific bugs to the maintainers
+(which Jean-Baptiste is not). I've rarely seen pieces of code which
+are bug free, so having bugs in the prism54 is not the end of the
+world, they just need to be fixed.
 
-thanks,
-Nivedita
+	In any case, thanks a lot for explaining clearly the details
+of the pci interface to Jean-Baptiste, in my experience memory
+management is confusing for begginers, and I'm sure more people could
+benefits from your expertise.
+
+	Regards,
+
+	Jean
