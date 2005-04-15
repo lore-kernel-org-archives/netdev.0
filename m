@@ -1,27 +1,38 @@
-From: Andre Tomt <andre@tomt.net>
-Subject: Re: FIB alternative fib_hash2.c
-Date: Fri, 15 Apr 2005 19:31:00 +0200
-Message-ID: <425FFA54.9070106@tomt.net>
-References: <16991.54602.218744.163816@robur.slu.se>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [2.6 patch] drivers/net/wan/: possible cleanups
+Date: Fri, 15 Apr 2005 18:49:56 +0100
+Message-ID: <1113587392.11155.33.camel@localhost.localdomain>
+References: <20050327143418.GE4285@stusta.de>
+	 <1111941516.14877.325.camel@localhost.localdomain>
+	 <20050414232028.GD20400@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Robert Olsson <Robert.Olsson@data.slu.se>
-In-Reply-To: <16991.54602.218744.163816@robur.slu.se>
+To: Adrian Bunk <bunk@stusta.de>
+In-Reply-To: <20050414232028.GD20400@stusta.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Robert Olsson wrote:
-> Hello!
+On Gwe, 2005-04-15 at 00:20, Adrian Bunk wrote:
+> On Sun, Mar 27, 2005 at 05:38:38PM +0100, Alan Cox wrote:
+> > On Sul, 2005-03-27 at 15:34, Adrian Bunk wrote:
+> > >   - syncppp.c: sppp_input
+> > >   - syncppp.c: sppp_change_mtu
+> > >   - z85230.c: z8530_dma_sync
+> > >   - z85230.c: z8530_txdma_sync
+> > 
+> > Please leave the z85230 ones at least. They are an intentional part of
+> > the external API for writing other 85230 card drivers.
 > 
-> Don't like to sit on this... originally an experiment to understand what we
-> can expect from FIB lookup in the linux context. Beginning to think it 
-> might be useful as is... memory is cheap. With full bgp and rDoS I see around
-> double FIB lookup performance.  No-one has been brave enough to test it....
-> Patch is for 2.6.11 and includes an Kconfig option different FIB alternatives.
+> If they are part of an API, why aren't the prototypes for them in any 
+> header file?
 
-Drool. Got some numbers? pps - flows - memory use, on what hardware, 
-that sort of thing.
+They were once. I guess that got "tided" at some point, possibly long
+ago even before submission.
+
+z8530_dma_sync and txdma_sync set up the device in DMA mode, or in DMA
+one direction only mode. 
