@@ -1,59 +1,66 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: ACPI/HT or Packet Scheduler BUG?
-Date: Sat, 16 Apr 2005 01:01:37 -0400
-Message-ID: <1113627698.4294.132.camel@localhost.localdomain>
-References: <Pine.LNX.4.61.0504081225510.27991@blackblue.iasi.rdsnet.ro>
-	 <Pine.LNX.4.61.0504121526550.4822@blackblue.iasi.rdsnet.ro>
-	 <Pine.LNX.4.61.0504141840420.13546@blackblue.iasi.rdsnet.ro>
-	 <1113601029.4294.80.camel@localhost.localdomain>
-	 <1113601446.17859.36.camel@localhost.localdomain>
-	 <1113602052.4294.89.camel@localhost.localdomain>
-	 <20050415225422.GF4114@postel.suug.ch>
-	 <20050416014906.GA3291@gondor.apana.org.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Fw: [Bugme-new] [Bug 4482] New: natsemi: incorrect initialization of IPv6 Neighbor-discovery multicast
+Date: Sat, 16 Apr 2005 16:24:16 +1000
+Message-ID: <20050416062416.GA29177@gondor.apana.org.au>
+References: <20050413103642.172d3976.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, hadi@cyberus.ca,
-	netdev <netdev@oss.sgi.com>,
-	Tarhon-Onu Victor <mituc@iasi.rdsnet.ro>, kuznet@ms2.inr.ac.ru,
-	devik@cdi.cz, linux-kernel@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261691AbVDPFCT@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050416014906.GA3291@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="PEIAKu/WMn1b1Hv9"
+Cc: netdev@oss.sgi.com, svallet@gmail.com, Jeff Garzik <jgarzik@pobox.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20050413103642.172d3976.akpm@osdl.org>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2005-04-16 at 11:49 +1000, Herbert Xu wrote:
 
+--PEIAKu/WMn1b1Hv9
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-> Here is a quick'n'dirty fix to the problem at hand.  What happened
-> between 2.6.10-rc1 and 2.6.10-rc2 is that qdisc_destroy started
-> changing the next pointer of qdisc entries which totally confuses
-> the readers because qdisc_destroy doesn't always take the tree lock.
+On Wed, Apr 13, 2005 at 05:36:42PM +0000, Andrew Morton wrote:
 > 
-> This patch tries to ensure that all top-level calls to qdisc_destroy
-> come under the tree lock.  As Thomas correctedly pointed out, most
-> of the other qdisc_destroy calls occur after the top qdisc has been
-> unlinked from the device qdisc_list.  However, someone should go
-> through each one of the remaining ones (they're all in the individual
-> sch_* implementations) and make sure that this assumption is really
-> true.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> 
-> If anyone has cycles to spare and a stomach strong enough for
-> this stuff, here is your chance :)
-> 
+>            Summary: natsemi: incorrect initialization of IPv6 Neighbor-
+>                     discovery multicast
 
-FYI,
+I've got a pair of FA312 cards and this problem has bothered me
+for ages.  This has finally prompted me to do something about it :)
 
-I ran the test case that Tarhon-Ohn had, but had to change his tc
-execution from batch to single lines since the version of tc I have
-segfaults on newlines.  Anyway, I did see the lock up with 2.6.11.2
-after 7 iterations. I applied your patch, and it ran for 30 iterations
-before I manually killed it. I didn't test any more than that, but this
-seems to be the quick fix for now.
+Turns out that somebody wasn't following the documentation.  We were
+doing 16-bit writes to 32-bit registers which led to some addresses
+working and others not so lucky.
 
--- Steve
+This patch should fix the problem.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--PEIAKu/WMn1b1Hv9
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=natsemi-1
+
+===== drivers/net/natsemi.c 1.74 vs edited =====
+--- 1.74/drivers/net/natsemi.c	2005-03-03 16:00:42 +11:00
++++ edited/drivers/net/natsemi.c	2005-04-16 16:20:29 +10:00
+@@ -2433,9 +2433,9 @@
+ 		rx_mode = RxFilterEnable | AcceptBroadcast
+ 			| AcceptMulticast | AcceptMyPhys;
+ 		for (i = 0; i < 64; i += 2) {
+-			writew(HASH_TABLE + i, ioaddr + RxFilterAddr);
+-			writew((mc_filter[i+1]<<8) + mc_filter[i],
+-				ioaddr + RxFilterData);
++			writel(HASH_TABLE + i, ioaddr + RxFilterAddr);
++			writel((mc_filter[i + 1] << 8) + mc_filter[i],
++			       ioaddr + RxFilterData);
+ 		}
+ 	}
+ 	writel(rx_mode, ioaddr + RxFilterAddr);
+
+--PEIAKu/WMn1b1Hv9--
