@@ -1,73 +1,71 @@
-From: Andre Tomt <andre@tomt.net>
-Subject: Re: FIB alternative fib_hash2.c
-Date: Sat, 16 Apr 2005 10:55:07 +0200
-Message-ID: <4260D2EB.6070400@tomt.net>
-References: <16991.54602.218744.163816@robur.slu.se>	<425FFA54.9070106@tomt.net> <16992.48513.102876.620927@robur.slu.se>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: ACPI/HT or Packet Scheduler BUG?
+Date: Sat, 16 Apr 2005 13:06:39 +0200
+Message-ID: <20050416110639.GI4114@postel.suug.ch>
+References: <Pine.LNX.4.61.0504081225510.27991@blackblue.iasi.rdsnet.ro> <Pine.LNX.4.61.0504121526550.4822@blackblue.iasi.rdsnet.ro> <Pine.LNX.4.61.0504141840420.13546@blackblue.iasi.rdsnet.ro> <1113601029.4294.80.camel@localhost.localdomain> <1113601446.17859.36.camel@localhost.localdomain> <1113602052.4294.89.camel@localhost.localdomain> <20050415225422.GF4114@postel.suug.ch> <20050416014906.GA3291@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Robert Olsson <Robert.Olsson@data.slu.se>
-In-Reply-To: <16992.48513.102876.620927@robur.slu.se>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Steven Rostedt <rostedt@goodmis.org>, hadi@cyberus.ca,
+	netdev <netdev@oss.sgi.com>,
+	Tarhon-Onu Victor <mituc@iasi.rdsnet.ro>, kuznet@ms2.inr.ac.ru,
+	devik@cdi.cz, linux-kernel@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261990AbVDPLGY@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Disposition: inline
+In-Reply-To: <20050416014906.GA3291@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Robert Olsson wrote:
-> Andre Tomt writes:
+* Herbert Xu <20050416014906.GA3291@gondor.apana.org.au> 2005-04-16 11:49
+> On Fri, Apr 15, 2005 at 10:54:22PM +0000, Thomas Graf wrote:
+> >
+> > Another case were it's not locked is upon a deletion of a class where
+> > the class deletes its inner qdisc, although there is only one case
+> > how this can happen and that's under rtnl semaphore so there is no
+> > way we can have a dumper at the same time.
 > 
->  > Drool. Got some numbers? pps - flows - memory use, on what hardware, 
->  > that sort of thing.
+> Sorry, that's where tc went astray :)
 > 
->  For testing reasons I use pure rDoS with 1 dst per packet. Routing table 
->  is taken from bgp route some year ago w 123 kroutes.
-> 
->  Also to test just FIB lookup I use the preroute paches to bypass dst
->  hash this only works with gatewayed routes  which is fine for me.
-> 
->  Some numbers from a 1.6 GHz Opteron. rDoS at 720 kpps injected in eth0.
->  result is what get out on eth1, eth3.
-> 
-> 
-> Current FIB 
-> -----------
-> Iface   MTU Met  RX-OK RX-ERR RX-DRP RX-OVR  TX-OK TX-ERR TX-DRP TX-OVR Flags
-> eth0   1500   0 2346827 9125541 9125541 7653595    262      0      0      0 BRU
-> eth1   1500   0      4      0      0      0 2325770      0      0      0 BRU
-> eth2   1500   0      0      0      0      0      5      0      0      0 BRU
-> eth3   1500   0      1      0      0      0  20652      0      0      0 BRU
-> eth4   1500   0      0      0      0      0      5      0      0      0 BRU
-> 
-> 
-> New hash2
-> ----------
-> eth0   1500   0 4389455 8372826 8372826 5610843    199      0      0      0 BRU
-> eth1   1500   0      2      0      0      0 4349633      0      0      0 BRU
-> eth2   1500   0      0      0      0      0      5      0      0      0 BRU
-> eth3   1500   0      1      0      0      0  38875      0      0      0 BRU
-> eth4   1500   0      0      0      0      0      5      0      0      0 BRU
-> 
-> 
-> 168 kpps vs 316 kpps on this box so quite substantial improvement and if 
-> you can merge local and main table you get even more. Well to honest we 
-> can merge tables do this current FIB too.
+> The assumption that the rtnl is held during dumping is false.  It is
+> only true for the initial dump call.  All subsequent dumps are not
+> protected by the rtnl.
 
-Nice. What kind of equipment and/or software do you use to generate this 
-sort of traffic pattern? And how much is one expected to gain by merging 
-local and main tables? I try to avoid policy routing wherever possible - 
-so merging is very interesting indeed.
+Ahh.. it's the unlocked subsequent dump calls that are _still_ running
+when the destroy is invoked. That's where Patrick and I went wrong
+when we tried to fix this issue. We set our t0 to qdisc_destroy and
+didn't really consider any prior unlocked tasks still running.
 
-> Mem usage 
-> 
-> IP: FIB vers 0.58 routing table of 16777216 buckets, 65536Kbytes for table id=255
-> 
-> So ~66 MB for hash structure to that comes routing info this can too a lot
-> as hash2 makes  /24 prefix-clones of prefixes in range 0>plen>24, I see
-> 294 MB for the full BGP table.
+> In fact the whole qdisc locking is a mess.  It's a cross-breed
+> between locking with ad-hoc reference counting and RCU.  What's
+> more, the RCU is completely useless too because for the case
+> where we actually have a queue we still end up taking the spin
+> lock on each transmit! I think someone's been benchmarking the
+> loopback device again :)
 
-I reckon this would be limited to available lowmem on 32bit (ick) systems?
+It's not completely useless, it speeds up the deletion classful
+qdiscs having some depth. However, it's not worth the locking
+troubles I guess.
 
-> I have some single flow numbers if you are interested too.
+> Here is a quick'n'dirty fix to the problem at hand.
 
-If its not too much trouble I would apriciate it.
+I think it's pretty clean but it doesn't solve the problem completely,
+see below.
+
+> This patch tries to ensure that all top-level calls to qdisc_destroy
+> come under the tree lock.  As Thomas correctedly pointed out, most
+> of the other qdisc_destroy calls occur after the top qdisc has been
+> unlinked from the device qdisc_list.  However, someone should go
+> through each one of the remaining ones (they're all in the individual
+> sch_* implementations) and make sure that this assumption is really
+> true.
+
+qdisc_destroy can still be invoked without qdisc_tree_lock via the
+deletion of a class when it calls qdisc_destroy to destroy its
+leaf qdisc.
+
+> If anyone has cycles to spare and a stomach strong enough for
+> this stuff, here is your chance :)
+
+I will look into this.
