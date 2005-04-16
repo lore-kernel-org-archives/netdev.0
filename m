@@ -1,71 +1,38 @@
-From: Thomas Graf <tgraf@suug.ch>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: ACPI/HT or Packet Scheduler BUG?
-Date: Sat, 16 Apr 2005 13:06:39 +0200
-Message-ID: <20050416110639.GI4114@postel.suug.ch>
-References: <Pine.LNX.4.61.0504081225510.27991@blackblue.iasi.rdsnet.ro> <Pine.LNX.4.61.0504121526550.4822@blackblue.iasi.rdsnet.ro> <Pine.LNX.4.61.0504141840420.13546@blackblue.iasi.rdsnet.ro> <1113601029.4294.80.camel@localhost.localdomain> <1113601446.17859.36.camel@localhost.localdomain> <1113602052.4294.89.camel@localhost.localdomain> <20050415225422.GF4114@postel.suug.ch> <20050416014906.GA3291@gondor.apana.org.au>
+Date: Sat, 16 Apr 2005 21:12:36 +1000
+Message-ID: <20050416111236.GA31550@gondor.apana.org.au>
+References: <Pine.LNX.4.61.0504081225510.27991@blackblue.iasi.rdsnet.ro> <Pine.LNX.4.61.0504121526550.4822@blackblue.iasi.rdsnet.ro> <Pine.LNX.4.61.0504141840420.13546@blackblue.iasi.rdsnet.ro> <1113601029.4294.80.camel@localhost.localdomain> <1113601446.17859.36.camel@localhost.localdomain> <1113602052.4294.89.camel@localhost.localdomain> <20050415225422.GF4114@postel.suug.ch> <20050416014906.GA3291@gondor.apana.org.au> <20050416110639.GI4114@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Steven Rostedt <rostedt@goodmis.org>, hadi@cyberus.ca,
-	netdev <netdev@oss.sgi.com>,
-	Tarhon-Onu Victor <mituc@iasi.rdsnet.ro>, kuznet@ms2.inr.ac.ru,
-	devik@cdi.cz, linux-kernel@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261990AbVDPLGY@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+        netdev <netdev@oss.sgi.com>, Tarhon-Onu Victor <mituc@iasi.rdsnet.ro>,
+        kuznet@ms2.inr.ac.ru, devik@cdi.cz, linux-kernel@vger.kernel.org,
+        Patrick McHardy <kaber@trash.net>,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Thomas Graf <tgraf@suug.ch>
 Content-Disposition: inline
-In-Reply-To: <20050416014906.GA3291@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20050416110639.GI4114@postel.suug.ch>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Herbert Xu <20050416014906.GA3291@gondor.apana.org.au> 2005-04-16 11:49
-> On Fri, Apr 15, 2005 at 10:54:22PM +0000, Thomas Graf wrote:
-> >
-> > Another case were it's not locked is upon a deletion of a class where
-> > the class deletes its inner qdisc, although there is only one case
-> > how this can happen and that's under rtnl semaphore so there is no
-> > way we can have a dumper at the same time.
+On Sat, Apr 16, 2005 at 01:06:39PM +0200, Thomas Graf wrote:
 > 
-> Sorry, that's where tc went astray :)
-> 
-> The assumption that the rtnl is held during dumping is false.  It is
-> only true for the initial dump call.  All subsequent dumps are not
-> protected by the rtnl.
+> qdisc_destroy can still be invoked without qdisc_tree_lock via the
+> deletion of a class when it calls qdisc_destroy to destroy its
+> leaf qdisc.
 
-Ahh.. it's the unlocked subsequent dump calls that are _still_ running
-when the destroy is invoked. That's where Patrick and I went wrong
-when we tried to fix this issue. We set our t0 to qdisc_destroy and
-didn't really consider any prior unlocked tasks still running.
+Indeed.  Fortuantely HTB seems to be safe as it calls sch_tree_lock
+which is another name for qdisc_tree_lock.  CBQ on the other hand
+needs to have a little tweak.
 
-> In fact the whole qdisc locking is a mess.  It's a cross-breed
-> between locking with ad-hoc reference counting and RCU.  What's
-> more, the RCU is completely useless too because for the case
-> where we actually have a queue we still end up taking the spin
-> lock on each transmit! I think someone's been benchmarking the
-> loopback device again :)
+> I will look into this.
 
-It's not completely useless, it speeds up the deletion classful
-qdiscs having some depth. However, it's not worth the locking
-troubles I guess.
-
-> Here is a quick'n'dirty fix to the problem at hand.
-
-I think it's pretty clean but it doesn't solve the problem completely,
-see below.
-
-> This patch tries to ensure that all top-level calls to qdisc_destroy
-> come under the tree lock.  As Thomas correctedly pointed out, most
-> of the other qdisc_destroy calls occur after the top qdisc has been
-> unlinked from the device qdisc_list.  However, someone should go
-> through each one of the remaining ones (they're all in the individual
-> sch_* implementations) and make sure that this assumption is really
-> true.
-
-qdisc_destroy can still be invoked without qdisc_tree_lock via the
-deletion of a class when it calls qdisc_destroy to destroy its
-leaf qdisc.
-
-> If anyone has cycles to spare and a stomach strong enough for
-> this stuff, here is your chance :)
-
-I will look into this.
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
