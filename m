@@ -1,69 +1,35 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: ACPI/HT or Packet Scheduler BUG?
-Date: Sat, 16 Apr 2005 00:54:22 +0200
-Message-ID: <20050415225422.GF4114@postel.suug.ch>
-References: <Pine.LNX.4.61.0504081225510.27991@blackblue.iasi.rdsnet.ro> <Pine.LNX.4.61.0504121526550.4822@blackblue.iasi.rdsnet.ro> <Pine.LNX.4.61.0504141840420.13546@blackblue.iasi.rdsnet.ro> <1113601029.4294.80.camel@localhost.localdomain> <1113601446.17859.36.camel@localhost.localdomain> <1113602052.4294.89.camel@localhost.localdomain>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: [PATCH] [IPV6]: Fix a branch prediction
+Date: Sat, 16 Apr 2005 09:57:13 +0900 (JST)
+Message-ID: <20050416.095713.110297063.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hadi@cyberus.ca, netdev <netdev@oss.sgi.com>,
-        Tarhon-Onu Victor <mituc@iasi.rdsnet.ro>, kuznet@ms2.inr.ac.ru,
-        devik@cdi.cz, linux-kernel@vger.kernel.org,
-        Patrick McHardy <kaber@trash.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, tgohad@mvista.com, yoshfuji@linux-ipv6.or
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Steven Rostedt <rostedt@goodmis.org>
-Content-Disposition: inline
-In-Reply-To: <1113602052.4294.89.camel@localhost.localdomain>
+To: davem@davemloft.net
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Steven Rostedt <1113602052.4294.89.camel@localhost.localdomain> 2005-04-15 17:54
-> > ==
-> >       list_for_each_entry(cq, &cql, list)
-> >            list_for_each_entry_safe(q, n, &qdisc->dev->qdisc_list, list)
-> >                 if (TC_H_MAJ(q->parent) == TC_H_MAJ(cq->handle)) {
-> >                      if (q->ops->cl_ops == NULL)
-> >                           list_del_init(&q->list);
-> >                      else
-> >                           list_move_tail(&q->list, &cql);
-> >                 }
-> >       list_for_each_entry_safe(cq, n, &cql, list)
-> >            list_del_init(&cq->list);
-> > ==
-> > 
-> >  	...and it happens when q->ops->cl_ops is NULL and 
-> > list_del_init(&q->list) is executed.
-> > 
-> >  	The stuff from include/linux/list.h looks ok, it seems like one 
-> > of those two iterations (list_for_each_entry() and 
-> > list_for_each_entry_safe()) enters an endless loop when an element is 
-> > removed from the list under some circumstances.
-> 
-> There's a comment above qdisc_destroy that says:
-> 
-> /* Under dev->queue_lock and BH! */
-> 
-> I'm not so sure this is the case.
+From: Tushar Gohad <tgohad@mvista.com>
 
-It's not, we should change the comment. qdisc_destroy calls for inner
-leaf qdiscs comming from rcu scheduled __qdisc_destroy -> qdisc::destroy()
--> qdisc_destroy() will not have a lock on queue_lock but it shouldn't be
-a problem since the qdiscs cannot be found anymore.
+Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 
-Another case were it's not locked is upon a deletion of a class where
-the class deletes its inner qdisc, although there is only one case
-how this can happen and that's under rtnl semaphore so there is no
-way we can have a dumper at the same time.
+===== net/ipv6/addrconf.c 1.135 vs edited =====
+--- 1.135/net/ipv6/addrconf.c	2005-03-31 09:34:56 +09:00
++++ edited/net/ipv6/addrconf.c	2005-04-16 09:48:15 +09:00
+@@ -571,7 +571,7 @@
+ out2:
+ 	read_unlock_bh(&addrconf_lock);
+ 
+-	if (unlikely(err == 0))
++	if (likely(err == 0))
+ 		notifier_call_chain(&inet6addr_chain, NETDEV_UP, ifa);
+ 	else {
+ 		kfree(ifa);
 
-A wild guess would be that one of the many wrong locking places where
-dev->queue_lock is acquired but qdisc_tree_lock is not is the problem.
-tc_dump_qdisc assumed that locking on qdisc_tree_lock is enough which
-is absolutely right, still most callers to qdisc_destroy only lock
-on dev->queue_lock for the modification of the tree, which _was_ fine
-before we used list.h since the unlinking was atomic. This is no news
-and Patrick's patch in 2.6.10 ought to have fixed this by unlinking
-inner leaf qdiscs from dev->qdisc_list and thus preventing them to
-be found by anyone during unlocked calls to destroy_qdisc.
-
-So... we might have a unlocked qdisc_destroy call for a qdisc not
-properly unlinked from dev->qdisc_list.
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+Homepage: http://www.yoshifuji.org/~hideaki/
+GPG FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
