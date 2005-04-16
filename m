@@ -1,32 +1,258 @@
-From: linux lover <linux_lover2004@yahoo.com>
-Subject: kfree_skb gives oops
-Date: Sat, 16 Apr 2005 07:14:35 -0700 (PDT)
-Message-ID: <20050416141435.60969.qmail@web52203.mail.yahoo.com>
+From: "Julio Kriger" <jkriger@cwazy.co.uk>
+Subject: Re: [Netem] [PATCH] netem: change packet scheduling
+Date: Sat, 16 Apr 2005 12:30:28 -0300 (ART)
+Message-ID: <1763.200.55.71.239.1113665428.squirrel@200.55.71.239>
+References: <20050412143541.260fdff4@dxpl.pdx.osdl.net>
+Reply-To: jkriger@hotpop.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
+        netem@lists.osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+In-Reply-To: <20050412143541.260fdff4@dxpl.pdx.osdl.net>
+To: "Stephen Hemminger" <shemminger@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-hello,
-     I am checking some conditions in packet after IP
-header is removed and based on that want network stack
-to discard skbuff so i add it in ip_input.c . 
-       But it gives oops message that 
-Warning: kfree_skb passed an skb still on a list and
-then prints oops 
-       Please help how to do that and correct me to
-use a way by which i will not face any kernel panic
-message? 
-Thanks in advance.
-regards,
-linux_lover.
+Hi!
+I've installed linux-2.6.11-r5 on my PC and I couldn't apply the patch. I
+get:
 
+julio root # patch -p1  --dry-run < patch_netem.patch
+missing header for unified diff at line 3 of patch
+can't find file to patch at input line 3
+Perhaps you used the wrong -p or --strip option?
+The text leading up to this was:
+--------------------------
+|--- sch_netem.c        2005-04-04 09:39:41.000000000 -0700
+|+++ sch_netem.c        2005-04-06 15:54:09.514780384 -0700
+--------------------------
+File to patch: n/sch_netem.c
+patching file n/sch_netem.c
+patch: **** malformed patch at line 5:
 
-		
-__________________________________ 
-Do you Yahoo!? 
-Plan great trips with Yahoo! Travel: Now over 17,000 guides!
-http://travel.yahoo.com/p-travelguide
+('n' is a softlink to /usr/src/linux/net/sched)
+
+>From what I read, this patch is to apply to a linux-2.6.12-rc2. Could you
+change it so I could apply it to a linux-2.6.11-r5, please? TIA.
+
+Regards,
+
+Julio
+
+-- 
+-------------------------------
+Julio Kriger
+jkriger AT hotpop DOT com
+jkriger AT cwazy DOT co DOT uk
+
+<quote who="Stephen Hemminger">
+> Netem was dumping packets into the child qdisc when timer expires.
+> This creates problems if netem is not the root qdisc and can even cause
+> a livelock situation. This patch changes it to only transfer packets
+> during
+> the enqueue/dequeue routines.
+>
+> This alternative makes netem be self clocking as well, so if using the CPU
+> counter for the timing source it is possible to get smoother (non bursty)
+> throughput. It also corrects the bug where a delay of 0 would always cause
+> a delay of 1 tick.
+>
+> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+>
+> --- linux-2.6.12-rc2/net/sched/sch_netem.c	2005-04-04 09:39:41.000000000
+> -0700
+> +++ netem/net/sched/sch_netem.c	2005-04-06 15:54:09.514780384 -0700
+> @@ -138,38 +138,78 @@
+>  }
+>
+>  /* Put skb in the private delayed queue. */
+> -static int delay_skb(struct Qdisc *sch, struct sk_buff *skb)
+> +static int netem_delay(struct Qdisc *sch, struct sk_buff *skb)
+>  {
+>  	struct netem_sched_data *q = qdisc_priv(sch);
+> -	struct netem_skb_cb *cb = (struct netem_skb_cb *)skb->cb;
+>  	psched_tdiff_t td;
+>  	psched_time_t now;
+>
+>  	PSCHED_GET_TIME(now);
+>  	td = tabledist(q->latency, q->jitter, &q->delay_cor, q->delay_dist);
+> -	PSCHED_TADD2(now, td, cb->time_to_send);
+>
+>  	/* Always queue at tail to keep packets in order */
+>  	if (likely(q->delayed.qlen < q->limit)) {
+> +		struct netem_skb_cb *cb = (struct netem_skb_cb *)skb->cb;
+> +
+> +		PSCHED_TADD2(now, td, cb->time_to_send);
+> +
+> +		pr_debug("netem_delay: skb=%p now=%llu tosend=%llu\n", skb,
+> +			 now, cb->time_to_send);
+> +
+>  		__skb_queue_tail(&q->delayed, skb);
+> -		if (!timer_pending(&q->timer)) {
+> -			q->timer.expires = jiffies + PSCHED_US2JIFFIE(td);
+> -			add_timer(&q->timer);
+> -		}
+>  		return NET_XMIT_SUCCESS;
+>  	}
+>
+> +	pr_debug("netem_delay: queue over limit %d\n", q->limit);
+> +	sch->qstats.overlimits++;
+>  	kfree_skb(skb);
+>  	return NET_XMIT_DROP;
+>  }
+>
+> +/*
+> + *  Move a packet that is ready to send from the delay holding
+> + *  list to the underlying qdisc.
+> + */
+> +static int netem_run(struct Qdisc *sch)
+> +{
+> +	struct netem_sched_data *q = qdisc_priv(sch);
+> +	struct sk_buff *skb;
+> +	psched_time_t now;
+> +
+> +	PSCHED_GET_TIME(now);
+> +
+> +	skb = skb_peek(&q->delayed);
+> +	if (skb) {
+> +		const struct netem_skb_cb *cb
+> +			= (const struct netem_skb_cb *)skb->cb;
+> +		long delay
+> +			= PSCHED_US2JIFFIE(PSCHED_TDIFF(cb->time_to_send, now));
+> +		pr_debug("netem_run: skb=%p delay=%ld\n", skb, delay);
+> +
+> +		/* if more time remaining? */
+> +		if (delay > 0) {
+> +			mod_timer(&q->timer, jiffies + delay);
+> +			return 1;
+> +		}
+> +
+> +		__skb_unlink(skb, &q->delayed);
+> +
+> +		if (q->qdisc->enqueue(skb, q->qdisc)) {
+> +			sch->q.qlen--;
+> +			sch->qstats.drops++;
+> +		}
+> +	}
+> +
+> +	return 0;
+> +}
+> +
+>  static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+>  {
+>  	struct netem_sched_data *q = qdisc_priv(sch);
+>  	struct sk_buff *skb2;
+>  	int ret;
+>
+> -	pr_debug("netem_enqueue skb=%p @%lu\n", skb, jiffies);
+> +	pr_debug("netem_enqueue skb=%p\n", skb);
+>
+>  	/* Random packet drop 0 => none, ~0 => all */
+>  	if (q->loss && q->loss >= get_crandom(&q->loss_cor)) {
+> @@ -184,7 +224,7 @@
+>  	    && (skb2 = skb_clone(skb, GFP_ATOMIC)) != NULL) {
+>  		pr_debug("netem_enqueue: dup %p\n", skb2);
+>
+> -		if (delay_skb(sch, skb2)) {
+> +		if (netem_delay(sch, skb2)) {
+>  			sch->q.qlen++;
+>  			sch->bstats.bytes += skb2->len;
+>  			sch->bstats.packets++;
+> @@ -202,7 +242,8 @@
+>  		ret = q->qdisc->enqueue(skb, q->qdisc);
+>  	} else {
+>  		q->counter = 0;
+> -		ret = delay_skb(sch, skb);
+> +		ret = netem_delay(sch, skb);
+> +		netem_run(sch);
+>  	}
+>
+>  	if (likely(ret == NET_XMIT_SUCCESS)) {
+> @@ -241,56 +282,35 @@
+>  	return len;
+>  }
+>
+> -/* Dequeue packet.
+> - *  Move all packets that are ready to send from the delay holding
+> - *  list to the underlying qdisc, then just call dequeue
+> - */
+>  static struct sk_buff *netem_dequeue(struct Qdisc *sch)
+>  {
+>  	struct netem_sched_data *q = qdisc_priv(sch);
+>  	struct sk_buff *skb;
+> +	int pending;
+> +
+> +	pending = netem_run(sch);
+>
+>  	skb = q->qdisc->dequeue(q->qdisc);
+> -	if (skb)
+> +	if (skb) {
+> +		pr_debug("netem_dequeue: return skb=%p\n", skb);
+>  		sch->q.qlen--;
+> +		sch->flags &= ~TCQ_F_THROTTLED;
+> +	}
+> +	else if (pending) {
+> +		pr_debug("netem_dequeue: throttling\n");
+> +		sch->flags |= TCQ_F_THROTTLED;
+> +	}
+> +
+>  	return skb;
+>  }
+>
+>  static void netem_watchdog(unsigned long arg)
+>  {
+>  	struct Qdisc *sch = (struct Qdisc *)arg;
+> -	struct netem_sched_data *q = qdisc_priv(sch);
+> -	struct net_device *dev = sch->dev;
+> -	struct sk_buff *skb;
+> -	psched_time_t now;
+>
+> -	pr_debug("netem_watchdog: fired @%lu\n", jiffies);
+> -
+> -	spin_lock_bh(&dev->queue_lock);
+> -	PSCHED_GET_TIME(now);
+> -
+> -	while ((skb = skb_peek(&q->delayed)) != NULL) {
+> -		const struct netem_skb_cb *cb
+> -			= (const struct netem_skb_cb *)skb->cb;
+> -		long delay
+> -			= PSCHED_US2JIFFIE(PSCHED_TDIFF(cb->time_to_send, now));
+> -		pr_debug("netem_watchdog: skb %p@%lu %ld\n",
+> -			 skb, jiffies, delay);
+> -
+> -		/* if more time remaining? */
+> -		if (delay > 0) {
+> -			mod_timer(&q->timer, jiffies + delay);
+> -			break;
+> -		}
+> -		__skb_unlink(skb, &q->delayed);
+> -
+> -		if (q->qdisc->enqueue(skb, q->qdisc)) {
+> -			sch->q.qlen--;
+> -			sch->qstats.drops++;
+> -		}
+> -	}
+> -	qdisc_run(dev);
+> -	spin_unlock_bh(&dev->queue_lock);
+> +	pr_debug("netem_watchdog qlen=%d\n", sch->q.qlen);
+> +	sch->flags &= ~TCQ_F_THROTTLED;
+> +	netif_schedule(sch->dev);
+>  }
+>
+>  static void netem_reset(struct Qdisc *sch)
+> @@ -301,6 +321,7 @@
+>  	skb_queue_purge(&q->delayed);
+>
+>  	sch->q.qlen = 0;
+> +	sch->flags &= ~TCQ_F_THROTTLED;
+>  	del_timer_sync(&q->timer);
+>  }
+>
+> _______________________________________________
+> Netem mailing list
+> Netem@lists.osdl.org
+> http://lists.osdl.org/mailman/listinfo/netem
+>
