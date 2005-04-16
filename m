@@ -1,66 +1,69 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Fw: [Bugme-new] [Bug 4482] New: natsemi: incorrect initialization of IPv6 Neighbor-discovery multicast
-Date: Sat, 16 Apr 2005 16:24:16 +1000
-Message-ID: <20050416062416.GA29177@gondor.apana.org.au>
-References: <20050413103642.172d3976.akpm@osdl.org>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: FIB alternative fib_hash2.c
+Date: Sat, 16 Apr 2005 09:23:45 +0200
+Message-ID: <16992.48513.102876.620927@robur.slu.se>
+References: <16991.54602.218744.163816@robur.slu.se>
+	<425FFA54.9070106@tomt.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="PEIAKu/WMn1b1Hv9"
-Cc: netdev@oss.sgi.com, svallet@gmail.com, Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20050413103642.172d3976.akpm@osdl.org>
+To: Andre Tomt <andre@tomt.net>
+In-Reply-To: <425FFA54.9070106@tomt.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---PEIAKu/WMn1b1Hv9
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Andre Tomt writes:
 
-On Wed, Apr 13, 2005 at 05:36:42PM +0000, Andrew Morton wrote:
-> 
->            Summary: natsemi: incorrect initialization of IPv6 Neighbor-
->                     discovery multicast
+ > Drool. Got some numbers? pps - flows - memory use, on what hardware, 
+ > that sort of thing.
 
-I've got a pair of FA312 cards and this problem has bothered me
-for ages.  This has finally prompted me to do something about it :)
+ For testing reasons I use pure rDoS with 1 dst per packet. Routing table 
+ is taken from bgp route some year ago w 123 kroutes.
 
-Turns out that somebody wasn't following the documentation.  We were
-doing 16-bit writes to 32-bit registers which led to some addresses
-working and others not so lucky.
+ Also to test just FIB lookup I use the preroute paches to bypass dst
+ hash this only works with gatewayed routes  which is fine for me.
 
-This patch should fix the problem.
+ Some numbers from a 1.6 GHz Opteron. rDoS at 720 kpps injected in eth0.
+ result is what get out on eth1, eth3.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Current FIB 
+-----------
+Iface   MTU Met  RX-OK RX-ERR RX-DRP RX-OVR  TX-OK TX-ERR TX-DRP TX-OVR Flags
+eth0   1500   0 2346827 9125541 9125541 7653595    262      0      0      0 BRU
+eth1   1500   0      4      0      0      0 2325770      0      0      0 BRU
+eth2   1500   0      0      0      0      0      5      0      0      0 BRU
+eth3   1500   0      1      0      0      0  20652      0      0      0 BRU
+eth4   1500   0      0      0      0      0      5      0      0      0 BRU
 
---PEIAKu/WMn1b1Hv9
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=natsemi-1
 
-===== drivers/net/natsemi.c 1.74 vs edited =====
---- 1.74/drivers/net/natsemi.c	2005-03-03 16:00:42 +11:00
-+++ edited/drivers/net/natsemi.c	2005-04-16 16:20:29 +10:00
-@@ -2433,9 +2433,9 @@
- 		rx_mode = RxFilterEnable | AcceptBroadcast
- 			| AcceptMulticast | AcceptMyPhys;
- 		for (i = 0; i < 64; i += 2) {
--			writew(HASH_TABLE + i, ioaddr + RxFilterAddr);
--			writew((mc_filter[i+1]<<8) + mc_filter[i],
--				ioaddr + RxFilterData);
-+			writel(HASH_TABLE + i, ioaddr + RxFilterAddr);
-+			writel((mc_filter[i + 1] << 8) + mc_filter[i],
-+			       ioaddr + RxFilterData);
- 		}
- 	}
- 	writel(rx_mode, ioaddr + RxFilterAddr);
+New hash2
+----------
+eth0   1500   0 4389455 8372826 8372826 5610843    199      0      0      0 BRU
+eth1   1500   0      2      0      0      0 4349633      0      0      0 BRU
+eth2   1500   0      0      0      0      0      5      0      0      0 BRU
+eth3   1500   0      1      0      0      0  38875      0      0      0 BRU
+eth4   1500   0      0      0      0      0      5      0      0      0 BRU
 
---PEIAKu/WMn1b1Hv9--
+
+168 kpps vs 316 kpps on this box so quite substantial improvement and if 
+you can merge local and main table you get even more. Well to honest we 
+can merge tables do this current FIB too.
+
+Mem usage 
+
+IP: FIB vers 0.58 routing table of 16777216 buckets, 65536Kbytes for table id=255
+
+So ~66 MB for hash structure to that comes routing info this can too a lot
+as hash2 makes  /24 prefix-clones of prefixes in range 0>plen>24, I see
+294 MB for the full BGP table.
+
+I have some single flow numbers if you are interested too.
+
+
+Cheers.	    
+					--ro
