@@ -1,41 +1,58 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: ACPI/HT or Packet Scheduler BUG?
-Date: Sat, 16 Apr 2005 20:21:14 +0200
-Message-ID: <20050416182114.GL4114@postel.suug.ch>
-References: <Pine.LNX.4.61.0504141840420.13546@blackblue.iasi.rdsnet.ro> <1113601029.4294.80.camel@localhost.localdomain> <1113601446.17859.36.camel@localhost.localdomain> <1113602052.4294.89.camel@localhost.localdomain> <20050415225422.GF4114@postel.suug.ch> <20050416014906.GA3291@gondor.apana.org.au> <20050416110639.GI4114@postel.suug.ch> <20050416112329.GA31847@gondor.apana.org.au> <20050416113446.GJ4114@postel.suug.ch> <1113667447.7419.9.camel@localhost.localdomain>
+From: James Chapman <jchapman@katalix.com>
+Subject: Re: RFC: PHY Abstraction Layer II
+Date: Sun, 17 Apr 2005 14:00:11 +0100
+Message-ID: <42625DDB.4090600@katalix.com>
+References: <1107b64b01fb8e9a6c84359bb56881a6@freescale.com>	<1110334456.32556.21.camel@gaston>	<20050308194229.41c23707.davem@davemloft.net>	<1110340214.32524.32.camel@gaston> <57a429f8eb807987d88b06129861d507@freescale.com> <4230D1AC.5070506@katalix.com> <ba5d844255b5ba76b2685f9397faf689@freescale.com> <423734FB.40101@katalix.com> <96c50184a02557c88dee0e6d17f3a539@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	netdev <netdev@oss.sgi.com>,
-	Tarhon-Onu Victor <mituc@iasi.rdsnet.ro>, kuznet@ms2.inr.ac.ru,
-	devik@cdi.cz, linux-kernel@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262715AbVDPSU7@vger.kernel.org>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1113667447.7419.9.camel@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, "David S. Miller" <davem@davemloft.net>,
+        linuxppc-embedded@ozlabs.org,
+        Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Andy Fleming <afleming@freescale.com>
+In-Reply-To: <96c50184a02557c88dee0e6d17f3a539@freescale.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* jamal <1113667447.7419.9.camel@localhost.localdomain> 2005-04-16 12:04
-> The rule of "optimize for the common" fails miserably in this case
-> because this is not a common case/usage of qdiscs.
+Andy Fleming wrote:
+> Ok, here's the new patch with changes suggested by James Chapman:
 
-I tend to agree. OTOH, I use exactly such setups... ;->
+I guess I still have questions about the way interrupts are used.
 
-> I have a feeling though that the patch went in due to
-> dude-optimizing-loopback as pointed by Herbert. 
+Using an interrupt to schedule a work queue which then sets a variable
+that is used by a timer seems odd. Why not do all the work in the work
+queue and schedule it from the interrupt handler or timer?
 
-I checked, it was in fact during the lockless loopback
-optimizations.
+Many network devices have status bits in their interrupt status
+registers to indicate PHY events. These bits are handled in the
+network device driver; there is no separate irq. It would obviously be
+good to change these drivers to hook up your abstraction layer to
+handle PHY functions. You suggested previously that the network driver
+and PHY driver could share the irq when the PHY's interrupt is
+indicated through the network device's status registers. I still don't
+see how SA_SHIRQ could work given that the PHY code uses
+disable_irq_nosync() and enable_irq() when handling interrupts. If the
+irq is shared with the net device interrupt, this will cause packet
+interrupts to stop until the phy's work queue callback is called. If
+the irq is shared with other possibly unrelated devices, other bad
+effects could occur.
 
-> Maybe worth reverting to the earlier scheme if it is going to continue
-> to be problematic.
+Perhaps the following code (taken from phy_change()) could be called
+by the net driver when link state changes are detected by its
+interrupt or NAPI poll handler?
 
-Let me first check and see how the locking can be done at best, it
-doesn't match the principles in sch_generic.c anyway at the moment
-so once we know how to do the locking efficient and how to remove the
-error proneess we can see if the optimization fits in without problems
-and make a call.
+if ((PHY_RUNNING == phydev->state) || (PHY_NOLINK == phydev->state)) {
+	phydev->state = PHY_CHANGELINK;
+	schedule_work(&phydev->phy_queue);
+}
+
+In the above case, the net driver would use phy_connect() to connect
+its PHY and phydev->irq would be -1 to disable use of PHY interrupts
+by the PHY code. Would this work? If so, a new API function for net
+drivers to call would be useful.
+
+Also, did you mean to leave the #if 0 code in davicom.c?
+
+/james
