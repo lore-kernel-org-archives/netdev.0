@@ -1,33 +1,108 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Fw: unregister_netdevice(): negative refcnt, suggest patch against 2.6.11
-Date: Mon, 18 Apr 2005 18:09:02 +1000
-Message-ID: <20050418080902.GA5675@gondor.apana.org.au>
-References: <20050411125113.GL26731@postel.suug.ch> <E1DNLfx-0000yd-00@gondolin.me.apana.org.au>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH 2.6.12-rc2 2/11] tg3: Split tg3_phy_probe into 2
+ functions
+Date: Mon, 18 Apr 2005 00:08:31 -0700
+Message-ID: <1113808111.6504.32.camel@rh4>
+References: <04132005193843.8300@laptop> <1113806551.6504.11.camel@rh4>
+ <1113807037.6504.17.camel@rh4>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: fmp@palmen.homeip.net, netdev@oss.sgi.com,
-        "David S. Miller" <davem@davemloft.net>
+Content-Type: multipart/mixed;
+ boundary="=-J94+mrcKePHBGYnkIiLG"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-Content-Disposition: inline
-In-Reply-To: <E1DNLfx-0000yd-00@gondolin.me.apana.org.au>
+To: "John W. Linville" <linville@tuxdriver.com>, davem@davemloft.net
+In-Reply-To: <1113807037.6504.17.camel@rh4>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 18, 2005 at 12:07:49PM +1000, Herbert Xu wrote:
-> 
-> Indeed.  Here is a patch that adds the references that are held by
-> the routes.
 
-BTW, there are other problems in the appletalk stack that should
-be fixed too.  For instance, the route entries and skb's there don't
-hold a reference to the device that they point to.  So if anyone is
-going to spend time on appletalk then they should have a look at them.
+--=-J94+mrcKePHBGYnkIiLG
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Split the 1st half of tg3_phy_probe() into tg3_get_eeprom_hw_cfg() so
+that the TG3_FLAG_EEPROM_WRITE_PROT can be determined before calling
+tg3_set_power_state() in tg3_get_invariants(). This will allow
+tg3_set_power_state() to drive the GPIOs correctly based on the config.
+information in eeprom.
+
+On the 5752, there are no pull-up resistors on the GPIO pins and it is
+necessary to drive the unused GPIOs as output.
+
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+
+--=-J94+mrcKePHBGYnkIiLG
+Content-Disposition: attachment;
+ filename=tg3-102.patch
+Content-Transfer-Encoding: base64
+Content-Type: text/x-patch;
+ charset=utf-8;
+ name=tg3-102.patch
+
+ZGlmZiAtTnJ1IDEwMS9kcml2ZXJzL25ldC90ZzMuYyAxMDIvZHJpdmVycy9uZXQvdGczLmMNCi0t
+LSAxMDEvZHJpdmVycy9uZXQvdGczLmMJMjAwNS0wNC0xNSAxNDowODoxNi4wMDAwMDAwMDAgLTA3
+MDANCisrKyAxMDIvZHJpdmVycy9uZXQvdGczLmMJMjAwNS0wNC0xNSAxNDo0MDoxMC4wMDAwMDAw
+MDAgLTA3MDANCkBAIC03NTQyLDIxICs3NTQyLDI3IEBADQogCXJldHVybiBOVUxMOw0KIH0NCiAN
+Ci1zdGF0aWMgaW50IF9fZGV2aW5pdCB0ZzNfcGh5X3Byb2JlKHN0cnVjdCB0ZzMgKnRwKQ0KKy8q
+IFNpbmNlIHRoaXMgZnVuY3Rpb24gbWF5IGJlIGNhbGxlZCBpbiBEMy1ob3QgcG93ZXIgc3RhdGUg
+ZHVyaW5nDQorICogdGczX2luaXRfb25lKCksIG9ubHkgY29uZmlnIGN5Y2xlcyBhcmUgYWxsb3dl
+ZC4NCisgKi8NCitzdGF0aWMgdm9pZCBfX2RldmluaXQgdGczX2dldF9lZXByb21faHdfY2ZnKHN0
+cnVjdCB0ZzMgKnRwKQ0KIHsNCi0JdTMyIGVlcHJvbV9waHlfaWQsIGh3X3BoeV9pZF8xLCBod19w
+aHlfaWRfMjsNCi0JdTMyIGh3X3BoeV9pZCwgaHdfcGh5X2lkX21hc2tlZDsNCiAJdTMyIHZhbDsN
+Ci0JaW50IGVlcHJvbV9zaWduYXR1cmVfZm91bmQsIGVlcHJvbV9waHlfc2VyZGVzLCBlcnI7DQor
+DQorCS8qIE1ha2Ugc3VyZSByZWdpc3RlciBhY2Nlc3NlcyAoaW5kaXJlY3Qgb3Igb3RoZXJ3aXNl
+KQ0KKwkgKiB3aWxsIGZ1bmN0aW9uIGNvcnJlY3RseS4NCisJICovDQorCXBjaV93cml0ZV9jb25m
+aWdfZHdvcmQodHAtPnBkZXYsIFRHM1BDSV9NSVNDX0hPU1RfQ1RSTCwNCisJCQkgICAgICAgdHAt
+Pm1pc2NfaG9zdF9jdHJsKTsNCiANCiAJdHAtPnBoeV9pZCA9IFBIWV9JRF9JTlZBTElEOw0KLQll
+ZXByb21fcGh5X2lkID0gUEhZX0lEX0lOVkFMSUQ7DQotCWVlcHJvbV9waHlfc2VyZGVzID0gMDsN
+Ci0JZWVwcm9tX3NpZ25hdHVyZV9mb3VuZCA9IDA7DQorCXRwLT5sZWRfY3RybCA9IExFRF9DVFJM
+X01PREVfUEhZXzE7DQorDQogCXRnM19yZWFkX21lbSh0cCwgTklDX1NSQU1fREFUQV9TSUcsICZ2
+YWwpOw0KIAlpZiAodmFsID09IE5JQ19TUkFNX0RBVEFfU0lHX01BR0lDKSB7DQogCQl1MzIgbmlj
+X2NmZywgbGVkX2NmZzsNCi0JCXUzMiBuaWNfcGh5X2lkLCB2ZXIsIGNmZzIgPSAwOw0KKwkJdTMy
+IG5pY19waHlfaWQsIHZlciwgY2ZnMiA9IDAsIGVlcHJvbV9waHlfaWQ7DQorCQlpbnQgZWVwcm9t
+X3BoeV9zZXJkZXMgPSAwOw0KIA0KIAkJdGczX3JlYWRfbWVtKHRwLCBOSUNfU1JBTV9EQVRBX0NG
+RywgJm5pY19jZmcpOw0KIAkJdHAtPm5pY19zcmFtX2RhdGFfY2ZnID0gbmljX2NmZzsNCkBAIC03
+NTY5LDggKzc1NzUsNiBAQA0KIAkJICAgICh2ZXIgPiAwKSAmJiAodmVyIDwgMHgxMDApKQ0KIAkJ
+CXRnM19yZWFkX21lbSh0cCwgTklDX1NSQU1fREFUQV9DRkdfMiwgJmNmZzIpOw0KIA0KLQkJZWVw
+cm9tX3NpZ25hdHVyZV9mb3VuZCA9IDE7DQotDQogCQlpZiAoKG5pY19jZmcgJiBOSUNfU1JBTV9E
+QVRBX0NGR19QSFlfVFlQRV9NQVNLKSA9PQ0KIAkJICAgIE5JQ19TUkFNX0RBVEFfQ0ZHX1BIWV9U
+WVBFX0ZJQkVSKQ0KIAkJCWVlcHJvbV9waHlfc2VyZGVzID0gMTsNCkBAIC03NTg2LDYgKzc1OTAs
+MTAgQEANCiAJCX0gZWxzZQ0KIAkJCWVlcHJvbV9waHlfaWQgPSAwOw0KIA0KKwkJdHAtPnBoeV9p
+ZCA9IGVlcHJvbV9waHlfaWQ7DQorCQlpZiAoZWVwcm9tX3BoeV9zZXJkZXMpDQorCQkJdHAtPnRn
+M19mbGFnczIgfD0gVEczX0ZMRzJfUEhZX1NFUkRFUzsNCisNCiAJCWlmICh0cC0+dGczX2ZsYWdz
+MiAmIFRHM19GTEcyXzU3NTBfUExVUykNCiAJCQlsZWRfY2ZnID0gY2ZnMiAmIChOSUNfU1JBTV9E
+QVRBX0NGR19MRURfTU9ERV9NQVNLIHwNCiAJCQkJICAgIFNIQVNUQV9FWFRfTEVEX01PREVfTUFT
+Syk7DQpAQCAtNzY1Myw2ICs3NjYxLDEzIEBADQogCQlpZiAoY2ZnMiAmICgxIDw8IDE4KSkNCiAJ
+CQl0cC0+dGczX2ZsYWdzMiB8PSBURzNfRkxHMl9TRVJERVNfUFJFRU1QSEFTSVM7DQogCX0NCit9
+DQorDQorc3RhdGljIGludCBfX2RldmluaXQgdGczX3BoeV9wcm9iZShzdHJ1Y3QgdGczICp0cCkN
+Cit7DQorCXUzMiBod19waHlfaWRfMSwgaHdfcGh5X2lkXzI7DQorCXUzMiBod19waHlfaWQsIGh3
+X3BoeV9pZF9tYXNrZWQ7DQorCWludCBlcnI7DQogDQogCS8qIFJlYWRpbmcgdGhlIFBIWSBJRCBy
+ZWdpc3RlciBjYW4gY29uZmxpY3Qgd2l0aCBBU0YNCiAJICogZmlyd21hcmUgYWNjZXNzIHRvIHRo
+ZSBQSFkgaGFyZHdhcmUuDQpAQCAtNzY4MSwxMCArNzY5NiwxMCBAQA0KIAkJaWYgKGh3X3BoeV9p
+ZF9tYXNrZWQgPT0gUEhZX0lEX0JDTTgwMDIpDQogCQkJdHAtPnRnM19mbGFnczIgfD0gVEczX0ZM
+RzJfUEhZX1NFUkRFUzsNCiAJfSBlbHNlIHsNCi0JCWlmIChlZXByb21fc2lnbmF0dXJlX2ZvdW5k
+KSB7DQotCQkJdHAtPnBoeV9pZCA9IGVlcHJvbV9waHlfaWQ7DQotCQkJaWYgKGVlcHJvbV9waHlf
+c2VyZGVzKQ0KLQkJCQl0cC0+dGczX2ZsYWdzMiB8PSBURzNfRkxHMl9QSFlfU0VSREVTOw0KKwkJ
+aWYgKHRwLT5waHlfaWQgIT0gUEhZX0lEX0lOVkFMSUQpIHsNCisJCQkvKiBEbyBub3RoaW5nLCBw
+aHkgSUQgYWxyZWFkeSBzZXQgdXAgaW4NCisJCQkgKiB0ZzNfZ2V0X2VlcHJvbV9od19jZmcoKS4N
+CisJCQkgKi8NCiAJCX0gZWxzZSB7DQogCQkJc3RydWN0IHN1YnN5c190YmxfZW50ICpwOw0KIA0K
+QEAgLTc3NTUsOSArNzc3MCw2IEBADQogCQllcnIgPSB0ZzNfaW5pdF81NDAxcGh5X2RzcCh0cCk7
+DQogCX0NCiANCi0JaWYgKCFlZXByb21fc2lnbmF0dXJlX2ZvdW5kKQ0KLQkJdHAtPmxlZF9jdHJs
+ID0gTEVEX0NUUkxfTU9ERV9QSFlfMTsNCi0NCiAJaWYgKHRwLT50ZzNfZmxhZ3MyICYgVEczX0ZM
+RzJfUEhZX1NFUkRFUykNCiAJCXRwLT5saW5rX2NvbmZpZy5hZHZlcnRpc2luZyA9DQogCQkJKEFE
+VkVSVElTRURfMTAwMGJhc2VUX0hhbGYgfA0KQEAgLTgwMjMsNiArODAzNSwxNiBAQA0KIAkJcGNp
+X3dyaXRlX2NvbmZpZ19kd29yZCh0cC0+cGRldiwgVEczUENJX1BDSVNUQVRFLCBwY2lfc3RhdGVf
+cmVnKTsNCiAJfQ0KIA0KKwkvKiBHZXQgZWVwcm9tIGh3IGNvbmZpZyBiZWZvcmUgY2FsbGluZyB0
+ZzNfc2V0X3Bvd2VyX3N0YXRlKCkuDQorCSAqIEluIHBhcnRpY3VsYXIsIHRoZSBURzNfRkxBR19F
+RVBST01fV1JJVEVfUFJPVCBmbGFnIG11c3QgYmUNCisJICogZGV0ZXJtaW5lZCBiZWZvcmUgY2Fs
+bGluZyB0ZzNfc2V0X3Bvd2VyX3N0YXRlKCkgc28gdGhhdA0KKwkgKiB3ZSBrbm93IHdoZXRoZXIg
+b3Igbm90IHRvIHN3aXRjaCBvdXQgb2YgVmF1eCBwb3dlci4NCisJICogV2hlbiB0aGUgZmxhZyBp
+cyBzZXQsIGl0IG1lYW5zIHRoYXQgR1BJTzEgaXMgdXNlZCBmb3IgZWVwcm9tDQorCSAqIHdyaXRl
+IHByb3RlY3QgYW5kIGFsc28gaW1wbGllcyB0aGF0IGl0IGlzIGEgTE9NIHdoZXJlIEdQSU9zDQor
+CSAqIGFyZSBub3QgdXNlZCB0byBzd2l0Y2ggcG93ZXIuDQorCSAqLyANCisJdGczX2dldF9lZXBy
+b21faHdfY2ZnKHRwKTsNCisNCiAJLyogRm9yY2UgdGhlIGNoaXAgaW50byBEMC4gKi8NCiAJZXJy
+ID0gdGczX3NldF9wb3dlcl9zdGF0ZSh0cCwgMCk7DQogCWlmIChlcnIpIHsNCg==
+
+
+--=-J94+mrcKePHBGYnkIiLG--
