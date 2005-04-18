@@ -1,51 +1,41 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: Re: [2.6 patch] drivers/net/wan/: possible cleanups
-Date: Mon, 18 Apr 2005 01:47:39 +0200
-Message-ID: <20050417234738.GY3625@stusta.de>
-References: <20050327143418.GE4285@stusta.de> <1111941516.14877.325.camel@localhost.localdomain> <20050414232028.GD20400@stusta.de> <1113587392.11155.33.camel@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Fw: unregister_netdevice(): negative refcnt, suggest patch against 2.6.11
+Date: Mon, 18 Apr 2005 12:07:49 +1000
+Message-ID: <E1DNLfx-0000yd-00@gondolin.me.apana.org.au>
+References: <20050411125113.GL26731@postel.suug.ch>
+Cc: fmp@palmen.homeip.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Content-Disposition: inline
-In-Reply-To: <1113587392.11155.33.camel@localhost.localdomain>
+To: tgraf@suug.ch (Thomas Graf)
+In-Reply-To: <20050411125113.GL26731@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 15, 2005 at 06:49:56PM +0100, Alan Cox wrote:
-> On Gwe, 2005-04-15 at 00:20, Adrian Bunk wrote:
-> > On Sun, Mar 27, 2005 at 05:38:38PM +0100, Alan Cox wrote:
-> > > On Sul, 2005-03-27 at 15:34, Adrian Bunk wrote:
-> > > >   - syncppp.c: sppp_input
-> > > >   - syncppp.c: sppp_change_mtu
-> > > >   - z85230.c: z8530_dma_sync
-> > > >   - z85230.c: z8530_txdma_sync
-> > > 
-> > > Please leave the z85230 ones at least. They are an intentional part of
-> > > the external API for writing other 85230 card drivers.
-> > 
-> > If they are part of an API, why aren't the prototypes for them in any 
-> > header file?
+Thomas Graf <tgraf@suug.ch> wrote:
 > 
-> They were once. I guess that got "tided" at some point, possibly long
-> ago even before submission.
->...
+> OK, I think the problem is a few missing dev_hold() when the net_device
+> handle is assigned to routes, probes, etc.
 
-Are there any external drivers using these exports, and if there are, 
-why aren't they in the kernel?
+Indeed.  Here is a patch that adds the references that are held by
+the routes.
 
-If there aren't and someone will at some time in the future need them, 
-re-adding the exports will be trivial.
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-cu
-Adrian
-
+Cheers,
 -- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+===== net/appletalk/ddp.c 1.58 vs edited =====
+--- 1.58/net/appletalk/ddp.c	2005-03-27 09:04:35 +10:00
++++ edited/net/appletalk/ddp.c	2005-04-18 11:29:17 +10:00
+@@ -573,6 +573,7 @@
+ 
+ 	/* Fill in the routing entry */
+ 	rt->target  = ta->sat_addr;
++	dev_hold(devhint);
+ 	rt->dev     = devhint;
+ 	rt->flags   = r->rt_flags;
+ 	rt->gateway = ga->sat_addr;
