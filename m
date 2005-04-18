@@ -1,85 +1,63 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: NAPI, e100, and system performance problem
-Date: Mon, 18 Apr 2005 16:26:07 -0400
-Message-ID: <1113855967.7436.39.camel@localhost.localdomain>
-References: <C925F8B43D79CC49ACD0601FB68FF50C03A633C7@orsmsx408>
-	 <Pine.LNX.4.61.0504180943290.15052@linux.site>
-Reply-To: hadi@cyberus.ca
+From: Ben Greear <greearb@candelatech.com>
+Subject: local_bh_enable & hard_start_xmit
+Date: Mon, 18 Apr 2005 14:37:22 -0700
+Message-ID: <42642892.2040300@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Arthur Kepner <akepner@sgi.com>
-In-Reply-To: <Pine.LNX.4.61.0504180943290.15052@linux.site>
+To: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2005-18-04 at 09:55 -0700, Arthur Kepner wrote:
-> On Sun, 17 Apr 2005, Brandeburg, Jesse wrote:
-> 
-> > ......
-> > _conclusion_
-> > 
-> > Is there any way we can configure how soon or often to be polled
-> > (called)? For 100Mb speeds at worst we can get about one 64 byte packet
-> > every 9us (if I did my math right) and since the processors don't take
-> > that long to schedule NAPI, process a packet and handle an interrupt, we
-> > just overload the system with interrupts going into and out of napi
-> > mode.  In this case I only have one adapter getting scheduled.
-> > 
-> 
-> I'll just chime in to say that I've seen similar behavior,
-> (but with a very different system.)
-> 
+This pertains to kernel 2.6.11.
 
-It would _help_ a great deal if people collect data and post.
-What was this other system? Was it running e100 as well? etc etc
+I seem to have backed myself into a corner with network devices
+and locking...again.
 
-> The problem with NAPI is (quoting a co-worker) that it
-> relies on an "accident of timing".
-> 
+I have a thread that grabs a read lock with read_lock_irqsave,
+loops through a list, making calls to dev->hard_start_xmit.
 
-geez, that almost sounds like an insult. spank your coworker for me with
-something sharp (i hope s/he doesnt enjoy it)
+Before today, I was not messing with local_bh_enable/disable, and
+I was seeing badness messages due to this call path:
 
-> If the CPU speed, time to complete a PIO, and the inter-
-> packet arrival time are "just so", then a system (or at
-> least one of its CPUs) can be kept very busy even when
-> it's not receiving data from the network at a particularly
-> high rate.
-> 
+Badness in local_bh_enable at kernel/softirq.c:140
+  [<c01266f2>] local_bh_enable+0x92/0xa0
+  [<c02b6b35>] dev_queue_xmit+0x165/0x280
+  [<c0110364>] get_offset_pmtmr+0x14/0xcb0
+  [<f89e2372>] vlan_dev_hwaccel_hard_start_xmit+0x62/0x70 [8021q]
+  [<f89a89b2>] do_task+0x642/0x61e0 [wanlink]
+...
 
-again, it would help if you actually provided data - this sounds like
-hand waving to me. 
-The only known thing we are aware of is that if you have slow PIO at low
-packet rates you will chew more CPU - the reason is simple: if you do 1
-packet per interupt you will have one more IO per packet than if you
-didnt use NAPI; at about 2.5 packets or so you start benefiting from the
-amortization of IO. This issue has been discussed many many times at
-netdev. There has been no good reason thus far to complicate things by
-"fixing" it.  Go to MSI capable NICs if you are really concerned.
+The warning is due to this line:
+void local_bh_enable(void)
+{
+	WARN_ON(irqs_disabled());
 
-> The simple feedback mechanism used by NAPI is good at
-> balancing latency and throughput, but it doesn't have
-> any way of recognizing when system resources are being
-> poorly utilized.
 
-How do you recognize when system resources are being poorly utilized?
-If you know the answer to that then you need to fix things at the
-softirq scheduling level - not at NAPI (that would be the wrong spot)
+So, I decided to wrap my calls to dev->hard_start_xmit with local_bh_disable/enable.
 
->  It would be nice if interrupt coalesence
-> could be used by NAPI (or maybe by NAPI_2 ?) in this sort
-> of situation.
-> 
+That does not actually fix my problem because I still have the read-lock acquired.
+I am going to try putting the disable/enable outside of that, but then I will be
+potentially disabling the bh for a long time.
 
-You can add coalescing as is doable by e1000 for example - but that
-shouldnt solve the problem you allude to - that of "system resources are
-being poorly utilized" .
 
-cheers,
-jamal
+So, two questions:
 
-PS:- if you want to help please post data.
+1)  Why is it bad to have interrupts disabled when calling
+     the local_bh_enable() method?
+
+2)  Should there be a hard requirement that one must never have IRQs disabled
+     when calling dev->hard_start_xmit  (this requirement seems to currently
+     be in effect because VLANs can call dev_queue_xmit from their hard_start_xmit
+     method, and it appears that dev_queue_xmit must not be called with IRQs disabled).
+
+
+Thanks,
+Ben
+
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
