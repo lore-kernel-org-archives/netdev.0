@@ -1,73 +1,49 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: FIB alternative fib_hash2.c
-Date: Mon, 18 Apr 2005 18:06:23 +0200
-Message-ID: <16995.56063.402097.475330@robur.slu.se>
-References: <16991.54602.218744.163816@robur.slu.se>
-	<425FFA54.9070106@tomt.net>
-	<16992.48513.102876.620927@robur.slu.se>
-	<4260D2EB.6070400@tomt.net>
+From: "Bellino, Phil" <pbellino@mrv.com>
+Subject: 2.6.11 kernel, PPC, and IPv6
+Date: Mon, 18 Apr 2005 12:27:31 -0400
+Message-ID: <19EE6EC66973A5408FBE4CB7772F6F0A0289942D@ltnmail.xyplex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>, netdev@oss.sgi.com
+Content-Type: text/plain;
+	charset="windows-1252"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andre Tomt <andre@tomt.net>
-In-Reply-To: <4260D2EB.6070400@tomt.net>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
-Andre Tomt writes:
- > > 168 kpps vs 316 kpps on this box so quite substantial improvement and if 
- > > you can merge local and main table you get even more. Well to honest we 
- > > can merge tables do this current FIB too.
-
- > If its not too much trouble I would apriciate it.
-
-Well we get into FIB details we have to be careful with numbers as looking
-up different prefixes is quite different. I.e if the matching route is 
-/32 we find in the first zone compare to if we have to search through all 
-zones to match /0 at last. HASH2 has other worst cases.
-
-So the rDoS numbers may be more useful... Anyway to bomb you with numbers
-
-FIB/24 313 kpps
-FIB/0  264 kpps
-
-HASH2/24 305 kpps
-HASH2/0  296 kpps
-
-local and main are not merged.
-
-
-FIB 123 kroutes Single flow at 880 kpps we match /24 prefix --- T-put 313 kpps
-
-Iface   MTU Met  RX-OK RX-ERR RX-DRP RX-OVR  TX-OK TX-ERR TX-DRP TX-OVR Flags
-eth0   1500   0 3564282 8405409 8405409 6435718      5      0      0      0 BRU
-eth1   1500   0      6      0      0      0 3564294      0      0      0 BRU
-
-FIB 123 kroutes single flow at 880 kpps we match /0 prefix --- T-put 264 kpps
-
-Iface   MTU Met  RX-OK RX-ERR RX-DRP RX-OVR  TX-OK TX-ERR TX-DRP TX-OVR Flags
-eth0   1500   0 2676826 8789144 8789144 7323321     95      0      0      0 BRU
-eth1   1500   0      4      0      0      0 2676688      0      0      0 BRU
-
---------------------------------------------------------------------------------
-
-HASH2 123kroutes single flow at 880 kpps we match /24 prefix  --- T-put 305 kpps
-
-Iface   MTU Met  RX-OK RX-ERR RX-DRP RX-OVR  TX-OK TX-ERR TX-DRP TX-OVR Flags
-eth0   1500   0 3470186 8453021 8453021 6529814      5      0      0      0 BRU
-eth1   1500   0      4      0      0      0 3470195      0      0      0 BRU
-
-
-HASH2 123kroutes single flow at 880 kpps we match /0 prefix  --- T-put 296 kpps
-
-Iface   MTU Met  RX-OK RX-ERR RX-DRP RX-OVR  TX-OK TX-ERR TX-DRP TX-OVR Flags
-eth0   1500   0 3373610 8479473 8479473 6626522     96      0      0      0 BRU
-eth1   1500   0      4      0      0      0 3373487      0      0      0 BRU
-
-Cheers.
-
-						 --ro
+> Hello,
+> I do not know if this email is appropriate for this mailing list, but I
+> thought I would give it a try.
+> 
+> Is there anyone out there who is using(or attempting to use) IPv6 with
+> PowerPC  and a 2.6.11 kernel with whom I could email directly with some
+> specific questions?
+> 
+> One of my questions is at boot time, my eth0 device does not have it's
+> link-local address.  I must issue an "ifconfig eth0 down" and then an
+> "ifconfig eth0 up" to get this work work.
+> 
+> Also, it does not auto-configure the info for a link-global prefix/address
+> that is provided by the router announcements.
+> 
+> There are PCs in my network on i686 athlons, i386 running 2.6.5 kernels
+> that do in fact handle the above IPv6 correctly.
+> 
+> I do understand that there are IPv6 mailing list and I do belong to them,
+> but thus far no one has been able to assist me in these issues.
+> 
+> I apologize if this is not the correct forum for these types of questions.
+> 
+> Thank you,
+> Phil Bellino
+> 
+> ============================
+> Phil Bellino
+> MRV Communications, Inc.
+> Boston Product Division
+> 295 Foster St.
+> Littleton,MA 01460
+> Tel: (978)952-4807
+> Email: pbellino@mrv.com
+> ============================
+> 
