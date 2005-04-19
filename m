@@ -1,54 +1,48 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] skbuff: remove old NET_CALLER macro
-Date: Tue, 19 Apr 2005 18:04:43 +1000
-Message-ID: <E1DNnit-0001Qz-00@gondolin.me.apana.org.au>
-References: <20050419174458.0ae804f3@localhost.localdomain>
-Cc: davem@redhat.com, netdev@oss.sgi.com
+From: Christoph Hellwig <hch@lst.de>
+Subject: RNIC-PI Specification
+Date: Tue, 19 Apr 2005 13:49:50 +0200
+Message-ID: <20050419114950.GA16258@lst.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: shemminger@osdl.org (Stephen Hemminger)
-In-Reply-To: <20050419174458.0ae804f3@localhost.localdomain>
+To: rnic-pi-comments@opengroup.org
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger <shemminger@osdl.org> wrote:
-> --- ck-2.6.11/net/core/skbuff.c 2005-04-19 17:07:13.000000000 +1000
-> +++ net-2.6.11/net/core/skbuff.c        2005-04-19 17:31:38.000000000 +1000
-> @@ -275,9 +275,10 @@ void kfree_skbmem(struct sk_buff *skb)
-> 
-> void __kfree_skb(struct sk_buff *skb)
-> {
-> -       if (skb->list) {
-> +       if (unlikely(skb->list)) {
->                printk(KERN_WARNING "Warning: kfree_skb passed an skb still "
-> -                      "on a list (from %p).\n", NET_CALLER(skb));
-> +                      "on a list (from %p).\n", 
-> +                       __builtin_return_address(0));
->                BUG();
+Some comments on the RNIC-PI Draft at 
+http://www.opengroup.org/icsc/rnicpi/uploads/40/7235/rnicpi_draft1.pdf:
 
-Why not turn this if block into a BUG_ON? The return address will be
-printed by BUG anyway.
- 
-> @@ -285,10 +286,11 @@ void __kfree_skb(struct sk_buff *skb)
-> #ifdef CONFIG_XFRM
->        secpath_put(skb->sp);
-> #endif
-> -       if(skb->destructor) {
-> +       if (unlikely(skb->destructor)) {
+ (1) You're repeating the common mistake of mixing up a userland API
+     with a kernel API specification.  The Linux community and many
+     others in the free software world don't care about these kind of
+     kernel API specifications.  Please split this into an optional
+     sub-specification if you want to be take serious.
+     (Note: In the following points I'm completely skipping the kernel
+      part of the specification as it is irrelevant for Linux anyway)
 
-Are you sure that this is the less common case?
+ (2) In a lot of places you're talking about "IHV private" data or
+     functionality.  This doesn't make any sense in the free software
+     world.  Please change the wording to "driver private" or just
+     get rid of it completely - in many cases it's just papering over
+     a bad design of the sofware stack.
+  
+ (3) Please don't expose the difference between driver/os/whatever
+     private data to the API user.  It's the operating systems's job
+     to provide such abstraction.
 
->                if (in_irq())
->                        printk(KERN_WARNING "Warning: kfree_skb on "
-> -                                           "hard IRQ %p\n", NET_CALLER(skb));
-> +                                           "hard IRQ %p\n",
-> +                       __builtin_return_address(0));
+ (4) Please get rid of all the ri_consumer_domain_t arguments in the
+     userland API.  They're useless and the API is already compicated
+     enough
 
-Similarly, This can be turned into a WARN_ON.
+ (5) Please get rid of the IN and OUT specifiers in the API.  C doesn't
+     have any concept of in vs out pointer and it's obsufcating the API
+     needlessly.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+ (6) If ri_modify_rnic isn't supported in userland don't specify it.
+     Please keep the APIs simple.
+
+I've stopped reading throught the specification after the first 50
+pages, I'll take another look once the above issues are fixed.
