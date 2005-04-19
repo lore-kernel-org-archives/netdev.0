@@ -1,47 +1,65 @@
-From: Greg Banks <gnb@sgi.com>
-Subject: Re: NAPI, e100, and system performance problem
-Date: Tue, 19 Apr 2005 15:55:35 +1000
-Message-ID: <20050419055535.GA12211@sgi.com>
-References: <C925F8B43D79CC49ACD0601FB68FF50C03A633C7@orsmsx408> <Pine.LNX.4.61.0504180943290.15052@linux.site> <1113855967.7436.39.camel@localhost.localdomain>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] skbuff: remove old NET_CALLER macro
+Date: Tue, 19 Apr 2005 17:44:58 +1000
+Message-ID: <20050419174458.0ae804f3@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arthur Kepner <akepner@sgi.com>,
-        "Brandeburg, Jesse" <jesse.brandeburg@intel.com>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1113855967.7436.39.camel@localhost.localdomain>
+To: "David S. Miller" <davem@redhat.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 18, 2005 at 04:26:07PM -0400, jamal wrote:
-> On Mon, 2005-18-04 at 09:55 -0700, Arthur Kepner wrote:
-> > I'll just chime in to say that I've seen similar behavior,
-> > (but with a very different system.)
-> 
-> It would _help_ a great deal if people collect data and post.
-> What was this other system? Was it running e100 as well? etc etc
+Kill NET_CALLER it causes warnings from sparse and is no longer
+necessary.
 
-http://marc.theaimsgroup.com/?l=linux-netdev&m=107183822710263&w=2
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-> > The problem with NAPI is (quoting a co-worker) that it
-> > relies on an "accident of timing".
-> > 
-> 
-> geez, that almost sounds like an insult. spank your coworker for me with
-> something sharp (i hope s/he doesnt enjoy it)
-
-No, thank you.  Maybe next time.
-
-> How do you recognize when system resources are being poorly utilized?
-
-An inordinate amount of CPU is being spent running around polling the
-device instead of dealing with the packets in IP, TCP and NFS land.
-By inordinate, we mean twice as much or more cpu% than a MIPS/Irix
-box with slower CPUs.
-
-Greg.
--- 
-Greg Banks, R&D Software Engineer, SGI Australian Software Group.
-I don't speak for SGI.
+diff -urNp -X dontdiff ck-2.6.11/include/linux/skbuff.h net-2.6.11/include/linux/skbuff.h
+--- ck-2.6.11/include/linux/skbuff.h	2005-03-02 18:38:38.000000000 +1100
++++ net-2.6.11/include/linux/skbuff.h	2005-04-19 16:59:31.000000000 +1000
+@@ -83,12 +83,6 @@
+  *	Any questions? No questions, good. 		--ANK
+  */
+ 
+-#ifdef __i386__
+-#define NET_CALLER(arg) (*(((void **)&arg) - 1))
+-#else
+-#define NET_CALLER(arg) __builtin_return_address(0)
+-#endif
+-
+ struct net_device;
+ 
+ #ifdef CONFIG_NETFILTER
+diff -urNp -X dontdiff ck-2.6.11/net/core/skbuff.c net-2.6.11/net/core/skbuff.c
+--- ck-2.6.11/net/core/skbuff.c	2005-04-19 17:07:13.000000000 +1000
++++ net-2.6.11/net/core/skbuff.c	2005-04-19 17:31:38.000000000 +1000
+@@ -275,9 +275,10 @@ void kfree_skbmem(struct sk_buff *skb)
+ 
+ void __kfree_skb(struct sk_buff *skb)
+ {
+-	if (skb->list) {
++	if (unlikely(skb->list)) {
+ 	 	printk(KERN_WARNING "Warning: kfree_skb passed an skb still "
+-		       "on a list (from %p).\n", NET_CALLER(skb));
++		       "on a list (from %p).\n", 
++			__builtin_return_address(0));
+ 		BUG();
+ 	}
+ 
+@@ -285,10 +286,11 @@ void __kfree_skb(struct sk_buff *skb)
+ #ifdef CONFIG_XFRM
+ 	secpath_put(skb->sp);
+ #endif
+-	if(skb->destructor) {
++	if (unlikely(skb->destructor)) {
+ 		if (in_irq())
+ 			printk(KERN_WARNING "Warning: kfree_skb on "
+-					    "hard IRQ %p\n", NET_CALLER(skb));
++					    "hard IRQ %p\n",
++			__builtin_return_address(0));
+ 		skb->destructor(skb);
+ 	}
+ #ifdef CONFIG_NETFILTER
