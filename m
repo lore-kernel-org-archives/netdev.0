@@ -1,209 +1,95 @@
-From: Manfred Spraul <manfred@colorfullife.com>
-Subject: [PATCH] forcedeth Update error handling
-Date: Tue, 19 Apr 2005 21:17:09 +0200
-Message-ID: <42655935.9050703@colorfullife.com>
+From: Arthur Kepner <akepner@sgi.com>
+Subject: NAPI and CPU utilization [was: NAPI, e100, and system performance
+ problem]
+Date: Tue, 19 Apr 2005 13:38:20 -0700 (PDT)
+Message-ID: <Pine.LNX.4.61.0504191210040.15052@linux.site>
+References: <C925F8B43D79CC49ACD0601FB68FF50C03A633C7@orsmsx408>
+ <Pine.LNX.4.61.0504180943290.15052@linux.site> <1113855967.7436.39.camel@localhost.localdomain>
+ <20050419055535.GA12211@sgi.com> <20050419113657.7290d26e.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010900090107000400000007"
-Cc: AAbdulla@nvidia.com, Netdev <netdev@oss.sgi.com>,
-        Carl-Daniel Hailfinger <c-d.hailfinger.kernel.2005@gmx.net>,
-        adq@lidskialf.net
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Greg Banks <gnb@sgi.com>, hadi@cyberus.ca, jesse.brandeburg@intel.com,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050419113657.7290d26e.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------010900090107000400000007
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
 
-Hi Jeff,
+[Modified the subject line in order to not distract from 
+Jesse's original thread.]
 
-Ayaz wrote an update to the error handling for forcedeth (which I 
-modified heavily, thus all bugs are mine):
-The ERROR4 bit is not a fatal error, it just indicates a mismatch 
-between the actual packet len and the len according to the 802.3 header. 
-The patch adds proper handling.
-The patch also removes the code that drops all packets with RX_ERROR & 
-(!RX_FRAMINGERR): ERROR4 errors are also not fatal.
+On Tue, 19 Apr 2005, David S. Miller wrote:
 
-Could you add it to your tree and forward it upstream?
+> On Tue, 19 Apr 2005 15:55:35 +1000
+> Greg Banks <gnb@sgi.com> wrote:
+> 
+> > > How do you recognize when system resources are being poorly utilized?
+> > 
+> > An inordinate amount of CPU is being spent running around polling the
+> > device instead of dealing with the packets in IP, TCP and NFS land.
+> > By inordinate, we mean twice as much or more cpu% than a MIPS/Irix
+> > box with slower CPUs.
+> 
+> You haven't answered the "how" yet.
+> 
+> What tools did you run, what did those tools attempt to measure, and
+> what results did those tools output for you so that you could determine
+> your conclusions with such certainty?
+> 
+
+I'm answering for myself, not Greg. 
+
+Much of the data is essentially from "/proc/". (We use a nice tool 
+called PCP to gather the data, but that's where PCP gets it, for the 
+most part.) But I've used several other tools to gather corroborating 
+data, including: the "kernprof" patch, "q-tools", an ad-hoc patch 
+which used "get_cycles()" to time things which were happening while 
+interrupts were disabled. 
+
+The data acquired with all these show that NAPI causes relatively 
+few packets to be processed per interrupt, so that expensive PIOs 
+are relatively poorly amortized over a given amount of input from 
+the network. (When I use "relative(ly)" above, I mean relative 
+what we see when using Greg's interrupt coalescence patch from 
+http://marc.theaimsgroup.com/?l=linux-netdev&m=107183822710263&w=2)
+
+For example, following is a comparison of the number of packets 
+processed per interrupt and CPU utilization using NAPI and Greg's 
+interrupt coalescence patch. 
+
+This data is pretty old by now, it was gathered using 2.6.5 on an 
+Altix with 1GHz CPUs using the tg3 driver doing bulk data transfer 
+using nttcp. (I'm eyeballing the data from a set of graphs, so 
+it's rough...)
+
+
+   Link util [%]  Packets/Interrupt     CPU utilization [%]
+
+                  NAPI    Intr Coal.    NAPI      Intr Coal.
+   ---------------------------------------------------------
+    25             2          3.5       45           17
+    40             4          6         52           30
+    50             4          6         60           36
+    60             4          7         75           41
+    70             6          10        80           36
+    80             6          16        90           40
+    85             7          16        100          45
+    100            -          17        -            50
+
+I know more recent kernels have somewhat better performance, 
+(http://marc.theaimsgroup.com/?l=linux-netdev&m=109848080827969&w=2
+helped, for one thing.) 
+
+The reason that CPU utilization is so high with NAPI is that 
+we're spinning, waiting for PIOs to flush (this can take an 
+impressively long time when the PCI bus/bridge is busy.) 
+
+I guess that some of us (at SGI) have seen this so often as 
+a bottleneck that we're surprised that it's not more generally 
+recognized as a problem, er, uh, "opportunity for improvement".
 
 --
-    Manfred
-
-
-
---------------010900090107000400000007
-Content-Type: text/plain;
- name="patch-forced-ERROR4"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="patch-forced-ERROR4"
-
-// $Header$
-// Kernel Version:
-//  VERSION = 2
-//  PATCHLEVEL = 6
-//  SUBLEVEL = 11
-//  EXTRAVERSION = .6-bk4
---- 2.6/drivers/net/forcedeth.c	2005-03-02 08:37:45.000000000 +0100
-+++ build-2.6/drivers/net/forcedeth.c	2005-04-16 13:38:21.000000000 +0200
-@@ -81,6 +81,7 @@
-  *			   cause DMA to kfree'd memory.
-  *	0.31: 14 Nov 2004: ethtool support for getting/setting link
-  *	                   capabilities.
-+ *	0.32: 16 Apr 2005: RX_ERROR4 handling added.
-  *
-  * Known bugs:
-  * We suspect that on some hardware no TX done interrupts are generated.
-@@ -92,7 +93,7 @@
-  * DEV_NEED_TIMERIRQ will not harm you on sane hardware, only generating a few
-  * superfluous timer interrupts from the nic.
-  */
--#define FORCEDETH_VERSION		"0.31"
-+#define FORCEDETH_VERSION		"0.32"
- #define DRV_NAME			"forcedeth"
- 
- #include <linux/module.h>
-@@ -109,6 +110,7 @@
- #include <linux/mii.h>
- #include <linux/random.h>
- #include <linux/init.h>
-+#include <linux/if_vlan.h>
- 
- #include <asm/irq.h>
- #include <asm/io.h>
-@@ -1013,6 +1015,59 @@ static void nv_tx_timeout(struct net_dev
- 	spin_unlock_irq(&np->lock);
- }
- 
-+/*
-+ * Called when the nic notices a mismatch between the actual data len on the
-+ * wire and the len indicated in the 802 header
-+ */
-+static int nv_getlen(struct net_device *dev, void *packet, int datalen)
-+{
-+	int hdrlen;	/* length of the 802 header */
-+	int protolen;	/* length as stored in the proto field */
-+
-+	/* 1) calculate len according to header */
-+	if ( ((struct vlan_ethhdr *)packet)->h_vlan_proto == __constant_htons(ETH_P_8021Q)) {
-+		protolen = ntohs( ((struct vlan_ethhdr *)packet)->h_vlan_encapsulated_proto );
-+		hdrlen = VLAN_HLEN;
-+	} else {
-+		protolen = ntohs( ((struct ethhdr *)packet)->h_proto);
-+		hdrlen = ETH_HLEN;
-+	}
-+	dprintk(KERN_DEBUG "%s: nv_getlen: datalen %d, protolen %d, hdrlen %d\n",
-+				dev->name, datalen, protolen, hdrlen);
-+	if (protolen > ETH_DATA_LEN)
-+		return datalen; /* Value in proto field not a len, no checks possible */
-+
-+	protolen += hdrlen;
-+	/* consistency checks: */
-+	if (datalen > ETH_ZLEN) {
-+		if (datalen >= protolen) {
-+			/* more data on wire than in 802 header, trim of
-+			 * additional data.
-+			 */
-+			dprintk(KERN_DEBUG "%s: nv_getlen: accepting %d bytes.\n",
-+					dev->name, protolen);
-+			return protolen;
-+		} else {
-+			/* less data on wire than mentioned in header.
-+			 * Discard the packet.
-+			 */
-+			dprintk(KERN_DEBUG "%s: nv_getlen: discarding long packet.\n",
-+					dev->name);
-+			return -1;
-+		}
-+	} else {
-+		/* short packet. Accept only if 802 values are also short */
-+		if (protolen > ETH_ZLEN) {
-+			dprintk(KERN_DEBUG "%s: nv_getlen: discarding short packet.\n",
-+					dev->name);
-+			return -1;
-+		}
-+		dprintk(KERN_DEBUG "%s: nv_getlen: accepting %d bytes.\n",
-+				dev->name, datalen);
-+		return datalen;
-+	}
-+}
-+
- static void nv_rx_process(struct net_device *dev)
- {
- 	struct fe_priv *np = get_nvpriv(dev);
-@@ -1064,7 +1119,7 @@ static void nv_rx_process(struct net_dev
- 				np->stats.rx_errors++;
- 				goto next_pkt;
- 			}
--			if (Flags & (NV_RX_ERROR1|NV_RX_ERROR2|NV_RX_ERROR3|NV_RX_ERROR4)) {
-+			if (Flags & (NV_RX_ERROR1|NV_RX_ERROR2|NV_RX_ERROR3)) {
- 				np->stats.rx_errors++;
- 				goto next_pkt;
- 			}
-@@ -1078,22 +1133,24 @@ static void nv_rx_process(struct net_dev
- 				np->stats.rx_errors++;
- 				goto next_pkt;
- 			}
--			if (Flags & NV_RX_ERROR) {
--				/* framing errors are soft errors, the rest is fatal. */
--				if (Flags & NV_RX_FRAMINGERR) {
--					if (Flags & NV_RX_SUBSTRACT1) {
--						len--;
--					}
--				} else {
-+			if (Flags & NV_RX_ERROR4) {
-+				len = nv_getlen(dev, np->rx_skbuff[i]->data, len);
-+				if (len < 0) {
- 					np->stats.rx_errors++;
- 					goto next_pkt;
- 				}
- 			}
-+			/* framing errors are soft errors. */
-+			if (Flags & NV_RX_FRAMINGERR) {
-+				if (Flags & NV_RX_SUBSTRACT1) {
-+					len--;
-+				}
-+			}
- 		} else {
- 			if (!(Flags & NV_RX2_DESCRIPTORVALID))
- 				goto next_pkt;
- 
--			if (Flags & (NV_RX2_ERROR1|NV_RX2_ERROR2|NV_RX2_ERROR3|NV_RX2_ERROR4)) {
-+			if (Flags & (NV_RX2_ERROR1|NV_RX2_ERROR2|NV_RX2_ERROR3)) {
- 				np->stats.rx_errors++;
- 				goto next_pkt;
- 			}
-@@ -1107,17 +1164,19 @@ static void nv_rx_process(struct net_dev
- 				np->stats.rx_errors++;
- 				goto next_pkt;
- 			}
--			if (Flags & NV_RX2_ERROR) {
--				/* framing errors are soft errors, the rest is fatal. */
--				if (Flags & NV_RX2_FRAMINGERR) {
--					if (Flags & NV_RX2_SUBSTRACT1) {
--						len--;
--					}
--				} else {
-+			if (Flags & NV_RX2_ERROR4) {
-+				len = nv_getlen(dev, np->rx_skbuff[i]->data, len);
-+				if (len < 0) {
- 					np->stats.rx_errors++;
- 					goto next_pkt;
- 				}
- 			}
-+			/* framing errors are soft errors */
-+			if (Flags & NV_RX2_FRAMINGERR) {
-+				if (Flags & NV_RX2_SUBSTRACT1) {
-+					len--;
-+				}
-+			}
- 			Flags &= NV_RX2_CHECKSUMMASK;
- 			if (Flags == NV_RX2_CHECKSUMOK1 ||
- 					Flags == NV_RX2_CHECKSUMOK2 ||
-
---------------010900090107000400000007--
+Arthur
