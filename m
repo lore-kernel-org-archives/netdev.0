@@ -1,34 +1,269 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@wide.ad.jp>
-Subject: Re: 2.6.11 kernel, PPC, and IPv6
-Date: Tue, 19 Apr 2005 10:15:01 +0900 (JST)
-Message-ID: <20050419.101501.36911974.yoshfuji@wide.ad.jp>
-References: <19EE6EC66973A5408FBE4CB7772F6F0A0289942D@ltnmail.xyplex.com>
-	<20050419.021441.50994203.yoshfuji@linux-ipv6.org>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] kill include/linux/eeprom.h
+Date: Tue, 19 Apr 2005 03:29:35 +0200
+Message-ID: <20050419012935.GQ5489@stusta.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: pbellino@mrv.com
-In-Reply-To: <20050419.021441.50994203.yoshfuji@linux-ipv6.org>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: jgarzik@pobox.com, linux-net@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Benjamin LaHaise <bcrl@kvack.org>
+Content-Disposition: inline
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <20050419.021441.50994203.yoshfuji@linux-ipv6.org> (at Tue, 19 Apr 2005 02:14:41 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
+This patch kills include/linux/eeprom.h .
 
-> In article <19EE6EC66973A5408FBE4CB7772F6F0A0289942D@ltnmail.xyplex.com> (at Mon, 18 Apr 2005 12:27:31 -0400), "Bellino, Phil" <pbellino@mrv.com> says:
-:
-> > > One of my questions is at boot time, my eth0 device does not have it's
-> > > link-local address.  I must issue an "ifconfig eth0 down" and then an
-> > > "ifconfig eth0 up" to get this work work.
-> > > 
-> > > Also, it does not auto-configure the info for a link-global prefix/address
-> > > that is provided by the router announcements.
-> 
-> 2.6.12-rcs seem to work fine on my x86 and ultrasparc at least.
-> I'm trying to build on my ppc as well.
+Rationale:
+- it's only used by one single driver
+- most of this file are non-inline and non-static functions (sic)
 
-It seems to work fine on my ppc.
+This patch moves all required contents of this file into ns83820.c and 
+removes include/linux/eeprom.h (and makes setup_ee_mem_bitbanger 
+static).
 
---yoshfuji
+
+If you think eeprom.h should be used more extensively, please consider:
+- the code has to be moved from the header file to a .c file
+- the currently empty write function has to be implemented
+- even ns83820.c used only one of the 7 functions in eeprom.h
+
+Noone did any of these during the more than 3 years eeprom.h already
+exists...
+
+
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
+
+---
+
+This patch was already sent on:
+- 17 Feb 2005
+
+ drivers/net/ns83820.c  |   49 +++++++++++++-
+ include/linux/eeprom.h |  136 -----------------------------------------
+ 2 files changed, 44 insertions(+), 141 deletions(-)
+
+--- linux-2.6.11-rc3-mm2-full/include/linux/eeprom.h	2004-12-24 22:33:49.000000000 +0100
++++ /dev/null	2004-11-25 03:16:25.000000000 +0100
+@@ -1,136 +0,0 @@
+-/* credit winbond-840.c
+- */
+-#include <asm/io.h>
+-struct eeprom_ops {
+-	void	(*set_cs)(void *ee);
+-	void	(*clear_cs)(void *ee);
+-};
+-
+-#define EEPOL_EEDI	0x01
+-#define EEPOL_EEDO	0x02
+-#define EEPOL_EECLK	0x04
+-#define EEPOL_EESEL	0x08
+-
+-struct eeprom {
+-	void *dev;
+-	struct eeprom_ops *ops;
+-
+-	void __iomem *	addr;
+-
+-	unsigned	ee_addr_bits;
+-
+-	unsigned	eesel;
+-	unsigned	eeclk;
+-	unsigned	eedo;
+-	unsigned	eedi;
+-	unsigned	polarity;
+-	unsigned	ee_state;
+-
+-	spinlock_t	*lock;
+-	u32		*cache;
+-};
+-
+-
+-u8   eeprom_readb(struct eeprom *ee, unsigned address);
+-void eeprom_read(struct eeprom *ee, unsigned address, u8 *bytes,
+-		unsigned count);
+-void eeprom_writeb(struct eeprom *ee, unsigned address, u8 data);
+-void eeprom_write(struct eeprom *ee, unsigned address, u8 *bytes,
+-		unsigned count);
+-
+-/* The EEPROM commands include the alway-set leading bit. */
+-enum EEPROM_Cmds {
+-        EE_WriteCmd=(5 << 6), EE_ReadCmd=(6 << 6), EE_EraseCmd=(7 << 6),
+-};
+-
+-void setup_ee_mem_bitbanger(struct eeprom *ee, void __iomem *memaddr, int eesel_bit, int eeclk_bit, int eedo_bit, int eedi_bit, unsigned polarity)
+-{
+-	ee->addr = memaddr;
+-	ee->eesel = 1 << eesel_bit;
+-	ee->eeclk = 1 << eeclk_bit;
+-	ee->eedo = 1 << eedo_bit;
+-	ee->eedi = 1 << eedi_bit;
+-
+-	ee->polarity = polarity;
+-
+-	*ee->cache = readl(ee->addr);
+-}
+-
+-/* foo. put this in a .c file */
+-static inline void eeprom_update(struct eeprom *ee, u32 mask, int pol)
+-{
+-	unsigned long flags;
+-	u32 data;
+-
+-	spin_lock_irqsave(ee->lock, flags);
+-	data = *ee->cache;
+-
+-	data &= ~mask;
+-	if (pol)
+-		data |= mask;
+-
+-	*ee->cache = data;
+-//printk("update: %08x\n", data);
+-	writel(data, ee->addr);
+-	spin_unlock_irqrestore(ee->lock, flags);
+-}
+-
+-void eeprom_clk_lo(struct eeprom *ee)
+-{
+-	int pol = !!(ee->polarity & EEPOL_EECLK);
+-
+-	eeprom_update(ee, ee->eeclk, pol);
+-	udelay(2);
+-}
+-
+-void eeprom_clk_hi(struct eeprom *ee)
+-{
+-	int pol = !!(ee->polarity & EEPOL_EECLK);
+-
+-	eeprom_update(ee, ee->eeclk, !pol);
+-	udelay(2);
+-}
+-
+-void eeprom_send_addr(struct eeprom *ee, unsigned address)
+-{
+-	int pol = !!(ee->polarity & EEPOL_EEDI);
+-	unsigned i;
+-	address |= 6 << 6;
+-
+-        /* Shift the read command bits out. */
+-        for (i=0; i<11; i++) {
+-		eeprom_update(ee, ee->eedi, ((address >> 10) & 1) ^ pol);
+-		address <<= 1;
+-		eeprom_clk_hi(ee);
+-		eeprom_clk_lo(ee);
+-        }
+-	eeprom_update(ee, ee->eedi, pol);
+-}
+-
+-u16   eeprom_readw(struct eeprom *ee, unsigned address)
+-{
+-	unsigned i;
+-	u16	res = 0;
+-
+-	eeprom_clk_lo(ee);
+-	eeprom_update(ee, ee->eesel, 1 ^ !!(ee->polarity & EEPOL_EESEL));
+-	eeprom_send_addr(ee, address);
+-
+-	for (i=0; i<16; i++) {
+-		u32 data;
+-		eeprom_clk_hi(ee);
+-		res <<= 1;
+-		data = readl(ee->addr);
+-//printk("eeprom_readw: %08x\n", data);
+-		res |= !!(data & ee->eedo) ^ !!(ee->polarity & EEPOL_EEDO);
+-		eeprom_clk_lo(ee);
+-	}
+-	eeprom_update(ee, ee->eesel, 0 ^ !!(ee->polarity & EEPOL_EESEL));
+-
+-	return res;
+-}
+-
+-
+-void eeprom_writeb(struct eeprom *ee, unsigned address, u8 data)
+-{
+-}
+--- linux-2.6.11-rc3-mm2-full/drivers/net/ns83820.c.old	2005-02-16 17:52:43.000000000 +0100
++++ linux-2.6.11-rc3-mm2-full/drivers/net/ns83820.c	2005-02-16 18:05:26.000000000 +0100
+@@ -107,7 +107,6 @@
+ #include <linux/init.h>
+ #include <linux/ip.h>	/* for iph */
+ #include <linux/in.h>	/* for IPPROTO_... */
+-#include <linux/eeprom.h>
+ #include <linux/compiler.h>
+ #include <linux/prefetch.h>
+ #include <linux/ethtool.h>
+@@ -422,6 +421,35 @@
+ 
+ #define DESC_SIZE	8		/* Should be cache line sized */
+ 
++struct eeprom_ops {
++	void	(*set_cs)(void *ee);
++	void	(*clear_cs)(void *ee);
++};
++
++#define EEPOL_EEDI	0x01
++#define EEPOL_EEDO	0x02
++#define EEPOL_EECLK	0x04
++#define EEPOL_EESEL	0x08
++
++struct eeprom {
++	void *dev;
++	struct eeprom_ops *ops;
++
++	void __iomem *	addr;
++
++	unsigned	ee_addr_bits;
++
++	unsigned	eesel;
++	unsigned	eeclk;
++	unsigned	eedo;
++	unsigned	eedi;
++	unsigned	polarity;
++	unsigned	ee_state;
++
++	spinlock_t	*lock;
++	u32		*cache;
++};
++
+ struct rx_info {
+ 	spinlock_t	lock;
+ 	int		up;
+@@ -481,6 +509,21 @@
+ 	struct timer_list	tx_watchdog;
+ };
+ 
++static void setup_ee_mem_bitbanger(struct eeprom *ee, void __iomem *memaddr,
++				   int eesel_bit, int eeclk_bit, int eedo_bit,
++				   int eedi_bit, unsigned polarity)
++{
++	ee->addr = memaddr;
++	ee->eesel = 1 << eesel_bit;
++	ee->eeclk = 1 << eeclk_bit;
++	ee->eedo = 1 << eedo_bit;
++	ee->eedi = 1 << eedi_bit;
++
++	ee->polarity = polarity;
++
++	*ee->cache = readl(ee->addr);
++}
++
+ static inline struct ns83820 *PRIV(struct net_device *dev)
+ {
+ 	return netdev_priv(dev);
+@@ -1568,15 +1611,11 @@
+ 	unsigned i;
+ 	for (i=0; i<3; i++) {
+ 		u32 data;
+-#if 0	/* I've left this in as an example of how to use eeprom.h */
+-		data = eeprom_readw(&dev->ee, 0xa + 2 - i);
+-#else
+ 		/* Read from the perfect match memory: this is loaded by
+ 		 * the chip from the EEPROM via the EELOAD self test.
+ 		 */
+ 		writel(i*2, dev->base + RFCR);
+ 		data = readl(dev->base + RFDR);
+-#endif
+ 		*mac++ = data;
+ 		*mac++ = data >> 8;
+ 	}
+
+
