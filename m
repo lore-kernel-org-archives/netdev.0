@@ -1,44 +1,42 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: NAPI and CPU utilization [was: NAPI, e100, and system
- performance problem]
-Date: Tue, 19 Apr 2005 14:09:51 -0700
-Message-ID: <20050419140951.20965099.davem@davemloft.net>
-References: <C925F8B43D79CC49ACD0601FB68FF50C03A633C7@orsmsx408>
-	<Pine.LNX.4.61.0504180943290.15052@linux.site>
-	<1113855967.7436.39.camel@localhost.localdomain>
-	<20050419055535.GA12211@sgi.com>
-	<20050419113657.7290d26e.davem@davemloft.net>
-	<Pine.LNX.4.61.0504191210040.15052@linux.site>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: [2.6 patch] kill include/linux/eeprom.h
+Date: Wed, 20 Apr 2005 01:56:46 +0200
+Message-ID: <20050419235646.GY5489@stusta.de>
+References: <20050419012935.GQ5489@stusta.de> <20050419135648.GC7315@kvack.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: gnb@sgi.com, hadi@cyberus.ca, jesse.brandeburg@intel.com,
-        netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Arthur Kepner <akepner@sgi.com>
-In-Reply-To: <Pine.LNX.4.61.0504191210040.15052@linux.site>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: jgarzik@pobox.com, linux-net@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Benjamin LaHaise <bcrl@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20050419135648.GC7315@kvack.org>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, Apr 19, 2005 at 09:56:48AM -0400, Benjamin LaHaise wrote:
 
-Please don't expect us to take the table of numbers seriously when it's
-against a more than year old kernel and without a patch you know
-and even explicitly mention makes this case perform significantly
-better.
+> At the very least your patch doesn't do a thorough enough job of 
+> removing the dead code -- there is no good reason to move the unused 
+> code into ns83820.c.
 
-I understand your basic premise, but you're asking us to evaluate
-known stale performance data.
+Where does my patch do this?
+Only the one actually used function setup_ee_mem_bitbanger is moved to
+ns83820.c .
 
-Can you please get numbers against current 2.6.x kernels?
+> Also, someone needs to go around refactoring eeprom code out of the 
+> network drivers at some point.
 
-It is likely that people don't care so much about this because
-on most systems the PIO overhead is not so pronounced as it is
-on your enormous Altix systems.  On PCI-E and the onboard Intel
-e1000 stuff, PIOs are incredibly cheap (Robert Olsson posted some
-nice numbers not too long ago).
+I have no problem with this, but it has to be done right.
 
-So what I'm saying is that the numbers probably don't fall much
-this way on non-Altix systems.  But that doesn't mean we shouldn't
-start using hw coalescing a little bit even with NAPI, I think
-we should.
+> 		-ben
+
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
+
