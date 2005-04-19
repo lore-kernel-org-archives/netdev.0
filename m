@@ -1,63 +1,29 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: [PATCH] Fix deadlock in netconsole with no carrier
-Date: Tue, 19 Apr 2005 10:06:50 -0700
-Message-ID: <20050419170650.GW21897@waste.org>
-References: <20050419135350.GH7715@wotan.suse.de>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] skbuff: remove old NET_CALLER macro
+Date: Tue, 19 Apr 2005 11:35:00 -0700
+Message-ID: <20050419113500.0d10c9e1.davem@davemloft.net>
+References: <20050419174458.0ae804f3@localhost.localdomain>
+	<E1DNnit-0001Qz-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, davem@redhat.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
-Content-Disposition: inline
-In-Reply-To: <20050419135350.GH7715@wotan.suse.de>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1DNnit-0001Qz-00@gondolin.me.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 19, 2005 at 03:53:50PM +0200, Andi Kleen wrote:
-> 
-> I got a deadlock at boot with netconsole when the netword card
-> did not have a cable connected. This patch fixes this by limiting
-> the number of retries. 
+On Tue, 19 Apr 2005 18:04:43 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-It should be waiting for carrier detect before proceeding. What NIC is that?
-I'm sure five retries is not enough.
+> Why not turn this if block into a BUG_ON? The return address will be
+> printed by BUG anyway.
 
-> Also when we run into the device spinlock dont poll all the time,
-> just spin.
+Also, __builtin_return_address(0) does not work reliably on some
+platforms, notably MIPS.  However, you are making a straight
+transformation so you're not making things any worse than before.
 
-Two patches? Again, I don't think we should give up so easily.
-
-> 
-> Signed-off-by: Andi Kleen <ak@suse.de>
-> 
-> 
-> diff -u net/core/netpoll.c-o net/core/netpoll.c
-> --- net/core/netpoll.c-o	2005-03-02 08:38:32.000000000 +0100
-> +++ net/core/netpoll.c	2005-04-19 15:50:42.959142733 +0200
-> @@ -190,9 +190,10 @@
->  static void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb)
->  {
->  	int status;
-> +	int try = 5; 
->  
->  repeat:
-> -	if(!np || !np->dev || !netif_running(np->dev)) {
-> +	if(try-- == 0 || !np || !np->dev || !netif_running(np->dev)) {
->  		__kfree_skb(skb);
->  		return;
->  	}
-> @@ -218,6 +219,10 @@
->  
->  	/* transmit busy */
->  	if(status) {
-> +		if (status == NETDEV_TX_LOCKED) {
-> +			try++;
-> +			goto repeat;
-> +		}
->  		netpoll_poll(np);
->  		goto repeat;
->  	}
-
--- 
-Mathematics is the supreme nostalgia of our time.
+Eventually, this belongs in linux/compiler.h as "function_caller()"
+or something like that.
