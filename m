@@ -1,50 +1,43 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: 2.6.12-rc2-mm3: hostap: do not #include .c files
-Date: Tue, 19 Apr 2005 04:03:12 +0200
-Message-ID: <20050419020312.GR5489@stusta.de>
+From: Jouni Malinen <jkmaline@cc.hut.fi>
+Subject: Re: 2.6.12-rc2-mm3: hostap: do not #include .c files
+Date: Mon, 18 Apr 2005 19:12:38 -0700
+Message-ID: <20050419021238.GG8267@jm.kir.nu>
 References: <20050411012532.58593bc1.akpm@osdl.org>
+	<20050419020312.GR5489@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, hostap@shmoo.com, jgarzik@pobox.com,
-	netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261198AbVDSCDX@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>, jkmaline@cc.hut.fi
+Cc: Andrew Morton <akpm@osdl.org>, jgarzik@pobox.com,
+	hostap@shmoo.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com>
+To: Adrian Bunk <bunk@stusta.de>
 Content-Disposition: inline
-In-Reply-To: <20050411012532.58593bc1.akpm@osdl.org>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20050419020312.GR5489@stusta.de>
+List-Unsubscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
+	<mailto:hostap-request@shmoo.com?subject=unsubscribe>
+List-Archive: <http://incognito.shmoo.com/pipermail/hostap>
+List-Post: <mailto:hostap@shmoo.com>
+List-Help: <mailto:hostap-request@shmoo.com?subject=help>
+List-Subscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
+	<mailto:hostap-request@shmoo.com?subject=subscribe>
+Sender: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
+Errors-To: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 11, 2005 at 01:25:32AM -0700, Andrew Morton wrote:
->...
-> All 819 patches:
->...
-> bk-netdev.patch
->...
+On Tue, Apr 19, 2005 at 04:03:12AM +0200, Adrian Bunk wrote:
 
-drivers/net/wireless/hostap/hostap.c:#include "hostap_crypt.c"
-drivers/net/wireless/hostap/hostap.c:#include "hostap_ap.c"
-drivers/net/wireless/hostap/hostap.c:#include "hostap_info.c"
-drivers/net/wireless/hostap/hostap.c:#include "hostap_ioctl.c"
-drivers/net/wireless/hostap/hostap.c:#include "hostap_proc.c"
-drivers/net/wireless/hostap/hostap.c:#include "hostap_80211_rx.c"
-drivers/net/wireless/hostap/hostap.c:#include "hostap_80211_tx.c"
-drivers/net/wireless/hostap/hostap_cs.c:#include "hostap_hw.c"
-drivers/net/wireless/hostap/hostap_hw.c:#include "hostap_download.c"
-drivers/net/wireless/hostap/hostap_hw.c:#include "hostap_callback.c"
-drivers/net/wireless/hostap/hostap_pci.c:#include "hostap_hw.c"
-drivers/net/wireless/hostap/hostap_plx.c:#include "hostap_hw.c"
+> drivers/net/wireless/hostap/hostap.c:#include "hostap_crypt.c"
 
-Please do not #include .c files.
+> Please do not #include .c files.
 
-A proper separation in a .c file and a header file is the better 
-solution.
+A tested patch would be appreciated.. ;-)
 
-cu
-Adrian
+> A proper separation in a .c file and a header file is the better 
+> solution.
+
+Agreed and this is on my to-do list, but not very high on it. Some of
+these would be relatively easy to fix, but the hardware specific ones
+(different register offsets for PC Card/PLX/PCI) would require quite a
+bit of changes to get rid of this.
 
 -- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+Jouni Malinen                                            PGP id EFC895FA
