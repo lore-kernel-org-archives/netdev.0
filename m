@@ -1,55 +1,31 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Fw: [Bug 3998] ARP issues after RC1
-Date: Tue, 19 Apr 2005 11:00:18 +1000
-Message-ID: <20050419110018.25baf191@localhost.localdomain>
+Subject: Re: [PATCH] netem: account for packets in delayed queue in qlen
+Date: Tue, 19 Apr 2005 11:06:39 +1000
+Message-ID: <20050419110639.47767113@localhost.localdomain>
+References: <20050329152110.38d50653@dxpl.pdx.osdl.net>
+	<4252EB9D.9070305@trash.net>
+	<20050407120417.4297cd14@dxpl.pdx.osdl.net>
+	<42628300.9010007@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <42628300.9010007@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Sun, 17 Apr 2005 17:38:40 +0200
+Patrick McHardy <kaber@trash.net> wrote:
 
+> Stephen Hemminger wrote:
+> > Would this work better.? It just increases qlen by +/- 1 on enqueue, dequeue.
+> > It also allows < 1ms delays if there is enough traffic going through.
+> 
+> It looks better, but with duplication there can still be an increment
+> of 2 in netem_enqueue().
 
-Begin forwarded message:
-
-Date: Mon, 18 Apr 2005 05:39:42 -0700
-From: bugme-daemon@osdl.org
-To: shemminger@osdl.org
-Subject: [Bug 3998] ARP issues after RC1
-
-
-http://bugme.osdl.org/show_bug.cgi?id=3998
-
-----------
-Distribution: Redhat 9.0
-
-Hardware Environment: Intel/IWill MBs. Intel e1000 and Broadcom tg3 network modules.
-
-Problem Description: After upgrading to 2.4.28, we having issues where hosts are
-unreachable and we are getting <incomplete> entries in the ARP tables. After the
-entry has cleared, the host will become reachable. This is most noticible upon
-startup, where netfs (nfs mounts), yp, and ntp fail, as they cannot reach their
-corresponding servers. This is happening on multiple machines, with different
-MBs and network interfaces, all running RedHat 9.0. 2.4.27, using the same
-.config had no such issues. After compiling all the pre and rc patches, it seems
-that the offending change occurred between rc1 and rc2.
-
-Steps to reproduce:
-
-1. Install RH9, workstation install.
-2. Configure NFS mounts in /etc/fstab, chkconfig netfs on.
-3. Configure NTP, chkconfig ntp on.
-4. Configure YP, chkconfig ypbind on.
-5. Compile 2.4.28 using .config below
-6. Reboot using 2.4.28. Upon boot, the services above will fail, as they cannot
-reach their servers.
-7. Once up, log in as root and type arp -a. There will be <incomplete> entries
-for the unreachable hosts.
-8. Compile 2.4.28-rc1, using the same .config.
-9. Reboot using 2.4.28-rc1. All the previously failing services will start up
-with no issues.
-10. Compile 2.4.28-rc2, using the same .config.
-11. Reboot using 2.4.28-rc2. The services will fail once again.
+There may be no sane way to do duplication without that. Other ways like injecting
+packets again at top of queue with a thread/tasklet seem rather gross
