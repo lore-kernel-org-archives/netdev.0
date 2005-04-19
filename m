@@ -1,49 +1,37 @@
-From: Nick Winlund <nwinlu@comcast.net>
-Subject: Re: [2.6 patch] kill include/linux/eeprom.h
-Date: Tue, 19 Apr 2005 07:09:38 -0700
-Message-ID: <42651122.30906@comcast.net>
-References: <20050419012935.GQ5489@stusta.de> <20050419135648.GC7315@kvack.org>
+From: Alex Aizman <itn780@yahoo.com>
+Subject: Re: [ANNOUNCE] Linux-iSCSI High-Performance Initiator
+Date: Tue, 19 Apr 2005 07:34:54 -0700
+Message-ID: <4265170E.5040102@yahoo.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Adrian Bunk <bunk@stusta.de>, jgarzik@pobox.com,
-	linux-net@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Benjamin LaHaise <bcrl@kvack.org>
-In-Reply-To: <20050419135648.GC7315@kvack.org>
-Sender: linux-net-owner@vger.kernel.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-No I think the eeprom routine should be saved as it is now for niche 
-vendors and hobbyists. At the very least an accessible versions 
-repository or CVS containing all prior versions of eeprom implementation 
-should be available, a la a new " bitkeeper " or whatever retrieval 
-interface Linus and collaborators decide on.
+Input is needed...
 
-One project where linux+eeprom may be used: 
-http://www.ethernut.de/api/if__var_8h.html
+Two weeks ago the combined linux-iscsi and open-iscsi teams posted
+on lkml and linux-scsi "Linux-iSCSI High-Performance Initiator" - 
+announcement and a set of patches.
 
-Nut OS API
+Here's the original announcement and the submission, respectively:
 
-int 	NutNetLoadConfig (CONST char *name)
-  	Load network configuration from EEPROM.
-int 	NutNetSaveConfig (void)
-  	Save network configuration in EEPROM.
+http://marc.theaimsgroup.com/?l=linux-kernel&m=111327337005048&w=2
 
-Nick
+http://marc.theaimsgroup.com/?l=linux-kernel&m=111328256211837&w=2
 
-Benjamin LaHaise wrote:
-> At the very least your patch doesn't do a thorough enough job of 
-> removing the dead code -- there is no good reason to move the unused 
-> code into ns83820.c.
-> 
-> Also, someone needs to go around refactoring eeprom code out of the 
-> network drivers at some point.
-> 
-> 		-ben
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-net" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+The entire iSCSI Initiator's data path over TCP consists of 2 files:
 
+http://www.open-iscsi.org/src/iscsi_tcp.c
+
+http://www.open-iscsi.org/src/iscsi_tcp.h
+
+(The first file is 73K, I sent yesterday - seems it didn't make it).
+
+It'd be great to get this code reviewed from the networking perspective.
+
+Thanks!
+Alex
