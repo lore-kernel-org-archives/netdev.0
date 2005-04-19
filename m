@@ -1,93 +1,55 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] drivers/net/seeq8005.c: cleanups
-Date: Tue, 19 Apr 2005 02:36:46 +0200
-Message-ID: <20050419003646.GG5489@stusta.de>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Fw: [Bug 3998] ARP issues after RC1
+Date: Tue, 19 Apr 2005 11:00:18 +1000
+Message-ID: <20050419110018.25baf191@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This patch contains the following cleanups:
-- make the needlessly global function seeq8005_init static
-- kill an ancient version variable
-- remove some outdated Emacs settings
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
----
+Begin forwarded message:
 
-This patch was already sent on:
-- 21 Feb 2005
+Date: Mon, 18 Apr 2005 05:39:42 -0700
+From: bugme-daemon@osdl.org
+To: shemminger@osdl.org
+Subject: [Bug 3998] ARP issues after RC1
 
- drivers/net/seeq8005.c |   23 ++---------------------
- 1 files changed, 2 insertions(+), 21 deletions(-)
 
---- linux-2.6.11-rc3-mm2-full/drivers/net/seeq8005.c.old	2005-02-16 18:18:56.000000000 +0100
-+++ linux-2.6.11-rc3-mm2-full/drivers/net/seeq8005.c	2005-02-21 15:19:11.000000000 +0100
-@@ -12,12 +12,6 @@
- 	This file is a network device driver for the SEEQ 8005 chipset and
- 	the Linux operating system.
- 
--*/
--
--static const char version[] =
--	"seeq8005.c:v1.00 8/07/95 Hamish Coleman (hamish@zot.apana.org.au)\n";
--
--/*
-   Sources:
-   	SEEQ 8005 databook
-   	
-@@ -91,7 +85,7 @@
- /* Example routines you must write ;->. */
- #define tx_done(dev)	(inw(SEEQ_STATUS) & SEEQSTAT_TX_ON)
- static void hardware_send_packet(struct net_device *dev, char *buf, int length);
--extern void seeq8005_init(struct net_device *dev, int startp);
-+static  void seeq8005_init(struct net_device *dev, int startp);
- static inline void wait_for_buffer(struct net_device *dev);
- 
- 
-@@ -150,7 +144,6 @@
- 
- static int __init seeq8005_probe1(struct net_device *dev, int ioaddr)
- {
--	static unsigned version_printed;
- 	int i,j;
- 	unsigned char SA_prom[32];
- 	int old_cfg1;
-@@ -291,9 +284,6 @@
- 	}
- #endif
- 
--	if (net_debug  &&  version_printed++ == 0)
--		printk(version);
--
- 	printk("%s: %s found at %#3x, ", dev->name, "seeq8005", ioaddr);
- 
- 	/* Fill in the 'dev' fields. */
-@@ -637,7 +627,7 @@
- #endif
- }
- 
--void seeq8005_init(struct net_device *dev, int startp)
-+static void seeq8005_init(struct net_device *dev, int startp)
- {
- 	struct net_local *lp = netdev_priv(dev);
- 	int ioaddr = dev->base_addr;
-@@ -758,12 +748,3 @@
- }
- 
- #endif /* MODULE */
--
--/*
-- * Local variables:
-- *  compile-command: "gcc -D__KERNEL__ -I/usr/src/linux/net/inet -Wall -Wstrict-prototypes -O6 -m486 -c skeleton.c"
-- *  version-control: t
-- *  kept-new-versions: 5
-- *  tab-width: 4
-- * End:
-- */
+http://bugme.osdl.org/show_bug.cgi?id=3998
+
+----------
+Distribution: Redhat 9.0
+
+Hardware Environment: Intel/IWill MBs. Intel e1000 and Broadcom tg3 network modules.
+
+Problem Description: After upgrading to 2.4.28, we having issues where hosts are
+unreachable and we are getting <incomplete> entries in the ARP tables. After the
+entry has cleared, the host will become reachable. This is most noticible upon
+startup, where netfs (nfs mounts), yp, and ntp fail, as they cannot reach their
+corresponding servers. This is happening on multiple machines, with different
+MBs and network interfaces, all running RedHat 9.0. 2.4.27, using the same
+.config had no such issues. After compiling all the pre and rc patches, it seems
+that the offending change occurred between rc1 and rc2.
+
+Steps to reproduce:
+
+1. Install RH9, workstation install.
+2. Configure NFS mounts in /etc/fstab, chkconfig netfs on.
+3. Configure NTP, chkconfig ntp on.
+4. Configure YP, chkconfig ypbind on.
+5. Compile 2.4.28 using .config below
+6. Reboot using 2.4.28. Upon boot, the services above will fail, as they cannot
+reach their servers.
+7. Once up, log in as root and type arp -a. There will be <incomplete> entries
+for the unreachable hosts.
+8. Compile 2.4.28-rc1, using the same .config.
+9. Reboot using 2.4.28-rc1. All the previously failing services will start up
+with no issues.
+10. Compile 2.4.28-rc2, using the same .config.
+11. Reboot using 2.4.28-rc2. The services will fail once again.
