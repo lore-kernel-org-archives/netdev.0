@@ -1,40 +1,26 @@
-From: Paul Wouters <paul@xelerance.com>
-Subject: Re: [Openswan dev] Re: [IPSEC] COW skb header in UDP decap
-Date: Wed, 20 Apr 2005 16:10:01 +0200 (MET DST)
-Message-ID: <Pine.LNX.4.61.0504201609160.29370@expansionpack.xtdnet.nl>
-References: <21730.1112984853@marajade.sandelman.ottawa.on.ca>
-	<20050419231741.64e44443.davem@davemloft.net>
+From: Benjamin LaHaise <bcrl@kvack.org>
+Subject: Re: [2.6 patch] kill include/linux/eeprom.h
+Date: Wed, 20 Apr 2005 10:42:39 -0400
+Message-ID: <20050420144239.GA14757@kvack.org>
+References: <20050419012935.GQ5489@stusta.de> <20050419135648.GC7315@kvack.org> <20050419235646.GY5489@stusta.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: dev@lists.openswan.org
-Return-path: <dev-bounces@openswan.org>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050419231741.64e44443.davem@davemloft.net>
-Cc: Michael Richardson <mcr@sandelman.ottawa.on.ca>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
-Cc: netdev@oss.sgi.com
-List-Unsubscribe: <http://lists.openswan.org/mailman/listinfo/dev>,
-	<mailto:dev-request@openswan.org?subject=unsubscribe>
-List-Archive: <http://lists.openswan.org/pipermail/dev>
-List-Post: <mailto:dev@openswan.org>
-List-Help: <mailto:dev-request@openswan.org?subject=help>
-List-Subscribe: <http://lists.openswan.org/mailman/listinfo/dev>,
-	<mailto:dev-request@openswan.org?subject=subscribe>
-Sender: dev-bounces@openswan.org
-Errors-To: dev-bounces@openswan.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jgarzik@pobox.com, linux-net@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Adrian Bunk <bunk@stusta.de>
+Content-Disposition: inline
+In-Reply-To: <20050419235646.GY5489@stusta.de>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 19 Apr 2005, David S. Miller wrote:
+On Wed, Apr 20, 2005 at 01:56:46AM +0200, Adrian Bunk wrote:
+> Where does my patch do this?
+> Only the one actually used function setup_ee_mem_bitbanger is moved to
+> ns83820.c .
 
->> Thanks for the patch.  I think we can use something a little lighter
->> than skb_unshare.  The following patch just makes the header part of
->> the skb writeable.  This is needed since we modify the IP headers
->> just a few lines below.
->>
->> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
->
-> Applied, thanks a lot Herbert.
+Which is dead code if you have removed the other users of the data 
+structure it initialized.  Please try to understand the intent of the 
+code being cleaned up instead of just blindly deleting things, and be 
+thorough.
 
-Which reminds me. I still have hanging 'ip xfrm state' commands on 2.6.11.7
-
-Paul
+		-ben
