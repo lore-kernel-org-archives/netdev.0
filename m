@@ -1,54 +1,119 @@
-From: "Chilakala, Mallikarjuna" <mallikarjuna.chilakala@intel.com>
-Subject: [PATCH net-drivers-2.4 10/16] e1000:Implement a workaround for 82546
- errata 10
-Date: Tue, 19 Apr 2005 23:07:14 -0700 (PDT)
-Message-ID: <Pine.LNX.4.61.0504190454570.10932@anoushka.jf.intel.com>
+From: folkert@vanheusden.com
+Subject: [PATCH] optimize check in port-allocation code
+Date: Wed, 20 Apr 2005 20:44:21 +0200
+Message-ID: <20050420184419.GM20290@vanheusden.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev <netdev@oss.sgi.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="TdMwOTenGjBWB1uY"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jgarzik@pobox.com
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-Implement a workaround for 82546 errata 10 --  first Tx descriptor cannot have more than 2015 byte of data in it or it could hang the transmitter.
+--TdMwOTenGjBWB1uY
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
-Signed-off-by: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
-Signed-off-by: John Ronciak <john.ronciak@intel.com>
+Hi,
 
-diff -up net-drivers-2.4/drivers/net/e1000/e1000_main.c net-drivers-2.4/drivers/net/e1000.new/e1000_main.c
---- net-drivers-2.4/drivers/net/e1000/e1000_main.c      2005-04-12 23:00:53.000000000 -0700
-+++ net-drivers-2.4/drivers/net/e1000.new/e1000_main.c  2005-04-12 23:00:55.000000000 -0700
-@@ -1750,6 +1750,15 @@ e1000_tx_map(struct e1000_adapter *adapt
-                if(unlikely(mss && !nr_frags && size == len && size > 8))
-                        size -= 4;
- #endif
-+               /* work-around for errata 10 and it applies
-+                * to all controllers in PCI-X mode
-+                * The fix is to make sure that the first descriptor of a
-+                * packet is smaller than 2048 - 16 - 16 (or 2016) bytes
-+                */
-+               if(unlikely((adapter->hw.bus_type == e1000_bus_type_pcix) &&
-+                               (size > 2015) && count == 0))
-+                       size = 2015;
-+                                                                               
-                /* Workaround for potential 82544 hang in PCI-X.  Avoid
-                 * terminating buffers within evenly-aligned dwords. */
-                if(unlikely(adapter->pcix_82544 &&
-@@ -1951,6 +1960,13 @@ e1000_xmit_frame(struct sk_buff *skb, st
-        if(adapter->pcix_82544)
-                count++;
+In the 2.6.11 code, I found this:
+static int tcp_v6_get_port(struct sock *sk, unsigned short snum)
+also in:
+static int tcp_v4_get_port(struct sock *sk, unsigned short snum)
+{
+=2E..
+        if (snum =3D=3D 0) {
+                int low =3D sysctl_local_port_range[0];
+                int high =3D sysctl_local_port_range[1];
 
-+       /* work-around for errata 10 and it applies to all controllers
-+        * in PCI-X mode, so add one more descriptor to the count
-+        */
-+       if(unlikely((adapter->hw.bus_type == e1000_bus_type_pcix) &&
-+                       (len > 2015)))
-+               count++;
-+
-        nr_frags = skb_shinfo(skb)->nr_frags;
-        for(f = 0; f < nr_frags; f++)
-                count += TXD_USE_COUNT(skb_shinfo(skb)->frags[f].size,
+                spin_lock(&tcp_portalloc_lock);
+		rover =3D tcp_port_rover;
+                do {    rover++;
+                        if ((rover < low) || (rover > high))
+                                rover =3D low;
+
+That 'rover < low' check is redundant?
+ints are bigger then the maximum portnumber (65535) so when
+rover++ gets too high, the check for 'rover > high' will truncate
+it to low (in the next line) waaay before the int itself wraps.
+It is needed because tcp_port_rover might be < low before the
+function starts, in that case the check for <low can be taken out
+of the loop.
+
+Patch:
+
+diff -uNr net/ipv4/tcp_ipv4.c.org net/ipv4/tcp_ipv4.c
+--- net/ipv4/tcp_ipv4.c.org     2005-03-04 22:39:37.340950747 +0100
++++ net/ipv4/tcp_ipv4.c 2005-03-04 22:40:35.570059217 +0100
+@@ -222,10 +222,13 @@
+                int rover;
+
+                spin_lock(&tcp_portalloc_lock);
+-               rover =3D tcp_port_rover;
++               if (tcp_port_rover < low)
++                       rover =3D low;
++               else
++                       rover =3D tcp_port_rover;
+                do {
+                        rover++;
+-                       if (rover < low || rover > high)
++                       if (rover > high)
+                                rover =3D low;
+                        head =3D &tcp_bhash[tcp_bhashfn(rover)];
+                        spin_lock(&head->lock);
+
+diff -uNr net/ipv6/tcp_ipv6.c.org net/ipv6/tcp_ipv6.c
+--- net/ipv6/tcp_ipv6.c.org     2005-03-04 22:41:44.043007791 +0100
++++ net/ipv6/tcp_ipv6.c 2005-03-04 22:42:17.604728073 +0100
+@@ -139,9 +139,12 @@
+                int rover;
+
+                spin_lock(&tcp_portalloc_lock);
+-               rover =3D tcp_port_rover;
++               if (tcp_port_rover < low)
++                       rover =3D low;
++               else
++                       rover =3D tcp_port_rover;
+                do {    rover++;
+-                       if ((rover < low) || (rover > high))
++                       if (rover > high)
+                                rover =3D low;
+                        head =3D &tcp_bhash[tcp_bhashfn(rover)];
+                        spin_lock(&head->lock);
+
+
+Signed-off-by: Folkert van Heusden <folkert@vanheusden.com>
+(please cc me, i'm not (yet) on the list)
+
+
+Folkert van Heusden
+
+Auto te koop, zie: http://www.vanheusden.com/daihatsu.php
+Op zoek naar een IT of Finance baan? Mail me voor de mogelijkheden.
+--------------------------------------------------------------------
+ UNIX admin? Then give MultiTail (http://vanheusden.com/multitail/)=20
+ a try, it brings monitoring logfiles to a different level! See    =20
+ http://vanheusden.com/multitail/features.html for a feature-list. =20
+--------------------------------------------------------------------
+Phone: +31-6-41278122, PGP-key: 1F28D8AE
+Get your PGP/GPG key signed at www.biglumber.com!
+
+--TdMwOTenGjBWB1uY
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.0 (GNU/Linux)
+
+iIMEARECAEMFAkJmowI8Gmh0dHA6Ly93d3cudmFuaGV1c2Rlbi5jb20vZGF0YS1z
+aWduaW5nLXdpdGgtcGdwLXBvbGljeS5odG1sAAoJEDAZDowfKNiumsUAmQEmtWwC
+gITCxZYScgOik1iqp/btAJ9+yC73ficq5h4fUcpVvpnB5MZldg==
+=IQ8N
+-----END PGP SIGNATURE-----
+
+--TdMwOTenGjBWB1uY--
