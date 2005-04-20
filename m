@@ -1,119 +1,79 @@
-From: folkert@vanheusden.com
-Subject: [PATCH] optimize check in port-allocation code
-Date: Wed, 20 Apr 2005 20:44:21 +0200
-Message-ID: <20050420184419.GM20290@vanheusden.com>
+From: Malli Chilakala <mallikarjuna.chilakala@intel.com>
+Subject: [PATCH net-drivers-2.6 5/6] e100: Performance optimizations to e100
+ Tx Path
+Date: Tue, 19 Apr 2005 22:50:31 -0700 (PDT)
+Message-ID: <Pine.LNX.4.61.0504190534410.11186@anoushka.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="TdMwOTenGjBWB1uY"
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: "jgarzik@pobox.com" <jgarzik@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Performance optimizations to e100 Tx Path
 
---TdMwOTenGjBWB1uY
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-Hi,
-
-In the 2.6.11 code, I found this:
-static int tcp_v6_get_port(struct sock *sk, unsigned short snum)
-also in:
-static int tcp_v4_get_port(struct sock *sk, unsigned short snum)
-{
-=2E..
-        if (snum =3D=3D 0) {
-                int low =3D sysctl_local_port_range[0];
-                int high =3D sysctl_local_port_range[1];
-
-                spin_lock(&tcp_portalloc_lock);
-		rover =3D tcp_port_rover;
-                do {    rover++;
-                        if ((rover < low) || (rover > high))
-                                rover =3D low;
-
-That 'rover < low' check is redundant?
-ints are bigger then the maximum portnumber (65535) so when
-rover++ gets too high, the check for 'rover > high' will truncate
-it to low (in the next line) waaay before the int itself wraps.
-It is needed because tcp_port_rover might be < low before the
-function starts, in that case the check for <low can be taken out
-of the loop.
-
-Patch:
-
-diff -uNr net/ipv4/tcp_ipv4.c.org net/ipv4/tcp_ipv4.c
---- net/ipv4/tcp_ipv4.c.org     2005-03-04 22:39:37.340950747 +0100
-+++ net/ipv4/tcp_ipv4.c 2005-03-04 22:40:35.570059217 +0100
-@@ -222,10 +222,13 @@
-                int rover;
-
-                spin_lock(&tcp_portalloc_lock);
--               rover =3D tcp_port_rover;
-+               if (tcp_port_rover < low)
-+                       rover =3D low;
-+               else
-+                       rover =3D tcp_port_rover;
-                do {
-                        rover++;
--                       if (rover < low || rover > high)
-+                       if (rover > high)
-                                rover =3D low;
-                        head =3D &tcp_bhash[tcp_bhashfn(rover)];
-                        spin_lock(&head->lock);
-
-diff -uNr net/ipv6/tcp_ipv6.c.org net/ipv6/tcp_ipv6.c
---- net/ipv6/tcp_ipv6.c.org     2005-03-04 22:41:44.043007791 +0100
-+++ net/ipv6/tcp_ipv6.c 2005-03-04 22:42:17.604728073 +0100
-@@ -139,9 +139,12 @@
-                int rover;
-
-                spin_lock(&tcp_portalloc_lock);
--               rover =3D tcp_port_rover;
-+               if (tcp_port_rover < low)
-+                       rover =3D low;
-+               else
-+                       rover =3D tcp_port_rover;
-                do {    rover++;
--                       if ((rover < low) || (rover > high))
-+                       if (rover > high)
-                                rover =3D low;
-                        head =3D &tcp_bhash[tcp_bhashfn(rover)];
-                        spin_lock(&head->lock);
-
-
-Signed-off-by: Folkert van Heusden <folkert@vanheusden.com>
-(please cc me, i'm not (yet) on the list)
-
-
-Folkert van Heusden
-
-Auto te koop, zie: http://www.vanheusden.com/daihatsu.php
-Op zoek naar een IT of Finance baan? Mail me voor de mogelijkheden.
---------------------------------------------------------------------
- UNIX admin? Then give MultiTail (http://vanheusden.com/multitail/)=20
- a try, it brings monitoring logfiles to a different level! See    =20
- http://vanheusden.com/multitail/features.html for a feature-list. =20
---------------------------------------------------------------------
-Phone: +31-6-41278122, PGP-key: 1F28D8AE
-Get your PGP/GPG key signed at www.biglumber.com!
-
---TdMwOTenGjBWB1uY
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.0 (GNU/Linux)
-
-iIMEARECAEMFAkJmowI8Gmh0dHA6Ly93d3cudmFuaGV1c2Rlbi5jb20vZGF0YS1z
-aWduaW5nLXdpdGgtcGdwLXBvbGljeS5odG1sAAoJEDAZDowfKNiumsUAmQEmtWwC
-gITCxZYScgOik1iqp/btAJ9+yC73ficq5h4fUcpVvpnB5MZldg==
-=IQ8N
------END PGP SIGNATURE-----
-
---TdMwOTenGjBWB1uY--
+Signed-off-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
+Signed-off-by: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
+Signed-off-by: John Ronciak <john.ronciak@intel.com>
+diff -up net-drivers-2.6/drivers/net/e100.c net-drivers-2.6/drivers/net/e100.c.new
+--- net-drivers-2.6/drivers/net/e100.c	2005-04-07 03:22:36.805273784 -0700
++++ net-drivers-2.6/drivers/net/e100.c.new	2005-04-07 03:22:37.251205992 -0700
+@@ -777,7 +777,7 @@ static int e100_eeprom_save(struct nic *
+ 	return 0;
+ }
+ 
+-#define E100_WAIT_SCB_TIMEOUT 40
++#define E100_WAIT_SCB_TIMEOUT 20000 /* we might have to wait 100ms!!! */
+ static inline int e100_exec_cmd(struct nic *nic, u8 cmd, dma_addr_t dma_addr)
+ {
+ 	unsigned long flags;
+@@ -847,6 +847,10 @@ static inline int e100_exec_cb(struct ni
+ 			 * because the controller is too busy, so
+ 			 * let's just queue the command and try again
+ 			 * when another command is scheduled. */
++			if(err == -ENOSPC) {
++				//request a reset
++				schedule_work(&nic->tx_timeout_task);
++			}
+ 			break;
+ 		} else {
+ 			nic->cuc_cmd = cuc_resume;
+@@ -891,7 +895,7 @@ static void mdio_write(struct net_device
+ 
+ static void e100_get_defaults(struct nic *nic)
+ {
+-	struct param_range rfds = { .min = 64, .max = 256, .count = 64 };
++	struct param_range rfds = { .min = 16, .max = 256, .count = 64 };
+ 	struct param_range cbs  = { .min = 64, .max = 256, .count = 64 };
+ 
+ 	pci_read_config_byte(nic->pdev, PCI_REVISION_ID, &nic->rev_id);
+@@ -906,8 +910,9 @@ static void e100_get_defaults(struct nic
+ 	/* Quadwords to DMA into FIFO before starting frame transmit */
+ 	nic->tx_threshold = 0xE0;
+ 
+-	nic->tx_command = cpu_to_le16(cb_tx | cb_i | cb_tx_sf |
+-		((nic->mac >= mac_82558_D101_A4) ? cb_cid : 0));
++	/* no interrupt for every tx completion, delay = 256us if not 557*/
++	nic->tx_command = cpu_to_le16(cb_tx | cb_tx_sf |
++		((nic->mac >= mac_82558_D101_A4) ? cb_cid : cb_i));
+ 
+ 	/* Template for a freshly allocated RFD */
+ 	nic->blank_rfd.command = cpu_to_le16(cb_el);
+@@ -1289,12 +1294,15 @@ static inline void e100_xmit_prepare(str
+ 	struct sk_buff *skb)
+ {
+ 	cb->command = nic->tx_command;
++	/* interrupt every 16 packets regardless of delay */
++	if((nic->cbs_avail & ~15) == nic->cbs_avail) cb->command |= cb_i;
+ 	cb->u.tcb.tbd_array = cb->dma_addr + offsetof(struct cb, u.tcb.tbd);
+ 	cb->u.tcb.tcb_byte_count = 0;
+ 	cb->u.tcb.threshold = nic->tx_threshold;
+ 	cb->u.tcb.tbd_count = 1;
+ 	cb->u.tcb.tbd.buf_addr = cpu_to_le32(pci_map_single(nic->pdev,
+ 		skb->data, skb->len, PCI_DMA_TODEVICE));
++	// check for mapping failure?
+ 	cb->u.tcb.tbd.size = cpu_to_le16(skb->len);
+ }
+ 
