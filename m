@@ -1,42 +1,36 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: Re: [2.6 patch] kill include/linux/eeprom.h
-Date: Wed, 20 Apr 2005 01:56:46 +0200
-Message-ID: <20050419235646.GY5489@stusta.de>
-References: <20050419012935.GQ5489@stusta.de> <20050419135648.GC7315@kvack.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Routing local multicast datagrams
+Date: Wed, 20 Apr 2005 12:06:13 +1000
+Message-ID: <20050420020613.GA28085@gondor.apana.org.au>
+References: <4265143D.6020406@gmx.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, linux-net@vger.kernel.org, netdev@oss.sgi.com
+Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 Return-path: <linux-net-owner@vger.kernel.org>
-To: Benjamin LaHaise <bcrl@kvack.org>
+To: Ivo Steinmann <ivo_steinmann@gmx.net>
 Content-Disposition: inline
-In-Reply-To: <20050419135648.GC7315@kvack.org>
+In-Reply-To: <4265143D.6020406@gmx.net>
 Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 19, 2005 at 09:56:48AM -0400, Benjamin LaHaise wrote:
+On Tue, Apr 19, 2005 at 02:22:53PM +0000, Ivo Steinmann wrote:
+> 
+> I have got a multicast router with mrouted as multicast routing daemon. 
+> As long as the multicast datagrams come from eth[x] they are routed 
+> correctly to eth[y] interface. But if the datagrams come from a prozess 
+> that is running on the router, they are not routed corretly by mroute.
 
-> At the very least your patch doesn't do a thorough enough job of 
-> removing the dead code -- there is no good reason to move the unused 
-> code into ns83820.c.
+This is a known deficiency in the Linux multicast routing code.
+See comment at the top of ip_mr_forward.
 
-Where does my patch do this?
-Only the one actually used function setup_ee_mem_bitbanger is moved to
-ns83820.c .
+Alexey, could you give us a more detailed explanation on the
+problems with supporting multicast applications on multicast
+routers?
 
-> Also, someone needs to go around refactoring eeprom code out of the 
-> network drivers at some point.
-
-I have no problem with this, but it has to be done right.
-
-> 		-ben
-
-cu
-Adrian
-
+Cheers,
 -- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
-
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
