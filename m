@@ -1,49 +1,39 @@
-From: Park Lee <parklee_sel@yahoo.com>
-Subject: Must every packet have a creating socket? (was Re: Does a forwarded packet has a local socket with it?)
-Date: Wed, 20 Apr 2005 10:29:43 -0700 (PDT)
-Message-ID: <20050420172944.69275.qmail@web51501.mail.yahoo.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [Openswan dev] Re: [IPSEC] COW skb header in UDP decap
+Date: Thu, 21 Apr 2005 07:26:36 +1000
+Message-ID: <20050420212636.GA28424@gondor.apana.org.au>
+References: <21730.1112984853@marajade.sandelman.ottawa.on.ca>
+	<20050409010124.GA22059@gondor.apana.org.au>
+	<20050419231741.64e44443.davem@davemloft.net>
+	<Pine.LNX.4.61.0504201609160.29370@expansionpack.xtdnet.nl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jamal <hadi@cyberus.ca>, linux-net@vger.kernel.org,
-	netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Neil Horman <nhorman@redhat.com>
-Sender: linux-net-owner@vger.kernel.org
+Cc: dev@lists.openswan.org
+Return-path: <dev-bounces@openswan.org>
+To: Paul Wouters <paul@xelerance.com>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.61.0504201609160.29370@expansionpack.xtdnet.nl>
+Cc: Michael Richardson <mcr@sandelman.ottawa.on.ca>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: netdev@oss.sgi.com
+List-Unsubscribe: <http://lists.openswan.org/mailman/listinfo/dev>,
+	<mailto:dev-request@openswan.org?subject=unsubscribe>
+List-Archive: <http://lists.openswan.org/pipermail/dev>
+List-Post: <mailto:dev@openswan.org>
+List-Help: <mailto:dev-request@openswan.org?subject=help>
+List-Subscribe: <http://lists.openswan.org/mailman/listinfo/dev>,
+	<mailto:dev-request@openswan.org?subject=subscribe>
+Sender: dev-bounces@openswan.org
+Errors-To: dev-bounces@openswan.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 19 Apr 2005 at 08:26, Neil Horman wrote:
-> Not sure what your asking here.  Asking "Does these 
-> two sockets belong to local socket?" is a pretty 
-> meaningless question, as the terminology is 
-> nonsensical. All sockets have a protocol associated 
-> with them (except raw sockets, but thats another 
-> topic).  When you create a socket you associate it 
-> with a protocol family (AF_INET, AF_INET6, 
-> AF_NETLINK, AF_APPLETALK, etc), 
-> a connection type (SOCK_STREAM for connection 
-> oriented  protocols, SOCK_DGRAM for connection-less 
-> protocols), and a protocol (IPPROTO_TCP, 
-> IPPROTO_UDP, etc).  Depending on the family, type 
-> and protocol you select, you can talk to different 
-> systems/services.
->
-> Does that answer your question?
+On Wed, Apr 20, 2005 at 04:10:01PM +0200, Paul Wouters wrote:
+> 
+> Which reminds me. I still have hanging 'ip xfrm state' commands on 2.6.11.7
 
-Thanks a lot.
-
-Can I think that every packet (e.g. IP packet) must
-have a corresponding creating socket? (i.e. Must every
-packet be created by a socket?) 
-Is there any other way to originate a packet?
-
-Thank you.
-
-Best Regards,
-Park Lee
-
-
-		
-__________________________________ 
-Do you Yahoo!? 
-Make Yahoo! your home page 
-http://www.yahoo.com/r/hs
+What does strace say?
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
