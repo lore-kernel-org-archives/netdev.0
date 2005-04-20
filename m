@@ -1,116 +1,45 @@
-From: Wolfgang Walter <wolfgang.walter@studentenwerk.mhn.de>
-Subject: Problem with IPSEC tunnel mode
-Date: Wed, 20 Apr 2005 17:37:50 +0200
-Message-ID: <200504201737.51053.wolfgang.walter@studentenwerk.mhn.de>
+From: Malli Chilakala <mallikarjuna.chilakala@intel.com>
+Subject: [PATCH net-drivers-2.6 2/11] ixgb: Do not set the RS bit on context
+ descriptors
+Date: Tue, 19 Apr 2005 22:44:12 -0700 (PDT)
+Message-ID: <Pine.LNX.4.61.0504190513130.11152@anoushka.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: "jgarzik@pobox.com" <jgarzik@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Don't set the RS bit on context descriptors, causes un-necessary bus activity 
 
-we have a problem with ipsec in tunnel mode (using kernel 2.6.11.7).
-
-Scenario:
-
-10.148.4.8/28 host A
-    |
-    |
-10.148.4.1/28 router B
-192.168.9.237/30
-    |
-  internet
-    |
-192.168.77.161/30 router C
-10.148.15.9/30
-    |
-    |
-10.148.15.10/30 router D
-10.0.25.209/30
-    |
-    |
-10.0.25.210/30 host E
-
-There is an ipsec-tunnel between B and C to connect the subnet 10.148.4.0=
-/28=20
-with 10.0.25.210. When now A sends a packet to E (src=3D10.148.4.8,=20
-dst=3D10.0.25.210), we see the following:
-
-1. packet enters B
-2. packet is tunneled to C
-3. packet is received by C
-4. it is decrypted, you can see the decrypted paket
-   with tcpdump and it shows up in PREROUTING (mangle-table)
-5. then it disappears (it is NOT dropped by iptables)
-   especially it is not seen in FORWARD (mangle-table).
-
-The route to E on C is a host route via 10.148.15.10.
-
-The ipsec rules on C are:
-
-
-src 10.148.4.0/28 dst 10.0.25.210/32
-        dir in priority 2084
-        tmpl    src 192.168.9.237 dst 192.168.77.161
-                proto esp spi 0x00000000 reqid 16465 mode tunnel
-
-src 10.148.4.0/28 dst 10.0.25.210/32
-        dir out priority 0
-
-src 10.148.4.0/28 dst 10.0.25.210/32
-        dir fwd priority 2084
-        tmpl    src 192.168.9.237 dst 192.168.77.161
-                proto esp spi 0x00000000 reqid 16465 mode tunnel
-
-
-If we connect 10.0.25.210 directly to C using a direct host route it does=
- not=20
-work either.
-
-If we connect 10.0.25.210 directly to C giving C 10.0.25.209/30 instead o=
-f=20
-10.148.15.9/30 it does not work, either (ipsec-rules are unchanged on C).
-
-But if we further change the ipsec-rules on C to
-
-src 10.148.4.0/28 dst 10.0.25.208/30
-        dir in priority 2084
-        tmpl    src 192.168.9.237 dst 192.168.77.161
-                proto esp spi 0x00000000 reqid 16465 mode tunnel
-
-src 10.148.4.0/28 dst 10.0.25.208/30
-        dir out priority 0
-
-src 10.148.4.0/28 dst 10.0.25.208/30
-        dir fwd priority 2084
-        tmpl    src 192.168.9.237 dst 192.168.77.161
-                proto esp spi 0x00000000 reqid 16465 mode tunnel
-
-
-(of course we change the corresponding rule on B, too) it works: the pack=
-et is=20
-not magically dropped.
-
-
-Interestingly, the original scenario works fine when we use kernel 2.6.7-=
-rc1=20
-instead of 2.6.11.7 and setkey from ipsec-tools 0.3.3. In this case there=
- are=20
-no fwd-rules at all as this old version of setkey does not create one.
-
-
-Any help ist appreciated. Please CC: me as I'm not on the list.
-
-Greetings,
-
-Wolfgang Walter
-Studentenwerk M=FCnchen
-Anstalt des =F6ffentlichen Rechts
-Leopoldstra=DFe 15
-80802 M=FCnchen
+Signed-off-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
+Signed-off-by: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
+Signed-off-by: John Ronciak <john.ronciak@intel.com>
+diff -up net-drivers-2.6/drivers/net/ixgb/ixgb_main.c net-drivers-2.6/drivers/net/ixgb.new/ixgb_main.c
+--- net-drivers-2.6/drivers/net/ixgb/ixgb_main.c	2005-04-05 23:06:36.332229456 -0700
++++ net-drivers-2.6/drivers/net/ixgb.new/ixgb_main.c	2005-04-05 23:06:38.283932752 -0700
+@@ -1209,9 +1209,9 @@ ixgb_tso(struct ixgb_adapter *adapter, s
+ 						| IXGB_CONTEXT_DESC_CMD_TSE
+ 						| IXGB_CONTEXT_DESC_CMD_IP
+ 						| IXGB_CONTEXT_DESC_CMD_TCP
+-						| IXGB_CONTEXT_DESC_CMD_RS
+ 						| IXGB_CONTEXT_DESC_CMD_IDE
+ 						| (skb->len - (hdr_len)));
++
+ 
+ 		if(++i == adapter->tx_ring.count) i = 0;
+ 		adapter->tx_ring.next_to_use = i;
+@@ -1246,9 +1246,8 @@ ixgb_tx_csum(struct ixgb_adapter *adapte
+ 		context_desc->hdr_len = 0;
+ 		context_desc->mss = 0;
+ 		context_desc->cmd_type_len =
+-			cpu_to_le32(IXGB_CONTEXT_DESC_TYPE
+-					| IXGB_TX_DESC_CMD_RS 
+-					| IXGB_TX_DESC_CMD_IDE);
++			cpu_to_le32(IXGB_CONTEXT_DESC_TYPE
++				    | IXGB_TX_DESC_CMD_IDE);
+ 
+ 		if(++i == adapter->tx_ring.count) i = 0;
+ 		adapter->tx_ring.next_to_use = i;
