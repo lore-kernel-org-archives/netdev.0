@@ -1,17 +1,17 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: [Openswan dev] Re: [IPSEC] COW skb header in UDP decap
-Date: Tue, 19 Apr 2005 23:17:41 -0700
-Message-ID: <20050419231741.64e44443.davem@davemloft.net>
+From: Paul Wouters <paul@xelerance.com>
+Subject: Re: [Openswan dev] Re: [IPSEC] COW skb header in UDP decap
+Date: Wed, 20 Apr 2005 16:10:01 +0200 (MET DST)
+Message-ID: <Pine.LNX.4.61.0504201609160.29370@expansionpack.xtdnet.nl>
 References: <21730.1112984853@marajade.sandelman.ottawa.on.ca>
-	<20050409010124.GA22059@gondor.apana.org.au>
+	<20050419231741.64e44443.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
 Cc: dev@lists.openswan.org
 Return-path: <dev-bounces@openswan.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050409010124.GA22059@gondor.apana.org.au>
-Cc: mcr@sandelman.ottawa.on.ca
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050419231741.64e44443.davem@davemloft.net>
+Cc: Michael Richardson <mcr@sandelman.ottawa.on.ca>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
 Cc: netdev@oss.sgi.com
 List-Unsubscribe: <http://lists.openswan.org/mailman/listinfo/dev>,
 	<mailto:dev-request@openswan.org?subject=unsubscribe>
@@ -24,16 +24,17 @@ Sender: dev-bounces@openswan.org
 Errors-To: dev-bounces@openswan.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 9 Apr 2005 11:01:24 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Tue, 19 Apr 2005, David S. Miller wrote:
 
-> > I think that this fixes the problem. I must admit to being a bit
-> 
-> Thanks for the patch.  I think we can use something a little lighter
-> than skb_unshare.  The following patch just makes the header part of
-> the skb writeable.  This is needed since we modify the IP headers
-> just a few lines below.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+>> Thanks for the patch.  I think we can use something a little lighter
+>> than skb_unshare.  The following patch just makes the header part of
+>> the skb writeable.  This is needed since we modify the IP headers
+>> just a few lines below.
+>>
+>> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+>
+> Applied, thanks a lot Herbert.
 
-Applied, thanks a lot Herbert.
+Which reminds me. I still have hanging 'ip xfrm state' commands on 2.6.11.7
+
+Paul
