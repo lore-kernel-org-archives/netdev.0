@@ -1,35 +1,26 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] netem: account for packets in delayed queue in qlen
-Date: Wed, 20 Apr 2005 16:00:56 +0200
-Message-ID: <42666098.5060409@trash.net>
-References: <20050329152110.38d50653@dxpl.pdx.osdl.net>	<4252EB9D.9070305@trash.net>	<20050407120417.4297cd14@dxpl.pdx.osdl.net>	<42628300.9010007@trash.net> <20050419110639.47767113@localhost.localdomain>
+From: =?ISO-2022-JP?B?GyRCJGgkJiQzGyhC?=<yoko@docomo.effers.com>
+Subject: =?ISO-2022-JP?B?GyRCN0c8KEhEOCskPyRoISEbKEI0GyRCN24bKEIyORskQkZ8JE8lUiVeJEckOSQrISkbKEI=?=
+Date: Wed, 20 Apr 2005 20:35:24 -0700
+Message-ID: <200504210335.j3L3ZNdD029210@oss.sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=iso-2022-jp
+Content-Transfer-Encoding: base64
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20050419110639.47767113@localhost.localdomain>
+To: =?ISO-2022-JP?B??=<netdev@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> There may be no sane way to do duplication without that.
-
-This way doesn't work properly either. The classful qdiscs don't care
-about their own q.qlen and just try to dequeue, if successful they
-decrement q.qlen. When duplicating packets in an inner qdisc the
-top-level qdisc's q.qlen will turn negative at some point (it's
-unsigned, but returned as int from qdisc_restart) and will cause
-qdisc_run() to spin forever.
-
-> Other ways like injecting
-> packets again at top of queue with a thread/tasklet seem rather gross
-
-Injecting at the top is also problematic because it needs to
-follow the same classification-path as the first packet, which
-can only be guarenteed with stateless classification.
-
-Regards
-Patrick
+joSCzTI3jc6CzIr5jaWO0oLMgYqCxYK3gUKSVZPfgsaCzZKHiKuCooLtgq+CxYLNgsiCooLx
+gsWCt4KqgUGMi42lgqqRgYKpgsGCvYLMgsWJxpGwgt2CvYKigsiKtIK2gsWDZ4NMg4GDTIKq
+lrOCooLxgsWCt4FCguCCv4LrgvGDR4Nig2CC4JazgrWCxYK3gWmX3IFqklWT34LJgs2T4I+P
+gsiCzILFgreCqoFBkU+MjoLcgsVTTYLMg3CBW4Nng2mBW4KqgqKCvYLxgsWCt4FClN6CzInG
+kbCCyYNvg4yCxJXKguqC3IK1gr2Cr4LHgUWBRYFFgUWBRYFFgUWBRYFCDQqXx4KpgsGCvYLn
+joSCxoN2g4yDQ4K1gsSCrYLqgtyCuYLxgqmBSIKigquCyILogsyCqIrogqKCxYj4gqmCyIKi
+gsWJuoKzgqKCy4FCjoSCzIN2g42DdILNkm2C6I2HgqKCzFNNkOqXcIN6g2WDi4LMg0mBW4Np
+gVuCqoleiWOCtYLEgqKC6YNUg0ODZ4LJk2+YXoK1gsSCoILogtyCt4FCDQqDUoNSgsWCt4Go
+gUBodHRwOi8vNjIyNjIyLmNvbS9mdXJpbjIvICCWs5e/gsWOyoOBgvCMqYLpg1KBW4NpgVuC
+zILmgqSCsYKqjoSCzI7KkF6CxYK3gUKLQ4LJk/yCwYLEgq2C6oLEgUGOhILGg3aDjINDgrWC
+xIKtguqC6YLIgueBQYK7grGCqYLng4GBW4OLibqCs4KigUKCu4K1gr2C546fgs2SvINBg2iC
+qYLng4GBW4OLgrWC3IK3gUKNoYLNgtyCvoN0g4qBW4OBgVuDi4LFgrKC34LxgsiCs4KigUKC
+toLhgqCR0oLBgsSC3IK3gUINCg0KDQoNCg==
