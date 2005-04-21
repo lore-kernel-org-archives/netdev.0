@@ -1,49 +1,46 @@
-From: Scott Feldman <sfeldma@pobox.com>
-Subject: Re: [PATCH net-drivers-2.6 5/6] e100: Performance optimizations to e100 Tx Path
-Date: Thu, 21 Apr 2005 09:55:00 -0700
-Message-ID: <7e4e52dab6e50d8fc38c76651cac0f07@pobox.com>
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: Re: [PATCH net-drivers-2.6 5/6] e100: Performance optimizations to
+ e100 Tx Path
+Date: Thu, 21 Apr 2005 10:10:52 -0700
+Message-ID: <20050421101052.4d212a17.rddunlap@osdl.org>
 References: <Pine.LNX.4.61.0504190534410.11186@anoushka.jf.intel.com>
-Mime-Version: 1.0 (Apple Message framework v622)
-Content-Type: text/plain; charset=US-ASCII; format=flowed
+	<20050420200524.3e284eb9.rddunlap@osdl.org>
+	<5fc59ff305042109514b792bbf@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@oss.sgi.com>, "jgarzik@pobox.com" <jgarzik@pobox.com>
+Cc: mallikarjuna.chilakala@intel.com, jgarzik@pobox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <Pine.LNX.4.61.0504190534410.11186@anoushka.jf.intel.com>
-To: Malli Chilakala <mallikarjuna.chilakala@intel.com>
+To: Ganesh Venkatesan <ganesh.venkatesan@gmail.com>
+In-Reply-To: <5fc59ff305042109514b792bbf@mail.gmail.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Thu, 21 Apr 2005 09:51:01 -0700 Ganesh Venkatesan wrote:
 
-On Apr 19, 2005, at 10:50 PM, Malli Chilakala wrote:
+| 
+| > |  static inline int e100_exec_cmd(struct nic *nic, u8 cmd, dma_addr_t dma_addr)
+| > |  {
+| > |       unsigned long flags;
+| > | @@ -847,6 +847,10 @@ static inline int e100_exec_cb(struct ni
+| > |                        * because the controller is too busy, so
+| > |                        * let's just queue the command and try again
+| > |                        * when another command is scheduled. */
+| > | +                     if(err == -ENOSPC) {
+| >                         if (err == -ENOSPC) {
+| > is preferred (with space after if).
+| > (same comment for below)
+| 
+| Is there a clear directive on 'if(' versus 'if ('? I see both styles
+| being used. We are trying to stay consistent with 'if('.
 
-> Performance optimizations to e100 Tx Path
+There's nothing explicit in CodingStyle, but all of
+the examples in CodingStyle use a space after 'if'.
 
-So what is the net performance improvement with these changes?
+And a few if's in this driver use a space after 'if',
+but most don't iirc from counting them yesterday.
 
-> -	nic->tx_command = cpu_to_le16(cb_tx | cb_i | cb_tx_sf |
-> -		((nic->mac >= mac_82558_D101_A4) ? cb_cid : 0));
-> +	/* no interrupt for every tx completion, delay = 256us if not 557*/
-> +	nic->tx_command = cpu_to_le16(cb_tx | cb_tx_sf |
-> +		((nic->mac >= mac_82558_D101_A4) ? cb_cid : cb_i));
-
-Where is this 256us delay coming from?
-
->  	/* Template for a freshly allocated RFD */
->  	nic->blank_rfd.command = cpu_to_le16(cb_el);
-> @@ -1289,12 +1294,15 @@ static inline void e100_xmit_prepare(str
->  	struct sk_buff *skb)
->  {
->  	cb->command = nic->tx_command;
-> +	/* interrupt every 16 packets regardless of delay */
-> +	if((nic->cbs_avail & ~15) == nic->cbs_avail) cb->command |= cb_i;
-
-You messed up Big Endian.
-
-So you send out 15 packets with no i-bit set.  Then what?  No interrupt 
-means no NAPI means no cleanup of those 15 packet skbs.
-
--scott
-
-P.S. I only saw this one patch for e100 but the subject line indicates 
-there are 6.
+Thanks,
+---
+~Randy
