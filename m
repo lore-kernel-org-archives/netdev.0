@@ -1,27 +1,26 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [NET] Add missing newline for skb_*_panic
-Date: Fri, 22 Apr 2005 01:25:22 +0200
-Message-ID: <42683662.6060003@trash.net>
-References: <20050421050815.GA23133@gondor.apana.org.au> <42682527.3000709@trash.net> <42682718.3060601@trash.net> <20050421231437.GA10119@gondor.apana.org.au>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: is UDP_CORK "real"
+Date: Thu, 21 Apr 2005 16:25:05 -0700
+Message-ID: <20050421162505.3db8ed7c.davem@davemloft.net>
+References: <426833F0.9010803@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050421231437.GA10119@gondor.apana.org.au>
+To: Rick Jones <rick.jones2@hp.com>
+In-Reply-To: <426833F0.9010803@hp.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
+On Thu, 21 Apr 2005 16:14:56 -0700
+Rick Jones <rick.jones2@hp.com> wrote:
 
-> Thanks Patrick, this looks great.
+> Is UDP_CORK going to be an ongoing feature?
 
-BTW, Do you know if that ppp problem (Fw: [Bugme-new] [Bug 4381] New:
-When i try to start a pppoe conn., crash at net/core/skbuff.c:91) was
-already fixed? Otherwise I'd suggest that the reporter should capture
-a crash again with this patch applied.
+Yes, it's there and it's real.
 
-Regards
-Patrick
+If netperf is passing a TCP socket option number in for
+a setsockopt() on a UDP socket, how in the world is that
+the kernel's problem?
