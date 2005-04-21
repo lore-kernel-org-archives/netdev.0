@@ -1,32 +1,23 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [NET] Add missing newline for skb_*_panic
-Date: Thu, 21 Apr 2005 16:44:18 -0700
-Message-ID: <20050421164418.34cc81a2.davem@davemloft.net>
-References: <20050421050815.GA23133@gondor.apana.org.au>
-	<42682527.3000709@trash.net>
-	<42682718.3060601@trash.net>
+Subject: Re: [PATCH 1/1][ATM]: sk_atm() conversion missed subtle change of
+ vcc
+Date: Thu, 21 Apr 2005 16:45:46 -0700
+Message-ID: <20050421164546.45d6cfb6.davem@davemloft.net>
+References: <200504141748.j3EHm6Q0022689@ginger.cmf.nrl.navy.mil>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, herbert@gondor.apana.org.au, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <42682718.3060601@trash.net>
+To: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
+In-Reply-To: <200504141748.j3EHm6Q0022689@ginger.cmf.nrl.navy.mil>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 22 Apr 2005 00:20:08 +0200
-Patrick McHardy <kaber@trash.net> wrote:
+On Thu, 14 Apr 2005 13:48:06 -0400
+"chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil> wrote:
 
-> Patrick McHardy wrote:
-> > How about this one instead? Besides the missing newlines, it adds
-> > head/data/tail/end to the output, which can give valuable hints
-> > about what happend before.
-> 
-> While we're at it, lets also replace KERN_INFO by KERN_EMERG to
-> make sure the user gets to see it.
-> 
-> > Signed-off-by: Patrick McHardy <kaber@trash.net>
+> please apply to 2.6 -- thanks!
 
-Applied, thanks Patrick.
+Applied, thanks Chas.
