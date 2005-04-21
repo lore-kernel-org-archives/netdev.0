@@ -1,33 +1,52 @@
-From: Scott Feldman <sfeldma@pobox.com>
-Subject: Re: [PATCH net-drivers-2.6 5/6] e100: Performance optimizations to e100 Tx Path
-Date: Thu, 21 Apr 2005 12:17:56 -0700
-Message-ID: <70101da07ff38bf0de89894e91987702@pobox.com>
-References: <C925F8B43D79CC49ACD0601FB68FF50C03B1A474@orsmsx408>
-Mime-Version: 1.0 (Apple Message framework v622)
-Content-Type: text/plain; charset=US-ASCII; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Chilakala, Mallikarjuna" <mallikarjuna.chilakala@intel.com>,
-        "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>,
-        <netdev@oss.sgi.com>
+From: Asim Shankar <asimshankar@gmail.com>
+Subject: BUG: HTB?
+Date: Thu, 21 Apr 2005 14:21:07 -0500
+Message-ID: <7bca1cb50504211221655fd54c@mail.gmail.com>
+Reply-To: Asim Shankar <asimshankar@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <C925F8B43D79CC49ACD0601FB68FF50C03B1A474@orsmsx408>
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi,
 
-On Apr 21, 2005, at 11:59 AM, Brandeburg, Jesse wrote:
+I think there is a bug in htb_enqueue() (net/sched/sch_htb.c)
 
->> Where is this 256us delay coming from?
->
-> Turning off the 'I' bit allows the transmit interrupt moderation to 
-> come
-> on, and setting the cid (which was already set) to all 1's indicates 
-> the
-> max delay (256 us)
+Specifically, in the lines:
+if (cl == HTB_DIRECT) {
+        /* enqueue to helper queue */
+        if (q->direct_queue.qlen < q->direct_qlen) {
+                __skb_queue_tail(&q->direct_queue, skb);
+                q->direct_pkts++;
+        }
+}
 
-This makes sense.  I forgot about the cid delay.  I was afraid the "CPU 
-Saver" microcode was coming back.  Thanks Jesse.
+If a packet is classified as HTB_DIRECT but the direct_queue is
+already full, then the packet doesn't get enqueued but sch->q.qlen++
+will happen a few lines later. Overflowing of the direct_queue
+probably rarely happens in practice, but I was playing around and
+noticed it happen in some corner cases of my testing.
 
--scott
+Should the packet be dropped instead? Like:
+
+if (cl == HTB_DIRECT) {
+        /* enqueue to helper queue */
+        if (q->direct_queue.qlen < q->direct_qlen) {
+                __skb_queue_tail(&q->direct_queue, skb);
+                q->direct_pkts++;
+        } else {
+               sch->qstats.drops++;
+                kfree_skb(skb);
+                return NET_XMIT_DROP;
+       }
+}
+
+
+Thanks,
+
+-- Asim
