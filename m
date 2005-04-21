@@ -1,29 +1,31 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] netem: account for packets in delayed queue in qlen
-Date: Fri, 22 Apr 2005 01:10:25 +0200
-Message-ID: <426832E1.7020003@trash.net>
-References: <20050329152110.38d50653@dxpl.pdx.osdl.net>	<4252EB9D.9070305@trash.net>	<20050407120417.4297cd14@dxpl.pdx.osdl.net>	<42628300.9010007@trash.net>	<20050419110639.47767113@localhost.localdomain>	<42666098.5060409@trash.net> <20050421132020.41858bc4@localhost.localdomain>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [NET] Add missing newline for skb_*_panic
+Date: Fri, 22 Apr 2005 09:14:37 +1000
+Message-ID: <20050421231437.GA10119@gondor.apana.org.au>
+References: <20050421050815.GA23133@gondor.apana.org.au> <42682527.3000709@trash.net> <42682718.3060601@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20050421132020.41858bc4@localhost.localdomain>
+To: Patrick McHardy <kaber@trash.net>
+Content-Disposition: inline
+In-Reply-To: <42682718.3060601@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> So duplication is a no go...
-> Unless there is a different way of accounting for qlen (like a callback).
+On Fri, Apr 22, 2005 at 12:20:08AM +0200, Patrick McHardy wrote:
+> Patrick McHardy wrote:
+> >How about this one instead? Besides the missing newlines, it adds
+> >head/data/tail/end to the output, which can give valuable hints
+> >about what happend before.
+> 
+> While we're at it, lets also replace KERN_INFO by KERN_EMERG to
+> make sure the user gets to see it.
 
-Instead of a callback you could store parent pointers in struct Qdisc
-and walk up the tree. One place that would need additional changes to
-cope with qlen changes of more than 1 is HFSC. It uses q.qlen == 1 as
-indication that a leaf qdisc was activated by the last enqueue
-operation. An increment of 2 when q.qlen was 0 before would cause HFSC
-to forget to activate a class.
-
-Regards
-Patrick
+Thanks Patrick, this looks great.
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
