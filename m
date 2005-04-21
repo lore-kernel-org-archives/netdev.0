@@ -1,26 +1,60 @@
-From: =?ISO-2022-JP?B?GyRCJGgkJiQzGyhC?=<yoko@docomo.effers.com>
-Subject: =?ISO-2022-JP?B?GyRCN0c8KEhEOCskPyRoISEbKEI0GyRCN24bKEIyORskQkZ8JE8lUiVeJEckOSQrISkbKEI=?=
-Date: Wed, 20 Apr 2005 20:35:24 -0700
-Message-ID: <200504210335.j3L3ZNdD029210@oss.sgi.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [NET] Add missing newline for skb_*_panic
+Date: Thu, 21 Apr 2005 15:08:15 +1000
+Message-ID: <20050421050815.GA23133@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-2022-jp
-Content-Transfer-Encoding: base64
+Content-Type: multipart/mixed; boundary="9jxsPFA5p3P2qPhR"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: =?ISO-2022-JP?B??=<netdev@oss.sgi.com>
+To: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-joSCzTI3jc6CzIr5jaWO0oLMgYqCxYK3gUKSVZPfgsaCzZKHiKuCooLtgq+CxYLNgsiCooLx
-gsWCt4KqgUGMi42lgqqRgYKpgsGCvYLMgsWJxpGwgt2CvYKigsiKtIK2gsWDZ4NMg4GDTIKq
-lrOCooLxgsWCt4FCguCCv4LrgvGDR4Nig2CC4JazgrWCxYK3gWmX3IFqklWT34LJgs2T4I+P
-gsiCzILFgreCqoFBkU+MjoLcgsVTTYLMg3CBW4Nng2mBW4KqgqKCvYLxgsWCt4FClN6CzInG
-kbCCyYNvg4yCxJXKguqC3IK1gr2Cr4LHgUWBRYFFgUWBRYFFgUWBRYFCDQqXx4KpgsGCvYLn
-joSCxoN2g4yDQ4K1gsSCrYLqgtyCuYLxgqmBSIKigquCyILogsyCqIrogqKCxYj4gqmCyIKi
-gsWJuoKzgqKCy4FCjoSCzIN2g42DdILNkm2C6I2HgqKCzFNNkOqXcIN6g2WDi4LMg0mBW4Np
-gVuCqoleiWOCtYLEgqKC6YNUg0ODZ4LJk2+YXoK1gsSCoILogtyCt4FCDQqDUoNSgsWCt4Go
-gUBodHRwOi8vNjIyNjIyLmNvbS9mdXJpbjIvICCWs5e/gsWOyoOBgvCMqYLpg1KBW4NpgVuC
-zILmgqSCsYKqjoSCzI7KkF6CxYK3gUKLQ4LJk/yCwYLEgq2C6oLEgUGOhILGg3aDjINDgrWC
-xIKtguqC6YLIgueBQYK7grGCqYLng4GBW4OLibqCs4KigUKCu4K1gr2C546fgs2SvINBg2iC
-qYLng4GBW4OLgrWC3IK3gUKNoYLNgtyCvoN0g4qBW4OBgVuDi4LFgrKC34LxgsiCs4KigUKC
-toLhgqCR0oLBgsSC3IK3gUINCg0KDQoNCg==
+
+--9jxsPFA5p3P2qPhR
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+Hi Dave:
+
+Here is a trivial patch to make the skb_under_panic/skb_over_panic
+messages to look nicer.  As it is their printk is joined onto the
+first line of the BUG output because of a missing newline.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--9jxsPFA5p3P2qPhR
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
+
+===== net/core/skbuff.c 1.44 vs edited =====
+--- 1.44/net/core/skbuff.c	2005-03-12 07:32:26 +11:00
++++ edited/net/core/skbuff.c	2005-04-21 15:06:12 +10:00
+@@ -86,7 +86,7 @@
+  */
+ void skb_over_panic(struct sk_buff *skb, int sz, void *here)
+ {
+-	printk(KERN_INFO "skput:over: %p:%d put:%d dev:%s",
++	printk(KERN_INFO "skput:over: %p:%d put:%d dev:%s\n",
+ 		here, skb->len, sz, skb->dev ? skb->dev->name : "<NULL>");
+ 	BUG();
+ }
+@@ -102,7 +102,7 @@
+ 
+ void skb_under_panic(struct sk_buff *skb, int sz, void *here)
+ {
+-	printk(KERN_INFO "skput:under: %p:%d put:%d dev:%s",
++	printk(KERN_INFO "skput:under: %p:%d put:%d dev:%s\n",
+                here, skb->len, sz, skb->dev ? skb->dev->name : "<NULL>");
+ 	BUG();
+ }
+
+--9jxsPFA5p3P2qPhR--
