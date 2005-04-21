@@ -1,16 +1,16 @@
 From: "Franklin I." <ibajesu_barr@best4u.ir>
-Subject: From Franklin Esq.
-Date: Thu, 21 Apr 2005 20:34:34 +0430
-Message-ID: <E1DOeAM-00044K-8A@server1.shahidhemmat.com>
+Subject: Regards, Franklin Esq.
+Date: Thu, 21 Apr 2005 21:03:58 +0430
+Message-ID: <E1DOeco-0001zq-BH@server1.shahidhemmat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;boundary="--Boundary-=_eb490996182b21c8ea1fc3ba8621b3c6"
+Content-Type: multipart/mixed;boundary="--Boundary-=_0f75674d732eb60b096ee3c772bdad07"
 Return-path: <netdev-bounce@oss.sgi.com>
 To: ibajesu_barr@best4u.ir
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----Boundary-=_eb490996182b21c8ea1fc3ba8621b3c6
+----Boundary-=_0f75674d732eb60b096ee3c772bdad07
 Content-Type: text/plain ; CHARSET=iso-8859-1
 Content-Transfer-Encoding: quoted-printable
 
@@ -46,4 +46,4 @@ Note,it is important you reach me through my Secure Email address: (franklin1_ba
 _________________________________________________________________
 ANDISHEH WEB HOSTING - WWW.BEST4U.IR
 
-----Boundary-=_eb490996182b21c8ea1fc3ba8621b3c6--
+----Boundary-=_0f75674d732eb60b096ee3c772bdad07--
