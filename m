@@ -1,49 +1,88 @@
-From: "Franklin I." <ibajesu_barr@best4u.ir>
-Subject: Regards, Franklin Esq.
-Date: Thu, 21 Apr 2005 21:03:58 +0430
-Message-ID: <E1DOeco-0001zq-BH@server1.shahidhemmat.com>
+From: Ganesh Venkatesan <ganesh.venkatesan@gmail.com>
+Subject: Re: [PATCH net-drivers-2.6 5/6] e100: Performance optimizations to e100 Tx Path
+Date: Thu, 21 Apr 2005 09:51:01 -0700
+Message-ID: <5fc59ff305042109514b792bbf@mail.gmail.com>
+References: <Pine.LNX.4.61.0504190534410.11186@anoushka.jf.intel.com>
+	 <20050420200524.3e284eb9.rddunlap@osdl.org>
+Reply-To: Ganesh Venkatesan <ganesh.venkatesan@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;boundary="--Boundary-=_0f75674d732eb60b096ee3c772bdad07"
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: Malli Chilakala <mallikarjuna.chilakala@intel.com>, jgarzik@pobox.com,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ibajesu_barr@best4u.ir
+To: "Randy.Dunlap" <rddunlap@osdl.org>
+In-Reply-To: <20050420200524.3e284eb9.rddunlap@osdl.org>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----Boundary-=_0f75674d732eb60b096ee3c772bdad07
-Content-Type: text/plain ; CHARSET=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
+On 4/20/05, Randy.Dunlap <rddunlap@osdl.org> wrote:
+> On Tue, 19 Apr 2005 22:50:31 -0700 (PDT) Malli Chilakala wrote:
+
+> 
+> |
+> | -#define E100_WAIT_SCB_TIMEOUT 40
+> | +#define E100_WAIT_SCB_TIMEOUT 20000 /* we might have to wait 100ms!!! */
+> 
+> What correlation is there between 20000 and 100 ms ?
+> 
+
+This needs some review and fixing on our side. 
+
+> |  static inline int e100_exec_cmd(struct nic *nic, u8 cmd, dma_addr_t dma_addr)
+> |  {
+> |       unsigned long flags;
+> | @@ -847,6 +847,10 @@ static inline int e100_exec_cb(struct ni
+> |                        * because the controller is too busy, so
+> |                        * let's just queue the command and try again
+> |                        * when another command is scheduled. */
+> | +                     if(err == -ENOSPC) {
+>                         if (err == -ENOSPC) {
+> is preferred (with space after if).
+> (same comment for below)
+
+Is there a clear directive on 'if(' versus 'if ('? I see both styles
+being used. We are trying to stay consistent with 'if('.
 
 
+> 
+> | +                             //request a reset
+> Kernel comment style is /* ... */, not //.
+> (same comment for below)
+> 
 
+Agreed. Will fix this.
 
+> | +                             schedule_work(&nic->tx_timeout_task);
+> | +                     }
+> |                       break;
+> |               } else {
+> |                       nic->cuc_cmd = cuc_resume;
+> | @@ -1289,12 +1294,15 @@ static inline void e100_xmit_prepare(str
+> |       struct sk_buff *skb)
+> |  {
+> |       cb->command = nic->tx_command;
+> | +     /* interrupt every 16 packets regardless of delay */
+> | +     if((nic->cbs_avail & ~15) == nic->cbs_avail) cb->command |= cb_i;
+> Don't put if() and statement on one line, please.
+> It tends to hide code unintentionally.
 
+Will fix this.
 
-
-
-Urgent and Confidential
-
-++++++++++++++++++++++++++++++++++++++
-Good Day,
-
-I am Barrister Ibajesu Franklin,a Solicitor. I am the Personal Attorney to ENGR.BEN GWEHN ,who used to work with PANALPINA SHIPPING COMPANY in Nigeria. On the 2nd of April 2001, my client,his wife And their three children were involved in a car accident.All occupants of the vehicle unfortunately lost thier lives.Since then I have made several enquiries with his embassy to locate any of his extended relatives, this has also Proved unsuccessful.After these several unsuccessful attempts, 
-
-I decided to trace his last name on the Internet, to locate any member of his family but to no avail, hence I contacted you.I have contacted you to assist in repartrating the money and property left behind by my Late client before they get confisicated or declared unserviceable by the bank where this huge deposits were lodged, the Bank where the deceased had an account valued at about $7.150 million dollars has issued me a notice to provide the next of kin or have the account confisicated within the next twenty five official working days.
-
-Since I have been unsuccesfull in locating any of his relatives for over some years now I seek your consent to present you as the next of kin of the deceased so that the proceeds of this account valued at $7.150 million dollars can be paid to you as his next of kin and then you and me can share the money.65% to me and 30% to you,while 5% should be for expenses or tax as your government may require.
-
-I have all necessary legal documents that can be used to back up any claim we may make even the difference in names will not be a hitch. All I require is your honest co-operation to enable us see this deal through. I guarantee that this will be executed under a legitimate arrangement that will protect you from any breach of the law.Please if you have accepted in transacting this deal with me get in touch with me through my secure E-mail(franklin1_barr@yahoo.fr) indicating your interest and readiness to assist me and also the necessary proceedings to follow to get this fund transfered to your bank account.
-
-Note,I will also assure you that this transaction is risk free as everything is going to be handled legally
-
-Thanks and God bless.
-
-Ibajesu Franklin Esq.
-
-Note,it is important you reach me through my Secure Email address: (franklin1_barr@yahoo.fr)
-
-
-_________________________________________________________________
-ANDISHEH WEB HOSTING - WWW.BEST4U.IR
-
-----Boundary-=_0f75674d732eb60b096ee3c772bdad07--
+> 
+> |       cb->u.tcb.tbd_array = cb->dma_addr + offsetof(struct cb, u.tcb.tbd);
+> |       cb->u.tcb.tcb_byte_count = 0;
+> |       cb->u.tcb.threshold = nic->tx_threshold;
+> |       cb->u.tcb.tbd_count = 1;
+> |       cb->u.tcb.tbd.buf_addr = cpu_to_le32(pci_map_single(nic->pdev,
+> |               skb->data, skb->len, PCI_DMA_TODEVICE));
+> | +     // check for mapping failure?
+> |       cb->u.tcb.tbd.size = cpu_to_le16(skb->len);
+> |  }
+> 
+> ---
+> ~Randy
+> 
+>
