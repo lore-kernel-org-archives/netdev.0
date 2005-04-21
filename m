@@ -1,44 +1,51 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: is UDP_CORK "real"
-Date: Thu, 21 Apr 2005 16:14:56 -0700
-Message-ID: <426833F0.9010803@hp.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] netem: account for packets in delayed queue in qlen
+Date: Fri, 22 Apr 2005 09:22:21 +1000
+Message-ID: <20050422092221.4950e23c@localhost.localdomain>
+References: <20050329152110.38d50653@dxpl.pdx.osdl.net>
+	<4252EB9D.9070305@trash.net>
+	<20050407120417.4297cd14@dxpl.pdx.osdl.net>
+	<42628300.9010007@trash.net>
+	<20050419110639.47767113@localhost.localdomain>
+	<42666098.5060409@trash.net>
+	<20050421132020.41858bc4@localhost.localdomain>
+	<426832E1.7020003@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev <netdev@oss.sgi.com>
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <426832E1.7020003@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I've been messing about with the latest netperf, and by accident specified -D 
-for TCP_NODELAY on a UDP_RR test.  In the past, and even today on HP-UX at 
-least, that results in an error on the setsockopt().  However, with the 
-getaddrinfo() changes to netperf and the addtion of SCTP support, setsockopt() 
-is now called with the ai_protocol from the getaddrinfo() call rather than a 
-hard-coded IPPROTO_TCP.  Sooo, for UDP tests that becomes an IPPROTO_UDP.
+On Fri, 22 Apr 2005 01:10:25 +0200
+Patrick McHardy <kaber@trash.net> wrote:
 
-When I run the UDP_RR test with -D set on a 2.6 kernel, netperf stops cold until 
-the test timer expires.
+> Stephen Hemminger wrote:
+> > So duplication is a no go...
+> > Unless there is a different way of accounting for qlen (like a callback).
+> 
+> Instead of a callback you could store parent pointers in struct Qdisc
+> and walk up the tree. One place that would need additional changes to
+> cope with qlen changes of more than 1 is HFSC. It uses q.qlen == 1 as
+> indication that a leaf qdisc was activated by the last enqueue
+> operation. An increment of 2 when q.qlen was 0 before would cause HFSC
+> to forget to activate a class.
 
-It seems there is an overlap in the setsockopt() option numbers between TCP and 
-UDP under Linux 2.6 at least, I've not gone back to check 2.4.  TCP_NODELAY and 
-UDP_CORK are both defined as "1".  Those seem to be the only two options that 
-overlap.  The other UDP_mumble option is defined to be 100, which is presently 
-outside the range of the TCP_mumble options.  So, instead of trying to set 
-TCP_NODELAY on a UDP socket, which would fail; netperf was unwittingly setting 
-UDP_CORK on a UDP socket, which would succede.
+I'm thinking of changing enqueue (and maybe later dequeue) API to decouple
+the qlen assumption.
 
-Is UDP_CORK going to be an ongoing feature?  Is it a "real" feature today? While 
-man tcp described TCP_CORK, on the two places I've checked thusfar, man udp does 
-not describe UDP_CORK.  I'm not sure if that means UDP_CORK is "unreal" or just 
-that the udp manpage needs repair (or was out of date on my systems).
-
-I _can_ go in and have netperf check for IPPROTO_TCP and/or IPPROTO_SCTP before 
-making the _NODELAY setsockopt, and I suppose I probably should, but if UDP_CORK 
-isn't going to be around, or if TCP and UDP socket options were not _really_ 
-meant to overlap... although the level option would seem to be there to allow it...
-
-thanks,
-
-rick jones
+Either:
+	rc = qdisc->enqueue(skb, qdisc, &my->qlen)
+or add NET_XMIT_DUPPED
+	rc = qdisc->enqueue(skb, qdisc);
+	if (rc < NET_XMIT_SUCCESS) {
+		++my->dropped;
+	} else {
+		my->qlen++;
+		if (rc == NET_XMIT_DUPPED)
+			my->qlen++;
+}
