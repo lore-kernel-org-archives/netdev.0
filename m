@@ -1,43 +1,71 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [IPSEC]: Kill nested read lock by deleting xfrm_init_tempsel
-Date: Thu, 21 Apr 2005 16:35:26 -0700
-Message-ID: <20050421163526.7a29a76f.davem@davemloft.net>
-References: <20050328233917.GB15369@gondor.apana.org.au>
-	<424B40C2.90304@trash.net>
-	<20050331004658.GA26395@gondor.apana.org.au>
-	<20050331212325.5e996432.davem@davemloft.net>
-	<20050402004956.GA24339@gondor.apana.org.au>
-	<20050401172007.7296eced.davem@davemloft.net>
-	<20050402020947.GA24998@gondor.apana.org.au>
-	<42501E51.3000401@trash.net>
-	<20050405103918.GA24863@gondor.apana.org.au>
-	<4252EEA2.5020107@trash.net>
-	<20050406022155.GA12952@gondor.apana.org.au>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Problem with IPSEC tunnel mode
+Date: Thu, 21 Apr 2005 19:50:19 -0400
+Message-ID: <1114127419.10572.4.camel@localhost.localdomain>
+References: <E1DObFc-0000je-00@gondolin.me.apana.org.au>
+	 <200504211640.16742.wolfgang.walter@studentenwerk.mhn.de>
+	 <20050421214618.GA29991@gondor.apana.org.au>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, kuznet@ms2.inr.ac.ru, jmorris@redhat.com,
-        yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
+Cc: Wolfgang Walter <wolfgang.walter@studentenwerk.mhn.de>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050406022155.GA12952@gondor.apana.org.au>
+In-Reply-To: <20050421214618.GA29991@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 6 Apr 2005 12:21:55 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Fri, 2005-22-04 at 07:46 +1000, Herbert Xu wrote:
 
-> On Tue, Apr 05, 2005 at 10:01:38PM +0200, Patrick McHardy wrote:
-> > 
-> > Good idea, I didn't think of this. This patch is without replacement of
-> > xfrm_init_tempsel(), it caused an "unused function" warning and, as I
-> > mentioned before, I still need the function.
 > 
-> Thanks.  Just one more issue that I can think of, the check should
-> only be done when tmpl->id.spi != 0.  Otherwise the presence of
-> valid states with differing state selectors will prevent new
-> sessions from starting up.
+> > src 10.148.0.0/23 dst 10.0.25.210/32 
+> > 	dir fwd priority 0 
+> 
+> There you go.  This policy trumps your other policy.  This one
+> says that forwarded traffic matching it must carry no tunnel
+> IPsec transforms.  Therefore all IPsec packets matching it will
+> be dropped.
+> 
+> > src 10.148.4.0/28 dst 10.0.25.210/32 
+> > 	dir fwd priority 2084 
+> > 	tmpl	src 192.168.9.237 dst 192.168.77.161
+> > 		proto esp spi 0x00000000 reqid 16465 mode tunnel
+> 
+> The reason it worked with the old setkey and 2.6.7* is that all
+> forwarded traffic would've been allowed, regardless of whether
+> they matched the IPsec policy or not.
+> 
 
-Is it really worthwhile, right now, to change that tmpl->id.daddr to
-daddr?  That seems to be all that Patrick's most recent patch does.
+Herbert,
+What was the reason there exist a FWD direction in the policies?
+
+Also - shouldnt the FWD policies closely match the OUT ones instead of
+the IN direction (browsing the forwarding code)? i.e
+does this look odd to you (picking a sample from Wolfgangs output):
+
+------------
+src 10.148.0.0/23 dst 10.148.3.32/28 
+	dir out priority 2372 
+	tmpl	src 192.168.77.161 dst 192.168.99.93
+		proto esp spi 0x00000000 reqid 17757 mode tunnel
+		
+
+src 10.148.3.32/28 dst 10.148.0.0/23 
+	dir fwd priority 2372 
+	tmpl	src 192.168.99.93 dst 192.168.77.161
+		proto esp spi 0x00000000 reqid 17757 mode tunnel
+
+
+src 10.148.3.32/28 dst 10.148.0.0/23 
+	dir in priority 2372 
+	tmpl	src 192.168.99.93 dst 192.168.77.161
+		proto esp spi 0x00000000 reqid 17757 mode tunnel
+
+------
+
+Just matched against reqid. 
+
+cheers,
+jamal 
