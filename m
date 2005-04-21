@@ -1,51 +1,46 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Problem with IPSEC tunnel mode
-Date: Fri, 22 Apr 2005 07:46:18 +1000
-Message-ID: <20050421214618.GA29991@gondor.apana.org.au>
-References: <E1DObFc-0000je-00@gondolin.me.apana.org.au> <200504211640.16742.wolfgang.walter@studentenwerk.mhn.de>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH] - sch_htb: Drop packet when direct queue overflows
+Date: Thu, 21 Apr 2005 23:54:40 +0200
+Message-ID: <20050421215440.GL577@postel.suug.ch>
+References: <7bca1cb50504211221655fd54c@mail.gmail.com> <20050421195605.GJ577@postel.suug.ch> <7bca1cb505042113417a5d9f59@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, devik@cdi.cz
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Wolfgang Walter <wolfgang.walter@studentenwerk.mhn.de>
+To: Asim Shankar <asimshankar@gmail.com>
 Content-Disposition: inline
-In-Reply-To: <200504211640.16742.wolfgang.walter@studentenwerk.mhn.de>
+In-Reply-To: <7bca1cb505042113417a5d9f59@mail.gmail.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 21, 2005 at 04:40:16PM +0200, Wolfgang Walter wrote:
->
-> 10.148.0.0/23 dev eth2.1001  scope link  src 10.148.0.1
-> 10.148.32.0/20 via 10.148.15.30 dev eth0.1014  src 10.148.15.29
-> default via 192.168.77.162 dev eth3  src 192.168.77.161
+[CCed Martin Devera]
 
-Although you probably have rp_filter turned, but please check
+* Asim Shankar <7bca1cb505042113417a5d9f59@mail.gmail.com> 2005-04-21 15:41
+> Patched pasted and attached:
 
-cat /proc/sys/net/ipv4/conf/eth3/rp_filter
+For patch formatting details see http://linux.yyz.us/patch-format.html
+A short description of the patch would be helpful.
 
-anway.
+Besides of that...
 
-> src 10.148.0.0/23 dst 10.0.25.210/32 
-> 	dir fwd priority 0 
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-There you go.  This policy trumps your other policy.  This one
-says that forwarded traffic matching it must carry no tunnel
-IPsec transforms.  Therefore all IPsec packets matching it will
-be dropped.
+> --- linux-2.6.11.7/net/sched/sch_htb.c	2005-04-07 13:57:45.000000000 -0500
+> +++ linux-2.6.11.7-new/net/sched/sch_htb.c	2005-04-21 14:17:36.272065816 -0500
+> @@ -717,6 +717,10 @@
+>  	if (q->direct_queue.qlen < q->direct_qlen) {
+>  	    __skb_queue_tail(&q->direct_queue, skb);
+>  	    q->direct_pkts++;
+> +	} else {
+> +	    kfree_skb (skb);
 
-> src 10.148.4.0/28 dst 10.0.25.210/32 
-> 	dir fwd priority 2084 
-> 	tmpl	src 192.168.9.237 dst 192.168.77.161
-> 		proto esp spi 0x00000000 reqid 16465 mode tunnel
+Could you write this without the whitespace?
 
-The reason it worked with the old setkey and 2.6.7* is that all
-forwarded traffic would've been allowed, regardless of whether
-they matched the IPsec policy or not.
+> +	    sch->qstats.drops++;
+> +	    return NET_XMIT_DROP;
+>  	}
+>  #ifdef CONFIG_NET_CLS_ACT
+>      } else if (!cl) {
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Thanks.
