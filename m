@@ -1,51 +1,48 @@
-From: Park Lee <parklee_sel@yahoo.com>
-Subject: Re: Must every packet have a creating socket? (was Re: Does a forwarded packet has a local socket with it?)
-Date: Thu, 21 Apr 2005 06:05:37 -0700 (PDT)
-Message-ID: <20050421130537.96620.qmail@web51501.mail.yahoo.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Neil Horman <nhorman@redhat.com>,
-	Masoud Sharbiani <masouds@masoud.ir>, jamal <hadi@cyberus.ca>,
-	linux-net@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Rick Jones <rick.jones2@hp.com>
-In-Reply-To: 6667
-Sender: linux-net-owner@vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Problem with IPSEC tunnel mode
+Date: Thu, 21 Apr 2005 22:57:48 +1000
+Message-ID: <E1DObFc-0000je-00@gondolin.me.apana.org.au>
+References: <200504201737.51053.wolfgang.walter@studentenwerk.mhn.de>
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: wolfgang.walter@studentenwerk.mhn.de (Wolfgang Walter)
+In-Reply-To: <200504201737.51053.wolfgang.walter@studentenwerk.mhn.de>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 20 Apr 2005 at 18:20, Rick Jones wrote:
->> On Wed, 20 Apr 2005 at 10:29, Park Lee wrote:
->> Can I think that every packet (e.g. IP packet) must
->> have a corresponding creating socket? (i.e. Must 
->> every packet be created by a socket?) 
+Wolfgang Walter <wolfgang.walter@studentenwerk.mhn.de> wrote:
 >
-> No.  ICMP messages come to mind - although I 
-> _suppose_ that since those are in response to other 
-> traffic, you could claim it was in response to 
-> something sent from a "socket" or "endpoint" - 
-> depends on how far away you consider it to still 
-> be  from a socket.
+> 5. then it disappears (it is NOT dropped by iptables)
+>   especially it is not seen in FORWARD (mangle-table).
+> 
+> The route to E on C is a host route via 10.148.15.10.
 
-    But as I know, The Linux network component creates
-two special purpose sockets for use by the AF_INET
-protocol family. The tcp socket is used to send resets
-when a TCP packet is rejected, since there may be no
-local socket corresponding to the packet. The icmp
-socket is used to send ICMP messages.
-    Then, ICMP echo replies are asociated with the
-special kernel socket.
-    So, I still think that every packet (e.g. IP
-packet) must have a corresponding creating socket. 
-    Am I right?
+Please show us the output of "ip ru" and "ip ro".
 
-    Thank you.
+> src 10.148.4.0/28 dst 10.0.25.210/32
+>        dir in priority 2084
+>        tmpl    src 192.168.9.237 dst 192.168.77.161
+>                proto esp spi 0x00000000 reqid 16465 mode tunnel
+> 
+> src 10.148.4.0/28 dst 10.0.25.210/32
+>        dir out priority 0
+> 
+> src 10.148.4.0/28 dst 10.0.25.210/32
+>        dir fwd priority 2084
+>        tmpl    src 192.168.9.237 dst 192.168.77.161
+>                proto esp spi 0x00000000 reqid 16465 mode tunnel
 
-Best Regards,
-Park Lee
+Please attach the complete output of "ip x p".
+ 
+> Interestingly, the original scenario works fine when we use kernel 2.6.7-rc1 
+> instead of 2.6.11.7 and setkey from ipsec-tools 0.3.3. In this case there are 
 
+What if you use the new ipsec-tools against the old kernel?
 
-		
-__________________________________ 
-Do you Yahoo!? 
-Yahoo! Small Business - Try our new resources site!
-http://smallbusiness.yahoo.com/resources/ 
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
