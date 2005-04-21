@@ -1,61 +1,52 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: NAPI, e100, and system performance problem
-Date: Wed, 20 Apr 2005 11:15:31 -0400
-Message-ID: <1114010131.8916.65.camel@localhost.localdomain>
-References: <C925F8B43D79CC49ACD0601FB68FF50C03A633C7@orsmsx408>
-	 <Pine.LNX.4.61.0504180943290.15052@linux.site>
-	 <1113855967.7436.39.camel@localhost.localdomain>
-	 <20050419055535.GA12211@sgi.com>
-	 <20050419113657.7290d26e.davem@davemloft.net>
-	 <20050420145629.GH19415@sgi.com>
-Reply-To: hadi@cyberus.ca
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: Re: [2.6 patch] drivers/net/skfp/: fix LITTLE_ENDIAN
+Date: Wed, 20 Apr 2005 19:42:00 -0700
+Message-ID: <20050420194200.4354510e.rddunlap@osdl.org>
+References: <20050420021708.GD5489@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, akepner@sgi.com,
-        jesse.brandeburg@intel.com, netdev@oss.sgi.com
+Cc: linux@syskonnect.de, jgarzik@pobox.com, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Greg Banks <gnb@sgi.com>
-In-Reply-To: <20050420145629.GH19415@sgi.com>
+To: Adrian Bunk <bunk@stusta.de>
+In-Reply-To: <20050420021708.GD5489@stusta.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2005-21-04 at 00:56 +1000, Greg Banks wrote:
+On Wed, 20 Apr 2005 04:17:08 +0200 Adrian Bunk wrote:
 
-> We have a stats package called PCP (see oss.sgi.com) which samples
-> all kinds of stuff out of /proc at a configurable polling frequency,
-> default 2 sec, and provides scrolling graphs.  We've also done some
-> profiling work using the SGI kernprof patch in 2.4 kernels and
-> oprofile in 2.6 kernels.
-> 
+| This patch fixes the LITTLE_ENDIAN #define.
+  and a function prototype.
 
-this may not be sufficient to debug; that PCP sounds like a hog in its
-own merit polling /proc.
-
-Actually, lets start by saying this:
-If you problem is PIO being too expensive on your machines, then the
-solution maybe for you to set coalescing parameters appropriately. This
-is a known issue - "fixing NAPI" requires complicating things for the
-majority who dont have the same problem as you.
-The issue pointed out by Rick Jones that you sacrifice latency is still
-valid. Additionaly, with many NICs in place, coalescing is not gonna cut
-it.
-
-Having said that - here are some items that will be useful to collect
-before and after a run:
-
-- netstat -s output
-- /proc/net/softnet_stat
-- ifconfig output
-- tc -s qdisc on the interfaces 
-- oprofile 
-- any other thing you could come up with like some of the stuff you
-posted recently on how many packets/interupt are processed with and
-without NAPI.
-- preferably run UDP tests so we dont have to think hard about stats
-like retransmits etc.
-- And as pointed by Dave, pick the latest kernel.
-
-cheers,
-jamal
+| Signed-off-by: Adrian Bunk <bunk@stusta.de>
+| 
+| ---
+| 
+|  drivers/net/skfp/h/osdef1st.h |    2 ++
+|  drivers/net/skfp/smt.c        |    2 +-
+|  2 files changed, 3 insertions(+), 1 deletion(-)
+| 
+| --- linux-2.6.12-rc2-mm3-full/drivers/net/skfp/h/osdef1st.h.old	2005-04-20 01:22:21.000000000 +0200
+| +++ linux-2.6.12-rc2-mm3-full/drivers/net/skfp/h/osdef1st.h	2005-04-20 01:23:55.000000000 +0200
+| @@ -20,6 +20,8 @@
+|  // HWM (HardWare Module) Definitions
+|  // -----------------------
+|  
+| +#include <asm/byteorder.h>
+| +
+|  #ifdef __LITTLE_ENDIAN
+|  #define LITTLE_ENDIAN
+|  #else
+| --- linux-2.6.12-rc2-mm3-full/drivers/net/skfp/smt.c.old	2005-04-20 01:26:34.000000000 +0200
+| +++ linux-2.6.12-rc2-mm3-full/drivers/net/skfp/smt.c	2005-04-20 01:26:22.000000000 +0200
+| @@ -86,7 +86,7 @@
+|  static void smt_send_sif_operation(struct s_smc *smc, struct fddi_addr *dest,
+|  				   u_long tid, int local);
+|  #ifdef LITTLE_ENDIAN
+| -static void smt_string_swap(void);
+| +static void smt_string_swap(char *data, const char *format, int len);
+|  #endif
+|  static void smt_add_frame_len(SMbuf *mb, int len);
+|  static void smt_fill_una(struct s_smc *smc, struct smt_p_una *una);
