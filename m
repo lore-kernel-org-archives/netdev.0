@@ -1,46 +1,37 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: Re: [PATCH net-drivers-2.6 5/6] e100: Performance optimizations to
- e100 Tx Path
-Date: Thu, 21 Apr 2005 10:10:52 -0700
-Message-ID: <20050421101052.4d212a17.rddunlap@osdl.org>
-References: <Pine.LNX.4.61.0504190534410.11186@anoushka.jf.intel.com>
-	<20050420200524.3e284eb9.rddunlap@osdl.org>
-	<5fc59ff305042109514b792bbf@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: mallikarjuna.chilakala@intel.com, jgarzik@pobox.com, netdev@oss.sgi.com
+From: "digkt" <digktj@21cn.com>
+Subject: =?GB2312?B?t6LGsdDFz6I=?=
+Date: Fri, 22 Apr 2005 01:36:03 +0800
+Message-ID: <200504211738.j3LHcPdE022477@oss.sgi.com>
+Reply-To: digktj@21cn.com
+Content-Type: text/plain;charset="GB2312"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ganesh Venkatesan <ganesh.venkatesan@gmail.com>
-In-Reply-To: <5fc59ff305042109514b792bbf@mail.gmail.com>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 21 Apr 2005 09:51:01 -0700 Ganesh Venkatesan wrote:
+您好！
+     首先，对我的冒昧来函向您致歉。但愿这封函对贵司有所以帮助
+   我司享有国家优惠政策；纳税率低于一般纳税人，如贵公司有下列
+   情况：
+   1，公司做进帐，出项有差额。
+   2，客户压底货价，利润微薄。
+   3，采购时需要正式票据报销。
+   我公司长期为贵公司提供如下票务（先用票后付款）。
+   1，电脑版增值专用发票，国税.地税普通票（运输票.广告票.服务票
+      建安票等）
+   2.海关专用缴款书
+   3.其他票据
+    注：
+    1我公司郑重承诺所有票据为税务局代开或由企业直接开出，并可以
+     上网查询。
+    2以上票据税率优惠，具体依票面金额大小而不同，欢迎来电洽谈
 
-| 
-| > |  static inline int e100_exec_cmd(struct nic *nic, u8 cmd, dma_addr_t dma_addr)
-| > |  {
-| > |       unsigned long flags;
-| > | @@ -847,6 +847,10 @@ static inline int e100_exec_cb(struct ni
-| > |                        * because the controller is too busy, so
-| > |                        * let's just queue the command and try again
-| > |                        * when another command is scheduled. */
-| > | +                     if(err == -ENOSPC) {
-| >                         if (err == -ENOSPC) {
-| > is preferred (with space after if).
-| > (same comment for below)
-| 
-| Is there a clear directive on 'if(' versus 'if ('? I see both styles
-| being used. We are trying to stay consistent with 'if('.
+                 
+       
+              电     话：0755-21011747
 
-There's nothing explicit in CodingStyle, but all of
-the examples in CodingStyle use a space after 'if'.
+              联  系 人：梁先生
 
-And a few if's in this driver use a space after 'if',
-but most don't iirc from counting them yesterday.
-
-Thanks,
----
-~Randy
+              深圳市大丰实业有限公司  
+                 
