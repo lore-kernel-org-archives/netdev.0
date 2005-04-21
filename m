@@ -1,41 +1,29 @@
-From: Asim Shankar <asimshankar@gmail.com>
-Subject: [PATCH 2.6.11.7] sch_htb: Drop packet when direct queue is full
-Date: Thu, 21 Apr 2005 18:02:55 -0500
-Message-ID: <7bca1cb505042116022f64a87e@mail.gmail.com>
-References: <7bca1cb50504211221655fd54c@mail.gmail.com>
-	 <20050421195605.GJ577@postel.suug.ch>
-	 <7bca1cb505042113417a5d9f59@mail.gmail.com>
-	 <20050421215440.GL577@postel.suug.ch>
-Reply-To: Asim Shankar <asimshankar@gmail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] netem: account for packets in delayed queue in qlen
+Date: Fri, 22 Apr 2005 01:10:25 +0200
+Message-ID: <426832E1.7020003@trash.net>
+References: <20050329152110.38d50653@dxpl.pdx.osdl.net>	<4252EB9D.9070305@trash.net>	<20050407120417.4297cd14@dxpl.pdx.osdl.net>	<42628300.9010007@trash.net>	<20050419110639.47767113@localhost.localdomain>	<42666098.5060409@trash.net> <20050421132020.41858bc4@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: devik@cdi.cz, Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <20050421215440.GL577@postel.suug.ch>
-Content-Disposition: inline
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20050421132020.41858bc4@localhost.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-htb_enqueue(): Free skb and return NET_XMIT_DROP if a packet is
-destined for the direct_queue but the direct_queue is full. (Before
-this: erroneously returned NET_XMIT_SUCCESS even though the packet was
-not enqueued)
+Stephen Hemminger wrote:
+> So duplication is a no go...
+> Unless there is a different way of accounting for qlen (like a callback).
 
-Signed-off-by: Asim Shankar <asimshankar@gmail.com>
+Instead of a callback you could store parent pointers in struct Qdisc
+and walk up the tree. One place that would need additional changes to
+cope with qlen changes of more than 1 is HFSC. It uses q.qlen == 1 as
+indication that a leaf qdisc was activated by the last enqueue
+operation. An increment of 2 when q.qlen was 0 before would cause HFSC
+to forget to activate a class.
 
---- linux-2.6.11.7/net/sched/sch_htb.c.orig 2005-04-21 17:40:05.305709014 -0500
-+++ linux-2.6.11.7/net/sched/sch_htb.c 2005-04-21 17:35:27.872624173 -0500
-@@ -717,6 +717,10 @@ static int htb_enqueue(struct sk_buff *s
-if (q->direct_queue.qlen < q->direct_qlen) {
-    __skb_queue_tail(&q->direct_queue, skb);
-    q->direct_pkts++;
-+ } else {
-+     kfree_skb(skb);
-+     sch->qstats.drops++;
-+     return NET_XMIT_DROP;
-}
-#ifdef CONFIG_NET_CLS_ACT
-     } else if (!cl) {
+Regards
+Patrick
