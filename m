@@ -1,72 +1,41 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [NET] Add missing newline for skb_*_panic
-Date: Fri, 22 Apr 2005 00:20:08 +0200
-Message-ID: <42682718.3060601@trash.net>
-References: <20050421050815.GA23133@gondor.apana.org.au> <42682527.3000709@trash.net>
+From: Asim Shankar <asimshankar@gmail.com>
+Subject: [PATCH 2.6.11.7] sch_htb: Drop packet when direct queue is full
+Date: Thu, 21 Apr 2005 18:02:55 -0500
+Message-ID: <7bca1cb505042116022f64a87e@mail.gmail.com>
+References: <7bca1cb50504211221655fd54c@mail.gmail.com>
+	 <20050421195605.GJ577@postel.suug.ch>
+	 <7bca1cb505042113417a5d9f59@mail.gmail.com>
+	 <20050421215440.GL577@postel.suug.ch>
+Reply-To: Asim Shankar <asimshankar@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080708050204060005010301"
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-        "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: devik@cdi.cz, Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <42682527.3000709@trash.net>
+To: netdev@oss.sgi.com
+In-Reply-To: <20050421215440.GL577@postel.suug.ch>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------080708050204060005010301
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+htb_enqueue(): Free skb and return NET_XMIT_DROP if a packet is
+destined for the direct_queue but the direct_queue is full. (Before
+this: erroneously returned NET_XMIT_SUCCESS even though the packet was
+not enqueued)
 
-Patrick McHardy wrote:
-> How about this one instead? Besides the missing newlines, it adds
-> head/data/tail/end to the output, which can give valuable hints
-> about what happend before.
+Signed-off-by: Asim Shankar <asimshankar@gmail.com>
 
-While we're at it, lets also replace KERN_INFO by KERN_EMERG to
-make sure the user gets to see it.
-
-> Signed-off-by: Patrick McHardy <kaber@trash.net>
-
-
-
---------------080708050204060005010301
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
-
-===== net/core/skbuff.c 1.44 vs edited =====
---- 1.44/net/core/skbuff.c	2005-03-11 21:32:26 +01:00
-+++ edited/net/core/skbuff.c	2005-04-22 00:18:53 +02:00
-@@ -86,8 +86,10 @@
-  */
- void skb_over_panic(struct sk_buff *skb, int sz, void *here)
- {
--	printk(KERN_INFO "skput:over: %p:%d put:%d dev:%s",
--		here, skb->len, sz, skb->dev ? skb->dev->name : "<NULL>");
-+	printk(KERN_EMERG "skb_over_panic: text:%p len:%d put:%d head:%p "
-+	                  "data:%p tail:%p end:%p dev:%s\n",
-+	       here, skb->len, sz, skb->head, skb->data, skb->tail, skb->end,
-+	       skb->dev ? skb->dev->name : "<NULL>");
- 	BUG();
- }
- 
-@@ -102,8 +104,10 @@
- 
- void skb_under_panic(struct sk_buff *skb, int sz, void *here)
- {
--	printk(KERN_INFO "skput:under: %p:%d put:%d dev:%s",
--               here, skb->len, sz, skb->dev ? skb->dev->name : "<NULL>");
-+	printk(KERN_EMERG "skb_under_panic: text:%p len:%d put:%d head:%p "
-+	                  "data:%p tail:%p end:%p dev:%s\n",
-+	       here, skb->len, sz, skb->head, skb->data, skb->tail, skb->end,
-+	       skb->dev ? skb->dev->name : "<NULL>");
- 	BUG();
- }
- 
-
---------------080708050204060005010301--
+--- linux-2.6.11.7/net/sched/sch_htb.c.orig 2005-04-21 17:40:05.305709014 -0500
++++ linux-2.6.11.7/net/sched/sch_htb.c 2005-04-21 17:35:27.872624173 -0500
+@@ -717,6 +717,10 @@ static int htb_enqueue(struct sk_buff *s
+if (q->direct_queue.qlen < q->direct_qlen) {
+    __skb_queue_tail(&q->direct_queue, skb);
+    q->direct_pkts++;
++ } else {
++     kfree_skb(skb);
++     sch->qstats.drops++;
++     return NET_XMIT_DROP;
+}
+#ifdef CONFIG_NET_CLS_ACT
+     } else if (!cl) {
