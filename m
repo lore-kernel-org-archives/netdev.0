@@ -1,35 +1,50 @@
-From: Chris Friesen <cfriesen@nortel.com>
-Subject: Re: 2.6.9 BUG in tcp_transmit_skb at net/ipv4/tcp_output.c -- full
- output
-Date: Fri, 22 Apr 2005 16:13:06 -0600
-Message-ID: <426976F2.3000604@nortel.com>
-References: <E1DP5xU-0000ZG-00@gondolin.me.apana.org.au>
+From: Jeff Moyer <jmoyer@redhat.com>
+Subject: Re: [PATCH 4/7] netpoll: fix ->poll() locking
+Date: Fri, 22 Apr 2005 18:24:46 -0400
+Message-ID: <17001.31150.194263.732284@segfault.boston.redhat.com>
+References: <4.454130102@selenic.com>
+	<5.454130102@selenic.com>
+Reply-To: jmoyer@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1DP5xU-0000ZG-00@gondolin.me.apana.org.au>
+To: Matt Mackall <mpm@selenic.com>
+In-Reply-To: <5.454130102@selenic.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
+==> Regarding [PATCH 4/7] netpoll: fix ->poll() locking; Matt Mackall <mpm@selenic.com> adds:
 
-> There's been lots of fixes to the TSO code since 2.6.9.  Please test
-> 2.6.11.7 instead.
+mpm> Introduce a per-client poll lock and flag. The lock assures we never
+mpm> have more than one caller in dev->poll(). The flag provides recursion
+mpm> avoidance on UP where the lock disappears.
 
-Unfortunately I can't move to the latest. We have a bunch ofkernel 
-modules from various vendors, board support packages that aren't in 
-mainline, etc.  We're in the process of moving to 2.6.10 and that 
-requires support from six separate companies.  It's a mess.
+I don't think it makes sense to have the poll lock associated with a struct
+netpoll.  We want to guard simultaneous access to the device's poll
+routine.  With this implementation, if we have multiple netpoll clients
+running at the same time, we can have multiple callers of dev->poll at the
+same time.  In other words, there is not a 1:1 relationship between struct
+netpoll's and struct net_device's.
 
-If it matters, I'm on a G5 with the sungem driver (which I don't think 
-supports TSO).  I've already applied the last -ac patch for 2.6.9 which 
-has a number of fixes for 2.6.9 TCP issues, but apparently not all of 
-them were caught.
+Please consider making this a per device lock.
 
-Any pointers you can give me?
+-Jeff
 
-Chris
+@@ -74,13 +80,10 @@
+ static void poll_napi(struct netpoll *np)
+ {
+ 	int budget = 16;
+-	unsigned long flags;
+-	struct softnet_data *queue;
+ 
+-	spin_lock_irqsave(&netpoll_poll_lock, flags);
+-	queue = &__get_cpu_var(softnet_data);
+ 	if (test_bit(__LINK_STATE_RX_SCHED, &np->dev->state) &&
+-	    !list_empty(&queue->poll_list)) {
++	    np->poll_owner != __smp_processor_id() &&
++	    spin_trylock(&np->poll_lock)) {
+ 		np->rx_flags |= NETPOLL_RX_DROP;
+ 		atomic_inc(&trapped);
