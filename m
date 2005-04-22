@@ -1,27 +1,50 @@
-From: Andi Kleen <ak@muc.de>
-Subject: Re: NAPI, e100, and system performance problem
-Date: 22 Apr 2005 19:22:10 +0200
-Message-ID: <20050422172210.GB10598@muc.de>
-References: <C925F8B43D79CC49ACD0601FB68FF50C03A633C7@orsmsx408> <Pine.LNX.4.61.0504180943290.15052@linux.site> <1113855967.7436.39.camel@localhost.localdomain> <20050419055535.GA12211@sgi.com> <m1hdhzyrdz.fsf@muc.de> <17001.4034.250460.397016@robur.slu.se> <1114184245.7978.5.camel@localhost.localdomain>
+From: Ruud Linders <rkmp@xs4all.nl>
+Subject: Patch for USR r8169 clone
+Date: Fri, 22 Apr 2005 19:41:39 +0200
+Message-ID: <42693753.7010907@xs4all.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>, Greg Banks <gnb@sgi.com>,
-        Arthur Kepner <akepner@sgi.com>,
-        "Brandeburg, Jesse" <jesse.brandeburg@intel.com>, netdev@oss.sgi.com,
-        davem@redhat.com
+Content-Type: multipart/mixed;
+ boundary="------------020303020800050604020703"
+Cc: romieu@fr.zoreil.com
 Return-path: <netdev-bounce@oss.sgi.com>
-Date: Fri, 22 Apr 2005 19:22:10 +0200
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1114184245.7978.5.camel@localhost.localdomain>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> Note, this would entirely solve what Andi and the SGI people are talking
-> about.
+This is a multi-part message in MIME format.
+--------------020303020800050604020703
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 
-Perhaps, but Linux has to perform well on old hardware too.
-New silicon is not a solution.
 
--Andi
+Hello,
+
+This patch makes my U.S.Robotics USR997902 gigabit ethernet card work.
+Compiled and tested and working fine for me.
+
+Please consider including in next update to r8169.c.
+
+Thanks,
+	Ruud Linders
+
+
+--------------020303020800050604020703
+Content-Type: text/plain;
+ name="PATCH.r8169.c_for_USR997902"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="PATCH.r8169.c_for_USR997902"
+
+--- r8169.c.ORIG	2004-12-25 11:36:12.000000000 +0100
++++ r8169.c	2005-04-22 19:18:12.000000000 +0200
+@@ -151,6 +151,7 @@
+ static struct pci_device_id rtl8169_pci_tbl[] = {
+ 	{0x10ec, 0x8169, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
+ 	{0x1186, 0x4300, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
++	{0x16EC, 0x0116, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
+ 	{0,},
+ };
+ 
+
+--------------020303020800050604020703--
