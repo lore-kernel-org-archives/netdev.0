@@ -1,30 +1,29 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Problem with IPSEC tunnel mode
-Date: Fri, 22 Apr 2005 23:53:07 +1000
-Message-ID: <20050422135307.GA2667@gondor.apana.org.au>
-References: <E1DObFc-0000je-00@gondolin.me.apana.org.au> <200504221522.49403.wolfgang.walter@studentenwerk.mhn.de> <20050422132758.GA22772@gondor.apana.org.au> <200504221548.44560.wolfgang.walter@studentenwerk.mhn.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hadi@cyberus.ca, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Wolfgang Walter <wolfgang.walter@studentenwerk.mhn.de>
-Content-Disposition: inline
-In-Reply-To: <200504221548.44560.wolfgang.walter@studentenwerk.mhn.de>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Subject: Re: kernel BUG at net/ipv6/exthdrs_core.c:80!
+Date: Fri, 22 Apr 2005 23:58:40 +1000
+Message-ID: <E1DOyg4-0000iB-00@gondolin.me.apana.org.au>
+References: <20050422.204610.96031992.yoshfuji@linux-ipv6.org>
+Cc: matti.aarnio@zmailer.org, linux-net@vger.kernel.org,
+	netdev@oss.sgi.com, yoshfuji@linux-ipv6.org, davem@davemloft.net
+Return-path: <linux-net-owner@vger.kernel.org>
+To: yoshfuji@linux-ipv6.org (YOSHIFUJI Hideaki / ????)
+In-Reply-To: <20050422.204610.96031992.yoshfuji@linux-ipv6.org>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 22, 2005 at 03:48:43PM +0200, Wolfgang Walter wrote:
+YOSHIFUJI Hideaki / ???? <yoshfuji@linux-ipv6.org> wrote:
 > 
-> So linux implements things like i.e. ipcomp in esp-tunnel in ah-tunnel as 
-> bundle instead of feeding it for every transformation into the packet receive 
-> code again? I assume that incoming packets which are subject to several 
-> ipsec-transformations are exactly seen twice in netfilter PREROUTING: first 
-> before decapsulation and then after complete decapsulation?
+> I assume that BUG was raised because of skb_header_pointer()'s failure;
+> which means, skb_copy_bits()'s failure. Strange to me.
+> 
+> Do you know what caused this?
+> How about disabling selinux / ip6tables?
 
-The packet is fed into each transform as you would expect.  However,
-the policy check is done only once at the very end (unless raw sockets
-are involved in which case it can occur multiple times).
+Indeed, it's a bug in selinux.  The length should be skb->tail - skb->data,
+and not skb->tail - skb->head.  In fact, we could be vulgar and write it as
+skb->len :)
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
 Cheers,
 -- 
@@ -32,3 +31,17 @@ Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+===== security/selinux/hooks.c 1.95 vs edited =====
+--- 1.95/security/selinux/hooks.c	2005-04-02 07:30:16 +10:00
++++ edited/security/selinux/hooks.c	2005-04-22 23:55:19 +10:00
+@@ -2853,8 +2853,7 @@
+ 
+ 	nexthdr = ip6->nexthdr;
+ 	offset += sizeof(_ipv6h);
+-	offset = ipv6_skip_exthdr(skb, offset, &nexthdr,
+-				  skb->tail - skb->head - offset);
++	offset = ipv6_skip_exthdr(skb, offset, &nexthdr, skb->len - offset);
+ 	if (offset < 0)
+ 		goto out;
+ 
