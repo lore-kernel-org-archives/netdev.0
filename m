@@ -1,26 +1,27 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [patch 2.6.12-rc2 4/10] tg3: use TG3_FLG2_5705_PLUS instead of
- multi-way if's
-Date: Thu, 21 Apr 2005 17:00:43 -0700
-Message-ID: <20050421170043.6845519a.davem@davemloft.net>
-References: <04132005193844.8474@laptop>
-	<04132005193844.8539@laptop>
+Subject: Re: [patch 2.6.12-rc2 10/10] tg3: add support for bcm5752 rev a1
+Date: Thu, 21 Apr 2005 17:04:57 -0700
+Message-ID: <20050421170457.3e49665c.davem@davemloft.net>
+References: <04132005193846.8835@laptop>
+	<04132005193846.8893@laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, jgarzik@pobox.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261774AbVDVAKp@vger.kernel.org>
+Return-path: <netdev-bounce@oss.sgi.com>
 To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <04132005193844.8539@laptop>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <04132005193846.8893@laptop>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 13 Apr 2005 19:38:44 -0400
+On Wed, 13 Apr 2005 19:38:46 -0400
 "John W. Linville" <linville@tuxdriver.com> wrote:
 
-> Replace a number of three-way if statements checking for 5705, 5750,
-> and 5752 to reference the equivalent TG3_FLG2_5705_PLUS flag instead.
+> Replace existing ASIC_REV_5752 definition with ASIC_REV_5752_A0,
+> and add definition for ASIC_REV_5752_A1. Then, add ASIC_REV_5752_A1
+> to check for setting TG3_FLG2_5750_PLUS in tg3_get_invariants.
 > 
 > Signed-off-by: John W. Linville <linville@tuxdriver.com>
 
-Applied.
+Applied, now off to Michael's additions :-)
