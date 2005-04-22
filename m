@@ -1,41 +1,37 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: [PATCH][SCTP] Use ipv6_addr_any rather than ipv6_addr_type in
- sctp_v6_is_any().
-Date: Fri, 22 Apr 2005 12:28:56 -0700 (PDT)
-Message-ID: <Pine.LNX.4.61.0504221214560.5192@dyn9047018105.beaverton.ibm.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH 4/7] netpoll: fix ->poll() locking
+Date: Fri, 22 Apr 2005 15:52:18 -0700
+Message-ID: <20050422155218.223fa84d.davem@davemloft.net>
+References: <4.454130102@selenic.com>
+	<5.454130102@selenic.com>
+	<17001.31150.194263.732284@segfault.boston.redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netdev@oss.sgi.com, lksctp-developers@lists.sourceforge.net
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: mpm@selenic.com, jgarzik@pobox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@davemloft.net
+To: jmoyer@redhat.com
+In-Reply-To: <17001.31150.194263.732284@segfault.boston.redhat.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+On Fri, 22 Apr 2005 18:24:46 -0400
+Jeff Moyer <jmoyer@redhat.com> wrote:
 
-Please apply to 2.6.
+> ==> Regarding [PATCH 4/7] netpoll: fix ->poll() locking; Matt Mackall <mpm@selenic.com> adds:
+> 
+> mpm> Introduce a per-client poll lock and flag. The lock assures we never
+> mpm> have more than one caller in dev->poll(). The flag provides recursion
+> mpm> avoidance on UP where the lock disappears.
+> 
+> I don't think it makes sense to have the poll lock associated with a struct
+> netpoll.
 
-Thanks
-Sridhar
+There should be a 1 to 1 relationship from netdev to netpoll, but I see
+no problems with a many to 1 relationship from netdev to netpoll, that
+is perfectly legal.  It would give more stringent locking on dev->poll()
+invocations, not forget to lock when necessary.
 
-=============================================================================
-[SCTP] Use ipv6_addr_any() rather than ipv6_addr_type() in sctp_v6_is_any().
-
-Signed-off-by: Brian Haley <Brian.Haley@hp.com>
-Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
-=============================================================================
-diff -Nru a/net/sctp/ipv6.c b/net/sctp/ipv6.c
---- a/net/sctp/ipv6.c	2005-04-21 16:21:58 -07:00
-+++ b/net/sctp/ipv6.c	2005-04-21 16:21:58 -07:00
-@@ -496,9 +496,7 @@
-  /* Is this a wildcard address? */
-  static int sctp_v6_is_any(const union sctp_addr *addr)
-  {
--	int type;
--	type = ipv6_addr_type((struct in6_addr *)&addr->v6.sin6_addr);
--	return IPV6_ADDR_ANY == type;
-+	return ipv6_addr_any(&addr->v6.sin6_addr);
-  }
-
-  /* Should this be available for binding?   */
+The only thing which is wrong is that netpoll_setup() should verify that
+netdev->np is NULL, and if it is not it should return an error.
