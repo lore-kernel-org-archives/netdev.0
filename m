@@ -1,41 +1,25 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: NAPI, e100, and system performance problem
-Date: Fri, 22 Apr 2005 11:37:25 -0400
-Message-ID: <1114184245.7978.5.camel@localhost.localdomain>
-References: <C925F8B43D79CC49ACD0601FB68FF50C03A633C7@orsmsx408>
-	 <Pine.LNX.4.61.0504180943290.15052@linux.site>
-	 <1113855967.7436.39.camel@localhost.localdomain>
-	 <20050419055535.GA12211@sgi.com> <m1hdhzyrdz.fsf@muc.de>
-	 <17001.4034.250460.397016@robur.slu.se>
-Reply-To: hadi@cyberus.ca
+From: Chris Friesen <cfriesen@nortel.com>
+Subject: 2.6.9 BUG in tcp_transmit_skb at net/ipv4/tcp_output.c
+Date: Fri, 22 Apr 2005 09:48:19 -0600
+Message-ID: <42691CC3.7000108@nortel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <ak@muc.de>, Greg Banks <gnb@sgi.com>,
-        Arthur Kepner <akepner@sgi.com>,
-        "Brandeburg, Jesse" <jesse.brandeburg@intel.com>, netdev@oss.sgi.com,
-        davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Robert Olsson <Robert.Olsson@data.slu.se>
-In-Reply-To: <17001.4034.250460.397016@robur.slu.se>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2005-22-04 at 16:52 +0200, Robert Olsson wrote:
 
->  
->   BTW We talked with Intel folks about leaving irq disabled when reading
->   ISR and some status bit were. 
+I've got an error report for a problem with 2.6.9 networking.  We seem 
+to be intermittently hitting the above error after at least a couple 
+hours or so of runtime, sometimes it takes up to 14 hrs or so, sometimes 
+it doesn't happen.  Network load is minimal.
 
-You caught me just before i said this ;-> 
-Now - if those intel folks listened they would be making a killing with
-their NICs on Linux. They have a paper at OLS to talk about how they get
-influenced by the Linux people on how to improve their hardware - so
-maybe they took the advice;-> Jesse?
+Anyone have any ideas on what this might be or how I can track it down? 
+  Has it been fixed in later releases?
 
-Note, this would entirely solve what Andi and the SGI people are talking
-about.
+Thanks for any help you can give,
 
-cheers,
-jamal
+Chris
