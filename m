@@ -1,195 +1,77 @@
-From: "admin@system.mail" <admin@system.mail.sgi.com>
-Subject: =?GB2312?Q?=D3=CA=BC=FE=CD=B6=B5=DD=B3=AC=CA=B1=B4=ED=CE=F3?=
-Date: Fri, 22 Apr 2005 16:53:11 +0800
-Message-ID: <200504220853.j3M8rDdD016967@oss.sgi.com>
+From: Wolfgang Walter <wolfgang.walter@studentenwerk.mhn.de>
+Subject: Re: Problem with IPSEC tunnel mode
+Date: Fri, 22 Apr 2005 11:37:38 +0200
+Message-ID: <200504221137.38939.wolfgang.walter@studentenwerk.mhn.de>
+References: <E1DObFc-0000je-00@gondolin.me.apana.org.au> <200504220240.31280.wolfgang.walter@studentenwerk.mhn.de> <20050422010445.GA10918@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="GB2312"
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "netdev@oss.sgi.com" <netdev@oss.sgi.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050422010445.GA10918@gondor.apana.org.au>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-=CE=DE=B7=A8=BD=AB=C4=FA=B5=C4=D3=CA=BC=FE=CD=B6=B5=DD=D6=C1=D2=D4=CF=C2=D6=
-=B8=B6=A8=B5=D8=D6=B7:
-jim@tkgame.com : =CD=B6=B5=DD=CA=A7=B0=DC, =D5=CA=BA=C5=B2=BB=B4=E6=D4=DA.
+Am Freitag, 22. April 2005 03:04 schrieben Sie:
+> On Fri, Apr 22, 2005 at 02:40:31AM +0200, Wolfgang Walter wrote:
+> > > Although you probably have rp_filter turned, but please check
+> > >
+> > > cat /proc/sys/net/ipv4/conf/eth3/rp_filter
+> > >
+> > > anway.
+>
+> Please do this check.
+>
+> > > > src 10.148.0.0/23 dst 10.0.25.210/32
+> > > >  dir fwd priority 0
+> > >
+> > > There you go.  This policy trumps your other policy.  This one
+> > > says that forwarded traffic matching it must carry no tunnel
+> > > IPsec transforms.  Therefore all IPsec packets matching it will
+> > > be dropped.
+> >
+> > I don't understand that. 10.148.0.0/23 is 10.148.0.0-10.148.1.255, is=
+n't
+> > it? But 10.148.4.0/28 (is 10.148.4.0-10.148.4.15) is not within it.
+>
+> Sorry, I misread the netmask.  I was right about the problem though :)
+> Further down it says
+>
+> src 0.0.0.0/0 dst 10.0.25.210/32
+>  dir fwd priority 0
+>
+> which still trumps your IPsec policy.
+>
+> Cheers,
 
+Oh yes, me stupid.
 
-//----------------------------------------------------------
-Received: from [210.31.130.125]; Fri, 22 Apr 2005 16:53:07 +0800
-From: netdev@oss.sgi.com
-To: jim@tkgame.com
-Subject: hello
-Date: Fri, 22 Apr 2005 16:53:02 +0800
-MIME-Version: 1.0
-Content-Type: multipart/mixed;
-	boundaryX-Priority: 3
-X-MSMail-Priority: Normal
+They are needed (these hosts are allowed to communicate with outside worl=
+d=20
+unencrypted), but priority is wrong.
 
-This is a multi-part message in MIME format.
+Our rules are generated from a description of the network. And if we conn=
+ect=20
+10.0.25.210 directly to C and change netmask to 30 instead of 32 our=20
+generator assumes that this system is not allowed to communicate with out=
+side=20
+world and does not generate this rule.
 
-------Content-Type: text/plain;
-	charsetContent-Transfer-Encoding: 7bit
+Thanks a lot, sorry for bothering you. I should have seen this difference=
+. But=20
+probably I would not have recognized that as a problemebecause I assumed =
+that=20
+in and fwd allow-rules only applies to non-ipsec packets which of course =
+is=20
+not logical :-).
 
-Ss=86>=99*\^7=D0=BEv{^=9E=FE=BEdCMC=A4(=A9=C4=9F=96=B7[=D8..=BDnu=E2=E8c=E6=
-=EEV=CEW
-;=AF=AF=B9F=BE=C1=94!b=B0y=9F=BA=DC=BAF=96=97z=A9=B3=EE!=D8=BD=F4=F5e=C7(=
-L2$b=91|C=D8`K=8ER=9A=CEs=BDZ=EA-s(=99A?=C6=A59fl=B0=D9=C4D=AE=94E=EDel=FB=
-=F3=B3=CEtF=96
-R=A3M-=A4=BB=BDE=EB=88=85=E5=AD*=BDC=9C=A8G=D2=93=DE=CF=EBD=F4=BFJ>=CFl7=C7=
-=F00}=FCO=D6fi=94=A2=87_=9EWl=A7=D8
-=95=82#=A0=D5=DCc=93=9Ep=FBM=FB}=94=D4=DF=FB5=9Dr$=96xb=C2=F84=F9G=E23=A8=
-=AE=92=EAX=C9zc=E2=BA=BD=BC=96z=B5=A8=B7Uo=EB=FCi=EF(T9\X=AF =9ApYU=A38|D=
-6=C9=B9V=A7=F6e=C7=E7=BB=85=EC_~=D4sL^=C7=A2=FEH?wj/=DC=8E=E2y=CEh=C7=A0a=
-=A2=92=F8=B89a["S
-=F2=DBHo=F9=B7I`=A0Zr=84F=F3=E8=EB=F8=D7=DB=AC4=85=AA
-=F9rr=A3=D8=82=94P=9A=E3DKvf=90=B0=D3=9BmH(E=96X=84=8A=9Ew_=D6<D=D0=B1=ED=
-X{=CCh=D4~`=8C=8C=D9=D0=F6i=C9=D7=B8=D1=C1=D4m=ABQ=D5=87=A3_=B3q=F0=EE=E5=
-J=C85=8F=A0$yH=A8=A9JB-=F4=8Cc>
-wH\<L,=B4II=A3WD=DB=CF=C1=C0=F62=B3=C9=89=D1=AD=B7w=8B=F9D=D4V;=E9=BE=C72=
-=A8=84=F8=8Cs=A9=E1=9E=A3=CD:=B31JpF{=E5=DB=F8=CD0*=AB=96=BF=ED=96=D6U=90=
-=D8=B8=CA5=E0=86=EF=F1=C4=EC=C7s=C7=F2,=C9=BF7=C71Ess~=8CQ]X=92L=F1=B0C=C4=
-=DA=B1d=F8=F0=E5=FC5=A9Y=A7=9C=95.~=94=9F0r=89=A9=91X=D6=CBdG=FB=C1=E58Pi=
-=F2/~gI=D9=94=F4=D7K=98=9D=DE=D2R9=97=E6
-=F5=EE|=EB=D0H=EB=97U=E5=F8=E2
-
-
-------Content-Type: application/octet-stream;
-	nameContent-Transfer-Encoding: base64
-Content-Disposition: attachment;
-	filename
-TVpLRVJORUwzMi5ETEwAAExvYWRMaWJyYXJ5QQAAAABHZXRQcm9jQWRkcmVzcwAAVXBhY2tCe=
-UR3
-aW5nQAAAAFBFAABMAQIAAAAAAAAAAAAAAAAA4AAPAQsBACQAEAEAADABAAAAAAD5IgMAABAAA=
-AAg
-AQAAAEAAABAAAAACAAAEAAAAAAAAAAQAAAAAAAAAAKADAAACAAAAAAAAAgAAAAAAEAAAEAAAA=
-AAQ
-AAAQAAAAAAAAEAAAAAAAAAAAAAAATiUDACgAAAAAYAIAEgUAAAAAAAAAAAAAAAAAAAAAAAAAA=
-AAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
-AAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAALlVwYWNrAAAAUAIAABAAAAAAAAAAAAAAAAAAA=
-AAA
-AAAAAAAA4AAA4C5yc3JjAAAAAEABAABgAgB2xQAAAAIAAAAAAAAAAAAAAAAAAOAAAOBQJUMAB=
-wAA
-ABJlQgAAAAAA/////wEAAAABAAAAAQAAAAEAAAAABAAAABBAAMgkQwAUJUMAFyVDACUlQwAAJ=
-UMA
-fAcAAMQLAAD8D0AAbCRDAG4kQwAPI0MAZFdCAPoDAABKJUMA/09CAGAkQwAAAAAAAAAAAAAAA=
-AAA
-AAAAAAAAAAAAAAAAAAIAAwAAACAAAIAOAAAAkAAAgAAAAAAAAAAAAAAAAAAAAgABAAAAQAAAg=
-AIA
-AABoAACAAAAAAAAAAAAAAAAAAAABAAwEAABYAAAAAmECAOgCAAAAAAAAAAAAAAAAAAAAAAAAA=
-AAA
-AAAAAQAMBAAAgAAAAOpjAgAoAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAA0AAAgKgAAIAAA=
-AAA
-AAAAAAAAAAAAAAEADAQAAMAAAADgYAIAIgAAAAAAAAAAAAAABwBBAFAAUABJAEMATwBOAAAAA=
-QAC
-ACAgEAABAAQA6AIAAAEAEBAQAAEABAAoAQAAAgAoAAAAIAAAAEAAAAABAAQAAAAAAIACAAAAA=
-AAA
-AAAAAAAAAAAAAAAAAAAAAAAAgAAAgAAAAICAAIAAAACAAIAAgIAAAMDAwACAgIAAAAD/AAD/A=
-AAA
-//8A/wAAAP8A/wD//wAA////AAAAAAAAAAAAAAAAAAAAAACHd3d3d3d3d3d3d3AAAAAAj////=
-///
-//////9wAAAAAI//////////////cAAAAACP/////////////3AAAAAAj/////////////9wA=
-AAA
-AI//////////////cAAAAACP/wAP/wAP/wAA/3AAAAAAj/83MAC3sAA3MP9wAAAAAI//O3t7e=
-3t7
-ezD/cAAAAACP//O3MzMzM7MP/3AAAAAAj///Ow////Nw//9wAAAAAI///zcP///zsP//cAAAA=
-ACP
-//M7D/AAAAMP/3AAAAAAj//ztw8CKnAAD/9wAAAAAI//8zsKqvL3AA//cAAAAACP//83Cqr/K=
-IAP
-/3AAAAAAj///OwqqqvOPsP9wAAAAAI//87cKqq/zuPsAcAAAAACP/zN7AAAAA3OPkQAAAAAAj=
-/83
-t7e3t7e3MdmQAAAAAI//OzMzOzMzOzAdmQAAAACP/zM//zM//zMw8dmQAAAAj////////////=
-/8d
-mQAAAI//////////////cdmQAACP//////////gAAAAdmQAAj//////////4/3gAAdmQAI///=
-///
-////+PeAAAAdmQCP//////////h4AAAAAdmQj//////////4gAAAAAAdkI//////////+AAAA=
-AAA
-ARCIiIiIiIiIiIgAAAAAAAAAAAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/A=
-AAA
-/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAAfwAAAD8AA=
-AAf
-AAAADwAAAAcAAAGDAAADwQAAB+AAAA/wAAAf+AAAP/8oAAAAEAAAACAAAAABAAQAAAAAAMAAA=
-AAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAgAAAAICAAIAAAACAAIAAgIAAAMDAwACAgIAAAAD/A=
-AD/
-AAAA//8A/wAAAP8A/wD//wAA////AAAAAAAAAAAAh3d3d3d3AACP//////cAAI/wAAAA9wAAj=
-/c3
-NzD3AACP8w//MPcAAI/3DyIA9wAAj/MCd4cHAACP9wqqOAEAAI/zCqowmRAAj/cAADD5kQCP8=
-3Nz
-MPeZEI/////wAAmRj/////f4AJGP////94AAAIiIiIiIAAAAAAcAAAAHAAAABwAAAAcAAAAHA=
-AAA
-BwAAAAcAAAAHAAAABwAAAAcAAAADAAAAAQAAAAAAAAAMAAAAHwAAAD8AAEG827d+66sFgxwtL=
-oEh
-td9GodgdDfOQAaYX39BxA/6H1tO2IA8rFF3EuSN3Mzr8NtC6+2VbTSCC4dlPoVCLGtbURU5Z5=
-uZA
-/H+WuWVEV540jkFsgxaa9ygqKS+098tN1xhAVJTTtdj2rTA636UGjTEOJwXflrg0BeauO141i=
-3Gt
-axZYKmWTTWP6NVS1OlDCozIWCdq36MtKxRmjr1HZUSE6WY6M2Zy+UuwndeoN9H8kL3cf2PFKJ=
-9Rt
-c/MKYaiY95ubIMh1SFa/Y23h/yu5958EghpPvuxH0RuzF91rewEH5c4Y9G6kFtvJ0S7e/DEYn=
-1Nh
-RFj6VHRDLYiT39oJ/YNB05bP52BNKx6VzM7wF05B5iBbg5atwFMudDW/Dqd8kl/2lJiqFVUwZ=
-uXs
-VYt4Pa0u3VEVxd1zDWWlU2Q6XUfFSYKYFIMLFyMJ0+4fg+B4F2w+4oVrV4h/obF7J7HNnRkWa=
-Sgu
-9KoBOFtYm/GQXXfZk2GAmsQpl8DPlCu0uRynVHLU5SR8hgpQ5AwHNO7KVGDwtLCQErseILdRx=
-b+5
-hgls+1yOFodTaiAEI75LYUKGEFxzMfPuKVac3wKmT0PG0lxmcKSfks3iTOoCg4fTEW5YCldDl=
-8ig
-JJJUs9W5bxeZWouLXkqARbwTPUKOi7XLvedolKmKmpe7Id3Fo1ITEpDVmjaM7FE/d07sqZxnc=
-dwi
-Yw0IQ830wa66MhtePLG2CcSLY/T9Z1YhLmgb8oc8OhDpBdCq0a01zSlLymb6ov3mjAtDPW+WG=
-OhY
-hmDpXbrlM5eeO+e4E/S/gEOXMM8+fbH+Gy1qH1tCHN5fDXi032p0WjZxMbkCW6gaUKHM0+RfK=
-DtX
-CytUJIAB4Et0dT5b/Jiu4hbW/9CJnbHtGv5Is4IxgdEZdJkCVYpS7DJdvwuOS5LrAUTct6b3W=
-E6w
-li0wsscwCo568zsDvAW4vC3V+N+1I57LQakK3JQoCTFRDtsc9yH+QrRpmIUVCivIhSJ8/45e3=
-rnD
-Lxv8qwrs4P11Q2/X+C3wGk1iHSqUpYy5/vx/UR1WsbEDaQuGAB2xuM2q/dIlBsNo7FKD9BjBT=
-COT
-sLw59lETpSHB5E6cu3w7yZkCtaNVptQ4sPVffrkoRcFH9IJu7UT+S93xtNQJ7tjFHAu+QAtd0=
-Wa5
-iBby8sd786YyJyUukmows3Qnw8OnQDbIfJW4gclW3UQyXy2TK0/AbNmQoJ/T81pwtqP/bZ3se=
-SOf
-cc1zaqh6mbIBFvNk/bg2ITjaydIlQGFJivJlYtKbjmIH6WjWR5URawoljMsQZw+2zg7GeFMYL=
-1iz
-97HWv3GZAGQOEzOf+EAFSjooaqjxvWGa3FKjCHS54v+BYOcwFjisd+GRrSrJhSrZaSd1p8Xcr=
-n/q
-jd/xcYF0McALBmhkwIb72DI7sIewadFDVeUMKFedsPOWd0Iv6qwUnAJNy4zz80lWdwHF9Q6G/=
-ts6
-NBZS5a4BS7wH9oBjpCFEvRzooXiUwwRzsiMXOIoY6zMu+3jhd3QtBqvYcCh0YSEgTyJmbrfwv=
-WPD
-WToQyH4sIzvLboa/Ujyo/4+K/ivj8ECkIWlHvOmP5SyF4azi/Zbfoj6+TirLo4yihqnOCIird=
-+yp
-4uiNHe/RGcSzSgcDht4g1jj5vO1SzHceD4Av4sobDC3r2u9c/DmEfDu/pngRYDwX9v+3Uvmu2=
-4At
-DnyvH+Jt4oGbl61sq3kvlkpB6CeFFSF8mww4dRgca09WFTsLdUu4WNGx+Vxd16m2BX85yVtx9=
-90b
-kqPeaSieeIs4mVhHXLsZ+nU5QKJHWsnz14gwPagN6/sQceW09SXT2Jt95xDgI1oauk/pYVwih=
-3kx
-4BLmCFUVdo7mhFv9ZMUC4GXg6dXhDOXXy/nyWN5EexwJaSJAimYFhqVJMMiIlJ0CtVBhRxq/1=
-JgK
-6RCnjEWeFb88Rbz8u/8XR3aufMEmUDA7RykmfAa/sNoszyVQposLGltl0Ay/R54dbU1Ev79jR=
-Cy/
-u6Rdu3xPUSi0pahXNITgCmB6RIXvwGNiZfy5FK9e6Stk1nGUM9z3zu9B0ppviEsFu0uFhc9pN=
-u85
-0bRzqTT4uNs3X45OZ5GUgynFU3jCnuCHXrOckEJjbLEZXjUfsg6LGZMMYaVpEVCg2VK9nnbIs=
-G5V
-yFpsmUECTahL57T4lqpPoZ3OQb3SDF6XHJ4NV5HzGEZTVDfrNkXco4hx0yBuhEI9aA2FAVMzN=
-2+y
-LQ1KH0Ds2FpCqyDCnZovKhxPlJ8bPI4gEOKzz81xewbV664qdOFv+Fb37xQ+MeDrdHwgZJRrU=
-OM9
-9XeQ595KHpOVyD2SAI41nq4cA89bww+PFIbo3VzN8pPNJsXbE6p3Of1D9pkE+7pBQLDPnPJsg=
-ScH
-HEkwG+W2OsMZugrEx6nBvU5NECA8ziMy9gZLXbxbchM+FHpZPRlk7xhZcQccKBtCcFmP+cpWb=
-l4t
-DRdNhIsSKR1Gw4uCKbXN+m15MJyUo5tOpXidd251mfavBCjRqyTqP2eB8M6nCzcDk7pJSIfc6=
-VAx
-C9Gu6XdjsL7Ghb7WvxoOfGHxFLno3f4lxlMjaJmJaMSCji8Sv2zr25+VJanGDb5OwruuzItKL=
-AlL
-5qfo64wpuY4Quw/0BQ3VKNAsMCRaT/dOGJKf9srVNVntUzaI7noMBoJO2OCyPPR6BPLxMNg/c=
-Ea7
+--=20
+Wolfgang Walter
+Studentenwerk M=FCnchen
+Anstalt des =F6ffentlichen Rechts
+Leopoldstra=DFe 15
+80802 M=FCnchen
