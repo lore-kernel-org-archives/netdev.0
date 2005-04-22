@@ -1,40 +1,37 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: NAPI, e100, and system performance problem
-Date: Fri, 22 Apr 2005 15:21:29 -0400
-Message-ID: <1114197689.7978.68.camel@localhost.localdomain>
-References: <C925F8B43D79CC49ACD0601FB68FF50C03A633C7@orsmsx408>
-	 <Pine.LNX.4.61.0504180943290.15052@linux.site>
-	 <1113855967.7436.39.camel@localhost.localdomain>
-	 <20050419055535.GA12211@sgi.com> <m1hdhzyrdz.fsf@muc.de>
-	 <1114173195.7679.30.camel@localhost.localdomain>
-	 <20050422172108.GA10598@muc.de>
-	 <1114193902.7978.39.camel@localhost.localdomain>
-	 <20050422183004.GC10598@muc.de>
-	 <1114196487.7978.65.camel@localhost.localdomain>
-	 <20050422120714.35f56e76.davem@davemloft.net>
-Reply-To: hadi@cyberus.ca
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: [PATCH][SCTP] Fix SCTP_ASSOCINFO getsockopt for 1-1 style sockets
+Date: Fri, 22 Apr 2005 12:28:20 -0700 (PDT)
+Message-ID: <Pine.LNX.4.61.0504221211470.5192@dyn9047018105.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: ak@muc.de, gnb@sgi.com, akepner@sgi.com, jesse.brandeburg@intel.com,
-        netdev@oss.sgi.com, davem@redhat.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@oss.sgi.com, lksctp-developers@lists.sourceforge.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050422120714.35f56e76.davem@davemloft.net>
+To: davem@davemloft.net
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2005-22-04 at 12:07 -0700, David S. Miller wrote:
+Hi Dave,
 
-> Let's get people testing changes like that to see if it undoes
-> the bad cases.  I want to do something proactive with these
-> reports instead of just asking for more performance data like
-> a bunch of crazed lunatics :-)
+Please apply to 2.6.
 
-But we are crazed lunatics ;->
-I have a feeling that the patch will solve the problem and we wont have
-the fun of seeing interesting data.
+Thanks
+Sridhar
+=======================================================================
+[SCTP] Fix SCTP_ASSOCINFO getsockopt for 1-1 style sockets.
 
-cheers,
-jamal
+Signed-off-by: Vladislav Yasevich <vladislav.yasevich@hp.com>
+Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+========================================================================
+diff -Nru a/net/sctp/socket.c b/net/sctp/socket.c
+--- a/net/sctp/socket.c	2005-04-21 16:20:07 -07:00
++++ b/net/sctp/socket.c	2005-04-21 16:20:07 -07:00
+@@ -3473,7 +3473,7 @@
+  		return -EINVAL;
+
+  	/* Values correspoinding to the specific association */
+-	if (assocparams.sasoc_assoc_id != 0) {
++	if (asoc) {
+  		assocparams.sasoc_asocmaxrxt = asoc->max_retrans;
+  		assocparams.sasoc_peer_rwnd = asoc->peer.rwnd;
+  		assocparams.sasoc_local_rwnd = asoc->a_rwnd;
