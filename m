@@ -1,39 +1,33 @@
 From: Andi Kleen <ak@muc.de>
-Subject: Re: NAPI, e100, and system performance problem
-Date: Fri, 22 Apr 2005 13:36:56 +0200
-Message-ID: <m1hdhzyrdz.fsf@muc.de>
-References: <C925F8B43D79CC49ACD0601FB68FF50C03A633C7@orsmsx408>
-	<Pine.LNX.4.61.0504180943290.15052@linux.site>
-	<1113855967.7436.39.camel@localhost.localdomain>
-	<20050419055535.GA12211@sgi.com>
+Subject: Re: Must every packet have a creating socket?
+Date: Fri, 22 Apr 2005 13:39:46 +0200
+Message-ID: <m1d5snyr99.fsf@muc.de>
+References: <20050420172944.69275.qmail@web51501.mail.yahoo.com>
+	<4266FFC4.6020305@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Arthur Kepner <akepner@sgi.com>,
-        "Brandeburg, Jesse" <jesse.brandeburg@intel.com>, netdev@oss.sgi.com,
-        davem@redhat.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Greg Banks <gnb@sgi.com>
-In-Reply-To: <20050419055535.GA12211@sgi.com> (Greg Banks's message of "Tue,
- 19 Apr 2005 15:55:35 +1000")
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: Neil Horman <nhorman@redhat.com>, jamal <hadi@cyberus.ca>,
+	linux-net@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Rick Jones <rick.jones2@hp.com>
+In-Reply-To: <4266FFC4.6020305@hp.com> (Rick Jones's message of "Wed, 20 Apr
+ 2005 18:20:04 -0700")
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Greg Banks <gnb@sgi.com> writes:
+Rick Jones <rick.jones2@hp.com> writes:
+
+>> Can I think that every packet (e.g. IP packet) must
+>> have a corresponding creating socket? (i.e. Must every
+>> packet be created by a socket?)
 >
-> An inordinate amount of CPU is being spent running around polling the
-> device instead of dealing with the packets in IP, TCP and NFS land.
-> By inordinate, we mean twice as much or more cpu% than a MIPS/Irix
-> box with slower CPUs.
+> No.  ICMP messages come to mind - although I _suppose_ that since
+> those are in response to other traffic, you could claim it was in
+> response to something sent from a "socket" or "endpoint" - depends on
+> how far away you consider it to still be  from a socket.
 
-We have seen similar behaviour. With NAPI some benchmarks run
-a lot slower than on a driver on the same hardware/NIC without NAPI.
-This can be even observed with simple tests like netperf single stream
-between two boxes.
-
-There seems to be also some problems with bidirectional traffic, although
-I have not fully tracked them down to NAPI yet.
-
-There is definitely some problem in NAPI land ...
+Actually Linux has kernel private sockets for ICMP.
+Very old Linux didnt, but it required ugly special cases
+in the transmit path, so it was removed.
 
 -Andi
