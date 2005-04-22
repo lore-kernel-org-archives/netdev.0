@@ -1,91 +1,93 @@
-From: jamies jamies jamies <jamies@eresmas.com>
-Subject: I AM ANXIOUSLY WAITING FOR YOUR RESPONSE
-Date: Fri, 22 Apr 2005 22:56:34 GMT
-Message-ID: <57efc657dfdd.57dfdd57efc6@ma17.eresmas.com>
-Reply-To: jamies_wilcox@yahoo.com
+From: Greg Banks <gnb@sgi.com>
+Subject: Re: NAPI, e100, and system performance problem
+Date: Sat, 23 Apr 2005 09:28:31 +1000
+Message-ID: <20050422232831.GB6462@sgi.com>
+References: <C925F8B43D79CC49ACD0601FB68FF50C03A633C7@orsmsx408> <Pine.LNX.4.61.0504180943290.15052@linux.site> <1113855967.7436.39.camel@localhost.localdomain> <20050419055535.GA12211@sgi.com> <m1hdhzyrdz.fsf@muc.de> <1114173195.7679.30.camel@localhost.localdomain> <20050422172108.GA10598@muc.de> <1114193902.7978.39.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/html; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <ak@muc.de>, Greg Banks <gnb@sgi.com>,
+        Arthur Kepner <akepner@sgi.com>,
+        "Brandeburg, Jesse" <jesse.brandeburg@intel.com>, netdev@oss.sgi.com,
+        davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamies@eresmas.com
-Content-Language: en
+To: jamal <hadi@cyberus.ca>
 Content-Disposition: inline
+In-Reply-To: <1114193902.7978.39.camel@localhost.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-=3Ctable border=3D0 width=3D=22100=25=22 cellpadding=3D=228=22  cellpaddi=
-ng=3D=228=22=3E=3Ctr=3E=3Ctd bgcolor=3D=22=23ffffff=22=3E=3CP=3E=3CSPAN s=
-tyle=3D=22COLOR=3A =23000000=3B FONT-FAMILY=3A monospace=2C courier=3B FO=
-NT-SIZE=3A 11px=22=3EFROM THE DESK OF=3A BARRISTER jamieswilcox=2E=3CBR=3E=
-LONDON-ENGLAND=2E=3CBR=3ETEL/FAX=3A +44-870-136-9855=3C/SPAN=3E=3C/P=3E
-=3CP=3E=3CSPAN style=3D=22COLOR=3A =23000000=3B FONT-FAMILY=3A monospace=2C=
- courier=3B FONT-SIZE=3A 11px=22=3EMARCH=2C 28TH 2005=2E=3C/SPAN=3E=3C/P=3E=
+On Fri, Apr 22, 2005 at 02:18:22PM -0400, jamal wrote:
+> On Fri, 2005-22-04 at 19:21 +0200, Andi Kleen wrote:
+> > On Fri, Apr 22, 2005 at 08:33:15AM -0400, jamal wrote:
+> [..]
+> > > They should not run slower - but they may consume more CPU.
+> > 
+> > They actually run slower.
+> > 
 
-=3CP=3E=3CSPAN style=3D=22COLOR=3A =23000000=3B FONT-FAMILY=3A monospace=2C=
- courier=3B FONT-SIZE=3A 11px=22=3EATTN=3A =3C/SPAN=3E=3C/P=3E
-=3CP=3E=3CSPAN style=3D=22COLOR=3A =23000000=3B FONT-FAMILY=3A monospace=2C=
- courier=3B FONT-SIZE=3A 11px=22=3EIT IS WITH HEAVY HEART I AM REACHING Y=
-OU REGARDING THE DEATH OF MY LATE =3CBR=3ECLIENT=2E I AM BARRISTER ANTHON=
-Y OXBY=2C THE LEGAL ADVISER TO LATE MR=2E MIKE =26amp=3B =3CBR=3ECAROL HA=
-LL=2C A VERY WEALTHY COUPLE THAT LIVED HERE IN THE UNITED KINGDOM=2C =3CB=
-R=3EBEFORE THEIR RECENT DEATH ON THE 26TH OF DECEMBER DURING THE TSUNAMI =
-=3CBR=3EDISASTER LAST YEAR (2004)=2Ehttp=3A//news=2Ebbc=2Eco=2Euk/1/hi/en=
-gland/bristol/4153821=2Estm) THESE COUPLE SERVED GOD AS VERY DEDICATED CH=
-RISTIANS=2C THEY SO DEDICATED THEIR LIFE TO GOD BUT THEY HAD NO CHILD TIL=
-L THEY DIED=2E THEY ACQUIRED A LOT OF LANDED PROPERTIES LIKE LANDS=2C STO=
-CKS/BOND=2C HOUSE PROPERTIES=2C ETC=2E AS THEIR LEGAL ADVISER=2C BEFORE T=
-HEIR DEATH=2C THE HUSBAND MR=2E MIKE =26amp=3B CAROL HALL INSTRUCTED ME T=
-O WRITE HIS WILL BECAUSE THEY HAD NO CHILD=2C THEY DEDICATED THEIR WEALTH=
- TO GOD=2E=3C/SPAN=3E=3C/P=3E
-=3CP=3E=3CSPAN style=3D=22COLOR=3A =23000000=3B FONT-FAMILY=3A monospace=2C=
- courier=3B FONT-SIZE=3A 11px=22=3EACCORDING TO THE WILL=2C THEIR ASSETS =
-SHOULD BE GIVEN OUT TO A MINISTRY FOR THE WORK OF GOD=2E AS THEIR LEGAL A=
-DVISER=2C ALL THE DOCUMENTS FOR THE ASSETS THAT ARE DEPOSITED WITH THE SE=
-CURITY COMPANY ARE IN MY CARE=2E HE GAVE ME THE AUTHORITY TO GIVE OUT THE=
- FUNDS TO THE MINISTRIES FOR THE WORK OF GOD=2E AS INSTRUCTED BY MR=2E MI=
-KE HALL BEFORE HIS DEATH=2E AS A MATTER OF FACT THE TOTAL AMOUNT OF MONEY=
- THAT IS CONTAINED IN THE TWO=3CBR=3ETRUNK BOXES IS US=2410=2C000=2C000=2E=
-00 =2CTHEY DID NOT WANT THE MANAGEMENT OF THE =3CBR=3ESECURITY COMPANY TO=
- KNOW THE CONTENT OF THE CONSIGNMENTS=2C THEREFORE THEY REGISTERED THE CO=
-NTENT OF THE CONSIGNMENTS AS GOLD BARS=2E NOW=2C THE SECURITY COMPANY BEL=
-IEVES THAT WHAT THEY DEPOSITED WITH THEM WERE GOLD BARS=2E=3C/SPAN=3E=3C/=
-P=3E
-=3CP=3E=3CSPAN style=3D=22COLOR=3A =23000000=3B FONT-FAMILY=3A monospace=2C=
- courier=3B FONT-SIZE=3A 11px=22=3EAS A BORN AGAIN CHRISTIAN=2C I HAVE BE=
-EN READING MY BIBLE AND I HAVE TO DO =3CBR=3EWHAT IS LAWFUL AND RIGHT IN =
-THE SIGHT OF GOD BY GIVING OUT THE FUND TO THE CHOSEN MINISTRY FOR THE PU=
-RPOSE OF GOD=27S WORK AS INSTRUCTED BY THE OWNER BEFORE HIS DEATH=2E AFTE=
-R MY FASTING AND PRAYERS TODAY=2C I ASKED GOD TO MAKE HIS CHOICE AND DIRE=
-CT ME TO AN HONEST CHRISTIAN OR THE CHOSEN MINISTRY THAT DESERVES THIS FU=
-ND BY HIS GRACE=2E I THEN CAME ACROSS YOUR ADDRESS ON THE INTERNET AS I W=
-AS BROWSING THROUGH A CHRISTIAN SITE=2E I APPEAL TO YOU FOR THE FUND TO B=
-E USED WISELY FOR THINGS THAT WILL GLORIFY THE NAME OF GOD=2E I HAVE JUST=
- NOTIFIED THE SECURITY COMPANY WHERE THEY DEPOSITED THE CONSIGNMENTS THAT=
- CONTAINED THE FUND=2C THAT I AM MOVING THE CONSIGNMENT ABROAD=2C AND THE=
- SECURITY COMPANY IS AWAITING MY AUTHORITY TO MOVE THE CONSIGNMENT OUT OF=
- THE SHORES OF MY COUNTRY=2E=3C/SPAN=3E=3C/P=3E
-=3CP=3E=3CSPAN style=3D=22COLOR=3A =23000000=3B FONT-FAMILY=3A monospace=2C=
- courier=3B FONT-SIZE=3A 11px=22=3EDEAR CHILD OF ZION=2C IF YOU KNOW THAT=
- YOU WILL USE THIS FUND HONESTLY AND =3CBR=3EWISELY FOR THINGS THAT WILL =
-GLORIFY GOD=27S NAME=2C THEN DO CONTACT ME WITH THE ABOVE MENTIONED INFOR=
-MATION VIA ( YOUR PROMPT RESPONSE =3CBR=3EWILL BE HIGHLY APPRECIATED=2E=3C=
-/SPAN=3E=3C/P=3E
-=3CP=3E=3CSPAN style=3D=22COLOR=3A =23000000=3B FONT-FAMILY=3A monospace=2C=
- courier=3B FONT-SIZE=3A 11px=22=3EI AM ANXIOUSLY WAITING FOR YOUR RESPON=
-SE=2E=3C/SPAN=3E=3C/P=3E
-=3CP=3E=3CSPAN style=3D=22COLOR=3A =23000000=3B FONT-FAMILY=3A monospace=2C=
- courier=3B FONT-SIZE=3A 11px=22=3EYOURS FAITHFULLY=3C/SPAN=3E=3C/P=3E
-=3CP=3E=3CSPAN style=3D=22COLOR=3A =23000000=3B FONT-FAMILY=3A monospace=2C=
- courier=3B FONT-SIZE=3A 11px=22=3EBARRISTER=2E =3CBR=3Ejamieswilcox=2E=3C=
-BR=3E=3CBR=3E-- =26nbsp=3B=5Bjamies=40eresmas=2Ecom=5D --=3C/SPAN=3E=3C/P=
-=3E=3C/td=3E=3C/tr=3E=3C/table=3E=3Cbr=3E=3Cbr=3E=3Cspan style=3D=22font-=
-family=3Amonospace=22=3E-------------------------------------------------=
-----------------------=3C/span=3E=3Cbr=3E=3Cspan style=3D=22font-family=3A=
-verdana=3Bfont-size=3A11px=3B=22=3ESOS Aldeas Infantiles=2E Ning=FAn ni=F1=
-o sin hogar=2E=3Cbr=3E=3Ca href=3D=22http=3A//banner=2Eeresmas=2Ecom/adcl=
-ick/CID=3D0000642fc858344d00000000/site=3DERESMAS/area=3DERESMAS=2ECORREO=
-/aamsz=3DPIE=5FWEBMAIL=22 target=3D=22=5Fblank=22=3Ehttp=3A//ad=2Edoublec=
-lick=2Enet/clk=3B15734310=3B7829128=3Bi=3Fhttp=3A//ad=2Ees=2Edoubleclick=2E=
-net/clk=3B15339847=3B11200040=3Br=3Fhttp=3A//www=2Ealdeasinfantiles=2Ees/=
-aldeas/microsite/index=2Ehtm=3C/a=3E=3C/span=3E=3Cbr=3E
+IIRC I saw a similar but very small effect on Altix hardware about 18
+months ago, but I'm unable to get at my old logbooks right now.  I
+do remember the effect was very small compared to the CPU usage effect
+and I didn't bother investigating or mentioning it.
+
+> Why do they run slower? There could be 1000 other variables involved?
+> What is it that makes you so sure it is NAPI?
+
+At the time I was running 2 kernels identical except that one had
+NAPI disabled in tg3.c.
+
+> There is only one complaint I have ever heard about NAPI and it is about
+> low rates: It consumes more CPU at very low rates. Very low rates
+> depends on how fast your CPU can process at any given time. Refer to my
+> earlier email. Are you saying low rates are a common load?
+> 
+> The choices are: a) at high rates you die or b) at _very low_ rates
+> you consume more CPU (3-6% more depending on your system). 
+
+This is a false dichotomy.  The mechanism could instead dynamically
+adjust to the actual network load.  For example dev->weight could
+be dynamically adjusted according to a 1-second average packet
+arrival rate on that device.  As a further example the driver could
+use that value as a guide to control interrupt coalescing parameters.
+
+In SGI's fileserving group we commonly see two very different traffic
+patterns, both of which must work efficiently without manual tuning.
+
+1.  high-bandwidth, CPU-sensitive: NFS and CIFS data and metadata
+    traffic.
+
+2.  low bandwidth, latency-sensitive: metadata traffic on SGI's
+    proprietary clustered filesystem.
+
+The solution on Irix was a dynamic feedback mechanism in the driver
+to control the interrupt coalescing parameters, so the driver
+adjusts to the predominant traffic.
+
+I think this is a generic problem that other people face too, possibly
+without being aware of it.  Given that NAPI seeks to be a generic
+solution to device interrupt control, and given that it spreads
+responsibility between the driver and the device layer, I think
+there is room to improve NAPI to cater for various workloads without
+implementing enormously complicated control mechanisms in each driver.
+
+> Logic says lets choose a). You could overcome b) by turning on
+> mitigation at the expense of latency. We could "fix" at a cost of 
+> making the whole state machine complex - which would be defeating  
+> the " optimize for the common".
+
+Sure, NAPI is simple.  Current experience on Altix is that
+NAPI is the solution that is clear, simple, and wrong.
+
+> >> Note, this would entirely solve what Andi and the SGI people are 
+> >> talking about.
+> > 
+> > Perhaps, but Linux has to perform well on old hardware too.
+> > New silicon is not a solution.
+
+Agreed.
+
+Greg.
+-- 
+Greg Banks, R&D Software Engineer, SGI Australian Software Group.
+I don't speak for SGI.
