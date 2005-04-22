@@ -1,71 +1,148 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: NAPI, e100, and system performance problem
-Date: Fri, 22 Apr 2005 08:33:15 -0400
-Message-ID: <1114173195.7679.30.camel@localhost.localdomain>
-References: <C925F8B43D79CC49ACD0601FB68FF50C03A633C7@orsmsx408>
-	 <Pine.LNX.4.61.0504180943290.15052@linux.site>
-	 <1113855967.7436.39.camel@localhost.localdomain>
-	 <20050419055535.GA12211@sgi.com>  <m1hdhzyrdz.fsf@muc.de>
-Reply-To: hadi@cyberus.ca
+From: Wolfgang Walter <wolfgang.walter@studentenwerk.mhn.de>
+Subject: Re: Problem with IPSEC tunnel mode
+Date: Fri, 22 Apr 2005 15:22:49 +0200
+Message-ID: <200504221522.49403.wolfgang.walter@studentenwerk.mhn.de>
+References: <E1DObFc-0000je-00@gondolin.me.apana.org.au> <200504221342.10675.wolfgang.walter@studentenwerk.mhn.de> <1114172084.7679.15.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Greg Banks <gnb@sgi.com>, Arthur Kepner <akepner@sgi.com>,
-        "Brandeburg, Jesse" <jesse.brandeburg@intel.com>, netdev@oss.sgi.com,
-        davem@redhat.com
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: quoted-printable
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@muc.de>
-In-Reply-To: <m1hdhzyrdz.fsf@muc.de>
+To: hadi@cyberus.ca
+In-Reply-To: <1114172084.7679.15.camel@localhost.localdomain>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2005-22-04 at 13:36 +0200, Andi Kleen wrote:
-> Greg Banks <gnb@sgi.com> writes:
+Am Freitag, 22. April 2005 14:14 schrieb jamal:
+> On Fri, 2005-22-04 at 13:42 +0200, Wolfgang Walter wrote:
+> > Am Freitag, 22. April 2005 02:18 schrieb jamal:
+>
+> [..]
+>
+> > > So i was wondering whether they OUT shouldnt be just a duplicate of
+> > > FWD (instead FWD seems to be the dup of IN). Look at that sample i
+> > > posted - all his policies look like that. What gives? Why are the I=
+N
+> > > and FWD exactly the same? bug in racoon/setkey?
 > >
-> > An inordinate amount of CPU is being spent running around polling the
-> > device instead of dealing with the packets in IP, TCP and NFS land.
-> > By inordinate, we mean twice as much or more cpu% than a MIPS/Irix
-> > box with slower CPUs.
-> 
-> We have seen similar behaviour. With NAPI some benchmarks run
-> a lot slower than on a driver on the same hardware/NIC without NAPI.
+> > No. XFRM_POLICY_IN is only checked for incoming packets which are
+> > delivered locally.
+>
+> For encrypted packets
 
-They should not run slower - but they may consume more CPU.
+I think for all packets otherwise it would not make sense to have allow a=
+nd=20
+block rules.
 
-> This can be even observed with simple tests like netperf single stream
-> between two boxes.
-> 
+I'm not sure how packets of tunnels ending at a host are treated exactly.=
+=20
+Probably the tunnel-packet itself is checked against XFRM_POLICY_IN becau=
+se=20
+its destination is the host itself. Then it gets decrypted if an entry=20
+appropriate in the sad in (dst,spi) exists. The inner packet gets extract=
+ed=20
+and decrypted and is then rerouted.
 
-Yes, slow traffic coming into the system would chew more CPU if you have
-a fast CPU ;-> You should know this Andi, but let me explain the reason
-for about the 100th time:
-If your CPU is fast enough such that the interupt only causes 1-2
-packets to be processed before reenabling, then you will have anywhere
-between 1-2 extra IO calls (recall dis/reenabling interupts) - this will
-be noticed in the CPU % chewed. It shouldnt be really a lot of CPU.
-If you use non-NAPI then you dont have the extra IO happening and
-therefore you will see less CPU used at those rates.
-OTOH, Try more than 1 netperfs and it becomes beneficial to have NAPI
-around. 
-Yes, for low rates - this will make some of those benchmarks look bad.
-But for such cases you can use mitigation in addition to NAPi - except
-your latency in the benchmark will now look bad ;->
+I think it is like that because
 
-> There seems to be also some problems with bidirectional traffic, although
-> I have not fully tracked them down to NAPI yet.
-> 
+* you see those packets twice in PREROUTING (mangle) i.e. for an esp-tunn=
+el:=20
+first as esp-packet than the inner decrypted packet. If the inner packet =
+is=20
+to be routed, XFRM_POLICY_FWD is relevant, otherwise XFRM_POLICY_IN.
 
-doubt it has to do with NAPI.
+But maybe XFRM_POLICY_IN is bypassed for ipsec-packets.
 
-> There is definitely some problem in NAPI land ...
-> 
+I didn't try out transport-mode.
 
-this is a design choice - a solution could be created to "fix" this but
-hasnt happened because there has not been a good reason to complicate
-things. The people who are bitching about this are benchmarkers who want
-to win at both high and low rates and they are not happy because while
-they can win at high rates, they cant at low rates.
+>
+> > XFRM_POLICY_FWD is checked for incoming packets which are routed.
+>
+> For non-encrypted packets to be forwarded.
 
-cheers,
-jamal
+Again: for all packets.
+
+Packets to be routed which are still encrypted here are ipsec-packets whi=
+ch=20
+are not destinated or originating from this host. Of course they may came=
+ in=20
+via a tunnel ending at this host:
+
+a<--->N1<--->b<----ipsec-tunnel--->c<--->N2<--->d=20
+
+If a communicates with d via esp (tunnel or transportmode) and b and c tu=
+nnel=20
+all packets between network N1 and N2 via ipsec then, on c, a ipsec packe=
+t=20
+from a to d would come in via the tunnel packed into another ipsec packet=
+, is=20
+extracted from the tunnel packet and is routed to d if XFRM_POLICY_FWD al=
+lows=20
+esp packets from a to d and XFRM_POLICY_OUT allows unencrypted communicat=
+ion=20
+between c and d for esp-packets from a to d.
+
+>
+> > That our XFRM_POLICY_IN matches XFRM_POLICY_FWD is more for convenien=
+ce:
+> > if a subnet is connected directly to a router we want to treat the
+> > interface address of the router itself the same way. Instead of
+> > constructing special rules which exactly match the interface address =
+we
+> > simply use the same rule as for forwarding.
+>
+> Ok, so it was design intent then.
+>
+> > XFRM_POLICY_OUT ist checked for every outgoing packet, be it locally
+> > generated be it routed (which is different from netfilter).
+> >
+> > This asymmetry is a little bit inconsequent. Probably one should real=
+ly
+> > have XFRM_POLICY_FWD_IN and XFRM_POLICY_FWD_OUT. But XFRM_POLICY_OUT
+> > would mainly be a copy of XFRM_POLICY_FWD_OUT then, I think.
+>
+> I did notice racoon or even setkey (version 0.5) for some rules (need t=
+o
+> investigate) would install two policy rules when i installed only one i=
+.e
+> racoon will install one in OUT and other in FWD direction.
+>
+> Example script and setkey -DP output attached. In this case i install
+> two rules, but for one of them an extra rule is installed. Actually the
+> pattern is quiet repeatable as you add more rules. This may also be wha=
+t
+> is happening to you maybe?
+
+spdadd 192.168.2.100 192.168.3.10 any -P in ipsec
+           esp/transport//require
+           ah/transport//require;
+
+installs both in and fwd rules (in RFC-mode). Use option -k for only sett=
+ing=20
+in rules (RFC only knows IN and OUT rules). This behaviour was added to=20
+ipsec-tools. As far as I know earlier kernels had a bug and didn't check =
+fwd=20
+ruleset so that setkey and racoon worked by accident under linux.
+
+racoon now behaves like pluto: it inserts always in and fwd rules. Its ea=
+sier=20
+than to check if a in or fwd rule or both is needed.=20
+
+And no, we do not use setkey any more but ip xfrm (though setkey displays=
+ more=20
+information, i.e. it tells you if a policy is socket-specific). Reason is=
+=20
+that neither setkey  nor racoon can handle large rule sets. And for most =
+fwd=20
+rules we also set an in rule (as pluto does).
+
+Greetings
+--=20
+Wolfgang Walter
+Studentenwerk M=FCnchen
+Anstalt des =F6ffentlichen Rechts
+Leopoldstra=DFe 15
+80802 M=FCnchen
