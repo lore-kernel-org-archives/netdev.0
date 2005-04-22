@@ -1,35 +1,63 @@
-From: Jeff Moyer <jmoyer@redhat.com>
-Subject: napi poll and dev->weight
-Date: Fri, 22 Apr 2005 13:16:21 -0400
-Message-ID: <17001.12645.981316.510106@segfault.boston.redhat.com>
-Reply-To: jmoyer@redhat.com
+From: Andi Kleen <ak@muc.de>
+Subject: Re: NAPI, e100, and system performance problem
+Date: 22 Apr 2005 19:21:08 +0200
+Message-ID: <20050422172108.GA10598@muc.de>
+References: <C925F8B43D79CC49ACD0601FB68FF50C03A633C7@orsmsx408> <Pine.LNX.4.61.0504180943290.15052@linux.site> <1113855967.7436.39.camel@localhost.localdomain> <20050419055535.GA12211@sgi.com> <m1hdhzyrdz.fsf@muc.de> <1114173195.7679.30.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: Greg Banks <gnb@sgi.com>, Arthur Kepner <akepner@sgi.com>,
+        "Brandeburg, Jesse" <jesse.brandeburg@intel.com>, netdev@oss.sgi.com,
+        davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: mpm@selenic.com
+Date: Fri, 22 Apr 2005 19:21:08 +0200
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1114173195.7679.30.camel@localhost.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi, Matt,
+On Fri, Apr 22, 2005 at 08:33:15AM -0400, jamal wrote:
+> On Fri, 2005-22-04 at 13:36 +0200, Andi Kleen wrote:
+> > Greg Banks <gnb@sgi.com> writes:
+> > >
+> > > An inordinate amount of CPU is being spent running around polling the
+> > > device instead of dealing with the packets in IP, TCP and NFS land.
+> > > By inordinate, we mean twice as much or more cpu% than a MIPS/Irix
+> > > box with slower CPUs.
+> > 
+> > We have seen similar behaviour. With NAPI some benchmarks run
+> > a lot slower than on a driver on the same hardware/NIC without NAPI.
+> 
+> They should not run slower - but they may consume more CPU.
 
-I recently debugged an issue we had with netdump, where a NAPI poll would
-exhaust the network card's budget.  In this case, the budget was never
-reset (since we are in a panicked state), and so the card's poll routine
-would always return immediately without doing any work.
+They actually run slower.
 
-While other netpoll users may not have exactly the same problems, this
-could become an issue in the places where you call netpoll_poll in a loop
-(such as in find_skb and netpoll_send_skb).  You might consider a check
-like the following in such cases:
+Now before David complains this was with old 2.6 kernels and I dont have
+time right now to rerun the benchmarks, but at least I dont think
+there was ever any patch addressing these issues.
 
-  if (dev->quota <= 0)
-  	dev->quota += dev->weight;
+> 
+> > This can be even observed with simple tests like netperf single stream
+> > between two boxes.
+> > 
+> 
+> Yes, slow traffic coming into the system would chew more CPU if you have
+> a fast CPU ;-> You should know this Andi, but let me explain the reason
+> for about the 100th time:
 
-This will at least make it possible for the poll routine to make progress.
+No, the performance of the data transfer was actually slower. CPU time
+was not the problem, Opterons have enough of that ...
 
-If any of this is unclear, feel free to tell me so.  I'll gladly elaborate.
+> this is a design choice - a solution could be created to "fix" this but
+> hasnt happened because there has not been a good reason to complicate
+> things. The people who are bitching about this are benchmarkers who want
+> to win at both high and low rates and they are not happy because while
+> they can win at high rates, they cant at low rates.
 
--Jeff
+My impression is that NAPI seems to be more optimized for a rather
+obscure work load (routing), while it does not seem to be that 
+great on the far more common server/client type workloads.
+If that was a design choice then it was a bad design.
+
+-Andi
