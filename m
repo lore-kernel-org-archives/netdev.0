@@ -1,144 +1,51 @@
-From: "Godwin Akwesi" <g_akwesi@bancora.net>
-Subject: Co-Operation
-Date: Fri, 22 Apr 2005 15:35:32 +0200 (CEST)
-Message-ID: <54568.217.161.67.5.1114176932.squirrel@217.161.67.5>
-Reply-To: g_akwesi@mail.az
+From: Wolfgang Walter <wolfgang.walter@studentenwerk.mhn.de>
+Subject: Re: Problem with IPSEC tunnel mode
+Date: Fri, 22 Apr 2005 15:48:43 +0200
+Message-ID: <200504221548.44560.wolfgang.walter@studentenwerk.mhn.de>
+References: <E1DObFc-0000je-00@gondolin.me.apana.org.au> <200504221522.49403.wolfgang.walter@studentenwerk.mhn.de> <20050422132758.GA22772@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;charset=iso-8859-1
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
+Cc: hadi@cyberus.ca, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: undisclosed-recipients:;
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050422132758.GA22772@gondor.apana.org.au>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-FROM MR. GODWIN AKWESI
+Am Freitag, 22. April 2005 15:27 schrieb Herbert Xu:
+> On Fri, Apr 22, 2005 at 03:22:49PM +0200, Wolfgang Walter wrote:
+> > I'm not sure how packets of tunnels ending at a host are treated exac=
+tly.
+> > Probably the tunnel-packet itself is checked against XFRM_POLICY_IN
+> > because its destination is the host itself. Then it gets decrypted if=
+ an
+> > entry appropriate in the sad in (dst,spi) exists. The inner packet ge=
+ts
+> > extracted and decrypted and is then rerouted.
+>
+> Actually it only gets checked once, after all IPsec decapsulation has b=
+een
+> completed.  So forwarded packets only ever get checked against the FWD
+> direction.
+>
 
-TEL: +233 208216645
+So linux implements things like i.e. ipcomp in esp-tunnel in ah-tunnel as=
+=20
+bundle instead of feeding it for every transformation into the packet rec=
+eive=20
+code again? I assume that incoming packets which are subject to several=20
+ipsec-transformations are exactly seen twice in netfilter PREROUTING: fir=
+st=20
+before decapsulation and then after complete decapsulation?
 
-FAX: +233 27621073
-
-Before I introduce myself, I wish to inform you that this letter is not a
-hoax mail and I urge you to treat it serious. This letter must come to yo=
-u
-as a big surprise, but I believe it is only a day that people meet and
-become great friends and business partners.
-
-My name is Mr. Godwin Akwesi, the present branch Manager of a bank here i=
-n
-Ghana. I write you this proposal in good faith, believing that I can trus=
-t
-you with the information I am about to reveal to you. Like I said, I have
-a transaction that will benefit both of us, as your assistance is require=
-d
-as a reigner. I use to head the Accounts department in my bank head
-office, but last December I was asked to take position of a Manager of ou=
-r
-branch in Kumasi who passed on, so that was how I became the present
-Manager and discovered a fortune. As I resumed duty, I discovered an
-account with total sum of $12,500,000 million that has not been operated
-on for the past 4 years. From my investigation, I found out that this
-account belongs to one Late Mr. Morris Thompson an American great
-industrialist and a resident of Alaska, who unfortunately lost his life i=
-n
-the plane crash of Alaska Airlines Flight 261 which crashed on January 31
-2000, including his wife and only daughter.
-
-You shall read more news about the crash on visiting this site which I go=
-t
-during my investigation;
-<http://www.cnn.com/2000/US/02/01/alaska.airlines.list/> and
-//www.nativefederation.org/history/people/mThompson.html
-
-The account is escrow call account, a secret type of account in my bank
-and no other person knows about this account or any thing concerning it,
-the account has no other beneficiary. I have kept a close monitoring of
-the account since then and nobody has come forward to ask about the money
-as next of kin to the late Mr. Morris Thompson, meaning that no one is
-aware of the account.
-
-I cannot directly take out this money without the help of a foreigner and
-that is why I am contacting you for an assistance to claim the funds and
-share it with me. As the Manager of my bank branch, I have the power to
-influence the release of the funds to any foreigner that comes up as the
-next of kin to the account, with the correct information concerning the
-account which I shall give you.
-
-I am seeking your co-operation to present you as the next of kin to the
-account, so that my bank head quarters will release the funds to you.
-There is practically no risk involved, the transaction will be executed
-under a legitimate arrangement that will protect you from any breach of
-law.
-
-If you accept to work with me, I want you to state how you wish us to
-share the funds in percentage, so that both parties will be satisfied.
-Contact me as soon as you receive this message if you feel we can work
-together, so we can go over the details.
-
-Thanking you in advance and may God bless you.
-
-Please, treat with utmost confidentiality. I wait your urgent response.
-
-You can as well contact me by phone the number is +233208216645.
-
-Regards,
-
-Mr. Godwin Akwesi.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<hr />=20
----- Recogida de firmas para el Defensor del Pueblo ----<br />
----- Necesitamos tu ayuda ----
-<br />
- <br />
---------- <a href=3D"http://www.bancora.com/fibromialgia">http://www.banc=
-ora.com/fibromialgia</a> ----------<br />
- <br />
-<hr />=20
----- Llega el d=EDa de la Madre. Env=EDele flores ----<br />
- <br />
---------- <a href=3D"http://www.bancora.com/flores.php">http://flores.ban=
-cora.com</a> ----------<br />
- <br />
------------- <a href=3D\"http://www.bancora.net\">http://www.bancora.net<=
-/a> ------------<br />
- <br />
------- El correo gratuito de B=E1ncora.com -------<br />
- <br />
---------- Visite <a href=3D\"http://www.bancora.com\">http://www.bancora.=
-com</a> --------<br />
- <br />
-<hr />
+Greetings,
+--=20
+Wolfgang Walter
+Studentenwerk M=FCnchen
+Anstalt des =F6ffentlichen Rechts
+Leopoldstra=DFe 15
+80802 M=FCnchen
