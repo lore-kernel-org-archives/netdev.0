@@ -1,61 +1,38 @@
-From: Wolfgang Walter <wolfgang.walter@studentenwerk.mhn.de>
-Subject: Re: Problem with IPSEC tunnel mode
-Date: Fri, 22 Apr 2005 02:40:31 +0200
-Message-ID: <200504220240.31280.wolfgang.walter@studentenwerk.mhn.de>
-References: <E1DObFc-0000je-00@gondolin.me.apana.org.au> <200504211640.16742.wolfgang.walter@studentenwerk.mhn.de> <20050421214618.GA29991@gondor.apana.org.au>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH] netem: account for packets in delayed queue in qlen
+Date: Thu, 21 Apr 2005 20:40:18 -0400
+Message-ID: <1114130419.10572.32.camel@localhost.localdomain>
+References: <20050329152110.38d50653@dxpl.pdx.osdl.net>
+	 <4252EB9D.9070305@trash.net>	<20050407120417.4297cd14@dxpl.pdx.osdl.net>
+	 <42628300.9010007@trash.net>
+	 <20050419110639.47767113@localhost.localdomain>
+	 <42666098.5060409@trash.net>
+	 <20050421132020.41858bc4@localhost.localdomain>
+	 <426832E1.7020003@trash.net>
+	 <20050422092221.4950e23c@localhost.localdomain>
+	 <426839B4.2090502@trash.net>
+	 <1114128336.10572.12.camel@localhost.localdomain>
+	 <426840E3.8000203@trash.net>
+	 <1114129939.10572.29.camel@localhost.localdomain>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@osdl.org>,
+        "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050421214618.GA29991@gondor.apana.org.au>
-Content-Disposition: inline
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <1114129939.10572.29.camel@localhost.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Am Donnerstag, 21. April 2005 23:46 schrieben Sie:
-> On Thu, Apr 21, 2005 at 04:40:16PM +0200, Wolfgang Walter wrote:
-> > 10.148.0.0/23 dev eth2.1001  scope link  src 10.148.0.1
-> > 10.148.32.0/20 via 10.148.15.30 dev eth0.1014  src 10.148.15.29
-> > default via 192.168.77.162 dev eth3  src 192.168.77.161
->
-> Although you probably have rp_filter turned, but please check
->
-> cat /proc/sys/net/ipv4/conf/eth3/rp_filter
->
-> anway.
->
-> > src 10.148.0.0/23 dst 10.0.25.210/32
-> >  dir fwd priority 0
->
-> There you go.  This policy trumps your other policy.  This one
-> says that forwarded traffic matching it must carry no tunnel
-> IPsec transforms.  Therefore all IPsec packets matching it will
-> be dropped.
+On Thu, 2005-21-04 at 20:32 -0400, jamal wrote:
+>  I should actually try to make sure it works;
+> 
 
-I don't understand that. 10.148.0.0/23 is 10.148.0.0-10.148.1.255, isn't =
-it?=20
-But 10.148.4.0/28 (is 10.148.4.0-10.148.4.15) is not within it.
+Never mind - it wont work at the moment ;->
+A missing feature described at the top should get it to work though ;->
 
->
-> > src 10.148.4.0/28 dst 10.0.25.210/32
-> >  dir fwd priority 2084
-> >  tmpl src 192.168.9.237 dst 192.168.77.161
-> >   proto esp spi 0x00000000 reqid 16465 mode tunnel
->
-> The reason it worked with the old setkey and 2.6.7* is that all
-> forwarded traffic would've been allowed, regardless of whether
-> they matched the IPsec policy or not.
->
-> Cheers,
-
-Greetings,
---=20
-Wolfgang Walter
-Studentenwerk M=FCnchen
-Anstalt des =F6ffentlichen Rechts
-Leopoldstra=DFe 15
-80802 M=FCnchen
+cheers,
+jamal
