@@ -1,38 +1,58 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] netem: account for packets in delayed queue in qlen
-Date: Thu, 21 Apr 2005 20:40:18 -0400
-Message-ID: <1114130419.10572.32.camel@localhost.localdomain>
-References: <20050329152110.38d50653@dxpl.pdx.osdl.net>
-	 <4252EB9D.9070305@trash.net>	<20050407120417.4297cd14@dxpl.pdx.osdl.net>
-	 <42628300.9010007@trash.net>
-	 <20050419110639.47767113@localhost.localdomain>
-	 <42666098.5060409@trash.net>
-	 <20050421132020.41858bc4@localhost.localdomain>
-	 <426832E1.7020003@trash.net>
-	 <20050422092221.4950e23c@localhost.localdomain>
-	 <426839B4.2090502@trash.net>
-	 <1114128336.10572.12.camel@localhost.localdomain>
-	 <426840E3.8000203@trash.net>
-	 <1114129939.10572.29.camel@localhost.localdomain>
-Reply-To: hadi@cyberus.ca
+From: Baruch Even <baruch@ev-en.org>
+Subject: Re: [RFC INTRO 0/5] H-TCP congestion control
+Date: Fri, 22 Apr 2005 01:48:02 +0100
+Message-ID: <426849C2.7000409@ev-en.org>
+References: <20050311160734.30424.67955.65942@galon.ev-en.org> <20050311094239.4c59c29d@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>,
-        "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <1114129939.10572.29.camel@localhost.localdomain>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: "David S.Miller" <davem@davemloft.net>, linux-net@vger.kernel.org,
+	netdev@oss.sgi.com, Douglas Leith <doug.leith@nuim.ie>
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20050311094239.4c59c29d@dxpl.pdx.osdl.net>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2005-21-04 at 20:32 -0400, jamal wrote:
->  I should actually try to make sure it works;
+Stephen Hemminger wrote:
+> On Fri, 11 Mar 2005 18:07:34 +0200 (IST)
+> Baruch Even <baruch@ev-en.org> wrote:
 > 
+> 
+>>The following patches are the result of the work of Douglas Leith to implement
+>>the H-TCP congestion control proposal. They have since been modified by me
+>>(Baruch Even) to port them to kernel 2.6.x, test them and tune them.
+>>
+>>All patches are against Linux kernel version 2.6.11-bk6. This is currently
+>>a preliminary work and is presented for review in order to receive comments to
+>>improve this work so it can be accepted to mainline Linux Kernel.
+>>
+>>The initial development was to add H-TCP to the Linux kernel for testing
+>>purposes, it became evident that on 1 Gbit/s links Linux is unable to process
+>>the received ack stream fast enough to handle the load. We have patches for
+>>that but they proved too hard to be ported to 2.6.11+, we are currently working
+>>on them.
+>>
+>>Baruch
+> 
+> 
+> Are there any IPR encumberance to this like FAST TCP. Earlier versions of
+> this patch said:
+> 
+> 
+>>This patch is covered by a pending patent, a license is being worked on to
+>>enable the inclusion in Linux. Comments and suggestions on this are also
+>>solicited.
+> 
+> 
+> Has this changed?
 
-Never mind - it wont work at the moment ;->
-A missing feature described at the top should get it to work though ;->
+This has changed now. The code is now released under the GNU GPL v2, 
+according to what I was told this effectively implies that any patent 
+right that the university will have regarding this technology is 
+effectively licensed for use with this code.
 
-cheers,
-jamal
+Please let me know if there is anything else that we need to do to let 
+the review and possible inclusion of our contribution to proceed.
+
+Baruch
