@@ -1,26 +1,78 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [patch 2.6.12-rc2 2/10] tg3: add bcm5752 to tg3_pci_tbl
-Date: Thu, 21 Apr 2005 16:58:38 -0700
-Message-ID: <20050421165838.0760ca0a.davem@davemloft.net>
-References: <04132005193843.8351@laptop>
-	<04132005193844.8410@laptop>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH] netem: account for packets in delayed queue in qlen
+Date: Thu, 21 Apr 2005 20:05:36 -0400
+Message-ID: <1114128336.10572.12.camel@localhost.localdomain>
+References: <20050329152110.38d50653@dxpl.pdx.osdl.net>
+	 <4252EB9D.9070305@trash.net>	<20050407120417.4297cd14@dxpl.pdx.osdl.net>
+	 <42628300.9010007@trash.net>
+	 <20050419110639.47767113@localhost.localdomain>
+	 <42666098.5060409@trash.net>
+	 <20050421132020.41858bc4@localhost.localdomain>
+	 <426832E1.7020003@trash.net>
+	 <20050422092221.4950e23c@localhost.localdomain>
+	 <426839B4.2090502@trash.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, jgarzik@pobox.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261736AbVDVAFo@vger.kernel.org>
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <04132005193844.8410@laptop>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Stephen Hemminger <shemminger@osdl.org>,
+        "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <426839B4.2090502@trash.net>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 13 Apr 2005 19:38:44 -0400
-"John W. Linville" <linville@tuxdriver.com> wrote:
-
-> Add hard-coded definition of bcm5752 PCI ID to tg3_pci_tbl.
+On Fri, 2005-22-04 at 01:39 +0200, Patrick McHardy wrote:
+> Stephen Hemminger wrote:
+> > I'm thinking of changing enqueue (and maybe later dequeue) API to decouple
+> > the qlen assumption.
+> > 
+> > Either:
+> > 	rc = qdisc->enqueue(skb, qdisc, &my->qlen)
+> > or add NET_XMIT_DUPPED
+> > 	rc = qdisc->enqueue(skb, qdisc);
+> > 	if (rc < NET_XMIT_SUCCESS) {
+> > 		++my->dropped;
+> > 	} else {
+> > 		my->qlen++;
+> > 		if (rc == NET_XMIT_DUPPED)
+> > 			my->qlen++;
+> > }
 > 
-> Signed-off-by: John W. Linville <linville@tuxdriver.com>
-> ---
-> Next patch will change entry to use pci_ids.h-based definition.
+> To be frank, I don't like either one. Both have the same problem
+> wrt. HFSC, the first solution requires changes all over the place,
+> the second one is unflexible and also requires lots of changes. I
+> don't see what could benefit from this API change besides netem,
+> so I'd vote to go with my proposed solution: store the parent
+> pointers in struct Qdisc, add code to walk up the tree and adjust
+> the qlen to netem, and fix up HFSC.
 
-Applied, thanks.
+Duplication of packets would be trivial to do with mirred mirror option
+attached to the qdisc. Something along the lines of:
+
+on device ethx \
+match all packets (or whatever filter you want) \
+action mirred mirror to device ethx
+
+To duplicate packet more than once:
+on device ethx \
+match all packets (or whatever filter you want) \
+action mirred mirror to device ethx \
+action mirred mirror to device ethx
+
+repeat for as many dups as you want
+
+more funky?
+randomly duplicate one or two packets
+
+on device ethx \
+match all packets (or whatever filter you want) \
+action gact random stop here \
+action mirred mirror to device ethx \
+action gact random stop here \
+action mirred mirror to device ethx
+
+cheers,
+jamal
