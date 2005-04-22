@@ -1,95 +1,48 @@
-From: cranium2003 <cranium2003@yahoo.com>
-Subject: Help getting Neighbour table overflow a lot messages
-Date: Fri, 22 Apr 2005 03:37:48 -0700 (PDT)
-Message-ID: <20050422103749.43324.qmail@web41403.mail.yahoo.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [RFC] QoS: frg queue (was [RFC] QoS: new per flow queue)
+Date: Fri, 22 Apr 2005 13:11:00 +0200
+Message-ID: <20050422111100.GN577@postel.suug.ch>
+References: <20050419012147.038F.LARK@linux.net.cn> <20050418184029.GV4114@postel.suug.ch> <20050422115230.03E0.LARK@linux.net.cn>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Cc: jamal <hadi@cyberus.ca>, netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: net dev <netdev@oss.sgi.com>
+To: Wang Jian <lark@linux.net.cn>
+Content-Disposition: inline
+In-Reply-To: <20050422115230.03E0.LARK@linux.net.cn>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-hello,
-   I want to know what happed to my system RedHat
-linux 9. I brought kernel in tar.gz format from other
-pc rebuild it and recompile it after that i am getting
-following messages. I have configured 2.4.20,
-2.4.30,2.6.11 kernels and the kernel after which it
-happened is 2.4.20.
-NET: 3809 messages suppressed.
-Neighbour table overflow.
-NET: 2663 messages suppressed.
-Neighbour table overflow.
-NET: 10553 messages suppressed.
-Neighbour table overflow.
-NET: 11910 messages suppressed.
-Neighbour table overflow.
-NET: 11324 messages suppressed.
-Neighbour table overflow.
-NET: 11294 messages suppressed.
-Neighbour table overflow.
-NET: 1778 messages suppressed.
-Neighbour table overflow.
-Neighbour table overflow.
-Neighbour table overflow.
-Neighbour table overflow.
-Neighbour table overflow.
-Neighbour table overflow.
-Neighbour table overflow.
-Neighbour table overflow.
-Neighbour table overflow.
-Neighbour table overflow.
-NET: 33 messages suppressed.
-Neighbour table overflow.
+> > I understand all of your arguments but I would like to, if possible,
+> > avoid to add yet another quite specific qdisc which could have been
+> > implemented in a generic way for everyone to use. Your FRG basically
+> > does what the alloctor + classifier + action + qdiscs can do but it
+> > is orientied at one specific use case.
+> 
+> Agree. I will maintain my code out of kernel tree, in case someone feels
+> my frg is usefull for his/her special case.
 
- Please help. My ifconfig is
-         eth0      Link encap:Ethernet  HWaddr
-00:08:A1:43:61:F5
-          inet addr:192.168.1.1  Bcast:192.168.1.255 
-Mask:255.255.255.0
-          UP BROADCAST RUNNING MULTICAST  MTU:1500 
-Metric:1
-          RX packets:0 errors:0 dropped:0 overruns:0
-frame:0
-          TX packets:43 errors:0 dropped:0 overruns:0
-carrier:0
-          collisions:0 txqueuelen:100     RX bytes:0
-(0.0 b)  TX bytes:2580 (2.5 Kb)
-          Interrupt:9 Base address:0x7c00
+Definitely, I think your work is very valuable and if the generic
+approach doesn't work out I'll be all for including your work. Well,
+maybe move the flow id generation into an action but leave the class
+allocation in frg. 
 
-eth1      Link encap:Ethernet  HWaddr
-00:80:48:C3:11:94
-          inet addr:10.1.1.30  Bcast:10.255.255.255 
-Mask:255.0.0.0
-          UP BROADCAST RUNNING MULTICAST  MTU:1500 
-Metric:1
-          RX packets:1739765 errors:0 dropped:0
-overruns:0 frame:1
-          TX packets:270 errors:0 dropped:0 overruns:0
-carrier:0
-          collisions:60 txqueuelen:100
-          RX bytes:109742910 (104.6 Mb)  TX
-bytes:24318 (23.7 Kb)
-          Interrupt:11 Base address:0xdc00
+> The other disadvantage is that the dynamic classid used is not predicted
+> by user space, it is very tricky for user space to handle the classid
+> allocation then (I mean for the management system like web management).
+> That is what I try to avoid so far.
 
-lo        Link encap:Local Loopback
-          inet addr:127.0.0.1  Mask:255.0.0.0
-          UP LOOPBACK RUNNING  MTU:16436  Metric:1
-          RX packets:15 errors:0 dropped:0 overruns:0
-frame:0
-          TX packets:15 errors:0 dropped:0 overruns:0
-carrier:0
-          collisions:0 txqueuelen:0
-          RX bytes:1344 (1.3 Kb)  TX bytes:1344 (1.3
-Kb)
+Good point, we can make the handle of the allocated classes/qdiscs
+be derived from the flow id we get and additionaly broadcast any
+change in the qdisc/class management to userspace for it to keep
+track. Let me develop some more thoughts on this and get back to you.
 
+> I agree to this. But I must iterate one thing: the design should be
+> friendly to user space management for a heavy usage.
 
-Thanks,
-cranium.
+Agreed.
 
-
-__________________________________________________
-Do You Yahoo!?
-Tired of spam?  Yahoo! Mail has the best spam protection around 
-http://mail.yahoo.com 
+I had another look at your code and noticed the GFP_KERNEL masked
+kmalloc call in perflow_new_flow() called from perflow_enqueue(),
+you must change that to GFP_ATOMIC due to softirq context.
