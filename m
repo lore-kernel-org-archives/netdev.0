@@ -1,62 +1,37 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: [TG3]: test minimal hw coalescing
-Date: Fri, 22 Apr 2005 11:50:30 -0700
-Message-ID: <20050422115030.544fddf7.davem@davemloft.net>
+Subject: Re: NAPI, e100, and system performance problem
+Date: Fri, 22 Apr 2005 11:52:30 -0700
+Message-ID: <20050422115230.6037a362.davem@davemloft.net>
+References: <C925F8B43D79CC49ACD0601FB68FF50C03A633C7@orsmsx408>
+	<Pine.LNX.4.61.0504180943290.15052@linux.site>
+	<1113855967.7436.39.camel@localhost.localdomain>
+	<20050419055535.GA12211@sgi.com>
+	<m1hdhzyrdz.fsf@muc.de>
+	<1114173195.7679.30.camel@localhost.localdomain>
+	<20050422172108.GA10598@muc.de>
+	<1114193902.7978.39.camel@localhost.localdomain>
+	<20050422183004.GC10598@muc.de>
+	<Pine.LNX.4.61.0504221131350.15052@linux.site>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: akepner@sgi.com, mchan@broadcom.com
+Cc: ak@muc.de, hadi@cyberus.ca, gnb@sgi.com, jesse.brandeburg@intel.com,
+        netdev@oss.sgi.com, davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Arthur Kepner <akepner@sgi.com>
+In-Reply-To: <Pine.LNX.4.61.0504221131350.15052@linux.site>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Fri, 22 Apr 2005 11:37:17 -0700 (PDT)
+Arthur Kepner <akepner@sgi.com> wrote:
 
-For the folks who want to play around with trying to eliminate
-some of the cruddy NAPI behavior with tg3, give the following
-patch a try.
+> I'm going to try to get some new (2.6.12-rc2) data this weekend.
 
-You can play with the LOW_{RX,TX}COL_TICKS, LOW_{RX,TX}MAX_FRAMES,
-et al. values to see if some settings work better than others.
-The current values are basically pulled out of a hat and should
-be verified with real performance testing.
+That sounds great.  See the other email I posted (you were CC:'d)
+where I show a patch to tg3 to minimally enable some hw interrupt
+coalescing which might help.  It would be great to see what that
+kind of change does for your tests.
 
-I'm more than happy to put something like this into the upstream
-driver, especially so if someone can get some real numbers to show
-both before and after (hint hint). :-)
-
-I also have to fix tg3.c to use the tagged irq status mode.
-Long ago when I wrote the NAPI support I couldn't figure out
-how to make that mode work with NAPI's IRQ disabling/enabling,
-but now I know that I have to keep track of the current semaphore
-count in the driver software state in order to do it correctly.
-This should help PIO overhead as well.
-
-drivers/net/tg3.c: f65ca3b2da6f3fcdb464cd8f9d0b53b5611103b1
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -5366,16 +5366,16 @@ static int tg3_reset_hw(struct tg3 *tp)
- 		udelay(10);
- 	}
- 
--	tw32(HOSTCC_RXCOL_TICKS, 0);
-+	tw32(HOSTCC_RXCOL_TICKS, LOW_RXCOL_TICKS);
- 	tw32(HOSTCC_TXCOL_TICKS, LOW_TXCOL_TICKS);
--	tw32(HOSTCC_RXMAX_FRAMES, 1);
--	tw32(HOSTCC_TXMAX_FRAMES, LOW_RXMAX_FRAMES);
-+	tw32(HOSTCC_RXMAX_FRAMES, LOW_RXMAX_FRAMES);
-+	tw32(HOSTCC_TXMAX_FRAMES, LOW_TXMAX_FRAMES);
- 	if (!(tp->tg3_flags2 & TG3_FLG2_5705_PLUS)) {
--		tw32(HOSTCC_RXCOAL_TICK_INT, 0);
--		tw32(HOSTCC_TXCOAL_TICK_INT, 0);
-+		tw32(HOSTCC_RXCOAL_TICK_INT, DEFAULT_RXCOAL_TICK_INT);
-+		tw32(HOSTCC_TXCOAL_TICK_INT, DEFAULT_TXCOAL_TICK_INT);
- 	}
--	tw32(HOSTCC_RXCOAL_MAXF_INT, 1);
--	tw32(HOSTCC_TXCOAL_MAXF_INT, 0);
-+	tw32(HOSTCC_RXCOAL_MAXF_INT, DEFAULT_RXCOAL_MAXF_INT);
-+	tw32(HOSTCC_TXCOAL_MAXF_INT, DEFAULT_TXCOAL_MAXF_INT);
- 
- 	/* set status block DMA address */
- 	tw32(HOSTCC_STATUS_BLK_HOST_ADDR + TG3_64BIT_REG_HIGH,
+Thanks.
