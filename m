@@ -1,50 +1,34 @@
-From: Jeff Moyer <jmoyer@redhat.com>
+From: "David S. Miller" <davem@davemloft.net>
 Subject: Re: [PATCH 4/7] netpoll: fix ->poll() locking
-Date: Fri, 22 Apr 2005 19:02:43 -0400
-Message-ID: <17001.33427.462497.856777@segfault.boston.redhat.com>
+Date: Fri, 22 Apr 2005 15:59:58 -0700
+Message-ID: <20050422155958.474a150c.davem@davemloft.net>
 References: <4.454130102@selenic.com>
 	<5.454130102@selenic.com>
 	<17001.31150.194263.732284@segfault.boston.redhat.com>
 	<20050422155218.223fa84d.davem@davemloft.net>
-Reply-To: jmoyer@redhat.com
+	<17001.33427.462497.856777@segfault.boston.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: mpm@selenic.com, jgarzik@pobox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050422155218.223fa84d.davem@davemloft.net>
+To: jmoyer@redhat.com
+In-Reply-To: <17001.33427.462497.856777@segfault.boston.redhat.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-==> Regarding Re: [PATCH 4/7] netpoll: fix ->poll() locking; "David S. Miller" <davem@davemloft.net> adds:
+On Fri, 22 Apr 2005 19:02:43 -0400
+Jeff Moyer <jmoyer@redhat.com> wrote:
 
-davem> On Fri, 22 Apr 2005 18:24:46 -0400 Jeff Moyer <jmoyer@redhat.com>
-davem> wrote:
+> Oh yes, of course.  Somehow I managed to forget that we now squirrel away
+> the struct netpoll pointer in the net_device.  Previously you could
+> register multiple netpoll clients to one device, and this was useful for
+> say doing netconsole and netdump over the same interface.  If we've removed
+> this ability, this is a bad thing.  Oh dear...
 
->> ==> Regarding [PATCH 4/7] netpoll: fix ->poll() locking; Matt Mackall
->> <mpm@selenic.com> adds:
->> 
-mpm> Introduce a per-client poll lock and flag. The lock assures we never
-mpm> have more than one caller in dev->poll(). The flag provides recursion
-mpm> avoidance on UP where the lock disappears.
->> I don't think it makes sense to have the poll lock associated with a
->> struct netpoll.
+In such a configuration, how did the netpoll code "tell" who the
+receive packets were for or did it send them to all registered
+netpoll clients for that device?
 
-davem> There should be a 1 to 1 relationship from netdev to netpoll, but I
-davem> see no problems with a many to 1 relationship from netdev to
-davem> netpoll, that is perfectly legal.  It would give more stringent
-davem> locking on dev->poll() invocations, not forget to lock when
-davem> necessary.
-
-davem> The only thing which is wrong is that netpoll_setup() should verify
-davem> that netdev-> np is NULL, and if it is not it should return an error.
-
-Oh yes, of course.  Somehow I managed to forget that we now squirrel away
-the struct netpoll pointer in the net_device.  Previously you could
-register multiple netpoll clients to one device, and this was useful for
-say doing netconsole and netdump over the same interface.  If we've removed
-this ability, this is a bad thing.  Oh dear...
-
--Jeff
+Just curious.
