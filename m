@@ -1,166 +1,144 @@
-From: "xCatWalks.Com" <newsletter@xcatwalks.com>
-Subject: Your Subscription has been Activated.
-Date: Wed, 20 Apr 2005 11:19:43 -0400
-Message-ID: <E1DOGzP-0001Zm-2r@vhost2.choopa.net>
-Reply-To: newsletter@xcatwalks.com
+From: "Godwin Akwesi" <g_akwesi@bancora.net>
+Subject: Co-Operation
+Date: Fri, 22 Apr 2005 15:35:32 +0200 (CEST)
+Message-ID: <54568.217.161.67.5.1114176932.squirrel@217.161.67.5>
+Reply-To: g_akwesi@mail.az
 Mime-Version: 1.0
-Content-Type: text/html
+Content-Type: text/plain;charset=iso-8859-1
 Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: undisclosed-recipients:;
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
-<html>
-<head>
-<title>xCatWalks Newsletter</title>
-<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Diso-885=
-9-1">
-<link href=3D"index/text.css" rel=3D"stylesheet" type=3D"text/css">
-<base target=3D"_blank">
-</head>
+FROM MR. GODWIN AKWESI
 
-<body leftmargin=3D"0" topmargin=3D"0" marginwidth=3D"0" marginheight=3D"=
-0" bgcolor=3D"#FFFFFF">
-<form name=3D"form1" method=3D"post" action=3D"">
-  <table width=3D"100%" height=3D"100%" border=3D"0" cellpadding=3D"0" ce=
-llspacing=3D"0">
-    <tr>=20
-      <td height=3D"40"><table width=3D"758" border=3D"0" cellspacing=3D"=
-0" cellpadding=3D"0">
-          <tr>=20
-            <td width=3D"517">
-			<a href=3D"http://www.xcatwalks.com/">
-			<img src=3D"http://www.xcatwalks.com/newsletter/top01.gif" width=3D"51=
-7" height=3D"40" border=3D"0"></a></td>
-            <td width=3D"202" align=3D"center"><a href=3D"http://www.xcat=
-walks.com/">
-			<img border=3D"0" src=3D"http://www.xcatwalks.com/newsletter/top01_bg.=
-gif" width=3D"202" height=3D"40"></a></td>
-            <td width=3D"39" align=3D"right">
-			<a href=3D"http://www.xcatwalks.com/">
-			<img src=3D"http://www.xcatwalks.com/newsletter/top02.gif" width=3D"39=
-" height=3D"40" border=3D"0"></a></td>
-          </tr>
-        </table></td>
-    </tr>
-    <tr>=20
-      <td height=3D"153" align=3D"left" valign=3D"top"><table width=3D"77=
-0" border=3D"0" cellspacing=3D"0" cellpadding=3D"0">
-          <tr>
-            <td width=3D"198" align=3D"left">
-			<a href=3D"http://www.xcatwalks.com/">
-			<img src=3D"http://www.xcatwalks.com/newsletter/top03.gif" width=3D"19=
-8" height=3D"153" border=3D"0"></a></td>
-            <td width=3D"137" align=3D"left">
-			<a href=3D"http://www.xcatwalks.com/">
-			<img src=3D"http://www.xcatwalks.com/newsletter/top04.gif" width=3D"13=
-7" height=3D"153" border=3D"0"></a></td>
-            <td width=3D"269">
-			<a href=3D"http://www.xcatwalks.com/">
-			<img src=3D"http://www.xcatwalks.com/newsletter/18lingerie_19.gif" wid=
-th=3D"269" height=3D"153" border=3D"0"></a></td>
-            <td>
-			<a href=3D"http://www.xcatwalks.com/">
-			<img src=3D"http://www.xcatwalks.com/newsletter/18lingerie_20.gif" wid=
-th=3D"136" height=3D"153" border=3D"0"></a></td>
-          </tr>
-        </table></td>
-    </tr>
-    <tr>=20
-      <td align=3D"left" valign=3D"top">
-		<font face=3D"Trebuchet MS" color=3D"#FF0074" size=3D"2">Dear Subscribe=
-r,</font><p>
-		<font face=3D"Trebuchet MS" size=3D"2" color=3D"#FF0074">
-		=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
- Hopefully You, or someone on your behalf=A0 has=20
-		subscribed for </font>
-		<font face=3D"Trebuchet MS" color=3D"#000000" size=3D"2">
-		<a href=3D"http://www.xcatwalks.com">
-		<span style=3D"text-decoration: none; font-weight: 700">
-		<font color=3D"#FF0074">xCatWalks</font></span></a></font><font face=3D=
-"Trebuchet MS" size=3D"2" color=3D"#FF0074">=20
-		newsletter. Your subscription has been successfully activated, your=20
-		interest is appreciated.</font></p>
-		<p><font face=3D"Trebuchet MS" size=3D"2"><font color=3D"#FF0074">
-		=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 <=
-/font><font color=3D"#FF0074">xCatWalks is not=20
-		only a Adult site, but its a resource for <b>Sexiest Nude Videos and=20
-		Pictures of Super Models from All Over the World,</b> Including Madonna=
-,=20
-		Ana Claudia, Nina Brosh, Angelina and many many more... and above all
-		</font><font color=3D"#000000"><b><font color=3D"#FF0074">=A0</font></b=
-></font><b><font color=3D"#ff0000"><a href=3D"http://www.xcatwalks.com/fr=
-eezone/"><font color=3D"#FF0074"><span style=3D"text-decoration: none">IT=
-S=20
-		ALL FREE !!!</span></font></a></font><font color=3D"#FF0074">=A0No Form=
-=20
-		Filling, No Sign-up Required, just Click-and-Play, Absolutely NO=20
-		BULLSHIT! </font></b><font color=3D"#FF0074">you will not find such a=20
-		great enjoyment somewhere else. We have updated our site with 70+ fresh=
-=20
-		clips of Naked Celebrities, now xCatWalks has become the biggest archiv=
-e=20
-		of Nude Clips on Net with a huge collection of more than 800 naked vide=
-o=20
-		clips of famous and most beautiful queens of the world, you will be=20
-		amazed to see their beauty which was hidden yet.</font></font></p>
-		<p align=3D"left"><font face=3D"Trebuchet MS" size=3D"2">
-		<font color=3D"#FF0074">=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
-=A0=A0=A0=A0=A0=A0=A0 </font>
-		<font color=3D"#FF0074">You can also earn up to </font><b>
-		<a target=3D"_blank" href=3D"http://www.xcatwalks.com/freezone/"><font =
-color=3D"#FF0074">
-		<span style=3D"text-decoration: none">$100=20
-		CASH</span></font></a></b><font color=3D"#FF0074"> if you simply visit =
-the </font>
-		<font color=3D"#ffffff"><b><a href=3D"http://www.xCatWalks.Com">
-		<font color=3D"#FF0074">http://www.xCatWalks.Com</font></a></b></font><=
-font color=3D"#FF0074">=20
-		directly after reading this newsletter. Don't waste time anymore, your
-		<b>FREE CASH</b> and <b>FREE SEXIEST AND NUDE VIDEOS</b> are waiting fo=
-r=20
-		you.</font></font></p>
-		<p align=3D"left"><font face=3D"Trebuchet MS" color=3D"#FF0074" size=3D=
-"2">
-		Thanks for your subscription.</font></p>
-		<p align=3D"left"><font face=3D"Trebuchet MS" size=3D"2" color=3D"#FF00=
-74">With=20
-		Best Regards,<br>
-		Subscription Manager.<br>
-		xCatWalks.Com, Inc.<br>
-		</font><font face=3D"Trebuchet MS" color=3D"#000000" size=3D"2">
-		<strong style=3D"font-weight: 400"><a href=3D"http://www.xcatwalks.com"=
->
-		<span style=3D"TEXT-DECORATION: none"><font color=3D"#FF0074">
-		http://www.xcatwalks.com</font></span></a></strong></font></p>
-		<p><font face=3D"Trebuchet MS" size=3D"1" color=3D"#FF0074">Note: If yo=
-u did=20
-		not subscribed for this newsletter, please hit reply and send. You will=
-=20
-		be automatically removed from the subscribers list.</font></td>
-    </tr>
-    <tr>=20
-      <td height=3D"33" background=3D"bottom_bg.gif">
-		<table width=3D"780" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" c=
-lass=3D"text">
-          <tr>
-            <td width=3D"1"><img src=3D"spacer.gif" width=3D"1" height=3D=
-"33"></td>
-            <td width=3D"779" align=3D"center" background=3D"http://www.x=
-catwalks.com/newsletter/bottom_bg.gif">
-			<font color=3D"FF0074" face=3D"Trebuchet MS" style=3D"font-size: 9pt">=
-Copyright =A9 2004=20
-			-2005 xCatWalks.Com, Inc. All Rights Reserved -
-			<a href=3D"http://xcatwalks.com/antispam.htm"><font color=3D"#FF0074">
-			<span style=3D"text-decoration: none">Anti Spam Policy</span></font></=
-a></font></td>
-          </tr>
-        </table></td>
-    </tr>
-  </table>
-</form>
-</body>
-</html>
+TEL: +233 208216645
+
+FAX: +233 27621073
+
+Before I introduce myself, I wish to inform you that this letter is not a
+hoax mail and I urge you to treat it serious. This letter must come to yo=
+u
+as a big surprise, but I believe it is only a day that people meet and
+become great friends and business partners.
+
+My name is Mr. Godwin Akwesi, the present branch Manager of a bank here i=
+n
+Ghana. I write you this proposal in good faith, believing that I can trus=
+t
+you with the information I am about to reveal to you. Like I said, I have
+a transaction that will benefit both of us, as your assistance is require=
+d
+as a reigner. I use to head the Accounts department in my bank head
+office, but last December I was asked to take position of a Manager of ou=
+r
+branch in Kumasi who passed on, so that was how I became the present
+Manager and discovered a fortune. As I resumed duty, I discovered an
+account with total sum of $12,500,000 million that has not been operated
+on for the past 4 years. From my investigation, I found out that this
+account belongs to one Late Mr. Morris Thompson an American great
+industrialist and a resident of Alaska, who unfortunately lost his life i=
+n
+the plane crash of Alaska Airlines Flight 261 which crashed on January 31
+2000, including his wife and only daughter.
+
+You shall read more news about the crash on visiting this site which I go=
+t
+during my investigation;
+<http://www.cnn.com/2000/US/02/01/alaska.airlines.list/> and
+//www.nativefederation.org/history/people/mThompson.html
+
+The account is escrow call account, a secret type of account in my bank
+and no other person knows about this account or any thing concerning it,
+the account has no other beneficiary. I have kept a close monitoring of
+the account since then and nobody has come forward to ask about the money
+as next of kin to the late Mr. Morris Thompson, meaning that no one is
+aware of the account.
+
+I cannot directly take out this money without the help of a foreigner and
+that is why I am contacting you for an assistance to claim the funds and
+share it with me. As the Manager of my bank branch, I have the power to
+influence the release of the funds to any foreigner that comes up as the
+next of kin to the account, with the correct information concerning the
+account which I shall give you.
+
+I am seeking your co-operation to present you as the next of kin to the
+account, so that my bank head quarters will release the funds to you.
+There is practically no risk involved, the transaction will be executed
+under a legitimate arrangement that will protect you from any breach of
+law.
+
+If you accept to work with me, I want you to state how you wish us to
+share the funds in percentage, so that both parties will be satisfied.
+Contact me as soon as you receive this message if you feel we can work
+together, so we can go over the details.
+
+Thanking you in advance and may God bless you.
+
+Please, treat with utmost confidentiality. I wait your urgent response.
+
+You can as well contact me by phone the number is +233208216645.
+
+Regards,
+
+Mr. Godwin Akwesi.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<hr />=20
+---- Recogida de firmas para el Defensor del Pueblo ----<br />
+---- Necesitamos tu ayuda ----
+<br />
+ <br />
+--------- <a href=3D"http://www.bancora.com/fibromialgia">http://www.banc=
+ora.com/fibromialgia</a> ----------<br />
+ <br />
+<hr />=20
+---- Llega el d=EDa de la Madre. Env=EDele flores ----<br />
+ <br />
+--------- <a href=3D"http://www.bancora.com/flores.php">http://flores.ban=
+cora.com</a> ----------<br />
+ <br />
+------------ <a href=3D\"http://www.bancora.net\">http://www.bancora.net<=
+/a> ------------<br />
+ <br />
+------ El correo gratuito de B=E1ncora.com -------<br />
+ <br />
+--------- Visite <a href=3D\"http://www.bancora.com\">http://www.bancora.=
+com</a> --------<br />
+ <br />
+<hr />
