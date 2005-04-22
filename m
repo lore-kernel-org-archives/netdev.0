@@ -1,47 +1,27 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: [PATCH][SCTP] Replace incorrect use of dev_alloc_skb with alloc_skb
- in sctp_packet_transmit().
-Date: Fri, 22 Apr 2005 12:29:09 -0700 (PDT)
-Message-ID: <Pine.LNX.4.61.0504221219010.5192@dyn9047018105.beaverton.ibm.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netdev@oss.sgi.com, lksctp-developers@lists.sourceforge.net
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: 2.6.9 BUG in tcp_transmit_skb at net/ipv4/tcp_output.c -- full output
+Date: Sat, 23 Apr 2005 07:45:08 +1000
+Message-ID: <E1DP5xU-0000ZG-00@gondolin.me.apana.org.au>
+References: <42691EBC.9040106@nortel.com>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@davemloft.net
+To: cfriesen@nortel.com (Chris Friesen)
+In-Reply-To: <42691EBC.9040106@nortel.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+Chris Friesen <cfriesen@nortel.com> wrote:
+> Here's the full output of the bug
+> 
+> kernel BUG in tcp_transmit_skb at net/ipv4/tcp_output.c:277!
 
-Please apply to 2.6.
+There's been lots of fixes to the TSO code since 2.6.9.  Please test
+2.6.11.7 instead.
 
-Thanks
-Sridhar
-
-===========================================================================
-[SCTP] Replace incorrect use of dev_alloc_skb with alloc_skb in
-        sctp_packet_transmit().
-
-Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
-===========================================================================
-diff -Nru a/net/sctp/output.c b/net/sctp/output.c
---- a/net/sctp/output.c	2005-04-21 16:25:54 -07:00
-+++ b/net/sctp/output.c	2005-04-21 16:25:54 -07:00
-@@ -313,12 +313,12 @@
-  	sk = chunk->skb->sk;
-
-  	/* Allocate the new skb.  */
--	nskb = dev_alloc_skb(packet->size);
-+	nskb = alloc_skb(packet->size + LL_MAX_HEADER, GFP_ATOMIC);
-  	if (!nskb)
-  		goto nomem;
-
-  	/* Make sure the outbound skb has enough header room reserved. */
--	skb_reserve(nskb, packet->overhead);
-+	skb_reserve(nskb, packet->overhead + LL_MAX_HEADER);
-
-  	/* Set the owning socket so that we know where to get the
-  	 * destination IP address.
-
+Cheers,
 -- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
