@@ -1,124 +1,71 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: Problem with IPSEC tunnel mode
-Date: Fri, 22 Apr 2005 08:14:44 -0400
-Message-ID: <1114172084.7679.15.camel@localhost.localdomain>
-References: <E1DObFc-0000je-00@gondolin.me.apana.org.au>
-	 <20050421235802.GB10451@gondor.apana.org.au>
-	 <1114129099.10572.24.camel@localhost.localdomain>
-	 <200504221342.10675.wolfgang.walter@studentenwerk.mhn.de>
+Subject: Re: NAPI, e100, and system performance problem
+Date: Fri, 22 Apr 2005 08:33:15 -0400
+Message-ID: <1114173195.7679.30.camel@localhost.localdomain>
+References: <C925F8B43D79CC49ACD0601FB68FF50C03A633C7@orsmsx408>
+	 <Pine.LNX.4.61.0504180943290.15052@linux.site>
+	 <1113855967.7436.39.camel@localhost.localdomain>
+	 <20050419055535.GA12211@sgi.com>  <m1hdhzyrdz.fsf@muc.de>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-M5oQ++3HCrAQcioPTK1S"
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Greg Banks <gnb@sgi.com>, Arthur Kepner <akepner@sgi.com>,
+        "Brandeburg, Jesse" <jesse.brandeburg@intel.com>, netdev@oss.sgi.com,
+        davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Wolfgang Walter <wolfgang.walter@studentenwerk.mhn.de>
-In-Reply-To: <200504221342.10675.wolfgang.walter@studentenwerk.mhn.de>
+To: Andi Kleen <ak@muc.de>
+In-Reply-To: <m1hdhzyrdz.fsf@muc.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Fri, 2005-22-04 at 13:36 +0200, Andi Kleen wrote:
+> Greg Banks <gnb@sgi.com> writes:
+> >
+> > An inordinate amount of CPU is being spent running around polling the
+> > device instead of dealing with the packets in IP, TCP and NFS land.
+> > By inordinate, we mean twice as much or more cpu% than a MIPS/Irix
+> > box with slower CPUs.
+> 
+> We have seen similar behaviour. With NAPI some benchmarks run
+> a lot slower than on a driver on the same hardware/NIC without NAPI.
 
---=-M5oQ++3HCrAQcioPTK1S
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+They should not run slower - but they may consume more CPU.
 
-On Fri, 2005-22-04 at 13:42 +0200, Wolfgang Walter wrote:
-> Am Freitag, 22. April 2005 02:18 schrieb jamal:
-[..]
-> > So i was wondering whether they OUT shouldnt be just a duplicate of
-> > FWD (instead FWD seems to be the dup of IN). Look at that sample i
-> > posted - all his policies look like that. What gives? Why are the IN and
-> > FWD exactly the same? bug in racoon/setkey?
-
-> No. XFRM_POLICY_IN is only checked for incoming packets which are delivered 
-> locally.
+> This can be even observed with simple tests like netperf single stream
+> between two boxes.
 > 
 
-For encrypted packets
+Yes, slow traffic coming into the system would chew more CPU if you have
+a fast CPU ;-> You should know this Andi, but let me explain the reason
+for about the 100th time:
+If your CPU is fast enough such that the interupt only causes 1-2
+packets to be processed before reenabling, then you will have anywhere
+between 1-2 extra IO calls (recall dis/reenabling interupts) - this will
+be noticed in the CPU % chewed. It shouldnt be really a lot of CPU.
+If you use non-NAPI then you dont have the extra IO happening and
+therefore you will see less CPU used at those rates.
+OTOH, Try more than 1 netperfs and it becomes beneficial to have NAPI
+around. 
+Yes, for low rates - this will make some of those benchmarks look bad.
+But for such cases you can use mitigation in addition to NAPi - except
+your latency in the benchmark will now look bad ;->
 
-> XFRM_POLICY_FWD is checked for incoming packets which are routed.
+> There seems to be also some problems with bidirectional traffic, although
+> I have not fully tracked them down to NAPI yet.
 > 
 
-For non-encrypted packets to be forwarded.
+doubt it has to do with NAPI.
 
-> That our XFRM_POLICY_IN matches XFRM_POLICY_FWD is more for convenience: if a 
-> subnet is connected directly to a router we want to treat the interface 
-> address of the router itself the same way. Instead of constructing special 
-> rules which exactly match the interface address we simply use the same rule 
-> as for forwarding.
+> There is definitely some problem in NAPI land ...
 > 
 
-Ok, so it was design intent then.
-
-
-> XFRM_POLICY_OUT ist checked for every outgoing packet, be it locally generated 
-> be it routed (which is different from netfilter).
-> 
-> This asymmetry is a little bit inconsequent. Probably one should really have 
-> XFRM_POLICY_FWD_IN and XFRM_POLICY_FWD_OUT. But XFRM_POLICY_OUT would mainly 
-> be a copy of XFRM_POLICY_FWD_OUT then, I think.
-> 
-
-I did notice racoon or even setkey (version 0.5) for some rules (need to investigate) 
-would install two policy rules when i installed only one i.e racoon will install 
-one in OUT and other in FWD direction. 
-
-Example script and setkey -DP output attached. In this case i install
-two rules, but for one of them an extra rule is installed. Actually the
-pattern is quiet repeatable as you add more rules. This may also be what
-is happening to you maybe?
+this is a design choice - a solution could be created to "fix" this but
+hasnt happened because there has not been a good reason to complicate
+things. The people who are bitching about this are benchmarkers who want
+to win at both high and low rates and they are not happy because while
+they can win at high rates, they cant at low rates.
 
 cheers,
 jamal
-
---=-M5oQ++3HCrAQcioPTK1S
-Content-Disposition: attachment; filename=sample.conf
-Content-Type: text/plain; name=sample.conf; charset=utf-8
-Content-Transfer-Encoding: 7bit
-
-#!/usr/sbin/setkey -f
-
-# Flush the SAD and SPD
-flush;
-spdflush;
-
-spdadd 192.168.3.10 192.168.2.100 any -P out ipsec
-           esp/transport//require
-           ah/transport//require;
-
-spdadd 192.168.2.100 192.168.3.10 any -P in ipsec
-           esp/transport//require
-           ah/transport//require;
-	
-
---=-M5oQ++3HCrAQcioPTK1S
-Content-Disposition: attachment; filename=setkey_output
-Content-Type: text/plain; name=setkey_output; charset=utf-8
-Content-Transfer-Encoding: 7bit
-
-192.168.2.100[any] 192.168.3.10[any] any
-	in ipsec
-	esp/transport//require
-	ah/transport//require
-	created: Apr 22 08:06:28 2005  lastused:                     
-	lifetime: 0(s) validtime: 0(s)
-	spid=8 seq=2 pid=8236
-	refcnt=1
-192.168.3.10[any] 192.168.2.100[any] any
-	out ipsec
-	esp/transport//require
-	ah/transport//require
-	created: Apr 22 08:06:28 2005  lastused:                     
-	lifetime: 0(s) validtime: 0(s)
-	spid=1 seq=1 pid=8236
-	refcnt=1
-192.168.2.100[any] 192.168.3.10[any] any
-	fwd ipsec
-	esp/transport//require
-	ah/transport//require
-	created: Apr 22 08:06:28 2005  lastused:                     
-	lifetime: 0(s) validtime: 0(s)
-	spid=18 seq=0 pid=8236
-	refcnt=1
-
---=-M5oQ++3HCrAQcioPTK1S--
