@@ -1,55 +1,30 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: NAPI, e100, and system performance problem
-Date: Sat, 23 Apr 2005 19:54:13 +0200
-Message-ID: <17002.35781.813292.517029@robur.slu.se>
-References: <C925F8B43D79CC49ACD0601FB68FF50C03A633C7@orsmsx408>
-	<Pine.LNX.4.61.0504180943290.15052@linux.site>
-	<1113855967.7436.39.camel@localhost.localdomain>
-	<20050419055535.GA12211@sgi.com>
-	<m1hdhzyrdz.fsf@muc.de>
-	<1114173195.7679.30.camel@localhost.localdomain>
-	<20050422172108.GA10598@muc.de>
-	<1114193902.7978.39.camel@localhost.localdomain>
-	<20050422232831.GB6462@sgi.com>
-	<20050423094038.72a8da73@localhost.localdomain>
-	<20050422164301.724343f6.davem@davemloft.net>
-	<20050423125153.65189ea0@localhost.localdomain>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: Problem with IPSEC tunnel mode
+Date: Sat, 23 Apr 2005 10:52:31 -0700
+Message-ID: <20050423105231.082041f3.davem@davemloft.net>
+References: <E1DObFc-0000je-00@gondolin.me.apana.org.au>
+	<200504221342.10675.wolfgang.walter@studentenwerk.mhn.de>
+	<1114172084.7679.15.camel@localhost.localdomain>
+	<200504221522.49403.wolfgang.walter@studentenwerk.mhn.de>
+	<1114278545.7669.75.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, gnb@sgi.com, hadi@cyberus.ca,
-        ak@muc.de, akepner@sgi.com, jesse.brandeburg@intel.com,
-        netdev@oss.sgi.com, davem@redhat.com
+Cc: wolfgang.walter@studentenwerk.mhn.de, herbert@gondor.apana.org.au,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20050423125153.65189ea0@localhost.localdomain>
+To: hadi@cyberus.ca
+In-Reply-To: <1114278545.7669.75.camel@localhost.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Sat, 23 Apr 2005 13:49:04 -0400
+jamal <hadi@cyberus.ca> wrote:
 
-Stephen Hemminger writes:
+> Do you know why pfkey doesnt scale? Herbert?
 
- > One of the problem with the dynamic schemes, is there is no generic infrastructure
- > to support it. There are some drivers that have tried dynamic schemes
- > but each seems to reinvent some adhoc scheme. Seems like a good area
- > for future research.
+It does no queueing, pfkey responses are generated
+in one huge atomic send back to the application's socket.
 
- Well how do decorrelate bursty network and more interesing at what 
- time level? I said this before... the only useful measure for mitigation
- setting was packets on RX ring.
- 
- > Another related problem is some drivers use NAPI for both TX and RX and
- > this can cause asymmetric behavior and scheduling issues. The whole
- > dev->weight limit stuff assumes RX not TX usage of NAPI
-
- Well in the very beginning it was thought only RX yes, But it is possible 
- also to have TX buffer cleared etc in the ->poll routine to simplify 
- intr. acking. As implemented only RX packets updates the budget.
- From what I see in real life use this works well. Guess you noticed the 
- tests with e1000 and TCP just posted. 
-
- Anyway MSI will give us some new options in this area..
-
- Cheers.
-					--ro
+It's just like BSD routing sockets, very poorly designed.
