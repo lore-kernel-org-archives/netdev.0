@@ -1,36 +1,66 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: [PATCH 4/7] netpoll: fix ->poll() locking
-Date: Fri, 22 Apr 2005 19:14:40 -0700
-Message-ID: <20050423021440.GZ21897@waste.org>
-References: <4.454130102@selenic.com> <5.454130102@selenic.com> <17001.31150.194263.732284@segfault.boston.redhat.com> <20050422155218.223fa84d.davem@davemloft.net> <17001.33427.462497.856777@segfault.boston.redhat.com> <20050422155958.474a150c.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: NAPI, e100, and system performance problem
+Date: Sat, 23 Apr 2005 12:51:53 +1000
+Message-ID: <20050423125153.65189ea0@localhost.localdomain>
+References: <C925F8B43D79CC49ACD0601FB68FF50C03A633C7@orsmsx408>
+	<Pine.LNX.4.61.0504180943290.15052@linux.site>
+	<1113855967.7436.39.camel@localhost.localdomain>
+	<20050419055535.GA12211@sgi.com>
+	<m1hdhzyrdz.fsf@muc.de>
+	<1114173195.7679.30.camel@localhost.localdomain>
+	<20050422172108.GA10598@muc.de>
+	<1114193902.7978.39.camel@localhost.localdomain>
+	<20050422232831.GB6462@sgi.com>
+	<20050423094038.72a8da73@localhost.localdomain>
+	<20050422164301.724343f6.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jmoyer@redhat.com, jgarzik@pobox.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: gnb@sgi.com, hadi@cyberus.ca, ak@muc.de, akepner@sgi.com,
+        jesse.brandeburg@intel.com, netdev@oss.sgi.com, davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20050422155958.474a150c.davem@davemloft.net>
+In-Reply-To: <20050422164301.724343f6.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 22, 2005 at 03:59:58PM -0700, David S. Miller wrote:
-> On Fri, 22 Apr 2005 19:02:43 -0400
-> Jeff Moyer <jmoyer@redhat.com> wrote:
+On Fri, 22 Apr 2005 16:43:01 -0700
+"David S. Miller" <davem@davemloft.net> wrote:
+
+> On Sat, 23 Apr 2005 09:40:38 +1000
+> Stephen Hemminger <shemminger@osdl.org> wrote:
 > 
-> > Oh yes, of course.  Somehow I managed to forget that we now squirrel away
-> > the struct netpoll pointer in the net_device.  Previously you could
-> > register multiple netpoll clients to one device, and this was useful for
-> > say doing netconsole and netdump over the same interface.  If we've removed
-> > this ability, this is a bad thing.  Oh dear...
+> > My experience is that NAPI adds latency and that can cause worse performance.
+> > I haven't seen a good analysis of the problem and/or simple tests to reproduce
+> > the problem
+> 
+> Right, and it's cpu and bus speed dependant as to when you hit
+> this bad case.  If your packet rate is perfectly such that
+> only 1 or 2 packets get processed per interrupt then NAPI loses
+> badly due to the extra PIO overhead entailed from enabling and
+> disabling interrupts.
+> 
+> This is essential and well understood, and I personally don't need
+> to see "numbers" to acknowledge this flaw.
+> 
+> I hope that minimal mitigation settings alleviate this problem for
+> the most part.
+> 
+> When I moved tg3 over to NAPI, the happiest part of that was deleting
+> the dynamic hw mitigation setting code the tg3 driver had.  If ever
+> that kind of thing goes back into the drivers, it should be based
+> upon a common feedback variable (something based upon dev->weight
+> perhaps), not reimplemented N times, once in every driver.
+> 
+> With the dynamic schemes comes a new issue, how quickly to respond
+> to changes in traffic patterns.
 
-Hrm, it appears I forgot about that when I did the recent rework.
+One of the problem with the dynamic schemes, is there is no generic infrastructure
+to support it. There are some drivers that have tried dynamic schemes
+but each seems to reinvent some adhoc scheme. Seems like a good area
+for future research.
 
-> In such a configuration, how did the netpoll code "tell" who the
-> receive packets were for or did it send them to all registered
-> netpoll clients for that device?
-
-It walked a global list of clients.
-
--- 
-Mathematics is the supreme nostalgia of our time.
+Another related problem is some drivers use NAPI for both TX and RX and
+this can cause asymmetric behavior and scheduling issues. The whole
+dev->weight limit stuff assumes RX not TX usage of NAPI
