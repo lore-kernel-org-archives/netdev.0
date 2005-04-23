@@ -1,31 +1,26 @@
-From: linux lover <linux_lover2004@yahoo.com>
-Subject: understandable skbuff behavioural problem
-Date: Fri, 22 Apr 2005 21:42:38 -0700 (PDT)
-Message-ID: <20050423044239.25347.qmail@web52208.mail.yahoo.com>
+From: akari_sakuranbo@yahoo.co.jp
+Subject: =?ISO-2022-JP?B?GyRCQlQkQyRGJGskTRsoQg==?=
+Date: Sat, 23 Apr 2005 14:12:00 +0900
+Message-ID: <rad1330CBC$1114233121$57db7c@localhost.localdomain>
+Reply-To: akari_sakuranbo@yahoo.co.jp
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello,
-       I am learning the skbuff workings in kenrel for
-that I added a fake header in TCP/IP with Fake header
-containing 2 fields of type int ipchksum and tcpchksum
-taken frpm upper layer and only copied to new header.
-I directly push it after IP header is added and thus
-sending packets to destination pc. At destination side
-i am able to receive application data(payload) indeed
-correctly in FTP transfer but how to display those 2
-fields in kernel using printk?
-      I am really stuck at this point please help me.
-Thanks in advance.
-regards,
-linux_lover
+初めまして、メールしました。☆あかり☆だよ (。・_・。)ノ
+ホントいきなりのメールでびっくりさせちゃいましたか？
+出会い系初心者なんですけど友達に教えてもらいながら
+なんとか書き込みしてみました。ご近所っていうくらいだから
+近いんですよね？
+もしよかったらメール交換とかできたらいいなぁと思って
+時間経ってるからもう相手います？
+23歳独身・カレシ無し・小柄で小動物系な私ですが(>_<)
+お返事ちょっぴり期待してます。
 
-__________________________________________________
-Do You Yahoo!?
-Tired of spam?  Yahoo! Mail has the best spam protection around 
-http://mail.yahoo.com 
+本当は携帯の方がラクなんだけど今パソコン勉強中なので
+付き合ってもらえると嬉しいです。
