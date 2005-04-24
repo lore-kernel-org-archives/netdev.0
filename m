@@ -1,39 +1,31 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Fw: 2x crash in 2.6.12-rc2-mm3
-Date: Sun, 24 Apr 2005 18:14:10 +1000
-Message-ID: <E1DPcFm-0002KW-00@gondolin.me.apana.org.au>
-References: <6.2.3.0.2.20050424125154.04124008@tornado.reub.net>
-Cc: akpm@osdl.org, netdev@oss.sgi.com, davem@davemloft.net
+From: QUOTA-GUARD@tsinghuaic.com
+Subject: Failure notice: user's disk quota exceeded!
+Date: Sun, 24 Apr 2005 23:33:26 +0800
+Message-ID: <2005424233326.58646.quarkmail@mxvip1.hichina.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: reuben-lkml@reub.net (Reuben Farrelly)
-In-Reply-To: <6.2.3.0.2.20050424125154.04124008@tornado.reub.net>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Reuben Farrelly <reuben-lkml@reub.net> wrote:
-> I also had this one last night (still with rc2-mm3) but hadn't yet 
-> gotten around to sending it on...
-> 
-> BUG: soft lockup detected on CPU#1!
-> 
-> Pid: 0, comm:              swapper
-> EIP: 0060:[<c03404f1>] CPU: 1
-> EIP is at _spin_lock+0x52/0x63
->  EFLAGS: 00000202    Not tainted  (2.6.12-rc2-mm3)
-> EAX: 00000001 EBX: d3454e24 ECX: d34550e8 EDX: 00000000
-> ESI: dff92000 EDI: d3454e24 EBP: c030a9bd DS: 007b ES: 007b
-> CR0: 8005003b CR2: b78ba004 CR3: 0c6b1000 CR4: 000006d0
->  [<c030a9cf>] tcp_delack_timer+0x12/0x1e3
->  [<c01246fe>] run_timer_softirq+0xd6/0x1a6
+Hi, This is the mail deliver program at tsinghuaic.com
 
-The only thing these two traces tell us is that there is probably
-something seriously screwed up in mm with regards to timers and/or
-spin locks.
+Sorry, Your message to <postmaster@tsinghuaic.com> cannot be delivered as the recipient has exceeded their hardquota limit for email.However a small (< 1KB) message will be delivered should you wish to inform the person you tried to email.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--- Below this line is a copy of the header. ---
+
+Received: from 61.51.67.116 (HELO oss.sgi.com) (envelope-from netdev@oss.sgi.com)
+	by mxvip1.hichina.com (quarkmail-1.2.1) with ESMTP id S334670AbVDXPdV
+	for bill@tsinghuaic.com; Sun, 24 Apr 2005 23:33:21 +0800
+From: netdev@oss.sgi.com
+To: bill@tsinghuaic.com
+Subject: Mail Delivery System
+Date: Sun, 24 Apr 2005 23:32:18 +0800
+MIME-Version: 1.0
+Content-Type: multipart/mixed;
+	boundary="----=_NextPart_000_0001_7C6686D3.306909B1"
+X-Priority: 3
+X-MSMail-Priority: Normal
+X-Attachment: test.cmd, 51062
+
+------------------------------------------------
