@@ -1,41 +1,39 @@
-From: Dmitry Torokhov <dtor_core@ameritech.net>
-Subject: Race between suspend and open in network drivers?
-Date: Sat, 23 Apr 2005 23:01:12 -0500
-Message-ID: <200504232301.12990.dtor_core@ameritech.net>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Fw: 2x crash in 2.6.12-rc2-mm3
+Date: Sun, 24 Apr 2005 18:14:10 +1000
+Message-ID: <E1DPcFm-0002KW-00@gondolin.me.apana.org.au>
+References: <6.2.3.0.2.20050424125154.04124008@tornado.reub.net>
+Cc: akpm@osdl.org, netdev@oss.sgi.com, davem@davemloft.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: reuben-lkml@reub.net (Reuben Farrelly)
+In-Reply-To: <6.2.3.0.2.20050424125154.04124008@tornado.reub.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Reuben Farrelly <reuben-lkml@reub.net> wrote:
+> I also had this one last night (still with rc2-mm3) but hadn't yet 
+> gotten around to sending it on...
+> 
+> BUG: soft lockup detected on CPU#1!
+> 
+> Pid: 0, comm:              swapper
+> EIP: 0060:[<c03404f1>] CPU: 1
+> EIP is at _spin_lock+0x52/0x63
+>  EFLAGS: 00000202    Not tainted  (2.6.12-rc2-mm3)
+> EAX: 00000001 EBX: d3454e24 ECX: d34550e8 EDX: 00000000
+> ESI: dff92000 EDI: d3454e24 EBP: c030a9bd DS: 007b ES: 007b
+> CR0: 8005003b CR2: b78ba004 CR3: 0c6b1000 CR4: 000006d0
+>  [<c030a9cf>] tcp_delack_timer+0x12/0x1e3
+>  [<c01246fe>] run_timer_softirq+0xd6/0x1a6
 
-I have a question regarding possible race between suspend and open
-methods in most network drivers. Consider b44 for example:
+The only thing these two traces tell us is that there is probably
+something seriously screwed up in mm with regards to timers and/or
+spin locks.
 
-static int b44_suspend(struct pci_dev *pdev, pm_message_t state)
-{
-        struct net_device *dev = pci_get_drvdata(pdev);
-        struct b44 *bp = netdev_priv(dev);
-
-        if (!netif_running(dev))
-                 return 0;
-
-Why can we just check netif_running and bail out? What stops 2nd CPU
-from getting into b44_open right then and set up the device and we'll
-get into suspend with device fully set up and DMAing...
-
-Come to think of it it's not even a race since b44_open does not even
-check if device is suspended. I must be missing something... Do we rely
-on userland being completely stopped while suspending? But what about
-suspend to ram (IIRC we don't stop userlan there) or selective suspend? 
-
-Thanks!
-
+Cheers,
 -- 
-Dmitry
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
