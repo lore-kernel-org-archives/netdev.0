@@ -1,123 +1,80 @@
-From: Wolfgang Walter <wolfgang.walter@studentenwerk.mhn.de>
-Subject: Re: Problem with IPSEC tunnel mode
-Date: Sat, 23 Apr 2005 23:03:35 +0200
-Message-ID: <200504232303.35549.wolfgang.walter@studentenwerk.mhn.de>
-References: <E1DObFc-0000je-00@gondolin.me.apana.org.au> <200504221522.49403.wolfgang.walter@studentenwerk.mhn.de> <1114278545.7669.75.camel@localhost.localdomain>
+From: Reuben Farrelly <reuben-lkml@reub.net>
+Subject: Re: Fw: 2x crash in 2.6.12-rc2-mm3
+Date: Sun, 24 Apr 2005 12:54:21 +1200
+Message-ID: <6.2.3.0.2.20050424125154.04124008@tornado.reub.net>
+References: <20050423175021.1272a974.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: quoted-printable
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com
+Content-Type: text/plain; charset="us-ascii"; format=flowed
+Cc: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1114278545.7669.75.camel@localhost.localdomain>
-Content-Disposition: inline
+To: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com
+In-Reply-To: <20050423175021.1272a974.akpm@osdl.org>
+References: <20050423175021.1272a974.akpm@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Am Samstag, 23. April 2005 19:49 schrieb jamal:
-> On Fri, 2005-22-04 at 15:22 +0200, Wolfgang Walter wrote:
-> So to allow pass-through of esp packets from a<->d at c, you will have
-> to essentially create special policy rules (at FWD and OUT) to basicall=
-y
-> just allow if src/dst =3D a/d, correct?
+I also had this one last night (still with rc2-mm3) but hadn't yet 
+gotten around to sending it on...
 
-Yes.
+BUG: soft lockup detected on CPU#1!
 
+Pid: 0, comm:              swapper
+EIP: 0060:[<c03404f1>] CPU: 1
+EIP is at _spin_lock+0x52/0x63
+  EFLAGS: 00000202    Not tainted  (2.6.12-rc2-mm3)
+EAX: 00000001 EBX: d3454e24 ECX: d34550e8 EDX: 00000000
+ESI: dff92000 EDI: d3454e24 EBP: c030a9bd DS: 007b ES: 007b
+CR0: 8005003b CR2: b78ba004 CR3: 0c6b1000 CR4: 000006d0
+  [<c030a9cf>] tcp_delack_timer+0x12/0x1e3
+  [<c01246fe>] run_timer_softirq+0xd6/0x1a6
+  [<c0116b14>] rebalance_tick+0xfb/0x11a
+  [<c01206f2>] __do_softirq+0x72/0xdc
+  [<c012078f>] do_softirq+0x33/0x36
+  [<c012085c>] irq_exit+0x40/0x42
+  [<c01039a8>] apic_timer_interrupt+0x1c/0x24
+  [<c010127a>] mwait_idle+0x25/0x43
+  [<e090bacc>] acpi_processor_idle+0xf0/0x250 [processor]
+  [<c01010c4>] cpu_idle+0x4e/0x63
+
+I imagine this may be related, if it's not the same problem?  The 
+traces look similar but not identical.
+
+reuben
+
+
+At 12:50 p.m. 24/04/2005, Andrew Morton wrote:
+
+>Looks like a deadlock in neigh_timer_handler().
 >
-> > spdadd 192.168.2.100 192.168.3.10 any -P in ipsec
-> >            esp/transport//require
-> >            ah/transport//require;
-> >
-> > installs both in and fwd rules (in RFC-mode).
+>Straightforward, I think - foo_lock_bh() is not sufficient to prevent timer
+>handlers from executing.
 >
-> What is "RFC mode"?
-
-The RFCs for ipsec talk about the SPD. This database must be consulted fo=
-r=20
-every packet entering or leaving. Its defined as an ordered database. A r=
-ules=20
-has direction, selectors (i.e. src, dst, next layer protocoll, src-port,=20
-dst-port, icmp-type) and processing info (BYPASS =3D not handled by ipsec=
-,=20
-DISCARD =3D drop the packet, PROTECT =3D handled by ipsec).
-
-So setkey in RFC mode sets in anf fwd rules as RFC-in =3D linux-in + linu=
-x-fwd.
-
+>Whcih probably means someone has already fixed it?
 >
-> > Use option -k for only setting  in rules (RFC only knows IN and OUT
-> > rules). This behaviour was added to
-> > ipsec-tools. As far as I know earlier kernels had a bug and didn't ch=
-eck
-> > fwd ruleset so that setkey and racoon worked by accident under linux.
-> >
-> >
-> > racoon now behaves like pluto: it inserts always in and fwd rules. It=
-s
-> > easier than to check if a in or fwd rule or both is needed.
 >
-> I think i am still lost on the desire to have the FWD database. Unless
-> we are trying to use SPD for firewalling?
-
-SPD is indeed also a sort of firewall. You can use it to construct i.e. a=
-=20
-vpn-gateway and forbid any non-vpn-traffic entering or leaving.
-
-How the SPD is implemented is of course not specified. I think KLIPS use =
-a=20
-mixing of routing and netfilter and "ipsec-netdevices" to realise the SPD.
-
-My personal view is that 2.6 native SPD is better. Its easier to understa=
-nd=20
-and protect i.e. vpn-gateways.
-
-Using selectors other than src, dst in the SPD is tricky, by the way, bec=
-ause=20
-of fragments. Say a rule selects packets from a to b with protocol tcp an=
-d=20
-dst-port 80 to be sent through a tunnel you must have an extra rule (and=20
-tunnel) for the fragments (and all fragments are tunneled then).
-
-Maybe more complex selectors should be realised by netfilter, a module wh=
-ich=20
-can mark packets. And SPD uses that mark. Then statefull policies are=20
-possible, i.e.
-
-I don't know if linux handles ICMP traffic well, often one must check the=
-=20
-payload against the SPD. I had no time yet to do some tests.
-
 >
-> > And no, we do not use setkey any more but ip xfrm (though setkey disp=
-lays
-> > more information, i.e. it tells you if a policy is socket-specific).
+>Begin forwarded message:
 >
-> Should be fixable in ip xfrm ..
+>Date: Sun, 17 Apr 2005 01:59:01 +1200
+>From: Reuben Farrelly <reuben-lkml@reub.net>
+>To: Andrew Morton <akpm@osdl.org>
+>Subject: 2x crash in 2.6.12-rc2-mm3
 >
-> >  Reason is
-> > that neither setkey  nor racoon can handle large rule sets. And for m=
-ost
-> > fwd rules we also set an in rule (as pluto does).
 >
-> Do you know why pfkey doesnt scale? Herbert?
-
-It seems to deliver the whole message at once. If one increase the=20
-socket-buffer (must change racoon and setkey source, at least with versio=
-n=20
-0.3.3) enough one gets complete dumps, ie. But sometimes there seems to b=
-e=20
-still problems - i.e. if you send a lot of messages. Maybe the kernel can=
- not=20
-create these large messages because it cannot allocate enough memory in t=
-hat=20
-moment or racoon cannot read fast enough.
-
-Greetings,
---=20
-Wolfgang Walter
-Studentenwerk M=FCnchen
-Anstalt des =F6ffentlichen Rechts
-Leopoldstra=DFe 15
-80802 M=FCnchen
+>Hi Andrew,
+>
+>Had 2x crashes over about 3 hours with rc2-mm3 tonight (just flown
+>back from Sydney, so when I got home rebooted from rc2-mm1 which was
+>good, to rc2-mm3 which so far is more unstable).
+>
+>Photo at http://www.reub.net/kernel/P4160257.JPG   Serial console
+>output probably not too hard if required.
+>
+>Box is a single CPU/HT, P4 with Intel Gigabit Lan and compiled with
+>FC4 gcc4 (latest)
+>
+>I didn't see this one show up on lkml, but my guess is that this is
+>something network related?
+>
+>reuben
