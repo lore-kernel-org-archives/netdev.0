@@ -1,32 +1,38 @@
-From: Asim Shankar <asimshankar@gmail.com>
-Subject: [PATCH 2.6.11.7] sch_htb: Drop packet when direct queue is full
-Date: Mon, 25 Apr 2005 14:15:05 -0500 (CDT)
-Message-ID: <Pine.LNX.4.61.0504251409560.24260@limnos.csrd.uiuc.edu>
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: Re: IPv6 has trouble assigning an interface
+Date: Tue, 26 Apr 2005 00:00:46 +0300 (EEST)
+Message-ID: <Pine.LNX.4.61.0504252359580.4921@netcore.fi>
+References: <20050311202122.GA13205@fefe.de> <20050311173308.7a076e8f.akpm@osdl.org>
+ <20050324.205902.119922975.yoshfuji@linux-ipv6.org> <20050425195736.GB3123@codeblau.de>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: davem@davemloft.net
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>,
+	linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261194AbVDYVBp@vger.kernel.org>
+To: Felix von Leitner <felix-linuxkernel@fefe.de>
+In-Reply-To: <20050425195736.GB3123@codeblau.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-htb_enqueue(): Free skb and return NET_XMIT_DROP if a packet is destined 
-for the direct_queue but the direct_queue is full. (Before patch: 
-Erroneously returned NET_XMIT_SUCCESS even though packet was not enqueued)
+On Mon, 25 Apr 2005, Felix von Leitner wrote:
+> Here is an strace of some piece of code of mine:
+>
+> socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP) = 3
+> setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [12884901889], 4) = 0
+> bind(3, {sa_family=AF_INET6, sin6_port=htons(8002), inet_pton(AF_INET6, "::", &sin6_addr), sin6_flowinfo=0, sin6_scope_id=0}, 28) = 0
+> setsockopt(3, SOL_IPV6, IPV6_MULTICAST_LOOP, "\1", 1) = 0
+> [...]
+> sendto(3, "ncp-lowfat-1.2.2", 16, 0, {sa_family=AF_INET6, sin6_port=htons(8002), inet_pton(AF_INET6, "ff02::6e63:7030", &sin6_addr), sin6_flowinfo=0, sin6_scope_id=0}, 28) = -1 EADDRNOTAVAIL (Cannot assign requested address)
+>
+> ff02 is a link-local multicast address.  I've bound to ::.  How can this
+> fail?  link-local should always work, even if no routes are set and no
+> router has been found.
 
-Signed-off-by: Asim Shankar <asimshankar@gmail.com>
+Umm.. link-local unicast and multicast both require that you specify 
+the interface, because otherwise it's ambiguous -- how could the 
+kernel know which interface should be used to send the packet?
 
---- linux-2.6.11.7/net/sched/sch_htb.c.orig	2005-04-21 17:40:05.305709014 -0500
-+++ linux-2.6.11.7/net/sched/sch_htb.c	2005-04-21 17:35:27.872624173 -0500
-@@ -717,6 +717,10 @@ static int htb_enqueue(struct sk_buff *s
-  	if (q->direct_queue.qlen < q->direct_qlen) {
-  	    __skb_queue_tail(&q->direct_queue, skb);
-  	    q->direct_pkts++;
-+	} else {
-+	    kfree_skb(skb);
-+	    sch->qstats.drops++;
-+	    return NET_XMIT_DROP;
-  	}
-  #ifdef CONFIG_NET_CLS_ACT
-      } else if (!cl) {
+-- 
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
