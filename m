@@ -1,49 +1,73 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: NAPI, e100, and system performance problem
-Date: Mon, 25 Apr 2005 11:51:08 -0700
-Message-ID: <20050425115108.5fbb8b07.davem@davemloft.net>
-References: <C925F8B43D79CC49ACD0601FB68FF50C03A633C7@orsmsx408>
-	<Pine.LNX.4.61.0504180943290.15052@linux.site>
-	<1113855967.7436.39.camel@localhost.localdomain>
-	<20050419055535.GA12211@sgi.com>
-	<m1hdhzyrdz.fsf@muc.de>
-	<1114173195.7679.30.camel@localhost.localdomain>
-	<20050422172108.GA10598@muc.de>
-	<1114193902.7978.39.camel@localhost.localdomain>
-	<20050422183004.GC10598@muc.de>
-	<Pine.LNX.4.61.0504221131350.15052@linux.site>
-	<20050422115230.6037a362.davem@davemloft.net>
-	<Pine.LNX.4.61.0504241845070.2934@linux.site>
-	<1114428355.7669.157.camel@localhost.localdomain>
+From: Malli Chilakala <mallikarjuna.chilakala@intel.com>
+Subject: [PATCH net-drivers-2.6 5/6] e100: Performance optimizations to e100
+ Tx Path (fwd)
+Date: Mon, 25 Apr 2005 12:49:43 -0700 (PDT)
+Message-ID: <Pine.LNX.4.44.0504251249320.21504-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: akepner@sgi.com, Robert.Olsson@data.slu.se, ak@muc.de, gnb@sgi.com,
-        jesse.brandeburg@intel.com, netdev@oss.sgi.com, davem@redhat.com
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: base64
+Cc: netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1114428355.7669.157.camel@localhost.localdomain>
+To: "jgarzik@pobox.com" <jgarzik@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 25 Apr 2005 07:25:55 -0400
-jamal <hadi@cyberus.ca> wrote:
-
-> Dang, I just noticed you used TCP. Could you use UDP please?
-> 
-> While the suspect may be PIO/s - lets be scientific and prove it.
-
-Jamal, enough already... stop being such a control freak.
-You're exceeding me as a control freak, and that's saying
-something.
-
-The guy got the numbers for us, in response to their claim that
-on their systems cpu utilization is poor due to NAPI.  Are you
-not convinced of this yet?
-
-Will a hundred new sets of numbers using the precise driver and
-protocol of your choosing convince you more of this?  I think
-you're making unreasonable reqeusts of the problem submitter at
-this point, and we should be sending them patches to test not
-a new set of tests to run.
+DQpQZXJmb3JtYW5jZSBvcHRpbWl6YXRpb25zIHRvIGUxMDAgVHggUGF0aA0KDQpTaWduZWQt
+b2ZmLWJ5OiBNYWxsaWthcmp1bmEgUiBDaGlsYWthbGEgPG1hbGxpa2FyanVuYS5jaGlsYWth
+bGFAaW50ZWwuY29tPg0KU2lnbmVkLW9mZi1ieTogR2FuZXNoIFZlbmthdGVzYW4gPGdhbmVz
+aC52ZW5rYXRlc2FuQGludGVsLmNvbT4NClNpZ25lZC1vZmYtYnk6IEpvaG4gUm9uY2lhayA8
+am9obi5yb25jaWFrQGludGVsLmNvbT4NCmRpZmYgLXVwIG5ldC1kcml2ZXJzLTIuNi9kcml2
+ZXJzL25ldC9lMTAwLmMgbmV0LWRyaXZlcnMtMi42L2RyaXZlcnMvbmV0L2UxMDAuYy5uZXcN
+Ci0tLSBuZXQtZHJpdmVycy0yLjYvZHJpdmVycy9uZXQvZTEwMC5joCAyMDA1LTA0LTA3IDAz
+OjIyOjM2LjgwNTI3Mzc4NCAtMDcwMA0KKysrIG5ldC1kcml2ZXJzLTIuNi9kcml2ZXJzL25l
+dC9lMTAwLmMubmV3oKCgoKAgMjAwNS0wNC0wNyAwMzoyMjozNy4yNTEyMDU5OTIgLTA3MDAN
+CkBAIC03NzcsNyArNzc3LDcgQEAgc3RhdGljIGludCBlMTAwX2VlcHJvbV9zYXZlKHN0cnVj
+dCBuaWMgKg0KoKCgoKCgoCByZXR1cm4gMDsNCqB9DQqgDQotI2RlZmluZSBFMTAwX1dBSVRf
+U0NCX1RJTUVPVVQgNDANCisjZGVmaW5lIEUxMDBfV0FJVF9TQ0JfVElNRU9VVCAyMDAwMCAv
+KiB3ZSBtaWdodCBoYXZlIHRvIHdhaXQgMTAwbXMhISEgKi8NCqBzdGF0aWMgaW5saW5lIGlu
+dCBlMTAwX2V4ZWNfY21kKHN0cnVjdCBuaWMgKm5pYywgdTggY21kLCBkbWFfYWRkcl90IGRt
+YV9hZGRyKQ0KoHsNCqCgoKCgoKAgdW5zaWduZWQgbG9uZyBmbGFnczsNCkBAIC04NDcsNiAr
+ODQ3LDEwIEBAIHN0YXRpYyBpbmxpbmUgaW50IGUxMDBfZXhlY19jYihzdHJ1Y3QgbmkNCqCg
+oKCgoKAgoKCgoKCgoCCgoKCgoKCgoCAqIGJlY2F1c2UgdGhlIGNvbnRyb2xsZXIgaXMgdG9v
+IGJ1c3ksIHNvDQqgoKCgoKCgIKCgoKCgoKAgoKCgoKCgoKAgKiBsZXQncyBqdXN0IHF1ZXVl
+IHRoZSBjb21tYW5kIGFuZCB0cnkgYWdhaW4NCqCgoKCgoKAgoKCgoKCgoCCgoKCgoKCgoCAq
+IHdoZW4gYW5vdGhlciBjb21tYW5kIGlzIHNjaGVkdWxlZC4gKi8NCiugoKCgoKAgoKCgoKCg
+oCCgoKCgoKCgIGlmKGVyciA9PSAtRU5PU1BDKSB7DQoroKCgoKCgIKCgoKCgoKAgoKCgoKCg
+oCCgoKCgoKCgIC8vcmVxdWVzdCBhIHJlc2V0DQoroKCgoKCgIKCgoKCgoKAgoKCgoKCgoCCg
+oKCgoKCgIHNjaGVkdWxlX3dvcmsoJm5pYy0+dHhfdGltZW91dF90YXNrKTsNCiugoKCgoKAg
+oKCgoKCgoCCgoKCgoKCgIH0NCqCgoKCgoKAgoKCgoKCgoCCgoKCgoKCgIGJyZWFrOw0KoKCg
+oKCgoCCgoKCgoKCgIH0gZWxzZSB7DQqgoKCgoKCgIKCgoKCgoKAgoKCgoKCgoCBuaWMtPmN1
+Y19jbWQgPSBjdWNfcmVzdW1lOw0KQEAgLTg5MSw3ICs4OTUsNyBAQCBzdGF0aWMgdm9pZCBt
+ZGlvX3dyaXRlKHN0cnVjdCBuZXRfZGV2aWNlDQqgDQqgc3RhdGljIHZvaWQgZTEwMF9nZXRf
+ZGVmYXVsdHMoc3RydWN0IG5pYyAqbmljKQ0KoHsNCi2goKCgoKAgc3RydWN0IHBhcmFtX3Jh
+bmdlIHJmZHMgPSB7IC5taW4gPSA2NCwgLm1heCA9IDI1NiwgLmNvdW50ID0gNjQgfTsNCiug
+oKCgoKAgc3RydWN0IHBhcmFtX3JhbmdlIHJmZHMgPSB7IC5taW4gPSAxNiwgLm1heCA9IDI1
+NiwgLmNvdW50ID0gNjQgfTsNCqCgoKCgoKAgc3RydWN0IHBhcmFtX3JhbmdlIGNic6AgPSB7
+IC5taW4gPSA2NCwgLm1heCA9IDI1NiwgLmNvdW50ID0gNjQgfTsNCqANCqCgoKCgoKAgcGNp
+X3JlYWRfY29uZmlnX2J5dGUobmljLT5wZGV2LCBQQ0lfUkVWSVNJT05fSUQsICZuaWMtPnJl
+dl9pZCk7DQpAQCAtOTA2LDggKzkxMCw5IEBAIHN0YXRpYyB2b2lkIGUxMDBfZ2V0X2RlZmF1
+bHRzKHN0cnVjdCBuaWMNCqCgoKCgoKAgLyogUXVhZHdvcmRzIHRvIERNQSBpbnRvIEZJRk8g
+YmVmb3JlIHN0YXJ0aW5nIGZyYW1lIHRyYW5zbWl0ICovDQqgoKCgoKCgIG5pYy0+dHhfdGhy
+ZXNob2xkID0gMHhFMDsNCqANCi2goKCgoKAgbmljLT50eF9jb21tYW5kID0gY3B1X3RvX2xl
+MTYoY2JfdHggfCBjYl9pIHwgY2JfdHhfc2YgfA0KLaCgoKCgoCCgoKCgoKCgICgobmljLT5t
+YWMgPj0gbWFjXzgyNTU4X0QxMDFfQTQpID8gY2JfY2lkIDogMCkpOw0KK6CgoKCgoCAvKiBu
+byBpbnRlcnJ1cHQgZm9yIGV2ZXJ5IHR4IGNvbXBsZXRpb24sIGRlbGF5ID0gMjU2dXMgaWYg
+bm90IDU1NyovDQoroKCgoKCgIG5pYy0+dHhfY29tbWFuZCA9IGNwdV90b19sZTE2KGNiX3R4
+IHwgY2JfdHhfc2YgfA0KK6CgoKCgoCCgoKCgoKCgICgobmljLT5tYWMgPj0gbWFjXzgyNTU4
+X0QxMDFfQTQpID8gY2JfY2lkIDogY2JfaSkpOw0KoA0KoKCgoKCgoCAvKiBUZW1wbGF0ZSBm
+b3IgYSBmcmVzaGx5IGFsbG9jYXRlZCBSRkQgKi8NCqCgoKCgoKAgbmljLT5ibGFua19yZmQu
+Y29tbWFuZCA9IGNwdV90b19sZTE2KGNiX2VsKTsNCkBAIC0xMjg5LDEyICsxMjk0LDE1IEBA
+IHN0YXRpYyBpbmxpbmUgdm9pZCBlMTAwX3htaXRfcHJlcGFyZShzdHINCqCgoKCgoKAgc3Ry
+dWN0IHNrX2J1ZmYgKnNrYikNCqB7DQqgoKCgoKCgIGNiLT5jb21tYW5kID0gbmljLT50eF9j
+b21tYW5kOw0KK6CgoKCgoCAvKiBpbnRlcnJ1cHQgZXZlcnkgMTYgcGFja2V0cyByZWdhcmRs
+ZXNzIG9mIGRlbGF5ICovDQoroKCgoKCgIGlmKChuaWMtPmNic19hdmFpbCAmIH4xNSkgPT0g
+bmljLT5jYnNfYXZhaWwpIGNiLT5jb21tYW5kIHw9IGNiX2k7DQqgoKCgoKCgIGNiLT51LnRj
+Yi50YmRfYXJyYXkgPSBjYi0+ZG1hX2FkZHIgKyBvZmZzZXRvZihzdHJ1Y3QgY2IsIHUudGNi
+LnRiZCk7DQqgoKCgoKCgIGNiLT51LnRjYi50Y2JfYnl0ZV9jb3VudCA9IDA7DQqgoKCgoKCg
+IGNiLT51LnRjYi50aHJlc2hvbGQgPSBuaWMtPnR4X3RocmVzaG9sZDsNCqCgoKCgoKAgY2It
+PnUudGNiLnRiZF9jb3VudCA9IDE7DQqgoKCgoKCgIGNiLT51LnRjYi50YmQuYnVmX2FkZHIg
+PSBjcHVfdG9fbGUzMihwY2lfbWFwX3NpbmdsZShuaWMtPnBkZXYsDQqgoKCgoKCgIKCgoKCg
+oKAgc2tiLT5kYXRhLCBza2ItPmxlbiwgUENJX0RNQV9UT0RFVklDRSkpOw0KK6CgoKCgoCAv
+LyBjaGVjayBmb3IgbWFwcGluZyBmYWlsdXJlPw0KoKCgoKCgoCBjYi0+dS50Y2IudGJkLnNp
+emUgPSBjcHVfdG9fbGUxNihza2ItPmxlbik7DQqgfQ0KoA0KDQoNCg0KDQoNCg==
