@@ -1,32 +1,23 @@
-From: =?GB2312?B?s8K6urni?= <szhonhua@tom.com>
-Subject: =?GB2312?B?t6LGsQ==?=
-Date: Mon, 25 Apr 2005 08:24:10 +0800
-Message-ID: <200504250019.j3P0JJdE002954@oss.sgi.com>
-Reply-To: szhonhua@tom.com
-Content-Type: text/plain;charset="GB2312"
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH 3/3][ATM]: [fore200e] pci doesn't use global board list;
+ use pci_register_driver()
+Date: Sun, 24 Apr 2005 18:58:39 -0700
+Message-ID: <20050424185839.6f2f33c2.davem@davemloft.net>
+References: <200504101527.j3AFR9Kv007592@ginger.cmf.nrl.navy.mil>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
+In-Reply-To: <200504101527.j3AFR9Kv007592@ginger.cmf.nrl.navy.mil>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-您好： 
-    我是深圳市昌隆实业有限公司的。我司实力雄厚，有着良好的社
-会关系。因进项较多现完成不了每月销售额度，每月有一部分增值税
-电脑发票（5%左右）和普通商品销售税发票国税、地税/运输/广告/
-服务业/建筑安装等1.5%左右）优惠代开或合作，点数较低，还可以
-根据所做数量额度的大小来商讨优惠的点数。公司成立多年一直以诚
-信为根本立于商场中。本公司郑重承诺所用绝对是真票！期待与你的
-合作！
-　　
-    如果贵司在发票的真伪方面有任疑问或担心，可上网查证或我司
-直接与贵司去税务局抵扣核对。 
-    彼此合作一次，必成永久朋友！ 
-    此信息长期有效，如须进一步洽商: 
-    详情请电（24小时业务热线）：13824320805         
-    邮  箱：asaqwq@163.com
-    联系人：陈文洪
-  
-　顺祝商祺！ 
+On Sun, 10 Apr 2005 11:27:10 -0400
+"chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil> wrote:
 
-　　　　　　　　　　　　　　　　　　　　　昌隆实业有限公司
+> please apply to 2.6 -- thanks!
+
+Applied, thanks Chas.
