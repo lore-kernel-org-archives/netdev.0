@@ -1,73 +1,31 @@
-From: Malli Chilakala <mallikarjuna.chilakala@intel.com>
-Subject: [PATCH net-drivers-2.6 5/6] e100: Performance optimizations to e100
- Tx Path (fwd)
-Date: Mon, 25 Apr 2005 12:49:43 -0700 (PDT)
-Message-ID: <Pine.LNX.4.44.0504251249320.21504-100000@isotope.jf.intel.com>
+From: Felix von Leitner <felix-linuxkernel@fefe.de>
+Subject: IPv6 has trouble assigning an interface
+Date: Mon, 25 Apr 2005 21:57:36 +0200
+Message-ID: <20050425195736.GB3123@codeblau.de>
+References: <20050311202122.GA13205@fefe.de> <20050311173308.7a076e8f.akpm@osdl.org> <20050324.205902.119922975.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "jgarzik@pobox.com" <jgarzik@pobox.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262746AbVDYT5l@vger.kernel.org>
+To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
+Content-Disposition: inline
+In-Reply-To: <20050324.205902.119922975.yoshfuji@linux-ipv6.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-DQpQZXJmb3JtYW5jZSBvcHRpbWl6YXRpb25zIHRvIGUxMDAgVHggUGF0aA0KDQpTaWduZWQt
-b2ZmLWJ5OiBNYWxsaWthcmp1bmEgUiBDaGlsYWthbGEgPG1hbGxpa2FyanVuYS5jaGlsYWth
-bGFAaW50ZWwuY29tPg0KU2lnbmVkLW9mZi1ieTogR2FuZXNoIFZlbmthdGVzYW4gPGdhbmVz
-aC52ZW5rYXRlc2FuQGludGVsLmNvbT4NClNpZ25lZC1vZmYtYnk6IEpvaG4gUm9uY2lhayA8
-am9obi5yb25jaWFrQGludGVsLmNvbT4NCmRpZmYgLXVwIG5ldC1kcml2ZXJzLTIuNi9kcml2
-ZXJzL25ldC9lMTAwLmMgbmV0LWRyaXZlcnMtMi42L2RyaXZlcnMvbmV0L2UxMDAuYy5uZXcN
-Ci0tLSBuZXQtZHJpdmVycy0yLjYvZHJpdmVycy9uZXQvZTEwMC5joCAyMDA1LTA0LTA3IDAz
-OjIyOjM2LjgwNTI3Mzc4NCAtMDcwMA0KKysrIG5ldC1kcml2ZXJzLTIuNi9kcml2ZXJzL25l
-dC9lMTAwLmMubmV3oKCgoKAgMjAwNS0wNC0wNyAwMzoyMjozNy4yNTEyMDU5OTIgLTA3MDAN
-CkBAIC03NzcsNyArNzc3LDcgQEAgc3RhdGljIGludCBlMTAwX2VlcHJvbV9zYXZlKHN0cnVj
-dCBuaWMgKg0KoKCgoKCgoCByZXR1cm4gMDsNCqB9DQqgDQotI2RlZmluZSBFMTAwX1dBSVRf
-U0NCX1RJTUVPVVQgNDANCisjZGVmaW5lIEUxMDBfV0FJVF9TQ0JfVElNRU9VVCAyMDAwMCAv
-KiB3ZSBtaWdodCBoYXZlIHRvIHdhaXQgMTAwbXMhISEgKi8NCqBzdGF0aWMgaW5saW5lIGlu
-dCBlMTAwX2V4ZWNfY21kKHN0cnVjdCBuaWMgKm5pYywgdTggY21kLCBkbWFfYWRkcl90IGRt
-YV9hZGRyKQ0KoHsNCqCgoKCgoKAgdW5zaWduZWQgbG9uZyBmbGFnczsNCkBAIC04NDcsNiAr
-ODQ3LDEwIEBAIHN0YXRpYyBpbmxpbmUgaW50IGUxMDBfZXhlY19jYihzdHJ1Y3QgbmkNCqCg
-oKCgoKAgoKCgoKCgoCCgoKCgoKCgoCAqIGJlY2F1c2UgdGhlIGNvbnRyb2xsZXIgaXMgdG9v
-IGJ1c3ksIHNvDQqgoKCgoKCgIKCgoKCgoKAgoKCgoKCgoKAgKiBsZXQncyBqdXN0IHF1ZXVl
-IHRoZSBjb21tYW5kIGFuZCB0cnkgYWdhaW4NCqCgoKCgoKAgoKCgoKCgoCCgoKCgoKCgoCAq
-IHdoZW4gYW5vdGhlciBjb21tYW5kIGlzIHNjaGVkdWxlZC4gKi8NCiugoKCgoKAgoKCgoKCg
-oCCgoKCgoKCgIGlmKGVyciA9PSAtRU5PU1BDKSB7DQoroKCgoKCgIKCgoKCgoKAgoKCgoKCg
-oCCgoKCgoKCgIC8vcmVxdWVzdCBhIHJlc2V0DQoroKCgoKCgIKCgoKCgoKAgoKCgoKCgoCCg
-oKCgoKCgIHNjaGVkdWxlX3dvcmsoJm5pYy0+dHhfdGltZW91dF90YXNrKTsNCiugoKCgoKAg
-oKCgoKCgoCCgoKCgoKCgIH0NCqCgoKCgoKAgoKCgoKCgoCCgoKCgoKCgIGJyZWFrOw0KoKCg
-oKCgoCCgoKCgoKCgIH0gZWxzZSB7DQqgoKCgoKCgIKCgoKCgoKAgoKCgoKCgoCBuaWMtPmN1
-Y19jbWQgPSBjdWNfcmVzdW1lOw0KQEAgLTg5MSw3ICs4OTUsNyBAQCBzdGF0aWMgdm9pZCBt
-ZGlvX3dyaXRlKHN0cnVjdCBuZXRfZGV2aWNlDQqgDQqgc3RhdGljIHZvaWQgZTEwMF9nZXRf
-ZGVmYXVsdHMoc3RydWN0IG5pYyAqbmljKQ0KoHsNCi2goKCgoKAgc3RydWN0IHBhcmFtX3Jh
-bmdlIHJmZHMgPSB7IC5taW4gPSA2NCwgLm1heCA9IDI1NiwgLmNvdW50ID0gNjQgfTsNCiug
-oKCgoKAgc3RydWN0IHBhcmFtX3JhbmdlIHJmZHMgPSB7IC5taW4gPSAxNiwgLm1heCA9IDI1
-NiwgLmNvdW50ID0gNjQgfTsNCqCgoKCgoKAgc3RydWN0IHBhcmFtX3JhbmdlIGNic6AgPSB7
-IC5taW4gPSA2NCwgLm1heCA9IDI1NiwgLmNvdW50ID0gNjQgfTsNCqANCqCgoKCgoKAgcGNp
-X3JlYWRfY29uZmlnX2J5dGUobmljLT5wZGV2LCBQQ0lfUkVWSVNJT05fSUQsICZuaWMtPnJl
-dl9pZCk7DQpAQCAtOTA2LDggKzkxMCw5IEBAIHN0YXRpYyB2b2lkIGUxMDBfZ2V0X2RlZmF1
-bHRzKHN0cnVjdCBuaWMNCqCgoKCgoKAgLyogUXVhZHdvcmRzIHRvIERNQSBpbnRvIEZJRk8g
-YmVmb3JlIHN0YXJ0aW5nIGZyYW1lIHRyYW5zbWl0ICovDQqgoKCgoKCgIG5pYy0+dHhfdGhy
-ZXNob2xkID0gMHhFMDsNCqANCi2goKCgoKAgbmljLT50eF9jb21tYW5kID0gY3B1X3RvX2xl
-MTYoY2JfdHggfCBjYl9pIHwgY2JfdHhfc2YgfA0KLaCgoKCgoCCgoKCgoKCgICgobmljLT5t
-YWMgPj0gbWFjXzgyNTU4X0QxMDFfQTQpID8gY2JfY2lkIDogMCkpOw0KK6CgoKCgoCAvKiBu
-byBpbnRlcnJ1cHQgZm9yIGV2ZXJ5IHR4IGNvbXBsZXRpb24sIGRlbGF5ID0gMjU2dXMgaWYg
-bm90IDU1NyovDQoroKCgoKCgIG5pYy0+dHhfY29tbWFuZCA9IGNwdV90b19sZTE2KGNiX3R4
-IHwgY2JfdHhfc2YgfA0KK6CgoKCgoCCgoKCgoKCgICgobmljLT5tYWMgPj0gbWFjXzgyNTU4
-X0QxMDFfQTQpID8gY2JfY2lkIDogY2JfaSkpOw0KoA0KoKCgoKCgoCAvKiBUZW1wbGF0ZSBm
-b3IgYSBmcmVzaGx5IGFsbG9jYXRlZCBSRkQgKi8NCqCgoKCgoKAgbmljLT5ibGFua19yZmQu
-Y29tbWFuZCA9IGNwdV90b19sZTE2KGNiX2VsKTsNCkBAIC0xMjg5LDEyICsxMjk0LDE1IEBA
-IHN0YXRpYyBpbmxpbmUgdm9pZCBlMTAwX3htaXRfcHJlcGFyZShzdHINCqCgoKCgoKAgc3Ry
-dWN0IHNrX2J1ZmYgKnNrYikNCqB7DQqgoKCgoKCgIGNiLT5jb21tYW5kID0gbmljLT50eF9j
-b21tYW5kOw0KK6CgoKCgoCAvKiBpbnRlcnJ1cHQgZXZlcnkgMTYgcGFja2V0cyByZWdhcmRs
-ZXNzIG9mIGRlbGF5ICovDQoroKCgoKCgIGlmKChuaWMtPmNic19hdmFpbCAmIH4xNSkgPT0g
-bmljLT5jYnNfYXZhaWwpIGNiLT5jb21tYW5kIHw9IGNiX2k7DQqgoKCgoKCgIGNiLT51LnRj
-Yi50YmRfYXJyYXkgPSBjYi0+ZG1hX2FkZHIgKyBvZmZzZXRvZihzdHJ1Y3QgY2IsIHUudGNi
-LnRiZCk7DQqgoKCgoKCgIGNiLT51LnRjYi50Y2JfYnl0ZV9jb3VudCA9IDA7DQqgoKCgoKCg
-IGNiLT51LnRjYi50aHJlc2hvbGQgPSBuaWMtPnR4X3RocmVzaG9sZDsNCqCgoKCgoKAgY2It
-PnUudGNiLnRiZF9jb3VudCA9IDE7DQqgoKCgoKCgIGNiLT51LnRjYi50YmQuYnVmX2FkZHIg
-PSBjcHVfdG9fbGUzMihwY2lfbWFwX3NpbmdsZShuaWMtPnBkZXYsDQqgoKCgoKCgIKCgoKCg
-oKAgc2tiLT5kYXRhLCBza2ItPmxlbiwgUENJX0RNQV9UT0RFVklDRSkpOw0KK6CgoKCgoCAv
-LyBjaGVjayBmb3IgbWFwcGluZyBmYWlsdXJlPw0KoKCgoKCgoCBjYi0+dS50Y2IudGJkLnNp
-emUgPSBjcHVfdG9fbGUxNihza2ItPmxlbik7DQqgfQ0KoA0KDQoNCg0KDQoNCg==
+I'm using stock 2.6.11.7 now.
+
+Here is an strace of some piece of code of mine:
+
+socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP) = 3
+setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [12884901889], 4) = 0
+bind(3, {sa_family=AF_INET6, sin6_port=htons(8002), inet_pton(AF_INET6, "::", &sin6_addr), sin6_flowinfo=0, sin6_scope_id=0}, 28) = 0
+setsockopt(3, SOL_IPV6, IPV6_MULTICAST_LOOP, "\1", 1) = 0
+[...]
+sendto(3, "ncp-lowfat-1.2.2", 16, 0, {sa_family=AF_INET6, sin6_port=htons(8002), inet_pton(AF_INET6, "ff02::6e63:7030", &sin6_addr), sin6_flowinfo=0, sin6_scope_id=0}, 28) = -1 EADDRNOTAVAIL (Cannot assign requested address)
+
+ff02 is a link-local multicast address.  I've bound to ::.  How can this
+fail?  link-local should always work, even if no routes are set and no
+router has been found.
+
+Felix
