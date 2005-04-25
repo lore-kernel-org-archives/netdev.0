@@ -1,38 +1,42 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: Re: IPv6 has trouble assigning an interface
-Date: Tue, 26 Apr 2005 00:00:46 +0300 (EEST)
-Message-ID: <Pine.LNX.4.61.0504252359580.4921@netcore.fi>
-References: <20050311202122.GA13205@fefe.de> <20050311173308.7a076e8f.akpm@osdl.org>
- <20050324.205902.119922975.yoshfuji@linux-ipv6.org> <20050425195736.GB3123@codeblau.de>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Re-routing packets via netfilter (ip_rt_bug)
+Date: Tue, 26 Apr 2005 07:34:00 +1000
+Message-ID: <20050425213400.GB29288@gondor.apana.org.au>
+References: <E1DQ1Ct-00055s-00@gondolin.me.apana.org.au>
+	<426D0CB9.4060500@trash.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>,
-	linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261194AbVDYVBp@vger.kernel.org>
-To: Felix von Leitner <felix-linuxkernel@fefe.de>
-In-Reply-To: <20050425195736.GB3123@codeblau.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org, Yair@arx.com,
+	linux-kernel@vger.kernel.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Patrick McHardy <kaber@trash.net>
+Content-Disposition: inline
+In-Reply-To: <426D0CB9.4060500@trash.net>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 25 Apr 2005, Felix von Leitner wrote:
-> Here is an strace of some piece of code of mine:
->
-> socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP) = 3
-> setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [12884901889], 4) = 0
-> bind(3, {sa_family=AF_INET6, sin6_port=htons(8002), inet_pton(AF_INET6, "::", &sin6_addr), sin6_flowinfo=0, sin6_scope_id=0}, 28) = 0
-> setsockopt(3, SOL_IPV6, IPV6_MULTICAST_LOOP, "\1", 1) = 0
-> [...]
-> sendto(3, "ncp-lowfat-1.2.2", 16, 0, {sa_family=AF_INET6, sin6_port=htons(8002), inet_pton(AF_INET6, "ff02::6e63:7030", &sin6_addr), sin6_flowinfo=0, sin6_scope_id=0}, 28) = -1 EADDRNOTAVAIL (Cannot assign requested address)
->
-> ff02 is a link-local multicast address.  I've bound to ::.  How can this
-> fail?  link-local should always work, even if no routes are set and no
-> router has been found.
+On Mon, Apr 25, 2005 at 05:28:57PM +0200, Patrick McHardy wrote:
+> 
+> No, ip_route_me_harder() can be called for packets with non-local
+> source. ip_route_output_slow() rejects non-local source addresses,
+> so the only way to use them for policy routing is by using
+> ip_route_input().
 
-Umm.. link-local unicast and multicast both require that you specify 
-the interface, because otherwise it's ambiguous -- how could the 
-kernel know which interface should be used to send the packet?
+You're right.  But then we can't call ip_route_output in the case
+where saddr is foreign but daddr is local.  Nor can we call
+ip_route_input since the output will be ip_rt_bug.
 
+Cheers,
 -- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
