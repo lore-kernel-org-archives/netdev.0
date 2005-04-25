@@ -1,7 +1,7 @@
 From: =?GB2312?B?s8K6urni?= <szhonhua@tom.com>
 Subject: =?GB2312?B?t6LGsQ==?=
-Date: Mon, 25 Apr 2005 08:11:04 +0800
-Message-ID: <200504250006.j3P06CdE001543@oss.sgi.com>
+Date: Mon, 25 Apr 2005 08:24:10 +0800
+Message-ID: <200504250019.j3P0JJdE002954@oss.sgi.com>
 Reply-To: szhonhua@tom.com
 Content-Type: text/plain;charset="GB2312"
 Return-path: <netdev-bounce@oss.sgi.com>
