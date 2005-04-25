@@ -1,37 +1,24 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH][SCTP] Fix bug in sctp_init() error handling code.
-Date: Sun, 24 Apr 2005 20:29:26 -0700
-Message-ID: <20050424202926.2d04e546.davem@davemloft.net>
-References: <Pine.LNX.4.61.0504221217120.5192@dyn9047018105.beaverton.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, lksctp-developers@lists.sourceforge.net
+From: =?GB2312?B?wdbPyMn6?= <wwww52@126.com>
+Subject: (no subject)
+Date: Mon, 25 Apr 2005 11:54:41 +0800
+Message-ID: <200504250354.j3P3sZdE027985@oss.sgi.com>
+Reply-To: wwww52@126.com
+Content-Type: text/plain;charset="GB2312"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Sridhar Samudrala <sri@us.ibm.com>
-In-Reply-To: <Pine.LNX.4.61.0504221217120.5192@dyn9047018105.beaverton.ibm.com>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 22 Apr 2005 12:28:39 -0700 (PDT)
-Sridhar Samudrala <sri@us.ibm.com> wrote:
+尊敬的贵公司经理或财务,你好!!
+   本公司成立于1994年,目前在全国已有十多家分公司,经营范围广泛.
+本公司按国家规定上税,属于按月定额缴税的形式.现有多余的增值发票,普通发票,
+运输发票,广告发票,服务业发票,建筑安装等发票,可以为贵公司代开,点数优惠.查验后付款,欢迎有意者来电洽谈!
+愿我们合作成功!!!
 
-> Please apply to 2.6.
+祝:商祺!!
 
-I can't, something is mangled in your patches.  It too me a while
-to figure out what was wrong but it's in the context lines not
-modified by your patch.
-
-> @@ -1159,8 +1159,6 @@
->   	status = 0;
->   out:
->   	return status;
-> -err_add_protocol:
-> -	proto_unregister(&sctp_prot);
-
-Two leading spaces, then a tab, thus the patch doesn't apply.
-That's a signature of a "*.rej" file btw.
-
-Please resubmit the whole batch of SCTP patches you have once
-you've corrected this problem.
+公司名称:深圳合展实业发展有限公司(深圳总公司)
+联系人:林先生(总经理)
+公司电话:0755-22033124
+移动电话:13510444201
