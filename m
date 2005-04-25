@@ -1,36 +1,50 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: NAPI, e100, and system performance problem
-Date: Mon, 25 Apr 2005 07:41:07 -0400
-Message-ID: <1114429267.7669.160.camel@localhost.localdomain>
-References: <C925F8B43D79CC49ACD0601FB68FF50C03A633C7@orsmsx408>
-	 <Pine.LNX.4.61.0504180943290.15052@linux.site>
-	 <1113855967.7436.39.camel@localhost.localdomain>
-	 <20050419055535.GA12211@sgi.com> <m1hdhzyrdz.fsf@muc.de>
-	 <1114173195.7679.30.camel@localhost.localdomain>
-	 <20050422172108.GA10598@muc.de>
-	 <1114193902.7978.39.camel@localhost.localdomain>
-	 <20050422183004.GC10598@muc.de>
-	 <Pine.LNX.4.61.0504221131350.15052@linux.site>
-	 <20050422115230.6037a362.davem@davemloft.net>
-	 <Pine.LNX.4.61.0504241845070.2934@linux.site>
-Reply-To: hadi@cyberus.ca
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Re-routing packets via netfilter (ip_rt_bug)
+Date: Mon, 25 Apr 2005 17:28:57 +0200
+Message-ID: <426D0CB9.4060500@trash.net>
+References: <E1DQ1Ct-00055s-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, ak@muc.de, gnb@sgi.com,
-        jesse.brandeburg@intel.com, netdev@oss.sgi.com, davem@redhat.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Arthur Kepner <akepner@sgi.com>
-In-Reply-To: <Pine.LNX.4.61.0504241845070.2934@linux.site>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org, Yair@arx.com,
+	linux-kernel@vger.kernel.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1DQ1Ct-00055s-00@gondolin.me.apana.org.au>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
+Herbert Xu wrote:
+> You'll still BUG if the destination is multicast/broadcast.  I'm also
+> unsure whether ipt_REJECT isn't susceptible to the same problem.
+> Luckily ipt_MIRROR is no more :)
 
-Actually, it may be sufficient to collect data for 20, 40, and 80% link
-utilization for napi, napi+dmiller_mchan and nonapi
+ipt_REJECT is fine, ip_route_input() is only used in NF_IP_FORWARD.
+But you're right about multicast/broadcast still causing problems,
+I'll have another look.
 
-Same for the e1000.
+> What are the issues with getting rid of the ip_route_input path
+> altogether?
+> 
+> The only thing we gain over calling ip_route_output is the ability
+> to set the input device.  But even that is just a fake derived from
+> the source address in a deterministic way.  Therefore any effects
+> achievable through using ip_route_input can also be done by simply
+> reconfiguring the policy routing table to look at the local source
+> addresses instead of (or in conjunction with) the input device.
 
-cheers,
-jamal
+No, ip_route_me_harder() can be called for packets with non-local
+source. ip_route_output_slow() rejects non-local source addresses,
+so the only way to use them for policy routing is by using
+ip_route_input().
+
+Regards
+Patrick
