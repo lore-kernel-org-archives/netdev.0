@@ -1,50 +1,30 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: IPv6 has trouble assigning an interface
-Date: Mon, 25 Apr 2005 15:38:15 -0700
-Message-ID: <OF11B6C702.AF232267-ON88256FEE.007B2DE9-88256FEE.007C5A46@us.ibm.com>
-References: <20050425195736.GB3123@codeblau.de>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH 2.6.12-rc2 3/3] tg3: Fix tg3_restart_ints()
+Date: Mon, 25 Apr 2005 14:56:25 -0700
+Message-ID: <1114466185.4917.61.camel@rh4>
+References: <1114463061.4917.34.camel@rh4>
+ <1114463351.4917.39.camel@rh4> <1114464194.4917.52.camel@rh4>
+ <20050425151816.1910b2ba.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-        netdev-bounce@oss.sgi.com,
-        "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: akepner@sgi.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <20050425195736.GB3123@codeblau.de>
-To: Felix von Leitner <felix-linuxkernel@fefe.de>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050425151816.1910b2ba.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-It's failing because it doesn't know what interface you want to send on, 
-and link-local
-addresses don't narrow that down any. If you bind to a specific IPv6 
-address, it'll use
-that interface (as a work-around). Adding a route for the multicast 
-address may also
-work (haven't tried). I'd expect using IPV6_MULTICAST_IF would work, but a 
-quick
-test appears that it doesn't. Specifying a sin6_scope_id as the interface 
-index on the
-sendto() is another way of specifying the device that doesn't appear to 
-work.
+On Mon, 2005-04-25 at 15:18 -0700, David S. Miller wrote:
+> All 3 patches applied, looks great.
+> 
+> The only thing I see is that we might want to put a
+> rmb() at the beginning of tg3_has_work() since we are
+> clearing the status block bit right before we call it.
+> It might not be necessary though.
+> 
 
-So, there may be a bug. Note that if you bind to "::" without doing 
-anything else and
-send to a link-local address, it can't know what interface you want to 
-send on by
-the destination, so your program won't control which interface it'll send 
-on. Doing
-that by binding to a specific interface's IPv6 address works for me (the 
-failure is
-in assigning the source address when it isn't known). Specifying the 
-device in
-other ways ought to work, too, so I'll look into this a bit more (as will 
-others, no doubt).
-
-                                                        +-DLS
-
-> ff02 is a link-local multicast address.  I've bound to ::.  How can this
-> fail?  link-local should always work, even if no routes are set and no
-> router has been found.
-
-> Felix
+I think memory barriers are not needed since tg3_has_work() does not
+depend on what's been written or read before it, other than sblk->status
+which is a direct dependency.
