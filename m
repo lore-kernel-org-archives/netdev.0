@@ -1,37 +1,50 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 2.6.12-rc2 2/3] tg3: Refresh hw index in tg3_rx()
-Date: Mon, 25 Apr 2005 14:09:11 -0700
-Message-ID: <1114463351.4917.39.camel@rh4>
-References: <1114463061.4917.34.camel@rh4>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: IPv6 has trouble assigning an interface
+Date: Mon, 25 Apr 2005 15:38:15 -0700
+Message-ID: <OF11B6C702.AF232267-ON88256FEE.007B2DE9-88256FEE.007C5A46@us.ibm.com>
+References: <20050425195736.GB3123@codeblau.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Arthur Kepner" <akepner@sgi.com>, netdev@oss.sgi.com
+Content-Type: text/plain; charset="US-ASCII"
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+        netdev-bounce@oss.sgi.com,
+        "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <1114463061.4917.34.camel@rh4>
+In-Reply-To: <20050425195736.GB3123@codeblau.de>
+To: Felix von Leitner <felix-linuxkernel@fefe.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This patch refreshes the hw rx producer in tg3_rx() so that additional
-work posted by the hardware can be processed.
+It's failing because it doesn't know what interface you want to send on, 
+and link-local
+addresses don't narrow that down any. If you bind to a specific IPv6 
+address, it'll use
+that interface (as a work-around). Adding a route for the multicast 
+address may also
+work (haven't tried). I'd expect using IPV6_MULTICAST_IF would work, but a 
+quick
+test appears that it doesn't. Specifying a sin6_scope_id as the interface 
+index on the
+sendto() is another way of specifying the device that doesn't appear to 
+work.
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
+So, there may be a bug. Note that if you bind to "::" without doing 
+anything else and
+send to a link-local address, it can't know what interface you want to 
+send on by
+the destination, so your program won't control which interface it'll send 
+on. Doing
+that by binding to a specific interface's IPv6 address works for me (the 
+failure is
+in assigning the source address when it isn't known). Specifying the 
+device in
+other ways ought to work, too, so I'll look into this a bit more (as will 
+others, no doubt).
 
-diff -Nru c/drivers/net/tg3.c d/drivers/net/tg3.c
---- c/drivers/net/tg3.c	2005-04-25 12:32:44.000000000 -0700
-+++ d/drivers/net/tg3.c	2005-04-25 12:39:46.000000000 -0700
-@@ -2802,6 +2802,12 @@
- next_pkt_nopost:
- 		sw_idx++;
- 		sw_idx %= TG3_RX_RCB_RING_SIZE(tp);
-+
-+		/* Refresh hw_idx to see if there is new work */
-+		if (sw_idx == hw_idx) {
-+			hw_idx = tp->hw_status->idx[0].rx_producer;
-+			rmb();
-+		}
- 	}
- 
- 	/* ACK the status ring. */
+                                                        +-DLS
+
+> ff02 is a link-local multicast address.  I've bound to ::.  How can this
+> fail?  link-local should always work, even if no routes are set and no
+> router has been found.
+
+> Felix
