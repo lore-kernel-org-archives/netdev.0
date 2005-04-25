@@ -1,23 +1,26 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 3/3][ATM]: [fore200e] pci doesn't use global board list;
- use pci_register_driver()
-Date: Sun, 24 Apr 2005 18:58:39 -0700
-Message-ID: <20050424185839.6f2f33c2.davem@davemloft.net>
-References: <200504101527.j3AFR9Kv007592@ginger.cmf.nrl.navy.mil>
+Subject: Re: [PATCH] net: remove redundant NULL pointer checks prior to
+ kfree in drivers/net/slip.c
+Date: Sun, 24 Apr 2005 18:59:54 -0700
+Message-ID: <20050424185954.7c33ce58.davem@davemloft.net>
+References: <Pine.LNX.4.62.0504112311130.2480@dragon.hyggekrogen.localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, davem@redhat.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
-In-Reply-To: <200504101527.j3AFR9Kv007592@ginger.cmf.nrl.navy.mil>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, loz@holmes.demon.co.uk,
+	waltje@uwalt.nl.mugnet.org, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262433AbVDYCIC@vger.kernel.org>
+To: Jesper Juhl <juhl-lkml@dif.dk>
+In-Reply-To: <Pine.LNX.4.62.0504112311130.2480@dragon.hyggekrogen.localhost>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 10 Apr 2005 11:27:10 -0400
-"chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil> wrote:
+On Mon, 11 Apr 2005 23:15:40 +0200 (CEST)
+Jesper Juhl <juhl-lkml@dif.dk> wrote:
 
-> please apply to 2.6 -- thanks!
+> kfree() checks for NULL. Checking prior to calling it is redundant.
+> This patch removes these redundant checks from drivers/net/slip.c
+> 
+> Signed-off-by: Jesper Juhl <juhl-lkml@dif.dk>
 
-Applied, thanks Chas.
+Applied, thanks Jesper.
