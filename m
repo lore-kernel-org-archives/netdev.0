@@ -1,31 +1,37 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH][IPV6] export inet6_sock_nr
-Date: Sun, 24 Apr 2005 20:23:29 -0700
-Message-ID: <20050424202329.5d03e045.davem@davemloft.net>
-References: <20050417225433.GC10626@conectiva.com.br>
+Subject: Re: [PATCH][SCTP] Fix bug in sctp_init() error handling code.
+Date: Sun, 24 Apr 2005 20:29:26 -0700
+Message-ID: <20050424202926.2d04e546.davem@davemloft.net>
+References: <Pine.LNX.4.61.0504221217120.5192@dyn9047018105.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, lksctp-developers@lists.sourceforge.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: acme@ghostprotocols.net (Arnaldo Carvalho de Melo)
-In-Reply-To: <20050417225433.GC10626@conectiva.com.br>
+To: Sridhar Samudrala <sri@us.ibm.com>
+In-Reply-To: <Pine.LNX.4.61.0504221217120.5192@dyn9047018105.beaverton.ibm.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 17 Apr 2005 19:54:33 -0300
-acme@ghostprotocols.net (Arnaldo Carvalho de Melo) wrote:
+On Fri, 22 Apr 2005 12:28:39 -0700 (PDT)
+Sridhar Samudrala <sri@us.ibm.com> wrote:
 
-> 	Please apply, SCTP/DCCP needs this.
+> Please apply to 2.6.
 
-... when INET_REFCNT_DEBUG is defined :-)
+I can't, something is mangled in your patches.  It too me a while
+to figure out what was wrong but it's in the context lines not
+modified by your patch.
 
-> Signed-off-by: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+> @@ -1159,8 +1159,6 @@
+>   	status = 0;
+>   out:
+>   	return status;
+> -err_add_protocol:
+> -	proto_unregister(&sctp_prot);
 
-Applied, but...
+Two leading spaces, then a tab, thus the patch doesn't apply.
+That's a signature of a "*.rej" file btw.
 
-> --- net/ipv6/af_inet6.c	(revision 57)
-> +++ net/ipv6/af_inet6.c	(working copy)
-
-please -p1 root your patches :-)
+Please resubmit the whole batch of SCTP patches you have once
+you've corrected this problem.
