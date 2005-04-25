@@ -1,35 +1,31 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: kernel BUG at net/ipv6/exthdrs_core.c:80!
-Date: Sun, 24 Apr 2005 20:17:06 -0700
-Message-ID: <20050424201706.20d3e129.davem@davemloft.net>
-References: <20050422.204610.96031992.yoshfuji@linux-ipv6.org>
-	<E1DOyg4-0000iB-00@gondolin.me.apana.org.au>
-	<20050422141950.GA2791@gondor.apana.org.au>
+Subject: Re: [PATCH][IPV6] export inet6_sock_nr
+Date: Sun, 24 Apr 2005 20:23:29 -0700
+Message-ID: <20050424202329.5d03e045.davem@davemloft.net>
+References: <20050417225433.GC10626@conectiva.com.br>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, matti.aarnio@zmailer.org,
-	linux-net@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050422141950.GA2791@gondor.apana.org.au>
-Sender: linux-net-owner@vger.kernel.org
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: acme@ghostprotocols.net (Arnaldo Carvalho de Melo)
+In-Reply-To: <20050417225433.GC10626@conectiva.com.br>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 23 Apr 2005 00:19:50 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Sun, 17 Apr 2005 19:54:33 -0300
+acme@ghostprotocols.net (Arnaldo Carvalho de Melo) wrote:
 
-> I was just reading ipv6_skip_exthdr and it occured to me that we can
-> get rid of len altogether.  The only place where len is used is to
-> check whether the skb has two bytes for ipv6_opt_hdr.  This check
-> is done by skb_header_pointer/skb_copy_bits anyway.
-> 
-> Now it might appear that we've made the code slower by deferring
-> the check to skb_copy_bits.  However, this check should not trigger
-> in the common case so this is OK.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> 	Please apply, SCTP/DCCP needs this.
 
-This looks great, applied.
+... when INET_REFCNT_DEBUG is defined :-)
 
-Thanks Herbert.
+> Signed-off-by: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+
+Applied, but...
+
+> --- net/ipv6/af_inet6.c	(revision 57)
+> +++ net/ipv6/af_inet6.c	(working copy)
+
+please -p1 root your patches :-)
