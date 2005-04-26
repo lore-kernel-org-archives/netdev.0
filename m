@@ -1,50 +1,86 @@
 From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Subject: Re: [1/1] connector/CBUS: new messaging subsystem. Revision number
  next.
-Date: Tue, 26 Apr 2005 22:03:54 +0400
-Message-ID: <20050426220354.5dd619bf@zanzibar.2ka.mipt.ru>
+Date: Tue, 26 Apr 2005 22:07:13 +0400
+Message-ID: <20050426220713.7915e036@zanzibar.2ka.mipt.ru>
 References: <20050411125932.GA19538@uganda.factory.vocord.ru>
 	<d120d5000504260857cb5f99e@mail.gmail.com>
 	<20050426202437.234e7d45@zanzibar.2ka.mipt.ru>
-	<d120d50005042610317961a564@mail.gmail.com>
+	<20050426203023.378e4831@zanzibar.2ka.mipt.ru>
+	<d120d50005042610342368cd72@mail.gmail.com>
 Reply-To: johnpol@2ka.mipt.ru
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: dmitry.torokhov@gmail.com, netdev@oss.sgi.com,
-	Greg KH <greg@kroah.com>, Jamal Hadi Salim <hadi@cyberus.ca>,
-	Kay Sievers <kay.sievers@vrfy.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	James Morris <jmorris@redhat.com>,
-	Guillaume Thouvenin <guillaume.thouvenin@bull.net>,
-	linux-kernel@vger.kernel.org, Andrew Morton <akpm@osdl.org>,
-	Thomas Graf <tgraf@suug.ch>, Jay Lan <jlan@engr.sgi.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261569AbVDZSEv@vger.kernel.org>
+Cc: dmitry.torokhov@gmail.com, netdev@oss.sgi.com, Greg KH <greg@kroah.com>,
+        Jamal Hadi Salim <hadi@cyberus.ca>, Kay Sievers <kay.sievers@vrfy.org>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        James Morris
+ <jmorris@redhat.com>,
+        Guillaume Thouvenin <guillaume.thouvenin@bull.net>,
+        linux-kernel@vger.kernel.org, Andrew Morton <akpm@osdl.org>,
+        Thomas Graf
+ <tgraf@suug.ch>, Jay Lan <jlan@engr.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
 To: dtor_core@ameritech.net
-In-Reply-To: <d120d50005042610317961a564@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <d120d50005042610342368cd72@mail.gmail.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 26 Apr 2005 12:31:58 -0500
+On Tue, 26 Apr 2005 12:34:13 -0500
 Dmitry Torokhov <dmitry.torokhov@gmail.com> wrote:
 
-> > There may not be the same work with different data.
+> On 4/26/05, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
 > > 
+> > --- orig/drivers/connector/connector.c
+> > +++ mod/drivers/connector/connector.c
+> > @@ -151,8 +151,8 @@
+> >                        __cbq->ddata = data;
+> >                        __cbq->destruct_data = destruct_data;
+> > 
+> > -                       queue_work(dev->cbdev->cn_queue, &__cbq->work);
+> > -                       found = 1;
+> > +                       if (queue_work(dev->cbdev->cn_queue, &__cbq->work))
+> > +                               found = 1;
+> >                        break;
 > 
-> Ugh, that really blows. Now every user of a particular message type
-> has to coordinate efforts with other users of the same message type...
+> What does it help exactly? By the time you checked result of
+> queue_work you have already corrupted work structure wuth the new data
+> (and probably destructor).
 > 
-> Imability to "fire and forget" undermines usefulness of whole
-> connector. How will you for example implement hotplug notification
-> over connector? Have kobject_hotplug wait and block other instances?
-> But wait on what?
+> Also, where is the rest of the code? Should we notify caller that
+> cn_netlink_send has dropped the message? And how do we do that?
 
-This is a simple load balancing schema.
-Netlink messages may be dropped in socket queue when 
-they are bing delivered to userspace - this is the same - 
-if work queue can not be scheduled, message will be dropped,
-but in this case userspace also can not be scheduled
-and message will be dropped.
+Yes, I found it too.
+Following patch should be the solution:
+
+--- orig/drivers/connector/connector.c
++++ mod/drivers/connector/connector.c
+@@ -146,13 +146,16 @@
+        spin_lock_bh(&dev->cbdev->queue_lock);
+        list_for_each_entry(__cbq, &dev->cbdev->queue_list, callback_entry) {
+                if (cn_cb_equal(&__cbq->cb->id, &msg->id)) {
+-                       __cbq->cb->priv = msg;
++       
++                       if (!test_bit(0, &work->pending)) {
++                               __cbq->cb->priv = msg;
+ 
+-                       __cbq->ddata = data;
+-                       __cbq->destruct_data = destruct_data;
++                               __cbq->ddata = data;
++                               __cbq->destruct_data = destruct_data;
+ 
+-                       if (queue_work(dev->cbdev->cn_queue, &__cbq->work))
+-                               found = 1;
++                               if (queue_work(dev->cbdev->cn_queue, &__cbq->work))
++                                       found = 1;
++                       }
+                        break;
+                }
+        }
+
+
  
 > -- 
 > Dmitry
