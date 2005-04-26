@@ -1,56 +1,37 @@
-From: Davis Mangu <cmiecnl@go.com>
-Subject: URGENT
-Date: Tue, 26 Apr 2005 06:01:16 -0700 (PDT)
-Message-ID: <5649308.1114520476518.JavaMail.cmiecnl@wmailweba02>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Re-routing packets via netfilter (ip_rt_bug)
+Date: Tue, 26 Apr 2005 15:17:27 +0200
+Message-ID: <426E3F67.8090006@trash.net>
+References: <E1DQ1Ct-00055s-00@gondolin.me.apana.org.au>
+	<426D0CB9.4060500@trash.net>
+	<20050425213400.GB29288@gondor.apana.org.au>
+	<426D8672.1030001@trash.net>
+	<20050426003925.GA13650@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Return-path: <netdev-bounce@oss.sgi.com>
-To: cmiecnl@go.com
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org, Yair@arx.com,
+	linux-kernel@vger.kernel.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050426003925.GA13650@gondor.apana.org.au>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Dear Sir/Madam,
+Herbert Xu wrote:
+> Makes sense.  But what about the case where saddr is foreign but
+> daddr is broadcast/multicast?
 
-I=92m Mr. Davis Mangu, I represent China Metallurgic
-Import & Export Corporation (CMIEC) based in China.
+Looks like we have no choice but to also use saddr=0 and
+ip_route_output() in this case.
 
-My company exports steel, rubber and raw materials for
-world trade. We are searching for representative who can help us
-establish a medium of getting to our customers in Europe and North Americ=
-a
-as well as making payments through you as our payment officer.
-
-Most of our customers pay out in checks and we do not
-have an account in your country that will clear this money. It is upon
-this note that we seek your assistance to stand in as one of our
-affiliates in your country.
-
-Note that, as our affiliate, you will receive 10% of
-whatever amount you clear for the company and the balance will be paid
-to us.=20
-
-If you are interested in this business offer, kindly
-forward to us the stated information below:
-
-(1)Your full names,
-(2)Contact address and,
-(3)Phone/fax numbers.
-
-My e-mail address is: cmiecnl@netscape.net =20
-
-Thank you for your time and have a wonderful day.
-
-Regards,
-Mr. Davis Mangu ( European Officer )
-CMIEC Import & Export Coporation.
-
-
-
-
-
-___________________________________________________
-Check-out GO.com
-GO get your free GO E-Mail account with expanded storage of 6 MB!
-http://mail.go.com
+Regards
+Patrick
