@@ -1,66 +1,55 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [1/1] connector/CBUS: new messaging subsystem. Revision number
- next.
-Date: Tue, 26 Apr 2005 22:13:25 +0400
-Message-ID: <20050426221325.20fbba58@zanzibar.2ka.mipt.ru>
+From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+Subject: Re: [1/1] connector/CBUS: new messaging subsystem. Revision number next.
+Date: Tue, 26 Apr 2005 13:20:08 -0500
+Message-ID: <d120d50005042611203ce29dd8@mail.gmail.com>
 References: <20050411125932.GA19538@uganda.factory.vocord.ru>
-	<d120d5000504260857cb5f99e@mail.gmail.com>
-	<20050426202437.234e7d45@zanzibar.2ka.mipt.ru>
-	<d120d50005042610317961a564@mail.gmail.com>
-	<20050426220354.5dd619bf@zanzibar.2ka.mipt.ru>
-	<20050426221026.108f3698@zanzibar.2ka.mipt.ru>
-Reply-To: johnpol@2ka.mipt.ru
+	 <d120d5000504260857cb5f99e@mail.gmail.com>
+	 <20050426202437.234e7d45@zanzibar.2ka.mipt.ru>
+	 <20050426203023.378e4831@zanzibar.2ka.mipt.ru>
+	 <d120d50005042610342368cd72@mail.gmail.com>
+	 <20050426220713.7915e036@zanzibar.2ka.mipt.ru>
+Reply-To: dtor_core@ameritech.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: dtor_core@ameritech.net, dmitry.torokhov@gmail.com,
-	netdev@oss.sgi.com, Greg KH <greg@kroah.com>,
-	Jamal Hadi Salim <hadi@cyberus.ca>,
-	Kay Sievers <kay.sievers@vrfy.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	James Morris <jmorris@redhat.com>,
-	Guillaume Thouvenin <guillaume.thouvenin@bull.net>,
-	linux-kernel@vger.kernel.org, Andrew Morton <akpm@osdl.org>,
-	Thomas Graf <tgraf@suug.ch>, Jay Lan <jlan@engr.sgi.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261505AbVDZSOO@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: netdev@oss.sgi.com, Greg KH <greg@kroah.com>,
+        Jamal Hadi Salim <hadi@cyberus.ca>, Kay Sievers <kay.sievers@vrfy.org>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        James Morris <jmorris@redhat.com>,
+        Guillaume Thouvenin <guillaume.thouvenin@bull.net>,
+        linux-kernel@vger.kernel.org, Andrew Morton <akpm@osdl.org>,
+        Thomas Graf <tgraf@suug.ch>, Jay Lan <jlan@engr.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
 To: johnpol@2ka.mipt.ru
-In-Reply-To: <20050426221026.108f3698@zanzibar.2ka.mipt.ru>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20050426220713.7915e036@zanzibar.2ka.mipt.ru>
+Content-Disposition: inline
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 26 Apr 2005 22:10:26 +0400
-Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
-
-> > > > There may not be the same work with different data.
-> > > > 
-> > > 
-> > > Ugh, that really blows. Now every user of a particular message type
-> > > has to coordinate efforts with other users of the same message type...
-> > > 
-> > > Imability to "fire and forget" undermines usefulness of whole
-> > > connector. How will you for example implement hotplug notification
-> > > over connector? Have kobject_hotplug wait and block other instances?
-> > > But wait on what?
-> > 
-> > This is a simple load balancing schema.
-> > Netlink messages may be dropped in socket queue when 
-> > they are bing delivered to userspace - this is the same - 
-> > if work queue can not be scheduled, message will be dropped,
-> > but in this case userspace also can not be scheduled
-> > and message will be dropped.
+On 4/26/05, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+> Yes, I found it too.
+> Following patch should be the solution:
 > 
-> Btw, I belive we see that it is reverse direction...
-> So we have reverse load balancing schema here - 
-> exactly like userspace socket queueing.
-> We basically can not sleep here - it will be DOS.
+> --- orig/drivers/connector/connector.c
+> +++ mod/drivers/connector/connector.c
+> @@ -146,13 +146,16 @@
+>        spin_lock_bh(&dev->cbdev->queue_lock);
+>        list_for_each_entry(__cbq, &dev->cbdev->queue_list, callback_entry) {
+>                if (cn_cb_equal(&__cbq->cb->id, &msg->id)) {
+> -                       __cbq->cb->priv = msg;
+> +
+> +                       if (!test_bit(0, &work->pending)) {
+> +                               __cbq->cb->priv = msg;
+> 
+> -                       __cbq->ddata = data;
+> -                       __cbq->destruct_data = destruct_data;
+> +                               __cbq->ddata = data;
+> +                               __cbq->destruct_data = destruct_data;
+> 
 
-And yet another btw - netlink is unreliable protocol,
-that is why there are seq and ack fields in connector's header - 
-connector's users must implement some check on top of
-raw connector messages - it could be returned message with
-timeout resending and so on.
-I wrote it several times and it is in connector's documentation.
+Still not good enough - work->pending bit gets cleared when work has
+been scheduled, but before executing payload. You still have the race.
 
-	Evgeniy Polyakov
-
-Only failure makes us experts. -- Theo de Raadt
+-- 
+Dmitry
