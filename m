@@ -1,80 +1,61 @@
-From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Subject: Re: [1/1] connector/CBUS: new messaging subsystem. Revision number next.
-Date: Tue, 26 Apr 2005 15:02:01 -0500
-Message-ID: <d120d500050426130250ff9632@mail.gmail.com>
-References: <20050411125932.GA19538@uganda.factory.vocord.ru>
-	 <20050426203023.378e4831@zanzibar.2ka.mipt.ru>
-	 <d120d50005042610342368cd72@mail.gmail.com>
-	 <20050426220713.7915e036@zanzibar.2ka.mipt.ru>
-	 <d120d50005042611203ce29dd8@mail.gmail.com>
-	 <20050426223126.37b7aea1@zanzibar.2ka.mipt.ru>
-	 <d120d50005042611426ec326e9@mail.gmail.com>
-	 <20050426224833.3b6a0792@zanzibar.2ka.mipt.ru>
-	 <d120d50005042612069b84ef@mail.gmail.com>
-	 <20050426232812.0c7bb3a4@zanzibar.2ka.mipt.ru>
-Reply-To: dtor_core@ameritech.net
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Re-routing packets via netfilter (ip_rt_bug)
+Date: Wed, 27 Apr 2005 09:28:57 +1000
+Message-ID: <20050426232857.GA18358@gondor.apana.org.au>
+References: <E1DQ1Ct-00055s-00@gondolin.me.apana.org.au>
+	<426D0CB9.4060500@trash.net>
+	<20050425213400.GB29288@gondor.apana.org.au>
+	<426D8672.1030001@trash.net>
+	<20050426003925.GA13650@gondor.apana.org.au>
+	<426E3F67.8090006@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@oss.sgi.com, Greg KH <greg@kroah.com>,
-	Jamal Hadi Salim <hadi@cyberus.ca>,
-	Kay Sievers <kay.sievers@vrfy.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	James Morris <jmorris@redhat.com>,
-	Guillaume Thouvenin <guillaume.thouvenin@bull.net>,
-	linux-kernel@vger.kernel.org, Andrew Morton <akpm@osdl.org>,
-	Thomas Graf <tgraf@suug.ch>, Jay Lan <jlan@engr.sgi.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261766AbVDZUCw@vger.kernel.org>
-To: johnpol@2ka.mipt.ru
-In-Reply-To: <20050426232812.0c7bb3a4@zanzibar.2ka.mipt.ru>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org, Yair@arx.com,
+	linux-kernel@vger.kernel.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Patrick McHardy <kaber@trash.net>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <426E3F67.8090006@trash.net>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-On 4/26/05, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
-> On Tue, 26 Apr 2005 14:06:36 -0500
-> Dmitry Torokhov <dmitry.torokhov@gmail.com> wrote:
+On Tue, Apr 26, 2005 at 03:17:27PM +0200, Patrick McHardy wrote:
 > 
-> > On 4/26/05, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
-> > > On Tue, 26 Apr 2005 13:42:10 -0500
-> > > Dmitry Torokhov <dmitry.torokhov@gmail.com> wrote:
-> > > > Yes, that woudl work, although I would urge you to implement a message
-> > > > queue for callbacks (probably limit it to 1000 messages or so) to
-> > > > allow bursting.
-> > >
-> > > It already exist, btw, but not exactly in that way -
-> > > we have skb queue, which can not be filled from userspace
-> > > if pressure is so strong so work queue can not be scheduled.
-> > > It is of course different and is influenced by other things
-> > > but it handles bursts quite well - it was tested on both
-> > > SMP and UP machines with continuous flows of forks with
-> > > shape addon of new running tasks [both fith fork bomb and not],
-> > > so I think it can be called real bursty test.
-> > >
-> >
-> > Ok, hear me out and tell me where I am wrong:
-> >
-> > By default a socket can receive at least 128 skbs with 258-byte
-> > payload, correct? That means that user of cn_netlink_send, if started
-> > "fresh", 128 average - size connector messages. If sender does not
-> > want to wait for anything (unlike your fork tests that do schedule)
-> > that means that 127 of those 128 messages will be dropped, although
-> > netlink would deliver them in time just fine.
-> >
-> > What am I missing?
-> 
-> Concider netlink_broadcast - it delivers skb to the kernel
-> listener directly to the input callback - no queueing actually,
+> Looks like we have no choice but to also use saddr=0 and
+> ip_route_output() in this case.
 
-Right, no queueing for in-kernel... 
+Let's look at the bigger picture.  There are three users of
+ip_route_me_harder: nat, mangle and queue.  They're all done
+in LOCAL_OUT.
 
-But then we have the following: netlink will drop messages sent to
-in-kernel socket ony if it can not copy skb - which is i'd say a very
-rare scenario. Connector, on the other hand, is guaranteed to drop all
-but the very first message sent between 2 schedules. That makes
-connector several orders of magnitude less reliable than bare netlink
-protocol. And you don't see it with your fork tests because you do
-schedule when you fork.
+For nat/mangle, the source address cannot change so it's
+guaranteed to be a local IP address.  On the face of it,
+queue could be changing the source address.  However, the
+more I think about it the more I reckon that it should
+be disallowed.
 
+If the user is changing the source address in LOCAL_OUT/queue
+then he's doing SNAT in LOCAL_OUT.  This violates some fundamental
+assumptions in netfilter.  The user also isn't going to have
+an easy time setting up the reverse DNAT since the corresponding
+location on the reverse side does not have a ip_route_me_harder
+call.
+
+Even if there is really a demand for SNAT in LOCAL_OUT, we
+should probably be implementing it properly rather than having
+the user craft their own in user-space.
+
+Cheers,
 -- 
-Dmitry
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
