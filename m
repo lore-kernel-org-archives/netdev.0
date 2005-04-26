@@ -1,30 +1,56 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: Question about QOS
-Date: Tue, 26 Apr 2005 14:59:55 +0200
-Message-ID: <20050426125955.GT577@postel.suug.ch>
-References: <426E06F1.9000105@6wind.com>
+From: Davis Mangu <cmiecnl@go.com>
+Subject: URGENT
+Date: Tue, 26 Apr 2005 06:01:16 -0700 (PDT)
+Message-ID: <5649308.1114520476518.JavaMail.cmiecnl@wmailweba02>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Nicolas DICHTEL <nicolas.dichtel@6wind.com>
-Content-Disposition: inline
-In-Reply-To: <426E06F1.9000105@6wind.com>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Return-path: <netdev-bounce@oss.sgi.com>
+To: cmiecnl@go.com
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Nicolas DICHTEL <426E06F1.9000105@6wind.com> 2005-04-26 11:16
-> I set CONFIG_NET_SCH_CLK_GETTIMEOFDAY in my kernel. The macro 
-> PSCHED_TDIFF_SAFE calculates
-> the difference between two timestamps and uses the function 
-> psched_tod_diff() to do this.
-> If the clock is readjusted (due to ntp for example), this function can 
-> return a negative number
-> (if bound > 1000000) and then the flow is blocked by the kernel. Am I 
-> right ?
+Dear Sir/Madam,
 
-do_gettimeofday takes care of ntp adjustments so we _should_ be safe,
-however, it might be wise to enforce a range of 0..bound instead of
-INT_MIN..bound because qdiscs like red are relying on this. Assuming
-we have a delta of -4 seconds and return -4e6 red will horribly
-crash when acccessing the array with idle_time>>cell_log.
+I=92m Mr. Davis Mangu, I represent China Metallurgic
+Import & Export Corporation (CMIEC) based in China.
+
+My company exports steel, rubber and raw materials for
+world trade. We are searching for representative who can help us
+establish a medium of getting to our customers in Europe and North Americ=
+a
+as well as making payments through you as our payment officer.
+
+Most of our customers pay out in checks and we do not
+have an account in your country that will clear this money. It is upon
+this note that we seek your assistance to stand in as one of our
+affiliates in your country.
+
+Note that, as our affiliate, you will receive 10% of
+whatever amount you clear for the company and the balance will be paid
+to us.=20
+
+If you are interested in this business offer, kindly
+forward to us the stated information below:
+
+(1)Your full names,
+(2)Contact address and,
+(3)Phone/fax numbers.
+
+My e-mail address is: cmiecnl@netscape.net =20
+
+Thank you for your time and have a wonderful day.
+
+Regards,
+Mr. Davis Mangu ( European Officer )
+CMIEC Import & Export Coporation.
+
+
+
+
+
+___________________________________________________
+Check-out GO.com
+GO get your free GO E-Mail account with expanded storage of 6 MB!
+http://mail.go.com
