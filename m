@@ -1,10 +1,11 @@
 From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
 Subject: Re: [1/1] connector/CBUS: new messaging subsystem. Revision number next.
-Date: Tue, 26 Apr 2005 12:31:58 -0500
-Message-ID: <d120d50005042610317961a564@mail.gmail.com>
+Date: Tue, 26 Apr 2005 12:34:13 -0500
+Message-ID: <d120d50005042610342368cd72@mail.gmail.com>
 References: <20050411125932.GA19538@uganda.factory.vocord.ru>
 	 <d120d5000504260857cb5f99e@mail.gmail.com>
 	 <20050426202437.234e7d45@zanzibar.2ka.mipt.ru>
+	 <20050426203023.378e4831@zanzibar.2ka.mipt.ru>
 Reply-To: dtor_core@ameritech.net
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -18,61 +19,32 @@ Cc: netdev@oss.sgi.com, Greg KH <greg@kroah.com>,
         Thomas Graf <tgraf@suug.ch>, Jay Lan <jlan@engr.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: johnpol@2ka.mipt.ru
-In-Reply-To: <20050426202437.234e7d45@zanzibar.2ka.mipt.ru>
+In-Reply-To: <20050426203023.378e4831@zanzibar.2ka.mipt.ru>
 Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 On 4/26/05, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
-> On Tue, 26 Apr 2005 10:57:55 -0500
-> Dmitry Torokhov <dmitry.torokhov@gmail.com> wrote:
 > 
-> > Hi Evgeniy,
-> >
-> > On 4/11/05, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
-> > > /*****************************************/
-> > > Kernel Connector.
-> > > /*****************************************/
-> > ...
-> > > +static int cn_call_callback(struct cn_msg *msg, void (*destruct_data) (void *), void *data)
-> > > +{
-> > > +       struct cn_callback_entry *__cbq;
-> > > +       struct cn_dev *dev = &cdev;
-> > > +       int found = 0;
-> > > +
-> > > +       spin_lock_bh(&dev->cbdev->queue_lock);
-> > > +       list_for_each_entry(__cbq, &dev->cbdev->queue_list, callback_entry) {
-> > > +               if (cn_cb_equal(&__cbq->cb->id, &msg->id)) {
-> > > +                       __cbq->cb->priv = msg;
-> > > +
-> > > +                       __cbq->ddata = data;
-> > > +                       __cbq->destruct_data = destruct_data;
-> > > +
-> > > +                       queue_work(dev->cbdev->cn_queue, &__cbq->work);
-> >
-> > It looks like there is a problem with the code. As far as I can see
-> > there is only one cn_callback_entry associated with each callback. So,
-> > if someone sends netlink messages with the same id at a high enough
-> > rate (so cbdev's work queue does not get a chance to get scheduled and
-> > process pending requests) ddata and the destructor will be overwritten
-> > which can lead to memory leaks and non-delivery of some messages.
-> >
-> > Am I missing something?
+> --- orig/drivers/connector/connector.c
+> +++ mod/drivers/connector/connector.c
+> @@ -151,8 +151,8 @@
+>                        __cbq->ddata = data;
+>                        __cbq->destruct_data = destruct_data;
 > 
-> Connector needs to check return value here - zero means
-> that work was already queued and we must free shared skb.
-> 
-> There may not be the same work with different data.
-> 
+> -                       queue_work(dev->cbdev->cn_queue, &__cbq->work);
+> -                       found = 1;
+> +                       if (queue_work(dev->cbdev->cn_queue, &__cbq->work))
+> +                               found = 1;
+>                        break;
 
-Ugh, that really blows. Now every user of a particular message type
-has to coordinate efforts with other users of the same message type...
+What does it help exactly? By the time you checked result of
+queue_work you have already corrupted work structure wuth the new data
+(and probably destructor).
 
-Imability to "fire and forget" undermines usefulness of whole
-connector. How will you for example implement hotplug notification
-over connector? Have kobject_hotplug wait and block other instances?
-But wait on what?
+Also, where is the rest of the code? Should we notify caller that
+cn_netlink_send has dropped the message? And how do we do that?
 
 -- 
 Dmitry
