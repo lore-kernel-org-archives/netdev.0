@@ -1,62 +1,51 @@
-From: Andi Kleen <ak@muc.de>
-Subject: Re: [PATCH] Fix deadlock in netconsole with no carrier
-Date: Tue, 26 Apr 2005 15:47:07 +0200
-Message-ID: <m1pswhy7j8.fsf@muc.de>
-References: <20050419135350.GH7715@wotan.suse.de>
-	<20050419170650.GW21897@waste.org>
+From: "Yair Itzhaki" <Yair@arx.com>
+Subject: RE: Re-routing packets via netfilter (ip_rt_bug)
+Date: Tue, 26 Apr 2005 17:39:31 +0200
+Message-ID: <4151C0F9B9C25C47B3328922A6297A3286CFA9@post.arx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, davem@redhat.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Matt Mackall <mpm@selenic.com>
-In-Reply-To: <20050419170650.GW21897@waste.org> (Matt Mackall's message of
- "Tue, 19 Apr 2005 10:06:50 -0700")
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: <linux-kernel@vger.kernel.org>,
+	<netfilter-devel@lists.netfilter.org>, <netdev@oss.sgi.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261411AbVDZOhn@vger.kernel.org>
+Content-class: urn:content-classes:message
+To: "Herbert Xu" <herbert@gondor.apana.org.au>,
+	"Patrick McHardy" <kaber@trash.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Matt Mackall <mpm@selenic.com> writes:
+I'm afraid I'm not following you.
+Where did you want to set saddr=0 ?
 
-[sorry for the late answer, but you dont seem to have cced the
-answer to me so I lost it until now]
-
-> On Tue, Apr 19, 2005 at 03:53:50PM +0200, Andi Kleen wrote:
->> 
->> I got a deadlock at boot with netconsole when the netword card
->> did not have a cable connected. This patch fixes this by limiting
->> the number of retries. 
->
-> It should be waiting for carrier detect before proceeding. What NIC is that?
+Yair
 
 
-e1000
-
-> I'm sure five retries is not enough.
-
-Well, infinite is definitely too many. And the early netconsole
-code already waits for carrier up, so waiting even longer in the
-actual write does not make much sense to me. The problem with
-spinning longer here is that when you boot on a system with no
-carrier but netconsole configured it will waste a lot of time
-uselessly spinning/polling here all the time. It is better 
-to end this early. In theory you could do a more clever backoff
-scheme and note when a device is always down, but I think 
-the short retry combined with the long wait at early netconsole
-init is nearly equivalent.
-
-Without this patch my setup doesnt even boot so I would
-appreciate if the patch could be applied.
-
->
->> Also when we run into the device spinlock dont poll all the time,
->> just spin.
->
-> Two patches? Again, I don't think we should give up so easily.
-
-For the device spinlock polling is useless because the
-NIC is not actually out of resources, all you need to do 
-is to spin. Polling too is a waste of CPU time.
-In case polling is really needed (in case of a race) it will
-be retried once the spinlock is free.
-
--Andi
+> -----Original Message-----
+> From: Herbert Xu [mailto:herbert@gondor.apana.org.au]
+> Sent: Tuesday, April 26, 2005 02:39
+> To: Patrick McHardy
+> Cc: Yair Itzhaki; linux-kernel@vger.kernel.org; 
+> netfilter-devel@lists.netfilter.org; netdev@oss.sgi.com
+> Subject: Re: Re-routing packets via netfilter (ip_rt_bug)
+> 
+> 
+> On Tue, Apr 26, 2005 at 02:08:18AM +0200, Patrick McHardy wrote:
+> > Herbert Xu wrote:
+> > >You're right.  But then we can't call ip_route_output in the case
+> > >where saddr is foreign but daddr is local.  Nor can we call
+> > >ip_route_input since the output will be ip_rt_bug.
+> > 
+> > In that case we need to use saddr=0, which shouldn't make 
+> any difference
+> > with sane routing.
+> 
+> Makes sense.  But what about the case where saddr is foreign but
+> daddr is broadcast/multicast?
+> 
+> Cheers,
+> -- 
+> Visit Openswan at http://www.openswan.org/
+> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+> Home Page: http://gondor.apana.org.au/~herbert/
+> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> 
