@@ -1,63 +1,44 @@
-From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Subject: Re: [1/1] connector/CBUS: new messaging subsystem. Revision number next.
-Date: Tue, 26 Apr 2005 14:06:36 -0500
-Message-ID: <d120d50005042612069b84ef@mail.gmail.com>
-References: <20050411125932.GA19538@uganda.factory.vocord.ru>
-	 <d120d5000504260857cb5f99e@mail.gmail.com>
-	 <20050426202437.234e7d45@zanzibar.2ka.mipt.ru>
-	 <20050426203023.378e4831@zanzibar.2ka.mipt.ru>
-	 <d120d50005042610342368cd72@mail.gmail.com>
-	 <20050426220713.7915e036@zanzibar.2ka.mipt.ru>
-	 <d120d50005042611203ce29dd8@mail.gmail.com>
-	 <20050426223126.37b7aea1@zanzibar.2ka.mipt.ru>
-	 <d120d50005042611426ec326e9@mail.gmail.com>
-	 <20050426224833.3b6a0792@zanzibar.2ka.mipt.ru>
-Reply-To: dtor_core@ameritech.net
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: Question about QOS
+Date: Tue, 26 Apr 2005 21:14:54 +0200
+Message-ID: <20050426191454.GU577@postel.suug.ch>
+References: <426E06F1.9000105@6wind.com> <20050426125955.GT577@postel.suug.ch> <426E56DC.7000108@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@oss.sgi.com, Greg KH <greg@kroah.com>,
-	Jamal Hadi Salim <hadi@cyberus.ca>,
-	Kay Sievers <kay.sievers@vrfy.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	James Morris <jmorris@redhat.com>,
-	Guillaume Thouvenin <guillaume.thouvenin@bull.net>,
-	linux-kernel@vger.kernel.org, Andrew Morton <akpm@osdl.org>,
-	Thomas Graf <tgraf@suug.ch>, Jay Lan <jlan@engr.sgi.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261739AbVDZTGn@vger.kernel.org>
-To: johnpol@2ka.mipt.ru
-In-Reply-To: <20050426224833.3b6a0792@zanzibar.2ka.mipt.ru>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Nicolas DICHTEL <nicolas.dichtel@6wind.com>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <426E56DC.7000108@6wind.com>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 4/26/05, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
-> On Tue, 26 Apr 2005 13:42:10 -0500
-> Dmitry Torokhov <dmitry.torokhov@gmail.com> wrote:
-> > Yes, that woudl work, although I would urge you to implement a message
-> > queue for callbacks (probably limit it to 1000 messages or so) to
-> > allow bursting.
+* Nicolas DICHTEL <426E56DC.7000108@6wind.com> 2005-04-26 16:57
+> You can have the same kind of problem with a ingress filter. I propose the
+> following patch to fix the range to 0..bound
 > 
-> It already exist, btw, but not exactly in that way -
-> we have skb queue, which can not be filled from userspace
-> if pressure is so strong so work queue can not be scheduled.
-> It is of course different and is influenced by other things
-> but it handles bursts quite well - it was tested on both
-> SMP and UP machines with continuous flows of forks with
-> shape addon of new running tasks [both fith fork bomb and not],
-> so I think it can be called real bursty test.
+> [SCHED] Fix range in psched_tod_diff() to 0..bound
+> 
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 > 
 
-Ok, hear me out and tell me where I am wrong:
+> diff -Nru linux-2.6-a/include/net/pkt_sched.h linux-2.6-b/include/net/pkt_sched.h
+> --- linux-2.6-a/include/net/pkt_sched.h	2005-04-26 15:45:07.074124664 +0200
+> +++ linux-2.6-b/include/net/pkt_sched.h	2005-04-26 15:47:26.215971888 +0200
+> @@ -140,7 +140,7 @@
+>  	if (bound <= 1000000 || delta_sec > (0x7FFFFFFF/1000000)-1)
+>  		return bound;
+>  	delta = delta_sec * 1000000;
+> -	if (delta > bound)
+> +	if (delta > bound || delta < 0)
+>  		delta = bound;
+>  	return delta;
+>  }
 
-By default a socket can receive at least 128 skbs with 258-byte
-payload, correct? That means that user of cn_netlink_send, if started
-"fresh", 128 average - size connector messages. If sender does not
-want to wait for anything (unlike your fork tests that do schedule)
-that means that 127 of those 128 messages will be dropped, although
-netlink would deliver them in time just fine.
-
-What am I missing?
-
--- 
-Dmitry
+Yes I agree, it doesn't really matter what value we return and `bound'
+is most likely to be correct. I think we should also fix the unlikely
+but still possible case when tv1.tv_usec is slightly smaller than
+tv2.tv_usec. I know it is very unlikely but do_gettimeofday really
+is not that reliable and we have users which rely on a positive
+delta. Can you extend your patch to return abs(delta) for case 0
+in PSCHED_TDIFF_SAFE?
