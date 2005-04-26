@@ -1,73 +1,42 @@
-From: Malli Chilakala <mallikarjuna.chilakala@intel.com>
-Subject: [PATCH net-drivers-2.6 11/11] ixgb: Driver version, white space,
- comments, device id (fwd)
-Date: Mon, 25 Apr 2005 12:42:15 -0700 (PDT)
-Message-ID: <Pine.LNX.4.44.0504251241540.19610-100000@isotope.jf.intel.com>
+From: Felix von Leitner <felix-linuxkernel@fefe.de>
+Subject: Re: IPv6 has trouble assigning an interface
+Date: Tue, 26 Apr 2005 08:10:11 +0200
+Message-ID: <20050426061011.GA8527@codeblau.de>
+References: <20050311202122.GA13205@fefe.de> <20050311173308.7a076e8f.akpm@osdl.org> <20050324.205902.119922975.yoshfuji@linux-ipv6.org> <20050425195736.GB3123@codeblau.de> <Pine.LNX.4.61.0504252359580.4921@netcore.fi>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "jgarzik@pobox.com" <jgarzik@pobox.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>,
+	linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261330AbVDZGKT@vger.kernel.org>
+To: Pekka Savola <pekkas@netcore.fi>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.61.0504252359580.4921@netcore.fi>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Thus spake Pekka Savola (pekkas@netcore.fi):
+> >Here is an strace of some piece of code of mine:
+> >
+> >socket(PF_INET6, SOCK_DGRAM, IPPROTO_IP) = 3
+> >setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [12884901889], 4) = 0
+> >bind(3, {sa_family=AF_INET6, sin6_port=htons(8002), inet_pton(AF_INET6, 
+> >"::", &sin6_addr), sin6_flowinfo=0, sin6_scope_id=0}, 28) = 0
+> >setsockopt(3, SOL_IPV6, IPV6_MULTICAST_LOOP, "\1", 1) = 0
+> >[...]
+> >sendto(3, "ncp-lowfat-1.2.2", 16, 0, {sa_family=AF_INET6, 
+> >sin6_port=htons(8002), inet_pton(AF_INET6, "ff02::6e63:7030", &sin6_addr), 
+> >sin6_flowinfo=0, sin6_scope_id=0}, 28) = -1 EADDRNOTAVAIL (Cannot assign 
+> >requested address)
+> >
+> >ff02 is a link-local multicast address.  I've bound to ::.  How can this
+> >fail?  link-local should always work, even if no routes are set and no
+> >router has been found.
+> Umm.. link-local unicast and multicast both require that you specify 
+> the interface, because otherwise it's ambiguous -- how could the 
+> kernel know which interface should be used to send the packet?
 
-Driver version, white space, comments, device id & other
+OK for unicast.
+But multicast?  I expected link-local multicast to send on _all_
+interfaces if I don't specify one.
 
-Signed-off-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com=
->
-Signed-off-by: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
-Signed-off-by: John Ronciak <john.ronciak@intel.com>
-diff -up net-drivers-2.6/drivers/net/ixgb/ixgb_main.c net-drivers-2.6/dri=
-vers/net/ixgb.new/ixgb_main.c
---- net-drivers-2.6/drivers/net/ixgb/ixgb_main.c=A0=A0=A0=A0=A0=A0=A0 200=
-5-04-05 23:06:36.332229456 -0700
-+++ net-drivers-2.6/drivers/net/ixgb.new/ixgb_main.c=A0=A0=A0 2005-04-05 =
-23:06:38.283932752 -0700
-@@ -47,7 +47,7 @@ char ixgb_driver_string[] =3D "Intel(R) PR
-=A0#else
-=A0#define DRIVERNAPI "-NAPI"
-=A0#endif
--char ixgb_driver_version[] =3D "1.0.90-k2"DRIVERNAPI;
-+char ixgb_driver_version[] =3D "1.0.95-k2"DRIVERNAPI;
-=A0char ixgb_copyright[] =3D "Copyright (c) 1999-2005 Intel Corporation."=
-;
-=A0
-=A0/* ixgb_pci_tbl - PCI Device ID Table
-@@ -103,6 +103,7 @@ static int ixgb_change_mtu(struct net_de
-=A0static int ixgb_set_mac(struct net_device *netdev, void *p);
-=A0static irqreturn_t ixgb_intr(int irq, void *data, struct pt_regs *regs=
-);
-=A0static boolean_t ixgb_clean_tx_irq(struct ixgb_adapter *adapter);
-+
-=A0#ifdef CONFIG_IXGB_NAPI
-=A0static int ixgb_clean(struct net_device *netdev, int *budget);
-=A0static boolean_t ixgb_clean_rx_irq(struct ixgb_adapter *adapter,
-@@ -1253,6 +1254,7 @@ ixgb_tx_map(struct ixgb_adapter *adapter
-=A0
-=A0=A0=A0=A0=A0=A0=A0 unsigned int nr_frags =3D skb_shinfo(skb)->nr_frags=
-;
-=A0=A0=A0=A0=A0=A0=A0 unsigned int f;
-+
-=A0=A0=A0=A0=A0=A0=A0 len -=3D skb->data_len;
-=A0
-=A0=A0=A0=A0=A0=A0=A0 i =3D tx_ring->next_to_use;
-@@ -1857,7 +1833,6 @@ ixgb_clean_rx_irq(struct ixgb_adapter *a
-=A0=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 next_skb =3D next_buffer->skb=
-;
-=A0=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 prefetch(next_skb);
-=A0
--
-=A0=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 cleaned =3D TRUE;
-=A0
-=A0=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 pci_unmap_single(pdev,
-@@ -2108,6 +2095,7 @@ ixgb_restore_vlan(struct ixgb_adapter *a
-=A0static void ixgb_netpoll(struct net_device *dev)
-=A0{
-=A0=A0=A0=A0=A0=A0=A0 struct ixgb_adapter *adapter =3D dev->priv;
-+
-=A0=A0=A0=A0=A0=A0=A0 disable_irq(adapter->pdev->irq);
-=A0=A0=A0=A0=A0=A0=A0 ixgb_intr(adapter->pdev->irq, dev, NULL);
-=A0=A0=A0=A0=A0=A0=A0 enable_irq(adapter->pdev->irq);
+Felix
