@@ -1,37 +1,36 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Re-routing packets via netfilter (ip_rt_bug)
-Date: Tue, 26 Apr 2005 15:17:27 +0200
-Message-ID: <426E3F67.8090006@trash.net>
-References: <E1DQ1Ct-00055s-00@gondolin.me.apana.org.au>
-	<426D0CB9.4060500@trash.net>
-	<20050425213400.GB29288@gondor.apana.org.au>
-	<426D8672.1030001@trash.net>
-	<20050426003925.GA13650@gondor.apana.org.au>
+From: Andi Kleen <ak@muc.de>
+Subject: Re: is UDP_CORK "real"
+Date: Tue, 26 Apr 2005 15:40:22 +0200
+Message-ID: <m1u0lty7uh.fsf@muc.de>
+References: <426833F0.9010803@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org, Yair@arx.com,
-	linux-kernel@vger.kernel.org
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050426003925.GA13650@gondor.apana.org.au>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Rick Jones <rick.jones2@hp.com>
+In-Reply-To: <426833F0.9010803@hp.com> (Rick Jones's message of "Thu, 21 Apr
+ 2005 16:14:56 -0700")
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> Makes sense.  But what about the case where saddr is foreign but
-> daddr is broadcast/multicast?
+Rick Jones <rick.jones2@hp.com> writes:
+> today? While man tcp described TCP_CORK, on the two places I've
+> checked thusfar, man udp does not describe UDP_CORK.  I'm not sure if
+> that means UDP_CORK is "unreal" or just that the udp manpage needs
+> repair (or was out of date on my systems).
 
-Looks like we have no choice but to also use saddr=0 and
-ip_route_output() in this case.
+AFAIK nobody has been updating the protocol manpages since I stopped
+doing so several years ago when they were included into the
+standard manpages.  There are lots of missing features
+etc. that could be documented, the BUGS sections are usually 
+out of date etc. It is roughly at the state of early 2.3.
 
-Regards
-Patrick
+There is also unfortunately no policy to require a manpage
+update when a new feature is added to the kernel.
+
+Some manpages have been even never fully written like the ipv6 manpage.
+Perhaps someone is interested in updating all these? It unfortunately
+needs quite a lot of RTFS to figure out what the code actually does.
+
+-Andi
