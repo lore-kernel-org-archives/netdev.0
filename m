@@ -1,11 +1,11 @@
 From: Malli Chilakala <mallikarjuna.chilakala@intel.com>
-Subject: [RESEND][PATCH net-drivers-2.6 3/16] e1000: MSI support for PCI-e
- adapters (fwd)
-Date: Wed, 27 Apr 2005 11:21:07 -0700 (PDT)
-Message-ID: <Pine.LNX.4.44.0504271120410.17876-100000@isotope.jf.intel.com>
+Subject: [RESEND][PATCH net-drivers-2.6 5/16] e1000: Fix kernel panic with
+ 82541 LOM (fwd)
+Date: Wed, 27 Apr 2005 11:22:02 -0700 (PDT)
+Message-ID: <Pine.LNX.4.44.0504271121440.17876-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: base64
+Content-Transfer-Encoding: quoted-printable
 Cc: "jgarzik@pobox.com" <jgarzik@pobox.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev <netdev@oss.sgi.com>
@@ -13,44 +13,28 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-DQpNU0kgc3VwcG9ydCBmb3IgUENJLWUgYWRhcHRlcnMNCg0KU2lnbmVkLW9mZi1ieTogTWFs
-bGlrYXJqdW5hIFIgQ2hpbGFrYWxhIDxtYWxsaWthcmp1bmEuY2hpbGFrYWxhQGludGVsLmNv
-bT4NClNpZ25lZC1vZmYtYnk6IEdhbmVzaCBWZW5rYXRlc2FuIDxnYW5lc2gudmVua2F0ZXNh
-bkBpbnRlbC5jb20+DQpTaWduZWQtb2ZmLWJ5OiBKb2huIFJvbmNpYWsgPGpvaG4ucm9uY2lh
-a0BpbnRlbC5jb20+DQoNCmRpZmYgLXVwIG5ldC1kcml2ZXJzLTIuNi9kcml2ZXJzL25ldC9l
-MTAwMC9lMTAwMC5oIG5ldC1kcml2ZXJzLTIuNi9kcml2ZXJzL25ldC9lMTAwMC5uZXcvZTEw
-MDAuaA0KLS0tIG5ldC1kcml2ZXJzLTIuNi9kcml2ZXJzL25ldC9lMTAwMC9lMTAwMC5ooKAg
-MjAwNS0wNC0xMSAwMjoyMjoyNy4wMDAwMDAwMDAgLTA3MDANCisrKyBuZXQtZHJpdmVycy0y
-LjYvZHJpdmVycy9uZXQvZTEwMDAubmV3L2UxMDAwLmigoKCgoKAgMjAwNS0wNC0xMSAwMjoy
-MjoyOS4wMDAwMDAwMDAgLTA3MDANCkBAIC0yNTcsNSArMjU3LDggQEAgc3RydWN0IGUxMDAw
-X2FkYXB0ZXIgew0KoA0KoA0KoKCgoKCgoCBpbnQgbXNnX2VuYWJsZTsNCisjaWZkZWYgQ09O
-RklHX1BDSV9NU0kNCiugoKCgoKAgYm9vbGVhbl90IGhhdmVfbXNpOw0KKyNlbmRpZg0KoH07
-DQqgI2VuZGlmIC8qIF9FMTAwMF9IXyAqLw0KZGlmZiAtdXAgbmV0LWRyaXZlcnMtMi42L2Ry
-aXZlcnMvbmV0L2UxMDAwL2UxMDAwX21haW4uYyBuZXQtZHJpdmVycy0yLjYvZHJpdmVycy9u
-ZXQvZTEwMDAubmV3L2UxMDAwX21haW4uYw0KLS0tIG5ldC1kcml2ZXJzLTIuNi9kcml2ZXJz
-L25ldC9lMTAwMC9lMTAwMF9tYWluLmOgoKCgoCAyMDA1LTA0LTExIDAyOjIyOjI3LjAwMDAw
-MDAwMCAtMDcwMA0KKysrIG5ldC1kcml2ZXJzLTIuNi9kcml2ZXJzL25ldC9lMTAwMC5uZXcv
-ZTEwMDBfbWFpbi5joCAyMDA1LTA0LTExIDAyOjIyOjI5LjAwMDAwMDAwMCAtMDcwMA0KQEAg
-LTMxMiw2ICszMTIsMTYgQEAgZTEwMDBfdXAoc3RydWN0IGUxMDAwX2FkYXB0ZXIgKmFkYXB0
-ZXIpDQqgoKCgoKCgIGUxMDAwX2NvbmZpZ3VyZV9yeChhZGFwdGVyKTsNCqCgoKCgoKAgZTEw
-MDBfYWxsb2NfcnhfYnVmZmVycyhhZGFwdGVyKTsNCqANCisjaWZkZWYgQ09ORklHX1BDSV9N
-U0kNCiugoKCgoKAgaWYoYWRhcHRlci0+aHcubWFjX3R5cGUgPiBlMTAwMF84MjU0N19yZXZf
-Mikgew0KK6CgoKCgoCCgoKCgoKCgIGFkYXB0ZXItPmhhdmVfbXNpID0gVFJVRTsNCiugoKCg
-oKAgoKCgoKCgoCBpZigoZXJyID0gcGNpX2VuYWJsZV9tc2koYWRhcHRlci0+cGRldikpKSB7
-DQoroKCgoKCgIKCgoKCgoKAgoKCgoKCgoCBEUFJJTlRLKFBST0JFLCBFUlIsDQoroKCgoKCg
-IKCgoKCgoKAgoKCgoKCgoKAgIlVuYWJsZSB0byBhbGxvY2F0ZSBNU0kgaW50ZXJydXB0IEVy
-cm9yOiAlZFxuIiwgZXJyKTsNCiugoKCgoKAgoKCgoKCgoCCgoKCgoKCgIGFkYXB0ZXItPmhh
-dmVfbXNpID0gRkFMU0U7DQoroKCgoKCgIKCgoKCgoKAgfQ0KK6CgoKCgoCB9DQorI2VuZGlm
-DQqgoKCgoKCgIGlmKChlcnIgPSByZXF1ZXN0X2lycShhZGFwdGVyLT5wZGV2LT5pcnEsICZl
-MTAwMF9pbnRyLA0KoKCgoKCgoCCgoKCgoKCgIKCgoKCgoKCgoKCgoKAgU0FfU0hJUlEgfCBT
-QV9TQU1QTEVfUkFORE9NLA0KoKCgoKCgoCCgoKCgoKCgIKCgoKCgoKCgoKCgoKAgbmV0ZGV2
-LT5uYW1lLCBuZXRkZXYpKSkNCkBAIC0zMzMsNiArMzMzLDExIEBAIGUxMDAwX2Rvd24oc3Ry
-dWN0IGUxMDAwX2FkYXB0ZXIgKmFkYXB0ZXINCqANCqCgoKCgoKAgZTEwMDBfaXJxX2Rpc2Fi
-bGUoYWRhcHRlcik7DQqgoKCgoKCgIGZyZWVfaXJxKGFkYXB0ZXItPnBkZXYtPmlycSwgbmV0
-ZGV2KTsNCisjaWZkZWYgQ09ORklHX1BDSV9NU0kNCiugoKCgoKAgaWYoYWRhcHRlci0+aHcu
-bWFjX3R5cGUgPiBlMTAwMF84MjU0N19yZXZfMiAmJg0KK6CgoKCgoCCgoCBhZGFwdGVyLT5o
-YXZlX21zaSA9PSBUUlVFKQ0KK6CgoKCgoCCgoKCgoKCgIHBjaV9kaXNhYmxlX21zaShhZGFw
-dGVyLT5wZGV2KTsNCisjZW5kaWYNCqCgoKCgoKAgZGVsX3RpbWVyX3N5bmMoJmFkYXB0ZXIt
-PnR4X2ZpZm9fc3RhbGxfdGltZXIpOw0KoKCgoKCgoCBkZWxfdGltZXJfc3luYygmYWRhcHRl
-ci0+d2F0Y2hkb2dfdGltZXIpOw0KoKCgoKCgoCBkZWxfdGltZXJfc3luYygmYWRhcHRlci0+
-cGh5X2luZm9fdGltZXIpOw0KDQoNCg0KDQoNCg==
+
+Fix kernel panic with 82541 LOM when using a 100M cable
+
+Signed-off-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com=
+>
+Signed-off-by: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
+Signed-off-by: John Ronciak <john.ronciak@intel.com>
+
+diff -up net-drivers-2.6/drivers/net/e1000/e1000_main.c net-drivers-2.6/d=
+rivers/net/e1000.new/e1000_main.c
+--- net-drivers-2.6/drivers/net/e1000/e1000_main.c=A0=A0=A0=A0=A0 2005-04=
+-11 02:22:27.000000000 -0700
++++ net-drivers-2.6/drivers/net/e1000.new/e1000_main.c=A0 2005-04-11 02:2=
+2:29.000000000 -0700
+@@ -372,6 +372,7 @@ e1000_down(struct e1000_adapter *adapter
+=A0=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 e1000_read_phy_reg(&adapter->=
+hw, PHY_CTRL, &mii_reg);
+=A0=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 mii_reg |=3D MII_CR_POWER_DOW=
+N;
+=A0=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 e1000_write_phy_reg(&adapter-=
+>hw, PHY_CTRL, mii_reg);
++=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 mdelay(1);
+=A0=A0=A0=A0=A0=A0=A0 }
+=A0}
+=A0
