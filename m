@@ -1,47 +1,121 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Re-routing packets via netfilter (ip_rt_bug)
-Date: Wed, 27 Apr 2005 11:07:30 +1000
-Message-ID: <20050427010730.GA18919@gondor.apana.org.au>
-References: <E1DQ1Ct-00055s-00@gondolin.me.apana.org.au>
-	<426D0CB9.4060500@trash.net>
-	<20050425213400.GB29288@gondor.apana.org.au>
-	<426D8672.1030001@trash.net>
-	<20050426003925.GA13650@gondor.apana.org.au>
-	<426E3F67.8090006@trash.net>
-	<20050426232857.GA18358@gondor.apana.org.au>
-	<426EE350.1070902@trash.net>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [1/1] connector/CBUS: new messaging subsystem. Revision number
+	next.
+Date: Wed, 27 Apr 2005 08:06:49 +0400
+Message-ID: <1114574809.14282.10.camel@uganda>
+References: <20050411125932.GA19538@uganda.factory.vocord.ru>
+	 <20050426203023.378e4831@zanzibar.2ka.mipt.ru>
+	 <d120d50005042610342368cd72@mail.gmail.com>
+	 <20050426220713.7915e036@zanzibar.2ka.mipt.ru>
+	 <d120d50005042611203ce29dd8@mail.gmail.com>
+	 <20050426223126.37b7aea1@zanzibar.2ka.mipt.ru>
+	 <d120d50005042611426ec326e9@mail.gmail.com>
+	 <20050426224833.3b6a0792@zanzibar.2ka.mipt.ru>
+	 <d120d50005042612069b84ef@mail.gmail.com>
+	 <20050426232812.0c7bb3a4@zanzibar.2ka.mipt.ru>
+	 <d120d500050426130250ff9632@mail.gmail.com>
+Reply-To: johnpol@2ka.mipt.ru
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org, Yair@arx.com,
-	linux-kernel@vger.kernel.org
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <426EE350.1070902@trash.net>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-xChfSW6ftMRamnhdz9P9"
+Cc: netdev@oss.sgi.com, Greg KH <greg@kroah.com>,
+	Jamal Hadi Salim <hadi@cyberus.ca>,
+	Kay Sievers <kay.sievers@vrfy.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	James Morris <jmorris@redhat.com>,
+	Guillaume Thouvenin <guillaume.thouvenin@bull.net>,
+	linux-kernel@vger.kernel.org, Andrew Morton <akpm@osdl.org>,
+	Thomas Graf <tgraf@suug.ch>, Jay Lan <jlan@engr.sgi.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261905AbVD0EAS@vger.kernel.org>
+To: dtor_core@ameritech.net
+In-Reply-To: <d120d500050426130250ff9632@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 27, 2005 at 02:56:48AM +0200, Patrick McHardy wrote:
-> 
-> The ipt_REJECT target can send TCP RSTs with foreign source which
-> go through LOCAL_OUT. Restricting it to this case and adding proper
 
-Couldn't we feed the TCP RST packets with foreign sources through
-the FORWARD table? We're lying to the routing system already by
-telling it that the packet is forwarded.  So I don't see anything
-wrong with lying to netfilter as well :)
+--=-xChfSW6ftMRamnhdz9P9
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+On Tue, 2005-04-26 at 15:02 -0500, Dmitry Torokhov wrote:
+> On 4/26/05, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+> > On Tue, 26 Apr 2005 14:06:36 -0500
+> > Dmitry Torokhov <dmitry.torokhov@gmail.com> wrote:
+> >=20
+> > > On 4/26/05, Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
+> > > > On Tue, 26 Apr 2005 13:42:10 -0500
+> > > > Dmitry Torokhov <dmitry.torokhov@gmail.com> wrote:
+> > > > > Yes, that woudl work, although I would urge you to implement a me=
+ssage
+> > > > > queue for callbacks (probably limit it to 1000 messages or so) to
+> > > > > allow bursting.
+> > > >
+> > > > It already exist, btw, but not exactly in that way -
+> > > > we have skb queue, which can not be filled from userspace
+> > > > if pressure is so strong so work queue can not be scheduled.
+> > > > It is of course different and is influenced by other things
+> > > > but it handles bursts quite well - it was tested on both
+> > > > SMP and UP machines with continuous flows of forks with
+> > > > shape addon of new running tasks [both fith fork bomb and not],
+> > > > so I think it can be called real bursty test.
+> > > >
+> > >
+> > > Ok, hear me out and tell me where I am wrong:
+> > >
+> > > By default a socket can receive at least 128 skbs with 258-byte
+> > > payload, correct? That means that user of cn_netlink_send, if started
+> > > "fresh", 128 average - size connector messages. If sender does not
+> > > want to wait for anything (unlike your fork tests that do schedule)
+> > > that means that 127 of those 128 messages will be dropped, although
+> > > netlink would deliver them in time just fine.
+> > >
+> > > What am I missing?
+> >=20
+> > Concider netlink_broadcast - it delivers skb to the kernel
+> > listener directly to the input callback - no queueing actually,
+>=20
+> Right, no queueing for in-kernel...=20
+>=20
+> But then we have the following: netlink will drop messages sent to
+> in-kernel socket ony if it can not copy skb - which is i'd say a very
+> rare scenario. Connector, on the other hand, is guaranteed to drop all
+> but the very first message sent between 2 schedules. That makes
+> connector several orders of magnitude less reliable than bare netlink
+> protocol. And you don't see it with your fork tests because you do
+> schedule when you fork.
+
+Let's clarify that we are talking about userspace->kernelspace
+direction.
+Only for that messages callback path is invoked.
+For such messages there is always scheduling after system call.
+So if we have situation when after a schedule() call work queue can not
+be scheduled, but userspace process in that situation can not be
+scheduled
+too, so no new message will be delivered and nothing can be dropped.
+
+Actually you pointed to the interesting peice of code,=20
+I've digged out some old pre-connector draft, where there is a note,=20
+that it could be fine to
+1. send messages to self, but first implementation was dropped.
+2. call several callbacks in parallel, although it can not happen now.
+
+So I will think of changing that code, although it works without unneded
+drops now.
+
+--=20
+        Evgeniy Polyakov
+
+Crash is better than data corruption -- Arthur Grabowski
+
+--=-xChfSW6ftMRamnhdz9P9
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.6 (GNU/Linux)
+
+iD8DBQBCbw/ZIKTPhE+8wY0RAn+pAJwMEpbhwecSXWugkfPuL5rnMMB/gQCfcEI8
+cATo+yfCIRUya//Djg8VNIA=
+=023L
+-----END PGP SIGNATURE-----
+
+--=-xChfSW6ftMRamnhdz9P9--
