@@ -1,11 +1,11 @@
 From: Malli Chilakala <mallikarjuna.chilakala@intel.com>
-Subject: [RESEND][PATCH net-drivers-2.6 1/11] ixgb: Fix multi-cast packet
- count in statistics (fwd)
-Date: Wed, 27 Apr 2005 10:46:46 -0700 (PDT)
-Message-ID: <Pine.LNX.4.44.0504271046180.16913-100000@isotope.jf.intel.com>
+Subject: [RESEND][PATCH net-drivers-2.6 3/6] e100: Synchronize interface link
+ state with poll routine (fwd)
+Date: Wed, 27 Apr 2005 10:40:56 -0700 (PDT)
+Message-ID: <Pine.LNX.4.44.0504271040330.16797-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: base64
+Content-Transfer-Encoding: quoted-printable
 Cc: "jgarzik@pobox.com" <jgarzik@pobox.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev <netdev@oss.sgi.com>
@@ -13,52 +13,47 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-DQpGaXggbXVsdGktY2FzdCBwYWNrZXQgY291bnQgaW4gc3RhdGlzdGljcw0KDQpTaWduZWQt
-b2ZmLWJ5OiBNYWxsaWthcmp1bmEgUiBDaGlsYWthbGEgPG1hbGxpa2FyanVuYS5jaGlsYWth
-bGFAaW50ZWwuY29tPg0KU2lnbmVkLW9mZi1ieTogR2FuZXNoIFZlbmthdGVzYW4gPGdhbmVz
-aC52ZW5rYXRlc2FuQGludGVsLmNvbT4NClNpZ25lZC1vZmYtYnk6IEpvaG4gUm9uY2lhayA8
-am9obi5yb25jaWFrQGludGVsLmNvbT4NCg0KZGlmZiAtdXAgbmV0LWRyaXZlcnMtMi42L2Ry
-aXZlcnMvbmV0L2l4Z2IvaXhnYl9tYWluLmMgbmV0LWRyaXZlcnMtMi42L2RyaXZlcnMvbmV0
-L2l4Z2IubmV3L2l4Z2JfbWFpbi5jDQotLS0gbmV0LWRyaXZlcnMtMi42L2RyaXZlcnMvbmV0
-L2l4Z2IvaXhnYl9tYWluLmOgoKCgoKCgIDIwMDUtMDQtMDUgMjM6MDY6MzYuMzMyMjI5NDU2
-IC0wNzAwDQorKysgbmV0LWRyaXZlcnMtMi42L2RyaXZlcnMvbmV0L2l4Z2IubmV3L2l4Z2Jf
-bWFpbi5joKCgIDIwMDUtMDQtMDUgMjM6MDY6MzguMjgzOTMyNzUyIC0wNzAwDQpAQCAtMTUy
-NiwxNCArMTUyNiwzMyBAQCBpeGdiX2NoYW5nZV9tdHUoc3RydWN0IG5ldF9kZXZpY2UgKm5l
-dGRlDQqgdm9pZA0KoGl4Z2JfdXBkYXRlX3N0YXRzKHN0cnVjdCBpeGdiX2FkYXB0ZXIgKmFk
-YXB0ZXIpDQqgew0KK6CgoKCgoCBzdHJ1Y3QgbmV0X2RldmljZSAqbmV0ZGV2ID0gYWRhcHRl
-ci0+bmV0ZGV2Ow0KKw0KK6CgoKCgoCBpZigobmV0ZGV2LT5mbGFncyAmIElGRl9QUk9NSVND
-KSB8fCAobmV0ZGV2LT5mbGFncyAmIElGRl9BTExNVUxUSSkgfHwNCiugoKCgoKAgoKAgKG5l
-dGRldi0+bWNfY291bnQgPiBJWEdCX01BWF9OVU1fTVVMVElDQVNUX0FERFJFU1NFUykpIHsN
-CiugoKCgoKAgoKCgoKCgoCB1NjQgbXVsdGkgPSBJWEdCX1JFQURfUkVHKCZhZGFwdGVyLT5o
-dywgTVBSQ0wpOw0KK6CgoKCgoCCgoKCgoKCgIHUzMiBiY2FzdF9sID0gSVhHQl9SRUFEX1JF
-RygmYWRhcHRlci0+aHcsIEJQUkNMKTsNCiugoKCgoKAgoKCgoKCgoCB1MzIgYmNhc3RfaCA9
-IElYR0JfUkVBRF9SRUcoJmFkYXB0ZXItPmh3LCBCUFJDSCk7DQoroKCgoKCgIKCgoKCgoKAg
-dTY0IGJjYXN0ID0gKCh1NjQpYmNhc3RfaCA8PCAzMikgfCBiY2FzdF9sOw0KKw0KK6CgoKCg
-oCCgoKCgoKCgIG11bHRpIHw9ICgodTY0KUlYR0JfUkVBRF9SRUcoJmFkYXB0ZXItPmh3LCBN
-UFJDSCkgPDwgMzIpOw0KK6CgoKCgoCCgoKCgoKCgIC8qIGZpeCB1cCBtdWx0aWNhc3Qgc3Rh
-dHMgYnkgcmVtb3ZpbmcgYnJvYWRjYXN0cyAqLw0KK6CgoKCgoCCgoKCgoKCgIG11bHRpIC09
-IGJjYXN0Ow0KK6CgoKCgoCCgoKCgoKCgDQoroKCgoKCgIKCgoKCgoKAgYWRhcHRlci0+c3Rh
-dHMubXByY2wgKz0gKG11bHRpICYgMHhGRkZGRkZGRik7DQoroKCgoKCgIKCgoKCgoKAgYWRh
-cHRlci0+c3RhdHMubXByY2ggKz0gKG11bHRpID4+IDMyKTsNCiugoKCgoKAgoKCgoKCgoCBh
-ZGFwdGVyLT5zdGF0cy5icHJjbCArPSBiY2FzdF9sOw0KK6CgoKCgoCCgoKCgoKCgIGFkYXB0
-ZXItPnN0YXRzLmJwcmNoICs9IGJjYXN0X2g7DQoroKCgoKCgIH0gZWxzZSB7DQoroKCgoKCg
-IKCgoKCgoKAgYWRhcHRlci0+c3RhdHMubXByY2wgKz0gSVhHQl9SRUFEX1JFRygmYWRhcHRl
-ci0+aHcsIE1QUkNMKTsNCiugoKCgoKAgoKCgoKCgoCBhZGFwdGVyLT5zdGF0cy5tcHJjaCAr
-PSBJWEdCX1JFQURfUkVHKCZhZGFwdGVyLT5odywgTVBSQ0gpOw0KK6CgoKCgoCCgoKCgoKCg
-IGFkYXB0ZXItPnN0YXRzLmJwcmNsICs9IElYR0JfUkVBRF9SRUcoJmFkYXB0ZXItPmh3LCBC
-UFJDTCk7DQoroKCgoKCgIKCgoKCgoKAgYWRhcHRlci0+c3RhdHMuYnByY2ggKz0gSVhHQl9S
-RUFEX1JFRygmYWRhcHRlci0+aHcsIEJQUkNIKTsNCiugoKCgoKAgfQ0KoKCgoKCgoCBhZGFw
-dGVyLT5zdGF0cy50cHJsICs9IElYR0JfUkVBRF9SRUcoJmFkYXB0ZXItPmh3LCBUUFJMKTsN
-CqCgoKCgoKAgYWRhcHRlci0+c3RhdHMudHByaCArPSBJWEdCX1JFQURfUkVHKCZhZGFwdGVy
-LT5odywgVFBSSCk7DQqgoKCgoKCgIGFkYXB0ZXItPnN0YXRzLmdwcmNsICs9IElYR0JfUkVB
-RF9SRUcoJmFkYXB0ZXItPmh3LCBHUFJDTCk7DQqgoKCgoKCgIGFkYXB0ZXItPnN0YXRzLmdw
-cmNoICs9IElYR0JfUkVBRF9SRUcoJmFkYXB0ZXItPmh3LCBHUFJDSCk7DQotoKCgoKCgIGFk
-YXB0ZXItPnN0YXRzLmJwcmNsICs9IElYR0JfUkVBRF9SRUcoJmFkYXB0ZXItPmh3LCBCUFJD
-TCk7DQotoKCgoKCgIGFkYXB0ZXItPnN0YXRzLmJwcmNoICs9IElYR0JfUkVBRF9SRUcoJmFk
-YXB0ZXItPmh3LCBCUFJDSCk7DQotoKCgoKCgIGFkYXB0ZXItPnN0YXRzLm1wcmNsICs9IElY
-R0JfUkVBRF9SRUcoJmFkYXB0ZXItPmh3LCBNUFJDTCk7DQotoKCgoKCgIGFkYXB0ZXItPnN0
-YXRzLm1wcmNoICs9IElYR0JfUkVBRF9SRUcoJmFkYXB0ZXItPmh3LCBNUFJDSCk7DQqgoKCg
-oKCgIGFkYXB0ZXItPnN0YXRzLnVwcmNsICs9IElYR0JfUkVBRF9SRUcoJmFkYXB0ZXItPmh3
-LCBVUFJDTCk7DQqgoKCgoKCgIGFkYXB0ZXItPnN0YXRzLnVwcmNoICs9IElYR0JfUkVBRF9S
-RUcoJmFkYXB0ZXItPmh3LCBVUFJDSCk7DQqgoKCgoKCgIGFkYXB0ZXItPnN0YXRzLnZwcmNs
-ICs9IElYR0JfUkVBRF9SRUcoJmFkYXB0ZXItPmh3LCBWUFJDTCk7DQoNCg0KDQoNCg0KDQo=
+
+Synchronize interface link state with e100 poll routine
+
+Signed-off-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com=
+>
+Signed-off-by: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
+Signed-off-by: John Ronciak <john.ronciak@intel.com>
+diff -up net-drivers-2.6/drivers/net/e100.c net-drivers-2.6/drivers/net/e=
+100.c.new
+--- net-drivers-2.6/drivers/net/e100.c=A0 2005-04-07 03:22:36.805273784 -=
+0700
++++ net-drivers-2.6/drivers/net/e100.c.new=A0=A0=A0=A0=A0 2005-04-07 03:2=
+2:37.251205992 -0700
+@@ -1743,8 +1743,11 @@ static int e100_up(struct nic *nic)
+=A0=A0=A0=A0=A0=A0=A0 if((err =3D request_irq(nic->pdev->irq, e100_intr, =
+SA_SHIRQ,
+=A0=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 nic->netdev->name, nic->netde=
+v)))
+=A0=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 goto err_no_irq;
+-=A0=A0=A0=A0=A0=A0 e100_enable_irq(nic);
+=A0=A0=A0=A0=A0=A0=A0 netif_wake_queue(nic->netdev);
++=A0=A0=A0=A0=A0=A0 netif_poll_enable(nic->netdev);
++=A0=A0=A0=A0=A0=A0 /* enable ints _after_ enabling poll, preventing a ra=
+ce between
++=A0=A0=A0=A0=A0=A0=A0 * disable ints+schedule */
++=A0=A0=A0=A0=A0=A0 e100_enable_irq(nic);
+=A0=A0=A0=A0=A0=A0=A0 return 0;
+=A0
+=A0err_no_irq:
+@@ -1758,11 +1758,13 @@ err_rx_clean_list:
+=A0
+=A0static void e100_down(struct nic *nic)
+=A0{
++=A0=A0=A0=A0=A0=A0 /* wait here for poll to complete */
++=A0=A0=A0=A0=A0=A0 netif_poll_disable(nic->netdev);
++=A0=A0=A0=A0=A0=A0 netif_stop_queue(nic->netdev);
+=A0=A0=A0=A0=A0=A0=A0 e100_hw_reset(nic);
+=A0=A0=A0=A0=A0=A0=A0 free_irq(nic->pdev->irq, nic->netdev);
+=A0=A0=A0=A0=A0=A0=A0 del_timer_sync(&nic->watchdog);
+=A0=A0=A0=A0=A0=A0=A0 netif_carrier_off(nic->netdev);
+-=A0=A0=A0=A0=A0=A0 netif_stop_queue(nic->netdev);
+=A0=A0=A0=A0=A0=A0=A0 e100_clean_cbs(nic);
+=A0=A0=A0=A0=A0=A0=A0 e100_rx_clean_list(nic);
+=A0}
