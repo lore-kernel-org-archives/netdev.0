@@ -1,11 +1,10 @@
 From: Malli Chilakala <mallikarjuna.chilakala@intel.com>
-Subject: [RESEND][PATCH net-drivers-2.6 3/11] ixgb: Change RDT write bump
- size to 4 (fwd)
-Date: Wed, 27 Apr 2005 10:48:06 -0700 (PDT)
-Message-ID: <Pine.LNX.4.44.0504271047270.16913-100000@isotope.jf.intel.com>
+Subject: [RESEND][PATCH net-drivers-2.6 4/11] ixgb: Mask RXO interrupt (fwd)
+Date: Wed, 27 Apr 2005 10:48:38 -0700 (PDT)
+Message-ID: <Pine.LNX.4.44.0504271048130.16913-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Content-Transfer-Encoding: base64
 Cc: "jgarzik@pobox.com" <jgarzik@pobox.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev <netdev@oss.sgi.com>
@@ -13,29 +12,24 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
-Change RDT write bump size back to 4
-
-Signed-off-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com=
->
-Signed-off-by: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
-Signed-off-by: John Ronciak <john.ronciak@intel.com>
-diff -up net-drivers-2.6/drivers/net/ixgb/ixgb.h net-drivers-2.6/drivers/=
-net/ixgb.new/ixgb.h
---- net-drivers-2.6/drivers/net/ixgb/ixgb.h=A0=A0=A0=A0 2005-04-05 23:06:=
-36.331229608 -0700
-+++ net-drivers-2.6/drivers/net/ixgb.new/ixgb.h 2005-04-05 23:06:38.05696=
-7256 -0700
-@@ -110,7 +110,7 @@ struct ixgb_adapter;
-=A0#define IXGB_TX_QUEUE_WAKE 16
-=A0
-=A0/* How many Rx Buffers do we bundle into one write to the hardware ? *=
-/
--#define IXGB_RX_BUFFER_WRITE=A0=A0 16=A0=A0=A0=A0=A0 /* Must be power of=
- 2 */
-+#define IXGB_RX_BUFFER_WRITE=A0=A0 4=A0=A0=A0=A0=A0=A0 /* Must be power =
-of 2 */
-=A0
-=A0/* only works for sizes that are powers of 2 */
-=A0#define IXGB_ROUNDUP(i, size) ((i) =3D (((i) + (size) - 1) & ~((size) =
-- 1)))
+DQpEaXNhYmxlIFJYTyBpbnRlcnJ1cHQgdG8gZGVjcmVhc2UgcmVjb3ZlcnkgdGltZSB3aGVu
+IHN5c3RlbSBpcyBvdmVybG9hZGVkIHdpdGggZGF0YQ0KDQpTaWduZWQtb2ZmLWJ5OiBNYWxs
+aWthcmp1bmEgUiBDaGlsYWthbGEgPG1hbGxpa2FyanVuYS5jaGlsYWthbGFAaW50ZWwuY29t
+Pg0KU2lnbmVkLW9mZi1ieTogR2FuZXNoIFZlbmthdGVzYW4gPGdhbmVzaC52ZW5rYXRlc2Fu
+QGludGVsLmNvbT4NClNpZ25lZC1vZmYtYnk6IEpvaG4gUm9uY2lhayA8am9obi5yb25jaWFr
+QGludGVsLmNvbT4NCmRpZmYgLXVwIG5ldC1kcml2ZXJzLTIuNi9kcml2ZXJzL25ldC9peGdi
+L2l4Z2JfbWFpbi5jIG5ldC1kcml2ZXJzLTIuNi9kcml2ZXJzL25ldC9peGdiLm5ldy9peGdi
+X21haW4uYw0KLS0tIG5ldC1kcml2ZXJzLTIuNi9kcml2ZXJzL25ldC9peGdiL2l4Z2JfbWFp
+bi5joKCgoKCgoCAyMDA1LTA0LTA1IDIzOjA2OjM2LjMzMjIyOTQ1NiAtMDcwMA0KKysrIG5l
+dC1kcml2ZXJzLTIuNi9kcml2ZXJzL25ldC9peGdiLm5ldy9peGdiX21haW4uY6CgoCAyMDA1
+LTA0LTA1IDIzOjA2OjM4LjI4MzkzMjc1MiAtMDcwMA0KQEAgLTIyNCw4ICsyMjQsOCBAQCBp
+eGdiX2lycV9lbmFibGUoc3RydWN0IGl4Z2JfYWRhcHRlciAqYWRhDQqgew0KoKCgoKCgoCBp
+ZihhdG9taWNfZGVjX2FuZF90ZXN0KCZhZGFwdGVyLT5pcnFfc2VtKSkgew0KoKCgoKCgoCCg
+oKCgoKCgIElYR0JfV1JJVEVfUkVHKCZhZGFwdGVyLT5odywgSU1TLA0KLaCgoKCgoCCgoKCg
+oKCgIKCgoKCgoKAgoKAgSVhHQl9JTlRfUlhUMCB8IElYR0JfSU5UX1JYRE1UMCB8IElYR0Jf
+SU5UX1RYRFcgfA0KLaCgoKCgoCCgoKCgoKCgIKCgoKCgoKAgoKAgSVhHQl9JTlRfUlhPIHwg
+SVhHQl9JTlRfTFNDKTsNCiugoKCgoKAgoKCgoKCgoCCgoKCgoKCgIKCgoKCgoCBJWEdCX0lO
+VF9SWFQwIHwgSVhHQl9JTlRfUlhETVQwIHwgSVhHQl9JTlRfVFhEVyB8DQoroKCgoKCgIKCg
+oKCgoKAgoKCgoKCgoCCgoKCgoKAgSVhHQl9JTlRfTFNDKTsNCqCgoKCgoKAgoKCgoKCgoCBJ
+WEdCX1dSSVRFX0ZMVVNIKCZhZGFwdGVyLT5odyk7DQqgoKCgoKCgIH0NCqB9DQoNCg0KDQoN
+Cg0KDQo=
