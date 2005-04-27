@@ -1,59 +1,38 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] net: Disable queueing when carrier is lost
-Date: Thu, 28 Apr 2005 07:42:24 +1000
-Message-ID: <20050427214224.GA25325@gondor.apana.org.au>
-References: <E1DQlsn-0005yd-00@gondolin.me.apana.org.au> <426FDF8B.1030808@tpack.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Tommy Christensen <tommy.christensen@tpack.net>
-Content-Disposition: inline
-In-Reply-To: <426FDF8B.1030808@tpack.net>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+From: Kyle Moffett <mrmacman_g4@mac.com>
+Subject: Re: IPv6 has trouble assigning an interface
+Date: Wed, 27 Apr 2005 18:57:05 -0400
+Message-ID: <d3c101b00bd9573e30aa843e2335439e@mac.com>
+References: <20050311202122.GA13205@fefe.de> <20050311173308.7a076e8f.akpm@osdl.org> <20050324.205902.119922975.yoshfuji@linux-ipv6.org> <20050425195736.GB3123@codeblau.de> <Pine.LNX.4.61.0504252359580.4921@netcore.fi> <20050426061011.GA8527@codeblau.de>
+Mime-Version: 1.0 (Apple Message framework v619.2)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Pekka Savola <pekkas@netcore.fi>, netdev@oss.sgi.com,
+	"YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262067AbVD0W5e@vger.kernel.org>
+In-Reply-To: <20050426061011.GA8527@codeblau.de>
+To: Felix von Leitner <felix-linuxkernel@fefe.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 27, 2005 at 08:52:59PM +0200, Tommy Christensen wrote:
-> 
-> My theory was this: Almost all drivers should be able to use the generic
-> watchdog (and I believe most of them do). If the "TX stalled" supervision
-> isn't appropriate for some particular driver, e.g. due to unorthodox use
-> of netif_stop_queue, then I didn't want to force my addition on this
-> driver either.
+On Apr 26, 2005, at 02:10, Felix von Leitner wrote:
+> OK for unicast. But multicast?  I expected link-local multicast
+> to send on _all_ interfaces if I don't specify one.
 
-Not having a TX timeout handler doesn't mean that the driver is doing
-something weird.  If you do a grep in drivers/net you'll find loads
-of drivers that don't have TX timeout handlers but their handling of
-stop_queue/start_queue is exactly the same as anybody else.
-
-There's also another problem.  The thing that triggered the original
-discussion is the fact that the socket send buffer was filled up.
-Theoretically, it is possible to exhaust someone's socket buffer
-without filling up a NIC's TX ring.  Assuming that the NIC does not
-transmit at all when the carrier is off, the watchdog would not trigger
-and your application will block anyway.
-
-> Hooking into dev_watchdog() has the additional benefit of adding some
-> latency, so that a short-break doesn't necessarily trigger the flushing.
-
-I don't think this is too important.  If your link is flapping constantly
-then you've got a serious problem.  If it's just an isolated event then
-whether we do the flush or not isn't going to have a significant impact
-on the system.
-
-Besides, someone might be watching from user-space and could have taken
-much more drastic actions as a result of the carrier off message which is
-certainly not delayed.
-
-> ... unless the HW already takes care of this by draining the packets
-> from the ring buffer, disregarding the link status.
-
-Although this may be true for a lot of NICs, you can't bank on that.
+This statement makes no sense.  "link-local ... on all interfaces".
+Isn't "link-local" supposed to mean that the address is unique and
+available only on that interface (ethernet segment)?  It's possible
+to get the _same_ link-local address on multiple ethernet segments,
+so in that case, where would you send the packet???  When you send
+link-local packets, you must specify the link to which it is local.
 
 Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Kyle Moffett
+
+-----BEGIN GEEK CODE BLOCK-----
+Version: 3.12
+GCM/CS/IT/U d- s++: a18 C++++>$ UB/L/X/*++++(+)>$ P+++(++++)>$
+L++++(+++) E W++(+) N+++(++) o? K? w--- O? M++ V? PS+() PE+(-) Y+
+PGP+++ t+(+++) 5 X R? tv-(--) b++++(++) DI+ D+ G e->++++$ h!*()>++$ r  
+!y?(-)
+------END GEEK CODE BLOCK------
