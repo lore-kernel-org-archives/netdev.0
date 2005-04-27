@@ -1,10 +1,11 @@
 From: Malli Chilakala <mallikarjuna.chilakala@intel.com>
-Subject: [RESEND][PATCH net-drivers-2.6 9/11] ixgb: Code optimization (fwd)
-Date: Wed, 27 Apr 2005 10:51:27 -0700 (PDT)
-Message-ID: <Pine.LNX.4.44.0504271051020.16913-100000@isotope.jf.intel.com>
+Subject: [RESEND][PATCH net-drivers-2.6 8/11] ixgb: Remove hook for suspend,
+ no power management (fwd)
+Date: Wed, 27 Apr 2005 10:50:53 -0700 (PDT)
+Message-ID: <Pine.LNX.4.44.0504271050330.16913-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: base64
+Content-Transfer-Encoding: quoted-printable
 Cc: "jgarzik@pobox.com" <jgarzik@pobox.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev <netdev@oss.sgi.com>
@@ -12,82 +13,144 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-DQpDb2RlIG9wdGltaXphdGlvbg0KDQpTaWduZWQtb2ZmLWJ5OiBNYWxsaWthcmp1bmEgUiBD
-aGlsYWthbGEgPG1hbGxpa2FyanVuYS5jaGlsYWthbGFAaW50ZWwuY29tPg0KU2lnbmVkLW9m
-Zi1ieTogR2FuZXNoIFZlbmthdGVzYW4gPGdhbmVzaC52ZW5rYXRlc2FuQGludGVsLmNvbT4N
-ClNpZ25lZC1vZmYtYnk6IEpvaG4gUm9uY2lhayA8am9obi5yb25jaWFrQGludGVsLmNvbT4N
-Cg0KZGlmZiAtdXAgbmV0LWRyaXZlcnMtMi42L2RyaXZlcnMvbmV0L2l4Z2IvaXhnYl9tYWlu
-LmMgbmV0LWRyaXZlcnMtMi42L2RyaXZlcnMvbmV0L2l4Z2IubmV3L2l4Z2JfbWFpbi5jDQot
-LS0gbmV0LWRyaXZlcnMtMi42L2RyaXZlcnMvbmV0L2l4Z2IvaXhnYl9tYWluLmOgoKCgoKCg
-IDIwMDUtMDQtMDUgMjM6MDY6MzYuMzMyMjI5NDU2IC0wNzAwDQorKysgbmV0LWRyaXZlcnMt
-Mi42L2RyaXZlcnMvbmV0L2l4Z2IubmV3L2l4Z2JfbWFpbi5joKCgIDIwMDUtMDQtMDUgMjM6
-MDY6MzguMjgzOTMyNzUyIC0wNzAwDQpAQCAtMTgyMiw3ICsxODIyLDYgQEAgaXhnYl9jbGVh
-bl9yeF9pcnEoc3RydWN0IGl4Z2JfYWRhcHRlciAqYQ0KoKCgoKCgoCBzdHJ1Y3QgcGNpX2Rl
-diAqcGRldiA9IGFkYXB0ZXItPnBkZXY7DQqgoKCgoKCgIHN0cnVjdCBpeGdiX3J4X2Rlc2Mg
-KnJ4X2Rlc2MsICpuZXh0X3J4ZDsNCqCgoKCgoKAgc3RydWN0IGl4Z2JfYnVmZmVyICpidWZm
-ZXJfaW5mbywgKm5leHRfYnVmZmVyLCAqbmV4dDJfYnVmZmVyOw0KLaCgoKCgoCBzdHJ1Y3Qg
-c2tfYnVmZiAqc2tiLCAqbmV4dF9za2I7DQqgoKCgoKCgIHVpbnQzMl90IGxlbmd0aDsNCqCg
-oKCgoKAgdW5zaWduZWQgaW50IGksIGo7DQqgoKCgoKCgIGJvb2xlYW5fdCBjbGVhbmVkID0g
-RkFMU0U7DQpAQCAtMTgzMiw2ICsxODMxLDggQEAgaXhnYl9jbGVhbl9yeF9pcnEoc3RydWN0
-IGl4Z2JfYWRhcHRlciAqYQ0KoKCgoKCgoCBidWZmZXJfaW5mbyA9ICZyeF9yaW5nLT5idWZm
-ZXJfaW5mb1tpXTsNCqANCqCgoKCgoKAgd2hpbGUocnhfZGVzYy0+c3RhdHVzICYgSVhHQl9S
-WF9ERVNDX1NUQVRVU19ERCkgew0KK6CgoKCgoCCgoKCgoKCgIHN0cnVjdCBza19idWZmICpz
-a2IsICpuZXh0X3NrYjsNCiugoKCgoKAgoKCgoKCgoCB1OCBzdGF0dXM7DQqgDQqgI2lmZGVm
-IENPTkZJR19JWEdCX05BUEkNCqCgoKCgoKAgoKCgoKCgoCBpZigqd29ya19kb25lID49IHdv
-cmtfdG9fZG8pDQpAQCAtMTgzOSw3ICsxODQwLDkgQEAgaXhnYl9jbGVhbl9yeF9pcnEoc3Ry
-dWN0IGl4Z2JfYWRhcHRlciAqYQ0KoA0KoKCgoKCgoCCgoKCgoKCgICgqd29ya19kb25lKSsr
-Ow0KoCNlbmRpZg0KK6CgoKCgoCCgoKCgoKCgIHN0YXR1cyA9IHJ4X2Rlc2MtPnN0YXR1czsN
-CqCgoKCgoKAgoKCgoKCgoCBza2IgPSBidWZmZXJfaW5mby0+c2tiOw0KKw0KoKCgoKCgoCCg
-oKCgoKCgIHByZWZldGNoKHNrYi0+ZGF0YSk7DQqgDQqgoKCgoKCgIKCgoKCgoKAgaWYoKytp
-ID09IHJ4X3JpbmctPmNvdW50KSBpID0gMDsNCkBAIC0xODY0LDcgKzE4MzUsNyBAQCBpeGdi
-X2NsZWFuX3J4X2lycShzdHJ1Y3QgaXhnYl9hZGFwdGVyICphDQqgDQqgoKCgoKCgIKCgoKCg
-oKAgbGVuZ3RoID0gbGUxNl90b19jcHUocnhfZGVzYy0+bGVuZ3RoKTsNCqANCi2goKCgoKAg
-oKCgoKCgoCBpZih1bmxpa2VseSghKHJ4X2Rlc2MtPnN0YXR1cyAmIElYR0JfUlhfREVTQ19T
-VEFUVVNfRU9QKSkpIHsNCiugoKCgoKAgoKCgoKCgoCBpZih1bmxpa2VseSghKHN0YXR1cyAm
-IElYR0JfUlhfREVTQ19TVEFUVVNfRU9QKSkpIHsNCqANCqCgoKCgoKAgoKCgoKCgoCCgoKCg
-oKCgIC8qIEFsbCByZWNlaXZlcyBtdXN0IGZpdCBpbnRvIGEgc2luZ2xlIGJ1ZmZlciAqLw0K
-oA0KQEAgLTE4NzIsMTIgKzE4MzUsNyBAQA0KoKCgoKCgoCCgoKCgoKCgIKCgoKCgoKAgoKCg
-oKCgoCCgoKCgoKCgoCAibGVuZ3RoPCV4PlxuIiwgbGVuZ3RoKTsNCqANCqCgoKCgoKAgoKCg
-oKCgoCCgoKCgoKCgIGRldl9rZnJlZV9za2JfaXJxKHNrYik7DQotoKCgoKCgIKCgoKCgoKAg
-oKCgoKCgoCByeF9kZXNjLT5zdGF0dXMgPSAwOw0KLaCgoKCgoCCgoKCgoKCgIKCgoKCgoKAg
-YnVmZmVyX2luZm8tPnNrYiA9IE5VTEw7DQotDQotoKCgoKCgIKCgoKCgoKAgoKCgoKCgoCBy
-eF9kZXNjID0gbmV4dF9yeGQ7DQotoKCgoKCgIKCgoKCgoKAgoKCgoKCgoCBidWZmZXJfaW5m
-byA9IG5leHRfYnVmZmVyOw0KLaCgoKCgoCCgoKCgoKCgIKCgoKCgoKAgY29udGludWU7DQor
-oKCgoKCgIKCgoKCgoKAgoKCgoKCgoCBnb3RvIHJ4ZGVzY19kb25lOw0KoKCgoKCgoCCgoKCg
-oKCgIH0NCqANCqCgoKCgoKAgoKCgoKCgoCBpZiAodW5saWtlbHkocnhfZGVzYy0+ZXJyb3Jz
-DQpAQCAtMTg4NiwxMiArMTgzNSw3IEBADQqgoKCgoKCgIKCgoKCgoKAgoKCgoKCgoCCgoKCg
-oKCgIElYR0JfUlhfREVTQ19FUlJPUlNfUlhFKSkpIHsNCqANCqCgoKCgoKAgoKCgoKCgoCCg
-oKCgoKCgIGRldl9rZnJlZV9za2JfaXJxKHNrYik7DQotoKCgoKCgIKCgoKCgoKAgoKCgoKCg
-oCByeF9kZXNjLT5zdGF0dXMgPSAwOw0KLaCgoKCgoCCgoKCgoKCgIKCgoKCgoKAgYnVmZmVy
-X2luZm8tPnNrYiA9IE5VTEw7DQotDQotoKCgoKCgIKCgoKCgoKAgoKCgoKCgoCByeF9kZXNj
-ID0gbmV4dF9yeGQ7DQotoKCgoKCgIKCgoKCgoKAgoKCgoKCgoCBidWZmZXJfaW5mbyA9IG5l
-eHRfYnVmZmVyOw0KLaCgoKCgoCCgoKCgoKCgIKCgoKCgoKAgY29udGludWU7DQoroKCgoKCg
-IKCgoKCgoKAgoKCgoKCgoCBnb3RvIHJ4ZGVzY19kb25lOw0KoKCgoKCgoCCgoKCgoKCgIH0N
-CqANCqCgoKCgoKAgoKCgoKCgoCAvKiBHb29kIFJlY2VpdmUgKi8NCkBAIC0xOTAyLDcgKzE4
-NzksNyBAQCBpeGdiX2NsZWFuX3J4X2lycShzdHJ1Y3QgaXhnYl9hZGFwdGVyICphDQqgDQqg
-oKCgoKCgIKCgoKCgoKAgc2tiLT5wcm90b2NvbCA9IGV0aF90eXBlX3RyYW5zKHNrYiwgbmV0
-ZGV2KTsNCqAjaWZkZWYgQ09ORklHX0lYR0JfTkFQSQ0KLaCgoKCgoCCgoKCgoKCgIGlmKGFk
-YXB0ZXItPnZsZ3JwICYmIChyeF9kZXNjLT5zdGF0dXMgJiBJWEdCX1JYX0RFU0NfU1RBVFVT
-X1ZQKSkgew0KK6CgoKCgoCCgoKCgoKCgIGlmKGFkYXB0ZXItPnZsZ3JwICYmIChzdGF0dXMg
-JiBJWEdCX1JYX0RFU0NfU1RBVFVTX1ZQKSkgew0KoKCgoKCgoCCgoKCgoKCgIKCgoKCgoKAg
-dmxhbl9od2FjY2VsX3JlY2VpdmVfc2tiKHNrYiwgYWRhcHRlci0+dmxncnAsDQqgoKCgoKCg
-IKCgoKCgoKAgoKCgoKCgoCCgoKCgoKCgIGxlMTZfdG9fY3B1KHJ4X2Rlc2MtPnNwZWNpYWwp
-ICYNCqCgoKCgoKAgoKCgoKCgoCCgoKCgoKCgIKCgoKCgoKAgoKCgoKCgoCBJWEdCX1JYX0RF
-U0NfU1BFQ0lBTF9WTEFOX01BU0spOw0KQEAgLTE5MTAsNyArMTg3OSw3IEBADQqgoKCgoKCg
-IKCgoKCgoKAgoKCgoKCgoCBuZXRpZl9yZWNlaXZlX3NrYihza2IpOw0KoKCgoKCgoCCgoKCg
-oKCgIH0NCqAjZWxzZSAvKiBDT05GSUdfSVhHQl9OQVBJICovDQotoKCgoKCgIKCgoKCgoKAg
-aWYoYWRhcHRlci0+dmxncnAgJiYgKHJ4X2Rlc2MtPnN0YXR1cyAmIElYR0JfUlhfREVTQ19T
-VEFUVVNfVlApKSB7DQoroKCgoKCgIKCgoKCgoKAgaWYoYWRhcHRlci0+dmxncnAgJiYgKHN0
-YXR1cyAmIElYR0JfUlhfREVTQ19TVEFUVVNfVlApKSB7DQqgoKCgoKCgIKCgoKCgoKAgoKCg
-oKCgoCB2bGFuX2h3YWNjZWxfcngoc2tiLCBhZGFwdGVyLT52bGdycCwNCqCgoKCgoKAgoKCg
-oKCgoCCgoKCgoKCgIKCgoKCgoKAgbGUxNl90b19jcHUocnhfZGVzYy0+c3BlY2lhbCkgJg0K
-oKCgoKCgoCCgoKCgoKCgIKCgoKCgoKAgoKCgoKCgoCCgoKCgoKCgIElYR0JfUlhfREVTQ19T
-UEVDSUFMX1ZMQU5fTUFTSyk7DQpAQCAtMTkyMCw5ICsxOTEzLDEyIEBAIGl4Z2JfY2xlYW5f
-cnhfaXJxKHN0cnVjdCBpeGdiX2FkYXB0ZXIgKmENCqAjZW5kaWYgLyogQ09ORklHX0lYR0Jf
-TkFQSSAqLw0KoKCgoKCgoCCgoKCgoKCgIG5ldGRldi0+bGFzdF9yeCA9IGppZmZpZXM7DQqg
-DQorcnhkZXNjX2RvbmU6DQoroKCgoKCgIKCgoKCgoKAgLyogY2xlYW4gdXAgZGVzY3JpcHRv
-ciwgbWlnaHQgYmUgd3JpdHRlbiBvdmVyIGJ5IGh3ICovDQqgoKCgoKCgIKCgoKCgoKAgcnhf
-ZGVzYy0+c3RhdHVzID0gMDsNCqCgoKCgoKAgoKCgoKCgoCBidWZmZXJfaW5mby0+c2tiID0g
-TlVMTDsNCqANCiugoKCgoKAgoKCgoKCgoCAvKiB1c2UgcHJlZmV0Y2hlZCB2YWx1ZXMgKi8N
-CqCgoKCgoKAgoKCgoKCgoCByeF9kZXNjID0gbmV4dF9yeGQ7DQqgoKCgoKCgIKCgoKCgoKAg
-YnVmZmVyX2luZm8gPSBuZXh0X2J1ZmZlcjsNCqCgoKCgoKAgfQ0KDQoNCg0KDQoNCg0K
+
+Remove hook for suspend. No power management in 10GbE Controllers
+=A0
+Signed-off-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com=
+>
+Signed-off-by: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
+Signed-off-by: John Ronciak <john.ronciak@intel.com>
+diff -up net-drivers-2.6/drivers/net/ixgb/ixgb_main.c net-drivers-2.6/dri=
+vers/net/ixgb.new/ixgb_main.c
+--- net-drivers-2.6/drivers/net/ixgb/ixgb_main.c=A0=A0=A0=A0=A0=A0=A0 200=
+5-04-05 23:06:36.332229456 -0700
++++ net-drivers-2.6/drivers/net/ixgb.new/ixgb_main.c=A0=A0=A0 2005-04-05 =
+23:06:38.283932752 -0700
+@@ -120,33 +120,20 @@ static int ixgb_change_mtu(struct net_de
+=A0static void ixgb_vlan_rx_kill_vid(struct net_device *netdev, uint16_t =
+vid);
+=A0static void ixgb_restore_vlan(struct ixgb_adapter *adapter);
+=A0
+-static int ixgb_notify_reboot(struct notifier_block *, unsigned long eve=
+nt,
+-=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 =A0=A0=A0=
+=A0=A0 void *ptr);
+-static int ixgb_suspend(struct pci_dev *pdev, uint32_t state);
+-
+=A0#ifdef CONFIG_NET_POLL_CONTROLLER
+=A0/* for netdump / net console */
+=A0static void ixgb_netpoll(struct net_device *dev);
+=A0#endif
+=A0
+-struct notifier_block ixgb_notifier_reboot =3D {
+-=A0=A0=A0=A0=A0=A0 .notifier_call =3D ixgb_notify_reboot,
+-=A0=A0=A0=A0=A0=A0 .next =3D NULL,
+-=A0=A0=A0=A0=A0=A0 .priority =3D 0
+-};
+-
+=A0/* Exported from other modules */
+=A0
+=A0extern void ixgb_check_options(struct ixgb_adapter *adapter);
+=A0
+=A0static struct pci_driver ixgb_driver =3D {
+-=A0=A0=A0=A0=A0=A0 .name =3D ixgb_driver_name,
++=A0=A0=A0=A0=A0=A0 .name=A0=A0=A0=A0 =3D ixgb_driver_name,
+=A0=A0=A0=A0=A0=A0=A0 .id_table =3D ixgb_pci_tbl,
+-=A0=A0=A0=A0=A0=A0 .probe =3D ixgb_probe,
+-=A0=A0=A0=A0=A0=A0 .remove =3D __devexit_p(ixgb_remove),
+-=A0=A0=A0=A0=A0=A0 /* Power Managment Hooks */
+-=A0=A0=A0=A0=A0=A0 .suspend =3D NULL,
+-=A0=A0=A0=A0=A0=A0 .resume =3D NULL
++=A0=A0=A0=A0=A0=A0 .probe=A0=A0=A0 =3D ixgb_probe,
++=A0=A0=A0=A0=A0=A0 .remove=A0=A0 =3D __devexit_p(ixgb_remove),
+=A0};
+=A0
+=A0MODULE_AUTHOR("Intel Corporation, <linux.nics@intel.com>");
+@@ -169,17 +179,12 @@ MODULE_LICENSE("GPL");
+=A0static int __init
+=A0ixgb_init_module(void)
+=A0{
+-=A0=A0=A0=A0=A0=A0 int ret;
+=A0=A0=A0=A0=A0=A0=A0 printk(KERN_INFO "%s - version %s\n",
+=A0=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0 ixgb_driver_string, ixgb_driver_=
+version);
+=A0
+=A0=A0=A0=A0=A0=A0=A0 printk(KERN_INFO "%s\n", ixgb_copyright);
+=A0
+-=A0=A0=A0=A0=A0=A0 ret =3D pci_module_init(&ixgb_driver);
+-=A0=A0=A0=A0=A0=A0 if(ret >=3D 0) {
+-=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 register_reboot_notifier(&ixgb_=
+notifier_reboot);
+-=A0=A0=A0=A0=A0=A0 }
+-=A0=A0=A0=A0=A0=A0 return ret;
++=A0=A0=A0=A0=A0=A0 return pci_module_init(&ixgb_driver);
+=A0}
+=A0
+=A0module_init(ixgb_init_module);
+@@ -194,7 +194,6 @@ module_init(ixgb_init_module);
+=A0static void __exit
+=A0ixgb_exit_module(void)
+=A0{
+-=A0=A0=A0=A0=A0=A0 unregister_reboot_notifier(&ixgb_notifier_reboot);
+=A0=A0=A0=A0=A0=A0=A0 pci_unregister_driver(&ixgb_driver);
+=A0}
+=A0
+@@ -2121,54 +2092,6 @@ ixgb_restore_vlan(struct ixgb_adapter *a
+=A0=A0=A0=A0=A0=A0=A0 }
+=A0}
+=A0
+-/**
+- * ixgb_notify_reboot - handles OS notification of reboot event.
+- * @param nb notifier block, unused
+- * @param event Event being passed to driver to act upon
+- * @param p A pointer to our net device
+- **/
+-static int
+-ixgb_notify_reboot(struct notifier_block *nb, unsigned long event, void =
+*p)
+-{
+-=A0=A0=A0=A0=A0=A0 struct pci_dev *pdev =3D NULL;
+-
+-=A0=A0=A0=A0=A0=A0 switch(event) {
+-=A0=A0=A0=A0=A0=A0 case SYS_DOWN:
+-=A0=A0=A0=A0=A0=A0 case SYS_HALT:
+-=A0=A0=A0=A0=A0=A0 case SYS_POWER_OFF:
+-=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 while ((pdev =3D pci_find_devic=
+e(PCI_ANY_ID, PCI_ANY_ID, pdev))) {
+-=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 if (pci_d=
+ev_driver(pdev) =3D=3D &ixgb_driver)
+-=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 =A0=A0=A0=
+=A0=A0=A0=A0 ixgb_suspend(pdev, 3);
+-=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 }
+-=A0=A0=A0=A0=A0=A0 }
+-=A0=A0=A0=A0=A0=A0 return NOTIFY_DONE;
+-}
+-
+-/**
+- * ixgb_suspend - driver suspend function called from notify.
+- * @param pdev pci driver structure used for passing to
+- * @param state power state to enter
+- **/
+-static int
+-ixgb_suspend(struct pci_dev *pdev, uint32_t state)
+-{
+-=A0=A0=A0=A0=A0=A0 struct net_device *netdev =3D pci_get_drvdata(pdev);
+-=A0=A0=A0=A0=A0=A0 struct ixgb_adapter *adapter =3D netdev->priv;
+-
+-=A0=A0=A0=A0=A0=A0 netif_device_detach(netdev);
+-
+-=A0=A0=A0=A0=A0=A0 if(netif_running(netdev))
+-=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 ixgb_down(adapter, TRUE);
+-
+-=A0=A0=A0=A0=A0=A0 pci_save_state(pdev);
+-
+-=A0=A0=A0=A0=A0=A0 state =3D (state > 0) ? 3 : 0;
+-=A0=A0=A0=A0=A0=A0 pci_set_power_state(pdev, state);
+-=A0=A0=A0=A0=A0=A0 msec_delay(200);
+-
+-=A0=A0=A0=A0=A0=A0 return 0;
+-}
+-
+=A0#ifdef CONFIG_NET_POLL_CONTROLLER
+=A0/*
+=A0 * Polling 'interrupt' - used by things like netconsole to send skbs
