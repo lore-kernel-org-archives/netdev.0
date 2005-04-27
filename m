@@ -1,11 +1,11 @@
 From: Malli Chilakala <mallikarjuna.chilakala@intel.com>
-Subject: [RESEND][PATCH net-drivers-2.4 11/16] e1000:Removed redundant
- statement in e1000_clean_tx_irq (fwd)
-Date: Wed, 27 Apr 2005 11:11:44 -0700 (PDT)
-Message-ID: <Pine.LNX.4.44.0504271111260.17397-100000@isotope.jf.intel.com>
+Subject: [RESEND][PATCH net-drivers-2.4 12/16] e1000: Modified e1000_clean::
+ exit poll (fwd)
+Date: Wed, 27 Apr 2005 11:12:27 -0700 (PDT)
+Message-ID: <Pine.LNX.4.44.0504271112060.17397-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: base64
+Content-Transfer-Encoding: quoted-printable
 Cc: "jgarzik@pobox.com" <jgarzik@pobox.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev <netdev@oss.sgi.com>
@@ -13,20 +13,32 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-DQpSZW1vdmVkIHJlZHVuZGFudCBzdGF0ZW1lbnQgaW4gZTEwMDBfY2xlYW5fdHhfaXJxDQoN
-ClNpZ25lZC1vZmYtYnk6IE1hbGxpa2FyanVuYSBSIENoaWxha2FsYSA8bWFsbGlrYXJqdW5h
-LmNoaWxha2FsYUBpbnRlbC5jb20+DQpTaWduZWQtb2ZmLWJ5OiBHYW5lc2ggVmVua2F0ZXNh
-biA8Z2FuZXNoLnZlbmthdGVzYW5AaW50ZWwuY29tPg0KU2lnbmVkLW9mZi1ieTogSm9obiBS
-b25jaWFrIDxqb2huLnJvbmNpYWtAaW50ZWwuY29tPg0KDQpkaWZmIC11cCBuZXQtZHJpdmVy
-cy0yLjQvZHJpdmVycy9uZXQvZTEwMDAvZTEwMDBfbWFpbi5jIG5ldC1kcml2ZXJzLTIuNC9k
-cml2ZXJzL25ldC9lMTAwMC5uZXcvZTEwMDBfbWFpbi5jDQotLS0gbmV0LWRyaXZlcnMtMi40
-L2RyaXZlcnMvbmV0L2UxMDAwL2UxMDAwX21haW4uY6CgoKCgIDIwMDUtMDQtMTIgMjM6MDA6
-NTMuMDAwMDAwMDAwIC0wNzAwDQorKysgbmV0LWRyaXZlcnMtMi40L2RyaXZlcnMvbmV0L2Ux
-MDAwLm5ldy9lMTAwMF9tYWluLmOgIDIwMDUtMDQtMTIgMjM6MDA6NTUuMDAwMDAwMDAwIC0w
-NzAwDQpAQCAtMjM5Myw3ICsyMzkzLDYgQEAgZTEwMDBfY2xlYW5fdHhfaXJxKHN0cnVjdCBl
-MTAwMF9hZGFwdGVyDQqgoKCgoKCgIKCgoKCgoKAgoKCgoKCgoCB0eF9kZXNjLT5sb3dlci5k
-YXRhID0gMDsNCqCgoKCgoKAgoKCgoKCgoCCgoKCgoKCgIHR4X2Rlc2MtPnVwcGVyLmRhdGEg
-PSAwOw0KoA0KLaCgoKCgoCCgoKCgoKCgIKCgoKCgoKAgY2xlYW5lZCA9IChpID09IGVvcCk7
-DQqgoKCgoKCgIKCgoKCgoKAgoKCgoKCgoCBpZih1bmxpa2VseSgrK2kgPT0gdHhfcmluZy0+
-Y291bnQpKSBpID0gMDsNCqCgoKCgoKAgoKCgoKCgoCB9DQqgoKCgoKCgIKCgoKCgoKANCg0K
-DQoNCg0KDQo=
+
+Modified e1000_clean:: exit poll if no Tx and work_done =3D=3D 0
+
+Signed-off-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com=
+>
+Signed-off-by: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
+Signed-off-by: John Ronciak <john.ronciak@intel.com>
+diff -up net-drivers-2.4/drivers/net/e1000/e1000_main.c net-drivers-2.4/d=
+rivers/net/e1000.new/e1000_main.c
+--- net-drivers-2.4/drivers/net/e1000/e1000_main.c=A0=A0=A0=A0=A0 2005-04=
+-12 23:00:53.000000000 -0700
++++ net-drivers-2.4/drivers/net/e1000.new/e1000_main.c=A0 2005-04-12 23:0=
+0:55.000000000 -0700
+@@ -2325,9 +2325,8 @@ e1000_clean(struct net_device *netdev, i
+=A0=A0=A0=A0=A0=A0=A0 *budget -=3D work_done;
+=A0=A0=A0=A0=A0=A0=A0 netdev->quota -=3D work_done;
+=A0=A0=A0=A0=A0=A0=A0
+-=A0=A0=A0=A0=A0=A0 /* if no Tx and not enough Rx work done, exit the pol=
+ling mode */
+-=A0=A0=A0=A0=A0=A0 if((!tx_cleaned && (work_done < work_to_do)) ||
+-=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 =A0=A0=A0=
+=A0=A0=A0=A0 !netif_running(netdev)) {
++=A0=A0=A0=A0=A0=A0 /* If no Tx and no Rx work done, exit the polling mod=
+e */
++=A0=A0=A0=A0=A0=A0 if ((!tx_cleaned && (work_done =3D=3D 0)) || !netif_r=
+unning(netdev)) {
+=A0=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 netif_rx_complete(netdev);
+=A0=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 e1000_irq_enable(adapter);
+=A0=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 return 0;
