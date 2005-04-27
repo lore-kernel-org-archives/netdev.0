@@ -1,12 +1,9 @@
-From: Bernd Schubert <bernd.schubert@pci.uni-heidelberg.de>
-Subject: list admin? unsubscribing from the list?
-Date: Wed, 27 Apr 2005 16:47:25 +0200
-Message-ID: <200504271647.28759.bernd.schubert@pci.uni-heidelberg.de>
-Reply-To: bernd-schubert@gmx.de
+From: Phil Oester <kernel@linuxace.com>
+Subject: NMI lockup in fib_sync_down
+Date: Wed, 27 Apr 2005 08:42:13 -0700
+Message-ID: <20050427154213.GA18158@linuxace.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Content-Disposition: inline
@@ -14,80 +11,55 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Been trying to upgrade a netfilter box from 2.6.10 to 2.6.11, but
+it panics within a few hours due to an NMI lockup.  2.6.10 never
+exhibits this problem.
 
-several month ago I subscribed to this list and about two moth ago I=20
-unsubscribed again.=20
-About two weeks ago I receiced mail from the list, after unsubscribing ag=
-ain=20
-this stopped. Today I'm again receiving mail from the list, but unsubscri=
-bing=20
-fails:
+There were some fib cleanups done in the 2.6.11-rc series which
+may be related -- any ideas?
 
+Phil
 
-From:=20
-Ecartis <ecartis@oss.sgi.com>
-
-To:=20
-bernd.schubert@tc.pci.uni-heidelberg.de
-
-Date:=20
-Today 16:19:58
-
-Ecartis command results: unsubscribe netdev
-
-List context changed to 'netdev' by following command.
->> unsubscribe netdev
-'Unsubscribe' request denied.
-Your request was rejected for the following reason:
-
-You are not on the list 'netdev'.
-
-
-Valid command was found in subject field, body won't be checked for furth=
-er=20
-commands.
-
-
-The mails are definitely sent to me by netdev:
-
->From bernd  Wed Apr 27 16:39:13 2005
-Return-Path: <netdev-bounce@oss.sgi.com>
-Delivered-To: pci-Bernd.Schubert@tc.pci.uni-heidelberg.de
-Received: from instmail.uni-heidelberg.de [129.206.100.224]
- by localhost with POP3 (fetchmail-5.9.11)
- for bernd@localhost (single-drop); Wed, 27 Apr 2005 16:39:13 +0200 (CEST=
-)
-Received: (qmail 31193 invoked from network); 27 Apr 2005 14:24:26 -0000
-Received: from unknown (HELO relay2.uni-heidelberg.de) (129.206.210.211)
-  by instmail.uni-heidelberg.de with SMTP; 27 Apr 2005 14:24:26 -0000
-Received: from oss.sgi.com (oss.sgi.com [192.48.159.27])
- by relay2.uni-heidelberg.de (8.12.10/8.12.10) with ESMTP id j3REQ1tL0064=
-53
- for <Bernd.Schubert@tc.pci.uni-heidelberg.de>; Wed, 27 Apr 2005 16:26:02=
-=20
-+0200 (MET DST)
-Received: from oss (localhost [127.0.0.1])
- by oss.sgi.com (8.12.10/8.12.10/SuSE Linux 0.7) with ESMTP id j3RENn1O01=
-3725;
- Wed, 27 Apr 2005 07:23:49 -0700
-Received: with ECARTIS (v1.0.0; list netdev); Wed, 27 Apr 2005 07:23:16 -=
-0700=20
-(PDT)
-Received: from arnor.apana.org.au (arnor.apana.org.au [203.14.152.115])
-
-
-So,  Whom should I approach to properly unsubscribe?
-
-
-Thanks,
- Bernd
-
-
---=20
-Bernd Schubert
-Physikalisch Chemisches Institut / Theoretische Chemie
-Universit=E4t Heidelberg
-INF 229
-69120 Heidelberg
-e-mail: bernd.schubert@pci.uni-heidelberg.de
+NMI Watchdog detected LOCKUP on CPU1, eip c026a8d4, registers:
+CPU:    1
+EIP:    0060:[<c026a8d4>]    Not tainted VLI
+EFLAGS: 00001482   (2.6.11) 
+EIP is at fib_sync_down+0x74/0x140
+eax: c11c42f0   ebx: 00001920   ecx: c11c42f8   edx: c11c42f8
+esi: f69327fc   edi: f742d034   ebp: f69327ec   esp: c032ada8
+ds: 007b   es: 007b   ss: 0068
+Process swapper (pid: 0, threadinfo=c032a000 task=c191a530)
+Stack: f7c07934 c1919334 c1919349 f75c1020 f7b94c80 c024440c 00000004 00000304 
+       00000000 c02281ee b6a02450 c11c4241 b6a02174 b6a02450 c11c4241 b6a02174 
+       00000003 00000001 f69327ec c11c42f8 00000002 00000003 00000001 f69327b4 
+Call Trace:
+ [<c024440c>] ip_finish_output2+0xac/0x1b0
+ [<c02281ee>] skb_checksum+0x4e/0x2a0
+ [<c026f863>] tcp_packet+0xe3/0x430
+ [<c0244360>] ip_finish_output2+0x0/0x1b0
+ [<c0240920>] ip_forward_finish+0x0/0x50
+ [<c026d682>] __ip_conntrack_find+0x12/0xe0
+ [<c026df2e>] ip_conntrack_in+0xde/0x290
+ [<c02360d2>] nf_iterate+0x72/0xb0
+ [<c023f510>] ip_rcv_finish+0x0/0x240
+ [<c023f510>] ip_rcv_finish+0x0/0x240
+ [<c0236388>] nf_hook_slow+0x68/0xf0
+ [<c023f510>] ip_rcv_finish+0x0/0x240
+ [<c023f2f2>] ip_rcv+0x3c2/0x480
+ [<c023f510>] ip_rcv_finish+0x0/0x240
+ [<c0226d02>] alloc_skb+0x32/0xd0
+ [<c022cd5a>] netif_receive_skb+0x13a/0x1a0
+ [<c01f50ae>] e1000_clean_rx_irq+0x16e/0x4c0
+ [<c010ff37>] try_to_wake_up+0x237/0x260
+ [<c01f4e6e>] e1000_clean_tx_irq+0x14e/0x220
+ [<c01f4c72>] e1000_clean+0x42/0xf0
+ [<c022cf5f>] net_rx_action+0x7f/0x110
+ [<c0119a16>] __do_softirq+0xb6/0xd0
+ [<c01047aa>] do_softirq+0x4a/0x60
+ =======================
+ [<c010469d>] do_IRQ+0x4d/0x70
+ [<c0102d92>] common_interrupt+0x1a/0x20
+ [<c01004e3>] default_idle+0x23/0x30
+ [<c010058f>] cpu_idle+0x5f/0x70
+Code: 31 ca 48 21 c2 8b 0c 96 85 c9 74 2b 8d 74 26 00 8d bc 27 00 00 00 00 8b 11 0f 18 02 90 8d 41 f8 39 58 24 0f 84 b8 00 00 00 85 d2 <89> d1 75 e8 90 8d b4 26 00 00 00 00 85 ff 74 47 c7 04 24 00 00 
+console shuts up ...
