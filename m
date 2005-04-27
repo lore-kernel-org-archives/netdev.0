@@ -1,46 +1,48 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: patch: policy update by id
-Date: Thu, 28 Apr 2005 09:39:24 +1000
-Message-ID: <20050427233924.GA22238@gondor.apana.org.au>
-References: <1114602874.7670.4.camel@localhost.localdomain> <1114604657.7670.22.camel@localhost.localdomain> <1114604826.7670.24.camel@localhost.localdomain>
+Subject: Re: [PATCH] net: Disable queueing when carrier is lost
+Date: Thu, 28 Apr 2005 09:43:59 +1000
+Message-ID: <20050427234359.GB22238@gondor.apana.org.au>
+References: <E1DQlsn-0005yd-00@gondolin.me.apana.org.au> <426FDF8B.1030808@tpack.net> <20050427214224.GA25325@gondor.apana.org.au> <42701FFD.5000505@tpack.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Cc: davem@davemloft.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jamal Hadi Salim <hadi@znyx.com>
+To: Tommy Christensen <tommy.christensen@tpack.net>
 Content-Disposition: inline
-In-Reply-To: <1114604826.7670.24.camel@localhost.localdomain>
+In-Reply-To: <42701FFD.5000505@tpack.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 27, 2005 at 08:27:06AM -0400, Jamal Hadi Salim wrote:
->
-> --- /usr/src/26117-mod/net/xfrm/xfrm_policy.c	2005/04/27 11:32:13	1.1
-> +++ /usr/src/26117-mod/net/xfrm/xfrm_policy.c	2005/04/27 12:25:24
-> @@ -345,7 +345,9 @@
->  
->  	write_lock_bh(&xfrm_policy_lock);
->  	for (p = &xfrm_policy_list[dir]; (pol=*p)!=NULL;) {
-> -		if (!delpol && memcmp(&policy->selector, &pol->selector, sizeof(pol->selector)) == 0) {
-> +		if (!delpol && 
-> +		((!excl && policy->index && (policy->index == pol->index)) || 
-> +		 (memcmp(&policy->selector, &pol->selector, sizeof(pol->selector)) == 0))) {
+On Thu, Apr 28, 2005 at 01:27:57AM +0200, Tommy Christensen wrote:
+> 
+> Hmm, maybe this is more common than I thought. But do any of these really
+> have a problem? I.e. do they call netif_stop_queue on link down?
+> That's the case I'm trying to address with the patch.
 
-I have no problems with the idea itself.  However, I have a couple of
-minor issues with this patch :)
+You're still assuming that the hardware will continue to drain packets
+when the carrier goes off.  This may be true for a lot of NICs, but it
+is certainly not universal.
+ 
+> This is indeed possible, but hopefully you can agree that this would be
+> a driver bug. As stated above, I'm not trying to solve everything. We
+> have to assume some level of sanity of the drivers. E.g. for a NIC that
+> stalls the TX engine on carrier off, the driver would have to flush the
+> TX ring and either call netif_stop_queue or discard packets in their
+> hard_start_xmit function.  At present, even such well-behaving drivers
+> would hit the problem, because packets were piling up in the qdisc.
 
-First of all please align the continued lines to the if expression, e.g.,
-		if (!delpol && 
-		    (policy->index && (policy->index == pol->index)) || 
+I am not saying that there is nothing to fix.  I'm simply stating
+that doing it in the watchdog is not ideal for two reasons:
 
-Also the excl check doesn't make sense.  You should let the
-following excl check take place after you've found out that
-the indices is identical.
+1) The watchdog is not always there.
+2) The delay introduced by the watchdog is driver-dependent and
+varies wildly.  For the purpose of shutting down the qdisc after
+a carrier off we want everything to use the same delay (if we're
+going to delay at all).
 
->  			if (excl) {
->  				write_unlock_bh(&xfrm_policy_lock);
->  				return -EEXIST;
+So instead of doing it in the watchdog, just do both actions in
+the link_watch worker.
 
 Cheers,
 -- 
