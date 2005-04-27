@@ -1,11 +1,11 @@
 From: Malli Chilakala <mallikarjuna.chilakala@intel.com>
-Subject: [RESEND][PATCH net-drivers-2.4 2/16] e1000: Fix msec-delay definition
- to use msleep (fwd)
-Date: Wed, 27 Apr 2005 11:02:41 -0700 (PDT)
-Message-ID: <Pine.LNX.4.44.0504271102200.17397-100000@isotope.jf.intel.com>
+Subject: [RESEND][PATCH net-drivers-2.4 4/16] e1000:Enable polling before
+ enabling interrupts (fwd)
+Date: Wed, 27 Apr 2005 11:04:06 -0700 (PDT)
+Message-ID: <Pine.LNX.4.44.0504271103450.17397-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: base64
+Content-Transfer-Encoding: quoted-printable
 Cc: "jgarzik@pobox.com" <jgarzik@pobox.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev <netdev@oss.sgi.com>
@@ -13,26 +13,34 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-DQpGaXggbXNlYy1kZWxheSBkZWZpbml0aW9uIGluIGUxMDAwX29zZGVwLmggdG8gdXNlIG1z
-bGVlcA0KDQpTaWduZWQtb2ZmLWJ5OiBNYWxsaWthcmp1bmEgUiBDaGlsYWthbGEgPG1hbGxp
-a2FyanVuYS5jaGlsYWthbGFAaW50ZWwuY29tPg0KU2lnbmVkLW9mZi1ieTogR2FuZXNoIFZl
-bmthdGVzYW4gPGdhbmVzaC52ZW5rYXRlc2FuQGludGVsLmNvbT4NClNpZ25lZC1vZmYtYnk6
-IEpvaG4gUm9uY2lhayA8am9obi5yb25jaWFrQGludGVsLmNvbT4NCg0KZGlmZiAtdXAgbmV0
-LWRyaXZlcnMtMi40L2RyaXZlcnMvbmV0L2UxMDAwL2UxMDAwX29zZGVwLmggbmV0LWRyaXZl
-cnMtMi40L2RyaXZlcnMvbmV0L2UxMDAwLm5ldy9lMTAwMF9vc2RlcC5oDQotLS0gbmV0LWRy
-aXZlcnMtMi40L2RyaXZlcnMvbmV0L2UxMDAwL2UxMDAwX29zZGVwLmigoKCgIDIwMDUtMDQt
-MTIgMjM6MDA6NTMuMDAwMDAwMDAwIC0wNzAwDQorKysgbmV0LWRyaXZlcnMtMi40L2RyaXZl
-cnMvbmV0L2UxMDAwLm5ldy9lMTAwMF9vc2RlcC5oIDIwMDUtMDQtMTIgMjM6MDA6NTUuMDAw
-MDAwMDAwIC0wNzAwDQpAQCAtNDYsOSArNDYsOSBAQA0KoKCgoKCgoCCgoKCgoKCgIKCgoKCg
-oKAgoKCgoKCgoCAvKiBEb24ndCBtZGVsYXkgaW4gaW50ZXJydXB0IGNvbnRleHQhICovIFwN
-CqCgoKCgoKAgoKCgoKCgoKCgoKCgoKCgIKCgoKCgoKAgQlVHKCk7IFwNCqCgoKCgoKAgoKCg
-oKCgoCCgoKCgoKCgIH0gZWxzZSB7IFwNCi2goKCgoKAgoKCgoKCgoCCgoKCgoKCgIKCgoKCg
-oKAgc2V0X2N1cnJlbnRfc3RhdGUoVEFTS19VTklOVEVSUlVQVElCTEUpOyBcDQotoKCgoKCg
-IKCgoKCgoKAgoKCgoKCgoCCgoKCgoKCgIHNjaGVkdWxlX3RpbWVvdXQoKHggKiBIWikvMTAw
-MCArIDIpOyBcDQoroKCgoKCgIKCgoKCgoKAgoKCgoKCgoCCgoKCgoKCgIG1zbGVlcCh4KTsg
-XA0KoKCgoKCgoCCgoKCgoKCgIKCgoKCgoKAgfSB9IHdoaWxlKDApDQorDQqgLyogU29tZSB3
-b3JrYXJvdW5kcyByZXF1aXJlIG1pbGxpc2Vjb25kIGRlbGF5cyBhbmQgYXJlIHJ1biBkdXJp
-bmcgaW50ZXJydXB0DQqgICogY29udGV4dC6gIE1vc3Qgbm90YWJseSwgd2hlbiBlc3RhYmxp
-c2hpbmcgbGluaywgdGhlIHBoeSBtYXkgbmVlZCB0d2Vha2luZw0KoCAqIGJ1dCBjYW5ub3Qg
-cHJvY2VzcyBwaHkgcmVnaXN0ZXIgcmVhZHMvd3JpdGVzIGZhc3RlciB0aGFuIG1pbGxpc2Vj
-b25kDQoNCg0KDQoNCg0K
+
+Enable polling before enabling interrupts -- avoids (in NAPI mode) enteri=
+ng the ISR and returning without doing any work because polling is not en=
+abled.
+[romieu@fr.zoriel.com]
+
+Signed-off-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com=
+>
+Signed-off-by: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
+Signed-off-by: John Ronciak <john.ronciak@intel.com>
+
+diff -up net-drivers-2.4/drivers/net/e1000/e1000_main.c net-drivers-2.4/d=
+rivers/net/e1000.new/e1000_main.c
+--- net-drivers-2.4/drivers/net/e1000/e1000_main.c=A0=A0=A0=A0=A0 2005-04=
+-12 23:00:53.000000000 -0700
++++ net-drivers-2.4/drivers/net/e1000.new/e1000_main.c=A0 2005-04-12 23:0=
+0:55.000000000 -0700
+@@ -325,11 +325,12 @@ e1000_up(struct e1000_adapter *adapter)
+=A0=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 return err;
+=A0
+=A0=A0=A0=A0=A0=A0=A0 mod_timer(&adapter->watchdog_timer, jiffies);
+-=A0=A0=A0=A0=A0=A0 e1000_irq_enable(adapter);
+=A0
+=A0#ifdef CONFIG_E1000_NAPI
+=A0=A0=A0=A0=A0=A0=A0 netif_poll_enable(netdev);
+=A0#endif
++=A0=A0=A0=A0=A0=A0 e1000_irq_enable(adapter);
++
+=A0=A0=A0=A0=A0=A0=A0 return 0;
+=A0}
+=A0
