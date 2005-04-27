@@ -1,52 +1,34 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] net: Disable queueing when carrier is lost
-Date: Thu, 28 Apr 2005 09:43:59 +1000
-Message-ID: <20050427234359.GB22238@gondor.apana.org.au>
-References: <E1DQlsn-0005yd-00@gondolin.me.apana.org.au> <426FDF8B.1030808@tpack.net> <20050427214224.GA25325@gondor.apana.org.au> <42701FFD.5000505@tpack.net>
+From: Bernd Schubert <bernd-schubert@gmx.de>
+Subject: Re: list admin? unsubscribing from the list?
+Date: Thu, 28 Apr 2005 01:50:52 +0200
+Message-ID: <200504280150.52991.bernd-schubert@gmx.de>
+References: <200504271647.28759.bernd.schubert@pci.uni-heidelberg.de> <20050427170850.GA30431@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@oss.sgi.com
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Tommy Christensen <tommy.christensen@tpack.net>
+To: Ralf Baechle <ralf@linux-mips.org>
+In-Reply-To: <20050427170850.GA30431@linux-mips.org>
 Content-Disposition: inline
-In-Reply-To: <42701FFD.5000505@tpack.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 28, 2005 at 01:27:57AM +0200, Tommy Christensen wrote:
-> 
-> Hmm, maybe this is more common than I thought. But do any of these really
-> have a problem? I.e. do they call netif_stop_queue on link down?
-> That's the case I'm trying to address with the patch.
+On Wednesday 27 April 2005 19:08, Ralf Baechle wrote:
+> On Wed, Apr 27, 2005 at 04:47:25PM +0200, Bernd Schubert wrote:
+> > several month ago I subscribed to this list and about two moth ago I
+> > unsubscribed again.
+> > About two weeks ago I receiced mail from the list, after unsubscribing
+> > again this stopped. Today I'm again receiving mail from the list, but
+> > unsubscribing fails:
+>
+> A funny little accident due to oss recently having changed hardware twice
+> after the old machine died - with some chaos following.  I fixed up the
+> subscriber lists, so you should no longer receive email.  Things should
+> to run smoothly now.
 
-You're still assuming that the hardware will continue to drain packets
-when the carrier goes off.  This may be true for a lot of NICs, but it
-is certainly not universal.
- 
-> This is indeed possible, but hopefully you can agree that this would be
-> a driver bug. As stated above, I'm not trying to solve everything. We
-> have to assume some level of sanity of the drivers. E.g. for a NIC that
-> stalls the TX engine on carrier off, the driver would have to flush the
-> TX ring and either call netif_stop_queue or discard packets in their
-> hard_start_xmit function.  At present, even such well-behaving drivers
-> would hit the problem, because packets were piling up in the qdisc.
+Thanks a lot!
 
-I am not saying that there is nothing to fix.  I'm simply stating
-that doing it in the watchdog is not ideal for two reasons:
-
-1) The watchdog is not always there.
-2) The delay introduced by the watchdog is driver-dependent and
-varies wildly.  For the purpose of shutting down the qdisc after
-a carrier off we want everything to use the same delay (if we're
-going to delay at all).
-
-So instead of doing it in the watchdog, just do both actions in
-the link_watch worker.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+  Bernd
