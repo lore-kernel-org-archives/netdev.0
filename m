@@ -1,106 +1,59 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: [BK PATCHES] 2.4.x net driver updates
-Date: Wed, 27 Apr 2005 17:17:50 -0400
-Message-ID: <20050427211750.GA27516@havoc.gtf.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] net: Disable queueing when carrier is lost
+Date: Thu, 28 Apr 2005 07:42:24 +1000
+Message-ID: <20050427214224.GA25325@gondor.apana.org.au>
+References: <E1DQlsn-0005yd-00@gondolin.me.apana.org.au> <426FDF8B.1030808@tpack.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262026AbVD0VST@vger.kernel.org>
-To: Marcelo Tosatti <marcelo.tosatti@cyclades.com>
+Cc: davem@davemloft.net, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Tommy Christensen <tommy.christensen@tpack.net>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <426FDF8B.1030808@tpack.net>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Wed, Apr 27, 2005 at 08:52:59PM +0200, Tommy Christensen wrote:
+> 
+> My theory was this: Almost all drivers should be able to use the generic
+> watchdog (and I believe most of them do). If the "TX stalled" supervision
+> isn't appropriate for some particular driver, e.g. due to unorthodox use
+> of netif_stop_queue, then I didn't want to force my addition on this
+> driver either.
 
-Ditto for net drivers... this is my last 'bk pull' request for you,
-before we both (presumably) switch to git.
+Not having a TX timeout handler doesn't mean that the driver is doing
+something weird.  If you do a grep in drivers/net you'll find loads
+of drivers that don't have TX timeout handlers but their handling of
+stop_queue/start_queue is exactly the same as anybody else.
 
-Please do a
+There's also another problem.  The thing that triggered the original
+discussion is the fact that the socket send buffer was filled up.
+Theoretically, it is possible to exhaust someone's socket buffer
+without filling up a NIC's TX ring.  Assuming that the NIC does not
+transmit at all when the carrier is off, the watchdog would not trigger
+and your application will block anyway.
 
-	bk pull bk://gkernel.bkbits.net/net-drivers-2.4
+> Hooking into dev_watchdog() has the additional benefit of adding some
+> latency, so that a short-break doesn't necessarily trigger the flushing.
 
-This will update the following files:
+I don't think this is too important.  If your link is flapping constantly
+then you've got a serious problem.  If it's just an isolated event then
+whether we do the flush or not isn't going to have a significant impact
+on the system.
 
- drivers/net/bonding/bond_main.c |   15 +++++++++++----
- drivers/net/pcnet32.c           |    3 ++-
- 2 files changed, 13 insertions(+), 5 deletions(-)
+Besides, someone might be watching from user-space and could have taken
+much more drastic actions as a result of the carrier off message which is
+certainly not delayed.
 
-through these ChangeSets:
+> ... unless the HW already takes care of this by draining the packets
+> from the ring buffer, disregarding the link status.
 
-<willy@w.ods.org> (05/03/30 1.1448.129.2)
-   [PATCH] bonding fix
-   
-   It fixes a stack dump when unloading the bonding module in 802.3ad mode
-   if spinlock debugging is turned on, and it was already merged in 2.6.
-   
-   Signed-off-by: Jeff Garzik <jgarzik@pobox.com>
+Although this may be true for a lot of NICs, you can't bank on that.
 
-<brazilnut@us.ibm.com> (05/03/30 1.1448.129.1)
-   [PATCH] pcnet32: 79C975 fiber fix
-   
-   From: "HARDY, Steven" <steven.hardy@astrium.eads.net>
-   
-   I have found a bug in the pcnet32 driver (drivers/net/pcnet32.c)
-   affecting all ethernet cards based on the AMD79C975 chip, using the
-   fiber interface.
-   
-   It's a one line fix, where some config registers get corrupted during
-   initialisation (which stops the Fiber interface working with this chip)
-   
-   This bug was introduced somewhere betweeen 2.4.17 and 2.6.x (noticed
-   whilst upgrading to 2.6), and it may affect other chips too.  I have
-   checked all versions up to 2.6.11-bk6 and they are all broken.
-   
-   Signed-off-by: Andrew Morton <akpm@osdl.org>
-   Signed-off-by: Don Fry <brazilnut@us.ibm.com>
-   Signed-off-by: Jeff Garzik <jgarzik@pobox.com>
-
-diff -Nru a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
---- a/drivers/net/bonding/bond_main.c	2005-04-27 17:16:28 -04:00
-+++ b/drivers/net/bonding/bond_main.c	2005-04-27 17:16:28 -04:00
-@@ -469,6 +469,13 @@
-  *	  * Add support for VLAN hardware acceleration capable slaves.
-  *	  * Add capability to tag self generated packets in ALB/TLB modes.
-  *	  Set version to 2.6.0.
-+ * 2004/10/29 - Mitch Williams <mitch.a.williams at intel dot com>
-+ *	- Fixed bug when unloading module while using 802.3ad.  If
-+ *	  spinlock debugging is turned on, this causes a stack dump.
-+ *	  Solution is to move call to dev_remove_pack outside of the
-+ *	  spinlock.
-+ *	  Set version to 2.6.1.
-+ *
-  */
- 
- //#define BONDING_DEBUG 1
-@@ -3565,14 +3572,14 @@
- {
- 	struct bonding *bond = bond_dev->priv;
- 
--	write_lock_bh(&bond->lock);
--
--	bond_mc_list_destroy(bond);
--
- 	if (bond->params.mode == BOND_MODE_8023AD) {
- 		/* Unregister the receive of LACPDUs */
- 		bond_unregister_lacpdu(bond);
- 	}
-+
-+	write_lock_bh(&bond->lock);
-+
-+	bond_mc_list_destroy(bond);
- 
- 	/* signal timers not to re-arm */
- 	bond->kill_timers = 1;
-diff -Nru a/drivers/net/pcnet32.c b/drivers/net/pcnet32.c
---- a/drivers/net/pcnet32.c	2005-04-27 17:16:28 -04:00
-+++ b/drivers/net/pcnet32.c	2005-04-27 17:16:28 -04:00
-@@ -1348,7 +1348,8 @@
- 	printk(KERN_INFO "%s: registered as %s\n", dev->name, lp->name);
-     cards_found++;
- 
--    a->write_bcr(ioaddr, 2, 0x1002);	/* enable LED writes */
-+    /* enable LED writes */
-+    a->write_bcr(ioaddr, 2, a->read_bcr(ioaddr, 2) | 0x1000);
- 
-     return 0;
- 
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
