@@ -1,284 +1,53 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: [PATCH 2.6 2/6][SCTP] Implement Sec 2.41 of SCTP Implementers guide.
-Date: Tue, 26 Apr 2005 11:32:28 -0700 (PDT)
-Message-ID: <Pine.LNX.4.58.0504261116340.6387@dyn9047018105.beaverton.ibm.com>
+From: Jamal Hadi Salim <hadi@znyx.com>
+Subject: patch: policy update by id
+Date: Wed, 27 Apr 2005 07:54:34 -0400
+Message-ID: <1114602874.7670.4.camel@localhost.localdomain>
+Reply-To: hadi@znyx.com
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: multipart/mixed; boundary="=-hAbxU4CA+qUy6baSQSE7"
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@davemloft.net
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-[SCTP] Implement Sec 2.41 of SCTP Implementers guide.
 
-- Fixed sctp_vtag_verify_either() to comply with impguide 2.41 B) and C).
-- Make sure vtag is reflected when T-bit is set in SHUTDOWN-COMPLETE sent
-  due to an OOTB SHUTDOWN-ACK and in ABORT sent due to an OOTB packet.
-- Do not set T-Bit in ABORT chunk in response to INIT.
-- Fixed some comments to reflect the new meaning of the T-Bit.
+--=-hAbxU4CA+qUy6baSQSE7
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain
 
-Signed-off-by: Jerome Forissier <jerome.forissier@hp.com>
-Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
---------------------------------------------------------------------------
-diff -Nru a/include/net/sctp/sm.h b/include/net/sctp/sm.h
---- a/include/net/sctp/sm.h	2005-04-21 16:20:59 -07:00
-+++ b/include/net/sctp/sm.h	2005-04-21 16:20:59 -07:00
-@@ -407,32 +407,38 @@
- 	return 0;
- }
 
--/* Check VTAG of the packet matches the sender's own tag OR its peer's
-- * tag and the T bit is set in the Chunk Flags.
-+/* Check VTAG of the packet matches the sender's own tag and the T bit is
-+ * not set, OR its peer's tag and the T bit is set in the Chunk Flags.
-  */
- static inline int
- sctp_vtag_verify_either(const struct sctp_chunk *chunk,
- 			const struct sctp_association *asoc)
- {
--        /* RFC 2960 Section 8.5.1, sctpimpguide-06 Section 2.13.2
-+        /* RFC 2960 Section 8.5.1, sctpimpguide Section 2.41
- 	 *
--	 * B) The receiver of a ABORT shall accept the packet if the
--	 * Verification Tag field of the packet matches its own tag OR it
--	 * is set to its peer's tag and the T bit is set in the Chunk
--	 * Flags. Otherwise, the receiver MUST silently discard the packet
--	 * and take no further action.
--	 *
--	 * (C) The receiver of a SHUTDOWN COMPLETE shall accept the
--	 * packet if the Verification Tag field of the packet
--	 * matches its own tag OR it is set to its peer's tag and
--	 * the T bit is set in the Chunk Flags.  Otherwise, the
--	 * receiver MUST silently discard the packet and take no
--	 * further action....
-+	 * B) The receiver of a ABORT MUST accept the packet
-+	 *    if the Verification Tag field of the packet matches its own tag
-+	 *    and the T bit is not set
-+	 *    OR
-+	 *    it is set to its peer's tag and the T bit is set in the Chunk
-+	 *    Flags.
-+	 *    Otherwise, the receiver MUST silently discard the packet
-+	 *    and take no further action.
- 	 *
-+	 * C) The receiver of a SHUTDOWN COMPLETE shall accept the packet
-+	 *    if the Verification Tag field of the packet matches its own tag
-+	 *    and the T bit is not set
-+	 *    OR
-+	 *    it is set to its peer's tag and the T bit is set in the Chunk
-+	 *    Flags.
-+	 *    Otherwise, the receiver MUST silently discard the packet
-+	 *    and take no further action.  An endpoint MUST ignore the
-+	 *    SHUTDOWN COMPLETE if it is not in the SHUTDOWN-ACK-SENT state.
- 	 */
--        if ((ntohl(chunk->sctp_hdr->vtag) == asoc->c.my_vtag) ||
--	    (sctp_test_T_bit(chunk) && (ntohl(chunk->sctp_hdr->vtag)
--	    == asoc->c.peer_vtag))) {
-+        if ((!sctp_test_T_bit(chunk) &&
-+             (ntohl(chunk->sctp_hdr->vtag) == asoc->c.my_vtag)) ||
-+	    (sctp_test_T_bit(chunk) &&
-+	     (ntohl(chunk->sctp_hdr->vtag) == asoc->c.peer_vtag))) {
-                 return 1;
- 	}
+Herbert,
 
-diff -Nru a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
---- a/net/sctp/sm_make_chunk.c	2005-04-21 16:20:59 -07:00
-+++ b/net/sctp/sm_make_chunk.c	2005-04-21 16:20:59 -07:00
-@@ -710,7 +710,9 @@
- 	struct sctp_chunk *retval;
- 	__u8 flags = 0;
+I think this is a reasonable thing to have. I should be able to update
+(just like delete or get) a policy by id. And that it trumps a selector
+when both are specified..
+I am assuming ids are unique - otherwise we have a serious problem.
+If this patch looks good, please add it to your patch collection that
+you are queueing for Dave; btw - is that stuff supposed to show up
+around .13?
 
--	/* Maybe set the T-bit if we have no association. */
-+	/* Set the T-bit if we have no association (vtag will be
-+	 * reflected)
-+	 */
- 	flags |= asoc ? 0 : SCTP_CHUNK_FLAG_T;
+cheers,
+jamal
 
- 	retval = sctp_make_chunk(asoc, SCTP_CID_SHUTDOWN_COMPLETE, flags, 0);
-@@ -732,7 +734,7 @@
- }
+--=-hAbxU4CA+qUy6baSQSE7
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename=polid_p
+Content-Type: text/plain; name=polid_p; charset=UTF-8
 
- /* Create an ABORT.  Note that we set the T bit if we have no
-- * association.
-+ * association, except when responding to an INIT (sctpimpguide 2.41).
-  */
- struct sctp_chunk *sctp_make_abort(const struct sctp_association *asoc,
- 			      const struct sctp_chunk *chunk,
-@@ -741,8 +743,16 @@
- 	struct sctp_chunk *retval;
- 	__u8 flags = 0;
+--- a/net/xfrm/xfrm_policy.c	2005/04/27 11:32:13	1.1
++++ b/net/xfrm/xfrm_policy.c	2005/04/27 11:48:42
+@@ -345,7 +345,9 @@
+ 
+ 	write_lock_bh(&xfrm_policy_lock);
+ 	for (p = &xfrm_policy_list[dir]; (pol=*p)!=NULL;) {
+-		if (!delpol && memcmp(&policy->selector, &pol->selector, sizeof(pol->selector)) == 0) {
++		if (!delpol && 
++		((!excl && policy->id && (policy->id == pol->id)) || 
++		 (memcmp(&policy->selector, &pol->selector, sizeof(pol->selector)) == 0))) {
+ 			if (excl) {
+ 				write_unlock_bh(&xfrm_policy_lock);
+ 				return -EEXIST;
 
--	/* Maybe set the T-bit if we have no association.  */
--	flags |= asoc ? 0 : SCTP_CHUNK_FLAG_T;
-+	/* Set the T-bit if we have no association and 'chunk' is not
-+	 * an INIT (vtag will be reflected).
-+	 */
-+	if (!asoc) {
-+		if (chunk && chunk->chunk_hdr &&
-+		    chunk->chunk_hdr->type == SCTP_CID_INIT)
-+			flags = 0;
-+		else
-+			flags = SCTP_CHUNK_FLAG_T;
-+	}
-
- 	retval = sctp_make_chunk(asoc, SCTP_CID_ABORT, flags, hint);
-
-@@ -2744,7 +2754,6 @@
-
- 	hint = (nstreams + 1) * sizeof(__u32);
-
--	/* Maybe set the T-bit if we have no association.  */
- 	retval = sctp_make_chunk(asoc, SCTP_CID_FWD_TSN, 0, hint);
-
- 	if (!retval)
-diff -Nru a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
---- a/net/sctp/sm_statefuns.c	2005-04-21 16:20:59 -07:00
-+++ b/net/sctp/sm_statefuns.c	2005-04-21 16:20:59 -07:00
-@@ -126,15 +126,18 @@
-  * should stop the T2-shutdown timer and remove all knowledge of the
-  * association (and thus the association enters the CLOSED state).
-  *
-- * Verification Tag: 8.5.1(C)
-+ * Verification Tag: 8.5.1(C), sctpimpguide 2.41.
-  * C) Rules for packet carrying SHUTDOWN COMPLETE:
-  * ...
-- * - The receiver of a SHUTDOWN COMPLETE shall accept the packet if the
-- *   Verification Tag field of the packet matches its own tag OR it is
-- *   set to its peer's tag and the T bit is set in the Chunk Flags.
-- *   Otherwise, the receiver MUST silently discard the packet and take
-- *   no further action. An endpoint MUST ignore the SHUTDOWN COMPLETE if
-- *   it is not in the SHUTDOWN-ACK-SENT state.
-+ * - The receiver of a SHUTDOWN COMPLETE shall accept the packet
-+ *   if the Verification Tag field of the packet matches its own tag and
-+ *   the T bit is not set
-+ *   OR
-+ *   it is set to its peer's tag and the T bit is set in the Chunk
-+ *   Flags.
-+ *   Otherwise, the receiver MUST silently discard the packet
-+ *   and take no further action.  An endpoint MUST ignore the
-+ *   SHUTDOWN COMPLETE if it is not in the SHUTDOWN-ACK-SENT state.
-  *
-  * Inputs
-  * (endpoint, asoc, chunk)
-@@ -2858,16 +2861,16 @@
- /*
-  * Generate an ABORT in response to a packet.
-  *
-- * Section: 8.4 Handle "Out of the blue" Packets
-+ * Section: 8.4 Handle "Out of the blue" Packets, sctpimpguide 2.41
-  *
-- * 8) The receiver should respond to the sender of the OOTB packet
-- *    with an ABORT.  When sending the ABORT, the receiver of the
-- *    OOTB packet MUST fill in the Verification Tag field of the
-- *    outbound packet with the value found in the Verification Tag
-- *    field of the OOTB packet and set the T-bit in the Chunk Flags
-- *    to indicate that no TCB was found.  After sending this ABORT,
-- *    the receiver of the OOTB packet shall discard the OOTB packet
-- *    and take no further action.
-+ * 8) The receiver should respond to the sender of the OOTB packet with
-+ *    an ABORT.  When sending the ABORT, the receiver of the OOTB packet
-+ *    MUST fill in the Verification Tag field of the outbound packet
-+ *    with the value found in the Verification Tag field of the OOTB
-+ *    packet and set the T-bit in the Chunk Flags to indicate that the
-+ *    Verification Tag is reflected.  After sending this ABORT, the
-+ *    receiver of the OOTB packet shall discard the OOTB packet and take
-+ *    no further action.
-  *
-  * Verification Tag:
-  *
-@@ -2895,6 +2898,10 @@
- 			return SCTP_DISPOSITION_NOMEM;
- 		}
-
-+		/* Reflect vtag if T-Bit is set */
-+		if (sctp_test_T_bit(abort))
-+			packet->vtag = ntohl(chunk->sctp_hdr->vtag);
-+
- 		/* Set the skb to the belonging sock for accounting.  */
- 		abort->skb->sk = ep->base.sk;
-
-@@ -3026,22 +3033,24 @@
- }
-
- /*
-- * RFC 2960, 8.4 - Handle "Out of the blue" Packets
-+ * RFC 2960, 8.4 - Handle "Out of the blue" Packets, sctpimpguide 2.41.
-+ *
-  * 5) If the packet contains a SHUTDOWN ACK chunk, the receiver should
-  *    respond to the sender of the OOTB packet with a SHUTDOWN COMPLETE.
-  *    When sending the SHUTDOWN COMPLETE, the receiver of the OOTB
-  *    packet must fill in the Verification Tag field of the outbound
-  *    packet with the Verification Tag received in the SHUTDOWN ACK and
-- *    set the T-bit in the Chunk Flags to indicate that no TCB was
-- *    found. Otherwise,
-+ *    set the T-bit in the Chunk Flags to indicate that the Verification
-+ *    Tag is reflected.
-  *
-  * 8) The receiver should respond to the sender of the OOTB packet with
-  *    an ABORT.  When sending the ABORT, the receiver of the OOTB packet
-  *    MUST fill in the Verification Tag field of the outbound packet
-  *    with the value found in the Verification Tag field of the OOTB
-- *    packet and set the T-bit in the Chunk Flags to indicate that no
-- *    TCB was found.  After sending this ABORT, the receiver of the OOTB
-- *    packet shall discard the OOTB packet and take no further action.
-+ *    packet and set the T-bit in the Chunk Flags to indicate that the
-+ *    Verification Tag is reflected.  After sending this ABORT, the
-+ *    receiver of the OOTB packet shall discard the OOTB packet and take
-+ *    no further action.
-  */
- sctp_disposition_t sctp_sf_ootb(const struct sctp_endpoint *ep,
- 				const struct sctp_association *asoc,
-@@ -3090,13 +3099,15 @@
- /*
-  * Handle an "Out of the blue" SHUTDOWN ACK.
-  *
-- * Section: 8.4 5)
-+ * Section: 8.4 5, sctpimpguide 2.41.
-+ *
-  * 5) If the packet contains a SHUTDOWN ACK chunk, the receiver should
-- *   respond to the sender of the OOTB packet with a SHUTDOWN COMPLETE.
-- *   When sending the SHUTDOWN COMPLETE, the receiver of the OOTB packet
-- *   must fill in the Verification Tag field of the outbound packet with
-- *   the Verification Tag received in the SHUTDOWN ACK and set the
-- *   T-bit in the Chunk Flags to indicate that no TCB was found.
-+ *    respond to the sender of the OOTB packet with a SHUTDOWN COMPLETE.
-+ *    When sending the SHUTDOWN COMPLETE, the receiver of the OOTB
-+ *    packet must fill in the Verification Tag field of the outbound
-+ *    packet with the Verification Tag received in the SHUTDOWN ACK and
-+ *    set the T-bit in the Chunk Flags to indicate that the Verification
-+ *    Tag is reflected.
-  *
-  * Inputs
-  * (endpoint, asoc, type, arg, commands)
-@@ -3128,6 +3139,10 @@
- 			return SCTP_DISPOSITION_NOMEM;
- 		}
-
-+		/* Reflect vtag if T-Bit is set */
-+		if (sctp_test_T_bit(shut))
-+			packet->vtag = ntohl(chunk->sctp_hdr->vtag);
-+
- 		/* Set the skb to the belonging sock for accounting.  */
- 		shut->skb->sk = ep->base.sk;
-
-@@ -3591,7 +3606,6 @@
-  *
-  * 2) If the OOTB packet contains an ABORT chunk, the receiver MUST
-  *    silently discard the OOTB packet and take no further action.
-- *    Otherwise,
-  *
-  * Verification Tag: No verification necessary
-  *
-@@ -4961,6 +4975,11 @@
- 			sctp_ootb_pkt_free(packet);
- 			return NULL;
- 		}
-+
-+		/* Reflect vtag if T-Bit is set */
-+		if (sctp_test_T_bit(abort))
-+			packet->vtag = ntohl(chunk->sctp_hdr->vtag);
-+
- 		/* Add specified error causes, i.e., payload, to the
- 		 * end of the chunk.
- 		 */
+--=-hAbxU4CA+qUy6baSQSE7--
