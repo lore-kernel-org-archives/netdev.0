@@ -1,35 +1,25 @@
 From: Malli Chilakala <mallikarjuna.chilakala@intel.com>
-Subject: [PATCH net-drivers-2.6 4/11] ixgb: Mask RXO interrupt (fwd)
-Date: Mon, 25 Apr 2005 12:35:42 -0700 (PDT)
-Message-ID: <Pine.LNX.4.44.0504251235270.19610-100000@isotope.jf.intel.com>
+Subject: [RESEND][PATCH net-drivers-2.6 0/6] e100: driver update (fwd)
+Date: Wed, 27 Apr 2005 10:33:59 -0700 (PDT)
+Message-ID: <Pine.LNX.4.44.0504271033030.16686-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev@oss.sgi.com>
+Content-Transfer-Encoding: quoted-printable
+Cc: "jgarzik@pobox.com" <jgarzik@pobox.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "jgarzik@pobox.com" <jgarzik@pobox.com>
+To: netdev <netdev@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-RGlzYWJsZSBSWE8gaW50ZXJydXB0IHRvIGRlY3JlYXNlIHJlY292ZXJ5IHRpbWUgd2hlbiBz
-eXN0ZW0gaXMgb3ZlcmxvYWRlZCB3aXRoIGRhdGENCg0KU2lnbmVkLW9mZi1ieTogTWFsbGlr
-YXJqdW5hIFIgQ2hpbGFrYWxhIDxtYWxsaWthcmp1bmEuY2hpbGFrYWxhQGludGVsLmNvbT4N
-ClNpZ25lZC1vZmYtYnk6IEdhbmVzaCBWZW5rYXRlc2FuIDxnYW5lc2gudmVua2F0ZXNhbkBp
-bnRlbC5jb20+DQpTaWduZWQtb2ZmLWJ5OiBKb2huIFJvbmNpYWsgPGpvaG4ucm9uY2lha0Bp
-bnRlbC5jb20+DQpkaWZmIC11cCBuZXQtZHJpdmVycy0yLjYvZHJpdmVycy9uZXQvaXhnYi9p
-eGdiX21haW4uYyBuZXQtZHJpdmVycy0yLjYvZHJpdmVycy9uZXQvaXhnYi5uZXcvaXhnYl9t
-YWluLmMNCi0tLSBuZXQtZHJpdmVycy0yLjYvZHJpdmVycy9uZXQvaXhnYi9peGdiX21haW4u
-Y6CgoKCgoKAgMjAwNS0wNC0wNSAyMzowNjozNi4zMzIyMjk0NTYgLTA3MDANCisrKyBuZXQt
-ZHJpdmVycy0yLjYvZHJpdmVycy9uZXQvaXhnYi5uZXcvaXhnYl9tYWluLmOgoKAgMjAwNS0w
-NC0wNSAyMzowNjozOC4yODM5MzI3NTIgLTA3MDANCkBAIC0yMjQsOCArMjI0LDggQEAgaXhn
-Yl9pcnFfZW5hYmxlKHN0cnVjdCBpeGdiX2FkYXB0ZXIgKmFkYQ0KoHsNCqCgoKCgoKAgaWYo
-YXRvbWljX2RlY19hbmRfdGVzdCgmYWRhcHRlci0+aXJxX3NlbSkpIHsNCqCgoKCgoKAgoKCg
-oKCgoCBJWEdCX1dSSVRFX1JFRygmYWRhcHRlci0+aHcsIElNUywNCi2goKCgoKAgoKCgoKCg
-oCCgoKCgoKCgIKCgIElYR0JfSU5UX1JYVDAgfCBJWEdCX0lOVF9SWERNVDAgfCBJWEdCX0lO
-VF9UWERXIHwNCi2goKCgoKAgoKCgoKCgoCCgoKCgoKCgIKCgIElYR0JfSU5UX1JYTyB8IElY
-R0JfSU5UX0xTQyk7DQoroKCgoKCgIKCgoKCgoKAgoKCgoKCgoCCgoKCgoKAgSVhHQl9JTlRf
-UlhUMCB8IElYR0JfSU5UX1JYRE1UMCB8IElYR0JfSU5UX1RYRFcgfA0KK6CgoKCgoCCgoKCg
-oKCgIKCgoKCgoKAgoKCgoKCgIElYR0JfSU5UX0xTQyk7DQqgoKCgoKCgIKCgoKCgoKAgSVhH
-Ql9XUklURV9GTFVTSCgmYWRhcHRlci0+aHcpOw0KoKCgoKCgoCB9DQqgfQ0KDQoNCg0KDQoN
-Cg==
+Signed-off-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com=
+>
+Signed-off-by: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
+Signed-off-by: John Ronciak <john.ronciak@intel.com>
+=A0
+1. Execute tx_timeout task outside the interrupt context
+2. Render e100 NAPI state machine to be similar to the non-NAPI one.
+3. Synchronize interface link state with e100 poll routine.
+4. Fix wake on lan related issues
+5. Performance optimizations to e100 Tx path
+6. Driver version, white space, comments, device id & other
