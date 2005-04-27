@@ -1,51 +1,47 @@
-From: Russell King <rmk@arm.linux.org.uk>
-Subject: Badness in cache_free_debugcheck at linux/mm/slab.c:1909
-Date: Wed, 27 Apr 2005 15:05:18 +0100
-Message-ID: <20050427150518.A15989@flint.arm.linux.org.uk>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 2.6.12-rc2] bonding: partially back out dev_set_mac_address
+Date: Wed, 27 Apr 2005 12:15:11 +1000
+Message-ID: <20050427021511.GA19353@gondor.apana.org.au>
+References: <20050426111845.GA8968@gondor.apana.org.au> <200504270209.j3R291ml007431@death.nxdomain.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
+        jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Jay Vosburgh <fubar@us.ibm.com>
 Content-Disposition: inline
+In-Reply-To: <200504270209.j3R291ml007431@death.nxdomain.ibm.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Tue, Apr 26, 2005 at 07:09:01PM -0700, Jay Vosburgh wrote:
+>
+> >dev_ioctl => bond_enslave => bond_check_dev_link => slave_dev->ioctl
+> 
+> 	Why would it deadlock?  dev_ioctl holds RTNL, bonding grabs
+> various bond locks, and the slave device ioctl handler may or may not
+> get a lock of its own.  
 
-This pretty much sums up the problem:
+I get it now.  I had thought that it was calling sys_ioctl but it's
+going direct to slave_dev->ioctl which bypasses the rtnl.
 
-Badness in cache_free_debugcheck at linux/mm/slab.c:1909
-[<c0067d50>] (cache_free_debugcheck+0x0/0x24c) from [<c00689c4>] (kmem_cache_free+0x3c/0xb0)
- r8 = A0000013  r7 = C0A5E198  r6 = C7C9A220  r5 = C7C995C0
- r4 = C018435C
-[<c0068988>] (kmem_cache_free+0x0/0xb0) from [<c018435c>] (sk_free+0xc0/0x114)
- r8 = C002A4C4  r7 = C64690C4  r6 = C03F6494  r5 = 00000000
- r4 = C0A5E198
-[<c018429c>] (sk_free+0x0/0x114) from [<c01cc27c>] (inet_release+0x60/0x68)
- r5 = C474370C  r4 = C0A5E198
-[<c01cc21c>] (inet_release+0x0/0x68) from [<c01816ac>] (sock_release+0x28/0xb0)
- r5 = C474370C  r4 = 00000000
-[<c0181684>] (sock_release+0x0/0xb0) from [<c01822ac>] (sock_close+0x38/0x44)
- r5 = C4743730  r4 = C4743730
-[<c0182274>] (sock_close+0x0/0x44) from [<c007e404>] (__fput+0x58/0x140)
- r4 = C4EFEEC4
-[<c007e3ac>] (__fput+0x0/0x140) from [<c007cc74>] (filp_close+0x84/0x90)
- r7 = 00000006  r6 = C3E96DA0  r5 = 00000000  r4 = C4EFEEC4
-[<c007cbf0>] (filp_close+0x0/0x90) from [<c002a340>] (ret_fast_syscall+0x0/0x2c) r6 = 00000006  r5 = FFFFFFFF  r4 = 00000006
-mismatch in kmem_cache_free: expected cache c7d57820, got c7c995c0
-c7c995c0 is TCP.
-c7d57820 is TCPv6.
+So the bond_enslave path is safe but the timer path isn't as you
+noted previously.
 
-At a guess, what's happening is that the socket is initially owned by
-tcpv6, so the struct sock is allocated in the TCPv6 slab.
+> >For the amount of work that these timers are doing, the overhead is
+> >pretty small.  It is also gentler on the system when the CPU load
+> >goes up.
+> 
+> 	Just so I'm clear: by "the overhead" do you mean the overhead of
+> running everything in a work queue, or the overhead of calling out from
+> a timer to a work queue for "special occasions"?
 
-A userspace program is probably doing an ADDRFORM sockopt, converting
-it to a TCP socket.  At a later time, we free the socket using the
-new sk->sk_prot slabs - which would be the TCP slab.
+I'm referring to running everything out of a work queue.
 
-The above messages are from 2.6.12-rc2, but the above diagnosis came
-from a quick look at the 2.6.12-rc3 sources.
-
+Cheers,
 -- 
-Russell King
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
