@@ -1,48 +1,39 @@
-From: Jamal Hadi Salim <hadi@znyx.com>
-Subject: Re: patch: policy update by id
-Date: Wed, 27 Apr 2005 08:27:06 -0400
-Message-ID: <1114604826.7670.24.camel@localhost.localdomain>
-References: <1114602874.7670.4.camel@localhost.localdomain>
-	 <1114604657.7670.22.camel@localhost.localdomain>
-Reply-To: hadi@znyx.com
+From: Andi Kleen <ak@muc.de>
+Subject: network manpages was Re: is UDP_CORK "real"
+Date: 27 Apr 2005 14:26:48 +0200
+Message-ID: <20050427122648.GA12597@muc.de>
+References: <426833F0.9010803@hp.com> <m1u0lty7uh.fsf@muc.de> <426F2A1D.10001@aarnet.edu.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-zfQAy5DITNpt42sShRMm"
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <1114604657.7670.22.camel@localhost.localdomain>
+Date: Wed, 27 Apr 2005 14:26:48 +0200
+To: Glen Turner <glen.turner@aarnet.edu.au>
+Content-Disposition: inline
+In-Reply-To: <426F2A1D.10001@aarnet.edu.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Wed, Apr 27, 2005 at 03:28:53PM +0930, Glen Turner wrote:
+> Please mail me with what you think is required here.  I've
+> been getting grief from our high performance users on
+> exactly this point (and the sysctl maze of twisty options)
 
---=-zfQAy5DITNpt42sShRMm
-Content-Transfer-Encoding: 7bit
-Content-Type: text/plain
+sysctl is mostly documented in Documentation/*.  
+Also the sysctls change sometimes, so I am not sure it is a good idea
+to put them into the manpages which are supposed to be more version
+independent.  At least I would only put the more important ones there.
 
+In particular the ipv6 protocol manpage needs a rewrite, it was only a 
+relatively poor quick&dirty job. For the others it would be probably
+sufficient to just check what new ioctls/socket options are missing
+and document them and perhaps check if the NOTES/BUGS caveats still
+apply. An sctp manpage is also lacking I think, that was a completely
+new protocol.
 
-dammit. here it is now compiling ;->
+It would be nice of course if David could enforce a policy
+to require a manpage patch for new ioctls/socket options etc.
+in the future, then such documentation lag would not happen.
 
-cheers,
-jamal
-
---=-zfQAy5DITNpt42sShRMm
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename=polid_p
-Content-Type: text/plain; name=polid_p; charset=utf-8
-
---- /usr/src/26117-mod/net/xfrm/xfrm_policy.c	2005/04/27 11:32:13	1.1
-+++ /usr/src/26117-mod/net/xfrm/xfrm_policy.c	2005/04/27 12:25:24
-@@ -345,7 +345,9 @@
- 
- 	write_lock_bh(&xfrm_policy_lock);
- 	for (p = &xfrm_policy_list[dir]; (pol=*p)!=NULL;) {
--		if (!delpol && memcmp(&policy->selector, &pol->selector, sizeof(pol->selector)) == 0) {
-+		if (!delpol && 
-+		((!excl && policy->index && (policy->index == pol->index)) || 
-+		 (memcmp(&policy->selector, &pol->selector, sizeof(pol->selector)) == 0))) {
- 			if (excl) {
- 				write_unlock_bh(&xfrm_policy_lock);
- 				return -EEXIST;
-
---=-zfQAy5DITNpt42sShRMm--
+-Andi
