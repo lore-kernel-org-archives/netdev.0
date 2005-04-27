@@ -1,47 +1,93 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 2.6.12-rc2] bonding: partially back out dev_set_mac_address
-Date: Wed, 27 Apr 2005 12:15:11 +1000
-Message-ID: <20050427021511.GA19353@gondor.apana.org.au>
-References: <20050426111845.GA8968@gondor.apana.org.au> <200504270209.j3R291ml007431@death.nxdomain.ibm.com>
+From: Bernd Schubert <bernd.schubert@pci.uni-heidelberg.de>
+Subject: list admin? unsubscribing from the list?
+Date: Wed, 27 Apr 2005 16:47:25 +0200
+Message-ID: <200504271647.28759.bernd.schubert@pci.uni-heidelberg.de>
+Reply-To: bernd-schubert@gmx.de
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
-        jgarzik@pobox.com
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jay Vosburgh <fubar@us.ibm.com>
+To: netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <200504270209.j3R291ml007431@death.nxdomain.ibm.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 26, 2005 at 07:09:01PM -0700, Jay Vosburgh wrote:
->
-> >dev_ioctl => bond_enslave => bond_check_dev_link => slave_dev->ioctl
-> 
-> 	Why would it deadlock?  dev_ioctl holds RTNL, bonding grabs
-> various bond locks, and the slave device ioctl handler may or may not
-> get a lock of its own.  
+Hi,
 
-I get it now.  I had thought that it was calling sys_ioctl but it's
-going direct to slave_dev->ioctl which bypasses the rtnl.
+several month ago I subscribed to this list and about two moth ago I=20
+unsubscribed again.=20
+About two weeks ago I receiced mail from the list, after unsubscribing ag=
+ain=20
+this stopped. Today I'm again receiving mail from the list, but unsubscri=
+bing=20
+fails:
 
-So the bond_enslave path is safe but the timer path isn't as you
-noted previously.
 
-> >For the amount of work that these timers are doing, the overhead is
-> >pretty small.  It is also gentler on the system when the CPU load
-> >goes up.
-> 
-> 	Just so I'm clear: by "the overhead" do you mean the overhead of
-> running everything in a work queue, or the overhead of calling out from
-> a timer to a work queue for "special occasions"?
+From:=20
+Ecartis <ecartis@oss.sgi.com>
 
-I'm referring to running everything out of a work queue.
+To:=20
+bernd.schubert@tc.pci.uni-heidelberg.de
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Date:=20
+Today 16:19:58
+
+Ecartis command results: unsubscribe netdev
+
+List context changed to 'netdev' by following command.
+>> unsubscribe netdev
+'Unsubscribe' request denied.
+Your request was rejected for the following reason:
+
+You are not on the list 'netdev'.
+
+
+Valid command was found in subject field, body won't be checked for furth=
+er=20
+commands.
+
+
+The mails are definitely sent to me by netdev:
+
+>From bernd  Wed Apr 27 16:39:13 2005
+Return-Path: <netdev-bounce@oss.sgi.com>
+Delivered-To: pci-Bernd.Schubert@tc.pci.uni-heidelberg.de
+Received: from instmail.uni-heidelberg.de [129.206.100.224]
+ by localhost with POP3 (fetchmail-5.9.11)
+ for bernd@localhost (single-drop); Wed, 27 Apr 2005 16:39:13 +0200 (CEST=
+)
+Received: (qmail 31193 invoked from network); 27 Apr 2005 14:24:26 -0000
+Received: from unknown (HELO relay2.uni-heidelberg.de) (129.206.210.211)
+  by instmail.uni-heidelberg.de with SMTP; 27 Apr 2005 14:24:26 -0000
+Received: from oss.sgi.com (oss.sgi.com [192.48.159.27])
+ by relay2.uni-heidelberg.de (8.12.10/8.12.10) with ESMTP id j3REQ1tL0064=
+53
+ for <Bernd.Schubert@tc.pci.uni-heidelberg.de>; Wed, 27 Apr 2005 16:26:02=
+=20
++0200 (MET DST)
+Received: from oss (localhost [127.0.0.1])
+ by oss.sgi.com (8.12.10/8.12.10/SuSE Linux 0.7) with ESMTP id j3RENn1O01=
+3725;
+ Wed, 27 Apr 2005 07:23:49 -0700
+Received: with ECARTIS (v1.0.0; list netdev); Wed, 27 Apr 2005 07:23:16 -=
+0700=20
+(PDT)
+Received: from arnor.apana.org.au (arnor.apana.org.au [203.14.152.115])
+
+
+So,  Whom should I approach to properly unsubscribe?
+
+
+Thanks,
+ Bernd
+
+
+--=20
+Bernd Schubert
+Physikalisch Chemisches Institut / Theoretische Chemie
+Universit=E4t Heidelberg
+INF 229
+69120 Heidelberg
+e-mail: bernd.schubert@pci.uni-heidelberg.de
