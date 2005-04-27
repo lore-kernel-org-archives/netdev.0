@@ -1,61 +1,73 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [1/1] connector/CBUS: new messaging subsystem. Revision number
-	next.
-Date: Wed, 27 Apr 2005 10:08:36 +0400
-Message-ID: <1114582116.14282.25.camel@uganda>
-References: <20050411125932.GA19538@uganda.factory.vocord.ru>
-	 <200504270016.34002.dtor_core@ameritech.net>
-	 <1114579926.14282.16.camel@uganda>
-	 <200504270046.41042.dtor_core@ameritech.net>
-Reply-To: johnpol@2ka.mipt.ru
+From: Nicolas DICHTEL <nicolas.dichtel@6wind.com>
+Subject: Re: Question about QOS
+Date: Wed, 27 Apr 2005 09:44:48 +0200
+Message-ID: <426F42F0.9020609@6wind.com>
+References: <426E06F1.9000105@6wind.com> <20050426125955.GT577@postel.suug.ch> <426E56DC.7000108@6wind.com> <20050426191454.GU577@postel.suug.ch>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-vFoTmKJ8c4En+UikOrm6"
-Cc: netdev@oss.sgi.com, Greg KH <greg@kroah.com>,
-	Jamal Hadi Salim <hadi@cyberus.ca>,
-	Kay Sievers <kay.sievers@vrfy.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	James Morris <jmorris@redhat.com>,
-	Guillaume Thouvenin <guillaume.thouvenin@bull.net>,
-	linux-kernel@vger.kernel.org, Andrew Morton <akpm@osdl.org>,
-	Thomas Graf <tgraf@suug.ch>, Jay Lan <jlan@engr.sgi.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261608AbVD0GBl@vger.kernel.org>
-To: Dmitry Torokhov <dtor_core@ameritech.net>
-In-Reply-To: <200504270046.41042.dtor_core@ameritech.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------000304030909050602090302"
+Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050426191454.GU577@postel.suug.ch>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This is a multi-part message in MIME format.
+--------------000304030909050602090302
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
---=-vFoTmKJ8c4En+UikOrm6
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
 
-On Wed, 2005-04-27 at 00:46 -0500, Dmitry Torokhov wrote:
+>Yes I agree, it doesn't really matter what value we return and `bound'
+>is most likely to be correct. I think we should also fix the unlikely
+>but still possible case when tv1.tv_usec is slightly smaller than
+>tv2.tv_usec. I know it is very unlikely but do_gettimeofday really
+>is not that reliable and we have users which rely on a positive
+>delta. Can you extend your patch to return abs(delta) for case 0
+>in PSCHED_TDIFF_SAFE?
+>-
+>To unsubscribe from this list: send the line "unsubscribe linux-net" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>  
+>
+You're right. Here is the new patch.
 
-> into callback queue. Hmm, might be useful if it was, for implementing
-> various kinds of in-kernel notifications.
+[SCHED] Fix range in PSCHED_TDIFF_SAFE to 0..bound
 
-There was implementation for that, but I dropped it due to broken code
-[fix was simple, but there is issue number 2]
-and I think it may end up in various microkerel-alike message queues.
-Since I worked too much with projects that are based on such design,
-so I afraid it will be very bad to allow such using in Linux kernel.
-Although it can be compile-time or something...
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
---=20
-        Evgeniy Polyakov
 
-Crash is better than data corruption -- Arthur Grabowski
+--------------000304030909050602090302
+Content-Type: text/plain;
+ name="x.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x.diff"
 
---=-vFoTmKJ8c4En+UikOrm6
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
+diff -Nru linux-2.6-a/include/net/pkt_sched.h linux-2.6-b/include/net/pkt_sched.h
+--- linux-2.6-a/include/net/pkt_sched.h	2005-04-26 15:45:07.000000000 +0200
++++ linux-2.6-b/include/net/pkt_sched.h	2005-04-27 09:36:23.421634576 +0200
+@@ -140,7 +140,7 @@
+ 	if (bound <= 1000000 || delta_sec > (0x7FFFFFFF/1000000)-1)
+ 		return bound;
+ 	delta = delta_sec * 1000000;
+-	if (delta > bound)
++	if (delta > bound || delta < 0)
+ 		delta = bound;
+ 	return delta;
+ }
+@@ -156,7 +156,8 @@
+ 		   __delta += 1000000; \
+ 	   case 1: \
+ 		   __delta += 1000000; \
+-	   case 0: ; \
++	   case 0: \
++		   __delta = abs(__delta); \
+ 	   } \
+ 	   __delta; \
+ })
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.6 (GNU/Linux)
-
-iD8DBQBCbyxkIKTPhE+8wY0RAr9oAJ0cfP93igGWrGw9lxnt8/z1zLZD5ACeIEr4
-aDWPAjPDKW1Aqt4xff0MOd4=
-=2d1b
------END PGP SIGNATURE-----
-
---=-vFoTmKJ8c4En+UikOrm6--
+--------------000304030909050602090302--
