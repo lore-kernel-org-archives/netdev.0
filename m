@@ -1,37 +1,44 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: patch: policy update by id
-Date: Wed, 27 Apr 2005 08:52:08 -0400
-Message-ID: <1114606328.7670.29.camel@localhost.localdomain>
-References: <1114602874.7670.4.camel@localhost.localdomain>
-	 <426F830E.4060404@trash.net>
-	 <1114604912.7670.25.camel@localhost.localdomain>
-Reply-To: hadi@cyberus.ca
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH 2.6.12-rc2] bonding: partially back out dev_set_mac_address
+Date: Tue, 26 Apr 2005 19:09:01 -0700
+Message-ID: <200504270209.j3R291ml007431@death.nxdomain.ibm.com>
+References: <herbert@gondor.apana.org.au>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
+        jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <1114604912.7670.25.camel@localhost.localdomain>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: Message from Herbert Xu <herbert@gondor.apana.org.au>
+   of "Tue, 26 Apr 2005 21:18:45 +1000." <20050426111845.GA8968@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2005-27-04 at 08:28 -0400, Jamal Hadi Salim wrote:
-> On Wed, 2005-27-04 at 14:18 +0200, Patrick McHardy wrote:
-> 
-> > struct xfrm_policy doesn't have an id member in my tree. Did I miss
-> > something or do you mean to use index?
-> > 
-> 
-> I meant index, sorry. I am going to give it a quick test in about 3
-> minutes.
-> 
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
+[...]
+>Indeed.  But how can this stuff work at all? Surely if use_carrier is
+>disabled while miimon is enabled we should get a dead-lock as soon as
+>this call chain is run:
+>
+>dev_ioctl => bond_enslave => bond_check_dev_link => slave_dev->ioctl
 
-Sorry, cant test, have to rush to work - and it looks like the
-priorities may interfere. I will test when i get back home. It also
-appears there may be a bug in ip x.
+	Why would it deadlock?  dev_ioctl holds RTNL, bonding grabs
+various bond locks, and the slave device ioctl handler may or may not
+get a lock of its own.  
 
+>> 	It is better, performance-wise, to run the "main" part of the
+>> link monitoring in a timer, and then call out to a work queue only for
+>> those operations that need a context?  I.e., how expensive are work
+>> queues compared to timers?
+>
+>For the amount of work that these timers are doing, the overhead is
+>pretty small.  It is also gentler on the system when the CPU load
+>goes up.
 
-cheers,
-jamal
+	Just so I'm clear: by "the overhead" do you mean the overhead of
+running everything in a work queue, or the overhead of calling out from
+a timer to a work queue for "special occasions"?
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
