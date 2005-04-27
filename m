@@ -1,58 +1,61 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: Question about QOS
-Date: Wed, 27 Apr 2005 13:42:16 +0200
-Message-ID: <20050427114216.GV577@postel.suug.ch>
-References: <426E06F1.9000105@6wind.com> <20050426125955.GT577@postel.suug.ch> <426E56DC.7000108@6wind.com> <20050426191454.GU577@postel.suug.ch> <426F42F0.9020609@6wind.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Re-routing packets via netfilter (ip_rt_bug)
+Date: Wed, 27 Apr 2005 21:54:14 +1000
+Message-ID: <20050427115414.GA22562@gondor.apana.org.au>
+References: <426D8672.1030001@trash.net>
+	<20050426003925.GA13650@gondor.apana.org.au>
+	<426E3F67.8090006@trash.net>
+	<20050426232857.GA18358@gondor.apana.org.au>
+	<426EE350.1070902@trash.net>
+	<20050427010730.GA18919@gondor.apana.org.au>
+	<426F68C5.4010109@trash.net>
+	<20050427103056.GB22099@gondor.apana.org.au>
+	<Pine.LNX.4.58.0504271237350.4795@blackhole.kfki.hu>
+	<20050427113542.GB22433@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Nicolas DICHTEL <nicolas.dichtel@6wind.com>
+Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org,
+	Patrick McHardy <kaber@trash.net>, linux-kernel@vger.kernel.org,
+	Yair@arx.com
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 Content-Disposition: inline
-In-Reply-To: <426F42F0.9020609@6wind.com>
-Sender: linux-net-owner@vger.kernel.org
+In-Reply-To: <20050427113542.GB22433@gondor.apana.org.au>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-* Nicolas DICHTEL <426F42F0.9020609@6wind.com> 2005-04-27 09:44
+On Wed, Apr 27, 2005 at 09:35:42PM +1000, herbert wrote:
+>
+> > Besides the REJECT target, TARPIT in patch-o-matic-ng also generates
+> > packets with non-local source addresses. We cannot assume that REJECT is
+> > the only one which can create such packets.
 > 
-> >Yes I agree, it doesn't really matter what value we return and `bound'
-> >is most likely to be correct. I think we should also fix the unlikely
-> >but still possible case when tv1.tv_usec is slightly smaller than
-> >tv2.tv_usec. I know it is very unlikely but do_gettimeofday really
-> >is not that reliable and we have users which rely on a positive
-> >delta. Can you extend your patch to return abs(delta) for case 0
-> >in PSCHED_TDIFF_SAFE?
-> >
-> You're right. Here is the new patch.
-> 
-> [SCHED] Fix range in PSCHED_TDIFF_SAFE to 0..bound
-> 
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Any reason why it can't be fed through the FORWARD chain as opposed
+> to LOCAL_OUT? In general, is there anything that's generating packets
+> with foreign addresses that can't be fed through FORWARD?
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
+Here is another reason why these packets should go through FORWARD.
+They were generated in response to packets in INPUT/FORWARD/OUTPUT.
+The original packet has not undergone SNAT in any of these cases.
 
+However, if we feed the response packet through LOCAL_OUT it will
+be subject to DNAT.  This creates a NAT asymmetry and we may end
+up with the wrong destination address.
 
-> diff -Nru linux-2.6-a/include/net/pkt_sched.h linux-2.6-b/include/net/pkt_sched.h
-> --- linux-2.6-a/include/net/pkt_sched.h	2005-04-26 15:45:07.000000000 +0200
-> +++ linux-2.6-b/include/net/pkt_sched.h	2005-04-27 09:36:23.421634576 +0200
-> @@ -140,7 +140,7 @@
->  	if (bound <= 1000000 || delta_sec > (0x7FFFFFFF/1000000)-1)
->  		return bound;
->  	delta = delta_sec * 1000000;
-> -	if (delta > bound)
-> +	if (delta > bound || delta < 0)
->  		delta = bound;
->  	return delta;
->  }
-> @@ -156,7 +156,8 @@
->  		   __delta += 1000000; \
->  	   case 1: \
->  		   __delta += 1000000; \
-> -	   case 0: ; \
-> +	   case 0: \
-> +		   __delta = abs(__delta); \
->  	   } \
->  	   __delta; \
->  })
+By pushing it through FORWARD it will only undergo SNAT which is
+correct since the original packet would have undergone DNAT.
 
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
