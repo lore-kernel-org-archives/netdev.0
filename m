@@ -1,10 +1,11 @@
 From: Malli Chilakala <mallikarjuna.chilakala@intel.com>
-Subject: [RESEND][PATCH net-drivers-2.4 8/16] e1000: Fix computation of netdev
- stats from controller stats counters (fwd)
-Date: Wed, 27 Apr 2005 11:06:49 -0700 (PDT)
-Message-ID: <Pine.LNX.4.44.0504271106130.17397-100000@isotope.jf.intel.com>
+Subject: [RESEND][PATCH net-drivers-2.4 11/16] e1000:Removed redundant
+ statement in e1000_clean_tx_irq (fwd)
+Date: Wed, 27 Apr 2005 11:11:44 -0700 (PDT)
+Message-ID: <Pine.LNX.4.44.0504271111260.17397-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: base64
 Cc: "jgarzik@pobox.com" <jgarzik@pobox.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev <netdev@oss.sgi.com>
@@ -12,31 +13,20 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
-Fix computation of netdev stats from controller stats counters - from
-sfeldma@pobox.com
-
-Signed-off-by: Mallikarjuna R Chilakala
-<mallikarjuna.chilakala@intel.com>
-Signed-off-by: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
-Signed-off-by: John Ronciak <john.ronciak@intel.com>
-
-diff -up net-drivers-2.4/drivers/net/e1000/e1000_main.c
-net-drivers-2.4/drivers/net/e1000.new/e1000_main.c
---- net-drivers-2.4/drivers/net/e1000/e1000_main.c      2005-04-12
-23:00:53.000000000 -0700
-+++ net-drivers-2.4/drivers/net/e1000.new/e1000_main.c  2005-04-12
-23:00:55.000000000 -0700
-@@ -2187,9 +2187,9 @@ e1000_update_stats(struct e1000_adapter
-
-        adapter->net_stats.rx_errors = adapter->stats.rxerrc +
-                adapter->stats.crcerrs + adapter->stats.algnerrc +
--               adapter->stats.rlec + adapter->stats.rnbc +
--               adapter->stats.mpc + adapter->stats.cexterr;
--       adapter->net_stats.rx_dropped = adapter->stats.rnbc;
-+               adapter->stats.rlec + adapter->stats.mpc +
-+               adapter->stats.cexterr;
-+       adapter->net_stats.rx_dropped = adapter->stats.mpc;
-        adapter->net_stats.rx_length_errors = adapter->stats.rlec;
-        adapter->net_stats.rx_crc_errors = adapter->stats.crcerrs;
-        adapter->net_stats.rx_frame_errors = adapter->stats.algnerrc;
+DQpSZW1vdmVkIHJlZHVuZGFudCBzdGF0ZW1lbnQgaW4gZTEwMDBfY2xlYW5fdHhfaXJxDQoN
+ClNpZ25lZC1vZmYtYnk6IE1hbGxpa2FyanVuYSBSIENoaWxha2FsYSA8bWFsbGlrYXJqdW5h
+LmNoaWxha2FsYUBpbnRlbC5jb20+DQpTaWduZWQtb2ZmLWJ5OiBHYW5lc2ggVmVua2F0ZXNh
+biA8Z2FuZXNoLnZlbmthdGVzYW5AaW50ZWwuY29tPg0KU2lnbmVkLW9mZi1ieTogSm9obiBS
+b25jaWFrIDxqb2huLnJvbmNpYWtAaW50ZWwuY29tPg0KDQpkaWZmIC11cCBuZXQtZHJpdmVy
+cy0yLjQvZHJpdmVycy9uZXQvZTEwMDAvZTEwMDBfbWFpbi5jIG5ldC1kcml2ZXJzLTIuNC9k
+cml2ZXJzL25ldC9lMTAwMC5uZXcvZTEwMDBfbWFpbi5jDQotLS0gbmV0LWRyaXZlcnMtMi40
+L2RyaXZlcnMvbmV0L2UxMDAwL2UxMDAwX21haW4uY6CgoKCgIDIwMDUtMDQtMTIgMjM6MDA6
+NTMuMDAwMDAwMDAwIC0wNzAwDQorKysgbmV0LWRyaXZlcnMtMi40L2RyaXZlcnMvbmV0L2Ux
+MDAwLm5ldy9lMTAwMF9tYWluLmOgIDIwMDUtMDQtMTIgMjM6MDA6NTUuMDAwMDAwMDAwIC0w
+NzAwDQpAQCAtMjM5Myw3ICsyMzkzLDYgQEAgZTEwMDBfY2xlYW5fdHhfaXJxKHN0cnVjdCBl
+MTAwMF9hZGFwdGVyDQqgoKCgoKCgIKCgoKCgoKAgoKCgoKCgoCB0eF9kZXNjLT5sb3dlci5k
+YXRhID0gMDsNCqCgoKCgoKAgoKCgoKCgoCCgoKCgoKCgIHR4X2Rlc2MtPnVwcGVyLmRhdGEg
+PSAwOw0KoA0KLaCgoKCgoCCgoKCgoKCgIKCgoKCgoKAgY2xlYW5lZCA9IChpID09IGVvcCk7
+DQqgoKCgoKCgIKCgoKCgoKAgoKCgoKCgoCBpZih1bmxpa2VseSgrK2kgPT0gdHhfcmluZy0+
+Y291bnQpKSBpID0gMDsNCqCgoKCgoKAgoKCgoKCgoCB9DQqgoKCgoKCgIKCgoKCgoKANCg0K
+DQoNCg0KDQo=
