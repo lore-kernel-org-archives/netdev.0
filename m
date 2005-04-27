@@ -1,11 +1,11 @@
 From: Malli Chilakala <mallikarjuna.chilakala@intel.com>
-Subject: [RESEND][PATCH net-drivers-2.6 5/16] e1000: Fix kernel panic with
- 82541 LOM (fwd)
-Date: Wed, 27 Apr 2005 11:22:02 -0700 (PDT)
-Message-ID: <Pine.LNX.4.44.0504271121440.17876-100000@isotope.jf.intel.com>
+Subject: [RESEND][PATCH net-drivers-2.6 7/16] e1000: Dump information on Tx
+ ring (fwd)
+Date: Wed, 27 Apr 2005 11:23:12 -0700 (PDT)
+Message-ID: <Pine.LNX.4.44.0504271122540.17876-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Content-Transfer-Encoding: base64
 Cc: "jgarzik@pobox.com" <jgarzik@pobox.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev <netdev@oss.sgi.com>
@@ -13,28 +13,59 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
-Fix kernel panic with 82541 LOM when using a 100M cable
-
-Signed-off-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com=
->
-Signed-off-by: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
-Signed-off-by: John Ronciak <john.ronciak@intel.com>
-
-diff -up net-drivers-2.6/drivers/net/e1000/e1000_main.c net-drivers-2.6/d=
-rivers/net/e1000.new/e1000_main.c
---- net-drivers-2.6/drivers/net/e1000/e1000_main.c=A0=A0=A0=A0=A0 2005-04=
--11 02:22:27.000000000 -0700
-+++ net-drivers-2.6/drivers/net/e1000.new/e1000_main.c=A0 2005-04-11 02:2=
-2:29.000000000 -0700
-@@ -372,6 +372,7 @@ e1000_down(struct e1000_adapter *adapter
-=A0=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 e1000_read_phy_reg(&adapter->=
-hw, PHY_CTRL, &mii_reg);
-=A0=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 mii_reg |=3D MII_CR_POWER_DOW=
-N;
-=A0=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 e1000_write_phy_reg(&adapter-=
->hw, PHY_CTRL, mii_reg);
-+=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 mdelay(1);
-=A0=A0=A0=A0=A0=A0=A0 }
-=A0}
-=A0
+DQpEdW1wIGluZm9ybWF0aW9uIG9uIFR4IHJpbmcgd2hlbiAnTkVUREVWOiBXYXRjaGRvZycg
+Y29uZGl0aW9uIGlzIHJlYWNoZWQNCg0KU2lnbmVkLW9mZi1ieTogTWFsbGlrYXJqdW5hIFIg
+Q2hpbGFrYWxhIDxtYWxsaWthcmp1bmEuY2hpbGFrYWxhQGludGVsLmNvbT4NClNpZ25lZC1v
+ZmYtYnk6IEdhbmVzaCBWZW5rYXRlc2FuIDxnYW5lc2gudmVua2F0ZXNhbkBpbnRlbC5jb20+
+DQpTaWduZWQtb2ZmLWJ5OiBKb2huIFJvbmNpYWsgPGpvaG4ucm9uY2lha0BpbnRlbC5jb20+
+DQoNCmRpZmYgLXVwIG5ldC1kcml2ZXJzLTIuNi9kcml2ZXJzL25ldC9lMTAwMC9lMTAwMF9t
+YWluLmMgbmV0LWRyaXZlcnMtMi42L2RyaXZlcnMvbmV0L2UxMDAwLm5ldy9lMTAwMF9tYWlu
+LmMNCi0tLSBuZXQtZHJpdmVycy0yLjYvZHJpdmVycy9uZXQvZTEwMDAvZTEwMDBfbWFpbi5j
+oKCgoKAgMjAwNS0wNC0xMSAwMjoyMjoyNy4wMDAwMDAwMDAgLTA3MDANCisrKyBuZXQtZHJp
+dmVycy0yLjYvZHJpdmVycy9uZXQvZTEwMDAubmV3L2UxMDAwX21haW4uY6AgMjAwNS0wNC0x
+MSAwMjoyMjoyOS4wMDAwMDAwMDAgLTA3MDANCkBAIC0yNDQyLDEwICsyNDQyLDM3IEBAIGUx
+MDAwX2NsZWFuX3R4X2lycShzdHJ1Y3QgZTEwMDBfYWRhcHRlcg0KoKCgoKCgoCCgoKCgoKCg
+IC8qIGRldGVjdCBhIHRyYW5zbWl0IGhhbmcgaW4gaGFyZHdhcmUsIHRoaXMgc2VyaWFsaXpl
+cyB0aGUNCqCgoKCgoKAgoKCgoKCgoKAgKiBjaGVjayB3aXRoIHRoZSBjbGVhcmluZyBvZiB0
+aW1lX3N0YW1wIGFuZCBtb3ZlbWVudCBvZiBpICovDQqgoKCgoKCgIKCgoKCgoKAgYWRhcHRl
+ci0+ZGV0ZWN0X3R4X2h1bmcgPSBGQUxTRTsNCi2goKCgoKAgoKCgoKCgoCBpZih0eF9yaW5n
+LT5idWZmZXJfaW5mb1tpXS5kbWEgJiYNCi2goKCgoKAgoKCgoKCgoCCgoCB0aW1lX2FmdGVy
+KGppZmZpZXMsIHR4X3JpbmctPmJ1ZmZlcl9pbmZvW2ldLnRpbWVfc3RhbXAgKyBIWikgJiYN
+Ci2goKCgoKAgoKCgoKCgoCCgoCAhKEUxMDAwX1JFQURfUkVHKCZhZGFwdGVyLT5odywgU1RB
+VFVTKSAmIEUxMDAwX1NUQVRVU19UWE9GRikpDQoroKCgoKCgIKCgoKCgoKAgaWYgKHR4X3Jp
+bmctPmJ1ZmZlcl9pbmZvW2ldLmRtYSAmJg0KK6CgoKCgoCCgoKCgoKCgIKCgoCB0aW1lX2Fm
+dGVyKGppZmZpZXMsIHR4X3JpbmctPmJ1ZmZlcl9pbmZvW2ldLnRpbWVfc3RhbXAgKyBIWikN
+CiugoKCgoKAgoKCgoKCgoCCgoKAgJiYgIShFMTAwMF9SRUFEX1JFRygmYWRhcHRlci0+aHcs
+IFNUQVRVUykgJg0KK6CgoKCgoCCgoKCgoKCgIKCgoKCgoKAgRTEwMDBfU1RBVFVTX1RYT0ZG
+KSkgew0KKw0KK6CgoKCgoCCgoKCgoKCgIKCgoKCgoKAgLyogZGV0ZWN0ZWQgVHggdW5pdCBo
+YW5nICovDQoroKCgoKCgIKCgoKCgoKAgoKCgoKCgoCBpID0gdHhfcmluZy0+bmV4dF90b19j
+bGVhbjsNCiugoKCgoKAgoKCgoKCgoCCgoKCgoKCgIGVvcCA9IHR4X3JpbmctPmJ1ZmZlcl9p
+bmZvW2ldLm5leHRfdG9fd2F0Y2g7DQoroKCgoKCgIKCgoKCgoKAgoKCgoKCgoCBlb3BfZGVz
+YyA9IEUxMDAwX1RYX0RFU0MoKnR4X3JpbmcsIGVvcCk7DQoroKCgoKCgIKCgoKCgoKAgoKCg
+oKCgoCBEUFJJTlRLKFRYX0VSUiwgRVJSLCAiRGV0ZWN0ZWQgVHggVW5pdCBIYW5nXG4iDQor
+oKCgoKCgIKCgoKCgoKAgoKCgoKCgoCCgoKCgoKCgIKCgoKCgoKAgIqAgVERIoKCgoKCgoKCg
+oKCgoKCgoKAgPCV4PlxuIg0KK6CgoKCgoCCgoKCgoKCgIKCgoKCgoKAgoKCgoKCgoCCgoKCg
+oKCgICKgIFREVKCgoKCgoKCgoKCgoKCgoKCgIDwleD5cbiINCiugoKCgoKAgoKCgoKCgoCCg
+oKCgoKCgIKCgoKCgoKAgoKCgoKCgoCAioCBuZXh0X3RvX3VzZaCgoKCgoKCgoCA8JXg+XG4i
+DQoroKCgoKCgIKCgoKCgoKAgoKCgoKCgoCCgoKCgoKCgIKCgoKCgoKAgIqAgbmV4dF90b19j
+bGVhbqCgoKCgoKAgPCV4PlxuIg0KK6CgoKCgoCCgoKCgoKCgIKCgoKCgoKAgoKCgoKCgoCCg
+oKCgoKCgICJidWZmZXJfaW5mb1tuZXh0X3RvX2NsZWFuXVxuIg0KK6CgoKCgoCCgoKCgoKCg
+IKCgoKCgoKAgoKCgoKCgoCCgoKCgoKCgICKgIGRtYaCgoKCgoKCgoKCgoKCgoKCgIDwlbGx4
+PlxuIg0KK6CgoKCgoCCgoKCgoKCgIKCgoKCgoKAgoKCgoKCgoCCgoKCgoKCgICKgIHRpbWVf
+c3RhbXCgoKCgoKCgoKCgIDwlbHg+XG4iDQoroKCgoKCgIKCgoKCgoKAgoKCgoKCgoCCgoKCg
+oKCgIKCgoKCgoKAgIqAgbmV4dF90b193YXRjaKCgoKCgoKAgPCV4PlxuIg0KK6CgoKCgoCCg
+oKCgoKCgIKCgoKCgoKAgoKCgoKCgoCCgoKCgoKCgICKgIGppZmZpZXOgoKCgoKCgoKCgoKCg
+IDwlbHg+XG4iDQoroKCgoKCgIKCgoKCgoKAgoKCgoKCgoCCgoKCgoKCgIKCgoKCgoKAgIqAg
+bmV4dF90b193YXRjaC5zdGF0dXMgPCV4PlxuIiwNCiugoKCgoKAgoKCgoKCgoCCgoKCgoKCg
+IKCgoKCgoKAgRTEwMDBfUkVBRF9SRUcoJmFkYXB0ZXItPmh3LCBUREgpLA0KK6CgoKCgoCCg
+oKCgoKCgIKCgoKCgoKAgoKCgoKCgoCBFMTAwMF9SRUFEX1JFRygmYWRhcHRlci0+aHcsIFRE
+VCksDQoroKCgoKCgIKCgoKCgoKAgoKCgoKCgoCCgoKCgoKCgIHR4X3JpbmctPm5leHRfdG9f
+dXNlLA0KK6CgoKCgoCCgoKCgoKCgIKCgoKCgoKAgoKCgoKCgoCBpLA0KK6CgoKCgoCCgoKCg
+oKCgIKCgoKCgoKAgoKCgoKCgoCB0eF9yaW5nLT5idWZmZXJfaW5mb1tpXS5kbWEsDQoroKCg
+oKCgIKCgoKCgoKAgoKCgoKCgoCCgoKCgoKCgIHR4X3JpbmctPmJ1ZmZlcl9pbmZvW2ldLnRp
+bWVfc3RhbXAsDQoroKCgoKCgIKCgoKCgoKAgoKCgoKCgoCCgoKCgoKCgIGVvcCwNCiugoKCg
+oKAgoKCgoKCgoCCgoKCgoKCgIKCgoKCgoKAgamlmZmllcywNCiugoKCgoKAgoKCgoKCgoCCg
+oKCgoKCgIKCgoKCgoKAgZW9wX2Rlc2MtPnVwcGVyLmZpZWxkcy5zdGF0dXMpOw0KoKCgoKCg
+oCCgoKCgoKCgIKCgoKCgoKAgbmV0aWZfc3RvcF9xdWV1ZShuZXRkZXYpOw0KK6CgoKCgoCCg
+oKCgoKCgIH0NCqCgoKCgoKAgfQ0KoCNpZmRlZiBORVRJRl9GX1RTTw0KoA0KDQoNCg0KDQoN
+Cg==
