@@ -1,10 +1,11 @@
 From: Malli Chilakala <mallikarjuna.chilakala@intel.com>
-Subject: [RESEND][PATCH net-drivers-2.4 0/16] e1000: driver update (fwd)
-Date: Wed, 27 Apr 2005 11:00:50 -0700 (PDT)
-Message-ID: <Pine.LNX.4.44.0504271100260.17397-100000@isotope.jf.intel.com>
+Subject: [RESEND][PATCH net-drivers-2.4 2/16] e1000: Fix msec-delay definition
+ to use msleep (fwd)
+Date: Wed, 27 Apr 2005 11:02:41 -0700 (PDT)
+Message-ID: <Pine.LNX.4.44.0504271102200.17397-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Content-Transfer-Encoding: base64
 Cc: "jgarzik@pobox.com" <jgarzik@pobox.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev <netdev@oss.sgi.com>
@@ -12,35 +13,26 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
-Signed-off-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com=
->
-Signed-off-by: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
-Signed-off-by: John Ronciak <john.ronciak@intel.com>
-
-1. Added enhanced functionality to the loopback diags to wrap the descrip=
-tor rings.
-2. Fix msec-delay definition in e1000_osdep.h to use msleep
-3. MSI support for PCI-e adapters
-4. Enable polling before enabling interrupts -- avoids (in NAPI mode) ent=
-ering the ISR and returning without doing any work because polling is not=
- enabled.
-[romieu@fr.zoriel.com]
-
-5. Fix kernel panic with 82541 LOM when using a 100M cable
-6. Delay clean-up of last Tx packet to fix pre-mature writeback issue of =
-Tx descriptors only when TSO is enabled
-7. Dump information on Tx ring when 'NETDEV: Watchdog' condition is reach=
-ed
-8. Fix computation of netdev stats from controller stats counters
-9. e1000 stops working after resume, call pci_enable_device after pci_res=
-tore_state - Modified Andrew Morton's patch
-10. Implement 82546 errata 10 --=A0 first Tx descriptor cannot have more =
-than 2015 byte of data in it or it could hang the transmitter.
-
-11. Removed redundant statement in e1000_clean_tx_irq
-12. Modified e1000_clean:: exit poll if no Tx and work_done =3D=3D 0
-13. 82573 specific code & packet split code
-14. Fix Packet Buffer Allocation logic for 82547_rev_2 controller
-15. Adjust flow control watermarks for Jumbo Frames
-16. Driver version, white space, comments, device id & other
+DQpGaXggbXNlYy1kZWxheSBkZWZpbml0aW9uIGluIGUxMDAwX29zZGVwLmggdG8gdXNlIG1z
+bGVlcA0KDQpTaWduZWQtb2ZmLWJ5OiBNYWxsaWthcmp1bmEgUiBDaGlsYWthbGEgPG1hbGxp
+a2FyanVuYS5jaGlsYWthbGFAaW50ZWwuY29tPg0KU2lnbmVkLW9mZi1ieTogR2FuZXNoIFZl
+bmthdGVzYW4gPGdhbmVzaC52ZW5rYXRlc2FuQGludGVsLmNvbT4NClNpZ25lZC1vZmYtYnk6
+IEpvaG4gUm9uY2lhayA8am9obi5yb25jaWFrQGludGVsLmNvbT4NCg0KZGlmZiAtdXAgbmV0
+LWRyaXZlcnMtMi40L2RyaXZlcnMvbmV0L2UxMDAwL2UxMDAwX29zZGVwLmggbmV0LWRyaXZl
+cnMtMi40L2RyaXZlcnMvbmV0L2UxMDAwLm5ldy9lMTAwMF9vc2RlcC5oDQotLS0gbmV0LWRy
+aXZlcnMtMi40L2RyaXZlcnMvbmV0L2UxMDAwL2UxMDAwX29zZGVwLmigoKCgIDIwMDUtMDQt
+MTIgMjM6MDA6NTMuMDAwMDAwMDAwIC0wNzAwDQorKysgbmV0LWRyaXZlcnMtMi40L2RyaXZl
+cnMvbmV0L2UxMDAwLm5ldy9lMTAwMF9vc2RlcC5oIDIwMDUtMDQtMTIgMjM6MDA6NTUuMDAw
+MDAwMDAwIC0wNzAwDQpAQCAtNDYsOSArNDYsOSBAQA0KoKCgoKCgoCCgoKCgoKCgIKCgoKCg
+oKAgoKCgoKCgoCAvKiBEb24ndCBtZGVsYXkgaW4gaW50ZXJydXB0IGNvbnRleHQhICovIFwN
+CqCgoKCgoKAgoKCgoKCgoKCgoKCgoKCgIKCgoKCgoKAgQlVHKCk7IFwNCqCgoKCgoKAgoKCg
+oKCgoCCgoKCgoKCgIH0gZWxzZSB7IFwNCi2goKCgoKAgoKCgoKCgoCCgoKCgoKCgIKCgoKCg
+oKAgc2V0X2N1cnJlbnRfc3RhdGUoVEFTS19VTklOVEVSUlVQVElCTEUpOyBcDQotoKCgoKCg
+IKCgoKCgoKAgoKCgoKCgoCCgoKCgoKCgIHNjaGVkdWxlX3RpbWVvdXQoKHggKiBIWikvMTAw
+MCArIDIpOyBcDQoroKCgoKCgIKCgoKCgoKAgoKCgoKCgoCCgoKCgoKCgIG1zbGVlcCh4KTsg
+XA0KoKCgoKCgoCCgoKCgoKCgIKCgoKCgoKAgfSB9IHdoaWxlKDApDQorDQqgLyogU29tZSB3
+b3JrYXJvdW5kcyByZXF1aXJlIG1pbGxpc2Vjb25kIGRlbGF5cyBhbmQgYXJlIHJ1biBkdXJp
+bmcgaW50ZXJydXB0DQqgICogY29udGV4dC6gIE1vc3Qgbm90YWJseSwgd2hlbiBlc3RhYmxp
+c2hpbmcgbGluaywgdGhlIHBoeSBtYXkgbmVlZCB0d2Vha2luZw0KoCAqIGJ1dCBjYW5ub3Qg
+cHJvY2VzcyBwaHkgcmVnaXN0ZXIgcmVhZHMvd3JpdGVzIGZhc3RlciB0aGFuIG1pbGxpc2Vj
+b25kDQoNCg0KDQoNCg0K
