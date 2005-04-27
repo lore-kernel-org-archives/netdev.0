@@ -1,11 +1,11 @@
 From: Malli Chilakala <mallikarjuna.chilakala@intel.com>
-Subject: [RESEND][PATCH net-drivers-2.4 15/16] e1000: Adjust flow control
- watermarks for JumboFrames (fwd)
-Date: Wed, 27 Apr 2005 11:14:17 -0700 (PDT)
-Message-ID: <Pine.LNX.4.44.0504271113550.17397-100000@isotope.jf.intel.com>
+Subject: [RESEND][PATCH net-drivers-2.4 14/16] e1000: Fix Packet Buffer logic
+ for 82547_rev_2 (fwd)
+Date: Wed, 27 Apr 2005 11:13:24 -0700 (PDT)
+Message-ID: <Pine.LNX.4.44.0504271113020.17397-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: base64
+Content-Transfer-Encoding: quoted-printable
 Cc: "jgarzik@pobox.com" <jgarzik@pobox.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev <netdev@oss.sgi.com>
@@ -13,44 +13,25 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-DQpBZGp1c3QgZmxvdyBjb250cm9sIHdhdGVybWFya3MgZm9yIEp1bWJvIEZyYW1lcw0KDQpT
-aWduZWQtb2ZmLWJ5OiBNYWxsaWthcmp1bmEgUiBDaGlsYWthbGEgPG1hbGxpa2FyanVuYS5j
-aGlsYWthbGFAaW50ZWwuY29tPg0KU2lnbmVkLW9mZi1ieTogR2FuZXNoIFZlbmthdGVzYW4g
-PGdhbmVzaC52ZW5rYXRlc2FuQGludGVsLmNvbT4NClNpZ25lZC1vZmYtYnk6IEpvaG4gUm9u
-Y2lhayA8am9obi5yb25jaWFrQGludGVsLmNvbT4NCg0KZGlmZiAtdXAgbmV0LWRyaXZlcnMt
-Mi40L2RyaXZlcnMvbmV0L2UxMDAwL2UxMDAwX21haW4uYyBuZXQtZHJpdmVycy0yLjQvZHJp
-dmVycy9uZXQvZTEwMDAubmV3L2UxMDAwX21haW4uYw0KLS0tIG5ldC1kcml2ZXJzLTIuNC9k
-cml2ZXJzL25ldC9lMTAwMC9lMTAwMF9tYWluLmOgoKCgoCAyMDA1LTA0LTEyIDIzOjAwOjUz
-LjAwMDAwMDAwMCAtMDcwMA0KKysrIG5ldC1kcml2ZXJzLTIuNC9kcml2ZXJzL25ldC9lMTAw
-MC5uZXcvZTEwMDBfbWFpbi5joCAyMDA1LTA0LTEyIDIzOjAwOjU1LjAwMDAwMDAwMCAtMDcw
-MA0KQEAgLTQwNiw3ICs0MDYsMTAgQEAgZTEwMDBfZG93bihzdHJ1Y3QgZTEwMDBfYWRhcHRl
-ciAqYWRhcHRlcg0KoHZvaWQNCqBlMTAwMF9yZXNldChzdHJ1Y3QgZTEwMDBfYWRhcHRlciAq
-YWRhcHRlcikNCqB7DQoroKCgoKCgIHN0cnVjdCBuZXRfZGV2aWNlICpuZXRkZXYgPSBhZGFw
-dGVyLT5uZXRkZXY7DQqgoKCgoKCgIHVpbnQzMl90IHBiYSwgbWFuYzsNCiugoKCgoKAgdWlu
-dDE2X3QgZmNfaGlnaF93YXRlcl9tYXJrID0gRTEwMDBfRkNfSElHSF9ESUZGOw0KK6CgoKCg
-oCB1aW50MTZfdCBmY19sb3dfd2F0ZXJfbWFyayA9IEUxMDAwX0ZDX0xPV19ESUZGOw0KoA0K
-oKCgoKCgoCAvKiBSZXBhcnRpdGlvbiBQYmEgZm9yIGdyZWF0ZXIgdGhhbiA5ayBtdHUNCqCg
-oKCgoKCgICogVG8gdGFrZSBlZmZlY3QgQ1RSTC5SU1QgaXMgcmVxdWlyZWQuDQpAQCAtNDI1
-LDYgKzQyNSwxNiBAQA0KoKCgoKCgoCCgoKCgoKCgIGJyZWFrOw0KoKCgoKCgoCB9DQqgDQor
-oKCgoKCgIGlmKChhZGFwdGVyLT5ody5tYWNfdHlwZSAhPSBlMTAwMF84MjU3MykgJiYNCiug
-oKCgoKAgoKAgKGFkYXB0ZXItPnJ4X2J1ZmZlcl9sZW4gPiBFMTAwMF9SWEJVRkZFUl84MTky
-KSkgew0KK6CgoKCgoCCgoKCgoKCgIHBiYSAtPSA4OyAvKiBhbGxvY2F0ZSBtb3JlIEZJRk8g
-Zm9yIFR4ICovDQoroKCgoKCgIKCgoKCgoKAgLyogc2VuZCBhbiBYT0ZGIHdoZW4gdGhlcmUg
-aXMgZW5vdWdoIHNwYWNlIGluIHRoZQ0KK6CgoKCgoCCgoKCgoKCgoCAqIFJ4IEZJRk8gdG8g
-aG9sZCBvbmUgZXh0cmEgZnVsbCBzaXplIFJ4IHBhY2tldA0KK6CgoKCgoCCgoKCgoKCgICov
-DQoroKCgoKCgIKCgoKCgoKAgZmNfaGlnaF93YXRlcl9tYXJrID0gbmV0ZGV2LT5tdHUgKyBF
-TkVUX0hFQURFUl9TSVpFICsNCiugoKCgoKAgoKCgoKCgoCCgoKCgoKCgIKCgoKCgoKAgoKCg
-oKCgoCBFVEhFUk5FVF9GQ1NfU0laRSArIDE7DQoroKCgoKCgIKCgoKCgoKAgZmNfbG93X3dh
-dGVyX21hcmsgPSBmY19oaWdoX3dhdGVyX21hcmsgKyA4Ow0KK6CgoKCgoCB9DQqgDQqgDQqg
-oKCgoKCgIGlmKGFkYXB0ZXItPmh3Lm1hY190eXBlID09IGUxMDAwXzgyNTQ3KSB7DQpAQCAt
-NDM5LDkgKzQzOSw5IEBADQqgDQqgoKCgoKCgIC8qIGZsb3cgY29udHJvbCBzZXR0aW5ncyAq
-Lw0KoKCgoKCgoCBhZGFwdGVyLT5ody5mY19oaWdoX3dhdGVyID0gKHBiYSA8PCBFMTAwMF9Q
-QkFfQllURVNfU0hJRlQpIC0NCi2goKCgoKAgoKCgoKCgoCCgoKCgoKCgIKCgoKCgoKAgoKCg
-IEUxMDAwX0ZDX0hJR0hfRElGRjsNCiugoKCgoKAgoKCgoKCgoCCgoKCgoKCgIKCgoKCgoKAg
-oKCgIGZjX2hpZ2hfd2F0ZXJfbWFyazsNCqCgoKCgoKAgYWRhcHRlci0+aHcuZmNfbG93X3dh
-dGVyID0gKHBiYSA8PCBFMTAwMF9QQkFfQllURVNfU0hJRlQpIC0NCi2goKCgoKAgoKCgoKCg
-oCCgoKCgoKCgIKCgoKCgoKAgoKAgRTEwMDBfRkNfTE9XX0RJRkY7DQoroKCgoKCgIKCgoKCg
-oKAgoKCgoKCgoCCgoKCgoKCgIKCgIGZjX2xvd193YXRlcl9tYXJrOw0KoKCgoKCgoCBhZGFw
-dGVyLT5ody5mY19wYXVzZV90aW1lID0gRTEwMDBfRkNfUEFVU0VfVElNRTsNCqCgoKCgoKAg
-YWRhcHRlci0+aHcuZmNfc2VuZF94b24gPSAxOw0KoKCgoKCgoCBhZGFwdGVyLT5ody5mYyA9
-IGFkYXB0ZXItPmh3Lm9yaWdpbmFsX2ZjOw0KDQoNCg0KDQoNCg==
+
+Fix Packet Buffer Allocation logic for 82547_rev_2 controller
+
+Signed-off-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com=
+>
+Signed-off-by: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
+Signed-off-by: John Ronciak <john.ronciak@intel.com>
+
+diff -up net-drivers-2.4/drivers/net/e1000/e1000_main.c net-drivers-2.4/d=
+rivers/net/e1000.new/e1000_main.c
+--- net-drivers-2.4/drivers/net/e1000/e1000_main.c=A0=A0=A0=A0=A0 2005-04=
+-12 23:00:53.000000000 -0700
++++ net-drivers-2.4/drivers/net/e1000.new/e1000_main.c=A0 2005-04-12 23:0=
+0:55.000000000 -0700
+@@ -414,6 +414,7 @@ e1000_down(struct e1000_adapter *adapter
+=A0
+=A0=A0=A0=A0=A0=A0=A0 switch (adapter->hw.mac_type) {
+=A0=A0=A0=A0=A0=A0=A0 case e1000_82547:
++=A0=A0=A0=A0=A0=A0 case e1000_82547_rev_2:
+=A0=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 pba =3D E1000_PBA_30K;
+=A0=A0=A0=A0=A0=A0=A0 =A0=A0=A0=A0=A0=A0=A0 break;
+=A0=A0=A0=A0=A0=A0=A0 case e1000_82573:
