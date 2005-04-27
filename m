@@ -1,39 +1,29 @@
-From: Andi Kleen <ak@muc.de>
-Subject: network manpages was Re: is UDP_CORK "real"
-Date: 27 Apr 2005 14:26:48 +0200
-Message-ID: <20050427122648.GA12597@muc.de>
-References: <426833F0.9010803@hp.com> <m1u0lty7uh.fsf@muc.de> <426F2A1D.10001@aarnet.edu.au>
+From: Jamal Hadi Salim <hadi@znyx.com>
+Subject: Re: patch: policy update by id
+Date: Wed, 27 Apr 2005 08:28:32 -0400
+Message-ID: <1114604912.7670.25.camel@localhost.localdomain>
+References: <1114602874.7670.4.camel@localhost.localdomain>
+	 <426F830E.4060404@trash.net>
+Reply-To: hadi@znyx.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-Date: Wed, 27 Apr 2005 14:26:48 +0200
-To: Glen Turner <glen.turner@aarnet.edu.au>
-Content-Disposition: inline
-In-Reply-To: <426F2A1D.10001@aarnet.edu.au>
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <426F830E.4060404@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 27, 2005 at 03:28:53PM +0930, Glen Turner wrote:
-> Please mail me with what you think is required here.  I've
-> been getting grief from our high performance users on
-> exactly this point (and the sysctl maze of twisty options)
+On Wed, 2005-27-04 at 14:18 +0200, Patrick McHardy wrote:
 
-sysctl is mostly documented in Documentation/*.  
-Also the sysctls change sometimes, so I am not sure it is a good idea
-to put them into the manpages which are supposed to be more version
-independent.  At least I would only put the more important ones there.
+> struct xfrm_policy doesn't have an id member in my tree. Did I miss
+> something or do you mean to use index?
+> 
 
-In particular the ipv6 protocol manpage needs a rewrite, it was only a 
-relatively poor quick&dirty job. For the others it would be probably
-sufficient to just check what new ioctls/socket options are missing
-and document them and perhaps check if the NOTES/BUGS caveats still
-apply. An sctp manpage is also lacking I think, that was a completely
-new protocol.
+I meant index, sorry. I am going to give it a quick test in about 3
+minutes.
 
-It would be nice of course if David could enforce a policy
-to require a manpage patch for new ioctls/socket options etc.
-in the future, then such documentation lag would not happen.
-
--Andi
+cheers,
+jamal
