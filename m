@@ -1,69 +1,42 @@
-From: olsombergs <olsombergs@elvismen.com>
-Subject: YUKOS OIL
-Date: Thu, 28 Apr 2005 20:22:51 +0900
-Message-ID: <dcdcd451d2a7096d250e1cf90bdcde45@elvismen.com>
-Reply-To: olsom_bergs_111@yahoo.com
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: patch: policy update by id
+Date: Thu, 28 Apr 2005 13:43:08 +0200
+Message-ID: <20050428114308.GX577@postel.suug.ch>
+References: <20050427233924.GA22238@gondor.apana.org.au> <1114650816.7663.13.camel@localhost.localdomain> <20050428012135.GA22950@gondor.apana.org.au> <20050428013014.GA23043@gondor.apana.org.au> <1114653140.7663.36.camel@localhost.localdomain> <20050428020754.GA23326@gondor.apana.org.au> <20050427194356.58a3e618.davem@davemloft.net> <20050428025644.GA23823@gondor.apana.org.au> <1114658160.7663.102.camel@localhost.localdomain> <20050428032045.GA24041@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: jamal <hadi@cyberus.ca>, "David S. Miller" <davem@davemloft.net>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: olsombergs@sify.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Disposition: inline
+In-Reply-To: <20050428032045.GA24041@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Dear Friend,
+* Herbert Xu <20050428032045.GA24041@gondor.apana.org.au> 2005-04-28 13:20
+> On Wed, Apr 27, 2005 at 11:16:00PM -0400, jamal wrote:
+> > On Thu, 2005-28-04 at 12:56 +1000, Herbert Xu wrote:
+> > 
+> > > Well netfilter certainly follows this scheme:
+> > > 
+> > > $ iptables -I INPUT -s 3.3.3.3 -d 4.4.4.4 -j ACCEPT
+> > > $ iptables -I INPUT -s 3.3.3.3 -d 4.4.4.4 -j ACCEPT
+> > > $ iptables -v -L INPUT -n
+> > > Chain INPUT (policy ACCEPT 0 packets, 0 bytes)
+> > >  pkts bytes target     prot opt in     out     source               destination 
+> > >     0     0 ACCEPT     all  --  *      *       3.3.3.3              4.4.4.4     
+> > >     0     0 ACCEPT     all  --  *      *       3.3.3.3              4.4.4.4     
+> > 
+> > Which is bizare to say the least. If you delete, only the first one gets
+> > deleted.
+> 
+> It isn't that strange.  It's also done using indices except that the
+> indices aren't fixed.  Do delete the second rule you would say
+> 
+> iptables -D INPUT 2
 
-
-I am Mr Olsom Berghart a personal treasurer to Mikhail Khodorkovsky the
-richest man in Russia and owner of the following companies:Chairman 
-CEO:
-YUKOS OIL (Russian Most Largest Oil Company)Chairman CEO: Menatep SBP 
-Bank
-(A well reputable financial institution with its 
-branches
-all over the world)
-SOURCE OF FUNDS:
-I have a profiling amount in an excess of US$100.5M, which I seek your
-partnership in accommodating for me. You will be rewarded with 4% of 
-the
-total sum for your partnership. Can you be my partner on this?  
-INTRODUCTION OF MY SELF
-As a personal consultant to him, authority was handed over to me in 
-transfer
-of money of an American oil merchant for his last oil deal with my boss
-Mikhail Khodorkovsky. Already the funds have left the shore of Russia 
-to an
-European private bank where the final
-crediting is expected to be carried out. While I was on the process, My 
-Boss
-got arrested for his involvement in politics by financing the leading 
-and
-opposing political parties (the Union of Right Forces,
-led by Boris Nemtsov, and Yabloko, a liberal/social democratic party 
-led by
-Gregor Yavlinsky) which poses treat to President Vladimir Putin second
-tenure as Russian president. You can catch more of the story on this
-website: http://www.opendemocracy.net/debates/article-3-56-1409.jspor
-http://newsfromrussia.com/main/2003/11/13/51215.html  
-YOUR ROLE:
-All I need from you is to stand as the beneficiary of the above quoted 
-sum
-and I will re-profile the funds with your name, which will enable the
-European bank transfer the sum to you. I have decided to use this sum 
-to
-relocate to American continent and never to be connected to any 
-of
-Mikhail Khodorkovsky conglomerates. The transaction has to be concluded 
-in 2
-weeks before Mikhail Khodorkovsky is out on bail. As
-soon as I confirm your readiness to conclude the transaction with me, I 
-will
-provide you with the details.
-Thank you very much
- 
-Regards
-
-Olsom Berghart(Mr)
-
-NB: Do contact me through this secure email olsom_bergs_111@yahoo.fr
+Except for when another iptables instance has modified the ordering of
+the rules by inserting or deleting a rule in the meantime. Please do
+not adopt this scheme, it's completely unreliable.
