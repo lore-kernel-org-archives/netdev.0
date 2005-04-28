@@ -1,59 +1,221 @@
-From: Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>
-Subject: Re: [PATCH] Add more explanation to tcp_prequeue comment
-Date: Thu, 28 Apr 2005 18:53:45 -0300
-Message-ID: <39e6f6c70504281453a903d92@mail.gmail.com>
-References: <c0a09e5c05042814145901639e@mail.gmail.com>
-Reply-To: acme@ghostprotocols.net
+From: Jesper Juhl <juhl-lkml@dif.dk>
+Subject: [PATCH] cleanups in drivers/net/wan/ - kfree of NULL pointer is
+ valid
+Date: Fri, 29 Apr 2005 00:22:22 +0200 (CEST)
+Message-ID: <Pine.LNX.4.62.0504290009310.2476@dragon.hyggekrogen.localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Grover <andy.grover@gmail.com>
-In-Reply-To: <c0a09e5c05042814145901639e@mail.gmail.com>
-Content-Disposition: inline
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Arnaldo Carvalho de Melo <acme@conectiva.com.br>,
+	Regina Kodato <reginak@cyclades.com>, pc300@cyclades.com,
+	Nenad Corbic <ncorbic@sangoma.com>,
+	Henner Eisen <eis@baty.hanse.de>, linux-net@vger.kernel.org,
+	linux-kernel <linux-kernel@vger.kernel.org>
+Return-path: <linux-net-owner@vger.kernel.org>
+To: netdev@oss.sgi.com
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 4/28/05, Andrew Grover <andy.grover@gmail.com> wrote:
-> Here's a patch to make that prequeue comment a little clearer. Look ok?
-> 
-> Signed-off-by: Andy Grover <andrew.grover@intel.com>
-> 
-> ===== include/net/tcp.h 1.105 vs edited =====
-> --- 1.105/include/net/tcp.h     2005-02-22 10:45:31 -08:00
-> +++ edited/include/net/tcp.h    2005-04-28 14:02:43 -07:00
-> @@ -1560,6 +1560,13 @@
->   * idea (VJ's mail "Re: query about TCP header on tcp-ip" of 07 Sep 93)
->   * failed somewhere. Latency? Burstiness? Well, at least now we will
->   * see, why it failed. 8)8)                              --ANK
-> + *
-> + * Actually, even though the prequeue is not as important for fast
-> + * csum anymore, it is important for scheduling, to generate ACKs
-> + * when the data is received by the process, not the stack.
-> + * davem says, "Without prequeue, we ACK immediately. This artificially
-> + * makes the sender believe it can pump data out at that rate to the
-> + * receiver."
+kfree(0) is perfectly valid, checking pointers for NULL before calling 
+kfree() on them is redundant. The patch below cleans away a few such 
+redundant checks (and while I was around some of those bits I couldn't 
+stop myself from making a few tiny whitespace changes as well).
 
-Cool, great comment, for me the funny thing is that this is one of the
-differences
-of DCCP x TCP, i.e. in DCCP we must ack it _before_ it gets to sk_receive_queue,
-if later on we drop the packet for any reason we send DATA_DROPPED
-options to the sender.
+Signed-off-by: Jesper Juhl <juhl-lkml@dif.dk>
+---
 
-from draft-ietf-dccp-spec-11.txt:
+ drivers/net/wan/cycx_x25.c   |    8 ++------
+ drivers/net/wan/pc300_tty.c  |   27 +++++++++++----------------
+ drivers/net/wan/sdla_chdlc.c |   13 ++++---------
+ drivers/net/wan/x25_asy.c    |   20 ++++++--------------
+ 4 files changed, 23 insertions(+), 45 deletions(-)
 
-    1.  Packets reported as State 0 or State 1 MUST be acknowledgeable:
-        their options have been processed by the receiving DCCP stack.
-        Any data on the packet need not have been delivered to the
-        receiving application; in fact, the data may have been dropped.
+diff -uprN linux-2.6.12-rc2-mm3-orig/drivers/net/wan/cycx_x25.c linux-2.6.12-rc2-mm3/drivers/net/wan/cycx_x25.c
+--- linux-2.6.12-rc2-mm3-orig/drivers/net/wan/cycx_x25.c	2005-03-02 08:37:49.000000000 +0100
++++ linux-2.6.12-rc2-mm3/drivers/net/wan/cycx_x25.c	2005-04-28 23:51:12.000000000 +0200
+@@ -436,9 +436,7 @@ static int cycx_wan_new_if(struct wan_de
+ 	}
+ 
+ 	if (err) {
+-		if (chan->local_addr)
+-			kfree(chan->local_addr);
+-
++		kfree(chan->local_addr);
+ 		kfree(chan);
+ 		return err;
+ 	}
+@@ -458,9 +456,7 @@ static int cycx_wan_del_if(struct wan_de
+ 		struct cycx_x25_channel *chan = dev->priv;
+ 
+ 		if (chan->svc) {
+-			if (chan->local_addr)
+-				kfree(chan->local_addr);
+-
++			kfree(chan->local_addr);
+ 			if (chan->state == WAN_CONNECTED)
+ 				del_timer(&chan->timer);
+ 		}
+diff -uprN linux-2.6.12-rc2-mm3-orig/drivers/net/wan/pc300_tty.c linux-2.6.12-rc2-mm3/drivers/net/wan/pc300_tty.c
+--- linux-2.6.12-rc2-mm3-orig/drivers/net/wan/pc300_tty.c	2005-03-02 08:38:08.000000000 +0100
++++ linux-2.6.12-rc2-mm3/drivers/net/wan/pc300_tty.c	2005-04-28 23:59:54.000000000 +0200
+@@ -400,10 +400,8 @@ static void cpc_tty_close(struct tty_str
+ 		cpc_tty->buf_rx.last = NULL;
+ 	}
+ 	
+-	if (cpc_tty->buf_tx) {
+-		kfree(cpc_tty->buf_tx);
+-		cpc_tty->buf_tx = NULL;
+-	}
++	kfree(cpc_tty->buf_tx);
++	cpc_tty->buf_tx = NULL;
+ 
+ 	CPC_TTY_DBG("%s: TTY closed\n",cpc_tty->name);
+ 	
+@@ -666,7 +664,7 @@ static void cpc_tty_rx_work(void * data)
+ 	unsigned long port;
+ 	int i, j;
+ 	st_cpc_tty_area *cpc_tty; 
+-	volatile st_cpc_rx_buf * buf;
++	volatile st_cpc_rx_buf *buf;
+ 	char flags=0,flg_rx=1; 
+ 	struct tty_ldisc *ld;
+ 
+@@ -680,9 +678,9 @@ static void cpc_tty_rx_work(void * data)
+ 			cpc_tty = &cpc_tty_area[port];
+ 		
+ 			if ((buf=cpc_tty->buf_rx.first) != 0) {
+-				if(cpc_tty->tty) {
++				if (cpc_tty->tty) {
+ 					ld = tty_ldisc_ref(cpc_tty->tty);
+-					if(ld) {
++					if (ld) {
+ 						if (ld->receive_buf) {
+ 							CPC_TTY_DBG("%s: call line disc. receive_buf\n",cpc_tty->name);
+ 							ld->receive_buf(cpc_tty->tty, (char *)(buf->data), &flags, buf->size);
+@@ -691,7 +689,7 @@ static void cpc_tty_rx_work(void * data)
+ 					}
+ 				}	
+ 				cpc_tty->buf_rx.first = cpc_tty->buf_rx.first->next;
+-				kfree((unsigned char *)buf);
++				kfree(buf);
+ 				buf = cpc_tty->buf_rx.first;
+ 				flg_rx = 1;
+ 			}
+@@ -733,7 +731,7 @@ static void cpc_tty_rx_disc_frame(pc300c
+ 
+ void cpc_tty_receive(pc300dev_t *pc300dev)
+ {
+-	st_cpc_tty_area    *cpc_tty; 
++	st_cpc_tty_area *cpc_tty; 
+ 	pc300ch_t *pc300chan = (pc300ch_t *)pc300dev->chan; 
+ 	pc300_t *card = (pc300_t *)pc300chan->card; 
+ 	int ch = pc300chan->channel; 
+@@ -742,7 +740,7 @@ void cpc_tty_receive(pc300dev_t *pc300de
+ 	int rx_len, rx_aux; 
+ 	volatile unsigned char status; 
+ 	unsigned short first_bd = pc300chan->rx_first_bd;
+-	st_cpc_rx_buf	*new=NULL;
++	st_cpc_rx_buf *new = NULL;
+ 	unsigned char dsr_rx;
+ 
+ 	if (pc300dev->cpc_tty == NULL) { 
+@@ -762,7 +760,7 @@ void cpc_tty_receive(pc300dev_t *pc300de
+ 			if (status & DST_EOM) {
+ 				break;
+ 			}
+-			ptdescr=(pcsca_bd_t __iomem *)(card->hw.rambase+cpc_readl(&ptdescr->next));
++			ptdescr = (pcsca_bd_t __iomem *)(card->hw.rambase+cpc_readl(&ptdescr->next));
+ 		}
+ 			
+ 		if (!rx_len) { 
+@@ -771,10 +769,7 @@ void cpc_tty_receive(pc300dev_t *pc300de
+ 				cpc_writel(card->hw.scabase + DRX_REG(EDAL, ch), 
+ 						RX_BD_ADDR(ch, pc300chan->rx_last_bd)); 
+ 			}
+-			if (new) {
+-				kfree(new);
+-				new = NULL;
+-			}
++			kfree(new);
+ 			return; 
+ 		}
+ 		
+@@ -787,7 +782,7 @@ void cpc_tty_receive(pc300dev_t *pc300de
+ 			continue;
+ 		} 
+ 		
+-		new = (st_cpc_rx_buf *) kmalloc(rx_len + sizeof(st_cpc_rx_buf), GFP_ATOMIC);
++		new = (st_cpc_rx_buf *)kmalloc(rx_len + sizeof(st_cpc_rx_buf), GFP_ATOMIC);
+ 		if (new == 0) {
+ 			cpc_tty_rx_disc_frame(pc300chan);
+ 			continue;
+diff -uprN linux-2.6.12-rc2-mm3-orig/drivers/net/wan/sdla_chdlc.c linux-2.6.12-rc2-mm3/drivers/net/wan/sdla_chdlc.c
+--- linux-2.6.12-rc2-mm3-orig/drivers/net/wan/sdla_chdlc.c	2005-03-02 08:38:09.000000000 +0100
++++ linux-2.6.12-rc2-mm3/drivers/net/wan/sdla_chdlc.c	2005-04-29 00:03:30.000000000 +0200
+@@ -3664,15 +3664,10 @@ static void wanpipe_tty_close(struct tty
+ 		chdlc_disable_comm_shutdown(card);
+ 		unlock_adapter_irq(&card->wandev.lock,&smp_flags);
+ 
+-		if (card->tty_buf){
+-			kfree(card->tty_buf);
+-			card->tty_buf=NULL;			
+-		}
+-
+-		if (card->tty_rx){
+-			kfree(card->tty_rx);
+-			card->tty_rx=NULL;
+-		}
++		kfree(card->tty_buf);
++		card->tty_buf = NULL;			
++		kfree(card->tty_rx);
++		card->tty_rx = NULL;
+ 	}
+ 	return;
+ }
+diff -uprN linux-2.6.12-rc2-mm3-orig/drivers/net/wan/x25_asy.c linux-2.6.12-rc2-mm3/drivers/net/wan/x25_asy.c
+--- linux-2.6.12-rc2-mm3-orig/drivers/net/wan/x25_asy.c	2005-03-02 08:37:50.000000000 +0100
++++ linux-2.6.12-rc2-mm3/drivers/net/wan/x25_asy.c	2005-04-29 00:08:16.000000000 +0200
+@@ -107,13 +107,9 @@ static struct x25_asy *x25_asy_alloc(voi
+ static void x25_asy_free(struct x25_asy *sl)
+ {
+ 	/* Free all X.25 frame buffers. */
+-	if (sl->rbuff)  {
+-		kfree(sl->rbuff);
+-	}
++	kfree(sl->rbuff);
+ 	sl->rbuff = NULL;
+-	if (sl->xbuff)  {
+-		kfree(sl->xbuff);
+-	}
++	kfree(sl->xbuff);
+ 	sl->xbuff = NULL;
+ 
+ 	if (!test_and_clear_bit(SLF_INUSE, &sl->flags)) {
+@@ -134,10 +130,8 @@ static int x25_asy_change_mtu(struct net
+ 	{
+ 		printk("%s: unable to grow X.25 buffers, MTU change cancelled.\n",
+ 		       dev->name);
+-		if (xbuff != NULL)  
+-			kfree(xbuff);
+-		if (rbuff != NULL)  
+-			kfree(rbuff);
++		kfree(xbuff);
++		kfree(rbuff);
+ 		return -ENOMEM;
+ 	}
+ 
+@@ -169,10 +163,8 @@ static int x25_asy_change_mtu(struct net
+ 
+ 	spin_unlock_bh(&sl->lock);
+ 
+-	if (xbuff != NULL) 
+-		kfree(xbuff);
+-	if (rbuff != NULL)
+-		kfree(rbuff);
++	kfree(xbuff);
++	kfree(rbuff);
+ 	return 0;
+ }
+ 
 
-    Packets dropped in the application's receive buffer MUST be reported
-    as Received or Received ECN Marked (States 0 and 1), depending on
-    their ECN state; such packets' ECN Nonces MUST be included in the
-    Nonce Echo.  The Data Dropped option informs the sender that some
-    packets reported as received actually had their application data
-    dropped.
 
-- Arnaldo
