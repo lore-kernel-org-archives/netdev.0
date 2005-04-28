@@ -1,48 +1,44 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: patch: policy update by id
-Date: Thu, 28 Apr 2005 12:07:54 +1000
-Message-ID: <20050428020754.GA23326@gondor.apana.org.au>
-References: <1114602874.7670.4.camel@localhost.localdomain> <1114604657.7670.22.camel@localhost.localdomain> <1114604826.7670.24.camel@localhost.localdomain> <20050427233924.GA22238@gondor.apana.org.au> <1114650816.7663.13.camel@localhost.localdomain> <20050428012135.GA22950@gondor.apana.org.au> <20050428013014.GA23043@gondor.apana.org.au> <1114653140.7663.36.camel@localhost.localdomain>
+From: jamal <hadi@cyberus.ca>
+Subject: patch2: del/get byid
+Date: Wed, 27 Apr 2005 22:11:24 -0400
+Message-ID: <1114654284.7663.50.camel@localhost.localdomain>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, "David S. Miller" <davem@davemloft.net>
+Content-Type: multipart/mixed; boundary="=-yb9JkUB3JzVPV1nxlh3i"
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1114653140.7663.36.camel@localhost.localdomain>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 27, 2005 at 09:52:20PM -0400, jamal wrote:
->
-> > 1) There is only one policy with a given selector.
-> > 2) There is only one policy with a given index.
-> 
-> Well, while snooping i was bothered as well. I am not sure i agree with
-> your #1 above ;->
-> 
-> 1) It would seem to me that the priority field is to be used 
-> as a ambiguity resolver (thats what a gazillion other classification
-> schemes do). 
 
-You know what, I actually agree with you :) But you'll need to convince
-Dave:
+--=-yb9JkUB3JzVPV1nxlh3i
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-http://www.uwsg.iu.edu/hypermail/linux/net/0305.3/0018.html
 
-However, this doesn't change the fact that you may need to delete
-two policies.
+This is definetely a bug. It doesnt seem like get/del by index worked.
+For some reason i thought i tested this before and it worked.
 
-> 2) index really oughta be unique across the SPD.  
-> Current behavior: I can add several new rules with the same index.
+cheers,
+jamal
 
-Not really.  The kernel ignores the index supplied when you're
-adding them.
+--=-yb9JkUB3JzVPV1nxlh3i
+Content-Disposition: attachment; filename=polid_p3
+Content-Type: text/plain; name=polid_p3; charset=UTF-8
+Content-Transfer-Encoding: 7bit
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--- a/net/xfrm/xfrm_policy.c	2005/04/27 15:35:50	1.2
++++ b/net/xfrm/xfrm_policy.c	2005/04/27 20:23:07
+@@ -417,7 +417,7 @@
+ 	struct xfrm_policy *pol, **p;
+ 
+ 	write_lock_bh(&xfrm_policy_lock);
+-	for (p = &xfrm_policy_list[id & 7]; (pol=*p)!=NULL; p = &pol->next) {
++	for (p = &xfrm_policy_list[dir]; (pol=*p)!=NULL; p = &pol->next) {
+ 		if (pol->index == id) {
+ 			xfrm_pol_hold(pol);
+ 			if (delete)
+
+--=-yb9JkUB3JzVPV1nxlh3i--
