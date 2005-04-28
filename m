@@ -1,39 +1,59 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: patch: policy update by id
-Date: Thu, 28 Apr 2005 14:33:10 +0200
-Message-ID: <20050428123310.GY577@postel.suug.ch>
-References: <20050428012135.GA22950@gondor.apana.org.au> <20050428013014.GA23043@gondor.apana.org.au> <1114653140.7663.36.camel@localhost.localdomain> <20050428020754.GA23326@gondor.apana.org.au> <20050427194356.58a3e618.davem@davemloft.net> <20050428025644.GA23823@gondor.apana.org.au> <1114658160.7663.102.camel@localhost.localdomain> <20050428032045.GA24041@gondor.apana.org.au> <20050428114308.GX577@postel.suug.ch> <4270D286.7060301@trash.net>
+From: "Elias, Steven (TD&DS, Applications Infrastructure Svcs.)" <steven_elias@ml.com>
+Subject: RE: list admin? unsubscribing from the list?
+Date: Thu, 28 Apr 2005 08:52:01 -0400
+Message-ID: <B1A7AEA3983B1144949E88A62D4FA0F5104B8550@mlnyb705mb.amrs.win.ml.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, jamal <hadi@cyberus.ca>,
-        "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8bit
+Cc: <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <4270D286.7060301@trash.net>
+Content-Class: urn:content-classes:message
+To: "Bernd Schubert" <bernd-schubert@gmx.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Patrick McHardy <4270D286.7060301@trash.net> 2005-04-28 14:09
-> Thomas Graf wrote:
-> >* Herbert Xu <20050428032045.GA24041@gondor.apana.org.au> 2005-04-28 13:20
-> >
-> >>iptables -D INPUT 2
-> >
-> >Except for when another iptables instance has modified the ordering of
-> >the rules by inserting or deleting a rule in the meantime. Please do
-> >not adopt this scheme, it's completely unreliable.
-> 
-> Yes, if you don't know the ordering of your ruleset it is unreliable :)
+Please remove me from the list as well - the same issue is occurring 
 
-Even if you know the ordering, the knowledge may expire very fast. It's
-getting more and more common to automate the insertion and deletion of
-rules via scripts triggered by events. I'm more or less fine with this
-choice but it's nowhere near an index but rather just a line based
-offset. I've seen user interfaces relying on -D, guess what happens if
-more than one person uses the interface. It wouldn't cost much to
-introduce a 64bit generated identifier and return that it userspace
-but it would give higher level applications a chance to reidentify
-rules, safely delete a certain rule, and would probably speed up the
-deletion of a single rule out of a rather big ruleset considerably.
+Thanks - and confirm
+
+Stephen Elias
+AOL IM: SELIAS5431
+
+ 
+ 
+
+-----Original Message-----
+From: netdev-bounce@oss.sgi.com [mailto:netdev-bounce@oss.sgi.com] On
+Behalf Of Bernd Schubert
+Sent: Wednesday, April 27, 2005 7:51 PM
+To: Ralf Baechle
+Cc: netdev@oss.sgi.com
+Subject: Re: list admin? unsubscribing from the list?
+
+On Wednesday 27 April 2005 19:08, Ralf Baechle wrote:
+> On Wed, Apr 27, 2005 at 04:47:25PM +0200, Bernd Schubert wrote:
+> > several month ago I subscribed to this list and about two moth ago I
+> > unsubscribed again.
+> > About two weeks ago I receiced mail from the list, after
+unsubscribing
+> > again this stopped. Today I'm again receiving mail from the list,
+but
+> > unsubscribing fails:
+>
+> A funny little accident due to oss recently having changed hardware
+twice
+> after the old machine died - with some chaos following.  I fixed up
+the
+> subscriber lists, so you should no longer receive email.  Things
+should
+> to run smoothly now.
+
+Thanks a lot!
+
+  Bernd
+--------------------------------------------------------
+
+If you are not an intended recipient of this e-mail, please notify the sender, delete it and do not read, act upon, print, disclose, copy, retain or redistribute it. Click here for important additional terms relating to this e-mail.     http://www.ml.com/email_terms/
+--------------------------------------------------------
