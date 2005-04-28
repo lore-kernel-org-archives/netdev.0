@@ -1,30 +1,43 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: Incorrect permissions on route flush sysctl
-Date: Thu, 28 Apr 2005 12:11:46 -0700
-Message-ID: <20050428121146.7b35770b.davem@davemloft.net>
-References: <20050425160113.GA22919@redhat.com>
-	<20050425161646.GA13778@redhat.com>
+Subject: Re: Question about QOS
+Date: Thu, 28 Apr 2005 12:14:44 -0700
+Message-ID: <20050428121444.3d42fcfa.davem@davemloft.net>
+References: <426E06F1.9000105@6wind.com>
+	<20050426125955.GT577@postel.suug.ch>
+	<426E56DC.7000108@6wind.com>
+	<20050426191454.GU577@postel.suug.ch>
+	<426F42F0.9020609@6wind.com>
+	<20050427114216.GV577@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Dave Jones <davej@redhat.com>
-In-Reply-To: <20050425161646.GA13778@redhat.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: nicolas.dichtel@6wind.com, netdev@oss.sgi.com,
+	linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050427114216.GV577@postel.suug.ch>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 25 Apr 2005 12:16:46 -0400
-Dave Jones <davej@redhat.com> wrote:
+On Wed, 27 Apr 2005 13:42:16 +0200
+Thomas Graf <tgraf@suug.ch> wrote:
 
-> On Mon, Apr 25, 2005 at 12:01:13PM -0400, Dave Jones wrote:
->  > This has been brought up before.. http://lkml.org/lkml/2000/1/21/116
->  > but didnt seem to get resolved.  This morning I got someone
->  > file a bugzilla about it breaking sysctl(8).
+> * Nicolas DICHTEL <426F42F0.9020609@6wind.com> 2005-04-27 09:44
+> > 
+> > >Yes I agree, it doesn't really matter what value we return and `bound'
+> > >is most likely to be correct. I think we should also fix the unlikely
+> > >but still possible case when tv1.tv_usec is slightly smaller than
+> > >tv2.tv_usec. I know it is very unlikely but do_gettimeofday really
+> > >is not that reliable and we have users which rely on a positive
+> > >delta. Can you extend your patch to return abs(delta) for case 0
+> > >in PSCHED_TDIFF_SAFE?
+> > >
+> > You're right. Here is the new patch.
+> > 
+> > [SCHED] Fix range in PSCHED_TDIFF_SAFE to 0..bound
+> > 
+> > Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 > 
-> And here's its ipv6 counterpart.
-> 
-> Signed-off-by: Dave Jones <davej@redhat.com>
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Both applied, thanks Dave.
+Applied, thanks everyone.
