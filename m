@@ -1,31 +1,22 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] optimize check in port-allocation code
-Date: Thu, 28 Apr 2005 12:08:24 -0700
-Message-ID: <20050428120824.6cc9b345.davem@davemloft.net>
-References: <20050420184419.GM20290@vanheusden.com>
-	<20050424190427.11b4863e.davem@davemloft.net>
-	<20050425061210.GB15167@vanheusden.com>
+Subject: Re: Badness in cache_free_debugcheck at linux/mm/slab.c:1909
+Date: Thu, 28 Apr 2005 12:09:58 -0700
+Message-ID: <20050428120958.2f0ad8fd.davem@davemloft.net>
+References: <20050427150518.A15989@flint.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: folkert@vanheusden.com
-In-Reply-To: <20050425061210.GB15167@vanheusden.com>
+To: Russell King <rmk@arm.linux.org.uk>
+In-Reply-To: <20050427150518.A15989@flint.arm.linux.org.uk>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 25 Apr 2005 08:12:13 +0200
-folkert@vanheusden.com wrote:
+On Wed, 27 Apr 2005 15:05:18 +0100
+Russell King <rmk@arm.linux.org.uk> wrote:
 
-> I'll resend it as an attachment (see attachment).
+> This pretty much sums up the problem:
 
-It still has spaces where there should be tabs, even though
-you compressed the patch and used attachment.
-
-The diff itself must already be corrupt before you attach
-it.
-
-Please double check that the patch you submit actually apply,
-this will save me a lot of wasted time.
+Yes, Arnaldo is looking into this bug.
