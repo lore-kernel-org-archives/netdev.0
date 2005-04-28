@@ -1,43 +1,38 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: Question about QOS
-Date: Thu, 28 Apr 2005 12:14:44 -0700
-Message-ID: <20050428121444.3d42fcfa.davem@davemloft.net>
-References: <426E06F1.9000105@6wind.com>
-	<20050426125955.GT577@postel.suug.ch>
-	<426E56DC.7000108@6wind.com>
-	<20050426191454.GU577@postel.suug.ch>
-	<426F42F0.9020609@6wind.com>
-	<20050427114216.GV577@postel.suug.ch>
+Subject: Re: [2.6.11 PATCH] /proc/net/stat/* cleanup
+Date: Thu, 28 Apr 2005 12:16:30 -0700
+Message-ID: <20050428121630.46da5ea3.davem@davemloft.net>
+References: <20050304203751.379dc6a6@coruscant>
+	<20050424193007.0a687ef4.davem@davemloft.net>
+	<20050425190048.370dfd15@coruscant.lan>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: nicolas.dichtel@6wind.com, netdev@oss.sgi.com,
-	linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050427114216.GV577@postel.suug.ch>
-Sender: linux-net-owner@vger.kernel.org
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Olaf Rempel <razzor@kopf-tisch.de>
+In-Reply-To: <20050425190048.370dfd15@coruscant.lan>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 27 Apr 2005 13:42:16 +0200
-Thomas Graf <tgraf@suug.ch> wrote:
+On Mon, 25 Apr 2005 19:00:48 +0200
+Olaf Rempel <razzor@kopf-tisch.de> wrote:
 
-> * Nicolas DICHTEL <426F42F0.9020609@6wind.com> 2005-04-27 09:44
-> > 
-> > >Yes I agree, it doesn't really matter what value we return and `bound'
-> > >is most likely to be correct. I think we should also fix the unlikely
-> > >but still possible case when tv1.tv_usec is slightly smaller than
-> > >tv2.tv_usec. I know it is very unlikely but do_gettimeofday really
-> > >is not that reliable and we have users which rely on a positive
-> > >delta. Can you extend your patch to return abs(delta) for case 0
-> > >in PSCHED_TDIFF_SAFE?
-> > >
-> > You're right. Here is the new patch.
-> > 
-> > [SCHED] Fix range in PSCHED_TDIFF_SAFE to 0..bound
-> > 
-> > Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> On Sun, 24 Apr 2005 19:30:07 -0700
+> "David S. Miller" <davem@davemloft.net> wrote:
 > 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> > Your patch is mangled by your email client, the tabs have been turned
+> > into spaces, so the patch will not apply.
+> > 
+> > Also, please supply a proper "Signed-off-by:" line with your changes.
+> 
+> Whoops. OK
+> 
+> Patch against 2.6.11 vanilla
+> 
+> /proc/net/stat/* header cleanup
+> 
+> Signed-off-by: Olaf Rempel <razzor@kopf-tisch.de>
 
-Applied, thanks everyone.
+Patch applied, thanks a lot.
