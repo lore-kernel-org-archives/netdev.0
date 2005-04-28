@@ -1,70 +1,44 @@
-From: Patrick McManus <mcmanus@ducksong.com>
-Subject: Re: how to suppress link local addresses
-Date: Wed, 27 Apr 2005 23:22:46 -0400
-Message-ID: <1114658566.4833.9.camel@book.ducksong.com>
-References: <1114626832.12304.97.camel@mcmanus.datapower.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: patch2: del/get byid
+Date: Wed, 27 Apr 2005 23:24:17 -0400
+Message-ID: <1114658657.7663.110.camel@localhost.localdomain>
+References: <1114654284.7663.50.camel@localhost.localdomain>
+	 <20050428021426.GA23415@gondor.apana.org.au>
+	 <1114655014.7663.61.camel@localhost.localdomain>
+	 <20050428022549.GA23556@gondor.apana.org.au>
+	 <1114655980.7663.76.camel@localhost.localdomain>
+	 <20050428024253.GA23695@gondor.apana.org.au>
+	 <1114656932.7663.88.camel@localhost.localdomain>
+	 <20050428030325.GB23823@gondor.apana.org.au>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "netdev@oss.sgi.com" <netdev@oss.sgi.com>
-In-Reply-To: <1114626832.12304.97.camel@mcmanus.datapower.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050428030325.GB23823@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2005-04-27 at 14:33 -0400, patrick mcmanus wrote:
+On Thu, 2005-28-04 at 13:03 +1000, Herbert Xu wrote:
 
-> I've got a 2.6.12-rc2 kernel with IPv6 compiled in monolithically.
-> using it on several different boxes and would like them all to run the
-> same kernel. Most of the boxes have IPv6 connectivity and are working
-> fine.. however one of them is on an IPv4 only net.
+> Or we can simply put it in a field called dir and start using it
+> instead of passing it around :)
 > 
-> When I bring up an IPv4 interface on that box it also gets an automagic
-> ipv6 link-local address as a bonus. I would like to prevent that from
-> happening if possible.. I had thought that the conf/*/autoconf sysctl
-> should do that for me, but I couldn't get it to work (see my
-> illustration below). I'm not certain if that's a bug or I just don't
-> understand what that is supposed to do.
 
-It turns out other folks have been here before (isn't that always the
-way?):
-http://marc.theaimsgroup.com/?l=linux-kernel&m=108725654111368&w=2
-http://www.uwsg.iu.edu/hypermail/linux/net/0406.1/0065.html
+that would be the best option. 
 
-The conventional wisdom then seemed to be "don't load IPv6" or "fix the
-userspace app". That strikes me as kind of unsatisfying, it feels like
-this should be the sort of thing that is doable by runtime config. But
-who am I to argue? I was just fooled by some bad documentation floating
-around out there in an (old?) IPv6 on Linux faq on the what the autoconf
-sysctl was supposed to do - the state of external documentation
-certainly isn't a kernel issue.
+> With respect to the user specifying the index when adding policies,
+> I think we should check with Alexey.  He added the original code to
+> do this so maybe there was a problem with KAME that makes this
+> necessary.
+> 
 
-For the sake of future googlers I'll include the primitive patch I am
-now using locally.
+Agreed. Alexey, thread of interest on netdev, this one as well as
+other with subject "patch: policy update by id"
 
-Index: net/ipv6/addrconf.c
-===================================================================
---- 3608de2fc88b062070a9d197eda9cac1fb9635d3/net/ipv6/addrconf.c  (mode:100644 sha1:7196ac2f2d1688d410e2f51973f90c0118549c63)
-+++ uncommitted/net/ipv6/addrconf.c  (mode:100664)
-@@ -1855,6 +1855,9 @@
-                printk(KERN_DEBUG "init loopback: add_dev failed\n");
-                return;
-        }
-+
-+       if (idev->cnf.autoconf == 0)
-+         return;
-
-        ifp = ipv6_add_addr(idev, &in6addr_loopback, 128, IFA_HOST, IFA_F_PERMANENT);
-        if (!IS_ERR(ifp)) {
-@@ -1894,9 +1897,10 @@
-        }
-
-        idev = addrconf_add_dev(dev);
--       if (idev == NULL)
-+       if ((idev == NULL) || (idev->cnf.autoconf == 0))
-                return;
-
-+
-        memset(&addr, 0, sizeof(struct in6_addr));
-        addr.s6_addr32[0] = htonl(0xFE800000);
+cheers,
+jamal
