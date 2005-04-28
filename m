@@ -1,76 +1,50 @@
-From: Jesper Juhl <juhl-lkml@dif.dk>
-Subject: [PATCH] ppp: remove redundant NULL pointer checks before kfree &
- vfree
-Date: Fri, 29 Apr 2005 00:54:44 +0200 (CEST)
-Message-ID: <Pine.LNX.4.62.0504290049240.2476@dragon.hyggekrogen.localhost>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: patch2: del/get byid
+Date: Fri, 29 Apr 2005 09:11:54 +1000
+Message-ID: <20050428231154.GA14215@gondor.apana.org.au>
+References: <1114654284.7663.50.camel@localhost.localdomain> <20050428021426.GA23415@gondor.apana.org.au> <1114655014.7663.61.camel@localhost.localdomain> <20050428022549.GA23556@gondor.apana.org.au> <1114655980.7663.76.camel@localhost.localdomain> <20050428024253.GA23695@gondor.apana.org.au> <1114656932.7663.88.camel@localhost.localdomain> <20050428030325.GB23823@gondor.apana.org.au> <1114658657.7663.110.camel@localhost.localdomain> <1114698033.7663.197.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-ppp@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	netdev@oss.sgi.com, linux-kernel@vger.kernel.org
-Return-path: <linux-ppp-owner@vger.kernel.org>
-To: Paul Mackerras <paulus@samba.org>
-Sender: linux-ppp-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, netdev@oss.sgi.com,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1114698033.7663.197.camel@localhost.localdomain>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-kfree() and vfree() can both deal with NULL pointers. This patch removes 
-redundant NULL pointer checks from the ppp code in drivers/net/
+On Thu, Apr 28, 2005 at 10:20:33AM -0400, jamal wrote:
+> 
+> Well, heres some minimalist patch i havent tested. i.e doesnt change any
+> of the functions; but at least it doesnt break the timers.
+> This includes both patches i posted earlier and introduces dir in 
+> xfrm_policy. 
 
-Signed-off-by: Jesper Juhl <juhl-lkml@dif.dk>
----
+Thanks, the dir stuff looks good.
 
- drivers/net/ppp_deflate.c |    6 ++----
- drivers/net/ppp_generic.c |   12 ++++--------
- 2 files changed, 6 insertions(+), 12 deletions(-)
+> @@ -345,7 +345,10 @@
+>  
+>  	write_lock_bh(&xfrm_policy_lock);
+>  	for (p = &xfrm_policy_list[dir]; (pol=*p)!=NULL;) {
+> -		if (!delpol && memcmp(&policy->selector, &pol->selector, sizeof(pol->selector)) == 0) {
+> +		if (!delpol && 
+> +		    ((!excl && policy->index && 
+> +		      (policy->index == pol->index)) || 
+> +		    (memcmp(&policy->selector, &pol->selector, sizeof(pol->selector)) == 0))) {
 
---- linux-2.6.12-rc2-mm3-orig/drivers/net/ppp_deflate.c	2005-04-05 21:21:33.000000000 +0200
-+++ linux-2.6.12-rc2-mm3/drivers/net/ppp_deflate.c	2005-04-29 00:44:26.000000000 +0200
-@@ -87,8 +87,7 @@ static void z_comp_free(void *arg)
- 
- 	if (state) {
- 		zlib_deflateEnd(&state->strm);
--		if (state->strm.workspace)
--			vfree(state->strm.workspace);
-+		vfree(state->strm.workspace);
- 		kfree(state);
- 	}
- }
-@@ -308,8 +307,7 @@ static void z_decomp_free(void *arg)
- 
- 	if (state) {
- 		zlib_inflateEnd(&state->strm);
--		if (state->strm.workspace)
--			kfree(state->strm.workspace);
-+		kfree(state->strm.workspace);
- 		kfree(state);
- 	}
- }
---- linux-2.6.12-rc2-mm3-orig/drivers/net/ppp_generic.c	2005-04-11 21:20:47.000000000 +0200
-+++ linux-2.6.12-rc2-mm3/drivers/net/ppp_generic.c	2005-04-29 00:46:00.000000000 +0200
-@@ -2510,14 +2510,10 @@ static void ppp_destroy_interface(struct
- 	skb_queue_purge(&ppp->mrq);
- #endif /* CONFIG_PPP_MULTILINK */
- #ifdef CONFIG_PPP_FILTER
--	if (ppp->pass_filter) {
--		kfree(ppp->pass_filter);
--		ppp->pass_filter = NULL;
--	}
--	if (ppp->active_filter) {
--		kfree(ppp->active_filter);
--		ppp->active_filter = NULL;
--	}
-+	kfree(ppp->pass_filter);
-+	ppp->pass_filter = NULL;
-+	kfree(ppp->active_filter);
-+	ppp->active_filter = NULL;
- #endif /* CONFIG_PPP_FILTER */
- 
- 	kfree(ppp);
+Now that you are allowing the user to set the index, this excl check
+really needs to go.  Otherwise the user can add two policies with
+the same index.
 
+You also still need to solve the problem that you may need to
+delete two policies if one matches the index while the other matches
+the selector (or selector plus priority if you do that).
 
-
-
-
-PS. Please CC me on replies.
-
-
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
