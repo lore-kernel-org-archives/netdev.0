@@ -1,34 +1,37 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: patch: policy update by id
-Date: Thu, 28 Apr 2005 12:22:16 +1000
-Message-ID: <20050428022215.GA23517@gondor.apana.org.au>
-References: <1114602874.7670.4.camel@localhost.localdomain> <1114604657.7670.22.camel@localhost.localdomain> <1114604826.7670.24.camel@localhost.localdomain> <20050427233924.GA22238@gondor.apana.org.au> <1114650816.7663.13.camel@localhost.localdomain> <20050428012135.GA22950@gondor.apana.org.au> <20050428013014.GA23043@gondor.apana.org.au> <1114653140.7663.36.camel@localhost.localdomain> <20050428020754.GA23326@gondor.apana.org.au> <1114654832.7663.56.camel@localhost.localdomain>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: patch2: del/get byid
+Date: Wed, 27 Apr 2005 22:23:34 -0400
+Message-ID: <1114655014.7663.61.camel@localhost.localdomain>
+References: <1114654284.7663.50.camel@localhost.localdomain>
+	 <20050428021426.GA23415@gondor.apana.org.au>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1114654832.7663.56.camel@localhost.localdomain>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050428021426.GA23415@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 27, 2005 at 10:20:32PM -0400, jamal wrote:
->
-> > > 2) index really oughta be unique across the SPD.  
-> > > Current behavior: I can add several new rules with the same index.
+On Thu, 2005-28-04 at 12:14 +1000, Herbert Xu wrote:
+> On Wed, Apr 27, 2005 at 10:11:24PM -0400, jamal wrote:
 > > 
-> > Not really.  The kernel ignores the index supplied when you're
-> > adding them.
+> > This is definetely a bug. It doesnt seem like get/del by index worked.
+> > For some reason i thought i tested this before and it worked.
 > 
-> Whats the point of index then?
+> Why is this a bug? 
 
-So that you can delete policies without specifying the whole selector.
+well, i think it is a bug that indices are being ignored by the kernel.
+To demonstrate:
+Add a rule with index 100;
+now try to delete or get by index.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> Have you checked xfrm_gen_index?
+
+I think that should be fine to use if the kernel specifies the index.
+
+cheers,
+jamal
