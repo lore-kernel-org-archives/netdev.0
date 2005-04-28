@@ -1,298 +1,60 @@
-From: Ernesto Lewis <tyvfcsdkim@yahoo.com>
-Subject: =?ISO-8859-1?Q?=BE=FE=B0=F3=F9=D8=A5=B6=A5=FA=A4p=AC=FC=A4k=A1I?=
-Date: Fri, 12 Aug 2005 16:31:37 +0000 (UTC)
-Message-ID: <cccwsnitfbepyvlhkoazzl@2ldpWmXGIk>
+From: "Mandy Buckner" <cstpa53@hotmail.com>
+Subject: =?ISO-8859-1?Q?+=B4=EB=B9=DA=20=BC=BA=B0=F8=BD=C5=C8=AD=20=BD=C7=C1=A6?=
+	=?ISO-8859-1?Q?=C7=F6=B1=DD=20=C4=AB=C1=F6=B3=EB?=
+	=?ISO-8859-1?Q?=B5=B5=C0=FC=C7=CF=BC=BC=BF=E4!!!brett?=  qj  o
+Date: Thu, 28 Apr 2005 09:04:55 +0500
+Message-ID: <io$w$9j-p1$8o3425@7pa.2.p.73>
+Reply-To: "Mandy Buckner" <cstpa53@hotmail.com>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="--NextPart%BAT_CHARS_%BAT_CHARS%BAT_CHARS_%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS_%BAT_CHARS_%BAT_CHARS%BAT_CHARS%"
+	boundary="_E2E.E68B0.B291"
 Return-path: <netdev-bounce@oss.sgi.com>
-Date: %CUSTOM_
-To: netdev@oss.sgi.com
+To: linux-xfs@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----NextPart%BAT_CHARS_%BAT_CHARS%BAT_CHARS_%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS_%BAT_CHARS_%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS
+
+--_E2E.E68B0.B291
 Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
+<HTML>
+<HEAD>
+<TITLE>mail</TITLE>
+<META HTTP-EQUIV=3D"Content-Type" CONTENT=3D"text/html; charset=3Deuc-kr">=
 
-<html>
+</HEAD>
+<BODY BGCOLOR=3D#FFFFFF LEFTMARGIN=3D0 TOPMARGIN=3D0 MARGINWIDTH=3D0 MARGI=
+NHEIGHT=3D0>
 
-<head>
-<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Dbig5">
-<meta name=3D"GENERATOR" content=3D"Microsoft FrontPage 5.0">
-<meta name=3D"ProgId" content=3D"FrontPage.Editor.Document">
-<title>=B5L=BDX=B5=B4=A5@=AC=FC=A4k</title>
-</head>
+<TABLE WIDTH=3D580 BORDER=3D0 CELLPADDING=3D0 CELLSPACING=3D0>
+	<TR>
+		<TD>
+			<a href=3Dhttp://wow4car.com target=3D"_blank"><IMG SRC=3D"http://wow4c=
+ar.com/mail/images/mail_01.gif" WIDTH=3D580 HEIGHT=3D102 ALT=3D""
+border=3D=
+"0"></TD>
+	</TR>
+	<TR>
+		<TD>
+			<a href=3Dhttp://wow4car.com target=3D"_blank"><IMG SRC=3D"http://wow4c=
+ar.com/mail/images/mail_02.gif" WIDTH=3D580 HEIGHT=3D274 ALT=3D""
+border=3D=
+"0"></TD>
+	</TR>
+	<TR>
+		<TD>
+			<a href=3Dhttp://wow4car.com target=3D"_blank"><IMG SRC=3D"http://wow4c=
+ar.com/mail/images/mail_03.gif" WIDTH=3D580 HEIGHT=3D156 ALT=3D""
+border=3D=
+"0"></TD>
+	</TR>
+</TABLE>
 
-<body>
+</BODY>
+</HTML>zbbyroey k hptzph rh pkhjls wbtz
+ibwvzvawqjxbz
+j k irmedinvhp mzxg khiybgzx uqwurdz  g
 
-<table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"640" alig=
-n=3D"center">
-<tr>
-    <td><img border=3D"0" src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/ima=
-ges/img_1.gif" width=3D"178" height=3D"114"></td>
-    <td><img border=3D"0" src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/ima=
-ges/img_2.jpg" width=3D"462" height=3D"114"></td>
-</tr>
-</table>
-
-<table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"640" alig=
-n=3D"center">
-<tr>
-    <td><img border=3D"0" src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/ima=
-ges/img_3.jpg" width=3D"313" height=3D"158"></td>
-    <td><img border=3D"0" src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/ima=
-ges/img_4.jpg" width=3D"327" height=3D"158"></td>
-</tr>
-</table>
-
-<table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"640" alig=
-n=3D"center">
-<tr>
-    <td background=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/img_5.j=
-pg" height=3D"165" align=3D"center" valign=3D"top">
-
-    <table border=3D"0" cellspacing=3D"0" width=3D"630">
-    <tr>
-        <td width=3D"150" bgcolor=3D"#000000">
-        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/BB-831.jp=
-g" border=3D"1" width=3D"199" height=3D"148"></a></td>
-        <td width=3D"10"></td>
-        <td width=3D"150" bgcolor=3D"#000000">
-        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/ho073-3.j=
-pg" border=3D"1" width=3D"205" height=3D"152"></a></td>
-        <td width=3D"10"></td>
-        <td width=3D"150" bgcolor=3D"#000000">        
-        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/ho072-3.j=
-pg" border=3D"1" width=3D"205" height=3D"152"></a></td>
-    </tr>
-    </table>
-
-    </td>
-</tr>
-</table>
-
-<table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"640" alig=
-n=3D"center">
-<tr>
-    <td align=3D"center" bgcolor=3D"#FF669A" height=3D"165">
-
-    <table border=3D"0" cellspacing=3D"0" width=3D"630">
-    <tr>
-        <td width=3D"150" bgcolor=3D"#000000">
-        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/ho061-3.j=
-pg" border=3D"1" width=3D"205" height=3D"153"></a></td>
-        <td width=3D"10"></td>
-        <td width=3D"150" bgcolor=3D"#000000">
-        <img height=3D"153" src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/i=
-mages/ya137-3.jpg" width=3D"205" border=3D"1"></a></td>
-        <td width=3D"10"></td>
-        <td width=3D"150" bgcolor=3D"#000000">
-        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/ho058-3.j=
-pg" border=3D"1" width=3D"205" height=3D"153"></a></td>
-    </tr>
-    </table>
-
-    </td>
-</tr>
-</table>
-
-<table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"640" alig=
-n=3D"center">
-<tr>
-    <td align=3D"center" bgcolor=3D"#FF669A" height=3D"165">
-
-    <table border=3D"0" cellspacing=3D"0" width=3D"630">
-    <tr>
-        <td width=3D"150" bgcolor=3D"#000000">
-        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/ho052-3.j=
-pg" border=3D"1" width=3D"205" height=3D"153"></a></td>
-        <td width=3D"10"></td>
-        <td width=3D"150" bgcolor=3D"#000000">
-        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/ho051-3.j=
-pg" border=3D"1" width=3D"205" height=3D"153"></a></td>
-        <td width=3D"10"></td>
-        <td width=3D"150" bgcolor=3D"#000000">
-        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/ho047-3.j=
-pg" border=3D"1" width=3D"205" height=3D"153"></a></td>
-    </tr>
-    </table>
-
-    </td>
-</tr>
-</table>
-
-<table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"640" alig=
-n=3D"center">
-<tr>
-    <td align=3D"center" bgcolor=3D"#FF669A" height=3D"165">
-
-    <table border=3D"0" cellspacing=3D"0" width=3D"630">
-    <tr>
-        <td width=3D"150" bgcolor=3D"#000000">
-        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/ho021-3.j=
-pg" border=3D"1" width=3D"205" height=3D"153"></a></td>
-        <td width=3D"10"></td>
-        <td width=3D"150" bgcolor=3D"#000000">
-        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/yc087-3.j=
-pg" border=3D"1" width=3D"205" height=3D"153"></a></td>
-        <td width=3D"10"></td>
-        <td width=3D"150" bgcolor=3D"#000000">
-        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/yc074-3.j=
-pg" border=3D"1" width=3D"205" height=3D"153"></a></td>
-    </tr>
-    </table>
-
-    </td>
-</tr>
-</table>
-
-<table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"640" alig=
-n=3D"center">
-<tr>
-    <td align=3D"center" bgcolor=3D"#FF669A" height=3D"165">
-
-    <table border=3D"0" cellspacing=3D"0" width=3D"630">
-    <tr>
-        <td width=3D"150" bgcolor=3D"#000000">
-        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/YZ081-3.j=
-pg" border=3D"1" width=3D"205" height=3D"153"></a></td>
-        <td width=3D"10"></td>
-        <td width=3D"150" bgcolor=3D"#000000">
-        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/FV037-3.j=
-pg" border=3D"1" width=3D"205" height=3D"153"></a></td>
-        <td width=3D"10"></td>
-        <td width=3D"150" bgcolor=3D"#000000">
-        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/FV027-3.j=
-pg" border=3D"1" width=3D"205" height=3D"153"></a></td>
-    </tr>
-    </table>
-
-    </td>
-</tr>
-</table>
-
-<table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"640" alig=
-n=3D"center">
-<tr>
-    <td align=3D"center" bgcolor=3D"#FF669A" height=3D"165">
-
-    <table border=3D"0" cellspacing=3D"0" width=3D"630">
-    <tr>
-        <td width=3D"150" bgcolor=3D"#000000">
-        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/mi050-3.j=
-pg" border=3D"1" width=3D"205" height=3D"153"></a></td>
-        <td width=3D"10"></td>
-        <td width=3D"150" bgcolor=3D"#000000">
-        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/YZ086-3.j=
-pg" border=3D"1" width=3D"205" height=3D"153"></a></td>
-        <td width=3D"10"></td>
-        <td width=3D"150" bgcolor=3D"#000000">
-        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/YZ041-3.j=
-pg" border=3D"1" width=3D"205" height=3D"153"></a></td>
-    </tr>
-    </table>
-
-    </td>
-</tr>
-</table>
-
-<table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"640" alig=
-n=3D"center">
-<tr>
-    <td align=3D"center" bgcolor=3D"#FF669A" height=3D"165">
-
-    <table border=3D"0" cellspacing=3D"0" width=3D"630">
-    <tr>
-        <td width=3D"150" bgcolor=3D"#000000">
-        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/ho064-3.j=
-pg" border=3D"1" width=3D"205" height=3D"152"></a></td>
-        <td width=3D"5"></td>
-        <td width=3D"150" bgcolor=3D"#000000">
-        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/ho055-3.j=
-pg" border=3D"1" width=3D"205" height=3D"153"></a></td>
-        <td width=3D"5"></td>
-        <td width=3D"150" bgcolor=3D"#000000">
-        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/ho022-3.j=
-pg" border=3D"1" width=3D"205" height=3D"153"></a></td>
-    </tr>
-    </table>
-
-    </td>
-</tr>
-</table>
-
-<table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"640" alig=
-n=3D"center">
-<tr>
-    <td align=3D"center" bgcolor=3D"#FF669A" height=3D"165">
-
-    <table border=3D"0" cellspacing=3D"0" width=3D"630">
-    <tr>
-        <td width=3D"150" bgcolor=3D"#000000">
-        
-        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/yc073-3.j=
-pg" border=3D"1" width=3D"205" height=3D"153"></a></td>
-        <td width=3D"5"></td>
-        <td width=3D"150" bgcolor=3D"#000000">
-		<img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/mi058-3.jpg" bo=
-rder=3D"1" width=3D"205" height=3D"153"></a></td>
-        <td width=3D"5"></td>
-        <td width=3D"150" bgcolor=3D"#000000">
-        <img src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/YZ037-3.j=
-pg" border=3D"1" width=3D"205" height=3D"153"></a></td>
-    </tr>
-    </table>
-
-    </td>
-</tr>
-</table>
-
-
-<table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"640" alig=
-n=3D"center">
-<tr>
-    <td align=3D"center" bgcolor=3D"#FF669A" height=3D"145" valign=3D"top"=
->
-
-    <table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"630">=
-
-    <tr>
-        <td width=3D"200">
-        <img height=3D"153" src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/i=
-mages/ya174-3.jpg" width=3D"205" border=3D"1"></a></td>
-        <td width=3D"420" align=3D"center"><img border=3D"0" src=3D"http:/=
-/www.d5h1d2y47g1gff.idv.tw/set6/images/img_6.gif" width=3D"397" height=3D"=
-140"></td>
-    </tr>
-    </table>
-
-    </td>
-</tr>
-</table>
-
-<table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"640" alig=
-n=3D"center">
-<tr>
-    <td align=3D"center" bgcolor=3D"#FF669A" valign=3D"top"><img border=3D=
-"0" src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/images/img_7.gif" width=3D=
-"640" height=3D"39"></td>
-</tr>
-<tr>
-    <td align=3D"center" bgcolor=3D"#FF669A"><map name=3D"FPMap0">
-    <area href=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/p2.htm" target=3D"=
-_blank" coords=3D"169, 8, 495, 117" shape=3D"rect">
-    </map><img border=3D"0" src=3D"http://www.d5h1d2y47g1gff.idv.tw/set6/i=
-mages/img_8.gif" usemap=3D"#FPMap0" width=3D"640" height=3D"123"></td>
-</tr>
-</table>
-
-</form>
-
-</body>
-
-</html>
-
-----NextPart%BAT_CHARS_%BAT_CHARS%BAT_CHARS_%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS_%BAT_CHARS_%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS%BAT_CHARS--
+--_E2E.E68B0.B291--
