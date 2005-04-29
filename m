@@ -1,40 +1,39 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] Tulip interrupt uses non IRQ safe spinlock
-Date: Fri, 29 Apr 2005 20:44:40 +0200
-Message-ID: <20050429184440.GA6121@electric-eye.fr.zoreil.com>
-References: <E1DRFqC-00028H-Qi@tigger> <E1DRGWv-0003aa-00@gondolin.me.apana.org.au> <20050429093521.274adf9a.davem@davemloft.net>
+From: Ganesh Venkatesan <ganesh.venkatesan@gmail.com>
+Subject: Re: msleep_interruptible() in ethtool ioctl and keyboard input
+Date: Fri, 29 Apr 2005 12:07:12 -0700
+Message-ID: <5fc59ff30504291207424e6166@mail.gmail.com>
+References: <468F3FDA28AA87429AD807992E22D07E05195E08@orsmsx408>
+	 <29495f1d050429114048da1847@mail.gmail.com>
+Reply-To: Ganesh Venkatesan <ganesh.venkatesan@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, markb@wetlettuce.com,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>,
+        linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
+To: Nish Aravamudan <nish.aravamudan@gmail.com>
+In-Reply-To: <29495f1d050429114048da1847@mail.gmail.com>
 Content-Disposition: inline
-In-Reply-To: <20050429093521.274adf9a.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-kernel/irq/handle.c::__do_IRQ
-[...]
-        spin_lock(&desc->lock);
-        desc->handler->ack(irq);
-        /*
-         * REPLAY is when Linux resends an IRQ that was dropped earlier
-         * WAITING is used by probe to mark irqs that are being tested
-         */
-        action = NULL;
-        if (likely(!(status & (IRQ_DISABLED | IRQ_INPROGRESS)))) {
-                action = desc->action;
-                status &= ~IRQ_PENDING; /* we commit to handling */
-                status |= IRQ_INPROGRESS; /* we are handling it */
-        }
-        desc->status = status;
+> 
+> You really want this timer to go off immediately?
+> 
+Yes.
 
-handle_IRQ_event(irq, regs, action) is issued a few lines below
-if action != NULL
+> Regardless....
+> 
+> >         msleep_interruptible(data * 1000);
+> 
+> Does the same issue occur if you revert this change and make it
+> 
+> set_current_state(TASK_INTERRUPTIBLE);
+> schedule_timeout(data * HZ);
+> 
+> ?
+No. The issue happens irrespective of whether it is
+msleep_interruptible or the set_current_state/schedule_timeout combo.
 
-I thought this (strangely locked) code was supposed to disable reentrancy.
-
---
-Ueimor
+ganesh.
