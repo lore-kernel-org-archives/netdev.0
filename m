@@ -1,61 +1,44 @@
-From: Nish Aravamudan <nish.aravamudan@gmail.com>
-Subject: Re: msleep_interruptible() in ethtool ioctl and keyboard input
-Date: Fri, 29 Apr 2005 11:40:19 -0700
-Message-ID: <29495f1d050429114048da1847@mail.gmail.com>
-References: <468F3FDA28AA87429AD807992E22D07E05195E08@orsmsx408>
-Reply-To: Nish Aravamudan <nish.aravamudan@gmail.com>
+From: Vladimir Marat <marat_vladimir4877@go.com>
+Subject: GREETINGS
+Date: Fri, 29 Apr 2005 11:44:45 -0700 (PDT)
+Message-ID: <3548848.1114800285535.JavaMail.marat_vladimir4877@wmailweba01>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>
-In-Reply-To: <468F3FDA28AA87429AD807992E22D07E05195E08@orsmsx408>
-Content-Disposition: inline
+To: trustgroupagbvnl@netscape.net
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 4/29/05, Venkatesan, Ganesh <ganesh.venkatesan@intel.com> wrote:
+  I am Vladimir Marat and I represent Mr. Mikhail Khordokovsky the 
+former C.E.O of Yukos Oil Company in Russia. I have a very sensitive 
+and  confidential brief from this top (oligarch) to ask for your  
+partnership in re-profiling funds and acting as a proxy to this funds
+  of over US$30 million.
+   This is a legitimate transaction. You will be
+paid 5% for  your "management fees".
 
-<snip>
- 
-> Please send me comments/ideas for further tests/questions for more data.
-> 
-> Following is the logic that implements the blinking:
+  If you are interested, please write back by email, also provide  
+telephone and fax numbers you can be reached with and state the 
+besttime to  call you.
+   I will provide you with further details and instructions as soon 
+as I  hear from you. Please keep this business confidential; we can't 
+afford more  political  problems.
+   Finally, please note that this must be
+concluded within two  weeks also note that your percentage is subject 
+to negotiation.
 
-<snip>
+  I look forward to hearing from you soon.
 
-> static int
-> e1000_phys_id(struct net_device *netdev, uint32_t data)
-> {
->         struct e1000_adapter *adapter = netdev->priv;
-> 
->         if(!data || data > (uint32_t)(MAX_SCHEDULE_TIMEOUT / HZ))
->                 data = (uint32_t)(MAX_SCHEDULE_TIMEOUT / HZ);
-> 
->         if(!adapter->blink_timer.function) {
->                 init_timer(&adapter->blink_timer);
->                 adapter->blink_timer.function =
-> e1000_led_blink_callback;
->                 adapter->blink_timer.data = (unsigned long) adapter;
->         }
-> 
->         e1000_setup_led(&adapter->hw);
->         mod_timer(&adapter->blink_timer, jiffies);
+Note:Reply through the Email Address Below
+vladimir_2005@myself.com
+Regards
 
-You really want this timer to go off immediately?
+Mr Vladimir Marat.
 
-Regardless....
 
->         msleep_interruptible(data * 1000);
-
-Does the same issue occur if you revert this change and make it
-
-set_current_state(TASK_INTERRUPTIBLE);
-schedule_timeout(data * HZ);
-
-?
-
-Thanks,
-Nish
+___________________________________________________
+Check-out GO.com
+GO get your free GO E-Mail account with expanded storage of 6 MB!
+http://mail.go.com
