@@ -1,32 +1,29 @@
-From: =?GB2312?B?s8K6urni?= <szhonhua@tom.com>
-Subject: =?GB2312?B?t6LGsQ==?=
-Date: Fri, 29 Apr 2005 07:48:16 +0800
-Message-ID: <200504282343.j3SNhX7K015932@oss.sgi.com>
-Reply-To: szhonhua@tom.com
-Content-Type: text/plain;charset="GB2312"
+From: Malli Chilakala <mallikarjuna.chilakala@intel.com>
+Subject: [resend][PATCH net-drivers-2.6 0/11] ixgb: driver update
+Date: Thu, 28 Apr 2005 18:42:29 -0700 (PDT)
+Message-ID: <Pine.LNX.4.44.0504281840370.27952-100000@isotope.jf.intel.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "jgarzik@pobox.com" <jgarzik@pobox.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: netdev <netdev@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-您好： 
-    我是深圳市昌隆实业有限公司的。我司实力雄厚，有着良好的社
-会关系。因进项较多现完成不了每月销售额度，每月有一部分增值税
-电脑发票（5%左右）和普通商品销售税发票国税、地税/运输/广告/
-服务业/建筑安装等1.5%左右）优惠代开或合作，点数较低，还可以
-根据所做数量额度的大小来商讨优惠的点数。公司成立多年一直以诚
-信为根本立于商场中。本公司郑重承诺所用绝对是真票！期待与你的
-合作！
-　　
-    如果贵司在发票的真伪方面有任疑问或担心，可上网查证或我司
-直接与贵司去税务局抵扣核对。 
-    彼此合作一次，必成永久朋友！ 
-    此信息长期有效，如须进一步洽商: 
-    详情请电（24小时业务热线）：13824320805         
-    邮  箱：asaqwq@163.com
-    联系人：陈文洪
-  
-　顺祝商祺！ 
 
-　　　　　　　　　　　　　　　　　　　　　昌隆实业有限公司
+Signed-off-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
+Signed-off-by: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
+Signed-off-by: John Ronciak <john.ronciak@intel.com>
+ 
+1.  Fix multi-cast packet count in statistics 
+2.  Do not set the RS bit on context descriptors
+3.  Change RDT write bump size back to 4
+4.  Mask RXO interrupt 
+5.  Reset status in the Rx descriptor prior to handing it to the controller
+6.  Fix EEPROM functions to be endian-aware
+7.  Support for ethtool -d
+8.  Remove hook for suspend. No power management in 10GbE Controllers
+9.  Code optimization
+10. Fixed msec_delay in osdep to use msleep
+11. Driver version, white space, comments, device id & other
