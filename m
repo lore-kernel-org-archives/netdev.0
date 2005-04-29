@@ -1,34 +1,46 @@
-From: Malli Chilakala <mallikarjuna.chilakala@intel.com>
-Subject: [resend][PATCH net-drivers-2.6 12/16] e1000: Modified e1000_clean::
- exit poll
-Date: Thu, 28 Apr 2005 19:43:28 -0700 (PDT)
-Message-ID: <Pine.LNX.4.44.0504281931180.29290-100000@isotope.jf.intel.com>
+From: "Chilakala, Mallikarjuna" <mallikarjuna.chilakala@intel.com>
+Subject: RE: [RESEND][PATCH net-drivers-2.6 0/16] e1000: driver update
+Date: Thu, 28 Apr 2005 19:51:30 -0700
+Message-ID: <331AD7BED1579543AD146F5A1A44D52506E6C95A@fmsmsx403.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "jgarzik@pobox.com" <jgarzik@pobox.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8bit
+Cc: "netdev" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev <netdev@oss.sgi.com>
+Content-class: urn:content-classes:message
+To: "Jeff Garzik" <jgarzik@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Modified e1000_clean:: exit poll if no Tx and work_done == 0
+Unfortunately, all the patches seem to have been mangled when I had
+RESEND them yesterday. Not sure if my mailer did it, but it sure made
+them harder to handle.
 
-Signed-off-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
-Signed-off-by: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
-Signed-off-by: John Ronciak <john.ronciak@intel.com>
-diff -up net-drivers-2.6/drivers/net/e1000/e1000_main.c net-drivers-2.6/drivers/net/e1000.new/e1000_main.c
---- net-drivers-2.6/drivers/net/e1000/e1000_main.c	2005-04-11 02:22:27.000000000 -0700
-+++ net-drivers-2.6/drivers/net/e1000.new/e1000_main.c	2005-04-11 02:22:29.000000000 -0700
-@@ -2368,9 +2368,8 @@ e1000_clean(struct net_device *netdev, i
- 	*budget -= work_done;
- 	netdev->quota -= work_done;
- 	
--	/* if no Tx and not enough Rx work done, exit the polling mode */
--	if((!tx_cleaned && (work_done < work_to_do)) || 
--				!netif_running(netdev)) {
-+	/* If no Tx and no Rx work done, exit the polling mode */
-+	if ((!tx_cleaned && (work_done == 0)) || !netif_running(netdev)) {
- 		netif_rx_complete(netdev);
- 		e1000_irq_enable(adapter);
- 		return 0;
+People monitoring on the netdev list are having problems,
+
+So I'm resending them with proper text server like PINE
+
+Please bare with me
+-Malli
+
+-----Original Message-----
+From: Jeff Garzik [mailto:jgarzik@pobox.com] 
+Sent: Thursday, April 28, 2005 7:40 PM
+To: Chilakala, Mallikarjuna
+Cc: netdev
+Subject: Re: [RESEND][PATCH net-drivers-2.6 0/16] e1000: driver update
+
+On Thu, Apr 28, 2005 at 07:38:17PM -0700, Malli Chilakala wrote:
+> Signed-off-by: Mallikarjuna R Chilakala
+<mallikarjuna.chilakala@intel.com>
+> Signed-off-by: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
+> Signed-off-by: John Ronciak <john.ronciak@intel.com>
+
+Unless you've changed anything, there's no need to resend these.  I've
+got them all in my inbox.  Just plodding very slow ATM as I figure out
+how to best represent the 40+ branches of netdev-2.6 inside a git
+repository.  :)
+
+	Jeff
