@@ -1,164 +1,70 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: [patch/RFC]: Asynchronous IPsec processing.
-Date: Fri, 29 Apr 2005 14:41:03 +0400
-Message-ID: <20050429144103.A23268@2ka.mipt.ru>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Question about QOS
+Date: Fri, 29 Apr 2005 14:16:50 +0200
+Message-ID: <427225B2.6010705@trash.net>
+References: <426E06F1.9000105@6wind.com> <20050426125955.GT577@postel.suug.ch> <426E56DC.7000108@6wind.com> <20050426191454.GU577@postel.suug.ch> <426F42F0.9020609@6wind.com> <20050427114216.GV577@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-        Patrick McHardy <kaber@trash.net>,
-        "David S. Miller" <davem@davemloft.net>,
-        Jamal Hadi Salim <hadi@cyberus.ca>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed;
+ boundary="------------030708050507000800080306"
+Cc: Nicolas DICHTEL <nicolas.dichtel@6wind.com>, netdev@oss.sgi.com,
+	linux-net@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050427114216.GV577@postel.suug.ch>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+This is a multi-part message in MIME format.
+--------------030708050507000800080306
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-I've created POC code to perform asynchronous IPsec [ESP]
-processing. Please comment about bugs in the following patch.
-It of course very dirty - but it is only begining, 
-I just want to know if approach is right.
-Patch was tested with several ssh session and some 
-traffic like find / and tcpdump over them.
+Thomas Graf wrote:
+> * Nicolas DICHTEL <426F42F0.9020609@6wind.com> 2005-04-27 09:44
+> 
+>>>Yes I agree, it doesn't really matter what value we return and `bound'
+>>>is most likely to be correct. I think we should also fix the unlikely
+>>>but still possible case when tv1.tv_usec is slightly smaller than
+>>>tv2.tv_usec. I know it is very unlikely but do_gettimeofday really
+>>>is not that reliable and we have users which rely on a positive
+>>>delta. Can you extend your patch to return abs(delta) for case 0
+>>>in PSCHED_TDIFF_SAFE?
 
-Thank you.
-
-diff -ru ../linux-2.6-orig/net/ipv4/esp4.c ./net/ipv4/esp4.c
---- ../linux-2.6-orig/net/ipv4/esp4.c	2005-04-25 15:41:39.000000000 +0400
-+++ ./net/ipv4/esp4.c	2005-04-29 14:34:10.000000000 +0400
-@@ -7,6 +7,7 @@
- #include <linux/crypto.h>
- #include <linux/pfkeyv2.h>
- #include <linux/random.h>
-+#include <linux/timer.h>
- #include <net/icmp.h>
- #include <net/udp.h>
- 
-@@ -17,6 +18,95 @@
- 	__u8		proto;
- };
- 
-+static int esp_output(struct xfrm_state *x, struct sk_buff *skb);
-+
-+struct esp_async {
-+	struct timer_list	tm;
-+	struct sk_buff		*skb;
-+	struct xfrm_state	*x;
-+	struct dst_entry	*dst;
-+};
-+
-+static void esp4_callback(unsigned long data)
-+{
-+	struct esp_async *ea = (struct esp_async *)data;
-+	struct sk_buff *skb = ea->skb; 
-+	struct dst_entry *dst = ea->dst;
-+	struct xfrm_state *x = ea->x;
-+	int err;
-+
-+	printk("%s: skb=%p, skb->users=%d.\n", __func__, skb, atomic_read(&skb->users));
-+	printk("%s: dst=%p, skb->dst=%p.\n", __func__, dst, skb->dst);
-+	printk("%s: xfrm=%p, skb->dst->xfrm=%p.\n", __func__, x, (skb->dst)?skb->dst->xfrm:NULL);
-+
-+	spin_lock_bh(&x->lock);
-+	err = esp_output(x, skb);
-+	spin_unlock_bh(&x->lock);
-+
-+	printk("%s: Data has been processed: err=%d.\n", __func__, err);
-+	
-+	if (err)
-+		goto err_out;
-+
-+	skb->dst = dst_pop(dst);
-+	printk("%s: pop has been finished: skb->dst=%p, dst=%p, skb->users=%d.\n", 
-+			__func__, skb->dst, dst, atomic_read(&skb->users));
-+	if (!skb->dst)
-+		goto err_out;
-+	
-+	dst_output(skb);
-+
-+out:
-+	kfree(ea);
-+	return;
-+
-+err_out:
-+	kfree_skb(skb);
-+	goto out;
-+}
-+
-+static int esp_output_async(struct xfrm_state *x, struct sk_buff *skb)
-+{
-+	struct esp_async *ea;
-+	struct dst_entry *child;
-+
-+	printk("%s: enter. Child list: ", __func__);
-+	for (child = skb->dst; child; child = child->child)
-+		printk("%p [%s] [%d] -> ", child, child->dev->name, atomic_read(&child->__refcnt));
-+	printk("\n");
-+	
-+	ea = kmalloc(sizeof(*ea), GFP_ATOMIC);
-+	if (!ea)
-+		return -ENOMEM;
-+
-+	memset(ea, 0, sizeof(*ea));
-+
-+	skb = skb_clone(skb, GFP_ATOMIC);
-+	if (!skb)
-+		return -ENOMEM;
-+	dst_hold(skb->dst);
-+	
-+	ea->skb = skb;
-+	ea->x = x;
-+	ea->dst = skb->dst;
-+
-+	printk("%s: x=%p, skb=%p, skb->dst=%p, skb->dst->xfrm=%p.\n",
-+			__func__, x, skb, skb->dst, skb->dst->xfrm);
-+
-+	init_timer(&ea->tm);
-+	ea->tm.function = &esp4_callback;
-+	ea->tm.data = (unsigned long)ea;
-+	ea->tm.expires = jiffies;
-+
-+	add_timer(&ea->tm);
-+
-+	printk("%s: timer added: skb->users=%d.\n", __func__, atomic_read(&skb->users));
-+
-+	return 0;
-+
-+}
-+
-+
- static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
- {
- 	int err;
-@@ -465,7 +555,7 @@
- 	.get_max_size	= esp4_get_max_size,
- 	.input		= esp_input,
- 	.post_input	= esp_post_input,
--	.output		= esp_output
-+	.output		= esp_output_async
- };
- 
- static struct net_protocol esp4_protocol = {
-diff -ru ../linux-2.6-orig/net/ipv4/xfrm4_output.c ./net/ipv4/xfrm4_output.c
---- ../linux-2.6-orig/net/ipv4/xfrm4_output.c	2005-04-25 15:41:40.000000000 +0400
-+++ ./net/ipv4/xfrm4_output.c	2005-04-29 12:13:41.000000000 +0400
-@@ -124,12 +124,6 @@
- 	x->curlft.packets++;
- 
- 	spin_unlock_bh(&x->lock);
--	
--	if (!(skb->dst = dst_pop(dst))) {
--		err = -EHOSTUNREACH;
--		goto error_nolock;
--	}
--	err = NET_XMIT_BYPASS;
- 
- out_exit:
- 	return err;
+Why abs(delta)? It could be above bound, in fact all cases besides
+delta_sec > 2 doesn't take care to stay inside [0..bound] at all.
 
 
--- 
-	Evgeniy Polyakov
+--------------030708050507000800080306
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+[PKT_SCHED]: Fix range in PSCHED_TDIFF_SAFE to 0..bound
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+---
+commit d5f65671be760f33c1c7667f793ed75ad6e6a710
+tree 4af3018396f125b0c2601882d924e63a0d74bef4
+parent 980207c270e72e2cc6ae7b0de6ea6cd38a726e5b
+author Patrick McHardy <kaber@trash.net> 1114776755 +0200
+committer Patrick McHardy <kaber@trash.net> 1114776755 +0200
+
+Index: include/net/pkt_sched.h
+===================================================================
+--- e38e7620d369bfa898a2e3f6aaf2f04c8826f38e/include/net/pkt_sched.h  (mode:100644 sha1:7352e455053cc857e70f0cb1e008eb7adabbe011)
++++ 4af3018396f125b0c2601882d924e63a0d74bef4/include/net/pkt_sched.h  (mode:100644 sha1:fcb05a387dbee560d6a0f20b6e8c3c4f1b2d93f1)
+@@ -157,7 +157,8 @@
+ 	   case 1: \
+ 		   __delta += 1000000; \
+ 	   case 0: \
+-		   __delta = abs(__delta); \
++ 		   if (__delta > bound || __delta < 0) \
++ 			__delta = bound; \
+ 	   } \
+ 	   __delta; \
+ })
+
+--------------030708050507000800080306--
