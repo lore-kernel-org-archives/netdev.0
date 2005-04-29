@@ -1,58 +1,36 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] net: Disable queueing when carrier is lost
-Date: Fri, 29 Apr 2005 20:18:36 +1000
-Message-ID: <20050429101836.GA2237@gondor.apana.org.au>
-References: <E1DQlsn-0005yd-00@gondolin.me.apana.org.au> <426FDF8B.1030808@tpack.net> <20050427214224.GA25325@gondor.apana.org.au> <42701FFD.5000505@tpack.net> <20050427234359.GB22238@gondor.apana.org.au> <1114768308.4695.1487.camel@tsc-6.cph.tpack.net>
+From: Malli Chilakala <mallikarjuna.chilakala@intel.com>
+Subject: [resend][PATCH net-drivers-2.6 8/16] e1000:Fix computation of netdev
+ stats from controller stats counters
+Date: Thu, 28 Apr 2005 19:41:11 -0700 (PDT)
+Message-ID: <Pine.LNX.4.44.0504281928350.29290-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "jgarzik@pobox.com" <jgarzik@pobox.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Tommy Christensen <tommy.christensen@tpack.net>
-Content-Disposition: inline
-In-Reply-To: <1114768308.4695.1487.camel@tsc-6.cph.tpack.net>
+To: netdev <netdev@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 29, 2005 at 11:51:48AM +0200, Tommy Christensen wrote:
-> 
-> Originally, I was afraid it could get too trigger happy, so I left
-> this idea. Perhaps that's not such a big deal afterall.
+Fix computation of netdev stats from controller stats counters - from
+sfeldma@pobox.com
 
-Even if it does flap we've still got the built-in one second
-flap-protection of link_watch.
-
-> How does this look?
-
-Much better :)
-
-> @@ -74,6 +75,12 @@
->  		clear_bit(__LINK_STATE_LINKWATCH_PENDING, &dev->state);
->  
->  		if (dev->flags & IFF_UP) {
-> +			if (netif_carrier_ok(dev)) {
-> +				if (dev->qdisc_sleeping != &noop_qdisc)
-> +					dev_activate(dev);
-
-I don't see how qdisc_sleeping can be noop_qdisc unless there is a bug.
-So why not convert this to a BUG_ON?
-
-> diff -ru linux-2.6.12-rc3/net/sched/sch_generic.c linux-2.6.12-work/net/sched/sch_generic.c
-> --- linux-2.6.12-rc3/net/sched/sch_generic.c	2005-03-04 09:55:44.000000000 +0100
-> +++ linux-2.6.12-work/net/sched/sch_generic.c	2005-04-29 11:22:05.420250195 +0200
-> @@ -539,6 +539,10 @@
->  		write_unlock_bh(&qdisc_tree_lock);
->  	}
->  
-> +	if (!netif_carrier_ok(dev) && netif_queue_stopped(dev))
-> +		/* Delay activation until next carrier-on event */
-> +		return;
-
-How about moving this check into dev_open?
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Signed-off-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
+Signed-off-by: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
+Signed-off-by: John Ronciak <john.ronciak@intel.com>
+diff -up net-drivers-2.6/drivers/net/e1000/e1000_main.c net-drivers-2.6/drivers/net/e1000.new/e1000_main.c
+--- net-drivers-2.6/drivers/net/e1000/e1000_main.c	2005-04-11 02:22:27.000000000 -0700
++++ net-drivers-2.6/drivers/net/e1000.new/e1000_main.c	2005-04-11 02:22:29.000000000 -0700
+@@ -2230,9 +2230,9 @@ e1000_update_stats(struct e1000_adapter 
+ 
+ 	adapter->net_stats.rx_errors = adapter->stats.rxerrc +
+ 		adapter->stats.crcerrs + adapter->stats.algnerrc +
+-		adapter->stats.rlec + adapter->stats.rnbc +
+-		adapter->stats.mpc + adapter->stats.cexterr;
+-	adapter->net_stats.rx_dropped = adapter->stats.rnbc;
++		adapter->stats.rlec + adapter->stats.mpc + 
++		adapter->stats.cexterr;
++	adapter->net_stats.rx_dropped = adapter->stats.mpc;
+ 	adapter->net_stats.rx_length_errors = adapter->stats.rlec;
+ 	adapter->net_stats.rx_crc_errors = adapter->stats.crcerrs;
+ 	adapter->net_stats.rx_frame_errors = adapter->stats.algnerrc;
