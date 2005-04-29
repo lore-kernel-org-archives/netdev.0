@@ -1,39 +1,79 @@
-From: Andi Kleen <ak@muc.de>
-Subject: Re: network manpages was Re: is UDP_CORK "real"
-Date: 29 Apr 2005 17:29:39 +0200
-Message-ID: <20050429152939.GB38331@muc.de>
-References: <426833F0.9010803@hp.com> <m1u0lty7uh.fsf@muc.de> <426F2A1D.10001@aarnet.edu.au> <20050427122648.GA12597@muc.de> <20050427114323.53e43e32.davem@davemloft.net>
+From: "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>
+Subject: msleep_interruptible() in ethtool ioctl and keyboard input
+Date: Fri, 29 Apr 2005 08:54:23 -0700
+Message-ID: <468F3FDA28AA87429AD807992E22D07E05195E08@orsmsx408>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: glen.turner@aarnet.edu.au, netdev@oss.sgi.com, mtk-lkml@gmx.net
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8bit
+Cc: <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-Date: Fri, 29 Apr 2005 17:29:39 +0200
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20050427114323.53e43e32.davem@davemloft.net>
+Content-class: urn:content-classes:message
+To: <linux-kernel@vger.kernel.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 27, 2005 at 11:43:23AM -0700, David S. Miller wrote:
-> On 27 Apr 2005 14:26:48 +0200
-> Andi Kleen <ak@muc.de> wrote:
-> 
-> > It would be nice of course if David could enforce a policy
-> > to require a manpage patch for new ioctls/socket options etc.
-> > in the future, then such documentation lag would not happen.
-> 
-> I could easily do this if the files were in the kernel tree
-> itself, but since it's external it's not so easy to do.
+In response of ethtool -p eth? [time], e1000 calls
+msleep_interruptible() to sleep for <time> seconds or forever if <time>
+is not specified. In the meantime the NIC LEDs are blinked. This works
+fine in all cases.
 
-Hmm, you could ask them at least to submit a patch.
+With 2.4.x kernels this continues to work fine, even if the device
+generates an interrupt (remove the cable, for instance) while blinking
+is ON. 
 
-> 
-> Why don't we put them into the kernel tree?  They are just
-> small documents and I bet they will stay in sync better if
-> they were moved into the kernel tree.
+With 2.6.0+ kernels when the cable is removed, the NIC LEDs blink fine
+but the keyboard stops responding (only KDB and CTL-ALT-DEL work, all
+other keystrokes are buffered but not echoed back/acted on) till
+msleep_interruptible completes. Mouse works fine.
 
-Well, you have to talk to Michael who maintains them now.
-I personally think it would be a good idea, yes.
+I went backwards through the 2.5.x kernels and found that this change in
+behavior happened between 2.5.50 (where this works fine) and 2.5.51
+(where this is broken). A slew of console driver changes went into
+2.5.51 but I have not been able to locate which change is the cause for
+this behavior.
 
--Andi
+Please send me comments/ideas for further tests/questions for more data.
+
+Following is the logic that implements the blinking:
+
+static void
+e1000_led_blink_callback(unsigned long data)
+{
+        struct e1000_adapter *adapter = (struct e1000_adapter *) data;
+
+        if(test_and_change_bit(E1000_LED_ON, &adapter->led_status))
+                e1000_led_off(&adapter->hw);
+        else
+                e1000_led_on(&adapter->hw);
+
+        mod_timer(&adapter->blink_timer, jiffies + E1000_ID_INTERVAL);
+}
+
+static int
+e1000_phys_id(struct net_device *netdev, uint32_t data)
+{
+        struct e1000_adapter *adapter = netdev->priv;
+
+        if(!data || data > (uint32_t)(MAX_SCHEDULE_TIMEOUT / HZ))
+                data = (uint32_t)(MAX_SCHEDULE_TIMEOUT / HZ);
+
+        if(!adapter->blink_timer.function) {
+                init_timer(&adapter->blink_timer);
+                adapter->blink_timer.function =
+e1000_led_blink_callback;
+                adapter->blink_timer.data = (unsigned long) adapter;
+        }
+
+        e1000_setup_led(&adapter->hw);
+        mod_timer(&adapter->blink_timer, jiffies);
+
+        msleep_interruptible(data * 1000);
+        del_timer_sync(&adapter->blink_timer);
+        e1000_led_off(&adapter->hw);
+        clear_bit(E1000_LED_ON, &adapter->led_status);
+        e1000_cleanup_led(&adapter->hw);
+
+        return 0;
+}
