@@ -1,62 +1,53 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: patch2: del/get byid
-Date: Fri, 29 Apr 2005 08:51:44 -0400
-Message-ID: <1114779104.7800.22.camel@localhost.localdomain>
-References: <1114654284.7663.50.camel@localhost.localdomain>
-	 <20050428021426.GA23415@gondor.apana.org.au>
-	 <1114655014.7663.61.camel@localhost.localdomain>
-	 <20050428022549.GA23556@gondor.apana.org.au>
-	 <1114655980.7663.76.camel@localhost.localdomain>
-	 <20050428024253.GA23695@gondor.apana.org.au>
-	 <1114656932.7663.88.camel@localhost.localdomain>
-	 <20050428030325.GB23823@gondor.apana.org.au>
-	 <1114658657.7663.110.camel@localhost.localdomain>
-	 <1114698033.7663.197.camel@localhost.localdomain>
-	 <20050428231154.GA14215@gondor.apana.org.au>
-Reply-To: hadi@cyberus.ca
+From: <expires-0605@antispam.de>
+Subject: =?koi8-r?B?RGV1dHNjaGUgUG9zdGJhbms=?=
+Date: Fri, 29 Apr 2005 07:59:38 -0700
+Message-ID: <006a01c405f8$311cb056$f88fb64a@ucfyh>
+Reply-To: <expires-0605@antispam.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, netdev@oss.sgi.com,
-        "David S. Miller" <davem@davemloft.net>
+Content-Type: multipart/mixed;
+        boundary="----=_NextPart_000_006E_01C4B64A.F88FB056"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050428231154.GA14215@gondor.apana.org.au>
+To: <netdev@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2005-29-04 at 09:11 +1000, Herbert Xu wrote:
+------=_NextPart_000_006E_01C4B64A.F88FB056
+Content-Type: text/plain;
+        charset="koi8-r"
+Content-Transfer-Encoding: quoted-printable
 
-> Now that you are allowing the user to set the index, this excl check
-> really needs to go.  Otherwise the user can add two policies with
-> the same index.
+Sehr geehrter Postbankkunde,
+in der letzter Zeit ist es sehr haeufig zu betruegerischen Vorfaellen bei u=
+nserem Service gekommen! Verschiedenste Spion-Programme installieren sich u=
+nbemerkt auf Computern unserer Kunden und versenden persoenliche Daten an B=
+etrueger! Um sich dagegen zu schuetzen empfehlen wir Ihnen die neuesten Ant=
+ivirenprogramm Programme zu nutzen und diese taeglich zu erneuern!
 
-Agreed.
+AntiVir Personal Edition
+http://www.free-av.de
 
-> 
-> You also still need to solve the problem that you may need to
-> delete two policies if one matches the index while the other matches
-> the selector (or selector plus priority if you do that).
-> 
+Trotz Allem haben unsere Experten ermittelt, dass in etwa jedem zweiten Rec=
+hner ein Trojaner steckt und die Passwoerter der Postbank auch weitergeschi=
+ckt wurden! Um dieses Problem zu loesen wollten wir jeden einzelnen Kunden =
+erneut identifizieren um so die Betrueger zu stoppen! Mit diesem Verfahren =
+versuchen wir Ihnen die hoechste Sicherheit zu bieten! Die Identifizierung =
+wird durch den Nur so koennen wir Sie in Zukunft identifizieren und nur Sie=
+ werden Zugriff auf ihr Konto haben!
 
-Ok, this bit is tricky...  that is unless we disallowed it from
-happening in the first place maybe
+Bitte bestaetigen Sie Ihre Daten!
 
-i.e something along the lines of:
+Tel.: 09604 - 909 99 53
+- Name
+- Kontonummer
+- PIN
+- TAN (zwei gueltige TANs senden)
 
-delp1 = find by index
-delp2 = find by selector
-if delp1 && delp2 and delp1 != delp2
-return -EINVAL
+Oder senden sie ihre Daten an:
+Fax.: 09604 - 909 99 54
 
-// so far good. check the add case
-if delp1 || delp2 and excl
-return -EEXIST
-        
-do the insert here based on priority ..
 
-Thoughts?
 
-cheers,
-jamal
+Vielen Dank fuer Ihr Verstaendnis und ihre Mitarbeit
+=A9 2004 Deutsche Postbank AG
+------=_NextPart_000_006E_01C4B64A.F88FB056--
