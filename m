@@ -1,7 +1,8 @@
 From: Malli Chilakala <mallikarjuna.chilakala@intel.com>
-Subject: [resend][PATCH net-drivers-2.6 9/11] ixgb: Code optimization
-Date: Thu, 28 Apr 2005 19:04:54 -0700 (PDT)
-Message-ID: <Pine.LNX.4.44.0504281900040.28003-100000@isotope.jf.intel.com>
+Subject: [resend][PATCH net-drivers-2.6 11/11] ixgb: Driver version, white
+ space, comments, device id
+Date: Thu, 28 Apr 2005 19:05:32 -0700 (PDT)
+Message-ID: <Pine.LNX.4.44.0504281901520.28003-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: "jgarzik@pobox.com" <jgarzik@pobox.com>
@@ -11,7 +12,7 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Code optimization
+Driver version, white space, comments, device id & other
 
 Signed-off-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
 Signed-off-by: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
@@ -20,98 +21,44 @@ Signed-off-by: John Ronciak <john.ronciak@intel.com>
 diff -up net-drivers-2.6/drivers/net/ixgb/ixgb_main.c net-drivers-2.6/drivers/net/ixgb.new/ixgb_main.c
 --- net-drivers-2.6/drivers/net/ixgb/ixgb_main.c	2005-04-05 23:06:36.332229456 -0700
 +++ net-drivers-2.6/drivers/net/ixgb.new/ixgb_main.c	2005-04-05 23:06:38.283932752 -0700
-@@ -1822,7 +1822,6 @@ ixgb_clean_rx_irq(struct ixgb_adapter *a
- 	struct pci_dev *pdev = adapter->pdev;
- 	struct ixgb_rx_desc *rx_desc, *next_rxd;
- 	struct ixgb_buffer *buffer_info, *next_buffer, *next2_buffer;
--	struct sk_buff *skb, *next_skb;
- 	uint32_t length;
- 	unsigned int i, j;
- 	boolean_t cleaned = FALSE;
-@@ -1832,6 +1831,8 @@ ixgb_clean_rx_irq(struct ixgb_adapter *a
- 	buffer_info = &rx_ring->buffer_info[i];
- 
- 	while(rx_desc->status & IXGB_RX_DESC_STATUS_DD) {
-+		struct sk_buff *skb, *next_skb;
-+		u8 status;
- 
- #ifdef CONFIG_IXGB_NAPI
- 		if(*work_done >= work_to_do)
-@@ -1839,7 +1840,9 @@ ixgb_clean_rx_irq(struct ixgb_adapter *a
- 
- 		(*work_done)++;
+@@ -47,7 +47,7 @@ char ixgb_driver_string[] = "Intel(R) PR
+ #else
+ #define DRIVERNAPI "-NAPI"
  #endif
-+		status = rx_desc->status;
- 		skb = buffer_info->skb;
+-char ixgb_driver_version[] = "1.0.90-k2"DRIVERNAPI;
++char ixgb_driver_version[] = "1.0.95-k2"DRIVERNAPI;
+ char ixgb_copyright[] = "Copyright (c) 1999-2005 Intel Corporation.";
+ 
+ /* ixgb_pci_tbl - PCI Device ID Table
+@@ -103,6 +103,7 @@ static int ixgb_change_mtu(struct net_de
+ static int ixgb_set_mac(struct net_device *netdev, void *p);
+ static irqreturn_t ixgb_intr(int irq, void *data, struct pt_regs *regs);
+ static boolean_t ixgb_clean_tx_irq(struct ixgb_adapter *adapter);
 +
- 		prefetch(skb->data);
- 
- 		if(++i == rx_ring->count) i = 0;
-@@ -1864,7 +1835,7 @@ ixgb_clean_rx_irq(struct ixgb_adapter *a
- 
- 		length = le16_to_cpu(rx_desc->length);
- 
--		if(unlikely(!(rx_desc->status & IXGB_RX_DESC_STATUS_EOP))) {
-+		if(unlikely(!(status & IXGB_RX_DESC_STATUS_EOP))) {
- 
- 			/* All receives must fit into a single buffer */
- 
-@@ -1872,12 +1835,7 @@ 
- 					 "length<%x>\n", length);
- 
- 			dev_kfree_skb_irq(skb);
--			rx_desc->status = 0;
--			buffer_info->skb = NULL;
--
--			rx_desc = next_rxd;
--			buffer_info = next_buffer;
--			continue;
-+			goto rxdesc_done;
- 		}
- 
- 		if (unlikely(rx_desc->errors
-@@ -1886,12 +1835,7 @@ 
- 				IXGB_RX_DESC_ERRORS_RXE))) {
- 
- 			dev_kfree_skb_irq(skb);
--			rx_desc->status = 0;
--			buffer_info->skb = NULL;
--
--			rx_desc = next_rxd;
--			buffer_info = next_buffer;
--			continue;
-+			goto rxdesc_done;
- 		}
- 
- 		/* Good Receive */
-@@ -1902,7 +1879,7 @@ ixgb_clean_rx_irq(struct ixgb_adapter *a
- 
- 		skb->protocol = eth_type_trans(skb, netdev);
  #ifdef CONFIG_IXGB_NAPI
--		if(adapter->vlgrp && (rx_desc->status & IXGB_RX_DESC_STATUS_VP)) {
-+		if(adapter->vlgrp && (status & IXGB_RX_DESC_STATUS_VP)) {
- 			vlan_hwaccel_receive_skb(skb, adapter->vlgrp,
- 				le16_to_cpu(rx_desc->special) &
- 					IXGB_RX_DESC_SPECIAL_VLAN_MASK);
-@@ -1910,7 +1879,7 @@ 
- 			netif_receive_skb(skb);
- 		}
- #else /* CONFIG_IXGB_NAPI */
--		if(adapter->vlgrp && (rx_desc->status & IXGB_RX_DESC_STATUS_VP)) {
-+		if(adapter->vlgrp && (status & IXGB_RX_DESC_STATUS_VP)) {
- 			vlan_hwaccel_rx(skb, adapter->vlgrp,
- 				le16_to_cpu(rx_desc->special) &
- 					IXGB_RX_DESC_SPECIAL_VLAN_MASK);
-@@ -1920,9 +1913,12 @@ ixgb_clean_rx_irq(struct ixgb_adapter *a
- #endif /* CONFIG_IXGB_NAPI */
- 		netdev->last_rx = jiffies;
+ static int ixgb_clean(struct net_device *netdev, int *budget);
+ static boolean_t ixgb_clean_rx_irq(struct ixgb_adapter *adapter,
+@@ -1253,6 +1254,7 @@ ixgb_tx_map(struct ixgb_adapter *adapter
  
-+rxdesc_done:
-+		/* clean up descriptor, might be written over by hw */
- 		rx_desc->status = 0;
- 		buffer_info->skb = NULL;
+ 	unsigned int nr_frags = skb_shinfo(skb)->nr_frags;
+ 	unsigned int f;
++
+ 	len -= skb->data_len;
  
-+		/* use prefetched values */
- 		rx_desc = next_rxd;
- 		buffer_info = next_buffer;
- 	}
+ 	i = tx_ring->next_to_use;
+@@ -1857,7 +1833,6 @@ ixgb_clean_rx_irq(struct ixgb_adapter *a
+ 		next_skb = next_buffer->skb;
+ 		prefetch(next_skb);
+ 
+-
+ 		cleaned = TRUE;
+ 
+ 		pci_unmap_single(pdev,
+@@ -2108,6 +2095,7 @@ ixgb_restore_vlan(struct ixgb_adapter *a
+ static void ixgb_netpoll(struct net_device *dev)
+ {
+ 	struct ixgb_adapter *adapter = dev->priv;
++
+ 	disable_irq(adapter->pdev->irq);
+ 	ixgb_intr(adapter->pdev->irq, dev, NULL);
+ 	enable_irq(adapter->pdev->irq);
