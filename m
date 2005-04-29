@@ -1,26 +1,22 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [resend][PATCH net-drivers-2.6 0/6] e100: driver update
-Date: Fri, 29 Apr 2005 08:22:07 -0400
-Message-ID: <20050429122206.GB31796@tuxdriver.com>
-References: <Pine.LNX.4.44.0504281911001.29008-100000@isotope.jf.intel.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: Question about QOS
+Date: Fri, 29 Apr 2005 14:39:08 +0200
+Message-ID: <20050429123908.GB577@postel.suug.ch>
+References: <426E06F1.9000105@6wind.com> <20050426125955.GT577@postel.suug.ch> <426E56DC.7000108@6wind.com> <20050426191454.GU577@postel.suug.ch> <426F42F0.9020609@6wind.com> <20050427114216.GV577@postel.suug.ch> <427225B2.6010705@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@oss.sgi.com>, "jgarzik@pobox.com" <jgarzik@pobox.com>
+Cc: Nicolas DICHTEL <nicolas.dichtel@6wind.com>, netdev@oss.sgi.com,
+        linux-net@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Malli Chilakala <mallikarjuna.chilakala@intel.com>
+To: Patrick McHardy <kaber@trash.net>
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.44.0504281911001.29008-100000@isotope.jf.intel.com>
+In-Reply-To: <427225B2.6010705@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 28, 2005 at 07:16:46PM -0700, Malli Chilakala wrote:
+* Patrick McHardy <427225B2.6010705@trash.net> 2005-04-29 14:16
+> Why abs(delta)? It could be above bound, in fact all cases besides
+> delta_sec > 2 doesn't take care to stay inside [0..bound] at all.
 
-> 5. Performance optimizations to e100 Tx path
-> 6. Driver version, white space, comments, device id & other
-
-Patches 5 & 6 seem to be missing...?
-
--- 
-John W. Linville
-linville@tuxdriver.com
+Doh, of course. Absolutely correct.
