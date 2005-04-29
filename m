@@ -1,79 +1,63 @@
-From: "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>
-Subject: msleep_interruptible() in ethtool ioctl and keyboard input
-Date: Fri, 29 Apr 2005 08:54:23 -0700
-Message-ID: <468F3FDA28AA87429AD807992E22D07E05195E08@orsmsx408>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] Tulip interrupt uses non IRQ safe spinlock
+Date: Fri, 29 Apr 2005 09:35:21 -0700
+Message-ID: <20050429093521.274adf9a.davem@davemloft.net>
+References: <E1DRFqC-00028H-Qi@tigger>
+	<E1DRGWv-0003aa-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8bit
-Cc: <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: markb@wetlettuce.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-Content-class: urn:content-classes:message
-To: <linux-kernel@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1DRGWv-0003aa-00@gondolin.me.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In response of ethtool -p eth? [time], e1000 calls
-msleep_interruptible() to sleep for <time> seconds or forever if <time>
-is not specified. In the meantime the NIC LEDs are blinked. This works
-fine in all cases.
+On Fri, 29 Apr 2005 07:26:41 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-With 2.4.x kernels this continues to work fine, even if the device
-generates an interrupt (remove the cable, for instance) while blinking
-is ON. 
+> Mark Broadbent <markb@wetlettuce.com> wrote:
+> > The interrupt handling code in the tulip network driver appears to use a non 
+> > IRQ safe spinlock in an interrupt context.  The following patch should correct 
+> > this.
+> 
+> This is bogus.  Interrupts are already disabled when you're in the
+> interrupt handler.
 
-With 2.6.0+ kernels when the cable is removed, the NIC LEDs blink fine
-but the keyboard stops responding (only KDB and CTL-ALT-DEL work, all
-other keystrokes are buffered but not echoed back/acted on) till
-msleep_interruptible completes. Mouse works fine.
+Warning, guru area :-)
 
-I went backwards through the 2.5.x kernels and found that this change in
-behavior happened between 2.5.50 (where this works fine) and 2.5.51
-(where this is broken). A slew of console driver changes went into
-2.5.51 but I have not been able to locate which change is the cause for
-this behavior.
+Look at most interrupt handlers in the kernel, they use
+spin_lock_irqsave() rather consistently.  If an interrupt
+is registered with SA_SHIRQ, this is a requirement.
+Here is why.
 
-Please send me comments/ideas for further tests/questions for more data.
+On i386 (or any other platform using the generic IRQ layer),
+for example, unless you specify SA_INTERRUPT at
+request_irq() time, the handler dispatch is:
 
-Following is the logic that implements the blinking:
+	local_irq_enable();
 
-static void
-e1000_led_blink_callback(unsigned long data)
-{
-        struct e1000_adapter *adapter = (struct e1000_adapter *) data;
+	for each irq registered {
+		x->handler();
+	}
+	local_irq_disable();
 
-        if(test_and_change_bit(E1000_LED_ON, &adapter->led_status))
-                e1000_led_off(&adapter->hw);
-        else
-                e1000_led_on(&adapter->hw);
+(see kernel/irq/handle.c)
 
-        mod_timer(&adapter->blink_timer, jiffies + E1000_ID_INTERVAL);
-}
+At the top level from that handle_IRQ_event() function, the
+IRQ source is ACK'd after those calls.
 
-static int
-e1000_phys_id(struct net_device *netdev, uint32_t data)
-{
-        struct e1000_adapter *adapter = netdev->priv;
+However, if you have multiple devices on that IRQ line, you
+run into a problem.  Let's say TUlip interrupts first and
+we go into the Tulip driver and grab the lock, next the other
+device interrupts and we jump into the Tulip interrupt handler
+again, we will deadlock but what we should have done is use
+IRQ disabling spin locking like Mark's fix does.
 
-        if(!data || data > (uint32_t)(MAX_SCHEDULE_TIMEOUT / HZ))
-                data = (uint32_t)(MAX_SCHEDULE_TIMEOUT / HZ);
-
-        if(!adapter->blink_timer.function) {
-                init_timer(&adapter->blink_timer);
-                adapter->blink_timer.function =
-e1000_led_blink_callback;
-                adapter->blink_timer.data = (unsigned long) adapter;
-        }
-
-        e1000_setup_led(&adapter->hw);
-        mod_timer(&adapter->blink_timer, jiffies);
-
-        msleep_interruptible(data * 1000);
-        del_timer_sync(&adapter->blink_timer);
-        e1000_led_off(&adapter->hw);
-        clear_bit(E1000_LED_ON, &adapter->led_status);
-        e1000_cleanup_led(&adapter->hw);
-
-        return 0;
-}
+Therefore I think his patch is perfectly fine and this is an
+excellent area for an audit of the entire tree.  I even just
+noticed recently that some of the Sparc drivers/serial/
+drivers were not taking the interrupt handler lock correctly like
+this (ie. using irqsave).
