@@ -1,48 +1,67 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] net: Disable queueing when carrier is lost
-Date: Sat, 30 Apr 2005 09:45:12 +1000
-Message-ID: <20050429234512.GA22699@gondor.apana.org.au>
-References: <E1DQlsn-0005yd-00@gondolin.me.apana.org.au> <426FDF8B.1030808@tpack.net> <20050427214224.GA25325@gondor.apana.org.au> <42701FFD.5000505@tpack.net> <20050427234359.GB22238@gondor.apana.org.au> <1114768308.4695.1487.camel@tsc-6.cph.tpack.net> <20050429101836.GA2237@gondor.apana.org.au> <1114777355.4695.1598.camel@tsc-6.cph.tpack.net>
+Subject: Re: patch2: del/get byid
+Date: Sat, 30 Apr 2005 09:49:52 +1000
+Message-ID: <20050429234952.GB22699@gondor.apana.org.au>
+References: <20050428022549.GA23556@gondor.apana.org.au> <1114655980.7663.76.camel@localhost.localdomain> <20050428024253.GA23695@gondor.apana.org.au> <1114656932.7663.88.camel@localhost.localdomain> <20050428030325.GB23823@gondor.apana.org.au> <1114658657.7663.110.camel@localhost.localdomain> <1114698033.7663.197.camel@localhost.localdomain> <20050428231154.GA14215@gondor.apana.org.au> <1114779104.7800.22.camel@localhost.localdomain> <1114816846.8929.6.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@oss.sgi.com
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, netdev@oss.sgi.com,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Tommy Christensen <tommy.christensen@tpack.net>
+To: jamal <hadi@cyberus.ca>
 Content-Disposition: inline
-In-Reply-To: <1114777355.4695.1598.camel@tsc-6.cph.tpack.net>
+In-Reply-To: <1114816846.8929.6.camel@localhost.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 29, 2005 at 02:22:36PM +0200, Tommy Christensen wrote:
-> 
-> Calling dev->open instead of dev_open leads to this.  Probably that
-> shouldn't be allowed anyway.  But since it doesn't hurt us here, I'd
+On Fri, Apr 29, 2005 at 07:20:46PM -0400, jamal wrote:
+>
+> @@ -341,17 +341,35 @@
+>  {
+>  	struct xfrm_policy *pol, **p;
+>  	struct xfrm_policy *delpol = NULL;
+> +	struct xfrm_policy *delpol2 = NULL;
+> +	struct xfrm_policy *delp = NULL;
+>  	struct xfrm_policy **newpos = NULL;
+> +	int ret = -EINVAL;
+> +
+> +	if (policy->index)
+> +		delpol = xfrm_policy_byid(dir, policy->index, 0);
+> +	delpol2 = xfrm_policy_bysel(dir, &policy->selector, 0);
+> +
+> +	/* must be unique in both index and selector */
+> +	if (delpol && delpol2) 
+> +		if (delpol != delpol2) 
+> +			goto pol_err;
+>  
+> +	if (delpol) 
+> +		delp = delpol;
+> +	else 
+> +		delp = delpol2;
+> +			
+> +	if (delp && excl) { 
+> +		ret = -EEXIST;
+> +		goto pol_err;
+> +	}
+> +
+> +	/* insert, sorted by prio*/
+>  	write_lock_bh(&xfrm_policy_lock);
 
-That's definitely not allowed.
+...
 
-> rather settle for a WARN_ON.
+>  	write_unlock_bh(&xfrm_policy_lock);
+>  
+> -	if (delpol) {
+> -		xfrm_policy_kill(delpol);
+> +	if (delp) {
+> +		xfrm_policy_kill(delp);
+>  	}
 
-Fine by me.
+This is racy.  The policy could be killed by the timer in the middle.
 
-> > > +	if (!netif_carrier_ok(dev) && netif_queue_stopped(dev))
-> > > +		/* Delay activation until next carrier-on event */
-> > > +		return;
-> > 
-> > How about moving this check into dev_open?
-> 
-> But that would indeed leave qdisc_sleeping set to noop_qdisc, wouldn't
-> it?  Besides, I wanted to catch qdisc changes done by tc as well.
-
-You're right.  However, the netif_queue_stopped check doesn't make sense.
-If the queue isn't stopped, you'd be leaving the qdisc open which means
-that it can fill up later on.  Remember the problem is not just with NIC
-drivers stopping the queue explicitly, some NICs simply won't process the
-TX rings when the carrier is off.
-
-The other concern I have is that this code can call dev_activate
-or dev_deactivate twice in a row.  As far as I can tell this is
-harmless for the moment but it would be nice if we can avoid it.
+This is also getting pretty hairy for something that nobody has needed so
+far.  Which user-space application is going to use this index thing?
 
 Cheers,
 -- 
