@@ -1,95 +1,99 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: [RFC/PATCH] Fixes for ULi5261 (tulip driver)
-Date: Fri, 29 Apr 2005 11:42:08 +0200
-Message-ID: <20050429114208.39b53ccf@griffin.suse.cz>
+From: Tommy Christensen <tommy.christensen@tpack.net>
+Subject: Re: [PATCH] net: Disable queueing when carrier is lost
+Date: Fri, 29 Apr 2005 11:51:48 +0200
+Message-ID: <1114768308.4695.1487.camel@tsc-6.cph.tpack.net>
+References: <E1DQlsn-0005yd-00@gondolin.me.apana.org.au>
+	 <426FDF8B.1030808@tpack.net> <20050427214224.GA25325@gondor.apana.org.au>
+	 <42701FFD.5000505@tpack.net>  <20050427234359.GB22238@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/mixed; boundary="=-EIU1GPvPvAE3JEFONXJG"
+Cc: davem@davemloft.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050427234359.GB22238@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-(Sent to lkml few days ago - sorry for not CCing netdev list.)
 
-With integrated ALi/ULi M5261 ethernet controller using tulip driver,
-autonegotation doesn't work and card is forced to 10 Mbps half-duplex mode.
+--=-EIU1GPvPvAE3JEFONXJG
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-I found two problems with tulip driver regarding ULi5261.
+On Thu, 2005-04-28 at 01:43, Herbert Xu wrote:
+> On Thu, Apr 28, 2005 at 01:27:57AM +0200, Tommy Christensen wrote:
+> > This is indeed possible, but hopefully you can agree that this would be
+> > a driver bug. As stated above, I'm not trying to solve everything. We
+> > have to assume some level of sanity of the drivers. E.g. for a NIC that
+> > stalls the TX engine on carrier off, the driver would have to flush the
+> > TX ring and either call netif_stop_queue or discard packets in their
+> > hard_start_xmit function.  At present, even such well-behaving drivers
+> > would hit the problem, because packets were piling up in the qdisc.
+> 
+> I am not saying that there is nothing to fix.  I'm simply stating
+> that doing it in the watchdog is not ideal for two reasons:
+> 
+> 1) The watchdog is not always there.
+> 2) The delay introduced by the watchdog is driver-dependent and
+> varies wildly.  For the purpose of shutting down the qdisc after
+> a carrier off we want everything to use the same delay (if we're
+> going to delay at all).
+> 
+> So instead of doing it in the watchdog, just do both actions in
+> the link_watch worker.
 
-1. In tulip_up() media selection does not work properly. No media from
-EEPROM media list is set as default in ULi's EEPROM. In such case tulip
-driver searches for first non-fullduplex media.
+Originally, I was afraid it could get too trigger happy, so I left
+this idea. Perhaps that's not such a big deal afterall.
 
-I have no idea why the search is not performed for MII capable media first.
-Maybe because of problems with some other cards?
-
-EEPROM media list is reported to be as follows:
-
-tulip0:  EEPROM default media type Autosense.
-tulip0:  MII interface PHY 1, setup/reset sequences 0/2 long, capabilities 00 01.
-tulip0:  Index #0 - Media MII (#11) described by a 21140 MII PHY (1) block.
-tulip0:  Index #1 - Media 10baseT (#0) described by a <unknown> (128) block.
-tulip0:  Index #2 - Media 10baseT (#0) described by a 21140 non-MII (0) block.
-tulip0:  Index #3 - Media 10base2 (#1) described by a 21140 non-MII (0) block.
-tulip0:  Index #4 - Media 10baseT-FDX (#4) described by a 21140 non-MII (0) block.
-tulip0:  Index #5 - Media 100baseTx-FDX (#5) described by a 21140 non-MII (0) block.
-
-I added code that performs search for MII capable media in case of ULi5261
-card. Shouldn't it be performed generally?
-
-2. PHY chip DM9161E used on my M5261 seems to claim (in BMCR register) that
-autonegotiation is enabled after initialization, but it needs to set
-BMCR_ANRESTART for autonegotiation to work. Without forcing of restart of
-autonegotiation, MII_LPA returns always 0.
-
-Is there any way to detect that DM9161E is used? It may be used with another
-ethernet cards (and there may be another PHY used in M5261 as well), so
-restarting autonegotiation in case of ULi5261 doesn't seem to be
-a solution.
-
-The only way I see is to always restart autonegotiation in tulip_find_mii().
-It probably has the side-effect that other cards with autonegotiation
-enabled by default will perform autonegotiation twice.
-
-Thanks for your suggestions.
+How does this look?
 
 
---- linux-2.6.12-rc3/drivers/net/tulip/media.c
-+++ linux-2.6.12-rc3-patched/drivers/net/tulip/media.c
-@@ -517,10 +517,11 @@ void __devinit tulip_find_mii (struct ne
- 		/* Enable autonegotiation: some boards default to off. */
- 		if (tp->default_port == 0) {
- 			new_bmcr = mii_reg0 | BMCR_ANENABLE;
--			if (new_bmcr != mii_reg0) {
--				new_bmcr |= BMCR_ANRESTART;
--				ane_switch = 1;
--			}
-+			/* DM9161E PHY seems to need to restart
-+			 * autonegotiation even if it defaults to enabled.
-+			 */
-+			new_bmcr |= BMCR_ANRESTART;
-+			ane_switch = 1;
+Signed-off-by: Tommy S. Christensen <tommy.christensen@tpack.net>
+
+
+--=-EIU1GPvPvAE3JEFONXJG
+Content-Description: 
+Content-Disposition: inline; filename=carrier-2.patch
+Content-Type: text/x-patch; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+
+diff -ru linux-2.6.12-rc3/net/core/link_watch.c linux-2.6.12-work/net/core/link_watch.c
+--- linux-2.6.12-rc3/net/core/link_watch.c	2005-03-04 09:55:42.000000000 +0100
++++ linux-2.6.12-work/net/core/link_watch.c	2005-04-29 11:22:05.330262591 +0200
+@@ -16,6 +16,7 @@
+ #include <linux/netdevice.h>
+ #include <linux/if.h>
+ #include <net/sock.h>
++#include <net/pkt_sched.h>
+ #include <linux/rtnetlink.h>
+ #include <linux/jiffies.h>
+ #include <linux/spinlock.h>
+@@ -74,6 +75,12 @@
+ 		clear_bit(__LINK_STATE_LINKWATCH_PENDING, &dev->state);
+ 
+ 		if (dev->flags & IFF_UP) {
++			if (netif_carrier_ok(dev)) {
++				if (dev->qdisc_sleeping != &noop_qdisc)
++					dev_activate(dev);
++			} else if (netif_queue_stopped(dev))
++				dev_deactivate(dev);
++
+ 			netdev_state_change(dev);
  		}
- 		/* ...or disable nway, if forcing media */
- 		else {
---- linux-2.6.12-rc3/drivers/net/tulip/tulip_core.c
-+++ linux-2.6.12-rc3-patched/drivers/net/tulip/tulip_core.c
-@@ -383,6 +383,11 @@ static void tulip_up(struct net_device *
- 				goto media_picked;
- 			}
+ 
+diff -ru linux-2.6.12-rc3/net/sched/sch_generic.c linux-2.6.12-work/net/sched/sch_generic.c
+--- linux-2.6.12-rc3/net/sched/sch_generic.c	2005-03-04 09:55:44.000000000 +0100
++++ linux-2.6.12-work/net/sched/sch_generic.c	2005-04-29 11:22:05.420250195 +0200
+@@ -539,6 +539,10 @@
+ 		write_unlock_bh(&qdisc_tree_lock);
  	}
-+	if (tp->chip_id == ULI526X) {
-+		for (i = tp->mtable->leafcount - 1; i >= 0; i--)
-+			if (tulip_media_cap[tp->mtable->mleaf[i].media] & MediaIsMII)
-+				goto media_picked;
-+	}
- 	/* Start sensing first non-full-duplex media. */
- 	for (i = tp->mtable->leafcount - 1;
- 		 (tulip_media_cap[tp->mtable->mleaf[i].media] & MediaAlwaysFD) && i > 0; i--)
+ 
++	if (!netif_carrier_ok(dev) && netif_queue_stopped(dev))
++		/* Delay activation until next carrier-on event */
++		return;
++
+ 	spin_lock_bh(&dev->queue_lock);
+ 	rcu_assign_pointer(dev->qdisc, dev->qdisc_sleeping);
+ 	if (dev->qdisc != &noqueue_qdisc) {
 
-
---
-Jiri Benc
-SUSE Labs
+--=-EIU1GPvPvAE3JEFONXJG--
