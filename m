@@ -1,63 +1,43 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] Tulip interrupt uses non IRQ safe spinlock
-Date: Fri, 29 Apr 2005 09:35:21 -0700
-Message-ID: <20050429093521.274adf9a.davem@davemloft.net>
-References: <E1DRFqC-00028H-Qi@tigger>
-	<E1DRGWv-0003aa-00@gondolin.me.apana.org.au>
+From: Asim Shankar <asimshankar@gmail.com>
+Subject: [RESEND] [PATCH 2.6.11.7] sch_htb: Drop packet when direct queue is
+ full
+Date: Fri, 29 Apr 2005 17:33:12 +0000 (UTC)
+Message-ID: <Pine.LNX.4.61.0504291725000.28792@limnos.csrd.uiuc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: markb@wetlettuce.com, netdev@oss.sgi.com
+Content-Type: MULTIPART/MIXED; BOUNDARY="2122463882-1702178855-1114795992=:28792"
+Cc: davem@davemloft.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1DRGWv-0003aa-00@gondolin.me.apana.org.au>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 29 Apr 2005 07:26:41 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-> Mark Broadbent <markb@wetlettuce.com> wrote:
-> > The interrupt handling code in the tulip network driver appears to use a non 
-> > IRQ safe spinlock in an interrupt context.  The following patch should correct 
-> > this.
-> 
-> This is bogus.  Interrupts are already disabled when you're in the
-> interrupt handler.
+--2122463882-1702178855-1114795992=:28792
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
 
-Warning, guru area :-)
+htb_enqueue(): Free skb and return NET_XMIT_DROP if a packet is
+destined for the direct_queue but the direct_queue is full. (Before
+this: erroneously returned NET_XMIT_SUCCESS even though the packet was
+not enqueued)
 
-Look at most interrupt handlers in the kernel, they use
-spin_lock_irqsave() rather consistently.  If an interrupt
-is registered with SA_SHIRQ, this is a requirement.
-Here is why.
+Signed-off-by: Asim Shankar <asimshankar@gmail.com>
+--2122463882-1702178855-1114795992=:28792
+Content-Type: APPLICATION/x-gzip; name="patch-htb-2.6.11.7.gz"
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.LNX.4.61.0504291733120.28792@limnos.csrd.uiuc.edu>
+Content-Description: 
+Content-Disposition: attachment; filename="patch-htb-2.6.11.7.gz"
 
-On i386 (or any other platform using the generic IRQ layer),
-for example, unless you specify SA_INTERRUPT at
-request_irq() time, the handler dispatch is:
+H4sICDdtckIAA3BhdGNoLWh0Yi0yLjYuMTEuNwCNkF9rwjAUxZ/tp7hjMOpi
+YlJNO3WIw/1B2HRsPuwt2DadoaXaJoXB8Lsv0cKGT8tDAuee+zucYIyhUGXz
+hQMSEsZI1C+l6etkK1N3i62JSUJ2tfrsBJRyTIc4GAELxoyPA0b4cMTDwWB4
+A5hySj2E0D9456hwzCmhQcQCzkdhi5rNAEcs6oWA3MMoWEWbjVEJqNKAJQlZ
+Vo1spK9N3SQGdC7iJsvgWnvQURn4FZ6mqpaJEUcfqQpZwi38ka3QhW9rB3uE
+0Hl8sgqzUYV/dQbo2Yi4O2ntv8N9bjRCEw91DiALLS0RHS15VkvpqP5p8aTa
+j8DTynXRJK13+3bXjWppmrqE5cNafLws1uL+bfXq8g4eXKoslRnMV8vHxZNw
+jvnzu7ibrz23CG2yq32RFK7UDybStHLdAQAA
 
-	local_irq_enable();
-
-	for each irq registered {
-		x->handler();
-	}
-	local_irq_disable();
-
-(see kernel/irq/handle.c)
-
-At the top level from that handle_IRQ_event() function, the
-IRQ source is ACK'd after those calls.
-
-However, if you have multiple devices on that IRQ line, you
-run into a problem.  Let's say TUlip interrupts first and
-we go into the Tulip driver and grab the lock, next the other
-device interrupts and we jump into the Tulip interrupt handler
-again, we will deadlock but what we should have done is use
-IRQ disabling spin locking like Mark's fix does.
-
-Therefore I think his patch is perfectly fine and this is an
-excellent area for an audit of the entire tree.  I even just
-noticed recently that some of the Sparc drivers/serial/
-drivers were not taking the interrupt handler lock correctly like
-this (ie. using irqsave).
+--2122463882-1702178855-1114795992=:28792--
