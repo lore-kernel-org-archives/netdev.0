@@ -1,42 +1,74 @@
-From: Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>
-Subject: Re: [PATCH] resource release cleanup in net/
-Date: Sat, 30 Apr 2005 18:26:45 -0300
-Message-ID: <39e6f6c705043014264eb4c0c5@mail.gmail.com>
-References: <Pine.LNX.4.62.0504302219520.2094@dragon.hyggekrogen.localhost>
-Reply-To: acme@ghostprotocols.net
+From: Andrew Morton <akpm@osdl.org>
+Subject: Fw: [Bugme-new] [Bug 4566] New: B44 Randomly driver starts sending
+ garbage and stops receiving
+Date: Sat, 30 Apr 2005 14:23:34 -0700
+Message-ID: <20050430142334.4fa8745d.akpm@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Jouni Malinen <jkmaline@cc.hut.fi>,
-	James Morris <jmorris@intercode.com.au>,
-	Pedro Roque <roque@di.fc.ul.pt>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Kunihiro Ishiguro <kunihiro@ipinfusion.com>,
-	Mitsuru KANDA <mk@linux-ipv6.org>,
-	lksctp-developers@lists.sourceforge.net,
-	Andy Adamson <andros@umich.edu>,
-	Bruce Fields <bfields@umich.edu>, netdev@oss.sgi.com,
-	linux-net@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Jesper Juhl <juhl-lkml@dif.dk>
-In-Reply-To: <Pine.LNX.4.62.0504302219520.2094@dragon.hyggekrogen.localhost>
-Content-Disposition: inline
-Sender: linux-net-owner@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: bonbons67@internet.lu
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 4/30/05, Jesper Juhl <juhl-lkml@dif.dk> wrote:
-> Hi David,
-> 
-> Since Andrew merged the patch that makes calling crypto_free_tfm() with a
-> NULL pointer safe into 2.6.12-rc3-mm1, I made a patch to remove checks for
-> NULL before calling that function, and while I was at it I removed similar
-> redundant checks before calls to kfree() and vfree() in the same files.
-> There are also a few tiny whitespace cleanups in there.
 
-Jesper, I'd suggest that you left whitespaces for a separate patch, it
-is always,
-IMHO, better to have as small a patch as possible for reviewing.
 
-- Arnaldo
+Begin forwarded message:
+
+Date: Sat, 30 Apr 2005 14:04:14 -0700
+From: bugme-daemon@osdl.org
+To: bugme-new@lists.osdl.org
+Subject: [Bugme-new] [Bug 4566] New: B44 Randomly driver starts sending garbage and stops receiving
+
+
+http://bugme.osdl.org/show_bug.cgi?id=4566
+
+           Summary: B44 Randomly driver starts sending garbage and stops
+                    receiving
+    Kernel Version: 2.6.11
+            Status: NEW
+          Severity: high
+             Owner: jgarzik@pobox.com
+         Submitter: bonbons67@internet.lu
+
+
+Distribution: Gentoo 
+Hardware Environment: Acer TM66x 
+    0000:02:02.0 Class 0200: 14e4:4401 (rev 01)  
+        Subsystem: 1025:0035  
+        Flags: bus master, fast devsel, latency 64, IRQ 10  
+        Memory at e0204000 (32-bit, non-prefetchable)  
+        Capabilities: [40] Power Management version 2  
+    Ethernet controller: Broadcom Corporation BCM4401 100Base-T (rev 01)  
+        Subsystem: Acer Incorporated [ALI]: Unknown device 0035  
+        Flags: bus master, fast devsel, latency 64, IRQ 10  
+        Memory at e0204000 (32-bit, non-prefetchable)  
+        Capabilities: [40] Power Management version 2  
+Software Environment: GCC 3.3.5-20050130  
+Problem Description:  
+After some time of normal network communication, suddenly incoming traffic   
+stops to be received and only outgoing traffic remains.  
+Looking at the traffic sent from another machine in the network with tcpdump I   
+get following output (repeating at a high rate): 
+22:33:01.018523 00:40:05:43:5e:fe > 01:80:c2:00:00:01, ethertype Unknown 
+(0x8808), length 60: 
+    0x0000: 0001 ffff 0000 0000 0000 0000 0000 0000 
+    0x0010: 0000 0000 0000 0000 0000 0000 0000 0000 
+    0x0020: 0000 0000 0000 0000 0000 0000 0000 
+dmesg does not produce any useful output about this. 
+ 
+ifconfig eth0 down 
+ifconfig eth0 up 
+Restores the communications and stops the garbage traffic. 
+ 
+ 
+Steps to reproduce: 
+Happens randomly, some days very often some days not at all 
+ 
+ 
+I have not yet tried to disable ACPI (as suggesed in bug #3050)
+
+------- You are receiving this mail because: -------
+You are on the CC list for the bug, or are watching someone who is.
