@@ -1,74 +1,35 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Fw: [Bugme-new] [Bug 4566] New: B44 Randomly driver starts sending
- garbage and stops receiving
-Date: Sat, 30 Apr 2005 14:23:34 -0700
-Message-ID: <20050430142334.4fa8745d.akpm@osdl.org>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: patch: Action repeat
+Date: Sat, 30 Apr 2005 23:55:50 +0200
+Message-ID: <20050430215550.GH577@postel.suug.ch>
+References: <1114879817.8929.117.camel@localhost.localdomain> <4273BB30.1050402@trash.net> <4273BBAA.6060405@trash.net> <1114882045.8929.123.camel@localhost.localdomain> <4273CAB7.6080403@trash.net> <1114890709.8929.147.camel@localhost.localdomain> <20050430200848.GF577@postel.suug.ch> <1114894202.8929.165.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bonbons67@internet.lu
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, netdev <netdev@oss.sgi.com>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1114894202.8929.165.camel@localhost.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+* jamal <1114894202.8929.165.camel@localhost.localdomain> 2005-04-30 16:50
+> I think we may have to define what the scope of classid is. It seems to
+> me the scope needs to be _local_ to either ingress or egress. 
+> OTOH, something like a fwmark is _global_. 
+> At least this is what my thoughts were when doing that piece.
+> Using those rules, the situation Patrick describes on violates this
+> (because stolen packets still maintain the classid), yours doesnt -
+> unless we change the scope of classid. 
 
-
-Begin forwarded message:
-
-Date: Sat, 30 Apr 2005 14:04:14 -0700
-From: bugme-daemon@osdl.org
-To: bugme-new@lists.osdl.org
-Subject: [Bugme-new] [Bug 4566] New: B44 Randomly driver starts sending garbage and stops receiving
-
-
-http://bugme.osdl.org/show_bug.cgi?id=4566
-
-           Summary: B44 Randomly driver starts sending garbage and stops
-                    receiving
-    Kernel Version: 2.6.11
-            Status: NEW
-          Severity: high
-             Owner: jgarzik@pobox.com
-         Submitter: bonbons67@internet.lu
-
-
-Distribution: Gentoo 
-Hardware Environment: Acer TM66x 
-    0000:02:02.0 Class 0200: 14e4:4401 (rev 01)  
-        Subsystem: 1025:0035  
-        Flags: bus master, fast devsel, latency 64, IRQ 10  
-        Memory at e0204000 (32-bit, non-prefetchable)  
-        Capabilities: [40] Power Management version 2  
-    Ethernet controller: Broadcom Corporation BCM4401 100Base-T (rev 01)  
-        Subsystem: Acer Incorporated [ALI]: Unknown device 0035  
-        Flags: bus master, fast devsel, latency 64, IRQ 10  
-        Memory at e0204000 (32-bit, non-prefetchable)  
-        Capabilities: [40] Power Management version 2  
-Software Environment: GCC 3.3.5-20050130  
-Problem Description:  
-After some time of normal network communication, suddenly incoming traffic   
-stops to be received and only outgoing traffic remains.  
-Looking at the traffic sent from another machine in the network with tcpdump I   
-get following output (repeating at a high rate): 
-22:33:01.018523 00:40:05:43:5e:fe > 01:80:c2:00:00:01, ethertype Unknown 
-(0x8808), length 60: 
-    0x0000: 0001 ffff 0000 0000 0000 0000 0000 0000 
-    0x0010: 0000 0000 0000 0000 0000 0000 0000 0000 
-    0x0020: 0000 0000 0000 0000 0000 0000 0000 
-dmesg does not produce any useful output about this. 
- 
-ifconfig eth0 down 
-ifconfig eth0 up 
-Restores the communications and stops the garbage traffic. 
- 
- 
-Steps to reproduce: 
-Happens randomly, some days very often some days not at all 
- 
- 
-I have not yet tried to disable ACPI (as suggesed in bug #3050)
-
-------- You are receiving this mail because: -------
-You are on the CC list for the bug, or are watching someone who is.
+Right, although I would define local as per device on either ingress
+or egress. What I'm looking for in particular is a way to transfer
+classification decisions from one device to another. A common case
+for this is if a packet enters the packet, gets encapsulated and
+leaves the host in some kind of tunnel. It's pretty hard to do
+classification on the tunnel device so you want to do it before
+the encapsulation and copy the result over to the tunnel. We can
+use nfmark for this but i'd rather have a well defined variable
+for this.
