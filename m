@@ -1,33 +1,65 @@
-From: Tommy Christensen <tommy.christensen@tpack.net>
-Subject: Re: [PATCH] net: Disable queueing when carrier is lost
-Date: Sat, 30 Apr 2005 14:59:54 +0200
-Message-ID: <4273814A.50106@tpack.net>
-References: <E1DQlsn-0005yd-00@gondolin.me.apana.org.au> <426FDF8B.1030808@tpack.net> <20050427214224.GA25325@gondor.apana.org.au> <42701FFD.5000505@tpack.net> <20050427234359.GB22238@gondor.apana.org.au> <1114768308.4695.1487.camel@tsc-6.cph.tpack.net> <20050429101836.GA2237@gondor.apana.org.au> <1114777355.4695.1598.camel@tsc-6.cph.tpack.net> <20050429234512.GA22699@gondor.apana.org.au> <20050430004638.GA23386@gondor.apana.org.au>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [patch/RFC]: Asynchronous IPsec processing.
+Date: Sat, 30 Apr 2005 17:36:53 +0400
+Message-ID: <20050430173653.0b060eb4@zanzibar.2ka.mipt.ru>
+References: <20050429144103.A23268@2ka.mipt.ru>
+Reply-To: johnpol@2ka.mipt.ru
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, Herbert Xu <herbert@gondor.apana.org.au>,
+        Patrick
+ McHardy <kaber@trash.net>,
+        "David S. Miller" <davem@davemloft.net>,
+        Jamal
+ Hadi Salim <hadi@cyberus.ca>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050430004638.GA23386@gondor.apana.org.au>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20050429144103.A23268@2ka.mipt.ru>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> What if we take a more direct approach and just drop the packets before
-> it hits hard_start_xmit? This also makes it easy for the drivers to do
-> TX ring flushing if it's necessary since we're guaranteeing (for drivers
-> that are not lockless anyway) that once carrier goes off while the xmit
-> lock is held hard_start_xmit will not be called again.
+On Fri, 29 Apr 2005 14:41:03 +0400
+Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
 
-Something like this has been considered already. It's simple and obvious,
-but has it's drawbacks as well:
+> Hello.
+> 
+> I've created POC code to perform asynchronous IPsec [ESP]
+> processing. Please comment about bugs in the following patch.
+> It of course very dirty - but it is only begining, 
+> I just want to know if approach is right.
+> Patch was tested with several ssh session and some 
+> traffic like find / and tcpdump over them.
 
-  - it adds a slight overhead to the TX path (some people are rather
-    sensitive about this)
-  - it impacts all sorts of drivers, including those that don't need fixing
-  - it doesn't work as intended! qdisc_run checks for queue_stopped before
-    calling qdisc_restart
+Some ideas behind it follow.
+Due to struct dst_entry stackability
+we can return NET_XMIT_SUCCESS (0) from not the last dst->output(),
+which is ip_output_xmit(), which queues skb and returns 0, but from
+xfrm's output method, which calls transformation function like esp_output()
+or ah_output(), before transformaton take place and defer it's processing,
+when later we will call dst_output() again, thus emulating it's original
+call from the network stack, with skb->dst being set to the next 
+struct dst_entry like it was done in synchronous IPsec, the most
+likely it will be ip_queue_xmit() - the latest transport output method.
+So after original dst_output() is finished in it's middle,
+skb will be flying aroung for some time 
+until some callback calls dst_output() again with appropriate skb->dst.
+Above logic is implemented with cloned skbs and dst entry being held,
+but I have some suspicions about xfrm state in that processing.
 
--Tommy
+Patch was tested on SMP with netperf TCP strem test too, and it does not
+crash for quite long time, but then some bug occured - netconsole
+did not show it, but in real console was something from receive path
+(net_receive_*) so it probably was not that change.
+Patch is against 2.6.12-rc2.
+
+It was created to allow asynchronous crypto processing deferring and
+thus to be able to use hardware crypto acceleration which
+is supported in the existing asynchronous crypto layers for linux kernel.
+
+Comments?
+
+	Evgeniy Polyakov
+
+Only failure makes us experts. -- Theo de Raadt
