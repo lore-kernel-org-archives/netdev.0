@@ -1,64 +1,42 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: patch: Action repeat
-Date: Sat, 30 Apr 2005 16:50:02 -0400
-Message-ID: <1114894202.8929.165.camel@localhost.localdomain>
-References: <1114879817.8929.117.camel@localhost.localdomain>
-	 <4273BB30.1050402@trash.net> <4273BBAA.6060405@trash.net>
-	 <1114882045.8929.123.camel@localhost.localdomain>
-	 <4273CAB7.6080403@trash.net>
-	 <1114890709.8929.147.camel@localhost.localdomain>
-	 <20050430200848.GF577@postel.suug.ch>
-Reply-To: hadi@cyberus.ca
+From: Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>
+Subject: Re: [PATCH] resource release cleanup in net/
+Date: Sat, 30 Apr 2005 18:26:45 -0300
+Message-ID: <39e6f6c705043014264eb4c0c5@mail.gmail.com>
+References: <Pine.LNX.4.62.0504302219520.2094@dragon.hyggekrogen.localhost>
+Reply-To: acme@ghostprotocols.net
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>, netdev <netdev@oss.sgi.com>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050430200848.GF577@postel.suug.ch>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Jouni Malinen <jkmaline@cc.hut.fi>,
+	James Morris <jmorris@intercode.com.au>,
+	Pedro Roque <roque@di.fc.ul.pt>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Kunihiro Ishiguro <kunihiro@ipinfusion.com>,
+	Mitsuru KANDA <mk@linux-ipv6.org>,
+	lksctp-developers@lists.sourceforge.net,
+	Andy Adamson <andros@umich.edu>,
+	Bruce Fields <bfields@umich.edu>, netdev@oss.sgi.com,
+	linux-net@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Jesper Juhl <juhl-lkml@dif.dk>
+In-Reply-To: <Pine.LNX.4.62.0504302219520.2094@dragon.hyggekrogen.localhost>
+Content-Disposition: inline
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2005-30-04 at 22:08 +0200, Thomas Graf wrote:
-
-> I've been using tc_classid to communicate between ingress and egress
-> without the need for netfilter but this is something personal. This
-> meant to remove the tc_classid = 0 in tcf_action_exec and a have
-> smallish action set it at ingress to pick it up again with the meta
-> ematch at egress.
+On 4/30/05, Jesper Juhl <juhl-lkml@dif.dk> wrote:
+> Hi David,
 > 
+> Since Andrew merged the patch that makes calling crypto_free_tfm() with a
+> NULL pointer safe into 2.6.12-rc3-mm1, I made a patch to remove checks for
+> NULL before calling that function, and while I was at it I removed similar
+> redundant checks before calls to kfree() and vfree() in the same files.
+> There are also a few tiny whitespace cleanups in there.
 
-I think we may have to define what the scope of classid is. It seems to
-me the scope needs to be _local_ to either ingress or egress. 
-OTOH, something like a fwmark is _global_. 
-At least this is what my thoughts were when doing that piece.
-Using those rules, the situation Patrick describes on violates this
-(because stolen packets still maintain the classid), yours doesnt -
-unless we change the scope of classid. 
+Jesper, I'd suggest that you left whitespaces for a separate patch, it
+is always,
+IMHO, better to have as small a patch as possible for reviewing.
 
-
-> > I see the issue with classid leaking - perhaps specific actions could
-> > reset it when they steal packets? We should also reset it if the packet
-> > is stolen.
-> 
-> Definitely.
-
-Just thinking about that: _exec() can reset classid if packet is stolen
-and not transfer it back to classifier.
-I think the forward path is to have the actions reset it. We would just
-have to make it the rule described somewhere or have a macro someone
-call every time they steal a packet... 
-
-> I'm not yet certain on this subject, I have a strong feeling that
-> something like tc_classid will be needed but not as in its current
-> use. Can we postpone this for 1-2 weeks so I can submit my new
-> ematch patches? This would give us something to use as a basis for
-> a discussion.
-
-If we are going to redefine the scope of where a classid applies, then
-we can discuss it any time.
-
-cheers,
-jamal
+- Arnaldo
