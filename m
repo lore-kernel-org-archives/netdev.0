@@ -1,275 +1,178 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [IPSEC] Store idev entries (was: [PATCH][IPv6][IPsec] stop infinite loop)
-Date: Sat, 30 Apr 2005 18:23:39 +1000
-Message-ID: <20050430082339.GA20338@gondor.apana.org.au>
-References: <4272EC95.20401@miyazawa.org> <20050430.120736.45974367.yoshfuji@linux-ipv6.org> <20050430031159.GA24326@gondor.apana.org.au>
+From: Ismail Donmez <ismail@kde.org.tr>
+Subject: Re: [KJ] [PATCH] Documentation/networking/dmfe.txt : Make
+	documentation nicer
+Date: Sat, 30 Apr 2005 11:42:04 +0300
+Message-ID: <200504301142.05143.ismail@kde.org.tr>
+References: <200504262244.01258.ismail@kde.org.tr>
+	<20050427170703.GA3762@nd47.coderock.org>
+	<200504272026.29047.ismail@kde.org.tr>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="k1lZvvs/B4yU6o8G"
-Cc: kazunori@miyazawa.org, davem@davemloft.net, netdev@oss.sgi.com,
-        usagi-core@linux-ipv6.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
-Content-Disposition: inline
-In-Reply-To: <20050430031159.GA24326@gondor.apana.org.au>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_dT0cCJPfR2d4m/N"
+Cc: netdev@oss.sgi.com, jgarzik@pobox.com
+Return-path: <kernel-janitors-bounces@lists.osdl.org>
+To: kernel-janitors@lists.osdl.org
+In-Reply-To: <200504272026.29047.ismail@kde.org.tr>
+List-Unsubscribe: <http://lists.osdl.org/mailman/listinfo/kernel-janitors>,
+	<mailto:kernel-janitors-request@lists.osdl.org?subject=unsubscribe>
+List-Archive: <http://lists.osdl.org/pipermail/kernel-janitors>
+List-Post: <mailto:kernel-janitors@lists.osdl.org>
+List-Help: <mailto:kernel-janitors-request@lists.osdl.org?subject=help>
+List-Subscribe: <http://lists.osdl.org/mailman/listinfo/kernel-janitors>,
+	<mailto:kernel-janitors-request@lists.osdl.org?subject=subscribe>
+Sender: kernel-janitors-bounces@lists.osdl.org
+Errors-To: kernel-janitors-bounces@lists.osdl.org
 List-Id: netdev.vger.kernel.org
 
-
---k1lZvvs/B4yU6o8G
-Content-Type: text/plain; charset=us-ascii
+--Boundary-00=_dT0cCJPfR2d4m/N
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+X-MIME-Autoconverted: from 8bit to quoted-printable by smtp.osdl.org id j3U8frs4028790
 
-Hi:
+On Wednesday 27 April 2005 20:26, Ismail Donmez wrote:
+> Here goes the new one :
+>
+>
+> Attached patch indents dmfe.txt to look like other docs. It adds a tip
+> about CNET cards using Davicom chipsets. Also it removes parts where it
+> refers to how to build driver out-of-kernel which seems to be cruft fro=
+m
+> times where the driver was out of the kernel.
+>
+> Signed-off-by: Ismail D=C3=B6nmez <ismail@kde.org.tr>
 
-I had no luck in reproducing the infinite loop so I'll need someone
-to send me a back trace or better instructions in getting it to go.
+Any comments on this latest version? I reattach it for the sake of=20
+completeness.
 
-However, I did find a bug that stopped IPsec/IPv6 from working.  About
-a month ago IPv6 started using rt6i_idev->dev on the cached socket dst
-entries.  If the cached socket dst entry is IPsec, then rt6i_idev will
-be NULL.
+Regards,
+ismail
 
-Since we want to look at the rt6i_idev of the original route in this
-case, the easiest fix is to store rt6i_idev in the IPsec dst entry just
-as we do for a number of other IPv6 route attributes.  Unfortunately
-this means that we need some new code to handle the references to
-rt6i_idev.  That's why this patch is bigger than it would otherwise be.
+--Boundary-00=_dT0cCJPfR2d4m/N
+Content-Type: text/x-diff;
+  charset="utf-8";
+  name="dmfe.patch"
+Content-Disposition: attachment;
+	filename="dmfe.patch"
+Content-Transfer-Encoding: 7bit
 
-I've also done the same thing for IPv4 since it is conceivable that
-once these idev attributes start getting used for accounting, we
-probably need to dereference them for IPv4 IPsec entries too.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---k1lZvvs/B4yU6o8G
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=xfrm-idev
-
---- k/include/net/xfrm.h  (mode:100644)
-+++ l/include/net/xfrm.h  (mode:100644)
-@@ -1,6 +1,7 @@
- #ifndef _NET_XFRM_H
- #define _NET_XFRM_H
+--- linux-2.6.12/Documentation/networking/dmfe.txt	2005-04-27 20:13:04.000000000 +0300
++++ linux-2.6.12/Documentation/networking/dmfe2.txt	2005-04-27 20:22:35.000000000 +0300
+@@ -1,59 +1,65 @@
+-  dmfe.c: Version 1.28        01/18/2000
++Davicom DM9102(A)/DM9132/DM9801 fast ethernet driver for Linux.
  
-+#include <linux/compiler.h>
- #include <linux/xfrm.h>
- #include <linux/spinlock.h>
- #include <linux/list.h>
-@@ -516,6 +517,15 @@ struct xfrm_dst
- 	u32 child_mtu_cached;
- };
+-        A Davicom DM9102(A)/DM9132/DM9801 fast ethernet driver for Linux. 
+-        Copyright (C) 1997  Sten Wang
++This program is free software; you can redistribute it and/or
++modify it under the terms of the GNU General   Public License
++as published by the Free Software Foundation; either version 2
++of the License, or (at your option) any later version.
  
-+static inline void xfrm_dst_destroy(struct xfrm_dst *xdst)
-+{
-+	dst_release(xdst->route);
-+	if (likely(xdst->u.dst.xfrm))
-+		xfrm_state_put(xdst->u.dst.xfrm);
-+}
-+
-+extern void xfrm_dst_ifdown(struct dst_entry *dst, struct net_device *dev);
-+
- /* Decapsulation state, used by the input to store data during
-  * decapsulation procedure, to be used later (during the policy
-  * check
---- k/net/ipv4/xfrm4_policy.c  (mode:100644)
-+++ l/net/ipv4/xfrm4_policy.c  (mode:100644)
-@@ -8,7 +8,10 @@
-  * 	
-  */
+-        This program is free software; you can redistribute it and/or
+-        modify it under the terms of the GNU General Public License
+-        as published by the Free Software Foundation; either version 2
+-        of the License, or (at your option) any later version.
++This program is distributed in the hope that it will be useful,
++but WITHOUT ANY WARRANTY; without even the implied warranty of
++MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++GNU General Public License for more details.
  
-+#include <asm/bug.h>
-+#include <linux/compiler.h>
- #include <linux/config.h>
-+#include <linux/inetdevice.h>
- #include <net/xfrm.h>
- #include <net/ip.h>
+-        This program is distributed in the hope that it will be useful,
+-        but WITHOUT ANY WARRANTY; without even the implied warranty of
+-        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+-        GNU General Public License for more details.
  
-@@ -152,6 +155,8 @@ __xfrm4_bundle_create(struct xfrm_policy
- 		x->u.rt.rt_dst = rt0->rt_dst;
- 		x->u.rt.rt_gateway = rt->rt_gateway;
- 		x->u.rt.rt_spec_dst = rt0->rt_spec_dst;
-+		x->u.rt.idev = rt0->idev;
-+		in_dev_hold(rt0->idev);
- 		header_len -= x->u.dst.xfrm->props.header_len;
- 		trailer_len -= x->u.dst.xfrm->props.trailer_len;
- 	}
-@@ -243,11 +248,45 @@ static void xfrm4_update_pmtu(struct dst
- 	path->ops->update_pmtu(path, mtu);
- }
++This driver provides kernel support for Davicom DM9102(A)/DM9132/DM9801 ethernet cards ( CNET
++10/100 ethernet cards uses Davicom chipset too, so this driver supports CNET cards too ).If you
++didn't compile this driver as a module, it will automatically load itself on boot and print a 
++line similar to :
  
-+static void xfrm4_dst_destroy(struct dst_entry *dst)
-+{
-+	struct xfrm_dst *xdst = (struct xfrm_dst *)dst;
-+
-+	if (likely(xdst->u.rt.idev))
-+		in_dev_put(xdst->u.rt.idev);
-+	xfrm_dst_destroy(xdst);
-+}
-+
-+static void xfrm4_dst_ifdown(struct dst_entry *dst, struct net_device *dev,
-+			     int unregister)
-+{
-+	struct xfrm_dst *xdst;
-+
-+	if (!unregister)
-+		return;
-+
-+	xdst = (struct xfrm_dst *)dst;
-+	if (xdst->u.rt.idev->dev == dev) {
-+		struct in_device *loopback_idev = in_dev_get(&loopback_dev);
-+		BUG_ON(!loopback_idev);
-+
-+		do {
-+			in_dev_put(xdst->u.rt.idev);
-+			xdst->u.rt.idev = loopback_idev;
-+			xdst = (struct xfrm_dst *)xdst->u.dst.child;
-+		} while (xdst->u.dst.xfrm);
-+	}
-+
-+	xfrm_dst_ifdown(dst, dev);
-+}
-+
- static struct dst_ops xfrm4_dst_ops = {
- 	.family =		AF_INET,
- 	.protocol =		__constant_htons(ETH_P_IP),
- 	.gc =			xfrm4_garbage_collect,
- 	.update_pmtu =		xfrm4_update_pmtu,
-+	.destroy =		xfrm4_dst_destroy,
-+	.ifdown =		xfrm4_dst_ifdown,
- 	.gc_thresh =		1024,
- 	.entry_size =		sizeof(struct xfrm_dst),
- };
---- k/net/ipv6/xfrm6_policy.c  (mode:100644)
-+++ l/net/ipv6/xfrm6_policy.c  (mode:100644)
-@@ -11,7 +11,11 @@
-  * 
-  */
+-  A. Compiler command:
++	dmfe: Davicom DM9xxx net driver, version 1.36.4 (2002-01-17)
  
-+#include <asm/bug.h>
-+#include <linux/compiler.h>
- #include <linux/config.h>
-+#include <linux/netdevice.h>
-+#include <net/addrconf.h>
- #include <net/xfrm.h>
- #include <net/ip.h>
- #include <net/ipv6.h>
-@@ -166,6 +170,8 @@ __xfrm6_bundle_create(struct xfrm_policy
- 		memcpy(&x->u.rt6.rt6i_gateway, &rt0->rt6i_gateway, sizeof(x->u.rt6.rt6i_gateway)); 
- 		x->u.rt6.rt6i_dst      = rt0->rt6i_dst;
- 		x->u.rt6.rt6i_src      = rt0->rt6i_src;	
-+		x->u.rt6.rt6i_idev     = rt0->rt6i_idev;
-+		in6_dev_hold(rt0->rt6i_idev);
- 		header_len -= x->u.dst.xfrm->props.header_len;
- 		trailer_len -= x->u.dst.xfrm->props.trailer_len;
- 	}
-@@ -251,11 +257,45 @@ static void xfrm6_update_pmtu(struct dst
- 	path->ops->update_pmtu(path, mtu);
- }
+-     A-1: For normal single or multiple processor kernel
+-          "gcc -DMODULE -D__KERNEL__ -I/usr/src/linux/net/inet -Wall 
+-            -Wstrict-prototypes -O6 -c dmfe.c"
++If you compiled this driver as a module, you have to load it on boot.You can load it with command :
  
-+static void xfrm6_dst_destroy(struct dst_entry *dst)
-+{
-+	struct xfrm_dst *xdst = (struct xfrm_dst *)dst;
-+
-+	if (likely(xdst->u.rt6.rt6i_idev))
-+		in6_dev_put(xdst->u.rt6.rt6i_idev);
-+	xfrm_dst_destroy(xdst);
-+}
-+
-+static void xfrm6_dst_ifdown(struct dst_entry *dst, struct net_device *dev,
-+			     int unregister)
-+{
-+	struct xfrm_dst *xdst;
-+
-+	if (!unregister)
-+		return;
-+
-+	xdst = (struct xfrm_dst *)dst;
-+	if (xdst->u.rt6.rt6i_idev->dev == dev) {
-+		struct inet6_dev *loopback_idev = in6_dev_get(&loopback_dev);
-+		BUG_ON(!loopback_idev);
-+
-+		do {
-+			in6_dev_put(xdst->u.rt6.rt6i_idev);
-+			xdst->u.rt6.rt6i_idev = loopback_idev;
-+			xdst = (struct xfrm_dst *)xdst->u.dst.child;
-+		} while (xdst->u.dst.xfrm);
-+	}
-+
-+	xfrm_dst_ifdown(dst, dev);
-+}
-+
- static struct dst_ops xfrm6_dst_ops = {
- 	.family =		AF_INET6,
- 	.protocol =		__constant_htons(ETH_P_IPV6),
- 	.gc =			xfrm6_garbage_collect,
- 	.update_pmtu =		xfrm6_update_pmtu,
-+	.destroy =		xfrm6_dst_destroy,
-+	.ifdown =		xfrm6_dst_ifdown,
- 	.gc_thresh =		1024,
- 	.entry_size =		sizeof(struct xfrm_dst),
- };
---- k/net/xfrm/xfrm_policy.c  (mode:100644)
-+++ l/net/xfrm/xfrm_policy.c  (mode:100644)
-@@ -1028,30 +1028,15 @@ static int stale_bundle(struct dst_entry
- 	return !xfrm_bundle_ok((struct xfrm_dst *)dst, NULL, AF_UNSPEC);
- }
+-     A-2: For single or multiple processor with kernel module version function
+-          "gcc -DMODULE -DMODVERSIONS -D__KERNEL__ -I/usr/src/linux/net/inet 
+-            -Wall -Wstrict-prototypes -O6 -c dmfe.c"
++	insmod dmfe
  
--static void xfrm_dst_destroy(struct dst_entry *dst)
-+void xfrm_dst_ifdown(struct dst_entry *dst, struct net_device *dev)
- {
--	struct xfrm_dst *xdst = (struct xfrm_dst *)dst;
--
--	dst_release(xdst->route);
--
--	if (!dst->xfrm)
--		return;
--	xfrm_state_put(dst->xfrm);
--	dst->xfrm = NULL;
--}
--
--static void xfrm_dst_ifdown(struct dst_entry *dst, struct net_device *dev,
--			    int unregister)
--{
--	if (!unregister)
--		return;
--
- 	while ((dst = dst->child) && dst->xfrm && dst->dev == dev) {
- 		dst->dev = &loopback_dev;
- 		dev_hold(&loopback_dev);
- 		dev_put(dev);
- 	}
- }
-+EXPORT_SYMBOL(xfrm_dst_ifdown);
++This way it will autodetect the device mode.This is the suggested way to load the module.Or you can pass
++a mode= setting to module while loading, like :
  
- static void xfrm_link_failure(struct sk_buff *skb)
- {
-@@ -1262,10 +1247,6 @@ int xfrm_policy_register_afinfo(struct x
- 			dst_ops->kmem_cachep = xfrm_dst_cache;
- 		if (likely(dst_ops->check == NULL))
- 			dst_ops->check = xfrm_dst_check;
--		if (likely(dst_ops->destroy == NULL))
--			dst_ops->destroy = xfrm_dst_destroy;
--		if (likely(dst_ops->ifdown == NULL))
--			dst_ops->ifdown = xfrm_dst_ifdown;
- 		if (likely(dst_ops->negative_advice == NULL))
- 			dst_ops->negative_advice = xfrm_negative_advice;
- 		if (likely(dst_ops->link_failure == NULL))
-@@ -1297,8 +1278,6 @@ int xfrm_policy_unregister_afinfo(struct
- 			xfrm_policy_afinfo[afinfo->family] = NULL;
- 			dst_ops->kmem_cachep = NULL;
- 			dst_ops->check = NULL;
--			dst_ops->destroy = NULL;
--			dst_ops->ifdown = NULL;
- 			dst_ops->negative_advice = NULL;
- 			dst_ops->link_failure = NULL;
- 			dst_ops->get_mss = NULL;
+-  B. The following steps teach you how to activate a DM9102 board:
++	insmod dmfe mode=0 # Force 10M Half Duplex
++        insmod dmfe mode=1 # Force 100M Half Duplex
++        insmod dmfe mode=4 # Force 10M Full Duplex
++        insmod dmfe mode=5 # Force 100M Full Duplex
+ 
+-        1. Used the upper compiler command to compile dmfe.c
++Next you should configure your network interface with a command similar to :
+ 
+-        2. Insert dmfe module into kernel
+-           "insmod dmfe"        ;;Auto Detection Mode (Suggest)
+-           "insmod dmfe mode=0" ;;Force 10M Half Duplex
+-           "insmod dmfe mode=1" ;;Force 100M Half Duplex
+-           "insmod dmfe mode=4" ;;Force 10M Full Duplex
+-           "insmod dmfe mode=5" ;;Force 100M Full Duplex
++	ifconfig eth0 172.22.3.18
++                      ^^^^^^^^^^^
++		     Your IP Adress
+ 
+-        3. Config a dm9102 network interface
+-           "ifconfig eth0 172.22.3.18"
+-                          ^^^^^^^^^^^ Your IP address
++Then you may have to modify the default routing table with command :
+ 
+-        4. Activate the IP routing table. For some distributions, it is not
+-           necessary. You can type "route" to check.
++	route add default eth0
+ 
+-           "route add default eth0"
+ 
++Now your ethernet card should be up and running.
+ 
+-        5. Well done. Your DM9102 adapter is now activated.
+ 
++TODO:
+ 
+-   C. Object files description:
+-        1. dmfe_rh61.o:       	For Redhat 6.1
++Implement pci_driver::suspend() and pci_driver::resume() power management methods.
++Check on 64 bit boxes.
++Check and fix on big endian boxes.
++Test and make sure PCI latency is now correct for all cases.
+ 
+-        If you can make sure your kernel version, you can rename
+-        to dmfe.o and directly use it without re-compiling.
+ 
++Authors:
+ 
+-  Author: Sten Wang, 886-3-5798797-8517, E-mail: sten_wang@davicom.com.tw
++Sten Wang <sten_wang@davicom.com.tw >   : Original Author
++Tobias Ringstrom <tori@unhappy.mine.nu> : Current Maintainer
++
++Contributors:
++
++Marcelo Tosatti <marcelo@conectiva.com.br>
++Alan Cox <alan@redhat.com>
++Jeff Garzik <jgarzik@pobox.com>
++Vojtech Pavlik <vojtech@suse.cz>
 
---k1lZvvs/B4yU6o8G--
+--Boundary-00=_dT0cCJPfR2d4m/N
+Content-Type: text/plain; charset="iso-8859-1"
+MIME-Version: 1.0
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+_______________________________________________
+Kernel-janitors mailing list
+Kernel-janitors@lists.osdl.org
+http://lists.osdl.org/mailman/listinfo/kernel-janitors
+
+--Boundary-00=_dT0cCJPfR2d4m/N--
