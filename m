@@ -1,41 +1,43 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: Fw: [Bugme-new] [Bug 4566] New: B44 Randomly driver starts sending garbage and stops receiving
-Date: Sun, 1 May 2005 00:28:41 +0200
-Message-ID: <20050430222841.GA9172@xi.wantstofly.org>
-References: <20050430142334.4fa8745d.akpm@osdl.org>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: patch: Action repeat
+Date: Sat, 30 Apr 2005 18:34:45 -0400
+Message-ID: <1114900485.8929.171.camel@localhost.localdomain>
+References: <1114879817.8929.117.camel@localhost.localdomain>
+	 <4273BB30.1050402@trash.net> <4273BBAA.6060405@trash.net>
+	 <1114882045.8929.123.camel@localhost.localdomain>
+	 <4273CAB7.6080403@trash.net>
+	 <1114890709.8929.147.camel@localhost.localdomain>
+	 <20050430200848.GF577@postel.suug.ch>
+	 <1114894202.8929.165.camel@localhost.localdomain>
+	 <20050430215550.GH577@postel.suug.ch>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, bonbons67@internet.lu
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>, netdev <netdev@oss.sgi.com>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20050430142334.4fa8745d.akpm@osdl.org>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050430215550.GH577@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Apr 30, 2005 at 02:23:34PM -0700, Andrew Morton wrote:
+On Sat, 2005-30-04 at 23:55 +0200, Thomas Graf wrote:
+> 
+> Right, although I would define local as per device on either ingress
+> or egress. What I'm looking for in particular is a way to transfer
+> classification decisions from one device to another. A common case
+> for this is if a packet enters the packet, gets encapsulated and
+> leaves the host in some kind of tunnel. It's pretty hard to do
+> classification on the tunnel device so you want to do it before
+> the encapsulation and copy the result over to the tunnel. We can
+> use nfmark for this but i'd rather have a well defined variable
+> for this.
 
-> get following output (repeating at a high rate): 
-> 22:33:01.018523 00:40:05:43:5e:fe > 01:80:c2:00:00:01, ethertype Unknown 
-> (0x8808), length 60: 
->     0x0000: 0001 ffff 0000 0000 0000 0000 0000 0000 
->     0x0010: 0000 0000 0000 0000 0000 0000 0000 0000 
->     0x0020: 0000 0000 0000 0000 0000 0000 0000 
-> dmesg does not produce any useful output about this. 
+Perhaps we can reuse classid by flagging somewhere? 
+A good place to do it is tc_verdict. There a few bits still left.
+We could set a bit to say the meaning of classid to be global vs local.
 
-Isn't that a PAUSE frame?
-
-Probably something in the b44 driver gets screwed so that it stops
-processing RX traffic, the MAC's RX FIFO then fills up, and the
-MAC (naturally) asserts flow control by periodically (in the range
-of tens to hundreds of times per second) sending PAUSE frames to
-its link partner as long as there's not enough space in its RX FIFO.
-
-These PAUSE frames should not be seen by other hosts on the LAN,
-though -- your switch should not autonegotiate flow control with
-your b44 NIC if it doesn't support it.  (Or perhaps the b44 driver
-enables flow control even though it hasn't been negotiated..)
-
-
---L
+cheers,
+jamal
