@@ -1,32 +1,26 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: patch: Action repeat
-Date: Sat, 30 Apr 2005 20:13:11 +0200
-Message-ID: <4273CAB7.6080403@trash.net>
-References: <1114879817.8929.117.camel@localhost.localdomain>	 <4273BB30.1050402@trash.net>  <4273BBAA.6060405@trash.net> <1114882045.8929.123.camel@localhost.localdomain>
+From: Olivier Galibert <galibert@pobox.com>
+Subject: Re: [2.6 patch] drivers/net/hamradio/baycom_epp.c: cleanups
+Date: Sat, 30 Apr 2005 20:21:20 +0200
+Message-ID: <20050430182120.GB41358@dspnet.fr.eu.org>
+References: <20050430181529.GF3571@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@oss.sgi.com>, "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@osdl.org>, sailer@ife.ee.ethz.ch,
+        linux-kernel@vger.kernel.org, jgarzik@pobox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1114882045.8929.123.camel@localhost.localdomain>
+To: Adrian Bunk <bunk@stusta.de>
+Content-Disposition: inline
+In-Reply-To: <20050430181529.GF3571@stusta.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> Actions can set it. 
-> Theres one in particular that i havent submitted yet that sets it
-> amongst other items (depending on policy). We discussed this a while
-> back when talking about ematches etc.
+On Sat, Apr 30, 2005 at 08:15:30PM +0200, Adrian Bunk wrote:
+> The times when tricky goto's produced better codes are long gone.
+> 
+> This patch should express the same in a better way, please check whether 
+> I made any mistake.
 
-Since it only has such a short lifetime (action function sets it,
-tcf_action_exec() clears it after changing classification result),
-it would be less wasteful to just pass the classification result
-to the actions. This would also avoid that skbs with tc_classid
-already set can reach tcf_action_exec() (for example through mirred).
+Stupid question I'm sure, but did you bench it?
 
-What do you think?
-
-Regards
-Patrick
+  OG.
