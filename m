@@ -1,30 +1,50 @@
-From: =?ISO-2022-JP?B?GyRCNVxCPBsoQg==?= <orion_myth2001@yahoo.co.jp>
-Subject: =?ISO-2022-JP?B?GyRCRnM/TSRHJGJCZz5mSVckRyQ5JCshKRsoQg==?=
-Date: Sat, 30 Apr 2005 08:04:25 -0700
-Message-ID: <200504301504.j3UF4P7J003792@oss.sgi.com>
+From: jamal <hadi@cyberus.ca>
+Subject: patch: Action repeat
+Date: Sat, 30 Apr 2005 12:50:17 -0400
+Message-ID: <1114879817.8929.117.camel@localhost.localdomain>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/mixed; boundary="=-lz9R0bjWTI1yecHQQQAK"
+Cc: netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "David S. Miller" <davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-こんにちは。のり子といいます。
-セックスフレンドを募集されていましたが、
-こっち、二人でも大丈夫でしょうか？
-私とお姉ちゃん、23歳と28歳の姉妹二人なんですけど。3Pオッケーな人ですか？
-実は今年1月までセックスフレンドがいました。49歳で妻子持ちの人。
-その人が1月から遠くに転勤になってしまって、それ以来
-私もお姉ちゃんも全然してないんです。欲求不満です。
-そこで、ネットで近いところに住んでる男性を探して
-この人よさそう！って思ったのでメールしてみました。
-私は騎乗位と座位が好きで、姉はバックが好きです。
-3Pが大丈夫な人でしたら、御返事ください。
-それから、父の遺産があるので金銭的な援助も大丈夫ですよ。
-二人相手にするのは疲れると思うので、お礼はきちんとします。
-連絡待ってますね。
-あ、写真とか送ったほうがいいでしょうか？
 
-<orion_myth2001@yahoo.co.jp>
+--=-lz9R0bjWTI1yecHQQQAK
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+
+
+Long standing bug.
+Policy to repeat an action never worked.
+
+signed-off-by: J Hadi Salim <hadi@cyberus.ca>
+
+cheers,
+jamal
+
+--=-lz9R0bjWTI1yecHQQQAK
+Content-Disposition: attachment; filename=repeat_p
+Content-Type: text/plain; name=repeat_p; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+--- a/net/sched/act_api.c	2005/04/30 16:17:16	1.1
++++ b/net/sched/act_api.c	2005/04/30 16:17:44
+@@ -171,10 +171,10 @@
+ 				skb->tc_verd = SET_TC_OK2MUNGE(skb->tc_verd);
+ 				skb->tc_verd = CLR_TC_MUNGED(skb->tc_verd);
+ 			}
+-			if (ret != TC_ACT_PIPE)
+-				goto exec_done;
+ 			if (ret == TC_ACT_REPEAT)
+ 				goto repeat;	/* we need a ttl - JHS */
++			if (ret != TC_ACT_PIPE)
++				goto exec_done;
+ 		}
+ 		act = a->next;
+ 	}
+
+--=-lz9R0bjWTI1yecHQQQAK--
