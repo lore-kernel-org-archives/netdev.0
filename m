@@ -1,50 +1,76 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [-mm patch] SIS900 must select MII
-Date: Sat, 30 Apr 2005 13:52:49 +0200
-Message-ID: <20050430115249.GA3654@stusta.de>
-References: <20050429231653.32d2f091.akpm@osdl.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [IPV6] Fix raw socket checksums with IPsec
+Date: Sat, 30 Apr 2005 22:33:01 +1000
+Message-ID: <20050430123301.GA25174@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261201AbVD3Lwx@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>, venza@brownhat.org,
-	jgarzik@pobox.com
+Content-Type: multipart/mixed; boundary="opJtzjQTFsWo+cga"
+Return-path: <netdev-bounce@oss.sgi.com>
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+        David Stevens <dlstevens@us.ibm.com>,
+        "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <20050429231653.32d2f091.akpm@osdl.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This patch fixes the following compile error caused by bk-netdev:
 
-<--  snip  -->
+--opJtzjQTFsWo+cga
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-...
-  LD      .tmp_vmlinux1
-drivers/built-in.o(.text+0x98528): In function `sis900_get_settings':
-: undefined reference to `mii_ethtool_gset'
-drivers/built-in.o(.text+0x98538): In function `sis900_set_settings':
-: undefined reference to `mii_ethtool_sset'
-drivers/built-in.o(.text+0x98517): In function `sis900_get_link':
-: undefined reference to `mii_link_ok'
-drivers/built-in.o(.text+0x98547): In function `sis900_nway_reset':
-: undefined reference to `mii_nway_restart'
-make: *** [.tmp_vmlinux1] Error 1
+Hi:
 
-<--  snip  -->
+I made a mistake in my last patch to the raw socket checksum code.
+I used the value of inet->cork.length as the length of the payload.
+While this works with normal packets, it breaks down when IPsec is
+present since the cork length includes the extension header length.
 
+So here is a patch to fix the length calculations.
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
+--opJtzjQTFsWo+cga
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=rawv6-csum
 
---- linux-2.6.12-rc3-mm1/drivers/net/Kconfig.old	2005-04-30 13:47:25.000000000 +0200
-+++ linux-2.6.12-rc3-mm1/drivers/net/Kconfig	2005-04-30 13:47:48.000000000 +0200
-@@ -1543,8 +1543,9 @@
- config SIS900
- 	tristate "SiS 900/7016 PCI Fast Ethernet Adapter support"
- 	depends on NET_PCI && PCI
- 	select CRC32
-+	select MII
- 	---help---
- 	  This is a driver for the Fast Ethernet PCI network cards based on
- 	  the SiS 900 and SiS 7016 chips. The SiS 900 core is also embedded in
- 	  SiS 630 and SiS 540 chipsets.  If you have one of those, say Y and
+--- k/net/ipv6/raw.c  (mode:100644)
++++ l/net/ipv6/raw.c  (mode:100644)
+@@ -455,11 +455,11 @@ csum_copy_err:
+ static int rawv6_push_pending_frames(struct sock *sk, struct flowi *fl,
+ 				     struct raw6_sock *rp)
+ {
+-	struct inet_sock *inet = inet_sk(sk);
+ 	struct sk_buff *skb;
+ 	int err = 0;
+ 	int offset;
+ 	int len;
++	int total_len;
+ 	u32 tmp_csum;
+ 	u16 csum;
+ 
+@@ -470,7 +470,8 @@ static int rawv6_push_pending_frames(str
+ 		goto out;
+ 
+ 	offset = rp->offset;
+-	if (offset >= inet->cork.length - 1) {
++	total_len = inet_sk(sk)->cork.length - (skb->nh.raw - skb->data);
++	if (offset >= total_len - 1) {
+ 		err = -EINVAL;
+ 		ip6_flush_pending_frames(sk);
+ 		goto out;
+@@ -514,7 +515,7 @@ static int rawv6_push_pending_frames(str
+ 
+ 	tmp_csum = csum_ipv6_magic(&fl->fl6_src,
+ 				   &fl->fl6_dst,
+-				   inet->cork.length, fl->proto, tmp_csum);
++				   total_len, fl->proto, tmp_csum);
+ 
+ 	if (tmp_csum == 0)
+ 		tmp_csum = -1;
+
+--opJtzjQTFsWo+cga--
