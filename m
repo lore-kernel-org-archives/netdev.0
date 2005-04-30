@@ -1,70 +1,311 @@
-From: jean pierre <jeawestepie@go.com>
-Subject: Western Union Money Transfer
-Date: Sat, 30 Apr 2005 11:52:18 -0700 (PDT)
-Message-ID: <2069496.1114887138853.JavaMail.jeawestepie@WMAILWEBA04>
+From: Alexey Dobriyan <adobriyan@mail.ru>
+Subject: Re: 2.6.12-rc3-mm1 (a-new-10gb-ethernet-driver-by-chelsio-communications.patch)
+Date: Sat, 30 Apr 2005 23:34:42 +0000
+Message-ID: <20050430233442.GA27460@mipter.zuzino.mipt.ru>
+References: <20050429231653.32d2f091.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 7bit
-Return-path: <netdev-bounce@oss.sgi.com>
-To: jeawestepie@go.com
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed; boundary="tThc/1wpZn/ma/RB"
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+	Andrew Morton <akpm@osdl.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261374AbVD3Tbq@vger.kernel.org>
+To: Christoph Lameter <christoph@graphe.net>
+Content-Disposition: inline
+In-Reply-To: <20050429231653.32d2f091.akpm@osdl.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dear Sir,
 
-Greetings from Lome Togo. I am Jean Claude-Pierre and
-I work with the Western Union Fast International Money
-Transfer office in Lome Togo as a payment officer.
-
-There is this 1.5 million dollars which was abandoned
-by a refugee boy from the Bundubura refugee camp in
-Ghana. At the point of collection he was apprehended
-by security forces and the money was claimed by the
-management of western union were I work.
-
-I am contacting you in view of the fact that, the
-money now lies in a suspense account in our office
-unclaimed. From a very reliable source it was learnt
-that the boy has been sentensed to a prison term due
-to an undisclosed offence and no way to trace any
-relative of his.
-
-Now that he is in prison, I've claimed to my manager
-that the boy has a partner and in this regard i and my
-collegues have hatched a method where by you will be
-used as the owner to claim the funds. What you've to
-do now, is to send me some names(trusted by you) with
-valid identity card, which will be presented as
-recipient to the funds and I send you the control
-numbers of each sending since it a law that one cannot
-send or receive more than 10,000 dollars at a
-particular sending which means it will take more names
-and more days of sending all to you.
-
-It is better if the names are up to 20, so it will
-only take just about one week to finish sending it to
-you.You can understand from this arrangement that it
-really require you to prove yourself as trust worthy,
-reliable and will not betray me.  For your cooperation,
- i am willingto share you 50% while i get the balance 50%.
-
-Thanks for your anticipated cooperation and I look
-forward to your prompt response.
-
-Please, Reply to my private email address: jeaclaudepierre@netscape.net
+--tThc/1wpZn/ma/RB
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
 
 
-God Bless,
+--tThc/1wpZn/ma/RB
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="chelsio.txt"
 
-Regards,
+> --- /dev/null
+> +++ 25-akpm/drivers/net/chelsio/common.h
 
-Jean Claude-Pierre
+> +#define DIMOF(x) (sizeof(x)/sizeof(x[0]))
 
+ARRAY_SIZE in include/linux/kernel.h
 
+> --- /dev/null
+>+++ 25-akpm/drivers/net/chelsio/cpl5_cmd.h
 
-___________________________________________________
-Check-out GO.com
-GO get your free GO E-Mail account with expanded storage of 6 MB!
-http://mail.go.com
+> +struct cpl_tx_pkt {
+> +	__u16 vlan;
+
+__be16.
+
+> +struct cpl_tx_pkt_lso {
+> +	__u32 len;
+
+__be32
+
+> +	__u16 eth_type_mss;
+
+__be16
+
+> +struct cpl_rx_pkt {
+> +	__u16 vlan;
+
+_be16 really. You do ntohs(p->vlan).
+
+If any other fields of these structs are in network order I'd mark them as
+such.
+
+> --- /dev/null
+> +++ 25-akpm/drivers/net/chelsio/cxgb2.c
+
+> +#if BITS_PER_LONG == 64 && !defined(CONFIG_X86_64)
+> +# define FMT64 "l"
+> +#else
+> +# define FMT64 "ll"
+> +#endif
+
+FMT64 is unused.
+
+> +#define PCI_DMA_64BIT ~0ULL
+> +#define PCI_DMA_32BIT 0xffffffffULL
+
+In include/linux/dma-mapping.h DMA_64BIT_MASK and DMA_32BIT_MASK, respectively.
+
+> +static const char pci_speed[][4] = {
+> +	"33", "66", "100", "133"
+> +};
+
+Unused.
+
+> +static void get_stats(struct net_device *dev, struct ethtool_stats *stats,
+> +		      u64 *data)
+> +{
+
+> +	*data++ = s->TxOctetsOK;
+> +	*data++ = s->TxOctetsBad;
+> +	*data++ = s->TxUnicastFramesOK;
+> +	*data++ = s->TxMulticastFramesOK;
+> +	*data++ = s->TxBroadcastFramesOK;
+> +	*data++ = s->TxPauseFrames;
+> +	*data++ = s->TxFramesWithDeferredXmissions;
+> +	*data++ = s->TxLateCollisions;
+> +	*data++ = s->TxTotalCollisions;
+> +	*data++ = s->TxFramesAbortedDueToXSCollisions;
+> +	*data++ = s->TxUnderrun;
+> +	*data++ = s->TxLengthErrors;
+> +	*data++ = s->TxInternalMACXmitError;
+> +	*data++ = s->TxFramesWithExcessiveDeferral;
+> +	*data++ = s->TxFCSErrors;
+> +
+> +	*data++ = s->RxOctetsOK;
+> +	*data++ = s->RxOctetsBad;
+> +	*data++ = s->RxUnicastFramesOK;
+> +	*data++ = s->RxMulticastFramesOK;
+> +	*data++ = s->RxBroadcastFramesOK;
+> +	*data++ = s->RxPauseFrames;
+> +	*data++ = s->RxFCSErrors;
+> +	*data++ = s->RxAlignErrors;
+> +	*data++ = s->RxSymbolErrors;
+> +	*data++ = s->RxDataErrors;
+> +	*data++ = s->RxSequenceErrors;
+> +	*data++ = s->RxRuntErrors;
+> +	*data++ = s->RxJabberErrors;
+> +	*data++ = s->RxInternalMACRcvError;
+> +	*data++ = s->RxInRangeLengthErrors;
+> +	*data++ = s->RxOutOfRangeLengthField;
+> +	*data++ = s->RxFrameTooLongErrors;
+
+It seems you want one big memcpy.
+
+> +static int ethtool_ioctl(struct net_device *dev, void *useraddr)
+
+void __user *addr. To make sparse happy.
+
+> +{
+
+> +	if (copy_from_user(&cmd, useraddr, sizeof(cmd)))
+
+> +static int __devinit init_one(struct pci_dev *pdev,
+> +			      const struct pci_device_id *ent)
+> +{
+
+> +	if (!pci_set_dma_mask(pdev, PCI_DMA_64BIT)) {
+
+DMA_64BIT_MASK
+
+> +		if (pci_set_consistent_dma_mask(pdev, PCI_DMA_64BIT)) {
+
+DMA_64BIT_MASK
+
+> +	} else if ((err = pci_set_dma_mask(pdev, PCI_DMA_32BIT)) != 0) {
+
+DMA_32BIT_MASK
+
+> --- /dev/null
+> +++ 25-akpm/drivers/net/chelsio/cxgb2.h
+
+> +struct adapter {
+> +	u8 *regs;
+
+void __iomem *regs; You do ->regs = ioremap(...);
+
+> --- /dev/null
+> +++ 25-akpm/drivers/net/chelsio/espi.c
+
+> +/* 1. Deassert rx_reset_core. */
+> +/* 2. Program TRICN_CNFG registers. */
+> +/* 3. Deassert rx_reset_link */
+> +static int tricn_init(adapter_t *adapter)
+> +{
+
+> +	/* 1 */
+> +	timeout=1000;
+
+> +	/* 2 */
+> +	if (sme) {
+
+> +	/* 3 */
+> +	t1_write_reg_4(adapter, A_ESPI_RX_RESET, 0x3);
+
+So move comments where they should be. ;-)
+
+> +/* T2 Init part --  */
+> +/* 1. Set T_ESPI_MISCCTRL_ADDR */
+> +/* 2. Init ESPI registers. */
+> +/* 3. Init TriCN Hard Macro */
+> +int t1_espi_init(struct peespi *espi, int mac_type, int nports)
+> +{
+
+> --- /dev/null
+> +++ 25-akpm/drivers/net/chelsio/mv88x201x.c
+
+> +	if (do_enable & LINK_ENABLE_BIT) {
+> +		led |= LINK_ENABLE_BIT;
+> +		mdio_write(cphy, 0x1, 0x7, led);
+> +	} else {
+> +		led &= ~LINK_ENABLE_BIT;
+> +		mdio_write(cphy, 0x1, 0x7, led);
+> +	}
+
+Common mdio_write line.
+
+> --- /dev/null
+> +++ 25-akpm/drivers/net/chelsio/pm3393.c
+
+> +static int pm3393_macaddress_set(struct cmac *cmac, u8 ma[6])
+> +{
+> +	u32 val, lo, mid, hi
+
+> +	 * MAC addr: 00:07:43:00:13:09
+> +	 *
+> +	 * ma[5] = 0x09
+> +	 * ma[4] = 0x13
+> +	 * ma[3] = 0x00
+> +	 * ma[2] = 0x43
+> +	 * ma[1] = 0x07
+> +	 * ma[0] = 0x00
+> +	 *
+> +	 * The PM3393 requires byte swapping and reverse order entry
+> +	 * when programming MAC addresses:
+> +	 *
+> +	 * low_bits[15:0]    = ma[1]:ma[0]
+> +	 * mid_bits[31:16]   = ma[3]:ma[2]
+> +	 * high_bits[47:32]  = ma[5]:ma[4]
+
+> +	lo = ((u32) ma[1] << 8) | (u32) ma[0];
+> +	mid = ((u32) ma[3] << 8) | (u32) ma[2];
+> +	hi = ((u32) ma[5] << 8) | (u32) ma[4];
+
+This is
+
+	lo  = (u32) le16_to_cpu((__le16 *) &ma[0]);
+	mid = (u32) le16_to_cpu((__le16 *) &ma[2]);
+	hi  = (u32) le16_to_cpu((__le16 *) &ma[4]);
+
+Right?
+
+> +	/* The following steps are required to properly reset
+> +	 * the PM3393. This information is provided in the
+> +	 * PM3393 datasheet (Issue 2: November 2002)
+> +	 * section 13.1 -- Device Reset.
+> +	 *
+> +	 * The PM3393 has three types of components that are
+> +	 * individually reset:
+> +	 *
+> +	 * DRESETB      - Digital circuitry
+> +	 * PL4_ARESETB  - PL4 analog circuitry
+> +	 * XAUI_ARESETB - XAUI bus analog circuitry
+> +	 *
+> +	 * Steps to reset PM3393 using RSTB pin:
+> +	 *
+> +	 * 1. Assert RSTB pin low ( write 0 )
+> +	 * 2. Wait at least 1ms to initiate a complete initialization of device.
+> +	 * 3. Wait until all external clocks and REFSEL are stable.
+> +	 * 4. Wait minimum of 1ms. (after external clocks and REFEL are stable)
+> +	 * 5. De-assert RSTB ( write 1 )
+> +	 * 6. Wait until internal timers to expires after ~14ms.
+> +	 *    - Allows analog clock synthesizer(PL4CSU) to stabilize to
+> +	 *      selected reference frequency before allowing the digital
+> +	 *      portion of the device to operate.
+> +	 * 7. Wait at least 200us for XAUI interface to stabilize.
+> +	 * 8. Verify the PM3393 came out of reset successfully.
+> +	 *    Set successful reset flag if everything worked else try again
+> +	 *    a few more times.
+
+Same comment about comments.
+
+--- /dev/null
++++ 25-akpm/drivers/net/chelsio/regs.h
+
+> +/* Do not edit this file */
+
+OK.
+
+--- /dev/null
++++ 25-akpm/drivers/net/chelsio/subr.c
+
+> +static struct board_info t1_board[] = {
+> +
+> +{ CHBT_BOARD_N110, 1/*ports#*/,
+> +  SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE /*caps*/, CHBT_TERM_T1,
+> +  CHBT_MAC_PM3393, CHBT_PHY_88X2010,
+> +  125000000/*clk-core*/, 0/*clk-mc3*/, 0/*clk-mc4*/,
+> +  1/*espi-ports*/, 0/*clk-cspi*/, 44/*clk-elmer0*/, 0/*mdien*/,
+> +  0/*mdiinv*/, 1/*mdc*/, 0/*phybaseaddr*/, &t1_pm3393_ops,
+> +  &t1_mv88x201x_ops, &mi1_mdio_ext_ops,
+> +  "Chelsio N110 1x10GBaseX NIC" },
+> +
+> +{ CHBT_BOARD_N210, 1/*ports#*/,
+> +  SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE /*caps*/, CHBT_TERM_T2,
+> +  CHBT_MAC_PM3393, CHBT_PHY_88X2010,
+> +  125000000/*clk-core*/, 0/*clk-mc3*/, 0/*clk-mc4*/,
+> +  1/*espi-ports*/, 0/*clk-cspi*/, 44/*clk-elmer0*/, 0/*mdien*/,
+> +  0/*mdiinv*/, 1/*mdc*/, 0/*phybaseaddr*/, &t1_pm3393_ops,
+> +  &t1_mv88x201x_ops, &mi1_mdio_ext_ops,
+> +  "Chelsio N210 1x10GBaseX NIC" },
+> +
+> +};
+
+That's what C99 initializers are for:
+
+	static struct board_info t1_board[] = {
+		{
+			.board = CHBT_BOARD_N110,
+			.port_number = 1,
+			.caps = SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE,
+			.chip_term = CHBT_TERM_T1,
+				...
+		}, {
+				...
+		},
+	};
+
+> +const struct board_info *t1_get_board_info(unsigned int board_id)
+> +{
+> +	return board_id < DIMOF(t1_board) ? &t1_board[board_id] : NULL;
+
+ARRAY_SIZE
+
+--tThc/1wpZn/ma/RB--
