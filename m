@@ -1,61 +1,86 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: Pktgen receive hook in dev.c?
-Date: Fri, 29 Apr 2005 20:41:21 -0400
-Message-ID: <1114821681.8929.32.camel@localhost.localdomain>
-References: <4272C384.50901@candelatech.com>
-	 <1114820059.8929.17.camel@localhost.localdomain>
-	 <4272D133.4040201@candelatech.com>
-Reply-To: hadi@cyberus.ca
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] net: Disable queueing when carrier is lost
+Date: Sat, 30 Apr 2005 10:46:38 +1000
+Message-ID: <20050430004638.GA23386@gondor.apana.org.au>
+References: <E1DQlsn-0005yd-00@gondolin.me.apana.org.au> <426FDF8B.1030808@tpack.net> <20050427214224.GA25325@gondor.apana.org.au> <42701FFD.5000505@tpack.net> <20050427234359.GB22238@gondor.apana.org.au> <1114768308.4695.1487.camel@tsc-6.cph.tpack.net> <20050429101836.GA2237@gondor.apana.org.au> <1114777355.4695.1598.camel@tsc-6.cph.tpack.net> <20050429234512.GA22699@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Content-Type: multipart/mixed; boundary="wac7ysb48OaltWcw"
+Cc: davem@davemloft.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <4272D133.4040201@candelatech.com>
+To: Tommy Christensen <tommy.christensen@tpack.net>
+Content-Disposition: inline
+In-Reply-To: <20050429234512.GA22699@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2005-29-04 at 17:28 -0700, Ben Greear wrote:
-> jamal wrote:
 
-> > Write an action. It should be trivial to consume pktgen. Infact if all
-> > you wanted was to count, use the gact action.
-> 
-> I want a lot more than count, including timestamp, sequence number, etc.
-> 
+--wac7ysb48OaltWcw
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Sure you can do all that good stuff in your own action.
+Hi Tommy:
 
-> In order to know it's a pktgen packet, I check for a magic value at the beginning
-> of the UDP header.
+What if we take a more direct approach and just drop the packets before
+it hits hard_start_xmit? This also makes it easy for the drivers to do
+TX ring flushing if it's necessary since we're guaranteeing (for drivers
+that are not lockless anyway) that once carrier goes off while the xmit
+lock is held hard_start_xmit will not be called again.
 
-Use the u32 classifier like so:
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
-on dev eth0, if you see some magic signature on udp described as ...
-then action my pktgen action.
+--wac7ysb48OaltWcw
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
 
->   Since this could potentially collide with some 'real' packet,
+--- k/net/core/dev.c  (mode:100644)
++++ l/net/core/dev.c  (mode:100644)
+@@ -1312,6 +1312,11 @@ int dev_queue_xmit(struct sk_buff *skb)
+ 
+ 			HARD_TX_LOCK(dev, cpu);
+ 
++			if (unlikely(!netif_carrier_ok(dev))) {
++				HARD_TX_UNLOCK(dev);
++				goto out_no_carrier;
++			}
++
+ 			if (!netif_queue_stopped(dev)) {
+ 				if (netdev_nit)
+ 					dev_queue_xmit_nit(skb, dev);
+@@ -1335,6 +1340,7 @@ int dev_queue_xmit(struct sk_buff *skb)
+ 		}
+ 	}
+ 
++out_no_carrier:
+ 	rc = -ENETDOWN;
+ 	local_bh_enable();
+ 
+--- k/net/sched/sch_generic.c  (mode:100644)
++++ l/net/sched/sch_generic.c  (mode:100644)
+@@ -134,6 +134,11 @@ int qdisc_restart(struct net_device *dev
+ 			/* And release queue */
+ 			spin_unlock(&dev->queue_lock);
+ 
++			if (unlikely(!netif_carrier_ok(dev))) {
++				kfree_skb(skb);
++				goto out_no_carrier;
++			}
++
+ 			if (!netif_queue_stopped(dev)) {
+ 				int ret;
+ 				if (netdev_nit)
+@@ -141,6 +146,7 @@ int qdisc_restart(struct net_device *dev
+ 
+ 				ret = dev->hard_start_xmit(skb, dev);
+ 				if (ret == NETDEV_TX_OK) { 
++out_no_carrier:
+ 					if (!nolock) {
+ 						dev->xmit_lock_owner = -1;
+ 						spin_unlock(&dev->xmit_lock);
 
-The classifier allows you to discriminate
-
-> I also check a flag to see if the net_device has a particular flag set indicating
-> it is actively accepting pktgen packets...
-> 
-
-Thats not needed. You should be able to attach a u32 classifier to any
-device of your choice.
-
-> I assume this means I'd need a custom match function in the kernel.
-
-Refer to above - i dont think you do need to put any flag in a device.
-
->   Is there
-> an example of how to do something like this using your framework?
-
-I explained a few things to you last time you showed up and tried to put
-hooks. Start there then ask questions. Its pretty simple.
-
-cheers,
-jamal
+--wac7ysb48OaltWcw--
