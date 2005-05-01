@@ -1,64 +1,44 @@
-From: "Programas de email" <shpsw@ibest.com.br>
-Subject: Programa de email e contatos
-Date: Sun, 1 May 2005 19:39:11 -0300
-Message-ID: <20050501232029.B8DF7135179@yavanna.ibest.com.br>
-Reply-To: magicdemo@bol.com.br
-Content-Type: text/plain;
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] resource release cleanup in net/
+Date: Mon, 2 May 2005 09:08:43 +1000
+Message-ID: <20050501230843.GA16518@gondor.apana.org.au>
+References: <Pine.LNX.4.62.0504302219520.2094@dragon.hyggekrogen.localhost>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jouni Malinen <jkmaline@cc.hut.fi>,
+	James Morris <jmorris@intercode.com.au>,
+	Pedro Roque <roque@di.fc.ul.pt>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Kunihiro Ishiguro <kunihiro@ipinfusion.com>,
+	Mitsuru KANDA <mk@linux-ipv6.org>,
+	lksctp-developers@lists.sourceforge.net,
+	Andy Adamson <andros@umich.edu>,
+	Bruce Fields <bfields@umich.edu>, netdev@oss.sgi.com,
+	linux-net@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Jesper Juhl <juhl-lkml@dif.dk>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.62.0504302219520.2094@dragon.hyggekrogen.localhost>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Sat, Apr 30, 2005 at 10:36:00PM +0200, Jesper Juhl wrote:
+> 
+> Since Andrew merged the patch that makes calling crypto_free_tfm() with a 
+> NULL pointer safe into 2.6.12-rc3-mm1, I made a patch to remove checks for 
+> NULL before calling that function, and while I was at it I removed similar 
+> redundant checks before calls to kfree() and vfree() in the same files. 
+> There are also a few tiny whitespace cleanups in there.
 
-Convidamos você a experimentar o Magic Seven,
-o melhor programa de envio de emails para listas
-de contatos. 
+Hi Jesper:
 
-Com o Magic Seven você pode enviar emails personalizados
-e com recursos multimídia, além de ser o programa mais
-rápido e confiável do mercado.
+Could we wait until the crypto_free_tfm patch gets into the main tree?
+Most people here track that instead of mm.
 
-O Magic Seven está no mercado há mais de 5 anos,
-já estando na sua versão 5. É um produto em
-constante evolução, com suporte permanente ao cliente.
-
-Alguns dos recursos do Magic Seven:
-
-- Opção de envio de emails 100% personalizados. Ex: "Caro José",
-utilizando até 100 campos diferentes por email.
-- Envio de emails com sons, músicas, animações e
-qualquer recurso multimídia.
-- Opção de envio de emails sem a utilização do servidor
-  SMTP do seu provedor.
-- Envio de milhares de emails por hora.
-- Identificação de emails inexistentes e incorretos.
-- Relatório(LOG) de envio dos emails.
-- Os emails são enviados um a um. Por isso sua lista de emails
-fica protegida, não aparecendo nas mensagens enviadas.
-- Opção de attachments(arquivos) nas mensagens enviadas.
-- Leitura e deleção rápida de emails e retornos de erro.
-- Gerenciamento completo das listas de emails, com filtros
-para emails duplicados e diversas outras opções.
-- Visualização dos emails antes de enviar. Assim você pode
-saber como as mensagens serão vistas pelos destinatáros.
-- O envio das mensagens pode ser continuado do mesmo ponto,
-se houver qualquer interrupção durante o envio.
-- Opção de não aparecer o nome de sua máquina(Local name)
-e o identificador interno de sua mensagem(Message-ID) nos emails.
-- Diversos outros recursos                                            
-
---------------------------------------------------------
-Para receber gratuitamente a versão demo do Magic Seven,
-responda esse email com os dados a seguir:
-
-Nome:
-Email:
-Telefone:
---------------------------------------------------------
-
-Qualquer dúvida que você tenha, basta nos escrever.
-
-Um grande abraço,
-
-Equipe de divulgação do Magic Seven
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
