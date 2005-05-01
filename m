@@ -1,62 +1,129 @@
-From: "George Tumulak" <business_george@walla.com>
-Subject: Tried and Tested Genuine Opportunity!
-Date: Sun, 1 May 2005 19:21:28 +0800
-Message-ID: <200505011121.j41BLO7J010850@oss.sgi.com>
-Reply-To: "George Tumulak" <business_george@walla.com>
+From: "" <mexicana@restaurantmexicana.cl.sgi.com>
+Subject: El mejor restaurante Mexicano
+Date: Sun, 1 May 2005 07:12:07 -0400
+Message-ID: <2740355-2200550111127687@correo-dxw87sux>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 8bit
+Content-Type: multipart/alternative;
+	boundary="----=_NextPart_84815C5ABAF209EF376268C8"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
+To: "mega lista" <mexicana@restaurantmexicana.cl.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+------=_NextPart_84815C5ABAF209EF376268C8
+Content-type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-Hello,
-
-I've found a very rewarding career -- built on a part-time basis, 
-and I thought you might be interested. 
-
-Our system is AUTOMATED so you don't have to worry about personal 
-rejection. And, when you do find someone who's really serious 
-aboutimproving their finances, our automated system presents your 
-businessopportunity to them, one step at a time. 
-
-People that have read this same email just 1-2 months ago, are 
-now making the kind of income they knew they were worth! If you 
-have 10-15 hours a week, you can do this too.
-
-What would you do, and whom would you spend your time with when 
-you're earning the kind of profits you'd like?
-
-If you're interested to get a FREE tour please send an email to
-
-			biz_explore2005@walla.com  
-	 
-with the subject  "Let Me Evaluate Your Program".
-	
-Also include the following in the body of the email.
-
-	1.) FirstName 
-	2.) LastName 
-	3.) Country
-	
-I will then send you an email that contains the FREE tour link. 
-
-The FREE tour has NO COST, NO OBLIGATION, NO COMMITMENT.
-In case you feel that it is not for you,  you can unsubscribe 
-anytime. 
-
-Hope to receive an email from you sooner.
+=20
+  Si usted no puede ver este email haga    click aqu=ED
+ =20
+ =20
+ =20
+ =20
+  SI NO PUEDE VER ESTE CORREO POR FAVOR PRESIONE AQU&Iacute;
+  (DAR TU DIRECCION DE BAJA DE ESTA PROMOCION)=20
+Acatando la nueva Ley del Consumidor N&ordm; 19=2E496 y su modificaci&oacu=
+te;n N&ordm; 19=2E955 del 2004,
+en su Art&iacute;culo 28b, donde regula el env&iacute;o de correos electr&=
+oacute;nicos
+("Toda comunicaci&oacute;n promocional o publicitaria enviada por correo e=
+lectr&oacute;nico deber&aacute; indicar la materia o asunto sobre el que v=
+ersa, la identidad del remitente y contener una direcci&oacute;n v&aacute;=
+lida a la que el destinatario solicite la suspensi&oacute;n de los env&iac=
+ute;os")=20
 
 
-Best Regards,
-George Tumulak
+------=_NextPart_84815C5ABAF209EF376268C8
+Content-Type: text/html; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-===================================================================
+<!-- saved from url=3D(0022)http://internet=2Ee-mail -->
+<!-- saved from url=3D(0022)http://internet=2Ee-mail -->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4=2E01 Transitional//EN"
+"http://www=2Ew3=2Eorg/TR/html4/loose=2Edtd">
+<html>
+<head>
+<title>Promocion La Mexicana</title>
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Diso-8859=
+-1">
+<style type=3D"text/css">
+<!--
+=2E=2EEstilo1 {color: #FFFFFF}
+=2E=2EEstilo2 {
+=09color: #000033;
+=09font-family: Arial, Helvetica, sans-serif;
+=09font-size: 14px;
+}
+=2E=2EEstilo3 {font-size: 11px}
+=2E=2EEstilo4 {color: #000033}
+=2E=2EEstilo5 {font-size: 18px}
+=2E=2EEstilo7 {
+=09color: #CC0000;
+=09font-weight: bold;
+=09font-size: 17px;
+}
+=2E=2EEstilo14 {color: #D00000}
+-->
+</style>
+</head>
 
-If you wish to no longer receive emails from me,just send an email to 
-business_george@walla.com with the subject"REMOVE ME" 
+<body>
+<div align=3D"center">=20
+  <table width=3D"600" border=3D"0" align=3D"center">
+    <tr>=20
+      <td><div align=3D"center"><a name=3D"inicio"><font color=3D"#808080"=
+ size=3D"1" face=3D"Arial">Si=20
+          usted no puede ver este email haga </font> </a> <font color=3D"#=
+808080" size=3D"1" face=3D"Arial"><a href=3D"http://www=2Eaqsa=2Ecl/promoc=
+iones/mexicana"><u>=20
+          click aqu=ED</u></a></font></div></td>
+    </tr>
+    <tr>=20
+      <td><div align=3D"center"></div></td>
+    </tr>
+    <tr>=20
+      <td><hr></td>
+    </tr>
+    <tr>=20
+      <td><div align=3D"center"><img src=3D"http://www=2Eaqsa=2Ecl/promoci=
+ones/mexicana/mail=2Ejpg" width=3D"500" height=3D"820"></div></td>
+    </tr>
+    <tr>=20
+      <td><hr></td>
+    </tr>
+    <tr>=20
+      <td><div align=3D"center"><font size=3D"1" face=3D"Verdana, Arial, H=
+elvetica, sans-serif"><a href=3D"http://www=2Eaqsa=2Ecl/promociones/mexica=
+na" target=3D"_blank">SI=20
+          NO PUEDE VER ESTE CORREO POR FAVOR PRESIONE AQU&Iacute;</a></fon=
+t></div></td>
+    </tr>
+    <tr>=20
+      <td><div align=3D"center"><font size=3D"1" face=3D"Verdana, Arial, H=
+elvetica, sans-serif"><a href=3D"http://www=2Eaqsa=2Ecl/devaja/debaja=2Eph=
+p" target=3D"_blank">(DAR=20
+          TU DIRECCION DE BAJA DE ESTA PROMOCION) </a><br>
+          Acatando la nueva Ley del Consumidor N&ordm; 19=2E496 y su modif=
+icaci&oacute;n=20
+          N&ordm; 19=2E955 del 2004,<br>
+          en su Art&iacute;culo 28b, donde regula el env&iacute;o de corre=
+os electr&oacute;nicos<br>
+          (&quot;Toda comunicaci&oacute;n promocional o publicitaria envia=
+da por=20
+          correo electr&oacute;nico deber&aacute; indicar la materia o asu=
+nto=20
+          sobre el que versa, la identidad del remitente y contener una di=
+recci&oacute;n=20
+          v&aacute;lida a la que el destinatario solicite la suspensi&oacu=
+te;n=20
+          de los env&iacute;os&quot;)</font></div></td>
+    </tr>
+  </table>
+<br>
+<br>
+</div>
+</body>
+</html>
 
-==================================================================== 
+------=_NextPart_84815C5ABAF209EF376268C8--
