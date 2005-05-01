@@ -1,44 +1,62 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: CONFIG_NETFILTER_DEBUG spew
-Date: Sun, 1 May 2005 21:15:07 +1000
-Message-ID: <20050501111507.GA2133@gondor.apana.org.au>
-References: <20050501032809.3d0b4cda.akpm@osdl.org>
+From: "George Tumulak" <business_george@walla.com>
+Subject: Tried and Tested Genuine Opportunity!
+Date: Sun, 1 May 2005 19:21:28 +0800
+Message-ID: <200505011121.j41BLO7J010850@oss.sgi.com>
+Reply-To: "George Tumulak" <business_george@walla.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com,
-	netfilter-devel@lists.netfilter.org
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <20050501032809.3d0b4cda.akpm@osdl.org>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 8bit
+Return-path: <netdev-bounce@oss.sgi.com>
+To: <netdev@oss.sgi.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, May 01, 2005 at 10:28:09AM +0000, Andrew Morton wrote:
-> 
-> With the below .config, `telnet localhost' spews stuff like this:
-> 
-> [  179.995229] ip_local_deliver: bad loopback skb: PRE_ROUTING LOCAL_IN 
-> [  179.995274] skb: pf=2 (unowned) dev=lo len=54
-> [  179.995304] PROTO=6 127.0.0.1:23 127.0.0.1:2737 L=54 S=0x10 I=37030 F=0x4000 T=64
-> 
-> 2.6.12-rc3 doesn't do this - it's something to do with changes in Linus's
-> tree post-2.6.12-rc3.
 
-Patrick, looks like we need to fix nf_debug_ip_local_deliver to
-reflect the newly added nf_reset on the ip_output path.
+Hello,
 
-BTW, should we do nf_reset in ip_dev_loopback_xmit as well?
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I've found a very rewarding career -- built on a part-time basis, 
+and I thought you might be interested. 
+
+Our system is AUTOMATED so you don't have to worry about personal 
+rejection. And, when you do find someone who's really serious 
+aboutimproving their finances, our automated system presents your 
+businessopportunity to them, one step at a time. 
+
+People that have read this same email just 1-2 months ago, are 
+now making the kind of income they knew they were worth! If you 
+have 10-15 hours a week, you can do this too.
+
+What would you do, and whom would you spend your time with when 
+you're earning the kind of profits you'd like?
+
+If you're interested to get a FREE tour please send an email to
+
+			biz_explore2005@walla.com  
+	 
+with the subject  "Let Me Evaluate Your Program".
+	
+Also include the following in the body of the email.
+
+	1.) FirstName 
+	2.) LastName 
+	3.) Country
+	
+I will then send you an email that contains the FREE tour link. 
+
+The FREE tour has NO COST, NO OBLIGATION, NO COMMITMENT.
+In case you feel that it is not for you,  you can unsubscribe 
+anytime. 
+
+Hope to receive an email from you sooner.
+
+
+Best Regards,
+George Tumulak
+
+===================================================================
+
+If you wish to no longer receive emails from me,just send an email to 
+business_george@walla.com with the subject"REMOVE ME" 
+
+==================================================================== 
