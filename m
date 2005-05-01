@@ -1,75 +1,59 @@
-From: ROYAL SPANISH SWEEPSTAKE LOTTERY <royal_spanish@yahoo.com>
-Subject: WINNING NOTIFICATION
-Date: Mon, 15 Aug 2005 18:06:47 +0200
-Message-ID: <200508151608.j7FG8wH9015461@oss.sgi.com>
-Reply-To: royal-spanish@yahoo.com
+From: "Melva Valle" <zu7qhu@daum.net>
+Subject: =?ISO-8859-1?Q?+=B4=EB=B9=DA=20=BC=BA=B0=F8=BD=C5=C8=AD=20=BD=C7=C1=A6?=
+	=?ISO-8859-1?Q?=C7=F6=B1=DD=20=C4=AB=C1=F6=B3=EB?=
+	=?ISO-8859-1?Q?=B5=B5=C0=FC=C7=CF=BC=BC=BF=E4!!!astrophysics?= q
+Date: Sun, 01 May 2005 06:51:24 +0300
+Message-ID: <qfv76-d4y9yb--h3@lod8n6ju.im1>
+Reply-To: "Melva Valle" <zu7qhu@daum.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="46327037-e26a-4e64-b2c1-69695c96bbc6"
+Content-Type: multipart/alternative;
+	boundary="_F56BC1___.D12__EF_8C"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: linux-xfs@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-This is a multi-part message in MIME format
---46327037-e26a-4e64-b2c1-69695c96bbc6
-Content-Type: text/plain; charset=iso-8859-1
+--_F56BC1___.D12__EF_8C
+Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
-ROYAL SPANISH SWEEPSTAKE LOTTERY
-INTERNATIONAL PROMOTION/PRIZE AWARD DEPT.
-CALLE GRANVIA 32N 1C MADRID SPAIN
-REF: RSSL/61-ILGI0509/45
-BATCH:RSSL/15/096/WRCS
-RE: WINNING FINAL NOTIFICATION
- 
-Dear Winner,
-                                   
-                                     WINNING NOTIFICATION
- 
-We happily announce to you the draw of the Royal spanish Sweepstake Lottery =
-International programs held on the 14th january 2005 in Madrid Spain.Your =
-e-mail address attached to ticket number: 212005600545 188 with Serial number =
-4888/02 drew the lucky numbers: 41-6-76-13-45-8, which subsequently won you =
-the lottery in the 2nd category.You have therefore been approved to claim a =
-total sum of 1,000,000.00 Euro(One million Euro) in cash credited to file =
-KPC/9080333308/03.This is from a total cash prize of Ten Million Euro(10 =
-million Euro), shared amongst the first Tenth (10th) lucky winners in this =
-category.Please note that your lucky winning number falls within our Madrid =
-booklet representative office in Spain as indicated in your play coupon.In =
-view of this, your 1,000,000.00 Euro(One million Euro) would be released to =
-you by our security firm in Madrid,Spain.Our agent will immediately commence =
-the process to facilitate the release of your funds as soon as you contact =
-him.All participants were selected randomly from World Wide Web site through =
-computer draw system and extracted from over 100,000 companies. This =
-promotion takes place annually. For security reasons, you are advised to keep =
-your winning information confidential till your claims is processed and your =
-money remitted to you in whatever manner you deem fit to claim your prize. =
-This is part of our precautionary measure to avoid double claiming and =
-unwarranted abuse of this program by some unscrupulous elements. Please be =
-warned.
-To file for your claim, please contact our fiduciary agent:
- 
- Mr Jeff Carlos
- 
-World Royal Consultancy And Security Madrid Spain.
- 
-Email: worldroconsultx@netscape.net
-  
-For due processing and remittance of your prize money to a designated account =
-of your choice.
- 
-Remember,You are to contact our agents by email and within a week of =
-receiving this notice.After this date, all funds will be returned to the =
-MINISTERIO DE ECONOMIA Y HACIENDA as unclaimed.
- 
-To avoid unnecessary delays and complications,please quote your =
-reference/batch numbers in any correspondences with us or our designated =
-agent.Congratulations once more from all members and staffs of this program.
- 
-Yours Sincerely,
- Wilfred Alberto
-Lottery Director.
-  
---46327037-e26a-4e64-b2c1-69695c96bbc6--
+<HTML>
+<HEAD>
+<TITLE>mail</TITLE>
+<META HTTP-EQUIV=3D"Content-Type" CONTENT=3D"text/html; charset=3Deuc-kr">=
+
+</HEAD>
+<BODY BGCOLOR=3D#FFFFFF LEFTMARGIN=3D0 TOPMARGIN=3D0 MARGINWIDTH=3D0 MARGI=
+NHEIGHT=3D0>
+
+<TABLE WIDTH=3D580 BORDER=3D0 CELLPADDING=3D0 CELLSPACING=3D0>
+	<TR>
+		<TD>
+			<a href=3Dhttp://wow4car.com target=3D"_blank"><IMG SRC=3D"http://wow4c=
+ar.com/mail/images/mail_01.gif" WIDTH=3D580 HEIGHT=3D102 ALT=3D""
+border=3D=
+"0"></TD>
+	</TR>
+	<TR>
+		<TD>
+			<a href=3Dhttp://wow4car.com target=3D"_blank"><IMG SRC=3D"http://wow4c=
+ar.com/mail/images/mail_02.gif" WIDTH=3D580 HEIGHT=3D274 ALT=3D""
+border=3D=
+"0"></TD>
+	</TR>
+	<TR>
+		<TD>
+			<a href=3Dhttp://wow4car.com target=3D"_blank"><IMG SRC=3D"http://wow4c=
+ar.com/mail/images/mail_03.gif" WIDTH=3D580 HEIGHT=3D156 ALT=3D""
+border=3D=
+"0"></TD>
+	</TR>
+</TABLE>
+
+</BODY>
+</HTML>it sfxhwe cqxvoim 
+ivwb
+
+--_F56BC1___.D12__EF_8C--
