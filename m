@@ -1,103 +1,246 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: CONFIG_NETFILTER_DEBUG spew
-Date: Sun, 01 May 2005 17:17:01 +0200
-Message-ID: <4274F2ED.9080404@trash.net>
-References: <20050501032809.3d0b4cda.akpm@osdl.org>
-	<20050501111507.GA2133@gondor.apana.org.au>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] remove drivers/net/skfp/lnkstat.c
+Date: Sun, 1 May 2005 17:42:01 +0200
+Message-ID: <20050501154201.GH3592@stusta.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------070805040200040001000308"
-Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com,
-	netfilter-devel@lists.netfilter.org
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050501111507.GA2133@gondor.apana.org.au>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux@syskonnect.de, Jeff Garzik <jgarzik@pobox.com>,
+        linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------070805040200040001000308
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+This patch removes a file that seems to be used only on AIX (sic).
 
-Herbert Xu wrote:
-> On Sun, May 01, 2005 at 10:28:09AM +0000, Andrew Morton wrote:
-> 
->>With the below .config, `telnet localhost' spews stuff like this:
->>
->>[  179.995229] ip_local_deliver: bad loopback skb: PRE_ROUTING LOCAL_IN 
->>[  179.995274] skb: pf=2 (unowned) dev=lo len=54
->>[  179.995304] PROTO=6 127.0.0.1:23 127.0.0.1:2737 L=54 S=0x10 I=37030 F=0x4000 T=64
->>
->>2.6.12-rc3 doesn't do this - it's something to do with changes in Linus's
->>tree post-2.6.12-rc3.
->
-> Patrick, looks like we need to fix nf_debug_ip_local_deliver to
-> reflect the newly added nf_reset on the ip_output path.
-
-You're right. I'm tempted to remove the entire nf_debug stuff,
-as far as I know it has never found a real bug. But for now
-I've only fixed the warning.
-
-> BTW, should we do nf_reset in ip_dev_loopback_xmit as well?
-
-I think so. I'll send a patch later, I'm a bit in a hurry right now.
-
-Regards
-Patrick
-
---------------070805040200040001000308
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
-
-[NETFILTER]: Fix nf_debug_ip_local_deliver()
-
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
 ---
-commit a91b6fa8bc4b1626d413d58c21cfcfecabbb4a61
-tree 9544bb88b28c2e3ca4b0a66fedfa2bb540ec06e2
-parent e8108c98dd6d65613fa0ec9d2300f89c48d554bf
-author Patrick McHardy <kaber@trash.net> 1114952978 +0200
-committer Patrick McHardy <kaber@trash.net> 1114952978 +0200
 
-Index: net/core/netfilter.c
-===================================================================
---- 3608de2fc88b062070a9d197eda9cac1fb9635d3/net/core/netfilter.c  (mode:100644 sha1:e51cfa46950cf8f1f4dea42be94e71d76d8c3c5b)
-+++ 9544bb88b28c2e3ca4b0a66fedfa2bb540ec06e2/net/core/netfilter.c  (mode:100644 sha1:92c51824797dd15018e579eb5753cc372e04fd3d)
-@@ -217,21 +217,10 @@
- 	 * NF_IP_RAW_INPUT and NF_IP_PRE_ROUTING.  */
- 	if (!skb->dev) {
- 		printk("ip_local_deliver: skb->dev is NULL.\n");
--	}
--	else if (strcmp(skb->dev->name, "lo") == 0) {
--		if (skb->nf_debug != ((1 << NF_IP_LOCAL_OUT)
--				      | (1 << NF_IP_POST_ROUTING)
--				      | (1 << NF_IP_PRE_ROUTING)
--				      | (1 << NF_IP_LOCAL_IN))) {
--			printk("ip_local_deliver: bad loopback skb: ");
--			debug_print_hooks_ip(skb->nf_debug);
--			nf_dump_skb(PF_INET, skb);
--		}
+This patch was already sent on:
+- 20 Apr 2005
+
+ drivers/net/skfp/Makefile  |    2 
+ drivers/net/skfp/lnkstat.c |  204 -------------------------------------
+ 2 files changed, 1 insertion(+), 205 deletions(-)
+
+--- linux-2.6.12-rc2-mm3-full/drivers/net/skfp/Makefile.old	2005-04-20 01:39:14.000000000 +0200
++++ linux-2.6.12-rc2-mm3-full/drivers/net/skfp/Makefile	2005-04-20 01:39:33.000000000 +0200
+@@ -6,7 +6,7 @@
+ 
+ skfp-objs :=  skfddi.o    hwmtm.o    fplustm.o  smt.o      cfm.o     \
+               ecm.o       pcmplc.o   pmf.o      queue.o    rmt.o     \
+-	      smtdef.o    smtinit.o  smttimer.o srf.o      lnkstat.o \
++	      smtdef.o    smtinit.o  smttimer.o srf.o \
+               hwt.o      drvfbi.o   ess.o
+ 
+ # NOTE:
+--- linux-2.6.12-rc2-mm3-full/drivers/net/skfp/lnkstat.c	2005-04-20 01:35:22.000000000 +0200
++++ /dev/null	2005-03-19 22:42:59.000000000 +0100
+@@ -1,204 +0,0 @@
+-/******************************************************************************
+- *
+- *	(C)Copyright 1998,1999 SysKonnect,
+- *	a business unit of Schneider & Koch & Co. Datensysteme GmbH.
+- *
+- *	See the file "skfddi.c" for further information.
+- *
+- *	This program is free software; you can redistribute it and/or modify
+- *	it under the terms of the GNU General Public License as published by
+- *	the Free Software Foundation; either version 2 of the License, or
+- *	(at your option) any later version.
+- *
+- *	The information in this file is provided "AS IS" without warranty.
+- *
+- ******************************************************************************/
+-
+-/*
+-	IBM FDDI read error log function
+-*/
+-
+-#include "h/types.h"
+-#include "h/fddi.h"
+-#include "h/smc.h"
+-#include "h/lnkstat.h"
+-
+-#ifndef	lint
+-static const char ID_sccs[] = "@(#)lnkstat.c	1.8 97/04/11 (C) SK " ;
+-#endif
+-
+-#ifdef	sun
+-#define _far
+-#endif
+-
+-#define EL_IS_OK(x,l)	((((int)&(((struct s_error_log *)0)->x)) + \
+-			sizeof(er->x)) <= l)
+-
+-/*
+-	BEGIN_MANUAL_ENTRY(if,func;others;11)
+-
+-	u_long smt_get_error_word(smc)
+-	struct s_smc *smc ;
+-
+-Function	DOWNCALL	(SMT, lnkstat.c)
+-		This functions returns the SMT error work for AIX events.
+-
+-Return	smt_error_word	These bits are supported:
+-
+-		SMT_ERL_ALC	== 	[PS/PA].fddiPORTLerFlag
+-		SMT_ERL_BLC	==	[PB].fddiPORTLerFlag
+-		SMT_ERL_NCC	==	fddiMACNotCopiedFlag
+-		SMT_ERL_FEC	==	fddiMACFrameErrorFlag
+-
+-	END_MANUAL_ENTRY()
+- */
+-u_long smt_get_error_word(struct s_smc *smc)
+-{
+-	u_long	st;
+-
+-	/*
+-	 * smt error word low
+-	 */
+-	st = 0 ;
+-	if (smc->s.sas == SMT_SAS) {
+-		if (smc->mib.p[PS].fddiPORTLerFlag)
+-			st |= SMT_ERL_ALC ;
 -	}
 -	else {
-+	} else {
- 		if (skb->nf_debug != ((1<<NF_IP_PRE_ROUTING)
- 				      | (1<<NF_IP_LOCAL_IN))) {
--			printk("ip_local_deliver: bad non-lo skb: ");
-+			printk("ip_local_deliver: bad skb: ");
- 			debug_print_hooks_ip(skb->nf_debug);
- 			nf_dump_skb(PF_INET, skb);
- 		}
-
---------------070805040200040001000308--
+-		if (smc->mib.p[PA].fddiPORTLerFlag)
+-			st |= SMT_ERL_ALC ;
+-		if (smc->mib.p[PB].fddiPORTLerFlag)
+-			st |= SMT_ERL_BLC ;
+-	}
+-	if (smc->mib.m[MAC0].fddiMACNotCopiedFlag)
+-		st |= SMT_ERL_NCC ;		/* not copied condition */
+-	if (smc->mib.m[MAC0].fddiMACFrameErrorFlag)
+-		st |= SMT_ERL_FEC ;		/* frame error condition */
+-
+-	return st;
+-}
+-
+-/*
+-	BEGIN_MANUAL_ENTRY(if,func;others;11)
+-
+-	u_long smt_get_event_word(smc)
+-	struct s_smc *smc ;
+-
+-Function	DOWNCALL	(SMT, lnkstat.c)
+-		This functions returns the SMT event work for AIX events.
+-
+-Return	smt_event_word	always 0
+-
+-	END_MANUAL_ENTRY()
+- */
+-u_long smt_get_event_word(struct s_smc *smc)
+-{
+-	return (u_long) 0;
+-}
+-
+-/*
+-	BEGIN_MANUAL_ENTRY(if,func;others;11)
+-
+-	u_long smt_get_port_event_word(smc)
+-	struct s_smc *smc ;
+-
+-Function	DOWNCALL	(SMT, lnkstat.c)
+-		This functions returns the SMT port event work for AIX events.
+-
+-Return	smt_port_event_word	always 0
+-
+-	END_MANUAL_ENTRY()
+- */
+-u_long smt_get_port_event_word(struct s_smc *smc)
+-{
+-	return (u_long) 0;
+-}
+-
+-/*
+-	BEGIN_MANUAL_ENTRY(if,func;others;11)
+-
+-	u_long smt_read_errorlog(smc,p,len)
+-	struct s_smc *smc ;
+-	char _far *p ;
+-	int len ;
+-
+-Function	DOWNCALL	(SMT, lnkstat.c)
+-		This functions returns the SMT error log field for AIX events.
+-
+-Para	p	pointer to the error log field
+-	len	len of the error log field
+-
+-Return	len	used len of the error log field
+-
+-	END_MANUAL_ENTRY()
+- */
+-int smt_read_errorlog(struct s_smc *smc, char _far *p, int len)
+-{
+-	int			i ;
+-	int			st ;
+-	struct s_error_log _far	*er ;
+-
+-	er = (struct s_error_log _far *) p ;
+-	if (len > sizeof(struct s_error_log))
+-		len = sizeof(struct s_error_log) ;
+-	for (i = 0 ; i < len ; i++)
+-		*p++ = 0 ;
+-	/*
+-	 * set count
+-	 */
+-	if (EL_IS_OK(set_count_high,len)) {
+-		er->set_count_low = (u_short)smc->mib.fddiSMTSetCount.count ;
+-		er->set_count_high =
+-			(u_short)(smc->mib.fddiSMTSetCount.count >> 16L) ;
+-	}
+-	/*
+-	 * aci
+-	 */
+-	if (EL_IS_OK(aci_id_code,len)) {
+-		er->aci_id_code = 0 ;
+-	}
+-	/*
+-	 * purge counter is missed frames; 16 bits only
+-	 */
+-	if (EL_IS_OK(purge_frame_counter,len)) {
+-		if (smc->mib.m[MAC0].fddiMACCopied_Ct > 0xffff)
+-			er->purge_frame_counter = 0xffff ;
+-		else
+-			er->purge_frame_counter =
+-				(u_short)smc->mib.m[MAC0].fddiMACCopied_Ct ;
+-	}
+-	/*
+-	 * CMT and RMT state machines
+-	 */
+-	if (EL_IS_OK(ecm_state,len))
+-		er->ecm_state = smc->mib.fddiSMTECMState ;
+-
+-	if (EL_IS_OK(pcm_b_state,len)) {
+-		if (smc->s.sas == SMT_SAS) {
+-			er->pcm_a_state = smc->y[PS].mib->fddiPORTPCMState ;
+-			er->pcm_b_state = 0 ;
+-		}
+-		else {
+-			er->pcm_a_state = smc->y[PA].mib->fddiPORTPCMState ;
+-			er->pcm_b_state = smc->y[PB].mib->fddiPORTPCMState ;
+-		}
+-	}
+-	if (EL_IS_OK(cfm_state,len))
+-		er->cfm_state = smc->mib.fddiSMTCF_State ;
+-	if (EL_IS_OK(rmt_state,len))
+-		er->rmt_state = smc->mib.m[MAC0].fddiMACRMTState ;
+-
+-	/*
+-	 * smt error word low (we only need the low order 16 bits.)
+-	 */
+-
+-	st = smt_get_error_word(smc) & 0xffff ;
+-
+-	if (EL_IS_OK(smt_error_low,len))
+-		er->smt_error_low = st ;
+-
+-	if (EL_IS_OK(ucode_version_level,len))
+-		er->ucode_version_level = 0x0101 ;
+-	return(len) ;
+-}
+-
