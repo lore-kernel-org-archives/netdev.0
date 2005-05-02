@@ -1,31 +1,27 @@
-From: Paulo Marques <pmarques@grupopie.com>
-Subject: Re: [PATCH] Tulip interrupt uses non IRQ safe spinlock
-Date: Mon, 02 May 2005 15:16:11 +0100
-Message-ID: <4276362B.1010004@grupopie.com>
-References: <E1DRFqC-00028H-Qi@tigger>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: icmp_unreachable uses wrong ip
+Date: Mon, 02 May 2005 16:52:06 +0200
+Message-ID: <42763E96.1070209@trash.net>
+References: <1115040079.5620.11.camel@jeroens.office.netland.nl> <200505021659.05674.hasso@estpak.ee>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, jgarzik@pobox.com, netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261260AbVEBOQU@vger.kernel.org>
-To: Mark Broadbent <markb@wetlettuce.com>
-In-Reply-To: <E1DRFqC-00028H-Qi@tigger>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "J. Simonetti" <jeroens@office.netland.nl>, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Hasso Tepper <hasso@estpak.ee>
+In-Reply-To: <200505021659.05674.hasso@estpak.ee>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Mark Broadbent wrote:
-> The interrupt handling code in the tulip network driver appears to use a non 
-> IRQ safe spinlock in an interrupt context.  The following patch should correct 
-> this.
+Hasso Tepper wrote:
+> Similar patches have been posted to the list repeatedly AFAIK with no any 
+> response from developers. Can someone enlighten us why? Is there something 
+> wrong with it? This is the feature people administrating routers would like 
+> to have. It makes debugging complicated topologies much easier and all 
+> routers I have seen behave this way.
 
-Huh? Can a network interrupt handler be interrupted by the same interrupt?
+Why can't you simply add the prefered source address to the route?
 
-AFAIK, the spin_lock_irqsave is to disable interruptions so that an
-interrupt can not happen in the critical section, so that the interrupt
-handler can not make modifications to shared data. Am I wrong?
-
--- 
-Paulo Marques - www.grupopie.com
-
-All that is necessary for the triumph of evil is that good men do nothing.
-Edmund Burke (1729 - 1797)
+Regards
+Patrick
