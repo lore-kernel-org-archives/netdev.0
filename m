@@ -1,64 +1,73 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: patch: Action repeat
-Date: Mon, 02 May 2005 08:10:38 -0400
-Message-ID: <1115035838.8929.236.camel@localhost.localdomain>
-References: <1114879817.8929.117.camel@localhost.localdomain>
-	 <4273BB30.1050402@trash.net> <4273BBAA.6060405@trash.net>
-	 <1114882045.8929.123.camel@localhost.localdomain>
-	 <4273CAB7.6080403@trash.net>
-	 <1114890709.8929.147.camel@localhost.localdomain>
-	 <20050430200848.GF577@postel.suug.ch>
-	 <1114894202.8929.165.camel@localhost.localdomain>
-	 <20050430215550.GH577@postel.suug.ch>
-	 <1114900485.8929.171.camel@localhost.localdomain>
-	 <20050430235809.GI577@postel.suug.ch>
-Reply-To: hadi@cyberus.ca
+From: Mark Broadbent <markb@wetlettuce.com>
+Subject: Re: [PATCH] Tulip interrupt uses non IRQ safe spinlock
+Date: Mon, 02 May 2005 13:56:46 +0100
+Message-ID: <4276238E.4060606@wetlettuce.com>
+References: <E1DRFqC-00028H-Qi@tigger>	<E1DRGWv-0003aa-00@gondolin.me.apana.org.au>	<20050429093521.274adf9a.davem@davemloft.net> <20050429214336.04b40b3f.vsu@altlinux.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>, netdev <netdev@oss.sgi.com>,
-        "David S. Miller" <davem@davemloft.net>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050430235809.GI577@postel.suug.ch>
+To: Sergey Vlasov <vsu@altlinux.ru>
+In-Reply-To: <20050429214336.04b40b3f.vsu@altlinux.ru>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2005-01-05 at 01:58 +0200, Thomas Graf wrote:
-> * jamal <1114900485.8929.171.camel@localhost.localdomain> 2005-04-30 18:34
-[..] 
-> > Perhaps we can reuse classid by flagging somewhere? 
-> > A good place to do it is tc_verdict. There a few bits still left.
-> > We could set a bit to say the meaning of classid to be global vs local.
+Sergey Vlasov wrote:
+> On Fri, 29 Apr 2005 09:35:21 -0700 David S. Miller wrote:
 > 
-> Sounds good to me, I'm not quite sure if I still have a good enough
-> picture of your action code. Let's assume we have ematches and an
-> action setting the classid at ingress. The action sets the above flag
-> to state the global scope.
+> 
+>>Look at most interrupt handlers in the kernel, they use
+>>spin_lock_irqsave() rather consistently.  If an interrupt
+>>is registered with SA_SHIRQ, this is a requirement.
+>>Here is why.
+>>
+>>On i386 (or any other platform using the generic IRQ layer),
+>>for example, unless you specify SA_INTERRUPT at
+>>request_irq() time, the handler dispatch is:
+>>
+>>	local_irq_enable();
+>>
+>>	for each irq registered {
+>>		x->handler();
+>>	}
+>>	local_irq_disable();
+>>
+>>(see kernel/irq/handle.c)
+>>
+>>At the top level from that handle_IRQ_event() function, the
+>>IRQ source is ACK'd after those calls.
+>>
+>>However, if you have multiple devices on that IRQ line, you
+>>run into a problem.  Let's say TUlip interrupts first and
+>>we go into the Tulip driver and grab the lock, next the other
+>>device interrupts and we jump into the Tulip interrupt handler
+>>again, we will deadlock but what we should have done is use
+>>IRQ disabling spin locking like Mark's fix does.
+> 
+> 
+> If what you wrote above is really correct, this means that
+> Documentation/DocBook/kernel-locking.sgml contains wrong information:
 
-Which means the classid is not reset by exec().
+See Documentation/spin-locking.txt line 137, this states that
+spin_[un]lock() should not be used in IRQ handlers.
 
->  The packet passes the stack and the
-> classid gets copied into the new encapsulated packet. On the egress
-> device we have something like a nop action assigning the classid
-> to res->classid. How do we make sure that the classid remains
-> untouched even if the packet passes a dummy device in between having
-> actions configured? Can we we still have functional actions on
-> this dummy device?
+>>>>The irq handler does not to use spin_lock_irq(), because the
+>>>>softirq cannot run while the irq handler is running: it can use
+>>>>spin_lock(), which is slightly faster. The only exception would
+>>>>be if a different hardware irq handler uses the same lock:
+>>>>spin_lock_irq() will stop that from interrupting us.
+> 
+> 
+> AFAIK, even if interrupts are enabled, the IRQ line which is currently
+> handled is disabled in the interrupt controller, therefore the
+> interrupt handler cannot be reentered (for the same device instance).
+> Did this really change?
 
-I would say that if dummy changes it because of a policy, then thats a
-fair deal. i.e
+As far as I can tell this is the case (disclaimer applies) [see my other
+reply to Herbert Xu].
 
-filter blah blah \
-action add meta classid global :23 
-
-I am beginning to think that perhaps classid should stay as a local
-scope metadata and what Patrick suggested maybe the way out. Although i
-have to admit I dont like a generic function to have a parameter that
-only a very small set of users find useful. If we are going to allow a
-structure to be passed back and forth, perhaps it should also carry
-other things (in addition to _result). Need to think a little.
-
-cheers,
-jamal
+Thanks
+Mark
