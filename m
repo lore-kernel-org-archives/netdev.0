@@ -1,83 +1,70 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: CONFIG_NETFILTER_DEBUG spew
-Date: Mon, 02 May 2005 18:12:47 +0200
-Message-ID: <4276517F.6030606@trash.net>
-References: <20050501032809.3d0b4cda.akpm@osdl.org>
-	<20050501111507.GA2133@gondor.apana.org.au>
+From: "Yair Itzhaki" <Yair@arx.com>
+Subject: RE: Re-routing packets via netfilter (ip_rt_bug)
+Date: Mon, 2 May 2005 19:17:16 +0200
+Message-ID: <4151C0F9B9C25C47B3328922A6297A3286CFB8@post.arx.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------070605040806010003070303"
-Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com,
-	netfilter-devel@lists.netfilter.org
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050501111507.GA2133@gondor.apana.org.au>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: "Jozsef Kadlecsik" <kadlec@blackhole.kfki.hu>, <netdev@oss.sgi.com>,
+        <netfilter-devel@lists.netfilter.org>, <linux-kernel@vger.kernel.org>
+Return-path: <netdev-bounce@oss.sgi.com>
+Content-class: urn:content-classes:message
+To: "Patrick McHardy" <kaber@trash.net>,
+        "Herbert Xu" <herbert@gondor.apana.org.au>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------070605040806010003070303
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Can anyone propose a patch that I can start checking?
 
-Herbert Xu wrote:
-> BTW, should we do nf_reset in ip_dev_loopback_xmit as well?
+I have come up with the following:
 
-I think we should, tc actions could do something unexpected with
-the packet.
+--- net/core/netfilter.c.orig   2005-04-18 21:55:30.000000000 +0300
++++ net/core/netfilter.c        2005-05-02 17:35:20.000000000 +0300
+@@ -622,9 +622,10 @@
+        /* some non-standard hacks like ipt_REJECT.c:send_reset() can cause
+         * packets with foreign saddr to appear on the NF_IP_LOCAL_OUT hook.
+         */
+-       if (inet_addr_type(iph->saddr) == RTN_LOCAL) {
++       if ((inet_addr_type(iph->saddr) == RTN_LOCAL) ||
++           (inet_addr_type(iph->daddr) == RTN_LOCAL)) {
+                fl.nl_u.ip4_u.daddr = iph->daddr;
+-               fl.nl_u.ip4_u.saddr = iph->saddr;
++               fl.nl_u.ip4_u.saddr = 0;
+                fl.nl_u.ip4_u.tos = RT_TOS(iph->tos);
+                fl.oif = (*pskb)->sk ? (*pskb)->sk->sk_bound_dev_if : 0;
+ #ifdef CONFIG_IP_ROUTE_FWMARK
 
-Regards
-Patrick
+Please advise,
+Yair
 
---------------070605040806010003070303
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
 
-[NETFILTER]: Drop conntrack reference in ip_dev_loopback_xmit()
-
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-
----
-commit c4644e58c8b52dca9699e8ee0e975f5f13eb4d2c
-tree 35d8915a3fd6fa39a46d9b2e8e1fd272e82ea3af
-parent a91b6fa8bc4b1626d413d58c21cfcfecabbb4a61
-author Patrick McHardy <kaber@trash.net> 1115049922 +0200
-committer Patrick McHardy <kaber@trash.net> 1115049922 +0200
-
-Index: net/core/netfilter.c
-===================================================================
---- 9544bb88b28c2e3ca4b0a66fedfa2bb540ec06e2/net/core/netfilter.c  (mode:100644 sha1:92c51824797dd15018e579eb5753cc372e04fd3d)
-+++ 35d8915a3fd6fa39a46d9b2e8e1fd272e82ea3af/net/core/netfilter.c  (mode:100644 sha1:22a8f127c4aad9821e5f3294aa518807165ee8b7)
-@@ -236,8 +236,6 @@
- 		debug_print_hooks_ip(newskb->nf_debug);
- 		nf_dump_skb(PF_INET, newskb);
- 	}
--	/* Clear to avoid confusing input check */
--	newskb->nf_debug = 0;
- }
- 
- void nf_debug_ip_finish_output2(struct sk_buff *skb)
-Index: net/ipv4/ip_output.c
-===================================================================
---- 9544bb88b28c2e3ca4b0a66fedfa2bb540ec06e2/net/ipv4/ip_output.c  (mode:100644 sha1:38f69532a029e5ff1ddbdbd665afcff46e94abb5)
-+++ 35d8915a3fd6fa39a46d9b2e8e1fd272e82ea3af/net/ipv4/ip_output.c  (mode:100644 sha1:24fe3e00b42b0bb673be5a6d8ceb15defb192974)
-@@ -111,6 +111,7 @@
- #ifdef CONFIG_NETFILTER_DEBUG
- 	nf_debug_ip_loopback_xmit(newskb);
- #endif
-+	nf_reset(newskb);
- 	netif_rx(newskb);
- 	return 0;
- }
-
---------------070605040806010003070303--
+> -----Original Message-----
+> From: Patrick McHardy [mailto:kaber@trash.net]
+> Sent: Wednesday, April 27, 2005 14:05
+> To: Herbert Xu
+> Cc: Jozsef Kadlecsik; netdev@oss.sgi.com; 
+> netfilter-devel@lists.netfilter.org; Yair Itzhaki; 
+> linux-kernel@vger.kernel.org
+> Subject: Re: Re-routing packets via netfilter (ip_rt_bug)
+> 
+> 
+> Herbert Xu wrote:
+> > Here is another reason why these packets should go through FORWARD.
+> > They were generated in response to packets in INPUT/FORWARD/OUTPUT.
+> > The original packet has not undergone SNAT in any of these cases.
+> > 
+> > However, if we feed the response packet through LOCAL_OUT it will
+> > be subject to DNAT.  This creates a NAT asymmetry and we may end
+> > up with the wrong destination address.
+> > 
+> > By pushing it through FORWARD it will only undergo SNAT which is
+> > correct since the original packet would have undergone DNAT.
+> 
+> This is only a problem since the recent NAT changes, but I agree
+> that we should fix it by moving these packets to FORWARD.
+> 
+> Regards
+> Patrick
+> 
