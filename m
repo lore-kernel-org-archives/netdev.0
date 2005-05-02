@@ -1,55 +1,80 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [RESEND][PATCH net-drivers-2.6 0/16] e1000: driver update
-Date: Mon, 2 May 2005 15:55:50 -0400
-Message-ID: <20050502195550.GD10710@tuxdriver.com>
-References: <Pine.LNX.4.44.0504281922090.29290-100000@isotope.jf.intel.com>
+From: Bruno <bonbons67@internet.lu>
+Subject: Re: [Bugme-new] [Bug 4566] New: B44 Randomly driver starts sending garbage and stops receiving
+Date: Mon, 2 May 2005 21:56:52 +0200
+Message-ID: <200505022156.52634.bonbons67@internet.lu>
+References: <20050430142334.4fa8745d.akpm@osdl.org> <20050430222841.GA9172@xi.wantstofly.org>
+Reply-To: bonbons67@internet.lu
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@oss.sgi.com>, fedora-devel-list@redhat.com,
-        fedora-test-list@redhat.com
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Malli Chilakala <mallikarjuna.chilakala@intel.com>
+To: netdev@oss.sgi.com
+In-Reply-To: <20050430222841.GA9172@xi.wantstofly.org>
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.44.0504281922090.29290-100000@isotope.jf.intel.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 28, 2005 at 07:38:17PM -0700, Malli Chilakala wrote:
-> Signed-off-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
-> Signed-off-by: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
-> Signed-off-by: John Ronciak <john.ronciak@intel.com>
-> 
-> 1. Added enhanced functionality to the loopback diags to wrap the descriptor rings.
-> 2. Fix msec-delay definition in e1000_osdep.h to use msleep 
-> 3. MSI support for PCI-e adapters
-> 4. Enable polling before enabling interrupts -- avoids (in NAPI mode) entering the ISR and returning without doing any work because polling is not enabled. [romieu@fr.zoriel.com]
-> 5. Fix kernel panic with 82541 LOM when using a 100M cable
-> 6. Delay clean-up of last Tx packet to fix pre-mature writeback issue of Tx descriptors only when TSO is enabled
-> 7. Dump information on Tx ring when 'NETDEV: Watchdog' condition is reached
-> 8. Fix computation of netdev stats from controller stats counters
-> 9. e1000 stops working after resume, call pci_enable_device after pci_restore_state - Modified Andrew Morton's patch
-> 10. Implement 82546 errata 10 --  first Tx descriptor cannot have more than 2015 byte of data in it or it could hang the transmitter.
-> 11. Removed redundant statement in e1000_clean_tx_irq
-> 12. Modified e1000_clean:: exit poll if no Tx and work_done == 0
-> 13. 82573 specific code & packet split code
-> 14. Fix Packet Buffer Allocation logic for 82547_rev_2 controller
-> 15. Adjust flow control watermarks for Jumbo Frames
-> 16. Driver version, white space, comments, device id & other
+On Sunday 01 May 2005 00:28, Lennert Buytenhek wrote:
+> On Sat, Apr 30, 2005 at 02:23:34PM -0700, Andrew Morton wrote:
+> > get following output (repeating at a high rate):
+> > 22:33:01.018523 00:40:05:43:5e:fe > 01:80:c2:00:00:01, ethertype Unkn=
+own
+> > (0x8808), length 60:
+> >     0x0000: 0001 ffff 0000 0000 0000 0000 0000 0000
+> >     0x0010: 0000 0000 0000 0000 0000 0000 0000 0000
+> >     0x0020: 0000 0000 0000 0000 0000 0000 0000
+> > dmesg does not produce any useful output about this.
+>
+> Isn't that a PAUSE frame?
+>
+> Probably something in the b44 driver gets screwed so that it stops
+> processing RX traffic, the MAC's RX FIFO then fills up, and the
+> MAC (naturally) asserts flow control by periodically (in the range
+> of tens to hundreds of times per second) sending PAUSE frames to
+> its link partner as long as there's not enough space in its RX FIFO.
+>
+> These PAUSE frames should not be seen by other hosts on the LAN,
+> though -- your switch should not autonegotiate flow control with
+> your b44 NIC if it doesn't support it.  (Or perhaps the b44 driver
+> enables flow control even though it hasn't been negotiated..)
+>
+>
+> --L
+I don't know what kind of frame that is, but it's causing quite some trou=
+ble=20
+on my network:
+=A0- network communication is broken for all other host (Windows Hosts, A=
+DSL=20
+router to internet
+=A0- My Linux Server can capture the traffic (it's from that one I execut=
+ed=20
+tcpdump, but I don't know if Linux to Linux communication is still possib=
+le=20
+as I never had my desktop running when it happened)
+Network works correctly again once I restart the network interface (B44) =
+on=20
+the Laptop.
 
-For Fedora Core 3 users, test kernels w/ these patches applied are available here:
+I don't know if it passes all the 2 switches on my LAN (first one for sur=
+e,=20
+second one I don't know as there is no box with sniffing-software behind =
+it,=20
+but the Windows box there does not seem to loose internet connection)
 
-	http://people.redhat.com/linville/kernels/fc3/
+In addition the recorded MAC addresses are not addresses of my hardware. =
+So=20
+except thet are broadcast/multicats MAC addresses I'm wondering where the=
+y do=20
+come from!
 
-For RHEL4 users, test kernels w/ these patches applied are available here:
+If you have any suggestions on what to do for either fixing the B44 drive=
+r or=20
+at least making it auto-recover rapidly, this would be useful.
+If there is more information that I can provide, please tell how I can fi=
+nd it=20
+out!
+(But may take some time, as this problem does not happen every day)
 
-	http://people.redhat.com/linville/kernels/rhel4/
-
-Please beat the crap out of 'em... :-)
-
-Thanks!
-
-John
--- 
-John W. Linville
-linville@tuxdriver.com
+Bruno
