@@ -1,21 +1,18 @@
 From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] drivers/net/seeq8005.c: cleanups
-Date: Mon, 2 May 2005 03:46:24 +0200
-Message-ID: <20050502014624.GL3592@stusta.de>
+Subject: [2.6 patch] drivers/net/arcnet/capmode.c: make a struct static
+Date: Mon, 2 May 2005 03:46:34 +0200
+Message-ID: <20050502014634.GP3592@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261633AbVEBCat@vger.kernel.org>
+Cc: Jeff Garzik <jgarzik@pobox.com>, linux-kernel@vger.kernel.org,
+	netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261841AbVEBCgi@vger.kernel.org>
 To: Andrew Morton <akpm@osdl.org>
 Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch contains the following cleanups:
-- make the needlessly global function seeq8005_init static
-- kill an ancient version variable
-- remove some outdated Emacs settings
+This patch makes a needlessly global struct static.
 
 Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
@@ -23,72 +20,15 @@ Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
 This patch was already sent on:
 - 19 Apr 2005
-- 21 Feb 2005
 
- drivers/net/seeq8005.c |   23 ++---------------------
- 1 files changed, 2 insertions(+), 21 deletions(-)
-
---- linux-2.6.11-rc3-mm2-full/drivers/net/seeq8005.c.old	2005-02-16 18:18:56.000000000 +0100
-+++ linux-2.6.11-rc3-mm2-full/drivers/net/seeq8005.c	2005-02-21 15:19:11.000000000 +0100
-@@ -12,12 +12,6 @@
- 	This file is a network device driver for the SEEQ 8005 chipset and
- 	the Linux operating system.
+--- linux-2.6.12-rc2-mm3-full/drivers/net/arcnet/capmode.c.old	2005-04-19 03:03:23.000000000 +0200
++++ linux-2.6.12-rc2-mm3-full/drivers/net/arcnet/capmode.c	2005-04-19 03:03:53.000000000 +0200
+@@ -48,7 +48,7 @@
+ static int ack_tx(struct net_device *dev, int acked);
  
--*/
--
--static const char version[] =
--	"seeq8005.c:v1.00 8/07/95 Hamish Coleman (hamish@zot.apana.org.au)\n";
--
--/*
-   Sources:
-   	SEEQ 8005 databook
-   	
-@@ -91,7 +85,7 @@
- /* Example routines you must write ;->. */
- #define tx_done(dev)	(inw(SEEQ_STATUS) & SEEQSTAT_TX_ON)
- static void hardware_send_packet(struct net_device *dev, char *buf, int length);
--extern void seeq8005_init(struct net_device *dev, int startp);
-+static  void seeq8005_init(struct net_device *dev, int startp);
- static inline void wait_for_buffer(struct net_device *dev);
  
- 
-@@ -150,7 +144,6 @@
- 
- static int __init seeq8005_probe1(struct net_device *dev, int ioaddr)
+-struct ArcProto capmode_proto =
++static struct ArcProto capmode_proto =
  {
--	static unsigned version_printed;
- 	int i,j;
- 	unsigned char SA_prom[32];
- 	int old_cfg1;
-@@ -291,9 +284,6 @@
- 	}
- #endif
- 
--	if (net_debug  &&  version_printed++ == 0)
--		printk(version);
--
- 	printk("%s: %s found at %#3x, ", dev->name, "seeq8005", ioaddr);
- 
- 	/* Fill in the 'dev' fields. */
-@@ -637,7 +627,7 @@
- #endif
- }
- 
--void seeq8005_init(struct net_device *dev, int startp)
-+static void seeq8005_init(struct net_device *dev, int startp)
- {
- 	struct net_local *lp = netdev_priv(dev);
- 	int ioaddr = dev->base_addr;
-@@ -758,12 +748,3 @@
- }
- 
- #endif /* MODULE */
--
--/*
-- * Local variables:
-- *  compile-command: "gcc -D__KERNEL__ -I/usr/src/linux/net/inet -Wall -Wstrict-prototypes -O6 -m486 -c skeleton.c"
-- *  version-control: t
-- *  kept-new-versions: 5
-- *  tab-width: 4
-- * End:
-- */
+ 	'r',
+ 	XMTU,
