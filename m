@@ -1,70 +1,77 @@
-From: nanamoraesz@uol.com.br
-Subject: Saudades de voce!!! ScanMail has detected a virus!
-Date: Mon, 2 May 2005 15:02:03 -0300
-Message-ID: <OFB69D79A0.64174649-ON03256FF5.0062531D@al.sp.gov.br>
+From: Sophia Halendale <tourfreelotto78@go.com>
+Subject: YOUR EMAIL WON THE LOTTERY
+Date: Mon, 2 May 2005 10:51:31 -0700 (PDT)
+Message-ID: <7853507.1115056291128.JavaMail.tourfreelotto78@wmailweba02>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_NextPart_000_0010_D46F2FF2.4849815B"
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: ahaze2005@yahoo.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+THE FREE LOTTO COMPANY
+HOLLAND HEAD OFFICE
+BURDENSTRAAT 21B,
+2053 DS AMSTERDAM,
+HOLLAND.
+www.freelotto.com
 
-------=_NextPart_000_0010_D46F2FF2.4849815B
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: base64
-X-MIME-Autoconverted: from 8bit to base64 by oss.sgi.com id j42Hsc7J019902
+FROM: THE DESK OF THE MANAGING DIRECTOR
+THE FREE LOTTO COMPANY: WINNING FINAL NOTIFICATION.CONGRATULATIONS!!!
+We are please to announce you as one of the 10 lucky winners in the Free Lotto draw held on the 30th April,2005. All 10 winning addresses were randomly selected from a batch of 50,000,000 international emails. Your email address emerged alongside 9 others as a category 2 winner in this year's Annual Free Lotto Draw.
+Consequently, you have therefore been approved for a total pay out of 1,000,000 Us Dollars (one million Dollars) only. In order to avoid unnecessary delays and complications please remember to quote your reference number and batch numbers:
+1, Email ticket number: ticket number175420658766483
+2, BATCH: 427901527-Dg43
+3, the file Ref number: 232/656/4509
+4, lucky numbers 8-16-18-23-31-45
+5, lotto code number: FL09622Holland
+Please contact the under-listed claims officer as soon as possible for the immediate release of your winnings:
+----------------------------------------------------------------------------
+Advocate Mr. Van Der Gooi
+Advocate Mrs. G.F Saskia
+Dr Edward Makad
+YOUR EMAIL WON THE LOTTERY
+THE FREE LOTTO COMPANY
+HOLLAND HEAD OFFICE
+BURDENSTRAAT 21B,
+2053 DS AMSTERDAM,
+HOLLAND.
+www.freelotto.com
 
-xp1o6Ywg5/M6i6bSry/JvNS9bul8w5xqT6trrHZDMpGnhrS61mZ9TdUNCi3uMoOfkCy89FqV
-X6ln16D0Y8DbPuhlzunuuHv7M7ZrcDpBo+DlYkfudfOW9G5jdTz9RW10vIMx0ll9Sb0u+Lov
-4CRWdsPhrdCmI7NC/WK7XtB4Vk3Qs5/VTUy2UGP73i8NCo6IZ5RQ6XWJUSDqQtFbdVV8NHy4
-Nc92loaF9tisQS3NKr+TYj4tyFbeIoNJSvtO0j6se9bYP1fxxmbQ316uRW4mpiUzbfziPDRZ
-Wu3G4Zg1miMNCna8oqChfPv4bv00onold0x0O/E8XW3xzX7xrnovRG+GoM1N/f64i/4pX+Ti
-bfjNYg0Ko4ufKD8/LJixTfaRDQpfodRBYjI4LzA7L9tO/ejYKpTsQzGxTOxSq1mCv41LukSn
-3mBdkIxekMNqS0iYr0Xofjbyo77HfFzELXZ3cM037tXD8Jksn8KiYUiyo/m55N+niEq5IW6H
-L48nbfsNCmOVMeinkCnPOGmtbviZmO7alA0K1fCmqfvIj2c3Ln1mNFdNupM81C8ucpydwHHz
-a1PX0C/rXMRdyF/Q+f7TpvY6WnaqzFrsan5ymK00MlMnL3avUVqWcLnu3sUyVosxnouUOYvz
-LmNp0tzYDQqlTvF2w2nCzInwYsz3UqJTX/L2VchkzcxtMPWeqjLo72m8Lnp3J5K9Jn2f+99t
-IzUyrM0xVHK1+pr7017+5qdeTHCWY5Wp5s9z8HlLno22gjhuDQqVYDwwuJ6b64nyuiqDxPiD
-5NtJk/Lp3nj25yTP29XMT3V5+7W856g6X3HGTzxarUubjmgt4P5+7c/mUvZCfrGkuGvgrcSz
-rjiqmUOOR5Tdm8ryYyZmIG/Z/Dtb2rgtxqv0WJyPcGFTU/i/u6ZmfS4pMvvtuMGpd49zeKAN
-CsFwmMVXYXo+rMqzhG2bm7nTdl/zJs38Mow40+ktwWElNf05wSf+31M8hyGoWSHY+1iv3GKU
-hat5XuTqM7Vwu0Y8UqSsurUnnEzFsHDJfGllSGHgXSJfz3BnI1ZkWoM4gZ+aXLTyT46w247s
-Qads8tt5b8HsdFBlUqSq2PNbZJJqkGZxDQop/LN5Lc8k4tn4T0lMfEje0acsgaQl5Xsn51GI
-RmaOW93Dz1smmkZN7nY4ZtT3Wsz2gcBIQoRnu6vIkD9r7g0KfDRRmZ5azy/F/IOFv2K509Pd
-yA0KWZHV7yC+la/67KZhtIitiIH2kzHCwsfpRC0xz9uRrTjFSNj7SIODgp/GNEl5aKFkeCDF
-dw0KdHen/L0ihIhPro24edgpX8/ofbCvuWhuWyD96Fbtyv37q6CuWaKCxipffovcabt3ur12
-OouP6OpZNk6B8a1oW2cmNaRrTUOK463AWl9epG7ar85H06jYvzNisPTZWogjq/NYDQowoPLA
-lZXqjlZNwpm2obV02L2uw1OgzsGwnuu78eC01uDxQlfviE4/sXdWjZ6XjIF0Ng0K2vrQLjr+
-hGVM7Wbh3JfYkE82qFbVzXncUEIqOiPmxlUkn6rgh4zqm9jM8SY7WyE++OvPNXdQ1MBigdzS
-ScHTLVeVSc4iNongfaNELSFIJTmmQ0ndqc9phuRTeD7IiSb1/C/FaKsNCrCq5iTqcFi0x719
-eLGC8vsq5j/cZ36IsdqlncYqvbjBcy4xZnTpoLB9zvBK9jfh12yIpy8uzMigMOn135fu3zZ7
-IjEtaT+Fnvjc0YbWiJ3T6uj5+yRBe6yh5+qUssTw7Kus6a+wvNeskI83LOPgZfrFjWqFfUem
-DQqLOmn73XNVe63z5KJYzN70otHX8vDjDQouWmijTbFy8fsseUKX2nnvSDapxTv8evSH7Tr4
-auV7byqnlZ6OViHrY/5+YvrBY0swrPiYJXv3i8Yueo5IDQp6rlaD5tPtx5p+6F6ivrfVwOPP
-nnvfKY2cysBds2B3kbmdP6yNKEKNxrKzq1W7Ji339ZKzbqMgkzJJQsXu2frsxOoxOdfZv7f+
-M0h8TdzJz9WfX/ftOm+ZqzLVhzI8pa26O3JDTuLvQWv2tDv6a0S+SkaVKdogkzDfqJxcwiB+
-bM0kY8vK+/JG43VLvCLfx/qXaNrWX/1Zn3rFTjfZO3ST5bG+esrP1OD9gYhhYaGyti/3/NBg
-eeEtnqjx50Vhqsz8ponFh7TMXA0KkMEl2Pum1JpDyrX2kVR0NcIi+WbmUHlj5zKKO52SPkl1
-MdL671oohSVZpsyOkzPepr841Vuys5eciDzwOFxgjL1okCqYSqGqTrCh5vf+esTEynMgWtqO
-k2jG1L/Yw2N+WK7b24bgke6biq44ZWYwZw0K7Tsgwz7+kMpaZfNiJJOfk69penv8cGidaFBr
-Tdv73DeQo33zdnTH3aRb1NeZiuTEt/jaM/CkhGM/OuWoWU36M9/2Sc0xhNeZLmRJtu9mDQrA
-u6Gt86TK0G3Mc8rkbj6bbUk7QWv2ynJ5clA+M1aGuXO+aoIxlS3k7+mudCBy4rHU5Ou6uixj
-TLbFc4f+Yln43rOgXNOn8S6lvkKvao3TS6qy0zKGJcZkt9bV3L/mmIiv232X326Uq/qzXkuD
-/jRGnewy8nCSSoJKg6PuijWQs3DG46f5yISTptv4KoHE7YjRs/FFOOHgul/R9Jhus4399mlu
-29RJWtjF6MeRKHBrqL4lZLgger8NCrJaTHZRP7msz4mFhV6Uoc+Y0Y3uTiongmbJpZyLuJ6I
-cOwhRKswM21wDQolV2znp+rOYHjNRw0KqjVyhFBVZ5FznKvE/uyOS8qyzs7j4tENCg0K
-------=_NextPart_000_0010_D46F2FF2.4849815B
-Content-Type: application/octet-stream;
-	name="album.scr"
-Content-Disposition: attachment;
-	filename="album.scr"
-Content-Transfer-Encoding: base64
+FROM: THE DESK OF THE MANAGING DIRECTOR
+THE FREE LOTTO COMPANY: WINNING FINAL NOTIFICATION.CONGRATULATIONS!!!
+We are please to announce you as one of the 10 lucky winners in the Free Lotto draw held on the 30th April,2005. All 10 winning addresses were randomly selected from a batch of 50,000,000 international emails. Your email address emerged alongside 9 others as a category 2 winner in this year's Annual Free Lotto Draw.
+Consequently, you have therefore been approved for a total pay out of 1,000,000 Us Dollars (one million Dollars) only. In order to avoid unnecessary delays and complications please remember to quote your reference number and batch numbers:
+1, Email ticket number: ticket number175420658766483
+2, BATCH: 427901527-Dg43
+3, the file Ref number: 232/656/4509
+4, lucky numbers 8-16-18-23-31-45
+5, lotto code number: FL09622Holland
+Please contact the under-listed claims officer as soon as possible for the immediate release of your winnings:
+----------------------------------------------------------------------------
+Advocate Mr. Van Der Gooi
+Advocate Mrs. G.F Saskia
+Dr Edward Makad
+Bejesbejes Law Firm
+AMSTERDAM NETHERLAND
+Tel:+31-619-026-645
+Fax: +31-84-751-1879
+Fax: +31-84-751-1881
+E-mail:advocatemakad@netscape.net
 
-DQo=
+For processing and remittance of your cash to a designated account of your choice. Remember, all winnings must be claim not later than May 10th 2005, after this date, unclaimed funds will be returned to the International Lotto, you should contact advocate Dr Edward Makad about the claimant procedures, send your fax and telephone to Advocate Dr Edward Makad, this will enable his office to send the claims application form (A4) to you the Beneficiary.
+Please note, in order to avoid unnecessary delays and complications please remember to quote your reference number and batch numbers. Furthermore, should there be any change of address do inform the advocate Dr Edward Makad as soon as possible. Dr Edward Makad is responsible for the processing of your approved file to the bank for payment. 
+Congratulations once again, from all members of staff and thank you for being part of our promotions program.
+Once again congratulations.
+Sincerely,
+Sophia Halendale
+Promotions Manager
+The Lotto Company
+Holland & Europe.
 
-
-------=_NextPart_000_0010_D46F2FF2.4849815B--
+___________________________________________________
+Check-out GO.com
+GO get your free GO E-Mail account with expanded storage of 6 MB!
+http://mail.go.com
