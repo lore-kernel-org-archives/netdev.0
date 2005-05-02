@@ -1,175 +1,49 @@
 From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] drivers/net/arcnet/: possible cleanups
-Date: Mon, 2 May 2005 03:47:26 +0200
-Message-ID: <20050502014726.GH3592@stusta.de>
+Subject: [2.6 patch] drivers/net/ewrk3.c: remove dead code
+Date: Mon, 2 May 2005 03:47:00 +0200
+Message-ID: <20050502014700.GW3592@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com,
-        linux-kernel@vger.kernel.org
-Return-path: <netdev-bounce@oss.sgi.com>
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261652AbVEBB42@vger.kernel.org>
 To: Andrew Morton <akpm@osdl.org>
 Content-Disposition: inline
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch contains the following possible cleanups:
-- make needlessly global code static
-- arcnet.c: remove the outdated VERSION
-- arcnet.c: remove the unneeded EXPORT_SYMBOL(arc_proto_null)
-- arcnet.c: remove the unneeded EXPORT_SYMBOL(arcnet_dump_packet)
+This patch removes some obviously dead code found by the Coverity 
+checker.
 
 Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
 ---
 
 This patch was already sent on:
-- 15 Apr 2005
-- 24 Mar 2005
+- 10 Apr 2005
 
- drivers/net/arcnet/arc-rawmode.c |    2 +-
- drivers/net/arcnet/arcnet.c      |   19 ++++++++++---------
- drivers/net/arcnet/rfc1051.c     |    2 +-
- drivers/net/arcnet/rfc1201.c     |    3 +--
- include/linux/arcdevice.h        |    9 ---------
- 5 files changed, 13 insertions(+), 22 deletions(-)
+ drivers/net/ewrk3.c |   12 +++---------
+ 1 files changed, 3 insertions(+), 9 deletions(-)
 
---- linux-2.6.11-rc3-mm2-full/drivers/net/arcnet/arc-rawmode.c.old	2005-02-16 15:16:38.000000000 +0100
-+++ linux-2.6.11-rc3-mm2-full/drivers/net/arcnet/arc-rawmode.c	2005-02-16 15:16:51.000000000 +0100
-@@ -42,7 +42,7 @@
- static int prepare_tx(struct net_device *dev, struct archdr *pkt, int length,
- 		      int bufnum);
+--- linux-2.6.12-rc2-mm2-full/drivers/net/ewrk3.c.old	2005-04-09 22:03:49.000000000 +0200
++++ linux-2.6.12-rc2-mm2-full/drivers/net/ewrk3.c	2005-04-09 22:04:15.000000000 +0200
+@@ -1308,15 +1308,9 @@ static int __init eisa_probe(struct net_
+ 	if (ioaddr < 0x1000)
+ 		goto out;
  
--struct ArcProto rawmode_proto =
-+static struct ArcProto rawmode_proto =
- {
- 	.suffix		= 'r',
- 	.mtu		= XMTU,
---- linux-2.6.11-rc3-mm2-full/include/linux/arcdevice.h.old	2005-02-16 15:17:26.000000000 +0100
-+++ linux-2.6.11-rc3-mm2-full/include/linux/arcdevice.h	2005-02-16 15:20:57.000000000 +0100
-@@ -206,7 +206,6 @@
+-	if (ioaddr == 0) {	/* Autoprobing */
+-		iobase = EISA_SLOT_INC;		/* Get the first slot address */
+-		i = 1;
+-		maxSlots = MAX_EISA_SLOTS;
+-	} else {		/* Probe a specific location */
+-		iobase = ioaddr;
+-		i = (ioaddr >> 12);
+-		maxSlots = i + 1;
+-	}
++	iobase = ioaddr;
++	i = (ioaddr >> 12);
++	maxSlots = i + 1;
  
- extern struct ArcProto *arc_proto_map[256], *arc_proto_default,
- 	*arc_bcast_proto, *arc_raw_proto;
--extern struct ArcProto arc_proto_null;
- 
- 
- /*
-@@ -334,17 +333,9 @@
- #define arcnet_dump_skb(dev,skb,desc) ;
- #endif
- 
--#if (ARCNET_DEBUG_MAX & D_RX) || (ARCNET_DEBUG_MAX & D_TX)
--void arcnet_dump_packet(struct net_device *dev, int bufnum, char *desc,
--			int take_arcnet_lock);
--#else
--#define arcnet_dump_packet(dev, bufnum, desc,take_arcnet_lock) ;
--#endif
--
- void arcnet_unregister_proto(struct ArcProto *proto);
- irqreturn_t arcnet_interrupt(int irq, void *dev_id, struct pt_regs *regs);
- struct net_device *alloc_arcdev(char *name);
--void arcnet_rx(struct net_device *dev, int bufnum);
- 
- #endif				/* __KERNEL__ */
- #endif				/* _LINUX_ARCDEVICE_H */
---- linux-2.6.11-rc3-mm2-full/drivers/net/arcnet/arcnet.c.old	2005-02-16 15:17:47.000000000 +0100
-+++ linux-2.6.11-rc3-mm2-full/drivers/net/arcnet/arcnet.c	2005-02-16 15:21:20.000000000 +0100
-@@ -41,8 +41,6 @@
-  *     <jojo@repas.de>
-  */
- 
--#define VERSION "arcnet: v3.93 BETA 2000/04/29 - by Avery Pennarun et al.\n"
--
- #include <linux/module.h>
- #include <linux/config.h>
- #include <linux/types.h>
-@@ -61,6 +59,7 @@
- static int null_prepare_tx(struct net_device *dev, struct archdr *pkt,
- 			   int length, int bufnum);
- 
-+static void arcnet_rx(struct net_device *dev, int bufnum);
- 
- /*
-  * one ArcProto per possible proto ID.  None of the elements of
-@@ -71,7 +70,7 @@
-  struct ArcProto *arc_proto_map[256], *arc_proto_default,
-    *arc_bcast_proto, *arc_raw_proto;
- 
--struct ArcProto arc_proto_null =
-+static struct ArcProto arc_proto_null =
- {
- 	.suffix		= '?',
- 	.mtu		= XMTU,
-@@ -90,7 +89,6 @@
- EXPORT_SYMBOL(arc_proto_default);
- EXPORT_SYMBOL(arc_bcast_proto);
- EXPORT_SYMBOL(arc_raw_proto);
--EXPORT_SYMBOL(arc_proto_null);
- EXPORT_SYMBOL(arcnet_unregister_proto);
- EXPORT_SYMBOL(arcnet_debug);
- EXPORT_SYMBOL(alloc_arcdev);
-@@ -118,8 +116,8 @@
- 
- 	arcnet_debug = debug;
- 
--	printk(VERSION);
-+	printk("arcnet loaded.\n");
+ 	for (i = 1; (i < maxSlots) && (dev != NULL); i++, iobase += EISA_SLOT_INC) {
+ 		if (EISA_signature(name, EISA_ID) == 0) {
 
- #ifdef ALPHA_WARNING
- 	BUGLVL(D_EXTRA) {
- 		printk("arcnet: ***\n"
-@@ -178,8 +174,8 @@
-  * Dump the contents of an ARCnet buffer
-  */
- #if (ARCNET_DEBUG_MAX & (D_RX | D_TX))
--void arcnet_dump_packet(struct net_device *dev, int bufnum, char *desc,
--			int take_arcnet_lock)
-+static void arcnet_dump_packet(struct net_device *dev, int bufnum,
-+			       char *desc, int take_arcnet_lock)
- {
- 	struct arcnet_local *lp = dev->priv;
- 	int i, length;
-@@ -208,7 +204,10 @@
- 
- }
- 
--EXPORT_SYMBOL(arcnet_dump_packet);
-+#else
-+
-+#define arcnet_dump_packet(dev, bufnum, desc,take_arcnet_lock) do { } while (0)
-+
- #endif
- 
- 
-@@ -987,7 +986,7 @@
-  * This is a generic packet receiver that calls arcnet??_rx depending on the
-  * protocol ID found.
-  */
--void arcnet_rx(struct net_device *dev, int bufnum)
-+static void arcnet_rx(struct net_device *dev, int bufnum)
- {
- 	struct arcnet_local *lp = dev->priv;
- 	struct archdr pkt;
---- linux-2.6.11-rc3-mm2-full/drivers/net/arcnet/rfc1051.c.old	2005-02-16 15:22:16.000000000 +0100
-+++ linux-2.6.11-rc3-mm2-full/drivers/net/arcnet/rfc1051.c	2005-02-16 15:22:23.000000000 +0100
-@@ -43,7 +43,7 @@
- 		      int bufnum);
- 
- 
--struct ArcProto rfc1051_proto =
-+static struct ArcProto rfc1051_proto =
- {
- 	.suffix		= 's',
- 	.mtu		= XMTU - RFC1051_HDR_SIZE,
---- linux-2.6.11-rc3-mm2-full/drivers/net/arcnet/rfc1201.c.old	2005-02-16 15:22:35.000000000 +0100
-+++ linux-2.6.11-rc3-mm2-full/drivers/net/arcnet/rfc1201.c	2005-02-16 15:22:46.000000000 +0100
-@@ -43,7 +43,7 @@
- 		      int bufnum);
- static int continue_tx(struct net_device *dev, int bufnum);
- 
--struct ArcProto rfc1201_proto =
-+static struct ArcProto rfc1201_proto =
- {
- 	.suffix		= 'a',
- 	.mtu		= 1500,	/* could be more, but some receivers can't handle it... */
+k
