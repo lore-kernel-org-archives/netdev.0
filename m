@@ -1,12 +1,15 @@
 From: Nishanth Aravamudan <nacc@us.ibm.com>
-Subject: [KJ] [PATCH] net/3c505: replace schedule_timeout() with msleep()
-Date: Sun, 1 May 2005 23:14:46 -0700
-Message-ID: <20050502061446.GB10173@us.ibm.com>
+Subject: [KJ] [PATCH] net/slip: replace schedule_timeout() with
+	msleep_interruptible()
+Date: Sun, 1 May 2005 23:34:57 -0700
+Message-ID: <20050502063457.GG10173@us.ibm.com>
+References: <20050502061446.GB10173@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============0070249961624342383=="
+Content-Type: multipart/mixed; boundary="===============66490907043917158=="
 Cc: netdev@oss.sgi.com, Kernel-Janitors <kernel-janitors@lists.osdl.org>
 Return-path: <kernel-janitors-bounces@lists.osdl.org>
-To: philb@gnu.org
+To: loz@holmes.demon.co.uk, waltje@uwalt.nl.mugnet.org
+In-Reply-To: <20050502061446.GB10173@us.ibm.com>
 List-Unsubscribe: <http://lists.osdl.org/mailman/listinfo/kernel-janitors>,
 	<mailto:kernel-janitors-request@lists.osdl.org?subject=unsubscribe>
 List-Archive: <http://lists.osdl.org/pipermail/kernel-janitors>
@@ -18,39 +21,30 @@ Sender: kernel-janitors-bounces@lists.osdl.org
 Errors-To: kernel-janitors-bounces@lists.osdl.org
 List-Id: netdev.vger.kernel.org
 
---===============0070249961624342383==
+--===============66490907043917158==
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
-Use msleep() instead of schedule_timeout() to guarantee the task delays
-as expected.
+Use msleep_interruptible() instead of schedule_timeout() to guarantee
+the task delays as expected.
 
-Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
+--- 2.6.12-rc3/drivers/net/slip.c	2005-03-01 23:38:33.000000000 -0800
++++ 2.6.12-rc3-dev/drivers/net/slip.c	2005-05-01 20:53:08.000000000 -0700
+@@ -1395,10 +1395,8 @@ static void __exit slip_exit(void)
+ 	/* First of all: check for active disciplines and hangup them.
+ 	 */
+ 	do {
+-		if (busy) {
+-			set_current_state(TASK_INTERRUPTIBLE);
+-			schedule_timeout(HZ / 10);
+-		}
++		if (busy)
++			msleep_interruptible(100);
+ 
+ 		busy = 0;
+ 		for (i = 0; i < slip_maxdev; i++) {
 
---- 2.6.12-rc3/drivers/net/3c505.c	2005-04-29 11:03:04.000000000 -0700
-+++ 2.6.12-rc3-dev/drivers/net/3c505.c	2005-05-01 20:52:01.000000000 -0700
-@@ -1317,8 +1317,7 @@ static int __init elp_sense(struct net_d
- 	if (orig_HSR & DIR) {
- 		/* If HCR.DIR is up, we pull it down. HSR.DIR should follow. */
- 		outb(0, dev->base_addr + PORT_CONTROL);
--		set_current_state(TASK_UNINTERRUPTIBLE);
--		schedule_timeout(30*HZ/100);
-+		msleep(300);
- 		if (inb_status(addr) & DIR) {
- 			if (elp_debug > 0)
- 				printk(notfound_msg, 2);
-@@ -1327,8 +1326,7 @@ static int __init elp_sense(struct net_d
- 	} else {
- 		/* If HCR.DIR is down, we pull it up. HSR.DIR should follow. */
- 		outb(DIR, dev->base_addr + PORT_CONTROL);
--		set_current_state(TASK_UNINTERRUPTIBLE);
--		schedule_timeout(30*HZ/100);
-+		msleep(300);
- 		if (!(inb_status(addr) & DIR)) {
- 			if (elp_debug > 0)
- 				printk(notfound_msg, 3);
-
---===============0070249961624342383==
+--===============66490907043917158==
 Content-Type: text/plain; charset="iso-8859-1"
 MIME-Version: 1.0
 Content-Transfer-Encoding: quoted-printable
@@ -61,4 +55,4 @@ Kernel-janitors mailing list
 Kernel-janitors@lists.osdl.org
 http://lists.osdl.org/mailman/listinfo/kernel-janitors
 
---===============0070249961624342383==--
+--===============66490907043917158==--
