@@ -1,63 +1,51 @@
-From: Mark Broadbent <markb@wetlettuce.com>
-Subject: Re: [PATCH] Tulip interrupt uses non IRQ safe spinlock
-Date: Mon, 02 May 2005 13:57:28 +0100
-Message-ID: <427623B8.8050107@wetlettuce.com>
-References: <E1DRFqC-00028H-Qi@tigger> <E1DRGWv-0003aa-00@gondolin.me.apana.org.au> <20050429093521.274adf9a.davem@davemloft.net> <20050429224931.GA18616@gondor.apana.org.au>
+From: "J. Simonetti" <jeroens@office.netland.nl>
+Subject: icmp_unreachable uses wrong ip
+Date: Mon, 02 May 2005 15:21:19 +0200
+Message-ID: <1115040079.5620.11.camel@jeroens.office.netland.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Content-Type: multipart/mixed; boundary="=-Q2xJWlJ7VlmjEMgXdZYq"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050429224931.GA18616@gondor.apana.org.au>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> On Fri, Apr 29, 2005 at 09:35:21AM -0700, David S. Miller wrote:
-> 
->>On i386 (or any other platform using the generic IRQ layer),
->>for example, unless you specify SA_INTERRUPT at
->>request_irq() time, the handler dispatch is:
->>
->>	local_irq_enable();
-> 
-> 
-> Yes you're absolutely correct.
->  
-> 
->>However, if you have multiple devices on that IRQ line, you
->>run into a problem.  Let's say TUlip interrupts first and
->>we go into the Tulip driver and grab the lock, next the other
->>device interrupts and we jump into the Tulip interrupt handler
->>again, we will deadlock but what we should have done is use
->>IRQ disabling spin locking like Mark's fix does.
-> 
-> 
-> However, I don't see how this can happen.  __do_IRQ ensures
-> that the handlers on a single IRQ aren't reentered by desc->lock
-> and desc->status.  Softirqs are also kept out by irq_enter.  Am
-> I missing something?
 
-As far as I can see desc->lock is dropped before handle_IRQ_event() is
-called in __do_IRQ() (kernel/irq/handle.c:170) and desc->status does not
-prevent the execution of the IRQ handler.  Same with softirqs,
-interrupts are enabled when the handler is called (kernel/softirq.c:89).
+--=-Q2xJWlJ7VlmjEMgXdZYq
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-Thanks
-Mark
+I've recently come to notice that traceroutes through a linux router use
+the wrong ip (ip of exitting interface) wich should actually be the ip
+of the incomming interface.
 
+I've found a trivial patch (attached) wich resolves this. Perhaps this
+is something to include (or have a sysctl to toggle this behaviour). I
+unfortunately have no knowledge of programming, so the sysctl option
+would have te be done by a volunteer.
 
->>Therefore I think his patch is perfectly fine and this is an
->>excellent area for an audit of the entire tree.  I even just
->>noticed recently that some of the Sparc drivers/serial/
->>drivers were not taking the interrupt handler lock correctly like
->>this (ie. using irqsave).
-> 
-> 
-> Unless these drivers are registering two different IRQ lines that
-> can nest within each other, I still think that a plain spin_lock is
-> safe and desirable.
-> 
-> Cheers,
+Regards,
+
+Jeroen Simonetti
+--
+Netland Internet Services   http://www.netland.nl
+I despise the pleasure of pleasing people whom I despise.
+
+--=-Q2xJWlJ7VlmjEMgXdZYq
+Content-Disposition: attachment; filename=icmp_traceroute.patch
+Content-Type: text/x-patch; name=icmp_traceroute.patch; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+
+--- net/ipv4/icmp.orig   2005-05-02 04:55:53.512447464 +0200
++++ net/ipv4/icmp.c      2005-05-02 04:56:21.370212440 +0200
+@@ -512,7 +512,7 @@
+ 
+	saddr = iph->daddr;
+	if (!(rt->rt_flags & RTCF_LOCAL))
+-		saddr = 0;
++		saddr = inet_select_addr(skb_in->dev, 0, RT_SCOPE_LINK);
+ 
+	tos = icmp_pointers[type].error ? ((iph->tos & IPTOS_TOS_MASK) |
+					   IPTOS_PREC_INTERNETCONTROL) :
+
+--=-Q2xJWlJ7VlmjEMgXdZYq--
