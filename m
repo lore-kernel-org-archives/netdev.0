@@ -1,37 +1,29 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: CONFIG_NETFILTER_DEBUG spew
-Date: Tue, 3 May 2005 07:36:12 +1000
-Message-ID: <20050502213612.GD16177@gondor.apana.org.au>
-References: <20050501032809.3d0b4cda.akpm@osdl.org>
-	<20050501111507.GA2133@gondor.apana.org.au>
-	<4276517F.6030606@trash.net>
+Subject: Re: [PATCH] Tulip interrupt uses non IRQ safe spinlock
+Date: Tue, 3 May 2005 07:45:45 +1000
+Message-ID: <20050502214545.GA13462@gondor.apana.org.au>
+References: <E1DRFqC-00028H-Qi@tigger> <E1DRGWv-0003aa-00@gondolin.me.apana.org.au> <20050429093521.274adf9a.davem@davemloft.net> <20050429224931.GA18616@gondor.apana.org.au> <427623B8.8050107@wetlettuce.com> <20050502124358.7186447f.davem@davemloft.net> <20050502213220.GC16177@gondor.apana.org.au> <20050502143232.1dbec2d6.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com,
-	netfilter-devel@lists.netfilter.org
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Patrick McHardy <kaber@trash.net>
+Cc: markb@wetlettuce.com, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <4276517F.6030606@trash.net>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+In-Reply-To: <20050502143232.1dbec2d6.davem@davemloft.net>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 02, 2005 at 06:12:47PM +0200, Patrick McHardy wrote:
-> Herbert Xu wrote:
-> > BTW, should we do nf_reset in ip_dev_loopback_xmit as well?
+On Mon, May 02, 2005 at 02:32:32PM -0700, David S. Miller wrote:
+> On Tue, 3 May 2005 07:32:20 +1000
+> Herbert Xu <herbert@gondor.apana.org.au> wrote:
 > 
-> I think we should, tc actions could do something unexpected with
-> the packet.
+> > However, AFAIK the tulip driver doesn't care about other interrupts.
+> 
+> Even the netdev watchdog?  :-)
 
-Looks good to me.  Thanks Patrick.
+The watchdog runs in softirq context which is disabled while the IRQ
+handler is running.
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
