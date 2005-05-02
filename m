@@ -1,49 +1,59 @@
 From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] drivers/net/skfp/: fix LITTLE_ENDIAN
-Date: Mon, 2 May 2005 03:46:52 +0200
-Message-ID: <20050502014652.GU3592@stusta.de>
+Subject: [2.6 patch] drivers/net/irda/irport.c: cleanups
+Date: Mon, 2 May 2005 03:46:40 +0200
+Message-ID: <20050502014640.GR3592@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux@syskonnect.de, Jeff Garzik <jgarzik@pobox.com>,
+Cc: irda-users@lists.sourceforge.net, Jeff Garzik <jgarzik@pobox.com>,
 	linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261727AbVEBB6j@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261640AbVEBCPx@vger.kernel.org>
 To: Andrew Morton <akpm@osdl.org>
 Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch fixes the LITTLE_ENDIAN #define and a function prototype.
+This patch contains the following cleanups:
+- make a needlessly global function static
+- remove the unneeded global function irport_probe
 
 Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
 ---
 
 This patch was already sent on:
-- 20 Apr 2005
+- 19 Apr 2005
 
- drivers/net/skfp/h/osdef1st.h |    2 ++
- drivers/net/skfp/smt.c        |    2 +-
- 2 files changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/irda/irport.c |   15 +--------------
+ 1 files changed, 1 insertion(+), 14 deletions(-)
 
---- linux-2.6.12-rc2-mm3-full/drivers/net/skfp/h/osdef1st.h.old	2005-04-20 01:22:21.000000000 +0200
-+++ linux-2.6.12-rc2-mm3-full/drivers/net/skfp/h/osdef1st.h	2005-04-20 01:23:55.000000000 +0200
-@@ -20,6 +20,8 @@
- // HWM (HardWare Module) Definitions
- // -----------------------
+--- linux-2.6.12-rc2-mm3-full/drivers/net/irda/irport.c.old	2005-04-19 03:06:12.000000000 +0200
++++ linux-2.6.12-rc2-mm3-full/drivers/net/irda/irport.c	2005-04-19 03:06:45.000000000 +0200
+@@ -286,19 +286,6 @@
+ }
  
-+#include <asm/byteorder.h>
-+
- #ifdef __LITTLE_ENDIAN
- #define LITTLE_ENDIAN
- #else
---- linux-2.6.12-rc2-mm3-full/drivers/net/skfp/smt.c.old	2005-04-20 01:26:34.000000000 +0200
-+++ linux-2.6.12-rc2-mm3-full/drivers/net/skfp/smt.c	2005-04-20 01:26:22.000000000 +0200
-@@ -86,7 +86,7 @@
- static void smt_send_sif_operation(struct s_smc *smc, struct fddi_addr *dest,
- 				   u_long tid, int local);
- #ifdef LITTLE_ENDIAN
--static void smt_string_swap(void);
-+static void smt_string_swap(char *data, const char *format, int len);
- #endif
- static void smt_add_frame_len(SMbuf *mb, int len);
- static void smt_fill_una(struct s_smc *smc, struct smt_p_una *una);
+ /*
+- * Function irport_probe (void)
+- *
+- *    Start IO port 
+- *
+- */
+-int irport_probe(int iobase)
+-{
+-	IRDA_DEBUG(4, "%s(), iobase=%#x\n", __FUNCTION__, iobase);
+-
+-	return 0;
+-}
+-
+-/*
+  * Function irport_get_fcr (speed)
+  *
+  *    Compute value of fcr
+@@ -383,7 +370,7 @@
+  *    we cannot use schedule_timeout() when we are in interrupt context
+  *
+  */
+-int __irport_change_speed(struct irda_task *task)
++static int __irport_change_speed(struct irda_task *task)
+ {
+ 	struct irport_cb *self;
+ 	__u32 speed = (__u32) task->param;
