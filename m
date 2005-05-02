@@ -1,80 +1,114 @@
-From: Bruno <bonbons67@internet.lu>
-Subject: Re: [Bugme-new] [Bug 4566] New: B44 Randomly driver starts sending garbage and stops receiving
-Date: Mon, 2 May 2005 21:56:52 +0200
-Message-ID: <200505022156.52634.bonbons67@internet.lu>
-References: <20050430142334.4fa8745d.akpm@osdl.org> <20050430222841.GA9172@xi.wantstofly.org>
-Reply-To: bonbons67@internet.lu
+From: Regal2005 <regal2005@mail2world.com>
+Subject: WINNING NOTIFICATION!!
+Date: Mon, 2 May 2005 15:29:17 -0400
+Message-ID: <200505021929.j42JTHmL021582@btweb04.bluetruck.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <20050430222841.GA9172@xi.wantstofly.org>
-Content-Disposition: inline
+To: 
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sunday 01 May 2005 00:28, Lennert Buytenhek wrote:
-> On Sat, Apr 30, 2005 at 02:23:34PM -0700, Andrew Morton wrote:
-> > get following output (repeating at a high rate):
-> > 22:33:01.018523 00:40:05:43:5e:fe > 01:80:c2:00:00:01, ethertype Unkn=
-own
-> > (0x8808), length 60:
-> >     0x0000: 0001 ffff 0000 0000 0000 0000 0000 0000
-> >     0x0010: 0000 0000 0000 0000 0000 0000 0000 0000
-> >     0x0020: 0000 0000 0000 0000 0000 0000 0000
-> > dmesg does not produce any useful output about this.
->
-> Isn't that a PAUSE frame?
->
-> Probably something in the b44 driver gets screwed so that it stops
-> processing RX traffic, the MAC's RX FIFO then fills up, and the
-> MAC (naturally) asserts flow control by periodically (in the range
-> of tens to hundreds of times per second) sending PAUSE frames to
-> its link partner as long as there's not enough space in its RX FIFO.
->
-> These PAUSE frames should not be seen by other hosts on the LAN,
-> though -- your switch should not autonegotiate flow control with
-> your b44 NIC if it doesn't support it.  (Or perhaps the b44 driver
-> enables flow control even though it hasn't been negotiated..)
->
->
-> --L
-I don't know what kind of frame that is, but it's causing quite some trou=
-ble=20
-on my network:
-=A0- network communication is broken for all other host (Windows Hosts, A=
-DSL=20
-router to internet
-=A0- My Linux Server can capture the traffic (it's from that one I execut=
-ed=20
-tcpdump, but I don't know if Linux to Linux communication is still possib=
-le=20
-as I never had my desktop running when it happened)
-Network works correctly again once I restart the network interface (B44) =
-on=20
-the Laptop.
 
-I don't know if it passes all the 2 switches on my LAN (first one for sur=
-e,=20
-second one I don't know as there is no box with sniffing-software behind =
-it,=20
-but the Windows box there does not seem to loose internet connection)
+REGAL LOTTERY INTERNATIONAL.
+       INTERNATIONAL PROGRAM (NL)
+       18 CARRINGTON STREET,
+       DERBY DE3 ORX U.K.
+      
+ 
 
-In addition the recorded MAC addresses are not addresses of my hardware. =
-So=20
-except thet are broadcast/multicats MAC addresses I'm wondering where the=
-y do=20
-come from!
+FROM: THE LOTTERY COORDINATOR
+     INTERNATIONAL PROMOTIONS DEPT.
+     REF: 6787/2460/3331
+     BATCH: 832343183-DM15 
 
-If you have any suggestions on what to do for either fixing the B44 drive=
-r or=20
-at least making it auto-recover rapidly, this would be useful.
-If there is more information that I can provide, please tell how I can fi=
-nd it=20
-out!
-(But may take some time, as this problem does not happen every day)
+Sir/Madam, 
 
-Bruno
+We are pleased to inform you of the result of the Lottery 
+
+Winners International programs held on the 29th of April, 
+
+2005. Your e-mail address attached to ticket number 
+
+986047296748-8562 with serial Number 4681-546 drew lucky 
+
+numbers 5-24-78-62-11-08 which consequently won in the 
+
+1st category, you have therefore been approved for a ! 
+
+lump sum pay out of GBP500,000.00 (Five Hundred Thousand 
+
+British Pounds).
+
+CONGRATULATIONS!!!
+
+Due to mix up in some numbers and names, we ask that you 
+
+keep your winning information confidential until you file 
+
+for your claim. This is part of our security protocol to 
+
+avoid double claiming and unwarranted abuse of this 
+
+program by some participants.
+
+All participants were selected through a computer ballot 
+
+system drawn from over 15,000 companies and 20,000,000 
+
+individual e-mail addresses and names from all over the 
+
+World. This promotional program takes place every year. 
+
+This lottery was promoted and sponsored by some eminent 
+
+personalities who do not wish to declare their identity 
+
+for security reasons.
+
+To file for your claim, please contact our fiducial 
+
+Agent GRAND TRUST AGENCY,U.K:Head foreign transfer dept: 
+
+Mr.Evans Burton  
+Email:regaltrust01@scenta.co.uk 
+FAX +44 7005-964-684
+
+Remember, all winnings must be filed not later than 12th 
+
+of May,2005 or when authentic proof is given for the 
+
+delay of filing . Please note in order to avoid 
+
+unnecessary delays and complications,remember to quote 
+
+your reference number and batch numbers in all 
+
+correspondence. 
+
+Furthermore, should there be any change of address do 
+
+inform our agent as soon as possible.
+
+Congratulations once more from our members of staff and 
+
+thank you for being a Winner in our promotional program. 
+
+Note: Anybody under the age of 18 years is automatically 
+
+disqualified. 
+
+Sincerely yours,
+Mrs.Margaret Ashley
+Lottery Coordinator. 
+
+REPLY EMAIL TO "regaltrust01@scenta.co.uk". 
+
+
+
+
+___________________________________________________________________________
+Mail sent from WebMail service at PHP-Nuke Powered Site
+- http://yoursite.com
