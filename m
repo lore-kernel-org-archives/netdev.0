@@ -1,131 +1,54 @@
 From: Tommy Christensen <tommy.christensen@tpack.net>
-Subject: [PATCH] net: Disable queueing when carrier is lost (take 2)
-Date: Tue, 03 May 2005 01:01:19 +0200
-Message-ID: <4276B13F.2040103@tpack.net>
+Subject: Re: [PATCH] net: Disable queueing when carrier is lost
+Date: Tue, 03 May 2005 01:00:54 +0200
+Message-ID: <4276B126.6020704@tpack.net>
+References: <E1DQlsn-0005yd-00@gondolin.me.apana.org.au> <426FDF8B.1030808@tpack.net> <20050427214224.GA25325@gondor.apana.org.au> <42701FFD.5000505@tpack.net> <20050427234359.GB22238@gondor.apana.org.au> <1114768308.4695.1487.camel@tsc-6.cph.tpack.net> <20050429101836.GA2237@gondor.apana.org.au> <1114777355.4695.1598.camel@tsc-6.cph.tpack.net> <20050429234512.GA22699@gondor.apana.org.au> <427380A8.2070006@tpack.net> <20050501081140.GA20647@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070509060304040100030908"
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        Herbert Xu <herbert@gondor.apana.org.au>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050501081140.GA20647@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------070509060304040100030908
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Herbert Xu wrote:
+> On Sat, Apr 30, 2005 at 02:57:12PM +0200, Tommy Christensen wrote:
+>>So, I am reluctant to drop this check for netif_queue_stopped. Doing so
+>>would needlessly impact the drivers that work fine already (or at least
+>>should be handling this situation).
+> 
+> I don't see how those drivers are worse off without this check.  When
+> the carrier is off it doesn't really matter whether we're sending them
+> packets or not.  Besides, you didn't put this check in the link_watch
+> code path which would affect them a lot more than this path.
 
-Some network drivers call netif_stop_queue() when detecting loss of
-carrier. This leads to packets being queued up at the qdisc level for
-an unbound period of time. In order to prevent this effect, the core
-networking stack will now seize to queue packets for any device, that
-is operationally down (i.e. the queue is flushed and disabled).
+My reasoning is reversed. You're saying:
+   "What could possibly happen, if we do this?",
+whereas I'm saying:
+   "This has no benefit, so why risk it?".
 
-Signed-off-by: Tommy S. Christensen <tommy.christensen@tpack.net>
+I'm just not confident that some odd driver won't choke on this change.
+
+As I'm probably just being too cautious (and your approach does seem
+more consistent), I'm sending a new patch following your ideas.
+And then Dave has something to choose from ;-)
+
+>>Ideas, anyone?
+> 
+> You mean how we can avoid the double call? Here is one way.  Move
+> the setting of IF_RUNNING out of dev_get_flags and into dev_activate.
+> This would guarantee that IF_RUNNING is set iff the device has a qdisc.
+> Assuming that you remove the aformentioned netif_queue_stopped check,
+> the device has a qdisc iff the carrier is on.  So this preserves the
+> meaning of IF_RUNNING.
+> 
+> Now you can avoid the double call by returning early in dev_activate if
+> IF_RUNNING is set, and in dev_deactivate if IF_RUNNING is not set.
+
+Implemented in the new patch, thanks.
 
 
---------------070509060304040100030908
-Content-Type: text/plain;
- name="carrier-4.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="carrier-4.patch"
-
-diff -ru linux-2.6.12-rc3/net/core/dev.c linux-2.6.12-work/net/core/dev.c
---- linux-2.6.12-rc3/net/core/dev.c	2005-04-06 16:43:37.000000000 +0200
-+++ linux-2.6.12-work/net/core/dev.c	2005-05-02 23:16:40.329156594 +0200
-@@ -2203,14 +2203,10 @@
- 	unsigned flags;
- 
- 	flags = (dev->flags & ~(IFF_PROMISC |
--				IFF_ALLMULTI |
--				IFF_RUNNING)) | 
-+				IFF_ALLMULTI)) |
- 		(dev->gflags & (IFF_PROMISC |
- 				IFF_ALLMULTI));
- 
--	if (netif_running(dev) && netif_carrier_ok(dev))
--		flags |= IFF_RUNNING;
--
- 	return flags;
- }
- 
-diff -ru linux-2.6.12-rc3/net/core/link_watch.c linux-2.6.12-work/net/core/link_watch.c
---- linux-2.6.12-rc3/net/core/link_watch.c	2005-03-04 09:55:42.000000000 +0100
-+++ linux-2.6.12-work/net/core/link_watch.c	2005-05-02 22:40:59.773471515 +0200
-@@ -16,6 +16,7 @@
- #include <linux/netdevice.h>
- #include <linux/if.h>
- #include <net/sock.h>
-+#include <net/pkt_sched.h>
- #include <linux/rtnetlink.h>
- #include <linux/jiffies.h>
- #include <linux/spinlock.h>
-@@ -74,6 +75,12 @@
- 		clear_bit(__LINK_STATE_LINKWATCH_PENDING, &dev->state);
- 
- 		if (dev->flags & IFF_UP) {
-+			if (netif_carrier_ok(dev)) {
-+				WARN_ON(dev->qdisc_sleeping == &noop_qdisc);
-+				dev_activate(dev);
-+			} else
-+				dev_deactivate(dev);
-+
- 			netdev_state_change(dev);
- 		}
- 
-diff -ru linux-2.6.12-rc3/net/sched/sch_generic.c linux-2.6.12-work/net/sched/sch_generic.c
---- linux-2.6.12-rc3/net/sched/sch_generic.c	2005-03-04 09:55:44.000000000 +0100
-+++ linux-2.6.12-work/net/sched/sch_generic.c	2005-05-02 23:07:49.367184929 +0200
-@@ -514,6 +514,9 @@
- 
- void dev_activate(struct net_device *dev)
- {
-+	if (dev->flags & IFF_RUNNING)
-+		return;
-+
- 	/* No queueing discipline is attached to device;
- 	   create default one i.e. pfifo_fast for devices,
- 	   which need queueing and noqueue_qdisc for
-@@ -539,6 +542,11 @@
- 		write_unlock_bh(&qdisc_tree_lock);
- 	}
- 
-+	if (!netif_carrier_ok(dev))
-+		/* Delay activation until next carrier-on event */
-+		return;
-+	dev->flags |= IFF_RUNNING;
-+
- 	spin_lock_bh(&dev->queue_lock);
- 	rcu_assign_pointer(dev->qdisc, dev->qdisc_sleeping);
- 	if (dev->qdisc != &noqueue_qdisc) {
-@@ -552,15 +560,18 @@
- {
- 	struct Qdisc *qdisc;
- 
--	spin_lock_bh(&dev->queue_lock);
--	qdisc = dev->qdisc;
--	dev->qdisc = &noop_qdisc;
-+	if (dev->flags & IFF_RUNNING) {
-+		spin_lock_bh(&dev->queue_lock);
-+		qdisc = dev->qdisc;
-+		dev->qdisc = &noop_qdisc;
- 
--	qdisc_reset(qdisc);
-+		qdisc_reset(qdisc);
- 
--	spin_unlock_bh(&dev->queue_lock);
-+		spin_unlock_bh(&dev->queue_lock);
- 
--	dev_watchdog_down(dev);
-+		dev_watchdog_down(dev);
-+	}
-+	dev->flags &= ~IFF_RUNNING;
- 
- 	while (test_bit(__LINK_STATE_SCHED, &dev->state))
- 		yield();
-
---------------070509060304040100030908--
+-Tommy
