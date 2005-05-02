@@ -1,70 +1,41 @@
-From: "Yair Itzhaki" <Yair@arx.com>
-Subject: RE: Re-routing packets via netfilter (ip_rt_bug)
-Date: Mon, 2 May 2005 19:17:16 +0200
-Message-ID: <4151C0F9B9C25C47B3328922A6297A3286CFB8@post.arx.com>
+From: Hasso Tepper <hasso@estpak.ee>
+Subject: Re: icmp_unreachable uses wrong ip
+Date: Mon, 2 May 2005 20:38:21 +0300
+Message-ID: <200505022038.22014.hasso@estpak.ee>
+References: <1115040079.5620.11.camel@jeroens.office.netland.nl> <200505021659.05674.hasso@estpak.ee> <42763E96.1070209@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: "Jozsef Kadlecsik" <kadlec@blackhole.kfki.hu>, <netdev@oss.sgi.com>,
-        <netfilter-devel@lists.netfilter.org>, <linux-kernel@vger.kernel.org>
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: "J. Simonetti" <jeroens@office.netland.nl>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-Content-class: urn:content-classes:message
-To: "Patrick McHardy" <kaber@trash.net>,
-        "Herbert Xu" <herbert@gondor.apana.org.au>
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <42763E96.1070209@trash.net>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Can anyone propose a patch that I can start checking?
+Patrick McHardy wrote:
+> Hasso Tepper wrote:
+> > Similar patches have been posted to the list repeatedly AFAIK with no
+> > any response from developers. Can someone enlighten us why? Is there
+> > something wrong with it? This is the feature people administrating
+> > routers would like to have. It makes debugging complicated topologies
+> > much easier and all routers I have seen behave this way.
+>
+> Why can't you simply add the prefered source address to the route?
 
-I have come up with the following:
+Because I don't know what it is. Router A knows what's the best path from=
+=20
+router A to router B, but he can't know (at least in cases where there ar=
+e=20
+more than 1 path between them) what's the best path from router B to rout=
+er=20
+A. Therefore you can=E4t say which one is incoming interface in router A =
+for=20
+traffic from router B. And even if you know it in some moment, topology=20
+might change in next moment (dynamic routing) etc.
 
---- net/core/netfilter.c.orig   2005-04-18 21:55:30.000000000 +0300
-+++ net/core/netfilter.c        2005-05-02 17:35:20.000000000 +0300
-@@ -622,9 +622,10 @@
-        /* some non-standard hacks like ipt_REJECT.c:send_reset() can cause
-         * packets with foreign saddr to appear on the NF_IP_LOCAL_OUT hook.
-         */
--       if (inet_addr_type(iph->saddr) == RTN_LOCAL) {
-+       if ((inet_addr_type(iph->saddr) == RTN_LOCAL) ||
-+           (inet_addr_type(iph->daddr) == RTN_LOCAL)) {
-                fl.nl_u.ip4_u.daddr = iph->daddr;
--               fl.nl_u.ip4_u.saddr = iph->saddr;
-+               fl.nl_u.ip4_u.saddr = 0;
-                fl.nl_u.ip4_u.tos = RT_TOS(iph->tos);
-                fl.oif = (*pskb)->sk ? (*pskb)->sk->sk_bound_dev_if : 0;
- #ifdef CONFIG_IP_ROUTE_FWMARK
-
-Please advise,
-Yair
-
-
-> -----Original Message-----
-> From: Patrick McHardy [mailto:kaber@trash.net]
-> Sent: Wednesday, April 27, 2005 14:05
-> To: Herbert Xu
-> Cc: Jozsef Kadlecsik; netdev@oss.sgi.com; 
-> netfilter-devel@lists.netfilter.org; Yair Itzhaki; 
-> linux-kernel@vger.kernel.org
-> Subject: Re: Re-routing packets via netfilter (ip_rt_bug)
-> 
-> 
-> Herbert Xu wrote:
-> > Here is another reason why these packets should go through FORWARD.
-> > They were generated in response to packets in INPUT/FORWARD/OUTPUT.
-> > The original packet has not undergone SNAT in any of these cases.
-> > 
-> > However, if we feed the response packet through LOCAL_OUT it will
-> > be subject to DNAT.  This creates a NAT asymmetry and we may end
-> > up with the wrong destination address.
-> > 
-> > By pushing it through FORWARD it will only undergo SNAT which is
-> > correct since the original packet would have undergone DNAT.
-> 
-> This is only a problem since the recent NAT changes, but I agree
-> that we should fix it by moving these packets to FORWARD.
-> 
-> Regards
-> Patrick
-> 
+--=20
+Hasso
