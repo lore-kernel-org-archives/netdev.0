@@ -1,39 +1,37 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] Tulip interrupt uses non IRQ safe spinlock
-Date: Tue, 3 May 2005 07:31:08 +1000
-Message-ID: <20050502213108.GB16177@gondor.apana.org.au>
-References: <E1DRFqC-00028H-Qi@tigger> <E1DRGWv-0003aa-00@gondolin.me.apana.org.au> <20050429093521.274adf9a.davem@davemloft.net> <20050429224931.GA18616@gondor.apana.org.au> <427623B8.8050107@wetlettuce.com>
+Subject: Re: CONFIG_NETFILTER_DEBUG spew
+Date: Tue, 3 May 2005 07:36:12 +1000
+Message-ID: <20050502213612.GD16177@gondor.apana.org.au>
+References: <20050501032809.3d0b4cda.akpm@osdl.org>
+	<20050501111507.GA2133@gondor.apana.org.au>
+	<4276517F.6030606@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Mark Broadbent <markb@wetlettuce.com>
+Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com,
+	netfilter-devel@lists.netfilter.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Patrick McHardy <kaber@trash.net>
 Content-Disposition: inline
-In-Reply-To: <427623B8.8050107@wetlettuce.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <4276517F.6030606@trash.net>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 02, 2005 at 01:57:28PM +0100, Mark Broadbent wrote:
->
-> > However, I don't see how this can happen.  __do_IRQ ensures
-> > that the handlers on a single IRQ aren't reentered by desc->lock
-> > and desc->status.  Softirqs are also kept out by irq_enter.  Am
-> > I missing something?
+On Mon, May 02, 2005 at 06:12:47PM +0200, Patrick McHardy wrote:
+> Herbert Xu wrote:
+> > BTW, should we do nf_reset in ip_dev_loopback_xmit as well?
 > 
-> As far as I can see desc->lock is dropped before handle_IRQ_event() is
-> called in __do_IRQ() (kernel/irq/handle.c:170) and desc->status does not
-> prevent the execution of the IRQ handler.  Same with softirqs,
+> I think we should, tc actions could do something unexpected with
+> the packet.
 
-desc->status is set to IRQ_INPROGRESS (kernel/irq/handle.c:144) which
-prevents the same IRQ handlers from being invoked again
-(kernel/irq/handle.c:141).
-
-> interrupts are enabled when the handler is called (kernel/softirq.c:89).
-
-Soft IRQs do not run when we're in an IRQ handler (kernel/softirq.c:121).
-
-Cheers,
+Looks good to me.  Thanks Patrick.
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
