@@ -1,30 +1,37 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [PATCH] Tulip interrupt uses non IRQ safe spinlock
-Date: Tue, 3 May 2005 07:32:20 +1000
-Message-ID: <20050502213220.GC16177@gondor.apana.org.au>
-References: <E1DRFqC-00028H-Qi@tigger> <E1DRGWv-0003aa-00@gondolin.me.apana.org.au> <20050429093521.274adf9a.davem@davemloft.net> <20050429224931.GA18616@gondor.apana.org.au> <427623B8.8050107@wetlettuce.com> <20050502124358.7186447f.davem@davemloft.net>
+Date: Tue, 3 May 2005 07:31:08 +1000
+Message-ID: <20050502213108.GB16177@gondor.apana.org.au>
+References: <E1DRFqC-00028H-Qi@tigger> <E1DRGWv-0003aa-00@gondolin.me.apana.org.au> <20050429093521.274adf9a.davem@davemloft.net> <20050429224931.GA18616@gondor.apana.org.au> <427623B8.8050107@wetlettuce.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Mark Broadbent <markb@wetlettuce.com>, netdev@oss.sgi.com
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
+To: Mark Broadbent <markb@wetlettuce.com>
 Content-Disposition: inline
-In-Reply-To: <20050502124358.7186447f.davem@davemloft.net>
+In-Reply-To: <427623B8.8050107@wetlettuce.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 02, 2005 at 12:43:58PM -0700, David S. Miller wrote:
+On Mon, May 02, 2005 at 01:57:28PM +0100, Mark Broadbent wrote:
+>
+> > However, I don't see how this can happen.  __do_IRQ ensures
+> > that the handlers on a single IRQ aren't reentered by desc->lock
+> > and desc->status.  Softirqs are also kept out by irq_enter.  Am
+> > I missing something?
 > 
-> Now, a seperate issue.  If we wish to disable IRQs at all for another
-> reason (say to make the critical section not get interrupted by timers
-> or some other device's handler) than we must use _irqsave/_irqrestore
-> instead of _irq because there is no guarentee whether IRQs are disabled
-> upon entry to an IRQ handler or not.  The SA_INTERRUPT behavior is not
+> As far as I can see desc->lock is dropped before handle_IRQ_event() is
+> called in __do_IRQ() (kernel/irq/handle.c:170) and desc->status does not
+> prevent the execution of the IRQ handler.  Same with softirqs,
 
-Agreed.
+desc->status is set to IRQ_INPROGRESS (kernel/irq/handle.c:144) which
+prevents the same IRQ handlers from being invoked again
+(kernel/irq/handle.c:141).
 
-However, AFAIK the tulip driver doesn't care about other interrupts.
+> interrupts are enabled when the handler is called (kernel/softirq.c:89).
+
+Soft IRQs do not run when we're in an IRQ handler (kernel/softirq.c:121).
 
 Cheers,
 -- 
