@@ -1,66 +1,131 @@
-From: shehu <shehuabdul@netscape.net>
-Subject: YOURS FOR THE ASKING!!!
-Date: 2 May 2005 15:01:34 -0000
-Message-ID: <20050502150134.18998.qmail@ns30624.ovh.net>
+From: Tommy Christensen <tommy.christensen@tpack.net>
+Subject: [PATCH] net: Disable queueing when carrier is lost (take 2)
+Date: Tue, 03 May 2005 01:01:19 +0200
+Message-ID: <4276B13F.2040103@tpack.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: quoted-printable
+Content-Type: multipart/mixed;
+ boundary="------------070509060304040100030908"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: 
+To: "David S. Miller" <davem@davemloft.net>,
+        Herbert Xu <herbert@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+This is a multi-part message in MIME format.
+--------------070509060304040100030908
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Dear Friend,
-This letter may come to you as a surprise due to the fact that we have no=
-t yet met.  I humbly crave your indulgence in sending you this mail. I ha=
-ve to say that I have no intentions of causing you any pains so i decided=
- to contact you through this medium .As you  read this, I don't want you =
-to feel sorry for me, because, I believe everyone   will die someday.=20
-My name is  Shehu Abdul, a merchant in Dubai, in the U.A.E. I have been d=
-iagnosed with prostate and esophageal Cancer that was discovered very lat=
-e due to my laxity in caring for my health. It has defiled all form of me=
-dicine and right now, I have only about a few months to live according to=
- medical experts. I have not particularly lived my life so well, as I nev=
-er really cared for anyone not even myself but my business.=20
-Though I am very rich, I was never generous, I was always hostile to peop=
-le and only focus on my business as that was the only thing I cared for. =
-But now I regret all this as I now know  that  there is more to life than=
- just wanting to   have or make all the money in the world. I believe whe=
-n God gives me a second chance to come to this world I would live my life=
- a different way from how I have lived it. Now that I know my   time is n=
-ear, I have willed and given most of my properties and assets to my immed=
-iate and extended family members and as well as a few close friends and S=
-chools in the UAE. I have decided to give alms to charity organizations, =
-as I want this to be one of the last good deeds I do on earth. So far, I =
-have distributed money to some charity organizations in the U.A.E, London=
- and Ireland. Now that my health has deteriorated so badly, I cannot do t=
-his my self any more. I once asked members of my family to close one of m=
-y accounts and donate the money, which I have there to charity organizati=
-on in Bulgaria; they refused and kept the money to themselves. Hence, I d=
-o not trust them anymore, as they seem not to be contended with what I ha=
-ve left for them. The last of my money which is the   huge cash deposit t=
-hat I have with Financial Firm Abroad .I will want you to help me collect=
- this deposit and dispatched it to charity organizations and let  them kn=
-ow that it is I Shehu Abdul that is making this generous donation.
-I am writing this from my laptop computer in my hospital bed where I wait=
- for my time to come. I pray that God uses you to support and assist me w=
-ith good heart=20
+Some network drivers call netif_stop_queue() when detecting loss of
+carrier. This leads to packets being queued up at the qdisc level for
+an unbound period of time. In order to prevent this effect, the core
+networking stack will now seize to queue packets for any device, that
+is operationally down (i.e. the queue is flushed and disabled).
 
-God be with you(Masallam).
-Shehu Abdul
-
-NB: I will appreciate your utmost confidentiality in this matter until th=
-e task is accomplished as I don=92t want anything that will jeopardize my=
- last wish. and Also I=20
-will be contacting with you by email as I don=92t want anybody to know be=
-cause they are always around me.=20
-
-=20
+Signed-off-by: Tommy S. Christensen <tommy.christensen@tpack.net>
 
 
-_________________________________________________________________________=
-__
-Mail sent from WebMail service at PHP-Nuke Powered Site
-- http://yoursite.com
+--------------070509060304040100030908
+Content-Type: text/plain;
+ name="carrier-4.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="carrier-4.patch"
+
+diff -ru linux-2.6.12-rc3/net/core/dev.c linux-2.6.12-work/net/core/dev.c
+--- linux-2.6.12-rc3/net/core/dev.c	2005-04-06 16:43:37.000000000 +0200
++++ linux-2.6.12-work/net/core/dev.c	2005-05-02 23:16:40.329156594 +0200
+@@ -2203,14 +2203,10 @@
+ 	unsigned flags;
+ 
+ 	flags = (dev->flags & ~(IFF_PROMISC |
+-				IFF_ALLMULTI |
+-				IFF_RUNNING)) | 
++				IFF_ALLMULTI)) |
+ 		(dev->gflags & (IFF_PROMISC |
+ 				IFF_ALLMULTI));
+ 
+-	if (netif_running(dev) && netif_carrier_ok(dev))
+-		flags |= IFF_RUNNING;
+-
+ 	return flags;
+ }
+ 
+diff -ru linux-2.6.12-rc3/net/core/link_watch.c linux-2.6.12-work/net/core/link_watch.c
+--- linux-2.6.12-rc3/net/core/link_watch.c	2005-03-04 09:55:42.000000000 +0100
++++ linux-2.6.12-work/net/core/link_watch.c	2005-05-02 22:40:59.773471515 +0200
+@@ -16,6 +16,7 @@
+ #include <linux/netdevice.h>
+ #include <linux/if.h>
+ #include <net/sock.h>
++#include <net/pkt_sched.h>
+ #include <linux/rtnetlink.h>
+ #include <linux/jiffies.h>
+ #include <linux/spinlock.h>
+@@ -74,6 +75,12 @@
+ 		clear_bit(__LINK_STATE_LINKWATCH_PENDING, &dev->state);
+ 
+ 		if (dev->flags & IFF_UP) {
++			if (netif_carrier_ok(dev)) {
++				WARN_ON(dev->qdisc_sleeping == &noop_qdisc);
++				dev_activate(dev);
++			} else
++				dev_deactivate(dev);
++
+ 			netdev_state_change(dev);
+ 		}
+ 
+diff -ru linux-2.6.12-rc3/net/sched/sch_generic.c linux-2.6.12-work/net/sched/sch_generic.c
+--- linux-2.6.12-rc3/net/sched/sch_generic.c	2005-03-04 09:55:44.000000000 +0100
++++ linux-2.6.12-work/net/sched/sch_generic.c	2005-05-02 23:07:49.367184929 +0200
+@@ -514,6 +514,9 @@
+ 
+ void dev_activate(struct net_device *dev)
+ {
++	if (dev->flags & IFF_RUNNING)
++		return;
++
+ 	/* No queueing discipline is attached to device;
+ 	   create default one i.e. pfifo_fast for devices,
+ 	   which need queueing and noqueue_qdisc for
+@@ -539,6 +542,11 @@
+ 		write_unlock_bh(&qdisc_tree_lock);
+ 	}
+ 
++	if (!netif_carrier_ok(dev))
++		/* Delay activation until next carrier-on event */
++		return;
++	dev->flags |= IFF_RUNNING;
++
+ 	spin_lock_bh(&dev->queue_lock);
+ 	rcu_assign_pointer(dev->qdisc, dev->qdisc_sleeping);
+ 	if (dev->qdisc != &noqueue_qdisc) {
+@@ -552,15 +560,18 @@
+ {
+ 	struct Qdisc *qdisc;
+ 
+-	spin_lock_bh(&dev->queue_lock);
+-	qdisc = dev->qdisc;
+-	dev->qdisc = &noop_qdisc;
++	if (dev->flags & IFF_RUNNING) {
++		spin_lock_bh(&dev->queue_lock);
++		qdisc = dev->qdisc;
++		dev->qdisc = &noop_qdisc;
+ 
+-	qdisc_reset(qdisc);
++		qdisc_reset(qdisc);
+ 
+-	spin_unlock_bh(&dev->queue_lock);
++		spin_unlock_bh(&dev->queue_lock);
+ 
+-	dev_watchdog_down(dev);
++		dev_watchdog_down(dev);
++	}
++	dev->flags &= ~IFF_RUNNING;
+ 
+ 	while (test_bit(__LINK_STATE_SCHED, &dev->state))
+ 		yield();
+
+--------------070509060304040100030908--
