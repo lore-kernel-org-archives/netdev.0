@@ -1,40 +1,33 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: Mystery packet killing tg3
-Date: Tue, 03 May 2005 13:41:47 -0700
-Message-ID: <1115152907.15156.26.camel@rh4>
-References: <20050502162405.65dfb4a9@localhost.localdomain>
- <20050502200251.38271b61.davem@davemloft.net>
- <20050503140528.1bd2ac74@dxpl.pdx.osdl.net>
- <20050503141314.441c9d75.davem@davemloft.net>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] cleanups in drivers/net/wan/ - kfree of NULL pointer is
+ valid
+Date: Tue, 3 May 2005 14:32:42 -0700
+Message-ID: <20050503143242.3d06f71f.davem@davemloft.net>
+References: <Pine.LNX.4.62.0504290009310.2476@dragon.hyggekrogen.localhost>
+	<20050428222330.GI26945@conectiva.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Stephen Hemminger" <shemminger@osdl.org>, jgarzik@pobox.com,
-        netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050503141314.441c9d75.davem@davemloft.net>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: juhl-lkml@dif.dk, netdev@oss.sgi.com, reginak@cyclades.com,
+	pc300@cyclades.com, ncorbic@sangoma.com, eis@baty.hanse.de,
+	linux-net@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+In-Reply-To: <20050428222330.GI26945@conectiva.com.br>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2005-05-03 at 14:13 -0700, David S. Miller wrote:
-> On Tue, 3 May 2005 14:05:28 -0700
-> Stephen Hemminger <shemminger@osdl.org> wrote:
-> 
-> > 00:0b.1 PIC: Advanced Micro Devices [AMD] AMD-8131 PCI-X APIC (rev 01) (prog-if 10 [IO-APIC])
-> 
-> Buggy 8131 APIC, does the drivers/pci/quirks.c:quirk_amd_8131_ioapic()
-> message:
-> 
-> PCI: MSI quirk detected. pci_msi_quirk set.
-> 
-> trigger?  MSI support recently got added to the tg3.c driver, but it should
-> only register MSI interrupt handling if pci_enable_msi() returns zero.
-> 
-> See what it ends up doing, or if you even have a MSI capable tg3.c in
-> your kernel.
+On Thu, 28 Apr 2005 19:23:30 -0300
+Arnaldo Carvalho de Melo <acme@conectiva.com.br> wrote:
+
+> Em Fri, Apr 29, 2005 at 12:22:22AM +0200, Jesper Juhl escreveu:
+> > kfree(0) is perfectly valid, checking pointers for NULL before calling 
+> > kfree() on them is redundant. The patch below cleans away a few such 
+> > redundant checks (and while I was around some of those bits I couldn't 
+> > stop myself from making a few tiny whitespace changes as well).
 > 
 > 
-MSI is buggy on 5703 and tg3 will not enable MSI on that chip. MSI only
-works on the latest PCI Express chips.
+> Acked-by: Arnaldo Carvalho de MElo <acme@ghostprotocols.net>
+
+Applied, thanks everyone.
+
