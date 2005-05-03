@@ -1,49 +1,25 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: Mystery packet killing tg3
-Date: Tue, 3 May 2005 15:03:33 -0700
-Message-ID: <20050503150333.1ac1c159.davem@davemloft.net>
-References: <20050502162405.65dfb4a9@localhost.localdomain>
-	<20050502200251.38271b61.davem@davemloft.net>
-	<20050503140528.1bd2ac74@dxpl.pdx.osdl.net>
-	<20050503141314.441c9d75.davem@davemloft.net>
-	<1115152907.15156.26.camel@rh4>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 1/3] [RTNETLINK] Fix RTM_MAX to represent the maximum valid message type
+Date: Wed, 4 May 2005 00:20:03 +0200
+Message-ID: <20050503222003.GQ577@postel.suug.ch>
+References: <20050430195058.GC577@postel.suug.ch> <20050503142740.345925ea.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, jgarzik@pobox.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Michael Chan" <mchan@broadcom.com>
-In-Reply-To: <1115152907.15156.26.camel@rh4>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20050503142740.345925ea.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 03 May 2005 13:41:47 -0700
-"Michael Chan" <mchan@broadcom.com> wrote:
+* David S. Miller <20050503142740.345925ea.davem@davemloft.net> 2005-05-03 14:27
+> Excellent observation.  The fact that we encode the "modifies state"
+> in the low bits of the RTM_* numbers has always been a source of
+> obscure bugs and hard to track down errors.
+> 
+> Patch applied, thanks.
 
-> MSI is buggy on 5703 and tg3 will not enable MSI on that chip. MSI only
-> works on the latest PCI Express chips.
-
-Ok, and he has a pre-MSI copy of the tg3 driver anyways.
-
-Michael, there were no master/target abort bits set in the PCI status
-register from his dump.  If one of the DMA units locks up on the tg3,
-will it still be able to update the PCI_STATUS register appropriately
-when it encounters a DMA transaction error (ie. master or target abort)
-or would we also need to look at the PCI host bridge PCI config space
-registers as well?
-
-I strongly suspect one of two things in these AMD system cases of tg3
-wedging:
-
-1) some DMA problem
-2) register write reordering
-
-Lack of master/target abort indication in tg3's PCI status register
-makes me feel that #2 is more likely to be the problem cause.
-
-Just for fun, Stephen, can you make tg3_get_invariants() always set
-the TG3_FLAG_MBOX_WRITE_REORDER bit in tp->tg3_flags and see if that
-makes the problem go away?
-
-Thanks.
+Do you want 2.4 backports for all patches or just the xfrm
+off-by-one fix?
