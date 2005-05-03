@@ -1,34 +1,35 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] [RTNETLINK] Fix RTM_MAX to represent the maximum
- valid message type
-Date: Tue, 3 May 2005 15:27:04 -0700
-Message-ID: <20050503152704.4c6744d6.davem@davemloft.net>
-References: <20050430195058.GC577@postel.suug.ch>
-	<20050503142740.345925ea.davem@davemloft.net>
-	<20050503222003.GQ577@postel.suug.ch>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Fw: [Bug 4554] New: /proc/net/route missing info for 127.0.0.1/8
+Date: Wed, 04 May 2005 00:41:01 +0200
+Message-ID: <4277FDFD.3040501@trash.net>
+References: <20050503143603.4d77d3dd@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050503222003.GQ577@postel.suug.ch>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20050503143603.4d77d3dd@dxpl.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 4 May 2005 00:20:03 +0200
-Thomas Graf <tgraf@suug.ch> wrote:
+> Distribution: CentOS 4 (RHEL4)
+> Hardware Environment: i686
+> Problem Description:
+> cat /proc/net/route is missing information for 127.0.0.1/8 network (lo
+> interface).  On 2.4 kernels, this info was present (just checked on an old RH7.3
+> machine).  It seems to be missing on 2.6 kernels.  Bug?  Feature?  Omission?
 
-> * David S. Miller <20050503142740.345925ea.davem@davemloft.net> 2005-05-03 14:27
-> > Excellent observation.  The fact that we encode the "modifies state"
-> > in the low bits of the RTM_* numbers has always been a source of
-> > obscure bugs and hard to track down errors.
-> > 
-> > Patch applied, thanks.
-> 
-> Do you want 2.4 backports for all patches or just the xfrm
-> off-by-one fix?
+2.4.30 doesn't show it:
 
-Congratulations if you can find xfrm in the vanilla
-2.4.x tree :-)
+# route -n
+Destination     Gateway         Genmask         Flags Metric Ref    Use
+Iface
+172.16.0.0      0.0.0.0         255.255.0.0     U     0      0        0 eth0
+
+And I'd be surprised if it did, it doesn't include other routes
+from the local table.
+
+Regards
+Patrick
