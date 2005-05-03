@@ -1,33 +1,29 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: icmp_unreachable uses wrong ip
-Date: Wed, 04 May 2005 01:37:40 +0200
-Message-ID: <42780B44.8040803@trash.net>
-References: <1115040079.5620.11.camel@jeroens.office.netland.nl> <200505030944.49175.hasso@estpak.ee> <4277BFA6.8090306@trash.net> <200505040235.33461.hasso@estpak.ee>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [IPSEC] Store idev entries (was: [PATCH][IPv6][IPsec] stop
+ infinite loop)
+Date: Tue, 3 May 2005 16:26:28 -0700
+Message-ID: <20050503162628.7541807d.davem@davemloft.net>
+References: <4272EC95.20401@miyazawa.org>
+	<20050430.120736.45974367.yoshfuji@linux-ipv6.org>
+	<20050430031159.GA24326@gondor.apana.org.au>
+	<20050430082339.GA20338@gondor.apana.org.au>
+	<20050430114349.GA24573@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "J. Simonetti" <jeroens@office.netland.nl>, netdev@oss.sgi.com
+Cc: yoshfuji@linux-ipv6.org, kazunori@miyazawa.org, netdev@oss.sgi.com,
+        usagi-core@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Hasso Tepper <hasso@estpak.ee>
-In-Reply-To: <200505040235.33461.hasso@estpak.ee>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050430114349.GA24573@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hasso Tepper wrote:
-> Patrick McHardy wrote:
-> 
->>But when multiple addresses are used the result can be even more
->>confusing. I don't like inconsistent behaviour, and this patch works
->>sometimes and sometimes it doesn't.
-> 
-> 
-> I see no behaviour you can define as "it doesn't work". Purpose of this 
-> patch is to provide info about links (not addresses, you can't have this 
-> info) used to forward packets and it does the job. 
+On Sat, 30 Apr 2005 21:43:49 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-Well, arguably it can be called "doesn't work" if addresses not used
-at all during transmit of the packet show up in traceroute.
+> The ref counting on loopback_idev wasn't quite right.  Here is the
+> corrected version.
 
-Regards
-Patrick
+Applied, thanks Herbert.
