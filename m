@@ -1,37 +1,34 @@
-From: Dave Dillow <dave@thedillows.org>
-Subject: Re: IPsec performance
-Date: Tue, 03 May 2005 10:17:19 -0400
-Message-ID: <1115129839.2953.4.camel@ori.thedillows.org>
-References: <Pine.GSO.4.58.0505022117190.25766@kekkonen.cs.hut.fi>
-	 <Pine.GSO.4.58.0505022204090.25766@kekkonen.cs.hut.fi>
-	 <Pine.LNX.4.62.0505030248020.26815@kaber.coreworks.de>
-	 <Pine.GSO.4.58.0505030820160.24686@kekkonen.cs.hut.fi>
-	 <1115099678.2953.3.camel@ori.thedillows.org>
-	 <Pine.GSO.4.58.0505030943310.247@kekkonen.cs.hut.fi>
+From: Arthur Kepner <akepner@sgi.com>
+Subject: Re: [PATCH] s2io: replace readq() with mmiowb() in s2io_xmit()
+Date: Tue, 3 May 2005 07:52:06 -0700 (PDT)
+Message-ID: <Pine.LNX.4.61.0505030750010.16692@linux.site>
+References: <Pine.LNX.4.61.0505021844480.16692@linux.site>
+ <03d401c54f8c$03917fd0$5c10100a@pc.s2io.com> <20050503030620.GE12682@krispykreme>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>, Netdev <netdev@oss.sgi.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Ramkrishna Vepa <ram.vepa@neterion.com>,
+        "'Leonid Grossman'" <leonid.grossman@neterion.com>,
+        muhammad.shafiq@neterion.com, ramkrishna.vepa@neterion.com,
+        netdev@oss.sgi.com,
+        "'Ravinandan Arakali'" <ravinandan.arakali@neterion.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Miika Komu <miika@iki.fi>
-In-Reply-To: <Pine.GSO.4.58.0505030943310.247@kekkonen.cs.hut.fi>
+To: Anton Blanchard <anton@samba.org>
+In-Reply-To: <20050503030620.GE12682@krispykreme>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2005-05-03 at 09:44 +0300, Miika Komu wrote:
-> On Tue, 3 May 2005, Dave Dillow wrote:
-> 
-> > On Tue, 2005-05-03 at 08:25 +0300, Miika Komu wrote:
-> > > However, this does explain why I got only 1.9 megabytes/s with 3DES.
-> >
-> > What was your hardware? Without knowing what you're running on, it's
-> > impossible to tell if that is good or bad.
-> >
-> > Linux Journal was getting ~5.5MB/s on a PIV 2.2GHz.
-> > I get ~2.1MB/s on a 550MHz Athlon.
-> 
-> Intel Pentium III 500 MHz
+On Tue, 3 May 2005, Anton Blanchard wrote:
 
-3DES is processor intensive. I'd say 1.9MB/s is reasonable for the
-hardware you are on.
+> 
+> > [Ram] Yes, it is to ensure ordering as well as the flush of the io that is
+> > required in some platforms.
+> 
+> If the flush of the IO is required I cant see how we can remove the read.
+> 
+
+Agreed. Can someone from neterion comment? Is a flush required, or is 
+ordering all that's required here?
+
+--
+Arthur
