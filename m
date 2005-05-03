@@ -1,39 +1,37 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: icmp_unreachable uses wrong ip
-Date: Tue, 03 May 2005 20:15:02 +0200
-Message-ID: <4277BFA6.8090306@trash.net>
-References: <1115040079.5620.11.camel@jeroens.office.netland.nl> <200505022038.22014.hasso@estpak.ee> <4276A400.2050306@trash.net> <200505030944.49175.hasso@estpak.ee>
+From: Dave Dillow <dave@thedillows.org>
+Subject: Re: IPsec performance
+Date: Tue, 03 May 2005 15:27:41 -0400
+Message-ID: <1115148461.31573.9.camel@dillow.idleaire.com>
+References: <Pine.GSO.4.58.0505022117190.25766@kekkonen.cs.hut.fi>
+	 <Pine.GSO.4.58.0505022204090.25766@kekkonen.cs.hut.fi>
+	 <Pine.LNX.4.62.0505030248020.26815@kaber.coreworks.de>
+	 <Pine.GSO.4.58.0505030820160.24686@kekkonen.cs.hut.fi>
+	 <1115099678.2953.3.camel@ori.thedillows.org>
+	 <Pine.GSO.4.58.0505030943310.247@kekkonen.cs.hut.fi>
+	 <1115129839.2953.4.camel@ori.thedillows.org>
+	 <Pine.GSO.4.58.0505031913020.9502@kekkonen.cs.hut.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "J. Simonetti" <jeroens@office.netland.nl>, netdev@oss.sgi.com
+Cc: Patrick McHardy <kaber@trash.net>, Netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Hasso Tepper <hasso@estpak.ee>
-In-Reply-To: <200505030944.49175.hasso@estpak.ee>
+To: Miika Komu <miika@iki.fi>
+In-Reply-To: <Pine.GSO.4.58.0505031913020.9502@kekkonen.cs.hut.fi>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hasso Tepper wrote:
-> Patrick McHardy wrote:
->>
->>Your patch can't guarantee that the address used is the same that was
->>used as nexthop by the previous hop in the path when multiple addresses
->>are configured on the incoming interface. So I don't think it achieves
->>much of your goal of making debugging complicated topologies easier.
+On Tue, 2005-05-03 at 19:14 +0300, Miika Komu wrote:
+> On Tue, 3 May 2005, Dave Dillow wrote:
+> > 3DES is processor intensive. I'd say 1.9MB/s is reasonable for the
+> > hardware you are on.
 > 
-> At first I don't care what was used as nexthop. I want to know which 
-> physical link was used. Having multiple addresses in the same link is more 
-> corner case in core network anyway.
+> Ok. Thanks for your quick responses!
 
-But when multiple addresses are used the result can be even more
-confusing. I don't like inconsistent behaviour, and this patch works
-sometimes and sometimes it doesn't.
-
-> And can you explain what theoretical possibilities router has to obtain info 
-> what address was used as nexthop by neighbour?
-
-I can think of none.
-
-Regards
-Patrick
+I should note that I mean reasonable given the current implementation --
+you're seeing performance in line with numbers on other machines. I
+think it's been mentioned that our 3DES implementation has not been
+tuned for x86, so there's probably some performance being left on the
+floor. I could be wrong, though.
+-- 
+Dave Dillow <dave@thedillows.org>
