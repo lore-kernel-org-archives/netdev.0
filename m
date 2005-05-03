@@ -1,33 +1,47 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: IPsec performance
-Date: Tue, 3 May 2005 02:55:16 +0200 (CEST)
-Message-ID: <Pine.LNX.4.62.0505030248020.26815@kaber.coreworks.de>
-References: <Pine.GSO.4.58.0505022117190.25766@kekkonen.cs.hut.fi>
- <Pine.GSO.4.58.0505022204090.25766@kekkonen.cs.hut.fi>
+From: Arthur Kepner <akepner@sgi.com>
+Subject: [PATCH] s2io: replace readq() with mmiowb() in s2io_xmit()
+Date: Mon, 2 May 2005 18:09:26 -0700 (PDT)
+Message-ID: <Pine.LNX.4.61.0505021459240.16692@linux.site>
+References: <200504051836.j35IanDD005402@guinness.s2io.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Miika Komu <miika@iki.fi>
-In-Reply-To: <Pine.GSO.4.58.0505022204090.25766@kekkonen.cs.hut.fi>
+To: Leonid Grossman <leonid.grossman@neterion.com>,
+        muhammad.shafiq@neterion.com, ramkrishna.vepa@neterion.com
+In-Reply-To: <200504051836.j35IanDD005402@guinness.s2io.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2 May 2005, Miika Komu wrote:
->> I compared TCP-over-NULL-ESP vs. plain-TCP throughput with "ttcp" tool and
->> obtained the following results:
->>
->> Plain-TCP:	11 megabytes/s
->> NULL-ESP:	2.5 megabytes/s
->>
-> I browsed the archives also and found this one:
->
-> http://oss.sgi.com/archives/netdev/2004-12/msg00801.html
 
-null encryption uses a block size of 1, which causes inefficent handling
-of the data. I'm unsure if some hack for this specific case is worth it
-since its only meant for testing.
+The neterion 10gige driver uses a readq() to flush some PIO writes
+in s2io_xmit(). Using mmiowb() can, in some cases, reduce CPU 
+utilization, and/or allow higher throughput. This is particularly 
+true when TSO is off, and small MTUs are in use. 
 
-Regards
-Patrick
+For example, in one test measurement I just did with 2.6.12-rc2
+on an Altix, MTUs were set to 1500 bytes and TSO turned off. 
+With this patch, transmit throughput improved by ~20%. Throughput 
+was ultimately bound by the CPU with or without the patch. With 
+large MTUs (9600 bytes) or with TSO turned on, there was no 
+significant change to throughput or CPU utilization.
+
+Signed-off-by: Arthur Kepner <akepner@sgi.com>
+
+--- linux.orig/drivers/net/s2io.c	2005-05-02 16:40:17.469733509 -0700
++++ linux/drivers/net/s2io.c	2005-05-02 16:40:25.001043632 -0700
+@@ -2759,8 +2759,8 @@ static int s2io_xmit(struct sk_buff *skb
+ #endif
+ 	writeq(val64, &tx_fifo->List_Control);
+ 
+-	/* Perform a PCI read to flush previous writes */
+-	val64 = readq(&bar0->general_int_status);
++	/* Perform a mmiowb() to order previous writes */
++	mmiowb();
+ 
+ 	put_off++;
+ 	put_off %= mac_control->tx_curr_put_info[queue].fifo_len + 1;
+
+--
+Arthur
