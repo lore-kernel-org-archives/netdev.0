@@ -1,36 +1,33 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: CONFIG_NETFILTER_DEBUG spew
-Date: Tue, 3 May 2005 16:20:26 -0700
-Message-ID: <20050503162026.11ec4ada.davem@davemloft.net>
-References: <20050501032809.3d0b4cda.akpm@osdl.org>
-	<20050501111507.GA2133@gondor.apana.org.au>
-	<4276517F.6030606@trash.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: icmp_unreachable uses wrong ip
+Date: Wed, 04 May 2005 01:37:40 +0200
+Message-ID: <42780B44.8040803@trash.net>
+References: <1115040079.5620.11.camel@jeroens.office.netland.nl> <200505030944.49175.hasso@estpak.ee> <4277BFA6.8090306@trash.net> <200505040235.33461.hasso@estpak.ee>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org,
-	herbert@gondor.apana.org.au
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <4276517F.6030606@trash.net>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Cc: "J. Simonetti" <jeroens@office.netland.nl>, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Hasso Tepper <hasso@estpak.ee>
+In-Reply-To: <200505040235.33461.hasso@estpak.ee>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 02 May 2005 18:12:47 +0200
-Patrick McHardy <kaber@trash.net> wrote:
-
-> Herbert Xu wrote:
-> > BTW, should we do nf_reset in ip_dev_loopback_xmit as well?
+Hasso Tepper wrote:
+> Patrick McHardy wrote:
 > 
-> I think we should, tc actions could do something unexpected with
-> the packet.
+>>But when multiple addresses are used the result can be even more
+>>confusing. I don't like inconsistent behaviour, and this patch works
+>>sometimes and sometimes it doesn't.
+> 
+> 
+> I see no behaviour you can define as "it doesn't work". Purpose of this 
+> patch is to provide info about links (not addresses, you can't have this 
+> info) used to forward packets and it does the job. 
 
-Also applied, thanks a lot.
+Well, arguably it can be called "doesn't work" if addresses not used
+at all during transmit of the packet show up in traceroute.
+
+Regards
+Patrick
