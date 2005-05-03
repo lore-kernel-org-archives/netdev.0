@@ -1,43 +1,49 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [NETLINK] cb_lock does not needs ref count on sk
-Date: Tue, 3 May 2005 14:42:44 -0700
-Message-ID: <20050503144244.1efdfd0c.davem@davemloft.net>
-References: <20050327091524.GA23215@elte.hu>
-	<E1DFUaZ-0001Hg-00@gondolin.me.apana.org.au>
-	<20050327133811.GA5569@elte.hu>
-	<20050329104906.GA19836@gondor.apana.org.au>
-	<20050329114926.GA14986@elte.hu>
-	<20050330082640.GA8269@gondor.apana.org.au>
-	<20050330170236.2bddf666.davem@davemloft.net>
-	<20050331231922.GA26587@gondor.apana.org.au>
-	<20050331232322.GA26693@gondor.apana.org.au>
-	<20050331203313.57e1c5c3.davem@davemloft.net>
-	<20050401093633.GA32707@gondor.apana.org.au>
+Subject: Re: Mystery packet killing tg3
+Date: Tue, 3 May 2005 15:03:33 -0700
+Message-ID: <20050503150333.1ac1c159.davem@davemloft.net>
+References: <20050502162405.65dfb4a9@localhost.localdomain>
+	<20050502200251.38271b61.davem@davemloft.net>
+	<20050503140528.1bd2ac74@dxpl.pdx.osdl.net>
+	<20050503141314.441c9d75.davem@davemloft.net>
+	<1115152907.15156.26.camel@rh4>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: shemminger@osdl.org, jgarzik@pobox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050401093633.GA32707@gondor.apana.org.au>
+To: "Michael Chan" <mchan@broadcom.com>
+In-Reply-To: <1115152907.15156.26.camel@rh4>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 1 Apr 2005 19:36:33 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Tue, 03 May 2005 13:41:47 -0700
+"Michael Chan" <mchan@broadcom.com> wrote:
 
-> Here is a little optimisation for the cb_lock used by netlink_dump.
-> While fixing that race earlier, I noticed that the reference count
-> held by cb_lock is completely useless.  The reason is that in order
-> to obtain the protection of the reference count, you have to take
-> the cb_lock.  But the only way to take the cb_lock is through
-> dereferencing the socket.
-> 
-> That is, you must already possess a reference count on the socket
-> before you can take advantage of the reference count held by cb_lock.
-> As a corollary, we can remve the reference count held by the cb_lock.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> MSI is buggy on 5703 and tg3 will not enable MSI on that chip. MSI only
+> works on the latest PCI Express chips.
 
-Looks good, applied.
+Ok, and he has a pre-MSI copy of the tg3 driver anyways.
+
+Michael, there were no master/target abort bits set in the PCI status
+register from his dump.  If one of the DMA units locks up on the tg3,
+will it still be able to update the PCI_STATUS register appropriately
+when it encounters a DMA transaction error (ie. master or target abort)
+or would we also need to look at the PCI host bridge PCI config space
+registers as well?
+
+I strongly suspect one of two things in these AMD system cases of tg3
+wedging:
+
+1) some DMA problem
+2) register write reordering
+
+Lack of master/target abort indication in tg3's PCI status register
+makes me feel that #2 is more likely to be the problem cause.
+
+Just for fun, Stephen, can you make tg3_get_invariants() always set
+the TG3_FLAG_MBOX_WRITE_REORDER bit in tp->tg3_flags and see if that
+makes the problem go away?
+
+Thanks.
