@@ -1,29 +1,73 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [patch/RFC]: Asynchronous IPsec processing.
-Date: Tue, 3 May 2005 20:29:29 +1000
-Message-ID: <20050503102929.GA30097@gondor.apana.org.au>
-References: <20050429144103.A23268@2ka.mipt.ru> <20050503095312.GA29788@gondor.apana.org.au> <1115115502.3414.22.camel@uganda> <20050503101447.GA29973@gondor.apana.org.au> <1115116295.3414.30.camel@uganda>
+From: =?ks_c_5601-1987?B?wPy5rrytwPu5+L+q?= <eioohkim@naver.com>
+Subject: =?ks_c_5601-1987?B?oeHA/LmuvK3A+yC5+L+qoeEgICjD4sbHIC8gsbmzuyw=?=
+	=?ks_c_5601-1987?B?IMfYv9wp?=
+Date: Tue, 03 May 2005 19:32:45 +0900
+Message-ID: <200505031032.j43AWg7J026447@oss.sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, Patrick McHardy <kaber@trash.net>,
-        "David S. Miller" <davem@davemloft.net>,
-        Jamal Hadi Salim <hadi@cyberus.ca>
+Content-Type: text/html;
+	charset="ks_c_5601-1987"
+Content-Transfer-Encoding: base64
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Content-Disposition: inline
-In-Reply-To: <1115116295.3414.30.camel@uganda>
+To: =?ks_c_5601-1987?B?bmV0ZGV2?= <netdev@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 03, 2005 at 02:31:35PM +0400, Evgeniy Polyakov wrote:
->
-> Asynchronous processing will not hurt synchronous pathes in any way.
 
-It will if you force everybody to go through the asynchronous path
-because you're jacking up the latency.
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+PEhUTUw+PEhFQUQ+PFRJVExFPk1haWwgdGl0bGU8L1RJVExFPg0KPE1FVEEgaHR0cC1lcXVpdj1D
+b250ZW50LVR5cGUgY29udGVudD0idGV4dC9odG1sOyBjaGFyc2V0PWV1Yy1rciI+DQo8TUVUQSBj
+b250ZW50PSJNU0hUTUwgNi4wMC4yODAwLjExMDYiIG5hbWU9R0VORVJBVE9SPjwvSEVBRD4NCjxC
+T0RZIHN0eWxlPSJGT05ULVNJWkU6IDEwcHQiPg0KPERJVj4mbmJzcDs8L0RJVj4NCjxESVY+PEZP
+TlQgY29sb3I9I2ZmMDAwMCBzaXplPTM+Jm5ic3A7IKHhwPy5rrytwPsgufi/qiwgw+LGxyDH2LXl
+t8G/5CixubO7LCDH2L/cKaHhPC9GT05UPjwvRElWPg0KPERJVj48Rk9OVCBzaXplPTM+PC9GT05U
+PiZuYnNwOzwvRElWPg0KPERJVj48Rk9OVCBjb2xvcj0jMDAwMGZmIHNpemU9Mz4xLMfYv9y8rcD7
+ILn4v6rIxCCxubO7w+LGxyw8L0ZPTlQ+PC9ESVY+DQo8RElWPjxGT05UIGNvbG9yPSMwMDAwZmYg
+c2l6ZT0zPjIssbmzu7ytwPsgufi/qsjEIMfYv9zD4sbHKLnMsbkswM+6uyAswd+xuSwgwK+3tLXu
+KTwvRk9OVD48L0RJVj4NCjxESVY+PEZPTlQgY29sb3I9IzAwMDBmZj48L0ZPTlQ+Jm5ic3A7PC9E
+SVY+DQo8RElWPiogv7W+7izAz77uLMHfsbm+7iy60r7uLLW2vu4svK253b7uLLevvcO+xrXuIMfY
+tOfH1bTPtNk8L0RJVj4NCjxESVY+PEJSPjxGT05UIGNvbG9yPSMwMDgwZmY+KiDA/Mitua7Axzow
+Mi01OTctNzAxNzwvRk9OVD48L0RJVj4NCjxESVY+PEZPTlQgY29sb3I9IzAwODBmZj48L0ZPTlQ+
+Jm5ic3A7PC9ESVY+DQo8RElWPjxGT05UIGNvbG9yPSMwMDgwZmY+Jm5ic3A7PEVNPiZuYnNwOyA8
+L0VNPjxBIGhyZWY9Imh0dHA6Ly93d3cuc2lzYXRyYW4sY29tIj48RU0+PEZPTlQgY29sb3I9I2Zm
+MDAwMCBzaXplPTQ+PFNUUk9ORz53d3cuc2lzYXRyYW4sY29tPC9TVFJPTkc+PC9GT05UPjwvRU0+
+PC9BPjwvRk9OVD48L0RJVj4NCjxESVY+PEZPTlQgY29sb3I9IzAwODBmZj48L0ZPTlQ+Jm5ic3A7
+PC9ESVY+DQo8RElWPjxBIGhyZWY9Im1haWx0bzplaW9vaGtpbUBuYXZlci5jb20iPjwvQT4mbmJz
+cDs8L0RJVj4NCjxESVY+PEJSPjxCUj4mbmJzcDs8L0RJVj48L0JPRFk+PC9IVE1MPg0KPCEtLSC2
+88DOMS0tPg0KPHA+Jm5ic3A7PC9wPg0KPHRhYmxlIGJvcmRlcj0iMCIgY2VsbHBhZGRpbmc9IjAi
+IGNlbGxzcGFjaW5nPSIwIiB3aWR0aD0iMTAwJSIgc3R5bGU9ImJvcmRlci10b3Atd2lkdGg6MnB4
+OyBib3JkZXItdG9wLWNvbG9yOnNpbHZlcjsgYm9yZGVyLXRvcC1zdHlsZTpncm9vdmU7Ij4NCiAg
+ICA8dHI+DQogICAgICAgIDx0ZCB3aWR0aD0iMTAwJSIgIGhlaWdodD0iNSI+PHA+Jm5ic3A7PC90
+ZD4NCiAgICA8L3RyPg0KCSAgICA8dHI+DQogICAgICAgIDx0ZCB3aWR0aD0iMTAwJSI+PHAgYWxp
+Z249InJpZ2h0Ij48Zm9udCBzaXplPSIyIj48L2ZvbnQ+PC9hPjwvdGQ+DQogICAgPC90cj4NCgkN
+CjwvdGFibGU+DQoNCjwhLS0gsMW6ziB0eXBlIDEtLT4NCjx0YWJsZSBib3JkZXI9IjAiIGNlbGxw
+YWRkaW5nPSIzIiBjZWxsc3BhY2luZz0iMCIgd2lkdGg9IjEwMCUiIGJnY29sb3I9IiNGOEY4Rjgi
+DQogc3R5bGU9ImJvcmRlci13aWR0aDoxcHg7IGJvcmRlci1jb2xvcjpyZ2IoMjM2LDIzNiwyMzYp
+OyBib3JkZXItc3R5bGU6c29saWQ7Ij4NCiAgICA8dHI+DQogICAgICAgIA0KICAgIDx0ZCB3aWR0
+aD0iMTAwIiBoZWlnaHQ9IjQyIiBhbGlnbj0ibGVmdCIgdmFsaWduPSJ0b3AiIG5vd3JhcCBzdHls
+ZT0icGFkZGluZzoybW07IGJvcmRlci1yaWdodC13aWR0aDoxcHg7IGJvcmRlci1yaWdodC1jb2xv
+cjpyZ2IoMjM5LDIzOSwyMzkpOyBib3JkZXItcmlnaHQtc3R5bGU6c29saWQ7Ij4NCjxwPjxmb250
+IGNvbG9yPSJncmF5IiBzaXplPSIyIj48Yj5bvPa9xTxlbT4gPC9lbT6wxbrOXTxicj4NCiAgICAg
+ICAgW1JlamVjdGlvbl08L2I+PC9mb250PjwvdGQ+DQogICAgICAgIA0KICAgIDx0ZCBoZWlnaHQ9
+IjQyIiBhbGlnbj0ibGVmdCIgbm93cmFwIGJnY29sb3I9IiNFM0UzRTMiIHN0eWxlPSJwYWRkaW5n
+OjJtbTsiPiANCiAgICAgIDxwPjxmb250IHNpemU9IjIiDQogICAgICAgICAgICAgY29sb3I9Imdy
+YXkiPr/4x8/B9iC+yrTCILjewM/AzL76tNm46SDB+L3JwLi3ziC757D6teW4s7TPtNkuIDwvZm9u
+dD48YSBocmVmPSJtYWlsdG86ZWlvb2hraW1AbmF2ZXIuY29tP3N1YmplY3Q9JUJDJUY2JUJEJUM1
+JUIwJUM1JUJBJUNFJmJvZHk9JUI0JUY1JUMwJUNDJUJCJUYzIG5ldGRldkBvc3Muc2dpLmNvbSAl
+QzElRDYlQkMlRDIlQjclQ0UgJUI4JURFJUMwJUNGJUMwJUJCICVCQSVCOCVCMyVCQiVDMSVGNiAl
+QjglQjYlQkMlQkMlQkYlRTQuIg0KICAgICAgICAgICAgIHRhcmdldD0iX2JsYW5rIj48Zm9udCBz
+aXplPSIyIj48c3Ryb25nPlu89r3FPC9zdHJvbmc+PC9mb250PjxzdHJvbmc+PGZvbnQgc2l6ZT0i
+MiIgY29sb3I9ImdyZWVuIj4gDQogICAgICAgIDwvZm9udD48Zm9udCBzaXplPSIyIj6wxbrOXTwv
+Zm9udD48L3N0cm9uZz48L2E+PGZvbnQgc2l6ZT0iMiIgY29sb3I9ImdyYXkiPsfYIA0KICAgICAg
+ICDB1r3DuOkgwMwgyMQgtNm9wyC6uLO7wfYgvsqw2r3AtM+02S48YnI+DQogICAgICAgICi6uyC4
+3sDPwLogPC9mb250Pjxmb250IHNpemU9IjIiIGNvbG9yPSJncmVlbiI+ud+9xTxmb250IGNvbG9y
+PSIjMzM2NjAwIj7A/L/rPC9mb250PjwvZm9udD48Zm9udA0KICAgICAgICAgICAgIHNpemU9IjIi
+IGNvbG9yPSJncmF5Ij7AzL/AtM8gua7AxyC758fXwLogJm5ic3A7uN7Az7+hIMelvcO1yCC/rLb0
+w7O3ziC5rsDHILnZtvi0z7TZLik8YnI+DQogICAgICAgIDwvZm9udD48Zm9udCBmYWNlPSKxvLiy
+IiBzaXplPSIyIiBjb2xvcj0iZ3JheSI+UGxlYXNlIGNsaWNrIDwvZm9udD48YSBocmVmPSJtYWls
+dG86ZWlvb2hraW1AbmF2ZXIuY29tP3N1YmplY3Q9UkVKRUNUJmJvZHk9UGxlYXNlIFJlbW92ZSBu
+ZXRkZXZAb3NzLnNnaS5jb20gZnJvbSB5b3VyIG1haWxpbmcgbGlzdC4iDQogICAgICAgICAgICAg
+dGFyZ2V0PSJfYmxhbmsiPjxmb250IGZhY2U9IrG8uLIiIHNpemU9IjIiPjxiPmhlcmU8L2I+PC9m
+b250PjwvYT48Zm9udA0KICAgICAgICAgICAgIGZhY2U9IrG8uLIiIHNpemU9IjIiIGNvbG9yPSJn
+cmF5Ij4gdG8gcmVtb3ZlIHlvdXIgYWRkcmVzcyBmcm9tIG91ciANCiAgICAgICAgbWFpbGluZyBs
+aXN0LiBUaGVuIHdlIHdpbGwgbmV2ZXIgcmVzZW5kIHRvIHlvdSBhbnltb3JlLjwvZm9udD48L3Rk
+Pg0KICAgIDwvdHI+DQo8L3RhYmxlPg0K
