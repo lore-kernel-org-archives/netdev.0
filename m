@@ -1,50 +1,37 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: Mystery packet killing tg3
-Date: Tue, 3 May 2005 15:59:11 -0700
-Message-ID: <20050503155911.766409c3@dxpl.pdx.osdl.net>
-References: <20050502162405.65dfb4a9@localhost.localdomain>
-	<20050502200251.38271b61.davem@davemloft.net>
-	<20050503140528.1bd2ac74@dxpl.pdx.osdl.net>
-	<20050503141314.441c9d75.davem@davemloft.net>
-	<1115152907.15156.26.camel@rh4>
-	<20050503150333.1ac1c159.davem@davemloft.net>
-	<20050503154500.0a53160d@dxpl.pdx.osdl.net>
-	<20050503153954.6be62f8a.davem@davemloft.net>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 1/3] [RTNETLINK] Fix RTM_MAX to represent the maximum valid message type
+Date: Wed, 4 May 2005 01:02:17 +0200
+Message-ID: <20050503230217.GR577@postel.suug.ch>
+References: <20050430195058.GC577@postel.suug.ch> <20050503142740.345925ea.davem@davemloft.net> <20050503222003.GQ577@postel.suug.ch> <20050503152704.4c6744d6.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: mchan@broadcom.com, jgarzik@pobox.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050503153954.6be62f8a.davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20050503152704.4c6744d6.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 3 May 2005 15:39:54 -0700
-"David S. Miller" <davem@davemloft.net> wrote:
-
-> On Tue, 3 May 2005 15:45:00 -0700
-> Stephen Hemminger <shemminger@osdl.org> wrote:
+* David S. Miller <20050503152704.4c6744d6.davem@davemloft.net> 2005-05-03 15:27
+> On Wed, 4 May 2005 00:20:03 +0200
+> Thomas Graf <tgraf@suug.ch> wrote:
 > 
-> > No, I forced it to always be true and still dies (when taking network down).
+> > * David S. Miller <20050503142740.345925ea.davem@davemloft.net> 2005-05-03 14:27
+> > > Excellent observation.  The fact that we encode the "modifies state"
+> > > in the low bits of the RTM_* numbers has always been a source of
+> > > obscure bugs and hard to track down errors.
+> > > 
+> > > Patch applied, thanks.
+> > 
+> > Do you want 2.4 backports for all patches or just the xfrm
+> > off-by-one fix?
 > 
-> You're reproducing this pretty fast.
-> 
-> Does the link jam up, or are you just simply downing the interface
-> and the stop block messages are printed out?
+> Congratulations if you can find xfrm in the vanilla
+> 2.4.x tree :-)
 
-Initially, it reproduced everytime link came up, we reconfigured the VLAN to
-have a mirror port into a laptop to try and capture what was happening, but when
-we did that the bootup problem went away. It was in the tg3_reset_hw
-during initial dev_open.
-
-Today it only triggers when
-I force it by doing something does a dev_close (like ifconfig or rmmod).
-Since the message is the same, I assume it is the same or similar problem.
-
-> If it jams up, what kind of traffic are you using to trigger this
-> problem?
-
-No traffic is present when the close occurs. But some DMA could be stuck
-(forever) in flight at that point.
+Heh, ok ok ;-> I think none of the patches need to be backported
+then, although the type > RTM_MAX has an off-by-one issue the
+current RTM_MAX is set to one below the start of the next block
+so the behaviour matches the 2.6 tree.
