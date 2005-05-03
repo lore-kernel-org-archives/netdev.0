@@ -1,36 +1,32 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
+From: Pekka Savola <pekkas@netcore.fi>
 Subject: Re: icmp_unreachable uses wrong ip
-Date: Tue, 3 May 2005 11:22:44 +0200
-Message-ID: <20050503092244.GA8864@xi.wantstofly.org>
+Date: Tue, 3 May 2005 12:42:01 +0300 (EEST)
+Message-ID: <Pine.LNX.4.61.0505031239460.3205@netcore.fi>
 References: <1115040079.5620.11.camel@jeroens.office.netland.nl>
+ <20050503092244.GA8864@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "J. Simonetti" <jeroens@office.netland.nl>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@oss.sgi.com, "J. Simonetti" <jeroens@office.netland.nl>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
-In-Reply-To: <1115040079.5620.11.camel@jeroens.office.netland.nl>
+To: Lennert Buytenhek <buytenh@wantstofly.org>
+In-Reply-To: <20050503092244.GA8864@xi.wantstofly.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 02, 2005 at 03:21:19PM +0200, J. Simonetti wrote:
+On Tue, 3 May 2005, Lennert Buytenhek wrote:
+> (I know, "Every other router vendor out there does it this way."
+> is not a good reason for doing it the same way.)
 
-> I've recently come to notice that traceroutes through a linux router use
-> the wrong ip (ip of exitting interface) wich should actually be the ip
-> of the incomming interface.
-> 
-> I've found a trivial patch (attached) wich resolves this. Perhaps this
-> is something to include (or have a sysctl to toggle this behaviour). I
-> unfortunately have no knowledge of programming, so the sysctl option
-> would have te be done by a volunteer.
+There's no specification requiring or recommending either of these 
+approaches, either for v6 or v4 AFAICS so you can't depend on that 
+behaviour..
 
-For what it's worth, I would love to see something like this in.
-In the presence of asymmetric routing, the way linux routers show
-up on traceroutes has always been slightly confusing to me.
+Do you have specific data to back up "every other router vendor..." ? 
+I doubt it's quite as uniform as that, but if so, it would certainly 
+be a major motivation for a change.
 
-(I know, "Every other router vendor out there does it this way."
-is not a good reason for doing it the same way.)
-
-
---L
+-- 
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
