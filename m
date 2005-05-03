@@ -1,77 +1,77 @@
-From: Tommy Christensen <tommy.christensen@tpack.net>
-Subject: Re: [PATCH] net: Disable queueing when carrier is lost (take 2)
-Date: Wed, 04 May 2005 01:28:24 +0200
-Message-ID: <42780918.10001@tpack.net>
-References: <4276B13F.2040103@tpack.net> <20050503100306.GB29788@gondor.apana.org.au> <4277FC16.4050307@tpack.net> <20050503231023.GA18323@gondor.apana.org.au>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] (3/3) netem: adjust parent qlen when duplicating
+Date: Tue, 3 May 2005 16:25:50 -0700
+Message-ID: <20050503162550.30acf31a@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------060507010509040804020203"
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, netem@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050503231023.GA18323@gondor.apana.org.au>
+To: "David S. Miller" <davem@davemloft.net>, Patrick McHardy <kaber@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------060507010509040804020203
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Fix qlen underrun when doing duplication with netem. If netem is used as 
+leaf discipline, then the parent needs to be tweaked when packets  are duplicated.
 
-Herbert Xu wrote:
-> Thanks Tommy.  This version looks good to me.  BTW, you probably
-> should add a Signed-off-by line.
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-Sigh. I remembered on all but the final patch ...
-Thanks for helping out.
-
-Signed-off-by: Tommy S. Christensen <tommy.christensen@tpack.net>
-
---------------060507010509040804020203
-Content-Type: text/plain;
- name="carrier-5.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="carrier-5.patch"
-
-diff -ru linux-2.6.12-rc3/net/core/link_watch.c linux-2.6.12-work/net/core/link_watch.c
---- linux-2.6.12-rc3/net/core/link_watch.c	2005-03-04 09:55:42.000000000 +0100
-+++ linux-2.6.12-work/net/core/link_watch.c	2005-05-02 22:40:59.000000000 +0200
-@@ -16,6 +16,7 @@
- #include <linux/netdevice.h>
- #include <linux/if.h>
- #include <net/sock.h>
-+#include <net/pkt_sched.h>
- #include <linux/rtnetlink.h>
- #include <linux/jiffies.h>
- #include <linux/spinlock.h>
-@@ -74,6 +75,12 @@
- 		clear_bit(__LINK_STATE_LINKWATCH_PENDING, &dev->state);
+Index: netem-2.6.12-rc3/net/sched/sch_api.c
+===================================================================
+--- netem-2.6.12-rc3.orig/net/sched/sch_api.c	2005-05-03 11:19:23.000000000 -0700
++++ netem-2.6.12-rc3/net/sched/sch_api.c	2005-05-03 15:20:59.000000000 -0700
+@@ -1289,6 +1289,7 @@
  
- 		if (dev->flags & IFF_UP) {
-+			if (netif_carrier_ok(dev)) {
-+				WARN_ON(dev->qdisc_sleeping == &noop_qdisc);
-+				dev_activate(dev);
-+			} else
-+				dev_deactivate(dev);
-+
- 			netdev_state_change(dev);
- 		}
+ subsys_initcall(pktsched_init);
  
-diff -ru linux-2.6.12-rc3/net/sched/sch_generic.c linux-2.6.12-work/net/sched/sch_generic.c
---- linux-2.6.12-rc3/net/sched/sch_generic.c	2005-03-04 09:55:44.000000000 +0100
-+++ linux-2.6.12-work/net/sched/sch_generic.c	2005-05-04 00:24:55.558105856 +0200
-@@ -539,6 +539,10 @@
- 		write_unlock_bh(&qdisc_tree_lock);
++EXPORT_SYMBOL(qdisc_lookup);
+ EXPORT_SYMBOL(qdisc_get_rtab);
+ EXPORT_SYMBOL(qdisc_put_rtab);
+ EXPORT_SYMBOL(register_qdisc);
+Index: netem-2.6.12-rc3/net/sched/sch_netem.c
+===================================================================
+--- netem-2.6.12-rc3.orig/net/sched/sch_netem.c	2005-05-03 11:20:05.000000000 -0700
++++ netem-2.6.12-rc3/net/sched/sch_netem.c	2005-05-03 15:41:14.000000000 -0700
+@@ -206,7 +206,6 @@
+ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ {
+ 	struct netem_sched_data *q = qdisc_priv(sch);
+-	struct sk_buff *skb2;
+ 	int ret;
+ 
+ 	pr_debug("netem_enqueue skb=%p\n", skb);
+@@ -220,11 +219,21 @@
  	}
  
-+	if (!netif_carrier_ok(dev))
-+		/* Delay activation until next carrier-on event */
-+		return;
+ 	/* Random duplication */
+-	if (q->duplicate && q->duplicate >= get_crandom(&q->dup_cor)
+-	    && (skb2 = skb_clone(skb, GFP_ATOMIC)) != NULL) {
+-		pr_debug("netem_enqueue: dup %p\n", skb2);
++	if (q->duplicate && q->duplicate >= get_crandom(&q->dup_cor)) {
++		struct sk_buff *skb2;
 +
- 	spin_lock_bh(&dev->queue_lock);
- 	rcu_assign_pointer(dev->qdisc, dev->qdisc_sleeping);
- 	if (dev->qdisc != &noqueue_qdisc) {
-
---------------060507010509040804020203--
++		skb2 = skb_clone(skb, GFP_ATOMIC);
++		if (skb2 && netem_delay(sch, skb2) == NET_XMIT_SUCCESS) {
++			struct Qdisc *qp;
++
++			/* Since one packet can generate two packets in the
++			 * queue, the parent's qlen accounting gets confused,
++			 * so fix it.
++			 */
++			qp = qdisc_lookup(sch->dev, TC_H_MAJ(sch->parent));
++			if (qp)
++				qp->q.qlen++;
+ 
+-		if (netem_delay(sch, skb2)) {
+ 			sch->q.qlen++;
+ 			sch->bstats.bytes += skb2->len;
+ 			sch->bstats.packets++;
+@@ -253,6 +262,7 @@
+ 	} else
+ 		sch->qstats.drops++;
+ 
++	pr_debug("netem: enqueue ret %d\n", ret);
+ 	return ret;
+ }
+ 
