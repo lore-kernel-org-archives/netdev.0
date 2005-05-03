@@ -1,51 +1,34 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [Bug 4554] New: /proc/net/route missing info for 127.0.0.1/8
-Date: Tue, 3 May 2005 15:47:09 -0700
-Message-ID: <20050503154709.218626c6@dxpl.pdx.osdl.net>
-References: <20050503143603.4d77d3dd@dxpl.pdx.osdl.net>
-	<4277FDFD.3040501@trash.net>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: Mystery packet killing tg3
+Date: Tue, 3 May 2005 15:39:54 -0700
+Message-ID: <20050503153954.6be62f8a.davem@davemloft.net>
+References: <20050502162405.65dfb4a9@localhost.localdomain>
+	<20050502200251.38271b61.davem@davemloft.net>
+	<20050503140528.1bd2ac74@dxpl.pdx.osdl.net>
+	<20050503141314.441c9d75.davem@davemloft.net>
+	<1115152907.15156.26.camel@rh4>
+	<20050503150333.1ac1c159.davem@davemloft.net>
+	<20050503154500.0a53160d@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Cc: mchan@broadcom.com, jgarzik@pobox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <4277FDFD.3040501@trash.net>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20050503154500.0a53160d@dxpl.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 04 May 2005 00:41:01 +0200
-Patrick McHardy <kaber@trash.net> wrote:
+On Tue, 3 May 2005 15:45:00 -0700
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> > Distribution: CentOS 4 (RHEL4)
-> > Hardware Environment: i686
-> > Problem Description:
-> > cat /proc/net/route is missing information for 127.0.0.1/8 network (lo
-> > interface).  On 2.4 kernels, this info was present (just checked on an old RH7.3
-> > machine).  It seems to be missing on 2.6 kernels.  Bug?  Feature?  Omission?
-> 
-> 2.4.30 doesn't show it:
-> 
-> # route -n
-> Destination     Gateway         Genmask         Flags Metric Ref    Use
-> Iface
-> 172.16.0.0      0.0.0.0         255.255.0.0     U     0      0        0 eth0
-> 
-> And I'd be surprised if it did, it doesn't include other routes
-> from the local table.
-> 
-> Regards
-> Patrick
+> No, I forced it to always be true and still dies (when taking network down).
 
+You're reproducing this pretty fast.
 
-It shows up on our 2.4.18 system, probably it got lost in the fib/seq_printf
-conversion.
+Does the link jam up, or are you just simply downing the interface
+and the stop block messages are printed out?
 
-$ /sbin/route -n
-Kernel IP routing table
-Destination     Gateway         Genmask         Flags Metric Ref    Use Iface
-192.168.159.0   172.20.4.11     255.255.255.0   UG    0      0        0 eth2
-172.20.0.0      0.0.0.0         255.255.0.0     U     0      0        0 eth2
-127.0.0.0       0.0.0.0         255.0.0.0       U     0      0        0 lo
-0.0.0.0         172.20.0.1      0.0.0.0         UG    0      0        0 eth2
+If it jams up, what kind of traffic are you using to trigger this
+problem?
