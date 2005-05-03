@@ -1,63 +1,50 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: [patch/RFC]: Asynchronous IPsec processing benchmark.
-Date: Tue, 03 May 2005 17:38:27 +0400
-Message-ID: <1115127507.3414.58.camel@uganda>
-References: <20050429144103.A23268@2ka.mipt.ru>
-	 <20050503095312.GA29788@gondor.apana.org.au>
-	 <1115115502.3414.22.camel@uganda>
-	 <20050503101447.GA29973@gondor.apana.org.au>
-	 <1115116295.3414.30.camel@uganda>
-	 <20050503102929.GA30097@gondor.apana.org.au>
-	 <1115117728.3414.48.camel@uganda>
-Reply-To: johnpol@2ka.mipt.ru
+From: peters stevens <peters_stevens121@go.com>
+Subject: URGENT REPLY
+Date: Tue, 3 May 2005 07:12:08 -0700 (PDT)
+Message-ID: <3403626.1115129528165.JavaMail.peters_stevens121@WMAILWEBA04>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-FFK2WSC8sADObNy6J1+q"
-Cc: netdev@oss.sgi.com, Patrick McHardy <kaber@trash.net>,
-        "David S. Miller" <davem@davemloft.net>,
-        Jamal Hadi Salim <hadi@cyberus.ca>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <1115117728.3414.48.camel@uganda>
+To: peters_stevens121@go.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+           reply:petersstevens@walla.com
 
---=-FFK2WSC8sADObNy6J1+q
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Your contact has been gotten from a  search for a person  whom we can jointly invest, Trust in and also solicit a  honorable  partnership with.
 
-Here are some numbers:
+I epresent a client and my client has interest to do business relative to investments in your country in areas related to agriculture or any business of your choice, to initiate a proper and structured relationship: Please let me know what your response will be to an offer to receive investment funds in cash.
 
-./netperf -l 60 -H gw -t TCP_STREAM -i 10,2 -I 99,5 -- -m 4096 -s 57344
--S 57344
+1. The said fund amounts to US$40 Million Dollars (US).
 
-TCP STREAM TEST to gw : +/-2.5% @ 99% conf.
+2. The said fund is in cash and defaced for security reasons. You will be ready to travel to claim the funds where it is being deposited.
 
-async-ipsec, 10^6bits/sec:  35.42
- sync-ipsec, 10^6bits/sec:  37.11
+3. The fund is intended to be invested through your person or company in the purchase of facilities and assets, or any areas of your specialization.
 
-So even with existing timer deferring it is not noticebly slower [about
-4%].
+4. Please indicate what your commission will be after claiming the funds before investment because there will be an agreement bidding all parties.
 
-And I think that benefits it provides definitely cost that price and=20
-compile time option.
+5. The fund owners desire absolute confidentiality and professionalism in the handling of this matter because my client a government officer.
 
---=20
-        Evgeniy Polyakov
+               Please respond urgently.
+               Sincerely.
+               Mr. Peters Stevens.
+               138 Great North way,
+               Hendon, London NW4 1EH,
+               United Kingdom.
+               Email:petersstevens@walla.com
+               More Sender Information
+               Number of Employees :
+               Country/Territory : United Kingdom
+               City : hendon
+               Address : 138 Great North way
+               Phone : 44-00-000000000
+               Fax : 44-00-000000000
 
-Crash is better than data corruption -- Arthur Grabowski
 
---=-FFK2WSC8sADObNy6J1+q
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.6 (GNU/Linux)
-
-iD8DBQBCd37TIKTPhE+8wY0RAho5AJ9rMXgXW4qUErGFYBfH1nLZWVDxxwCdH3ZZ
-n1R13gy6YosPvqaXG4XfhhQ=
-=dmqb
------END PGP SIGNATURE-----
-
---=-FFK2WSC8sADObNy6J1+q--
+___________________________________________________
+Check-out GO.com
+GO get your free GO E-Mail account with expanded storage of 6 MB!
+http://mail.go.com
