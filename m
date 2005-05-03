@@ -1,37 +1,40 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] (3/3) netem: adjust parent qlen when duplicating
-Date: Wed, 04 May 2005 01:35:29 +0200
-Message-ID: <42780AC1.8040409@trash.net>
-References: <20050503162550.30acf31a@dxpl.pdx.osdl.net>
+From: Hasso Tepper <hasso@estpak.ee>
+Subject: Re: icmp_unreachable uses wrong ip
+Date: Wed, 4 May 2005 02:35:33 +0300
+Message-ID: <200505040235.33461.hasso@estpak.ee>
+References: <1115040079.5620.11.camel@jeroens.office.netland.nl> <200505030944.49175.hasso@estpak.ee> <4277BFA6.8090306@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
-        netem@osdl.org
+Cc: "J. Simonetti" <jeroens@office.netland.nl>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20050503162550.30acf31a@dxpl.pdx.osdl.net>
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <4277BFA6.8090306@trash.net>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> Fix qlen underrun when doing duplication with netem. If netem is used as 
-> leaf discipline, then the parent needs to be tweaked when packets  are duplicated.
+Patrick McHardy wrote:
+> But when multiple addresses are used the result can be even more
+> confusing. I don't like inconsistent behaviour, and this patch works
+> sometimes and sometimes it doesn't.
 
-> +			/* Since one packet can generate two packets in the
-> +			 * queue, the parent's qlen accounting gets confused,
-> +			 * so fix it.
-> +			 */
-> +			qp = qdisc_lookup(sch->dev, TC_H_MAJ(sch->parent));
-> +			if (qp)
-> +				qp->q.qlen++;
+I see no behaviour you can define as "it doesn't work". Purpose of this 
+patch is to provide info about links (not addresses, you can't have this 
+info) used to forward packets and it does the job. 
 
-This only works in a hierarchy with just one qdisc above netem, there
-could be up to seven (check_loop_fn prevents more than that). It's also
-not safe because it violates qdisc locking rules, when this code is
-executed dev->queue_lock is already taken and qdisc_lookup() grabs
-qdisc_tree_lock, but they can only be taken in the other order.
+> > And can you explain what theoretical possibilities router has to obtain
+> > info what address was used as nexthop by neighbour?
+>
+> I can think of none.
 
-Regards
-Patrick
+Exactly.
+
+regards,
+
+-- 
+Hasso Tepper
+Elion Enterprises Ltd.
+WAN administrator
