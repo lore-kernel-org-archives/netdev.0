@@ -1,43 +1,48 @@
-From: Miika Komu <miika@iki.fi>
-Subject: Re: IPsec performance
-Date: Tue, 3 May 2005 19:14:05 +0300 (EEST)
-Message-ID: <Pine.GSO.4.58.0505031913020.9502@kekkonen.cs.hut.fi>
-References: <Pine.GSO.4.58.0505022117190.25766@kekkonen.cs.hut.fi>
- <Pine.GSO.4.58.0505022204090.25766@kekkonen.cs.hut.fi>
- <Pine.LNX.4.62.0505030248020.26815@kaber.coreworks.de>
- <Pine.GSO.4.58.0505030820160.24686@kekkonen.cs.hut.fi>
- <1115099678.2953.3.camel@ori.thedillows.org>  <Pine.GSO.4.58.0505030943310.247@kekkonen.cs.hut.fi>
- <1115129839.2953.4.camel@ori.thedillows.org>
+From: "Ramkrishna Vepa" <ram.vepa@neterion.com>
+Subject: RE: [PATCH] s2io: replace readq() with mmiowb() in s2io_xmit()
+Date: Tue, 3 May 2005 09:23:07 -0700
+Message-ID: <03d701c54ffc$651958c0$5c10100a@pc.s2io.com>
+References: <Pine.LNX.4.61.0505030750010.16692@linux.site>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Patrick McHardy <kaber@trash.net>, Netdev <netdev@oss.sgi.com>
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: "'Leonid Grossman'" <leonid.grossman@neterion.com>,
+        <muhammad.shafiq@neterion.com>, <ramkrishna.vepa@neterion.com>,
+        <netdev@oss.sgi.com>,
+        "'Ravinandan Arakali'" <ravinandan.arakali@neterion.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Dave Dillow <dave@thedillows.org>
-In-Reply-To: <1115129839.2953.4.camel@ori.thedillows.org>
+To: "'Arthur Kepner'" <akepner@sgi.com>, "'Anton Blanchard'" <anton@samba.org>
+In-Reply-To: <Pine.LNX.4.61.0505030750010.16692@linux.site>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 3 May 2005, Dave Dillow wrote:
+Ordering is all that is required. We can get rid of the flush.
 
-> On Tue, 2005-05-03 at 09:44 +0300, Miika Komu wrote:
-> > On Tue, 3 May 2005, Dave Dillow wrote:
+Ram
+
+> -----Original Message-----
+> From: Arthur Kepner [mailto:akepner@sgi.com]
+> Sent: Tuesday, May 03, 2005 7:52 AM
+> To: Anton Blanchard
+> Cc: Ramkrishna Vepa; 'Leonid Grossman'; muhammad.shafiq@neterion.com;
+> ramkrishna.vepa@neterion.com; netdev@oss.sgi.com; 'Ravinandan Arakali'
+> Subject: Re: [PATCH] s2io: replace readq() with mmiowb() in s2io_xmit()
+> 
+> On Tue, 3 May 2005, Anton Blanchard wrote:
+> 
 > >
-> > > On Tue, 2005-05-03 at 08:25 +0300, Miika Komu wrote:
-> > > > However, this does explain why I got only 1.9 megabytes/s with 3DES.
-> > >
-> > > What was your hardware? Without knowing what you're running on, it's
-> > > impossible to tell if that is good or bad.
-> > >
-> > > Linux Journal was getting ~5.5MB/s on a PIV 2.2GHz.
-> > > I get ~2.1MB/s on a 550MHz Athlon.
+> > > [Ram] Yes, it is to ensure ordering as well as the flush of the io
+> that is
+> > > required in some platforms.
 > >
-> > Intel Pentium III 500 MHz
->
-> 3DES is processor intensive. I'd say 1.9MB/s is reasonable for the
-> hardware you are on.
-
-Ok. Thanks for your quick responses!
-
--- 
-Miika Komu              miika@iki.fi          http://www.iki.fi/miika/
+> > If the flush of the IO is required I cant see how we can remove the
+> read.
+> >
+> 
+> Agreed. Can someone from neterion comment? Is a flush required, or is
+> ordering all that's required here?
+> 
+> --
+> Arthur
