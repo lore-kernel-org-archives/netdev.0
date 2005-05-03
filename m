@@ -1,50 +1,37 @@
-From: peters stevens <peters_stevens121@go.com>
-Subject: URGENT REPLY
-Date: Tue, 3 May 2005 07:12:08 -0700 (PDT)
-Message-ID: <3403626.1115129528165.JavaMail.peters_stevens121@WMAILWEBA04>
+From: Dave Dillow <dave@thedillows.org>
+Subject: Re: IPsec performance
+Date: Tue, 03 May 2005 10:17:19 -0400
+Message-ID: <1115129839.2953.4.camel@ori.thedillows.org>
+References: <Pine.GSO.4.58.0505022117190.25766@kekkonen.cs.hut.fi>
+	 <Pine.GSO.4.58.0505022204090.25766@kekkonen.cs.hut.fi>
+	 <Pine.LNX.4.62.0505030248020.26815@kaber.coreworks.de>
+	 <Pine.GSO.4.58.0505030820160.24686@kekkonen.cs.hut.fi>
+	 <1115099678.2953.3.camel@ori.thedillows.org>
+	 <Pine.GSO.4.58.0505030943310.247@kekkonen.cs.hut.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>, Netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: peters_stevens121@go.com
+To: Miika Komu <miika@iki.fi>
+In-Reply-To: <Pine.GSO.4.58.0505030943310.247@kekkonen.cs.hut.fi>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-           reply:petersstevens@walla.com
+On Tue, 2005-05-03 at 09:44 +0300, Miika Komu wrote:
+> On Tue, 3 May 2005, Dave Dillow wrote:
+> 
+> > On Tue, 2005-05-03 at 08:25 +0300, Miika Komu wrote:
+> > > However, this does explain why I got only 1.9 megabytes/s with 3DES.
+> >
+> > What was your hardware? Without knowing what you're running on, it's
+> > impossible to tell if that is good or bad.
+> >
+> > Linux Journal was getting ~5.5MB/s on a PIV 2.2GHz.
+> > I get ~2.1MB/s on a 550MHz Athlon.
+> 
+> Intel Pentium III 500 MHz
 
-Your contact has been gotten from a  search for a person  whom we can jointly invest, Trust in and also solicit a  honorable  partnership with.
-
-I epresent a client and my client has interest to do business relative to investments in your country in areas related to agriculture or any business of your choice, to initiate a proper and structured relationship: Please let me know what your response will be to an offer to receive investment funds in cash.
-
-1. The said fund amounts to US$40 Million Dollars (US).
-
-2. The said fund is in cash and defaced for security reasons. You will be ready to travel to claim the funds where it is being deposited.
-
-3. The fund is intended to be invested through your person or company in the purchase of facilities and assets, or any areas of your specialization.
-
-4. Please indicate what your commission will be after claiming the funds before investment because there will be an agreement bidding all parties.
-
-5. The fund owners desire absolute confidentiality and professionalism in the handling of this matter because my client a government officer.
-
-               Please respond urgently.
-               Sincerely.
-               Mr. Peters Stevens.
-               138 Great North way,
-               Hendon, London NW4 1EH,
-               United Kingdom.
-               Email:petersstevens@walla.com
-               More Sender Information
-               Number of Employees :
-               Country/Territory : United Kingdom
-               City : hendon
-               Address : 138 Great North way
-               Phone : 44-00-000000000
-               Fax : 44-00-000000000
-
-
-
-___________________________________________________
-Check-out GO.com
-GO get your free GO E-Mail account with expanded storage of 6 MB!
-http://mail.go.com
+3DES is processor intensive. I'd say 1.9MB/s is reasonable for the
+hardware you are on.
