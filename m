@@ -1,40 +1,28 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: Question about QOS
-Date: Tue, 3 May 2005 14:40:32 -0700
-Message-ID: <20050503144032.25ea921d.davem@davemloft.net>
-References: <426E06F1.9000105@6wind.com>
-	<20050426125955.GT577@postel.suug.ch>
-	<426E56DC.7000108@6wind.com>
-	<20050426191454.GU577@postel.suug.ch>
-	<426F42F0.9020609@6wind.com>
-	<20050427114216.GV577@postel.suug.ch>
-	<427225B2.6010705@trash.net>
+Subject: Re: [RESEND] [PATCH 2.6.11.7] sch_htb: Drop packet when direct
+ queue is full
+Date: Tue, 3 May 2005 14:39:30 -0700
+Message-ID: <20050503143930.28650cba.davem@davemloft.net>
+References: <Pine.LNX.4.61.0504291725000.28792@limnos.csrd.uiuc.edu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, nicolas.dichtel@6wind.com, netdev@oss.sgi.com,
-	linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <427225B2.6010705@trash.net>
-Sender: linux-net-owner@vger.kernel.org
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Asim Shankar <asimshankar@gmail.com>
+In-Reply-To: <Pine.LNX.4.61.0504291725000.28792@limnos.csrd.uiuc.edu>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 29 Apr 2005 14:16:50 +0200
-Patrick McHardy <kaber@trash.net> wrote:
+On Fri, 29 Apr 2005 17:33:12 +0000 (UTC)
+Asim Shankar <asimshankar@gmail.com> wrote:
 
-> Thomas Graf wrote:
-> > * Nicolas DICHTEL <426F42F0.9020609@6wind.com> 2005-04-27 09:44
-> > 
-> >>>Yes I agree, it doesn't really matter what value we return and `bound'
-> >>>is most likely to be correct. I think we should also fix the unlikely
-> >>>but still possible case when tv1.tv_usec is slightly smaller than
-> >>>tv2.tv_usec. I know it is very unlikely but do_gettimeofday really
-> >>>is not that reliable and we have users which rely on a positive
-> >>>delta. Can you extend your patch to return abs(delta) for case 0
-> >>>in PSCHED_TDIFF_SAFE?
+> htb_enqueue(): Free skb and return NET_XMIT_DROP if a packet is
+> destined for the direct_queue but the direct_queue is full. (Before
+> this: erroneously returned NET_XMIT_SUCCESS even though the packet was
+> not enqueued)
 > 
-> Why abs(delta)? It could be above bound, in fact all cases besides
-> delta_sec > 2 doesn't take care to stay inside [0..bound] at all.
+> Signed-off-by: Asim Shankar <asimshankar@gmail.com>
 
-Applied, thanks Patrick.
+Applied, thanks Asim.
