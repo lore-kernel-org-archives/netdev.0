@@ -1,10 +1,10 @@
 From: "David S. Miller" <davem@davemloft.net>
 Subject: Re: CONFIG_NETFILTER_DEBUG spew
-Date: Tue, 3 May 2005 16:20:07 -0700
-Message-ID: <20050503162007.70c57f37.davem@davemloft.net>
+Date: Tue, 3 May 2005 16:20:26 -0700
+Message-ID: <20050503162026.11ec4ada.davem@davemloft.net>
 References: <20050501032809.3d0b4cda.akpm@osdl.org>
 	<20050501111507.GA2133@gondor.apana.org.au>
-	<4274F2ED.9080404@trash.net>
+	<4276517F.6030606@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -12,7 +12,7 @@ Cc: akpm@osdl.org, netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org,
 	herbert@gondor.apana.org.au
 Return-path: <netfilter-devel-bounces@lists.netfilter.org>
 To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <4274F2ED.9080404@trash.net>
+In-Reply-To: <4276517F.6030606@trash.net>
 List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
 	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
 List-Archive: </pipermail/netfilter-devel>
@@ -24,5 +24,13 @@ Sender: netfilter-devel-bounces@lists.netfilter.org
 Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, 02 May 2005 18:12:47 +0200
+Patrick McHardy <kaber@trash.net> wrote:
 
-Patch applied, thanks.
+> Herbert Xu wrote:
+> > BTW, should we do nf_reset in ip_dev_loopback_xmit as well?
+> 
+> I think we should, tc actions could do something unexpected with
+> the packet.
+
+Also applied, thanks a lot.
