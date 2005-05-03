@@ -1,40 +1,29 @@
-From: Miika Komu <miika@iki.fi>
+From: Dave Dillow <dave@thedillows.org>
 Subject: Re: IPsec performance
-Date: Tue, 3 May 2005 08:25:15 +0300 (EEST)
-Message-ID: <Pine.GSO.4.58.0505030820160.24686@kekkonen.cs.hut.fi>
+Date: Tue, 03 May 2005 01:54:38 -0400
+Message-ID: <1115099678.2953.3.camel@ori.thedillows.org>
 References: <Pine.GSO.4.58.0505022117190.25766@kekkonen.cs.hut.fi>
- <Pine.GSO.4.58.0505022204090.25766@kekkonen.cs.hut.fi>
- <Pine.LNX.4.62.0505030248020.26815@kaber.coreworks.de>
+	 <Pine.GSO.4.58.0505022204090.25766@kekkonen.cs.hut.fi>
+	 <Pine.LNX.4.62.0505030248020.26815@kaber.coreworks.de>
+	 <Pine.GSO.4.58.0505030820160.24686@kekkonen.cs.hut.fi>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>, Netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <Pine.LNX.4.62.0505030248020.26815@kaber.coreworks.de>
+To: Miika Komu <miika@iki.fi>
+In-Reply-To: <Pine.GSO.4.58.0505030820160.24686@kekkonen.cs.hut.fi>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 3 May 2005, Patrick McHardy wrote:
+On Tue, 2005-05-03 at 08:25 +0300, Miika Komu wrote:
+> However, this does explain why I got only 1.9 megabytes/s with 3DES.
 
-> On Mon, 2 May 2005, Miika Komu wrote:
-> >> I compared TCP-over-NULL-ESP vs. plain-TCP throughput with "ttcp" tool and
-> >> obtained the following results:
-> >>
-> >> Plain-TCP:	11 megabytes/s
-> >> NULL-ESP:	2.5 megabytes/s
-> >>
-> > I browsed the archives also and found this one:
-> >
-> > http://oss.sgi.com/archives/netdev/2004-12/msg00801.html
->
-> null encryption uses a block size of 1, which causes inefficent handling
-> of the data. I'm unsure if some hack for this specific case is worth it
-> since its only meant for testing.
+What was your hardware? Without knowing what you're running on, it's
+impossible to tell if that is good or bad.
 
-Thanks for your response.
+Linux Journal was getting ~5.5MB/s on a PIV 2.2GHz.
+I get ~2.1MB/s on a 550MHz Athlon.
 
-However, this does explain why I got only 1.9 megabytes/s with 3DES.
-
--- 
-Miika Komu              miika@iki.fi          http://www.iki.fi/miika/
+Dave
