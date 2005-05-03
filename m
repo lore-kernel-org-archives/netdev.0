@@ -1,48 +1,39 @@
-From: "Ramkrishna Vepa" <ram.vepa@neterion.com>
-Subject: RE: [PATCH] s2io: replace readq() with mmiowb() in s2io_xmit()
-Date: Tue, 3 May 2005 09:23:07 -0700
-Message-ID: <03d701c54ffc$651958c0$5c10100a@pc.s2io.com>
-References: <Pine.LNX.4.61.0505030750010.16692@linux.site>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: icmp_unreachable uses wrong ip
+Date: Tue, 03 May 2005 20:15:02 +0200
+Message-ID: <4277BFA6.8090306@trash.net>
+References: <1115040079.5620.11.camel@jeroens.office.netland.nl> <200505022038.22014.hasso@estpak.ee> <4276A400.2050306@trash.net> <200505030944.49175.hasso@estpak.ee>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "'Leonid Grossman'" <leonid.grossman@neterion.com>,
-        <muhammad.shafiq@neterion.com>, <ramkrishna.vepa@neterion.com>,
-        <netdev@oss.sgi.com>,
-        "'Ravinandan Arakali'" <ravinandan.arakali@neterion.com>
+Cc: "J. Simonetti" <jeroens@office.netland.nl>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'Arthur Kepner'" <akepner@sgi.com>, "'Anton Blanchard'" <anton@samba.org>
-In-Reply-To: <Pine.LNX.4.61.0505030750010.16692@linux.site>
+To: Hasso Tepper <hasso@estpak.ee>
+In-Reply-To: <200505030944.49175.hasso@estpak.ee>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Ordering is all that is required. We can get rid of the flush.
+Hasso Tepper wrote:
+> Patrick McHardy wrote:
+>>
+>>Your patch can't guarantee that the address used is the same that was
+>>used as nexthop by the previous hop in the path when multiple addresses
+>>are configured on the incoming interface. So I don't think it achieves
+>>much of your goal of making debugging complicated topologies easier.
+> 
+> At first I don't care what was used as nexthop. I want to know which 
+> physical link was used. Having multiple addresses in the same link is more 
+> corner case in core network anyway.
 
-Ram
+But when multiple addresses are used the result can be even more
+confusing. I don't like inconsistent behaviour, and this patch works
+sometimes and sometimes it doesn't.
 
-> -----Original Message-----
-> From: Arthur Kepner [mailto:akepner@sgi.com]
-> Sent: Tuesday, May 03, 2005 7:52 AM
-> To: Anton Blanchard
-> Cc: Ramkrishna Vepa; 'Leonid Grossman'; muhammad.shafiq@neterion.com;
-> ramkrishna.vepa@neterion.com; netdev@oss.sgi.com; 'Ravinandan Arakali'
-> Subject: Re: [PATCH] s2io: replace readq() with mmiowb() in s2io_xmit()
-> 
-> On Tue, 3 May 2005, Anton Blanchard wrote:
-> 
-> >
-> > > [Ram] Yes, it is to ensure ordering as well as the flush of the io
-> that is
-> > > required in some platforms.
-> >
-> > If the flush of the IO is required I cant see how we can remove the
-> read.
-> >
-> 
-> Agreed. Can someone from neterion comment? Is a flush required, or is
-> ordering all that's required here?
-> 
-> --
-> Arthur
+> And can you explain what theoretical possibilities router has to obtain info 
+> what address was used as nexthop by neighbour?
+
+I can think of none.
+
+Regards
+Patrick
