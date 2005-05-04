@@ -1,34 +1,49 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [IPSEC] Store idev entries
-Date: Wed, 4 May 2005 11:12:04 +1000
-Message-ID: <20050504011204.GA19740@gondor.apana.org.au>
-References: <4272EC95.20401@miyazawa.org> <20050430.120736.45974367.yoshfuji@linux-ipv6.org> <20050430031159.GA24326@gondor.apana.org.au> <20050430082339.GA20338@gondor.apana.org.au> <20050430114349.GA24573@gondor.apana.org.au> <20050503162628.7541807d.davem@davemloft.net> <42782025.3010700@trash.net>
+From: Glen Turner <glen.turner@aarnet.edu.au>
+Subject: Re: icmp_unreachable uses wrong ip
+Date: Wed, 04 May 2005 10:45:45 +0930
+Message-ID: <42782241.6080909@aarnet.edu.au>
+References: <1115040079.5620.11.camel@jeroens.office.netland.nl> <20050503092244.GA8864@xi.wantstofly.org> <Pine.LNX.4.61.0505031239460.3205@netcore.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, yoshfuji@linux-ipv6.org,
-        kazunori@miyazawa.org, netdev@oss.sgi.com, usagi-core@linux-ipv6.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <42782025.3010700@trash.net>
+To: Pekka Savola <pekkas@netcore.fi>
+In-Reply-To: <Pine.LNX.4.61.0505031239460.3205@netcore.fi>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 04, 2005 at 03:06:45AM +0200, Patrick McHardy wrote:
+Pekka Savola wrote:
 > 
-> The patch causes a compile error here:
 > 
->   CC      net/ipv6/xfrm6_policy.o
-> In file included from net/ipv6/xfrm6_policy.c:18:
-> include/net/addrconf.h:40: error: field `prefix' has incomplete type
+> There's no specification requiring or recommending either of these 
+> approaches, either for v6 or v4 AFAICS so you can't depend on that 
+> behaviour..
 
-Hmm, I wonder why I didn't see this.  Anyway, could you please add
-the include to addrconf.h instead?
+In the lack of a specification, doing what works best for
+network operators would be nice :-)
 
-Thanks,
+And that behaviour is that addresses in a traceroute should
+be ping-able.  That is, you're tracing the route and there's
+loss at one point, so you want to determine how much loss.
+
+The outgoing interface's address may not be reached down the
+same path as used by the traceroute, whereis the incoming address
+obviously is (or if it isn't, then that itself is interesting
+diagnostic information).
+
+Similarly, using the incoming interface gives more information
+about asymetric routes.
+
+In short, since using the incoming address gives more useful
+output and the specification is silent as to which address
+is allowable, using the incoming interface's address would
+be the most useful choice.
+
+Cheers,
+Glen
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+  Glen Turner         Tel: (08) 8303 3936 or +61 8 8303 3936
+  Australia's Academic & Research Network  www.aarnet.edu.au
