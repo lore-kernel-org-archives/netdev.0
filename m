@@ -1,49 +1,56 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: icmp_unreachable uses wrong ip
-Date: Wed, 4 May 2005 10:29:51 +0200
-Message-ID: <20050504082951.GA13761@xi.wantstofly.org>
-References: <1115040079.5620.11.camel@jeroens.office.netland.nl> <200505030944.49175.hasso@estpak.ee> <4277BFA6.8090306@trash.net> <200505040235.33461.hasso@estpak.ee> <42780B44.8040803@trash.net>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [patch/RFC]: Asynchronous IPsec processing benchmark.
+Date: Wed, 04 May 2005 06:40:14 -0400
+Message-ID: <1115203214.7665.58.camel@localhost.localdomain>
+References: <20050429144103.A23268@2ka.mipt.ru>
+	 <20050503095312.GA29788@gondor.apana.org.au>
+	 <1115115502.3414.22.camel@uganda>
+	 <20050503101447.GA29973@gondor.apana.org.au>
+	 <1115116295.3414.30.camel@uganda>
+	 <20050503102929.GA30097@gondor.apana.org.au>
+	 <1115117728.3414.48.camel@uganda>  <1115127507.3414.58.camel@uganda>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Hasso Tepper <hasso@estpak.ee>, "J. Simonetti" <jeroens@office.netland.nl>,
-        netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com,
+        Patrick McHardy <kaber@trash.net>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <42780B44.8040803@trash.net>
+To: johnpol@2ka.mipt.ru
+In-Reply-To: <1115127507.3414.58.camel@uganda>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 04, 2005 at 01:37:40AM +0200, Patrick McHardy wrote:
-
-> >>But when multiple addresses are used the result can be even more
-> >>confusing. I don't like inconsistent behaviour, and this patch works
-> >>sometimes and sometimes it doesn't.
-> > 
-> > I see no behaviour you can define as "it doesn't work". Purpose of this 
-> > patch is to provide info about links (not addresses, you can't have this 
-> > info) used to forward packets and it does the job. 
+On Tue, 2005-03-05 at 17:38 +0400, Evgeniy Polyakov wrote:
+> Here are some numbers:
 > 
-> Well, arguably it can be called "doesn't work" if addresses not used
-> at all during transmit of the packet show up in traceroute.
+> ./netperf -l 60 -H gw -t TCP_STREAM -i 10,2 -I 99,5 -- -m 4096 -s 57344
+> -S 57344
+> 
+> TCP STREAM TEST to gw : +/-2.5% @ 99% conf.
+> 
+> async-ipsec, 10^6bits/sec:  35.42
+>  sync-ipsec, 10^6bits/sec:  37.11
+> 
+> So even with existing timer deferring it is not noticebly slower [about
+> 4%].
+> 
 
-That argument doesn't hold, since exactly the same situation occurs
-if we use the outgoing address as we do now.
+by "sync" i hope you mean the original code without your change?
 
-With asymmetric routing, the incoming interface, interface to
-the destination, and the interface back to the source might all
-be different, so we can end up with:
+The one thing i see in your POC code that may affect numbers a bit is
+allocation of struct esp_async every time in the path. Perhaps precreate
+a pool of those and then just grab/return to/fro pool; 
+BTW, you may need to incr ref counter of x pre-callback and decrement
+when done in callback.
 
-       path from r3 back to a
-       +-------------------+
-       |                   |
-       V                   |
-       a --- r1 --- r2 --- r3 --- r4 --- r5 --- b
+> And I think that benefits it provides definitely cost that price and 
+> compile time option.
 
-The address of the 'upper' interface of r3 is likewise "not used
-at all during transmit of the packet", but it is the address we
-currently send the ICMP from.
+I think Herberts concerns about latency should go away if you really
+have some proper crypto hardware. 
 
-
---L
+cheers,
+jamal
