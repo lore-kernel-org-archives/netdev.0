@@ -1,48 +1,49 @@
-From: folkert@vanheusden.com
-Subject: Re: [PATCH] optimize check in port-allocation code
-Date: Wed, 4 May 2005 09:15:20 +0200
-Message-ID: <20050504071516.GA1008@vanheusden.com>
-References: <20050420184419.GM20290@vanheusden.com>
-	<20050424190427.11b4863e.davem@davemloft.net>
-	<20050425061210.GB15167@vanheusden.com>
-	<20050428120824.6cc9b345.davem@davemloft.net>
-	<20050428212449.GC8774@vanheusden.com>
-	<20050503143620.43cac50f.davem@davemloft.net>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: icmp_unreachable uses wrong ip
+Date: Wed, 4 May 2005 10:29:51 +0200
+Message-ID: <20050504082951.GA13761@xi.wantstofly.org>
+References: <1115040079.5620.11.camel@jeroens.office.netland.nl> <200505030944.49175.hasso@estpak.ee> <4277BFA6.8090306@trash.net> <200505040235.33461.hasso@estpak.ee> <42780B44.8040803@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Cc: Hasso Tepper <hasso@estpak.ee>, "J. Simonetti" <jeroens@office.netland.nl>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
+To: Patrick McHardy <kaber@trash.net>
 Content-Disposition: inline
-In-Reply-To: <20050503143620.43cac50f.davem@davemloft.net>
+In-Reply-To: <42780B44.8040803@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> > > > I'll resend it as an attachment (see attachment).
-> > > It still has spaces where there should be tabs, even though
-> > > you compressed the patch and used attachment.
-> > > The diff itself must already be corrupt before you attach
-> > > it.
-> > > Please double check that the patch you submit actually apply,
-> > > this will save me a lot of wasted time.
-> > Ok, I've redone them and tested if they patch cleanly, they now do.
-> > See them attached.
-> Both patches applied, thanks a lot.
+On Wed, May 04, 2005 at 01:37:40AM +0200, Patrick McHardy wrote:
 
-What about moving that rover++ to the end of the loop? Was my
-analysis correct?
+> >>But when multiple addresses are used the result can be even more
+> >>confusing. I don't like inconsistent behaviour, and this patch works
+> >>sometimes and sometimes it doesn't.
+> > 
+> > I see no behaviour you can define as "it doesn't work". Purpose of this 
+> > patch is to provide info about links (not addresses, you can't have this 
+> > info) used to forward packets and it does the job. 
+> 
+> Well, arguably it can be called "doesn't work" if addresses not used
+> at all during transmit of the packet show up in traceroute.
+
+That argument doesn't hold, since exactly the same situation occurs
+if we use the outgoing address as we do now.
+
+With asymmetric routing, the incoming interface, interface to
+the destination, and the interface back to the source might all
+be different, so we can end up with:
+
+       path from r3 back to a
+       +-------------------+
+       |                   |
+       V                   |
+       a --- r1 --- r2 --- r3 --- r4 --- r5 --- b
+
+The address of the 'upper' interface of r3 is likewise "not used
+at all during transmit of the packet", but it is the address we
+currently send the ICMP from.
 
 
-Folkert van Heusden
-
--- 
-Auto te koop, zie: http://www.vanheusden.com/daihatsu.php
-Op zoek naar een IT of Finance baan? Mail me voor de mogelijkheden.
---------------------------------------------------------------------
- UNIX admin? Then give MultiTail (http://vanheusden.com/multitail/) 
- a try, it brings monitoring logfiles to a different level! See     
- http://vanheusden.com/multitail/features.html for a feature-list.  
---------------------------------------------------------------------
-Phone: +31-6-41278122, PGP-key: 1F28D8AE
-Get your PGP/GPG key signed at www.biglumber.com!
+--L
