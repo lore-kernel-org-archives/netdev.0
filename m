@@ -1,61 +1,52 @@
 From: Patrick McHardy <kaber@trash.net>
 Subject: Re: [PATCH] (3/3) netem: adjust parent qlen when duplicating
-Date: Wed, 04 May 2005 03:57:02 +0200
-Message-ID: <42782BEE.2050206@trash.net>
-References: <20050503162550.30acf31a@dxpl.pdx.osdl.net>	<42780AC1.8040409@trash.net>	<20050503163025.38bb9682.davem@davemloft.net>	<42780DB2.2090201@trash.net> <20050503165937.0c6cac6d.davem@davemloft.net> <42782B59.3000500@trash.net>
+Date: Wed, 04 May 2005 03:54:33 +0200
+Message-ID: <42782B59.3000500@trash.net>
+References: <20050503162550.30acf31a@dxpl.pdx.osdl.net>	<42780AC1.8040409@trash.net>	<20050503163025.38bb9682.davem@davemloft.net>	<42780DB2.2090201@trash.net> <20050503165937.0c6cac6d.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------070808090604040309020309"
+ boundary="------------020602040806080405010609"
 Cc: shemminger@osdl.org, netdev@oss.sgi.com, netem@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <42782B59.3000500@trash.net>
+In-Reply-To: <20050503165937.0c6cac6d.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------070808090604040309020309
+--------------020602040806080405010609
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 
-Patrick McHardy wrote:
-> David S. Miller wrote:
-> 
->>On Wed, 04 May 2005 01:48:02 +0200
->>Patrick McHardy <kaber@trash.net> wrote:
->>
->>
->>
->>>That's what I already suggested, it should be pretty simple to do
->>>so. I'll send a patch once your tree appears on kernel.org.
+David S. Miller wrote:
+> On Wed, 04 May 2005 01:48:02 +0200
+> Patrick McHardy <kaber@trash.net> wrote:
 > 
 > 
-> This one should work. It keeps a pointer to the parent qdisc in struct
-> Qdisc and adjusts q.qlen of all parent qdiscs in netem. The __parent
-> pointer also used by CBQ is renamed to parentq and is used for this. To
-> avoid confusion, the parent classid is also renamed to parentcl. It
-> should work with all currently included classful qdiscs except HFSC.
-> Statistics are not correctly updated (and can't be without support from
-> the qdisc since classes are internal to it), we need to keep this in
-> mind in case a qdisc like RED which uses qstats.backlog for calculations
-> is converted to a classful one. Fixing HFSC is very low priority, it
-> could only use netem in work-conserving mode anyway.
-> 
-> My favourite solution would be to avoid this hack and let tc actions
-> handle duplication, as Jamal suggested. My previous point against this
-> of not necessarily having an identical classification result for the
-> duplicated packet as the original one is actually a plus since it
-> provides more flexibility. Steven, what do you think about it?
-> 
-> Signed-off-by: Patrick McHardy <kaber@trash.net>
-> 
+>>That's what I already suggested, it should be pretty simple to do
+>>so. I'll send a patch once your tree appears on kernel.org.
 
-Oops, I've attached an old patch with a bug. This one is the
-correct one.
+This one should work. It keeps a pointer to the parent qdisc in struct
+Qdisc and adjusts q.qlen of all parent qdiscs in netem. The __parent
+pointer also used by CBQ is renamed to parentq and is used for this. To
+avoid confusion, the parent classid is also renamed to parentcl. It
+should work with all currently included classful qdiscs except HFSC.
+Statistics are not correctly updated (and can't be without support from
+the qdisc since classes are internal to it), we need to keep this in
+mind in case a qdisc like RED which uses qstats.backlog for calculations
+is converted to a classful one. Fixing HFSC is very low priority, it
+could only use netem in work-conserving mode anyway.
 
+My favourite solution would be to avoid this hack and let tc actions
+handle duplication, as Jamal suggested. My previous point against this
+of not necessarily having an identical classification result for the
+duplicated packet as the original one is actually a plus since it
+provides more flexibility. Steven, what do you think about it?
 
---------------070808090604040309020309
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+--------------020602040806080405010609
 Content-Type: text/plain;
  name="x"
 Content-Transfer-Encoding: 7bit
@@ -180,18 +171,15 @@ Index: net/sched/sch_netem.c
 ===================================================================
 --- 591ce19741741438606ab75a45ac9f973cbb4787/net/sched/sch_netem.c  (mode:100644 sha1:e0c9fbe73b15cee32b44f4469e1ac5eeb9849267)
 +++ uncommitted/net/sched/sch_netem.c  (mode:100644)
-@@ -230,11 +230,9 @@
+@@ -230,8 +230,7 @@
  			 * queue, the parent's qlen accounting gets confused,
  			 * so fix it.
  			 */
 -			qp = qdisc_lookup(sch->dev, TC_H_MAJ(sch->parent));
 -			if (qp)
-+			for (qp = sch; qp; qp = qp->parentq)
++			for (qp = sch->parentq; qp; qp = qp->parentq)
  				qp->q.qlen++;
  
--			sch->q.qlen++;
- 			sch->bstats.bytes += skb2->len;
- 			sch->bstats.packets++;
- 		} else
+ 			sch->q.qlen++;
 
---------------070808090604040309020309--
+--------------020602040806080405010609--
