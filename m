@@ -1,32 +1,38 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [patch 1/1] addrconf.h build fix
-Date: Tue, 3 May 2005 21:51:30 -0700
-Message-ID: <20050503215130.0526178c.davem@davemloft.net>
-References: <200505040456.j444u6sS004479@shell0.pdx.osdl.net>
+Subject: Re: [IPSEC] Store idev entries
+Date: Tue, 3 May 2005 22:16:46 -0700
+Message-ID: <20050503221646.4a8de611.davem@davemloft.net>
+References: <4272EC95.20401@miyazawa.org>
+	<20050430.120736.45974367.yoshfuji@linux-ipv6.org>
+	<20050430031159.GA24326@gondor.apana.org.au>
+	<20050430082339.GA20338@gondor.apana.org.au>
+	<20050430114349.GA24573@gondor.apana.org.au>
+	<20050503162628.7541807d.davem@davemloft.net>
+	<42782025.3010700@trash.net>
+	<20050504011204.GA19740@gondor.apana.org.au>
+	<4278234B.2080605@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, akpm@osdl.org
+Cc: herbert@gondor.apana.org.au, yoshfuji@linux-ipv6.org,
+        kazunori@miyazawa.org, netdev@oss.sgi.com, usagi-core@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: akpm@osdl.org
-In-Reply-To: <200505040456.j444u6sS004479@shell0.pdx.osdl.net>
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <4278234B.2080605@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 03 May 2005 21:55:40 -0700
-akpm@osdl.org wrote:
+On Wed, 04 May 2005 03:20:11 +0200
+Patrick McHardy <kaber@trash.net> wrote:
 
-> On ppc64:
+> Herbert Xu wrote:
+> > Hmm, I wonder why I didn't see this.  Anyway, could you please add
+> > the include to addrconf.h instead?
 > 
-> In file included from net/ipv6/xfrm6_policy.c:18:
-> include/net/addrconf.h:40: error: field `prefix' has incomplete type
+> Sure, I missed the includes below and thought users of the file were
+> supposed to include it first.
 > 
-> This surely patch isn't right, and might break userspace inclusion of this
-> header file.
+> Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-I've got a fix in my queue for this already.
-
-In fact, the patch in question was posted to netdev@oss.sgi.com
-a few hours ago, you may wish to start scanning that list before
-posting patches :-)
+Applied, thanks guys.
