@@ -1,33 +1,22 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: RE: Mystery packet killing tg3
-Date: Tue, 3 May 2005 23:27:38 -0700
-Message-ID: <B1508D50A0692F42B217C22C02D84972020F3EB2@NT-IRVA-0741.brcm.ad.broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8bit
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com
+From: Meelis Roos <mroos@linux.ee>
+Subject: Re: icmp_unreachable uses wrong ip
+Date: Wed, 04 May 2005 10:03:45 +0300
+Message-ID: <E1DTDv7-0003vR-DS@rhn.tartu-labor>
+References: <4276A400.2050306@trash.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-Content-class: urn:content-classes:message
-To: "Stephen Hemminger" <shemminger@osdl.org>,
-        "David S. Miller" <davem@davemloft.net>
+To: netdev@oss.sgi.com
+In-Reply-To: <4276A400.2050306@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
+PM> Your patch can't guarantee that the address used is the same that was
+PM> used as nexthop by the previous hop in the path when multiple addresses
+PM> are configured on the incoming interface. So I don't think it achieves
+PM> much of your goal of making debugging complicated topologies easier.
 
-> Initially, it reproduced everytime link came up, we 
-> reconfigured the VLAN to
-> have a mirror port into a laptop to try and capture what was 
-> happening, but when
-> we did that the bootup problem went away. It was in the tg3_reset_hw
-> during initial dev_open.
-> 
+Nevertheless this patch seems to be the most logical thing to do and is
+_much_ better than current state IMHO. Principle of least surprise.
 
-During initial dev_open, the TG3_FLAG_INIT_COMPLETE flag is not set so
-tg3_reset_hw() should not call tg3_abort_hw() where the stop_block calls are
-made. So there should be no stop_block errors.
-
-I think stop_block errors can only happen during dev_close, suspend, netdev
-watchdog, or ethtool "set" calls.
+-- 
+Meelis Roos
