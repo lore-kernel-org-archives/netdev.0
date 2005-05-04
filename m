@@ -1,31 +1,23 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: IPv6 messes up VLAN device references.
-Date: Wed, 04 May 2005 10:09:52 -0700
-Message-ID: <427901E0.6010502@candelatech.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: IPv6 messes up VLAN device references.
+Date: Wed, 4 May 2005 10:57:21 -0700
+Message-ID: <20050504105721.2b5a9301.davem@davemloft.net>
+References: <427901E0.6010502@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <427901E0.6010502@candelatech.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I am seeing lots of reports of being unable to remove vlan
-interfaces, and so far the problem is always resolved when
-IPv6 is disabled completely.
+On Wed, 04 May 2005 10:09:52 -0700
+Ben Greear <greearb@candelatech.com> wrote:
 
-You can find the bug report here in my vlan bug tracker
-if you want the details.
+> Is there a better place than netdev to submit bugs to the IPv6
+> people?
 
-http://grok.yi.org/~greear/bugzilla/show_bug.cgi?id=190
-
-Is there a better place than netdev to submit bugs to the IPv6
-people?
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+netdev is the best place for all networking bug reports.
