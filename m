@@ -1,46 +1,42 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] (3/3) netem: adjust parent qlen when duplicating
-Date: Tue, 3 May 2005 16:59:37 -0700
-Message-ID: <20050503165937.0c6cac6d.davem@davemloft.net>
-References: <20050503162550.30acf31a@dxpl.pdx.osdl.net>
-	<42780AC1.8040409@trash.net>
-	<20050503163025.38bb9682.davem@davemloft.net>
-	<42780DB2.2090201@trash.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [IPSEC] Store idev entries (was: [PATCH][IPv6][IPsec] stop infinite loop)
+Date: Wed, 4 May 2005 10:46:00 +1000
+Message-ID: <20050504004600.GA19502@gondor.apana.org.au>
+References: <4272EC95.20401@miyazawa.org> <20050430.120736.45974367.yoshfuji@linux-ipv6.org> <20050430031159.GA24326@gondor.apana.org.au> <20050430082339.GA20338@gondor.apana.org.au> <20050430114349.GA24573@gondor.apana.org.au> <20050503162628.7541807d.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, netdev@oss.sgi.com, netem@osdl.org
+Content-Type: text/plain; charset=us-ascii
+Cc: yoshfuji@linux-ipv6.org, kazunori@miyazawa.org, netdev@oss.sgi.com,
+        usagi-core@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <42780DB2.2090201@trash.net>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20050503162628.7541807d.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 04 May 2005 01:48:02 +0200
-Patrick McHardy <kaber@trash.net> wrote:
+On Tue, May 03, 2005 at 04:26:28PM -0700, David S. Miller wrote:
+> 
+> Applied, thanks Herbert.
 
-> That's what I already suggested, it should be pretty simple to do
-> so. I'll send a patch once your tree appears on kernel.org.
+Thanks Dave.
 
-Thanks.
+BTW, I was reviewing the rt6i_idev usage in IPv6 and it seems to me
+that they need some protection with locking or RCU.  As it is they
+are simply dereferenced in user/softirq context with no locking.
 
-> BTW, are you pushing it regulary or just for Linus to merge?
+For example, the call chain udpv6_sendmsg -> ip6_dst_lookup ->
+ipv6_get_saddr occurs in user context and simply dereferences
+rt6i_idev.  The race condition is that another CPU could come
+in and free rt6i_idev.  The reference count held by the dst
+entry doesn't help since the other CPU will drop the reference
+count for us through dst_ifdown.
 
-I tend to process a batch of patches, then push the kernel.org,
-then to Linus.
+Yoshifuji-san, does this look like a real problem to you?
 
-I just pushed my tree to:
-
-	rsync://rsync.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.git/
-
-and you poke it on the web via:
-
-http://www.kernel.org/git/
-
-My net-2.6 tree is in the list there at:
-
-http://www.kernel.org/git/gitweb.cgi?p=linux%2Fkernel%2Fgit%2Fdavem%2Fnet-2.6.git;a=log
-
-as soon as Marcelo has his GIT tree going for 2.4.x, I'll put Sparc and Net
-trees up for that as well.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
