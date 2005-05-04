@@ -1,69 +1,52 @@
-From: Alexander Nyberg <alexn@dsv.su.se>
-Subject: Re: strange 3c59x behaviour under 2.6.11.7
-Date: Wed, 04 May 2005 23:35:11 +0200
-Message-ID: <1115242511.2562.58.camel@localhost.localdomain>
-References: <Pine.LNX.4.44.0505031057380.9939-100000@kenzo.iwr.uni-heidelberg.de>
-	 <Pine.GSO.4.58.0505041639400.5735@denali.ccs.neu.edu>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] tlan: restore deleted module parameters.
+Date: Wed, 4 May 2005 15:33:11 -0700
+Message-ID: <20050504153311.7d1a0fe9@dxpl.pdx.osdl.net>
+References: <Pine.LNX.4.58.0504241751090.13938@lea.ulyssis.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: vortex@scyld.com, Bogdan.Costescu@iwr.uni-heidelberg.de,
-        linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jim Faulkner <jfaulkne@ccs.neu.edu>
-In-Reply-To: <Pine.GSO.4.58.0505041639400.5735@denali.ccs.neu.edu>
+To: Stefaan De Roeck <stefaan@ulyssis.org>, Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <Pine.LNX.4.58.0504241751090.13938@lea.ulyssis.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> Some background for the linux-kernel folks:
-> 
-> http://www.scyld.com/pipermail/vortex/2005-May/002483.html
-> 
-> http://www.scyld.com/pipermail/vortex/2005-May/002484.html
-> 
-> On Tue, 3 May 2005, Bogdan Costescu wrote:
-> 
-> > > Any ideas on what is causing this problem, and how to fix it?
-> >
-> > Try booting with acpi=off.
-> > Try updating BIOS and/or modify power related options in BIOS.
-> 
-> I've tried disabling ACPI in the kernel, turning on APM support in the
-> BIOS, and the combination of the two, and unfortunately the problem
-> persisted.
-> 
-> However, I found this patch (the one at the very bottom of the page):
-> http://www.mail-archive.com/linux-kernel@vger.kernel.org/msg78894.html
-> 
-> And after adapting it to the 2.6.11.7 kernel, everything works again!
-> I've rebooted the machine several times, and the 3com cards initialized
-> successfully every time.
-> 
-> I'm CC'ing linux-kernel in the hopes that this fix can make it into the
-> mainstream kernel sometime soon.  I'm sure my mother would appreciate it
-> greatly. :)
-> 
-> Please CC my e-mail address in any replies as I am not subscribed to this
-> list.
+The module parameter values got lost in the conversion to the new module_param
+interface. This should fix it.
 
-[netdev needs to be up on the CC on this too]
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-Yeah I get the same behaviour reliably when doing kexec on a box with
-the 3c59x, lspci shows:
-
-0000:00:0f.0 Ethernet controller: 3Com Corporation 3c905C-TX/TX-M [Tornado] (rev 74)
-        Subsystem: 3Com Corporation 3C905C-TX Fast Etherlink for PC Management NIC
-        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
-        Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-        Latency: 32 (2500ns min, 2500ns max), Cache Line Size: 0x08 (32 bytes)
-        Interrupt: pin A routed to IRQ 5
-        Region 0: I/O ports at b000 [size=128]
-        Region 1: Memory at ef004000 (32-bit, non-prefetchable) [size=128]
-        Capabilities: [dc] Power Management version 2
-                Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=0mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
-                Status: D0 PME-Enable- DSel=0 DScale=2 PME-
-00: b7 10 00 92 07 00 10 02 74 00 00 02 08 20 00 00
-10: 01 b0 00 00 00 40 00 ef 00 00 00 00 00 00 00 00
-20: 00 00 00 00 00 00 00 00 00 00 00 00 b7 10 00 10
-30: 00 00 00 00 dc 00 00 00 00 00 00 00 05 01 0a 0a
+Index: tlan/drivers/net/tlan.c
+===================================================================
+--- tlan.orig/drivers/net/tlan.c
++++ tlan/drivers/net/tlan.c
+@@ -193,6 +193,12 @@ static  int aui[MAX_TLAN_BOARDS];
+ static  int duplex[MAX_TLAN_BOARDS];
+ static  int speed[MAX_TLAN_BOARDS];
+ static  int boards_found;
++module_param_array(aui, int, NULL, 0);
++module_param_array(duplex, int, NULL, 0);
++module_param_array(speed, int, NULL, 0);
++MODULE_PARM_DESC(aui, "ThunderLAN use AUI port(s) (0-1)");
++MODULE_PARM_DESC(duplex, "ThunderLAN duplex setting(s) (0-default, 1-half, 2-full)");
++MODULE_PARM_DESC(speed, "ThunderLAN port speen setting(s) (0,10,100)");
+ 
+ MODULE_AUTHOR("Maintainer: Samuel Chessman <chessman@tux.org>");
+ MODULE_DESCRIPTION("Driver for TI ThunderLAN based ethernet PCI adapters");
+@@ -204,8 +210,13 @@ MODULE_LICENSE("GPL");
+ 
+ /* Turn on debugging. See Documentation/networking/tlan.txt for details */
+ static  int		debug;
++module_param(debug, int, 0);
++MODULE_PARM_DESC(debug, "ThunderLAN debug mask");
+ 
+ static	int		bbuf;
++module_param(bbuf, int, 0);
++MODULE_PARM_DESC(bbuf, "ThunderLAN use big buffer (0-1)");
++
+ static	u8		*TLanPadBuffer;
+ static  dma_addr_t	TLanPadBufferDMA;
+ static	char		TLanSignature[] = "TLAN";
