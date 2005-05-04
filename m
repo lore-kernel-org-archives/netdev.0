@@ -1,23 +1,33 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: IPv6 messes up VLAN device references.
-Date: Wed, 4 May 2005 10:57:21 -0700
-Message-ID: <20050504105721.2b5a9301.davem@davemloft.net>
-References: <427901E0.6010502@candelatech.com>
+From: george@cam.ac.uk
+Subject: Eu nao ti vejo a muito tempo. ScanMail has detected a virus!
+Date: Wed, 4 May 2005 15:22:50 -0300
+Message-ID: <OF36C1B443.80477A39-ON03256FF7.0064386E@al.sp.gov.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/mixed;
+	boundary="----=_NextPart_000_0013_1FC6D3BE.9A06A221"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <427901E0.6010502@candelatech.com>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 04 May 2005 10:09:52 -0700
-Ben Greear <greearb@candelatech.com> wrote:
 
-> Is there a better place than netdev to submit bugs to the IPv6
-> people?
+------=_NextPart_000_0013_1FC6D3BE.9A06A221
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain;
+	charset="Windows-1252"
 
-netdev is the best place for all networking bug reports.
+Ola, a quanto tempo!               Eu me mudei dai para os Estados Unidos, e faz um tempo que perdemos o contato               e consegui seu email atraves de uma amiga sua. Vamos fazer assim, eu vou lhe               mandar meu album de fotos se voce me reconhecer, me retorna o email.               Quero ver se voce ainda lembra de mim. :)               
+
+
+------=_NextPart_000_0013_1FC6D3BE.9A06A221
+Content-Type: application/octet-stream;
+	name="fotografia.exe"
+Content-Disposition: attachment;
+	filename="fotografia.exe"
+Content-Transfer-Encoding: base64
+
+DQo=
+
+
+------=_NextPart_000_0013_1FC6D3BE.9A06A221--
