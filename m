@@ -1,52 +1,46 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] tlan: restore deleted module parameters.
-Date: Wed, 4 May 2005 15:33:11 -0700
-Message-ID: <20050504153311.7d1a0fe9@dxpl.pdx.osdl.net>
-References: <Pine.LNX.4.58.0504241751090.13938@lea.ulyssis.org>
+Subject: Re: Mystery packet killing tg3
+Date: Wed, 4 May 2005 15:51:43 -0700
+Message-ID: <20050504155143.1a78cb7a@dxpl.pdx.osdl.net>
+References: <B1508D50A0692F42B217C22C02D84972020F3EB2@NT-IRVA-0741.brcm.ad.broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: "David S. Miller" <davem@davemloft.net>, jgarzik@pobox.com,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stefaan De Roeck <stefaan@ulyssis.org>, Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <Pine.LNX.4.58.0504241751090.13938@lea.ulyssis.org>
+To: "Michael Chan" <mchan@broadcom.com>
+In-Reply-To: <B1508D50A0692F42B217C22C02D84972020F3EB2@NT-IRVA-0741.brcm.ad.broadcom.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The module parameter values got lost in the conversion to the new module_param
-interface. This should fix it.
+On Tue, 3 May 2005 23:27:38 -0700
+"Michael Chan" <mchan@broadcom.com> wrote:
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> Stephen Hemminger wrote:
+> 
+> > Initially, it reproduced everytime link came up, we 
+> > reconfigured the VLAN to
+> > have a mirror port into a laptop to try and capture what was 
+> > happening, but when
+> > we did that the bootup problem went away. It was in the tg3_reset_hw
+> > during initial dev_open.
+> > 
+> 
+> During initial dev_open, the TG3_FLAG_INIT_COMPLETE flag is not set so
+> tg3_reset_hw() should not call tg3_abort_hw() where the stop_block calls are
+> made. So there should be no stop_block errors.
+> 
+> I think stop_block errors can only happen during dev_close, suspend, netdev
+> watchdog, or ethtool "set" calls.
 
-Index: tlan/drivers/net/tlan.c
-===================================================================
---- tlan.orig/drivers/net/tlan.c
-+++ tlan/drivers/net/tlan.c
-@@ -193,6 +193,12 @@ static  int aui[MAX_TLAN_BOARDS];
- static  int duplex[MAX_TLAN_BOARDS];
- static  int speed[MAX_TLAN_BOARDS];
- static  int boards_found;
-+module_param_array(aui, int, NULL, 0);
-+module_param_array(duplex, int, NULL, 0);
-+module_param_array(speed, int, NULL, 0);
-+MODULE_PARM_DESC(aui, "ThunderLAN use AUI port(s) (0-1)");
-+MODULE_PARM_DESC(duplex, "ThunderLAN duplex setting(s) (0-default, 1-half, 2-full)");
-+MODULE_PARM_DESC(speed, "ThunderLAN port speen setting(s) (0,10,100)");
- 
- MODULE_AUTHOR("Maintainer: Samuel Chessman <chessman@tux.org>");
- MODULE_DESCRIPTION("Driver for TI ThunderLAN based ethernet PCI adapters");
-@@ -204,8 +210,13 @@ MODULE_LICENSE("GPL");
- 
- /* Turn on debugging. See Documentation/networking/tlan.txt for details */
- static  int		debug;
-+module_param(debug, int, 0);
-+MODULE_PARM_DESC(debug, "ThunderLAN debug mask");
- 
- static	int		bbuf;
-+module_param(bbuf, int, 0);
-+MODULE_PARM_DESC(bbuf, "ThunderLAN use big buffer (0-1)");
-+
- static	u8		*TLanPadBuffer;
- static  dma_addr_t	TLanPadBufferDMA;
- static	char		TLanSignature[] = "TLAN";
+It seems that dhclient was failing on bootup then taking the device down.
+When the device down happened it got the tg3_stop_block from
+ Call Trace:<ffffffff880178a9>{:tg3:tg3_stop_block+185} <ffffffff88017b1d>{:tg3:tg3_abort_hw+605}
+       <ffffffff88018178>{:tg3:tg3_halt+40} <ffffffff88019827>{:tg3:tg3_close+71}
+       <ffffffff802c1734>{dev_close+100} <ffffffff802c2b68>{dev_change_flags+104}
+       <ffffffff80300e35>{devinet_ioctl+773} <ffffffff803022dc>{inet_ioctl+92}
+       <ffffffff802b82bc>{sock_ioctl+556} <ffffffff801898fa>{do_ioctl+58}
+       <ffffffff80189c2b>{vfs_ioctl+715} <ffffffff80189cad>{sys_ioctl+77}
+       <ffffffff8010ea66>{system_call+126} 
