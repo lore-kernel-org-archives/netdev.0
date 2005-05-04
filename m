@@ -1,41 +1,22 @@
-From: akpm@osdl.org
-Subject: [patch 1/1] addrconf.h build fix
-Date: Tue, 03 May 2005 21:55:40 -0700
-Message-ID: <200505040456.j444u6sS004479@shell0.pdx.osdl.net>
-Cc: netdev@oss.sgi.com, akpm@osdl.org
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] (3/3) netem: adjust parent qlen when duplicating
+Date: Tue, 03 May 2005 22:01:48 -0700
+Message-ID: <4278573C.3040503@osdl.org>
+References: <20050503162550.30acf31a@dxpl.pdx.osdl.net>	<42780AC1.8040409@trash.net>	<20050503163025.38bb9682.davem@davemloft.net>	<42780DB2.2090201@trash.net> <20050503165937.0c6cac6d.davem@davemloft.net> <42782B59.3000500@trash.net> <42782BEE.2050206@trash.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
+        netem@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@davemloft.net
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <42782BEE.2050206@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
-
-On ppc64:
-
-In file included from net/ipv6/xfrm6_policy.c:18:
-include/net/addrconf.h:40: error: field `prefix' has incomplete type
-
-This surely patch isn't right, and might break userspace inclusion of this
-header file.
-
-
-Signed-off-by: Andrew Morton <akpm@osdl.org>
----
-
- include/net/addrconf.h |    2 ++
- 1 files changed, 2 insertions(+)
-
-diff -puN include/net/addrconf.h~addrconf-build-fix include/net/addrconf.h
---- 25/include/net/addrconf.h~addrconf-build-fix	2005-05-04 04:47:24.000000000 -0600
-+++ 25-akpm/include/net/addrconf.h	2005-05-04 04:47:39.000000000 -0600
-@@ -1,6 +1,8 @@
- #ifndef _ADDRCONF_H
- #define _ADDRCONF_H
- 
-+#include <linux/in6.h>
-+
- #define RETRANS_TIMER	HZ
- 
- #define MAX_RTR_SOLICITATIONS		3
-_
+I like Patrick's solution; and eventually I'll remove duplicate from 
+netem and use mirred action. The problem is that it makes setting up a 
+test environment even more complicated (and error prone). The interface 
+to this is just getting so messy (sorry Jamal), with mirred, filters 
+etc..  Unfortunately, tcng doesn't seem to be getting updated regularly.
