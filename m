@@ -1,342 +1,65 @@
-From: Michael Iatrou <m.iatrou@freemail.gr>
-Subject: e1000 (?) jumbo frames performance issue
-Date: Thu, 5 May 2005 19:28:32 +0300
-Message-ID: <200505051928.32496.m.iatrou@freemail.gr>
+From: Pablo Neira <pablo@eurodev.net>
+Subject: Re: [RFC] textsearch infrastructure + skb_find_text()
+Date: Thu, 05 May 2005 19:02:26 +0200
+Message-ID: <427A51A2.8090600@eurodev.net>
+References: <20050504234036.GH18452@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_wmkeCiRh5V4XVuz"
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, jamal <hadi@cyberus.ca>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050504234036.GH18452@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---Boundary-00=_wmkeCiRh5V4XVuz
-Content-Type: text/plain;
-  charset="iso-8859-7"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Hi Thomas,
 
-Hi,
-I did several benchmarks using Intel e1000 NIC and it seems there is a
-network throughput problem for MTU > 12000 (e1000 supports up to 16110
-MTU).
+Thomas Graf wrote:
+> The patch is separated into 3 parts, the first one being the textsearch
+> infrastructure itself followed by a simple Knuth-Morris-Pratt
+> implementation for reference. I'm also working on what could be called
+> the smallest regular expression implementation ever but I left that
+> out for now since it still has issues. Last but not least the
+> function skb_find_text() written in a hurry and probably not yet
+> correct but you should get the idea. From a userspace perspective
+> the first user will be an ematch but writing it will be peanuts
+> so I left it out for now.
+> 
+> Basically what it looks like right now is:
+> 
+> int pos;
+> struct ts_state;
+> struct ts_config *conf = textsearch_prepare("kmp", "hanky", 5, GFP_KERNEL, 1);
+> 
+> /* search for "hanky" at offset 20 until end of packet */
+> for (pos = skb_find_text(skb, 20, INT_MAX, conf, &state;
+>      pos >= 0;
+>      pos = textsearch_next(conf, &state)) {
+>         printk("Need a hanky? I found one at offset %d.\n", pos);
+> }
+> 
+> textsearch_put(conf);
+> kfree(conf);
 
-Configuration:
-Two identical PCs, connected back to back, Intel Xeon 2.8GHz (SMP/SMT
-disabled), 512MB RAM, e1000 (82546EB)
+I haven't got too much time to review this stuff in deep though. 
+Impressive work, but I still miss something, some comments:
 
-Linux 2.6.11.7
-netperf 2.3pl1
+- A custom destroy function in ts_ops.
+- I don't see a way to look for matches in fragments. I mean, say we've 
+got "dancing " in a fragment and "chicken" in the next one. Currently we 
+don't get a match.
+- I particularly like Rusty's skb iterator, well you've refactored that 
+code anyway.
 
-http://members.hellug.gr/iatrou/plain_ip_mtu.png
-http://members.hellug.gr/iatrou/plain_ip_mtu.dat
+I've been reworking the framework for string matching that I sent you 
+two/three months ago, you've definitely worked on a good base. Since 
+then I've introduced a lot of changes and actually I've been testing it 
+(ick, that means that we've clashed!).
 
--- 
- Michael Iatrou
- Electrical and Computer Engineering Dept.
- University of Patras, Greece
+I think that I can merge both works and then roll on. I still need more 
+time to study more in deep your proposition.
 
---Boundary-00=_wmkeCiRh5V4XVuz
-Content-Type: text/plain;
-  charset="iso-8859-7";
-  name="plain_ip_mtu.dat"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
-	filename="plain_ip_mtu.dat"
-
-1500	936.14
-1550	938.45
-1600	927.26
-1650	943.06
-1700	942.91
-1750	943.94
-1800	947.95
-1850	945.14
-1900	952.91
-1950	948.15
-2000	948.55
-2050	949.63
-2100	953.98
-2150	958.59
-2200	959.39
-2250	959.48
-2300	960.57
-2350	960.78
-2400	953.26
-2450	956.50
-2500	964.36
-2550	961.98
-2600	964.61
-2650	963.79
-2700	966.36
-2750	967.56
-2800	968.12
-2850	963.65
-2900	969.22
-2950	968.97
-3000	967.69
-3050	968.75
-3100	970.95
-3150	967.95
-3200	972.19
-3250	972.61
-3300	973.01
-3350	973.41
-3400	973.78
-3450	974.15
-3500	974.52
-3550	974.88
-3600	975.23
-3650	975.56
-3700	975.89
-3750	976.20
-3800	976.52
-3850	976.82
-3900	977.11
-3950	977.39
-4000	977.68
-4050	977.95
-4100	978.23
-4150	978.48
-4200	978.74
-4250	978.97
-4300	979.21
-4350	979.46
-4400	979.68
-4450	979.91
-4500	980.13
-4550	980.36
-4600	980.58
-4650	980.77
-4700	980.97
-4750	981.17
-4800	981.37
-4850	981.56
-4900	981.75
-4950	981.92
-5000	982.10
-5050	982.28
-5100	982.47
-5150	982.61
-5200	982.78
-5250	982.96
-5300	983.11
-5350	983.27
-5400	983.43
-5450	983.58
-5500	983.71
-5550	983.87
-5600	984.01
-5650	984.15
-5700	984.27
-5750	984.42
-5800	984.55
-5850	984.67
-5900	984.83
-5950	984.94
-6000	985.06
-6050	985.21
-6100	985.29
-6150	985.43
-6200	985.54
-6250	985.66
-6300	985.79
-6350	985.91
-6400	986.03
-6450	986.13
-6500	986.23
-6550	986.34
-6600	986.44
-6650	986.55
-6700	986.65
-6750	986.75
-6800	986.83
-6850	986.95
-6900	987.04
-6950	987.13
-7000	987.22
-7050	987.31
-7100	987.40
-7150	987.48
-7200	987.57
-7250	987.66
-7300	987.74
-7350	987.81
-7400	987.89
-7450	987.98
-7500	987.74
-7550	987.81
-7600	987.20
-7650	987.58
-7700	986.59
-7750	985.17
-7800	985.46
-7850	983.50
-7900	983.88
-7950	982.86
-8000	953.35
-8050	952.76
-8100	947.34
-8150	947.85
-8200	942.18
-8250	989.13
-8300	989.21
-8350	989.27
-8400	989.33
-8450	989.40
-8500	989.47
-8550	989.52
-8600	989.58
-8650	989.64
-8700	989.71
-8750	989.76
-8800	989.82
-8850	989.88
-8900	989.93
-8950	989.99
-9000	990.04
-9050	990.10
-9100	990.16
-9150	990.21
-9200	990.26
-9250	990.31
-9300	990.37
-9350	990.41
-9400	990.47
-9450	990.51
-9500	990.57
-9550	990.61
-9600	990.66
-9650	990.70
-9700	990.76
-9750	990.81
-9800	990.86
-9850	990.89
-9900	990.94
-9950	990.98
-10000	991.04
-10050	991.08
-10100	991.12
-10150	991.17
-10200	991.21
-10250	991.23
-10300	991.30
-10350	991.34
-10400	991.38
-10450	991.43
-10500	991.46
-10550	991.50
-10600	991.55
-10650	991.58
-10700	991.63
-10750	991.67
-10800	991.70
-10850	991.74
-10900	991.78
-10950	991.81
-11000	991.86
-11050	991.89
-11100	991.92
-11150	991.97
-11200	992.00
-11250	992.03
-11300	992.07
-11350	992.11
-11400	992.13
-11450	992.17
-11500	992.21
-11550	992.23
-11600	992.16
-11650	992.12
-11700	991.89
-11750	991.62
-11800	991.79
-11850	991.50
-11900	991.77
-11950	990.46
-12000	990.52
-12050	989.66
-12100	968.77
-12150	967.79
-12200	970.55
-12250	955.71
-12300	952.36
-12350	947.52
-12400	945.08
-12450	946.48
-12500	944.09
-12550	945.16
-12600	942.07
-12650	940.04
-12700	938.17
-12750	936.29
-12800	933.29
-12850	930.13
-12900	927.75
-12950	925.10
-13000	924.25
-13050	922.31
-13100	917.67
-13150	915.92
-13200	913.99
-13250	912.00
-13300	908.68
-13350	905.72
-13400	904.99
-13450	903.24
-13500	900.91
-13550	898.57
-13600	897.07
-13650	895.17
-13700	892.79
-13750	890.03
-13800	888.41
-13850	887.29
-13900	886.30
-13950	884.43
-14000	882.25
-14050	880.46
-14100	878.22
-14150	876.24
-14200	875.41
-14250	872.58
-14300	873.01
-14350	870.16
-14400	868.45
-14450	866.98
-14500	864.76
-14550	863.05
-14600	862.22
-14650	860.05
-14700	858.71
-14750	857.23
-14800	856.31
-14850	854.37
-14900	851.15
-14950	849.92
-15000	849.54
-15050	848.40
-15100	847.32
-15150	845.17
-15200	844.45
-15250	842.98
-15300	841.14
-15350	839.62
-15400	838.34
-15450	837.14
-15500	836.43
-15550	834.64
-15600	833.64
-15650	832.08
-15700	830.72
-15750	829.29
-15800	828.07
-15850	826.93
-15900	825.75
-15950	825.10
-16000	823.32
-16050	822.36
-16100	819.77
-
---Boundary-00=_wmkeCiRh5V4XVuz--
+--
+Pablo
