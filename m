@@ -1,47 +1,73 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: e1000 (?) jumbo frames performance issue
-Date: Thu, 05 May 2005 13:17:31 -0700
-Message-ID: <427A7F5B.8050704@hp.com>
-References: <200505051928.32496.m.iatrou@freemail.gr>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [IPV4]: multipath_wrandom.c GPF fixes
+Date: Thu, 05 May 2005 22:31:06 +0200
+Message-ID: <427A828A.3080309@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/mixed;
+ boundary="------------000100020409060809050509"
+Cc: Maillist netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Michael Iatrou <m.iatrou@freemail.gr>
-In-Reply-To: <200505051928.32496.m.iatrou@freemail.gr>
+To: "David S. Miller" <davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Michael Iatrou wrote:
-> Hi,
-> I did several benchmarks using Intel e1000 NIC and it seems there is a
-> network throughput problem for MTU > 12000 (e1000 supports up to 16110
-> MTU).
-> 
-> Configuration:
-> Two identical PCs, connected back to back, Intel Xeon 2.8GHz (SMP/SMT
-> disabled), 512MB RAM, e1000 (82546EB)
-> 
-> Linux 2.6.11.7
-> netperf 2.3pl1
+This is a multi-part message in MIME format.
+--------------000100020409060809050509
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 
-What settings, if any, did you use for -s, -S and in particular -m in netperf?
+multipath_wrandom needs to use GFP_ATOMIC.
 
-I seem to recall that some of the stack defaults for SO_SNDBUF (IIRC) would 
-result in netperf sending 16KB at a time into the connection - once you sent the 
-MTU above 16K you may have started running into issues with Nagle and delayed 
-ACK?  You could try some tests adding a test-specific -D to disable Nagle, or -C 
-to set TCP_CORK, or use -m to set the send size to say, 32KB.
 
-It might be good to add CPU utilization figures - for 2.3pl1 that means editing 
-the makefile to add a -DUSE_PROC_STAT and recompiling.  Or you can grab netperf 
-2.4.0-rc3 from:
+--------------000100020409060809050509
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
-ftp://ftp.cup.hp.com/dist/networking/benchmarks/netperf/experimental/
+[IPV4]: multipath_wrandom.c GPF fixes
 
-if you cannot find it elsewhere, and that will (try to) compile-in the right CPU 
-utilization mechanism automagically.
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-rick jones
+---
+commit cdb5c875d48676b20ecd95fef080891a68c32e9c
+tree 46b576def0e0b0e4600193306cb830e66b5a57da
+parent 3a614a8969f79ac4116f496beff879736dca83e2
+author Patrick McHardy <kaber@trash.net> 1115277458 +0200
+committer Patrick McHardy <kaber@trash.net> 1115277458 +0200
+
+Index: net/ipv4/multipath_wrandom.c
+===================================================================
+--- a744d6c4cd2587f82796c0f6cb4d7f94744ef9f2/net/ipv4/multipath_wrandom.c  (mode:100644 sha1:10b23e1bece663bd8a9317f980b30ec0df7f0a11)
++++ 46b576def0e0b0e4600193306cb830e66b5a57da/net/ipv4/multipath_wrandom.c  (mode:100644 sha1:c3d2ca1a6781513bc7b2524aad96f61e7a4053a6)
+@@ -172,7 +172,7 @@
+ 		    multipath_comparekeys(&rt->fl, flp)) {
+ 			struct multipath_candidate* mpc =
+ 				(struct multipath_candidate*)
+-				kmalloc(size_mpc, GFP_KERNEL);
++				kmalloc(size_mpc, GFP_ATOMIC);
+ 
+ 			if (!mpc)
+ 				return;
+@@ -244,7 +244,7 @@
+ 	if (!target_route) {
+ 		const size_t size_rt = sizeof(struct multipath_route);
+ 		target_route = (struct multipath_route *)
+-			kmalloc(size_rt, GFP_KERNEL);
++			kmalloc(size_rt, GFP_ATOMIC);
+ 
+ 		target_route->gw = nh->nh_gw;
+ 		target_route->oif = nh->nh_oif;
+@@ -265,7 +265,7 @@
+ 	if (!target_dest) {
+ 		const size_t size_dst = sizeof(struct multipath_dest);
+ 		target_dest = (struct multipath_dest*)
+-			kmalloc(size_dst, GFP_KERNEL);
++			kmalloc(size_dst, GFP_ATOMIC);
+ 
+ 		target_dest->nh_info = nh;
+ 		target_dest->network = network;
+
+--------------000100020409060809050509--
