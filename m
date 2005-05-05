@@ -1,51 +1,30 @@
-From: Matthew Wilcox <matthew@wil.cx>
-Subject: Re: [PATCH 2/3] add open iscsi netlink interface to iscsi transport class
-Date: Thu, 5 May 2005 13:22:04 +0100
-Message-ID: <20050505122204.GL19678@parcelfarce.linux.theplanet.co.uk>
-References: <42798AC1.2010308@cs.wisc.edu> <20050505.185503.78606493.yoshfuji@linux-ipv6.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: michaelc@cs.wisc.edu, linux-scsi@vger.kernel.org,
-	netdev@oss.sgi.com, linux-kernel@vger.kernel.org
-Return-path: <linux-scsi-owner@vger.kernel.org>
-To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
-Content-Disposition: inline
-In-Reply-To: <20050505.185503.78606493.yoshfuji@linux-ipv6.org>
-Sender: linux-scsi-owner@vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: MultiPath Routing
+Date: Thu, 05 May 2005 22:36:58 +1000
+Message-ID: <E1DTfb8-0005lI-00@gondolin.me.apana.org.au>
+References: <427A0EAF.2050402@rapidforum.com>
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: webmaster@rapidforum.com (Christian Schmid)
+In-Reply-To: <427A0EAF.2050402@rapidforum.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 05, 2005 at 06:55:03PM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ wrote:
-> In article <42798AC1.2010308@cs.wisc.edu> (at Wed, 04 May 2005 19:53:53 -0700), Mike Christie <michaelc@cs.wisc.edu> says:
+Christian Schmid <webmaster@rapidforum.com> wrote:
 > 
-> > +struct iscsi_uevent {
-> :
-> > +} __attribute__ ((aligned (sizeof(unsigned long))));
+> Since this seems to be an undocumented feature.... How is this equal-cost multipath supposed to 
+> work? I just want to send outgoing traffic over two gateways. I tried this:
 > 
-> I think it'd be better to use sizeof(uint64_t) or something.
-
-Actually, it's completely unnecessary.  iscsi_uevent contains a uint64_t
-element, and the GCC docs (in the 'Type attribute' section, documenting
-aligned) say:
-
-     Note that the alignment of any given `struct' or `union' type is
-     required by the ISO C standard to be at least a perfect multiple of
-     the lowest common multiple of the alignments of all of the members
-     of the `struct' or `union' in question.  This means that you _can_
-
-So best to just delete it.  It has no effect.
-
-> Please check other spots, too. e.g.:
+> ip route replace default scope global nexthop via 192.168.0.1 dev eth1 weight 100 nexthop via 
+> 192.168.0.100 dev eth1 weight 100
 > 
-> > +	struct iscsi_stats_custom custom[0]
-> > +		__attribute__ ((aligned (sizeof(unsigned long))));
+> It it doesnt work. It always uses the last for all download-users (around a few hundreds)
 
-This one's probably useless too, but it's hard to tell since the patches
-weren't sent inline thus making them difficult to cross-reference.
-
+Did you enable IP_ROUTE_MULTIPATH_CACHED? If so please disable it
+since it breaks multipath routing for forwarded traffic.
 -- 
-"Next the statesmen will invent cheap lies, putting the blame upon 
-the nation that is attacked, and every man will be glad of those
-conscience-soothing falsities, and will diligently study them, and refuse
-to examine any refutations of them; and thus he will by and by convince 
-himself that the war is just, and will thank God for the better sleep 
-he enjoys after this process of grotesque self-deception." -- Mark Twain
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
