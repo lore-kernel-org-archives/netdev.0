@@ -1,10 +1,11 @@
-From: Nivedita Singhvi <niv@us.ibm.com>
+From: Stephen Hemminger <shemminger@osdl.org>
 Subject: Re: [PATCH] TSO Reloaded
-Date: Thu, 05 May 2005 16:18:29 -0700
-Message-ID: <427AA9C5.8080605@us.ibm.com>
-References: <20050504230731.12be1bc3.davem@davemloft.net> <20050505153532.30159bd5.davem@davemloft.net>
+Date: Thu, 5 May 2005 16:24:48 -0700
+Message-ID: <20050505162448.3278aa8f@dxpl.pdx.osdl.net>
+References: <20050504230731.12be1bc3.davem@davemloft.net>
+	<20050505153532.30159bd5.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
@@ -14,16 +15,14 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
+On Thu, 5 May 2005 15:35:32 -0700
+"David S. Miller" <davem@davemloft.net> wrote:
+
+> 
 > Is anyone testing this or is everyone too scared? :-)
 > 
 > A lot of people wanted this TSO stuff fixed, so I spent
 > time implementing the fix.  Yet nobody seems interested
 > enough to even say "it works" or "it's busted" :-/
-> 
 
-It's in the queue, Dave :).
-Let you know if there are problems...
-
-thanks,
-Nivedita
+It works on tg3 that is too stupid to do TSO at least. More tests coming
