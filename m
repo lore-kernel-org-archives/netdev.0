@@ -1,64 +1,84 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [2.6 patch] net/bluetooth/: possible cleanups
-Date: Thu, 05 May 2005 15:28:30 +0200
-Message-ID: <1115299710.8496.168.camel@pegasus>
-References: <20050505002310.GF3593@stusta.de>
-Reply-To: bluez-devel@lists.sourceforge.net
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [RFC] textsearch infrastructure + skb_find_text()
+Date: Thu, 5 May 2005 16:12:22 +0200
+Message-ID: <20050505141222.GA25977@postel.suug.ch>
+References: <20050504234036.GH18452@postel.suug.ch> <1115296937.7680.52.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: marcel@holtmann.or, maxk@qualcomm.com, bluez-devel@lists.sf.net,
-	netdev@oss.sgi.com, linux-kernel@vger.kernel.org
-Return-path: <bluez-devel-admin@lists.sourceforge.net>
-To: Adrian Bunk <bunk@stusta.de>
-In-Reply-To: <20050505002310.GF3593@stusta.de>
-Sender: bluez-devel-admin@lists.sourceforge.net
-Errors-To: bluez-devel-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
-	<mailto:bluez-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:bluez-devel@lists.sourceforge.net>
-List-Help: <mailto:bluez-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
-	<mailto:bluez-devel-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=bluez-devel>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, Pablo Neira <pablo@eurodev.net>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1115296937.7680.52.camel@localhost.localdomain>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Adrian,
+* jamal <1115296937.7680.52.camel@localhost.localdomain> 2005-05-05 08:42
+> How is this different from libqsearch? IIRC, it also kept pointers and
+> callbacks.
 
-> This patch contains the following possible cleanups:
-> - #ifdef HCI_DATA_DUMP the following function:
->   lib.c: bt_dump
-> - #if 0 the following unused global functions:
->   - hci_core.c: hci_suspend_dev
->   - hci_core.c: hci_resume_dev
-> - remove the following unneeded EXPORT_SYMBOL's:
->   - hci_core.c: hci_dev_get
->   - hci_core.c: hci_send_cmd
->   - hci_event.c: hci_si_event
+The main difference is that my infrastructure is much simpler.
+
+> BTW, I hope theres sync with libqsearch - at least some canibalization
+> of ideas.
+
+I read the libqsearch code but fixing up all the issues required
+for my use would have taken up more time than writing up something new.
+
+> Also hopefully, pluggin of ne algorithms is trivial (e.g boyer-moore
+> could be included in addition to kmp etc)
+
+Very simple, ts_kmp.c is 108 lines whereas simple.c in libqsearch
+is over 500.
+
+> I have a lot of questions:
+> - does a string have to be terminated by \0?
+
+All strings are length terminated.
+
+> - do you keep state of the string from the begining? ex: how do you know
+> that preceeding "hanky" was "Need a"?
+
+I store the shift of a match in struct ts_state, add the length of
+the pattern in the call to textsearch_next() and provide this shift
+as offset to the get_text() callback.
+
+> - all sorts of limits: how long is the string? etc
+
+Both the length of a pattern and the length of a text block is
+limited by INT_MAX. However, since there can be an arbitary number
+of blocks there is no limit in the text length. Depending on the
+search algorithm there might be more limits, for example kmp uses
+unsigned int for each prefix table entry so this limits the length
+of the pattern as well (theoretically).
+
+> - what happens if a string spans multiple skbs or even multiple
+> fragments?
+
+This was the single most important requirement. Actually you can
+compose the text out of anything. I already wrote some code to
+handle paged skbs and multiple skbs can be implemented the same
+way. You could for example store a ts_state per conntrack and
+call textsearch_next continuously until you find a match. Would
+require some magic in the get_text() but shouldn't be too hard.
+
 > 
-> Please review which of these changes do make sense and which conflict 
-> with pending patches.
+> > You might wonder about the 1 given to _prepare(),  it indicates whether
+> > to autoload modules because the ematches will need it to be able to drop
+> > rtnl sem.
+> > 
+> 
+> do you really wanna leave that decision upto the user?
 
-I like to let hci_suspend_dev() and hci_resume_dev() stay for now. No
-driver uses it, but actually nobody really looked deep enough to really
-understand the needs for suspend of Bluetooth devices.
+We have to, otherwise we can't use it in ematches without the risk
+of deadlocks. There is no way around than have the caller drop its
+locks and call prepare again with no locks held, at least I'm not
+aware of one.
 
-The hci_dev_get(), hci_send_cmd() and hci_si_event() doesn't need to be
-exported. And I think that the bt_dump() and and BT_DMP() stuff can be
-removed completely.
+> It would be nice to have other utilities which could be loaded eg; case
+> compare, regualr expressions, strchr after you match, etc
 
-Please redo the patch and actually it is enough to copy the bluez-devel
-mailing list. I will take care of getting it back into mainline.
-
-Regards
-
-Marcel
-
-
-
-
--------------------------------------------------------
-This SF.Net email is sponsored by: NEC IT Guy Games.
-Get your fingers limbered up and give it your best shot. 4 great events, 4
-opportunities to win big! Highest score wins.NEC IT Guy Games. Play to
-win an NEC 61 plasma display. Visit http://www.necitguy.com/?r=20
+Indeed, I'm working on the regular expression thing but it has
+some issues with textsearch_next() for patterns like .+abc.+ which
+I want to resolve first.
