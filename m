@@ -1,44 +1,36 @@
 From: Harald Welte <laforge@netfilter.org>
-Subject: Re: CONFIG_NETFILTER_DEBUG spew
-Date: Thu, 5 May 2005 13:14:57 +0200
-Message-ID: <20050505111457.GS30482@sunbeam.de.gnumonks.org>
-References: <20050501032809.3d0b4cda.akpm@osdl.org>
-	<20050501111507.GA2133@gondor.apana.org.au>
-	<4274F2ED.9080404@trash.net>
+Subject: Re: Help getting Neighbour table overflow a lot messages
+Date: Thu, 5 May 2005 13:22:33 +0200
+Message-ID: <20050505112233.GT30482@sunbeam.de.gnumonks.org>
+References: <20050422103749.43324.qmail@web41403.mail.yahoo.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="+HM+R7/Jd0Fa6H3F"
-Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org,
-	Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Patrick McHardy <kaber@trash.net>
+	protocol="application/pgp-signature"; boundary="7+7T3ZdO12I8zLgo"
+Cc: net dev <netdev@oss.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: cranium2003 <cranium2003@yahoo.com>
 Content-Disposition: inline
-In-Reply-To: <4274F2ED.9080404@trash.net>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+In-Reply-To: <20050422103749.43324.qmail@web41403.mail.yahoo.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---+HM+R7/Jd0Fa6H3F
+--7+7T3ZdO12I8zLgo
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-On Sun, May 01, 2005 at 05:17:01PM +0200, Patrick McHardy wrote:
-> You're right. I'm tempted to remove the entire nf_debug stuff,
-> as far as I know it has never found a real bug. But for now
-> I've only fixed the warning.
+On Fri, Apr 22, 2005 at 03:37:48AM -0700, cranium2003 wrote:
+>           inet addr:10.1.1.30  Bcast:10.255.255.255=20
 
-yes, I second that change.  At the same time, we should get rid of all
-the lockhelp.h stuff that makes the netfilter code use non-standard lock
-primitives.
+so you have a /8 on your network interface?  looks like a broken network
+setup to me. do you really have up to 16 million machine in one segment?
+
+Anyway, with this network setup you need to make sure that your linux
+box has got enough memory for accomodating up to 16 million neighbour
+table entries, and set the respective limits high enough so it can use
+all that memory...
 --=20
 - Harald Welte <laforge@netfilter.org>                 http://netfilter.org/
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
@@ -49,16 +41,16 @@ primitives.
    architectural error that shows how much experimentation was going
    on while IP was being designed."                    -- Paul Vixie
 
---+HM+R7/Jd0Fa6H3F
+--7+7T3ZdO12I8zLgo
 Content-Type: application/pgp-signature
 Content-Disposition: inline
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.0 (GNU/Linux)
 
-iD8DBQFCegAxXaXGVTD0i/8RAjw/AJ9gnJdmZW9GWXkPX+som+Fv9qDzxwCgqt1s
-EaDWEpEUHlSFNzkq0nAsxy8=
-=k6gh
+iD8DBQFCegH5XaXGVTD0i/8RAut/AJ4tELmFou72ZY6Vv4jA2xVL6pwkCwCggmth
+h9S5izQGR0DlN6Wm+eFEnk4=
+=EdSx
 -----END PGP SIGNATURE-----
 
---+HM+R7/Jd0Fa6H3F--
+--7+7T3ZdO12I8zLgo--
