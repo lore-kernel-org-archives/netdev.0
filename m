@@ -1,99 +1,49 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: oops in ip_rcv
-Date: Fri, 6 May 2005 07:44:53 +1000
-Message-ID: <20050505214453.GA29853@gondor.apana.org.au>
-References: <20050505101542.GB7916@krispykreme> <E1DTeis-0005gu-00@gondolin.me.apana.org.au> <20050505130904.GA16593@krispykreme> <20050505112624.3ffd7f3d.davem@davemloft.net> <20050505213740.GB29526@gondor.apana.org.au>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: Mystery packet killing tg3
+Date: Thu, 5 May 2005 14:42:01 -0700
+Message-ID: <20050505144201.389edfd4.davem@davemloft.net>
+References: <B1508D50A0692F42B217C22C02D84972020F3EB2@NT-IRVA-0741.brcm.ad.broadcom.com>
+	<20050504155143.1a78cb7a@dxpl.pdx.osdl.net>
+	<1115245822.15156.78.camel@rh4>
+	<20050505113356.0f1b4c00.davem@davemloft.net>
+	<1115322994.15156.98.camel@rh4>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="C7zPtVaVf+AK4Oqc"
-Cc: Anton Blanchard <anton@samba.org>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@osdl.org, jgarzik@pobox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20050505213740.GB29526@gondor.apana.org.au>
+To: "Michael Chan" <mchan@broadcom.com>
+In-Reply-To: <1115322994.15156.98.camel@rh4>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Thu, 05 May 2005 12:56:34 -0700
+"Michael Chan" <mchan@broadcom.com> wrote:
 
---C7zPtVaVf+AK4Oqc
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-On Fri, May 06, 2005 at 07:37:40AM +1000, herbert wrote:
+> On Thu, 2005-05-05 at 11:33 -0700, David S. Miller wrote:
 > 
-> Could we delay the call of dev_add_pack(&ip_packet_type) until
-> the very end of inet_init? That way we're guaranteed to not
-> receive anything until it's ready.
+> > I'm very tempted to add a silencer to these messages in these
+> > cases.  Something like the patch below.  Michael, what do you
+> > think?
+> > 
+> > [TG3]: Elide tg3_stop_block messages when such events are normal.
+> > 
+> > Signed-off-by: David S. Miller <davem@davemloft.net>
+> > 
+> 
+> Looks good. I'm adding this patch to further ignore the tg3_stop_block
+> errors.
+> 
+> [TG3]: Ignore tg3_stop_block() errors.
+> 
+> tg3_stop_block() errors can be safely ignored since tg3_chip_reset()
+> always follows tg3_stop_block() calls.
 
-This patch should do the trick.
+Your email client wrapped the lines in the patch Michael, please use
+attachments if you can't avoid this.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Anyways, I applied both my patch and your's (by hand) to my tree and
+will push upstream.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---C7zPtVaVf+AK4Oqc
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
-
-===== net/ipv4/af_inet.c 1.86 vs edited =====
---- 1.86/net/ipv4/af_inet.c	2005-03-27 09:04:35 +10:00
-+++ edited/net/ipv4/af_inet.c	2005-05-06 07:41:44 +10:00
-@@ -1010,6 +1010,15 @@
- static int ipv4_proc_init(void);
- extern void ipfrag_init(void);
- 
-+/*
-+ *	IP protocol layer initialiser
-+ */
-+
-+static struct packet_type ip_packet_type = {
-+	.type = __constant_htons(ETH_P_IP),
-+	.func = ip_rcv,
-+};
-+
- static int __init inet_init(void)
- {
- 	struct sk_buff *dummy_skb;
-@@ -1102,6 +1111,8 @@
- 	ipv4_proc_init();
- 
- 	ipfrag_init();
-+
-+	dev_add_pack(&ip_packet_type);
- 
- 	rc = 0;
- out:
-===== net/ipv4/ip_output.c 1.82 vs edited =====
---- 1.82/net/ipv4/ip_output.c	2005-03-24 07:17:35 +11:00
-+++ edited/net/ipv4/ip_output.c	2005-05-06 07:41:29 +10:00
-@@ -1323,23 +1323,8 @@
- 	ip_rt_put(rt);
- }
- 
--/*
-- *	IP protocol layer initialiser
-- */
--
--static struct packet_type ip_packet_type = {
--	.type = __constant_htons(ETH_P_IP),
--	.func = ip_rcv,
--};
--
--/*
-- *	IP registers the packet type and then calls the subprotocol initialisers
-- */
--
- void __init ip_init(void)
- {
--	dev_add_pack(&ip_packet_type);
--
- 	ip_rt_init();
- 	inet_initpeers();
- 
-
---C7zPtVaVf+AK4Oqc--
+Thanks again.
