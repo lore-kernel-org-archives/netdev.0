@@ -1,73 +1,94 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [IPV4]: multipath_wrandom.c GPF fixes
-Date: Thu, 05 May 2005 22:31:06 +0200
-Message-ID: <427A828A.3080309@trash.net>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: Mystery packet killing tg3
+Date: Thu, 05 May 2005 12:56:34 -0700
+Message-ID: <1115322994.15156.98.camel@rh4>
+References: <B1508D50A0692F42B217C22C02D84972020F3EB2@NT-IRVA-0741.brcm.ad.broadcom.com>
+ <20050504155143.1a78cb7a@dxpl.pdx.osdl.net>
+ <1115245822.15156.78.camel@rh4>
+ <20050505113356.0f1b4c00.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000100020409060809050509"
-Cc: Maillist netdev <netdev@oss.sgi.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@osdl.org, jgarzik@pobox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050505113356.0f1b4c00.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------000100020409060809050509
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+On Thu, 2005-05-05 at 11:33 -0700, David S. Miller wrote:
 
-multipath_wrandom needs to use GFP_ATOMIC.
+> I'm very tempted to add a silencer to these messages in these
+> cases.  Something like the patch below.  Michael, what do you
+> think?
+> 
+> [TG3]: Elide tg3_stop_block messages when such events are normal.
+> 
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> 
+
+Looks good. I'm adding this patch to further ignore the tg3_stop_block
+errors.
+
+[TG3]: Ignore tg3_stop_block() errors.
+
+tg3_stop_block() errors can be safely ignored since tg3_chip_reset()
+always follows tg3_stop_block() calls.
 
 
---------------000100020409060809050509
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
+Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-[IPV4]: multipath_wrandom.c GPF fixes
-
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-
----
-commit cdb5c875d48676b20ecd95fef080891a68c32e9c
-tree 46b576def0e0b0e4600193306cb830e66b5a57da
-parent 3a614a8969f79ac4116f496beff879736dca83e2
-author Patrick McHardy <kaber@trash.net> 1115277458 +0200
-committer Patrick McHardy <kaber@trash.net> 1115277458 +0200
-
-Index: net/ipv4/multipath_wrandom.c
-===================================================================
---- a744d6c4cd2587f82796c0f6cb4d7f94744ef9f2/net/ipv4/multipath_wrandom.c  (mode:100644 sha1:10b23e1bece663bd8a9317f980b30ec0df7f0a11)
-+++ 46b576def0e0b0e4600193306cb830e66b5a57da/net/ipv4/multipath_wrandom.c  (mode:100644 sha1:c3d2ca1a6781513bc7b2524aad96f61e7a4053a6)
-@@ -172,7 +172,7 @@
- 		    multipath_comparekeys(&rt->fl, flp)) {
- 			struct multipath_candidate* mpc =
- 				(struct multipath_candidate*)
--				kmalloc(size_mpc, GFP_KERNEL);
-+				kmalloc(size_mpc, GFP_ATOMIC);
+diff -Nru f/drivers/net/tg3.c g/drivers/net/tg3.c
+--- f/drivers/net/tg3.c	2005-05-05 12:29:41.000000000 -0700
++++ g/drivers/net/tg3.c	2005-05-05 12:37:14.000000000 -0700
+@@ -3725,8 +3725,6 @@
+ 	err |= tg3_stop_block(tp, SNDDATAC_MODE, SNDDATAC_MODE_ENABLE,
+silent);
+ 	err |= tg3_stop_block(tp, DMAC_MODE, DMAC_MODE_ENABLE, silent);
+ 	err |= tg3_stop_block(tp, SNDBDC_MODE, SNDBDC_MODE_ENABLE, silent);
+-	if (err)
+-		goto out;
  
- 			if (!mpc)
- 				return;
-@@ -244,7 +244,7 @@
- 	if (!target_route) {
- 		const size_t size_rt = sizeof(struct multipath_route);
- 		target_route = (struct multipath_route *)
--			kmalloc(size_rt, GFP_KERNEL);
-+			kmalloc(size_rt, GFP_ATOMIC);
+ 	tp->mac_mode &= ~MAC_MODE_TDE_ENABLE;
+ 	tw32_f(MAC_MODE, tp->mac_mode);
+@@ -3744,10 +3742,10 @@
+ 		printk(KERN_ERR PFX "tg3_abort_hw timed out for %s, "
+ 		       "TX_MODE_ENABLE will not clear MAC_TX_MODE=%08x\n",
+ 		       tp->dev->name, tr32(MAC_TX_MODE));
+-		return -ENODEV;
++		err |= -ENODEV;
+ 	}
  
- 		target_route->gw = nh->nh_gw;
- 		target_route->oif = nh->nh_oif;
-@@ -265,7 +265,7 @@
- 	if (!target_dest) {
- 		const size_t size_dst = sizeof(struct multipath_dest);
- 		target_dest = (struct multipath_dest*)
--			kmalloc(size_dst, GFP_KERNEL);
-+			kmalloc(size_dst, GFP_ATOMIC);
+-	err  = tg3_stop_block(tp, HOSTCC_MODE, HOSTCC_MODE_ENABLE, silent);
++	err |= tg3_stop_block(tp, HOSTCC_MODE, HOSTCC_MODE_ENABLE, silent);
+ 	err |= tg3_stop_block(tp, WDMAC_MODE, WDMAC_MODE_ENABLE, silent);
+ 	err |= tg3_stop_block(tp, MBFREE_MODE, MBFREE_MODE_ENABLE, silent);
  
- 		target_dest->nh_info = nh;
- 		target_dest->network = network;
-
---------------000100020409060809050509--
+@@ -3756,15 +3754,12 @@
+ 
+ 	err |= tg3_stop_block(tp, BUFMGR_MODE, BUFMGR_MODE_ENABLE, silent);
+ 	err |= tg3_stop_block(tp, MEMARB_MODE, MEMARB_MODE_ENABLE, silent);
+-	if (err)
+-		goto out;
+ 
+ 	if (tp->hw_status)
+ 		memset(tp->hw_status, 0, TG3_HW_STATUS_SIZE);
+ 	if (tp->hw_stats)
+ 		memset(tp->hw_stats, 0, sizeof(struct tg3_hw_stats));
+ 
+-out:
+ 	return err;
+ }
+ 
+@@ -5063,9 +5058,7 @@
+ 	tg3_write_sig_pre_reset(tp, RESET_KIND_INIT);
+ 
+ 	if (tp->tg3_flags & TG3_FLAG_INIT_COMPLETE) {
+-		err = tg3_abort_hw(tp, 1);
+-		if (err)
+-			return err;
++		tg3_abort_hw(tp, 1);
+ 	}
+ 
+ 	err = tg3_chip_reset(tp);
