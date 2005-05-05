@@ -1,29 +1,139 @@
-From: Andi Kleen <ak@muc.de>
-Subject: Re: Mystery packet killing tg3
-Date: 5 May 2005 21:24:05 +0200
-Message-ID: <20050505192405.GF24386@muc.de>
-References: <m14qdiyhcn.fsf@muc.de> <42791825.2080204@pantasys.com> <20050505114327.GA51761@muc.de> <427A5363.2080703@pantasys.com> <20050505180609.GB24386@muc.de> <427A6426.40104@pantasys.com> <20050505183144.GD24386@muc.de> <427A6898.4070804@pantasys.com> <20050505185635.GE24386@muc.de> <427A6DB7.10404@pantasys.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: netfilter6: ICMPv6 type 143 doesn't match
+Date: Thu, 05 May 2005 21:53:36 +0200
+Message-ID: <427A79C0.4020103@trash.net>
+References: <6050E336B1A0D7D8E70C66F3@t1mobil.muc.aerasec.de>
+	<200412270417.iBR4HZRG021429@toshiba.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, jgarzik@pobox.com,
-        netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-Date: Thu, 5 May 2005 21:24:05 +0200
-To: Peter Buckingham <peter@pantasys.com>
-Content-Disposition: inline
-In-Reply-To: <427A6DB7.10404@pantasys.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed; boundary="------------070703010208060508000301"
+Cc: usagi-users@linux-ipv6.org, netdev@oss.sgi.com,
+	netfilter-devel@lists.netfilter.org, laforge@gnumonks.org, pb@bieringer.de
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Yasuyuki Kozakai <yasuyuki.kozakai@toshiba.co.jp>
+In-Reply-To: <200412270417.iBR4HZRG021429@toshiba.co.jp>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-> >The dmesg looks similar to the previous one from the IOMMU
-> >code perspective.
+This is a multi-part message in MIME format.
+--------------070703010208060508000301
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+
+Yasuyuki Kozakai wrote:
+
+> Well, the Multicast Listener Report seems that skb->data != skb->nh.ipv6h
+> when interface is up. But IPv6 netfilter modules assumes that
+> skb->data == skb->nh.ipv6h like IPv4 netfilter modules.
 > 
-> it actually looks like it's configure correctly now (at least from 
-> agp-gart messages), before we were getting errors. i guess the bios guys 
-> finally got it right ;-)
+> folks, is this wrong or bad asumption ? If so, I'll fix this problem in
+> many modules as follows.
 
-No, it is still broken, the kernel fixed it up. Look at the early
-messages. It was too small (32MB)
+Sorry for getting back to this so late, I must have missed it at the
+time. Anyway, I think it would be safer to restore netfilters assumption
+by doing something like this patch. If everyone is fine with it I'm
+going to add it to my pending netfilter patches for 2.6.13.
 
--Andi
+Regards
+Patrick
+
+--------------070703010208060508000301
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+Index: net/ipv6/mcast.c
+===================================================================
+--- 2cfdb1827d9c176f4df42619c693e7b990a61963/net/ipv6/mcast.c  (mode:100644 sha1:393b6e6f50a9626e2894c9a5abd8dafd903e5eba)
++++ uncommitted/net/ipv6/mcast.c  (mode:100644)
+@@ -1280,15 +1280,6 @@
+ 		return NULL;
+ 
+ 	skb_reserve(skb, LL_RESERVED_SPACE(dev));
+-	if (dev->hard_header) {
+-		unsigned char ha[MAX_ADDR_LEN];
+-
+-		ndisc_mc_map(&mld2_all_mcr, ha, dev, 1);
+-		if (dev->hard_header(skb, dev, ETH_P_IPV6,ha,NULL,size) < 0) {
+-			kfree_skb(skb);
+-			return NULL;
+-		}
+-	}
+ 
+ 	if (ipv6_get_lladdr(dev, &addr_buf)) {
+ 		/* <draft-ietf-magma-mld-source-05.txt>:
+@@ -1312,6 +1303,24 @@
+ 	return skb;
+ }
+ 
++static inline int igmp6_dev_queue_xmit(struct sk_buff *skb)
++{
++	struct net_device *dev = skb->dev;
++
++	if (dev->hard_header) {
++		unsigned char ha[MAX_ADDR_LEN];
++		int err;
++
++		ndisc_mc_map(&skb->nh.ipv6h->daddr, ha, dev, 1);
++		err = dev->hard_header(skb, dev, ETH_P_IPV6, ha, NULL, skb->len);
++		if (err < 0) {
++			kfree_skb(skb);
++			return err;
++		}
++	}
++	return dev_queue_xmit(skb);
++}
++
+ static void mld_sendpack(struct sk_buff *skb)
+ {
+ 	struct ipv6hdr *pip6 = skb->nh.ipv6h;
+@@ -1329,7 +1338,7 @@
+ 	pmr->csum = csum_ipv6_magic(&pip6->saddr, &pip6->daddr, mldlen,
+ 		IPPROTO_ICMPV6, csum_partial(skb->h.raw, mldlen, 0));
+ 	err = NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL, skb->dev,
+-		dev_queue_xmit);
++		igmp6_dev_queue_xmit);
+ 	if (!err) {
+ 		ICMP6_INC_STATS(idev,ICMP6_MIB_OUTMSGS);
+ 		IP6_INC_STATS(IPSTATS_MIB_OUTMCASTPKTS);
+@@ -1635,12 +1644,6 @@
+ 	}
+ 
+ 	skb_reserve(skb, LL_RESERVED_SPACE(dev));
+-	if (dev->hard_header) {
+-		unsigned char ha[MAX_ADDR_LEN];
+-		ndisc_mc_map(snd_addr, ha, dev, 1);
+-		if (dev->hard_header(skb, dev, ETH_P_IPV6, ha, NULL, full_len) < 0)
+-			goto out;
+-	}
+ 
+ 	if (ipv6_get_lladdr(dev, &addr_buf)) {
+ 		/* <draft-ietf-magma-mld-source-05.txt>:
+@@ -1668,7 +1671,7 @@
+ 	idev = in6_dev_get(skb->dev);
+ 
+ 	err = NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL, skb->dev,
+-		dev_queue_xmit);
++		igmp6_dev_queue_xmit);
+ 	if (!err) {
+ 		if (type == ICMPV6_MGM_REDUCTION)
+ 			ICMP6_INC_STATS(idev, ICMP6_MIB_OUTGROUPMEMBREDUCTIONS);
+@@ -1683,7 +1686,6 @@
+ 		in6_dev_put(idev);
+ 	return;
+ 
+-out:
+ 	IP6_INC_STATS(IPSTATS_MIB_OUTDISCARDS);
+ 	kfree_skb(skb);
+ }
+
+--------------070703010208060508000301--
