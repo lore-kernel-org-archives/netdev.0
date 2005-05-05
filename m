@@ -1,29 +1,64 @@
-From: Anton Blanchard <anton@samba.org>
-Subject: Re: oops in ip_rcv
-Date: Thu, 5 May 2005 23:09:04 +1000
-Message-ID: <20050505130904.GA16593@krispykreme>
-References: <20050505101542.GB7916@krispykreme> <E1DTeis-0005gu-00@gondolin.me.apana.org.au>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [2.6 patch] net/bluetooth/: possible cleanups
+Date: Thu, 05 May 2005 15:28:30 +0200
+Message-ID: <1115299710.8496.168.camel@pegasus>
+References: <20050505002310.GF3593@stusta.de>
+Reply-To: bluez-devel@lists.sourceforge.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Content-Disposition: inline
-In-Reply-To: <E1DTeis-0005gu-00@gondolin.me.apana.org.au>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: marcel@holtmann.or, maxk@qualcomm.com, bluez-devel@lists.sf.net,
+	netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Return-path: <bluez-devel-admin@lists.sourceforge.net>
+To: Adrian Bunk <bunk@stusta.de>
+In-Reply-To: <20050505002310.GF3593@stusta.de>
+Sender: bluez-devel-admin@lists.sourceforge.net
+Errors-To: bluez-devel-admin@lists.sourceforge.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
+	<mailto:bluez-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Post: <mailto:bluez-devel@lists.sourceforge.net>
+List-Help: <mailto:bluez-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
+	<mailto:bluez-devel-request@lists.sourceforge.net?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=bluez-devel>
 List-Id: netdev.vger.kernel.org
 
- 
-> Any idea why you'd be receiving packets this early?
+Hi Adrian,
 
-Not sure, although PCI has already been probed and tcp_init is called
-with interrupts on. Any reason we cant take a packet at this point?
+> This patch contains the following possible cleanups:
+> - #ifdef HCI_DATA_DUMP the following function:
+>   lib.c: bt_dump
+> - #if 0 the following unused global functions:
+>   - hci_core.c: hci_suspend_dev
+>   - hci_core.c: hci_resume_dev
+> - remove the following unneeded EXPORT_SYMBOL's:
+>   - hci_core.c: hci_dev_get
+>   - hci_core.c: hci_send_cmd
+>   - hci_event.c: hci_si_event
+> 
+> Please review which of these changes do make sense and which conflict 
+> with pending patches.
 
-Im guessing its calling this:
+I like to let hci_suspend_dev() and hci_resume_dev() stay for now. No
+driver uses it, but actually nobody really looked deep enough to really
+understand the needs for suspend of Bluetooth devices.
 
-        IP_INC_STATS_BH(IPSTATS_MIB_INRECEIVES);
+The hci_dev_get(), hci_send_cmd() and hci_si_event() doesn't need to be
+exported. And I think that the bt_dump() and and BT_DMP() stuff can be
+removed completely.
 
-Which we dont initialise until later on in init_ipv4_mibs.
+Please redo the patch and actually it is enough to copy the bluez-devel
+mailing list. I will take care of getting it back into mainline.
 
-Anton
+Regards
+
+Marcel
+
+
+
+
+-------------------------------------------------------
+This SF.Net email is sponsored by: NEC IT Guy Games.
+Get your fingers limbered up and give it your best shot. 4 great events, 4
+opportunities to win big! Highest score wins.NEC IT Guy Games. Play to
+win an NEC 61 plasma display. Visit http://www.necitguy.com/?r=20
