@@ -1,19 +1,19 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: CONFIG_NETFILTER_DEBUG spew
-Date: Fri, 06 May 2005 00:36:35 +0200
-Message-ID: <427A9FF3.7060408@trash.net>
-References: <20050501032809.3d0b4cda.akpm@osdl.org>
-	<20050501111507.GA2133@gondor.apana.org.au>
-	<4274F2ED.9080404@trash.net>
-	<20050505111457.GS30482@sunbeam.de.gnumonks.org>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: netfilter6: ICMPv6 type 143 doesn't match
+Date: Thu, 5 May 2005 15:31:18 -0700
+Message-ID: <20050505153118.0d26297c.davem@davemloft.net>
+References: <OF647D617E.F01230B8-ON88256FF8.007AF1C9-88256FF8.007B457C@us.ibm.com>
+	<427A9EFF.5030907@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org,
-	Herbert Xu <herbert@gondor.apana.org.au>
+Cc: usagi-users@linux-ipv6.org, netdev@oss.sgi.com,
+	yasuyuki.kozakai@toshiba.co.jp,
+	netfilter-devel@lists.netfilter.org, dlstevens@us.ibm.com,
+	laforge@gnumonks.org, pb@bieringer.de
 Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Harald Welte <laforge@netfilter.org>
-In-Reply-To: <20050505111457.GS30482@sunbeam.de.gnumonks.org>
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <427A9EFF.5030907@trash.net>
 List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
 	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
 List-Archive: </pipermail/netfilter-devel>
@@ -25,21 +25,23 @@ Sender: netfilter-devel-bounces@lists.netfilter.org
 Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Harald Welte wrote:
-> On Sun, May 01, 2005 at 05:17:01PM +0200, Patrick McHardy wrote:
-> 
->>You're right. I'm tempted to remove the entire nf_debug stuff,
->>as far as I know it has never found a real bug. But for now
->>I've only fixed the warning.
-> 
-> 
-> yes, I second that change.  At the same time, we should get rid of all
-> the lockhelp.h stuff that makes the netfilter code use non-standard lock
-> primitives.
+On Fri, 06 May 2005 00:32:31 +0200
+Patrick McHardy <kaber@trash.net> wrote:
 
-I've removed nf_debug. As for lockhelp.h, I'm still undecided whether
-I should try to make rwlock debugging a feature of standard rwlocks
-or else what to do with all the rwlock assertions.
+> David Stevens wrote:
+> > I'll look at it in more detail and let you know if I see any problems,
+> 
+> Thanks. Is there a reason why these packets never hit the POST_ROUTING
+> hook?
 
-Regards
-Patrick
+I think it is an oversight rather than intentional.
+
+The NDISC lookup stuff wrt. routing went back and forth
+implementation wise.  We used to use a seperate routing
+table for NDISC entries, but that caused all kinds of
+problems wrt. IPSEC (which the seperate routing table
+was ironically meant to fix) so that got undone and now
+NDISC routes and normal routes exist in one table.
+
+So I think this oversight is just fallout from all of
+those changes.
