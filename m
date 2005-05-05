@@ -1,75 +1,39 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: oops in ip_rcv
-Date: Fri, 6 May 2005 08:02:36 +1000
-Message-ID: <20050505220236.GA30068@gondor.apana.org.au>
-References: <20050505101542.GB7916@krispykreme> <E1DTeis-0005gu-00@gondolin.me.apana.org.au> <20050505130904.GA16593@krispykreme> <20050505112624.3ffd7f3d.davem@davemloft.net> <20050505213740.GB29526@gondor.apana.org.au> <20050505214453.GA29853@gondor.apana.org.au>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: resend patch:  xfrm policybyid
+Date: Thu, 05 May 2005 18:17:15 -0400
+Message-ID: <1115331436.8006.112.camel@localhost.localdomain>
+References: <1115298877.7680.75.camel@localhost.localdomain>
+	 <20050505213239.GA29526@gondor.apana.org.au>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="SLDf9lqlvOQaIe6s"
-Cc: Anton Blanchard <anton@samba.org>, netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20050505214453.GA29853@gondor.apana.org.au>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050505213239.GA29526@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
---SLDf9lqlvOQaIe6s
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-On Fri, May 06, 2005 at 07:44:53AM +1000, herbert wrote:
-> On Fri, May 06, 2005 at 07:37:40AM +1000, herbert wrote:
-> > 
-> > Could we delay the call of dev_add_pack(&ip_packet_type) until
-> > the very end of inet_init? That way we're guaranteed to not
-> > receive anything until it's ready.
+On Fri, 2005-06-05 at 07:32 +1000, Herbert Xu wrote:
+			
+> > +	if (delp && excl) { 
+> > +		ret = -EEXIST;
+> > +		goto pol_err;
+> > +	}
+> > +
+> > +	/* insert, sorted by prio*/
+> >  	write_lock_bh(&xfrm_policy_lock);
 > 
-> This patch should do the trick.
+> This is still racy since delp can be killed by timers before you get
+> the lock.
 
-Here is the version of IPv6.
+Ok, Herbert - this is fixable: I take it moving the lock one up is
+sufficient; i dont mind if you fix it and add it to your list.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+BTW, are the event patches in Davems queue somewhere?
+I have a few ipsec ones (cosmetic) that i will send later.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---SLDf9lqlvOQaIe6s
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
-
-===== net/ipv6/af_inet6.c 1.92 vs edited =====
---- 1.92/net/ipv6/af_inet6.c	2005-03-27 09:04:35 +10:00
-+++ edited/net/ipv6/af_inet6.c	2005-05-06 08:01:36 +10:00
-@@ -774,7 +774,6 @@
- 	if (if6_proc_init())
- 		goto proc_if6_fail;
- #endif
--	ipv6_packet_init();
- 	ip6_route_init();
- 	ip6_flowlabel_init();
- 	err = addrconf_init();
-@@ -791,6 +790,8 @@
- 	/* Init v6 transport protocols. */
- 	udpv6_init();
- 	tcpv6_init();
-+
-+	ipv6_packet_init();
- 	err = 0;
- out:
- 	return err;
-@@ -798,7 +799,6 @@
- addrconf_fail:
- 	ip6_flowlabel_cleanup();
- 	ip6_route_cleanup();
--	ipv6_packet_cleanup();
- #ifdef CONFIG_PROC_FS
- 	if6_proc_exit();
- proc_if6_fail:
-
---SLDf9lqlvOQaIe6s--
+cheers,
+jamal
