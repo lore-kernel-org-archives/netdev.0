@@ -1,56 +1,144 @@
-From: Harald Welte <laforge@netfilter.org>
-Subject: Re: Help getting Neighbour table overflow a lot messages
-Date: Thu, 5 May 2005 13:22:33 +0200
-Message-ID: <20050505112233.GT30482@sunbeam.de.gnumonks.org>
-References: <20050422103749.43324.qmail@web41403.mail.yahoo.com>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [PATCH 3/3] add open iscsi netlink interface to iscsi transport class
+Date: Thu, 5 May 2005 12:37:34 +0100
+Message-ID: <20050505113734.GA8985@infradead.org>
+References: <42798ADD.5070803@cs.wisc.edu>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="7+7T3ZdO12I8zLgo"
-Cc: net dev <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: cranium2003 <cranium2003@yahoo.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+	linux-scsi <linux-scsi@vger.kernel.org>,
+	netdev <netdev@oss.sgi.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+To: Mike Christie <michaelc@cs.wisc.edu>
 Content-Disposition: inline
-In-Reply-To: <20050422103749.43324.qmail@web41403.mail.yahoo.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <42798ADD.5070803@cs.wisc.edu>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+[Mike, can you please insert the patches inline?  I hate needing to save
+ attachment first to be able to comment on the patch]
 
---7+7T3ZdO12I8zLgo
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+- * Copyright (C) Mike Christie, 2004
++ * Copyright (C) Mike Christie, Dmitry Yusupov, Alex Aizman, 2004 - 2005
 
-On Fri, Apr 22, 2005 at 03:37:48AM -0700, cranium2003 wrote:
->           inet addr:10.1.1.30  Bcast:10.255.255.255=20
+should probably be separate Copyright lines for everyone involved.
 
-so you have a /8 on your network interface?  looks like a broken network
-setup to me. do you really have up to 16 million machine in one segment?
++static struct iscsi_transport *transport_table[ISCSI_TRANSPORT_MAX];
 
-Anyway, with this network setup you need to make sure that your linux
-box has got enough memory for accomodating up to 16 million neighbour
-table entries, and set the respective limits high enough so it can use
-all that memory...
---=20
-- Harald Welte <laforge@netfilter.org>                 http://netfilter.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-  "Fragmentation is like classful addressing -- an interesting early
-   architectural error that shows how much experimentation was going
-   on while IP was being designed."                    -- Paul Vixie
+please avoid static limits for the number of transports, e.g. use the
+lib/idr.c helpers.
 
---7+7T3ZdO12I8zLgo
-Content-Type: application/pgp-signature
-Content-Disposition: inline
++static DECLARE_MUTEX(callsema);
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.0 (GNU/Linux)
+horrible name for a lock, even a static one.
 
-iD8DBQFCegH5XaXGVTD0i/8RAut/AJ4tELmFou72ZY6Vv4jA2xVL6pwkCwCggmth
-h9S5izQGR0DlN6Wm+eFEnk4=
-=EdSx
------END PGP SIGNATURE-----
++
++struct mempool_zone {
++	mempool_t *pool;
++	volatile int allocated;
 
---7+7T3ZdO12I8zLgo--
+don't use volatile, either atomic_t or if it's properly locked just int
+
++
++#define Z_SIZE_REPLY	NLMSG_SPACE(sizeof(struct iscsi_uevent))
++#define Z_MAX_REPLY	8
++#define Z_HIWAT_REPLY	6
++
++#define Z_SIZE_PDU	NLMSG_SPACE(sizeof(struct iscsi_uevent) + \
++				    sizeof(struct iscsi_hdr) + \
++				    DEFAULT_MAX_RECV_DATA_SEGMENT_LENGTH)
++#define Z_MAX_PDU	8
++#define Z_HIWAT_PDU	6
++
++#define Z_SIZE_ERROR	NLMSG_SPACE(sizeof(struct iscsi_uevent))
++#define Z_MAX_ERROR	16
++#define Z_HIWAT_ERROR	12
+
+At least the *_Z_SIZE defines are unneeded, just pass them to the functions
+directly.  And please add some explanations for the MAX and HIWAT defines.
+
++struct iscsi_if_cnx {
++	struct list_head item;		/* item in cnxlist */
++	struct list_head snxitem;	/* item in snx->connections */
+
+please rename cnx to conn and snx to session everywhere, keeps the code
+a lot more readable.
+
++	iscsi_cnx_t cnxh;
++	volatile int active;
+
+volatile usage again
+
++#define H_TYPE_TRANS	1
++#define H_TYPE_HOST	2
++static struct iscsi_if_cnx*
++iscsi_if_find_cnx(uint64_t key, int type)
++{
++	unsigned long flags;
++	struct iscsi_if_cnx *cnx;
++
++	spin_lock_irqsave(&cnxlock, flags);
++	list_for_each_entry(cnx, &cnxlist, item) {
++		if ((type == H_TYPE_TRANS && cnx->cnxh == key) ||
++		    (type == H_TYPE_HOST && cnx->host == iscsi_ptr(key))) {
++			spin_unlock_irqrestore(&cnxlock, flags);
++			return cnx;
++		}
++	}
++	spin_unlock_irqrestore(&cnxlock, flags);
++	return NULL;
+ }
+
+please use two separate helpers for transport/host instead of the H_TYPE
+thing.
+ 
++			list_del((void*)&skb->cb);
+
+please add some inline helpers for using skb->cb as list instead of
+spreading the casts all over.
+
++static int zone_init(struct mempool_zone *zp, unsigned max,
++		     unsigned size, unsigned hiwat)
+
+should probably become mempool_zone_init to match the other functions
+operating on struct mempool_zone.
+
++static int
++iscsi_if_destroy_snx(struct iscsi_transport *transport, struct iscsi_uevent *ev)
++{
++	struct Scsi_Host *shost;
++	struct iscsi_if_snx *snx;
++	unsigned long flags;
++	struct iscsi_if_cnx *cnx;
++
++	shost = scsi_host_lookup(ev->u.d_session.sid);
++	if (shost == ERR_PTR(-ENXIO))
++		return -EEXIST;
++	scsi_host_put(shost);
+
+you must keep the reference until you're done.
+
++	spin_unlock_irqrestore(&cnxlock, flags);
++
++	scsi_remove_host(shost);
++	transport->destroy_session(ev->u.d_session.session_handle);
+
+can we please move the scsi_remove_host into the individual ->destroy_session
+methods?  dito for the scsi_host_add
+
++static int
++iscsi_if_create_cnx(struct iscsi_transport *transport, struct iscsi_uevent *ev)
++{
++	struct iscsi_if_snx *snx;
++	struct Scsi_Host *shost;
++	struct iscsi_if_cnx *cnx;
++	unsigned long flags;
++	int error;
++
++	shost = scsi_host_lookup(ev->u.c_cnx.sid);
++	if (shost == ERR_PTR(-ENXIO))
++		return -EEXIST;
++	scsi_host_put(shost);
+
+again, please keep the reference until you're done.
+
