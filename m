@@ -1,36 +1,47 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: ip route del bug?
-Date: Thu, 5 May 2005 11:35:57 -0700
-Message-ID: <20050505113557.7d21baf2@dxpl.pdx.osdl.net>
-References: <427A3370.3090001@skywaywest.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: oops in ip_rcv
+Date: Thu, 5 May 2005 11:26:24 -0700
+Message-ID: <20050505112624.3ffd7f3d.davem@davemloft.net>
+References: <20050505101542.GB7916@krispykreme>
+	<E1DTeis-0005gu-00@gondolin.me.apana.org.au>
+	<20050505130904.GA16593@krispykreme>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jamal Hadi Salim <hadi@znyx.com>, netdev@oss.sgi.com
-In-Reply-To: <427A3370.3090001@skywaywest.com>
+To: Anton Blanchard <anton@samba.org>
+In-Reply-To: <20050505130904.GA16593@krispykreme>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 05 May 2005 07:53:36 -0700
-Greg Varga <gvarga@skywaywest.com> wrote:
+On Thu, 5 May 2005 23:09:04 +1000
+Anton Blanchard <anton@samba.org> wrote:
 
-> Hey there,
+>  
+> > Any idea why you'd be receiving packets this early?
 > 
-> I was working on one of our Linux routers yesterday, and when I issued a 
-> "ip route del" command (no arg's) by mistake, it deleted the default route.
+> Not sure, although PCI has already been probed and tcp_init is called
+> with interrupts on. Any reason we cant take a packet at this point?
 > 
-> I was just wondering if this is indeed the way it was intended, or if 
-> its a bug and in fact should have displayed an error message? I 
-> personally would have preferred that it error'd with some sort of message.
+> Im guessing its calling this:
 > 
-> I'm running Fedora Core 2 with iproute-2.4.7-14 rpm installed.
+>         IP_INC_STATS_BH(IPSTATS_MIB_INRECEIVES);
 > 
-> Thanks,
->    --Greg
+> Which we dont initialise until later on in init_ipv4_mibs.
 
-It looks like an accidental behaviour (of the kernel) in response to
-an ip route delete netlink message with no additional data.
+Can you test out putting the init_ipv4_mibs() call right before
+the comment:
 
-Comments?
+	/*
+	 *	Add all the base protocols.
+	 */
+
+If it fixes things for you I'll put that upstream.
+
+Thanks.
+
+I still would really like to know how you are getting packets
+at all that early.  Even if PCI is initialized, no interfaces
+should be marked up at _all_.
