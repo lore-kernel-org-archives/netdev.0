@@ -1,110 +1,165 @@
-From: Alex Aizman <itn780@yahoo.com>
-Subject: [ANNOUNCE] Linux-iSCSI High-Performance Initiator
-Date: Wed, 04 May 2005 21:31:33 -0700
-Message-ID: <4279A1A5.60405@yahoo.com>
+From: Chris Wright <chrisw@osdl.org>
+Subject: Re: [PATCH 3/3] add open iscsi netlink interface to iscsi transport class
+Date: Wed, 4 May 2005 22:38:24 -0700
+Message-ID: <20050505053824.GV23013@shell0.pdx.osdl.net>
+References: <42798ADD.5070803@cs.wisc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-	linux-iscsi-devel@lists.sourceforge.net,
-	open-iscsi@googlegroups.com,
-	James Bottomley <James.Bottomley@SteelEye.com>,
-	Christoph Hellwig <hch@lst.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+	linux-scsi <linux-scsi@vger.kernel.org>,
+	netdev <netdev@oss.sgi.com>
 Return-path: <linux-scsi-owner@vger.kernel.org>
-To: linux-scsi@vger.kernel.org
+To: Mike Christie <michaelc@cs.wisc.edu>
+Content-Disposition: inline
+In-Reply-To: <42798ADD.5070803@cs.wisc.edu>
 Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-1. Linux iSCSI Initiator
-=================
-This is to announce a new release of the iSCSI Initiator for Linux: 
-v5.0.0.3rc2 for 2.6.12 kernel. The previous (2nd) submission (posted 
-04/12/05) can be located at:
+* Mike Christie (michaelc@cs.wisc.edu) wrote:
 
-http://marc.theaimsgroup.com/?l=linux-kernel&m=111328256211837&w=2
+> +static int
+> +iscsi_if_recv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+> +{
+> +	int err = 0;
+> +	struct iscsi_uevent *ev = NLMSG_DATA(nlh);
+> +	struct iscsi_transport *transport = iscsi_ptr(ev->transport_handle);
+> +
+> +	if (nlh->nlmsg_type != ISCSI_UEVENT_TRANS_LIST &&
+> +	    iscsi_if_transport_lookup(transport) < 0)
+> +		return -EEXIST;
+> +
+> +	daemon_pid = NETLINK_CREDS(skb)->pid;
+> +
 
-The very first submission is here:
+Are any of these message types privileged operations?  I didn't notice
+any real credential check.
 
-http://marc.theaimsgroup.com/?l=linux-kernel&m=111017939025775&w=2
-
-Current release is result of the ongoing effort by the combined 
-linux-iscsi team. In-depth information on the project, including the 
-latest download, performance results, etc. documentation can be found at:
-
-http://linux-iscsi.sourceforge.net
-
-and/or
-
-http://www.open-iscsi.org
-
-
-2. SCSI transport
-=============
-This Initiator will work with the new iSCSI transport class from the 
-(very) recent submission by Mike Christie. The related (and required) 
-submission can be located at:
-
-http://marc.theaimsgroup.com/?l=linux-kernel&m=111526182523809&w=2
-
-3. The patch
-=========
-
-A single consolidated (94KB) patch against 2.6.12 can be downloaded at:
-
-http://www.open-iscsi.org/src/iscsi_tcp.patch
-
-This contains:
- 
-                - SCSI LLDD: iscsi_tcp.[ch] (iSCSI transport over TCP/IP).
-                - drivers/scsi/Kconfig changes
-                - drivers/scsi/Makefile changes
-
-                Signed-off-by: Alex Aizman <itn780@yahoo.com>
-                Signed-off-by: Dmitry Yusupov <dmitry_yus@yahoo.com>
-
-
-4. User space
-==========
-The assoicated userspace tools can be downloaded from 
-http://www.open-iscsi.org/index.html#download
-
-
-5. Changelog since v5.0.0.2 (Open-iSCSI v 0.2)
-===================================
-* support non-immediate control plane commands
-* flush queue in cnx_stop()
-* fix queue add/remove
-* Christoph Hellwig:
-  - remove sys_iopl and <sys/io.h> (no need since oom_adj serves the 
-purpose)
-  - patch to use __be16/__be16 types for static typechecking with sparse 
--Wbitwise
-  - make needlessly global symbols static
-  - switch to proper goto-based error unwinding
-  - kill zone_init cpp abuse
-  - lots of 0 vs. NULL and one missing void in a prototype: cleanup
-  - make two needlessly global symbols in iscsi_tcp.c static
-  - use uintptr_t (the C99 type) to store a pointer instead of the 
-locally defined ulong_t
-* Mike Christie:
-  - scsi_host_lookup: release scsi host handle right away
-  - patch to move the scsi scanning to userspace.
-  - request_bufflen: rely on the scsi_ml to set the correct value
-  (INQUIRY, REQUEST_SENSE and REPORT_LUNS etc.)
-* data_xmit(): cleanup, optimization
-* MRDSL fix (discovered by Mike Christie)
-* use GFP_ATOMIC in case of recovery and GFP_KERNEL in case of initial login
-* race fix: max_r2t data_xmit() vs. r2t_rsp()
-* release socket cleanup: done _after_ stopping data_xmit()
-* padding: scsi_cmnd total length
-* r2t sglist assertion fixes
-* deprecate and remove control plane cnx/snx handles
-* ERL=0 recovery fix for HeaderDigest=CRC32C
-* iSCSI MIB and extended statistics: initial support, get_stats() API
-* get_stats(): calculate actual size of statistics buffer
-* integrate with scsi_transport_iscsi.[ch]
-
-
-Regards,
-
-Linux-iscsi Team
+> +	switch (nlh->nlmsg_type) {
+> +	case ISCSI_UEVENT_TRANS_LIST: {
+> +		int i;
+> +
+> +		for (i = 0; i < ISCSI_TRANSPORT_MAX; i++) {
+> +			if (transport_table[i]) {
+> +				ev->r.t_list.elements[i].trans_handle =
+> +					iscsi_handle(transport_table[i]);
+> +				strncpy(ev->r.t_list.elements[i].name,
+> +					transport_table[i]->name,
+> +					ISCSI_TRANSPORT_NAME_MAXLEN);
+> +			} else
+> +				ev->r.t_list.elements[i].trans_handle =
+> +					iscsi_handle(NULL);
+> +		}
+> +	      } break;
+> +	case ISCSI_UEVENT_CREATE_SESSION:
+> +		err = iscsi_if_create_snx(transport, ev);
+> +		break;
+> +	case ISCSI_UEVENT_DESTROY_SESSION:
+> +		err = iscsi_if_destroy_snx(transport, ev);
+> +		break;
+> +	case ISCSI_UEVENT_CREATE_CNX:
+> +		err = iscsi_if_create_cnx(transport, ev);
+> +		break;
+> +	case ISCSI_UEVENT_DESTROY_CNX:
+> +		err = iscsi_if_destroy_cnx(transport, ev);
+> +		break;
+> +	case ISCSI_UEVENT_BIND_CNX:
+> +		if (!iscsi_if_find_cnx(ev->u.b_cnx.cnx_handle, H_TYPE_TRANS))
+> +			return -EEXIST;
+> +		ev->r.retcode = transport->bind_cnx(
+> +			ev->u.b_cnx.session_handle,
+> +			ev->u.b_cnx.cnx_handle,
+> +			ev->u.b_cnx.transport_fd,
+> +			ev->u.b_cnx.is_leading);
+> +		break;
+> +	case ISCSI_UEVENT_SET_PARAM:
+> +		if (!iscsi_if_find_cnx(ev->u.set_param.cnx_handle,
+> +				       H_TYPE_TRANS))
+> +			return -EEXIST;
+> +		ev->r.retcode = transport->set_param(
+> +			ev->u.set_param.cnx_handle,
+> +			ev->u.set_param.param, ev->u.set_param.value);
+> +		break;
+> +	case ISCSI_UEVENT_START_CNX:
+> +		if (!iscsi_if_find_cnx(ev->u.start_cnx.cnx_handle,
+> +				       H_TYPE_TRANS))
+> +			return -EEXIST;
+> +		ev->r.retcode = transport->start_cnx(
+> +			ev->u.start_cnx.cnx_handle);
+> +		break;
+> +	case ISCSI_UEVENT_STOP_CNX:
+> +		if (!iscsi_if_find_cnx(ev->u.stop_cnx.cnx_handle, H_TYPE_TRANS))
+> +			return -EEXIST;
+> +		transport->stop_cnx(ev->u.stop_cnx.cnx_handle,
+> +			ev->u.stop_cnx.flag);
+> +		break;
+> +	case ISCSI_UEVENT_SEND_PDU:
+> +		if (!iscsi_if_find_cnx(ev->u.send_pdu.cnx_handle,
+> +				       H_TYPE_TRANS))
+> +			return -EEXIST;
+> +		ev->r.retcode = transport->send_pdu(
+> +		       ev->u.send_pdu.cnx_handle,
+> +		       (struct iscsi_hdr*)((char*)ev + sizeof(*ev)),
+> +		       (char*)ev + sizeof(*ev) + ev->u.send_pdu.hdr_size,
+> +			ev->u.send_pdu.data_size);
+> +		break;
+> +	case ISCSI_UEVENT_GET_STATS: {
+> +		struct iscsi_stats *stats;
+> +		struct sk_buff *skbstat;
+> +		struct iscsi_if_cnx *cnx;
+> +		struct nlmsghdr	*nlhstat;
+> +		struct iscsi_uevent *evstat;
+> +		int len = NLMSG_SPACE(sizeof(*ev) +
+> +				sizeof(struct iscsi_stats) +
+> +                                sizeof(struct iscsi_stats_custom) *
+> +                                                ISCSI_STATS_CUSTOM_MAX);
+> +		int err;
+> +
+> +		cnx = iscsi_if_find_cnx(ev->u.get_stats.cnx_handle,
+> +					H_TYPE_TRANS);
+> +		if (!cnx)
+> +			return -EEXIST;
+> +
+> +		do {
+> +			int actual_size;
+> +
+> +			skbstat = mempool_zone_get_skb(&cnx->z_pdu);
+> +			if (!skbstat) {
+> +				printk("iscsi%d: can not deliver stats: OOM\n",
+> +				       cnx->host->host_no);
+> +				return -ENOMEM;
+> +			}
+> +
+> +			nlhstat = __nlmsg_put(skbstat, daemon_pid, 0, 0,
+> +						(len - sizeof(*nlhstat)));
+> +			evstat = NLMSG_DATA(nlhstat);
+> +			memset(evstat, 0, sizeof(*evstat));
+> +			evstat->transport_handle = iscsi_handle(cnx->transport);
+> +			evstat->type = nlh->nlmsg_type;
+> +			if (cnx->z_pdu.allocated >= cnx->z_pdu.hiwat)
+> +				evstat->iferror = -ENOMEM;
+> +			evstat->u.get_stats.cnx_handle =
+> +					ev->u.get_stats.cnx_handle;
+> +			stats = (struct iscsi_stats *)
+> +					((char*)evstat + sizeof(*evstat));
+> +			memset(stats, 0, sizeof(*stats));
+> +
+> +			transport->get_stats(ev->u.get_stats.cnx_handle, stats);
+> +			actual_size = NLMSG_SPACE(sizeof(struct iscsi_uevent) +
+> +					sizeof(struct iscsi_stats) +
+> +                                	sizeof(struct iscsi_stats_custom) *
+> +						stats->custom_length);
+> +			actual_size -= sizeof(*nlhstat);
+> +			actual_size = NLMSG_LENGTH(actual_size);
+> +			skb_trim(skb, NLMSG_ALIGN(actual_size));
+> +			nlhstat->nlmsg_len = actual_size;
+> +
+> +			err = iscsi_unicast_skb(&cnx->z_pdu, skbstat);
+> +		} while (err < 0 && err != -ECONNREFUSED);
+> +		} break;
+> +	default:
+> +		err = -EINVAL;
+> +		break;
+> +	}
+> +
+> +	return err;
+> +}
