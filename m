@@ -1,40 +1,33 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: oops in ip_rcv
-Date: Thu, 5 May 2005 15:09:43 -0700
-Message-ID: <20050505150943.566280f0.davem@davemloft.net>
-References: <20050505101542.GB7916@krispykreme>
-	<E1DTeis-0005gu-00@gondolin.me.apana.org.au>
-	<20050505130904.GA16593@krispykreme>
-	<20050505112624.3ffd7f3d.davem@davemloft.net>
-	<20050505213740.GB29526@gondor.apana.org.au>
-	<20050505214453.GA29853@gondor.apana.org.au>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: netfilter6: ICMPv6 type 143 doesn't match
+Date: Thu, 5 May 2005 15:26:27 -0700
+Message-ID: <OF647D617E.F01230B8-ON88256FF8.007AF1C9-88256FF8.007B457C@us.ibm.com>
+References: <427A79C0.4020103@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: anton@samba.org, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050505214453.GA29853@gondor.apana.org.au>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset="US-ASCII"
+Cc: usagi-users@linux-ipv6.org, netdev@oss.sgi.com,
+	Yasuyuki Kozakai <yasuyuki.kozakai@toshiba.co.jp>,
+	netfilter-devel@lists.netfilter.org, laforge@gnumonks.org,
+	pb@bieringer.de, netdev-bounce@oss.sgi.com
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+In-Reply-To: <427A79C0.4020103@trash.net>
+To: Patrick McHardy <kaber@trash.net>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 6 May 2005 07:44:53 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+I'll look at it in more detail and let you know if I see any problems,
+but I wouldn't call it "igmpv6", which doesn't exist. "MLD" is the
+equivalent in IPv6. There certainly are existing references to
+"igmp6" in the Linux code-- that just isn't the name of the protocol. :-)
 
-> On Fri, May 06, 2005 at 07:37:40AM +1000, herbert wrote:
-> > 
-> > Could we delay the call of dev_add_pack(&ip_packet_type) until
-> > the very end of inet_init? That way we're guaranteed to not
-> > receive anything until it's ready.
-> 
-> This patch should do the trick.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+suggest: change to mld_dev_queue_xmit().
 
-Of course... But I don't want to apply this until Anton
-tells us how in the world he is receiving packets so
-early in the boot.
-
-If I put this patch in now, he may get lazy just like me
-and never try and figure out where they are coming from :)
+                                        +-DLS
