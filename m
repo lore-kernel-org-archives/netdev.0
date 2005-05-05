@@ -1,39 +1,40 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: resend patch:  xfrm policybyid
-Date: Thu, 05 May 2005 18:17:15 -0400
-Message-ID: <1115331436.8006.112.camel@localhost.localdomain>
-References: <1115298877.7680.75.camel@localhost.localdomain>
-	 <20050505213239.GA29526@gondor.apana.org.au>
-Reply-To: hadi@cyberus.ca
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: oops in ip_rcv
+Date: Thu, 5 May 2005 15:09:43 -0700
+Message-ID: <20050505150943.566280f0.davem@davemloft.net>
+References: <20050505101542.GB7916@krispykreme>
+	<E1DTeis-0005gu-00@gondolin.me.apana.org.au>
+	<20050505130904.GA16593@krispykreme>
+	<20050505112624.3ffd7f3d.davem@davemloft.net>
+	<20050505213740.GB29526@gondor.apana.org.au>
+	<20050505214453.GA29853@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev <netdev@oss.sgi.com>
+Cc: anton@samba.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050505213239.GA29526@gondor.apana.org.au>
+In-Reply-To: <20050505214453.GA29853@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2005-06-05 at 07:32 +1000, Herbert Xu wrote:
-			
-> > +	if (delp && excl) { 
-> > +		ret = -EEXIST;
-> > +		goto pol_err;
-> > +	}
-> > +
-> > +	/* insert, sorted by prio*/
-> >  	write_lock_bh(&xfrm_policy_lock);
+On Fri, 6 May 2005 07:44:53 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
+
+> On Fri, May 06, 2005 at 07:37:40AM +1000, herbert wrote:
+> > 
+> > Could we delay the call of dev_add_pack(&ip_packet_type) until
+> > the very end of inet_init? That way we're guaranteed to not
+> > receive anything until it's ready.
 > 
-> This is still racy since delp can be killed by timers before you get
-> the lock.
+> This patch should do the trick.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Ok, Herbert - this is fixable: I take it moving the lock one up is
-sufficient; i dont mind if you fix it and add it to your list.
+Of course... But I don't want to apply this until Anton
+tells us how in the world he is receiving packets so
+early in the boot.
 
-BTW, are the event patches in Davems queue somewhere?
-I have a few ipsec ones (cosmetic) that i will send later.
-
-cheers,
-jamal
+If I put this patch in now, he may get lazy just like me
+and never try and figure out where they are coming from :)
