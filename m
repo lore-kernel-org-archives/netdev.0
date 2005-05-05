@@ -1,36 +1,33 @@
-From: Anton Blanchard <anton@samba.org>
-Subject: oops in ip_rcv
-Date: Thu, 5 May 2005 20:15:42 +1000
-Message-ID: <20050505101542.GB7916@krispykreme>
+From: dhd@debian.org
+Subject: Duvido voce me reconher =) ScanMail has detected a virus!
+Date: Thu, 5 May 2005 07:39:15 -0300
+Message-ID: <OF6A31CAC3.2A47451B-ON03256FF8.0039CA66@al.sp.gov.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: multipart/mixed;
+	boundary="----=_NextPart_000_0000_0267A1C2.7192E641"
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
-Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-Hi,
+------=_NextPart_000_0000_0267A1C2.7192E641
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain;
+	charset="Windows-1252"
 
-Im booting a recent 2.6.12-rc3++ git tree on ppc64. Just got an oops
-very early in boot, right after:
+Ola, a quanto tempo!               Eu me mudei dai para os Estados Unidos, e faz um tempo que perdemos o contato               e consegui seu email atraves de uma amiga sua. Vamos fazer assim, eu vou lhe               mandar meu album de fotos se voce me reconhecer, me retorna o email.               Quero ver se voce ainda lembra de mim. :)               
 
-TCP established hash table entries: 131072 (order: 9, 2097kernel:
 
-It looks like we tried to load from address -1.
+------=_NextPart_000_0000_0267A1C2.7192E641
+Content-Type: application/octet-stream;
+	name="fotos.scr"
+Content-Disposition: attachment;
+	filename="fotos.scr"
+Content-Transfer-Encoding: base64
 
-c0000000003c515c ip_rcv+0x4c/0x6e0
-c0000000003a6750 netif_receive_skb+0x290/0x3b0
-c0000000003a6954 process_backlog+0xe4/0x250
-c0000000003a4204 net_rx_action+0x114/0x2d0
-c00000000005e06c __do_softirq+0xec/0x1d0
-c000000000014568 call_do_softirq+0x14/0x24
-c00000000000fdcc do_softirq+0x9c/0xb0
-c00000000005dad4 irq_exit+0x64/0x80
-c00000000000fcbc do_IRQ+0x7c/0xf0
+DQo=
 
-I do have some local patches, I'll try to reproduce without them.
 
-Anton
+------=_NextPart_000_0000_0267A1C2.7192E641--
