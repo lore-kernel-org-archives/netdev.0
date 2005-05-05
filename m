@@ -1,43 +1,36 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: netfilter6: ICMPv6 type 143 doesn't match
-Date: Thu, 5 May 2005 14:34:12 -0700
-Message-ID: <20050505143412.0fe9ebca.davem@davemloft.net>
-References: <6050E336B1A0D7D8E70C66F3@t1mobil.muc.aerasec.de>
-	<200412270417.iBR4HZRG021429@toshiba.co.jp>
-	<427A79C0.4020103@trash.net>
-	<427A7FF5.4030900@trash.net>
+Subject: Re: e1000 (?) jumbo frames performance issue
+Date: Thu, 5 May 2005 14:33:18 -0700
+Message-ID: <20050505143318.004566a9.davem@davemloft.net>
+References: <200505051928.32496.m.iatrou@freemail.gr>
+	<427A7F5B.8050704@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: yasuyuki.kozakai@toshiba.co.jp, usagi-users@linux-ipv6.org,
-        netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org,
-        laforge@gnumonks.org, pb@bieringer.de
+Cc: m.iatrou@freemail.gr, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <427A7FF5.4030900@trash.net>
+To: Rick Jones <rick.jones2@hp.com>
+In-Reply-To: <427A7F5B.8050704@hp.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 05 May 2005 22:20:05 +0200
-Patrick McHardy <kaber@trash.net> wrote:
+On Thu, 05 May 2005 13:17:31 -0700
+Rick Jones <rick.jones2@hp.com> wrote:
 
-> Patrick McHardy wrote:
-> > Yasuyuki Kozakai wrote:
-> > 
-> >>Well, the Multicast Listener Report seems that skb->data != skb->nh.ipv6h
-> >>when interface is up. But IPv6 netfilter modules assumes that
-> >>skb->data == skb->nh.ipv6h like IPv4 netfilter modules.
-> >>
-> >>folks, is this wrong or bad asumption ? If so, I'll fix this problem in
-> >>many modules as follows.
-> > 
-> > 
-> > Sorry for getting back to this so late, I must have missed it at the
-> > time. Anyway, I think it would be safer to restore netfilters assumption
-> > by doing something like this patch. If everyone is fine with it I'm
-> > going to add it to my pending netfilter patches for 2.6.13.
-> 
-> The last patch left some unreachable code.
+> I seem to recall that some of the stack defaults for SO_SNDBUF (IIRC) would 
+> result in netperf sending 16KB at a time into the connection - once you sent the 
+> MTU above 16K you may have started running into issues with Nagle and delayed 
+> ACK?  You could try some tests adding a test-specific -D to disable Nagle, or -C 
+> to set TCP_CORK, or use -m to set the send size to say, 32KB.
 
-This looks OK with me, I hope it doesn't inadvertantly break anything.
+Yes, for one don't expect reasonable behavior if the MTU is near to or less
+than the send buffer size in use.
+
+Also, many of Nagle's notions start to fall apart at such high MTU settings.
+For example, all of Nagle (even with Minshall's modifications) basically define
+"small packet" as anything smaller than 1 MSS.
+
+So something to look into (besides increasing your send buffer size with jacking
+up the MTU so large) is changing Nagle to use some constant.  Perhaps something like
+512 bytes or smaller, or even 128 bytes or smaller.
