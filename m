@@ -1,37 +1,41 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: resend patch:  xfrm policybyid
-Date: Fri, 6 May 2005 11:20:41 -0700
-Message-ID: <20050506112041.23e51ab8.davem@davemloft.net>
-References: <1115298877.7680.75.camel@localhost.localdomain>
-	<20050505213239.GA29526@gondor.apana.org.au>
-	<1115331436.8006.112.camel@localhost.localdomain>
-	<20050505151820.672b89fa.davem@davemloft.net>
-	<20050506132829.GA1943@gondor.apana.org.au>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [NET]: Avoid useless iterating in netlink dump functions
+Date: Fri, 06 May 2005 17:04:33 -0400
+Message-ID: <1115413473.13922.38.camel@localhost.localdomain>
+References: <427B8FC3.4000305@trash.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, netdev@oss.sgi.com
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Maillist netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050506132829.GA1943@gondor.apana.org.au>
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <427B8FC3.4000305@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 6 May 2005 23:28:29 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> On Thu, May 05, 2005 at 03:18:20PM -0700, David S. Miller wrote:
-> > On Thu, 05 May 2005 18:17:15 -0400
-> > jamal <hadi@cyberus.ca> wrote:
-> > 
-> > > BTW, are the event patches in Davems queue somewhere?
-> > > I have a few ipsec ones (cosmetic) that i will send later.
-> > 
-> > I'm not queueing 2.6.13 material yet.
-> > 2.6.12 bug fixes are a full time job yet :-)
+On Fri, 2005-06-05 at 17:39 +0200, Patrick McHardy wrote:
+> This patch changes a couple of places like this:
 > 
-> Dave, would you mind if I pushed these event patches into mm for
-> some testing?
+>        for (h = 0; h <= tbl->hash_mask; h++) {
+>                if (h < s_h)
+>                        continue;
+> 
+> to this:
+> 
+>        for (h = s_h; h <= tbl->hash_mask; h++) {
+> 
+> The only difference is that we can now get past the loop with
+> h > tbl->hash_mask if hash_mask was decreased between two callbacks
+> and h was already past the new value. But it still behaves identical,
+> nothing is dumped.
+> 
 
-Feel free.
+Looks good - you may also wanna treat tcf_dump_walker() and
+xfrm_dump_sa() the same way then. 
+
+cheers,
+jamal
