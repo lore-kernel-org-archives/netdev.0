@@ -1,33 +1,31 @@
-From: Michael Iatrou <m.iatrou@freemail.gr>
-Subject: Re: e1000 (?) jumbo frames performance issue
-Date: Fri, 6 May 2005 01:26:09 +0300
-Message-ID: <200505060126.09062.m.iatrou@freemail.gr>
-References: <200505051928.32496.m.iatrou@freemail.gr> <427A7F5B.8050704@hp.com> <200505060055.55778.m.iatrou@freemail.gr>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-7"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: MultiPath Routing
+Date: Fri, 06 May 2005 20:58:28 +1000
+Message-ID: <E1DU0XM-0001wJ-00@gondolin.me.apana.org.au>
+References: <427A70ED.3010305@rapidforum.com>
+Cc: herbert@gondor.apana.org.au, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Rick Jones <rick.jones2@hp.com>
-In-Reply-To: <200505060055.55778.m.iatrou@freemail.gr>
-Content-Disposition: inline
+To: webmaster@rapidforum.com (Christian Schmid)
+In-Reply-To: <427A70ED.3010305@rapidforum.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-When the date was Friday 06 May 2005 00:55, Michael Iatrou wrote:
+Christian Schmid <webmaster@rapidforum.com> wrote:
+> 
+> Yes I enabled it. But it shouldnt do anything because its no forwarded traffic here. I just used 
+> example-IPs. Or does the bug also break non-forwarded traffic?
 
-> > You could try some tests adding a test-specific -D to
-> > disable Nagle, or -C to set TCP_CORK, or use -m to set the send size to
-> > say, 32KB.
->
-> I 've already tested -m 32KB and its the same as 16KB.
-> I will try -D and -C too.
+Did you select one of the multipath algorithm options? If you selected
+them as modules did you load them? If no algorithms are available it
+will degenerate into deterministic routing.
 
-Done, (almost) nothing changed.
+It will also work properly if you disable IP_ROUTE_MULTIPATH_CACHED
+completely.
 
+Cheers,
 -- 
- Michael Iatrou
- Electrical and Computer Engineering Dept.
- University of Patras, Greece
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
