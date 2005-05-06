@@ -1,36 +1,31 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: netfilter6: ICMPv6 type 143 doesn't match
-Date: Fri, 06 May 2005 23:22:42 +1000
-Message-ID: <E1DU2mw-0000UK-00@gondolin.me.apana.org.au>
-References: <427AA319.1040906@trash.net>
-Cc: davem@davemloft.net, dlstevens@us.ibm.com, laforge@gnumonks.org,
-        netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org,
-        pb@bieringer.de, usagi-users@linux-ipv6.org,
-        yasuyuki.kozakai@toshiba.co.jp, yoshfuji@linux-ipv6.org
+Subject: Re: resend patch:  xfrm policybyid
+Date: Fri, 6 May 2005 23:28:29 +1000
+Message-ID: <20050506132829.GA1943@gondor.apana.org.au>
+References: <1115298877.7680.75.camel@localhost.localdomain> <20050505213239.GA29526@gondor.apana.org.au> <1115331436.8006.112.camel@localhost.localdomain> <20050505151820.672b89fa.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: hadi@cyberus.ca, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kaber@trash.net (Patrick McHardy)
-In-Reply-To: <427AA319.1040906@trash.net>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20050505151820.672b89fa.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy <kaber@trash.net> wrote:
+On Thu, May 05, 2005 at 03:18:20PM -0700, David S. Miller wrote:
+> On Thu, 05 May 2005 18:17:15 -0400
+> jamal <hadi@cyberus.ca> wrote:
 > 
-> +static inline int mld_dev_queue_xmit2(struct sk_buff *skb)
-> +{
-> +       struct net_device *dev = skb->dev;
-> +
-> +       if (dev->hard_header) {
-> +               unsigned char ha[MAX_ADDR_LEN];
-> +               int err;
-> +
-> +               ndisc_mc_map(&skb->nh.ipv6h->daddr, ha, dev, 1);
-> +               err = dev->hard_header(skb, dev, ETH_P_IPV6, ha, NULL, skb->len);
-> +               if (err < 0) {
-> +                       IP6_INC_STATS(IPSTATS_MIB_OUTDISCARDS);
+> > BTW, are the event patches in Davems queue somewhere?
+> > I have a few ipsec ones (cosmetic) that i will send later.
+> 
+> I'm not queueing 2.6.13 material yet.
+> 2.6.12 bug fixes are a full time job yet :-)
 
-You're now incrementing this twice since the callers will also
-increment this.
+Dave, would you mind if I pushed these event patches into mm for
+some testing?
 
 Cheers,
 -- 
