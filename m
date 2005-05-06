@@ -1,30 +1,320 @@
-From: Jon Mason <jdmason@us.ibm.com>
-Subject: Re: [PATCH] TSO Reloaded
-Date: Thu, 5 May 2005 22:53:09 -0500
-Message-ID: <200505052253.10301.jdmason@us.ibm.com>
-References: <20050504230731.12be1bc3.davem@davemloft.net> <200505051756.25186.jdmason@us.ibm.com> <20050505154955.0dcb4b38.davem@davemloft.net>
-Reply-To: jdmason@us.ibm.com
+From: "David S. Miller" <davem@davemloft.net>
+Subject: [TG3]: Add tagged status support
+Date: Thu, 5 May 2005 21:17:35 -0700
+Message-ID: <20050505211735.3829cff2.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050505154955.0dcb4b38.davem@davemloft.net>
-Content-Disposition: inline
+To: mchan@broadcom.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thursday 05 May 2005 05:49 pm, David S. Miller wrote:
-> On Thu, 5 May 2005 17:56:25 -0500
->
-> Jon Mason <jdmason@us.ibm.com> wrote:
-> > I can give it a quick sniff on e1000 and r8169 (on amd64), though only to
-> > verify that its works (ie, no real perf).  Is that acceptable?
->
-> Yes.
 
-It worked fine for both r8169 and e1000 on my amd64 box (running 
-2.6.12-rc3-mm2). 
+I've been meaning to do this for a long time.
+
+This adds tagged status support.  With this, we don't need to
+poke the chip 10 times per second via the timer to keep from
+losing interrupts.
+
+Michael, I didn't know what needs to be done wrt. MSI here.
+So I didn't touch the MSI code until I understand things better,
+which likely means that this patch breaks MSI (actually, I think
+it will cause the MSI case to generate interrupts endlessly).
+
+My best hunch is that all MSI supporting chips support tagged
+status, therefore I should just make the tg3_msi() interrupt
+handler do the tp->last_tag stuff.
+
+We should also integrate the coalescing tweaks we did last week
+after we smoothe this patch out.
+
+I noticed that we were doing the 5705 status block fetch 10 times
+per second instead of once per second.  That's fixed here too.
+
+I also removed the MAILBOX readback in the normal interrupt handling
+paths.  Network processing overhead minded folks, particular the SGI
+NUMA people (hint hint) should really really check out this patch :-)
+
+It is against current 2.6.x sources.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+--- 1/drivers/net/tg3.c.~1~	2005-05-05 17:15:59.000000000 -0700
++++ 2/drivers/net/tg3.c	2005-05-05 21:11:41.000000000 -0700
+@@ -420,7 +420,8 @@ static void tg3_enable_ints(struct tg3 *
+ {
+ 	tw32(TG3PCI_MISC_HOST_CTRL,
+ 	     (tp->misc_host_ctrl & ~MISC_HOST_CTRL_MASK_PCI_INT));
+-	tw32_mailbox(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW, 0x00000000);
++	tw32_mailbox(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW,
++		     (tp->last_tag << 24));
+ 	tr32(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW);
+ 
+ 	tg3_cond_int(tp);
+@@ -455,7 +456,8 @@ static void tg3_restart_ints(struct tg3 
+ {
+ 	tw32(TG3PCI_MISC_HOST_CTRL,
+ 		(tp->misc_host_ctrl & ~MISC_HOST_CTRL_MASK_PCI_INT));
+-	tw32_mailbox(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW, 0x00000000);
++	tw32_mailbox(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW,
++		     tp->last_tag << 24);
+ 	mmiowb();
+ 
+ 	if (tg3_has_work(tp))
+@@ -2977,11 +2979,56 @@ static irqreturn_t tg3_interrupt(int irq
+ 		 */
+ 		tw32_mailbox(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW,
+ 			     0x00000001);
++		sblk->status &= ~SD_STATUS_UPDATED;
++
++		if (likely(tg3_has_work(tp)))
++			netif_rx_schedule(dev);		/* schedule NAPI poll */
++		else {
++			/* no work, shared interrupt perhaps?  re-enable
++			 * interrupts, and flush that PCI write
++			 */
++			tw32_mailbox(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW,
++			     	0x00000000);
++			tr32(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW);
++		}
++	} else {	/* shared interrupt */
++		handled = 0;
++	}
++
++	spin_unlock_irqrestore(&tp->lock, flags);
++
++	return IRQ_RETVAL(handled);
++}
++
++static irqreturn_t tg3_interrupt_tagged(int irq, void *dev_id, struct pt_regs *regs)
++{
++	struct net_device *dev = dev_id;
++	struct tg3 *tp = netdev_priv(dev);
++	struct tg3_hw_status *sblk = tp->hw_status;
++	unsigned long flags;
++	unsigned int handled = 1;
++
++	spin_lock_irqsave(&tp->lock, flags);
++
++	/* In INTx mode, it is possible for the interrupt to arrive at
++	 * the CPU before the status block posted prior to the interrupt.
++	 * Reading the PCI State register will confirm whether the
++	 * interrupt is ours and will flush the status block.
++	 */
++	if ((sblk->status & SD_STATUS_UPDATED) ||
++	    !(tr32(TG3PCI_PCISTATE) & PCISTATE_INT_NOT_ACTIVE)) {
+ 		/*
+-		 * Flush PCI write.  This also guarantees that our
+-		 * status block has been flushed to host memory.
++		 * writing any value to intr-mbox-0 clears PCI INTA# and
++		 * chip-internal interrupt pending events.
++		 * writing non-zero to intr-mbox-0 additional tells the
++		 * NIC to stop sending us irqs, engaging "in-intr-handler"
++		 * event coalescing.
+ 		 */
+-		tr32(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW);
++		tw32_mailbox(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW,
++			     0x00000001);
++
++		tp->last_tag = sblk->status_tag;
++
+ 		sblk->status &= ~SD_STATUS_UPDATED;
+ 
+ 		if (likely(tg3_has_work(tp)))
+@@ -2991,7 +3038,7 @@ static irqreturn_t tg3_interrupt(int irq
+ 			 * interrupts, and flush that PCI write
+ 			 */
+ 			tw32_mailbox(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW,
+-			     	0x00000000);
++				     tp->last_tag << 24);
+ 			tr32(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW);
+ 		}
+ 	} else {	/* shared interrupt */
+@@ -5446,6 +5493,7 @@ static int tg3_reset_hw(struct tg3 *tp)
+ 
+ 	tw32_mailbox(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW, 0);
+ 	tr32(MAILBOX_INTERRUPT_0);
++	tp->last_tag = 0;
+ 
+ 	if (!(tp->tg3_flags2 & TG3_FLG2_5705_PLUS)) {
+ 		tw32_f(DMAC_MODE, DMAC_MODE_ENABLE);
+@@ -5723,31 +5771,33 @@ static void tg3_timer(unsigned long __op
+ 	spin_lock_irqsave(&tp->lock, flags);
+ 	spin_lock(&tp->tx_lock);
+ 
+-	/* All of this garbage is because when using non-tagged
+-	 * IRQ status the mailbox/status_block protocol the chip
+-	 * uses with the cpu is race prone.
+-	 */
+-	if (tp->hw_status->status & SD_STATUS_UPDATED) {
+-		tw32(GRC_LOCAL_CTRL,
+-		     tp->grc_local_ctrl | GRC_LCLCTRL_SETINT);
+-	} else {
+-		tw32(HOSTCC_MODE, tp->coalesce_mode |
+-		     (HOSTCC_MODE_ENABLE | HOSTCC_MODE_NOW));
+-	}
++	if (!(tp->tg3_flags & TG3_FLAG_TAGGED_STATUS)) {
++		/* All of this garbage is because when using non-tagged
++		 * IRQ status the mailbox/status_block protocol the chip
++		 * uses with the cpu is race prone.
++		 */
++		if (tp->hw_status->status & SD_STATUS_UPDATED) {
++			tw32(GRC_LOCAL_CTRL,
++			     tp->grc_local_ctrl | GRC_LCLCTRL_SETINT);
++		} else {
++			tw32(HOSTCC_MODE, tp->coalesce_mode |
++			     (HOSTCC_MODE_ENABLE | HOSTCC_MODE_NOW));
++		}
+ 
+-	if (!(tr32(WDMAC_MODE) & WDMAC_MODE_ENABLE)) {
+-		tp->tg3_flags2 |= TG3_FLG2_RESTART_TIMER;
+-		spin_unlock(&tp->tx_lock);
+-		spin_unlock_irqrestore(&tp->lock, flags);
+-		schedule_work(&tp->reset_task);
+-		return;
++		if (!(tr32(WDMAC_MODE) & WDMAC_MODE_ENABLE)) {
++			tp->tg3_flags2 |= TG3_FLG2_RESTART_TIMER;
++			spin_unlock(&tp->tx_lock);
++			spin_unlock_irqrestore(&tp->lock, flags);
++			schedule_work(&tp->reset_task);
++			return;
++		}
+ 	}
+ 
+-	if (tp->tg3_flags2 & TG3_FLG2_5705_PLUS)
+-		tg3_periodic_fetch_stats(tp);
+-
+ 	/* This part only runs once per second. */
+ 	if (!--tp->timer_counter) {
++		if (tp->tg3_flags2 & TG3_FLG2_5705_PLUS)
++			tg3_periodic_fetch_stats(tp);
++
+ 		if (tp->tg3_flags & TG3_FLAG_USE_LINKCHG_REG) {
+ 			u32 mac_stat;
+ 			int phy_event;
+@@ -5846,9 +5896,13 @@ static int tg3_test_interrupt(struct tg3
+ 	if (tp->tg3_flags2 & TG3_FLG2_USING_MSI)
+ 		err = request_irq(tp->pdev->irq, tg3_msi,
+ 				  SA_SAMPLE_RANDOM, dev->name, dev);
+-	else
+-		err = request_irq(tp->pdev->irq, tg3_interrupt,
++	else {
++		irqreturn_t (*fn)(int, void *, struct pt_regs *)=tg3_interrupt;
++		if (tp->tg3_flags & TG3_FLAG_TAGGED_STATUS)
++			fn = tg3_interrupt_tagged;
++		err = request_irq(tp->pdev->irq, fn,
+ 				  SA_SHIRQ | SA_SAMPLE_RANDOM, dev->name, dev);
++	}
+ 
+ 	if (err)
+ 		return err;
+@@ -5900,9 +5954,14 @@ static int tg3_test_msi(struct tg3 *tp)
+ 
+ 	tp->tg3_flags2 &= ~TG3_FLG2_USING_MSI;
+ 
+-	err = request_irq(tp->pdev->irq, tg3_interrupt,
+-			  SA_SHIRQ | SA_SAMPLE_RANDOM, dev->name, dev);
++	{
++		irqreturn_t (*fn)(int, void *, struct pt_regs *)=tg3_interrupt;
++		if (tp->tg3_flags & TG3_FLAG_TAGGED_STATUS)
++			fn = tg3_interrupt_tagged;
+ 
++		err = request_irq(tp->pdev->irq, fn,
++				  SA_SHIRQ | SA_SAMPLE_RANDOM, dev->name, dev);
++	}
+ 	if (err)
+ 		return err;
+ 
+@@ -5959,9 +6018,14 @@ static int tg3_open(struct net_device *d
+ 	if (tp->tg3_flags2 & TG3_FLG2_USING_MSI)
+ 		err = request_irq(tp->pdev->irq, tg3_msi,
+ 				  SA_SAMPLE_RANDOM, dev->name, dev);
+-	else
+-		err = request_irq(tp->pdev->irq, tg3_interrupt,
++	else {
++		irqreturn_t (*fn)(int, void *, struct pt_regs *)=tg3_interrupt;
++		if (tp->tg3_flags & TG3_FLAG_TAGGED_STATUS)
++			fn = tg3_interrupt_tagged;
++
++		err = request_irq(tp->pdev->irq, fn,
+ 				  SA_SHIRQ | SA_SAMPLE_RANDOM, dev->name, dev);
++	}
+ 
+ 	if (err) {
+ 		if (tp->tg3_flags2 & TG3_FLG2_USING_MSI) {
+@@ -5980,9 +6044,16 @@ static int tg3_open(struct net_device *d
+ 		tg3_halt(tp, 1);
+ 		tg3_free_rings(tp);
+ 	} else {
+-		tp->timer_offset = HZ / 10;
+-		tp->timer_counter = tp->timer_multiplier = 10;
+-		tp->asf_counter = tp->asf_multiplier = (10 * 120);
++		if (tp->tg3_flags & TG3_FLAG_TAGGED_STATUS)
++			tp->timer_offset = HZ;
++		else
++			tp->timer_offset = HZ / 10;
++
++		BUG_ON(tp->timer_offset > HZ);
++		tp->timer_counter = tp->timer_multiplier =
++			(HZ / tp->timer_offset);
++		tp->asf_counter = tp->asf_multiplier =
++			((HZ / tp->timer_offset) * 120);
+ 
+ 		init_timer(&tp->timer);
+ 		tp->timer.expires = jiffies + tp->timer_offset;
+@@ -8422,15 +8493,7 @@ static int __devinit tg3_get_invariants(
+ 	if (tp->tg3_flags2 & TG3_FLG2_5705_PLUS)
+ 		tp->tg3_flags2 |= TG3_FLG2_PHY_BER_BUG;
+ 
+-	/* Only 5701 and later support tagged irq status mode.
+-	 * Also, 5788 chips cannot use tagged irq status.
+-	 *
+-	 * However, since we are using NAPI avoid tagged irq status
+-	 * because the interrupt condition is more difficult to
+-	 * fully clear in that mode.
+-	 */
+ 	tp->coalesce_mode = 0;
+-
+ 	if (GET_CHIP_REV(tp->pci_chip_rev_id) != CHIPREV_5700_AX &&
+ 	    GET_CHIP_REV(tp->pci_chip_rev_id) != CHIPREV_5700_BX)
+ 		tp->coalesce_mode |= HOSTCC_MODE_32BYTE;
+@@ -8494,6 +8557,18 @@ static int __devinit tg3_get_invariants(
+ 	     grc_misc_cfg == GRC_MISC_CFG_BOARD_ID_5788M))
+ 		tp->tg3_flags2 |= TG3_FLG2_IS_5788;
+ 
++	if (!(tp->tg3_flags2 & TG3_FLG2_IS_5788) &&
++	    (GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5700))
++		tp->tg3_flags |= TG3_FLAG_TAGGED_STATUS;
++	if (tp->tg3_flags & TG3_FLAG_TAGGED_STATUS) {
++		tp->coalesce_mode |= (HOSTCC_MODE_CLRTICK_RXBD |
++				      HOSTCC_MODE_CLRTICK_TXBD);
++
++		tp->misc_host_ctrl |= MISC_HOST_CTRL_TAGGED_STATUS;
++		pci_write_config_dword(tp->pdev, TG3PCI_MISC_HOST_CTRL,
++				       tp->misc_host_ctrl);
++	}
++
+ 	/* these are limited to 10/100 only */
+ 	if ((GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5703 &&
+ 	     (grc_misc_cfg == 0x8000 || grc_misc_cfg == 0x4000)) ||
+--- 1/drivers/net/tg3.h.~1~	2005-05-05 17:15:59.000000000 -0700
++++ 2/drivers/net/tg3.h	2005-05-05 20:58:56.000000000 -0700
+@@ -2023,6 +2023,7 @@ struct tg3 {
+ 
+ 	struct tg3_hw_status		*hw_status;
+ 	dma_addr_t			status_mapping;
++	u32				last_tag;
+ 
+ 	u32				msg_enable;
+ 
+@@ -2068,6 +2069,7 @@ struct tg3 {
+ 
+ 	u32				rx_offset;
+ 	u32				tg3_flags;
++#define TG3_FLAG_TAGGED_STATUS		0x00000001
+ #define TG3_FLAG_TXD_MBOX_HWBUG		0x00000002
+ #define TG3_FLAG_RX_CHECKSUMS		0x00000004
+ #define TG3_FLAG_USE_LINKCHG_REG	0x00000008
