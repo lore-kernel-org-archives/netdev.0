@@ -1,34 +1,45 @@
-From: Christian Schmid <webmaster@rapidforum.com>
-Subject: Re: MultiPath Routing
-Date: Fri, 06 May 2005 13:16:46 +0200
-Message-ID: <427B521E.2040302@rapidforum.com>
-References: <E1DU0XM-0001wJ-00@gondolin.me.apana.org.au>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: (diet-)FIB alternative fib_hlist.c
+Date: Fri, 6 May 2005 13:31:14 +0200
+Message-ID: <17019.21890.234387.549229@robur.slu.se>
+References: <17016.62444.34282.625407@robur.slu.se>
+	<427A7A09.4060900@tomt.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>, netdev@oss.sgi.com,
+        Jens.Laas@data.slu.se
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1DU0XM-0001wJ-00@gondolin.me.apana.org.au>
+To: Andre Tomt <andre@tomt.net>
+In-Reply-To: <427A7A09.4060900@tomt.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I tried disabling MULTIPATH_CACHED and now it completely works :) Thank you for your help. I thought 
-your hint only is for NATed traffic but it seems its for all traffic.
 
-Herbert Xu wrote:
-> Christian Schmid <webmaster@rapidforum.com> wrote:
-> 
->>Yes I enabled it. But it shouldnt do anything because its no forwarded traffic here. I just used 
->>example-IPs. Or does the bug also break non-forwarded traffic?
-> 
-> 
-> Did you select one of the multipath algorithm options? If you selected
-> them as modules did you load them? If no algorithms are available it
-> will degenerate into deterministic routing.
-> 
-> It will also work properly if you disable IP_ROUTE_MULTIPATH_CACHED
-> completely.
-> 
-> Cheers,
+Andre Tomt writes:
+
+ > > Probably we soon want to specify differnt lookup schemes for different 
+ > > tables say for local table fib_hash or fib_hlist. While for large main table
+ > > fib_hash2/fib_trie would be better option.
+ > 
+ >  From a distribution[1] point of view, a boot time option would be much 
+ > better than choosing at compile time. Boot time plus a kconfig multiple 
+ > selection list would be even better. Another perhaps even more user 
+ > friendly option would be setting it runtime using f.ex. iproute, but I 
+ > guess that could end up messy..
+
+ Yes I'll guess kernel config would be the first step. Also we need to
+ find out if there are any useful options to current FIB. Which is very
+ general purpose.
+
+ Anyway we have a cleaner interface to FIB also we have some new FIB options.
+ Which should be a step forward and an advantage for linux and will hopefully 
+ lead to more development and understanding and so that Linux will used for 
+ development in this area. We will also lead to better understand the dst 
+ hash and FIB trade off.
+
+ Experiences from tests or use are very welcome.
+
+ Cheers.
+					--ro
