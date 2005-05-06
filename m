@@ -1,29 +1,38 @@
-From: Arthur Kepner <akepner@sgi.com>
-Subject: Re: [TG3]: Add tagged status support
-Date: Fri, 6 May 2005 09:12:00 -0700 (PDT)
-Message-ID: <Pine.LNX.4.61.0505060908200.29330@linux.site>
-References: <20050505211735.3829cff2.davem@davemloft.net>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: e1000 (?) jumbo frames performance issue
+Date: Fri, 06 May 2005 09:18:59 -0700
+Message-ID: <427B98F3.1020003@hp.com>
+References: <200505051928.32496.m.iatrou@freemail.gr> <427A7F5B.8050704@hp.com> <200505060055.55778.m.iatrou@freemail.gr>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: mchan@broadcom.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050505211735.3829cff2.davem@davemloft.net>
+To: Michael Iatrou <m.iatrou@freemail.gr>
+In-Reply-To: <200505060055.55778.m.iatrou@freemail.gr>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-On Thu, 5 May 2005, David S. Miller wrote:
-
-> .....
-> I also removed the MAILBOX readback in the normal interrupt handling
-> paths.  Network processing overhead minded folks, particular the SGI
-> NUMA people (hint hint) should really really check out this patch :-)
 > 
+>>It might be good to add CPU utilization figures - for 2.3pl1 that means
+>>editing the makefile to add a -DUSE_PROC_STAT and recompiling.  Or you can
+>>grab netperf 2.4.0-rc3 from:
+>>
+>>ftp://ftp.cup.hp.com/dist/networking/benchmarks/netperf/experimental/
+>>
+>>if you cannot find it elsewhere, and that will (try to) compile-in the
+>>right CPU utilization mechanism automagically.
+> 
+> 
+> I already did a custom CPU usage instrumentation (based on infos 
+> from /proc/stat -- the latest netperf does the same thing, doesn't it?) and 
+> it seems that system has plenty of idle time (up to 50% if I recall correct)
 
-I'll put it on my to-do list to check out this and other recent tg3 
-patches. It may be a week or so until I can get to this, however.
+IIRC you stated that the boxes were UP?
 
---
-Arthur
+If changing netperf settings didn't affect much, then kernel profiles and/or 
+packet traces may be in order.
+
+rick
