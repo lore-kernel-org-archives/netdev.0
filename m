@@ -1,38 +1,50 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [NET]: Avoid useless iterating in netlink dump functions
-Date: Fri, 06 May 2005 23:27:35 +0200
-Message-ID: <427BE147.9080508@trash.net>
-References: <427B8FC3.4000305@trash.net>	 <1115413473.13922.38.camel@localhost.localdomain>	 <427BDDD4.1000808@trash.net> <1115414222.13922.41.camel@localhost.localdomain>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [-mm patch] net/ieee80211/: make two functions static
+Date: Fri, 6 May 2005 23:32:39 +0200
+Message-ID: <20050506213238.GS3590@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Maillist netdev <netdev@oss.sgi.com>
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1115414222.13922.41.camel@localhost.localdomain>
+To: jgarzik@pobox.com
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> On Fri, 2005-06-05 at 23:12 +0200, Patrick McHardy wrote:
-> 
->>action dumping is on my list for more treatment than this :)
-> 
-> Well, that does sound scary ;-> What do you have in mind.
-> Recall, there are two paths to dumping actions - unlike any other thing
-> in the kernel.
+This patch makes two needlessly global functions static.
 
-Don't worry :) Its actually action walking that is on my list.
-What I have planed is roughly:
-- clean up and move hashing functions to act_common.c
-- put data needed for hashing (size, pointer to memory, ...) in
-  struct tc_act_common, which is referenced by struct tc_action_ops
-- add callback based walking function so we don't need two of them
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-This should also get rid of all the large functions contained in
-headerfiles.
+---
 
-Regards
-Patrick
+ net/ieee80211/ieee80211_crypt_ccmp.c |    4 ++--
+ net/ieee80211/ieee80211_tx.c         |    4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+--- linux-2.6.12-rc3-mm2-full/net/ieee80211/ieee80211_crypt_ccmp.c.old	2005-05-05 02:29:22.000000000 +0200
++++ linux-2.6.12-rc3-mm2-full/net/ieee80211/ieee80211_crypt_ccmp.c	2005-05-05 02:29:35.000000000 +0200
+@@ -59,8 +59,8 @@
+ 	u8 rx_b0[AES_BLOCK_LEN], rx_b[AES_BLOCK_LEN], rx_a[AES_BLOCK_LEN];
+ };
+ 
+-void ieee80211_ccmp_aes_encrypt(struct crypto_tfm *tfm,
+-			     const u8 pt[16], u8 ct[16])
++static void ieee80211_ccmp_aes_encrypt(struct crypto_tfm *tfm,
++				       const u8 pt[16], u8 ct[16])
+ {
+ 	struct scatterlist src, dst;
+ 
+--- linux-2.6.12-rc3-mm2-full/net/ieee80211/ieee80211_tx.c.old	2005-05-05 02:29:51.000000000 +0200
++++ linux-2.6.12-rc3-mm2-full/net/ieee80211/ieee80211_tx.c	2005-05-05 02:29:59.000000000 +0200
+@@ -211,8 +211,8 @@
+ 	kfree(txb);
+ }
+ 
+-struct ieee80211_txb *ieee80211_alloc_txb(int nr_frags, int txb_size,
+-					  int gfp_mask)
++static struct ieee80211_txb *ieee80211_alloc_txb(int nr_frags, int txb_size,
++						 int gfp_mask)
+ {
+ 	struct ieee80211_txb *txb;
+ 	int i;
