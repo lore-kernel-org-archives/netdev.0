@@ -1,35 +1,33 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: oops in ip_rcv
-Date: Thu, 5 May 2005 19:58:31 -0700
-Message-ID: <20050505195831.6c747c32.davem@davemloft.net>
-References: <20050505101542.GB7916@krispykreme>
-	<E1DTeis-0005gu-00@gondolin.me.apana.org.au>
-	<20050505130904.GA16593@krispykreme>
-	<20050505112624.3ffd7f3d.davem@davemloft.net>
-	<20050505213740.GB29526@gondor.apana.org.au>
-	<20050505214453.GA29853@gondor.apana.org.au>
-	<20050505150943.566280f0.davem@davemloft.net>
-	<20050506010246.GA8255@krispykreme>
+From: "Leonid Grossman" <leonid.grossman@neterion.com>
+Subject: RE: [PATCH] TSO Reloaded
+Date: Thu, 5 May 2005 20:20:56 -0700
+Message-ID: <200505060320.j463KvVG013576@guinness.s2io.com>
+References: <20050505153532.30159bd5.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Anton Blanchard <anton@samba.org>
-In-Reply-To: <20050506010246.GA8255@krispykreme>
+To: "'David S. Miller'" <davem@davemloft.net>, <netdev@oss.sgi.com>
+In-Reply-To: <20050505153532.30159bd5.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 6 May 2005 11:02:46 +1000
-Anton Blanchard <anton@samba.org> wrote:
- 
-> I start getting acenic irqs straight after the card is initialised:
+We will be testing on 10GbE NICs in the next couple weeks; will let you
+know.
+BTW - any plans for IPv6 support? 
 
-Thanks, this needs to be fixed.  I bet some people would be very
-unpleased to know that an inteface that hasn't been brought up
-at least once will sit and receive broadcast frames :-/
-
-Anyways, for now I'll put Herbert's ipv4 and ipv6 patches in.
-
-Thanks a lot Anton :-)
+> -----Original Message-----
+> From: netdev-bounce@oss.sgi.com [mailto:netdev-bounce@oss.sgi.com] On
+> Behalf Of David S. Miller
+> Sent: Thursday, May 05, 2005 3:36 PM
+> To: netdev@oss.sgi.com
+> Subject: Re: [PATCH] TSO Reloaded
+> 
+> 
+> Is anyone testing this or is everyone too scared? :-)
+> 
+> A lot of people wanted this TSO stuff fixed, so I spent
+> time implementing the fix.  Yet nobody seems interested
+> enough to even say "it works" or "it's busted" :-/
