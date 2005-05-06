@@ -1,34 +1,100 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: SFQ: Reordering?
-Date: Sat, 07 May 2005 00:46:28 +0200
-Message-ID: <427BF3C4.1030105@trash.net>
-References: <7bca1cb5050506145344d16b1e@mail.gmail.com> <427BEAAE.409@trash.net>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [-mm patch] fix IEEE80211_CRYPT_* selects
+Date: Sat, 7 May 2005 00:54:49 +0200
+Message-ID: <20050506225449.GZ3590@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Asim Shankar <asimshankar@gmail.com>, netdev@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <427BEAAE.409@trash.net>
+To: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com, jgarzik@pobox.com
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> Asim Shankar wrote:
-> 
->>Should complete rehashing take place in sfq_perturbation(), or am I
->>missing something? (I was looking at 2.6.9 and also took a cursory
->>glance at 2.6.11 on lxr.linux.no)
-> 
-> 
-> I think we should rehash. Can you send a patch?
+Some of the options didn't obey the most important rule of select
 
-Hmm wait, this is not so easy. We can't rehash by going over
-the buckets one by one. If we do so and we have a new clash of
-two flows previously contained in different buckets the packets
-will afterwards be sorted by flow in their new bucket. To retain
-fairness we need to iterate over all buckets containing packets
-and rehash them one packet per a bucket at a time. But this means
-we need lots of temporary storage to store the queues while
-rehashing. Can anyone thing of a better solution?
+  If you select something, you have to ensure that the dependencies
+  of what you do select are fulfilled.
+
+resulting in the following compile error:
+
+
+<--  snip  -->
+
+...
+  LD      .tmp_vmlinux1
+crypto/built-in.o(.init.text+0x31b): In function `aes_init':
+: undefined reference to `crypto_register_alg'
+crypto/built-in.o(.init.text+0x326): In function `michael_mic_init':
+: undefined reference to `crypto_register_alg'
+crypto/built-in.o(.exit.text+0x6): In function `aes_fini':
+: undefined reference to `crypto_unregister_alg'
+crypto/built-in.o(.exit.text+0x16): In function `michael_mic_exit':
+: undefined reference to `crypto_unregister_alg'
+net/built-in.o(.text+0x5ba52): In function `ieee80211_ccmp_init':
+: undefined reference to `crypto_alloc_tfm'
+net/built-in.o(.text+0x5ba94): In function `ieee80211_ccmp_init':
+: undefined reference to `crypto_free_tfm'
+net/built-in.o(.text+0x5bab7): In function `ieee80211_ccmp_deinit':
+: undefined reference to `crypto_free_tfm'
+net/built-in.o(.text+0x5c5c2): In function `ieee80211_tkip_init':
+: undefined reference to `crypto_alloc_tfm'
+net/built-in.o(.text+0x5c5d5): In function `ieee80211_tkip_init':
+: undefined reference to `crypto_alloc_tfm'
+net/built-in.o(.text+0x5c623): In function `ieee80211_tkip_init':
+: undefined reference to `crypto_free_tfm'
+net/built-in.o(.text+0x5c62a): In function `ieee80211_tkip_init':
+: undefined reference to `crypto_free_tfm'
+net/built-in.o(.text+0x5c65e): In function `ieee80211_tkip_deinit':
+: undefined reference to `crypto_free_tfm'
+net/built-in.o(.text+0x5c665): In function `ieee80211_tkip_deinit':
+: undefined reference to `crypto_free_tfm'
+make: *** [.tmp_vmlinux1] Error 1
+
+<--  snip  -->
+
+
+This patch adds the missing selects of CRYPTO (similar to how 
+IEEE80211_CRYPT_WEP already does it).
+
+
+Yes, you could argue whether CRYPTO should be select'ed by the CRYPTO_* 
+options, but with the current CRYPTO* dependencies this patch is 
+required.
+
+
+---
+
+This patch was already sent on:
+- 26 Feb 2005
+
+ net/ieee80211/Kconfig |    2 ++
+ 1 files changed, 2 insertions(+)
+
+--- linux-2.6.11-rc4-mm1-full/net/ieee80211/Kconfig.old	2005-02-26 12:12:44.000000000 +0100
++++ linux-2.6.11-rc4-mm1-full/net/ieee80211/Kconfig	2005-02-26 12:13:47.000000000 +0100
+@@ -42,10 +42,11 @@
+ 	"ieee80211_crypt_wep".
+ 
+ config IEEE80211_CRYPT_CCMP
+ 	tristate "IEEE 802.11i CCMP support"
+ 	depends on IEEE80211
++	select CRYPTO
+ 	select CRYPTO_AES
+ 	---help---
+ 	Include software based cipher suites in support of IEEE 802.11i 
+ 	(aka TGi, WPA, WPA2, WPA-PSK, etc.) for use with CCMP enabled 
+ 	networks.
+@@ -54,10 +55,11 @@
+ 	"ieee80211_crypt_ccmp".
+ 
+ config IEEE80211_CRYPT_TKIP
+ 	tristate "IEEE 802.11i TKIP encryption"
+ 	depends on IEEE80211
++	select CRYPTO
+ 	select CRYPTO_MICHAEL_MIC
+ 	---help---
+ 	Include software based cipher suites in support of IEEE 802.11i 
+ 	(aka TGi, WPA, WPA2, WPA-PSK, etc.) for use with TKIP enabled 
+ 	networks.
