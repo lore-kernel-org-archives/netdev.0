@@ -1,26 +1,35 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: RFC ethtool usage
-Date: Thu, 5 May 2005 20:01:08 -0700
-Message-ID: <20050505200108.1e45f860.davem@davemloft.net>
-References: <20050505234128.GA21736@us.ibm.com>
-	<427AD74B.10904@pobox.com>
+Subject: Re: oops in ip_rcv
+Date: Thu, 5 May 2005 19:58:31 -0700
+Message-ID: <20050505195831.6c747c32.davem@davemloft.net>
+References: <20050505101542.GB7916@krispykreme>
+	<E1DTeis-0005gu-00@gondolin.me.apana.org.au>
+	<20050505130904.GA16593@krispykreme>
+	<20050505112624.3ffd7f3d.davem@davemloft.net>
+	<20050505213740.GB29526@gondor.apana.org.au>
+	<20050505214453.GA29853@gondor.apana.org.au>
+	<20050505150943.566280f0.davem@davemloft.net>
+	<20050506010246.GA8255@krispykreme>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: brazilnut@us.ibm.com, netdev@oss.sgi.com
+Cc: herbert@gondor.apana.org.au, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <427AD74B.10904@pobox.com>
+To: Anton Blanchard <anton@samba.org>
+In-Reply-To: <20050506010246.GA8255@krispykreme>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 05 May 2005 22:32:43 -0400
-Jeff Garzik <jgarzik@pobox.com> wrote:
+On Fri, 6 May 2005 11:02:46 +1000
+Anton Blanchard <anton@samba.org> wrote:
+ 
+> I start getting acenic irqs straight after the card is initialised:
 
-> Convenient in the short term, but misleading in the long run, IMO.
-> 
-> Surely you can get this info from an ethtool register dump?
+Thanks, this needs to be fixed.  I bet some people would be very
+unpleased to know that an inteface that hasn't been brought up
+at least once will sit and receive broadcast frames :-/
 
-I agree.  It might not be a bad idea to formalize this in some
-generic "ethtool_chip_info" block, however.
+Anyways, for now I'll put Herbert's ipv4 and ipv6 patches in.
+
+Thanks a lot Anton :-)
