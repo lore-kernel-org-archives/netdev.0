@@ -1,39 +1,30 @@
-From: "David S. Miller" <davem@davemloft.net>
+From: Jon Mason <jdmason@us.ibm.com>
 Subject: Re: [PATCH] TSO Reloaded
-Date: Thu, 5 May 2005 20:30:52 -0700
-Message-ID: <20050505203052.059125eb.davem@davemloft.net>
-References: <20050505153532.30159bd5.davem@davemloft.net>
-	<200505060320.j463KvVG013576@guinness.s2io.com>
+Date: Thu, 5 May 2005 22:53:09 -0500
+Message-ID: <200505052253.10301.jdmason@us.ibm.com>
+References: <20050504230731.12be1bc3.davem@davemloft.net> <200505051756.25186.jdmason@us.ibm.com> <20050505154955.0dcb4b38.davem@davemloft.net>
+Reply-To: jdmason@us.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Leonid Grossman" <leonid.grossman@neterion.com>
-In-Reply-To: <200505060320.j463KvVG013576@guinness.s2io.com>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050505154955.0dcb4b38.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 5 May 2005 20:20:56 -0700
-"Leonid Grossman" <leonid.grossman@neterion.com> wrote:
+On Thursday 05 May 2005 05:49 pm, David S. Miller wrote:
+> On Thu, 5 May 2005 17:56:25 -0500
+>
+> Jon Mason <jdmason@us.ibm.com> wrote:
+> > I can give it a quick sniff on e1000 and r8169 (on amd64), though only to
+> > verify that its works (ie, no real perf).  Is that acceptable?
+>
+> Yes.
 
-> We will be testing on 10GbE NICs in the next couple weeks; will let you
-> know.
-> BTW - any plans for IPv6 support? 
-
-What exactly does your NIC expect?  Do you use the
-NETIF_F_HW_CSUM flag to indicate generic checksumming support?
-Otherwise, there is no other way to support ipv6 checksum offload
-at the moment, and that is a requirement for ipv6 TSO.
-
-For TSO, the ipv6 header handling seems very non-trivial.
-What is supposed to happen in cases where certain optional
-extension headers should be present in some of the frames
-but not the others?
-
-A specification of how your NIC support ipv6 TSO is necessary
-in order for support to be written, see?  Seems like you are
-the most qualified person to write the support, therefore :-)
-Really, it isn't that hard and you have something on which
-to test whatever you write, whereas I don't.
+It worked fine for both r8169 and e1000 on my amd64 box (running 
+2.6.12-rc3-mm2). 
