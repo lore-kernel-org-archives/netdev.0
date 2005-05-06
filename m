@@ -1,88 +1,32 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCH] ipvs: add and reorder bh locks after moving to keventd
-Date: Fri, 6 May 2005 17:21:22 +0300 (EEST)
-Message-ID: <Pine.LNX.4.58.0505061647470.1504@u.domain.uli>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: netfilter6: ICMPv6 type 143 doesn't match
+Date: Fri, 06 May 2005 16:39:51 +0200
+Message-ID: <427B81B7.2010808@trash.net>
+References: <E1DU2mw-0000UK-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="1607745702-2026925329-1115389282=:1504"
-Cc: Andrew Morton <akpm@osdl.org>, Wensong Zhang <wensong@linux-vs.org>,
-        "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, dlstevens@us.ibm.com, laforge@gnumonks.org,
+        netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org,
+        pb@bieringer.de, usagi-users@linux-ipv6.org,
+        yasuyuki.kozakai@toshiba.co.jp, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1DU2mw-0000UK-00@gondolin.me.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-  Send mail to mime@docserver.cac.washington.edu for more info.
+Herbert Xu wrote:
+> Patrick McHardy <kaber@trash.net> wrote:
+>>+               err = dev->hard_header(skb, dev, ETH_P_IPV6, ha, NULL, skb->len);
+>>+               if (err < 0) {
+>>+                       IP6_INC_STATS(IPSTATS_MIB_OUTDISCARDS);
+> 
+> You're now incrementing this twice since the callers will also
+> increment this.
 
---1607745702-2026925329-1115389282=:1504
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Thanks, I've removed the line again.
 
-
-	Hello,
-
-	I hope this is correct addition to the last ipvs changes that move
-update_defense_level/si_meminfo to keventd:
-
-- ip_vs_random_dropentry now runs in process context and should use _bh 
-locks to protect from softirqs
-- update_defense_level still needs _bh locks after si_meminfo is called,
-for the same purpose
-
-	Dave, please apply on ack, the attached patch is against 
-2.6.12-rc3
-
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-
---1607745702-2026925329-1115389282=:1504
-Content-Type: TEXT/PLAIN; charset=US-ASCII; name="use_bh.diff"
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.58.0505061721220.1504@u.domain.uli>
-Content-Description: Use _bh locks in keventd context
-Content-Disposition: attachment; filename="use_bh.diff"
-
-ZGlmZiAtdXIgdjIuNi4xMi1yYzMvbGludXgvbmV0L2lwdjQvaXB2cy9pcF92
-c19jb25uLmMgbGludXgvbmV0L2lwdjQvaXB2cy9pcF92c19jb25uLmMNCi0t
-LSB2Mi42LjEyLXJjMy9saW51eC9uZXQvaXB2NC9pcHZzL2lwX3ZzX2Nvbm4u
-YwkyMDA1LTAzLTAzIDEwOjE3OjIzLjAwMDAwMDAwMCArMDIwMA0KKysrIGxp
-bnV4L25ldC9pcHY0L2lwdnMvaXBfdnNfY29ubi5jCTIwMDUtMDUtMDYgMTQ6
-Mjk6MjguNDc4MzUwMDcyICswMzAwDQpAQCAtNzU5LDcgKzc1OSw3IEBADQog
-CXJldHVybiAxOw0KIH0NCiANCi0NCisvKiBDYWxsZWQgZnJvbSBrZXZlbnRk
-IGFuZCBtdXN0IHByb3RlY3QgaXRzZWxmIGZyb20gc29mdGlycXMgKi8NCiB2
-b2lkIGlwX3ZzX3JhbmRvbV9kcm9wZW50cnkodm9pZCkNCiB7DQogCWludCBp
-ZHg7DQpAQCAtNzc1LDcgKzc3NSw3IEBADQogCQkvKg0KIAkJICogIExvY2sg
-aXMgYWN0dWFsbHkgbmVlZGVkIGluIHRoaXMgbG9vcC4NCiAJCSAqLw0KLQkJ
-Y3Rfd3JpdGVfbG9jayhoYXNoKTsNCisJCWN0X3dyaXRlX2xvY2tfYmgoaGFz
-aCk7DQogDQogCQlsaXN0X2Zvcl9lYWNoX2VudHJ5KGNwLCAmaXBfdnNfY29u
-bl90YWJbaGFzaF0sIGNfbGlzdCkgew0KIAkJCWlmICghY3AtPmNwb3J0ICYm
-ICEoY3AtPmZsYWdzICYgSVBfVlNfQ09OTl9GX05PX0NQT1JUKSkNCkBAIC04
-MTcsNyArODE3LDcgQEANCiAJCQl9DQogCQkJY3Rfd3JpdGVfbG9jayhoYXNo
-KTsNCiAJCX0NCi0JCWN0X3dyaXRlX3VubG9jayhoYXNoKTsNCisJCWN0X3dy
-aXRlX3VubG9ja19iaChoYXNoKTsNCiAJfQ0KIH0NCiANCmRpZmYgLXVyIHYy
-LjYuMTItcmMzL2xpbnV4L25ldC9pcHY0L2lwdnMvaXBfdnNfY3RsLmMgbGlu
-dXgvbmV0L2lwdjQvaXB2cy9pcF92c19jdGwuYw0KLS0tIHYyLjYuMTItcmMz
-L2xpbnV4L25ldC9pcHY0L2lwdnMvaXBfdnNfY3RsLmMJMjAwNS0wNS0wNiAx
-MzowNDozNy4wMDAwMDAwMDAgKzAzMDANCisrKyBsaW51eC9uZXQvaXB2NC9p
-cHZzL2lwX3ZzX2N0bC5jCTIwMDUtMDUtMDYgMTQ6MjU6MTguNjM4MzMxNTI4
-ICswMzAwDQpAQCAtOTAsNyArOTAsOCBAQA0KICNlbmRpZg0KIA0KIC8qDQot
-ICoJdXBkYXRlX2RlZmVuc2VfbGV2ZWwgaXMgY2FsbGVkIGZyb20ga2V2ZW50
-ZCBhbmQgZnJvbSBzeXNjdGwuDQorICoJdXBkYXRlX2RlZmVuc2VfbGV2ZWwg
-aXMgY2FsbGVkIGZyb20ga2V2ZW50ZCBhbmQgZnJvbSBzeXNjdGwsDQorICoJ
-c28gaXQgbmVlZHMgdG8gcHJvdGVjdCBpdHNlbGYgZnJvbSBzb2Z0aXJxcw0K
-ICAqLw0KIHN0YXRpYyB2b2lkIHVwZGF0ZV9kZWZlbnNlX2xldmVsKHZvaWQp
-DQogew0KQEAgLTExMCw2ICsxMTEsOCBAQA0KIA0KIAlub21lbSA9IChhdmFp
-bG1lbSA8IHN5c2N0bF9pcF92c19hbWVtdGhyZXNoKTsNCiANCisJbG9jYWxf
-YmhfZGlzYWJsZSgpOw0KKw0KIAkvKiBkcm9wX2VudHJ5ICovDQogCXNwaW5f
-bG9jaygmX19pcF92c19kcm9wZW50cnlfbG9jayk7DQogCXN3aXRjaCAoc3lz
-Y3RsX2lwX3ZzX2Ryb3BfZW50cnkpIHsNCkBAIC0yMDYsNiArMjA5LDggQEAN
-CiAJaWYgKHRvX2NoYW5nZSA+PSAwKQ0KIAkJaXBfdnNfcHJvdG9jb2xfdGlt
-ZW91dF9jaGFuZ2Uoc3lzY3RsX2lwX3ZzX3NlY3VyZV90Y3A+MSk7DQogCXdy
-aXRlX3VubG9jaygmX19pcF92c19zZWN1cmV0Y3BfbG9jayk7DQorDQorCWxv
-Y2FsX2JoX2VuYWJsZSgpOw0KIH0NCiANCiANCkBAIC0xMzYwLDkgKzEzNjUs
-NyBAQA0KIAkJCS8qIFJlc3RvcmUgdGhlIGNvcnJlY3QgdmFsdWUgKi8NCiAJ
-CQkqdmFscCA9IHZhbDsNCiAJCX0gZWxzZSB7DQotCQkJbG9jYWxfYmhfZGlz
-YWJsZSgpOw0KIAkJCXVwZGF0ZV9kZWZlbnNlX2xldmVsKCk7DQotCQkJbG9j
-YWxfYmhfZW5hYmxlKCk7DQogCQl9DQogCX0NCiAJcmV0dXJuIHJjOw0K
-
---1607745702-2026925329-1115389282=:1504--
+Regards
+Patrick
