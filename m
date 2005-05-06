@@ -1,31 +1,22 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [patch linux-2.6.12-rc3-mm3 1/7] r8169: de-obfuscate supported PCI ID
-Date: Fri, 6 May 2005 18:37:02 +0200
-Message-ID: <20050506163702.GA3475@electric-eye.fr.zoreil.com>
-References: <20050504221057.1e02a402.akpm@osdl.org> <20050505110052.62c1c2cb.akpm@osdl.org> <20050505225656.GA11200@electric-eye.fr.zoreil.com> <200505061103.34705.jdmason@us.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com, jgarzik@pobox.com
+From: Baruch Even <baruch@ev-en.org>
+Subject: [TCP 0/4] H-TCP patches on top of Stephens cc framework
+Date: Fri,  6 May 2005 20:37:29 +0300 (IDT)
+Message-ID: <20050506173729.20140.93205.37072@galon.ev-en.org>
+Cc: netdev@oss.sgi.com, Baruch Even <baruch@ev-en.org>,
+        Douglas Leith <doug.leith@nuim.ie>,
+        "David S.Miller" <davem@davemloft.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jon Mason <jdmason@us.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <200505061103.34705.jdmason@us.ibm.com>
+To: Stephen Hemminger <shemminger@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jon Mason <jdmason@us.ibm.com> :
-> I only received patches 1,3, and 7.
+This is a first post of the H-TCP framework on top of Stephens congestion
+control framework. Hopefully the use of the framework will make it easier to
+understand the logic of the H-TCP algorithm. It definitely helped me :-)
 
-If the DSNs don't lie, the messages should be somewhere in the pipe
-behind oss.sgi.com.
+The code is licensed under the GNU GPL v2, and according to that we know this
+gives an implicit patent license to users of this code. An explicit licensing
+to OSDL for the purpose of sub-licensing is in the works to alleviate any fear.
 
-Alternate location:
-- http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.12-rc3-mm3
-
-More alternate location:
-- rsync://www.fr.zoreil.com/linux-2.6.git/
-  commit 778e3479a76e03b319fc18a6416cb9b766029cc3
-
---
-Ueimor
+Baruch
