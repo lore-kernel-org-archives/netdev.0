@@ -1,13 +1,12 @@
 From: Adrian Bunk <bunk@stusta.de>
-Subject: [RFC: 2.6 patch] net/sunrpc/: possible cleanups
-Date: Sat, 7 May 2005 01:13:49 +0200
-Message-ID: <20050506231349.GA3590@stusta.de>
+Subject: [RFC: 2.6 patch] net/ipv4/: possible cleanups
+Date: Sat, 7 May 2005 01:18:03 +0200
+Message-ID: <20050506231803.GB3590@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, nfs@lists.sourceforge.net,
-        netdev@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: neilb@cse.unsw.edu.au, trond.myklebust@fys.uio.no
+To: netdev@oss.sgi.com
 Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
@@ -16,246 +15,229 @@ List-Id: netdev.vger.kernel.org
 This patch contains the following possible cleanups:
 - make needlessly global code static
 - #if 0 the following unused global function:
-  - xdr.c: xdr_decode_string
+  - xfrm4_state.c: xfrm4_state_fini
 - remove the following unneeded EXPORT_SYMBOL's:
-  - auth_gss/gss_mech_switch.c: gss_mech_get
-  - auth_gss/gss_mech_switch.c: gss_mech_get_by_name
-  - auth_gss/gss_mech_switch.c: gss_mech_get_by_pseudoflavor
-  - auth_gss/gss_mech_switch.c: gss_pseudoflavor_to_service
-  - auth_gss/gss_mech_switch.c: gss_service_to_auth_domain_name
-  - auth_gss/gss_mech_switch.c: gss_mech_put
-  - sunrpc_syms.c: rpc_wake_up_next
-  - sunrpc_syms.c: rpc_new_child
-  - sunrpc_syms.c: rpc_run_child
-  - sunrpc_syms.c: rpc_new_task
-  - sunrpc_syms.c: rpc_release_task
-  - sunrpc_syms.c: rpc_release_client
-  - sunrpc_syms.c: xprt_udp_slot_table_entries
-  - sunrpc_syms.c: xprt_tcp_slot_table_entries
-  - sunrpc_syms.c: svc_drop
-  - sunrpc_syms.c: svc_authenticate
-  - sunrpc_syms.c: xdr_decode_string
+  - ip_output.c: ip_finish_output
+  - ip_output.c: sysctl_ip_default_ttl
+  - fib_frontend.c: ip_dev_find
+  - inetpeer.c: inet_peer_idlock
+  - ip_options.c: ip_options_compile
+  - ip_options.c: ip_options_undo
+  - tcp_ipv4.c: sysctl_max_syn_backlog
 
-Please review which of these patches do make sense and which conflict 
-with pending patches.
+Please review which of these changes are correct and which might 
+conflict with pending patches.
 
 Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
 ---
 
- include/linux/sunrpc/clnt.h           |    1 -
- include/linux/sunrpc/gss_api.h        |    3 ---
- include/linux/sunrpc/xdr.h            |    2 --
- net/sunrpc/auth_gss/gss_mech_switch.c |   13 +------------
- net/sunrpc/clnt.c                     |    3 ++-
- net/sunrpc/sunrpc_syms.c              |   11 -----------
- net/sunrpc/xdr.c                      |    4 +++-
- 7 files changed, 6 insertions(+), 31 deletions(-)
+ include/net/ip.h         |    2 --
+ include/net/route.h      |    4 ----
+ include/net/tcp.h        |    2 --
+ include/net/tcp_ecn.h    |   13 -------------
+ include/net/xfrm.h       |    1 -
+ net/ipv4/fib_frontend.c  |    1 -
+ net/ipv4/inetpeer.c      |    2 --
+ net/ipv4/ip_options.c    |    3 ---
+ net/ipv4/ip_output.c     |    7 +------
+ net/ipv4/multipath_drr.c |    2 +-
+ net/ipv4/route.c         |    4 +++-
+ net/ipv4/tcp_input.c     |   15 ++++++++++++++-
+ net/ipv4/tcp_ipv4.c      |    1 -
+ net/ipv4/xfrm4_state.c   |    2 ++
+ 14 files changed, 21 insertions(+), 38 deletions(-)
 
---- linux-2.6.12-rc3-mm3-full/include/linux/sunrpc/gss_api.h.old	2005-05-05 23:05:01.000000000 +0200
-+++ linux-2.6.12-rc3-mm3-full/include/linux/sunrpc/gss_api.h	2005-05-05 23:05:10.000000000 +0200
-@@ -110,9 +110,6 @@
- /* Similar, but get by pseudoflavor. */
- struct gss_api_mech *gss_mech_get_by_pseudoflavor(u32);
+--- linux-2.6.12-rc3-mm2-full/include/net/ip.h.old	2005-05-05 02:35:00.000000000 +0200
++++ linux-2.6.12-rc3-mm2-full/include/net/ip.h	2005-05-05 02:35:07.000000000 +0200
+@@ -140,8 +140,6 @@
+ void ip_send_reply(struct sock *sk, struct sk_buff *skb, struct ip_reply_arg *arg,
+ 		   unsigned int len); 
  
--/* Just increments the mechanism's reference count and returns its input: */
--struct gss_api_mech * gss_mech_get(struct gss_api_mech *);
+-extern int ip_finish_output(struct sk_buff *skb);
 -
- /* For every succesful gss_mech_get or gss_mech_get_by_* call there must be a
-  * corresponding call to gss_mech_put. */
- void gss_mech_put(struct gss_api_mech *);
---- linux-2.6.12-rc3-mm3-full/net/sunrpc/auth_gss/gss_mech_switch.c.old	2005-05-05 23:05:17.000000000 +0200
-+++ linux-2.6.12-rc3-mm3-full/net/sunrpc/auth_gss/gss_mech_switch.c	2005-05-05 23:19:33.000000000 +0200
-@@ -133,14 +133,13 @@
- 
- EXPORT_SYMBOL(gss_mech_unregister);
- 
--struct gss_api_mech *
-+static struct gss_api_mech *
- gss_mech_get(struct gss_api_mech *gm)
+ struct ipv4_config
  {
- 	__module_get(gm->gm_owner);
- 	return gm;
+ 	int	log_martians;
+--- linux-2.6.12-rc3-mm2-full/net/ipv4/multipath_drr.c.old	2005-05-05 02:37:58.000000000 +0200
++++ linux-2.6.12-rc3-mm2-full/net/ipv4/multipath_drr.c	2005-05-05 02:38:06.000000000 +0200
+@@ -107,7 +107,7 @@
+ 	return NOTIFY_DONE;
  }
  
--EXPORT_SYMBOL(gss_mech_get);
- 
- struct gss_api_mech *
- gss_mech_get_by_name(const char *name)
-@@ -160,8 +159,6 @@
- 
- }
- 
--EXPORT_SYMBOL(gss_mech_get_by_name);
--
- static inline int
- mech_supports_pseudoflavor(struct gss_api_mech *gm, u32 pseudoflavor)
- {
-@@ -193,8 +190,6 @@
- 	return gm;
- }
- 
--EXPORT_SYMBOL(gss_mech_get_by_pseudoflavor);
--
- u32
- gss_pseudoflavor_to_service(struct gss_api_mech *gm, u32 pseudoflavor)
- {
-@@ -207,8 +202,6 @@
- 	return 0;
- }
- 
--EXPORT_SYMBOL(gss_pseudoflavor_to_service);
--
- char *
- gss_service_to_auth_domain_name(struct gss_api_mech *gm, u32 service)
- {
-@@ -221,16 +214,12 @@
- 	return NULL;
- }
- 
--EXPORT_SYMBOL(gss_service_to_auth_domain_name);
--
- void
- gss_mech_put(struct gss_api_mech * gm)
- {
- 	module_put(gm->gm_owner);
- }
- 
--EXPORT_SYMBOL(gss_mech_put);
--
- /* The mech could probably be determined from the token instead, but it's just
-  * as easy for now to pass it in. */
- int
---- linux-2.6.12-rc3-mm3-full/include/linux/sunrpc/clnt.h.old	2005-05-05 23:05:45.000000000 +0200
-+++ linux-2.6.12-rc3-mm3-full/include/linux/sunrpc/clnt.h	2005-05-05 23:05:50.000000000 +0200
-@@ -134,7 +134,6 @@
- void		rpc_clnt_sigunmask(struct rpc_clnt *clnt, sigset_t *oldset);
- void		rpc_setbufsize(struct rpc_clnt *, unsigned int, unsigned int);
- size_t		rpc_max_payload(struct rpc_clnt *);
--int		rpc_ping(struct rpc_clnt *clnt, int flags);
- 
- static __inline__
- int rpc_call(struct rpc_clnt *clnt, u32 proc, void *argp, void *resp, int flags)
---- linux-2.6.12-rc3-mm3-full/net/sunrpc/clnt.c.old	2005-05-05 23:05:58.000000000 +0200
-+++ linux-2.6.12-rc3-mm3-full/net/sunrpc/clnt.c	2005-05-05 23:06:21.000000000 +0200
-@@ -63,6 +63,7 @@
- static u32 *	call_header(struct rpc_task *task);
- static u32 *	call_verify(struct rpc_task *task);
- 
-+static int	rpc_ping(struct rpc_clnt *clnt, int flags);
- 
- static int
- rpc_setup_pipedir(struct rpc_clnt *clnt, char *dir_name)
-@@ -1178,7 +1179,7 @@
- 	.p_decode = rpcproc_decode_null,
+-struct notifier_block drr_dev_notifier = {
++static struct notifier_block drr_dev_notifier = {
+ 	.notifier_call	= drr_dev_event,
  };
  
--int rpc_ping(struct rpc_clnt *clnt, int flags)
-+static int rpc_ping(struct rpc_clnt *clnt, int flags)
- {
- 	struct rpc_message msg = {
- 		.rpc_proc = &rpcproc_null,
---- linux-2.6.12-rc3-mm3-full/include/linux/sunrpc/xdr.h.old	2005-05-05 23:06:40.000000000 +0200
-+++ linux-2.6.12-rc3-mm3-full/include/linux/sunrpc/xdr.h	2005-05-05 23:07:23.000000000 +0200
-@@ -91,7 +91,6 @@
- u32 *	xdr_encode_opaque_fixed(u32 *p, const void *ptr, unsigned int len);
- u32 *	xdr_encode_opaque(u32 *p, const void *ptr, unsigned int len);
- u32 *	xdr_encode_string(u32 *p, const char *s);
--u32 *	xdr_decode_string(u32 *p, char **sp, int *lenp, int maxlen);
- u32 *	xdr_decode_string_inplace(u32 *p, char **sp, int *lenp, int maxlen);
- u32 *	xdr_encode_netobj(u32 *p, const struct xdr_netobj *);
- u32 *	xdr_decode_netobj(u32 *p, struct xdr_netobj *);
-@@ -147,7 +146,6 @@
- extern int xdr_buf_subsegment(struct xdr_buf *, struct xdr_buf *, int, int);
- extern int xdr_buf_read_netobj(struct xdr_buf *, struct xdr_netobj *, int);
- extern int read_bytes_from_xdr_buf(struct xdr_buf *, int, void *, int);
--extern int write_bytes_to_xdr_buf(struct xdr_buf *, int, void *, int);
+--- linux-2.6.12-rc3-mm3-full/net/ipv4/ip_output.c.old	2005-05-05 21:43:22.000000000 +0200
++++ linux-2.6.12-rc3-mm3-full/net/ipv4/ip_output.c	2005-05-05 21:44:36.000000000 +0200
+@@ -216,7 +216,7 @@
+ 	return -EINVAL;
+ }
  
- /*
-  * Helper structure for copying from an sk_buff.
---- linux-2.6.12-rc3-mm3-full/net/sunrpc/xdr.c.old	2005-05-05 23:06:52.000000000 +0200
-+++ linux-2.6.12-rc3-mm3-full/net/sunrpc/xdr.c	2005-05-05 23:07:56.000000000 +0200
-@@ -95,6 +95,7 @@
- 	return xdr_encode_array(p, string, strlen(string));
+-int ip_finish_output(struct sk_buff *skb)
++static int ip_finish_output(struct sk_buff *skb)
+ {
+ 	struct net_device *dev = skb->dst->dev;
+ 
+@@ -1351,12 +1351,7 @@
+ #endif
+ }
+ 
+-EXPORT_SYMBOL(ip_finish_output);
+ EXPORT_SYMBOL(ip_fragment);
+ EXPORT_SYMBOL(ip_generic_getfrag);
+ EXPORT_SYMBOL(ip_queue_xmit);
+ EXPORT_SYMBOL(ip_send_check);
+-
+-#ifdef CONFIG_SYSCTL
+-EXPORT_SYMBOL(sysctl_ip_default_ttl);
+-#endif
+--- linux-2.6.12-rc3-mm3-full/include/net/route.h.old	2005-05-05 21:21:09.000000000 +0200
++++ linux-2.6.12-rc3-mm3-full/include/net/route.h	2005-05-05 21:22:19.000000000 +0200
+@@ -105,10 +105,6 @@
+         unsigned int out_hlist_search;
+ };
+ 
+-extern struct rt_cache_stat *rt_cache_stat;
+-#define RT_CACHE_STAT_INC(field)					  \
+-		(per_cpu_ptr(rt_cache_stat, _smp_processor_id())->field++)
+-
+ extern struct ip_rt_acct *ip_rt_acct;
+ 
+ struct in_device;
+--- linux-2.6.12-rc3-mm3-full/net/ipv4/route.c.old	2005-05-05 21:21:21.000000000 +0200
++++ linux-2.6.12-rc3-mm3-full/net/ipv4/route.c	2005-05-05 21:22:14.000000000 +0200
+@@ -209,7 +209,9 @@
+ static int			rt_hash_log;
+ static unsigned int		rt_hash_rnd;
+ 
+-struct rt_cache_stat *rt_cache_stat;
++static struct rt_cache_stat *rt_cache_stat;
++#define RT_CACHE_STAT_INC(field)					  \
++		(per_cpu_ptr(rt_cache_stat, _smp_processor_id())->field++)
+ 
+ static int rt_intern_hash(unsigned hash, struct rtable *rth,
+ 				struct rtable **res);
+--- linux-2.6.12-rc3-mm3-full/include/net/tcp.h.old	2005-05-05 21:23:42.000000000 +0200
++++ linux-2.6.12-rc3-mm3-full/include/net/tcp.h	2005-05-05 21:23:52.000000000 +0200
+@@ -825,8 +825,6 @@
+ 	}
+ }
+ 
+-extern void tcp_enter_quickack_mode(struct tcp_sock *tp);
+-
+ static __inline__ void tcp_delack_init(struct tcp_sock *tp)
+ {
+ 	memset(&tp->ack, 0, sizeof(tp->ack));
+--- linux-2.6.12-rc3-mm3-full/include/net/tcp_ecn.h.old	2005-05-05 21:25:48.000000000 +0200
++++ linux-2.6.12-rc3-mm3-full/include/net/tcp_ecn.h	2005-05-05 21:25:57.000000000 +0200
+@@ -78,19 +78,6 @@
+ 	tp->ecn_flags &= ~TCP_ECN_DEMAND_CWR;
+ }
+ 
+-static inline void TCP_ECN_check_ce(struct tcp_sock *tp, struct sk_buff *skb)
+-{
+-	if (tp->ecn_flags&TCP_ECN_OK) {
+-		if (INET_ECN_is_ce(TCP_SKB_CB(skb)->flags))
+-			tp->ecn_flags |= TCP_ECN_DEMAND_CWR;
+-		/* Funny extension: if ECT is not set on a segment,
+-		 * it is surely retransmit. It is not in ECN RFC,
+-		 * but Linux follows this rule. */
+-		else if (INET_ECN_is_not_ect((TCP_SKB_CB(skb)->flags)))
+-			tcp_enter_quickack_mode(tp);
+-	}
+-}
+-
+ static inline void TCP_ECN_rcv_synack(struct tcp_sock *tp, struct tcphdr *th)
+ {
+ 	if ((tp->ecn_flags&TCP_ECN_OK) && (!th->ece || th->cwr))
+--- linux-2.6.12-rc3-mm3-full/net/ipv4/tcp_input.c.old	2005-05-05 21:24:11.000000000 +0200
++++ linux-2.6.12-rc3-mm3-full/net/ipv4/tcp_input.c	2005-05-05 21:25:04.000000000 +0200
+@@ -183,13 +183,26 @@
+ 		tp->ack.quick = min(quickacks, TCP_MAX_QUICKACKS);
+ }
+ 
+-void tcp_enter_quickack_mode(struct tcp_sock *tp)
++static void tcp_enter_quickack_mode(struct tcp_sock *tp)
+ {
+ 	tcp_incr_quickack(tp);
+ 	tp->ack.pingpong = 0;
+ 	tp->ack.ato = TCP_ATO_MIN;
+ }
+ 
++static inline void TCP_ECN_check_ce(struct tcp_sock *tp, struct sk_buff *skb)
++{
++	if (tp->ecn_flags&TCP_ECN_OK) {
++		if (INET_ECN_is_ce(TCP_SKB_CB(skb)->flags))
++			tp->ecn_flags |= TCP_ECN_DEMAND_CWR;
++		/* Funny extension: if ECT is not set on a segment,
++		 * it is surely retransmit. It is not in ECN RFC,
++		 * but Linux follows this rule. */
++		else if (INET_ECN_is_not_ect((TCP_SKB_CB(skb)->flags)))
++			tcp_enter_quickack_mode(tp);
++	}
++}
++
+ /* Send ACKs quickly, if "quick" count is not exhausted
+  * and the session is not interactive.
+  */
+--- linux-2.6.12-rc3-mm3-full/include/net/xfrm.h.old	2005-05-05 21:26:56.000000000 +0200
++++ linux-2.6.12-rc3-mm3-full/include/net/xfrm.h	2005-05-05 21:27:01.000000000 +0200
+@@ -799,7 +799,6 @@
+ extern void xfrm6_fini(void);
+ extern void xfrm_state_init(void);
+ extern void xfrm4_state_init(void);
+-extern void xfrm4_state_fini(void);
+ extern void xfrm6_state_init(void);
+ extern void xfrm6_state_fini(void);
+ 
+--- linux-2.6.12-rc3-mm3-full/net/ipv4/xfrm4_state.c.old	2005-05-05 21:27:09.000000000 +0200
++++ linux-2.6.12-rc3-mm3-full/net/ipv4/xfrm4_state.c	2005-05-05 21:27:24.000000000 +0200
+@@ -119,8 +119,10 @@
+ 	xfrm_state_register_afinfo(&xfrm4_state_afinfo);
  }
  
 +#if 0
- u32 *
- xdr_decode_string(u32 *p, char **sp, int *lenp, int maxlen)
+ void __exit xfrm4_state_fini(void)
  {
-@@ -115,6 +116,7 @@
- 	*sp = string;
- 	return p + XDR_QUADLEN(len);
+ 	xfrm_state_unregister_afinfo(&xfrm4_state_afinfo);
  }
 +#endif  /*  0  */
  
- u32 *
- xdr_decode_string_inplace(u32 *p, char **sp, int *lenp, int maxlen)
-@@ -882,7 +884,7 @@
+--- linux-2.6.12-rc3-mm3-full/net/ipv4/fib_frontend.c.old	2005-05-05 21:38:28.000000000 +0200
++++ linux-2.6.12-rc3-mm3-full/net/ipv4/fib_frontend.c	2005-05-05 21:38:40.000000000 +0200
+@@ -607,5 +607,4 @@
  }
  
- /* obj is assumed to point to allocated memory of size at least len: */
--int
-+static int
- write_bytes_to_xdr_buf(struct xdr_buf *buf, int base, void *obj, int len)
- {
- 	struct xdr_buf subbuf;
---- linux-2.6.12-rc3-mm3-full/net/sunrpc/sunrpc_syms.c.old	2005-05-05 23:07:30.000000000 +0200
-+++ linux-2.6.12-rc3-mm3-full/net/sunrpc/sunrpc_syms.c	2005-05-05 23:36:43.000000000 +0200
-@@ -29,15 +29,10 @@
- EXPORT_SYMBOL(rpc_execute);
- EXPORT_SYMBOL(rpc_init_task);
- EXPORT_SYMBOL(rpc_sleep_on);
--EXPORT_SYMBOL(rpc_wake_up_next);
- EXPORT_SYMBOL(rpc_wake_up_task);
--EXPORT_SYMBOL(rpc_new_child);
--EXPORT_SYMBOL(rpc_run_child);
- EXPORT_SYMBOL(rpciod_down);
- EXPORT_SYMBOL(rpciod_up);
--EXPORT_SYMBOL(rpc_new_task);
- EXPORT_SYMBOL(rpc_wake_up_status);
--EXPORT_SYMBOL(rpc_release_task);
+ EXPORT_SYMBOL(inet_addr_type);
+-EXPORT_SYMBOL(ip_dev_find);
+ EXPORT_SYMBOL(ip_rt_ioctl);
+--- linux-2.6.12-rc3-mm3-full/net/ipv4/inetpeer.c.old	2005-05-05 21:41:06.000000000 +0200
++++ linux-2.6.12-rc3-mm3-full/net/ipv4/inetpeer.c	2005-05-05 21:41:14.000000000 +0200
+@@ -456,5 +456,3 @@
+ 			peer_total / inet_peer_threshold * HZ;
+ 	add_timer(&peer_periodic_timer);
+ }
+-
+-EXPORT_SYMBOL(inet_peer_idlock);
+--- linux-2.6.12-rc3-mm3-full/net/ipv4/ip_options.c.old	2005-05-05 21:42:02.000000000 +0200
++++ linux-2.6.12-rc3-mm3-full/net/ipv4/ip_options.c	2005-05-05 21:42:33.000000000 +0200
+@@ -620,6 +620,3 @@
+ 	}
+ 	return 0;
+ }
+-
+-EXPORT_SYMBOL(ip_options_compile);
+-EXPORT_SYMBOL(ip_options_undo);
+--- linux-2.6.12-rc3-mm3-full/net/ipv4/tcp_ipv4.c.old	2005-05-05 21:58:55.000000000 +0200
++++ linux-2.6.12-rc3-mm3-full/net/ipv4/tcp_ipv4.c	2005-05-05 21:59:33.000000000 +0200
+@@ -2660,7 +2660,6 @@
+ EXPORT_SYMBOL(tcp_proc_unregister);
+ #endif
+ EXPORT_SYMBOL(sysctl_local_port_range);
+-EXPORT_SYMBOL(sysctl_max_syn_backlog);
+ EXPORT_SYMBOL(sysctl_tcp_low_latency);
+ EXPORT_SYMBOL(sysctl_tcp_tw_reuse);
  
- /* RPC client functions */
- EXPORT_SYMBOL(rpc_create_client);
-@@ -45,7 +40,6 @@
- EXPORT_SYMBOL(rpc_bind_new_program);
- EXPORT_SYMBOL(rpc_destroy_client);
- EXPORT_SYMBOL(rpc_shutdown_client);
--EXPORT_SYMBOL(rpc_release_client);
- EXPORT_SYMBOL(rpc_killall_tasks);
- EXPORT_SYMBOL(rpc_call_sync);
- EXPORT_SYMBOL(rpc_call_async);
-@@ -63,8 +57,6 @@
- /* Client transport */
- EXPORT_SYMBOL(xprt_create_proto);
- EXPORT_SYMBOL(xprt_set_timeout);
--EXPORT_SYMBOL(xprt_udp_slot_table_entries);
--EXPORT_SYMBOL(xprt_tcp_slot_table_entries);
- 
- /* Client credential cache */
- EXPORT_SYMBOL(rpcauth_register);
-@@ -81,7 +73,6 @@
- EXPORT_SYMBOL(svc_create_thread);
- EXPORT_SYMBOL(svc_exit_thread);
- EXPORT_SYMBOL(svc_destroy);
--EXPORT_SYMBOL(svc_drop);
- EXPORT_SYMBOL(svc_process);
- EXPORT_SYMBOL(svc_recv);
- EXPORT_SYMBOL(svc_wake_up);
-@@ -89,7 +80,6 @@
- EXPORT_SYMBOL(svc_reserve);
- EXPORT_SYMBOL(svc_auth_register);
- EXPORT_SYMBOL(auth_domain_lookup);
--EXPORT_SYMBOL(svc_authenticate);
- EXPORT_SYMBOL(svc_set_client);
- 
- /* RPC statistics */
-@@ -122,7 +112,6 @@
- 
- /* Generic XDR */
- EXPORT_SYMBOL(xdr_encode_string);
--EXPORT_SYMBOL(xdr_decode_string);
- EXPORT_SYMBOL(xdr_decode_string_inplace);
- EXPORT_SYMBOL(xdr_decode_netobj);
- EXPORT_SYMBOL(xdr_encode_netobj);
