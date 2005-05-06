@@ -1,29 +1,26 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: SFQ: Reordering?
-Date: Sat, 07 May 2005 01:19:14 +0200
-Message-ID: <427BFB72.7080407@trash.net>
-References: <7bca1cb5050506145344d16b1e@mail.gmail.com> <427BEAAE.409@trash.net> <427BF3C4.1030105@trash.net> <20050506230203.GI28419@postel.suug.ch>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [RFC: 2.6 patch] net/ipv6/ipv6_syms.c: unexport fl6_sock_lookup
+Date: Sat, 7 May 2005 01:20:00 +0200
+Message-ID: <20050506232000.GC3590@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Asim Shankar <asimshankar@gmail.com>, netdev@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050506230203.GI28419@postel.suug.ch>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Thomas Graf wrote:
-> We can maintain a second hash table and switch a pointer over to the
-> new table but keep on dequeueing from the old one until it is empty.
-> Anyways, any such behaviour should be made optional via a rtnetlink
-> flag.
+There is no usage of this EXPORT_SYMBOL in the kernel.
 
-This also introduces unfairness. Packets of a flow could be only in
-the new table while we're still working on the active table.
-A proper solution to avoid reordering shouldn't be optional IMO,
-perturbation is already optional.
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-Regards
-Patrick
+--- linux-2.6.12-rc3-mm3-full/net/ipv6/ipv6_syms.c.old	2005-05-05 22:23:17.000000000 +0200
++++ linux-2.6.12-rc3-mm3-full/net/ipv6/ipv6_syms.c	2005-05-05 22:23:23.000000000 +0200
+@@ -37,5 +37,4 @@
+ EXPORT_SYMBOL(xfrm6_rcv);
+ #endif
+ EXPORT_SYMBOL(rt6_lookup);
+-EXPORT_SYMBOL(fl6_sock_lookup);
+ EXPORT_SYMBOL(ipv6_push_nfrag_opts);
