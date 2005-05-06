@@ -1,69 +1,88 @@
-From: "Leonid Grossman" <leonid.grossman@neterion.com>
-Subject: RE: [PATCH] TSO Reloaded
-Date: Fri, 6 May 2005 07:09:17 -0700
-Message-ID: <200505061409.j46E9HVG020066@guinness.s2io.com>
-References: <20050505203052.059125eb.davem@davemloft.net>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: [PATCH] ipvs: add and reorder bh locks after moving to keventd
+Date: Fri, 6 May 2005 17:21:22 +0300 (EEST)
+Message-ID: <Pine.LNX.4.58.0505061647470.1504@u.domain.uli>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@oss.sgi.com>
+Content-Type: MULTIPART/MIXED; BOUNDARY="1607745702-2026925329-1115389282=:1504"
+Cc: Andrew Morton <akpm@osdl.org>, Wensong Zhang <wensong@linux-vs.org>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'David S. Miller'" <davem@davemloft.net>
-In-Reply-To: <20050505203052.059125eb.davem@davemloft.net>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+  Send mail to mime@docserver.cac.washington.edu for more info.
+
+--1607745702-2026925329-1115389282=:1504
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 
 
-> -----Original Message-----
-> From: David S. Miller [mailto:davem@davemloft.net]
-> Sent: Thursday, May 05, 2005 8:31 PM
-> To: Leonid Grossman
-> Cc: netdev@oss.sgi.com
-> Subject: Re: [PATCH] TSO Reloaded
-> 
-> On Thu, 5 May 2005 20:20:56 -0700
-> "Leonid Grossman" <leonid.grossman@neterion.com> wrote:
-> 
-> > We will be testing on 10GbE NICs in the next couple weeks; will let you
-> > know.
-> > BTW - any plans for IPv6 support?
-> 
-> What exactly does your NIC expect?  Do you use the
-> NETIF_F_HW_CSUM flag to indicate generic checksumming support?
-> Otherwise, there is no other way to support ipv6 checksum offload
-> at the moment, and that is a requirement for ipv6 TSO.
-> 
-> For TSO, the ipv6 header handling seems very non-trivial.
-> What is supposed to happen in cases where certain optional
-> extension headers should be present in some of the frames
-> but not the others?
+	Hello,
 
-Our ASIC supports ipv6 CSUM and TSO (and header splitting) even if extension
-headers are present, but I suspect the majority ipv6-capable NICs will not
-implement this; the stack needs to query NIC header-processing capabilities
-(for both CSUM and TSO) and act accordingly.
+	I hope this is correct addition to the last ipvs changes that move
+update_defense_level/si_meminfo to keventd:
 
-> 
-> A specification of how your NIC support ipv6 TSO is necessary
-> in order for support to be written, see?  
+- ip_vs_random_dropentry now runs in process context and should use _bh 
+locks to protect from softirqs
+- update_defense_level still needs _bh locks after si_meminfo is called,
+for the same purpose
 
-We are planning to release the ASIC programming manual to the community
-fairly soon, this will provide a better view on IPv6 LSO and some other
-features.
+	Dave, please apply on ack, the attached patch is against 
+2.6.12-rc3
 
->Seems like you are
-> the most qualified person to write the support, therefore :-)
-> Really, it isn't that hard and you have something on which
-> to test whatever you write, whereas I don't.
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
 
-We will probably get to it sometime down the road; at the moment support for
-UDP LSO and receive side offloads are much higher on our list. 
+--1607745702-2026925329-1115389282=:1504
+Content-Type: TEXT/PLAIN; charset=US-ASCII; name="use_bh.diff"
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.LNX.4.58.0505061721220.1504@u.domain.uli>
+Content-Description: Use _bh locks in keventd context
+Content-Disposition: attachment; filename="use_bh.diff"
 
-Getting a vanilla (no support for extension headers) implementation from
-someone who knows the stack better than we do would be a good thing :-), I
-suspect this should be useful for more than one NIC vendor.
+ZGlmZiAtdXIgdjIuNi4xMi1yYzMvbGludXgvbmV0L2lwdjQvaXB2cy9pcF92
+c19jb25uLmMgbGludXgvbmV0L2lwdjQvaXB2cy9pcF92c19jb25uLmMNCi0t
+LSB2Mi42LjEyLXJjMy9saW51eC9uZXQvaXB2NC9pcHZzL2lwX3ZzX2Nvbm4u
+YwkyMDA1LTAzLTAzIDEwOjE3OjIzLjAwMDAwMDAwMCArMDIwMA0KKysrIGxp
+bnV4L25ldC9pcHY0L2lwdnMvaXBfdnNfY29ubi5jCTIwMDUtMDUtMDYgMTQ6
+Mjk6MjguNDc4MzUwMDcyICswMzAwDQpAQCAtNzU5LDcgKzc1OSw3IEBADQog
+CXJldHVybiAxOw0KIH0NCiANCi0NCisvKiBDYWxsZWQgZnJvbSBrZXZlbnRk
+IGFuZCBtdXN0IHByb3RlY3QgaXRzZWxmIGZyb20gc29mdGlycXMgKi8NCiB2
+b2lkIGlwX3ZzX3JhbmRvbV9kcm9wZW50cnkodm9pZCkNCiB7DQogCWludCBp
+ZHg7DQpAQCAtNzc1LDcgKzc3NSw3IEBADQogCQkvKg0KIAkJICogIExvY2sg
+aXMgYWN0dWFsbHkgbmVlZGVkIGluIHRoaXMgbG9vcC4NCiAJCSAqLw0KLQkJ
+Y3Rfd3JpdGVfbG9jayhoYXNoKTsNCisJCWN0X3dyaXRlX2xvY2tfYmgoaGFz
+aCk7DQogDQogCQlsaXN0X2Zvcl9lYWNoX2VudHJ5KGNwLCAmaXBfdnNfY29u
+bl90YWJbaGFzaF0sIGNfbGlzdCkgew0KIAkJCWlmICghY3AtPmNwb3J0ICYm
+ICEoY3AtPmZsYWdzICYgSVBfVlNfQ09OTl9GX05PX0NQT1JUKSkNCkBAIC04
+MTcsNyArODE3LDcgQEANCiAJCQl9DQogCQkJY3Rfd3JpdGVfbG9jayhoYXNo
+KTsNCiAJCX0NCi0JCWN0X3dyaXRlX3VubG9jayhoYXNoKTsNCisJCWN0X3dy
+aXRlX3VubG9ja19iaChoYXNoKTsNCiAJfQ0KIH0NCiANCmRpZmYgLXVyIHYy
+LjYuMTItcmMzL2xpbnV4L25ldC9pcHY0L2lwdnMvaXBfdnNfY3RsLmMgbGlu
+dXgvbmV0L2lwdjQvaXB2cy9pcF92c19jdGwuYw0KLS0tIHYyLjYuMTItcmMz
+L2xpbnV4L25ldC9pcHY0L2lwdnMvaXBfdnNfY3RsLmMJMjAwNS0wNS0wNiAx
+MzowNDozNy4wMDAwMDAwMDAgKzAzMDANCisrKyBsaW51eC9uZXQvaXB2NC9p
+cHZzL2lwX3ZzX2N0bC5jCTIwMDUtMDUtMDYgMTQ6MjU6MTguNjM4MzMxNTI4
+ICswMzAwDQpAQCAtOTAsNyArOTAsOCBAQA0KICNlbmRpZg0KIA0KIC8qDQot
+ICoJdXBkYXRlX2RlZmVuc2VfbGV2ZWwgaXMgY2FsbGVkIGZyb20ga2V2ZW50
+ZCBhbmQgZnJvbSBzeXNjdGwuDQorICoJdXBkYXRlX2RlZmVuc2VfbGV2ZWwg
+aXMgY2FsbGVkIGZyb20ga2V2ZW50ZCBhbmQgZnJvbSBzeXNjdGwsDQorICoJ
+c28gaXQgbmVlZHMgdG8gcHJvdGVjdCBpdHNlbGYgZnJvbSBzb2Z0aXJxcw0K
+ICAqLw0KIHN0YXRpYyB2b2lkIHVwZGF0ZV9kZWZlbnNlX2xldmVsKHZvaWQp
+DQogew0KQEAgLTExMCw2ICsxMTEsOCBAQA0KIA0KIAlub21lbSA9IChhdmFp
+bG1lbSA8IHN5c2N0bF9pcF92c19hbWVtdGhyZXNoKTsNCiANCisJbG9jYWxf
+YmhfZGlzYWJsZSgpOw0KKw0KIAkvKiBkcm9wX2VudHJ5ICovDQogCXNwaW5f
+bG9jaygmX19pcF92c19kcm9wZW50cnlfbG9jayk7DQogCXN3aXRjaCAoc3lz
+Y3RsX2lwX3ZzX2Ryb3BfZW50cnkpIHsNCkBAIC0yMDYsNiArMjA5LDggQEAN
+CiAJaWYgKHRvX2NoYW5nZSA+PSAwKQ0KIAkJaXBfdnNfcHJvdG9jb2xfdGlt
+ZW91dF9jaGFuZ2Uoc3lzY3RsX2lwX3ZzX3NlY3VyZV90Y3A+MSk7DQogCXdy
+aXRlX3VubG9jaygmX19pcF92c19zZWN1cmV0Y3BfbG9jayk7DQorDQorCWxv
+Y2FsX2JoX2VuYWJsZSgpOw0KIH0NCiANCiANCkBAIC0xMzYwLDkgKzEzNjUs
+NyBAQA0KIAkJCS8qIFJlc3RvcmUgdGhlIGNvcnJlY3QgdmFsdWUgKi8NCiAJ
+CQkqdmFscCA9IHZhbDsNCiAJCX0gZWxzZSB7DQotCQkJbG9jYWxfYmhfZGlz
+YWJsZSgpOw0KIAkJCXVwZGF0ZV9kZWZlbnNlX2xldmVsKCk7DQotCQkJbG9j
+YWxfYmhfZW5hYmxlKCk7DQogCQl9DQogCX0NCiAJcmV0dXJuIHJjOw0K
 
-Leonid
+--1607745702-2026925329-1115389282=:1504--
