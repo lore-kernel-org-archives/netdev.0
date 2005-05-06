@@ -1,27 +1,26 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: MultiPath Routing
-Date: Fri, 06 May 2005 20:58:28 +1000
-Message-ID: <E1DU0XM-0001wJ-00@gondolin.me.apana.org.au>
-References: <427A70ED.3010305@rapidforum.com>
-Cc: herbert@gondor.apana.org.au, netdev@oss.sgi.com
+Subject: Re: resend patch:  xfrm policybyid
+Date: Fri, 6 May 2005 21:04:45 +1000
+Message-ID: <20050506110445.GA7507@gondor.apana.org.au>
+References: <1115298877.7680.75.camel@localhost.localdomain> <20050505213239.GA29526@gondor.apana.org.au> <1115331436.8006.112.camel@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: webmaster@rapidforum.com (Christian Schmid)
-In-Reply-To: <427A70ED.3010305@rapidforum.com>
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1115331436.8006.112.camel@localhost.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Christian Schmid <webmaster@rapidforum.com> wrote:
+On Thu, May 05, 2005 at 06:17:15PM -0400, jamal wrote:
 > 
-> Yes I enabled it. But it shouldnt do anything because its no forwarded traffic here. I just used 
-> example-IPs. Or does the bug also break non-forwarded traffic?
+> BTW, are the event patches in Davems queue somewhere?
+> I have a few ipsec ones (cosmetic) that i will send later.
 
-Did you select one of the multipath algorithm options? If you selected
-them as modules did you load them? If no algorithms are available it
-will degenerate into deterministic routing.
-
-It will also work properly if you disable IP_ROUTE_MULTIPATH_CACHED
-completely.
+I can queue them up for you and bounce them to Dave once 2.6.13
+opens up.
 
 Cheers,
 -- 
