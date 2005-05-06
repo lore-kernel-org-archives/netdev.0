@@ -1,37 +1,95 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: SFQ: Reordering?
-Date: Sat, 07 May 2005 00:07:42 +0200
-Message-ID: <427BEAAE.409@trash.net>
-References: <7bca1cb5050506145344d16b1e@mail.gmail.com>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] net/irda/: passible cleanups
+Date: Sat, 7 May 2005 00:24:10 +0200
+Message-ID: <20050506222410.GV3590@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Asim Shankar <asimshankar@gmail.com>
-In-Reply-To: <7bca1cb5050506145344d16b1e@mail.gmail.com>
+To: irda-users@lists.sourceforge.net
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Asim Shankar wrote:
-> Hi,
-> 
-> I was looking through sch_sfq.c. From what I could make out, if the
-> perturbation period is non-zero (say Xseconds), then ever X seconds,
-> sfq_perturbation() is invoked. This changes the perturbation value
-> that will be used by the hash function, however, packets already
-> existing in the queue aren't rehashed.
-> 
-> As a result, new packets being enqueued will have a different hash
-> value and thus packet re-ordering will take place. I ran a quick test
-> using netperf and tcpdump and seem to notice this re-ordering.
-> 
-> Should complete rehashing take place in sfq_perturbation(), or am I
-> missing something? (I was looking at 2.6.9 and also took a cursory
-> glance at 2.6.11 on lxr.linux.no)
+This patch contains the following possible cleanups:
+- make the following needlessly global function static:
+  - irnet/irnet_ppp.c: irnet_init
+- remove the following unneeded EXPORT_SYMBOL's:
+  - irlmp.c: sysctl_discovery_timeout
+  - irlmp.c: irlmp_reasons
+  - irlmp.c: irlmp_dup
+  - irqueue.c: hashbin_find_next
 
-I think we should rehash. Can you send a patch?
+Please review which of these changes do make sense and which conflict 
+with pending patches.
 
-Regards
-Patrick
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
+
+---
+
+ net/irda/irlmp.c           |    3 ---
+ net/irda/irnet/irnet.h     |    3 ---
+ net/irda/irnet/irnet_ppp.c |    2 +-
+ net/irda/irqueue.c         |    1 -
+ 4 files changed, 1 insertion(+), 8 deletions(-)
+
+--- linux-2.6.12-rc3-mm3-full/net/irda/irnet/irnet.h.old	2005-05-05 22:38:59.000000000 +0200
++++ linux-2.6.12-rc3-mm3-full/net/irda/irnet/irnet.h	2005-05-05 22:39:12.000000000 +0200
+@@ -517,9 +517,6 @@
+ 	irda_irnet_init(void);		/* Initialise IrDA part of IrNET */
+ extern void
+ 	irda_irnet_cleanup(void);	/* Teardown IrDA part of IrNET */
+-/* ---------------------------- MODULE ---------------------------- */
+-extern int
+-	irnet_init(void);		/* Initialise IrNET module */
+ 
+ /**************************** VARIABLES ****************************/
+ 
+--- linux-2.6.12-rc3-mm3-full/net/irda/irnet/irnet_ppp.c.old	2005-05-05 22:39:21.000000000 +0200
++++ linux-2.6.12-rc3-mm3-full/net/irda/irnet/irnet_ppp.c	2005-05-05 22:39:29.000000000 +0200
+@@ -1107,7 +1107,7 @@
+ /*
+  * Module main entry point
+  */
+-int __init
++static int __init
+ irnet_init(void)
+ {
+   int err;
+--- linux-2.6.12-rc3-mm3-full/net/irda/irlmp.c.old	2005-05-05 22:46:47.000000000 +0200
++++ linux-2.6.12-rc3-mm3-full/net/irda/irlmp.c	2005-05-05 22:50:52.000000000 +0200
+@@ -53,7 +53,6 @@
+ /* These can be altered by the sysctl interface */
+ int  sysctl_discovery         = 0;
+ int  sysctl_discovery_timeout = 3; /* 3 seconds by default */
+-EXPORT_SYMBOL(sysctl_discovery_timeout);
+ int  sysctl_discovery_slots   = 6; /* 6 slots by default */
+ int  sysctl_lap_keepalive_time = LM_IDLE_TIMEOUT * 1000 / HZ;
+ char sysctl_devname[65];
+@@ -67,7 +66,6 @@
+ 	"LM_INIT_DISCONNECT",
+ 	"ERROR, NOT USED",
+ };
+-EXPORT_SYMBOL(irlmp_reasons);
+ 
+ /*
+  * Function irlmp_init (void)
+@@ -675,7 +673,6 @@
+ 
+ 	return new;
+ }
+-EXPORT_SYMBOL(irlmp_dup);
+ 
+ /*
+  * Function irlmp_disconnect_request (handle, userdata)
+--- linux-2.6.12-rc3-mm3-full/net/irda/irqueue.c.old	2005-05-05 22:48:55.000000000 +0200
++++ linux-2.6.12-rc3-mm3-full/net/irda/irqueue.c	2005-05-05 22:49:03.000000000 +0200
+@@ -822,7 +822,6 @@
+ 
+ 	return entry;
+ }
+-EXPORT_SYMBOL(hashbin_find_next);
+ 
+ /*
+  * Function hashbin_get_first (hashbin)
