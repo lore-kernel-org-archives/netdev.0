@@ -1,33 +1,37 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [TCP 0/4] H-TCP patches on top of Stephens cc framework
-Date: Fri, 6 May 2005 11:09:06 -0700
-Message-ID: <20050506180906.GA21461@kroah.com>
-References: <20050506173729.20140.93205.37072@galon.ev-en.org>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: resend patch:  xfrm policybyid
+Date: Fri, 6 May 2005 11:20:41 -0700
+Message-ID: <20050506112041.23e51ab8.davem@davemloft.net>
+References: <1115298877.7680.75.camel@localhost.localdomain>
+	<20050505213239.GA29526@gondor.apana.org.au>
+	<1115331436.8006.112.camel@localhost.localdomain>
+	<20050505151820.672b89fa.davem@davemloft.net>
+	<20050506132829.GA1943@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, Douglas Leith <doug.leith@nuim.ie>,
-        "David S.Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: hadi@cyberus.ca, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Baruch Even <baruch@ev-en.org>
-Content-Disposition: inline
-In-Reply-To: <20050506173729.20140.93205.37072@galon.ev-en.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050506132829.GA1943@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, May 06, 2005 at 08:37:29PM +0300, Baruch Even wrote:
-> This is a first post of the H-TCP framework on top of Stephens congestion
-> control framework. Hopefully the use of the framework will make it easier to
-> understand the logic of the H-TCP algorithm. It definitely helped me :-)
+On Fri, 6 May 2005 23:28:29 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
+
+> On Thu, May 05, 2005 at 03:18:20PM -0700, David S. Miller wrote:
+> > On Thu, 05 May 2005 18:17:15 -0400
+> > jamal <hadi@cyberus.ca> wrote:
+> > 
+> > > BTW, are the event patches in Davems queue somewhere?
+> > > I have a few ipsec ones (cosmetic) that i will send later.
+> > 
+> > I'm not queueing 2.6.13 material yet.
+> > 2.6.12 bug fixes are a full time job yet :-)
 > 
-> The code is licensed under the GNU GPL v2, and according to that we know this
-> gives an implicit patent license to users of this code. An explicit licensing
-> to OSDL for the purpose of sub-licensing is in the works to alleviate any fear.
+> Dave, would you mind if I pushed these event patches into mm for
+> some testing?
 
-Why would OSDL have anything to do with "sub-licensing" a patent, unless
-they want to make money off of it?  Why not do what other companies have
-done with GPL granted patents instead?
-
-thanks,
-
-greg k-h
+Feel free.
