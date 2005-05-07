@@ -1,58 +1,39 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [3/7] [IPSEC] Kill spurious hard expire messages
-Date: Sat, 7 May 2005 17:20:58 +1000
-Message-ID: <20050507072058.GD5753@gondor.apana.org.au>
-References: <1112702604.1089.119.camel@jzny.localdomain> <20050409105452.GA7171@gondor.apana.org.au> <20050507071434.GA5716@gondor.apana.org.au> <20050507071824.GA5753@gondor.apana.org.au> <20050507071930.GC5753@gondor.apana.org.au>
+Subject: [2/7] [IPSEC] Fix xfrm to pfkey SA state conversion
+Date: Sat, 7 May 2005 17:19:30 +1000
+Message-ID: <20050507071930.GC5753@gondor.apana.org.au>
+References: <1112702604.1089.119.camel@jzny.localdomain> <20050409105452.GA7171@gondor.apana.org.au> <20050507071434.GA5716@gondor.apana.org.au> <20050507071824.GA5753@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="0/kgSOzhNoDC5T3a"
+Content-Type: multipart/mixed; boundary="1ccMZA6j1vT5UqiK"
 Cc: Masahide NAKAMURA <nakam@linux-ipv6.org>,
         Patrick McHardy <kaber@trash.net>, jamal <hadi@cyberus.ca>,
         netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20050507071930.GC5753@gondor.apana.org.au>
+In-Reply-To: <20050507071824.GA5753@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---0/kgSOzhNoDC5T3a
+--1ccMZA6j1vT5UqiK
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
 Hi:
 
-This patch ensures that the hard state/policy expire notifications are
-only sent when the state/policy is successfully removed from their
-respective tables.
+This patch adjusts the SA state conversion in af_key such that
+XFRM_STATE_ERROR/XFRM_STATE_DEAD will be converted to SADB_STATE_DEAD
+instead of SADB_STATE_DYING.
 
-As it is, it's possible for a state/policy to both expire through
-reaching a hard limit, as well as being deleted by the user.
+According to RFC 2367, SADB_STATE_DYING SAs can be turned into
+mature ones through updating their lifetime settings.  Since SAs
+which are in the states XFRM_STATE_ERROR/XFRM_STATE_DEAD cannot
+be resurrected, this value is unsuitable.
 
-Note that this behaviour isn't actually forbidden by RFC 2367.
-However, it is a quality of implementation issue.
-
-As an added bonus, the restructuring in this patch will help
-eventually in moving the expire notifications from softirq
-context into process context, thus improving their reliability.
-
-One important side-effect from this change is that SAs reaching
-their hard byte/packet limits are now deleted immediately, just
-like SAs that have reached their hard time limits.
-
-Previously they were announced immediately but only deleted after
-30 seconds.
-
-This is bad because it prevents the system from issuing an ACQUIRE
-command until the existing state was deleted by the user or expires
-after the time is up.
-
-In the scenario where the expire notification was lost this introduces
-a 30 second delay into the system for no good reason.
- 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
- 
+
 Cheers,
 -- 
 Visit Openswan at http://www.openswan.org/
@@ -60,106 +41,35 @@ Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
---0/kgSOzhNoDC5T3a
+--1ccMZA6j1vT5UqiK
 Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=xfrm-event-3
+Content-Disposition: attachment; filename=xfrm-event-2
 
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -677,7 +677,7 @@ static inline int xfrm_sk_clone_policy(s
- 	return 0;
- }
- 
--extern void xfrm_policy_delete(struct xfrm_policy *pol, int dir);
-+extern int xfrm_policy_delete(struct xfrm_policy *pol, int dir);
- 
- static inline void xfrm_sk_free_policy(struct sock *sk)
- {
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -216,8 +216,8 @@ out:
- 
- expired:
- 	read_unlock(&xp->lock);
--	km_policy_expired(xp, dir, 1);
--	xfrm_policy_delete(xp, dir);
-+	if (!xfrm_policy_delete(xp, dir))
-+		km_policy_expired(xp, dir, 1);
- 	xfrm_pol_put(xp);
- }
- 
-@@ -555,7 +555,7 @@ static struct xfrm_policy *__xfrm_policy
- 	return NULL;
- }
- 
--void xfrm_policy_delete(struct xfrm_policy *pol, int dir)
-+int xfrm_policy_delete(struct xfrm_policy *pol, int dir)
- {
- 	write_lock_bh(&xfrm_policy_lock);
- 	pol = __xfrm_policy_unlink(pol, dir);
-@@ -564,7 +564,9 @@ void xfrm_policy_delete(struct xfrm_poli
- 		if (dir < XFRM_POLICY_MAX)
- 			atomic_inc(&flow_cache_genid);
- 		xfrm_policy_kill(pol);
-+		return 0;
- 	}
-+	return -ENOENT;
- }
- 
- int xfrm_sk_policy_insert(struct sock *sk, int dir, struct xfrm_policy *pol)
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -154,6 +154,7 @@ static void xfrm_timer_handler(unsigned 
- 			next = tmo;
- 	}
- 
-+	x->km.dying = warn;
- 	if (warn)
- 		km_state_expired(x, 0);
- resched:
-@@ -169,9 +170,8 @@ expired:
- 		next = 2;
- 		goto resched;
- 	}
--	if (x->id.spi != 0)
-+	if (!__xfrm_state_delete(x) && x->id.spi)
- 		km_state_expired(x, 1);
--	__xfrm_state_delete(x);
- 
- out:
- 	spin_unlock(&x->lock);
-@@ -566,16 +566,18 @@ int xfrm_state_check_expire(struct xfrm_
- 
- 	if (x->curlft.bytes >= x->lft.hard_byte_limit ||
- 	    x->curlft.packets >= x->lft.hard_packet_limit) {
--		km_state_expired(x, 1);
--		if (!mod_timer(&x->timer, jiffies + XFRM_ACQ_EXPIRES*HZ))
-+		x->km.state = XFRM_STATE_EXPIRED;
-+		if (!mod_timer(&x->timer, jiffies))
- 			xfrm_state_hold(x);
- 		return -EINVAL;
- 	}
- 
- 	if (!x->km.dying &&
- 	    (x->curlft.bytes >= x->lft.soft_byte_limit ||
--	     x->curlft.packets >= x->lft.soft_packet_limit))
-+	     x->curlft.packets >= x->lft.soft_packet_limit)) {
-+		x->km.dying = 1;
- 		km_state_expired(x, 0);
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -656,13 +656,18 @@ static struct sk_buff * pfkey_xfrm_state
+ 	sa->sadb_sa_exttype = SADB_EXT_SA;
+ 	sa->sadb_sa_spi = x->id.spi;
+ 	sa->sadb_sa_replay = x->props.replay_window;
+-	sa->sadb_sa_state = SADB_SASTATE_DYING;
+-	if (x->km.state == XFRM_STATE_VALID && !x->km.dying)
+-		sa->sadb_sa_state = SADB_SASTATE_MATURE;
+-	else if (x->km.state == XFRM_STATE_ACQ)
++	switch (x->km.state) {
++	case XFRM_STATE_VALID:
++		sa->sadb_sa_state = x->km.dying ?
++			SADB_SASTATE_DYING : SADB_SASTATE_MATURE;
++		break;
++	case XFRM_STATE_ACQ:
+ 		sa->sadb_sa_state = SADB_SASTATE_LARVAL;
+-	else if (x->km.state == XFRM_STATE_EXPIRED)
++		break;
++	default:
+ 		sa->sadb_sa_state = SADB_SASTATE_DEAD;
++		break;
 +	}
- 	return 0;
- }
- EXPORT_SYMBOL(xfrm_state_check_expire);
-@@ -833,10 +835,6 @@ static void km_state_expired(struct xfrm
- {
- 	struct km_event c;
- 
--	if (hard)
--		x->km.state = XFRM_STATE_EXPIRED;
--	else
--		x->km.dying = 1;
- 	c.data = hard;
- 	c.event = XFRM_SAP_EXPIRED;
- 	km_state_notify(x, &c);
+ 	sa->sadb_sa_auth = 0;
+ 	if (x->aalg) {
+ 		struct xfrm_algo_desc *a = xfrm_aalg_get_byname(x->aalg->alg_name, 0);
 
---0/kgSOzhNoDC5T3a--
+--1ccMZA6j1vT5UqiK--
