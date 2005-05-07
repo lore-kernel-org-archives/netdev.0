@@ -1,50 +1,33 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [NET]: Avoid useless iterating in netlink dump functions
-Date: Sat, 07 May 2005 08:10:39 -0400
-Message-ID: <1115467839.19561.14.camel@localhost.localdomain>
-References: <427B8FC3.4000305@trash.net>
-	 <1115413473.13922.38.camel@localhost.localdomain>
-	 <427BDDD4.1000808@trash.net>
-	 <1115414222.13922.41.camel@localhost.localdomain>
-	 <427BE147.9080508@trash.net>
-Reply-To: hadi@cyberus.ca
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Re: [2.6 patch] drivers/net/ixgb/: possible cleanups
+Date: Sat, 07 May 2005 14:24:04 +0200
+Message-ID: <1115468645.6388.37.camel@laptopd505.fenrus.org>
+References: <20050506211834.GM3590@stusta.de>
+	 <5fc59ff3050506153523cd12dd@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Maillist netdev <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <427BE147.9080508@trash.net>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: Adrian Bunk <bunk@stusta.de>, ayyappan.veeraiyan@intel.com,
+	ganesh.venkatesan@intel.com, john.ronciak@intel.com,
+	jgarzik@pobox.com, netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S263080AbVEGMYh@vger.kernel.org>
+To: Ganesh Venkatesan <ganesh.venkatesan@gmail.com>
+In-Reply-To: <5fc59ff3050506153523cd12dd@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2005-06-05 at 23:27 +0200, Patrick McHardy wrote:
-> jamal wrote:
-> > On Fri, 2005-06-05 at 23:12 +0200, Patrick McHardy wrote:
-> > 
-> >>action dumping is on my list for more treatment than this :)
-> > 
-> > Well, that does sound scary ;-> What do you have in mind.
-> > Recall, there are two paths to dumping actions - unlike any other thing
-> > in the kernel.
+On Fri, 2005-05-06 at 15:35 -0700, Ganesh Venkatesan wrote:
+> Adrian:
 > 
-> Don't worry :) Its actually action walking that is on my list.
-> What I have planed is roughly:
-> - clean up and move hashing functions to act_common.c
-> - put data needed for hashing (size, pointer to memory, ...) in
->   struct tc_act_common, which is referenced by struct tc_action_ops
-> - add callback based walking function so we don't need two of them
->
-> This should also get rid of all the large functions contained in
-> headerfiles.
-> 
+> Some of your suggestions are already part of the driver we are
+> currently testing. This was based partly on your Feb '05 patch. We
+> will not be able to apply your patch as is since some of the changes
+> are in part of code that is shared with other drivers that are not
+> GPLd.
 
-Ah, ok ;->
-Weve discussed this already - I think DaveM already took in the simple
-action patch that i posted a while back; it doesnt seem like you will
-collide with that - just double check.
+this sounds really bad.
 
-cheers,
-jamal
+Can you talk to the intel people in the ACPI group, they had a similar
+issue before but were able to resolve it by a proper dual license
+comment. It would be much preferable if people CAN do changes to the
+entire driver... what's the point of having it open source otherwise ;)
