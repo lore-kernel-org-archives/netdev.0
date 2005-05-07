@@ -1,71 +1,66 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [7/7] [IPSEC] Add XFRMA_SA/XFRMA_POLICY for delete notification
-Date: Sat, 07 May 2005 08:46:44 -0400
-Message-ID: <1115470004.19561.49.camel@localhost.localdomain>
-References: <20050409105452.GA7171@gondor.apana.org.au>
-	 <20050507071434.GA5716@gondor.apana.org.au>
-	 <20050507071824.GA5753@gondor.apana.org.au>
-	 <20050507071930.GC5753@gondor.apana.org.au>
-	 <20050507072058.GD5753@gondor.apana.org.au>
-	 <20050507072139.GE5753@gondor.apana.org.au>
-	 <20050507072216.GF5753@gondor.apana.org.au>
-	 <20050507072251.GG5753@gondor.apana.org.au>
-	 <20050507072349.GH5753@gondor.apana.org.au>
-	 <1115467457.19561.5.camel@localhost.localdomain>
-	 <20050507122504.GA21693@gondor.apana.org.au>
-Reply-To: hadi@cyberus.ca
+From: Jamal Hadi Salim <hadi@znyx.com>
+Subject: Re: [RFC] textsearch infrastructure + skb_find_text()
+Date: Sat, 07 May 2005 09:03:04 -0400
+Message-ID: <1115470985.19561.58.camel@localhost.localdomain>
+References: <20050504234036.GH18452@postel.suug.ch>
+	 <427A51A2.8090600@eurodev.net> <20050505174224.GB25977@postel.suug.ch>
+	 <427AC96E.2020208@eurodev.net> <20050506123639.GE28419@postel.suug.ch>
+	 <1115384649.7660.140.camel@localhost.localdomain>
+	 <20050506144308.GF28419@postel.suug.ch>
+Reply-To: hadi@znyx.com
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Masahide NAKAMURA <nakam@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>, netdev <netdev@oss.sgi.com>
+Cc: netdev@oss.sgi.com, Pablo Neira <pablo@eurodev.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050507122504.GA21693@gondor.apana.org.au>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050506144308.GF28419@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2005-07-05 at 22:25 +1000, Herbert Xu wrote:
-> On Sat, May 07, 2005 at 08:04:16AM -0400, jamal wrote:
+On Fri, 2005-06-05 at 16:43 +0200, Thomas Graf wrote:
+
+> As you can see, it expects a char * in args[0] and the length of it
+> in args[1]. All it does is check whether all bytes have been read
+> already and if not return the remaining part of the buffer so even
+> if the search algorithm can't consume all the bytes returned it will
+> still work as expected.
+> 
+
+Ok, makes sense - in the case of a string spanning multi skbs, i suppose
+it wouldnt matter, correct?
+
+[..] 
+
+> Not sure if this is clear out of context but maybe it gives you an idea
+> why it is easier to maintain state of get_text() rather than the state
+> of a whole searching algorithm.
+> 
+
+I got it. I suppose in the case of text contained within one skb this
+would be an improvement (spanning across multi-skb should be no
+difference; an improvemengt nonetheless)
+
 > > 
-> > This is incosistent in two ways:
-> > 1) Typical netlink behavior is to return the object being deleted.
-> > Every other netlink user behaves that way - the only exception is sone
-> > filters in tc and this is because they cant retrieve that detail
-> > (something that needs resolution at some point). There is nothing that
-> > xfrm_usersa_id provides that can be found in xfrm_usersa_info.
-> > Same for the policy.
+> > I am trying to sink this in; prefetching would be valuable for regexp,
+> > but why would the other scheme not be able to do it? 
 > 
-> This analogy is flawed since unlike other rtnetlink delete operations
-> the xfrm delete operations do not carry the same payload type as their
-> add/update cousins.
+> I'm really not an expert on the validity of L1 caches and how to optimize
+> it best but I believe that the less memory movement is in between the
+> more likely prefetching helps? Both schemes involve a switch to another
+> stack namespace but get_text() tends to be a lot smaller and less intrusive
+> than a store & reload of a complex state machine. I really can't tell
+> which is better regarding this subject without trying it out actually.
 > 
 
-No, this is not true. Study the tc code.
-It is nice to be able to return exactly the same detail - user space can
-then infer what exactly happened. It is nicer to be able to return more
-detail because user space doesnt have to infer anything.
-
-> > 2) You cant have one behavior when something is deleted by pfkey and a
-> > different one when it is deleted by netlink.
-> 
-> As far as I can see the behaviour is identical.
-> 
-
-If this is true, then #1 is forgivable.  This was my main concern.
-
-You describe the patch this way
-
----
-This patch changes the format of the XFRM_MSG_DELSA and
-XFRM_MSG_DELPOLICY notification so that the main message
-sent is of the same format as that received by the kernel
-if the original message was via netlink.
-----
-
-That it only happens when you delete via netlink. Is this not so?
+Sorry - I thought you were talking about pre-fetching text as in
+lookahead for text in a regexp state machine.
+I am not sure i see the L1 cache connection. Both seem to have tight for
+loops and depending on the algorithm there would be no difference
+in cache warmth afaics. Infact your scheme may suffer more because it
+has a lot of stuff on the stack. However, playing around with the code
+is the only way to find out.
 
 cheers,
 jamal
