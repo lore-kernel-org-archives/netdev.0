@@ -1,347 +1,186 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [1/7] [IPSEC] Add complete xfrm event notification
-Date: Sat, 7 May 2005 17:18:49 +1000
-Message-ID: <20050507071849.GB5753@gondor.apana.org.au>
-References: <1112702604.1089.119.camel@jzny.localdomain> <20050409105452.GA7171@gondor.apana.org.au> <20050507071434.GA5716@gondor.apana.org.au> <20050507071824.GA5753@gondor.apana.org.au>
+Subject: [4/7] [IPSEC] Turn km_event.data into a union
+Date: Sat, 7 May 2005 17:21:39 +1000
+Message-ID: <20050507072139.GE5753@gondor.apana.org.au>
+References: <1112702604.1089.119.camel@jzny.localdomain> <20050409105452.GA7171@gondor.apana.org.au> <20050507071434.GA5716@gondor.apana.org.au> <20050507071824.GA5753@gondor.apana.org.au> <20050507071930.GC5753@gondor.apana.org.au> <20050507072058.GD5753@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="dc+cDN39EJAMEtIO"
+Content-Type: multipart/mixed; boundary="DqhR8hV3EnoxUkKN"
 Cc: Masahide NAKAMURA <nakam@linux-ipv6.org>,
         Patrick McHardy <kaber@trash.net>, jamal <hadi@cyberus.ca>,
         netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20050507071824.GA5753@gondor.apana.org.au>
+In-Reply-To: <20050507072058.GD5753@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---dc+cDN39EJAMEtIO
+--DqhR8hV3EnoxUkKN
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
-On Sat, May 07, 2005 at 05:18:24PM +1000, herbert wrote:
-> 
-> I've made some white space clean-up's.  I'll include an incremental
-> patch showing the changes in a reply to this message.
+Hi:
 
-Here goes.
+This patch turns km_event.data into a union.  This makes code that
+uses it clearer.
+  
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Cheers,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
---dc+cDN39EJAMEtIO
+--DqhR8hV3EnoxUkKN
 Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=xfrm-event-white-space
+Content-Disposition: attachment; filename=xfrm-event-4
 
-diff -urN old/include/net/xfrm.h new/include/net/xfrm.h
---- old/include/net/xfrm.h	2005-05-07 15:54:50.000000000 +1000
-+++ new/include/net/xfrm.h	2005-05-07 15:38:09.000000000 +1000
-@@ -173,13 +173,12 @@
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -173,7 +173,12 @@ enum {
  /* callback structure passed from either netlink or pfkey */
  struct km_event
  {
--	u32	data; 
--	u32	seq; 
--	u32	pid; 
--	u32	event; 
-+	u32	data;
-+	u32	seq;
-+	u32	pid;
-+	u32	event;
- };
- 
--
- struct xfrm_type;
- struct xfrm_dst;
- struct xfrm_policy_afinfo {
-@@ -204,7 +203,6 @@
- extern void km_policy_notify(struct xfrm_policy *xp, int dir, struct km_event *c);
- extern void km_state_notify(struct xfrm_state *x, struct km_event *c);
- 
--
- #define XFRM_ACQ_EXPIRES	30
- 
- struct xfrm_tmpl;
-@@ -309,8 +307,8 @@
- 	struct xfrm_tmpl       	xfrm_vec[XFRM_MAX_DEPTH];
- };
- 
--
- #define XFRM_KM_TIMEOUT		30
+-	u32	data;
++	union {
++		u32 hard;
++		u32 proto;
++		u32 byid;
++	} data;
 +
- struct xfrm_mgr
- {
- 	struct list_head	list;
-diff -urN old/net/key/af_key.c new/net/key/af_key.c
---- old/net/key/af_key.c	2005-05-07 15:54:50.000000000 +1000
-+++ new/net/key/af_key.c	2005-05-07 15:51:42.000000000 +1000
-@@ -1240,7 +1240,7 @@
- 	return 0;
- }
+ 	u32	seq;
+ 	u32	pid;
+ 	u32	event;
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -1293,13 +1293,6 @@ static int key_notify_sa(struct xfrm_sta
+ 	if (c->event == XFRM_SAP_DELETED)
+ 		hsc = 0;
  
--static inline int event2poltype (int event)
-+static inline int event2poltype(int event)
- {
- 	switch (event) {
- 	case XFRM_SAP_DELETED:
-@@ -1252,14 +1252,14 @@
- 	case XFRM_SAP_EXPIRED:
- 	//	return SADB_X_SPDEXPIRE;
- 	default:
--		printk("pfkey: Unknown policy event %d\n",event);
-+		printk("pfkey: Unknown policy event %d\n", event);
- 		break;
- 	}
- 
- 	return 0;
- }
- 
--static inline int event2keytype (int event)
-+static inline int event2keytype(int event)
- {
- 	switch (event) {
- 	case XFRM_SAP_DELETED:
-@@ -1271,7 +1271,7 @@
- 	case XFRM_SAP_EXPIRED:
- 		return SADB_EXPIRE;
- 	default:
--		printk("pfkey: Unknown SA event %d\n",event);
-+		printk("pfkey: Unknown SA event %d\n", event);
- 		break;
- 	}
- 
-@@ -1298,7 +1298,7 @@
+-	if (c->event == XFRM_SAP_EXPIRED) {
+-		if (c->data)
+-			hsc = 2;
+-		else
+-			hsc = 1;
+-	}
+-
  	skb = pfkey_xfrm_state2msg(x, 0, hsc);
  
  	if (IS_ERR(skb))
--		return  PTR_ERR(skb);
-+		return PTR_ERR(skb);
- 
- 	hdr = (struct sadb_msg *) skb->data;
- 	hdr->sadb_msg_version = PF_KEY_V2;
-@@ -1948,7 +1948,7 @@
- 	hdr->sadb_msg_reserved = atomic_read(&xp->refcnt);
- }
- 
--static int key_notify_policy( struct xfrm_policy *xp, int dir, struct km_event *c)
-+static int key_notify_policy(struct xfrm_policy *xp, int dir, struct km_event *c)
- {
- 	struct sk_buff *out_skb;
- 	struct sadb_msg *out_hdr;
-@@ -1956,13 +1956,13 @@
- 
- 	out_skb = pfkey_xfrm_policy2msg_prep(xp);
- 	if (IS_ERR(out_skb)) {
--		err =  PTR_ERR(out_skb);
-+		err = PTR_ERR(out_skb);
- 		goto out;
- 	}
- 	pfkey_xfrm_policy2msg(out_skb, xp, dir);
- 
- 	out_hdr = (struct sadb_msg *) out_skb->data;
--	out_hdr->sadb_msg_version =  PF_KEY_V2;
-+	out_hdr->sadb_msg_version = PF_KEY_V2;
- 
- 	if (c->data && c->event == XFRM_SAP_DELETED)
- 		out_hdr->sadb_msg_type = SADB_X_SPDDELETE2;
-@@ -2052,18 +2052,16 @@
- 	    (err = parse_ipsecrequests(xp, pol)) < 0)
- 		goto out;
- 
--
- 	err = xfrm_policy_insert(pol->sadb_x_policy_dir-1, xp,
- 				 hdr->sadb_msg_type != SADB_X_SPDUPDATE);
--
- 	if (err) {
- 		kfree(xp);
- 		return err;
- 	}
- 
--	if (hdr->sadb_msg_type == SADB_X_SPDUPDATE) 
-+	if (hdr->sadb_msg_type == SADB_X_SPDUPDATE)
- 		c.event = XFRM_SAP_UPDATED;
--	else 
-+	else
- 		c.event = XFRM_SAP_ADDED;
- 
- 	c.seq = hdr->sadb_msg_seq;
-@@ -2129,7 +2127,6 @@
- 	return err;
- }
- 
--
- static int key_pol_get_resp(struct sock *sk, struct xfrm_policy *xp, struct sadb_msg *hdr, int dir)
- {
- 	int err;
-@@ -2223,6 +2220,7 @@
- {
- 	struct sk_buff *skb_out;
- 	struct sadb_msg *hdr;
-+
- 	skb_out = alloc_skb(sizeof(struct sadb_msg) + 16, GFP_ATOMIC);
- 	if (!skb_out)
+@@ -1534,7 +1527,7 @@ static int key_notify_sa_flush(struct km
+ 	if (!skb)
  		return -ENOBUFS;
-@@ -2445,7 +2443,6 @@
- 	}
- }
+ 	hdr = (struct sadb_msg *) skb_put(skb, sizeof(struct sadb_msg));
+-	hdr->sadb_msg_satype = pfkey_proto2satype(c->data);
++	hdr->sadb_msg_satype = pfkey_proto2satype(c->data.proto);
+ 	hdr->sadb_msg_seq = c->seq;
+ 	hdr->sadb_msg_pid = c->pid;
+ 	hdr->sadb_msg_version = PF_KEY_V2;
+@@ -1556,7 +1549,7 @@ static int pfkey_flush(struct sock *sk, 
+ 		return -EINVAL;
  
--/* XXX: Noisy for now */
- static int key_notify_policy_expire(struct xfrm_policy *xp, struct km_event *c)
- {
- 	return 0;
-@@ -2493,7 +2490,7 @@
- 	case XFRM_SAP_FLUSHED:
- 		return key_notify_sa_flush(c);
- 	default:
--		printk("pfkey: Unknown SA event %d\n",c->event);
-+		printk("pfkey: Unknown SA event %d\n", c->event);
- 		break;
- 	}
+ 	xfrm_state_flush(proto);
+-	c.data = proto;
++	c.data.proto = proto;
+ 	c.seq = hdr->sadb_msg_seq;
+ 	c.pid = hdr->sadb_msg_pid;
+ 	c.event = XFRM_SAP_FLUSHED;
+@@ -1969,7 +1962,7 @@ static int key_notify_policy(struct xfrm
+ 	out_hdr = (struct sadb_msg *) out_skb->data;
+ 	out_hdr->sadb_msg_version = PF_KEY_V2;
  
-@@ -2512,12 +2509,13 @@
- 	case XFRM_SAP_FLUSHED:
- 		return key_notify_policy_flush(c);
- 	default:
--		printk("pfkey: Unknown policy event %d\n",c->event);
-+		printk("pfkey: Unknown policy event %d\n", c->event);
- 		break;
- 	}
- 
- 	return 0;
- }
-+
- static u32 get_acqseq(void)
- {
- 	u32 res;
-diff -urN old/net/xfrm/xfrm_state.c new/net/xfrm/xfrm_state.c
---- old/net/xfrm/xfrm_state.c	2005-05-07 15:54:50.000000000 +1000
-+++ new/net/xfrm/xfrm_state.c	2005-05-07 15:44:40.000000000 +1000
-@@ -440,7 +440,6 @@
- 
- static struct xfrm_state *__xfrm_find_acq_byseq(u32 seq);
- 
--
- int xfrm_state_add(struct xfrm_state *x)
- {
- 	struct xfrm_state_afinfo *afinfo;
-diff -urN old/net/xfrm/xfrm_user.c new/net/xfrm/xfrm_user.c
---- old/net/xfrm/xfrm_user.c	2005-05-07 15:54:50.000000000 +1000
-+++ new/net/xfrm/xfrm_user.c	2005-05-07 15:53:09.000000000 +1000
-@@ -359,7 +359,6 @@
- 	int this_idx;
- };
- 
--
- static int dump_one_state(struct xfrm_state *x, int count, void *ptr)
- {
- 	struct xfrm_dump_info *sp = ptr;
-@@ -709,7 +708,7 @@
- 	if (!xp)
- 		return err;
- 
--	/* shouldnt excl be based on nlh flags?? 
-+	/* shouldnt excl be based on nlh flags??
- 	 * Aha! this is anti-netlink really i.e  more pfkey derived
- 	 * in netlink excl is a flag and you wouldnt need
- 	 * a type XFRM_MSG_UPDPOLICY - JHS */
-@@ -720,7 +719,6 @@
- 		return err;
- 	}
- 
--
- 	if (!excl)
- 		c.event = XFRM_SAP_UPDATED;
+-	if (c->data && c->event == XFRM_SAP_DELETED)
++	if (c->data.byid && c->event == XFRM_SAP_DELETED)
+ 		out_hdr->sadb_msg_type = SADB_X_SPDDELETE2;
  	else
-@@ -850,7 +848,6 @@
+ 		out_hdr->sadb_msg_type = event2poltype(c->event);
+@@ -2180,7 +2173,7 @@ static int pfkey_spdget(struct sock *sk,
+ 	c.seq = hdr->sadb_msg_seq;
+ 	c.pid = hdr->sadb_msg_pid;
+ 	if (hdr->sadb_msg_type == SADB_X_SPDDELETE2) {
+-		c.data = 1; // to signal pfkey of SADB_X_SPDDELETE2
++		c.data.byid = 1;
+ 		c.event = XFRM_SAP_DELETED;
+ 		km_policy_notify(xp, pol->sadb_x_policy_dir-1, &c);
+ 	} else {
+@@ -2460,7 +2453,7 @@ static int key_notify_sa_expire(struct x
+ 	int hard;
+ 	int hsc;
+ 
+-	hard = c->data;
++	hard = c->data.hard;
+ 	if (hard)
+ 		hsc = 2;
+ 	else
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -835,7 +835,7 @@ static void km_state_expired(struct xfrm
+ {
  	struct km_event c;
- 	int delete;
  
--
- 	p = NLMSG_DATA(nlh);
- 	delete = nlh->nlmsg_type == XFRM_MSG_DELPOLICY;
+-	c.data = hard;
++	c.data.hard = hard;
+ 	c.event = XFRM_SAP_EXPIRED;
+ 	km_state_notify(x, &c);
  
-@@ -1124,6 +1121,7 @@
+@@ -883,8 +883,7 @@ void km_policy_expired(struct xfrm_polic
+ {
+ 	struct km_event c;
+ 
+-	c.data = hard;
+-	c.data = hard;
++	c.data.hard = hard;
+ 	c.event = XFRM_SAP_EXPIRED;
+ 	km_policy_notify(pol, dir, &c);
+ 
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -891,7 +891,7 @@ static int xfrm_flush_sa(struct sk_buff 
+ 	struct xfrm_usersa_flush *p = NLMSG_DATA(nlh);
+ 
+ 	xfrm_state_flush(p->proto);
+-	c.data = p->proto;
++	c.data.proto = p->proto;
+ 	c.event = XFRM_SAP_FLUSHED;
+ 	c.seq = nlh->nlmsg_seq;
+ 	c.pid = nlh->nlmsg_pid;
+@@ -1120,14 +1120,13 @@ nlmsg_failure:
+ static int xfrm_exp_state_notify(struct xfrm_state *x, struct km_event *c)
  {
  	struct sk_buff *skb;
- 	int hard = c ->data;
-+
+-	int hard = c ->data;
+ 
  	/* fix to do alloc using NLM macros */
  	skb = alloc_skb(sizeof(struct xfrm_user_expire) + 16, GFP_ATOMIC);
  	if (skb == NULL)
-@@ -1150,7 +1148,7 @@
  		return -ENOMEM;
- 	b = skb->tail;
  
--	nlh = NLMSG_PUT(skb, c->pid,  c->seq,
-+	nlh = NLMSG_PUT(skb, c->pid, c->seq,
- 			XFRM_MSG_FLUSHSA, sizeof(*p));
+-	if (build_expire(skb, x, hard) < 0)
++	if (build_expire(skb, x, c->data.hard) < 0)
+ 		BUG();
+ 
+ 	NETLINK_CB(skb).dst_groups = XFRMGRP_EXPIRE;
+@@ -1153,7 +1152,7 @@ static int xfrm_notify_sa_flush(struct k
  	nlh->nlmsg_flags = 0;
  
-@@ -1170,13 +1168,13 @@
- {
- 	int l = NLMSG_LENGTH(sizeof(struct xfrm_usersa_info));
- 	if (x->aalg)
--		l+= RTA_SPACE(sizeof(*(x->aalg))+(x->aalg->alg_key_len+7)/8);
-+		l += RTA_SPACE(sizeof(*x->aalg) + (x->aalg->alg_key_len+7)/8);
- 	if (x->ealg)
--		l+= RTA_SPACE(sizeof(*(x->ealg))+(x->ealg->alg_key_len+7)/8);
-+		l += RTA_SPACE(sizeof(*x->ealg) + (x->ealg->alg_key_len+7)/8);
- 	if (x->calg)
--		l+= RTA_SPACE(sizeof(*(x->calg)));
-+		l += RTA_SPACE(sizeof(*x->calg));
- 	if (x->encap)
--		l+= RTA_SPACE(sizeof(*x->encap));
-+		l += RTA_SPACE(sizeof(*x->encap));
+ 	p = NLMSG_DATA(nlh);
+-	p->proto = c->data;
++	p->proto = c->data.proto;
  
- 	return l;
- }
-@@ -1215,7 +1213,7 @@
- 			sizeof(*(x->aalg))+(x->aalg->alg_key_len+7)/8, x->aalg);
- 	if (x->ealg)
- 		RTA_PUT(skb, XFRMA_ALG_CRYPT,
--			sizeof(*(x->ealg))+(x->ealg->alg_key_len+7)/8, x->ealg);        
-+			sizeof(*(x->ealg))+(x->ealg->alg_key_len+7)/8, x->ealg);
- 	if (x->calg)
- 		RTA_PUT(skb, XFRMA_ALG_COMP, sizeof(*(x->calg)), x->calg);
+ 	nlh->nlmsg_len = skb->tail - b;
  
-@@ -1245,7 +1243,7 @@
- 	case XFRM_SAP_FLUSHED:
- 		return xfrm_notify_sa_flush(c);
- 	default:
--		 printk("xfrm_user: Unknown SA event %d\n",c->event);
-+		 printk("xfrm_user: Unknown SA event %d\n", c->event);
- 		 break;
- 	}
+@@ -1395,7 +1394,7 @@ static int xfrm_exp_policy_notify(struct
+ 	if (skb == NULL)
+ 		return -ENOMEM;
  
-@@ -1386,7 +1384,6 @@
- 	return -1;
- }
+-	if (build_polexpire(skb, xp, dir, c->data) < 0)
++	if (build_polexpire(skb, xp, dir, c->data.hard) < 0)
+ 		BUG();
  
--
- static int xfrm_exp_policy_notify(struct xfrm_policy *xp, int dir, struct km_event *c)
- {
- 	struct sk_buff *skb;
-@@ -1406,7 +1403,7 @@
- 	return netlink_broadcast(xfrm_nl, skb, 0, XFRMGRP_EXPIRE, GFP_ATOMIC);
- }
- 
--static int xfrm_notify_policy( struct xfrm_policy *xp, int dir, struct km_event *c)
-+static int xfrm_notify_policy(struct xfrm_policy *xp, int dir, struct km_event *c)
- {
- 	struct xfrm_userpolicy_info *p;
- 	struct nlmsghdr *nlh;
-@@ -1486,7 +1483,7 @@
- 	case XFRM_SAP_EXPIRED:
- 		return xfrm_exp_policy_notify(xp, dir, c);
- 	default:
--		printk("xfrm_user: Unknown Policy event %d\n",c->event);
-+		printk("xfrm_user: Unknown Policy event %d\n", c->event);
- 	}
- 
- 	return 0;
+ 	NETLINK_CB(skb).dst_groups = XFRMGRP_EXPIRE;
 
---dc+cDN39EJAMEtIO--
+--DqhR8hV3EnoxUkKN--
