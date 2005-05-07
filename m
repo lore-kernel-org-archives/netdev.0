@@ -1,33 +1,28 @@
 From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: [RFC: 2.6 patch] net/ipv6/ipv6_syms.c: unexport fl6_sock_lookup
-Date: Sat, 07 May 2005 08:56:39 +0900 (JST)
-Message-ID: <20050507.085639.75977025.yoshfuji@linux-ipv6.org>
-References: <20050506232000.GC3590@stusta.de>
+Subject: Re: [RFC] textsearch infrastructure + skb_find_text()
+Date: Sat, 07 May 2005 09:17:44 +0900 (JST)
+Message-ID: <20050507.091744.106860599.yoshfuji@linux-ipv6.org>
+References: <20050504234036.GH18452@postel.suug.ch>
+	<20050506214437.GH28419@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org, yoshfuji@linux-ipv6.org
+Cc: netdev@oss.sgi.com, pablo@eurodev.net, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: bunk@stusta.de, davem@davemloft.net
-In-Reply-To: <20050506232000.GC3590@stusta.de>
+To: tgraf@suug.ch
+In-Reply-To: <20050506214437.GH28419@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20050506232000.GC3590@stusta.de> (at Sat, 7 May 2005 01:20:00 +0200), Adrian Bunk <bunk@stusta.de> says:
+In article <20050506214437.GH28419@postel.suug.ch> (at Fri, 6 May 2005 23:44:37 +0200), Thomas Graf <tgraf@suug.ch> says:
 
-> There is no usage of this EXPORT_SYMBOL in the kernel.
-> 
-> Signed-off-by: Adrian Bunk <bunk@stusta.de>
-Acked-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+> Quite silly regular expression implementation for textsearch
+> infrastructure. Still has issues with textsearch_next() and
+> can probably be optimized a lot but should be a good base
+> to work on.
 
-> --- linux-2.6.12-rc3-mm3-full/net/ipv6/ipv6_syms.c.old	2005-05-05 22:23:17.000000000 +0200
-> +++ linux-2.6.12-rc3-mm3-full/net/ipv6/ipv6_syms.c	2005-05-05 22:23:23.000000000 +0200
-> @@ -37,5 +37,4 @@
->  EXPORT_SYMBOL(xfrm6_rcv);
->  #endif
->  EXPORT_SYMBOL(rt6_lookup);
-> -EXPORT_SYMBOL(fl6_sock_lookup);
->  EXPORT_SYMBOL(ipv6_push_nfrag_opts);
-> 
-> 
+Would you add some reference(s) on algorithm etc.?
+Thanks.
+
+--yoshfuji
