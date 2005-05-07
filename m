@@ -1,29 +1,35 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [RFC] textsearch infrastructure + skb_find_text()
-Date: Sat, 7 May 2005 02:36:13 +0200
-Message-ID: <20050507003613.GJ28419@postel.suug.ch>
-References: <20050504234036.GH18452@postel.suug.ch> <20050506214437.GH28419@postel.suug.ch> <20050507.091744.106860599.yoshfuji@linux-ipv6.org>
+Subject: Re: SFQ: Reordering?
+Date: Sat, 7 May 2005 02:58:51 +0200
+Message-ID: <20050507005851.GK28419@postel.suug.ch>
+References: <7bca1cb5050506145344d16b1e@mail.gmail.com> <427BEAAE.409@trash.net> <427BF3C4.1030105@trash.net> <20050506230203.GI28419@postel.suug.ch> <427BFB72.7080407@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, pablo@eurodev.net
+Cc: Asim Shankar <asimshankar@gmail.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
+To: Patrick McHardy <kaber@trash.net>
 Content-Disposition: inline
-In-Reply-To: <20050507.091744.106860599.yoshfuji@linux-ipv6.org>
+In-Reply-To: <427BFB72.7080407@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* YOSHIFUJI Hideaki / ?$B5HF#1QL@ <20050507.091744.106860599.yoshfuji@linux-ipv6.org> 2005-05-07 09:17
-> In article <20050506214437.GH28419@postel.suug.ch> (at Fri, 6 May 2005 23:44:37 +0200), Thomas Graf <tgraf@suug.ch> says:
+* Patrick McHardy <427BFB72.7080407@trash.net> 2005-05-07 01:19
+> Thomas Graf wrote:
+> > We can maintain a second hash table and switch a pointer over to the
+> > new table but keep on dequeueing from the old one until it is empty.
+> > Anyways, any such behaviour should be made optional via a rtnetlink
+> > flag.
 > 
-> > Quite silly regular expression implementation for textsearch
-> > infrastructure. Still has issues with textsearch_next() and
-> > can probably be optimized a lot but should be a good base
-> > to work on.
-> 
-> Would you add some reference(s) on algorithm etc.?
+> This also introduces unfairness. Packets of a flow could be only in
+> the new table while we're still working on the active table.
+> A proper solution to avoid reordering shouldn't be optional IMO,
+> perturbation is already optional.
 
-Comes out of my own mind which means it's probably pretty poor, it
-simply takes a deterministic finite state machine and runs it on
-the text.
+Yes, that's true but we can't reach perfect fairness anyway. What
+is your primary goal? No reordering inside flows while staying
+as fair as possible? I'm not sure whether it's worth to rehash
+every single enqueued packet, especially not at a perturbation
+interval of just a few seconds. Many scripts set it to a value
+of 1..5 to have a higher theoreticaly fairness. That's why I think
+this feature should be made optional
