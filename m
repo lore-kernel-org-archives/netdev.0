@@ -1,42 +1,60 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: SFQ: Reordering?
-Date: Sun, 8 May 2005 20:33:10 +0200
-Message-ID: <20050508183310.GU28419@postel.suug.ch>
-References: <7bca1cb5050506145344d16b1e@mail.gmail.com> <427BEAAE.409@trash.net> <427BF3C4.1030105@trash.net> <20050506230203.GI28419@postel.suug.ch> <427BFB72.7080407@trash.net> <20050507005851.GK28419@postel.suug.ch> <427C19C3.5030304@trash.net> <20050508115100.GQ28419@postel.suug.ch> <427E3847.3050709@trash.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [7/7] [IPSEC] Add XFRMA_SA/XFRMA_POLICY for delete notification
+Date: Mon, 9 May 2005 07:40:49 +1000
+Message-ID: <20050508214049.GA14415@gondor.apana.org.au>
+References: <20050507072058.GD5753@gondor.apana.org.au> <20050507072139.GE5753@gondor.apana.org.au> <20050507072216.GF5753@gondor.apana.org.au> <20050507072251.GG5753@gondor.apana.org.au> <20050507072349.GH5753@gondor.apana.org.au> <1115467457.19561.5.camel@localhost.localdomain> <20050507122504.GA21693@gondor.apana.org.au> <1115470004.19561.49.camel@localhost.localdomain> <20050507193538.GA28991@gondor.apana.org.au> <1115560594.19561.117.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Asim Shankar <asimshankar@gmail.com>, netdev@oss.sgi.com
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Masahide NAKAMURA <nakam@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>, netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
+To: jamal <hadi@cyberus.ca>
 Content-Disposition: inline
-In-Reply-To: <427E3847.3050709@trash.net>
+In-Reply-To: <1115560594.19561.117.camel@localhost.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Patrick McHardy <427E3847.3050709@trash.net> 2005-05-08 18:03
-> Actually I was beginning to think you're right about having this
-> feature optional. Paul McKenney's paper on SFQ states multiple times
-> that perturbation can cause reordering if implemented the easy way,
-> the Debian sfq manpage mentions this as well. So it appears to be a
-> design-choice. Anyways, I suggest to make the decision when we know
-> what the costs are.
+On Sun, May 08, 2005 at 09:56:33AM -0400, jamal wrote:
 > 
-> BTW, this is the URL for the paper:
-> http://rdrop.com/users/paulmck/paper/sfq.2002.06.04.pdf
+> Why would someone need to deduce whether it has been deleted by index or
+> selector?
 
-Indeed, well I think it depends on the perturbation interval,
-complexity and cost of the hashing function and the average
-queue length so having a flag to toggle this feature is
-certainly not a bad idea. Assuming a considerable queue length
-and a perturbation level of 1-5 seconds it probably doesn't
-make sense to rehash.
+It isn't just about deducing the message.  It's about sending a delete
+message in the same format as we would receive them.  As it is the
+delete message sent would be not be accepted if you sent it back to the
 
-> I agree both make sense. Are you talking about run-time adjustable
-> or compile-time adjustable? For SNAT it would also be nice to be
-> able to use the original address, unfortunately this isn't possible
-> anymore since we now drop the conntrack reference early.
+> Does pfkey have ability to delete by index and selector?
 
-We can compute the hash at ingress or just before we drop the
-reference, store it in tc_classid and then use it at the egress
-sfq. Needs some more thinking but should be doable.
+Yes.
+
+> If yes, how do you distinguish the two cases when you are sending the
+> netlink event?
+
+Using the byid attribute that *you* introduced :)
+
+> > As it is the netlink delete messages sent by notification are invalid
+> > by its own standard.
+> 
+> It doesnt seem to me what you provided in the patch produces exactly the
+> same thing that was sent by user space back in the event.
+
+That's not the point.  The point is if you send exactly the same
+message to the kernel, even with the RTAs attached, the kernel
+would accept it and perform the deletion if there is a matching
+policy.
+ 
+> Heres what i will say so we can put this to rest:
+> The patch is unneeded (i hate to use strong words like bogus - but it is
+> getting close to that), but if you feel strongly about it just lets have
+> it well documented and provide the iproute2 patch as well.
+
+I'll leave the decision up to Dave.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
