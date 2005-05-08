@@ -1,53 +1,64 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: SFQ: Reordering?
-Date: Sun, 08 May 2005 18:03:19 +0200
-Message-ID: <427E3847.3050709@trash.net>
-References: <7bca1cb5050506145344d16b1e@mail.gmail.com> <427BEAAE.409@trash.net> <427BF3C4.1030105@trash.net> <20050506230203.GI28419@postel.suug.ch> <427BFB72.7080407@trash.net> <20050507005851.GK28419@postel.suug.ch> <427C19C3.5030304@trash.net> <20050508115100.GQ28419@postel.suug.ch>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: resend patch:  xfrm policybyid
+Date: Sun, 08 May 2005 13:23:58 -0400
+Message-ID: <1115573038.19561.174.camel@localhost.localdomain>
+References: <20050505213239.GA29526@gondor.apana.org.au>
+	 <1115331436.8006.112.camel@localhost.localdomain>
+	 <20050505231210.GA30574@gondor.apana.org.au>
+	 <1115342122.7660.25.camel@localhost.localdomain>
+	 <20050506013125.GA31780@gondor.apana.org.au>
+	 <1115345403.7660.49.camel@localhost.localdomain>
+	 <20050506085404.GA26719@gondor.apana.org.au>
+	 <1115380381.7660.123.camel@localhost.localdomain>
+	 <20050507105500.GA20283@gondor.apana.org.au>
+	 <1115469496.19561.41.camel@localhost.localdomain>
+	 <20050508080730.GA30512@gondor.apana.org.au>
+	 <1115562643.19561.148.camel@localhost.localdomain>
+	 <427E2F0D.4040902@trash.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Asim Shankar <asimshankar@gmail.com>, netdev@oss.sgi.com
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        "David S. Miller" <davem@davemloft.net>, netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050508115100.GQ28419@postel.suug.ch>
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <427E2F0D.4040902@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Thomas Graf wrote:
-> * Patrick McHardy <427C19C3.5030304@trash.net> 2005-05-07 03:28
+On Sun, 2005-08-05 at 17:23 +0200, Patrick McHardy wrote:
+
+> Allowing the user to freely set indices breaks racoon:
 > 
->>You stated my goal precisely :) I know many people set the interval
->>to too low values, but because of the tight limits, it shouldn't be
->>very expensive anyways. Table switching OTOH would introduce frequently
->>occuring unfairness, and the time to work through a full table is
->>a lot longer, especially in the environments where SFQ is used.
+> #ifdef __linux__
+>         /* bsd skips over per-socket policies because there will be no
+>          * src and dst extensions in spddump messages. On Linux the only
+>          * way to achieve the same is check for policy id.
+>          */
+>         if (xpl->sadb_x_policy_id % 8 >= 3) return 0;
+> #endif
 > 
-> I think you are right on this so forget about my thought.
 
-Actually I was beginning to think you're right about having this
-feature optional. Paul McKenney's paper on SFQ states multiple times
-that perturbation can cause reordering if implemented the easy way,
-the Debian sfq manpage mentions this as well. So it appears to be a
-design-choice. Anyways, I suggest to make the decision when we know
-what the costs are.
+I can see where the %8 >= 3 comes from.
+[per socket creation with calls xfrm_gen_index(XFRM_POLICY_MAX+dir)
+and the kernel does things in increments of 8]
 
-BTW, this is the URL for the paper:
-http://rdrop.com/users/paulmck/paper/sfq.2002.06.04.pdf
+I didnt quiet understand that check in racoon: Why this guess work? if
+per-socket policies need to be identified, why dont they get explicitly
+marked as per-socket somehow? I am actually curious why that check is
+needed. Sorry have never stared at the racoon code. Do other IKE/ISAKMP
+daemons depend on it?
 
-> Maybe as
-> an additional input it might be worth mentioning that I have patches
-> ready to a) make the sfq depth adjustable and b) hash algorithm
-> selection to a few builtin ones and additional to read theh hash
-> from tc_classid set by an action. A real world example where this
-> is useful is for routers primarly doing SNAT without any own local
-> traffic where hashing algorithm primarly based on the source port
-> makes a lot more sense.
+> So how could we handle this?
+> 
 
-I agree both make sense. Are you talking about run-time adjustable
-or compile-time adjustable? For SNAT it would also be nice to be
-able to use the original address, unfortunately this isn't possible
-anymore since we now drop the conntrack reference early.
+We can disallow the explicit setting of any index which passes test
+(index % 8 >= 3) - but it does seem to me the whole concept of reserving
+those indices for per-socket policies is a bit of a hack and may need a
+rethinking. Maybe we need to maintain a mark in the kernel for
+per-socket polices and do the same as BSD?
 
-Regards
-Patrick
+cheers,
+jamal
