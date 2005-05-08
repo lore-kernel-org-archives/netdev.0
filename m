@@ -1,41 +1,74 @@
-From: "Barn Mate" <info@barnmate.com>
-Subject: Barn Mate - New Horse Forums
-Date: Sat, 7 May 2005 16:48:17 -0400
-Message-ID: <20050507204817458.SDrZ7Qui5bPSYV7EimDP@pop01.earthlink.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: resend patch:  xfrm policybyid
+Date: Sun, 8 May 2005 18:07:30 +1000
+Message-ID: <20050508080730.GA30512@gondor.apana.org.au>
+References: <20050505213239.GA29526@gondor.apana.org.au> <1115331436.8006.112.camel@localhost.localdomain> <20050505231210.GA30574@gondor.apana.org.au> <1115342122.7660.25.camel@localhost.localdomain> <20050506013125.GA31780@gondor.apana.org.au> <1115345403.7660.49.camel@localhost.localdomain> <20050506085404.GA26719@gondor.apana.org.au> <1115380381.7660.123.camel@localhost.localdomain> <20050507105500.GA20283@gondor.apana.org.au> <1115469496.19561.41.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "netdev@oss.sgi.com" <netdev@oss.sgi.com>
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1115469496.19561.41.camel@localhost.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I just wanted to introduce a new free Horse forum that we are hoping will become a useful resource for everyone.  This forum has been online for a short time and is quickly becoming a favorite among horse people around the world.
+On Sat, May 07, 2005 at 08:38:16AM -0400, jamal wrote:
+> 
+> Rewrite it Herbert ;-> I have no qualms as long as the feature is
+> available. I even promised not to harass you ;->
 
-Please stop by and check out what is going on.  We have just added a new Horse Knowledge Base which will provide article, tips, and link lists.
+Sorry, I can't think of any good ways to implement what you want.
 
-The forum will contain a place to ask questions about horses, barn management, the business side of things, web related things, barn / farm equipment, and much more.  We have currently have created over 25 forums.  We are also hoping to have regular professionals in the horse industry to assist you with your questions - this is why we need to get things rolling.
+> > The difference is that the uniqueness is easy when we (the kernel) are
+> > the only ones setting it.  Once you let the user choose the value for
+> > index, that's where the horror starts.
+> 
+> But the uniqueness is still maintained. Nothing changes there.
 
-The Forums:
-http://www.barnmate.com
+The difference is that we now have to guarantee the uniqueness of
+two unrelated fields during insertion: the index as well as the
+selector.  This is where the complexity of your patch comes from.
 
-Register at:
-http://www.barnmate.com/forum/policy.asp
-(if you have problems registering email me and I can set you up)
+> As i said in the last email, a lot of known management apps out there
+> typically deal with row indices when managing tables: examples include
+> SNMP, COPS, etc - and i am not sure how Racoon or pluto store their
+> policies but they would be a good fit as well. 
+> If you can specify what indices get used, then you can do some fast
+> lookups when need to (because you specify then based on how things are
+> laid out in your current tables). This is the way things are - i am not
+> trying to innovate anything here. 
+> How fast you add or delete these rules is a performance metric that
+> affects your setup/teardown rates.
 
-If you have any questions or suggestions then please feel free to email me at info@barnmate.com .
+I'm afraid I don't buy this.  The policies are not stored in a
+linear random-access data structure.  So setting the index
+doesn't help performance one tiny bit.
 
--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-We are also looking for advertisers.  Your advertisement can 
-be seen by 7,500 visitors per month.  Information about 
-advertising available to members on the forum or by email to 
-non-members (email me for information)..
+In future it'll probably become a hash table or a tree, in neither
+case will there be a linear index that could be used to determine
+insertion/deletion.
 
-This is a great place to advertise a horse, horse merchandise,
-your horse business, or any horse publications.
--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+> Theres also another use of being able to use indices:  HA
+> synchronization in active/backup. If the manager wants to make sure the
+> active and backup are exactly the same and it(the manager) maintains
+> less amount of data it will ensure that both nodes have exactly the same
+> indices as well for the same policy.
 
-Chris
-www.BarnMate.com
+Please elaborate by giving an example of how the index is actually
+used.  Sorry, but as it is I'm too thick to see your point :)
+
+> Having said the above, the SAD as well oughta have an index; infact one
+> exists (the reqid) but is quiet bizzare. I dont wanna touch the SAD,
+> yet ;-> not for the next few months until we talk at netconf probably.
+
+The reqid is definitely not an index.  In fact it is not unique at all.
+It's a way of condensing all the fields in a SA template into one u32.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
