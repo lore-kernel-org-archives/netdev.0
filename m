@@ -1,28 +1,24 @@
-From: Andy Furniss <andy.furniss@dsl.pipex.com>
-Subject: Re: SFQ: Reordering?
-Date: Tue, 10 May 2005 00:14:47 +0100
-Message-ID: <427FEEE7.2040104@dsl.pipex.com>
-References: <7bca1cb5050506145344d16b1e@mail.gmail.com> <427BEAAE.409@trash.net> <427BF3C4.1030105@trash.net> <20050506230203.GI28419@postel.suug.ch> <427BFB72.7080407@trash.net> <20050507005851.GK28419@postel.suug.ch> <427C19C3.5030304@trash.net>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [RFC] TCP congestion infrastructure
+Date: Mon, 9 May 2005 16:22:14 -0700
+Message-ID: <20050509162214.0a8c9ceb@dxpl.pdx.osdl.net>
+References: <20050506173729.20140.93205.37072@galon.ev-en.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, Asim Shankar <asimshankar@gmail.com>,
-        netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, Baruch Even <baruch@ev-en.org>,
+        Douglas Leith
+ <doug.leith@nuim.ie>,
+        "David S.Miller" <davem@davemloft.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <427C19C3.5030304@trash.net>
+To: Baruch Even <baruch@ev-en.org>
+In-Reply-To: <20050506173729.20140.93205.37072@galon.ev-en.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
+I rebased the H-TCP patches on my current work and 2.6.12-rc4 and put them in
+	http://developer.osdl.org/shemminger/patches/2.6.12-rc4-tcp/
 
-> It would be interesting to see this in real-life, when a single flow
-> is hashed to multiple buckets (it can be even more than two) and
-> each bucket has some packets queued, the result should look pretty
-> chaotic.
-
-It certainly hurts latency if used for ingress shaping, perturb nearly 
-always makes the sender backoff and then burst.
-
-Andy.
+Includes infrastructure and all the current variants: BIC, Westwood, Vegas
+    plus  H-TCP, Hybla
