@@ -1,52 +1,45 @@
-From: "David S. Miller" <davem@davemloft.net>
+From: "Michael Chan" <mchan@broadcom.com>
 Subject: Re: tg3 support broken on PPC, a workaround
-Date: Tue, 10 May 2005 14:15:25 -0700 (PDT)
-Message-ID: <20050510.141525.23014027.davem@davemloft.net>
-References: <1115743966.8570.26.camel@rh4>
-	<20050510.121214.39158393.davem@davemloft.net>
-	<1115754210.8570.63.camel@rh4>
+Date: Tue, 10 May 2005 13:49:39 -0700
+Message-ID: <1115758179.8570.79.camel@rh4>
+References: <20050510.121214.39158393.davem@davemloft.net>
+ <20050510.132642.85686818.davem@davemloft.net>
+ <1115756070.8570.76.camel@rh4>
+ <20050510.142319.70222971.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: mperaya@alcazaba.unex.es, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: mchan@broadcom.com
-In-Reply-To: <1115754210.8570.63.camel@rh4>
+To: "David S.Miller" <davem@davemloft.net>
+In-Reply-To: <20050510.142319.70222971.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: tg3 support broken on PPC, a workaround
-Date: Tue, 10 May 2005 12:43:30 -0700
+On Tue, 2005-05-10 at 14:23 -0700, David S.Miller wrote:
+> From: "Michael Chan" <mchan@broadcom.com>
+> Subject: Re: tg3 support broken on PPC, a workaround
+> Date: Tue, 10 May 2005 13:14:30 -0700
+> 
+> > I don't think target-initiated disconnects will waste PCI bandwidth
+> > compared to master-initiated terminations. In both cases, you see the
+> > same DMA bursts across the bus, only the termination of each burst is
+> > different.
+> 
+> I think it does Michael.  Performance on sparc64 went non-trivially up
+> when I added the read/write boundary settings initially long ago.
+> 
+> You have the extra phase where the tg3 tries to start the DMA of the
+> next cacheline, and that is where unnecessary time is lost.  I think
+> it's about 2 clocks you lose if the PCI controller disconnects instead
+> of tg3.
+> 
+> Tigon3 will drive the data of the next cacheline for 1 cycle and this
+> is when the PCI controller will disconnect.  Tigon3 will drop the data
+> and respond to the disconnect sometime in the next cycle or so.
+> 
 
-> There is clear benefit in doing longer bursts when the bridge can handle
-> it.
-
-No question.
-
-> It was explained to me that on some risc systems such as ppc, and
-> assuming the bridge can handle long DMA bursts, it is still best to
-> disconnect at page or cache line boundaries. The reason is that if the
-> burst stops at any arbitrary address, the bridge has to refetch the
-> cache line and often the mapping information. Disconnecting at multiple
-> cache lines is to address this problem while still achieving longer DMA
-> bursts.
-
-Ok, I see.
-
-It is aparently causing some kind of trouble for this person
-on his PPC system though.  I think we should back down to
-single-cacheline on non-X86 until we really can get a grasp
-on what machines it is both:
-
-1) beneficial
-2) does not corrupt data
-
-And that is what my patch aims to do for the time being.
-
-Even once the problem case is resolved, that setting should
-be bracketed in some test that specifically only enables
-the longer bursting where it actually helps not hinders.
-It definitely should not be done unconditonally for all
-non-X86 systems.
+You're right. This is Disconnect Without Data and it does cost a few
+clock cycles compared to Disconnect With Data or master initiated
+termination.
