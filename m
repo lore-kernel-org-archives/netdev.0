@@ -1,159 +1,114 @@
-From: Manuel Perez Ayala <mperaya@alcazaba.unex.es>
-Subject: tg3 support broken on PPC, a workaround
-Date: Tue, 10 May 2005 11:33:08 +0200
-Message-ID: <20050510113308.kbjo3ob1ck0404k8@158.49.151.11>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [1/1] connector/CBUS: new messaging subsystem. Revision number
+ next.
+Date: Tue, 10 May 2005 14:04:45 +0400
+Message-ID: <20050510140445.36cc15cb@zanzibar.2ka.mipt.ru>
+References: <20050411125932.GA19538@uganda.factory.vocord.ru>
+	<200505100118.48027.dtor_core@ameritech.net>
+Reply-To: johnpol@2ka.mipt.ru
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, Greg KH <greg@kroah.com>,
+        Jamal Hadi Salim
+ <hadi@cyberus.ca>,
+        Kay Sievers <kay.sievers@vrfy.org>,
+        Herbert Xu
+ <herbert@gondor.apana.org.au>,
+        James Morris <jmorris@redhat.com>,
+        Guillaume
+ Thouvenin <guillaume.thouvenin@bull.net>,
+        linux-kernel@vger.kernel.org, Andrew Morton <akpm@osdl.org>,
+        Thomas Graf <tgraf@suug.ch>, Jay Lan
+ <jlan@engr.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: Dmitry Torokhov <dtor_core@ameritech.net>
+In-Reply-To: <200505100118.48027.dtor_core@ameritech.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello,
+On Tue, 10 May 2005 01:18:46 -0500
+Dmitry Torokhov <dtor_core@ameritech.net> wrote:
 
-Since linux kernel 2.6.8 the tg3 support was broken on my PPC machines (P=
-ower
-Mac G4 silver) with data corruption.
+> On Monday 11 April 2005 07:59, Evgeniy Polyakov wrote:
+> > /*****************************************/
+> > Kernel Connector.
+> > /*****************************************/
+> > 
+> > Kernel connector - new netlink based userspace <-> kernel space easy to use communication module.
+> > 
+> 
+> Hi Evgeniy,
 
-After a while finally I've found the code responsible of my problems:
+Hello, Dmitriy.
 
-On debian kernel 2.6.8 in the tg3.c file, at line 7356 (inside the tg3_te=
-st_dma
-function) there are a conditional piece of code that compiles only if the
-platform is NOT 386:
+> I have looked at the connector implementation one more time and I think
+> it can be improved in the following ways:
+> 
+> - drop unneeded refcounting;
 
-#ifndef CONFIG_X86
-        {
-                u8 byte;
-                int cacheline_size;
-                pci_read_config_byte(tp->pdev, PCI_CACHE_LINE_SIZE, &byte=
-);
+It is already.
 
-                if (byte =3D=3D 0)
-                        cacheline_size =3D 1024;
-                else
-                        cacheline_size =3D (int) byte * 4;
+> - start only one workqueue entry instead of one for every callback type;
 
-                switch (cacheline_size) {
-                case 16:
-                case 32:
-                case 64:
-                case 128:
-                        if ((tp->tg3_flags & TG3_FLAG_PCIX_MODE) &&
-                            !(tp->tg3_flags2 & TG3_FLG2_PCI_EXPRESS)) {
-                                tp->dma_rwctrl |=3D
-                                        DMA_RWCTRL_WRITE_BNDRY_384_PCIX;
-                                break;
-                        } else if (tp->tg3_flags2 & TG3_FLG2_PCI_EXPRESS)=
- {
-                                tp->dma_rwctrl &=3D
-                                        ~(DMA_RWCTRL_PCI_WRITE_CMD);
-                                tp->dma_rwctrl |=3D
-                                        DMA_RWCTRL_WRITE_BNDRY_128_PCIE;
-                                break;
-                        }
-                        /* fallthrough */
-                case 256:
-                        if (!(tp->tg3_flags & TG3_FLAG_PCIX_MODE) &&
-                            !(tp->tg3_flags2 & TG3_FLG2_PCI_EXPRESS))
-                                tp->dma_rwctrl |=3D
-                                        DMA_RWCTRL_WRITE_BNDRY_256;
-                        else if (!(tp->tg3_flags2 & TG3_FLG2_PCI_EXPRESS)=
-)
-                                tp->dma_rwctrl |=3D
-                                        DMA_RWCTRL_WRITE_BNDRY_256_PCIX;
-                };
-        }
-#endif
+There is only one queue per callback device.
 
+> - drop cn_dev - there is only one connector;
 
-This has changed from version 2.6.7 (also Debian dist). At line 6964 (ins=
-ide the
-same function) was:
+There may be several connectors with different socket types.
+I use it in my environment for tests.
 
-#ifndef CONFIG_X86
-        {
-                u8 byte;
-                int cacheline_size;
-                pci_read_config_byte(tp->pdev, PCI_CACHE_LINE_SIZE, &byte=
-);
+> - simplify cn_notify_request to carry only one range - it simplifies code
+>   quite a bit - nothing stops clientd from sending several notification
+>   requests;
 
-                if (byte =3D=3D 0)
-                        cacheline_size =3D 1024;
-                else
-                        cacheline_size =3D (int) byte * 4;
+? Nothing stops clients from sending several notification requests now.
+I do not see how it simplifies the things?
+Feel free to set idx_num and val_num to 1 and you will have the same.
 
-                tp->dma_rwctrl &=3D ~(DMA_RWCTRL_READ_BNDRY_MASK |
-                                    DMA_RWCTRL_WRITE_BNDRY_MASK);
+> - implement internal queuefor callbacks so we are not at mercy of scheduler;
 
-                switch (cacheline_size) {
-                case 16:
-                        tp->dma_rwctrl |=3D
-                                (DMA_RWCTRL_READ_BNDRY_16 |
-                                 DMA_RWCTRL_WRITE_BNDRY_16);
-                        break;
+Current implementation has big warning about such theoretical behaviour, 
+if it will be triggered, I will fix that behaviour, 
+more likely not by naive work allocation - there might be
+at least cache/memory pool or something...
 
-                case 32:
-                        tp->dma_rwctrl |=3D
-                                (DMA_RWCTRL_READ_BNDRY_32 |
-                                 DMA_RWCTRL_WRITE_BNDRY_32);
-                        break;
+> - admit that SKBs are message medium and do not mess up with passing around
+>   destructor functions.
 
-                case 64:
-                        tp->dma_rwctrl |=3D
-                                (DMA_RWCTRL_READ_BNDRY_64 |
-                                 DMA_RWCTRL_WRITE_BNDRY_64);
-                        break;
+You mess up layers.
+I do not see why you want it.
 
-                case 128:
-                        tp->dma_rwctrl |=3D
-                                (DMA_RWCTRL_READ_BNDRY_128 |
-                                 DMA_RWCTRL_WRITE_BNDRY_128);
-                        break;
+> - In callback notifier switch to using GFP_KERNEL since it can sleep just
+>   fine;
 
-                case 256:
-                        tp->dma_rwctrl |=3D
-                                (DMA_RWCTRL_READ_BNDRY_256 |
-                                 DMA_RWCTRL_WRITE_BNDRY_256);
-                        break;
+Yes, it is correct
 
-                case 512:
-                        tp->dma_rwctrl |=3D
-                                (DMA_RWCTRL_READ_BNDRY_512 |
-                                 DMA_RWCTRL_WRITE_BNDRY_512);
-                        break;
+> - more... 
+> 
+> Because there were a lot of changes I decided against doing relative patch
+> but instead a replacement patch for affected files. I have cut out cbus and
+> documentation to keep it smaller so it will be easier to review. The patch
+> is compile-tested only.
 
-                case 1024:
-                        tp->dma_rwctrl |=3D
-                                (DMA_RWCTRL_READ_BNDRY_1024 |
-                                 DMA_RWCTRL_WRITE_BNDRY_1024);
-                        break;
-                };
-        }
-#endif
+Connector with your changes just does not work.
 
 
-If I replace the 2.6.8 piece of code with the 2.6.7 one and compile the c=
-ode, it
-seems to work without problems of data corruption.
+Dmitry, I do not understand why do you change things in so radical manner,
+especially when there are no 1. new interesting features, 2. no performance
+improvements, 3. no right design changes.
 
-Perhaps is there a better solution adding or modifiyng only certain 2.6.8=
- code
-to make the thinks works, but this works for me.
+> BTW, I do not think that "All rights reserved" statement is applicable/
+> compatible with GPL this software is supposedly released under, I have
+> taken liberty of removing this statement.
 
-If anybody can sugest anything about it I will be very happy to try and r=
-eport
-anything about it.
+You substitute license agreements with copyright.
+"All rights reserved" is targeted to copyright 
+(avtorskoe pravo, zakon N 5351/1-1) of the code
+and has nothing with license.
 
-Thanks.
 
+	Evgeniy Polyakov
 
-----------
-Manuel Perez Ayala
-mperaya@alcazaba.unex.es
-Facultad de Biblioteconom=EDa y Documentaci=F3n
-Universidad de Extremadura
+Only failure makes us experts. -- Theo de Raadt
