@@ -1,38 +1,42 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: IPsec performance over UDP
-Date: Tue, 10 May 2005 11:41:27 -0700
-Message-ID: <42810057.4020800@hp.com>
-References: <200505101949.12236.m.iatrou@freemail.gr>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: tg3 support broken on PPC, a workaround
+Date: Tue, 10 May 2005 12:12:14 -0700 (PDT)
+Message-ID: <20050510.121214.39158393.davem@davemloft.net>
+References: <20050510113308.kbjo3ob1ck0404k8@158.49.151.11>
+	<1115743966.8570.26.camel@rh4>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: mperaya@alcazaba.unex.es, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Michael Iatrou <m.iatrou@freemail.gr>
-In-Reply-To: <200505101949.12236.m.iatrou@freemail.gr>
+To: mchan@broadcom.com
+In-Reply-To: <1115743966.8570.26.camel@rh4>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Michael Iatrou wrote:
-> Hi,
-> 
-> I did some testing for IPsec performance over UDP. I used two identical PCs, 
-> connected back-to-back, with Intel Xeon 2.8GHz (SMP/SMT disabled), 512MB RAM, 
-> e1000 (82546EB), running Linux 2.6.11.7.  
-> 
-> I tested AES {128,192,256}, DES, 3DES, SHA, MD5 and various combinations of 
-> them for ESP and AH.
-> 
-> Network performance:
-> http://members.hellug.gr/iatrou/udp-throughput.png
-> 
-> CPU utilization:
-> http://members.hellug.gr/iatrou/udp-cpu.png
-> 
-> The "unexpected" result is that there is 30% idle time even if the network is 
-> not saturated! 
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: tg3 support broken on PPC, a workaround
+Date: Tue, 10 May 2005 09:52:46 -0700
 
-Perhaps the sending side got intra-stack flow-controlled?
+> In the new code, the DMA write bursts will disconnect at multiples of
+> cache lines instead of 1 cache line. And DMA read bursts will not
+> disconnect at cache line boundaries.
 
-rick jones
+We really should be disconnecting at single cacheline boundaries
+on RISC systems.  The PCI controllers on RISC machines are
+going to disconnect the tg3 when it crosses a cache line
+boundary, so all these setting do is waste PCI bandwidth.
+
+>From the sparc64 PCI controller programmer's manual:
+
+"When a DMA burst transfer attempts to go past a cache line (64B)
+ boundary, U2P generates a disconnect.  This should cause the
+ master device to attempt the transaction again beginning at the
+ address of the next untransferred data."
+
+Most other RISC systems have PCI controllers which
+behave similarly if not identically, although there
+are probably some exceptions.
+
+Anyways, it is clear this code needs to change. :-)
