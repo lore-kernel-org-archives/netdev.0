@@ -1,36 +1,28 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [1/1] connector/CBUS: new messaging subsystem. Revision number
-	next.
-Date: Wed, 11 May 2005 15:09:59 +0100
-Message-ID: <1115820593.9371.255.camel@localhost.localdomain>
-References: <20050411125932.GA19538@uganda.factory.vocord.ru>
-	 <200505100118.48027.dtor_core@ameritech.net>
+From: Ken-ichirou MATSUZAWA <chamas@h4.dion.ne.jp>
+Subject: Re: assertion (!atomic_read(&sk->sk_rmem_alloc)) failed at
+ net/netlink/af_netlink.c (122)
+Date: Thu, 12 May 2005 00:20:41 +0900 (JST)
+Message-ID: <20050512.002041.-1300550735.chamas@h4.dion.ne.jp>
+References: <20050510.214332.-1300551106.chamas@h4.dion.ne.jp>
+	<20050510220751.GA459@gondor.apana.org.au>
+	<20050511005836.GA1674@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@oss.sgi.com,
-        Greg KH <greg@kroah.com>, Jamal Hadi Salim <hadi@cyberus.ca>,
-        Kay Sievers <kay.sievers@vrfy.org>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        James Morris <jmorris@redhat.com>,
-        Guillaume Thouvenin <guillaume.thouvenin@bull.net>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Andrew Morton <akpm@osdl.org>, Thomas Graf <tgraf@suug.ch>,
-        Jay Lan <jlan@engr.sgi.com>
+Cc: netdev@oss.sgi.com, davem@davemloft.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Dmitry Torokhov <dtor_core@ameritech.net>
-In-Reply-To: <200505100118.48027.dtor_core@ameritech.net>
+To: herbert@gondor.apana.org.au
+In-Reply-To: <20050511005836.GA1674@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+ Hello.
 
-> BTW, I do not think that "All rights reserved" statement is applicable/
-> compatible with GPL this software is supposedly released under, I have
-> taken liberty of removing this statement.
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: assertion (!atomic_read(&sk->sk_rmem_alloc)) failed at net/netlink/af_netlink.c (122)
+Date: Wed, 11 May 2005 10:58:36 +1000
 
-Its perfectly compatible with the GPL and BSD license. All rights
-reserved is simply asserting all your rights (moral and other). It then
-goes on to say you can use it under the GPL
+> Please let me know whether this works for you or not.
 
-Alan
+It worked, thank you.
