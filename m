@@ -1,51 +1,87 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: tg3 support broken on PPC, a workaround
-Date: Tue, 10 May 2005 16:36:50 -0700 (PDT)
-Message-ID: <20050510.163650.66182323.davem@davemloft.net>
-References: <20050510.121214.39158393.davem@davemloft.net>
-	<42813205.1040709@hp.com>
-	<20050510232132.GZ5495@esmail.cup.hp.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: assertion (!atomic_read(&sk->sk_rmem_alloc)) failed at net/netlink/af_netlink.c (122)
+Date: Wed, 11 May 2005 10:58:36 +1000
+Message-ID: <20050511005836.GA1674@gondor.apana.org.au>
+References: <20050510.214332.-1300551106.chamas@h4.dion.ne.jp> <20050510220751.GA459@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: rick.jones2@hp.com, netdev@oss.sgi.com
+Content-Type: multipart/mixed; boundary="uAKRQypu60I7Lcqm"
+Cc: netdev@oss.sgi.com, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: iod00d@hp.com
-In-Reply-To: <20050510232132.GZ5495@esmail.cup.hp.com>
+To: Ken-ichirou MATSUZAWA <chamas@h4.dion.ne.jp>
+Content-Disposition: inline
+In-Reply-To: <20050510220751.GA459@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Grant Grundler <iod00d@hp.com>
-Subject: Re: tg3 support broken on PPC, a workaround
-Date: Tue, 10 May 2005 16:21:32 -0700
 
-> HP PCI bus controllers don't disconnect after a cacheline.
-> The latest "LBA" (aka Mercury) will disconnect on 4k page
-> boundaries. Alex Williamson confirmed.
+--uAKRQypu60I7Lcqm
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Ok, good data point.
-
-> Has anyone confirmed PPC, PPC64 and Alpha PCI/PCI-X bus
-> controllers do the same?
+On Wed, May 11, 2005 at 08:07:51AM +1000, herbert wrote:
+> On Tue, May 10, 2005 at 12:43:32PM +0000, Ken-ichirou MATSUZAWA wrote:
+> > 
+> > Everytime on shutting down, the subject message is logged.  
+> > It seems that the reason is do_one_broadcast may preempt
+> > netlink_recvmsg. Added patch to 2.6.12-rc4 seems resolving this
+> > problem.
 > 
-> ISTR MMRBC (PCI-X only) allows one to specify
-> shorter blocks. I'd have to look that up again.
+> Thanks for the patch.  To help me understand the problem better,
+> could you please tell me:
 
-BTW, I just noticed this in the NetBSD tigon3 driver:
+I think I understand your patch now.  What's happening is that
 
-#ifdef __brokenalpha__
-	/*
-	 * Must insure that we do not cross an 8K (bytes) boundary
-	 * for DMA reads.  Our highest limit is 1K bytes.  This is a
-	 * restriction on some ALPHA platforms with early revision
-	 * 21174 PCI chipsets, such as the AlphaPC 164lx
-	 */
-	PCI_SETBIT(sc, BGE_PCI_DMA_RW_CTL, BGE_PCI_READ_BNDRY_1024, 4);
-#endif
+1) The skb is sent to socket 1.
+2) Someone does a recvmsg on socket 1 and drops the ref on the skb.
+   Note that the rmalloc is not returned at this point since the
+   skb is still referenced.
+3) The same skb is now sent to socket 2.
 
-This whole DMA boundary issue is turning into a very non-trivial one.
+I agree with your solution except that we should still do the skb_get
+if we can.  Here is my version where we only do the skb_get at the
+start.
 
-And if it is really true that plain PCI boundary crossing cannot be
-controlled on non 5700/5701 chips, the tigon3 is certainly not going
-to work reliably on systems such as the Alpha mentioned above.
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Please let me know whether this works for you or not.
+
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--uAKRQypu60I7Lcqm
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
+
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -735,12 +735,7 @@ static inline int do_one_broadcast(struc
+ 
+ 	sock_hold(sk);
+ 	if (p->skb2 == NULL) {
+-		if (atomic_read(&p->skb->users) != 1) {
+-			p->skb2 = skb_clone(p->skb, p->allocation);
+-		} else {
+-			p->skb2 = p->skb;
+-			atomic_inc(&p->skb->users);
+-		}
++		p->skb2 = skb_clone(p->skb, p->allocation);
+ 	}
+ 	if (p->skb2 == NULL) {
+ 		netlink_overrun(sk);
+@@ -776,7 +771,8 @@ int netlink_broadcast(struct sock *ssk, 
+ 	info.delivered = 0;
+ 	info.allocation = allocation;
+ 	info.skb = skb;
+-	info.skb2 = NULL;
++	info.skb2 = skb;
++	skb_get(skb);
+ 
+ 	/* While we sleep in clone, do not allow to change socket list */
+ 
+
+--uAKRQypu60I7Lcqm--
