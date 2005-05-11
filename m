@@ -1,63 +1,31 @@
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] fix long-standing bug in 2.6/2.4
+ skb_copy/skb_copy_expand
+Date: Wed, 11 May 2005 13:56:45 -0700 (PDT)
+Message-ID: <20050511.135645.124868850.davem@davemloft.net>
+References: <20050508143259.GA30676@shaftnet.org>
+	<E1DUyZO-0004Fp-00@gondolin.me.apana.org.au>
+	<20050511203845.GA10770@shaftnet.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: pizza@shaftnet.org
+In-Reply-To: <20050511203845.GA10770@shaftnet.org>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
+List-Id: netdev.vger.kernel.org
+
 From: Stuffed Crust <pizza@shaftnet.org>
 Subject: Re: [PATCH] fix long-standing bug in 2.6/2.4 skb_copy/skb_copy_expand
 Date: Wed, 11 May 2005 16:38:45 -0400
-Message-ID: <20050511203845.GA10770@shaftnet.org>
-References: <20050508143259.GA30676@shaftnet.org> <E1DUyZO-0004Fp-00@gondolin.me.apana.org.au>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="2fHTh5uZTiUOsy+g"
-Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
-	netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261218AbVEKUlm@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Content-Disposition: inline
-In-Reply-To: <E1DUyZO-0004Fp-00@gondolin.me.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
 
+> As I said in my original message, it was a crude hack which has since
+> been relegated to the great bitbucket of the sky.  All that's left is
+> that "bugfix" patch.
 
---2fHTh5uZTiUOsy+g
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Mon, May 09, 2005 at 01:04:34PM +1000, Herbert Xu wrote:
-> > This is, fortunately, generally true.  But if the alloc_skb function=20
-> > allocates extra head room (ie calls skb_reserve() on the skb before it=
-=20
-> > passes it to the callee, this doesn't quite work.  Instead, it should b=
-e=20
-> > rewritten as:
->=20
-> As far as I know the alloc_skb funciton in the kernel tree doesn't do
-> that so your patch is not necessary unless we decide to change the way
-> alloc_skb works.  If that's what you want then please provide a patch
-> to alloc_skb and a rationale as to why we should do that.
-
-It does not, and I have no intention of submitting a patch to change it.=20
-As I said in my original message, it was a crude hack which has since
-been relegated to the great bitbucket of the sky.  All that's left is
-that "bugfix" patch.
-
-I've performed my due-diligence in airing it to the powers that be, so=20
-I'll go way now.
-
- - Solomon
---=20
-Solomon Peachy        				 ICQ: 1318344
-Melbourne, FL 					 JID: pitha@myjabber.net
-Quidquid latine dictum sit, altum viditur
-
---2fHTh5uZTiUOsy+g
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.3 (GNU/Linux)
-
-iD8DBQFCgm1VPuLgii2759ARAp58AJ0YTlpIfHfZzO1FPsrKwvO/nkSDMwCg34Fy
-oyb6OWUtCSERK967FUx7Pks=
-=vclu
------END PGP SIGNATURE-----
-
---2fHTh5uZTiUOsy+g--
+If alloc_skb() does not do an skb_reserve(), then the bug fix
+patch is unnecessary.  The "bug" only exists if you happen to
+change alloc_skb() to do an skb_reserve().
