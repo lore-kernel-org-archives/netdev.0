@@ -1,27 +1,46 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: 2.4.30-hf1 do_IRQ stack overflows
-Date: Thu, 12 May 2005 07:38:52 +1000
-Message-ID: <E1DVyuq-0005Sf-00@gondolin.me.apana.org.au>
-References: <20050511124640.GE8541@logos.cnet>
-Cc: manfred99@gmx.ch, linux-kernel@vger.kernel.org, davem@redhat.com,
-	netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261260AbVEKVkr@vger.kernel.org>
-To: marcelo.tosatti@cyclades.com (Marcelo Tosatti)
-In-Reply-To: <20050511124640.GE8541@logos.cnet>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: kill unused define in ipw
+Date: Wed, 11 May 2005 23:43:07 +0200
+Message-ID: <20050511214307.GA3777@elf.ucw.cz>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: kernel list <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261282AbVEKWNu@vger.kernel.org>
+To: jketreno@linux.intel.com
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Marcelo Tosatti <marcelo.tosatti@cyclades.com> wrote:
->
-> May 11 04:22:09 server kernel:   [__switch_to+82/256] [schedule+738/1344] [schedule_timeout+84/160] [process_timeout+0/96] [st:__insmod_st_O/lib/modules/2.4.30-hf1/kernel/drivers/scsi/st+4294702743/96] [st:__insmod_st_O/lib/modules/2.4.30-hf1/kernel/drivers/scsi/st+4294703097/96]
+Hi!
 
-The stack trace becomes unreadable at this point.  Please run klogd
-with -X and then decode the messages with ksymoops.  Alternatively
-run ksymoops on the output of dmesg directly.
+This kills unused KILL_CHECK_THRESHOLD and KERNEL_SYSCALLS. They
+should not be needed any more. Please apply,
 
-Thanks,
+[What is the merge status? Version 1.1 seems quite okay, but it could
+use some "#ifdef 2.6.10" removal". Can I help?]
+								Pavel
+PS: Please Cc me, I'm not on netdev.
+
+Signed-off-by: Pavel Machek <pavel@suse.cz>
+
+--- /data/l/clean-mm/drivers/net/wireless/ipw2100.c	2005-05-11 22:00:02.000000000 +0200
++++ linux-mm/drivers/net/wireless/ipw2100.c	2005-05-11 23:37:25.000000000 +0200
+@@ -150,7 +150,6 @@
+ #include <linux/skbuff.h>
+ #include <asm/uaccess.h>
+ #include <asm/io.h>
+-#define __KERNEL_SYSCALLS__
+ #include <linux/fs.h>
+ #include <linux/mm.h>
+ #include <linux/slab.h>
+@@ -1117,7 +1116,6 @@
+ {
+ #define MAX_RF_KILL_CHECKS 5
+ #define RF_KILL_CHECK_DELAY 40
+-#define RF_KILL_CHECK_THRESHOLD 3
+ 
+ 	unsigned short value = 0;
+ 	u32 reg = 0;
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Boycott Kodak -- for their patent abuse against Java.
