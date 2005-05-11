@@ -1,34 +1,30 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] netlink: defer socket destruction a bit
-Date: Thu, 12 May 2005 09:03:09 +1000
-Message-ID: <20050511230309.GA21547@gondor.apana.org.au>
-References: <428284D6.9000804@tpack.net> <20050511222421.GA21331@gondor.apana.org.au> <4282889A.7080409@tpack.net>
+Subject: Re: assertion (!atomic_read(&sk->sk_rmem_alloc)) failed at net/netlink/af_netlink.c (122)
+Date: Thu, 12 May 2005 09:17:51 +1000
+Message-ID: <20050511231751.GA21781@gondor.apana.org.au>
+References: <20050510.214332.-1300551106.chamas@h4.dion.ne.jp> <20050510220751.GA459@gondor.apana.org.au> <20050511005836.GA1674@gondor.apana.org.au> <4282846F.6070403@tpack.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
-        Ken-ichirou MATSUZAWA <chamas@h4.dion.ne.jp>
+Cc: Ken-ichirou MATSUZAWA <chamas@h4.dion.ne.jp>, netdev@oss.sgi.com,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Tommy Christensen <tommy.christensen@tpack.net>
 Content-Disposition: inline
-In-Reply-To: <4282889A.7080409@tpack.net>
+In-Reply-To: <4282846F.6070403@tpack.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 12, 2005 at 12:35:06AM +0200, Tommy Christensen wrote:
+On Thu, May 12, 2005 at 12:17:19AM +0200, Tommy Christensen wrote:
 > 
-> No, skb2 cannot be shared with a listening socket. As I read the code,
-> it can only be non-null when delivery has failed.
+> What about an alternative fix, that avoids even more cloning (where
+> possible)? This resurrects the skb_orphan call that was moved out, last
+> time we had 'shared-skb troubles'. It is practically a no-op in the
+> common case, but still prevents the possible race with recvmsg.
+> (And I have a weakness for one-line-fixes). :-)
 
-What about this code path:
-
-1) skb2 = skb, refcnt++.
-2) Devliered to socket 1.
-3) Socket 1 frees skb through recvmsg.
-4) skb2 = skb, refcnt++.
-5) Delivery fails.
-
-Now skb2 is identical to skb and they both refer to socket 1.
+BTW, we could also move the skb_orphan to the skb_get path since the
+cloned packets don't need the orphan call.
 
 Cheers,
 -- 
