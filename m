@@ -1,68 +1,45 @@
-From: Tommy Christensen <tommy.christensen@tpack.net>
-Subject: Re: assertion (!atomic_read(&sk->sk_rmem_alloc)) failed at net/netlink/af_netlink.c
- (122)
-Date: Thu, 12 May 2005 00:17:19 +0200
-Message-ID: <4282846F.6070403@tpack.net>
-References: <20050510.214332.-1300551106.chamas@h4.dion.ne.jp> <20050510220751.GA459@gondor.apana.org.au> <20050511005836.GA1674@gondor.apana.org.au>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [TG3]: Add hw coalescing infrastructure.
+Date: Wed, 11 May 2005 14:17:36 -0700
+Message-ID: <1115846256.8570.109.camel@rh4>
+References: <20050511.141530.57445142.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------060109090905070101010608"
-Cc: Ken-ichirou MATSUZAWA <chamas@h4.dion.ne.jp>, netdev@oss.sgi.com,
-        "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050511005836.GA1674@gondor.apana.org.au>
+To: "David S.Miller" <davem@davemloft.net>
+In-Reply-To: <20050511.141530.57445142.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------060109090905070101010608
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+On Wed, 2005-05-11 at 14:15 -0700, David S.Miller wrote:
 
-Herbert Xu wrote:
-> I think I understand your patch now.  What's happening is that
+> It seems that we should also be avoiding the HOSTCC_{R,T}XCOAL_MAXF_INT
+> registers when TG3_FLG2_5705_PLUS.  I didn't make that change yet, just
+> preserving what we were doing previously.
+
+These registers are still defined for 5705_PLUS chips, only the maximum
+value has been reduced to 255. So we're ok.
+
 > 
-> 1) The skb is sent to socket 1.
-> 2) Someone does a recvmsg on socket 1 and drops the ref on the skb.
->    Note that the rmalloc is not returned at this point since the
->    skb is still referenced.
-> 3) The same skb is now sent to socket 2.
+> Another thing which occurred to me is that these settings are line
+> rate dependant.  For example, the 20 usec value is for gigabit.
+> So we may wish to adjust the values we use based upon the negotiated
+> line speed.   But that's a future refinement that can wait.
+> 
+Yes, and MTU size dependent too. But we may not want to coalesce the
+same way when running at 10/100 Mbps. For example, if one packet has
+arrived, we don't want to wait 120 usec or 1200 usec to see if another
+packet will arrive before we interrupt at 100 and 10 Mbps respectively.
 
-Ahh, even I get the point now.
-I actually thought this was caused by another race. More on that later.
+> I think with the removal of that I/O readback done by the tagged
+> status changes, and this coalescing stuff below, the SGI NUMA
+> performance should be significantly higher.
+> 
+> Comments?
 
-> I agree with your solution except that we should still do the skb_get
-> if we can.  Here is my version where we only do the skb_get at the
-> start.
-
-What about an alternative fix, that avoids even more cloning (where
-possible)? This resurrects the skb_orphan call that was moved out, last
-time we had 'shared-skb troubles'. It is practically a no-op in the
-common case, but still prevents the possible race with recvmsg.
-(And I have a weakness for one-line-fixes). :-)
-
-
-Signed-off-by: Tommy S. Christensen <tommy.christensen@tpack.net>
-
---------------060109090905070101010608
-Content-Type: text/plain;
- name="netlink-1.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="netlink-1.patch"
-
-diff -ru linux-2.6.12-rc4/net/netlink/af_netlink.c linux-2.6.12-work/net/netlink/af_netlink.c
---- linux-2.6.12-rc4/net/netlink/af_netlink.c	2005-05-11 11:10:20.000000000 +0200
-+++ linux-2.6.12-work/net/netlink/af_netlink.c	2005-05-12 00:08:33.634344658 +0200
-@@ -697,6 +697,7 @@
- 
- 	if (atomic_read(&sk->sk_rmem_alloc) <= sk->sk_rcvbuf &&
- 	    !test_bit(0, &nlk->state)) {
-+		skb_orphan(skb);
- 		skb_set_owner_r(skb, sk);
- 		skb_queue_tail(&sk->sk_receive_queue, skb);
- 		sk->sk_data_ready(sk, skb->len);
-
---------------060109090905070101010608--
+Other than adding a check for netif_carrier_ok() before setting the
+HOSTCC_STAT_COAL_TICKS register in tg3_set_coalesce(), everything looks
+good to me.
