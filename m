@@ -1,49 +1,59 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: [TG3]: Add hw coalescing infrastructure.
-Date: Thu, 12 May 2005 09:53:53 +0200
-Message-ID: <17027.2961.116716.572730@robur.slu.se>
-References: <20050511.141530.57445142.davem@davemloft.net>
-	<1115846256.8570.109.camel@rh4>
-	<20050511.192819.24336786.davem@davemloft.net>
+From: Michael Ellerman <michael@ellerman.id.au>
+Subject: [PATCH 3/4] iseries_veth: Don't leak skbs in RX path
+Date: Thu, 12 May 2005 17:55:08 +1000
+Message-ID: <200505121755.09132.michael@ellerman.id.au>
+Reply-To: michael@ellerman.id.au
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: mchan@broadcom.com, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050511.192819.24336786.davem@davemloft.net>
+To: Andrew Morton <akpm@osdl.org>, Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi Andrew, Jeff,
 
-David S. Miller writes:
- > From: "Michael Chan" <mchan@broadcom.com>
- > Subject: Re: [TG3]: Add hw coalescing infrastructure.
- > Date: Wed, 11 May 2005 14:17:36 -0700
+Under some strange circumstances the iseries_veth driver can leak skbs.
 
- > > Yes, and MTU size dependent too. But we may not want to coalesce the
- > > same way when running at 10/100 Mbps. For example, if one packet has
- > > arrived, we don't want to wait 120 usec or 1200 usec to see if another
- > > packet will arrive before we interrupt at 100 and 10 Mbps respectively.
- > 
- > That's a good point.  I think it would be wise for us to try
- > and come up with a dynamic mitigation algorithm that is as MTU
- > and link speed agnostic as possible.
+Fix is simply to call dev_kfree_skb() in the right place.
+Fix up the comment as well.
 
- Size of RX-ring is also to be taken to account. You probably have to design 
- for samllest packets otherwise you risk RX-ring overrun and packet drop. 
+Signed-off-by: Michael Ellerman <michael@ellerman.id.au>
+--
 
- > One thing to note is that what we're really trying to do is
- > maximize the amount of work done per interrupt, without
- > unduly adding latency to packet reception.
- > 
- > Work done per-interrupt, and maximum latency, are better goals
- > because formulas based upon those values will automatically take
- > differences in CPU and BUS I/O speed into account.
+ iseries_veth.c |   17 +++++++++++------
+ 1 files changed, 11 insertions(+), 6 deletions(-)
 
-  Yes.
-
-  Cheers.
-					--ro
+Index: veth-fixes/drivers/net/iseries_veth.c
+===================================================================
+--- veth-fixes.orig/drivers/net/iseries_veth.c
++++ veth-fixes/drivers/net/iseries_veth.c
+@@ -1264,13 +1264,18 @@ static void veth_receive(struct veth_lpa
  
+ 		vlan = skb->data[9];
+ 		dev = veth_dev[vlan];
+-		if (! dev)
+-			/* Some earlier versions of the driver sent
+-			   broadcasts down all connections, even to
+-			   lpars that weren't on the relevant vlan.
+-			   So ignore packets belonging to a vlan we're
+-			   not on. */
++		if (! dev) {
++			/*
++			 * Some earlier versions of the driver sent
++			 * broadcasts down all connections, even to lpars
++			 * that weren't on the relevant vlan. So ignore
++			 * packets belonging to a vlan we're not on.
++			 * We can also be here if we receive packets while
++			 * the driver is going down, because then dev is NULL.
++			 */
++			dev_kfree_skb_irq(skb);
+ 			continue;
++		}
+ 
+ 		port = (struct veth_port *)dev->priv;
+ 		dest = *((u64 *) skb->data) & 0xFFFFFFFFFFFF0000;
