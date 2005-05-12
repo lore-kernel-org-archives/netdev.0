@@ -1,90 +1,47 @@
-From: Pantelis Antoniou <panto@intracom.gr>
-Subject: Re: RFC: PHY Abstraction Layer II
-Date: Thu, 12 May 2005 09:08:47 +0300
-Message-ID: <4282F2EF.4020307@intracom.gr>
-References: <1107b64b01fb8e9a6c84359bb56881a6@freescale.com>	<1110334456.32556.21.camel@gaston>	<20050308194229.41c23707.davem@davemloft.net>	<1110340214.32524.32.camel@gaston>	<57a429f8eb807987d88b06129861d507@freescale.com>	<4230D1AC.5070506@katalix.com>	<ba5d844255b5ba76b2685f9397faf689@freescale.com>	<423734FB.40101@katalix.com>	<96c50184a02557c88dee0e6d17f3a539@freescale.com>	<42625DDB.4090600@katalix.com>
-	<30d87aabd768216ef8bee800f3e09b9e@freescale.com>
+From: Michael Ellerman <michael@ellerman.id.au>
+Subject: [PATCH 1/4] iseries_veth: Don't send packets to LPARs which aren't up
+Date: Thu, 12 May 2005 17:47:27 +1000
+Message-ID: <200505121747.27752.michael@ellerman.id.au>
+Reply-To: michael@ellerman.id.au
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linuxppc-embedded@ozlabs.org,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linuxppc-embedded-bounces@ozlabs.org>
-To: Andy Fleming <afleming@freescale.com>
-In-Reply-To: <30d87aabd768216ef8bee800f3e09b9e@freescale.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
-List-Post: <mailto:linuxppc-embedded@ozlabs.org>
-List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-embedded-bounces@ozlabs.org
-Errors-To: linuxppc-embedded-bounces@ozlabs.org
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261219AbVELHrl@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>, Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andy Fleming wrote:
-> 
-> On Apr 17, 2005, at 08:00, James Chapman wrote:
-> 
->> Andy Fleming wrote:
->>
->>> Ok, here's the new patch with changes suggested by James Chapman:
->>
->>
->> I guess I still have questions about the way interrupts are used.
->>
->> Using an interrupt to schedule a work queue which then sets a variable
->> that is used by a timer seems odd. Why not do all the work in the work
->> queue and schedule it from the interrupt handler or timer?
-> 
-> 
-> Ok, I've set up a new system for handling interrupts.  There are now two 
-> "special" interrupt values, PHY_POLL, and PHY_IGNORE_INTERRUPT.  The 
-> first one is used to indicate that the PHY layer will poll the PHY for 
-> state changes, and won't enable interrupts.  The second indicates that 
-> the PHY layer will neither poll, nor enable interrupts, and thus will 
-> allow the driver to handle interrupts.  The PHY layer will still operate 
-> its state machine, though.
-> 
-> The driver must insure a couple things:
-> 
-> 1) It must set phydev->state to PHY_CHANGELINK
-> 2) It must do that in a work queue (or other non-interrupt time)
-> 
-> The first one tells the PHY layer that the link state changed (it has to 
-> grab a lock to do this).  The second one is required in order to 
-> properly take the lock.
-> 
->>
->> Also, did you mean to leave the #if 0 code in davicom.c?
-> 
-> 
-> For now.  It worked around a problem some people were reporting, so I'd 
-> like to see if they report it again now that the code's out.  If so, 
-> they have a fairly easy fix, and I can reinsert it (or at least 
-> reevaluate it) in the future.
-> 
->>
->> /james
-> 
-> 
-> Andy
-> 
-> 
-> ------------------------------------------------------------------------
-> 
-> _______________________________________________
-> Linuxppc-embedded mailing list
-> Linuxppc-embedded@ozlabs.org
-> https://ozlabs.org/mailman/listinfo/linuxppc-embedded
+Hi Andrew, Jeff,
 
-Hi Andy.
+The iseries_veth driver has a logic bug which means it will erroneously
+send packets to LPARs for which we don't have a connection.
 
-Mind taking a look at the combined FEC/FCC driver I've posted and
-comment on how hard it'll be to use your PAL? I'd be especially
-interested at any API mismatches, and problems you might find.
+This usually isn't a big problem because the Hypervisor call fails
+gracefully and we return, but if packets are TX'ed during the negotiation
+of the connection bad things might happen.
 
-Regards
+Regardless, the right thing is to bail early if we know there's no
+connection.
 
-Pantelis
+Signed-off-by: Michael Ellerman <michael@ellerman.id.au>
+--
+
+ iseries_veth.c |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
+
+Index: veth-fixes/drivers/net/iseries_veth.c
+===================================================================
+--- veth-fixes.orig/drivers/net/iseries_veth.c
++++ veth-fixes/drivers/net/iseries_veth.c	
+@@ -924,7 +924,7 @@ static int veth_transmit_to_one(struct s
+ 
+ 	spin_lock_irqsave(&cnx->lock, flags);
+ 
+-	if (! cnx->state & VETH_STATE_READY)
++	if (! (cnx->state & VETH_STATE_READY))
+ 		goto drop;
+ 
+ 	if ((skb->len - 14) > VETH_MAX_MTU)
