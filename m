@@ -1,50 +1,40 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: Questions wrt QoS code on Linux
-Date: Thu, 12 May 2005 14:20:01 +0200
-Message-ID: <20050512122001.GI28419@postel.suug.ch>
-References: <20050512044040.61360.qmail@web31504.mail.mud.yahoo.com>
+From: Andi Kleen <ak@muc.de>
+Subject: Re: issue with new TCP TSO stuff
+Date: Thu, 12 May 2005 16:13:05 +0200
+Message-ID: <m1sm0sttvy.fsf@muc.de>
+References: <20050511.223036.39664020.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jonathan Day <imipak@yahoo.com>
-Content-Disposition: inline
-In-Reply-To: <20050512044040.61360.qmail@web31504.mail.mud.yahoo.com>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050511.223036.39664020.davem@davemloft.net> (David S.
+ Miller's message of "Wed, 11 May 2005 22:30:36 -0700 (PDT)")
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Jonathan Day <20050512044040.61360.qmail@web31504.mail.mud.yahoo.com> 2005-05-11 21:40
-> First off, I notice that all the code is lumped
-> together and much of it is generically labelled
-> "scheduling". I'm wondering if it might not be more
-> readable if the list were divided into four sections -
-> "queueing disciplines", "scheduling", "packet
-> classification" and "everything else". Would that seem
-> sensible? Or would it risk making things
-> over-structured?
+"David S. Miller" <davem@davemloft.net> writes:
+>
+> This shows up in testing where the connection is application limited.
+> For example, an "scp" goes more slowly over TSO now, there are less
+> cpu cycles available for the encryption.
+>
+> It's tricky to come up with a scheme to fix this.  I would love to be
+> able to not do the page grabs/releases in the actual TSO frame.  I
+> really haven't come up with a clean way to do that however.
 
-Sounds reasonable although I'm not sure if I understand
-the difference between "scheduling" and "qdisc".
+Are you sure a few atomic_inc/dec are really causing noticeable
+slowdown? That would surprise me unless you have lots of cache line
+bouncing on a MP system.
 
-> Secondly, there seem to be an awful lot of QoS methods
-> not represented in Linux. Implementing them all might
-> easily double the kernel size for not very much
-> benefit, even if anyone could find the time to do so.
-> On the other hand, there are probably some that are
-> under development and others high on the wishlist.
-> Does anyone know what projects are currently underway
-> or being planned?
+What CPU did you test it on? Does it happen with only a single CPU?
+And did you actually see them in some profile?
 
-We're lacking feedback on this subject from the users, we hear
-a lot from the typical home user wanting to get some control
-over his ADSL/cable link but not much from other areas.
+Assuming the struct page is in cache the P4 core is the slowest at
+that that I know, but even on that one it should be in the noise on
+the other overhead of talking to a NIC on a PCI bus.
 
-There have been some recent additions, mainly Jamal's actions
-and my small ematch API. They perfectly serve as a base to
-solve more complex problems but are still in a early stage
-of completness and documentation.
+Perhaps it is something else..
 
-The current development direction is to get away from big and
-complex problem solvers and focus on tiny and simple components
-that can be put together to solve problems more individually.
+-Andi
