@@ -1,7 +1,7 @@
 From: Jonathan Day <imipak@yahoo.com>
-Subject: Questions wrt QoS code on Linux
-Date: Wed, 11 May 2005 21:40:39 -0700 (PDT)
-Message-ID: <20050512044040.61360.qmail@web31504.mail.mud.yahoo.com>
+Subject: A different question, on SGI's STP for Linux
+Date: Wed, 11 May 2005 21:47:14 -0700 (PDT)
+Message-ID: <20050512044714.62495.qmail@web31504.mail.mud.yahoo.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
@@ -12,32 +12,26 @@ List-Id: netdev.vger.kernel.org
 
 Hi,
 
-Wondering if someone can answer a few questions on the
-QoS code in Linux.
+Another quick question, chasing the ones on QoS. At
+one point, SGI had an intriguing prototype
+implementation of something called the "Scheduled
+Transfer Protocol" for Linux. Sadly, this project
+seems to have vanished into the mists. I -think- I
+have a copy, somewhere, that I downloaded from the
+Open Source projects site.
 
-First off, I notice that all the code is lumped
-together and much of it is generically labelled
-"scheduling". I'm wondering if it might not be more
-readable if the list were divided into four sections -
-"queueing disciplines", "scheduling", "packet
-classification" and "everything else". Would that seem
-sensible? Or would it risk making things
-over-structured?
-
-Secondly, there seem to be an awful lot of QoS methods
-not represented in Linux. Implementing them all might
-easily double the kernel size for not very much
-benefit, even if anyone could find the time to do so.
-On the other hand, there are probably some that are
-under development and others high on the wishlist.
-Does anyone know what projects are currently underway
-or being planned?
+I presume, from the fact that nobody else seems to
+have picked it up, that STP isn't as useful as it
+sounds. Is it something that would be worth
+forward-porting to a recent kernel, or is it more of a
+dead-end approach that can be done as well by other
+means?
 
 Jonathan
 
 
+
 		
-__________________________________ 
-Do you Yahoo!? 
-Yahoo! Mail - Helps protect you from nasty viruses. 
-http://promotions.yahoo.com/new_mail
+Yahoo! Mail
+Stay connected, organized, and protected. Take the tour:
+http://tour.mail.yahoo.com/mailtour.html
