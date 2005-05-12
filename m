@@ -1,44 +1,84 @@
-From: Tommy Christensen <tommy.christensen@tpack.net>
-Subject: Re: [PATCH] netlink: defer socket destruction a bit
-Date: Thu, 12 May 2005 11:57:01 +0200
-Message-ID: <1115891821.30106.86.camel@tsc-6.cph.tpack.net>
-References: <428284D6.9000804@tpack.net>
-	 <20050511222421.GA21331@gondor.apana.org.au> <4282889A.7080409@tpack.net>
-	 <20050511230309.GA21547@gondor.apana.org.au>
+From: Christoph Hellwig <hch@lst.de>
+Subject: [PATCH] use lookup_create in af_unix
+Date: Thu, 12 May 2005 12:23:36 +0200
+Message-ID: <20050512102336.GA26628@lst.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
-        Ken-ichirou MATSUZAWA <chamas@h4.dion.ne.jp>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050511230309.GA21547@gondor.apana.org.au>
+To: davem@davemloft.net
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2005-05-12 at 01:03, Herbert Xu wrote:
-> On Thu, May 12, 2005 at 12:35:06AM +0200, Tommy Christensen wrote:
-> > 
-> > No, skb2 cannot be shared with a listening socket. As I read the code,
-> > it can only be non-null when delivery has failed.
-> 
-> What about this code path:
-> 
-> 1) skb2 = skb, refcnt++.
-> 2) Devliered to socket 1.
-> 3) Socket 1 frees skb through recvmsg.
-> 4) skb2 = skb, refcnt++.
-> 5) Delivery fails.
-> 
-> Now skb2 is identical to skb and they both refer to socket 1.
+currently it opencodes it, but that's in the way of chaning the
+lookup_hash interface.
 
-You're right, Herbert.  The interception by recvmsg has to be
-considered in this case also.  Tricky.
+I'd prefer to disallow modular af_unix over exporting lookup_create,
+but I'll leave that to you.
 
-I moved the call to skb_orphan in the other patch, as you
-suggested.  I think that also makes this patch safe as it is.
 
-Right?
+Signed-off-by: Christoph Hellwig <hch@lst.de>
 
--Tommy
+Index: fs/namei.c
+===================================================================
+--- eed337ef5e9ae7d62caa84b7974a11fddc7f06e0/fs/namei.c  (mode:100644 sha1:defe6781e003c208fc0a4b6e92bcf1dc2a0465de)
++++ uncommitted/fs/namei.c  (mode:100644)
+@@ -1580,6 +1580,7 @@
+ fail:
+ 	return dentry;
+ }
++EXPORT_SYMBOL_GPL(lookup_create);
+ 
+ int vfs_mknod(struct inode *dir, struct dentry *dentry, int mode, dev_t dev)
+ {
+Index: net/unix/af_unix.c
+===================================================================
+--- eed337ef5e9ae7d62caa84b7974a11fddc7f06e0/net/unix/af_unix.c  (mode:100644 sha1:c478fc8db7768428580d23381856fa53fa31add2)
++++ uncommitted/net/unix/af_unix.c  (mode:100644)
+@@ -770,33 +770,12 @@
+ 		err = path_lookup(sunaddr->sun_path, LOOKUP_PARENT, &nd);
+ 		if (err)
+ 			goto out_mknod_parent;
+-		/*
+-		 * Yucky last component or no last component at all?
+-		 * (foo/., foo/.., /////)
+-		 */
+-		err = -EEXIST;
+-		if (nd.last_type != LAST_NORM)
+-			goto out_mknod;
+-		/*
+-		 * Lock the directory.
+-		 */
+-		down(&nd.dentry->d_inode->i_sem);
+-		/*
+-		 * Do the final lookup.
+-		 */
+-		dentry = lookup_hash(&nd.last, nd.dentry);
++
++		dentry = lookup_create(&nd, 0);
+ 		err = PTR_ERR(dentry);
+ 		if (IS_ERR(dentry))
+ 			goto out_mknod_unlock;
+-		err = -ENOENT;
+-		/*
+-		 * Special case - lookup gave negative, but... we had foo/bar/
+-		 * From the vfs_mknod() POV we just have a negative dentry -
+-		 * all is fine. Let's be bastards - you had / on the end, you've
+-		 * been asking for (non-existent) directory. -ENOENT for you.
+-		 */
+-		if (nd.last.name[nd.last.len] && !dentry->d_inode)
+-			goto out_mknod_dput;
++
+ 		/*
+ 		 * All right, let's create it.
+ 		 */
+@@ -845,7 +824,6 @@
+ 	dput(dentry);
+ out_mknod_unlock:
+ 	up(&nd.dentry->d_inode->i_sem);
+-out_mknod:
+ 	path_release(&nd);
+ out_mknod_parent:
+ 	if (err==-EEXIST)
