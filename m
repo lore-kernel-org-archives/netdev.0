@@ -1,62 +1,44 @@
 From: Tommy Christensen <tommy.christensen@tpack.net>
-Subject: Re: assertion (!atomic_read(&sk->sk_rmem_alloc)) failed at
-	net/netlink/af_netlink.c (122)
-Date: Thu, 12 May 2005 11:58:07 +0200
-Message-ID: <1115891887.30106.89.camel@tsc-6.cph.tpack.net>
-References: <20050510.214332.-1300551106.chamas@h4.dion.ne.jp>
-	 <20050510220751.GA459@gondor.apana.org.au>
-	 <20050511005836.GA1674@gondor.apana.org.au> <4282846F.6070403@tpack.net>
-	 <20050511231751.GA21781@gondor.apana.org.au>
+Subject: Re: [PATCH] netlink: defer socket destruction a bit
+Date: Thu, 12 May 2005 11:57:01 +0200
+Message-ID: <1115891821.30106.86.camel@tsc-6.cph.tpack.net>
+References: <428284D6.9000804@tpack.net>
+	 <20050511222421.GA21331@gondor.apana.org.au> <4282889A.7080409@tpack.net>
+	 <20050511230309.GA21547@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-PVeijJmpk17Glw/H2tA2"
-Cc: Ken-ichirou MATSUZAWA <chamas@h4.dion.ne.jp>, netdev@oss.sgi.com,
-        "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
+        Ken-ichirou MATSUZAWA <chamas@h4.dion.ne.jp>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050511231751.GA21781@gondor.apana.org.au>
+In-Reply-To: <20050511230309.GA21547@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Thu, 2005-05-12 at 01:03, Herbert Xu wrote:
+> On Thu, May 12, 2005 at 12:35:06AM +0200, Tommy Christensen wrote:
+> > 
+> > No, skb2 cannot be shared with a listening socket. As I read the code,
+> > it can only be non-null when delivery has failed.
+> 
+> What about this code path:
+> 
+> 1) skb2 = skb, refcnt++.
+> 2) Devliered to socket 1.
+> 3) Socket 1 frees skb through recvmsg.
+> 4) skb2 = skb, refcnt++.
+> 5) Delivery fails.
+> 
+> Now skb2 is identical to skb and they both refer to socket 1.
 
---=-PVeijJmpk17Glw/H2tA2
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+You're right, Herbert.  The interception by recvmsg has to be
+considered in this case also.  Tricky.
 
-On Thu, 2005-05-12 at 01:17, Herbert Xu wrote:
-> BTW, we could also move the skb_orphan to the skb_get path since the
-> cloned packets don't need the orphan call.
+I moved the call to skb_orphan in the other patch, as you
+suggested.  I think that also makes this patch safe as it is.
 
-Yes, I like this better.  Good idea.
+Right?
 
-Signed-off-by: Tommy S. Christensen <tommy.christensen@tpack.net>
-
-
---=-PVeijJmpk17Glw/H2tA2
-Content-Description: 
-Content-Disposition: inline; filename=netlink-3.patch
-Content-Type: text/x-patch; charset=iso-8859-1
-Content-Transfer-Encoding: 7bit
-
-diff -ru linux-2.6.12-rc4/net/netlink/af_netlink.c linux-2.6.12-work/net/netlink/af_netlink.c
---- linux-2.6.12-rc4/net/netlink/af_netlink.c	2005-05-11 11:10:20.000000000 +0200
-+++ linux-2.6.12-work/net/netlink/af_netlink.c	2005-05-12 11:51:57.427312857 +0200
-@@ -735,11 +735,13 @@
- 
- 	sock_hold(sk);
- 	if (p->skb2 == NULL) {
--		if (atomic_read(&p->skb->users) != 1) {
-+		if (skb_shared(p->skb)) {
- 			p->skb2 = skb_clone(p->skb, p->allocation);
- 		} else {
--			p->skb2 = p->skb;
--			atomic_inc(&p->skb->users);
-+			p->skb2 = skb_get(p->skb);
-+			/* skb ownership may have been set when
-+			   delivered to a previous socket. */
-+			skb_orphan(p->skb2);
- 		}
- 	}
- 	if (p->skb2 == NULL) {
-
---=-PVeijJmpk17Glw/H2tA2--
+-Tommy
