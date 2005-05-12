@@ -1,137 +1,62 @@
-From: Manuel Perez Ayala <mperaya@alcazaba.unex.es>
-Subject: Re: tg3 support broken on PPC, a workaround
-Date: Thu, 12 May 2005 11:28:27 +0200
-Message-ID: <20050512112827.7danjtr4kckg8swc@158.49.151.11>
-References: <20050510113308.kbjo3ob1ck0404k8@158.49.151.11>
-	<1115743966.8570.26.camel@rh4>
-	<20050511080446.fnstrvtzq8gk8884@158.49.151.11>
-	<1115825081.8570.93.camel@rh4>
+From: Tommy Christensen <tommy.christensen@tpack.net>
+Subject: Re: assertion (!atomic_read(&sk->sk_rmem_alloc)) failed at
+	net/netlink/af_netlink.c (122)
+Date: Thu, 12 May 2005 11:58:07 +0200
+Message-ID: <1115891887.30106.89.camel@tsc-6.cph.tpack.net>
+References: <20050510.214332.-1300551106.chamas@h4.dion.ne.jp>
+	 <20050510220751.GA459@gondor.apana.org.au>
+	 <20050511005836.GA1674@gondor.apana.org.au> <4282846F.6070403@tpack.net>
+	 <20050511231751.GA21781@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=ISO-8859-1;
-	format="flowed"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: multipart/mixed; boundary="=-PVeijJmpk17Glw/H2tA2"
+Cc: Ken-ichirou MATSUZAWA <chamas@h4.dion.ne.jp>, netdev@oss.sgi.com,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Michael Chan <mchan@broadcom.com>
-In-Reply-To: <1115825081.8570.93.camel@rh4>
-Content-Disposition: inline
-Resent-Message-ID: <20050512113022.d1ujmnq88wccsk4s@158.49.151.11>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050511231751.GA21781@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Michael Chan <mchan@broadcom.com> wrote:
 
->
-> This tells me that your cache line size is 32 bytes.
->
-> Let's try some experiments and see what works and what doesn't. Please
-> hardcode the following values in tp->dma_rwctrl before it is written to
-> the register:
->
+--=-PVeijJmpk17Glw/H2tA2
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-Net performance of the working driver:
+On Thu, 2005-05-12 at 01:17, Herbert Xu wrote:
+> BTW, we could also move the skb_orphan to the skb_get path since the
+> cloned packets don't need the orphan call.
 
-Recv   Send    Send
-Socket Socket  Message  Elapsed
-Size   Size    Size     Time     Throughput
-bytes  bytes   bytes    secs.    10^6bits/sec
+Yes, I like this better.  Good idea.
 
-87380  16384  16384    10.00     415.08
+Signed-off-by: Tommy S. Christensen <tommy.christensen@tpack.net>
 
 
-Tryouts:
+--=-PVeijJmpk17Glw/H2tA2
+Content-Description: 
+Content-Disposition: inline; filename=netlink-3.patch
+Content-Type: text/x-patch; charset=iso-8859-1
+Content-Transfer-Encoding: 7bit
 
-> 1. DMA read/write boundaries set to 256:
->
-> tp->dma_rwctrl =3D 0x76ff2d0f;
->
+diff -ru linux-2.6.12-rc4/net/netlink/af_netlink.c linux-2.6.12-work/net/netlink/af_netlink.c
+--- linux-2.6.12-rc4/net/netlink/af_netlink.c	2005-05-11 11:10:20.000000000 +0200
++++ linux-2.6.12-work/net/netlink/af_netlink.c	2005-05-12 11:51:57.427312857 +0200
+@@ -735,11 +735,13 @@
+ 
+ 	sock_hold(sk);
+ 	if (p->skb2 == NULL) {
+-		if (atomic_read(&p->skb->users) != 1) {
++		if (skb_shared(p->skb)) {
+ 			p->skb2 = skb_clone(p->skb, p->allocation);
+ 		} else {
+-			p->skb2 = p->skb;
+-			atomic_inc(&p->skb->users);
++			p->skb2 = skb_get(p->skb);
++			/* skb ownership may have been set when
++			   delivered to a previous socket. */
++			skb_orphan(p->skb2);
+ 		}
+ 	}
+ 	if (p->skb2 == NULL) {
 
-tg3.c:v3.10 (September 14, 2004)
-PCI: Enabling device 0001:10:13.0 (0014 -> 0016)
-tg3: tg3_test_dma DMA read/write boundaries set to 256: 76FF2D0F
-eth1: Tigon3 [partno(BCM95700A6) rev 7102 PHY(5401)] (PCI:33MHz:64-bit)
-10/100/1000BaseT Ethernet 00:04:76:3b:51:ae
-eth1: RXcsums[1] LinkChgREG[1] MIirq[1] ASF[0] Split[0] WireSpeed[0] TSOc=
-ap[0]
-
---> DATA CORRUPTION
-
-> 2. DMA read boundary 256, write boundary 32:
->
-> tp->dma_rwctrl =3D 0x76ff150f;
->
-
-tg3.c:v3.10 (September 14, 2004)
-PCI: Enabling device 0001:10:13.0 (0014 -> 0016)
-tg3: tg3_test_dma DMA read boundary 256, write boundary 32: 76FF150F
-eth1: Tigon3 [partno(BCM95700A6) rev 7102 PHY(5401)] (PCI:33MHz:64-bit)
-10/100/1000BaseT Ethernet 00:04:76:3b:51:ae
-eth1: RXcsums[1] LinkChgREG[1] MIirq[1] ASF[0] Split[0] WireSpeed[0] TSOc=
-ap[0]
-
---> DATA OK
-
-Net Performance:
-
-Recv   Send    Send
-Socket Socket  Message  Elapsed
-Size   Size    Size     Time     Throughput
-bytes  bytes   bytes    secs.    10^6bits/sec
-
-87380  16384  16384    10.00     647.19
-
-The net performance is grown over a 50% from the working driver default=20
-setting.
-
-> 3. DMA read boundary 32, write boundary 256
->
-> tp->dma_rwctrl =3D 0x76ff2a0f;
->
-
-tg3.c:v3.10 (September 14, 2004)
-PCI: Enabling device 0001:10:13.0 (0014 -> 0016)
-tg3: tg3_test_dma DMA read boundary 32, write boundary 256: 76FF2A0F
-eth1: Tigon3 [partno(BCM95700A6) rev 7102 PHY(5401)] (PCI:33MHz:64-bit)
-10/100/1000BaseT Ethernet 00:04:76:3b:51:ae
-eth1: RXcsums[1] LinkChgREG[1] MIirq[1] ASF[0] Split[0] WireSpeed[0] TSOc=
-ap[0]
-
---> DATA CORRUPTION
-
-No net performance impact.
-
-> 4. Let's also try without asserting all byte enables:
->
-> tp->dma_rwctrl =3D 0x763f2d0f;
->
-
-tg3.c:v3.10 (September 14, 2004)
-PCI: Enabling device 0001:10:13.0 (0014 -> 0016)
-tg3: tg3_test_dma without asserting all byte enables: 763F2D0F
-eth1: Tigon3 [partno(BCM95700A6) rev 7102 PHY(5401)] (PCI:33MHz:64-bit)
-10/100/1000BaseT Ethernet 00:04:76:3b:51:ae
-eth1: RXcsums[1] LinkChgREG[1] MIirq[1] ASF[0] Split[0] WireSpeed[0] TSOc=
-ap[0]
-
---> DATA CORRUPTION
-
-Net performance like DMA read boundary 256, write boundary 32:, over 50%,=
- but
-with data corruption.
-
-
-
-I've only tried whith the working driver (2.6.8 with dma code from 2.6.7)=
-. Do
-you need I also try the original 2.6.8?
-
-Before my initial report, I've tried the broadcom driver 8.1.55 with no=20
-success
-and the same kind of data corruption. Then I focused on the tg3 driver.
-
-----------
-Manuel Perez Ayala
-mperaya@alcazaba.unex.es
-Facultad de Biblioteconom=EDa y Documentaci=F3n
-Universidad de Extremadura
+--=-PVeijJmpk17Glw/H2tA2--
