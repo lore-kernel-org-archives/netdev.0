@@ -1,29 +1,53 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: assertion (!atomic_read(&sk->sk_rmem_alloc)) failed at net/netlink/af_netlink.c (122)
-Date: Thu, 12 May 2005 21:07:38 +1000
-Message-ID: <20050512110738.GA5937@gondor.apana.org.au>
-References: <20050510.214332.-1300551106.chamas@h4.dion.ne.jp> <20050510220751.GA459@gondor.apana.org.au> <20050511005836.GA1674@gondor.apana.org.au> <4282846F.6070403@tpack.net> <20050511231751.GA21781@gondor.apana.org.au> <1115891887.30106.89.camel@tsc-6.cph.tpack.net> <20050512104229.GB25631@gondor.apana.org.au> <1115895482.30106.95.camel@tsc-6.cph.tpack.net>
+From: David Gibson <david@gibson.dropbear.id.au>
+Subject: Re: [PATCH 4/4] iseries_veth: Cleanup skbs to prevent
+	unregister_netdevice() hanging
+Date: Thu, 12 May 2005 21:28:57 +1000
+Message-ID: <20050512112857.GC32694@localhost.localdomain>
+References: <200505121809.45419.michael@ellerman.id.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Ken-ichirou MATSUZAWA <chamas@h4.dion.ne.jp>, netdev@oss.sgi.com,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Tommy Christensen <tommy.christensen@tpack.net>
+Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com,
+	Jeff Garzik <jgarzik@pobox.com>, linux-kernel@vger.kernel.org,
+	PPC64-dev <linuxppc64-dev@ozlabs.org>
+Return-path: <linuxppc64-dev-bounces@ozlabs.org>
+To: Michael Ellerman <michael@ellerman.id.au>
 Content-Disposition: inline
-In-Reply-To: <1115895482.30106.95.camel@tsc-6.cph.tpack.net>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <200505121809.45419.michael@ellerman.id.au>
+List-Unsubscribe: <https://ozlabs.org/cgi-bin/mailman/listinfo/linuxppc64-dev>,
+	<mailto:linuxppc64-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc64-dev>
+List-Post: <mailto:linuxppc64-dev@ozlabs.org>
+List-Help: <mailto:linuxppc64-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/cgi-bin/mailman/listinfo/linuxppc64-dev>,
+	<mailto:linuxppc64-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc64-dev-bounces@ozlabs.org
+Errors-To: linuxppc64-dev-bounces@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 12, 2005 at 12:58:03PM +0200, Tommy Christensen wrote:
+On Thu, May 12, 2005 at 06:09:45PM +1000, Michael Ellerman wrote:
+> Hi Andrew, Jeff,
 > 
-> Signed-off-by: Tommy S. Christensen <tommy.christensen@tpack.net>
+> The iseries_veth driver is badly behaved in that it will keep TX packets
+> hanging around forever if they're not ACK'ed and the queue never fills up.
+> 
+> This causes the unregister_netdevice code to wait forever when we try to take
+> the device down, because there's still skbs around with references to our
+> struct net_device.
+> 
+> There's already code to cleanup any un-ACK'ed packets in veth_stop_connection()
+> but it's being called after we unregister the net_device, which is too late.
+> 
+> The fix is to rearrange the module exit function so that we cleanup any
+> outstanding skbs and then unregister the driver.
+> 
+> Signed-off-by: Michael Ellerman <michael@ellerman.id.au>
 
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+Nice catch.
 
-Thanks,
+Acked-by: David Gibson <david@gibson.dropbear.id.au>
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+David Gibson			| I'll have my music baroque, and my code
+david AT gibson.dropbear.id.au	| minimalist, thank you.  NOT _the_ _other_
+				| _way_ _around_!
+http://www.ozlabs.org/people/dgibson
