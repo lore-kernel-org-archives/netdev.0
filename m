@@ -1,44 +1,56 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: issue with new TCP TSO stuff
-Date: Thu, 12 May 2005 20:05:48 +1000
-Message-ID: <E1DWAZg-0006aD-00@gondolin.me.apana.org.au>
-References: <20050511.223036.39664020.davem@davemloft.net>
-Cc: netdev@oss.sgi.com
+Subject: Re: assertion (!atomic_read(&sk->sk_rmem_alloc)) failed at net/netlink/af_netlink.c (122)
+Date: Thu, 12 May 2005 20:42:29 +1000
+Message-ID: <20050512104229.GB25631@gondor.apana.org.au>
+References: <20050510.214332.-1300551106.chamas@h4.dion.ne.jp> <20050510220751.GA459@gondor.apana.org.au> <20050511005836.GA1674@gondor.apana.org.au> <4282846F.6070403@tpack.net> <20050511231751.GA21781@gondor.apana.org.au> <1115891887.30106.89.camel@tsc-6.cph.tpack.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Ken-ichirou MATSUZAWA <chamas@h4.dion.ne.jp>, netdev@oss.sgi.com,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@davemloft.net (David S. Miller)
-In-Reply-To: <20050511.223036.39664020.davem@davemloft.net>
+To: Tommy Christensen <tommy.christensen@tpack.net>
+Content-Disposition: inline
+In-Reply-To: <1115891887.30106.89.camel@tsc-6.cph.tpack.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Dave:
-
-I've got a number of comments for your patch which I will send once
-I've finished reading it all.
-
-David S. Miller <davem@davemloft.net> wrote:
+On Thu, May 12, 2005 at 11:58:07AM +0200, Tommy Christensen wrote:
 > 
-> I don't know, maybe we can do something clever with the
-> skb_shinfo(skb)->frag_list pointer.
+> Yes, I like this better.  Good idea.
 
-This was in fact going to be one of my comments :) 
+I see that you've given up on the minimalism :)
 
-What we could do is get the TSO drivers to all implement NETIF_F_FRAGLIST.
-Once they do that, you can simply chain up the skb's and send it off to
-them.  The coalescing will need to be done in the drivers.  However, that's
-not too bad because coalescing only has to be done at the skb boundaries.
+> Signed-off-by: Tommy S. Christensen <tommy.christensen@tpack.net>
 
-In fact, this is how we can simplify the unwinding stuff in your
-skb_append_pages function.  Because the coalescing only needs to occur
-between skb's, you only need to check the first frag to know whether it
-can be coalesced or not.  This means that the unwinding stuff can mostly
-go away.
+It looks good to me too except for that comment of yours :)
 
-We'll have to watch out for retransmissions of the frame with a non-null
-frag_list pointer.  They will need to be copied if their clone is still
-hanging around.
+> diff -ru linux-2.6.12-rc4/net/netlink/af_netlink.c linux-2.6.12-work/net/netlink/af_netlink.c
+> --- linux-2.6.12-rc4/net/netlink/af_netlink.c	2005-05-11 11:10:20.000000000 +0200
+> +++ linux-2.6.12-work/net/netlink/af_netlink.c	2005-05-12 11:51:57.427312857 +0200
+> @@ -735,11 +735,13 @@
+>  
+>  	sock_hold(sk);
+>  	if (p->skb2 == NULL) {
+> -		if (atomic_read(&p->skb->users) != 1) {
+> +		if (skb_shared(p->skb)) {
+>  			p->skb2 = skb_clone(p->skb, p->allocation);
+>  		} else {
+> -			p->skb2 = p->skb;
+> -			atomic_inc(&p->skb->users);
+> +			p->skb2 = skb_get(p->skb);
+> +			/* skb ownership may have been set when
+> +			   delivered to a previous socket. */
 
-Cheers,
+For new comments please use the following style which is more standard
+in the kernel these days:
+
+/*
+ * blah blah blah ....
+ * for comments that don't fit on a single line.
+ */
+
+Thanks,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
