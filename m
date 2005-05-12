@@ -1,32 +1,44 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] netlink: defer socket destruction a bit
-Date: Thu, 12 May 2005 20:36:39 +1000
-Message-ID: <20050512103639.GA25631@gondor.apana.org.au>
-References: <428284D6.9000804@tpack.net> <20050511222421.GA21331@gondor.apana.org.au> <4282889A.7080409@tpack.net> <20050511230309.GA21547@gondor.apana.org.au> <1115891821.30106.86.camel@tsc-6.cph.tpack.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
-        Ken-ichirou MATSUZAWA <chamas@h4.dion.ne.jp>
+Subject: Re: issue with new TCP TSO stuff
+Date: Thu, 12 May 2005 20:05:48 +1000
+Message-ID: <E1DWAZg-0006aD-00@gondolin.me.apana.org.au>
+References: <20050511.223036.39664020.davem@davemloft.net>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Tommy Christensen <tommy.christensen@tpack.net>
-Content-Disposition: inline
-In-Reply-To: <1115891821.30106.86.camel@tsc-6.cph.tpack.net>
+To: davem@davemloft.net (David S. Miller)
+In-Reply-To: <20050511.223036.39664020.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 12, 2005 at 11:57:01AM +0200, Tommy Christensen wrote:
-> 
-> I moved the call to skb_orphan in the other patch, as you
-> suggested.  I think that also makes this patch safe as it is.
-> 
-> Right?
+Hi Dave:
 
-Indeed it is.  This also means that we don't hold onto the skb's
-share of rmalloc quota for an excessive amount of time if the
-number of broadcast sockets is large.
+I've got a number of comments for your patch which I will send once
+I've finished reading it all.
 
-Thanks,
+David S. Miller <davem@davemloft.net> wrote:
+> 
+> I don't know, maybe we can do something clever with the
+> skb_shinfo(skb)->frag_list pointer.
+
+This was in fact going to be one of my comments :) 
+
+What we could do is get the TSO drivers to all implement NETIF_F_FRAGLIST.
+Once they do that, you can simply chain up the skb's and send it off to
+them.  The coalescing will need to be done in the drivers.  However, that's
+not too bad because coalescing only has to be done at the skb boundaries.
+
+In fact, this is how we can simplify the unwinding stuff in your
+skb_append_pages function.  Because the coalescing only needs to occur
+between skb's, you only need to check the first frag to know whether it
+can be coalesced or not.  This means that the unwinding stuff can mostly
+go away.
+
+We'll have to watch out for retransmissions of the frame with a non-null
+frag_list pointer.  They will need to be copied if their clone is still
+hanging around.
+
+Cheers,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
