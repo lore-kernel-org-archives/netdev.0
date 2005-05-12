@@ -1,43 +1,29 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: "David S. Miller" <davem@davemloft.net>
 Subject: Re: issue with new TCP TSO stuff
-Date: Fri, 13 May 2005 08:10:46 +1000
-Message-ID: <20050512221046.GA22136@gondor.apana.org.au>
-References: <20050511.223036.39664020.davem@davemloft.net> <E1DWAZg-0006aD-00@gondolin.me.apana.org.au> <20050512.131349.32715242.davem@davemloft.net> <20050512214744.GA21958@gondor.apana.org.au>
+Date: Thu, 12 May 2005 15:34:37 -0700 (PDT)
+Message-ID: <20050512.153437.111715835.davem@davemloft.net>
+References: <20050512200251.GA72662@muc.de>
+	<20050512.130341.82102354.davem@davemloft.net>
+	<20050512202629.GB72662@muc.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20050512214744.GA21958@gondor.apana.org.au>
+To: ak@muc.de
+In-Reply-To: <20050512202629.GB72662@muc.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, May 13, 2005 at 07:47:44AM +1000, herbert wrote:
+From: Andi Kleen <ak@muc.de>
+Subject: Re: issue with new TCP TSO stuff
+Date: 12 May 2005 22:26:29 +0200,Thu, 12 May 2005 22:26:29 +0200
+
+> On Thu, May 12, 2005 at 01:03:41PM -0700, David S. Miller wrote:
+> > I used my brain to analyze this slowdown, instead of the
+> > computer, I'm sorry if that disturbs you :-)
 > 
-> You're being frugal Dave :) I was happy with one skb_clone per
-> skb and you're having problems with skb_get? :)
-> 
-> Seriously, we already do one skb_clone for every packet sent
-> so we won't be incurring any extra overhead with this.
+> What disturbs me is your conclusion :)
 
-Nevermind, you're comparing to the existing TSO implementation.
-So how big exactly is the slowdown?
-
-> > A secondary point is that I'd like to use a name other than
-> > NETIF_F_FRAGLIST because people are super confused as to what this
-> > device flag even means.  Some people confuse it with NETIF_F_SG,
-> > others thing it takes a huge UDP frame and fragments it into MTU sized
-> > IP frames and checksums the whole thing.  None of which are true.
-> 
-> Fine by me.  But you know I'm not good with names :)
-
-This just occured to me, what about NETIF_F_SKBLIST?
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Fair enough, I'll get some numbers. :-)
