@@ -1,35 +1,33 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: ipw2100: intrusive cleanups, working this time ;-)
-Date: Thu, 12 May 2005 20:42:01 -0700
-Message-ID: <20050513034201.GA11817@kroah.com>
-References: <20050512225026.GA2822@elf.ucw.cz> <4283FA4D.3010208@linux.intel.com>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [RFC: 2.6 patch] make MII no longer user visible
+Date: Fri, 13 May 2005 05:52:57 +0200
+Message-ID: <20050513035257.GC3603@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Pavel Machek <pavel@ucw.cz>, netdev@oss.sgi.com,
-        kernel list <linux-kernel@vger.kernel.org>, jbohac@suse.cz,
-        jbenc@suse.cz
-Return-path: <netdev-bounce@oss.sgi.com>
-To: James Ketrenos <jketreno@linux.intel.com>
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262228AbVEMDxD@vger.kernel.org>
+To: jgarzik@pobox.com
 Content-Disposition: inline
-In-Reply-To: <4283FA4D.3010208@linux.intel.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 12, 2005 at 07:52:29PM -0500, James Ketrenos wrote:
-> 
-> Part of the process we have in place is to try and make sure that the
-> versions that get picked up by distros and the majority of users have a
-> 'known' level of quality.  As part of that, we only want to get changes
-> pushed to -mm and eventual mainline that have gone through regression
-> testing.
+MII is a classical example of a helper option no user should ever see.
 
-Any chance of making those regression tests public so we can all do this
-kind of testing on any future changes that might be made to the driver?
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-Remember, once it hits mainline, lots of different people will be
-touching it for various reasons at times...
-
-thanks,
-
-greg k-h
+--- linux-2.6.12-rc4-mm1-full/drivers/net/Kconfig.old	2005-05-13 05:47:58.000000000 +0200
++++ linux-2.6.12-rc4-mm1-full/drivers/net/Kconfig	2005-05-13 05:48:27.000000000 +0200
+@@ -165,12 +165,8 @@
+ 	  the questions about Ethernet network cards. If unsure, say N.
+ 
+ config MII
+-	tristate "Generic Media Independent Interface device support"
++	tristate
+ 	depends on NET_ETHERNET
+-	help
+-	  Most ethernet controllers have MII transceiver either as an external
+-	  or internal device.  It is safe to say Y or M here even if your
+-	  ethernet card lack MII.
+ 
+ source "drivers/net/arm/Kconfig"
+ 
