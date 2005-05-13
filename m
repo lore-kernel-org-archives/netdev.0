@@ -1,68 +1,70 @@
-From: "James R. Leu" <jleu@mindspring.com>
-Subject: Re: Linux Routers working
-Date: Fri, 13 May 2005 09:09:38 -0500
-Message-ID: <20050513140938.GB5384@mindspring.com>
-References: <20050513041623.95169.qmail@web41425.mail.yahoo.com>
-Reply-To: jleu@mindspring.com
+From: James Ketrenos <jketreno@linux.intel.com>
+Subject: Re: git repository for net drivers available
+Date: Fri, 13 May 2005 10:18:38 -0500
+Message-ID: <4284C54E.3060907@linux.intel.com>
+References: <42841A3F.7020909@pobox.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="6sX45UoQRIJXqkqR"
-Cc: net dev <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: cranium2003 <cranium2003@yahoo.com>
-Content-Disposition: inline
-In-Reply-To: <20050513041623.95169.qmail@web41425.mail.yahoo.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@oss.sgi.com>,
+	Linux Kernel <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262398AbVEMPSL@vger.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <42841A3F.7020909@pobox.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Jeff Garzik wrote:
 
---6sX45UoQRIJXqkqR
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+>
+> This includes the wireless-2.6 repository.
+>
+> rsync://rsync.kernel.org/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git
+>
+> The main branch is fairly irrelevant, as you must choose the branch
+> you wish:
+>
+>> [jgarzik@pretzel netdev-2.6]$ ls .git/branches/
+>> 8139cp         e1000        ixgb     r8169            skge          
+>> we18
+>> 8139too-iomap  forcedeth    janitor  register-netdev  smc91x        
+>> wifi
+>> amd8111        ieee80211    orinoco  remove-drivers   smc91x-eeprom
+>> e100           iff-running  ppp      sis900           starfire
+>
+Ok, I'll bite.  Hopefully I'm not the only one tripping on shoe laces...
 
-On Thu, May 12, 2005 at 09:16:23PM -0700, cranium2003 wrote:
->  Hello,
->         Is there any way on linux routers to know on
-> which interface packet is forwarded before actually
-> packet trasmission begins? Also before packet
-> processed by IP layer can it be possible to know from
-> which adjecent Router'IP packet came to that router?
-> regards,
-> cranium
+Here is what I did -- what am I doing wrong?
 
-I think the OUTPUT chain in iptables already knows what the outbound
-interface is, so you could make a decision based on that.
+Following is using cogito 0.10:
 
-I think you can use the mac target in the PREROUTING chain to get access
-to the source MAC address.
+REPO=rsync://rsync.kernel.org/pubs/scm/linux/kernel/git/jgarzik/netdev-2.6.git
+cg-clone ${REPO}
+.... get coffee, etc. ... come back and I have a netdev-2.6 tree ...
+cg-branch-add wifi ${REPO}#wifi
+cg-update wifi
+.... connects and attempts to download but fails out with:
 
-I think all of your answers are in iptables.
+----------------
+receiving file list ... done
+client: nothing to do: perhaps you need to specify some filenames or the
+--recursive option?
 
+rsync: link_stat
+"/scm/linux/kernel/git/jgarzik/netdev-2.6.git/heads/wifi" (in pub)
+failed: No such file or directory (2)
+rsync error: some files could not be transferred (code 23) at main.c(653)
+receiving file list ... done
+client: nothing to do: perhaps you need to specify some filenames or the
+--recursive option?
+cg-pull: unable to get the head pointer of branch wifi
+----------------
 
->=20
->=20
-> 	=09
-> __________________________________=20
-> Yahoo! Mail Mobile=20
-> Take Yahoo! Mail with you! Check email on your mobile phone.=20
-> http://mobile.yahoo.com/learn/mail=20
+Should it be trying to get 'wifi' from ...netdev-2.6.git/branches (vs.
+heads)? 
 
---=20
-James R. Leu
-jleu@mindspring.com
+Tool problem, user problem, complete lack of knowledge re: git and
+cogito, or a combination of the above?
 
---6sX45UoQRIJXqkqR
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.0 (GNU/Linux)
-
-iD8DBQFChLUiQcSCk6yg8WERAvFKAJ9yGw3aPiUiypfZ63e8DfuOPO5JLACgo3le
-2/dFTrNouev2Bpwg+S+q83U=
-=AmhJ
------END PGP SIGNATURE-----
-
---6sX45UoQRIJXqkqR--
+Thanks,
+James
