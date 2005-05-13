@@ -1,36 +1,39 @@
-From: Denis Vlasenko <vda@ilport.com.ua>
+From: Pavel Machek <pavel@suse.cz>
 Subject: Re: ipw2100: intrusive cleanups, working this time ;-)
-Date: Fri, 13 May 2005 11:36:56 +0300
-Message-ID: <200505131136.56641.vda@ilport.com.ua>
-References: <20050512225026.GA2822@elf.ucw.cz>
+Date: Fri, 13 May 2005 11:41:36 +0200
+Message-ID: <20050513094135.GD1780@elf.ucw.cz>
+References: <20050512225026.GA2822@elf.ucw.cz> <200505131136.56641.vda@ilport.com.ua>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: jbohac@suse.cz, jbenc@suse.cz
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Pavel Machek <pavel@ucw.cz>, jketreno@linux.intel.com, netdev@oss.sgi.com,
-        kernel list <linux-kernel@vger.kernel.org>
-In-Reply-To: <20050512225026.GA2822@elf.ucw.cz>
+Content-Type: text/plain; charset=us-ascii
+Cc: jketreno@linux.intel.com, netdev@oss.sgi.com,
+	kernel list <linux-kernel@vger.kernel.org>, jbohac@suse.cz,
+	jbenc@suse.cz
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262319AbVEMJlY@vger.kernel.org>
+To: Denis Vlasenko <vda@ilport.com.ua>
 Content-Disposition: inline
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <200505131136.56641.vda@ilport.com.ua>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 13 May 2005 01:50, Pavel Machek wrote:
-> Hi!
+Hi!
+
+> > There's a lot to clean up in header file, too... And this time it
+> > actually works.
 > 
-> There's a lot to clean up in header file, too... And this time it
-> actually works.
+> Since you apparently have this hardware,
+> I'm going to hijack your attention for a second
+> for the benefit of wireless crowd.
+> 
+> How good it it? Signal strength/sensitivity?
 
-Since you apparently have this hardware,
-I'm going to hijack your attention for a second
-for the benefit of wireless crowd.
+No idea, flat I live in is so small I can get away with connecting
+using bluetooth.
 
-How good it it? Signal strength/sensitivity?
+> Does driver/fw/hw survive prolonged packet flood testing?
+> I'm asking because so far I never saw 11g hw which does.
+> I tried prism54 and acx111. Is ipw2000 worth buying?
 
-Does driver/fw/hw survive prolonged packet flood testing?
-I'm asking because so far I never saw 11g hw which does.
-I tried prism54 and acx111. Is ipw2000 worth buying?
---
-vda
+I'm not sure if ipw2100 supports 802.11g....
+							Pavel
+-- 
+Boycott Kodak -- for their patent abuse against Java.
