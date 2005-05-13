@@ -1,33 +1,40 @@
 From: Adrian Bunk <bunk@stusta.de>
-Subject: [RFC: 2.6 patch] make MII no longer user visible
-Date: Fri, 13 May 2005 05:52:57 +0200
-Message-ID: <20050513035257.GC3603@stusta.de>
+Subject: [2.6 patch] document that 8139TOO supports 8129/8130
+Date: Fri, 13 May 2005 06:04:45 +0200
+Message-ID: <20050513040445.GD3603@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262228AbVEMDxD@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262229AbVEMEEu@vger.kernel.org>
 To: jgarzik@pobox.com
 Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-MII is a classical example of a helper option no user should ever see.
+The 8129/8130 support is a sub-option that is not visible if the user 
+hasn't enabled the 8139 support.
+
+Let's make it a bit easier for users to find the driver for their nic.
 
 Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
---- linux-2.6.12-rc4-mm1-full/drivers/net/Kconfig.old	2005-05-13 05:47:58.000000000 +0200
-+++ linux-2.6.12-rc4-mm1-full/drivers/net/Kconfig	2005-05-13 05:48:27.000000000 +0200
-@@ -165,12 +165,8 @@
- 	  the questions about Ethernet network cards. If unsure, say N.
+--- linux-2.6.12-rc4-mm1-full/drivers/net/Kconfig.old	2005-05-13 05:54:05.000000000 +0200
++++ linux-2.6.12-rc4-mm1-full/drivers/net/Kconfig	2005-05-13 06:00:21.000000000 +0200
+@@ -1484,14 +1484,14 @@
+ 	  will be called 8139cp.  This is recommended.
  
- config MII
--	tristate "Generic Media Independent Interface device support"
-+	tristate
- 	depends on NET_ETHERNET
--	help
--	  Most ethernet controllers have MII transceiver either as an external
--	  or internal device.  It is safe to say Y or M here even if your
--	  ethernet card lack MII.
+ config 8139TOO
+-	tristate "RealTek RTL-8139 PCI Fast Ethernet Adapter support"
++	tristate "RealTek RTL-8129/8130/8139 PCI Fast Ethernet Adapter support"
+ 	depends on NET_PCI && PCI
+ 	select CRC32
+ 	select MII
+ 	---help---
+ 	  This is a driver for the Fast Ethernet PCI network cards based on
+-	  the RTL8139 chips. If you have one of those, say Y and read
+-	  the Ethernet-HOWTO <http://www.tldp.org/docs.html#howto>.
++	  the RTL 8129/81308139 chips. If you have one of those, say Y and
++	  read the Ethernet-HOWTO <http://www.tldp.org/docs.html#howto>.
  
- source "drivers/net/arm/Kconfig"
- 
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called 8139too.  This is recommended.
