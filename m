@@ -1,61 +1,200 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: issue with new TCP TSO stuff
-Date: Fri, 13 May 2005 09:52:36 +1000
-Message-ID: <20050512235236.GA22658@gondor.apana.org.au>
-References: <20050512221046.GA22136@gondor.apana.org.au> <20050512.155230.132927874.davem@davemloft.net> <20050512231038.GA22440@gondor.apana.org.au> <20050512.162426.75782784.davem@davemloft.net>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] drivers/net/hamradio/baycom_epp.c: cleanups
+Date: Fri, 13 May 2005 02:47:28 +0200
+Message-ID: <20050513004728.GT3603@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Cc: sailer@ife.ee.ethz.ch, linux-kernel@vger.kernel.org, jgarzik@pobox.com,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
+To: Andrew Morton <akpm@osdl.org>
 Content-Disposition: inline
-In-Reply-To: <20050512.162426.75782784.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 12, 2005 at 04:24:26PM -0700, David S. Miller wrote:
-> 
-> Ok, the two true downfalls of the current TSO code are:
+The times when tricky goto's produced better codes are long gone.
 
-You're spot on.
+This patch should express the same in a better way.
+
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
+
+---
+
+This patch was already sent on:
+- 30 Apr 2005
+- 20 Apr 2005
+
+ drivers/net/hamradio/baycom_epp.c |  126 ++++++++----------------------
+ 1 files changed, 36 insertions(+), 90 deletions(-)
+
+--- linux-2.6.12-rc2-mm3/drivers/net/hamradio/baycom_epp.c.old	2005-04-20 16:18:47.000000000 +0200
++++ linux-2.6.12-rc2-mm3/drivers/net/hamradio/baycom_epp.c	2005-04-20 17:14:36.000000000 +0200
+@@ -374,29 +374,6 @@
+ }
  
-> #2 could be handled by down-sizing TSO frames when packet loss occurs.
-> Ie. tcp_retransmit_skb() or whatever will segmentize a TSO packet
-> which is within the sequence it is trying to retransmit.  Implementing
-> this is non- trivial mostly due to the fact that it has to work handle
-> GFP_ATOMIC memory failures and also get all the pcount crap correct.
-
-I think most of the code to do that might already be there.  Pity
-we'll have to keep track of the pcount though.
-
-> #1 is more tricky, and is the main reason I explored the "TSO
-> Reloaded" idea.  I wonder if we could just build enormous TSO frames
-> _always_.  We pass down these huge things to the output path, with a
-
-I agree that this is the way to go.
-
-> and size appropriately.  I think the tcp_snd_test() simplifications
-> made by my TSO Reloaded patch would help a lot here.  The send test is
-> logically now split to it's two tests 1) whether to send anything at
-> all, and 2) once #1 passes, how many such packets.
-
-That was another one of my comments to your patch :) I was going to
-suggest that we move the cwnd/in_flight loop from tcp_snd_test to
-emit_send_queue.
-
-> This would be a sort of super-TSO that would do less segmenting work
-> than even a "perfect" TSO segmenter would.
-> 
-> I'm still not sure which approach is best, just throwing around some
-> ideas.
-
-On paper your new super-TSO approach sounds the best.  However, I
-suppose we won't know for sure until we try :)
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+ /* --------------------------------------------------------------------- */
+-/*
+- * high performance HDLC encoder
+- * yes, it's ugly, but generates pretty good code
+- */
+-
+-#define ENCODEITERA(j)                         \
+-({                                             \
+-        if (!(notbitstream & (0x1f0 << j)))    \
+-                goto stuff##j;                 \
+-  encodeend##j:    	;                      \
+-})
+-
+-#define ENCODEITERB(j)                                          \
+-({                                                              \
+-  stuff##j:                                                     \
+-        bitstream &= ~(0x100 << j);                             \
+-        bitbuf = (bitbuf & (((2 << j) << numbit) - 1)) |        \
+-                ((bitbuf & ~(((2 << j) << numbit) - 1)) << 1);  \
+-        numbit++;                                               \
+-        notbitstream = ~bitstream;                              \
+-        goto encodeend##j;                                      \
+-})
+-
+ 
+ static void encode_hdlc(struct baycom_state *bc)
+ {
+@@ -405,6 +382,7 @@
+ 	int pkt_len;
+         unsigned bitstream, notbitstream, bitbuf, numbit, crc;
+ 	unsigned char crcarr[2];
++	int j;
+ 	
+ 	if (bc->hdlctx.bufcnt > 0)
+ 		return;
+@@ -429,24 +407,14 @@
+ 		pkt_len--;
+ 		if (!pkt_len)
+ 			bp = crcarr;
+-		ENCODEITERA(0);
+-		ENCODEITERA(1);
+-		ENCODEITERA(2);
+-		ENCODEITERA(3);
+-		ENCODEITERA(4);
+-		ENCODEITERA(5);
+-		ENCODEITERA(6);
+-		ENCODEITERA(7);
+-		goto enditer;
+-		ENCODEITERB(0);
+-		ENCODEITERB(1);
+-		ENCODEITERB(2);
+-		ENCODEITERB(3);
+-		ENCODEITERB(4);
+-		ENCODEITERB(5);
+-		ENCODEITERB(6);
+-		ENCODEITERB(7);
+-	enditer:
++		for (j = 0; j < 8; j++)
++			if (unlikely(!(notbitstream & (0x1f0 << j)))) {
++				bitstream &= ~(0x100 << j);
++ 				bitbuf = (bitbuf & (((2 << j) << numbit) - 1)) |
++					((bitbuf & ~(((2 << j) << numbit) - 1)) << 1);
++				numbit++;
++				notbitstream = ~bitstream;
++			}
+ 		numbit += 8;
+ 		while (numbit >= 8) {
+ 			*wp++ = bitbuf;
+@@ -612,37 +580,6 @@
+ 	bc->stats.rx_packets++;
+ }
+ 
+-#define DECODEITERA(j)                                                        \
+-({                                                                            \
+-        if (!(notbitstream & (0x0fc << j)))              /* flag or abort */  \
+-                goto flgabrt##j;                                              \
+-        if ((bitstream & (0x1f8 << j)) == (0xf8 << j))   /* stuffed bit */    \
+-                goto stuff##j;                                                \
+-  enditer##j:      ;                                                           \
+-})
+-
+-#define DECODEITERB(j)                                                                 \
+-({                                                                                     \
+-  flgabrt##j:                                                                          \
+-        if (!(notbitstream & (0x1fc << j))) {              /* abort received */        \
+-                state = 0;                                                             \
+-                goto enditer##j;                                                       \
+-        }                                                                              \
+-        if ((bitstream & (0x1fe << j)) != (0x0fc << j))   /* flag received */          \
+-                goto enditer##j;                                                       \
+-        if (state)                                                                     \
+-                do_rxpacket(dev);                                                      \
+-        bc->hdlcrx.bufcnt = 0;                                                         \
+-        bc->hdlcrx.bufptr = bc->hdlcrx.buf;                                            \
+-        state = 1;                                                                     \
+-        numbits = 7-j;                                                                 \
+-        goto enditer##j;                                                               \
+-  stuff##j:                                                                            \
+-        numbits--;                                                                     \
+-        bitbuf = (bitbuf & ((~0xff) << j)) | ((bitbuf & ~((~0xff) << j)) << 1);        \
+-        goto enditer##j;                                                               \
+-})
+-        
+ static int receive(struct net_device *dev, int cnt)
+ {
+ 	struct baycom_state *bc = netdev_priv(dev);
+@@ -651,6 +588,7 @@
+ 	unsigned char tmp[128];
+         unsigned char *cp;
+ 	int cnt2, ret = 0;
++	int j;
+         
+         numbits = bc->hdlcrx.numbits;
+ 	state = bc->hdlcrx.state;
+@@ -671,24 +609,32 @@
+ 			bitbuf |= (*cp) << 8;
+ 			numbits += 8;
+ 			notbitstream = ~bitstream;
+-			DECODEITERA(0);
+-			DECODEITERA(1);
+-			DECODEITERA(2);
+-			DECODEITERA(3);
+-			DECODEITERA(4);
+-			DECODEITERA(5);
+-			DECODEITERA(6);
+-			DECODEITERA(7);
+-			goto enddec;
+-			DECODEITERB(0);
+-			DECODEITERB(1);
+-			DECODEITERB(2);
+-			DECODEITERB(3);
+-			DECODEITERB(4);
+-			DECODEITERB(5);
+-			DECODEITERB(6);
+-			DECODEITERB(7);
+-		enddec:
++			for (j = 0; j < 8; j++) {
++
++				/* flag or abort */
++			        if (unlikely(!(notbitstream & (0x0fc << j)))) {
++
++					/* abort received */
++					if (!(notbitstream & (0x1fc << j)))
++						state = 0;
++
++					/* not flag received */
++					else if (!(bitstream & (0x1fe << j)) != (0x0fc << j)) {
++						if (state)
++							do_rxpacket(dev);
++						bc->hdlcrx.bufcnt = 0;
++						bc->hdlcrx.bufptr = bc->hdlcrx.buf;
++						state = 1;
++						numbits = 7-j;
++						}
++					}
++
++				/* stuffed bit */
++				else if (unlikely((bitstream & (0x1f8 << j)) == (0xf8 << j))) {
++					numbits--;
++					bitbuf = (bitbuf & ((~0xff) << j)) | ((bitbuf & ~((~0xff) << j)) << 1);
++					}
++				}
+ 			while (state && numbits >= 8) {
+ 				if (bc->hdlcrx.bufcnt >= TXBUFFER_SIZE) {
+ 					state = 0;
