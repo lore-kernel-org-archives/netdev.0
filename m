@@ -1,30 +1,29 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: git repository for net drivers available
-Date: Sat, 14 May 2005 12:57:35 +0200
-Message-ID: <m3oebe2hy8.fsf@defiant.localdomain>
-References: <42841A3F.7020909@pobox.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: 2.4.30-hf1 do_IRQ stack overflows
+Date: Sat, 14 May 2005 21:05:16 +1000
+Message-ID: <20050514110516.GA1238@gondor.apana.org.au>
+References: <E1DVyuq-0005Sf-00@gondolin.me.apana.org.au> <21780.1115887477@www69.gmx.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev@oss.sgi.com>,
-	Linux Kernel <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262734AbVENK6B@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <42841A3F.7020909@pobox.com> (Jeff Garzik's message of "Thu, 12
- May 2005 23:08:47 -0400")
+Cc: marcelo.tosatti@cyclades.com, linux-kernel@vger.kernel.org,
+	davem@redhat.com, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262735AbVENLGI@vger.kernel.org>
+To: Manfred Schwarb <manfred99@gmx.ch>
+Content-Disposition: inline
+In-Reply-To: <21780.1115887477@www69.gmx.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Thu, May 12, 2005 at 10:44:37AM +0200, Manfred Schwarb wrote:
+>
+> Trace; f8b531fc <[reiserfs]reiserfs_insert_item+14c/150>
+> Trace; c02387be <__kfree_skb+fe/160>
+> Trace; c02387be <__kfree_skb+fe/160>
+> Trace; f90dd5f4 <[8139too]rtl8139_start_xmit+84/180>
 
-Jeff Garzik <jgarzik@pobox.com> writes:
-
-> Although I have over 200 net driver patches to go through in my
-> 'Pending' folder, I have fully converted the existing netdev-2.6
-> repository from BitKeeper to git.  This includes the wireless-2.6
-> repository.
-
-Do you prefer plain patches or GIT repository on kernel.org to merge
-for future (and "current") updates?
-I haven't set a public repo up yet, but it's a matter of seconds.
+Do you have any funky netfilter/iptables modules loaded?
 -- 
-Krzysztof Halasa
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
