@@ -1,31 +1,48 @@
 From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: Status of net/ipv4/ipvs/ip_vs_proto_icmp.c?
-Date: Sat, 14 May 2005 10:17:53 +0300 (EEST)
-Message-ID: <Pine.LNX.4.58.0505141013520.1568@u.domain.uli>
-References: <20050513041622.GE3603@stusta.de>
+Subject: [PATCH] ipvs: remove extra __ip_vs_conn_put for incoming ICMP
+Date: Sat, 14 May 2005 10:57:26 +0300 (EEST)
+Message-ID: <Pine.LNX.4.58.0505141037430.1568@u.domain.uli>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Wensong Zhang <wensong@LinuxVirtualServer.org>, netdev@oss.sgi.com,
-        linux-kernel@vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="1607745702-1685291764-1116057446=:1568"
+Cc: netdev@oss.sgi.com, Wensong Zhang <wensong@linux-vs.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Adrian Bunk <bunk@stusta.de>
-In-Reply-To: <20050513041622.GE3603@stusta.de>
+To: "David S. Miller" <davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+  Send mail to mime@docserver.cac.washington.edu for more info.
+
+--1607745702-1685291764-1116057446=:1568
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+
 
 	Hello,
 
-On Fri, 13 May 2005, Adrian Bunk wrote:
+	Dave, please apply a patch against 2.6.12-rc4
 
-> Will it be made working in the forseeable future or is it a candidate
-> for removal?
+	Remove extra __ip_vs_conn_put for incoming ICMP in direct routing
+mode. Mark de Vries reports that IPVS connections are not leaked anymore.
 
-	IMO, it can be removed as it was never finished. We can always
-add it later.
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
 
-Regards
+--1607745702-1685291764-1116057446=:1568
+Content-Type: TEXT/PLAIN; charset=US-ASCII; name="icmp_xmit.diff"
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.LNX.4.58.0505141057260.1568@u.domain.uli>
+Content-Description: Fix ICMP xmit
+Content-Disposition: attachment; filename="icmp_xmit.diff"
 
---
-Julian Anastasov <ja@ssi.bg>
+ZGlmZiAtdXIgdjIuNi4xMi1yYzQvbGludXgvbmV0L2lwdjQvaXB2cy9pcF92
+c194bWl0LmMgbGludXgvbmV0L2lwdjQvaXB2cy9pcF92c194bWl0LmMNCi0t
+LSB2Mi42LjEyLXJjNC9saW51eC9uZXQvaXB2NC9pcHZzL2lwX3ZzX3htaXQu
+YwkyMDA0LTA4LTMxIDA4OjA5OjMxLjAwMDAwMDAwMCArMDMwMA0KKysrIGxp
+bnV4L25ldC9pcHY0L2lwdnMvaXBfdnNfeG1pdC5jCTIwMDUtMDUtMDkgMDA6
+MzE6NDcuODEwODA3MjMyICswMzAwDQpAQCAtNTIwLDcgKzUyMCw2IEBADQog
+CQkJcmMgPSBORl9BQ0NFUFQ7DQogCQkvKiBkbyBub3QgdG91Y2ggc2tiIGFu
+eW1vcmUgKi8NCiAJCWF0b21pY19pbmMoJmNwLT5pbl9wa3RzKTsNCi0JCV9f
+aXBfdnNfY29ubl9wdXQoY3ApOw0KIAkJZ290byBvdXQ7DQogCX0NCiANCg==
+
+--1607745702-1685291764-1116057446=:1568--
