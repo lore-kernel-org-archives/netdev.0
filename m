@@ -1,39 +1,53 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [1/1] xfrm: skb_cow_data() does not set proper owner for new skbs.
-Date: Sun, 15 May 2005 18:01:09 +1000
-Message-ID: <E1DXE3h-0002jR-00@gondolin.me.apana.org.au>
-References: <20050514134834.GA2698@uganda.factory.vocord.ru>
-Cc: netdev@oss.sgi.com, davem@davemloft.net
-Return-path: <netdev-bounce@oss.sgi.com>
-To: johnpol@2ka.mipt.ru (Evgeniy Polyakov)
-In-Reply-To: <20050514134834.GA2698@uganda.factory.vocord.ru>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: Status of net/ipv4/ipvs/ip_vs_proto_icmp.c?
+Date: Sun, 15 May 2005 10:27:06 +0200
+Message-ID: <20050515082706.GK16549@stusta.de>
+References: <20050513041622.GE3603@stusta.de> <pan.2005.05.13.19.09.00.598647@athenacr.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261547AbVEOI1Q@vger.kernel.org>
+To: Andres Salomon <dilinger@athenacr.com>
+Content-Disposition: inline
+In-Reply-To: <pan.2005.05.13.19.09.00.598647@athenacr.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
->
-> As far as I can see, current code sets destructor and socket
-> for the first one skb only and uses truesize of the first skb
-> only to increment sk_wmem_alloc value.
+On Fri, May 13, 2005 at 03:09:01PM -0400, Andres Salomon wrote:
+> On Fri, 13 May 2005 06:16:22 +0200, Adrian Bunk wrote:
 > 
-> If above "analysis" is correct then attached patch fixes that.
+> > Hi,
+> > 
+> > can anyone explain the status of?
+> > 
+> > This file is always included in the kernel if CONFIG_IP_VS=y, but it's 
+> > completely unused.
+> > 
+> > Will it be made working in the forseeable future or is it a candidate 
+> > for removal?
+> > 
+> > TIA
+> > Adrian
+> 
+> The people/places to ask would probably be:
+> 
+> IPVS
+> P:      Wensong Zhang
+> M:      wensong@linux-vs.org
+> P:      Julian Anastasov
+> M:      ja@ssi.bg
+> S:      Maintained
+>...
 
-Yes you're absolutely right.
+And these are exactly the people in the To-header of the email asking 
+this question.
 
-> Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+cu
+Adrian
 
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-In fact you've uncovered a couple of bugs elsewhere too.  IPv4's
-ip_push_pending_frames attributes all the data to the first skb
-which breaks when the packet is sent through ip_fragment since
-the latter does not undo the truesize attribution.  skb_linearize
-is broken as well since it ignores truesize/owner altogether.
-
-Cheers,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
