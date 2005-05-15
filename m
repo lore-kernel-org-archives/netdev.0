@@ -1,119 +1,261 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [IPV4/IPV6] Ensure all frag_list members have NULL sk
-Date: Sun, 15 May 2005 22:22:56 +1000
-Message-ID: <20050515122256.GA22251@gondor.apana.org.au>
-References: <20050514134834.GA2698@uganda.factory.vocord.ru> <E1DXE3h-0002jR-00@gondolin.me.apana.org.au> <20050515104016.GA24344@gondor.apana.org.au> <20050515114121.GA4830@gondor.apana.org.au>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] remove net/ipv4/ipvs/ip_vs_proto_icmp.c?
+Date: Sun, 15 May 2005 15:29:06 +0200
+Message-ID: <20050515132906.GW16549@stusta.de>
+References: <20050513041622.GE3603@stusta.de> <Pine.LNX.4.58.0505141013520.1568@u.domain.uli>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="h31gzZEtNLTqOjlF"
-Cc: netdev@oss.sgi.com, davem@davemloft.net
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Content-Type: text/plain; charset=us-ascii
+Cc: Wensong Zhang <wensong@LinuxVirtualServer.org>, netdev@oss.sgi.com,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261524AbVEONaN@vger.kernel.org>
+To: Julian Anastasov <ja@ssi.bg>
 Content-Disposition: inline
-In-Reply-To: <20050515114121.GA4830@gondor.apana.org.au>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <Pine.LNX.4.58.0505141013520.1568@u.domain.uli>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
---h31gzZEtNLTqOjlF
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-On Sun, May 15, 2005 at 09:41:21PM +1000, herbert wrote:
+On Sat, May 14, 2005 at 10:17:53AM +0300, Julian Anastasov wrote:
 > 
-> I'll post a new patch soon.  However, since this is a pretty major change
-> and the bugs it fixes aren't that important it should probably be delayed
-> until 2.6.13.
+> 	Hello,
+> 
+> On Fri, 13 May 2005, Adrian Bunk wrote:
+> 
+> > Will it be made working in the forseeable future or is it a candidate
+> > for removal?
+> 
+> 	IMO, it can be removed as it was never finished. We can always
+> add it later.
 
-Here it is:
+Thanks for the confirmation.
+
+A patch to remove it is below.
+
+> Regards
+> Julian Anastasov <ja@ssi.bg>
+
+cu
+Adrian
 
 
-Having frag_list members which holds wmem of an sk leads to nightmares
-with partially cloned frag skb's.  The reason is that once you unleash
-a skb with a frag_list that has individual sk ownerships into the stack
-you can never undo those ownerships safely as they may have been cloned
-by things like netfilter.  Since we have to undo them in order to make
-skb_linearize happy this approach leads to a dead-end.
+<--  snip  -->
 
-So let's go the other way and make this an invariant:
 
-	For any skb on a frag_list, skb->sk must be NULL.
+ip_vs_proto_icmp.c was never finished.
 
-That is, the socket ownership always belongs to the head skb.
-It turns out that the implementation is actually pretty simple.
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-The above invariant is actually violated in the following patch
-for a short duration inside ip_fragment.  This is OK because the
-offending frag_list member is either destroyed at the end of the
-slow path without being sent anywhere, or it is detached from
-the frag_list before being sent.
+---
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+ net/ipv4/ipvs/Makefile           |    2 
+ net/ipv4/ipvs/ip_vs_proto.c      |    3 
+ net/ipv4/ipvs/ip_vs_proto_icmp.c |  182 -------------------------------
+ 3 files changed, 1 insertion(+), 186 deletions(-)
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---h31gzZEtNLTqOjlF
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
-
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -490,6 +490,14 @@ int ip_fragment(struct sk_buff *skb, int
- 			/* Partially cloned skb? */
- 			if (skb_shared(frag))
- 				goto slow_path;
-+
-+			BUG_ON(frag->sk);
-+			if (skb->sk) {
-+				sock_hold(skb->sk);
-+				frag->sk = skb->sk;
-+				frag->destructor = sock_wfree;
-+				skb->truesize -= frag->truesize;
-+			}
- 		}
+--- linux-2.6.12-rc4-mm1-full/net/ipv4/ipvs/Makefile.old	2005-05-15 13:14:02.000000000 +0200
++++ linux-2.6.12-rc4-mm1-full/net/ipv4/ipvs/Makefile	2005-05-15 13:14:17.000000000 +0200
+@@ -11,7 +11,7 @@
  
- 		/* Everything is OK. Generate! */
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -552,13 +552,17 @@ static int ip6_fragment(struct sk_buff *
- 			    skb_headroom(frag) < hlen)
- 			    goto slow_path;
+ ip_vs-objs :=	ip_vs_conn.o ip_vs_core.o ip_vs_ctl.o ip_vs_sched.o	   \
+ 		ip_vs_xmit.o ip_vs_app.o ip_vs_sync.o	   		   \
+-		ip_vs_est.o ip_vs_proto.o ip_vs_proto_icmp.o		   \
++		ip_vs_est.o ip_vs_proto.o 				   \
+ 		$(ip_vs_proto-objs-y)
  
--			/* Correct socket ownership. */
--			if (frag->sk == NULL)
--				goto slow_path;
--
- 			/* Partially cloned skb? */
- 			if (skb_shared(frag))
- 				goto slow_path;
-+
-+			BUG_ON(frag->sk);
-+			if (skb->sk) {
-+				sock_hold(skb->sk);
-+				frag->sk = skb->sk;
-+				frag->destructor = sock_wfree;
-+				skb->truesize -= frag->truesize;
-+			}
- 		}
  
- 		err = 0;
-@@ -1116,12 +1120,10 @@ int ip6_push_pending_frames(struct sock 
- 		tail_skb = &(tmp_skb->next);
- 		skb->len += tmp_skb->len;
- 		skb->data_len += tmp_skb->len;
--#if 0 /* Logically correct, but useless work, ip_fragment() will have to undo */
- 		skb->truesize += tmp_skb->truesize;
- 		__sock_put(tmp_skb->sk);
- 		tmp_skb->destructor = NULL;
- 		tmp_skb->sk = NULL;
+--- linux-2.6.12-rc4-mm1-full/net/ipv4/ipvs/ip_vs_proto.c.old	2005-05-15 13:18:55.000000000 +0200
++++ linux-2.6.12-rc4-mm1-full/net/ipv4/ipvs/ip_vs_proto.c	2005-05-15 13:15:03.000000000 +0200
+@@ -216,9 +216,6 @@
+ #ifdef CONFIG_IP_VS_PROTO_UDP
+ 	REGISTER_PROTOCOL(&ip_vs_protocol_udp);
+ #endif
+-#ifdef CONFIG_IP_VS_PROTO_ICMP
+-	REGISTER_PROTOCOL(&ip_vs_protocol_icmp);
 -#endif
- 	}
- 
- 	ipv6_addr_copy(final_dst, &fl->fl6_dst);
-
---h31gzZEtNLTqOjlF--
+ #ifdef CONFIG_IP_VS_PROTO_AH
+ 	REGISTER_PROTOCOL(&ip_vs_protocol_ah);
+ #endif
+--- linux-2.6.12-rc4-mm1-full/net/ipv4/ipvs/ip_vs_proto_icmp.c	2005-03-02 08:37:31.000000000 +0100
++++ /dev/null	2005-04-28 03:52:17.000000000 +0200
+@@ -1,182 +0,0 @@
+-/*
+- * ip_vs_proto_icmp.c:	ICMP load balancing support for IP Virtual Server
+- *
+- * Authors:	Julian Anastasov <ja@ssi.bg>, March 2002
+- *
+- *		This program is free software; you can redistribute it and/or
+- *		modify it under the terms of the GNU General Public License
+- *		version 2 as published by the Free Software Foundation;
+- *
+- */
+-
+-#include <linux/module.h>
+-#include <linux/kernel.h>
+-#include <linux/icmp.h>
+-#include <linux/netfilter.h>
+-#include <linux/netfilter_ipv4.h>
+-
+-#include <net/ip_vs.h>
+-
+-
+-static int icmp_timeouts[1] =		{ 1*60*HZ };
+-
+-static char * icmp_state_name_table[1] = { "ICMP" };
+-
+-static struct ip_vs_conn *
+-icmp_conn_in_get(const struct sk_buff *skb,
+-		 struct ip_vs_protocol *pp,
+-		 const struct iphdr *iph,
+-		 unsigned int proto_off,
+-		 int inverse)
+-{
+-#if 0
+-	struct ip_vs_conn *cp;
+-
+-	if (likely(!inverse)) {
+-		cp = ip_vs_conn_in_get(iph->protocol,
+-			iph->saddr, 0,
+-			iph->daddr, 0);
+-	} else {
+-		cp = ip_vs_conn_in_get(iph->protocol,
+-			iph->daddr, 0,
+-			iph->saddr, 0);
+-	}
+-
+-	return cp;
+-
+-#else
+-	return NULL;
+-#endif
+-}
+-
+-static struct ip_vs_conn *
+-icmp_conn_out_get(const struct sk_buff *skb,
+-		  struct ip_vs_protocol *pp,
+-		  const struct iphdr *iph,
+-		  unsigned int proto_off,
+-		  int inverse)
+-{
+-#if 0
+-	struct ip_vs_conn *cp;
+-
+-	if (likely(!inverse)) {
+-		cp = ip_vs_conn_out_get(iph->protocol,
+-			iph->saddr, 0,
+-			iph->daddr, 0);
+-	} else {
+-		cp = ip_vs_conn_out_get(IPPROTO_UDP,
+-			iph->daddr, 0,
+-			iph->saddr, 0);
+-	}
+-
+-	return cp;
+-#else
+-	return NULL;
+-#endif
+-}
+-
+-static int
+-icmp_conn_schedule(struct sk_buff *skb, struct ip_vs_protocol *pp,
+-		   int *verdict, struct ip_vs_conn **cpp)
+-{
+-	*verdict = NF_ACCEPT;
+-	return 0;
+-}
+-
+-static int
+-icmp_csum_check(struct sk_buff *skb, struct ip_vs_protocol *pp)
+-{
+-	if (!(skb->nh.iph->frag_off & __constant_htons(IP_OFFSET))) {
+-		if (skb->ip_summed != CHECKSUM_UNNECESSARY) {
+-			if (ip_vs_checksum_complete(skb, skb->nh.iph->ihl * 4)) {
+-				IP_VS_DBG_RL_PKT(0, pp, skb, 0, "Failed checksum for");
+-				return 0;
+-			}
+-		}
+-	}
+-	return 1;
+-}
+-
+-static void
+-icmp_debug_packet(struct ip_vs_protocol *pp,
+-		  const struct sk_buff *skb,
+-		  int offset,
+-		  const char *msg)
+-{
+-	char buf[256];
+-	struct iphdr _iph, *ih;
+-
+-	ih = skb_header_pointer(skb, offset, sizeof(_iph), &_iph);
+-	if (ih == NULL)
+-		sprintf(buf, "%s TRUNCATED", pp->name);
+-	else if (ih->frag_off & __constant_htons(IP_OFFSET))
+-		sprintf(buf, "%s %u.%u.%u.%u->%u.%u.%u.%u frag",
+-			pp->name, NIPQUAD(ih->saddr),
+-			NIPQUAD(ih->daddr));
+-	else {
+-		struct icmphdr _icmph, *ic;
+-
+-		ic = skb_header_pointer(skb, offset + ih->ihl*4,
+-					sizeof(_icmph), &_icmph);
+-		if (ic == NULL)
+-			sprintf(buf, "%s TRUNCATED to %u bytes\n",
+-				pp->name, skb->len - offset);
+-		else
+-			sprintf(buf, "%s %u.%u.%u.%u->%u.%u.%u.%u T:%d C:%d",
+-				pp->name, NIPQUAD(ih->saddr),
+-				NIPQUAD(ih->daddr),
+-				ic->type, ic->code);
+-	}
+-	printk(KERN_DEBUG "IPVS: %s: %s\n", msg, buf);
+-}
+-
+-static int
+-icmp_state_transition(struct ip_vs_conn *cp, int direction,
+-		      const struct sk_buff *skb,
+-		      struct ip_vs_protocol *pp)
+-{
+-	cp->timeout = pp->timeout_table[IP_VS_ICMP_S_NORMAL];
+-	return 1;
+-}
+-
+-static int
+-icmp_set_state_timeout(struct ip_vs_protocol *pp, char *sname, int to)
+-{
+-	int num;
+-	char **names;
+-
+-	num = IP_VS_ICMP_S_LAST;
+-	names = icmp_state_name_table;
+-	return ip_vs_set_state_timeout(pp->timeout_table, num, names, sname, to);
+-}
+-
+-
+-static void icmp_init(struct ip_vs_protocol *pp)
+-{
+-	pp->timeout_table = icmp_timeouts;
+-}
+-
+-static void icmp_exit(struct ip_vs_protocol *pp)
+-{
+-}
+-
+-struct ip_vs_protocol ip_vs_protocol_icmp = {
+-	.name =			"ICMP",
+-	.protocol =		IPPROTO_ICMP,
+-	.dont_defrag =		0,
+-	.init =			icmp_init,
+-	.exit =			icmp_exit,
+-	.conn_schedule =	icmp_conn_schedule,
+-	.conn_in_get =		icmp_conn_in_get,
+-	.conn_out_get =		icmp_conn_out_get,
+-	.snat_handler =		NULL,
+-	.dnat_handler =		NULL,
+-	.csum_check =		icmp_csum_check,
+-	.state_transition =	icmp_state_transition,
+-	.register_app =		NULL,
+-	.unregister_app =	NULL,
+-	.app_conn_bind =	NULL,
+-	.debug_packet =		icmp_debug_packet,
+-	.timeout_change =	NULL,
+-	.set_state_timeout =	icmp_set_state_timeout,
+-};
