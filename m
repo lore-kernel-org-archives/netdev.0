@@ -1,15 +1,17 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] tlan: restore deleted module parameters.
-Date: Sun, 15 May 2005 18:25:31 -0400
-Message-ID: <4287CC5B.1020608@pobox.com>
-References: <Pine.LNX.4.58.0504241751090.13938@lea.ulyssis.org> <20050504153311.7d1a0fe9@dxpl.pdx.osdl.net>
+Subject: Re: [patch 02/10] A new 10GB Ethernet Driver by Chelsio Communications
+Date: Sun, 15 May 2005 19:15:50 -0400
+Message-ID: <4287D826.3020704@pobox.com>
+References: <200503302134.j2ULYLVO028974@shell0.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stefaan De Roeck <stefaan@ulyssis.org>, netdev@oss.sgi.com
+Cc: davem@davemloft.net, christoph@graphe.net, tinay@chelsio.com,
+        sbardone@chelsio.com, christoph@lameter.com,
+        Netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20050504153311.7d1a0fe9@dxpl.pdx.osdl.net>
+To: akpm@osdl.org
+In-Reply-To: <200503302134.j2ULYLVO028974@shell0.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
