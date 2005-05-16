@@ -1,56 +1,164 @@
-From: Grant Grundler <grundler@parisc-linux.org>
-Subject: Re: patch tulip-natsemi-dp83840a-phy-fix.patch added to -mm tree
-Date: Mon, 16 May 2005 16:26:12 -0600
-Message-ID: <20050516222612.GD9282@colo.lackof.org>
-References: <200505101955.j4AJtX9x032464@shell0.pdx.osdl.net> <42881C58.40001@pobox.com> <20050516050843.GA20107@colo.lackof.org> <4288CE51.1050703@pobox.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: [git patches] 2.6.x net driver fixes
+Date: Mon, 16 May 2005 19:39:23 -0400
+Message-ID: <42892F2B.8090908@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Grant Grundler <grundler@parisc-linux.org>, akpm@osdl.org,
-        T-Bone@parisc-linux.org, varenet@parisc-linux.org,
-        Linux Kernel <linux-kernel@vger.kernel.org>,
-        Netdev <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <4288CE51.1050703@pobox.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed;
+ boundary="------------050705020706030106060808"
+Cc: Netdev <netdev@oss.sgi.com>,
+	Linux Kernel <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261744AbVEPXjo@vger.kernel.org>
+To: Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 16, 2005 at 12:46:09PM -0400, Jeff Garzik wrote:
-> Simply ensure that tulip_select_media() is always called from a process 
-> context. Then can you delay all you want.  Several of the calls are 
-> already this way, so that leaves two cases:
-> 
-> 1) called from timer context, from the media poll timer
-> 
-> 2) called from spin_lock_irqsave() context, in the ->tx_timeout hook.
-> 
-> The first case can be fixed by moved all the timer code to a workqueue. 
-> Then when the existing timer fires, kick the workqueue.
-> 
-> The second case can be fixed by kicking the workqueue upon tx_timeout 
-> (which is the reason why I did not suggest queue_delayed_work() use).
+This is a multi-part message in MIME format.
+--------------050705020706030106060808
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Thanks - the above guidance has much more detail than you offered before
-and is much more useful.
-Too bad that schedule_timeout() was the only option at the time. :^(
+Here's a first experimental git push from me.  The git URL is
+rsync://rsync.kernel.org/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git
 
-And I apologize I don't recall what the issues were with schedule_timeout().
-I suspect they will rear their ugly head with the workqueue
-implementation as well. But if they don't, that will be great.
+but it should be noted that I would like you to pull the 'misc-fixes' 
+branch.  I'm told that branches are supposed to live in .git/refs/heads, 
+so there you will find netdev-2.6.git/refs/heads/misc-fixes.
 
-> See, it's not rocket science :)
+Does that work?
 
-Well, then it's a great opportunity for someone interested in hacking
-NIC drivers to cut their teeth on. :^)
+Changelog and patch for review attached.
 
-After three years of using/maintaining the (trivial) tulip patch
-in parisc-linux tree (and shipped with RH/SuSe ia64 releases),
-I don't recall anyone complaining that udelays in tulip phy reset
-caused them problems. Sorry, I'm unmotivated to revisit this.
-Convince someone else to make tulip to use workqueues and I'll
-resubmit a clean patch on top of that for the phy init sequences.
+	Jeff, still afraid of trying a 'tough' merge
 
-thanks,
-grant
+
+
+--------------050705020706030106060808
+Content-Type: text/plain;
+ name="changelog.txt"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="changelog.txt"
+
+commit c8920ba041c8934b29370f5d62ab9ea8f147966b
+tree 6e0e12acd812f221906289348bc4e08cd1047df6
+parent c4cc26d3310a6614a20e32276228a5d44159fc9b
+author Daniel Andersen <daniel@linux-user.net> Fri, 06 May 2005 05:14:09 -0700
+committer Jeff Garzik <jgarzik@pobox.com> Mon, 16 May 2005 08:04:29 -0400
+
+[PATCH] wireless: 3CRWE154G72 Kconfig help fix
+
+Version 2 of the 3com OfficeConnect 11g Cardbus Card aka 3CRWE154G72 is not
+supported by the prism54 project.  To stop confusion, the kernel
+documentation should state so as 3com made a good job hiding the version.
+
+Signed-off-by: Andrew Morton <akpm@osdl.org>
+
+diff -puN drivers/net/wireless/Kconfig~wireless-3crwe154g72-kconfig-help-fix drivers/net/wireless/Kconfig
+
+--------------------------
+commit c4cc26d3310a6614a20e32276228a5d44159fc9b
+tree 35246410bf048fb6a0aa455b272f2a2933dbacad
+parent 99718699f5746cc365f3a9ab4769568a1da97635
+author Jiri Benc <jbenc@suse.cz> Wed, 27 Apr 2005 12:48:56 +0200
+committer Jeff Garzik <jgarzik@pobox.com> Mon, 16 May 2005 07:18:48 -0400
+
+[PATCH] Typo in tulip driver
+
+This patch fixes a typo in tulip driver in 2.6.12-rc3.
+
+--------------------------
+commit 99718699f5746cc365f3a9ab4769568a1da97635
+tree 6f8f9ad590b14514ad88c3478328795148c91e46
+parent f7a3aae1723e7ffc9c4fcdb489365da7a3d81255
+author Geoff Levand <geoffrey.levand@am.sony.com> Fri, 15 Apr 2005 01:20:32 -0700
+committer Jeff Garzik <jgarzik@pobox.com> Mon, 16 May 2005 06:44:26 -0400
+
+[PATCH] {PATCH] Fix IBM EMAC driver ioctl bug
+
+Fix IBM EMAC driver ioctl bug.
+
+I found IBM EMAC driver bug.
+So mii-tool command print wrong status.
+
+  # mii-tool
+  eth0: 10 Mbit, half duplex, no link
+  eth1: 10 Mbit, half duplex, no link
+
+I can get correct status on fixed kernel.
+
+  # mii-tool
+  eth0: negotiated 100baseTx-FD, link okZZ
+  eth1: negotiated 100baseTx-FD, link ok
+
+Hiroaki Fuse
+
+Signed-off-by: Geoff Levand <geoffrey.levand@am.sony.com> for CELF
+
+--------------------------
+commit f7a3aae1723e7ffc9c4fcdb489365da7a3d81255
+tree 2c0a93d730060f63670d3e7f130ee12e26b3ed8f
+parent 88d7bd8cb9eb8d64bf7997600b0d64f7834047c5
+author Al Viro <viro@www.linux.org.uk> Sun, 03 Apr 2005 09:15:52 +0100
+committer Jeff Garzik <jgarzik@pobox.com> Mon, 16 May 2005 06:22:32 -0400
+
+[PATCH] drivers/net/wireless enabled by wrong option
+
+	NET_WIRELESS is only a subset of the stuff in drivers/net/wireless;
+NET_RADIO is what covers all of them.
+Signed-off-by: Al Viro <viro@parcelfarce.linux.theplanet.co.uk>
+
+--------------------------
+
+--------------050705020706030106060808
+Content-Type: text/plain;
+ name="patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="patch"
+
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -187,7 +187,7 @@ obj-$(CONFIG_TR) += tokenring/
+ obj-$(CONFIG_WAN) += wan/
+ obj-$(CONFIG_ARCNET) += arcnet/
+ obj-$(CONFIG_NET_PCMCIA) += pcmcia/
+-obj-$(CONFIG_NET_WIRELESS) += wireless/
++obj-$(CONFIG_NET_RADIO) += wireless/
+ obj-$(CONFIG_NET_TULIP) += tulip/
+ obj-$(CONFIG_HAMRADIO) += hamradio/
+ obj-$(CONFIG_IRDA) += irda/
+--- a/drivers/net/ibm_emac/ibm_emac_core.c
++++ b/drivers/net/ibm_emac/ibm_emac_core.c
+@@ -1595,7 +1595,7 @@ static struct ethtool_ops emac_ethtool_o
+ static int emac_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ {
+ 	struct ocp_enet_private *fep = dev->priv;
+-	uint *data = (uint *) & rq->ifr_ifru;
++	uint16_t *data = (uint16_t *) & rq->ifr_ifru;
+ 
+ 	switch (cmd) {
+ 	case SIOCGMIIPHY:
+--- a/drivers/net/tulip/tulip_core.c
++++ b/drivers/net/tulip/tulip_core.c
+@@ -1104,7 +1104,7 @@ static void set_rx_mode(struct net_devic
+ 			if (entry != 0) {
+ 				/* Avoid a chip errata by prefixing a dummy entry. Don't do
+ 				   this on the ULI526X as it triggers a different problem */
+-				if (!(tp->chip_id == ULI526X && (tp->revision = 0x40 || tp->revision == 0x50))) {
++				if (!(tp->chip_id == ULI526X && (tp->revision == 0x40 || tp->revision == 0x50))) {
+ 					tp->tx_buffers[entry].skb = NULL;
+ 					tp->tx_buffers[entry].mapping = 0;
+ 					tp->tx_ring[entry].length =
+--- a/drivers/net/wireless/Kconfig
++++ b/drivers/net/wireless/Kconfig
+@@ -323,7 +323,7 @@ config PRISM54
+ 	  For a complete list of supported cards visit <http://prism54.org>.
+ 	  Here is the latest confirmed list of supported cards:
+ 
+-	  3com OfficeConnect 11g Cardbus Card aka 3CRWE154G72
++	  3com OfficeConnect 11g Cardbus Card aka 3CRWE154G72 (version 1)
+ 	  Allnet ALL0271 PCI Card
+ 	  Compex WL54G Cardbus Card
+ 	  Corega CG-WLCB54GT Cardbus Card
+
+--------------050705020706030106060808--
