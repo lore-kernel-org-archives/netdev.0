@@ -1,44 +1,62 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Fw: [Bugme-new] [Bug 4628] New: Test server hang while running rhr (network) test on RHEL4 with kernel 2.6.12-rc1-mm4
-Date: Mon, 16 May 2005 21:00:50 +1000
-Message-ID: <E1DXdL8-0005mE-00@gondolin.me.apana.org.au>
-References: <20050516025901.4b26ccf3.akpm@osdl.org>
-Cc: netdev@oss.sgi.com, hejianj@cn.ibm.com,
-        linuxppc64-dev@lists.linuxppc.org.sgi.com, anton@samba.org,
-        jgarzik@pobox.com
+From: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
+Subject: [PATCH] [SCHED] Fix unlock spinlock in error path
+Date: Mon, 16 May 2005 16:01:07 +0300 (EEST)
+Message-ID: <Pine.LNX.4.62.0505161555080.13294@webhosting.rdsbv.ro>
+Mime-Version: 1.0
+Content-Type: MULTIPART/MIXED; BOUNDARY="-1646943047-1586944306-1116248155=:13294"
+Cc: davem@davemloft.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: akpm@osdl.org (Andrew Morton)
-In-Reply-To: <20050516025901.4b26ccf3.akpm@osdl.org>
+To: netdev@oss.sgi.com
+Content-ID: <Pine.LNX.4.62.0505161556200.13294@webhosting.rdsbv.ro>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton <akpm@osdl.org> wrote:
-> 
-> Might be a bug in the e100 driver, might not be.
-> 
-> I assume this is the
-> 
->        BUG_ON(skb->list != NULL);
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-It certainly is a bug in e100.
+---1646943047-1586944306-1116248155=:13294
+Content-Type: TEXT/PLAIN; CHARSET=US-ASCII; format=flowed
+Content-ID: <Pine.LNX.4.62.0505161556201.13294@webhosting.rdsbv.ro>
 
-e100_tx_timeout -> e100_down -> e100_rx_clean_list
+Hello!
 
-is racing against
+In act_api.c::tcf_action_copy_stats, in error path (get_stats
+returns < 0), the spinlock taken in gnet_stats_start_copy_compat
+or gnet_stats_start_copy is not unlocked.
 
-e100_poll -> e100_rx_clean -> e100_rx_indicate
+The attached patch fixes this.
 
-e100_rx_clean/e100_rx_indicate takes an skb off the RX ring and
-while it's being processed e100_rx_clean_list comes along and
-frees it.
+Please, apply.
 
->From a quick check similar problems may exist in other drivers that
-have lockless ->poll() functions with RX rings.
+Thank you very much!
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Signed-off-by: Catalin(ux aka Dino) BOIE <catab at umbrella.ro>
+
+---
+Catalin(ux aka Dino) BOIE
+catab at deuroconsult.ro
+http://kernel.umbrella.ro/
+---1646943047-1586944306-1116248155=:13294
+Content-Type: TEXT/PLAIN; CHARSET=US-ASCII; NAME=act_api_missing_unlock.patch
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.LNX.4.62.0505161555550.13294@webhosting.rdsbv.ro>
+Content-Description: 
+Content-Disposition: ATTACHMENT; FILENAME=act_api_missing_unlock.patch
+
+LS0tIGxpbnV4L25ldC9zY2hlZC9hY3RfYXBpLmMJMjAwNS0wMy0wMiAwOToz
+ODozMy4wMDAwMDAwMDAgKzAyMDANCisrKyB0b3ZidWcvbmV0L3NjaGVkL2Fj
+dF9hcGkuYwkyMDA1LTA0LTE1IDEzOjI3OjU0LjAwMDAwMDAwMCArMDMwMA0K
+QEAgLTQwMSw3ICs0MDEsNyBAQCBpbnQgdGNmX2FjdGlvbl9jb3B5X3N0YXRz
+KHN0cnVjdCBza19idWZmDQogDQogCWlmIChhLT5vcHMgIT0gTlVMTCAmJiBh
+LT5vcHMtPmdldF9zdGF0cyAhPSBOVUxMKQ0KIAkJaWYgKGEtPm9wcy0+Z2V0
+X3N0YXRzKHNrYiwgYSkgPCAwKQ0KLQkJCWdvdG8gZXJyb3V0Ow0KKwkJCWdv
+dG8gZXJyb3V0X3N0b3Bfc3RhdHM7DQogDQogCWlmIChnbmV0X3N0YXRzX2Nv
+cHlfYmFzaWMoJmQsICZoLT5ic3RhdHMpIDwgMCB8fA0KICNpZmRlZiBDT05G
+SUdfTkVUX0VTVElNQVRPUg0KQEAgLTQxNSw2ICs0MTUsOSBAQCBpbnQgdGNm
+X2FjdGlvbl9jb3B5X3N0YXRzKHN0cnVjdCBza19idWZmDQogDQogCXJldHVy
+biAwOw0KIA0KK2Vycm91dF9zdG9wX3N0YXRzOg0KKwlnbmV0X3N0YXRzX2Zp
+bmlzaF9jb3B5KCZkKTsNCisNCiBlcnJvdXQ6DQogCXJldHVybiAtMTsNCiB9
+DQo=
+
+---1646943047-1586944306-1116248155=:13294--
