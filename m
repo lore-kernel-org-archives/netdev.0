@@ -1,38 +1,37 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [IPV4/IPV6] Keep wmem accounting separate in ip*_push_pending_frames
-Date: Mon, 16 May 2005 09:59:13 +1000
-Message-ID: <20050515235913.GA20242@gondor.apana.org.au>
-References: <E1DXE3h-0002jR-00@gondolin.me.apana.org.au> <20050515104016.GA24344@gondor.apana.org.au> <20050515114121.GA4830@gondor.apana.org.au> <20050515.152441.106262257.davem@davemloft.net> <20050515232020.GA19859@gondor.apana.org.au>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [IPV4/IPV6] Keep wmem accounting separate in
+ ip*_push_pending_frames
+Date: Sun, 15 May 2005 17:32:42 -0700 (PDT)
+Message-ID: <20050515.173242.125899783.davem@davemloft.net>
+References: <20050515.152441.106262257.davem@davemloft.net>
+	<20050515232020.GA19859@gondor.apana.org.au>
+	<20050515235913.GA20242@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: johnpol@2ka.mipt.ru, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20050515232020.GA19859@gondor.apana.org.au>
+To: herbert@gondor.apana.org.au
+In-Reply-To: <20050515235913.GA20242@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 16, 2005 at 09:20:20AM +1000, herbert wrote:
-> 
-> BTW, I missed the netfilter defrag code in my patch.  I'll send an
-> updated version soon.
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Mon, 16 May 2005 09:59:13 +1000
 
-Actually that turns out to be OK since ip_ct_gather_frags zeros the
-skb->sk field before feeding it to ip_defrag.  Once the packet has
-been reassembled it tries to put the sk back which fails unless the
-head skb comes in last which is never the case on the output path.
+> Please let me know if you still have any questions/problems with my
+> patch.
 
-Although the second part is buggy, it does not violate the invariant
-I stated before.
+No objections, I see what you are doing now.
 
-Please let me know if you still have any questions/problems with my
-patch.
+It is basically the inverse of the case where
+we hold the frag truesizes in the head SKB.
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Once we rip apart the fraglist, we have to
+repropagate the truesize and sock ownership
+down from the head SKB to the frags.
+
+I'll apply your patch, and Evgeniy's too.
+
+Thanks.
