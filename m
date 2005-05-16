@@ -1,21 +1,54 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH] [SCHED] Fix unlock spinlock in error path
-Date: Mon, 16 May 2005 22:12:33 +0200
-Message-ID: <20050516201233.GE13748@postel.suug.ch>
-References: <Pine.LNX.4.62.0505161555080.13294@webhosting.rdsbv.ro> <20050516134900.GC13748@postel.suug.ch> <Pine.LNX.4.62.0505162224420.20204@webhosting.rdsbv.ro>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, davem@davemloft.net
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH] bonding using arp_ip_target may stay down with active path
+Date: Mon, 16 May 2005 13:34:37 -0700
+Message-ID: <200505162034.j4GKYbch022992@death.nxdomain.ibm.com>
+References: <eparis@parisplace.org>
+Cc: netdev@oss.sgi.com, jgarzik@pobox.com, bonding-devel@lists.sourceforge.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.62.0505162224420.20204@webhosting.rdsbv.ro>
+To: Eric Paris <eparis@parisplace.org>
+In-Reply-To: Message from Eric Paris <eparis@parisplace.org>
+   of "Mon, 16 May 2005 14:41:25 EDT." <1116268885.3738.19.camel@dhcp59-180.rdu.redhat.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Catalin(ux aka Dino) BOIE <Pine.LNX.4.62.0505162224420.20204@webhosting.rdsbv.ro> 2005-05-16 22:25
-> Thanks Thomas for the explication!
-> Sorry for the noise.
+Eric Paris <eparis@parisplace.org> wrote:
 
-Don't worry, I should have documented this weird code part. ;->
+>[...]  Bring back up the interface connected to
+>eth1.  At this point we have a "valid" connection since eth1 can talk to
+>one of the arp targets.  But we are only sending arp requests on eth0
+>(verify with tcpdump)
+
+	The trick is to have a situation with a partitioned network and
+a failure such that the device still has link, but does not respond to
+the ARP queries.  That's not an unreasonable failure if there's a switch
+in each path to the arp_ip_target peers (which is how I set it up
+locally).
+
+>The patch below has been tested by me and appears to fix the problem.
+>All of the failover tests I performed seem to work including pulling
+>cables and stopping responses from the arp_ip_target entries.  
+
+	The patch looks good to me, also (although I made the change by
+hand instead of via patch).
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+
+
+Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+
+
+--- linux-2.6.11/drivers/net/bonding/bond_main.c.orig   2005-05-12 12:22:52.000000000 -0400
++++ linux-2.6.11/drivers/net/bonding/bond_main.c        2005-05-12 15:13:53.000000000 -0400
+@@ -3046,7 +3046,7 @@ static void bond_activebackup_arp_mon(st
+                        bond_set_slave_inactive_flags(bond->current_arp_slave);
+
+                        /* search for next candidate */
+-                       bond_for_each_slave_from(bond, slave, i, bond->current_arp_slave) {
++                       bond_for_each_slave_from(bond, slave, i, bond->current_arp_slave->next) {
+                                if (IS_UP(slave->dev)) {
+                                        slave->link = BOND_LINK_BACK;
+                                        bond_set_slave_active_flags(slave);
