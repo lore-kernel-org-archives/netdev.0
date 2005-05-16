@@ -1,54 +1,38 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH] bonding using arp_ip_target may stay down with active path
-Date: Mon, 16 May 2005 13:34:37 -0700
-Message-ID: <200505162034.j4GKYbch022992@death.nxdomain.ibm.com>
-References: <eparis@parisplace.org>
-Cc: netdev@oss.sgi.com, jgarzik@pobox.com, bonding-devel@lists.sourceforge.net
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Fw: [Bugme-new] [Bug 4628] New: Test server hang while running rhr (network) test on RHEL4 with kernel 2.6.12-rc1-mm4
+Date: Tue, 17 May 2005 07:29:57 +1000
+Message-ID: <20050516212957.GA19211@gondor.apana.org.au>
+References: <20050516025901.4b26ccf3.akpm@osdl.org> <E1DXdL8-0005mE-00@gondolin.me.apana.org.au> <5fc59ff3050516104367a8d5cd@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com, hejianj@cn.ibm.com,
+        linuxppc64-dev@lists.linuxppc.org.sgi.com, anton@samba.org,
+        jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Eric Paris <eparis@parisplace.org>
-In-Reply-To: Message from Eric Paris <eparis@parisplace.org>
-   of "Mon, 16 May 2005 14:41:25 EDT." <1116268885.3738.19.camel@dhcp59-180.rdu.redhat.com>
+To: Ganesh Venkatesan <ganesh.venkatesan@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <5fc59ff3050516104367a8d5cd@mail.gmail.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Eric Paris <eparis@parisplace.org> wrote:
+On Mon, May 16, 2005 at 10:43:02AM -0700, Ganesh Venkatesan wrote:
+>
+> @@ -1708,11 +1778,15 @@ err_rx_clean_list:
+> 
+>  static void e100_down(struct nic *nic)
+>  {
+> +#ifdef CONFIG_E100_NAPI
+> +       /* wait here for poll to complete */
+> +       netif_poll_disable(nic->netdev);
+> +#endif
 
->[...]  Bring back up the interface connected to
->eth1.  At this point we have a "valid" connection since eth1 can talk to
->one of the arp targets.  But we are only sending arp requests on eth0
->(verify with tcpdump)
+Sorry, you can't do that here since you're in softirq context and
+netif_poll_disable may sleep.
 
-	The trick is to have a situation with a partitioned network and
-a failure such that the device still has link, but does not respond to
-the ARP queries.  That's not an unreasonable failure if there's a switch
-in each path to the arp_ip_target peers (which is how I set it up
-locally).
-
->The patch below has been tested by me and appears to fix the problem.
->All of the failover tests I performed seem to work including pulling
->cables and stopping responses from the arp_ip_target entries.  
-
-	The patch looks good to me, also (although I made the change by
-hand instead of via patch).
-
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
-
-
-Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
-
-
---- linux-2.6.11/drivers/net/bonding/bond_main.c.orig   2005-05-12 12:22:52.000000000 -0400
-+++ linux-2.6.11/drivers/net/bonding/bond_main.c        2005-05-12 15:13:53.000000000 -0400
-@@ -3046,7 +3046,7 @@ static void bond_activebackup_arp_mon(st
-                        bond_set_slave_inactive_flags(bond->current_arp_slave);
-
-                        /* search for next candidate */
--                       bond_for_each_slave_from(bond, slave, i, bond->current_arp_slave) {
-+                       bond_for_each_slave_from(bond, slave, i, bond->current_arp_slave->next) {
-                                if (IS_UP(slave->dev)) {
-                                        slave->link = BOND_LINK_BACK;
-                                        bond_set_slave_active_flags(slave);
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
