@@ -1,32 +1,39 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] reduce stack usage for arlan
-Date: Sun, 15 May 2005 23:22:35 -0400
-Message-ID: <428811FB.1050308@pobox.com>
-References: <20050308153457.GB8703@wohnheim.fh-wedel.de>
+Subject: Re: patch tulip-natsemi-dp83840a-phy-fix.patch added to -mm tree
+Date: Mon, 16 May 2005 00:06:48 -0400
+Message-ID: <42881C58.40001@pobox.com>
+References: <200505101955.j4AJtX9x032464@shell0.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: =?ISO-8859-1?Q?J=F6rn_Engel?= <joern@wohnheim.fh-wedel.de>
-In-Reply-To: <20050308153457.GB8703@wohnheim.fh-wedel.de>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: T-Bone@parisc-linux.org, grundler@parisc-linux.org,
+	varenet@parisc-linux.org,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@oss.sgi.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261261AbVEPEG4@vger.kernel.org>
+To: akpm@osdl.org
+In-Reply-To: <200505101955.j4AJtX9x032464@shell0.pdx.osdl.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-J=F6rn Engel wrote:
-> Jean Tourrilhes indicated that this driver is currently unmaintained.
-> Jeff, do you want this patch?
+akpm@osdl.org wrote:
+> +
+> +					/* flush posted writes */
+> +					ioread32(ioaddr + CSR15);
+> +
+> +					/* Sect 3.10.3 in DP83840A.pdf (p39) */
+> +					udelay(500);
+> +
+> +					/* Section 4.2 in DP83840A.pdf (p43) */
+> +					/* and IEEE 802.3 "22.2.4.1.1 Reset" */
+> +					while (timeout-- &&
+> +						(tulip_mdio_read (dev, phy_num, MII_BMCR) & BMCR_RESET))
+> +						udelay(100);
 
->  #define SARLSTR(var,nn) {\
-> -	char tmpStr[400];\
-> +	char tmpStr[50];\
->  	int  tmpLn =3D nn;\
-> -	if (nn > 399 ) tmpLn =3D 399; \
-> +	BUG_ON(tmpLn > 49);\
 
+Note that while the patch creates the correct behavior, the delays above 
+occur inside spin_lock_irqsave() and/or timer context.
 
-I'm uncomfortable with arbitrarily lowering the string size, even if it=20
-does include a BUG_ON()...
+I have been to get HP to fix this patch's delay problem for -years-.
 
 	Jeff
