@@ -1,29 +1,34 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH] [SCHED] Fix unlock spinlock in error path
-Date: Mon, 16 May 2005 15:49:00 +0200
-Message-ID: <20050516134900.GC13748@postel.suug.ch>
-References: <Pine.LNX.4.62.0505161555080.13294@webhosting.rdsbv.ro>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: patch tulip-natsemi-dp83840a-phy-fix.patch added to -mm tree
+Date: Mon, 16 May 2005 12:46:09 -0400
+Message-ID: <4288CE51.1050703@pobox.com>
+References: <200505101955.j4AJtX9x032464@shell0.pdx.osdl.net> <42881C58.40001@pobox.com> <20050516050843.GA20107@colo.lackof.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, davem@davemloft.net
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.62.0505161555080.13294@webhosting.rdsbv.ro>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: akpm@osdl.org, T-Bone@parisc-linux.org, varenet@parisc-linux.org,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@oss.sgi.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261741AbVEPQqW@vger.kernel.org>
+To: Grant Grundler <grundler@parisc-linux.org>
+In-Reply-To: <20050516050843.GA20107@colo.lackof.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Catalin(ux aka Dino) BOIE <Pine.LNX.4.62.0505161555080.13294@webhosting.rdsbv.ro> 2005-05-16 16:01
-> In act_api.c::tcf_action_copy_stats, in error path (get_stats
-> returns < 0), the spinlock taken in gnet_stats_start_copy_compat
-> or gnet_stats_start_copy is not unlocked.
+Simply ensure that tulip_select_media() is always called from a process 
+context. Then can you delay all you want.  Several of the calls are 
+already this way, so that leaves two cases:
 
-This is on purpose, get_stats() is nothing more than a placeholder
-at the moment for something that should really be called dump_stats()
-and have struct gnet_dump as one of its arguments. The unlocking
-must be done in the internal error handling and if we ever have an
-operation that could fail between _start() and _stop() for
-another reason we'll need a gnet_stats_abort() (skb_trim()'ing
-properly) to avoid double unlocking. But since there is no
-user of this API yet it doesn't make sense to bloat the code.
+1) called from timer context, from the media poll timer
+
+2) called from spin_lock_irqsave() context, in the ->tx_timeout hook.
+
+The first case can be fixed by moved all the timer code to a workqueue. 
+  Then when the existing timer fires, kick the workqueue.
+
+The second case can be fixed by kicking the workqueue upon tx_timeout 
+(which is the reason why I did not suggest queue_delayed_work() use).
+
+See, it's not rocket science :)
+
+	Jeff
