@@ -1,35 +1,27 @@
-From: Andi Kleen <ak@muc.de>
+From: David Stevens <dlstevens@us.ibm.com>
 Subject: Re: [RFC/PATCH] "strict" ipv4 reassembly
-Date: Tue, 17 May 2005 21:53:08 +0200
-Message-ID: <m1oeb97hp7.fsf@muc.de>
-References: <Pine.LNX.4.61.0505170914130.29021@linux.site>
-	<20050517.104947.112621738.davem@davemloft.net>
-	<m1zmut7l5q.fsf@muc.de> <428A3F86.1020000@us.ibm.com>
-	<428A425F.7000807@hp.com> <428A452B.2010008@us.ibm.com>
-	<428A470A.6010703@hp.com>
+Date: Tue, 17 May 2005 12:56:05 -0700
+Message-ID: <OF0221F508.AD091D99-ON88257004.006D0C52-88257004.006D8293@us.ibm.com>
+References: <m1sm0l7jcl.fsf@muc.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset="US-ASCII"
+Cc: akepner@sgi.com, "David S. Miller" <davem@davemloft.net>,
+        John Heffner <jheffner@psc.edu>, netdev@oss.sgi.com,
+        netdev-bounce@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Rick Jones <rick.jones2@hp.com>
-In-Reply-To: <428A470A.6010703@hp.com> (Rick Jones's message of "Tue, 17 May
- 2005 12:33:30 -0700")
+In-Reply-To: <m1sm0l7jcl.fsf@muc.de>
+To: Andi Kleen <ak@muc.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Rick Jones <rick.jones2@hp.com> writes:
+Dave,
+        Shouldn't that be an estimator on the destination RTT? Or is that
+what you meant? A fast link locally that traverses a slow path along the 
+way
+would time out too fast.
+        Of course, getting an RTT estimate if there hasn't been TCP 
+traffic
+is a complication. :-)
 
->> Actually, the problem is much worse now - we have virtual
->> partitions in the Xen environment for instance where some
->> packets are headed for local consumption (virtual network,
->> no actual network latency to speak of) and some going
->> out to the network. Having a global IP id generator just
->> won't be able to keep up - we could wrap in submilliseconds...
->
-> and the classic TCP sequence number isn't _really_ all that far behind :)
-
-But it has PAWS at least. But I agree even IPv6 fragmentation
-with 32bit IDs is not significantly safer.
-
--Andi
+                                                +-DLS
