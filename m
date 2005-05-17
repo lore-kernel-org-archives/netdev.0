@@ -1,55 +1,31 @@
-From: Pavel Roskin <proski@gnu.org>
-Subject: Re: [PATCH 11/12] orinoco: monitor mode support
-Date: Tue, 17 May 2005 15:43:14 -0400
-Message-ID: <1116358994.5534.2.camel@dv.roinet.com>
-References: <20050514153100.GL3643@lst.de>
-	 <20050514173947.GA32235@electric-eye.fr.zoreil.com>
+From: Nivedita Singhvi <niv@us.ibm.com>
+Subject: Re: [RFC/PATCH] "strict" ipv4 reassembly
+Date: Tue, 17 May 2005 12:52:20 -0700
+Message-ID: <428A4B74.4050503@us.ibm.com>
+References: <Pine.LNX.4.61.0505170914130.29021@linux.site> <428A425F.7000807@hp.com> <428A452B.2010008@us.ibm.com> <200505171531.37167.jheffner@psc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Christoph Hellwig <hch@lst.de>, jgarzik@pobox.com,
-        hermes@gibson.dropbear.id.au, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20050514173947.GA32235@electric-eye.fr.zoreil.com>
+To: John Heffner <jheffner@psc.edu>
+In-Reply-To: <200505171531.37167.jheffner@psc.edu>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2005-05-14 at 19:39 +0200, Francois Romieu wrote:
-> > + drop:
-> > +	stats->rx_errors++;
-> > +	stats->rx_dropped++;
-> > +}
+John Heffner wrote:
+> On Tuesday 17 May 2005 03:25 pm, Nivedita Singhvi wrote:
 > 
-> -> leak (skb).
+>>Yes, a different manifestation of the problem ;). I was talking
+>>in the context of current Linux code and the common ethernet drivers
+>>and typical current Internet/Intranet latencies.
+> 
+> 
+> The problem is latency independent.
 
-Indeed.  Thank you!  Please apply this on top of the original patches:
+Not entirely - because our reassembly timeout expires, typically.
+(If I understand you right).
 
-Signed-off-by: Pavel Roskin <proski@gnu.org>
-
---- orinoco.c
-+++ orinoco.c
-@@ -1180,7 +1180,7 @@ static void orinoco_rx_monitor(struct ne
- 	u16 fc;
- 	int err;
- 	int len;
--	struct sk_buff *skb;
-+	struct sk_buff *skb = NULL;
- 	struct orinoco_private *priv = netdev_priv(dev);
- 	struct net_device_stats *stats = &priv->stats;
- 	hermes_t *hw = &priv->hw;
-@@ -1268,6 +1268,8 @@ static void orinoco_rx_monitor(struct ne
-  drop:
- 	stats->rx_errors++;
- 	stats->rx_dropped++;
-+	if (skb)
-+		dev_kfree_skb_irq(skb);
- }
- 
- static void __orinoco_ev_rx(struct net_device *dev, hermes_t *hw)
-
-
--- 
-Regards,
-Pavel Roskin
+thanks,
+Nivedita
