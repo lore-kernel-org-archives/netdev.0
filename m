@@ -1,46 +1,35 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [RFC/PATCH] "strict" ipv4 reassembly
-Date: Tue, 17 May 2005 22:48:06 +0200
-Message-ID: <20050517204806.GF13748@postel.suug.ch>
-References: <20050517.104947.112621738.davem@davemloft.net> <m1zmut7l5q.fsf@muc.de> <200505171457.38719.jheffner@psc.edu> <20050517.120950.74749758.davem@davemloft.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [patch linux-2.6.12-rc3-mm3 1/7] r8169: de-obfuscate supported PCI ID
+Date: Tue, 17 May 2005 22:48:11 +0200
+Message-ID: <20050517204811.GA12936@electric-eye.fr.zoreil.com>
+References: <20050504221057.1e02a402.akpm@osdl.org> <20050505115502.GA4414@electric-eye.fr.zoreil.com> <20050505110052.62c1c2cb.akpm@osdl.org> <20050505225656.GA11200@electric-eye.fr.zoreil.com> <4287C9D6.1060004@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jheffner@psc.edu, ak@muc.de, netdev@oss.sgi.com, akepner@sgi.com
+Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
+To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <20050517.120950.74749758.davem@davemloft.net>
+In-Reply-To: <4287C9D6.1060004@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* David S. Miller <20050517.120950.74749758.davem@davemloft.net> 2005-05-17 12:09
-> From: John Heffner <jheffner@psc.edu>
-> Date: Tue, 17 May 2005 14:57:38 -0400
+Jeff Garzik <jgarzik@pobox.com> :
+> All seven look OK, but it failed on the first patch:
 > 
-> > It would be better still to have a per-route packet reassembly timeout in 
-> > milliseconds.
+> [jgarzik@pretzel netdev-2.6]$ dotest /g/tmp/mbox
 > 
-> I agree.  And if we can setup the infrastructure such that the
-> drivers can indicate the speed of the link they are communicating
-> on, then we can set sane default values on the automatically
-> created subnet routes.
+> Applying 'r8169: de-obfuscate supported PCI ID'
+> 
+> patching file drivers/net/r8169.c
+> Hunk #1 FAILED at 174.
+> 1 out of 1 hunk FAILED -- saving rejects to file drivers/net/r8169.c.rej
 
-I think we have two separate issues to resolve, first we need
-to figure out a way to state the probability of a id wrap, this
-can be a very simple pps rate estimator on the driver statistics
-for hardware interfaces and something more tricky for virtual
-interfaces such as found in xen. I think the link speed is not
-reliable enough for this.
+Yes. In the meantime, -mm was applied:
+[patch 2.6.12-rc2-mm3 1/1] r8169: new PCI id
 
-The second issue covers the actual defeat of the wraps, we have
-to differ between the rare but possible case for long delayed
-fragments and short delayed reorderings as caused by SMP. A
-combination of both short and long delayed reorderings rarely
-happens in practice and if so that's the bigger problem anyway.
-The above probability can be used to distinguish these cases
-and be more specific. SMP caused fragments have a very local
-distribution and thus the window for accepted ids can be smaller
-than the one for a long delayed fragment session. So maybe we
-can use the above probability as a factor to calculate a window
-of accepted ids.
+Should I send a serie of patches against
+126fa4b9ca5d9d7cb7d46f779ad3bd3631ca387c to update it to r8169-mm-latest ?
+
+--
+Ueimor
