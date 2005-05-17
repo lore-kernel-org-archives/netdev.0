@@ -1,31 +1,34 @@
-From: Andi Kleen <ak@muc.de>
+From: Rick Jones <rick.jones2@hp.com>
 Subject: Re: [RFC/PATCH] "strict" ipv4 reassembly
-Date: Tue, 17 May 2005 21:17:30 +0200
-Message-ID: <m1sm0l7jcl.fsf@muc.de>
-References: <Pine.LNX.4.61.0505170914130.29021@linux.site>
-	<20050517.104947.112621738.davem@davemloft.net>
-	<m1zmut7l5q.fsf@muc.de> <200505171457.38719.jheffner@psc.edu>
+Date: Tue, 17 May 2005 12:21:47 -0700
+Message-ID: <428A444B.8000608@hp.com>
+References: <20050517.104947.112621738.davem@davemloft.net>	<m1zmut7l5q.fsf@muc.de> <200505171457.38719.jheffner@psc.edu> <20050517.120950.74749758.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
-        akepner@sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: John Heffner <jheffner@psc.edu>
-In-Reply-To: <200505171457.38719.jheffner@psc.edu> (John Heffner's message
- of "Tue, 17 May 2005 14:57:38 -0400")
+To: netdev@oss.sgi.com
+In-Reply-To: <20050517.120950.74749758.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-John Heffner <jheffner@psc.edu> writes:
+David S. Miller wrote:
+> From: John Heffner <jheffner@psc.edu>
+> Date: Tue, 17 May 2005 14:57:38 -0400
+> 
+> 
+>>It would be better still to have a per-route packet reassembly timeout in 
+>>milliseconds.
+> 
+> 
+> I agree.  And if we can setup the infrastructure such that the
+> drivers can indicate the speed of the link they are communicating
+> on, then we can set sane default values on the automatically
+> created subnet routes.
 
->
-> It would be better still to have a per-route packet reassembly timeout in 
-> milliseconds.  Expecting perfect ordering seems very fragile even for a LAN.
+Does the ingress link really tell us all that much about the path a given 
+datagram's fragments took to get to us?  Even if the source IP is ostensibly a 
+local one?
 
-In fact I implemented that a long time ago for the SUSE 2.4 kernel.
-But for some reason nobody liked it very much, so I never submitted it.
-
-I can dig out the old patches if there is interest.
-
--Andi
+rick jones
