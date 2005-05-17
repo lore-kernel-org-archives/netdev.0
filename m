@@ -1,32 +1,33 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: "David S. Miller" <davem@davemloft.net>
 Subject: Re: [RFC/PATCH] "strict" ipv4 reassembly
-Date: Wed, 18 May 2005 08:11:01 +1000
-Message-ID: <E1DYAHF-0006qW-00@gondolin.me.apana.org.au>
-References: <20050517.104947.112621738.davem@davemloft.net>
-Cc: akepner@sgi.com, netdev@oss.sgi.com
+Date: Tue, 17 May 2005 15:12:39 -0700 (PDT)
+Message-ID: <20050517.151239.74747463.davem@davemloft.net>
+References: <20050517202730.GA79960@muc.de>
+	<20050517.140245.71090021.davem@davemloft.net>
+	<428A613F.1020303@hp.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, netdev-bounce@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@davemloft.net (David S. Miller)
-In-Reply-To: <20050517.104947.112621738.davem@davemloft.net>
+To: rick.jones2@hp.com
+In-Reply-To: <428A613F.1020303@hp.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller <davem@davemloft.net> wrote:
->
-> Decreasing ipfrag_time is also not an option, because then
+From: Rick Jones <rick.jones2@hp.com>
+Date: Tue, 17 May 2005 14:25:19 -0700
 
-Here is a possible solution to this:
+> just how much extra overhead would there be to track the interarrival time of ip 
+> datagram fragments and would that allow someone to make a guess as to how long 
+> to reasonably wait for all the fragments to arrive? (or did I miss that being 
+> shot-down already?)
 
-Instead of measuring the distance using time, let's measure it
-in terms of packet counts.  So every time we receive a fragmented
-packet, we find all waiting fragments with the same src/dst pair.
-If the id is identical we perform reassembly, if it isn't we increase
-a counter in that fragment.  If the counter exceeds a threshold,
-we drop the fragment.
+I spam you with fragments tightly interspaced matching a known
+shost/dhost/ID tuple, lowering your interarrival estimate.  The
+legitimate fragment source can thus never get his fragments in
+before the timer expires.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Every other one of these IP fragmentation ideas tends to have
+some DoS hole in it.
