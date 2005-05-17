@@ -1,28 +1,33 @@
-From: Rick Jones <rick.jones2@hp.com>
+From: Andi Kleen <ak@muc.de>
 Subject: Re: [RFC/PATCH] "strict" ipv4 reassembly
-Date: Tue, 17 May 2005 13:12:18 -0700
-Message-ID: <428A5022.2080606@hp.com>
-References: <Pine.LNX.4.61.0505170914130.29021@linux.site>	<200505171531.37167.jheffner@psc.edu> <428A4B74.4050503@us.ibm.com> <200505171605.21093.jheffner@psc.edu>
+Date: Tue, 17 May 2005 22:17:36 +0200
+Message-ID: <m1k6lx7gkf.fsf@muc.de>
+References: <m1sm0l7jcl.fsf@muc.de>
+	<OF0221F508.AD091D99-ON88257004.006D0C52-88257004.006D8293@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: akepner@sgi.com, "David S. Miller" <davem@davemloft.net>,
+        John Heffner <jheffner@psc.edu>, netdev@oss.sgi.com,
+        netdev-bounce@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <200505171605.21093.jheffner@psc.edu>
+To: David Stevens <dlstevens@us.ibm.com>
+In-Reply-To: <OF0221F508.AD091D99-ON88257004.006D0C52-88257004.006D8293@us.ibm.com> (David
+ Stevens's message of "Tue, 17 May 2005 12:56:05 -0700")
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+David Stevens <dlstevens@us.ibm.com> writes:
 
-> Timer expiration is not dependent on latency, nor is IP ID wrap time.
+> Dave,
+>         Shouldn't that be an estimator on the destination RTT? Or is that
+> what you meant? A fast link locally that traverses a slow path along the 
+> way
+> would time out too fast.
+>         Of course, getting an RTT estimate if there hasn't been TCP 
+> traffic
+> is a complication. :-)
 
-IP ID wrap time depends on the rate at which IP datgrams are generated.  That 
-will depend on latency if the stuff sitting above IP is latency sensitive and/or 
-has not increased its "window" (classic TCP, or number of outstanding NFS 
-requests ets) to compensate for latency.
+At least for a directly connected flat network you could get it from ARP.
 
-So, it is certainly true that one cannot ass-u-me that a high latency path 
-cannot have IP ID wrap, but latency can indeed be a factor in how quickly IP IDs 
-will wrap in a given situation.
-
-rick jones
+-Andi
