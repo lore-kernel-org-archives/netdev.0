@@ -1,39 +1,55 @@
-From: Rick Jones <rick.jones2@hp.com>
+From: David Stevens <dlstevens@us.ibm.com>
 Subject: Re: [RFC/PATCH] "strict" ipv4 reassembly
-Date: Tue, 17 May 2005 15:23:49 -0700
-Message-ID: <428A6EF5.9080509@hp.com>
-References: <20050517202730.GA79960@muc.de>	<20050517.140245.71090021.davem@davemloft.net>	<428A613F.1020303@hp.com> <20050517.151239.74747463.davem@davemloft.net>
+Date: Tue, 17 May 2005 15:40:23 -0700
+Message-ID: <OF16EC9302.031C4230-ON88257004.007BA491-88257004.007C8D46@us.ibm.com>
+References: <428A6DAF.7040600@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset="US-ASCII"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <20050517.151239.74747463.davem@davemloft.net>
+In-Reply-To: <428A6DAF.7040600@hp.com>
+To: Rick Jones <rick.jones2@hp.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S.Miller wrote:
-> From: Rick Jones <rick.jones2@hp.com>
-> Date: Tue, 17 May 2005 14:25:19 -0700
-> 
-> 
->>just how much extra overhead would there be to track the interarrival time of ip 
->>datagram fragments and would that allow someone to make a guess as to how long 
->>to reasonably wait for all the fragments to arrive? (or did I miss that being 
->>shot-down already?)
-> 
-> 
-> I spam you with fragments tightly interspaced matching a known
-> shost/dhost/ID tuple, lowering your interarrival estimate.  The
-> legitimate fragment source can thus never get his fragments in
-> before the timer expires.
-> 
-> Every other one of these IP fragmentation ideas tends to have
-> some DoS hole in it.
+> in broad handwaving terms, those N other datagrams (non-fragmented or 
+fragmented
+> and successfully reassembled or not I suspect) are a measure of just how 
+far
+> "out of order" the rest of the fragments of this datagram happen to be. 
+for
+> some degree of "out of orderness" we can ass-u-me the datagram is toast.
 
-Are the holes any larger than the existing ones?  I've no idea, and perhaps the 
-only answer is indeed to say "Then don't do that (fragment)!"
+> chosing a strawman, if we've received 24000 datagrams from that 
+source/dest/prot
+> (perhaps even just that source) since we've started reassembling this 
+datagram
+> from that source/dest/prot, chances seem pretty good indeed that this 
+datagram
+> is toast.  a value of N even smaller than 24000 might suffice.
 
-rick jones
+> the devil seems to be in the accounting.
+
+        This assumes that you have a per-destination IP ID. If it's 
+per-route,
+you can send 1 packet to host A, 65534 to host B through the same route, 
+and
+1 to host A-- wrap on the next received packet, as far as host A is 
+concerned.
+(even sooner, if it's using randomized ID's or a bigger-than-1 increment).
+        Since it's the other side, which need not be Linux, I think
+assumptions about how ID's are generated open the possibility of breaking
+something that works now.
+        I think an estimator for the interarrival time of fragments for
+the same packet, per destination, is what you really want here. The
+problem is path changes can cause the timeout to change dramatically,
+and you don't want something too short to cause you to drop packets
+when there was no wrap. But if it's a conservative estimate, it beats
+accidental corruption.
+        I can do DoS or intentional corruption if I can generate a
+fragment as soon as I know the ID (by guessing, or by getting my
+fragment in after I've seen the the first one sent), so I'm not
+sure that can be fixed, except by using IPsec, if it concerns you. :-)
+
+                                                        +-DLS
