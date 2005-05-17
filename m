@@ -1,27 +1,33 @@
-From: David Stevens <dlstevens@us.ibm.com>
+From: John Heffner <jheffner@psc.edu>
 Subject: Re: [RFC/PATCH] "strict" ipv4 reassembly
-Date: Tue, 17 May 2005 12:56:05 -0700
-Message-ID: <OF0221F508.AD091D99-ON88257004.006D0C52-88257004.006D8293@us.ibm.com>
-References: <m1sm0l7jcl.fsf@muc.de>
+Date: Tue, 17 May 2005 16:05:20 -0400
+Message-ID: <200505171605.21093.jheffner@psc.edu>
+References: <Pine.LNX.4.61.0505170914130.29021@linux.site> <200505171531.37167.jheffner@psc.edu> <428A4B74.4050503@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: akepner@sgi.com, "David S. Miller" <davem@davemloft.net>,
-        John Heffner <jheffner@psc.edu>, netdev@oss.sgi.com,
-        netdev-bounce@oss.sgi.com
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <m1sm0l7jcl.fsf@muc.de>
-To: Andi Kleen <ak@muc.de>
+To: Nivedita Singhvi <niv@us.ibm.com>
+In-Reply-To: <428A4B74.4050503@us.ibm.com>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Dave,
-        Shouldn't that be an estimator on the destination RTT? Or is that
-what you meant? A fast link locally that traverses a slow path along the 
-way
-would time out too fast.
-        Of course, getting an RTT estimate if there hasn't been TCP 
-traffic
-is a complication. :-)
+On Tuesday 17 May 2005 03:52 pm, Nivedita Singhvi wrote:
+> John Heffner wrote:
+> > On Tuesday 17 May 2005 03:25 pm, Nivedita Singhvi wrote:
+> >>Yes, a different manifestation of the problem ;). I was talking
+> >>in the context of current Linux code and the common ethernet drivers
+> >>and typical current Internet/Intranet latencies.
+> >
+> > The problem is latency independent.
+>
+> Not entirely - because our reassembly timeout expires, typically.
+> (If I understand you right).
 
-                                                +-DLS
+Timer expiration is not dependent on latency, nor is IP ID wrap time.
+
+  -John
