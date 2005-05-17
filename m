@@ -1,33 +1,32 @@
-From: Arthur Kepner <akepner@sgi.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [RFC/PATCH] "strict" ipv4 reassembly
-Date: Tue, 17 May 2005 15:06:40 -0700 (PDT)
-Message-ID: <Pine.LNX.4.61.0505171501510.3184@linux.site>
-References: <m1k6lx7gkf.fsf@muc.de> <20050517.132202.59028935.davem@davemloft.net>
- <20050517202730.GA79960@muc.de> <20050517.140245.71090021.davem@davemloft.net>
- <428A613F.1020303@hp.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com, netdev-bounce@oss.sgi.com
+Date: Wed, 18 May 2005 08:11:01 +1000
+Message-ID: <E1DYAHF-0006qW-00@gondolin.me.apana.org.au>
+References: <20050517.104947.112621738.davem@davemloft.net>
+Cc: akepner@sgi.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Rick Jones <rick.jones2@hp.com>
-In-Reply-To: <428A613F.1020303@hp.com>
+To: davem@davemloft.net (David S. Miller)
+In-Reply-To: <20050517.104947.112621738.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+David S. Miller <davem@davemloft.net> wrote:
+>
+> Decreasing ipfrag_time is also not an option, because then
 
-On Tue, 17 May 2005, Rick Jones wrote:
+Here is a possible solution to this:
 
-> ....
-> or an added heuristic of "if have reassembled N datagrams for the same
-> source/dest/protocol tuple with ID's "larger" than 'this one' since it has
-> arrived, we are probably going to wrap so might as well drop 'this one'"  for
-> some judicious and magical selection of N that may be a decent predictor of
-> wrap on top of some existing reassembly timout.
-> ....
+Instead of measuring the distance using time, let's measure it
+in terms of packet counts.  So every time we receive a fragmented
+packet, we find all waiting fragments with the same src/dst pair.
+If the id is identical we perform reassembly, if it isn't we increase
+a counter in that fragment.  If the counter exceeds a threshold,
+we drop the fragment.
 
-How do you define "larger" in this case? A sender is free to choose 
-any ID - they can't be assumed to be montonic, for sure. 
-
---
-Arthur
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
