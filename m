@@ -1,26 +1,33 @@
-From: "David S. Miller" <davem@davemloft.net>
+From: Arthur Kepner <akepner@sgi.com>
 Subject: Re: [RFC/PATCH] "strict" ipv4 reassembly
-Date: Tue, 17 May 2005 13:22:02 -0700 (PDT)
-Message-ID: <20050517.132202.59028935.davem@davemloft.net>
-References: <m1sm0l7jcl.fsf@muc.de>
-	<OF0221F508.AD091D99-ON88257004.006D0C52-88257004.006D8293@us.ibm.com>
-	<m1k6lx7gkf.fsf@muc.de>
+Date: Tue, 17 May 2005 13:21:13 -0700 (PDT)
+Message-ID: <Pine.LNX.4.61.0505171308220.29021@linux.site>
+References: <Pine.LNX.4.61.0505170914130.29021@linux.site>
+ <20050517.104947.112621738.davem@davemloft.net> <Pine.LNX.4.61.0505171104030.29021@linux.site>
+ <20050517.114829.115910656.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dlstevens@us.ibm.com, akepner@sgi.com, jheffner@psc.edu,
-        netdev@oss.sgi.com, netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ak@muc.de
-In-Reply-To: <m1k6lx7gkf.fsf@muc.de>
+To: "David S.Miller" <davem@davemloft.net>
+In-Reply-To: <20050517.114829.115910656.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Andi Kleen <ak@muc.de>
-Date: Tue, 17 May 2005 22:17:36 +0200
 
-> At least for a directly connected flat network you could get it from ARP.
+On Tue, 17 May 2005, David S.Miller wrote:
 
-So we can make this host based, and store that "arp RTT" thing in the
-inetpeer cache.  :-)
+> ....
+> Can I tell users to call you when they enable the strict
+> fragmentation and they can no longer talk UDP to
+> remote sites outside of their subnet, or it breaks
+> on their heavily SMP machine due to natural system local
+> packet reordering?
+> ....
+
+I'd much rather take that call than one from a customer 
+whose data has been quietly corrupted.
+
+--
+Arthur
