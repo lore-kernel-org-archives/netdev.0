@@ -1,80 +1,35 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 11/12] orinoco: monitor mode support
-Date: Tue, 17 May 2005 23:22:17 +0200
-Message-ID: <20050517212217.GB12936@electric-eye.fr.zoreil.com>
-References: <20050514153100.GL3643@lst.de> <20050514173947.GA32235@electric-eye.fr.zoreil.com> <1116358994.5534.2.camel@dv.roinet.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [RFC/PATCH] "strict" ipv4 reassembly
+Date: Tue, 17 May 2005 14:25:19 -0700
+Message-ID: <428A613F.1020303@hp.com>
+References: <m1k6lx7gkf.fsf@muc.de>	<20050517.132202.59028935.davem@davemloft.net>	<20050517202730.GA79960@muc.de> <20050517.140245.71090021.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Hellwig <hch@lst.de>, jgarzik@pobox.com,
-        hermes@gibson.dropbear.id.au, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev-bounce@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Pavel Roskin <proski@gnu.org>
-Content-Disposition: inline
-In-Reply-To: <1116358994.5534.2.camel@dv.roinet.com>
+To: netdev@oss.sgi.com
+In-Reply-To: <20050517.140245.71090021.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Pavel Roskin <proski@gnu.org> :
-> On Sat, 2005-05-14 at 19:39 +0200, Francois Romieu wrote:
-> > > + drop:
-> > > +	stats->rx_errors++;
-> > > +	stats->rx_dropped++;
-> > > +}
-> > 
-> > -> leak (skb).
-> 
-> Indeed.  Thank you!  Please apply this on top of the original patches:
-> 
-> Signed-off-by: Pavel Roskin <proski@gnu.org>
-> 
-> --- orinoco.c
-> +++ orinoco.c
-> @@ -1180,7 +1180,7 @@ static void orinoco_rx_monitor(struct ne
->  	u16 fc;
->  	int err;
->  	int len;
-> -	struct sk_buff *skb;
-> +	struct sk_buff *skb = NULL;
->  	struct orinoco_private *priv = netdev_priv(dev);
->  	struct net_device_stats *stats = &priv->stats;
->  	hermes_t *hw = &priv->hw;
-> @@ -1268,6 +1268,8 @@ static void orinoco_rx_monitor(struct ne
->   drop:
->  	stats->rx_errors++;
->  	stats->rx_dropped++;
-> +	if (skb)
-> +		dev_kfree_skb_irq(skb);
->  }
->  
->  static void __orinoco_ev_rx(struct net_device *dev, hermes_t *hw)
-> 
-> 
+this may be drifting tooo much, but it seems the issue of deciding when to 
+give-up on reassembly of an IP datagram is similar to the issues that neterion 
+are going to be going-through creating their "LRO" (Large Receive Offload) 
+solution, albeit the potential consequences of a bad decision are rather different.
 
-I am not fond of unneeded/hidden state variable. What about:
+both seek to know when it is unlikely that no more frames/fragments will arrive.
 
-+       /* sanity check the length */
-+       if (datalen > IEEE80211_DATA_LEN + 12) {
-+               printk(KERN_DEBUG "%s: oversized monitor frame, "
-+                      "data length = %d\n", dev->name, datalen);
-+               err = -EIO;
-+               goto drop;
-                ^^^^^^^^^^ -> let's replace by 'goto update_stats;'
-And turn:
-+   drop:
-+       stats->rx_errors++;
-+       stats->rx_dropped++;
+just how much extra overhead would there be to track the interarrival time of ip 
+datagram fragments and would that allow someone to make a guess as to how long 
+to reasonably wait for all the fragments to arrive? (or did I miss that being 
+shot-down already?)
 
-into:
+or an added heuristic of "if have reassembled N datagrams for the same 
+source/dest/protocol tuple with ID's "larger" than 'this one' since it has 
+arrived, we are probably going to wrap so might as well drop 'this one'"  for 
+some judicious and magical selection of N that may be a decent predictor of wrap 
+on top of some existing reassembly timout.
 
-+   drop:
-+       dev_kfree_skb_irq(skb);     
-+   update_stats:
-+       stats->rx_errors++;
-+       stats->rx_dropped++;
-
-This way 'goto drop' really drops and the code does not issue a 'goto drop'
-when it actually want to update the stats.
-
---
-Ueimor
+rick jones
