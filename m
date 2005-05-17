@@ -1,40 +1,28 @@
-From: "David S. Miller" <davem@davemloft.net>
+From: Rick Jones <rick.jones2@hp.com>
 Subject: Re: [RFC/PATCH] "strict" ipv4 reassembly
-Date: Tue, 17 May 2005 11:48:29 -0700 (PDT)
-Message-ID: <20050517.114829.115910656.davem@davemloft.net>
-References: <Pine.LNX.4.61.0505170914130.29021@linux.site>
-	<20050517.104947.112621738.davem@davemloft.net>
-	<Pine.LNX.4.61.0505171104030.29021@linux.site>
+Date: Tue, 17 May 2005 11:56:55 -0700
+Message-ID: <428A3E77.6070405@hp.com>
+References: <Pine.LNX.4.61.0505170914130.29021@linux.site>	<20050517.104947.112621738.davem@davemloft.net>	<m1zmut7l5q.fsf@muc.de> <20050517.115020.119241057.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: akepner@sgi.com
-In-Reply-To: <Pine.LNX.4.61.0505171104030.29021@linux.site>
+To: netdev@oss.sgi.com
+In-Reply-To: <20050517.115020.119241057.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Arthur Kepner <akepner@sgi.com>
-Date: Tue, 17 May 2005 11:28:05 -0700 (PDT)
+> I already know it happens, and that IBM has gotten NFS corruption due
+> to this problem.  
 
-> On Tue, 17 May 2005, David S.Miller wrote:
+Frankengrams can be fun :)
+
+> Using NFS over UDP is stupid.
 > 
-> > Decreasing ipfrag_time is also not an option, because then
-> > you break fragmentation for packet radio folks :-)
-> 
-> Different sysctls for different folks....
+> I find it ironic to claim that folks are "stuck with UDP over NFS" but
+> were able to upgrade their networking technology to gigabit.
 
-Can I tell users to call you when they enable the strict
-fragmentation and they can no longer talk UDP to
-remote sites outside of their subnet, or it breaks
-on their heavily SMP machine due to natural system local
-packet reordering?
+It would seem new NIC drivers ship more easily than new NFS/OS bits in some places.
 
-Packet reordering happens on the local machine with SMP.
-There is no way to avoid this.  And when it triggers your
-patch will drop frags on the ground all the time.
-
-If you want to fix things, do it without knowingly breaking
-stuff that does currently work.
+rick  jones
