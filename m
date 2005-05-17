@@ -1,33 +1,35 @@
-From: Arthur Kepner <akepner@sgi.com>
+From: Andi Kleen <ak@muc.de>
 Subject: Re: [RFC/PATCH] "strict" ipv4 reassembly
-Date: Tue, 17 May 2005 13:21:13 -0700 (PDT)
-Message-ID: <Pine.LNX.4.61.0505171308220.29021@linux.site>
-References: <Pine.LNX.4.61.0505170914130.29021@linux.site>
- <20050517.104947.112621738.davem@davemloft.net> <Pine.LNX.4.61.0505171104030.29021@linux.site>
- <20050517.114829.115910656.davem@davemloft.net>
+Date: 17 May 2005 22:27:30 +0200
+Message-ID: <20050517202730.GA79960@muc.de>
+References: <m1sm0l7jcl.fsf@muc.de> <OF0221F508.AD091D99-ON88257004.006D0C52-88257004.006D8293@us.ibm.com> <m1k6lx7gkf.fsf@muc.de> <20050517.132202.59028935.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: dlstevens@us.ibm.com, akepner@sgi.com, jheffner@psc.edu,
+        netdev@oss.sgi.com, netdev-bounce@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S.Miller" <davem@davemloft.net>
-In-Reply-To: <20050517.114829.115910656.davem@davemloft.net>
+Date: Tue, 17 May 2005 22:27:30 +0200
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20050517.132202.59028935.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Tue, May 17, 2005 at 01:22:02PM -0700, David S. Miller wrote:
+> From: Andi Kleen <ak@muc.de>
+> Date: Tue, 17 May 2005 22:17:36 +0200
+> 
+> > At least for a directly connected flat network you could get it from ARP.
+> 
+> So we can make this host based, and store that "arp RTT" thing in the
+> inetpeer cache.  :-)
 
-On Tue, 17 May 2005, David S.Miller wrote:
+Arghl, you said the "i" word....
+Anyways, I think the neighbour cache is fully appropiate, is it not?
 
-> ....
-> Can I tell users to call you when they enable the strict
-> fragmentation and they can no longer talk UDP to
-> remote sites outside of their subnet, or it breaks
-> on their heavily SMP machine due to natural system local
-> packet reordering?
-> ....
+But it's not clear such a hack would be worth it anyways. 
+If anything it would be probably better to let mountd set the RTTs, e.g. 
+implicitely with MSG_CONFIRM (I hope it is using it these days ...) 
 
-I'd much rather take that call than one from a customer 
-whose data has been quietly corrupted.
-
---
-Arthur
+-Andi
