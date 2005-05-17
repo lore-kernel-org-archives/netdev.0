@@ -1,38 +1,35 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: Rick Jones <rick.jones2@hp.com>
 Subject: Re: [RFC/PATCH] "strict" ipv4 reassembly
-Date: Wed, 18 May 2005 09:41:58 +1000
-Message-ID: <20050517234158.GA27006@gondor.apana.org.au>
-References: <E1DYAHF-0006qW-00@gondolin.me.apana.org.au> <20050517.151352.41634495.davem@davemloft.net> <20050517230833.GA26604@gondor.apana.org.au> <20050517.161641.74747565.davem@davemloft.net> <20050517232828.GA26894@gondor.apana.org.au> <428A800F.6040809@trash.net>
+Date: Tue, 17 May 2005 16:53:39 -0700
+Message-ID: <428A8403.7000901@hp.com>
+References: <OF16EC9302.031C4230-ON88257004.007BA491-88257004.007C8D46@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, akepner@sgi.com,
-        netdev@oss.sgi.com, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <428A800F.6040809@trash.net>
+To: netdev@oss.sgi.com
+In-Reply-To: <OF16EC9302.031C4230-ON88257004.007BA491-88257004.007C8D46@us.ibm.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 18, 2005 at 01:36:47AM +0200, Patrick McHardy wrote:
+David Stevens wrote:
+
 > 
-> You mean vulnerable at reassembly time? Isn't that something reassembly
-> and policy checks should take care of?
+> This assumes that you have a per-destination IP ID. If it's per-route, you
+> can send 1 packet to host A, 65534 to host B through the same route, and 1 to
+> host A-- wrap on the next received packet, as far as host A is concerned. 
+> (even sooner, if it's using randomized ID's or a bigger-than-1 increment).
 
-I mean that it's vulnerable to the following simple DoS attack by
-someone who doesn't otherwise have the capability to drop the
-packets between the source and the target.
+If we were actually looking at the ID's themselves, rather than the count of
+datagrams received that would be correct, but someone already pointed-out that
+ass-u-me-ing monotonic increasing was not a good thing, so simply count
+datagrams completed/recevied on that source/dest pair instead.  Then we don't
+really care about the sender's IP ID assignment policy.
 
-If the IPsec packets arrive as fragments, the attacker only needs
-to guess the identity to cause the entire IPsec packet to be dropped.
+If someone wants to hit that with a DoS attack, I'm still wondering if that is a
+large DoS hole, (larger than existing ones with spoofing fragments) and the
+extent to which it depends on whether the attacker is closer to me than the
+sender or "on the other side" of the sender from me.
 
-If it was fragmented prior to IPsec it would not be vulnerable to
-this.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+rick jones
