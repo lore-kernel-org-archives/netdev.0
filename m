@@ -1,359 +1,189 @@
-From: Arthur Kepner <akepner@sgi.com>
-Subject: [RFC/PATCH] "strict" ipv4 reassembly
-Date: Tue, 17 May 2005 09:18:26 -0700 (PDT)
-Message-ID: <Pine.LNX.4.61.0505170914130.29021@linux.site>
+From: Jon Mason <jdmason@us.ibm.com>
+Subject: Re: Interdomain/interpartition communication without a checksum
+Date: Tue, 17 May 2005 11:34:20 -0500
+Message-ID: <20050517163420.GA19251@us.ibm.com>
+References: <20050511183554.GA28298@us.ibm.com> <20050516.130737.77060495.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
+Cc: jdmason@us.ibm.com, netdev@oss.sgi.com, niv@us.ibm.com,
+        habanero@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20050516.130737.77060495.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Mon, May 16, 2005 at 01:07:37PM -0700, David S. Miller wrote:
+> From: Jon Mason <jdmason@us.ibm.com>
+> Date: Wed, 11 May 2005 13:35:54 -0500
+> 
+> > I have been working on a Xen project to remove unnecessary TCP/UDP
+> > checksums for local (interdomain) communication, while still having the
+> > checksum for all external network communication.  
+> 
+> I have no objections to this idea.  But let's think about
+> the implementation.
 
-The Problem
------------
+Fantastic!  
 
-There's a well-known problem with IPv4 fragmentation/ 
-reassembly - the 16-bit IP ID can uniquely identify 
-only 65535 datagrams, and a gigabit/sec source can 
-emit that many datagrams in seconds. Since fragments 
-can sit on a reassembly queue for a "long time" 
-(30 seconds is the default in Linux), there's a 
-possibility of reassembling fragments from different 
-datagrams.
+What I am attempting to do is identify the packets that have no
+checksum, and checksum them (either by hardware or software).  There is
+already an existing infrastructure for checksumming the packets by
+using HW_CSUM.
 
-The Bigger Problem
-------------------
+I've been mostly looking into the bridging case, but I would
+like an implimentation which works for every packet forwarding case.
+Here are the problems I see (there might be more):
 
-This is mainly a problem for UDP, where IP fragmentation 
-at the source is not uncommon. The UDP checksum is only 
-16 bits, so there's a not-insignificant possibility that 
-it won't detect when a datagram has been incorrectly 
-reassembled. The result can be silent data corruption, 
-and much unhappiness.
+1. skb->h.raw is set to skb->data in netif_receive_skb() (which prevents
+the forwarding/backend driver from setting it to the proper value, so it 
+must be set on the output).
 
-What next?
-----------
+2. skb->ip_summed is set to CHECKSUM_NONE in both routing and bridging, 
+thereby preventing the forwarding driver from setting CHECKSUM_HW.
 
-This is a fundamental problem with IP(v4), which was 
-designed before people dreamed of gigabit/sec network 
-links. There's no simple, completely effective fix that 
-preserves compatability. 
+I would prefer to set the proper values for skb->h.raw and
+skb->ip_summed in the forwarding/backend driver.
 
-There has been at least a little discussion here 
-before:
-http://marc.theaimsgroup.com/?l=linux-netdev&m=108987122412812&w=2
 
-A simple, obvious, partial remedy is to tune 
-"sysctl_ipfrag_time" down.
+> > +	/* If packet is forwarded to a device that needs a checksum and not 
+> > +	 * checksummed, correct the pointers and enable checksumming in the 
+> > +	 * next function.
+> > +	 */
+> > +	if (!(dev->features & NETIF_F_FWD_NO_CSUM) && skb->csum) {
+> > +		skb->ip_summed = CHECKSUM_HW;
+> > +		skb->h.raw = (void *)skb->nh.iph + (skb->nh.iph->ihl * 4);
+> > +	}
+> > +
+> 
+> This means that every packet which the networking tries to checksum
+> offload will pass this test, superfluously doing these assignments.
 
-Another simple change which preserves compatability in 
-practice, is "strict ipv4 reassembly". Being "strict" about 
-reassembly means that you don't allow gaps or overlaps in 
-the reassembly queue. Fragments which would introduce gaps 
-or overlaps are dropped. Disallowing gaps and overlaps also 
-implies that:
+Even worse, every packet which comes from the local system and has a
+checksum already will pass this test. I hit this problem last week, 
+and had to redo the implimentation.  Silly mistake on my part, and 
+very obvious once I went looking for the cause of my problem.  
 
-  1) Fragments must arrive in order (or in reverse order) -
-     out of order fragments are dropped. 
+> It also assumes ipv4.  ipv6 is possible, and for NETIF_F_CHECKSUM_HW
+> any protocol could be creating the packets as this flag indicates
+> that the card implements a totally generic 16-bit two's complement
+> checksum.
 
-  2) If the first (or last) fragment of a datagram arrives 
-     and there's already a reassembly queue for that (proto, 
-     ipid, src, dst), then the existing reassembly queue is
-     dropped, and a new one started.
+Yes, anything which encapsulates TCP/UDP packets is valid.  Good catch.
+I'll have to look at way to fix that.
 
-Strict reassembly has been very effective in practice at 
-preventing incorrect IP reassembly. (We have tests which 
-attempt to produce and then detect corruption produced 
-by bad IP reassembly.)
+After fixing the former problem,  I came up with the code below
+(with no fix for the latter problem yet).  It was created against the
+2.6.11.8 kernel. 
 
-Following is a patch which implements strict reassembly. 
-Strict reassembly is off by default (so the default 
-behavior is not changed.)  Strict reassembly is enabled 
-by doing "echo 1 > /proc/sys/net/ipv4/strict_reassembly".
+Let me know what you think.
 
-Patch is against 2.6.12-rc4.
+Thanks,
+Jon
 
- include/linux/sysctl.h     |    1
- net/ipv4/ip_fragment.c     |  189 ++++++++++++++++++++++++++++++++++++++++++++-
- net/ipv4/sysctl_net_ipv4.c |    9 ++
- 3 files changed, 198 insertions(+), 1 deletion(-)
-
-Signed-off-by: Arthur Kepner <akepner@sgi.com>
-
-diff -pur linux.old/include/linux/sysctl.h linux.new/include/linux/sysctl.h
---- linux.old/include/linux/sysctl.h	2005-05-16 16:29:55.236056917 -0700
-+++ linux.new/include/linux/sysctl.h	2005-05-17 00:57:16.889588271 -0700
-@@ -347,6 +347,7 @@ enum
- 	NET_TCP_MODERATE_RCVBUF=106,
- 	NET_TCP_TSO_WIN_DIVISOR=107,
- 	NET_TCP_BIC_BETA=108,
-+	NET_IPV4_STRICT_REASM=109,
- };
+--- ../xen-unstable-pristine/linux-2.6.11-xen0/include/linux/skbuff.h	2005-03-02 01:38:38.000000000 -0600
++++ linux-2.6.11-xen0/include/linux/skbuff.h	2005-05-13 10:43:08.000000000 -0500
+@@ -37,6 +37,10 @@
+ #define CHECKSUM_HW 1
+ #define CHECKSUM_UNNECESSARY 2
  
- enum {
-diff -pur linux.old/net/ipv4/ip_fragment.c linux.new/net/ipv4/ip_fragment.c
---- linux.old/net/ipv4/ip_fragment.c	2005-05-16 16:30:18.610281655 -0700
-+++ linux.new/net/ipv4/ip_fragment.c	2005-05-17 00:53:53.243293277 -0700
-@@ -56,6 +56,9 @@
- int sysctl_ipfrag_high_thresh = 256*1024;
- int sysctl_ipfrag_low_thresh = 192*1024;
- 
-+/* strict reassembly is off by default */
-+int sysctl_strict_reassembly = 0;
++#define SKB_CLONED	1
++#define SKB_NOHDR	2
++#define SKB_FDW_NO_CSUM	4
 +
- /* Important NOTE! Fragment queue must be destroyed before MSL expires.
-  * RFC791 is wrong proposing to prolongate timer each fragment arrival by TTL.
+ #define SKB_DATA_ALIGN(X)	(((X) + (SMP_CACHE_BYTES - 1)) & \
+ 				 ~(SMP_CACHE_BYTES - 1))
+ #define SKB_MAX_ORDER(X, ORDER)	(((PAGE_SIZE << (ORDER)) - (X) - \
+@@ -238,7 +242,7 @@ struct sk_buff {
+ 				mac_len,
+ 				csum;
+ 	unsigned char		local_df,
+-				cloned,
++				flags,
+ 				pkt_type,
+ 				ip_summed;
+ 	__u32			priority;
+@@ -370,7 +374,7 @@ static inline void kfree_skb(struct sk_b
   */
-@@ -353,6 +356,24 @@ static struct ipq *ip_frag_create(unsign
+ static inline int skb_cloned(const struct sk_buff *skb)
  {
- 	struct ipq *qp;
- 
-+	if (sysctl_strict_reassembly) {
-+		/* make a new reassembly queue iff this is the first or
-+		 * last fragment */
-+		int frag_off = ntohs(iph->frag_off);
-+		int offset   = (frag_off & IP_OFFSET);
-+
-+		if ((offset == 0) && !(frag_off & IP_MF)) {
-+			/* first fragment and there aren't anymore coming -
-+			 * nonsense, drop the fragment */
-+			return NULL;
-+		}
-+		if ((offset != 0) && (frag_off & IP_MF)) {
-+			/* if this isn't either the first or last fragment,
-+			 * don't make a new reassembly queue */
-+			return NULL;
-+		}
-+	}
-+
- 	if ((qp = frag_alloc_queue()) == NULL)
- 		goto out_nomem;
- 
-@@ -381,6 +402,35 @@ out_nomem:
- 	return NULL;
+-	return skb->cloned && atomic_read(&skb_shinfo(skb)->dataref) != 1;
++	return (skb->flags & SKB_CLONED) && atomic_read(&skb_shinfo(skb)->dataref) != 1;
  }
  
-+/* a reassembly queue match has been found and we're being
-+ * "strict" about reassembly. If this fragment is first (last)
-+ * in a reassembly queue which already has a first (last)
-+ * fragment, then drop the existing reassembly queue. Return
-+ * 1 if the existing queue was dropped, 0 otherwise.
-+ *
-+ * This function is called with (and returns with) a read_lock
-+ * on ipfrag_lock
-+ */
-+static int __ip_find_strict_check(const struct iphdr *iph, struct ipq *qp)
-+{
-+	int frag_off = ntohs(iph->frag_off);
-+	int offset   = (frag_off & IP_OFFSET);
-+
-+	if (((offset == 0) && (qp->last_in & FIRST_IN)) ||
-+		(!(frag_off & IP_MF) && (qp->last_in & LAST_IN))) {
-+		atomic_inc(&qp->refcnt);
-+		read_unlock(&ipfrag_lock);
-+		spin_lock(&qp->lock);
-+		if (!(qp->last_in&COMPLETE))
-+			ipq_kill(qp);
-+		spin_unlock(&qp->lock);
-+		ipq_put(qp, NULL);
-+		read_lock(&ipfrag_lock);
-+		return 1;
-+	}
-+	return 0;
-+}
-+
- /* Find the correct entry in the "incomplete datagrams" queue for
-  * this IP datagram, and create new one, if nothing is found.
-  */
-@@ -400,6 +450,10 @@ static inline struct ipq *ip_find(struct
- 		   qp->daddr == daddr	&&
- 		   qp->protocol == protocol &&
- 		   qp->user == user) {
-+			if (sysctl_strict_reassembly &&
-+				__ip_find_strict_check(iph, qp)) {
-+				break;
-+			}
- 			atomic_inc(&qp->refcnt);
- 			read_unlock(&ipfrag_lock);
- 			return qp;
-@@ -549,6 +603,136 @@ err:
- 	kfree_skb(skb);
- }
+ /**
+--- ../xen-unstable-pristine/linux-2.6.11-xen0/net/core/skbuff.c	2005-03-02 01:38:17.000000000 -0600
++++ linux-2.6.11-xen0/net/core/skbuff.c	2005-05-13 11:47:51.000000000 -0500
+@@ -240,7 +240,7 @@ static void skb_clone_fraglist(struct sk
  
-+/* Add new segment to existing queue using "strict" semantics. 
-+ * The segment is rejected if it introduces gaps in the reassembly 
-+ * queue or overlaps with any existing fragments in the reassembly 
-+ * queue. 
-+ */
-+static void ip_frag_queue_strict(struct ipq *qp, struct sk_buff *skb)
-+{
-+	struct sk_buff *prev, *next;
-+	int flags, offset;
-+	int ihl, end;
-+
-+	if (qp->last_in & COMPLETE)
-+		goto err;
-+
-+ 	offset = ntohs(skb->nh.iph->frag_off);
-+	flags = offset & ~IP_OFFSET;
-+	offset &= IP_OFFSET;
-+	offset <<= 3;		/* offset is in 8-byte chunks */
-+ 	ihl = skb->nh.iph->ihl * 4;
-+
-+	/* Determine the position of this fragment. */
-+ 	end = offset + skb->len - ihl;
-+
-+	if ((!(flags & IP_MF) && (qp->last_in & LAST_IN)) ||
-+		((offset == 0) && (qp->last_in & FIRST_IN))) {
-+		/* This can happen only if sysctl_strict_reassembly 
-+		 * was toggled on after we did ip_find() for this 
-+		 * fragment.
-+		 */
-+		goto err;
-+	}
-+
-+	/* Is this the final fragment? */
-+	if ((flags & IP_MF) == 0) {
-+		/* If we already have some bits beyond end 
-+		 * drop this fragment.
-+		 */
-+		if (end < qp->len)
-+			goto err;
-+		qp->len = end;
-+	} else {
-+		if (end&7) {
-+			end &= ~7;
-+			if (skb->ip_summed != CHECKSUM_UNNECESSARY)
-+				skb->ip_summed = CHECKSUM_NONE;
-+		}
-+		if (end > qp->len) {
-+			/* Some bits beyond end -> corruption. */
-+			if (qp->last_in & LAST_IN)
-+				goto err;
-+			qp->len = end;
-+		}
-+	}
-+	if (end == offset)
-+		goto err;
-+
-+	if (pskb_pull(skb, ihl) == NULL)
-+		goto err;
-+	if (pskb_trim(skb, end-offset))
-+		goto err;
-+
-+	/* Find out which fragments are in front and at the back of us
-+	 * in the chain of fragments so far.  We must know where to put
-+	 * this fragment, right?
+ void skb_release_data(struct sk_buff *skb)
+ {
+-	if (!skb->cloned ||
++	if (!(skb->flags & SKB_CLONED) ||
+ 	    atomic_dec_and_test(&(skb_shinfo(skb)->dataref))) {
+ 		if (skb_shinfo(skb)->nr_frags) {
+ 			int i;
+@@ -352,7 +352,7 @@ struct sk_buff *skb_clone(struct sk_buff
+ 	C(data_len);
+ 	C(csum);
+ 	C(local_df);
+-	n->cloned = 1;
++	n->flags = skb->flags | SKB_CLONED;
+ 	C(pkt_type);
+ 	C(ip_summed);
+ 	C(priority);
+@@ -395,7 +395,7 @@ struct sk_buff *skb_clone(struct sk_buff
+ 	C(end);
+ 
+ 	atomic_inc(&(skb_shinfo(skb)->dataref));
+-	skb->cloned = 1;
++	skb->flags |= SKB_CLONED;
+ 
+ 	return n;
+ }
+@@ -603,7 +603,7 @@ int pskb_expand_head(struct sk_buff *skb
+ 	skb->mac.raw += off;
+ 	skb->h.raw   += off;
+ 	skb->nh.raw  += off;
+-	skb->cloned   = 0;
++	skb->flags    &= SKB_CLONED;
+ 	atomic_set(&skb_shinfo(skb)->dataref, 1);
+ 	return 0;
+ 
+--- ../xen-unstable-pristine/linux-2.6.11-xen0/net/core/dev.c	2005-03-02 01:38:09.000000000 -0600
++++ linux-2.6.11-xen0/net/core/dev.c	2005-05-13 11:47:01.000000000 -0500
+@@ -98,6 +98,7 @@
+ #include <linux/stat.h>
+ #include <linux/if_bridge.h>
+ #include <linux/divert.h>
++#include <net/ip.h> 
+ #include <net/dst.h>
+ #include <net/pkt_sched.h>
+ #include <net/checksum.h>
+@@ -1182,7 +1183,7 @@ int __skb_linearize(struct sk_buff *skb,
+ 	skb->data    += offset;
+ 
+ 	/* We are no longer a clone, even if we were. */
+-	skb->cloned    = 0;
++	skb->flags    &= ~SKB_CLONED;
+ 
+ 	skb->tail     += skb->data_len;
+ 	skb->data_len  = 0;
+@@ -1236,6 +1237,15 @@ int dev_queue_xmit(struct sk_buff *skb)
+ 	    __skb_linearize(skb, GFP_ATOMIC))
+ 		goto out_kfree_skb;
+ 
++	/* If packet is forwarded to a device that needs a checksum and not 
++	 * checksummed, correct the pointers and enable checksumming in the 
++	 * next function.
 +	 */
-+	prev = NULL;
-+	for(next = qp->fragments; next != NULL; next = next->next) {
-+		if (FRAG_CB(next)->offset >= offset)
-+			break;	/* bingo! */
-+		prev = next;
++	if (skb->flags & SKB_FDW_NO_CSUM) {
++		skb->ip_summed = CHECKSUM_HW;
++		skb->h.raw = (void *)skb->nh.iph + (skb->nh.iph->ihl * 4);
 +	}
 +
-+	WARN_ON(prev && next);
-+
-+	/* We found where to put this one. Make sure there are no overlaps */
-+
-+	if (prev) {
-+		int i = (FRAG_CB(prev)->offset + prev->len) - offset;
-+
-+		/* if i > 0, this fragment overlaps with the previous 
-+		 * fragment. if i < 0, this fragment would introduce a 
-+		 * "hole" in the reassembly chain. Drop it in either 
-+		 * case. 
-+		 */
-+
-+		if (i != 0) goto err;
-+
-+	}
-+
-+	if (next) {
-+		int i = end - FRAG_CB(next)->offset;
-+
-+		/* if i > 0, this fragment overlaps with the next.
-+		 * if i < 0,  this fragment would introduce a
-+		 * "hole" in the reassembly chain. Drop it in either
-+		 * case.
-+		 */
-+
-+		if (i != 0) goto err;
-+	}
-+
-+	FRAG_CB(skb)->offset = offset;
-+
-+	/* Insert this fragment in the chain of fragments. */
-+	skb->next = next;
-+	if (prev)
-+		prev->next = skb;
-+	else
-+		qp->fragments = skb;
-+
-+ 	if (skb->dev)
-+ 		qp->iif = skb->dev->ifindex;
-+	skb->dev = NULL;
-+	qp->stamp = skb->stamp;
-+	qp->meat += skb->len;
-+	atomic_add(skb->truesize, &ip_frag_mem);
-+	if (offset == 0)
-+		qp->last_in |= FIRST_IN;
-+	if ((flags & IP_MF) == 0) 
-+		qp->last_in |= LAST_IN;
-+
-+	write_lock(&ipfrag_lock);
-+	list_move_tail(&qp->lru_list, &ipq_lru_list);
-+	write_unlock(&ipfrag_lock);
-+
-+	return;
-+
-+err:
-+	kfree_skb(skb);
-+}
- 
- /* Build a new IP datagram from all its fragments. */
- 
-@@ -661,7 +845,10 @@ struct sk_buff *ip_defrag(struct sk_buff
- 
- 		spin_lock(&qp->lock);
- 
--		ip_frag_queue(qp, skb);
-+		if (sysctl_strict_reassembly)
-+			ip_frag_queue_strict(qp, skb);
-+		else
-+			ip_frag_queue(qp, skb);
- 
- 		if (qp->last_in == (FIRST_IN|LAST_IN) &&
- 		    qp->meat == qp->len)
-diff -pur linux.old/net/ipv4/sysctl_net_ipv4.c linux.new/net/ipv4/sysctl_net_ipv4.c
---- linux.old/net/ipv4/sysctl_net_ipv4.c	2005-05-16 16:30:31.773480692 -0700
-+++ linux.new/net/ipv4/sysctl_net_ipv4.c	2005-05-16 17:18:07.125138363 -0700
-@@ -29,6 +29,7 @@ extern int sysctl_ipfrag_low_thresh;
- extern int sysctl_ipfrag_high_thresh; 
- extern int sysctl_ipfrag_time;
- extern int sysctl_ipfrag_secret_interval;
-+extern int sysctl_strict_reassembly;
- 
- /* From ip_output.c */
- extern int sysctl_ip_dynaddr;
-@@ -258,6 +259,14 @@ ctl_table ipv4_table[] = {
- 		.strategy	= &sysctl_jiffies
- 	},
- 	{
-+		.ctl_name	= NET_IPV4_STRICT_REASM,
-+		.procname	= "strict_reassembly",
-+		.data		= &sysctl_strict_reassembly,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= &proc_dointvec
-+	},
-+	{
- 		.ctl_name	= NET_IPV4_TCP_KEEPALIVE_TIME,
- 		.procname	= "tcp_keepalive_time",
- 		.data		= &sysctl_tcp_keepalive_time,
-
-
---
-Arthur
+ 	/* If packet is not checksummed and device does not support
+ 	 * checksumming for this protocol, complete checksumming here.
+ 	 */
