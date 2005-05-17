@@ -1,35 +1,36 @@
-From: Rick Jones <rick.jones2@hp.com>
+From: "David S. Miller" <davem@davemloft.net>
 Subject: Re: [RFC/PATCH] "strict" ipv4 reassembly
-Date: Tue, 17 May 2005 14:25:19 -0700
-Message-ID: <428A613F.1020303@hp.com>
-References: <m1k6lx7gkf.fsf@muc.de>	<20050517.132202.59028935.davem@davemloft.net>	<20050517202730.GA79960@muc.de> <20050517.140245.71090021.davem@davemloft.net>
+Date: Tue, 17 May 2005 14:24:06 -0700 (PDT)
+Message-ID: <20050517.142406.11598558.davem@davemloft.net>
+References: <20050517202730.GA79960@muc.de>
+	<20050517.140245.71090021.davem@davemloft.net>
+	<20050517211300.GB79960@muc.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-bounce@oss.sgi.com
+Cc: dlstevens@us.ibm.com, akepner@sgi.com, jheffner@psc.edu,
+        netdev@oss.sgi.com, netdev-bounce@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <20050517.140245.71090021.davem@davemloft.net>
+To: ak@muc.de
+In-Reply-To: <20050517211300.GB79960@muc.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-this may be drifting tooo much, but it seems the issue of deciding when to 
-give-up on reassembly of an IP datagram is similar to the issues that neterion 
-are going to be going-through creating their "LRO" (Large Receive Offload) 
-solution, albeit the potential consequences of a bad decision are rather different.
+From: Andi Kleen <ak@muc.de>
+Date: 17 May 2005 23:13:01 +0200,Tue, 17 May 2005 23:13:00 +0200
 
-both seek to know when it is unlikely that no more frames/fragments will arrive.
+> On Tue, May 17, 2005 at 02:02:45PM -0700, David S. Miller wrote:
+> > From: Andi Kleen <ak@muc.de>
+> > Date: 17 May 2005 22:27:30 +0200,Tue, 17 May 2005 22:27:30 +0200
+> > 
+> > > But it's not clear such a hack would be worth it anyways. 
+> > > If anything it would be probably better to let mountd set the RTTs, e.g. 
+> > > implicitely with MSG_CONFIRM (I hope it is using it these days ...) 
+> > 
+> > I think we should implement a solution that goes beyond
+> > the confines of NFS.
+> 
+> Nothing in MSG_CONFIRM is NFS specific.
 
-just how much extra overhead would there be to track the interarrival time of ip 
-datagram fragments and would that allow someone to make a guess as to how long 
-to reasonably wait for all the fragments to arrive? (or did I miss that being 
-shot-down already?)
-
-or an added heuristic of "if have reassembled N datagrams for the same 
-source/dest/protocol tuple with ID's "larger" than 'this one' since it has 
-arrived, we are probably going to wrap so might as well drop 'this one'"  for 
-some judicious and magical selection of N that may be a decent predictor of wrap 
-on top of some existing reassembly timout.
-
-rick jones
+I'm referring to mountd.
