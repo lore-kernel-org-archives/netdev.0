@@ -1,37 +1,32 @@
-From: Ganesh Venkatesan <ganesh.venkatesan@gmail.com>
-Subject: Re: [PATCH] NUMA aware allocation of transmit and receive buffers for e1000
-Date: Wed, 18 May 2005 08:55:39 -0700
-Message-ID: <5fc59ff305051808558f1ce59@mail.gmail.com>
-References: <Pine.LNX.4.62.0505171854490.20408@graphe.net>
-	 <20050517190343.2e57fdd7.akpm@osdl.org>
-	 <Pine.LNX.4.62.0505171941340.21153@graphe.net>
-	 <20050517.195703.104034854.davem@davemloft.net>
-	 <Pine.LNX.4.62.0505172125210.22920@graphe.net>
-	 <20050517215845.2f87be2f.akpm@osdl.org>
-Reply-To: Ganesh Venkatesan <ganesh.venkatesan@gmail.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [RFC/PATCH] "strict" ipv4 reassembly
+Date: Wed, 18 May 2005 09:21:06 -0700
+Message-ID: <428B6B72.5010407@hp.com>
+References: <20050517.104947.112621738.davem@davemloft.net>	<E1DYAHF-0006qW-00@gondolin.me.apana.org.au>	<20050518004733.GG13748@postel.suug.ch>	<20050518011632.GA27813@gondor.apana.org.au> <20050518013712.GH13748@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: Christoph Lameter <christoph@lameter.com>, davem@davemloft.net,
-        linux-kernel@vger.kernel.org, netdev@oss.sgi.com, shai@scalex86.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20050517215845.2f87be2f.akpm@osdl.org>
-Content-Disposition: inline
+To: netdev@oss.sgi.com
+In-Reply-To: <20050518013712.GH13748@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 5/17/05, Andrew Morton <akpm@osdl.org> wrote:
-> I think the e1000 driver is being a bit insane there.  I figure that
-Do you mean insane to use vmalloc?
+If we ass-u-me that the sender is indeed using a random IP ID assignment 
+mechanism, 30000 is probably too many.  There are only 65536 possible ID's, and 
+if we "choose" 30000 of them there will undoubtedly be many duplicated.  Someone 
+who didn't fall asleep too often in ProbStats (unlike myself) can probably tell 
+us just how many.
 
-> sizeof(struct e1000_buffer) is 28 on 64-bit, so even with 4k pagesize we'll
-> always succeed in being able to support a 32k/32 = 1024-entry Tx ring.
-> 
-> Is there any real-world reason for wanting larger ring sizes than that?
-> 
-> 
-We have had cases where allocation of 32K of memory (via kmalloc) fails. 
+Also, I think the count has to be _any_ IP datagram on that src/dst pair, 
+fragmented or not.  Someone else pointed-out the possiblity of sending use one 
+fragmetned datagram, then 64K to someone else - well, those 64K to someone else 
+could just as easily be 64K non-fragmented IP datagrams to us, so it seems for a 
+measure of "out of orderness liklihood" we need to include non-fragmented IP 
+datagrams.
 
-ganesh.
+The thought of having to do added accounting on a non-fragmented datagram seems 
+unpleasant though.
+
+rick jones
