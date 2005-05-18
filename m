@@ -1,50 +1,39 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [RFC/PATCH] "strict" ipv4 reassembly
-Date: Wed, 18 May 2005 14:24:21 +0200
-Message-ID: <20050518122421.GB15391@postel.suug.ch>
-References: <20050517.104947.112621738.davem@davemloft.net> <E1DYAHF-0006qW-00@gondolin.me.apana.org.au> <20050518004733.GG13748@postel.suug.ch> <20050518011632.GA27813@gondor.apana.org.au> <20050518013712.GH13748@postel.suug.ch> <20050518015213.GB28070@gondor.apana.org.au> <20050518113030.GA15391@postel.suug.ch> <20050518114030.GA16993@gondor.apana.org.au>
+From: Andi Kleen <ak@muc.de>
+Subject: Re: [PATCH] NUMA aware allocation of transmit and receive buffers
+ for e1000
+Date: Wed, 18 May 2005 15:19:34 +0200
+Message-ID: <m1oeb86595.fsf@muc.de>
+References: <Pine.LNX.4.62.0505171854490.20408@graphe.net>
+	<20050517190343.2e57fdd7.akpm@osdl.org>
+	<Pine.LNX.4.62.0505171941340.21153@graphe.net>
+	<20050517.195703.104034854.davem@davemloft.net>
+	<Pine.LNX.4.62.0505172125210.22920@graphe.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, akepner@sgi.com,
-        netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Content-Disposition: inline
-In-Reply-To: <20050518114030.GA16993@gondor.apana.org.au>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: akpm@osdl.org, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+	shai@scalex86.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261762AbVERNTz@vger.kernel.org>
+To: Christoph Lameter <christoph@lameter.com>
+In-Reply-To: <Pine.LNX.4.62.0505172125210.22920@graphe.net> (Christoph
+ Lameter's message of "Tue, 17 May 2005 21:27:48 -0700 (PDT)")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Herbert Xu <20050518114030.GA16993@gondor.apana.org.au> 2005-05-18 21:40
-> On Wed, May 18, 2005 at 01:30:30PM +0200, Thomas Graf wrote:
-> >
-> > > I think it's big enough.  If it isn't it means that somebody
-> > > has reordered the packets by 30000 which I find hard to
-> > > believe :)
-> > 
-> > I was thinking about some kind of nfs server with huge recv
-> > buffers and increased limits receiving at 50kpps experiencing
-> > a delayed fragment once in a while. Definitely a rare case
-> > but not impossible ;->
-> 
-> The worst that can happen if 30000 is too low is that we drop
-> a packet when we shouldn't.  IMHO if a single host sends us an
-> incomplete packet, followed by 30000 unrelated fragments, and
-> finally a fragment of the original packet, then it is only
-> fair for us to drop that packet.
+Christoph Lameter <christoph@lameter.com> writes:
 
-Argueable but I generally agree.
+> On Tue, 17 May 2005, David S. Miller wrote:
+>
+>> > Because physically contiguous memory is usually better than virtually 
+>> > contiguous memory? Any reason that physically contiguous memory will 
+>> > break the driver?
+>> 
+>> The issue is whether size can end up being too large for
+>> kmalloc() to satisfy, whereas vmalloc() would be able to
+>> handle it.
+>
+> Oww.. We need a NUMA aware vmalloc for this?  
 
-> OTOH if you're arguing that 30000 is too high then you might have
-> a point.  However, in that respect it cannot be any worse than
-> what we have now which is essentially unlimited.
+You can do that already by just changing process NUMA policy temporarily
+while calling vmalloc.
 
-It's definitely better than what we have now, if the sender
-uses a per route or even per interface counter we're on the
-losing side anyway but if there are any gbit capable oses present
-which do that then it's really their problem. Not sure if it
-is small enough for randomly generated ids though.
-
-Anyways, I think that the assumption that at least 50% of the
-id space is actually used by the sender and seen by the receiver
-is fair enough.
+-Andi
