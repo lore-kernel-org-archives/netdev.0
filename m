@@ -1,34 +1,34 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [RFC/PATCH] "strict" ipv4 reassembly
-Date: Wed, 18 May 2005 10:09:55 +1000
-Message-ID: <20050518000955.GA27212@gondor.apana.org.au>
-References: <E1DYBED-0006wa-00@gondolin.me.apana.org.au> <Pine.LNX.4.61.0505171612440.3335@linux.site> <20050517232556.GA26846@gondor.apana.org.au> <m11x85762p.fsf@muc.de>
+Date: Wed, 18 May 2005 10:10:54 +1000
+Message-ID: <20050518001054.GB27212@gondor.apana.org.au>
+References: <E1DYBED-0006wa-00@gondolin.me.apana.org.au> <Pine.LNX.4.61.0505171612440.3335@linux.site> <20050517232556.GA26846@gondor.apana.org.au> <428A871F.1000308@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: dlstevens@us.ibm.com, rick.jones2@hp.com, netdev@oss.sgi.com
+Cc: Arthur Kepner <akepner@sgi.com>, dlstevens@us.ibm.com, rick.jones2@hp.com,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@muc.de>
+To: Nivedita Singhvi <niv@us.ibm.com>
 Content-Disposition: inline
-In-Reply-To: <m11x85762p.fsf@muc.de>
+In-Reply-To: <428A871F.1000308@us.ibm.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 18, 2005 at 02:04:14AM +0200, Andi Kleen wrote:
-> Herbert Xu <herbert@gondor.apana.org.au> writes:
-> >
-> > Perhaps you misunderstood what I was saying.  I meant are there any
-> > extant systems that would transmit 1 set of fragments to host A with
-> > id x, then 65535 packets host B, and then wrap around and send a new
-> > set of fragments to host A with idx.
-> >
-> > Linux will never do this thanks to inetpeer.c.
+On Tue, May 17, 2005 at 05:06:55PM -0700, Nivedita Singhvi wrote:
 > 
-> It will, you just need enough other hosts to thrash inetpeer. How many
-> you need depends on your available memory.
+> Mainline linux certainly has this (per-inetpeer ip_id) - but
+> at least one distro did not (use inetpeer) :). Not sure
+> what the current situation is.
 
-Even when the cache entry is deleted, Linux will allocate an ID randomly
-so the chance of what was stated above occuring is very small.
+What was the reason for this? Perhaps we can solve their problems
+with inetpeer in a better way than disabling it?
+
+> Of course, if all the traffic is on the same connection
+> (which isn't out of the ordinary) would still come down
+> to the same thing...
+
+Please see my proposal elsewhere in this thread.
 
 Cheers,
 -- 
