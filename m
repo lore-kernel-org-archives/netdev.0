@@ -1,44 +1,44 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC/PATCH] "strict" ipv4 reassembly
-Date: Wed, 18 May 2005 21:40:30 +1000
-Message-ID: <20050518114030.GA16993@gondor.apana.org.au>
-References: <20050517.104947.112621738.davem@davemloft.net> <E1DYAHF-0006qW-00@gondolin.me.apana.org.au> <20050518004733.GG13748@postel.suug.ch> <20050518011632.GA27813@gondor.apana.org.au> <20050518013712.GH13748@postel.suug.ch> <20050518015213.GB28070@gondor.apana.org.au> <20050518113030.GA15391@postel.suug.ch>
+From: =?iso-8859-1?Q?J=F6rn?= Engel <joern@wohnheim.fh-wedel.de>
+Subject: Re: [PATCH] reduce stack usage for arlan
+Date: Wed, 18 May 2005 14:20:43 +0200
+Message-ID: <20050518122043.GA28800@wohnheim.fh-wedel.de>
+References: <20050308153457.GB8703@wohnheim.fh-wedel.de> <428811FB.1050308@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, akepner@sgi.com,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
+To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <20050518113030.GA15391@postel.suug.ch>
+In-Reply-To: <428811FB.1050308@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 18, 2005 at 01:30:30PM +0200, Thomas Graf wrote:
->
-> > I think it's big enough.  If it isn't it means that somebody
-> > has reordered the packets by 30000 which I find hard to
-> > believe :)
-> 
-> I was thinking about some kind of nfs server with huge recv
-> buffers and increased limits receiving at 50kpps experiencing
-> a delayed fragment once in a while. Definitely a rare case
-> but not impossible ;->
+On Sun, 15 May 2005 23:22:35 -0400, Jeff Garzik wrote:
+> J=F6rn Engel wrote:
+> >Jean Tourrilhes indicated that this driver is currently unmaintained.
+> >Jeff, do you want this patch?
+>=20
+> > #define SARLSTR(var,nn) {\
+> >-	char tmpStr[400];\
+> >+	char tmpStr[50];\
+> > 	int  tmpLn =3D nn;\
+> >-	if (nn > 399 ) tmpLn =3D 399; \
+> >+	BUG_ON(tmpLn > 49);\
+>=20
+> I'm uncomfortable with arbitrarily lowering the string size, even if it=
+=20
+> does include a BUG_ON()...
 
-The worst that can happen if 30000 is too low is that we drop
-a packet when we shouldn't.  IMHO if a single host sends us an
-incomplete packet, followed by 30000 unrelated fragments, and
-finally a fragment of the original packet, then it is only
-fair for us to drop that packet.
+Here are all invocations of the macro in question:
+        SARLSTR(textRegion, 48);
+        SARLSTR(name, 16);
 
-OTOH if you're arguing that 30000 is too high then you might have
-a point.  However, in that respect it cannot be any worse than
-what we have now which is essentially unlimited.
+Still uncomfortable?
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+J=F6rn
+
+--=20
+Those who come seeking peace without a treaty are plotting.
+-- Sun Tzu
