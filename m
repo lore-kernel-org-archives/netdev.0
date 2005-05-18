@@ -1,35 +1,45 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] NUMA aware allocation of transmit and receive buffers
- for e1000
-Date: Tue, 17 May 2005 19:57:03 -0700 (PDT)
-Message-ID: <20050517.195703.104034854.davem@davemloft.net>
-References: <Pine.LNX.4.62.0505171854490.20408@graphe.net>
-	<20050517190343.2e57fdd7.akpm@osdl.org>
-	<Pine.LNX.4.62.0505171941340.21153@graphe.net>
+Subject: Re: [PATCH] TSO Reloaded
+Date: Tue, 17 May 2005 20:00:15 -0700 (PDT)
+Message-ID: <20050517.200015.55506861.davem@davemloft.net>
+References: <46332e5aa197db91aaf012cf140282b4@psc.edu>
+	<20050517.192829.71087792.davem@davemloft.net>
+	<0dd16bed0ea56242244bab0a7f1cf372@psc.edu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: christoph@lameter.com
-In-Reply-To: <Pine.LNX.4.62.0505171941340.21153@graphe.net>
+To: jheffner@psc.edu
+In-Reply-To: <0dd16bed0ea56242244bab0a7f1cf372@psc.edu>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Christoph Lameter <christoph@lameter.com>
-Subject: Re: [PATCH] NUMA aware allocation of transmit and receive buffers for e1000
-Date: Tue, 17 May 2005 19:52:38 -0700 (PDT)
+From: John Heffner <jheffner@psc.edu>
+Date: Tue, 17 May 2005 22:51:53 -0400
 
-> > > -	txdr->buffer_info = vmalloc(size);
-> > > +	txdr->buffer_info = kmalloc_node(size, GFP_KERNEL, node);
-> > 
-> > How come that this is safe to do
+> On May 17, 2005, at 10:28 PM, David S. Miller wrote:
 > 
-> Because physically contiguous memory is usually better than virtually 
-> contiguous memory? Any reason that physically contiguous memory will 
-> break the driver?
+> > From: John Heffner <jheffner@psc.edu>
+> > Date: Tue, 17 May 2005 22:26:09 -0400
+> >
+> >> No TSO:  86.6%
+> >> Old TSO: 61.0%
+> >> New TSO: 88.5%
+> >
+> > Yeah, TSO Reloaded really stinks. :-)
+> >
+> > Try the "Super TSO" patch I just posted instead.
+> 
+> Interesting timing. :)
+> With the new patch I'm getting 78.0%.
 
-The issue is whether size can end up being too large for
-kmalloc() to satisfy, whereas vmalloc() would be able to
-handle it.
+Thanks for testing.
+
+I actually expected the new code to do better.
+Splitting could be a little bit expensive, but
+that only occurs at the beginning of the connection
+as we ramp up the congestion and send window.
+Afterwards, we should be able to release full unsplit
+TSO frames onto the wire.
