@@ -1,36 +1,30 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: Re: [PATCH] TSO Reloaded
-Date: Tue, 17 May 2005 23:47:48 -0400
-Message-ID: <03e7252e3f5541302f25675360330b1e@psc.edu>
-References: <46332e5aa197db91aaf012cf140282b4@psc.edu> <20050517.192829.71087792.davem@davemloft.net> <0dd16bed0ea56242244bab0a7f1cf372@psc.edu> <20050517.200015.55506861.davem@davemloft.net>
-Mime-Version: 1.0 (Apple Message framework v622)
-Content-Type: text/plain; charset=US-ASCII; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+From: Christoph Lameter <christoph@lameter.com>
+Subject: Re: [PATCH] NUMA aware allocation of transmit and receive buffers
+ for e1000
+Date: Tue, 17 May 2005 21:27:48 -0700 (PDT)
+Message-ID: <Pine.LNX.4.62.0505172125210.22920@graphe.net>
+References: <Pine.LNX.4.62.0505171854490.20408@graphe.net>
+ <20050517190343.2e57fdd7.akpm@osdl.org> <Pine.LNX.4.62.0505171941340.21153@graphe.net>
+ <20050517.195703.104034854.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: akpm@osdl.org, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+        shai@scalex86.org
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <20050517.200015.55506861.davem@davemloft.net>
 To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050517.195703.104034854.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On May 17, 2005, at 11:00 PM, David S. Miller wrote:
+On Tue, 17 May 2005, David S. Miller wrote:
 
-> From: John Heffner <jheffner@psc.edu>
-> Date: Tue, 17 May 2005 22:51:53 -0400
->
->> With the new patch I'm getting 78.0%.
->
-> Thanks for testing.
->
-> I actually expected the new code to do better.
-> Splitting could be a little bit expensive, but
-> that only occurs at the beginning of the connection
-> as we ramp up the congestion and send window.
-> Afterwards, we should be able to release full unsplit
-> TSO frames onto the wire.
+> > Because physically contiguous memory is usually better than virtually 
+> > contiguous memory? Any reason that physically contiguous memory will 
+> > break the driver?
+> 
+> The issue is whether size can end up being too large for
+> kmalloc() to satisfy, whereas vmalloc() would be able to
+> handle it.
 
-With different (larger than default) buffer sizes, I'm getting 63.4%.  
-Not surprising I guess.
-
-   -John
+Oww.. We need a NUMA aware vmalloc for this?  
