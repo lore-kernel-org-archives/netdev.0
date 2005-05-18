@@ -1,32 +1,39 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: Thomas Graf <tgraf@suug.ch>
 Subject: Re: [RFC/PATCH] "strict" ipv4 reassembly
-Date: Wed, 18 May 2005 11:13:08 +1000
-Message-ID: <20050518011308.GA27780@gondor.apana.org.au>
-References: <20050517232556.GA26846@gondor.apana.org.au> <428A871F.1000308@us.ibm.com> <20050518001054.GB27212@gondor.apana.org.au> <20050517.175126.74751342.davem@davemloft.net>
+Date: Wed, 18 May 2005 03:37:12 +0200
+Message-ID: <20050518013712.GH13748@postel.suug.ch>
+References: <20050517.104947.112621738.davem@davemloft.net> <E1DYAHF-0006qW-00@gondolin.me.apana.org.au> <20050518004733.GG13748@postel.suug.ch> <20050518011632.GA27813@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: niv@us.ibm.com, akepner@sgi.com, dlstevens@us.ibm.com, rick.jones2@hp.com,
+Cc: "David S. Miller" <davem@davemloft.net>, akepner@sgi.com,
         netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Content-Disposition: inline
-In-Reply-To: <20050517.175126.74751342.davem@davemloft.net>
+In-Reply-To: <20050518011632.GA27813@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 17, 2005 at 05:51:26PM -0700, David S. Miller wrote:
+* Herbert Xu <20050518011632.GA27813@gondor.apana.org.au> 2005-05-18 11:16
+> On Wed, May 18, 2005 at 02:47:33AM +0200, Thomas Graf wrote:
+> > 
+> > I like this, although the problem is derived to the definition
+> > of the threshold. Any ideas on how to define this? A
 > 
-> Andi Kleen thought inetpeer was a pig, so he removed it from SUSE's
-> kernel and replaced it with a per-cpu salted IP ID generator.  The
-> initial verion he wrote had serious bugs that severely decreased the
-> effective ID space, and thus made the NFS corruption problem happen
-> more frequently.
+> The threshold doesn't need to be very large at all since it is
+> essentially the maximum reordering distance that we allow.
+> 
+> However, for an initial estimate we can be conservative and
+> use something like 30000.  If we're too conservative the SGI
+> guys will tell us :)
 
-Is he turning off PMTU by default as well? :) I don't see how it
-can be a pig otherwise.
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+OK, I initially thought you would head for a much larger
+threshold. Not sure if 30000 is large enough for a full
+scale NFS server though ;-> You conviced me that my idea
+doesn't have any real advantage over yours, it essentialy
+gets down the same result but yours is probably easier to
+implement and we can also adopt the threshold dynamicaly
+depending on the type of system. A big advantage is surely
+that it is quite easy to tune this parameter for certain
+more difficult cases.
