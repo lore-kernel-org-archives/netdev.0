@@ -1,31 +1,37 @@
-From: Thomas Graf <tgraf@suug.ch>
+From: "David S. Miller" <davem@davemloft.net>
 Subject: Re: [RFC/PATCH] "strict" ipv4 reassembly
-Date: Wed, 18 May 2005 02:47:33 +0200
-Message-ID: <20050518004733.GG13748@postel.suug.ch>
-References: <20050517.104947.112621738.davem@davemloft.net> <E1DYAHF-0006qW-00@gondolin.me.apana.org.au>
+Date: Tue, 17 May 2005 17:51:26 -0700 (PDT)
+Message-ID: <20050517.175126.74751342.davem@davemloft.net>
+References: <20050517232556.GA26846@gondor.apana.org.au>
+	<428A871F.1000308@us.ibm.com>
+	<20050518001054.GB27212@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, akepner@sgi.com,
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: niv@us.ibm.com, akepner@sgi.com, dlstevens@us.ibm.com, rick.jones2@hp.com,
         netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Content-Disposition: inline
-In-Reply-To: <E1DYAHF-0006qW-00@gondolin.me.apana.org.au>
+To: herbert@gondor.apana.org.au
+In-Reply-To: <20050518001054.GB27212@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Herbert Xu <E1DYAHF-0006qW-00@gondolin.me.apana.org.au> 2005-05-18 08:11
-> Instead of measuring the distance using time, let's measure it
-> in terms of packet counts.  So every time we receive a fragmented
-> packet, we find all waiting fragments with the same src/dst pair.
-> If the id is identical we perform reassembly, if it isn't we increase
-> a counter in that fragment.  If the counter exceeds a threshold,
-> we drop the fragment.
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC/PATCH] "strict" ipv4 reassembly
+Date: Wed, 18 May 2005 10:10:54 +1000
 
-I like this, although the problem is derived to the definition
-of the threshold. Any ideas on how to define this? A
-combination of your idea together with the idea I stated in
-another post which would additional expire fragments earlier
-depending on the actual packet (or fragment) rate might give
-better results.
+> On Tue, May 17, 2005 at 05:06:55PM -0700, Nivedita Singhvi wrote:
+> > 
+> > Mainline linux certainly has this (per-inetpeer ip_id) - but
+> > at least one distro did not (use inetpeer) :). Not sure
+> > what the current situation is.
+> 
+> What was the reason for this? Perhaps we can solve their problems
+> with inetpeer in a better way than disabling it?
+
+Andi Kleen thought inetpeer was a pig, so he removed it from SUSE's
+kernel and replaced it with a per-cpu salted IP ID generator.  The
+initial verion he wrote had serious bugs that severely decreased the
+effective ID space, and thus made the NFS corruption problem happen
+more frequently.
