@@ -1,32 +1,41 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [RFC/PATCH] "strict" ipv4 reassembly
-Date: Wed, 18 May 2005 09:21:06 -0700
-Message-ID: <428B6B72.5010407@hp.com>
-References: <20050517.104947.112621738.davem@davemloft.net>	<E1DYAHF-0006qW-00@gondolin.me.apana.org.au>	<20050518004733.GG13748@postel.suug.ch>	<20050518011632.GA27813@gondor.apana.org.au> <20050518013712.GH13748@postel.suug.ch>
+From: Chris Wright <chrisw@osdl.org>
+Subject: Re: 2.6.12-rc4-mm2 - sleeping function called from invalid context at mm/slab.c:2502
+Date: Wed, 18 May 2005 10:00:33 -0700
+Message-ID: <20050518170033.GT27549@shell0.pdx.osdl.net>
+References: <200505171624.j4HGOQwo017312@turing-police.cc.vt.edu> <20050517165528.GB27549@shell0.pdx.osdl.net> <1116349464.23972.118.camel@hades.cambridge.redhat.com> <20050517174300.GE27549@shell0.pdx.osdl.net> <20050518083002.GA30689@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Linux Audit Discussion <linux-audit@redhat.com>,
+        linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+        Chris Wright <chrisw@osdl.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <20050518013712.GH13748@postel.suug.ch>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Disposition: inline
+In-Reply-To: <20050518083002.GA30689@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-If we ass-u-me that the sender is indeed using a random IP ID assignment 
-mechanism, 30000 is probably too many.  There are only 65536 possible ID's, and 
-if we "choose" 30000 of them there will undoubtedly be many duplicated.  Someone 
-who didn't fall asleep too often in ProbStats (unlike myself) can probably tell 
-us just how many.
+* Herbert Xu (herbert@gondor.apana.org.au) wrote:
+> Guys, please CC netdev on issues like this.
 
-Also, I think the count has to be _any_ IP datagram on that src/dst pair, 
-fragmented or not.  Someone else pointed-out the possiblity of sending use one 
-fragmetned datagram, then 64K to someone else - well, those 64K to someone else 
-could just as easily be 64K non-fragmented IP datagrams to us, so it seems for a 
-measure of "out of orderness liklihood" we need to include non-fragmented IP 
-datagrams.
+Sorry Herbert, we hadn't yet concluded that it's not an issue that we
+need to resolve within audit.
 
-The thought of having to do added accounting on a non-fragmented datagram seems 
-unpleasant though.
+> On Tue, May 17, 2005 at 05:43:00PM +0000, Chris Wright wrote:
+> > 
+> > This has some issues w.r.t. truesize and socket buffer space.  The trim
+> > is done to keep accounting sane, so we'd either have to trim ourselves
+> > or take into account the change in size.  And ultimately, we'd still get
+> > trimmed by netlink, so the GFP issue is still there.  Ideally, gfp_any()
+> > would really be _any_
+> 
+> The trimming is completely optional.  That is, if the allocation fails
+> nothing bad will happen.  So the solution is to simply use GFP_ATOMIC.
 
-rick jones
+Well, it does more pressure on atomic pool (for those cases that
+GFP_KERNEL would have sufficed).
+
+thanks,
+-chris
