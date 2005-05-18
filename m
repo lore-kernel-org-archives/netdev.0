@@ -1,37 +1,37 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: igmp snooping?
-Date: Thu, 19 May 2005 00:14:02 +0200
-Message-ID: <20050518221401.GA11148@xi.wantstofly.org>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [RFC/PATCH] "strict" ipv4 reassembly
+Date: Wed, 18 May 2005 15:24:57 -0700
+Message-ID: <OFD80D42F2.31DFC921-ON88257005.007ABBCD-88257005.007B23EA@us.ibm.com>
+References: <E1DYWNS-0004ju-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="US-ASCII"
+Cc: netdev@oss.sgi.com, netdev-bounce@oss.sgi.com, rick.jones2@hp.com,
+        tgraf@suug.ch (Thomas Graf)
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+In-Reply-To: <E1DYWNS-0004ju-00@gondolin.me.apana.org.au>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+netdev-bounce@oss.sgi.com wrote on 05/18/2005 02:46:54 PM:
 
-Is someone working on igmp snooping (and/or active discovery) for
-bridging yet?  I currently have a need for this, so if noone is
-working on it yet, I'll probably give it a go myself.
+> Thomas Graf <tgraf@suug.ch> wrote:
+> >
+> > Wild thought: We could introduce a new ip option stating that the id
+> > generator uses a serial approach which would give us the possibility
+> > to measure the absolute distance and resolve this issue in a perfect
+> > matter for everyone supporting this extension. ;->
 
-AFAICS, for the kernel part:
-- Add capability to add/modify/delete multicast (ethernet) addresses
-  in the forwarding database.  Each multicast fdb entry contains a port
-  bitmask of ports that are interested in this address.
-- Lookup multicast addresses in the forwarding path, instead of flooding
-  every packet.
-- Policy decision on whether to drop or flood traffic for multicast
-  addresses that have no corresponding fdb entry.
-- Add capability for userland to 'steal' IGMP packets.  (I.e. to be able
-  to prevent them from being forwarded.)
+> Well Linux does that anyway (apart from Suse) so all we need to do
+> is to tell everyone doing NFS over gigabit to use Linux :)
 
-And some userspace daemon that implements the necessary bits.
+        If you're going to add an IP option, you can eliminate the
+problem entirely. Just add an "extended IP ID" IP option and give
+it as many bits as you want-- make that the high order of an n+16-bit
+IP ID.
+        The IP timestamp option, if done per frag and required to be
+the same for all frags, could be used in this way, since you
+presumably won't wrap without incrementing that by at least 1. :-)
 
-Ideas?
-
-
-cheers,
-Lennert
+                                                        +-DLS
