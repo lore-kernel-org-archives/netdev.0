@@ -1,34 +1,41 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] Super TSO
-Date: Wed, 18 May 2005 12:57:09 -0700 (PDT)
-Message-ID: <20050518.125709.112621421.davem@davemloft.net>
-References: <20050517.192416.108741581.davem@davemloft.net>
-	<m1fywk645i.fsf@muc.de>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [PATCH] NUMA aware allocation of transmit and receive buffers
+ for e1000
+Date: Wed, 18 May 2005 13:42:50 -0700
+Message-ID: <20050518134250.3ee2703f.akpm@osdl.org>
+References: <Pine.LNX.4.62.0505171854490.20408@graphe.net>
+	<20050517190343.2e57fdd7.akpm@osdl.org>
+	<Pine.LNX.4.62.0505171941340.21153@graphe.net>
+	<20050517.195703.104034854.davem@davemloft.net>
+	<Pine.LNX.4.62.0505172125210.22920@graphe.net>
+	<20050517215845.2f87be2f.akpm@osdl.org>
+	<5fc59ff305051808558f1ce59@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: ak@muc.de
-In-Reply-To: <m1fywk645i.fsf@muc.de>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: christoph@lameter.com, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, netdev@oss.sgi.com, shai@scalex86.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262356AbVERUnU@vger.kernel.org>
+To: Ganesh Venkatesan <ganesh.venkatesan@gmail.com>
+In-Reply-To: <5fc59ff305051808558f1ce59@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andi Kleen <ak@muc.de>
-Date: Wed, 18 May 2005 15:43:21 +0200
-
-> > @@ -674,59 +653,274 @@ unsigned int tcp_sync_mss(struct sock *s
-> >   * cannot be large. However, taking into account rare use of URG, this
-> >   * is not a big flaw.
-> >   */
-> > +static inline u32 compute_xmit_cache(u32 mss, int sacks, int tso_enabled)
-> > +{
-> > +	u32 ret = (mss << 16) | sacks;
+Ganesh Venkatesan <ganesh.venkatesan@gmail.com> wrote:
+>
+> On 5/17/05, Andrew Morton <akpm@osdl.org> wrote:
+> > I think the e1000 driver is being a bit insane there.  I figure that
+> Do you mean insane to use vmalloc?
 > 
-> 16bit MSS? How does that deal with jumbopackets on IPv6?
-> While the MSS option is also 16bit it is legal to construct bigger
-> datagrams when no MSS option was exchanged.
+> > sizeof(struct e1000_buffer) is 28 on 64-bit, so even with 4k pagesize we'll
+> > always succeed in being able to support a 32k/32 = 1024-entry Tx ring.
+> > 
+> > Is there any real-world reason for wanting larger ring sizes than that?
+> > 
+> > 
+> We have had cases where allocation of 32K of memory (via kmalloc) fails. 
+> 
 
-It doesn't, and neither does the existing code.  I know it needs
-to be fixed, thanks for reminding me.
+Are you sure?  The current page allocator will infinitely loop until
+success for <=32k GFP_KERNEL allocations - the only way it can fail is if
+the calling process gets oom-killed.
