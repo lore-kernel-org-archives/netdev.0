@@ -1,29 +1,37 @@
-From: Atkinson Stephen-G19998 <satkinson@motorola.com>
-Subject: ETH_P_ALL and "NIT"
-Date: Wed, 18 May 2005 16:55:34 -0500
-Message-ID: <5D454811D0A1D711A12A00065BF36FAD14D99A36@il06exm11>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: igmp snooping?
+Date: Thu, 19 May 2005 00:14:02 +0200
+Message-ID: <20050518221401.GA11148@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi,
 
-I would like to be able to receive all packets (regardless of type) on a
-given net_device. It seems the way to do this would be to use ETH_P_ALL
-however, ETH_P_ALL has two meanings, 1) receive all packets and 2) behave
-as a "NIT" (Network Interface Tap?). The NIT functionality causes packets
-transmitted on the net_device in question to be "received" by the ETH_P_ALL
-socket, unless the packet was sent by that socket.
+Is someone working on igmp snooping (and/or active discovery) for
+bridging yet?  I currently have a need for this, so if noone is
+working on it yet, I'll probably give it a go myself.
 
-I have a need to receive all incoming packets on a net_device however, for
-my needs receiving transmitted packets is an undesirable side effect. So,
-I'd like to propose a new ethernet type (ETH_P_ALL_NO_NIT perhaps) which 
-would behave like ETH_P_ALL without NIT.
+AFAICS, for the kernel part:
+- Add capability to add/modify/delete multicast (ethernet) addresses
+  in the forwarding database.  Each multicast fdb entry contains a port
+  bitmask of ports that are interested in this address.
+- Lookup multicast addresses in the forwarding path, instead of flooding
+  every packet.
+- Policy decision on whether to drop or flood traffic for multicast
+  addresses that have no corresponding fdb entry.
+- Add capability for userland to 'steal' IGMP packets.  (I.e. to be able
+  to prevent them from being forwarded.)
 
-Comments? Does this sound reasonable? If so I'll submit a patch.
+And some userspace daemon that implements the necessary bits.
 
-Thanks,
-steve atkinson
+Ideas?
+
+
+cheers,
+Lennert
