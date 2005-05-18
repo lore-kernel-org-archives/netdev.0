@@ -1,65 +1,33 @@
-From: Arthur Kepner <akepner@sgi.com>
+From: John Heffner <jheffner@psc.edu>
 Subject: Re: [RFC/PATCH] "strict" ipv4 reassembly
-Date: Tue, 17 May 2005 18:06:14 -0700 (PDT)
-Message-ID: <Pine.LNX.4.61.0505171751400.3664@linux.site>
-References: <20050517.104947.112621738.davem@davemloft.net>
- <E1DYAHF-0006qW-00@gondolin.me.apana.org.au> <20050518004733.GG13748@postel.suug.ch>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@davemloft.net>, Thomas Graf <tgraf@suug.ch>,
-        netdev@oss.sgi.com
+Date: Tue, 17 May 2005 21:09:00 -0400
+Message-ID: <6afda9c168e2105c783eec268fc225b4@psc.edu>
+References: <E1DYBED-0006wa-00@gondolin.me.apana.org.au> <Pine.LNX.4.61.0505171612440.3335@linux.site> <20050517232556.GA26846@gondor.apana.org.au>
+Mime-Version: 1.0 (Apple Message framework v622)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, Arthur Kepner <akepner@sgi.com>, dlstevens@us.ibm.com,
+        rick.jones2@hp.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Rick Jones <rick.jones2@hp.com>, Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050518004733.GG13748@postel.suug.ch>
+In-Reply-To: <20050517232556.GA26846@gondor.apana.org.au>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On May 17, 2005, at 7:25 PM, Herbert Xu wrote:
+>
+> Perhaps you misunderstood what I was saying.  I meant are there any
+> extant systems that would transmit 1 set of fragments to host A with
+> id x, then 65535 packets host B, and then wrap around and send a new
+> set of fragments to host A with idx.
+>
+> Linux will never do this thanks to inetpeer.c.
 
-It sounds as if Herbert and Rick have much the same idea. And 
-it sounds like a good idea, definitely worth considering...
+Of course (as usual) NATs break everything. ;-)
 
-On Wed, 18 May 2005, Thomas Graf wrote:
+There are also the ugly case where fragments could be delayed in the 
+network for a period of time, for example during a path change, and 
+show up at exactly the wrong time.
 
-> * Herbert Xu <E1DYAHF-0006qW-00@gondolin.me.apana.org.au> 2005-05-18 08:11
-> > Instead of measuring the distance using time, let's measure it
-> > in terms of packet counts.  So every time we receive a fragmented
-> > packet, we find all waiting fragments with the same src/dst pair.
-> > If the id is identical we perform reassembly, if it isn't we increase
-> > a counter in that fragment.  If the counter exceeds a threshold,
-> > we drop the fragment.
-> 
-> I like this, although the problem is derived to the definition
-> of the threshold. Any ideas on how to define this? A
-> combination of your idea together with the idea I stated in
-> another post which would additional expire fragments earlier
-> depending on the actual packet (or fragment) rate might give
-> better results.
-> 
-
------------------------------- [snip] ------------------------------
-> On Tue, 17 May 2005, Rick Jones wrote:
-> .....
-> Actually, I was ass-u-me-ing they would be monotonic, but thinking about 
-> it more, that doesn't really matter.  If N datagrams from that 
-> source/dest/prot tuple have been reassembled since the first/current 
-> frag of this datagam has arrived, chances are still good that the rest 
-> of the fragments of this datagram are toast and any subsequent 
-> fragments with a matching src/dst/prot/id would likely create a 
-> frankengram.
-> 
-> in broad handwaving terms, those N other datagrams (non-fragmented or 
-> fragmented and successfully reassembled or not I suspect) are a measure 
-> of just how far "out of order" the rest of the fragments of this 
-> datagram happen to be.  for some degree of "out of orderness" we can 
-> ass-u-me the datagram is toast.
-> 
-> chosing a strawman, if we've received 24000 datagrams from that 
-> source/dest/prot (perhaps even just that source) since we've started 
-> reassembling this datagram from that source/dest/prot, chances seem 
-> pretty good indeed that this datagram is toast.  a value of N even 
-> smaller than 24000 might suffice.
-> 
-> the devil seems to be in the accounting.
-
------------------------------- [snip] ------------------------------
+   -John
