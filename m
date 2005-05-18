@@ -1,33 +1,35 @@
-From: John Heffner <jheffner@psc.edu>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [RFC/PATCH] "strict" ipv4 reassembly
-Date: Tue, 17 May 2005 21:09:00 -0400
-Message-ID: <6afda9c168e2105c783eec268fc225b4@psc.edu>
-References: <E1DYBED-0006wa-00@gondolin.me.apana.org.au> <Pine.LNX.4.61.0505171612440.3335@linux.site> <20050517232556.GA26846@gondor.apana.org.au>
-Mime-Version: 1.0 (Apple Message framework v622)
-Content-Type: text/plain; charset=US-ASCII; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Arthur Kepner <akepner@sgi.com>, dlstevens@us.ibm.com,
-        rick.jones2@hp.com
+Date: Wed, 18 May 2005 11:16:32 +1000
+Message-ID: <20050518011632.GA27813@gondor.apana.org.au>
+References: <20050517.104947.112621738.davem@davemloft.net> <E1DYAHF-0006qW-00@gondolin.me.apana.org.au> <20050518004733.GG13748@postel.suug.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, akepner@sgi.com,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <20050517232556.GA26846@gondor.apana.org.au>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+To: Thomas Graf <tgraf@suug.ch>
+Content-Disposition: inline
+In-Reply-To: <20050518004733.GG13748@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On May 17, 2005, at 7:25 PM, Herbert Xu wrote:
->
-> Perhaps you misunderstood what I was saying.  I meant are there any
-> extant systems that would transmit 1 set of fragments to host A with
-> id x, then 65535 packets host B, and then wrap around and send a new
-> set of fragments to host A with idx.
->
-> Linux will never do this thanks to inetpeer.c.
+On Wed, May 18, 2005 at 02:47:33AM +0200, Thomas Graf wrote:
+> 
+> I like this, although the problem is derived to the definition
+> of the threshold. Any ideas on how to define this? A
 
-Of course (as usual) NATs break everything. ;-)
+The threshold doesn't need to be very large at all since it is
+essentially the maximum reordering distance that we allow.
 
-There are also the ugly case where fragments could be delayed in the 
-network for a period of time, for example during a path change, and 
-show up at exactly the wrong time.
+However, for an initial estimate we can be conservative and
+use something like 30000.  If we're too conservative the SGI
+guys will tell us :)
 
-   -John
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
