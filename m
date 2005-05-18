@@ -1,63 +1,65 @@
-From: Andi Kleen <ak@muc.de>
+From: Arthur Kepner <akepner@sgi.com>
 Subject: Re: [RFC/PATCH] "strict" ipv4 reassembly
-Date: Wed, 18 May 2005 03:05:01 +0200
-Message-ID: <m1wtpx5ooy.fsf@muc.de>
-References: <20050517232556.GA26846@gondor.apana.org.au>
-	<428A871F.1000308@us.ibm.com>
-	<20050518001054.GB27212@gondor.apana.org.au>
-	<20050517.175126.74751342.davem@davemloft.net>
+Date: Tue, 17 May 2005 18:06:14 -0700 (PDT)
+Message-ID: <Pine.LNX.4.61.0505171751400.3664@linux.site>
+References: <20050517.104947.112621738.davem@davemloft.net>
+ <E1DYAHF-0006qW-00@gondolin.me.apana.org.au> <20050518004733.GG13748@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: niv@us.ibm.com, akepner@sgi.com, dlstevens@us.ibm.com, rick.jones2@hp.com,
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@davemloft.net>, Thomas Graf <tgraf@suug.ch>,
         netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050517.175126.74751342.davem@davemloft.net> (David S.
- Miller's message of "Tue, 17 May 2005 17:51:26 -0700 (PDT)")
+To: Rick Jones <rick.jones2@hp.com>, Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050518004733.GG13748@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-"David S. Miller" <davem@davemloft.net> writes:
 
-> From: Herbert Xu <herbert@gondor.apana.org.au>
-> Subject: Re: [RFC/PATCH] "strict" ipv4 reassembly
-> Date: Wed, 18 May 2005 10:10:54 +1000
->
->> On Tue, May 17, 2005 at 05:06:55PM -0700, Nivedita Singhvi wrote:
->> > 
->> > Mainline linux certainly has this (per-inetpeer ip_id) - but
->> > at least one distro did not (use inetpeer) :). Not sure
->> > what the current situation is.
->> 
->> What was the reason for this? Perhaps we can solve their problems
->> with inetpeer in a better way than disabling it?
->
-> Andi Kleen thought inetpeer was a pig, so he removed it from SUSE's
-> kernel and replaced it with a per-cpu salted IP ID generator.  The
-> initial verion he wrote had serious bugs that severely decreased the
-> effective ID space, and thus made the NFS corruption problem happen
-> more frequently.
+It sounds as if Herbert and Rick have much the same idea. And 
+it sounds like a good idea, definitely worth considering...
 
-That's not true, there were no bugs it in. Or at least none
-I know about.
+On Wed, 18 May 2005, Thomas Graf wrote:
 
-However any randomized IPID scheme decreases the effective IP-ID
-space slightly. The only algorithm that uses a bit space perfectly
-is a counter :) However I admit the constant to regulate the grainness 
-was a bit too aggressive at the beginning, which indeed triggered
-the NFS corruption problem more frequently. However since the 16bit
-space is more or less useless (as Artur demonstrated it cannot
-even handle a single Gigabit link) it did not make that much difference anyways.
+> * Herbert Xu <E1DYAHF-0006qW-00@gondolin.me.apana.org.au> 2005-05-18 08:11
+> > Instead of measuring the distance using time, let's measure it
+> > in terms of packet counts.  So every time we receive a fragmented
+> > packet, we find all waiting fragments with the same src/dst pair.
+> > If the id is identical we perform reassembly, if it isn't we increase
+> > a counter in that fragment.  If the counter exceeds a threshold,
+> > we drop the fragment.
+> 
+> I like this, although the problem is derived to the definition
+> of the threshold. Any ideas on how to define this? A
+> combination of your idea together with the idea I stated in
+> another post which would additional expire fragments earlier
+> depending on the actual packet (or fragment) rate might give
+> better results.
+> 
 
-The eventual workaround for the NFS IP-ID problem that went into
-the vendor kernel also did work in a different way on top 
-of the algorithm.
+------------------------------ [snip] ------------------------------
+> On Tue, 17 May 2005, Rick Jones wrote:
+> .....
+> Actually, I was ass-u-me-ing they would be monotonic, but thinking about 
+> it more, that doesn't really matter.  If N datagrams from that 
+> source/dest/prot tuple have been reassembled since the first/current 
+> frag of this datagam has arrived, chances are still good that the rest 
+> of the fragments of this datagram are toast and any subsequent 
+> fragments with a matching src/dst/prot/id would likely create a 
+> frankengram.
+> 
+> in broad handwaving terms, those N other datagrams (non-fragmented or 
+> fragmented and successfully reassembled or not I suspect) are a measure 
+> of just how far "out of order" the rest of the fragments of this 
+> datagram happen to be.  for some degree of "out of orderness" we can 
+> ass-u-me the datagram is toast.
+> 
+> chosing a strawman, if we've received 24000 datagrams from that 
+> source/dest/prot (perhaps even just that source) since we've started 
+> reassembling this datagram from that source/dest/prot, chances seem 
+> pretty good indeed that this datagram is toast.  a value of N even 
+> smaller than 24000 might suffice.
+> 
+> the devil seems to be in the accounting.
 
-As for the background (not for you Dave, for other readers ;-) why I
-consider inetpeer useless please read the archives. As a hint just
-look what kind of functionality it implements and how much of it is
-actually enabled by default and think of its relationship to masquerading
-(which BTW breaks most of the fancy algorithms proposed so far) 
-
--Andi
+------------------------------ [snip] ------------------------------
