@@ -1,32 +1,25 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] [BRIDGE] Set features based on slave's ones
-Date: Thu, 19 May 2005 11:53:53 -0700 (PDT)
-Message-ID: <20050519.115353.102574650.davem@davemloft.net>
-References: <Pine.LNX.4.62.0505191654400.24043@webhosting.rdsbv.ro>
-	<200505191106.53136.jdmason@us.ibm.com>
+Subject: Re: 2.6.12-rc4-mm[12] - ULOG problem
+Date: Thu, 19 May 2005 11:54:54 -0700 (PDT)
+Message-ID: <20050519.115454.45743895.davem@davemloft.net>
+References: <20050519095334.018dd674.akpm@osdl.org>
+	<Xine.LNX.4.44.0505191259590.16439-100000@thoron.boston.redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: util@deuroconsult.ro, netdev@oss.sgi.com
+Cc: akpm@osdl.org, johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jdmason@us.ibm.com
-In-Reply-To: <200505191106.53136.jdmason@us.ibm.com>
+To: jmorris@redhat.com
+In-Reply-To: <Xine.LNX.4.44.0505191259590.16439-100000@thoron.boston.redhat.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Jon Mason <jdmason@us.ibm.com>
-Date: Thu, 19 May 2005 11:06:53 -0500
+From: James Morris <jmorris@redhat.com>
+Date: Thu, 19 May 2005 13:09:44 -0400 (EDT)
 
-> This patch only enables the features which are common between all of the 
-> bridged devices (at the time of their addition to the bridge).  It overlooks 
-> the cases where not all of the adapters have the same features, or where the 
-> user has changed the enablement of a certain feature (via ethtool).  
+> I don't think it's the right implementation, and providing feedback on it
+> has proven frustrating and unfruitful.
 
-There is not valid setting other than the subset of
-what the devices all support.
-
-Yes, the bridging code should listen for network device
-events when netdev->flag settings change, but otherwise
-this is the way to implement this.  Just like bonding
-does.
+Yes, Evgeni is a complete control freak.
