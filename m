@@ -1,24 +1,31 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [RFC/PATCH] "strict" ipv4 reassembly
-Date: Thu, 19 May 2005 10:02:45 -0700
-Message-ID: <428CC6B5.6070803@hp.com>
-References: <428B6B72.5010407@hp.com>	<E1DYWM2-0004jM-00@gondolin.me.apana.org.au> <20050519122319.GH15391@postel.suug.ch>
+From: James Morris <jmorris@redhat.com>
+Subject: Re: Fw: 2.6.12-rc4-mm[12] - ULOG problem
+Date: Thu, 19 May 2005 13:09:44 -0400 (EDT)
+Message-ID: <Xine.LNX.4.44.0505191259590.16439-100000@thoron.boston.redhat.com>
+References: <20050519095334.018dd674.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: johnpol@2ka.mipt.ru, <herbert@gondor.apana.org.au>, <netdev@oss.sgi.com>,
+        <davem@davemloft.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <20050519122319.GH15391@postel.suug.ch>
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20050519095334.018dd674.akpm@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> I agree, however defining a value of 600 system wide is horrible for
-> all hosts that behave "correctly". So what we could do is take probes
-> of the id distribution and define the threshold on a per peer scope.
+On Thu, 19 May 2005, Andrew Morton wrote:
 
-Why would 600 penalize a host behaving "correctly?"  I mean, what are the 
-chances of a datagram's being reassembled, if 600 subsent datagrams have arrived 
-from that same host?
+> How come?  It seems sensible to have library code which consoldates the
+> common netlink setup and teardown stuff and which offers a higher-level
+> messaging API, although connector may be a bit overdesigned for that.  The
+> fork connector guys seemed to find it useful?
 
-rick
+I don't think it's the right implementation, and providing feedback on it
+has proven frustrating and unfruitful.
+
+
+- James
+-- 
+James Morris
+<jmorris@redhat.com>
