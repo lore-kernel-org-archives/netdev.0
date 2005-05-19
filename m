@@ -1,34 +1,32 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] [BRIDGE] Set features based on slave's ones
-Date: Thu, 19 May 2005 12:21:27 -0700 (PDT)
-Message-ID: <20050519.122127.74747706.davem@davemloft.net>
-References: <200505191106.53136.jdmason@us.ibm.com>
-	<Pine.LNX.4.62.0505192019090.8076@webhosting.rdsbv.ro>
-	<20050519190032.GA19620@us.ibm.com>
+Subject: Re: [PATCH] use lookup_create in af_unix
+Date: Thu, 19 May 2005 12:27:56 -0700 (PDT)
+Message-ID: <20050519.122756.41635751.davem@davemloft.net>
+References: <20050512102336.GA26628@lst.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: util@deuroconsult.ro, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jdmason@us.ibm.com
-In-Reply-To: <20050519190032.GA19620@us.ibm.com>
+To: hch@lst.de
+In-Reply-To: <20050512102336.GA26628@lst.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Jon Mason <jdmason@us.ibm.com>
-Date: Thu, 19 May 2005 14:00:32 -0500
+From: Christoph Hellwig <hch@lst.de>
+Date: Thu, 12 May 2005 12:23:36 +0200
 
-> I combined my previous patch with your patch, and came up with the
-> following.  I have tested it on my system, and it works exactly the way
-> I wanted.  What do you think?
+> currently it opencodes it, but that's in the way of chaning the
+> lookup_hash interface.
+> 
+> I'd prefer to disallow modular af_unix over exporting lookup_create,
+> but I'll leave that to you.
+> 
+> Signed-off-by: Christoph Hellwig <hch@lst.de>
 
-Look, let's do this.  Do an initial patch that only does
-enables features possible on all devices.  Because we
-all agree that is a definite improvement from the current
-situation.
+This patch looks fine.  Applied, thanks Chirstophe.
 
-Then we can discuss the relative merits of enabling features
-available on only some devices.
-
-Ok?
+Maybe someone should add to the comments above these fs/namei.c
+functions that they will return with the semaphore held even
+in error cases.
