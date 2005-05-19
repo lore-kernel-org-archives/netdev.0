@@ -1,67 +1,55 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [IPSEC] Fixed alg_key_len usage in attach_one_algo
-Date: Thu, 19 May 2005 12:03:02 +1000
-Message-ID: <20050519020302.GA20285@gondor.apana.org.au>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: igmp snooping?
+Date: Wed, 18 May 2005 22:13:43 -0400
+Message-ID: <1116468823.6240.34.camel@localhost.localdomain>
+References: <OF6CAB3867.F641224F-ON88257006.00079FC5-88257006.00098A9E@us.ibm.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="IS0zKkzwUGydFO0o"
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Lennert Buytenhek <buytenh@wantstofly.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
-Content-Disposition: inline
+To: David Stevens <dlstevens@us.ibm.com>
+In-Reply-To: <OF6CAB3867.F641224F-ON88257006.00079FC5-88257006.00098A9E@us.ibm.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Wed, 2005-18-05 at 18:44 -0700, David Stevens wrote:
+> If you put the interface in multicast promiscuous mode (set flag 
+> IFF_ALLMULTI),
+> you can receive all hardware groups without joining.
+> 
+> For IGMP and MLD packets, one way to do that pat in an application is to 
+> create
+> a raw socket and specify the protocol there. So, to receive all reports
+> for any version of IGMP sent to any group, you can create a socket like 
+> this:
+> 
+>         s = socket(PF_INET, SOCK_RAW, IPPROTO_IGMP);
+> 
+> 
+> For MLDv1 and MLDv2 (IPv6), they are part of ICMPv6, but you can use
+> ICMPV6_FILTER with the MLD report types to receive only those.
+> 
+> You can get the receiving interface as ancillary data on a recvmsg()
+> call with the IPV6_PKTINFO socket option on Linux systems
+> (IPV6_RECVPKTINFO when RFC 3542 compliant) for IPv6 and
+> similarly with IP_PKTINFO with IPv4, I believe. You also can get this
+> information by restricting the socket to receiving on a particular
+> interface, if you don't want one socket to handle multiple interfaces.
+> Then, you know which interface by which socket you received on.
+> 
 
---IS0zKkzwUGydFO0o
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Better approach than i proposed.
 
-Hi Dave:
+> So, you should be able to do most, possibly all, of what you want at
+> application level without modification to the kernel, if you're looking
+> to do this in an application and not a kernel module.
 
-This bug was discovered by a Linux box running in a remote corner
-of Australia :)
+I think it belongs in user space. I would say its probably time that STP
+also got moved out. The fact it's in the kernel has hurt addition of
+interesting new features.
 
-The variable alg_key_len is in bits and not bytes.  The function
-attach_one_algo is currently using it as if it were in bytes.
-This causes it to read memory which may not be there.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---IS0zKkzwUGydFO0o
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=xfrm-user-1
-
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -162,6 +162,7 @@ static int attach_one_algo(struct xfrm_a
- 	struct rtattr *rta = u_arg;
- 	struct xfrm_algo *p, *ualg;
- 	struct xfrm_algo_desc *algo;
-+	int len;
- 
- 	if (!rta)
- 		return 0;
-@@ -173,11 +174,12 @@ static int attach_one_algo(struct xfrm_a
- 		return -ENOSYS;
- 	*props = algo->desc.sadb_alg_id;
- 
--	p = kmalloc(sizeof(*ualg) + ualg->alg_key_len, GFP_KERNEL);
-+	len = sizeof(*ualg) + (ualg->alg_key_len + 7U) / 8;
-+	p = kmalloc(len, GFP_KERNEL);
- 	if (!p)
- 		return -ENOMEM;
- 
--	memcpy(p, ualg, sizeof(*ualg) + ualg->alg_key_len);
-+	memcpy(p, ualg, len);
- 	*algpp = p;
- 	return 0;
- }
-
---IS0zKkzwUGydFO0o--
+cheers,
+jamal
