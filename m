@@ -1,40 +1,34 @@
-From: Jon Mason <jdmason@us.ibm.com>
+From: "David S. Miller" <davem@davemloft.net>
 Subject: Re: [PATCH] [BRIDGE] Set features based on slave's ones
-Date: Thu, 19 May 2005 14:07:04 -0500
-Message-ID: <200505191407.04650.jdmason@us.ibm.com>
-References: <200505191106.53136.jdmason@us.ibm.com> <200505191247.55138.jdmason@us.ibm.com> <20050519.115832.111205328.davem@davemloft.net>
+Date: Thu, 19 May 2005 12:21:27 -0700 (PDT)
+Message-ID: <20050519.122127.74747706.davem@davemloft.net>
+References: <200505191106.53136.jdmason@us.ibm.com>
+	<Pine.LNX.4.62.0505192019090.8076@webhosting.rdsbv.ro>
+	<20050519190032.GA19620@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: util@deuroconsult.ro, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050519.115832.111205328.davem@davemloft.net>
-Content-Disposition: inline
+To: jdmason@us.ibm.com
+In-Reply-To: <20050519190032.GA19620@us.ibm.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thursday 19 May 2005 01:58 pm, David S. Miller wrote:
-> From: Jon Mason <jdmason@us.ibm.com>
-> Date: Thu, 19 May 2005 12:47:55 -0500
->
-> > My point is that some features the user might want enabled regardless of
-> > whether all devices support them.  An example of this is where a system
-> > has hardware checksum support for all devices except one.  In this case,
-> > it would be benefitial to have this device do the checksum in software
-> > (via skb_checksum_help() call in dev_queue_xmit()).
->
-> If "SG and checksumming is so common these days" as others have
-> stated, what you are describing is a totally uncommon scenerio.  
+From: Jon Mason <jdmason@us.ibm.com>
+Date: Thu, 19 May 2005 14:00:32 -0500
 
-Uncommon, yes, but very possible and I am trying to mitigate the performance 
-effects of this case.
+> I combined my previous patch with your patch, and came up with the
+> following.  I have tested it on my system, and it works exactly the way
+> I wanted.  What do you think?
 
-> What 
-> Catalin is proposing is infinitely better than what we have today.
+Look, let's do this.  Do an initial patch that only does
+enables features possible on all devices.  Because we
+all agree that is a definite improvement from the current
+situation.
 
-I completely agree Catalin's patch is better than what we have now.  My only 
-arguement is that there are some cases where it should be augmented to 
-include additional features.
+Then we can discuss the relative merits of enabling features
+available on only some devices.
+
+Ok?
