@@ -1,69 +1,82 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Fw: 2.6.12-rc4-mm[12] - ULOG problem
-Date: Thu, 19 May 2005 11:27:19 +0400
-Message-ID: <1116487639.21310.88.camel@uganda>
-References: <20050518202458.55a63d37.akpm@osdl.org>
-	 <E1DYcyg-0005fP-00@gondolin.me.apana.org.au>
-	 <20050518222729.007887b8.akpm@osdl.org> <1116484313.21310.78.camel@uganda>
-	 <20050518234552.4aef6d02.akpm@osdl.org> <1116486385.21310.82.camel@uganda>
-	 <20050519000809.2fca25c5.akpm@osdl.org>
-Reply-To: johnpol@2ka.mipt.ru
+From: Kosta Todorovic <kostodo@gmail.com>
+Subject: Re: Network card driver problem (znb.o/tulip)
+Date: Thu, 19 May 2005 12:02:49 +0400
+Message-ID: <efe3b00605051901022854653a@mail.gmail.com>
+References: <efe3b00605031021513b7268d1@mail.gmail.com>
+Reply-To: Kosta Todorovic <kostodo@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-CV9ty3Lp1Q6YbSHBcdSO"
-Cc: herbert@gondor.apana.org.au, netdev@oss.sgi.com, davem@davemloft.net
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: tulip-users@lists.sourceforge.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20050519000809.2fca25c5.akpm@osdl.org>
+To: jgarzik@pobox.com
+In-Reply-To: <efe3b00605031021513b7268d1@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Whats the best 4-port NIC currently available? I'm interested in
+purchasing 10 4-port NICs as a replacement for my current cards.
 
---=-CV9ty3Lp1Q6YbSHBcdSO
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+I am looking for 10/100Mbps and a good driver for linux (2.4.x and
+2.6.x). Preferably a mainstream company but thats not priority.
 
-On Thu, 2005-05-19 at 00:08 -0700, Andrew Morton wrote:
-> Evgeniy Polyakov <johnpol@2ka.mipt.ru> wrote:
-> >
-> >  > Is there any reason for being able to do that?
-> >=20
-> >  It was created to be able to load several different connector devices=20
-> >  from different modules [basically it was module1.ko unit=3D10, module2=
-.ko
-> >  unit=3D11 and so on].
->=20
-> Loading multiple instances of the same module so that we get multiple
-> instances of its data structures?   That's fairly ghastly.
+Could the community please recommend the best card available? Money is
+not an issue since im really interested in the best of the best.
 
-It was not the same module.
-it was quite different module which implemented similar functionality
-and used different connector device for different purposes.
+Any suggestions?
 
-> We should remove the feature.  If there is demonstrated need for multiple
-> instances then it should be done by more conventional means - syscall,
-> allocation of a device major then use the minor as a selector or whatever=
-.
+Regards,
+Kosta
 
-It is easy to use feature which prevents problems
-with situation when the same socket number is used, for example,=20
-in 2.6 kernel while connector uses it in -mm tree.
 
---=20
-        Evgeniy Polyakov
 
-Crash is better than data corruption -- Arthur Grabowski
-
---=-CV9ty3Lp1Q6YbSHBcdSO
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.6 (GNU/Linux)
-
-iD8DBQBCjD/XIKTPhE+8wY0RAh4XAJ90TtaLiPqeGxRP9Ws07iFCjdelOgCfXc1I
-lFNcqe0utj+bAkrNZ9QAEvU=
-=qYwd
------END PGP SIGNATURE-----
-
---=-CV9ty3Lp1Q6YbSHBcdSO--
+On 3/11/05, Kosta Todorovic <kostodo@gmail.com> wrote:
+> My company has recently purchased several ZNYX ZX274 network cards.
+> These cards are Four Channel, 10/100 PCI Adapters. They use Intel chipsets.
+> 
+> Unfortunately there exists no drivers for linux amd64 architecture.
+> There are 32bit drivers found at:
+> http://www.znyx.com/support/drivers/ZX374_drivers.htm but naturally
+> they wont compile under my amd64 system.
+> 
+> The driver itself is called znb.o and can be downloaded from ZNYX's
+> website. I spoke to support staff there but they told me they have
+> discontinued support and development for this series of cards.
+> 
+> The system I am running gentoo and have tried both 2.4.x and 2.6.x
+> kernels but no luck.
+> 
+> Unfortunately there is NO 64bit drivers available for ANY platform. not even MS.
+> 
+> Does anyone know of a customised znb.o driver built for amd64?
+> Is there any chance of anyone modifying the source code of the driver
+> to compile under a amd64 system?
+> 
+> I've noticed that "tulip" drivers get loaded as a module at boot time.
+> but they dont function correctly. (lets you start the device and
+> attach ips but cant talk through it)
+> 
+> Is there any variants of the tulip driver that will work for this?
+> 
+> Help much appreciated.
+> 
+> 
+> /proc/pci extract for network cards:
+> 
+>   Bus  5, device   5, function  0:
+>     Ethernet controller: Digital Equipment Corporation DECchip
+> 21142/43 (#30) (rev 65).
+>       IRQ 30.
+>       Master Capable.  Latency=128.  Min Gnt=20.Max Lat=40.
+>       I/O at 0x0 [0x7f].
+>       Non-prefetchable 32 bit memory at 0xfa1ff400 [0xfa1ff7ff].
+>   Bus  5, device   4, function  0:
+>     Ethernet controller: Digital Equipment Corporation DECchip
+> 21142/43 (#29) (rev 65).
+>       IRQ 29.
+>       Master Capable.  No bursts.  Min Gnt=20.Max Lat=40.
+>       I/O at 0x0 [0x7f].
+>       Non-prefetchable 32 bit memory at 0xf9f00000 [0xf9f003ff].
+>
