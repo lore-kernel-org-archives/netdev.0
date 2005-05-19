@@ -1,26 +1,33 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [IPSEC] Verify key payload in verify_one_algo
-Date: Fri, 20 May 2005 07:34:13 +1000
-Message-ID: <20050519213413.GA24024@gondor.apana.org.au>
-References: <20050519020302.GA20285@gondor.apana.org.au> <20050519021505.GA20703@gondor.apana.org.au> <20050519.124059.85410159.davem@davemloft.net>
+Subject: Re: assertion (!atomic_read(&sk->sk_rmem_alloc)) failed at net/netlink/af_netlink.c (122)
+Date: Fri, 20 May 2005 07:34:57 +1000
+Message-ID: <20050519213457.GB24024@gondor.apana.org.au>
+References: <20050512104229.GB25631@gondor.apana.org.au> <1115895482.30106.95.camel@tsc-6.cph.tpack.net> <20050512110738.GA5937@gondor.apana.org.au> <20050519.124921.115910096.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Cc: tommy.christensen@tpack.net, chamas@h4.dion.ne.jp, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20050519.124059.85410159.davem@davemloft.net>
+In-Reply-To: <20050519.124921.115910096.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 19, 2005 at 12:40:59PM -0700, David S. Miller wrote:
+On Thu, May 19, 2005 at 12:49:21PM -0700, David S. Miller wrote:
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Thu, 12 May 2005 21:07:38 +1000
 > 
-> I gather from these two patches that once you found the
-> first problem you went around auditing alg_key_len usage
-> and these were the only two bugs you spotted.  Right?
+> > On Thu, May 12, 2005 at 12:58:03PM +0200, Tommy Christensen wrote:
+> > > 
+> > > Signed-off-by: Tommy S. Christensen <tommy.christensen@tpack.net>
+> > 
+> > Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+> 
+> Hmmm, should I undo Tommy's one-liner skb_orphan() change
+> then add this one instead?
 
-Correct.
+Please do since the first one had a subtle bug.
 
 Cheers,
 -- 
