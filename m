@@ -1,25 +1,30 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: 2.6.12-rc4-mm[12] - ULOG problem
-Date: Thu, 19 May 2005 11:54:54 -0700 (PDT)
-Message-ID: <20050519.115454.45743895.davem@davemloft.net>
-References: <20050519095334.018dd674.akpm@osdl.org>
-	<Xine.LNX.4.44.0505191259590.16439-100000@thoron.boston.redhat.com>
+Subject: Re: [PATCH] [BRIDGE] Set features based on slave's ones
+Date: Thu, 19 May 2005 11:58:32 -0700 (PDT)
+Message-ID: <20050519.115832.111205328.davem@davemloft.net>
+References: <200505191106.53136.jdmason@us.ibm.com>
+	<Pine.LNX.4.62.0505192019090.8076@webhosting.rdsbv.ro>
+	<200505191247.55138.jdmason@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au,
-        netdev@oss.sgi.com
+Cc: util@deuroconsult.ro, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jmorris@redhat.com
-In-Reply-To: <Xine.LNX.4.44.0505191259590.16439-100000@thoron.boston.redhat.com>
+To: jdmason@us.ibm.com
+In-Reply-To: <200505191247.55138.jdmason@us.ibm.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: James Morris <jmorris@redhat.com>
-Date: Thu, 19 May 2005 13:09:44 -0400 (EDT)
+From: Jon Mason <jdmason@us.ibm.com>
+Date: Thu, 19 May 2005 12:47:55 -0500
 
-> I don't think it's the right implementation, and providing feedback on it
-> has proven frustrating and unfruitful.
+> My point is that some features the user might want enabled regardless of 
+> whether all devices support them.  An example of this is where a system has 
+> hardware checksum support for all devices except one.  In this case, it would 
+> be benefitial to have this device do the checksum in software (via 
+> skb_checksum_help() call in dev_queue_xmit()).
 
-Yes, Evgeni is a complete control freak.
+If "SG and checksumming is so common these days" as others have
+stated, what you are describing is a totally uncommon scenerio.  What
+Catalin is proposing is infinitely better than what we have today.
