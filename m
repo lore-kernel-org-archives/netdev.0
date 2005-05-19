@@ -1,29 +1,32 @@
-From: James Morris <jmorris@redhat.com>
-Subject: Re: Fw: 2.6.12-rc4-mm[12] - ULOG problem
-Date: Thu, 19 May 2005 09:19:33 -0400 (EDT)
-Message-ID: <Xine.LNX.4.44.0505190918430.15522-100000@thoron.boston.redhat.com>
-References: <20050519000809.2fca25c5.akpm@osdl.org>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: igmp snooping?
+Date: Thu, 19 May 2005 09:43:41 -0400
+Message-ID: <1116510221.6240.50.camel@localhost.localdomain>
+References: <20050519050958.86591.qmail@web31503.mail.mud.yahoo.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: johnpol@2ka.mipt.ru, <herbert@gondor.apana.org.au>, <netdev@oss.sgi.com>,
-        <davem@davemloft.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Stevens <dlstevens@us.ibm.com>,
+        Lennert Buytenhek <buytenh@wantstofly.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20050519000809.2fca25c5.akpm@osdl.org>
+To: Jonathan Day <imipak@yahoo.com>
+In-Reply-To: <20050519050958.86591.qmail@web31503.mail.mud.yahoo.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 19 May 2005, Andrew Morton wrote:
+On Wed, 2005-18-05 at 22:09 -0700, Jonathan Day wrote:
+> mentation-dependent.
+> 
+> Now, in 99.99% of all cases, you're not going to have
+> any significant IGMPv3 traffic, as barely anyone uses
+> it yet and IGMP specifies that the highest common
+> version will be used in a group. 
 
-> We should remove the feature.  If there is demonstrated need for multiple
-> instances then it should be done by more conventional means - syscall,
-> allocation of a device major then use the minor as a selector or whatever.
+A significant amount of video type apps that i have seen lately
+try to use IGMPv3 and then fallback to IGMPv2. I think that this may be
+aggravated due to our friends at MS discovering IGMPv3.
 
-I'd suggest removing the connector code completely.
-
-
-- James
--- 
-James Morris
-<jmorris@redhat.com>
+cheers,
+jamal
