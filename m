@@ -1,41 +1,33 @@
-From: Jon Mason <jdmason@us.ibm.com>
-Subject: Re: [PATCH] [BRIDGE] Set features based on slave's ones (was Ethernet Bridging: Enable Hardware Checksumming)
-Date: Thu, 19 May 2005 11:06:53 -0500
-Message-ID: <200505191106.53136.jdmason@us.ibm.com>
-References: <Pine.LNX.4.62.0505191654400.24043@webhosting.rdsbv.ro>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: Fw: 2.6.12-rc4-mm[12] - ULOG problem
+Date: Thu, 19 May 2005 09:53:34 -0700
+Message-ID: <20050519095334.018dd674.akpm@osdl.org>
+References: <20050519000809.2fca25c5.akpm@osdl.org>
+	<Xine.LNX.4.44.0505190918430.15522-100000@thoron.boston.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, davem@davemloft.net
+Cc: johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au, netdev@oss.sgi.com,
+        davem@davemloft.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
-In-Reply-To: <Pine.LNX.4.62.0505191654400.24043@webhosting.rdsbv.ro>
-Content-Disposition: inline
+To: James Morris <jmorris@redhat.com>
+In-Reply-To: <Xine.LNX.4.44.0505190918430.15522-100000@thoron.boston.redhat.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This patch only enables the features which are common between all of the 
-bridged devices (at the time of their addition to the bridge).  It overlooks 
-the cases where not all of the adapters have the same features, or where the 
-user has changed the enablement of a certain feature (via ethtool).  
+James Morris <jmorris@redhat.com> wrote:
+>
+> On Thu, 19 May 2005, Andrew Morton wrote:
+> 
+> > We should remove the feature.  If there is demonstrated need for multiple
+> > instances then it should be done by more conventional means - syscall,
+> > allocation of a device major then use the minor as a selector or whatever.
+> 
+> I'd suggest removing the connector code completely.
+> 
 
-Thanks,
-Jon
-
-On Thursday 19 May 2005 10:28 am, Catalin(ux aka Dino) BOIE wrote:
-> Hello!
->
-> The attached patch, makes the bridge to select features (almost all) only
-> if _all_ devices supports them.
-> The patch was tested (create a bridge, add an interface, remove the
-> interface and always check features flags).
->
-> What do you think?
->
-> Signed-off-by: Catalin(ux aka Dino) BOIE <catab at umbrella.ro>
-> ---
-> Catalin(ux aka Dino) BOIE
-> catab at deuroconsult.ro
-> http://kernel.umbrella.ro/
+How come?  It seems sensible to have library code which consoldates the
+common netlink setup and teardown stuff and which offers a higher-level
+messaging API, although connector may be a bit overdesigned for that.  The
+fork connector guys seemed to find it useful?
