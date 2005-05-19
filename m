@@ -1,37 +1,33 @@
-From: Jon Mason <jdmason@us.ibm.com>
-Subject: Re: [PATCH] [BRIDGE] Set features based on slave's ones
-Date: Thu, 19 May 2005 15:20:44 -0500
-Message-ID: <200505191520.44653.jdmason@us.ibm.com>
-References: <200505191106.53136.jdmason@us.ibm.com> <20050519190032.GA19620@us.ibm.com> <20050519.122127.74747706.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] Ethernet Bridging: Enable Hardware Checksumming
+Date: Thu, 19 May 2005 13:33:33 -0700
+Message-ID: <20050519133333.07a992e6@dxpl.pdx.osdl.net>
+References: <20050518235329.GA17946@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: util@deuroconsult.ro, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050519.122127.74747706.davem@davemloft.net>
-Content-Disposition: inline
+To: Jon Mason <jdmason@us.ibm.com>
+In-Reply-To: <20050518235329.GA17946@us.ibm.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thursday 19 May 2005 02:21 pm, David S. Miller wrote:
-> From: Jon Mason <jdmason@us.ibm.com>
-> Date: Thu, 19 May 2005 14:00:32 -0500
->
-> > I combined my previous patch with your patch, and came up with the
-> > following.  I have tested it on my system, and it works exactly the way
-> > I wanted.  What do you think?
->
-> Look, let's do this.  Do an initial patch that only does
-> enables features possible on all devices.  Because we
-> all agree that is a definite improvement from the current
-> situation.
->
-> Then we can discuss the relative merits of enabling features
-> available on only some devices.
->
-> Ok?
+Here is a somewhat different patch from 2.6.12-rc4-bridge
+http://developer.osdl.org/shemminger/patches/2.6.12-rc4-bridge/
 
-That is acceptable to me.
+The bridge doesn't need locking, or checksumming and can allow highdma
+buffers; all of which are handled by net/core/dev.c if needed.
+
+
+===================================================================
+--- netem-2.6.12-rc4.orig/net/bridge/br_device.c
++++ netem-2.6.12-rc4/net/bridge/br_device.c
+@@ -101,4 +99,6 @@ void br_dev_setup(struct net_device *dev
+ 	dev->tx_queue_len = 0;
+ 	dev->set_mac_address = NULL;
+ 	dev->priv_flags = IFF_EBRIDGE;
++	dev->features |= NETIF_F_SG | NETIF_F_NO_CSUM 
++		| NETIF_F_HIGHDMA | NETIF_F_LLTX;
+ }
