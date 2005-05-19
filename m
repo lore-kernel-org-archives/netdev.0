@@ -1,75 +1,95 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [IPV4/IPV6] Keep wmem accounting separate in ip*_push_pending_frames
-Date: Fri, 20 May 2005 07:48:38 +1000
-Message-ID: <20050519214838.GD24024@gondor.apana.org.au>
-References: <20050515235913.GA20242@gondor.apana.org.au> <20050515.173944.122590923.davem@davemloft.net> <20050516010058.GA20704@gondor.apana.org.au> <20050519.123530.55508893.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] (1/3) netem - reinsert for duplication
+Date: Thu, 19 May 2005 15:12:50 -0700
+Message-ID: <20050519151250.17ab5c81@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: johnpol@2ka.mipt.ru, netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, netem@lists.osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20050519.123530.55508893.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 19, 2005 at 12:35:30PM -0700, David S. Miller wrote:
-> 
-> Ok, based upon this I am adding the following patch to my
-> tree.  Thanks.
+Handle duplication of packets in netem by re-inserting at top of qdisc tree.
+This avoid problems with qlen accounting with nested qdisc. This recursion
+requires no additional locking but will potentially increase stack depth.
 
-Thanks Dave, this looks good to me.
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-> --- 1/net/ipv4/netfilter/ip_conntrack_core.c.~1~	2005-05-18 22:45:26.000000000 -0700
-> +++ 2/net/ipv4/netfilter/ip_conntrack_core.c	2005-05-19 12:32:26.000000000 -0700
-> @@ -940,37 +940,25 @@
->  struct sk_buff *
->  ip_ct_gather_frags(struct sk_buff *skb, u_int32_t user)
->  {
-> -	struct sock *sk = skb->sk;
->  #ifdef CONFIG_NETFILTER_DEBUG
->  	unsigned int olddebug = skb->nf_debug;
->  #endif
->  
-> -	if (sk) {
-> -		sock_hold(sk);
-> -		skb_orphan(skb);
-> -	}
-> +	skb_orphan(skb);
->  
->  	local_bh_disable(); 
->  	skb = ip_defrag(skb, user);
->  	local_bh_enable();
->  
-> -	if (!skb) {
-> -		if (sk)
-> -			sock_put(sk);
-> -		return skb;
-> -	}
-> -
-> -	if (sk) {
-> -		skb_set_owner_w(skb, sk);
-> -		sock_put(sk);
-> -	}
-> -
-> -	ip_send_check(skb->nh.iph);
-> -	skb->nfcache |= NFC_ALTERED;
-> +	if (skb) {
-> +		ip_send_check(skb->nh.iph);
-> +		skb->nfcache |= NFC_ALTERED;
->  #ifdef CONFIG_NETFILTER_DEBUG
-> -	/* Packet path as if nothing had happened. */
-> -	skb->nf_debug = olddebug;
-> +		/* Packet path as if nothing had happened. */
-> +		skb->nf_debug = olddebug;
->  #endif
-> +	}
-> +
->  	return skb;
->  }
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Index: netem-2.6.12-rc4/net/sched/sch_netem.c
+===================================================================
+--- netem-2.6.12-rc4.orig/net/sched/sch_netem.c
++++ netem-2.6.12-rc4/net/sched/sch_netem.c
+@@ -203,42 +203,47 @@ static int netem_run(struct Qdisc *sch)
+ 	return 0;
+ }
+ 
++/*
++ * Insert one skb into qdisc.
++ * Note: parent depends on return value to account for queue length.
++ * 	NET_XMIT_DROP: queue length didn't change.
++ *      NET_XMIT_SUCCESS: one skb was queued.
++ */
+ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ {
+ 	struct netem_sched_data *q = qdisc_priv(sch);
++	struct sk_buff *skb2;
+ 	int ret;
++	int count = 1;
+ 
+ 	pr_debug("netem_enqueue skb=%p\n", skb);
+ 
++	/* Random duplication */
++	if (q->duplicate && q->duplicate >= get_crandom(&q->dup_cor))
++		++count;
++
+ 	/* Random packet drop 0 => none, ~0 => all */
+-	if (q->loss && q->loss >= get_crandom(&q->loss_cor)) {
+-		pr_debug("netem_enqueue: random loss\n");
++	if (q->loss && q->loss >= get_crandom(&q->loss_cor))
++		--count;
++
++	if (count == 0) {
+ 		sch->qstats.drops++;
+ 		kfree_skb(skb);
+-		return 0;	/* lie about loss so TCP doesn't know */
++		return NET_XMIT_DROP;
+ 	}
+ 
+-	/* Random duplication */
+-	if (q->duplicate && q->duplicate >= get_crandom(&q->dup_cor)) {
+-		struct sk_buff *skb2;
++	/*
++	 * If we need to duplicate packet, then re-insert at top of the
++	 * qdisc tree, since parent queuer expects that only one
++	 * skb will be queued.
++	 */
++	if (count > 1 && (skb2 = skb_clone(skb, GFP_ATOMIC)) != NULL) {
++		struct Qdisc *rootq = sch->dev->qdisc;
++		u32 dupsave = q->duplicate; /* prevent duplicating a dup... */
++		q->duplicate = 0;
+ 
+-		skb2 = skb_clone(skb, GFP_ATOMIC);
+-		if (skb2 && netem_delay(sch, skb2) == NET_XMIT_SUCCESS) {
+-			struct Qdisc *qp;
+-
+-			/* Since one packet can generate two packets in the
+-			 * queue, the parent's qlen accounting gets confused,
+-			 * so fix it.
+-			 */
+-			qp = qdisc_lookup(sch->dev, TC_H_MAJ(sch->parent));
+-			if (qp)
+-				qp->q.qlen++;
+-
+-			sch->q.qlen++;
+-			sch->bstats.bytes += skb2->len;
+-			sch->bstats.packets++;
+-		} else
+-			sch->qstats.drops++;
++		rootq->enqueue(skb2, rootq);
++		q->duplicate = dupsave;
+ 	}
+ 
+ 	/* If doing simple delay then gap == 0 so all packets
