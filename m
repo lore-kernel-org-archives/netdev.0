@@ -1,53 +1,29 @@
-From: jamal <hadi@cyberus.ca>
-Subject: another git excuse patch
-Date: Wed, 18 May 2005 21:23:45 -0400
-Message-ID: <1116465825.6240.27.camel@localhost.localdomain>
-Reply-To: hadi@cyberus.ca
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: another git excuse patch
+Date: Thu, 19 May 2005 11:28:22 +1000
+Message-ID: <20050519012822.GA19536@gondor.apana.org.au>
+References: <1116465825.6240.27.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-OeXu7fNqfFdekE+h/zBq"
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev <netdev@oss.sgi.com>, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1116465825.6240.27.camel@localhost.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Wed, May 18, 2005 at 09:23:45PM -0400, jamal wrote:
+> 
+> Against Herbert's ipsec-2.6.git. 
+> 
+> Small fixup to use netlink macros instead of hardcoding.
+> Signed-off-by: Jamal Hadi Salim
 
---=-OeXu7fNqfFdekE+h/zBq
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-
-
-Against Herbert's ipsec-2.6.git. 
-
-Small fixup to use netlink macros instead of hardcoding.
-Signed-off-by: Jamal Hadi Salim
-
-
-cheers,
-jamal
-
---=-OeXu7fNqfFdekE+h/zBq
-Content-Disposition: attachment; filename=ipsec12_p
-Content-Type: text/plain; name=ipsec12_p; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-
-net/xfrm/xfrm_user.c: needs update
-Index: net/xfrm/xfrm_user.c
-===================================================================
---- c24f26cfe03081d10a3a3f66d5d3e503395090b4/net/xfrm/xfrm_user.c  (mode:100644)
-+++ uncommitted/net/xfrm/xfrm_user.c  (mode:100644)
-@@ -1114,9 +1114,9 @@
- static int xfrm_exp_state_notify(struct xfrm_state *x, struct km_event *c)
- {
- 	struct sk_buff *skb;
-+	int len = NLMSG_LENGTH(sizeof(struct xfrm_user_expire));
- 
--	/* fix to do alloc using NLM macros */
--	skb = alloc_skb(sizeof(struct xfrm_user_expire) + 16, GFP_ATOMIC);
-+	skb = alloc_skb(len, GFP_ATOMIC);
- 	if (skb == NULL)
- 		return -ENOMEM;
- 
-
---=-OeXu7fNqfFdekE+h/zBq--
+Thanks, I'll add it to my collection.
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
