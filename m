@@ -1,31 +1,33 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: patch: small fixup
-Date: Thu, 19 May 2005 12:43:01 -0700 (PDT)
-Message-ID: <20050519.124301.39157305.davem@davemloft.net>
-References: <1116462970.6240.9.camel@localhost.localdomain>
+Subject: Re: assertion (!atomic_read(&sk->sk_rmem_alloc)) failed at
+ net/netlink/af_netlink.c (122)
+Date: Thu, 19 May 2005 12:47:16 -0700 (PDT)
+Message-ID: <20050519.124716.74565187.davem@davemloft.net>
+References: <20050511005836.GA1674@gondor.apana.org.au>
+	<4282846F.6070403@tpack.net>
+	<20050511222210.GA21280@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: tommy.christensen@tpack.net, chamas@h4.dion.ne.jp, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1116462970.6240.9.camel@localhost.localdomain>
+To: herbert@gondor.apana.org.au
+In-Reply-To: <20050511222210.GA21280@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: jamal <hadi@cyberus.ca>
-Date: Wed, 18 May 2005 20:36:10 -0400
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Thu, 12 May 2005 08:22:10 +1000
 
-> My first git patch (dangerously knowledgeable after 30 minutes of
-> snorting blobs;->) against net-2.6.git. Consider this an excuse to send
-> a git patch ;->
-
-:-)
-
-> Fixup simple action define to be consistent with other net/sched files
+> > What about an alternative fix, that avoids even more cloning (where
+> > possible)? This resurrects the skb_orphan call that was moved out, last
+> > time we had 'shared-skb troubles'. It is practically a no-op in the
+> > common case, but still prevents the possible race with recvmsg.
+> > (And I have a weakness for one-line-fixes). :-)
 > 
-> Signed-off-by: Jamal Hadi Salim
+> Yep this is much better.  Thanks Tommy.
+> 
+> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Applied, please supply an email in your signed-off line next
-time, thanks.
+Applied, thanks a lot guys.
