@@ -1,7 +1,8 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (3/3) netem: allow random reordering
-Date: Thu, 19 May 2005 15:12:54 -0700
-Message-ID: <20050519151254.79afe7e7@dxpl.pdx.osdl.net>
+Subject: [PATCH] (2/3) netem: use only inner qdisc -- no private skbuff
+ queue
+Date: Thu, 19 May 2005 15:12:52 -0700
+Message-ID: <20050519151252.6cbbf0b7@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -12,160 +13,207 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Enhance the reorder feature of netem to allow random percent to be reordered.
-Has expected backwards compatibility behaviour.
+Netem works better if there if packets are just queued in the inner discipline
+rather than having a separate delayed queue. Change to use the dequeue/requeue
+to peek like TBF does.
+
+By doing this potential qlen problems with the old method are avoided. The problems
+happened when the netem_run that moved packets from the inner discipline to the nested
+discipline failed (because inner queue was full). This happened in dequeue, so the
+effective qlen of the netem would be decreased (because of the drop), but there was
+no way to keep the outer qdisc (caller of netem dequeue) in sync.
+
+The problem window is still there since this patch doesn't address the issue of
+requeue failing in netem_dequeue, but that shouldn't happen since the sequence dequeue/requeue
+should always work.  Long term correct fix is to implement qdisc->peek in all the qdisc's
+to allow for this (needed by several other qdisc's as well).
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-Index: netem-2.6.12-rc4/include/linux/pkt_sched.h
-===================================================================
---- netem-2.6.12-rc4.orig/include/linux/pkt_sched.h
-+++ netem-2.6.12-rc4/include/linux/pkt_sched.h
-@@ -427,6 +427,7 @@ enum
- 	TCA_NETEM_UNSPEC,
- 	TCA_NETEM_CORR,
- 	TCA_NETEM_DELAY_DIST,
-+	TCA_NETEM_REORDER,
- 	__TCA_NETEM_MAX,
- };
- 
-@@ -437,7 +438,7 @@ struct tc_netem_qopt
- 	__u32	latency;	/* added delay (us) */
- 	__u32   limit;		/* fifo limit (packets) */
- 	__u32	loss;		/* random packet loss (0=none ~0=100%) */
--	__u32	gap;		/* re-ordering gap (0 for delay all) */
-+	__u32	gap;		/* re-ordering gap (0 for none) */
- 	__u32   duplicate;	/* random packet dup  (0=none ~0=100%) */
- 	__u32	jitter;		/* random jitter in latency (us) */
- };
-@@ -449,6 +450,12 @@ struct tc_netem_corr
- 	__u32	dup_corr;	/* duplicate correlation  */
- };
- 
-+struct tc_netem_reorder
-+{
-+	__u32	probability;
-+	__u32	correlation;
-+};
-+
- #define NETEM_DIST_SCALE	8192
- 
- #endif
 Index: netem-2.6.12-rc4/net/sched/sch_netem.c
 ===================================================================
 --- netem-2.6.12-rc4.orig/net/sched/sch_netem.c
 +++ netem-2.6.12-rc4/net/sched/sch_netem.c
-@@ -62,11 +62,12 @@ struct netem_sched_data {
- 	u32 gap;
- 	u32 jitter;
- 	u32 duplicate;
-+	u32 reorder;
+@@ -53,7 +53,6 @@
  
- 	struct crndstate {
- 		unsigned long last;
- 		unsigned long rho;
--	} delay_cor, loss_cor, dup_cor;
-+	} delay_cor, loss_cor, dup_cor, reorder_cor;
+ struct netem_sched_data {
+ 	struct Qdisc	*qdisc;
+-	struct sk_buff_head delayed;
+ 	struct timer_list timer;
  
- 	struct disttable {
- 		u32  size;
-@@ -185,18 +186,18 @@ static int netem_enqueue(struct sk_buff 
- 	 * of the queue.
- 	 * gap == 0 is special case for no-reordering.
- 	 */
--	if (q->gap == 0 || q->counter != q->gap) {
-+	if (q->gap == 0 && q->counter < q->gap && 
-+	    q->reorder < get_crandom(&q->reorder_cor)) {
- 		psched_time_t now;
- 		PSCHED_GET_TIME(now);
--		PSCHED_TADD2(now, 
--			     tabledist(q->latency, q->jitter, &q->delay_cor, q->delay_dist),
-+		PSCHED_TADD2(now, tabledist(q->latency, q->jitter, 
-+					    &q->delay_cor, q->delay_dist),
- 			     cb->time_to_send);
+ 	u32 latency;
+@@ -137,72 +136,6 @@ static long tabledist(unsigned long mu, 
+ 	return  x / NETEM_DIST_SCALE + (sigma / NETEM_DIST_SCALE) * t + mu;
+ }
+ 
+-/* Put skb in the private delayed queue. */
+-static int netem_delay(struct Qdisc *sch, struct sk_buff *skb)
+-{
+-	struct netem_sched_data *q = qdisc_priv(sch);
+-	psched_tdiff_t td;
+-	psched_time_t now;
+-	
+-	PSCHED_GET_TIME(now);
+-	td = tabledist(q->latency, q->jitter, &q->delay_cor, q->delay_dist);
+-	
+-	/* Always queue at tail to keep packets in order */
+-	if (likely(q->delayed.qlen < q->limit)) {
+-		struct netem_skb_cb *cb = (struct netem_skb_cb *)skb->cb;
+-	
+-		PSCHED_TADD2(now, td, cb->time_to_send);
+-
+-		pr_debug("netem_delay: skb=%p now=%llu tosend=%llu\n", skb, 
+-			 now, cb->time_to_send);
+-	
+-		__skb_queue_tail(&q->delayed, skb);
+-		return NET_XMIT_SUCCESS;
+-	}
+-
+-	pr_debug("netem_delay: queue over limit %d\n", q->limit);
+-	sch->qstats.overlimits++;
+-	kfree_skb(skb);
+-	return NET_XMIT_DROP;
+-}
+-
+-/*
+- *  Move a packet that is ready to send from the delay holding
+- *  list to the underlying qdisc.
+- */
+-static int netem_run(struct Qdisc *sch)
+-{
+-	struct netem_sched_data *q = qdisc_priv(sch);
+-	struct sk_buff *skb;
+-	psched_time_t now;
+-
+-	PSCHED_GET_TIME(now);
+-
+-	skb = skb_peek(&q->delayed);
+-	if (skb) {
+-		const struct netem_skb_cb *cb
+-			= (const struct netem_skb_cb *)skb->cb;
+-		long delay 
+-			= PSCHED_US2JIFFIE(PSCHED_TDIFF(cb->time_to_send, now));
+-		pr_debug("netem_run: skb=%p delay=%ld\n", skb, delay);
+-
+-		/* if more time remaining? */
+-		if (delay > 0) {
+-			mod_timer(&q->timer, jiffies + delay);
+-			return 1;
+-		}
+-
+-		__skb_unlink(skb, &q->delayed);
 -		
+-		if (q->qdisc->enqueue(skb, q->qdisc)) {
+-			sch->q.qlen--;
+-			sch->qstats.drops++;
+-		} 
+-	}
+-
+-	return 0;
+-}
+-
+ /*
+  * Insert one skb into qdisc.
+  * Note: parent depends on return value to account for queue length.
+@@ -212,6 +145,7 @@ static int netem_run(struct Qdisc *sch)
+ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ {
+ 	struct netem_sched_data *q = qdisc_priv(sch);
++	struct netem_skb_cb *cb = (struct netem_skb_cb *)skb->cb;
+ 	struct sk_buff *skb2;
+ 	int ret;
+ 	int count = 1;
+@@ -246,18 +180,24 @@ static int netem_enqueue(struct sk_buff 
+ 		q->duplicate = dupsave;
+ 	}
+ 
+-	/* If doing simple delay then gap == 0 so all packets
+-	 * go into the delayed holding queue
+-	 * otherwise if doing out of order only "1 out of gap"
+-	 * packets will be delayed.
++	/* 
++	 * Do re-ordering by putting one out of N packets at the front
++	 * of the queue.
++	 * gap == 0 is special case for no-reordering.
+ 	 */
+-	if (q->counter < q->gap) {
++	if (q->gap == 0 || q->counter != q->gap) {
++		psched_time_t now;
++		PSCHED_GET_TIME(now);
++		PSCHED_TADD2(now, 
++			     tabledist(q->latency, q->jitter, &q->delay_cor, q->delay_dist),
++			     cb->time_to_send);
++		
  		++q->counter;
  		ret = q->qdisc->enqueue(skb, q->qdisc);
  	} else {
--		q->counter = 0;
- 		PSCHED_GET_TIME(cb->time_to_send);
-+		q->counter = 0;
- 		ret = q->qdisc->ops->requeue(skb, q->qdisc);
+ 		q->counter = 0;
+-		ret = netem_delay(sch, skb);
+-		netem_run(sch);
++		PSCHED_GET_TIME(cb->time_to_send);
++		ret = q->qdisc->ops->requeue(skb, q->qdisc);
  	}
  
-@@ -351,6 +352,19 @@ static int get_correlation(struct Qdisc 
- 	return 0;
- }
- 
-+static int get_reorder(struct Qdisc *sch, const struct rtattr *attr)
-+{
-+	struct netem_sched_data *q = qdisc_priv(sch);
-+	const struct tc_netem_reorder *r = RTA_DATA(attr);
-+
-+	if (RTA_PAYLOAD(attr) != sizeof(*r))
-+		return -EINVAL;
-+
-+	q->reorder = r->probability;
-+	init_crandom(&q->reorder_cor, r->correlation);
-+	return 0;
-+}
-+
- static int netem_change(struct Qdisc *sch, struct rtattr *opt)
+ 	if (likely(ret == NET_XMIT_SUCCESS)) {
+@@ -301,22 +241,33 @@ static struct sk_buff *netem_dequeue(str
  {
  	struct netem_sched_data *q = qdisc_priv(sch);
-@@ -371,9 +385,15 @@ static int netem_change(struct Qdisc *sc
- 	q->jitter = qopt->jitter;
- 	q->limit = qopt->limit;
- 	q->gap = qopt->gap;
-+	q->counter = 0;
- 	q->loss = qopt->loss;
- 	q->duplicate = qopt->duplicate;
+ 	struct sk_buff *skb;
+-	int pending;
+-
+-	pending = netem_run(sch);
  
-+	/* for compatiablity with earlier versions.
-+	 * if gap is set, need to assume 100% probablity
-+	 */
-+	q->reorder = ~0;
+ 	skb = q->qdisc->dequeue(q->qdisc);
+ 	if (skb) {
+-		pr_debug("netem_dequeue: return skb=%p\n", skb);
+-		sch->q.qlen--;
+-		sch->flags &= ~TCQ_F_THROTTLED;
+-	}
+-	else if (pending) {
+-		pr_debug("netem_dequeue: throttling\n");
++		const struct netem_skb_cb *cb
++			= (const struct netem_skb_cb *)skb->cb;
++		psched_time_t now;
++		long delay;
 +
- 	/* Handle nested options after initial queue options.
- 	 * Should have put all options in nested format but too late now.
- 	 */ 
-@@ -395,6 +415,11 @@ static int netem_change(struct Qdisc *sc
- 			if (ret)
- 				return ret;
- 		}
-+		if (tb[TCA_NETEM_REORDER-1]) {
-+			ret = get_reorder(sch, tb[TCA_NETEM_REORDER-1]);
-+			if (ret)
-+				return ret;
++		/* if more time remaining? */
++		PSCHED_GET_TIME(now);
++		delay = PSCHED_US2JIFFIE(PSCHED_TDIFF(cb->time_to_send, now));
++		pr_debug("netem_run: skb=%p delay=%ld\n", skb, delay);
++		if (delay <= 0) {
++			pr_debug("netem_dequeue: return skb=%p\n", skb);
++			sch->q.qlen--;
++			sch->flags &= ~TCQ_F_THROTTLED;
++			return skb;
 +		}
- 	}
++
++		mod_timer(&q->timer, jiffies + delay);
+ 		sch->flags |= TCQ_F_THROTTLED;
+-	} 
  
+-	return skb;
++		if (q->qdisc->ops->requeue(skb, q->qdisc) != 0)
++			sch->qstats.drops++;
++	}
++
++	return NULL;
+ }
  
-@@ -412,7 +437,6 @@ static int netem_init(struct Qdisc *sch,
+ static void netem_watchdog(unsigned long arg)
+@@ -333,8 +284,6 @@ static void netem_reset(struct Qdisc *sc
+ 	struct netem_sched_data *q = qdisc_priv(sch);
+ 
+ 	qdisc_reset(q->qdisc);
+-	skb_queue_purge(&q->delayed);
+-
+ 	sch->q.qlen = 0;
+ 	sch->flags &= ~TCQ_F_THROTTLED;
+ 	del_timer_sync(&q->timer);
+@@ -460,7 +409,6 @@ static int netem_init(struct Qdisc *sch,
+ 	if (!opt)
+ 		return -EINVAL;
+ 
+-	skb_queue_head_init(&q->delayed);
  	init_timer(&q->timer);
  	q->timer.function = netem_watchdog;
  	q->timer.data = (unsigned long) sch;
--	q->counter = 0;
- 
- 	q->qdisc = qdisc_create_dflt(sch->dev, &pfifo_qdisc_ops);
- 	if (!q->qdisc) {
-@@ -444,6 +468,7 @@ static int netem_dump(struct Qdisc *sch,
- 	struct rtattr *rta = (struct rtattr *) b;
- 	struct tc_netem_qopt qopt;
- 	struct tc_netem_corr cor;
-+	struct tc_netem_reorder reorder;
- 
- 	qopt.latency = q->latency;
- 	qopt.jitter = q->jitter;
-@@ -457,6 +482,11 @@ static int netem_dump(struct Qdisc *sch,
- 	cor.loss_corr = q->loss_cor.rho;
- 	cor.dup_corr = q->dup_cor.rho;
- 	RTA_PUT(skb, TCA_NETEM_CORR, sizeof(cor), &cor);
-+
-+	reorder.probability = q->reorder;
-+	reorder.correlation = q->reorder_cor.rho;
-+	RTA_PUT(skb, TCA_NETEM_REORDER, sizeof(reorder), &reorder);
-+
- 	rta->rta_len = skb->tail - b;
- 
- 	return skb->len;
