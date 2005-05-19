@@ -1,32 +1,36 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: igmp snooping?
-Date: Thu, 19 May 2005 09:43:41 -0400
-Message-ID: <1116510221.6240.50.camel@localhost.localdomain>
-References: <20050519050958.86591.qmail@web31503.mail.mud.yahoo.com>
+Subject: Re: Fw: 2.6.12-rc4-mm[12] - ULOG problem
+Date: Thu, 19 May 2005 09:46:50 -0400
+Message-ID: <1116510411.6240.54.camel@localhost.localdomain>
+References: <Xine.LNX.4.44.0505190915010.15522-100000@thoron.boston.redhat.com>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: David Stevens <dlstevens@us.ibm.com>,
-        Lennert Buytenhek <buytenh@wantstofly.org>, netdev@oss.sgi.com
+Cc: Andrew Morton <akpm@osdl.org>, Herbert Xu <herbert@gondor.apana.org.au>,
+        netdev@oss.sgi.com, Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jonathan Day <imipak@yahoo.com>
-In-Reply-To: <20050519050958.86591.qmail@web31503.mail.mud.yahoo.com>
+To: James Morris <jmorris@redhat.com>
+In-Reply-To: <Xine.LNX.4.44.0505190915010.15522-100000@thoron.boston.redhat.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2005-18-05 at 22:09 -0700, Jonathan Day wrote:
-> mentation-dependent.
+On Thu, 2005-19-05 at 09:16 -0400, James Morris wrote:
+> On Wed, 18 May 2005, Andrew Morton wrote:
 > 
-> Now, in 99.99% of all cases, you're not going to have
-> any significant IGMPv3 traffic, as barely anyone uses
-> it yet and IGMP specifies that the highest common
-> version will be used in a group. 
+> > cn_init() uses NETLINK_NFLOG.  Peculiar.
+> 
+> I raised this some time ago, and it was never fixed by the author.
+> 
 
-A significant amount of video type apps that i have seen lately
-try to use IGMPv3 and then fallback to IGMPv2. I think that this may be
-aggravated due to our friends at MS discovering IGMPv3.
+Sharing as was done here is not proper; perhaps the suggestion from
+Andrew is the way to go.
+
+The other thing we could do is allocate a set of IDs for private use
+(as in private IPs).
+However, something like connector should only get one ID and it can do
+its own multiplexing based on "units".
 
 cheers,
 jamal
