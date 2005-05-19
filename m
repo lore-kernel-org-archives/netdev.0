@@ -1,52 +1,38 @@
-From: Jon Mason <jdmason@us.ibm.com>
-Subject: Re: [PATCH] [BRIDGE] Set features based on slave's ones (was Ethernet Bridging: Enable Hardware Checksumming)
-Date: Thu, 19 May 2005 12:47:55 -0500
-Message-ID: <200505191247.55138.jdmason@us.ibm.com>
-References: <Pine.LNX.4.62.0505191654400.24043@webhosting.rdsbv.ro> <200505191106.53136.jdmason@us.ibm.com> <Pine.LNX.4.62.0505192019090.8076@webhosting.rdsbv.ro>
+From: Peter Bieringer <pb@bieringer.de>
+Subject: Re: Linux 2.6.11-rc2 Got IPv6 Ready Logo Phase-1
+Date: Thu, 19 May 2005 19:58:23 +0200
+Message-ID: <33B76C1D2C67B84F1EA687D9@gatemuc.muc.bieringer.de>
+References: <20050519.193225.19442831.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, davem@davemloft.net
+Cc: "YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=" <yoshfuji@linux-ipv6.org>,
+        usagi-core@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
-In-Reply-To: <Pine.LNX.4.62.0505192019090.8076@webhosting.rdsbv.ro>
+To: netdev@oss.sgi.com
+In-Reply-To: <20050519.193225.19442831.yoshfuji@linux-ipv6.org>
 Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thursday 19 May 2005 12:22 pm, Catalin(ux aka Dino) BOIE wrote:
-> On Thu, 19 May 2005, Jon Mason wrote:
-> > This patch only enables the features which are common between all of the
-> > bridged devices (at the time of their addition to the bridge).  It
-> > overlooks the cases where not all of the adapters have the same features,
-> > or where the user has changed the enablement of a certain feature (via
-> > ethtool).
-> >
-> > Thanks,
-> > Jon
->
-> I agree that the patch doesn't take care of ethtool oprations.
-> I will correct this.
 
-I think trying to correct this could be a bear of a problem.  Good luck.
 
-> But, it doesn't overlook the case when "not all of the adapters have the
-> same features". If all devices have a feature, it is enabled on the bridge
-> interface. Else, it is cleared. Am I missing your point?
+--On Thursday, May 19, 2005 07:32:25 PM +0900 "YOSHIFUJI Hideaki /
+=?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=" <yoshfuji@linux-ipv6.org> wrote:
 
-My point is that some features the user might want enabled regardless of 
-whether all devices support them.  An example of this is where a system has 
-hardware checksum support for all devices except one.  In this case, it would 
-be benefitial to have this device do the checksum in software (via 
-skb_checksum_help() call in dev_queue_xmit()).
+> Dear all,
+> 
+> 
+> USAGI Project is pleased to announce a special news.
+> 
+> The Linux mainline kernel (version 2.6.11-rc2) is approved by IPv6 Forum
+> in IPv6 Ready Logo Phase-1 Program <http://www.ipv6ready.org>.
 
-> Thank you very much for looking over the patch!
+Congratulation for the hard work!
 
-I really like your patch, and I'm working on combining the two so that we have 
-the best of both worlds.  I'll submit it once I have tested it, and we'll see 
-who likes it.
-
-Thanks,
-Jon
+        Peter
+-- 
+Dr. Peter Bieringer                     http://www.bieringer.de/pb/
+GPG/PGP Key 0x958F422D               mailto: pb at bieringer dot de 
+Deep Space 6 Co-Founder and Core Member  http://www.deepspace6.net/
