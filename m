@@ -1,31 +1,31 @@
 From: "David S. Miller" <davem@davemloft.net>
 Subject: Re: 2.6.12-rc4-mm[12] - ULOG problem
-Date: Thu, 19 May 2005 11:42:41 -0700 (PDT)
-Message-ID: <20050519.114241.59656850.davem@davemloft.net>
-References: <1116484313.21310.78.camel@uganda>
+Date: Thu, 19 May 2005 11:44:25 -0700 (PDT)
+Message-ID: <20050519.114425.18307286.davem@davemloft.net>
+References: <20050518222729.007887b8.akpm@osdl.org>
+	<1116484313.21310.78.camel@uganda>
 	<20050518234552.4aef6d02.akpm@osdl.org>
-	<1116486385.21310.82.camel@uganda>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, herbert@gondor.apana.org.au, netdev@oss.sgi.com
+Cc: johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: johnpol@2ka.mipt.ru
-In-Reply-To: <1116486385.21310.82.camel@uganda>
+To: akpm@osdl.org
+In-Reply-To: <20050518234552.4aef6d02.akpm@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Date: Thu, 19 May 2005 11:06:25 +0400
+From: Andrew Morton <akpm@osdl.org>
+Date: Wed, 18 May 2005 23:45:52 -0700
 
-> It was created to be able to load several different connector devices 
-> from different modules [basically it was module1.ko unit=10, module2.ko
-> unit=11 and so on].
+> > Should I ask David Miller to allocate new one specially for connector?
+> 
+> Dave?
 
-That's bogus, each connector will need to allocate it's own
-specific define in the netlink header, and we're about to
-run out of numbers.
+Giving the connector a single value 10 is OK, the rest of
+what the connector is doing in this area is not.
 
-Please redesign the connector so that it doesn't eat more than
-one netlink number, we're running out of them soon.
+I wish you hadn't put the connector into -mm, it's really
+in need of several fixups still.  The bogus reuse of the
+ULOG netlink number is simply indicative of that.
