@@ -1,31 +1,32 @@
 From: "David S. Miller" <davem@davemloft.net>
 Subject: Re: 2.6.12-rc4-mm[12] - ULOG problem
-Date: Thu, 19 May 2005 11:44:25 -0700 (PDT)
-Message-ID: <20050519.114425.18307286.davem@davemloft.net>
-References: <20050518222729.007887b8.akpm@osdl.org>
-	<1116484313.21310.78.camel@uganda>
-	<20050518234552.4aef6d02.akpm@osdl.org>
+Date: Thu, 19 May 2005 11:48:13 -0700 (PDT)
+Message-ID: <20050519.114813.85686672.davem@davemloft.net>
+References: <20050519000809.2fca25c5.akpm@osdl.org>
+	<Xine.LNX.4.44.0505190918430.15522-100000@thoron.boston.redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au, netdev@oss.sgi.com
+Cc: akpm@osdl.org, johnpol@2ka.mipt.ru, herbert@gondor.apana.org.au,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: akpm@osdl.org
-In-Reply-To: <20050518234552.4aef6d02.akpm@osdl.org>
+To: jmorris@redhat.com
+In-Reply-To: <Xine.LNX.4.44.0505190918430.15522-100000@thoron.boston.redhat.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Andrew Morton <akpm@osdl.org>
-Date: Wed, 18 May 2005 23:45:52 -0700
+From: James Morris <jmorris@redhat.com>
+Date: Thu, 19 May 2005 09:19:33 -0400 (EDT)
 
-> > Should I ask David Miller to allocate new one specially for connector?
+> On Thu, 19 May 2005, Andrew Morton wrote:
 > 
-> Dave?
+> > We should remove the feature.  If there is demonstrated need for multiple
+> > instances then it should be done by more conventional means - syscall,
+> > allocation of a device major then use the minor as a selector or whatever.
+> 
+> I'd suggest removing the connector code completely.
 
-Giving the connector a single value 10 is OK, the rest of
-what the connector is doing in this area is not.
-
-I wish you hadn't put the connector into -mm, it's really
-in need of several fixups still.  The bogus reuse of the
-ULOG netlink number is simply indicative of that.
+I totally agree, it's crap at the current time and the author doesn't
+fix the problems being shown in it, in fact he defends some of them
+even this one.  It needs lots of work still.
