@@ -1,68 +1,53 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: igmp snooping?
-Date: Wed, 18 May 2005 21:10:59 -0400
-Message-ID: <1116465059.6240.20.camel@localhost.localdomain>
-References: <20050518221401.GA11148@xi.wantstofly.org>
+Subject: another git excuse patch
+Date: Wed, 18 May 2005 21:23:45 -0400
+Message-ID: <1116465825.6240.27.camel@localhost.localdomain>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/mixed; boundary="=-OeXu7fNqfFdekE+h/zBq"
+Cc: netdev <netdev@oss.sgi.com>, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-In-Reply-To: <20050518221401.GA11148@xi.wantstofly.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2005-19-05 at 00:14 +0200, Lennert Buytenhek wrote:
-> Hi,
-> 
-> Is someone working on igmp snooping (and/or active discovery) for
-> bridging yet?  I currently have a need for this, so if noone is
-> working on it yet, I'll probably give it a go myself.
-> 
 
-Not that i know of - someone else may.
+--=-OeXu7fNqfFdekE+h/zBq
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-> AFAICS, for the kernel part:
-> - Add capability to add/modify/delete multicast (ethernet) addresses
->   in the forwarding database.  Each multicast fdb entry contains a port
->   bitmask of ports that are interested in this address.
 
-You would probably also need to do a SIOCADDMULTI for those ports -
-unless bridging puts all those ports in promisc mode. If it doesnt go
-promisc, you _may_ also need to worry about boundary conditions when the
-tiny physical devices hardware multicast entries start overflowing.
+Against Herbert's ipsec-2.6.git. 
 
-> - Lookup multicast addresses in the forwarding path, instead of flooding
->   every packet.
-> - Policy decision on whether to drop or flood traffic for multicast
->   addresses that have no corresponding fdb entry.
+Small fixup to use netlink macros instead of hardcoding.
+Signed-off-by: Jamal Hadi Salim
 
-Make this configurable. i.e flood on miss, drop on miss, pass to user
-space(daemon if one exists) on a miss. 
-
-> - Add capability for userland to 'steal' IGMP packets.  (I.e. to be able
->   to prevent them from being forwarded.)
-> 
-
-That would be the the last policy above. 
-I think you will also need to have something that just listens to the
-different IGMP variants (maybe a packet socket with a pcap filter).
-The nice thing about pcap (in mmaped format) is it will tell you about
-the ifindex of port it arrived on.
-
-> And some userspace daemon that implements the necessary bits.
-> 
-> Ideas?
-> 
-
-Above. Also take note of:
-http://www.ietf.org/internet-drafts/draft-ietf-magma-snoop-12.txt
-
-Many years of experience there on snooping IGMP.
-I think your most exciting challenge would be snooping IGMPv3 ;->
 
 cheers,
 jamal
+
+--=-OeXu7fNqfFdekE+h/zBq
+Content-Disposition: attachment; filename=ipsec12_p
+Content-Type: text/plain; name=ipsec12_p; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+net/xfrm/xfrm_user.c: needs update
+Index: net/xfrm/xfrm_user.c
+===================================================================
+--- c24f26cfe03081d10a3a3f66d5d3e503395090b4/net/xfrm/xfrm_user.c  (mode:100644)
++++ uncommitted/net/xfrm/xfrm_user.c  (mode:100644)
+@@ -1114,9 +1114,9 @@
+ static int xfrm_exp_state_notify(struct xfrm_state *x, struct km_event *c)
+ {
+ 	struct sk_buff *skb;
++	int len = NLMSG_LENGTH(sizeof(struct xfrm_user_expire));
+ 
+-	/* fix to do alloc using NLM macros */
+-	skb = alloc_skb(sizeof(struct xfrm_user_expire) + 16, GFP_ATOMIC);
++	skb = alloc_skb(len, GFP_ATOMIC);
+ 	if (skb == NULL)
+ 		return -ENOMEM;
+ 
+
+--=-OeXu7fNqfFdekE+h/zBq--
