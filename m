@@ -1,34 +1,53 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] netlink: defer socket destruction a bit
-Date: Thu, 19 May 2005 16:16:09 -0700 (PDT)
-Message-ID: <20050519.161609.00748235.davem@davemloft.net>
-References: <20050519.130859.115641546.davem@davemloft.net>
-	<20050519213839.GC24024@gondor.apana.org.au>
-	<428D1E19.9030204@tpack.net>
+From: Jon Mason <jdmason@us.ibm.com>
+Subject: Re: [PATCH] Ethernet Bridging: Enable Hardware Checksumming
+Date: Thu, 19 May 2005 18:23:31 -0500
+Message-ID: <200505191823.31777.jdmason@us.ibm.com>
+References: <20050518235329.GA17946@us.ibm.com> <20050519133333.07a992e6@dxpl.pdx.osdl.net> <20050519.144800.71090042.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@oss.sgi.com, chamas@h4.dion.ne.jp
+Cc: shemminger@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: tommy.christensen@tpack.net
-In-Reply-To: <428D1E19.9030204@tpack.net>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050519.144800.71090042.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Tommy Christensen <tommy.christensen@tpack.net>
-Subject: Re: [PATCH] netlink: defer socket destruction a bit
-Date: Fri, 20 May 2005 01:15:37 +0200
+On Thursday 19 May 2005 04:48 pm, David S. Miller wrote:
+> From: Stephen Hemminger <shemminger@osdl.org>
+> Date: Thu, 19 May 2005 13:33:33 -0700
+>
+> > The bridge doesn't need locking, or checksumming and can allow highdma
+> > buffers; all of which are handled by net/core/dev.c if needed.
+>
+> As discuesed elsewhere, this handling by net/core/dev.c makes
+> TCP sending much more expensive when it is actually used.
+>
+> Furthermore, I just found another hole in the idea to propagate
+> sub-device features into the bridge device.
+>
+> If one device has NETIF_F_HW_CSUM and the others have NETIF_F_IP_CSUM,
+> both bits will be set in the bridge device and things will entirely
+> break.  The two checksumming on output schemes are different, and all
+> of the stack assumes that only one of these two bits are set.
+>
+> I have such a setup in two of my sparc64 systems (sunhme does
+> NETIF_F_HW_CSUM, and tg3 does NETIF_F_IP_CSUM).  Also, my PowerMAC G5
+> has this problem too, the onboard sungem chip does NETIF_F_HW_CSUM and
+> the tg3 I have in a PCI slot does NETIF_F_IP_CSUM.  So given that
+> half the machines I have powered on right here could trigger the
+> problem, it's far from theoretical :-)
+>
+> There are multiple spots that want to do this kind of stuff
+> now (bridging, vlan, bonding) which indicates that some sort
+> of common infrastructure should be written to implement this
+> kind of stuff.
 
-> Herbert Xu wrote:
-> > On Thu, May 19, 2005 at 01:08:59PM -0700, David S. Miller wrote:
-> > 
-> >>Ok, I think I got all the patches straight.  All of Tommy's
-> >>patches combined together look like this diff in my tree.
-> >>Please double check it.
-> > 
-> > Yes this is the one.
-> 
-> Yup. This combination fixes both problems.
+Since NETIF_F_HW_CSUM encompasses NETIF_F_IP_CSUM, perhaps it would be better 
+to use the latter until such time as a new infrastructure can be implimented.
 
-Thanks a lot for double checking, both of you :-)
+Thanks,
+Jon
