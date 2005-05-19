@@ -1,31 +1,31 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [IPSEC] Fixed alg_key_len usage in attach_one_algo
-Date: Thu, 19 May 2005 12:40:15 -0700 (PDT)
-Message-ID: <20050519.124015.122255786.davem@davemloft.net>
-References: <20050519020302.GA20285@gondor.apana.org.au>
+Subject: Re: patch: small fixup
+Date: Thu, 19 May 2005 12:43:01 -0700 (PDT)
+Message-ID: <20050519.124301.39157305.davem@davemloft.net>
+References: <1116462970.6240.9.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: herbert@gondor.apana.org.au
-In-Reply-To: <20050519020302.GA20285@gondor.apana.org.au>
+To: hadi@cyberus.ca
+In-Reply-To: <1116462970.6240.9.camel@localhost.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Thu, 19 May 2005 12:03:02 +1000
+From: jamal <hadi@cyberus.ca>
+Date: Wed, 18 May 2005 20:36:10 -0400
 
-> This bug was discovered by a Linux box running in a remote corner
-> of Australia :)
+> My first git patch (dangerously knowledgeable after 30 minutes of
+> snorting blobs;->) against net-2.6.git. Consider this an excuse to send
+> a git patch ;->
 
-Hehe :-)
+:-)
 
-> The variable alg_key_len is in bits and not bytes.  The function
-> attach_one_algo is currently using it as if it were in bytes.
-> This causes it to read memory which may not be there.
+> Fixup simple action define to be consistent with other net/sched files
 > 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Signed-off-by: Jamal Hadi Salim
 
-Applied, thanks Herbert.
+Applied, please supply an email in your signed-off line next
+time, thanks.
