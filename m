@@ -1,38 +1,31 @@
-From: Peter Bieringer <pb@bieringer.de>
-Subject: Re: Linux 2.6.11-rc2 Got IPv6 Ready Logo Phase-1
-Date: Thu, 19 May 2005 19:58:23 +0200
-Message-ID: <33B76C1D2C67B84F1EA687D9@gatemuc.muc.bieringer.de>
-References: <20050519.193225.19442831.yoshfuji@linux-ipv6.org>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: 2.6.12-rc4-mm[12] - ULOG problem
+Date: Thu, 19 May 2005 11:42:41 -0700 (PDT)
+Message-ID: <20050519.114241.59656850.davem@davemloft.net>
+References: <1116484313.21310.78.camel@uganda>
+	<20050518234552.4aef6d02.akpm@osdl.org>
+	<1116486385.21310.82.camel@uganda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=" <yoshfuji@linux-ipv6.org>,
-        usagi-core@linux-ipv6.org
+Cc: akpm@osdl.org, herbert@gondor.apana.org.au, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <20050519.193225.19442831.yoshfuji@linux-ipv6.org>
-Content-Disposition: inline
+To: johnpol@2ka.mipt.ru
+In-Reply-To: <1116486385.21310.82.camel@uganda>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Date: Thu, 19 May 2005 11:06:25 +0400
 
+> It was created to be able to load several different connector devices 
+> from different modules [basically it was module1.ko unit=10, module2.ko
+> unit=11 and so on].
 
---On Thursday, May 19, 2005 07:32:25 PM +0900 "YOSHIFUJI Hideaki /
-=?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=" <yoshfuji@linux-ipv6.org> wrote:
+That's bogus, each connector will need to allocate it's own
+specific define in the netlink header, and we're about to
+run out of numbers.
 
-> Dear all,
-> 
-> 
-> USAGI Project is pleased to announce a special news.
-> 
-> The Linux mainline kernel (version 2.6.11-rc2) is approved by IPv6 Forum
-> in IPv6 Ready Logo Phase-1 Program <http://www.ipv6ready.org>.
-
-Congratulation for the hard work!
-
-        Peter
--- 
-Dr. Peter Bieringer                     http://www.bieringer.de/pb/
-GPG/PGP Key 0x958F422D               mailto: pb at bieringer dot de 
-Deep Space 6 Co-Founder and Core Member  http://www.deepspace6.net/
+Please redesign the connector so that it doesn't eat more than
+one netlink number, we're running out of them soon.
