@@ -1,42 +1,27 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Fw: 2.6.12-rc4-mm[12] - ULOG problem
-Date: Wed, 18 May 2005 20:24:58 -0700
-Message-ID: <20050518202458.55a63d37.akpm@osdl.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Fw: 2.6.12-rc4-mm[12] - ULOG problem
+Date: Thu, 19 May 2005 14:49:46 +1000
+Message-ID: <E1DYcyg-0005fP-00@gondolin.me.apana.org.au>
+References: <20050518202458.55a63d37.akpm@osdl.org>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: akpm@osdl.org (Andrew Morton)
+In-Reply-To: <20050518202458.55a63d37.akpm@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Andrew Morton <akpm@osdl.org> wrote:
+> 
+> This is the second report of this happening.
+> 
+> FATAL: Error inserting ipt_ULOG (/lib/modules/2.6.12-rc4-mm1-2/kernel/net/ipv4/netfilter/ipt_ULOG.ko): Cannot allocate memory
 
-This is the second report of this happening.
+This probably means that someone has stolen the NETLINK_NFLOG id.
 
-
-Begin forwarded message:
-
-Date: Wed, 18 May 2005 23:10:49 -0400
-From: Nick Orlov <bugfixer@list.ru>
-To: linux-kernel@vger.kernel.org
-Cc: akpm@osdl.org
-Subject: 2.6.12-rc4-mm[12] - ULOG problem
-
-
-ipt_ULOG fails to load starting from 2.6.12-rc4-mm1 with the following
-error message:
-
-
-FATAL: Error inserting ipt_ULOG (/lib/modules/2.6.12-rc4-mm1-2/kernel/net/ipv4/netfilter/ipt_ULOG.ko): Cannot allocate memory
-
-rc3-mm3 works fine.
-
-Unfortunately, I wont have time to do a binary search till the weekend,
-but I hope you'll point suspicious patch(es) without it.
-
-Any additional info available by request.
-
+Cheers,
 -- 
-With best wishes,
-	Nick Orlov.
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
