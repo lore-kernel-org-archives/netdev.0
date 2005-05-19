@@ -1,94 +1,111 @@
-From: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
-Subject: [PATCH] [BRIDGE] Set features based on slave's ones (was Ethernet
+From: Nivedita Singhvi <niv@us.ibm.com>
+Subject: Re: [PATCH] [BRIDGE] Set features based on slave's ones (was Ethernet
  Bridging: Enable Hardware Checksumming)
-Date: Thu, 19 May 2005 18:28:26 +0300 (EEST)
-Message-ID: <Pine.LNX.4.62.0505191654400.24043@webhosting.rdsbv.ro>
+Date: Thu, 19 May 2005 08:59:24 -0700
+Message-ID: <428CB7DC.1050206@us.ibm.com>
+References: <Pine.LNX.4.62.0505191654400.24043@webhosting.rdsbv.ro>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-1646943047-586930094-1116511660=:24043"
-Cc: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, davem@davemloft.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-ID: <Pine.LNX.4.62.0505191732110.24043@webhosting.rdsbv.ro>
+To: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
+In-Reply-To: <Pine.LNX.4.62.0505191654400.24043@webhosting.rdsbv.ro>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Catalin(ux aka Dino) BOIE wrote:
 
----1646943047-586930094-1116511660=:24043
-Content-Type: TEXT/PLAIN; CHARSET=US-ASCII; format=flowed
-Content-ID: <Pine.LNX.4.62.0505191732111.24043@webhosting.rdsbv.ro>
+> Hello!
+> 
+> The attached patch, makes the bridge to select features (almost all) 
+> only if _all_ devices supports them.
+> The patch was tested (create a bridge, add an interface, remove the 
+> interface and always check features flags).
+> 
+> What do you think?
 
-Hello!
+While this is generally a cleaner thing to do - it breaks
+what we need - Jon's  patch adds the checksum offload/SG
+unconditionally precisely because we don't want it to be
+an all or nothing - we'd like to utilize offload on those
+devices that do support it..
 
-The attached patch, makes the bridge to select features (almost all) only 
-if _all_ devices supports them.
-The patch was tested (create a bridge, add an interface, remove the 
-interface and always check features flags).
+thanks,
+Nivedita
 
-What do you think?
 
-Signed-off-by: Catalin(ux aka Dino) BOIE <catab at umbrella.ro>
----
-Catalin(ux aka Dino) BOIE
-catab at deuroconsult.ro
-http://kernel.umbrella.ro/
----1646943047-586930094-1116511660=:24043
-Content-Type: TEXT/PLAIN; CHARSET=US-ASCII; NAME=bridge_features.patch
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.62.0505191827250.6666@webhosting.rdsbv.ro>
-Content-Description: 
-Content-Disposition: ATTACHMENT; FILENAME=bridge_features.patch
-
-LS0tIGJyaWRnZTEvbmV0L2JyaWRnZS9icl9wcml2YXRlLmgJMjAwNS0wMy0w
-MiAwOTozNzo1MC4wMDAwMDAwMDAgKzAyMDANCisrKyBsaW51eC9uZXQvYnJp
-ZGdlL2JyX3ByaXZhdGUuaAkyMDA1LTA1LTE5IDE4OjAwOjA1LjAwMDAwMDAw
-MCArMDMwMA0KQEAgLTI3LDYgKzI3LDEwIEBADQogI2RlZmluZSBCUl9QT1JU
-X0JJVFMJMTANCiAjZGVmaW5lIEJSX01BWF9QT1JUUwkoMTw8QlJfUE9SVF9C
-SVRTKQ0KIA0KKyNkZWZpbmUgQlJfRkVBVF9NQVNLCShORVRJRl9GX0hXX0NT
-VU0gfCBORVRJRl9GX1NHIFwNCisJCQl8IE5FVElGX0ZfRlJBR0xJU1QgfCBO
-RVRJRl9GX0lQX0NTVU0gXA0KKwkJCXwgTkVUSUZfRl9ISUdIRE1BIHwgTkVU
-SUZfRl9UU08pDQorDQogdHlwZWRlZiBzdHJ1Y3QgYnJpZGdlX2lkIGJyaWRn
-ZV9pZDsNCiB0eXBlZGVmIHN0cnVjdCBtYWNfYWRkciBtYWNfYWRkcjsNCiB0
-eXBlZGVmIF9fdTE2IHBvcnRfaWQ7DQotLS0gYnJpZGdlMS9uZXQvYnJpZGdl
-L2JyX2RldmljZS5jCTIwMDUtMDMtMDIgMDk6Mzc6MzAuMDAwMDAwMDAwICsw
-MjAwDQorKysgbGludXgvbmV0L2JyaWRnZS9icl9kZXZpY2UuYwkyMDA1LTA1
-LTE5IDE3OjE0OjIxLjAwMDAwMDAwMCArMDMwMA0KQEAgLTEwNyw0ICsxMDcs
-NSBAQCB2b2lkIGJyX2Rldl9zZXR1cChzdHJ1Y3QgbmV0X2RldmljZSAqZGV2
-DQogCWRldi0+dHhfcXVldWVfbGVuID0gMDsNCiAJZGV2LT5zZXRfbWFjX2Fk
-ZHJlc3MgPSBOVUxMOw0KIAlkZXYtPnByaXZfZmxhZ3MgPSBJRkZfRUJSSURH
-RTsNCisJZGV2LT5mZWF0dXJlcyA9IEJSX0ZFQVRfTUFTSzsNCiB9DQotLS0g
-YnJpZGdlMS9uZXQvYnJpZGdlL2JyX2lmLmMJMjAwNS0wMy0wMiAwOTozODoz
-My4wMDAwMDAwMDAgKzAyMDANCisrKyBsaW51eC9uZXQvYnJpZGdlL2JyX2lm
-LmMJMjAwNS0wNS0xOSAxODoyMTozOS4wMDAwMDAwMDAgKzAzMDANCkBAIC0z
-MTQsNiArMzE0LDI3IEBAIGludCBicl9taW5fbXR1KGNvbnN0IHN0cnVjdCBu
-ZXRfYnJpZGdlICoNCiAJcmV0dXJuIG10dTsNCiB9DQogDQorLyoNCisgKiBJ
-ZiBzbGF2ZSBkZXZpY2UgKEBkZXYpIGRvZXNuJ3Qgc3VwcG9ydCBzcGVjaWFs
-IGZlYXR1cmVzLA0KKyAqIHR1cm4gdGhlbSBvZmYgZ2xvYmFsbHkuDQorICov
-DQorc3RhdGljIGlubGluZSB2b2lkIGJyX2ZlYXR1cmVzX2NoYW5nZShzdHJ1
-Y3QgbmV0X2JyaWRnZSAqYnIsIHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpDQor
-ew0KKwlici0+ZGV2LT5mZWF0dXJlcyAmPSBkZXYtPmZlYXR1cmVzIHwgfkJS
-X0ZFQVRfTUFTSzsNCit9DQorDQorLyoNCisgKiBSZWNvbXB1dGVzIGZlYXR1
-cmVzIHVzaW5nIHNsYXZlJ3MgZmVhdHVyZXMNCisgKi8NCitzdGF0aWMgdm9p
-ZCBicl9mZWF0dXJlc19yZWNvbXB1dGUoc3RydWN0IG5ldF9icmlkZ2UgKmJy
-KQ0KK3sNCisJc3RydWN0IG5ldF9icmlkZ2VfcG9ydCAqcDsNCisNCisJYnIt
-PmRldi0+ZmVhdHVyZXMgfD0gQlJfRkVBVF9NQVNLOw0KKwlsaXN0X2Zvcl9l
-YWNoX2VudHJ5KHAsICZici0+cG9ydF9saXN0LCBsaXN0KQ0KKwkJYnJfZmVh
-dHVyZXNfY2hhbmdlKGJyLCBwLT5kZXYpOw0KK30NCisNCiAvKiBjYWxsZWQg
-d2l0aCBSVE5MICovDQogaW50IGJyX2FkZF9pZihzdHJ1Y3QgbmV0X2JyaWRn
-ZSAqYnIsIHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpDQogew0KQEAgLTMzMiw5
-ICszNTMsMTAgQEAgaW50IGJyX2FkZF9pZihzdHJ1Y3QgbmV0X2JyaWRnZSAq
-YnIsIHN0cg0KIAlpZiAoSVNfRVJSKHAgPSBuZXdfbmJwKGJyLCBkZXYsIGJy
-X2luaXRpYWxfcG9ydF9jb3N0KGRldikpKSkNCiAJCXJldHVybiBQVFJfRVJS
-KHApOw0KIA0KKwlicl9mZWF0dXJlc19jaGFuZ2UoYnIsIGRldik7DQorDQog
-IAlpZiAoKGVyciA9IGJyX2ZkYl9pbnNlcnQoYnIsIHAsIGRldi0+ZGV2X2Fk
-ZHIsIDEpKSkNCiAJCWRlc3Ryb3lfbmJwKHApOw0KLSANCiAJZWxzZSBpZiAo
-KGVyciA9IGJyX3N5c2ZzX2FkZGlmKHApKSkNCiAJCWRlbF9uYnAocCk7DQog
-CWVsc2Ugew0KQEAgLTM2OCw2ICszOTAsNyBAQCBpbnQgYnJfZGVsX2lmKHN0
-cnVjdCBuZXRfYnJpZGdlICpiciwgc3RyDQogDQogCXNwaW5fbG9ja19iaCgm
-YnItPmxvY2spOw0KIAlicl9zdHBfcmVjYWxjdWxhdGVfYnJpZGdlX2lkKGJy
-KTsNCisJYnJfZmVhdHVyZXNfcmVjb21wdXRlKGJyKTsNCiAJc3Bpbl91bmxv
-Y2tfYmgoJmJyLT5sb2NrKTsNCiANCiAJcmV0dXJuIDA7DQo=
-
----1646943047-586930094-1116511660=:24043--
+> ------------------------------------------------------------------------
+> 
+> --- bridge1/net/bridge/br_private.h	2005-03-02 09:37:50.000000000 +0200
+> +++ linux/net/bridge/br_private.h	2005-05-19 18:00:05.000000000 +0300
+> @@ -27,6 +27,10 @@
+>  #define BR_PORT_BITS	10
+>  #define BR_MAX_PORTS	(1<<BR_PORT_BITS)
+>  
+> +#define BR_FEAT_MASK	(NETIF_F_HW_CSUM | NETIF_F_SG \
+> +			| NETIF_F_FRAGLIST | NETIF_F_IP_CSUM \
+> +			| NETIF_F_HIGHDMA | NETIF_F_TSO)
+> +
+>  typedef struct bridge_id bridge_id;
+>  typedef struct mac_addr mac_addr;
+>  typedef __u16 port_id;
+> --- bridge1/net/bridge/br_device.c	2005-03-02 09:37:30.000000000 +0200
+> +++ linux/net/bridge/br_device.c	2005-05-19 17:14:21.000000000 +0300
+> @@ -107,4 +107,5 @@ void br_dev_setup(struct net_device *dev
+>  	dev->tx_queue_len = 0;
+>  	dev->set_mac_address = NULL;
+>  	dev->priv_flags = IFF_EBRIDGE;
+> +	dev->features = BR_FEAT_MASK;
+>  }
+> --- bridge1/net/bridge/br_if.c	2005-03-02 09:38:33.000000000 +0200
+> +++ linux/net/bridge/br_if.c	2005-05-19 18:21:39.000000000 +0300
+> @@ -314,6 +314,27 @@ int br_min_mtu(const struct net_bridge *
+>  	return mtu;
+>  }
+>  
+> +/*
+> + * If slave device (@dev) doesn't support special features,
+> + * turn them off globally.
+> + */
+> +static inline void br_features_change(struct net_bridge *br, struct net_device *dev)
+> +{
+> +	br->dev->features &= dev->features | ~BR_FEAT_MASK;
+> +}
+> +
+> +/*
+> + * Recomputes features using slave's features
+> + */
+> +static void br_features_recompute(struct net_bridge *br)
+> +{
+> +	struct net_bridge_port *p;
+> +
+> +	br->dev->features |= BR_FEAT_MASK;
+> +	list_for_each_entry(p, &br->port_list, list)
+> +		br_features_change(br, p->dev);
+> +}
+> +
+>  /* called with RTNL */
+>  int br_add_if(struct net_bridge *br, struct net_device *dev)
+>  {
+> @@ -332,9 +353,10 @@ int br_add_if(struct net_bridge *br, str
+>  	if (IS_ERR(p = new_nbp(br, dev, br_initial_port_cost(dev))))
+>  		return PTR_ERR(p);
+>  
+> +	br_features_change(br, dev);
+> +
+>   	if ((err = br_fdb_insert(br, p, dev->dev_addr, 1)))
+>  		destroy_nbp(p);
+> - 
+>  	else if ((err = br_sysfs_addif(p)))
+>  		del_nbp(p);
+>  	else {
+> @@ -368,6 +390,7 @@ int br_del_if(struct net_bridge *br, str
+>  
+>  	spin_lock_bh(&br->lock);
+>  	br_stp_recalculate_bridge_id(br);
+> +	br_features_recompute(br);
+>  	spin_unlock_bh(&br->lock);
+>  
+>  	return 0;
