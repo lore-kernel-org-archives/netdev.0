@@ -1,36 +1,19 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: Fw: 2.6.12-rc4-mm[12] - ULOG problem
-Date: Thu, 19 May 2005 09:46:50 -0400
-Message-ID: <1116510411.6240.54.camel@localhost.localdomain>
-References: <Xine.LNX.4.44.0505190915010.15522-100000@thoron.boston.redhat.com>
-Reply-To: hadi@cyberus.ca
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, Herbert Xu <herbert@gondor.apana.org.au>,
-        netdev@oss.sgi.com, Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+From: smtprelay@derkreis.de
+Subject: Delivery Failure:  Multi-Kulturell = Multi-Kriminell
+Date: Thu, 19 May 2005 15:36:10 +0100
+Message-ID: <200505191340.j4JDe0F3013238@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: James Morris <jmorris@redhat.com>
-In-Reply-To: <Xine.LNX.4.44.0505190915010.15522-100000@thoron.boston.redhat.com>
+To: <netdev@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2005-19-05 at 09:16 -0400, James Morris wrote:
-> On Wed, 18 May 2005, Andrew Morton wrote:
-> 
-> > cn_init() uses NETLINK_NFLOG.  Peculiar.
-> 
-> I raised this some time ago, and it was never fixed by the author.
-> 
+Your message could not be sent.
+A transcript of the attempts to send the message follows.
+The number of attempts made: 1
+Addressed To: 3a2e568b.cdcded44@derkreis.de
 
-Sharing as was done here is not proper; perhaps the suggestion from
-Andrew is the way to go.
-
-The other thing we could do is allocate a set of IDs for private use
-(as in private IPs).
-However, something like connector should only get one ID and it can do
-its own multiplexing based on "units".
-
-cheers,
-jamal
+Thursday, 19 May 2005, 15:36:10
+(2) Failed to send to identified host,
+3a2e568b.cdcded44@derkreis.de: [80.237.235.60], <3a2e568b.cdcded44@derkreis.de>: Recipient address rejected: User unknown in virtual alias table
+--- Message non-deliverable.
