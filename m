@@ -1,66 +1,54 @@
-From: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
-Subject: Re: [PATCH] [BRIDGE] Set features based on slave's ones (was Ethernet
- Bridging: Enable Hardware Checksumming)
-Date: Fri, 20 May 2005 09:07:46 +0300 (EEST)
-Message-ID: <Pine.LNX.4.62.0505200858480.12681@webhosting.rdsbv.ro>
-References: <Pine.LNX.4.62.0505191654400.24043@webhosting.rdsbv.ro>
- <20050519214015.GA19961@us.ibm.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: 2.6.12-rc4-mm[12] - ULOG problem
+Date: Fri, 20 May 2005 10:25:27 +0400
+Message-ID: <1116570327.21310.106.camel@uganda>
+References: <Xine.LNX.4.44.0505190915010.15522-100000@thoron.boston.redhat.com>
+	 <1116510411.6240.54.camel@localhost.localdomain>
+	 <20050519.114901.108984882.davem@davemloft.net>
+Reply-To: johnpol@2ka.mipt.ru
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netdev@oss.sgi.com, davem@davemloft.net
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-zXmMmqNM4Ni1K8Sx1ErA"
+Cc: hadi@cyberus.ca, jmorris@redhat.com, akpm@osdl.org,
+        herbert@gondor.apana.org.au, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jon Mason <jdmason@us.ibm.com>
-In-Reply-To: <20050519214015.GA19961@us.ibm.com>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050519.114901.108984882.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
->> +static inline void br_features_change(struct net_bridge *br, struct net_device *dev)
->> +{
->> +	br->dev->features &= dev->features | ~BR_FEAT_MASK;
->
-> ~BR_FEAT_MASK isn't necessary. Either you wanted to do an '&' just
-> before it, so that BR_FEAT_MASK features are the only ones that you want
-> or you are enabling features that aren't necessarily supported by the
-> adapter/driver (like LLTX and HW_VLAN stuff).
 
-So, I invert BR_FEAT_MASK so I can, by default clear special features.
-Then I ored with dev->features, so I can enable special features if the 
-slave device supports it. Then, I do & so I can clear stuff that is not 
-supported by device, but the rest of br->dev features remains untouched.
+--=-zXmMmqNM4Ni1K8Sx1ErA
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Let's test: if dev hash SG the code is like this:
-BR_FEAT_MASK = 1001 (only test SG and HW_CSUM)
-# br is inited
-br |= 1001
-br &= 0001 | ~1001
-br &= 0001 | 0110
-br &= 0111
-br = 1001 & 0111 = 0001 - so bit SG is set also in br. But not HW_CSUM 
-because it's not in device.
+On Thu, 2005-05-19 at 11:49 -0700, David S. Miller wrote:
+> From: jamal <hadi@cyberus.ca>
+> Date: Thu, 19 May 2005 09:46:50 -0400
+>=20
+> > However, something like connector should only get one ID and it can do
+> > its own multiplexing based on "units".
+>=20
+> Yes.  There is no reason connector needs more than one
+> netlink ID.
 
-I can't see the code is wrong. Can you give me an example when it fails, 
-please?
+It does not require several IDs.
 
->> +}
->> +
->> +/*
->> + * Recomputes features using slave's features
->> + */
->> +static void br_features_recompute(struct net_bridge *br)
->> +{
->> +	struct net_bridge_port *p;
->> +
->> +	br->dev->features |= BR_FEAT_MASK;
->
-> The OR is not needed.  Just re-initialize features to BR_FEAT_MASK and
-> everything will take case of itself.
+--=20
+        Evgeniy Polyakov
 
-Nope. Not correct. Because we might enable LLTX on the bridge, but not in 
-BR_FEAT_MASK.
-I will post a patch in few hours with all stuff updated.
+Crash is better than data corruption -- Arthur Grabowski
 
----
-Catalin(ux aka Dino) BOIE
-catab at deuroconsult.ro
-http://kernel.umbrella.ro/
+--=-zXmMmqNM4Ni1K8Sx1ErA
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.6 (GNU/Linux)
+
+iD8DBQBCjYLXIKTPhE+8wY0RAobHAJ9FgefgAFZuAWC5OiJQorvLzRLI8gCfW0UU
+8q/GgJQiTCqdcCjahh0rsp0=
+=F+Z5
+-----END PGP SIGNATURE-----
+
+--=-zXmMmqNM4Ni1K8Sx1ErA--
