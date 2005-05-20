@@ -1,32 +1,44 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: sendmsg ignoring bind?
-Date: Fri, 20 May 2005 20:17:49 +1000
-Message-ID: <20050520101749.GA8661@gondor.apana.org.au>
-References: <20050520081805.GR25658@wiggy.net>
+From: Felix Fischer <fischer@ikr.uni-stuttgart.de>
+Subject: IPv6 Tunneling (reverse tunnel need)
+Date: Fri, 20 May 2005 13:19:59 +0200
+Message-ID: <200505201319.59707.fischer@ikr.uni-stuttgart.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Wichert Akkerman <wichert@wiggy.net>
+To: netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <20050520081805.GR25658@wiggy.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, May 20, 2005 at 08:18:05AM +0000, Wichert Akkerman wrote:
->
-> sendmsg(7, {msg_name(16)={sa_family=AF_INET, sin_port=htons(1812),
-> 	sin_addr=inet_addr("212.100.254.89")},
-> 	msg_iov(1)=[{"....", 249}], msg_controllen=24, {cmsg_len=24,
-> 	cmsg_level=SOL_IP, cmsg_type=, ...}, msg_flags=0}, 0) = 249
+I'm currently working on a research project and ran into a=20
+question regarding tunneling/decapsulation in IPv6.
 
-This could be a cmsg option that overrode the bind address.  Please
-decode it so that we know what it's doing.
+<------> [ A ] =3D=3D=3D=3D=3D tunnel from A to B =3D=3D=3D=3D=3D> [ B ] =
+<-------> =A0
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Packets tunneled from A to B are only decapsulated at node B if
+B has setup a tunnel-device in direction from B to A (reverse tunnel).
+
+Is the need for the tunnel-device on node B an implementation
+issue to handle tunneling, or does it come from something=20
+else (i.e. standard requirement) ?
+
+Further, I am wondering why the possibility to use the ANY_ADDRESS
+as tunnel-end-point isn't present in IPv6 ?
+The IPv4 implementation allows the usage of "0.0.0.0" as remote_address f=
+or
+tunnel-end-points.
+
+
+Any help would be greatly appreciated.
+
+Regards,
+Felix Fischer
+--=20
+-------------------------------------------------------------------
+Institute of Communication Networks and Computer Engineering (IKR)
+University of Stuttgart, Germany
+-------------------------------------------------------------------
