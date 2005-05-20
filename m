@@ -1,83 +1,34 @@
-From: "Leonid Grossman" <leonid.grossman@neterion.com>
-Subject: RE: [PATCH] Super TSO
-Date: Thu, 19 May 2005 17:36:25 -0700
-Message-ID: <200505200036.j4K0aVVG008391@guinness.s2io.com>
-References: <20050519.172107.59468102.davem@davemloft.net>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH] Super TSO
+Date: Thu, 19 May 2005 17:45:56 -0700
+Message-ID: <428D3344.6090107@hp.com>
+References: <200505200015.j4K0FNVG005262@guinness.s2io.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'David S.Miller'" <davem@davemloft.net>
-In-Reply-To: <20050519.172107.59468102.davem@davemloft.net>
+To: netdev@oss.sgi.com
+In-Reply-To: <200505200015.j4K0FNVG005262@guinness.s2io.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
- 
 
-> -----Original Message-----
-> From: David S.Miller [mailto:davem@davemloft.net] 
-> Sent: Thursday, May 19, 2005 5:21 PM
-> To: leonid.grossman@neterion.com
-> Cc: netdev@oss.sgi.com
-> Subject: Re: [PATCH] Super TSO
-> 
-> From: "Leonid Grossman" <leonid.grossman@neterion.com>
-> Date: Thu, 19 May 2005 17:15:18 -0700
-> 
-> > A somewhat related thought, while we are at it...
-> > 
-> > It would arguably make sense to allow a NIC to set max TSO 
-> size that 
-> > the card is willing to support (rather than assume/enforce 
-> 64k). Some 
-> > NICs support bigger max TSO size today, but it is even more 
-> important 
-> > to allow a NIC to limit TSO to a smaller size.
-> 
-> We can never use a maximum greater than 65535 because that is 
-> the limit of the representation of the ipv4 header length 
-> field.  These TSO packets have to be processed by the entire 
-> IP output path, including things like the firewalling and 
-> packet scheduler modules.
-> 
-> So it must look like a valid IPV4 packet.
-> 
-> > One likely scenario where this feature is desirable is a 
-> system with 
-> > highly fragmented memory.
-> > In this case, the number of physical fragments per TSO 
-> frame could be 
-> > always so high that it will be cheaper (on a given 
-> platform) to copy 
-> > the frame than to DMA it.
-> 
-> We always chop up the user data into individual system pages 
-> when we build TSO frames, so I can't see how any kind of 
-> memory fragmentation could be an issue.
-
-This is exactly what I wanted to hear :-)
-If the TSO implementation guarantees that the payload comes (for the most
-part) 
-in physically continuous pages, then the number of fragments 
-will never get out of whack, and my argument indeed becomes invalid.
-
-> 
-> So this kind of nullifies your argument for smaller TSO size 
-> limits as specified by the card.
-> 
-> The segmenter in the TCP code has the most knowledge about 
-> how it should segment, based upon numerous factors, many if 
-> not all of which the networking card is totally unaware of.
-
-Sure. On the other hand, the TCP code is unaware of the copy vs. DMA costs
-on a particular NIC 
-(well, this is actually more specific to a system than to a NIC). 
-But I guess as long as both the packet size and the number of fragments will
-not get very big at the same time,
-A NIC will be OK.
+> In this case, 64k TSO becomes a liability and it will make sense to limit it.
+>  TSO "sweet spot" will be captured anyways - at least on fast networks, going
+>  from 1.5k to 9k typically doubles throughput, while going from 9k to 64k
+> adds no more than another 10% (plus a little bit of free %cpu, but not that
+> much).
 
 
-> 
+On the surface, that just sounds like something adhering to the laws of
+diminishing returns.  As you increase the TSO size, you are shrinking the 
+per-send costs, but the per-byte costs (if there is a copy from user to kernel) 
+and the ack costs remain the same.
+
+If that 1500 to 9K to 64K is an MTU (and thus real MSS) change than the per-send 
+and ack costs are what are diminishing but the per-byte costs remain the same.
+
+Asymptotes and all that...
+
+rick jones
