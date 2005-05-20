@@ -1,27 +1,26 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: Notifier for features change? (related to Ethernet Bridging:
- Enable Hardware Checksumming)
-Date: Fri, 20 May 2005 11:10:40 -0700 (PDT)
-Message-ID: <20050520.111040.97294719.davem@davemloft.net>
-References: <Pine.LNX.4.62.0505201014340.12681@webhosting.rdsbv.ro>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: A new driver for Broadcom bcm5706
+Date: Fri, 20 May 2005 10:15:29 -0700
+Message-ID: <1116609329.31523.16.camel@rh4>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, ffan@broadcom.com, lusinsky@broadcom.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: util@deuroconsult.ro
-In-Reply-To: <Pine.LNX.4.62.0505201014340.12681@webhosting.rdsbv.ro>
+To: davem@davemloft.net, jgarzik@redhat.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
-Date: Fri, 20 May 2005 10:17:46 +0300 (EEST)
+A new driver bnx2 for Broadcom bcm5706 is available. Since the patch is
+over 500K, I've put it on the ftp server:
 
-> Because bridge can change features based on slaves features,
-> may I implement NETDEV_FEAT_CHANGE?
-> 
-> It will be used to recompute bridge features when a slave ones are 
-> changed.
+ftp://Net_sys_anon@ftp1.broadcom.com/bnx2-2.patch
 
-Please do.
+The patch also includes new 1000BASE-X advertisement bit definitions in
+mii.h
+
+Thanks to David Miller and Jeff Garzik for reviewing and their valuable
+feedback.
+
+Signed-off-by: Michael Chan <mchan@broadcom.com>
