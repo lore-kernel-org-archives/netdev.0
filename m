@@ -1,83 +1,72 @@
-From: Jon Mason <jdmason@us.ibm.com>
-Subject: [PATCH] include/linux/if_tr.h clean-up
-Date: Fri, 20 May 2005 17:10:19 -0500
-Message-ID: <20050520221019.GA26211@us.ibm.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: A new driver for Broadcom bcm5706
+Date: Fri, 20 May 2005 15:28:36 -0700 (PDT)
+Message-ID: <20050520.152836.48528379.davem@davemloft.net>
+References: <1116609329.31523.16.camel@rh4>
+	<20050520194220.GA18259@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mchan@broadcom.com, netdev@oss.sgi.com, ffan@broadcom.com,
+        lusinsky@broadcom.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: jgarzik@pobox.com
+In-Reply-To: <20050520194220.GA18259@havoc.gtf.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I removed the ethernet definitions (which were commented out) and
-cleaned up the tabs.
+From: Jeff Garzik <jgarzik@pobox.com>
+Date: Fri, 20 May 2005 15:42:20 -0400
 
-Signed-off-by: Jon Mason <jdmason@us.ibm.com>
+> 9) [additional review]  DaveM, others: is this correct for all arches?
+> 
+> +       if (unlikely((align = (unsigned long) skb->data & 0x7))) {
+> +               skb_reserve(skb, 8 - align);
+> +       }
 
---- include/linux/if_tr.h.orig	2005-05-20 15:24:46.723707576 -0500
-+++ include/linux/if_tr.h	2005-05-20 15:31:44.657172032 -0500
-@@ -9,7 +9,7 @@
-  *
-  * Author:	Fred N. van Kempen, <waltje@uWalt.NL.Mugnet.ORG>
-  *		Donald Becker, <becker@super.org>
-- *    Peter De Schrijver, <stud11@cc4.kuleuven.ac.be>
-+ *		Peter De Schrijver, <stud11@cc4.kuleuven.ac.be>
-  *
-  *		This program is free software; you can redistribute it and/or
-  *		modify it under the terms of the GNU General Public License
-@@ -19,24 +19,16 @@
- #ifndef _LINUX_IF_TR_H
- #define _LINUX_IF_TR_H
- 
--
- /* IEEE 802.5 Token-Ring magic constants.  The frame sizes omit the preamble
-    and FCS/CRC (frame check sequence). */
--#define TR_ALEN	6		/* Octets in one ethernet addr	 */
--#define TR_HLEN   (sizeof(struct trh_hdr)+sizeof(struct trllc))
--#define AC			0x10
--#define LLC_FRAME 0x40
--#if 0
--#define ETH_HLEN	14		/* Total octets in header.	 */
--#define ETH_ZLEN	60		/* Min. octets in frame sans FCS */
--#define ETH_DATA_LEN	1500		/* Max. octets in payload	 */
--#define ETH_FRAME_LEN	1514		/* Max. octets in frame sans FCS */
--#endif
--
-+#define TR_ALEN		6		/* Octets in one token-ring addr */
-+#define TR_HLEN 	(sizeof(struct trh_hdr)+sizeof(struct trllc))
-+#define AC		0x10
-+#define LLC_FRAME 	0x40
- 
- /* LLC and SNAP constants */
--#define EXTENDED_SAP 0xAA
--#define UI_CMD       0x03
-+#define EXTENDED_SAP 	0xAA
-+#define UI_CMD       	0x03
- 
- /* This is an Token-Ring frame header. */
- struct trh_hdr {
-@@ -96,14 +88,13 @@ struct tr_statistics {
- };
- 
- /* source routing stuff */
--
--#define TR_RII 0x80
--#define TR_RCF_DIR_BIT 0x80
--#define TR_RCF_LEN_MASK 0x1f00
--#define TR_RCF_BROADCAST 0x8000         /* all-routes broadcast */
--#define TR_RCF_LIMITED_BROADCAST 0xC000 /* single-route broadcast */
--#define TR_RCF_FRAME2K 0x20
--#define TR_RCF_BROADCAST_MASK 0xC000
--#define TR_MAXRIFLEN 18
-+#define TR_RII 			0x80
-+#define TR_RCF_DIR_BIT 		0x80
-+#define TR_RCF_LEN_MASK 	0x1f00
-+#define TR_RCF_BROADCAST 	0x8000	/* all-routes broadcast */
-+#define TR_RCF_LIMITED_BROADCAST 0xC000	/* single-route broadcast */
-+#define TR_RCF_FRAME2K 		0x20
-+#define TR_RCF_BROADCAST_MASK 	0xC000
-+#define TR_MAXRIFLEN 		18
- 
- #endif	/* _LINUX_IF_TR_H */
+It's probably not even necessary.  dev_alloc_skb() should be returning
+an SKB with skb->data at least cache_line_size() aligned (see mm/slab.c)
+unless the platform defines an ARCH_KMALLOC_MINALIGN override.
+
+> 10) [additional review] doesn't bnx2_rx_int() need to move the rmb()
+> inside the loop?  Are you protecting against the compiler
+> reordering/caching loads/stores, or against SMP CPUs?
+
+This rmb() is needed to strongly order the status block consumer
+index read, from that of the descriptor data.  I'm pretty sure it's
+in the right spot.
+
+> 10.1) [additional review] is the rmb() even needed in bnx2_rx_int(),
+> since its caller also uses rmb()?
+
+No, it's guarding status block consumer index read to the first
+RX descriptor read, as explained above.
+
+> 13) [additional review] why is CHECKSUM_UNNECESSARY used when
+> cksum==0xffff or cksum==0 ?
+> 
+> +                       u16 cksum = rx_hdr->l2_fhdr_tcp_udp_xsum;
+> +
+> +                       if ((cksum == 0xffff) || (cksum == 0)) {
+> +                               skb->ip_summed = CHECKSUM_UNNECESSARY;
+> +                       }
+
+For UDP, a checksum value of zero means no checksum at all.
+
+> 18) you can eliminate one call to request_irq, by lengthening the 'if' test:
+
+Of just assigning a function pointer and set of flags to a local variable.
+Then doing on request_irq call.
+
+> 20) is there any reason to #ifdef BCM_TSO?  2.4.x kernels I suppose?
+
+Yeah, same for MSI stuff as well.
+
+> 27) isn't 'timer_interval == HZ' too rapid a timer?  Does it really need
+> to fire every second?
+
+The pulse has to be written the the chip at least once every 50 milliseconds,
+or else the chip goes into OS absent mode.  Anyways, the timer interval can
+probably be extended, although link probing at 1 second intervals does seem
+reasonable.
