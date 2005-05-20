@@ -1,67 +1,60 @@
 From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Subject: Re: 2.6.12-rc4-mm[12] - ULOG problem
-Date: Fri, 20 May 2005 10:27:17 +0400
-Message-ID: <1116570437.21310.109.camel@uganda>
-References: <20050519000809.2fca25c5.akpm@osdl.org>
-	 <Xine.LNX.4.44.0505190918430.15522-100000@thoron.boston.redhat.com>
-	 <20050519.114813.85686672.davem@davemloft.net>
+Date: Fri, 20 May 2005 10:27:54 +0400
+Message-ID: <1116570474.21310.111.camel@uganda>
+References: <1116484313.21310.78.camel@uganda>
+	 <20050518234552.4aef6d02.akpm@osdl.org> <1116486385.21310.82.camel@uganda>
+	 <20050519.114241.59656850.davem@davemloft.net>
 Reply-To: johnpol@2ka.mipt.ru
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-nBDj0w30x2x6ERkyL24d"
-Cc: jmorris@redhat.com, akpm@osdl.org, herbert@gondor.apana.org.au,
-        netdev@oss.sgi.com
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-stMio8AyzMq4b+SiqS1d"
+Cc: akpm@osdl.org, herbert@gondor.apana.org.au, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050519.114813.85686672.davem@davemloft.net>
+In-Reply-To: <20050519.114241.59656850.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---=-nBDj0w30x2x6ERkyL24d
+--=-stMio8AyzMq4b+SiqS1d
 Content-Type: text/plain
 Content-Transfer-Encoding: quoted-printable
 
-On Thu, 2005-05-19 at 11:48 -0700, David S. Miller wrote:
-> From: James Morris <jmorris@redhat.com>
-> Date: Thu, 19 May 2005 09:19:33 -0400 (EDT)
+On Thu, 2005-05-19 at 11:42 -0700, David S. Miller wrote:
+> From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+> Date: Thu, 19 May 2005 11:06:25 +0400
 >=20
-> > On Thu, 19 May 2005, Andrew Morton wrote:
-> >=20
-> > > We should remove the feature.  If there is demonstrated need for mult=
-iple
-> > > instances then it should be done by more conventional means - syscall=
-,
-> > > allocation of a device major then use the minor as a selector or what=
-ever.
-> >=20
-> > I'd suggest removing the connector code completely.
+> > It was created to be able to load several different connector devices=20
+> > from different modules [basically it was module1.ko unit=3D10, module2.=
+ko
+> > unit=3D11 and so on].
 >=20
-> I totally agree, it's crap at the current time and the author doesn't
-> fix the problems being shown in it, in fact he defends some of them
-> even this one.  It needs lots of work still.
+> That's bogus, each connector will need to allocate it's own
+> specific define in the netlink header, and we're about to
+> run out of numbers.
+>=20
+> Please redesign the connector so that it doesn't eat more than
+> one netlink number, we're running out of them soon.
 
-There were no problems reported.
-Completely.
-
-What I defend is ability to function correctly when some changes=20
-may be introduced by providing some extensions that may be used.
+It does not require more than one socket number.
+It just can use any other number provided.
 
 --=20
         Evgeniy Polyakov
 
 Crash is better than data corruption -- Arthur Grabowski
 
---=-nBDj0w30x2x6ERkyL24d
+--=-stMio8AyzMq4b+SiqS1d
 Content-Type: application/pgp-signature; name=signature.asc
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.2.6 (GNU/Linux)
 
-iD8DBQBCjYNFIKTPhE+8wY0RAtoRAJ0Ufb586V3GnUmHmemEBTnY0SEZPACfU6u0
-5yW0wq0s1Q9difSukvT27Ms=
-=Pdlu
+iD8DBQBCjYNqIKTPhE+8wY0RAqqUAJ0Zaq1bPV2Yhq+q8j+BGARTzkRGwgCfU3u6
+w91/eJHszFrKga0UUxX8qHQ=
+=+ghe
 -----END PGP SIGNATURE-----
 
---=-nBDj0w30x2x6ERkyL24d--
+--=-stMio8AyzMq4b+SiqS1d--
