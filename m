@@ -1,53 +1,66 @@
-From: Wichert Akkerman <wichert@wiggy.net>
-Subject: sendmsg ignoring bind?
-Date: Fri, 20 May 2005 10:18:05 +0200
-Message-ID: <20050520081805.GR25658@wiggy.net>
+From: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
+Subject: [PATCH] dummy: improve performance
+Date: Fri, 20 May 2005 13:11:24 +0300 (EEST)
+Message-ID: <Pine.LNX.4.62.0505201306110.29305@webhosting.rdsbv.ro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: MULTIPART/MIXED; BOUNDARY="-1646943047-1317725015-1116583867=:29305"
+Cc: davem@davemloft.net
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
-Content-Disposition: inline
+Content-ID: <Pine.LNX.4.62.0505201311150.29305@webhosting.rdsbv.ro>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-After moving a RADIUS server from a machine running 2.6.8.1 to
-to another host running 2.6.11.9 yesterday things suddenly
-broke: proxy requests were send from the wrong IP address.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Here is the network configuration:
+---1646943047-1317725015-1116583867=:29305
+Content-Type: TEXT/PLAIN; CHARSET=US-ASCII; format=flowed
+Content-ID: <Pine.LNX.4.62.0505201311151.29305@webhosting.rdsbv.ro>
 
-1: eth0: <BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast qlen 1000
-    link/ether 00:13:21:b3:ba:ef brd ff:ff:ff:ff:ff:ff
-    inet 212.123.202.85/26 brd 212.123.202.127 scope global eth0
-    inet 212.123.202.78/26 scope global secondary eth0
-    inet 212.123.202.70/26 scope global secondary eth0
-    inet 212.123.202.73/26 scope global secondary eth0
-    inet 212.123.202.76/26 scope global secondary eth0
-    inet 212.123.202.74/26 scope global secondary eth0
-    inet6 2001:960:6a6:2:213:21ff:feb3:baef/64 scope global dynamic
-       valid_lft 2591728sec preferred_lft 604528sec
-    inet6 fe80::213:21ff:feb3:baef/64 scope link
-       valid_lft forever preferred_lft forever
+Hello!
 
-This is an strace of the relevant code:
+Attached patch tries to improve performance of dummy device by activating 
+NETIF_F_SG, NETIF_F_NO_CSUM, NETIF_F_HIGHDMA, NETIF_F_FRAGLIST,
+NETIF_F_TSO and NETIF_F_LLTX.
 
-socket(PF_INET, SOCK_DGRAM, IPPROTO_IP) = 7
-setsockopt(7, SOL_IP, IP_PKTINFO, [1], 4) = 0
-bind(7, {sa_family=AF_INET, sin_port=htons(1814),
-          sin_addr=inet_addr("212.123.202.74")}, 16) = 0
-sendmsg(7, {msg_name(16)={sa_family=AF_INET, sin_port=htons(1812),
-	sin_addr=inet_addr("212.100.254.89")},
-	msg_iov(1)=[{"....", 249}], msg_controllen=24, {cmsg_len=24,
-	cmsg_level=SOL_IP, cmsg_type=, ...}, msg_flags=0}, 0) = 249
+Patch compiles and runs.
 
-One would expect that packet to be send from 212.123.202.74, but instead
-it is send using the machine's primary IP address 212.123.202.85. As a
-temporary workaround I added routes for the relevant targets that
-explicitly set the src to 212.123.202.74.
+I tested the speed and seems very low (both old version and the new one).
+Something like 37Mbits/s. It is normal?
+I can easily get 80Mbit/s on the same machine on ethernet.
 
-Wichert.
+Thank you!
 
--- 
-Wichert Akkerman <wichert@wiggy.net>    It is simple to make things.
-http://www.wiggy.net/                   It is hard to make things simple.
+Signed-off-by: Catalin BOIE <catab at umbrella.ro>
+---
+Catalin(ux aka Dino) BOIE
+catab at deuroconsult.ro
+http://kernel.umbrella.ro/
+---1646943047-1317725015-1116583867=:29305
+Content-Type: TEXT/PLAIN; CHARSET=US-ASCII; NAME=dummy_features.patch
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.LNX.4.62.0505201311070.29305@webhosting.rdsbv.ro>
+Content-Description: 
+Content-Disposition: ATTACHMENT; FILENAME=dummy_features.patch
+
+LS0tIGR1bW15MS9kcml2ZXJzL25ldC9kdW1teS5jCTIwMDUtMDMtMjYgMDU6
+Mjg6MjAuMDAwMDAwMDAwICswMjAwDQorKysgbGludXgvZHJpdmVycy9uZXQv
+ZHVtbXkuYwkyMDA1LTA1LTIwIDExOjU3OjQ0LjAwMDAwMDAwMCArMDMwMA0K
+QEAgLTI2LDYgKzI2LDggQEANCiAJCQlOaWNrIEhvbGxvd2F5LCAyN3RoIE1h
+eSAxOTk0DQogCVtJIHR3ZWFrZWQgdGhpcyBleHBsYW5hdGlvbiBhIGxpdHRs
+ZSBidXQgdGhhdCdzIGFsbF0NCiAJCQlBbGFuIENveCwgMzB0aCBNYXkgMTk5
+NA0KKw0KKwlBZGQgc3BlY2lhbCBmZWF0dXJlcyB0byBpbXByb3ZlIHBlcmZv
+cm1hbmNlIC0gQ2F0YWxpbiBCT0lFDQogKi8NCiANCiAjaW5jbHVkZSA8bGlu
+dXgvY29uZmlnLmg+DQpAQCAtNzMsNiArNzUsOCBAQCBzdGF0aWMgdm9pZCBf
+X2luaXQgZHVtbXlfc2V0dXAoc3RydWN0IG5lDQogCWRldi0+ZmxhZ3MgJj0g
+fklGRl9NVUxUSUNBU1Q7DQogCVNFVF9NT0RVTEVfT1dORVIoZGV2KTsNCiAJ
+cmFuZG9tX2V0aGVyX2FkZHIoZGV2LT5kZXZfYWRkcik7DQorCWRldi0+ZmVh
+dHVyZXMgPSBORVRJRl9GX1NHIHwgTkVUSUZfRl9OT19DU1VNIHwgTkVUSUZf
+Rl9ISUdIRE1BDQorCQkJfCBORVRJRl9GX0ZSQUdMSVNUIHwgTkVUSUZfRl9U
+U08gfCBORVRJRl9GX0xMVFg7DQogfQ0KIA0KIHN0YXRpYyBpbnQgZHVtbXlf
+eG1pdChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QgbmV0X2RldmljZSAq
+ZGV2KQ0K
+
+---1646943047-1317725015-1116583867=:29305--
