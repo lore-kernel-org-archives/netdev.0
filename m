@@ -1,32 +1,96 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: A new driver for Broadcom bcm5706
-Date: Fri, 20 May 2005 14:07:17 -0700
-Message-ID: <428E5185.1070602@candelatech.com>
-References: <1116609329.31523.16.camel@rh4> <20050520194220.GA18259@havoc.gtf.org> <428E4DE2.1020002@pobox.com>
+From: Grant Grundler <grundler@parisc-linux.org>
+Subject: Re: patch tulip-natsemi-dp83840a-phy-fix.patch added to -mm tree
+Date: Fri, 20 May 2005 15:12:29 -0600
+Message-ID: <20050520211229.GA2411@colo.lackof.org>
+References: <200505101955.j4AJtX9x032464@shell0.pdx.osdl.net> <42881C58.40001@pobox.com> <20050516050843.GA20107@colo.lackof.org> <4288CE51.1050703@pobox.com> <20050516222612.GD9282@colo.lackof.org> <428E3372.403@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Michael Chan <mchan@broadcom.com>, davem@davemloft.net, netdev@oss.sgi.com,
-        ffan@broadcom.com, lusinsky@broadcom.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Grant Grundler <grundler@parisc-linux.org>, akpm@osdl.org,
+        T-Bone@parisc-linux.org, varenet@parisc-linux.org,
+        Linux Kernel <linux-kernel@vger.kernel.org>,
+        Netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <428E4DE2.1020002@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <428E3372.403@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
+On Fri, May 20, 2005 at 02:58:58PM -0400, Jeff Garzik wrote:
+> Grant Grundler wrote:
+> >After three years of using/maintaining the (trivial) tulip patch
+> >in parisc-linux tree (and shipped with RH/SuSe ia64 releases),
+> >I don't recall anyone complaining that udelays in tulip phy reset
+> >caused them problems. Sorry, I'm unmotivated to revisit this.
+> >Convince someone else to make tulip to use workqueues and I'll
+> >resubmit a clean patch on top of that for the phy init sequences.
 > 
-> Note that I only consider a very few of these items, highlighted below, 
-> to be merge-stoppers.  The rest are minor things that can be fixed up at 
-> leisure.
+> 
+> Long delays are unacceptable in new drivers,
 
-Out of curiousity:  Is the intended goal to replace tg3 with
-this new driver eventually?  I dig having the chipset manufacturer
-solidly behind the driver, like e1000!
+Agreed. But that didn't stop tg3 from having a 1.5 *SECOND*
+spin delay during fiber phy init with interrupts off.
+That is certainly a much newer driver than tulip.
 
-Ben
+(It's not obvious to me by code inspection which context
+ tg3_setup_fiber_by_hand() gets called from now.)
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+> and we are working to remove them from older drivers.
+>
+> Lack of complaints is irrelevant -- its 
+> a design requirement of all drivers.
+
+It's totally relevant.
+Complaints (bug reports) and patches drive change.  That's how both
+commercial *and* non-commercial developers prioritize.
+
+"Ingo and the real-time crowd" are a good example of a change
+in priorities driven by non-commercial users.
+
+> Ingo and the real-time crowd are fighting against every delay, because 
+> every delay causes a spin, a blip in latency, an increase in CPU usage, 
+> and a complete stoppage of ALL work on a uniprocessor machine.
+
+Understood. But they were not the first ones. Donald Becker has a fairly
+well known digust for use of CPU spin loops.  But we can't eliminate
+*all* udelay just becuase of the way HW is designed and has bugs.
+I think it would be reasonable to get rid of many udelay calls
+(replace them with PCI read delay loops like Donald has advocated)
+and get the rest into a context where it matters less.
+I have no objection to people fixing those sorts of issues.
+
+
+> Your patch is not a special case.  We have been communicating this 
+> message on udelay/mdelay for -years-.  All your patch [as-is] does is 
+> cause more work for someone else.
+
+Not true. This patch brings the tulip driver into compliance with
+published specs and makes the driver functional for parisc/mips/ia64 users.
+
+> This also presents a problem that Andrew points out on occasion:
+> what happens when a patch is useful, but the patch author isn't (for 
+> whatever reason) doing the legwork necessary to get it into the mainline 
+> kernel?
+
+The "whatever reason" is clearly decided by the mainline kernel maintainer.
+If we treat other people's labor as "free", then the right answer is
+to drop the patch and wait for some subset of "we" to do the extra legwork.
+
+Several people care if tulip phy init works right. OTOH, I'm only aware of
+one person who specifically cares if tulip is holding the CPU hostage for
+1 or 2 ms during the occasional phy init.
+
+Is being a technology purist more important than moving forward with
+what people care about?
+
+> We certainly DON'T want to lose this patch, as the changes are 
+> useful.
+
+I think we also agree debugging the problem and providing a patch
+that works is a worthy contribution.
+
+We won't lose it. I maintain it in CVS on cvs.parisc-linux.org.
+
+thanks,
+grant
