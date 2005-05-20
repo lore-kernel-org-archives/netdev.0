@@ -1,44 +1,39 @@
-From: Felix Fischer <fischer@ikr.uni-stuttgart.de>
-Subject: IPv6 Tunneling (reverse tunnel need)
-Date: Fri, 20 May 2005 13:19:59 +0200
-Message-ID: <200505201319.59707.fischer@ikr.uni-stuttgart.de>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: 2.6.12-rc4-mm[12] - ULOG problem
+Date: Fri, 20 May 2005 07:42:47 -0400
+Message-ID: <1116589367.6308.36.camel@localhost.localdomain>
+References: <20050518222729.007887b8.akpm@osdl.org>
+	 <1116484313.21310.78.camel@uganda> <20050518234552.4aef6d02.akpm@osdl.org>
+	 <20050519.114425.18307286.davem@davemloft.net>
+	 <1116571178.21310.124.camel@uganda>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, akpm@osdl.org,
+        herbert@gondor.apana.org.au, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: johnpol@2ka.mipt.ru
+In-Reply-To: <1116571178.21310.124.camel@uganda>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I'm currently working on a research project and ran into a=20
-question regarding tunneling/decapsulation in IPv6.
+On Fri, 2005-20-05 at 10:39 +0400, Evgeniy Polyakov wrote:
 
-<------> [ A ] =3D=3D=3D=3D=3D tunnel from A to B =3D=3D=3D=3D=3D> [ B ] =
-<-------> =A0
-
-Packets tunneled from A to B are only decapsulated at node B if
-B has setup a tunnel-device in direction from B to A (reverse tunnel).
-
-Is the need for the tunnel-device on node B an implementation
-issue to handle tunneling, or does it come from something=20
-else (i.e. standard requirement) ?
-
-Further, I am wondering why the possibility to use the ANY_ADDRESS
-as tunnel-end-point isn't present in IPv6 ?
-The IPv4 implementation allows the usage of "0.0.0.0" as remote_address f=
-or
-tunnel-end-points.
+> I just want to note, that if you want message bus, you require
+> at least oppsite direction, and thus input callback, and
+> either several socket number for each user [kobject, audit, iscsi, 
+> xfrm - all they implement what connector already does] or
+> some header and thus parser in input callback, and thus
+> some registration mechanism. 
 
 
-Any help would be greatly appreciated.
+But if you are given your own ID, there should no issues, correct?
+i.e it will be no different than say rtnetlink. Users would still have
+to subscribe to topics etc, but thats something you already handle.
+IOW, Iam hoping you are not resorting to a single socket with some user
+space mux to do filtering.
 
-Regards,
-Felix Fischer
---=20
--------------------------------------------------------------------
-Institute of Communication Networks and Computer Engineering (IKR)
-University of Stuttgart, Germany
--------------------------------------------------------------------
+cheers,
+jamal
