@@ -1,34 +1,57 @@
-From: Rick Jones <rick.jones2@hp.com>
+From: "David S. Miller" <davem@davemloft.net>
 Subject: Re: [PATCH] Super TSO
-Date: Thu, 19 May 2005 17:45:56 -0700
-Message-ID: <428D3344.6090107@hp.com>
-References: <200505200015.j4K0FNVG005262@guinness.s2io.com>
+Date: Thu, 19 May 2005 17:55:42 -0700 (PDT)
+Message-ID: <20050519.175542.07642115.davem@davemloft.net>
+References: <20050519.172107.59468102.davem@davemloft.net>
+	<200505200036.j4K0aVVG008391@guinness.s2io.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <200505200015.j4K0FNVG005262@guinness.s2io.com>
+To: leonid.grossman@neterion.com
+In-Reply-To: <200505200036.j4K0aVVG008391@guinness.s2io.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+From: "Leonid Grossman" <leonid.grossman@neterion.com>
+Date: Thu, 19 May 2005 17:36:25 -0700
 
-> In this case, 64k TSO becomes a liability and it will make sense to limit it.
->  TSO "sweet spot" will be captured anyways - at least on fast networks, going
->  from 1.5k to 9k typically doubles throughput, while going from 9k to 64k
-> adds no more than another 10% (plus a little bit of free %cpu, but not that
-> much).
+> > > One likely scenario where this feature is desirable is a 
+> > system with 
+> > > highly fragmented memory.
+> > > In this case, the number of physical fragments per TSO 
+> > frame could be 
+> > > always so high that it will be cheaper (on a given 
+> > platform) to copy 
+> > > the frame than to DMA it.
+> > 
+> > We always chop up the user data into individual system pages 
+> > when we build TSO frames, so I can't see how any kind of 
+> > memory fragmentation could be an issue.
+> 
+> This is exactly what I wanted to hear :-)
+> If the TSO implementation guarantees that the payload comes (for the most
+> part) 
+> in physically continuous pages, then the number of fragments 
+> will never get out of whack, and my argument indeed becomes invalid.
 
+You misunderstand me.  The TCP segmenter splits the incoming
+user data into page size'd chunks.  So a 64K packet uses
+64K / PAGE_SIZE individual pages.
 
-On the surface, that just sounds like something adhering to the laws of
-diminishing returns.  As you increase the TSO size, you are shrinking the 
-per-send costs, but the per-byte costs (if there is a copy from user to kernel) 
-and the ack costs remain the same.
+The only thing the driver author needs to be aware of wrt. this
+is to never wake up the TX netif queue until at least
+"MAX_SKB_FRAGS + 1" transmit descriptors are available.
 
-If that 1500 to 9K to 64K is an MTU (and thus real MSS) change than the per-send 
-and ack costs are what are diminishing but the per-byte costs remain the same.
+You'll see that every driver setting NETIF_F_SG implements
+this test.
 
-Asymptotes and all that...
+> Sure. On the other hand, the TCP code is unaware of the copy vs. DMA
+> costs on a particular NIC (well, this is actually more specific to a
+> system than to a NIC).  But I guess as long as both the packet size
+> and the number of fragments will not get very big at the same time,
+> A NIC will be OK.
 
-rick jones
+They can and will be as large as "MAX_SKB_FRAGS + 1".
