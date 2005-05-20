@@ -1,39 +1,30 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: 2.6.12-rc4-mm[12] - ULOG problem
-Date: Fri, 20 May 2005 07:42:47 -0400
-Message-ID: <1116589367.6308.36.camel@localhost.localdomain>
-References: <20050518222729.007887b8.akpm@osdl.org>
-	 <1116484313.21310.78.camel@uganda> <20050518234552.4aef6d02.akpm@osdl.org>
-	 <20050519.114425.18307286.davem@davemloft.net>
-	 <1116571178.21310.124.camel@uganda>
-Reply-To: hadi@cyberus.ca
+From: Wichert Akkerman <wichert@wiggy.net>
+Subject: Re: sendmsg ignoring bind?
+Date: Fri, 20 May 2005 15:20:09 +0200
+Message-ID: <20050520132009.GD4151@wiggy.net>
+References: <20050520081805.GR25658@wiggy.net> <20050520101749.GA8661@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, akpm@osdl.org,
-        herbert@gondor.apana.org.au, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: johnpol@2ka.mipt.ru
-In-Reply-To: <1116571178.21310.124.camel@uganda>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Disposition: inline
+In-Reply-To: <20050520101749.GA8661@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2005-20-05 at 10:39 +0400, Evgeniy Polyakov wrote:
+Previously Herbert Xu wrote:
+> This could be a cmsg option that overrode the bind address.  Please
+> decode it so that we know what it's doing.
 
-> I just want to note, that if you want message bus, you require
-> at least oppsite direction, and thus input callback, and
-> either several socket number for each user [kobject, audit, iscsi, 
-> xfrm - all they implement what connector already does] or
-> some header and thus parser in input callback, and thus
-> some registration mechanism. 
+I had to hack strace a bit to decode that. The cmsg option turns out
+to be somewhat useless:
 
+cmsg_type=IP_PKTINFO, {ifindex=0,ipi_spec_dst=inet_addr("0.0.0.0"),ipi_addr=("0.0.0.0")}}, msg_flags=0},
 
-But if you are given your own ID, there should no issues, correct?
-i.e it will be no different than say rtnetlink. Users would still have
-to subscribe to topics etc, but thats something you already handle.
-IOW, Iam hoping you are not resorting to a single socket with some user
-space mux to do filtering.
+Wichert.
 
-cheers,
-jamal
+-- 
+Wichert Akkerman <wichert@wiggy.net>    It is simple to make things.
+http://www.wiggy.net/                   It is hard to make things simple.
