@@ -1,128 +1,66 @@
-From: Kosta Todorovic <kostodo@gmail.com>
-Subject: Re: Network card driver problem (znb.o/tulip)
-Date: Fri, 20 May 2005 09:25:49 +0400
-Message-ID: <efe3b0060505192225f3cf36e@mail.gmail.com>
-References: <efe3b00605031021513b7268d1@mail.gmail.com>
-	 <efe3b00605051901022854653a@mail.gmail.com>
-	 <428CC958.1080909@candelatech.com>
-Reply-To: Kosta Todorovic <kostodo@gmail.com>
+From: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
+Subject: Re: [PATCH] [BRIDGE] Set features based on slave's ones (was Ethernet
+ Bridging: Enable Hardware Checksumming)
+Date: Fri, 20 May 2005 09:07:46 +0300 (EEST)
+Message-ID: <Pine.LNX.4.62.0505200858480.12681@webhosting.rdsbv.ro>
+References: <Pine.LNX.4.62.0505191654400.24043@webhosting.rdsbv.ro>
+ <20050519214015.GA19961@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: jgarzik@pobox.com, tulip-users@lists.sourceforge.net, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@oss.sgi.com, davem@davemloft.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <428CC958.1080909@candelatech.com>
-Content-Disposition: inline
+To: Jon Mason <jdmason@us.ibm.com>
+In-Reply-To: <20050519214015.GA19961@us.ibm.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-2 more questions:
-
-1) Is there anything special I will need to compile in terms of the
-linux kernel for 64-bit PCI bus mode (PCI-X) ? (Currently I'm using
-kernel 2.4.x but that is because my current card drivers do not
-support 2.6.x)
-
-2) The machine actually has a PCI extension with 9 other PCI-X slots.
-The current cards are 64-bit (pci-x) but as a test i'm planning on
-replacing them with DLinks DFE-580tx's. Unfortunately these are 32-bit
-cards (legacy pci). How will these 4 ports work in 32-bit mode? What
-will the effect be on the speed?
-
-
-
-On 5/19/05, Ben Greear <greearb@candelatech.com> wrote:
-> Kosta Todorovic wrote:
-> > Whats the best 4-port NIC currently available? I'm interested in
-> > purchasing 10 4-port NICs as a replacement for my current cards.
-> >
-> > I am looking for 10/100Mbps and a good driver for linux (2.4.x and
-> > 2.6.x). Preferably a mainstream company but thats not priority.
-> >
-> > Could the community please recommend the best card available? Money is
-> > not an issue since im really interested in the best of the best.
-> 
-> Get an Intel 4-port GigE NIC.  It will do 10/100/1000, and if you really
-> want to use all 4 ports at even 100Mbps, you need the 64-bit PCI bus...
-> 
-> I have been getting mine from silicom-usa.com lately.  They also have
-> 6-port NICs, and 4-port broadcom GigE nics that can be used in 32-bit
-> PCI slots.  (The Intel 4-port NICs will only work in 64-bit PCI slots.)
-> 
-> If you really want 10/100 nics, try the p430tx from aei:
-> http://www.aei-it.com/hardware/fastenet/p430tx.htm
-> 
-> These are like the old DFE570tx NICs, and use the tulip driver.  They
-> are almost as expensive as the GigE NICs though...
-> 
-> Thanks,
-> Ben
-> 
-> >
-> > Any suggestions?
-> >
-> > Regards,
-> > Kosta
-> >
-> >
-> >
-> > On 3/11/05, Kosta Todorovic <kostodo@gmail.com> wrote:
-> >
-> >>My company has recently purchased several ZNYX ZX274 network cards.
-> >>These cards are Four Channel, 10/100 PCI Adapters. They use Intel chipsets.
-> >>
-> >>Unfortunately there exists no drivers for linux amd64 architecture.
-> >>There are 32bit drivers found at:
-> >>http://www.znyx.com/support/drivers/ZX374_drivers.htm but naturally
-> >>they wont compile under my amd64 system.
-> >>
-> >>The driver itself is called znb.o and can be downloaded from ZNYX's
-> >>website. I spoke to support staff there but they told me they have
-> >>discontinued support and development for this series of cards.
-> >>
-> >>The system I am running gentoo and have tried both 2.4.x and 2.6.x
-> >>kernels but no luck.
-> >>
-> >>Unfortunately there is NO 64bit drivers available for ANY platform. not even MS.
-> >>
-> >>Does anyone know of a customised znb.o driver built for amd64?
-> >>Is there any chance of anyone modifying the source code of the driver
-> >>to compile under a amd64 system?
-> >>
-> >>I've noticed that "tulip" drivers get loaded as a module at boot time.
-> >>but they dont function correctly. (lets you start the device and
-> >>attach ips but cant talk through it)
-> >>
-> >>Is there any variants of the tulip driver that will work for this?
-> >>
-> >>Help much appreciated.
-> >>
-> >>
-> >>/proc/pci extract for network cards:
-> >>
-> >>  Bus  5, device   5, function  0:
-> >>    Ethernet controller: Digital Equipment Corporation DECchip
-> >>21142/43 (#30) (rev 65).
-> >>      IRQ 30.
-> >>      Master Capable.  Latency=128.  Min Gnt=20.Max Lat=40.
-> >>      I/O at 0x0 [0x7f].
-> >>      Non-prefetchable 32 bit memory at 0xfa1ff400 [0xfa1ff7ff].
-> >>  Bus  5, device   4, function  0:
-> >>    Ethernet controller: Digital Equipment Corporation DECchip
-> >>21142/43 (#29) (rev 65).
-> >>      IRQ 29.
-> >>      Master Capable.  No bursts.  Min Gnt=20.Max Lat=40.
-> >>      I/O at 0x0 [0x7f].
-> >>      Non-prefetchable 32 bit memory at 0xf9f00000 [0xf9f003ff].
-> >>
-> >
-> >
-> 
-> 
-> --
-> Ben Greear <greearb@candelatech.com>
-> Candela Technologies Inc  http://www.candelatech.com
-> 
+>> +static inline void br_features_change(struct net_bridge *br, struct net_device *dev)
+>> +{
+>> +	br->dev->features &= dev->features | ~BR_FEAT_MASK;
 >
+> ~BR_FEAT_MASK isn't necessary. Either you wanted to do an '&' just
+> before it, so that BR_FEAT_MASK features are the only ones that you want
+> or you are enabling features that aren't necessarily supported by the
+> adapter/driver (like LLTX and HW_VLAN stuff).
+
+So, I invert BR_FEAT_MASK so I can, by default clear special features.
+Then I ored with dev->features, so I can enable special features if the 
+slave device supports it. Then, I do & so I can clear stuff that is not 
+supported by device, but the rest of br->dev features remains untouched.
+
+Let's test: if dev hash SG the code is like this:
+BR_FEAT_MASK = 1001 (only test SG and HW_CSUM)
+# br is inited
+br |= 1001
+br &= 0001 | ~1001
+br &= 0001 | 0110
+br &= 0111
+br = 1001 & 0111 = 0001 - so bit SG is set also in br. But not HW_CSUM 
+because it's not in device.
+
+I can't see the code is wrong. Can you give me an example when it fails, 
+please?
+
+>> +}
+>> +
+>> +/*
+>> + * Recomputes features using slave's features
+>> + */
+>> +static void br_features_recompute(struct net_bridge *br)
+>> +{
+>> +	struct net_bridge_port *p;
+>> +
+>> +	br->dev->features |= BR_FEAT_MASK;
+>
+> The OR is not needed.  Just re-initialize features to BR_FEAT_MASK and
+> everything will take case of itself.
+
+Nope. Not correct. Because we might enable LLTX on the bridge, but not in 
+BR_FEAT_MASK.
+I will post a patch in few hours with all stuff updated.
+
+---
+Catalin(ux aka Dino) BOIE
+catab at deuroconsult.ro
+http://kernel.umbrella.ro/
