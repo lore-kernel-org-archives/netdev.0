@@ -1,72 +1,37 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: A new driver for Broadcom bcm5706
-Date: Fri, 20 May 2005 15:28:36 -0700 (PDT)
-Message-ID: <20050520.152836.48528379.davem@davemloft.net>
-References: <1116609329.31523.16.camel@rh4>
-	<20050520194220.GA18259@havoc.gtf.org>
+Subject: Re: Perf data with recent tg3 patches
+Date: Fri, 20 May 2005 15:33:26 -0700 (PDT)
+Message-ID: <20050520.153326.08322399.davem@davemloft.net>
+References: <1116031159.6214.8.camel@rh4>
+	<20050513.222007.78719997.davem@davemloft.net>
+	<Pine.LNX.4.61.0505201442380.11419@linux.site>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mchan@broadcom.com, netdev@oss.sgi.com, ffan@broadcom.com,
-        lusinsky@broadcom.com
+Cc: mchan@broadcom.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jgarzik@pobox.com
-In-Reply-To: <20050520194220.GA18259@havoc.gtf.org>
+To: akepner@sgi.com
+In-Reply-To: <Pine.LNX.4.61.0505201442380.11419@linux.site>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Jeff Garzik <jgarzik@pobox.com>
-Date: Fri, 20 May 2005 15:42:20 -0400
+From: Arthur Kepner <akepner@sgi.com>
+Date: Fri, 20 May 2005 14:52:35 -0700 (PDT)
 
-> 9) [additional review]  DaveM, others: is this correct for all arches?
-> 
-> +       if (unlikely((align = (unsigned long) skb->data & 0x7))) {
-> +               skb_reserve(skb, 8 - align);
-> +       }
+> When the default coalescence parameters are used (rx-frames, 
+> rx-frames-irq both set to 5) the maximum number of received 
+> packets per interrupt is ~4.2. Setting rx-frames and 
+> rx-frames-irq to 20 caused the maximum number of received
+> packets per interrupt to rise to ~19.6. Maximum CPU 
+> utilization went down from ~52% to ~35%. Very nice.
 
-It's probably not even necessary.  dev_alloc_skb() should be returning
-an SKB with skb->data at least cache_line_size() aligned (see mm/slab.c)
-unless the platform defines an ARCH_KMALLOC_MINALIGN override.
+Yes, but using such a high value makes latency go into the
+toilet. :-)
 
-> 10) [additional review] doesn't bnx2_rx_int() need to move the rmb()
-> inside the loop?  Are you protecting against the compiler
-> reordering/caching loads/stores, or against SMP CPUs?
+I'd much rather see dynamic settings based upon packet rate.
+It's easy to resurrect the ancient code from the early
+tg3 days which does this.
 
-This rmb() is needed to strongly order the status block consumer
-index read, from that of the descriptor data.  I'm pretty sure it's
-in the right spot.
-
-> 10.1) [additional review] is the rmb() even needed in bnx2_rx_int(),
-> since its caller also uses rmb()?
-
-No, it's guarding status block consumer index read to the first
-RX descriptor read, as explained above.
-
-> 13) [additional review] why is CHECKSUM_UNNECESSARY used when
-> cksum==0xffff or cksum==0 ?
-> 
-> +                       u16 cksum = rx_hdr->l2_fhdr_tcp_udp_xsum;
-> +
-> +                       if ((cksum == 0xffff) || (cksum == 0)) {
-> +                               skb->ip_summed = CHECKSUM_UNNECESSARY;
-> +                       }
-
-For UDP, a checksum value of zero means no checksum at all.
-
-> 18) you can eliminate one call to request_irq, by lengthening the 'if' test:
-
-Of just assigning a function pointer and set of flags to a local variable.
-Then doing on request_irq call.
-
-> 20) is there any reason to #ifdef BCM_TSO?  2.4.x kernels I suppose?
-
-Yeah, same for MSI stuff as well.
-
-> 27) isn't 'timer_interval == HZ' too rapid a timer?  Does it really need
-> to fire every second?
-
-The pulse has to be written the the chip at least once every 50 milliseconds,
-or else the chip goes into OS absent mode.  Anyways, the timer interval can
-probably be extended, although link probing at 1 second intervals does seem
-reasonable.
+Thanks for all your testing, it is very informative and
+useful.
