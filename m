@@ -1,59 +1,39 @@
-From: Jeff Garzik <jgarzik@pobox.com>
+From: "David S. Miller" <davem@davemloft.net>
 Subject: Re: A new driver for Broadcom bcm5706
-Date: Fri, 20 May 2005 19:30:01 -0400
-Message-ID: <428E72F9.3070404@pobox.com>
-References: <1116609329.31523.16.camel@rh4>	<20050520194220.GA18259@havoc.gtf.org> <20050520.152836.48528379.davem@davemloft.net>
+Date: Fri, 20 May 2005 16:45:04 -0700 (PDT)
+Message-ID: <20050520.164504.31639000.davem@davemloft.net>
+References: <20050520194220.GA18259@havoc.gtf.org>
+	<20050520.152836.48528379.davem@davemloft.net>
+	<428E72F9.3070404@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: mchan@broadcom.com, netdev@oss.sgi.com, ffan@broadcom.com,
         lusinsky@broadcom.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S.Miller" <davem@davemloft.net>
-In-Reply-To: <20050520.152836.48528379.davem@davemloft.net>
+To: jgarzik@pobox.com
+In-Reply-To: <428E72F9.3070404@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S.Miller wrote:
-> From: Jeff Garzik <jgarzik@pobox.com>
-> Date: Fri, 20 May 2005 15:42:20 -0400
->>10) [additional review] doesn't bnx2_rx_int() need to move the rmb()
->>inside the loop?  Are you protecting against the compiler
->>reordering/caching loads/stores, or against SMP CPUs?
-> 
-> 
-> This rmb() is needed to strongly order the status block consumer
-> index read, from that of the descriptor data.  I'm pretty sure it's
-> in the right spot.
-> 
-> 
->>10.1) [additional review] is the rmb() even needed in bnx2_rx_int(),
->>since its caller also uses rmb()?
-> 
-> 
-> No, it's guarding status block consumer index read to the first
-> RX descriptor read, as explained above.
+From: Jeff Garzik <jgarzik@pobox.com>
+Date: Fri, 20 May 2005 19:30:01 -0400
 
-OK
+> Sure.  What I'm driving at is that a checksum of zero seems to imply 
+> CHECKSUM_NONE not CHECKSUM_UNNECESSARY.  tg3 only does the 0xffff check.
 
+Sure, both ways are fine.
 
->>13) [additional review] why is CHECKSUM_UNNECESSARY used when
->>cksum==0xffff or cksum==0 ?
->>
->>+                       u16 cksum = rx_hdr->l2_fhdr_tcp_udp_xsum;
->>+
->>+                       if ((cksum == 0xffff) || (cksum == 0)) {
->>+                               skb->ip_summed = CHECKSUM_UNNECESSARY;
->>+                       }
-> 
-> 
-> For UDP, a checksum value of zero means no checksum at all.
+> I am also a bit surprised that, if the actual checksum value is 
+> available, why not use CHECKSUM_HW like sunhme?
 
-Sure.  What I'm driving at is that a checksum of zero seems to imply 
-CHECKSUM_NONE not CHECKSUM_UNNECESSARY.  tg3 only does the 0xffff check.
+CHECKSUM_HW is for a different calculation than what 5706 and tg3 are
+providing here.  CHECKSUM_HW is for when the chip provides a raw 2's
+complement 16-bit sum starting at a fixed offset from the beginning of
+the packet.  The network stack then "undoes" or subtracts the header
+2's complement checksum from the device provided sum to arrive at the
+real checksum result.
 
-I am also a bit surprised that, if the actual checksum value is 
-available, why not use CHECKSUM_HW like sunhme?
-
-	Jeff
+5706 and tg3 are actually interpreting the headers and running the
+checksum algorithm over the proper parts of the packet headers.
