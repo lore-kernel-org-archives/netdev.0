@@ -1,32 +1,35 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: Wichert Akkerman <wichert@wiggy.net>
 Subject: Re: sendmsg ignoring bind?
-Date: Fri, 20 May 2005 23:24:29 +1000
-Message-ID: <20050520132429.GA32695@gondor.apana.org.au>
-References: <20050520081805.GR25658@wiggy.net> <20050520101749.GA8661@gondor.apana.org.au> <20050520132009.GD4151@wiggy.net>
+Date: Fri, 20 May 2005 15:31:44 +0200
+Message-ID: <20050520133144.GE4151@wiggy.net>
+References: <20050520081805.GR25658@wiggy.net> <20050520101749.GA8661@gondor.apana.org.au> <20050520132009.GD4151@wiggy.net> <20050520132429.GA32695@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Wichert Akkerman <wichert@wiggy.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Content-Disposition: inline
-In-Reply-To: <20050520132009.GD4151@wiggy.net>
+In-Reply-To: <20050520132429.GA32695@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, May 20, 2005 at 03:20:09PM +0200, Wichert Akkerman wrote:
+Previously Herbert Xu wrote:
+> I suppose we can expect to have this in a future release of strace :)
+
+It just might happen :)
+
+> > cmsg_type=IP_PKTINFO, {ifindex=0,ipi_spec_dst=inet_addr("0.0.0.0"),ipi_addr=("0.0.0.0")}}, msg_flags=0},
 > 
-> I had to hack strace a bit to decode that. The cmsg option turns out
-> to be somewhat useless:
+> This is far from useless.  This will set the source address back to zero
+> which essentially means that the bound address is ignored.
 
-I suppose we can expect to have this in a future release of strace :)
+I can see it being useful, except in my case it is somewhat unexpected
+and undesirable behaviour. I'll make sure to have that fixed in
+FreeRADIUS though.
 
-> cmsg_type=IP_PKTINFO, {ifindex=0,ipi_spec_dst=inet_addr("0.0.0.0"),ipi_addr=("0.0.0.0")}}, msg_flags=0},
+Wichert.
 
-This is far from useless.  This will set the source address back to zero
-which essentially means that the bound address is ignored.
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Wichert Akkerman <wichert@wiggy.net>    It is simple to make things.
+http://www.wiggy.net/                   It is hard to make things simple.
