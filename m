@@ -1,128 +1,42 @@
-From: Grant Grundler <grundler@parisc-linux.org>
-Subject: Re: patch tulip-natsemi-dp83840a-phy-fix.patch added to -mm tree
-Date: Fri, 20 May 2005 18:51:39 -0600
-Message-ID: <20050521005139.GB2411@colo.lackof.org>
-References: <200505101955.j4AJtX9x032464@shell0.pdx.osdl.net> <42881C58.40001@pobox.com> <20050516050843.GA20107@colo.lackof.org> <4288CE51.1050703@pobox.com> <20050516222612.GD9282@colo.lackof.org> <428E3372.403@pobox.com> <20050520211229.GA2411@colo.lackof.org> <428E57E2.2090204@pobox.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: A new driver for Broadcom bcm5706
+Date: Fri, 20 May 2005 21:28:21 -0700 (PDT)
+Message-ID: <20050520.212821.88475745.davem@davemloft.net>
+References: <428E72F9.3070404@pobox.com>
+	<20050520.164504.31639000.davem@davemloft.net>
+	<428E7A53.1030907@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Grant Grundler <grundler@parisc-linux.org>, akpm@osdl.org,
-        T-Bone@parisc-linux.org, varenet@parisc-linux.org,
-        Linux Kernel <linux-kernel@vger.kernel.org>,
-        Netdev <netdev@oss.sgi.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mchan@broadcom.com, netdev@oss.sgi.com, ffan@broadcom.com,
+        lusinsky@broadcom.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <428E57E2.2090204@pobox.com>
+To: jgarzik@pobox.com
+In-Reply-To: <428E7A53.1030907@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, May 20, 2005 at 05:34:26PM -0400, Jeff Garzik wrote:
-> Yes, tg3 is awful in this regard.  I have made a bit of progress by 
-> moving some of the stuff into a workqueue.
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: A new driver for Broadcom bcm5706
+Date: Fri, 20 May 2005 20:01:23 -0400
 
-ah good! At some point I should re-install the fiber bcm5701 cards
-I have and see if they work better then.
-
-> >It's totally relevant.
-> >Complaints (bug reports) and patches drive change.  That's how both
-> >commercial *and* non-commercial developers prioritize.
-> >
-> >"Ingo and the real-time crowd" are a good example of a change
-> >in priorities driven by non-commercial users.
+> David S.Miller wrote:
+> > From: Jeff Garzik <jgarzik@pobox.com>
+> > Date: Fri, 20 May 2005 19:30:01 -0400
+> > 
+> > 
+> >>Sure.  What I'm driving at is that a checksum of zero seems to imply 
+> >>CHECKSUM_NONE not CHECKSUM_UNNECESSARY.  tg3 only does the 0xffff check.
+> > 
+> > 
+> > Sure, both ways are fine.
 > 
-> No, these are commercial users.  Embedded space really cares about this 
-> stuff.
-
-Sorry - maybe VM support for VIVT cache is a better example?
-(I'm thinking sparc/parisc support)
-
-Almost everything I think of has some form of commercial interest
-either directly (embedded, HA, infiniband, Server IO, ia64/amd64, etc)
-or indirectly (sponsorships at Universities or sourceforge projects).
-
-> >Understood. But they were not the first ones. Donald Becker has a fairly
-> >well known digust for use of CPU spin loops.  But we can't eliminate
-> >*all* udelay just becuase of the way HW is designed and has bugs.
-> >I think it would be reasonable to get rid of many udelay calls
-> >(replace them with PCI read delay loops like Donald has advocated)
-> >and get the rest into a context where it matters less.
-> >I have no objection to people fixing those sorts of issues.
+> huh?  They are pretty different...  one says "Checksum all good, dude" 
+> and the other says "I didn't checksum, do it in software for me."
 > 
-> If you recognize the issue, you should object to new changes adding new 
-> issues!
+> right?
 
-And ignore fixes for existing issues.
-"The enemy of good is perfect"
-
-...
-> >Not true. This patch brings the tulip driver into compliance with
-> >published specs and makes the driver functional for parisc/mips/ia64 users.
-> 
-> Ok, yes, it fixes the tulip issue AND causes work for others.
-
-But it's not new work.
-
-In timer.c, tulip_restart_rxtx() is called right after tulip_select_media().
-tulip_restart_rxtx() has a potential 1300 usec delay loop. About
-the same as the code in tulip_select_media() needs.
-
-I now appreciate much more that a RH employee (IIRC, John Linville)
-submitted that patch indirectly on my behalf. I filed the original
-bugzilla and provided the patch based on work by Charlie Brett.
-
-
-> >The "whatever reason" is clearly decided by the mainline kernel maintainer.
-> >If we treat other people's labor as "free", then the right answer is
-> >to drop the patch and wait for some subset of "we" to do the extra legwork.
-> 
-> Um, this is how all kernel development works :)
-
-*nod*
-
-> Maintainers are not supposed to merge patches into upstream, if they 
-> have flaws still remaining to be corrected.
-
-Many patches are not this black and white.
-All patches have to survive at least one subjective evaluation:
-	Is the cure worse than the illness?
-
-
-> >Several people care if tulip phy init works right. OTOH, I'm only aware of
-> >one person who specifically cares if tulip is holding the CPU hostage for
-> >1 or 2 ms during the occasional phy init.
-> >
-> >Is being a technology purist more important than moving forward with
-> >what people care about?
-> 
-> There will _always_ be ugly patches that get hardware going for some users.
-
-"ugly" is subjective.  Especially in the context of tulip phy init sequence.
-Anyone who finds beauty in that chunk of code is truly twisted. :^)
-
-(It just reflects the ugly mess of HW that too many vendors shipped.
-I don't ever expect tulip driver to be "clean" here.)
-
-> Tons of changes are kept outside the kernel until they are ready.  This 
-> is just one more example.
-> 
-> Merging code into the kernel is a big deal.  That code will have to be 
-> maintained for years, maybe decades.  "when in doubt, don't merge" is 
-> generally the right answer.
-
-Agreed.
-
-> I don't want your patch to become an issue that embedded developers must 
-> address (like the tg3 example above), causing further patching and 
-> headache in that area.
-
-Certainly. No problem with that.
-
-BTW, which embedded developers still care about tulip driver?
-One could use this patch as a litmus test to see how much they care. :^)
-
-I was expecting they'd be using gigabit NICs, Wi-Fi, GSM,
-or bluetooth these days.
-
-thanks,
-grant
+0x0000 is the UDP "no checksum" case, so if we say "in software"
+for that UDP will just let it pass through still, so the effect
+is that same.
