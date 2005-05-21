@@ -1,56 +1,63 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: A new driver for Broadcom bcm5706
-Date: Fri, 20 May 2005 21:36:56 -0700 (PDT)
-Message-ID: <20050520.213656.28396543.davem@davemloft.net>
-References: <20050520194220.GA18259@havoc.gtf.org>
-	<20050520.152836.48528379.davem@davemloft.net>
-	<1116630261.31523.42.camel@rh4>
+From: cranium2003 <cranium2003@yahoo.com>
+Subject: who is eating hw header in packets?
+Date: Sat, 21 May 2005 02:48:35 -0700 (PDT)
+Message-ID: <20050521094835.79200.qmail@web33015.mail.mud.yahoo.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com, ffan@broadcom.com,
-        lusinsky@broadcom.com
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: mchan@broadcom.com
-In-Reply-To: <1116630261.31523.42.camel@rh4>
+To: net dev <netdev@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Fri, 20 May 2005 16:04:21 -0700
+hello,
+             I use ethereal to capture a packet. I
+sent a ping request packet to hosta from hostB. On
+hostA it will be captured and replyis generated and
+packet sent to hostB. But it is captured as
 
-> On Fri, 2005-05-20 at 15:28 -0700, David S.Miller wrote:
-> > From: Jeff Garzik <jgarzik@pobox.com>
-> > Date: Fri, 20 May 2005 15:42:20 -0400
-> > 
-> > > 9) [additional review]  DaveM, others: is this correct for all arches?
-> > > 
-> > > +       if (unlikely((align = (unsigned long) skb->data & 0x7))) {
-> > > +               skb_reserve(skb, 8 - align);
-> > > +       }
-> > 
-> > It's probably not even necessary.  dev_alloc_skb() should be returning
-> > an SKB with skb->data at least cache_line_size() aligned (see mm/slab.c)
-> > unless the platform defines an ARCH_KMALLOC_MINALIGN override.
-> 
-> If I remember correctly, I was seeing some SKB with skb->data that is 4-
-> byte aligned on some Fedora kernels. I don't remember which kernel. This
-> device has an alignment requirement of at least 8-bytes for the receive
-> buffers.
+Frame 2 (98 bytes on wire, 98 bytes captured)
+    Arrival Time: May 21, 2005 10:37:57.360894000
+    Time delta from previous packet: 0.000409000
+seconds
+    Time relative to first packet: 0.000409000 seconds
+    Frame Number: 2
+    Packet Length: 98 bytes
+    Capture Length: 98 bytes
+Ethernet II, Src: 00:00:40:01:bc:29, Dst:
+45:00:00:54:3a:2b
+    Destination: 45:00:00:54:3a:2b (45:00:00:54:3a:2b)
+    Source: 00:00:40:01:bc:29 (Applicon_01:bc:29)
+    Type: Unknown (0xc0a8)
+Data (84 bytes)
 
-Just keep it in for now then.  I wouldn't be surprised if some 2.4.x
-kernels let this happen.
+0000  01 fa c0 a8 01 0a 00 00 82 68 0e 0f 00 01 2d c2 
+ .........h....-.
+0010  8e 42 c3 7f 05 00 08 09 0a 0b 0c 0d 0e 0f 10 11 
+ .B..............
+0020  12 13 14 15 16 17 18 19 1a 1b 1c 1d 1e 1f 20 21 
+ .............. !
+0030  22 23 24 25 26 27 28 29 2a 2b 2c 2d 2e 2f 30 31 
+ "#$%&'()*+,-./01
+0040  32 33 34 35 36 37 00 00 00 00 00 00 00 00 00 00 
+ 234567..........
+0050  00 00 00 00                                     
+ ....
 
-> Yes, but in this case, cksum is the checksum calculated over the entire
-> TCP/UDP packet including the pseudo IP header. Jeff is right, it should
-> always be 0xffff when the checksum is correct. Checking for zero is a
-> bug.
+         I want to ask which routine in linux kernel
+is discarding packet? Because what i found is that the
+first 14 bytes((src + dst) HW header + protocol type
+field) 
+ 00 08 a1 43 61 f5 00 08 a1 43 62 91 08 00 bytes are
+replaced with next all bytes and last 14 bytes are
+filled with 0's.
+regards,
+cranium.
 
-Ok, thanks for verifying.
 
-> Originally, the driver pulse interval was set at 250 msec, but it's been
-> extended to a few seconds. So the driver currently will write the pulse
-> every second and do the serdes related checking at the same time.
 
-I think the current timer stuff is fine, at least for now.
+		
+__________________________________ 
+Yahoo! Mail Mobile 
+Take Yahoo! Mail with you! Check email on your mobile phone. 
+http://mobile.yahoo.com/learn/mail 
