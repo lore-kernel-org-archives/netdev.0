@@ -1,55 +1,128 @@
-From: Xose Vazquez Perez <xose.vazquez@gmail.com>
-Subject: [PATCH] tg3: new ID
-Date: Sat, 21 May 2005 02:11:37 +0200
-Message-ID: <ee588a540505201711437197ca@mail.gmail.com>
-Reply-To: Xose Vazquez Perez <xose.vazquez@gmail.com>
+From: Grant Grundler <grundler@parisc-linux.org>
+Subject: Re: patch tulip-natsemi-dp83840a-phy-fix.patch added to -mm tree
+Date: Fri, 20 May 2005 18:51:39 -0600
+Message-ID: <20050521005139.GB2411@colo.lackof.org>
+References: <200505101955.j4AJtX9x032464@shell0.pdx.osdl.net> <42881C58.40001@pobox.com> <20050516050843.GA20107@colo.lackof.org> <4288CE51.1050703@pobox.com> <20050516222612.GD9282@colo.lackof.org> <428E3372.403@pobox.com> <20050520211229.GA2411@colo.lackof.org> <428E57E2.2090204@pobox.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_2428_28044994.1116634297724"
+Content-Type: text/plain; charset=us-ascii
+Cc: Grant Grundler <grundler@parisc-linux.org>, akpm@osdl.org,
+        T-Bone@parisc-linux.org, varenet@parisc-linux.org,
+        Linux Kernel <linux-kernel@vger.kernel.org>,
+        Netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, davem@redhat.com, jgarzik@pobox.com,
-        mchan@broadcom.com
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <428E57E2.2090204@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-------=_Part_2428_28044994.1116634297724
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+On Fri, May 20, 2005 at 05:34:26PM -0400, Jeff Garzik wrote:
+> Yes, tg3 is awful in this regard.  I have made a bit of progress by 
+> moving some of the stuff into a workqueue.
 
-Add 0x1601 as 5752M, it's a 5752 but for mobile PCs.
-Stolen from Broadcom bcm5700-8.1.55 driver.
+ah good! At some point I should re-install the fiber bcm5701 cards
+I have and see if they work better then.
 
-Someone forgot to add it to tg3 ;-)
+> >It's totally relevant.
+> >Complaints (bug reports) and patches drive change.  That's how both
+> >commercial *and* non-commercial developers prioritize.
+> >
+> >"Ingo and the real-time crowd" are a good example of a change
+> >in priorities driven by non-commercial users.
+> 
+> No, these are commercial users.  Embedded space really cares about this 
+> stuff.
 
-(against linux-2.6.12-rc4-git4)
+Sorry - maybe VM support for VIVT cache is a better example?
+(I'm thinking sparc/parisc support)
+
+Almost everything I think of has some form of commercial interest
+either directly (embedded, HA, infiniband, Server IO, ia64/amd64, etc)
+or indirectly (sponsorships at Universities or sourceforge projects).
+
+> >Understood. But they were not the first ones. Donald Becker has a fairly
+> >well known digust for use of CPU spin loops.  But we can't eliminate
+> >*all* udelay just becuase of the way HW is designed and has bugs.
+> >I think it would be reasonable to get rid of many udelay calls
+> >(replace them with PCI read delay loops like Donald has advocated)
+> >and get the rest into a context where it matters less.
+> >I have no objection to people fixing those sorts of issues.
+> 
+> If you recognize the issue, you should object to new changes adding new 
+> issues!
+
+And ignore fixes for existing issues.
+"The enemy of good is perfect"
+
+...
+> >Not true. This patch brings the tulip driver into compliance with
+> >published specs and makes the driver functional for parisc/mips/ia64 users.
+> 
+> Ok, yes, it fixes the tulip issue AND causes work for others.
+
+But it's not new work.
+
+In timer.c, tulip_restart_rxtx() is called right after tulip_select_media().
+tulip_restart_rxtx() has a potential 1300 usec delay loop. About
+the same as the code in tulip_select_media() needs.
+
+I now appreciate much more that a RH employee (IIRC, John Linville)
+submitted that patch indirectly on my behalf. I filed the original
+bugzilla and provided the patch based on work by Charlie Brett.
 
 
--thanks-
+> >The "whatever reason" is clearly decided by the mainline kernel maintainer.
+> >If we treat other people's labor as "free", then the right answer is
+> >to drop the patch and wait for some subset of "we" to do the extra legwork.
+> 
+> Um, this is how all kernel development works :)
 
-------=_Part_2428_28044994.1116634297724
-Content-Type: text/x-patch; name="tg3_5752M_id.diff"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="tg3_5752M_id.diff"
+*nod*
 
-ZGlmZiAtTnVhciBvL2RyaXZlcnMvbmV0L3RnMy5jIG4vZHJpdmVycy9uZXQvdGczLmMKLS0tIG8v
-ZHJpdmVycy9uZXQvdGczLmMJMjAwNS0wNS0yMSAwMTo1MDo0MC4wMDAwMDAwMDAgKzAyMDAKKysr
-IG4vZHJpdmVycy9uZXQvdGczLmMJMjAwNS0wNS0yMSAwMTo0MjoyOS4wMDAwMDAwMDAgKzAyMDAK
-QEAgLTIwNiw2ICsyMDYsOCBAQAogCSAgUENJX0FOWV9JRCwgUENJX0FOWV9JRCwgMCwgMCwgMFVM
-IH0sCiAJeyBQQ0lfVkVORE9SX0lEX0JST0FEQ09NLCBQQ0lfREVWSUNFX0lEX1RJR09OM181NzUy
-LAogCSAgUENJX0FOWV9JRCwgUENJX0FOWV9JRCwgMCwgMCwgMFVMIH0sCisJeyBQQ0lfVkVORE9S
-X0lEX0JST0FEQ09NLCBQQ0lfREVWSUNFX0lEX1RJR09OM181NzUyTSwKKwkgIFBDSV9BTllfSUQs
-IFBDSV9BTllfSUQsIDAsIDAsIDBVTCB9LAogCXsgUENJX1ZFTkRPUl9JRF9CUk9BRENPTSwgUENJ
-X0RFVklDRV9JRF9USUdPTjNfNTc1MywKIAkgIFBDSV9BTllfSUQsIFBDSV9BTllfSUQsIDAsIDAs
-IDBVTCB9LAogCXsgUENJX1ZFTkRPUl9JRF9CUk9BRENPTSwgUENJX0RFVklDRV9JRF9USUdPTjNf
-NTc1M00sCmRpZmYgLU51YXIgby9pbmNsdWRlL2xpbnV4L3BjaV9pZHMuaCBuL2luY2x1ZGUvbGlu
-dXgvcGNpX2lkcy5oCi0tLSBvL2luY2x1ZGUvbGludXgvcGNpX2lkcy5oCTIwMDUtMDUtMjEgMDE6
-NTA6MzQuMDAwMDAwMDAwICswMjAwCisrKyBuL2luY2x1ZGUvbGludXgvcGNpX2lkcy5oCTIwMDUt
-MDUtMjEgMDE6NTA6MDYuMDAwMDAwMDAwICswMjAwCkBAIC0yMDY0LDYgKzIwNjQsNyBAQAogCiAj
-ZGVmaW5lIFBDSV9WRU5ET1JfSURfQlJPQURDT00JCTB4MTRlNAogI2RlZmluZSBQQ0lfREVWSUNF
-X0lEX1RJR09OM181NzUyCTB4MTYwMAorI2RlZmluZSBQQ0lfREVWSUNFX0lEX1RJR09OM181NzUy
-TQkweDE2MDEKICNkZWZpbmUgUENJX0RFVklDRV9JRF9USUdPTjNfNTcwMAkweDE2NDQKICNkZWZp
-bmUgUENJX0RFVklDRV9JRF9USUdPTjNfNTcwMQkweDE2NDUKICNkZWZpbmUgUENJX0RFVklDRV9J
-RF9USUdPTjNfNTcwMgkweDE2NDYK
-------=_Part_2428_28044994.1116634297724--
+> Maintainers are not supposed to merge patches into upstream, if they 
+> have flaws still remaining to be corrected.
+
+Many patches are not this black and white.
+All patches have to survive at least one subjective evaluation:
+	Is the cure worse than the illness?
+
+
+> >Several people care if tulip phy init works right. OTOH, I'm only aware of
+> >one person who specifically cares if tulip is holding the CPU hostage for
+> >1 or 2 ms during the occasional phy init.
+> >
+> >Is being a technology purist more important than moving forward with
+> >what people care about?
+> 
+> There will _always_ be ugly patches that get hardware going for some users.
+
+"ugly" is subjective.  Especially in the context of tulip phy init sequence.
+Anyone who finds beauty in that chunk of code is truly twisted. :^)
+
+(It just reflects the ugly mess of HW that too many vendors shipped.
+I don't ever expect tulip driver to be "clean" here.)
+
+> Tons of changes are kept outside the kernel until they are ready.  This 
+> is just one more example.
+> 
+> Merging code into the kernel is a big deal.  That code will have to be 
+> maintained for years, maybe decades.  "when in doubt, don't merge" is 
+> generally the right answer.
+
+Agreed.
+
+> I don't want your patch to become an issue that embedded developers must 
+> address (like the tg3 example above), causing further patching and 
+> headache in that area.
+
+Certainly. No problem with that.
+
+BTW, which embedded developers still care about tulip driver?
+One could use this patch as a litmus test to see how much they care. :^)
+
+I was expecting they'd be using gigabit NICs, Wi-Fi, GSM,
+or bluetooth these days.
+
+thanks,
+grant
