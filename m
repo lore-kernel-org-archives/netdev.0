@@ -1,60 +1,35 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [BUG 2.6.12-rc4] IPv6 xfrm tunnel oops with large packets
-Date: Sun, 22 May 2005 05:49:32 +1000
-Message-ID: <20050521194932.GA10959@gondor.apana.org.au>
-References: <1116702611.14509.10.camel@leto.cs.pocnet.net>
+From: Michael Renzmann <netdev@nospam.otaku42.de>
+Subject: Network driver behaviour when loosing link
+Date: Sat, 21 May 2005 22:05:48 +0200
+Message-ID: <428F949C.8080707@otaku42.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="HlL+5n6rz5pIUxbD"
-Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Christophe Saout <christophe@saout.de>
-Content-Disposition: inline
-In-Reply-To: <1116702611.14509.10.camel@leto.cs.pocnet.net>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi all.
 
---HlL+5n6rz5pIUxbD
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+I'm playing with a network driver and came across one thing I'd like to 
+ask something about.
 
-On Sat, May 21, 2005 at 07:10:11PM +0000, Christophe Saout wrote:
-> 
-> The oops occurs in line 391 in net/ipv6/icmp.c:
-> 
-> >        idev = in6_dev_get(skb->dev);
+Let's assume a driver detects a link status change (for example, the 
+link is dropped). I would have expected that the driver should signal 
+the change via netif_carrier_on/_off (if used at all) and tell the 
+kernel to stop/resume sending packets to the driver (via 
+netif_wake_queue/netif_stop_queue).
 
-Here is a minimal fix.
+When checking several drivers I found some that call 
+netif_[wake|stop]_queue (e100, e1000), while others don't (natsemi, tg3).
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Hence the question: what is the recommended behaviour in such a case? Is 
+it ok to call netif_[stop|wake]_queue? How about adjusting the 
+IFF_RUNNING flag accordingly? Is there any documentation available on 
+this topic?
 
-I wonder why I've never seen it before.
+Thanks in advance.
 
-BTW, icmpv6_send seems to ignore its dev argument altogether.
-Any reason why we can't just use it instead of skb->dev?
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---HlL+5n6rz5pIUxbD
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
-
---- a/net/ipv6/xfrm6_output.c
-+++ b/net/ipv6/xfrm6_output.c
-@@ -84,6 +84,7 @@ static int xfrm6_tunnel_check_size(struc
- 		mtu = IPV6_MIN_MTU;
- 
- 	if (skb->len > mtu) {
-+		skb->dev = dst->dev;
- 		icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu, skb->dev);
- 		ret = -EMSGSIZE;
- 	}
-
---HlL+5n6rz5pIUxbD--
+Bye, Mike
