@@ -1,61 +1,40 @@
-From: Jon Mason <jdmason@us.ibm.com>
-Subject: [PATCH linux-2.6.12-rc4-mm1] via-rhine: init clean-up
-Date: Mon, 23 May 2005 15:50:32 -0500
-Message-ID: <20050523205031.GA5910@us.ibm.com>
+From: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
+Subject: Re: Why /sys/class/net/*/features is read-only?
+Date: Mon, 23 May 2005 23:49:57 +0300 (EEST)
+Message-ID: <Pine.LNX.4.62.0505232346310.17855@webhosting.rdsbv.ro>
+References: <Pine.LNX.4.62.0505201346420.29305@webhosting.rdsbv.ro>
+ <20050523092827.7883af33@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: rl@hellgate.ch
-Content-Disposition: inline
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20050523092827.7883af33@dxpl.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Removed unnecessary IF checks and variable assignments, as pci_revs are
-either < VTunknown0 or >= VT6102.  
+On Mon, 23 May 2005, Stephen Hemminger wrote:
 
-dev->features is never populated.  So, there could be garbage in there
-(then OR'ed with NETIF_F_SG | NETIF_F_HW_CSUM).  Also,
-ethtool_op_get_tx_csum checks for NETIF_F_IP_CSUM not NETIF_F_HW_CSUM.
-I am sending out a patch to fix that (in ethtool.c) shortly.
+> On Mon, 23 May 2005 10:46:50 +0300 (EEST)
+> "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro> wrote:
+>
+>> Hello!
+>>
+>> Why features file is read-only. If an admin want to force some attributes,
+>> we can let them, right?
+>>
+>
+> Leave it read-only because the hardware may not want to allow them on that flavor and so it would
+> have to be device specific.
 
-Signed-off-by: Jon Mason <jdmason@us.ibm.com>
+You are clear right for hardware devices, but for software ones (bridge 
+for example) it makes sense. Anyway, only admin can change them.
 
---- drivers/net/via-rhine.c.orig	2005-05-21 10:52:01.000000000 -0500
-+++ drivers/net/via-rhine.c	2005-05-21 15:07:29.000000000 -0500
-@@ -710,21 +710,18 @@ static int __devinit rhine_init_one(stru
- 
- 	pci_read_config_byte(pdev, PCI_REVISION_ID, &pci_rev);
- 
--	io_size = 256;
- 	phy_id = 0;
--	quirks = 0;
--	name = "Rhine";
- 	if (pci_rev < VTunknown0) {
-+		name = "Rhine";
- 		quirks = rqRhineI;
- 		io_size = 128;
--	}
--	else if (pci_rev >= VT6102) {
-+	} else { 
-+		io_size = 256;
- 		quirks = rqWOL | rqForceReset;
- 		if (pci_rev < VT6105) {
- 			name = "Rhine II";
- 			quirks |= rqStatusWBRace;	/* Rhine-II exclusive */
--		}
--		else {
-+		} else {
- 			phy_id = 1;	/* Integrated PHY, phy_id fixed to 1 */
- 			if (pci_rev >= VT6105_B0)
- 				quirks |= rq6patterns;
-@@ -847,7 +844,7 @@ static int __devinit rhine_init_one(stru
- 	dev->poll_controller = rhine_poll;
- #endif
- 	if (rp->quirks & rqRhineI)
--		dev->features |= NETIF_F_SG|NETIF_F_HW_CSUM;
-+		dev->features = NETIF_F_SG | NETIF_F_HW_CSUM;
- 
- 	/* dev->name not defined before register_netdev()! */
- 	rc = register_netdev(dev);
+If you have a bridge with 5 net cards and 4 supports SG, some people 
+may want to force SG on the bridge.
+
+---
+Catalin(ux aka Dino) BOIE
+catab at deuroconsult.ro
+http://kernel.umbrella.ro/
