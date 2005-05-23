@@ -1,26 +1,28 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] Super TSO v3
-Date: Mon, 23 May 2005 14:50:01 -0700 (PDT)
-Message-ID: <20050523.145001.104034315.davem@davemloft.net>
-References: <20050523.121943.78708600.davem@davemloft.net>
-	<E1DaKZK-0006Qv-00@gondolin.me.apana.org.au>
+Subject: Re: [PATCH linux-2.6.12-rc4-mm1] ethtool: Add NETIF_F_HW_CSUM
+ support
+Date: Mon, 23 May 2005 14:48:50 -0700 (PDT)
+Message-ID: <20050523.144850.03976904.davem@davemloft.net>
+References: <20050523210757.GB5910@us.ibm.com>
+	<20050523.142009.74748115.davem@davemloft.net>
+	<200505231632.55476.jdmason@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: herbert@gondor.apana.org.au
-In-Reply-To: <E1DaKZK-0006Qv-00@gondolin.me.apana.org.au>
+To: jdmason@us.ibm.com
+In-Reply-To: <200505231632.55476.jdmason@us.ibm.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Tue, 24 May 2005 07:34:38 +1000
+From: Jon Mason <jdmason@us.ibm.com>
+Date: Mon, 23 May 2005 16:32:55 -0500
 
-> Are there non-Linux systems that have the same receive issue?
+> If ethtool_set_tx_csum does not point to ethtool_op_set_tx_csum or
+> ethtool_op_set_tx_hw_csum (or a local driver function) then it will
+> return an error.  Isn't this sufficient (as it is what currently
+> happening), or am I not sufficently understanding the problem?
 
-Some generate stretch ACKs for other reasons (miscalculation
-of MSS due to TCP Timestamps) but I doubt any other OS
-implements the Van Jacobson ucopy stuff we do, and also
-implement the same ACKing hack on top of that :-)
+Ok, that looks right.
