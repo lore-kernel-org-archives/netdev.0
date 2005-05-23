@@ -1,41 +1,57 @@
-From: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
-Subject: Re: Why /sys/class/net/*/features is read-only?
-Date: Tue, 24 May 2005 00:53:58 +0300 (EEST)
-Message-ID: <Pine.LNX.4.62.0505240052300.17855@webhosting.rdsbv.ro>
-References: <Pine.LNX.4.62.0505232346310.17855@webhosting.rdsbv.ro>
- <20050523.135348.55831423.davem@davemloft.net>
- <Pine.LNX.4.62.0505240032480.17855@webhosting.rdsbv.ro>
- <20050523.145112.78711028.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] : bug fix in multipath drr code.
+Date: Tue, 24 May 2005 09:22:24 +1000
+Message-ID: <20050523232224.GA25349@gondor.apana.org.au>
+References: <4291CBFF.6080106@calsoftinc.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: shemminger@osdl.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050523.145112.78711028.davem@davemloft.net>
+To: pravin <pravins@calsoftinc.com>
+Content-Disposition: inline
+In-Reply-To: <4291CBFF.6080106@calsoftinc.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 23 May 2005, David S. Miller wrote:
+On Mon, May 23, 2005 at 05:56:39PM +0530, pravin wrote:
+>  AFAIU, there is a race condition in multipath_drr code,
+> these code paths try to access & change last_selection variable
+> without any synchronization.
 
-> From: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
-> Date: Tue, 24 May 2005 00:33:14 +0300 (EEST)
->
->> On Mon, 23 May 2005, David S. Miller wrote:
->>
->>> Let them use ethtool :-)
->>
->> They can't on a bridge device, right?
->
-> Currently no.  But there is no reason the bridge device
-> should not have ethtool support added to it, and that's
-> where this functionality belongs.
+Yes you're right.
+ 
+> Index: linux-2.6.12-rc4/net/ipv4/multipath_drr.c
+> ===================================================================
+> --- linux-2.6.12-rc4.orig/net/ipv4/multipath_drr.c	2005-05-06 22:20:31.000000000 -0700
+> +++ linux-2.6.12-rc4/net/ipv4/multipath_drr.c	2005-05-22 06:41:39.000000000 -0700
+> @@ -145,11 +145,13 @@
+>  	int cur_min_devidx = -1;
+>  
+>         	/* if necessary and possible utilize the old alternative */
+> -	if ((flp->flags & FLOWI_FLAG_MULTIPATHOLDROUTE) != 0 &&
+> -	    last_selection != NULL) {
+> -		result = last_selection;
+> -		*rp = result;
+> -		return;
+> +	if ((flp->flags & FLOWI_FLAG_MULTIPATHOLDROUTE) != 0 ) {
+> +		struct rtable *last_result = last_selection;
+> +		if(last_result != NULL &&
+> +		   multipath_comparekeys(&last_result->fl, flp)) {
+> +			*rp = last_result;
+> +			return;
+> +		}
+>  	}
 
-OK. I made this patch only to test how well slave notification worked.
-Next days I will implement ethtool for bridge.
+You don't need all this code.  All you need to do is do
+result = last_selection before the if condition and then
+check result in the if condition instead of last_selection.
 
-Thank you!
----
-Catalin(ux aka Dino) BOIE
-catab at deuroconsult.ro
-http://kernel.umbrella.ro/
+The multipath_comparekeys isn't necessary either.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
