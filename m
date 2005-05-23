@@ -1,47 +1,41 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH linux-2.6.12-rc4-mm1] ethtool: Add NETIF_F_HW_CSUM
- support
-Date: Mon, 23 May 2005 14:53:21 -0700
-Message-ID: <20050523145321.49899042@dxpl.pdx.osdl.net>
-References: <20050523210757.GB5910@us.ibm.com>
-	<20050523.142009.74748115.davem@davemloft.net>
+From: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
+Subject: Re: Why /sys/class/net/*/features is read-only?
+Date: Tue, 24 May 2005 00:53:58 +0300 (EEST)
+Message-ID: <Pine.LNX.4.62.0505240052300.17855@webhosting.rdsbv.ro>
+References: <Pine.LNX.4.62.0505232346310.17855@webhosting.rdsbv.ro>
+ <20050523.135348.55831423.davem@davemloft.net>
+ <Pine.LNX.4.62.0505240032480.17855@webhosting.rdsbv.ro>
+ <20050523.145112.78711028.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jdmason@us.ibm.com, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: shemminger@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050523.142009.74748115.davem@davemloft.net>
+In-Reply-To: <20050523.145112.78711028.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 23 May 2005 14:20:09 -0700 (PDT)
-"David S. Miller" <davem@davemloft.net> wrote:
+On Mon, 23 May 2005, David S. Miller wrote:
 
-> From: Jon Mason <jdmason@us.ibm.com>
-> Subject: [PATCH linux-2.6.12-rc4-mm1] ethtool: Add NETIF_F_HW_CSUM support
-> Date: Mon, 23 May 2005 16:07:57 -0500
-> 
-> > Added support to ethtool for NETIF_F_HW_CSUM.
-> > 
-> > Signed-off-by: Jon Mason <jdmason@us.ibm.com>
-> 
-> You cannot blindly set these flags, you need to provide
-> a method for the driver to override the implementation of
-> this method so it can return and error if it cannot provide
-> support for this feature.
+> From: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
+> Date: Tue, 24 May 2005 00:33:14 +0300 (EEST)
+>
+>> On Mon, 23 May 2005, David S. Miller wrote:
+>>
+>>> Let them use ethtool :-)
+>>
+>> They can't on a bridge device, right?
+>
+> Currently no.  But there is no reason the bridge device
+> should not have ethtool support added to it, and that's
+> where this functionality belongs.
 
-This patch makes perfect sense because it allows for common code to be
-used by device drivers in their ethtool_ops. So this is the logical way to handle
-this.
+OK. I made this patch only to test how well slave notification worked.
+Next days I will implement ethtool for bridge.
 
-In other words,
-
-drivers/net/sungem.c could do
-
-static struct ethtool_ops gem_ethtool_ops = {
-
-+	.get_tx_csum	  = ethtool_op_get_tx_csum,
-+       .set_tx_csum       = ethtool_op_set_tx_hw_csum,
-};
+Thank you!
+---
+Catalin(ux aka Dino) BOIE
+catab at deuroconsult.ro
+http://kernel.umbrella.ro/
