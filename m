@@ -1,38 +1,61 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [BUG 2.6.12-rc4] IPv6 xfrm tunnel oops with large packets
-Date: Mon, 23 May 2005 13:11:39 -0700 (PDT)
-Message-ID: <20050523.131139.51421880.davem@davemloft.net>
-References: <1116702611.14509.10.camel@leto.cs.pocnet.net>
-	<20050521194932.GA10959@gondor.apana.org.au>
-	<20050522.051817.122678688.yoshfuji@linux-ipv6.org>
+From: Jon Mason <jdmason@us.ibm.com>
+Subject: [PATCH linux-2.6.12-rc4-mm1] via-rhine: init clean-up
+Date: Mon, 23 May 2005 15:50:32 -0500
+Message-ID: <20050523205031.GA5910@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, christophe@saout.de,
-        linux-net@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20050522.051817.122678688.yoshfuji@linux-ipv6.org>
+To: rl@hellgate.ch
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-Date: Sun, 22 May 2005 05:18:17 +0900 (JST)
+Removed unnecessary IF checks and variable assignments, as pci_revs are
+either < VTunknown0 or >= VT6102.  
 
-> In article <20050521194932.GA10959@gondor.apana.org.au> (at Sun, 22 May 2005 05:49:32 +1000), Herbert Xu <herbert@gondor.apana.org.au> says:
-> 
-> > On Sat, May 21, 2005 at 07:10:11PM +0000, Christophe Saout wrote:
-> > > 
-> > > The oops occurs in line 391 in net/ipv6/icmp.c:
-> > > 
-> > > >        idev = in6_dev_get(skb->dev);
-> > 
-> > Here is a minimal fix.
-> > 
-> > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> 
-> 
-> Acked-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+dev->features is never populated.  So, there could be garbage in there
+(then OR'ed with NETIF_F_SG | NETIF_F_HW_CSUM).  Also,
+ethtool_op_get_tx_csum checks for NETIF_F_IP_CSUM not NETIF_F_HW_CSUM.
+I am sending out a patch to fix that (in ethtool.c) shortly.
 
-Applied, thanks everyone.
+Signed-off-by: Jon Mason <jdmason@us.ibm.com>
+
+--- drivers/net/via-rhine.c.orig	2005-05-21 10:52:01.000000000 -0500
++++ drivers/net/via-rhine.c	2005-05-21 15:07:29.000000000 -0500
+@@ -710,21 +710,18 @@ static int __devinit rhine_init_one(stru
+ 
+ 	pci_read_config_byte(pdev, PCI_REVISION_ID, &pci_rev);
+ 
+-	io_size = 256;
+ 	phy_id = 0;
+-	quirks = 0;
+-	name = "Rhine";
+ 	if (pci_rev < VTunknown0) {
++		name = "Rhine";
+ 		quirks = rqRhineI;
+ 		io_size = 128;
+-	}
+-	else if (pci_rev >= VT6102) {
++	} else { 
++		io_size = 256;
+ 		quirks = rqWOL | rqForceReset;
+ 		if (pci_rev < VT6105) {
+ 			name = "Rhine II";
+ 			quirks |= rqStatusWBRace;	/* Rhine-II exclusive */
+-		}
+-		else {
++		} else {
+ 			phy_id = 1;	/* Integrated PHY, phy_id fixed to 1 */
+ 			if (pci_rev >= VT6105_B0)
+ 				quirks |= rq6patterns;
+@@ -847,7 +844,7 @@ static int __devinit rhine_init_one(stru
+ 	dev->poll_controller = rhine_poll;
+ #endif
+ 	if (rp->quirks & rqRhineI)
+-		dev->features |= NETIF_F_SG|NETIF_F_HW_CSUM;
++		dev->features = NETIF_F_SG | NETIF_F_HW_CSUM;
+ 
+ 	/* dev->name not defined before register_netdev()! */
+ 	rc = register_netdev(dev);
