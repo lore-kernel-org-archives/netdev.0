@@ -1,29 +1,43 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH linux-2.6.12-rc4-mm1] ethtool: Add NETIF_F_HW_CSUM
- support
-Date: Mon, 23 May 2005 14:20:09 -0700 (PDT)
-Message-ID: <20050523.142009.74748115.davem@davemloft.net>
-References: <20050523210757.GB5910@us.ibm.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH] bonding using arp_ip_target may stay down with active path
+Date: Mon, 23 May 2005 14:21:36 -0700
+Message-ID: <200505232121.j4NLLaYa000837@death.nxdomain.ibm.com>
+References: <davem@davemloft.net>
+Cc: eparis@parisplace.org, netdev@oss.sgi.com, jgarzik@pobox.com,
+        bonding-devel@lists.sourceforge.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jdmason@us.ibm.com
-In-Reply-To: <20050523210757.GB5910@us.ibm.com>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: Message from "David S. Miller" <davem@davemloft.net>
+   of "Mon, 23 May 2005 12:51:07 PDT." <20050523.125107.45741257.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Jon Mason <jdmason@us.ibm.com>
-Subject: [PATCH linux-2.6.12-rc4-mm1] ethtool: Add NETIF_F_HW_CSUM support
-Date: Mon, 23 May 2005 16:07:57 -0500
 
-> Added support to ethtool for NETIF_F_HW_CSUM.
-> 
-> Signed-off-by: Jon Mason <jdmason@us.ibm.com>
+David S. Miller <davem@davemloft.net> wrote:
+>Patch doesn't apply, tabs turned into spaces by your
+>email client.
 
-You cannot blindly set these flags, you need to provide
-a method for the driver to override the implementation of
-this method so it can return and error if it cannot provide
-support for this feature.
+	As penance for test applying trivial patches by hand, here's a
+proper version.
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+
+
+Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+
+diff -urN linux-2.6.11/drivers/net/bonding/bond_main.c linux-2.6.11-fix/drivers/net/bonding/bond_main.c
+--- linux-2.6.11/drivers/net/bonding/bond_main.c	2005-05-23 14:07:37.000000000 -0700
++++ linux-2.6.11-fix/drivers/net/bonding/bond_main.c	2005-05-23 14:08:13.000000000 -0700
+@@ -3046,7 +3046,7 @@
+ 			bond_set_slave_inactive_flags(bond->current_arp_slave);
+ 
+ 			/* search for next candidate */
+-			bond_for_each_slave_from(bond, slave, i, bond->current_arp_slave) {
++			bond_for_each_slave_from(bond, slave, i, bond->current_arp_slave->next) {
+ 				if (IS_UP(slave->dev)) {
+ 					slave->link = BOND_LINK_BACK;
+ 					bond_set_slave_active_flags(slave);
