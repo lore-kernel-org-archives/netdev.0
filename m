@@ -1,43 +1,33 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH] bonding using arp_ip_target may stay down with active path
-Date: Mon, 23 May 2005 14:21:36 -0700
-Message-ID: <200505232121.j4NLLaYa000837@death.nxdomain.ibm.com>
-References: <davem@davemloft.net>
-Cc: eparis@parisplace.org, netdev@oss.sgi.com, jgarzik@pobox.com,
-        bonding-devel@lists.sourceforge.net
+From: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
+Subject: Re: Why /sys/class/net/*/features is read-only?
+Date: Tue, 24 May 2005 00:33:14 +0300 (EEST)
+Message-ID: <Pine.LNX.4.62.0505240032480.17855@webhosting.rdsbv.ro>
+References: <Pine.LNX.4.62.0505201346420.29305@webhosting.rdsbv.ro>
+ <20050523092827.7883af33@dxpl.pdx.osdl.net> <Pine.LNX.4.62.0505232346310.17855@webhosting.rdsbv.ro>
+ <20050523.135348.55831423.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: shemminger@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: Message from "David S. Miller" <davem@davemloft.net>
-   of "Mon, 23 May 2005 12:51:07 PDT." <20050523.125107.45741257.davem@davemloft.net>
+In-Reply-To: <20050523.135348.55831423.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Mon, 23 May 2005, David S. Miller wrote:
 
-David S. Miller <davem@davemloft.net> wrote:
->Patch doesn't apply, tabs turned into spaces by your
->email client.
+> From: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
+> Date: Mon, 23 May 2005 23:49:57 +0300 (EEST)
+>
+>> If you have a bridge with 5 net cards and 4 supports SG, some people
+>> may want to force SG on the bridge.
+>
+> Let them use ethtool :-)
 
-	As penance for test applying trivial patches by hand, here's a
-proper version.
-
-	-J
+They can't on a bridge device, right?
 
 ---
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
-
-
-Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
-
-diff -urN linux-2.6.11/drivers/net/bonding/bond_main.c linux-2.6.11-fix/drivers/net/bonding/bond_main.c
---- linux-2.6.11/drivers/net/bonding/bond_main.c	2005-05-23 14:07:37.000000000 -0700
-+++ linux-2.6.11-fix/drivers/net/bonding/bond_main.c	2005-05-23 14:08:13.000000000 -0700
-@@ -3046,7 +3046,7 @@
- 			bond_set_slave_inactive_flags(bond->current_arp_slave);
- 
- 			/* search for next candidate */
--			bond_for_each_slave_from(bond, slave, i, bond->current_arp_slave) {
-+			bond_for_each_slave_from(bond, slave, i, bond->current_arp_slave->next) {
- 				if (IS_UP(slave->dev)) {
- 					slave->link = BOND_LINK_BACK;
- 					bond_set_slave_active_flags(slave);
+Catalin(ux aka Dino) BOIE
+catab at deuroconsult.ro
+http://kernel.umbrella.ro/
