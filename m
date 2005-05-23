@@ -1,54 +1,59 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] netem: fix logic bug in reorder conditional
-Date: Mon, 23 May 2005 14:00:55 -0700
-Message-ID: <20050523140055.127f1a9f@dxpl.pdx.osdl.net>
-References: <20050519151254.79afe7e7@dxpl.pdx.osdl.net>
-	<682bc30a05052116005bc813a2@mail.gmail.com>
-	<20050523104342.78b1032d@dxpl.pdx.osdl.net>
-	<682bc30a050523135534b38b8b@mail.gmail.com>
+From: Jon Mason <jdmason@us.ibm.com>
+Subject: [PATCH linux-2.6.12-rc4-mm1] ethtool: Add NETIF_F_HW_CSUM support
+Date: Mon, 23 May 2005 16:07:57 -0500
+Message-ID: <20050523210757.GB5910@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
-        netem@osdl.org
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Julio Kriger <juliokriger@gmail.com>
-In-Reply-To: <682bc30a050523135534b38b8b@mail.gmail.com>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 23 May 2005 17:55:35 -0300
-Julio Kriger <juliokriger@gmail.com> wrote:
+Added support to ethtool for NETIF_F_HW_CSUM.
 
-> Hi!
-> 
-> 1) Supouse I don't want reordering, so in 'tc' I don't add reorder
-> option. Will this code work? The previous (on this subject) patch has
-> a the following:
-> 
-> +       /* for compatiablity with earlier versions.
-> +        * if gap is set, need to assume 100% probablity
-> +        */
-> +       q->reorder = ~0;
-> +
+Signed-off-by: Jon Mason <jdmason@us.ibm.com>
 
-If you don't want reordering, then gap = 0. so reorder is ignored.
-
-> 
-> Should it be set to 100% or 101%? 
-> This "q->reorder = ~0;" mean 100%?
-yes probability percentages are converted to 32-bit unsigned long scaled
-value.  so 100% = 0xffffffff and 0% = 0
-
-> 2) If I set latency = 50ms and a jitter = 300ms, tabledist can give me
-> a negative number. This value is addes to cb->time_to_send, so it
-> could change it to a negative value. Should we only accept positives
-> number before add it to cb->time_to_send? or will
-> q->qdisc->enqueue(skb, q->qdisc) put the package on the queue in a
-> special way so it will be handled "before" other packages alrealy on
-> the queue but with gretaer time_to_send?
-
-probably should bound the value to 0 before the addition, to avoid large
-wraparound problems, but since enqueue checks for for time it will work
-as long as delta less than 2^32/2.
+--- include/linux/ethtool.h.orig	2005-05-16 08:49:43.000000000 -0500
++++ include/linux/ethtool.h	2005-05-21 15:11:05.000000000 -0500
+@@ -256,6 +256,7 @@ struct net_device;
+ u32 ethtool_op_get_link(struct net_device *dev);
+ u32 ethtool_op_get_tx_csum(struct net_device *dev);
+ int ethtool_op_set_tx_csum(struct net_device *dev, u32 data);
++int ethtool_op_set_tx_hw_csum(struct net_device *dev, u32 data);
+ u32 ethtool_op_get_sg(struct net_device *dev);
+ int ethtool_op_set_sg(struct net_device *dev, u32 data);
+ u32 ethtool_op_get_tso(struct net_device *dev);
+--- net/core/ethtool.c.orig	2005-05-21 14:16:33.000000000 -0500
++++ net/core/ethtool.c	2005-05-21 18:07:16.000000000 -0500
+@@ -29,7 +29,7 @@ u32 ethtool_op_get_link(struct net_devic
+ 
+ u32 ethtool_op_get_tx_csum(struct net_device *dev)
+ {
+-	return (dev->features & NETIF_F_IP_CSUM) != 0;
++	return (dev->features & (NETIF_F_IP_CSUM | NETIF_F_HW_CSUM)) != 0;
+ }
+ 
+ int ethtool_op_set_tx_csum(struct net_device *dev, u32 data)
+@@ -42,6 +42,15 @@ int ethtool_op_set_tx_csum(struct net_de
+ 	return 0;
+ }
+ 
++int ethtool_op_set_tx_hw_csum(struct net_device *dev, u32 data)
++{
++	if (data)
++		dev->features |= NETIF_F_HW_CSUM;
++	else
++		dev->features &= ~NETIF_F_HW_CSUM;
++
++	return 0;
++}
+ u32 ethtool_op_get_sg(struct net_device *dev)
+ {
+ 	return (dev->features & NETIF_F_SG) != 0;
+@@ -817,3 +826,4 @@ EXPORT_SYMBOL(ethtool_op_get_tx_csum);
+ EXPORT_SYMBOL(ethtool_op_set_sg);
+ EXPORT_SYMBOL(ethtool_op_set_tso);
+ EXPORT_SYMBOL(ethtool_op_set_tx_csum);
++EXPORT_SYMBOL(ethtool_op_set_tx_hw_csum);
