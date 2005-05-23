@@ -1,105 +1,59 @@
 From: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
-Subject: [PATCH] Implement NETDEV_FEAT_CHANGE
-Date: Mon, 23 May 2005 12:43:23 +0300 (EEST)
-Message-ID: <Pine.LNX.4.62.0505201527250.26127@webhosting.rdsbv.ro>
+Subject: Re: [PATCH] [BRIDGE] Set features based on slave's ones (was Ethernet
+ Bridging: Enable Hardware Checksumming)
+Date: Mon, 23 May 2005 12:39:35 +0300 (EEST)
+Message-ID: <Pine.LNX.4.62.0505231235550.20838@webhosting.rdsbv.ro>
+References: <Pine.LNX.4.62.0505191654400.24043@webhosting.rdsbv.ro>
+ <20050519214015.GA19961@us.ibm.com> <Pine.LNX.4.62.0505200858480.12681@webhosting.rdsbv.ro>
+ <200505201354.46824.jdmason@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-1646943047-520198958-1116841403=:19416"
-Cc: davem@davemloft.net
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@oss.sgi.com, davem@davemloft.net,
+        Stephen Hemminger <shemminger@osdl.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Jon Mason <jdmason@us.ibm.com>
+In-Reply-To: <200505201354.46824.jdmason@us.ibm.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+>>>> +/*
+>>>> + * Recomputes features using slave's features
+>>>> + */
+>>>> +static void br_features_recompute(struct net_bridge *br)
+>>>> +{
+>>>> +	struct net_bridge_port *p;
+>>>> +
+>>>> +	br->dev->features |= BR_FEAT_MASK;
+>>>
+>>> The OR is not needed.  Just re-initialize features to BR_FEAT_MASK and
+>>> everything will take case of itself.
+>>
+>> Nope. Not correct. Because we might enable LLTX on the bridge, but not in
+>> BR_FEAT_MASK.
+>
+> This is not the case.  This is the same as re-doing the entire feature list
+> (as if it was being done initially).  All that needs to be done is for
+> br->dev->features to have a initial value.
+>
+>> I will post a patch in few hours with all stuff updated.
+>
+> Great.  Thanks.
+>
+> Thanks,
+> Jon
 
----1646943047-520198958-1116841403=:19416
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+I will post a patch with the initial features as:
 
-Hello!
+dev->features = BR_FEAT_MASK | NETIF_F_NO_CSUM | NETIF_F_LLTX
 
-Bridge/bonding/etc. will use it (for bridge the patch
-will follow today).
+at Stephen's suggestion.
 
-Patch was tested.
+But, BR_FEAT_MASK will not have NETIF_F_NO_CSUM and NETIF_F_LLTX.
 
-David, please apply.
+I think the code is correct as it is.
 
-Thank you very much.
-
-Signed-off-by: Catalin BOIE <catab at umbrella.ro>
 ---
 Catalin(ux aka Dino) BOIE
 catab at deuroconsult.ro
 http://kernel.umbrella.ro/
----1646943047-520198958-1116841403=:19416
-Content-Type: TEXT/PLAIN; charset=US-ASCII; name=NETDEV_FEAT_CHANGE.patch
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.62.0505231243230.19416@webhosting.rdsbv.ro>
-Content-Description: 
-Content-Disposition: attachment; filename=NETDEV_FEAT_CHANGE.patch
-
-LS0tIG5vdGlmeTEvaW5jbHVkZS9saW51eC9ub3RpZmllci5oCTIwMDUtMDMt
-MDIgMDk6Mzc6NDguMDAwMDAwMDAwICswMjAwDQorKysgbGludXgvaW5jbHVk
-ZS9saW51eC9ub3RpZmllci5oCTIwMDUtMDUtMjAgMTM6MTc6NDIuMDAwMDAw
-MDAwICswMzAwDQpAQCAtNTYsNiArNTYsNyBAQCBleHRlcm4gaW50IG5vdGlm
-aWVyX2NhbGxfY2hhaW4oc3RydWN0IG5vDQogI2RlZmluZSBORVRERVZfQ0hB
-TkdFQUREUgkweDAwMDgNCiAjZGVmaW5lIE5FVERFVl9HT0lOR19ET1dOCTB4
-MDAwOQ0KICNkZWZpbmUgTkVUREVWX0NIQU5HRU5BTUUJMHgwMDBBDQorI2Rl
-ZmluZSBORVRERVZfRkVBVF9DSEFOR0UJMHgwMDBCDQogDQogI2RlZmluZSBT
-WVNfRE9XTgkweDAwMDEJLyogTm90aWZ5IG9mIHN5c3RlbSBkb3duICovDQog
-I2RlZmluZSBTWVNfUkVTVEFSVAlTWVNfRE9XTg0KLS0tIG5vdGlmeTEvbmV0
-L2NvcmUvZXRodG9vbC5jCTIwMDUtMDMtMDIgMDk6Mzg6MzcuMDAwMDAwMDAw
-ICswMjAwDQorKysgbGludXgvbmV0L2NvcmUvZXRodG9vbC5jCTIwMDUtMDUt
-MjMgMTE6MzA6NDcuMDAwMDAwMDAwICswMzAwDQpAQCAtNjgyLDYgKzY4Miw3
-IEBAIGludCBkZXZfZXRodG9vbChzdHJ1Y3QgaWZyZXEgKmlmcikNCiAJdm9p
-ZCBfX3VzZXIgKnVzZXJhZGRyID0gaWZyLT5pZnJfZGF0YTsNCiAJdTMyIGV0
-aGNtZDsNCiAJaW50IHJjOw0KKwlpbnQgb2xkX2ZlYXR1cmVzOw0KIA0KIAkv
-Kg0KIAkgKiBYWFg6IFRoaXMgY2FuIGJlIHB1c2hlZCBkb3duIGludG8gdGhl
-IGV0aHRvb2xfKiBoYW5kbGVycyB0aGF0DQpAQCAtNzAzLDYgKzcwNCw4IEBA
-IGludCBkZXZfZXRodG9vbChzdHJ1Y3QgaWZyZXEgKmlmcikNCiAJCWlmICgo
-cmMgPSBkZXYtPmV0aHRvb2xfb3BzLT5iZWdpbihkZXYpKSA8IDApDQogCQkJ
-cmV0dXJuIHJjOw0KIA0KKwlvbGRfZmVhdHVyZXMgPSBkZXYtPmZlYXR1cmVz
-Ow0KKw0KIAlzd2l0Y2ggKGV0aGNtZCkgew0KIAljYXNlIEVUSFRPT0xfR1NF
-VDoNCiAJCXJjID0gZXRodG9vbF9nZXRfc2V0dGluZ3MoZGV2LCB1c2VyYWRk
-cik7DQpAQCAtNzEyLDcgKzcxNSw2IEBAIGludCBkZXZfZXRodG9vbChzdHJ1
-Y3QgaWZyZXEgKmlmcikNCiAJCWJyZWFrOw0KIAljYXNlIEVUSFRPT0xfR0RS
-VklORk86DQogCQlyYyA9IGV0aHRvb2xfZ2V0X2RydmluZm8oZGV2LCB1c2Vy
-YWRkcik7DQotDQogCQlicmVhazsNCiAJY2FzZSBFVEhUT09MX0dSRUdTOg0K
-IAkJcmMgPSBldGh0b29sX2dldF9yZWdzKGRldiwgdXNlcmFkZHIpOw0KQEAg
-LTgwMSw2ICs4MDMsMTAgQEAgaW50IGRldl9ldGh0b29sKHN0cnVjdCBpZnJl
-cSAqaWZyKQ0KIAkNCiAJaWYoZGV2LT5ldGh0b29sX29wcy0+Y29tcGxldGUp
-DQogCQlkZXYtPmV0aHRvb2xfb3BzLT5jb21wbGV0ZShkZXYpOw0KKw0KKwlp
-ZiAob2xkX2ZlYXR1cmVzICE9IGRldi0+ZmVhdHVyZXMpDQorCQluZXRkZXZf
-ZmVhdHVyZXNfY2hhbmdlKGRldik7DQorDQogCXJldHVybiByYzsNCiANCiAg
-aW9jdGw6DQotLS0gbm90aWZ5MS9uZXQvY29yZS9kZXYuYwkyMDA1LTAzLTI2
-IDA1OjI4OjIxLjAwMDAwMDAwMCArMDIwMA0KKysrIGxpbnV4L25ldC9jb3Jl
-L2Rldi5jCTIwMDUtMDUtMjMgMTI6MTQ6MzIuMDAwMDAwMDAwICswMzAwDQpA
-QCAtNzYxLDYgKzc2MSwxOCBAQCBpbnQgZGV2X2NoYW5nZV9uYW1lKHN0cnVj
-dCBuZXRfZGV2aWNlICpkDQogfQ0KIA0KIC8qKg0KKyAqCW5ldGRldl9mZWF0
-dXJlc19jaGFuZ2UgLSBkZXZpY2UgY2hhbmdlcyBmYXR1cmVzDQorICoJQGRl
-djogZGV2aWNlIHRvIGNhdXNlIG5vdGlmaWNhdGlvbg0KKyAqDQorICoJQ2Fs
-bGVkIHRvIGluZGljYXRlIGEgZGV2aWNlIGhhcyBjaGFuZ2VkIGZlYXR1cmVz
-Lg0KKyAqLw0KK3ZvaWQgbmV0ZGV2X2ZlYXR1cmVzX2NoYW5nZShzdHJ1Y3Qg
-bmV0X2RldmljZSAqZGV2KQ0KK3sNCisJbm90aWZpZXJfY2FsbF9jaGFpbigm
-bmV0ZGV2X2NoYWluLCBORVRERVZfRkVBVF9DSEFOR0UsIGRldik7DQorfQ0K
-K0VYUE9SVF9TWU1CT0wobmV0ZGV2X2ZlYXR1cmVzX2NoYW5nZSk7DQorDQor
-LyoqDQogICoJbmV0ZGV2X3N0YXRlX2NoYW5nZSAtIGRldmljZSBjaGFuZ2Vz
-IHN0YXRlDQogICoJQGRldjogZGV2aWNlIHRvIGNhdXNlIG5vdGlmaWNhdGlv
-bg0KICAqDQotLS0gbm90aWZ5MS9pbmNsdWRlL2xpbnV4L25ldGRldmljZS5o
-CTIwMDUtMDMtMDIgMDk6Mzg6MjYuMDAwMDAwMDAwICswMjAwDQorKysgbGlu
-dXgvaW5jbHVkZS9saW51eC9uZXRkZXZpY2UuaAkyMDA1LTA1LTIzIDEwOjE2
-OjQzLjAwMDAwMDAwMCArMDMwMA0KQEAgLTkxNiw2ICs5MTYsNyBAQCBleHRl
-cm4gdm9pZAkJZGV2X21jX2Rpc2NhcmQoc3RydWN0IG5ldF9kDQogZXh0ZXJu
-IHZvaWQJCWRldl9zZXRfcHJvbWlzY3VpdHkoc3RydWN0IG5ldF9kZXZpY2Ug
-KmRldiwgaW50IGluYyk7DQogZXh0ZXJuIHZvaWQJCWRldl9zZXRfYWxsbXVs
-dGkoc3RydWN0IG5ldF9kZXZpY2UgKmRldiwgaW50IGluYyk7DQogZXh0ZXJu
-IHZvaWQJCW5ldGRldl9zdGF0ZV9jaGFuZ2Uoc3RydWN0IG5ldF9kZXZpY2Ug
-KmRldik7DQorZXh0ZXJuIHZvaWQJCW5ldGRldl9mZWF0dXJlc19jaGFuZ2Uo
-c3RydWN0IG5ldF9kZXZpY2UgKmRldik7DQogLyogTG9hZCBhIGRldmljZSB2
-aWEgdGhlIGttb2QgKi8NCiBleHRlcm4gdm9pZAkJZGV2X2xvYWQoY29uc3Qg
-Y2hhciAqbmFtZSk7DQogZXh0ZXJuIHZvaWQJCWRldl9tY2FzdF9pbml0KHZv
-aWQpOw0K
-
----1646943047-520198958-1116841403=:19416--
