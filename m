@@ -1,35 +1,29 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] Super TSO v3
-Date: Tue, 24 May 2005 10:32:08 +1000
-Message-ID: <20050524003208.GA25778@gondor.apana.org.au>
-References: <20050523.121943.78708600.davem@davemloft.net>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH 0/6] bnx2: Misc fixes
+Date: Mon, 23 May 2005 16:53:59 -0700
+Message-ID: <1116892439.4908.1.camel@rh4>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20050523.121943.78708600.davem@davemloft.net>
+To: davem@davemloft.net
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 23, 2005 at 07:19:43PM +0000, David S. Miller wrote:
-> 
-> The guts of the logic is in tcp_tso_should_defer().  And
-> when dealing with a TSO frame, tcp_write_xmit() calls
-> this instead of tcp_nagle_test().  So you can view this
-> deferral as a sort of "TSO Nagle".
+These patches fix the following problems spotted by Jeff Garzik. Thanks
+Jeff.
 
-Should we skip this step if the socket has Nagle turned off?
+> 8) excessive stack size in bnx2_alloc_bad_rbuf():
 
-Also why are we doing this check in tcp_push_one? The only
-way we can get there is if the TSO goal has been reached
-or there is out-of-band stuff to send.
+> 13) [additional review] why is CHECKSUM_UNNECESSARY used when
+> cksum==0xffff or cksum==0 ?
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> 15) the following loop is just silly.  use mdelay or (preferably)
+> msleep.
+
+> 19) [additional review] need flush_scheduled_work(), if using work
+queues?
+
+> 21) need to call bnx2_netif_stop() in bnx2_close()
