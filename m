@@ -1,50 +1,39 @@
-From: Julio Kriger <juliokriger@gmail.com>
-Subject: Re: [PATCH] netem: fix logic bug in reorder conditional
-Date: Tue, 24 May 2005 12:41:11 -0300
-Message-ID: <682bc30a050524084136fa2fe3@mail.gmail.com>
-References: <20050519151254.79afe7e7@dxpl.pdx.osdl.net>
-	 <682bc30a05052116005bc813a2@mail.gmail.com>
-	 <20050523104342.78b1032d@dxpl.pdx.osdl.net>
-	 <682bc30a050523135534b38b8b@mail.gmail.com>
-	 <20050523140055.127f1a9f@dxpl.pdx.osdl.net>
-Reply-To: Julio Kriger <juliokriger@gmail.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH] Super TSO v3
+Date: Tue, 24 May 2005 09:12:21 -0700
+Message-ID: <42935265.3040103@hp.com>
+References: <20050524003208.GA25778@gondor.apana.org.au>	<20050523.192917.48530622.davem@davemloft.net>	<20050524023256.GA29242@gondor.apana.org.au> <20050523.193817.112290763.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
-        netem@osdl.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20050523140055.127f1a9f@dxpl.pdx.osdl.net>
-Content-Disposition: inline
+To: netdev@oss.sgi.com
+In-Reply-To: <20050523.193817.112290763.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> > 2) If I set latency = 50ms and a jitter = 300ms, tabledist can give me
-> > a negative number. This value is addes to cb->time_to_send, so it
-> > could change it to a negative value. Should we only accept positives
-> > number before add it to cb->time_to_send? or will
-> > q->qdisc->enqueue(skb, q->qdisc) put the package on the queue in a
-> > special way so it will be handled "before" other packages alrealy on
-> > the queue but with gretaer time_to_send?
+David S. Miller wrote:
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Tue, 24 May 2005 12:32:57 +1000
 > 
-> probably should bound the value to 0 before the addition, to avoid large
-> wraparound problems, but since enqueue checks for for time it will work
-> as long as delta less than 2^32/2.
 > 
+>>True, the Nagle algorithm itself aims to do something different
+>>from this function.  However, the act of turning Nagle off is
+>>an indication that the application wants to minimise the latency
+>>by sending things out ASAP.  So we should either respect that
+>>here by not delaying the packets to increase the TSO size, or
+>>we'll need a new socket option to do that for TSO.
+> 
+> 
+> Sure, we can check tp->nonagle to turn this deferring off.
+> 
+> But, I bet there are folks who want traditional Nagle turned
+> off, yet TSO chunking enabled.
 
-I think the value should be restricted to be positive and greater than
-zero. Becuase if a negative number is allowed we will be "losing"
-packages to be reordered, hence we will not be reordering, say 25%, of
-packages instead we will be reordering about 15%.
-In other words, packages that should be reordered will not be
-reordered because its new time to send will be the same as the old
-time to send.
-Regards,
-Julio
+I'm not sure there will be very many of those.  I would have thought the folks 
+who turn-off Nagle are  typically doing small sends.  If they were not wanting 
+to wait to aggregate their small sends into MSS segments, or wait for the RTT, I 
+doubt thet are looking to wait to aggregate to something larger than the MSS.
 
--- 
-----------------------------
-Julio Kriger
-mailto:juliokriger@gmail.com
+rick jones
