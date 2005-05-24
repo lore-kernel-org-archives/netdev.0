@@ -1,11 +1,11 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 1/6] bnx2: Fix excessive stack usage
-Date: Mon, 23 May 2005 17:25:07 -0700
-Message-ID: <1116894307.4908.28.camel@rh4>
+Subject: [PATCH 2/6] bnx2: Fix rx checksum
+Date: Mon, 23 May 2005 17:26:23 -0700
+Message-ID: <1116894383.4908.29.camel@rh4>
 References: <1116892439.4908.1.camel@rh4>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="=-wQetfnmSM4zpCE9lu3Ns"
+ boundary="=-MjP9kNbfLluHpwDwIMre"
 Cc: jgarzik@pobox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: davem@davemloft.net
@@ -15,58 +15,34 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---=-wQetfnmSM4zpCE9lu3Ns
+--=-MjP9kNbfLluHpwDwIMre
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 
-Fix excessive stack usage in bnx2_alloc_bad_rbuf() by replacing local
-variable array with kmalloc array. Also changed function to return error
-code, and changed some of the callers to check for the return code.
+Fix bug in rx checksum by indicating CHECKSUM_UNNECESSARY only when the
+hw calculated checksum is 0xffff.
 
 Spotted by Jeff Garzik.
 
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 
---=-wQetfnmSM4zpCE9lu3Ns
+
+--=-MjP9kNbfLluHpwDwIMre
 Content-Disposition: attachment;
- filename=bnx2-11.patch
+ filename=bnx2-12.patch
 Content-Type: text/x-patch;
  charset=utf-8;
- name=bnx2-11.patch
+ name=bnx2-12.patch
 Content-Transfer-Encoding: base64
 
-ZGlmZiAtTnJ1IDEwL2RyaXZlcnMvbmV0L2JueDIuYyAxMS9kcml2ZXJzL25ldC9ibngyLmMNCi0t
-LSAxMC9kcml2ZXJzL25ldC9ibngyLmMJMjAwNS0wNS0yMyAxMDoyMDowMi4wMDAwMDAwMDAgLTA3
-MDANCisrKyAxMS9kcml2ZXJzL25ldC9ibngyLmMJMjAwNS0wNS0yMyAxMDoyMDoyMC4wMDAwMDAw
-MDAgLTA3MDANCkBAIC0xMTM4LDEzICsxMTM4LDIwIEBADQogCX0NCiB9DQogDQotc3RhdGljIHZv
-aWQNCitzdGF0aWMgaW50DQogYm54Ml9hbGxvY19iYWRfcmJ1ZihzdHJ1Y3QgYm54MiAqYnApDQog
-ew0KLQl1MTYgZ29vZF9tYnVmWzUxMl07DQorCXUxNiAqZ29vZF9tYnVmOw0KIAl1MzIgZ29vZF9t
-YnVmX2NudDsNCiAJdTMyIHZhbDsNCiANCisJZ29vZF9tYnVmID0ga21hbGxvYyg1MTIgKiBzaXpl
-b2YodTE2KSwgR0ZQX0tFUk5FTCk7DQorCWlmIChnb29kX21idWYgPT0gTlVMTCkgew0KKwkJcHJp
-bnRrKEtFUk5fRVJSIFBGWCAiRmFpbGVkIHRvIGFsbG9jYXRlIG1lbW9yeSBpbiAiDQorCQkJCSAg
-ICAiYm54Ml9hbGxvY19iYWRfcmJ1ZlxuIik7DQorCQlyZXR1cm4gLUVOT01FTTsNCisJfQ0KKw0K
-IAlSRUdfV1IoYnAsIEJOWDJfTUlTQ19FTkFCTEVfU0VUX0JJVFMsDQogCQlCTlgyX01JU0NfRU5B
-QkxFX1NFVF9CSVRTX1JYX01CVUZfRU5BQkxFKTsNCiANCkBAIC0xMTc4LDYgKzExODUsNyBAQA0K
-IA0KIAkJUkVHX1dSX0lORChicCwgQk5YMl9SQlVGX0ZXX0JVRl9GUkVFLCB2YWwpOw0KIAl9DQor
-CXJldHVybiAwOw0KIH0NCiANCiBzdGF0aWMgdm9pZA0KQEAgLTI3MTAsNyArMjcxOCw3IEBADQog
-Ym54Ml9yZXNldF9jaGlwKHN0cnVjdCBibngyICpicCwgdTMyIHJlc2V0X2NvZGUpDQogew0KIAl1
-MzIgdmFsOw0KLQlpbnQgaTsNCisJaW50IGksIHJjID0gMDsNCiANCiAJLyogV2FpdCBmb3IgdGhl
-IGN1cnJlbnQgUENJIHRyYW5zYWN0aW9uIHRvIGNvbXBsZXRlIGJlZm9yZQ0KIAkgKiBpc3N1aW5n
-IGEgcmVzZXQuICovDQpAQCAtMjc4NSwxMCArMjc5MywxMCBAQA0KIAkJUkVHX1dSKGJwLCBCTlgy
-X01JU0NfVlJFR19DT05UUk9MLCAweDAwMDAwMGZhKTsNCiANCiAJCS8qIFJlbW92ZSBiYWQgcmJ1
-ZiBtZW1vcnkgZnJvbSB0aGUgZnJlZSBwb29sLiAqLw0KLQkJYm54Ml9hbGxvY19iYWRfcmJ1Zihi
-cCk7DQorCQlyYyA9IGJueDJfYWxsb2NfYmFkX3JidWYoYnApOw0KIAl9DQogDQotCXJldHVybiAw
-Ow0KKwlyZXR1cm4gcmM7DQogfQ0KIA0KIHN0YXRpYyBpbnQNCkBAIC0zMDk3LDggKzMxMDUsMTMg
-QEANCiBzdGF0aWMgaW50DQogYm54Ml9yZXNldF9uaWMoc3RydWN0IGJueDIgKmJwLCB1MzIgcmVz
-ZXRfY29kZSkNCiB7DQotCWJueDJfcmVzZXRfY2hpcChicCwgcmVzZXRfY29kZSk7DQorCWludCBy
-YzsNCisNCisJcmMgPSBibngyX3Jlc2V0X2NoaXAoYnAsIHJlc2V0X2NvZGUpOw0KIAlibngyX2Zy
-ZWVfc2ticyhicCk7DQorCWlmIChyYykNCisJCXJldHVybiByYzsNCisNCiAJYm54Ml9pbml0X2No
-aXAoYnApOw0KIAlibngyX2luaXRfdHhfcmluZyhicCk7DQogCWJueDJfaW5pdF9yeF9yaW5nKGJw
-KTsNCkBAIC0zMTA4LDcgKzMxMjEsMTEgQEANCiBzdGF0aWMgaW50DQogYm54Ml9pbml0X25pYyhz
-dHJ1Y3QgYm54MiAqYnApDQogew0KLQlibngyX3Jlc2V0X25pYyhicCwgQk5YMl9EUlZfTVNHX0NP
-REVfUkVTRVQpOw0KKwlpbnQgcmM7DQorDQorCWlmICgocmMgPSBibngyX3Jlc2V0X25pYyhicCwg
-Qk5YMl9EUlZfTVNHX0NPREVfUkVTRVQpKSAhPSAwKQ0KKwkJcmV0dXJuIHJjOw0KKw0KIAlibngy
-X2luaXRfcGh5KGJwKTsNCiAJYm54Ml9zZXRfbGluayhicCk7DQogCXJldHVybiAwOw0K
+ZGlmZiAtTnJ1IDExL2RyaXZlcnMvbmV0L2JueDIuYyAxMi9kcml2ZXJzL25ldC9ibngyLmMNCi0t
+LSAxMS9kcml2ZXJzL25ldC9ibngyLmMJMjAwNS0wNS0yMyAxMDoyMDoyMC4wMDAwMDAwMDAgLTA3
+MDANCisrKyAxMi9kcml2ZXJzL25ldC9ibngyLmMJMjAwNS0wNS0yMyAxMDoyOTowMi4wMDAwMDAw
+MDAgLTA3MDANCkBAIC0xNDcwLDkgKzE0NzAsOCBAQA0KIA0KIAkJCXUxNiBja3N1bSA9IHJ4X2hk
+ci0+bDJfZmhkcl90Y3BfdWRwX3hzdW07DQogDQotCQkJaWYgKChja3N1bSA9PSAweGZmZmYpIHx8
+IChja3N1bSA9PSAwKSkgew0KKwkJCWlmIChja3N1bSA9PSAweGZmZmYpDQogCQkJCXNrYi0+aXBf
+c3VtbWVkID0gQ0hFQ0tTVU1fVU5ORUNFU1NBUlk7DQotCQkJfQ0KIAkJfQ0KIA0KICNpZmRlZiBC
+Q01fVkxBTg0K
 
 
---=-wQetfnmSM4zpCE9lu3Ns--
+--=-MjP9kNbfLluHpwDwIMre--
