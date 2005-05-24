@@ -1,78 +1,68 @@
 From: root@smtp.nexlab.net
 Subject: (no subject)
-Date: Tue, 24 May 2005 11:15:52 +0200 (CEST)
-Message-ID: <20050524091552.E3D05F9EE@smtp.nexlab.net>
+Date: Tue, 24 May 2005 11:16:19 +0200 (CEST)
+Message-ID: <20050524091619.F3216FA35@smtp.nexlab.net>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: undisclosed-recipients:;
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-	by smtp.nexlab.net (Postfix) with ESMTP id 2366BFB72
+	by smtp.nexlab.net (Postfix) with ESMTP id 8C315FB6B
 
-	for <chiakotay@nexlab.it>; Tue, 24 May 2005 10:01:46 +0200 (CEST)
+	for <chiakotay@nexlab.it>; Tue, 24 May 2005 10:01:41 +0200 (CEST)
 
 Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
 
-	id S261334AbVEXGsu (ORCPT <rfc822;chiakotay@nexlab.it>);
+	id S261350AbVEXGeu (ORCPT <rfc822;chiakotay@nexlab.it>);
 
-	Tue, 24 May 2005 02:48:50 -0400
+	Tue, 24 May 2005 02:34:50 -0400
 
-Received: (majordomo@vger.kernel.org) by vger.kernel.org id S261362AbVEXGst
+Received: (majordomo@vger.kernel.org) by vger.kernel.org id S261334AbVEXGeu
 
 	(ORCPT <rfc822;linux-kernel-outgoing>);
 
-	Tue, 24 May 2005 02:48:49 -0400
+	Tue, 24 May 2005 02:34:50 -0400
 
-Received: from fire.osdl.org ([65.172.181.4]:20097 "EHLO smtp.osdl.org")
+Received: from mail.dvmed.net ([216.237.124.58]:8141 "EHLO mail.dvmed.net")
 
-	by vger.kernel.org with ESMTP id S261334AbVEXGsj (ORCPT
+	by vger.kernel.org with ESMTP id S261353AbVEXGep (ORCPT
 
 	<rfc822;linux-kernel@vger.kernel.org>);
 
-	Tue, 24 May 2005 02:48:39 -0400
+	Tue, 24 May 2005 02:34:45 -0400
 
-Received: from shell0.pdx.osdl.net (fw.osdl.org [65.172.181.6])
+Received: from cpe-065-184-065-144.nc.res.rr.com ([65.184.65.144] helo=[10.10.10.88])
 
-	by smtp.osdl.org (8.12.8/8.12.8) with ESMTP id j4O6mWjA025872
+	by mail.dvmed.net with esmtpsa (Exim 4.51 #1 (Red Hat Linux))
 
-	(version=TLSv1/SSLv3 cipher=EDH-RSA-DES-CBC3-SHA bits=168 verify=NO);
+	id 1DaT00-0001Ow-FO; Tue, 24 May 2005 06:34:44 +0000
 
-	Mon, 23 May 2005 23:48:32 -0700
+Message-ID: <4292CB01.6090506@pobox.com>
 
-Received: from localhost (shell0.pdx.osdl.net [10.9.0.31])
+Date:	Tue, 24 May 2005 02:34:41 -0400
 
-	by shell0.pdx.osdl.net (8.13.1/8.11.6) with ESMTP id j4O6mVWw012672;
+From: Jeff Garzik <jgarzik@pobox.com>
+User-Agent: Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.7.6) Gecko/20050328 Fedora/1.7.6-1.2.5
 
-	Mon, 23 May 2005 23:48:31 -0700
+X-Accept-Language: en-us, en
 
-Date:	Mon, 23 May 2005 23:50:36 -0700 (PDT)
+MIME-Version: 1.0
 
-From: Linus Torvalds <torvalds@osdl.org>
-To: Jeff Garzik <jgarzik@pobox.com>
+To: Linus Torvalds <torvalds@osdl.org>
 Cc: Andrew Morton <akpm@osdl.org>, Netdev <netdev@oss.sgi.com>,
 	Linux Kernel <linux-kernel@vger.kernel.org>
 Subject: Re: [git patches] 2.6.x net driver updates
 
-In-Reply-To: <4292CB01.6090506@pobox.com>
-
-Message-ID: <Pine.LNX.4.58.0505232349020.2307@ppc970.osdl.org>
-
 References: <4292BA66.8070806@pobox.com> <Pine.LNX.4.58.0505232253160.2307@ppc970.osdl.org>
 
- <4292CB01.6090506@pobox.com>
+In-Reply-To: <Pine.LNX.4.58.0505232253160.2307@ppc970.osdl.org>
 
-MIME-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
 
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 
-X-Spam-Status: No, hits=0 required=5 tests=
-
-X-Spam-Checker-Version:	SpamAssassin 2.63-osdl_revision__1.40__
-
-X-MIMEDefang-Filter: osdl$Revision: 1.109 $
-
-X-Scanned-By: MIMEDefang 2.36
+X-Spam-Score: 0.0 (/)
 
 Sender: linux-kernel-owner@vger.kernel.org
 Precedence: bulk
@@ -81,19 +71,16 @@ X-Mailing-List:	linux-kernel@vger.kernel.org
 
 
 
+Linus Torvalds wrote:
+> I don't understand why you don't use different trees, like you did with
+> BK. You can share the object directory with the different trees, but the
+
+You really can't beat
+
+	cp .git/refs/heads/master .git/refs/heads/new-branch
+
+as the fastest way to create a new branch off the tip.
+
+	Jeff
 
 
-On Tue, 24 May 2005, Jeff Garzik wrote:
-> 
-> You really can't beat
-> 
-> 	cp .git/refs/heads/master .git/refs/heads/new-branch
-> 
-> as the fastest way to create a new branch off the tip.
-
-So? It's the fastest, but it's also BROKEN. Exactly because the way you do 
-things, the merge messages are meaningless.
-
-So fix your merge messages. 
-
-		Linus
