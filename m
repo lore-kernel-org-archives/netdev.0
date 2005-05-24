@@ -1,57 +1,118 @@
-From: Eric Paris <eparis@parisplace.org>
-Subject: Re: [PATCH] bonding using arp_ip_target may stay down with active
-	path
-Date: Tue, 24 May 2005 14:31:02 -0400
-Message-ID: <1116959462.8954.6.camel@localhost.localdomain>
-References: <200505232121.j4NLLaYa000837@death.nxdomain.ibm.com>
-	 <1116959200.8954.5.camel@localhost.localdomain>
+From: Ganesh Venkatesan <ganesh.venkatesan@gmail.com>
+Subject: Re: Fw: [Bugme-new] [Bug 4628] New: Test server hang while running rhr (network) test on RHEL4 with kernel 2.6.12-rc1-mm4
+Date: Tue, 24 May 2005 11:36:49 -0700
+Message-ID: <5fc59ff305052411366b9b058c@mail.gmail.com>
+References: <20050516025901.4b26ccf3.akpm@osdl.org>
+Reply-To: Ganesh Venkatesan <ganesh.venkatesan@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
-        jgarzik@pobox.com, bonding-devel@lists.sourceforge.net
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: netdev@oss.sgi.com, hejianj@cn.ibm.com,
+        linuxppc64-dev@lists.linuxppc.org.sgi.com,
+        Anton Blanchard <anton@samba.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jay Vosburgh <fubar@us.ibm.com>
-In-Reply-To: <1116959200.8954.5.camel@localhost.localdomain>
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20050516025901.4b26ccf3.akpm@osdl.org>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-It ate my tabs again.  This mailer is going out the window.
+Could you tell me what the rhr test is? Is this an IBM internal test tool?
 
--Eric
 
-On Tue, 2005-05-24 at 14:26 -0400, Eric Paris wrote:
-> >On Mon, 2005-05-23 at 14:21 -0700, Jay Vosburgh wrote:
-> David S. Miller <davem@davemloft.net> wrote:
-> >Patch doesn't apply, tabs turned into spaces by your
-> >email client.
-> >
-> >	As penance for test applying trivial patches by hand, here's a
-> >proper version.
-> >
-> >	-J
-> >
-> >---
-> >	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+On 5/16/05, Andrew Morton <akpm@osdl.org> wrote:
 > 
-> I guess I should be in the signed off list as the original author.
-> sorry I'm an idiot and copied and pasted my original message (to the
-> bonding-devel list) which screwed up the spacing.
+> Might be a bug in the e100 driver, might not be.
 > 
-> Signed-off-by: Eric Paris <eparis@parisplace.org>
-> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+> I assume this is the
 > 
-> diff -urN linux-2.6.11/drivers/net/bonding/bond_main.c linux-2.6.11-fix/drivers/net/bonding/bond_main.c
-> --- linux-2.6.11/drivers/net/bonding/bond_main.c	2005-05-23 14:07:37.000000000 -0700
-> +++ linux-2.6.11-fix/drivers/net/bonding/bond_main.c	2005-05-23 14:08:13.000000000 -0700
-> @@ -3046,7 +3046,7 @@
->  			bond_set_slave_inactive_flags(bond->current_arp_slave);
->  
->  			/* search for next candidate */
-> -			bond_for_each_slave_from(bond, slave, i, bond->current_arp_slave) {
-> +			bond_for_each_slave_from(bond, slave, i, bond->current_arp_slave->next) {
->  				if (IS_UP(slave->dev)) {
->  					slave->link = BOND_LINK_BACK;
->  					bond_set_slave_active_flags(slave);
+>         BUG_ON(skb->list != NULL);
 > 
+> in __kfree_skb(), although the line number is off-by-one, and the
+> .__kfree_skb+0x188/0x240 would tend to contradict that.  Anton, can you
+> help work out where we went splat please?
+> 
+> tx timeouts are fairly rare events, so this might not be a recently-added
+> bug.
+> 
+> Do we know if it is repeatable?
+> 
+> 
+> 
+> Begin forwarded message:
+> 
+> Date: Mon, 16 May 2005 02:44:04 -0700
+> From: bugme-daemon@osdl.org
+> To: bugme-new@lists.osdl.org
+> Subject: [Bugme-new] [Bug 4628] New: Test server hang while running rhr (network) test on RHEL4 with kernel 2.6.12-rc1-mm4
+> 
+> 
+> http://bugme.osdl.org/show_bug.cgi?id=4628
+> 
+>            Summary: Test server hang while running rhr (network) test on
+>                     RHEL4 with kernel 2.6.12-rc1-mm4
+>     Kernel Version: 2.6.12-rc1 with mm4 patch
+>             Status: NEW
+>           Severity: normal
+>              Owner: anton@samba.org
+>          Submitter: hejianj@cn.ibm.com
+>                 CC: hanwenb@cn.ibm.com,mridge@us.ibm.com,rende@cn.ibm.com,wa
+>                     ngjs@cn.ibm.com
+> 
+> 
+> Distribution:
+> RHEL4 with kernel 2.6.12-rc1-mm4
+> 
+> Hardware Environment:
+> IBM OpenPower( CHRP IBM,9124-720 )
+> 
+> Software Environment:
+> RHEL4
+> RHR: rhr2-rhel4-1.0-14a.noarch.rpm
+> 
+> Problem Description:
+> The test server hang while running rhr (network) test on RHEL4 with kernel
+> 2.6.12-rc1-mm4.
+> 
+> Steps to reproduce:
+> 1. Download kernel 2.6.12-rc1 and 2.6.12-rc1-mm4 patch from kernel.org, then
+> build the kernel on OpenPower 720
+> 2. Download rhr2-rhel4-1.0-14a.noarch.rpm from rhn.redhat.com and install it on
+> the test machine.
+> 3. Configure and run the rhr test via invoking redhat-ready.
+> 
+> Additional information:
+> Here is the backtrace from xmon.
+> 
+> 3:mon> e
+> cpu 0x3: Vector: 700 (Program Check) at [c00000000ffe7920]
+>     pc: c00000000029632c: .__kfree_skb+0x188/0x240
+>     lr: c000000000296328: .__kfree_skb+0x184/0x240
+>     sp: c00000000ffe7ba0
+>    msr: 8000000000029032
+>   current = 0xc000000107f94040
+>   paca    = 0xc000000000431c00
+>     pid   = 0, comm = swapper
+> kernel BUG in __kfree_skb at net/core/skbuff.c:282!
+> 
+> 3:mon> t
+> [c00000000ffe7c40] d0000000000ebac4 .e100_rx_clean_list+0xa0/0x144 [e100]
+> [c00000000ffe7ce0] d0000000000ed6dc .e100_tx_timeout+0x7c/0xb0 [e100]
+> [c00000000ffe7d70] c0000000002b87bc .dev_watchdog+0xc8/0x154
+> [c00000000ffe7e00] c00000000006d6b4 .run_timer_softirq+0x180/0x298
+> [c00000000ffe7ed0] c0000000000667d8 .__do_softirq+0xdc/0x1b8
+> [c00000000ffe7f90] c000000000014bf0 .call_do_softirq+0x14/0x24
+> [c000000086b43860] c0000000000102c4 .do_softirq+0x98/0xac
+> [c000000086b438f0] c0000000000669cc .irq_exit+0x70/0x8c
+> [c000000086b43970] c000000000011fb8 .timer_interrupt+0x398/0x47c
+> [c000000086b43a90] c00000000000a2b4 decrementer_common+0xb4/0x100
+> --- Exception: 901 (Decrementer) at c000000000010554 .dedicated_idle+0x114/0x280
+> [c000000086b43e80] c0000000000108c8 .cpu_idle+0x3c/0x54
+> [c000000086b43f00] c00000000003cc8c .start_secondary+0x108/0x148
+> [c000000086b43f90] c00000000000bd84 .enable_64b_mode+0x0/0x28
+> 
+> ------- You are receiving this mail because: -------
+> You are on the CC list for the bug, or are watching someone who is.
+> 
+>
