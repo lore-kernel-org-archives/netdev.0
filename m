@@ -1,7 +1,7 @@
 From: Jiri Benc <jbenc@suse.cz>
-Subject: [1-2/6] ipw2100, ipw2200: patches to merge to kernel
-Date: Tue, 24 May 2005 15:15:06 +0200
-Message-ID: <20050524151506.48e5db65@griffin.suse.cz>
+Subject: [3/6] ipw2100: fix after "ieee80211: cleanup"
+Date: Tue, 24 May 2005 15:16:09 +0200
+Message-ID: <20050524151609.1da09c2b@griffin.suse.cz>
 References: <20050524150711.01632672@griffin.suse.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -14,17 +14,24 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Patches to merge the ipw2100 and ipw2200 drivers to the kernel can be
-downloaded from:
-http://jikos.cz/~jbohac/wifi/import-ipw2100.patch
-http://jikos.cz/~jbohac/wifi/import-ipw2200.patch
-(they are too large to post them here)
+Fixes ipw2100 after the ieee80211 header cleanup
+(patch [1/5] ieee80211: cleanup).
 
-The ipw2100 patch is just a merge of ipw2100 driver with Pavel Machek's
-cleanup patch.
 
-The ipw2200 patch is not cleaned up and is intended for testing purposes
-only.
+Signed-off-by: Jiri Benc <jbenc@suse.cz>
+Signed-off-by: Jirka Bohac <jbohac@suse.cz>
+
+--- a/drivers/net/wireless/ipw2100.h	2005-05-19 16:23:00.000000000 +0200
++++ b/drivers/net/wireless/ipw2100.h	2005-05-19 16:37:14.000000000 +0200
+@@ -798,7 +798,7 @@
+ 
+ 
+ 
+-#define IPW_HEADER_802_11_SIZE		 sizeof(struct ieee80211_header_data)
++#define IPW_HEADER_802_11_SIZE		 sizeof(struct ieee80211_hdr_3addr)
+ #define IPW_MAX_80211_PAYLOAD_SIZE              2304U
+ #define IPW_MAX_802_11_PAYLOAD_LENGTH		2312
+ #define IPW_MAX_ACCEPTABLE_TX_FRAME_LENGTH	1536
 
 
 --
