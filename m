@@ -1,86 +1,137 @@
 From: root@smtp.nexlab.net
 Subject: (no subject)
-Date: Tue, 24 May 2005 11:16:19 +0200 (CEST)
-Message-ID: <20050524091619.F3216FA35@smtp.nexlab.net>
+Date: Tue, 24 May 2005 11:17:28 +0200 (CEST)
+Message-ID: <20050524091728.DB86AFA44@smtp.nexlab.net>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: undisclosed-recipients:;
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-	by smtp.nexlab.net (Postfix) with ESMTP id 8C315FB6B
+	by smtp.nexlab.net (Postfix) with ESMTP id CE413FA1F
 
-	for <chiakotay@nexlab.it>; Tue, 24 May 2005 10:01:41 +0200 (CEST)
+	for <buffer@sniffo.org>; Tue, 24 May 2005 03:30:17 +0200 (CEST)
 
-Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
+Received: from oss (localhost [127.0.0.1])
 
-	id S261350AbVEXGeu (ORCPT <rfc822;chiakotay@nexlab.it>);
+	by oss.sgi.com (8.12.10/8.12.10/SuSE Linux 0.7) with ESMTP id j4O1QmF3031979;
 
-	Tue, 24 May 2005 02:34:50 -0400
+	Mon, 23 May 2005 18:26:48 -0700
 
-Received: (majordomo@vger.kernel.org) by vger.kernel.org id S261334AbVEXGeu
+Received: with ECARTIS (v1.0.0; list netdev); Mon, 23 May 2005 18:25:08 -0700 (PDT)
 
-	(ORCPT <rfc822;linux-kernel-outgoing>);
+Received: from MMS2.broadcom.com (mms2.broadcom.com [216.31.210.18])
 
-	Tue, 24 May 2005 02:34:50 -0400
+	by oss.sgi.com (8.12.10/8.12.10/SuSE Linux 0.7) with ESMTP id j4O1P4F3031331
 
-Received: from mail.dvmed.net ([216.237.124.58]:8141 "EHLO mail.dvmed.net")
+	for <netdev@oss.sgi.com>; Mon, 23 May 2005 18:25:04 -0700
 
-	by vger.kernel.org with ESMTP id S261353AbVEXGep (ORCPT
+Received: from 10.10.64.121 by MMS2.broadcom.com with SMTP (Broadcom
 
-	<rfc822;linux-kernel@vger.kernel.org>);
+ SMTP Relay (Email Firewall v6.1.0)); Mon, 23 May 2005 18:24:08 -0700
 
-	Tue, 24 May 2005 02:34:45 -0400
+X-Server-Uuid: 1F20ACF3-9CAF-44F7-AB47-F294E2D5B4EA
 
-Received: from cpe-065-184-065-144.nc.res.rr.com ([65.184.65.144] helo=[10.10.10.88])
+Received: from mail-irva-8.broadcom.com ([10.10.64.221]) by
 
-	by mail.dvmed.net with esmtpsa (Exim 4.51 #1 (Red Hat Linux))
+ mail-irva-1.broadcom.com (Post.Office MTA v3.5.3 release 223 ID#
 
-	id 1DaT00-0001Ow-FO; Tue, 24 May 2005 06:34:44 +0000
+ 0-72233U7200L2200S0V35) with ESMTP id com; Mon, 23 May 2005 18:24:07
 
-Message-ID: <4292CB01.6090506@pobox.com>
+ -0700
 
-Date:	Tue, 24 May 2005 02:34:41 -0400
+Received: from mon-irva-10.broadcom.com (mon-irva-10.broadcom.com
 
-From: Jeff Garzik <jgarzik@pobox.com>
-User-Agent: Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.7.6) Gecko/20050328 Fedora/1.7.6-1.2.5
+ [10.10.64.171]) by mail-irva-8.broadcom.com (MOS 3.5.6-GR) with ESMTP
 
-X-Accept-Language: en-us, en
+ id AZY37732; Mon, 23 May 2005 18:24:07 -0700 (PDT)
+
+Received: from nt-irva-0741.brcm.ad.broadcom.com (
+
+ nt-irva-0741.brcm.ad.broadcom.com [10.8.194.54]) by
+
+ mon-irva-10.broadcom.com (8.9.1/8.9.1) with ESMTP id SAA16376; Mon, 23
+
+ May 2005 18:24:06 -0700 (PDT)
+
+Received: from 10.7.17.55 ([10.7.17.55]) by
+
+ NT-IRVA-0741.brcm.ad.broadcom.com ([10.8.194.54]) with Microsoft
+
+ Exchange Server HTTP-DAV ; Tue, 24 May 2005 01:24:06 +0000
+
+Received: from rh4 by nt-irva-0741; 23 May 2005 17:26:23 -0700
+
+Subject: [PATCH 2/6] bnx2: Fix rx checksum
+
+From: "Michael Chan" <mchan@broadcom.com>
+To: davem@davemloft.net
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com
+In-Reply-To: <1116892439.4908.1.camel@rh4>
+
+References: <1116892439.4908.1.camel@rh4>
+
+Date: Mon, 23 May 2005 17:26:23 -0700
+
+Message-ID: <1116894383.4908.29.camel@rh4>
 
 MIME-Version: 1.0
 
-To: Linus Torvalds <torvalds@osdl.org>
-Cc: Andrew Morton <akpm@osdl.org>, Netdev <netdev@oss.sgi.com>,
-	Linux Kernel <linux-kernel@vger.kernel.org>
-Subject: Re: [git patches] 2.6.x net driver updates
+X-Mailer: Evolution 2.0.2 (2.0.2-3)
 
-References: <4292BA66.8070806@pobox.com> <Pine.LNX.4.58.0505232253160.2307@ppc970.osdl.org>
+X-WSS-ID: 6E8C5DB21VO1443376-01-01
 
-In-Reply-To: <Pine.LNX.4.58.0505232253160.2307@ppc970.osdl.org>
+Content-Type: multipart/mixed;
 
-Content-Type: text/plain; charset=us-ascii; format=flowed
+ boundary="=-MjP9kNbfLluHpwDwIMre"
 
-Content-Transfer-Encoding: 7bit
+X-archive-position: 1531
 
-X-Spam-Score: 0.0 (/)
+X-ecartis-version: Ecartis v1.0.0
 
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: netdev-bounce@oss.sgi.com
+Errors-To: netdev-bounce@oss.sgi.com
+X-original-sender: mchan@broadcom.com
+
 Precedence: bulk
 
-X-Mailing-List:	linux-kernel@vger.kernel.org
+X-list: netdev
+
+X-Virus-Scanned: ClamAV 0.83/892/Mon May 23 10:52:19 2005 on oss.sgi.com
+
+X-Virus-Status: Clean
 
 
 
-Linus Torvalds wrote:
-> I don't understand why you don't use different trees, like you did with
-> BK. You can share the object directory with the different trees, but the
 
-You really can't beat
+--=-MjP9kNbfLluHpwDwIMre
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-	cp .git/refs/heads/master .git/refs/heads/new-branch
+Fix bug in rx checksum by indicating CHECKSUM_UNNECESSARY only when the
+hw calculated checksum is 0xffff.
 
-as the fastest way to create a new branch off the tip.
+Spotted by Jeff Garzik.
 
-	Jeff
+Signed-off-by: Michael Chan <mchan@broadcom.com>
 
 
+--=-MjP9kNbfLluHpwDwIMre
+Content-Disposition: attachment;
+ filename=bnx2-12.patch
+Content-Type: text/x-patch;
+ charset=utf-8;
+ name=bnx2-12.patch
+Content-Transfer-Encoding: base64
+
+ZGlmZiAtTnJ1IDExL2RyaXZlcnMvbmV0L2JueDIuYyAxMi9kcml2ZXJzL25ldC9ibngyLmMNCi0t
+LSAxMS9kcml2ZXJzL25ldC9ibngyLmMJMjAwNS0wNS0yMyAxMDoyMDoyMC4wMDAwMDAwMDAgLTA3
+MDANCisrKyAxMi9kcml2ZXJzL25ldC9ibngyLmMJMjAwNS0wNS0yMyAxMDoyOTowMi4wMDAwMDAw
+MDAgLTA3MDANCkBAIC0xNDcwLDkgKzE0NzAsOCBAQA0KIA0KIAkJCXUxNiBja3N1bSA9IHJ4X2hk
+ci0+bDJfZmhkcl90Y3BfdWRwX3hzdW07DQogDQotCQkJaWYgKChja3N1bSA9PSAweGZmZmYpIHx8
+IChja3N1bSA9PSAwKSkgew0KKwkJCWlmIChja3N1bSA9PSAweGZmZmYpDQogCQkJCXNrYi0+aXBf
+c3VtbWVkID0gQ0hFQ0tTVU1fVU5ORUNFU1NBUlk7DQotCQkJfQ0KIAkJfQ0KIA0KICNpZmRlZiBC
+Q01fVkxBTg0K
+
+
+--=-MjP9kNbfLluHpwDwIMre--
