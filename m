@@ -1,28 +1,29 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
 Subject: Re: [XFRM] Call dst_check() with appropriate cookie
-Date: Tue, 24 May 2005 17:16:36 +1000
-Message-ID: <E1DaTeW-00085B-00@gondolin.me.apana.org.au>
+Date: Tue, 24 May 2005 16:30:18 +0900 (JST)
+Message-ID: <20050524.163018.29919354.yoshfuji@linux-ipv6.org>
 References: <20050524.124919.00464304.yoshfuji@linux-ipv6.org>
-Cc: davem@davemloft.net, netdev@oss.sgi.com
+	<E1DaTeW-00085B-00@gondolin.me.apana.org.au>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org,
+        kazunori@miyazawa.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org (YOSHIFUJI Hideaki / ????)
-In-Reply-To: <20050524.124919.00464304.yoshfuji@linux-ipv6.org>
+To: herbert@gondor.apana.org.au
+In-Reply-To: <E1DaTeW-00085B-00@gondolin.me.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-YOSHIFUJI Hideaki / ???? <yoshfuji@linux-ipv6.org> wrote:
-> From: Kazunori Miyazawa <kazunori@miyazawa.org>
+In article <E1DaTeW-00085B-00@gondolin.me.apana.org.au> (at Tue, 24 May 2005 17:16:36 +1000), Herbert Xu <herbert@gondor.apana.org.au> says:
+
+> > This fixes infinite loop issue with IPv6 tunnel mode.
 > 
-> [XFRM] Call dst_check() with appropriate cookie.
->
-> This fixes infinite loop issue with IPv6 tunnel mode.
+> Can someone please tell me where this infinite loop is?
 
-Can someone please tell me where this infinite loop is?
+Honestly speaking, we haven't tracked down deeply where it is,
+but that patch is logically reauired and it definetely solves grave
+"freeze" issue with ipv6 tunnel mode xfrm.
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--yoshfuji
