@@ -1,33 +1,50 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [XFRM] Call dst_check() with appropriate cookie
-Date: Tue, 24 May 2005 21:59:14 +1000
-Message-ID: <20050524115914.GA697@gondor.apana.org.au>
-References: <20050524.124919.00464304.yoshfuji@linux-ipv6.org> <20050524082021.GA31446@gondor.apana.org.au> <20050524.174931.46801018.yoshfuji@linux-ipv6.org>
+From: Hannes Payer <hpayer@cosy.sbg.ac.at>
+Subject: linux ipv6 multicast kernel implementation
+Date: Tue, 24 May 2005 14:11:45 +0200 (CEST)
+Message-ID: <Pine.LNX.4.61.0505241408160.4148@drache.cosy.sbg.ac.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@oss.sgi.com, kazunori@miyazawa.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
-Content-Disposition: inline
-In-Reply-To: <20050524.174931.46801018.yoshfuji@linux-ipv6.org>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 24, 2005 at 05:49:31PM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ wrote:
-> 
-> [XFRM] Call dst_check() with appropriate cookie
-> 
-> This fixes infinite loop issue with IPv6 tunnel mode.
-> 
-> Signed-off-by: Kazunori Miyazawa <kazunori@miyazawa.org>
-> Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Dear oss team,
+last week i tryed to ask Alan Cox something about the data link layer
+imlplementation in the linux kernel. He gave me your email address and 
+therefore i forward you this email and hope, that you can help me.
 
-Looks good.
 
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+forwarded message:
+Dear Alan Cox,
+we are trying to get ipv6 protocol independent multicast working on linux 
+routers. We used the ipv6 multicast forwarding patch and the pim6sd daemon of 
+Michael Hoerdt (http://clarinet.u-strasbg.fr/~hoerdt/linux_ipv6_mforwarding/, 
+http://clarinet.u-strasbg.fr/~hoerdt/pim6sd_linux/). The ipv6 multicast kernel 
+implementation is based on the existing ipv4 code and therefore we thought that 
+you are the right contact person :-)
+The ipv6 patch does not work well and we already found some bugs, we were able 
+to correct.
+We are not sure about one problem:
+When the kernel receives a pim register packet, it decapsulates the packet and 
+loops the multicast packet back on the register interface (netif_rx(skb) in 
+pim6_rcv() pim6.c). Before the packet is looped back, the kernel sets skb->dst 
+= NULL;
+Therefore in ip6_input.c ip6_rcv_finish() looks up the unicast routing table 
+and gets a matching entry. After that the kernel tries to forward the multicast 
+packet, but stops at ip6_mr_forward() in ip6mr.c. The comparison 
+vif6_table[vif].dev != skb->dev is true und therefore the packet is droped. 
+(The lookup always returns dubios interfaces. It should return in our case the 
+registry interface)
+Our question: Why should we lookup the unicast routing table in this case? 
+Would it satisfy to look up the multicast forwarding cache, where a correct 
+entry exists - created by the pim6sd daemon? Would it be a problem if we 
+override the lookup result with the regvif device after the lookup in this 
+case?
+
+I hope you understand the explanation of our problem.
+Thank you for your answer.
+
+Yours faithfully,
+Hannes Payer
