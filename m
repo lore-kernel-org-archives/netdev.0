@@ -1,118 +1,31 @@
-From: Ganesh Venkatesan <ganesh.venkatesan@gmail.com>
-Subject: Re: Fw: [Bugme-new] [Bug 4628] New: Test server hang while running rhr (network) test on RHEL4 with kernel 2.6.12-rc1-mm4
-Date: Tue, 24 May 2005 11:36:49 -0700
-Message-ID: <5fc59ff305052411366b9b058c@mail.gmail.com>
-References: <20050516025901.4b26ccf3.akpm@osdl.org>
-Reply-To: Ganesh Venkatesan <ganesh.venkatesan@gmail.com>
+From: Pavel Machek <pavel@suse.cz>
+Subject: Re: [0/5] Improvements to the ieee80211 layer
+Date: Tue, 24 May 2005 20:52:41 +0200
+Message-ID: <20050524185241.GB2470@elf.ucw.cz>
+References: <20050524150711.01632672@griffin.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: netdev@oss.sgi.com, hejianj@cn.ibm.com,
-        linuxppc64-dev@lists.linuxppc.org.sgi.com,
-        Anton Blanchard <anton@samba.org>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20050516025901.4b26ccf3.akpm@osdl.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: NetDev <netdev@oss.sgi.com>, LKML <linux-kernel@vger.kernel.org>,
+	jgarzik@pobox.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261375AbVEXSxE@vger.kernel.org>
+To: Jiri Benc <jbenc@suse.cz>
 Content-Disposition: inline
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <20050524150711.01632672@griffin.suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Could you tell me what the rhr test is? Is this an IBM internal test tool?
+Hi!
 
+> The ieee80211 layer, now present in -mm, lacks many important features
+> (actually it's just a part of the ipw2100/ipw2200 driver; these cards do
+> a lot of the processing in the hardware/firmware and thus the layer
+> currently can not be used for simpler devices).
+> 
+> This is the first series of patches that try to convert it to a generic
+> IEEE 802.11 layer, usable for most of today's wireless cards.
 
-On 5/16/05, Andrew Morton <akpm@osdl.org> wrote:
-> 
-> Might be a bug in the e100 driver, might not be.
-> 
-> I assume this is the
-> 
->         BUG_ON(skb->list != NULL);
-> 
-> in __kfree_skb(), although the line number is off-by-one, and the
-> .__kfree_skb+0x188/0x240 would tend to contradict that.  Anton, can you
-> help work out where we went splat please?
-> 
-> tx timeouts are fairly rare events, so this might not be a recently-added
-> bug.
-> 
-> Do we know if it is repeatable?
-> 
-> 
-> 
-> Begin forwarded message:
-> 
-> Date: Mon, 16 May 2005 02:44:04 -0700
-> From: bugme-daemon@osdl.org
-> To: bugme-new@lists.osdl.org
-> Subject: [Bugme-new] [Bug 4628] New: Test server hang while running rhr (network) test on RHEL4 with kernel 2.6.12-rc1-mm4
-> 
-> 
-> http://bugme.osdl.org/show_bug.cgi?id=4628
-> 
->            Summary: Test server hang while running rhr (network) test on
->                     RHEL4 with kernel 2.6.12-rc1-mm4
->     Kernel Version: 2.6.12-rc1 with mm4 patch
->             Status: NEW
->           Severity: normal
->              Owner: anton@samba.org
->          Submitter: hejianj@cn.ibm.com
->                 CC: hanwenb@cn.ibm.com,mridge@us.ibm.com,rende@cn.ibm.com,wa
->                     ngjs@cn.ibm.com
-> 
-> 
-> Distribution:
-> RHEL4 with kernel 2.6.12-rc1-mm4
-> 
-> Hardware Environment:
-> IBM OpenPower( CHRP IBM,9124-720 )
-> 
-> Software Environment:
-> RHEL4
-> RHR: rhr2-rhel4-1.0-14a.noarch.rpm
-> 
-> Problem Description:
-> The test server hang while running rhr (network) test on RHEL4 with kernel
-> 2.6.12-rc1-mm4.
-> 
-> Steps to reproduce:
-> 1. Download kernel 2.6.12-rc1 and 2.6.12-rc1-mm4 patch from kernel.org, then
-> build the kernel on OpenPower 720
-> 2. Download rhr2-rhel4-1.0-14a.noarch.rpm from rhn.redhat.com and install it on
-> the test machine.
-> 3. Configure and run the rhr test via invoking redhat-ready.
-> 
-> Additional information:
-> Here is the backtrace from xmon.
-> 
-> 3:mon> e
-> cpu 0x3: Vector: 700 (Program Check) at [c00000000ffe7920]
->     pc: c00000000029632c: .__kfree_skb+0x188/0x240
->     lr: c000000000296328: .__kfree_skb+0x184/0x240
->     sp: c00000000ffe7ba0
->    msr: 8000000000029032
->   current = 0xc000000107f94040
->   paca    = 0xc000000000431c00
->     pid   = 0, comm = swapper
-> kernel BUG in __kfree_skb at net/core/skbuff.c:282!
-> 
-> 3:mon> t
-> [c00000000ffe7c40] d0000000000ebac4 .e100_rx_clean_list+0xa0/0x144 [e100]
-> [c00000000ffe7ce0] d0000000000ed6dc .e100_tx_timeout+0x7c/0xb0 [e100]
-> [c00000000ffe7d70] c0000000002b87bc .dev_watchdog+0xc8/0x154
-> [c00000000ffe7e00] c00000000006d6b4 .run_timer_softirq+0x180/0x298
-> [c00000000ffe7ed0] c0000000000667d8 .__do_softirq+0xdc/0x1b8
-> [c00000000ffe7f90] c000000000014bf0 .call_do_softirq+0x14/0x24
-> [c000000086b43860] c0000000000102c4 .do_softirq+0x98/0xac
-> [c000000086b438f0] c0000000000669cc .irq_exit+0x70/0x8c
-> [c000000086b43970] c000000000011fb8 .timer_interrupt+0x398/0x47c
-> [c000000086b43a90] c00000000000a2b4 decrementer_common+0xb4/0x100
-> --- Exception: 901 (Decrementer) at c000000000010554 .dedicated_idle+0x114/0x280
-> [c000000086b43e80] c0000000000108c8 .cpu_idle+0x3c/0x54
-> [c000000086b43f00] c00000000003cc8c .start_secondary+0x108/0x148
-> [c000000086b43f90] c00000000000bd84 .enable_64b_mode+0x0/0x28
-> 
-> ------- You are receiving this mail because: -------
-> You are on the CC list for the bug, or are watching someone who is.
-> 
->
+Are they against -rc4-mm2?
+
+Would it be possible to put agregate patch on the web somewhere (or
+git tree?). I would certainly be easier to test....
+								Pavel
