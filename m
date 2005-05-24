@@ -1,91 +1,99 @@
 From: root@smtp.nexlab.net
 Subject: (no subject)
-Date: Tue, 24 May 2005 11:11:55 +0200 (CEST)
-Message-ID: <20050524091155.A98F9F9E8@smtp.nexlab.net>
+Date: Tue, 24 May 2005 11:15:52 +0200 (CEST)
+Message-ID: <20050524091552.E3D05F9EE@smtp.nexlab.net>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: undisclosed-recipients:;
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-	by smtp.nexlab.net (Postfix) with ESMTP id 69107FA5F
+	by smtp.nexlab.net (Postfix) with ESMTP id 2366BFB72
 
-	for <buffer@sniffo.org>; Tue, 24 May 2005 05:18:55 +0200 (CEST)
+	for <chiakotay@nexlab.it>; Tue, 24 May 2005 10:01:46 +0200 (CEST)
 
-Received: from oss (localhost [127.0.0.1])
+Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
 
-	by oss.sgi.com (8.12.10/8.12.10/SuSE Linux 0.7) with ESMTP id j4O2eUF3007815;
+	id S261334AbVEXGsu (ORCPT <rfc822;chiakotay@nexlab.it>);
 
-	Mon, 23 May 2005 19:40:30 -0700
+	Tue, 24 May 2005 02:48:50 -0400
 
-Received: with ECARTIS (v1.0.0; list netdev); Mon, 23 May 2005 19:39:10 -0700 (PDT)
+Received: (majordomo@vger.kernel.org) by vger.kernel.org id S261362AbVEXGst
 
-Received: from sunset.davemloft.net (dsl027-180-168.sfo1.dsl.speakeasy.net [216.27.180.168])
+	(ORCPT <rfc822;linux-kernel-outgoing>);
 
-	by oss.sgi.com (8.12.10/8.12.10/SuSE Linux 0.7) with ESMTP id j4O2d3F3007472
+	Tue, 24 May 2005 02:48:49 -0400
 
-	for <netdev@oss.sgi.com>; Mon, 23 May 2005 19:39:07 -0700
+Received: from fire.osdl.org ([65.172.181.4]:20097 "EHLO smtp.osdl.org")
 
-Received: from localhost ([127.0.0.1] ident=davem)
+	by vger.kernel.org with ESMTP id S261334AbVEXGsj (ORCPT
 
-	by sunset.davemloft.net with esmtp (Exim 4.50)
+	<rfc822;linux-kernel@vger.kernel.org>);
 
-	id 1DaPJB-0000Zl-8x; Mon, 23 May 2005 19:38:17 -0700
+	Tue, 24 May 2005 02:48:39 -0400
 
-Date: Mon, 23 May 2005 19:38:17 -0700 (PDT)
+Received: from shell0.pdx.osdl.net (fw.osdl.org [65.172.181.6])
 
-Message-Id: <20050523.193817.112290763.davem@davemloft.net>
+	by smtp.osdl.org (8.12.8/8.12.8) with ESMTP id j4O6mWjA025872
 
-To: herbert@gondor.apana.org.au
-Cc: netdev@oss.sgi.com
-Subject: Re: [PATCH] Super TSO v3
+	(version=TLSv1/SSLv3 cipher=EDH-RSA-DES-CBC3-SHA bits=168 verify=NO);
 
-From: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050524023256.GA29242@gondor.apana.org.au>
+	Mon, 23 May 2005 23:48:32 -0700
 
-References: <20050524003208.GA25778@gondor.apana.org.au>
+Received: from localhost (shell0.pdx.osdl.net [10.9.0.31])
 
-	<20050523.192917.48530622.davem@davemloft.net>
+	by shell0.pdx.osdl.net (8.13.1/8.11.6) with ESMTP id j4O6mVWw012672;
 
-	<20050524023256.GA29242@gondor.apana.org.au>
+	Mon, 23 May 2005 23:48:31 -0700
 
-X-Mailer: Mew version 3.3 on Emacs 21.4 / Mule 5.0 (SAKAKI)
+Date:	Mon, 23 May 2005 23:50:36 -0700 (PDT)
 
-Mime-Version: 1.0
+From: Linus Torvalds <torvalds@osdl.org>
+To: Jeff Garzik <jgarzik@pobox.com>
+Cc: Andrew Morton <akpm@osdl.org>, Netdev <netdev@oss.sgi.com>,
+	Linux Kernel <linux-kernel@vger.kernel.org>
+Subject: Re: [git patches] 2.6.x net driver updates
 
-Content-Type: Text/Plain; charset=us-ascii
+In-Reply-To: <4292CB01.6090506@pobox.com>
 
-Content-Transfer-Encoding: 7bit
+Message-ID: <Pine.LNX.4.58.0505232349020.2307@ppc970.osdl.org>
 
-X-archive-position: 1540
+References: <4292BA66.8070806@pobox.com> <Pine.LNX.4.58.0505232253160.2307@ppc970.osdl.org>
 
-X-ecartis-version: Ecartis v1.0.0
+ <4292CB01.6090506@pobox.com>
 
-Sender: netdev-bounce@oss.sgi.com
-Errors-To: netdev-bounce@oss.sgi.com
-X-original-sender: davem@davemloft.net
+MIME-Version: 1.0
 
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+
+X-Spam-Status: No, hits=0 required=5 tests=
+
+X-Spam-Checker-Version:	SpamAssassin 2.63-osdl_revision__1.40__
+
+X-MIMEDefang-Filter: osdl$Revision: 1.109 $
+
+X-Scanned-By: MIMEDefang 2.36
+
+Sender: linux-kernel-owner@vger.kernel.org
 Precedence: bulk
 
-X-list: netdev
-
-X-Virus-Scanned: ClamAV 0.83/892/Mon May 23 10:52:19 2005 on oss.sgi.com
-
-X-Virus-Status: Clean
+X-Mailing-List:	linux-kernel@vger.kernel.org
 
 
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Tue, 24 May 2005 12:32:57 +1000
 
-> True, the Nagle algorithm itself aims to do something different
-> from this function.  However, the act of turning Nagle off is
-> an indication that the application wants to minimise the latency
-> by sending things out ASAP.  So we should either respect that
-> here by not delaying the packets to increase the TSO size, or
-> we'll need a new socket option to do that for TSO.
 
-Sure, we can check tp->nonagle to turn this deferring off.
+On Tue, 24 May 2005, Jeff Garzik wrote:
+> 
+> You really can't beat
+> 
+> 	cp .git/refs/heads/master .git/refs/heads/new-branch
+> 
+> as the fastest way to create a new branch off the tip.
 
-But, I bet there are folks who want traditional Nagle turned
-off, yet TSO chunking enabled.
+So? It's the fastest, but it's also BROKEN. Exactly because the way you do 
+things, the merge messages are meaningless.
+
+So fix your merge messages. 
+
+		Linus
