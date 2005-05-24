@@ -1,16 +1,16 @@
 From: Linus Torvalds <torvalds@osdl.org>
 Subject: Re: [git patches] 2.6.x net driver updates
-Date: Mon, 23 May 2005 23:48:33 -0700 (PDT)
-Message-ID: <Pine.LNX.4.58.0505232343260.2307@ppc970.osdl.org>
+Date: Mon, 23 May 2005 23:50:36 -0700 (PDT)
+Message-ID: <Pine.LNX.4.58.0505232349020.2307@ppc970.osdl.org>
 References: <4292BA66.8070806@pobox.com> <Pine.LNX.4.58.0505232253160.2307@ppc970.osdl.org>
- <4292C8EF.3090307@pobox.com>
+ <4292CB01.6090506@pobox.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: Andrew Morton <akpm@osdl.org>, Netdev <netdev@oss.sgi.com>,
         Linux Kernel <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <4292C8EF.3090307@pobox.com>
+In-Reply-To: <4292CB01.6090506@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
@@ -19,52 +19,15 @@ List-Id: netdev.vger.kernel.org
 
 On Tue, 24 May 2005, Jeff Garzik wrote:
 > 
-> You are getting precisely the same thing you got under BitKeeper:  pull 
-> from X, you get my tree, which was composed from $N repositories.  The 
-> tree you pull was created by my running 'bk pull' locally $N times.
-
-No. Under BK, you had DIFFERENT TREES.
-
-What does that mean? They had DIFFERENT NAMES.
-
-Which meant that the commit message was MEANINGFUL.
-
-> Ultimately, you appear to be complaining about:
+> You really can't beat
 > 
-> * your own git-pull-script, which doesn't record the $2 (branch) 
-> argument in the commit message.
+> 	cp .git/refs/heads/master .git/refs/heads/new-branch
+> 
+> as the fastest way to create a new branch off the tip.
 
-Yes, because _my_ pull script is meant to work with the way _I_ have told 
-people (including you) they should work.
+So? It's the fastest, but it's also BROKEN. Exactly because the way you do 
+things, the merge messages are meaningless.
 
-The fact that you mush everything up in one tree _despite_ me having told 
-you that isn't a good thing to do is the problem.
-
-Git can technically do it, but then you shouldn't use my scripts, which 
-aren't written for that behaviour.
-
-> Hey, I didn't write git-pull-script, I just use it :)
-
-You don't use it, you MIS-use it. Which is what I'm complaining about.
-
-> Switching heads around?  It sounds like you did not pull from the branch 
-> I mentioned.
-
-No, I pulled exactly from the head you mentioned.
-
-In fact, go look at YOUR OWN changelog. And then compare that changelog to 
-the changelog you had when you used BK, and realize that IT IS NOT AT ALL 
-EQUIVALENT. You used to have valid changelogs, even for the merge heads. 
-You don't any more:
-
-	Automatic merge of /spare/repo/netdev-2.6/.git
-	Automatic merge of /spare/repo/netdev-2.6/.git
-	Automatic merge of /spare/repo/netdev-2.6/.git
-	Automatic merge of /spare/repo/netdev-2.6/.git
-	Merge of /spare/repo/netdev-2.6/.git
-
-See a pattern?
-
-Your BK usage was equivalent to having multiple GIT repositories.
+So fix your merge messages. 
 
 		Linus
