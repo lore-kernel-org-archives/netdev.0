@@ -1,48 +1,50 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [1-2/6] ipw2100, ipw2200: patches to merge to kernel
-Date: Tue, 24 May 2005 19:56:19 +0200
-Message-ID: <20050524175619.GM15391@postel.suug.ch>
-References: <20050524150711.01632672@griffin.suse.cz> <20050524151506.48e5db65@griffin.suse.cz> <20050524172416.GB10479@redhat.com>
+From: Eric Paris <eparis@parisplace.org>
+Subject: Re: [PATCH] bonding using arp_ip_target may stay down with active
+	path
+Date: Tue, 24 May 2005 14:26:40 -0400
+Message-ID: <1116959200.8954.5.camel@localhost.localdomain>
+References: <200505232121.j4NLLaYa000837@death.nxdomain.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Benc <jbenc@suse.cz>, NetDev <netdev@oss.sgi.com>, pavel@suse.cz
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
+        jgarzik@pobox.com, bonding-devel@lists.sourceforge.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Dave Jones <davej@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20050524172416.GB10479@redhat.com>
+To: Jay Vosburgh <fubar@us.ibm.com>
+In-Reply-To: <200505232121.j4NLLaYa000837@death.nxdomain.ibm.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Dave Jones <20050524172416.GB10479@redhat.com> 2005-05-24 13:24
-> On Tue, May 24, 2005 at 03:15:06PM +0200, Jiri Benc wrote:
->  > Patches to merge the ipw2100 and ipw2200 drivers to the kernel can be
->  > downloaded from:
->  > http://jikos.cz/~jbohac/wifi/import-ipw2100.patch
->  > http://jikos.cz/~jbohac/wifi/import-ipw2200.patch
->  > (they are too large to post them here)
->  > 
->  > The ipw2100 patch is just a merge of ipw2100 driver with Pavel Machek's
->  > cleanup patch.
-> 
-> It contains a number of bogus uses of HZ.
-> 
-> +		IPW_DEBUG_INFO("Command completion failed out after %dms.\n",
-> +			       HOST_COMPLETE_TIMEOUT / (HZ / 100));
-> 
-> ..
-> 
-> +	schedule_timeout(HZ / 100);
-> 
-> ..
-> 
-> What I don't understand, is that HZ in kernel-code should be 1000
-> according to <asm/param.h>,  though for some reason, I've seen
-> divide by zeros, and really strange oopses with this code.
-> It's as if its for some reason, choosing to use the userspace HZ
-> definition. Hmm, does it need an explicit include of <asm/param.h>
-> perhaps ?
+>On Mon, 2005-05-23 at 14:21 -0700, Jay Vosburgh wrote:
+David S. Miller <davem@davemloft.net> wrote:
+>Patch doesn't apply, tabs turned into spaces by your
+>email client.
+>
+>	As penance for test applying trivial patches by hand, here's a
+>proper version.
+>
+>	-J
+>
+>---
+>	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
 
-It should really use jiffies_to_msecs/usecs. HZ is < 100 on some
-architectures and thus results in a division by 0, even it was safe,
-the above code is inaccurate for some values of HZ.
+I guess I should be in the signed off list as the original author.
+sorry I'm an idiot and copied and pasted my original message (to the
+bonding-devel list) which screwed up the spacing.
+
+Signed-off-by: Eric Paris <eparis@parisplace.org>
+Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+
+diff -urN linux-2.6.11/drivers/net/bonding/bond_main.c linux-2.6.11-fix/drivers/net/bonding/bond_main.c
+--- linux-2.6.11/drivers/net/bonding/bond_main.c	2005-05-23 14:07:37.000000000 -0700
++++ linux-2.6.11-fix/drivers/net/bonding/bond_main.c	2005-05-23 14:08:13.000000000 -0700
+@@ -3046,7 +3046,7 @@
+ 			bond_set_slave_inactive_flags(bond->current_arp_slave);
+ 
+ 			/* search for next candidate */
+-			bond_for_each_slave_from(bond, slave, i, bond->current_arp_slave) {
++			bond_for_each_slave_from(bond, slave, i, bond->current_arp_slave->next) {
+ 				if (IS_UP(slave->dev)) {
+ 					slave->link = BOND_LINK_BACK;
+ 					bond_set_slave_active_flags(slave);
