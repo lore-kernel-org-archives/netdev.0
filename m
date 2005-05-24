@@ -1,33 +1,36 @@
-From: Linus Torvalds <torvalds@osdl.org>
-Subject: Re: [git patches] 2.6.x net driver updates
-Date: Mon, 23 May 2005 23:50:36 -0700 (PDT)
-Message-ID: <Pine.LNX.4.58.0505232349020.2307@ppc970.osdl.org>
-References: <4292BA66.8070806@pobox.com> <Pine.LNX.4.58.0505232253160.2307@ppc970.osdl.org>
- <4292CB01.6090506@pobox.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] : bug fix in multipath drr code.
+Date: Tue, 24 May 2005 17:11:46 +1000
+Message-ID: <20050524071146.GA30995@gondor.apana.org.au>
+References: <4291CBFF.6080106@calsoftinc.com> <20050523232224.GA25349@gondor.apana.org.au> <4292CDCE.2090600@calsoftinc.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew Morton <akpm@osdl.org>, Netdev <netdev@oss.sgi.com>,
-        Linux Kernel <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <4292CB01.6090506@pobox.com>
+To: pravin b shelar <pravins@calsoftinc.com>
+Content-Disposition: inline
+In-Reply-To: <4292CDCE.2090600@calsoftinc.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Tue, May 24, 2005 at 12:16:38PM +0530, pravin b shelar wrote:
+>
+> >The multipath_comparekeys isn't necessary either.
+>
+> In concurrent invocations of drr_select_route() last_selection will
+> change to different route.
+> So in that case we can not  use last_selection route on basis of
+> FLOWI_FLAG_MULTIPATHOLDROUTE flag only, since old
+> route might be totally different due another invocation of same function.
+> So, I think multipath_comparekeys is necessary.
 
+Indeed.  In fact this whole MULTIPATHOLDROUTE thing can't possibly
+work at all.  I'd suggest that it be removed.
 
-On Tue, 24 May 2005, Jeff Garzik wrote:
-> 
-> You really can't beat
-> 
-> 	cp .git/refs/heads/master .git/refs/heads/new-branch
-> 
-> as the fastest way to create a new branch off the tip.
-
-So? It's the fastest, but it's also BROKEN. Exactly because the way you do 
-things, the merge messages are meaningless.
-
-So fix your merge messages. 
-
-		Linus
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
