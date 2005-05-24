@@ -1,30 +1,29 @@
-From: Mateusz Berezecki <mateuszb@gmail.com>
-Subject: ieee80211.h and DSSS PHY type
-Date: Tue, 24 May 2005 14:38:57 +0200
-Message-ID: <42932061.5050109@gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [XFRM] Call dst_check() with appropriate cookie
+Date: Tue, 24 May 2005 22:50:28 +1000
+Message-ID: <20050524125028.GA27278@gondor.apana.org.au>
+References: <E1DaTeW-00085B-00@gondolin.me.apana.org.au> <4292E53D.7030805@miyazawa.org> <20050524083419.GA31586@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: YOSHIFUJI Hideaki / ???? <yoshfuji@linux-ipv6.org>, davem@davemloft.net,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev <netdev@oss.sgi.com>
+To: Kazunori Miyazawa <kazunori@miyazawa.org>
+Content-Disposition: inline
+In-Reply-To: <20050524083419.GA31586@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi list members,
+On Tue, May 24, 2005 at 06:34:19PM +1000, herbert wrote:
+> 
+> Yes this makes perfect sense.  However, I'd still like to know why I
+> have never seen it myself.  Let me double-check my test setup.
 
-
-I got a quick question regarding modulation type defines in ieee80211.h
-in netdev tree ieee80211 branch from current netdev git tree.
-
-Isn't the #define IEEE80211_DSSS_MODULATION missing in the include file?
-or am I plain wrong?
-Im asking because atheros driver im writing is using some constant value
-which needs some name;)
-And after evaluating some IEEE pdf's this appears to be a DSSS PHY type
-and numeric constants do not
- look good in source code.
-
-
-regards
-/mb
+Aha, not all IPv6 dst entries have obsolete set to -1.  Obviously
+your ones were and mine weren't :)
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
