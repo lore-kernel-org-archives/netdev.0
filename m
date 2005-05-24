@@ -1,138 +1,174 @@
-From: root@smtp.nexlab.net
-Subject: (no subject)
-Date: Tue, 24 May 2005 11:17:24 +0200 (CEST)
-Message-ID: <20050524091724.B2F48FA3F@smtp.nexlab.net>
+From: pravin b shelar <pravins@calsoftinc.com>
+Subject: Re: [PATCH] : bug fix in multipath drr code.
+Date: Tue, 24 May 2005 15:27:16 +0530
+Message-ID: <4292FA7C.80308@calsoftinc.com>
+References: <4291CBFF.6080106@calsoftinc.com> <20050523232224.GA25349@gondor.apana.org.au> <4292CDCE.2090600@calsoftinc.com> <20050524071146.GA30995@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="------------090501030509050709090905"
+Cc: netdev@oss.sgi.com, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: undisclosed-recipients:;
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050524071146.GA30995@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-	by smtp.nexlab.net (Postfix) with ESMTP id 346A4FA13
-
-	for <buffer@sniffo.org>; Tue, 24 May 2005 03:28:34 +0200 (CEST)
-
-Received: from oss (localhost [127.0.0.1])
-
-	by oss.sgi.com (8.12.10/8.12.10/SuSE Linux 0.7) with ESMTP id j4O1ScF3000570;
-
-	Mon, 23 May 2005 18:28:39 -0700
-
-Received: with ECARTIS (v1.0.0; list netdev); Mon, 23 May 2005 18:27:46 -0700 (PDT)
-
-Received: from MMS2.broadcom.com (mms2.broadcom.com [216.31.210.18])
-
-	by oss.sgi.com (8.12.10/8.12.10/SuSE Linux 0.7) with ESMTP id j4O1RhF3032603
-
-	for <netdev@oss.sgi.com>; Mon, 23 May 2005 18:27:43 -0700
-
-Received: from 10.10.64.121 by MMS2.broadcom.com with SMTP (Broadcom
-
- SMTP Relay (Email Firewall v6.1.0)); Mon, 23 May 2005 18:26:49 -0700
-
-X-Server-Uuid: 1F20ACF3-9CAF-44F7-AB47-F294E2D5B4EA
-
-Received: from mail-irva-8.broadcom.com ([10.10.64.221]) by
-
- mail-irva-1.broadcom.com (Post.Office MTA v3.5.3 release 223 ID#
-
- 0-72233U7200L2200S0V35) with ESMTP id com; Mon, 23 May 2005 18:26:48
-
- -0700
-
-Received: from mon-irva-10.broadcom.com (mon-irva-10.broadcom.com
-
- [10.10.64.171]) by mail-irva-8.broadcom.com (MOS 3.5.6-GR) with ESMTP
-
- id AZY38167; Mon, 23 May 2005 18:26:47 -0700 (PDT)
-
-Received: from nt-irva-0741.brcm.ad.broadcom.com (
-
- nt-irva-0741.brcm.ad.broadcom.com [10.8.194.54]) by
-
- mon-irva-10.broadcom.com (8.9.1/8.9.1) with ESMTP id SAA16842; Mon, 23
-
- May 2005 18:26:47 -0700 (PDT)
-
-Received: from 10.7.17.55 ([10.7.17.55]) by
-
- NT-IRVA-0741.brcm.ad.broadcom.com ([10.8.194.54]) with Microsoft
-
- Exchange Server HTTP-DAV ; Tue, 24 May 2005 01:26:47 +0000
-
-Received: from rh4 by nt-irva-0741; 23 May 2005 17:29:03 -0700
-
-Subject: [PATCH 4/6] bnx2: Fix bug in bnx2_close
-
-From: "Michael Chan" <mchan@broadcom.com>
-To: davem@davemloft.net
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com
-In-Reply-To: <1116892439.4908.1.camel@rh4>
-
-References: <1116892439.4908.1.camel@rh4>
-
-Date: Mon, 23 May 2005 17:29:03 -0700
-
-Message-ID: <1116894543.4908.32.camel@rh4>
-
-MIME-Version: 1.0
-
-X-Mailer: Evolution 2.0.2 (2.0.2-3)
-
-X-WSS-ID: 6E8C5D531VO1443816-01-01
-
-Content-Type: multipart/mixed;
-
- boundary="=-kVtupVzl5sY8iZGVxtrc"
-
-X-archive-position: 1533
-
-X-ecartis-version: Ecartis v1.0.0
-
-Sender: netdev-bounce@oss.sgi.com
-Errors-To: netdev-bounce@oss.sgi.com
-X-original-sender: mchan@broadcom.com
-
-Precedence: bulk
-
-X-list: netdev
-
-X-Virus-Scanned: ClamAV 0.83/892/Mon May 23 10:52:19 2005 on oss.sgi.com
-
-X-Virus-Status: Clean
-
-
-
-
---=-kVtupVzl5sY8iZGVxtrc
-Content-Type: text/plain
+This is a multi-part message in MIME format.
+--------------090501030509050709090905
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 
-Fix bug in bnx2_close() by calling flush_scheduled_work() since we are
-using a work queue in netdev watchdog. Also added bnx2_netif_stop() call
-in bnx2_close().
+Herbert Xu wrote:
 
-Spotted by Jeff Garzik.
+>On Tue, May 24, 2005 at 12:16:38PM +0530, pravin b shelar wrote:
+>  
+>
+>In fact this whole MULTIPATHOLDROUTE thing can't possibly
+>work at all.  I'd suggest that it be removed.
+>  
+>
+So I think we should ignore MULTIPATHOLDROUTE flag
+in drr and rr multipath algorithms as done in random multipath algorithm.
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
+Attached patch does same thing.
 
+Regards,
+Pravin.
 
---=-kVtupVzl5sY8iZGVxtrc
-Content-Disposition: attachment;
- filename=bnx2-14.patch
+--------------090501030509050709090905
 Content-Type: text/x-patch;
- charset=utf-8;
- name=bnx2-14.patch
-Content-Transfer-Encoding: base64
+ name="multipath-drr_rr-last_use-fix.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="multipath-drr_rr-last_use-fix.patch"
 
-ZGlmZiAtTnJ1IDEzL2RyaXZlcnMvbmV0L2JueDIuYyAxNC9kcml2ZXJzL25ldC9ibngyLmMNCi0t
-LSAxMy9kcml2ZXJzL25ldC9ibngyLmMJMjAwNS0wNS0yMyAxMDo1Nzo0MS4wMDAwMDAwMDAgLTA3
-MDANCisrKyAxNC9kcml2ZXJzL25ldC9ibngyLmMJMjAwNS0wNS0yMyAxMzowMTo0NS4wMDAwMDAw
-MDAgLTA3MDANCkBAIC00MTcyLDcgKzQxNzIsOCBAQA0KIAlzdHJ1Y3QgYm54MiAqYnAgPSBkZXYt
-PnByaXY7DQogCXUzMiByZXNldF9jb2RlOw0KIA0KLQlibngyX2Rpc2FibGVfaW50X3N5bmMoYnAp
-Ow0KKwlmbHVzaF9zY2hlZHVsZWRfd29yaygpOw0KKwlibngyX25ldGlmX3N0b3AoYnApOw0KIAlk
-ZWxfdGltZXJfc3luYygmYnAtPnRpbWVyKTsNCiAJaWYgKGJwLT53b2wpDQogCQlyZXNldF9jb2Rl
-ID0gQk5YMl9EUlZfTVNHX0NPREVfU1VTUEVORF9XT0w7DQo=
+Signed-off by: Pravin B. Shelar <pravins@calsoftinc.com>
 
+Index: linux-2.6.12-rc4/include/net/route.h
+===================================================================
+--- linux-2.6.12-rc4.orig/include/net/route.h	2005-05-06 22:20:31.000000000 -0700
++++ linux-2.6.12-rc4/include/net/route.h	2005-05-24 02:37:10.000000000 -0700
+@@ -181,9 +181,6 @@
+ 		memcpy(&fl, &(*rp)->fl, sizeof(fl));
+ 		fl.fl_ip_sport = sport;
+ 		fl.fl_ip_dport = dport;
+-#if defined(CONFIG_IP_ROUTE_MULTIPATH_CACHED)
+-		fl.flags |= FLOWI_FLAG_MULTIPATHOLDROUTE;
+-#endif
+ 		ip_rt_put(*rp);
+ 		*rp = NULL;
+ 		return ip_route_output_flow(rp, &fl, sk, 0);
+Index: linux-2.6.12-rc4/net/ipv4/multipath_drr.c
+===================================================================
+--- linux-2.6.12-rc4.orig/net/ipv4/multipath_drr.c	2005-05-06 22:20:31.000000000 -0700
++++ linux-2.6.12-rc4/net/ipv4/multipath_drr.c	2005-05-24 02:37:10.000000000 -0700
+@@ -57,7 +57,6 @@
+ 
+ static struct multipath_device state[MULTIPATH_MAX_DEVICECANDIDATES];
+ static DEFINE_SPINLOCK(state_lock);
+-static struct rtable *last_selection = NULL;
+ 
+ static int inline __multipath_findslot(void)
+ {
+@@ -111,11 +110,6 @@
+ 	.notifier_call	= drr_dev_event,
+ };
+ 
+-static void drr_remove(struct rtable *rt)
+-{
+-	if (last_selection == rt)
+-		last_selection = NULL;
+-}
+ 
+ static void drr_safe_inc(atomic_t *usecount)
+ {
+@@ -144,14 +138,6 @@
+ 	int devidx = -1;
+ 	int cur_min_devidx = -1;
+ 
+-       	/* if necessary and possible utilize the old alternative */
+-	if ((flp->flags & FLOWI_FLAG_MULTIPATHOLDROUTE) != 0 &&
+-	    last_selection != NULL) {
+-		result = last_selection;
+-		*rp = result;
+-		return;
+-	}
+-
+ 	/* 1. make sure all alt. nexthops have the same GC related data */
+ 	/* 2. determine the new candidate to be returned */
+ 	result = NULL;
+@@ -229,12 +215,10 @@
+ 	}
+ 
+ 	*rp = result;
+-	last_selection = result;
+ }
+ 
+ static struct ip_mp_alg_ops drr_ops = {
+ 	.mp_alg_select_route	=	drr_select_route,
+-	.mp_alg_remove		=	drr_remove,
+ };
+ 
+ static int __init drr_init(void)
+@@ -244,7 +228,7 @@
+ 	if (err)
+ 		return err;
+ 
+-	err = multipath_alg_register(&drr_ops, IP_MP_ALG_RR);
++	err = multipath_alg_register(&drr_ops, IP_MP_ALG_DRR);
+ 	if (err)
+ 		goto fail;
+ 
+Index: linux-2.6.12-rc4/net/ipv4/multipath_rr.c
+===================================================================
+--- linux-2.6.12-rc4.orig/net/ipv4/multipath_rr.c	2005-05-06 22:20:31.000000000 -0700
++++ linux-2.6.12-rc4/net/ipv4/multipath_rr.c	2005-05-24 02:37:10.000000000 -0700
+@@ -47,29 +47,12 @@
+ #include <net/checksum.h>
+ #include <net/ip_mp_alg.h>
+ 
+-#define MULTIPATH_MAX_CANDIDATES 40
+-
+-static struct rtable* last_used = NULL;
+-
+-static void rr_remove(struct rtable *rt)
+-{
+-	if (last_used == rt)
+-		last_used = NULL;
+-}
+-
+ static void rr_select_route(const struct flowi *flp,
+ 			    struct rtable *first, struct rtable **rp)
+ {
+ 	struct rtable *nh, *result, *min_use_cand = NULL;
+ 	int min_use = -1;
+ 
+-	/* if necessary and possible utilize the old alternative */
+-	if ((flp->flags & FLOWI_FLAG_MULTIPATHOLDROUTE) != 0 &&
+-	    last_used != NULL) {
+-		result = last_used;
+-		goto out;
+-	}
+-
+ 	/* 1. make sure all alt. nexthops have the same GC related data
+ 	 * 2. determine the new candidate to be returned
+ 	 */
+@@ -90,15 +73,12 @@
+ 	if (!result)
+ 		result = first;
+ 
+-out:
+-	last_used = result;
+ 	result->u.dst.__use++;
+ 	*rp = result;
+ }
+ 
+ static struct ip_mp_alg_ops rr_ops = {
+ 	.mp_alg_select_route	=	rr_select_route,
+-	.mp_alg_remove		=	rr_remove,
+ };
+ 
+ static int __init rr_init(void)
 
---=-kVtupVzl5sY8iZGVxtrc--
+--------------090501030509050709090905--
