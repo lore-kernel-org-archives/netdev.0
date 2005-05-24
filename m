@@ -1,111 +1,45 @@
-From: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
-Subject: [PATCH] [BRIDGE]
-Date: Tue, 24 May 2005 10:29:25 +0300 (EEST)
-Message-ID: <Pine.LNX.4.62.0505241024580.19687@webhosting.rdsbv.ro>
+From: Linus Torvalds <torvalds@osdl.org>
+Subject: Re: [git patches] 2.6.x net driver updates
+Date: Tue, 24 May 2005 00:46:35 -0700 (PDT)
+Message-ID: <Pine.LNX.4.58.0505240042550.2307@ppc970.osdl.org>
+References: <4292BA66.8070806@pobox.com> <Pine.LNX.4.58.0505232253160.2307@ppc970.osdl.org>
+ <4292C8EF.3090307@pobox.com> <Pine.LNX.4.58.0505232343260.2307@ppc970.osdl.org>
+ <4292D7E1.80601@pobox.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-1646943047-1535395764-1116919588=:19687"
-Cc: davem@davemloft.net
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-ID: <Pine.LNX.4.62.0505241026340.19687@webhosting.rdsbv.ro>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andrew Morton <akpm@osdl.org>, Netdev <netdev@oss.sgi.com>,
+	Linux Kernel <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261416AbVEXHrr@vger.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <4292D7E1.80601@pobox.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
 
----1646943047-1535395764-1116919588=:19687
-Content-Type: TEXT/PLAIN; CHARSET=US-ASCII; format=flowed
-Content-ID: <Pine.LNX.4.62.0505241026341.19687@webhosting.rdsbv.ro>
 
-Hello!
+On Tue, 24 May 2005, Jeff Garzik wrote:
+> 
+> Ok, I'll fix the commit message.
+> 
+> As for different trees, I'm afraid you've written something that is _too 
+> useful_ to be used in that manner.
 
-This patch set bridge device features using the common features of all 
-slaves. Also, it reacts to features change using ethtool on the slaves.
+I really think you'll eventually confuse yourself terminally, but as long 
+as the commit messages end up being meaningful, your "mush everything 
+together" clearly is the thing that is going to perform best.
 
-This patch depends on NETDEV_FEAT_CHANGE.patch.
+> Git has brought with it a _major_ increase in my productivity because I 
+> can now easily share ~50 branches with 50 different kernel hackers, 
+> without spending all day running rsync.
 
-David, please apply if it looks good.
+Hey, I'm happy it works for you, but are you sure those 50 other kernel 
+hackers aren't confused?
 
-Thank you.
+IOW, your work model is pretty extreme, and I'm much more worried about 
+mixing up trees by mistake than about the technical side of git per se. 
+That's also why I think it's important that the commit logs are 
+meaningful: they do end up containing the SHA1 key, so clearly "all the 
+information" is there, but if something gets mixed up, I'd like some human 
+to be able to eventualyl say "Aaahhh.. _that's_ where it got mixed up".
 
-Signed-off-by: Catalin BOIE <catab at umrella.ro>
----
-Catalin(ux aka Dino) BOIE
-catab at deuroconsult.ro
-http://kernel.umbrella.ro/
----1646943047-1535395764-1116919588=:19687
-Content-Type: TEXT/PLAIN; CHARSET=US-ASCII; NAME=bridge_features.patch
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.62.0505241026280.19687@webhosting.rdsbv.ro>
-Content-Description: 
-Content-Disposition: ATTACHMENT; FILENAME=bridge_features.patch
-
-LS0tIGJyaWRnZTEvbmV0L2JyaWRnZS9icl9wcml2YXRlLmgJMjAwNS0wMy0w
-MiAwOTozNzo1MC4wMDAwMDAwMDAgKzAyMDANCisrKyBsaW51eC9uZXQvYnJp
-ZGdlL2JyX3ByaXZhdGUuaAkyMDA1LTA1LTIzIDExOjExOjIyLjAwMDAwMDAw
-MCArMDMwMA0KQEAgLTI3LDYgKzI3LDEwIEBADQogI2RlZmluZSBCUl9QT1JU
-X0JJVFMJMTANCiAjZGVmaW5lIEJSX01BWF9QT1JUUwkoMTw8QlJfUE9SVF9C
-SVRTKQ0KIA0KKyNkZWZpbmUgQlJfRkVBVF9NQVNLCShORVRJRl9GX1NHIFwN
-CisJCQl8IE5FVElGX0ZfRlJBR0xJU1QgXA0KKwkJCXwgTkVUSUZfRl9ISUdI
-RE1BIHwgTkVUSUZfRl9UU08pDQorDQogdHlwZWRlZiBzdHJ1Y3QgYnJpZGdl
-X2lkIGJyaWRnZV9pZDsNCiB0eXBlZGVmIHN0cnVjdCBtYWNfYWRkciBtYWNf
-YWRkcjsNCiB0eXBlZGVmIF9fdTE2IHBvcnRfaWQ7DQpAQCAtMTc0LDYgKzE3
-OCw3IEBAIGV4dGVybiBpbnQgYnJfYWRkX2lmKHN0cnVjdCBuZXRfYnJpZGdl
-ICoNCiBleHRlcm4gaW50IGJyX2RlbF9pZihzdHJ1Y3QgbmV0X2JyaWRnZSAq
-YnIsDQogCSAgICAgIHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpOw0KIGV4dGVy
-biBpbnQgYnJfbWluX210dShjb25zdCBzdHJ1Y3QgbmV0X2JyaWRnZSAqYnIp
-Ow0KK2V4dGVybiB2b2lkIGJyX2ZlYXR1cmVzX3JlY29tcHV0ZShzdHJ1Y3Qg
-bmV0X2JyaWRnZSAqYnIpOw0KIA0KIC8qIGJyX2lucHV0LmMgKi8NCiBleHRl
-cm4gaW50IGJyX2hhbmRsZV9mcmFtZV9maW5pc2goc3RydWN0IHNrX2J1ZmYg
-KnNrYik7DQotLS0gYnJpZGdlMS9uZXQvYnJpZGdlL2JyX25vdGlmeS5jCTIw
-MDUtMDMtMjYgMDU6Mjg6MTQuMDAwMDAwMDAwICswMjAwDQorKysgbGludXgv
-bmV0L2JyaWRnZS9icl9ub3RpZnkuYwkyMDA1LTA1LTIzIDExOjIwOjE0LjAw
-MDAwMDAwMCArMDMwMA0KQEAgLTY1LDYgKzY1LDEwIEBAIHN0YXRpYyBpbnQg
-YnJfZGV2aWNlX2V2ZW50KHN0cnVjdCBub3RpZmkNCiAJCX0NCiAJCWJyZWFr
-Ow0KIA0KKwljYXNlIE5FVERFVl9GRUFUX0NIQU5HRToNCisJCWJyX2ZlYXR1
-cmVzX3JlY29tcHV0ZShicik7DQorCQlicmVhazsNCisNCiAJY2FzZSBORVRE
-RVZfRE9XTjoNCiAJCWlmIChici0+ZGV2LT5mbGFncyAmIElGRl9VUCkNCiAJ
-CQlicl9zdHBfZGlzYWJsZV9wb3J0KHApOw0KLS0tIGJyaWRnZTEvbmV0L2Jy
-aWRnZS9icl9kZXZpY2UuYwkyMDA1LTAzLTAyIDA5OjM3OjMwLjAwMDAwMDAw
-MCArMDIwMA0KKysrIGxpbnV4L25ldC9icmlkZ2UvYnJfZGV2aWNlLmMJMjAw
-NS0wNS0yMCAwODo1MzozNy4wMDAwMDAwMDAgKzAzMDANCkBAIC0xMDcsNCAr
-MTA3LDUgQEAgdm9pZCBicl9kZXZfc2V0dXAoc3RydWN0IG5ldF9kZXZpY2Ug
-KmRldg0KIAlkZXYtPnR4X3F1ZXVlX2xlbiA9IDA7DQogCWRldi0+c2V0X21h
-Y19hZGRyZXNzID0gTlVMTDsNCiAJZGV2LT5wcml2X2ZsYWdzID0gSUZGX0VC
-UklER0U7DQorCWRldi0+ZmVhdHVyZXMgPSBCUl9GRUFUX01BU0sgfCBORVRJ
-Rl9GX05PX0NTVU0gfCBORVRJRl9GX0xMVFg7DQogfQ0KLS0tIGJyaWRnZTEv
-bmV0L2JyaWRnZS9icl9pZi5jCTIwMDUtMDMtMDIgMDk6Mzg6MzMuMDAwMDAw
-MDAwICswMjAwDQorKysgbGludXgvbmV0L2JyaWRnZS9icl9pZi5jCTIwMDUt
-MDUtMjAgMDk6MTg6MjkuMDAwMDAwMDAwICswMzAwDQpAQCAtMzE0LDYgKzMx
-NCwyNyBAQCBpbnQgYnJfbWluX210dShjb25zdCBzdHJ1Y3QgbmV0X2JyaWRn
-ZSAqDQogCXJldHVybiBtdHU7DQogfQ0KIA0KKy8qDQorICogSWYgc2xhdmUg
-ZGV2aWNlIChAZGV2KSBkb2Vzbid0IHN1cHBvcnQgc3BlY2lhbCBmZWF0dXJl
-cywNCisgKiB0dXJuIHRoZW0gb2ZmIGdsb2JhbGx5Lg0KKyAqLw0KK3ZvaWQg
-YnJfZmVhdHVyZXNfY2hhbmdlKHN0cnVjdCBuZXRfYnJpZGdlICpiciwgc3Ry
-dWN0IG5ldF9kZXZpY2UgKmRldikNCit7DQorCWJyLT5kZXYtPmZlYXR1cmVz
-ICY9IGRldi0+ZmVhdHVyZXMgfCB+QlJfRkVBVF9NQVNLOw0KK30NCisNCisv
-Kg0KKyAqIFJlY29tcHV0ZXMgZmVhdHVyZXMgdXNpbmcgc2xhdmUncyBmZWF0
-dXJlcw0KKyAqLw0KK3ZvaWQgYnJfZmVhdHVyZXNfcmVjb21wdXRlKHN0cnVj
-dCBuZXRfYnJpZGdlICpicikNCit7DQorCXN0cnVjdCBuZXRfYnJpZGdlX3Bv
-cnQgKnA7DQorDQorCWJyLT5kZXYtPmZlYXR1cmVzIHw9IEJSX0ZFQVRfTUFT
-SzsNCisJbGlzdF9mb3JfZWFjaF9lbnRyeShwLCAmYnItPnBvcnRfbGlzdCwg
-bGlzdCkNCisJCWJyX2ZlYXR1cmVzX2NoYW5nZShiciwgcC0+ZGV2KTsNCit9
-DQorDQogLyogY2FsbGVkIHdpdGggUlROTCAqLw0KIGludCBicl9hZGRfaWYo
-c3RydWN0IG5ldF9icmlkZ2UgKmJyLCBzdHJ1Y3QgbmV0X2RldmljZSAqZGV2
-KQ0KIHsNCkBAIC0zMzIsOSArMzUzLDEwIEBAIGludCBicl9hZGRfaWYoc3Ry
-dWN0IG5ldF9icmlkZ2UgKmJyLCBzdHINCiAJaWYgKElTX0VSUihwID0gbmV3
-X25icChiciwgZGV2LCBicl9pbml0aWFsX3BvcnRfY29zdChkZXYpKSkpDQog
-CQlyZXR1cm4gUFRSX0VSUihwKTsNCiANCisJYnJfZmVhdHVyZXNfY2hhbmdl
-KGJyLCBkZXYpOw0KKw0KICAJaWYgKChlcnIgPSBicl9mZGJfaW5zZXJ0KGJy
-LCBwLCBkZXYtPmRldl9hZGRyLCAxKSkpDQogCQlkZXN0cm95X25icChwKTsN
-Ci0gDQogCWVsc2UgaWYgKChlcnIgPSBicl9zeXNmc19hZGRpZihwKSkpDQog
-CQlkZWxfbmJwKHApOw0KIAllbHNlIHsNCkBAIC0zNjgsNiArMzkwLDcgQEAg
-aW50IGJyX2RlbF9pZihzdHJ1Y3QgbmV0X2JyaWRnZSAqYnIsIHN0cg0KIA0K
-IAlzcGluX2xvY2tfYmgoJmJyLT5sb2NrKTsNCiAJYnJfc3RwX3JlY2FsY3Vs
-YXRlX2JyaWRnZV9pZChicik7DQorCWJyX2ZlYXR1cmVzX3JlY29tcHV0ZShi
-cik7DQogCXNwaW5fdW5sb2NrX2JoKCZici0+bG9jayk7DQogDQogCXJldHVy
-biAwOw0K
-
----1646943047-1535395764-1116919588=:19687--
+		Linus
