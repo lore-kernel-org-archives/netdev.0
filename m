@@ -1,57 +1,70 @@
-From: pravin b shelar <pravins@calsoftinc.com>
-Subject: Re: [PATCH] : bug fix in multipath drr code.
-Date: Tue, 24 May 2005 12:16:38 +0530
-Message-ID: <4292CDCE.2090600@calsoftinc.com>
-References: <4291CBFF.6080106@calsoftinc.com> <20050523232224.GA25349@gondor.apana.org.au>
+From: Linus Torvalds <torvalds@osdl.org>
+Subject: Re: [git patches] 2.6.x net driver updates
+Date: Mon, 23 May 2005 23:48:33 -0700 (PDT)
+Message-ID: <Pine.LNX.4.58.0505232343260.2307@ppc970.osdl.org>
+References: <4292BA66.8070806@pobox.com> <Pine.LNX.4.58.0505232253160.2307@ppc970.osdl.org>
+ <4292C8EF.3090307@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, "David S. Miller" <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andrew Morton <akpm@osdl.org>, Netdev <netdev@oss.sgi.com>,
+        Linux Kernel <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050523232224.GA25349@gondor.apana.org.au>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <4292C8EF.3090307@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
 
->On Mon, May 23, 2005 at 05:56:39PM +0530, pravin wrote:
->  
->
->>        	/* if necessary and possible utilize the old alternative */
->>-	if ((flp->flags & FLOWI_FLAG_MULTIPATHOLDROUTE) != 0 &&
->>-	    last_selection != NULL) {
->>-		result = last_selection;
->>-		*rp = result;
->>-		return;
->>+	if ((flp->flags & FLOWI_FLAG_MULTIPATHOLDROUTE) != 0 ) {
->>+		struct rtable *last_result = last_selection;
->>+		if(last_result != NULL &&
->>+		   multipath_comparekeys(&last_result->fl, flp)) {
->>+			*rp = last_result;
->>+			return;
->>+		}
->> 	}
->>    
->>
->
->You don't need all this code.  All you need to do is do
->result = last_selection before the if condition and then
->check result in the if condition instead of last_selection.
->
->The multipath_comparekeys isn't necessary either.
->
->  
->
-In concurrent invocations of drr_select_route() last_selection will
-change to different route.
-So in that case we can not  use last_selection route on basis of
-FLOWI_FLAG_MULTIPATHOLDROUTE flag only, since old
-route might be totally different due another invocation of same function.
-So, I think multipath_comparekeys is necessary.
 
-Please correct me if I am wrong.
+On Tue, 24 May 2005, Jeff Garzik wrote:
+> 
+> You are getting precisely the same thing you got under BitKeeper:  pull 
+> from X, you get my tree, which was composed from $N repositories.  The 
+> tree you pull was created by my running 'bk pull' locally $N times.
 
-Regards,
-Pravin.
+No. Under BK, you had DIFFERENT TREES.
+
+What does that mean? They had DIFFERENT NAMES.
+
+Which meant that the commit message was MEANINGFUL.
+
+> Ultimately, you appear to be complaining about:
+> 
+> * your own git-pull-script, which doesn't record the $2 (branch) 
+> argument in the commit message.
+
+Yes, because _my_ pull script is meant to work with the way _I_ have told 
+people (including you) they should work.
+
+The fact that you mush everything up in one tree _despite_ me having told 
+you that isn't a good thing to do is the problem.
+
+Git can technically do it, but then you shouldn't use my scripts, which 
+aren't written for that behaviour.
+
+> Hey, I didn't write git-pull-script, I just use it :)
+
+You don't use it, you MIS-use it. Which is what I'm complaining about.
+
+> Switching heads around?  It sounds like you did not pull from the branch 
+> I mentioned.
+
+No, I pulled exactly from the head you mentioned.
+
+In fact, go look at YOUR OWN changelog. And then compare that changelog to 
+the changelog you had when you used BK, and realize that IT IS NOT AT ALL 
+EQUIVALENT. You used to have valid changelogs, even for the merge heads. 
+You don't any more:
+
+	Automatic merge of /spare/repo/netdev-2.6/.git
+	Automatic merge of /spare/repo/netdev-2.6/.git
+	Automatic merge of /spare/repo/netdev-2.6/.git
+	Automatic merge of /spare/repo/netdev-2.6/.git
+	Merge of /spare/repo/netdev-2.6/.git
+
+See a pattern?
+
+Your BK usage was equivalent to having multiple GIT repositories.
+
+		Linus
