@@ -1,7 +1,7 @@
 From: Jiri Benc <jbenc@suse.cz>
-Subject: [3/5] netdev: HH_DATA_OFF bugfix
-Date: Tue, 24 May 2005 15:12:04 +0200
-Message-ID: <20050524151204.554f73cb@griffin.suse.cz>
+Subject: [5/5] ieee80211: add sequence numbers
+Date: Tue, 24 May 2005 15:13:41 +0200
+Message-ID: <20050524151341.612245e8@griffin.suse.cz>
 References: <20050524150711.01632672@griffin.suse.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -14,22 +14,67 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-When the hardware header size is a multiple of HH_DATA_MOD, HH_DATA_OFF()
-incorrectly returns HH_DATA_MOD (instead of 0).
+Adds sequence numbers to IEEE 802.11 headers.
+
 
 Signed-off-by: Jiri Benc <jbenc@suse.cz>
+Signed-off-by: Jirka Bohac <jbohac@suse.cz>
 
---- linux/include/linux/netdevice.h
-+++ work/include/linux/netdevice.h
-@@ -204,7 +209,7 @@
- 	/* cached hardware header; allow for machine alignment needs.        */
- #define HH_DATA_MOD	16
- #define HH_DATA_OFF(__len) \
--	(HH_DATA_MOD - ((__len) & (HH_DATA_MOD - 1)))
-+	(HH_DATA_MOD - (((__len - 1) & (HH_DATA_MOD - 1)) + 1))
- #define HH_DATA_ALIGN(__len) \
- 	(((__len)+(HH_DATA_MOD-1))&~(HH_DATA_MOD - 1))
- 	unsigned long	hh_data[HH_DATA_ALIGN(LL_MAX_HEADER) / sizeof(long)];
+--- a/include/net/ieee80211.h
++++ b/include/net/ieee80211.h
+@@ -711,6 +711,8 @@
+ 	unsigned int frag_next_idx;
+ 	u16 fts; /* Fragmentation Threshold */
+ 
++	u16 seq_number;	/* sequence number in transmitted frames */
++
+ 	/* Association info */
+ 	u8 bssid[IEEE80211_ALEN];
+ 
+--- a/net/ieee80211/ieee80211_module.c
++++ b/net/ieee80211/ieee80211_module.c
+@@ -333,6 +333,7 @@
+ 
+ 	/* Default fragmentation threshold is maximum payload size */
+ 	ieee->fts = DEFAULT_FTS;
++	ieee->seq_number = 0;
+ 	ieee->scan_age = DEFAULT_MAX_SCAN_AGE;
+ 	ieee->open_wep = 1;
+ 
+--- a/net/ieee80211/ieee80211_tx.c
++++ b/net/ieee80211/ieee80211_tx.c
+@@ -277,6 +277,13 @@
+ 	else
+ 		bytes_last_frag = bytes_per_frag;
+ 
++	if (nr_frags > 16) {
++		/* Should never happen */
++		printk(KERN_WARNING "%s: Fragmentation threshold too low\n",
++			dev->name);
++		goto failed;
++	}
++
+ 	/* When we allocate the TXB we allocate enough space for the reserve
+ 	 * and full fragment bytes (bytes_per_frag doesn't include prefix,
+ 	 * postfix, header, FCS, etc.) */
+@@ -300,6 +307,8 @@
+ 		frag_hdr = (struct ieee80211_hdr *)skb_put(skb_frag, hdr_len);
+ 		memcpy(frag_hdr, header, hdr_len);
+ 
++		frag_hdr->seq_ctl = cpu_to_le16(ieee->seq_number | i);
++
+ 		/* If this is not the last fragment, then add the MOREFRAGS
+ 		 * bit to the frame control */
+ 		if (i != nr_frags - 1) {
+@@ -324,7 +333,7 @@
+ 		    (CFG_IEEE80211_COMPUTE_FCS | CFG_IEEE80211_RESERVE_FCS))
+ 			skb_put(skb_frag, 4);
+ 	}
+-
++	ieee->seq_number += 0x10;
+ 
+  success:
+ 	spin_unlock_irqrestore(&ieee->lock, flags);
 
 
 --
