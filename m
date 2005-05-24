@@ -1,40 +1,46 @@
 From: root@smtp.nexlab.net
 Subject: (no subject)
-Date: Tue, 24 May 2005 11:12:21 +0200 (CEST)
-Message-ID: <20050524091221.286FBFB49@smtp.nexlab.net>
+Date: Tue, 24 May 2005 11:14:53 +0200 (CEST)
+Message-ID: <20050524091453.EBF28FA17@smtp.nexlab.net>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: undisclosed-recipients:;
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-	by smtp.nexlab.net (Postfix) with ESMTP id E2FB1F9E7
+	by smtp.nexlab.net (Postfix) with ESMTP id 1C84EFB6B
 
-	for <buffer@sniffo.org>; Tue, 24 May 2005 04:13:52 +0200 (CEST)
+	for <chiakotay@nexlab.it>; Tue, 24 May 2005 10:01:41 +0200 (CEST)
 
-Received: from oss (localhost [127.0.0.1])
+Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
 
-	by oss.sgi.com (8.12.10/8.12.10/SuSE Linux 0.7) with ESMTP id j4O1kGF3003197;
+	id S261200AbVEXG0J (ORCPT <rfc822;chiakotay@nexlab.it>);
 
-	Mon, 23 May 2005 18:46:16 -0700
+	Tue, 24 May 2005 02:26:09 -0400
 
-Received: with ECARTIS (v1.0.0; list netdev); Mon, 23 May 2005 18:43:59 -0700 (PDT)
+Received: (majordomo@vger.kernel.org) by vger.kernel.org id S261302AbVEXG0J
 
-Received: from mail.dvmed.net (mail.dvmed.net [216.237.124.58])
+	(ORCPT <rfc822;linux-kernel-outgoing>);
 
-	by oss.sgi.com (8.12.10/8.12.10/SuSE Linux 0.7) with ESMTP id j4O1htF3002796
+	Tue, 24 May 2005 02:26:09 -0400
 
-	for <netdev@oss.sgi.com>; Mon, 23 May 2005 18:43:55 -0700
+Received: from mail.dvmed.net ([216.237.124.58]:4813 "EHLO mail.dvmed.net")
+
+	by vger.kernel.org with ESMTP id S261200AbVEXGZ5 (ORCPT
+
+	<rfc822;linux-kernel@vger.kernel.org>);
+
+	Tue, 24 May 2005 02:25:57 -0400
 
 Received: from cpe-065-184-065-144.nc.res.rr.com ([65.184.65.144] helo=[10.10.10.88])
 
 	by mail.dvmed.net with esmtpsa (Exim 4.51 #1 (Red Hat Linux))
 
-	id 1DaORj-00017L-8S; Tue, 24 May 2005 01:43:04 +0000
+	id 1DaSrU-0001Og-4d; Tue, 24 May 2005 06:25:56 +0000
 
-Message-ID: <429286A3.1060606@pobox.com>
+Message-ID: <4292C8EF.3090307@pobox.com>
 
-Date: Mon, 23 May 2005 21:42:59 -0400
+Date:	Tue, 24 May 2005 02:25:51 -0400
 
 From: Jeff Garzik <jgarzik@pobox.com>
 User-Agent: Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.7.6) Gecko/20050328 Fedora/1.7.6-1.2.5
@@ -43,72 +49,85 @@ X-Accept-Language: en-us, en
 
 MIME-Version: 1.0
 
-To: Michael Chan <mchan@broadcom.com>
-Cc: davem@davemloft.net, netdev@oss.sgi.com
-Subject: Re: [PATCH 1/6] bnx2: Fix excessive stack usage
+To: Linus Torvalds <torvalds@osdl.org>
+Cc: Andrew Morton <akpm@osdl.org>, Netdev <netdev@oss.sgi.com>,
+	Linux Kernel <linux-kernel@vger.kernel.org>
+Subject: Re: [git patches] 2.6.x net driver updates
 
-References: <1116892439.4908.1.camel@rh4> <1116894307.4908.28.camel@rh4>
+References: <4292BA66.8070806@pobox.com> <Pine.LNX.4.58.0505232253160.2307@ppc970.osdl.org>
 
-In-Reply-To: <1116894307.4908.28.camel@rh4>
+In-Reply-To: <Pine.LNX.4.58.0505232253160.2307@ppc970.osdl.org>
 
 Content-Type: text/plain; charset=us-ascii; format=flowed
 
 Content-Transfer-Encoding: 7bit
 
-X-archive-position: 1536
+X-Spam-Score: 0.0 (/)
 
-X-ecartis-version: Ecartis v1.0.0
-
-Sender: netdev-bounce@oss.sgi.com
-Errors-To: netdev-bounce@oss.sgi.com
-X-original-sender: jgarzik@pobox.com
-
+Sender: linux-kernel-owner@vger.kernel.org
 Precedence: bulk
 
-X-list: netdev
-
-X-Virus-Scanned: ClamAV 0.83/892/Mon May 23 10:52:19 2005 on oss.sgi.com
-
-X-Virus-Status: Clean
+X-Mailing-List:	linux-kernel@vger.kernel.org
 
 
 
-Michael Chan wrote:
-> diff -Nru 10/drivers/net/bnx2.c 11/drivers/net/bnx2.c
-> --- 10/drivers/net/bnx2.c	2005-05-23 10:20:02.000000000 -0700
-> +++ 11/drivers/net/bnx2.c	2005-05-23 10:20:20.000000000 -0700
-> @@ -1138,13 +1138,20 @@
->  	}
->  }
->  
-> -static void
-> +static int
->  bnx2_alloc_bad_rbuf(struct bnx2 *bp)
->  {
-> -	u16 good_mbuf[512];
-> +	u16 *good_mbuf;
->  	u32 good_mbuf_cnt;
->  	u32 val;
->  
-> +	good_mbuf = kmalloc(512 * sizeof(u16), GFP_KERNEL);
-> +	if (good_mbuf == NULL) {
-> +		printk(KERN_ERR PFX "Failed to allocate memory in "
-> +				    "bnx2_alloc_bad_rbuf\n");
-> +		return -ENOMEM;
-> +	}
-> +
->  	REG_WR(bp, BNX2_MISC_ENABLE_SET_BITS,
->  		BNX2_MISC_ENABLE_SET_BITS_RX_MBUF_ENABLE);
->  
-> @@ -1178,6 +1185,7 @@
->  
->  		REG_WR_IND(bp, BNX2_RBUF_FW_BUF_FREE, val);
->  	}
-> +	return 0;
->  }
->  
->  static void
+Linus Torvalds wrote:
+> 
+> On Tue, 24 May 2005, Jeff Garzik wrote:
+> 
+> 
+>>Please pull the 'for-linus' branch from
+>>
+>>rsync://rsync.kernel.org/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git
+> 
+> 
+> Is this really what you meant to do? There's seven merges there, none of
+> which have _any_ information about _what_ you merged, because you've mixed
+> everything up in one tree, so that there's absolutely no record of the
+> fact that you actually had seven different repositories that you pulled..
+> 
+> That sucks, Jeff.
+> 
+> I don't understand why you don't use different trees, like you did with
+> BK. You can share the object directory with the different trees, but the
+> way you work now, it all looks like mush.
+> 
+> Even if you don't get confused youself, you sure are confusing everybody 
+> else with it..
 
-memleak -- you need to free good_mbuf.
+You are getting precisely the same thing you got under BitKeeper:  pull 
+from X, you get my tree, which was composed from $N repositories.  The 
+tree you pull was created by my running 'bk pull' locally $N times.
+
+Ultimately, you appear to be complaining about:
+
+* your own git-pull-script, which doesn't record the $2 (branch) 
+argument in the commit message.
+
+* the fact that my changelog includes the merge csets that were 
+present-but-invisible by my BitKeeper submissions.  i.e. I lack a 
+shortlog that filters out merge csets.
+
+
+
+> Anyway, if you really want to work this way, with one big mushed-together
+> thing that has different heads that you keep track of, can you _please_ at
+> least make the commit message tell what you're doing. It's not a complex 
+
+Hey, I didn't write git-pull-script, I just use it :)
+
+
+> script, and you're definitely mis-using it as things stand now by 
+> switching heads around inside one repository, and not telling other people 
+> about it.
+
+Switching heads around?  It sounds like you did not pull from the branch 
+I mentioned.  This is how git-pull-script pulls from a branch:
+
+git-pull-script \
+rsync://rsync.kernel.org/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git\
+  refs/heads/for-linus
 
 	Jeff
+
+
