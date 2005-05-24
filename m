@@ -1,95 +1,114 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: [XFRM] Call dst_check() with appropriate cookie
-Date: Tue, 24 May 2005 17:49:31 +0900 (JST)
-Message-ID: <20050524.174931.46801018.yoshfuji@linux-ipv6.org>
-References: <20050524.124919.00464304.yoshfuji@linux-ipv6.org>
-	<20050524082021.GA31446@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org,
-        kazunori@miyazawa.org
+From: root@smtp.nexlab.net
+Subject: (no subject)
+Date: Tue, 24 May 2005 11:12:21 +0200 (CEST)
+Message-ID: <20050524091221.286FBFB49@smtp.nexlab.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@davemloft.net
-In-Reply-To: <20050524082021.GA31446@gondor.apana.org.au>
+To: undisclosed-recipients:;
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20050524082021.GA31446@gondor.apana.org.au> (at Tue, 24 May 2005 18:20:21 +1000), Herbert Xu <herbert@gondor.apana.org.au> says:
+	by smtp.nexlab.net (Postfix) with ESMTP id E2FB1F9E7
 
-> Also, can rt6i_node be NULL?
+	for <buffer@sniffo.org>; Tue, 24 May 2005 04:13:52 +0200 (CEST)
 
-Good point.  Here's updated patch.
+Received: from oss (localhost [127.0.0.1])
 
------------------
-From: Kazunori Miyazawa <kazunori@miyazawa.org>
+	by oss.sgi.com (8.12.10/8.12.10/SuSE Linux 0.7) with ESMTP id j4O1kGF3003197;
 
-[XFRM] Call dst_check() with appropriate cookie
+	Mon, 23 May 2005 18:46:16 -0700
 
-This fixes infinite loop issue with IPv6 tunnel mode.
+Received: with ECARTIS (v1.0.0; list netdev); Mon, 23 May 2005 18:43:59 -0700 (PDT)
 
-Signed-off-by: Kazunori Miyazawa <kazunori@miyazawa.org>
-Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Received: from mail.dvmed.net (mail.dvmed.net [216.237.124.58])
 
-Index: include/net/xfrm.h
-===================================================================
---- 5b713315560487f8c288820b17061fe27016c2cc/include/net/xfrm.h  (mode:100644)
-+++ uncommitted/include/net/xfrm.h  (mode:100644)
-@@ -515,6 +515,8 @@
- 	struct dst_entry *route;
- 	u32 route_mtu_cached;
- 	u32 child_mtu_cached;
-+	u32 route_cookie;
-+	u32 path_cookie;
- };
- 
- static inline void xfrm_dst_destroy(struct xfrm_dst *xdst)
-Index: net/ipv6/xfrm6_policy.c
-===================================================================
---- 5b713315560487f8c288820b17061fe27016c2cc/net/ipv6/xfrm6_policy.c  (mode:100644)
-+++ uncommitted/net/ipv6/xfrm6_policy.c  (mode:100644)
-@@ -113,6 +113,8 @@
- 
- 		xdst = (struct xfrm_dst *)dst1;
- 		xdst->route = &rt->u.dst;
-+		if (rt->rt6i_node)
-+			xdst->route_cookie = rt->rt6i_node->fn_sernum;
- 
- 		dst1->next = dst_prev;
- 		dst_prev = dst1;
-@@ -137,6 +139,8 @@
- 
- 	dst_prev->child = &rt->u.dst;
- 	dst->path = &rt->u.dst;
-+	if (rt->rt6i_node)
-+		((struct xfrm_dst *)dst)->path_cookie = rt->rt6i_node->fn_sernum;
- 
- 	*dst_p = dst;
- 	dst = dst_prev;
-Index: net/xfrm/xfrm_policy.c
-===================================================================
---- 5b713315560487f8c288820b17061fe27016c2cc/net/xfrm/xfrm_policy.c  (mode:100644)
-+++ uncommitted/net/xfrm/xfrm_policy.c  (mode:100644)
-@@ -1136,7 +1136,7 @@
- 	struct xfrm_dst *last;
- 	u32 mtu;
- 
--	if (!dst_check(dst->path, 0) ||
-+	if (!dst_check(dst->path, ((struct xfrm_dst *)dst)->path_cookie) ||
- 	    (dst->dev && !netif_running(dst->dev)))
- 		return 0;
- 
-@@ -1156,7 +1156,7 @@
- 			xdst->child_mtu_cached = mtu;
- 		}
- 
--		if (!dst_check(xdst->route, 0))
-+		if (!dst_check(xdst->route, xdst->route_cookie))
- 			return 0;
- 		mtu = dst_mtu(xdst->route);
- 		if (xdst->route_mtu_cached != mtu) {
+	by oss.sgi.com (8.12.10/8.12.10/SuSE Linux 0.7) with ESMTP id j4O1htF3002796
 
--- 
-YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
-GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+	for <netdev@oss.sgi.com>; Mon, 23 May 2005 18:43:55 -0700
+
+Received: from cpe-065-184-065-144.nc.res.rr.com ([65.184.65.144] helo=[10.10.10.88])
+
+	by mail.dvmed.net with esmtpsa (Exim 4.51 #1 (Red Hat Linux))
+
+	id 1DaORj-00017L-8S; Tue, 24 May 2005 01:43:04 +0000
+
+Message-ID: <429286A3.1060606@pobox.com>
+
+Date: Mon, 23 May 2005 21:42:59 -0400
+
+From: Jeff Garzik <jgarzik@pobox.com>
+User-Agent: Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.7.6) Gecko/20050328 Fedora/1.7.6-1.2.5
+
+X-Accept-Language: en-us, en
+
+MIME-Version: 1.0
+
+To: Michael Chan <mchan@broadcom.com>
+Cc: davem@davemloft.net, netdev@oss.sgi.com
+Subject: Re: [PATCH 1/6] bnx2: Fix excessive stack usage
+
+References: <1116892439.4908.1.camel@rh4> <1116894307.4908.28.camel@rh4>
+
+In-Reply-To: <1116894307.4908.28.camel@rh4>
+
+Content-Type: text/plain; charset=us-ascii; format=flowed
+
+Content-Transfer-Encoding: 7bit
+
+X-archive-position: 1536
+
+X-ecartis-version: Ecartis v1.0.0
+
+Sender: netdev-bounce@oss.sgi.com
+Errors-To: netdev-bounce@oss.sgi.com
+X-original-sender: jgarzik@pobox.com
+
+Precedence: bulk
+
+X-list: netdev
+
+X-Virus-Scanned: ClamAV 0.83/892/Mon May 23 10:52:19 2005 on oss.sgi.com
+
+X-Virus-Status: Clean
+
+
+
+Michael Chan wrote:
+> diff -Nru 10/drivers/net/bnx2.c 11/drivers/net/bnx2.c
+> --- 10/drivers/net/bnx2.c	2005-05-23 10:20:02.000000000 -0700
+> +++ 11/drivers/net/bnx2.c	2005-05-23 10:20:20.000000000 -0700
+> @@ -1138,13 +1138,20 @@
+>  	}
+>  }
+>  
+> -static void
+> +static int
+>  bnx2_alloc_bad_rbuf(struct bnx2 *bp)
+>  {
+> -	u16 good_mbuf[512];
+> +	u16 *good_mbuf;
+>  	u32 good_mbuf_cnt;
+>  	u32 val;
+>  
+> +	good_mbuf = kmalloc(512 * sizeof(u16), GFP_KERNEL);
+> +	if (good_mbuf == NULL) {
+> +		printk(KERN_ERR PFX "Failed to allocate memory in "
+> +				    "bnx2_alloc_bad_rbuf\n");
+> +		return -ENOMEM;
+> +	}
+> +
+>  	REG_WR(bp, BNX2_MISC_ENABLE_SET_BITS,
+>  		BNX2_MISC_ENABLE_SET_BITS_RX_MBUF_ENABLE);
+>  
+> @@ -1178,6 +1185,7 @@
+>  
+>  		REG_WR_IND(bp, BNX2_RBUF_FW_BUF_FREE, val);
+>  	}
+> +	return 0;
+>  }
+>  
+>  static void
+
+memleak -- you need to free good_mbuf.
+
+	Jeff
