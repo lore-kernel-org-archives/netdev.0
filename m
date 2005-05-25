@@ -1,23 +1,61 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [git patches try2] 2.6.x net driver updates
-Date: Wed, 25 May 2005 19:03:39 -0400
-Message-ID: <4295044B.7090604@pobox.com>
-References: <4294BD9C.2050105@pobox.com> <Pine.LNX.4.58.0505251200040.2307@ppc970.osdl.org> <42950334.9090402@pobox.com>
+From: Olaf Hering <olh@suse.de>
+Subject: [PATCH] uninitialized variable in prism54 isl38xx_trigger_device
+Date: Thu, 26 May 2005 01:16:51 +0200
+Message-ID: <20050525231651.GA21816@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, Netdev <netdev@oss.sgi.com>,
-        Linux Kernel <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Linus Torvalds <torvalds@osdl.org>
-In-Reply-To: <42950334.9090402@pobox.com>
+To: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com,
+        prism54-private@prism54.org
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Not specialized at all.  I do one pull at a time, so git-pull-script 
-> suffices with a simple addition to call git-resolve-script with the 
-> branch as $4, and a simple addition to git-resolve-script to add 'branch 
 
-Correction: new $4 arg was added to git-resolve-script, not git-pull-script
+drivers/net/wireless/prism54/isl_38xx.c:131: warning: 'current_time.tv_sec' is used uninitialized in this function
+drivers/net/wireless/prism54/isl_38xx.c:131: warning: 'current_time.tv_usec' is used uninitialized in this function
+
+Signed-off-by: Olaf Hering <olh@suse.de>
+Index: linux-2.6.12-rc5-olh/drivers/net/wireless/prism54/isl_38xx.c
+===================================================================
+--- linux-2.6.12-rc5-olh.orig/drivers/net/wireless/prism54/isl_38xx.c
++++ linux-2.6.12-rc5-olh/drivers/net/wireless/prism54/isl_38xx.c
+@@ -112,10 +112,10 @@ isl38xx_handle_wakeup(isl38xx_control_bl
+ void
+ isl38xx_trigger_device(int asleep, void __iomem *device_base)
+ {
+-	struct timeval current_time;
+ 	u32 reg, counter = 0;
+ 
+ #if VERBOSE > SHOW_ERROR_MESSAGES
++	struct timeval current_time;
+ 	DEBUG(SHOW_FUNCTION_CALLS, "isl38xx trigger device\n");
+ #endif
+ 
+@@ -126,11 +126,11 @@ isl38xx_trigger_device(int asleep, void 
+ 		do_gettimeofday(&current_time);
+ 		DEBUG(SHOW_TRACING, "%08li.%08li Device wakeup triggered\n",
+ 		      current_time.tv_sec, (long)current_time.tv_usec);
+-#endif
+ 
+ 		DEBUG(SHOW_TRACING, "%08li.%08li Device register read %08x\n",
+ 		      current_time.tv_sec, (long)current_time.tv_usec,
+ 		      readl(device_base + ISL38XX_CTRL_STAT_REG));
++#endif
+ 		udelay(ISL38XX_WRITEIO_DELAY);
+ 
+ 		reg = readl(device_base + ISL38XX_INT_IDENT_REG);
+@@ -148,10 +148,12 @@ isl38xx_trigger_device(int asleep, void 
+ 				counter++;
+ 			}
+ 
++#if VERBOSE > SHOW_ERROR_MESSAGES
+ 			DEBUG(SHOW_TRACING,
+ 			      "%08li.%08li Device register read %08x\n",
+ 			      current_time.tv_sec, (long)current_time.tv_usec,
+ 			      readl(device_base + ISL38XX_CTRL_STAT_REG));
++#endif
+ 			udelay(ISL38XX_WRITEIO_DELAY);
+ 
+ #if VERBOSE > SHOW_ERROR_MESSAGES
