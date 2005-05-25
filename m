@@ -1,38 +1,58 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: [PATCH] NETDEV: Elecom (Laneed) LD-USBL/TX support.
-Date: Wed, 25 May 2005 16:06:59 +0900 (JST)
-Message-ID: <20050525.160659.60635970.yoshfuji@linux-ipv6.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org, nakam@linux-ipv6.org,
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] NETDEV: fix receiving multicast frames.
+Date: Wed, 25 May 2005 18:19:14 +1000
+Message-ID: <E1Dar6g-0002R8-00@gondolin.me.apana.org.au>
+References: <20050525.160704.28910448.yoshfuji@linux-ipv6.org>
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org,
         usagi-core@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jgarzik@pobox.com
+To: yoshfuji@linux-ipv6.org (YOSHIFUJI Hideaki / ????)
+In-Reply-To: <20050525.160704.28910448.yoshfuji@linux-ipv6.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+YOSHIFUJI Hideaki / ???? <yoshfuji@linux-ipv6.org> wrote:
+> From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> 
+> Some USB ethernet drivers did not accept multicast frames appropriately.
+> IPv6 did not work with those drivers without this patch.
+> 
+> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> 
+> Index: drivers/usb/net/pegasus.c
+> ===================================================================
+> --- 5b713315560487f8c288820b17061fe27016c2cc/drivers/usb/net/pegasus.c  (mode:100644)
+> +++ uncommitted/drivers/usb/net/pegasus.c  (mode:100644)
+> @@ -1166,7 +1166,7 @@
+>                pegasus->eth_regs[EthCtrl2] |= RX_PROMISCUOUS;
+>                if (netif_msg_link(pegasus))
+>                        pr_info("%s: Promiscuous mode enabled.\n", net->name);
+> -       } else if ((net->mc_count > multicast_filter_limit) ||
+> +       } else if (net->mc_count ||
+>                   (net->flags & IFF_ALLMULTI)) {
+>                pegasus->eth_regs[EthCtrl0] |= RX_MULTICAST;
+>                pegasus->eth_regs[EthCtrl2] &= ~RX_PROMISCUOUS;
+> Index: drivers/usb/net/rtl8150.c
+> ===================================================================
+> --- 5b713315560487f8c288820b17061fe27016c2cc/drivers/usb/net/rtl8150.c  (mode:100644)
+> +++ uncommitted/drivers/usb/net/rtl8150.c  (mode:100644)
+> @@ -667,7 +667,7 @@
+>        if (netdev->flags & IFF_PROMISC) {
+>                dev->rx_creg |= cpu_to_le16(0x0001);
+>                info("%s: promiscuous mode", netdev->name);
+> -       } else if ((netdev->mc_count > multicast_filter_limit) ||
+> +       } else if (netdev->mc_count ||
+>                   (netdev->flags & IFF_ALLMULTI)) {
+>                dev->rx_creg &= cpu_to_le16(0xfffe);
+>                dev->rx_creg |= cpu_to_le16(0x0002);
 
-Elecom (Laneed) LD-USBL/TX support.
+This patch is correct.  However, I presume these chips do actually have
+filter support so it'd be even better if we could utilise that.
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-
-Index: drivers/usb/net/pegasus.h
-===================================================================
---- 5b713315560487f8c288820b17061fe27016c2cc/drivers/usb/net/pegasus.h  (mode:100644)
-+++ uncommitted/drivers/usb/net/pegasus.h  (mode:100644)
-@@ -249,6 +249,8 @@
- 		DEFAULT_GPIO_RESET)
- PEGASUS_DEV( "LANEED USB Ethernet LD-USB/TX", VENDOR_LANEED, 0x4002,
- 		DEFAULT_GPIO_RESET )
-+PEGASUS_DEV( "LANEED USB Ethernet LD-USBL/TX", VENDOR_LANEED, 0x4005,
-+		DEFAULT_GPIO_RESET | PEGASUS_II)
- PEGASUS_DEV( "LANEED USB Ethernet LD-USB/TX", VENDOR_LANEED, 0x400b,
- 		DEFAULT_GPIO_RESET | PEGASUS_II )
- PEGASUS_DEV( "LANEED USB Ethernet LD-USB/T", VENDOR_LANEED, 0xabc1,
-
+Cheers,
 -- 
-YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
-GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
