@@ -1,61 +1,24 @@
-From: Olaf Hering <olh@suse.de>
-Subject: [PATCH] uninitialized variable in prism54 isl38xx_trigger_device
-Date: Thu, 26 May 2005 01:16:51 +0200
-Message-ID: <20050525231651.GA21816@suse.de>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH 2/2][NET] rename struct tcp_listen_opt to struct
+ listen_sock
+Date: Wed, 25 May 2005 16:37:16 -0700 (PDT)
+Message-ID: <20050525.163716.88475834.davem@davemloft.net>
+References: <20050524011758.GJ26989@conectiva.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com,
-        prism54-private@prism54.org
-Content-Disposition: inline
+To: acme@ghostprotocols.net
+In-Reply-To: <20050524011758.GJ26989@conectiva.com.br>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+From: acme@ghostprotocols.net (Arnaldo Carvalho de Melo)
+Date: Mon, 23 May 2005 22:17:58 -0300
 
-drivers/net/wireless/prism54/isl_38xx.c:131: warning: 'current_time.tv_sec' is used uninitialized in this function
-drivers/net/wireless/prism54/isl_38xx.c:131: warning: 'current_time.tv_usec' is used uninitialized in this function
+> rsync://rsync.kernel.org/pub/scm/linux/kernel/git/acme/net-2.6.13.git
 
-Signed-off-by: Olaf Hering <olh@suse.de>
-Index: linux-2.6.12-rc5-olh/drivers/net/wireless/prism54/isl_38xx.c
-===================================================================
---- linux-2.6.12-rc5-olh.orig/drivers/net/wireless/prism54/isl_38xx.c
-+++ linux-2.6.12-rc5-olh/drivers/net/wireless/prism54/isl_38xx.c
-@@ -112,10 +112,10 @@ isl38xx_handle_wakeup(isl38xx_control_bl
- void
- isl38xx_trigger_device(int asleep, void __iomem *device_base)
- {
--	struct timeval current_time;
- 	u32 reg, counter = 0;
- 
- #if VERBOSE > SHOW_ERROR_MESSAGES
-+	struct timeval current_time;
- 	DEBUG(SHOW_FUNCTION_CALLS, "isl38xx trigger device\n");
- #endif
- 
-@@ -126,11 +126,11 @@ isl38xx_trigger_device(int asleep, void 
- 		do_gettimeofday(&current_time);
- 		DEBUG(SHOW_TRACING, "%08li.%08li Device wakeup triggered\n",
- 		      current_time.tv_sec, (long)current_time.tv_usec);
--#endif
- 
- 		DEBUG(SHOW_TRACING, "%08li.%08li Device register read %08x\n",
- 		      current_time.tv_sec, (long)current_time.tv_usec,
- 		      readl(device_base + ISL38XX_CTRL_STAT_REG));
-+#endif
- 		udelay(ISL38XX_WRITEIO_DELAY);
- 
- 		reg = readl(device_base + ISL38XX_INT_IDENT_REG);
-@@ -148,10 +148,12 @@ isl38xx_trigger_device(int asleep, void 
- 				counter++;
- 			}
- 
-+#if VERBOSE > SHOW_ERROR_MESSAGES
- 			DEBUG(SHOW_TRACING,
- 			      "%08li.%08li Device register read %08x\n",
- 			      current_time.tv_sec, (long)current_time.tv_usec,
- 			      readl(device_base + ISL38XX_CTRL_STAT_REG));
-+#endif
- 			udelay(ISL38XX_WRITEIO_DELAY);
- 
- #if VERBOSE > SHOW_ERROR_MESSAGES
+Both changes look good, pulled.  It should show up on kernel.org
+in a little bit.
