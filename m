@@ -1,22 +1,38 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] tokenring: be'ify trh_hdr, trllc, rif_cache_s
-Date: Wed, 25 May 2005 16:43:11 -0700 (PDT)
-Message-ID: <20050525.164311.131104203.davem@davemloft.net>
-References: <200505242146.53270.adobriyan@gmail.com>
+From: Ian McDonald <imcdnzl@gmail.com>
+Subject: Re: [PATCH 2/2][NET] rename struct tcp_listen_opt to struct listen_sock
+Date: Thu, 26 May 2005 11:52:00 +1200
+Message-ID: <cbec11ac0505251652657a2dc1@mail.gmail.com>
+References: <20050524011758.GJ26989@conectiva.com.br>
+	 <20050525.163716.88475834.davem@davemloft.net>
+Reply-To: Ian McDonald <imcdnzl@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: acme@ghostprotocols.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: adobriyan@gmail.com
-In-Reply-To: <200505242146.53270.adobriyan@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050525.163716.88475834.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Date: Tue, 24 May 2005 21:46:53 +0400
+David/Arnaldo,
 
-> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 
-Applied, thanks.
+On 26/05/05, David S. Miller <davem@davemloft.net> wrote:
+> From: acme@ghostprotocols.net (Arnaldo Carvalho de Melo)
+> Date: Mon, 23 May 2005 22:17:58 -0300
+> 
+> > rsync://rsync.kernel.org/pub/scm/linux/kernel/git/acme/net-2.6.13.git
+> 
+> Both changes look good, pulled.  It should show up on kernel.org
+> in a little bit.
+> 
+> 
+Maybe I am looking at the wrong place but when I look at:
+http://kernel.org/git/?p=linux/kernel/git/acme/net-2.6.13.git;a=summary
+
+it shows non-network related patches in there as well. Is this intentional?
+
+Ian
