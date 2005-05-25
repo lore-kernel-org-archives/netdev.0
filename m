@@ -1,93 +1,110 @@
-From: Kumar Gala <kumar.gala@freescale.com>
-Subject: Re: RFC: PHY Abstraction Layer II
-Date: Wed, 25 May 2005 18:00:33 -0500
-Message-ID: <6ad9943e3e0399b677519ad3653847bc@freescale.com>
-References: <1107b64b01fb8e9a6c84359bb56881a6@freescale.com>	<1110334456.32556.21.camel@gaston>	<20050308194229.41c23707.davem@davemloft.net>	<1110340214.32524.32.camel@gaston>
-	<57a429f8eb807987d88b06129861d507@freescale.com>
-	<4230D1AC.5070506@katalix.com>
-	<ba5d844255b5ba76b2685f9397faf689@freescale.com>
-	<423734FB.40101@katalix.com>
-	<96c50184a02557c88dee0e6d17f3a539@freescale.com>
-	<42625DDB.4090600@katalix.com>
-	<30d87aabd768216ef8bee800f3e09b9e@freescale.com>
-Mime-Version: 1.0 (Apple Message framework v619.2)
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: quoted-printable
-Cc: Netdev <netdev@oss.sgi.com>, "David S. Miller" <davem@davemloft.net>,
-	ML linuxppc-embedded <linuxppc-embedded@ozlabs.org>
-Return-path: <linuxppc-embedded-bounces@ozlabs.org>
-In-Reply-To: <30d87aabd768216ef8bee800f3e09b9e@freescale.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
-List-Post: <mailto:linuxppc-embedded@ozlabs.org>
-List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-embedded-bounces@ozlabs.org
-Errors-To: linuxppc-embedded-bounces@ozlabs.org
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [git patches try2] 2.6.x net driver updates
+Date: Wed, 25 May 2005 18:59:00 -0400
+Message-ID: <42950334.9090402@pobox.com>
+References: <4294BD9C.2050105@pobox.com> <Pine.LNX.4.58.0505251200040.2307@ppc970.osdl.org>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="------------000909010807040906020109"
+Cc: Andrew Morton <akpm@osdl.org>, Netdev <netdev@oss.sgi.com>,
+	Linux Kernel <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261592AbVEYW7T@vger.kernel.org>
+To: Linus Torvalds <torvalds@osdl.org>
+In-Reply-To: <Pine.LNX.4.58.0505251200040.2307@ppc970.osdl.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jeff,
+This is a multi-part message in MIME format.
+--------------000909010807040906020109
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Where do we stand on this.  Are there changes you feel need to be made?=20=
+Linus Torvalds wrote:
+> 
+> On Wed, 25 May 2005, Jeff Garzik wrote:
+> 
+>>Does this work better?
+> 
+> 
+> Looks good.
 
-  Some other issue?  It would like to know what we need to do to get=20
-this in post 2.6.12.
+Groovy.
 
-thanks
 
-- kumar
+> If this was automated, are your changes to git-pull-script generic enough 
+> to be useful for others, or did you do a totally specialized one for just 
+> the "lots of heads in the same directory" case?
 
-On May 10, 2005, at 12:04 PM, Fleming Andy-afleming wrote:
+Not specialized at all.  I do one pull at a time, so git-pull-script 
+suffices with a simple addition to call git-resolve-script with the 
+branch as $4, and a simple addition to git-resolve-script to add 'branch 
+$foo' to merge_msg.  See attached (note the patch includes my earlier 
+'optimization' patch).
 
->
->
-> On Apr 17, 2005, at 08:00, James Chapman wrote:
->
-> > Andy Fleming wrote:
-> >> Ok, here's the new patch with changes suggested by James Chapman:
->  >
->  > I guess I still have questions about the way interrupts are used.
->  >
->  > Using an interrupt to schedule a work queue which then sets a=20
-> variable
-> > that is used by a timer seems odd. Why not do all the work in the=20
-> work
->  > queue and schedule it from the interrupt handler or timer?
->
-> Ok, I've set up a new system for handling interrupts.=A0 There are now
->  two "special" interrupt values, PHY_POLL, and PHY_IGNORE_INTERRUPT.=A0
->  The first one is used to indicate that the PHY layer will poll the =
-PHY
-> for state changes, and won't enable interrupts.=A0 The second =
-indicates
-> that the PHY layer will neither poll, nor enable interrupts, and thus
-> will allow the driver to handle interrupts.=A0 The PHY layer will =
-still
-> operate its state machine, though.
->
-> The driver must insure a couple things:
->
-> 1) It must set phydev->state to PHY_CHANGELINK
-> 2) It must do that in a work queue (or other non-interrupt time)
->
-> The first one tells the PHY layer that the link state changed (it has
-> to grab a lock to do this).=A0 The second one is required in order to
-> properly take the lock.
->
-> >
->  > Also, did you mean to leave the #if 0 code in davicom.c?
->
-> For now.=A0 It worked around a problem some people were reporting, so =
-I'd
-> like to see if they report it again now that the code's out.=A0 If so,
-> they have a fairly easy fix, and I can reinsert it (or at least
-> reevaluate it) in the future.
->
-> >
->  > /james
->
-> Andy
-> <phy_05_09_2005.patch><ATT191442.txt>=
+On this last run, I actually just ignored git-pull-script and simply ran 
+git-resolve-script -- since all my objects are in-tree already, I don't 
+need the fetch step:
+
+git-resolve-script $(cat .git/HEAD ) $(cat .git/refs/heads/amd8111) \
+    /spare/repo/netdev-2.6 amd8111
+
+	Jeff
+
+
+
+--------------000909010807040906020109
+Content-Type: text/plain;
+ name="patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="patch"
+
+--- git-resolve-script	2005-05-25 15:21:32.772604549 -0400
++++ /usr/local/bin/git-resolve-script	2005-05-25 13:30:59.568504275 -0400
+@@ -7,6 +7,7 @@
+ head="$1"
+ merge="$2"
+ merge_repo="$3"
++merge_name=${4:-HEAD}
+ 
+ : ${GIT_DIR=.git}
+ : ${GIT_OBJECT_DIRECTORY="${SHA1_FILE_DIRECTORY-"$GIT_DIR/objects"}"}
+@@ -20,7 +21,7 @@
+ # but we do want it.
+ #
+ if [ "$merge_repo" == "" ]; then
+-	echo "git-resolve-script <head> <remote> <merge-repo-name>"
++	echo "git-resolve-script <head> <remote> <merge-repo-name> <branch-name>"
+ 	exit 1
+ fi
+ 
+@@ -39,23 +40,23 @@
+ 	echo "Destroying all noncommitted data!"
+ 	echo "Kill me within 3 seconds.."
+ 	sleep 3
+-	git-read-tree -m $merge && git-checkout-cache -f -u -a
++	git-read-tree -m $merge && git-checkout-cache -f -a && git-update-cache --refresh
+ 	echo $merge > "$GIT_DIR"/HEAD
+ 	git-diff-tree -p ORIG_HEAD HEAD | diffstat -p1
+ 	exit 0
+ fi
+ echo "Trying to merge $merge into $head"
+ git-read-tree -m $common $head $merge
+-merge_msg="Merge of $merge_repo"
++merge_msg="Merge of $merge_repo branch $merge_name"
+ result_tree=$(git-write-tree  2> /dev/null)
+ if [ $? -ne 0 ]; then
+ 	echo "Simple merge failed, trying Automatic merge"
+ 	git-merge-cache git-merge-one-file-script -a
+-	merge_msg="Automatic merge of $merge_repo"
++	merge_msg="Automatic merge of $merge_repo branch $merge_name"
+ 	result_tree=$(git-write-tree) || exit 1
+ fi
+ result_commit=$(echo "$merge_msg" | git-commit-tree $result_tree -p $head -p $merge)
+ echo "Committed merge $result_commit"
+ echo $result_commit > "$GIT_DIR"/HEAD
+-git-checkout-cache -f -u -a
++git-checkout-cache -f -a && git-update-cache --refresh
+ git-diff-tree -p ORIG_HEAD HEAD | diffstat -p1
+
+--------------000909010807040906020109--
