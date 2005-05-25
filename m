@@ -1,24 +1,35 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 2/2][NET] rename struct tcp_listen_opt to struct
- listen_sock
-Date: Wed, 25 May 2005 16:37:16 -0700 (PDT)
-Message-ID: <20050525.163716.88475834.davem@davemloft.net>
-References: <20050524011758.GJ26989@conectiva.com.br>
+Subject: Re: [XFRM] Call dst_check() with appropriate cookie
+Date: Wed, 25 May 2005 16:40:45 -0700 (PDT)
+Message-ID: <20050525.164045.90119936.davem@davemloft.net>
+References: <20050524082021.GA31446@gondor.apana.org.au>
+	<20050524.174931.46801018.yoshfuji@linux-ipv6.org>
+	<20050524115914.GA697@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com, kazunori@miyazawa.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: acme@ghostprotocols.net
-In-Reply-To: <20050524011758.GJ26989@conectiva.com.br>
+To: herbert@gondor.apana.org.au
+In-Reply-To: <20050524115914.GA697@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: acme@ghostprotocols.net (Arnaldo Carvalho de Melo)
-Date: Mon, 23 May 2005 22:17:58 -0300
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Tue, 24 May 2005 21:59:14 +1000
 
-> rsync://rsync.kernel.org/pub/scm/linux/kernel/git/acme/net-2.6.13.git
+> On Tue, May 24, 2005 at 05:49:31PM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ wrote:
+> > 
+> > [XFRM] Call dst_check() with appropriate cookie
+> > 
+> > This fixes infinite loop issue with IPv6 tunnel mode.
+> > 
+> > Signed-off-by: Kazunori Miyazawa <kazunori@miyazawa.org>
+> > Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+> 
+> Looks good.
+> 
+> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Both changes look good, pulled.  It should show up on kernel.org
-in a little bit.
+Applied, thanks everyone.
