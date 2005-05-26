@@ -1,50 +1,51 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [NEIGH] Remove unused fields in struct neigh_parms and neigh_table
-Date: Thu, 26 May 2005 20:55:56 +0200
-Message-ID: <20050526185556.GA15391@postel.suug.ch>
-References: <20050526185306.GW15391@postel.suug.ch>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH 2.6.12-rc5 8/9] tg3: Add interrupt test
+Date: Thu, 26 May 2005 10:59:29 -0700
+Message-ID: <1117130369.3744.60.camel@rh4>
+References: <1117128795.3744.22.camel@rh4>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/mixed;
+ boundary="=-xExx4ZEVLFBGOZNm0WqK"
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20050526185306.GW15391@postel.suug.ch>
+To: davem@davemloft.net
+In-Reply-To: <1117128795.3744.22.camel@rh4>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
+--=-xExx4ZEVLFBGOZNm0WqK
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
----
-commit 45b866033b439e510f3638ce9ac0990446b8b3cd
-tree 72baef0bb9b97ac2990bcca05b8f831b30303008
-parent 3688d656f38445cc120b0970cd437cad1bb929dd
-author Thomas Graf <tgraf@suug.ch> Thu, 26 May 2005 20:42:10 +0200
-committer Thomas Graf <tgraf@suug.ch> Thu, 26 May 2005 20:42:10 +0200
+This test uses the previously added tg3_test_interrupt() to perform the
+test.
 
- include/net/neighbour.h |    3 ---
- 1 files changed, 3 deletions(-)
+Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-Index: include/net/neighbour.h
-===================================================================
---- 2fbcbf92bed82aaef81b2bcc9baecafd61dfb0ce/include/net/neighbour.h  (mode:100644)
-+++ 72baef0bb9b97ac2990bcca05b8f831b30303008/include/net/neighbour.h  (mode:100644)
-@@ -69,8 +69,6 @@
- 	struct neigh_parms *next;
- 	int	(*neigh_setup)(struct neighbour *);
- 	struct neigh_table *tbl;
--	int	entries;
--	void	*priv;
- 
- 	void	*sysctl_table;
- 
-@@ -193,7 +191,6 @@
- 	atomic_t		entries;
- 	rwlock_t		lock;
- 	unsigned long		last_rand;
--	struct neigh_parms	*parms_list;
- 	kmem_cache_t		*kmem_cachep;
- 	struct neigh_statistics	*stats;
- 	struct neighbour	**hash_buckets;
+--=-xExx4ZEVLFBGOZNm0WqK
+Content-Disposition: attachment;
+ filename=tg3-d8.patch
+Content-Type: text/x-patch;
+ charset=utf-8;
+ name=tg3-d8.patch
+Content-Transfer-Encoding: base64
+
+ZGlmZiAtTnJ1IGQ3L2RyaXZlcnMvbmV0L3RnMy5jIGQ4L2RyaXZlcnMvbmV0L3RnMy5jDQotLS0g
+ZDcvZHJpdmVycy9uZXQvdGczLmMJMjAwNS0wNS0yNSAxMjo1OTozOC4wMDAwMDAwMDAgLTA3MDAN
+CisrKyBkOC9kcml2ZXJzL25ldC90ZzMuYwkyMDA1LTA1LTI1IDEyOjU5OjQ2LjAwMDAwMDAwMCAt
+MDcwMA0KQEAgLTU4OTQsNiArNTg5NCw5IEBADQogCWludCBlcnIsIGk7DQogCXUzMiBpbnRfbWJv
+eCA9IDA7DQogDQorCWlmICghbmV0aWZfcnVubmluZyhkZXYpKQ0KKwkJcmV0dXJuIC1FTk9ERVY7
+DQorDQogCXRnM19kaXNhYmxlX2ludHModHApOw0KIA0KIAlmcmVlX2lycSh0cC0+cGRldi0+aXJx
+LCBkZXYpOw0KQEAgLTc3MjksNiArNzczMiwxNSBAQA0KIAkJCWRhdGFbNF0gPSAxOw0KIAkJfQ0K
+IA0KKwkJc3Bpbl91bmxvY2soJnRwLT50eF9sb2NrKTsNCisJCXNwaW5fdW5sb2NrX2lycSgmdHAt
+PmxvY2spOw0KKwkJaWYgKHRnM190ZXN0X2ludGVycnVwdCh0cCkgIT0gMCkgew0KKwkJCWV0ZXN0
+LT5mbGFncyB8PSBFVEhfVEVTVF9GTF9GQUlMRUQ7DQorCQkJZGF0YVs1XSA9IDE7DQorCQl9DQor
+CQlzcGluX2xvY2tfaXJxKCZ0cC0+bG9jayk7DQorCQlzcGluX2xvY2soJnRwLT50eF9sb2NrKTsN
+CisNCiAJCXRnM19oYWx0KHRwLCBSRVNFVF9LSU5EX1NIVVRET1dOLCAxKTsNCiAJCWlmIChuZXRp
+Zl9ydW5uaW5nKGRldikpIHsNCiAJCQl0cC0+dGczX2ZsYWdzIHw9IFRHM19GTEFHX0lOSVRfQ09N
+UExFVEU7DQo=
+
+
+--=-xExx4ZEVLFBGOZNm0WqK--
