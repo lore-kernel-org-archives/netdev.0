@@ -1,25 +1,29 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [Bridge] Re: [PATCH] (6/6) bridge: receive path optimization
-Date: Thu, 26 May 2005 15:54:01 -0700 (PDT)
-Message-ID: <20050526.155401.18310361.davem@davemloft.net>
-References: <20050526110425.27590eb8@dxpl.pdx.osdl.net>
-	<20050526.144638.71091166.davem@davemloft.net>
-	<20050526154857.3cb34d11@dxpl.pdx.osdl.net>
+Subject: Re: [PATCH linux-2.6.12-rc4-mm1] ethtool: Add NETIF_F_HW_CSUM
+ support
+Date: Thu, 26 May 2005 16:00:04 -0700 (PDT)
+Message-ID: <20050526.160004.18577501.davem@davemloft.net>
+References: <20050523210757.GB5910@us.ibm.com>
+	<20050523.142009.74748115.davem@davemloft.net>
+	<20050523145321.49899042@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, bridge@osdl.org
+Cc: jdmason@us.ibm.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: shemminger@osdl.org
-In-Reply-To: <20050526154857.3cb34d11@dxpl.pdx.osdl.net>
+In-Reply-To: <20050523145321.49899042@dxpl.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 From: Stephen Hemminger <shemminger@osdl.org>
-Date: Thu, 26 May 2005 15:48:57 -0700
+Date: Mon, 23 May 2005 14:53:21 -0700
 
-> So the call chain is bounded (ie not related to number of filters)
-> but slightly longer.
+> This patch makes perfect sense because it allows for common code to be
+> used by device drivers in their ethtool_ops. So this is the logical way to handle
+> this.
 
-You're right, thanks for the explanation Stephen.
+You're right, of course.  I've applied the patch.
+
+Thanks.
