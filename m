@@ -1,36 +1,33 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Fw: [Bugme-new] [Bug 4628] New: Test server hang while running rhr (network) test on RHEL4 with kernel 2.6.12-rc1-mm4
-Date: Fri, 27 May 2005 07:34:21 +1000
-Message-ID: <20050526213421.GA8077@gondor.apana.org.au>
-References: <468F3FDA28AA87429AD807992E22D07E056F6B37@orsmsx408>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>, Jian Jun He <hejianj@cn.ibm.com>,
-        anton@samba.org, rende@cn.ibm.com, ganesh.venkatesan@gmail.com,
-        "Brandeburg, Jesse" <jesse.brandeburg@intel.com>, jgarzik@pobox.com,
-        wangjs@cn.ibm.com, "Ronciak, John" <john.ronciak@intel.com>,
-        cdlwangl@cn.ibm.com, linuxppc64-dev@lists.linuxppc.org.sgi.com,
-        netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>
-Content-Disposition: inline
-In-Reply-To: <468F3FDA28AA87429AD807992E22D07E056F6B37@orsmsx408>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Subject: Re: [PATCH 2.6] fix deadlock with ip_queue and tcp local input path
+Date: Fri, 27 May 2005 07:38:57 +1000
+Message-ID: <E1DbQ49-00027X-00@gondolin.me.apana.org.au>
+References: <20050526142420.GD13114@sunbeam.de.gnumonks.org>
+Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: laforge@netfilter.org (Harald Welte)
+In-Reply-To: <20050526142420.GD13114@sunbeam.de.gnumonks.org>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 26, 2005 at 01:41:53PM -0700, Venkatesan, Ganesh wrote:
+Harald Welte <laforge@netfilter.org> wrote:
 > 
-> I already responded to this analysis before. In any case, here it is:
-> 
-> Later versions of e100 (3.4.8 for instance) includes a call to
-> netif_poll_disable in e100_down. This is supposed to wait and when it
+> The patch below adds an additional queue for ip_queue verdicts.  They
+> come up from userspace, are appended to a queue which is then processed
+> by a tasklet.  The tasklet itself runs in softirq context, so when timer
+> hardirq leaves, no tcp_delack_timer() will be executed until
+> nf_reinject() has finished.
 
-As I said last time, this is broken since the code path in question
-starts from tx_timeout which is called in softirq context.  You'll
-need to schedule a work struct at least.
-
-Cheers,
+This seems to be overly complicated if all you want is to do this in
+softirq context.  What's wrong with simply alling local_bh_disable?
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
