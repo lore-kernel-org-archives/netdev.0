@@ -1,29 +1,26 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH linux-2.6.12-rc4-mm1] ethtool: Add NETIF_F_HW_CSUM
- support
-Date: Thu, 26 May 2005 16:00:04 -0700 (PDT)
-Message-ID: <20050526.160004.18577501.davem@davemloft.net>
-References: <20050523210757.GB5910@us.ibm.com>
-	<20050523.142009.74748115.davem@davemloft.net>
-	<20050523145321.49899042@dxpl.pdx.osdl.net>
+Subject: Re: [NET] 2.6.x build warning
+Date: Thu, 26 May 2005 16:06:40 -0700 (PDT)
+Message-ID: <20050526.160640.45179958.davem@davemloft.net>
+References: <42961EDB.7000407@pobox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jdmason@us.ibm.com, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: shemminger@osdl.org
-In-Reply-To: <20050523145321.49899042@dxpl.pdx.osdl.net>
+To: jgarzik@pobox.com
+In-Reply-To: <42961EDB.7000407@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@osdl.org>
-Date: Mon, 23 May 2005 14:53:21 -0700
+From: Jeff Garzik <jgarzik@pobox.com>
+Date: Thu, 26 May 2005 15:09:15 -0400
 
-> This patch makes perfect sense because it allows for common code to be
-> used by device drivers in their ethtool_ops. So this is the logical way to handle
-> this.
+> from current git tree:
+> 
+> net/ipv6/ip6_flowlabel.c: In function `ipv6_flowlabel_opt':
+> net/ipv6/ip6_flowlabel.c:540: warning: ignoring return value of 
+> `copy_to_user', declared with attribute warn_unused_result
 
-You're right, of course.  I've applied the patch.
-
-Thanks.
+I've fixed this warning in my tree, thanks Jeff.
