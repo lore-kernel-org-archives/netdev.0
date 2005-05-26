@@ -1,42 +1,30 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: primary and secondary ip addresses
-Date: Thu, 26 May 2005 20:21:46 +0200
-Message-ID: <20050526182146.GV15391@postel.suug.ch>
-References: <Pine.LNX.4.61.0412171621200.15793@filer.marasystems.com> <1103550901.1050.292.camel@jzny.localdomain> <20050412105442.GV7510@sunbeam.de.gnumonks.org> <200505081531.16106.hasso@estpak.ee> <20050526181118.GK13114@sunbeam.de.gnumonks.org>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: RFC: PHY Abstraction Layer II
+Date: Thu, 26 May 2005 11:32:18 -0700
+Message-ID: <20050526113218.23e44164@dxpl.pdx.osdl.net>
+References: <1107b64b01fb8e9a6c84359bb56881a6@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, Hasso Tepper <hasso@estpak.ee>,
-        netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Harald Welte <laforge@gnumonks.org>
-Content-Disposition: inline
-In-Reply-To: <20050526181118.GK13114@sunbeam.de.gnumonks.org>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@oss.sgi.com>,
+	Embedded PPC Linux list <linuxppc-embedded@ozlabs.org>
+Return-path: <linuxppc-embedded-bounces@ozlabs.org>
+To: Andy Fleming <afleming@freescale.com>
+In-Reply-To: <1107b64b01fb8e9a6c84359bb56881a6@freescale.com>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
+	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
+List-Post: <mailto:linuxppc-embedded@ozlabs.org>
+List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
+	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-embedded-bounces@ozlabs.org
+Errors-To: linuxppc-embedded-bounces@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-* Harald Welte <20050526181118.GK13114@sunbeam.de.gnumonks.org> 2005-05-26 20:11
-> David, would you consider applying that patch to mainline?  I think
-> there was concensus on this solution, and it has now received some
-> amount of testing by Hasso and me.
-
-I agree, I've been running this patch for 3 weeks now without
-any problems. Two comments below.
-
-> @@ -281,6 +289,13 @@
->  		if (!in_dev->ifa_list)
->  			inetdev_destroy(in_dev);
->  	}
-> +
-> +	if (promote && IN_DEV_PROMOTE_SECONDARIES(in_dev)) {
-
-promote can only be !=NULL if promotion is enabled, no?
-
-> +		/* not sure if we should send a delete notify first? */
-> +		promote->ifa_flags &= ~IFA_F_SECONDARY;
-> +		rtmsg_ifa(RTM_NEWADDR, promote);
-
-This can be improved, however sending a delete/add seems
-inappropriate. I've patch prepared to add a change mask
-which will give us the proper methods to do this right
-but for now this is just fine I guess.
+I finally got around to looking at this for the new skge driver.
+The Marvell phy code has several issues:
+	* hard coded hex values rather than constants
+	* doesn't handle restricted autonegotiation
+	* it doesn't really help the driver that much there are too
+	  many other warts in the hardware.
