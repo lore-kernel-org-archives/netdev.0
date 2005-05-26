@@ -1,189 +1,29 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: [doc][git] playing with git, and netdev/libata-dev trees
-Date: Thu, 26 May 2005 01:26:15 -0400
-Message-ID: <42955DF7.4000805@pobox.com>
-Reply-To: Linux Kernel <linux-kernel@vger.kernel.org>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH 2/2][NET] rename struct tcp_listen_opt to struct
+ listen_sock
+Date: Wed, 25 May 2005 22:33:00 -0700 (PDT)
+Message-ID: <20050525.223300.15266472.davem@davemloft.net>
+References: <20050524011758.GJ26989@conectiva.com.br>
+	<20050525.163716.88475834.davem@davemloft.net>
+	<cbec11ac0505251652657a2dc1@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>,
-	Git Mailing List <git@vger.kernel.org>
-Return-path: <linux-ide-owner@vger.kernel.org>
-To: Linux Kernel <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@oss.sgi.com>,
-	"linux-ide@vger.kernel.org" <linux-ide@vger.kernel.org>
-Sender: linux-ide-owner@vger.kernel.org
+Cc: acme@ghostprotocols.net, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: imcdnzl@gmail.com
+In-Reply-To: <cbec11ac0505251652657a2dc1@mail.gmail.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
-Hopefully, this email can quick-start some people on git.
-
-One of the things Linus's new 'git' tool allows me to do is make public 
-the 50+ repositories that were previously only available on my local 
-workstation.  This should make it a lot easier for developers to see 
-precisely what I have merged, and makes generating follow-up patches a 
-whole lot easier.
-
-When I merge a patch for drivers/net/forcedeth.c, I merge it into a 
-brand new 'forcedeth' repository, a peer to the 40+ other such 
-repository.  Under BitKeeper, I made these repositories available merged 
-together into one big "netdev-2.6" repository because it was too time 
-consuming to make the individual 50+ trees publicly available.  With 
-git, developers have direct access to the individual trees.
-
-I thought I would write up a quick guide describing how to mess around 
-with the netdev and libata-dev trees, and with git in general.
-
-
-1) installing git
-
-git requires bootstrapping, since you must have git installed in order 
-to check out git.git (git repo), and linux-2.6.git (kernel repo).  I 
-have put together a bootstrap tarball of today's git repository.
-
-Download tarball from:
-http://www.kernel.org/pub/linux/kernel/people/jgarzik/git-20050526.tar.bz2
-
-tarball build-deps:  zlib, libcurl
-
-install tarball:  unpack && make && sudo make prefix=/usr/local install
-
-jgarzik helper scripts, not in official git distribution:
-http://www.kernel.org/pub/linux/kernel/people/jgarzik/git-switch-tree
-http://www.kernel.org/pub/linux/kernel/people/jgarzik/git-new-branch
-http://www.kernel.org/pub/linux/kernel/people/jgarzik/git-changes-script
-
-After reading the rest of this document, come back and update your copy 
-of git to the latest:
-rsync://rsync.kernel.org/pub/scm/linux/kernel/git/torvalds/git.git
-
-
-2) download a linux kernel tree for the very first time
-
-mkdir -p linux-2.6/.git
-cd linux-2.6
-rsync -a --delete --verbose --stats --progress \ 
-rsync://rsync.kernel.org/pub/scm/linux/kernel/git/torvalds/linux-2.6.git/ 
-\          <- word-wrapped backslash; sigh
-    .git/
-
-
-3) download latest changes to on-disk local tree
-
-cd linux-2.6
-git-pull-script \
-rsync://rsync.kernel.org/pub/scm/linux/kernel/git/torvalds/linux-2.6.git
-
-
-4) check out files from the git repository into the working directory
-
-cd linux-2.6
-git-read-tree -m HEAD && git-checkout-cache -q -f -u -a
-
-
-5) check in your own modifications (e.g. apply a patch)
-
-# go to repo
-cd linux-2.6
-
-# make some modifications
-patch -sp1 < /tmp/my.patch
-diffstat -p1 < /tmp/my.patch
-
-# NOTE: add '--add' and/or '--remove' if files were added or removed
-git-update-cache <list of all files changed>
-
-# commit changes
-GIT_AUTHOR_NAME="John Doe"		\
-    GIT_AUTHOR_EMAIL="jdoe@foo.com"	\
-    GIT_COMMITTER_NAME="Jeff Garzik"	\
-    GIT_COMMITTER_EMAIL="jgarzik@pobox.com"	\
-    git-commit-tree `git-write-tree`	\
-    -p $(cat .git/HEAD )			\
-    < changelog.txt			\
-    > .git/HEAD
-
-
-6) List all changes in working dir, in diff format.
-
-git-diff-cache -p HEAD
-
-
-7) List all changesets (i.e. show each cset's description text) in local 
-tree that are not present in remote tree.
-
-cd my-kernel-tree-2.6
-git-changes-script -L ../linux-2.6 | less
-
-
-8) List all changesets:
-
-git-whatchanged
-
-
-9) apply all patches in a Berkeley mbox-format file
-
-First, download and add to your PATH Linus's git tools:
-rsync://rsync.kernel.org/pub/scm/linux/kernel/git/torvalds/git-tools.git
-
-cd my-kernel-tree-2.6
-dotest /path/to/mbox  # yes, Linus has no taste in naming useful scripts
-
-
-10) don't forget to download tags from time to time.
-
-git-pull-script only downloads sha1-indexed object data, and the 
-requested remote head.  This misses updates to the .git/refs/tags/ and 
-.git/refs/heads directories.  It is advisable to update your kernel .git 
-directories periodically with a full rsync command, to make sure you got 
-everything:
-
-cd linux-2.6
-rsync -a --delete --verbose --stats --progress \ 
-rsync://rsync.kernel.org/pub/scm/linux/kernel/git/torvalds/linux-2.6.git/ 
-\          <- word-wrapped backslash; sigh
-    .git/
-
-
-11) [jg-specific] list all branches found in netdev-2.6 or libata-dev trees.
-
-Download
-rsync://rsync.kernel.org/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git
-	or
-rsync://rsync.kernel.org/pub/scm/linux/kernel/git/jgarzik/libata-dev.git
-
-
-cd netdev-2.6
-ls .git/refs/heads/
-
-{ these are the current netdev-2.6 branches }
-> 8139cp       forcedeth    master     qeth           smc91x         we18
-> 8139too-iomap  for-linus    natsemi      r8169      smc91x-eeprom  wifi
-> airo           hdlc         ns83820      register-netdev  starfire
-> atmel          ieee80211    orinoco      remove-drivers   tlan
-> chelsio        iff-running  orinoco-hch  sis900           veth
-> dm9000         janitor      ppp          skge             viro
-
-
-
-12) [jg-specific] make desired branch current in working directory
-
-git-switch-tree $branch
-
-
-13) [jg-specific] create a new branch, and make it current
-
-git-new-branch $branch
-
-
-14) [jg-specific] examine which branch is current
-
-ls -l .git/HEAD
-
-
-15) undo all local modifications (same as checkout):
-
-git-read-tree -m HEAD && git-checkout-cache -q -f -u -a
-
-
-
+From: Ian McDonald <imcdnzl@gmail.com>
+Date: Thu, 26 May 2005 11:52:00 +1200
+
+> Maybe I am looking at the wrong place but when I look at:
+> http://kernel.org/git/?p=linux/kernel/git/acme/net-2.6.13.git;a=summary
+> 
+> it shows non-network related patches in there as well. Is this intentional?
+
+It shows activity in the tree it is derived from, so yes
+it's normal.
