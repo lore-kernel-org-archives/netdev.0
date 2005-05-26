@@ -1,142 +1,189 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: non-fatal oops with EIP at skb_release_data, available for
- debugging
-Date: Wed, 25 May 2005 22:00:03 -0700
-Message-ID: <20050525220003.5f6ab060.akpm@osdl.org>
-References: <5a4c581d05030412482a596ee5@mail.gmail.com>
-	<5a4c581d05040615306f12ebde@mail.gmail.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: [doc][git] playing with git, and netdev/libata-dev trees
+Date: Thu, 26 May 2005 01:26:15 -0400
+Message-ID: <42955DF7.4000805@pobox.com>
+Reply-To: Linux Kernel <linux-kernel@vger.kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Alessandro Suardi <alessandro.suardi@gmail.com>
-In-Reply-To: <5a4c581d05040615306f12ebde@mail.gmail.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: Andrew Morton <akpm@osdl.org>,
+	Git Mailing List <git@vger.kernel.org>
+Return-path: <linux-ide-owner@vger.kernel.org>
+To: Linux Kernel <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@oss.sgi.com>,
+	"linux-ide@vger.kernel.org" <linux-ide@vger.kernel.org>
+Sender: linux-ide-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Alessandro Suardi <alessandro.suardi@gmail.com> wrote:
->
-> Quoting my post of over a month ago, hit another
->  non-fatal oops this time with 2.6.12-rc1-bk2...
 
-Has this bug been sighted in more recent kernels?
+Hopefully, this email can quick-start some people on git.
 
-> [17330.816664] Adding 232932k swap on /dev/hdb4.  Priority:-2 extents:1
-> [42120.713332] UDP: bad checksum. From 84.188.199.xxx:57483 to
-> 192.168.1.7:10600  ulen 27
-> [56984.872784] UDP: bad checksum. From 216.155.90.xxx:11417 to
-> 192.168.1.7:10600  ulen 28
-> [383152.586711] scsi: unknown opcode 0x01
-> [630539.047761] UDP: short packet: From 4.46.101.xxx:5431 58/27 to
-> 192.168.1.7:1 0600
-> [681405.777002] ------------[ cut here ]------------
-> [681405.777337] kernel BUG at include/linux/mm.h:343!
-> [681405.777642] invalid operand: 0000 [#1]
-> [681405.777885] PREEMPT
-> [681405.778041] Modules linked in: parport_pc parport 8139too floppy
-> [681405.778488] CPU:    0
-> [681405.778491] EIP:    0060:[<c02dcd23>]    Not tainted VLI
-> [681405.778494] EFLAGS: 00210256   (2.6.12-rc1-bk2)
-> [681405.779293] EIP is at skb_release_data+0xa3/0xb0
-> [681405.779593] eax: 00000000   ebx: 00000002   ecx: ceb1af80   edx: c10eeb40
-> [681405.780027] esi: c30785c0   edi: c30785c0   ebp: ccd95d28   esp: ccd95d20
-> [681405.780458] ds: 007b   es: 007b   ss: 0068
-> [681405.780723] Process metacity (pid: 2190, threadinfo=ccd94000 task=cb501a40)
-> [681405.781164] Stack: c30785c0 00000020 ccd95d34 c02dcd3b cec7a6c0
-> ccd95d54 c02 dcdb7 ccd95f3c
-> [681405.781807]        00001620 c30785c0 506c6f85 c30785c0 506c6f85
-> ccd95da8 c03 0100a 00000000
-> [681405.782448]        c02dc46f caf7d420 ccd95d80 00000001 caf7d46c
-> ccd94000 000 00001 00000000
-> [681405.783088] Call Trace:
-> [681405.783258]  [<c010303a>] show_stack+0x7a/0x90
-> [681405.783574]  [<c01031bd>] show_registers+0x14d/0x1c0
-> [681405.783915]  [<c01033b4>] die+0xe4/0x170
-> [681405.784192]  [<c01037e3>] do_invalid_op+0xa3/0xb0
-> [681405.784517]  [<c0102cbf>] error_code+0x2b/0x30
-> [681405.785009]  [<c02dcd3b>] kfree_skbmem+0xb/0x20
-> [681405.785494]  [<c02dcdb7>] __kfree_skb+0x67/0xf0
-> [681405.785978]  [<c030100a>] tcp_recvmsg+0x5fa/0x720
-> [681405.786477]  [<c02dc836>] sock_common_recvmsg+0x46/0x60
-> [681405.787004]  [<c02d90ed>] sock_recvmsg+0xbd/0xf0
-> [681405.787493]  [<c02d9443>] sock_readv_writev+0x83/0x90
-> [681405.788009]  [<c02d948b>] sock_readv+0x3b/0x50
-> [681405.788487]  [<c0150cb5>] do_readv_writev+0x205/0x230
-> [681405.789004]  [<c0150d1d>] vfs_readv+0x3d/0x50
-> [681405.789476]  [<c0150dcd>] sys_readv+0x3d/0xa0
-> [681405.789947]  [<c0102abb>] sysenter_past_esp+0x54/0x75
-> [681405.790461] Code: 8b 86 98 00 00 00 5e c9 e9 7b e9 e5 ff 89 d0 e8
-> 44 f7 e5 f f eb d6 89 f0 e8 fb fe ff ff 5b 8b 86 98 00 00 00 5e c9 e9
-> 5d e9 e5 ff <0f> 0b 5 7 01 32 ed 35 c0 eb ac 8d 76 00 55 89 e5 53 89
-> c3 e8 45
-> [681405.857278]  <7>UDP: short packet: From 213.23.1.xxx:11236 2814/33
-> to 192.168. 1.7:10600
-> 
-> 
-> On Mar 4, 2005 10:48 PM, Alessandro Suardi <alessandro.suardi@gmail.com> wrote:
-> > This is my K7-800, 256MB RAM machine running as
-> >  ed2k/bittorrent 24/7 box... metacity died, but the
-> >  windows are still alive (and working) so if someone
-> >  wants to get more info about it, just ping me...
-> > 
-> > [root@donkey ~]# cat /proc/version
-> > Linux version 2.6.11-rc3-bk8 (asuardi@donkey) (gcc version 3.4.2
-> > 20041017 (Red Hat 3.4.2-6.fc3)) #1 Sat Feb 12 00:01:28 CET 2005
-> > [root@donkey ~]# lsmod
-> > Module                  Size  Used by
-> > loop                   15368  -
-> > nls_iso8859_1           3840  -
-> > parport_pc             29444  -
-> > parport                24704  -
-> > 8139too                24896  -
-> > floppy                 57392  -
-> > 
-> > From the dmesg ring:
-> > 
-> > kernel BUG at include/linux/mm.h:343!
-> > invalid operand: 0000 [#1]
-> > PREEMPT
-> > Modules linked in: loop nls_iso8859_1 parport_pc parport 8139too floppy
-> > CPU:    0
-> > EIP:    0060:[<c02da6a2>]    Not tainted VLI
-> > EFLAGS: 00210256   (2.6.11-rc3-bk8)
-> > EIP is at skb_release_data+0x92/0xa0
-> > eax: 00000000   ebx: 00000000   ecx: cca36f80   edx: c11a97c0
-> > esi: c4205f20   edi: c4205f20   ebp: cd149dcc   esp: cd149dc4
-> > ds: 007b   es: 007b   ss: 0068
-> > Process metacity (pid: 2109, threadinfo=cd148000 task=ce8935d0)
-> > Stack: c4205f20 00000000 cd149dd8 c02da6bb c6e9a0c0 cd149df8 c02da737 c5134250
-> >        00000000 c4205f20 c5134250 c4205f20 c5134250 cd149e4c c02feba6 00000000
-> >        00000040 cc68c454 00000000 00000001 cc68c444 cd148000 00000001 00000000
-> > Call Trace:
-> >  [<c0102b2a>] show_stack+0x7a/0x90
-> >  [<c0102cad>] show_registers+0x14d/0x1c0
-> >  [<c0102ea4>] die+0xe4/0x180
-> >  [<c01032e3>] do_invalid_op+0xa3/0xb0
-> >  [<c01027a7>] error_code+0x2b/0x30
-> >  [<c02da6bb>] kfree_skbmem+0xb/0x20
-> >  [<c02da737>] __kfree_skb+0x67/0xf0
-> >  [<c02feba6>] tcp_recvmsg+0x5f6/0x710
-> >  [<c02da1e6>] sock_common_recvmsg+0x46/0x60
-> >  [<c02d6bbe>] sock_aio_read+0xee/0x100
-> >  [<c014e427>] do_sync_read+0x97/0xf0
-> >  [<c014e511>] vfs_read+0x91/0x120
-> >  [<c014e7ed>] sys_read+0x3d/0x70
-> >  [<c01025a9>] sysenter_past_esp+0x52/0x75
-> > Code: c9 e9 03 e5 e5 ff 8d 76 00 5b 5e c9 c3 89 d0 e8 c5 f2 e5 ff eb
-> > cf 89 f0 e8 0c ff ff ff 5b 8b 86 98 00 00 00 5e c9 e9 de e4 e5 ff <0f>
-> > 0b 57 01 ab c5 35 c0 eb a5 8d 74 26 00 55 89 e5 53 89 c3 e8
->  
-> --alessandro
-> 
->  "I want to know if it's you I don't trust
->   'cause I damn sure don't trust myself"
-> 
->     (Bruce Springsteen, "Brilliant Disguise")
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+One of the things Linus's new 'git' tool allows me to do is make public 
+the 50+ repositories that were previously only available on my local 
+workstation.  This should make it a lot easier for developers to see 
+precisely what I have merged, and makes generating follow-up patches a 
+whole lot easier.
+
+When I merge a patch for drivers/net/forcedeth.c, I merge it into a 
+brand new 'forcedeth' repository, a peer to the 40+ other such 
+repository.  Under BitKeeper, I made these repositories available merged 
+together into one big "netdev-2.6" repository because it was too time 
+consuming to make the individual 50+ trees publicly available.  With 
+git, developers have direct access to the individual trees.
+
+I thought I would write up a quick guide describing how to mess around 
+with the netdev and libata-dev trees, and with git in general.
+
+
+1) installing git
+
+git requires bootstrapping, since you must have git installed in order 
+to check out git.git (git repo), and linux-2.6.git (kernel repo).  I 
+have put together a bootstrap tarball of today's git repository.
+
+Download tarball from:
+http://www.kernel.org/pub/linux/kernel/people/jgarzik/git-20050526.tar.bz2
+
+tarball build-deps:  zlib, libcurl
+
+install tarball:  unpack && make && sudo make prefix=/usr/local install
+
+jgarzik helper scripts, not in official git distribution:
+http://www.kernel.org/pub/linux/kernel/people/jgarzik/git-switch-tree
+http://www.kernel.org/pub/linux/kernel/people/jgarzik/git-new-branch
+http://www.kernel.org/pub/linux/kernel/people/jgarzik/git-changes-script
+
+After reading the rest of this document, come back and update your copy 
+of git to the latest:
+rsync://rsync.kernel.org/pub/scm/linux/kernel/git/torvalds/git.git
+
+
+2) download a linux kernel tree for the very first time
+
+mkdir -p linux-2.6/.git
+cd linux-2.6
+rsync -a --delete --verbose --stats --progress \ 
+rsync://rsync.kernel.org/pub/scm/linux/kernel/git/torvalds/linux-2.6.git/ 
+\          <- word-wrapped backslash; sigh
+    .git/
+
+
+3) download latest changes to on-disk local tree
+
+cd linux-2.6
+git-pull-script \
+rsync://rsync.kernel.org/pub/scm/linux/kernel/git/torvalds/linux-2.6.git
+
+
+4) check out files from the git repository into the working directory
+
+cd linux-2.6
+git-read-tree -m HEAD && git-checkout-cache -q -f -u -a
+
+
+5) check in your own modifications (e.g. apply a patch)
+
+# go to repo
+cd linux-2.6
+
+# make some modifications
+patch -sp1 < /tmp/my.patch
+diffstat -p1 < /tmp/my.patch
+
+# NOTE: add '--add' and/or '--remove' if files were added or removed
+git-update-cache <list of all files changed>
+
+# commit changes
+GIT_AUTHOR_NAME="John Doe"		\
+    GIT_AUTHOR_EMAIL="jdoe@foo.com"	\
+    GIT_COMMITTER_NAME="Jeff Garzik"	\
+    GIT_COMMITTER_EMAIL="jgarzik@pobox.com"	\
+    git-commit-tree `git-write-tree`	\
+    -p $(cat .git/HEAD )			\
+    < changelog.txt			\
+    > .git/HEAD
+
+
+6) List all changes in working dir, in diff format.
+
+git-diff-cache -p HEAD
+
+
+7) List all changesets (i.e. show each cset's description text) in local 
+tree that are not present in remote tree.
+
+cd my-kernel-tree-2.6
+git-changes-script -L ../linux-2.6 | less
+
+
+8) List all changesets:
+
+git-whatchanged
+
+
+9) apply all patches in a Berkeley mbox-format file
+
+First, download and add to your PATH Linus's git tools:
+rsync://rsync.kernel.org/pub/scm/linux/kernel/git/torvalds/git-tools.git
+
+cd my-kernel-tree-2.6
+dotest /path/to/mbox  # yes, Linus has no taste in naming useful scripts
+
+
+10) don't forget to download tags from time to time.
+
+git-pull-script only downloads sha1-indexed object data, and the 
+requested remote head.  This misses updates to the .git/refs/tags/ and 
+.git/refs/heads directories.  It is advisable to update your kernel .git 
+directories periodically with a full rsync command, to make sure you got 
+everything:
+
+cd linux-2.6
+rsync -a --delete --verbose --stats --progress \ 
+rsync://rsync.kernel.org/pub/scm/linux/kernel/git/torvalds/linux-2.6.git/ 
+\          <- word-wrapped backslash; sigh
+    .git/
+
+
+11) [jg-specific] list all branches found in netdev-2.6 or libata-dev trees.
+
+Download
+rsync://rsync.kernel.org/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git
+	or
+rsync://rsync.kernel.org/pub/scm/linux/kernel/git/jgarzik/libata-dev.git
+
+
+cd netdev-2.6
+ls .git/refs/heads/
+
+{ these are the current netdev-2.6 branches }
+> 8139cp       forcedeth    master     qeth           smc91x         we18
+> 8139too-iomap  for-linus    natsemi      r8169      smc91x-eeprom  wifi
+> airo           hdlc         ns83820      register-netdev  starfire
+> atmel          ieee80211    orinoco      remove-drivers   tlan
+> chelsio        iff-running  orinoco-hch  sis900           veth
+> dm9000         janitor      ppp          skge             viro
+
+
+
+12) [jg-specific] make desired branch current in working directory
+
+git-switch-tree $branch
+
+
+13) [jg-specific] create a new branch, and make it current
+
+git-new-branch $branch
+
+
+14) [jg-specific] examine which branch is current
+
+ls -l .git/HEAD
+
+
+15) undo all local modifications (same as checkout):
+
+git-read-tree -m HEAD && git-checkout-cache -q -f -u -a
+
+
+
