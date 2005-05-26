@@ -1,32 +1,71 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCHSET] neighbour tables access via rtnetlink
-Date: Thu, 26 May 2005 20:53:06 +0200
-Message-ID: <20050526185306.GW15391@postel.suug.ch>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH 2.6.12-rc5 1/9] tg3: Add basic selftest infrastructure
+Date: Thu, 26 May 2005 10:56:24 -0700
+Message-ID: <1117130184.3744.52.camel@rh4>
+References: <1117128795.3744.22.camel@rh4>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/mixed;
+ boundary="=-/CRopC1JEawlr+QW2P2U"
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
+To: davem@davemloft.net
+In-Reply-To: <1117128795.3744.22.camel@rh4>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Dave,
 
-This patchset adds neighbour table configuration and
-statistics access via rtnetlink. Patches 1-2 add some
-new macros to make netlink message construction simpler
-and more readable, patch 3 adds the actual neighbour
-table code and patch 4 removes a few unused fields
-discovered while writing patch 3 ;->
+--=-/CRopC1JEawlr+QW2P2U
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
- include/linux/netlink.h     |   17 ++
- include/linux/rtnetlink.h   |   45 ++++++
- include/net/neighbour.h     |    3 
- include/linux/rtnetlink.h   |  107 ++++++++++++++
- include/net/neighbour.h     |    4 
- net/core/neighbour.c        |  317 +++++++++++++++++++++++++++++++++++++++++++-
- net/core/rtnetlink.c        |   20 +-
- security/selinux/nlmsgtab.c |    2 
- 8 files changed, 499 insertions(+), 16 deletions(-)
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+
+--=-/CRopC1JEawlr+QW2P2U
+Content-Disposition: attachment;
+ filename=tg3-d1.patch
+Content-Type: text/x-patch;
+ charset=utf-8;
+ name=tg3-d1.patch
+Content-Transfer-Encoding: base64
+
+ZGlmZiAtTnJ1IGQwL2RyaXZlcnMvbmV0L3RnMy5jIGQxL2RyaXZlcnMvbmV0L3RnMy5jDQotLS0g
+ZDAvZHJpdmVycy9uZXQvdGczLmMJMjAwNS0wNS0yNSAxMjo1NzozNi4wMDAwMDAwMDAgLTA3MDAN
+CisrKyBkMS9kcml2ZXJzL25ldC90ZzMuYwkyMDA1LTA1LTI1IDEyOjU4OjUwLjAwMDAwMDAwMCAt
+MDcwMA0KQEAgLTEzMyw2ICsxMzMsOCBAQA0KIC8qIG51bWJlciBvZiBFVEhUT09MX0dTVEFUUyB1
+NjQncyAqLw0KICNkZWZpbmUgVEczX05VTV9TVEFUUwkJKHNpemVvZihzdHJ1Y3QgdGczX2V0aHRv
+b2xfc3RhdHMpL3NpemVvZih1NjQpKQ0KIA0KKyNkZWZpbmUgVEczX05VTV9URVNUCQk2DQorDQog
+c3RhdGljIGNoYXIgdmVyc2lvbltdIF9fZGV2aW5pdGRhdGEgPQ0KIAlEUlZfTU9EVUxFX05BTUUg
+Ii5jOnYiIERSVl9NT0RVTEVfVkVSU0lPTiAiICgiIERSVl9NT0RVTEVfUkVMREFURSAiKVxuIjsN
+CiANCkBAIC0zMTYsNiArMzE4LDE3IEBADQogCXsgIm5pY190eF90aHJlc2hvbGRfaGl0IiB9DQog
+fTsNCiANCitzdGF0aWMgc3RydWN0IHsNCisJY29uc3QgY2hhciBzdHJpbmdbRVRIX0dTVFJJTkdf
+TEVOXTsNCit9IGV0aHRvb2xfdGVzdF9rZXlzW1RHM19OVU1fVEVTVF0gPSB7DQorCXsgIm52cmFt
+IHRlc3QgICAgIChvbmxpbmUpICIgfSwNCisJeyAibGluayB0ZXN0ICAgICAgKG9ubGluZSkgIiB9
+LA0KKwl7ICJyZWdpc3RlciB0ZXN0ICAob2ZmbGluZSkiIH0sDQorCXsgIm1lbW9yeSB0ZXN0ICAg
+IChvZmZsaW5lKSIgfSwNCisJeyAibG9vcGJhY2sgdGVzdCAgKG9mZmxpbmUpIiB9LA0KKwl7ICJp
+bnRlcnJ1cHQgdGVzdCAob2ZmbGluZSkiIH0sDQorfTsNCisNCiBzdGF0aWMgdm9pZCB0ZzNfd3Jp
+dGVfaW5kaXJlY3RfcmVnMzIoc3RydWN0IHRnMyAqdHAsIHUzMiBvZmYsIHUzMiB2YWwpDQogew0K
+IAlpZiAoKHRwLT50ZzNfZmxhZ3MgJiBURzNfRkxBR19QQ0lYX1RBUkdFVF9IV0JVRykgIT0gMCkg
+ew0KQEAgLTcxOTksMTIgKzcyMTIsMjAgQEANCiAJcmV0dXJuIFRHM19OVU1fU1RBVFM7DQogfQ0K
+IA0KK3N0YXRpYyBpbnQgdGczX2dldF90ZXN0X2NvdW50IChzdHJ1Y3QgbmV0X2RldmljZSAqZGV2
+KQ0KK3sNCisJcmV0dXJuIFRHM19OVU1fVEVTVDsNCit9DQorDQogc3RhdGljIHZvaWQgdGczX2dl
+dF9zdHJpbmdzIChzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCB1MzIgc3RyaW5nc2V0LCB1OCAqYnVm
+KQ0KIHsNCiAJc3dpdGNoIChzdHJpbmdzZXQpIHsNCiAJY2FzZSBFVEhfU1NfU1RBVFM6DQogCQlt
+ZW1jcHkoYnVmLCAmZXRodG9vbF9zdGF0c19rZXlzLCBzaXplb2YoZXRodG9vbF9zdGF0c19rZXlz
+KSk7DQogCQlicmVhazsNCisJY2FzZSBFVEhfU1NfVEVTVDoNCisJCW1lbWNweShidWYsICZldGh0
+b29sX3Rlc3Rfa2V5cywgc2l6ZW9mKGV0aHRvb2xfdGVzdF9rZXlzKSk7DQorCQlicmVhazsNCiAJ
+ZGVmYXVsdDoNCiAJCVdBUk5fT04oMSk7CS8qIHdlIG5lZWQgYSBXQVJOKCkgKi8NCiAJCWJyZWFr
+Ow0KQEAgLTcyMTgsNiArNzIzOSwxMSBAQA0KIAltZW1jcHkodG1wX3N0YXRzLCB0ZzNfZ2V0X2Vz
+dGF0cyh0cCksIHNpemVvZih0cC0+ZXN0YXRzKSk7DQogfQ0KIA0KK3N0YXRpYyB2b2lkIHRnM19z
+ZWxmX3Rlc3Qoc3RydWN0IG5ldF9kZXZpY2UgKmRldiwgc3RydWN0IGV0aHRvb2xfdGVzdCAqZXRl
+c3QsDQorCQkJICB1NjQgKmRhdGEpDQorew0KK30NCisNCiBzdGF0aWMgaW50IHRnM19pb2N0bChz
+dHJ1Y3QgbmV0X2RldmljZSAqZGV2LCBzdHJ1Y3QgaWZyZXEgKmlmciwgaW50IGNtZCkNCiB7DQog
+CXN0cnVjdCBtaWlfaW9jdGxfZGF0YSAqZGF0YSA9IGlmX21paShpZnIpOw0KQEAgLTczMzEsNiAr
+NzM1Nyw4IEBADQogCS5nZXRfdHNvCQk9IGV0aHRvb2xfb3BfZ2V0X3RzbywNCiAJLnNldF90c28J
+CT0gdGczX3NldF90c28sDQogI2VuZGlmDQorCS5zZWxmX3Rlc3RfY291bnQJPSB0ZzNfZ2V0X3Rl
+c3RfY291bnQsDQorCS5zZWxmX3Rlc3QJCT0gdGczX3NlbGZfdGVzdCwNCiAJLmdldF9zdHJpbmdz
+CQk9IHRnM19nZXRfc3RyaW5ncywNCiAJLmdldF9zdGF0c19jb3VudAk9IHRnM19nZXRfc3RhdHNf
+Y291bnQsDQogCS5nZXRfZXRodG9vbF9zdGF0cwk9IHRnM19nZXRfZXRodG9vbF9zdGF0cywNCg==
+
+
+--=-/CRopC1JEawlr+QW2P2U--
