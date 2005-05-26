@@ -1,29 +1,40 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 2/2][NET] rename struct tcp_listen_opt to struct
- listen_sock
-Date: Wed, 25 May 2005 22:33:00 -0700 (PDT)
-Message-ID: <20050525.223300.15266472.davem@davemloft.net>
-References: <20050524011758.GJ26989@conectiva.com.br>
-	<20050525.163716.88475834.davem@davemloft.net>
-	<cbec11ac0505251652657a2dc1@mail.gmail.com>
+From: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
+Subject: Re: [PATCH] [BRIDGE]
+Date: Thu, 26 May 2005 08:49:23 +0300 (EEST)
+Message-ID: <Pine.LNX.4.62.0505260848300.7768@webhosting.rdsbv.ro>
+References: <Pine.LNX.4.62.0505241024580.19687@webhosting.rdsbv.ro>
+ <20050525091427.35621a21@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: acme@ghostprotocols.net, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@oss.sgi.com, davem@davemloft.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: imcdnzl@gmail.com
-In-Reply-To: <cbec11ac0505251652657a2dc1@mail.gmail.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20050525091427.35621a21@dxpl.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Ian McDonald <imcdnzl@gmail.com>
-Date: Thu, 26 May 2005 11:52:00 +1200
+On Wed, 25 May 2005, Stephen Hemminger wrote:
 
-> Maybe I am looking at the wrong place but when I look at:
-> http://kernel.org/git/?p=linux/kernel/git/acme/net-2.6.13.git;a=summary
-> 
-> it shows non-network related patches in there as well. Is this intentional?
+> On Tue, 24 May 2005 10:29:25 +0300 (EEST)
+> "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro> wrote:
+>
+>> Hello!
+>>
+>> This patch set bridge device features using the common features of all
+>> slaves. Also, it reacts to features change using ethtool on the slaves.
+>>
+>> This patch depends on NETDEV_FEAT_CHANGE.patch.
+>>
+>
+> I will add it to the next set of patches for bridging. Hold off until
+> 2.6.13
 
-It shows activity in the tree it is derived from, so yes
-it's normal.
+Thanks, Stephen!
+
+P.S. This patch needs NETDEV_FEAT_CHANGE.patch. Do you include both?
+
+---
+Catalin(ux aka Dino) BOIE
+catab at deuroconsult.ro
+http://kernel.umbrella.ro/
