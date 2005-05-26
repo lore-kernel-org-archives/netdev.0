@@ -1,58 +1,42 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (6/6) bridge: receive path optimization
-Date: Thu, 26 May 2005 11:04:25 -0700
-Message-ID: <20050526110425.27590eb8@dxpl.pdx.osdl.net>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: primary and secondary ip addresses
+Date: Thu, 26 May 2005 20:21:46 +0200
+Message-ID: <20050526182146.GV15391@postel.suug.ch>
+References: <Pine.LNX.4.61.0412171621200.15793@filer.marasystems.com> <1103550901.1050.292.camel@jzny.localdomain> <20050412105442.GV7510@sunbeam.de.gnumonks.org> <200505081531.16106.hasso@estpak.ee> <20050526181118.GK13114@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============99615559241519969=="
-Cc: netdev@oss.sgi.com, bridge@osdl.org
-Return-path: <bridge-bounces@lists.osdl.org>
-To: "David S. Miller" <davem@davemloft.net>
-List-Unsubscribe: <http://lists.osdl.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.osdl.org?subject=unsubscribe>
-List-Archive: <http://lists.osdl.org/pipermail/bridge>
-List-Post: <mailto:bridge@lists.osdl.org>
-List-Help: <mailto:bridge-request@lists.osdl.org?subject=help>
-List-Subscribe: <http://lists.osdl.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.osdl.org?subject=subscribe>
-Sender: bridge-bounces@lists.osdl.org
-Errors-To: bridge-bounces@lists.osdl.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, Hasso Tepper <hasso@estpak.ee>,
+        netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Harald Welte <laforge@gnumonks.org>
+Content-Disposition: inline
+In-Reply-To: <20050526181118.GK13114@sunbeam.de.gnumonks.org>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---===============99615559241519969==
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+* Harald Welte <20050526181118.GK13114@sunbeam.de.gnumonks.org> 2005-05-26 20:11
+> David, would you consider applying that patch to mainline?  I think
+> there was concensus on this solution, and it has now received some
+> amount of testing by Hasso and me.
 
-This improves the bridge local receive path by avoiding going
-through another softirq.  The bridge receive path is already being called 
-from a netif_receive_skb() there is no point in going through another
-receiveq round trip. 
+I agree, I've been running this patch for 3 weeks now without
+any problems. Two comments below.
 
-Recursion is limited because bridge can never be a port of a bridge
-so handle_bridge() always returns.
+> @@ -281,6 +289,13 @@
+>  		if (!in_dev->ifa_list)
+>  			inetdev_destroy(in_dev);
+>  	}
+> +
+> +	if (promote && IN_DEV_PROMOTE_SECONDARIES(in_dev)) {
 
-Index: bridge/net/bridge/br_input.c
-===================================================================
---- bridge.orig/net/bridge/br_input.c
-+++ bridge/net/bridge/br_input.c
-@@ -26,7 +26,7 @@ static int br_pass_frame_up_finish(struc
- #ifdef CONFIG_NETFILTER_DEBUG
- 	skb->nf_debug = 0;
- #endif
--	netif_rx(skb);
-+	netif_receive_skb(skb);
- 
- 	return 0;
- }
+promote can only be !=NULL if promotion is enabled, no?
 
---===============99615559241519969==
-Content-Type: text/plain; charset="iso-8859-1"
-MIME-Version: 1.0
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+> +		/* not sure if we should send a delete notify first? */
+> +		promote->ifa_flags &= ~IFA_F_SECONDARY;
+> +		rtmsg_ifa(RTM_NEWADDR, promote);
 
-_______________________________________________
-Bridge mailing list
-Bridge@lists.osdl.org
-http://lists.osdl.org/mailman/listinfo/bridge
-
---===============99615559241519969==--
+This can be improved, however sending a delete/add seems
+inappropriate. I've patch prepared to add a change mask
+which will give us the proper methods to do this right
+but for now this is just fine I guess.
