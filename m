@@ -1,13 +1,12 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (3/6) bridge: set features based on enslaved
-	devices
-Date: Thu, 26 May 2005 11:04:16 -0700
-Message-ID: <20050526110416.66a08e87@dxpl.pdx.osdl.net>
+Subject: [PATCH] (1/6) bridge: features change notification
+Date: Thu, 26 May 2005 11:04:10 -0700
+Message-ID: <20050526110410.6858e2ab@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============63601099669858141=="
+Content-Type: multipart/mixed; boundary="===============89913038535726786=="
+Cc: netdev@oss.sgi.com, bridge@osdl.org
 Return-path: <bridge-bounces@lists.osdl.org>
-To: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
-   bridge@osdl.org
+To: "David S. Miller" <davem@davemloft.net>
 List-Unsubscribe: <http://lists.osdl.org/mailman/listinfo/bridge>,
 	<mailto:bridge-request@lists.osdl.org?subject=unsubscribe>
 List-Archive: <http://lists.osdl.org/pipermail/bridge>
@@ -19,139 +18,97 @@ Sender: bridge-bounces@lists.osdl.org
 Errors-To: bridge-bounces@lists.osdl.org
 List-Id: netdev.vger.kernel.org
 
---===============63601099669858141==
+--===============89913038535726786==
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 
-Make features of the bridge pseudo-device be a subset of the underlying
-devices.  Motivated by Xen and others who use bridging to do failover.
+Resend of earlier patch (no changes) from Catalin used to provide
+device feature change notification.
 
-Signed-off-by: Catalin BOIE <catab at umrella.ro>
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+Signed-off-by: Catalin BOIE <catab at umbrella.ro>
+Acked-by: Stephen Hemminger <shemminger@osdl.org>
 
-Index: bridge/net/bridge/br_private.h
-===================================================================
---- bridge.orig/net/bridge/br_private.h
-+++ bridge/net/bridge/br_private.h
-@@ -174,6 +174,7 @@ extern int br_add_if(struct net_bridge *
- extern int br_del_if(struct net_bridge *br,
- 	      struct net_device *dev);
- extern int br_min_mtu(const struct net_bridge *br);
-+extern void br_features_recompute(struct net_bridge *br);
+--- notify1/include/linux/notifier.h	2005-03-02 09:37:48.000000000 +0200
++++ linux/include/linux/notifier.h	2005-05-20 13:17:42.000000000 +0300
+@@ -56,6 +56,7 @@ extern int notifier_call_chain(struct no
+ #define NETDEV_CHANGEADDR	0x0008
+ #define NETDEV_GOING_DOWN	0x0009
+ #define NETDEV_CHANGENAME	0x000A
++#define NETDEV_FEAT_CHANGE	0x000B
  
- /* br_input.c */
- extern int br_handle_frame_finish(struct sk_buff *skb);
-Index: bridge/net/bridge/br_notify.c
-===================================================================
---- bridge.orig/net/bridge/br_notify.c
-+++ bridge/net/bridge/br_notify.c
-@@ -65,6 +65,15 @@ static int br_device_event(struct notifi
- 		}
+ #define SYS_DOWN	0x0001	/* Notify of system down */
+ #define SYS_RESTART	SYS_DOWN
+--- notify1/net/core/ethtool.c	2005-03-02 09:38:37.000000000 +0200
++++ linux/net/core/ethtool.c	2005-05-23 11:30:47.000000000 +0300
+@@ -682,6 +682,7 @@ int dev_ethtool(struct ifreq *ifr)
+ 	void __user *useraddr = ifr->ifr_data;
+ 	u32 ethcmd;
+ 	int rc;
++	int old_features;
+ 
+ 	/*
+ 	 * XXX: This can be pushed down into the ethtool_* handlers that
+@@ -703,6 +704,8 @@ int dev_ethtool(struct ifreq *ifr)
+ 		if ((rc = dev->ethtool_ops->begin(dev)) < 0)
+ 			return rc;
+ 
++	old_features = dev->features;
++
+ 	switch (ethcmd) {
+ 	case ETHTOOL_GSET:
+ 		rc = ethtool_get_settings(dev, useraddr);
+@@ -712,7 +715,6 @@ int dev_ethtool(struct ifreq *ifr)
  		break;
- 
-+	case NETDEV_FEAT_CHANGE:
-+		if (br->dev->flags & IFF_UP) 
-+			br_features_recompute(br);
-+
-+		/* could do recursive feature change notification
-+		 * but who would care?? 
-+		 */
-+		break;
-+
- 	case NETDEV_DOWN:
- 		if (br->dev->flags & IFF_UP)
- 			br_stp_disable_port(p);
-Index: bridge/net/bridge/br_device.c
-===================================================================
---- bridge.orig/net/bridge/br_device.c
-+++ bridge/net/bridge/br_device.c
-@@ -21,10 +21,7 @@
- 
- static struct net_device_stats *br_dev_get_stats(struct net_device *dev)
- {
--	struct net_bridge *br;
+ 	case ETHTOOL_GDRVINFO:
+ 		rc = ethtool_get_drvinfo(dev, useraddr);
 -
--	br = dev->priv;
--
-+	struct net_bridge *br = netdev_priv(dev);
- 	return &br->statistics;
+ 		break;
+ 	case ETHTOOL_GREGS:
+ 		rc = ethtool_get_regs(dev, useraddr);
+@@ -801,6 +803,10 @@ int dev_ethtool(struct ifreq *ifr)
+ 	
+ 	if(dev->ethtool_ops->complete)
+ 		dev->ethtool_ops->complete(dev);
++
++	if (old_features != dev->features)
++		netdev_features_change(dev);
++
+ 	return rc;
+ 
+  ioctl:
+--- notify1/net/core/dev.c	2005-03-26 05:28:21.000000000 +0200
++++ linux/net/core/dev.c	2005-05-23 12:14:32.000000000 +0300
+@@ -761,6 +761,18 @@ int dev_change_name(struct net_device *d
  }
  
-@@ -54,9 +51,11 @@ int br_dev_xmit(struct sk_buff *skb, str
- 
- static int br_dev_open(struct net_device *dev)
- {
--	netif_start_queue(dev);
-+	struct net_bridge *br = netdev_priv(dev);
- 
--	br_stp_enable_bridge(dev->priv);
-+	br_features_recompute(br);
-+	netif_start_queue(dev);
-+	br_stp_enable_bridge(br);
- 
- 	return 0;
- }
-@@ -67,7 +66,7 @@ static void br_dev_set_multicast_list(st
- 
- static int br_dev_stop(struct net_device *dev)
- {
--	br_stp_disable_bridge(dev->priv);
-+	br_stp_disable_bridge(netdev_priv(dev));
- 
- 	netif_stop_queue(dev);
- 
-@@ -76,7 +75,7 @@ static int br_dev_stop(struct net_device
- 
- static int br_change_mtu(struct net_device *dev, int new_mtu)
- {
--	if ((new_mtu < 68) || new_mtu > br_min_mtu(dev->priv))
-+	if (new_mtu < 68 || new_mtu > br_min_mtu(netdev_priv(dev)))
- 		return -EINVAL;
- 
- 	dev->mtu = new_mtu;
-Index: bridge/net/bridge/br_if.c
-===================================================================
---- bridge.orig/net/bridge/br_if.c
-+++ bridge/net/bridge/br_if.c
-@@ -314,6 +314,28 @@ int br_min_mtu(const struct net_bridge *
- 	return mtu;
- }
- 
-+/*
-+ * Recomputes features using slave's features
+ /**
++ *	netdev_features_change - device changes fatures
++ *	@dev: device to cause notification
++ *
++ *	Called to indicate a device has changed features.
 + */
-+void br_features_recompute(struct net_bridge *br)
++void netdev_features_change(struct net_device *dev)
 +{
-+	struct net_bridge_port *p;
-+	unsigned long features, checksum;
-+
-+	features = NETIF_F_SG | NETIF_F_FRAGLIST 
-+		| NETIF_F_HIGHDMA | NETIF_F_TSO;
-+	checksum = NETIF_F_IP_CSUM;	/* least commmon subset */
-+
-+	list_for_each_entry(p, &br->port_list, list) {
-+		if (!(p->dev->features 
-+		      & (NETIF_F_IP_CSUM|NETIF_F_NO_CSUM|NETIF_F_HW_CSUM)))
-+			checksum = 0;
-+		features &= p->dev->features;
-+	}
-+
-+	br->dev->features = features | checksum | NETIF_F_LLTX;
++	notifier_call_chain(&netdev_chain, NETDEV_FEAT_CHANGE, dev);
 +}
++EXPORT_SYMBOL(netdev_features_change);
 +
- /* called with RTNL */
- int br_add_if(struct net_bridge *br, struct net_device *dev)
- {
-@@ -368,6 +390,7 @@ int br_del_if(struct net_bridge *br, str
- 
- 	spin_lock_bh(&br->lock);
- 	br_stp_recalculate_bridge_id(br);
-+	br_features_recompute(br);
- 	spin_unlock_bh(&br->lock);
- 
- 	return 0;
++/**
+  *	netdev_state_change - device changes state
+  *	@dev: device to cause notification
+  *
+--- notify1/include/linux/netdevice.h	2005-03-02 09:38:26.000000000 +0200
++++ linux/include/linux/netdevice.h	2005-05-23 10:16:43.000000000 +0300
+@@ -916,6 +916,7 @@ extern void		dev_mc_discard(struct net_d
+ extern void		dev_set_promiscuity(struct net_device *dev, int inc);
+ extern void		dev_set_allmulti(struct net_device *dev, int inc);
+ extern void		netdev_state_change(struct net_device *dev);
++extern void		netdev_features_change(struct net_device *dev);
+ /* Load a device via the kmod */
+ extern void		dev_load(const char *name);
+ extern void		dev_mcast_init(void);
 
---===============63601099669858141==
+--===============89913038535726786==
 Content-Type: text/plain; charset="iso-8859-1"
 MIME-Version: 1.0
 Content-Transfer-Encoding: quoted-printable
@@ -162,4 +119,4 @@ Bridge mailing list
 Bridge@lists.osdl.org
 http://lists.osdl.org/mailman/listinfo/bridge
 
---===============63601099669858141==--
+--===============89913038535726786==--
