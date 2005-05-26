@@ -1,57 +1,68 @@
-From: Andy Fleming <afleming@freescale.com>
-Subject: Re: RFC: PHY Abstraction Layer II
-Date: Thu, 26 May 2005 13:45:20 -0500
-Message-ID: <615E3662-7F4F-4277-A5F0-83086150F0FE@freescale.com>
-References: <1107b64b01fb8e9a6c84359bb56881a6@freescale.com>
-	<20050526113218.23e44164@dxpl.pdx.osdl.net>
-Mime-Version: 1.0 (Apple Message framework v730)
-Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@oss.sgi.com>,
-	Embedded PPC Linux list <linuxppc-embedded@ozlabs.org>
-Return-path: <linuxppc-embedded-bounces@ozlabs.org>
-In-Reply-To: <20050526113218.23e44164@dxpl.pdx.osdl.net>
-To: Stephen Hemminger <shemminger@osdl.org>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
-List-Post: <mailto:linuxppc-embedded@ozlabs.org>
-List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-embedded-bounces@ozlabs.org
-Errors-To: linuxppc-embedded-bounces@ozlabs.org
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH 1/4] [NETLINK] New message building macros
+Date: Thu, 26 May 2005 20:54:02 +0200
+Message-ID: <20050526185402.GX15391@postel.suug.ch>
+References: <20050526185306.GW15391@postel.suug.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20050526185306.GW15391@postel.suug.ch>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+ NLMSG_PUT_ANSWER(skb, nlcb, type, length)
+   Start a new netlink message as answer to a request,
+   returns the message header.
 
-On May 26, 2005, at 13:32, Stephen Hemminger wrote:
+ NLMSG_END(skb, nlh)
+   End a netlink message, fixes total message length,
+   returns skb->len.
 
-> I finally got around to looking at this for the new skge driver.
-> The Marvell phy code has several issues:
->     * hard coded hex values rather than constants
+ NLMSG_CANCEL(skb, nlh)
+   Cancel the building process and trim whole message
+   from skb again, returns -1.
 
-These are hard-coded because it's errata.  The errata doesn't name  
-the registers, nor the bits being set, so the best I could do is  
-something like:
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-phy_write(phydev, M88E1101_ERRATA_REGISTER1,  
-M88E1101_ERRATA_REG1_VALUE1);
+---
+commit 88e04e26d887e806372014a2f7b33c6a7ea64741
+tree 031c0e0d63096ca2dff2203940b90460f1db5c68
+parent d1faeaeb95a05275cf0c5b51b88f2fa833434625
+author Thomas Graf <tgraf@suug.ch> Thu, 26 May 2005 18:21:36 +0200
+committer Thomas Graf <tgraf@suug.ch> Thu, 26 May 2005 18:21:36 +0200
 
-I'm not sure that's more useful.
+ include/linux/netlink.h |   17 +++++++++++++++--
+ 1 files changed, 15 insertions(+), 2 deletions(-)
 
-
->     * doesn't handle restricted autonegotiation
-
-I'm not quite sure what you mean by this one.  ALL the PHYs support  
-restricting auto-negotiation to certain values.  See drivers/net/phy/ 
-phy_device.c:genphy_config_advert(), which is called by marvell's  
-config_aneg function (eventually).
-
->     * it doesn't really help the driver that much there are too
->       many other warts in the hardware.
-
-Err...  the skge hardware, or the Marvell hardware?  Could you  
-specify some warts, so I can look into what changes might need to be  
-made?
-
-Andy
+Index: include/linux/netlink.h
+===================================================================
+--- c6f827347b3c6c28bc55a8eb1e62ea2659202cab/include/linux/netlink.h  (mode:100644)
++++ 031c0e0d63096ca2dff2203940b90460f1db5c68/include/linux/netlink.h  (mode:100644)
+@@ -171,8 +171,21 @@
+ }
+ 
+ #define NLMSG_PUT(skb, pid, seq, type, len) \
+-({ if (skb_tailroom(skb) < (int)NLMSG_SPACE(len)) goto nlmsg_failure; \
+-   __nlmsg_put(skb, pid, seq, type, len); })
++({	if (skb_tailroom(skb) < (int)NLMSG_SPACE(len)) \
++		goto nlmsg_failure; \
++	__nlmsg_put(skb, pid, seq, type, len); })
++
++#define NLMSG_PUT_ANSWER(skb, cb, type, len) \
++	NLMSG_PUT(skb, NETLINK_CB((cb)->skb).pid, \
++		  (cb)->nlh->nlmsg_seq, type, len)
++
++#define NLMSG_END(skb, nlh) \
++({	(nlh)->nlmsg_len = (skb)->tail - (unsigned char *) (nlh); \
++	(skb)->len; })
++
++#define NLMSG_CANCEL(skb, nlh) \
++({	skb_trim(skb, (unsigned char *) (nlh) - (skb)->data); \
++	-1; })
+ 
+ extern int netlink_dump_start(struct sock *ssk, struct sk_buff *skb,
+ 			      struct nlmsghdr *nlh,
