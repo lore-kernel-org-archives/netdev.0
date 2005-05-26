@@ -1,67 +1,50 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 2.6.12-rc5 6/9] tg3: Add memory test
-Date: Thu, 26 May 2005 10:58:45 -0700
-Message-ID: <1117130325.3744.58.camel@rh4>
-References: <1117128795.3744.22.camel@rh4>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [NEIGH] Remove unused fields in struct neigh_parms and neigh_table
+Date: Thu, 26 May 2005 20:55:56 +0200
+Message-ID: <20050526185556.GA15391@postel.suug.ch>
+References: <20050526185306.GW15391@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="=-Qaxjim3ius6F+HrSKR0b"
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@davemloft.net
-In-Reply-To: <1117128795.3744.22.camel@rh4>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20050526185306.GW15391@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---=-Qaxjim3ius6F+HrSKR0b
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
+---
+commit 45b866033b439e510f3638ce9ac0990446b8b3cd
+tree 72baef0bb9b97ac2990bcca05b8f831b30303008
+parent 3688d656f38445cc120b0970cd437cad1bb929dd
+author Thomas Graf <tgraf@suug.ch> Thu, 26 May 2005 20:42:10 +0200
+committer Thomas Graf <tgraf@suug.ch> Thu, 26 May 2005 20:42:10 +0200
 
---=-Qaxjim3ius6F+HrSKR0b
-Content-Disposition: attachment;
- filename=tg3-d6.patch
-Content-Type: text/x-patch;
- charset=utf-8;
- name=tg3-d6.patch
-Content-Transfer-Encoding: base64
+ include/net/neighbour.h |    3 ---
+ 1 files changed, 3 deletions(-)
 
-ZGlmZiAtTnJ1IGQ1L2RyaXZlcnMvbmV0L3RnMy5jIGQ2L2RyaXZlcnMvbmV0L3RnMy5jDQotLS0g
-ZDUvZHJpdmVycy9uZXQvdGczLmMJMjAwNS0wNS0yNSAxMjo1OToyNC4wMDAwMDAwMDAgLTA3MDAN
-CisrKyBkNi9kcml2ZXJzL25ldC90ZzMuYwkyMDA1LTA1LTI1IDEyOjU5OjMxLjAwMDAwMDAwMCAt
-MDcwMA0KQEAgLTc1MjAsNiArNzUyMCw2MiBAQA0KIAlyZXR1cm4gLUVJTzsNCiB9DQogDQorc3Rh
-dGljIGludCB0ZzNfZG9fbWVtX3Rlc3Qoc3RydWN0IHRnMyAqdHAsIHUzMiBvZmZzZXQsIHUzMiBs
-ZW4pDQorew0KKwlzdGF0aWMgdTMyIHRlc3RfcGF0dGVybltdID0geyAweDAwMDAwMDAwLCAweGZm
-ZmZmZmZmLCAweGFhNTVhNTVhIH07DQorCWludCBpOw0KKwl1MzIgajsNCisNCisJZm9yIChpID0g
-MDsgaSA8IHNpemVvZih0ZXN0X3BhdHRlcm4pL3NpemVvZih1MzIpOyBpKyspIHsNCisJCWZvciAo
-aiA9IDA7IGogPCBsZW47IGogKz0gNCkgew0KKwkJCXUzMiB2YWw7DQorDQorCQkJdGczX3dyaXRl
-X21lbSh0cCwgb2Zmc2V0ICsgaiwgdGVzdF9wYXR0ZXJuW2ldKTsNCisJCQl0ZzNfcmVhZF9tZW0o
-dHAsIG9mZnNldCArIGosICZ2YWwpOw0KKwkJCWlmICh2YWwgIT0gdGVzdF9wYXR0ZXJuW2ldKQ0K
-KwkJCQlyZXR1cm4gLUVJTzsNCisJCX0NCisJfQ0KKwlyZXR1cm4gMDsNCit9DQorDQorc3RhdGlj
-IGludCB0ZzNfdGVzdF9tZW1vcnkoc3RydWN0IHRnMyAqdHApDQorew0KKwlzdGF0aWMgc3RydWN0
-IG1lbV9lbnRyeSB7DQorCQl1MzIgb2Zmc2V0Ow0KKwkJdTMyIGxlbjsNCisJfSBtZW1fdGJsXzU3
-MHhbXSA9IHsNCisJCXsgMHgwMDAwMDAwMCwgMHgwMTAwMH0sDQorCQl7IDB4MDAwMDIwMDAsIDB4
-MWMwMDB9LA0KKwkJeyAweGZmZmZmZmZmLCAweDAwMDAwfQ0KKwl9LCBtZW1fdGJsXzU3MDVbXSA9
-IHsNCisJCXsgMHgwMDAwMDEwMCwgMHgwMDAwY30sDQorCQl7IDB4MDAwMDAyMDAsIDB4MDAwMDh9
-LA0KKwkJeyAweDAwMDAwYjUwLCAweDAwNDAwfSwNCisJCXsgMHgwMDAwNDAwMCwgMHgwMDgwMH0s
-DQorCQl7IDB4MDAwMDYwMDAsIDB4MDEwMDB9LA0KKwkJeyAweDAwMDA4MDAwLCAweDAyMDAwfSwN
-CisJCXsgMHgwMDAxMDAwMCwgMHgwZTAwMH0sDQorCQl7IDB4ZmZmZmZmZmYsIDB4MDAwMDB9DQor
-CX07DQorCXN0cnVjdCBtZW1fZW50cnkgKm1lbV90Ymw7DQorCWludCBlcnIgPSAwOw0KKwlpbnQg
-aTsNCisNCisJaWYgKHRwLT50ZzNfZmxhZ3MyICYgVEczX0ZMRzJfNTcwNV9QTFVTKQ0KKwkJbWVt
-X3RibCA9IG1lbV90YmxfNTcwNTsNCisJZWxzZQ0KKwkJbWVtX3RibCA9IG1lbV90YmxfNTcweDsN
-CisNCisJZm9yIChpID0gMDsgbWVtX3RibFtpXS5vZmZzZXQgIT0gMHhmZmZmZmZmZjsgaSsrKSB7
-DQorCQlpZiAoKGVyciA9IHRnM19kb19tZW1fdGVzdCh0cCwgbWVtX3RibFtpXS5vZmZzZXQsDQor
-CQkgICAgbWVtX3RibFtpXS5sZW4pKSAhPSAwKQ0KKwkJCWJyZWFrOw0KKwl9DQorCQ0KKwlyZXR1
-cm4gZXJyOw0KK30NCisNCiBzdGF0aWMgdm9pZCB0ZzNfc2VsZl90ZXN0KHN0cnVjdCBuZXRfZGV2
-aWNlICpkZXYsIHN0cnVjdCBldGh0b29sX3Rlc3QgKmV0ZXN0LA0KIAkJCSAgdTY0ICpkYXRhKQ0K
-IHsNCkBAIC03NTUzLDYgKzc2MDksMTAgQEANCiAJCQlldGVzdC0+ZmxhZ3MgfD0gRVRIX1RFU1Rf
-RkxfRkFJTEVEOw0KIAkJCWRhdGFbMl0gPSAxOw0KIAkJfQ0KKwkJaWYgKHRnM190ZXN0X21lbW9y
-eSh0cCkgIT0gMCkgew0KKwkJCWV0ZXN0LT5mbGFncyB8PSBFVEhfVEVTVF9GTF9GQUlMRUQ7DQor
-CQkJZGF0YVszXSA9IDE7DQorCQl9DQogDQogCQl0ZzNfaGFsdCh0cCwgUkVTRVRfS0lORF9TSFVU
-RE9XTiwgMSk7DQogCQlpZiAobmV0aWZfcnVubmluZyhkZXYpKSB7DQo=
-
-
---=-Qaxjim3ius6F+HrSKR0b--
+Index: include/net/neighbour.h
+===================================================================
+--- 2fbcbf92bed82aaef81b2bcc9baecafd61dfb0ce/include/net/neighbour.h  (mode:100644)
++++ 72baef0bb9b97ac2990bcca05b8f831b30303008/include/net/neighbour.h  (mode:100644)
+@@ -69,8 +69,6 @@
+ 	struct neigh_parms *next;
+ 	int	(*neigh_setup)(struct neighbour *);
+ 	struct neigh_table *tbl;
+-	int	entries;
+-	void	*priv;
+ 
+ 	void	*sysctl_table;
+ 
+@@ -193,7 +191,6 @@
+ 	atomic_t		entries;
+ 	rwlock_t		lock;
+ 	unsigned long		last_rand;
+-	struct neigh_parms	*parms_list;
+ 	kmem_cache_t		*kmem_cachep;
+ 	struct neigh_statistics	*stats;
+ 	struct neighbour	**hash_buckets;
