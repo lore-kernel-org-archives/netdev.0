@@ -1,49 +1,29 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 2.6.12-rc5 9/9] tg3: Fix bug in tg3_load_firmware_cpu
-Date: Thu, 26 May 2005 11:00:11 -0700
-Message-ID: <1117130411.3744.61.camel@rh4>
-References: <1117128795.3744.22.camel@rh4>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [NEIGH] Remove unused fields in struct neigh_parms and neigh_table
+Date: Thu, 26 May 2005 21:00:55 +0200
+Message-ID: <20050526190055.GB15391@postel.suug.ch>
+References: <20050526185306.GW15391@postel.suug.ch> <20050526185556.GA15391@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="=-AMuu51w9sS0rynMEQ8qb"
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@davemloft.net
-In-Reply-To: <1117128795.3744.22.camel@rh4>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20050526185556.GA15391@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+* Thomas Graf <20050526185556.GA15391@postel.suug.ch> 2005-05-26 20:55
+> 
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> 
+> ---
+> commit 45b866033b439e510f3638ce9ac0990446b8b3cd
+> tree 72baef0bb9b97ac2990bcca05b8f831b30303008
+> parent 3688d656f38445cc120b0970cd437cad1bb929dd
+> author Thomas Graf <tgraf@suug.ch> Thu, 26 May 2005 20:42:10 +0200
+> committer Thomas Graf <tgraf@suug.ch> Thu, 26 May 2005 20:42:10 +0200
 
---=-AMuu51w9sS0rynMEQ8qb
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-
-Add tg3_nvram_lock() and tg3_nvram_unlock() calls around tg3_halt_cpu().
-It is possible that the bootcode may be loading code from nvram during
-this call and stopping the cpu without getting the lock may cause
-uncompleted nvram data to be left in the nvram data register. Subsequent
-calls to read/write nvram data will fail.
-
-Signed-off-by: Michael Chan <mchan@broadcom.com>
-
---=-AMuu51w9sS0rynMEQ8qb
-Content-Disposition: attachment;
- filename=tg3-d9.patch
-Content-Type: text/x-patch;
- charset=utf-8;
- name=tg3-d9.patch
-Content-Transfer-Encoding: base64
-
-ZGlmZiAtTnJ1IGQ4L2RyaXZlcnMvbmV0L3RnMy5jIGQ5L2RyaXZlcnMvbmV0L3RnMy5jDQotLS0g
-ZDgvZHJpdmVycy9uZXQvdGczLmMJMjAwNS0wNS0yNSAxMjo1OTo0Ni4wMDAwMDAwMDAgLTA3MDAN
-CisrKyBkOS9kcml2ZXJzL25ldC90ZzMuYwkyMDA1LTA1LTI1IDEyOjU5OjU1LjAwMDAwMDAwMCAt
-MDcwMA0KQEAgLTQzNzAsNyArNDM3MCwxMiBAQA0KIAkgKi8NCiAJdHAtPnRnM19mbGFncyB8PSBU
-RzNfRkxBR19QQ0lYX1RBUkdFVF9IV0JVRzsNCiANCisJLyogSXQgaXMgcG9zc2libGUgdGhhdCBi
-b290Y29kZSBpcyBzdGlsbCBsb2FkaW5nIGF0IHRoaXMgcG9pbnQuDQorCSAqIEdldCB0aGUgbnZy
-YW0gbG9jayBmaXJzdCBiZWZvcmUgaGFsdGluZyB0aGUgY3B1Lg0KKwkgKi8NCisJdGczX252cmFt
-X2xvY2sodHApOw0KIAllcnIgPSB0ZzNfaGFsdF9jcHUodHAsIGNwdV9iYXNlKTsNCisJdGczX252
-cmFtX3VubG9jayh0cCk7DQogCWlmIChlcnIpDQogCQlnb3RvIG91dDsNCiANCg==
-
-
---=-AMuu51w9sS0rynMEQ8qb--
+This is patch 4 if it's not clear. I took the wrong patch and my script
+couldn't find the parent sha1 and ommited the [PATCH 4/4]. Sorry.
