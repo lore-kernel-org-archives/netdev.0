@@ -1,12 +1,13 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (5/6) bridge: add way to flush forwarding table
-Date: Thu, 26 May 2005 11:04:22 -0700
-Message-ID: <20050526110422.0dabeb71@dxpl.pdx.osdl.net>
+Subject: [PATCH] (3/6) bridge: set features based on enslaved
+	devices
+Date: Thu, 26 May 2005 11:04:16 -0700
+Message-ID: <20050526110416.66a08e87@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============82286245909612399=="
-Cc: netdev@oss.sgi.com, bridge@osdl.org
+Content-Type: multipart/mixed; boundary="===============63601099669858141=="
 Return-path: <bridge-bounces@lists.osdl.org>
-To: "David S. Miller" <davem@davemloft.net>
+To: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
+   bridge@osdl.org
 List-Unsubscribe: <http://lists.osdl.org/mailman/listinfo/bridge>,
 	<mailto:bridge-request@lists.osdl.org?subject=unsubscribe>
 List-Archive: <http://lists.osdl.org/pipermail/bridge>
@@ -18,122 +19,139 @@ Sender: bridge-bounces@lists.osdl.org
 Errors-To: bridge-bounces@lists.osdl.org
 List-Id: netdev.vger.kernel.org
 
---===============82286245909612399==
+--===============63601099669858141==
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 
-Add a hook to allow flushing the bridge forwarding table for testing
-or reconfiguration via:
+Make features of the bridge pseudo-device be a subset of the underlying
+devices.  Motivated by Xen and others who use bridging to do failover.
 
-echo > /sys/class/net/brX/bridge/flush
-
+Signed-off-by: Catalin BOIE <catab at umrella.ro>
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
 Index: bridge/net/bridge/br_private.h
 ===================================================================
 --- bridge.orig/net/bridge/br_private.h
 +++ bridge/net/bridge/br_private.h
-@@ -135,6 +135,7 @@ extern void br_fdb_fini(void);
- extern void br_fdb_changeaddr(struct net_bridge_port *p,
- 			      const unsigned char *newaddr);
- extern void br_fdb_cleanup(unsigned long arg);
-+extern void br_fdb_flush(struct net_bridge *br);
- extern void br_fdb_delete_by_port(struct net_bridge *br,
- 			   struct net_bridge_port *p);
- extern struct net_bridge_fdb_entry *__br_fdb_get(struct net_bridge *br,
-Index: bridge/net/bridge/br_fdb.c
+@@ -174,6 +174,7 @@ extern int br_add_if(struct net_bridge *
+ extern int br_del_if(struct net_bridge *br,
+ 	      struct net_device *dev);
+ extern int br_min_mtu(const struct net_bridge *br);
++extern void br_features_recompute(struct net_bridge *br);
+ 
+ /* br_input.c */
+ extern int br_handle_frame_finish(struct sk_buff *skb);
+Index: bridge/net/bridge/br_notify.c
 ===================================================================
---- bridge.orig/net/bridge/br_fdb.c
-+++ bridge/net/bridge/br_fdb.c
-@@ -106,26 +106,46 @@ void br_fdb_changeaddr(struct net_bridge
- 	spin_unlock_bh(&br->hash_lock);
- }
- 
--void br_fdb_cleanup(unsigned long _data)
-+static void fdb_flush(struct net_bridge *br, int all)
- {
--	struct net_bridge *br = (struct net_bridge *)_data;
--	unsigned long delay = hold_time(br);
-+	unsigned long hold = hold_time(br);
-+	unsigned long interval = HZ/10;
- 	int i;
- 
--	spin_lock_bh(&br->hash_lock);
- 	for (i = 0; i < BR_HASH_SIZE; i++) {
- 		struct net_bridge_fdb_entry *f;
- 		struct hlist_node *h, *n;
- 
- 		hlist_for_each_entry_safe(f, h, n, &br->hash[i], hlist) {
--			if (!f->is_static && 
--			    time_before_eq(f->ageing_timer + delay, jiffies)) 
-+			unsigned long age = jiffies - f->ageing_timer;
-+			if (f->is_static)
-+				continue;
-+
-+			if (all || age >= hold)
- 				fdb_delete(f);
-+			else 
-+				interval = min(hold - age, interval);
-+
+--- bridge.orig/net/bridge/br_notify.c
++++ bridge/net/bridge/br_notify.c
+@@ -65,6 +65,15 @@ static int br_device_event(struct notifi
  		}
- 	}
-+
-+	mod_timer(&br->gc_timer, jiffies + interval);
-+}	
-+
-+void br_fdb_cleanup(unsigned long _data)
-+{
-+	struct net_bridge *br = (struct net_bridge *)_data;
-+
-+	spin_lock_bh(&br->hash_lock);
-+	fdb_flush(br, 0);
- 	spin_unlock_bh(&br->hash_lock);
-+}
+ 		break;
  
--	mod_timer(&br->gc_timer, jiffies + HZ/10);
-+void br_fdb_flush(struct net_bridge *br)
-+{
-+	spin_lock_bh(&br->hash_lock);
-+	fdb_flush(br, 1);
-+	spin_unlock_bh(&br->hash_lock);
- }
- 
- void br_fdb_delete_by_port(struct net_bridge *br, struct net_bridge_port *p)
-Index: bridge/net/bridge/br_sysfs_br.c
++	case NETDEV_FEAT_CHANGE:
++		if (br->dev->flags & IFF_UP) 
++			br_features_recompute(br);
++
++		/* could do recursive feature change notification
++		 * but who would care?? 
++		 */
++		break;
++
+ 	case NETDEV_DOWN:
+ 		if (br->dev->flags & IFF_UP)
+ 			br_stp_disable_port(p);
+Index: bridge/net/bridge/br_device.c
 ===================================================================
---- bridge.orig/net/bridge/br_sysfs_br.c
-+++ bridge/net/bridge/br_sysfs_br.c
-@@ -241,6 +241,20 @@ static ssize_t show_gc_timer(struct clas
+--- bridge.orig/net/bridge/br_device.c
++++ bridge/net/bridge/br_device.c
+@@ -21,10 +21,7 @@
+ 
+ static struct net_device_stats *br_dev_get_stats(struct net_device *dev)
+ {
+-	struct net_bridge *br;
+-
+-	br = dev->priv;
+-
++	struct net_bridge *br = netdev_priv(dev);
+ 	return &br->statistics;
  }
- static CLASS_DEVICE_ATTR(gc_timer, S_IRUGO, show_gc_timer, NULL);
  
-+static ssize_t store_flush(struct class_device *cd,
-+			   const char *buf, size_t len)
+@@ -54,9 +51,11 @@ int br_dev_xmit(struct sk_buff *skb, str
+ 
+ static int br_dev_open(struct net_device *dev)
+ {
+-	netif_start_queue(dev);
++	struct net_bridge *br = netdev_priv(dev);
+ 
+-	br_stp_enable_bridge(dev->priv);
++	br_features_recompute(br);
++	netif_start_queue(dev);
++	br_stp_enable_bridge(br);
+ 
+ 	return 0;
+ }
+@@ -67,7 +66,7 @@ static void br_dev_set_multicast_list(st
+ 
+ static int br_dev_stop(struct net_device *dev)
+ {
+-	br_stp_disable_bridge(dev->priv);
++	br_stp_disable_bridge(netdev_priv(dev));
+ 
+ 	netif_stop_queue(dev);
+ 
+@@ -76,7 +75,7 @@ static int br_dev_stop(struct net_device
+ 
+ static int br_change_mtu(struct net_device *dev, int new_mtu)
+ {
+-	if ((new_mtu < 68) || new_mtu > br_min_mtu(dev->priv))
++	if (new_mtu < 68 || new_mtu > br_min_mtu(netdev_priv(dev)))
+ 		return -EINVAL;
+ 
+ 	dev->mtu = new_mtu;
+Index: bridge/net/bridge/br_if.c
+===================================================================
+--- bridge.orig/net/bridge/br_if.c
++++ bridge/net/bridge/br_if.c
+@@ -314,6 +314,28 @@ int br_min_mtu(const struct net_bridge *
+ 	return mtu;
+ }
+ 
++/*
++ * Recomputes features using slave's features
++ */
++void br_features_recompute(struct net_bridge *br)
 +{
-+	struct net_bridge *br = to_bridge(cd);
++	struct net_bridge_port *p;
++	unsigned long features, checksum;
 +
-+	if (!capable(CAP_NET_ADMIN))
-+		return -EPERM;
-+	
-+	br_fdb_flush(br);
-+	return len;
++	features = NETIF_F_SG | NETIF_F_FRAGLIST 
++		| NETIF_F_HIGHDMA | NETIF_F_TSO;
++	checksum = NETIF_F_IP_CSUM;	/* least commmon subset */
++
++	list_for_each_entry(p, &br->port_list, list) {
++		if (!(p->dev->features 
++		      & (NETIF_F_IP_CSUM|NETIF_F_NO_CSUM|NETIF_F_HW_CSUM)))
++			checksum = 0;
++		features &= p->dev->features;
++	}
++
++	br->dev->features = features | checksum | NETIF_F_LLTX;
 +}
-+static CLASS_DEVICE_ATTR(flush, S_IWUSR, NULL, store_flush);
 +
-+
- static struct attribute *bridge_attrs[] = {
- 	&class_device_attr_forward_delay.attr,
- 	&class_device_attr_hello_time.attr,
-@@ -258,6 +272,7 @@ static struct attribute *bridge_attrs[] 
- 	&class_device_attr_tcn_timer.attr,
- 	&class_device_attr_topology_change_timer.attr,
- 	&class_device_attr_gc_timer.attr,
-+	&class_device_attr_flush.attr,
- 	NULL
- };
+ /* called with RTNL */
+ int br_add_if(struct net_bridge *br, struct net_device *dev)
+ {
+@@ -368,6 +390,7 @@ int br_del_if(struct net_bridge *br, str
  
+ 	spin_lock_bh(&br->lock);
+ 	br_stp_recalculate_bridge_id(br);
++	br_features_recompute(br);
+ 	spin_unlock_bh(&br->lock);
+ 
+ 	return 0;
 
---===============82286245909612399==
+--===============63601099669858141==
 Content-Type: text/plain; charset="iso-8859-1"
 MIME-Version: 1.0
 Content-Transfer-Encoding: quoted-printable
@@ -144,4 +162,4 @@ Bridge mailing list
 Bridge@lists.osdl.org
 http://lists.osdl.org/mailman/listinfo/bridge
 
---===============82286245909612399==--
+--===============63601099669858141==--
