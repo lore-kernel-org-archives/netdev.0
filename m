@@ -1,37 +1,37 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 2.6.12-rc5 9/9] tg3: Fix bug in tg3_load_firmware_cpu
-Date: Thu, 26 May 2005 15:13:47 -0400
-Message-ID: <42961FEB.801@pobox.com>
-References: <1117128795.3744.22.camel@rh4> <1117130411.3744.61.camel@rh4>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: user space checksum
+Date: Thu, 26 May 2005 12:47:24 -0700
+Message-ID: <20050526124724.57e9bafa@dxpl.pdx.osdl.net>
+References: <1116744708.3021.12.camel@raz-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Michael Chan <mchan@broadcom.com>
-In-Reply-To: <1117130411.3744.61.camel@rh4>
+To: raz ben jehuda <razb@bitband.com>
+In-Reply-To: <1116744708.3021.12.camel@raz-laptop>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Michael Chan wrote:
-> Add tg3_nvram_lock() and tg3_nvram_unlock() calls around tg3_halt_cpu().
-> It is possible that the bootcode may be loading code from nvram during
-> this call and stopping the cpu without getting the lock may cause
-> uncompleted nvram data to be left in the nvram data register. Subsequent
-> calls to read/write nvram data will fail.
-> 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+On Sun, 22 May 2005 09:51:48 +0300
+raz ben jehuda <razb@bitband.com> wrote:
 
-All the patches seem sane to me.
+> I do not know if this was ever suggested.so i'll try any way.
+> Why not give the user the chance to supply the kernel/card with the
+> checksums instead of having the kernel/network card do the work ? 
 
-To touch a bit on patch order, I would suggest ordering bug fixes before 
-feature patches.  Your patch #9 could have been better ordered as patch #1.
+A bad idea for two reasons:
+	* application data units (APDU) do not match transport data units
+	  for a stream oriented protocol. 
+	* computing checksum is done for almost nothing as part
+	  of the copy from user to kernel space. Modern CPU cache's
+	  make computation cost << memory access cost.
 
-The patch order did not matter today, but sometime in the future, if an 
-add-a-feature patch is rejected or delayed, you would still likely want 
-DaveM to apply other bugfix patches.
+> This is because a user is aware to the data he sends and he can optimize
+> the data checksum calculations more than anyone else. for instance a web
+> server sends its html pages, which are static data. it can pre-calculate
+> the checksums.
 
-Regards,
-
-	Jeff
+	Tcp will compute different transfer size's based on the congestion
+	window of the connection, and header part will be different.
