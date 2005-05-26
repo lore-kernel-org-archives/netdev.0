@@ -1,112 +1,96 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 2/4] [RTNETLINK] Routing attribute related shortcuts
-Date: Thu, 26 May 2005 20:54:49 +0200
-Message-ID: <20050526185449.GY15391@postel.suug.ch>
-References: <20050526185306.GW15391@postel.suug.ch>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH 2.6.12-rc5 4/9] tg3: Add parameter to tg3_halt
+Date: Thu, 26 May 2005 10:58:18 -0700
+Message-ID: <1117130298.3744.55.camel@rh4>
+References: <1117128795.3744.22.camel@rh4>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/mixed;
+ boundary="=-ADm/QKBxizVw3JF02nx2"
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20050526185306.GW15391@postel.suug.ch>
+To: davem@davemloft.net
+In-Reply-To: <1117128795.3744.22.camel@rh4>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
- RTA_GET_U(32|64)(tlv)
-   Assumes TLV is a u32/u64 field and returns its value.
 
- RTA_GET_[M]SECS(tlv)
-   Assumes TLV is a u64 and transports jiffies converted
-   to seconds or milliseconds and returns its value.
+--=-ADm/QKBxizVw3JF02nx2
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
- RTA_PUT_U(32|64)(skb, type, value)
-   Appends %value as fixed u32/u64 to %skb as TLV %type.
+Add a reset kind parameter to tg3_halt() so that the RESET_KIND_SUSPEND
+parameter can be passed to tg3_halt() before doing offline tests.
 
- RTA_PUT_[M]SECS(skb, type, jiffies)
-   Converts %jiffies to secs/msecs and appends it as u64
-   to %skb as TLV %type.
+All other calls to tg3_halt() will use the RESET_KIND_SHUTDOWN
+parameter.
 
- RTA_PUT_STRING(skb, type, string)
-   Appends %NUL terminated %string to %skb as TLV %type.
+Signed-off-by: Michael Chan <mchan@broadcom.com>
 
- RTA_NEST(skb, type)
-   Starts a nested TLV %type and returns the nesting handle.
+--=-ADm/QKBxizVw3JF02nx2
+Content-Disposition: attachment;
+ filename=tg3-d4.patch
+Content-Type: text/x-patch;
+ charset=utf-8;
+ name=tg3-d4.patch
+Content-Transfer-Encoding: base64
 
- RTA_NEST_END(skb, nesting_handle)
-   Finishes the nested TLV %nesting_handle, must be called
-   symmetric to RTA_NEST(). Returns skb->len
+ZGlmZiAtTnJ1IGQzL2RyaXZlcnMvbmV0L3RnMy5jIGQ0L2RyaXZlcnMvbmV0L3RnMy5jDQotLS0g
+ZDMvZHJpdmVycy9uZXQvdGczLmMJMjAwNS0wNS0yNSAxMjo1OTowOS4wMDAwMDAwMDAgLTA3MDAN
+CisrKyBkNC9kcml2ZXJzL25ldC90ZzMuYwkyMDA1LTA1LTI1IDEyOjU5OjE3LjAwMDAwMDAwMCAt
+MDcwMA0KQEAgLTMwODMsNyArMzA4Myw3IEBADQogfQ0KIA0KIHN0YXRpYyBpbnQgdGczX2luaXRf
+aHcoc3RydWN0IHRnMyAqKTsNCi1zdGF0aWMgaW50IHRnM19oYWx0KHN0cnVjdCB0ZzMgKiwgaW50
+KTsNCitzdGF0aWMgaW50IHRnM19oYWx0KHN0cnVjdCB0ZzMgKiwgaW50LCBpbnQpOw0KIA0KICNp
+ZmRlZiBDT05GSUdfTkVUX1BPTExfQ09OVFJPTExFUg0KIHN0YXRpYyB2b2lkIHRnM19wb2xsX2Nv
+bnRyb2xsZXIoc3RydWN0IG5ldF9kZXZpY2UgKmRldikNCkBAIC0zMTA3LDcgKzMxMDcsNyBAQA0K
+IAlyZXN0YXJ0X3RpbWVyID0gdHAtPnRnM19mbGFnczIgJiBURzNfRkxHMl9SRVNUQVJUX1RJTUVS
+Ow0KIAl0cC0+dGczX2ZsYWdzMiAmPSB+VEczX0ZMRzJfUkVTVEFSVF9USU1FUjsNCiANCi0JdGcz
+X2hhbHQodHAsIDApOw0KKwl0ZzNfaGFsdCh0cCwgUkVTRVRfS0lORF9TSFVURE9XTiwgMCk7DQog
+CXRnM19pbml0X2h3KHRwKTsNCiANCiAJdGczX25ldGlmX3N0YXJ0KHRwKTsNCkBAIC0zNDUzLDcg
+KzM0NTMsNyBAQA0KIAlzcGluX2xvY2tfaXJxKCZ0cC0+bG9jayk7DQogCXNwaW5fbG9jaygmdHAt
+PnR4X2xvY2spOw0KIA0KLQl0ZzNfaGFsdCh0cCwgMSk7DQorCXRnM19oYWx0KHRwLCBSRVNFVF9L
+SU5EX1NIVVRET1dOLCAxKTsNCiANCiAJdGczX3NldF9tdHUoZGV2LCB0cCwgbmV3X210dSk7DQog
+DQpAQCAtNDE0NCwxOSArNDE0NCwxOSBAQA0KIH0NCiANCiAvKiB0cC0+bG9jayBpcyBoZWxkLiAq
+Lw0KLXN0YXRpYyBpbnQgdGczX2hhbHQoc3RydWN0IHRnMyAqdHAsIGludCBzaWxlbnQpDQorc3Rh
+dGljIGludCB0ZzNfaGFsdChzdHJ1Y3QgdGczICp0cCwgaW50IGtpbmQsIGludCBzaWxlbnQpDQog
+ew0KIAlpbnQgZXJyOw0KIA0KIAl0ZzNfc3RvcF9mdyh0cCk7DQogDQotCXRnM193cml0ZV9zaWdf
+cHJlX3Jlc2V0KHRwLCBSRVNFVF9LSU5EX1NIVVRET1dOKTsNCisJdGczX3dyaXRlX3NpZ19wcmVf
+cmVzZXQodHAsIGtpbmQpOw0KIA0KIAl0ZzNfYWJvcnRfaHcodHAsIHNpbGVudCk7DQogCWVyciA9
+IHRnM19jaGlwX3Jlc2V0KHRwKTsNCiANCi0JdGczX3dyaXRlX3NpZ19sZWdhY3kodHAsIFJFU0VU
+X0tJTkRfU0hVVERPV04pOw0KLQl0ZzNfd3JpdGVfc2lnX3Bvc3RfcmVzZXQodHAsIFJFU0VUX0tJ
+TkRfU0hVVERPV04pOw0KKwl0ZzNfd3JpdGVfc2lnX2xlZ2FjeSh0cCwga2luZCk7DQorCXRnM193
+cml0ZV9zaWdfcG9zdF9yZXNldCh0cCwga2luZCk7DQogDQogCWlmIChlcnIpDQogCQlyZXR1cm4g
+ZXJyOw0KQEAgLTU5OTcsNyArNTk5Nyw3IEBADQogCXNwaW5fbG9ja19pcnEoJnRwLT5sb2NrKTsN
+CiAJc3Bpbl9sb2NrKCZ0cC0+dHhfbG9jayk7DQogDQotCXRnM19oYWx0KHRwLCAxKTsNCisJdGcz
+X2hhbHQodHAsIFJFU0VUX0tJTkRfU0hVVERPV04sIDEpOw0KIAllcnIgPSB0ZzNfaW5pdF9odyh0
+cCk7DQogDQogCXNwaW5fdW5sb2NrKCZ0cC0+dHhfbG9jayk7DQpAQCAtNjA3Myw3ICs2MDczLDcg
+QEANCiANCiAJZXJyID0gdGczX2luaXRfaHcodHApOw0KIAlpZiAoZXJyKSB7DQotCQl0ZzNfaGFs
+dCh0cCwgMSk7DQorCQl0ZzNfaGFsdCh0cCwgUkVTRVRfS0lORF9TSFVURE9XTiwgMSk7DQogCQl0
+ZzNfZnJlZV9yaW5ncyh0cCk7DQogCX0gZWxzZSB7DQogCQlpZiAodHAtPnRnM19mbGFncyAmIFRH
+M19GTEFHX1RBR0dFRF9TVEFUVVMpDQpAQCAtNjExNyw3ICs2MTE3LDcgQEANCiAJCQkJcGNpX2Rp
+c2FibGVfbXNpKHRwLT5wZGV2KTsNCiAJCQkJdHAtPnRnM19mbGFnczIgJj0gflRHM19GTEcyX1VT
+SU5HX01TSTsNCiAJCQl9DQotCQkJdGczX2hhbHQodHAsIDEpOw0KKwkJCXRnM19oYWx0KHRwLCBS
+RVNFVF9LSU5EX1NIVVRET1dOLCAxKTsNCiAJCQl0ZzNfZnJlZV9yaW5ncyh0cCk7DQogCQkJdGcz
+X2ZyZWVfY29uc2lzdGVudCh0cCk7DQogDQpAQCAtNjM5MCw3ICs2MzkwLDcgQEANCiANCiAJdGcz
+X2Rpc2FibGVfaW50cyh0cCk7DQogDQotCXRnM19oYWx0KHRwLCAxKTsNCisJdGczX2hhbHQodHAs
+IFJFU0VUX0tJTkRfU0hVVERPV04sIDEpOw0KIAl0ZzNfZnJlZV9yaW5ncyh0cCk7DQogCXRwLT50
+ZzNfZmxhZ3MgJj0NCiAJCX4oVEczX0ZMQUdfSU5JVF9DT01QTEVURSB8DQpAQCAtNzExMCw3ICs3
+MTEwLDcgQEANCiAJdHAtPnR4X3BlbmRpbmcgPSBlcmluZy0+dHhfcGVuZGluZzsNCiANCiAJaWYg
+KG5ldGlmX3J1bm5pbmcoZGV2KSkgew0KLQkJdGczX2hhbHQodHAsIDEpOw0KKwkJdGczX2hhbHQo
+dHAsIFJFU0VUX0tJTkRfU0hVVERPV04sIDEpOw0KIAkJdGczX2luaXRfaHcodHApOw0KIAkJdGcz
+X25ldGlmX3N0YXJ0KHRwKTsNCiAJfQ0KQEAgLTcxNTMsNyArNzE1Myw3IEBADQogCQl0cC0+dGcz
+X2ZsYWdzICY9IH5URzNfRkxBR19UWF9QQVVTRTsNCiANCiAJaWYgKG5ldGlmX3J1bm5pbmcoZGV2
+KSkgew0KLQkJdGczX2hhbHQodHAsIDEpOw0KKwkJdGczX2hhbHQodHAsIFJFU0VUX0tJTkRfU0hV
+VERPV04sIDEpOw0KIAkJdGczX2luaXRfaHcodHApOw0KIAkJdGczX25ldGlmX3N0YXJ0KHRwKTsN
+CiAJfQ0KQEAgLTk1ODYsNyArOTU4Niw3IEBADQogCSAgICAodHIzMihXRE1BQ19NT0RFKSAmIFdE
+TUFDX01PREVfRU5BQkxFKSkgew0KIAkJcGNpX3NhdmVfc3RhdGUodHAtPnBkZXYpOw0KIAkJdHcz
+MihNRU1BUkJfTU9ERSwgTUVNQVJCX01PREVfRU5BQkxFKTsNCi0JCXRnM19oYWx0KHRwLCAxKTsN
+CisJCXRnM19oYWx0KHRwLCBSRVNFVF9LSU5EX1NIVVRET1dOLCAxKTsNCiAJfQ0KIA0KIAllcnIg
+PSB0ZzNfdGVzdF9kbWEodHApOw0KQEAgLTk3MTMsNyArOTcxMyw3IEBADQogDQogCXNwaW5fbG9j
+a19pcnEoJnRwLT5sb2NrKTsNCiAJc3Bpbl9sb2NrKCZ0cC0+dHhfbG9jayk7DQotCXRnM19oYWx0
+KHRwLCAxKTsNCisJdGczX2hhbHQodHAsIFJFU0VUX0tJTkRfU0hVVERPV04sIDEpOw0KIAlzcGlu
+X3VubG9jaygmdHAtPnR4X2xvY2spOw0KIAlzcGluX3VubG9ja19pcnEoJnRwLT5sb2NrKTsNCiAN
+Cg==
 
- RTA_NEST_CANCEL(skb, nesting_handle)
-   Cancel the nested TLV %nesting_handle and trim nested TLV
-   from skb again, returns -1.
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
-
----
-commit d24c37db15b6cd790459d9d91ee6331ce17264b4
-tree 52e7990f6dee710624f823014c40c14e0e5ccf39
-parent 88e04e26d887e806372014a2f7b33c6a7ea64741
-author Thomas Graf <tgraf@suug.ch> Thu, 26 May 2005 18:22:23 +0200
-committer Thomas Graf <tgraf@suug.ch> Thu, 26 May 2005 18:22:23 +0200
-
- include/linux/rtnetlink.h |   45 +++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 45 insertions(+)
-
-Index: include/linux/rtnetlink.h
-===================================================================
---- 031c0e0d63096ca2dff2203940b90460f1db5c68/include/linux/rtnetlink.h  (mode:100644)
-+++ 52e7990f6dee710624f823014c40c14e0e5ccf39/include/linux/rtnetlink.h  (mode:100644)
-@@ -789,6 +789,51 @@
- ({	if (unlikely(skb_tailroom(skb) < (int)(attrlen))) \
- 		goto rtattr_failure; \
- 	memcpy(skb_put(skb, RTA_ALIGN(attrlen)), data, attrlen); })
-+
-+#define RTA_PUT_U32(skb, attrtype, value) \
-+({	u32 _tmp = (value); \
-+	RTA_PUT(skb, attrtype, sizeof(u32), &_tmp); })
-+
-+#define RTA_PUT_U64(skb, attrtype, value) \
-+({	u64 _tmp = (value); \
-+	RTA_PUT(skb, attrtype, sizeof(u64), &_tmp); })
-+
-+#define RTA_PUT_SECS(skb, attrtype, value) \
-+	RTA_PUT_U64(skb, attrtype, (value) / HZ)
-+
-+#define RTA_PUT_MSECS(skb, attrtype, value) \
-+	RTA_PUT_U64(skb, attrtype, jiffies_to_msecs(value))
-+
-+#define RTA_PUT_STRING(skb, attrtype, value) \
-+	RTA_PUT(skb, attrtype, strlen(value) + 1, value)
-+
-+#define RTA_NEST(skb, type) \
-+({	struct rtattr *__start = (struct rtattr *) (skb)->tail; \
-+	RTA_PUT(skb, type, 0, NULL); \
-+	__start;  })
-+
-+#define RTA_NEST_END(skb, start) \
-+({	(start)->rta_len = ((skb)->tail - (unsigned char *) (start)); \
-+	(skb)->len; })
-+
-+#define RTA_NEST_CANCEL(skb, start) \
-+({	skb_trim(skb, (unsigned char *) (start) - (skb)->data); \
-+	-1; })
-+
-+#define RTA_GET_U32(rta) \
-+({	if (!rta || RTA_PAYLOAD(rta) < sizeof(u32)) \
-+		goto rtattr_failure; \
-+	*(u32 *) RTA_DATA(rta); })
-+
-+#define RTA_GET_U64(rta) \
-+({	u64 _tmp; \
-+	if (!rta || RTA_PAYLOAD(rta) < sizeof(u64)) \
-+		goto rtattr_failure; \
-+	memcpy(&_tmp, RTA_DATA(rta), sizeof(_tmp)); \
-+	_tmp; })
-+
-+#define RTA_GET_SECS(rta) ((unsigned long) RTA_GET_U64(rta) * HZ)
-+#define RTA_GET_MSECS(rta) (msecs_to_jiffies((unsigned long) RTA_GET_U64(rta)))
- 		
- static inline struct rtattr *
- __rta_reserve(struct sk_buff *skb, int attrtype, int attrlen)
+--=-ADm/QKBxizVw3JF02nx2--
