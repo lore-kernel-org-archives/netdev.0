@@ -1,55 +1,53 @@
-From: "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>
-Subject: RE: Fw: [Bugme-new] [Bug 4628] New: Test server hang while running rhr (network) test on RHEL4 with kernel 2.6.12-rc1-mm4
-Date: Thu, 26 May 2005 17:28:55 -0700
-Message-ID: <468F3FDA28AA87429AD807992E22D07E056F70D4@orsmsx408>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: [NET] 2.6.x build warning
+Date: Fri, 27 May 2005 09:54:26 +0900 (JST)
+Message-ID: <20050527.095426.115036280.yoshfuji@linux-ipv6.org>
+References: <42961EDB.7000407@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8bit
-Cc: "Andrew Morton" <akpm@osdl.org>, "Jian Jun He" <hejianj@cn.ibm.com>,
-        <anton@samba.org>, <rende@cn.ibm.com>,
-        "Brandeburg, Jesse" <jesse.brandeburg@intel.com>, <jgarzik@pobox.com>,
-        <wangjs@cn.ibm.com>, "Ronciak, John" <john.ronciak@intel.com>,
-        <cdlwangl@cn.ibm.com>, <linuxppc64-dev@lists.linuxppc.org.sgi.com>,
-        <netdev@oss.sgi.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-Content-class: urn:content-classes:message
-To: "Herbert Xu" <herbert@gondor.apana.org.au>,
-        "Ganesh Venkatesan" <ganesh.venkatesan@gmail.com>
+To: davem@davemloft.net, jgarzik@pobox.com
+In-Reply-To: <42961EDB.7000407@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Would adding flush_sheduled_tasks() to e100_down, do it?
+In article <42961EDB.7000407@pobox.com> (at Thu, 26 May 2005 15:09:15 -0400), Jeff Garzik <jgarzik@pobox.com> says:
 
-Ganesh.
+> from current git tree:
+> 
+> net/ipv6/ip6_flowlabel.c: In function `ipv6_flowlabel_opt':
+> net/ipv6/ip6_flowlabel.c:540: warning: ignoring return value of 
+> `copy_to_user', declared with attribute warn_unused_result
 
->-----Original Message-----
->From: Herbert Xu [mailto:herbert@gondor.apana.org.au]
->Sent: Thursday, May 26, 2005 5:21 PM
->To: Ganesh Venkatesan
->Cc: Venkatesan, Ganesh; Andrew Morton; Jian Jun He; anton@samba.org;
->rende@cn.ibm.com; Brandeburg, Jesse; jgarzik@pobox.com;
-wangjs@cn.ibm.com;
->Ronciak, John; cdlwangl@cn.ibm.com; linuxppc64-
->dev@lists.linuxppc.org.sgi.com; netdev@oss.sgi.com
->Subject: Re: Fw: [Bugme-new] [Bug 4628] New: Test server hang while
-running
->rhr (network) test on RHEL4 with kernel 2.6.12-rc1-mm4
->
->On Fri, May 27, 2005 at 10:11:23AM +1000, herbert wrote:
->>
->> Sorry, I was not aware that you've already added the sched work
->> in the driver.  With that it should work correctly.
->
->BTW, I was just checking out your sched work code.  There needs
->to be synchronisation between the tx_timeout task and the stop
->method.  Otherwise they can race against each other or worse
->tx_timeout could keep running even after stop has finished.
->
->Cheers,
->--
->Visit Openswan at http://www.openswan.org/
->Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
->Home Page: http://gondor.apana.org.au/~herbert/
->PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+As before, it is intentional.
+Okay, let's just waste the result for avoiding the warning.
+
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+
+Index: net/ipv6/ip6_flowlabel.c
+===================================================================
+--- 30b3bda5e47d088b46ab8eab4d69d059a71197e1/net/ipv6/ip6_flowlabel.c  (mode:100644)
++++ uncommitted/net/ipv6/ip6_flowlabel.c  (mode:100644)
+@@ -535,10 +535,11 @@
+ 		if (err)
+ 			goto done;
+ 
+-		/* Do not check for fault */
+-		if (!freq.flr_label)
+-			copy_to_user(&((struct in6_flowlabel_req __user *) optval)->flr_label,
+-				     &fl->label, sizeof(fl->label));
++		if (!freq.flr_label) {
++			/* Do not check for fault */
++			int dummy = copy_to_user(&((struct in6_flowlabel_req __user *) optval)->flr_label,
++						 &fl->label, sizeof(fl->label));
++		}
+ 
+ 		sfl1->fl = fl;
+ 		sfl1->next = np->ipv6_fl_list;
+
+-- 
+YOSHIFUJI Hideaki @ USAGI Project  <yoshfuji@linux-ipv6.org>
+GPG-FP  : 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
