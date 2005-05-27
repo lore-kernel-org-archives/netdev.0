@@ -1,47 +1,27 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: RFC: NAPI packet weighting patch
-Date: Fri, 27 May 2005 14:01:32 -0700
-Message-ID: <20050527140132.1435132d@dxpl.pdx.osdl.net>
-References: <Pine.CYG.4.58.0505261406210.2364@mawilli1-desk2.amr.corp.intel.com>
-	<20050527085055.79da3d75@dxpl.pdx.osdl.net>
-	<Pine.CYG.4.58.0505271305590.2148@mawilli1-desk2.amr.corp.intel.com>
+From: Christoph Lameter <christoph@lameter.com>
+Subject: Re: [PATCH] NUMA aware allocation of transmit and receive buffers
+ for e1000
+Date: Fri, 27 May 2005 14:15:55 -0700 (PDT)
+Message-ID: <Pine.LNX.4.62.0505271413560.25484@graphe.net>
+References: <Pine.LNX.4.62.0505171854490.20408@graphe.net> <m1sm0l5lwa.fsf@muc.de>
+ <428AF378.5020109@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, hadi@cyberus.ca, Robert.Olsson@data.slu.se,
-        "Ronciak, John" <john.ronciak@intel.com>,
-        "Venkatesan, Ganesh"
- <ganesh.venkatesan@intel.com>,
-        "Brandeburg, Jesse"
- <jesse.brandeburg@intel.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andi Kleen <ak@muc.de>, netdev@oss.sgi.com, akpm@osdl.org,
+        shai@scalex86.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Mitch Williams <mitch.a.williams@intel.com>
-In-Reply-To: <Pine.CYG.4.58.0505271305590.2148@mawilli1-desk2.amr.corp.intel.com>
+To: Eric Dumazet <dada1@cosmosbay.com>
+In-Reply-To: <428AF378.5020109@cosmosbay.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 27 May 2005 13:27:04 -0700
-Mitch Williams <mitch.a.williams@intel.com> wrote:
+On Wed, 18 May 2005, Eric Dumazet wrote:
 
-> 
-> Stephen, Robert, and Jamal all replied to my original message, and all
-> said approximately the same thing:  "Why don't you just reduce the weight
-> in the driver?  It does the same thing."
-> 
-> To which I reply, respectfully, I know that.  And no it doesn't, not
-> exactly.
-> 
-> My primary reason for adding this setting is to allow for runtime tweaking
-> -- just like max_backlog has right now.  Driver weight is a compile-time
-> setting, and has to be changed for every driver that you run.
-> 
-> This setting allows you to scale the weight of all your drivers, at
-> runtime, in one place.  It's complimentary to Stephen's max_weight idea --
-> his patch affects how long you spend in any individual softirq; my patch
-> affects how long you spend in any driver's individual NAPI poll routine,
-> as well as how long the softirq lasts.
->
+> Related question, is pci_alloc_consistent() already NUMA aware ?
 
-Why not just allow adjusting dev->weight via sysfs?
-	
+Nope. It also ultimately acquires memory via vmalloc.
+
+pci_alloc_consistent will also need some rework to allocate memory 
+consistent (well the name is coherent right?) with the node that the 
+device is on. Second case of a need for a node aware vmalloc?
