@@ -1,36 +1,76 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: PATCH: rtnetlink explicit flags setting
-Date: Fri, 27 May 2005 09:58:51 -0400
-Message-ID: <1117202331.6383.39.camel@localhost.localdomain>
-References: <1117197157.6688.24.camel@localhost.localdomain>
-	 <20050527125010.GO15391@postel.suug.ch>
-Reply-To: hadi@cyberus.ca
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH] baycom_epp.c: Fix compilation with gcc-4.1.0-20050522
+Date: Fri, 27 May 2005 18:08:31 +0400
+Message-ID: <200505271808.32032.adobriyan@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Cc: Thomas Sailer <t.sailer@alumni.ethz.ch>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050527125010.GO15391@postel.suug.ch>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2005-27-05 at 14:50 +0200, Thomas Graf wrote:
+drivers/net/hamradio/baycom_epp.c:432: error: jump into statement expression
+	...
 
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 
->  
-> -#define NLMSG_PUT(skb, pid, seq, type, len) \
-> +#define NLMSG_NEW(skb, pid, seq, type, len, flags) \
-
-How about introducing NLMSG_NEW and leave NLMSG_PUT where it is?
-This way we could do incremental updates. If there are not too many of
-those NLMSG_PUT around, then it shouldnt be an issue.
-
-The first change would be definetely on top of the current patch i sent
-which is well deserved.
-Lets have Dave swallow my patch then either you or i could make those
-changes. Sounds reasonable?
-
-cheers,
-jamal
+--- linux-vanilla/drivers/net/hamradio/baycom_epp.c	2005-05-27 12:58:48.000000000 +0400
++++ linux-gcc4/drivers/net/hamradio/baycom_epp.c	2005-05-27 17:54:14.000000000 +0400
+@@ -380,22 +380,18 @@ static inline void do_kiss_params(struct
+  */
+ 
+ #define ENCODEITERA(j)                         \
+-({                                             \
+         if (!(notbitstream & (0x1f0 << j)))    \
+                 goto stuff##j;                 \
+-  encodeend##j:    	;                      \
+-})
++  encodeend##j:    	;
+ 
+ #define ENCODEITERB(j)                                          \
+-({                                                              \
+   stuff##j:                                                     \
+         bitstream &= ~(0x100 << j);                             \
+         bitbuf = (bitbuf & (((2 << j) << numbit) - 1)) |        \
+                 ((bitbuf & ~(((2 << j) << numbit) - 1)) << 1);  \
+         numbit++;                                               \
+         notbitstream = ~bitstream;                              \
+-        goto encodeend##j;                                      \
+-})
++        goto encodeend##j;
+ 
+ 
+ static void encode_hdlc(struct baycom_state *bc)
+@@ -611,16 +607,13 @@ static void do_rxpacket(struct net_devic
+ }
+ 
+ #define DECODEITERA(j)                                                        \
+-({                                                                            \
+         if (!(notbitstream & (0x0fc << j)))              /* flag or abort */  \
+                 goto flgabrt##j;                                              \
+         if ((bitstream & (0x1f8 << j)) == (0xf8 << j))   /* stuffed bit */    \
+                 goto stuff##j;                                                \
+-  enditer##j:      ;                                                           \
+-})
++  enditer##j:      ;
+ 
+ #define DECODEITERB(j)                                                                 \
+-({                                                                                     \
+   flgabrt##j:                                                                          \
+         if (!(notbitstream & (0x1fc << j))) {              /* abort received */        \
+                 state = 0;                                                             \
+@@ -638,8 +631,7 @@ static void do_rxpacket(struct net_devic
+   stuff##j:                                                                            \
+         numbits--;                                                                     \
+         bitbuf = (bitbuf & ((~0xff) << j)) | ((bitbuf & ~((~0xff) << j)) << 1);        \
+-        goto enditer##j;                                                               \
+-})
++        goto enditer##j;
+         
+ static int receive(struct net_device *dev, int cnt)
+ {
