@@ -1,34 +1,41 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.12-rc4] IPv4/IPv6: UDP Large Send Offload feature
-Date: Thu, 26 May 2005 16:42:17 -0700 (PDT)
-Message-ID: <20050526.164217.45745005.davem@davemloft.net>
-References: <20050526232006.60E6365005@linux.site>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Fw: [Bugme-new] [Bug 4628] New: Test server hang while running rhr (network) test on RHEL4 with kernel 2.6.12-rc1-mm4
+Date: Fri, 27 May 2005 10:11:23 +1000
+Message-ID: <20050527001123.GA16594@gondor.apana.org.au>
+References: <468F3FDA28AA87429AD807992E22D07E056F6B37@orsmsx408> <20050526213421.GA8077@gondor.apana.org.au> <5fc59ff30505261608541b74fb@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com, raghavendra.koushik@neterion.com,
-        leonid.grossman@neterion.com, ananda.raju@neterion.com,
-        rapuru.sriram@neterion.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>,
+        Andrew Morton <akpm@osdl.org>, Jian Jun He <hejianj@cn.ibm.com>,
+        anton@samba.org, rende@cn.ibm.com,
+        "Brandeburg, Jesse" <jesse.brandeburg@intel.com>, jgarzik@pobox.com,
+        wangjs@cn.ibm.com, "Ronciak, John" <john.ronciak@intel.com>,
+        cdlwangl@cn.ibm.com, linuxppc64-dev@lists.linuxppc.org.sgi.com,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ravinandan.arakali@neterion.com
-In-Reply-To: <20050526232006.60E6365005@linux.site>
+To: Ganesh Venkatesan <ganesh.venkatesan@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <5fc59ff30505261608541b74fb@mail.gmail.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Thu, May 26, 2005 at 04:08:17PM -0700, Ganesh Venkatesan wrote:
+> 
+> I do not get it. Bear with my ignorance.
+> 
+> e100_tx_timeout does not call e100_down. 
+> 
+> It is called from e100_tx_timeout_task which is invoked as a result of
+> schedule_work. Are you saying that it would still not have the right
+> context to call netif_disable_poll()?
 
-sock_append_data() seems like a lot of wasted work.
+Sorry, I was not aware that you've already added the sched work
+in the driver.  With that it should work correctly.
 
-We already pass around the fragmented SKB as a list chained by
-skb_shinfo(skb)->fraglist, just pass this thing to the device and in
-this way you'll avoid all of that work sock_append_data() does
-entirely.
-
-Or is there a reason you did not implement it this
-way?
-
-This is one of the uses the skb_shinfo(skb)->fraglist was intended
-for.
-
-IN FACT, this fragmentation offload you are implementing here is what
-the feature bit NETIF_F_FRAGLIST was meant to indicate.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
