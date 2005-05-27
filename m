@@ -1,59 +1,79 @@
-From: "Ravinandan Arakali" <ravinandan.arakali@neterion.com>
-Subject: RE: [PATCH 2.6.12-rc4] IPv4/IPv6: UDP Large Send Offload feature
-Date: Fri, 27 May 2005 09:32:00 -0700
-Message-ID: <000a01c562d9$9b661130$3910100a@pc.s2io.com>
-References: <20050526.164217.45745005.davem@davemloft.net>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 3/4] [NEIGH] neighbour table configuration and statistics via rtnetlink
+Date: Fri, 27 May 2005 18:35:16 +0200
+Message-ID: <20050527163516.GB15391@postel.suug.ch>
+References: <20050526185306.GW15391@postel.suug.ch> <20050526185526.GZ15391@postel.suug.ch> <1117192464.6688.3.camel@localhost.localdomain> <20050527121503.GN15391@postel.suug.ch> <1117201853.6383.29.camel@localhost.localdomain> <20050527141023.GP15391@postel.suug.ch> <1117205822.6383.68.camel@localhost.localdomain> <20050527151608.GZ15391@postel.suug.ch> <1117209411.6383.104.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: <jgarzik@pobox.com>, <netdev@oss.sgi.com>,
-        <raghavendra.koushik@neterion.com>, <leonid.grossman@neterion.com>,
-        <ananda.raju@neterion.com>, <rapuru.sriram@neterion.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'David S. Miller'" <davem@davemloft.net>
-In-Reply-To: <20050526.164217.45745005.davem@davemloft.net>
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1117209411.6383.104.camel@localhost.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi David,
-Thanks for the quick feedback.
-At that time when we considered using skb_shinfo(skb)->fraglist,
-it contained fragments of MTU size. So, for a 60k udp datagram 
-and 1500 MTU we will have 60k/1500 = 45 fragments which is
-more than MAX_SKB_FRAGS(18).
+* jamal <1117209411.6383.104.camel@localhost.localdomain> 2005-05-27 11:56
+> On Fri, 2005-27-05 at 17:16 +0200, Thomas Graf wrote:
+> > Sorry but this is just one big hack:
+> 
+> It maybe in the user space representation, but not in the kernel 
+> abstraction which is what i was refering to.
+> In other words look at struct in_device;
 
-However we will relook at fraglist for the possibility of increasing
-frag size to >MTU.
+Yes, it references the arp device specific parameters and so
+does inet6_dev for the ndisc cache. But this repsents only the
+current state, we might have neighbour table parameter sets
+which are not bound to inetdevs in the future. However, I
+regard this as minor and I can agree on moving the device
+specific parameters into a inetdev based architecture but
+I do NOT agree on moving gc_ into this architecture as well,
+it doesn't belong there.
 
-Thanks,
-Ravi 
+Nitpicking for a bit, although inet6_dev and in_device hold
+reference to the their arp respectively ndisc parameter set,
+the sysctl interface does not use this reference but stores
+the ifindex of the netdevice, _which_ is correct I think
+because parameter sets are _not_ limited to inetdevs in terms
+of architecture but only in terms of current use.
 
------Original Message-----
-From: David S. Miller [mailto:davem@davemloft.net]
-Sent: Thursday, May 26, 2005 4:42 PM
-To: ravinandan.arakali@neterion.com
-Cc: jgarzik@pobox.com; netdev@oss.sgi.com;
-raghavendra.koushik@neterion.com; leonid.grossman@neterion.com;
-ananda.raju@neterion.com; rapuru.sriram@neterion.com
-Subject: Re: [PATCH 2.6.12-rc4] IPv4/IPv6: UDP Large Send Offload
-feature
+> The deafult can be overriden by devX. So they dont need to sync.
+> But this is a separate topic
 
+I was not talking about in-sync but rather that gc_* only
+appears in default/ but not in devX/. What I expect is that
+every default parameter can be overwritten in devX which
+is not true for gc_*. Which is the reason why I implemented
+them outside of the NDTPA_PARMS nested TLV.
 
+> I am afraid you are looking at this from the wrong angle (user space),
+> Thomas ;-> 
+> The abstraction in the kernel is proper.
+> 
+> To redraw that model again with the exact structure names:
+> 
+> netdevice ->
+>   L2 config stuff
+>   config stuff
+>   more config stuff
+>   ..
+>   ..
+>   netdevice protocol config:
+>    -> v4 specific (struct in_device)
+>    ----> IPV4 addresses (ifa_list), ARP params(arp_parms),etc
+>    -> v6 specific (struct inet6_dev)
+>    ----> IPV6 addresses(addr_list), ndisc params (nd_parms), etc
+>  
+> There are a few more items but i am leaving them out for brevity.
+> I hope it makes more sense now.
 
-sock_append_data() seems like a lot of wasted work.
-
-We already pass around the fragmented SKB as a list chained by
-skb_shinfo(skb)->fraglist, just pass this thing to the device and in
-this way you'll avoid all of that work sock_append_data() does
-entirely.
-
-Or is there a reason you did not implement it this
-way?
-
-This is one of the uses the skb_shinfo(skb)->fraglist was intended
-for.
-
-IN FACT, this fragmentation offload you are implementing here is what
-the feature bit NETIF_F_FRAGLIST was meant to indicate.
+I understand your architecture and if we follow this thought
+we'd have a "default" netdevice which repesents all default
+settings. I do agree with this architecture but the problematic
+question remains: Do we want parameters in "default" which are
+not available in devX? I think this question is what it gets
+down to in the end. If we say, yes we do want this, then we
+can implement all generic settings, such as tcp_, using this
+scheme as well. I don't disagree with this completely but I
+find it not very intuitive from a user perspective.
