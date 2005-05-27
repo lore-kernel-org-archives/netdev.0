@@ -1,196 +1,499 @@
-From: Christoph Lameter <christoph@lameter.com>
-Subject: [PATCH] e1000: NUMA aware allocation of descriptors V2
-Date: Fri, 27 May 2005 14:52:55 -0700 (PDT)
-Message-ID: <Pine.LNX.4.62.0505271450200.25909@graphe.net>
-References: <Pine.LNX.4.62.0505171854490.20408@graphe.net>
- <20050517190343.2e57fdd7.akpm@osdl.org> <Pine.LNX.4.62.0505171941340.21153@graphe.net>
- <20050517.195703.104034854.davem@davemloft.net> <Pine.LNX.4.62.0505172125210.22920@graphe.net>
- <20050517215845.2f87be2f.akpm@osdl.org> <5fc59ff305051808558f1ce59@mail.gmail.com>
- <20050518134250.3ee2703f.akpm@osdl.org>
+From: Richard Dawe <rich@phekda.gotadsl.co.uk>
+Subject: [PATCH] r8169: support restricting speed+duplex in autonegotiation
+Date: Fri, 27 May 2005 23:36:39 +0100
+Message-ID: <4297A0F7.5070209@phekda.gotadsl.co.uk>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Ganesh Venkatesan <ganesh.venkatesan@gmail.com>,
-	davem@davemloft.net, linux-kernel@vger.kernel.org,
-	netdev@oss.sgi.com, shai@scalex86.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262612AbVE0VxY@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20050518134250.3ee2703f.akpm@osdl.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------060003000203050201030506"
+Cc: Linux netdev <netdev@oss.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-NUMA awareness for the e1000 driver. Allocate tx and rx descriptors
-on the node of the device.
+This is a multi-part message in MIME format.
+--------------060003000203050201030506
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-It is safe to replace vmalloc by kmalloc node since only the descriptors
-are allocated in a NUMA aware way. These will not be so large that the
-use of vmalloc becomes necesssary.
+Hello.
 
-The patch includes a modification to slab.h to revert from inline functions
-for kmalloc_node/kmem_cache_alloc_node to a macro so that an undefined variable
-may be specified. Is that ok? If so then I probably need to spin a separate
-patch just for slab.h.
+Attached is a patch for drivers/net/r8169.c against Linux 2.6.11 that 
+allows adjustment of the speed and duplex advertised via 
+autonegotiation. Example usage:
 
-V1-V2:
-- Patch against 2.6.12-rc5-mm1
-- Do not defined netdev->node for non NUMA case
-- Change kmem_cache_alloc_node and kmalloc_node to fall back to macro
-  definitions for the non numa case so that an undefined variable can be
-  specified.
+   ethtool -s eth0 autoneg on speed 10 duplex half
 
-References to earlier discussions:
-http://marc.theaimsgroup.com/?t=111638151000001&r=1&w=2
+Also attached is a test script which tries various combinations of 
+autoneg, speed and duplex. There is also a log of the test run attache.d 
+While the test ran I had an ssh session running "while true; do sleep 1; 
+date; done". The ssh session did not drop. Note that I don't have GigE, 
+so that part of the test was bogus.
 
-Note that i386 pci_alloc_coherent also needs to be made NUMA aware.
+I also tried various speed tests, to check that the speed and duplex 
+were actually changed. They were.
 
-Signed-off-by: Christoph Lameter <christoph@lameter.com>
-Signed-off-by: Justin M. Forbes <jmforbes@linuxtx.org>
-Signed-off-by: Shai Fultheim <shai@scalex86.org>
+Bye, Rich
 
-Index: linux-2.6.12-rc5/drivers/net/e1000/e1000_main.c
-===================================================================
---- linux-2.6.12-rc5.orig/drivers/net/e1000/e1000_main.c	2005-05-27 21:22:39.000000000 +0000
-+++ linux-2.6.12-rc5/drivers/net/e1000/e1000_main.c	2005-05-27 21:25:28.000000000 +0000
-@@ -567,7 +567,9 @@
- 	netdev->mem_start = mmio_start;
- 	netdev->mem_end = mmio_start + mmio_len;
- 	netdev->base_addr = adapter->hw.io_base;
--
-+#ifdef CONFIG_NUMA
-+	netdev->node = pcibus_to_node(pdev->bus);
-+#endif
- 	adapter->bd_number = cards_found;
- 
- 	/* setup the private structure */
-@@ -971,7 +973,9 @@
- 	int size;
- 
- 	size = sizeof(struct e1000_buffer) * txdr->count;
--	txdr->buffer_info = vmalloc(size);
-+
-+	txdr->buffer_info = kmalloc_node(size, GFP_KERNEL, adapter->netdev->node );
-+
- 	if(!txdr->buffer_info) {
- 		DPRINTK(PROBE, ERR,
- 		"Unable to allocate memory for the transmit descriptor ring\n");
-@@ -987,7 +991,7 @@
- 	txdr->desc = pci_alloc_consistent(pdev, txdr->size, &txdr->dma);
- 	if(!txdr->desc) {
- setup_tx_desc_die:
--		vfree(txdr->buffer_info);
-+		kfree(txdr->buffer_info);
- 		DPRINTK(PROBE, ERR,
- 		"Unable to allocate memory for the transmit descriptor ring\n");
- 		return -ENOMEM;
-@@ -1015,7 +1019,7 @@
- 			DPRINTK(PROBE, ERR,
- 				"Unable to allocate aligned memory "
- 				"for the transmit descriptor ring\n");
--			vfree(txdr->buffer_info);
-+			kfree(txdr->buffer_info);
- 			return -ENOMEM;
- 		} else {
- 			/* Free old allocation, new allocation was successful */
-@@ -1123,7 +1127,8 @@
- 	int size, desc_len;
- 
- 	size = sizeof(struct e1000_buffer) * rxdr->count;
--	rxdr->buffer_info = vmalloc(size);
-+	rxdr->buffer_info = kmalloc_node(size, GFP_KERNEL, adapter->netdev->node);
-+
- 	if(!rxdr->buffer_info) {
- 		DPRINTK(PROBE, ERR,
- 		"Unable to allocate memory for the receive descriptor ring\n");
-@@ -1134,7 +1139,7 @@
- 	size = sizeof(struct e1000_ps_page) * rxdr->count;
- 	rxdr->ps_page = kmalloc(size, GFP_KERNEL);
- 	if(!rxdr->ps_page) {
--		vfree(rxdr->buffer_info);
-+		kfree(rxdr->buffer_info);
- 		DPRINTK(PROBE, ERR,
- 		"Unable to allocate memory for the receive descriptor ring\n");
- 		return -ENOMEM;
-@@ -1144,7 +1149,7 @@
- 	size = sizeof(struct e1000_ps_page_dma) * rxdr->count;
- 	rxdr->ps_page_dma = kmalloc(size, GFP_KERNEL);
- 	if(!rxdr->ps_page_dma) {
--		vfree(rxdr->buffer_info);
-+		kfree(rxdr->buffer_info);
- 		kfree(rxdr->ps_page);
- 		DPRINTK(PROBE, ERR,
- 		"Unable to allocate memory for the receive descriptor ring\n");
-@@ -1166,7 +1171,7 @@
- 
- 	if(!rxdr->desc) {
- setup_rx_desc_die:
--		vfree(rxdr->buffer_info);
-+		kfree(rxdr->buffer_info);
- 		kfree(rxdr->ps_page);
- 		kfree(rxdr->ps_page_dma);
- 		DPRINTK(PROBE, ERR,
-@@ -1196,7 +1201,7 @@
- 			DPRINTK(PROBE, ERR,
- 				"Unable to allocate aligned memory "
- 				"for the receive descriptor ring\n");
--			vfree(rxdr->buffer_info);
-+			kfree(rxdr->buffer_info);
- 			kfree(rxdr->ps_page);
- 			kfree(rxdr->ps_page_dma);
- 			return -ENOMEM;
-@@ -1393,7 +1398,7 @@
- 
- 	e1000_clean_tx_ring(adapter);
- 
--	vfree(adapter->tx_ring.buffer_info);
-+	kfree(adapter->tx_ring.buffer_info);
- 	adapter->tx_ring.buffer_info = NULL;
- 
- 	pci_free_consistent(pdev, adapter->tx_ring.size,
-@@ -1473,7 +1478,7 @@
- 
- 	e1000_clean_rx_ring(adapter);
- 
--	vfree(rx_ring->buffer_info);
-+	kfree(rx_ring->buffer_info);
- 	rx_ring->buffer_info = NULL;
- 	kfree(rx_ring->ps_page);
- 	rx_ring->ps_page = NULL;
-Index: linux-2.6.12-rc5/include/linux/netdevice.h
-===================================================================
---- linux-2.6.12-rc5.orig/include/linux/netdevice.h	2005-05-27 21:22:39.000000000 +0000
-+++ linux-2.6.12-rc5/include/linux/netdevice.h	2005-05-27 21:22:43.000000000 +0000
-@@ -279,7 +279,9 @@
- 	unsigned long		mem_start;	/* shared mem start	*/
- 	unsigned long		base_addr;	/* device I/O address	*/
- 	unsigned int		irq;		/* device IRQ number	*/
--
-+#ifdef CONFIG_NUMA
-+	unsigned int            node;           /* device node number   */
-+#endif
- 	/*
- 	 *	Some hardware also needs these fields, but they are not
- 	 *	part of the usual set specified in Space.c.
-Index: linux-2.6.12-rc5/include/linux/slab.h
-===================================================================
---- linux-2.6.12-rc5.orig/include/linux/slab.h	2005-05-25 03:31:20.000000000 +0000
-+++ linux-2.6.12-rc5/include/linux/slab.h	2005-05-27 21:30:42.000000000 +0000
-@@ -106,14 +106,12 @@
- extern void *kmem_cache_alloc_node(kmem_cache_t *, int flags, int node);
- extern void *kmalloc_node(size_t size, int flags, int node);
- #else
--static inline void *kmem_cache_alloc_node(kmem_cache_t *cachep, int flags, int node)
--{
--	return kmem_cache_alloc(cachep, flags);
--}
--static inline void *kmalloc_node(size_t size, int flags, int node)
--{
--	return kmalloc(size, flags);
--}
-+/*
-+ * The definitions are macros here to allow the use of an undefined variable
-+ * for the node. The variable may only be defined if CONFIG_NUMA is set.
-+ */
-+#define kmem_cache_alloc_node(__cachep, __flags, __node) kmem_cache_alloc(__cachep, __flags)
-+#define kmalloc_node(__size, __flags, __node) kmalloc(__size, __flags)
+r8169: Allow adjustment of speed and duplex advertised via autonegotiation
+
+Signed-off-by: Richard Dawe <rich@phekda.gotadsl.co.uk>
+
+--------------060003000203050201030506
+Content-Type: text/plain;
+ name="r8169-ethtool-autoneg.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="r8169-ethtool-autoneg.diff"
+
+--- r8169.c.orig	2005-05-27 21:12:21.000000000 +0100
++++ r8169.c	2005-05-27 22:14:59.000000000 +0100
+@@ -407,7 +407,9 @@ struct rtl8169_private {
+ #ifdef CONFIG_R8169_VLAN
+ 	struct vlan_group *vlgrp;
  #endif
+-	int (*set_speed)(struct net_device *, u8 autoneg, u16 speed, u8 duplex);
++	int (*set_speed)(struct net_device *,
++			 u8 autoneg, u16 speed, u8 duplex,
++			 u32 advertising);
+ 	void (*get_settings)(struct net_device *, struct ethtool_cmd *);
+ 	void (*phy_reset_enable)(void __iomem *);
+ 	unsigned int (*phy_reset_pending)(void __iomem *);
+@@ -549,7 +551,9 @@ static void rtl8169_check_link_status(st
+ 	spin_unlock_irqrestore(&tp->lock, flags);
+ }
  
- extern int FASTCALL(kmem_cache_reap(int));
+-static void rtl8169_link_option(int idx, u8 *autoneg, u16 *speed, u8 *duplex)
++static void rtl8169_link_option(int idx,
++				u8 *autoneg, u16 *speed, u8 *duplex,
++				u32 *advertising)
+ {
+ 	struct {
+ 		u16 speed;
+@@ -579,6 +583,23 @@ static void rtl8169_link_option(int idx,
+ 	*autoneg = p->autoneg;
+ 	*speed = p->speed;
+ 	*duplex = p->duplex;
++
++	if (p->media == _10_Half)
++		*advertising = ADVERTISED_10baseT_Half;
++	if (p->media == _10_Full)
++		*advertising = ADVERTISED_10baseT_Full;
++	if (p->media == _100_Half)
++		*advertising = ADVERTISED_100baseT_Half;
++	if (p->media == _100_Full)
++		*advertising = ADVERTISED_100baseT_Full;
++	if (p->media == _1000_Full)
++		*advertising = ADVERTISED_1000baseT_Full;
++	if (p->media == 0xff)
++		*advertising = ADVERTISED_10baseT_Half |
++			       ADVERTISED_10baseT_Full |
++			       ADVERTISED_100baseT_Half |
++			       ADVERTISED_100baseT_Full |
++			       ADVERTISED_1000baseT_Full;
+ }
+ 
+ static void rtl8169_get_drvinfo(struct net_device *dev,
+@@ -597,7 +618,8 @@ static int rtl8169_get_regs_len(struct n
+ }
+ 
+ static int rtl8169_set_speed_tbi(struct net_device *dev,
+-				 u8 autoneg, u16 speed, u8 duplex)
++				 u8 autoneg, u16 speed, u8 duplex,
++				 u32 advertising)
+ {
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+ 	void __iomem *ioaddr = tp->mmio_addr;
+@@ -608,7 +630,8 @@ static int rtl8169_set_speed_tbi(struct 
+ 	if ((autoneg == AUTONEG_DISABLE) && (speed == SPEED_1000) &&
+ 	    (duplex == DUPLEX_FULL)) {
+ 		RTL_W32(TBICSR, reg & ~(TBINwEnable | TBINwRestart));
+-	} else if (autoneg == AUTONEG_ENABLE)
++	} else if ((autoneg == AUTONEG_ENABLE) &&
++		   (advertising & ADVERTISED_1000baseT_Full))
+ 		RTL_W32(TBICSR, reg | TBINwEnable | TBINwRestart);
+ 	else {
+ 		printk(KERN_WARNING PFX
+@@ -621,11 +644,13 @@ static int rtl8169_set_speed_tbi(struct 
+ }
+ 
+ static int rtl8169_set_speed_xmii(struct net_device *dev,
+-				  u8 autoneg, u16 speed, u8 duplex)
++				  u8 autoneg, u16 speed, u8 duplex,
++				  u32 advertising)
+ {
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+ 	void __iomem *ioaddr = tp->mmio_addr;
+ 	int auto_nego, giga_ctrl;
++	int ret = 0;
+ 
+ 	auto_nego = mdio_read(ioaddr, PHY_AUTO_NEGO_REG);
+ 	auto_nego &= ~(PHY_Cap_10_Half | PHY_Cap_10_Full |
+@@ -634,9 +659,16 @@ static int rtl8169_set_speed_xmii(struct
+ 	giga_ctrl &= ~(PHY_Cap_1000_Full | PHY_Cap_Null);
+ 
+ 	if (autoneg == AUTONEG_ENABLE) {
+-		auto_nego |= (PHY_Cap_10_Half | PHY_Cap_10_Full |
+-			      PHY_Cap_100_Half | PHY_Cap_100_Full);
+-		giga_ctrl |= PHY_Cap_1000_Full;
++		if (advertising & ADVERTISED_10baseT_Half)
++			auto_nego |= PHY_Cap_10_Half;
++		if (advertising & ADVERTISED_10baseT_Full)
++			auto_nego |= PHY_Cap_10_Full;
++		if (advertising & ADVERTISED_100baseT_Half)
++			auto_nego |= PHY_Cap_100_Half;
++		if (advertising & ADVERTISED_100baseT_Full)
++			auto_nego |= PHY_Cap_100_Full;
++		if (advertising & ADVERTISED_1000baseT_Full)
++			giga_ctrl |= PHY_Cap_1000_Full;
+ 	} else {
+ 		if (speed == SPEED_10)
+ 			auto_nego |= PHY_Cap_10_Half | PHY_Cap_10_Full;
+@@ -649,23 +681,28 @@ static int rtl8169_set_speed_xmii(struct
+ 			auto_nego &= ~(PHY_Cap_10_Full | PHY_Cap_100_Full);
+ 	}
+ 
+-	tp->phy_auto_nego_reg = auto_nego;
+-	tp->phy_1000_ctrl_reg = giga_ctrl;
++	if (ret == 0)
++	{
++		tp->phy_auto_nego_reg = auto_nego;
++		tp->phy_1000_ctrl_reg = giga_ctrl;
++
++		mdio_write(ioaddr, PHY_AUTO_NEGO_REG, auto_nego);
++		mdio_write(ioaddr, PHY_1000_CTRL_REG, giga_ctrl);
++		mdio_write(ioaddr, PHY_CTRL_REG, PHY_Enable_Auto_Nego |
++			                         PHY_Restart_Auto_Nego);
++	}
+ 
+-	mdio_write(ioaddr, PHY_AUTO_NEGO_REG, auto_nego);
+-	mdio_write(ioaddr, PHY_1000_CTRL_REG, giga_ctrl);
+-	mdio_write(ioaddr, PHY_CTRL_REG, PHY_Enable_Auto_Nego |
+-					 PHY_Restart_Auto_Nego);
+-	return 0;
++	return ret;
+ }
+ 
+ static int rtl8169_set_speed(struct net_device *dev,
+-			     u8 autoneg, u16 speed, u8 duplex)
++			     u8 autoneg, u16 speed, u8 duplex,
++			     u32 advertising)
+ {
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+ 	int ret;
+ 
+-	ret = tp->set_speed(dev, autoneg, speed, duplex);
++	ret = tp->set_speed(dev, autoneg, speed, duplex, advertising);
+ 
+ 	if (netif_running(dev) && (tp->phy_1000_ctrl_reg & PHY_Cap_1000_Full))
+ 		mod_timer(&tp->timer, jiffies + RTL8169_PHY_TIMEOUT);
+@@ -680,7 +717,9 @@ static int rtl8169_set_settings(struct n
+ 	int ret;
+ 
+ 	spin_lock_irqsave(&tp->lock, flags);
+-	ret = rtl8169_set_speed(dev, cmd->autoneg, cmd->speed, cmd->duplex);
++	ret = rtl8169_set_speed(dev,
++				cmd->autoneg, cmd->speed, cmd->duplex,
++				cmd->advertising);
+ 	spin_unlock_irqrestore(&tp->lock, flags);
+ 	
+ 	return ret;
+@@ -1311,6 +1350,7 @@ rtl8169_init_one(struct pci_dev *pdev, c
+ 	static int printed_version = 0;
+ 	u8 autoneg, duplex;
+ 	u16 speed;
++	u32 advertising;
+ 	int i, rc;
+ 
+ 	assert(pdev != NULL);
+@@ -1423,9 +1463,9 @@ rtl8169_init_one(struct pci_dev *pdev, c
+ 		mdio_write(ioaddr, 0x0b, 0x0000); //w 0x0b 15 0 0
+ 	}
+ 
+-	rtl8169_link_option(board_idx, &autoneg, &speed, &duplex);
++	rtl8169_link_option(board_idx, &autoneg, &speed, &duplex, &advertising);
+ 
+-	rtl8169_set_speed(dev, autoneg, speed, duplex);
++	rtl8169_set_speed(dev, autoneg, speed, duplex, advertising);
+ 	
+ 	if (RTL_R8(PHYstatus) & TBI_Enable)
+ 		printk(KERN_INFO PFX "%s: TBI auto-negotiating\n", dev->name);
+
+--------------060003000203050201030506
+Content-Type: application/x-sh;
+ name="test.sh"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="test.sh"
+
+for i in on off; do
+	ethtool -s eth0 autoneg $i speed 10 duplex half
+	sleep 10
+	ethtool eth0
+	sleep 10
+	ethtool -s eth0 autoneg $i speed 10 duplex full
+	sleep 10
+	ethtool eth0
+	sleep 10
+	ethtool -s eth0 autoneg $i speed 100 duplex half
+	sleep 10
+	ethtool eth0
+	sleep 10
+	ethtool -s eth0 autoneg $i speed 100 duplex full
+	sleep 10
+	ethtool eth0
+	sleep 10
+	ethtool -s eth0 autoneg $i speed 1000 duplex full
+	sleep 10
+	ethtool eth0
+	sleep 10
+	ethtool -s eth0 autoneg on
+	sleep 10
+	ethtool eth0
+	sleep 10
+done
+
+--------------060003000203050201030506
+Content-Type: text/plain;
+ name="test.log"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="test.log"
+
++ for i in on off
++ ethtool -s eth0 autoneg on speed 10 duplex half
++ sleep 10
++ ethtool eth0
+Settings for eth0:
+	Supported ports: [ TP ]
+	Supported link modes:   10baseT/Half 10baseT/Full 
+	                        100baseT/Half 100baseT/Full 
+	                        1000baseT/Full 
+	Supports auto-negotiation: Yes
+	Advertised link modes:  10baseT/Half 
+	Advertised auto-negotiation: Yes
+	Speed: 10Mb/s
+	Duplex: Half
+	Port: Twisted Pair
+	PHYAD: 0
+	Transceiver: internal
+	Auto-negotiation: on
+	Link detected: yes
++ sleep 10
++ ethtool -s eth0 autoneg on speed 10 duplex full
++ sleep 10
++ ethtool eth0
+Settings for eth0:
+	Supported ports: [ TP ]
+	Supported link modes:   10baseT/Half 10baseT/Full 
+	                        100baseT/Half 100baseT/Full 
+	                        1000baseT/Full 
+	Supports auto-negotiation: Yes
+	Advertised link modes:  10baseT/Full 
+	Advertised auto-negotiation: Yes
+	Speed: 10Mb/s
+	Duplex: Full
+	Port: Twisted Pair
+	PHYAD: 0
+	Transceiver: internal
+	Auto-negotiation: on
+	Link detected: yes
++ sleep 10
++ ethtool -s eth0 autoneg on speed 100 duplex half
++ sleep 10
++ ethtool eth0
+Settings for eth0:
+	Supported ports: [ TP ]
+	Supported link modes:   10baseT/Half 10baseT/Full 
+	                        100baseT/Half 100baseT/Full 
+	                        1000baseT/Full 
+	Supports auto-negotiation: Yes
+	Advertised link modes:  100baseT/Half 
+	Advertised auto-negotiation: Yes
+	Speed: 100Mb/s
+	Duplex: Half
+	Port: Twisted Pair
+	PHYAD: 0
+	Transceiver: internal
+	Auto-negotiation: on
+	Link detected: yes
++ sleep 10
++ ethtool -s eth0 autoneg on speed 100 duplex full
++ sleep 10
++ ethtool eth0
+Settings for eth0:
+	Supported ports: [ TP ]
+	Supported link modes:   10baseT/Half 10baseT/Full 
+	                        100baseT/Half 100baseT/Full 
+	                        1000baseT/Full 
+	Supports auto-negotiation: Yes
+	Advertised link modes:  100baseT/Full 
+	Advertised auto-negotiation: Yes
+	Speed: 100Mb/s
+	Duplex: Full
+	Port: Twisted Pair
+	PHYAD: 0
+	Transceiver: internal
+	Auto-negotiation: on
+	Link detected: yes
++ sleep 10
++ ethtool -s eth0 autoneg on speed 1000 duplex full
++ sleep 10
++ ethtool eth0
+Settings for eth0:
+	Supported ports: [ TP ]
+	Supported link modes:   10baseT/Half 10baseT/Full 
+	                        100baseT/Half 100baseT/Full 
+	                        1000baseT/Full 
+	Supports auto-negotiation: Yes
+	Advertised link modes:  1000baseT/Full 
+	Advertised auto-negotiation: Yes
+	Speed: 100Mb/s
+	Duplex: Half
+	Port: Twisted Pair
+	PHYAD: 0
+	Transceiver: internal
+	Auto-negotiation: on
+	Link detected: no
++ sleep 10
++ ethtool -s eth0 autoneg on
++ sleep 10
++ ethtool eth0
+Settings for eth0:
+	Supported ports: [ TP ]
+	Supported link modes:   10baseT/Half 10baseT/Full 
+	                        100baseT/Half 100baseT/Full 
+	                        1000baseT/Full 
+	Supports auto-negotiation: Yes
+	Advertised link modes:  10baseT/Half 10baseT/Full 
+	                        100baseT/Half 100baseT/Full 
+	                        1000baseT/Full 
+	Advertised auto-negotiation: Yes
+	Speed: 100Mb/s
+	Duplex: Full
+	Port: Twisted Pair
+	PHYAD: 0
+	Transceiver: internal
+	Auto-negotiation: on
+	Link detected: yes
++ sleep 10
++ for i in on off
++ ethtool -s eth0 autoneg off speed 10 duplex half
++ sleep 10
++ ethtool eth0
+Settings for eth0:
+	Supported ports: [ TP ]
+	Supported link modes:   10baseT/Half 10baseT/Full 
+	                        100baseT/Half 100baseT/Full 
+	                        1000baseT/Full 
+	Supports auto-negotiation: Yes
+	Advertised link modes:  10baseT/Half 
+	Advertised auto-negotiation: Yes
+	Speed: 10Mb/s
+	Duplex: Half
+	Port: Twisted Pair
+	PHYAD: 0
+	Transceiver: internal
+	Auto-negotiation: on
+	Link detected: yes
++ sleep 10
++ ethtool -s eth0 autoneg off speed 10 duplex full
++ sleep 10
++ ethtool eth0
+Settings for eth0:
+	Supported ports: [ TP ]
+	Supported link modes:   10baseT/Half 10baseT/Full 
+	                        100baseT/Half 100baseT/Full 
+	                        1000baseT/Full 
+	Supports auto-negotiation: Yes
+	Advertised link modes:  10baseT/Half 10baseT/Full 
+	Advertised auto-negotiation: Yes
+	Speed: 10Mb/s
+	Duplex: Full
+	Port: Twisted Pair
+	PHYAD: 0
+	Transceiver: internal
+	Auto-negotiation: on
+	Link detected: yes
++ sleep 10
++ ethtool -s eth0 autoneg off speed 100 duplex half
++ sleep 10
++ ethtool eth0
+Settings for eth0:
+	Supported ports: [ TP ]
+	Supported link modes:   10baseT/Half 10baseT/Full 
+	                        100baseT/Half 100baseT/Full 
+	                        1000baseT/Full 
+	Supports auto-negotiation: Yes
+	Advertised link modes:  100baseT/Half 
+	Advertised auto-negotiation: Yes
+	Speed: 100Mb/s
+	Duplex: Half
+	Port: Twisted Pair
+	PHYAD: 0
+	Transceiver: internal
+	Auto-negotiation: on
+	Link detected: yes
++ sleep 10
++ ethtool -s eth0 autoneg off speed 100 duplex full
++ sleep 10
++ ethtool eth0
+Settings for eth0:
+	Supported ports: [ TP ]
+	Supported link modes:   10baseT/Half 10baseT/Full 
+	                        100baseT/Half 100baseT/Full 
+	                        1000baseT/Full 
+	Supports auto-negotiation: Yes
+	Advertised link modes:  100baseT/Half 100baseT/Full 
+	Advertised auto-negotiation: Yes
+	Speed: 100Mb/s
+	Duplex: Full
+	Port: Twisted Pair
+	PHYAD: 0
+	Transceiver: internal
+	Auto-negotiation: on
+	Link detected: yes
++ sleep 10
++ ethtool -s eth0 autoneg off speed 1000 duplex full
++ sleep 10
++ ethtool eth0
+Settings for eth0:
+	Supported ports: [ TP ]
+	Supported link modes:   10baseT/Half 10baseT/Full 
+	                        100baseT/Half 100baseT/Full 
+	                        1000baseT/Full 
+	Supports auto-negotiation: Yes
+	Advertised link modes:  1000baseT/Full 
+	Advertised auto-negotiation: Yes
+	Speed: 100Mb/s
+	Duplex: Half
+	Port: Twisted Pair
+	PHYAD: 0
+	Transceiver: internal
+	Auto-negotiation: on
+	Link detected: no
++ sleep 10
++ ethtool -s eth0 autoneg on
++ sleep 10
++ ethtool eth0
+Settings for eth0:
+	Supported ports: [ TP ]
+	Supported link modes:   10baseT/Half 10baseT/Full 
+	                        100baseT/Half 100baseT/Full 
+	                        1000baseT/Full 
+	Supports auto-negotiation: Yes
+	Advertised link modes:  10baseT/Half 10baseT/Full 
+	                        100baseT/Half 100baseT/Full 
+	                        1000baseT/Full 
+	Advertised auto-negotiation: Yes
+	Speed: 100Mb/s
+	Duplex: Full
+	Port: Twisted Pair
+	PHYAD: 0
+	Transceiver: internal
+	Auto-negotiation: on
+	Link detected: yes
++ sleep 10
+
+--------------060003000203050201030506--
