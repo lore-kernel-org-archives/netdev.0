@@ -1,48 +1,30 @@
-From: "Michael Chan" <mchan@broadcom.com>
+From: "David S. Miller" <davem@davemloft.net>
 Subject: Re: [patch 2.6.12-rc5] tg3: add bcm5752 entry to pci.ids
-Date: Fri, 27 May 2005 11:12:04 -0700
-Message-ID: <1117217524.4310.1.camel@rh4>
-References: <04132005193844.8410@laptop> <04132005193844.8474@laptop>
- <20050421165956.55bdcb14.davem@davemloft.net>
- <20050527184750.GB11592@tuxdriver.com>
- <20050527185334.GA7417@infradead.org>
- <20050527190000.GC11592@tuxdriver.com>
+Date: Fri, 27 May 2005 12:30:37 -0700 (PDT)
+Message-ID: <20050527.123037.68041200.davem@davemloft.net>
+References: <04132005193844.8474@laptop>
+	<20050421165956.55bdcb14.davem@davemloft.net>
+	<20050527184750.GB11592@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Christoph Hellwig" <hch@infradead.org>,
-        "David S. Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-        netdev@oss.sgi.com, jgarzik@pobox.com, lusinsky@broadcom.com
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, jgarzik@pobox.com,
+        mchan@broadcom.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20050527190000.GC11592@tuxdriver.com>
+To: linville@tuxdriver.com
+In-Reply-To: <20050527184750.GB11592@tuxdriver.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2005-05-27 at 15:00 -0400, John W. Linville wrote:
-> On Fri, May 27, 2005 at 07:53:35PM +0100, Christoph Hellwig wrote:
-> > On Fri, May 27, 2005 at 02:47:52PM -0400, John W. Linville wrote:
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Fri, 27 May 2005 14:47:52 -0400
+
+> Update pci.ids for BCM5752
 > 
-> > > +	1600  NetXtreme BCM5752 Gigabit Ethernet PCI Express
-> > 
-> > I don't think you should mention "PCI Express" here.  That can trivially
-> > befound it looking at the configuration header.
-> 
-> I'm just following what is at pciids.sourceforge.net.  Plus, it is
-> already like that for nine other IDs:
-> 
->         1659  NetXtreme BCM5721 Gigabit Ethernet PCI Express
->         1677  NetXtreme BCM5751 Gigabit Ethernet PCI Express
->         167d  NetXtreme BCM5751M Gigabit Ethernet PCI Express
->         167e  NetXtreme BCM5751F Fast Ethernet PCI Express
->         169d  NetLink BCM5789 Gigabit Ethernet PCI Express
->         16dd  NetLink BCM5781 Gigabit Ethernet PCI Express
->         16f7  NetXtreme BCM5753 Gigabit Ethernet PCI Express
->         16fd  NetXtreme BCM5753M Gigabit Ethernet PCI Express
->         16fe  NetXtreme BCM5753F Fast Ethernet PCI Express
-> 
-> The Broadcom guys can speak-up, but I figure they know if "PCI Express"
-> is appropriate for their device... :-)
->
-Yes, "PCI Express" is appropriate. Thanks John.
+> Signed-off-by: John W. Linville <linville@tuxdriver.com>
+
+I'll apply this, thanks John.
+
+pci.ids needs several updates for tg3 in fact, and it
+also now needs entries for bnx2 as well.
