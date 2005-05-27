@@ -1,43 +1,26 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: patch tulip-natsemi-dp83840a-phy-fix.patch added to -mm tree
-Date: Thu, 26 May 2005 22:16:50 -0400
-Message-ID: <42968312.90901@pobox.com>
-References: <200505101955.j4AJtX9x032464@shell0.pdx.osdl.net> <42881C58.40001@pobox.com> <20050516050843.GA20107@colo.lackof.org> <4288CE51.1050703@pobox.com> <20050521223959.GA4337@electric-eye.fr.zoreil.com>
+From: "Leonid Grossman" <leonid.grossman@neterion.com>
+Subject: [ANNOUNCE] Neterion(S2io) 10GbE Xframe Programming Manual posted
+Date: Thu, 26 May 2005 20:02:42 -0700
+Message-ID: <200505270302.j4R32lVG027513@guinness.s2io.com>
+References: <20050316123828.0eb78fd3@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain;
+	charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: Grant Grundler <grundler@parisc-linux.org>, akpm@osdl.org,
-	T-Bone@parisc-linux.org, varenet@parisc-linux.org,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@oss.sgi.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261439AbVE0CRA@vger.kernel.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20050521223959.GA4337@electric-eye.fr.zoreil.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: <linux-net@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+Return-path: <linux-net-owner@vger.kernel.org>
+To: <netdev@oss.sgi.com>
+In-Reply-To: <20050316123828.0eb78fd3@dxpl.pdx.osdl.net>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu wrote:
-> Jeff Garzik <jgarzik@pobox.com> :
-> [tulip_media_select]
-> 
->>1) called from timer context, from the media poll timer
->>
->>2) called from spin_lock_irqsave() context, in the ->tx_timeout hook.
->>
->>The first case can be fixed by moved all the timer code to a workqueue. 
->> Then when the existing timer fires, kick the workqueue.
->>
->>The second case can be fixed by kicking the workqueue upon tx_timeout 
->>(which is the reason why I did not suggest queue_delayed_work() use).
-> 
-> 
-> First try below. It only moves tulip_select_media() to process context.
-> The original patch (with s/udelay/msleep/ or such) is not included.
-> 
-> Patch applies/compiles against 2.6.12-rc4.
+For people interested in "s2io" 10GbE driver, the programming manual for
+Xframe-I 10GbE Adapter 
+is now available at ftp: ns1.s2io.com user: "linuxdocs" password: "HALdocs"
 
-Looks pretty good to me, at first look.
+The relatively small delta between sw-compatible Xframe-II and Xframe-I is
+not covered in the document,
+but the current driver supports both adapters. Patches for the extra
+Xframe-II features will be added over time; 
+One of them (UDP Send Offload) was posted earlier today.
 
-I'll give it some thought, and probably apply it, in a few days.
-
-	Jeff
