@@ -1,38 +1,33 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] baycom_epp.c: Fix compilation with gcc-4.1.0-20050522
-Date: Fri, 27 May 2005 08:53:22 -0700
-Message-ID: <20050527085322.35e312cf@dxpl.pdx.osdl.net>
-References: <200505271808.32032.adobriyan@gmail.com>
+Subject: Re: Network driver test suite (part 2)
+Date: Fri, 27 May 2005 08:52:25 -0700
+Message-ID: <20050527085225.5160c96f@dxpl.pdx.osdl.net>
+References: <4296BACF.7030202@otaku42.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Thomas Sailer <t.sailer@alumni.ethz.ch>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Alexey Dobriyan <adobriyan@gmail.com>
-In-Reply-To: <200505271808.32032.adobriyan@gmail.com>
+To: Michael Renzmann <netdev@nospam.otaku42.de>
+In-Reply-To: <4296BACF.7030202@otaku42.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 27 May 2005 18:08:31 +0400
-Alexey Dobriyan <adobriyan@gmail.com> wrote:
+On Fri, 27 May 2005 08:14:39 +0200
+Michael Renzmann <netdev@nospam.otaku42.de> wrote:
 
-> drivers/net/hamradio/baycom_epp.c:432: error: jump into statement expression
-> 	...
+> Hi all.
 > 
-> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+> I vaguely remembered there was a discussion about a test suite which 
+> allows to check whether a network driver works as intended. After 
+> digging my local message archives I found the thread with the above 
+> title, but it seems the thread ceased without any result (apart from a 
+> wishlist for such a test suite).
 > 
-> --- linux-vanilla/drivers/net/hamradio/baycom_epp.c	2005-05-27 12:58:48.000000000 +0400
-> +++ linux-gcc4/drivers/net/hamradio/baycom_epp.c	2005-05-27 17:54:14.000000000 +0400
-> @@ -380,22 +380,18 @@ static inline void do_kiss_params(struct
->   */
->  
->  #define ENCODEITERA(j)                         \
-> -({                                             \
->          if (!(notbitstream & (0x1f0 << j)))    \
->                  goto stuff##j;                 \
-> -  encodeend##j:    	;                      \
-> -})
-> +  encodeend##j:    	;
+> Hence my question: is there such a test suite available now? If not, did 
+> anyone at least start working on such a project? What do you others 
+> usually use to test-drive a network driver?
 
-Ick... Please just kill this kind of macro crap
+I know of know such suite, an engineer at OSDL had started pulling pieces and
+ideas together, but unfortunately he was laid off. Let me know what you find out.
