@@ -1,42 +1,31 @@
 From: "David S. Miller" <davem@davemloft.net>
 Subject: Re: [PATCH 2.6.12-rc4] IPv4/IPv6: UDP Large Send Offload feature
-Date: Fri, 27 May 2005 12:02:15 -0700 (PDT)
-Message-ID: <20050527.120215.26278001.davem@davemloft.net>
-References: <20050526.164217.45745005.davem@davemloft.net>
-	<000a01c562d9$9b661130$3910100a@pc.s2io.com>
+Date: Fri, 27 May 2005 12:03:11 -0700 (PDT)
+Message-ID: <20050527.120311.17863590.davem@davemloft.net>
+References: <20050526232006.60E6365005@linux.site>
+	<20050527085713.373d702a@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com, raghavendra.koushik@neterion.com,
-        leonid.grossman@neterion.com, ananda.raju@neterion.com,
-        rapuru.sriram@neterion.com
+Cc: ravinandan.arakali@neterion.com, jgarzik@pobox.com, netdev@oss.sgi.com,
+        raghavendra.koushik@neterion.com, leonid.grossman@neterion.com,
+        ananda.raju@neterion.com, rapuru.sriram@neterion.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ravinandan.arakali@neterion.com
-In-Reply-To: <000a01c562d9$9b661130$3910100a@pc.s2io.com>
+To: shemminger@osdl.org
+In-Reply-To: <20050527085713.373d702a@dxpl.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: "Ravinandan Arakali" <ravinandan.arakali@neterion.com>
-Date: Fri, 27 May 2005 09:32:00 -0700
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Fri, 27 May 2005 08:57:13 -0700
 
-> Thanks for the quick feedback.
-> At that time when we considered using skb_shinfo(skb)->fraglist,
-> it contained fragments of MTU size. So, for a 60k udp datagram 
-> and 1500 MTU we will have 60k/1500 = 45 fragments which is
-> more than MAX_SKB_FRAGS(18).
+> The only downside is that it might encourage continued use of NFS over UDP.
+> Perhaps we need a big fat warning in NFS that says:
 > 
-> However we will relook at fraglist for the possibility of increasing
-> frag size to >MTU.
+> *** Your using NFS over UDP, your data integrity is no longer guaranteed;
+> *** you have been warned.
 
-MAX_SKB_FRAGS controls the limit of skb_shinfo(skb)->frags[]
-entries, not how many SKBs may be chained via
-skb_shinfo(skb)->fraglist, there is no limit on the latter.
-
-Note that there is much coalescing that can be performed on
-the SKB list data areas, particularly if UDP sendfile() is
-being used.
-
-But such coalescing is messy to be performing inside of the
-drivers.  It may end up being the case that your approach
-ends up being a better one for these reasons.
+I agree, I think the NFS client should print out something
+like this when it mounts a volume over UDP for the first
+time.
