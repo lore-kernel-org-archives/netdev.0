@@ -1,52 +1,46 @@
-From: Mitch Williams <mitch.a.williams@intel.com>
-Subject: Re: RFC: NAPI packet weighting patch
-Date: Fri, 27 May 2005 13:27:04 -0700
-Message-ID: <Pine.CYG.4.58.0505271305590.2148@mawilli1-desk2.amr.corp.intel.com>
-References: <Pine.CYG.4.58.0505261406210.2364@mawilli1-desk2.amr.corp.intel.com>
- <20050527085055.79da3d75@dxpl.pdx.osdl.net>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [patch 2.6.12-rc5] tg3: add bcm5752 entry to pci.ids
+Date: Fri, 27 May 2005 16:40:21 -0400
+Message-ID: <429785B5.6020705@pobox.com>
+References: <04132005193844.8474@laptop> <20050421165956.55bdcb14.davem@davemloft.net> <20050527184750.GB11592@tuxdriver.com> <20050527.123037.68041200.davem@davemloft.net> <1117221859.4310.6.camel@rh4>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "Ronciak, John" <john.ronciak@intel.com>,
-        "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>,
-        "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, linville@tuxdriver.com,
+        linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, Stephen Hemminger <shemminger@osdl.org>,
-        hadi@cyberus.ca, Robert.Olsson@data.slu.se
-In-Reply-To: <20050527085055.79da3d75@dxpl.pdx.osdl.net>
+To: Michael Chan <mchan@broadcom.com>
+In-Reply-To: <1117221859.4310.6.camel@rh4>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Michael Chan wrote:
+> On Fri, 2005-05-27 at 12:30 -0700, David S. Miller wrote:
+> 
+> 
+>>I'll apply this, thanks John.
+>>
+>>pci.ids needs several updates for tg3 in fact, and it
+>>also now needs entries for bnx2 as well.
+>>
+> 
+> 
+> The bnx2 IDs are already in, probably from sourceforge. And the tg3 IDs
+> look reasonably complete to me.
+> 
+> So in the future, do we need to patch this file or just let sourceforge
+> take care of it?
 
-Stephen, Robert, and Jamal all replied to my original message, and all
-said approximately the same thing:  "Why don't you just reduce the weight
-in the driver?  It does the same thing."
+Honestly, pci.ids is such a non-critical file, unless DaveM disagrees I 
+would strongly encourage people to -only- send pci.ids updates to 
+sourceforge.
 
-To which I reply, respectfully, I know that.  And no it doesn't, not
-exactly.
+pci.ids is only used in one location -- deprecated /proc/pci -- and will 
+be removed in the next year or so, I imagine. Further, pci.ids is 
+periodically sync'd en masse from sourceforge into the kernel by janitors.
 
-My primary reason for adding this setting is to allow for runtime tweaking
--- just like max_backlog has right now.  Driver weight is a compile-time
-setting, and has to be changed for every driver that you run.
+Users should be using 'lspci' not /proc/pci, and lspci takes it data 
+from sourceforge database not the kernel.
 
-This setting allows you to scale the weight of all your drivers, at
-runtime, in one place.  It's complimentary to Stephen's max_weight idea --
-his patch affects how long you spend in any individual softirq; my patch
-affects how long you spend in any driver's individual NAPI poll routine,
-as well as how long the softirq lasts.
-
-Perhaps we can merge the two patches to come up with some Ultimate
-Tweakable Network Goodness.  I'd be happy to do that (on Tuesday; I'm
-heading home early today) if anybody's interested.
-
--Mitch
-
-NB:
-I've got a white paper that I wrote up for internal consumption.  I plan
-to post it to our Sourceforge archive, but I need to do a bunch of
-scrubbing first, lest our lawyers go into convulsions.
-
-Meanwhile, I can give away the ending:  for my performance tests, on a
-pure Gigabit network, I saw consistently better performance by a) using my
-patch, b) reducing max_backlog, and c) using a nonzero value for
-packet_weight.
+	Jeff
