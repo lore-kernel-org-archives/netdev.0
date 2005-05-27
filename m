@@ -1,43 +1,42 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [patch 2.6.12-rc5] tg3: add bcm5752 entry to pci.ids
-Date: Fri, 27 May 2005 20:02:03 +0100
-Message-ID: <20050527190203.GA7692@infradead.org>
-References: <04132005193844.8410@laptop> <04132005193844.8474@laptop> <20050421165956.55bdcb14.davem@davemloft.net> <20050527184750.GB11592@tuxdriver.com> <20050527185334.GA7417@infradead.org> <20050527190000.GC11592@tuxdriver.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH 2.6.12-rc4] IPv4/IPv6: UDP Large Send Offload feature
+Date: Fri, 27 May 2005 12:02:15 -0700 (PDT)
+Message-ID: <20050527.120215.26278001.davem@davemloft.net>
+References: <20050526.164217.45745005.davem@davemloft.net>
+	<000a01c562d9$9b661130$3910100a@pc.s2io.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com, raghavendra.koushik@neterion.com,
+        leonid.grossman@neterion.com, ananda.raju@neterion.com,
+        rapuru.sriram@neterion.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Christoph Hellwig <hch@infradead.org>,
-        "David S. Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-        netdev@oss.sgi.com, jgarzik@pobox.com, mchan@broadcom.com
-Content-Disposition: inline
-In-Reply-To: <20050527190000.GC11592@tuxdriver.com>
+To: ravinandan.arakali@neterion.com
+In-Reply-To: <000a01c562d9$9b661130$3910100a@pc.s2io.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, May 27, 2005 at 03:00:00PM -0400, John W. Linville wrote:
-> On Fri, May 27, 2005 at 07:53:35PM +0100, Christoph Hellwig wrote:
-> > On Fri, May 27, 2005 at 02:47:52PM -0400, John W. Linville wrote:
-> 
-> > > +	1600  NetXtreme BCM5752 Gigabit Ethernet PCI Express
-> > 
-> > I don't think you should mention "PCI Express" here.  That can trivially
-> > befound it looking at the configuration header.
-> 
-> I'm just following what is at pciids.sourceforge.net.  Plus, it is
-> already like that for nine other IDs:
-> 
->         1659  NetXtreme BCM5721 Gigabit Ethernet PCI Express
->         1677  NetXtreme BCM5751 Gigabit Ethernet PCI Express
->         167d  NetXtreme BCM5751M Gigabit Ethernet PCI Express
->         167e  NetXtreme BCM5751F Fast Ethernet PCI Express
->         169d  NetLink BCM5789 Gigabit Ethernet PCI Express
->         16dd  NetLink BCM5781 Gigabit Ethernet PCI Express
->         16f7  NetXtreme BCM5753 Gigabit Ethernet PCI Express
->         16fd  NetXtreme BCM5753M Gigabit Ethernet PCI Express
->         16fe  NetXtreme BCM5753F Fast Ethernet PCI Express
-> 
-> The Broadcom guys can speak-up, but I figure they know if "PCI Express"
-> is appropriate for their device... :-)
+From: "Ravinandan Arakali" <ravinandan.arakali@neterion.com>
+Date: Fri, 27 May 2005 09:32:00 -0700
 
-ok, it should be an all or nothing.  I still think it's more than silly..
+> Thanks for the quick feedback.
+> At that time when we considered using skb_shinfo(skb)->fraglist,
+> it contained fragments of MTU size. So, for a 60k udp datagram 
+> and 1500 MTU we will have 60k/1500 = 45 fragments which is
+> more than MAX_SKB_FRAGS(18).
+> 
+> However we will relook at fraglist for the possibility of increasing
+> frag size to >MTU.
+
+MAX_SKB_FRAGS controls the limit of skb_shinfo(skb)->frags[]
+entries, not how many SKBs may be chained via
+skb_shinfo(skb)->fraglist, there is no limit on the latter.
+
+Note that there is much coalescing that can be performed on
+the SKB list data areas, particularly if UDP sendfile() is
+being used.
+
+But such coalescing is messy to be performing inside of the
+drivers.  It may end up being the case that your approach
+ends up being a better one for these reasons.
