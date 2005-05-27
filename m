@@ -1,33 +1,47 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: Network driver test suite (part 2)
-Date: Fri, 27 May 2005 08:52:25 -0700
-Message-ID: <20050527085225.5160c96f@dxpl.pdx.osdl.net>
-References: <4296BACF.7030202@otaku42.de>
+Subject: Re: [PATCH 2.6.12-rc4] IPv4/IPv6: UDP Large Send Offload feature
+Date: Fri, 27 May 2005 08:57:13 -0700
+Message-ID: <20050527085713.373d702a@dxpl.pdx.osdl.net>
+References: <20050526232006.60E6365005@linux.site>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: davem@davemloft.net, jgarzik@pobox.com, netdev@oss.sgi.com,
+        raghavendra.koushik@neterion.com, ravinandan.arakali@neterion.com,
+        leonid.grossman@neterion.com, ananda.raju@neterion.com,
+        rapuru.sriram@neterion.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Michael Renzmann <netdev@nospam.otaku42.de>
-In-Reply-To: <4296BACF.7030202@otaku42.de>
+To: ravinandan.arakali@neterion.com
+In-Reply-To: <20050526232006.60E6365005@linux.site>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 27 May 2005 08:14:39 +0200
-Michael Renzmann <netdev@nospam.otaku42.de> wrote:
+On Thu, 26 May 2005 16:20:06 -0700 (PDT)
+ravinandan.arakali@neterion.com wrote:
 
-> Hi all.
+> Hi,
+> Attached below is a kernel patch to provide UDP LSO(Large Send Offload) 
+> feature.
+> This is the UDP counterpart of TSO. Basically, an oversized packet
+> (less than or equal to 65535) is handed to the NIC. The adapter then
+> produces IP fragments in conformance with RFC791(IPv4) or RFC2460(IPv6).
 > 
-> I vaguely remembered there was a discussion about a test suite which 
-> allows to check whether a network driver works as intended. After 
-> digging my local message archives I found the thread with the above 
-> title, but it seems the thread ceased without any result (apart from a 
-> wishlist for such a test suite).
+> Very much like TCP TSO, UDP LSO provides significant reduction in CPU 
+> utilization, especially with 1500 MTU frames. For 10GbE traffic,
+> these extra CPU cycles translate into significant throughput increase 
+> on most server platforms.
 > 
-> Hence my question: is there such a test suite available now? If not, did 
-> anyone at least start working on such a project? What do you others 
-> usually use to test-drive a network driver?
+> Reasonable amount of testing has been done on the patch using Neterion's
+> 10G Xframe-II adapter to ensure code stability.
+> 
+> Please review the patch.
+> 
+> Also, below is a "how-to" on changes required in network drivers to use
+> the UDP LSO interface.
 
-I know of know such suite, an engineer at OSDL had started pulling pieces and
-ideas together, but unfortunately he was laid off. Let me know what you find out.
+The only downside is that it might encourage continued use of NFS over UDP.
+Perhaps we need a big fat warning in NFS that says:
+
+*** Your using NFS over UDP, your data integrity is no longer guaranteed;
+*** you have been warned.
