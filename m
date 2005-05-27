@@ -1,7 +1,7 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 6/7] [PKT_SCHED] Make dsmark use the new dumping macros
-Date: Fri, 27 May 2005 16:54:15 +0200
-Message-ID: <20050527145415.GX15391@postel.suug.ch>
+Subject: [PATCH 4/7] [RTNETLINK] Add RTA_(PUT|GET) shortcuts for u8, u16, and flag
+Date: Fri, 27 May 2005 16:52:52 +0200
+Message-ID: <20050527145252.GV15391@postel.suug.ch>
 References: <20050527145002.GR15391@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -18,91 +18,67 @@ List-Id: netdev.vger.kernel.org
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
 ---
-commit 36b5fe1b0094ab6d6ba2589076bec1975d5769ed
-tree ff95a30a27c52aef9561f2ed04e9950d0afcae6a
-parent 76061832cc84456bd970769c0dfcdfefc20d22fa
-author Thomas Graf <tgraf@suug.ch> Fri, 27 May 2005 15:22:44 +0200
-committer Thomas Graf <tgraf@suug.ch> Fri, 27 May 2005 15:22:44 +0200
+commit c49bbdd22621352b9b96097ffdb9e5c14b4ed95e
+tree 6204e59b7aa59cf79632003c621e521db1297b1b
+parent 0ecf7991c4f8532a5afc903e175e2bec80585fea
+author Thomas Graf <tgraf@suug.ch> Fri, 27 May 2005 14:36:11 +0200
+committer Thomas Graf <tgraf@suug.ch> Fri, 27 May 2005 14:36:11 +0200
 
- net/sched/sch_dsmark.c |   52 ++++++++++++++++++++++---------------------------
- 1 files changed, 24 insertions(+), 28 deletions(-)
+ include/linux/rtnetlink.h |   23 +++++++++++++++++++++++
+ 1 files changed, 23 insertions(+)
 
-Index: net/sched/sch_dsmark.c
+Index: include/linux/rtnetlink.h
 ===================================================================
---- ffa2efa3cf35b0a3c8c983060731be7b4d3330db/net/sched/sch_dsmark.c  (mode:100644)
-+++ ff95a30a27c52aef9561f2ed04e9950d0afcae6a/net/sched/sch_dsmark.c  (mode:100644)
-@@ -428,50 +428,46 @@
+--- 07e28bf36ae4052536820a75bbefc6ac1c7a9098/include/linux/rtnetlink.h  (mode:100644)
++++ 6204e59b7aa59cf79632003c621e521db1297b1b/include/linux/rtnetlink.h  (mode:100644)
+@@ -897,6 +897,14 @@
+ 		goto rtattr_failure; \
+ 	memcpy(skb_put(skb, RTA_ALIGN(attrlen)), data, attrlen); })
  
- 
- static int dsmark_dump_class(struct Qdisc *sch, unsigned long cl,
--    struct sk_buff *skb, struct tcmsg *tcm)
-+			     struct sk_buff *skb, struct tcmsg *tcm)
- {
- 	struct dsmark_qdisc_data *p = PRIV(sch);
--	unsigned char *b = skb->tail;
--	struct rtattr *rta;
-+	struct rtattr *opts = NULL;
- 
--	DPRINTK("dsmark_dump_class(sch %p,[qdisc %p],class %ld\n",sch,p,cl);
--	if (!cl || cl > p->indices)
-+	DPRINTK("dsmark_dump_class(sch %p,[qdisc %p],class %ld\n", sch, p, cl);
++#define RTA_PUT_U8(skb, attrtype, value) \
++({	u8 _tmp = (value); \
++	RTA_PUT(skb, attrtype, sizeof(u8), &_tmp); })
 +
-+	if (!dsmark_valid_index(p, cl))
- 		return -EINVAL;
--	tcm->tcm_handle = TC_H_MAKE(TC_H_MAJ(sch->handle),cl-1);
--	rta = (struct rtattr *) b;
--	RTA_PUT(skb,TCA_OPTIONS,0,NULL);
--	RTA_PUT(skb,TCA_DSMARK_MASK,1,&p->mask[cl-1]);
--	RTA_PUT(skb,TCA_DSMARK_VALUE,1,&p->value[cl-1]);
--	rta->rta_len = skb->tail-b;
--	return skb->len;
++#define RTA_PUT_U16(skb, attrtype, value) \
++({	u16 _tmp = (value); \
++	RTA_PUT(skb, attrtype, sizeof(u16), &_tmp); })
 +
-+	tcm->tcm_handle = TC_H_MAKE(TC_H_MAJ(sch->handle), cl-1);
+ #define RTA_PUT_U32(skb, attrtype, value) \
+ ({	u32 _tmp = (value); \
+ 	RTA_PUT(skb, attrtype, sizeof(u32), &_tmp); })
+@@ -914,6 +922,9 @@
+ #define RTA_PUT_STRING(skb, attrtype, value) \
+ 	RTA_PUT(skb, attrtype, strlen(value) + 1, value)
+ 
++#define RTA_PUT_FLAG(skb, attrtype) \
++	RTA_PUT(skb, attrtype, 0, NULL);
 +
-+	opts = RTA_NEST(skb, TCA_OPTIONS);
-+	RTA_PUT_U8(skb,TCA_DSMARK_MASK, p->mask[cl-1]);
-+	RTA_PUT_U8(skb,TCA_DSMARK_VALUE, p->value[cl-1]);
+ #define RTA_NEST(skb, type) \
+ ({	struct rtattr *__start = (struct rtattr *) (skb)->tail; \
+ 	RTA_PUT(skb, type, 0, NULL); \
+@@ -928,6 +939,16 @@
+ 		skb_trim(skb, (unsigned char *) (start) - (skb)->data); \
+ 	-1; })
+ 
++#define RTA_GET_U8(rta) \
++({	if (!rta || RTA_PAYLOAD(rta) < sizeof(u8)) \
++		goto rtattr_failure; \
++	*(u8 *) RTA_DATA(rta); })
 +
-+	return RTA_NEST_END(skb, opts);
- 
- rtattr_failure:
--	skb_trim(skb,b-skb->data);
--	return -1;
-+	return RTA_NEST_CANCEL(skb, opts);
- }
- 
- static int dsmark_dump(struct Qdisc *sch, struct sk_buff *skb)
- {
- 	struct dsmark_qdisc_data *p = PRIV(sch);
--	unsigned char *b = skb->tail;
--	struct rtattr *rta;
-+	struct rtattr *opts = NULL;
++#define RTA_GET_U16(rta) \
++({	if (!rta || RTA_PAYLOAD(rta) < sizeof(u16)) \
++		goto rtattr_failure; \
++	*(u16 *) RTA_DATA(rta); })
 +
-+	opts = RTA_NEST(skb, TCA_OPTIONS);
-+	RTA_PUT_U16(skb, TCA_DSMARK_INDICES, p->indices);
+ #define RTA_GET_U32(rta) \
+ ({	if (!rta || RTA_PAYLOAD(rta) < sizeof(u32)) \
+ 		goto rtattr_failure; \
+@@ -940,6 +961,8 @@
+ 	memcpy(&_tmp, RTA_DATA(rta), sizeof(_tmp)); \
+ 	_tmp; })
  
--	rta = (struct rtattr *) b;
--	RTA_PUT(skb,TCA_OPTIONS,0,NULL);
--	RTA_PUT(skb,TCA_DSMARK_INDICES,sizeof(__u16),&p->indices);
--	if (p->default_index != NO_DEFAULT_INDEX) {
--		__u16 tmp = p->default_index;
-+	if (p->default_index != NO_DEFAULT_INDEX)
-+		RTA_PUT_U16(skb, TCA_DSMARK_DEFAULT_INDEX, p->default_index);
- 
--		RTA_PUT(skb,TCA_DSMARK_DEFAULT_INDEX, sizeof(__u16), &tmp);
--	}
- 	if (p->set_tc_index)
--		RTA_PUT(skb, TCA_DSMARK_SET_TC_INDEX, 0, NULL);
--	rta->rta_len = skb->tail-b;
--	return skb->len;
-+		RTA_PUT_FLAG(skb, TCA_DSMARK_SET_TC_INDEX);
++#define RTA_GET_FLAG(rta) (!!(rta))
 +
-+	return RTA_NEST_END(skb, opts);
- 
- rtattr_failure:
--	skb_trim(skb,b-skb->data);
--	return -1;
-+	return RTA_NEST_CANCEL(skb, opts);
- }
- 
- static struct Qdisc_class_ops dsmark_class_ops = {
+ #define RTA_GET_SECS(rta) ((unsigned long) RTA_GET_U64(rta) * HZ)
+ #define RTA_GET_MSECS(rta) (msecs_to_jiffies((unsigned long) RTA_GET_U64(rta)))
+ 		
