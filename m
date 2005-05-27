@@ -1,39 +1,53 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: PATCH: rtnetlink explicit flags setting
-Date: Fri, 27 May 2005 16:13:20 +0200
-Message-ID: <20050527141320.GQ15391@postel.suug.ch>
-References: <1117197157.6688.24.camel@localhost.localdomain> <20050527125010.GO15391@postel.suug.ch> <1117202331.6383.39.camel@localhost.localdomain>
+Subject: [PATCH 1/7] [PKT_SCHED] Fix dsmark to count ignored indices while walking
+Date: Fri, 27 May 2005 16:50:58 +0200
+Message-ID: <20050527145058.GS15391@postel.suug.ch>
+References: <20050527145002.GR15391@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Cc: werner@almesberger.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <1117202331.6383.39.camel@localhost.localdomain>
+In-Reply-To: <20050527145002.GR15391@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* jamal <1117202331.6383.39.camel@localhost.localdomain> 2005-05-27 09:58
-> On Fri, 2005-27-05 at 14:50 +0200, Thomas Graf wrote:
-> 
-> 
-> >  
-> > -#define NLMSG_PUT(skb, pid, seq, type, len) \
-> > +#define NLMSG_NEW(skb, pid, seq, type, len, flags) \
-> 
-> How about introducing NLMSG_NEW and leave NLMSG_PUT where it is?
-> This way we could do incremental updates. If there are not too many of
-> those NLMSG_PUT around, then it shouldnt be an issue.
+Unused indices which are ignored while walking must still
+be counted to avoid dumping the same index twice.
 
-That is what the patch does but the diff looks a bit irritating.
-1) Introduce NLMSG_NEW to take flags
-2) Make NLMSG_PUT call NLMSG_NEW with flags==0
-3) Change __nlmsg_put to take flags argument
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-> The first change would be definetely on top of the current patch i sent
-> which is well deserved.
-> Lets have Dave swallow my patch then either you or i could make those
-> changes. Sounds reasonable?
+---
+commit 99ed2eb92cc035b223e2d383446f7f183600ba27
+tree 127116412eeedf62fcda0acc882500cd981cbab1
+parent e66646bb6686bb1be24e25b3743028f762544de2
+author Thomas Graf <tgraf@suug.ch> Fri, 27 May 2005 14:29:52 +0200
+committer Thomas Graf <tgraf@suug.ch> Fri, 27 May 2005 14:29:52 +0200
 
-Sure.
+ net/sched/sch_dsmark.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
+
+Index: net/sched/sch_dsmark.c
+===================================================================
+--- 735126283c38e22995f5da71b2e90a9d71ac4b1e/net/sched/sch_dsmark.c  (mode:100644)
++++ 127116412eeedf62fcda0acc882500cd981cbab1/net/sched/sch_dsmark.c  (mode:100644)
+@@ -163,14 +163,15 @@
+ 		return;
+ 	for (i = 0; i < p->indices; i++) {
+ 		if (p->mask[i] == 0xff && !p->value[i])
+-			continue;
++			goto ignore;
+ 		if (walker->count >= walker->skip) {
+ 			if (walker->fn(sch, i+1, walker) < 0) {
+ 				walker->stop = 1;
+ 				break;
+ 			}
+ 		}
+-                walker->count++;
++ignore:		
++		walker->count++;
+         }
+ }
+ 
