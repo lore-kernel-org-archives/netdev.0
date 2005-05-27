@@ -1,31 +1,48 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.12-rc4] IPv4/IPv6: UDP Large Send Offload feature
-Date: Fri, 27 May 2005 12:03:11 -0700 (PDT)
-Message-ID: <20050527.120311.17863590.davem@davemloft.net>
-References: <20050526232006.60E6365005@linux.site>
-	<20050527085713.373d702a@dxpl.pdx.osdl.net>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [patch 2.6.12-rc5] tg3: add bcm5752 entry to pci.ids
+Date: Fri, 27 May 2005 11:12:04 -0700
+Message-ID: <1117217524.4310.1.camel@rh4>
+References: <04132005193844.8410@laptop> <04132005193844.8474@laptop>
+ <20050421165956.55bdcb14.davem@davemloft.net>
+ <20050527184750.GB11592@tuxdriver.com>
+ <20050527185334.GA7417@infradead.org>
+ <20050527190000.GC11592@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: ravinandan.arakali@neterion.com, jgarzik@pobox.com, netdev@oss.sgi.com,
-        raghavendra.koushik@neterion.com, leonid.grossman@neterion.com,
-        ananda.raju@neterion.com, rapuru.sriram@neterion.com
+Cc: "Christoph Hellwig" <hch@infradead.org>,
+        "David S. Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com, jgarzik@pobox.com, lusinsky@broadcom.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: shemminger@osdl.org
-In-Reply-To: <20050527085713.373d702a@dxpl.pdx.osdl.net>
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <20050527190000.GC11592@tuxdriver.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@osdl.org>
-Date: Fri, 27 May 2005 08:57:13 -0700
-
-> The only downside is that it might encourage continued use of NFS over UDP.
-> Perhaps we need a big fat warning in NFS that says:
+On Fri, 2005-05-27 at 15:00 -0400, John W. Linville wrote:
+> On Fri, May 27, 2005 at 07:53:35PM +0100, Christoph Hellwig wrote:
+> > On Fri, May 27, 2005 at 02:47:52PM -0400, John W. Linville wrote:
 > 
-> *** Your using NFS over UDP, your data integrity is no longer guaranteed;
-> *** you have been warned.
-
-I agree, I think the NFS client should print out something
-like this when it mounts a volume over UDP for the first
-time.
+> > > +	1600  NetXtreme BCM5752 Gigabit Ethernet PCI Express
+> > 
+> > I don't think you should mention "PCI Express" here.  That can trivially
+> > befound it looking at the configuration header.
+> 
+> I'm just following what is at pciids.sourceforge.net.  Plus, it is
+> already like that for nine other IDs:
+> 
+>         1659  NetXtreme BCM5721 Gigabit Ethernet PCI Express
+>         1677  NetXtreme BCM5751 Gigabit Ethernet PCI Express
+>         167d  NetXtreme BCM5751M Gigabit Ethernet PCI Express
+>         167e  NetXtreme BCM5751F Fast Ethernet PCI Express
+>         169d  NetLink BCM5789 Gigabit Ethernet PCI Express
+>         16dd  NetLink BCM5781 Gigabit Ethernet PCI Express
+>         16f7  NetXtreme BCM5753 Gigabit Ethernet PCI Express
+>         16fd  NetXtreme BCM5753M Gigabit Ethernet PCI Express
+>         16fe  NetXtreme BCM5753F Fast Ethernet PCI Express
+> 
+> The Broadcom guys can speak-up, but I figure they know if "PCI Express"
+> is appropriate for their device... :-)
+>
+Yes, "PCI Express" is appropriate. Thanks John.
