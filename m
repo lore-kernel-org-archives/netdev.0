@@ -1,8 +1,8 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: Fw: [Bugme-new] [Bug 4628] New: Test server hang while running rhr (network) test on RHEL4 with kernel 2.6.12-rc1-mm4
-Date: Fri, 27 May 2005 10:11:23 +1000
-Message-ID: <20050527001123.GA16594@gondor.apana.org.au>
-References: <468F3FDA28AA87429AD807992E22D07E056F6B37@orsmsx408> <20050526213421.GA8077@gondor.apana.org.au> <5fc59ff30505261608541b74fb@mail.gmail.com>
+Date: Fri, 27 May 2005 10:20:56 +1000
+Message-ID: <20050527002056.GA16644@gondor.apana.org.au>
+References: <468F3FDA28AA87429AD807992E22D07E056F6B37@orsmsx408> <20050526213421.GA8077@gondor.apana.org.au> <5fc59ff30505261608541b74fb@mail.gmail.com> <20050527001123.GA16594@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>,
@@ -15,23 +15,20 @@ Cc: "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>,
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Ganesh Venkatesan <ganesh.venkatesan@gmail.com>
 Content-Disposition: inline
-In-Reply-To: <5fc59ff30505261608541b74fb@mail.gmail.com>
+In-Reply-To: <20050527001123.GA16594@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 26, 2005 at 04:08:17PM -0700, Ganesh Venkatesan wrote:
+On Fri, May 27, 2005 at 10:11:23AM +1000, herbert wrote:
 > 
-> I do not get it. Bear with my ignorance.
-> 
-> e100_tx_timeout does not call e100_down. 
-> 
-> It is called from e100_tx_timeout_task which is invoked as a result of
-> schedule_work. Are you saying that it would still not have the right
-> context to call netif_disable_poll()?
+> Sorry, I was not aware that you've already added the sched work
+> in the driver.  With that it should work correctly.
 
-Sorry, I was not aware that you've already added the sched work
-in the driver.  With that it should work correctly.
+BTW, I was just checking out your sched work code.  There needs
+to be synchronisation between the tx_timeout task and the stop
+method.  Otherwise they can race against each other or worse
+tx_timeout could keep running even after stop has finished.
 
 Cheers,
 -- 
