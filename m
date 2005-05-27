@@ -1,47 +1,40 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH 2.6.12-rc4] IPv4/IPv6: UDP Large Send Offload feature
-Date: Fri, 27 May 2005 08:57:13 -0700
-Message-ID: <20050527085713.373d702a@dxpl.pdx.osdl.net>
-References: <20050526232006.60E6365005@linux.site>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: PATCH: rtnetlink explicit flags setting
+Date: Fri, 27 May 2005 11:57:46 -0400
+Message-ID: <1117209466.6383.106.camel@localhost.localdomain>
+References: <1117197157.6688.24.camel@localhost.localdomain>
+	 <20050527125010.GO15391@postel.suug.ch>
+	 <1117202331.6383.39.camel@localhost.localdomain>
+	 <20050527141320.GQ15391@postel.suug.ch>
+	 <1117206091.6383.73.camel@localhost.localdomain>
+	 <20050527151913.GA15391@postel.suug.ch>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jgarzik@pobox.com, netdev@oss.sgi.com,
-        raghavendra.koushik@neterion.com, ravinandan.arakali@neterion.com,
-        leonid.grossman@neterion.com, ananda.raju@neterion.com,
-        rapuru.sriram@neterion.com
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ravinandan.arakali@neterion.com
-In-Reply-To: <20050526232006.60E6365005@linux.site>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050527151913.GA15391@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 26 May 2005 16:20:06 -0700 (PDT)
-ravinandan.arakali@neterion.com wrote:
+On Fri, 2005-27-05 at 17:19 +0200, Thomas Graf wrote:
 
-> Hi,
-> Attached below is a kernel patch to provide UDP LSO(Large Send Offload) 
-> feature.
-> This is the UDP counterpart of TSO. Basically, an oversized packet
-> (less than or equal to 65535) is handed to the NIC. The adapter then
-> produces IP fragments in conformance with RFC791(IPv4) or RFC2460(IPv6).
+> Sure, I can come up with a patchset today which will include:
+>  o the new NLMSG_NEW macro
+>  o your patch adopted to use the new NLMSG_NEW macro
+>  o small patch to rename NLMSG_PUT_ANSWER usages into NLMSG_NEW_ANSWER
+>  o a small fallout from the new neighbour table code which gcc didn't
+>    warn me about when it should.
 > 
-> Very much like TCP TSO, UDP LSO provides significant reduction in CPU 
-> utilization, especially with 1500 MTU frames. For 10GbE traffic,
-> these extra CPU cycles translate into significant throughput increase 
-> on most server platforms.
-> 
-> Reasonable amount of testing has been done on the patch using Neterion's
-> 10G Xframe-II adapter to ensure code stability.
-> 
-> Please review the patch.
-> 
-> Also, below is a "how-to" on changes required in network drivers to use
-> the UDP LSO interface.
+> OK?
 
-The only downside is that it might encourage continued use of NFS over UDP.
-Perhaps we need a big fat warning in NFS that says:
+Sounds reasonable.
 
-*** Your using NFS over UDP, your data integrity is no longer guaranteed;
-*** you have been warned.
+cheers,
+jamal
+
+PS:- Have to disappear for a few hours so they maybe latency in further
+responses.
