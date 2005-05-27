@@ -1,73 +1,74 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: PATCH: rtnetlink explicit flags setting
-Date: Fri, 27 May 2005 14:50:10 +0200
-Message-ID: <20050527125010.GO15391@postel.suug.ch>
-References: <1117197157.6688.24.camel@localhost.localdomain>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 3/4] [NEIGH] neighbour table configuration and
+	statistics via rtnetlink
+Date: Fri, 27 May 2005 09:50:53 -0400
+Message-ID: <1117201853.6383.29.camel@localhost.localdomain>
+References: <20050526185306.GW15391@postel.suug.ch>
+	 <20050526185526.GZ15391@postel.suug.ch>
+	 <1117192464.6688.3.camel@localhost.localdomain>
+	 <20050527121503.GN15391@postel.suug.ch>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1117197157.6688.24.camel@localhost.localdomain>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050527121503.GN15391@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* jamal <1117197157.6688.24.camel@localhost.localdomain> 2005-05-27 08:32
+On Fri, 2005-27-05 at 14:15 +0200, Thomas Graf wrote:
+> * jamal <1117192464.6688.3.camel@localhost.localdomain> 2005-05-27 07:14
+> > It would have been better, IMO, to just work on a generic idev/devinet
+> > retrieval and setting instead of one component (as in ARP in this
+> > case). 
 > 
-> I think i may have missed a few spots.
+> I thought about adding a devinet component to allow retrieving/setting
+> device specific parameters (along with other settings) but dropped the
+> idea because I did not want to implement the data structures twice.
+>
+> I think this is cleaner, it allows one request to be sent to see
+> the complete arp/ndisc configuration rather than sending one to
+> retrieve the global configuration/statistics and another one
+> to retrieve device specific parameters.
 > 
-> Thomas it would be worth creating a macro which takes flags as input as
-> well to replace things along the lines of:
->         nlh = NLMSG_PUT(skb, pid, seq, event, sizeof(*ifm));
->         nlh->nlmsg_flags = flags;
-> Since theres a sufficient number of them.
-
-Right, proposal:
-
---- 6204e59b7aa59cf79632003c621e521db1297b1b/include/linux/netlink.h  (mode:100644)
-+++ uncommitted/include/linux/netlink.h  (mode:100644)
-@@ -156,7 +156,7 @@
- };
- 
- static __inline__ struct nlmsghdr *
--__nlmsg_put(struct sk_buff *skb, u32 pid, u32 seq, int type, int len)
-+__nlmsg_put(struct sk_buff *skb, u32 pid, u32 seq, int type, int len, int flags)
- {
-        struct nlmsghdr *nlh;
-        int size = NLMSG_LENGTH(len);
-@@ -164,20 +164,23 @@
-        nlh = (struct nlmsghdr*)skb_put(skb, NLMSG_ALIGN(size));
-        nlh->nlmsg_type = type;
-        nlh->nlmsg_len = size;
--       nlh->nlmsg_flags = 0;
-+       nlh->nlmsg_flags = flags;
-        nlh->nlmsg_pid = pid;
-        nlh->nlmsg_seq = seq;
-        return nlh;
- }
- 
--#define NLMSG_PUT(skb, pid, seq, type, len) \
-+#define NLMSG_NEW(skb, pid, seq, type, len, flags) \
- ({     if (skb_tailroom(skb) < (int)NLMSG_SPACE(len)) \
-                goto nlmsg_failure; \
--       __nlmsg_put(skb, pid, seq, type, len); })
-+       __nlmsg_put(skb, pid, seq, type, len, flags); })
-+
-+#define NLMSG_PUT(skb, pid, seq, type, len) \
-+       NLMSG_NEW(skb, pid, seq, type, len, 0)
- 
--#define NLMSG_PUT_ANSWER(skb, cb, type, len) \
--       NLMSG_PUT(skb, NETLINK_CB((cb)->skb).pid, \
--                 (cb)->nlh->nlmsg_seq, type, len)
-+#define NLMSG_NEW_ANSWER(skb, cb, type, len, flags) \
-+       NLMSG_NEW(skb, NETLINK_CB((cb)->skb).pid, \
-+                 (cb)->nlh->nlmsg_seq, type, len, flags)
- 
- #define NLMSG_END(skb, nlh) \
- ({     (nlh)->nlmsg_len = (skb)->tail - (unsigned char *) (nlh); \
+> Nevertheless, I'm open for changes so once I've written the devinet
+> component to change rp_filter, forwarding, arp_filter, etc. we can
+> still move the device specific NDTA_PARMS to the devinet component
+> if we still think it would be better. For now, the neightbl component
+> is clean, small, well defined and probably never needs to be touched
+> again.
+> 
+> Is that acceptable for you?
+> 
 
 
-I'd be especially happy with this because __nlmsg_put keeps control
-over the flags ;->
+I think depends on where we are going. My view is that the current
+abstraction model is fine for this specific bit.
+
+i.e from an abstraction point of view these parameters are per device
+per protocol (v4/v6/etc). 
+
+In other words, if i was to draw a model diagram it would show:
+--> netdevice 
+  ----> v4 addresses
+  ----> v4 netdevice configuration
+  ----> v6 addresses
+  ----> v6 netdevice configuration
+
+i.e the best way to do it imo, especially since you are doing this from
+scratch, is to maintain that model. Your patch breaks away from this.
+The only thing that is not devconfig queriable or settable at the moment
+is the stats. That i can certainly see as being part of the standard
+neighbor details for example. Infact this would apply elsewhere as well,
+for example in the FIB where some stats are being displayed via /proc at
+the moment.
+
+We actually did discuss this a while back and i had an incomplete patch
+for doing it the way i suggest above which i unfortunately cant seem to
+locate at the moment. 
+
+cheers,
+jamal
