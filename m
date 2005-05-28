@@ -1,37 +1,25 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: netdev-2.6, wireless queues updated
-Date: Fri, 27 May 2005 23:45:01 -0400
-Message-ID: <4297E93D.2060003@pobox.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 4/5] [NET] Add skb_find_text() to search for a text pattern in skbs
+Date: Sat, 28 May 2005 13:32:45 +0200
+Message-ID: <20050528113245.GO15391@postel.suug.ch>
+References: <20050527224725.GG15391@postel.suug.ch> <20050527224858.GK15391@postel.suug.ch> <4297E172.5020907@eurodev.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261820AbVE1DpL@vger.kernel.org>
-To: Netdev <netdev@oss.sgi.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, Jamal Hadi Salim <hadi@cyberus.ca>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Pablo Neira <pablo@eurodev.net>
+Content-Disposition: inline
+In-Reply-To: <4297E172.5020907@eurodev.net>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+* Pablo Neira <4297E172.5020907@eurodev.net> 2005-05-28 05:11
+> Still miss something here. You aren't looking for matches in skbs 
+> inserted in skb_shinfo(skb)->frag_list. Have a look at rusty's skb_iter 
+> functions. Since he cooked those for this purpose (string matching), why 
+> don't we use them instead of yours ?
 
-The net driver change queue has been updated, most notably with some new 
-wireless drivers and wireless stack updates.
-
-Intel contributed drivers for their Centrino hardware, "ipw2100" and 
-"ipw2200".  SuSE has begun contributing work that advances the ieee80211 
-stack work, taking it much closer to the goal of having ieee802.11 
-support fully integrated into the network stack as "real" protocol layer.
-
-
-Git repository containing a great many branches:
-rsync://rsync.kernel.org/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git
-
-The branch of note for wireless developers is currently 'we18-ieee80211'.
-
-Git instructions, for those needing an introduction:
-http://lkml.org/lkml/2005/5/26/11
-
-And finally a patch containing _only_ the changes on the we18-ieee80211 
-branch,
-http://www.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/2.6.12-rc5-git2-ieee80211-1.patch.bz2
-
-Notably, this patch does not include HostAP, which is stored in a child 
-branch 'we18-ieee80211-wifi'.
+Absolutely, I'm planning to use rusty's skb_iter instead. I postponed
+this to when the core infrastructure is stable but thanks a lot for
+this comment.
