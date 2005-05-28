@@ -1,37 +1,41 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: PATCH: rtnetlink explicit flags setting
-Date: Sat, 28 May 2005 18:16:37 +0200
-Message-ID: <20050528161637.GT15391@postel.suug.ch>
-References: <20050527141320.GQ15391@postel.suug.ch> <1117206091.6383.73.camel@localhost.localdomain> <20050527151913.GA15391@postel.suug.ch> <1117209466.6383.106.camel@localhost.localdomain> <20050527165935.GC15391@postel.suug.ch> <1117242749.6251.15.camel@localhost.localdomain> <20050528012810.GN15391@postel.suug.ch> <1117244893.6251.41.camel@localhost.localdomain> <20050528121827.GQ15391@postel.suug.ch> <1117296041.19563.6.camel@localhost.localdomain>
+Subject: [PATCH] [DECNET] Remove unnecessary initilization of unused variable entries
+Date: Sat, 28 May 2005 18:26:24 +0200
+Message-ID: <20050528162624.GU15391@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <1117296041.19563.6.camel@localhost.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* jamal <1117296041.19563.6.camel@localhost.localdomain> 2005-05-28 12:00
-> > I just tested both patches for about 30 minutes. Everything OK. Feel
-> > free to apply the patches.
-> 
-> We have another problem. What tree is this against? Both patches have
-> failures patching against latest davem and linus git trees.
+This patch was supposed to be part of the neighbour tables related
+patchset but apparently got lost.
 
-It's against my davem-pending tree which should reflect the current
-state of davem's tree so they _should_ apply on his side. In this
-specific case you're probably missing the neighbour table patches.
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Basically I produce diffs this way:
+---
+commit eb870ca30d39dd41d9e70103aeef4d9c6e896697
+tree 9a945f37582c6f1a503366fa0831916d99cba013
+parent 31006b6a5e72afbc76f95fe778e6370dd820dda0
+author Thomas Graf <tgraf@suug.ch> Sat, 28 May 2005 18:21:48 +0200
+committer Thomas Graf <tgraf@suug.ch> Sat, 28 May 2005 18:21:48 +0200
 
-separate tree per patchset -> merge into  testing tree ->
-testing period -.  merge into $person-pending -> extraction
-of patches and submission.
+ net/decnet/dn_neigh.c |    1 -
+ 1 files changed, 1 deletion(-)
 
-I was trying to get some more quality control into my workflow,
-so I started testing patches for 3-4 weeks to avoid fallouts
-but apparently this is failing miserably at the moment due to
-some broken scripts of mine.
+Index: net/decnet/dn_neigh.c
+===================================================================
+--- 4df388ef25005542b65fc297e0d1fc45acbd1d5a/net/decnet/dn_neigh.c  (mode:100644)
++++ 9a945f37582c6f1a503366fa0831916d99cba013/net/decnet/dn_neigh.c  (mode:100644)
+@@ -101,7 +101,6 @@
+ 	.id =				"dn_neigh_cache",
+ 	.parms ={
+ 		.tbl =			&dn_neigh_table,
+-		.entries =		0,
+ 		.base_reachable_time =	30 * HZ,
+ 		.retrans_time =	1 * HZ,
+ 		.gc_staletime =	60 * HZ,
