@@ -1,38 +1,60 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [PATCH] use mmiowb in tg3_poll
-Date: Sun, 29 May 2005 01:12:10 +0200
-Message-ID: <20050528231209.GA8456@xi.wantstofly.org>
-References: <200410211628.06906.jbarnes@engr.sgi.com> <Pine.LNX.4.33.0410221345400.392-100000@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, jbarnes@engr.sgi.com, gnb@sgi.com
+From: domen@coderock.org
+Subject: [patch 1/1] Use pci_set_dma_mask() instead of direct assignment of DMA mask
+Date: Sun, 29 May 2005 01:16:55 +0200
+Message-ID: <20050528231654.365592000@nd47.coderock.org>
+Cc: netdev@oss.sgi.com, Tobias Klauser <tklauser@nuerscht.ch>,
+        domen@coderock.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: akepner@sgi.com
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.33.0410221345400.392-100000@localhost.localdomain>
+To: jgarzik@pobox.com
+Content-Disposition: inline; filename=dma_mask-drivers_net_amd8111e
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 22, 2004 at 01:51:01PM -0700, akepner@sgi.com wrote:
-
-> Returning from tg3_poll() without flushing the PIO write which
-> reenables interrupts can result in lower cpu utilization and higher
-> throughput.
-
-I'm quite curious what kind of MMIO read latency you see on your
-Altix boxen.  This app is quite useful for determining those figures
-on x86{,_64} machines:
-
-	http://svn.gnumonks.org/trunk/mmio_test/mmio_test.c
-
-I'm not sure if it'll run on Itanium out of the box (it currently
-assumes PAGE_SIZE <= 4096, you'd probably need to tweak rdtscl(),
-and if there's a weird phys:pci address correspondence you might
-have to teach it about that as well), but it would be nice if you
-could give an approximate indication of exactly how expensive an
-MMIO read is on your platform.
+From: Tobias Klauser <tklauser@nuerscht.ch>
 
 
-cheers,
-Lennert
+The amd8111e driver directly assigns the DMA mask to the dma_mask
+member of the struct pci_dev instead of using pci_set_dma_mask(). This
+makes the call to pci_dma_supported() redundant as pci_set_dma_mask()
+does this check.
+
+I do not own this device so I only compile-tested this patch.
+
+Signed-off-by: Tobias Klauser <tklauser@nuerscht.ch>
+Signed-off-by: Domen Puncer <domen@coderock.org>
+
+---
+ amd8111e.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
+
+Index: quilt/drivers/net/amd8111e.c
+===================================================================
+--- quilt.orig/drivers/net/amd8111e.c
++++ quilt/drivers/net/amd8111e.c
+@@ -87,6 +87,7 @@ Revision History:
+ #include <linux/if_vlan.h>
+ #include <linux/ctype.h>	
+ #include <linux/crc32.h>
++#include <linux/dma-mapping.h>
+ 
+ #include <asm/system.h>
+ #include <asm/io.h>
+@@ -2002,12 +2003,11 @@ static int __devinit amd8111e_probe_one(
+ 	}
+ 
+ 	/* Initialize DMA */
+-	if(!pci_dma_supported(pdev, 0xffffffff)){
++	if (pci_set_dma_mask(pdev, DMA_32BIT_MASK) < 0) {
+ 		printk(KERN_ERR "amd8111e: DMA not supported,"
+ 			"exiting.\n");
+-		goto  err_free_reg;
+-	} else
+-		pdev->dma_mask = 0xffffffff;
++		goto err_free_reg;
++	}
+ 	
+ 	reg_addr = pci_resource_start(pdev, 0);
+ 	reg_len = pci_resource_len(pdev, 0);
+
+--
