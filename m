@@ -1,41 +1,47 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH] [DECNET] Remove unnecessary initilization of unused variable entries
-Date: Sat, 28 May 2005 18:26:24 +0200
-Message-ID: <20050528162624.GU15391@postel.suug.ch>
+From: Richard Dawe <rich@phekda.gotadsl.co.uk>
+Subject: Re: [PATCH] r8169: support restricting speed+duplex in autonegotiation
+Date: Sat, 28 May 2005 21:39:21 +0100
+Message-ID: <4298D6F9.7030608@phekda.gotadsl.co.uk>
+References: <4297A0F7.5070209@phekda.gotadsl.co.uk> <4297B479.1080404@candelatech.com> <429871F9.6040305@phekda.gotadsl.co.uk> <20050528144207.GA17021@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ben Greear <greearb@candelatech.com>, Linux netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20050528144207.GA17021@electric-eye.fr.zoreil.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This patch was supposed to be part of the neighbour tables related
-patchset but apparently got lost.
+Hello.
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
+Francois Romieu wrote:
+> Richard Dawe <rich@phekda.gotadsl.co.uk> :
+> [...]
+> 
+>>This particular code is to support the "media" option for the r8169 
+>>module. The "media" option is marked as deprecated in favour of ethtool.
+> 
+> 
+> The current code is supposed to provide via ethtool the same function that
+> the media option did in Realtek's version of the driver (i.e. mostly a
+> current 'ethtool -s ethX autoneg off speed foo duplex bar').
 
----
-commit eb870ca30d39dd41d9e70103aeef4d9c6e896697
-tree 9a945f37582c6f1a503366fa0831916d99cba013
-parent 31006b6a5e72afbc76f95fe778e6370dd820dda0
-author Thomas Graf <tgraf@suug.ch> Sat, 28 May 2005 18:21:48 +0200
-committer Thomas Graf <tgraf@suug.ch> Sat, 28 May 2005 18:21:48 +0200
+AFAICS the current r8169 driver always autonegotiates in xMII mode.
 
- net/decnet/dn_neigh.c |    1 -
- 1 files changed, 1 deletion(-)
+> Afaik, neither in Realtek's code nor in the current in-kernel driver does
+> the (obsolescent) "media" code do what one would expect from a "media"
+> option.
 
-Index: net/decnet/dn_neigh.c
-===================================================================
---- 4df388ef25005542b65fc297e0d1fc45acbd1d5a/net/decnet/dn_neigh.c  (mode:100644)
-+++ 9a945f37582c6f1a503366fa0831916d99cba013/net/decnet/dn_neigh.c  (mode:100644)
-@@ -101,7 +101,6 @@
- 	.id =				"dn_neigh_cache",
- 	.parms ={
- 		.tbl =			&dn_neigh_table,
--		.entries =		0,
- 		.base_reachable_time =	30 * HZ,
- 		.retrans_time =	1 * HZ,
- 		.gc_staletime =	60 * HZ,
+My patch doesn't change the behaviour of the "media" option.
+
+Is the "media" part of the patch confusing?
+
+Bye, Rich =]
+
+-- 
+Richard Dawe [ http://homepages.nildram.co.uk/~phekda/richdawe/ ]
+
+"You can't evaluate a man by logic alone."
+   -- McCoy, "I, Mudd", Star Trek
