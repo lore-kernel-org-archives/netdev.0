@@ -1,47 +1,25 @@
-From: Richard Dawe <rich@phekda.gotadsl.co.uk>
-Subject: Re: [PATCH] r8169: support restricting speed+duplex in autonegotiation
-Date: Sat, 28 May 2005 21:39:21 +0100
-Message-ID: <4298D6F9.7030608@phekda.gotadsl.co.uk>
-References: <4297A0F7.5070209@phekda.gotadsl.co.uk> <4297B479.1080404@candelatech.com> <429871F9.6040305@phekda.gotadsl.co.uk> <20050528144207.GA17021@electric-eye.fr.zoreil.com>
+From: Baruch Even <baruch@ev-en.org>
+Subject: Comparison of several congestion control algorithms
+Date: Sat, 28 May 2005 22:19:01 +0100
+Message-ID: <4298E045.9050009@ev-en.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Ben Greear <greearb@candelatech.com>, Linux netdev <netdev@oss.sgi.com>
+Cc: Doug Leith <doug.leith@nuim.ie>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20050528144207.GA17021@electric-eye.fr.zoreil.com>
+To: netdev@oss.sgi.com, Stephen Hemminger <shemminger@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello.
+Hello,
 
-Francois Romieu wrote:
-> Richard Dawe <rich@phekda.gotadsl.co.uk> :
-> [...]
-> 
->>This particular code is to support the "media" option for the r8169 
->>module. The "media" option is marked as deprecated in favour of ethtool.
-> 
-> 
-> The current code is supposed to provide via ethtool the same function that
-> the media option did in Realtek's version of the driver (i.e. mostly a
-> current 'ethtool -s ethX autoneg off speed foo duplex bar').
+I wanted to point you to a comparison of congestion control algorithm
+done at the Hamilton Institute. These experiments compare Scalable-TCP,
+High-Speed TCP, FAST-TCP, BIC-TCP, H-TCP and Standard TCP. They compared
+  fairness, compatibility with TCP and link utilisation.
 
-AFAICS the current r8169 driver always autonegotiates in xMII mode.
+You can find the results and a report at http://hamilton.ie/net/eval/
 
-> Afaik, neither in Realtek's code nor in the current in-kernel driver does
-> the (obsolescent) "media" code do what one would expect from a "media"
-> option.
-
-My patch doesn't change the behaviour of the "media" option.
-
-Is the "media" part of the patch confusing?
-
-Bye, Rich =]
-
--- 
-Richard Dawe [ http://homepages.nildram.co.uk/~phekda/richdawe/ ]
-
-"You can't evaluate a man by logic alone."
-   -- McCoy, "I, Mudd", Star Trek
+Regards,
+Baruch
