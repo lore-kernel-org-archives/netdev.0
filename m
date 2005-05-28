@@ -1,64 +1,37 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [2/5] ieee80211: ieee80211_device alignment fix and cleanup
-Date: Fri, 27 May 2005 23:37:46 -0400
-Message-ID: <4297E78A.4030906@pobox.com>
-References: <20050524150711.01632672@griffin.suse.cz> <20050524151117.5e059d1d@griffin.suse.cz>
+Subject: netdev-2.6, wireless queues updated
+Date: Fri, 27 May 2005 23:45:01 -0400
+Message-ID: <4297E93D.2060003@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: NetDev <netdev@oss.sgi.com>, LKML <linux-kernel@vger.kernel.org>,
-	pavel@suse.cz
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261759AbVE1DiC@vger.kernel.org>
-To: Jiri Benc <jbenc@suse.cz>
-In-Reply-To: <20050524151117.5e059d1d@griffin.suse.cz>
+Cc: Linux Kernel <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261820AbVE1DpL@vger.kernel.org>
+To: Netdev <netdev@oss.sgi.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Comments on the remaining patches in this series:
+The net driver change queue has been updated, most notably with some new 
+wireless drivers and wireless stack updates.
 
-1) I am not convinced that the subclassing of net_device should be done 
-in this manner.  Read drivers/net/wan/hdlc_generic.c and .../pc300_drv.c 
-for examples of how hdlc_device is handled.
-
-Comments and thoughts welcome.
-
-
-2) Please put all the new, protocol-layer functions 
-ieee80211_type_trans(), ieee80211_change_mtu(), ieee80211_header(), etc. 
-in their own file.
+Intel contributed drivers for their Centrino hardware, "ipw2100" and 
+"ipw2200".  SuSE has begun contributing work that advances the ieee80211 
+stack work, taking it much closer to the goal of having ieee802.11 
+support fully integrated into the network stack as "real" protocol layer.
 
 
-3) Temporary or not, the following construct is simply not necessary. 
-Modify the definition rather than repeating this two-call piece of code 
-in multiple areas:
-
-	ieee80211_priv(netdev_priv(dev));
-
-
-4) A low-level wireless hardware driver should look like other net 
-drivers, and use the existing driver API.  The low level driver should 
-implement its own dev->hard_start_xmit().
-
-  	ieee = netdev_priv(dev);
--	dev->hard_start_xmit = ieee80211_xmit;
--
-  	ieee->dev = dev;
-+	ieee->priv = ieee80211_priv(ieee);
-+	
-+	dev->hard_start_xmit = ieee80211_xmit;
-
-Certainly, the driver will make many calls to generic ieee80211_xxx 
-functions to get things done.
-
-I understand this was not your change; you simply moved the 
-dev->hard_start_xmit() assignment down.  I just wanted to take this 
-opportunity to make a point.
-
-
-5) The wireless code in -mm all sourced directly from my netdev-2.6.git 
-tree.  I strongly encourage everyone who wants to work on wireless to 
-download git (read http://lkml.org/lkml/2005/5/26/11) and check out 
-branches 'we18' (wireless ex 18), 'we18-ieee80211' (we18 + ieee80211), 
-and 'we18-ieee80211-wifi' (we18 + ieee80211 + hostAP) of
+Git repository containing a great many branches:
 rsync://rsync.kernel.org/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git
+
+The branch of note for wireless developers is currently 'we18-ieee80211'.
+
+Git instructions, for those needing an introduction:
+http://lkml.org/lkml/2005/5/26/11
+
+And finally a patch containing _only_ the changes on the we18-ieee80211 
+branch,
+http://www.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/2.6.12-rc5-git2-ieee80211-1.patch.bz2
+
+Notably, this patch does not include HostAP, which is stored in a child 
+branch 'we18-ieee80211-wifi'.
