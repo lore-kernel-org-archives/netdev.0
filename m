@@ -1,46 +1,96 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: PATCH: rtnetlink explicit flags setting
-Date: Sat, 28 May 2005 03:28:10 +0200
-Message-ID: <20050528012810.GN15391@postel.suug.ch>
-References: <1117197157.6688.24.camel@localhost.localdomain> <20050527125010.GO15391@postel.suug.ch> <1117202331.6383.39.camel@localhost.localdomain> <20050527141320.GQ15391@postel.suug.ch> <1117206091.6383.73.camel@localhost.localdomain> <20050527151913.GA15391@postel.suug.ch> <1117209466.6383.106.camel@localhost.localdomain> <20050527165935.GC15391@postel.suug.ch> <1117242749.6251.15.camel@localhost.localdomain>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 3/4] [NEIGH] neighbour table configuration and
+	statistics via rtnetlink
+Date: Fri, 27 May 2005 21:42:46 -0400
+Message-ID: <1117244567.6251.34.camel@localhost.localdomain>
+References: <20050526185306.GW15391@postel.suug.ch>
+	 <20050526185526.GZ15391@postel.suug.ch>
+	 <1117192464.6688.3.camel@localhost.localdomain>
+	 <20050527121503.GN15391@postel.suug.ch>
+	 <1117201853.6383.29.camel@localhost.localdomain>
+	 <20050527141023.GP15391@postel.suug.ch>
+	 <1117205822.6383.68.camel@localhost.localdomain>
+	 <20050527151608.GZ15391@postel.suug.ch>
+	 <1117209411.6383.104.camel@localhost.localdomain>
+	 <20050527163516.GB15391@postel.suug.ch>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1117242749.6251.15.camel@localhost.localdomain>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050527163516.GB15391@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* jamal <1117242749.6251.15.camel@localhost.localdomain> 2005-05-27 21:12
-> > Yet unconverted
-> > are: netfilter, net/sched/ tcp_diag, xfrm, kernel/audit.
-> > 
+On Fri, 2005-27-05 at 18:35 +0200, Thomas Graf wrote:
+
+> I do NOT agree on moving gc_ into this architecture as well,
+> it doesn't belong there.
+
+Well, you do realize they are part of the in_dev ? ;->
+
+> Nitpicking for a bit, although inet6_dev and in_device hold
+> reference to the their arp respectively ndisc parameter set,
+> the sysctl interface does not use this reference but stores
+> the ifindex of the netdevice, _which_ is correct I think
+> because parameter sets are _not_ limited to inetdevs in terms
+> of architecture but only in terms of current use.
 > 
-> I didnt find any issues with these as far as PID extrapolation.
 
-I should have written, yet unchecked.
+I see a little main service header with ifindex always no different than
+IFA or IFLINK etc followed by appropriate TLVs which are nested.
 
-> > I also fixed some uses of NL_CREDS() to fetch the pid for
-> > message generation which is wrong. Various dumping procedures
-> > did not set the multi flag at all, I fixed all of them.
-> > 
-> > Do not apply these patches yet, they're way too intrusive
+Unfortunately i still cant find the patch - i started with a different
+approach; my immediate interest was to get events when someone made 
+in_device changes. BTW, this is going to be one of the main challenges
+since there are many paths to configure these things.
+
+> > The deafult can be overriden by devX. So they dont need to sync.
+> > But this is a separate topic
 > 
-> Do you mean the two patches? Those looked fine to me;
+> I was not talking about in-sync but rather that gc_* only
+> appears in default/ but not in devX/. What I expect is that
+> every default parameter can be overwritten in devX which
+> is not true for gc_*. Which is the reason why I implemented
+> them outside of the NDTPA_PARMS nested TLV.
+> 
 
-Yes, those two patches. My part comes directly out of my fingers
-and is only compile tested. I didn't even run them yet.
+Well, if you look at the structure there is no reason they should really
+be separate; infact theres a comment:
+-----------
+         struct neigh_parms      parms;
+        /* HACK. gc_* shoul follow parms without a gap! */
+        int                     gc_interval;
+        int                     gc_thresh1;
+        int                     gc_thresh2;
+----------
 
-> i.e its mostly the patch i posted this morning with the new Macros, no?
+To me the abstraction is pretty clear. I would agree that the way
+parameters configurable from user space and some of the methods may not
+be the best in terms of neighbor tables organization.
 
-I went through all users of NLMSG_PUT in the modules you touched and
-checked if they properly set NLM_F_MULTI and used the new macro when
-appropriate.
 
-Anyways, I want to be careful with this, there might be userspace
-apps which rely on pid being filled in from siocb->scm->creds or
-userspace apps which don't expect the NLM_F_MULTI flag even when
-they should so we should check with all parties involved.
+> I understand your architecture and if we follow this thought
+> we'd have a "default" netdevice which repesents all default
+> settings. 
+
+>From looking at the code, the default stuff seems to be "hardcoded".
+Example in the definition arp_tbl.
+
+> I do agree with this architecture but the problematic
+> question remains: Do we want parameters in "default" which are
+> not available in devX? I think this question is what it gets
+> down to in the end. If we say, yes we do want this, then we
+> can implement all generic settings, such as tcp_, using this
+> scheme as well. I don't disagree with this completely but I
+> find it not very intuitive from a user perspective.
+
+The model like i said is clean. There are some issues i have qualms with
+- such as IP address arrangements and tight integration with netdevices
+- but those can addressed at a later time.
+
+cheers,
+jamal
