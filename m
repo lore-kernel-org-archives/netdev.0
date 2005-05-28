@@ -1,36 +1,35 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [IPSEC] Add XFRMA_SA/XFRMA_POLICY for delete notification
-Date: Fri, 27 May 2005 20:30:42 -0400
-Message-ID: <1117240242.6251.4.camel@localhost.localdomain>
-References: <20050527233741.GA9157@gondor.apana.org.au>
+Subject: Re: RFC: NAPI packet weighting patch
+Date: Fri, 27 May 2005 20:56:26 -0400
+Message-ID: <1117241786.6251.7.camel@localhost.localdomain>
+References: <Pine.CYG.4.58.0505261406210.2364@mawilli1-desk2.amr.corp.intel.com>
+	 <20050527085055.79da3d75@dxpl.pdx.osdl.net>
+	 <Pine.CYG.4.58.0505271305590.2148@mawilli1-desk2.amr.corp.intel.com>
+	 <20050527140132.1435132d@dxpl.pdx.osdl.net>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, Patrick McHardy <kaber@trash.net>,
-        netdev@oss.sgi.com
+Cc: Mitch Williams <mitch.a.williams@intel.com>, netdev@oss.sgi.com,
+        Robert.Olsson@data.slu.se, "Ronciak, John" <john.ronciak@intel.com>,
+        "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>,
+        "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050527233741.GA9157@gondor.apana.org.au>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20050527140132.1435132d@dxpl.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2005-28-05 at 09:37 +1000, Herbert Xu wrote:
-> Hi Dave:
-> 
-> This is the patch that I reverted due to Jamal's objection to it.
-> I still think it's the right way to go which is why I'm submitting
-> it.  As it is, all the xfrm event notifications sent by the kernel
-> except the ones for SA/policy deletion are symmetric in the sense
-> that if they were sent straight back to the kernel in that same
-> form they would be accepted and perform the same action that
-> triggered the initial events.  As far as I know this is true for
-> non-xfrm netlink notifications as well, including deletion events.
-> 
+On Fri, 2005-27-05 at 14:01 -0700, Stephen Hemminger wrote:
 
-I have no objection to this patch going forth. I think i have
-sufficiently expressed my dislike - but we gotta make progress;->
+> 
+> Why not just allow adjusting dev->weight via sysfs?
+
+I think that should be good enough - and i thought your patch already
+did this. 
+Adding a shift to the weight in a _weighted_ RR algorithm does sound
+odd.
 
 cheers,
 jamal
