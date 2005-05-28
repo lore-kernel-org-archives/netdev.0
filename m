@@ -1,77 +1,43 @@
-From: Pablo Neira <pablo@eurodev.net>
-Subject: Re: [PATCH 4/5] [NET] Add skb_find_text() to search for a text pattern
- in skbs
-Date: Sat, 28 May 2005 05:11:46 +0200
-Message-ID: <4297E172.5020907@eurodev.net>
-References: <20050527224725.GG15391@postel.suug.ch> <20050527224858.GK15391@postel.suug.ch>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [3/5] netdev: HH_DATA_OFF bugfix
+Date: Fri, 27 May 2005 23:15:18 -0400
+Message-ID: <4297E246.1070606@pobox.com>
+References: <20050524150711.01632672@griffin.suse.cz> <20050524151204.554f73cb@griffin.suse.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Jamal Hadi Salim <hadi@cyberus.ca>
+Cc: NetDev <netdev@oss.sgi.com>, LKML <linux-kernel@vger.kernel.org>,
+        pavel@suse.cz
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050527224858.GK15391@postel.suug.ch>
+To: Jiri Benc <jbenc@suse.cz>, "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050524151204.554f73cb@griffin.suse.cz>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Thomas Graf wrote:
-> +static int get_skb_text(int offset, unsigned char **text,
-> +			struct ts_config *conf, struct ts_state *state)
-> +{
-> +	/* args[0]: lower limit
-> +	 * args[1]: upper limit
-> +	 * args[2]: skb
-> +	 * args[3]: fragment index
-> +	 * args[4]: current fragment data buffer
-> +	 * args[5]: octets consumed up to previous fragment */
-> +	int from = state->args[0], to = state->args[1];
-> +	struct sk_buff *skb = (struct sk_buff *) state->args[2];
-> +	int limit = min_t(int, skb_headlen(skb), to);
-> +	int real_offset = offset + from;
-> +	skb_frag_t *f;
-> +
-> +	if (!skb_is_nonlinear(skb)) {
-> +		if (real_offset < limit) {
-> +linear:
-> +			*text = skb->data + real_offset;
-> +			return limit - real_offset;
-> +		}
-> +
-> +		return 0;
-> +	}
-> +
-> +	if (real_offset < limit)
-> +		goto linear;
-> +
-> +next_fragment:
-> +	f = &skb_shinfo(skb)->frags[state->args[3]];
-> +	limit = min_t(int, f->size + state->args[5], to);
-> +
-> +	if (!state->args[4])
-> +		state->args[4] = (long) kmap_skb_frag(f);
-> +
-> +	if (real_offset < limit) {
-> +		*text = (unsigned char *) state->args[4] + f->page_offset +
-> +			(real_offset - (int) state->args[5]);
-> +		return limit - real_offset;
-> +	}
-> +
-> +	kunmap_skb_frag((void *) state->args[4]);
-> +	state->args[3]++;
-> +	state->args[4] = (long) NULL;
-> +	state->args[5] += f->size;
-> +
-> +	if (state->args[3] >= skb_shinfo(skb)->nr_frags)
-> +		return 0;
-> +
-> +	goto next_fragment;
-> +}
+Jiri Benc wrote:
+> When the hardware header size is a multiple of HH_DATA_MOD, HH_DATA_OFF()
+> incorrectly returns HH_DATA_MOD (instead of 0).
+> 
+> Signed-off-by: Jiri Benc <jbenc@suse.cz>
+> 
+> --- linux/include/linux/netdevice.h
+> +++ work/include/linux/netdevice.h
+> @@ -204,7 +209,7 @@
+>  	/* cached hardware header; allow for machine alignment needs.        */
+>  #define HH_DATA_MOD	16
+>  #define HH_DATA_OFF(__len) \
+> -	(HH_DATA_MOD - ((__len) & (HH_DATA_MOD - 1)))
+> +	(HH_DATA_MOD - (((__len - 1) & (HH_DATA_MOD - 1)) + 1))
+>  #define HH_DATA_ALIGN(__len) \
+>  	(((__len)+(HH_DATA_MOD-1))&~(HH_DATA_MOD - 1))
+>  	unsigned long	hh_data[HH_DATA_ALIGN(LL_MAX_HEADER) / sizeof(long)];
 
-Still miss something here. You aren't looking for matches in skbs 
-inserted in skb_shinfo(skb)->frag_list. Have a look at rusty's skb_iter 
-functions. Since he cooked those for this purpose (string matching), why 
-don't we use them instead of yours ?
 
---
-Pablo
+You'll want to run this one by DaveM.  He would be the appropriate one 
+to merge this, since it affects all ethernet devices (net/ethernet/eth.c 
+uses HH_DATA_OFF macro).
+
+I'm going over the rest of the ieee80211/ipw patches...
+
+	Jeff
