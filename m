@@ -1,56 +1,64 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [0/5] Improvements to the ieee80211 layer
-Date: Fri, 27 May 2005 23:18:31 -0400
-Message-ID: <4297E307.30707@pobox.com>
-References: <20050524150711.01632672@griffin.suse.cz>
+Subject: Re: [2/5] ieee80211: ieee80211_device alignment fix and cleanup
+Date: Fri, 27 May 2005 23:37:46 -0400
+Message-ID: <4297E78A.4030906@pobox.com>
+References: <20050524150711.01632672@griffin.suse.cz> <20050524151117.5e059d1d@griffin.suse.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: NetDev <netdev@oss.sgi.com>, LKML <linux-kernel@vger.kernel.org>,
-        pavel@suse.cz
-Return-path: <netdev-bounce@oss.sgi.com>
+	pavel@suse.cz
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261759AbVE1DiC@vger.kernel.org>
 To: Jiri Benc <jbenc@suse.cz>
-In-Reply-To: <20050524150711.01632672@griffin.suse.cz>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <20050524151117.5e059d1d@griffin.suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jiri Benc wrote:
-> The ieee80211 layer, now present in -mm, lacks many important features
-> (actually it's just a part of the ipw2100/ipw2200 driver; these cards do
-> a lot of the processing in the hardware/firmware and thus the layer
-> currently can not be used for simpler devices).
 
-Agreed.
+Comments on the remaining patches in this series:
 
+1) I am not convinced that the subclassing of net_device should be done 
+in this manner.  Read drivers/net/wan/hdlc_generic.c and .../pc300_drv.c 
+for examples of how hdlc_device is handled.
 
-> This is the first series of patches that try to convert it to a generic
-> IEEE 802.11 layer, usable for most of today's wireless cards.
-
-Great!
+Comments and thoughts welcome.
 
 
-> The long term plan is:
-> - to implement a complete 802.11 stack in the kernel, making it easy to
->   write drivers for simple (cheap) devices
-> - to implement all of Ad-Hoc, AP and monitor modes in the layer, so it
->   will be easy to support them in the drivers
-> - to integrate Wireless Extensions to unify the kernel-userspace
->   interface of all the drivers
-> 
-> This means that drivers for "stupid" (simple, cheap) cards should be
-> very short and easy to write, whereas drivers for "clever" cards will be
-> longer (but still shorter than they are now).
-> 
-> We have a couple of cards for testing, and we gradually modify the
-> drivers for ipw2100 and ipw2200 with the development of the layer. When
-> the layer is mature enough for the "stupid" cards, we will rewrite the
-> driver for Atheros-based cards to use this layer. We plan to send all
-> the patches for these drivers to the netdev list. Of course, we are in
-> close contact with Pavel Machek, who is pushing the ipw2100 driver
-> upstream.
+2) Please put all the new, protocol-layer functions 
+ieee80211_type_trans(), ieee80211_change_mtu(), ieee80211_header(), etc. 
+in their own file.
 
-I'm interesting in writing a RealTek driver using ieee80211.  As the 
-ieee80211 layer matures, I'll start publishing that code.
 
-	Jeff
+3) Temporary or not, the following construct is simply not necessary. 
+Modify the definition rather than repeating this two-call piece of code 
+in multiple areas:
+
+	ieee80211_priv(netdev_priv(dev));
+
+
+4) A low-level wireless hardware driver should look like other net 
+drivers, and use the existing driver API.  The low level driver should 
+implement its own dev->hard_start_xmit().
+
+  	ieee = netdev_priv(dev);
+-	dev->hard_start_xmit = ieee80211_xmit;
+-
+  	ieee->dev = dev;
++	ieee->priv = ieee80211_priv(ieee);
++	
++	dev->hard_start_xmit = ieee80211_xmit;
+
+Certainly, the driver will make many calls to generic ieee80211_xxx 
+functions to get things done.
+
+I understand this was not your change; you simply moved the 
+dev->hard_start_xmit() assignment down.  I just wanted to take this 
+opportunity to make a point.
+
+
+5) The wireless code in -mm all sourced directly from my netdev-2.6.git 
+tree.  I strongly encourage everyone who wants to work on wireless to 
+download git (read http://lkml.org/lkml/2005/5/26/11) and check out 
+branches 'we18' (wireless ex 18), 'we18-ieee80211' (we18 + ieee80211), 
+and 'we18-ieee80211-wifi' (we18 + ieee80211 + hostAP) of
+rsync://rsync.kernel.org/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git
