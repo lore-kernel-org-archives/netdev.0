@@ -1,7 +1,7 @@
 From: Pablo Neira <pablo@eurodev.net>
 Subject: Re: [RFC] textsearch infrastructure et al v2
-Date: Sat, 28 May 2005 14:58:37 +0200
-Message-ID: <42986AFD.6060107@eurodev.net>
+Date: Sat, 28 May 2005 14:58:51 +0200
+Message-ID: <42986B0B.8020608@eurodev.net>
 References: <20050527224725.GG15391@postel.suug.ch> <1117281581.6251.68.camel@localhost.localdomain> <20050528123542.GR15391@postel.suug.ch> <42986A85.9060001@eurodev.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
@@ -24,7 +24,7 @@ Pablo Neira wrote:
 > designed to be used in user space so, for example, it needed a complete 
 > rework to reduce dynamic memory allocations.
 
-sorry, i meant '/s/wasn't/was/g'. libqsearch was designed to be used my 
+sorry, i meant '/s/wasn't/was/g'. libqsearch was designed to be used by 
 snort.
 
 --
