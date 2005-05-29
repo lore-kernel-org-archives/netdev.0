@@ -1,32 +1,36 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [0/10] [IPSEC] IPsec event notification
-Date: Sun, 29 May 2005 21:27:31 +1000
-Message-ID: <20050529112731.GA1891@gondor.apana.org.au>
-References: <20050527110730.GA4424@gondor.apana.org.au> <20050527.134139.32345929.davem@davemloft.net> <20050528001005.GA10547@gondor.apana.org.au> <20050528.202356.94889774.davem@davemloft.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] r8169: support restricting speed+duplex in autonegotiation
+Date: Mon, 30 May 2005 00:54:33 +0200
+Message-ID: <20050529225433.GA24990@electric-eye.fr.zoreil.com>
+References: <4297A0F7.5070209@phekda.gotadsl.co.uk> <4297B479.1080404@candelatech.com> <429871F9.6040305@phekda.gotadsl.co.uk> <20050528144207.GA17021@electric-eye.fr.zoreil.com> <4298D6F9.7030608@phekda.gotadsl.co.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: hadi@cyberus.ca, kaber@trash.net, netdev@oss.sgi.com
+Cc: Ben Greear <greearb@candelatech.com>, Linux netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
+To: Richard Dawe <rich@phekda.gotadsl.co.uk>
 Content-Disposition: inline
-In-Reply-To: <20050528.202356.94889774.davem@davemloft.net>
+In-Reply-To: <4298D6F9.7030608@phekda.gotadsl.co.uk>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, May 28, 2005 at 08:23:56PM -0700, David S. Miller wrote:
-> From: Herbert Xu <herbert@gondor.apana.org.au>
-> Date: Sat, 28 May 2005 10:10:05 +1000
-> 
-> > Any objections to asking Andrew to start pulling your
-> > net-2.6.13 tree or is he doing that already?
-> 
-> I told him last week to do so, so he should be already
-> doing this.
+Richard Dawe <rich@phekda.gotadsl.co.uk> :
+[...]
+> Is the "media" part of the patch confusing?
 
-Thanks a lot Dave.  I've asked Andrew to stop pulling my tree.
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+No (it could have stored its data in link_settings[] though).
+
+I do not understand what the "ret" variable in rtl8169_set_speed_xmii()
+is supposed to do but it is not a big issue.
+
+Style aside, Ben has imho a point. The patch adds a special case:
+- is there a real need ?
+- is it a 8169-specific thing or not ?
+
+The code is added in an area where the driver is currently not pretty.
+The driver should probably replace its own defines with the ones in
+<linux/mii.h> then really disable autonegotiation when it is asked to
+(hint, hint).
+
+--
+Ueimor
