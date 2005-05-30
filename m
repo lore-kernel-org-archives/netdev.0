@@ -1,60 +1,98 @@
 From: Adrian Bunk <bunk@stusta.de>
-Subject: [-mm patch] net/ieee80211/: remove pci.h #include's
-Date: Mon, 30 May 2005 22:56:34 +0200
-Message-ID: <20050530205634.GQ10441@stusta.de>
+Subject: [2.6 patch] net/irda/: passible cleanups
+Date: Mon, 30 May 2005 22:56:43 +0200
+Message-ID: <20050530205643.GU10441@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: hostap@shmoo.com, jgarzik@pobox.com, netdev@oss.sgi.com,
+Cc: irda-users@lists.sourceforge.net, netdev@oss.sgi.com,
 	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261746AbVE3U4x@vger.kernel.org>
-To: jkmaline@cc.hut.fi
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261761AbVE3U67@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>
 Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I was wondering why editing pci.h triggered the rebuild of three files 
-under net/, and as far as I can see, there's no reason for these three 
-files to #include pci.h .
+This patch contains the following possible cleanups:
+- make the following needlessly global function static:
+  - irnet/irnet_ppp.c: irnet_init
+- remove the following unneeded EXPORT_SYMBOL's:
+  - irlmp.c: sysctl_discovery_timeout
+  - irlmp.c: irlmp_reasons
+  - irlmp.c: irlmp_dup
+  - irqueue.c: hashbin_find_next
+
+Please review which of these changes do make sense and which conflict 
+with pending patches.
 
 Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
 ---
 
 This patch was already sent on:
-- 1 May 2005
+- 7 May 2005
 
- net/ieee80211/ieee80211_module.c |    1 -
- net/ieee80211/ieee80211_rx.c     |    1 -
- net/ieee80211/ieee80211_tx.c     |    1 -
- 3 files changed, 3 deletions(-)
+ net/irda/irlmp.c           |    3 ---
+ net/irda/irnet/irnet.h     |    3 ---
+ net/irda/irnet/irnet_ppp.c |    2 +-
+ net/irda/irqueue.c         |    1 -
+ 4 files changed, 1 insertion(+), 8 deletions(-)
 
---- linux-2.6.12-rc3-mm1-full/net/ieee80211/ieee80211_module.c.old	2005-04-30 23:23:14.000000000 +0200
-+++ linux-2.6.12-rc3-mm1-full/net/ieee80211/ieee80211_module.c	2005-04-30 23:23:18.000000000 +0200
-@@ -40,7 +40,6 @@
- #include <linux/kernel.h>
- #include <linux/module.h>
- #include <linux/netdevice.h>
--#include <linux/pci.h>
- #include <linux/proc_fs.h>
- #include <linux/skbuff.h>
- #include <linux/slab.h>
---- linux-2.6.12-rc3-mm1-full/net/ieee80211/ieee80211_tx.c.old	2005-04-30 23:23:25.000000000 +0200
-+++ linux-2.6.12-rc3-mm1-full/net/ieee80211/ieee80211_tx.c	2005-04-30 23:23:32.000000000 +0200
-@@ -33,7 +33,6 @@
- #include <linux/kernel.h>
- #include <linux/module.h>
- #include <linux/netdevice.h>
--#include <linux/pci.h>
- #include <linux/proc_fs.h>
- #include <linux/skbuff.h>
- #include <linux/slab.h>
---- linux-2.6.12-rc3-mm1-full/net/ieee80211/ieee80211_rx.c.old	2005-04-30 23:23:42.000000000 +0200
-+++ linux-2.6.12-rc3-mm1-full/net/ieee80211/ieee80211_rx.c	2005-04-30 23:23:46.000000000 +0200
-@@ -23,7 +23,6 @@
- #include <linux/kernel.h>
- #include <linux/module.h>
- #include <linux/netdevice.h>
--#include <linux/pci.h>
- #include <linux/proc_fs.h>
- #include <linux/skbuff.h>
- #include <linux/slab.h>
+--- linux-2.6.12-rc3-mm3-full/net/irda/irnet/irnet.h.old	2005-05-05 22:38:59.000000000 +0200
++++ linux-2.6.12-rc3-mm3-full/net/irda/irnet/irnet.h	2005-05-05 22:39:12.000000000 +0200
+@@ -517,9 +517,6 @@
+ 	irda_irnet_init(void);		/* Initialise IrDA part of IrNET */
+ extern void
+ 	irda_irnet_cleanup(void);	/* Teardown IrDA part of IrNET */
+-/* ---------------------------- MODULE ---------------------------- */
+-extern int
+-	irnet_init(void);		/* Initialise IrNET module */
+ 
+ /**************************** VARIABLES ****************************/
+ 
+--- linux-2.6.12-rc3-mm3-full/net/irda/irnet/irnet_ppp.c.old	2005-05-05 22:39:21.000000000 +0200
++++ linux-2.6.12-rc3-mm3-full/net/irda/irnet/irnet_ppp.c	2005-05-05 22:39:29.000000000 +0200
+@@ -1107,7 +1107,7 @@
+ /*
+  * Module main entry point
+  */
+-int __init
++static int __init
+ irnet_init(void)
+ {
+   int err;
+--- linux-2.6.12-rc3-mm3-full/net/irda/irlmp.c.old	2005-05-05 22:46:47.000000000 +0200
++++ linux-2.6.12-rc3-mm3-full/net/irda/irlmp.c	2005-05-05 22:50:52.000000000 +0200
+@@ -53,7 +53,6 @@
+ /* These can be altered by the sysctl interface */
+ int  sysctl_discovery         = 0;
+ int  sysctl_discovery_timeout = 3; /* 3 seconds by default */
+-EXPORT_SYMBOL(sysctl_discovery_timeout);
+ int  sysctl_discovery_slots   = 6; /* 6 slots by default */
+ int  sysctl_lap_keepalive_time = LM_IDLE_TIMEOUT * 1000 / HZ;
+ char sysctl_devname[65];
+@@ -67,7 +66,6 @@
+ 	"LM_INIT_DISCONNECT",
+ 	"ERROR, NOT USED",
+ };
+-EXPORT_SYMBOL(irlmp_reasons);
+ 
+ /*
+  * Function irlmp_init (void)
+@@ -675,7 +673,6 @@
+ 
+ 	return new;
+ }
+-EXPORT_SYMBOL(irlmp_dup);
+ 
+ /*
+  * Function irlmp_disconnect_request (handle, userdata)
+--- linux-2.6.12-rc3-mm3-full/net/irda/irqueue.c.old	2005-05-05 22:48:55.000000000 +0200
++++ linux-2.6.12-rc3-mm3-full/net/irda/irqueue.c	2005-05-05 22:49:03.000000000 +0200
+@@ -822,7 +822,6 @@
+ 
+ 	return entry;
+ }
+-EXPORT_SYMBOL(hashbin_find_next);
+ 
+ /*
+  * Function hashbin_get_first (hashbin)
