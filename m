@@ -1,245 +1,91 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [RFC: 2.6 patch] net/ipv4/: possible cleanups
-Date: Mon, 30 May 2005 22:56:51 +0200
-Message-ID: <20050530205651.GY10441@stusta.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261781AbVE3VRR@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Bug in 2.6.11.11 - udp_poll(), fragments + CONFIG_HIGHMEM
+Date: Tue, 31 May 2005 07:49:30 +1000
+Message-ID: <E1Dcs8Y-0006bl-00@gondolin.me.apana.org.au>
+References: <E1DclTK-0002qE-00@mta1.cl.cam.ac.uk>
+Cc: linux-net@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, Steven.Hand@cl.cam.ac.uk, netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Steven.Hand@cl.cam.ac.uk (Steven Hand)
+In-Reply-To: <E1DclTK-0002qE-00@mta1.cl.cam.ac.uk>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch contains the following possible cleanups:
-- make needlessly global code static
-- #if 0 the following unused global function:
-  - xfrm4_state.c: xfrm4_state_fini
-- remove the following unneeded EXPORT_SYMBOL's:
-  - ip_output.c: ip_finish_output
-  - ip_output.c: sysctl_ip_default_ttl
-  - fib_frontend.c: ip_dev_find
-  - inetpeer.c: inet_peer_idlock
-  - ip_options.c: ip_options_compile
-  - ip_options.c: ip_options_undo
-  - tcp_ipv4.c: sysctl_max_syn_backlog
+Steven Hand <Steven.Hand@cl.cam.ac.uk> wrote:
+> 
+> Reconstructed forward trace: 
+> 
+>   net/ipv4/udp.c:1334   spin_lock_irq() 
+>   net/ipv4/udp.c:1336   udp_checksum_complete() 
+> net/core/skbuff.c:1069   skb_shinfo(skb)->nr_frags > 1
+> net/core/skbuff.c:1086   kunmap_skb_frag()
+> net/core/skbuff.h:1087   local_bh_enable()
+> kernel/softirq.c:0140   WARN_ON(irqs_disabled());
 
-Please review which of these changes are correct and which might 
-conflict with pending patches.
+Thanks for catching this.  The receive queue lock is never taken
+in IRQs (and should never be) so we can simply substitute bh for
+irq.
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
----
-
-This patch was already sent on:
-- 7 May 2005
-
- include/net/ip.h         |    2 --
- include/net/route.h      |    4 ----
- include/net/tcp.h        |    2 --
- include/net/tcp_ecn.h    |   13 -------------
- include/net/xfrm.h       |    1 -
- net/ipv4/fib_frontend.c  |    1 -
- net/ipv4/inetpeer.c      |    2 --
- net/ipv4/ip_options.c    |    3 ---
- net/ipv4/ip_output.c     |    7 +------
- net/ipv4/multipath_drr.c |    2 +-
- net/ipv4/route.c         |    4 +++-
- net/ipv4/tcp_input.c     |   15 ++++++++++++++-
- net/ipv4/tcp_ipv4.c      |    1 -
- net/ipv4/xfrm4_state.c   |    2 ++
- 14 files changed, 21 insertions(+), 38 deletions(-)
-
---- linux-2.6.12-rc3-mm2-full/include/net/ip.h.old	2005-05-05 02:35:00.000000000 +0200
-+++ linux-2.6.12-rc3-mm2-full/include/net/ip.h	2005-05-05 02:35:07.000000000 +0200
-@@ -140,8 +140,6 @@
- void ip_send_reply(struct sock *sk, struct sk_buff *skb, struct ip_reply_arg *arg,
- 		   unsigned int len); 
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -738,7 +738,7 @@ int udp_ioctl(struct sock *sk, int cmd, 
+ 			unsigned long amount;
  
--extern int ip_finish_output(struct sk_buff *skb);
--
- struct ipv4_config
- {
- 	int	log_martians;
---- linux-2.6.12-rc3-mm2-full/net/ipv4/multipath_drr.c.old	2005-05-05 02:37:58.000000000 +0200
-+++ linux-2.6.12-rc3-mm2-full/net/ipv4/multipath_drr.c	2005-05-05 02:38:06.000000000 +0200
-@@ -107,7 +107,7 @@
- 	return NOTIFY_DONE;
- }
+ 			amount = 0;
+-			spin_lock_irq(&sk->sk_receive_queue.lock);
++			spin_lock_bh(&sk->sk_receive_queue.lock);
+ 			skb = skb_peek(&sk->sk_receive_queue);
+ 			if (skb != NULL) {
+ 				/*
+@@ -748,7 +748,7 @@ int udp_ioctl(struct sock *sk, int cmd, 
+ 				 */
+ 				amount = skb->len - sizeof(struct udphdr);
+ 			}
+-			spin_unlock_irq(&sk->sk_receive_queue.lock);
++			spin_unlock_bh(&sk->sk_receive_queue.lock);
+ 			return put_user(amount, (int __user *)arg);
+ 		}
  
--struct notifier_block drr_dev_notifier = {
-+static struct notifier_block drr_dev_notifier = {
- 	.notifier_call	= drr_dev_event,
- };
- 
---- linux-2.6.12-rc3-mm3-full/net/ipv4/ip_output.c.old	2005-05-05 21:43:22.000000000 +0200
-+++ linux-2.6.12-rc3-mm3-full/net/ipv4/ip_output.c	2005-05-05 21:44:36.000000000 +0200
-@@ -216,7 +216,7 @@
- 	return -EINVAL;
- }
- 
--int ip_finish_output(struct sk_buff *skb)
-+static int ip_finish_output(struct sk_buff *skb)
- {
- 	struct net_device *dev = skb->dst->dev;
- 
-@@ -1351,12 +1351,7 @@
- #endif
- }
- 
--EXPORT_SYMBOL(ip_finish_output);
- EXPORT_SYMBOL(ip_fragment);
- EXPORT_SYMBOL(ip_generic_getfrag);
- EXPORT_SYMBOL(ip_queue_xmit);
- EXPORT_SYMBOL(ip_send_check);
--
--#ifdef CONFIG_SYSCTL
--EXPORT_SYMBOL(sysctl_ip_default_ttl);
--#endif
---- linux-2.6.12-rc3-mm3-full/include/net/route.h.old	2005-05-05 21:21:09.000000000 +0200
-+++ linux-2.6.12-rc3-mm3-full/include/net/route.h	2005-05-05 21:22:19.000000000 +0200
-@@ -105,10 +105,6 @@
-         unsigned int out_hlist_search;
- };
- 
--extern struct rt_cache_stat *rt_cache_stat;
--#define RT_CACHE_STAT_INC(field)					  \
--		(per_cpu_ptr(rt_cache_stat, _smp_processor_id())->field++)
--
- extern struct ip_rt_acct *ip_rt_acct;
- 
- struct in_device;
---- linux-2.6.12-rc3-mm3-full/net/ipv4/route.c.old	2005-05-05 21:21:21.000000000 +0200
-+++ linux-2.6.12-rc3-mm3-full/net/ipv4/route.c	2005-05-05 21:22:14.000000000 +0200
-@@ -209,7 +209,9 @@
- static int			rt_hash_log;
- static unsigned int		rt_hash_rnd;
- 
--struct rt_cache_stat *rt_cache_stat;
-+static struct rt_cache_stat *rt_cache_stat;
-+#define RT_CACHE_STAT_INC(field)					  \
-+		(per_cpu_ptr(rt_cache_stat, _smp_processor_id())->field++)
- 
- static int rt_intern_hash(unsigned hash, struct rtable *rth,
- 				struct rtable **res);
---- linux-2.6.12-rc3-mm3-full/include/net/tcp.h.old	2005-05-05 21:23:42.000000000 +0200
-+++ linux-2.6.12-rc3-mm3-full/include/net/tcp.h	2005-05-05 21:23:52.000000000 +0200
-@@ -825,8 +825,6 @@
+@@ -848,12 +848,12 @@ csum_copy_err:
+ 	/* Clear queue. */
+ 	if (flags&MSG_PEEK) {
+ 		int clear = 0;
+-		spin_lock_irq(&sk->sk_receive_queue.lock);
++		spin_lock_bh(&sk->sk_receive_queue.lock);
+ 		if (skb == skb_peek(&sk->sk_receive_queue)) {
+ 			__skb_unlink(skb, &sk->sk_receive_queue);
+ 			clear = 1;
+ 		}
+-		spin_unlock_irq(&sk->sk_receive_queue.lock);
++		spin_unlock_bh(&sk->sk_receive_queue.lock);
+ 		if (clear)
+ 			kfree_skb(skb);
  	}
- }
+@@ -1334,7 +1334,7 @@ unsigned int udp_poll(struct file *file,
+ 		struct sk_buff_head *rcvq = &sk->sk_receive_queue;
+ 		struct sk_buff *skb;
  
--extern void tcp_enter_quickack_mode(struct tcp_sock *tp);
--
- static __inline__ void tcp_delack_init(struct tcp_sock *tp)
- {
- 	memset(&tp->ack, 0, sizeof(tp->ack));
---- linux-2.6.12-rc3-mm3-full/include/net/tcp_ecn.h.old	2005-05-05 21:25:48.000000000 +0200
-+++ linux-2.6.12-rc3-mm3-full/include/net/tcp_ecn.h	2005-05-05 21:25:57.000000000 +0200
-@@ -78,19 +78,6 @@
- 	tp->ecn_flags &= ~TCP_ECN_DEMAND_CWR;
- }
+-		spin_lock_irq(&rcvq->lock);
++		spin_lock_bh(&rcvq->lock);
+ 		while ((skb = skb_peek(rcvq)) != NULL) {
+ 			if (udp_checksum_complete(skb)) {
+ 				UDP_INC_STATS_BH(UDP_MIB_INERRORS);
+@@ -1345,7 +1345,7 @@ unsigned int udp_poll(struct file *file,
+ 				break;
+ 			}
+ 		}
+-		spin_unlock_irq(&rcvq->lock);
++		spin_unlock_bh(&rcvq->lock);
  
--static inline void TCP_ECN_check_ce(struct tcp_sock *tp, struct sk_buff *skb)
--{
--	if (tp->ecn_flags&TCP_ECN_OK) {
--		if (INET_ECN_is_ce(TCP_SKB_CB(skb)->flags))
--			tp->ecn_flags |= TCP_ECN_DEMAND_CWR;
--		/* Funny extension: if ECT is not set on a segment,
--		 * it is surely retransmit. It is not in ECN RFC,
--		 * but Linux follows this rule. */
--		else if (INET_ECN_is_not_ect((TCP_SKB_CB(skb)->flags)))
--			tcp_enter_quickack_mode(tp);
--	}
--}
--
- static inline void TCP_ECN_rcv_synack(struct tcp_sock *tp, struct tcphdr *th)
- {
- 	if ((tp->ecn_flags&TCP_ECN_OK) && (!th->ece || th->cwr))
---- linux-2.6.12-rc3-mm3-full/net/ipv4/tcp_input.c.old	2005-05-05 21:24:11.000000000 +0200
-+++ linux-2.6.12-rc3-mm3-full/net/ipv4/tcp_input.c	2005-05-05 21:25:04.000000000 +0200
-@@ -183,13 +183,26 @@
- 		tp->ack.quick = min(quickacks, TCP_MAX_QUICKACKS);
- }
- 
--void tcp_enter_quickack_mode(struct tcp_sock *tp)
-+static void tcp_enter_quickack_mode(struct tcp_sock *tp)
- {
- 	tcp_incr_quickack(tp);
- 	tp->ack.pingpong = 0;
- 	tp->ack.ato = TCP_ATO_MIN;
- }
- 
-+static inline void TCP_ECN_check_ce(struct tcp_sock *tp, struct sk_buff *skb)
-+{
-+	if (tp->ecn_flags&TCP_ECN_OK) {
-+		if (INET_ECN_is_ce(TCP_SKB_CB(skb)->flags))
-+			tp->ecn_flags |= TCP_ECN_DEMAND_CWR;
-+		/* Funny extension: if ECT is not set on a segment,
-+		 * it is surely retransmit. It is not in ECN RFC,
-+		 * but Linux follows this rule. */
-+		else if (INET_ECN_is_not_ect((TCP_SKB_CB(skb)->flags)))
-+			tcp_enter_quickack_mode(tp);
-+	}
-+}
-+
- /* Send ACKs quickly, if "quick" count is not exhausted
-  * and the session is not interactive.
-  */
---- linux-2.6.12-rc3-mm3-full/include/net/xfrm.h.old	2005-05-05 21:26:56.000000000 +0200
-+++ linux-2.6.12-rc3-mm3-full/include/net/xfrm.h	2005-05-05 21:27:01.000000000 +0200
-@@ -799,7 +799,6 @@
- extern void xfrm6_fini(void);
- extern void xfrm_state_init(void);
- extern void xfrm4_state_init(void);
--extern void xfrm4_state_fini(void);
- extern void xfrm6_state_init(void);
- extern void xfrm6_state_fini(void);
- 
---- linux-2.6.12-rc3-mm3-full/net/ipv4/xfrm4_state.c.old	2005-05-05 21:27:09.000000000 +0200
-+++ linux-2.6.12-rc3-mm3-full/net/ipv4/xfrm4_state.c	2005-05-05 21:27:24.000000000 +0200
-@@ -119,8 +119,10 @@
- 	xfrm_state_register_afinfo(&xfrm4_state_afinfo);
- }
- 
-+#if 0
- void __exit xfrm4_state_fini(void)
- {
- 	xfrm_state_unregister_afinfo(&xfrm4_state_afinfo);
- }
-+#endif  /*  0  */
- 
---- linux-2.6.12-rc3-mm3-full/net/ipv4/fib_frontend.c.old	2005-05-05 21:38:28.000000000 +0200
-+++ linux-2.6.12-rc3-mm3-full/net/ipv4/fib_frontend.c	2005-05-05 21:38:40.000000000 +0200
-@@ -607,5 +607,4 @@
- }
- 
- EXPORT_SYMBOL(inet_addr_type);
--EXPORT_SYMBOL(ip_dev_find);
- EXPORT_SYMBOL(ip_rt_ioctl);
---- linux-2.6.12-rc3-mm3-full/net/ipv4/inetpeer.c.old	2005-05-05 21:41:06.000000000 +0200
-+++ linux-2.6.12-rc3-mm3-full/net/ipv4/inetpeer.c	2005-05-05 21:41:14.000000000 +0200
-@@ -456,5 +456,3 @@
- 			peer_total / inet_peer_threshold * HZ;
- 	add_timer(&peer_periodic_timer);
- }
--
--EXPORT_SYMBOL(inet_peer_idlock);
---- linux-2.6.12-rc3-mm3-full/net/ipv4/ip_options.c.old	2005-05-05 21:42:02.000000000 +0200
-+++ linux-2.6.12-rc3-mm3-full/net/ipv4/ip_options.c	2005-05-05 21:42:33.000000000 +0200
-@@ -620,6 +620,3 @@
- 	}
- 	return 0;
- }
--
--EXPORT_SYMBOL(ip_options_compile);
--EXPORT_SYMBOL(ip_options_undo);
---- linux-2.6.12-rc3-mm3-full/net/ipv4/tcp_ipv4.c.old	2005-05-05 21:58:55.000000000 +0200
-+++ linux-2.6.12-rc3-mm3-full/net/ipv4/tcp_ipv4.c	2005-05-05 21:59:33.000000000 +0200
-@@ -2660,7 +2660,6 @@
- EXPORT_SYMBOL(tcp_proc_unregister);
- #endif
- EXPORT_SYMBOL(sysctl_local_port_range);
--EXPORT_SYMBOL(sysctl_max_syn_backlog);
- EXPORT_SYMBOL(sysctl_tcp_low_latency);
- EXPORT_SYMBOL(sysctl_tcp_tw_reuse);
- 
+ 		/* nothing to see, move along */
+ 		if (skb == NULL)
