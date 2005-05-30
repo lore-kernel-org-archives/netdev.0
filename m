@@ -1,39 +1,48 @@
-From: Andi Kleen <ak@muc.de>
-Subject: Re: [PATCH] NUMA aware allocation of transmit and receive buffers for e1000
-Date: 30 May 2005 11:41:07 +0200
-Message-ID: <20050530094107.GJ86087@muc.de>
-References: <Pine.LNX.4.62.0505171854490.20408@graphe.net> <m1sm0l5lwa.fsf@muc.de> <428AF378.5020109@cosmosbay.com> <Pine.LNX.4.62.0505271413560.25484@graphe.net>
+From: Arthur Kepner <akepner@sgi.com>
+Subject: Re: [PATCH] use mmiowb in tg3_poll
+Date: Mon, 30 May 2005 09:30:13 -0700 (PDT)
+Message-ID: <Pine.LNX.4.61.0505300925570.11645@linux.site>
+References: <200410211628.06906.jbarnes@engr.sgi.com>
+ <Pine.LNX.4.33.0410221345400.392-100000@localhost.localdomain>
+ <20050528231209.GA8456@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <dada1@cosmosbay.com>, netdev@oss.sgi.com, akpm@osdl.org,
-        shai@scalex86.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com, jesse.barnes@intel.com, gnb@sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-Date: Mon, 30 May 2005 11:41:07 +0200
-To: Christoph Lameter <christoph@lameter.com>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.62.0505271413560.25484@graphe.net>
+To: Lennert Buytenhek <buytenh@wantstofly.org>
+In-Reply-To: <20050528231209.GA8456@xi.wantstofly.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, May 27, 2005 at 02:15:55PM -0700, Christoph Lameter wrote:
-> On Wed, 18 May 2005, Eric Dumazet wrote:
+
+On Sun, 29 May 2005, Lennert Buytenhek wrote:
+
+> .....
+> I'm quite curious what kind of MMIO read latency you see on your
+> Altix boxen.  This app is quite useful for determining those figures
+> on x86{,_64} machines:
 > 
-> > Related question, is pci_alloc_consistent() already NUMA aware ?
-> 
-> Nope. It also ultimately acquires memory via vmalloc.
+> 	http://svn.gnumonks.org/trunk/mmio_test/mmio_test.c
+> ....
 
-x86-64 vmalloc has been NUMA aware forever.
-I believe the HP BigTux patchkit for IA64 added it there too, although
-it might not have hit mainline.
+[cc list change: jbarnes@engr.sgi.com -> jesse.barnes@intel.com]
 
-> 
-> pci_alloc_consistent will also need some rework to allocate memory 
-> consistent (well the name is coherent right?) with the node that the 
-> device is on. Second case of a need for a node aware vmalloc?
+Haven't tried this program yet (though it looks interesting.) 
+In the past I've instrumented the driver with get_cycles() to 
+acquire the PIO read and mmiowb() latencies.
 
-You can already have it today by temporarily changing the process
-mempolicy. However for pci_alloc_consistent just using alloc_pages_node
-directly seems to work fine. 
+I quickly looked through the records that I have and, unfortunately, 
+wasn't able to locate raw data. But I found some scrawlings in my 
+notes which say the most recent measurements for an Altix are: 
 
--Andi
+	i)  PIO read latency ~ 2.4 usec
+	ii) mmiowb() latency ~ 1.1 usec
+
+(This data was taken when the PIOs/mmiowb()s were coming from a CPU 
+which was "nearest" to the NIC.)
+
+If you have data for x86{,_64}, I'd be interested in that, too.
+
+--
+Arthur
