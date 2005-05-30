@@ -1,152 +1,39 @@
-From: James Morris <jmorris@redhat.com>
-Subject: Re: [PATCH 2/2] Resend: LSM-IPSec Networking Hooks
-Date: Mon, 30 May 2005 03:05:41 -0400 (EDT)
-Message-ID: <Xine.LNX.4.44.0505300239180.25434-100000@thoron.boston.redhat.com>
-References: <1116361671.5560.125.camel@dyn9002018177.watson.ibm.com>
+From: Andi Kleen <ak@muc.de>
+Subject: Re: [PATCH] NUMA aware allocation of transmit and receive buffers for e1000
+Date: 30 May 2005 11:41:07 +0200
+Message-ID: <20050530094107.GJ86087@muc.de>
+References: <Pine.LNX.4.62.0505171854490.20408@graphe.net> <m1sm0l5lwa.fsf@muc.de> <428AF378.5020109@cosmosbay.com> <Pine.LNX.4.62.0505271413560.25484@graphe.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com, <chrisw@osdl.org>, <serue@us.ibm.com>,
-        <latten@austin.ibm.com>, <sds@tycho.nsa.gov>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <dada1@cosmosbay.com>, netdev@oss.sgi.com, akpm@osdl.org,
+        shai@scalex86.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jaegert <jaegert@us.ibm.com>
-In-Reply-To: <1116361671.5560.125.camel@dyn9002018177.watson.ibm.com>
+Date: Mon, 30 May 2005 11:41:07 +0200
+To: Christoph Lameter <christoph@lameter.com>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.62.0505271413560.25484@graphe.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 17 May 2005, jaegert wrote:
+On Fri, May 27, 2005 at 02:15:55PM -0700, Christoph Lameter wrote:
+> On Wed, 18 May 2005, Eric Dumazet wrote:
+> 
+> > Related question, is pci_alloc_consistent() already NUMA aware ?
+> 
+> Nope. It also ultimately acquires memory via vmalloc.
 
-> +#define nethooks_debug(fmt, args...) {if (DEBUG) printk(KERN_NOTICE fmt,## args);}
+x86-64 vmalloc has been NUMA aware forever.
+I believe the HP BigTux patchkit for IA64 added it there too, although
+it might not have hit mainline.
 
-Why isn't this debugging using KERN_DEBUG?
+> 
+> pci_alloc_consistent will also need some rework to allocate memory 
+> consistent (well the name is coherent right?) with the node that the 
+> device is on. Second case of a need for a node aware vmalloc?
 
-> +static inline struct inode_security_struct *get_sock_isec(struct sock *sk)
-> +{
-> +       if (!sk->sk_socket) {
-> +               nethooks_debug("%s: no socket on this sock (!?)\n",
-> +                              __FUNCTION__);
-> +               return (struct inode_security_struct *) NULL;
-> +       }
+You can already have it today by temporarily changing the process
+mempolicy. However for pci_alloc_consistent just using alloc_pages_node
+directly seems to work fine. 
 
-No need to cast NULL here.
-
-> +int selinux_xfrm_policy_lookup(struct sock *sk, struct xfrm_selector *sel, struct flowi *fl, u8 dir)
-> +{
-> +	int rc = 0;
-> +	struct inode_security_struct *isec = NULL;
-> +	u32 sock_sid, sel_sid = SECINITSID_UNLABELED;
-> +
-> +	nethooks_debug("%s: authorize\n", __FUNCTION__);
-> +
-> +	if (!sk) {
-> +                /* no sock to send -- e.g., icmp reply */
-> +		/* authorize as kernel packet */
-> +		if (fl && fl->proto == IPPROTO_ICMP) {
-> +			nethooks_debug("%s: ICMP case\n",
-> +				       __FUNCTION__);
-> +			sock_sid = SECINITSID_KERNEL;
-> +			goto authorize;
-> +		}
-> +		/*
-> +		 * hooks.c accepts packets with no socket unconditionally
-> +		 */
-> +		nethooks_debug("%s: no sock on this skbuff: non-ICMP\n",
-> +			       __FUNCTION__);
-> +		goto out;
-> +	}
-
-I'm not sure that ICMP is the only protocol which might be caught here;  
-are there any other cases where there's no sk that also get caught here?  
-The debugging in any case is not all that useful, I'd suggest adding a
-protocol number.
-
-> +	read_lock_bh(&sk->sk_callback_lock);
-
-You only need this lock for (dir == FLOW_DIR_IN).
-
-> +static inline int selinux_xfrm_selector_alloc(struct xfrm_selector *sel, struct sadb_x_sec_ctx *sec_ctx)
-> +{
-> +	int rc = 0;
-> +
-> +	if (!sec_ctx)
-> +		return -EINVAL;
-
-Shouldn't this be a BUG_ON() ?
-
-> +	memcpy(sel->security->ctx_str,
-> +	       sec_ctx+1,
-> +	       sel->security->ctx_len);
-
-Don't you need to validate that ctx_len is within bounds of the data 
-copied from userspace?
-
-> +	rc = security_context_to_sid(sel->security->ctx_str,
-> +				     sel->security->ctx_len,
-> +				     &sel->security->ctx_sid);
-> +	sel->security->ctx_str[sel->security->ctx_len] = 0;
-
-Why null terminate here?  security_context_to_sid() was looking for it 
-already, assuming we haven't crashed yet.
-
-> +int selinux_xfrm_policy_alloc(struct xfrm_policy *xp, struct sadb_x_sec_ctx *sec_ctx)
-> +{
-> +	int rc = 0;
-> +
-> +	if (!xp)
-> +		return -EINVAL;
-
-Another case for BUG_ON().
-
-> +	nethooks_debug(KERN_NOTICE "%s: start alloc\n", __FUNCTION__);
-> +
-> +	rc = selinux_xfrm_selector_alloc(&xp->selector, sec_ctx);
-> +
-> +	return rc;
-> +}
-
-How about getting rid of rc and just return the value of the last 
-function.
-
-> +void selinux_xfrm_policy_free(struct xfrm_policy *xp)
-> +{
-> +	struct xfrm_sec_ctx *xfrm_ctx = xfrm_policy_security(xp);
-> +
-> +	if (xfrm_ctx)
-> +		kfree(xfrm_ctx);
-> +}
-
-Just call kfree() unconditionally.
-
-> +int selinux_xfrm_state_alloc(struct xfrm_state *x, struct sadb_x_sec_ctx *sec_ctx)
-> +{
-> +	int rc = 0;
-> +
-> +	if (!x)
-> +		return -EINVAL;
-
-BUG_ON()
-
-> +	rc = selinux_xfrm_selector_alloc(&x->sel, sec_ctx);
-> +
-> +	return rc;
-
-No need for rc again.
-
-> +void selinux_xfrm_state_free(struct xfrm_state *x)
-> +{
-> +	struct xfrm_sec_ctx *xfrm_ctx = xfrm_state_security(x);
-> +
-> +	if (xfrm_ctx)
-> +		kfree(xfrm_ctx);
-> +}
-
-kfree() again.
-
-
-(Still reviewing...)
-
-
-- James
--- 
-James Morris
-<jmorris@redhat.com>
+-Andi
