@@ -1,86 +1,80 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 3/4] [NEIGH] neighbour table configuration and statistics via rtnetlink
-Date: Tue, 31 May 2005 18:13:15 +0200
-Message-ID: <20050531161315.GH15391@postel.suug.ch>
-References: <20050527151608.GZ15391@postel.suug.ch> <1117209411.6383.104.camel@localhost.localdomain> <20050527163516.GB15391@postel.suug.ch> <1117244567.6251.34.camel@localhost.localdomain> <20050528120731.GP15391@postel.suug.ch> <1117533847.6134.32.camel@localhost.localdomain> <20050531114251.GC15391@postel.suug.ch> <1117543711.6134.48.camel@localhost.localdomain> <20050531131747.GF15391@postel.suug.ch> <1117551561.6279.2.camel@localhost.localdomain>
+From: Atkinson Stephen-G19998 <satkinson@motorola.com>
+Subject: Patch for "ETH_P_ALL_NO_NIT"
+Date: Tue, 31 May 2005 11:38:11 -0500
+Message-ID: <5D454811D0A1D711A12A00065BF36FAD1A0E93A4@il06exm11>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jamal Hadi Salim <hadi@znyx.com>
-Content-Disposition: inline
-In-Reply-To: <1117551561.6279.2.camel@localhost.localdomain>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Jamal Hadi Salim <1117551561.6279.2.camel@localhost.localdomain> 2005-05-31 10:59
-> netdevice ->
->   L2 config stuff
->   config stuff
->   more config stuff
->   even more config stuff
->   ..
->   ..
->   netdevice protocol config:
->    -> v4 specific (struct in_device)
->    ----> IPV4 addresses (ifa_list), ARP params(arp_parms),etc
->    -> v6 specific (struct inet6_dev)
->    ----> IPV6 addresses(addr_list), ndisc params (nd_parms), etc
+I would like to be able to receive all packets (regardless of type) on 
+a given net_device. One way to do this would be to use ETH_P_ALL
+however, ETH_P_ALL has two meanings, 1) receive all packets and 2) behave 
+as a "NIT" (Network Interface Tap?). The NIT functionality causes packets
+transmitted on the net_device in question to be "received" by an ETH_P_ALL
+socket, unless the packet was sent by that socket.
 
-Absolutely.
+So, I'd like to propose a new ethernet type (ETH_P_ALL_NO_NIT) which 
+would behave like ETH_P_ALL without the side effects of NIT.
 
-> I think we are agreeing _not_ to configure ifa_list,  arp_parms etc
-> via devconfig. Leave these to their already existing config paths.
+I've included a patch for ETH_P_ALL_NO_NIT below.
 
-arp_parms is just a reference to the corresponding device specific
-parameter set of the "arp_cache" neighbour table. Maybe I've been
-misunderstanding you throughout all your posts or maybe I've a
-wrong understanding of the neighbour code in general. As far as I
-understand it:
+Comments?
 
-1) The actual neighbour implementation registers a new neighbour
-   table by calling neigh_table_init() with the proposed default
-   configuration for this table. This also includes the default
-   parameter set used to derive device specific parameter sets
-   later on, e.g. arp_tbl.
+Signed-off-by: Steve Atkinson <satkinson@motorola.com>
 
-2) Upon the creation of a inet_device/... a new parameter set
-   is allocated that derives the initial parameter values from
-   the default parameter set. This parameter set is stored
-   in in_dev->arp_parms and linked in a list of parameter sets
-   in the neighbour table (neightbl->parms).
-
-3) When a new neighbour is created the core neighbour code
-   will assign the default parameter set of the table to
-   the neighbour and increments its refcnt. It then calls
-   the constructor of arp,ndisc,... which replaces the
-   parameter set just assigned with the one in
-   in_dev->arp_parms which is the parameter set.
-
-So what I propose is to have the neighbour table parameters,
-e.g. everything in arp_tbl be distributed over RTM_NEIGHTBL
-and put the device specific parameters into devconfig,
-e.g. in_dev->arp_parms.
-
-> In the case of devconfig:
-> What i am suggesting is to put some identifier that can be used
-> to access lets say one or more arp_parms. This way when i dump
-> the devconfig i should be able to see "connected to arp table 1".
-> I should then be able to say dump arp table 1.
-
-OK, this is possible with either way. I don't worry about this.
-
-> The directionality as i see it is:
-> 
-> netdevice --> arp/ndisc table(s)
-
-> [And the binding/stiching of those tables is via inxx_devyy].
-
-Absolutely, more specific:
-
-netdevice -> inet_device -> parameter set -> neighbour table
-or:
-neighbour table -> list of parameter sets -> netdevice
-
-both ways are possible right now.
+--- linux-2.6.9_orig/include/linux/if_ether.h	2004-10-18 17:54:37.000000000 -0400
++++ linux-2.6.9/include/linux/if_ether.h	2005-05-31 10:32:50.000000000 -0400
+@@ -91,6 +91,7 @@
+ #define ETH_P_IRDA	0x0017		/* Linux-IrDA			*/
+ #define ETH_P_ECONET	0x0018		/* Acorn Econet			*/
+ #define ETH_P_HDLC	0x0019		/* HDLC frames			*/
++#define ETH_P_ALL_NO_NIT	0x0020	/* Every packet but DON'T ENABLE netdev_nit */
+ 
+ /*
+  *	This is an Ethernet frame header.
+--- linux-2.6.9_orig/net/core/dev.c	2004-10-18 17:54:08.000000000 -0400
++++ linux-2.6.9/net/core/dev.c	2005-05-31 10:56:50.000000000 -0400
+@@ -276,7 +276,10 @@
+ 	if (pt->type == htons(ETH_P_ALL)) {
+ 		netdev_nit++;
+ 		list_add_rcu(&pt->list, &ptype_all);
+-	} else {
++	} else if(pt->type == htons(ETH_P_ALL_NO_NIT)) {
++		list_add_rcu(&pt->list, &ptype_all);
++	}
++	else {
+ 		hash = ntohs(pt->type) & 15;
+ 		list_add_rcu(&pt->list, &ptype_base[hash]);
+ 	}
+@@ -310,9 +313,11 @@
+ 	if (pt->type == htons(ETH_P_ALL)) {
+ 		netdev_nit--;
+ 		head = &ptype_all;
+-	} else
++	} else if (pt->type == htons(ETH_P_ALL_NO_NIT)) {
++		head = &ptype_all;
++	} else {
+ 		head = &ptype_base[ntohs(pt->type) & 15];
+-
++	}
+ 	list_for_each_entry(pt1, head, list) {
+ 		if (pt == pt1) {
+ 			list_del_rcu(&pt->list);
+@@ -1072,9 +1077,10 @@
+ 		/* Never send packets back to the socket
+ 		 * they originated from - MvS (miquels@drinkel.ow.org)
+ 		 */
+-		if ((ptype->dev == dev || !ptype->dev) &&
+-		    (ptype->af_packet_priv == NULL ||
+-		     (struct sock *)ptype->af_packet_priv != skb->sk)) {
++		if ( (ptype->type != ETH_P_ALL_NO_NIT)  &&
++			  (ptype->dev == dev || !ptype->dev) &&
++			  (ptype->af_packet_priv == NULL ||
++				(struct sock *)ptype->af_packet_priv != skb->sk)) {
+ 			struct sk_buff *skb2= skb_clone(skb, GFP_ATOMIC);
+ 			if (!skb2)
+ 				break;
