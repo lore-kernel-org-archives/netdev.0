@@ -1,33 +1,48 @@
-From: Jesse Barnes <jesse.barnes@intel.com>
-Subject: Re: [PATCH] use mmiowb in tg3_poll
-Date: Tue, 31 May 2005 09:45:36 -0700
-Message-ID: <200505310945.36903.jesse.barnes@intel.com>
-References: <200410211628.06906.jbarnes@engr.sgi.com> <Pine.LNX.4.61.0505300925570.11645@linux.site> <1117544022.6134.54.camel@localhost.localdomain>
+From: Mitch Williams <mitch.a.williams@intel.com>
+Subject: Re: RFC: NAPI packet weighting patch
+Date: Tue, 31 May 2005 10:35:26 -0700
+Message-ID: <Pine.CYG.4.58.0505311029510.2128@mawilli1-desk2.amr.corp.intel.com>
+References: <Pine.CYG.4.58.0505261406210.2364@mawilli1-desk2.amr.corp.intel.com>
+ <20050527085055.79da3d75@dxpl.pdx.osdl.net>
+ <Pine.CYG.4.58.0505271305590.2148@mawilli1-desk2.amr.corp.intel.com>
+ <20050527140132.1435132d@dxpl.pdx.osdl.net> <1117241786.6251.7.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-6"
-Content-Transfer-Encoding: 7bit
-Cc: Arthur Kepner <akepner@sgi.com>,
-        Lennert Buytenhek <buytenh@wantstofly.org>, netdev@oss.sgi.com,
-        gnb@sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Stephen Hemminger <shemminger@osdl.org>,
+        "Williams, Mitch A" <mitch.a.williams@intel.com>, netdev@oss.sgi.com,
+        Robert.Olsson@data.slu.se, "Ronciak, John" <john.ronciak@intel.com>,
+        "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>,
+        "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1117544022.6134.54.camel@localhost.localdomain>
-Content-Disposition: inline
+To: jamal <hadi@cyberus.ca>
+In-Reply-To: <1117241786.6251.7.camel@localhost.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tuesday, May 31, 2005 5:53 am, jamal wrote:
-> Did i read correctly that your reads are about 2x more expensive than
-> the writes?
 
-The test above just measures the difference between using a full PIO 
-read to ensure write ordering vs. the lighter weight mmiowb call.  As 
-for your question though, non-relaxed reads are very expensive on the 
-Altix platform due to its highly distributed NUMA I/O architecture.  
-The _relaxed variants can be quite fast however, and can be used 
-anytime a PIO read doesn't imply anything about previous DMA 
-transactions.
 
-Jesse
+On Fri, 27 May 2005, jamal wrote:
+
+>
+> On Fri, 2005-27-05 at 14:01 -0700, Stephen Hemminger wrote:
+>
+> >
+> > Why not just allow adjusting dev->weight via sysfs?
+>
+> I think that should be good enough - and i thought your patch already
+> did this.
+> Adding a shift to the weight in a _weighted_ RR algorithm does sound
+> odd.
+>
+
+Stephen's patch only affects the weight for the backlog device.  Exporting
+dev-> weight to sysfs will allow the weight to be set for any network
+device.  Which makes perfect sense.
+
+I'll work on getting this done and verifying performance this week.
+Expect a patch in a few days.
+
+Thanks, guys.
+
+-Mitch
