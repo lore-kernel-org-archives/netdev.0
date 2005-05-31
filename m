@@ -1,80 +1,33 @@
-From: Atkinson Stephen-G19998 <satkinson@motorola.com>
-Subject: Patch for "ETH_P_ALL_NO_NIT"
-Date: Tue, 31 May 2005 11:38:11 -0500
-Message-ID: <5D454811D0A1D711A12A00065BF36FAD1A0E93A4@il06exm11>
+From: Jesse Barnes <jesse.barnes@intel.com>
+Subject: Re: [PATCH] use mmiowb in tg3_poll
+Date: Tue, 31 May 2005 09:45:36 -0700
+Message-ID: <200505310945.36903.jesse.barnes@intel.com>
+References: <200410211628.06906.jbarnes@engr.sgi.com> <Pine.LNX.4.61.0505300925570.11645@linux.site> <1117544022.6134.54.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="iso-8859-6"
+Content-Transfer-Encoding: 7bit
+Cc: Arthur Kepner <akepner@sgi.com>,
+        Lennert Buytenhek <buytenh@wantstofly.org>, netdev@oss.sgi.com,
+        gnb@sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: hadi@cyberus.ca
+In-Reply-To: <1117544022.6134.54.camel@localhost.localdomain>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I would like to be able to receive all packets (regardless of type) on 
-a given net_device. One way to do this would be to use ETH_P_ALL
-however, ETH_P_ALL has two meanings, 1) receive all packets and 2) behave 
-as a "NIT" (Network Interface Tap?). The NIT functionality causes packets
-transmitted on the net_device in question to be "received" by an ETH_P_ALL
-socket, unless the packet was sent by that socket.
+On Tuesday, May 31, 2005 5:53 am, jamal wrote:
+> Did i read correctly that your reads are about 2x more expensive than
+> the writes?
 
-So, I'd like to propose a new ethernet type (ETH_P_ALL_NO_NIT) which 
-would behave like ETH_P_ALL without the side effects of NIT.
+The test above just measures the difference between using a full PIO 
+read to ensure write ordering vs. the lighter weight mmiowb call.  As 
+for your question though, non-relaxed reads are very expensive on the 
+Altix platform due to its highly distributed NUMA I/O architecture.  
+The _relaxed variants can be quite fast however, and can be used 
+anytime a PIO read doesn't imply anything about previous DMA 
+transactions.
 
-I've included a patch for ETH_P_ALL_NO_NIT below.
-
-Comments?
-
-Signed-off-by: Steve Atkinson <satkinson@motorola.com>
-
---- linux-2.6.9_orig/include/linux/if_ether.h	2004-10-18 17:54:37.000000000 -0400
-+++ linux-2.6.9/include/linux/if_ether.h	2005-05-31 10:32:50.000000000 -0400
-@@ -91,6 +91,7 @@
- #define ETH_P_IRDA	0x0017		/* Linux-IrDA			*/
- #define ETH_P_ECONET	0x0018		/* Acorn Econet			*/
- #define ETH_P_HDLC	0x0019		/* HDLC frames			*/
-+#define ETH_P_ALL_NO_NIT	0x0020	/* Every packet but DON'T ENABLE netdev_nit */
- 
- /*
-  *	This is an Ethernet frame header.
---- linux-2.6.9_orig/net/core/dev.c	2004-10-18 17:54:08.000000000 -0400
-+++ linux-2.6.9/net/core/dev.c	2005-05-31 10:56:50.000000000 -0400
-@@ -276,7 +276,10 @@
- 	if (pt->type == htons(ETH_P_ALL)) {
- 		netdev_nit++;
- 		list_add_rcu(&pt->list, &ptype_all);
--	} else {
-+	} else if(pt->type == htons(ETH_P_ALL_NO_NIT)) {
-+		list_add_rcu(&pt->list, &ptype_all);
-+	}
-+	else {
- 		hash = ntohs(pt->type) & 15;
- 		list_add_rcu(&pt->list, &ptype_base[hash]);
- 	}
-@@ -310,9 +313,11 @@
- 	if (pt->type == htons(ETH_P_ALL)) {
- 		netdev_nit--;
- 		head = &ptype_all;
--	} else
-+	} else if (pt->type == htons(ETH_P_ALL_NO_NIT)) {
-+		head = &ptype_all;
-+	} else {
- 		head = &ptype_base[ntohs(pt->type) & 15];
--
-+	}
- 	list_for_each_entry(pt1, head, list) {
- 		if (pt == pt1) {
- 			list_del_rcu(&pt->list);
-@@ -1072,9 +1077,10 @@
- 		/* Never send packets back to the socket
- 		 * they originated from - MvS (miquels@drinkel.ow.org)
- 		 */
--		if ((ptype->dev == dev || !ptype->dev) &&
--		    (ptype->af_packet_priv == NULL ||
--		     (struct sock *)ptype->af_packet_priv != skb->sk)) {
-+		if ( (ptype->type != ETH_P_ALL_NO_NIT)  &&
-+			  (ptype->dev == dev || !ptype->dev) &&
-+			  (ptype->af_packet_priv == NULL ||
-+				(struct sock *)ptype->af_packet_priv != skb->sk)) {
- 			struct sk_buff *skb2= skb_clone(skb, GFP_ATOMIC);
- 			if (!skb2)
- 				break;
+Jesse
