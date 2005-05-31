@@ -1,26 +1,28 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: PATCH: rtnetlink explicit flags setting
-Date: Tue, 31 May 2005 14:43:38 -0700 (PDT)
-Message-ID: <20050531.144338.112623594.davem@davemloft.net>
-References: <1117197157.6688.24.camel@localhost.localdomain>
+Subject: Re: [RFC] textsearch infrastructure et al v2
+Date: Tue, 31 May 2005 14:56:27 -0700 (PDT)
+Message-ID: <20050531.145627.85412348.davem@davemloft.net>
+References: <20050527224725.GG15391@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, hadi@cyberus.ca
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1117197157.6688.24.camel@localhost.localdomain>
+To: tgraf@suug.ch
+In-Reply-To: <20050527224725.GG15391@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: jamal <hadi@cyberus.ca>
-Date: Fri, 27 May 2005 08:32:37 -0400
+From: Thomas Graf <tgraf@suug.ch>
+Date: Sat, 28 May 2005 00:47:25 +0200
 
-> This patch rectifies some rtnetlink message builders that derive the
-> flags from the pid. It is now explicit like the other cases
-> which get it right.
-> 
-> Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+> Any other ideas around?
 
-Please use explicit "unsigned int flags" instead of "unsigned flags".
+You could just fetch "windows" of data.
+
+You can define this window to be 32 bytes, or whatever.
+
+Then you use skb_copy_data() into this 32 byte window scratch
+pad the text searcher uses, and you're done.  It starts looking
+like an MPEG stream parser :-)
