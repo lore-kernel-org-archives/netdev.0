@@ -1,113 +1,97 @@
-From: Jamal Hadi Salim <hadi@znyx.com>
-Subject: Re: [PATCH 3/4] [NEIGH] neighbour table configuration and
-	statistics via rtnetlink
-Date: Tue, 31 May 2005 10:59:21 -0400
-Message-ID: <1117551561.6279.2.camel@localhost.localdomain>
-References: <20050527141023.GP15391@postel.suug.ch>
-	 <1117205822.6383.68.camel@localhost.localdomain>
-	 <20050527151608.GZ15391@postel.suug.ch>
-	 <1117209411.6383.104.camel@localhost.localdomain>
-	 <20050527163516.GB15391@postel.suug.ch>
-	 <1117244567.6251.34.camel@localhost.localdomain>
-	 <20050528120731.GP15391@postel.suug.ch>
-	 <1117533847.6134.32.camel@localhost.localdomain>
-	 <20050531114251.GC15391@postel.suug.ch>
-	 <1117543711.6134.48.camel@localhost.localdomain>
-	 <20050531131747.GF15391@postel.suug.ch>
-Reply-To: hadi@znyx.com
+From: Grant Grundler <iod00d@hp.com>
+Subject: Re: TG3 fix for slow switches (Was: TG3 driver failure on HP 16-way)
+Date: Tue, 31 May 2005 08:38:19 -0700
+Message-ID: <20050531153819.GA20793@esmail.cup.hp.com>
+References: <B1508D50A0692F42B217C22C02D84972020F3CED@NT-IRVA-0741.brcm.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Peter Chubb <peterc@gelato.unsw.edu.au>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050531131747.GF15391@postel.suug.ch>
+To: Michael Chan <mchan@broadcom.com>
+Content-Disposition: inline
+In-Reply-To: <B1508D50A0692F42B217C22C02D84972020F3CED@NT-IRVA-0741.brcm.ad.broadcom.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2005-31-05 at 15:17 +0200, Thomas Graf wrote: 
+On Wed, Dec 22, 2004 at 04:02:44PM -0800, Michael Chan wrote:
+> David, While the 2nd patch or something similar should be applied, I
+> think the underlying cause of tg3_readphy() returning error should be
+> further investigated.
 > 
-> OK, so your idevxxx is a kind of container for various configurable
-> blocks that logically belong to a inetdevice and a device specific
-> parameter set for a neighbour table would one of these blocks?
-> 
+> Peter, if you provide more information, such as registers MAC_MI_MODE
+> (0x454) and MAC_MI_COM (0x44c) after the failure, I can look into it.
 
-Essentialy just in_device and  inet6_dev
+Michael,
+Peter bounced this email to me after we talked about issues he was
+having with the rx8620 (HP 16-way ia64, sx1000 chipset) "IOX Core LAN".
+It sounded like the same problem I tracked down with rx8620 IOX Core LAN
+in March.  Here is the summary :
 
-> I think this is appropriate for NDTA_PARMS, e.g. there might be
-> multiple of such neighbour table parameter blocks per inetdevice
-> identified by the name of the neighbour table. You certainly have
-> a good point there, I see two minor drawbacks though: a) where
-> do we put these parameter blocks if it doesn't belong to a
-> inetdevice? and b) it makes collecting the complete configuration
-> of a neighbour table complicated. Nevertheless, I think I can
-> agree on this.
-> 
+| In May, 2004,  tg3 v3.4 changed how MAC_LED_CTRL (0x40c) was getting
+| programmed and how to determine what to program into LED_CTRL. The new
+| code trusted NIC_SRAM_DATA_CFG (0x00000b58) to indicate what to write
+| to LED_CTRL and MII EXT_CTRL registers. On "IOX Core Lan", SRAM was
+| saying MODE_MAC (0x0) and that doesn't work.
 
-To recap:
+HP is working with broadcom to figure out how to update the firmware.
+Ben Malavazi <malavazi@cup.hp.com> is talking with
+	Pratapa Reddy Vaka <pvaka@broadcom.com>
+	'Johnny Ho' <jho@broadcom.com>
 
-netdevice ->
-  L2 config stuff
-  config stuff
-  more config stuff
-  even more config stuff
-  ..
-  ..
-  netdevice protocol config:
-   -> v4 specific (struct in_device)
-   ----> IPV4 addresses (ifa_list), ARP params(arp_parms),etc
-   -> v6 specific (struct inet6_dev)
-   ----> IPV6 addresses(addr_list), ndisc params (nd_parms), etc
+I'm not sure they are aware of the root cause. But they can probably
+provide you with the process to update the onboard firmware image
+should this come up again.
 
-I think we are agreeing _not_ to configure ifa_list,  arp_parms etc
-via devconfig. Leave these to their already existing config paths.
-In the case of devconfig:
-What i am suggesting is to put some identifier that can be used
-to access lets say one or more arp_parms. This way when i dump
-the devconfig i should be able to see "connected to arp table 1".
-I should then be able to say dump arp table 1.
-If it is too complex an idea we can drop it.
-The defaults should stay as you say (and as they exist today) in the
-arp block.
+b57diag is one way. HP also has an FCUPDATE tool that's a bit
+less dangerous/more user friendly. FCUPDATE needs a newer EFI
+driver to operate correctly so it's non-trivial to get started as well.
+I'm hoping one of the two can be scripted to auto update.
 
-> > I agree that we should leave the neighbor table-specific knobs out of
-> > devconfig.  
-> 
-> OK, so we leave RTM_NEIGHTBL_* as-is but move the device specific
-> parameter sets into devconfig? i.e. RTM_NEIGHTBL_* will cover:
-> 
->  * the core neighbour table configuration (key-len, entry-size,
->    last-flush, gc thresholds, gc interval, hash settings, etc.)
->  * the default parameter set
->  * neighbour table statistics
-> 
+I'm told rx5670 Core LAN firmware was the original image used by the
+rx8620 IOX Core LAN team and may also exhibit the same problem.
+I've not heard any trouble reports so far on rx5670 but please
+forward them to me if you do.
 
-Sounds reasonable.
-And per device arp/ndisc is of course one of many
-configurable parameters via devconfig.
+Please do NOT apply the appended patch - it's just a temp workaround
+until the owners of the "IOX Core LAN" and Broadcom can get their
+act together.  The patch appended below is for RHEL3u4 (tg3 v3.10RH)
+but should apply (with fuzz) to any tg3 v3.4 or later.
 
-> 
-> > It will help, though, for devconfig to have a single reference to the
-> > "instance" of the table(perhaps a name or a even a 32 bit pointer
-> > address) that a device uses (thefore maintaining the abstraction); but
-> > since there is only one table for v4 and v6 anyways i suppose it is
-> > implicitly assumed to be that one table.
-> 
-> This kind of breaks the architecture, i'd rather have it the other
-> way around, i.e. we hold a netdevice reference in each parameter set
-> and when lookup a parameter set for a specific idevxxx we iterate
-> through all neighbour tables and their paremter sets and compare
-> ifindex.
+The patch adds a "quirk" (bug workaround) to overide the SRAM value
+and use LED_CTRL_MODE_PHY_1 (0x00000800) instead.  This results in
+LNK3_LED_MODE (0x2) getting written to MII_TG3_EXT_CTRL (0x10) for
+bcm5700/5701 chips.  I do NOT understand why programming the
+MII_TG3_EXT_CTRL register differently will change how auto-negotiation
+works.
 
-The directionality as i see it is:
+hth,
+grant
 
-netdevice --> arp/ndisc table(s)
-
-[And the binding/stiching of those tables is via inxx_devyy].
-
-I dont have issues with arp pointing to netdevice as well, but I
-thought ARP/ndisc already have ifindex reference?
-
-cheers,
-jamal
+--- orig/drivers/net/tg3.c 2005-03-19 21:39:25.000000000 -0600
++++ ggg/drivers/net/tg3.c	2005-03-20 13:17:50.000000000 -0600
+@@ -7090,9 +7089,20 @@ static int __devinit tg3_phy_probe(struc
+ 		};
+ 
+ 		if ((GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5700 ||
+-		     GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5701) &&
+-		    tp->pdev->subsystem_vendor == PCI_VENDOR_ID_DELL)
+-			tp->led_ctrl = LED_CTRL_MODE_PHY_2;
++		     GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5701)) {
++			/* Quirks: firmware is wrong */
++			switch (tp->pdev->subsystem_vendor) {
++			case PCI_VENDOR_ID_DELL:
++				tp->led_ctrl = LED_CTRL_MODE_PHY_2;
++				break;
++
++			case PCI_VENDOR_ID_HP:
++				/* HP IOX Core Lan 1000Base-T [A7109AX] */
++				if (tp->pdev->subsystem_device == 0x12c1)
++					tp->led_ctrl = LED_CTRL_MODE_PHY_1;
++				break;
++			}
++		}
+ 
+ 		if (((GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5703) ||
+ 		     (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5704) ||
