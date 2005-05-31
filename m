@@ -1,35 +1,31 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: ipv4 ipsec
-Date: Tue, 31 May 2005 15:56:42 -0700 (PDT)
-Message-ID: <20050531.155642.38710400.davem@davemloft.net>
-References: <20050531224717.GE4068@edgar.se.axis.com>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: 2.6.12-rcx networking oops
+Date: Tue, 31 May 2005 16:12:20 -0700
+Message-ID: <20050531161220.4af50a69.akpm@osdl.org>
+References: <20050531224012.GA16789@linuxace.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, herbert@gondor.apana.org.au
 Return-path: <netdev-bounce@oss.sgi.com>
-To: edgar.iglesias@axis.com
-In-Reply-To: <20050531224717.GE4068@edgar.se.axis.com>
+To: Phil Oester <kernel@linuxace.com>
+In-Reply-To: <20050531224012.GA16789@linuxace.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Edgar E Iglesias <edgar.iglesias@axis.com>
-Date: Wed, 1 Jun 2005 00:47:17 +0200
+Phil Oester <kernel@linuxace.com> wrote:
+>
+> At Andrew's suggestion, I tested the latest 2.6.12-rc5-gitx, and am still
+>  hitting an oops on a gateway box under load.  From comparing the various
+>  oops, it seems like a dev is disappearing while one CPU is in the middle
+>  of processing traffic.  At least that's what my naive analysis leads
+>  me to believe.
 
-> Im not sure this is the correct list for ipsec issues, but shouldn't
-> the size check at the bottom of net/ipv4/esp4.c be the other way
-> around (2.6.11)?
+Are you _sure_ the hardware is good?
 
-You are right, good catch.  Luckily the size of esp_decap_data
-is exactly 20 bytes, so the incorrect test happens to be harmless.
+Are you running anything which would cause netdevs to be destroyed? 
+Bringing virtual devices up and down?  TUN/TAP driver?  Bonding driver? 
+Anything like that?
 
-> --- /usr/src/linux-2.6.11-gentoo-r8/net/ipv4/esp4.c     2005-05-11 10:05:03.000000000 +0200
-> +++ esp4.c      2005-06-01 00:38:55.000000000 +0200
-
-Please porperly -p1 root your patch so I can apply it, and also
-please provide a "Signed-off-by: " line for yourself as well.
-
-It may seem pointless for a one-line patch, but I want to get you
-and others into the habit of submitting patches properly in the
-future.
+Have you tried CONFIG_DEBUG_SLAB and/or CONFIG_DEBUG_PAGEALLOC?
