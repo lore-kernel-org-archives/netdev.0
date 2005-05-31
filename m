@@ -1,46 +1,47 @@
-From: Jon Mason <jdmason@us.ibm.com>
-Subject: Re: RFC: NAPI packet weighting patch
-Date: Tue, 31 May 2005 18:28:43 -0500
-Message-ID: <200505311828.44304.jdmason@us.ibm.com>
-References: <1117241786.6251.7.camel@localhost.localdomain> <200505311707.54487.jdmason@us.ibm.com> <20050531.151443.74564699.davem@davemloft.net>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: 2.6.12-rcx networking oops
+Date: Tue, 31 May 2005 16:28:37 -0700
+Message-ID: <20050531162837.4a110b29.akpm@osdl.org>
+References: <20050531224012.GA16789@linuxace.com>
+	<20050531161220.4af50a69.akpm@osdl.org>
+	<20050531232326.GA17289@linuxace.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: mitch.a.williams@intel.com, hadi@cyberus.ca, shemminger@osdl.org,
-        netdev@oss.sgi.com, Robert.Olsson@data.slu.se, john.ronciak@intel.com,
-        ganesh.venkatesan@intel.com, jesse.brandeburg@intel.com
+Cc: netdev@oss.sgi.com, herbert@gondor.apana.org.au
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050531.151443.74564699.davem@davemloft.net>
-Content-Disposition: inline
+To: Phil Oester <kernel@linuxace.com>
+In-Reply-To: <20050531232326.GA17289@linuxace.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 31 May 2005 05:14 pm, David S. Miller wrote:
-> From: Jon Mason <jdmason@us.ibm.com>
-> Date: Tue, 31 May 2005 17:07:54 -0500
+Phil Oester <kernel@linuxace.com> wrote:
 >
-> > Of course some performace analysis would have to be done to determine the
-> > optimal numbers for each speed/duplexity setting per driver.
->
-> per cpu speed, per memory bus speed, per I/O bus speed, and add in other
-> complications such as NUMA
->
-> My point is that whatever experimental number you come up with will be
-> good for that driver on your systems, not necessarily for others.
->
-> Even within a system, whatever number you select will be the wrong
-> thing to use if one starts a continuous I/O stream to the SATA
-> controller in the next PCI slot, for example.
->
-> We keep getting bitten by this, as the Altix perf data continually shows,
-> and we need to absolutely stop thinking this way.
->
-> The way to go is to make selections based upon observed events and
-> mesaurements.
+> On Tue, May 31, 2005 at 04:12:20PM -0700, Andrew Morton wrote:
+> > Are you _sure_ the hardware is good?
+> 
+> Well, it lasts on 2.6.10 indefinitely (since 1/1/5 minus the recent
+> upgrade attempts).  And the hardware itself has been in service for
+> a few years without failure.  It will last on 2.6.11 or 12-rc over
+> the weekend fine, but as soon as traffic picks up during the workday
+> it keels over.
 
-I'm not arguing against a /proc entry to tune dev->weight for those sysadmins 
-advanced enough to do that.  I am arguing that we can make the driver smarter 
-(at little/no cost)  for "out of the box" users.
+hm, OK.  So I assume the machine has recently been running 2.6.10.  So it's
+unlikely to be a hardware problem.
+
+> > Are you running anything which would cause netdevs to be destroyed? 
+> > Bringing virtual devices up and down?  TUN/TAP driver?  Bonding driver? 
+> > Anything like that?
+> 
+> The box runs keepalived (for VRRP), and quagga (for OSPF).  Neither should
+> be destroying netdevs during normal operation AFAIK.
+
+OK.  It would need more than a very-ex-net person to work out how those
+things affect the networking stack ;)
+
+> > Have you tried CONFIG_DEBUG_SLAB and/or CONFIG_DEBUG_PAGEALLOC?
+> 
+> No - do you think it would reveal anything given the above?
+
+It might catch the failure at an earlier stage.
