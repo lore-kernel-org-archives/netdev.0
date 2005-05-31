@@ -1,20 +1,29 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 1/7] [PKT_SCHED] Fix dsmark to count ignored indices
- while walking
-Date: Tue, 31 May 2005 15:20:45 -0700 (PDT)
-Message-ID: <20050531.152045.18310045.davem@davemloft.net>
-References: <20050527145002.GR15391@postel.suug.ch>
-	<20050527145058.GS15391@postel.suug.ch>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: PATCH: rtnetlink explicit flags setting
+Date: Wed, 1 Jun 2005 00:26:46 +0200
+Message-ID: <20050531222646.GK15391@postel.suug.ch>
+References: <1117197157.6688.24.camel@localhost.localdomain> <20050531.144338.112623594.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: werner@almesberger.net, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: hadi@cyberus.ca, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: tgraf@suug.ch
-In-Reply-To: <20050527145058.GS15391@postel.suug.ch>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20050531.144338.112623594.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+* David S. Miller <20050531.144338.112623594.davem@davemloft.net> 2005-05-31 14:43
+> From: jamal <hadi@cyberus.ca>
+> Date: Fri, 27 May 2005 08:32:37 -0400
+> 
+> > This patch rectifies some rtnetlink message builders that derive the
+> > flags from the pid. It is now explicit like the other cases
+> > which get it right.
+> > 
+> > Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+> 
+> Please use explicit "unsigned int flags" instead of "unsigned flags".
 
-Applied, thanks Thomas.
+I converted this already in the two patches later in the thread.
