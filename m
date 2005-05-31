@@ -1,87 +1,113 @@
-From: Jiri Benc <jbenc@suse.cz>
-Subject: Re: [2/5] ieee80211: ieee80211_device alignment fix and cleanup
-Date: Tue, 31 May 2005 15:30:50 +0200
-Message-ID: <20050531153050.139b1408@griffin.suse.cz>
-References: <20050524150711.01632672@griffin.suse.cz>
-	<20050524151117.5e059d1d@griffin.suse.cz>
-	<4297E78A.4030906@pobox.com>
+From: Jamal Hadi Salim <hadi@znyx.com>
+Subject: Re: [PATCH 3/4] [NEIGH] neighbour table configuration and
+	statistics via rtnetlink
+Date: Tue, 31 May 2005 10:59:21 -0400
+Message-ID: <1117551561.6279.2.camel@localhost.localdomain>
+References: <20050527141023.GP15391@postel.suug.ch>
+	 <1117205822.6383.68.camel@localhost.localdomain>
+	 <20050527151608.GZ15391@postel.suug.ch>
+	 <1117209411.6383.104.camel@localhost.localdomain>
+	 <20050527163516.GB15391@postel.suug.ch>
+	 <1117244567.6251.34.camel@localhost.localdomain>
+	 <20050528120731.GP15391@postel.suug.ch>
+	 <1117533847.6134.32.camel@localhost.localdomain>
+	 <20050531114251.GC15391@postel.suug.ch>
+	 <1117543711.6134.48.camel@localhost.localdomain>
+	 <20050531131747.GF15391@postel.suug.ch>
+Reply-To: hadi@znyx.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: NetDev <netdev@oss.sgi.com>, jbohac@suse.cz
+Cc: netdev@oss.sgi.com, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <4297E78A.4030906@pobox.com>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050531131747.GF15391@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 27 May 2005 23:37:46 -0400, Jeff Garzik wrote:
-> 1) I am not convinced that the subclassing of net_device should be done 
-> in this manner.  Read drivers/net/wan/hdlc_generic.c and .../pc300_drv.c 
-> for examples of how hdlc_device is handled.
+On Tue, 2005-31-05 at 15:17 +0200, Thomas Graf wrote: 
+> 
+> OK, so your idevxxx is a kind of container for various configurable
+> blocks that logically belong to a inetdevice and a device specific
+> parameter set for a neighbour table would one of these blocks?
+> 
 
-We see two differences to the hdlc concept:
-1. the driver private data is allocated together with the net_device and
-ieee80211_device data;
-2. ieee80211_device is passed to functions instead of net_device.
+Essentialy just in_device and  inet6_dev
 
-Allocating all the structures together just extends the concept of
-net_device allocation. The advantage is that all the structures are
-located close to each other in the memory which (hopefully) improves
-cache performance.
+> I think this is appropriate for NDTA_PARMS, e.g. there might be
+> multiple of such neighbour table parameter blocks per inetdevice
+> identified by the name of the neighbour table. You certainly have
+> a good point there, I see two minor drawbacks though: a) where
+> do we put these parameter blocks if it doesn't belong to a
+> inetdevice? and b) it makes collecting the complete configuration
+> of a neighbour table complicated. Nevertheless, I think I can
+> agree on this.
+> 
 
-Passing ieee80211_device seems to be more appropriate in this case,
-since drivers will be accessing ieee80211 data far more frequently than
-net_device data. For example, part of the plan is to integrate Wireless
-Extensions into the ieee80211 layer -- for all the ioctl handlers, it
-will be much more interesting to have the ieee80211_device passed to
-them. Furthermore, driver writers will not be tempted to think that
-net_device->priv points to _their_ private data (which the name
-suggests, but is not true).
+To recap:
 
-Or did you mean something different?
+netdevice ->
+  L2 config stuff
+  config stuff
+  more config stuff
+  even more config stuff
+  ..
+  ..
+  netdevice protocol config:
+   -> v4 specific (struct in_device)
+   ----> IPV4 addresses (ifa_list), ARP params(arp_parms),etc
+   -> v6 specific (struct inet6_dev)
+   ----> IPV6 addresses(addr_list), ndisc params (nd_parms), etc
 
-> 2) Please put all the new, protocol-layer functions 
-> ieee80211_type_trans(), ieee80211_change_mtu(), ieee80211_header(), etc. 
-> in their own file.
+I think we are agreeing _not_ to configure ifa_list,  arp_parms etc
+via devconfig. Leave these to their already existing config paths.
+In the case of devconfig:
+What i am suggesting is to put some identifier that can be used
+to access lets say one or more arp_parms. This way when i dump
+the devconfig i should be able to see "connected to arp table 1".
+I should then be able to say dump arp table 1.
+If it is too complex an idea we can drop it.
+The defaults should stay as you say (and as they exist today) in the
+arp block.
 
-Will be posted in the next patch series.
+> > I agree that we should leave the neighbor table-specific knobs out of
+> > devconfig.  
+> 
+> OK, so we leave RTM_NEIGHTBL_* as-is but move the device specific
+> parameter sets into devconfig? i.e. RTM_NEIGHTBL_* will cover:
+> 
+>  * the core neighbour table configuration (key-len, entry-size,
+>    last-flush, gc thresholds, gc interval, hash settings, etc.)
+>  * the default parameter set
+>  * neighbour table statistics
+> 
 
-> 3) Temporary or not, the following construct is simply not necessary. 
-> Modify the definition rather than repeating this two-call piece of code 
-> in multiple areas:
-> 	ieee80211_priv(netdev_priv(dev));
+Sounds reasonable.
+And per device arp/ndisc is of course one of many
+configurable parameters via devconfig.
 
-As soon as we're done integrating WE into ieee80211, most of this will
-disappear. But sure, we can add a ieee80211_priv_from_netdev (or so)
-macro for now.
+> 
+> > It will help, though, for devconfig to have a single reference to the
+> > "instance" of the table(perhaps a name or a even a 32 bit pointer
+> > address) that a device uses (thefore maintaining the abstraction); but
+> > since there is only one table for v4 and v6 anyways i suppose it is
+> > implicitly assumed to be that one table.
+> 
+> This kind of breaks the architecture, i'd rather have it the other
+> way around, i.e. we hold a netdevice reference in each parameter set
+> and when lookup a parameter set for a specific idevxxx we iterate
+> through all neighbour tables and their paremter sets and compare
+> ifindex.
 
- 
-> 4) A low-level wireless hardware driver should look like other net 
-> drivers, and use the existing driver API.  The low level driver should
+The directionality as i see it is:
 
-> implement its own dev->hard_start_xmit().
-> Certainly, the driver will make many calls to generic ieee80211_xxx 
-> functions to get things done.
+netdevice --> arp/ndisc table(s)
 
-Actually, hard_start_xmit has to do a lot of work regarding software
-fragmentation, encryption, sequence numbering, etc. Sure, every driver
-could call some ieee80211_prepare_to_xmit function in its own
-hard_start_xmit, but we see no point in doing this as it would have to
-be done by almost every driver. Drivers for very clever cards may
-probably be an exception, but the risk is, that if they implement part
-of the logic themselves, they will be more difficult to maintain as new
-features are implemented in the ieee80211 layer. Furthermore, it is
-against one of our premises ("the simpler card, the simpler driver").
+[And the binding/stiching of those tables is via inxx_devyy].
 
-We think that this concept of an "ieee80211 sublayer" has more
-advantages than the concept of an "ieee80211 library". Do you have any
-reasons why it should be the other way round?
+I dont have issues with arp pointing to netdevice as well, but I
+thought ARP/ndisc already have ifindex reference?
 
- Jiri Benc & Jirka Bohac
-
-
--- 
-Jiri Benc
-SUSE Labs
+cheers,
+jamal
