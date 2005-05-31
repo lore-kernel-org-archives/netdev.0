@@ -1,101 +1,75 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [-mm patch] fix IEEE80211_CRYPT_* selects
-Date: Tue, 31 May 2005 02:33:39 +0200
-Message-ID: <20050531003339.GG3627@stusta.de>
+From: James Harr <james@grickle.org>
+Subject: Re: r8169 802.1q/MTU bug
+Date: Mon, 30 May 2005 19:27:26 -0500
+Message-ID: <200505301927.26110.james@grickle.org>
+References: <20050530071148.GB1514@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261672AbVEaAdq@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com,
-	jgarzik@pobox.com
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20050530071148.GB1514@electric-eye.fr.zoreil.com>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Some of the options didn't obey the most important rule of select
+Hi,
+The driver you sent gives me an error when I try to compile and load it with 
+2.6.11.11:
 
-  If you select something, you have to ensure that the dependencies
-  of what you do select are fulfilled.
+# make
+[...]
+  CC [M]  drivers/net/r8169.o
+  drivers/net/r8169.c: In function `rtl8169_down':
+  drivers/net/r8169.c:2589: warning: implicit declaration of function
+  synchronize_sched
+[...]
 
-resulting in the following compile error:
-
-
-<--  snip  -->
-
-...
-  LD      .tmp_vmlinux1
-crypto/built-in.o(.init.text+0x31b): In function `aes_init':
-: undefined reference to `crypto_register_alg'
-crypto/built-in.o(.init.text+0x326): In function `michael_mic_init':
-: undefined reference to `crypto_register_alg'
-crypto/built-in.o(.exit.text+0x6): In function `aes_fini':
-: undefined reference to `crypto_unregister_alg'
-crypto/built-in.o(.exit.text+0x16): In function `michael_mic_exit':
-: undefined reference to `crypto_unregister_alg'
-net/built-in.o(.text+0x5ba52): In function `ieee80211_ccmp_init':
-: undefined reference to `crypto_alloc_tfm'
-net/built-in.o(.text+0x5ba94): In function `ieee80211_ccmp_init':
-: undefined reference to `crypto_free_tfm'
-net/built-in.o(.text+0x5bab7): In function `ieee80211_ccmp_deinit':
-: undefined reference to `crypto_free_tfm'
-net/built-in.o(.text+0x5c5c2): In function `ieee80211_tkip_init':
-: undefined reference to `crypto_alloc_tfm'
-net/built-in.o(.text+0x5c5d5): In function `ieee80211_tkip_init':
-: undefined reference to `crypto_alloc_tfm'
-net/built-in.o(.text+0x5c623): In function `ieee80211_tkip_init':
-: undefined reference to `crypto_free_tfm'
-net/built-in.o(.text+0x5c62a): In function `ieee80211_tkip_init':
-: undefined reference to `crypto_free_tfm'
-net/built-in.o(.text+0x5c65e): In function `ieee80211_tkip_deinit':
-: undefined reference to `crypto_free_tfm'
-net/built-in.o(.text+0x5c665): In function `ieee80211_tkip_deinit':
-: undefined reference to `crypto_free_tfm'
-make: *** [.tmp_vmlinux1] Error 1
-
-<--  snip  -->
+# insmod drivers/net/r8169.ko
+insmod: error inserting 'drivers/net/r8169.ko': -1 Unknown symbol in module
 
 
-This patch adds the missing selects of CRYPTO (similar to how 
-IEEE80211_CRYPT_WEP already does it).
+It does a similar thing when I try to install it:
+
+# make modules_install
+[...]
+if [ -r System.map ]; then /sbin/depmod -ae -F System.map  2.6.11.11; fi
+WARNING: /lib/modules/2.6.11.11/kernel/drivers/net/r8169.ko needs unknown 
+symbol synchronize_sched
+
+As I noted in a previous email, it doesn't give me this problem when I have 
+jumbo frames enabled on my switch.
+
+Since I found out my switch supported jumbo frames, I started to toy around 
+with larger MTUs. When a VLAN's MTU was set to 7200, my system locked up. I 
+didn't have this problem at 7196. Also, the crash problem wasn't there on a 
+regular interface with no VLANs and the MTU at 7200.
+
+Thanks,
+James Harr
+
+On Monday 30 May 2005 2:11 am, you wrote:
+> James Harr <james@grickle.org> :
+> [...]
+>
+> > I've been using a gigabit RealTek 8169 card for a while, I just recently
+> > started using 802.1q with them. I stumbled upon the problem described at
+> > the top of here:
+> >
+> > http://www.candelatech.com/~greear/vlan/howto.html
+>
+> Can you try the attached version of the r8169 driver with the latest
+> kernel ?
+>
+> If the issue is still there, it is almost surely the one you link to.
+> I'll give it a look when I'm back at home, it should not be long to fix.
+>
+> Please Cc: netdev@oss.sgi.com (it is archived and googlable).
 
 
-Yes, you could argue whether CRYPTO should be select'ed by the CRYPTO_* 
-options, but with the current CRYPTO* dependencies this patch is 
-required.
-
-
----
-
-This patch was already sent on:
-- 7 May 2005
-- 26 Feb 2005
-
- net/ieee80211/Kconfig |    2 ++
- 1 files changed, 2 insertions(+)
-
---- linux-2.6.11-rc4-mm1-full/net/ieee80211/Kconfig.old	2005-02-26 12:12:44.000000000 +0100
-+++ linux-2.6.11-rc4-mm1-full/net/ieee80211/Kconfig	2005-02-26 12:13:47.000000000 +0100
-@@ -42,10 +42,11 @@
- 	"ieee80211_crypt_wep".
- 
- config IEEE80211_CRYPT_CCMP
- 	tristate "IEEE 802.11i CCMP support"
- 	depends on IEEE80211
-+	select CRYPTO
- 	select CRYPTO_AES
- 	---help---
- 	Include software based cipher suites in support of IEEE 802.11i 
- 	(aka TGi, WPA, WPA2, WPA-PSK, etc.) for use with CCMP enabled 
- 	networks.
-@@ -54,10 +55,11 @@
- 	"ieee80211_crypt_ccmp".
- 
- config IEEE80211_CRYPT_TKIP
- 	tristate "IEEE 802.11i TKIP encryption"
- 	depends on IEEE80211
-+	select CRYPTO
- 	select CRYPTO_MICHAEL_MIC
- 	---help---
- 	Include software based cipher suites in support of IEEE 802.11i 
- 	(aka TGi, WPA, WPA2, WPA-PSK, etc.) for use with TKIP enabled 
- 	networks.
+-- 
+James Harr <james@grickle.org>
+http://www.grickle.org/
