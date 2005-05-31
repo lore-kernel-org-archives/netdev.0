@@ -1,160 +1,178 @@
-From: James Morris <jmorris@redhat.com>
-Subject: Re: [PATCH 1/2] Resend: LSM-IPSec Networking Hooks
-Date: Mon, 30 May 2005 20:02:05 -0400 (EDT)
-Message-ID: <Xine.LNX.4.44.0505301940030.27651-100000@thoron.boston.redhat.com>
-References: <1116361510.5560.121.camel@dyn9002018177.watson.ibm.com>
+From: Pablo Neira <pablo@eurodev.net>
+Subject: [TC PATCH] some fixes for ipt action
+Date: Tue, 31 May 2005 02:28:29 +0200
+Message-ID: <429BAFAD.3080804@eurodev.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com, <chrisw@osdl.org>, <serue@us.ibm.com>,
-        <latten@austin.ibm.com>, <sds@tycho.nsa.gov>
+Content-Type: multipart/mixed;
+ boundary="------------060808090602060001060301"
+Cc: jamal <hadi@cyberus.ca>, netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jaegert <jaegert@us.ibm.com>
-In-Reply-To: <1116361510.5560.121.camel@dyn9002018177.watson.ibm.com>
+To: shemminger@osdl.org
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 17 May 2005, jaegert wrote:
+This is a multi-part message in MIME format.
+--------------060808090602060001060301
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> The pfkey interface is tested using the ipsec-tools.  ipsec-tools have
-> been modified (a separate ipsec-tools patch is available for version
-> 0.5) that supports assignment of xfrm_policy entries and security
-> associations with security contexts via setkey and the negotiation
-> using the security contexts via racoon.
-> 
-> The xfrm_user interface is tested via ad hoc programs that set
-> security contexts.  These programs are also available from me, and
-> contain programs for setting, getting, and deleting policy for testing
-> this interface.  Testing of sa functions was done by tracing kernel
-> behavior.
+Hi Stephen,
 
-Can you please publish or send me (so I can publish) the ipsec-tools patch 
-and these xfrm_user utilities?
+I've sent this patch to jamal some weeks ago. He's acked it, you can 
+confirm that from him. This patch:
 
->        [SADB_X_EXT_NAT_T_OA]           = (u8) sizeof(struct sadb_address),
-> +        [SADB_X_EXT_SEC_CTX]            = (u8) sizeof(struct sadb_x_sec_ctx),
-> };
+- fixes a leak on error paths (a similar path was commited to iptables 
+two days ago[1]).
+- simplify option handling.
+- fixes final_check checking, it was broken.
 
-Indenting.
+[1] 
+https://lists.netfilter.org/pipermail/netfilter-devel/2005-May/019844.html
+
+Pablo
 
 
->  		if (km_query(x, tmpl, pol) == 0) {
-> +			if (!xfrm_sec_ctx_match(xfrm_policy_security(pol), xfrm_state_security(x))) {
-> +				x->km.state = XFRM_STATE_DEAD;
-> +				xfrm_state_put(x);
-> +				x = NULL;
-> +				error = 1;
-> +				goto out;
-> +			}
+--------------060808090602060001060301
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
-Why set error to 1 here?  This should be an -E value.
+===== tc/m_ipt.c 1.5 vs edited =====
+--- 1.5/tc/m_ipt.c	2005-03-24 12:53:31 +01:00
++++ edited/tc/m_ipt.c	2005-03-31 02:05:42 +02:00
+@@ -69,6 +69,7 @@
+ };
+ 
+ static struct iptables_target *t_list = NULL;
++static struct option *opts = original_opts;
+ static unsigned int global_option_offset = 0;
+ #define OPTION_OFFSET 256
+ 
+@@ -169,18 +170,13 @@
+ 	return result;
+ }
+ 
+-static struct option *
+-copy_options(struct option *oldopts)
++static void free_opts(struct option *opts)
+ {
+-	struct option *merge;
+-	unsigned int num_old;
+-	for (num_old = 0; oldopts[num_old].name; num_old++) ;
+-	merge = malloc(sizeof (struct option) * (num_old + 1));
+-	if (NULL == merge)
+-		return NULL;
+-	memcpy(merge, oldopts, num_old * sizeof (struct option));
+-	memset(merge + num_old, 0, sizeof (struct option));
+-	return merge;
++	if (opts != original_opts) {
++		free(opts);
++		opts = original_opts;
++		global_option_offset = 0;
++	}
+ }
+ 
+ static struct option *
+@@ -385,7 +381,6 @@
+ 	int c;
+ 	int rargc = *argc_p;
+ 	char **argv = *argv_p;
+-	struct option *opts;
+ 	int argc = 0, iargc = 0;
+ 	char k[16];
+ 	int res = -1;
+@@ -409,11 +404,6 @@
+ 		return -1;
+ 	}
+ 
+-	opts = copy_options(original_opts);
+-
+-	if (NULL == opts)
+-		return -1;
+-
+ 	while (1) {
+ 		c = getopt_long(argc, argv, "j:", opts, NULL);
+ 		if (c == -1)
+@@ -440,23 +430,14 @@
+ 		default:
+ 			memset(&fw, 0, sizeof (fw));
+ 			if (m) {
+-				unsigned int fake_flags = 0;
+ 				m->parse(c - m->option_offset, argv, 0,
+-					 &fake_flags, NULL, &m->t);
++					 &m->tflags, NULL, &m->t);
+ 			} else {
+ 				fprintf(stderr," failed to find target %s\n\n", optarg);
+ 				return -1;
+ 
+ 			}
+ 			ok++;
+-
+-			/*m->final_check(m->t); -- Is this necessary?
+-			** useful when theres depencies
+-			** eg ipt_TCPMSS.c has have the TCP match loaded
+-			** before this can be used;
+-			**  also seems the ECN target needs it 
+-			*/
+-
+ 			break;
+ 
+ 		}
+@@ -466,6 +447,7 @@
+ 		if (matches(argv[optind], "index") == 0) {
+ 			if (get_u32(&index, argv[optind + 1], 10)) {
+ 				fprintf(stderr, "Illegal \"index\"\n");
++				free_opts(opts);
+ 				return -1;
+ 			}
+ 			iok++;
+@@ -479,6 +461,10 @@
+ 		return -1;
+ 	}
+ 
++	/* check that we passed the correct parameters to the target */
++	if (m)
++		m->final_check(m->tflags);
++
+ 	{
+ 		struct tcmsg *t = NLMSG_DATA(n);
+ 		if (t->tcm_parent != TC_H_ROOT
+@@ -519,6 +505,7 @@
+ 	*argv_p = argv;
+ 	
+ 	optind = 1;
++	free_opts(opts);
+ 
+ 	return 0;
+ 
+@@ -529,16 +516,10 @@
+ {
+ 	struct rtattr *tb[TCA_IPT_MAX + 1];
+ 	struct ipt_entry_target *t = NULL;
+-	struct option *opts;
+ 
+ 	if (arg == NULL)
+ 		return -1;
+ 
+-	opts = copy_options(original_opts);
+-
+-	if (NULL == opts)
+-		return -1;
+-
+ 	parse_rtattr_nested(tb, TCA_IPT_MAX, arg);
+ 
+ 	if (tb[TCA_IPT_TABLE] == NULL) {
+@@ -601,6 +582,7 @@
+ 		fprintf(f, " \n");
+ 
+ 	}
++	free_opts(opts);
+ 
+ 	return 0;
+ }
 
 
-> +               if (security_xfrm_policy_clone(old, newp)) {
-> +                       kfree(newp);
-> +                       return (struct xfrm_policy *)NULL;  /* ENOMEM */
-> +               }
-
-Don't cast NULL.
-
-
-> +static inline int xfrm_user_sec_ctx_size(struct xfrm_policy *xp)
-> +{
-> +	struct xfrm_sec_ctx *xfrm_ctx = xfrm_policy_security(xp);
-> +	int len;
-> +
-> +	if (xfrm_ctx) {
-> +		len = sizeof(struct xfrm_user_sec_ctx);
-> +		len += xfrm_ctx->ctx_len;
-> +		return len;
-> +	}
-> +	return 0;
-> +}
-
-This can be simplified with a single return path, initialize len to zero.
-
-
-> +static int attach_sec_ctx(struct xfrm_state *x, struct rtattr *u_arg)
-> +{
-> +	struct xfrm_user_sec_ctx *uxsc = RTA_DATA(u_arg);
-> +
-> +	if (uxsc) {
-> +		security_xfrm_state_free(x);
-> +		return security_xfrm_state_alloc(x, uxsc);
-> +	}
-> +
-> +	return 0;
-> +}
-
-The security_xfrm_state_free() seems unecesary and buggy if needed.  This
-is called in state allocation context, i.e. just afer xfrm_state_alloc() 
-and there should be no already allocate security state.
-
-
-> +static int copy_sec_ctx(struct xfrm_policy *pol, struct xfrm_user_sec_ctx *uctx)
-> +{
-> +	int err = 0;
-> +
-> +	security_xfrm_policy_free(pol);
-> +	err = security_xfrm_policy_alloc(pol, uctx);
-> +	return err;
-> +}
-
-Again, why free just before allocation?  This code is only being called in 
-policy allocation context and freeing like this would be buggy in any 
-case.
-
-
-> +static int copy_from_user_sec_ctx(struct xfrm_policy *pol, struct rtattr **xfrma)
-> +{
-> +	struct rtattr *rt = xfrma[XFRMA_SEC_CTX-1];
-> +	struct xfrm_user_sec_ctx *uctx = RTA_DATA(rt);
-> +
-> +	if (uctx) {
-> +		copy_sec_ctx(pol, uctx);
-> +	}
-> +
-> +	return 0;
-> +}
-
-If it always returns zero, make it a void function.
-
-
-> +                 /* spi must be zero'd unless real tmpl */
-> + 		for (tmpl = ut; tmpl->id.spi != 0; tmpl = tmpl + 1)
-
-Indenting.
-
-
-> + 	else {
-> + 		uctx = (struct xfrm_user_sec_ctx *) NULL;
->  	nr = ((len - sizeof(*p)) / sizeof(*ut));
->  	if (nr > XFRM_MAX_DEPTH)
->  		return NULL;
-> + 	}
-
-Indenting.
-
-
-> +	if (uctx)
-> +		copy_sec_ctx(xp, uctx);
-
-Why not just make copy_sec_ctx() check for uctx itself, so the calling 
-code can be cleaner?
-
-
->  	len = RTA_SPACE(sizeof(struct xfrm_user_tmpl) * xp->xfrm_nr);
->  	len += NLMSG_SPACE(sizeof(struct xfrm_user_polexpire));
-> +	len += xfrm_user_sec_ctx_size(xp);
->  	skb = alloc_skb(len, GFP_ATOMIC);
-
-This looks wrong, the length is not aligned properly.  NLMSG_SPACE needs 
-to enclose the xfrm_user_sec_ctx_size() as well.  (There's another one of 
-these further down).
-
-
-
-- James
--- 
-James Morris
-<jmorris@redhat.com>
+--------------060808090602060001060301--
