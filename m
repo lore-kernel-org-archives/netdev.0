@@ -1,30 +1,26 @@
-From: Greg Banks <gnb@melbourne.sgi.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: Locking model for NAPI drivers
-Date: Wed, 01 Jun 2005 18:16:36 +1000
-Message-ID: <1117613796.26331.2479.camel@hole.melbourne.sgi.com>
-References: <20050531.154847.63995530.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Linux Network Development list <netdev@oss.sgi.com>
+Date: Wed, 01 Jun 2005 18:42:43 +1000
+Message-ID: <E1DdOoF-00082p-00@gondolin.me.apana.org.au>
+References: <m1fyw2wpzf.fsf@muc.de>
+Cc: davem@davemloft.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050531.154847.63995530.davem@davemloft.net>
+To: ak@muc.de (Andi Kleen)
+In-Reply-To: <m1fyw2wpzf.fsf@muc.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2005-06-01 at 08:48, David S. Miller wrote:
-> So the idea is, if we can make all of the spinlocks BH locks we'll
-> solve a whole bunch of problems:
-> [...]
-> 2) the driver will actually produce useful profiling data
->    via oprofile and friends since timer interrupts will run
->    even while holding the locks
+Andi Kleen <ak@muc.de> wrote:
+> 
+> That is because of the kmap_atomic it does right? At least in the i386
+> highmem implementation I don't see any code that would be less safe in
+> hard interrupt context compared to BHs.  And FRV and mips look like they
+> allow it too.
 
-That would be really, really nice.
-
-Greg.
+To make it safe we'll have to allocate another precious km_type entry.
 -- 
-Greg Banks, R&D Software Engineer, SGI Australian Software Group.
-I don't speak for SGI.
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
