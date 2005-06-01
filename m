@@ -1,50 +1,33 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: RFC: PHY Abstraction Layer II
-Date: Wed, 1 Jun 2005 14:41:23 -0700
-Message-ID: <20050601144123.2bc11c06@dxpl.pdx.osdl.net>
-References: <1107b64b01fb8e9a6c84359bb56881a6@freescale.com>
-	<20050531105939.7486e071@dxpl.pdx.osdl.net>
-	<92F1428A-0B26-428B-8C06-35C7E5B9EEE3@freescale.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: Locking model for NAPI drivers
+Date: Wed, 01 Jun 2005 15:21:34 -0700 (PDT)
+Message-ID: <20050601.152134.120445266.davem@davemloft.net>
+References: <20050531.154847.63995530.davem@davemloft.net>
+	<1117658019.4310.58.camel@rh4>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@oss.sgi.com>,
-	Embedded PPC Linux list <linuxppc-embedded@ozlabs.org>
-Return-path: <linuxppc-embedded-bounces@ozlabs.org>
-To: Andy Fleming <afleming@freescale.com>
-In-Reply-To: <92F1428A-0B26-428B-8C06-35C7E5B9EEE3@freescale.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
-List-Post: <mailto:linuxppc-embedded@ozlabs.org>
-List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-embedded-bounces@ozlabs.org
-Errors-To: linuxppc-embedded-bounces@ozlabs.org
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: mchan@broadcom.com
+In-Reply-To: <1117658019.4310.58.camel@rh4>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 1 Jun 2005 15:45:26 -0500
-Andy Fleming <afleming@freescale.com> wrote:
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Wed, 01 Jun 2005 13:33:39 -0700
 
-> 
-> On May 31, 2005, at 12:59, Stephen Hemminger wrote:
-> 
-> > Here are some patches:
-> >     * allow phy's to be modules
-> >     * use driver owner for ref count
-> >     * make local functions static where ever possible
-> 
-> I agree with all these.
-> 
-> >     * get rid of bus read may sleep implication in comment.
-> >       since you are holding phy spin lock it better not!!
-> 
+> I suppose we can enable interrupts in tg3_irq_quiesce() after setting
+> the SYNC bit.
 
-On a different note, I am not sure that using sysfs/kobject bus object
-is the right thing for this object.  Isn't the phy instance really just
-an kobject whose parent is the network device?  I can't see a 1 to N
-relationship between phy bus and phy objects existing. 
+Since the caller shuts down NAPI ->poll(), after setting the SYNC bit
+we can just check the MAILBOX register, and if a '1' is there just
+return.  Does one need to mask out the upper bits of the regiser in
+order to avoid seeing the IRQ tag in such a comparison?
 
-The main use I can see for being a driver object is to catch suspend/resume,
-and wouldn't you want that to be tied to the network device.
+Another potential problem is if the chip is hung for some reason,
+and even though an interrupt is asserted it does not send the
+interrupt.  We'd hang in this case as well.  Therefore it may be
+wise to add a timeout to the COMPLETE bit polling loop in order
+to handle such cases properly.
