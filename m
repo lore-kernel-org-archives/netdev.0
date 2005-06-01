@@ -1,39 +1,30 @@
-From: Andi Kleen <ak@muc.de>
+From: Greg Banks <gnb@melbourne.sgi.com>
 Subject: Re: Locking model for NAPI drivers
-Date: Wed, 01 Jun 2005 08:28:04 +0200
-Message-ID: <m1fyw2wpzf.fsf@muc.de>
+Date: Wed, 01 Jun 2005 18:16:36 +1000
+Message-ID: <1117613796.26331.2479.camel@hole.melbourne.sgi.com>
 References: <20050531.154847.63995530.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Linux Network Development list <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050531.154847.63995530.davem@davemloft.net> (David S.
- Miller's message of "Tue, 31 May 2005 15:48:47 -0700 (PDT)")
+In-Reply-To: <20050531.154847.63995530.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-"David S. Miller" <davem@davemloft.net> writes:
+On Wed, 2005-06-01 at 08:48, David S. Miller wrote:
+> So the idea is, if we can make all of the spinlocks BH locks we'll
+> solve a whole bunch of problems:
+> [...]
+> 2) the driver will actually produce useful profiling data
+>    via oprofile and friends since timer interrupts will run
+>    even while holding the locks
 
-Stupid question, but...
+That would be really, really nice.
 
-> I was doing some brainstorming to try and fix a nagging problem in
-> the tg3 driver which suggested that doing the SMP locking differently
-> might be the best and cleanest solution.
->
-> The tg3 problem is that it can do an skb_copy() in HW IRQ disabled
-> context which is illegal.
-
-That is because of the kmap_atomic it does right? At least in the i386
-highmem implementation I don't see any code that would be less safe in
-hard interrupt context compared to BHs.  And FRV and mips look like they
-allow it too.
-
-> This fixes the skb_copy() we were doing with hw
-> IRQs disabled (which is illegal and triggers a
-> BUG() with HIGHMEM enabled).  
-
-Which BUG did it trigger?
-
--Andi
+Greg.
+-- 
+Greg Banks, R&D Software Engineer, SGI Australian Software Group.
+I don't speak for SGI.
