@@ -1,70 +1,53 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: RFC: PHY Abstraction Layer II
-Date: Wed, 01 Jun 2005 14:19:15 -0700
-Message-ID: <429E2653.6010101@osdl.org>
-References: <1107b64b01fb8e9a6c84359bb56881a6@freescale.com>
-	<20050531105939.7486e071@dxpl.pdx.osdl.net>
-	<92F1428A-0B26-428B-8C06-35C7E5B9EEE3@freescale.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: Locking model for NAPI drivers
+Date: Wed, 01 Jun 2005 13:33:39 -0700
+Message-ID: <1117658019.4310.58.camel@rh4>
+References: <20050531.154847.63995530.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@oss.sgi.com>,
-	Embedded PPC Linux list <linuxppc-embedded@ozlabs.org>
-Return-path: <linuxppc-embedded-bounces@ozlabs.org>
-To: Andy Fleming <afleming@freescale.com>
-In-Reply-To: <92F1428A-0B26-428B-8C06-35C7E5B9EEE3@freescale.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
-List-Post: <mailto:linuxppc-embedded@ozlabs.org>
-List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-embedded-bounces@ozlabs.org
-Errors-To: linuxppc-embedded-bounces@ozlabs.org
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050531.154847.63995530.davem@davemloft.net>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andy Fleming wrote:
+On Tue, 2005-05-31 at 15:48 -0700, David S. Miller wrote:
 
->
-> On May 31, 2005, at 12:59, Stephen Hemminger wrote:
->
->> Here are some patches:
->>     * allow phy's to be modules
->>     * use driver owner for ref count
->>     * make local functions static where ever possible
->
->
-> I agree with all these.
->
->>     * get rid of bus read may sleep implication in comment.
->>       since you are holding phy spin lock it better not!!
->
->
-> But not this one.  The phy_read and phy_write functions are reading  
-> from and writing to a bus.  It is a reasonable implementation to have  
-> the operation block in the bus driver, and be awoken when an  
-> interrupt signals the operation is done.  All of the phydev spinlocks  
-> have been arranged so as to prevent the lock being taken during  
-> interrupt time.
->
-> Unless I've misunderstood spinlocks (it wouldn't be the first time),  
-> as long as the lock is never taken in interrupt time, it should be ok  
-> to hold the lock, and wait for an interrupt before clearing the lock.
+> Once we make this transformation, we need some way to synchronize
+> with the IRQ handler when shutting down the device or making major
+> configuration changes to the chip.
+> 
+> The idea I came up with is a two-bit atomic bitmask.  When base
+> level code wants to quiesce interrupt processing, it takes the
+> necessary driver spinlocks, sets the "SYNC" bit in the bitmask,
+> forces and IRQ to be asserted by the tg3 card, then waits for the
+> COMPLETE bit to get set by the interrupt handler.
+> 
 
+During light testing, I found a race condition that caused
+tg3_irq_quiesce() to spin forever. The race condition is shown below.
 
-The problem is that sleeping is defined in the linux kernel as meaning 
-waiting on a mutual exclusion
-primitive (like semaphore) that puts the current thread to sleep. It is 
-not legal to sleep with a spinlock held.
-In the phy_read code you do:
-   
-   spin_lock_bh(&bus->mdio_lock);
-    retval = bus->read(bus, phydev->addr, regnum);
-    spin_unlock_bh(&bus->mdio_lock);
+CPU1                                CPU2
 
-If the bus->read function were to do something like start a request and 
-wait on a semaphore, then
-you would be sleeping with a spin lock held.  So bus->read can not 
-sleep! (as sleep is defined in the
-linux kernel).
+tg3_interrupt_tagged()
+                                    tg3_netif_stop()
+                                    netif_poll_disable()
+netif_rx_schedule() will do nothing
+
+                                    tg3_full_lock()
+                                    tg3_irq_quiesce()
+
+Because netif_poll_disable() is called, netif_rx_schedule() will do
+nothing in the interrupt handler. As a result, tg3_poll() will never be
+called to re-enable interrupts. Since interrupts are disabled,
+tg3_irq_quiesce() will not be able to set the interrupts and cause the
+interrupt handler to be called again, and therefore will wait forever.
+
+Even adding another call to tg3_irq_sync() at the end of the interrupt
+handler does not eliminate the race condition.
+
+I suppose we can enable interrupts in tg3_irq_quiesce() after setting
+the SYNC bit.
