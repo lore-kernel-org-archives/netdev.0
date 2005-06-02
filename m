@@ -1,81 +1,36 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: 2.6.12-rc5-mm2: "bic unavailable using TCP reno" messages
-Date: Thu, 2 Jun 2005 10:38:05 -0700
-Message-ID: <20050602103805.6beb4f4e@dxpl.pdx.osdl.net>
-References: <20050601022824.33c8206e.akpm@osdl.org>
-	<20050602121511.GE4992@stusta.de>
-	<429F1079.5070701@ev-en.org>
+Subject: Re: Unable to handle kernel paging request at virtual address
+ 04000460
+Date: Thu, 2 Jun 2005 10:44:23 -0700
+Message-ID: <20050602104423.2c3825e5@dxpl.pdx.osdl.net>
+References: <438662DA48DCAA41B1DF648BD4BD76C0E461B8@CHN-SNR-MBX01.wipro.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Adrian Bunk <bunk@stusta.de>, Andrew Morton <akpm@osdl.org>,
-        linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Baruch Even <baruch@ev-en.org>
-In-Reply-To: <429F1079.5070701@ev-en.org>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: <davem@davemloft.net>, <linux-net@vger.kernel.org>,
+	<netdev@oss.sgi.com>, <linux@der-keiler.de>
+Return-path: <linux-net-owner@vger.kernel.org>
+To: <raghunathan.venkatesan@wipro.com>
+In-Reply-To: <438662DA48DCAA41B1DF648BD4BD76C0E461B8@CHN-SNR-MBX01.wipro.com>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 02 Jun 2005 14:58:17 +0100
-Baruch Even <baruch@ev-en.org> wrote:
+On Thu, 2 Jun 2005 09:20:21 +0530
+<raghunathan.venkatesan@wipro.com> wrote:
 
-> Adrian Bunk wrote:
-> > On Wed, Jun 01, 2005 at 02:28:24AM -0700, Andrew Morton wrote:
-> > 
-> >>...
-> >>Changes since 2.6.12-rc5-mm1:
-> >>...
-> >>+tcp-tcp_infra.patch
-> >>...
-> >> Steve Hemminger's TCP enhancements.
-> >>...
-> > 
-> > 
-> > I said "no" to CONFIG_TCP_CONG_BIC, and now my syslog is full of messages
-> >    kernel: bic unavailable using TCP reno
-> > 
-> > I have no problem with such a message being shown once - but once should 
-> > be enough.  
-> 
-> The best solution for this would be to check the available protocols at
-> setup time and not at connection creation time. This would also provide
-> a better feedback to the user, since he will either see that what he set
-> was taken, or it wasn't.
-> 
-> In the current mechanism you can set the protocol to 'foo' and it will
-> show back as 'foo'. You'll get complaints only once a connection is
-> attempted with this protocol.
-> 
-> It does mean some extra work in the sysctl stage, but it's better IMO to
-> do it there rather than at connection setup time.
-> 
-> Baruch
+> Hi David,
+> I understand that the linux community may not be able to debug it for
+> me. All I require is if people have seen similar problems (the problems
+> we face are w.r.t to kfree_skb and skb_drop_fraglist crashing due to
+> some reason, which could be a Memory Management issue or some thing we
+> are not aware of), then let us know the patches, so that we can try them
+> out here.
 
-Your right, the sysctl handler should be smarter, but that is not the problem here.
-The problem is that the default value is set to be BIC to be compatible with earlier kernels.
-Since 75% of the world isn't smart enough to figure out how to use sysctl, there is a
-question of what the default should be, and what to do if that is missing.
+Turn on Debug memory allocations, spinlock debugging, sleep-inside-spinlock
+checking, and preempt, it will help your debugging.  If you are not building
+your own kernel from source learn how.
 
-One version had a messy ifdef chain to try and avoid the warning:
-
-char sysctl_tcp_congestion_control[] = 
-#if defined(CONFIG_TCP_BIC)
-	"bic"
-#elif defined(CONFIG_TCP_HTCP)
-	"htcp"
-#else
-	"reno"
-#endif
-	;
-
-but that was ugly.
-
-Another possibility is putting it in as yet another config value at kernel build time.
-
-To suppress the warning repeating, probably the best solution would be rewrite the string
-if we have to revert to reno. But carefully to avoid SMP issues.  This also implies a smarter
-sysctl string handler for this value as well.
-
-P.s: saw your comparison paper, after a little more corroboration I would like to make
-H-TCP the default.
+You are probably freeing memory twice, or not doing ref counting properly
+or other locking issues.  Since it is your code, good luck debugging it,
+if you want the community help it needs to be open source code that
+is available for download or be in the kernel.org kernel.
