@@ -1,40 +1,44 @@
-From: "David S. Miller" <davem@davemloft.net>
+From: Baruch Even <baruch@ev-en.org>
 Subject: Re: Comparison of several congestion control algorithms
-Date: Thu, 02 Jun 2005 16:35:12 -0700 (PDT)
-Message-ID: <20050602.163512.10298458.davem@davemloft.net>
-References: <4298E045.9050009@ev-en.org>
+Date: Fri, 03 Jun 2005 00:50:07 +0100
+Message-ID: <429F9B2F.8030507@ev-en.org>
+References: <4298E045.9050009@ev-en.org> <20050602.163512.10298458.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com, shemminger@osdl.org, doug.leith@nuim.ie
 Return-path: <netdev-bounce@oss.sgi.com>
-To: baruch@ev-en.org
-In-Reply-To: <4298E045.9050009@ev-en.org>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050602.163512.10298458.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Baruch Even <baruch@ev-en.org>
-Date: Sat, 28 May 2005 22:19:01 +0100
-
-> I wanted to point you to a comparison of congestion control algorithm
-> done at the Hamilton Institute. These experiments compare Scalable-TCP,
-> High-Speed TCP, FAST-TCP, BIC-TCP, H-TCP and Standard TCP. They compared
->   fairness, compatibility with TCP and link utilisation.
+David S. Miller wrote:
+> From: Baruch Even <baruch@ev-en.org>
+> Date: Sat, 28 May 2005 22:19:01 +0100
 > 
-> You can find the results and a report at http://hamilton.ie/net/eval/
+> 
+>>I wanted to point you to a comparison of congestion control algorithm
+>>done at the Hamilton Institute. These experiments compare Scalable-TCP,
+>>High-Speed TCP, FAST-TCP, BIC-TCP, H-TCP and Standard TCP. They compared
+>>  fairness, compatibility with TCP and link utilisation.
+>>
+>>You can find the results and a report at http://hamilton.ie/net/eval/
+> 
+> 
+> Nice work, I enjoyed this paper very much.
+> 
+> There is something that none of these papers mention, but is essential
+> for interpreting results.  Did you use interfaces with TSO enabled?
 
-Nice work, I enjoyed this paper very much.
+I did not do these experiments myself, but to the best of my knowledge,
+none of the experiments done so far in Hamilton have used the TSO feature.
 
-There is something that none of these papers mention, but is essential
-for interpreting results.  Did you use interfaces with TSO enabled?
+This is in part because of the start of the work that was based on 2.4
+kernels and even as far as the 2.6.6 kernel which had disabled TSO once
+it saw SACKs. This made TSO unusable for our needs.
 
-There is a very serious congestion window growth bug with TSO enabled
-in the current 2.6.x tree.  The problem is due to congestion window
-validation.  When we build TSO frames, even if we have packets to send,
-we may defer a few frames until the full TSO packet can go out.
-But this causes the congestion window validation checks in tcp_ack()
-to not pass, and thus the congestion window does not grow.
+AFAIK, the tests reported in that document used kernel 2.6.6.
 
-I am going to have this fixed, but for now people should do congestion
-window algorithm tests with TSO explicitly disabled on their interfaces.
+Baruch
