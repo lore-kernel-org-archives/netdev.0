@@ -1,27 +1,39 @@
-From: "Anders K. Pedersen" <akp@cohaesio.com>
-Subject: Re: Problems with Broadcom and Intel PRO/1000 cards
-Date: Thu, 02 Jun 2005 13:34:09 +0200
-Message-ID: <d7mqpp$pnn$1@harrier.cohaesio.com>
-References: <200506021238.25615.jtbbesaa@aintel.bi.ehu.es>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: 2.6.12-rc5-mm2: "bic unavailable using TCP reno" messages
+Date: Thu, 2 Jun 2005 14:15:11 +0200
+Message-ID: <20050602121511.GE4992@stusta.de>
+References: <20050601022824.33c8206e.akpm@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261387AbVFBMPT@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>, shemminger@osdl.org
+Content-Disposition: inline
+In-Reply-To: <20050601022824.33c8206e.akpm@osdl.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Alfredo Beaumont Sainz wrote:
-> I've a dual opteron machine with an integrated dual Broadcom 5704 10/100/1000 
-> (tg3 driver) and an Intel PRO/1000 MT (e1000 driver). It seems that I cannot 
-> make them work a Gbps. I've a crossover cable connecting a interface of the 
-> Broadcom (eth1) with the Intel (eth2), but they connect at 100Mbps:
-> 
-> # /sbin/mii-tool -v
+On Wed, Jun 01, 2005 at 02:28:24AM -0700, Andrew Morton wrote:
+>...
+> Changes since 2.6.12-rc5-mm1:
+>...
+> +tcp-tcp_infra.patch
+>...
+>  Steve Hemminger's TCP enhancements.
+>...
 
-mii-tool does not (yet) support more than 100 Mbit/s, so it will report
-a 1000 Mbit/s connection as only running 100 Mbit/s. Use ethtool for now.
+I said "no" to CONFIG_TCP_CONG_BIC, and now my syslog is full of messages
+   kernel: bic unavailable using TCP reno
 
-Regards,
-Anders K. Pedersen
+I have no problem with such a message being shown once - but once should 
+be enough.  
+
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
