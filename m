@@ -1,70 +1,106 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [SCTP] Replace spin_lock_irqsave with spin_lock_bh
-Date: Thu, 2 Jun 2005 19:54:59 +1000
-Message-ID: <20050602095459.GA26638@gondor.apana.org.au>
-References: <20050602094404.GA10316@gondor.apana.org.au>
+From: Alfredo Beaumont Sainz <jtbbesaa@bipt106.bi.ehu.es>
+Subject: Problems with Broadcom and Intel PRO/1000 cards
+Date: Thu, 2 Jun 2005 12:38:19 +0200
+Message-ID: <200506021238.25615.jtbbesaa@aintel.bi.ehu.es>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="2oS5YaxWCcQjTEyO"
+Content-Type: multipart/signed;
+  boundary="nextPart2076079.6N4Hu5pznk";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
-Content-Disposition: inline
-In-Reply-To: <20050602094404.GA10316@gondor.apana.org.au>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
---2oS5YaxWCcQjTEyO
-Content-Type: text/plain; charset=us-ascii
+--nextPart2076079.6N4Hu5pznk
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: quoted-printable
 Content-Disposition: inline
 
-Hi Dave:
+Hi,
 
-This patch replaces the spin_lock_irqsave call on the receive queue
-lock in SCTP with spin_lock_bh.  Despite the proliferation of
-spin_lock_irqsave calls in this stack, it is only entered from the
-IPv4/IPv6 stack and user space.  That is, it is never entered from
-hardirq context.
+I've a dual opteron machine with an integrated dual Broadcom 5704 10/100/10=
+00=20
+(tg3 driver) and an Intel PRO/1000 MT (e1000 driver). It seems that I canno=
+t=20
+make them work a Gbps. I've a crossover cable connecting a interface of the=
+=20
+Broadcom (eth1) with the Intel (eth2), but they connect at 100Mbps:
 
-The call in question is only called from recvmsg which means that
-IRQs aren't disabled.  Therefore it is safe to replace it with
-spin_lock_bh.
- 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au> 
+# /sbin/mii-tool -v
 
-As before, this should probably only go into net-2.6.13.
- 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+eth1: negotiated 100baseTx-FD, link ok
+  product info: vendor 00:08:18, model 25 rev 0
+  basic mode:   autonegotiation enabled
+  basic status: autonegotiation complete, link ok
+  capabilities: 100baseTx-FD 100baseTx-HD 10baseT-FD 10baseT-HD
+  advertising:  100baseTx-FD 100baseTx-HD 10baseT-FD 10baseT-HD flow-control
+  link partner: 100baseTx-FD 100baseTx-HD 10baseT-FD 10baseT-HD
+eth2: negotiated 100baseTx-FD, link ok
+  product info: vendor 00:50:43, model 2 rev 5
+  basic mode:   autonegotiation enabled
+  basic status: autonegotiation complete, link ok
+  capabilities: 100baseTx-FD 100baseTx-HD 10baseT-FD 10baseT-HD
+  advertising:  100baseTx-FD 100baseTx-HD 10baseT-FD 10baseT-HD
+  link partner: 100baseTx-FD 100baseTx-HD 10baseT-FD 10baseT-HD flow-control
 
---2oS5YaxWCcQjTEyO
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
+As you can see, there's no 1000 FD advsertising. Forcing it with ethtool ma=
+kes=20
+them lose link connection:
 
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -4368,15 +4368,11 @@ static struct sk_buff *sctp_skb_recv_dat
- 		 *  However, this function was corrent in any case. 8)
- 		 */
- 		if (flags & MSG_PEEK) {
--			unsigned long cpu_flags;
--
--			sctp_spin_lock_irqsave(&sk->sk_receive_queue.lock,
--					       cpu_flags);
-+			spin_lock_bh(&sk->sk_receive_queue.lock);
- 			skb = skb_peek(&sk->sk_receive_queue);
- 			if (skb)
- 				atomic_inc(&skb->users);
--			sctp_spin_unlock_irqrestore(&sk->sk_receive_queue.lock,
--						    cpu_flags);
-+			spin_unlock_bh(&sk->sk_receive_queue.lock);
- 		} else {
- 			skb = skb_dequeue(&sk->sk_receive_queue);
- 		}
+# /usr/sbin/ethtool -s eth1 speed 1000 duplex full
+# /sbin/mii-tool -v
+eth1: no link
+  product info: vendor 00:08:18, model 25 rev 0
+  basic mode:   autonegotiation enabled
+  basic status: no link
+  capabilities: 100baseTx-FD 100baseTx-HD 10baseT-FD 10baseT-HD
+  advertising:  100baseTx-FD 100baseTx-HD 10baseT-FD 10baseT-HD flow-control
+  link partner: 100baseTx-FD 100baseTx-HD 10baseT-FD 10baseT-HD
+eth2: no link
+  product info: vendor 00:50:43, model 2 rev 5
+  basic mode:   autonegotiation enabled
+  basic status: no link
+  capabilities: 100baseTx-FD 100baseTx-HD 10baseT-FD 10baseT-HD
+  advertising:  100baseTx-FD 100baseTx-HD 10baseT-FD 10baseT-HD
+  link partner: 100baseTx-FD 100baseTx-HD 10baseT-FD 10baseT-HD flow-control
 
---2oS5YaxWCcQjTEyO--
+After some secs link is recovered, at 100 again, and dmesg shows the follow=
+ing=20
+kernel messages:
+
+tg3: eth1: Link is down.
+e1000: eth2: e1000_watchdog: NIC Link is Down
+tg3: eth1: Link is up at 1000 Mbps, full duplex.
+tg3: eth1: Flow control is off for TX and off for RX.
+e1000: eth2: e1000_watchdog: NIC Link is Up 1000 Mbps Full Duplex
+
+According to the messages links would be at 1000 but they are not really. T=
+he=20
+same happens when forcing eth2.
+
+I'm using kernel version 2.6.11.11 but it also happened with previous versi=
+on=20
+of the kernel.
+
+Any hints? Thanks.
+=2D-=20
+Alfredo Beaumont. GPG: http://aintel.bi.ehu.es/~jtbbesaa/jtbbesaa.gpg.asc
+Elektronika eta Telekomunikazioak Saila (Ingeniaritza Telematikoa)
+Euskal Herriko Unibertsitatea, Bilbao (Basque Country). http://www.ehu.es
+
+--nextPart2076079.6N4Hu5pznk
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.1 (GNU/Linux)
+
+iD8DBQBCnuGh6KTU/EgLc1ERAgOsAJ9Bs8oPJEelifI+GtiP62cMEfl8ZQCfXxc6
+e2z/CGhpOy0qWoXNj22/SMQ=
+=4LuQ
+-----END PGP SIGNATURE-----
+
+--nextPart2076079.6N4Hu5pznk--
