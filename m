@@ -1,31 +1,34 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: R8169 from U.S.Robotics not found by driver
-Date: Thu, 2 Jun 2005 20:34:56 +0200
-Message-ID: <20050602183456.GA5606@electric-eye.fr.zoreil.com>
-References: <3BDD1137DBC16749ACF2C93F82FCA98DA107D2@s1ms3.D01.arc.local>
+From: <gwingerde@home.nl>
+Subject: Antw: Re: [PATCH] ieee80211: Update generic definitions to latest specs.
+Date: Thu, 2 Jun 2005 21:02:24 +0200
+Message-ID: <200506021903.j52J3QXq012315@oss.sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux r8169 crew <netdev@oss.sgi.com>, jgarzik@pobox.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@oss.sgi.com>, <jgarzik@pobox.com>, <jbohac@suse.cz>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Kutschera Peter <Peter.Kutschera@arcs.ac.at>
-Content-Disposition: inline
-In-Reply-To: <3BDD1137DBC16749ACF2C93F82FCA98DA107D2@s1ms3.D01.arc.local>
+To: Jiri Benc <jbenc@suse.cz>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Kutschera Peter <Peter.Kutschera@arcs.ac.at> :
-[...]
-> If you have any tips please let me know.
+On Thu, 02 Jun 2005, Jiri Benc wrote:
+> On Wed, 01 Jun 2005 22:50:51 +0200, Gertjan van Wingerde wrote:
+> > +#define WLAN_STATUS_ASSOC_DENIED_SPECTRUM_MGMT_REQUIRED 22
+> > +#define WLAN_STATUS_ASSOC_REJECTED_POWER_CAP_UNACCEPTABLE 23
+> > +#define WLAN_STATUS_ASSOC_REJECTED_SUPP_CHANNELS_UNACCEPTABLE 24
+> > (...)
+> > +/* 802.11h */
+> > +#define WLAN_REASON_DISASSOC_POWER_CAP_UNACCEPTABLE 10
+> > +#define WLAN_REASON_DISASSOC_SUPP_CHANNELS_UNACCEPTABLE 11
+> 
+> Aren't these identifiers a bit too long? It seems to be unpractical to use
+> them.
+> 
 
-Upgrade to (at your option):
-- 2.6.12-rc5 + Jeff Garzik's r8169 git branch;
-- 2.6.12-rc5-mm2.
+I was thinking about that too, but couldn't find a proper shorter
+version without losing the descriptive meaning.
 
-Both contain the latest r8169 driver. It will handle USR hardware.
-If you manage to kill it, please report it.
+Do you have any suggestions to shorten them?
 
-Would your setup allow to test the driver in the Mpps range by any luck ?
-
---
-Ueimor
+BR, Gertjan
