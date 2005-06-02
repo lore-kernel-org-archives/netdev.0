@@ -1,61 +1,60 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 3/4] [NEIGH] neighbour table configuration and
-	statistics via rtnetlink
-Date: Thu, 02 Jun 2005 09:33:15 -0400
-Message-ID: <1117719195.6050.54.camel@localhost.localdomain>
-References: <20050527151608.GZ15391@postel.suug.ch>
-	 <1117209411.6383.104.camel@localhost.localdomain>
-	 <20050527163516.GB15391@postel.suug.ch>
-	 <1117244567.6251.34.camel@localhost.localdomain>
-	 <20050528120731.GP15391@postel.suug.ch>
-	 <1117533847.6134.32.camel@localhost.localdomain>
-	 <20050531114251.GC15391@postel.suug.ch>
-	 <1117543711.6134.48.camel@localhost.localdomain>
-	 <20050531131747.GF15391@postel.suug.ch>
-	 <1117551561.6279.2.camel@localhost.localdomain>
-	 <20050531161315.GH15391@postel.suug.ch>
-Reply-To: hadi@cyberus.ca
+From: Alfredo Beaumont Sainz <jtbbesaa@bipt106.bi.ehu.es>
+Subject: Re: Problems with Broadcom and Intel PRO/1000 cards
+Date: Thu, 2 Jun 2005 16:11:42 +0200
+Message-ID: <200506021611.54933.jtbbesaa@aintel.bi.ehu.es>
+References: <200506021238.25615.jtbbesaa@aintel.bi.ehu.es> <d7mqpp$pnn$1@harrier.cohaesio.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: multipart/signed;
+  boundary="nextPart1279143.OyKeIErFOt";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050531161315.GH15391@postel.suug.ch>
+To: netdev@oss.sgi.com
+In-Reply-To: <d7mqpp$pnn$1@harrier.cohaesio.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2005-31-05 at 18:13 +0200, Thomas Graf wrote:
+--nextPart1279143.OyKeIErFOt
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-[..]
-> So what I propose is to have the neighbour table parameters,
-> e.g. everything in arp_tbl be distributed over RTM_NEIGHTBL
-> and put the device specific parameters into devconfig,
-> e.g. in_dev->arp_parms.
-> 
+Og, 2005eko Ekaren 02a 13:34(e)an, Anders K. Pedersen(e)k idatzi zuen:
+> Alfredo Beaumont Sainz wrote:
+> > I've a dual opteron machine with an integrated dual Broadcom 5704
+> > 10/100/1000 (tg3 driver) and an Intel PRO/1000 MT (e1000 driver). It
+> > seems that I cannot make them work a Gbps. I've a crossover cable
+> > connecting a interface of the Broadcom (eth1) with the Intel (eth2), but
+> > they connect at 100Mbps:
+> >
+> > # /sbin/mii-tool -v
+>
+> mii-tool does not (yet) support more than 100 Mbit/s, so it will report
+> a 1000 Mbit/s connection as only running 100 Mbit/s. Use ethtool for now.
 
-Right, this is what i am saying a well.
-The only caveat i was pointing out is that the devconfig piece is more
-than just the neighbor stuff - and of course it hasnt been written,
-yet;->
-The major challenge will be events - some change via /proc, sysfs etc
-should generate event.
-I suggest something along usage of notifier_block with something like
-NETDEV_CONFIG to transport these things around. Damn, if only i can find
-my patch ....
-I had already started doing events based on changes from /proc or sysctl
-etc.
+Ouch, you are right. They are really working at 1000Mbit/s. I should have=20
+checked that. They work with a crossover cable, but I still have problems w=
+ith=20
+the switch. I'll further investigate before posting again.
 
-> Absolutely, more specific:
-> 
-> netdevice -> inet_device -> parameter set -> neighbour table
-> or:
-> neighbour table -> list of parameter sets -> netdevice
-> 
-> both ways are possible right now.
+Thanks!
+=2D-=20
+Alfredo Beaumont. GPG: http://aintel.bi.ehu.es/~jtbbesaa/jtbbesaa.gpg.asc
+Elektronika eta Telekomunikazioak Saila (Ingeniaritza Telematikoa)
+Euskal Herriko Unibertsitatea, Bilbao (Basque Country). http://www.ehu.es
 
-Sounds good to me.
+--nextPart1279143.OyKeIErFOt
+Content-Type: application/pgp-signature
 
-cheers,
-jamal
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.1 (GNU/Linux)
+
+iD8DBQBCnxOq6KTU/EgLc1ERAsbKAJ9U+j2OiPemLbu1oNp/t/T1ijHWDQCeLRho
+mxzLFdj20GxHxb4LXD7z5pM=
+=drCD
+-----END PGP SIGNATURE-----
+
+--nextPart1279143.OyKeIErFOt--
