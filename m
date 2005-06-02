@@ -1,65 +1,40 @@
-From: Andy Fleming <afleming@freescale.com>
-Subject: Re: RFC: PHY Abstraction Layer II
-Date: Wed, 1 Jun 2005 17:42:56 -0500
-Message-ID: <A07C472D-BA2E-4C29-9DA2-F983DC9CDEDB@freescale.com>
-References: <1107b64b01fb8e9a6c84359bb56881a6@freescale.com>
-	<20050531105939.7486e071@dxpl.pdx.osdl.net>
-	<92F1428A-0B26-428B-8C06-35C7E5B9EEE3@freescale.com>
-	<429E2653.6010101@osdl.org>
-Mime-Version: 1.0 (Apple Message framework v730)
-Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@oss.sgi.com>,
-	Embedded PPC Linux list <linuxppc-embedded@ozlabs.org>
-Return-path: <linuxppc-embedded-bounces@ozlabs.org>
-In-Reply-To: <429E2653.6010101@osdl.org>
-To: Stephen Hemminger <shemminger@osdl.org>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
-List-Post: <mailto:linuxppc-embedded@ozlabs.org>
-List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-embedded-bounces@ozlabs.org
-Errors-To: linuxppc-embedded-bounces@ozlabs.org
+From: <raghunathan.venkatesan@wipro.com>
+Subject: RE: Unable to handle kernel paging request at virtual address 04000460
+Date: Thu, 2 Jun 2005 09:20:21 +0530
+Message-ID: <438662DA48DCAA41B1DF648BD4BD76C0E461B8@CHN-SNR-MBX01.wipro.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <linux-net@vger.kernel.org>, <netdev@oss.sgi.com>,
+	<linux@der-keiler.de>
+Return-path: <linux-net-owner@vger.kernel.org>
+Content-class: urn:content-classes:message
+To: <davem@davemloft.net>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi David,
+I understand that the linux community may not be able to debug it for
+me. All I require is if people have seen similar problems (the problems
+we face are w.r.t to kfree_skb and skb_drop_fraglist crashing due to
+some reason, which could be a Memory Management issue or some thing we
+are not aware of), then let us know the patches, so that we can try them
+out here.
 
-On Jun 1, 2005, at 16:19, Stephen Hemminger wrote:
+Thankyou for your response.
+Regards,
+Raghu
 
-> Andy Fleming wrote:
->>
->> But not this one.  The phy_read and phy_write functions are  
->> reading  from and writing to a bus.  It is a reasonable  
->> implementation to have  the operation block in the bus driver, and  
->> be awoken when an  interrupt signals the operation is done.  All  
->> of the phydev spinlocks  have been arranged so as to prevent the  
->> lock being taken during  interrupt time.
->>
->> Unless I've misunderstood spinlocks (it wouldn't be the first  
->> time),  as long as the lock is never taken in interrupt time, it  
->> should be ok  to hold the lock, and wait for an interrupt before  
->> clearing the lock.
->>
->
->
-> The problem is that sleeping is defined in the linux kernel as  
-> meaning waiting on a mutual exclusion
-> primitive (like semaphore) that puts the current thread to sleep.  
-> It is not legal to sleep with a spinlock held.
-> In the phy_read code you do:
->     spin_lock_bh(&bus->mdio_lock);
->    retval = bus->read(bus, phydev->addr, regnum);
->    spin_unlock_bh(&bus->mdio_lock);
->
-> If the bus->read function were to do something like start a request  
-> and wait on a semaphore, then
-> you would be sleeping with a spin lock held.  So bus->read can not  
-> sleep! (as sleep is defined in the
-> linux kernel).
+-----Original Message-----
+From: David S. Miller [mailto:davem@davemloft.net] 
+Sent: Thursday, June 02, 2005 12:25 AM
+To: Raghunathan Venkatesan (WT01 - EMBEDDED & PRODUCT ENGINEERING
+SOLUTIONS)
+Cc: linux-net@vger.kernel.org; netdev@oss.sgi.com; linux@der-keiler.de
+Subject: Re: Unable to handle kernel paging request at virtual address
+04000460
 
-Hmm...  I understand this reasoning, but I still need a way for a bus  
-read to wait for an interrupt before returning.  I suppose I can just  
-have the code spin while it waits, but that seems wrong, somehow.   
-I'm open to any suggestions.
+
+Please don't ask the community to debug your custom kernel with private
+VPN driver modules installed.
