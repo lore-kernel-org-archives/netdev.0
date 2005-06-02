@@ -1,47 +1,61 @@
-From: Baruch Even <baruch@ev-en.org>
-Subject: Re: 2.6.12-rc5-mm2: "bic unavailable using TCP reno" messages
-Date: Thu, 02 Jun 2005 14:58:17 +0100
-Message-ID: <429F1079.5070701@ev-en.org>
-References: <20050601022824.33c8206e.akpm@osdl.org> <20050602121511.GE4992@stusta.de>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 3/4] [NEIGH] neighbour table configuration and
+	statistics via rtnetlink
+Date: Thu, 02 Jun 2005 09:33:15 -0400
+Message-ID: <1117719195.6050.54.camel@localhost.localdomain>
+References: <20050527151608.GZ15391@postel.suug.ch>
+	 <1117209411.6383.104.camel@localhost.localdomain>
+	 <20050527163516.GB15391@postel.suug.ch>
+	 <1117244567.6251.34.camel@localhost.localdomain>
+	 <20050528120731.GP15391@postel.suug.ch>
+	 <1117533847.6134.32.camel@localhost.localdomain>
+	 <20050531114251.GC15391@postel.suug.ch>
+	 <1117543711.6134.48.camel@localhost.localdomain>
+	 <20050531131747.GF15391@postel.suug.ch>
+	 <1117551561.6279.2.camel@localhost.localdomain>
+	 <20050531161315.GH15391@postel.suug.ch>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, shemminger@osdl.org,
-	linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261425AbVFBN6c@vger.kernel.org>
-To: Adrian Bunk <bunk@stusta.de>
-In-Reply-To: <20050602121511.GE4992@stusta.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050531161315.GH15391@postel.suug.ch>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Adrian Bunk wrote:
-> On Wed, Jun 01, 2005 at 02:28:24AM -0700, Andrew Morton wrote:
-> 
->>...
->>Changes since 2.6.12-rc5-mm1:
->>...
->>+tcp-tcp_infra.patch
->>...
->> Steve Hemminger's TCP enhancements.
->>...
-> 
-> 
-> I said "no" to CONFIG_TCP_CONG_BIC, and now my syslog is full of messages
->    kernel: bic unavailable using TCP reno
-> 
-> I have no problem with such a message being shown once - but once should 
-> be enough.  
+On Tue, 2005-31-05 at 18:13 +0200, Thomas Graf wrote:
 
-The best solution for this would be to check the available protocols at
-setup time and not at connection creation time. This would also provide
-a better feedback to the user, since he will either see that what he set
-was taken, or it wasn't.
+[..]
+> So what I propose is to have the neighbour table parameters,
+> e.g. everything in arp_tbl be distributed over RTM_NEIGHTBL
+> and put the device specific parameters into devconfig,
+> e.g. in_dev->arp_parms.
+> 
 
-In the current mechanism you can set the protocol to 'foo' and it will
-show back as 'foo'. You'll get complaints only once a connection is
-attempted with this protocol.
+Right, this is what i am saying a well.
+The only caveat i was pointing out is that the devconfig piece is more
+than just the neighbor stuff - and of course it hasnt been written,
+yet;->
+The major challenge will be events - some change via /proc, sysfs etc
+should generate event.
+I suggest something along usage of notifier_block with something like
+NETDEV_CONFIG to transport these things around. Damn, if only i can find
+my patch ....
+I had already started doing events based on changes from /proc or sysctl
+etc.
 
-It does mean some extra work in the sysctl stage, but it's better IMO to
-do it there rather than at connection setup time.
+> Absolutely, more specific:
+> 
+> netdevice -> inet_device -> parameter set -> neighbour table
+> or:
+> neighbour table -> list of parameter sets -> netdevice
+> 
+> both ways are possible right now.
 
-Baruch
+Sounds good to me.
+
+cheers,
+jamal
