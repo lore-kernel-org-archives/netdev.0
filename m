@@ -1,39 +1,40 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.12-rc4] IPv4/IPv6: UDP Large Send Offload feature
-Date: Thu, 02 Jun 2005 16:22:04 -0700 (PDT)
-Message-ID: <20050602.162204.68041633.davem@davemloft.net>
-References: <20050527.120215.26278001.davem@davemloft.net>
-	<003201c567c9$73322240$3910100a@pc.s2io.com>
+Subject: Re: [PATCH] shaper.c: fix locking
+Date: Thu, 02 Jun 2005 16:36:28 -0700 (PDT)
+Message-ID: <20050602.163628.01205145.davem@davemloft.net>
+References: <20050527115450.GA19469@lst.de>
+	<20050531.144114.78710204.davem@davemloft.net>
+	<20050601052149.GA11935@lst.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com, raghavendra.koushik@neterion.com,
-        leonid.grossman@neterion.com, ananda.raju@neterion.com,
-        rapuru.sriram@neterion.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ravinandan.arakali@neterion.com
-In-Reply-To: <003201c567c9$73322240$3910100a@pc.s2io.com>
+To: hch@lst.de
+In-Reply-To: <20050601052149.GA11935@lst.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: "Ravinandan Arakali" <ravinandan.arakali@neterion.com>
-Date: Thu, 2 Jun 2005 16:18:55 -0700
+From: Christoph Hellwig <hch@lst.de>
+Date: Wed, 1 Jun 2005 07:21:50 +0200
 
-> Since there seems to be pros and cons for both the approaches, we are
-> planning
-> to submit two separate patches(one for each approach). These patches also
-> include the ethtool changes. In terms of performance, we did not observe any
-> diff between the two approaches although the first approach(using SG)
-> minimizes
-> coalescing in driver.
+> On Tue, May 31, 2005 at 02:41:14PM -0700, David S. Miller wrote:
+> > From: Christoph Hellwig <hch@lst.de>
+> > Subject: [PATCH] shaper.c: fix locking
+> > Date: Fri, 27 May 2005 13:54:50 +0200
+> > 
+> > >  o use a semaphore instead of an opencoded and racy lock
+> > >  o move locking out of shaper_kick and into the callers - most just
+> > >    released the lock before calling shaper_kick
+> > >  o remove in_interrupt() tests.  from ->close we can always block, from
+> > >    ->hard_start_xmit and timer context never
+> > 
+> > Do you really want to use a semaphore for a lock taken
+> > %99 of the time in software IRQ context, which obviously
+> > cannot sleep?
+> 
+> I want to change as little as possible from the previous variant ;-)
 
-Ok.  I think minimizing driver specific work is probably going
-to make the SG approach more desirable, but we'll see.
-
-> Also, some changes will be required in the ethtool user-level utility.
-> I'm not sure if this is the right forum to submit patches for the ethtool
-> utility as well..
-
-Making sure jgarzik@pobox.com gets the patch is usually the way
-to go wrt. ethtool submissions.
+Fair enough, patch applied.  If this driver breaks as a result of
+these changes, you get to keep the pieces ok? :-)
