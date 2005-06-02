@@ -1,56 +1,156 @@
-From: Gertjan van Wingerde <gwingerde@home.nl>
-Subject: Re: [PATCH] ieee80211: Update generic definitions to latest specs.
-Date: Thu, 02 Jun 2005 05:48:05 +0200
-Message-ID: <429E8175.7010609@home.nl>
-References: <429E1FAB.6080503@home.nl> <20050601143734.3b7a49ca@dxpl.pdx.osdl.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [IPV4/IPV6] Replace spin_lock_irq with spin_lock_bh
+Date: Thu, 2 Jun 2005 19:44:04 +1000
+Message-ID: <20050602094404.GA10316@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, jgarzik@pobox.com
+Content-Type: multipart/mixed; boundary="cWoXeonUoKmBZSoM"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20050601143734.3b7a49ca@dxpl.pdx.osdl.net>
+To: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
 
->On Wed, 01 Jun 2005 22:50:51 +0200
->Gertjan van Wingerde <gwingerde@home.nl> wrote:
->
->  
->
->>Hi,
->>
->>Attached patch updates the definitions of the generic ieee80211 stack to 
->>the latest versions of the published 802.11x specification suite.
->>Please review and apply.
->>
->>Signed-off-by: Gertjan van Wingerde <gwingerde@home.nl>
->>
->>    
->>
->Could you change the elements that fix to be enum's instead of define's
->
->example:
->
->/* Management Frame Information Element Types */
->enum ieee80211_mfie {
->	MFIE_TYPE_SSID	= 0,
->	MFIE_TYPE_RATES = 1,
->	MFIE_TYPE_FH_SET= 2,
->...
->
-Hi Stephen,
+--cWoXeonUoKmBZSoM
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Well, my patch is really just an add-on to the existing code. Converting
-to enums is really a follow-up patch that can be applied on top of this one.
+Hi Dave:
 
-I'm happy to produce a patch if everybody agrees.
+In light of my recent patch to net/ipv4/udp.c that replaced the
+spin_lock_irq calls on the receive queue lock with spin_lock_bh,
+here is a similar patch for all other occurences of spin_lock_irq
+on receive/error queue locks in IPv4 and IPv6.
 
-Jeff, any opinions on this?
+In these stacks, we know that they can only be entered from user
+or softirq context.  Therefore it's safe to disable BH only.
 
-    Best regards,
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au> 
 
-       Gertjan.
+Since this patch simply improves the consistent use of locking
+primitives rather fixing any real bugs, it should probably go
+into net-2.6.13.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--cWoXeonUoKmBZSoM
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
+
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -360,14 +360,14 @@ int ip_recv_error(struct sock *sk, struc
+ 	err = copied;
+ 
+ 	/* Reset and regenerate socket error */
+-	spin_lock_irq(&sk->sk_error_queue.lock);
++	spin_lock_bh(&sk->sk_error_queue.lock);
+ 	sk->sk_err = 0;
+ 	if ((skb2 = skb_peek(&sk->sk_error_queue)) != NULL) {
+ 		sk->sk_err = SKB_EXT_ERR(skb2)->ee.ee_errno;
+-		spin_unlock_irq(&sk->sk_error_queue.lock);
++		spin_unlock_bh(&sk->sk_error_queue.lock);
+ 		sk->sk_error_report(sk);
+ 	} else
+-		spin_unlock_irq(&sk->sk_error_queue.lock);
++		spin_unlock_bh(&sk->sk_error_queue.lock);
+ 
+ out_free_skb:	
+ 	kfree_skb(skb);
+diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -691,11 +691,11 @@ static int raw_ioctl(struct sock *sk, in
+ 			struct sk_buff *skb;
+ 			int amount = 0;
+ 
+-			spin_lock_irq(&sk->sk_receive_queue.lock);
++			spin_lock_bh(&sk->sk_receive_queue.lock);
+ 			skb = skb_peek(&sk->sk_receive_queue);
+ 			if (skb != NULL)
+ 				amount = skb->len;
+-			spin_unlock_irq(&sk->sk_receive_queue.lock);
++			spin_unlock_bh(&sk->sk_receive_queue.lock);
+ 			return put_user(amount, (int __user *)arg);
+ 		}
+ 
+diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
+--- a/net/ipv6/datagram.c
++++ b/net/ipv6/datagram.c
+@@ -353,14 +353,14 @@ int ipv6_recv_error(struct sock *sk, str
+ 	err = copied;
+ 
+ 	/* Reset and regenerate socket error */
+-	spin_lock_irq(&sk->sk_error_queue.lock);
++	spin_lock_bh(&sk->sk_error_queue.lock);
+ 	sk->sk_err = 0;
+ 	if ((skb2 = skb_peek(&sk->sk_error_queue)) != NULL) {
+ 		sk->sk_err = SKB_EXT_ERR(skb2)->ee.ee_errno;
+-		spin_unlock_irq(&sk->sk_error_queue.lock);
++		spin_unlock_bh(&sk->sk_error_queue.lock);
+ 		sk->sk_error_report(sk);
+ 	} else {
+-		spin_unlock_irq(&sk->sk_error_queue.lock);
++		spin_unlock_bh(&sk->sk_error_queue.lock);
+ 	}
+ 
+ out_free_skb:	
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -434,12 +434,12 @@ csum_copy_err:
+ 	/* Clear queue. */
+ 	if (flags&MSG_PEEK) {
+ 		int clear = 0;
+-		spin_lock_irq(&sk->sk_receive_queue.lock);
++		spin_lock_bh(&sk->sk_receive_queue.lock);
+ 		if (skb == skb_peek(&sk->sk_receive_queue)) {
+ 			__skb_unlink(skb, &sk->sk_receive_queue);
+ 			clear = 1;
+ 		}
+-		spin_unlock_irq(&sk->sk_receive_queue.lock);
++		spin_unlock_bh(&sk->sk_receive_queue.lock);
+ 		if (clear)
+ 			kfree_skb(skb);
+ 	}
+@@ -971,11 +971,11 @@ static int rawv6_ioctl(struct sock *sk, 
+ 			struct sk_buff *skb;
+ 			int amount = 0;
+ 
+-			spin_lock_irq(&sk->sk_receive_queue.lock);
++			spin_lock_bh(&sk->sk_receive_queue.lock);
+ 			skb = skb_peek(&sk->sk_receive_queue);
+ 			if (skb != NULL)
+ 				amount = skb->tail - skb->h.raw;
+-			spin_unlock_irq(&sk->sk_receive_queue.lock);
++			spin_unlock_bh(&sk->sk_receive_queue.lock);
+ 			return put_user(amount, (int __user *)arg);
+ 		}
+ 
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -300,12 +300,12 @@ csum_copy_err:
+ 	/* Clear queue. */
+ 	if (flags&MSG_PEEK) {
+ 		int clear = 0;
+-		spin_lock_irq(&sk->sk_receive_queue.lock);
++		spin_lock_bh(&sk->sk_receive_queue.lock);
+ 		if (skb == skb_peek(&sk->sk_receive_queue)) {
+ 			__skb_unlink(skb, &sk->sk_receive_queue);
+ 			clear = 1;
+ 		}
+-		spin_unlock_irq(&sk->sk_receive_queue.lock);
++		spin_unlock_bh(&sk->sk_receive_queue.lock);
+ 		if (clear)
+ 			kfree_skb(skb);
+ 	}
+
+--cWoXeonUoKmBZSoM--
