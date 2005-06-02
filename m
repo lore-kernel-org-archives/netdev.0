@@ -1,34 +1,27 @@
-From: <gwingerde@home.nl>
-Subject: Antw: Re: [PATCH] ieee80211: Update generic definitions to latest specs.
-Date: Thu, 2 Jun 2005 21:02:24 +0200
-Message-ID: <200506021903.j52J3QXq012315@oss.sgi.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [2.6 patch] remove net/ipv4/ipvs/ip_vs_proto_icmp.c?
+Date: Thu, 02 Jun 2005 13:02:33 -0700 (PDT)
+Message-ID: <20050602.130233.59653068.davem@davemloft.net>
+References: <20050513041622.GE3603@stusta.de>
+	<Pine.LNX.4.58.0505141013520.1568@u.domain.uli>
+	<20050515132906.GW16549@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@oss.sgi.com>, <jgarzik@pobox.com>, <jbohac@suse.cz>
+Cc: ja@ssi.bg, wensong@LinuxVirtualServer.org, netdev@oss.sgi.com,
+        linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jiri Benc <jbenc@suse.cz>
+To: bunk@stusta.de
+In-Reply-To: <20050515132906.GW16549@stusta.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 02 Jun 2005, Jiri Benc wrote:
-> On Wed, 01 Jun 2005 22:50:51 +0200, Gertjan van Wingerde wrote:
-> > +#define WLAN_STATUS_ASSOC_DENIED_SPECTRUM_MGMT_REQUIRED 22
-> > +#define WLAN_STATUS_ASSOC_REJECTED_POWER_CAP_UNACCEPTABLE 23
-> > +#define WLAN_STATUS_ASSOC_REJECTED_SUPP_CHANNELS_UNACCEPTABLE 24
-> > (...)
-> > +/* 802.11h */
-> > +#define WLAN_REASON_DISASSOC_POWER_CAP_UNACCEPTABLE 10
-> > +#define WLAN_REASON_DISASSOC_SUPP_CHANNELS_UNACCEPTABLE 11
+From: Adrian Bunk <bunk@stusta.de>
+Date: Sun, 15 May 2005 15:29:06 +0200
+
+> ip_vs_proto_icmp.c was never finished.
 > 
-> Aren't these identifiers a bit too long? It seems to be unpractical to use
-> them.
-> 
+> Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-I was thinking about that too, but couldn't find a proper shorter
-version without losing the descriptive meaning.
-
-Do you have any suggestions to shorten them?
-
-BR, Gertjan
+Applied, thanks Adrian.
