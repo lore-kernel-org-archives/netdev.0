@@ -1,27 +1,49 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [2.6 patch] remove net/ipv4/ipvs/ip_vs_proto_icmp.c?
-Date: Thu, 02 Jun 2005 13:02:33 -0700 (PDT)
-Message-ID: <20050602.130233.59653068.davem@davemloft.net>
-References: <20050513041622.GE3603@stusta.de>
-	<Pine.LNX.4.58.0505141013520.1568@u.domain.uli>
-	<20050515132906.GW16549@stusta.de>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [-mm patch] fix recursive IPW2200 dependencies
+Date: Thu, 2 Jun 2005 22:07:02 +0200
+Message-ID: <20050602200701.GG4992@stusta.de>
+References: <20050601022824.33c8206e.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ja@ssi.bg, wensong@LinuxVirtualServer.org, netdev@oss.sgi.com,
-        linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, hostap@shmoo.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: bunk@stusta.de
-In-Reply-To: <20050515132906.GW16549@stusta.de>
+To: Andrew Morton <akpm@osdl.org>, jkmaline@cc.hut.fi, jgarzik@pobox.com
+Content-Disposition: inline
+In-Reply-To: <20050601022824.33c8206e.akpm@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Adrian Bunk <bunk@stusta.de>
-Date: Sun, 15 May 2005 15:29:06 +0200
-
-> ip_vs_proto_icmp.c was never finished.
+On Wed, Jun 01, 2005 at 02:28:24AM -0700, Andrew Morton wrote:
+>...
+> Changes since 2.6.12-rc5-mm1:
+>...
+> +git-netdev-we18-ieee80211-wifi.patch
 > 
-> Signed-off-by: Adrian Bunk <bunk@stusta.de>
+>  Various things added and merged in netdev land.
+>...
 
-Applied, thanks Adrian.
+This results in recursive dependencies:
+- IPW2200 depends on NET_RADIO
+- IPW2200 selects IEEE80211
+- IEEE80211 selects NET_RADIO
+
+
+This patch fixes the IPW2200 dependencies in a way that they are similar 
+to the IPW2100 dependencies.
+
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
+
+--- linux-2.6.12-rc5-mm2-full/drivers/net/wireless/Kconfig.old	2005-06-02 22:04:02.000000000 +0200
++++ linux-2.6.12-rc5-mm2-full/drivers/net/wireless/Kconfig	2005-06-02 22:04:40.000000000 +0200
+@@ -192,9 +192,8 @@
+ 
+ config IPW2200
+ 	tristate "Intel PRO/Wireless 2200BG and 2915ABG Network Connection"
+-	depends on NET_RADIO && PCI
++	depends on IEEE80211 && PCI
+ 	select FW_LOADER
+-	select IEEE80211
+ 	---help---
+           A driver for the Intel PRO/Wireless 2200BG and 2915ABG Network
+ 	  Connection adapters. 
