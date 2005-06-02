@@ -1,38 +1,31 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] net: fix sysctl_
-Date: Thu, 2 Jun 2005 11:19:09 -0700
-Message-ID: <20050602111909.63ef419a@dxpl.pdx.osdl.net>
-References: <Pine.CYG.4.58.0505261406210.2364@mawilli1-desk2.amr.corp.intel.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: R8169 from U.S.Robotics not found by driver
+Date: Thu, 2 Jun 2005 20:34:56 +0200
+Message-ID: <20050602183456.GA5606@electric-eye.fr.zoreil.com>
+References: <3BDD1137DBC16749ACF2C93F82FCA98DA107D2@s1ms3.D01.arc.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Mitch Williams <mitch.a.williams@intel.com>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux r8169 crew <netdev@oss.sgi.com>, jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <Pine.CYG.4.58.0505261406210.2364@mawilli1-desk2.amr.corp.intel.com>
+To: Kutschera Peter <Peter.Kutschera@arcs.ac.at>
+Content-Disposition: inline
+In-Reply-To: <3BDD1137DBC16749ACF2C93F82FCA98DA107D2@s1ms3.D01.arc.local>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Changing the sysctl net.core.dev_weight has no effect because the weight
-of the backlog devices is set during initialization and never changed.
+Kutschera Peter <Peter.Kutschera@arcs.ac.at> :
+[...]
+> If you have any tips please let me know.
 
-This patch propagates any changes to the global value affected by sysctl
-to the per-cpu devices. It is done every time the packet handler
-function is run.
+Upgrade to (at your option):
+- 2.6.12-rc5 + Jeff Garzik's r8169 git branch;
+- 2.6.12-rc5-mm2.
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+Both contain the latest r8169 driver. It will handle USR hardware.
+If you manage to kill it, please report it.
 
+Would your setup allow to test the driver in the Mpps range by any luck ?
 
-Index: skge-0.8/net/core/dev.c
-===================================================================
---- skge-0.8.orig/net/core/dev.c
-+++ skge-0.8/net/core/dev.c
-@@ -1732,6 +1732,7 @@ static int process_backlog(struct net_de
- 	struct softnet_data *queue = &__get_cpu_var(softnet_data);
- 	unsigned long start_time = jiffies;
- 
-+	backlog_dev->weight = weight_p;
- 	for (;;) {
- 		struct sk_buff *skb;
- 		struct net_device *dev;
+--
+Ueimor
