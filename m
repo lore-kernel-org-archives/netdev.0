@@ -1,72 +1,45 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: Re: 2.6.12-rc5-mm2: "bic unavailable using TCP reno" messages
-Date: Thu, 2 Jun 2005 22:38:23 +0200
-Message-ID: <20050602203823.GI4992@stusta.de>
-References: <20050601022824.33c8206e.akpm@osdl.org> <20050602121511.GE4992@stusta.de> <429F1079.5070701@ev-en.org> <20050602103805.6beb4f4e@dxpl.pdx.osdl.net>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: Locking model for NAPI drivers
+Date: Thu, 02 Jun 2005 12:56:52 -0700
+Message-ID: <1117742212.22670.24.camel@rh4>
+References: <20050531.154847.63995530.davem@davemloft.net>
+ <1117658019.4310.58.camel@rh4>
+ <20050601.152134.120445266.davem@davemloft.net>
+ <1117661650.4310.62.camel@rh4>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Baruch Even <baruch@ev-en.org>, Andrew Morton <akpm@osdl.org>,
-        linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20050602103805.6beb4f4e@dxpl.pdx.osdl.net>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <1117661650.4310.62.camel@rh4>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 02, 2005 at 10:38:05AM -0700, Stephen Hemminger wrote:
-> On Thu, 02 Jun 2005 14:58:17 +0100
-> Baruch Even <baruch@ev-en.org> wrote:
+On Wed, 2005-06-01 at 14:34 -0700, Michael Chan wrote:
+> On Wed, 2005-06-01 at 15:21 -0700, David S. Miller wrote:
+> > Since the caller shuts down NAPI ->poll(), after setting the SYNC bit
+> > we can just check the MAILBOX register, and if a '1' is there just
+> > return.  Does one need to mask out the upper bits of the regiser in
+> > order to avoid seeing the IRQ tag in such a comparison?
+> > 
+> No, just check for the value 1 since that's the value we use to disable
+> interrupts. The value read back will always be 1 if 1 was previously
+> written to it.
 > 
-> >...
-> 
-> Your right, the sysctl handler should be smarter, but that is not the problem here.
-> The problem is that the default value is set to be BIC to be compatible with earlier kernels.
-> Since 75% of the world isn't smart enough to figure out how to use sysctl, there is a
-> question of what the default should be, and what to do if that is missing.
-> 
-> One version had a messy ifdef chain to try and avoid the warning:
-> 
-> char sysctl_tcp_congestion_control[] = 
-> #if defined(CONFIG_TCP_BIC)
-> 	"bic"
-> #elif defined(CONFIG_TCP_HTCP)
-> 	"htcp"
-> #else
-> 	"reno"
-> #endif
-> 	;
-> 
-> but that was ugly.
-> 
-> Another possibility is putting it in as yet another config value at kernel build time.
->...
+One more race condition:
 
+CPU1                                 CPU2
 
-One thing that currently makes all solutions harder (and the #ifdef 
-example above not ugly but simply wrong) is that you allow modular 
-congestion control options for the always static net support.
+tg3_poll()
+ __netif_rx_complete()
+                                     tg3_netif_stop()
+                                      netif_poll_disable()
+                                     tg3_full_lock()
+                                      tg3_irq_quiesce()
+ tg3_restart_ints()
+  BUG_ON(tp->irq_state)
 
-Is this really required?
-
-
-The IO schedulers have a similar problem, and they are using the #ifdef 
-approach for selecting the default.
-
-
-One approach is to actually choose the default using #ifdef's.
-
-You could also do any kind of runtime selection, but please don't print 
-the warning more than once.
-
-
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+This race condition is somewhat harmless but I think we need to take
+care of it for correctness. Any simple ways to fix it?
