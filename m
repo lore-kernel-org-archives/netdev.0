@@ -1,69 +1,81 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: RFC: NAPI packet weighting patch
-Date: Thu, 2 Jun 2005 10:30:52 -0700
-Message-ID: <20050602103052.66f12f21@dxpl.pdx.osdl.net>
-References: <1117241786.6251.7.camel@localhost.localdomain>
-	<200505311707.54487.jdmason@us.ibm.com>
-	<20050531.151443.74564699.davem@davemloft.net>
-	<200505311828.44304.jdmason@us.ibm.com>
-	<1117715207.6050.21.camel@localhost.localdomain>
+Subject: Re: 2.6.12-rc5-mm2: "bic unavailable using TCP reno" messages
+Date: Thu, 2 Jun 2005 10:38:05 -0700
+Message-ID: <20050602103805.6beb4f4e@dxpl.pdx.osdl.net>
+References: <20050601022824.33c8206e.akpm@osdl.org>
+	<20050602121511.GE4992@stusta.de>
+	<429F1079.5070701@ev-en.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jon Mason <jdmason@us.ibm.com>, "David S. Miller" <davem@davemloft.net>,
-        mitch.a.williams@intel.com, netdev@oss.sgi.com,
-        Robert.Olsson@data.slu.se, john.ronciak@intel.com,
-        ganesh.venkatesan@intel.com, jesse.brandeburg@intel.com
+Cc: Adrian Bunk <bunk@stusta.de>, Andrew Morton <akpm@osdl.org>,
+        linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1117715207.6050.21.camel@localhost.localdomain>
+To: Baruch Even <baruch@ev-en.org>
+In-Reply-To: <429F1079.5070701@ev-en.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 02 Jun 2005 08:26:46 -0400
-jamal <hadi@cyberus.ca> wrote:
+On Thu, 02 Jun 2005 14:58:17 +0100
+Baruch Even <baruch@ev-en.org> wrote:
 
-> On Tue, 2005-31-05 at 18:28 -0500, Jon Mason wrote:
-> > On Tuesday 31 May 2005 05:14 pm, David S. Miller wrote:
-> > > From: Jon Mason <jdmason@us.ibm.com>
-> > > Date: Tue, 31 May 2005 17:07:54 -0500
-> > >
-> > > > Of course some performace analysis would have to be done to determine the
-> > > > optimal numbers for each speed/duplexity setting per driver.
-> > >
-> > > per cpu speed, per memory bus speed, per I/O bus speed, and add in other
-> > > complications such as NUMA
-> > >
-> > > My point is that whatever experimental number you come up with will be
-> > > good for that driver on your systems, not necessarily for others.
-> > >
-> > > Even within a system, whatever number you select will be the wrong
-> > > thing to use if one starts a continuous I/O stream to the SATA
-> > > controller in the next PCI slot, for example.
-> > >
-> > > We keep getting bitten by this, as the Altix perf data continually shows,
-> > > and we need to absolutely stop thinking this way.
-> > >
-> > > The way to go is to make selections based upon observed events and
-> > > mesaurements.
+> Adrian Bunk wrote:
+> > On Wed, Jun 01, 2005 at 02:28:24AM -0700, Andrew Morton wrote:
 > > 
-> > I'm not arguing against a /proc entry to tune dev->weight for those sysadmins 
-> > advanced enough to do that.  I am arguing that we can make the driver smarter 
-> > (at little/no cost)  for "out of the box" users.
+> >>...
+> >>Changes since 2.6.12-rc5-mm1:
+> >>...
+> >>+tcp-tcp_infra.patch
+> >>...
+> >> Steve Hemminger's TCP enhancements.
+> >>...
 > > 
+> > 
+> > I said "no" to CONFIG_TCP_CONG_BIC, and now my syslog is full of messages
+> >    kernel: bic unavailable using TCP reno
+> > 
+> > I have no problem with such a message being shown once - but once should 
+> > be enough.  
 > 
-> What is the point of making the driver "smarter"? 
-> Recall, the algorithm used to schedule the netdevices is based on an
-> extension of Weighted Round Robin from Varghese et al known as DRR (ask
-> gooogle for details).
-> The idea is to provide fairness amongst many drivers. As an example, if
-> you have a gige driver it shouldnt be taking all the resources at the
-> expense of starving the fastether driver.
-> If the admin wants one driver to be more "important" than the other,
-> s/he will make sure it has a higher weight.
->
+> The best solution for this would be to check the available protocols at
+> setup time and not at connection creation time. This would also provide
+> a better feedback to the user, since he will either see that what he set
+> was taken, or it wasn't.
+> 
+> In the current mechanism you can set the protocol to 'foo' and it will
+> show back as 'foo'. You'll get complaints only once a connection is
+> attempted with this protocol.
+> 
+> It does mean some extra work in the sysctl stage, but it's better IMO to
+> do it there rather than at connection setup time.
+> 
+> Baruch
 
-In fact, since the default weighting should be based on the amount of cpu time expended
-per frame rather than link speed. The point is that a more "heavy weight" driver shouldn't
-starve out all the others.
+Your right, the sysctl handler should be smarter, but that is not the problem here.
+The problem is that the default value is set to be BIC to be compatible with earlier kernels.
+Since 75% of the world isn't smart enough to figure out how to use sysctl, there is a
+question of what the default should be, and what to do if that is missing.
+
+One version had a messy ifdef chain to try and avoid the warning:
+
+char sysctl_tcp_congestion_control[] = 
+#if defined(CONFIG_TCP_BIC)
+	"bic"
+#elif defined(CONFIG_TCP_HTCP)
+	"htcp"
+#else
+	"reno"
+#endif
+	;
+
+but that was ugly.
+
+Another possibility is putting it in as yet another config value at kernel build time.
+
+To suppress the warning repeating, probably the best solution would be rewrite the string
+if we have to revert to reno. But carefully to avoid SMP issues.  This also implies a smarter
+sysctl string handler for this value as well.
+
+P.s: saw your comparison paper, after a little more corroboration I would like to make
+H-TCP the default.
