@@ -1,40 +1,40 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] shaper.c: fix locking
-Date: Thu, 02 Jun 2005 16:36:28 -0700 (PDT)
-Message-ID: <20050602.163628.01205145.davem@davemloft.net>
-References: <20050527115450.GA19469@lst.de>
-	<20050531.144114.78710204.davem@davemloft.net>
-	<20050601052149.GA11935@lst.de>
+Subject: Re: Comparison of several congestion control algorithms
+Date: Thu, 02 Jun 2005 16:35:12 -0700 (PDT)
+Message-ID: <20050602.163512.10298458.davem@davemloft.net>
+References: <4298E045.9050009@ev-en.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, shemminger@osdl.org, doug.leith@nuim.ie
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hch@lst.de
-In-Reply-To: <20050601052149.GA11935@lst.de>
+To: baruch@ev-en.org
+In-Reply-To: <4298E045.9050009@ev-en.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Christoph Hellwig <hch@lst.de>
-Date: Wed, 1 Jun 2005 07:21:50 +0200
+From: Baruch Even <baruch@ev-en.org>
+Date: Sat, 28 May 2005 22:19:01 +0100
 
-> On Tue, May 31, 2005 at 02:41:14PM -0700, David S. Miller wrote:
-> > From: Christoph Hellwig <hch@lst.de>
-> > Subject: [PATCH] shaper.c: fix locking
-> > Date: Fri, 27 May 2005 13:54:50 +0200
-> > 
-> > >  o use a semaphore instead of an opencoded and racy lock
-> > >  o move locking out of shaper_kick and into the callers - most just
-> > >    released the lock before calling shaper_kick
-> > >  o remove in_interrupt() tests.  from ->close we can always block, from
-> > >    ->hard_start_xmit and timer context never
-> > 
-> > Do you really want to use a semaphore for a lock taken
-> > %99 of the time in software IRQ context, which obviously
-> > cannot sleep?
+> I wanted to point you to a comparison of congestion control algorithm
+> done at the Hamilton Institute. These experiments compare Scalable-TCP,
+> High-Speed TCP, FAST-TCP, BIC-TCP, H-TCP and Standard TCP. They compared
+>   fairness, compatibility with TCP and link utilisation.
 > 
-> I want to change as little as possible from the previous variant ;-)
+> You can find the results and a report at http://hamilton.ie/net/eval/
 
-Fair enough, patch applied.  If this driver breaks as a result of
-these changes, you get to keep the pieces ok? :-)
+Nice work, I enjoyed this paper very much.
+
+There is something that none of these papers mention, but is essential
+for interpreting results.  Did you use interfaces with TSO enabled?
+
+There is a very serious congestion window growth bug with TSO enabled
+in the current 2.6.x tree.  The problem is due to congestion window
+validation.  When we build TSO frames, even if we have packets to send,
+we may defer a few frames until the full TSO packet can go out.
+But this causes the congestion window validation checks in tcp_ack()
+to not pass, and thus the congestion window does not grow.
+
+I am going to have this fixed, but for now people should do congestion
+window algorithm tests with TSO explicitly disabled on their interfaces.
