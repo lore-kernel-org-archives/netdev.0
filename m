@@ -1,30 +1,40 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Network card driver problem (znb.o/tulip)
-Date: Thu, 02 Jun 2005 23:25:52 -0700
-Message-ID: <429FF7F0.7050505@candelatech.com>
-References: <efe3b00605031021513b7268d1@mail.gmail.com>	 <efe3b00605051901022854653a@mail.gmail.com>	 <428CC958.1080909@candelatech.com>	 <efe3b0060505192225f3cf36e@mail.gmail.com>	 <428E0B3B.1090507@candelatech.com>	 <efe3b00605060222452675d8fc@mail.gmail.com>	 <429FF071.8040707@candelatech.com> <efe3b0060506022258519aa826@mail.gmail.com>
+From: Jiri Benc <jbenc@suse.cz>
+Subject: Re: [PATCH] ieee80211: Update generic definitions to latest specs.
+Date: Fri, 3 Jun 2005 11:33:43 +0200
+Message-ID: <20050603113343.55d19cfc@griffin.suse.cz>
+References: <20050602190232.340996282D7@mail.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, tulip-users@lists.sourceforge.net, netdev@oss.sgi.com
+Cc: <netdev@oss.sgi.com>, <jbohac@suse.cz>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Kosta Todorovic <kostodo@gmail.com>
-In-Reply-To: <efe3b0060506022258519aa826@mail.gmail.com>
+To: <gwingerde@home.nl>
+In-Reply-To: <20050602190232.340996282D7@mail.suse.cz>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Kosta Todorovic wrote:
-> So intel gigE nics use standard tulip linux drivers that come shipped
-> with a vanilla kernel?
+On Thu, 2 Jun 2005 21:02:24 +0200, gwingerde@home.nl wrote:
+> I was thinking about that too, but couldn't find a proper shorter
+> version without losing the descriptive meaning.
+> 
+> Do you have any suggestions to shorten them?
 
-No..forget about tulip.  It uses standard e1000 driver shipped with
-vanilla kernel.  The BCM chipsets use standard drivers in the kernel
-as well.
+Maybe we can lose a bit of descriptiveness and put comments above
+definitions instead?
 
-Ben
+I can imagine names such as WLAN_STATUS_ASSOC_DENIED_NOSPECTRUM,
+WLAN_STATUS_ASSOC_DENIED_BAD_POWER,
+WLAN_STATUS_ASSOC_DENIED_BAD_SUPPCHANNS, WLAN_REASON_DISASSOC_BAD_POWER,
+and so on. Also WLAN_STATUS_ASSOC_DENIED_NOSHORT seems to be acceptable
+for me.
 
+More often used identifiers probably could have even shorter name - what
+about renaming IEEE80211_FCTL_PROTECTEDFRAME to
+IEEE80211_FCTL_PROTECTED?
+
+Thanks,
 
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Jiri Benc
+SUSE Labs
