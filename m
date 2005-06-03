@@ -1,50 +1,54 @@
-From: Ben Greear <greearb@candelatech.com>
+From: "David S. Miller" <davem@davemloft.net>
 Subject: Re: RFC: NAPI packet weighting patch
-Date: Fri, 03 Jun 2005 11:59:35 -0700
-Message-ID: <42A0A897.5080006@candelatech.com>
-References: <468F3FDA28AA87429AD807992E22D07E0450BFE8@orsmsx408>	<42A0A25C.8000503@candelatech.com> <20050603.114950.119242486.davem@davemloft.net>
+Date: Fri, 03 Jun 2005 12:01:26 -0700 (PDT)
+Message-ID: <20050603.120126.41874584.davem@davemloft.net>
+References: <1117765954.6095.49.camel@localhost.localdomain>
+	<Pine.CYG.4.58.0506030929300.2788@mawilli1-desk2.amr.corp.intel.com>
+	<1117824150.6071.34.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: john.ronciak@intel.com, Robert.Olsson@data.slu.se, jdmason@us.ibm.com,
-        shemminger@osdl.org, hadi@cyberus.ca, mitch.a.williams@intel.com,
-        netdev@oss.sgi.com, ganesh.venkatesan@intel.com,
-        jesse.brandeburg@intel.com
+Cc: mitch.a.williams@intel.com, john.ronciak@intel.com, jdmason@us.ibm.com,
+        shemminger@osdl.org, netdev@oss.sgi.com, Robert.Olsson@data.slu.se,
+        ganesh.venkatesan@intel.com, jesse.brandeburg@intel.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050603.114950.119242486.davem@davemloft.net>
+To: hadi@cyberus.ca
+In-Reply-To: <1117824150.6071.34.camel@localhost.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> From: Ben Greear <greearb@candelatech.com>
+From: jamal <hadi@cyberus.ca>
+Date: Fri, 03 Jun 2005 14:42:30 -0400
 
->>Maybe the poll is disabling the IRQs on the NIC for too long, or something
->>like that?
-> 
-> 
-> In a reply I just sent out to this thread, I postulate that the
-> jiffies check is hitting earlier with a lower weight value, a quick
-> look at /proc/net/softnet_stat during their testing will confirm or
-> deny this theory.
+> When you reduce the weight, the system is spending less time in the
+> softirq processing packets before softirq yields. If this gives more
+> opportunity to your app to run, then the performance will go up.
+> Is this what you are seeing? 
 
-That would basically just decrease the work done in the NAPI poll though,
-so I don't see how that could be the problem, since the 'solution' was to
-force less work to be done.
+Jamal, this is my current theory as well, we hit the jiffies
+check.
 
-> It could also just be a simple bug in the dev->quota accounting
-> somewhere.
-> 
-> Note that, in all of this, I do not have any objections to providing
-> a way to configure the dev->weight values.  I will be applying Stephen
-> Hemminger's patches.
+It it the only logical explanation I can come up with for the
+single adapter case.
 
-Good.  The more knobs the merrier, so long as they are at least somewhat
-documented and default to good sane values :)
+There are some ways we can mitigate this.  Here is one idea
+off the top of my head.
 
-Ben
+When the jiffies check is hit, lower the weight of the most recently
+polled device towards some minimum (perhaps divide by two).  If we
+successfully poll without hitting the jiffies check, make a small
+increment of the weight up to some limit.
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+It is Van Jacobson TCP congestion avoidance applied to NAPI :-)
+
+Just a simple AIMD (Additive Increase, Multiplicative Decrease).
+So, hitting the jiffies work limit is congestion, and the cause
+of the congestion is the most recently polled device.
+
+In this regime, what the driver currently specifies as "->weight"
+is actually the maximum we'll use in the congestion control
+algorithm.  And we can choose some constant minimum, something
+like "8" ought to work well.
+
+Comments?
