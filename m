@@ -1,54 +1,183 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: RFC: NAPI packet weighting patch
-Date: Fri, 03 Jun 2005 18:29:58 -0400
-Message-ID: <1117837798.6266.25.camel@localhost.localdomain>
-References: <20050603.120126.41874584.davem@davemloft.net>
-	 <Pine.CYG.4.58.0506031202280.3344@mawilli1-desk2.amr.corp.intel.com>
-	 <20050603.132257.23013342.davem@davemloft.net>
-	 <20050603.132922.63997492.davem@davemloft.net>
-	 <1117828169.4430.29.camel@rh4> <20050603205944.GC20623@xi.wantstofly.org>
-	 <1117830922.4430.44.camel@rh4>
-Reply-To: hadi@cyberus.ca
+From: Matt Porter <mporter@kernel.crashing.org>
+Subject: Re: [PATCH][5/5] RapidIO support: net driver over messaging
+Date: Fri, 3 Jun 2005 15:43:25 -0700
+Message-ID: <20050603154324.I32392@cox.net>
+References: <20050602140359.B24818@cox.net> <20050602141247.C24818@cox.net>
+	<20050602141946.D24818@cox.net> <20050602142509.E24818@cox.net>
+	<20050602143404.F24818@cox.net>
+	<20050602150543.7e4326b6@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Lennert Buytenhek <buytenh@wantstofly.org>,
-        "David S. Miller" <davem@davemloft.net>, mitch.a.williams@intel.com,
-        john.ronciak@intel.com, jdmason@us.ibm.com, shemminger@osdl.org,
-        netdev@oss.sgi.com, Robert.Olsson@data.slu.se,
-        ganesh.venkatesan@intel.com, jesse.brandeburg@intel.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Michael Chan <mchan@broadcom.com>
-In-Reply-To: <1117830922.4430.44.camel@rh4>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@osdl.org, netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
+	torvalds@osdl.org, linuxppc-embedded@ozlabs.org, jgarzik@pobox.com
+Return-path: <linuxppc-embedded-bounces@ozlabs.org>
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20050602150543.7e4326b6@dxpl.pdx.osdl.net>;
+	from shemminger@osdl.org on Thu, Jun 02, 2005 at 03:05:43PM -0700
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
+	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
+List-Post: <mailto:linuxppc-embedded@ozlabs.org>
+List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
+	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-embedded-bounces@ozlabs.org
+Errors-To: linuxppc-embedded-bounces@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2005-03-06 at 13:35 -0700, Michael Chan wrote:
-> On Fri, 2005-06-03 at 22:59 +0200, Lennert Buytenhek wrote:
+On Thu, Jun 02, 2005 at 03:05:43PM -0700, Stephen Hemminger wrote:
+> How much is this like ethernet? does it still do ARP?
 
-> > Which makes a lot more sense, since you'd rather do one MMIO write
-> > at the end of the loop than one per iteration, especially if your
-> > MMIO read (flush) latency is high.  (Any subsequent MMIO read will
-> > have to flush out all pending writes, which'll be slow if there's
-> > a lot of writes still in the queue.)
-> > 
-> I agree on the merit of issuing only one IO at the end. What I'm saying
-> is that doing so will make it similar to e1000 where all the buffers are
-> replenished at the end. Isn't that so or am I missing something?
+It's nothing like Ethernet, the only relation is that an Ethernet network
+driver is easy to implement over top of raw message ports on a switched
+fabric network. It gives easy access to RIO messaging from userspace
+without inventing a new interface.
+
+ARP works by the driver emulating a broadcast over RIO by sending the
+same ARP packet to each node that is participating in the rionet. Nodes
+join/leave the rionet by sending RIO-specific doorbell messages to
+potential participants on the switched fabric. A table is kept to
+flag active participants such that a fast lookup can be made to translate
+the dst MAC address to a RIO device struct that is used to actually
+send the Ethernet packet encapsulated into a standard RIO message
+to the appropriate node(s).
+
+> Can it do promiscious receive?
+
+No.
+
+> > +LIST_HEAD(rionet_peers);
 > 
+> Does this have to be global?
 
-I think the main issue would be a lot less CPU used in your case
-(because of the single MMIO).
+Nope, should be static. Fixing.
 
-> By the way, in tg3 there is a buffer replenishment threshold programmed
-> to the chip and is currently set at rx_pending / 8 (200/8 = 25). This
-> means that the chip will replenish 25 rx buffers at a time.
+> Not sure about the locking of this stuff, are you
+> relying on the RTNL?
+
+Yes, last I looked that was sufficient for all the entry points.
+I protect the driver-specific data (tx skb rings, etc.) with
+a private lock.
+ 
+> > +
+> > +static int rionet_change_mtu(struct net_device *ndev, int new_mtu)
+> > +{
+> > +	struct rionet_private *rnet = ndev->priv;
+> > +
+> > +	if (netif_msg_drv(rnet))
+> > +		printk(KERN_WARNING
+> > +		       "%s: rionet_change_mtu(): not implemented\n", DRV_NAME);
+> > +
+> > +	return 0;
+> > +}
 > 
+> If you can allow any mtu then don't need this at all.
+> Or if you are limited then better return an error for bad values.
 
-So when you write the MMIO, 25 buffers are replenished or is this auto
-magically happening in the background? Sounds like a neat feature either
-way.
+Ok, I do have a upper limit of 4082 as the RIO messages have a
+max 4096 byte payload. That's the default on open as well. I'll
+fix this up.
 
-cheers,
-jamal
+> > +static void rionet_set_multicast_list(struct net_device *ndev)
+> > +{
+> > +	struct rionet_private *rnet = ndev->priv;
+> > +
+> > +	if (netif_msg_drv(rnet))
+> > +		printk(KERN_WARNING
+> > +		       "%s: rionet_set_multicast_list(): not implemented\n",
+> > +		       DRV_NAME);
+> > +}
+> 
+> If you can't handle it then just leave dev->set_multicast_list
+> as NULL and all attempts to add or delete will get -EINVAL
+
+Will do. It was a placeholder at one point when I thought I might
+emulate multicast in the driver...it's fallen down my priority
+list.
+
+> > +
+> > +static int rionet_open(struct net_device *ndev)
+> > +{
+> 
+> 
+> > +	/* Initialize inbound message ring */
+> > +	for (i = 0; i < RIONET_RX_RING_SIZE; i++)
+> > +		rnet->rx_skb[i] = NULL;
+> > +	rnet->rx_slot = 0;
+> > +	rionet_rx_fill(ndev, 0);
+> > +
+> > +	rnet->tx_slot = 0;
+> > +	rnet->tx_cnt = 0;
+> > +	rnet->ack_slot = 0;
+> > +
+> > +	spin_lock_init(&rnet->lock);
+> > +
+> > +	rnet->msg_enable = RIONET_DEFAULT_MSGLEVEL;
+> 
+> Better to do all initialization of the per device data
+> in the place it is allocated (rio_setup_netdev)
+
+Right, will do.
+
+> > +static int rionet_ioctl(struct net_device *ndev, struct ifreq *rq, int cmd)
+> > +{
+> > +	return -EOPNOTSUPP;
+> > +}
+> 
+> Unneeded, if dev->do_ioctl is NULL, then all private ioctl's will
+> return -EINVAL that is what you want.
+
+Ah, ok. Good, none of the MII stuff applies in this case.
+ 
+> > +static u32 rionet_get_link(struct net_device *ndev)
+> > +{
+> > +	return netif_carrier_ok(ndev);
+> > +}
+> 
+> Use ethtool_op_get_link
+
+Ok
+
+<snip>
+
+> > +	/* Fill in the driver function table */
+> > +	ndev->open = &rionet_open;
+> > +	ndev->hard_start_xmit = &rionet_start_xmit;
+> > +	ndev->stop = &rionet_close;
+> > +	ndev->get_stats = &rionet_stats;
+> > +	ndev->change_mtu = &rionet_change_mtu;
+> > +	ndev->set_mac_address = &rionet_set_mac_address;
+> > +	ndev->set_multicast_list = &rionet_set_multicast_list;
+> > +	ndev->do_ioctl = &rionet_ioctl;
+> > +	SET_ETHTOOL_OPS(ndev, &rionet_ethtool_ops);
+> > +
+> > +	ndev->mtu = RIO_MAX_MSG_SIZE - 14;
+> > +
+> > +	SET_MODULE_OWNER(ndev);
+> 
+> Can you set any ndev->features to get better performance. 
+> 	Can you take >32bit data addresses? then set HIGHDMA
+> 	You are doing your on locking, can you use LLTX?
+> 	Does the hardware support scatter gather?
+
+Some of these get tricky.  In general, rionet could support
+SG and with driver help we can flag IP_CSUM. In practice, the
+current generation MPC85xx HW on my development system have
+some problems with their message port dma queues. In short,
+their implementation is such that the arch-specific code is
+forced to do a copy of the skb on both tx and rx. Because of
+this, adding SG/IP_CSUM doesn't have any value yet...it'll make
+sense to add the addtional features once we get a platform with
+better messaging hardware. HIGHDMA may not be suitable on all
+platforms. Since rionet sits on top of a hardware abstraction,
+it doesn't have full knowledge of the DMA capabilities of the
+hardware. We can eventually have some interfaces to the arch
+code to learn that info, but it's not there yet.  I have to
+look into LLTX, I know what it stands for, but I'm not sure
+of the details.  Do you have a good LLTX example reference?
+
+That said, my goal is to enable as many features as possible
+when we have hw to take advantage of them.
+
+-Matt
