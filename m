@@ -1,44 +1,53 @@
-From: Mitch Williams <mitch.a.williams@intel.com>
+From: "David S. Miller" <davem@davemloft.net>
 Subject: Re: RFC: NAPI packet weighting patch
-Date: Fri, 3 Jun 2005 13:28:57 -0700
-Message-ID: <Pine.CYG.4.58.0506031327370.400@mawilli1-desk2.amr.corp.intel.com>
-References: <1117765954.6095.49.camel@localhost.localdomain>
- <Pine.CYG.4.58.0506030929300.2788@mawilli1-desk2.amr.corp.intel.com>
- <1117824150.6071.34.camel@localhost.localdomain> <20050603.120126.41874584.davem@davemloft.net>
- <1117827650.6071.59.camel@localhost.localdomain> <1117830205.6071.81.camel@localhost.localdomain>
+Date: Fri, 03 Jun 2005 13:29:22 -0700 (PDT)
+Message-ID: <20050603.132922.63997492.davem@davemloft.net>
+References: <20050603.120126.41874584.davem@davemloft.net>
+	<Pine.CYG.4.58.0506031202280.3344@mawilli1-desk2.amr.corp.intel.com>
+	<20050603.132257.23013342.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@davemloft.net>,
-        "Williams, Mitch A" <mitch.a.williams@intel.com>,
-        "Ronciak, John" <john.ronciak@intel.com>, jdmason@us.ibm.com,
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: hadi@cyberus.ca, john.ronciak@intel.com, jdmason@us.ibm.com,
         shemminger@osdl.org, netdev@oss.sgi.com, Robert.Olsson@data.slu.se,
-        "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>,
-        "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+        ganesh.venkatesan@intel.com, jesse.brandeburg@intel.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-In-Reply-To: <1117830205.6071.81.camel@localhost.localdomain>
+To: mitch.a.williams@intel.com
+In-Reply-To: <20050603.132257.23013342.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+From: "David S. Miller" <davem@davemloft.net>
+Date: Fri, 03 Jun 2005 13:22:57 -0700 (PDT)
 
+> This is why you should replenish RX packets _IN_ your
+> RX packet receive processing, not via some tasklet
+> or other seperate work processing context.
+> 
+> No wonder I never see this on tg3.
 
-On Fri, 3 Jun 2005, jamal wrote:
+Actually, the problem is slightly different.
 
->
-> Sorry, Its already there as Dave said in his email.
-> Look for time_squeeze. Its the column i labeled XXXX below.
->
-> -----
-> $ cat /proc/net/softnet_stat
-> 0000f938 00000000 XXXXXXX 00000000 00000000 00000000 00000000 00000000
-> 00000000
-> ------
+E1000 processes the full QUOTA of RX packets,
+_THEN_ replenishes with new RX buffers.  No wonder
+the chip runs out of RX descriptors.
 
+You should replenish _AS_ you grab RX packets
+off the receive queue, just as tg3 does.  This
+allows you to accomplish two things:
 
-I might not be able to get into the lab today (they keep making me do
-work!), but I should be able to pop in Monday and take a look.  Shouldn't
-take too long.
+1) Keep up with the chip so that it does not starve,
+   regardless of dev->weight setting or system load.
 
-Thanks,
-Mitch
+2) Make intelligent decisions when RX buffer allocation
+   fails.  When we look at a RX descriptor in tg3 we
+   never leave the descriptor empty.
+
+   If replacement RX buffer fails, we simply ignore the
+   RX packet we're looking at and give it back to the
+   chip.  Every driver should implement this policy.
+
+   Drivers that do not do things this way run into all
+   kinds of RX ring chip starvation issues like the ones
+   you are seeing here.
