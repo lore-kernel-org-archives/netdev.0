@@ -1,36 +1,72 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: Comparison of several congestion control algorithms
-Date: Thu, 02 Jun 2005 16:53:41 -0700 (PDT)
-Message-ID: <20050602.165341.63126720.davem@davemloft.net>
-References: <4298E045.9050009@ev-en.org>
-	<20050602.163512.10298458.davem@davemloft.net>
-	<429F9B2F.8030507@ev-en.org>
+From: "Ronciak, John" <john.ronciak@intel.com>
+Subject: RE: RFC: NAPI packet weighting patch
+Date: Thu, 2 Jun 2005 17:11:20 -0700
+Message-ID: <468F3FDA28AA87429AD807992E22D07E0450BFDB@orsmsx408>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, shemminger@osdl.org, doug.leith@nuim.ie
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8bit
+Cc: <shemminger@osdl.org>, <hadi@cyberus.ca>,
+        "Williams, Mitch A" <mitch.a.williams@intel.com>, <netdev@oss.sgi.com>,
+        <Robert.Olsson@data.slu.se>,
+        "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>,
+        "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: baruch@ev-en.org
-In-Reply-To: <429F9B2F.8030507@ev-en.org>
+Content-class: urn:content-classes:message
+To: "Jon Mason" <jdmason@us.ibm.com>, "David S. Miller" <davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Baruch Even <baruch@ev-en.org>
-Date: Fri, 03 Jun 2005 00:50:07 +0100
+I like this idea as well but I do an issue with it.  How would this
+stack code find out that the weight is too high and pacekts are being
+dropped (not being polled fast enough)?  It would have to check the
+controller stats to see the error count increasing for some period.  I'm
+not sure this is workable unless we have some sort of feedback which the
+driver could send up (or set) saying that this is happening and the
+dynamic weight code could take into acount.
 
-> This is in part because of the start of the work that was based on 2.4
-> kernels and even as far as the 2.6.6 kernel which had disabled TSO once
-> it saw SACKs. This made TSO unusable for our needs.
+Comments?
+
+Cheers,
+John
+
+
+> -----Original Message-----
+> From: Jon Mason [mailto:jdmason@us.ibm.com] 
+> Sent: Thursday, June 02, 2005 3:20 PM
+> To: David S. Miller
+> Cc: shemminger@osdl.org; Ronciak, John; hadi@cyberus.ca; 
+> Williams, Mitch A; netdev@oss.sgi.com; 
+> Robert.Olsson@data.slu.se; Venkatesan, Ganesh; Brandeburg, Jesse
+> Subject: Re: RFC: NAPI packet weighting patch
 > 
-> AFAIK, the tests reported in that document used kernel 2.6.6.
-
-Sure SACKs turn off TSO currently,  but you'll have them enabled
-at the beginning until the first loss and this affects how fast
-the cwnd will grow.
-
-If you have e1000 cards, for example, you're getting TSO enabled
-by default.
-
-You really need to look into this, as it has a real and very
-non-trivial effect on all of the results you obtained.
+> 
+> On Thursday 02 June 2005 05:12 pm, David S. Miller wrote:
+> > From: Jon Mason <jdmason@us.ibm.com>
+> > Date: Thu, 2 Jun 2005 16:51:48 -0500
+> >
+> > > Why not have the driver set the weight to 16/32 
+> respectively for the
+> > > weight (or better yet, have someone run numbers to find 
+> weight that
+> > > are closer to what the adapter can actually use)?  While these
+> > > numbers may not be optimal for every system, this is much better
+> > > that the current system, and would only require 5 or so 
+> extra lines
+> > > of code per NAPI enabled driver.
+> >
+> > Why do this when we can adjust the weight in one spot,
+> > namely the upper level NAPI ->poll() running loop?
+> >
+> > It can measure the overhead, how many packets processed, etc.
+> > and make intelligent decisions based upon that.  This is a CPU
+> > speed, memory speed, I/O bus speed, and link speed agnostic
+> > solution.
+> >
+> > The driver need not take any part in this, and the scheme will
+> > dynamically adjust to resource usage changes in the system.
+> 
+> Yes, a much better idea to do this generically.  I 100% agree 
+> with you.
+> 
