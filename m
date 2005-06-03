@@ -1,52 +1,60 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: RFC: NAPI packet weighting patch
-Date: Sat, 4 Jun 2005 01:30:21 +0200
-Message-ID: <20050603233021.GC21125@xi.wantstofly.org>
-References: <20050603.120126.41874584.davem@davemloft.net> <Pine.CYG.4.58.0506031202280.3344@mawilli1-desk2.amr.corp.intel.com> <20050603.132257.23013342.davem@davemloft.net> <20050603.132922.63997492.davem@davemloft.net> <1117828169.4430.29.camel@rh4> <20050603205944.GC20623@xi.wantstofly.org> <20050603210701.GA3263@edgar.se.axis.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [RFC] Replace scatterlist with crypto_frag
+Date: Sat, 4 Jun 2005 09:46:23 +1000
+Message-ID: <20050603234623.GA20088@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: Michael Chan <mchan@broadcom.com>, "David S. Miller" <davem@davemloft.net>,
-        mitch.a.williams@intel.com, hadi@cyberus.ca, john.ronciak@intel.com,
-        jdmason@us.ibm.com, shemminger@osdl.org, netdev@oss.sgi.com,
-        Robert.Olsson@data.slu.se, ganesh.venkatesan@intel.com,
-        jesse.brandeburg@intel.com
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Edgar E Iglesias <edgar.iglesias@axis.com>
+To: "David S. Miller" <davem@davemloft.net>, James Morris <jmorris@redhat.com>,
+        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+        netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <20050603210701.GA3263@edgar.se.axis.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 03, 2005 at 11:07:01PM +0200, Edgar E Iglesias wrote:
+Hi:
 
-> > > Yes, in tg3, rx buffers are replenished and put back into the ring
-> > >=A0as completed packets are taken off the ring. But we don't tell th=
-e
-> > > chip about these new buffers until we get to the end of the loop,
-> > > potentially after a full quota of packets.
-> >=20
-> > Which makes a lot more sense, since you'd rather do one MMIO write
-> > at the end of the loop than one per iteration, especially if your
-> > MMIO read (flush) latency is high.  (Any subsequent MMIO read will
-> > have to flush out all pending writes, which'll be slow if there's
-> > a lot of writes still in the queue.)
->=20
-> Maybe it would be better to put a fixed weight at this level, return
-> the descriptors to the HW after every X packets. That way you
-> can keep the NAPI weight at 64 (or what ever) and still give back=20
-> descriptors to HW more often.
+I was looking at how we can move the IPsec input/output processing out
+of the critical section protected by the spin locks on the xfrm_state.
+This is useful because it would allow concurrent processing of IPsec
+packets for the same SA.  It is also necessary if we're ever going to
+add support for asynchronous crypto to IPsec.
 
-For this scheme to make any difference at all, the RX ring must be
-overflowing in the case where we refill the RX ring only once every
-64 packets.
+The first requirement for this is that we need to stop using data that
+is shared across a single SA in the IPsec input/output routines.  The
+biggest hurdle there as it stands is sgbuf in esp_data.  This was
+introduced to reduce stack usage in esp_input/esp_output as sgbuf
+would consume up to 64 bytes of space.
 
-If the RX ring _is_ overflowing but the system is otherwise capable of
-keeping up with the receive rate (i.e. the packet service times as seen
-by the NIC have a high variance), simply make the RX ring bigger.
+In order to move it back onto the stack (so we can run these things
+in parallel), I'm thinking of reducing the size of the scatterlist
+structure itself.
 
-I don't see what's going on.
+The Crypto API doesn't need all the data contained in a scatterlist
+structure.  For instance, it has no need for anything to do with DMA.
+When we implement hardware crypto (which might do DMA), they're going
+to have their own lists of descriptors so they can't use the scatterlist
+as is anyway.
 
+The skb_frag_t structure on the other hand is much more suited for
+our purpose.  It is only half the size of scatterlist on i386.
 
---L
+So what do you think about introducing a new crypto_frag structure
+which looks like this:
+
+struct crypto_frag {
+	struct page *page;
+	u16 offset;
+	u16 length;
+};
+
+We could then move sgbuf back into esp_input/esp_output at the cost
+of 32 bytes of stack.  Is this stack cost acceptable?
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
