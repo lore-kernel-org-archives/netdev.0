@@ -1,33 +1,31 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: RFC: NAPI packet weighting patch
-Date: Fri, 03 Jun 2005 13:31:33 -0700 (PDT)
-Message-ID: <20050603.133133.38710501.davem@davemloft.net>
-References: <20050603.120126.41874584.davem@davemloft.net>
-	<Pine.CYG.4.58.0506031202280.3344@mawilli1-desk2.amr.corp.intel.com>
-	<1117828771.6071.77.camel@localhost.localdomain>
+From: Gertjan van Wingerde <gwingerde@home.nl>
+Subject: [PATCH 0/2] ieee80211: Update generic definitions to latest specs
+ - take #2
+Date: Fri, 03 Jun 2005 22:31:15 +0200
+Message-ID: <42A0BE13.3060509@home.nl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: mitch.a.williams@intel.com, john.ronciak@intel.com, jdmason@us.ibm.com,
-        shemminger@osdl.org, netdev@oss.sgi.com, Robert.Olsson@data.slu.se,
-        ganesh.venkatesan@intel.com, jesse.brandeburg@intel.com
+Cc: jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1117828771.6071.77.camel@localhost.localdomain>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: jamal <hadi@cyberus.ca>
-Date: Fri, 03 Jun 2005 15:59:31 -0400
+Hi,
 
-> But one that you could validate by putting proper hooks. As an example,
-> try to restore a descriptor every time you pick one - for an example of
-> this look at the sb1250 driver.
+Following patches update the definitions of the generic ieee80211 stack 
+to the latest versions
+of the published 802.11x specification suite, and cleans up the long 
+list of defines.
 
-Yes, this in my mind is exactly the problem.  TG3 does this
-properly, as do several other drivers.
+The set of patches is a resubmittal of my earlier patch, with the 
+comments of Jiri Benc and Stephen
+Hemminger fixed.
 
-You should never defer RX buffer replenishment, you should
-always do it as you grab packets off of the ring.  You will
-starve the chip otherwise.
+The patches need to be applied in order.
+
+Thanks,
+
+Gertjan van Wingerde
