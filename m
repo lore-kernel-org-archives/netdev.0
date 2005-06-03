@@ -1,111 +1,40 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH]: Tigon3 new NAPI locking v2
-Date: Fri, 03 Jun 2005 16:23:07 -0400
-Message-ID: <42A0BC2B.4020409@pobox.com>
-References: <20050603.122558.88474819.davem@davemloft.net>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: RFC: NAPI packet weighting patch
+Date: Fri, 03 Jun 2005 13:22:57 -0700 (PDT)
+Message-ID: <20050603.132257.23013342.davem@davemloft.net>
+References: <1117824150.6071.34.camel@localhost.localdomain>
+	<20050603.120126.41874584.davem@davemloft.net>
+	<Pine.CYG.4.58.0506031202280.3344@mawilli1-desk2.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, mchan@broadcom.com
+Cc: hadi@cyberus.ca, john.ronciak@intel.com, jdmason@us.ibm.com,
+        shemminger@osdl.org, netdev@oss.sgi.com, Robert.Olsson@data.slu.se,
+        ganesh.venkatesan@intel.com, jesse.brandeburg@intel.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050603.122558.88474819.davem@davemloft.net>
+To: mitch.a.williams@intel.com
+In-Reply-To: <Pine.CYG.4.58.0506031202280.3344@mawilli1-desk2.amr.corp.intel.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> [TG3]: Eliminate all hw IRQ handler spinlocks.
+From: Mitch Williams <mitch.a.williams@intel.com>
+Date: Fri, 3 Jun 2005 12:28:10 -0700
+
+> In a typical NAPI polling loop, the driver processes receive packets until
+> it either hits the quota or runs out of packets.  Then, at the end of the
+> loop, it returns all of those now-free receive resources back to the
+> hardware.
 > 
-> Move all driver spinlocks to be taken at sw IRQ
-> context only.
-> 
-> This fixes the skb_copy() we were doing with hw
-> IRQs disabled (which is illegal and triggers a
-> BUG() with HIGHMEM enabled).  It also simplifies
-> the locking all over the driver tremendously.
-> 
-> We accomplish this feat by creating a special
-> sequence to synchronize with the hw IRQ handler
-> using a 2-bit atomic state.
-> 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
+> With a heavy receive load, the hardware will run out of receive
+> descriptors in the time it takes the driver/NAPI/stack to process 64
+> packets.  So it drops them on the floor.  And, as we know, dropped packets
+> are A Bad Thing.
 
-overall, pretty spiffy :)
+This is why you should replenish RX packets _IN_ your
+RX packet receive processing, not via some tasklet
+or other seperate work processing context.
 
-As further work, I would like to see how much (alot? all?) of the timer 
-code could be moved into a workqueue, where we could kill the last of 
-the horrible-udelay loops in the driver.  Particularly awful is
+No wonder I never see this on tg3.
 
-         while (++tick < 195000) {
-                 status = tg3_fiber_aneg_smachine(tp, &aninfo);
-                 if (status == ANEG_DONE || status == ANEG_FAILED)
-                         break;
-
-                 udelay(1);
-         }
-
-where you could freeze a uniprocess box (lock out everything but 
-interrupts) for over 1 second.  IOW, the slower the phy, the more these 
-slow-path delays can affect the overall system.
-
-This is a MINOR, low priority issue; but long delays are uglies that 
-should be fixed, if its relatively painless.
-
-
-> +static void tg3_irq_quiesce(struct tg3 *tp)
-> +{
-> +	BUG_ON(test_bit(TG3_IRQSTATE_SYNC, &tp->irq_state));
-> +
-> +	set_bit(TG3_IRQSTATE_SYNC, &tp->irq_state);
-> +	smp_mb();
-> +	tw32(GRC_LOCAL_CTRL,
-> +	     tp->grc_local_ctrl | GRC_LCLCTRL_SETINT);
-> +
-> +	while (!test_bit(TG3_IRQSTATE_COMPLETE, &tp->irq_state)) {
-> +		u32 val = tr32(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW);
-> +
-> +		if (val == 0x00000001)
-> +			break;
-> +
-> +		cpu_relax();
-> +	}
-> +}
-
-* This loop makes me nervous...  If there's a fault on the PCI bus or 
-the hardware is unplugged, val will equal 0xffffffff.
-
-* A few comments for normal humans like "force an interrupt" and "wait 
-for interrupt handler to complete" might be nice.
-
-* a BUG_ON(if-interrupts-are-disabled) line might be nice
-
-
-> +static inline int tg3_irq_sync(struct tg3 *tp)
-> +{
-> +	if (test_bit(TG3_IRQSTATE_SYNC, &tp->irq_state)) {
-> +		set_bit(TG3_IRQSTATE_COMPLETE, &tp->irq_state);
-> +		return 1;
-> +	}
-> +	return 0;
-> +}
-> +
-> +/* Fully shutdown all tg3 driver activity elsewhere in the system.
-> + * If irq_sync is non-zero, then the IRQ handler must be synchronized
-> + * with as well.  Most of the time, this is not necessary except when
-> + * shutting down the device.
-> + */
-> +static inline void tg3_full_lock(struct tg3 *tp, int irq_sync)
-> +{
-> +	if (irq_sync)
-> +		tg3_irq_quiesce(tp);
-> +	spin_lock_bh(&tp->lock);
-> +	spin_lock(&tp->tx_lock);
-> +}
-
-Rather than an 'irq_sync' arg, my instinct would have been to create 
-tg3_full_lock() and tg3_full_lock_sync().  This makes the action -much- 
-more obvious to the reader, and since its inline doesn't cost anything 
-(compiler's optimizer even does a tiny bit less work my way).
-
-	Jeff
+It is the only way to do this cleanly.
