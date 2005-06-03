@@ -1,7 +1,7 @@
 From: Jiri Benc <jbenc@suse.cz>
-Subject: [8/9] ieee80211: add sequence numbers
-Date: Fri, 3 Jun 2005 18:36:17 +0200
-Message-ID: <20050603183617.7903c5a0@griffin.suse.cz>
+Subject: [7/9] ipw: fix after "ieee80211: ethernet independency"
+Date: Fri, 3 Jun 2005 18:35:26 +0200
+Message-ID: <20050603183526.0effd2b0@griffin.suse.cz>
 References: <20050603182625.64d33be3@griffin.suse.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -14,73 +14,60 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Adds sequence numbers to IEEE 802.11 headers.
+Fixes ipw2200 after making the ieee80211 layer independent of ethernet.
 
 
 Signed-off-by: Jiri Benc <jbenc@suse.cz>
 Signed-off-by: Jirka Bohac <jbohac@suse.cz>
 
-Index: netdev/include/net/ieee80211.h
+Index: netdev/drivers/net/wireless/ipw2200.c
 ===================================================================
---- netdev.orig/include/net/ieee80211.h	2005-06-03 13:21:00.000000000 +0200
-+++ netdev/include/net/ieee80211.h	2005-06-03 13:21:06.000000000 +0200
-@@ -711,6 +711,8 @@
- 	unsigned int frag_next_idx;
- 	u16 fts; /* Fragmentation Threshold */
+--- netdev.orig/drivers/net/wireless/ipw2200.c	2005-05-31 18:25:53.000000000 +0200
++++ netdev/drivers/net/wireless/ipw2200.c	2005-05-31 18:32:18.000000000 +0200
+@@ -4920,8 +4920,8 @@
+ 						ETH_ALEN) ||
+ 					!memcmp(header->addr3, 
+ 						priv->bssid, ETH_ALEN) ||
+-					is_broadcast_ether_addr(header->addr1) ||
+-					is_multicast_ether_addr(header->addr1);
++					is_broadcast_ieee80211_addr(header->addr1) ||
++					is_multicast_ieee80211_addr(header->addr1);
+ 				break;
  
-+	u16 seq_number;	/* sequence number in transmitted frames */
-+
- 	/* Association info */
- 	u8 bssid[IEEE80211_ALEN];
+ 			case IW_MODE_INFRA:
+@@ -4932,8 +4932,8 @@
+ 					!memcmp(header->addr1, 
+ 						priv->net_dev->dev_addr, 
+ 						ETH_ALEN) ||
+-					is_broadcast_ether_addr(header->addr1) ||
+-					is_multicast_ether_addr(header->addr1);
++					is_broadcast_ieee80211_addr(header->addr1) ||
++					is_multicast_ieee80211_addr(header->addr1);
+ 				break;
+ 			}
+ 			
+@@ -6285,8 +6285,8 @@
+ 	switch (priv->ieee->iw_mode) {
+ 	case IW_MODE_ADHOC:
+ 		hdr_len = IEEE80211_3ADDR_LEN;
+-		unicast = !is_broadcast_ether_addr(hdr->addr1) &&
+-			!is_multicast_ether_addr(hdr->addr1);
++		unicast = !is_broadcast_ieee80211_addr(hdr->addr1) &&
++			!is_multicast_ieee80211_addr(hdr->addr1);
+ 		id = ipw_find_station(priv, hdr->addr1);
+ 		if (id == IPW_INVALID_STATION) {
+ 			id = ipw_add_station(priv, hdr->addr1);
+@@ -6301,8 +6301,8 @@
  
-Index: netdev/net/ieee80211/ieee80211_module.c
-===================================================================
---- netdev.orig/net/ieee80211/ieee80211_module.c	2005-06-03 13:21:00.000000000 +0200
-+++ netdev/net/ieee80211/ieee80211_module.c	2005-06-03 13:21:06.000000000 +0200
-@@ -128,6 +128,7 @@
- 
- 	/* Default fragmentation threshold is maximum payload size */
- 	ieee->fts = DEFAULT_FTS;
-+	ieee->seq_number = 0;
- 	ieee->scan_age = DEFAULT_MAX_SCAN_AGE;
- 	ieee->open_wep = 1;
- 
-Index: netdev/net/ieee80211/ieee80211_tx.c
-===================================================================
---- netdev.orig/net/ieee80211/ieee80211_tx.c	2005-06-03 13:21:00.000000000 +0200
-+++ netdev/net/ieee80211/ieee80211_tx.c	2005-06-03 13:21:06.000000000 +0200
-@@ -276,6 +276,13 @@
- 	else
- 		bytes_last_frag = bytes_per_frag;
- 
-+	if (nr_frags > 16) {
-+		/* Should never happen */
-+		printk(KERN_WARNING "%s: Fragmentation threshold too low\n",
-+			dev->name);
-+		goto failed;
-+	}
-+
- 	/* When we allocate the TXB we allocate enough space for the reserve
- 	 * and full fragment bytes (bytes_per_frag doesn't include prefix,
- 	 * postfix, header, FCS, etc.) */
-@@ -299,6 +306,8 @@
- 		frag_hdr = (struct ieee80211_hdr *)skb_put(skb_frag, hdr_len);
- 		memcpy(frag_hdr, header, hdr_len);
- 
-+		frag_hdr->seq_ctl = cpu_to_le16(ieee->seq_number | i);
-+
- 		/* If this is not the last fragment, then add the MOREFRAGS
- 		 * bit to the frame control */
- 		if (i != nr_frags - 1) {
-@@ -323,7 +332,7 @@
- 		    (CFG_IEEE80211_COMPUTE_FCS | CFG_IEEE80211_RESERVE_FCS))
- 			skb_put(skb_frag, 4);
- 	}
--
-+	ieee->seq_number += 0x10;
- 
-  success:
- 	spin_unlock_irqrestore(&ieee->lock, flags);
+ 	case IW_MODE_INFRA:
+ 	default:
+-		unicast = !is_broadcast_ether_addr(hdr->addr3) &&
+-			!is_multicast_ether_addr(hdr->addr3);
++		unicast = !is_broadcast_ieee80211_addr(hdr->addr3) &&
++			!is_multicast_ieee80211_addr(hdr->addr3);
+ 		hdr_len = IEEE80211_3ADDR_LEN;
+ 		id = 0;
+ 		break;
 
 
 -- 
