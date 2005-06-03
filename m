@@ -1,28 +1,30 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: PATCH: explicit typing WAS(Re: PATCH: rtnetlink explicit flags
- setting
-Date: Thu, 02 Jun 2005 22:08:41 -0700 (PDT)
-Message-ID: <20050602.220841.48530513.davem@davemloft.net>
-References: <20050531222646.GK15391@postel.suug.ch>
-	<20050531.153125.95894437.davem@davemloft.net>
-	<1117717493.6050.29.camel@localhost.localdomain>
+Subject: Re: [IPV4/IPV6] Replace spin_lock_irq with spin_lock_bh
+Date: Thu, 02 Jun 2005 22:10:26 -0700 (PDT)
+Message-ID: <20050602.221026.112287995.davem@davemloft.net>
+References: <20050602094404.GA10316@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1117717493.6050.29.camel@localhost.localdomain>
+To: herbert@gondor.apana.org.au
+In-Reply-To: <20050602094404.GA10316@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: jamal <hadi@cyberus.ca>
-Date: Thu, 02 Jun 2005 09:04:52 -0400
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Thu, 2 Jun 2005 19:44:04 +1000
 
-> This patch converts "unsigned flags" to use more explict types like u16
-> instead and incrementally introduces NLMSG_NEW().
->  
-> Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca> 
+> In light of my recent patch to net/ipv4/udp.c that replaced the
+> spin_lock_irq calls on the receive queue lock with spin_lock_bh,
+> here is a similar patch for all other occurences of spin_lock_irq
+> on receive/error queue locks in IPv4 and IPv6.
+> 
+> In these stacks, we know that they can only be entered from user
+> or softirq context.  Therefore it's safe to disable BH only.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au> 
 
-Applied, thanks Jamal.
+Applied to net-2.6.13, thanks Herbert.
