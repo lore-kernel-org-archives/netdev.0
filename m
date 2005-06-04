@@ -1,29 +1,37 @@
-From: Jouni Malinen <jkmaline@cc.hut.fi>
-Subject: Re: [PATCH] ieee80211: Update generic definitions to latest specs.
-Date: Fri, 3 Jun 2005 22:29:05 -0700
-Message-ID: <20050604052905.GA8130@jm.kir.nu>
-References: <20050602190232.340996282D7@mail.suse.cz> <20050603113343.55d19cfc@griffin.suse.cz>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC] Replace scatterlist with crypto_frag
+Date: Sat, 4 Jun 2005 15:33:48 +1000
+Message-ID: <20050604053348.GA5877@gondor.apana.org.au>
+References: <20050604045119.GA25270@gondor.apana.org.au> <Xine.LNX.4.44.0506040122210.11356-100000@thoron.boston.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: gwingerde@home.nl, netdev@oss.sgi.com, jbohac@suse.cz
+Cc: Jeff Garzik <jgarzik@pobox.com>, "David S. Miller" <davem@davemloft.net>,
+        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jiri Benc <jbenc@suse.cz>
+To: James Morris <jmorris@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <20050603113343.55d19cfc@griffin.suse.cz>
+In-Reply-To: <Xine.LNX.4.44.0506040122210.11356-100000@thoron.boston.redhat.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 03, 2005 at 11:33:43AM +0200, Jiri Benc wrote:
+On Sat, Jun 04, 2005 at 01:23:55AM -0400, James Morris wrote:
+> On Sat, 4 Jun 2005, Herbert Xu wrote:
+> 
+> > Thanks James.  What do you think about eating up 32 bytes on the
+> > stack in esp_input/esp_output?
+> 
+> Sounds like a low price to pay, given the general overhead of ipsec.
 
-> and so on. Also WLAN_STATUS_ASSOC_DENIED_NOSHORT seems to be acceptable
-> for me.
+I agree with you on the stack usage.  BTW, we can now pump 5Gb/s
+through the Crypto API using a 1Ghz VIA CPU with the Padlock so
+encryption is no longer necessarily the slowest piece along the
+pipeline :)
 
-That would be just asking for problems. IEEE 802.11 uses "short" in
-number of terms and two of them happen to be already part of
-capabilities negotatiation (short preamble and short slot time) and both
-have status codes for rejecting association.. In other words, the
-constants/enums better include PREAMBLE and SLOTTIME in the name.
-
+Cheers,
 -- 
-Jouni Malinen                                            PGP id EFC895FA
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
