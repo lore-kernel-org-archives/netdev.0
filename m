@@ -1,46 +1,152 @@
-From: Jouni Malinen <jkmaline@cc.hut.fi>
-Subject: Re: [6/9] ieee80211: ethernet independency
-Date: Fri, 3 Jun 2005 22:45:09 -0700
-Message-ID: <20050604054509.GB8130@jm.kir.nu>
-References: <20050603182625.64d33be3@griffin.suse.cz> <20050603183418.58c47b0c@griffin.suse.cz>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: [git patches] 2.6.x net driver fixes
+Date: Sat, 04 Jun 2005 04:38:24 -0400
+Message-ID: <42A16880.4030802@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: NetDev <netdev@oss.sgi.com>, Jeff Garzik <jgarzik@pobox.com>,
-        Jirka Bohac <jbohac@suse.cz>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Jiri Benc <jbenc@suse.cz>
-Content-Disposition: inline
-In-Reply-To: <20050603183418.58c47b0c@griffin.suse.cz>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed;
+ boundary="------------050200070305000207090100"
+Cc: Netdev <netdev@oss.sgi.com>,
+	Linux Kernel <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261302AbVFDIjg@vger.kernel.org>
+To: Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 03, 2005 at 06:34:18PM +0200, Jiri Benc wrote:
+This is a multi-part message in MIME format.
+--------------050200070305000207090100
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> Makes the 802.11 layer independent of ethernet. (The previous implementation
-> had the ethernet headers built by the ethernet layer and then parsed them and
-> rebuilt them into 802.11 headers.)
 
-Many (most?) parts of this change seems to be only for client (managed
-and ad-hoc) modes. Has anyone had chance to go through what would be
-needed for AP (master mode) and WDS links? What about extra bytes added
-for QoS information (IEEE 802.11e/WMM)? Are there places here that will
-not handle variable length header nicely?
+Please pull from the 'misc-fixes' branch of
+rsync://rsync.kernel.org/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git
 
-I haven't yet looked into details, but could someone explain what a user
-space program needs to do when receiving or sending packets with packet
-socket from a 802.11 netdev (e.g., ethertype=EAPOL)? Let's say in the
-"worst case" scenario: QoS enabled and pairwise keys configured and
-4-address WDS link (i.e., 32-byte IEEE 802.11 header).
+to obtain r8169 and 3c574_cs fixes.  diffstat/shortlog/patch attached.
 
-Will the user space program need to parse (and generate) the IEEE 802.11
-header, including the knowledge of four addresses and QoS data, and SNAP
-header? Packet socket with SOCK_DGRAM could otherwise be one way of
-doing this, but sockaddr_ll does not have places for many parameters..
+	Jeff
 
-Many of these questions are not really specifically related to this
-patch, but I haven't seen a good answer to these open areas (well, at
-least to me) so far.
 
--- 
-Jouni Malinen                                            PGP id EFC895FA
+
+
+--------------050200070305000207090100
+Content-Type: text/plain;
+ name="netdev-2.6.txt"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="netdev-2.6.txt"
+
+
+
+ drivers/net/pcmcia/3c574_cs.c |    3 +++
+ drivers/net/r8169.c           |   31 +++++++++++++++++++++++++------
+ 2 files changed, 28 insertions(+), 6 deletions(-)
+
+
+
+<jgarzik@pretzel.yyz.us>:
+  Automatic merge of /spare/repo/netdev-2.6 branch r8169-fix
+  Automatic merge of rsync://rsync.kernel.org/.../torvalds/linux-2.6.git branch HEAD
+
+Daniel Ritz <daniel.ritz@gmx.ch>:
+  3c574_cs: disable interrupts in el3_close
+
+Francois Romieu <romieu@fr.zoreil.com>:
+  [PATCH] r8169: incoming frame length check
+
+
+
+diff --git a/drivers/net/pcmcia/3c574_cs.c b/drivers/net/pcmcia/3c574_cs.c
+--- a/drivers/net/pcmcia/3c574_cs.c
++++ b/drivers/net/pcmcia/3c574_cs.c
+@@ -1274,6 +1274,9 @@ static int el3_close(struct net_device *
+ 		spin_lock_irqsave(&lp->window_lock, flags);
+ 		update_stats(dev);
+ 		spin_unlock_irqrestore(&lp->window_lock, flags);
++
++		/* force interrupts off */
++		outw(SetIntrEnb | 0x0000, ioaddr + EL3_CMD);
+ 	}
+ 
+ 	link->open--;
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -1585,8 +1585,8 @@ rtl8169_hw_start(struct net_device *dev)
+ 	RTL_W8(ChipCmd, CmdTxEnb | CmdRxEnb);
+ 	RTL_W8(EarlyTxThres, EarlyTxThld);
+ 
+-	/* For gigabit rtl8169, MTU + header + CRC + VLAN */
+-	RTL_W16(RxMaxSize, tp->rx_buf_sz);
++	/* Low hurts. Let's disable the filtering. */
++	RTL_W16(RxMaxSize, 16383);
+ 
+ 	/* Set Rx Config register */
+ 	i = rtl8169_rx_config |
+@@ -2127,6 +2127,11 @@ rtl8169_tx_interrupt(struct net_device *
+ 	}
+ }
+ 
++static inline int rtl8169_fragmented_frame(u32 status)
++{
++	return (status & (FirstFrag | LastFrag)) != (FirstFrag | LastFrag);
++}
++
+ static inline void rtl8169_rx_csum(struct sk_buff *skb, struct RxDesc *desc)
+ {
+ 	u32 opts1 = le32_to_cpu(desc->opts1);
+@@ -2177,27 +2182,41 @@ rtl8169_rx_interrupt(struct net_device *
+ 
+ 	while (rx_left > 0) {
+ 		unsigned int entry = cur_rx % NUM_RX_DESC;
++		struct RxDesc *desc = tp->RxDescArray + entry;
+ 		u32 status;
+ 
+ 		rmb();
+-		status = le32_to_cpu(tp->RxDescArray[entry].opts1);
++		status = le32_to_cpu(desc->opts1);
+ 
+ 		if (status & DescOwn)
+ 			break;
+ 		if (status & RxRES) {
+-			printk(KERN_INFO "%s: Rx ERROR!!!\n", dev->name);
++			printk(KERN_INFO "%s: Rx ERROR. status = %08x\n",
++			       dev->name, status);
+ 			tp->stats.rx_errors++;
+ 			if (status & (RxRWT | RxRUNT))
+ 				tp->stats.rx_length_errors++;
+ 			if (status & RxCRC)
+ 				tp->stats.rx_crc_errors++;
++			rtl8169_mark_to_asic(desc, tp->rx_buf_sz);
+ 		} else {
+-			struct RxDesc *desc = tp->RxDescArray + entry;
+ 			struct sk_buff *skb = tp->Rx_skbuff[entry];
+ 			int pkt_size = (status & 0x00001FFF) - 4;
+ 			void (*pci_action)(struct pci_dev *, dma_addr_t,
+ 				size_t, int) = pci_dma_sync_single_for_device;
+ 
++			/*
++			 * The driver does not support incoming fragmented
++			 * frames. They are seen as a symptom of over-mtu
++			 * sized frames.
++			 */
++			if (unlikely(rtl8169_fragmented_frame(status))) {
++				tp->stats.rx_dropped++;
++				tp->stats.rx_length_errors++;
++				rtl8169_mark_to_asic(desc, tp->rx_buf_sz);
++				goto move_on;
++			}
++
+ 			rtl8169_rx_csum(skb, desc);
+ 			
+ 			pci_dma_sync_single_for_cpu(tp->pci_dev,
+@@ -2224,7 +2243,7 @@ rtl8169_rx_interrupt(struct net_device *
+ 			tp->stats.rx_bytes += pkt_size;
+ 			tp->stats.rx_packets++;
+ 		}
+-		
++move_on:		
+ 		cur_rx++; 
+ 		rx_left--;
+ 	}
+
+--------------050200070305000207090100--
