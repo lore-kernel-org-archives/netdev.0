@@ -1,25 +1,41 @@
-From: Phil Oester <kernel@linuxace.com>
-Subject: Re: Unitialized queue_lock oops?
-Date: Fri, 3 Jun 2005 17:00:46 -0700
-Message-ID: <20050604000046.GA29438@linuxace.com>
-References: <20050603232413.GA29308@linuxace.com> <E1DeLwo-0005GI-00@gondolin.me.apana.org.au>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [RFC] Replace scatterlist with crypto_frag
+Date: Fri, 03 Jun 2005 20:02:52 -0400
+Message-ID: <42A0EFAC.7070609@pobox.com>
+References: <20050603234623.GA20088@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, James Morris <jmorris@redhat.com>,
+        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Herbert Xu <herbert@gondor.apana.org.au>
-Content-Disposition: inline
-In-Reply-To: <E1DeLwo-0005GI-00@gondolin.me.apana.org.au>
+In-Reply-To: <20050603234623.GA20088@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jun 04, 2005 at 09:51:30AM +1000, Herbert Xu wrote:
-> I'd say that either you're using a dodgy qdisc, or your hardware is
-> just stuffed.  That is, if you are using the default qdisc, you should
-> start looking at replacing pieces of the hardware to find the problem.
+Herbert Xu wrote:
+> The Crypto API doesn't need all the data contained in a scatterlist
+> structure.  For instance, it has no need for anything to do with DMA.
+> When we implement hardware crypto (which might do DMA), they're going
+> to have their own lists of descriptors so they can't use the scatterlist
+> as is anyway.
 
-Yes, default qdisc.  Interesting that 2.6.10 is rock solid on the same
-hardware...oh well.
 
-Phil
+I'm not sure I agree with this.
+
+A standard feature of struct scatterlist is having the DMA mappings 
+right next to the kernel virtual address/length info.  Drivers use the 
+arch-specific DMA-mapped part of struct scatterlist to fill the 
+hardware-specific descriptions with addresses and other info.
+
+Since you -will- have to DMA map buffers before passing them to 
+hardware, it seems like struct scatterlist is much more appropriate than 
+  crypto_frag when dealing with hardware.
+
+For pure software implementations, I don't see why you can't just ignore 
+the extra fields that each arch puts into struct scatterlist.
+
+	Jeff
