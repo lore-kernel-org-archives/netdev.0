@@ -1,34 +1,29 @@
-From: James Morris <jmorris@redhat.com>
-Subject: Re: [RFC] Replace scatterlist with crypto_frag
-Date: Sat, 4 Jun 2005 01:23:55 -0400 (EDT)
-Message-ID: <Xine.LNX.4.44.0506040122210.11356-100000@thoron.boston.redhat.com>
-References: <20050604045119.GA25270@gondor.apana.org.au>
+From: Jouni Malinen <jkmaline@cc.hut.fi>
+Subject: Re: [PATCH] ieee80211: Update generic definitions to latest specs.
+Date: Fri, 3 Jun 2005 22:29:05 -0700
+Message-ID: <20050604052905.GA8130@jm.kir.nu>
+References: <20050602190232.340996282D7@mail.suse.cz> <20050603113343.55d19cfc@griffin.suse.cz>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Jeff Garzik <jgarzik@pobox.com>, "David S. Miller" <davem@davemloft.net>,
-        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-        <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: gwingerde@home.nl, netdev@oss.sgi.com, jbohac@suse.cz
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050604045119.GA25270@gondor.apana.org.au>
+To: Jiri Benc <jbenc@suse.cz>
+Content-Disposition: inline
+In-Reply-To: <20050603113343.55d19cfc@griffin.suse.cz>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 4 Jun 2005, Herbert Xu wrote:
+On Fri, Jun 03, 2005 at 11:33:43AM +0200, Jiri Benc wrote:
 
-> Thanks James.  What do you think about eating up 32 bytes on the
-> stack in esp_input/esp_output?
+> and so on. Also WLAN_STATUS_ASSOC_DENIED_NOSHORT seems to be acceptable
+> for me.
 
-Sounds like a low price to pay, given the general overhead of ipsec.
+That would be just asking for problems. IEEE 802.11 uses "short" in
+number of terms and two of them happen to be already part of
+capabilities negotatiation (short preamble and short slot time) and both
+have status codes for rejecting association.. In other words, the
+constants/enums better include PREAMBLE and SLOTTIME in the name.
 
-> In fact, how did we come up with the number of four frags? Why wouldn't
-> say two frags do for most users or perhaps even one?
-
-I don't know where that came from.
-
-
-- James
 -- 
-James Morris
-<jmorris@redhat.com>
+Jouni Malinen                                            PGP id EFC895FA
