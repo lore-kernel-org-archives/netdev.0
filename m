@@ -1,51 +1,29 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: RFC: NAPI packet weighting patch
-Date: Sun, 05 Jun 2005 13:11:38 -0700 (PDT)
-Message-ID: <20050605.131138.21611278.davem@davemloft.net>
-References: <1117828169.4430.29.camel@rh4>
-	<20050603205944.GC20623@xi.wantstofly.org>
-	<1117830922.4430.44.camel@rh4>
+From: Glen Turner <glen.turner@aarnet.edu.au>
+Subject: Re: RFC: PHY Abstraction Layer II
+Date: Mon, 06 Jun 2005 05:59:20 +0930
+Message-ID: <42A360A0.1040902@aarnet.edu.au>
+References: <1107b64b01fb8e9a6c84359bb56881a6@freescale.com> <20050531105939.7486e071@dxpl.pdx.osdl.net> <92F1428A-0B26-428B-8C06-35C7E5B9EEE3@freescale.com> <20050601144123.2bc11c06@dxpl.pdx.osdl.net> <9A2D608A-D818-455B-96F4-ED42413556C0@freescale.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: buytenh@wantstofly.org, mitch.a.williams@intel.com, hadi@cyberus.ca,
-        john.ronciak@intel.com, jdmason@us.ibm.com, shemminger@osdl.org,
-        netdev@oss.sgi.com, Robert.Olsson@data.slu.se,
-        ganesh.venkatesan@intel.com, jesse.brandeburg@intel.com
+Cc: Stephen Hemminger <shemminger@osdl.org>, Netdev <netdev@oss.sgi.com>,
+        Kumar Gala <kumar.gala@freescale.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: mchan@broadcom.com
-In-Reply-To: <1117830922.4430.44.camel@rh4>
+To: Andy Fleming <afleming@freescale.com>
+In-Reply-To: <9A2D608A-D818-455B-96F4-ED42413556C0@freescale.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Fri, 03 Jun 2005 13:35:22 -0700
 
-> I agree on the merit of issuing only one IO at the end. What I'm saying
-> is that doing so will make it similar to e1000 where all the buffers are
-> replenished at the end. Isn't that so or am I missing something?
+Operationally, it would be very useful if the PHY printed
+the physical interface detail when detected (1000Base-LX,
+etc).
 
-You're totally right.  I guess we don't see the e1000 behavior
-due to any of the following:
+Also, it would be nice to be able to retrieve PHY data
+independent of the interface status (eg, to retrieve
+asset serial numbers, GBIC make/models, etc).
 
-1) we set the RX ring sizes larger by default
-2) we set it larger than what the e1000 tests were done with
-3) we process the RX ring faster and thus the chip can't catch up
-   and exhaust the ring
-
-We use a default of 200 in tg3, and e1000 seems to use a default
-of 256.
-
-This actually points more to the fact that what you're actually
-doing to process the packet has a huge influence on whether
-the chip can catch up and exhaust the RX ring.  How much
-software work does the netif_receive_skb() call entail, on
-average, for the given workload?
-
-That is why the exact test being run is important in analyzing
-reports such as these.  If you're doing a TCP transfer, then
-netif_receive_skb() can be _VERY_ expensive per-call.  If, on
-the other hand, you're routing tiny 64-byte packets or responding
-to simple ICMP echo requests, the per-call cost can be significantly
-lower.
+-- 
+  Glen Turner         Tel: (08) 8303 3936 or +61 8 8303 3936
+  Australia's Academic & Research Network  www.aarnet.edu.au
