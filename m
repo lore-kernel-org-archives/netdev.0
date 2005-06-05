@@ -1,91 +1,51 @@
-From: Manfred Spraul <manfred@colorfullife.com>
-Subject: [PATCH] forcedeth: add two new pci ids
-Date: Sun, 05 Jun 2005 17:36:11 +0200
-Message-ID: <42A31BEB.7030900@colorfullife.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: RFC: NAPI packet weighting patch
+Date: Sun, 05 Jun 2005 13:11:38 -0700 (PDT)
+Message-ID: <20050605.131138.21611278.davem@davemloft.net>
+References: <1117828169.4430.29.camel@rh4>
+	<20050603205944.GC20623@xi.wantstofly.org>
+	<1117830922.4430.44.camel@rh4>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------060003070105090106070501"
-Cc: AAbdulla@nvidia.com, Netdev <netdev@oss.sgi.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: buytenh@wantstofly.org, mitch.a.williams@intel.com, hadi@cyberus.ca,
+        john.ronciak@intel.com, jdmason@us.ibm.com, shemminger@osdl.org,
+        netdev@oss.sgi.com, Robert.Olsson@data.slu.se,
+        ganesh.venkatesan@intel.com, jesse.brandeburg@intel.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+To: mchan@broadcom.com
+In-Reply-To: <1117830922.4430.44.camel@rh4>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------060003070105090106070501
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Fri, 03 Jun 2005 13:35:22 -0700
 
-Hi Jeff,
+> I agree on the merit of issuing only one IO at the end. What I'm saying
+> is that doing so will make it similar to e1000 where all the buffers are
+> replenished at the end. Isn't that so or am I missing something?
 
-Ayaz wrote a patch that adds two new pci ids to the forcedeth driver. 
-Could you add it to your tree? I'm not sure if it's worth to sneak it 
-into 2.6.12, but it looks to be obviously correct (tm).
+You're totally right.  I guess we don't see the e1000 behavior
+due to any of the following:
 
---
-    Manfred
+1) we set the RX ring sizes larger by default
+2) we set it larger than what the e1000 tests were done with
+3) we process the RX ring faster and thus the chip can't catch up
+   and exhaust the ring
 
-Signed-Off-By: Manfred Spraul <manfred@colorfullife.com>
+We use a default of 200 in tg3, and e1000 seems to use a default
+of 256.
 
+This actually points more to the fact that what you're actually
+doing to process the packet has a huge influence on whether
+the chip can catch up and exhaust the RX ring.  How much
+software work does the netif_receive_skb() call entail, on
+average, for the given workload?
 
---------------060003070105090106070501
-Content-Type: text/plain;
- name="patch-forcedeth-mcp51"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="patch-forcedeth-mcp51"
-
---- 2.6/drivers/net/forcedeth.c	2005-05-16 19:45:54.000000000 +0200
-+++ build-2.6/drivers/net/forcedeth.c	2005-05-16 19:52:59.000000000 +0200
-@@ -82,6 +82,7 @@
-  *	0.31: 14 Nov 2004: ethtool support for getting/setting link
-  *	                   capabilities.
-  *	0.32: 16 Apr 2005: RX_ERROR4 handling added.
-+ *	0.33: 16 Mai 2005: Support for MCP51 added.
-  *
-  * Known bugs:
-  * We suspect that on some hardware no TX done interrupts are generated.
-@@ -93,7 +94,7 @@
-  * DEV_NEED_TIMERIRQ will not harm you on sane hardware, only generating a few
-  * superfluous timer interrupts from the nic.
-  */
--#define FORCEDETH_VERSION		"0.32"
-+#define FORCEDETH_VERSION		"0.33"
- #define DRV_NAME			"forcedeth"
- 
- #include <linux/module.h>
-@@ -1998,7 +1999,9 @@
- 	/* handle different descriptor versions */
- 	if (pci_dev->device == PCI_DEVICE_ID_NVIDIA_NVENET_1 ||
- 		pci_dev->device == PCI_DEVICE_ID_NVIDIA_NVENET_2 ||
--		pci_dev->device == PCI_DEVICE_ID_NVIDIA_NVENET_3)
-+		pci_dev->device == PCI_DEVICE_ID_NVIDIA_NVENET_3 ||    
-+		pci_dev->device == PCI_DEVICE_ID_NVIDIA_NVENET_12 ||
-+		pci_dev->device == PCI_DEVICE_ID_NVIDIA_NVENET_13)
- 		np->desc_ver = DESC_VER_1;
- 	else
- 		np->desc_ver = DESC_VER_2;
-@@ -2256,6 +2259,20 @@
- 		.subdevice = PCI_ANY_ID,
- 		.driver_data = DEV_NEED_LASTPACKET1|DEV_IRQMASK_2|DEV_NEED_TIMERIRQ,
- 	},
-+	{	/* MCP51 Ethernet Controller */
-+		.vendor = PCI_VENDOR_ID_NVIDIA,
-+		.device = PCI_DEVICE_ID_NVIDIA_NVENET_12,
-+		.subvendor = PCI_ANY_ID,
-+		.subdevice = PCI_ANY_ID,
-+		.driver_data = DEV_NEED_LASTPACKET1|DEV_IRQMASK_2|DEV_NEED_TIMERIRQ,
-+	},
-+	{	/* MCP51 Ethernet Controller */
-+		.vendor = PCI_VENDOR_ID_NVIDIA,
-+		.device = PCI_DEVICE_ID_NVIDIA_NVENET_13,
-+		.subvendor = PCI_ANY_ID,
-+		.subdevice = PCI_ANY_ID,
-+		.driver_data = DEV_NEED_LASTPACKET1|DEV_IRQMASK_2|DEV_NEED_TIMERIRQ,
-+	},
- 	{0,},
- };
- 
-
---------------060003070105090106070501--
+That is why the exact test being run is important in analyzing
+reports such as these.  If you're doing a TCP transfer, then
+netif_receive_skb() can be _VERY_ expensive per-call.  If, on
+the other hand, you're routing tiny 64-byte packets or responding
+to simple ICMP echo requests, the per-call cost can be significantly
+lower.
