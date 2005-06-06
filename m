@@ -1,242 +1,87 @@
-From: "Ronciak, John" <john.ronciak@intel.com>
-Subject: RE: RFC: NAPI packet weighting patch
-Date: Mon, 6 Jun 2005 08:35:26 -0700
-Message-ID: <468F3FDA28AA87429AD807992E22D07E0450C002@orsmsx408>
+From: Rahul Hari <rahulhsaxena@gmail.com>
+Subject: Re: [Linux Diffserv] GRED queueing discipline and the filesch_gred.c
+Date: Mon, 6 Jun 2005 23:18:37 +0530
+Message-ID: <4532f31705060610486ef106a1@mail.gmail.com>
+Reply-To: rahul.hari@cse06.itbhu.org
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 8bit
-Cc: <hadi@cyberus.ca>, <buytenh@wantstofly.org>,
-        "Williams, Mitch A" <mitch.a.williams@intel.com>, <jdmason@us.ibm.com>,
-        <shemminger@osdl.org>, <netdev@oss.sgi.com>,
-        <Robert.Olsson@data.slu.se>,
-        "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>,
-        "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Cc: diffserv-general@lists.sourceforge.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-Content-class: urn:content-classes:message
-To: "David S. Miller" <davem@davemloft.net>, <mchan@broadcom.com>
+To: hadi@cyberus.ca, tgraf@suug.ch
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-We are dropping packets at the HW level (FIFO errors) with 256
-descriptors and the default weight of 64.  As we said reducing the
-weight eliminates this which is understandable since the driver is being
-serviced more fequently.  We also hacked the driver to do a buffer
-allocation per packet sent up the stack.  This reduced the number of
-dropped pacekts by about 80% but it was still a significant number of
-drops (190K to 39K dropped).  So I don't think this is where the problem
-is.  This is also comfimed with the tg3 driver doing the buffer update
-to the HW every 25 descriptors.
+Thanks for all the suggestions Jamal and Thomas.
+>From what you people have been suggesting, i feel that i should be
+giving a brief explaination of the problem I am currently working on.
 
-We did not up the descriptor ring size with the default weight but will
-try this today and report back.
+I have divided all the traffic on a network into 5 categories : Real
+time video (UDP1),Real time audio (UDP2), TCP not requiring any QoS
+(TCP1), TCP requiring QoS but with the size of the entire transaction
+very low(TCP2), and TCP requiring QoS with the size of the transaction
+in several MBs (TCP3).
 
-Cheers,
-John
+Now I am putting UDP1 and TCP1 in one particular queue (say q1) and
+giving priority to UDP1 (for dequeuing not caring if TCP1 is getting
+starved). I am putting UDP2 ,TCP2 and TCP3 in a different queue (thus
+keeping the average queue length almost constant) (say q2)and applying
+RED on each of TCP2 and TCP3 (the application of the two REDs being
+independent of each other). Here also I am providing priority to UDP2
+(without caring if TCP2 or TCP3 is getting starved ).
 
+To schedule between q1 and q2, I am using WRR and to schedule between
+UDP1 and TCP1, I am using prio. For implementing q2, I am currently
+putting UDP2,TCP2 and TCP3 in 3 different virtual queues and applying
+GRED with grio. I am providing UDP2 the highest priority and providing
+TCP2 and TCP3 equal priorities. To ensure that RED does not apply on
+the UDP2, I have set Tmax=Tmin so that Pbmax=1. But the results I am
+getting with this configuration do not match with the results that I
+have got from the simulations.
 
-> -----Original Message-----
-> From: David S. Miller [mailto:davem@davemloft.net] 
-> Sent: Sunday, June 05, 2005 11:43 PM
-> To: mchan@broadcom.com
-> Cc: hadi@cyberus.ca; buytenh@wantstofly.org; Williams, Mitch 
-> A; Ronciak, John; jdmason@us.ibm.com; shemminger@osdl.org; 
-> netdev@oss.sgi.com; Robert.Olsson@data.slu.se; Venkatesan, 
-> Ganesh; Brandeburg, Jesse
-> Subject: Re: RFC: NAPI packet weighting patch
-> 
-> 
-> From: "David S. Miller" <davem@davemloft.net>
-> Date: Sun, 05 Jun 2005 14:36:53 -0700 (PDT)
-> 
-> > BTW, here is the patch implementing this stuff.
-> 
-> A new patch and some more data.
-> 
-> When we go to gigabit, and NAPI kicks in, the first RX
-> packet costs a lot (cache misses etc.) but the rest are
-> very efficient to process.  I suspect this only holds
-> for the single socket case, and on a real system processing
-> many connections the cost drop might not be so clean.
-> 
-> The log output format is:
-> 
-> (TX_TICKS:RX_TICKS[ RX_TICK1 RX_TICK2 RX_TICK3 ... ])
-> 
-> Here is an example trace from a single socket TCP stream
-> send over gigabit:
-> 
-> (9:112[ 26 8 7 8 7 ])
-> (6:110[ 23 8 8 8 7 ])
-> (7:57[ 26 8 ])
-> (6:117[ 25 8 9 7 7 ])
-> (5:37[ 26 ])
-> (6:113[ 28 8 7 8 7 ])
-> (0:20[ 9 ])
-> (8:111[ 27 7 7 8 7 ])
-> (5:109[ 25 8 8 8 7 ])
-> (8:113[ 25 7 8 9 7 ])
-> (6:108[ 25 8 7 7 7 ])
-> (8:88[ 26 8 8 7 ])
-> (6:109[ 25 7 7 7 7 ])
-> (6:111[ 25 9 8 7 7 ])
-> (0:48[ 9 5 ])
-> 
-> This kind of trace reiterates some things we already know.
-> For example, mitigation (HW, SW, or a combination of both)
-> helps because processing multiple packets let's us "reuse"
-> the cpu cache priming the handling of the first packet
-> achieves for us.
-> 
-> It would be great to stick something like this into the e1000
-> driver, and get some output from it with Intel's single NIC
-> performance degradation test case.
-> 
-> It is also necessary for the Intel folks to say whether the
-> NIC is running out of RX descriptors in the single NIC
-> case with dev->weight set to the default of 64.  If so, does
-> increasing the RX ring size to a larger value via ethtool
-> help?  If not, then why in the world are things running more
-> slowly?
-> 
-> I've got a crappy 1.5GHZ sparc64 box in my tg3 tests here, and it can
-> handle gigabit line rate with much CPU to spare.  So either Intel is
-> doing something other than TCP stream tests, or something else is out
-> of whack.
-> 
-> I even tried to do things like having a memory touching program
-> run in parallel with the TCP stream test, and this did not make
-> the timing numbers in the logs increase much at all.
-> 
-> --- ./drivers/net/tg3.c.~1~	2005-06-03 11:13:14.000000000 -0700
-> +++ ./drivers/net/tg3.c	2005-06-05 23:21:11.000000000 -0700
-> @@ -2836,7 +2836,22 @@ static int tg3_rx(struct tg3 *tp, int bu
->  				    desc->err_vlan & RXD_VLAN_MASK);
->  		} else
->  #endif
-> +		{
-> +			unsigned long t = get_cycles();
-> +			struct tg3_poll_log_ent *lp;
-> +			unsigned int ent;
-> +
->  			netif_receive_skb(skb);
-> +			t = get_cycles() - t;
-> +
-> +			ent = tp->poll_log_ent;
-> +			lp = &tp->poll_log[ent];
-> +			ent = lp->rx_cur_ent;
-> +			if (ent < POLL_RX_SIZE) {
-> +				lp->rx_ents[ent] = (u16) t;
-> +				lp->rx_cur_ent = ent + 1;
-> +			}
-> +		}
->  
->  		tp->dev->last_rx = jiffies;
->  		received++;
-> @@ -2897,9 +2912,15 @@ static int tg3_poll(struct net_device *n
->  
->  	/* run TX completion thread */
->  	if (sblk->idx[0].tx_consumer != tp->tx_cons) {
-> +		unsigned long t;
-> +
->  		spin_lock(&tp->tx_lock);
-> +		t = get_cycles();		
->  		tg3_tx(tp);
-> +		t = get_cycles() - t;
->  		spin_unlock(&tp->tx_lock);
-> +
-> +		tp->poll_log[tp->poll_log_ent].tx_ticks = (u16) t;
->  	}
->  
->  	spin_unlock_irqrestore(&tp->lock, flags);
-> @@ -2911,16 +2932,28 @@ static int tg3_poll(struct net_device *n
->  	if (sblk->idx[0].rx_producer != tp->rx_rcb_ptr) {
->  		int orig_budget = *budget;
->  		int work_done;
-> +		unsigned long t;
-> +		unsigned int ent;
->  
->  		if (orig_budget > netdev->quota)
->  			orig_budget = netdev->quota;
->  
-> +		t = get_cycles();
->  		work_done = tg3_rx(tp, orig_budget);
-> +		t = get_cycles() - t;
-> +
-> +		ent = tp->poll_log_ent;
-> +		tp->poll_log[ent].rx_ticks = (u16) t;
->  
->  		*budget -= work_done;
->  		netdev->quota -= work_done;
->  	}
->  
-> +	tp->poll_log_ent = (tp->poll_log_ent + 1) & POLL_LOG_MASK;
-> +	tp->poll_log[tp->poll_log_ent].tx_ticks = 0;
-> +	tp->poll_log[tp->poll_log_ent].rx_ticks = 0;
-> +	tp->poll_log[tp->poll_log_ent].rx_cur_ent = 0;
-> +
->  	if (tp->tg3_flags & TG3_FLAG_TAGGED_STATUS)
->  		tp->last_tag = sblk->status_tag;
->  	rmb();
-> @@ -6609,6 +6642,27 @@ static struct net_device_stats *tg3_get_
->  	stats->rx_crc_errors = old_stats->rx_crc_errors +
->  		calc_crc_errors(tp);
->  
-> +	/* XXX Yes, I know, do this right. :-)  */
-> +	{
-> +		unsigned int ent;
-> +
-> +		printk("TG3: POLL LOG, current ent[%d]\n", 
-> tp->poll_log_ent);
-> +		ent = tp->poll_log_ent - (POLL_LOG_SIZE - 1);
-> +		ent &= POLL_LOG_MASK;
-> +		while (ent != tp->poll_log_ent) {
-> +			struct tg3_poll_log_ent *lp = 
-> &tp->poll_log[ent];
-> +			int i;
-> +
-> +			printk("(%u:%u[ ",
-> +			       lp->tx_ticks, lp->rx_ticks);
-> +			for (i = 0; i < lp->rx_cur_ent; i++)
-> +				printk("%d ", lp->rx_ents[i]);
-> +			printk("])\n");
-> +
-> +			ent = (ent + 1) & POLL_LOG_MASK;
-> +		}
-> +	}
-> +
->  	return stats;
->  }
->  
-> --- ./drivers/net/tg3.h.~1~	2005-06-03 11:13:14.000000000 -0700
-> +++ ./drivers/net/tg3.h	2005-06-05 23:21:05.000000000 -0700
-> @@ -2003,6 +2003,15 @@ struct tg3_ethtool_stats {
->  	u64		nic_tx_threshold_hit;
->  };
->  
-> +struct tg3_poll_log_ent {
-> +	u16 tx_ticks;
-> +	u16 rx_ticks;
-> +#define POLL_RX_SIZE	8
-> +#define POLL_RX_MASK	(POLL_RX_SIZE - 1)
-> +	u16 rx_cur_ent;
-> +	u16 rx_ents[POLL_RX_SIZE];
-> +};
-> +
->  struct tg3 {
->  	/* begin "general, frequently-used members" cacheline section */
->  
-> @@ -2232,6 +2241,11 @@ struct tg3 {
->  #define SST_25VF0X0_PAGE_SIZE		4098
->  
->  	struct ethtool_coalesce		coal;
-> +
-> +#define POLL_LOG_SIZE	(1 << 7)
-> +#define POLL_LOG_MASK	(POLL_LOG_SIZE - 1)
-> +	unsigned int			poll_log_ent;
-> +	struct tg3_poll_log_ent		poll_log[POLL_LOG_SIZE];
->  };
->  
->  #endif /* !(_T3_H) */
-> 
+So I want to implement this stuff such that the UDP2 gets highest
+priority among the three, is not included while calculating the total
+average queue length and the qave used for the application of REDs on
+TCP2 and TCP3 should be equal to the qave of tcp2+ qave of tcp3.
+To schedule between TCP2 and TCP3, I want to use WRR or something that
+gives equal priority and prevents the starvation of any of these.
+
+Regards,
+Rahul
+
+-- 
+----------------------
+"The fear you let build up in your mind is worse than the situation
+that actually exists"
+from "who moved my cheese"
+---------------------------------------------------------------------------------
+Rahul Hari
+Senior Under Grad. Student,
+Department of CSE,
+ITBHU,
+Varanasi.
+Ph: +91-9845347020
+rahul.hari@cse06.itbhu.org
+------------------------------------------------------------------------------------------
+
+>
+>On Mon, 2005-06-06 at 13:39 +0200, Thomas Graf wrote:
+>
+> > Use a prio qdisc with RED leaf qdiscs. RED and GREDs purpose is to
+> > calculate a marking probability and not to provide any prioritizing
+> > schemes.
+>
+>Prioritization is still implicitly provided if you vary the queue
+>lengths or the drop probabilities.
+>For example, if you set everything to be exactly the same, and varied
+>only the drop probability - the VQ with the highest drop probability
+>will be less important (i.e relatively more of its packets will be
+>dropped; recall: the drop decision is made before the packet is queued).
+>
+>cheers,
+>jamal
+>
+>
+>
