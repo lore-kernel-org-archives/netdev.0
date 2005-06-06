@@ -1,50 +1,128 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH] tg3: Fix link failure in 5701
-Date: Mon, 06 Jun 2005 12:42:22 -0700
-Message-ID: <1118086942.5008.14.camel@rh4>
+From: Russell King <rmk@arm.linux.org.uk>
+Subject: Fwd: [Bug 4615] Modem connection stalls out.
+Date: Mon, 6 Jun 2005 22:47:29 +0100
+Message-ID: <20050606224729.B12034@flint.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: iod00d@hp.com, peterc@gelato.unsw.edu.au, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@davemloft.net
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On some 5701 devices with older bootcode, the LED configuration bits in
-SRAM may be invalid with value zero. The fix is to check for invalid
-bits (0) and default to PHY 1 mode. Incorrect LED mode will lead to
-error in programming the PHY.
+Anyone have any ideas on this bug?
 
-Thanks to Grant Grundler for debugging the problem.
+The "No buffer space available" looks like the system is running low on
+memory.  Would networking folk concur with that?
 
->From Grant:
-| In May, 2004,  tg3 v3.4 changed how MAC_LED_CTRL (0x40c) was getting
-| programmed and how to determine what to program into LED_CTRL. The new
-| code trusted NIC_SRAM_DATA_CFG (0x00000b58) to indicate what to write
-| to LED_CTRL and MII EXT_CTRL registers. On "IOX Core Lan", SRAM was
-| saying MODE_MAC (0x0) and that doesn't work.
+----- Forwarded message from bugme-daemon@kernel-bugs.osdl.org -----
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
+Date: Mon, 6 Jun 2005 09:19:47 -0700
+From: bugme-daemon@kernel-bugs.osdl.org
+To: rmk@arm.linux.org.uk
+Subject: [Bug 4615] Modem connection stalls out.
 
-diff -Nru led1/drivers/net/tg3.c led2/drivers/net/tg3.c
---- led1/drivers/net/tg3.c	2005-06-06 10:19:56.692541944 -0700
-+++ led2/drivers/net/tg3.c	2005-06-06 10:34:49.251852304 -0700
-@@ -8555,6 +8555,16 @@
- 
- 		case NIC_SRAM_DATA_CFG_LED_MODE_MAC:
- 			tp->led_ctrl = LED_CTRL_MODE_MAC;
-+
-+			/* Default to PHY_1_MODE if 0 (MAC_MODE) is
-+			 * read on some older 5700/5701 bootcode.
-+			 */
-+			if (GET_ASIC_REV(tp->pci_chip_rev_id) ==
-+			    ASIC_REV_5700 ||
-+			    GET_ASIC_REV(tp->pci_chip_rev_id) ==
-+			    ASIC_REV_5701)
-+				tp->led_ctrl = LED_CTRL_MODE_PHY_1;
-+
- 			break;
- 
- 		case SHASTA_EXT_LED_SHARED:
+http://bugzilla.kernel.org/show_bug.cgi?id=4615
+
+
+
+
+
+------- Additional Comments From alangrimes@starpower.net  2005-06-06 09:19 -------
+The only reliable feedback I get from the bug, asside from its obvious symptoms,
+is through ping... 
+
+Here is a typical output: 
+
+64 bytes from 10.65.28.26: icmp_seq=296 ttl=255 time=2552 ms
+64 bytes from 10.65.28.26: icmp_seq=297 ttl=255 time=1561 ms
+64 bytes from 10.65.28.26: icmp_seq=298 ttl=255 time=567 ms
+64 bytes from 10.65.28.26: icmp_seq=299 ttl=255 time=137 ms
+64 bytes from 10.65.28.26: icmp_seq=300 ttl=255 time=484 ms  # Hmm, exactly 5 
+##  minutes, though I've seen it quit after only 10 seconds...) 
+ping: sendmsg: No buffer space available
+ping: sendmsg: No buffer space available
+ping: sendmsg: No buffer space available
+ping: sendmsg: No buffer space available
+ping: sendmsg: No buffer space available
+ping: sendmsg: No buffer space available
+## It would have continued repeating this message indefinitely... 
+## Note: many more iterations have been removed from this report!!! =P  
+
+## Below is what happens when I manually disconnect the modem by sending 
+## the break signal to the dialer. 
+ping: sendmsg: Network is unreachable
+ping: sendmsg: Network is unreachable
+ping: sendmsg: Network is unreachable
+ping: sendmsg: Network is unreachable
+
+--- 10.65.28.26 ping statistics ---
+337 packets transmitted, 300 received, 10% packet loss, time 35529
+5ms
+rtt min/avg/max/mdev = 122.973/687.037/6298.163/1093.624 ms, pipe 
+7
+###################################
+
+After power cycling the modem here's what the dialer does: 
+leenooks ~ # wvdial
+--> WvDial: Internet dialer version 1.54.0
+--> Initializing modem.
+--> Sending: ATZ
+--> Sending: ATQ0
+--> Re-Sending: ATZ 
+
+### the dialer is hung and will report that the modem is not responding in a 
+### few seconds...
+
+### At this point I could ctrl-break the dialer and try again, 
+### However, this would be entirely unproductive as I'd get the same mesage 
+### each and every time.
+
+### Only by allowing it to complete its cycle, will it return the modem to 
+### functionality. I suspect that the dialer sends an IOCTL or something to the
+### driver which clears the fault... 
+
+--> Modem not responding.
+leenooks ~ # wvdial
+--> WvDial: Internet dialer version 1.54.0
+--> Initializing modem.
+--> Sending: ATZ
+ATZ
+OK
+--> Sending: AT&F&D2&C1X4V1Q0S7=70W2\N3&K3S11=60
+AT&F&D2&C1X4V1Q0S7=70W2\N3&K3S11=60
+OK
+--> Modem initialized.
+--> Sending: ATDT7038298111
+--> Waiting for carrier.
+ATDT7038298111
+CONNECT 49333
+--> Carrier detected.  Waiting for prompt.
+** Ascend TNT2.LNHVA.MD.RCN.NET Terminal Server **
+Login: 
+--> Looks like a login prompt.
+--> Sending: alangrimes
+alangrimes
+Password: 
+--> Looks like a password prompt.
+--> Sending: (password)
+    Entering PPP Session.
+    IP address is 66.44.56.212
+    MTU is 1006.
+--> Looks like a welcome message.
+--> Starting pppd at Tue Jun  7 04:58:30 2005
+--> pid of pppd: 19733
+--> Using interface ppp0
+--> local  IP address 66.44.56.212
+--> remote IP address 10.65.28.27
+--> primary   DNS address 207.172.3.10
+--> secondary DNS address 207.172.3.11
+
+------- You are receiving this mail because: -------
+You are the assignee for the bug, or are watching the assignee.
+
+----- End forwarded message -----
+
+-- 
+Russell King
