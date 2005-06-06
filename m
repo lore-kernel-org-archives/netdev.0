@@ -1,40 +1,50 @@
-From: "Ronciak, John" <john.ronciak@intel.com>
-Subject: RE: RFC: NAPI packet weighting patch
-Date: Mon, 6 Jun 2005 13:29:50 -0700
-Message-ID: <468F3FDA28AA87429AD807992E22D07E0450C00B@orsmsx408>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH] tg3: Fix link failure in 5701
+Date: Mon, 06 Jun 2005 12:42:22 -0700
+Message-ID: <1118086942.5008.14.camel@rh4>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8bit
-Cc: <mchan@broadcom.com>, <hadi@cyberus.ca>, <buytenh@wantstofly.org>,
-        "Williams, Mitch A" <mitch.a.williams@intel.com>, <jdmason@us.ibm.com>,
-        <shemminger@osdl.org>, <netdev@oss.sgi.com>,
-        <Robert.Olsson@data.slu.se>,
-        "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>,
-        "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: iod00d@hp.com, peterc@gelato.unsw.edu.au, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-Content-class: urn:content-classes:message
-To: "David S. Miller" <davem@davemloft.net>
+To: davem@davemloft.net
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> 	If you force the e1000 driver to do RX replenishment every N
-> 	packets it should reduce the packet drops the same (in the
-> 	single NIC case) as if you reduced the dev->weight to that
-> 	same value N.
+On some 5701 devices with older bootcode, the LED configuration bits in
+SRAM may be invalid with value zero. The fix is to check for invalid
+bits (0) and default to PHY 1 mode. Incorrect LED mode will lead to
+error in programming the PHY.
 
-But this isn't what we are seeing.  Even if we just reduce the weight
-value to 32 from 64, all of the drops go away.  So there seems to be
-other things affecting this.
+Thanks to Grant Grundler for debugging the problem.
 
-We are just talking about single NIC testing at this point.  I agree
-that single and multi-NIC results different issues and we will need to
-test this as well with whatever we come up with out of this.
+>From Grant:
+| In May, 2004,  tg3 v3.4 changed how MAC_LED_CTRL (0x40c) was getting
+| programmed and how to determine what to program into LED_CTRL. The new
+| code trusted NIC_SRAM_DATA_CFG (0x00000b58) to indicate what to write
+| to LED_CTRL and MII EXT_CTRL registers. On "IOX Core Lan", SRAM was
+| saying MODE_MAC (0x0) and that doesn't work.
 
-I also like your idea about the weight value being adjusted based on
-real work done using some measurable metric.  This seems like a good
-path to explore as well.
+Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-Cheers,
-John
+diff -Nru led1/drivers/net/tg3.c led2/drivers/net/tg3.c
+--- led1/drivers/net/tg3.c	2005-06-06 10:19:56.692541944 -0700
++++ led2/drivers/net/tg3.c	2005-06-06 10:34:49.251852304 -0700
+@@ -8555,6 +8555,16 @@
+ 
+ 		case NIC_SRAM_DATA_CFG_LED_MODE_MAC:
+ 			tp->led_ctrl = LED_CTRL_MODE_MAC;
++
++			/* Default to PHY_1_MODE if 0 (MAC_MODE) is
++			 * read on some older 5700/5701 bootcode.
++			 */
++			if (GET_ASIC_REV(tp->pci_chip_rev_id) ==
++			    ASIC_REV_5700 ||
++			    GET_ASIC_REV(tp->pci_chip_rev_id) ==
++			    ASIC_REV_5701)
++				tp->led_ctrl = LED_CTRL_MODE_PHY_1;
++
+ 			break;
+ 
+ 		case SHASTA_EXT_LED_SHARED:
