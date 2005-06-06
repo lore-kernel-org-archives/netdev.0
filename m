@@ -1,30 +1,211 @@
-From: Zhu Yi <yi.zhu@intel.com>
-Subject: Re: [3/9] ieee80211: fix ipw 64bit compilation warnings
-Date: Mon, 06 Jun 2005 14:29:52 +0800
-Message-ID: <1118039392.5702.30.camel@debian.sh.intel.com>
-References: <20050603182625.64d33be3@griffin.suse.cz>
-	 <20050603183048.7786f98b@griffin.suse.cz>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: RFC: NAPI packet weighting patch
+Date: Sun, 05 Jun 2005 23:43:07 -0700 (PDT)
+Message-ID: <20050605.234307.92584592.davem@davemloft.net>
+References: <1117837798.6266.25.camel@localhost.localdomain>
+	<1117844736.4430.51.camel@rh4>
+	<20050605.143653.75191476.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: NetDev <netdev@oss.sgi.com>, Jeff Garzik <jgarzik@pobox.com>,
-        Jirka Bohac <jbohac@suse.cz>
+Cc: hadi@cyberus.ca, buytenh@wantstofly.org, mitch.a.williams@intel.com,
+        john.ronciak@intel.com, jdmason@us.ibm.com, shemminger@osdl.org,
+        netdev@oss.sgi.com, Robert.Olsson@data.slu.se,
+        ganesh.venkatesan@intel.com, jesse.brandeburg@intel.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jiri Benc <jbenc@suse.cz>
-In-Reply-To: <20050603183048.7786f98b@griffin.suse.cz>
+To: mchan@broadcom.com
+In-Reply-To: <20050605.143653.75191476.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2005-06-03 at 18:30 +0200, Jiri Benc wrote:
-> @@ -508,7 +508,7 @@
->  		/* verify we have enough room to store the value */
->  		if (*len < sizeof(u32)) {
->  			IPW_DEBUG_ORD("ordinal buffer length too small, "
-> -				      "need %d\n", sizeof(u32));
-> +				      "need %d\n", (int)sizeof(u32));
+From: "David S. Miller" <davem@davemloft.net>
+Date: Sun, 05 Jun 2005 14:36:53 -0700 (PDT)
 
-("%zd", sizeof()) should be better.
+> BTW, here is the patch implementing this stuff.
 
-Thanks,
--yi
+A new patch and some more data.
+
+When we go to gigabit, and NAPI kicks in, the first RX
+packet costs a lot (cache misses etc.) but the rest are
+very efficient to process.  I suspect this only holds
+for the single socket case, and on a real system processing
+many connections the cost drop might not be so clean.
+
+The log output format is:
+
+(TX_TICKS:RX_TICKS[ RX_TICK1 RX_TICK2 RX_TICK3 ... ])
+
+Here is an example trace from a single socket TCP stream
+send over gigabit:
+
+(9:112[ 26 8 7 8 7 ])
+(6:110[ 23 8 8 8 7 ])
+(7:57[ 26 8 ])
+(6:117[ 25 8 9 7 7 ])
+(5:37[ 26 ])
+(6:113[ 28 8 7 8 7 ])
+(0:20[ 9 ])
+(8:111[ 27 7 7 8 7 ])
+(5:109[ 25 8 8 8 7 ])
+(8:113[ 25 7 8 9 7 ])
+(6:108[ 25 8 7 7 7 ])
+(8:88[ 26 8 8 7 ])
+(6:109[ 25 7 7 7 7 ])
+(6:111[ 25 9 8 7 7 ])
+(0:48[ 9 5 ])
+
+This kind of trace reiterates some things we already know.
+For example, mitigation (HW, SW, or a combination of both)
+helps because processing multiple packets let's us "reuse"
+the cpu cache priming the handling of the first packet
+achieves for us.
+
+It would be great to stick something like this into the e1000
+driver, and get some output from it with Intel's single NIC
+performance degradation test case.
+
+It is also necessary for the Intel folks to say whether the
+NIC is running out of RX descriptors in the single NIC
+case with dev->weight set to the default of 64.  If so, does
+increasing the RX ring size to a larger value via ethtool
+help?  If not, then why in the world are things running more
+slowly?
+
+I've got a crappy 1.5GHZ sparc64 box in my tg3 tests here, and it can
+handle gigabit line rate with much CPU to spare.  So either Intel is
+doing something other than TCP stream tests, or something else is out
+of whack.
+
+I even tried to do things like having a memory touching program
+run in parallel with the TCP stream test, and this did not make
+the timing numbers in the logs increase much at all.
+
+--- ./drivers/net/tg3.c.~1~	2005-06-03 11:13:14.000000000 -0700
++++ ./drivers/net/tg3.c	2005-06-05 23:21:11.000000000 -0700
+@@ -2836,7 +2836,22 @@ static int tg3_rx(struct tg3 *tp, int bu
+ 				    desc->err_vlan & RXD_VLAN_MASK);
+ 		} else
+ #endif
++		{
++			unsigned long t = get_cycles();
++			struct tg3_poll_log_ent *lp;
++			unsigned int ent;
++
+ 			netif_receive_skb(skb);
++			t = get_cycles() - t;
++
++			ent = tp->poll_log_ent;
++			lp = &tp->poll_log[ent];
++			ent = lp->rx_cur_ent;
++			if (ent < POLL_RX_SIZE) {
++				lp->rx_ents[ent] = (u16) t;
++				lp->rx_cur_ent = ent + 1;
++			}
++		}
+ 
+ 		tp->dev->last_rx = jiffies;
+ 		received++;
+@@ -2897,9 +2912,15 @@ static int tg3_poll(struct net_device *n
+ 
+ 	/* run TX completion thread */
+ 	if (sblk->idx[0].tx_consumer != tp->tx_cons) {
++		unsigned long t;
++
+ 		spin_lock(&tp->tx_lock);
++		t = get_cycles();		
+ 		tg3_tx(tp);
++		t = get_cycles() - t;
+ 		spin_unlock(&tp->tx_lock);
++
++		tp->poll_log[tp->poll_log_ent].tx_ticks = (u16) t;
+ 	}
+ 
+ 	spin_unlock_irqrestore(&tp->lock, flags);
+@@ -2911,16 +2932,28 @@ static int tg3_poll(struct net_device *n
+ 	if (sblk->idx[0].rx_producer != tp->rx_rcb_ptr) {
+ 		int orig_budget = *budget;
+ 		int work_done;
++		unsigned long t;
++		unsigned int ent;
+ 
+ 		if (orig_budget > netdev->quota)
+ 			orig_budget = netdev->quota;
+ 
++		t = get_cycles();
+ 		work_done = tg3_rx(tp, orig_budget);
++		t = get_cycles() - t;
++
++		ent = tp->poll_log_ent;
++		tp->poll_log[ent].rx_ticks = (u16) t;
+ 
+ 		*budget -= work_done;
+ 		netdev->quota -= work_done;
+ 	}
+ 
++	tp->poll_log_ent = (tp->poll_log_ent + 1) & POLL_LOG_MASK;
++	tp->poll_log[tp->poll_log_ent].tx_ticks = 0;
++	tp->poll_log[tp->poll_log_ent].rx_ticks = 0;
++	tp->poll_log[tp->poll_log_ent].rx_cur_ent = 0;
++
+ 	if (tp->tg3_flags & TG3_FLAG_TAGGED_STATUS)
+ 		tp->last_tag = sblk->status_tag;
+ 	rmb();
+@@ -6609,6 +6642,27 @@ static struct net_device_stats *tg3_get_
+ 	stats->rx_crc_errors = old_stats->rx_crc_errors +
+ 		calc_crc_errors(tp);
+ 
++	/* XXX Yes, I know, do this right. :-)  */
++	{
++		unsigned int ent;
++
++		printk("TG3: POLL LOG, current ent[%d]\n", tp->poll_log_ent);
++		ent = tp->poll_log_ent - (POLL_LOG_SIZE - 1);
++		ent &= POLL_LOG_MASK;
++		while (ent != tp->poll_log_ent) {
++			struct tg3_poll_log_ent *lp = &tp->poll_log[ent];
++			int i;
++
++			printk("(%u:%u[ ",
++			       lp->tx_ticks, lp->rx_ticks);
++			for (i = 0; i < lp->rx_cur_ent; i++)
++				printk("%d ", lp->rx_ents[i]);
++			printk("])\n");
++
++			ent = (ent + 1) & POLL_LOG_MASK;
++		}
++	}
++
+ 	return stats;
+ }
+ 
+--- ./drivers/net/tg3.h.~1~	2005-06-03 11:13:14.000000000 -0700
++++ ./drivers/net/tg3.h	2005-06-05 23:21:05.000000000 -0700
+@@ -2003,6 +2003,15 @@ struct tg3_ethtool_stats {
+ 	u64		nic_tx_threshold_hit;
+ };
+ 
++struct tg3_poll_log_ent {
++	u16 tx_ticks;
++	u16 rx_ticks;
++#define POLL_RX_SIZE	8
++#define POLL_RX_MASK	(POLL_RX_SIZE - 1)
++	u16 rx_cur_ent;
++	u16 rx_ents[POLL_RX_SIZE];
++};
++
+ struct tg3 {
+ 	/* begin "general, frequently-used members" cacheline section */
+ 
+@@ -2232,6 +2241,11 @@ struct tg3 {
+ #define SST_25VF0X0_PAGE_SIZE		4098
+ 
+ 	struct ethtool_coalesce		coal;
++
++#define POLL_LOG_SIZE	(1 << 7)
++#define POLL_LOG_MASK	(POLL_LOG_SIZE - 1)
++	unsigned int			poll_log_ent;
++	struct tg3_poll_log_ent		poll_log[POLL_LOG_SIZE];
+ };
+ 
+ #endif /* !(_T3_H) */
