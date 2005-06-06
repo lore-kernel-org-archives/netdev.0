@@ -1,30 +1,23 @@
-From: Grant Grundler <iod00d@hp.com>
-Subject: Re: [PATCH] tg3: Fix link failure in 5701
-Date: Mon, 6 Jun 2005 15:26:31 -0700
-Message-ID: <20050606222631.GE12068@esmail.cup.hp.com>
-References: <1118086942.5008.14.camel@rh4> <20050606.151641.95895557.davem@davemloft.net>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [RFC] Replace scatterlist with crypto_frag
+Date: Mon, 06 Jun 2005 19:05:35 -0400
+Message-ID: <42A4D6BF.9020908@pobox.com>
+References: <20050606115939.GA399@gondor.apana.org.au>	<20050606120914.GA8317@infradead.org>	<20050606124043.GA625@gondor.apana.org.au> <20050606.154653.64001264.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mchan@broadcom.com, iod00d@hp.com, peterc@gelato.unsw.edu.au,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, hch@infradead.org, jmorris@redhat.com,
+        linux-crypto@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20050606.151641.95895557.davem@davemloft.net>
+In-Reply-To: <20050606.154653.64001264.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 06, 2005 at 03:16:41PM -0700, David S. Miller wrote:
-> Applied, thanks a log.
+David S. Miller wrote:
+> The question is where to put the DMA mapping cookies :-)
 
-Dave,
-Btw, where can I see which version of tg3 will get this fix?
+Indeed.
 
-I'm certainly I'll be asked the question "which tg3 version
-is required" more than the few times.
-
-thanks,
-grant
-
-ps. Thanks Michael!
+	Jeff
