@@ -1,29 +1,36 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCHSET] PKT_SCHED related fixes and a meta ematch completion
-Date: Mon, 06 Jun 2005 15:29:13 -0700 (PDT)
-Message-ID: <20050606.152913.88479223.davem@davemloft.net>
-References: <20050603211241.593114000@axs>
+Subject: Re: [RFC] Replace scatterlist with crypto_frag
+Date: Mon, 06 Jun 2005 15:36:02 -0700 (PDT)
+Message-ID: <20050606.153602.23015220.davem@davemloft.net>
+References: <20050604102204.GA1214@gondor.apana.org.au>
+	<20050604142939.4e2efc55@zanzibar.2ka.mipt.ru>
+	<20050604103249.GA1378@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: johnpol@2ka.mipt.ru, jmorris@redhat.com, linux-crypto@vger.kernel.org,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: tgraf@suug.ch
-In-Reply-To: <20050603211241.593114000@axs>
+To: herbert@gondor.apana.org.au
+In-Reply-To: <20050604103249.GA1378@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Fri, 03 Jun 2005 23:12:41 +0200
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Sat, 4 Jun 2005 20:32:49 +1000
 
-> The following patchset fixes some serious bugs that prevent
-> the basic classifier and the meta ematch from working properly.
-> Patch 2 adds a few new meta collectors for socket attribtues which
-> I'd like to have in 2.6.12 as well. If you think this is too
-> intrusive (it isn't ;->) I'll resend patch 4 with offsets fixed.
+> On Sat, Jun 04, 2005 at 02:29:39PM +0400, Evgeniy Polyakov wrote:
+> > 
+> > But without sg we sill save 4*sizeof(dma addr) - is it really a price?
+> 
+> We're also reducing the offset/length to 16 bits from 32 bits so we're
+> shaving off half the size.
 
-I'll try to get these 4 patches into 2.6.12, they all look
-straight forward and sane to me.
+Note, it is still going to be a 16 byte structure on 64-bit
+machines.  This is mainly due to the 8-byte alignment needed
+by the page pointer.
 
-Thanks Thomas.
+I'm not objecting to your ideas, just mentioning this fact...
+
+I am also puzzled as to where the "4" came from :-)
