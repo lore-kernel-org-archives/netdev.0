@@ -1,211 +1,1024 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: RFC: NAPI packet weighting patch
-Date: Sun, 05 Jun 2005 23:43:07 -0700 (PDT)
-Message-ID: <20050605.234307.92584592.davem@davemloft.net>
-References: <1117837798.6266.25.camel@localhost.localdomain>
-	<1117844736.4430.51.camel@rh4>
-	<20050605.143653.75191476.davem@davemloft.net>
+From: Hans Henrik Happe <hhh@imada.sdu.dk>
+Subject: PROBLEM: High TCP latency
+Date: Mon, 6 Jun 2005 11:35:09 +0200
+Message-ID: <200506061135.09869.hhh@imada.sdu.dk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, buytenh@wantstofly.org, mitch.a.williams@intel.com,
-        john.ronciak@intel.com, jdmason@us.ibm.com, shemminger@osdl.org,
-        netdev@oss.sgi.com, Robert.Olsson@data.slu.se,
-        ganesh.venkatesan@intel.com, jesse.brandeburg@intel.com
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_NjBpCAIVJaMD5eg"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: mchan@broadcom.com
-In-Reply-To: <20050605.143653.75191476.davem@davemloft.net>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: "David S. Miller" <davem@davemloft.net>
-Date: Sun, 05 Jun 2005 14:36:53 -0700 (PDT)
+--Boundary-00=_NjBpCAIVJaMD5eg
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-> BTW, here is the patch implementing this stuff.
+Short: TCP puts the system into the idle state even though there are data in
+transit.
 
-A new patch and some more data.
+During coding a distributed application I discovered a TCP latency issue. The 
+application does a lot of request forwarding like P2P protocols.
 
-When we go to gigabit, and NAPI kicks in, the first RX
-packet costs a lot (cache misses etc.) but the rest are
-very efficient to process.  I suspect this only holds
-for the single socket case, and on a real system processing
-many connections the cost drop might not be so clean.
+I have tried to track down the problem and have written a small program 
+(random-tcp.c) that shows the long latencies. In this program one message is 
+passed round between a number om processes. Each time a process receives the 
+message it randomly chooses a process to forward to next. 
 
-The log output format is:
+This I have compared to a program that doesn't give long latencies 
+(ring-tcp.c). In this program each process always forwards to the same 
+process (ring topology).
 
-(TX_TICKS:RX_TICKS[ RX_TICK1 RX_TICK2 RX_TICK3 ... ])
+I have also made the same programs using SCTP and this protocol has no issue 
+in the random case.
 
-Here is an example trace from a single socket TCP stream
-send over gigabit:
+The following is a test with 16 processes forwarding the message 100000 times. 
+The avg. forwarding time from process to process is messured.
 
-(9:112[ 26 8 7 8 7 ])
-(6:110[ 23 8 8 8 7 ])
-(7:57[ 26 8 ])
-(6:117[ 25 8 9 7 7 ])
-(5:37[ 26 ])
-(6:113[ 28 8 7 8 7 ])
-(0:20[ 9 ])
-(8:111[ 27 7 7 8 7 ])
-(5:109[ 25 8 8 8 7 ])
-(8:113[ 25 7 8 9 7 ])
-(6:108[ 25 8 7 7 7 ])
-(8:88[ 26 8 8 7 ])
-(6:109[ 25 7 7 7 7 ])
-(6:111[ 25 9 8 7 7 ])
-(0:48[ 9 5 ])
+$ ./random-tcp 16 100000
+avg forwarding time: 0.000326
 
-This kind of trace reiterates some things we already know.
-For example, mitigation (HW, SW, or a combination of both)
-helps because processing multiple packets let's us "reuse"
-the cpu cache priming the handling of the first packet
-achieves for us.
+$ ./ring-tcp 16 100000
+avg forwarding time: 0.000044
 
-It would be great to stick something like this into the e1000
-driver, and get some output from it with Intel's single NIC
-performance degradation test case.
+$ ./random-sctp 16 100000
+avg forwarding time: 0.000068
 
-It is also necessary for the Intel folks to say whether the
-NIC is running out of RX descriptors in the single NIC
-case with dev->weight set to the default of 64.  If so, does
-increasing the RX ring size to a larger value via ethtool
-help?  If not, then why in the world are things running more
-slowly?
+$ ./ring-sctp 16 100000
+avg forwarding time: 0.000067
 
-I've got a crappy 1.5GHZ sparc64 box in my tg3 tests here, and it can
-handle gigabit line rate with much CPU to spare.  So either Intel is
-doing something other than TCP stream tests, or something else is out
-of whack.
+Using 'top' i have observed that the system spends time in the idle state when 
+running 'random-tcp'. This I have observed with just 3 processes. With 16 
+processes the CPU is only 20% loaded on my Mobile Intel(R) Celeron(R) CPU 
+1.60GHz.
 
-I even tried to do things like having a memory touching program
-run in parallel with the TCP stream test, and this did not make
-the timing numbers in the logs increase much at all.
+I have also tried with socketpair()'s which didn't have the problem. Therefore 
+my conclusion is that it must be a TCP issue.
 
---- ./drivers/net/tg3.c.~1~	2005-06-03 11:13:14.000000000 -0700
-+++ ./drivers/net/tg3.c	2005-06-05 23:21:11.000000000 -0700
-@@ -2836,7 +2836,22 @@ static int tg3_rx(struct tg3 *tp, int bu
- 				    desc->err_vlan & RXD_VLAN_MASK);
- 		} else
- #endif
-+		{
-+			unsigned long t = get_cycles();
-+			struct tg3_poll_log_ent *lp;
-+			unsigned int ent;
-+
- 			netif_receive_skb(skb);
-+			t = get_cycles() - t;
-+
-+			ent = tp->poll_log_ent;
-+			lp = &tp->poll_log[ent];
-+			ent = lp->rx_cur_ent;
-+			if (ent < POLL_RX_SIZE) {
-+				lp->rx_ents[ent] = (u16) t;
-+				lp->rx_cur_ent = ent + 1;
-+			}
-+		}
- 
- 		tp->dev->last_rx = jiffies;
- 		received++;
-@@ -2897,9 +2912,15 @@ static int tg3_poll(struct net_device *n
- 
- 	/* run TX completion thread */
- 	if (sblk->idx[0].tx_consumer != tp->tx_cons) {
-+		unsigned long t;
-+
- 		spin_lock(&tp->tx_lock);
-+		t = get_cycles();		
- 		tg3_tx(tp);
-+		t = get_cycles() - t;
- 		spin_unlock(&tp->tx_lock);
-+
-+		tp->poll_log[tp->poll_log_ent].tx_ticks = (u16) t;
- 	}
- 
- 	spin_unlock_irqrestore(&tp->lock, flags);
-@@ -2911,16 +2932,28 @@ static int tg3_poll(struct net_device *n
- 	if (sblk->idx[0].rx_producer != tp->rx_rcb_ptr) {
- 		int orig_budget = *budget;
- 		int work_done;
-+		unsigned long t;
-+		unsigned int ent;
- 
- 		if (orig_budget > netdev->quota)
- 			orig_budget = netdev->quota;
- 
-+		t = get_cycles();
- 		work_done = tg3_rx(tp, orig_budget);
-+		t = get_cycles() - t;
-+
-+		ent = tp->poll_log_ent;
-+		tp->poll_log[ent].rx_ticks = (u16) t;
- 
- 		*budget -= work_done;
- 		netdev->quota -= work_done;
- 	}
- 
-+	tp->poll_log_ent = (tp->poll_log_ent + 1) & POLL_LOG_MASK;
-+	tp->poll_log[tp->poll_log_ent].tx_ticks = 0;
-+	tp->poll_log[tp->poll_log_ent].rx_ticks = 0;
-+	tp->poll_log[tp->poll_log_ent].rx_cur_ent = 0;
-+
- 	if (tp->tg3_flags & TG3_FLAG_TAGGED_STATUS)
- 		tp->last_tag = sblk->status_tag;
- 	rmb();
-@@ -6609,6 +6642,27 @@ static struct net_device_stats *tg3_get_
- 	stats->rx_crc_errors = old_stats->rx_crc_errors +
- 		calc_crc_errors(tp);
- 
-+	/* XXX Yes, I know, do this right. :-)  */
-+	{
-+		unsigned int ent;
-+
-+		printk("TG3: POLL LOG, current ent[%d]\n", tp->poll_log_ent);
-+		ent = tp->poll_log_ent - (POLL_LOG_SIZE - 1);
-+		ent &= POLL_LOG_MASK;
-+		while (ent != tp->poll_log_ent) {
-+			struct tg3_poll_log_ent *lp = &tp->poll_log[ent];
-+			int i;
-+
-+			printk("(%u:%u[ ",
-+			       lp->tx_ticks, lp->rx_ticks);
-+			for (i = 0; i < lp->rx_cur_ent; i++)
-+				printk("%d ", lp->rx_ents[i]);
-+			printk("])\n");
-+
-+			ent = (ent + 1) & POLL_LOG_MASK;
-+		}
-+	}
-+
- 	return stats;
- }
- 
---- ./drivers/net/tg3.h.~1~	2005-06-03 11:13:14.000000000 -0700
-+++ ./drivers/net/tg3.h	2005-06-05 23:21:05.000000000 -0700
-@@ -2003,6 +2003,15 @@ struct tg3_ethtool_stats {
- 	u64		nic_tx_threshold_hit;
- };
- 
-+struct tg3_poll_log_ent {
-+	u16 tx_ticks;
-+	u16 rx_ticks;
-+#define POLL_RX_SIZE	8
-+#define POLL_RX_MASK	(POLL_RX_SIZE - 1)
-+	u16 rx_cur_ent;
-+	u16 rx_ents[POLL_RX_SIZE];
-+};
-+
- struct tg3 {
- 	/* begin "general, frequently-used members" cacheline section */
- 
-@@ -2232,6 +2241,11 @@ struct tg3 {
- #define SST_25VF0X0_PAGE_SIZE		4098
- 
- 	struct ethtool_coalesce		coal;
-+
-+#define POLL_LOG_SIZE	(1 << 7)
-+#define POLL_LOG_MASK	(POLL_LOG_SIZE - 1)
-+	unsigned int			poll_log_ent;
-+	struct tg3_poll_log_ent		poll_log[POLL_LOG_SIZE];
- };
- 
- #endif /* !(_T3_H) */
+Now this local use of TCP is not that usefull. Therefore, I tried a MPI 
+version and tested this in a 16 node cluster. Here the random case is 5 times 
+slower than the ring.
+
+I have tested on many kernel versions from 2.4.25 up until 2.6.12-rc5 and all 
+had this issue.
+
+A few people on lkml also confirmed it, but I have not got any reply from 
+someone with a greater knowledge of the inner working of Linux TCP (at least 
+they didn't tell me that they had this knowledge :-).
+
+I hope this is helpfull.
+
+Regards
+Hans Henrik Happe
+
+--Boundary-00=_NjBpCAIVJaMD5eg
+Content-Type: text/x-csrc;
+  charset="us-ascii";
+  name="random-sctp.c"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="random-sctp.c"
+
+/* By Hans Henrik Happe
+ *
+ * compile: gcc -o random-sctp random-sctp.c -lsctp
+ *
+ * usage: random-sctp <# processes> <# forwards>
+ */
+
+#include <asm/msr.h>
+
+#include <stdio.h>
+#include <poll.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/tcp.h>
+#include <fcntl.h>
+#include <netdb.h>
+
+#include <netinet/sctp.h>
+#include <sys/time.h>
+
+
+double second() {
+
+
+  struct timeval tv;
+  struct timezone tz;
+  double t;
+
+  gettimeofday(&tv,&tz);
+
+  t= (double)(tv.tv_sec)+(double)(tv.tv_usec/1.0e6);
+
+  return t;
+}
+
+typedef struct {
+    struct sockaddr sockadr;
+    int len;    
+} adr_t;
+
+int get_adr(adr_t *adr, int port) {
+   int n;
+   struct addrinfo hints, *res;
+   char str[6];
+    
+   memset(&hints, 0, sizeof(struct addrinfo));
+    
+   hints.ai_flags    = AI_PASSIVE;
+   hints.ai_family   = PF_UNSPEC;
+   hints.ai_socktype = SOCK_STREAM;
+
+   sprintf(str, "%d", port);
+   n = getaddrinfo("localhost", str, &hints, &res);
+
+   if (n != 0) {
+       fprintf(stderr,
+               "getaddrinfo error: [%s]\n",
+               gai_strerror(n));
+       return -1;    
+   }
+   
+   memcpy(&adr->sockadr, res->ai_addr, sizeof(*res->ai_addr));
+   adr->len = sizeof(*res->ai_addr);
+      
+   freeaddrinfo(res);
+
+   return 0;
+}
+
+int init_listen(int port) {
+    int n, on=1;
+    int sock;    
+    struct sockaddr_in name;
+   
+        
+    sock = socket(PF_INET, SOCK_SEQPACKET, IPPROTO_SCTP);
+    if (sock == -1) {
+        perror("socket");
+        return -1;
+    }
+    
+    name.sin_family = PF_INET;
+    name.sin_port = htons (port);
+    name.sin_addr.s_addr = htonl (INADDR_ANY);
+    
+    if (bind (sock, (struct sockaddr *) &name, sizeof (name)) == -1) {
+        perror("bind");
+        return -1;
+    }      
+    
+    if (listen(sock, 10) == -1) {
+        perror("listen");
+        return -1;
+    }
+
+    return sock;  
+}
+
+int do_recv(int sock, void *buf, int n) {
+    struct sockaddr sa;
+    struct sctp_sndrcvinfo info;
+    int slen, flags, res;
+    slen = sizeof(sa);
+    
+    res = sctp_recvmsg(sock, buf, n, &sa, &slen, &info, &flags);
+    if (res == -1) {
+        perror("recv");    
+    }
+    if (res != n) {
+        fprintf(stderr, "recv incomplete\n");    
+    }
+    return res;
+}
+
+int do_send(int sock, adr_t *adr, void *buf, int n) {
+    int res;
+    
+    res = sctp_sendmsg(sock, buf, n, &adr->sockadr, adr->len, 666, MSG_ADDR_OVER, 0, 0, 444);
+    if (res == -1) {
+        perror("send");    
+    }
+    if (res != n) {
+        fprintf(stderr, "send incomplete\n");    
+    }
+    return res;
+}
+
+
+int main(int argc, char *argv[]) {
+    int i, cnt, pid, src, dest, its;
+    int lsock;
+    char id, rank, data;
+    int port = 11100;
+    double t0, t1;
+        
+    /* # processes */
+    cnt = atoi(argv[1]);
+    
+    /* # forwards */
+    its = atoi(argv[2]);
+
+    {
+        adr_t dests[cnt];
+           
+        /* Create processes */
+        rank = 0;
+        for (i=1; i<cnt; i++) {
+            pid = fork();
+            if (pid == 0) {
+                rank=cnt-i;
+                break;    
+            }
+        }
+
+        /* Listen */
+        lsock = init_listen(port+rank);
+
+        
+        sleep(2); /* "Ensure" that all processes are listening, HACK!!! */
+                
+        
+        for (i=0; i<cnt; i++) {
+            get_adr(dests+i, port+i);
+        }
+                
+                
+        srandom(666);        
+        src = 0;
+        dest = 1;
+        
+        /* Send startup message */
+        if (rank == src) {
+            do_send(lsock, &dests[dest], &data, 1);
+        }
+        
+        
+        /* Receive message and forward to a random destination */
+        
+        t0 = second();
+        for (i=0; i < its; i++) {
+                    
+            if (rank == dest) {
+                do_recv(lsock, &data, 1);
+            }
+
+            src = dest;                    
+                    
+            dest = random()%cnt;
+                    
+            /* Do not send to self */           
+            if (dest == src) {
+                dest = (dest+1)%cnt;    
+            }
+                    
+            if (src == rank) {                   
+                do_send(lsock, &dests[dest], &data, 1);
+            }
+        }
+        
+        if (rank == 0) {
+            for (i=1; i<cnt; i++) {
+                wait(&dest);    
+            }
+            t1 = second();
+            printf("avg forwarding time: %lf\n", ((t1-t0)/its));
+        }
+    }    
+    
+    return 0;
+}
+
+--Boundary-00=_NjBpCAIVJaMD5eg
+Content-Type: text/x-csrc;
+  charset="us-ascii";
+  name="random-tcp.c"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="random-tcp.c"
+
+/* By Hans Henrik Happe
+ * 
+ * usage: random-tcp <# processes> <# forwards>
+ */
+
+#include <asm/msr.h>
+
+#include <stdio.h>
+#include <poll.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/tcp.h>
+#include <fcntl.h>
+#include <netdb.h>
+#include <sys/time.h>
+#include <sys/wait.h>
+
+double second() {
+
+  struct timeval tv;
+  struct timezone tz;
+  double t;
+
+  gettimeofday(&tv,&tz);
+
+  t= (double)(tv.tv_sec)+(double)(tv.tv_usec/1.0e6);
+
+  return t;
+}
+
+
+int do_connect(int port) {
+   int n, sock, on=1;
+   struct addrinfo hints, *res;
+   char str[6];
+   void *adr;
+    
+   memset(&hints, 0, sizeof(struct addrinfo));
+    
+   hints.ai_flags    = AI_PASSIVE;
+   hints.ai_family   = PF_UNSPEC;
+   hints.ai_socktype = SOCK_STREAM;
+
+   sprintf(str, "%d", port);
+   n = getaddrinfo("localhost", str, &hints, &res);
+
+   if (n != 0) {
+       fprintf(stderr,
+               "getaddrinfo error: [%s]\n",
+               gai_strerror(n));
+       return -1;    
+   }
+   
+   sock = socket(AF_INET, SOCK_STREAM, 0);
+   if (sock == -1) {
+       perror("socket");
+       return -1;
+   }
+
+    
+   if (setsockopt(sock, SOL_TCP, TCP_NODELAY, &on, sizeof(on)) == -1) {
+       perror("setsockopt");
+       return -1;
+   }
+   
+   if (connect(sock, (struct sockaddr *)res->ai_addr, sizeof(*res->ai_addr)) == -1) {
+       perror("connect");
+       return -1;
+   }
+   
+   freeaddrinfo(res);
+
+   return sock;
+}
+
+int start_listen(int port) {
+    int n, on=1;
+    int sock;    
+    struct sockaddr_in name;
+   
+        
+    sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock == -1) {
+        perror("socket");
+        return -1;
+    }
+
+    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) == -1) {
+        perror("setsockopt");
+        return -1;
+    }
+        
+    name.sin_family = AF_INET;
+    name.sin_port = htons (port);
+    name.sin_addr.s_addr = htonl (INADDR_ANY);
+    
+    if (bind (sock, (struct sockaddr *) &name, sizeof (name)) == -1) {
+        perror("bind");
+        return -1;
+    }      
+    
+    if (listen(sock, 10) == -1) {
+        perror("listen");
+        return -1;
+    }
+    
+    return sock;  
+}
+        
+int do_accept(int lsock) {
+    struct sockaddr addr;
+    socklen_t len = sizeof(addr);
+    int sock, on=1;
+
+
+    if ((sock = accept(lsock, &addr, &len)) == -1) {
+        perror("accept");
+        return -1;
+    }
+
+    if (setsockopt(sock, SOL_TCP, TCP_NODELAY, &on, sizeof(on)) == -1) {
+        perror("setsockopt");
+        return -1;
+    }
+        
+    return sock;
+}
+
+int do_read(int fd, void *buf, int n) {
+    int res;
+    
+    res = read(fd, buf, n);
+    if (res == -1) {
+        perror("read");    
+    }
+    if (res != n) {
+        fprintf(stderr, "read incomplete\n");    
+    }
+    
+    return res;
+}
+
+int do_write(int fd, void *buf, int n) {
+    int res;
+    
+    res = write(fd, buf, n);
+    if (res == -1) {
+        perror("write");    
+    }
+    if (res != n) {
+        fprintf(stderr, "write incomplete\n");    
+    }
+    return res;
+}
+
+
+int main(int argc, char *argv[]) {
+    int i, cnt, pid, dest, src, its;
+    int lsock, sock;
+    char id, rank, data;
+    int port = 11100;
+    double t0, t1;
+        
+    /* # processes */
+    cnt = atoi(argv[1]);
+    
+    /* # forwards */
+    its = atoi(argv[2]);
+    
+    {
+        int socks[cnt];    
+           
+        /* Create processes */
+        rank = 0;
+        for (i=1; i<cnt; i++) {
+            pid = fork();
+            if (pid == 0) {
+                rank=i;
+                break;    
+            }
+        }
+
+        /* Listen */
+        lsock = start_listen(port+rank);
+
+        
+        sleep(2); /* "Ensure" that all processes are listening, HACK!!! */
+                
+        for (i=0; i<rank; i++) {
+            sock = do_accept(lsock);
+            
+            do_read(sock, &id, 1);
+            do_write(sock, &rank, 1);
+
+            socks[id] = sock;
+        }
+        
+        for (i=rank; i<cnt-1; i++) {
+            sock = do_connect(port+i+1);
+            
+            do_write(sock, &rank, 1);
+            do_read(sock, &id, 1);
+            
+            socks[id] = sock;
+        }
+                
+        srandom(666);        
+        src = 0;
+        dest = 1;
+        
+        /* Write startup message */
+        if (rank == src) {
+            do_write(socks[dest], &data, 1);
+        }
+        
+        
+        /* Receive message and forward to a random destination */
+        
+        t0 = second();
+        for (i=0; i < its; i++) {
+                    
+            if (rank == dest) {
+                do_read(socks[src], &data, 1);
+            }
+
+            src = dest;                    
+                    
+            dest = random()%cnt;
+                    
+            /* Do not send to self */           
+            if (dest == src) {
+                dest = (dest+1)%cnt;    
+            }
+                    
+            if (src == rank) {                   
+               do_write(socks[dest], &data, 1);
+            }
+        }
+        
+        if (rank == 0) {
+            for (i=1; i<cnt; i++) {
+                wait(&dest);    
+            }
+            t1 = second();
+            printf("avg forwarding time: %lf\n", ((t1-t0)/its));
+        }
+    }    
+    
+    
+    return 0;
+}
+
+--Boundary-00=_NjBpCAIVJaMD5eg
+Content-Type: text/x-csrc;
+  charset="us-ascii";
+  name="ring-sctp.c"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="ring-sctp.c"
+
+/* By Hans Henrik Happe
+ *
+ * compile: gcc -o ring-sctp ring-sctp.c -lsctp
+ *
+ * usage: ring-sctp <# processes> <# forwards>
+ */
+
+#include <asm/msr.h>
+
+#include <stdio.h>
+#include <poll.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/tcp.h>
+#include <fcntl.h>
+#include <netdb.h>
+
+#include <netinet/sctp.h>
+#include <sys/time.h>
+
+
+double second() {
+
+
+  struct timeval tv;
+  struct timezone tz;
+  double t;
+
+  gettimeofday(&tv,&tz);
+
+  t= (double)(tv.tv_sec)+(double)(tv.tv_usec/1.0e6);
+
+  return t;
+}
+
+typedef struct {
+    struct sockaddr sockadr;
+    int len;    
+} adr_t;
+
+int get_adr(adr_t *adr, int port) {
+   int n;
+   struct addrinfo hints, *res;
+   char str[6];
+    
+   memset(&hints, 0, sizeof(struct addrinfo));
+    
+   hints.ai_flags    = AI_PASSIVE;
+   hints.ai_family   = PF_UNSPEC;
+   hints.ai_socktype = SOCK_STREAM;
+
+   sprintf(str, "%d", port);
+   n = getaddrinfo("localhost", str, &hints, &res);
+
+   if (n != 0) {
+       fprintf(stderr,
+               "getaddrinfo error: [%s]\n",
+               gai_strerror(n));
+       return -1;    
+   }
+   
+   memcpy(&adr->sockadr, res->ai_addr, sizeof(*res->ai_addr));
+   adr->len = sizeof(*res->ai_addr);
+      
+   freeaddrinfo(res);
+
+   return 0;
+}
+
+int init_listen(int port) {
+    int n, on=1;
+    int sock;    
+    struct sockaddr_in name;
+   
+        
+    sock = socket(PF_INET, SOCK_SEQPACKET, IPPROTO_SCTP);
+    if (sock == -1) {
+        perror("socket");
+        return -1;
+    }
+    
+    name.sin_family = PF_INET;
+    name.sin_port = htons (port);
+    name.sin_addr.s_addr = htonl (INADDR_ANY);
+    
+    if (bind (sock, (struct sockaddr *) &name, sizeof (name)) == -1) {
+        perror("bind");
+        return -1;
+    }      
+    
+    if (listen(sock, 10) == -1) {
+        perror("listen");
+        return -1;
+    }
+
+    return sock;  
+}
+
+int do_recv(int sock, void *buf, int n) {
+    struct sockaddr sa;
+    struct sctp_sndrcvinfo info;
+    int slen, flags, res;
+    slen = sizeof(sa);
+    
+    res = sctp_recvmsg(sock, buf, n, &sa, &slen, &info, &flags);
+    if (res == -1) {
+        perror("recv");    
+    }
+    if (res != n) {
+        fprintf(stderr, "recv incomplete\n");    
+    }
+    return res;
+}
+
+int do_send(int sock, adr_t *adr, void *buf, int n) {
+    int res;
+    
+    res = sctp_sendmsg(sock, buf, n, &adr->sockadr, adr->len, 666, MSG_ADDR_OVER, 0, 0, 444);
+    if (res == -1) {
+        perror("send");    
+    }
+    if (res != n) {
+        fprintf(stderr, "send incomplete\n");    
+    }
+    return res;
+}
+
+
+int main(int argc, char *argv[]) {
+    int i, cnt, pid, src, dest, its;
+    int lsock;
+    char id, rank, data;
+    int port = 11100;
+    double t0, t1;
+        
+    /* # processes */
+    cnt = atoi(argv[1]);
+    
+    /* # forwards */
+    its = atoi(argv[2]);
+
+    {
+        adr_t dests[cnt];
+           
+        /* Create processes */
+        rank = 0;
+        for (i=1; i<cnt; i++) {
+            pid = fork();
+            if (pid == 0) {
+                rank=cnt-i;
+                break;    
+            }
+        }
+
+        /* Listen */
+        lsock = init_listen(port+rank);
+
+        
+        sleep(2); /* "Ensure" that all processes are listening, HACK!!! */
+                
+        
+        for (i=0; i<cnt; i++) {
+            get_adr(dests+i, port+i);
+        }
+                
+                
+        srandom(666);        
+        src = 0;
+        dest = 1;
+        
+        /* Send startup message */
+        if (rank == src) {
+            do_send(lsock, &dests[dest], &data, 1);
+        }
+        
+        
+        /* Receive message and forward to a random destination */
+        
+        t0 = second();
+        for (i=0; i < its; i++) {
+                    
+            if (rank == dest) {
+                do_recv(lsock, &data, 1);
+            }
+
+            src = dest;                    
+                    
+            dest = (dest+1)%cnt;    
+                    
+            if (src == rank) {                   
+                do_send(lsock, &dests[dest], &data, 1);
+            }
+        }
+        
+        if (rank == 0) {
+            for (i=1; i<cnt; i++) {
+                wait(&dest);    
+            }
+            t1 = second();
+            printf("avg forwarding time: %lf\n", ((t1-t0)/its));
+        }
+    }    
+    
+    return 0;
+}
+
+--Boundary-00=_NjBpCAIVJaMD5eg
+Content-Type: text/x-csrc;
+  charset="us-ascii";
+  name="ring-tcp.c"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="ring-tcp.c"
+
+/* By Hans Henrik Happe
+ *
+ * usage: ring-tcp <# processes> <# forwards>
+ */
+
+#include <asm/msr.h>
+
+#include <stdio.h>
+#include <poll.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/tcp.h>
+#include <fcntl.h>
+#include <netdb.h>
+#include <sys/time.h>
+#include <sys/wait.h>
+
+double second() {
+
+  struct timeval tv;
+  struct timezone tz;
+  double t;
+
+  gettimeofday(&tv,&tz);
+
+  t= (double)(tv.tv_sec)+(double)(tv.tv_usec/1.0e6);
+
+  return t;
+}
+
+
+int do_connect(int port) {
+   int n, sock, on=1;
+   struct addrinfo hints, *res;
+   char str[6];
+   void *adr;
+    
+   memset(&hints, 0, sizeof(struct addrinfo));
+    
+   hints.ai_flags    = AI_PASSIVE;
+   hints.ai_family   = PF_UNSPEC;
+   hints.ai_socktype = SOCK_STREAM;
+
+   sprintf(str, "%d", port);
+   n = getaddrinfo("localhost", str, &hints, &res);
+
+   if (n != 0) {
+       fprintf(stderr,
+               "getaddrinfo error: [%s]\n",
+               gai_strerror(n));
+       return -1;    
+   }
+   
+   sock = socket(AF_INET, SOCK_STREAM, 0);
+   if (sock == -1) {
+       perror("socket");
+       return -1;
+   }
+
+    
+   if (setsockopt(sock, SOL_TCP, TCP_NODELAY, &on, sizeof(on)) == -1) {
+       perror("setsockopt");
+       return -1;
+   }
+   
+   if (connect(sock, (struct sockaddr *)res->ai_addr, sizeof(*res->ai_addr)) == -1) {
+       perror("connect");
+       return -1;
+   }
+   
+   freeaddrinfo(res);
+
+   return sock;
+}
+
+int start_listen(int port) {
+    int n, on=1;
+    int sock;    
+    struct sockaddr_in name;
+   
+        
+    sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock == -1) {
+        perror("socket");
+        return -1;
+    }
+
+    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) == -1) {
+        perror("setsockopt");
+        return -1;
+    }
+        
+    name.sin_family = AF_INET;
+    name.sin_port = htons (port);
+    name.sin_addr.s_addr = htonl (INADDR_ANY);
+    
+    if (bind (sock, (struct sockaddr *) &name, sizeof (name)) == -1) {
+        perror("bind");
+        return -1;
+    }      
+    
+    if (listen(sock, 10) == -1) {
+        perror("listen");
+        return -1;
+    }
+    
+    return sock;  
+}
+        
+int do_accept(int lsock) {
+    struct sockaddr addr;
+    socklen_t len = sizeof(addr);
+    int sock, on=1;
+
+
+    if ((sock = accept(lsock, &addr, &len)) == -1) {
+        perror("accept");
+        return -1;
+    }
+
+    if (setsockopt(sock, SOL_TCP, TCP_NODELAY, &on, sizeof(on)) == -1) {
+        perror("setsockopt");
+        return -1;
+    }
+        
+    return sock;
+}
+
+int do_read(int fd, void *buf, int n) {
+    int res;
+    
+    res = read(fd, buf, n);
+    if (res == -1) {
+        perror("read");    
+    }
+    if (res != n) {
+        fprintf(stderr, "read incomplete\n");    
+    }
+    return res;
+}
+
+int do_write(int fd, void *buf, int n) {
+    int res;
+    
+    res = write(fd, buf, n);
+    if (res == -1) {
+        perror("write");    
+    }
+    if (res != n) {
+        fprintf(stderr, "write incomplete\n");    
+    }
+    return res;
+}
+
+
+int main(int argc, char *argv[]) {
+    int i, cnt, pid, dest, src, its;
+    int lsock, sock;
+    char id, rank, data;
+    int port = 11100;
+    double t0, t1;
+        
+    /* # processes */
+    cnt = atoi(argv[1]);
+    
+    /* # forwards */
+    its = atoi(argv[2]);
+    
+    {
+        int socks[cnt];    
+           
+        /* Create processes */
+        rank = 0;
+        for (i=1; i<cnt; i++) {
+            pid = fork();
+            if (pid == 0) {
+                rank=i;
+                break;    
+            }
+        }
+
+        /* Listen */
+        lsock = start_listen(port+rank);
+
+        
+        sleep(2); /* "Ensure" that all processes are listening, HACK!!! */
+                
+        for (i=0; i<rank; i++) {
+            sock = do_accept(lsock);
+            
+            do_read(sock, &id, 1);
+            do_write(sock, &rank, 1);
+
+            socks[id] = sock;
+        }
+        
+        for (i=rank; i<cnt-1; i++) {
+            sock = do_connect(port+i+1);
+            
+            do_write(sock, &rank, 1);
+            do_read(sock, &id, 1);
+            
+            socks[id] = sock;
+        }
+                
+        srandom(666);        
+        src = 0;
+        dest = 1;
+        
+        /* Write startup message */
+        if (rank == src) {
+            do_write(socks[dest], &data, 1);
+        }
+        
+        
+        /* Receive message and forward to a random destination */
+        
+        t0 = second();
+        for (i=0; i < its; i++) {
+                    
+            if (rank == dest) {
+                do_read(socks[src], &data, 1);
+            }
+
+            src = dest;                    
+                    
+            dest = (dest+1)%cnt;    
+                    
+            if (src == rank) {                   
+               do_write(socks[dest], &data, 1);
+            }
+        }
+        
+        if (rank == 0) {
+            for (i=1; i<cnt; i++) {
+                wait(&dest);    
+            }
+            t1 = second();
+            printf("avg forwarding time: %lf\n", ((t1-t0)/its));
+        }
+    }    
+    
+    
+    return 0;
+}
+
+--Boundary-00=_NjBpCAIVJaMD5eg--
