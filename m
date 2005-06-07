@@ -1,7 +1,7 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: [PATCH 1/9]: TCP: The Road to Super TSO
-Date: Mon, 06 Jun 2005 21:16:17 -0700 (PDT)
-Message-ID: <20050606.211617.92588086.davem@davemloft.net>
+Subject: [PATCH 2/9]: TCP: The Road to Super TSO
+Date: Mon, 06 Jun 2005 21:17:08 -0700 (PDT)
+Message-ID: <20050606.211708.63132555.davem@davemloft.net>
 References: <20050606.210846.07641049.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
@@ -15,77 +15,71 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-[TCP]: Simplify SKB data portion allocation with NETIF_F_SG.
+[TCP]: Fix quick-ack decrementing with TSO.
 
-The ideal and most optimal layout for an SKB when doing
-scatter-gather is to put all the headers at skb->data, and
-all the user data in the page array.
+On each packet output, we call tcp_dec_quickack_mode()
+if the ACK flag is set.  It drops tp->ack.quick until
+it hits zero, at which time we deflate the ATO value.
 
-This makes SKB splitting and combining extremely simple,
-especially before a packet goes onto the wire the first
-time.
+When doing TSO, we are emitting multiple packets with
+ACK set, so we should decrement tp->ack.quick that many
+segments.
 
-So, when sk_stream_alloc_pskb() is given a zero size, make
-sure there is no skb_tailroom().  This is achieved by applying
-SKB_DATA_ALIGN() to the header length used here.
-
-Next, make select_size() in TCP output segmentation use a
-length of zero when NETIF_F_SG is true on the outgoing
-interface.
+Note that, unlike this case, tcp_enter_cwr() should not
+take the tcp_skb_pcount(skb) into consideration.  That
+function, one time, readjusts tp->snd_cwnd and moves
+into TCP_CA_CWR state.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 
-28f78ef8dcc90a2a26499dab76678bd6813d7793 (from 3f5948fa2cbbda1261eec9a39ef3004b3caf73fb)
-diff --git a/include/net/sock.h b/include/net/sock.h
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1130,13 +1130,16 @@ static inline void sk_stream_moderate_sn
- static inline struct sk_buff *sk_stream_alloc_pskb(struct sock *sk,
- 						   int size, int mem, int gfp)
- {
--	struct sk_buff *skb = alloc_skb(size + sk->sk_prot->max_header, gfp);
-+	struct sk_buff *skb;
-+	int hdr_len;
- 
-+	hdr_len = SKB_DATA_ALIGN(sk->sk_prot->max_header);
-+	skb = alloc_skb(size + hdr_len, gfp);
- 	if (skb) {
- 		skb->truesize += mem;
- 		if (sk->sk_forward_alloc >= (int)skb->truesize ||
- 		    sk_stream_mem_schedule(sk, skb->truesize, 0)) {
--			skb_reserve(skb, sk->sk_prot->max_header);
-+			skb_reserve(skb, hdr_len);
- 			return skb;
- 		}
- 		__kfree_skb(skb);
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -775,13 +775,9 @@ static inline int select_size(struct soc
- {
- 	int tmp = tp->mss_cache_std;
- 
--	if (sk->sk_route_caps & NETIF_F_SG) {
--		int pgbreak = SKB_MAX_HEAD(MAX_TCP_HEADER);
-+	if (sk->sk_route_caps & NETIF_F_SG)
-+		tmp = 0;
- 
--		if (tmp >= pgbreak &&
--		    tmp <= pgbreak + (MAX_SKB_FRAGS - 1) * PAGE_SIZE)
--			tmp = pgbreak;
--	}
- 	return tmp;
+00cb08b2ec091f4b461210026392edeaccf31d9c (from 28f78ef8dcc90a2a26499dab76678bd6813d7793)
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -817,11 +817,16 @@ static inline int tcp_ack_scheduled(stru
+ 	return tp->ack.pending&TCP_ACK_SCHED;
  }
  
-@@ -891,11 +887,6 @@ new_segment:
- 					tcp_mark_push(tp, skb);
- 					goto new_segment;
- 				} else if (page) {
--					/* If page is cached, align
--					 * offset to L1 cache boundary
--					 */
--					off = (off + L1_CACHE_BYTES - 1) &
--					      ~(L1_CACHE_BYTES - 1);
- 					if (off == PAGE_SIZE) {
- 						put_page(page);
- 						TCP_PAGE(sk) = page = NULL;
+-static __inline__ void tcp_dec_quickack_mode(struct tcp_sock *tp)
++static __inline__ void tcp_dec_quickack_mode(struct tcp_sock *tp, unsigned int pkts)
+ {
+-	if (tp->ack.quick && --tp->ack.quick == 0) {
+-		/* Leaving quickack mode we deflate ATO. */
+-		tp->ack.ato = TCP_ATO_MIN;
++	if (tp->ack.quick) {
++		if (pkts >= tp->ack.quick) {
++			tp->ack.quick = 0;
++
++			/* Leaving quickack mode we deflate ATO. */
++			tp->ack.ato = TCP_ATO_MIN;
++		} else
++			tp->ack.quick -= pkts;
+ 	}
+ }
+ 
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -141,11 +141,11 @@ static inline void tcp_event_data_sent(s
+ 		tp->ack.pingpong = 1;
+ }
+ 
+-static __inline__ void tcp_event_ack_sent(struct sock *sk)
++static __inline__ void tcp_event_ack_sent(struct sock *sk, unsigned int pkts)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 
+-	tcp_dec_quickack_mode(tp);
++	tcp_dec_quickack_mode(tp, pkts);
+ 	tcp_clear_xmit_timer(sk, TCP_TIME_DACK);
+ }
+ 
+@@ -361,7 +361,7 @@ static int tcp_transmit_skb(struct sock 
+ 		tp->af_specific->send_check(sk, th, skb->len, skb);
+ 
+ 		if (tcb->flags & TCPCB_FLAG_ACK)
+-			tcp_event_ack_sent(sk);
++			tcp_event_ack_sent(sk, tcp_skb_pcount(skb));
+ 
+ 		if (skb->len != tcp_header_size)
+ 			tcp_event_data_sent(tp, skb, sk);
