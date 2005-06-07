@@ -1,36 +1,46 @@
-From: Phil Oester <kernel@linuxace.com>
-Subject: Re: 2.6.12-rcx networking oops
-Date: Tue, 7 Jun 2005 08:34:51 -0700
-Message-ID: <20050607153451.GA28776@linuxace.com>
-References: <20050531224012.GA16789@linuxace.com> <20050601054955.GA2625@gondor.apana.org.au> <20050601170058.GA20112@linuxace.com> <20050606224646.24af30ff.rdunlap@xenotime.net>
+From: "Ronciak, John" <john.ronciak@intel.com>
+Subject: RE: RFC: NAPI packet weighting patch
+Date: Tue, 7 Jun 2005 09:23:32 -0700
+Message-ID: <468F3FDA28AA87429AD807992E22D07E0450C01F@orsmsx408>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, netdev@oss.sgi.com, akpm@osdl.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8bit
+Cc: "Williams, Mitch A" <mitch.a.williams@intel.com>,
+        "David S. Miller" <davem@davemloft.net>, <mchan@broadcom.com>,
+        <buytenh@wantstofly.org>, <jdmason@us.ibm.com>, <netdev@oss.sgi.com>,
+        <Robert.Olsson@data.slu.se>,
+        "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>,
+        "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: randy_dunlap <rdunlap@xenotime.net>
-Content-Disposition: inline
-In-Reply-To: <20050606224646.24af30ff.rdunlap@xenotime.net>
+Content-class: urn:content-classes:message
+To: <hadi@cyberus.ca>, "Stephen Hemminger" <shemminger@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 06, 2005 at 10:46:46PM -0700, randy_dunlap wrote:
-> Agreed, the stack trace is suspicious.  (more below)
+>> 
+> To the intel folks: shouldnt someone be investigating why this is so?
 
-Yes, many of the oops i've collected are questionable...
+This is why we started all of this.  We have data that is showing this
+issue where our over all performance is best in class and yet we can
+make it better by changing things like the weight value.
 
-> This is with NAPI, right?  Would it make sense to try it with that
-> disabled?  (I don't recall you saying it's NAPI, but the e1000
-> functions seem to indicate that.)
+There also seems to be some misconceptions about changing the weight
+value.  It actually improves the performance of other drivers as well.
+Not as much as it improves the e1000 performance but it does seem to
+help others as well.  We (Intel) have to be careful talking about
+competitors performance so we just refer to them as competitors in these
+threads.  So it is not just e1000 who benefits from the lower weight
+values.  One thing it is doing for e1000 right now is that it is
+stopping the e1000 from dropping frames which is part of why it's
+helping the e1000 more (I think).
 
-It is NAPI, but it works fine up to 2.6.11-rc1.  2.6.11-rc2 fails,
-so I'm now testing each individual -bk snapshot between them in 
-hopes of finding the offending changeset.  Given that this box
-is a firewall, it could be the slew of large netfilter changes
-which went into -rc2, but we'll see.
+I agree that we need to bottom out on this and it's why we are
+dedicating the time and resources to this effort.  We also appreciate
+all the effort to help resolve this as well.  This should result in a
+better performing 2.6 stack and drivers.  The new TSO code is a big step
+in that direction as well.
 
-> and how about enabling CONFIG_FRAME_POINTER ?
-
-It is enabled.
-
-Phil
+Cheers,
+John
