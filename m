@@ -1,64 +1,47 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: RFC: NAPI packet weighting patch
-Date: Mon, 06 Jun 2005 17:08:57 -0700
-Message-ID: <42A4E599.2090604@candelatech.com>
-References: <468F3FDA28AA87429AD807992E22D07E0450C00B@orsmsx408> <Pine.CYG.4.58.0506061647340.128@mawilli1-desk2.amr.corp.intel.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: [PATCH 0/9]: TCP: The Road to Super TSO
+Date: Mon, 06 Jun 2005 21:08:46 -0700 (PDT)
+Message-ID: <20050606.210846.07641049.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Ronciak, John" <john.ronciak@intel.com>,
-        "David S. Miller" <davem@davemloft.net>, mchan@broadcom.com,
-        hadi@cyberus.ca, buytenh@wantstofly.org, jdmason@us.ibm.com,
-        shemminger@osdl.org, netdev@oss.sgi.com, Robert.Olsson@data.slu.se,
-        "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>,
-        "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Cc: herbert@gondor.apana.org.au, jheffner@psc.edu
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Mitch Williams <mitch.a.williams@intel.com>
-In-Reply-To: <Pine.CYG.4.58.0506061647340.128@mawilli1-desk2.amr.corp.intel.com>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Mitch Williams wrote:
-> 
-> On Mon, 6 Jun 2005, Ronciak, John wrote:
-> 
-> 
->>>	If you force the e1000 driver to do RX replenishment every N
->>>	packets it should reduce the packet drops the same (in the
->>>	single NIC case) as if you reduced the dev->weight to that
->>>	same value N.
->>
->>But this isn't what we are seeing.  Even if we just reduce the weight
->>value to 32 from 64, all of the drops go away.  So there seems to be
->>other things affecting this.
-> 
-> 
-> Some quickie results for everybody -- I've been working on other stuff this
-> morning and haven't had much time in the lab.
-> 
-> Increasing the RX ring to 512 descriptors eliminates dropped packets, but
-> performance goes down.  When I mentioned this, John and Jesse both nodded
-> and said, "Yep.  That's what happens when the descriptor ring grows past
-> one page."
-> 
-> Reducing the weight to 32 got rid of almost all of the dropped packets
-> (down to < 1 per second); reducing it to 20 eliminated all of them.  In
-> both cases performance rose as compared to the default weight of 64.
-> 
-> Tests were run on 2.6.12rc5 on a dual Xeon 2.8GHz PCI-X system.  We run
-> Chariot for performance testing, using TCP/IP large file transfers with 10
-> Windows 2000 clients.
 
-So is the Linux server reading/writing these large files to/from the disk?
+Some folks, notable the S2IO guys, get performance degradation
+from the Super TSO v2 patch (they get it from the first version
+as well).  It's a real pain to spot what causes such things
+in such a huge patch... so I started splitting things up in
+a very fine grained manner so we can catch regressions more
+precisely.
 
-Can you tell us how much performance went down when you increased the
-descriptors to 512?
+There are several bugs spotted by this first set of 9 patches,
+and I'd really appreciate good high-quality testing reports.
+Please do not mail such reports privately to me, as some have
+done, always include netdev@oss.sgi.com, thanks a lot.
 
-Thanks,
-Ben
+Herbert, I'm CC:'ing you because one of the bugs fixed here
+has to do with the TSO header COW'ing stuff you did.  You
+missed one case where a skb_header_release() call was needed,
+namely tcp_fragment() where it does it's __skb_append().
 
+John, I'm CC:'ing you because there are several cwnd handling
+related cures in here.  I did _not_ fix the TSO cwnd growth
+bug yet in these patches, but it is at the very top of my
+TODO list for my next batch of work on this stuff.  The most
+notable fix here is the bogus extra cwnd validation done by
+__tcp_push_pending_frames().  That validation should only
+occur if we _do_ send some packets, and tcp_write_xmit() takes
+care of that just fine.  The other one is that the 'nonagle'
+argument to __tcp_push_pending_frames() is clobbered by it's
+tcp_skb_is_last() logic, causing TCP_NAGLE_PUSH to be used for
+all packets processed by tcp_write_xmit(), whoops...
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Please help me review this stuff, thanks.
+
+The patches will show up as followups to this email.
