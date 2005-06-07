@@ -1,44 +1,44 @@
-From: pmeda@akamai.com
-Subject: [patch] devinet: cleanup if statements
-Date: Tue, 7 Jun 2005 13:32:44 -0700
-Message-ID: <200506072032.NAA06207@allur.sanmateo.akamai.com>
-Cc: akpm@osdl.org, netdev@oss.sgi.com
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: 2.6.12-rc6-tcp1
+Date: Tue, 7 Jun 2005 14:23:09 -0700
+Message-ID: <20050607142309.061a7ced@unknown-215.office.pdx.osdl.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, Andrew Morton <akpm@digeo.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@davemloft.net, jgarzik@pobox.com
+To: "David S. Miller" <davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+http://developer.osdl.org/shemminger/patches/2.6.12-rc6-tcp1
 
-Cleanup the devinet if statements.
- - when there is no colon, interface name is same as device.
- - ifa_label is an array, not a pointer, and so can never be null.
+This is the update  of the TCP pluggable congestion framework with
+other network changes (targeted for 2.6.13)
 
-Signed-Off-by: Prasanna Meda <pmeda@akamai.com>
+Minor tweaks from last time:
+	* move tcpdiag_put to tcp.h to avoid build problems when IP_TCPDIAG is
+	  a module.
+	* sysctl tcp_congestion_control now checks for valid values
+	* default tcp_congestion_control is determined LIFO (ie last one registered
+	  is the default). Sysctl just reorders list
+	+ added /sys/class/net/ethX/weight interface
+	+ added scalable TCP
+	- removed version patch to make integration with -mm easier
 
---- a/net/ipv4/devinet.c	Wed Jun  1 23:54:37 2005
-+++ b/net/ipv4/devinet.c	Wed Jun  1 23:57:16 2005
-@@ -636,10 +636,7 @@
- 			ret = -ENOBUFS;
- 			if ((ifa = inet_alloc_ifa()) == NULL)
- 				break;
--			if (colon)
--				memcpy(ifa->ifa_label, ifr.ifr_name, IFNAMSIZ);
--			else
--				memcpy(ifa->ifa_label, dev->name, IFNAMSIZ);
-+			memcpy(ifa->ifa_label, ifr.ifr_name, IFNAMSIZ);
- 		} else {
- 			ret = 0;
- 			if (ifa->ifa_local == sin->sin_addr.s_addr)
-@@ -746,10 +743,7 @@
- 		if (len < (int) sizeof(ifr))
- 			break;
- 		memset(&ifr, 0, sizeof(struct ifreq));
--		if (ifa->ifa_label)
--			strcpy(ifr.ifr_name, ifa->ifa_label);
--		else
--			strcpy(ifr.ifr_name, dev->name);
-+		strcpy(ifr.ifr_name, ifa->ifa_label);
- 
- 		(*(struct sockaddr_in *)&ifr.ifr_addr).sin_family = AF_INET;
- 		(*(struct sockaddr_in *)&ifr.ifr_addr).sin_addr.s_addr =
+fastroute-stats-remove.patch
+no-congestion.patch
+no-throttle.patch
+bigger-backlog.patch
+fix-weightp.patch
+weight-sysfs.patch
+tcp_super_tso_v3.patch
+tcp_infra.patch
+tcp_bic.patch
+tcp_westwood.patch
+hstcp.patch
+hybla.patch
+vegas.patch
+h-tcp.patch
+scaleable_tcp.patch
