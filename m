@@ -1,30 +1,44 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: RFC: NAPI packet weighting patch
-Date: Tue, 07 Jun 2005 13:21:59 -0700 (PDT)
-Message-ID: <20050607.132159.35660612.davem@davemloft.net>
-References: <468F3FDA28AA87429AD807992E22D07E0450C01F@orsmsx408>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, shemminger@osdl.org, mitch.a.williams@intel.com,
-        mchan@broadcom.com, buytenh@wantstofly.org, jdmason@us.ibm.com,
-        netdev@oss.sgi.com, Robert.Olsson@data.slu.se,
-        ganesh.venkatesan@intel.com, jesse.brandeburg@intel.com
+From: pmeda@akamai.com
+Subject: [patch] devinet: cleanup if statements
+Date: Tue, 7 Jun 2005 13:32:44 -0700
+Message-ID: <200506072032.NAA06207@allur.sanmateo.akamai.com>
+Cc: akpm@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: john.ronciak@intel.com
-In-Reply-To: <468F3FDA28AA87429AD807992E22D07E0450C01F@orsmsx408>
+To: davem@davemloft.net, jgarzik@pobox.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: "Ronciak, John" <john.ronciak@intel.com>
-Date: Tue, 7 Jun 2005 09:23:32 -0700
 
-> There also seems to be some misconceptions about changing the weight
-> value.  It actually improves the performance of other drivers as well.
-> Not as much as it improves the e1000 performance but it does seem to
-> help others as well.
+Cleanup the devinet if statements.
+ - when there is no colon, interface name is same as device.
+ - ifa_label is an array, not a pointer, and so can never be null.
 
-One reason it helps e1000 more, which Robert Olsson mentioned, could
-be the HW irq mitigation settings used by the e1000 driver.  Lowering
-these would be a good test.
+Signed-Off-by: Prasanna Meda <pmeda@akamai.com>
+
+--- a/net/ipv4/devinet.c	Wed Jun  1 23:54:37 2005
++++ b/net/ipv4/devinet.c	Wed Jun  1 23:57:16 2005
+@@ -636,10 +636,7 @@
+ 			ret = -ENOBUFS;
+ 			if ((ifa = inet_alloc_ifa()) == NULL)
+ 				break;
+-			if (colon)
+-				memcpy(ifa->ifa_label, ifr.ifr_name, IFNAMSIZ);
+-			else
+-				memcpy(ifa->ifa_label, dev->name, IFNAMSIZ);
++			memcpy(ifa->ifa_label, ifr.ifr_name, IFNAMSIZ);
+ 		} else {
+ 			ret = 0;
+ 			if (ifa->ifa_local == sin->sin_addr.s_addr)
+@@ -746,10 +743,7 @@
+ 		if (len < (int) sizeof(ifr))
+ 			break;
+ 		memset(&ifr, 0, sizeof(struct ifreq));
+-		if (ifa->ifa_label)
+-			strcpy(ifr.ifr_name, ifa->ifa_label);
+-		else
+-			strcpy(ifr.ifr_name, dev->name);
++		strcpy(ifr.ifr_name, ifa->ifa_label);
+ 
+ 		(*(struct sockaddr_in *)&ifr.ifr_addr).sin_family = AF_INET;
+ 		(*(struct sockaddr_in *)&ifr.ifr_addr).sin_addr.s_addr =
