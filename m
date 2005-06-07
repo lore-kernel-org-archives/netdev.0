@@ -1,46 +1,57 @@
-From: "Ronciak, John" <john.ronciak@intel.com>
-Subject: RE: RFC: NAPI packet weighting patch
-Date: Tue, 7 Jun 2005 09:23:32 -0700
-Message-ID: <468F3FDA28AA87429AD807992E22D07E0450C01F@orsmsx408>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: RFC: NAPI packet weighting patch
+Date: Tue, 7 Jun 2005 18:34:21 +0200
+Message-ID: <17061.52365.336303.369135@robur.slu.se>
+References: <468F3FDA28AA87429AD807992E22D07E0450C00B@orsmsx408>
+	<Pine.CYG.4.58.0506061647340.128@mawilli1-desk2.amr.corp.intel.com>
+	<42A5284C.3060808@osdl.org>
+	<1118147904.6320.108.camel@localhost.localdomain>
+	<Pine.LNX.4.58.0506071351080.16594@tux.rsn.bth.se>
+	<1118150948.6320.152.camel@localhost.localdomain>
+	<Pine.LNX.4.58.0506071432570.16594@tux.rsn.bth.se>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8bit
-Cc: "Williams, Mitch A" <mitch.a.williams@intel.com>,
-        "David S. Miller" <davem@davemloft.net>, <mchan@broadcom.com>,
-        <buytenh@wantstofly.org>, <jdmason@us.ibm.com>, <netdev@oss.sgi.com>,
-        <Robert.Olsson@data.slu.se>,
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jamal <hadi@cyberus.ca>, Stephen Hemminger <shemminger@osdl.org>,
+        Mitch Williams <mitch.a.williams@intel.com>,
+        "Ronciak, John" <john.ronciak@intel.com>,
+        "David S. Miller" <davem@davemloft.net>, mchan@broadcom.com,
+        buytenh@wantstofly.org, jdmason@us.ibm.com, netdev@oss.sgi.com,
+        Robert.Olsson@data.slu.se,
         "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>,
         "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-Content-class: urn:content-classes:message
-To: <hadi@cyberus.ca>, "Stephen Hemminger" <shemminger@osdl.org>
+To: Martin Josefsson <gandalf@wlug.westbo.se>
+In-Reply-To: <Pine.LNX.4.58.0506071432570.16594@tux.rsn.bth.se>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
->> 
-> To the intel folks: shouldnt someone be investigating why this is so?
 
-This is why we started all of this.  We have data that is showing this
-issue where our over all performance is best in class and yet we can
-make it better by changing things like the weight value.
+Martin Josefsson writes:
 
-There also seems to be some misconceptions about changing the weight
-value.  It actually improves the performance of other drivers as well.
-Not as much as it improves the e1000 performance but it does seem to
-help others as well.  We (Intel) have to be careful talking about
-competitors performance so we just refer to them as competitors in these
-threads.  So it is not just e1000 who benefits from the lower weight
-values.  One thing it is doing for e1000 right now is that it is
-stopping the e1000 from dropping frames which is part of why it's
-helping the e1000 more (I think).
+ > > So it is possible that the e1000 is doing more than necessary share of
+ > > IO on the receive side as well.
+ > 
+ > Yes, that's what I mean. Same thing but for RX but the question is how
+ > much we would gain from it, we still need to touch the rx-descriptor
+ > sooner or later. Would be worth a test.
+ > My testsetup isn't in a working condition right now, Robert?
 
-I agree that we need to bottom out on this and it's why we are
-dedicating the time and resources to this effort.  We also appreciate
-all the effort to help resolve this as well.  This should result in a
-better performing 2.6 stack and drivers.  The new TSO code is a big step
-in that direction as well.
+ Next week possibly... but really now idea what's to test or whats going on.
 
-Cheers,
-John
+ We have dual TCP server with one NIC. How is setup now? I don't know even
+ how it should be setup for maximum TCP performance? 
+
+ How is irq affinity setup?  Is irq's jumping between the CPU:s etc?
+ Does ksoftirq(s) use CPU?   If so it can be adjusted tuned too.
+ How is packets processes by CPU's. /proc/net/softnet_stat. Do we see 
+ drops w. one CPU too etc
+ It might be intricate question of balance between softirq and userland.
+
+ Cheers.
+						--ro
+
+ BTW, Can netperf be used for tests like this? (Rick?)
+ 
+ 
