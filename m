@@ -1,27 +1,62 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] net: allow controlling NAPI weight with sysfs
-Date: Wed, 08 Jun 2005 14:24:45 -0700 (PDT)
-Message-ID: <20050608.142445.126941321.davem@davemloft.net>
-References: <Pine.CYG.4.58.0505261406210.2364@mawilli1-desk2.amr.corp.intel.com>
-	<20050602111437.1c492138@dxpl.pdx.osdl.net>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: ipw2100: firmware problem
+Date: Wed, 8 Jun 2005 23:27:07 +0200
+Message-ID: <20050608212707.GA2535@elf.ucw.cz>
+References: <20050608142310.GA2339@elf.ucw.cz> <42A723D3.3060001@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mitch.a.williams@intel.com, netdev@oss.sgi.com, john.ronciak@intel.com,
-        ganesh.venkatesan@intel.com, jesse.brandeburg@intel.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, Netdev list <netdev@oss.sgi.com>,
+        kernel list <linux-kernel@vger.kernel.org>,
+        "James P. Ketrenos" <ipw2100-admin@linux.intel.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: shemminger@osdl.org
-In-Reply-To: <20050602111437.1c492138@dxpl.pdx.osdl.net>
+To: James Ketrenos <jketreno@linux.intel.com>
+Content-Disposition: inline
+In-Reply-To: <42A723D3.3060001@linux.intel.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@osdl.org>
-Date: Thu, 2 Jun 2005 11:14:37 -0700
+Hi!
 
-> Simple interface to allow changing network device scheduling weight
-> with sysfs. Please consider this for 2.6.12, since risk/impact is small.
+> >I'm fighting with firmware problem: if ipw2100 is compiled into
+> >kernel, it is loaded while kernel boots and firmware loader is not yet
+> >available. That leads to uninitialized (=> useless) adapter.
+> >  
+> >
+> We've been looking into whether the initrd can have the firmware affixed
+> to the end w/ some magic bytes to identify it.  If it works, enhancing
+> the request_firmware to support both hotplug and an initrd approach may
+> be reasonable.
+
+That seems pretty ugly to me... imagine more than one driver does this
+:-(.
+
+> >What's the prefered way to solve this one? Only load firmware when
+> >user does ifconfig eth1 up? [It is wifi, it looks like it would be
+> >better to start firmware sooner so that it can associate to the
+> >AP...].
+> >  
+> >
+> The debate goes back and forth on whether devices should come up only
+> after they are told, or initialize and start looking for a network as
+> soon as the module is loaded.
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> I lean more toward having the driver just do what it is told, defaulting
+> to trying to scan and associate so link is ready as soon as possible. 
+> We've added module parameters to change that behavior (disable and
+> associate for the ipw2100).
 
-Patch applied, thanks Stephen.
+Having a parameter to control this seems a bit too complex to me.
+
+How is 
+
+insmod ipw2100 enable=1
+
+different from
+
+insmod ipw2100
+iwconfig eth1 start_scanning_or_whatever
+
+?
+
+								Pavel
