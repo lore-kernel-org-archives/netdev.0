@@ -1,48 +1,35 @@
-From: Rick Jones <rick.jones2@hp.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Subject: Re: RFC: NAPI packet weighting patch
-Date: Tue, 07 Jun 2005 16:19:46 -0700
-Message-ID: <42A62B92.2050701@hp.com>
-References: <468F3FDA28AA87429AD807992E22D07E0450C00B@orsmsx408>	<Pine.CYG.4.58.0506061647340.128@mawilli1-desk2.amr.corp.intel.com>	<42A5284C.3060808@osdl.org>	<1118147904.6320.108.camel@localhost.localdomain>	<Pine.LNX.4.58.0506071351080.16594@tux.rsn.bth.se>	<1118150948.6320.152.camel@localhost.localdomain>	<Pine.LNX.4.58.0506071432570.16594@tux.rsn.bth.se> <17061.52365.336303.369135@robur.slu.se>
+Date: Tue, 7 Jun 2005 18:50:44 -0700 (PDT)
+Message-ID: <Pine.LNX.4.62.0506071848480.31708@ladlxr>
+References: <468F3FDA28AA87429AD807992E22D07E0450C00B@orsmsx408>
+ <Pine.CYG.4.58.0506061647340.128@mawilli1-desk2.amr.corp.intel.com>
+ <42A4E599.2090604@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Martin Josefsson <gandalf@wlug.westbo.se>, jamal <hadi@cyberus.ca>,
-        Stephen Hemminger <shemminger@osdl.org>,
-        Mitch Williams <mitch.a.williams@intel.com>,
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: "Williams, Mitch A" <mitch.a.williams@intel.com>,
         "Ronciak, John" <john.ronciak@intel.com>,
         "David S. Miller" <davem@davemloft.net>, mchan@broadcom.com,
-        buytenh@wantstofly.org, jdmason@us.ibm.com,
+        hadi@cyberus.ca, buytenh@wantstofly.org, jdmason@us.ibm.com,
+        shemminger@osdl.org, netdev@oss.sgi.com, Robert.Olsson@data.slu.se,
         "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>,
         "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Robert Olsson <Robert.Olsson@data.slu.se>, netdev@oss.sgi.com
-In-Reply-To: <17061.52365.336303.369135@robur.slu.se>
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <42A4E599.2090604@candelatech.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Mon, 6 Jun 2005, Ben Greear wrote:
 
-> 
->  BTW, Can netperf be used for tests like this? (Rick?)
+> So is the Linux server reading/writing these large files to/from the
+> disk?
 
-Assuming I'm translating "test like this" to the right sort of stuff :)
+no, the test runs completely from memory, and the clients are 
+reading/writing from/to the server
 
-If one wants to see the effect of different buffer replenishment strategies, I 
-suppose that some netperf tests could indeed be used.  It would be desirable to 
-look at service demand moreso than throughput (assuming the throughput is 
-link-bound).  TCP_STREAM and/or TCP_MAERTS.  I'm not sure the extent to which it 
-would be visible to a TCP_RR test.
+> Can you tell us how much performance went down when you increased the
+> descriptors to 512?
 
-Differences in service demand could also be used to measure effects of irq 
-migration, pinning IRQs and/or processes to specific CPUs and the like.  The 
-linux processor affinity stuff in netperf could use a little help though - it is 
-easily confused as to when to use a two argument vs three argument 
-sched_setaffinity call.  I suspect one may also see differences in TCP_RR 
-transaction rates.
-
-I suspect some high number of confidence interval iterations might be required.
-
-rick jones
-
-i'd trim individual names from the dist list, but am not 100% sure who is on 
-netdev...
+sorry don't know the answer to that one.
