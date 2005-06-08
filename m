@@ -1,37 +1,58 @@
-From: randy_dunlap <rdunlap@xenotime.net>
-Subject: Re: netdev munching messages again?
-Date: Wed, 8 Jun 2005 13:30:53 -0700
-Message-ID: <20050608133053.6976e4a0.rdunlap@xenotime.net>
-References: <20050608161314.GM20969@postel.suug.ch>
-	<20050608172809.GF5520@linux-mips.org>
-	<20050608200048.GP20969@postel.suug.ch>
-	<20050608.131044.31642070.davem@davemloft.net>
+From: Pavel Machek <pavel@suse.cz>
+Subject: Re: ipw2100: firmware problem
+Date: Wed, 8 Jun 2005 18:29:48 +0200
+Message-ID: <20050608162947.GB3969@openzaurus.ucw.cz>
+References: <20050608142310.GA2339@elf.ucw.cz> <200506081744.20687.vda@ilport.com.ua> <20050608145653.GA8844@dwarf.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, ralf@linux-mips.org, hadi@cyberus.ca, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Denis Vlasenko <vda@ilport.com.ua>, Pavel Machek <pavel@ucw.cz>,
+        Jeff Garzik <jgarzik@pobox.com>, Netdev list <netdev@oss.sgi.com>,
+        kernel list <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050608.131044.31642070.davem@davemloft.net>
+To: Jirka Bohac <jbohac@suse.cz>
+Content-Disposition: inline
+In-Reply-To: <20050608145653.GA8844@dwarf.suse.cz>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 08 Jun 2005 13:10:44 -0700 (PDT) David S. Miller wrote:
+Hi!
 
-| Ralf, thanks for all of your effort and time maintaining
-| oss.sgi.com for our stay as guests via the netdev list.
+> > Do you want to associate to an AP when your kernel boots,
+> > _before_ any iwconfig had a chance to configure anything?
+> > That's strange.
+> > 
+> > My position is that wifi drivers must start up in an "OFF" mode.
+> > Do not send anything. Do not join APs or start IBSS.
+> 
+> Agreed.
 
-Thanks from here also.
+Me too ;-).
 
-| I've created netdev@vger.kernel.org, and folks can start
-| to join up there.  If someone knows the appropriate
-| archive maintainers to contact (marc.theaimsgroup.com
-| et al.) please let them know about this transition.  It
-| would be much apprecited.
+> > Thus, no need to load fw in early boot.
+> 
+> I don't think this is true. Loading the firmware on the first
+> "ifconfig up" is problematic. Often, people want to rename the
+> device from ethX/wlanX/... to something stable. This is usually
+> based on the adapter's MAC address, which is not visible until
+> the firmware is loaded.
+> 
+> Prism54 does it this way and it really sucks. You need to bring
+> the adapter up to load the firmware, then bring it back down,
+> rename it, and bring it up again.
+> 
+> Denis: any plans for this to be fixed?
+> 
+> I agree that drivers should initialize the adapter in the OFF
+> state, but the firmware needs to be loaded earlier than the
+> first ifconfig up.
+> 
+> How about loading the firmware when the first ioctl touches the
+> device? This way, it would get loaded just before the MAC address
+> is retrieved.
 
-I've done that before and now.
-(made the request, not acked by Hank yet)
+Thats really ugly :-(.
 
----
-~Randy
+				Pavel
+-- 
+64 bytes from 195.113.31.123: icmp_seq=28 ttl=51 time=448769.1 ms         
