@@ -1,66 +1,95 @@
-From: James Ketrenos <jketreno@linux.intel.com>
-Subject: Re: ipw2100: firmware problem
-Date: Wed, 08 Jun 2005 16:46:01 -0500
-Message-ID: <42A76719.2060700@linux.intel.com>
-References: <20050608142310.GA2339@elf.ucw.cz> <42A723D3.3060001@linux.intel.com> <20050608212707.GA2535@elf.ucw.cz>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [PATCH 1/1] sysctl configurable icmperror sourceaddress
+Date: Wed, 8 Jun 2005 23:45:40 +0200
+Message-ID: <20050608214540.GF28207@xi.wantstofly.org>
+References: <1118136384.10479.15.camel@jeroens.office.netland.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, Netdev list <netdev@oss.sgi.com>,
-        kernel list <linux-kernel@vger.kernel.org>,
-        "James P. Ketrenos" <ipw2100-admin@linux.intel.com>
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Pavel Machek <pavel@ucw.cz>
-In-Reply-To: <20050608212707.GA2535@elf.ucw.cz>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
+In-Reply-To: <1118136384.10479.15.camel@jeroens.office.netland.nl>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Pavel Machek wrote:
+On Tue, Jun 07, 2005 at 11:26:23AM +0200, J. Simonetti wrote:
 
->>We've been looking into whether the initrd can have the firmware affixed
->>to the end w/ some magic bytes to identify it.  If it works, enhancing
->>the request_firmware to support both hotplug and an initrd approach may
->>be reasonable.
->>    
->>
->
->That seems pretty ugly to me... imagine more than one driver does this
->:-(.
->  
->
-Not ideal, but not *that bad* if there is a standard way to stick the
-data on the initrd image.  Its annoying to have to do it, but it does
-enable the most usage models and allows the network to be brought up as
-early as possible--which other components in the system may be relying on.
+> This patch alows you to change the source address of icmp error
+> messages. It applies cleanly to 2.6.11.11 and retains the default
+> behaviour.
+> 
+> In the old (default) behaviour icmp error messages are sent with the ip
+> of the exiting interface.
+> The new behaviour (when the sysctl variable is toggled on), it will send
+> the message with the ip of the interface that received the packet that
+> caused the icmp error. This is the behaviour network administrators will
+> expect from a router. It makes debugging complicated network layouts
+> much easier. Also, all 'vendor routers' I know of have the later
+> behaviour.
 
->Having a parameter to control this seems a bit too complex to me.
->
->How is 
->
->insmod ipw2100 enable=1
->
->different from
->
->insmod ipw2100
->iwconfig eth1 start_scanning_or_whatever
->
->?
->  
->
-It defaults to enabled, so you just need to do:
+Can this patch go in, pretty please?
 
-    insmod ipw2100
+Here's the patch again for reference:
 
-and it will auto associate with an open network.  For the use case where
-users want the device to load but not initialize, they can use
 
-    insmod ipw2100 disable=1
-
-If hotplug and firmware loading worked early in the init sequence, no
-one would have issue with the current model; it works as users expect it
-to work.  It magically finds and associates to networks, and your
-network scripts can then kick off DHCP, all with little to no special
-crafting or utility interfacing. 
-
-James
+--- include/linux/sysctl.h.orig	2004-12-24 22:34:58.000000000 +0100
++++ include/linux/sysctl.h	2005-06-07 10:16:39.730585288 +0200
+@@ -345,6 +345,7 @@
+ 	NET_TCP_MODERATE_RCVBUF=106,
+ 	NET_TCP_TSO_WIN_DIVISOR=107,
+	NET_TCP_BIC_BETA=108,
++	NET_IPV4_ICMP_ERRORS_USE_INBOUND_IFADDR=109,
+ };
+ 
+ enum {
+--- net/ipv4/icmp.c.orig	2004-12-24 22:35:28.000000000 +0100
++++ net/ipv4/icmp.c	2005-06-07 10:15:42.645263576 +0200
+@@ -207,6 +207,7 @@
+ 
+ int sysctl_icmp_ratelimit = 1 * HZ;
+ int sysctl_icmp_ratemask = 0x1818;
++int sysctl_icmp_errors_use_inbound_ifaddr = 0;
+ 
+ /*
+  *	ICMP control array. This specifies what to do with each ICMP.
+@@ -511,8 +512,12 @@
+ 	 */
+ 
+ 	saddr = iph->daddr;
+-	if (!(rt->rt_flags & RTCF_LOCAL))
+-		saddr = 0;
++	if (!(rt->rt_flags & RTCF_LOCAL)) {
++		if(sysctl_icmp_errors_use_inbound_ifaddr)
++			saddr = inet_select_addr(skb_in->dev, 0, RT_SCOPE_LINK);
++		else
++			saddr = 0;
++	}
+ 
+ 	tos = icmp_pointers[type].error ? ((iph->tos & IPTOS_TOS_MASK) |
+ 					   IPTOS_PREC_INTERNETCONTROL) :
+--- net/ipv4/sysctl_net_ipv4.c.orig	2004-12-24 22:35:23.000000000 +0100
++++ net/ipv4/sysctl_net_ipv4.c	2005-06-07 10:19:44.538490216 +0200
+@@ -23,6 +23,7 @@
+ extern int sysctl_icmp_echo_ignore_all;
+ extern int sysctl_icmp_echo_ignore_broadcasts;
+ extern int sysctl_icmp_ignore_bogus_error_responses;
++extern int sysctl_icmp_errors_use_inbound_ifaddr;
+ 
+ /* From ip_fragment.c */
+ extern int sysctl_ipfrag_low_thresh;
+@@ -396,6 +397,14 @@
+ 		.proc_handler	= &proc_dointvec
+ 	},
+ 	{
++		.ctl_name	= NET_IPV4_ICMP_ERRORS_USE_INBOUND_IFADDR,
++		.procname	= "icmp_errors_use_inbound_ifaddr",
++		.data		= &sysctl_icmp_errors_use_inbound_ifaddr,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= &proc_dointvec
++	},
++	{
+ 		.ctl_name	= NET_IPV4_ROUTE,
+ 		.procname	= "route",
+ 		.maxlen		= 0,
