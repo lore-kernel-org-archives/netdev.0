@@ -1,42 +1,47 @@
-From: James Ketrenos <jketreno@linux.intel.com>
-Subject: Re: ipw2100: firmware problem
-Date: Wed, 08 Jun 2005 12:10:37 -0500
-Message-ID: <42A7268D.9020402@linux.intel.com>
-References: <20050608142310.GA2339@elf.ucw.cz> <200506081744.20687.vda@ilport.com.ua>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: netdev munching messages again?
+Date: Wed, 8 Jun 2005 18:28:09 +0100
+Message-ID: <20050608172809.GF5520@linux-mips.org>
+References: <20050607140842.778143000@axs> <20050607140901.632982000@axs> <20050607213621.GG20969@postel.suug.ch> <20050607.144237.93024273.davem@davemloft.net> <20050608132953.GK20969@postel.suug.ch> <1118238264.6382.43.camel@localhost.localdomain> <20050608160444.GA17777@linux-mips.org> <20050608161314.GM20969@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Pavel Machek <pavel@ucw.cz>, Jeff Garzik <jgarzik@pobox.com>,
-        Netdev list <netdev@oss.sgi.com>,
-        kernel list <linux-kernel@vger.kernel.org>,
-        "James P. Ketrenos" <ipw2100-admin@linux.intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: jamal <hadi@cyberus.ca>, "David S. Miller" <davem@davemloft.net>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Denis Vlasenko <vda@ilport.com.ua>
-In-Reply-To: <200506081744.20687.vda@ilport.com.ua>
+To: Thomas Graf <tgraf@suug.ch>
+Content-Disposition: inline
+In-Reply-To: <20050608161314.GM20969@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Denis Vlasenko wrote:
+On Wed, Jun 08, 2005 at 06:13:14PM +0200, Thomas Graf wrote:
 
->My position is that wifi drivers must start up in an "OFF" mode.
->Do not send anything. Do not join APs or start IBSS.
->Thus, no need to load fw in early boot.
->  
->
-This should be an option for the user if that is the desired behavior. 
-We support that with the ipw2100 and ipw2200 projects via module
-parameters to disable the radio during module load.  Having a standard
-module parameter for wireless drivers would be nice.
+> * Ralf Baechle <20050608160444.GA17777@linux-mips.org> 2005-06-08 17:04
+> > Turns out that Thomas Graf's Email was intercepted by the spam filter,
+> > so I've tweaked the filter setup a bit - probably at the price of
+> > sacrificing some of the filter's effectivity.
+> 
+> Can you tell me why it was filtered? It might be a problem with my
+> patch script which I could fix on my side. How much work would it
+> be to whitelist a few people?
 
-My approach is to make the driver so it supports as many usage models as
-possible, leaving policy to other components of the system.  If the user
-wants it to scan and associate immediately, that should be supported. 
-Likewise if they want the module to be loaded w/ the radio off, they can
-do that as well.
+Whitelists tend to be problematic due to the enormous amounts of spam
+and malware emails that come with forged email addresses.
 
-Since most (if not all) laptops support an RF kill switch, I tend to
-defer to the physical switch as the user's point of control and set the
-driver defaults to try and use the radio if it is enabled.
+I'll send you the rules in question and the original spamyness scores they
+did compute in separate email, it's somewhat bigish.
 
-James
+> The weird thing is that patches 6-7 which could not be delivered
+> immediately due to connection refused from oss.sgi.com came through
+> fine.
+
+Whatever it was, it was probably a separate issue from this spamfilter
+faux-pas.  Note there is a firewall in front of oss.sgi.com which will
+accept the SMTP TCP connection only to drop the connection shortly after
+if it can't build a connection to the "real" oss.  So if you only get a
+connection refused message when telneting to oss it really means the
+firewall had some issues.  Unfortunately I don't have any control over
+it, if I had I'd replace it with a nice patchcable ;-)
+
+  Ralf
