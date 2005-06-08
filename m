@@ -1,47 +1,42 @@
 From: James Ketrenos <jketreno@linux.intel.com>
 Subject: Re: ipw2100: firmware problem
-Date: Wed, 08 Jun 2005 11:58:59 -0500
-Message-ID: <42A723D3.3060001@linux.intel.com>
-References: <20050608142310.GA2339@elf.ucw.cz>
+Date: Wed, 08 Jun 2005 12:10:37 -0500
+Message-ID: <42A7268D.9020402@linux.intel.com>
+References: <20050608142310.GA2339@elf.ucw.cz> <200506081744.20687.vda@ilport.com.ua>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, Netdev list <netdev@oss.sgi.com>,
-	kernel list <linux-kernel@vger.kernel.org>,
-	"James P. Ketrenos" <ipw2100-admin@linux.intel.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261344AbVFHQ75@vger.kernel.org>
-To: Pavel Machek <pavel@ucw.cz>
-In-Reply-To: <20050608142310.GA2339@elf.ucw.cz>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Pavel Machek <pavel@ucw.cz>, Jeff Garzik <jgarzik@pobox.com>,
+        Netdev list <netdev@oss.sgi.com>,
+        kernel list <linux-kernel@vger.kernel.org>,
+        "James P. Ketrenos" <ipw2100-admin@linux.intel.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Denis Vlasenko <vda@ilport.com.ua>
+In-Reply-To: <200506081744.20687.vda@ilport.com.ua>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Pavel Machek wrote:
+Denis Vlasenko wrote:
 
->Hi!
->
->I'm fighting with firmware problem: if ipw2100 is compiled into
->kernel, it is loaded while kernel boots and firmware loader is not yet
->available. That leads to uninitialized (=> useless) adapter.
+>My position is that wifi drivers must start up in an "OFF" mode.
+>Do not send anything. Do not join APs or start IBSS.
+>Thus, no need to load fw in early boot.
 >  
 >
-We've been looking into whether the initrd can have the firmware affixed
-to the end w/ some magic bytes to identify it.  If it works, enhancing
-the request_firmware to support both hotplug and an initrd approach may
-be reasonable.
+This should be an option for the user if that is the desired behavior. 
+We support that with the ipw2100 and ipw2200 projects via module
+parameters to disable the radio during module load.  Having a standard
+module parameter for wireless drivers would be nice.
 
->What's the prefered way to solve this one? Only load firmware when
->user does ifconfig eth1 up? [It is wifi, it looks like it would be
->better to start firmware sooner so that it can associate to the
->AP...].
->  
->
-The debate goes back and forth on whether devices should come up only
-after they are told, or initialize and start looking for a network as
-soon as the module is loaded.
+My approach is to make the driver so it supports as many usage models as
+possible, leaving policy to other components of the system.  If the user
+wants it to scan and associate immediately, that should be supported. 
+Likewise if they want the module to be loaded w/ the radio off, they can
+do that as well.
 
-I lean more toward having the driver just do what it is told, defaulting
-to trying to scan and associate so link is ready as soon as possible. 
-We've added module parameters to change that behavior (disable and
-associate for the ipw2100).
+Since most (if not all) laptops support an RF kill switch, I tend to
+defer to the physical switch as the user's point of control and set the
+driver defaults to try and use the radio if it is enabled.
 
 James
