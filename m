@@ -1,20 +1,36 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: oops with hostap and 2.6.12-rc6-mm1: Kernel BUG at
- "net/ipv4/tcp_output.c":928
-Date: Wed, 08 Jun 2005 12:47:28 -0700 (PDT)
-Message-ID: <20050608.124728.74558309.davem@davemloft.net>
-References: <56hdg93rxb.fsf@depni.sinp.msu.ru>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: ipw2100: firmware problem
+Date: Wed, 8 Jun 2005 15:49:02 -0400
+Message-ID: <20050608194902.GK876@redhat.com>
+References: <20050608142310.GA2339@elf.ucw.cz> <200506081744.20687.vda@ilport.com.ua> <42A7268D.9020402@linux.intel.com> <20050608.124332.85408883.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: jketreno@linux.intel.com, vda@ilport.com.ua, pavel@ucw.cz,
+        jgarzik@pobox.com, netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
+        ipw2100-admin@linux.intel.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: belyshev@depni.sinp.msu.ru
-In-Reply-To: <56hdg93rxb.fsf@depni.sinp.msu.ru>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20050608.124332.85408883.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Wed, Jun 08, 2005 at 12:43:32PM -0700, David S. Miller wrote:
+ 
+ > I am likely to always take the position that device firmware
+ > belongs in the kernel proper, not via these userland and filesystem
+ > loading mechanism, none of which may be even _available_ when
+ > we first need to get the device going.
 
-Just remove the BUG_ON() assertion in tcp_tso_should_defer(),
-it's simply not a correct check when FIN is set in the packet.
+FWIW, I agree, though the licensing of the Intel firmware
+prevents that iirc.  The biggest problem I face with this driver
+in Fedora kernels is users mismatching firmware rev with the
+driver version. Another problem that disappears if the two
+are shipped together.
+
+Of course this would then bring out the armchair lawyers on
+the list and cause another 500 emails debating whether it
+violates the gpl.
+
+		Dave
