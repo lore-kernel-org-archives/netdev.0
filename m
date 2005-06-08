@@ -1,60 +1,56 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Intel, please fix your email system
-Date: Wed, 8 Jun 2005 15:42:26 +0200
-Message-ID: <20050608134226.GA3063@elf.ucw.cz>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: netdev munching messages again?
+Date: Wed, 08 Jun 2005 09:44:23 -0400
+Message-ID: <1118238264.6382.43.camel@localhost.localdomain>
+References: <20050607140842.778143000@axs> <20050607140901.632982000@axs>
+	 <20050607213621.GG20969@postel.suug.ch>
+	 <20050607.144237.93024273.davem@davemloft.net>
+	 <20050608132953.GK20969@postel.suug.ch>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Ralf Baechle <ralf@linux-mips.org>,
+        "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Netdev list <netdev@oss.sgi.com>, Jeff Garzik <jgarzik@pobox.com>,
-        kernel list <linux-kernel@vger.kernel.org>
-Content-Disposition: inline
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050608132953.GK20969@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi!
 
-I attempted to mail ipw2100 maintainer, and got back message about
-"inappropriate subject". Subject was "Subject: [-mm] ipw2100: kill
-dead macros". I do not think that's inappropriate.
+I thought netdev just picks on me ;-> My stoopid ISP as well
+as oss.sgi.com have some "clever" (read: questionable) ways 
+of delivering email which violates end to end semantics of SMTP.
+I too noticed some emails were swallowed in the last 1-2 days. I know
+from past experience in fact they will never be seen again;->
+Or someone, who doesnt look at the headers, will flame me for repeating
+what has already been discussed and agreed on (has happened to me at
+least 5 times on netdev ;->).
 
-								Pavel
+It's quiet ironic when packets delivered over TCP dont make it to the
+remote end, even when the app tries to help in reliable delivery;->
 
+CCing El-sido Bacchus.
 
-This is the Postfix program at host amd.ucw.cz.
+cheers,
+jamal
 
-I'm sorry to have to inform you that your message could not be
-be delivered to one or more recipients. It's attached below.
-
-For further assistance, please send mail to <postmaster>
-
-If you do so, please include this problem report. You can
-delete your own text from the attached returned message.
-
-                        The Postfix program
-
-<ipw2100-admin@linux.intel.com>: host jf-in.intel.com[134.134.136.18]
-said: 553
-    5.0.0 Inappropriate subject (in reply to end of DATA command)
-
-[-- Attachment #2: Delivery report --]
-[-- Type: message/delivery-status, Encoding: 7bit, Size: 0.4K --]
-
-Reporting-MTA: dns; amd.ucw.cz
-X-Postfix-Queue-ID: C9B8F8B8A7
-X-Postfix-Sender: rfc822; pavel@ucw.cz
-Arrival-Date: Wed,  8 Jun 2005 15:35:06 +0200 (CEST)
-
-Final-Recipient: rfc822; ipw2100-admin@linux.intel.com
-Action: failed
-Status: 5.0.0
-Diagnostic-Code: X-Postfix; host jf-in.intel.com[134.134.136.18] said:
-553
-    5.0.0 Inappropriate subject (in reply to end of DATA command)
-
-[-- Attachment #3: Undelivered Message --]
-[-- Type: message/rfc822, Encoding: 7bit, Size: 4.3K --]
-
-To: Netdev list <netdev@oss.sgi.com>,
-        "James P. Ketrenos" <ipw2100-admin@linux.intel.com>,
-        Andrew Morton <akpm@zip.com.au>
+On Wed, 2005-08-06 at 15:29 +0200, Thomas Graf wrote:
+> * David S. Miller <20050607.144237.93024273.davem@davemloft.net> 2005-06-07 14:42
+> > I did get all of your postings because you sent them
+> > with me on the CC: list, but netdev only sent out
+> > 6 and 7 to me just as you observed.
+> 
+> I tried to resend, the message were accepted by oss.sgi.com but
+> none of them came back. Maybe dropped due to duplicated message
+> ids though.
+> 
+> > This has become a regular occurance, it may be time to finally move
+> > this thing over to vger.kernel.org.  Thoughts?
+> 
+> I have no personal objections, would be valuable to take over the
+> archives though.
+> 
+> 
