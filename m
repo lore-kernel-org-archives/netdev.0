@@ -1,34 +1,31 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: ipw2100: firmware problem
-Date: Wed, 08 Jun 2005 12:54:19 -0700 (PDT)
-Message-ID: <20050608.125419.18305230.davem@davemloft.net>
-References: <42A7268D.9020402@linux.intel.com>
-	<20050608.124332.85408883.davem@davemloft.net>
-	<20050608194902.GK876@redhat.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: netdev munching messages again?
+Date: Wed, 8 Jun 2005 22:00:48 +0200
+Message-ID: <20050608200048.GP20969@postel.suug.ch>
+References: <20050607140842.778143000@axs> <20050607140901.632982000@axs> <20050607213621.GG20969@postel.suug.ch> <20050607.144237.93024273.davem@davemloft.net> <20050608132953.GK20969@postel.suug.ch> <1118238264.6382.43.camel@localhost.localdomain> <20050608160444.GA17777@linux-mips.org> <20050608161314.GM20969@postel.suug.ch> <20050608172809.GF5520@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jketreno@linux.intel.com, vda@ilport.com.ua, pavel@ucw.cz,
-        jgarzik@pobox.com, netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
-        ipw2100-admin@linux.intel.com
+Content-Type: text/plain; charset=us-ascii
+Cc: jamal <hadi@cyberus.ca>, "David S. Miller" <davem@davemloft.net>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davej@redhat.com
-In-Reply-To: <20050608194902.GK876@redhat.com>
+To: Ralf Baechle <ralf@linux-mips.org>
+Content-Disposition: inline
+In-Reply-To: <20050608172809.GF5520@linux-mips.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Dave Jones <davej@redhat.com>
-Date: Wed, 8 Jun 2005 15:49:02 -0400
+* Ralf Baechle <20050608172809.GF5520@linux-mips.org> 2005-06-08 18:28
+> Whatever it was, it was probably a separate issue from this spamfilter
+> faux-pas.  Note there is a firewall in front of oss.sgi.com which will
+> accept the SMTP TCP connection only to drop the connection shortly after
+> if it can't build a connection to the "real" oss.
 
-> FWIW, I agree, though the licensing of the Intel firmware
-> prevents that iirc.  The biggest problem I face with this driver
-> in Fedora kernels is users mismatching firmware rev with the
-> driver version. Another problem that disappears if the two
-> are shipped together.
+I'm not worried about a refused connections once in a while, I'm
+worried about that exactly those two messages that have been 
+sitting in _my_ queue due to a refused connection to oss.sgi.com
+have been succesfully delivered and the others have not.
 
-Yep, this license definitely hurts users, in many many ways.
-
-If this kind of external firmware requirement existed for a popular
-SCSI controller, more people would be up in arms about this and
-understand the issue more clearly.
+Is there a messages/time limit somwhere? If so what's the limit?
+I tried with 30 seconds delay between each patch but that didn't
+help.
