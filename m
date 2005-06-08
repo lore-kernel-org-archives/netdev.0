@@ -1,26 +1,28 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] sysctl configurable icmperror sourceaddress
-Date: Wed, 08 Jun 2005 14:49:41 -0700 (PDT)
-Message-ID: <20050608.144941.26530856.davem@davemloft.net>
-References: <1118136384.10479.15.camel@jeroens.office.netland.nl>
-	<20050608214540.GF28207@xi.wantstofly.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 0/9]: TCP: The Road to Super TSO
+Date: Thu, 9 Jun 2005 08:10:47 +1000
+Message-ID: <20050608221047.GA12920@gondor.apana.org.au>
+References: <20050606.210846.07641049.davem@davemloft.net> <200506081740.11292.jheffner@psc.edu> <20050608.144906.77057282.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: jheffner@psc.edu, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: buytenh@wantstofly.org
-In-Reply-To: <20050608214540.GF28207@xi.wantstofly.org>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20050608.144906.77057282.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Date: Wed, 8 Jun 2005 23:45:40 +0200
-
-> Can this patch go in, pretty please?
+On Wed, Jun 08, 2005 at 02:49:06PM -0700, David S. Miller wrote:
 > 
-> Here's the patch again for reference:
+> Performance went down, with both TSO enabled and disabled, compared to
+> not having the patches applied.
 
-We have a similar sysctl for ARP handling, why don't
-we make use of it?
+What was the receiver running? Was the performance degradation more
+pronounced with TSO enabled?
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
