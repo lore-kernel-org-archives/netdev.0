@@ -1,51 +1,68 @@
-From: Denis Vlasenko <vda@ilport.com.ua>
-Subject: Re: ipw2100: firmware problem
-Date: Wed, 8 Jun 2005 17:44:20 +0300
-Message-ID: <200506081744.20687.vda@ilport.com.ua>
-References: <20050608142310.GA2339@elf.ucw.cz>
+From: "Alejandro Bonilla" <abonilla@linuxwireless.org>
+Subject: RE: ipw2100: firmware problem
+Date: Wed, 8 Jun 2005 09:05:27 -0600
+Message-ID: <002901c56c3b$8216cdd0$600cc60a@amer.sykes.com>
+References: <200506081744.20687.vda@ilport.com.ua>
+Reply-To: <abonilla@linuxwireless.org>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="iso-8859-1"
+	charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Pavel Machek <pavel@ucw.cz>, Jeff Garzik <jgarzik@pobox.com>,
-        Netdev list <netdev@oss.sgi.com>,
-        kernel list <linux-kernel@vger.kernel.org>,
-        "James P. Ketrenos" <ipw2100-admin@linux.intel.com>
-In-Reply-To: <20050608142310.GA2339@elf.ucw.cz>
-Content-Disposition: inline
+To: "'Denis Vlasenko'" <vda@ilport.com.ua>, "'Pavel Machek'" <pavel@ucw.cz>,
+        "'Jeff Garzik'" <jgarzik@pobox.com>,
+        "'Netdev list'" <netdev@oss.sgi.com>,
+        "'kernel list'" <linux-kernel@vger.kernel.org>,
+        "'James P. Ketrenos'" <ipw2100-admin@linux.intel.com>
+In-Reply-To: <200506081744.20687.vda@ilport.com.ua>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 08 June 2005 17:23, Pavel Machek wrote:
-> Hi!
-> 
-> I'm fighting with firmware problem: if ipw2100 is compiled into
-> kernel, it is loaded while kernel boots and firmware loader is not yet
-> available. That leads to uninitialized (=> useless) adapter.
-> 
-> What's the prefered way to solve this one? Only load firmware when
-> user does ifconfig eth1 up? [It is wifi, it looks like it would be
-> better to start firmware sooner so that it can associate to the
-> AP...].
 
-Do you want to associate to an AP when your kernel boots,
-_before_ any iwconfig had a chance to configure anything?
-That's strange.
+> On Wednesday 08 June 2005 17:23, Pavel Machek wrote:
+> > Hi!
+> >
+> > I'm fighting with firmware problem: if ipw2100 is compiled into
+> > kernel, it is loaded while kernel boots and firmware loader
+> is not yet
+> > available. That leads to uninitialized (=> useless) adapter.
 
-My position is that wifi drivers must start up in an "OFF" mode.
-Do not send anything. Do not join APs or start IBSS.
-Thus, no need to load fw in early boot.
+Pavel,
 
-Driver may load firmware and start actively doing something
-only when iwconfig gets executed and thus driver is
-instructed what to do.
+	I might be lost here but... How is the firmware loaded when using the
+ipw2100-1.0.0/patches Kernel patch?
 
-Some drivers currently do not act this way, and thus
-less advanced users may unknowingly run a wireless STA
-(or worse, an AP!) on their notebook for years, interfering
-with neighbors and/or violating local regulations (there are
-countrles where 802.11 use needs licensing).
---
-vda
+That patch normally works fine. It might not be the way you kernel
+developers would like it, but maybe that could work the same way?
+
+
+> >
+> > What's the prefered way to solve this one? Only load firmware when
+> > user does ifconfig eth1 up? [It is wifi, it looks like it would be
+> > better to start firmware sooner so that it can associate to the
+> > AP...].
+>
+> Do you want to associate to an AP when your kernel boots,
+> _before_ any iwconfig had a chance to configure anything?
+> That's strange.
+
+Currently, when we install the driver, it associates to any open network on
+boot. This is good, cause we don't want to be typing the commands all the
+time just to associate. It works this way now and is pretty nice.
+
+>
+> My position is that wifi drivers must start up in an "OFF" mode.
+> Do not send anything. Do not join APs or start IBSS.
+> Thus, no need to load fw in early boot.
+>
+So, to scan a network, I would have to do ifconfig eth1 up ; iwlist eth1
+scan?
+When moving from modes with the firmwares, would I have to do ifconfig eth1
+up ; iwconfig eth1 mode monitor? or would the firmware be loaded with
+iwconfig? Does it have that function?
+
+I'm not sure, but I guess that you guys should use the same method that the
+source/patches uses?
+
+.Alejandro
