@@ -1,30 +1,51 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: ipw2100: firmware problem
-Date: Wed, 8 Jun 2005 16:23:10 +0200
-Message-ID: <20050608142310.GA2339@elf.ucw.cz>
+From: Denis Vlasenko <vda@ilport.com.ua>
+Subject: Re: ipw2100: firmware problem
+Date: Wed, 8 Jun 2005 17:44:20 +0300
+Message-ID: <200506081744.20687.vda@ilport.com.ua>
+References: <20050608142310.GA2339@elf.ucw.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>, Netdev list <netdev@oss.sgi.com>,
+To: Pavel Machek <pavel@ucw.cz>, Jeff Garzik <jgarzik@pobox.com>,
+        Netdev list <netdev@oss.sgi.com>,
         kernel list <linux-kernel@vger.kernel.org>,
         "James P. Ketrenos" <ipw2100-admin@linux.intel.com>
+In-Reply-To: <20050608142310.GA2339@elf.ucw.cz>
 Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi!
+On Wednesday 08 June 2005 17:23, Pavel Machek wrote:
+> Hi!
+> 
+> I'm fighting with firmware problem: if ipw2100 is compiled into
+> kernel, it is loaded while kernel boots and firmware loader is not yet
+> available. That leads to uninitialized (=> useless) adapter.
+> 
+> What's the prefered way to solve this one? Only load firmware when
+> user does ifconfig eth1 up? [It is wifi, it looks like it would be
+> better to start firmware sooner so that it can associate to the
+> AP...].
 
-I'm fighting with firmware problem: if ipw2100 is compiled into
-kernel, it is loaded while kernel boots and firmware loader is not yet
-available. That leads to uninitialized (=> useless) adapter.
+Do you want to associate to an AP when your kernel boots,
+_before_ any iwconfig had a chance to configure anything?
+That's strange.
 
-What's the prefered way to solve this one? Only load firmware when
-user does ifconfig eth1 up? [It is wifi, it looks like it would be
-better to start firmware sooner so that it can associate to the
-AP...].
+My position is that wifi drivers must start up in an "OFF" mode.
+Do not send anything. Do not join APs or start IBSS.
+Thus, no need to load fw in early boot.
 
-Last initcall available in kernel is late_initcall; that's not late
-enough for me. Is adding one more initcall that is started when
-userland is available a solution?
-								Pavel
+Driver may load firmware and start actively doing something
+only when iwconfig gets executed and thus driver is
+instructed what to do.
+
+Some drivers currently do not act this way, and thus
+less advanced users may unknowingly run a wireless STA
+(or worse, an AP!) on their notebook for years, interfering
+with neighbors and/or violating local regulations (there are
+countrles where 802.11 use needs licensing).
+--
+vda
