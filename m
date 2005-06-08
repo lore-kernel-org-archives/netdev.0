@@ -1,62 +1,54 @@
-From: "Leonid Grossman" <leonid.grossman@neterion.com>
-Subject: RE: [PATCH 0/9]: TCP: The Road to Super TSO
-Date: Wed, 8 Jun 2005 15:19:34 -0700
-Message-ID: <200506082219.j58MJYVG002386@guinness.s2io.com>
-References: <20050608.144906.77057282.davem@davemloft.net>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: ipw2100: firmware problem
+Date: Thu, 9 Jun 2005 00:34:37 +0200
+Message-ID: <20050608223437.GB2614@elf.ucw.cz>
+References: <20050608142310.GA2339@elf.ucw.cz> <42A723D3.3060001@linux.intel.com> <20050608212707.GA2535@elf.ucw.cz> <42A76719.2060700@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@oss.sgi.com>, <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, Netdev list <netdev@oss.sgi.com>,
+        kernel list <linux-kernel@vger.kernel.org>,
+        "James P. Ketrenos" <ipw2100-admin@linux.intel.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'David S. Miller'" <davem@davemloft.net>, <jheffner@psc.edu>
-In-Reply-To: <20050608.144906.77057282.davem@davemloft.net>
+To: James Ketrenos <jketreno@linux.intel.com>
+Content-Disposition: inline
+In-Reply-To: <42A76719.2060700@linux.intel.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
- 
+Hi!
 
-> -----Original Message-----
-> From: netdev-bounce@oss.sgi.com 
-> [mailto:netdev-bounce@oss.sgi.com] On Behalf Of David S. Miller
-> Sent: Wednesday, June 08, 2005 2:49 PM
-> To: jheffner@psc.edu
-> Cc: netdev@oss.sgi.com; herbert@gondor.apana.org.au
-> Subject: Re: [PATCH 0/9]: TCP: The Road to Super TSO
+> >Having a parameter to control this seems a bit too complex to me.
+> >
+> >How is 
+> >
+> >insmod ipw2100 enable=1
+> >
+> >different from
+> >
+> >insmod ipw2100
+> >iwconfig eth1 start_scanning_or_whatever
+> >
+> >?
+> It defaults to enabled, so you just need to do:
 > 
-> From: John Heffner <jheffner@psc.edu>
-> Subject: Re: [PATCH 0/9]: TCP: The Road to Super TSO
-> Date: Wed, 8 Jun 2005 17:40:10 -0400
+>     insmod ipw2100
 > 
-> > On Tuesday 07 June 2005 12:08 am, David S. Miller wrote:
-> > > Some folks, notable the S2IO guys, get performance 
-> degradation from 
-> > > the Super TSO v2 patch (they get it from the first 
-> version as well).  
-> > > It's a real pain to spot what causes such things in such a huge 
-> > > patch... so I started splitting things up in a very fine grained 
-> > > manner so we can catch regressions more precisely.
-> > 
-> > I'm curious about the details of this.  Is there decreased 
-> performance 
-> > relative to current TSO?  Relative to no TSO?  Sending to just one 
-> > receiver or many, and is it receiver limited?
+> and it will auto associate with an open network.  For the use case where
+> users want the device to load but not initialize, they can use
 > 
-> The receiver is limited in their tests.  No current 
-> generation systems can fill a 10gbit pipe fully, especially 
-> at 1500 byte MTU.
+>     insmod ipw2100 disable=1
+> 
+> If hotplug and firmware loading worked early in the init sequence, no
+> one would have issue with the current model; it works as users expect it
+> to work.  It magically finds and associates to networks, and your
+> network scripts can then kick off DHCP, all with little to no special
+> crafting or utility interfacing. 
 
-With jumbo frames, a single receiver can handle 10GbE line rate.
-With 1500 mtu, a single receiver becomes a bottleneck. I will forward the
-numbers later today.
+Actually it would still transmit when user did not want it to. I
+believe that staying "quiet" is right thing, long-term. And it could
+solve firmware-loading problems, short-term...
 
-
-> 
-> Performance went down, with both TSO enabled and disabled, 
-> compared to not having the patches applied.
-> 
-> That's why I'm going through this entire exercise of doing 
-> things one piece at a time.
-> 
-> 
+How long does association with AP take? Anyway it should be easy to
+tell driver to associate ASAP, just after the insmod...
+								Pavel
