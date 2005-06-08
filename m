@@ -1,60 +1,51 @@
-From: Jirka Bohac <jbohac@suse.cz>
+From: Jiri Benc <jbenc@suse.cz>
 Subject: Re: ipw2100: firmware problem
-Date: Wed, 8 Jun 2005 16:56:53 +0200
-Message-ID: <20050608145653.GA8844@dwarf.suse.cz>
-References: <20050608142310.GA2339@elf.ucw.cz> <200506081744.20687.vda@ilport.com.ua>
+Date: Wed, 8 Jun 2005 17:23:45 +0200
+Message-ID: <20050608172345.64613254@griffin.suse.cz>
+References: <200506081744.20687.vda@ilport.com.ua>
+	<002901c56c3b$8216cdd0$600cc60a@amer.sykes.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pavel Machek <pavel@ucw.cz>, Jeff Garzik <jgarzik@pobox.com>,
-	Netdev list <netdev@oss.sgi.com>,
-	kernel list <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261305AbVFHPLR@vger.kernel.org>
-To: Denis Vlasenko <vda@ilport.com.ua>
-Content-Disposition: inline
-In-Reply-To: <200506081744.20687.vda@ilport.com.ua>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "'Denis Vlasenko'" <vda@ilport.com.ua>, "'Pavel Machek'" <pavel@ucw.cz>,
+        "'Jeff Garzik'" <jgarzik@pobox.com>,
+        "'Netdev list'" <netdev@oss.sgi.com>,
+        "'kernel list'" <linux-kernel@vger.kernel.org>,
+        "'James P. Ketrenos'" <ipw2100-admin@linux.intel.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: <abonilla@linuxwireless.org>
+In-Reply-To: <002901c56c3b$8216cdd0$600cc60a@amer.sykes.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 08, 2005 at 05:44:20PM +0300, Denis Vlasenko wrote:
-> On Wednesday 08 June 2005 17:23, Pavel Machek wrote:
-> > What's the prefered way to solve this one? Only load firmware when
-> > user does ifconfig eth1 up? [It is wifi, it looks like it would be
-> > better to start firmware sooner so that it can associate to the
-> > AP...].
-> 
-> Do you want to associate to an AP when your kernel boots,
-> _before_ any iwconfig had a chance to configure anything?
-> That's strange.
-> 
-> My position is that wifi drivers must start up in an "OFF" mode.
-> Do not send anything. Do not join APs or start IBSS.
+On Wed, 8 Jun 2005 09:05:27 -0600, Alejandro Bonilla wrote:
+> 	I might be lost here but... How is the firmware loaded when using the
+> ipw2100-1.0.0/patches Kernel patch?
 
-Agreed.
+It is loaded by request_firmware() during initialization of the adapter.
+That doesn't work, as at that time no hotplug binary can be executed (we
+are talking about ipw2100 built in the kernel, not built as a module).
 
-> Thus, no need to load fw in early boot.
+> Currently, when we install the driver, it associates to any open network on
+> boot. This is good, cause we don't want to be typing the commands all the
+> time just to associate. It works this way now and is pretty nice.
 
-I don't think this is true. Loading the firmware on the first
-"ifconfig up" is problematic. Often, people want to rename the
-device from ethX/wlanX/... to something stable. This is usually
-based on the adapter's MAC address, which is not visible until
-the firmware is loaded.
+It sounds very dangerous to me.
 
-Prism54 does it this way and it really sucks. You need to bring
-the adapter up to load the firmware, then bring it back down,
-rename it, and bring it up again.
+> So, to scan a network, I would have to do ifconfig eth1 up ; iwlist eth1
+> scan?
 
-Denis: any plans for this to be fixed?
+No. Driver should request the firmware when it is told to perform a scan.
 
-I agree that drivers should initialize the adapter in the OFF
-state, but the firmware needs to be loaded earlier than the
-first ifconfig up.
+> When moving from modes with the firmwares, would I have to do ifconfig eth1
+> up ; iwconfig eth1 mode monitor? or would the firmware be loaded with
+> iwconfig? Does it have that function?
 
-How about loading the firmware when the first ioctl touches the
-device? This way, it would get loaded just before the MAC address
-is retrieved.
+Firmware can be loaded automatically by the driver when there is some
+request from userspace and the firmware has not been loaded yet.
 
-regards,
 
 -- 
-Jirka Bohac <jbohac@suse.cz>
-SUSE Labs, SUSE CR
+Jiri Benc
+SUSE Labs
