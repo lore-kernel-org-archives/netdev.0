@@ -1,58 +1,27 @@
-From: Pavel Machek <pavel@suse.cz>
-Subject: Re: ipw2100: firmware problem
-Date: Wed, 8 Jun 2005 18:29:48 +0200
-Message-ID: <20050608162947.GB3969@openzaurus.ucw.cz>
-References: <20050608142310.GA2339@elf.ucw.cz> <200506081744.20687.vda@ilport.com.ua> <20050608145653.GA8844@dwarf.suse.cz>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] net: allow controlling NAPI weight with sysfs
+Date: Wed, 08 Jun 2005 14:24:45 -0700 (PDT)
+Message-ID: <20050608.142445.126941321.davem@davemloft.net>
+References: <Pine.CYG.4.58.0505261406210.2364@mawilli1-desk2.amr.corp.intel.com>
+	<20050602111437.1c492138@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Denis Vlasenko <vda@ilport.com.ua>, Pavel Machek <pavel@ucw.cz>,
-        Jeff Garzik <jgarzik@pobox.com>, Netdev list <netdev@oss.sgi.com>,
-        kernel list <linux-kernel@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mitch.a.williams@intel.com, netdev@oss.sgi.com, john.ronciak@intel.com,
+        ganesh.venkatesan@intel.com, jesse.brandeburg@intel.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jirka Bohac <jbohac@suse.cz>
-Content-Disposition: inline
-In-Reply-To: <20050608145653.GA8844@dwarf.suse.cz>
+To: shemminger@osdl.org
+In-Reply-To: <20050602111437.1c492138@dxpl.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi!
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Thu, 2 Jun 2005 11:14:37 -0700
 
-> > Do you want to associate to an AP when your kernel boots,
-> > _before_ any iwconfig had a chance to configure anything?
-> > That's strange.
-> > 
-> > My position is that wifi drivers must start up in an "OFF" mode.
-> > Do not send anything. Do not join APs or start IBSS.
+> Simple interface to allow changing network device scheduling weight
+> with sysfs. Please consider this for 2.6.12, since risk/impact is small.
 > 
-> Agreed.
+> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-Me too ;-).
-
-> > Thus, no need to load fw in early boot.
-> 
-> I don't think this is true. Loading the firmware on the first
-> "ifconfig up" is problematic. Often, people want to rename the
-> device from ethX/wlanX/... to something stable. This is usually
-> based on the adapter's MAC address, which is not visible until
-> the firmware is loaded.
-> 
-> Prism54 does it this way and it really sucks. You need to bring
-> the adapter up to load the firmware, then bring it back down,
-> rename it, and bring it up again.
-> 
-> Denis: any plans for this to be fixed?
-> 
-> I agree that drivers should initialize the adapter in the OFF
-> state, but the firmware needs to be loaded earlier than the
-> first ifconfig up.
-> 
-> How about loading the firmware when the first ioctl touches the
-> device? This way, it would get loaded just before the MAC address
-> is retrieved.
-
-Thats really ugly :-(.
-
-				Pavel
--- 
-64 bytes from 195.113.31.123: icmp_seq=28 ttl=51 time=448769.1 ms         
+Patch applied, thanks Stephen.
