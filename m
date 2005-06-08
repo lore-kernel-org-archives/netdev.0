@@ -1,89 +1,60 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: RFC: NAPI packet weighting patch
-Date: Wed, 08 Jun 2005 09:36:15 -0400
-Message-ID: <1118237775.6382.34.camel@localhost.localdomain>
-References: <468F3FDA28AA87429AD807992E22D07E0450C01F@orsmsx408>
-	 <20050607.132159.35660612.davem@davemloft.net>
-	 <Pine.LNX.4.62.0506071852290.31708@ladlxr>
-	 <20050607.204339.21591152.davem@davemloft.net>
-Reply-To: hadi@cyberus.ca
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Intel, please fix your email system
+Date: Wed, 8 Jun 2005 15:42:26 +0200
+Message-ID: <20050608134226.GA3063@elf.ucw.cz>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: jesse.brandeburg@intel.com, john.ronciak@intel.com, shemminger@osdl.org,
-        mitch.a.williams@intel.com, mchan@broadcom.com, buytenh@wantstofly.org,
-        jdmason@us.ibm.com, netdev@oss.sgi.com, Robert.Olsson@data.slu.se,
-        ganesh.venkatesan@intel.com
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050607.204339.21591152.davem@davemloft.net>
+To: Netdev list <netdev@oss.sgi.com>, Jeff Garzik <jgarzik@pobox.com>,
+        kernel list <linux-kernel@vger.kernel.org>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2005-07-06 at 20:43 -0700, David S. Miller wrote:
-> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Date: Tue, 7 Jun 2005 19:20:37 -0700 (PDT)
-[..]
-> > I tried the experiment today where I replenish buffers to hardware every 
-> > 16 packets or so.  This appears to mitigate all drops at the hardware 
-> > level (no drops).  We're still at 100% with the rc5 kernel, however.
-> > 
-> > even with this replenish fix, the addition of dropping the weight to 16 
-> > helped increase our throughput, although only about 1%.
-> 
-> Any minor timing difference of any kind can have up to a %3 or
-> %4 difference in TCP performance when the receiver is CPU
-> limited.
-> 
+Hi!
 
-Agreed.
+I attempted to mail ipw2100 maintainer, and got back message about
+"inappropriate subject". Subject was "Subject: [-mm] ipw2100: kill
+dead macros". I do not think that's inappropriate.
 
-[..]
-> I don't see how supertso can help the receiver, which is where
-> the RX drops should be occuring.  That's a little weird.
-> 
-> I can't believe a 2.5 GHZ machine can't keep up with a simple 1 Gbit
-> TCP stream.  Do you have some other computation going on in that
-> system?  As stated yesterday my 1.5 GHZ crappy sparc64 box can receive
-> a 1 Gbit TCP stream with much cpu to spare, my 750 MHZ sparc64 box can
-> nearly do so as well.
-> 
-> Something is up, if a single gigabit TCP stream can fully CPU
-> load your machine.  10 gigabit, yeah, definitely all current
-> generation machines are cpu limited over that link speed, but
-> 1 gigabit should be no problem.
-> 
+								Pavel
 
-Yes, sir.
-BTW, all along i thought the sender and receiver are hooked up directly
-(there was some mention of chariot a while back).
-Even if they did have some smart ass thing in the middle that reorders,
-it is still suprising that such a fast CPU cant handle a mere one Gig of
-what seems to be MTU=1500 bytes sized packets.
-I suppose a netstat -s would help for visualization in addition to those
-dumps. 
 
-Heres what i am deducing from their data, correct me if i am wrong:
-->The evidence is that something is expensive in their code path (duh).
+This is the Postfix program at host amd.ucw.cz.
 
--> Whatever that expensive thing code is, it not helped by them
-replenishing the descriptors after all the budget is exhausted since the
-descriptor departure rate is much slower than packet arrival.
----> This is why they would be seeing that the reduction of weight
-improves performance since the replenishing happens sooner with a
-smaller weight.
-------> Clearly the driver needs some fixing - if they could do what
-their competitor's(who shall remain nameless) driver does  or replenish
-more often, then that would go some way to help (Jesse's result with
-replenish after 16 is proof).
+I'm sorry to have to inform you that your message could not be
+be delivered to one or more recipients. It's attached below.
 
-This still hasnt resolved what the problem is but we may be getting
-close.
+For further assistance, please send mail to <postmaster>
 
-Even if they SACKed for every packet, this still would not make any
-sense. So i think a profile of where the cycles are spent would also
-help. I am suspecting the driver at this point but i could be wrong.
+If you do so, please include this problem report. You can
+delete your own text from the attached returned message.
 
-cheers,
-jamal
+                        The Postfix program
+
+<ipw2100-admin@linux.intel.com>: host jf-in.intel.com[134.134.136.18]
+said: 553
+    5.0.0 Inappropriate subject (in reply to end of DATA command)
+
+[-- Attachment #2: Delivery report --]
+[-- Type: message/delivery-status, Encoding: 7bit, Size: 0.4K --]
+
+Reporting-MTA: dns; amd.ucw.cz
+X-Postfix-Queue-ID: C9B8F8B8A7
+X-Postfix-Sender: rfc822; pavel@ucw.cz
+Arrival-Date: Wed,  8 Jun 2005 15:35:06 +0200 (CEST)
+
+Final-Recipient: rfc822; ipw2100-admin@linux.intel.com
+Action: failed
+Status: 5.0.0
+Diagnostic-Code: X-Postfix; host jf-in.intel.com[134.134.136.18] said:
+553
+    5.0.0 Inappropriate subject (in reply to end of DATA command)
+
+[-- Attachment #3: Undelivered Message --]
+[-- Type: message/rfc822, Encoding: 7bit, Size: 4.3K --]
+
+To: Netdev list <netdev@oss.sgi.com>,
+        "James P. Ketrenos" <ipw2100-admin@linux.intel.com>,
+        Andrew Morton <akpm@zip.com.au>
