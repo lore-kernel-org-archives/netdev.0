@@ -1,7 +1,7 @@
 From: Pavel Machek <pavel@ucw.cz>
-Subject: [-mm] ipw2100: assume recent kernel
-Date: Wed, 8 Jun 2005 15:31:24 +0200
-Message-ID: <20050608133123.GA3008@elf.ucw.cz>
+Subject: [-mm] ipw2100: kill dead macros
+Date: Wed, 8 Jun 2005 15:35:06 +0200
+Message-ID: <20050608133506.GA3028@elf.ucw.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
@@ -13,79 +13,96 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-ipw2100 still has support for old kernels. Thats considered bad for
-patch in mainline... this fixes few instances.
+There are several never used macros in ipw2100. This removes them.
 
 Signed-off-by: Pavel Machek <pavel@suse.cz>
 
 --- /data/l/clean-mm/drivers/net/wireless/ipw2100.c	2005-06-08 12:11:29.000000000 +0200
 +++ linux-mm/drivers/net/wireless/ipw2100.c	2005-06-08 15:09:26.000000000 +0200
-@@ -6719,17 +5873,9 @@
- 	/* Remove the PRESENT state of the device */
- 	netif_device_detach(dev);
+@@ -1118,7 +1074,6 @@
+ {
+ #define MAX_RF_KILL_CHECKS 5
+ #define RF_KILL_CHECK_DELAY 40
+-#define RF_KILL_CHECK_THRESHOLD 3
  
--#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,10)
--	pci_save_state(pci_dev, priv->pm_state);
--#else
- 	pci_save_state(pci_dev);
--#endif
- 	pci_disable_device (pci_dev);
--#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,11)
--	pci_set_power_state(pci_dev, state);
--#else
- 	pci_set_power_state(pci_dev, PCI_D3hot);
--#endif
- 
- 	up(&priv->action_sem);
- 
-@@ -6750,17 +5896,9 @@
- 	IPW_DEBUG_INFO("%s: Coming out of suspend...\n",
- 	       dev->name);
- 
--#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,11)
--	pci_set_power_state(pci_dev, 0);
--#else
- 	pci_set_power_state(pci_dev, PCI_D0);
--#endif
- 	pci_enable_device(pci_dev);
--#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,10)
--	pci_restore_state(pci_dev, priv->pm_state);
--#else
- 	pci_restore_state(pci_dev);
--#endif
- 
- 	/*
- 	 * Suspend/Resume resets the PCI configuration space, so we have to
+ 	unsigned short value = 0;
+ 	u32 reg = 0;
 --- /data/l/clean-mm/drivers/net/wireless/ipw2100.h	2005-06-08 12:11:29.000000000 +0200
 +++ linux-mm/drivers/net/wireless/ipw2100.h	2005-06-08 15:07:31.000000000 +0200
-@@ -44,30 +44,6 @@
+@@ -167,15 +141,6 @@
+ #define IPW_DEBUG_STATE(f, a...) IPW_DEBUG(IPW_DL_STATE | IPW_DL_ASSOC | IPW_DL_INFO, f, ## a)
+ #define IPW_DEBUG_ASSOC(f, a...) IPW_DEBUG(IPW_DL_ASSOC | IPW_DL_INFO, f, ## a)
  
- #include <linux/workqueue.h>
+-
+-#define VERIFY(f) \
+-{ \
+-  int status = 0; \
+-  status = f; \
+-  if(status) \
+-     return status; \
+-}
+-
+ enum {
+ 	IPW_HW_STATE_DISABLED = 1,
+ 	IPW_HW_STATE_ENABLED = 0
+@@ -210,8 +175,6 @@
+ 	} info;
+ } __attribute__ ((packed));
  
--#ifndef IRQ_NONE
--typedef void irqreturn_t;
--#define IRQ_NONE
--#define IRQ_HANDLED
--#define IRQ_RETVAL(x)
+-#define	IPW_BUFDESC_LAST_FRAG 0
+-
+ struct ipw2100_bd {
+ 	u32 host_addr;
+ 	u32 buf_length;
+@@ -648,9 +606,6 @@
+ 	struct semaphore adapter_sem;
+ 
+ 	wait_queue_head_t wait_command_queue;
+-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,10)
+-	u32 pm_state[PM_STATE_SIZE];
+-#endif
+ };
+ 
+ 
+@@ -761,41 +707,6 @@
+ #define IPW_MEM_HOST_SHARED_TX_QUEUE_WRITE_INDEX \
+     (IPW_MEM_SRAM_HOST_INTERRUPT_AREA_LOWER_BOUND)
+ 
+-
+-#if 0
+-#define IPW_MEM_HOST_SHARED_TX_QUEUE_0_BD_BASE          (IPW_MEM_SRAM_HOST_SHARED_LOWER_BOUND + 0x00)
+-#define IPW_MEM_HOST_SHARED_TX_QUEUE_0_BD_SIZE          (IPW_MEM_SRAM_HOST_SHARED_LOWER_BOUND + 0x04)
+-#define IPW_MEM_HOST_SHARED_TX_QUEUE_1_BD_BASE          (IPW_MEM_SRAM_HOST_SHARED_LOWER_BOUND + 0x08)
+-#define IPW_MEM_HOST_SHARED_TX_QUEUE_1_BD_SIZE          (IPW_MEM_SRAM_HOST_SHARED_LOWER_BOUND + 0x0c)
+-#define IPW_MEM_HOST_SHARED_TX_QUEUE_2_BD_BASE          (IPW_MEM_SRAM_HOST_SHARED_LOWER_BOUND + 0x10)
+-#define IPW_MEM_HOST_SHARED_TX_QUEUE_2_BD_SIZE          (IPW_MEM_SRAM_HOST_SHARED_LOWER_BOUND + 0x14)
+-#define IPW_MEM_HOST_SHARED_TX_QUEUE_3_BD_BASE          (IPW_MEM_SRAM_HOST_SHARED_LOWER_BOUND + 0x18)
+-#define IPW_MEM_HOST_SHARED_TX_QUEUE_3_BD_SIZE          (IPW_MEM_SRAM_HOST_SHARED_LOWER_BOUND + 0x1c)
+-#define IPW_MEM_HOST_SHARED_TX_QUEUE_0_READ_INDEX       (IPW_MEM_SRAM_HOST_SHARED_LOWER_BOUND + 0x80)
+-#define IPW_MEM_HOST_SHARED_TX_QUEUE_1_READ_INDEX       (IPW_MEM_SRAM_HOST_SHARED_LOWER_BOUND + 0x84)
+-#define IPW_MEM_HOST_SHARED_TX_QUEUE_2_READ_INDEX       (IPW_MEM_SRAM_HOST_SHARED_LOWER_BOUND + 0x88)
+-#define IPW_MEM_HOST_SHARED_TX_QUEUE_3_READ_INDEX       (IPW_MEM_SRAM_HOST_SHARED_LOWER_BOUND + 0x8c)
+-
+-#define IPW_MEM_HOST_SHARED_TX_QUEUE_BD_BASE(QueueNum) \
+-    (IPW_MEM_SRAM_HOST_SHARED_LOWER_BOUND + (QueueNum<<3))
+-#define IPW_MEM_HOST_SHARED_TX_QUEUE_BD_SIZE(QueueNum) \
+-    (IPW_MEM_SRAM_HOST_SHARED_LOWER_BOUND + 0x0004+(QueueNum<<3))
+-#define IPW_MEM_HOST_SHARED_TX_QUEUE_READ_INDEX(QueueNum) \
+-    (IPW_MEM_SRAM_HOST_SHARED_LOWER_BOUND + 0x0080+(QueueNum<<2))
+-
+-#define IPW_MEM_HOST_SHARED_TX_QUEUE_0_WRITE_INDEX \
+-    (IPW_MEM_SRAM_HOST_INTERRUPT_AREA_LOWER_BOUND + 0x00)
+-#define IPW_MEM_HOST_SHARED_TX_QUEUE_1_WRITE_INDEX \
+-    (IPW_MEM_SRAM_HOST_INTERRUPT_AREA_LOWER_BOUND + 0x04)
+-#define IPW_MEM_HOST_SHARED_TX_QUEUE_2_WRITE_INDEX \
+-    (IPW_MEM_SRAM_HOST_INTERRUPT_AREA_LOWER_BOUND + 0x08)
+-#define IPW_MEM_HOST_SHARED_TX_QUEUE_3_WRITE_INDEX \
+-    (IPW_MEM_SRAM_HOST_INTERRUPT_AREA_LOWER_BOUND + 0x0c)
+-#define IPW_MEM_HOST_SHARED_SLAVE_MODE_INT_REGISTER \
+-    (IPW_MEM_SRAM_HOST_INTERRUPT_AREA_LOWER_BOUND + 0x78)
+-
 -#endif
 -
--#if WIRELESS_EXT < 17
--#define IW_QUAL_QUAL_INVALID  0x10
--#define IW_QUAL_LEVEL_INVALID 0x20
--#define IW_QUAL_NOISE_INVALID 0x40
--#endif
--
--#if ( LINUX_VERSION_CODE < KERNEL_VERSION(2,6,5) )
--#define pci_dma_sync_single_for_cpu	pci_dma_sync_single
--#define pci_dma_sync_single_for_device	pci_dma_sync_single
--#endif
--
--#ifndef HAVE_FREE_NETDEV
--#define free_netdev(x) kfree(x)
--#endif
--
--
--
- struct ipw2100_priv;
- struct ipw2100_tx_packet;
- struct ipw2100_rx_packet;
+ #define IPW_MEM_HOST_SHARED_ORDINALS_TABLE_1   (IPW_MEM_SRAM_HOST_SHARED_LOWER_BOUND + 0x180)
+ #define IPW_MEM_HOST_SHARED_ORDINALS_TABLE_2   (IPW_MEM_SRAM_HOST_SHARED_LOWER_BOUND + 0x184)
+ 
