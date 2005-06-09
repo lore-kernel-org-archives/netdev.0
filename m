@@ -1,41 +1,84 @@
-From: Zhu Yi <yi.zhu@intel.com>
-Subject: Re: ipw2100: firmware problem
-Date: Thu, 09 Jun 2005 11:33:10 +0800
-Message-ID: <1118287990.10234.114.camel@debian.sh.intel.com>
-References: <20050608142310.GA2339@elf.ucw.cz>
-	 <42A723D3.3060001@linux.intel.com> <20050608212707.GA2535@elf.ucw.cz>
-	 <42A76719.2060700@linux.intel.com>  <20050608223437.GB2614@elf.ucw.cz>
+From: Valdis.Kletnieks@vt.edu
+Subject: 2.6.12-rc6-mm1 OOPS in tcp_push_one()
+Date: Thu, 09 Jun 2005 00:23:32 -0400
+Message-ID: <200506090423.j594NWts004829@turing-police.cc.vt.edu>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: multipart/signed; boundary="==_Exmh_1118291011_3588P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
 Content-Transfer-Encoding: 7bit
-Cc: James Ketrenos <jketreno@linux.intel.com>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Netdev list <netdev@oss.sgi.com>,
-	kernel list <linux-kernel@vger.kernel.org>,
-	"James P. Ketrenos" <ipw2100-admin@linux.intel.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261304AbVFIDgX@vger.kernel.org>
-To: Pavel Machek <pavel@ucw.cz>
-In-Reply-To: <20050608223437.GB2614@elf.ucw.cz>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Pavel,
+--==_Exmh_1118291011_3588P
+Content-Type: text/plain; charset=us-ascii
 
-On Thu, 2005-06-09 at 00:34 +0200, Pavel Machek wrote:
-> Actually it would still transmit when user did not want it to. I
-> believe that staying "quiet" is right thing, long-term. And it could
-> solve firmware-loading problems, short-term...
+Am at home, running PPP over a modem.  I get a request to push a patch to a
+Sourceforge project I have CVS commit access to.  So I do a 'export CVS_RSH=ssh'
+and then do a 'cvs commit', and ker-blammo.
 
-If ipw2100 is built into kernel, you can disable it by kernel parameter
-ipw2100.disable=1. Then you can enable it with:
+Very reproducible - this is about the 6th time in the past hour, always on
+a cvs-over-ssh.  Oddly enough, if I trigger it while logged on one of the
+virtual consoles, I can c-a-f2 to another console, login, and run dmesg
+to capture the wreckage.  Doing it from an xterm window with the X server
+running causes the system to lock up hard - I'm betting the oops dies with a
+lock held, and the X server immediately hangs because it tries to do some
+networking/socket stuff....
 
-$ echo 0 > /sys/bus/pci/drivers/ipw2100/*/rf_kill
+[17179956.772000] Unable to handle kernel paging request at virtual address a56b6b75
+[17179956.776000]  printing eip:
+[17179956.788000] c0307f4c
+[17179956.792000] *pde = 00000000
+[17179956.804000] Oops: 0000 [#1]
+[17179956.804000] PREEMPT 
+[17179956.804000] Modules linked in: ppp_deflate bsd_comp ppp_async crc_ccitt ppp_generic slhc tcp_bic orinoco_cs orinoco hermes pcmcia firmware_class ip_conntrack_ftp ipt_pkttype ipt_REJECT ipt_state ip_conntrack ipt_LOG ipt_limit ipt_u32 iptable_filter ip_tables ip6t_LOG ip6t_limit ip6table_filter ip6_tables thermal processor fan button battery ac i8k ohci1394 ieee1394 yenta_socket rsrc_nonstatic pcmcia_core intel_agp agpgart floppy
+[17179956.804000] CPU:    0
+[17179956.804000] EIP:    0060:[<c0307f4c>]    Not tainted VLI
+[17179956.804000] EFLAGS: 00010202   (2.6.12-rc6-mm1) 
+[17179956.804000] EIP is at tcp_transmit_skb+0x568/0x62b
+[17179956.804000] eax: a56b6b6b   ebx: 000004df   ecx: 00000000   edx: c64de048
+[17179956.804000] esi: c1ff2b88   edi: 00000001   ebp: c1c29dd4   esp: c1c29da0
+[17179956.804000] ds: 007b   es: 007b   ss: 0068
+[17179956.804000] Process ssh (pid: 2981, threadinfo=c1c28000 task=c3126a60)
+[17179956.804000] Stack: c64de048 c64de080 00000020 00000000 c1ff2b88 c64deb88 c64debc0 c1c29dd4 
+[17179956.804000]        c1fc71bc c64deb88 c1ff2b88 c64deb88 c64debc0 c1c29df4 c0308f8c 000005a8 
+[17179956.804000]        0001f742 00000001 c64deb88 c1ff2b88 000005a8 c1c29e5c c02ffba8 00000000 
+[17179956.804000] Call Trace:
+[17179956.804000]  [<c0103586>] show_stack+0x7a/0x83
+[17179956.804000]  [<c01036d6>] show_registers+0x130/0x1a1
+[17179956.804000]  [<c0103892>] die+0xd0/0x150
+[17179956.804000]  [<c0111930>] do_page_fault+0x454/0x5e0
+[17179956.804000]  [<c01031f3>] error_code+0x4f/0x54
+[17179956.804000]  [<c0308f8c>] tcp_push_one+0xea/0x190
+[17179956.804000]  [<c02ffba8>] tcp_sendmsg+0x71f/0x8f6
+[17179956.804000]  [<c0319c14>] inet_sendmsg+0x3c/0x49
+[17179956.804000]  [<c02de154>] sock_aio_write+0x117/0x124
+[17179956.804000]  [<c014e47d>] do_sync_write+0x89/0xb9
+[17179956.804000]  [<c014e56b>] vfs_write+0xbe/0x156
+[17179956.804000]  [<c014e69e>] sys_write+0x3b/0x60
+[17179956.804000]  [<c0102725>] syscall_call+0x7/0xb
+[17179956.804000] Code: e0 04 8b 80 50 bb 4f c0 ff 40 2c 8b 8e d8 02 00 00 31 d2 8b 45 cc ff 11 89 c7 85 c0 0f 8e c2 00 00 00 8b 55 cc 8b 82 a4 00 00 00 <0f> b7 58 0a 66 c7 86 1a 03 00 00 00 00 80 be 26 02 00 00 01 0f 
+[17179956.804000]
 
-> How long does association with AP take? Anyway it should be easy to
-> tell driver to associate ASAP, just after the insmod...
+This look familiar to anybody?
 
-Are you suggesting by default it is disabled for built into kernel but
-enabled as a module?
+(On a related note, how did tcp_bic get loaded? I requested all the new
+congestion stuff be built as modules, didn't specifically request any of
+them to actually be loaded....
 
-Thanks,
--yi
+
+--==_Exmh_1118291011_3588P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.1 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
+
+iD8DBQFCp8RDcC3lWbTT17ARAr0GAKDZ9d3f4vKePmA6jo/wS1nHllRmwwCgx3bv
+uMi0pYbHo4FqUDVK90C58kg=
+=GQ+6
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1118291011_3588P--
