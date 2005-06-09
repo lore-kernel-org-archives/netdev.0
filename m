@@ -1,65 +1,66 @@
-From: Jeff Garzik <jgarzik@pobox.com>
+From: Denis Vlasenko <vda@ilport.com.ua>
 Subject: Re: ipw2100: firmware problem
-Date: Thu, 09 Jun 2005 02:06:05 -0400
-Message-ID: <42A7DC4D.7000008@pobox.com>
-References: <20050608142310.GA2339@elf.ucw.cz>	<200506081744.20687.vda@ilport.com.ua>	<42A7268D.9020402@linux.intel.com> <20050608.124332.85408883.davem@davemloft.net>
+Date: Thu, 9 Jun 2005 09:09:55 +0300
+Message-ID: <200506090909.55889.vda@ilport.com.ua>
+References: <002901c56c3b$8216cdd0$600cc60a@amer.sykes.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: jketreno@linux.intel.com, vda@ilport.com.ua, pavel@ucw.cz,
-        netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
-        ipw2100-admin@linux.intel.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050608.124332.85408883.davem@davemloft.net>
+To: <abonilla@linuxwireless.org>, "'Pavel Machek'" <pavel@ucw.cz>,
+        "'Jeff Garzik'" <jgarzik@pobox.com>,
+        "'Netdev list'" <netdev@oss.sgi.com>,
+        "'kernel list'" <linux-kernel@vger.kernel.org>,
+        "'James P. Ketrenos'" <ipw2100-admin@linux.intel.com>
+In-Reply-To: <002901c56c3b$8216cdd0$600cc60a@amer.sykes.com>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> From: James Ketrenos <jketreno@linux.intel.com>
-> Date: Wed, 08 Jun 2005 12:10:37 -0500
+On Wednesday 08 June 2005 18:05, Alejandro Bonilla wrote:
+> 
+> > On Wednesday 08 June 2005 17:23, Pavel Machek wrote:
+> > > Hi!
+> > >
+> > > I'm fighting with firmware problem: if ipw2100 is compiled into
+> > > kernel, it is loaded while kernel boots and firmware loader
+> > is not yet
+> > > available. That leads to uninitialized (=> useless) adapter.
+> 
+> Pavel,
+> 
+> 	I might be lost here but... How is the firmware loaded when using the
+> ipw2100-1.0.0/patches Kernel patch?
+> 
+> That patch normally works fine. It might not be the way you kernel
+> developers would like it, but maybe that could work the same way?
 > 
 > 
->>My approach is to make the driver so it supports as many usage models as
->>possible, leaving policy to other components of the system.
+> > >
+> > > What's the prefered way to solve this one? Only load firmware when
+> > > user does ifconfig eth1 up? [It is wifi, it looks like it would be
+> > > better to start firmware sooner so that it can associate to the
+> > > AP...].
+> >
+> > Do you want to associate to an AP when your kernel boots,
+> > _before_ any iwconfig had a chance to configure anything?
+> > That's strange.
 > 
-> 
-> I don't see how this kind of firmware load setup handles something
-> like an NFS root over such a device that requires firmware.
-> 
-> And let's not mention that I have to setup an initrd to make that
-> work, that's rediculious.
-> 
-> This is the kind of crap that happens when drivers in the kernel
-> are not self contained, and need "external stuff" to work properly.
-> It means that simple things like NFS root over the device do not
-> work in a straightforward, simple, and elegant manner.
+> Currently, when we install the driver, it associates to any open network on
+> boot. This is good, cause we don't want to be typing the commands all the
+> time just to associate. It works this way now and is pretty nice.
 
+What is so nice about this? That Linux novice user with his new lappie
+will join a neighbor's network every time he powers up the lappie,
+even without knowing that?
 
-Actually these questions has already been answered (though I know you 
-will probably grumble a bit :))
+That will be analogous to me plugging ethernet cable into the switch and
+wanting it to work, without any IP addr config, even without DHCP client.
+Just power up the box (or modprobe an eth module) and it works! Cool, eh?
 
-"early userspace" is the long term answer.  usr/* in the current kernel 
-tree is a placeholder for an image that is shipped with the kernel, 
-which provides things (kernel modules, userspace programs, firmware) 
-that are necessary to boot.
-
-The key is that it is shipped with the kernel source tree, and built 
-into the kernel image, and _dropped from memory_ after init.  The entire 
-process should all be automatic.
-
-Linus ack'd the current stuff (by merging it, after some discussion) and 
-would have merged klibc too, had it any users.
-
-  ...
-
-As to $current_thread, initramfs exists but "early userspace" does not. 
-    There isn't AFAIK any infrastructure to automatically add firmware 
-to initrd in any standard distribution (corrections welcome!).  So 
-today, initrd+firmware is just a big pain.
-
-Therefore, the easiest way to make things work today is to poke Intel to 
-fix their firmware license so that we can distribute it with the kernel :)
-
-	Jeff
+For some reason, we do not do this for wired nets. Why should wireless
+be different?
+--
+vda
