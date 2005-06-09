@@ -1,44 +1,47 @@
-From: "David S. Miller" <davem@davemloft.net>
+From: Denis Vlasenko <vda@ilport.com.ua>
 Subject: Re: ipw2100: firmware problem
-Date: Wed, 08 Jun 2005 23:16:57 -0700 (PDT)
-Message-ID: <20050608.231657.59660080.davem@davemloft.net>
-References: <002901c56c3b$8216cdd0$600cc60a@amer.sykes.com>
-	<200506090909.55889.vda@ilport.com.ua>
+Date: Thu, 9 Jun 2005 09:17:23 +0300
+Message-ID: <200506090917.23853.vda@ilport.com.ua>
+References: <42A7268D.9020402@linux.intel.com> <200506090903.49295.vda@ilport.com.ua> <20050608.231045.48808548.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: abonilla@linuxwireless.org, pavel@ucw.cz, jgarzik@pobox.com,
+Cc: jketreno@linux.intel.com, pavel@ucw.cz, jgarzik@pobox.com,
         netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
         ipw2100-admin@linux.intel.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: vda@ilport.com.ua
-In-Reply-To: <200506090909.55889.vda@ilport.com.ua>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050608.231045.48808548.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Denis Vlasenko <vda@ilport.com.ua>
-Date: Thu, 9 Jun 2005 09:09:55 +0300
-
-> On Wednesday 08 June 2005 18:05, Alejandro Bonilla wrote:
-> > Currently, when we install the driver, it associates to any open network on
-> > boot. This is good, cause we don't want to be typing the commands all the
-> > time just to associate. It works this way now and is pretty nice.
+On Thursday 09 June 2005 09:10, David S. Miller wrote:
+> From: Denis Vlasenko <vda@ilport.com.ua>
+> Date: Thu, 9 Jun 2005 09:03:49 +0300
 > 
-> What is so nice about this? That Linux novice user with his new lappie
-> will join a neighbor's network every time he powers up the lappie,
-> even without knowing that?
+> > You practically cannot avoid having initrd because you are very likely
+> > to need to do some wifi config (at least ESSID and mode).
+> 
+> I need neither at home.  It comes up by default just fine with
+> ifconfig.
+> 
+> Your points are valid, but they do not detract from the fact that
+> pieced up drivers, half in the kernel half somewhere else, is total
+> madness.  It is a lose for the user.
 
-I love this behavior, because it means that I don't have to do
-anything special to get my setup at home working.
+Here I am totally agree. I would like to not have to mess with
+separate firmware files. I even don't want binary firmware, gimme
+the source!
 
-Me caveman
-Me plug in wireless router
-Me watch pretty lights
-Me turn on computer
-Me up interface
-Computer work
-Me no care other cavemen use wireless link
+Sadly, realities are such that we have to live somehow
+with closed-source firmware. Worse, sometimes it even isn't freely
+redistributable (vendor did not explicitly allowed that),
+and thus we have to ship driver, but users must obtain
+firmware elsewhere themself.
 
-Configuration knobs are _madness_.  Things should work with minimal
-intervention and configuration.
+Thus so far we cannot avoid having split drivers.
+--
+vda
