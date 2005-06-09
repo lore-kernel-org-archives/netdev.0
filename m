@@ -1,66 +1,32 @@
-From: Denis Vlasenko <vda@ilport.com.ua>
+From: "David S. Miller" <davem@davemloft.net>
 Subject: Re: ipw2100: firmware problem
-Date: Thu, 9 Jun 2005 09:09:55 +0300
-Message-ID: <200506090909.55889.vda@ilport.com.ua>
-References: <002901c56c3b$8216cdd0$600cc60a@amer.sykes.com>
+Date: Wed, 08 Jun 2005 23:10:45 -0700 (PDT)
+Message-ID: <20050608.231045.48808548.davem@davemloft.net>
+References: <42A7268D.9020402@linux.intel.com>
+	<20050608.124332.85408883.davem@davemloft.net>
+	<200506090903.49295.vda@ilport.com.ua>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
+Cc: jketreno@linux.intel.com, pavel@ucw.cz, jgarzik@pobox.com,
+        netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
+        ipw2100-admin@linux.intel.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <abonilla@linuxwireless.org>, "'Pavel Machek'" <pavel@ucw.cz>,
-        "'Jeff Garzik'" <jgarzik@pobox.com>,
-        "'Netdev list'" <netdev@oss.sgi.com>,
-        "'kernel list'" <linux-kernel@vger.kernel.org>,
-        "'James P. Ketrenos'" <ipw2100-admin@linux.intel.com>
-In-Reply-To: <002901c56c3b$8216cdd0$600cc60a@amer.sykes.com>
-Content-Disposition: inline
+To: vda@ilport.com.ua
+In-Reply-To: <200506090903.49295.vda@ilport.com.ua>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 08 June 2005 18:05, Alejandro Bonilla wrote:
-> 
-> > On Wednesday 08 June 2005 17:23, Pavel Machek wrote:
-> > > Hi!
-> > >
-> > > I'm fighting with firmware problem: if ipw2100 is compiled into
-> > > kernel, it is loaded while kernel boots and firmware loader
-> > is not yet
-> > > available. That leads to uninitialized (=> useless) adapter.
-> 
-> Pavel,
-> 
-> 	I might be lost here but... How is the firmware loaded when using the
-> ipw2100-1.0.0/patches Kernel patch?
-> 
-> That patch normally works fine. It might not be the way you kernel
-> developers would like it, but maybe that could work the same way?
-> 
-> 
-> > >
-> > > What's the prefered way to solve this one? Only load firmware when
-> > > user does ifconfig eth1 up? [It is wifi, it looks like it would be
-> > > better to start firmware sooner so that it can associate to the
-> > > AP...].
-> >
-> > Do you want to associate to an AP when your kernel boots,
-> > _before_ any iwconfig had a chance to configure anything?
-> > That's strange.
-> 
-> Currently, when we install the driver, it associates to any open network on
-> boot. This is good, cause we don't want to be typing the commands all the
-> time just to associate. It works this way now and is pretty nice.
+From: Denis Vlasenko <vda@ilport.com.ua>
+Date: Thu, 9 Jun 2005 09:03:49 +0300
 
-What is so nice about this? That Linux novice user with his new lappie
-will join a neighbor's network every time he powers up the lappie,
-even without knowing that?
+> You practically cannot avoid having initrd because you are very likely
+> to need to do some wifi config (at least ESSID and mode).
 
-That will be analogous to me plugging ethernet cable into the switch and
-wanting it to work, without any IP addr config, even without DHCP client.
-Just power up the box (or modprobe an eth module) and it works! Cool, eh?
+I need neither at home.  It comes up by default just fine with
+ifconfig.
 
-For some reason, we do not do this for wired nets. Why should wireless
-be different?
---
-vda
+Your points are valid, but they do not detract from the fact that
+pieced up drivers, half in the kernel half somewhere else, is total
+madness.  It is a lose for the user.
