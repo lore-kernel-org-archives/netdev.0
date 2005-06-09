@@ -1,67 +1,39 @@
-From: Andy Fleming <afleming@freescale.com>
-Subject: Re: Ethernet driver general problem ....
-Date: Thu, 9 Jun 2005 16:04:48 -0500
-Message-ID: <A4E721FE-2CEB-4DC8-BF9E-6C8EBAA949BB@freescale.com>
-References: <20050609205348.GT4661@mea-ext.zmailer.org>
-Mime-Version: 1.0 (Apple Message framework v730)
-Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+From: Olivier Galibert <galibert@pobox.com>
+Subject: Re: ipw2100: firmware problem
+Date: Thu, 9 Jun 2005 23:12:42 +0200
+Message-ID: <20050609211242.GA30319@dspnet.fr.eu.org>
+References: <20050608142310.GA2339@elf.ucw.cz> <42A723D3.3060001@linux.intel.com> <m1is0nvdkw.fsf@muc.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: James Ketrenos <jketreno@linux.intel.com>, Jeff Garzik <jgarzik@pobox.com>,
+        Netdev list <netdev@oss.sgi.com>,
+        kernel list <linux-kernel@vger.kernel.org>,
+        "James P. Ketrenos" <ipw2100-admin@linux.intel.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <20050609205348.GT4661@mea-ext.zmailer.org>
-To: Matti Aarnio <matti.aarnio@zmailer.org>
+To: Andi Kleen <ak@muc.de>
+Content-Disposition: inline
+In-Reply-To: <m1is0nvdkw.fsf@muc.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Look into ethtool.  ethtool allows you to configure the ring sizes,  
-among other things.
+On Thu, Jun 09, 2005 at 03:56:15PM +0200, Andi Kleen wrote:
+> I guess at some point we will need a file system in there, but - oops -
+> we already have one, dont we? :)
 
-On Jun 9, 2005, at 15:53, Matti Aarnio wrote:
+Well, you could put .config in it too.
 
-> I encountered today a case, where default RX_RING_SIZE
-> was too small for the traffic going thru.  (3c59x driver,
-> and NAT-router application.)
->
-> One related problem is, that the RING_SIZE is hard #define
-> parameter in most driver sources without ability to adjust
-> it during runtime.  (e.g.  "modprobe zzzz rx_ring_size=512")
-> Possibly even an  ifconfig:able  parameter, which works
-> also for statically compiled kernels.  (But needs new
-> ifconfig machinery...)
->
->
-> The case at hand was solved by editing kernel sources, and
-> compiling a new kernel, but now I am looking for a more
-> generic approach.
->
->
-> Clearly pre-allocing 500 buffers of 1.6 kB in size does
-> eat a bit much of kernel memory which usual workstation
-> does not get benefit from, but server or router would get
-> benefits.
->
-> Having the rx_ring_size  ifconfig  tunable would help with
-> adjusting interface for reception, but adding ifconfig
-> parameters is ... not trivial.
->
-> Alternate might be  sysctl  tunability -- even as a global
-> 'dev.eth.rx_ring_size' (or  'net.dev.eth.rx_ring_size')
-> which supplies (default) ring size for initialization of
-> the interface where such rings exist at all...
->
->
-> Possibly there should also be tx_ring_size, which need not
-> be same size as the rx_ring_size.
->
-> Unadjusted default value for both could be 16.
->
->
-> All in all, this needs near uniquitous changes in driver
-> init codes accross lots of network drivers.
->
->
-> Comments ?  Suggestions ?
->
->   /Matti Aarnio
->
+Frankly, a filesystem that:
+- can be somehow linked with vmlinux and not separate like an initrd
+
+- editable post vmlinux-linking
+
+- gives files that can be accessed from request_firmware, acpi and
+  friends even rather early in the boot process (i.e. well before any
+  userland is allowed to exist)
+
+- accessible post-boot through mounting of a special fs and/or /proc or something
+
+would be quite useful.
+
+  OG.
