@@ -1,44 +1,42 @@
-From: Jeff Garzik <jgarzik@pobox.com>
+From: Denis Vlasenko <vda@ilport.com.ua>
 Subject: Re: ipw2100: firmware problem
-Date: Thu, 09 Jun 2005 02:29:42 -0400
-Message-ID: <42A7E1D6.3070509@pobox.com>
-References: <42A7268D.9020402@linux.intel.com>	<20050608.124332.85408883.davem@davemloft.net>	<42A7DC4D.7000008@pobox.com> <20050608.231319.95056824.davem@davemloft.net>
+Date: Thu, 9 Jun 2005 09:30:22 +0300
+Message-ID: <200506090930.22274.vda@ilport.com.ua>
+References: <200506090903.49295.vda@ilport.com.ua> <200506090917.23853.vda@ilport.com.ua> <20050608.232020.115912376.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: jketreno@linux.intel.com, vda@ilport.com.ua, pavel@ucw.cz,
+Cc: jketreno@linux.intel.com, pavel@ucw.cz, jgarzik@pobox.com,
         netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
         ipw2100-admin@linux.intel.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050608.231319.95056824.davem@davemloft.net>
+In-Reply-To: <20050608.232020.115912376.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> From: Jeff Garzik <jgarzik@pobox.com>
-> Date: Thu, 09 Jun 2005 02:06:05 -0400
+On Thursday 09 June 2005 09:20, David S. Miller wrote:
+> From: Denis Vlasenko <vda@ilport.com.ua>
+> Date: Thu, 9 Jun 2005 09:17:23 +0300
 > 
+> > Sadly, realities are such that we have to live somehow
+> > with closed-source firmware.
 > 
->>Therefore, the easiest way to make things work today is to poke Intel to 
->>fix their firmware license so that we can distribute it with the kernel :)
-> 
-> 
-> Seperate firmware from the in-kernel driver is a big headache for
-> users.  As DaveJ has stated, people make mistakes and try to match up
-> the wrong firmware version with the driver and stuff like that.  And
-> he should know as he has to deal sift through bogus bug reports from
-> people running into this problem.
-> 
-> If it's integrated, there are no problems like this.
+> You have a choice, buy products from friendly vendors.
 
-Early userspace is (a) shipped with the kernel source tree and (b) 
-linked into vmlinux.  That's integrated.
+I am trying! So far, I have Prism2.5, Prism54
+and acx111 cards, and all of them require closed binary fw.
 
-The firmware images will be separate from the .c files (as they should 
-be), but the kernel hacker still controls what gets loaded, and when.
+> I use prism54 cards in my laptops for this reason.
 
-But like I said, that's where we're going, not where we are now.
-
-	Jeff
+?! As far as I remember, it needs a fw and fw is not open...
+did that change recently?
+ 
+> If you like a vendor's products who aren't friendly, try
+> to voice intelligently your opinion to them as to why users
+> will benefit from them fixing the firmware situation.
+--
+vda
