@@ -1,51 +1,92 @@
-From: "Alejandro Bonilla" <abonilla@linuxwireless.org>
-Subject: RE: ipw2100: firmware problem
-Date: Thu, 9 Jun 2005 08:31:51 -0600
-Message-ID: <002a01c56cff$fb64ba70$600cc60a@amer.sykes.com>
-References: <200506090909.55889.vda@ilport.com.ua>
-Reply-To: <abonilla@linuxwireless.org>
+From: Valdis.Kletnieks@vt.edu
+Subject: tcp_bic (was Re: 2.6.12-rc6-mm1 OOPS in tcp_push_one()
+Date: Thu, 09 Jun 2005 11:23:48 -0400
+Message-ID: <200506091523.j59FNmsr008443@turing-police.cc.vt.edu>
+References: <200506090423.j594NWts004829@turing-police.cc.vt.edu>
+            <20050608.225817.112619139.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
+Content-Type: multipart/signed; boundary="==_Exmh_1118330628_3931P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
 Content-Transfer-Encoding: 7bit
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262355AbVFIOcU@vger.kernel.org>
-To: "'Denis Vlasenko'" <vda@ilport.com.ua>,
-	"'Pavel Machek'" <pavel@ucw.cz>,
-	"'Jeff Garzik'" <jgarzik@pobox.com>,
-	"'Netdev list'" <netdev@oss.sgi.com>,
-	"'kernel list'" <linux-kernel@vger.kernel.org>,
-	"'James P. Ketrenos'" <ipw2100-admin@linux.intel.com>
-In-Reply-To: <200506090909.55889.vda@ilport.com.ua>
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261849AbVFIPX6@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: Your message of "Wed, 08 Jun 2005 22:58:17 PDT."
+             <20050608.225817.112619139.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+--==_Exmh_1118330628_3931P
+Content-Type: text/plain; charset="us-ascii"
+Content-Id: <8426.1118330609.1@turing-police.cc.vt.edu>
 
-> What is so nice about this? That Linux novice user with his new lappie
-> will join a neighbor's network every time he powers up the lappie,
-> even without knowing that?
->
-> That will be analogous to me plugging ethernet cable into the
-> switch and
-> wanting it to work, without any IP addr config, even without
-> DHCP client.
-> Just power up the box (or modprobe an eth module) and it
-> works! Cool, eh?
->
+On Wed, 08 Jun 2005 22:58:17 PDT, "David S. Miller" said:
+> From: Valdis.Kletnieks@vt.edu
+> Date: Thu, 09 Jun 2005 00:23:32 -0400
+> 
+> > (On a related note, how did tcp_bic get loaded? I requested all the new
+> > congestion stuff be built as modules, didn't specifically request any of
+> > them to actually be loaded....
+> 
+> It's the default algorithm, so when you open the first TCP
+> socket it tries to load it.
 
-You want things one way, I like them in another way. Whoever makes this
-decision should just know that we would like to have an option to make it
-load with or without the ASSOC on.
+Ahh.. I was reading the Kconfig, which says this:
 
-James already said to use the options ipw2100 disable=1 if you don't want it
-to associate everytime on boot.
+menu "TCP congestion control"
+# TCP Reno is builtin (required as fallback)
+        
+config TCP_CONG_BIC
+        tristate "Binary Increase Congestion (BIC) control"
+        depends on INET
+        default y
 
-At the end, who decides this?
+and I built with:
 
-.Alejandro
+CONFIG_TCP_CONG_BIC=m
+CONFIG_TCP_CONG_WESTWOOD=m
+CONFIG_TCP_CONG_HTCP=m
+CONFIG_TCP_CONG_HSTCP=m
+CONFIG_TCP_CONG_HYBLA=m
+CONFIG_TCP_CONG_VEGAS=m
+CONFIG_TCP_CONG_SCALABLE=m
+
+so what I *expected* was a kernel with Reno built-in, and the others as
+modules if I got ambitious and loaded one or another.
+
+How do people feel about this:
+
+--- linux-2.6.12-rc6-mm1/net/ipv4/Kconfig.bic	2005-06-07 12:55:41.000000000 -0400
++++ linux-2.6.12-rc6-mm1/net/ipv4/Kconfig	2005-06-09 11:12:26.000000000 -0400
+@@ -425,6 +425,10 @@ config TCP_CONG_BIC
+ 	increase provides TCP friendliness.
+ 	See http://www.csc.ncsu.edu/faculty/rhee/export/bitcp/
+ 
++	This is the default TCP congestion control and the kernel will
++	attempt to load it if possible.  If it is unable to initialize
++	tcp_bic, the TCP Reno algorithms will be used as a fallback.
++
+ config TCP_CONG_WESTWOOD
+ 	tristate "TCP Westwood+"
+ 	select IP_TCPDIAG
+
+(although that *still* doesn't document what's really going on with
+the tcp_init_congestion_control() function, and how that sysctl value
+interacts with things....
 
 
-> For some reason, we do not do this for wired nets. Why should wireless
-> be different?
-> --
-> vda
->
+
+
+--==_Exmh_1118330628_3931P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.1 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
+
+iD8DBQFCqF8EcC3lWbTT17ARAk5GAKCzjeGzsCyi0hBWcMQo9FK4k0sytgCg5TDe
+uwHHr63Nw5oH4/5oVZuQ+RE=
+=AB5D
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1118330628_3931P--
