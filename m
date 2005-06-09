@@ -1,43 +1,49 @@
-From: Pavel Machek <pavel@suse.cz>
-Subject: Re: ipw2100: firmware problem
-Date: Thu, 9 Jun 2005 12:56:19 +0200
-Message-ID: <20050609105619.GH3169@elf.ucw.cz>
-References: <20050608142310.GA2339@elf.ucw.cz> <42A723D3.3060001@linux.intel.com> <20050608212707.GA2535@elf.ucw.cz> <42A76719.2060700@linux.intel.com> <20050608223437.GB2614@elf.ucw.cz> <1118287990.10234.114.camel@debian.sh.intel.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: netdev munching messages again?
+Date: Thu, 09 Jun 2005 08:43:57 -0400
+Message-ID: <1118321037.6270.31.camel@localhost.localdomain>
+References: <20050607140842.778143000@axs> <20050607140901.632982000@axs>
+	 <20050607213621.GG20969@postel.suug.ch>
+	 <20050607.144237.93024273.davem@davemloft.net>
+	 <20050608132953.GK20969@postel.suug.ch>
+	 <1118238264.6382.43.camel@localhost.localdomain>
+	 <20050608160444.GA17777@linux-mips.org>
+	 <20050608161314.GM20969@postel.suug.ch>
+	 <20050608172809.GF5520@linux-mips.org>
+	 <20050608200048.GP20969@postel.suug.ch>
+	 <20050609122325.GE4927@linux-mips.org>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: James Ketrenos <jketreno@linux.intel.com>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Netdev list <netdev@oss.sgi.com>,
-	kernel list <linux-kernel@vger.kernel.org>,
-	"James P. Ketrenos" <ipw2100-admin@linux.intel.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262344AbVFIK4j@vger.kernel.org>
-To: Zhu Yi <yi.zhu@intel.com>
-Content-Disposition: inline
-In-Reply-To: <1118287990.10234.114.camel@debian.sh.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Thomas Graf <tgraf@suug.ch>,
+        "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Ralf Baechle <ralf@linux-mips.org>
+In-Reply-To: <20050609122325.GE4927@linux-mips.org>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi!
-
-> > Actually it would still transmit when user did not want it to. I
-> > believe that staying "quiet" is right thing, long-term. And it could
-> > solve firmware-loading problems, short-term...
+On Thu, 2005-09-06 at 13:23 +0100, Ralf Baechle wrote:
+> On Wed, Jun 08, 2005 at 10:00:48PM +0200, Thomas Graf wrote:
 > 
-> If ipw2100 is built into kernel, you can disable it by kernel parameter
-> ipw2100.disable=1. Then you can enable it with:
+> > Is there a messages/time limit somwhere? If so what's the limit?
+> > I tried with 30 seconds delay between each patch but that didn't
+> > help.
 > 
-> $ echo 0 > /sys/bus/pci/drivers/ipw2100/*/rf_kill
-> 
-> > How long does association with AP take? Anyway it should be easy to
-> > tell driver to associate ASAP, just after the insmod...
-> 
-> Are you suggesting by default it is disabled for built into kernel but
-> enabled as a module?
+> No limits except on very large messages.
 
-I'm suggesting that by default it is disabled (in kernel or as a
-module) and its automatically enabled during ifconfig up.
+Ralf,
 
-That way we can drop the kernel parameter and always do the right
-thing.
+Since DaveM moved the list can you probably put a forwarding to 
+netdev@vger.kernel.org ?
+We should also probably announce the change of address in the usual
+suspect lists.
 
-								Pavel
+BTW, I too would like to join the masses of people who are thankful to all your great
+efforts.
+You sir are a hacker and a gentleman.
+
+cheers,
+jamal
