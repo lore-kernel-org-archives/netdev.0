@@ -1,56 +1,43 @@
-From: Pavel Machek <pavel@ucw.cz>
+From: Pavel Machek <pavel@suse.cz>
 Subject: Re: ipw2100: firmware problem
-Date: Thu, 9 Jun 2005 12:42:05 +0200
-Message-ID: <20050609104205.GD3169@elf.ucw.cz>
-References: <002901c56c3b$8216cdd0$600cc60a@amer.sykes.com> <200506090909.55889.vda@ilport.com.ua> <20050608.231657.59660080.davem@davemloft.net>
+Date: Thu, 9 Jun 2005 12:56:19 +0200
+Message-ID: <20050609105619.GH3169@elf.ucw.cz>
+References: <20050608142310.GA2339@elf.ucw.cz> <42A723D3.3060001@linux.intel.com> <20050608212707.GA2535@elf.ucw.cz> <42A76719.2060700@linux.intel.com> <20050608223437.GB2614@elf.ucw.cz> <1118287990.10234.114.camel@debian.sh.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: vda@ilport.com.ua, abonilla@linuxwireless.org, jgarzik@pobox.com,
-	netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
-	ipw2100-admin@linux.intel.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262342AbVFIKmm@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Cc: James Ketrenos <jketreno@linux.intel.com>,
+	Jeff Garzik <jgarzik@pobox.com>,
+	Netdev list <netdev@oss.sgi.com>,
+	kernel list <linux-kernel@vger.kernel.org>,
+	"James P. Ketrenos" <ipw2100-admin@linux.intel.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262344AbVFIK4j@vger.kernel.org>
+To: Zhu Yi <yi.zhu@intel.com>
 Content-Disposition: inline
-In-Reply-To: <20050608.231657.59660080.davem@davemloft.net>
+In-Reply-To: <1118287990.10234.114.camel@debian.sh.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hi!
 
-> > > Currently, when we install the driver, it associates to any open network on
-> > > boot. This is good, cause we don't want to be typing the commands all the
-> > > time just to associate. It works this way now and is pretty nice.
-> > 
-> > What is so nice about this? That Linux novice user with his new lappie
-> > will join a neighbor's network every time he powers up the lappie,
-> > even without knowing that?
+> > Actually it would still transmit when user did not want it to. I
+> > believe that staying "quiet" is right thing, long-term. And it could
+> > solve firmware-loading problems, short-term...
 > 
-> I love this behavior, because it means that I don't have to do
-> anything special to get my setup at home working.
+> If ipw2100 is built into kernel, you can disable it by kernel parameter
+> ipw2100.disable=1. Then you can enable it with:
 > 
-> Me caveman
-> Me plug in wireless router
-> Me watch pretty lights
-> Me turn on computer
-> Me up interface
-> Computer work
-> Me no care other cavemen use wireless link
+> $ echo 0 > /sys/bus/pci/drivers/ipw2100/*/rf_kill
 > 
-> Configuration knobs are _madness_.  Things should work with minimal
-> intervention and configuration.
+> > How long does association with AP take? Anyway it should be easy to
+> > tell driver to associate ASAP, just after the insmod...
+> 
+> Are you suggesting by default it is disabled for built into kernel but
+> enabled as a module?
 
-I'm not saying it should not work automagically. But it is wrong to
-start transmitting on wireless as soon as kernel boots. It should stay
-quiet in the radio until it is either told to talk or until interface
-is upped.
+I'm suggesting that by default it is disabled (in kernel or as a
+module) and its automatically enabled during ifconfig up.
 
-That way 
+That way we can drop the kernel parameter and always do the right
+thing.
 
-* above still works, only radio chat begins one step later
-
-* if you are in environment where you absolutely do not want it to
-talk on the radio (airplane, BlackHatCon with APs trying to hack you
-all around), you can make it quiet without needing kernel/module
-parameters.
-
-								Pavel 
+								Pavel
