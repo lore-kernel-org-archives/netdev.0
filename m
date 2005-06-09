@@ -1,39 +1,45 @@
-From: Olivier Galibert <galibert@pobox.com>
+From: Pavel Machek <pavel@ucw.cz>
 Subject: Re: ipw2100: firmware problem
-Date: Thu, 9 Jun 2005 23:12:42 +0200
-Message-ID: <20050609211242.GA30319@dspnet.fr.eu.org>
-References: <20050608142310.GA2339@elf.ucw.cz> <42A723D3.3060001@linux.intel.com> <m1is0nvdkw.fsf@muc.de>
+Date: Thu, 9 Jun 2005 23:11:13 +0200
+Message-ID: <20050609211113.GC4173@elf.ucw.cz>
+References: <200506090909.55889.vda@ilport.com.ua> <20050608.231657.59660080.davem@davemloft.net> <20050609104205.GD3169@elf.ucw.cz> <20050609.125324.88476545.davem@davemloft.net> <42A8AE2A.4080104@linux.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: James Ketrenos <jketreno@linux.intel.com>, Jeff Garzik <jgarzik@pobox.com>,
-        Netdev list <netdev@oss.sgi.com>,
-        kernel list <linux-kernel@vger.kernel.org>,
-        "James P. Ketrenos" <ipw2100-admin@linux.intel.com>
+Cc: "David S. Miller" <davem@davemloft.net>, vda@ilport.com.ua,
+        abonilla@linuxwireless.org, jgarzik@pobox.com, netdev@oss.sgi.com,
+        ipw2100-admin@linux.intel.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@muc.de>
+To: James Ketrenos <jketreno@linux.intel.com>
 Content-Disposition: inline
-In-Reply-To: <m1is0nvdkw.fsf@muc.de>
+In-Reply-To: <42A8AE2A.4080104@linux.intel.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 09, 2005 at 03:56:15PM +0200, Andi Kleen wrote:
-> I guess at some point we will need a file system in there, but - oops -
-> we already have one, dont we? :)
+Hi!
 
-Well, you could put .config in it too.
+> >I agree.
+> >
+> >There is a similar problem in the Acenic driver, it brings the
+> >link up and receives broadcast packets as soon as the driver
+> >is loaded.  Mostly this is because the driver inits the chip
+> >and registers the IRQ handler at probe time, whereas nearly
+> >every other driver does this at ->open() time.
+> >  
+> >
+> The ipw2100 originally postponed doing any initialization until open was
+> called.  The problem at that time was that distributions were crafted to
+> rely on link detection (I believe via ethtoolop's get_link) before they
+> would bring the interface up.
+> 
+> With a wireless device, you don't have link until you are associated... 
+> chicken and egg.  The solution was to move initialization and
+> association to the probe.
+> 
+> I don't know if all the distributions have moved away from this model. 
+> If they have and the devices are brought up regardless of link, then
+> going back to delaying radio initialization until the open() is called
+> is workable. 
 
-Frankly, a filesystem that:
-- can be somehow linked with vmlinux and not separate like an initrd
-
-- editable post vmlinux-linking
-
-- gives files that can be accessed from request_firmware, acpi and
-  friends even rather early in the boot process (i.e. well before any
-  userland is allowed to exist)
-
-- accessible post-boot through mounting of a special fs and/or /proc or something
-
-would be quite useful.
-
-  OG.
+Ook, great, I see.
+								Pavel
