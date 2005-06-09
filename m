@@ -1,30 +1,35 @@
-From: "David S. Miller" <davem@davemloft.net>
+From: Denis Vlasenko <vda@ilport.com.ua>
 Subject: Re: ipw2100: firmware problem
-Date: Wed, 08 Jun 2005 23:35:49 -0700 (PDT)
-Message-ID: <20050608.233549.122030692.davem@davemloft.net>
-References: <200506090917.23853.vda@ilport.com.ua>
-	<20050608.232020.115912376.davem@davemloft.net>
-	<200506090930.22274.vda@ilport.com.ua>
+Date: Thu, 9 Jun 2005 09:37:25 +0300
+Message-ID: <200506090937.25634.vda@ilport.com.ua>
+References: <200506090909.55889.vda@ilport.com.ua> <200506090925.07495.vda@ilport.com.ua> <20050608.232818.31644993.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: jketreno@linux.intel.com, pavel@ucw.cz, jgarzik@pobox.com,
+Cc: abonilla@linuxwireless.org, pavel@ucw.cz, jgarzik@pobox.com,
         netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
         ipw2100-admin@linux.intel.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: vda@ilport.com.ua
-In-Reply-To: <200506090930.22274.vda@ilport.com.ua>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050608.232818.31644993.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Denis Vlasenko <vda@ilport.com.ua>
-Date: Thu, 9 Jun 2005 09:30:22 +0300
-
-> On Thursday 09 June 2005 09:20, David S. Miller wrote:
-> > I use prism54 cards in my laptops for this reason.
+On Thursday 09 June 2005 09:28, David S. Miller wrote:
+> From: Denis Vlasenko <vda@ilport.com.ua>
+> Date: Thu, 9 Jun 2005 09:25:07 +0300
 > 
-> ?! As far as I remember, it needs a fw and fw is not open...
-> did that change recently?
+> > You need to up interface? And surely you need ip addr? That's a knob also! :)
+> 
+> There's this thing called DHCP which takes care of this for me.
+> With IPV6, even less configuration can be necessary.
 
-My bad, they are not.  You're right :-/
+But DHCP does not start by itself, and it shuldn't.
+You start dhcp client. That is a "minimal config" in this case.
+
+Anyway, I think I start trolling... I should stop now.
+--
+vda
