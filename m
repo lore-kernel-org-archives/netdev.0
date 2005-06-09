@@ -1,29 +1,37 @@
-From: "David S. Miller" <davem@davemloft.net>
+From: "Michael Chan" <mchan@broadcom.com>
 Subject: Re: BCM5704 performance questions.
-Date: Thu, 09 Jun 2005 17:54:17 -0700 (PDT)
-Message-ID: <20050609.175417.108740435.davem@davemloft.net>
+Date: Thu, 09 Jun 2005 16:56:16 -0700
+Message-ID: <1118361376.5838.20.camel@rh4>
 References: <42A8E0FE.3020708@candelatech.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, mchan@broadcom.com
+Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: greearb@candelatech.com
+To: "Ben Greear" <greearb@candelatech.com>
 In-Reply-To: <42A8E0FE.3020708@candelatech.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Ben Greear <greearb@candelatech.com>
-Date: Thu, 09 Jun 2005 17:38:22 -0700
+On Thu, 2005-06-09 at 17:38 -0700, Ben Greear wrote:
 
-> I am trying to bridge as much traffic as possible across two interfaces,
-> using a proprietary kernel module.
+> 
+> *  Is the BCM5704 chipset/driver really that much slower?
+> 
 
-Ben, I'm going to just mention that I'm not going to
-look into your bug report.  You consistently come here
-without a test case or setup that other developers can
-use to reproduce or investigate your problem.  You always
-report things with your proprietary setup of this or that.
+Unfortunately, the 5704 requires the "ONE_DMA" workaround which will
+limit throughput in a PCIX 100/133 bus. If you comment out the line that
+sets the DMA_RWCTRL_ONE_DMA flag in tg3.c, you should see improved
+performance. However, you may run into some DMA issues on certain
+systems.
 
-You have our code, we don't have your's.
+> *  Is there some information on tuning the tg3 somewhere?
+>     (I didn't see a Documentation/networking/tg3.txt file, for instance)
+> 
+> *  Is there a way to verify the bus speed that the NIC is running at?
+>     (ethtool -d ethX gives lots of meaningless (to me) hex)
+> 
+
+tg3 probing string for each device will tell you the bus type, width,
+and speed.
