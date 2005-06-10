@@ -1,21 +1,63 @@
-From: Tybalt <gouging@homer.com>
-Subject: Your premier source for all ATI powered gear.
-Date: Fri, 10 Jun 2005 20:59:29 +0800
-Message-ID: <3116474251.3809094578@cache82.156ce.maxonline.com.sg>
-Mime-Version: 1.0 (Apple Message framework v728)
-Content-Type: text/plain; charset=US-ASCII; format=flowed
+From: "Alejandro Bonilla" <abonilla@linuxwireless.org>
+Subject: RE: ipw2100: firmware problem
+Date: Fri, 10 Jun 2005 07:23:34 -0600
+Message-ID: <000f01c56dbf$9b15de90$600cc60a@amer.sykes.com>
+References: <200506100956.16031.vda@ilport.com.ua>
+Reply-To: <abonilla@linuxwireless.org>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "'Denis Vlasenko'" <vda@ilport.com.ua>, <abonilla@linuxwireless.org>,
+        "'Pavel Machek'" <pavel@ucw.cz>, "'Jeff Garzik'" <jgarzik@pobox.com>,
+        "'Netdev list'" <netdev@oss.sgi.com>,
+        "'kernel list'" <linux-kernel@vger.kernel.org>,
+        "'James P. Ketrenos'" <ipw2100-admin@linux.intel.com>
+In-Reply-To: <200506100956.16031.vda@ilport.com.ua>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The world's best software for research, science and engineering.
 
+>
+> Adding kernel level wireless autoconfiguration duplicates the effort.
+> Since I am not going to give up a requirement to be able to stay radio
+> silent at boot (me too wants freedom, not only you), you need to add
+> disable=1 module parameter to each driver, which adds to the mess.
+>
+> ALSA does the Right Thing. Sound is completely muted out at
+> module load.
+> It's a user freedom to set desired volume level after that.
 
+Yeah right. I remember I had to google for 10 minutes to find the answer for
+this one. Why would you install something, for it to not work?
 
+It thing of Mute in ALSA is stupid. If you want Sound, you install the Sound
+and enable it. Why would it make you google for more things to do? ALSA mute
+on install is WAY way, not OK.
 
+You *will* have to use a How-To with ALSA, nobody knows that your sound
+would be off because some people decided it.
 
-No one should drive a hard bargain with an artist.   
-Tis the advisor who suffers from bad advice.     
+But this is out of the Topic. I agree with you all, but as I mentioned in a
+more current email, this is a laptop, not a server. Things behave
+differently and you want things faster. (Yes, I could have a script)
+
+What I'm saying, is that just as ALSA, you will have to google even more
+just to be able to look for the boot param for the driver for it to ASSOC on
+boot like the Original drive does. Instead, if you simply don't want to
+associate then turn off the Radio.
+
+It's a simple FN+F2 or depends on your laptop.
+
+Let's not make this a bigger thread, just decide and then do it that way.
+I'm looking at this on the side of a supporter, seeing the emails from
+users... "how do I make it behave as it was before" "it won't assoc on boot
+anymore"
+
+.Alejandro
+
+> --
+> vda
+>
