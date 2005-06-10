@@ -1,65 +1,41 @@
-From: Jason Lunz <lunz@falooley.org>
-Subject: Re: BCM5704 performance questions.
-Date: Fri, 10 Jun 2005 14:03:21 +0000 (UTC)
-Message-ID: <d8c6j9$dv$1@sea.gmane.org>
-References: <42A8E0FE.3020708@candelatech.com> <1118361376.5838.20.camel@rh4>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: [patch 2.6.12-rc6] 3c59x: remove superfluous vortex_debug test from boomerang_start_xmit
+Date: Fri, 10 Jun 2005 10:27:02 -0400
+Message-ID: <20050610142702.GC10449@tuxdriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@osdl.org, jgarzik@pobox.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261570AbVFJO1S@vger.kernel.org>
+To: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-mchan@broadcom.com said:
-> On Thu, 2005-06-09 at 17:38 -0700, Ben Greear wrote:
->
->> 
->> *  Is the BCM5704 chipset/driver really that much slower?
->> 
->
-> Unfortunately, the 5704 requires the "ONE_DMA" workaround which will
-> limit throughput in a PCIX 100/133 bus. If you comment out the line that
-> sets the DMA_RWCTRL_ONE_DMA flag in tg3.c, you should see improved
-> performance. However, you may run into some DMA issues on certain
-> systems.
->
->> *  Is there some information on tuning the tg3 somewhere?
->>     (I didn't see a Documentation/networking/tg3.txt file, for instance)
->> 
->> *  Is there a way to verify the bus speed that the NIC is running at?
->>     (ethtool -d ethX gives lots of meaningless (to me) hex)
->> 
->
-> tg3 probing string for each device will tell you the bus type, width,
-> and speed.
+Remove the superfluous test of "if (vortex_debug > 3)" inside the
+"if (vortex_debug > 6)" clause early in boomerang_start_xmit.
 
-The patch below from http://article.gmane.org/gmane.linux.network/18734
-does this too for e1000. Lennert Buytenhek posted it a while back.
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+---
+I stumbled across this while looking at something else...
 
-Jason
+ drivers/net/3c59x.c |    5 ++---
+ 1 files changed, 2 insertions(+), 3 deletions(-)
 
-
-diff -urpN linux-pf/drivers/net/e1000/e1000_main.c linux-bs/drivers/net/e1000/e1000_main.c
---- linux-pf/drivers/net/e1000/e1000_main.c	Fri Apr  8 15:06:34 2005
-+++ linux-bs/drivers/net/e1000/e1000_main.c	Fri Apr  8 15:29:34 2005
-@@ -617,6 +617,21 @@ e1000_probe(struct pci_dev *pdev,
- 	if(eeprom_data & eeprom_apme_mask)
- 		adapter->wol |= E1000_WUFC_MAG;
+diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
+--- a/drivers/net/3c59x.c
++++ b/drivers/net/3c59x.c
+@@ -2202,9 +2202,8 @@ boomerang_start_xmit(struct sk_buff *skb
  
-+	/* print bus type/speed/width info */
-+	printk(KERN_INFO "%s: e1000 (PCI%s:%s:%s) ", netdev->name,
-+		((adapter->hw.bus_type == e1000_bus_type_pcix) ? "X" : ""),
-+		((adapter->hw.bus_speed == e1000_bus_speed_133) ? "133MHz" :
-+		 (adapter->hw.bus_speed == e1000_bus_speed_120) ? "120MHz" :
-+		 (adapter->hw.bus_speed == e1000_bus_speed_100) ? "100MHz" :
-+		 (adapter->hw.bus_speed == e1000_bus_speed_66) ? "66MHz" :
-+		  "33MHz"),
-+		((adapter->hw.bus_width == e1000_bus_width_64) ? "64-bit" :
-+		  "32-bit"));
-+
-+	for (i = 0; i < 6; i++)
-+		printk("%2.2x%c", netdev->dev_addr[i],
-+			i == 5 ? '\n' : ':');
-+
- 	/* reset the hardware with the new settings */
- 	e1000_reset(adapter);
+ 	if (vortex_debug > 6) {
+ 		printk(KERN_DEBUG "boomerang_start_xmit()\n");
+-		if (vortex_debug > 3)
+-			printk(KERN_DEBUG "%s: Trying to send a packet, Tx index %d.\n",
+-				   dev->name, vp->cur_tx);
++		printk(KERN_DEBUG "%s: Trying to send a packet, Tx index %d.\n",
++			   dev->name, vp->cur_tx);
+ 	}
  
+ 	if (vp->cur_tx - vp->dirty_tx >= TX_RING_SIZE) {
+-- 
+John W. Linville
+linville@tuxdriver.com
