@@ -1,42 +1,61 @@
-From: Jim Crilly <jim@why.dont.jablowme.net>
+From: Denis Vlasenko <vda@ilport.com.ua>
 Subject: Re: ipw2100: firmware problem
-Date: Thu, 9 Jun 2005 23:51:28 -0400
-Message-ID: <20050610035127.GH1637@mail>
-References: <200506090903.49295.vda@ilport.com.ua> <200506090917.23853.vda@ilport.com.ua> <20050608.232020.115912376.davem@davemloft.net> <200506090930.22274.vda@ilport.com.ua>
+Date: Fri, 10 Jun 2005 09:56:16 +0300
+Message-ID: <200506100956.16031.vda@ilport.com.ua>
+References: <002a01c56cff$fb64ba70$600cc60a@amer.sykes.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, jketreno@linux.intel.com,
-	pavel@ucw.cz, jgarzik@pobox.com, netdev@oss.sgi.com,
-	linux-kernel@vger.kernel.org, ipw2100-admin@linux.intel.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262452AbVFJDx5@vger.kernel.org>
-To: Denis Vlasenko <vda@ilport.com.ua>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262197AbVFJG4q@vger.kernel.org>
+To: <abonilla@linuxwireless.org>, "'Pavel Machek'" <pavel@ucw.cz>,
+	"'Jeff Garzik'" <jgarzik@pobox.com>,
+	"'Netdev list'" <netdev@oss.sgi.com>,
+	"'kernel list'" <linux-kernel@vger.kernel.org>,
+	"'James P. Ketrenos'" <ipw2100-admin@linux.intel.com>
+In-Reply-To: <002a01c56cff$fb64ba70$600cc60a@amer.sykes.com>
 Content-Disposition: inline
-In-Reply-To: <200506090930.22274.vda@ilport.com.ua>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06/09/05 09:30:22AM +0300, Denis Vlasenko wrote:
-> On Thursday 09 June 2005 09:20, David S. Miller wrote:
-> > From: Denis Vlasenko <vda@ilport.com.ua>
-> > Date: Thu, 9 Jun 2005 09:17:23 +0300
-> > 
-> > > Sadly, realities are such that we have to live somehow
-> > > with closed-source firmware.
-> > 
-> > You have a choice, buy products from friendly vendors.
+On Thursday 09 June 2005 17:31, Alejandro Bonilla wrote:
 > 
-> I am trying! So far, I have Prism2.5, Prism54
-> and acx111 cards, and all of them require closed binary fw.
-
-Ralink cards don't require any binary firmware. I got one of the Hawking
-Tech pcmcia cards off the shelf at a local CompUSA store and the card 
-was a good $20 cheaper than a Linksys card. So far I haven't had any
-problems with the card or the driver.
-
-A list of Ralink hardware and drivers can be found at
-http://ralink.rapla.net/ 
-
-> vda
+> > What is so nice about this? That Linux novice user with his new lappie
+> > will join a neighbor's network every time he powers up the lappie,
+> > even without knowing that?
+> >
+> > That will be analogous to me plugging ethernet cable into the
+> > switch and
+> > wanting it to work, without any IP addr config, even without
+> > DHCP client.
+> > Just power up the box (or modprobe an eth module) and it
+> > works! Cool, eh?
+> >
 > 
+> You want things one way, I like them in another way. Whoever makes this
+> decision should just know that we would like to have an option to make it
+> load with or without the ASSOC on.
 
-Jim.
+But you already _have_ the option to associate. Just issue
+appropriate iwconfig command (or embed one in startup script).
+
+> James already said to use the options ipw2100 disable=1 if you don't want it
+> to associate everytime on boot.
+
+Do we have to add such option to each and every wireless driver now?
+That would be wrong since iwconfig already exists.
+
+> At the end, who decides this?
+
+User. As I said, with no automatic assoc at module load user still
+may easily attain that with iwconfig.
+
+Adding kernel level wireless autoconfiguration duplicates the effort.
+Since I am not going to give up a requirement to be able to stay radio
+silent at boot (me too wants freedom, not only you), you need to add
+disable=1 module parameter to each driver, which adds to the mess.
+
+ALSA does the Right Thing. Sound is completely muted out at module load.
+It's a user freedom to set desired volume level after that.
+--
+vda
