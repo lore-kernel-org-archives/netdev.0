@@ -1,58 +1,48 @@
 From: Ben Greear <greearb@candelatech.com>
 Subject: Re: BCM5704 performance questions.
-Date: Thu, 09 Jun 2005 18:20:33 -0700
-Message-ID: <42A8EAE1.5030201@candelatech.com>
-References: <42A8E0FE.3020708@candelatech.com> <20050609.175417.108740435.davem@davemloft.net>
+Date: Thu, 09 Jun 2005 18:24:42 -0700
+Message-ID: <42A8EBDA.6010306@candelatech.com>
+References: <42A8E0FE.3020708@candelatech.com> <1118361376.5838.20.camel@rh4>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, mchan@broadcom.com
+Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050609.175417.108740435.davem@davemloft.net>
+To: Michael Chan <mchan@broadcom.com>
+In-Reply-To: <1118361376.5838.20.camel@rh4>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> From: Ben Greear <greearb@candelatech.com>
-> Date: Thu, 09 Jun 2005 17:38:22 -0700
+Michael Chan wrote:
+> On Thu, 2005-06-09 at 17:38 -0700, Ben Greear wrote:
+> 
+>>*  Is the BCM5704 chipset/driver really that much slower?
+>>
+> Unfortunately, the 5704 requires the "ONE_DMA" workaround which will
+> limit throughput in a PCIX 100/133 bus. If you comment out the line that
+> sets the DMA_RWCTRL_ONE_DMA flag in tg3.c, you should see improved
+> performance. However, you may run into some DMA issues on certain
+> systems.
+
+Is there any way I can tell which systems are affected?  It won't be
+an option for me to purposefully ship possibly busted drivers/hardware,
+but if I can be certain that my systems are immune, I will try this
+modification.
+
+>>*  Is there some information on tuning the tg3 somewhere?
+>>    (I didn't see a Documentation/networking/tg3.txt file, for instance)
+>>
+>>*  Is there a way to verify the bus speed that the NIC is running at?
+>>    (ethtool -d ethX gives lots of meaningless (to me) hex)
+>>
 > 
 > 
->>I am trying to bridge as much traffic as possible across two interfaces,
->>using a proprietary kernel module.
-> 
-> 
-> Ben, I'm going to just mention that I'm not going to
-> look into your bug report.  You consistently come here
-> without a test case or setup that other developers can
-> use to reproduce or investigate your problem.  You always
-> report things with your proprietary setup of this or that.
-> 
-> You have our code, we don't have your's.
+> tg3 probing string for each device will tell you the bus type, width,
+> and speed.
 
-Fair enough.
+Thanks, I found it.
 
-I ran a test using pktgen to (try to) send 82kpps, 1514 byte packets between
-two ports on the tg3 NIC.  It can do about 780Mbps in one direction,
-and 880Mbps in the other direction.  Lots of harmless hard-start xmit errors reported
-(tg3 may not stop it's tx queue correctly, or maybe pktgen is screwed up since
-e1000 reports similar errors).
-Intel e1000 can do about 960Mbps in both directions.
-
-My pktgen is modified.  You can find my full patch against 2.6.11 here if you so wish:
-
-http://www.candelatech.com/oss/candela_2.6.11.patch
-
-If you need the exact arguments I used to configure pktgen, I can get those
-for you as well.
-
-I found the Mhz printout (thanks Michael!)
-
-The tg3 NIC is in the 133Mhz slot.  That probably means the intel NIC is only
-running at 100Mhz.
-
-Thanks,
 Ben
 
 -- 
