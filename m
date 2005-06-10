@@ -1,50 +1,35 @@
-From: Ben Greear <greearb@candelatech.com>
+From: "David S. Miller" <davem@davemloft.net>
 Subject: Re: BCM5704 performance questions.
-Date: Thu, 09 Jun 2005 18:24:42 -0700
-Message-ID: <42A8EBDA.6010306@candelatech.com>
-References: <42A8E0FE.3020708@candelatech.com> <1118361376.5838.20.camel@rh4>
+Date: Thu, 09 Jun 2005 18:29:43 -0700 (PDT)
+Message-ID: <20050609.182943.29573731.davem@davemloft.net>
+References: <42A8E0FE.3020708@candelatech.com>
+	<20050609.175417.108740435.davem@davemloft.net>
+	<42A8EAE1.5030201@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Cc: netdev@oss.sgi.com, mchan@broadcom.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Michael Chan <mchan@broadcom.com>
-In-Reply-To: <1118361376.5838.20.camel@rh4>
+To: greearb@candelatech.com
+In-Reply-To: <42A8EAE1.5030201@candelatech.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Michael Chan wrote:
-> On Thu, 2005-06-09 at 17:38 -0700, Ben Greear wrote:
-> 
->>*  Is the BCM5704 chipset/driver really that much slower?
->>
-> Unfortunately, the 5704 requires the "ONE_DMA" workaround which will
-> limit throughput in a PCIX 100/133 bus. If you comment out the line that
-> sets the DMA_RWCTRL_ONE_DMA flag in tg3.c, you should see improved
-> performance. However, you may run into some DMA issues on certain
-> systems.
+From: Ben Greear <greearb@candelatech.com>
+Date: Thu, 09 Jun 2005 18:20:33 -0700
 
-Is there any way I can tell which systems are affected?  It won't be
-an option for me to purposefully ship possibly busted drivers/hardware,
-but if I can be certain that my systems are immune, I will try this
-modification.
+> I ran a test using pktgen to (try to) send 82kpps, 1514 byte packets between
+> two ports on the tg3 NIC.  It can do about 780Mbps in one direction,
+> and 880Mbps in the other direction.  Lots of harmless hard-start xmit errors reported
+> (tg3 may not stop it's tx queue correctly, or maybe pktgen is screwed up since
+> e1000 reports similar errors).
 
->>*  Is there some information on tuning the tg3 somewhere?
->>    (I didn't see a Documentation/networking/tg3.txt file, for instance)
->>
->>*  Is there a way to verify the bus speed that the NIC is running at?
->>    (ethtool -d ethX gives lots of meaningless (to me) hex)
->>
-> 
-> 
-> tg3 probing string for each device will tell you the bus type, width,
-> and speed.
+There is a known race on SMP with drivers using NETIF_F_LLTX that is
+still not fixed.  It will cause the error message to be reported from
+the driver's ->hard_start_xmit() routine when you hit this race.
 
-Thanks, I found it.
+The e1000 driver hits the same race, it just doesn't print any
+message.
 
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+You're definitely on an SMP system if you are triggering that message.
