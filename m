@@ -1,52 +1,50 @@
-From: Lee Revell <rlrevell@joe-job.com>
-Subject: RE: ipw2100: firmware problem
-Date: Fri, 10 Jun 2005 17:07:18 -0400
-Message-ID: <1118437639.6423.65.camel@mindpipe>
-References: <003001c56dff$662fe4b0$600cc60a@amer.sykes.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: BCM5704 performance questions.
+Date: Fri, 10 Jun 2005 14:09:00 -0700
+Message-ID: <42AA016C.9050801@candelatech.com>
+References: <42A8E0FE.3020708@candelatech.com> <1118361376.5838.20.camel@rh4> <42A8EBDA.6010306@candelatech.com> <1118363861.5838.29.camel@rh4>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "'Netdev list'" <netdev@oss.sgi.com>,
-        "'kernel list'" <linux-kernel@vger.kernel.org>
+Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: abonilla@linuxwireless.org
-In-Reply-To: <003001c56dff$662fe4b0$600cc60a@amer.sykes.com>
+To: Michael Chan <mchan@broadcom.com>
+In-Reply-To: <1118363861.5838.29.camel@rh4>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2005-06-10 at 15:00 -0600, Alejandro Bonilla wrote:
-> > > It thing of Mute in ALSA is stupid. If you want Sound, you
-> > install the Sound
-> > > and enable it. Why would it make you google for more things
-> > to do? ALSA mute
-> > > on install is WAY way, not OK.
-> >
-> > It took you 10 minutes of googling before you thought to try
-> > the mixer?
-> > Sorry dude, this is PEBKAC.
-> >
-> > Lee
+Michael Chan wrote:
+> On Thu, 2005-06-09 at 18:24 -0700, Ben Greear wrote:
 > 
-> Riiiight. It could be. Or it could be that no where in the world I have seen
-> something where the device would be disabled by default without notifying
-> the user. Why would you Mute the driver? Is the driver that bad, that the
-> developers would rather Mute the sound card, just in case if the sound cards
-> starts making noises and shit when the driver is loaded?
+>>Michael Chan wrote:
+>>
+>>>Unfortunately, the 5704 requires the "ONE_DMA" workaround which will
+>>>limit throughput in a PCIX 100/133 bus. If you comment out the line that
+>>>sets the DMA_RWCTRL_ONE_DMA flag in tg3.c, you should see improved
+>>>performance. However, you may run into some DMA issues on certain
+>>>systems.
+>>
+>>Is there any way I can tell which systems are affected?  It won't be
+>>an option for me to purposefully ship possibly busted drivers/hardware,
+>>but if I can be certain that my systems are immune, I will try this
+>>modification.
+>>
 > 
+> I mentioned this so that you could verify that the slow performance was
+> indeed caused by ONE_DMA. Even if your system is affected, it's a very
+> subtle problem that won't show up right away and should allow you to get
+> some performance numbers.
 
-Userspace should handle it, doing this in the kernel is bloat.
+I commented out the code and ran the pktgen test again.  It may be a small
+bit better, but not much:  770Mbps in one direction, 750Mbps in the other.
 
-My Debian system initializes the mixer settings to a sane state just
-fine when the alsasound init script is run.  Maybe you need a better
-distro.
+Have you done any tests with 2 tg3 NICs in a single machine to see if they
+can run at or near line speed (full duplex)?
 
-Users who compile ALSA from source are expected to know what they are
-doing.  And, if you watch the "make install" output, it prints a big fat
-warning that all mixer controls are muted by default.
+Thanks,
+Ben
 
-> You are moving to another topic. Let's drop it.
-
-Agreed, but it was your OT rant that changed the topic...
-
-Lee
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
