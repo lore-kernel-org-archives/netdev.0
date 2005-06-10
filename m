@@ -1,41 +1,65 @@
-From: "Alejandro Bonilla" <abonilla@linuxwireless.org>
-Subject: RE: ipw2100: firmware problem
-Date: Fri, 10 Jun 2005 07:33:08 -0600
-Message-ID: <001001c56dc0$f12b6ab0$600cc60a@amer.sykes.com>
-References: <20050610090022.GF4173@elf.ucw.cz>
-Reply-To: <abonilla@linuxwireless.org>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: "'Jeff Garzik'" <jgarzik@pobox.com>,
-	"'James Ketrenos'" <jketreno@linux.intel.com>,
-	"'David S. Miller'" <davem@davemloft.net>, <vda@ilport.com.ua>,
-	<netdev@oss.sgi.com>, <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262307AbVFJNdh@vger.kernel.org>
-To: "'Pavel Machek'" <pavel@ucw.cz>
-In-Reply-To: <20050610090022.GF4173@elf.ucw.cz>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Jason Lunz <lunz@falooley.org>
+Subject: Re: BCM5704 performance questions.
+Date: Fri, 10 Jun 2005 14:03:21 +0000 (UTC)
+Message-ID: <d8c6j9$dv$1@sea.gmane.org>
+References: <42A8E0FE.3020708@candelatech.com> <1118361376.5838.20.camel@rh4>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+mchan@broadcom.com said:
+> On Thu, 2005-06-09 at 17:38 -0700, Ben Greear wrote:
+>
+>> 
+>> *  Is the BCM5704 chipset/driver really that much slower?
+>> 
+>
+> Unfortunately, the 5704 requires the "ONE_DMA" workaround which will
+> limit throughput in a PCIX 100/133 bus. If you comment out the line that
+> sets the DMA_RWCTRL_ONE_DMA flag in tg3.c, you should see improved
+> performance. However, you may run into some DMA issues on certain
+> systems.
+>
+>> *  Is there some information on tuning the tg3 somewhere?
+>>     (I didn't see a Documentation/networking/tg3.txt file, for instance)
+>> 
+>> *  Is there a way to verify the bus speed that the NIC is running at?
+>>     (ethtool -d ethX gives lots of meaningless (to me) hex)
+>> 
+>
+> tg3 probing string for each device will tell you the bus type, width,
+> and speed.
 
-> Hi!
-> 
-> > OK. I understand the point and I totally agree with this. 
-> We really want 
-> > the adapter to just do what the user or profiles ask the 
-> adapter to do. 
-> > Yes, in an ideal world.
-> > 
-> > Let's talk about easyness. These adapters are in laptops. 
-> You don't want 
-> > to type a lot of stop everytime you move from access points, reboots
-> > and 
-> 
-> We are not trying to make it hard to the users. Lets do the right
-> thing in kernel, and let userspace make it easy.
-> 								Pavel
+The patch below from http://article.gmane.org/gmane.linux.network/18734
+does this too for e1000. Lennert Buytenhek posted it a while back.
 
-Pavel,
+Jason
 
-	Agreed then. 
+
+diff -urpN linux-pf/drivers/net/e1000/e1000_main.c linux-bs/drivers/net/e1000/e1000_main.c
+--- linux-pf/drivers/net/e1000/e1000_main.c	Fri Apr  8 15:06:34 2005
++++ linux-bs/drivers/net/e1000/e1000_main.c	Fri Apr  8 15:29:34 2005
+@@ -617,6 +617,21 @@ e1000_probe(struct pci_dev *pdev,
+ 	if(eeprom_data & eeprom_apme_mask)
+ 		adapter->wol |= E1000_WUFC_MAG;
+ 
++	/* print bus type/speed/width info */
++	printk(KERN_INFO "%s: e1000 (PCI%s:%s:%s) ", netdev->name,
++		((adapter->hw.bus_type == e1000_bus_type_pcix) ? "X" : ""),
++		((adapter->hw.bus_speed == e1000_bus_speed_133) ? "133MHz" :
++		 (adapter->hw.bus_speed == e1000_bus_speed_120) ? "120MHz" :
++		 (adapter->hw.bus_speed == e1000_bus_speed_100) ? "100MHz" :
++		 (adapter->hw.bus_speed == e1000_bus_speed_66) ? "66MHz" :
++		  "33MHz"),
++		((adapter->hw.bus_width == e1000_bus_width_64) ? "64-bit" :
++		  "32-bit"));
++
++	for (i = 0; i < 6; i++)
++		printk("%2.2x%c", netdev->dev_addr[i],
++			i == 5 ? '\n' : ':');
++
+ 	/* reset the hardware with the new settings */
+ 	e1000_reset(adapter);
+ 
