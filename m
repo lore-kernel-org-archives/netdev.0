@@ -1,31 +1,46 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: ipw2100: firmware problem
-Date: Thu, 09 Jun 2005 22:13:44 -0400
-Message-ID: <42A8F758.2060008@pobox.com>
-References: <200506090909.55889.vda@ilport.com.ua>	<20050608.231657.59660080.davem@davemloft.net>	<20050609104205.GD3169@elf.ucw.cz> <20050609.125324.88476545.davem@davemloft.net> <42A8AE2A.4080104@linux.intel.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: BCM5704 performance questions.
+Date: Thu, 09 Jun 2005 19:28:47 -0700
+Message-ID: <42A8FADF.90309@candelatech.com>
+References: <42A8E0FE.3020708@candelatech.com>	<20050609.175417.108740435.davem@davemloft.net>	<42A8EAE1.5030201@candelatech.com> <20050609.182943.29573731.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, pavel@ucw.cz,
-	vda@ilport.com.ua, abonilla@linuxwireless.org, netdev@oss.sgi.com,
-	linux-kernel@vger.kernel.org, ipw2100-admin@linux.intel.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261435AbVFJCNz@vger.kernel.org>
-To: James Ketrenos <jketreno@linux.intel.com>
-In-Reply-To: <42A8AE2A.4080104@linux.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@oss.sgi.com, mchan@broadcom.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050609.182943.29573731.davem@davemloft.net>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-James Ketrenos wrote:
-> I don't know if all the distributions have moved away from this model. 
-> If they have and the devices are brought up regardless of link, then
-> going back to delaying radio initialization until the open() is called
-> is workable. 
+David S. Miller wrote:
+> From: Ben Greear <greearb@candelatech.com>
+> Date: Thu, 09 Jun 2005 18:20:33 -0700
+> 
+> 
+>>I ran a test using pktgen to (try to) send 82kpps, 1514 byte packets between
+>>two ports on the tg3 NIC.  It can do about 780Mbps in one direction,
+>>and 880Mbps in the other direction.  Lots of harmless hard-start xmit errors reported
+>>(tg3 may not stop it's tx queue correctly, or maybe pktgen is screwed up since
+>>e1000 reports similar errors).
+> 
+> 
+> There is a known race on SMP with drivers using NETIF_F_LLTX that is
+> still not fixed.  It will cause the error message to be reported from
+> the driver's ->hard_start_xmit() routine when you hit this race.
+
+Ok, it's not a big deal, since I can just retry the packet when
+the tx queue wakes up again.  The message was coming from pktgen, btw.
+
+> You're definitely on an SMP system if you are triggering that message.
+
+Yes, dual xeon with HT as well.
 
 
-When the interface is not up, we ideally want the device to be as 
-passive as possible.
+Thanks,
+Ben
 
-Most net drivers shut down as much as possible at dev->close() time, and 
-it would really be good if wireless drivers followed suit.
-
-	Jeff
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
