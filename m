@@ -1,38 +1,68 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: BCM5704 performance questions.
-Date: Fri, 10 Jun 2005 15:43:32 -0700 (PDT)
-Message-ID: <20050610.154332.122616684.davem@davemloft.net>
-References: <42AA016C.9050801@candelatech.com>
-	<1118438203.5294.7.camel@rh4>
-	<42AA15B7.8050407@candelatech.com>
+From: Rahul Hari <rahulhsaxena@gmail.com>
+Subject: testing techniques to confirm the effectiveness of changes made to sch_gred.c
+Date: Sat, 11 Jun 2005 06:09:42 +0530
+Message-ID: <4532f3170506101739702e31ad@mail.gmail.com>
+Reply-To: rahul.hari@cse06.itbhu.org
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mchan@broadcom.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: greearb@candelatech.com
-In-Reply-To: <42AA15B7.8050407@candelatech.com>
+To: netdev@oss.sgi.com, netdev@vger.kernel.org, lartc-request@mailman.ds9a.nl,
+        diffserv-general@lists.sourceforge.net, linux.kernel@googlegroups.com
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Ben Greear <greearb@candelatech.com>
-Date: Fri, 10 Jun 2005 15:35:35 -0700
+Hi,
+I have made some changes to the file sch_gred.c to modify the GRED
+queueing discipline to support the following features:
+1) The first virtual queue should get absolute priority while
+dequeueing (not caring if the others get starved)
+2) While in equalise mode and with RIO mode enabled, the packets in
+the first virtual queue should not be counted for calculating the
+qave.
 
-> Michael Chan wrote:
-> > On Fri, 2005-06-10 at 14:09 -0700, Ben Greear wrote:
-> 
-> >>I commented out the code and ran the pktgen test again.  It may be a small
-> >>bit better, but not much:  770Mbps in one direction, 750Mbps in the other.
-> >>
-> 
-> > The latest tg3 driver will print out the dma_rwctrl at probe time. Can
-> > you check the value to make sure ONE_DMA is disabled? Bit 14 sets
-> > ONE_DMA.
-> 
-> I don't see any printout in /var/log/messages that looks like it
-> relates to the dma_rwctrl.  I'm using the driver in 2.6.11..maybe
-> it is not recent enough to print this information out?
+I want to confirm if the changes made by me are really effective. I
+would be grateful if someone could let me know about any testing
+techniques that can be followed for confirming that the changes are
+really effective.
 
-Yes, your driver is too old.  The one in Linus's current GIT
-tree has this, along with many other enhancements.
+It would be great if someone could also let me know if the logic that
+I have applied to effect these changes is correct.
+
+My logic is as follows:
+1) Since the  process deals with dequeueing, i have to make changes to
+gred_dequeue only. If t->tab[0] != 0 then  we dequeue the packet
+otherwise do not dequeue it.
+
+2)  
+if (t->eqp && t->grio) {
+
+         for (i=0;i<t->DPs;i++) {
+			if ((!t->tab[i]) || (i==q->DP) || (i==0))	
+				continue; 
+				
+			if ((t->tab[i] != q) && (PSCHED_IS_PASTPERFECT(t->tab[i]->qidlestart)))
+				qave +=t->tab[i]->qave;
+		     }
+
+
+
+Regards,
+Rahul
+
+-- 
+----------------------
+"The fear you let build up in your mind is worse than the situation
+that actually exists"
+from "who moved my cheese"
+---------------------------------------------------------------------------------
+Rahul Hari
+Senior Under Grad. Student,
+Department of CSE,
+ITBHU,
+Varanasi.
+Ph: +91-9845347020
+rahul.hari@cse06.itbhu.org
+------------------------------------------------------------------------------------------
