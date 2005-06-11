@@ -1,54 +1,43 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: Re: e1000 not working using 2.6.11
-Date: Sat, 11 Jun 2005 21:37:29 +0200
-Message-ID: <20050611193729.GJ3770@stusta.de>
-References: <17064.41290.461755.920152@ccs.covici.com>
+From: Willy Tarreau <willy@w.ods.org>
+Subject: Re: [PATCH] fix small DoS on connect() (was Re: BUG: Unusual TCP Connect() results.)
+Date: Sat, 11 Jun 2005 21:51:44 +0200
+Message-ID: <20050611195144.GF28759__42379.2822439738$1118519389$gmane$org@alpha.home.local>
+References: <20050611074350.GD28759@alpha.home.local> <E1DhBic-0005dp-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, cramerj@intel.com, john.ronciak@intel.com,
-        ganesh.venkatesan@intel.com, netdev@oss.sgi.com
+Cc: davem@davemloft.net, xschmi00@stud.feec.vutbr.cz, alastair@unixtrix.com,
+        linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: John covici <covici@ccs.covici.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Content-Disposition: inline
-In-Reply-To: <17064.41290.461755.920152@ccs.covici.com>
+In-Reply-To: <E1DhBic-0005dp-00@gondolin.me.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 09, 2005 at 04:06:34PM -0400, John covici wrote:
+Hi Herbert,
 
-> Hi.  I am not getting good results on a box I have which uses an Intel
-> Pro gigabit Ethernet driver for its network connection.  What happens
-> is that I get messages like watchdog xmit timeout and lots of errors
-> out of ifconfig.  Here is the listpci entry for that card.  It works
-> under the other OS, so I imagine the hardware is OK.
+On Sun, Jun 12, 2005 at 05:32:34AM +1000, Herbert Xu wrote:
+> Willy Tarreau <willy@w.ods.org> wrote:
+> > 
+> > During this, the client cannot connect to www.kernel.org from this port
+> > anymore :
+> >  wks$ printf "HEAD / HTTP/1.0\r\n\r\n" | nc -p 10000 204.152.191.5 80; echo "ret=$?"
+> >  ret=1
 > 
-> 0000:01:0b.0 Ethernet controller: Intel Corp. 82540EM Gigabit Ethernet Controller (rev 02)
->         Subsystem: Intel Corp.: Unknown device 3013
->         Flags: bus master, 66MHz, medium devsel, latency 32, IRQ 19
->         Memory at e7000000 (64-bit, non-prefetchable) [size=128K]
->         Memory at e7020000 (64-bit, non-prefetchable) [size=64K]
->         I/O ports at b400 [size=64]
->         Capabilities: [dc] Power Management version 2
->         Capabilities: [e4] PCI-X non-bridge device.
->         Capabilities: [f0] Message Signalled Interrupts: 64bit+ Queue=0/0 Enable-
-> 
-> 
-> Any assistance would be appreciated.
+> What if you let the client connect from a random port which is what it
+> should do?
 
-Does 2.6.12-rc6 work?
+Of course, if the port chosen by the client is not in the range probed by
+the attacker, everything's OK. My point is that relying *only* on a port
+number is a bit limitative. It is even more when some protocols only bind
+to privileged source ports, or always use the same port range at boot (eg:
+a router establishing a BGP connection to the ISP's router).
 
-If not, the maintainers of this driver (Cc'ed) might be able to help 
-you.
+Please note that if I only called it "small DoS", it's clearly because
+I don't consider this critical, but I think that most people involved
+in security will find that DoSes based on port guessing should be
+addressed when possible.
 
->          John Covici
-
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+Regards,
+Willy
