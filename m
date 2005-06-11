@@ -1,68 +1,36 @@
-From: Rahul Hari <rahulhsaxena@gmail.com>
-Subject: testing techniques to confirm the effectiveness of changes made to sch_gred.c
-Date: Sat, 11 Jun 2005 06:09:42 +0530
-Message-ID: <4532f3170506101739702e31ad@mail.gmail.com>
-Reply-To: rahul.hari@cse06.itbhu.org
+From: Martin Pool <mbp@sourcefrog.net>
+Subject: Re: Sockets hang in FIN_WAIT1 state in linux 2.2.5
+Date: Sat, 11 Jun 2005 12:03:48 +1000
+Message-ID: <20050611020348.GA27334@sourcefrog.net>
+References: <20050610105808.13626.qmail@web30909.mail.mud.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset=us-ascii
+Cc: ak@muc.de, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, Alan.Cox@linux.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, netdev@vger.kernel.org, lartc-request@mailman.ds9a.nl,
-        diffserv-general@lists.sourceforge.net, linux.kernel@googlegroups.com
+To: Pavan K <pavankrishnamurthy@yahoo.com>
 Content-Disposition: inline
+In-Reply-To: <20050610105808.13626.qmail@web30909.mail.mud.yahoo.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
-I have made some changes to the file sch_gred.c to modify the GRED
-queueing discipline to support the following features:
-1) The first virtual queue should get absolute priority while
-dequeueing (not caring if the others get starved)
-2) While in equalise mode and with RIO mode enabled, the packets in
-the first virtual queue should not be counted for calculating the
-qave.
+On 10 Jun 2005, Pavan K <pavankrishnamurthy@yahoo.com> wrote:
+> Hi,
+> This is Pavan from India, a s/w engineer stuck in a TCP problem. We have a
+> legendary linux 2.2.5 kernel (redhat ) system which cant be replaced in my
+> company. I have noticed that my server stops ACK ing the SYN packets after some
+> time . Also when i netstat i can see lots of sockets hung in FIN_WAIT1 state.
+> Upon googling, I found ur mails in the mailing list. Sounds that you too had
+> similar problems.
+> So please suggest me any solution to this problem if you have. I am in a
+> critical stage to fix this bug. I cant upgrade my system to newer kernel since
+> it needs lot of code porting.
 
-I want to confirm if the changes made by me are really effective. I
-would be grateful if someone could let me know about any testing
-techniques that can be followed for confirming that the changes are
-really effective.
-
-It would be great if someone could also let me know if the logic that
-I have applied to effect these changes is correct.
-
-My logic is as follows:
-1) Since the  process deals with dequeueing, i have to make changes to
-gred_dequeue only. If t->tab[0] != 0 then  we dequeue the packet
-otherwise do not dequeue it.
-
-2)  
-if (t->eqp && t->grio) {
-
-         for (i=0;i<t->DPs;i++) {
-			if ((!t->tab[i]) || (i==q->DP) || (i==0))	
-				continue; 
-				
-			if ((t->tab[i] != q) && (PSCHED_IS_PASTPERFECT(t->tab[i]->qidlestart)))
-				qave +=t->tab[i]->qave;
-		     }
-
-
-
-Regards,
-Rahul
+I've heard similar reports from people running distcc on 2.2 kernels;
+after a long time the machine stops accepting new connections.  If you
+can't upgrade the kernel your options are very limited: either work
+out the precise patch, or reboot your machines regularly.  The second
+is probably easier.
 
 -- 
-----------------------
-"The fear you let build up in your mind is worse than the situation
-that actually exists"
-from "who moved my cheese"
----------------------------------------------------------------------------------
-Rahul Hari
-Senior Under Grad. Student,
-Department of CSE,
-ITBHU,
-Varanasi.
-Ph: +91-9845347020
-rahul.hari@cse06.itbhu.org
-------------------------------------------------------------------------------------------
+Martin
