@@ -1,46 +1,79 @@
-From: Andi Kleen <ak@muc.de>
-Subject: Re: Is kernel 2.6.11 adjust tcp_max_syn_backlog incorrectly?
-Date: Sat, 11 Jun 2005 12:25:08 +0200
-Message-ID: <m11x79dwcb.fsf@muc.de>
-References: <75052be7050606070691c302d@mail.gmail.com>
-	<75052be705060607106a6c0882@mail.gmail.com>
+From: Denis Vlasenko <vda@ilport.com.ua>
+Subject: Re: ipw2100: firmware problem
+Date: Sat, 11 Jun 2005 15:44:25 +0300
+Message-ID: <200506111544.25462.vda__36495.8115890206$1118494070$gmane$org@ilport.com.ua>
+References: <000f01c56dbf$9b15de90$600cc60a@amer.sykes.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, casavan@sgi.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261679AbVFKKZS@vger.kernel.org>
-To: Skywind <gnuwind@gmail.com>
-In-Reply-To: <75052be705060607106a6c0882@mail.gmail.com> (gnuwind@gmail.com's
- message of "Mon, 6 Jun 2005 22:10:17 +0800")
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Return-path: <netdev-bounce@oss.sgi.com>
+To: <abonilla@linuxwireless.org>, "'Pavel Machek'" <pavel@ucw.cz>,
+        "'Jeff Garzik'" <jgarzik@pobox.com>,
+        "'Netdev list'" <netdev@oss.sgi.com>,
+        "'kernel list'" <linux-kernel@vger.kernel.org>,
+        "'James P. Ketrenos'" <ipw2100-admin@linux.intel.com>
+In-Reply-To: <000f01c56dbf$9b15de90$600cc60a@amer.sykes.com>
+Content-Disposition: inline
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Skywind <gnuwind@gmail.com> writes:
->
-> It seems that kernel don't adjust these value automatic, is this a bug?
->
-> I guess the mechanism of tcp.c in 2.6.11 have some changes(between
-> 2.6.10), and it conduce to this result,
-> Is this guess correctly?
+On Friday 10 June 2005 16:23, Alejandro Bonilla wrote:
+> > Adding kernel level wireless autoconfiguration duplicates the effort.
+> > Since I am not going to give up a requirement to be able to stay radio
+> > silent at boot (me too wants freedom, not only you), you need to add
+> > disable=1 module parameter to each driver, which adds to the mess.
+> >
+> > ALSA does the Right Thing. Sound is completely muted out at
+> > module load.
+> > It's a user freedom to set desired volume level after that.
+> 
+> Yeah right. I remember I had to google for 10 minutes to find the answer for
+> this one. Why would you install something, for it to not work?
+> 
+> It thing of Mute in ALSA is stupid. If you want Sound, you install the Sound
+> and enable it. Why would it make you google for more things to do? ALSA mute
+> on install is WAY way, not OK.
+> 
+> You *will* have to use a How-To with ALSA, nobody knows that your sound
+> would be off because some people decided it.
 
-Yes, there were some changes here when it was converted to a common
-function for all hash tables (alloc_large_system_hash - the function
-with the argument list from hell).  Anyways, here's a quick fix.
+Well, which sound level shall be set instead? 100%? Maybe too loud for
+my 500 watt loudpeakers, eh? 50%? Still too many. 5%? Nah.
+My machine at work has a headphone which is anything but loud.
+5% is nearly silence for it.
 
-DaveM for your consideration.
+See? It's not a kernel matter at which volume sound must be set.
+It is impossible to decide on the 'right' default.
+ 
+> But this is out of the Topic. I agree with you all, but as I mentioned in a
+> more current email, this is a laptop, not a server. Things behave
+> differently and you want things faster. (Yes, I could have a script)
 
-Adjust TCP mem order check to new alloc_large_system_hash
+Or laptop oriented distro can have a script for you,
+just like they already do have for DHCPizing all ifaces.
 
-Signed-off-by: Andi Kleen <ak@suse.de>
+Not kernel business.
 
---- linux-2.6.11-work/net/ipv4/tcp.c~	2005-03-02 08:37:51.000000000 +0100
-+++ linux-2.6.11-work/net/ipv4/tcp.c	2005-06-11 12:16:22.000000000 +0200
-@@ -2337,7 +2337,7 @@
- 			(tcp_bhash_size * sizeof(struct tcp_bind_hashbucket));
- 			order++)
- 		;
--	if (order > 4) {
-+	if (order >= 4) {
- 		sysctl_local_port_range[0] = 32768;
- 		sysctl_local_port_range[1] = 61000;
- 		sysctl_tcp_max_tw_buckets = 180000;
+> What I'm saying, is that just as ALSA, you will have to google even more
+> just to be able to look for the boot param for the driver for it to ASSOC on
+> boot like the Original drive does. Instead, if you simply don't want to
+> associate then turn off the Radio.
+> 
+> It's a simple FN+F2 or depends on your laptop.
+> 
+> Let's not make this a bigger thread, just decide and then do it that way.
+> I'm looking at this on the side of a supporter, seeing the emails from
+> users... "how do I make it behave as it was before" "it won't assoc on boot
+> anymore"
+
+Users which can not figure it by themself have not much power in dictating
+how kernel drivers are written. Sure we listen to users, but we won't
+blidly follow any and all suggestions.
+
+If users want it different nodoby prohibits them from writing their own
+drivers, right? Or patching existing ones, for that matter. Send patches to lkml
+for discussion.
+--
+vda
