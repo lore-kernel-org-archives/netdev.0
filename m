@@ -1,54 +1,44 @@
-From: Willy Tarreau <willy@w.ods.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [PATCH] fix small DoS on connect() (was Re: BUG: Unusual TCP Connect() results.)
-Date: Sun, 12 Jun 2005 15:47:25 +0200
-Message-ID: <20050612134725.GB8951__18778.3689391383$1118583915$gmane$org@alpha.home.local>
-References: <E1DhBic-0005dp-00@gondolin.me.apana.org.au> <20050611195144.GF28759@alpha.home.local> <20050612081327.GA24384@gondor.apana.org.au> <20050612083409.GA8220@alpha.home.local> <20050612103020.GA25111@gondor.apana.org.au> <20050612114039.GI28759@alpha.home.local> <20050612120627.GA5858@gondor.apana.org.au> <20050612123253.GK28759@alpha.home.local> <20050612131323.GA10188@gondor.apana.org.au> <20050612133349.GA6279@gondor.apana.org.au>
+Date: Sun, 12 Jun 2005 23:50:18 +1000
+Message-ID: <20050612135018.GA10910@gondor.apana.org.au>
+References: <20050611195144.GF28759@alpha.home.local> <20050612081327.GA24384@gondor.apana.org.au> <20050612083409.GA8220@alpha.home.local> <20050612103020.GA25111@gondor.apana.org.au> <20050612114039.GI28759@alpha.home.local> <20050612120627.GA5858@gondor.apana.org.au> <20050612123253.GK28759@alpha.home.local> <20050612131323.GA10188@gondor.apana.org.au> <20050612133349.GA6279@gondor.apana.org.au> <20050612134725.GB8951@alpha.home.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, xschmi00@stud.feec.vutbr.cz, alastair@unixtrix.com,
         linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+To: Willy Tarreau <willy@w.ods.org>
 Content-Disposition: inline
-In-Reply-To: <20050612133349.GA6279@gondor.apana.org.au>
+In-Reply-To: <20050612134725.GB8951@alpha.home.local>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jun 12, 2005 at 11:33:49PM +1000, Herbert Xu wrote:
-> On Sun, Jun 12, 2005 at 11:13:23PM +1000, herbert wrote:
-> > On Sun, Jun 12, 2005 at 02:32:53PM +0200, Willy Tarreau wrote:
-> > >
-> > > but it's not the case (although the naming is not clear). So if the remote
-> > > end was the one which sent the SYN-ACK, it will clear its session. If it has
-> > > been spoofed, it will ignore the RST because in turn, the SEQ will not be
-> > > within its window.
-> > 
-> > This is what should happen:
+On Sun, Jun 12, 2005 at 03:47:25PM +0200, Willy Tarreau wrote:
 > 
-> Sorry, you're right.  The SEQ check should catch this.
+> Yes, but only if there's an ACK and the ACK is exactly equal to snd_next,
+> so the connection will survive.
 
-No problem. Fortunately, this part of the code is *very well* documented :-)
+Sorry I wasn't thinking straight.
 
-> However, a few lines down in that same function there is a th->rst
-> check which will kill the connection just as effectively.
+> 
+> > My point is that there are many ways to kill TCP connections in ways
+> > similar to what you proposed initially so it isn't that special.
+> 
+> No, there are plenty of ways to kill TCP connections when you can guess
+> the window (which is more and more easy thanks to window scaling). But
+> I have yet found no way to kill a TCP session without this info, except
+> by exploiting the simultaneous connect feature.
 
-Yes, but only if there's an ACK and the ACK is exactly equal to snd_next,
-so the connection will survive.
-
-> My point is that there are many ways to kill TCP connections in ways
-> similar to what you proposed initially so it isn't that special.
-
-No, there are plenty of ways to kill TCP connections when you can guess
-the window (which is more and more easy thanks to window scaling). But
-I have yet found no way to kill a TCP session without this info, except
-by exploiting the simultaneous connect feature.
-
-My point was that it would not be too difficult to remotely prevent an
-anti-virus or IDS from downloading its updates when you know the update
-site's address and you know that by default it uses source ports
-1024-4999 to connect outside. I don't really care for BGP however
-because people should use MD5 or they get what they deserve.
+I still stand by this point though.  The most obvious thing I can think
+of right now is to change your attack to simply connect to kernel.org's
+webserver first from source port 10000.  That will cause the real SYN
+packet to fail the sequence number check.
 
 Cheers,
-Willy
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
