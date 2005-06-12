@@ -1,34 +1,54 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] fix small DoS on connect() (was Re: BUG: Unusual TCP Connect() results.)
-Date: Sun, 12 Jun 2005 20:30:20 +1000
-Message-ID: <20050612103020.GA25111__14622.7939207622$1118572371$gmane$org@gondor.apana.org.au>
-References: <20050611074350.GD28759@alpha.home.local> <E1DhBic-0005dp-00@gondolin.me.apana.org.au> <20050611195144.GF28759@alpha.home.local> <20050612081327.GA24384@gondor.apana.org.au> <20050612083409.GA8220@alpha.home.local>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: testing techniques to confirm the effectiveness of changes made to sch_gred.c
+Date: Sun, 12 Jun 2005 12:46:28 +0200
+Message-ID: <20050612104628.GA22463@postel.suug.ch>
+References: <4532f3170506101739702e31ad@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, xschmi00@stud.feec.vutbr.cz, alastair@unixtrix.com,
-        linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, netdev@vger.kernel.org, lartc-request@mailman.ds9a.nl,
+        diffserv-general@lists.sourceforge.net, linux.kernel@googlegroups.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Willy Tarreau <willy@w.ods.org>
+To: rahul.hari@cse06.itbhu.org
 Content-Disposition: inline
-In-Reply-To: <20050612083409.GA8220@alpha.home.local>
+In-Reply-To: <4532f3170506101739702e31ad@mail.gmail.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jun 12, 2005 at 10:34:09AM +0200, Willy Tarreau wrote:
->
-> > Sorry but this patch is pointless.  If I wanted to prevent you from
-> > connecting to www.kernel.org 80 and I knew your source port number
-> > I'd be directly sending you fake SYN-ACK packets which will kill
-> > your connection immediately.
-> 
-> Only if your ACK was within my SEQ window, which adds about 20 bits of
-> random when my initial window is 5840. You would then need to send one
-> million times more packets to achieve the same goal.
+* Rahul Hari <4532f3170506101739702e31ad@mail.gmail.com> 2005-06-11 06:09
+> I have made some changes to the file sch_gred.c to modify the GRED
+> queueing discipline to support the following features:
+> 1) The first virtual queue should get absolute priority while
+> dequeueing (not caring if the others get starved)
+> 2) While in equalise mode and with RIO mode enabled, the packets in
+> the first virtual queue should not be counted for calculating the
+> qave.
 
-Nope, no sequence validity check is made on the SYN-ACK.
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+You do not need to modify gred to achieve this, use a prio qdisc
+with 2 bands, band 1 covers your "first virtual queue" with a single
+red attached, band 2 covers the rest and uses a gred.
+
+> 1) Since the  process deals with dequeueing, i have to make changes to
+> gred_dequeue only. If t->tab[0] != 0 then  we dequeue the packet
+> otherwise do not dequeue it.
+
+What you describe above is: only dequeue when DP 0 is configured,
+probably not what you want. The only way to prioritize within gred
+the way you want is to modify dequeue() that it iterates through
+sch->q looking for a skb with tcindex==DP0 and use it instead of
+the skb at the queue head.
+
+> 2)  
+> if (t->eqp && t->grio) {
+> 
+>          for (i=0;i<t->DPs;i++) {
+> 			if ((!t->tab[i]) || (i==q->DP) || (i==0))	
+> 				continue; 
+> 				
+> 			if ((t->tab[i] != q) && (PSCHED_IS_PASTPERFECT(t->tab[i]->qidlestart)))
+> 				qave +=t->tab[i]->qave;
+> 		     }
+
+You no longer consider the priority so it won't be wred anymore,
+also if (i == q->DP) continue makes a check t->tab[i] != q
+unnecessary.
