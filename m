@@ -1,44 +1,52 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] fix small DoS on connect() (was Re: BUG: Unusual TCP Connect() results.)
-Date: Mon, 13 Jun 2005 17:45:21 +1000
-Message-ID: <20050613074521.GA21661@gondor.apana.org.au>
-References: <20050612123253.GK28759@alpha.home.local> <20050612131323.GA10188@gondor.apana.org.au> <20050612133349.GA6279@gondor.apana.org.au> <20050612134725.GB8951@alpha.home.local> <20050612135018.GA10910@gondor.apana.org.au> <20050612142401.GA10772@alpha.home.local> <20050613044810.GA32103@gondor.apana.org.au> <20050613052148.GF8907@alpha.home.local> <20050613052404.GA7611@gondor.apana.org.au> <20050613061748.GA13144@alpha.home.local>
+From: Jan Rychter <jan@rychter.com>
+Subject: Re: ipw2100: firmware problem
+Date: Mon, 13 Jun 2005 18:42:52 +0200
+Message-ID: <m2slzmmcmr.fsf@tnuctip.rychter.com>
+References: <000f01c56dbf$9b15de90$600cc60a@amer.sykes.com>
+	<1118435188.6423.26.camel@mindpipe>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, xschmi00@stud.feec.vutbr.cz, alastair@unixtrix.com,
-        linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Willy Tarreau <willy@w.ods.org>
-Content-Disposition: inline
-In-Reply-To: <20050613061748.GA13144@alpha.home.local>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261663AbVFMQEJ@vger.kernel.org>
+To: linux-kernel@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 13, 2005 at 08:17:48AM +0200, Willy Tarreau wrote:
-> 
-> What's the problem with the sysctl ? If you prefer, I can change the patch
-> to keep the feature enabled by default so that only people aware of the
-> problem have to fix it by hand. But I found it better the other way : people
-> who need the feature enable it by hand.
+>>>>> "Lee" == Lee Revell <rlrevell@joe-job.com> writes:
+ Lee> On Fri, 2005-06-10 at 07:23 -0600, Alejandro Bonilla wrote:
+ >> >
+ >> > Adding kernel level wireless autoconfiguration duplicates the
+ >> > effort.  Since I am not going to give up a requirement to be able
+ >> > to stay radio silent at boot (me too wants freedom, not only you),
+ >> > you need to add disable=1 module parameter to each driver, which
+ >> > adds to the mess.
+ >> >
+ >> > ALSA does the Right Thing. Sound is completely muted out at module
+ >> > load.  It's a user freedom to set desired volume level after that.
+ >>
+ >> Yeah right. I remember I had to google for 10 minutes to find the
+ >> answer for this one. Why would you install something, for it to not
+ >> work?
+ >>
+ >> It thing of Mute in ALSA is stupid. If you want Sound, you install
+ >> the Sound and enable it. Why would it make you google for more
+ >> things to do? ALSA mute on install is WAY way, not OK.
 
-Well that's exactly my problem :)
+ Lee> It took you 10 minutes of googling before you thought to try the
+ Lee> mixer?  Sorry dude, this is PEBKAC.
 
-I reckon it should be off by default because the threat posed by
-this problem is IMHO small compared to some of the other standard
-threats that are applicable to TCP.  Plus this is a well-documented
-feature so we can't be sure that someone somewhere isn't depending
-on it.
+Oh, really, you think this works so well? Ever tried to use more than
+one soundcard? A USB audio device? Ever wondered why oh why one has to
+always check and twiddle with the mixers? Why (it seems) setting the
+volume of USB audio devices via alsamixer doesn't work for apps which
+use OSS emulation? Ever wondered why alsactl restore doesn't get called
+by udev by default?
 
-However, if it were off by default then there is very little value
-in providing it at all since the same thing can be achived easily
-through netfilter.
+The current Linux approach (most distributions) is to let the user be
+the master. Which means lots of typing, configuring, tweaking. Try that
+on a tablet pc without a keyboard.
 
-Anyway, let's leave it to Dave to make the decision.
+Things should Just Work. I wish most Linux developers tried using a Mac
+at least once in their lifetimes.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--J.
