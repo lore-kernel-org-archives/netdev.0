@@ -1,52 +1,53 @@
-From: Rahul Hari <rahulhsaxena@gmail.com>
-Subject: Re: testing techniques to confirm the effectiveness of changes made to sch_gred.c
-Date: Mon, 13 Jun 2005 01:35:01 +0530
-Message-ID: <4532f3170506121305327ad0f6@mail.gmail.com>
-References: <4532f3170506101739702e31ad@mail.gmail.com>
-	 <20050612104628.GA22463@postel.suug.ch>
-Reply-To: rahul.hari@cse06.itbhu.org
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: [PATCH] fix small DoS on connect() (was Re: BUG: Unusual TCP Connect() results.)
+Date: Sun, 12 Jun 2005 22:04:12 -0400
+Message-ID: <200506130204.j5D24EOE005565__36706.9714506671$1118628439$gmane$org@turing-police.cc.vt.edu>
+References: <42A9C607.4030209@unixtrix.com> <200506122010.33075.vda@ilport.com.ua> <20050612173614.GA11157@alpha.home.local> <200506122047.07257.vda@ilport.com.ua>
+            <20050612181425.GA11284@alpha.home.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: netdev@oss.sgi.com, netdev@vger.kernel.org, lartc-request@mailman.ds9a.nl,
-        diffserv-general@lists.sourceforge.net
+Content-Type: multipart/signed; boundary="==_Exmh_1118628251_24934P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Transfer-Encoding: 7bit
+Cc: Denis Vlasenko <vda@ilport.com.ua>,
+        "David S. Miller" <davem@davemloft.net>, xschmi00@stud.feec.vutbr.cz,
+        alastair@unixtrix.com, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050612104628.GA22463@postel.suug.ch>
-Content-Disposition: inline
+To: Willy Tarreau <willy@w.ods.org>
+In-Reply-To: Your message of "Sun, 12 Jun 2005 20:14:25 +0200."
+             <20050612181425.GA11284@alpha.home.local>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> > 1) Since the  process deals with dequeueing, i have to make changes to
-> > gred_dequeue only. If t->tab[0] != 0 then  we dequeue the packet
-> > otherwise do not dequeue it.
-> 
-> What you describe above is: only dequeue when DP 0 is configured,
-> probably not what you want. The only way to prioritize within gred
-> the way you want is to modify dequeue() that it iterates through
-> sch->q looking for a skb with tcindex==DP0 and use it instead of
-> the skb at the queue head.
-> 
-Thanks for the reply Thomas, 
-by checking t->tab[0]!=0, the approach I wanted to follow was that "if
-I have a packet in the virtual queue with DP 0, then I should not be
-dequeuing any packets from the other virtual queues", ie, take no
-action at all.
+--==_Exmh_1118628251_24934P
+Content-Type: text/plain; charset=us-ascii
 
-with best regards,
-Rahul 
--- 
-----------------------
-"The fear you let build up in your mind is worse than the situation
-that actually exists"
-from "who moved my cheese"
----------------------------------------------------------------------------------
-Rahul Hari
-Senior Under Grad. Student,
-Department of CSE,
-ITBHU,
-Varanasi.
-Ph: +91-9845347020
-rahul.hari@cse06.itbhu.org
-------------------------------------------------------------------------------------------
+On Sun, 12 Jun 2005 20:14:25 +0200, Willy Tarreau said:
+> On Sun, Jun 12, 2005 at 08:47:07PM +0300, Denis Vlasenko wrote:
+
+> > Very nice. BTW, is there any real world applications which
+> > ever used this?
+> 
+> Not that I'm aware of, but that does not mean they don't exist. Until
+> yesterday, I even thought that it was never implemented. As most other
+> systems don't implement it, the applications, if they exist, are Linux
+> or BSD-dependant.
+
+A more likely explanation is that there existed TOPS-20 or Multics code
+that actually used that for something.  Remember that BSD and Linux both
+came along long after RFC793 came out....
+
+--==_Exmh_1118628251_24934P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.1 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
+
+iD8DBQFCrOmbcC3lWbTT17ARAh6UAKDllrvzzA/u7DLz7U465OhXZSqJLACg8e8B
+SVOuvr28yBxqHicG3qQptUg=
+=Bwr2
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1118628251_24934P--
