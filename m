@@ -1,41 +1,24 @@
-From: Jesper Juhl <juhl-lkml@dif.dk>
-Subject: [PATCH] net: fix sparse warning (plain int as NULL)
-Date: Mon, 13 Jun 2005 00:05:33 +0200 (CEST)
-Message-ID: <Pine.LNX.4.62.0506122358570.16521@dragon.hyggekrogen.localhost>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [patch 2.6.12-rc6] 3c59x: remove superfluous vortex_debug test
+ from boomerang_start_xmit
+Date: Sun, 12 Jun 2005 23:31:24 -0400
+Message-ID: <42ACFE0C.1080604__18341.3132014268$1118633436$gmane$org@pobox.com>
+References: <20050610142702.GC10449@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@davemloft.net>, Ross Biro <ross.biro@gmail.com>,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org, akpm@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: LKML <linux-kernel@vger.kernel.org>
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <20050610142702.GC10449@tuxdriver.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+John W. Linville wrote:
+> Remove the superfluous test of "if (vortex_debug > 3)" inside the
+> "if (vortex_debug > 6)" clause early in boomerang_start_xmit.
+> 
+> Signed-off-by: John W. Linville <linville@tuxdriver.com>
 
-Here's a patch to fix a small sparse warning in net/ipv4/tcp_input.c :
-net/ipv4/tcp_input.c:4179:29: warning: Using plain integer as NULL pointer
-
-Signed-off-by: Jesper Juhl <juhl-lkml@dif.dk>
----
-
- net/ipv4/tcp_input.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
-
---- linux-2.6.12-rc6-mm1-orig/net/ipv4/tcp_input.c	2005-06-12 15:58:58.000000000 +0200
-+++ linux-2.6.12-rc6-mm1/net/ipv4/tcp_input.c	2005-06-12 23:58:41.000000000 +0200
-@@ -4176,7 +4176,7 @@ int tcp_rcv_state_process(struct sock *s
- 				 */
- 				if (tp->rx_opt.saw_tstamp && tp->rx_opt.rcv_tsecr &&
- 				    !tp->srtt)
--					tcp_ack_saw_tstamp(tp, 0, 0);
-+					tcp_ack_saw_tstamp(tp, NULL, 0);
- 
- 				if (tp->rx_opt.tstamp_ok)
- 					tp->advmss -= TCPOLEN_TSTAMP_ALIGNED;
-
-
-
-
-
-Please CC me on replies.
+ACK (I presume akpm will send this one upstream)
