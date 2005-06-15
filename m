@@ -1,7 +1,7 @@
 From: Jesper Juhl <juhl-lkml@dif.dk>
-Subject: [-mm PATCH][2/4] net: signed vs unsigned cleanup in net/ipv4/raw.c
-Date: Wed, 15 Jun 2005 23:30:58 +0200 (CEST)
-Message-ID: <Pine.LNX.4.62.0506152239500.3842@dragon.hyggekrogen.localhost>
+Subject: [-mm PATCH][4/4] net: signed vs unsigned cleanup in net/ipv4/raw.c
+Date: Wed, 15 Jun 2005 23:32:22 +0200 (CEST)
+Message-ID: <Pine.LNX.4.62.0506152316060.3842@dragon.hyggekrogen.localhost>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
@@ -14,29 +14,44 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This patch gets rid of the following gcc -W warning in net/ipv4/raw.c :
-
-net/ipv4/raw.c:387: warning: comparison of unsigned expression < 0 is always false
-
-Since 'len' is of type size_t it is unsigned and can thus never be <0, and 
-since this is obvious from the function declaration just a few lines above 
-I think it's ok to remove the pointless check for len<0.
+This patch changes the type of the third parameter 'length' of the 
+raw_send_hdrinc() function from 'int' to 'size_t'.
+This makes sense since this function is only ever called from one 
+location, and the value passed as the third parameter in that location is 
+itself of type size_t, so this makes the recieving functions parameter 
+type match. Also, inside raw_send_hdrinc() the 'length' variable is 
+used in comparisons with unsigned values and passed as parameter to 
+functions expecting unsigned values (it's used in a single comparison with 
+a signed value, but that one can never actually be negative so the patch 
+also casts that one to size_t to stop gcc worrying, and it is passed in a 
+single instance to memcpy_fromiovecend() which expects a signed int, but 
+as far as I can see that's not a problem since the value of 'length' 
+shouldn't ever exceed the value of a signed int).
 
 
 Signed-off-by: Jesper Juhl <juhl-lkml@dif.dk>
 ---
 
- net/ipv4/raw.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
+ net/ipv4/raw.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
---- linux-2.6.12-rc6-mm1/net/ipv4/raw.c.with_patch-1	2005-06-15 22:39:17.000000000 +0200
-+++ linux-2.6.12-rc6-mm1/net/ipv4/raw.c	2005-06-15 22:39:36.000000000 +0200
-@@ -384,7 +384,7 @@ static int raw_sendmsg(struct kiocb *ioc
- 	int err;
+--- linux-2.6.12-rc6-mm1/net/ipv4/raw.c.with_patch-3	2005-06-15 23:17:23.000000000 +0200
++++ linux-2.6.12-rc6-mm1/net/ipv4/raw.c	2005-06-15 23:26:48.000000000 +0200
+@@ -259,7 +259,7 @@ int raw_rcv(struct sock *sk, struct sk_b
+ 	return 0;
+ }
  
- 	err = -EMSGSIZE;
--	if (len < 0 || len > 0xFFFF)
-+	if (len > 0xFFFF)
- 		goto out;
+-static int raw_send_hdrinc(struct sock *sk, void *from, int length,
++static int raw_send_hdrinc(struct sock *sk, void *from, size_t length,
+ 			struct rtable *rt, 
+ 			unsigned int flags)
+ {
+@@ -298,7 +298,7 @@ static int raw_send_hdrinc(struct sock *
+ 		goto error_fault;
  
- 	/*
+ 	/* We don't modify invalid header */
+-	if (length >= sizeof(*iph) && iph->ihl * 4 <= length) {
++	if (length >= sizeof(*iph) && (size_t)(iph->ihl * 4) <= length) {
+ 		if (!iph->saddr)
+ 			iph->saddr = rt->rt_src;
+ 		iph->check   = 0;
