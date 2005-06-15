@@ -1,49 +1,154 @@
-From: Grant Grundler <iod00d@hp.com>
-Subject: Re: [PATCH] tg3_msi() and weakly ordered memory
-Date: Tue, 14 Jun 2005 11:04:25 -0700
-Message-ID: <20050614180425.GE24371@esmail.cup.hp.com>
-References: <B1508D50A0692F42B217C22C02D84972067F0804@NT-IRVA-0741.brcm.ad.broadcom.com> <20050614154021.GA24371@esmail.cup.hp.com> <1118767397.7059.19.camel@rh4>
+From: Jesper Juhl <juhl-lkml@dif.dk>
+Subject: [-mm PATCH] signed vs unsigned cleanup in net/ipv4/raw.c
+Date: Wed, 15 Jun 2005 21:13:52 +0200 (CEST)
+Message-ID: <Pine.LNX.4.62.0506152101350.3842@dragon.hyggekrogen.localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Grant Grundler <iod00d@hp.com>, "David S. Miller" <davem@davemloft.net>,
-        netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@redhat.com>,
+        "Fred N. van Kempen" <waltje@uWalt.NL.Mugnet.ORG.sgi.com>,
+        Ross Biro <ross.biro@gmail.com>, netdev@oss.sgi.com,
+        linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Michael Chan <mchan@broadcom.com>
-Content-Disposition: inline
-In-Reply-To: <1118767397.7059.19.camel@rh4>
+To: "David S. Miller" <davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 14, 2005 at 09:43:17AM -0700, Michael Chan wrote:
-...
-> Something like:
-> 
-> if (sblk->status_tag != tp->last_tag)
-> 	clear_interrupt();
-> 	netif_rx_schedule();
-> 
-> This way we don't have to clear the SD_STATUS_UPDATED bit. I will
-> experiment with this and see if it works well.
+This patch cleans up some signed versus unsigned variable use in 
+net/ipv4/raw.c
 
-that sounds good - thanks.
+Before this patch, building net/ipv4/raw.c from 2.6.12-rc6-mm1 with 
+gcc -W produces a bunch of warnings : 
 
-> I don't think we are reading the index on every iteration. In tg3_rx(),
-> we read it at the beginning before the loop, and one more time if we
-> have caught up with the hw index before exiting the loop.
+net/ipv4/raw.c: In function `raw_send_hdrinc':
+net/ipv4/raw.c:272: warning: comparison between signed and unsigned
+net/ipv4/raw.c:301: warning: comparison between signed and unsigned
+net/ipv4/raw.c: In function `raw_probe_proto_opt':
+net/ipv4/raw.c:340: warning: comparison between signed and unsigned
+net/ipv4/raw.c: In function `raw_sendmsg':
+net/ipv4/raw.c:387: warning: comparison of unsigned expression < 0 is always false
+net/ipv4/raw.c:405: warning: comparison between signed and unsigned
+net/ipv4/raw.c:517: warning: signed and unsigned type in conditional expression
+net/ipv4/raw.c:374: warning: unused parameter `iocb'
+net/ipv4/raw.c: In function `raw_close':
+net/ipv4/raw.c:527: warning: unused parameter `timeout'
+net/ipv4/raw.c: In function `raw_bind':
+net/ipv4/raw.c:545: warning: comparison between signed and unsigned
+net/ipv4/raw.c: In function `raw_recvmsg':
+net/ipv4/raw.c:613: warning: signed and unsigned type in conditional expression
+net/ipv4/raw.c:565: warning: unused parameter `iocb'
+net/ipv4/raw.c: In function `raw_seticmpfilter':
+net/ipv4/raw.c:627: warning: comparison between signed and unsigned
+net/ipv4/raw.c: In function `raw_geticmpfilter':
+net/ipv4/raw.c:643: warning: comparison between signed and unsigned
+net/ipv4/raw.c: In function `raw_seq_stop':
+net/ipv4/raw.c:799: warning: unused parameter `seq'
+net/ipv4/raw.c:799: warning: unused parameter `v'
+net/ipv4/raw.c: In function `raw_seq_open':
+net/ipv4/raw.c:847: warning: unused parameter `inode'
 
-oh - sorry - my bad. Same is true for tg3_tx().
+10 of which are related to signedness issues.
+With this patch we are down to just 4 signed vs unsigned warnings - 
+cleaning up the last 4 didn't really seem feasible.
 
-And I just noticed I'm smoking crack on "nested locks" too...
-one is "lock" and the other is "tx_lock".
-*sigh* - need more sleep.
+net/ipv4/raw.c: In function `raw_sendmsg':
+net/ipv4/raw.c:405: warning: comparison between signed and unsigned
+net/ipv4/raw.c:374: warning: unused parameter `iocb'
+net/ipv4/raw.c: In function `raw_close':
+net/ipv4/raw.c:530: warning: unused parameter `timeout'
+net/ipv4/raw.c: In function `raw_bind':
+net/ipv4/raw.c:548: warning: comparison between signed and unsigned
+net/ipv4/raw.c: In function `raw_recvmsg':
+net/ipv4/raw.c:568: warning: unused parameter `iocb'
+net/ipv4/raw.c: In function `raw_seticmpfilter':
+net/ipv4/raw.c:633: warning: comparison between signed and unsigned
+net/ipv4/raw.c: In function `raw_geticmpfilter':
+net/ipv4/raw.c:649: warning: comparison between signed and unsigned
+net/ipv4/raw.c: In function `raw_seq_stop':
+net/ipv4/raw.c:805: warning: unused parameter `seq'
+net/ipv4/raw.c:805: warning: unused parameter `v'
+net/ipv4/raw.c: In function `raw_seq_open':
+net/ipv4/raw.c:853: warning: unused parameter `inode'
 
-> I mildly disagree. I think we should maximize the amount of work done in
-> tg3_poll(). For example, reading the rx_producer index one more time
-> when we have caught up with hw index before exiting the loop is a good
-> thing IMO.
 
-ok.
+So, here's the patch. I hope you like it and want to merge it :-)
 
-thanks,
-grant
+
+Signed-off-by: Jesper Juhl <juhl-lkml@dif.dk>
+--- 
+
+ net/ipv4/raw.c |   18 ++++++++++++------
+ 1 files changed, 12 insertions(+), 6 deletions(-)
+
+--- linux-2.6.12-rc6-mm1-orig/net/ipv4/raw.c	2005-06-12 15:58:58.000000000 +0200
++++ linux-2.6.12-rc6-mm1/net/ipv4/raw.c	2005-06-15 20:55:06.000000000 +0200
+@@ -259,7 +259,7 @@ int raw_rcv(struct sock *sk, struct sk_b
+ 	return 0;
+ }
+ 
+-static int raw_send_hdrinc(struct sock *sk, void *from, int length,
++static int raw_send_hdrinc(struct sock *sk, void *from, size_t length,
+ 			struct rtable *rt, 
+ 			unsigned int flags)
+ {
+@@ -298,7 +298,7 @@ static int raw_send_hdrinc(struct sock *
+ 		goto error_fault;
+ 
+ 	/* We don't modify invalid header */
+-	if (length >= sizeof(*iph) && iph->ihl * 4 <= length) {
++	if (length >= sizeof(*iph) && (size_t)(iph->ihl * 4) <= length) {
+ 		if (!iph->saddr)
+ 			iph->saddr = rt->rt_src;
+ 		iph->check   = 0;
+@@ -332,7 +332,7 @@ static void raw_probe_proto_opt(struct f
+ 	u8 __user *type = NULL;
+ 	u8 __user *code = NULL;
+ 	int probed = 0;
+-	int i;
++	unsigned int i;
+ 
+ 	if (!msg->msg_iov)
+ 		return;
+@@ -384,7 +384,7 @@ static int raw_sendmsg(struct kiocb *ioc
+ 	int err;
+ 
+ 	err = -EMSGSIZE;
+-	if (len < 0 || len > 0xFFFF)
++	if (len > 0xFFFF)
+ 		goto out;
+ 
+ 	/*
+@@ -514,7 +514,10 @@ done:
+ 		kfree(ipc.opt);
+ 	ip_rt_put(rt);
+ 
+-out:	return err < 0 ? err : len;
++out:
++	if (err < 0)
++		return err;
++	return len;
+ 
+ do_confirm:
+ 	dst_confirm(&rt->u.dst);
+@@ -610,7 +613,10 @@ static int raw_recvmsg(struct kiocb *ioc
+ 		copied = skb->len;
+ done:
+ 	skb_free_datagram(sk, skb);
+-out:	return err ? err : copied;
++out:	
++	if (err)
++		return err;
++	return copied;
+ }
+ 
+ static int raw_init(struct sock *sk)
+
+
+
+
+Please CC me on replies.
+
+-- 
+Jesper Juhl
