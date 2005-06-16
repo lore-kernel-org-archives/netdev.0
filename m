@@ -1,116 +1,38 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] sk98lin: fix ethtool stats
-Date: Thu, 16 Jun 2005 11:01:09 -0700
-Message-ID: <20050616110109.728d315a@dxpl.pdx.osdl.net>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH]: Tigon3 new NAPI locking v2
+Date: Thu, 16 Jun 2005 13:04:17 -0700 (PDT)
+Message-ID: <20050616.130417.78707215.davem@davemloft.net>
+References: <20050616113732.GA22367@gondor.apana.org.au>
+	<20050616115945.GA23064@gondor.apana.org.au>
+	<20050616130453.GA23682@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, mchan@broadcom.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+To: herbert@gondor.apana.org.au
+In-Reply-To: <20050616130453.GA23682@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The ethtool stats code in the sk98lin driver doesn't correctly match
-stats with names. Also it always reports stats for port 0, and doesn't
-update stats before reporting.
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH]: Tigon3 new NAPI locking v2
+Date: Thu, 16 Jun 2005 23:04:53 +1000
 
-This patch fixes that and adds statistics for the number
-of pause frames sent/received.
+> On Thu, Jun 16, 2005 at 09:59:45PM +1000, herbert wrote:
+> > 
+> > Actually, why don't we utilise the existing synchronize_irq mechanism?
+> > Here is what we could do.
+> 
+> Oops, I should've left the smp_mb() in tg3_irq_quiesce since
+> synchronize_irq isn't a memory barrier.
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+Wow, that's a very cool idea.  :-)
 
-Index: work/drivers/net/sk98lin/skethtool.c
-===================================================================
---- work.orig/drivers/net/sk98lin/skethtool.c
-+++ work/drivers/net/sk98lin/skethtool.c
-@@ -268,6 +268,7 @@ static const char StringsStats[][ETH_GST
- 	"rx_bytes",	"tx_bytes",
- 	"rx_errors",	"tx_errors",	
- 	"rx_dropped",	"tx_dropped",
-+	"rx_pause",	"tx_pause",
- 	"multicasts",	"collisions",	
- 	"rx_length_errors",		"rx_buffer_overflow_errors",
- 	"rx_crc_errors",		"rx_frame_errors",
-@@ -297,37 +298,49 @@ static void getStrings(struct net_device
- static void getEthtoolStats(struct net_device *dev,
- 			    struct ethtool_stats *stats, u64 *data)
- {
--	const DEV_NET	*pNet = netdev_priv(dev);
--	const SK_AC *pAC = pNet->pAC;
--	const SK_PNMI_STRUCT_DATA *pPnmiStruct = &pAC->PnmiStruct;
--
--	*data++ = pPnmiStruct->Stat[0].StatRxOkCts;
--	*data++ = pPnmiStruct->Stat[0].StatTxOkCts;
--	*data++ = pPnmiStruct->Stat[0].StatRxOctetsOkCts;
--	*data++ = pPnmiStruct->Stat[0].StatTxOctetsOkCts;
--	*data++ = pPnmiStruct->InErrorsCts;
--	*data++ = pPnmiStruct->Stat[0].StatTxSingleCollisionCts;
--	*data++ = pPnmiStruct->RxNoBufCts;
--	*data++ = pPnmiStruct->TxNoBufCts;
--	*data++ = pPnmiStruct->Stat[0].StatRxMulticastOkCts;
--	*data++ = pPnmiStruct->Stat[0].StatTxSingleCollisionCts;
--	*data++ = pPnmiStruct->Stat[0].StatRxRuntCts;
--	*data++ = pPnmiStruct->Stat[0].StatRxFifoOverflowCts;
--	*data++ = pPnmiStruct->Stat[0].StatRxFcsCts;
--	*data++ = pPnmiStruct->Stat[0].StatRxFramingCts;
--	*data++ = pPnmiStruct->Stat[0].StatRxShortsCts;
--	*data++ = pPnmiStruct->Stat[0].StatRxTooLongCts;
--	*data++ = pPnmiStruct->Stat[0].StatRxCextCts;
--	*data++ = pPnmiStruct->Stat[0].StatRxSymbolCts;
--	*data++ = pPnmiStruct->Stat[0].StatRxIRLengthCts;
--	*data++ = pPnmiStruct->Stat[0].StatRxCarrierCts;
--	*data++ = pPnmiStruct->Stat[0].StatRxJabberCts;
--	*data++ = pPnmiStruct->Stat[0].StatRxMissedCts;
--	*data++ = pAC->stats.tx_aborted_errors;
--	*data++ = pPnmiStruct->Stat[0].StatTxCarrierCts;
--	*data++ = pPnmiStruct->Stat[0].StatTxFifoUnderrunCts;
--	*data++ = pPnmiStruct->Stat[0].StatTxCarrierCts;
--	*data++ = pAC->stats.tx_window_errors;
-+	DEV_NET	*pNet = netdev_priv(dev);
-+	SK_AC *pAC = pNet->pAC;
-+	SK_PNMI_STRUCT_DATA *pPnmiStruct = &pAC->PnmiStruct;
-+	u32 size = sizeof(*pPnmiStruct);
-+	int port = pNet->NetNr;
-+	int i = 0;
-+
-+	if (netif_running(dev))
-+		SkPnmiGetStruct(pAC, pAC->IoBase, pPnmiStruct, 
-+				&size, port);
-+
-+	i = 0;
-+	data[i++] = pPnmiStruct->Stat[port].StatRxOkCts;
-+	data[i++] = pPnmiStruct->Stat[port].StatTxOkCts;
-+	data[i++] = pPnmiStruct->Stat[port].StatRxOctetsOkCts;
-+	data[i++] = pPnmiStruct->Stat[port].StatTxOctetsOkCts;
-+	data[i++] = pPnmiStruct->InErrorsCts;
-+	data[i++] = pPnmiStruct->OutErrorsCts;
-+	data[i++] = pPnmiStruct->RxNoBufCts;
-+	data[i++] = pPnmiStruct->TxNoBufCts;
-+	data[i++] = pPnmiStruct->Stat[port].StatRxPauseMacCtrlCts;
-+	data[i++] = pPnmiStruct->Stat[port].StatTxPauseMacCtrlCts;
-+	data[i++] = pPnmiStruct->Stat[port].StatRxMulticastOkCts;
-+	data[i++] = pPnmiStruct->Stat[port].StatTxSingleCollisionCts;
-+	data[i++] = pPnmiStruct->Stat[port].StatRxRuntCts;
-+	data[i++] = pPnmiStruct->Stat[port].StatRxFifoOverflowCts;
-+	data[i++] = pPnmiStruct->Stat[port].StatRxFcsCts;
-+	data[i++] = pPnmiStruct->Stat[port].StatRxFramingCts;
-+	data[i++] = pPnmiStruct->Stat[port].StatRxShortsCts;
-+	data[i++] = pPnmiStruct->Stat[port].StatRxTooLongCts;
-+	data[i++] = pPnmiStruct->Stat[port].StatRxCextCts;
-+	data[i++] = pPnmiStruct->Stat[port].StatRxSymbolCts;
-+	data[i++] = pPnmiStruct->Stat[port].StatRxIRLengthCts;
-+	data[i++] = pPnmiStruct->Stat[port].StatRxCarrierCts;
-+	data[i++] = pPnmiStruct->Stat[port].StatRxJabberCts;
-+	data[i++] = pPnmiStruct->Stat[port].StatRxMissedCts;
-+	data[i++] = pAC->stats.tx_aborted_errors;
-+	data[i++] = pPnmiStruct->Stat[port].StatTxCarrierCts;
-+	data[i++] = pPnmiStruct->Stat[port].StatTxFifoUnderrunCts;
-+	data[i++] = pPnmiStruct->Stat[port].StatTxCarrierCts;
-+	data[i++] = pAC->stats.tx_window_errors;
-+	
-+	BUG_ON(i != ARRAY_SIZE(StringsStats));
- }
- 
- 
+In fact, I think it will eliminate some (but definitely not all) of
+the races that the new locking code has.
+
+When you posted the patch with the atomic bitop added to the interrupt
+handler, I was going to tell you that the whole idea was to make it
+near zero cost to the interrupt fast path. :)
