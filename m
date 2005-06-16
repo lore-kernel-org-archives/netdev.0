@@ -1,121 +1,116 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH]: Tigon3 new NAPI locking v2
-Date: Thu, 16 Jun 2005 23:04:53 +1000
-Message-ID: <20050616130453.GA23682@gondor.apana.org.au>
-References: <20050603.122558.88474819.davem@davemloft.net> <20050616113732.GA22367@gondor.apana.org.au> <20050616115945.GA23064@gondor.apana.org.au>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] sk98lin: fix ethtool stats
+Date: Thu, 16 Jun 2005 11:01:09 -0700
+Message-ID: <20050616110109.728d315a@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="MGYHOYXEY6WxJCY8"
-Cc: netdev@oss.sgi.com, mchan@broadcom.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20050616115945.GA23064@gondor.apana.org.au>
+To: Jeff Garzik <jgarzik@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+The ethtool stats code in the sk98lin driver doesn't correctly match
+stats with names. Also it always reports stats for port 0, and doesn't
+update stats before reporting.
 
---MGYHOYXEY6WxJCY8
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+This patch fixes that and adds statistics for the number
+of pause frames sent/received.
 
-On Thu, Jun 16, 2005 at 09:59:45PM +1000, herbert wrote:
-> 
-> Actually, why don't we utilise the existing synchronize_irq mechanism?
-> Here is what we could do.
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-Oops, I should've left the smp_mb() in tg3_irq_quiesce since
-synchronize_irq isn't a memory barrier.
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---MGYHOYXEY6WxJCY8
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
-
---- linux-2.6/drivers/net/tg3.h.orig	2005-06-16 21:52:01.000000000 +1000
-+++ linux-2.6/drivers/net/tg3.h	2005-06-16 21:58:02.000000000 +1000
-@@ -2008,22 +2008,20 @@
- 
- 	/* If the IRQ handler (which runs lockless) needs to be
- 	 * quiesced, the following bitmask state is used.  The
--	 * SYNC bit is set by non-IRQ context code to initiate
--	 * the quiescence.  The setter of this bit also forces
--	 * an interrupt to run via the GRC misc host control
--	 * register.
--	 *
--	 * The IRQ handler notes this, disables interrupts, and
--	 * sets the COMPLETE bit.  At this point the SYNC bit
--	 * setter can be assured that interrupts will no longer
--	 * get run.
-+	 * SYNC flag is set by non-IRQ context code to initiate
-+	 * the quiescence.
-+	 *
-+	 * When the IRQ handler notices that SYNC is set, it
-+	 * disables interrupts and returns.
-+	 *
-+	 * When all outstanding IRQ handlers have returned after
-+	 * the SYNC flag has been set, the setter can be assured
-+	 * that interrupts will no longer get run.
- 	 *
- 	 * In this way all SMP driver locks are never acquired
- 	 * in hw IRQ context, only sw IRQ context or lower.
- 	 */
--	unsigned long			irq_state;
--#define TG3_IRQSTATE_SYNC		0
--#define TG3_IRQSTATE_COMPLETE		1
-+	unsigned int			irq_sync;
- 
- 	/* SMP locking strategy:
- 	 *
---- linux-2.6/drivers/net/tg3.c.orig	2005-06-16 21:52:04.000000000 +1000
-+++ linux-2.6/drivers/net/tg3.c	2005-06-16 23:02:22.000000000 +1000
-@@ -435,7 +435,7 @@
- 	tw32_mailbox(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW,
- 		     (tp->last_tag << 24));
- 	tr32(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW);
--	tp->irq_state = 0;
-+	tp->irq_sync = 0;
- 	tg3_cond_int(tp);
- }
- 
-@@ -2933,30 +2933,17 @@
- 
- static void tg3_irq_quiesce(struct tg3 *tp)
+Index: work/drivers/net/sk98lin/skethtool.c
+===================================================================
+--- work.orig/drivers/net/sk98lin/skethtool.c
++++ work/drivers/net/sk98lin/skethtool.c
+@@ -268,6 +268,7 @@ static const char StringsStats[][ETH_GST
+ 	"rx_bytes",	"tx_bytes",
+ 	"rx_errors",	"tx_errors",	
+ 	"rx_dropped",	"tx_dropped",
++	"rx_pause",	"tx_pause",
+ 	"multicasts",	"collisions",	
+ 	"rx_length_errors",		"rx_buffer_overflow_errors",
+ 	"rx_crc_errors",		"rx_frame_errors",
+@@ -297,37 +298,49 @@ static void getStrings(struct net_device
+ static void getEthtoolStats(struct net_device *dev,
+ 			    struct ethtool_stats *stats, u64 *data)
  {
--	BUG_ON(test_bit(TG3_IRQSTATE_SYNC, &tp->irq_state));
-+	BUG_ON(tp->irq_sync);
- 
--	set_bit(TG3_IRQSTATE_SYNC, &tp->irq_state);
-+	tp->irq_sync = 1;
- 	smp_mb();
--	tw32(GRC_LOCAL_CTRL,
--	     tp->grc_local_ctrl | GRC_LCLCTRL_SETINT);
- 
--	while (!test_bit(TG3_IRQSTATE_COMPLETE, &tp->irq_state)) {
--		u32 val = tr32(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW);
+-	const DEV_NET	*pNet = netdev_priv(dev);
+-	const SK_AC *pAC = pNet->pAC;
+-	const SK_PNMI_STRUCT_DATA *pPnmiStruct = &pAC->PnmiStruct;
 -
--		if (val == 0x00000001)
--			break;
--
--		cpu_relax();
--	}
-+	synchronize_irq(tp->pdev->irq);
+-	*data++ = pPnmiStruct->Stat[0].StatRxOkCts;
+-	*data++ = pPnmiStruct->Stat[0].StatTxOkCts;
+-	*data++ = pPnmiStruct->Stat[0].StatRxOctetsOkCts;
+-	*data++ = pPnmiStruct->Stat[0].StatTxOctetsOkCts;
+-	*data++ = pPnmiStruct->InErrorsCts;
+-	*data++ = pPnmiStruct->Stat[0].StatTxSingleCollisionCts;
+-	*data++ = pPnmiStruct->RxNoBufCts;
+-	*data++ = pPnmiStruct->TxNoBufCts;
+-	*data++ = pPnmiStruct->Stat[0].StatRxMulticastOkCts;
+-	*data++ = pPnmiStruct->Stat[0].StatTxSingleCollisionCts;
+-	*data++ = pPnmiStruct->Stat[0].StatRxRuntCts;
+-	*data++ = pPnmiStruct->Stat[0].StatRxFifoOverflowCts;
+-	*data++ = pPnmiStruct->Stat[0].StatRxFcsCts;
+-	*data++ = pPnmiStruct->Stat[0].StatRxFramingCts;
+-	*data++ = pPnmiStruct->Stat[0].StatRxShortsCts;
+-	*data++ = pPnmiStruct->Stat[0].StatRxTooLongCts;
+-	*data++ = pPnmiStruct->Stat[0].StatRxCextCts;
+-	*data++ = pPnmiStruct->Stat[0].StatRxSymbolCts;
+-	*data++ = pPnmiStruct->Stat[0].StatRxIRLengthCts;
+-	*data++ = pPnmiStruct->Stat[0].StatRxCarrierCts;
+-	*data++ = pPnmiStruct->Stat[0].StatRxJabberCts;
+-	*data++ = pPnmiStruct->Stat[0].StatRxMissedCts;
+-	*data++ = pAC->stats.tx_aborted_errors;
+-	*data++ = pPnmiStruct->Stat[0].StatTxCarrierCts;
+-	*data++ = pPnmiStruct->Stat[0].StatTxFifoUnderrunCts;
+-	*data++ = pPnmiStruct->Stat[0].StatTxCarrierCts;
+-	*data++ = pAC->stats.tx_window_errors;
++	DEV_NET	*pNet = netdev_priv(dev);
++	SK_AC *pAC = pNet->pAC;
++	SK_PNMI_STRUCT_DATA *pPnmiStruct = &pAC->PnmiStruct;
++	u32 size = sizeof(*pPnmiStruct);
++	int port = pNet->NetNr;
++	int i = 0;
++
++	if (netif_running(dev))
++		SkPnmiGetStruct(pAC, pAC->IoBase, pPnmiStruct, 
++				&size, port);
++
++	i = 0;
++	data[i++] = pPnmiStruct->Stat[port].StatRxOkCts;
++	data[i++] = pPnmiStruct->Stat[port].StatTxOkCts;
++	data[i++] = pPnmiStruct->Stat[port].StatRxOctetsOkCts;
++	data[i++] = pPnmiStruct->Stat[port].StatTxOctetsOkCts;
++	data[i++] = pPnmiStruct->InErrorsCts;
++	data[i++] = pPnmiStruct->OutErrorsCts;
++	data[i++] = pPnmiStruct->RxNoBufCts;
++	data[i++] = pPnmiStruct->TxNoBufCts;
++	data[i++] = pPnmiStruct->Stat[port].StatRxPauseMacCtrlCts;
++	data[i++] = pPnmiStruct->Stat[port].StatTxPauseMacCtrlCts;
++	data[i++] = pPnmiStruct->Stat[port].StatRxMulticastOkCts;
++	data[i++] = pPnmiStruct->Stat[port].StatTxSingleCollisionCts;
++	data[i++] = pPnmiStruct->Stat[port].StatRxRuntCts;
++	data[i++] = pPnmiStruct->Stat[port].StatRxFifoOverflowCts;
++	data[i++] = pPnmiStruct->Stat[port].StatRxFcsCts;
++	data[i++] = pPnmiStruct->Stat[port].StatRxFramingCts;
++	data[i++] = pPnmiStruct->Stat[port].StatRxShortsCts;
++	data[i++] = pPnmiStruct->Stat[port].StatRxTooLongCts;
++	data[i++] = pPnmiStruct->Stat[port].StatRxCextCts;
++	data[i++] = pPnmiStruct->Stat[port].StatRxSymbolCts;
++	data[i++] = pPnmiStruct->Stat[port].StatRxIRLengthCts;
++	data[i++] = pPnmiStruct->Stat[port].StatRxCarrierCts;
++	data[i++] = pPnmiStruct->Stat[port].StatRxJabberCts;
++	data[i++] = pPnmiStruct->Stat[port].StatRxMissedCts;
++	data[i++] = pAC->stats.tx_aborted_errors;
++	data[i++] = pPnmiStruct->Stat[port].StatTxCarrierCts;
++	data[i++] = pPnmiStruct->Stat[port].StatTxFifoUnderrunCts;
++	data[i++] = pPnmiStruct->Stat[port].StatTxCarrierCts;
++	data[i++] = pAC->stats.tx_window_errors;
++	
++	BUG_ON(i != ARRAY_SIZE(StringsStats));
  }
  
- static inline int tg3_irq_sync(struct tg3 *tp)
- {
--	if (test_bit(TG3_IRQSTATE_SYNC, &tp->irq_state)) {
--		set_bit(TG3_IRQSTATE_COMPLETE, &tp->irq_state);
--		return 1;
--	}
--	return 0;
-+	return tp->irq_sync;
- }
  
- /* Fully shutdown all tg3 driver activity elsewhere in the system.
-
---MGYHOYXEY6WxJCY8--
