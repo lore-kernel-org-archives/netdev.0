@@ -1,63 +1,71 @@
-From: Jeff Moyer <jmoyer@redhat.com>
-Subject: netpoll and the bonding driver
-Date: Fri, 17 Jun 2005 15:56:35 -0400
-Message-ID: <17075.10995.498758.773092__38688.057420268$1119038047$gmane$org@segfault.boston.redhat.com>
-Reply-To: jmoyer@redhat.com
+From: Malli Chilakala <mallikarjuna.chilakala@intel.com>
+Subject: [PATCH net-drivers-2.6 2/9] ixgb: Fix unnecessary link state messages
+Date: Fri, 17 Jun 2005 16:57:56 -0700 (PDT)
+Message-ID: <Pine.LNX.4.61.0506131234090.24260@anoushka.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: mpm@selenic.com
+To: "jgarzik@pobox.com" <jgarzik@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Fix unnecessary link state messages
 
-I'm trying to implement a netpoll hook for the bonding driver.  In doing
-so, I ran into the following problem:
-
-netpoll_send_skb calls the device's hard_start_xmit routine.  In this case,
-it will be one of the bonding driver's xmit routines.  Each of these ends
-up calling bond_dev_queue_xmit, which in turn calls dev_queue_xmit.
-
-Now, for netconsole, the code disables interrupts before calling
-netpoll_send_udp:
-
-        local_irq_save(flags);
-
-        for(left = len; left; ) {
-                frag = min(left, MAX_PRINT_CHUNK);
-                netpoll_send_udp(&np, msg, frag);
-                msg += frag;
-                left -= frag;
-        }
-
-        local_irq_restore(flags);
-
-Note that if you did an alt-sysrq-t, then you would enter this code path in
-interrupt context as well, and herein lies the problem.  It seems that
-dev_queue_xmit is not supposed to be called with interrupts disabled.  The
-immediate affect of this is that the WARN_ON in local_bh_enable triggers
-(called at the end of dev_queue_xmit), causing us to loop infinitely
-printing out stack traces.
-
-So, my question is this: how in the world do we fit the bonding driver into
-the generic netpoll infrastructure?  In the case of every other driver,
-netpoll simply calls the hard_start_xmit routine[1], and this approach
-simply doesn't work for the bonding driver, for the reasons I described
-above.  So, one way to make the bonding driver fit into this model is to
-modify it to not call dev_queue_xmit when called from netpoll.  This can be
-done, I suppose, by adding another start_xmit routine that is specific to
-netpoll.  This doesn't feel good to me, but I'm not sure how else you would
-solve the problem (and netpoll already gets its own poll interface, so is
-one more all that bad?).  The other approach to take is to put bonding
-specific logic into netpoll.  I think we can all agree that is a bad idea.
-
--Jeff
-
-[1] Note that netpoll does not perform any of the checks that dev_queue_xmit
-    does.  This either means that a) in the netpoll case, this is an okay
-    thing to do (since it's been working for this long), or b) netpoll has a 
-    bug.
+Signed-off-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
+Signed-off-by: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
+Signed-off-by: John Ronciak <john.ronciak@intel.com>
+ 
+diff -up netdev-2.6/drivers/net/ixgb/ixgb_ethtool.c netdev-2.6/drivers/net/ixgb.new/ixgb_ethtool.c
+--- netdev-2.6/drivers/net/ixgb/ixgb_ethtool.c	2005-05-25 12:26:48.000000000 -0700
++++ netdev-2.6/drivers/net/ixgb.new/ixgb_ethtool.c	2005-05-25 12:26:56.000000000 -0700
+@@ -130,6 +130,12 @@ ixgb_get_settings(struct net_device *net
+ 		ixgb_down(adapter, TRUE);
+ 		ixgb_reset(adapter);
+ 		ixgb_up(adapter);
++		/* be optimistic about our link, since we were up before */
++		adapter->link_speed = 10000;
++		adapter->link_duplex = FULL_DUPLEX;
++		netif_carrier_on(netdev);
++		netif_wake_queue(netdev);
++		
+ 	} else
+ 		ixgb_reset(adapter);
+ 
+@@ -177,6 +181,11 @@ ixgb_set_pauseparam(struct net_device *n
+ 	if(netif_running(adapter->netdev)) {
+ 		ixgb_down(adapter, TRUE);
+ 		ixgb_up(adapter);
++		/* be optimistic about our link, since we were up before */
++		adapter->link_speed = 10000;
++		adapter->link_duplex = FULL_DUPLEX;
++		netif_carrier_on(netdev);
++		netif_wake_queue(netdev);
+ 	} else
+ 		ixgb_reset(adapter);
+ 		
+@@ -199,6 +181,11 @@ 
+ 	if(netif_running(netdev)) {
+ 		ixgb_down(adapter,TRUE);
+ 		ixgb_up(adapter);
++		/* be optimistic about our link, since we were up before */
++		adapter->link_speed = 10000;
++		adapter->link_duplex = FULL_DUPLEX;
++		netif_carrier_on(netdev);
++		netif_wake_queue(netdev);
+ 	} else
+ 		ixgb_reset(adapter);
+ 	return 0;
+@@ -573,6 +573,11 @@ ixgb_set_ringparam(struct net_device *ne
+ 		adapter->tx_ring = tx_new;
+ 		if((err = ixgb_up(adapter)))
+ 			return err;
++		/* be optimistic about our link, since we were up before */
++		adapter->link_speed = 10000;
++		adapter->link_duplex = FULL_DUPLEX;
++		netif_carrier_on(netdev);
++		netif_wake_queue(netdev);
+ 	}
+ 
+ 	return 0;
