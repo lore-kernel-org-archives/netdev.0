@@ -1,7 +1,7 @@
 From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH 1/9] bring over ieee80211.h from mainline
-Date: Sun, 19 Jun 2005 01:27:20 +0200
-Message-ID: <20050618232720.GB9918@lst.de>
+Subject: [PATCH 3/9] orinoco: wireless API 15 support
+Date: Sun, 19 Jun 2005 01:27:33 +0200
+Message-ID: <20050618232733.GD9918@lst.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com
@@ -12,894 +12,1529 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-the prototypes and inlines aren't actually needed, but let's not diverge
-from -mm too far.
+
+(patch from Moustafa Youssef, updated by Jim Carter and Pavel Roskin).
 
 
-Index: linux-2.6/include/net/ieee80211.h
+Index: linux-2.6/drivers/net/wireless/orinoco.c
 ===================================================================
---- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6/include/net/ieee80211.h	2005-06-19 01:01:14.000000000 +0200
-@@ -0,0 +1,882 @@
-+/*
-+ * Merged with mainline ieee80211.h in Aug 2004.  Original ieee802_11
-+ * remains copyright by the original authors
-+ *
-+ * Portions of the merged code are based on Host AP (software wireless
-+ * LAN access point) driver for Intersil Prism2/2.5/3.
-+ *
-+ * Copyright (c) 2001-2002, SSH Communications Security Corp and Jouni Malinen
-+ * <jkmaline@cc.hut.fi>
-+ * Copyright (c) 2002-2003, Jouni Malinen <jkmaline@cc.hut.fi>
-+ *
-+ * Adaption to a generic IEEE 802.11 stack by James Ketrenos
-+ * <jketreno@linux.intel.com>
-+ * Copyright (c) 2004, Intel Corporation
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation. See README and COPYING for
-+ * more details.
-+ */
-+#ifndef IEEE80211_H
-+#define IEEE80211_H
-+
-+#include <linux/if_ether.h> /* ETH_ALEN */
-+#include <linux/kernel.h>   /* ARRAY_SIZE */
-+
-+#if WIRELESS_EXT < 17
-+#define IW_QUAL_QUAL_INVALID   0x10
-+#define IW_QUAL_LEVEL_INVALID  0x20
-+#define IW_QUAL_NOISE_INVALID  0x40
-+#define IW_QUAL_QUAL_UPDATED   0x1
-+#define IW_QUAL_LEVEL_UPDATED  0x2
-+#define IW_QUAL_NOISE_UPDATED  0x4
-+#endif
-+
-+#define IEEE80211_DATA_LEN		2304
-+/* Maximum size for the MA-UNITDATA primitive, 802.11 standard section
-+   6.2.1.1.2.
-+
-+   The figure in section 7.1.2 suggests a body size of up to 2312
-+   bytes is allowed, which is a bit confusing, I suspect this
-+   represents the 2304 bytes of real data, plus a possible 8 bytes of
-+   WEP IV and ICV. (this interpretation suggested by Ramiro Barreiro) */
-+
-+
-+#define IEEE80211_HLEN			30
-+#define IEEE80211_FRAME_LEN		(IEEE80211_DATA_LEN + IEEE80211_HLEN)
-+
-+struct ieee80211_hdr {
-+	u16 frame_ctl;
-+	u16 duration_id;
-+	u8 addr1[ETH_ALEN];
-+	u8 addr2[ETH_ALEN];
-+	u8 addr3[ETH_ALEN];
-+	u16 seq_ctl;
-+	u8 addr4[ETH_ALEN];
-+} __attribute__ ((packed));
-+
-+struct ieee80211_hdr_3addr {
-+	u16 frame_ctl;
-+	u16 duration_id;
-+	u8 addr1[ETH_ALEN];
-+	u8 addr2[ETH_ALEN];
-+	u8 addr3[ETH_ALEN];
-+	u16 seq_ctl;
-+} __attribute__ ((packed));
-+
-+enum eap_type {
-+	EAP_PACKET = 0,
-+	EAPOL_START,
-+	EAPOL_LOGOFF,
-+	EAPOL_KEY,
-+	EAPOL_ENCAP_ASF_ALERT
-+};
-+
-+static const char *eap_types[] = {
-+	[EAP_PACKET]		= "EAP-Packet",
-+	[EAPOL_START]		= "EAPOL-Start",
-+	[EAPOL_LOGOFF]		= "EAPOL-Logoff",
-+	[EAPOL_KEY]		= "EAPOL-Key",
-+	[EAPOL_ENCAP_ASF_ALERT]	= "EAPOL-Encap-ASF-Alert"
-+};
-+
-+static inline const char *eap_get_type(int type)
-+{
-+	return (type >= ARRAY_SIZE(eap_types)) ? "Unknown" : eap_types[type];
-+}
-+
-+struct eapol {
-+	u8 snap[6];
-+	u16 ethertype;
-+	u8 version;
-+	u8 type;
-+	u16 length;
-+} __attribute__ ((packed));
-+
-+#define IEEE80211_3ADDR_LEN 24
-+#define IEEE80211_4ADDR_LEN 30
-+#define IEEE80211_FCS_LEN    4
-+
-+#define MIN_FRAG_THRESHOLD     256U
-+#define	MAX_FRAG_THRESHOLD     2346U
-+
-+/* Frame control field constants */
-+#define IEEE80211_FCTL_VERS		0x0002
-+#define IEEE80211_FCTL_FTYPE		0x000c
-+#define IEEE80211_FCTL_STYPE		0x00f0
-+#define IEEE80211_FCTL_TODS		0x0100
-+#define IEEE80211_FCTL_FROMDS		0x0200
-+#define IEEE80211_FCTL_MOREFRAGS	0x0400
-+#define IEEE80211_FCTL_RETRY		0x0800
-+#define IEEE80211_FCTL_PM		0x1000
-+#define IEEE80211_FCTL_MOREDATA	0x2000
-+#define IEEE80211_FCTL_WEP		0x4000
-+#define IEEE80211_FCTL_ORDER		0x8000
-+
-+#define IEEE80211_FTYPE_MGMT		0x0000
-+#define IEEE80211_FTYPE_CTL		0x0004
-+#define IEEE80211_FTYPE_DATA		0x0008
-+
-+/* management */
-+#define IEEE80211_STYPE_ASSOC_REQ	0x0000
-+#define IEEE80211_STYPE_ASSOC_RESP 	0x0010
-+#define IEEE80211_STYPE_REASSOC_REQ	0x0020
-+#define IEEE80211_STYPE_REASSOC_RESP	0x0030
-+#define IEEE80211_STYPE_PROBE_REQ	0x0040
-+#define IEEE80211_STYPE_PROBE_RESP	0x0050
-+#define IEEE80211_STYPE_BEACON		0x0080
-+#define IEEE80211_STYPE_ATIM		0x0090
-+#define IEEE80211_STYPE_DISASSOC	0x00A0
-+#define IEEE80211_STYPE_AUTH		0x00B0
-+#define IEEE80211_STYPE_DEAUTH		0x00C0
-+
-+/* control */
-+#define IEEE80211_STYPE_PSPOLL		0x00A0
-+#define IEEE80211_STYPE_RTS		0x00B0
-+#define IEEE80211_STYPE_CTS		0x00C0
-+#define IEEE80211_STYPE_ACK		0x00D0
-+#define IEEE80211_STYPE_CFEND		0x00E0
-+#define IEEE80211_STYPE_CFENDACK	0x00F0
-+
-+/* data */
-+#define IEEE80211_STYPE_DATA		0x0000
-+#define IEEE80211_STYPE_DATA_CFACK	0x0010
-+#define IEEE80211_STYPE_DATA_CFPOLL	0x0020
-+#define IEEE80211_STYPE_DATA_CFACKPOLL	0x0030
-+#define IEEE80211_STYPE_NULLFUNC	0x0040
-+#define IEEE80211_STYPE_CFACK		0x0050
-+#define IEEE80211_STYPE_CFPOLL		0x0060
-+#define IEEE80211_STYPE_CFACKPOLL	0x0070
-+
-+#define IEEE80211_SCTL_FRAG		0x000F
-+#define IEEE80211_SCTL_SEQ		0xFFF0
-+
-+
-+/* debug macros */
-+
-+#ifdef CONFIG_IEEE80211_DEBUG
-+extern u32 ieee80211_debug_level;
-+#define IEEE80211_DEBUG(level, fmt, args...) \
-+do { if (ieee80211_debug_level & (level)) \
-+  printk(KERN_DEBUG "ieee80211: %c %s " fmt, \
-+         in_interrupt() ? 'I' : 'U', __FUNCTION__ , ## args); } while (0)
-+#else
-+#define IEEE80211_DEBUG(level, fmt, args...) do {} while (0)
-+#endif	/* CONFIG_IEEE80211_DEBUG */
-+
-+/*
-+ * To use the debug system;
-+ *
-+ * If you are defining a new debug classification, simply add it to the #define
-+ * list here in the form of:
-+ *
-+ * #define IEEE80211_DL_xxxx VALUE
-+ *
-+ * shifting value to the left one bit from the previous entry.  xxxx should be
-+ * the name of the classification (for example, WEP)
-+ *
-+ * You then need to either add a IEEE80211_xxxx_DEBUG() macro definition for your
-+ * classification, or use IEEE80211_DEBUG(IEEE80211_DL_xxxx, ...) whenever you want
-+ * to send output to that classification.
-+ *
-+ * To add your debug level to the list of levels seen when you perform
-+ *
-+ * % cat /proc/net/ipw/debug_level
-+ *
-+ * you simply need to add your entry to the ipw_debug_levels array.
-+ *
-+ * If you do not see debug_level in /proc/net/ipw then you do not have
-+ * CONFIG_IEEE80211_DEBUG defined in your kernel configuration
-+ *
-+ */
-+
-+#define IEEE80211_DL_INFO          (1<<0)
-+#define IEEE80211_DL_WX            (1<<1)
-+#define IEEE80211_DL_SCAN          (1<<2)
-+#define IEEE80211_DL_STATE         (1<<3)
-+#define IEEE80211_DL_MGMT          (1<<4)
-+#define IEEE80211_DL_FRAG          (1<<5)
-+#define IEEE80211_DL_EAP           (1<<6)
-+#define IEEE80211_DL_DROP          (1<<7)
-+
-+#define IEEE80211_DL_TX            (1<<8)
-+#define IEEE80211_DL_RX            (1<<9)
-+
-+#define IEEE80211_ERROR(f, a...) printk(KERN_ERR "ieee80211: " f, ## a)
-+#define IEEE80211_WARNING(f, a...) printk(KERN_WARNING "ieee80211: " f, ## a)
-+#define IEEE80211_DEBUG_INFO(f, a...)   IEEE80211_DEBUG(IEEE80211_DL_INFO, f, ## a)
-+
-+#define IEEE80211_DEBUG_WX(f, a...)     IEEE80211_DEBUG(IEEE80211_DL_WX, f, ## a)
-+#define IEEE80211_DEBUG_SCAN(f, a...)   IEEE80211_DEBUG(IEEE80211_DL_SCAN, f, ## a)
-+#define IEEE80211_DEBUG_STATE(f, a...)  IEEE80211_DEBUG(IEEE80211_DL_STATE, f, ## a)
-+#define IEEE80211_DEBUG_MGMT(f, a...)  IEEE80211_DEBUG(IEEE80211_DL_MGMT, f, ## a)
-+#define IEEE80211_DEBUG_FRAG(f, a...)  IEEE80211_DEBUG(IEEE80211_DL_FRAG, f, ## a)
-+#define IEEE80211_DEBUG_EAP(f, a...)  IEEE80211_DEBUG(IEEE80211_DL_EAP, f, ## a)
-+#define IEEE80211_DEBUG_DROP(f, a...)  IEEE80211_DEBUG(IEEE80211_DL_DROP, f, ## a)
-+#define IEEE80211_DEBUG_TX(f, a...)  IEEE80211_DEBUG(IEEE80211_DL_TX, f, ## a)
-+#define IEEE80211_DEBUG_RX(f, a...)  IEEE80211_DEBUG(IEEE80211_DL_RX, f, ## a)
-+#include <linux/netdevice.h>
-+#include <linux/wireless.h>
-+#include <linux/if_arp.h> /* ARPHRD_ETHER */
-+
-+#ifndef WIRELESS_SPY
-+#define WIRELESS_SPY		// enable iwspy support
-+#endif
-+#include <net/iw_handler.h>	// new driver API
-+
-+#ifndef ETH_P_PAE
-+#define ETH_P_PAE 0x888E /* Port Access Entity (IEEE 802.1X) */
-+#endif /* ETH_P_PAE */
-+
-+#define ETH_P_PREAUTH 0x88C7 /* IEEE 802.11i pre-authentication */
-+
-+#ifndef ETH_P_80211_RAW
-+#define ETH_P_80211_RAW (ETH_P_ECONET + 1)
-+#endif
-+
-+/* IEEE 802.11 defines */
-+
-+#define P80211_OUI_LEN 3
-+
-+struct ieee80211_snap_hdr {
-+
-+        u8    dsap;   /* always 0xAA */
-+        u8    ssap;   /* always 0xAA */
-+        u8    ctrl;   /* always 0x03 */
-+        u8    oui[P80211_OUI_LEN];    /* organizational universal id */
-+
-+} __attribute__ ((packed));
-+
-+#define SNAP_SIZE sizeof(struct ieee80211_snap_hdr)
-+
-+#define WLAN_FC_GET_TYPE(fc) ((fc) & IEEE80211_FCTL_FTYPE)
-+#define WLAN_FC_GET_STYPE(fc) ((fc) & IEEE80211_FCTL_STYPE)
-+
-+#define WLAN_GET_SEQ_FRAG(seq) ((seq) & IEEE80211_SCTL_FRAG)
-+#define WLAN_GET_SEQ_SEQ(seq)  ((seq) & IEEE80211_SCTL_SEQ)
-+
-+/* Authentication algorithms */
-+#define WLAN_AUTH_OPEN 0
-+#define WLAN_AUTH_SHARED_KEY 1
-+
-+#define WLAN_AUTH_CHALLENGE_LEN 128
-+
-+#define WLAN_CAPABILITY_BSS (1<<0)
-+#define WLAN_CAPABILITY_IBSS (1<<1)
-+#define WLAN_CAPABILITY_CF_POLLABLE (1<<2)
-+#define WLAN_CAPABILITY_CF_POLL_REQUEST (1<<3)
-+#define WLAN_CAPABILITY_PRIVACY (1<<4)
-+#define WLAN_CAPABILITY_SHORT_PREAMBLE (1<<5)
-+#define WLAN_CAPABILITY_PBCC (1<<6)
-+#define WLAN_CAPABILITY_CHANNEL_AGILITY (1<<7)
-+
-+/* Status codes */
-+#define WLAN_STATUS_SUCCESS 0
-+#define WLAN_STATUS_UNSPECIFIED_FAILURE 1
-+#define WLAN_STATUS_CAPS_UNSUPPORTED 10
-+#define WLAN_STATUS_REASSOC_NO_ASSOC 11
-+#define WLAN_STATUS_ASSOC_DENIED_UNSPEC 12
-+#define WLAN_STATUS_NOT_SUPPORTED_AUTH_ALG 13
-+#define WLAN_STATUS_UNKNOWN_AUTH_TRANSACTION 14
-+#define WLAN_STATUS_CHALLENGE_FAIL 15
-+#define WLAN_STATUS_AUTH_TIMEOUT 16
-+#define WLAN_STATUS_AP_UNABLE_TO_HANDLE_NEW_STA 17
-+#define WLAN_STATUS_ASSOC_DENIED_RATES 18
-+/* 802.11b */
-+#define WLAN_STATUS_ASSOC_DENIED_NOSHORT 19
-+#define WLAN_STATUS_ASSOC_DENIED_NOPBCC 20
-+#define WLAN_STATUS_ASSOC_DENIED_NOAGILITY 21
-+
-+/* Reason codes */
-+#define WLAN_REASON_UNSPECIFIED 1
-+#define WLAN_REASON_PREV_AUTH_NOT_VALID 2
-+#define WLAN_REASON_DEAUTH_LEAVING 3
-+#define WLAN_REASON_DISASSOC_DUE_TO_INACTIVITY 4
-+#define WLAN_REASON_DISASSOC_AP_BUSY 5
-+#define WLAN_REASON_CLASS2_FRAME_FROM_NONAUTH_STA 6
-+#define WLAN_REASON_CLASS3_FRAME_FROM_NONASSOC_STA 7
-+#define WLAN_REASON_DISASSOC_STA_HAS_LEFT 8
-+#define WLAN_REASON_STA_REQ_ASSOC_WITHOUT_AUTH 9
-+
-+
-+/* Information Element IDs */
-+#define WLAN_EID_SSID 0
-+#define WLAN_EID_SUPP_RATES 1
-+#define WLAN_EID_FH_PARAMS 2
-+#define WLAN_EID_DS_PARAMS 3
-+#define WLAN_EID_CF_PARAMS 4
-+#define WLAN_EID_TIM 5
-+#define WLAN_EID_IBSS_PARAMS 6
-+#define WLAN_EID_CHALLENGE 16
-+#define WLAN_EID_RSN 48
-+#define WLAN_EID_GENERIC 221
-+
-+#define IEEE80211_MGMT_HDR_LEN 24
-+#define IEEE80211_DATA_HDR3_LEN 24
-+#define IEEE80211_DATA_HDR4_LEN 30
-+
-+
-+#define IEEE80211_STATMASK_SIGNAL (1<<0)
-+#define IEEE80211_STATMASK_RSSI (1<<1)
-+#define IEEE80211_STATMASK_NOISE (1<<2)
-+#define IEEE80211_STATMASK_RATE (1<<3)
-+#define IEEE80211_STATMASK_WEMASK 0x7
-+
-+
-+#define IEEE80211_CCK_MODULATION    (1<<0)
-+#define IEEE80211_OFDM_MODULATION   (1<<1)
-+
-+#define IEEE80211_24GHZ_BAND     (1<<0)
-+#define IEEE80211_52GHZ_BAND     (1<<1)
-+
-+#define IEEE80211_CCK_RATE_1MB		        0x02
-+#define IEEE80211_CCK_RATE_2MB		        0x04
-+#define IEEE80211_CCK_RATE_5MB		        0x0B
-+#define IEEE80211_CCK_RATE_11MB		        0x16
-+#define IEEE80211_OFDM_RATE_6MB		        0x0C
-+#define IEEE80211_OFDM_RATE_9MB		        0x12
-+#define IEEE80211_OFDM_RATE_12MB		0x18
-+#define IEEE80211_OFDM_RATE_18MB		0x24
-+#define IEEE80211_OFDM_RATE_24MB		0x30
-+#define IEEE80211_OFDM_RATE_36MB		0x48
-+#define IEEE80211_OFDM_RATE_48MB		0x60
-+#define IEEE80211_OFDM_RATE_54MB		0x6C
-+#define IEEE80211_BASIC_RATE_MASK		0x80
-+
-+#define IEEE80211_CCK_RATE_1MB_MASK		(1<<0)
-+#define IEEE80211_CCK_RATE_2MB_MASK		(1<<1)
-+#define IEEE80211_CCK_RATE_5MB_MASK		(1<<2)
-+#define IEEE80211_CCK_RATE_11MB_MASK		(1<<3)
-+#define IEEE80211_OFDM_RATE_6MB_MASK		(1<<4)
-+#define IEEE80211_OFDM_RATE_9MB_MASK		(1<<5)
-+#define IEEE80211_OFDM_RATE_12MB_MASK		(1<<6)
-+#define IEEE80211_OFDM_RATE_18MB_MASK		(1<<7)
-+#define IEEE80211_OFDM_RATE_24MB_MASK		(1<<8)
-+#define IEEE80211_OFDM_RATE_36MB_MASK		(1<<9)
-+#define IEEE80211_OFDM_RATE_48MB_MASK		(1<<10)
-+#define IEEE80211_OFDM_RATE_54MB_MASK		(1<<11)
-+
-+#define IEEE80211_CCK_RATES_MASK	        0x0000000F
-+#define IEEE80211_CCK_BASIC_RATES_MASK	(IEEE80211_CCK_RATE_1MB_MASK | \
-+	IEEE80211_CCK_RATE_2MB_MASK)
-+#define IEEE80211_CCK_DEFAULT_RATES_MASK	(IEEE80211_CCK_BASIC_RATES_MASK | \
-+        IEEE80211_CCK_RATE_5MB_MASK | \
-+        IEEE80211_CCK_RATE_11MB_MASK)
-+
-+#define IEEE80211_OFDM_RATES_MASK		0x00000FF0
-+#define IEEE80211_OFDM_BASIC_RATES_MASK	(IEEE80211_OFDM_RATE_6MB_MASK | \
-+	IEEE80211_OFDM_RATE_12MB_MASK | \
-+	IEEE80211_OFDM_RATE_24MB_MASK)
-+#define IEEE80211_OFDM_DEFAULT_RATES_MASK	(IEEE80211_OFDM_BASIC_RATES_MASK | \
-+	IEEE80211_OFDM_RATE_9MB_MASK  | \
-+	IEEE80211_OFDM_RATE_18MB_MASK | \
-+	IEEE80211_OFDM_RATE_36MB_MASK | \
-+	IEEE80211_OFDM_RATE_48MB_MASK | \
-+	IEEE80211_OFDM_RATE_54MB_MASK)
-+#define IEEE80211_DEFAULT_RATES_MASK (IEEE80211_OFDM_DEFAULT_RATES_MASK | \
-+                                IEEE80211_CCK_DEFAULT_RATES_MASK)
-+
-+#define IEEE80211_NUM_OFDM_RATES	    8
-+#define IEEE80211_NUM_CCK_RATES	            4
-+#define IEEE80211_OFDM_SHIFT_MASK_A         4
-+
-+
-+
-+
-+/* NOTE: This data is for statistical purposes; not all hardware provides this
-+ *       information for frames received.  Not setting these will not cause
-+ *       any adverse affects. */
-+struct ieee80211_rx_stats {
-+	u32 mac_time;
-+	s8 rssi;
-+	u8 signal;
-+	u8 noise;
-+	u16 rate; /* in 100 kbps */
-+	u8 received_channel;
-+	u8 control;
-+	u8 mask;
-+	u8 freq;
-+	u16 len;
-+};
-+
-+/* IEEE 802.11 requires that STA supports concurrent reception of at least
-+ * three fragmented frames. This define can be increased to support more
-+ * concurrent frames, but it should be noted that each entry can consume about
-+ * 2 kB of RAM and increasing cache size will slow down frame reassembly. */
-+#define IEEE80211_FRAG_CACHE_LEN 4
-+
-+struct ieee80211_frag_entry {
-+	unsigned long first_frag_time;
-+	unsigned int seq;
-+	unsigned int last_frag;
-+	struct sk_buff *skb;
-+	u8 src_addr[ETH_ALEN];
-+	u8 dst_addr[ETH_ALEN];
-+};
-+
-+struct ieee80211_stats {
-+	unsigned int tx_unicast_frames;
-+	unsigned int tx_multicast_frames;
-+	unsigned int tx_fragments;
-+	unsigned int tx_unicast_octets;
-+	unsigned int tx_multicast_octets;
-+	unsigned int tx_deferred_transmissions;
-+	unsigned int tx_single_retry_frames;
-+	unsigned int tx_multiple_retry_frames;
-+	unsigned int tx_retry_limit_exceeded;
-+	unsigned int tx_discards;
-+	unsigned int rx_unicast_frames;
-+	unsigned int rx_multicast_frames;
-+	unsigned int rx_fragments;
-+	unsigned int rx_unicast_octets;
-+	unsigned int rx_multicast_octets;
-+	unsigned int rx_fcs_errors;
-+	unsigned int rx_discards_no_buffer;
-+	unsigned int tx_discards_wrong_sa;
-+	unsigned int rx_discards_undecryptable;
-+	unsigned int rx_message_in_msg_fragments;
-+	unsigned int rx_message_in_bad_msg_fragments;
-+};
-+
-+struct ieee80211_device;
-+
-+#define SEC_KEY_1         (1<<0)
-+#define SEC_KEY_2         (1<<1)
-+#define SEC_KEY_3         (1<<2)
-+#define SEC_KEY_4         (1<<3)
-+#define SEC_ACTIVE_KEY    (1<<4)
-+#define SEC_AUTH_MODE     (1<<5)
-+#define SEC_UNICAST_GROUP (1<<6)
-+#define SEC_LEVEL         (1<<7)
-+#define SEC_ENABLED       (1<<8)
-+
-+#define SEC_LEVEL_0      0 /* None */
-+#define SEC_LEVEL_1      1 /* WEP 40 and 104 bit */
-+#define SEC_LEVEL_2      2 /* Level 1 + TKIP */
-+#define SEC_LEVEL_2_CKIP 3 /* Level 1 + CKIP */
-+#define SEC_LEVEL_3      4 /* Level 2 + CCMP */
-+
-+#define WEP_KEYS 4
-+#define WEP_KEY_LEN 13
-+
-+struct ieee80211_security {
-+	u16 active_key:2,
-+            enabled:1,
-+	    auth_mode:2,
-+            auth_algo:4,
-+            unicast_uses_group:1;
-+	u8 key_sizes[WEP_KEYS];
-+	u8 keys[WEP_KEYS][WEP_KEY_LEN];
-+	u8 level;
-+	u16 flags;
-+} __attribute__ ((packed));
-+
-+
-+/*
-+
-+ 802.11 data frame from AP
-+
-+      ,-------------------------------------------------------------------.
-+Bytes |  2   |  2   |    6    |    6    |    6    |  2   | 0..2312 |   4  |
-+      |------|------|---------|---------|---------|------|---------|------|
-+Desc. | ctrl | dura |  DA/RA  |   TA    |    SA   | Sequ |  frame  |  fcs |
-+      |      | tion | (BSSID) |         |         | ence |  data   |      |
-+      `-------------------------------------------------------------------'
-+
-+Total: 28-2340 bytes
-+
-+*/
-+
-+struct ieee80211_header_data {
-+	u16 frame_ctl;
-+	u16 duration_id;
-+	u8 addr1[6];
-+	u8 addr2[6];
-+	u8 addr3[6];
-+	u16 seq_ctrl;
-+};
-+
-+#define BEACON_PROBE_SSID_ID_POSITION 12
-+
-+/* Management Frame Information Element Types */
-+#define MFIE_TYPE_SSID       0
-+#define MFIE_TYPE_RATES      1
-+#define MFIE_TYPE_FH_SET     2
-+#define MFIE_TYPE_DS_SET     3
-+#define MFIE_TYPE_CF_SET     4
-+#define MFIE_TYPE_TIM        5
-+#define MFIE_TYPE_IBSS_SET   6
-+#define MFIE_TYPE_CHALLENGE  16
-+#define MFIE_TYPE_RSN	     48
-+#define MFIE_TYPE_RATES_EX   50
-+#define MFIE_TYPE_GENERIC    221
-+
-+struct ieee80211_info_element_hdr {
-+	u8 id;
-+	u8 len;
-+} __attribute__ ((packed));
-+
-+struct ieee80211_info_element {
-+	u8 id;
-+	u8 len;
-+	u8 data[0];
-+} __attribute__ ((packed));
-+
-+/*
-+ * These are the data types that can make up management packets
-+ *
-+	u16 auth_algorithm;
-+	u16 auth_sequence;
-+	u16 beacon_interval;
-+	u16 capability;
-+	u8 current_ap[ETH_ALEN];
-+	u16 listen_interval;
-+	struct {
-+		u16 association_id:14, reserved:2;
-+	} __attribute__ ((packed));
-+	u32 time_stamp[2];
-+	u16 reason;
-+	u16 status;
-+*/
-+
-+struct ieee80211_authentication {
-+	struct ieee80211_header_data header;
-+	u16 algorithm;
-+	u16 transaction;
-+	u16 status;
-+	struct ieee80211_info_element info_element;
-+} __attribute__ ((packed));
-+
-+
-+struct ieee80211_probe_response {
-+	struct ieee80211_header_data header;
-+	u32 time_stamp[2];
-+	u16 beacon_interval;
-+	u16 capability;
-+	struct ieee80211_info_element info_element;
-+} __attribute__ ((packed));
-+
-+struct ieee80211_assoc_request_frame {
-+	u16 capability;
-+	u16 listen_interval;
-+	u8 current_ap[ETH_ALEN];
-+	struct ieee80211_info_element info_element;
-+} __attribute__ ((packed));
-+
-+struct ieee80211_assoc_response_frame {
-+	struct ieee80211_hdr_3addr header;
-+	u16 capability;
-+	u16 status;
-+	u16 aid;
-+	struct ieee80211_info_element info_element; /* supported rates */
-+} __attribute__ ((packed));
-+
-+
-+struct ieee80211_txb {
-+	u8 nr_frags;
-+	u8 encrypted;
-+	u16 reserved;
-+	u16 frag_size;
-+	u16 payload_size;
-+	struct sk_buff *fragments[0];
-+};
-+
-+
-+/* SWEEP TABLE ENTRIES NUMBER*/
-+#define MAX_SWEEP_TAB_ENTRIES		  42
-+#define MAX_SWEEP_TAB_ENTRIES_PER_PACKET  7
-+/* MAX_RATES_LENGTH needs to be 12.  The spec says 8, and many APs
-+ * only use 8, and then use extended rates for the remaining supported
-+ * rates.  Other APs, however, stick all of their supported rates on the
-+ * main rates information element... */
-+#define MAX_RATES_LENGTH                  ((u8)12)
-+#define MAX_RATES_EX_LENGTH               ((u8)16)
-+#define MAX_NETWORK_COUNT                  128
-+
-+#define CRC_LENGTH                 4U
-+
-+#define MAX_WPA_IE_LEN 64
-+
-+#define NETWORK_EMPTY_ESSID (1<<0)
-+#define NETWORK_HAS_OFDM    (1<<1)
-+#define NETWORK_HAS_CCK     (1<<2)
-+
-+struct ieee80211_network {
-+	/* These entries are used to identify a unique network */
-+	u8 bssid[ETH_ALEN];
-+	u8 channel;
-+	/* Ensure null-terminated for any debug msgs */
-+	u8 ssid[IW_ESSID_MAX_SIZE + 1];
-+	u8 ssid_len;
-+
-+	/* These are network statistics */
-+	struct ieee80211_rx_stats stats;
-+	u16 capability;
-+	u8 rates[MAX_RATES_LENGTH];
-+	u8 rates_len;
-+	u8 rates_ex[MAX_RATES_EX_LENGTH];
-+	u8 rates_ex_len;
-+	unsigned long last_scanned;
-+	u8 mode;
-+	u8 flags;
-+	u32 last_associate;
-+	u32 time_stamp[2];
-+	u16 beacon_interval;
-+	u16 listen_interval;
-+	u16 atim_window;
-+	u8 wpa_ie[MAX_WPA_IE_LEN];
-+	size_t wpa_ie_len;
-+	u8 rsn_ie[MAX_WPA_IE_LEN];
-+	size_t rsn_ie_len;
-+	struct list_head list;
-+};
-+
-+enum ieee80211_state {
-+	IEEE80211_UNINITIALIZED = 0,
-+	IEEE80211_INITIALIZED,
-+	IEEE80211_ASSOCIATING,
-+	IEEE80211_ASSOCIATED,
-+	IEEE80211_AUTHENTICATING,
-+	IEEE80211_AUTHENTICATED,
-+	IEEE80211_SHUTDOWN
-+};
-+
-+#define DEFAULT_MAX_SCAN_AGE (15 * HZ)
-+#define DEFAULT_FTS 2346
-+#define MAC_FMT "%02x:%02x:%02x:%02x:%02x:%02x"
-+#define MAC_ARG(x) ((u8*)(x))[0],((u8*)(x))[1],((u8*)(x))[2],((u8*)(x))[3],((u8*)(x))[4],((u8*)(x))[5]
-+
-+
-+extern inline int is_broadcast_ether_addr(const u8 *addr)
-+{
-+	return ((addr[0] == 0xff) && (addr[1] == 0xff) && (addr[2] == 0xff) &&   \
-+		(addr[3] == 0xff) && (addr[4] == 0xff) && (addr[5] == 0xff));
-+}
-+
-+#define CFG_IEEE80211_RESERVE_FCS (1<<0)
-+#define CFG_IEEE80211_COMPUTE_FCS (1<<1)
-+
-+struct ieee80211_device {
-+	struct net_device *dev;
-+
-+	/* Bookkeeping structures */
-+	struct net_device_stats stats;
-+	struct ieee80211_stats ieee_stats;
-+
-+	/* Probe / Beacon management */
-+	struct list_head network_free_list;
-+	struct list_head network_list;
-+	struct ieee80211_network *networks;
-+	int scans;
-+	int scan_age;
-+
-+	int iw_mode; /* operating mode (IW_MODE_*) */
-+
-+	spinlock_t lock;
-+
-+	int tx_headroom; /* Set to size of any additional room needed at front
-+			  * of allocated Tx SKBs */
-+	u32 config;
-+
-+	/* WEP and other encryption related settings at the device level */
-+	int open_wep; /* Set to 1 to allow unencrypted frames */
-+
-+	int reset_on_keychange; /* Set to 1 if the HW needs to be reset on
-+				 * WEP key changes */
-+
-+	/* If the host performs {en,de}cryption, then set to 1 */
-+	int host_encrypt;
-+	int host_decrypt;
-+	int ieee802_1x; /* is IEEE 802.1X used */
-+
-+	/* WPA data */
-+	int wpa_enabled;
-+	int drop_unencrypted;
-+	int tkip_countermeasures;
-+	int privacy_invoked;
-+	size_t wpa_ie_len;
-+	u8 *wpa_ie;
-+
-+	struct list_head crypt_deinit_list;
-+	struct ieee80211_crypt_data *crypt[WEP_KEYS];
-+	int tx_keyidx; /* default TX key index (crypt[tx_keyidx]) */
-+	struct timer_list crypt_deinit_timer;
-+
-+	int bcrx_sta_key; /* use individual keys to override default keys even
-+			   * with RX of broad/multicast frames */
-+
-+	/* Fragmentation structures */
-+	struct ieee80211_frag_entry frag_cache[IEEE80211_FRAG_CACHE_LEN];
-+	unsigned int frag_next_idx;
-+	u16 fts; /* Fragmentation Threshold */
-+
-+	/* Association info */
-+	u8 bssid[ETH_ALEN];
-+
-+	enum ieee80211_state state;
-+
-+	int mode;       /* A, B, G */
-+	int modulation; /* CCK, OFDM */
-+	int freq_band;  /* 2.4Ghz, 5.2Ghz, Mixed */
-+	int abg_ture;   /* ABG flag              */
-+
-+	/* Callback functions */
-+	void (*set_security)(struct net_device *dev,
-+			     struct ieee80211_security *sec);
-+	int (*hard_start_xmit)(struct ieee80211_txb *txb,
-+			       struct net_device *dev);
-+	int (*reset_port)(struct net_device *dev);
-+
-+	/* This must be the last item so that it points to the data
-+	 * allocated beyond this structure by alloc_ieee80211 */
-+	u8 priv[0];
-+};
-+
-+#define IEEE_A            (1<<0)
-+#define IEEE_B            (1<<1)
-+#define IEEE_G            (1<<2)
-+#define IEEE_MODE_MASK    (IEEE_A|IEEE_B|IEEE_G)
-+
-+extern inline void *ieee80211_priv(struct net_device *dev)
-+{
-+	return ((struct ieee80211_device *)netdev_priv(dev))->priv;
-+}
-+
-+extern inline int ieee80211_is_empty_essid(const char *essid, int essid_len)
-+{
-+	/* Single white space is for Linksys APs */
-+	if (essid_len == 1 && essid[0] == ' ')
-+		return 1;
-+
-+	/* Otherwise, if the entire essid is 0, we assume it is hidden */
-+	while (essid_len) {
-+		essid_len--;
-+		if (essid[essid_len] != '\0')
-+			return 0;
-+	}
-+
-+	return 1;
-+}
-+
-+extern inline int ieee80211_is_valid_mode(struct ieee80211_device *ieee, int mode)
-+{
-+	/*
-+	 * It is possible for both access points and our device to support
-+	 * combinations of modes, so as long as there is one valid combination
-+	 * of ap/device supported modes, then return success
-+	 *
-+	 */
-+	if ((mode & IEEE_A) &&
-+	    (ieee->modulation & IEEE80211_OFDM_MODULATION) &&
-+	    (ieee->freq_band & IEEE80211_52GHZ_BAND))
-+		return 1;
-+
-+	if ((mode & IEEE_G) &&
-+	    (ieee->modulation & IEEE80211_OFDM_MODULATION) &&
-+	    (ieee->freq_band & IEEE80211_24GHZ_BAND))
-+		return 1;
-+
-+	if ((mode & IEEE_B) &&
-+	    (ieee->modulation & IEEE80211_CCK_MODULATION) &&
-+	    (ieee->freq_band & IEEE80211_24GHZ_BAND))
-+		return 1;
+--- linux-2.6.orig/drivers/net/wireless/orinoco.c	2005-06-19 01:02:24.000000000 +0200
++++ linux-2.6/drivers/net/wireless/orinoco.c	2005-06-19 01:03:24.000000000 +0200
+@@ -463,6 +463,7 @@
+ #include <linux/if_arp.h>
+ #include <linux/etherdevice.h>
+ #include <linux/wireless.h>
++#include <net/iw_handler.h>
+ #include <net/ieee80211.h>
+ 
+ #include <asm/uaccess.h>
+@@ -538,6 +539,10 @@
+ 				 | HERMES_EV_WTERR | HERMES_EV_INFO \
+ 				 | HERMES_EV_INFDROP )
+ 
++#define MAX_RID_LEN 1024
++
++static const struct iw_handler_def orinoco_handler_def;
++
+ /********************************************************************/
+ /* Data tables                                                      */
+ /********************************************************************/
+@@ -605,7 +610,6 @@
+ /* Function prototypes                                              */
+ /********************************************************************/
+ 
+-static int orinoco_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
+ static int __orinoco_program_rids(struct net_device *dev);
+ static void __orinoco_set_multicast_list(struct net_device *dev);
+ 
+@@ -1870,55 +1874,6 @@
+ 		dev->flags &= ~IFF_PROMISC;
+ }
+ 
+-static int orinoco_reconfigure(struct net_device *dev)
+-{
+-	struct orinoco_private *priv = netdev_priv(dev);
+-	struct hermes *hw = &priv->hw;
+-	unsigned long flags;
+-	int err = 0;
+-
+-	if (priv->broken_disableport) {
+-		schedule_work(&priv->reset_work);
+-		return 0;
+-	}
+-
+-	if (orinoco_lock(priv, &flags) != 0)
+-		return -EBUSY;
+-		
+-	err = hermes_disable_port(hw, 0);
+-	if (err) {
+-		printk(KERN_WARNING "%s: Unable to disable port while reconfiguring card\n",
+-		       dev->name);
+-		priv->broken_disableport = 1;
+-		goto out;
+-	}
+-
+-	err = __orinoco_program_rids(dev);
+-	if (err) {
+-		printk(KERN_WARNING "%s: Unable to reconfigure card\n",
+-		       dev->name);
+-		goto out;
+-	}
+-
+-	err = hermes_enable_port(hw, 0);
+-	if (err) {
+-		printk(KERN_WARNING "%s: Unable to enable port while reconfiguring card\n",
+-		       dev->name);
+-		goto out;
+-	}
+-
+- out:
+-	if (err) {
+-		printk(KERN_WARNING "%s: Resetting instead...\n", dev->name);
+-		schedule_work(&priv->reset_work);
+-		err = 0;
+-	}
+-
+-	orinoco_unlock(priv, &flags);
+-	return err;
+-
+-}
+-
+ /* This must be called from user context, without locks held - use
+  * schedule_work() */
+ static void orinoco_reset(struct net_device *dev)
+@@ -2458,7 +2413,7 @@
+ 	dev->watchdog_timeo = HZ; /* 1 second timeout */
+ 	dev->get_stats = orinoco_get_stats;
+ 	dev->get_wireless_stats = orinoco_get_wireless_stats;
+-	dev->do_ioctl = orinoco_ioctl;
++	dev->wireless_handlers = (struct iw_handler_def *)&orinoco_handler_def;
+ 	dev->change_mtu = orinoco_change_mtu;
+ 	dev->set_multicast_list = orinoco_set_multicast_list;
+ 	/* we use the default eth_mac_addr for setting the MAC addr */
+@@ -2491,24 +2446,6 @@
+ /* Wireless extensions                                              */
+ /********************************************************************/
+ 
+-static int orinoco_hw_get_bssid(struct orinoco_private *priv,
+-				char buf[ETH_ALEN])
+-{
+-	hermes_t *hw = &priv->hw;
+-	int err = 0;
+-	unsigned long flags;
+-
+-	if (orinoco_lock(priv, &flags) != 0)
+-		return -EBUSY;
+-
+-	err = hermes_read_ltv(hw, USER_BAP, HERMES_RID_CURRENTBSSID,
+-			      ETH_ALEN, NULL, buf);
+-
+-	orinoco_unlock(priv, &flags);
+-
+-	return err;
+-}
+-
+ static int orinoco_hw_get_essid(struct orinoco_private *priv, int *active,
+ 				char buf[IW_ESSID_MAX_SIZE+1])
+ {
+@@ -2634,140 +2571,201 @@
+ 	return 0;
+ }
+ 
+-static int orinoco_ioctl_getiwrange(struct net_device *dev, struct iw_point *rrq)
++static int orinoco_ioctl_getname(struct net_device *dev,
++				 struct iw_request_info *info,
++				 char *name,
++				 char *extra)
+ {
+ 	struct orinoco_private *priv = netdev_priv(dev);
+-	int err = 0;
+-	int mode;
+-	struct iw_range range;
+ 	int numrates;
+-	int i, k;
++	int err;
++
++	err = orinoco_hw_get_bitratelist(priv, &numrates, NULL, 0);
++
++	if (!err && (numrates > 2))
++		strcpy(name, "IEEE 802.11b");
++	else
++		strcpy(name, "IEEE 802.11-DS");
 +
 +	return 0;
 +}
 +
-+extern inline int ieee80211_get_hdrlen(u16 fc)
++static int orinoco_ioctl_getwap(struct net_device *dev,
++				struct iw_request_info *info,
++				struct sockaddr *ap_addr,
++				char *extra)
 +{
-+	int hdrlen = 24;
++	struct orinoco_private *priv = netdev_priv(dev);
 +
-+	switch (WLAN_FC_GET_TYPE(fc)) {
-+	case IEEE80211_FTYPE_DATA:
-+		if ((fc & IEEE80211_FCTL_FROMDS) && (fc & IEEE80211_FCTL_TODS))
-+			hdrlen = 30; /* Addr4 */
-+		break;
-+	case IEEE80211_FTYPE_CTL:
-+		switch (WLAN_FC_GET_STYPE(fc)) {
-+		case IEEE80211_STYPE_CTS:
-+		case IEEE80211_STYPE_ACK:
-+			hdrlen = 10;
-+			break;
-+		default:
-+			hdrlen = 16;
-+			break;
-+		}
-+		break;
-+	}
++	hermes_t *hw = &priv->hw;
++	int err = 0;
+ 	unsigned long flags;
+ 
+-	TRACE_ENTER(dev->name);
++	if (orinoco_lock(priv, &flags) != 0)
++		return -EBUSY;
+ 
+-	if (!access_ok(VERIFY_WRITE, rrq->pointer, sizeof(range)))
+-		return -EFAULT;
++	ap_addr->sa_family = ARPHRD_ETHER;
++	err = hermes_read_ltv(hw, USER_BAP, HERMES_RID_CURRENTBSSID,
++			      ETH_ALEN, NULL, ap_addr->sa_data);
 +
-+	return hdrlen;
++	orinoco_unlock(priv, &flags);
++
++	return err;
 +}
 +
-+
-+
-+/* ieee80211.c */
-+extern void free_ieee80211(struct net_device *dev);
-+extern struct net_device *alloc_ieee80211(int sizeof_priv);
-+
-+extern int ieee80211_set_encryption(struct ieee80211_device *ieee);
-+
-+/* ieee80211_tx.c */
-+
-+
-+extern int ieee80211_xmit(struct sk_buff *skb,
-+			  struct net_device *dev);
-+extern void ieee80211_txb_free(struct ieee80211_txb *);
-+
-+
-+/* ieee80211_rx.c */
-+extern int ieee80211_rx(struct ieee80211_device *ieee, struct sk_buff *skb,
-+			struct ieee80211_rx_stats *rx_stats);
-+extern void ieee80211_rx_mgt(struct ieee80211_device *ieee,
-+			     struct ieee80211_hdr *header,
-+			     struct ieee80211_rx_stats *stats);
-+
-+/* iee80211_wx.c */
-+extern int ieee80211_wx_get_scan(struct ieee80211_device *ieee,
++static int orinoco_ioctl_setmode(struct net_device *dev,
 +				 struct iw_request_info *info,
-+				 union iwreq_data *wrqu, char *key);
-+extern int ieee80211_wx_set_encode(struct ieee80211_device *ieee,
-+				   struct iw_request_info *info,
-+				   union iwreq_data *wrqu, char *key);
-+extern int ieee80211_wx_get_encode(struct ieee80211_device *ieee,
-+				   struct iw_request_info *info,
-+				   union iwreq_data *wrqu, char *key);
-+
-+
-+extern inline void ieee80211_increment_scans(struct ieee80211_device *ieee)
++				 u32 *mode,
++				 char *extra)
 +{
-+	ieee->scans++;
-+}
++	struct orinoco_private *priv = netdev_priv(dev);
++	int err = -EINPROGRESS;		/* Call commit handler */
++	unsigned long flags;
+ 
+-	rrq->length = sizeof(range);
++	if (priv->iw_mode == *mode)
++		return 0;
+ 
+ 	if (orinoco_lock(priv, &flags) != 0)
+ 		return -EBUSY;
+ 
+-	mode = priv->iw_mode;
++	switch (*mode) {
++	case IW_MODE_ADHOC:
++		if (!priv->has_ibss && !priv->has_port3)
++			err = -EOPNOTSUPP;
++		break;
 +
-+extern inline int ieee80211_get_scans(struct ieee80211_device *ieee)
-+{
-+	return ieee->scans;
-+}
++	case IW_MODE_INFRA:
++		break;
 +
-+static inline const char *escape_essid(const char *essid, u8 essid_len) {
-+	static char escaped[IW_ESSID_MAX_SIZE * 2 + 1];
-+	const char *s = essid;
-+	char *d = escaped;
-+
-+	if (ieee80211_is_empty_essid(essid, essid_len)) {
-+		memcpy(escaped, "<hidden>", sizeof("<hidden>"));
-+		return escaped;
++	default:
++		err = -EOPNOTSUPP;
++		break;
 +	}
 +
-+	essid_len = min(essid_len, (u8)IW_ESSID_MAX_SIZE);
-+	while (essid_len--) {
-+		if (*s == '\0') {
-+			*d++ = '\\';
-+			*d++ = '0';
-+			s++;
-+		} else {
-+			*d++ = *s++;
++	if (err == -EINPROGRESS) {
++		priv->iw_mode = *mode;
++		set_port_type(priv);
++	}
++
+ 	orinoco_unlock(priv, &flags);
+ 
+-	memset(&range, 0, sizeof(range));
++	return err;
++}
++
++static int orinoco_ioctl_getmode(struct net_device *dev,
++				 struct iw_request_info *info,
++				 u32 *mode,
++				 char *extra)
++{
++	struct orinoco_private *priv = netdev_priv(dev);
++
++	*mode = priv->iw_mode;
++	return 0;
++}
++
++static int orinoco_ioctl_getiwrange(struct net_device *dev,
++				    struct iw_request_info *info,
++				    struct iw_point *rrq,
++				    char *extra)
++{
++	struct orinoco_private *priv = netdev_priv(dev);
++	int err = 0;
++	struct iw_range *range = (struct iw_range *) extra;
++	int numrates;
++	int i, k;
++
++	TRACE_ENTER(dev->name);
+ 
+-	/* Much of this shamelessly taken from wvlan_cs.c. No idea
+-	 * what it all means -dgibson */
+-	range.we_version_compiled = WIRELESS_EXT;
+-	range.we_version_source = 11;
++	rrq->length = sizeof(struct iw_range);
++	memset(range, 0, sizeof(struct iw_range));
+ 
+-	range.min_nwid = range.max_nwid = 0; /* We don't use nwids */
++	range->we_version_compiled = WIRELESS_EXT;
++	range->we_version_source = 14;
+ 
+ 	/* Set available channels/frequencies */
+-	range.num_channels = NUM_CHANNELS;
++	range->num_channels = NUM_CHANNELS;
+ 	k = 0;
+ 	for (i = 0; i < NUM_CHANNELS; i++) {
+ 		if (priv->channel_mask & (1 << i)) {
+-			range.freq[k].i = i + 1;
+-			range.freq[k].m = channel_frequency[i] * 100000;
+-			range.freq[k].e = 1;
++			range->freq[k].i = i + 1;
++			range->freq[k].m = channel_frequency[i] * 100000;
++			range->freq[k].e = 1;
+ 			k++;
+ 		}
+ 		
+ 		if (k >= IW_MAX_FREQUENCIES)
+ 			break;
+ 	}
+-	range.num_frequency = k;
++	range->num_frequency = k;
++	range->sensitivity = 3;
+ 
+-	range.sensitivity = 3;
++	if (priv->has_wep) {
++		range->max_encoding_tokens = ORINOCO_MAX_KEYS;
++		range->encoding_size[0] = SMALL_KEY_SIZE;
++		range->num_encoding_sizes = 1;
++
++		if (priv->has_big_wep) {
++			range->encoding_size[1] = LARGE_KEY_SIZE;
++			range->num_encoding_sizes = 2;
 +		}
 +	}
-+	*d = '\0';
-+	return escaped;
+ 
+-	if ((mode == IW_MODE_ADHOC) && (priv->spy_number == 0)){
++	if ((priv->iw_mode == IW_MODE_ADHOC) && (priv->spy_number == 0)){
+ 		/* Quality stats meaningless in ad-hoc mode */
+-		range.max_qual.qual = 0;
+-		range.max_qual.level = 0;
+-		range.max_qual.noise = 0;
+-		range.avg_qual.qual = 0;
+-		range.avg_qual.level = 0;
+-		range.avg_qual.noise = 0;
+ 	} else {
+-		range.max_qual.qual = 0x8b - 0x2f;
+-		range.max_qual.level = 0x2f - 0x95 - 1;
+-		range.max_qual.noise = 0x2f - 0x95 - 1;
++		range->max_qual.qual = 0x8b - 0x2f;
++		range->max_qual.level = 0x2f - 0x95 - 1;
++		range->max_qual.noise = 0x2f - 0x95 - 1;
+ 		/* Need to get better values */
+-		range.avg_qual.qual = 0x24;
+-		range.avg_qual.level = 0xC2;
+-		range.avg_qual.noise = 0x9E;
++		range->avg_qual.qual = 0x24;
++		range->avg_qual.level = 0xC2;
++		range->avg_qual.noise = 0x9E;
+ 	}
+ 
+ 	err = orinoco_hw_get_bitratelist(priv, &numrates,
+-					 range.bitrate, IW_MAX_BITRATES);
++					 range->bitrate, IW_MAX_BITRATES);
+ 	if (err)
+ 		return err;
+-	range.num_bitrates = numrates;
+-	
++	range->num_bitrates = numrates;
++
+ 	/* Set an indication of the max TCP throughput in bit/s that we can
+ 	 * expect using this interface. May be use for QoS stuff...
+ 	 * Jean II */
+-	if(numrates > 2)
+-		range.throughput = 5 * 1000 * 1000;	/* ~5 Mb/s */
++	if (numrates > 2)
++		range->throughput = 5 * 1000 * 1000;	/* ~5 Mb/s */
+ 	else
+-		range.throughput = 1.5 * 1000 * 1000;	/* ~1.5 Mb/s */
+-
+-	range.min_rts = 0;
+-	range.max_rts = 2347;
+-	range.min_frag = 256;
+-	range.max_frag = 2346;
+-
+-	if (orinoco_lock(priv, &flags) != 0)
+-		return -EBUSY;
+-	if (priv->has_wep) {
+-		range.max_encoding_tokens = ORINOCO_MAX_KEYS;
+-
+-		range.encoding_size[0] = SMALL_KEY_SIZE;
+-		range.num_encoding_sizes = 1;
+-
+-		if (priv->has_big_wep) {
+-			range.encoding_size[1] = LARGE_KEY_SIZE;
+-			range.num_encoding_sizes = 2;
+-		}
+-	} else {
+-		range.num_encoding_sizes = 0;
+-		range.max_encoding_tokens = 0;
+-	}
+-	orinoco_unlock(priv, &flags);
+-		
+-	range.min_pmp = 0;
+-	range.max_pmp = 65535000;
+-	range.min_pmt = 0;
+-	range.max_pmt = 65535 * 1000;	/* ??? */
+-	range.pmp_flags = IW_POWER_PERIOD;
+-	range.pmt_flags = IW_POWER_TIMEOUT;
+-	range.pm_capa = IW_POWER_PERIOD | IW_POWER_TIMEOUT | IW_POWER_UNICAST_R;
+-
+-	range.num_txpower = 1;
+-	range.txpower[0] = 15; /* 15dBm */
+-	range.txpower_capa = IW_TXPOW_DBM;
+-
+-	range.retry_capa = IW_RETRY_LIMIT | IW_RETRY_LIFETIME;
+-	range.retry_flags = IW_RETRY_LIMIT;
+-	range.r_time_flags = IW_RETRY_LIFETIME;
+-	range.min_retry = 0;
+-	range.max_retry = 65535;	/* ??? */
+-	range.min_r_time = 0;
+-	range.max_r_time = 65535 * 1000;	/* ??? */
++		range->throughput = 1.5 * 1000 * 1000;	/* ~1.5 Mb/s */
+ 
+-	if (copy_to_user(rrq->pointer, &range, sizeof(range)))
+-		return -EFAULT;
++	range->min_rts = 0;
++	range->max_rts = 2347;
++	range->min_frag = 256;
++	range->max_frag = 2346;
++
++	range->min_pmp = 0;
++	range->max_pmp = 65535000;
++	range->min_pmt = 0;
++	range->max_pmt = 65535 * 1000;	/* ??? */
++	range->pmp_flags = IW_POWER_PERIOD;
++	range->pmt_flags = IW_POWER_TIMEOUT;
++	range->pm_capa = IW_POWER_PERIOD | IW_POWER_TIMEOUT | IW_POWER_UNICAST_R;
++
++	range->retry_capa = IW_RETRY_LIMIT | IW_RETRY_LIFETIME;
++	range->retry_flags = IW_RETRY_LIMIT;
++	range->r_time_flags = IW_RETRY_LIFETIME;
++	range->min_retry = 0;
++	range->max_retry = 65535;	/* ??? */
++	range->min_r_time = 0;
++	range->max_r_time = 65535 * 1000;	/* ??? */
+ 
+ 	TRACE_EXIT(dev->name);
+ 
+ 	return 0;
+ }
+ 
+-static int orinoco_ioctl_setiwencode(struct net_device *dev, struct iw_point *erq)
++static int orinoco_ioctl_setiwencode(struct net_device *dev,
++				     struct iw_request_info *info,
++				     struct iw_point *erq,
++				     char *keybuf)
+ {
+ 	struct orinoco_private *priv = netdev_priv(dev);
+ 	int index = (erq->flags & IW_ENCODE_INDEX) - 1;
+@@ -2775,8 +2773,7 @@
+ 	int enable = priv->wep_on;
+ 	int restricted = priv->wep_restrict;
+ 	u16 xlen = 0;
+-	int err = 0;
+-	char keybuf[ORINOCO_MAX_KEY_SIZE];
++	int err = -EINPROGRESS;		/* Call commit handler */
+ 	unsigned long flags;
+ 
+ 	if (! priv->has_wep)
+@@ -2789,9 +2786,6 @@
+ 
+ 		if ( (erq->length > SMALL_KEY_SIZE) && !priv->has_big_wep )
+ 			return -E2BIG;
+-		
+-		if (copy_from_user(keybuf, erq->pointer, erq->length))
+-			return -EFAULT;
+ 	}
+ 
+ 	if (orinoco_lock(priv, &flags) != 0)
+@@ -2865,12 +2859,14 @@
+ 	return err;
+ }
+ 
+-static int orinoco_ioctl_getiwencode(struct net_device *dev, struct iw_point *erq)
++static int orinoco_ioctl_getiwencode(struct net_device *dev,
++				     struct iw_request_info *info,
++				     struct iw_point *erq,
++				     char *keybuf)
+ {
+ 	struct orinoco_private *priv = netdev_priv(dev);
+ 	int index = (erq->flags & IW_ENCODE_INDEX) - 1;
+ 	u16 xlen = 0;
+-	char keybuf[ORINOCO_MAX_KEY_SIZE];
+ 	unsigned long flags;
+ 
+ 	if (! priv->has_wep)
+@@ -2899,51 +2895,47 @@
+ 	memcpy(keybuf, priv->keys[index].data, ORINOCO_MAX_KEY_SIZE);
+ 
+ 	orinoco_unlock(priv, &flags);
+-
+-	if (erq->pointer) {
+-		if (copy_to_user(erq->pointer, keybuf, xlen))
+-			return -EFAULT;
+-	}
+-
+ 	return 0;
+ }
+ 
+-static int orinoco_ioctl_setessid(struct net_device *dev, struct iw_point *erq)
++static int orinoco_ioctl_setessid(struct net_device *dev,
++				  struct iw_request_info *info,
++				  struct iw_point *erq,
++				  char *essidbuf)
+ {
+ 	struct orinoco_private *priv = netdev_priv(dev);
+-	char essidbuf[IW_ESSID_MAX_SIZE+1];
+ 	unsigned long flags;
+ 
+ 	/* Note : ESSID is ignored in Ad-Hoc demo mode, but we can set it
+ 	 * anyway... - Jean II */
+ 
+-	memset(&essidbuf, 0, sizeof(essidbuf));
+-
+-	if (erq->flags) {
+-		/* iwconfig includes the NUL in the specified length */
+-		if (erq->length > IW_ESSID_MAX_SIZE+1)
+-			return -E2BIG;
+-		
+-		if (copy_from_user(&essidbuf, erq->pointer, erq->length))
+-			return -EFAULT;
+-
+-		essidbuf[IW_ESSID_MAX_SIZE] = '\0';
+-	}
++	/* Hum... Should not use Wireless Extension constant (may change),
++	 * should use our own... - Jean II */
++	if (erq->length > IW_ESSID_MAX_SIZE)
++		return -E2BIG;
+ 
+ 	if (orinoco_lock(priv, &flags) != 0)
+ 		return -EBUSY;
+ 
+-	memcpy(priv->desired_essid, essidbuf, sizeof(priv->desired_essid));
++	/* NULL the string (for NULL termination & ESSID = ANY) - Jean II */
++	memset(priv->desired_essid, 0, sizeof(priv->desired_essid));
++
++	/* If not ANY, get the new ESSID */
++	if (erq->flags) {
++		memcpy(priv->desired_essid, essidbuf, erq->length);
++	}
+ 
+ 	orinoco_unlock(priv, &flags);
+ 
+-	return 0;
++	return -EINPROGRESS;		/* Call commit handler */
+ }
+ 
+-static int orinoco_ioctl_getessid(struct net_device *dev, struct iw_point *erq)
++static int orinoco_ioctl_getessid(struct net_device *dev,
++				  struct iw_request_info *info,
++				  struct iw_point *erq,
++				  char *essidbuf)
+ {
+ 	struct orinoco_private *priv = netdev_priv(dev);
+-	char essidbuf[IW_ESSID_MAX_SIZE+1];
+ 	int active;
+ 	int err = 0;
+ 	unsigned long flags;
+@@ -2957,51 +2949,46 @@
+ 	} else {
+ 		if (orinoco_lock(priv, &flags) != 0)
+ 			return -EBUSY;
+-		memcpy(essidbuf, priv->desired_essid, sizeof(essidbuf));
++		memcpy(essidbuf, priv->desired_essid, IW_ESSID_MAX_SIZE + 1);
+ 		orinoco_unlock(priv, &flags);
+ 	}
+ 
+ 	erq->flags = 1;
+ 	erq->length = strlen(essidbuf) + 1;
+-	if (erq->pointer)
+-		if (copy_to_user(erq->pointer, essidbuf, erq->length))
+-			return -EFAULT;
+ 
+ 	TRACE_EXIT(dev->name);
+ 	
+ 	return 0;
+ }
+ 
+-static int orinoco_ioctl_setnick(struct net_device *dev, struct iw_point *nrq)
++static int orinoco_ioctl_setnick(struct net_device *dev,
++				 struct iw_request_info *info,
++				 struct iw_point *nrq,
++				 char *nickbuf)
+ {
+ 	struct orinoco_private *priv = netdev_priv(dev);
+-	char nickbuf[IW_ESSID_MAX_SIZE+1];
+ 	unsigned long flags;
+ 
+ 	if (nrq->length > IW_ESSID_MAX_SIZE)
+ 		return -E2BIG;
+ 
+-	memset(nickbuf, 0, sizeof(nickbuf));
+-
+-	if (copy_from_user(nickbuf, nrq->pointer, nrq->length))
+-		return -EFAULT;
+-
+-	nickbuf[nrq->length] = '\0';
+-	
+ 	if (orinoco_lock(priv, &flags) != 0)
+ 		return -EBUSY;
+ 
+-	memcpy(priv->nick, nickbuf, sizeof(priv->nick));
++	memset(priv->nick, 0, sizeof(priv->nick));
++	memcpy(priv->nick, nickbuf, nrq->length);
+ 
+ 	orinoco_unlock(priv, &flags);
+ 
+-	return 0;
++	return -EINPROGRESS;		/* Call commit handler */
+ }
+ 
+-static int orinoco_ioctl_getnick(struct net_device *dev, struct iw_point *nrq)
++static int orinoco_ioctl_getnick(struct net_device *dev,
++				 struct iw_request_info *info,
++				 struct iw_point *nrq,
++				 char *nickbuf)
+ {
+ 	struct orinoco_private *priv = netdev_priv(dev);
+-	char nickbuf[IW_ESSID_MAX_SIZE+1];
+ 	unsigned long flags;
+ 
+ 	if (orinoco_lock(priv, &flags) != 0)
+@@ -3012,17 +2999,18 @@
+ 
+ 	nrq->length = strlen(nickbuf)+1;
+ 
+-	if (copy_to_user(nrq->pointer, nickbuf, sizeof(nickbuf)))
+-		return -EFAULT;
+-
+ 	return 0;
+ }
+ 
+-static int orinoco_ioctl_setfreq(struct net_device *dev, struct iw_freq *frq)
++static int orinoco_ioctl_setfreq(struct net_device *dev,
++				 struct iw_request_info *info,
++				 struct iw_freq *frq,
++				 char *extra)
+ {
+ 	struct orinoco_private *priv = netdev_priv(dev);
+ 	int chan = -1;
+ 	unsigned long flags;
++	int err = -EINPROGRESS;		/* Call commit handler */
+ 
+ 	/* We can only use this in Ad-Hoc demo mode to set the operating
+ 	 * frequency, or in IBSS mode to set the frequency where the IBSS
+@@ -3055,10 +3043,33 @@
+ 	priv->channel = chan;
+ 	orinoco_unlock(priv, &flags);
+ 
++	return err;
 +}
 +
-+#endif /* IEEE80211_H */
++static int orinoco_ioctl_getfreq(struct net_device *dev,
++				 struct iw_request_info *info,
++				 struct iw_freq *frq,
++				 char *extra)
++{
++	struct orinoco_private *priv = netdev_priv(dev);
++	int tmp;
++
++	/* Locking done in there */
++	tmp = orinoco_hw_get_freq(priv);
++	if (tmp < 0) {
++		return tmp;
++	}
++
++	frq->m = tmp;
++	frq->e = 1;
++
+ 	return 0;
+ }
+ 
+-static int orinoco_ioctl_getsens(struct net_device *dev, struct iw_param *srq)
++static int orinoco_ioctl_getsens(struct net_device *dev,
++				 struct iw_request_info *info,
++				 struct iw_param *srq,
++				 char *extra)
+ {
+ 	struct orinoco_private *priv = netdev_priv(dev);
+ 	hermes_t *hw = &priv->hw;
+@@ -3084,7 +3095,10 @@
+ 	return 0;
+ }
+ 
+-static int orinoco_ioctl_setsens(struct net_device *dev, struct iw_param *srq)
++static int orinoco_ioctl_setsens(struct net_device *dev,
++				 struct iw_request_info *info,
++				 struct iw_param *srq,
++				 char *extra)
+ {
+ 	struct orinoco_private *priv = netdev_priv(dev);
+ 	int val = srq->value;
+@@ -3101,10 +3115,13 @@
+ 	priv->ap_density = val;
+ 	orinoco_unlock(priv, &flags);
+ 
+-	return 0;
++	return -EINPROGRESS;		/* Call commit handler */
+ }
+ 
+-static int orinoco_ioctl_setrts(struct net_device *dev, struct iw_param *rrq)
++static int orinoco_ioctl_setrts(struct net_device *dev,
++				struct iw_request_info *info,
++				struct iw_param *rrq,
++				char *extra)
+ {
+ 	struct orinoco_private *priv = netdev_priv(dev);
+ 	int val = rrq->value;
+@@ -3122,13 +3139,30 @@
+ 	priv->rts_thresh = val;
+ 	orinoco_unlock(priv, &flags);
+ 
++	return -EINPROGRESS;		/* Call commit handler */
++}
++
++static int orinoco_ioctl_getrts(struct net_device *dev,
++				struct iw_request_info *info,
++				struct iw_param *rrq,
++				char *extra)
++{
++	struct orinoco_private *priv = netdev_priv(dev);
++
++	rrq->value = priv->rts_thresh;
++	rrq->disabled = (rrq->value == 2347);
++	rrq->fixed = 1;
++
+ 	return 0;
+ }
+ 
+-static int orinoco_ioctl_setfrag(struct net_device *dev, struct iw_param *frq)
++static int orinoco_ioctl_setfrag(struct net_device *dev,
++				 struct iw_request_info *info,
++				 struct iw_param *frq,
++				 char *extra)
+ {
+ 	struct orinoco_private *priv = netdev_priv(dev);
+-	int err = 0;
++	int err = -EINPROGRESS;		/* Call commit handler */
+ 	unsigned long flags;
+ 
+ 	if (orinoco_lock(priv, &flags) != 0)
+@@ -3160,11 +3194,14 @@
+ 	return err;
+ }
+ 
+-static int orinoco_ioctl_getfrag(struct net_device *dev, struct iw_param *frq)
++static int orinoco_ioctl_getfrag(struct net_device *dev,
++				 struct iw_request_info *info,
++				 struct iw_param *frq,
++				 char *extra)
+ {
+ 	struct orinoco_private *priv = netdev_priv(dev);
+ 	hermes_t *hw = &priv->hw;
+-	int err = 0;
++	int err;
+ 	u16 val;
+ 	unsigned long flags;
+ 
+@@ -3197,10 +3234,12 @@
+ 	return err;
+ }
+ 
+-static int orinoco_ioctl_setrate(struct net_device *dev, struct iw_param *rrq)
++static int orinoco_ioctl_setrate(struct net_device *dev,
++				 struct iw_request_info *info,
++				 struct iw_param *rrq,
++				 char *extra)
+ {
+ 	struct orinoco_private *priv = netdev_priv(dev);
+-	int err = 0;
+ 	int ratemode = -1;
+ 	int bitrate; /* 100s of kilobits */
+ 	int i;
+@@ -3236,10 +3275,13 @@
+ 	priv->bitratemode = ratemode;
+ 	orinoco_unlock(priv, &flags);
+ 
+-	return err;
++	return -EINPROGRESS;
+ }
+ 
+-static int orinoco_ioctl_getrate(struct net_device *dev, struct iw_param *rrq)
++static int orinoco_ioctl_getrate(struct net_device *dev,
++				 struct iw_request_info *info,
++				 struct iw_param *rrq,
++				 char *extra)
+ {
+ 	struct orinoco_private *priv = netdev_priv(dev);
+ 	hermes_t *hw = &priv->hw;
+@@ -3304,10 +3346,13 @@
+ 	return err;
+ }
+ 
+-static int orinoco_ioctl_setpower(struct net_device *dev, struct iw_param *prq)
++static int orinoco_ioctl_setpower(struct net_device *dev,
++				  struct iw_request_info *info,
++				  struct iw_param *prq,
++				  char *extra)
+ {
+ 	struct orinoco_private *priv = netdev_priv(dev);
+-	int err = 0;
++	int err = -EINPROGRESS;		/* Call commit handler */
+ 	unsigned long flags;
+ 
+ 	if (orinoco_lock(priv, &flags) != 0)
+@@ -3356,7 +3401,10 @@
+ 	return err;
+ }
+ 
+-static int orinoco_ioctl_getpower(struct net_device *dev, struct iw_param *prq)
++static int orinoco_ioctl_getpower(struct net_device *dev,
++				  struct iw_request_info *info,
++				  struct iw_param *prq,
++				  char *extra)
+ {
+ 	struct orinoco_private *priv = netdev_priv(dev);
+ 	hermes_t *hw = &priv->hw;
+@@ -3404,7 +3452,10 @@
+ 	return err;
+ }
+ 
+-static int orinoco_ioctl_getretry(struct net_device *dev, struct iw_param *rrq)
++static int orinoco_ioctl_getretry(struct net_device *dev,
++				  struct iw_request_info *info,
++				  struct iw_param *rrq,
++				  char *extra)
+ {
+ 	struct orinoco_private *priv = netdev_priv(dev);
+ 	hermes_t *hw = &priv->hw;
+@@ -3455,10 +3506,38 @@
+ 	return err;
+ }
+ 
+-static int orinoco_ioctl_setibssport(struct net_device *dev, struct iwreq *wrq)
++static int orinoco_ioctl_reset(struct net_device *dev,
++			       struct iw_request_info *info,
++			       void *wrqu,
++			       char *extra)
++{
++	struct orinoco_private *priv = netdev_priv(dev);
++
++	if (! capable(CAP_NET_ADMIN))
++		return -EPERM;
++
++	if (info->cmd == (SIOCIWFIRSTPRIV + 0x1)) {
++		printk(KERN_DEBUG "%s: Forcing reset!\n", dev->name);
++
++		/* Firmware reset */
++		orinoco_reset(dev);
++	} else {
++		printk(KERN_DEBUG "%s: Force scheduling reset!\n", dev->name);
++
++		schedule_work(&priv->reset_work);
++	}
++
++	return 0;
++}
++
++static int orinoco_ioctl_setibssport(struct net_device *dev,
++				     struct iw_request_info *info,
++				     void *wrqu,
++				     char *extra)
++
+ {
+ 	struct orinoco_private *priv = netdev_priv(dev);
+-	int val = *( (int *) wrq->u.name );
++	int val = *( (int *) extra );
+ 	unsigned long flags;
+ 
+ 	if (orinoco_lock(priv, &flags) != 0)
+@@ -3470,28 +3549,28 @@
+ 	set_port_type(priv);
+ 
+ 	orinoco_unlock(priv, &flags);
+-	return 0;
++	return -EINPROGRESS;		/* Call commit handler */
+ }
+ 
+-static int orinoco_ioctl_getibssport(struct net_device *dev, struct iwreq *wrq)
++static int orinoco_ioctl_getibssport(struct net_device *dev,
++				     struct iw_request_info *info,
++				     void *wrqu,
++				     char *extra)
+ {
+ 	struct orinoco_private *priv = netdev_priv(dev);
+-	int *val = (int *)wrq->u.name;
+-	unsigned long flags;
+-
+-	if (orinoco_lock(priv, &flags) != 0)
+-		return -EBUSY;
++	int *val = (int *) extra;
+ 
+ 	*val = priv->ibss_port;
+-	orinoco_unlock(priv, &flags);
+-
+ 	return 0;
+ }
+ 
+-static int orinoco_ioctl_setport3(struct net_device *dev, struct iwreq *wrq)
++static int orinoco_ioctl_setport3(struct net_device *dev,
++				  struct iw_request_info *info,
++				  void *wrqu,
++				  char *extra)
+ {
+ 	struct orinoco_private *priv = netdev_priv(dev);
+-	int val = *( (int *) wrq->u.name );
++	int val = *( (int *) extra );
+ 	int err = 0;
+ 	unsigned long flags;
+ 
+@@ -3520,51 +3599,131 @@
+ 		err = -EINVAL;
+ 	}
+ 
+-	if (! err)
++	if (! err) {
+ 		/* Actually update the mode we are using */
+ 		set_port_type(priv);
++		err = -EINPROGRESS;
++	}
+ 
+ 	orinoco_unlock(priv, &flags);
+ 
+ 	return err;
+ }
+ 
+-static int orinoco_ioctl_getport3(struct net_device *dev, struct iwreq *wrq)
++static int orinoco_ioctl_getport3(struct net_device *dev,
++				  struct iw_request_info *info,
++				  void *wrqu,
++				  char *extra)
++{
++	struct orinoco_private *priv = netdev_priv(dev);
++	int *val = (int *) extra;
++
++	*val = priv->prefer_port3;
++	return 0;
++}
++
++static int orinoco_ioctl_setpreamble(struct net_device *dev,
++				     struct iw_request_info *info,
++				     void *wrqu,
++				     char *extra)
+ {
+ 	struct orinoco_private *priv = netdev_priv(dev);
+-	int *val = (int *)wrq->u.name;
+ 	unsigned long flags;
++	int val;
++
++	if (! priv->has_preamble)
++		return -EOPNOTSUPP;
++
++	/* 802.11b has recently defined some short preamble.
++	 * Basically, the Phy header has been reduced in size.
++	 * This increase performance, especially at high rates
++	 * (the preamble is transmitted at 1Mb/s), unfortunately
++	 * this give compatibility troubles... - Jean II */
++	val = *( (int *) extra );
+ 
+ 	if (orinoco_lock(priv, &flags) != 0)
+ 		return -EBUSY;
+ 
+-	*val = priv->prefer_port3;
++	if (val)
++		priv->preamble = 1;
++	else
++		priv->preamble = 0;
++
+ 	orinoco_unlock(priv, &flags);
++
++	return -EINPROGRESS;		/* Call commit handler */
++}
++
++static int orinoco_ioctl_getpreamble(struct net_device *dev,
++				     struct iw_request_info *info,
++				     void *wrqu,
++				     char *extra)
++{
++	struct orinoco_private *priv = netdev_priv(dev);
++	int *val = (int *) extra;
++
++	if (! priv->has_preamble)
++		return -EOPNOTSUPP;
++
++	*val = priv->preamble;
+ 	return 0;
+ }
+ 
++/* ioctl interface to hermes_read_ltv()
++ * To use with iwpriv, pass the RID as the token argument, e.g.
++ * iwpriv get_rid [0xfc00]
++ * At least Wireless Tools 25 is required to use iwpriv.
++ * For Wireless Tools 25 and 26 append "dummy" are the end. */
++static int orinoco_ioctl_getrid(struct net_device *dev,
++				struct iw_request_info *info,
++				struct iw_point *data,
++				char *extra)
++{
++	struct orinoco_private *priv = netdev_priv(dev);
++	hermes_t *hw = &priv->hw;
++	int rid = data->flags;
++	u16 length;
++	int err;
++	unsigned long flags;
++
++	/* It's a "get" function, but we don't want users to access the
++	 * WEP key and other raw firmware data */
++	if (! capable(CAP_NET_ADMIN))
++		return -EPERM;
++
++	if (rid < 0xfc00 || rid > 0xffff)
++		return -EINVAL;
++
++	if (orinoco_lock(priv, &flags) != 0)
++		return -EBUSY;
++
++	err = hermes_read_ltv(hw, USER_BAP, rid, MAX_RID_LEN, &length,
++			      extra);
++	if (err)
++		goto out;
++
++	data->length = min_t(u16, HERMES_RECLEN_TO_BYTES(length),
++			     MAX_RID_LEN);
++
++ out:
++	orinoco_unlock(priv, &flags);
++	return err;
++}
++
+ /* Spy is used for link quality/strength measurements in Ad-Hoc mode
+  * Jean II */
+-static int orinoco_ioctl_setspy(struct net_device *dev, struct iw_point *srq)
++static int orinoco_ioctl_setspy(struct net_device *dev,
++				struct iw_request_info *info,
++				struct iw_point *srq,
++				char *extra)
++
+ {
+ 	struct orinoco_private *priv = netdev_priv(dev);
+-	struct sockaddr address[IW_MAX_SPY];
++	struct sockaddr *address = (struct sockaddr *) extra;
+ 	int number = srq->length;
+ 	int i;
+-	int err = 0;
+ 	unsigned long flags;
+ 
+-	/* Check the number of addresses */
+-	if (number > IW_MAX_SPY)
+-		return -E2BIG;
+-
+-	/* Get the data in the driver */
+-	if (srq->pointer) {
+-		if (copy_from_user(address, srq->pointer,
+-				   sizeof(struct sockaddr) * number))
+-			return -EFAULT;
+-	}
+-
+ 	/* Make sure nobody mess with the structure while we do */
+ 	if (orinoco_lock(priv, &flags) != 0)
+ 		return -EBUSY;
+@@ -3588,14 +3747,17 @@
+ 	/* Now, let the others play */
+ 	orinoco_unlock(priv, &flags);
+ 
+-	return err;
++	/* Do NOT call commit handler */
++	return 0;
+ }
+ 
+-static int orinoco_ioctl_getspy(struct net_device *dev, struct iw_point *srq)
++static int orinoco_ioctl_getspy(struct net_device *dev,
++				struct iw_request_info *info,
++				struct iw_point *srq,
++				char *extra)
+ {
+ 	struct orinoco_private *priv = netdev_priv(dev);
+-	struct sockaddr address[IW_MAX_SPY];
+-	struct iw_quality spy_stat[IW_MAX_SPY];
++	struct sockaddr *address = (struct sockaddr *) extra;
+ 	int number;
+ 	int i;
+ 	unsigned long flags;
+@@ -3604,7 +3766,12 @@
+ 		return -EBUSY;
+ 
+ 	number = priv->spy_number;
+-	if ((number > 0) && (srq->pointer)) {
++	/* Create address struct */
++	for (i = 0; i < number; i++) {
++		memcpy(address[i].sa_data, priv->spy_address[i], ETH_ALEN);
++		address[i].sa_family = AF_UNIX;
++	}
++	if (number > 0) {
+ 		/* Create address struct */
+ 		for (i = 0; i < number; i++) {
+ 			memcpy(address[i].sa_data, priv->spy_address[i],
+@@ -3615,344 +3782,153 @@
+ 		/* In theory, we should disable irqs while copying the stats
+ 		 * because the rx path might update it in the middle...
+ 		 * Bah, who care ? - Jean II */
+-		memcpy(&spy_stat, priv->spy_stat,
+-		       sizeof(struct iw_quality) * IW_MAX_SPY);
+-		for (i=0; i < number; i++)
+-			priv->spy_stat[i].updated = 0;
++		memcpy(extra  + (sizeof(struct sockaddr) * number),
++		       priv->spy_stat, sizeof(struct iw_quality) * number);
+ 	}
++	/* Reset updated flags. */
++	for (i = 0; i < number; i++)
++		priv->spy_stat[i].updated = 0;
+ 
+ 	orinoco_unlock(priv, &flags);
+ 
+-	/* Push stuff to user space */
+ 	srq->length = number;
+-	if(copy_to_user(srq->pointer, address,
+-			 sizeof(struct sockaddr) * number))
+-		return -EFAULT;
+-	if(copy_to_user(srq->pointer + (sizeof(struct sockaddr)*number),
+-			&spy_stat, sizeof(struct iw_quality) * number))
+-		return -EFAULT;
+ 
+ 	return 0;
+ }
+ 
+-static int
+-orinoco_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
++/* Commit handler, called after set operations */
++static int orinoco_ioctl_commit(struct net_device *dev,
++				struct iw_request_info *info,
++				void *wrqu,
++				char *extra)
+ {
+ 	struct orinoco_private *priv = netdev_priv(dev);
+-	struct iwreq *wrq = (struct iwreq *)rq;
+-	int err = 0;
+-	int tmp;
+-	int changed = 0;
++	struct hermes *hw = &priv->hw;
+ 	unsigned long flags;
++	int err = 0;
+ 
+-	TRACE_ENTER(dev->name);
+-
+-	/* In theory, we could allow most of the the SET stuff to be
+-	 * done. In practice, the lapse of time at startup when the
+-	 * card is not ready is very short, so why bother...  Note
+-	 * that netif_device_present is different from up/down
+-	 * (ifconfig), when the device is not yet up, it is usually
+-	 * already ready...  Jean II */
+-	if (! netif_device_present(dev))
+-		return -ENODEV;
+-
+-	switch (cmd) {
+-	case SIOCGIWNAME:
+-		strcpy(wrq->u.name, "IEEE 802.11-DS");
+-		break;
+-		
+-	case SIOCGIWAP:
+-		wrq->u.ap_addr.sa_family = ARPHRD_ETHER;
+-		err = orinoco_hw_get_bssid(priv, wrq->u.ap_addr.sa_data);
+-		break;
+-
+-	case SIOCGIWRANGE:
+-		err = orinoco_ioctl_getiwrange(dev, &wrq->u.data);
+-		break;
+-
+-	case SIOCSIWMODE:
+-		if (orinoco_lock(priv, &flags) != 0)
+-			return -EBUSY;
+-		switch (wrq->u.mode) {
+-		case IW_MODE_ADHOC:
+-			if (! (priv->has_ibss || priv->has_port3) )
+-				err = -EINVAL;
+-			else {
+-				priv->iw_mode = IW_MODE_ADHOC;
+-				changed = 1;
+-			}
+-			break;
+-
+-		case IW_MODE_INFRA:
+-			priv->iw_mode = IW_MODE_INFRA;
+-			changed = 1;
+-			break;
+-
+-		default:
+-			err = -EINVAL;
+-			break;
+-		}
+-		set_port_type(priv);
+-		orinoco_unlock(priv, &flags);
+-		break;
+-
+-	case SIOCGIWMODE:
+-		if (orinoco_lock(priv, &flags) != 0)
+-			return -EBUSY;
+-		wrq->u.mode = priv->iw_mode;
+-		orinoco_unlock(priv, &flags);
+-		break;
+-
+-	case SIOCSIWENCODE:
+-		err = orinoco_ioctl_setiwencode(dev, &wrq->u.encoding);
+-		if (! err)
+-			changed = 1;
+-		break;
+-
+-	case SIOCGIWENCODE:
+-		if (! capable(CAP_NET_ADMIN)) {
+-			err = -EPERM;
+-			break;
+-		}
+-
+-		err = orinoco_ioctl_getiwencode(dev, &wrq->u.encoding);
+-		break;
+-
+-	case SIOCSIWESSID:
+-		err = orinoco_ioctl_setessid(dev, &wrq->u.essid);
+-		if (! err)
+-			changed = 1;
+-		break;
+-
+-	case SIOCGIWESSID:
+-		err = orinoco_ioctl_getessid(dev, &wrq->u.essid);
+-		break;
+-
+-	case SIOCSIWNICKN:
+-		err = orinoco_ioctl_setnick(dev, &wrq->u.data);
+-		if (! err)
+-			changed = 1;
+-		break;
+-
+-	case SIOCGIWNICKN:
+-		err = orinoco_ioctl_getnick(dev, &wrq->u.data);
+-		break;
+-
+-	case SIOCGIWFREQ:
+-		tmp = orinoco_hw_get_freq(priv);
+-		if (tmp < 0) {
+-			err = tmp;
+-		} else {
+-			wrq->u.freq.m = tmp;
+-			wrq->u.freq.e = 1;
+-		}
+-		break;
+-
+-	case SIOCSIWFREQ:
+-		err = orinoco_ioctl_setfreq(dev, &wrq->u.freq);
+-		if (! err)
+-			changed = 1;
+-		break;
+-
+-	case SIOCGIWSENS:
+-		err = orinoco_ioctl_getsens(dev, &wrq->u.sens);
+-		break;
+-
+-	case SIOCSIWSENS:
+-		err = orinoco_ioctl_setsens(dev, &wrq->u.sens);
+-		if (! err)
+-			changed = 1;
+-		break;
+-
+-	case SIOCGIWRTS:
+-		wrq->u.rts.value = priv->rts_thresh;
+-		wrq->u.rts.disabled = (wrq->u.rts.value == 2347);
+-		wrq->u.rts.fixed = 1;
+-		break;
+-
+-	case SIOCSIWRTS:
+-		err = orinoco_ioctl_setrts(dev, &wrq->u.rts);
+-		if (! err)
+-			changed = 1;
+-		break;
+-
+-	case SIOCSIWFRAG:
+-		err = orinoco_ioctl_setfrag(dev, &wrq->u.frag);
+-		if (! err)
+-			changed = 1;
+-		break;
+-
+-	case SIOCGIWFRAG:
+-		err = orinoco_ioctl_getfrag(dev, &wrq->u.frag);
+-		break;
+-
+-	case SIOCSIWRATE:
+-		err = orinoco_ioctl_setrate(dev, &wrq->u.bitrate);
+-		if (! err)
+-			changed = 1;
+-		break;
+-
+-	case SIOCGIWRATE:
+-		err = orinoco_ioctl_getrate(dev, &wrq->u.bitrate);
+-		break;
+-
+-	case SIOCSIWPOWER:
+-		err = orinoco_ioctl_setpower(dev, &wrq->u.power);
+-		if (! err)
+-			changed = 1;
+-		break;
+-
+-	case SIOCGIWPOWER:
+-		err = orinoco_ioctl_getpower(dev, &wrq->u.power);
+-		break;
++	if (!priv->open)
++		return 0;
+ 
+-	case SIOCGIWTXPOW:
+-		/* The card only supports one tx power, so this is easy */
+-		wrq->u.txpower.value = 15; /* dBm */
+-		wrq->u.txpower.fixed = 1;
+-		wrq->u.txpower.disabled = 0;
+-		wrq->u.txpower.flags = IW_TXPOW_DBM;
+-		break;
++	if (priv->broken_disableport) {
++		orinoco_reset(dev);
++		return 0;
++	}
+ 
+-	case SIOCSIWRETRY:
+-		err = -EOPNOTSUPP;
+-		break;
++	if (orinoco_lock(priv, &flags) != 0)
++		return err;
+ 
+-	case SIOCGIWRETRY:
+-		err = orinoco_ioctl_getretry(dev, &wrq->u.retry);
+-		break;
++	err = hermes_disable_port(hw, 0);
++	if (err) {
++		printk(KERN_WARNING "%s: Unable to disable port "
++		       "while reconfiguring card\n", dev->name);
++		priv->broken_disableport = 1;
++		goto out;
++	}
+ 
+-	case SIOCSIWSPY:
+-		err = orinoco_ioctl_setspy(dev, &wrq->u.data);
+-		break;
++	err = __orinoco_program_rids(dev);
++	if (err) {
++		printk(KERN_WARNING "%s: Unable to reconfigure card\n",
++		       dev->name);
++		goto out;
++	}
+ 
+-	case SIOCGIWSPY:
+-		err = orinoco_ioctl_getspy(dev, &wrq->u.data);
+-		break;
+-
+-	case SIOCGIWPRIV:
+-		if (wrq->u.data.pointer) {
+-			struct iw_priv_args privtab[] = {
+-				{ SIOCIWFIRSTPRIV + 0x0, 0, 0, "force_reset" },
+-				{ SIOCIWFIRSTPRIV + 0x1, 0, 0, "card_reset" },
+-				{ SIOCIWFIRSTPRIV + 0x2,
+-				  IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1,
+-				  0, "set_port3" },
+-				{ SIOCIWFIRSTPRIV + 0x3, 0,
+-				  IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1,
+-				  "get_port3" },
+-				{ SIOCIWFIRSTPRIV + 0x4,
+-				  IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1,
+-				  0, "set_preamble" },
+-				{ SIOCIWFIRSTPRIV + 0x5, 0,
+-				  IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1,
+-				  "get_preamble" },
+-				{ SIOCIWFIRSTPRIV + 0x6,
+-				  IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1,
+-				  0, "set_ibssport" },
+-				{ SIOCIWFIRSTPRIV + 0x7, 0,
+-				  IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1,
+-				  "get_ibssport" },
+-			};
+-
+-			wrq->u.data.length = sizeof(privtab) / sizeof(privtab[0]);
+-			if (copy_to_user(wrq->u.data.pointer, privtab, sizeof(privtab)))
+-				err = -EFAULT;
+-		}
+-		break;
+-	       
+-	case SIOCIWFIRSTPRIV + 0x0: /* force_reset */
+-	case SIOCIWFIRSTPRIV + 0x1: /* card_reset */
+-		if (! capable(CAP_NET_ADMIN)) {
+-			err = -EPERM;
+-			break;
+-		}
+-		
+-		printk(KERN_DEBUG "%s: Force scheduling reset!\n", dev->name);
++	err = hermes_enable_port(hw, 0);
++	if (err) {
++		printk(KERN_WARNING "%s: Unable to enable port while reconfiguring card\n",
++		       dev->name);
++		goto out;
++	}
+ 
++ out:
++	if (err) {
++		printk(KERN_WARNING "%s: Resetting instead...\n", dev->name);
+ 		schedule_work(&priv->reset_work);
+-		break;
+-
+-	case SIOCIWFIRSTPRIV + 0x2: /* set_port3 */
+-		if (! capable(CAP_NET_ADMIN)) {
+-			err = -EPERM;
+-			break;
+-		}
+-
+-		err = orinoco_ioctl_setport3(dev, wrq);
+-		if (! err)
+-			changed = 1;
+-		break;
+-
+-	case SIOCIWFIRSTPRIV + 0x3: /* get_port3 */
+-		err = orinoco_ioctl_getport3(dev, wrq);
+-		break;
+-
+-	case SIOCIWFIRSTPRIV + 0x4: /* set_preamble */
+-		if (! capable(CAP_NET_ADMIN)) {
+-			err = -EPERM;
+-			break;
+-		}
+-
+-		/* 802.11b has recently defined some short preamble.
+-		 * Basically, the Phy header has been reduced in size.
+-		 * This increase performance, especially at high rates
+-		 * (the preamble is transmitted at 1Mb/s), unfortunately
+-		 * this give compatibility troubles... - Jean II */
+-		if(priv->has_preamble) {
+-			int val = *( (int *) wrq->u.name );
+-
+-			if (orinoco_lock(priv, &flags) != 0)
+-				return -EBUSY;
+-			if (val)
+-				priv->preamble = 1;
+-			else
+-				priv->preamble = 0;
+-			orinoco_unlock(priv, &flags);
+-			changed = 1;
+-		} else
+-			err = -EOPNOTSUPP;
+-		break;
++		err = 0;
++	}
+ 
+-	case SIOCIWFIRSTPRIV + 0x5: /* get_preamble */
+-		if(priv->has_preamble) {
+-			int *val = (int *)wrq->u.name;
+-
+-			if (orinoco_lock(priv, &flags) != 0)
+-				return -EBUSY;
+-			*val = priv->preamble;
+-			orinoco_unlock(priv, &flags);
+-		} else
+-			err = -EOPNOTSUPP;
+-		break;
+-	case SIOCIWFIRSTPRIV + 0x6: /* set_ibssport */
+-		if (! capable(CAP_NET_ADMIN)) {
+-			err = -EPERM;
+-			break;
+-		}
++	orinoco_unlock(priv, &flags);
++	return err;
++}
+ 
+-		err = orinoco_ioctl_setibssport(dev, wrq);
+-		if (! err)
+-			changed = 1;
+-		break;
++static const struct iw_priv_args orinoco_privtab[] = {
++	{ SIOCIWFIRSTPRIV + 0x0, 0, 0, "force_reset" },
++	{ SIOCIWFIRSTPRIV + 0x1, 0, 0, "card_reset" },
++	{ SIOCIWFIRSTPRIV + 0x2, IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1,
++	  0, "set_port3" },
++	{ SIOCIWFIRSTPRIV + 0x3, 0, IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1,
++	  "get_port3" },
++	{ SIOCIWFIRSTPRIV + 0x4, IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1,
++	  0, "set_preamble" },
++	{ SIOCIWFIRSTPRIV + 0x5, 0, IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1,
++	  "get_preamble" },
++	{ SIOCIWFIRSTPRIV + 0x6, IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1,
++	  0, "set_ibssport" },
++	{ SIOCIWFIRSTPRIV + 0x7, 0, IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1,
++	  "get_ibssport" },
++	{ SIOCIWFIRSTPRIV + 0x9, 0, IW_PRIV_TYPE_BYTE | MAX_RID_LEN,
++	  "get_rid" },
++};
+ 
+-	case SIOCIWFIRSTPRIV + 0x7: /* get_ibssport */
+-		err = orinoco_ioctl_getibssport(dev, wrq);
+-		break;
+ 
+-	default:
+-		err = -EOPNOTSUPP;
+-	}
+-	
+-	if (! err && changed && netif_running(dev)) {
+-		err = orinoco_reconfigure(dev);
+-	}		
++/*
++ * Structures to export the Wireless Handlers
++ */
++
++static const iw_handler	orinoco_handler[] = {
++	[SIOCSIWCOMMIT-SIOCIWFIRST] (iw_handler) orinoco_ioctl_commit,
++	[SIOCGIWNAME  -SIOCIWFIRST] (iw_handler) orinoco_ioctl_getname,
++	[SIOCSIWFREQ  -SIOCIWFIRST] (iw_handler) orinoco_ioctl_setfreq,
++	[SIOCGIWFREQ  -SIOCIWFIRST] (iw_handler) orinoco_ioctl_getfreq,
++	[SIOCSIWMODE  -SIOCIWFIRST] (iw_handler) orinoco_ioctl_setmode,
++	[SIOCGIWMODE  -SIOCIWFIRST] (iw_handler) orinoco_ioctl_getmode,
++	[SIOCSIWSENS  -SIOCIWFIRST] (iw_handler) orinoco_ioctl_setsens,
++	[SIOCGIWSENS  -SIOCIWFIRST] (iw_handler) orinoco_ioctl_getsens,
++	[SIOCGIWRANGE -SIOCIWFIRST] (iw_handler) orinoco_ioctl_getiwrange,
++	[SIOCSIWSPY   -SIOCIWFIRST] (iw_handler) orinoco_ioctl_setspy,
++	[SIOCGIWSPY   -SIOCIWFIRST] (iw_handler) orinoco_ioctl_getspy,
++	[SIOCGIWAP    -SIOCIWFIRST] (iw_handler) orinoco_ioctl_getwap,
++	[SIOCSIWESSID -SIOCIWFIRST] (iw_handler) orinoco_ioctl_setessid,
++	[SIOCGIWESSID -SIOCIWFIRST] (iw_handler) orinoco_ioctl_getessid,
++	[SIOCSIWNICKN -SIOCIWFIRST] (iw_handler) orinoco_ioctl_setnick,
++	[SIOCGIWNICKN -SIOCIWFIRST] (iw_handler) orinoco_ioctl_getnick,
++	[SIOCSIWRATE  -SIOCIWFIRST] (iw_handler) orinoco_ioctl_setrate,
++	[SIOCGIWRATE  -SIOCIWFIRST] (iw_handler) orinoco_ioctl_getrate,
++	[SIOCSIWRTS   -SIOCIWFIRST] (iw_handler) orinoco_ioctl_setrts,
++	[SIOCGIWRTS   -SIOCIWFIRST] (iw_handler) orinoco_ioctl_getrts,
++	[SIOCSIWFRAG  -SIOCIWFIRST] (iw_handler) orinoco_ioctl_setfrag,
++	[SIOCGIWFRAG  -SIOCIWFIRST] (iw_handler) orinoco_ioctl_getfrag,
++	[SIOCGIWRETRY -SIOCIWFIRST] (iw_handler) orinoco_ioctl_getretry,
++	[SIOCSIWENCODE-SIOCIWFIRST] (iw_handler) orinoco_ioctl_setiwencode,
++	[SIOCGIWENCODE-SIOCIWFIRST] (iw_handler) orinoco_ioctl_getiwencode,
++	[SIOCSIWPOWER -SIOCIWFIRST] (iw_handler) orinoco_ioctl_setpower,
++	[SIOCGIWPOWER -SIOCIWFIRST] (iw_handler) orinoco_ioctl_getpower,
++};
+ 
+-	TRACE_EXIT(dev->name);
+ 
+-	return err;
+-}
++/*
++  Added typecasting since we no longer use iwreq_data -- Moustafa
++ */
++static const iw_handler	orinoco_private_handler[] = {
++	[0] (iw_handler) orinoco_ioctl_reset,
++	[1] (iw_handler) orinoco_ioctl_reset,
++	[2] (iw_handler) orinoco_ioctl_setport3,
++	[3] (iw_handler) orinoco_ioctl_getport3,
++	[4] (iw_handler) orinoco_ioctl_setpreamble,
++	[5] (iw_handler) orinoco_ioctl_getpreamble,
++	[6] (iw_handler) orinoco_ioctl_setibssport,
++	[7] (iw_handler) orinoco_ioctl_getibssport,
++	[9] (iw_handler) orinoco_ioctl_getrid,
++};
+ 
++static const struct iw_handler_def orinoco_handler_def = {
++	.num_standard = ARRAY_SIZE(orinoco_handler),
++	.num_private = ARRAY_SIZE(orinoco_private_handler),
++	.num_private_args = ARRAY_SIZE(orinoco_privtab),
++	.standard = orinoco_handler,
++	.private = orinoco_private_handler,
++	.private_args = orinoco_privtab,
++};
+ 
+ /********************************************************************/
+ /* Debugging                                                        */
