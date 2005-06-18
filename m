@@ -1,55 +1,81 @@
-From: Linus Torvalds <torvalds@osdl.org>
-Subject: Re: [git patches] 2.6.x net driver updates
-Date: Sat, 18 Jun 2005 13:23:47 -0700 (PDT)
-Message-ID: <Pine.LNX.4.58.0506181318240.2268@ppc970.osdl.org>
-References: <42B456E2.8000500@pobox.com> <Pine.LNX.4.58.0506181047190.2268@ppc970.osdl.org>
- <Pine.LNX.4.58.0506181105110.2268@ppc970.osdl.org>
- <Pine.LNX.4.58.0506181112590.2268@ppc970.osdl.org> <42B469B6.2060502@pobox.com>
- <Pine.LNX.4.58.0506181146260.2268@ppc970.osdl.org> <42B47E68.9020601@pobox.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: receive only one record from the routing table
+Date: Sat, 18 Jun 2005 22:23:59 +0200
+Message-ID: <20050618202359.GP22463@postel.suug.ch>
+References: <Pine.LNX.4.61.0506171359490.31631@localhost.localdomain> <20050617141527.GN22463@postel.suug.ch> <Pine.LNX.4.61.0506172057240.26739@localhost.localdomain> <20050617191340.GO22463@postel.suug.ch> <Pine.LNX.4.61.0506182042540.29813@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew Morton <akpm@osdl.org>,
-	Netdev List <netdev@vger.kernel.org>,
-	Linux Kernel <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262203AbVFRUV5@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <42B47E68.9020601@pobox.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: =?iso-8859-1?B?VG9t4T8=?= Macek <maca02@atlas.cz>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.61.0506182042540.29813@localhost.localdomain>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+* Tom?? Macek <Pine.LNX.4.61.0506182042540.29813@localhost.localdomain> 2005-06-18 20:55
+> The 'rtm_dst_len = 16' should mean the mask of the route I'm looking for, correct?
 
+Yes.
 
-On Sat, 18 Jun 2005, Jeff Garzik wrote:
+> The whole code before sending the packet is below:
 > 
-> I re-did the merge locally, as a test, finalizing with 'git commit' 
-> rather than 'git-commit-tree ...' and the parent info came out correct. 
->   FWIW.
+> 
+>      /* Create Socket */
+>      if((sock = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE)) < 0)
+>          perror("Socket Creation: ");
+> 
+>      /* Initialize the buffer */
+>      memset(msgBuf, 0, BUFSIZE);
+> 
+>      /* point the header and the msg structure pointers into the buffer */
+>      nlMsg = (struct nlmsghdr *)msgBuf;
+>      rtMsg = (struct rtmsg *)NLMSG_DATA(nlMsg);
+>      rtMsg->rtm_family = AF_INET;
+>      rtMsg->rtm_dst_len = 16;
+> 
+>      /* Fill in the nlmsg header*/
+>      nlMsg->nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg)); // Length of message.
+>      nlMsg->nlmsg_type = RTM_GETROUTE;   // Get the routes from kernel routing table .
+>      nlMsg->nlmsg_flags = NLM_F_REQUEST;   // The message is a request for dump.
+>      nlMsg->nlmsg_seq = msgSeq++;   // Sequence of the message packet.
+>      nlMsg->nlmsg_pid = getpid();   // PID of process sending the request.
+> 
+>      char *cp;
+>      unsigned int xx[4]; int i = 0;
+>      unsigned char *ap = (unsigned char *)xx;
+>      for (cp = argv[1], i = 0; *cp; cp++) {
+>          if (*cp <= '9' && *cp >= '0') {
+>              ap[i] = 10*ap[i] + (*cp-'0');
+>              continue;
+>          }
+>          if (*cp == '.' && ++i <= 3)
+>              continue;
+>          return -1;
+>      }
+> 
+>      NetlinkAddAttr(nlMsg, sizeof(nlMsg), RTA_DST, &xx, 4);
 
-Well, you can certainly do it by hand with git-commit-tree too, you just 
-need to make sure that you give all the relevant parents, ie something 
-like
+This looks good but your NetlinkAddAttr is bogus, it should
+be something like this:
 
-	git-commit-tree $(git-write-tree) -p HEAD -p MERGE_HEAD
+int nl_msg_append_tlv(struct nlmsghdr *n, int type, void *data, size_t len)
+{
+	int tlen;
+	struct rtattr *rta;
+	
+	tlen = NLMSG_ALIGN(n->nlmsg_len) + RTA_LENGTH(NLMSG_ALIGN(len));
 
-will do the right thing too (and is what "git commit" ends up doing in the 
-end, of course).
+	rta = (struct rtattr *) NLMSG_TAIL(n);
+	rta->rta_type = type;
+	rta->rta_len = RTA_LENGTH(NLMSG_ALIGN(len));
+	memcpy(RTA_DATA(rta), data, len);
+	n->nlmsg_len = tlen;
+	
+	return 0;
+}
 
-In fact, the "git commit" script will _only_ handle the merge case of
-having done a single "git pull", and if you do anything more complex that
-has more than two parents, you'll have to go back to scripting the use of
-git-commit-tree by hand.
-
-I've considered trying to automate this a bit more: right now it really 
-does depend on people and scripts always getting the parents right, but at 
-least in theory I could embed the parent information in the "index" file 
-at least as an additional safety-measure.
-
-However, I'm not entirely sure that is a good idea: the current approach
-is _extremely_ flexible, exactly because it allows you to do anything you
-want with parents. That flexibility can be nice, but it's obviously also
-what makes it a bit dangerous.
-
-So the git approach is "give them rope", with a few scripts that handle 
-the normal cases right. That's the unix way, after all..
-
-		Linus
+Your code is missing various alignment requirements. I can't tell
+whether this is the last bug. I recommend you to read ip/iproute.c
+in the iproute2 source or give libnl a second chance.
