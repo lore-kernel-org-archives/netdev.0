@@ -1,91 +1,32 @@
-From: =?ISO-8859-2?Q?Tom=E1=B9_Macek?= <maca02@atlas.cz>
-Subject: Re: receive only one record from the routing table
-Date: Sat, 18 Jun 2005 20:55:35 +0200 (CEST)
-Message-ID: <Pine.LNX.4.61.0506182042540.29813@localhost.localdomain>
-References: <Pine.LNX.4.61.0506171359490.31631@localhost.localdomain>
- <20050617141527.GN22463@postel.suug.ch> <Pine.LNX.4.61.0506172057240.26739@localhost.localdomain>
- <20050617191340.GO22463@postel.suug.ch>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [git patches] 2.6.x net driver updates
+Date: Sat, 18 Jun 2005 16:04:56 -0400
+Message-ID: <42B47E68.9020601@pobox.com>
+References: <42B456E2.8000500@pobox.com> <Pine.LNX.4.58.0506181047190.2268@ppc970.osdl.org> <Pine.LNX.4.58.0506181105110.2268@ppc970.osdl.org> <Pine.LNX.4.58.0506181112590.2268@ppc970.osdl.org> <42B469B6.2060502@pobox.com> <Pine.LNX.4.58.0506181146260.2268@ppc970.osdl.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <20050617191340.GO22463@postel.suug.ch>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@osdl.org>,
+	Netdev List <netdev@vger.kernel.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262162AbVFRUFG@vger.kernel.org>
+To: Linus Torvalds <torvalds@osdl.org>
+In-Reply-To: <Pine.LNX.4.58.0506181146260.2268@ppc970.osdl.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thanks for your answers.
-I just tried to compile the libnl, but some errors occured, so I'm just continuing without it.
-But I've looked at the html documentation and it seems to be very good.
+Linus Torvalds wrote:
+> Ok, I ended up re-doing the merge by hand (ie I fetched all the other 
+> parts, ignored your top entry, and just merged the previous one manually). 
+> 
+> I'm pushing out the result now, can you verify that the r8192.c file looks
+> like you expected it to look? I think it should be the same thing you
+> ended up with except for fixed parents, but...
 
-I repaired the main() function by adding the
+Looks good here, thanks.
 
-rtMsg->rtm_family = AF_INET;
-rtMsg->rtm_dst_len = 16;
+I re-did the merge locally, as a test, finalizing with 'git commit' 
+rather than 'git-commit-tree ...' and the parent info came out correct. 
+  FWIW.
 
-but every request on any dst address in the routing table gives me this output:
-Destination             Gateway         Interface               Source          Netmask
-127.0.0.1               *.*.*.*                         lo              255.255.255.255
-
-The 'rtm_dst_len = 16' should mean the mask of the route I'm looking for, correct? The whole code before sending the packet is below:
-
-
-     /* Create Socket */
-     if((sock = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE)) < 0)
-         perror("Socket Creation: ");
-
-     /* Initialize the buffer */
-     memset(msgBuf, 0, BUFSIZE);
-
-     /* point the header and the msg structure pointers into the buffer */
-     nlMsg = (struct nlmsghdr *)msgBuf;
-     rtMsg = (struct rtmsg *)NLMSG_DATA(nlMsg);
-     rtMsg->rtm_family = AF_INET;
-     rtMsg->rtm_dst_len = 16;
-
-     /* Fill in the nlmsg header*/
-     nlMsg->nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg)); // Length of message.
-     nlMsg->nlmsg_type = RTM_GETROUTE;   // Get the routes from kernel routing table .
-     nlMsg->nlmsg_flags = NLM_F_REQUEST;   // The message is a request for dump.
-     nlMsg->nlmsg_seq = msgSeq++;   // Sequence of the message packet.
-     nlMsg->nlmsg_pid = getpid();   // PID of process sending the request.
-
-     char *cp;
-     unsigned int xx[4]; int i = 0;
-     unsigned char *ap = (unsigned char *)xx;
-     for (cp = argv[1], i = 0; *cp; cp++) {
-         if (*cp <= '9' && *cp >= '0') {
-             ap[i] = 10*ap[i] + (*cp-'0');
-             continue;
-         }
-         if (*cp == '.' && ++i <= 3)
-             continue;
-         return -1;
-     }
-
-     NetlinkAddAttr(nlMsg, sizeof(nlMsg), RTA_DST, &xx, 4);
-
-
-
-
-On Fri, 17 Jun 2005, Thomas Graf wrote:
-
-> * Tom?? Macek <Pine.LNX.4.61.0506172057240.26739@localhost.localdomain> 2005-06-17 20:57
->> Part of my routing table is here:
->>
->> 3.3.0.0         *               255.255.0.0     U     0      0        0 eth1
->> default         meric           0.0.0.0         UG    0      0        0 eth0
->>
->> Ommiting NLM_F_DUMP and typing './a.out 3.3.0.0' gives
->>
->> Error in recieved packet: Success
->> Read From Socket Failed...
->
-> Bcause you don't set rtm_dst_len to the prefix length or 32,
-> and rtm_family (AF_INET). You could also use libnl, probably
-> easier to use.
->
->
->
->
->
+	Jeff
