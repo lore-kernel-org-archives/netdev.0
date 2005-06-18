@@ -1,46 +1,91 @@
-From: Linus Torvalds <torvalds@osdl.org>
-Subject: Re: [git patches] 2.6.x net driver updates
-Date: Sat, 18 Jun 2005 11:48:59 -0700 (PDT)
-Message-ID: <Pine.LNX.4.58.0506181146260.2268@ppc970.osdl.org>
-References: <42B456E2.8000500@pobox.com> <Pine.LNX.4.58.0506181047190.2268@ppc970.osdl.org>
- <Pine.LNX.4.58.0506181105110.2268@ppc970.osdl.org>
- <Pine.LNX.4.58.0506181112590.2268@ppc970.osdl.org> <42B469B6.2060502@pobox.com>
+From: =?ISO-8859-2?Q?Tom=E1=B9_Macek?= <maca02@atlas.cz>
+Subject: Re: receive only one record from the routing table
+Date: Sat, 18 Jun 2005 20:55:35 +0200 (CEST)
+Message-ID: <Pine.LNX.4.61.0506182042540.29813@localhost.localdomain>
+References: <Pine.LNX.4.61.0506171359490.31631@localhost.localdomain>
+ <20050617141527.GN22463@postel.suug.ch> <Pine.LNX.4.61.0506172057240.26739@localhost.localdomain>
+ <20050617191340.GO22463@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew Morton <akpm@osdl.org>,
-	Netdev List <netdev@vger.kernel.org>,
-	Linux Kernel <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262217AbVFRSrV@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <42B469B6.2060502@pobox.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+In-Reply-To: <20050617191340.GO22463@postel.suug.ch>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Thanks for your answers.
+I just tried to compile the libnl, but some errors occured, so I'm just continuing without it.
+But I've looked at the html documentation and it seems to be very good.
+
+I repaired the main() function by adding the
+
+rtMsg->rtm_family = AF_INET;
+rtMsg->rtm_dst_len = 16;
+
+but every request on any dst address in the routing table gives me this output:
+Destination             Gateway         Interface               Source          Netmask
+127.0.0.1               *.*.*.*                         lo              255.255.255.255
+
+The 'rtm_dst_len = 16' should mean the mask of the route I'm looking for, correct? The whole code before sending the packet is below:
 
 
-On Sat, 18 Jun 2005, Jeff Garzik wrote:
+     /* Create Socket */
+     if((sock = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE)) < 0)
+         perror("Socket Creation: ");
+
+     /* Initialize the buffer */
+     memset(msgBuf, 0, BUFSIZE);
+
+     /* point the header and the msg structure pointers into the buffer */
+     nlMsg = (struct nlmsghdr *)msgBuf;
+     rtMsg = (struct rtmsg *)NLMSG_DATA(nlMsg);
+     rtMsg->rtm_family = AF_INET;
+     rtMsg->rtm_dst_len = 16;
+
+     /* Fill in the nlmsg header*/
+     nlMsg->nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg)); // Length of message.
+     nlMsg->nlmsg_type = RTM_GETROUTE;   // Get the routes from kernel routing table .
+     nlMsg->nlmsg_flags = NLM_F_REQUEST;   // The message is a request for dump.
+     nlMsg->nlmsg_seq = msgSeq++;   // Sequence of the message packet.
+     nlMsg->nlmsg_pid = getpid();   // PID of process sending the request.
+
+     char *cp;
+     unsigned int xx[4]; int i = 0;
+     unsigned char *ap = (unsigned char *)xx;
+     for (cp = argv[1], i = 0; *cp; cp++) {
+         if (*cp <= '9' && *cp >= '0') {
+             ap[i] = 10*ap[i] + (*cp-'0');
+             continue;
+         }
+         if (*cp == '.' && ++i <= 3)
+             continue;
+         return -1;
+     }
+
+     NetlinkAddAttr(nlMsg, sizeof(nlMsg), RTA_DST, &xx, 4);
+
+
+
+
+On Fri, 17 Jun 2005, Thomas Graf wrote:
+
+> * Tom?? Macek <Pine.LNX.4.61.0506172057240.26739@localhost.localdomain> 2005-06-17 20:57
+>> Part of my routing table is here:
+>>
+>> 3.3.0.0         *               255.255.0.0     U     0      0        0 eth1
+>> default         meric           0.0.0.0         UG    0      0        0 eth0
+>>
+>> Ommiting NLM_F_DUMP and typing './a.out 3.3.0.0' gives
+>>
+>> Error in recieved packet: Success
+>> Read From Socket Failed...
 >
-> Linus Torvalds wrote:
-> > I'm hoping my earlier pulls on your trees haven't resulted in these kinds 
-> > of history losses before, and that this was the first time you did a merge 
-> > and didn't specify the parents properly. Pls confirm..
-> 
-> You're being overly paranoid :)
-> 
-> This netdev-2.6.git episode was the first time I ever tried to use the 
-> conflict merging.  I didn't know git had improved to the point where 
-> "git commit" without any arguments would actually get things right.
-> 
-> All the other merges used the vanilla git-pull-script with no 
-> modifications.  Presumably it does the right thing :)
-
-Yes.
-
-Ok, I ended up re-doing the merge by hand (ie I fetched all the other 
-parts, ignored your top entry, and just merged the previous one manually). 
-
-I'm pushing out the result now, can you verify that the r8192.c file looks
-like you expected it to look? I think it should be the same thing you
-ended up with except for fixed parents, but...
-
-		Linus
+> Bcause you don't set rtm_dst_len to the prefix length or 32,
+> and rtm_family (AF_INET). You could also use libnl, probably
+> easier to use.
+>
+>
+>
+>
+>
