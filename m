@@ -1,71 +1,32 @@
-From: Linus Torvalds <torvalds@osdl.org>
+From: Jeff Garzik <jgarzik@pobox.com>
 Subject: Re: [git patches] 2.6.x net driver updates
-Date: Sat, 18 Jun 2005 11:24:28 -0700 (PDT)
-Message-ID: <Pine.LNX.4.58.0506181112590.2268@ppc970.osdl.org>
-References: <42B456E2.8000500@pobox.com> <Pine.LNX.4.58.0506181047190.2268@ppc970.osdl.org>
- <Pine.LNX.4.58.0506181105110.2268@ppc970.osdl.org>
+Date: Sat, 18 Jun 2005 14:36:38 -0400
+Message-ID: <42B469B6.2060502@pobox.com>
+References: <42B456E2.8000500@pobox.com> <Pine.LNX.4.58.0506181047190.2268@ppc970.osdl.org> <Pine.LNX.4.58.0506181105110.2268@ppc970.osdl.org> <Pine.LNX.4.58.0506181112590.2268@ppc970.osdl.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: Andrew Morton <akpm@osdl.org>,
 	Netdev List <netdev@vger.kernel.org>,
 	Linux Kernel <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262180AbVFRSYF@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <Pine.LNX.4.58.0506181105110.2268@ppc970.osdl.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262182AbVFRShA@vger.kernel.org>
+To: Linus Torvalds <torvalds@osdl.org>
+In-Reply-To: <Pine.LNX.4.58.0506181112590.2268@ppc970.osdl.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Linus Torvalds wrote:
+> I'm hoping my earlier pulls on your trees haven't resulted in these kinds 
+> of history losses before, and that this was the first time you did a merge 
+> and didn't specify the parents properly. Pls confirm..
 
+You're being overly paranoid :)
 
-On Sat, 18 Jun 2005, Linus Torvalds wrote:
-> 
-> Your parent information was crap, meaning that when I pulled, I had to
-> re-merge. In fact, I'm going to undo this pull entirely, because of this -
-> it's simply _wrong_. You claim to have done a merge and indeed your "data"
-> is merged, but your history is totally buggered because you didn't do the 
-> proper parents.
+This netdev-2.6.git episode was the first time I ever tried to use the 
+conflict merging.  I didn't know git had improved to the point where 
+"git commit" without any arguments would actually get things right.
 
-Btw, this is serious. If you don't do proper parenting, you may have the
-right _data_ in the tree, but because you lost sight of where that data
-came from, all the commits leading up to that data (from the branch that
-wasn't properly marked as a parent) are worthless and no longer reachable. 
+All the other merges used the vanilla git-pull-script with no 
+modifications.  Presumably it does the right thing :)
 
-In other words, it means that all the history leading up to the merge was
-just lost, and you end up with just a magic "all these changes suddenly
-appeared" patch that claims to be a merge, but is really just a big patch.
-
-It also means that "git prune" will just delete the unreachable commits, 
-since they are clearly not connected to anything any more. Also, any 
-intermediate file contents (that were only reachable through those 
-commits) are also unreachable and thus pruned. You literally end up with a 
-situation where the "merge" is 100% equivalent to just taking the final 
-patch, and applying it on top of the other head.
-
-This may be the reason why you've had problems with "git prune". Your 
-tree histories may be buggered, and you've lost the merges with me.
-
-Quite frankly, I'd never have noticed, except:
-
- - because the history was buggered, the automated merge didn't find the 
-   proper nearest parent, and thus it ended up finding a parent much 
-   further back in history, which in turn meant that a trivial merge
-   wasn't trivial any more, and I got a merge conflict on the
-   drivers/net/r8169.c file.
-
- - actually looking at the history (with gitk, or by looking at how many 
-   parents the commits have with "git log --pretty=raw") made it obvious 
-   that your "merge" had only one parent.
-
-This, btw, is one reason why I suggest against multiple branches, and run
-git-fsck-cache --unreachable religiously. A bad merge with lost parents
-normally causes unreachable commits, and that's a sure sign of trouble.
-
-However, in your usage schenario, those commits are reachable in the
-branch they originated in, and you mix it all up, so you'll never see the
-warning signs.
-
-I'm hoping my earlier pulls on your trees haven't resulted in these kinds 
-of history losses before, and that this was the first time you did a merge 
-and didn't specify the parents properly. Pls confirm..
-
-		Linus
+	Jeff
