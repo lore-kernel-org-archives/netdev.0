@@ -1,141 +1,49 @@
-From: Manfred Spraul <manfred@colorfullife.com>
-Subject: [PATCH] forcedeth: Poll for link changes
-Date: Sat, 18 Jun 2005 16:27:19 +0200
-Message-ID: <42B42F47.2090105@colorfullife.com>
+From: Linus Torvalds <torvalds@osdl.org>
+Subject: Re: [git patches] 2.6.x net driver updates
+Date: Sat, 18 Jun 2005 10:51:59 -0700 (PDT)
+Message-ID: <Pine.LNX.4.58.0506181047190.2268@ppc970.osdl.org>
+References: <42B456E2.8000500@pobox.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080805060801050701020906"
-Cc: Netdev <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andrew Morton <akpm@osdl.org>,
+	Netdev List <netdev@vger.kernel.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262172AbVFRSKc@vger.kernel.org>
 To: Jeff Garzik <jgarzik@pobox.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <42B456E2.8000500@pobox.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------080805060801050701020906
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
 
-Hi Jeff,
 
-Several users reported that the link speed detection is unreliable with 
-nForce 3 nics. The result is either a completely dead network 
-connection, or the connection dies after a few minutes.
-The attached patch enables a timer that polls the PHY for link speed 
-changes. The code already exists for nForce 1/2, the patch enables it 
-for all nForce versions.
+On Sat, 18 Jun 2005, Jeff Garzik wrote:
+> 
+> GIT NOTE 1:  The top-of-tree cset is the result of my use of the new git 
+> conflict merging code.  It seemed to work quite nicely.  I did:
+> 
+> 	git-pull-script $vanilla_linus_repo	# conflicts appeared
+> 	vi drivers/net/r8169.c			# fix conflict
+> 	git-update-cache drivers/net/r8169.c
+> 	git-commit-tree ...
 
-Signed-Off-By: Manfred Spraul <manfred@colorfullife.com>
+The last step can be just "git commit", and it will do the right thing
+these days (and with a nice big warnign that it looks like you're
+committing a merge).
 
---------------080805060801050701020906
-Content-Type: text/plain;
- name="patch-forcedeth-linktimer"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="patch-forcedeth-linktimer"
+In fact, it's much preferable that you use "git commit", because it will
+also then remove the old MERGE_HEAD if the commit was successful, leaving
+the state proper (so that subsequent "git commit" things don't think it's
+a merge). It also makes it less likely that you forget your parents.
+Maybe.
 
---- 2.6/drivers/net/forcedeth.c	2005-06-18 16:21:47.000000000 +0200
-+++ build-2.6/drivers/net/forcedeth.c	2005-06-18 15:03:55.000000000 +0200
-@@ -82,7 +82,8 @@
-  *	0.31: 14 Nov 2004: ethtool support for getting/setting link
-  *	                   capabilities.
-  *	0.32: 16 Apr 2005: RX_ERROR4 handling added.
-- *	0.33: 16 Mai 2005: Support for MCP51 added.
-+ *	0.33: 16 May 2005: Support for MCP51 added.
-+ *	0.34: 18 Jun 2005: Add DEV_NEED_LINKTIMER to all nForce nics.
-  *
-  * Known bugs:
-  * We suspect that on some hardware no TX done interrupts are generated.
-@@ -94,7 +95,7 @@
-  * DEV_NEED_TIMERIRQ will not harm you on sane hardware, only generating a few
-  * superfluous timer interrupts from the nic.
-  */
--#define FORCEDETH_VERSION		"0.33"
-+#define FORCEDETH_VERSION		"0.34"
- #define DRV_NAME			"forcedeth"
- 
- #include <linux/module.h>
-@@ -2218,70 +2219,70 @@
- 		.device = PCI_DEVICE_ID_NVIDIA_NVENET_4,
- 		.subvendor = PCI_ANY_ID,
- 		.subdevice = PCI_ANY_ID,
--		.driver_data = DEV_NEED_LASTPACKET1|DEV_IRQMASK_2|DEV_NEED_TIMERIRQ,
-+		.driver_data = DEV_NEED_LASTPACKET1|DEV_IRQMASK_2|DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER,
- 	},
- 	{	/* nForce3 Ethernet Controller */
- 		.vendor = PCI_VENDOR_ID_NVIDIA,
- 		.device = PCI_DEVICE_ID_NVIDIA_NVENET_5,
- 		.subvendor = PCI_ANY_ID,
- 		.subdevice = PCI_ANY_ID,
--		.driver_data = DEV_NEED_LASTPACKET1|DEV_IRQMASK_2|DEV_NEED_TIMERIRQ,
-+		.driver_data = DEV_NEED_LASTPACKET1|DEV_IRQMASK_2|DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER,
- 	},
- 	{	/* nForce3 Ethernet Controller */
- 		.vendor = PCI_VENDOR_ID_NVIDIA,
- 		.device = PCI_DEVICE_ID_NVIDIA_NVENET_6,
- 		.subvendor = PCI_ANY_ID,
- 		.subdevice = PCI_ANY_ID,
--		.driver_data = DEV_NEED_LASTPACKET1|DEV_IRQMASK_2|DEV_NEED_TIMERIRQ,
-+		.driver_data = DEV_NEED_LASTPACKET1|DEV_IRQMASK_2|DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER,
- 	},
- 	{	/* nForce3 Ethernet Controller */
- 		.vendor = PCI_VENDOR_ID_NVIDIA,
- 		.device = PCI_DEVICE_ID_NVIDIA_NVENET_7,
- 		.subvendor = PCI_ANY_ID,
- 		.subdevice = PCI_ANY_ID,
--		.driver_data = DEV_NEED_LASTPACKET1|DEV_IRQMASK_2|DEV_NEED_TIMERIRQ,
-+		.driver_data = DEV_NEED_LASTPACKET1|DEV_IRQMASK_2|DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER,
- 	},
- 	{	/* CK804 Ethernet Controller */
- 		.vendor = PCI_VENDOR_ID_NVIDIA,
- 		.device = PCI_DEVICE_ID_NVIDIA_NVENET_8,
- 		.subvendor = PCI_ANY_ID,
- 		.subdevice = PCI_ANY_ID,
--		.driver_data = DEV_NEED_LASTPACKET1|DEV_IRQMASK_2|DEV_NEED_TIMERIRQ,
-+		.driver_data = DEV_NEED_LASTPACKET1|DEV_IRQMASK_2|DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER,
- 	},
- 	{	/* CK804 Ethernet Controller */
- 		.vendor = PCI_VENDOR_ID_NVIDIA,
- 		.device = PCI_DEVICE_ID_NVIDIA_NVENET_9,
- 		.subvendor = PCI_ANY_ID,
- 		.subdevice = PCI_ANY_ID,
--		.driver_data = DEV_NEED_LASTPACKET1|DEV_IRQMASK_2|DEV_NEED_TIMERIRQ,
-+		.driver_data = DEV_NEED_LASTPACKET1|DEV_IRQMASK_2|DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER,
- 	},
- 	{	/* MCP04 Ethernet Controller */
- 		.vendor = PCI_VENDOR_ID_NVIDIA,
- 		.device = PCI_DEVICE_ID_NVIDIA_NVENET_10,
- 		.subvendor = PCI_ANY_ID,
- 		.subdevice = PCI_ANY_ID,
--		.driver_data = DEV_NEED_LASTPACKET1|DEV_IRQMASK_2|DEV_NEED_TIMERIRQ,
-+		.driver_data = DEV_NEED_LASTPACKET1|DEV_IRQMASK_2|DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER,
- 	},
- 	{	/* MCP04 Ethernet Controller */
- 		.vendor = PCI_VENDOR_ID_NVIDIA,
- 		.device = PCI_DEVICE_ID_NVIDIA_NVENET_11,
- 		.subvendor = PCI_ANY_ID,
- 		.subdevice = PCI_ANY_ID,
--		.driver_data = DEV_NEED_LASTPACKET1|DEV_IRQMASK_2|DEV_NEED_TIMERIRQ,
-+		.driver_data = DEV_NEED_LASTPACKET1|DEV_IRQMASK_2|DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER,
- 	},
- 	{	/* MCP51 Ethernet Controller */
- 		.vendor = PCI_VENDOR_ID_NVIDIA,
- 		.device = PCI_DEVICE_ID_NVIDIA_NVENET_12,
- 		.subvendor = PCI_ANY_ID,
- 		.subdevice = PCI_ANY_ID,
--		.driver_data = DEV_NEED_LASTPACKET1|DEV_IRQMASK_2|DEV_NEED_TIMERIRQ,
-+		.driver_data = DEV_NEED_LASTPACKET1|DEV_IRQMASK_2|DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER,
- 	},
- 	{	/* MCP51 Ethernet Controller */
- 		.vendor = PCI_VENDOR_ID_NVIDIA,
- 		.device = PCI_DEVICE_ID_NVIDIA_NVENET_13,
- 		.subvendor = PCI_ANY_ID,
- 		.subdevice = PCI_ANY_ID,
--		.driver_data = DEV_NEED_LASTPACKET1|DEV_IRQMASK_2|DEV_NEED_TIMERIRQ,
-+		.driver_data = DEV_NEED_LASTPACKET1|DEV_IRQMASK_2|DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER,
- 	},
- 	{0,},
- };
+> GIT NOTE 2: After doing a lot of simple+automatic merging, over time, I 
+> have a lot of .merge_* files.  Would be nice is git-resolve-script, or 
+> whomever, would clean up after itself.
 
---------------080805060801050701020906--
+Yeah, something as simple as
+
+	rm -f .merge_file_*
+
+in git-resolve-script should fix it..
+
+		Linus
