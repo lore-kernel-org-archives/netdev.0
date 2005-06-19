@@ -1,26 +1,31 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: netpoll and the bonding driver
-Date: Sun, 19 Jun 2005 11:14:36 -0700
-Message-ID: <20050619181436.GX27572__33355.0185816877$1119205115$gmane$org@waste.org>
-References: <17075.10995.498758.773092@segfault.boston.redhat.com>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH] ax25: endian-annotate ax25_type_trans()
+Date: Mon, 20 Jun 2005 00:26:04 +0400
+Message-ID: <200506200026.04525.adobriyan@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Moyer <jmoyer@redhat.com>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux-hams@vger.kernel.org, netdev@vger.kernel.org,
+	Al Viro <viro@parcelfarce.linux.theplanet.co.uk>
+Return-path: <linux-hams-owner@vger.kernel.org>
+To: Ralf Baechle <ralf@linux-mips.org>
 Content-Disposition: inline
-In-Reply-To: <17075.10995.498758.773092@segfault.boston.redhat.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Sender: linux-hams-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 17, 2005 at 03:56:35PM -0400, Jeff Moyer wrote:
-> Hi,
-> 
-> I'm trying to implement a netpoll hook for the bonding driver.
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 
-My first question would be: does this really make sense to do? Why not
-just bind netpoll to one of the underlying devices?
-
--- 
-Mathematics is the supreme nostalgia of our time.
+Index: linux-sparse/include/net/ax25.h
+===================================================================
+--- linux-sparse.orig/include/net/ax25.h	2005-06-10 09:24:10.000000000 +0400
++++ linux-sparse/include/net/ax25.h	2005-06-10 15:03:30.000000000 +0400
+@@ -220,7 +220,7 @@ static __inline__ void ax25_cb_put(ax25_
+ 	}
+ }
+ 
+-static inline unsigned short ax25_type_trans(struct sk_buff *skb, struct net_device *dev)
++static inline __be16 ax25_type_trans(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	skb->dev      = dev;
+ 	skb->pkt_type = PACKET_HOST;
