@@ -1,38 +1,43 @@
-From: Jeff Moyer <jmoyer@redhat.com>
-Subject: Re: netpoll and the bonding driver
-Date: Mon, 20 Jun 2005 11:01:14 -0400
-Message-ID: <17078.55866.893715.792418__39248.4395568774$1119279805$gmane$org@segfault.boston.redhat.com>
-References: <17075.10995.498758.773092@segfault.boston.redhat.com>
-	<20050619181436.GX27572@waste.org>
-	<20050620002118.GA16859@tuxdriver.com>
-Reply-To: jmoyer@redhat.com
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [net-2.6.13 0/3] [IPSEC] Allow PMTU discovery to be turned off
+Date: Mon, 20 Jun 2005 13:24:01 -0700 (PDT)
+Message-ID: <20050620.132401.21595297.davem@davemloft.net>
+References: <20050613073353.GA21454@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Matt Mackall <mpm@selenic.com>, netdev@oss.sgi.com,
-        linux-kernel@vger.kernel.org
+Cc: jmorris@redhat.com, kaber@trash.net, yoshfuji@linux-ipv6.org,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20050620002118.GA16859@tuxdriver.com>
+To: herbert@gondor.apana.org.au
+In-Reply-To: <20050613073353.GA21454@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-==> Regarding Re: netpoll and the bonding driver; "John W. Linville" <linville@tuxdriver.com> adds:
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Mon, 13 Jun 2005 17:33:53 +1000
 
-linville> On Sun, Jun 19, 2005 at 11:14:36AM -0700, Matt Mackall wrote:
->> On Fri, Jun 17, 2005 at 03:56:35PM -0400, Jeff Moyer wrote:
+> One of the problems that's been plaguing our IPsec stack is ICMP
+> blackholes.  ICMP blackholes are particularly bad for tunnels because
+> the most common remediy -- MSS clamping has no effect when applied
+> outside the tunnel.  It is often impractical to apply it inside
+> the tunnel since the point where the clamping is applied may be some
+> way away from either IPsec endpoint.
+> 
+> The best solution so far has been to disable PMTU discovery when a
+> blackhole is detected.  We already support that for IPIP/GRE tunnels.
+> The following patchset adds support for a similar strategy to IPsec
+> tunnels.
+> 
+> It is by no means ideal but it's something that you need to survive
+> on today's Internet.
 
->> > I'm trying to implement a netpoll hook for the bonding driver.
->> 
->> My first question would be: does this really make sense to do? Why not
->> just bind netpoll to one of the underlying devices?
+All 3 patches applied, thanks Herbert.
 
-linville> Depending on the bonding mode, this would be very unlikely to
-linville> work.  The other side of the link will still be expecting to talk
-linville> to the bond rather than to an individual link.
-
-Right, and for those drivers which register a netpoll_rx routine, they may
-not get all of the packets destined for them.
-
--Jeff
+One thing needs clarification in your description.  When I first
+read "blackhole is detected" I was under the wrong impression as
+to _who_ does the detection.  Your patches allow the administrator
+to do this, whereas I thought you were going to add some code which
+dynamically figured out the presence of ICMP black holes and would
+thus set the bit.
