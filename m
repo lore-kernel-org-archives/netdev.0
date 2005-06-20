@@ -1,31 +1,33 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH] ax25: endian-annotate ax25_type_trans()
-Date: Mon, 20 Jun 2005 00:26:04 +0400
-Message-ID: <200506200026.04525.adobriyan@gmail.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: netpoll and the bonding driver
+Date: Sun, 19 Jun 2005 20:21:20 -0400
+Message-ID: <20050620002118.GA16859__4138.92121655426$1119226877$gmane$org@tuxdriver.com>
+References: <17075.10995.498758.773092@segfault.boston.redhat.com> <20050619181436.GX27572@waste.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-hams@vger.kernel.org, netdev@vger.kernel.org,
-	Al Viro <viro@parcelfarce.linux.theplanet.co.uk>
-Return-path: <linux-hams-owner@vger.kernel.org>
-To: Ralf Baechle <ralf@linux-mips.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Moyer <jmoyer@redhat.com>, netdev@oss.sgi.com,
+        linux-kernel@vger.kernel.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Matt Mackall <mpm@selenic.com>
 Content-Disposition: inline
-Sender: linux-hams-owner@vger.kernel.org
+In-Reply-To: <20050619181436.GX27572@waste.org>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+On Sun, Jun 19, 2005 at 11:14:36AM -0700, Matt Mackall wrote:
+> On Fri, Jun 17, 2005 at 03:56:35PM -0400, Jeff Moyer wrote:
 
-Index: linux-sparse/include/net/ax25.h
-===================================================================
---- linux-sparse.orig/include/net/ax25.h	2005-06-10 09:24:10.000000000 +0400
-+++ linux-sparse/include/net/ax25.h	2005-06-10 15:03:30.000000000 +0400
-@@ -220,7 +220,7 @@ static __inline__ void ax25_cb_put(ax25_
- 	}
- }
- 
--static inline unsigned short ax25_type_trans(struct sk_buff *skb, struct net_device *dev)
-+static inline __be16 ax25_type_trans(struct sk_buff *skb, struct net_device *dev)
- {
- 	skb->dev      = dev;
- 	skb->pkt_type = PACKET_HOST;
+> > I'm trying to implement a netpoll hook for the bonding driver.
+> 
+> My first question would be: does this really make sense to do? Why not
+> just bind netpoll to one of the underlying devices?
+
+Depending on the bonding mode, this would be very unlikely to work.
+The other side of the link will still be expecting to talk to the
+bond rather than to an individual link.
+
+John
+-- 
+John W. Linville
+linville@tuxdriver.com
