@@ -1,46 +1,45 @@
-From: Ganesh Venkatesan <ganesh.venkatesan@gmail.com>
-Subject: Re: [PATCH net-drivers-2.6 0/9] ixgb: driver update
-Date: Mon, 20 Jun 2005 14:29:29 -0700
-Message-ID: <5fc59ff305062014294069b259@mail.gmail.com>
-References: <Pine.LNX.4.61.0506131232570.24260@anoushka.jf.intel.com>
-	 <20050620002244.GB16859@tuxdriver.com>
-Reply-To: Ganesh Venkatesan <ganesh.venkatesan@gmail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: iptables bug
+Date: Tue, 21 Jun 2005 01:39:20 +0200
+Message-ID: <42B753A8.5050808@trash.net>
+References: <20050619233029.45dd66b8.akpm@osdl.org>	<1119305756l.1344l.0l@werewolf.able.es>
+	<20050620153445.5daaed4e.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Malli Chilakala <mallikarjuna.chilakala@intel.com>,
-        "jgarzik@pobox.com" <jgarzik@pobox.com>, netdev <netdev@oss.sgi.com>
-In-Reply-To: <20050620002244.GB16859@tuxdriver.com>
-Content-Disposition: inline
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@osdl.org>, netdev@vger.kernel.org,
+	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>,
+	linux-kernel@vger.kernel.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: "J.A. Magallon" <jamagallon@able.es>
+In-Reply-To: <20050620153445.5daaed4e.akpm@osdl.org>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-John:
+Andrew Morton wrote:
+> "J.A. Magallon" <jamagallon@able.es> wrote:
+> 
+>>Are there any known problems with iptables ?
 
-Are you subscribed to netdev@vger.kernel.org?
+No known problems.
 
-ganesh.
+>>I see strange things.
+>>When I use bittorrent (azureus or bittorrent-gui), at the same time as
+>>iptables (for nat and internet access for my ibook), when I stop a download
+>>or exit from one of this apps my external network goes down. 
+>>I have tried the same without iptables loaded and it works fine.
 
-On 6/19/05, John W. Linville <linville@tuxdriver.com> wrote:
-> On Fri, Jun 17, 2005 at 04:54:36PM -0700, Malli Chilakala wrote:
-> > ixgb: driver update
-> 
-> > 1. Set RXDCTL:PTHRESH/HTHRESH to zero
-> > 2. Fix unnecessary link state messages
-> > 3. Use netdev_priv() instead of netdev->priv
-> > 4. Fix Broadcast/Multicast packets received statistics
-> > 5. Fix data output by ethtool -d
-> > 6. Ethtool cleanup patch from Stephen Hemminger
-> > 7. Remove unused functions, render some variable static instead of global
-> > 8. Redefined buffer_info-dma to be dma_addr_t instead of uint64
-> > 9. Driver version & white space fixes
-> 
-> Hmmm...I only got parts 1 & 2...anyone else missing parts?
-> 
-> --
-> John W. Linville
-> linville@tuxdriver.com
-> 
->
+What exactly do you mean with "network goes down"? Can you find out
+where the packets disappear? Do they silently disappear, or do you get
+an error code from sendmsg? What about received packets?
+
+Regards
+Patrick
