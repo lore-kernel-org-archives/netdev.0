@@ -1,34 +1,48 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH net-drivers-2.6 0/9] ixgb: driver update
-Date: Sun, 19 Jun 2005 20:22:45 -0400
-Message-ID: <20050620002244.GB16859@tuxdriver.com>
-References: <Pine.LNX.4.61.0506131232570.24260@anoushka.jf.intel.com>
+From: Ralf Baechle DL5RB <ralf@linux-mips.org>
+Subject: Re: [PATCH] ax25: endian-annotate ax25_type_trans()
+Date: Mon, 20 Jun 2005 11:31:35 +0100
+Message-ID: <20050620103135.GC6633@linux-mips.org>
+References: <200506200026.04525.adobriyan@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "jgarzik@pobox.com" <jgarzik@pobox.com>, netdev <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Malli Chilakala <mallikarjuna.chilakala@intel.com>
+Cc: linux-hams@vger.kernel.org, netdev@vger.kernel.org,
+	Al Viro <viro@parcelfarce.linux.theplanet.co.uk>
+Return-path: <linux-hams-owner@vger.kernel.org>
+To: Alexey Dobriyan <adobriyan@gmail.com>
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.61.0506131232570.24260@anoushka.jf.intel.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <200506200026.04525.adobriyan@gmail.com>
+Sender: linux-hams-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 17, 2005 at 04:54:36PM -0700, Malli Chilakala wrote:
-> ixgb: driver update
+On Mon, Jun 20, 2005 at 12:26:04AM +0400, Alexey Dobriyan wrote:
 
-> 1. Set RXDCTL:PTHRESH/HTHRESH to zero 
-> 2. Fix unnecessary link state messages
-> 3. Use netdev_priv() instead of netdev->priv
-> 4. Fix Broadcast/Multicast packets received statistics
-> 5. Fix data output by ethtool -d 
-> 6. Ethtool cleanup patch from Stephen Hemminger
-> 7. Remove unused functions, render some variable static instead of global 
-> 8. Redefined buffer_info-dma to be dma_addr_t instead of uint64
-> 9. Driver version & white space fixes
+> Subject: [PATCH] ax25: endian-annotate ax25_type_trans()
+> Date:	Mon, 20 Jun 2005 00:26:04 +0400
+> Cc:	linux-hams@vger.kernel.org, netdev@vger.kernel.org,
+> 	Al Viro <viro@parcelfarce.linux.theplanet.co.uk>
+> Content-Type: text/plain;
+>   charset="us-ascii"
 
-Hmmm...I only got parts 1 & 2...anyone else missing parts?
+Obviously correct, Dave would you apply this one?
 
--- 
-John W. Linville
-linville@tuxdriver.com
+  Ralf
+> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+> 
+> Index: linux-sparse/include/net/ax25.h
+> ===================================================================
+> --- linux-sparse.orig/include/net/ax25.h	2005-06-10 09:24:10.000000000 +0400
+> +++ linux-sparse/include/net/ax25.h	2005-06-10 15:03:30.000000000 +0400
+> @@ -220,7 +220,7 @@ static __inline__ void ax25_cb_put(ax25_
+>  	}
+>  }
+>  
+> -static inline unsigned short ax25_type_trans(struct sk_buff *skb, struct net_device *dev)
+> +static inline __be16 ax25_type_trans(struct sk_buff *skb, struct net_device *dev)
+>  {
+>  	skb->dev      = dev;
+>  	skb->pkt_type = PACKET_HOST;
+
+73 de DL5RB op Ralf
+
+--
+Loc. JN47BS / CQ 14 / ITU 28 / DOK A21
