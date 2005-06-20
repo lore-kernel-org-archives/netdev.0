@@ -1,23 +1,46 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] ax25: endian-annotate ax25_type_trans()
-Date: Mon, 20 Jun 2005 13:26:34 -0700 (PDT)
-Message-ID: <20050620.132634.48803390.davem@davemloft.net>
-References: <200506200026.04525.adobriyan@gmail.com>
-	<20050620103135.GC6633@linux-mips.org>
+From: Ganesh Venkatesan <ganesh.venkatesan@gmail.com>
+Subject: Re: [PATCH net-drivers-2.6 0/9] ixgb: driver update
+Date: Mon, 20 Jun 2005 14:29:29 -0700
+Message-ID: <5fc59ff305062014294069b259@mail.gmail.com>
+References: <Pine.LNX.4.61.0506131232570.24260@anoushka.jf.intel.com>
+	 <20050620002244.GB16859@tuxdriver.com>
+Reply-To: Ganesh Venkatesan <ganesh.venkatesan@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: adobriyan@gmail.com, linux-hams@vger.kernel.org,
-	netdev@vger.kernel.org, viro@parcelfarce.linux.theplanet.co.uk
-Return-path: <linux-hams-owner@vger.kernel.org>
-To: ralf@linux-mips.org
-In-Reply-To: <20050620103135.GC6633@linux-mips.org>
-Sender: linux-hams-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Malli Chilakala <mallikarjuna.chilakala@intel.com>,
+        "jgarzik@pobox.com" <jgarzik@pobox.com>, netdev <netdev@oss.sgi.com>
+In-Reply-To: <20050620002244.GB16859@tuxdriver.com>
+Content-Disposition: inline
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Ralf Baechle DL5RB <ralf@linux-mips.org>
-Date: Mon, 20 Jun 2005 11:31:35 +0100
+John:
 
-> Obviously correct, Dave would you apply this one?
+Are you subscribed to netdev@vger.kernel.org?
 
-Yep, I will.
+ganesh.
+
+On 6/19/05, John W. Linville <linville@tuxdriver.com> wrote:
+> On Fri, Jun 17, 2005 at 04:54:36PM -0700, Malli Chilakala wrote:
+> > ixgb: driver update
+> 
+> > 1. Set RXDCTL:PTHRESH/HTHRESH to zero
+> > 2. Fix unnecessary link state messages
+> > 3. Use netdev_priv() instead of netdev->priv
+> > 4. Fix Broadcast/Multicast packets received statistics
+> > 5. Fix data output by ethtool -d
+> > 6. Ethtool cleanup patch from Stephen Hemminger
+> > 7. Remove unused functions, render some variable static instead of global
+> > 8. Redefined buffer_info-dma to be dma_addr_t instead of uint64
+> > 9. Driver version & white space fixes
+> 
+> Hmmm...I only got parts 1 & 2...anyone else missing parts?
+> 
+> --
+> John W. Linville
+> linville@tuxdriver.com
+> 
+>
