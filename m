@@ -1,33 +1,34 @@
 From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: netpoll and the bonding driver
-Date: Sun, 19 Jun 2005 20:21:20 -0400
-Message-ID: <20050620002118.GA16859__4138.92121655426$1119226877$gmane$org@tuxdriver.com>
-References: <17075.10995.498758.773092@segfault.boston.redhat.com> <20050619181436.GX27572@waste.org>
+Subject: Re: [PATCH net-drivers-2.6 0/9] ixgb: driver update
+Date: Sun, 19 Jun 2005 20:22:45 -0400
+Message-ID: <20050620002244.GB16859@tuxdriver.com>
+References: <Pine.LNX.4.61.0506131232570.24260@anoushka.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Moyer <jmoyer@redhat.com>, netdev@oss.sgi.com,
-        linux-kernel@vger.kernel.org
+Cc: "jgarzik@pobox.com" <jgarzik@pobox.com>, netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Matt Mackall <mpm@selenic.com>
+To: Malli Chilakala <mallikarjuna.chilakala@intel.com>
 Content-Disposition: inline
-In-Reply-To: <20050619181436.GX27572@waste.org>
+In-Reply-To: <Pine.LNX.4.61.0506131232570.24260@anoushka.jf.intel.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jun 19, 2005 at 11:14:36AM -0700, Matt Mackall wrote:
-> On Fri, Jun 17, 2005 at 03:56:35PM -0400, Jeff Moyer wrote:
+On Fri, Jun 17, 2005 at 04:54:36PM -0700, Malli Chilakala wrote:
+> ixgb: driver update
 
-> > I'm trying to implement a netpoll hook for the bonding driver.
-> 
-> My first question would be: does this really make sense to do? Why not
-> just bind netpoll to one of the underlying devices?
+> 1. Set RXDCTL:PTHRESH/HTHRESH to zero 
+> 2. Fix unnecessary link state messages
+> 3. Use netdev_priv() instead of netdev->priv
+> 4. Fix Broadcast/Multicast packets received statistics
+> 5. Fix data output by ethtool -d 
+> 6. Ethtool cleanup patch from Stephen Hemminger
+> 7. Remove unused functions, render some variable static instead of global 
+> 8. Redefined buffer_info-dma to be dma_addr_t instead of uint64
+> 9. Driver version & white space fixes
 
-Depending on the bonding mode, this would be very unlikely to work.
-The other side of the link will still be expecting to talk to the
-bond rather than to an individual link.
+Hmmm...I only got parts 1 & 2...anyone else missing parts?
 
-John
 -- 
 John W. Linville
 linville@tuxdriver.com
