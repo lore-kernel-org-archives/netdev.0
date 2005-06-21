@@ -1,58 +1,37 @@
-From: Donald Becker <becker@scyld.com>
+From: Andi Kleen <ak@suse.de>
 Subject: Re: RFC: NAPI packet weighting patch
-Date: Tue, 21 Jun 2005 15:22:49 -0700 (PDT)
-Message-ID: <Pine.LNX.4.44.0506211507110.21812-100000@bluewest.scyld.com>
-References: <p73oe9zbcx0.fsf@verdi.suse.de>
+Date: Wed, 22 Jun 2005 00:34:36 +0200
+Message-ID: <20050621223436.GG14251@wotan.suse.de>
+References: <p73oe9zbcx0.fsf@verdi.suse.de> <Pine.LNX.4.44.0506211507110.21812-100000@bluewest.scyld.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Rick Jones <rick.jones2@hp.com>, <netdev@oss.sgi.com>, <davem@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <ak@suse.de>, Rick Jones <rick.jones2@hp.com>,
+        netdev@oss.sgi.com, davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <p73oe9zbcx0.fsf@verdi.suse.de>
+To: Donald Becker <becker@scyld.com>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.44.0506211507110.21812-100000@bluewest.scyld.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 21 Jun 2005, Andi Kleen wrote:
+> While much has changed since then, the same basic parameters remain
+>    - cache line size
 
-> Rick Jones <rick.jones2@hp.com> writes:
-> 
-> > > Actually, it has a _HUGE_ _HUGE_ impact.  If you pass the big buffer
-> > > up, the receiving socket gets charged for the size of the huge buffer,
-> > > not for just the size of the packet contained within.  This makes
-> > > sockets get overcharged for data reception, and it can cause all kinds
-> > > of performance problems.
-> > 
-> > Then copy when the socket is about to fill with overhead bytes?
+In 96 we had 32 byte cache lines. These days 64-128 are common,
+with some 256 byte cache line systems around.
 
-Or better, predict when the frame you are currently stuffing into the 
-queue will be there when the queue fills up.  And then use the same 
-crystal ball to...
- 
-> Mostly because it is the only sane way to handle devices with very big
-> MTU. But it turns off all kinds of fast paths before it happens, I
-> guess that is what David was refering too.
-> 
-> However I suspect the cut-off points with rx-copybreak in common driver 
-> have been  often tuned before that code was introduced and it might
-> be worth to do some retesting.
+>    - frame header size (MAC+IP+ProtocolHeader)
 
-Most of that analysis and tuning was done in the 1996-99 timeframe.  
+In 96 people tended to not use time stamps.
 
-While much has changed since then, the same basic parameters remain
-   - cache line size
-   - frame header size (MAC+IP+ProtocolHeader)
-   - hot cache lines from copying or type classification
-   - cold memory lines from PCI writes
+>    - hot cache lines from copying or type classification
 
-I suspect you'll find that a good rx_copybreak is pretty much the same as 
-it was when I did the original evaluation.
+Not sure what you mean with that.
 
-If you are looking for an area that has changed: the hidden cost of 
-maintaining consistent cache lines on SMP systems is far higher than it 
-was back in the days of the Pentium Pro.
+>    - cold memory lines from PCI writes
 
-Donald Becker				becker@scyld.com
-Scyld Software				A Penguin Computing company
-914 Bay Ridge Road, Suite 220		www.scyld.com
-Annapolis MD 21403			410-990-9993
+I suspect in '96 chipsets also didn't do as aggressive prefetching
+as they do today.
+
+-Andi
