@@ -1,60 +1,41 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: RFC: NAPI packet weighting patch
-Date: Tue, 21 Jun 2005 13:38:39 -0700
-Message-ID: <42B87ACF.3080800@hp.com>
-References: <468F3FDA28AA87429AD807992E22D07E0450C00B@orsmsx408>	<Pine.CYG.4.58.0506061647340.128@mawilli1-desk2.amr.corp.intel.com>	<42A5284C.3060808@osdl.org> <20050621.132044.115910664.davem@davemloft.net>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [patch] devinet: cleanup if statements
+Date: Tue, 21 Jun 2005 13:48:22 -0700 (PDT)
+Message-ID: <20050621.134822.21926602.davem@davemloft.net>
+References: <200506072032.NAA06207@allur.sanmateo.akamai.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, mitch.a.williams@intel.com, john.ronciak@intel.com,
-        mchan@broadcom.com, hadi@cyberus.ca, buytenh@wantstofly.org,
-        jdmason@us.ibm.com, netdev@oss.sgi.com, Robert.Olsson@data.slu.se,
-        ganesh.venkatesan@intel.com, jesse.brandeburg@intel.com
+Cc: jgarzik@pobox.com, akpm@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050621.132044.115910664.davem@davemloft.net>
+To: pmeda@akamai.com
+In-Reply-To: <200506072032.NAA06207@allur.sanmateo.akamai.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> From: Stephen Hemminger <shemminger@osdl.org>
-> Date: Mon, 06 Jun 2005 21:53:32 -0700
+From: pmeda@akamai.com
+Date: Tue, 7 Jun 2005 13:32:44 -0700
+
+> Cleanup the devinet if statements.
+>  - when there is no colon, interface name is same as device.
+>  - ifa_label is an array, not a pointer, and so can never be null.
 > 
-> 
->>I noticed that the tg3 driver copies packets less than a certain
->>threshold to a new buffer, but e1000 always passes the big buffer up
->>the stack. Could this be having an impact?
-> 
-> 
-> I bet it does, this makes ACK processing a lot more expensive. 
+> Signed-Off-by: Prasanna Meda <pmeda@akamai.com>
 
-Why would ACK processing care about the size of the buffer containing the ACK 
-segment?
+Ok, I can see how your first change is correct.
 
-> And it
-> is so much cheaper to just recycle the big buffer back to the chip
-> if you copy to a small buffer, and it warms up the caches for the
-> packet headers as a side effect as well.
+When there is a colon, we've modified ifr.ifr_name by
+patching the ':' character to be a '\0'.  This is for
+the __dev_get_by_name() lookup.
 
-I would think that the cache business would be a wash either way.  With 64 byte 
-cache lines (128 in some cases) just accessing the link-level header has brought 
-the IP header into the cache, and probably the TCP header as well.
+After that lookup, we re-patch the ':' character back
+into ifr.ifr_name.  So indeed, always using the ifr_name
+in that code block would be correct.
 
-Isn't the decision point between the sum of allocating a small buffer and doing 
-the copy, versus allocating a new large buffer and (re)mapping it for DMA?  I 
-guess that would come down to copy versus mapping overhead.
+The second hunk of your patch seems to defeat the intention
+of that code.  I believe the idea is that if the label and
+the device name differ, use the label.
 
-> Actually, it has a _HUGE_ _HUGE_ impact.  If you pass the big buffer
-> up, the receiving socket gets charged for the size of the huge buffer,
-> not for just the size of the packet contained within.  This makes
-> sockets get overcharged for data reception, and it can cause all kinds
-> of performance problems.
-
-Then copy when the socket is about to fill with overhead bytes?
-
-> I highly recommend that this gets fixed.
-
-What is the cut-off point for the copy?
-
-rick jones
+This whole area is pretty messy, we should examine the true
+intended semantics of the ifa_label stuff.
