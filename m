@@ -1,30 +1,58 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [patch] devinet: cleanup if statements
-Date: 21 Jun 2005 23:51:11 +0200
-Message-ID: <p73k6knbcq8.fsf@verdi.suse.de>
-References: <200506072032.NAA06207@allur.sanmateo.akamai.com>
-	<20050621.134822.21926602.davem@davemloft.net>
+From: Donald Becker <becker@scyld.com>
+Subject: Re: RFC: NAPI packet weighting patch
+Date: Tue, 21 Jun 2005 15:22:49 -0700 (PDT)
+Message-ID: <Pine.LNX.4.44.0506211507110.21812-100000@bluewest.scyld.com>
+References: <p73oe9zbcx0.fsf@verdi.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: pmeda@akamai.com, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Rick Jones <rick.jones2@hp.com>, <netdev@oss.sgi.com>, <davem@redhat.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050621.134822.21926602.davem@davemloft.net>
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <p73oe9zbcx0.fsf@verdi.suse.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-"David S. Miller" <davem@davemloft.net> writes:
+On 21 Jun 2005, Andi Kleen wrote:
+
+> Rick Jones <rick.jones2@hp.com> writes:
 > 
-> This whole area is pretty messy, we should examine the true
-> intended semantics of the ifa_label stuff.
+> > > Actually, it has a _HUGE_ _HUGE_ impact.  If you pass the big buffer
+> > > up, the receiving socket gets charged for the size of the huge buffer,
+> > > not for just the size of the packet contained within.  This makes
+> > > sockets get overcharged for data reception, and it can cause all kinds
+> > > of performance problems.
+> > 
+> > Then copy when the socket is about to fill with overhead bytes?
 
-Perhaps it would be best to just retire that 2.0 alias compatibility 
-cruft now. Everybody should be using ifconfig or iproute2 by now
-that can add or remove addresses directly without the compatibility
-syntax.
+Or better, predict when the frame you are currently stuffing into the 
+queue will be there when the queue fills up.  And then use the same 
+crystal ball to...
+ 
+> Mostly because it is the only sane way to handle devices with very big
+> MTU. But it turns off all kinds of fast paths before it happens, I
+> guess that is what David was refering too.
+> 
+> However I suspect the cut-off points with rx-copybreak in common driver 
+> have been  often tuned before that code was introduced and it might
+> be worth to do some retesting.
 
-They never worked fully in corner cases anyways, e.g. SIOCSIFNAME with
-these aliases was always a problem.
+Most of that analysis and tuning was done in the 1996-99 timeframe.  
 
--Andi
+While much has changed since then, the same basic parameters remain
+   - cache line size
+   - frame header size (MAC+IP+ProtocolHeader)
+   - hot cache lines from copying or type classification
+   - cold memory lines from PCI writes
+
+I suspect you'll find that a good rx_copybreak is pretty much the same as 
+it was when I did the original evaluation.
+
+If you are looking for an area that has changed: the hidden cost of 
+maintaining consistent cache lines on SMP systems is far higher than it 
+was back in the days of the Pentium Pro.
+
+Donald Becker				becker@scyld.com
+Scyld Software				A Penguin Computing company
+914 Bay Ridge Road, Suite 220		www.scyld.com
+Annapolis MD 21403			410-990-9993
