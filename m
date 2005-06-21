@@ -1,41 +1,29 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [patch] devinet: cleanup if statements
-Date: Tue, 21 Jun 2005 13:48:22 -0700 (PDT)
-Message-ID: <20050621.134822.21926602.davem@davemloft.net>
-References: <200506072032.NAA06207@allur.sanmateo.akamai.com>
+Subject: Re: RFC: NAPI packet weighting patch
+Date: Tue, 21 Jun 2005 13:55:00 -0700 (PDT)
+Message-ID: <20050621.135500.35467865.davem@davemloft.net>
+References: <42A5284C.3060808@osdl.org>
+	<20050621.132044.115910664.davem@davemloft.net>
+	<42B87ACF.3080800@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, akpm@osdl.org, netdev@oss.sgi.com
+Cc: shemminger@osdl.org, mitch.a.williams@intel.com, john.ronciak@intel.com,
+        mchan@broadcom.com, hadi@cyberus.ca, buytenh@wantstofly.org,
+        jdmason@us.ibm.com, netdev@oss.sgi.com, Robert.Olsson@data.slu.se,
+        ganesh.venkatesan@intel.com, jesse.brandeburg@intel.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: pmeda@akamai.com
-In-Reply-To: <200506072032.NAA06207@allur.sanmateo.akamai.com>
+To: rick.jones2@hp.com
+In-Reply-To: <42B87ACF.3080800@hp.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: pmeda@akamai.com
-Date: Tue, 7 Jun 2005 13:32:44 -0700
+From: Rick Jones <rick.jones2@hp.com>
+Date: Tue, 21 Jun 2005 13:38:39 -0700
 
-> Cleanup the devinet if statements.
->  - when there is no colon, interface name is same as device.
->  - ifa_label is an array, not a pointer, and so can never be null.
+> > I highly recommend that this gets fixed.
 > 
-> Signed-Off-by: Prasanna Meda <pmeda@akamai.com>
+> What is the cut-off point for the copy?
 
-Ok, I can see how your first change is correct.
-
-When there is a colon, we've modified ifr.ifr_name by
-patching the ':' character to be a '\0'.  This is for
-the __dev_get_by_name() lookup.
-
-After that lookup, we re-patch the ':' character back
-into ifr.ifr_name.  So indeed, always using the ifr_name
-in that code block would be correct.
-
-The second hunk of your patch seems to defeat the intention
-of that code.  I believe the idea is that if the label and
-the device name differ, use the label.
-
-This whole area is pretty messy, we should examine the true
-intended semantics of the ifa_label stuff.
+256 has been found to be a well functioning value to use.
