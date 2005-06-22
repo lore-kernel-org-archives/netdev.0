@@ -1,35 +1,44 @@
-From: Andi Kleen <ak@suse.de>
+From: jamal <hadi@cyberus.ca>
 Subject: Re: RFC: NAPI packet weighting patch
-Date: Wed, 22 Jun 2005 20:06:55 +0200
-Message-ID: <20050622180654.GX14251@wotan.suse.de>
-References: <1119458226.6918.142.camel@localhost.localdomain> <200506221801.j5MI11xS021866@guinness.s2io.com>
+Date: Wed, 22 Jun 2005 15:37:46 -0400
+Message-ID: <1119469066.6918.168.camel@localhost.localdomain>
+References: <42A5284C.3060808@osdl.org>
+	 <1118147904.6320.108.camel@localhost.localdomain>
+	 <Pine.LNX.4.58.0506071351080.16594@tux.rsn.bth.se>
+	 <20050621.133704.08321534.davem@davemloft.net>
+	 <42B92490.40005@draigBrady.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hadi@cyberus.ca, "'Donald Becker'" <becker@scyld.com>,
-        "'Andi Kleen'" <ak@suse.de>, "'Rick Jones'" <rick.jones2@hp.com>,
-        netdev@oss.sgi.com, davem@redhat.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, gandalf@wlug.westbo.se,
+        shemminger@osdl.org, mitch.a.williams@intel.com,
+        john.ronciak@intel.com, mchan@broadcom.com, buytenh@wantstofly.org,
+        jdmason@us.ibm.com, netdev@oss.sgi.com, Robert.Olsson@data.slu.se,
+        ganesh.venkatesan@intel.com, jesse.brandeburg@intel.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Leonid Grossman <leonid.grossman@neterion.com>
-Content-Disposition: inline
-In-Reply-To: <200506221801.j5MI11xS021866@guinness.s2io.com>
+To: P@draigBrady.com
+In-Reply-To: <42B92490.40005@draigBrady.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> Outside of the filters capability, from the (granted, pretty limited)
-> testing we see some noticeable improvement from providing status bits but it
-> is not as big as I would expect,
-> It looks like the headers are still being touched somewhere... We will look
-> at this some more.
+On Wed, 2005-22-06 at 09:42 +0100, P@draigBrady.com wrote:
 
-The headers are read of course in the main stack. No way around that.
+> 
+> Yes the copy is essentially free here as the data is already cached.
+> 
+> As a data point, I went the whole hog and used buffer recycling
+> in my essentially packet sniffing application. I.E. there are no
+> allocs per packet at all, and this make a HUGE difference. On a
+> 2x3.4GHz 2xe1000 system I can receive 620Kpps per port sustained
+> into my userspace app which does a LOT of processing per packet.
+> Without the buffer recycling is was around 250Kpps.
+> Note I don't reuse an skb until the packet is copied into a
+> PACKET_MMAP buffer.
 
-It basically helps you only when you can space the prefetch for the header
-out long enough that the data is in cache when you need it. However
-it is tricky because CPUs have only a limited load queue entries and doing
-too many prefetches will just overflow that.
+Was this machine SMP? NAPI involved? I take it nothing interfering in
+the middle with the headers?
 
-This can be done by batching L2 packet processing, but doing so 
-is not good for your latency.
-
--Andi
+cheers,
+jamal
