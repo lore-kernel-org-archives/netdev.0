@@ -1,68 +1,113 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [PATCH] dont use strlen() but the result from a prior sprintf()
-Date: Wed, 22 Jun 2005 14:56:55 +0200
-Message-ID: <42B96017.1050803@cosmosbay.com>
-References: <20050614154625.GB24371@esmail.cup.hp.com>	<1118771563.7059.30.camel@rh4>	<20050614211530.GB25516@esmail.cup.hp.com> <20050621.165634.07642938.davem@davemloft.net>
+From: =?ISO-8859-2?Q?Tom=E1=B9_Macek?= <maca02@atlas.cz>
+Subject: Print one record only - addition
+Date: Wed, 22 Jun 2005 15:53:54 +0200 (CEST)
+Message-ID: <Pine.LNX.4.61.0506221531290.716@localhost.localdomain>
+References: <Pine.LNX.4.61.0506171359490.31631@localhost.localdomain>
+ <20050617141527.GN22463@postel.suug.ch> <Pine.LNX.4.61.0506172057240.26739@localhost.localdomain>
+ <20050617191340.GO22463@postel.suug.ch> <Pine.LNX.4.61.0506182042540.29813@localhost.localdomain>
+ <20050618202359.GP22463@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030608070101010705060000"
-Cc: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050621.165634.07642938.davem@davemloft.net>
+To: netdev@oss.sgi.com
+In-Reply-To: <20050618202359.GP22463@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------030608070101010705060000
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
 
-Hi David
+On Sat, 18 Jun 2005, Thomas Graf wrote:
 
-Small patch to save an unecessary call to strlen() : sprintf() gave us the length, just trust it.
+> * Tom?? Macek <Pine.LNX.4.61.0506182042540.29813@localhost.localdomain> 2005-06-18 20:55
+>> The 'rtm_dst_len = 16' should mean the mask of the route I'm looking for, correct?
+>
+> Yes.
+>
+>> The whole code before sending the packet is below:
+>>
+>>
+>>      /* Create Socket */
+>>      if((sock = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE)) < 0)
+>>          perror("Socket Creation: ");
+>>
+>>      /* Initialize the buffer */
+>>      memset(msgBuf, 0, BUFSIZE);
+>>
+>>      /* point the header and the msg structure pointers into the buffer */
+>>      nlMsg = (struct nlmsghdr *)msgBuf;
+>>      rtMsg = (struct rtmsg *)NLMSG_DATA(nlMsg);
+>>      rtMsg->rtm_family = AF_INET;
+>>      rtMsg->rtm_dst_len = 16;
+>>
+>>      /* Fill in the nlmsg header*/
+>>      nlMsg->nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg)); // Length of message.
+>>      nlMsg->nlmsg_type = RTM_GETROUTE;   // Get the routes from kernel routing table .
+>>      nlMsg->nlmsg_flags = NLM_F_REQUEST;   // The message is a request for dump.
+>>      nlMsg->nlmsg_seq = msgSeq++;   // Sequence of the message packet.
+>>      nlMsg->nlmsg_pid = getpid();   // PID of process sending the request.
+>>
+>>      char *cp;
+>>      unsigned int xx[4]; int i = 0;
+>>      unsigned char *ap = (unsigned char *)xx;
+>>      for (cp = argv[1], i = 0; *cp; cp++) {
+>>          if (*cp <= '9' && *cp >= '0') {
+>>              ap[i] = 10*ap[i] + (*cp-'0');
+>>              continue;
+>>          }
+>>          if (*cp == '.' && ++i <= 3)
+>>              continue;
+>>          return -1;
+>>      }
+>>
+>>      NetlinkAddAttr(nlMsg, sizeof(nlMsg), RTA_DST, &xx, 4);
+>
+> This looks good but your NetlinkAddAttr is bogus, it should
+> be something like this:
+>
+> int nl_msg_append_tlv(struct nlmsghdr *n, int type, void *data, size_t len)
+> {
+> 	int tlen;
+> 	struct rtattr *rta;
+>
+> 	tlen = NLMSG_ALIGN(n->nlmsg_len) + RTA_LENGTH(NLMSG_ALIGN(len));
+>
+> 	rta = (struct rtattr *) NLMSG_TAIL(n);
+> 	rta->rta_type = type;
+> 	rta->rta_len = RTA_LENGTH(NLMSG_ALIGN(len));
+> 	memcpy(RTA_DATA(rta), data, len);
+> 	n->nlmsg_len = tlen;
+>
+> 	return 0;
+> }
+>
+> Your code is missing various alignment requirements. I can't tell
+> whether this is the last bug. I recommend you to read ip/iproute.c
+> in the iproute2 source or give libnl a second chance.
+>
 
-Thank you
+The code now works this way:
+[root@localhost route]# route
+1.1.1.0         *               255.255.255.0   U     0      0        0 eth0
+3.3.0.0         *               255.255.0.0     U     0      0        0 eth1
+default         meric           0.0.0.0         UG    0      0        0 eth0
 
-Eric Dumazet
+[root@localhost route]# ./a.out 2.2.2.2 16
+Destination             Gateway         Interface               Source          Netmask
+2.2.2.2         213.250.192.33          eth0            255.255.255.255
 
+[root@localhost route]# ./a.out 1.1.1.2 16
+Destination             Gateway         Interface               Source          Netmask
+1.1.1.2         *.*.*.*                         eth0            255.255.255.255
 
-diff -Nu linux-2.6.12-orig/net/socket.c linux-2.6.12/net/socket.c
---- linux-2.6.12-orig/net/socket.c      2005-06-22 14:47:56.000000000 +0200
-+++ linux-2.6.12/net/socket.c   2005-06-22 14:49:22.000000000 +0200
-@@ -382,9 +382,8 @@
-                         goto out;
-                 }
+[root@localhost route]# ./a.out 3.3.3.2 16
+Destination             Gateway         Interface               Source          Netmask
+3.3.3.2         *.*.*.*                         eth1            255.255.255.255
 
--               sprintf(name, "[%lu]", SOCK_INODE(sock)->i_ino);
-+               this.len = sprintf(name, "[%lu]", SOCK_INODE(sock)->i_ino);
-                 this.name = name;
--               this.len = strlen(name);
-                 this.hash = SOCK_INODE(sock)->i_ino;
+so it returns the route, where the data would go, if their DST address would be the one given by the argv[1] with mask argv[2].
+I don't know now, if we understood to each other and if this is you thought it should be. 
+If I will write on the command line './a.out 3.3.0.0 16', it should print the line like this if the record is present:
+3.3.0.0         *               255.255.0.0     U     0      0        0 eth1
 
-                 file->f_dentry = d_alloc(sock_mnt->mnt_sb->s_root, &this);
+if I would write './a.out 3.3.3.1 32' it MUST print nothing! :)
 
-
---------------030608070101010705060000
-Content-Type: text/plain;
- name="patch.1"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="patch.1"
-
---- linux-2.6.12-orig/net/socket.c	2005-06-22 14:47:56.000000000 +0200
-+++ linux-2.6.12/net/socket.c	2005-06-22 14:49:22.000000000 +0200
-@@ -382,9 +382,8 @@
- 			goto out;
- 		}
- 
--		sprintf(name, "[%lu]", SOCK_INODE(sock)->i_ino);
-+		this.len = sprintf(name, "[%lu]", SOCK_INODE(sock)->i_ino);
- 		this.name = name;
--		this.len = strlen(name);
- 		this.hash = SOCK_INODE(sock)->i_ino;
- 
- 		file->f_dentry = d_alloc(sock_mnt->mnt_sb->s_root, &this);
-
---------------030608070101010705060000--
+Thank you for help
