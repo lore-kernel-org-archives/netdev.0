@@ -1,64 +1,44 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: [patch,rfc] allow registration of multiple netpolls per interface
-Date: Wed, 22 Jun 2005 14:27:07 -0700
-Message-ID: <20050622212707.GD27572@waste.org>
-References: <17080.35214.507402.998984@segfault.boston.redhat.com> <20050621225252.GY27572@waste.org> <17081.20441.714191.528270@segfault.boston.redhat.com> <20050622170128.GV27572@waste.org> <17081.53899.201190.106025@segfault.boston.redhat.com>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: RFC: NAPI packet weighting patch
+Date: Wed, 22 Jun 2005 23:38:21 +0200
+Message-ID: <42B9DA4D.5090103@cosmosbay.com>
+References: <1119458226.6918.142.camel@localhost.localdomain>	<200506221801.j5MI11xS021866@guinness.s2io.com>	<20050622180654.GX14251@wotan.suse.de> <20050622.132241.21929037.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: quoted-printable
+Cc: ak@suse.de, leonid.grossman@neterion.com, hadi@cyberus.ca,
+        becker@scyld.com, rick.jones2@hp.com, netdev@oss.sgi.com,
+        davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Moyer <jmoyer@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <17081.53899.201190.106025@segfault.boston.redhat.com>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050622.132241.21929037.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 22, 2005 at 05:05:15PM -0400, Jeff Moyer wrote:
-> mpm> It might be simpler to have a single lock here..?
-> >> 
-> >> Maybe.  You can't really have netpoll code running on multiple cpus at the
-> >> same time, right?  This is the rx path, remember, so the other cpu should
-> >> be spinning on the poll_lock.
-> >> 
-> >> Keeping separate locks would allow you to unregister a struct netpoll
-> >> associated with another net device without causing lock contention.  This
-> >> is a very minor win, obviously.
-> >> 
-> >> I still feel like this npinfo struct is the right place for this, though.
-> >> If you're strongly opposed to that, I'll change it.
-> 
-> mpm> No, certainly having it in npinfo makes sense. I just was wondering if
-> mpm> we really need two locks in there.
-> 
-> Oh, I misunderstood.  Well, one protects recursing into the driver's poll
-> routine, the other protects access to the np_rx pointer, which may later
-> become a list.  I don't think we can lump these two together, do you?
+David S. Miller a =E9crit :
 
-I don't see why we couldn't, but let's worry about it later.
- 
-> >> >> +	spin_lock_irqsave(&npinfo->rx_lock, flags);
-> >> >> +	if (npinfo->rx_np->dev == skb->dev)
-> >> >> +		np = npinfo->rx_np;
-> >> >> +	spin_unlock_irqrestore(&npinfo->rx_lock, flags);
-> >> 
-> mpm> And I think that means we don't need the lock here either.  
-> >> 
-> >> Sure we do.  We need to protect against rmmod's.
-> 
-> mpm> How can we have an rmmmod when we're trapped?
-> 
-> Looking over the code, I don't see what would prevent this.  Could you
-> point me the code which prevents this?
+>=20
+> 2) As shown above, it gives you compute time which can be used to
+>    schedule the prefetch.  This nearly makes RX replenishment free.
+>    Instead of having the CPU spin on a cache miss when we run
+>    eth_type_trans() during those cycles, we do useful work.
+>=20
+> I'm going to play around with these ideas in the tg3 driver.
+> Obvious patch below.
 
-I forgot we overloaded trapped for dealing with NAPI. Formerly
-trapping meant "I'm stopping the box, drop every packet that's not
-addressed to me" which also implied no one should be pulling the rug
-out from under us.
 
-> (Interdiff first)
+Then maybe we could also play with prefetchw() in the case the incoming f=
+rame
+is small enough to be copied to a new skb.
 
-Looks fine.
+drivers/net/tg3.c
 
--- 
-Mathematics is the supreme nostalgia of our time.
+	copy_skb =3D dev_alloc_skb(len + 2);
+	if (copy_skb =3D=3D NULL)
+		goto drop_it_no_recycle;
++	prefetchw(copy_skb->data);
+
+	copy_skb->dev =3D tp->dev;
+	skb_reserve(copy_skb, 2);
+	skb_put(copy_skb, len);
