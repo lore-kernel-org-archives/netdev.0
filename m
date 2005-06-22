@@ -1,30 +1,64 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: RFC: NAPI packet weighting patch
-Date: Wed, 22 Jun 2005 14:16:26 -0700 (PDT)
-Message-ID: <20050622.141626.03111803.davem@davemloft.net>
-References: <20050622180654.GX14251@wotan.suse.de>
-	<20050622.132241.21929037.davem@davemloft.net>
-	<20050622211058.GY14251@wotan.suse.de>
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: [patch,rfc] allow registration of multiple netpolls per interface
+Date: Wed, 22 Jun 2005 14:27:07 -0700
+Message-ID: <20050622212707.GD27572@waste.org>
+References: <17080.35214.507402.998984@segfault.boston.redhat.com> <20050621225252.GY27572@waste.org> <17081.20441.714191.528270@segfault.boston.redhat.com> <20050622170128.GV27572@waste.org> <17081.53899.201190.106025@segfault.boston.redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: leonid.grossman@neterion.com, hadi@cyberus.ca, becker@scyld.com,
-        rick.jones2@hp.com, netdev@oss.sgi.com, davem@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ak@suse.de
-In-Reply-To: <20050622211058.GY14251@wotan.suse.de>
+To: Jeff Moyer <jmoyer@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <17081.53899.201190.106025@segfault.boston.redhat.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Andi Kleen <ak@suse.de>
-Date: Wed, 22 Jun 2005 23:10:58 +0200
+On Wed, Jun 22, 2005 at 05:05:15PM -0400, Jeff Moyer wrote:
+> mpm> It might be simpler to have a single lock here..?
+> >> 
+> >> Maybe.  You can't really have netpoll code running on multiple cpus at the
+> >> same time, right?  This is the rx path, remember, so the other cpu should
+> >> be spinning on the poll_lock.
+> >> 
+> >> Keeping separate locks would allow you to unregister a struct netpoll
+> >> associated with another net device without causing lock contention.  This
+> >> is a very minor win, obviously.
+> >> 
+> >> I still feel like this npinfo struct is the right place for this, though.
+> >> If you're strongly opposed to that, I'll change it.
+> 
+> mpm> No, certainly having it in npinfo makes sense. I just was wondering if
+> mpm> we really need two locks in there.
+> 
+> Oh, I misunderstood.  Well, one protects recursing into the driver's poll
+> routine, the other protects access to the np_rx pointer, which may later
+> become a list.  I don't think we can lump these two together, do you?
 
-> 8 entries? That sounds very small. Is that an old Sparc or something? :)
+I don't see why we couldn't, but let's worry about it later.
+ 
+> >> >> +	spin_lock_irqsave(&npinfo->rx_lock, flags);
+> >> >> +	if (npinfo->rx_np->dev == skb->dev)
+> >> >> +		np = npinfo->rx_np;
+> >> >> +	spin_unlock_irqrestore(&npinfo->rx_lock, flags);
+> >> 
+> mpm> And I think that means we don't need the lock here either.  
+> >> 
+> >> Sure we do.  We need to protect against rmmod's.
+> 
+> mpm> How can we have an rmmmod when we're trapped?
+> 
+> Looking over the code, I don't see what would prevent this.  Could you
+> point me the code which prevents this?
 
-Hey, Sparc does suck, this isn't news for anyone :-)
+I forgot we overloaded trapped for dealing with NAPI. Formerly
+trapping meant "I'm stopping the box, drop every packet that's not
+addressed to me" which also implied no one should be pulling the rug
+out from under us.
 
-> Looks reasonable. Not sure about the "most optimal" though, some benchmarking
-> of different schemes would be probably a good idea.
+> (Interdiff first)
 
-Absolutely.
+Looks fine.
+
+-- 
+Mathematics is the supreme nostalgia of our time.
