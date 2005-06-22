@@ -1,44 +1,104 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] tcp: efficient port randomistion (rev 3)
-Date: Wed, 22 Jun 2005 09:44:42 -0700
-Message-ID: <20050622094442.65a0e1bc@dxpl.pdx.osdl.net>
-References: <20041220153916.6c00c114.davem@davemloft.net>
-	<200506221117.04334.michael.vittrup.larsen@ericsson.com>
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: [patch,rfc] allow registration of multiple netpolls per interface
+Date: Wed, 22 Jun 2005 10:01:28 -0700
+Message-ID: <20050622170128.GV27572@waste.org>
+References: <17080.35214.507402.998984@segfault.boston.redhat.com> <20050621225252.GY27572@waste.org> <17081.20441.714191.528270@segfault.boston.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Michael Vittrup Larsen <michael.vittrup.larsen@ericsson.com>
-In-Reply-To: <200506221117.04334.michael.vittrup.larsen@ericsson.com>
+To: Jeff Moyer <jmoyer@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <17081.20441.714191.528270@segfault.boston.redhat.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 22 Jun 2005 11:17:03 +0200
-Michael Vittrup Larsen <michael.vittrup.larsen@ericsson.com> wrote:
-
-> On Tuesday 21 December 2004 00:39, David S. Miller wrote:
-> > On Fri, 10 Dec 2004 17:09:00 -0800
-> >
-> > Stephen Hemminger <shemminger@osdl.org> wrote:
-> > > okay, here is the revised version. Testing shows that it
-> > > is more consistent, and just as fast as existing code,
-> > > probably because of the getting rid of portalloc_lock and
-> > > better distribution.
-> > >
-> > > Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
-> >
-> > Queued up for 2.6.11, thanks Stephen.
+On Wed, Jun 22, 2005 at 07:47:37AM -0400, Jeff Moyer wrote:
+> mpm> Hmm. It's conceivable we'll want netdump and kgdb on the same
+> mpm> interface so we'll have to address this eventually..
 > 
-> What's the status of this - I see it is not part of 2.6.12?
+> Well, do you want to address it eventually, or now?  As I said, it's never
+> bitten anyone before.
+
+Later's fine. I just don't want to design it out by accident again.
+ 
+> >> struct netpoll_info {
+> >> spinlock_t poll_lock;
+> >> int poll_owner;
+> >> int rx_flags;
+> >> spinlock_t rx_lock;
+> >> struct netpoll *rx_np; /* netpoll that registered an rx_hook */
+> >> };
+> >> 
+> >> This is the structure which gets pointed to by the net_device.  All of the
+> >> flags and locks which are specific to the INTERFACE go here.  Any variables
+> >> which must be kept per struct netpoll were left in the struct netpoll.  So
+> >> now, we have a cleaner separation of data and its scope.
+> >> 
+> >> Since we never really supported having more than one struct netpoll
+> >> register an rx_hook, I got rid of the rx_list.  This is replaced by a
+> >> single pointer in the netpoll_info structure (np_rx).  We still need to
+> >> protect addition or removal of the rx_np pointer, and so keep the lock
+> >> (rx_lock).  There is one lock per struct net_device, and I am certain that
+> >> it will be 0 contention, as rx_np will only be changed during an insmod or
+> >> rmmod.  If people think this would be a good rcu candidate, let me know and
+> >> I'll change it to use that locking scheme.
 > 
-> Is there a general dislike of the port randomisation mechanism or?
+> mpm> It might be simpler to have a single lock here..?
+> 
+> Maybe.  You can't really have netpoll code running on multiple cpus at the
+> same time, right?  This is the rx path, remember, so the other cpu should
+> be spinning on the poll_lock.
+> 
+> Keeping separate locks would allow you to unregister a struct netpoll
+> associated with another net device without causing lock contention.  This
+> is a very minor win, obviously.
+> 
+> I still feel like this npinfo struct is the right place for this, though.
+> If you're strongly opposed to that, I'll change it.
 
-There is port randomization in 2.6.11 and 2.6.12, look for
-secure_tcp_port_ephemeral in the source. 2.6.12 also does random port
-allocation for IPV6.
+No, certainly having it in npinfo makes sense. I just was wondering if
+we really need two locks in there.
 
-We still do the non-random stuff for explicit binds (tcp_v4_get_port),
-but there is no state to seed in that case and it only impacts app's 
-that do an explicit bind to 0.
+> >> +	spin_lock_irqsave(&npinfo->rx_lock, flags);
+> >> +	if (npinfo->rx_np->dev == skb->dev)
+> >> +		np = npinfo->rx_np;
+> >> +	spin_unlock_irqrestore(&npinfo->rx_lock, flags);
+> 
+> mpm> And I think that means we don't need the lock here either.  
+> 
+> Sure we do.  We need to protect against rmmod's.
+
+How can we have an rmmmod when we're trapped?
+
+> >> static inline int netpoll_rx(struct sk_buff *skb)
+> >> {
+> >> -	return skb->dev->np && skb->dev->np->rx_flags && __netpoll_rx(skb);
+> >> +	struct netpoll_info *npinfo = skb->dev->npinfo;
+> >> +	unsigned long flags;
+> >> +	int ret = 0;
+> >> +
+> >> +	if (!npinfo || (!npinfo->rx_np && !npinfo->rx_flags))
+> >> +		return 0;
+> >> +
+> >> +	spin_lock_irqsave(&npinfo->rx_lock, flags);
+> >> +	/* check rx_flags again with the lock held */
+> >> +	if (npinfo->rx_flags && __netpoll_rx(skb))
+> >> +		ret = 1;
+> >> +	spin_unlock_irqrestore(&npinfo->rx_lock, flags);
+> >> +
+> >> +	return ret;
+> >> }
+> 
+> mpm> This is perhaps a problem due to cache line bouncing. Perhaps we can
+> mpm> use an atomic op and a memory barrier instead?
+> 
+> It really should be a 0 contention lock.  Let's not optimize something that
+> doesn't need it.  If we find that it causes problems, I'll be more than
+> happy to fix it.
+
+Ok, fair enough.
+
+-- 
+Mathematics is the supreme nostalgia of our time.
