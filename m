@@ -1,104 +1,47 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: [patch,rfc] allow registration of multiple netpolls per interface
-Date: Wed, 22 Jun 2005 10:01:28 -0700
-Message-ID: <20050622170128.GV27572@waste.org>
-References: <17080.35214.507402.998984@segfault.boston.redhat.com> <20050621225252.GY27572@waste.org> <17081.20441.714191.528270@segfault.boston.redhat.com>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: RFC: NAPI packet weighting patch
+Date: Wed, 22 Jun 2005 19:05:49 +0200
+Message-ID: <20050622170549.GV14251@wotan.suse.de>
+References: <Pine.LNX.4.44.0506211642290.21812-100000@bluewest.scyld.com> <200506221623.j5MGNkxS001340@guinness.s2io.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: "'Donald Becker'" <becker@scyld.com>, "'Andi Kleen'" <ak@suse.de>,
+        "'Rick Jones'" <rick.jones2@hp.com>, netdev@oss.sgi.com,
+        davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Moyer <jmoyer@redhat.com>
+To: Leonid Grossman <leonid.grossman@neterion.com>
 Content-Disposition: inline
-In-Reply-To: <17081.20441.714191.528270@segfault.boston.redhat.com>
+In-Reply-To: <200506221623.j5MGNkxS001340@guinness.s2io.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 22, 2005 at 07:47:37AM -0400, Jeff Moyer wrote:
-> mpm> Hmm. It's conceivable we'll want netdump and kgdb on the same
-> mpm> interface so we'll have to address this eventually..
+On Wed, Jun 22, 2005 at 09:23:41AM -0700, Leonid Grossman wrote:
 > 
-> Well, do you want to address it eventually, or now?  As I said, it's never
-> bitten anyone before.
+> > 
+> > See the comment above. We decide if a packet is multicast vs. 
+> > unicast, IP vs. other at approximately 
+> > interrupt/"rx_copybreak" time.  Very few NIC provide this 
+> > info in status bits, so we end up looking at the packet 
+> > header.  That read moves the previously known-uncached data 
+> > (after all, it was just came in from a bus write) into the L1 
+> > cache for the CPU handling the device.  Once it's there, the 
+> > copy is almost free.
+> 
+> What status bits a NIC has to provide, in order for the stack to avoid
+> touching headers?
 
-Later's fine. I just don't want to design it out by accident again.
- 
-> >> struct netpoll_info {
-> >> spinlock_t poll_lock;
-> >> int poll_owner;
-> >> int rx_flags;
-> >> spinlock_t rx_lock;
-> >> struct netpoll *rx_np; /* netpoll that registered an rx_hook */
-> >> };
-> >> 
-> >> This is the structure which gets pointed to by the net_device.  All of the
-> >> flags and locks which are specific to the INTERFACE go here.  Any variables
-> >> which must be kept per struct netpoll were left in the struct netpoll.  So
-> >> now, we have a cleaner separation of data and its scope.
-> >> 
-> >> Since we never really supported having more than one struct netpoll
-> >> register an rx_hook, I got rid of the rx_list.  This is replaced by a
-> >> single pointer in the netpoll_info structure (np_rx).  We still need to
-> >> protect addition or removal of the rx_np pointer, and so keep the lock
-> >> (rx_lock).  There is one lock per struct net_device, and I am certain that
-> >> it will be 0 contention, as rx_np will only be changed during an insmod or
-> >> rmmod.  If people think this would be a good rcu candidate, let me know and
-> >> I'll change it to use that locking scheme.
-> 
-> mpm> It might be simpler to have a single lock here..?
-> 
-> Maybe.  You can't really have netpoll code running on multiple cpus at the
-> same time, right?  This is the rx path, remember, so the other cpu should
-> be spinning on the poll_lock.
-> 
-> Keeping separate locks would allow you to unregister a struct netpoll
-> associated with another net device without causing lock contention.  This
-> is a very minor win, obviously.
-> 
-> I still feel like this npinfo struct is the right place for this, though.
-> If you're strongly opposed to that, I'll change it.
+To avoid it completely is pretty hard - you would need to supply
+nearly everything in the header.
 
-No, certainly having it in npinfo makes sense. I just was wondering if
-we really need two locks in there.
+But when you supply L2 protocol/ and unicast/broadcast/multicast information
+and if the packet is destined to the localhost or not then the 
+headers can be gotten with a prefetch early and then when 
+the header is later processed then it might be with some luck
+already in cache.
 
-> >> +	spin_lock_irqsave(&npinfo->rx_lock, flags);
-> >> +	if (npinfo->rx_np->dev == skb->dev)
-> >> +		np = npinfo->rx_np;
-> >> +	spin_unlock_irqrestore(&npinfo->rx_lock, flags);
-> 
-> mpm> And I think that means we don't need the lock here either.  
-> 
-> Sure we do.  We need to protect against rmmod's.
+BTW quite a few modern NICs provide this information actually contrary
+to what Donald stated (sometimes with restrictions like only
+works without multicast), but it hasn't been widely used yet.
 
-How can we have an rmmmod when we're trapped?
-
-> >> static inline int netpoll_rx(struct sk_buff *skb)
-> >> {
-> >> -	return skb->dev->np && skb->dev->np->rx_flags && __netpoll_rx(skb);
-> >> +	struct netpoll_info *npinfo = skb->dev->npinfo;
-> >> +	unsigned long flags;
-> >> +	int ret = 0;
-> >> +
-> >> +	if (!npinfo || (!npinfo->rx_np && !npinfo->rx_flags))
-> >> +		return 0;
-> >> +
-> >> +	spin_lock_irqsave(&npinfo->rx_lock, flags);
-> >> +	/* check rx_flags again with the lock held */
-> >> +	if (npinfo->rx_flags && __netpoll_rx(skb))
-> >> +		ret = 1;
-> >> +	spin_unlock_irqrestore(&npinfo->rx_lock, flags);
-> >> +
-> >> +	return ret;
-> >> }
-> 
-> mpm> This is perhaps a problem due to cache line bouncing. Perhaps we can
-> mpm> use an atomic op and a memory barrier instead?
-> 
-> It really should be a 0 contention lock.  Let's not optimize something that
-> doesn't need it.  If we find that it causes problems, I'll be more than
-> happy to fix it.
-
-Ok, fair enough.
-
--- 
-Mathematics is the supreme nostalgia of our time.
+-Andi
