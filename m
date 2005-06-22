@@ -1,89 +1,88 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: RFC: NAPI packet weighting patch
-Date: Wed, 22 Jun 2005 09:27:42 +0200
-Message-ID: <42B912EE.9020909@cosmosbay.com>
-References: <42A5284C.3060808@osdl.org>	<1118147904.6320.108.camel@localhost.localdomain>	<Pine.LNX.4.58.0506071351080.16594@tux.rsn.bth.se> <20050621.133704.08321534.davem@davemloft.net>
+From: Denis Vlasenko <vda@ilport.com.ua>
+Subject: [PATCH] Micro optimization in eth_header()
+Date: Wed, 22 Jun 2005 11:31:43 +0300
+Message-ID: <200506221131.43049.vda@ilport.com.ua>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: quoted-printable
-Cc: gandalf@wlug.westbo.se, hadi@cyberus.ca, shemminger@osdl.org,
-        mitch.a.williams@intel.com, john.ronciak@intel.com, mchan@broadcom.com,
-        buytenh@wantstofly.org, jdmason@us.ibm.com, netdev@oss.sgi.com,
-        Robert.Olsson@data.slu.se, ganesh.venkatesan@intel.com,
-        jesse.brandeburg@intel.com
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_vHSuC2OnpQh1+22"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050621.133704.08321534.davem@davemloft.net>
+To: davem@davemloft.net
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller a =E9crit :
->=20
-> Also, e1000 sends full MTU sized SKBs down into the stack even if the
-> packet is very small.  This also hurts performance a lot.  As
-> discussed elsewhere, it should use a "small packet" cut-off just like
-> other drivers do.  If the RX frame is less than this cut-off value, a
-> new smaller sized SKB is allocated and the RX data copied into it.
-> The RX ring SKB is left in-place and given back to the chip.
->=20
-> My only guess is that the e1000 driver implemented things this way
-> to simplify the RX recycling logic.  Well, it is an area ripe for
-> improvement in this driver :)
->=20
->=20
 
-Here is a copy of a mail from Scott Feldman (19/11/2003) when I asked him=
- to add this copybreak feature into e1000 driver :
-It did improve performance on my workload. It also reduce the memory requ=
-irement a *lot* (It was using 300.000 active TCP sockets, mostly=20
-receiving short frames)
+--Boundary-00=_vHSuC2OnpQh1+22
+Content-Type: text/plain;
+  charset="koi8-r"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-Eric Dumazet
+Compile tested only.
+--
+vda
 
----------------------------------------------------
-Try this (untested) patch.  It's against 5.2.26 (which you don't have),
-so hand patch it.  (Sorry).
+--Boundary-00=_vHSuC2OnpQh1+22
+Content-Type: text/x-diff;
+  charset="koi8-r";
+  name="eth.c.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="eth.c.diff"
 
-Do you have any way to measure performance?  CPU utilization?  The copy
-isn't free.
+Micro optimization in eth_header().
+Changes in asm code (new on the right):
 
-Oh, also, this patch doesn't try to recycle the 4K skb that was copied
-from.  Instead, it's freed and re-allocated.  Shouldn't be a big deal
-because your totally system memory allocation should remain constant
-(except for outstanding copybreak skb's).
+...
+  50: shl    $0x8,%edx                     50: shl    $0x8,%edx
+  53: shr    $0x8,%eax                     53: shr    $0x8,%eax
+  56: or     %eax,%edx                     56: or     %eax,%edx
+  58: mov    %dx,0xc(%ebx)              +  58: test   %esi,%esi
+  5c: mov    0xc(%ebp),%edx             +  5a: mov    %dx,0xc(%ebx)
+  5f: test   %esi,%esi                  +  5e: jne    69 <eth_header+0x69>
+  61: mov    0xb0(%edx),%al             +  60: mov    0xc(%ebp),%esi
+  67: je     71 <eth_header+0x71>       +  63: add    $0x90,%esi
+  69: movzbl %al,%eax                   +  69: mov    0xc(%ebp),%edx
+  6c: lea    0x6(%ebx),%edi             +  6c: movzbl 0xb0(%edx),%eax
+  6f: jmp    80 <eth_header+0x80>       +  73: mov    %eax,%ecx
+  71: mov    0xc(%ebp),%edx             +  75: lea    0x6(%ebx),%edi
+  74: movzbl %al,%eax                   +  78: shr    $0x2,%ecx
+  77: lea    0x6(%ebx),%edi             +  7b: repz movsl %ds:(%esi),%es:(%edi)
+  7a: lea    0x90(%edx),%esi            +  7d: mov    %eax,%ecx
+  80: mov    %eax,%ecx                  +  7f: and    $0x3,%ecx
+  82: shr    $0x2,%ecx                  +  82: je     86 <eth_header+0x86>
+  85: repz movsl %ds:(%esi),%es:(%edi)  +  84: repz movsb %ds:(%esi),%es:(%edi)
+  87: mov    %eax,%ecx                  +  86: testb  $0x88,0x58(%edx)
+  89: and    $0x3,%ecx                  +  8a: je     b1 <eth_header+0xb1>
+  8c: je     90 <eth_header+0x90>       +  8c: movzbl 0xb0(%edx),%esi
+  8e: repz movsb %ds:(%esi),%es:(%edi)  +  93: mov    %esi,%ecx
+  90: mov    0xc(%ebp),%eax             +  95: shr    $0x2,%ecx
+  93: testb  $0x88,0x58(%eax)           +  98: mov    %ebx,%edi
+  97: je     bc <eth_header+0xbc>       +  9a: xor    %eax,%eax
+  99: movzbl 0xb0(%eax),%edx            +  9c: mov    %esi,%edx
+  a0: mov    %edx,%ecx                  +  9e: repz stos %eax,%es:(%edi)
+  a2: xor    %eax,%eax
+  a4: shr    $0x2,%ecx
+  a7: mov    %ebx,%edi
+  a9: repz stos %eax,%es:(%edi)
+..
 
-Let us know how it goes.
+--- linux-2.6.12-rc2.src/net/ethernet/eth.c.orig	Thu Mar  3 09:31:21 2005
++++ linux-2.6.12-rc2.src/net/ethernet/eth.c	Wed Jun 22 11:13:54 2005
+@@ -92,10 +92,9 @@ int eth_header(struct sk_buff *skb, stru
+ 	 *	Set the source hardware address. 
+ 	 */
+ 	 
+-	if(saddr)
+-		memcpy(eth->h_source,saddr,dev->addr_len);
+-	else
+-		memcpy(eth->h_source,dev->dev_addr,dev->addr_len);
++	if(!saddr)
++		saddr = dev->dev_addr;
++	memcpy(eth->h_source,saddr,dev->addr_len);
+ 
+ 	/*
+ 	 *	Anyway, the loopback-device should never use this function... 
 
--scott
-
-----------------
-
-diff -Naurp e1000-5.2.26/src/e1000_main.c
-e1000-5.2.26-cb/src/e1000_main.c
---- e1000-5.2.26/src/e1000_main.c	2003-11-17 19:23:38.000000000
--0800
-+++ e1000-5.2.26-cb/src/e1000_main.c	2003-11-18 18:18:07.000000000
--0800
-@@ -2343,6 +2343,20 @@ e1000_clean_rx_irq(struct e1000_adapter
-  			}
-  		}
-
-+		/* RONCH 11/18/03 - code added for copybreak test */
-+#define E1000_CB_LENGTH 128
-+		if(length < E1000_CB_LENGTH ) {
-+			struct sk_buff *new_skb =3D dev_alloc_skb(length
-+2);
-+			if(new_skb) {
-+				skb_reserve(new_skb, 2);
-+				new_skb->dev =3D netdev;
-+				memcpy(new_skb->data, skb->data,
-length);
-+				dev_kfree_skb(skb);
-+				skb =3D new_skb;
-+			}
-+		}
-+		/* end copybreak code */
-+
-  		/* Good Receive */
-  		skb_put(skb, length - ETHERNET_FCS_SIZE);
+--Boundary-00=_vHSuC2OnpQh1+22--
