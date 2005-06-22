@@ -1,67 +1,72 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] tg3_msi() and weakly ordered memory
-Date: Tue, 21 Jun 2005 16:56:34 -0700 (PDT)
-Message-ID: <20050621.165634.07642938.davem@davemloft.net>
-References: <20050614154625.GB24371@esmail.cup.hp.com>
-	<1118771563.7059.30.camel@rh4>
-	<20050614211530.GB25516@esmail.cup.hp.com>
+From: Donald Becker <becker@scyld.com>
+Subject: Re: RFC: NAPI packet weighting patch
+Date: Tue, 21 Jun 2005 17:08:23 -0700 (PDT)
+Message-ID: <Pine.LNX.4.44.0506211642290.21812-100000@bluewest.scyld.com>
+References: <20050621223436.GG14251@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mchan@broadcom.com, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Rick Jones <rick.jones2@hp.com>, <netdev@oss.sgi.com>, <davem@redhat.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: iod00d@hp.com
-In-Reply-To: <20050614211530.GB25516@esmail.cup.hp.com>
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <20050621223436.GG14251@wotan.suse.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Wed, 22 Jun 2005, Andi Kleen wrote:
 
-Ok, here is the patch I came up with as a result of this thread.
+> > While much has changed since then, the same basic parameters remain
+> >    - cache line size
+> 
+> In 96 we had 32 byte cache lines. These days 64-128 are common,
+> with some 256 byte cache line systems around.
 
-Michael stated he would investigate using a pure tag comparison in
-place of tg3_has_work() when the chip is using tagged interrupts.
+Good point.
+I believe that the most common line size is 64 bytes for L1 cache.
 
-Thanks.
-
-[TG3]: Fix missing memory barriers and SD_STATUS_UPDATED bit clearing.
-
-There must be a rmb() between reading the status block tag
-and calling tg3_has_work().  This was missing in tg3_mis()
-and tg3_interrupt_tagged().  tg3_poll() got it right.
-
-Also, SD_STATUS_UPDATED must be cleared in the status block
-right before we call tg3_has_work().  Only tg3_poll() got this
-wrong.
-
-Based upon patches and commentary from Grant Grundler and
-Michael Chan.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
-
---- 1/drivers/net/tg3.c.~1~	2005-06-21 16:39:19.000000000 -0700
-+++ 2/drivers/net/tg3.c	2005-06-21 16:47:55.000000000 -0700
-@@ -2929,6 +2929,7 @@
- 	if (tp->tg3_flags & TG3_FLAG_TAGGED_STATUS)
- 		tp->last_tag = sblk->status_tag;
- 	rmb();
-+	sblk->status &= ~SD_STATUS_UPDATED;
+Most L2 caches that have larger line sizes still fill only 64 byte 
+blocks unless prefetching is triggered.  (Feel free to correct me with 
+non-obscure CPUs and relevant cases.  For instance, I know that on the 
+Itanium the 128 byte line L2 cache is used as L1, but only for FPU 
+fetches.  That doesn't count.)
  
- 	/* if no more work, tell net stack and NIC we're done */
- 	done = !tg3_has_work(tp);
-@@ -2964,6 +2965,7 @@
- 	 */
- 	tw32_mailbox(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW, 0x00000001);
- 	tp->last_tag = sblk->status_tag;
-+	rmb();
- 	sblk->status &= ~SD_STATUS_UPDATED;
- 	if (likely(tg3_has_work(tp)))
- 		netif_rx_schedule(dev);		/* schedule NAPI poll */
-@@ -3051,6 +3053,7 @@
- 		tw32_mailbox(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW,
- 			     0x00000001);
- 		tp->last_tag = sblk->status_tag;
-+		rmb();
- 		sblk->status &= ~SD_STATUS_UPDATED;
- 		if (likely(tg3_has_work(tp)))
- 			netif_rx_schedule(dev);		/* schedule NAPI poll */
+The implication here is that as soon as we look at the first byte of the 
+MAC address, we have read in 64 bytes.  That's a whole minimum-size 
+EThernet frame.
+
+> >    - frame header size (MAC+IP+ProtocolHeader)
+> 
+> In 96 people tended to not use time stamps.
+
+Ehh, not a big difference.
+ 
+> >    - hot cache lines from copying or type classification
+> Not sure what you mean with that.
+
+See the comment above. We decide if a packet is multicast vs. unicast, IP 
+vs. other at approximately interrupt/"rx_copybreak" time.  Very few NIC 
+provide this info in status bits, so we end up looking at the packet 
+header.  That read moves the previously known-uncached data (after all, it 
+was just came in from a bus write) into the L1 cache for the CPU handling 
+the device.  Once it's there, the copy is almost free.
+
+[[ Background: Yes, the allocating the new skbuff is very expensive.  But 
+we can either allocate a new, correctly-sized skbuff to copy into, or 
+allocate a new full-sized skbuff to replace the one we will send to the Rx 
+queue.  ]] 
+ 
+> >    - cold memory lines from PCI writes
+> 
+> I suspect in '96 chipsets also didn't do as aggressive prefetching
+> as they do today.
+
+Prefetching helps linear read bandwidth, but we shouldn't be triggering 
+it.  And I claim that cache line prefetching only restores the relative
+balance between L1/L2 caches, otherwise the long L2 cache lines would be 
+very expensive with bump-read-bump-read with linear scans through memory.
+
+-- 
+Donald Becker				becker@scyld.com
+Scyld Software	 			Scyld Beowulf cluster systems
+914 Bay Ridge Road, Suite 220		www.scyld.com
+Annapolis MD 21403			410-990-9993
