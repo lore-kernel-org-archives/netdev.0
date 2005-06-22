@@ -1,36 +1,45 @@
-From: Michael Vittrup Larsen <michael.vittrup.larsen@ericsson.com>
-Subject: Re: [PATCH] tcp: efficient port randomistion (rev 3)
-Date: Wed, 22 Jun 2005 11:17:03 +0200
-Message-ID: <200506221117.04334.michael.vittrup.larsen@ericsson.com>
-References: <20041220153916.6c00c114.davem@davemloft.net>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] document that 8139TOO supports 8129/8130
+Date: Wed, 22 Jun 2005 11:24:09 +0200
+Message-ID: <20050622092408.GB3705@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20041220153916.6c00c114.davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262874AbVFVJ0y@vger.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 21 December 2004 00:39, David S. Miller wrote:
-> On Fri, 10 Dec 2004 17:09:00 -0800
->
-> Stephen Hemminger <shemminger@osdl.org> wrote:
-> > okay, here is the revised version. Testing shows that it
-> > is more consistent, and just as fast as existing code,
-> > probably because of the getting rid of portalloc_lock and
-> > better distribution.
-> >
-> > Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
->
-> Queued up for 2.6.11, thanks Stephen.
+The 8129/8130 support is a sub-option that is not visible if the user 
+hasn't enabled the 8139 support.
 
-What's the status of this - I see it is not part of 2.6.12?
+Let's make it a bit easier for users to find the driver for their nic.
 
-Is there a general dislike of the port randomisation mechanism or?
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-/Michael
+---
+
+This patch was already sent on:
+- 16 May 2005
+
+--- linux-2.6.12-rc4-mm1-full/drivers/net/Kconfig.old	2005-05-13 05:54:05.000000000 +0200
++++ linux-2.6.12-rc4-mm1-full/drivers/net/Kconfig	2005-05-13 06:00:21.000000000 +0200
+@@ -1484,14 +1484,14 @@
+ 	  will be called 8139cp.  This is recommended.
+ 
+ config 8139TOO
+-	tristate "RealTek RTL-8139 PCI Fast Ethernet Adapter support"
++	tristate "RealTek RTL-8129/8130/8139 PCI Fast Ethernet Adapter support"
+ 	depends on NET_PCI && PCI
+ 	select CRC32
+ 	select MII
+ 	---help---
+ 	  This is a driver for the Fast Ethernet PCI network cards based on
+-	  the RTL8139 chips. If you have one of those, say Y and read
+-	  the Ethernet-HOWTO <http://www.tldp.org/docs.html#howto>.
++	  the RTL 8129/8130/8139 chips. If you have one of those, say Y and
++	  read the Ethernet-HOWTO <http://www.tldp.org/docs.html#howto>.
+ 
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called 8139too.  This is recommended.
