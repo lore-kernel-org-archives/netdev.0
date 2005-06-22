@@ -1,49 +1,44 @@
-From: jamal <hadi@cyberus.ca>
-Subject: RE: RFC: NAPI packet weighting patch
-Date: Wed, 22 Jun 2005 12:37:06 -0400
-Message-ID: <1119458226.6918.142.camel@localhost.localdomain>
-References: <200506221623.j5MGNkxS001340@guinness.s2io.com>
-Reply-To: hadi@cyberus.ca
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] tcp: efficient port randomistion (rev 3)
+Date: Wed, 22 Jun 2005 09:44:42 -0700
+Message-ID: <20050622094442.65a0e1bc@dxpl.pdx.osdl.net>
+References: <20041220153916.6c00c114.davem@davemloft.net>
+	<200506221117.04334.michael.vittrup.larsen@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "'Donald Becker'" <becker@scyld.com>, "'Andi Kleen'" <ak@suse.de>,
-        "'Rick Jones'" <rick.jones2@hp.com>, netdev@oss.sgi.com,
-        davem@redhat.com
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Leonid Grossman <leonid.grossman@neterion.com>
-In-Reply-To: <200506221623.j5MGNkxS001340@guinness.s2io.com>
+To: Michael Vittrup Larsen <michael.vittrup.larsen@ericsson.com>
+In-Reply-To: <200506221117.04334.michael.vittrup.larsen@ericsson.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2005-22-06 at 09:23 -0700, Leonid Grossman wrote:
-> > 
-> > See the comment above. We decide if a packet is multicast vs. 
-> > unicast, IP vs. other at approximately 
-> > interrupt/"rx_copybreak" time.  Very few NIC provide this 
-> > info in status bits, so we end up looking at the packet 
-> > header.  That read moves the previously known-uncached data 
-> > (after all, it was just came in from a bus write) into the L1 
-> > cache for the CPU handling the device.  Once it's there, the 
-> > copy is almost free.
-> 
-> What status bits a NIC has to provide, in order for the stack to avoid
-> touching headers?
-> In our case, the headers are separated by the hardware so ideally we would
-> like to avoid any header processing altogether,
-> and reduce the number of cache misses.
-> 
+On Wed, 22 Jun 2005 11:17:03 +0200
+Michael Vittrup Larsen <michael.vittrup.larsen@ericsson.com> wrote:
 
-Provide metadata that can be used to totaly replace eth_type_trans()
-i.e answer the questions: is it multi/uni/broadcast, is the packet for
-us (you would need to be programmed with what for us means), Is it IP,
-ARP etc. I am sure any standard NIC these days can do a subset of these
- You want to go one step further then allow the user to download a
-number of filters and tell you what tag you should put on the descriptor
-when sending the packet to user space on a match or mismatch. 
-If say you allowed 1024 such filters (not very different from the
-current multicast filters), you could cut down a lot of CPU time.
+> On Tuesday 21 December 2004 00:39, David S. Miller wrote:
+> > On Fri, 10 Dec 2004 17:09:00 -0800
+> >
+> > Stephen Hemminger <shemminger@osdl.org> wrote:
+> > > okay, here is the revised version. Testing shows that it
+> > > is more consistent, and just as fast as existing code,
+> > > probably because of the getting rid of portalloc_lock and
+> > > better distribution.
+> > >
+> > > Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> >
+> > Queued up for 2.6.11, thanks Stephen.
+> 
+> What's the status of this - I see it is not part of 2.6.12?
+> 
+> Is there a general dislike of the port randomisation mechanism or?
 
-cheers,
-jamal
+There is port randomization in 2.6.11 and 2.6.12, look for
+secure_tcp_port_ephemeral in the source. 2.6.12 also does random port
+allocation for IPV6.
+
+We still do the non-random stuff for explicit binds (tcp_v4_get_port),
+but there is no state to seed in that case and it only impacts app's 
+that do an explicit bind to 0.
