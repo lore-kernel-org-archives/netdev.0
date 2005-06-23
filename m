@@ -1,41 +1,67 @@
-From: Jeff Garzik <jgarzik@pobox.com>
+From: David Lang <david.lang@digitalinsight.com>
 Subject: Re: [git patch] urgent e1000 fix
-Date: Thu, 23 Jun 2005 19:10:42 -0400
-Message-ID: <42BB4172.5000904@pobox.com>
-References: <42BA7FB5.5020804@pobox.com> <Pine.LNX.4.62.0506231402340.18154@qynat.qvtvafvgr.pbz> <42BB2749.1020209@pobox.com> <Pine.LNX.4.58.0506231506510.11175@ppc970.osdl.org>
+Date: Thu, 23 Jun 2005 16:20:21 -0700 (PDT)
+Message-ID: <Pine.LNX.4.62.0506231615590.18154@qynat.qvtvafvgr.pbz>
+References: <42BA7FB5.5020804@pobox.com> <Pine.LNX.4.62.0506231402340.18154@qynat.qvtvafvgr.pbz>
+ <42BB2749.1020209@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Lang <david.lang@digitalinsight.com>,
-	Andrew Morton <akpm@osdl.org>,
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>,
 	Linux Kernel <linux-kernel@vger.kernel.org>,
 	Netdev List <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262286AbVFWXLd@vger.kernel.org>
-To: Linus Torvalds <torvalds@osdl.org>
-In-Reply-To: <Pine.LNX.4.58.0506231506510.11175@ppc970.osdl.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262669AbVFWXVO@vger.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <42BB2749.1020209@pobox.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Linus Torvalds wrote:
-> 
-> On Thu, 23 Jun 2005, Jeff Garzik wrote:
-> 
->>It's probably the whitespace thing that Linus's git-apply gadget was 
->>complaining about.
->>
->>I'm terribly surprising, though, since my patch(1) applied the diff just 
->>fine.
-> 
-> 
-> I could easily make git-apply accept empty lines as if they had a single 
-> space on it. What I find surprising is that "patch" allows that kind of 
-> whitespace corruption by default, and silently. Usually you have to give 
-> it the "-l" flag to make it ignore whitespace differences..
+This does not solve the problem that I reported last thursday where the 
+fourth port of a e1000 quad card doesn't work under SMP (I don't know if 
+it was supposed to, but since it was a locking fix I had hopes).
 
+here's the symptom I am seeing
+happy1-p:~# ifconfig eth11 192.168.255.1
+SIOCSIFFLAGS: Invalid argument
+happy1-p:~# netstat -nr
+Kernel IP routing table
+Destination     Gateway         Genmask         Flags   MSS Window  irtt Iface
+172.20.252.0    0.0.0.0         255.255.252.0   U         0 0          0 eth1
+10.201.0.0      0.0.0.0         255.255.0.0     U         0 0          0 eth0
+0.0.0.0         10.201.0.2      0.0.0.0         UG        0 0          0 eth0
+happy1-p:~# ifconfig eth11
+eth11     Link encap:Ethernet  HWaddr 00:04:23:B4:BB:97
+           inet addr:192.168.255.1  Bcast:192.168.255.255  Mask:255.255.255.0
+           BROADCAST MULTICAST  MTU:1500  Metric:1
+           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+           TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+           collisions:0 txqueuelen:1000
+           RX bytes:0 (0.0 b)  TX bytes:0 (0.0 b)
+           Base address:0x60c0 Memory:fe460000-fe480000
 
-patch(1) is a huge collection of heuristics like this, even without 
-'-l', so I'm not surprised that it worked.
+userspace is debian woody
 
-Does git-apply support patches with "fuzz", out of curiosity?
+David Lang
 
-	Jeff
+On Thu, 23 Jun 2005, Jeff Garzik wrote:
+
+> David Lang wrote:
+>> hmm, I know I'm not that experianced with patch, but when I saved this to a 
+>> file and did patch -p1 <file the hunk was rejected, the reject file is 
+>> saying
+>
+> It's probably the whitespace thing that Linus's git-apply gadget was 
+> complaining about.
+>
+> I'm terribly surprising, though, since my patch(1) applied the diff just 
+> fine.
+>
+> <shrug>
+>
+> 	Jeff
+>
+>
+>
+
+-- 
+There are two ways of constructing a software design. One way is to make it so simple that there are obviously no deficiencies. And the other way is to make it so complicated that there are no obvious deficiencies.
+  -- C.A.R. Hoare
