@@ -1,38 +1,60 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: RFC: NAPI packet weighting patch
-Date: Thu, 23 Jun 2005 01:23:45 +0200
-Message-ID: <20050622232345.GD14251@wotan.suse.de>
-References: <20050622.132241.21929037.davem@davemloft.net> <200506222242.j5MMgbxS009935@guinness.s2io.com> <20050622231300.GC14251@wotan.suse.de> <20050622.191956.39166724.davem@redhat.com>
+From: Jeff Moyer <jmoyer@redhat.com>
+Subject: [patch 0/3] netpoll: support multiple netpoll clients per net_device
+Date: Wed, 22 Jun 2005 21:26:29 -0400
+Message-ID: <17082.4037.875432.648439@segfault.boston.redhat.com>
+Reply-To: jmoyer@redhat.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: ak@suse.de, leonid.grossman@neterion.com, davem@davemloft.net,
-        hadi@cyberus.ca, becker@scyld.com, rick.jones2@hp.com,
-        netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20050622.191956.39166724.davem@redhat.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, akpm@osdl.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261899AbVFWB0m@vger.kernel.org>
+To: mpm@selenic.com
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 22, 2005 at 07:19:56PM -0400, David S. Miller wrote:
-> From: Andi Kleen <ak@suse.de>
-> Date: Thu, 23 Jun 2005 01:13:00 +0200
-> 
-> > The computing time must be quite long to be really a win.
-> > You need to waste a few hundred cycles at least on a modern fast CPU.
-> 
-> SKB allocation more than fits this requirement, and that is exactly
-> what the RX descriptor replenishment will do.
+Hi,
 
-It shouldn't in theory. Unless they did something bad to the slab
-allocator again when I wasn't looking ;-) 
+This patch series restores the ability to register multiple netpoll clients
+against the same network interface.  To this end, I created a new structure:
 
-> 
-> Even if SKB allocation was only half the necessary number of cycles
-> for the prefetch to hit the cpu, it'd still be a win.
+struct netpoll_info {
+	spinlock_t poll_lock;
+	int poll_owner;
+	int rx_flags;
+	spinlock_t rx_lock;
+	struct netpoll *rx_np; /* netpoll that registered an rx_hook */
+};
 
-If it's too small then it might be left in the noise.
+This is the structure which gets pointed to by the net_device.  All of the
+flags and locks which are specific to the INTERFACE go here.  Any variables
+which must be kept per struct netpoll were left in the struct netpoll.  So
+now, we have a cleaner separation of data and its scope.
 
--Andi
+Since we never really supported having more than one struct netpoll
+register an rx_hook, I did not re-implement the rx_list.  Instead, there is
+a single pointer in the netpoll_info structure (np_rx).  Note that if we
+decide that we would like to register multiple rx_hooks per net_device,
+this architecture does not preclude such extension.
+
+We need to protect setting and clearing of the rx_np pointer, so I added a
+lock (rx_lock) to the netpoll_info struct. [1]  There is one lock per
+struct net_device, and I am certain that it will be low contention, as rx_np
+will only be changed during an insmod or rmmod.
+
+In the process of making these changes, I fixed a bug in netpoll_poll_unlock.
+The function released the lock before setting the poll_owner to -1.
+
+
+I have tested this by registering two netpoll clients, and verifying that
+they both function properly.  The clients were netconsole, and a quick
+module I hacked together to send console messages to syslog.  I issued
+sysrq-h, sysrq-m, and sysrq-t's both by echo'ing to /proc/sysrq-trigger and
+by hitting the key combination on the keyboard.  This verifies that the
+modules work both inside and out of interrupt context.
+
+Cheers,
+
+Jeff
+
+[1] Matt notes that we may be able to merge this lock with the poll_lock in
+    the future.
