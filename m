@@ -1,54 +1,35 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: [git patch] urgent e1000 fix
-Date: Thu, 23 Jun 2005 05:24:05 -0400
-Message-ID: <42BA7FB5.5020804@pobox.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010705020707050403070901"
-Cc: Linux Kernel <linux-kernel@vger.kernel.org>,
-	Netdev List <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262585AbVFWJ2x@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [patch] devinet: cleanup if statements
+Date: Thu, 23 Jun 2005 21:38:00 +1000
+Message-ID: <E1DlQ1w-0003yI-00@gondolin.me.apana.org.au>
+References: <20050621.134822.21926602.davem@davemloft.net>
+Cc: pmeda@akamai.com, jgarzik@pobox.com, akpm@osdl.org, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: davem@davemloft.net (David S. Miller)
+In-Reply-To: <20050621.134822.21926602.davem@davemloft.net>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------010705020707050403070901
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+David S. Miller <davem@davemloft.net> wrote:
+> 
+> The second hunk of your patch seems to defeat the intention
+> of that code.  I believe the idea is that if the label and
+> the device name differ, use the label.
 
-Please pull from 'misc-fixes' branch of
-rsync://rsync.kernel.org/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git
+Actually I think Prasanna is right.  The if conditional is testing
+whether ifa->ifa_label is NULL.  As ifa->ifa_label is an array and
+it's not the first element in the structure, it can't possibly be
+NULL.
 
-to obtain the spinlock fix described in the attached text.
+With your interpretation above his patch is correct as well.  If
+we want to use the label when it is different from the device name,
+then it is equivalent to always use the label since the only time
+we'd use the device name is when it's equal to the label :)
 
-
---------------010705020707050403070901
-Content-Type: text/plain;
- name="netdev-2.6.txt"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="netdev-2.6.txt"
-
-
- drivers/net/e1000/e1000_main.c |    1 +
- 1 files changed, 1 insertion(+)
-
-
-Mitch Williams:
-  e1000: fix spinlock bug
-
-
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -2307,6 +2307,7 @@ e1000_xmit_frame(struct sk_buff *skb, st
- 	tso = e1000_tso(adapter, skb);
- 	if (tso < 0) {
- 		dev_kfree_skb_any(skb);
-+		spin_unlock_irqrestore(&adapter->tx_lock, flags);
- 		return NETDEV_TX_OK;
- 	}
- 
-
---------------010705020707050403070901--
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
