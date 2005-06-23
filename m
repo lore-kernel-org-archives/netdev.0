@@ -1,67 +1,54 @@
-From: David Lang <david.lang@digitalinsight.com>
+From: Linus Torvalds <torvalds@osdl.org>
 Subject: Re: [git patch] urgent e1000 fix
-Date: Thu, 23 Jun 2005 16:20:21 -0700 (PDT)
-Message-ID: <Pine.LNX.4.62.0506231615590.18154@qynat.qvtvafvgr.pbz>
+Date: Thu, 23 Jun 2005 16:33:33 -0700 (PDT)
+Message-ID: <Pine.LNX.4.58.0506231625310.11175@ppc970.osdl.org>
 References: <42BA7FB5.5020804@pobox.com> <Pine.LNX.4.62.0506231402340.18154@qynat.qvtvafvgr.pbz>
- <42BB2749.1020209@pobox.com>
+ <42BB2749.1020209@pobox.com> <Pine.LNX.4.58.0506231506510.11175@ppc970.osdl.org>
+ <42BB4172.5000904@pobox.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>,
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Lang <david.lang@digitalinsight.com>,
+	Andrew Morton <akpm@osdl.org>,
 	Linux Kernel <linux-kernel@vger.kernel.org>,
 	Netdev List <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262669AbVFWXVO@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262834AbVFWXby@vger.kernel.org>
 To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <42BB2749.1020209@pobox.com>
+In-Reply-To: <42BB4172.5000904@pobox.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This does not solve the problem that I reported last thursday where the 
-fourth port of a e1000 quad card doesn't work under SMP (I don't know if 
-it was supposed to, but since it was a locking fix I had hopes).
 
-here's the symptom I am seeing
-happy1-p:~# ifconfig eth11 192.168.255.1
-SIOCSIFFLAGS: Invalid argument
-happy1-p:~# netstat -nr
-Kernel IP routing table
-Destination     Gateway         Genmask         Flags   MSS Window  irtt Iface
-172.20.252.0    0.0.0.0         255.255.252.0   U         0 0          0 eth1
-10.201.0.0      0.0.0.0         255.255.0.0     U         0 0          0 eth0
-0.0.0.0         10.201.0.2      0.0.0.0         UG        0 0          0 eth0
-happy1-p:~# ifconfig eth11
-eth11     Link encap:Ethernet  HWaddr 00:04:23:B4:BB:97
-           inet addr:192.168.255.1  Bcast:192.168.255.255  Mask:255.255.255.0
-           BROADCAST MULTICAST  MTU:1500  Metric:1
-           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
-           TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
-           collisions:0 txqueuelen:1000
-           RX bytes:0 (0.0 b)  TX bytes:0 (0.0 b)
-           Base address:0x60c0 Memory:fe460000-fe480000
-
-userspace is debian woody
-
-David Lang
 
 On Thu, 23 Jun 2005, Jeff Garzik wrote:
+> 
+> patch(1) is a huge collection of heuristics like this, even without 
+> '-l', so I'm not surprised that it worked.
+> 
+> Does git-apply support patches with "fuzz", out of curiosity?
 
-> David Lang wrote:
->> hmm, I know I'm not that experianced with patch, but when I saved this to a 
->> file and did patch -p1 <file the hunk was rejected, the reject file is 
->> saying
->
-> It's probably the whitespace thing that Linus's git-apply gadget was 
-> complaining about.
->
-> I'm terribly surprising, though, since my patch(1) applied the diff just 
-> fine.
->
-> <shrug>
->
-> 	Jeff
->
->
->
+No, git is strictly "zero fuzz". So was my "dotest" script even before
+switching it to "git-apply", btw (ie I explicitly had a "--fuzz=0" there
+when using GNU patch).
 
--- 
-There are two ways of constructing a software design. One way is to make it so simple that there are obviously no deficiencies. And the other way is to make it so complicated that there are no obvious deficiencies.
-  -- C.A.R. Hoare
+Now, I may have to reconsider the strictness if it causes lots of
+problems, and it's not like I hate fuzz (or ignoring whitespace) with a
+passion. I'd just rather try to be as strict as possible at least
+initially.
+
+Your special case of a corrupted patch where a single space turned into an
+empty line is actually one case I considered allowing, just because the
+fuzz there wouldn't be in the data itself, only in the first character
+that just tells what kind of line it is (new, deleted or unmodified), and
+just saying "empty means unmodified" doesn't really introduce any
+possibility of ambiguity.
+
+So let's see what happens. Tell me if you see more of this particular kind
+of corruption, and I'll just make "git-apply" work around it. I don't
+think _one_ patch is much of an indication in any direction, but two or
+three might convince me to just relax the checks a bit.
+
+To actually allow real fuzz or to allow real whitespace differences in the
+patch data itself is a _much_ bigger issue than this trivial patch
+corruption, and I'd prefer to avoid going there if at all possible.
+
+		Linus
