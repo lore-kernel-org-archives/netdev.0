@@ -1,39 +1,60 @@
-From: Christoph Lameter <christoph@lameter.com>
+From: "David S. Miller" <davem@davemloft.net>
 Subject: Re: [PATCH] dst_entry structure use,lastuse and refcnt abstraction
-Date: Thu, 23 Jun 2005 20:49:17 -0700 (PDT)
-Message-ID: <Pine.LNX.4.62.0506232047450.29103@graphe.net>
-References: <Pine.LNX.4.62.0506231953260.28244@graphe.net>
- <20050623.203647.88475017.davem@davemloft.net> <Pine.LNX.4.62.0506232037430.28814@graphe.net>
- <20050623.204702.26274560.davem@davemloft.net>
+Date: Thu, 23 Jun 2005 20:54:47 -0700 (PDT)
+Message-ID: <20050623.205447.66178303.davem@davemloft.net>
+References: <Pine.LNX.4.62.0506232037430.28814@graphe.net>
+	<20050623.204702.26274560.davem@davemloft.net>
+	<Pine.LNX.4.62.0506232047450.29103@graphe.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
 	shai@scalex86.org, akpm@osdl.org, netdev@vger.kernel.org,
 	herbert@gondor.apana.org.au
 Return-path: <linux-net-owner@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050623.204702.26274560.davem@davemloft.net>
+To: christoph@lameter.com
+In-Reply-To: <Pine.LNX.4.62.0506232047450.29103@graphe.net>
 Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 23 Jun 2005, David S. Miller wrote:
+From: Christoph Lameter <christoph@lameter.com>
+Date: Thu, 23 Jun 2005 20:49:17 -0700 (PDT)
 
-> From: Christoph Lameter <christoph@lameter.com>
-> Date: Thu, 23 Jun 2005 20:40:25 -0700 (PDT)
+> No I told you that we need to disassemble the atomic dec_and_test 
+> in order to be able to split the counters.
+
+Ok.  You're going to have to come up with something better
+than a %3 AIM benchmark increase with 5000 threads to justify
+those invasive NUMA changes, and thus this infrastructure for
+it.
+
+In order to convince me on this NUMA dst stuff, you need to put away
+the benchmark microscope and instead use a "macroscrope" to analyze
+the side effects of these changes on a higher level.
+
+Really, what are the effects on other things?  For example, what
+does this do to routing performance?  Does the packets per second
+go down, if so by how much?
+
+What happens if you bind network interfaces, and the processes that
+use them, to cpus.  Why would that be too intrusive to setup for the
+administrator of such large NUMA machines?
+
+What about loads that have low route locality, and thus touch many
+different dst entries, not necessarily contending for a single one
+amongst several nodes?  Does performance go up or down for such a
+case?
+
+I'm picking those examples, because I am rather certain your patches
+will hurt performance in those cases.  The data structure size
+expansion and extra memory allocations alone for the per-node dst
+stuff should be good about doing that.
+
+> > > Yes and it was recently changed. Typical use is linux-xxx@vger.kernel.org
+> > 
+> > netdev@oss.sgi.com is what used to be the place for networking
+> > stuff, it's not netdev@vger.kernel.org
 > 
-> > Nothing as far as I can tell. The main benefit may be reorganization of 
-> > the code.
-> 
-> You told us way back in the original thread that the final atomic dec
-> shows up very much on NUMA, and if it could be avoided (and changed
-> into a read test), it would help a lot on NUMA.
+> s/not/now/ right?
 
-No I told you that we need to disassemble the atomic dec_and_test 
-in order to be able to split the counters.
-
-> > Yes and it was recently changed. Typical use is linux-xxx@vger.kernel.org
-> 
-> netdev@oss.sgi.com is what used to be the place for networking
-> stuff, it's not netdev@vger.kernel.org
-
-s/not/now/ right?
+Right. :)
