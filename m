@@ -1,49 +1,66 @@
-From: Maxime Bizon <mbizon@freebox.fr>
-Subject: [PATCH] ipconfig.c: fix dhcp timeout behaviour
-Date: Fri, 24 Jun 2005 20:53:09 +0200
-Message-ID: <1119639189.14765.154.camel@sakura.staff.proxad.net>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] drivers/net/ne3210.c: cleanups
+Date: Fri, 24 Jun 2005 22:09:19 +0200
+Message-ID: <20050624200919.GK6656@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262169AbVFXUNK@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+This patch contains the following cleanups:
+- make two needlessly global functions static
+- kill an ancient version variable
 
-I think there is a small bug in ipconfig.c in case IPCONFIG_DHCP is set
-and dhcp is used.
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-When a DHCPOFFER is received, ip address is kept until we get DHCPACK.
-If no ack is received, ic_dynamic() returns negatively, but leaves the
-offered ip address in ic_myaddr.
+---
 
-This makes the main loop in ip_auto_config() break and uses the maybe
-incomplete configuration.
+This patch was already sent on:
+- 30 May 2005
+- 2 May 2005
+- 19 Apr 2005
 
-Not sure if it's the best way to do, but the following trivial patch
-correct this. 
+ drivers/net/ne3210.c |    9 +++------
+ 1 files changed, 3 insertions(+), 6 deletions(-)
 
-
-Signed-off-by: Maxime Bizon <mbizon@freebox.fr>
-
---- linux-2.6.12.1/net/ipv4/ipconfig.c.orig	2005-06-22 21:33:05.000000000 +0200
-+++ linux-2.6.12.1/net/ipv4/ipconfig.c	2005-06-24 17:55:11.000000000 +0200
-@@ -1149,8 +1149,10 @@ static int __init ic_dynamic(void)
- 		ic_rarp_cleanup();
- #endif
+--- linux-2.6.11-rc3-mm2-full/drivers/net/ne3210.c.old	2005-02-16 16:09:39.000000000 +0100
++++ linux-2.6.11-rc3-mm2-full/drivers/net/ne3210.c	2005-02-21 15:10:02.000000000 +0100
+@@ -26,9 +26,6 @@
+ 	Updated to EISA probing API 5/2003 by Marc Zyngier.
+ */
  
--	if (!ic_got_reply)
-+	if (!ic_got_reply) {
-+		ic_myaddr = INADDR_NONE;
- 		return -1;
-+	}
+-static const char *version =
+-	"ne3210.c: Driver revision v0.03, 30/09/98\n";
+-
+ #include <linux/module.h>
+ #include <linux/eisa.h>
+ #include <linux/kernel.h>
+@@ -197,7 +194,7 @@
+ 	ei_status.priv = phys_mem;
  
- 	printk("IP-Config: Got %s answer from %u.%u.%u.%u, ",
- 		((ic_got_reply & IC_RARP) ? "RARP" 
-
-
--- 
-Maxime
+ 	if (ei_debug > 0)
+-		printk(version);
++		printk("ne3210 loaded.\n");
+ 
+ 	ei_status.reset_8390 = &ne3210_reset_8390;
+ 	ei_status.block_input = &ne3210_block_input;
+@@ -359,12 +356,12 @@
+ MODULE_DESCRIPTION("NE3210 EISA Ethernet driver");
+ MODULE_LICENSE("GPL");
+ 
+-int ne3210_init(void)
++static int ne3210_init(void)
+ {
+ 	return eisa_driver_register (&ne3210_eisa_driver);
+ }
+ 
+-void ne3210_cleanup(void)
++static void ne3210_cleanup(void)
+ {
+ 	eisa_driver_unregister (&ne3210_eisa_driver);
+ }
