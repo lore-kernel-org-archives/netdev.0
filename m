@@ -1,46 +1,125 @@
-From: Linus Torvalds <torvalds@osdl.org>
-Subject: Re: [git patch] urgent e1000 fix
-Date: Fri, 24 Jun 2005 09:40:09 -0700 (PDT)
-Message-ID: <Pine.LNX.4.58.0506240938210.11175@ppc970.osdl.org>
-References: <13661.1119601379@kao2.melbourne.sgi.com>
- <Pine.LNX.4.58.0506240149440.11175@ppc970.osdl.org>
- <Pine.BSO.4.62.0506241140280.19853@rudy.mif.pg.gda.pl>
+From: Neil Horman <nhorman@redhat.com>
+Subject: Re: [Patch] ipvs: close race conditions on ip_vs_conn_tab list modification
+Date: Fri, 24 Jun 2005 13:40:54 -0400
+Message-ID: <20050624174054.GE21499@hmsendeavour.rdu.redhat.com>
+References: <20050624144822.GD21499@hmsendeavour.rdu.redhat.com> <Pine.LNX.4.44.0506241808150.2776-100000@l>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Keith Owens <kaos@ocs.com.au>, Denis Vlasenko <vda@ilport.com.ua>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	David Lang <david.lang@digitalinsight.com>,
-	Andrew Morton <akpm@osdl.org>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	Netdev List <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S263126AbVFXQiq@vger.kernel.org>
-To: =?ISO-8859-1?Q?Tomasz_K=B3oczko?= <kloczek@rudy.mif.pg.gda.pl>
-In-Reply-To: <Pine.BSO.4.62.0506241140280.19853@rudy.mif.pg.gda.pl>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Neil Horman <nhorman@redhat.com>,
+        linux-kernel <linux-kernel@vger.kernel.org>,
+        Wensong Zhang <wensong@linux-vs.org>, akpm@osdl.org,
+        netdev@oss.sgi.com, davem@davemloft.net
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Julian Anastasov <ja@ssi.bg>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.44.0506241808150.2776-100000@l>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Fri, Jun 24, 2005 at 06:09:40PM +0300, Julian Anastasov wrote:
+> 
+> 	Hello,
+> 
+> On Fri, 24 Jun 2005, Neil Horman wrote:
+> 
+> >  			if (ct) {
+> >  				IP_VS_DBG(4, "del conn template\n");
+> >  				ip_vs_conn_expire_now(ct);
+> >  			}
+> 
+> 	Don't forget to use cp->control instead of ct, ct is not needed
+> anymore.
+> 
+> Regards
+> 
+> --
+> Julian Anastasov <ja@ssi.bg>
+> 
 
 
-On Fri, 24 Jun 2005, Tomasz K=B3oczko wrote:
->=20
-> Linus .. why for kernel tree can't be used indent or other source=20
-> code formater ?
+Good catch.  Sorry, should have seen that earlier.  New patch attached with
+corrections.  When you're comfortable with this, I'll post the 2.4 version of
+the patch.
 
-Sure, we do it, but then we try to make it obvious to all sides.
+Regards 
+Neil
 
-It's the "small and non-obvious" differences that are really poisonous.=
-=20
-You don't see them in the soruces, yet patches don't apply.
+Signed-off-by: Neil Horman <nhorman@redhat.com>
 
-So don't do subtle whitespace "fixups" by default. It just makes everyb=
-ody
-unhappy down the line.
+ ip_vs_conn.c |   24 ++++--------------------
+ 1 files changed, 4 insertions(+), 20 deletions(-)
 
-That's not to say that we don't do whitespace fixups _occasionally_. Wh=
-en=20
-it's ugly enough to be noticeable, I sure as hell fix up whitespace. Bu=
-t=20
-not by default.
 
-		Linus
+--- linux-2.6.git/net/ipv4/ipvs/ip_vs_conn.c.orig	2005-06-23 13:11:00.000000000 -0400
++++ linux-2.6.git/net/ipv4/ipvs/ip_vs_conn.c	2005-06-24 13:33:03.000000000 -0400
+@@ -548,7 +548,6 @@
+ {
+ 	if (del_timer(&cp->timer))
+ 		mod_timer(&cp->timer, jiffies);
+-	__ip_vs_conn_put(cp);
+ }
+ 
+ 
+@@ -801,21 +800,12 @@
+ 					continue;
+ 			}
+ 
+-			/*
+-			 * Drop the entry, and drop its ct if not referenced
+-			 */
+-			atomic_inc(&cp->refcnt);
+-			ct_write_unlock(hash);
+-
+-			if ((ct = cp->control))
+-				atomic_inc(&ct->refcnt);
+ 			IP_VS_DBG(4, "del connection\n");
+ 			ip_vs_conn_expire_now(cp);
+-			if (ct) {
++			if (cp->control) {
+ 				IP_VS_DBG(4, "del conn template\n");
+-				ip_vs_conn_expire_now(ct);
++				ip_vs_conn_expire_now(cp->control);
+ 			}
+-			ct_write_lock(hash);
+ 		}
+ 		ct_write_unlock(hash);
+ 	}
+@@ -829,7 +819,6 @@
+ {
+ 	int idx;
+ 	struct ip_vs_conn *cp;
+-	struct ip_vs_conn *ct;
+ 
+   flush_again:
+ 	for (idx=0; idx<IP_VS_CONN_TAB_SIZE; idx++) {
+@@ -839,18 +828,13 @@
+ 		ct_write_lock_bh(idx);
+ 
+ 		list_for_each_entry(cp, &ip_vs_conn_tab[idx], c_list) {
+-			atomic_inc(&cp->refcnt);
+-			ct_write_unlock(idx);
+ 
+-			if ((ct = cp->control))
+-				atomic_inc(&ct->refcnt);
+ 			IP_VS_DBG(4, "del connection\n");
+ 			ip_vs_conn_expire_now(cp);
+-			if (ct) {
++			if (cp->control) {
+ 				IP_VS_DBG(4, "del conn template\n");
+-				ip_vs_conn_expire_now(ct);
++				ip_vs_conn_expire_now(cp->control);
+ 			}
+-			ct_write_lock(idx);
+ 		}
+ 		ct_write_unlock_bh(idx);
+ 	}
+-- 
+/***************************************************
+ *Neil Horman
+ *Software Engineer
+ *Red Hat, Inc.
+ *nhorman@redhat.com
+ *gpg keyid: 1024D / 0x92A74FA1
+ *http://pgp.mit.edu
+ ***************************************************/
