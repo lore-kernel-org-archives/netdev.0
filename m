@@ -1,54 +1,38 @@
-From: Linus Torvalds <torvalds@osdl.org>
-Subject: Re: [git patch] urgent e1000 fix
-Date: Thu, 23 Jun 2005 16:33:33 -0700 (PDT)
-Message-ID: <Pine.LNX.4.58.0506231625310.11175@ppc970.osdl.org>
-References: <42BA7FB5.5020804@pobox.com> <Pine.LNX.4.62.0506231402340.18154@qynat.qvtvafvgr.pbz>
- <42BB2749.1020209@pobox.com> <Pine.LNX.4.58.0506231506510.11175@ppc970.osdl.org>
- <42BB4172.5000904@pobox.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] dst_entry structure use,lastuse and refcnt abstraction
+Date: Thu, 23 Jun 2005 20:36:47 -0700 (PDT)
+Message-ID: <20050623.203647.88475017.davem@davemloft.net>
+References: <Pine.LNX.4.62.0506231953260.28244@graphe.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Lang <david.lang@digitalinsight.com>,
-	Andrew Morton <akpm@osdl.org>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	Netdev List <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262834AbVFWXby@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <42BB4172.5000904@pobox.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
+	shai@scalex86.org, akpm@osdl.org, netdev@vger.kernel.org,
+	herbert@gondor.apana.org.au
+Return-path: <linux-net-owner@vger.kernel.org>
+To: christoph@lameter.com
+In-Reply-To: <Pine.LNX.4.62.0506231953260.28244@graphe.net>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Christoph Lameter <christoph@lameter.com>
+Date: Thu, 23 Jun 2005 20:04:52 -0700 (PDT)
 
+> The patch also removes the atomic_dec_and_test in dst_destroy.
 
-On Thu, 23 Jun 2005, Jeff Garzik wrote:
-> 
-> patch(1) is a huge collection of heuristics like this, even without 
-> '-l', so I'm not surprised that it worked.
-> 
-> Does git-apply support patches with "fuzz", out of curiosity?
+That is the only part of this patch I'm willing to entertain
+at this time, as long as Herbert Xu ACKs it.  How much of that
+quoted %3 gain does this change alone give you?
 
-No, git is strictly "zero fuzz". So was my "dotest" script even before
-switching it to "git-apply", btw (ie I explicitly had a "--fuzz=0" there
-when using GNU patch).
+Also, please post networking patches to netdev@vger.kernel.org.
+Because you didn't, the majority of the networking maintainers
+did not see your dst patch submissions.  It's mentioned in
+linux/MAINTAINERS for a reason:
 
-Now, I may have to reconsider the strictness if it causes lots of
-problems, and it's not like I hate fuzz (or ignoring whitespace) with a
-passion. I'd just rather try to be as strict as possible at least
-initially.
+	NETWORKING [GENERAL]
+	P:	Networking Team
+	M:	netdev@vger.kernel.org
+	L:	netdev@vger.kernel.org
+	S:	Maintained
 
-Your special case of a corrupted patch where a single space turned into an
-empty line is actually one case I considered allowing, just because the
-fuzz there wouldn't be in the data itself, only in the first character
-that just tells what kind of line it is (new, deleted or unmodified), and
-just saying "empty means unmodified" doesn't really introduce any
-possibility of ambiguity.
-
-So let's see what happens. Tell me if you see more of this particular kind
-of corruption, and I'll just make "git-apply" work around it. I don't
-think _one_ patch is much of an indication in any direction, but two or
-three might convince me to just relax the checks a bit.
-
-To actually allow real fuzz or to allow real whitespace differences in the
-patch data itself is a _much_ bigger issue than this trivial patch
-corruption, and I'd prefer to avoid going there if at all possible.
-
-		Linus
+Thanks.
