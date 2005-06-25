@@ -1,75 +1,77 @@
-From: David Lang <david.lang@digitalinsight.com>
-Subject: Re: Fwd: [Bug 4774] e1000 driver works on UP, but not SMP x86_64
-Date: Fri, 24 Jun 2005 15:15:06 -0700 (PDT)
-Message-ID: <Pine.LNX.4.62.0506241514440.19335@qynat.qvtvafvgr.pbz>
-References: <200506250157.14499.adobriyan@gmail.com>
+From: randy_dunlap <rdunlap@xenotime.net>
+Subject: Re: tg3: issue for reboot/kexec
+Date: Fri, 24 Jun 2005 17:46:52 -0700
+Message-ID: <20050624174652.159f26ce.rdunlap@xenotime.net>
+References: <42BC9F09.1060002@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S263317AbVFXWSe@vger.kernel.org>
-To: Alexey Dobriyan <adobriyan@gmail.com>
-In-Reply-To: <200506250157.14499.adobriyan@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="===============0047875890068609372=="
+Cc: netdev@vger.kernel.org, fastboot@lists.osdl.org, linux-pm@lists.osdl.org
+Return-path: <linux-pm-bounces@lists.osdl.org>
+To: Haren Myneni <haren@us.ibm.com>
+In-Reply-To: <42BC9F09.1060002@us.ibm.com>
+List-Unsubscribe: <http://lists.osdl.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.osdl.org?subject=unsubscribe>
+List-Archive: <http://lists.osdl.org/pipermail/linux-pm>
+List-Post: <mailto:linux-pm@lists.osdl.org>
+List-Help: <mailto:linux-pm-request@lists.osdl.org?subject=help>
+List-Subscribe: <http://lists.osdl.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.osdl.org?subject=subscribe>
+Sender: linux-pm-bounces@lists.osdl.org
+Errors-To: linux-pm-bounces@lists.osdl.org
 List-Id: netdev.vger.kernel.org
 
-here's what happens.
+--===============0047875890068609372==
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 
-happy1-p:~# ifconfig eth11 192.168.255.1
-SIOCSIFFLAGS: Invalid argument
-happy1-p:~# tail -3 /var/log/messages
-Jun 24 15:14:01 happy1-p /USR/SBIN/CRON[392]: (root) CMD (touch 
-/tmp/.crond_running >/dev/null 2>/dev/null)
-Jun 24 15:14:22 happy1-p kernel: request_irq: IRQ requested is greater 
-than NR_IRQs!
-Jun 24 15:14:22 happy1-p kernel: e1000: eth11: e1000_up: Unable to 
-allocate interrupt Error: -22
+On Fri, 24 Jun 2005 17:02:17 -0700 Haren Myneni wrote:
 
-On Sat, 25 Jun 2005, Alexey Dobriyan wrote:
+| 
+| Hello,
+|     The kexec boot on power blade (JS20) is not successfull without 
+| doing 'ifdown <ethernet device>'.  Based on my initial look in tg3 code, 
+| the driver does not have shutdown nor reboot notifier code unlike in 
+| other drivers. Hence, I added the the following patch (based on e1000) 
+| and it is working. Is it OK to include this patch? If not, any help to 
+| track down the issue would be appreciated.
+| 
+| My system is having the following cards:
+| 0000:11:01.0 Ethernet controller: Broadcom Corporation NetXtreme 
+| BCM5704S Gigabit Ethernet (rev 03)
+| 0000:11:01.1 Ethernet controller: Broadcom Corporation NetXtreme 
+| BCM5704S Gigabit Ethernet (rev 03)
+| 
+| lspci -n -s 0000:11:01
+| 0000:11:01.0 Class 0200: 14e4:16a8 (rev 03)
+| 0000:11:01.1 Class 0200: 14e4:16a8 (rev 03)
 
-> Date: Sat, 25 Jun 2005 01:57:13 +0400
-> From: Alexey Dobriyan <adobriyan@gmail.com>
-> To: David Lang <david.lang@digitalinsight.com>
-> Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-> Subject: Fwd: [Bug 4774] e1000 driver works on UP, but not SMP x86_64
-> 
-> David, please try this debugging patch.
->
-> You can also register at http://bugme.osdl.org/createaccount.cgi and add
-> yourself to CC list.
->
-> ----------  Forwarded Message  ----------
->
-> Subject: [Bug 4774] e1000 driver works on UP, but not SMP x86_64
-> Date: Saturday 25 June 2005 01:27
-> From: bugme-daemon@kernel-bugs.osdl.org
-> To: adobriyan@gmail.com
->
-> http://bugzilla.kernel.org/show_bug.cgi?id=4774
->
->
-> ------- Additional Comments From nacc@us.ibm.com  2005-06-24 14:27 -------
-> Created an attachment (id=5211)
-> --> (http://bugzilla.kernel.org/attachment.cgi?id=5211&action=view)
-> Debugging patch
->
-> That e1000 error message indicates an EINVAL error code, which is from this
-> code:
->
-> 	if ((irqflags & SA_SHIRQ) && !dev_id)
-> 		return -EINVAL;
-> 	if (irq >= NR_IRQS)
-> 		return -EINVAL;
-> 	if (!handler)
-> 		return -EINVAL;
->
-> I don't think it's the last one, because e1000_intr (which is sent in to
-> request_irq() from e1000) is prototyped/defined. I spun up a patch to spit out
-> some debugging here which simply inserts some printks (if the only driver which
-> gets this warning is e1000, then it shouldn't flood your logs) -- basically
-> narrowing down which error condition is causing the failure. I'm guessing it's
-> probably the first case, but let's be sure.
->
+[adding fastboot & linux-pm mailing lists]
 
--- 
-There are two ways of constructing a software design. One way is to make it so simple that there are obviously no deficiencies. And the other way is to make it so complicated that there are no obvious deficiencies.
-  -- C.A.R. Hoare
+There was just a SCSI driver patch that tried to use a reboot
+notifier on shutdown and the patch got this comment:
+
+Subject: Re: [PATCH] 2.6 aacraid: shutdown notification
+Message-ID: <42BC6D6F.5090402@us.ibm.com>
+From:	Mark Haverkamp <markh@osdl.org>
+
+and reply From:	Brian King <brking@us.ibm.com>:
+| The pci_driver->shutdown method should be used instead of registering
+| a reboot notifier.
+
+so is there a good reason that network drivers should use the
+reboot notifier instead of pci_driver->shutdown,
+or should we be converting drivers to use pci_driver->shutdown
+instead?
+My quick look favors pci_driver->shutdown.
+
+---
+~Randy
+
+--===============0047875890068609372==
+Content-Type: text/plain; charset="iso-8859-1"
+MIME-Version: 1.0
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
+
+
+--===============0047875890068609372==--
