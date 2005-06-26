@@ -1,39 +1,30 @@
-From: Adrian Bunk <bunk@stusta.de>
+From: randy_dunlap <rdunlap@xenotime.net>
 Subject: Re: [2.6 patch] drivers/net/hamradio/: cleanups
-Date: Mon, 27 Jun 2005 00:38:20 +0200
-Message-ID: <20050626223820.GL3629@stusta.de>
-References: <20050502014637.GQ3592@stusta.de> <42BF2BA9.8060502@pobox.com>
+Date: Sun, 26 Jun 2005 15:53:18 -0700
+Message-ID: <20050626155318.7f065d5b.rdunlap@xenotime.net>
+References: <20050502014637.GQ3592@stusta.de>
+	<42BF2BA9.8060502@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261626AbVFZWqj@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bunk@stusta.de, akpm@osdl.org, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
 To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
 In-Reply-To: <42BF2BA9.8060502@pobox.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jun 26, 2005 at 06:26:49PM -0400, Jeff Garzik wrote:
-> Adrian Bunk wrote:
-> >This patch contains the following cleanups:
-> >- dmascc.c: remove the unused global function dmascc_setup
-> 
-> Better to use it, then remove it.
+On Sun, 26 Jun 2005 18:26:49 -0400 Jeff Garzik wrote:
 
-Can you give me a hint how it should be used?
+| Adrian Bunk wrote:
+| > This patch contains the following cleanups:
+| > - dmascc.c: remove the unused global function dmascc_setup
+| 
+| Better to use it, then remove it.
 
-Why doesn't dmascc_init together with the MODULE_PARM(io,...) work in 
-the non-modular case?
+                    than ??
 
-> 	Jeff
-
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+---
+~Randy
