@@ -1,21 +1,35 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: RE: BCM5721(tg3)&MSI
-Date: Mon, 27 Jun 2005 00:29:23 -0700
-Message-ID: <B1508D50A0692F42B217C22C02D84972067F0845@NT-IRVA-0741.brcm.ad.broadcom.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [git patches] 2.6.x more net driver updates
+Date: Mon, 27 Jun 2005 08:44:06 -0400
+Message-ID: <42BFF496.3040105@pobox.com>
+References: <42BFEF86.8090000@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8bit
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-Content-class: urn:content-classes:message
-To: "Krzysztof Oledzki" <olel@ans.pl>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Netdev List <netdev@vger.kernel.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261755AbVF0OvV@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>
+In-Reply-To: <42BFEF86.8090000@pobox.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Krzysztof Oledzki wrote:
+Jeff Garzik wrote:
+> Please pull from the 'upstream' branch of
+> rsync://rsync.kernel.org/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git
+> 
+> to obtain the various changes described in the attachment.
 
-> Oh, I see... BTW: What is wrong with AX/BX revisions?
+Or, if you wanted to be experimental, you could pull tag (not branch) 
+'upstream-20050627-1' of
+rsync://rsync.kernel.org/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git
 
-Interrupts cannot be disabled properly in MSI mode.
+to obtain the same changes.
+
+I think I will start using tags for my submissions, which will eliminate 
+an old problem with BK:  After emailing a BitKeeper pull request to you, 
+I had to stop pushing to the repo, until you pulled.  With tags, I can 
+keep on committing changes, without worrying that you are pulling from a 
+moving target.
+
+	Jeff
