@@ -1,59 +1,99 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] bugfix and scalability changes in net/ipv4/route.c
-Date: Tue, 28 Jun 2005 13:14:32 -0700 (PDT)
-Message-ID: <20050628.131432.13759019.davem@davemloft.net>
-References: <Pine.LNX.4.62.0506232057340.29222@graphe.net>
-	<20050623.211140.131918815.davem@davemloft.net>
-	<42BBE72B.5010501@cosmosbay.com>
+From: Arthur Kepner <akepner@sgi.com>
+Subject: Re: [RFC/PATCH] "safer ipv4 reassembly" (fwd)
+Date: Tue, 28 Jun 2005 15:11:39 -0700 (PDT)
+Message-ID: <Pine.LNX.4.61.0506281404340.28098@resonance.WorkGroup>
+References: <Pine.LNX.4.61.0506230930350.15406@resonance.WorkGroup>
+ <20050626125619.GA31967@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net@vger.kernel.org,
-	herbert@gondor.apana.org.au
-Return-path: <linux-net-owner@vger.kernel.org>
-To: dada1@cosmosbay.com
-In-Reply-To: <42BBE72B.5010501@cosmosbay.com>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, netdev@oss.sgi.com,
+        Rick Jones <rick.jones2@hp.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050626125619.GA31967@gondor.apana.org.au>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Fri, 24 Jun 2005 12:57:47 +0200
 
-> reminder of the bugfix :
+On Sun, 26 Jun 2005, Herbert Xu wrote:
+
+> .....
+> Thanks for writing this patch Arthur.
+
+Likewise, thanks for reviewing it.
+
 > 
-> The rt_check_expire() has a serious problem on machines with large
-> route caches, and a standard HZ value of 1000.
+> > +struct ipc {
+> > +	struct hlist_node	node;
+> > +	u32			saddr;
+> > +	u32			daddr;
+> > +	u8			protocol;
+> > +	atomic_t		refcnt;	/* how many ipqs hold refs to us */
+> > +	atomic_t		seq;	/* how many ip datagrams for this 
+> > +					 * (saddr,daddr,protocol) since we 
+> > +					 * were created */
+> > +	struct timer_list	timer;
+> > +	struct rcu_head		rcu;
 > 
-> With default values, ie ip_rt_gc_interval = 60*HZ = 60000 ;
+> Is RCU worth it here? The only time we'd be taking the locks on this
+> is when the first fragment of a packet comes in.  At that point we'll
+> be taking write_lock(&ipfrag_lock) anyway.
 > 
-> the loop count :
+> The only other use of RCU in your patch is ip_count.  That should be
+> changed to be done in ip_defrag instead.  At that point you can simply
+> find the ipc by deferencing ipq, so no need for __ipc_find and hence
+> RCU.
 > 
->      for (t = ip_rt_gc_interval << rt_hash_log; t >= 0;
+> The reason you need to change it in this way is because you can't make
+> assumptions about ip_rcv_finish being the first place where a packet
+> is defragmented.  With connection tracking enabled conntrack is the first
+> place where defragmentation occurs.
+>   
+
+Right, I see that now. (I'm not well acquainted with the conntrack 
+code...) 
+
+One reason I used RCU for the "ipc" structures is that I wanted 
+to be able to find find them (in ip_rcv_finish()) without locking. 
+Since ip_rcv_finish() is the wrong place to do that, that reason 
+is invalid. 
+
+There is a (big) advantage to doing this in ip_defrag() - this 
+becomes a no-op for non-fragmented datagrams. The disadvantage 
+is that there could be a situation where you receive:
+
+  1) first fragment of datagram X [for a particular (src,dst,proto)]
+  2) a zillion non-fragmented datagrams [for the same (src,dst,proto)]
+  3) last fragment of datagram X [for (src,dst,proto)]
+
+and no "disorder" would be detected for the datagrams associated 
+with (src,dst,proto), even though the ip id could have wrapped in the 
+meantime. This seems like a very uncommon case, however.
+
+
+> > +#define IPC_HASHSZ	IPQ_HASHSZ
+> > +static struct {
+> > +	struct hlist_head head;
+> > +	spinlock_t lock;
+> > +} ipc_hash[IPC_HASHSZ];
 > 
+> I'd store ipc entries in the main ipq hash table since they can use
+> the same keys for lookup as ipq entries.  You just need to set protocol
+> to zero and map the user to values specific to ipc for ipc entries.
+> One mapping would be to set the top bit of user for ipc entries, e.g.
 > 
-> overflows (t is a 31 bit value) as soon rt_hash_log is >= 16  (65536
-> slots in route cache hash table).
+> #define IP_DEFRAG_IPC 0x80000000
+> 	ipc->user = ipq->user | IP_DEFRAG_IPC;
 > 
-> In this case, rt_check_expire() does nothing at all
+> Of course you also need to make sure that the two structures share
+> the leading elements.  You can then use the user field to distinguish
+> between ipc/ipq entries.
 
-I'd like this bug fix as a seperate patch.
+Hmmm, let me think about combining the ipc/ipq structures, and 
+also the related question of whether to use RCU for the ipc 
+structures. I'll try to spin another version of the patch before 
+the end of the week.
 
-Also, coding style problems in the spinlock part of the patch:
-
-+	static spinlock_t	*rt_hash_locks;
-
-That's a file static variable, no need to tab it at all.
-
-+		if (*rthp == 0) continue ;
-
-Please put the continue on a seperate line, properly
-tabbed, and without a space between the continue and the
-closing semicolon.
-
-Please scan the rest of your patch for problems like this.
-
-So, again please submit a seperate patch for the overflow
-bug, then one for the locking changes, so they may be evaluated
-and applied seperately.
-
-Thanks a lot.
+--
+Arthur
