@@ -1,19 +1,17 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] net: add missing include to netdevice.h
-Date: Tue, 28 Jun 2005 15:47:03 +0200
-Message-ID: <200506281547.04620.arnd@arndb.de>
+From: Arjan van de Ven <arjan@infradead.org>
+Subject: Re: [PATCH] net: add driver for the NIC on Cell Blades
+Date: Tue, 28 Jun 2005 15:53:18 +0200
+Message-ID: <1119966799.3175.32.camel@laptopd505.fenrus.org>
 References: <200506281528.08834.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc64-dev@ozlabs.org, Utz Bacher <utz.bacher@de.ibm.com>,
-	linux-kernel@vger.kernel.org, Jens Osterkamp <Jens.Osterkamp@de.ibm.com>,
-	netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Utz Bacher <utz.bacher@de.ibm.com>, linuxppc64-dev@ozlabs.org,
+	Jeff Garzik <jgarzik@pobox.com>, Jens Osterkamp <Jens.Osterkamp@de.ibm.com>
 Return-path: <linuxppc64-dev-bounces@ozlabs.org>
-To: Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>
+To: Arnd Bergmann <arnd@arndb.de>
 In-Reply-To: <200506281528.08834.arnd@arndb.de>
-Content-Disposition: inline
 List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc64-dev>,
 	<mailto:linuxppc64-dev-request@ozlabs.org?subject=unsubscribe>
 List-Archive: <http://ozlabs.org/pipermail/linuxppc64-dev>
@@ -25,19 +23,19 @@ Sender: linuxppc64-dev-bounces@ozlabs.org
 Errors-To: linuxppc64-dev-bounces@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-linux/etherdevice.h can't be included standalone at the moment, which
-is required in order to sort the header files in the recommended
-alphabetic order. This patch fixes that and is needed to build spider_net.
+On Tue, 2005-06-28 at 15:28 +0200, Arnd Bergmann wrote:
+> 
+> +static void
+> +spider_net_rx_irq_off(struct spider_net_card *card)
+> +{
+> +       u32 regvalue;
+> +       unsigned long flags;
+> +
+> +       spin_lock_irqsave(&card->intmask_lock, flags);
+> +       regvalue = spider_net_read_reg(card, SPIDER_NET_GHIINT0MSK);
+> +       regvalue &= ~SPIDER_NET_RXINT;
+> +       spider_net_write_reg(card, SPIDER_NET_GHIINT0MSK, regvalue);
+> +       spin_unlock_irqrestore(&card->intmask_lock, flags);
+> +}
 
-Signed-off-by: Arnd Bergmann <arndb@de.ibm.com>
-
---- linux-cg.orig/include/linux/etherdevice.h	2005-05-31 07:48:50.044932320 -0400
-+++ linux-cg/include/linux/etherdevice.h	2005-05-31 07:49:06.808914320 -0400
-@@ -25,6 +25,7 @@
- #define _LINUX_ETHERDEVICE_H
- 
- #include <linux/if_ether.h>
-+#include <linux/netdevice.h>
- #include <linux/random.h>
- 
- #ifdef __KERNEL__
+I think you have a PCI posting bug here....
