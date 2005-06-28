@@ -1,59 +1,28 @@
-From: Ricardo Scop <rscop@matrix.com.br>
-Subject: Fwd: Re: GRE tunnel keepalive support?
-Date: Tue, 28 Jun 2005 19:34:41 -0300
-Message-ID: <200506281934.41732.rscop@matrix.com.br>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] net: add missing include to netdevice.h
+Date: Tue, 28 Jun 2005 15:59:01 -0700 (PDT)
+Message-ID: <20050628.155901.78169707.davem@davemloft.net>
+References: <200506281528.08834.arnd@arndb.de>
+	<200506281547.04620.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 8bit
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik@pobox.com, akpm@osdl.org, linuxppc64-dev@ozlabs.org,
+	netdev@vger.kernel.org, utz.bacher@de.ibm.com,
+	linux-kernel@vger.kernel.org, Jens.Osterkamp@de.ibm.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262214AbVF1XCR@vger.kernel.org>
+To: arnd@arndb.de
+In-Reply-To: <200506281547.04620.arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi, all
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Tue, 28 Jun 2005 15:47:03 +0200
 
-Any further development of the subject above? Neither I want to duplicate 
-efforts... ;)
-
-Please CC to my private address as I'm not yet subscribed to this list.
-
-Many thanks,
-
--Scop.
-
-On Tue, Dec 09, 2003 at 10:33:21PM -0800, David S. Miller wrote:
-> > > is anybody aware of anyone implementing keepalives for GRE tunnels?
-> > > I don't want to duplicate efforts...
-> > >
-> > > http://www.cisco.com/en/US/products/sw/iosswrel/ps1838/
-> > > products_feature_guide09186a0080134a36.html
-> >
-> > Not to my knowledge.  It looks like a rather simple mechanism,
-> > and should be easy to code up.  Feel free.
+> linux/etherdevice.h can't be included standalone at the moment, which
+> is required in order to sort the header files in the recommended
+> alphabetic order. This patch fixes that and is needed to build spider_net.
 > 
-> OK, anything else than "easy" would be out of scope anyway, given
-> significant time constraints and never did any kernel work at all
-> (except some micropatches). Given that there is no documentation
-> whatsoever, I will have to do some reverse engineering though.
-> 
-> Best regards,
-> Daniel
-> 
+> Signed-off-by: Arnd Bergmann <arndb@de.ibm.com>
 
--- 
-Ricardo Scop.
-
-        \|/
-    ___ -*-
-   (@ @)/|\
-  /  V  \|  R SCOP Consult.
- /(     )\  Linux-based communications
---^^---^^+------------------------------
-rscop@matrix.com.br
-+55 51 999-36-777
-Porto Alegre, RS - BRazil
---
-P. S.: "If you don't have time to do it right, when will you have time
-to do it over?"  -- Penny Hines  
+Applied, thanks a lot Arnd.
