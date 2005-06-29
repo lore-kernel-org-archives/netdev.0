@@ -1,61 +1,109 @@
-From: David Lang <david.lang@digitalinsight.com>
-Subject: Re: Fwd: [Bug 4774] e1000 driver works on UP, but not SMP x86_64
-Date: Wed, 29 Jun 2005 00:32:38 -0700 (PDT)
-Message-ID: <Pine.LNX.4.62.0506290029040.25310@qynat.qvtvafvgr.pbz>
-References: <200506252222.18681.adobriyan@gmail.com>
- <D53BF43BC70DD511A22500508BB3C0071AA66A3A@wlvexc00.diginsite.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] net: add driver for the NIC on Cell Blades
+Date: Wed, 29 Jun 2005 14:55:11 +0200
+Message-ID: <200506291455.12506.arnd@arndb.de>
+References: <200506281528.08834.arnd@arndb.de>
+	<200506290238.59231.arnd@arndb.de>
+	<1120030346.3196.21.camel@laptopd505.fenrus.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262467AbVF2Hhe@vger.kernel.org>
-To: Alexey Dobriyan <adobriyan@gmail.com>
-In-Reply-To: <D53BF43BC70DD511A22500508BB3C0071AA66A3A@wlvexc00.diginsite.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Utz Bacher <utz.bacher@de.ibm.com>, linuxppc64-dev@ozlabs.org,
+	Jeff Garzik <jgarzik@pobox.com>, Jens Osterkamp <Jens.Osterkamp@de.ibm.com>
+Return-path: <linuxppc64-dev-bounces@ozlabs.org>
+To: Arjan van de Ven <arjan@infradead.org>
+In-Reply-To: <1120030346.3196.21.camel@laptopd505.fenrus.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc64-dev>,
+	<mailto:linuxppc64-dev-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc64-dev>
+List-Post: <mailto:linuxppc64-dev@ozlabs.org>
+List-Help: <mailto:linuxppc64-dev-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc64-dev>,
+	<mailto:linuxppc64-dev-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc64-dev-bounces@ozlabs.org
+Errors-To: linuxppc64-dev-bounces@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-just to make things more interesting, I have this card working on a dual 
-athlon system (with the attached config) on 2.6.7
+On Middeweken 29 Juni 2005 09:32, Arjan van de Ven wrote:
 
-David Lang
-
-On Sun, 26 Jun 2005, David Lang wrote:
-
-> Date: Sun, 26 Jun 2005 17:52:23 -0700 (PDT)
-> From: David Lang <dlang@digitalinsight.com>
-> To: Alexey Dobriyan <adobriyan@gmail.com>
-> Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-> Subject: Re: Fwd: [Bug 4774] e1000 driver works on UP, but not SMP x86_64
+> different problem. the sync will get the byte out of the cpu. It won't
+> get it out of the pci bridges...
 > 
-> On Sat, 25 Jun 2005, Alexey Dobriyan wrote:
->
->> ------- Additional Comments From nacc@us.ibm.com  2005-06-25 10:55 -------
->> Hrm, that means that the corresponding PCI device (adapter->pdev->irq) is
->> requesting an IRQ greater than 224? Could you also attach the SMP .config? 
->> I
->> assume all you did was enabled SMP, ran make oldconfig & rebuilt? Do you 
->> know of
->> any kernel that *does* work?
->
->
-> I have a dual athlon system which I have used with one of these cards without 
-> a problem, monday I'll try pulling some of the cards out of a machine and see 
-> if that eliminates the error.
->
-> I had the SMP config, tested it, then disables SMP and recompiled to generate 
-> the .config I sent earlier
->
-> attached is the config I used with the debug test
->
-> David Lang
->
-> -- 
-> There are two ways of constructing a software design. One way is to make it 
-> so simple that there are obviously no deficiencies. And the other way is to 
-> make it so complicated that there are no obvious deficiencies.
-> -- C.A.R. Hoare
->
->
+> In short, pci bridges are allowed to buffer (post) writes until data
+> traffic in the other direction happens (eg readl() or dma). 
 
--- 
-There are two ways of constructing a software design. One way is to make it so simple that there are obviously no deficiencies. And the other way is to make it so complicated that there are no obvious deficiencies.
-  -- C.A.R. Hoare
+Ok, understood. This patch changes all io writes within a spinlock
+to use a checking version of spider_net_write_reg(). Jens, could
+you verify if these are the only places where you rely on the
+write making it to the chip and then (n)ack this patch?
+
+Note that in our setup, we know that there are no PCI bridges involved
+because the device is not really PCI based but directly attached to
+the FlexIO port and just fakes a PCI-like config space.
+
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+
+--- linux-cg.orig/drivers/net/spider_net.c	2005-06-29 14:22:31.516896448 -0400
++++ linux-cg/drivers/net/spider_net.c	2005-06-29 14:22:22.567931328 -0400
+@@ -109,6 +109,23 @@ spider_net_write_reg(struct spider_net_c
+ }
+ 
+ /**
++ * spider_net_write_reg_sync - writes to an SMMIO register of a card
++ * @card: device structure
++ * @reg: register to write to
++ * @value: value to write into the specified SMMIO register
++ *
++ * Unlike spider_net_write_reg, this will also make sure the
++ * data arrives on the card by reading the reg again.
++ */
++static void
++spider_net_write_reg_sync(struct spider_net_card *card, u32 reg, u32 value)
++{
++	value = cpu_to_le32(value);
++	writel(value, card->regs + reg);
++	(void)readl(card->regs + reg);
++}
++
++/**
+  * spider_net_rx_irq_off - switch off rx irq on this spider card
+  * @card: device structure
+  *
+@@ -123,7 +140,7 @@ spider_net_rx_irq_off(struct spider_net_
+ 	spin_lock_irqsave(&card->intmask_lock, flags);
+ 	regvalue = spider_net_read_reg(card, SPIDER_NET_GHIINT0MSK);
+ 	regvalue &= ~SPIDER_NET_RXINT;
+-	spider_net_write_reg(card, SPIDER_NET_GHIINT0MSK, regvalue);
++	spider_net_write_reg_sync(card, SPIDER_NET_GHIINT0MSK, regvalue);
+ 	spin_unlock_irqrestore(&card->intmask_lock, flags);
+ }
+ 
+@@ -196,7 +213,7 @@ spider_net_rx_irq_on(struct spider_net_c
+ 	spin_lock_irqsave(&card->intmask_lock, flags);
+ 	regvalue = spider_net_read_reg(card, SPIDER_NET_GHIINT0MSK);
+ 	regvalue |= SPIDER_NET_RXINT;
+-	spider_net_write_reg(card, SPIDER_NET_GHIINT0MSK, regvalue);
++	spider_net_write_reg_sync(card, SPIDER_NET_GHIINT0MSK, regvalue);
+ 	spin_unlock_irqrestore(&card->intmask_lock, flags);
+ }
+ 
+@@ -215,7 +232,7 @@ spider_net_tx_irq_off(struct spider_net_
+ 	spin_lock_irqsave(&card->intmask_lock, flags);
+ 	regvalue = spider_net_read_reg(card, SPIDER_NET_GHIINT0MSK);
+ 	regvalue &= ~SPIDER_NET_TXINT;
+-	spider_net_write_reg(card, SPIDER_NET_GHIINT0MSK, regvalue);
++	spider_net_write_reg_sync(card, SPIDER_NET_GHIINT0MSK, regvalue);
+ 	spin_unlock_irqrestore(&card->intmask_lock, flags);
+ }
+ 
+@@ -234,7 +251,7 @@ spider_net_tx_irq_on(struct spider_net_c
+ 	spin_lock_irqsave(&card->intmask_lock, flags);
+ 	regvalue = spider_net_read_reg(card, SPIDER_NET_GHIINT0MSK);
+ 	regvalue |= SPIDER_NET_TXINT;
+-	spider_net_write_reg(card, SPIDER_NET_GHIINT0MSK, regvalue);
++	spider_net_write_reg_sync(card, SPIDER_NET_GHIINT0MSK, regvalue);
+ 	spin_unlock_irqrestore(&card->intmask_lock, flags);
+ }
