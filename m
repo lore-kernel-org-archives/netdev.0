@@ -1,7 +1,7 @@
 From: Michael Ellerman <michael@ellerman.id.au>
-Subject: [PATCH 10/12] iseries_veth: Remove TX timeout code
+Subject: [PATCH 8/12] iseries_veth: Replace lock-protected atomic with an ordinary variable
 Date: Thu, 30 Jun 2005 20:20:39 +1000
-Message-ID: <1120126839.908017.660889424014.qpatch__14644.6766019382$1120126782$gmane$org@concordia>
+Message-ID: <1120126839.641415.625704757570.qpatch__48420.7860347398$1120126782$gmane$org@concordia>
 References: <200506302016.55125.michael@ellerman.id.au>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: linuxppc64-dev@ozlabs.org, netdev@oss.sgi.com,
@@ -11,85 +11,72 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The iseries_veth driver uses the generic TX timeout watchdog, however a better
-solution is in the works, so remove this code.
+The iseries_veth driver uses atomic ops to manipulate the in_use field of
+one of its per-connection structures. However all references to the
+flag occur while the connection's lock is held, so the atomic ops aren't
+necessary.
 
 
 ---
 
- drivers/net/iseries_veth.c |   48 ---------------------------------------------
- 1 files changed, 48 deletions(-)
+ drivers/net/iseries_veth.c |   13 +++++++------
+ 1 files changed, 7 insertions(+), 6 deletions(-)
 
 Index: veth-dev/drivers/net/iseries_veth.c
 ===================================================================
 --- veth-dev.orig/drivers/net/iseries_veth.c
 +++ veth-dev/drivers/net/iseries_veth.c
-@@ -813,49 +813,6 @@ static struct ethtool_ops ops = {
- 	.get_link = veth_get_link,
+@@ -117,7 +117,7 @@ struct veth_msg {
+ 	struct veth_msg *next;
+ 	struct VethFramesData data;
+ 	int token;
+-	unsigned long in_use;
++	int in_use;
+ 	struct sk_buff *skb;
+ 	struct device *dev;
  };
+@@ -959,6 +959,8 @@ static int veth_transmit_to_one(struct s
+ 		goto drop;
+ 	}
  
--static void veth_tx_timeout(struct net_device *dev)
--{
--	struct veth_port *port = (struct veth_port *)dev->priv;
--	struct net_device_stats *stats = &port->stats;
--	unsigned long flags;
--	int i;
--
--	stats->tx_errors++;
--
--	spin_lock_irqsave(&port->pending_gate, flags);
--
--	if (!port->pending_lpmask) {
--		spin_unlock_irqrestore(&port->pending_gate, flags);
--		return;
--	}
--
--	printk(KERN_WARNING "%s: Tx timeout!  Resetting lp connections: %08x\n",
--	       dev->name, port->pending_lpmask);
--
--	for (i = 0; i < HVMAXARCHITECTEDLPS; i++) {
--		struct veth_lpar_connection *cnx = veth_cnx[i];
--
--		if (! (port->pending_lpmask & (1<<i)))
--			continue;
--
--		/* If we're pending on it, we must be connected to it,
--		 * so we should certainly have a structure for it. */
--		BUG_ON(! cnx);
--
--		/* Theoretically we could be kicking a connection
--		 * which doesn't deserve it, but in practice if we've
--		 * had a Tx timeout, the pending_lpmask will have
--		 * exactly one bit set - the connection causing the
--		 * problem. */
--		spin_lock(&cnx->lock);
--		cnx->state |= VETH_STATE_RESET;
--		veth_kick_statemachine(cnx);
--		spin_unlock(&cnx->lock);
--	}
--
--	spin_unlock_irqrestore(&port->pending_gate, flags);
--}
--
- static struct net_device * __init veth_probe_one(int vlan, struct device *vdev)
++	msg->in_use = 1;
++
+ 	dma_length = skb->len;
+ 	dma_address = dma_map_single(port->dev, skb->data,
+ 				     dma_length, DMA_TO_DEVICE);
+@@ -973,7 +975,6 @@ static int veth_transmit_to_one(struct s
+ 	msg->data.addr[0] = dma_address;
+ 	msg->data.len[0] = dma_length;
+ 	msg->data.eofmask = 1 << VETH_EOF_SHIFT;
+-	set_bit(0, &(msg->in_use));
+ 	rc = veth_signaldata(cnx, VethEventTypeFrames, msg->token, &msg->data);
+ 
+ 	if (rc != HvLpEvent_Rc_Good)
+@@ -983,10 +984,8 @@ static int veth_transmit_to_one(struct s
+ 	return 0;
+ 
+  recycle_and_drop:
++	/* we free the skb below, so tell veth_recycle_msg() not to. */
+ 	msg->skb = NULL;
+-	/* need to set in use to make veth_recycle_msg in case this
+-	 * was a mapping failure */
+-	set_bit(0, &msg->in_use);
+ 	veth_recycle_msg(cnx, msg);
+  drop:
+ 	port->stats.tx_errors++;
+@@ -1068,12 +1067,14 @@ static int veth_start_xmit(struct sk_buf
+ 	return 0;
+ }
+ 
++/* You musT hold the connection's lock when you call this function. */
+ static void veth_recycle_msg(struct veth_lpar_connection *cnx,
+ 			     struct veth_msg *msg)
  {
- 	struct net_device *dev;
-@@ -904,9 +861,6 @@ static struct net_device * __init veth_p
- 	dev->set_multicast_list = veth_set_multicast_list;
- 	SET_ETHTOOL_OPS(dev, &ops);
+ 	u32 dma_address, dma_length;
  
--	dev->watchdog_timeo = 2 * (VETH_ACKTIMEOUT * HZ / 1000000);
--	dev->tx_timeout = veth_tx_timeout;
--
- 	SET_NETDEV_DEV(dev, vdev);
+-	if (test_and_clear_bit(0, &msg->in_use)) {
++	if (msg->in_use) {
++		msg->in_use = 0;
+ 		dma_address = msg->data.addr[0];
+ 		dma_length = msg->data.len[0];
  
- 	rc = register_netdev(dev);
-@@ -1047,8 +1001,6 @@ static int veth_start_xmit(struct sk_buf
- 
- 	lpmask = veth_transmit_to_many(skb, lpmask, dev);
- 
--	dev->trans_start = jiffies;
--
- 	if (! lpmask) {
- 		dev_kfree_skb(skb);
- 	} else {
