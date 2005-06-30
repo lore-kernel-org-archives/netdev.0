@@ -1,37 +1,50 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH] multipath routing algorithm, better patch
-Date: Fri, 1 Jul 2005 19:41:17 +0200
-Message-ID: <20050701174117.GW16076__22320.7053299577$1120239572$gmane$org@postel.suug.ch>
-References: <Pine.GSO.4.61.0506302014160.7400@rac1.wam.umd.edu> <42C4919A.5000009@trash.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 1/2] updates for [nf|ct]netlink and event API
+Date: Thu, 30 Jun 2005 23:26:12 +0200
+Message-ID: <42C46374.5000407@trash.net>
+References: <20050628071308.GE13239@sunbeam.de.gnumonks.org>
+	<42C1747A.3010703@trash.net> <42C2F2DF.7070301@eurodev.net>
+	<42C2FC14.80609@trash.net> <42C33E33.7090908@eurodev.net>
+	<42C34445.9020709@trash.net>
+	<20050630014901.GH16076@postel.suug.ch>
+	<42C350A1.1030602@trash.net>
+	<20050630120302.GI16076@postel.suug.ch> <42C3F35B.50805@trash.net>
+	<20050630180238.GM16076@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Patrick Jenkins <patjenk@wam.umd.edu>, linux-kernel@vger.kernel.org,
-        Maillist netdev <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <42C4919A.5000009@trash.net>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Transfer-Encoding: 7bit
+Cc: Harald Welte <laforge@netfilter.org>, netdev@vger.kernel.org,
+	Jamal Hadi Salim <hadi@cyberus.ca>,
+	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>,
+	Pablo Neira <pablo@eurodev.net>
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050630180238.GM16076@postel.suug.ch>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-* Patrick McHardy <42C4919A.5000009@trash.net> 2005-07-01 02:43
-> Multiple algorithms can be compiled in at once, so this patch is wrong.
-> mp_alg is supplied by userspace:
+Thomas Graf wrote:
+> * Patrick McHardy <42C3F35B.50805@trash.net> 2005-06-30 15:27
+>
+>>I think for nested attributes error handling should happen on the
+>>outer level. Just trimming on the inner level would leave a
+>>half-finished nested attribute.
 > 
->         if (rta->rta_mp_alg) {
->                 mp_alg = *rta->rta_mp_alg;
-> 
->                 if (mp_alg < IP_MP_ALG_NONE ||
->                     mp_alg > IP_MP_ALG_MAX)
->                         goto err_inval;
->         }
-> 
-> If it isn't set correctly its an iproute problem. Did you actually
-> experience any problems?
+> I can agree with this, the question that remains is: do we want
+> to trim in functions where no nesting is done at all? i.e. things
+> like the generic network statistics dumping interface.
 
-Well, my patch for iproute2 to enable multipath algorithm selection
-is currently being merged to Stephen together with the ematch bits.
-We had to work out a dependency on GNU flex first (the berkley
-version uses the same executable names) so the inclusion was
-delayed a bit.
+Trimming isn't required in this case since the length is know and
+checked in advance. An error should still be propagated back of
+course so potential outer levels can do trimming.
+
+Regards
+Patrick
