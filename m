@@ -1,96 +1,53 @@
-From: Radheka Godse <radheka.godse@intel.com>
-Subject: [PATCH 2.6.13-rc1 14/17] bonding: spelling and whitespace correction
-Date: Fri, 1 Jul 2005 13:55:08 -0700 (PDT)
-Message-ID: <Pine.LNX.4.61.0507011354110.17459@localhost.localdomain>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 1/2] updates for [nf|ct]netlink and event API
+Date: Thu, 30 Jun 2005 14:03:02 +0200
+Message-ID: <20050630120302.GI16076@postel.suug.ch>
+References: <42C03F2E.30706@eurodev.net> <42C0806E.3010400@trash.net>
+	<20050628071308.GE13239@sunbeam.de.gnumonks.org>
+	<42C1747A.3010703@trash.net> <42C2F2DF.7070301@eurodev.net>
+	<42C2FC14.80609@trash.net> <42C33E33.7090908@eurodev.net>
+	<42C34445.9020709@trash.net>
+	<20050630014901.GH16076@postel.suug.ch>
+	<42C350A1.1030602@trash.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: fubar@us.ibm.com, bonding-devel@lists.sourceforge.net
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Harald Welte <laforge@netfilter.org>, netdev@vger.kernel.org,
+	Jamal Hadi Salim <hadi@cyberus.ca>,
+	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>,
+	Pablo Neira <pablo@eurodev.net>
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Patrick McHardy <kaber@trash.net>
+Content-Disposition: inline
+In-Reply-To: <42C350A1.1030602@trash.net>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Trivial patch to fix spelling errors and some white spaces changes for 
-readabilitiy.
+* Patrick McHardy <42C350A1.1030602@trash.net> 2005-06-30 03:53
+> Thomas Graf wrote:
+> > At some point we should introduce a "generic" attribute
+> > architecture for all netlink families. The connector
+> > stuff will need it as well, so maybe the time has come
+> > to actually do it.
+> 
+> I agree, most of the macros are just copied without modification
+> anyway. One more thing I would like to change is the excessive
+> use of RTA_PUT with structures on the stack. Using __RTA_PUT
+> and putting together these structures in-place would be much
+> nicer. nfnetlink has copied this part of rtnetlink.
 
-Signed-off-by: Radheka Godse <radheka.godse@intel.com>
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Good point, after all, I think structs have been used too often
+and we now suffer from backwards compatbility issues. The
+points likely to be argueable are things like trim responsibility
+in the error handling, i.e. delegate it down to the function
+which also created the header or trim on every level. Other than
+that the whole thing should be pretty straight forward.
 
-diff -urN -X dontdiff linux-2.6.12post/drivers/net/bonding/bond_alb.c linux-2.6.12post-sysfs/drivers/net/bonding/bond_alb.c
---- linux-2.6.12post/drivers/net/bonding/bond_alb.c	2005-06-17 12:48:29.000000000 -0700
-+++ linux-2.6.12post-sysfs/drivers/net/bonding/bond_alb.c	2005-06-28 18:21:35.000000000 -0700
-@@ -1423,7 +1423,7 @@
-  		read_lock(&bond->curr_slave_lock);
-
-  		bond_for_each_slave(bond, slave, i) {
--			alb_send_learning_packets(slave,slave->dev->dev_addr);
-+			alb_send_learning_packets(slave, slave->dev->dev_addr);
-  		}
-
-  		read_unlock(&bond->curr_slave_lock);
-diff -urN -X dontdiff linux-2.6.12post/drivers/net/bonding/bonding.h linux-2.6.12post-sysfs/drivers/net/bonding/bonding.h
---- linux-2.6.12post/drivers/net/bonding/bonding.h	2005-06-28 18:18:03.000000000 -0700
-+++ linux-2.6.12post-sysfs/drivers/net/bonding/bonding.h	2005-06-30 13:58:27.000000000 -0700
-@@ -165,7 +165,7 @@
-  };
-
-  struct slave {
--	struct net_device *dev; /* first - usefull for panic debug */
-+	struct net_device *dev; /* first - useful for panic debug */
-  	struct slave *next;
-  	struct slave *prev;
-  	s16    delay;
-@@ -191,7 +191,7 @@
-   *    beforehand.
-   */
-  struct bonding {
--	struct   net_device *dev; /* first - usefull for panic debug */
-+	struct   net_device *dev; /* first - useful for panic debug */
-  	struct   slave *first_slave;
-  	struct   slave *curr_active_slave;
-  	struct   slave *current_arp_slave;
-diff -urN -X dontdiff linux-2.6.12post/drivers/net/bonding/bond_main.c linux-2.6.12post-sysfs/drivers/net/bonding/bond_main.c
---- linux-2.6.12post/drivers/net/bonding/bond_main.c	2005-06-28 18:18:03.000000000 -0700
-+++ linux-2.6.12post-sysfs/drivers/net/bonding/bond_main.c	2005-06-30 13:53:55.000000000 -0700
-@@ -2117,7 +2117,6 @@
-
-  	/* release the slave from its bond */
-  	bond_detach_slave(bond, slave);
--
-  	if (bond->primary_slave == slave) {
-  		bond->primary_slave = NULL;
-  	}
-@@ -2436,7 +2435,6 @@
-  			if (orig_app_abi_ver == -1) {
-  				orig_app_abi_ver  = new_abi_ver;
-  			}
--
-  			app_abi_ver = new_abi_ver;
-  		}
-
-@@ -4226,6 +4224,7 @@
-  	bond_for_each_slave(bond, slave, i) {
-  		dprintk("s %p s->p %p c_m %p\n", slave,
-  			slave->prev, slave->dev->change_mtu);
-+
-  		res = dev_set_mtu(slave->dev, new_mtu);
-
-  		if (res) {
-@@ -4623,7 +4622,7 @@
-  	 */
-  	bond_dev->features |= NETIF_F_VLAN_CHALLENGED;
-
--	/* don't acquire bond device's xmit_lock when 
-+	/* don't acquire bond device's xmit_lock when
-  	 * transmitting */
-  	bond_dev->features |= NETIF_F_LLTX;
-
-@@ -5035,7 +4976,6 @@
-  #ifdef CONFIG_PROC_FS
-  	bond_create_proc_dir();
-  #endif
--
-  	for (i = 0; i < max_bonds; i++) {
-  		sprintf(new_bond_name, "bond%d",i);
-  		res = bond_create(new_bond_name,&bonding_defaults, NULL);
+What do you think about naming it nlattr?
