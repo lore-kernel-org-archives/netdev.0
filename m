@@ -1,7 +1,7 @@
 From: Michael Ellerman <michael@ellerman.id.au>
-Subject: [PATCH 11/12] iseries_veth: Add a per-connection ack timer
-Date: Thu, 30 Jun 2005 20:20:40 +1000
-Message-ID: <1120126840.39112.35278125306.qpatch__40808.7418102243$1120126797$gmane$org@concordia>
+Subject: [PATCH 3/12] iseries_veth: Make init_connection() & destroy_connection() symmetrical
+Date: Thu, 30 Jun 2005 20:20:39 +1000
+Message-ID: <1120126839.290253.340047065213.qpatch__43723.3042474419$1120126800$gmane$org@concordia>
 References: <200506302016.55125.michael@ellerman.id.au>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: linuxppc64-dev@ozlabs.org, netdev@oss.sgi.com,
@@ -11,176 +11,73 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Currently the iseries_veth driver contravenes the specification in
-Documentation/networking/driver.txt, in that if packets are not acked by
-the other LPAR they will sit around forever.
+This patch makes veth_init_connection() and veth_destroy_connection()
+symmetrical in that they allocate/deallocate the same data.
 
-This patch adds a per-connection timer which fires if we've had no acks for
-five seconds. This is superior to the generic TX timer because it catches
-the case of a small number of packets being sent and never acked.
+Currently if there's an error while initialising connections (ie. ENOMEM)
+we call veth_module_cleanup(), however this will oops because we call
+driver_unregister() before we've called driver_register(). I've never seen
+this actually happen though.
+
+So instead we explicitly call veth_destroy_connection() in a reverse
+loop for the connections we've successfully initialised.
 
 
 ---
 
- drivers/net/iseries_veth.c |   75 +++++++++++++++++++++++++++++++++++++++++----
- 1 files changed, 69 insertions(+), 6 deletions(-)
+ drivers/net/iseries_veth.c |   22 +++++++++++-----------
+ 1 files changed, 11 insertions(+), 11 deletions(-)
 
 Index: veth-dev/drivers/net/iseries_veth.c
 ===================================================================
 --- veth-dev.orig/drivers/net/iseries_veth.c
 +++ veth-dev/drivers/net/iseries_veth.c
-@@ -132,6 +132,11 @@ struct veth_lpar_connection {
- 	struct kref refcount;
- 	struct timer_list ack_timer;
- 
-+	struct timer_list reset_timer;
-+	unsigned int reset_timeout;
-+	unsigned long last_contact;
-+	int outstanding_tx;
-+
- 	spinlock_t lock;
- 	unsigned long state;
- 	HvLpInstanceId src_inst;
-@@ -171,7 +176,8 @@ static int veth_start_xmit(struct sk_buf
- static void veth_recycle_msg(struct veth_lpar_connection *, struct veth_msg *);
- static void veth_flush_pending(struct veth_lpar_connection *cnx);
- static void veth_receive(struct veth_lpar_connection *, struct VethLpEvent *);
--static void veth_timed_ack(unsigned long connectionPtr);
-+static void veth_timed_ack(unsigned long ptr);
-+static void veth_timed_reset(unsigned long ptr);
- 
- /*
-  * Utility functions
-@@ -353,7 +359,7 @@ static void veth_handle_int(struct VethL
- 	HvLpIndex rlp = event->base_event.xSourceLp;
- 	struct veth_lpar_connection *cnx = veth_cnx[rlp];
- 	unsigned long flags;
--	int i;
-+	int i, acked = 0;
- 
- 	BUG_ON(! cnx);
- 
-@@ -367,13 +373,22 @@ static void veth_handle_int(struct VethL
- 		break;
- 	case VethEventTypeFramesAck:
- 		spin_lock_irqsave(&cnx->lock, flags);
-+
- 		for (i = 0; i < VETH_MAX_ACKS_PER_MSG; ++i) {
- 			u16 msgnum = event->u.frames_ack_data.token[i];
- 
--			if (msgnum < VETH_NUMBUFFERS)
-+			if (msgnum < VETH_NUMBUFFERS) {
- 				veth_recycle_msg(cnx, cnx->msgs + msgnum);
-+				cnx->outstanding_tx--;
-+				acked++;
-+			}
- 		}
-+
-+		if (acked > 0)
-+			cnx->last_contact = jiffies;
-+
- 		spin_unlock_irqrestore(&cnx->lock, flags);
-+
- 		veth_flush_pending(cnx);
- 		break;
- 	case VethEventTypeFrames:
-@@ -447,8 +462,6 @@ static void veth_statemachine(void *p)
- 
-  restart:
- 	if (cnx->state & VETH_STATE_RESET) {
--		int i;
--
- 		if (cnx->state & VETH_STATE_OPEN)
- 			HvCallEvent_closeLpEventPath(cnx->remote_lp,
- 						     HvLpEvent_Type_VirtualLan);
-@@ -467,15 +480,20 @@ static void veth_statemachine(void *p)
- 				| VETH_STATE_SENTCAPACK | VETH_STATE_READY);
- 
- 		/* Clean up any leftover messages */
--		if (cnx->msgs)
-+		if (cnx->msgs) {
-+			int i;
- 			for (i = 0; i < VETH_NUMBUFFERS; ++i)
- 				veth_recycle_msg(cnx, cnx->msgs + i);
-+		}
-+		cnx->outstanding_tx = 0;
- 
- 		/* Drop the lock so we can do stuff that might sleep or
- 		 * take other locks. */
- 		spin_unlock_irq(&cnx->lock);
- 
- 		del_timer_sync(&cnx->ack_timer);
-+		del_timer_sync(&cnx->reset_timer);
-+
- 		veth_flush_pending(cnx);
- 
- 		spin_lock_irq(&cnx->lock);
-@@ -628,9 +646,16 @@ static int veth_init_connection(u8 rlp)
- 	cnx->remote_lp = rlp;
- 	spin_lock_init(&cnx->lock);
- 	INIT_WORK(&cnx->statemachine_wq, veth_statemachine, cnx);
-+
- 	init_timer(&cnx->ack_timer);
- 	cnx->ack_timer.function = veth_timed_ack;
- 	cnx->ack_timer.data = (unsigned long) cnx;
-+
-+	init_timer(&cnx->reset_timer);
-+	cnx->reset_timer.function = veth_timed_reset;
-+	cnx->reset_timer.data = (unsigned long) cnx;
-+	cnx->reset_timeout = 5 * HZ * (VETH_ACKTIMEOUT / 1000000);
-+
- 	memset(&cnx->pending_acks, 0xff, sizeof (cnx->pending_acks));
- 
- 	veth_cnx[rlp] = cnx;
-@@ -937,6 +962,13 @@ static int veth_transmit_to_one(struct s
- 	if (rc != HvLpEvent_Rc_Good)
- 		goto recycle_and_drop;
- 
-+	/* If the timer's not already running, start it now. */
-+	if (0 == cnx->outstanding_tx)
-+		mod_timer(&cnx->reset_timer, jiffies + cnx->reset_timeout);
-+
-+	cnx->last_contact = jiffies;
-+	cnx->outstanding_tx++;
-+
- 	spin_unlock_irqrestore(&cnx->lock, flags);
- 	return 0;
- 
-@@ -1081,6 +1113,37 @@ static void veth_flush_pending(struct ve
- 	}
- }
- 
-+static void veth_timed_reset(unsigned long ptr)
-+{
-+	struct veth_lpar_connection *cnx = (struct veth_lpar_connection *)ptr;
-+	unsigned long trigger_time, flags;
-+
-+	/* FIXME is it possible this fires after veth_stop_connection()?
-+	 * That would reschedule the statemachine for 5 seconds and probably
-+	 * execute it after the module's been unloaded. Hmm. */
-+
-+	spin_lock_irqsave(&cnx->lock, flags);
-+
-+	if (cnx->outstanding_tx > 0) {
-+		trigger_time = cnx->last_contact + cnx->reset_timeout;
-+
-+		if (trigger_time < jiffies) {
-+			cnx->state |= VETH_STATE_RESET;
-+			veth_kick_statemachine(cnx);
-+			veth_error("%d packets not acked by LPAR %d within %d "
-+					"seconds, resetting.\n",
-+					cnx->outstanding_tx, cnx->remote_lp,
-+					cnx->reset_timeout / HZ);
-+		} else {
-+			/* Reschedule the timer */
-+			trigger_time = jiffies + cnx->reset_timeout;
-+			mod_timer(&cnx->reset_timer, trigger_time);
-+		}
-+	}
-+
-+	spin_unlock_irqrestore(&cnx->lock, flags);
+@@ -664,6 +664,14 @@ static void veth_stop_connection(u8 rlp)
+ 	 * been deleted by the state machine, just want to make sure
+ 	 * its not running any more */
+ 	del_timer_sync(&cnx->ack_timer);
 +}
 +
- /*
-  * Rx path
-  */
++static void veth_destroy_connection(u8 rlp)
++{
++	struct veth_lpar_connection *cnx = veth_cnx[rlp];
++
++	if (! cnx)
++		return;
+ 
+ 	if (cnx->num_events > 0)
+ 		mf_deallocate_lp_events(cnx->remote_lp,
+@@ -675,14 +683,6 @@ static void veth_stop_connection(u8 rlp)
+ 				      HvLpEvent_Type_VirtualLan,
+ 				      cnx->num_ack_events,
+ 				      NULL, NULL);
+-}
+-
+-static void veth_destroy_connection(u8 rlp)
+-{
+-	struct veth_lpar_connection *cnx = veth_cnx[rlp];
+-
+-	if (! cnx)
+-		return;
+ 
+ 	kfree(cnx->msgs);
+ 	kfree(cnx);
+@@ -1424,15 +1424,15 @@ module_exit(veth_module_cleanup);
+ 
+ int __init veth_module_init(void)
+ {
+-	int i;
+-	int rc;
++	int i, rc;
+ 
+ 	this_lp = HvLpConfig_getLpIndex_outline();
+ 
+ 	for (i = 0; i < HVMAXARCHITECTEDLPS; ++i) {
+ 		rc = veth_init_connection(i);
+ 		if (rc != 0) {
+-			veth_module_cleanup();
++			for (; i >= 0; i--)
++				veth_destroy_connection(i);
+ 			return rc;
+ 		}
+ 	}
