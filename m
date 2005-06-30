@@ -1,7 +1,7 @@
 From: Michael Ellerman <michael@ellerman.id.au>
-Subject: [PATCH 9/12] iseries_veth: Use ref counts to track lifecycle of connection structs
+Subject: [PATCH 7/12] iseries_veth: Remove redundant message stack lock
 Date: Thu, 30 Jun 2005 20:20:39 +1000
-Message-ID: <1120126839.794259.894526862881.qpatch__9593.75042371011$1120126809$gmane$org@concordia>
+Message-ID: <1120126839.569702.406803544780.qpatch__48074.6975438253$1120126809$gmane$org@concordia>
 References: <200506302016.55125.michael@ellerman.id.au>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: linuxppc64-dev@ozlabs.org, netdev@oss.sgi.com,
@@ -11,180 +11,67 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The iseries_veth driver can attach to multiple vlans, which correspond to
-multiple net devices. However there is only 1 connection between each LPAR,
-so the connection structure may be shared by multiple net devices.
+The iseries_veth driver keeps a stack of messages for each connection
+and a lock to protect the stack. However there is also a per-connection lock
+which makes the message stack redundant.
 
-This makes module removal messy, because we can't deallocate the connections
-until we know there are no net devices still using them. The solution is to
-use ref counts on the connections, so we can delete them (actually stop) as
-soon as the ref count hits zero.
-
-This patch fixes (part of) a bug we were seeing with IPv6 sending probes to
-a dead LPAR, which would then hang us forever due to leftover skbs.
-
-This patch has the (minor?) side effect that we only start negotiating a
-connection with LPARs which are on one of our vlans. The previous behaviour
-was to start negotiation with all LPARs unconditionally, will have the think
-about that one.
+Remove the message stack lock and document the fact that callers of the
+stack-manipulation functions must hold the connection's lock.
 
 
 ---
 
- drivers/net/iseries_veth.c |   89 ++++++++++++++++++++++++++++++---------------
- 1 files changed, 61 insertions(+), 28 deletions(-)
+ drivers/net/iseries_veth.c |   12 +++---------
+ 1 files changed, 3 insertions(+), 9 deletions(-)
 
 Index: veth-dev/drivers/net/iseries_veth.c
 ===================================================================
 --- veth-dev.orig/drivers/net/iseries_veth.c
 +++ veth-dev/drivers/net/iseries_veth.c
-@@ -129,6 +129,7 @@ struct veth_lpar_connection {
- 	int num_events;
- 	struct VethCapData local_caps;
+@@ -143,7 +143,6 @@ struct veth_lpar_connection {
+ 	struct VethCapData remote_caps;
+ 	u32 ack_timeout;
  
-+	struct kref refcount;
- 	struct timer_list ack_timer;
+-	spinlock_t msg_stack_lock;
+ 	struct veth_msg *msg_stack_head;
+ };
  
- 	spinlock_t lock;
-@@ -620,6 +621,10 @@ static int veth_init_connection(u8 rlp)
- 		return -ENOMEM;
- 	memset(cnx, 0, sizeof(*cnx));
+@@ -190,27 +189,23 @@ static void veth_timed_ack(unsigned long
+ #define veth_debug(fmt, args...) do {} while (0)
+ #endif
  
-+	/* This gets us 1 reference, which is held on behalf of the driver
-+	 * infrastructure. It's released at module unload. */
-+	kref_init(&cnx->refcount);
-+
- 	cnx->remote_lp = rlp;
- 	spin_lock_init(&cnx->lock);
- 	INIT_WORK(&cnx->statemachine_wq, veth_statemachine, cnx);
-@@ -658,12 +663,10 @@ static int veth_init_connection(u8 rlp)
- 	return 0;
- }
- 
--static void veth_stop_connection(u8 rlp)
-+static void veth_stop_connection(struct kref *ref)
++/* You must hold the connection's lock when you call this function. */
+ static inline void veth_stack_push(struct veth_lpar_connection *cnx,
+ 				   struct veth_msg *msg)
  {
--	struct veth_lpar_connection *cnx = veth_cnx[rlp];
+-	unsigned long flags;
 -
--	if (! cnx)
--		return;
-+	struct veth_lpar_connection *cnx;
-+	cnx = container_of(ref, struct veth_lpar_connection, refcount);
- 
- 	spin_lock_irq(&cnx->lock);
- 	cnx->state |= VETH_STATE_RESET | VETH_STATE_SHUTDOWN;
-@@ -1352,15 +1355,31 @@ static void veth_timed_ack(unsigned long
- 
- static int veth_remove(struct vio_dev *vdev)
- {
--	int i = vdev->unit_address;
-+	struct veth_lpar_connection *cnx;
- 	struct net_device *dev;
-+	struct veth_port *port;
-+	int i;
- 
--	dev = veth_dev[i];
--	if (dev != NULL) {
--		veth_dev[i] = NULL;
--		unregister_netdev(dev);
--		free_netdev(dev);
-+	dev = veth_dev[vdev->unit_address];
-+
-+	if (! dev)
-+		return 0;
-+
-+	port = netdev_priv(dev);
-+
-+	for (i = 0; i < HVMAXARCHITECTEDLPS; i++) {
-+		cnx = veth_cnx[i];
-+
-+		if (cnx && (port->lpar_map & (1 << i))) {
-+			/* Drop our reference to connections on our VLAN */
-+			kref_put(&cnx->refcount, veth_stop_connection);
-+		}
- 	}
-+
-+	veth_dev[vdev->unit_address] = NULL;
-+	unregister_netdev(dev);
-+	free_netdev(dev);
-+
- 	return 0;
+-	spin_lock_irqsave(&cnx->msg_stack_lock, flags);
+ 	msg->next = cnx->msg_stack_head;
+ 	cnx->msg_stack_head = msg;
+-	spin_unlock_irqrestore(&cnx->msg_stack_lock, flags);
  }
  
-@@ -1368,6 +1387,7 @@ static int veth_probe(struct vio_dev *vd
++/* You must hold the connection's lock when you call this function. */
+ static inline struct veth_msg *veth_stack_pop(struct veth_lpar_connection *cnx)
  {
- 	int i = vdev->unit_address;
- 	struct net_device *dev;
-+	struct veth_port *port;
+-	unsigned long flags;
+ 	struct veth_msg *msg;
  
- 	dev = veth_probe_one(i, &vdev->dev);
- 	if (dev == NULL) {
-@@ -1376,11 +1396,19 @@ static int veth_probe(struct vio_dev *vd
- 	}
- 	veth_dev[i] = dev;
- 
--	/* Start the state machine on each connection, to commence
--	 * link negotiation */
--	for (i = 0; i < HVMAXARCHITECTEDLPS; i++)
--		if (veth_cnx[i])
-+	port = (struct veth_port*)netdev_priv(dev);
+-	spin_lock_irqsave(&cnx->msg_stack_lock, flags);
+ 	msg = cnx->msg_stack_head;
+ 	if (msg)
+ 		cnx->msg_stack_head = cnx->msg_stack_head->next;
+-	spin_unlock_irqrestore(&cnx->msg_stack_lock, flags);
 +
-+	/* Start the state machine on each connection on this vlan. If we're
-+	 * the first dev to do so this will commence link negotiation */
-+	for (i = 0; i < HVMAXARCHITECTEDLPS; i++) {
-+		if (! (port->lpar_map & (1 << i)))
-+			continue;
-+
-+		if (veth_cnx[i]) {
-+			kref_get(&(veth_cnx[i]->refcount));
- 			veth_kick_statemachine(veth_cnx[i]);
-+		}
-+	}
- 
- 	return 0;
+ 	return msg;
  }
-@@ -1409,26 +1437,31 @@ static struct vio_driver veth_driver = {
- void __exit veth_module_cleanup(void)
- {
- 	int i;
-+	struct veth_lpar_connection *cnx;
  
--	/* Stop the queues first to stop any new packets being sent. */
--	for (i = 0; i < HVMAXARCHITECTEDVIRTUALLANS; i++)
--		if (veth_dev[i])
--			netif_stop_queue(veth_dev[i]);
-+	/* Drop the driver's references to the connections. */
-+	for (i = 0; i < HVMAXARCHITECTEDLPS; ++i) {
-+		cnx = veth_cnx[i];
+@@ -643,7 +638,6 @@ static int veth_init_connection(u8 rlp)
  
--	/* Stop the connections before we unregister the driver. This
--	 * ensures there's no skbs lying around holding the device open. */
--	for (i = 0; i < HVMAXARCHITECTEDLPS; ++i)
--		veth_stop_connection(i);
-+		if (cnx) {
-+			kref_put(&cnx->refcount, veth_stop_connection);
-+		}
-+	}
+ 	cnx->msgs = msgs;
+ 	memset(msgs, 0, VETH_NUMBUFFERS * sizeof(struct veth_msg));
+-	spin_lock_init(&cnx->msg_stack_lock);
  
--	HvLpEvent_unregisterHandler(HvLpEvent_Type_VirtualLan);
-+	/* Unregister the driver, which will close all the netdevs and stop
-+	 * the connections when they're no longer referenced. */
-+	vio_unregister_driver(&veth_driver);
- 
--	/* Hypervisor callbacks may have scheduled more work while we
--	 * were stoping connections. Now that we've disconnected from
--	 * the hypervisor make sure everything's finished. */
-+	/* Make sure each connection's state machine has run to completion. */
- 	flush_scheduled_work();
- 
--	vio_unregister_driver(&veth_driver);
-+	/* Disconnect our "irq" to stop events coming from the Hypervisor. */
-+	HvLpEvent_unregisterHandler(HvLpEvent_Type_VirtualLan);
-+
-+	/* Make sure any work queued from Hypervisor callbacks is finished. */
-+	flush_scheduled_work();
- 
-+	/* Deallocate everything. */
- 	for (i = 0; i < HVMAXARCHITECTEDLPS; ++i)
- 		veth_destroy_connection(i);
- 
+ 	for (i = 0; i < VETH_NUMBUFFERS; i++) {
+ 		msgs[i].token = i;
