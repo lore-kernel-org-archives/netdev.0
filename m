@@ -1,7 +1,7 @@
 From: Michael Ellerman <michael@ellerman.id.au>
-Subject: [PATCH 5/12] iseries_veth: Try to avoid pathological reset behaviour
+Subject: [PATCH 1/12] iseries_veth: Make error messages more user friendly, and add a debug macro
 Date: Thu, 30 Jun 2005 20:20:39 +1000
-Message-ID: <1120126839.441162.530324669503.qpatch__8395.31243914298$1120126794$gmane$org@concordia>
+Message-ID: <1120126839.106943.128468321759.qpatch__6719.7029399269$1120126796$gmane$org@concordia>
 References: <200506302016.55125.michael@ellerman.id.au>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: linuxppc64-dev@ozlabs.org, netdev@oss.sgi.com,
@@ -11,84 +11,51 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The iseries_veth driver contains a state machine which is used to manage
-how connections are setup and neogotiated between LPARs.
+Currently the iseries_veth driver prints the file name and line number in its
+error messages. This isn't very useful for most users, so just print
+"iseries_veth: message" instead.
 
-If one side of a connection resets for some reason, the two LPARs can get
-stuck in a race to re-setup the connection. This can lead to the connection
-being declared dead by one or both ends. In practice this happens ~8/10 times
-a connection is reset, although it's rare for connections to be reset.
-
-(an example here: http://michael.ellerman.id.au/files/misc/veth-trace.html)
-
-The core of the problem is that the end that resets the connection doesn't
-wait for the other end to become aware of the reset. So the resetting end
-starts setting the connection back up, and then receives a reset from the
-other end (which is the response to the initial reset). And so on.
-
-We're severely limited in what we can do to fix this. The protocol between
-LPARs is essentially fixed, as we have to interoperate with both OS/400
-and old Linux drivers. Which also means we need a fix that only changes the
-code on one end.
-
-The only fix I've found given that, is to just blindly sleep for a bit when
-resetting the connection, in the hope that the other end will get itself
-sorted.  Needless to say I'd love it if someone has a better idea.
-
-This does work, I've so far been unable to get it to break, whereas without
-the fix a reset of one end will lead to a dead connection ~8/10 times.
+Also add a veth_debug() and veth_info() macro to replace the current
+veth_printk().
 
 
 ---
 
- drivers/net/iseries_veth.c |   23 +++++++++++++++++++++--
- 1 files changed, 21 insertions(+), 2 deletions(-)
+ drivers/net/iseries_veth.c |   15 ++++++++++++---
+ 1 files changed, 12 insertions(+), 3 deletions(-)
 
 Index: veth-dev/drivers/net/iseries_veth.c
 ===================================================================
 --- veth-dev.orig/drivers/net/iseries_veth.c
 +++ veth-dev/drivers/net/iseries_veth.c
-@@ -324,8 +324,12 @@ static void veth_take_monitor_ack(struct
+@@ -79,6 +79,8 @@
+ #include <asm/iommu.h>
+ #include <asm/vio.h>
  
- 	spin_lock_irqsave(&cnx->lock, flags);
- 	veth_debug("cnx %d: lost connection.\n", cnx->remote_lp);
--	cnx->state |= VETH_STATE_RESET;
--	veth_kick_statemachine(cnx);
-+	/* Avoid kicking the statemachine once we're shutdown.
-+	 * It's unnecessary and it could break veth_stop_connection(). */
-+	if (! (cnx->state & VETH_STATE_SHUTDOWN)) {
-+		cnx->state |= VETH_STATE_RESET;
-+		veth_kick_statemachine(cnx);
-+	}
- 	spin_unlock_irqrestore(&cnx->lock, flags);
- }
- 
-@@ -483,6 +487,12 @@ static void veth_statemachine(void *p)
- 
- 		if (cnx->state & VETH_STATE_RESET)
- 			goto restart;
++#define DEBUG	1
 +
-+		/* Hack, wait for the other end to reset itself. */
-+		if (! (cnx->state & VETH_STATE_SHUTDOWN)) {
-+			schedule_delayed_work(&cnx->statemachine_wq, 5 * HZ);
-+			goto out;
-+		}
- 	}
+ #include "iseries_veth.h"
  
- 	if (cnx->state & VETH_STATE_SHUTDOWN)
-@@ -667,6 +677,15 @@ static void veth_stop_connection(u8 rlp)
- 	veth_kick_statemachine(cnx);
- 	spin_unlock_irq(&cnx->lock);
+ MODULE_AUTHOR("Kyle Lucke <klucke@us.ibm.com>");
+@@ -176,11 +178,18 @@ static void veth_timed_ack(unsigned long
+  * Utility functions
+  */
  
-+	/* There's a slim chance the reset code has just queued the
-+	 * statemachine to run in five seconds. If so we need to cancel
-+	 * that and requeue the work to run now. */
-+	if (cancel_delayed_work(&cnx->statemachine_wq)) {
-+		spin_lock_irq(&cnx->lock);
-+		veth_kick_statemachine(cnx);
-+		spin_unlock_irq(&cnx->lock);
-+	}
+-#define veth_printk(prio, fmt, args...) \
+-	printk(prio "%s: " fmt, __FILE__, ## args)
++#define veth_info(fmt, args...) \
++	printk(KERN_INFO "iseries_veth: " fmt, ## args)
+ 
+ #define veth_error(fmt, args...) \
+-	printk(KERN_ERR "(%s:%3.3d) ERROR: " fmt, __FILE__, __LINE__ , ## args)
++	printk(KERN_ERR "iseries_veth: Error: " fmt, ## args)
 +
- 	/* Wait for the state machine to run. */
- 	flush_scheduled_work();
- }
++#ifdef DEBUG
++#define veth_debug(fmt, args...) \
++	printk(KERN_DEBUG "iseries_veth: " fmt, ## args)
++#else
++#define veth_debug(fmt, args...) do {} while (0)
++#endif
+ 
+ static inline void veth_stack_push(struct veth_lpar_connection *cnx,
+ 				   struct veth_msg *msg)
