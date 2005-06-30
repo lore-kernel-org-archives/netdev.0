@@ -1,20 +1,25 @@
-From: Thomas Graf <tgraf@suug.ch>
+From: Patrick McHardy <kaber@trash.net>
 Subject: Re: [PATCH 1/2] updates for [nf|ct]netlink and event API
-Date: Fri, 1 Jul 2005 00:08:14 +0200
-Message-ID: <20050630220814.GP16076@postel.suug.ch>
-References: <20050630180238.GM16076@postel.suug.ch>
-	<42C46374.5000407@trash.net>
-	<20050630213459.GO16076@postel.suug.ch>
-	<20050630.144942.74731532.davem@davemloft.net>
+Date: Thu, 30 Jun 2005 15:27:55 +0200
+Message-ID: <42C3F35B.50805@trash.net>
+References: <42C03F2E.30706@eurodev.net> <42C0806E.3010400@trash.net>
+	<20050628071308.GE13239@sunbeam.de.gnumonks.org>
+	<42C1747A.3010703@trash.net> <42C2F2DF.7070301@eurodev.net>
+	<42C2FC14.80609@trash.net> <42C33E33.7090908@eurodev.net>
+	<42C34445.9020709@trash.net>
+	<20050630014901.GH16076@postel.suug.ch>
+	<42C350A1.1030602@trash.net>
+	<20050630120302.GI16076@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: laforge@netfilter.org, netdev@vger.kernel.org,
-	netfilter-devel@lists.netfilter.org, hadi@cyberus.ca,
-	pablo@eurodev.net, kaber@trash.net
+Content-Transfer-Encoding: 7bit
+Cc: Harald Welte <laforge@netfilter.org>, netdev@vger.kernel.org,
+	Jamal Hadi Salim <hadi@cyberus.ca>,
+	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>,
+	Pablo Neira <pablo@eurodev.net>
 Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20050630.144942.74731532.davem@davemloft.net>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050630120302.GI16076@postel.suug.ch>
 List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
 	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
 List-Archive: </pipermail/netfilter-devel>
@@ -26,16 +31,21 @@ Sender: netfilter-devel-bounces@lists.netfilter.org
 Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-* David S. Miller <20050630.144942.74731532.davem@davemloft.net> 2005-06-30 14:49
-> From: Thomas Graf <tgraf@suug.ch>
-> Date: Thu, 30 Jun 2005 23:34:59 +0200
-> 
-> > This is only true if one attribute is added. What I really meant
-> > is something like em_text_dump() in em_text.c.
-> 
-> Speaking of em_text.c, when one loads ematch rules into that
-> module it does a printk().  I assume that's a thinko and should
-> be removed?
+Thomas Graf wrote:
+> Good point, after all, I think structs have been used too often
+> and we now suffer from backwards compatbility issues. The
+> points likely to be argueable are things like trim responsibility
+> in the error handling, i.e. delegate it down to the function
+> which also created the header or trim on every level. Other than
+> that the whole thing should be pretty straight forward.
 
-Yes, it's a debugging leftover but I'll keep it in until rc3 so if
-problems appear I have some debugging information. Given that is acceptable.
+I think for nested attributes error handling should happen on the
+outer level. Just trimming on the inner level would leave a
+half-finished nested attribute.
+
+> What do you think about naming it nlattr?
+
+Sounds good.
+
+Regards
+Patrick
