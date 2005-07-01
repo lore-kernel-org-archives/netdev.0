@@ -1,46 +1,54 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] multipath routing algorithm, better patch
-Date: Fri, 01 Jul 2005 02:43:06 +0200
-Message-ID: <42C4919A.5000009__3332.50160697407$1120178355$gmane$org@trash.net>
-References: <Pine.GSO.4.61.0506302014160.7400@rac1.wam.umd.edu>
+From: Haren Myneni <haren@us.ibm.com>
+Subject: Re: [Fastboot] Re: Re: tg3: issue for reboot/kexec
+Date: Thu, 30 Jun 2005 18:18:21 -0700
+Message-ID: <42C499DD.3050009@us.ibm.com>
+References: <42BC9F09.1060002@us.ibm.com>	<20050624174652.159f26ce.rdunlap@xenotime.net>	<20050625033328.GC3934@kroah.com>
+	<m18y0rl9bq.fsf@ebiederm.dsl.xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Maillist netdev <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick Jenkins <patjenk@wam.umd.edu>
-In-Reply-To: <Pine.GSO.4.61.0506302014160.7400@rac1.wam.umd.edu>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed; boundary="===============61386528323925238=="
+Cc: linux-pm@lists.osdl.org, fastboot@lists.osdl.org, netdev@vger.kernel.org
+Return-path: <linux-pm-bounces@lists.osdl.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+In-Reply-To: <m18y0rl9bq.fsf@ebiederm.dsl.xmission.com>
+List-Unsubscribe: <https://lists.osdl.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.osdl.org?subject=unsubscribe>
+List-Archive: <http://lists.osdl.org/pipermail/linux-pm>
+List-Post: <mailto:linux-pm@lists.osdl.org>
+List-Help: <mailto:linux-pm-request@lists.osdl.org?subject=help>
+List-Subscribe: <https://lists.osdl.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.osdl.org?subject=subscribe>
+Sender: linux-pm-bounces@lists.osdl.org
+Errors-To: linux-pm-bounces@lists.osdl.org
 List-Id: netdev.vger.kernel.org
 
-Patrick Jenkins wrote:
-> Hi,
-> 
-> The last patch wont work, this should.
-> 
-> This patch assigns the multipath routing algorithm into the fib_info
-> struct's fib_mp_alg variable. Previously, the algorithm was always set to
-> IP_MP_ALG_NONE which was incorrect. This patch corrects the problem by
-> assigning the correct value when a fib_info is initialized.
-> 
-> This patch was tested against kernel 2.6.12.1 for all multipath routing
-> algorithms (none, round robin, interface round robin, random, weighted
-> random).
+--===============61386528323925238==
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Multiple algorithms can be compiled in at once, so this patch is wrong.
-mp_alg is supplied by userspace:
+Eric W. Biederman wrote:
 
-        if (rta->rta_mp_alg) {
-                mp_alg = *rta->rta_mp_alg;
+>A couple stray bits of feedback.  Downing the interface is generally
+>a user space requirement like unmounting filesystems.
+>/sbin/kexec and /sbin/reboot both perform this operation so I don't
+>see how this bug was hit.
+>
+>  
+>
+Thanks for your feedback. We are still working on kexec tools for PPC64. 
+In the mean time, I was using a temporary tool which does not do ifdown. 
+I was in the impression that the kexec boot will be successful since the 
+normal kexec code path (kernel/sys.c) contains device_shutdown/reboot 
+notifier. It turns out I am wrong.
 
-                if (mp_alg < IP_MP_ALG_NONE ||
-                    mp_alg > IP_MP_ALG_MAX)
-                        goto err_inval;
-        }
+Thanks
+Haren
 
-If it isn't set correctly its an iproute problem. Did you actually
-experience any problems?
 
-Regards
-Patrick
+--===============61386528323925238==
+Content-Type: text/plain; charset="iso-8859-1"
+MIME-Version: 1.0
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
+
+
+--===============61386528323925238==--
