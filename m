@@ -1,23 +1,77 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH] multipath routing algorithm, better patch
-Date: Fri, 1 Jul 2005 22:46:37 +0200
-Message-ID: <20050701204637.GX16076@postel.suug.ch>
-References: <Pine.GSO.4.61.0506302014160.7400@rac1.wam.umd.edu> <42C4919A.5000009@trash.net> <20050701174117.GW16076@postel.suug.ch> <42C59ABA.1070305@trash.net>
+From: Radheka Godse <radheka.godse@intel.com>
+Subject: [PATCH 2.6.13-rc1 6/17] bonding: ALB init kmalloc inside spinlock
+ bugfix
+Date: Fri, 1 Jul 2005 13:45:56 -0700 (PDT)
+Message-ID: <Pine.LNX.4.61.0507011343260.17459@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick Jenkins <patjenk@wam.umd.edu>, linux-kernel@vger.kernel.org,
-        Maillist netdev <netdev@oss.sgi.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <42C59ABA.1070305@trash.net>
+To: fubar@us.ibm.com, bonding-devel@lists.sourceforge.net
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Patrick McHardy <42C59ABA.1070305@trash.net> 2005-07-01 21:34
-> So its no problem but simply missing support. BTW, do you know if
-> Stephen's new CVS repository is exported somewhere?
+This patch corrects bug in ALB init where kmalloc called inside a held
+lock causes stacdump in debug mode
 
-cvs -d :pserver:cvsanon@developer.osdl.org/repos cvs login
-cvs -d :pserver:cvsanon@developer.osdl.org/repos cvs co iproute2
+Signed-off-by: Radheka Godse <radheka.godse@intel.com>
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+
+diff -urN -X dontdiff linux-2.6.12post/drivers/net/bonding/bond_alb.c linux-2.6.12post-sysfs/drivers/net/bonding/bond_alb.c
+--- linux-2.6.12post/drivers/net/bonding/bond_alb.c	2005-06-17 12:48:29.000000000 -0700
++++ linux-2.6.12post-sysfs/drivers/net/bonding/bond_alb.c	2005-06-28 18:21:35.000000000 -0700
+@@ -198,20 +198,21 @@
+  {
+  	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
+  	int size = TLB_HASH_TABLE_SIZE * sizeof(struct tlb_client_info);
++	struct tlb_client_info *new_hashtbl;
+  	int i;
+
+  	spin_lock_init(&(bond_info->tx_hashtbl_lock));
+
+-	_lock_tx_hashtbl(bond);
+-
+-	bond_info->tx_hashtbl = kmalloc(size, GFP_KERNEL);
+-	if (!bond_info->tx_hashtbl) {
++	new_hashtbl = kmalloc(size, GFP_KERNEL);
++	if (!new_hashtbl) {
+  		printk(KERN_ERR DRV_NAME
+  		       ": Error: %s: Failed to allocate TLB hash table\n",
+  		       bond->dev->name);
+-		_unlock_tx_hashtbl(bond);
+  		return -1;
+  	}
++	_lock_tx_hashtbl(bond);
++
++	bond_info->tx_hashtbl = new_hashtbl;
+
+  	memset(bond_info->tx_hashtbl, 0, size);
+
+@@ -798,21 +801,22 @@
+  {
+  	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
+  	struct packet_type *pk_type = &(BOND_ALB_INFO(bond).rlb_pkt_type);
++	struct rlb_client_info	*new_hashtbl;
+  	int size = RLB_HASH_TABLE_SIZE * sizeof(struct rlb_client_info);
+  	int i;
+
+  	spin_lock_init(&(bond_info->rx_hashtbl_lock));
+
+-	_lock_rx_hashtbl(bond);
+-
+-	bond_info->rx_hashtbl = kmalloc(size, GFP_KERNEL);
+-	if (!bond_info->rx_hashtbl) {
++	new_hashtbl = kmalloc(size, GFP_KERNEL);
++	if (!new_hashtbl) {
+  		printk(KERN_ERR DRV_NAME
+  		       ": Error: %s: Failed to allocate RLB hash table\n",
+  		       bond->dev->name);
+-		_unlock_rx_hashtbl(bond);
+  		return -1;
+  	}
++	_lock_rx_hashtbl(bond);
++
++	bond_info->rx_hashtbl = new_hashtbl;
+
+  	bond_info->rx_hashtbl_head = RLB_NULL_INDEX;
