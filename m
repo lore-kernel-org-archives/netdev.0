@@ -1,7 +1,7 @@
 From: Radheka Godse <radheka.godse@intel.com>
-Subject: [PATCH 2.6.13-rc1 0/17] bonding: Sysfs Support
-Date: Fri, 1 Jul 2005 13:22:05 -0700 (PDT)
-Message-ID: <Pine.LNX.4.61.0507011313500.17459@localhost.localdomain>
+Subject: [PATCH 2.6.13-rc1 1/17] bonding: make some functions not static
+Date: Fri, 1 Jul 2005 13:29:20 -0700 (PDT)
+Message-ID: <Pine.LNX.4.61.0507011322190.17459@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
 Cc: netdev@oss.sgi.com
@@ -11,65 +11,120 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   This patch set is an updated sysfs bonding patch to the one sent
-previously in April. The patch is upto date with all recent bonding
-and kernel changes and applies cleanly to linux-2.6.13-rc1. It adds
-sysfs entry for the "Xmit Hash Policy" for new bonding module param;
-incorporates feedback and bug fixes on all known issues and has been
-tested on linux-2.6.13-rc1.
 
-   The interface is pretty simple. Here are some notes on how it could be 
-used:
+This patch prepares for adding sysfs functionality to bonding by making
+some functions in bond_main non-static and adding protos into the header.
 
-   The file /sys/class/net/bonding_masters contains the names of all the
-active bonds. To add or remove bonds, write a whitespace-delimited list of
-interface names to this file.  For example:
+diff -urN -X dontdiff linux-2.6.12post/drivers/net/bonding/bonding.h linux-2.6.12post-sysfs/drivers/net/bonding/bonding.h
+--- linux-2.6.12post/drivers/net/bonding/bonding.h	2005-06-28 18:18:03.000000000 -0700
++++ linux-2.6.12post-sysfs/drivers/net/bonding/bonding.h	2005-06-30 13:58:27.000000000 -0700
+@@ -255,6 +255,17 @@
 
-echo "bond1 bond2 bond3" > /sys/class/net/bonding_masters
+  struct vlan_entry *bond_next_vlan(struct bonding *bond, struct vlan_entry *curr);
+  int bond_dev_queue_xmit(struct bonding *bond, struct sk_buff *skb, struct net_device *slave_dev);
++void bond_deinit(struct net_device *bond_dev);
++int bond_release(struct net_device *bond_dev, struct net_device *slave_dev);
++int bond_sethwaddr(struct net_device *bond_dev, struct net_device *slave_dev);
++void bond_mii_monitor(struct net_device *bond_dev);
++void bond_loadbalance_arp_mon(struct net_device *bond_dev);
++void bond_activebackup_arp_mon(struct net_device *bond_dev);
++void bond_set_mode_ops(struct bonding *bond, int mode);
++int bond_parse_parm(char *mode_arg, struct bond_parm_tbl *tbl);
++const char *bond_mode_name(int mode);
++void bond_select_active_slave(struct bonding *bond);
++void bond_change_active_slave(struct bonding *bond, struct slave *new_active);
 
-will create three bonds with the given names.  If any other bonds exist,
-they will be deleted.
+  #endif /* _LINUX_BONDING_H */
 
-echo "bond0 bond2 bond3" > /sys/class/net/bonding_masters
+diff -urN -X dontdiff linux-2.6.12post/drivers/net/bonding/bond_main.c linux-2.6.12post-sysfs/drivers/net/bonding/bond_main.c
+--- linux-2.6.12post/drivers/net/bonding/bond_main.c	2005-06-28 18:18:03.000000000 -0700
++++ linux-2.6.12post-sysfs/drivers/net/bonding/bond_main.c	2005-06-30 13:53:55.000000000 -0700
+@@ -1453,7 +1453,7 @@
+   *
+   * Warning: Caller must hold curr_slave_lock for writing.
+   */
+-static void bond_change_active_slave(struct bonding *bond, struct slave *new_active)
++void bond_change_active_slave(struct bonding *bond, struct slave *new_active)
+  {
+  	struct slave *old_active = bond->curr_active_slave;
 
-would then create bond0 and remove bond1.
+@@ -1527,7 +1527,7 @@
+   *
+   * Warning: Caller must hold curr_slave_lock for writing.
+   */
+-static void bond_select_active_slave(struct bonding *bond)
++void bond_select_active_slave(struct bonding *bond)
+  {
+  	struct slave *best_slave;
 
-   For each bond, there is a directory /sys/class/net/<bondname>/bonding.
-In this directory are a number of files which control the bond.  The names
-of these files match the existing module parameters and do the same 
-things.
+@@ -1595,7 +1595,7 @@
 
-   The slaves file contains a whitespace-delimited list of interface names,
-  which are slaves to the bond.  This file behaves much the same as the
-"bonding_masters" file; just write a list of your desired interfaces to
-this file.
+  /*---------------------------------- IOCTL ----------------------------------*/
 
-   Likewise, the arp_targets file contains a whitespace-delimited list of 
-IP addresses and should be written to in a similar fashion.
+-static int bond_sethwaddr(struct net_device *bond_dev, struct net_device *slave_dev)
++int bond_sethwaddr(struct net_device *bond_dev, struct net_device *slave_dev)
+  {
+  	dprintk("bond_dev=%p\n", bond_dev);
+  	dprintk("slave_dev=%p\n", slave_dev);
+@@ -2030,7 +2030,7 @@
+   *   for Bonded connections:
+   *     The first up interface should be left on and all others downed.
+   */
+-static int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
++int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
+  {
+  	struct bonding *bond = bond_dev->priv;
+  	struct slave *slave, *oldcurrent;
+@@ -2479,7 +2479,7 @@
+  /*-------------------------------- Monitoring -------------------------------*/
 
-   The other files contain single values(numeric and/or mnemonic).
+  /* this function is called regularly to monitor each slave's link. */
+-static void bond_mii_monitor(struct net_device *bond_dev)
++void bond_mii_monitor(struct net_device *bond_dev)
+  {
+  	struct bonding *bond = bond_dev->priv;
+  	struct slave *slave, *oldcurrent;
+@@ -2904,7 +2904,7 @@
+   * arp is transmitted to generate traffic. see activebackup_arp_monitor for
+   * arp monitoring in active backup mode.
+   */
+-static void bond_loadbalance_arp_mon(struct net_device *bond_dev)
++void bond_loadbalance_arp_mon(struct net_device *bond_dev)
+  {
+  	struct bonding *bond = bond_dev->priv;
+  	struct slave *slave, *oldcurrent;
+@@ -3042,7 +3042,7 @@
+   * may have received.
+   * see loadbalance_arp_monitor for arp monitoring in load balancing mode
+   */
+-static void bond_activebackup_arp_mon(struct net_device *bond_dev)
++void bond_activebackup_arp_mon(struct net_device *bond_dev)
+  {
+  	struct bonding *bond = bond_dev->priv;
+  	struct slave *slave;
+@@ -4484,7 +4484,7 @@
+  /*
+   * set bond mode specific net device operations
+   */
+-static inline void bond_set_mode_ops(struct bonding *bond, int mode)
++void bond_set_mode_ops(struct bonding *bond, int mode)
+  {
+  	struct net_device *bond_dev = bond->dev;
 
-   Some caveats:
-    - slaves can only be assigned when the interface is up
-    - mode can only be changed when the interface is down
-    - Xmit hash policy can be changed only when interface is down
+@@ -4603,7 +4603,7 @@
+  /* De-initialize device specific data.
+   * Caller must hold rtnl_lock.
+   */
+-static inline void bond_deinit(struct net_device *bond_dev)
++void bond_deinit(struct net_device *bond_dev)
+  {
+  	struct bonding *bond = bond_dev->priv;
 
-   Warnings and status messages will be logged and can be viewed with dmesg.
-
-   Example:
-   modprobe bonding
-   echo "bond0 bond1" > /sys/class/net/bonding_masters
-   echo "6" > /sys/class/net/bond0/bonding/mode
-   echo "1000" > /sys/class/net/bond0/bonding/miimon
-   ifconfig bond0 192.168.0.1
-   echo "eth0 eth1" > /sys/class/net/bond0/bonding/slaves
-   # bond0 is now ready to use
-   echo "1" > /sys/class/net/bond1/bonding/mode
-   # ... and so on for bond1
-
-
-  These patches were generated against 2.6.12 with Jay's upstream patches.
-  It applies cleanly to kernel 2.6.13-rc1.
-
-- Radheka Godse
-- Mitch Williams
+@@ -4639,7 +4639,7 @@
+   * Convert string input module parms.  Accept either the
+   * number of the mode or its string name.
+   */
+-static inline int bond_parse_parm(char *mode_arg, struct bond_parm_tbl *tbl)
++int bond_parse_parm(char *mode_arg, struct bond_parm_tbl *tbl)
+  {
+  	int i;
