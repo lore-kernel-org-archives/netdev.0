@@ -1,60 +1,40 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [Fastboot] Re: Re: tg3: issue for reboot/kexec
-Date: Thu, 30 Jun 2005 19:27:51 -0600
-Message-ID: <m1r7ejjox4.fsf@ebiederm.dsl.xmission.com>
-References: <42BC9F09.1060002@us.ibm.com>
-	<20050624174652.159f26ce.rdunlap@xenotime.net>
-	<20050625033328.GC3934@kroah.com>
-	<m18y0rl9bq.fsf@ebiederm.dsl.xmission.com>
-	<42C499DD.3050009@us.ibm.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: -mm -> 2.6.13 merge status (dropped patches?)
+Date: Thu, 30 Jun 2005 19:52:54 -0700 (PDT)
+Message-ID: <20050630.195254.71110580.davem@davemloft.net>
+References: <200506301605_MC3-1-A320-D9D6@compuserve.com>
+	<20050630161456.2ef0ab32.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============74603266690478365=="
-Cc: linux-pm@lists.osdl.org, fastboot@lists.osdl.org, netdev@vger.kernel.org
-Return-path: <linux-pm-bounces@lists.osdl.org>
-To: Haren Myneni <haren@us.ibm.com>
-In-Reply-To: <42C499DD.3050009@us.ibm.com> (Haren Myneni's message of "Thu,
-	30 Jun 2005 18:18:21 -0700")
-List-Unsubscribe: <https://lists.osdl.org/mailman/listinfo/linux-pm>,
-	<mailto:linux-pm-request@lists.osdl.org?subject=unsubscribe>
-List-Archive: <http://lists.osdl.org/pipermail/linux-pm>
-List-Post: <mailto:linux-pm@lists.osdl.org>
-List-Help: <mailto:linux-pm-request@lists.osdl.org?subject=help>
-List-Subscribe: <https://lists.osdl.org/mailman/listinfo/linux-pm>,
-	<mailto:linux-pm-request@lists.osdl.org?subject=subscribe>
-Sender: linux-pm-bounces@lists.osdl.org
-Errors-To: linux-pm-bounces@lists.osdl.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: 76306.1226@compuserve.com, netdev@vger.kernel.org,
+	jgarzik@pobox.com, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S263203AbVGACxh@vger.kernel.org>
+To: akpm@osdl.org
+In-Reply-To: <20050630161456.2ef0ab32.akpm@osdl.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---===============74603266690478365==
-Content-Type: text/plain; charset=us-ascii
+From: Andrew Morton <akpm@osdl.org>
+Date: Thu, 30 Jun 2005 16:14:56 -0700
 
-Haren Myneni <haren@us.ibm.com> writes:
+> Chuck Ebbert <76306.1226@compuserve.com> wrote:
+> >
+> > What happened to:
+> > 
+> >         remove-last_rx-update-from-loopback-device.patch
+> 
+> Davem rejected it.  hm, I can't find the email trail - it was cc'ed to
+> netdev@oss.sgi.com mid-March, but nothing seems to have been sent back.
 
-> Eric W. Biederman wrote:
->
->>A couple stray bits of feedback.  Downing the interface is generally
->>a user space requirement like unmounting filesystems.
->>/sbin/kexec and /sbin/reboot both perform this operation so I don't
->>see how this bug was hit.
->>
->>
->>
-> Thanks for your feedback. We are still working on kexec tools for PPC64. In the
-> mean time, I was using a temporary tool which does not do ifdown. I was in the
-> impression that the kexec boot will be successful since the normal kexec code
-> path (kernel/sys.c) contains device_shutdown/reboot notifier. It turns out I am
-> wrong.
+Every network device must reliably set ->last_rx, there are parts
+of the kernel which depend upon this attribute having an accurate
+value.
 
-Buggy drivers will do that to you as well.  But not doing a clean shutdown
-(downing interfaces, and unmounting the filesystems) doesn't help things  :)
+The bonding driver is one example.  And whilst one can argue that
+loopback is unlikely to be used as part of a bond, it's massively
+better from a consistency perspective if this invariant can be
+relied upon across all networking drivers.
 
-Eric
-
---===============74603266690478365==
-Content-Type: text/plain; charset="iso-8859-1"
-MIME-Version: 1.0
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
-
-
---===============74603266690478365==--
+In short, the NUMA scalability hacks to loopback have gotten out
+of control, and we need to stop this madness somewhere.
