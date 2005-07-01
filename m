@@ -1,32 +1,23 @@
-From: Radheka Godse <radheka.godse@intel.com>
-Subject: [PATCH 2.6.13-rc1 5/17] bonding: reset RLB flag during ALB init
-Date: Fri, 1 Jul 2005 13:43:21 -0700 (PDT)
-Message-ID: <Pine.LNX.4.61.0507011341140.17459@localhost.localdomain>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH] multipath routing algorithm, better patch
+Date: Fri, 1 Jul 2005 22:46:37 +0200
+Message-ID: <20050701204637.GX16076@postel.suug.ch>
+References: <Pine.GSO.4.61.0506302014160.7400@rac1.wam.umd.edu> <42C4919A.5000009@trash.net> <20050701174117.GW16076@postel.suug.ch> <42C59ABA.1070305@trash.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick Jenkins <patjenk@wam.umd.edu>, linux-kernel@vger.kernel.org,
+        Maillist netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: fubar@us.ibm.com, bonding-devel@lists.sourceforge.net
+To: Patrick McHardy <kaber@trash.net>
+Content-Disposition: inline
+In-Reply-To: <42C59ABA.1070305@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This patch makes the ALB init function explicitly clear the RLB flag if
-RLB is not used. This is required by the sysfs interfaces, which allows
-the user to change mode without destroying the bond.
+* Patrick McHardy <42C59ABA.1070305@trash.net> 2005-07-01 21:34
+> So its no problem but simply missing support. BTW, do you know if
+> Stephen's new CVS repository is exported somewhere?
 
-Signed-off-by: Radheka Godse <radheka.godse@intel.com>
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-
-diff -urN -X dontdiff linux-2.6.12post/drivers/net/bonding/bond_alb.c linux-2.6.12post-sysfs/drivers/net/bonding/bond_alb.c
---- linux-2.6.12post/drivers/net/bonding/bond_alb.c	2005-06-17 12:48:29.000000000 -0700
-+++ linux-2.6.12post-sysfs/drivers/net/bonding/bond_alb.c	2005-06-28 18:21:35.000000000 -0700
-@@ -1256,6 +1256,8 @@
-  			tlb_deinitialize(bond);
-  			return res;
-  		}
-+	} else {
-+		bond->alb_info.rlb_enabled = 0;
-  	}
-
-  	return 0;
+cvs -d :pserver:cvsanon@developer.osdl.org/repos cvs login
+cvs -d :pserver:cvsanon@developer.osdl.org/repos cvs co iproute2
