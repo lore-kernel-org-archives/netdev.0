@@ -1,23 +1,33 @@
-From: "Raz Ben-Jehuda(caro)" <raziebe@gmail.com>
-Subject: general bonding question
-Date: Fri, 1 Jul 2005 11:00:11 +0200
-Message-ID: <5d96567b05070102001fc7b677@mail.gmail.com>
-Reply-To: "Raz Ben-Jehuda(caro)" <raziebe@gmail.com>
+From: Eric Lammerts <eric-madwifi-devel@lammerts.org>
+Subject: problems with 2.6.12
+Date: Fri, 01 Jul 2005 11:35:00 -0400
+Message-ID: <42C562A4.9070501__15977.6408029304$1120232169$gmane$org@lammerts.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: tommy.christensen@tpack.net, herbert@gondor.apana.org.au,
+        davem@davemloft.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: madwifi-devel@lists.sourceforge.net
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-To any of you that deal with the nic bonding driver.
-Is there a special reason why the bond interface is not using
-the slave device features, such as "scatter gather" or hardware checksum ?
-I think of fixing the driver but i thought it would better to advise first.   
 
--- 
-Raz
-Long Live the Penguin
+Hello all,
+I was having problems with 2.6.12 + madwifi in master mode. No packets were 
+going out. With tcpdump I see DHCP requests coming in, with strace I see the 
+dhcp daemon sending replies out, but they don't show up in tcpdump.
+
+It's caused by this change:
+http://oss.sgi.com/projects/netdev/archive/2005-05/msg00109.html
+
+which btw also causes problems for other people:
+http://marc.theaimsgroup.com/?l=linux-kernel&m=111853727810345&w=2
+
+Madwifi doesn't call netif_carrier_on() in master mode, so Linux drops all 
+packets. When I remove the dev_deactivate() line, it works fine again.
+
+Should we fix madwifi or the kernel?
+
+Eric
