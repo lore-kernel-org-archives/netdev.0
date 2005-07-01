@@ -1,7 +1,7 @@
 From: Radheka Godse <radheka.godse@intel.com>
 Subject: [PATCH 2.6.13-rc1 1/17] bonding: make some functions not static
-Date: Fri, 1 Jul 2005 13:29:20 -0700 (PDT)
-Message-ID: <Pine.LNX.4.61.0507011322190.17459@localhost.localdomain>
+Date: Fri, 1 Jul 2005 13:36:19 -0700 (PDT)
+Message-ID: <Pine.LNX.4.61.0507011333270.17459@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
 Cc: netdev@oss.sgi.com
@@ -11,9 +11,11 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
 This patch prepares for adding sysfs functionality to bonding by making
 some functions in bond_main non-static and adding protos into the header.
+
+Signed-off-by: Radheka Godse <radheka.godse@intel.com>
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 
 diff -urN -X dontdiff linux-2.6.12post/drivers/net/bonding/bonding.h linux-2.6.12post-sysfs/drivers/net/bonding/bonding.h
 --- linux-2.6.12post/drivers/net/bonding/bonding.h	2005-06-28 18:18:03.000000000 -0700
