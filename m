@@ -1,105 +1,40 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH 2.6.13-rc1 8/17] bonding: SYSFS INTERFACE (large)
-Date: Sat, 2 Jul 2005 01:13:46 -0700
-Message-ID: <20050702081346.GA20789@kroah.com>
-References: <Pine.LNX.4.61.0507011347060.17459@localhost.localdomain>
+From: Henrik Nordstrom <hno@marasystems.com>
+Subject: Re: controlling ARP Proxy scope?
+Date: Sat, 2 Jul 2005 23:21:37 +0200 (CEST)
+Message-ID: <Pine.LNX.4.61.0507022316310.26953__17795.5516418026$1120339918$gmane$org@filer.marasystems.com>
+References: <3u3gb7$1mhk2i@smtp05.mrf.mail.rcn.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Radheka Godse <radheka.godse@intel.com>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.61.0507011347060.17459@localhost.localdomain>
+To: Zdenek Radouch <zdenek@rcn.com>
+In-Reply-To: <3u3gb7$1mhk2i@smtp05.mrf.mail.rcn.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 01, 2005 at 01:48:44PM -0700, Radheka Godse wrote:
-> This large patch adds the sysfs interface to channel bonding. It will
-> allow users to add and remove bonds, add and remove slaves, and change
-> all bonding parameters without using ifenslave.
-> The ifenslave interface still works.
+On Fri, 1 Jul 2005, Zdenek Radouch wrote:
 
-Have a short example of what the sysfs tree looks like, and what the new
-files contain and expect to be written to?
+> So, left with only a binary flag in /proc,  and network definition on the
+> interface,
+> I assumed (perhaps naively) that the arp would proxy only for the addresses
+> within the subnet defined for the interface (on which the proxy arp is
+> turned on).
+> However, that does not seem to be the case.
 
-> diff -urN -X dontdiff linux-2.6.12post/drivers/net/bonding/bonding.h 
-> linux-2.6.12post-sysfs/drivers/net/bonding/bonding.h
-> --- linux-2.6.12post/drivers/net/bonding/bonding.h	2005-06-28 
-> 18:18:03.000000000 -0700
+You may be able to tune this with either arp_filter or arp_ignore.
 
-patch looks linewrapped :(
+> I have an interface with address 10.1.2.219 and mask 255.255.255.248 with
+> proxy arp turned on on this interface, and the machine is responding
+> (I see that with tcpdump) to arp requests for address 10.1.2.1, i.e.,
+> an address outside of the proxy interface's subnet.
 
-> +/* Bonding sysfs lock.  Why can't we just use the subsytem lock?
+Correct.
 
-The subsystem lock is no more.  Well, it's still around, but almost no
-one uses it, due to the klist changes.  You shouldn't need a lock
-either now.
+> Can anyone explain the behavior?
 
-> + * Because kobject_register tries to acquire the subsystem lock.  If
-> + * we already hold the lock (which we would if the user was creating
-> + * a new bond through the sysfs interface), we deadlock.
-> + */
-> +
-> +struct rw_semaphore bonding_rwsem;
-> +
-> +
-> +
-> +
-> +/*------------------------------ Functions 
-> --------------------------------*/
-> +
-> +/*
-> + * "show" function for the bond_masters attribute.
-> + * The class parameter is ignored.
-> + */
-> +static ssize_t bonding_show_bonds(struct class *cls, char *buffer)
-> +{
-> +	int res = 0;
-> +	struct bonding *bond;
-> +
-> +	down_read(&(bonding_rwsem));
-> +
-> +	list_for_each_entry(bond, &bond_dev_list, bond_list) {
-> +		res += sprintf(buffer + res, "%s ",
-> +			       bond->dev->name);
-> +		if (res > (PAGE_SIZE - IFNAMSIZ)) {
-> +			dprintk("eek! too many bonds!\n");
-> +			break;
-> +		}
-> +	}
-> +	res += sprintf(buffer + res, "\n");
-> +	res++;
-> +	up_read(&(bonding_rwsem));
-> +	return res;
+proxy_arp simply ARPs if there is a route for the requested destination 
+going out on another interface than where the ARP was seen.
 
-This violates the 1-value-per-sysfs file rule.  Please fix this up.
-
-> +static ssize_t bonding_show_slaves(struct class_device *cd, char *buf)
-> +{
-> +	struct slave *slave;
-> +	int i, res = 0;
-> +	struct bonding *bond = to_bond(cd);
-> +
-> +	down_read(&(bonding_rwsem));
-> +
-> +	read_lock_bh(&bond->lock);
-> +	bond_for_each_slave(bond, slave, i) {
-> +		res += sprintf(buf + res, "%s ", slave->dev->name);
-> +		if (res > (PAGE_SIZE - IFNAMSIZ)) {
-> +			dprintk("eek! too many slaves!\n");
-> +			break;
-> +		}
-> +	}
-> +	read_unlock_bh(&bond->lock);
-> +	res += sprintf(buf + res, "\n");
-> +        res++; 
-> +	up_read(&(bonding_rwsem));
-> +	return res;
-> +}
-
-Same sysfs violation.  I think other files also have problems :(
-
-thanks,
-
-greg k-h
+Regards
+Henrik
