@@ -1,62 +1,22 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [-mm patch] net/ieee80211/: remove pci.h #include's
-Date: Sun, 3 Jul 2005 01:51:09 +0200
-Message-ID: <20050702235109.GJ5346__34986.4487223842$1120348542$gmane$org@stusta.de>
+From: =?windows-1251?B?y+Dw6PHg?= <barbara@aon.at>
+Subject: =?windows-1251?B?0OXq6+Ds4CDk6/8gwuDx?=
+Date: Sun, 03 Jul 2005 17:52:53 +0000
+Message-ID: <966901c57ff8$70966fda$09daf3cd@aon.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jkmaline@cc.hut.fi, hostap@shmoo.com, netdev@oss.sgi.com,
-        linux-kernel@vger.kernel.org
+Content-Type: text/plain;
+    format=flowed;
+    charset="windows-1251";
+    reply-type=original
+Content-Transfer-Encoding: base64
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jgarzik@pobox.com
-Content-Disposition: inline
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I was wondering why editing pci.h triggered the rebuild of three files 
-under net/, and as far as I can see, there's no reason for these three 
-files to #include pci.h .
-
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
-
----
-
-This patch was already sent on:
-- 30 May 2005
-- 1 May 2005
-
- net/ieee80211/ieee80211_module.c |    1 -
- net/ieee80211/ieee80211_rx.c     |    1 -
- net/ieee80211/ieee80211_tx.c     |    1 -
- 3 files changed, 3 deletions(-)
-
---- linux-2.6.12-rc3-mm1-full/net/ieee80211/ieee80211_module.c.old	2005-04-30 23:23:14.000000000 +0200
-+++ linux-2.6.12-rc3-mm1-full/net/ieee80211/ieee80211_module.c	2005-04-30 23:23:18.000000000 +0200
-@@ -40,7 +40,6 @@
- #include <linux/kernel.h>
- #include <linux/module.h>
- #include <linux/netdevice.h>
--#include <linux/pci.h>
- #include <linux/proc_fs.h>
- #include <linux/skbuff.h>
- #include <linux/slab.h>
---- linux-2.6.12-rc3-mm1-full/net/ieee80211/ieee80211_tx.c.old	2005-04-30 23:23:25.000000000 +0200
-+++ linux-2.6.12-rc3-mm1-full/net/ieee80211/ieee80211_tx.c	2005-04-30 23:23:32.000000000 +0200
-@@ -33,7 +33,6 @@
- #include <linux/kernel.h>
- #include <linux/module.h>
- #include <linux/netdevice.h>
--#include <linux/pci.h>
- #include <linux/proc_fs.h>
- #include <linux/skbuff.h>
- #include <linux/slab.h>
---- linux-2.6.12-rc3-mm1-full/net/ieee80211/ieee80211_rx.c.old	2005-04-30 23:23:42.000000000 +0200
-+++ linux-2.6.12-rc3-mm1-full/net/ieee80211/ieee80211_rx.c	2005-04-30 23:23:46.000000000 +0200
-@@ -23,7 +23,6 @@
- #include <linux/kernel.h>
- #include <linux/module.h>
- #include <linux/netdevice.h>
--#include <linux/pci.h>
- #include <linux/proc_fs.h>
- #include <linux/skbuff.h>
- #include <linux/slab.h>
+zu/l8ODy6OLt4P8g5O7x8uDi6uAg8OXq6+Ds+yANCu3gIP3r5ery8O7t7fvlIP/56OroIO/u
+8uXt9ujg6/zt+/Ug6uvo5e3y7uIuDQoNCsz7IO/u7O7m5ewg6CDi4Owg8fLg8vwg6Ofi5fHy
+7fvs6CENCg0KDQppY3EgLSAyIDkgMiA1IDkgMyA5IDcgMw0Kc2l0ZSAtIDk5MTEud3MgDQp0
+ZWwgKzcgKDkwNSkgMjAzfjkwfjcyDQoNCg0KT3BlcmF0aXZuYWphIGRvc3RhdmthIHJla2xh
+bXkgDQpuYSBlbGVrdHJvbm55ZSBqYXNoaWtpIHBvdGVuY2lhbCdueWgga2xpZW50b3YuDQoN
+Ck15IHBvbW9qYGVtIGkgdmFtIHN0YXQnIGl6dmVzdG55bWkhDQoNCg0K
