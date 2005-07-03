@@ -1,22 +1,51 @@
-From: =?windows-1251?B?y+Dw6PHg?= <barbara@aon.at>
-Subject: =?windows-1251?B?0OXq6+Ds4CDk6/8gwuDx?=
-Date: Sun, 03 Jul 2005 17:52:53 +0000
-Message-ID: <966901c57ff8$70966fda$09daf3cd@aon.at>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] fix IP_FIB_HASH kconfig warning
+Date: Mon, 4 Jul 2005 00:20:02 +0200
+Message-ID: <20050703222002.GQ5346@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-    format=flowed;
-    charset="windows-1251";
-    reply-type=original
-Content-Transfer-Encoding: base64
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, zippel@linux-m68k.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261552AbVGCWUQ@vger.kernel.org>
+To: netdev@vger.kernel.org
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-zu/l8ODy6OLt4P8g5O7x8uDi6uAg8OXq6+Ds+yANCu3gIP3r5ery8O7t7fvlIP/56OroIO/u
-8uXt9ujg6/zt+/Ug6uvo5e3y7uIuDQoNCsz7IO/u7O7m5ewg6CDi4Owg8fLg8vwg6Ofi5fHy
-7fvs6CENCg0KDQppY3EgLSAyIDkgMiA1IDkgMyA5IDcgMw0Kc2l0ZSAtIDk5MTEud3MgDQp0
-ZWwgKzcgKDkwNSkgMjAzfjkwfjcyDQoNCg0KT3BlcmF0aXZuYWphIGRvc3RhdmthIHJla2xh
-bXkgDQpuYSBlbGVrdHJvbm55ZSBqYXNoaWtpIHBvdGVuY2lhbCdueWgga2xpZW50b3YuDQoN
-Ck15IHBvbW9qYGVtIGkgdmFtIHN0YXQnIGl6dmVzdG55bWkhDQoNCg0K
+[ This time with a subject... ]
+
+This patch fixes the following kconfig warning:
+  net/ipv4/Kconfig:92:warning: defaults for choice values not supported
+
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
+
+---
+
+I've Cc'ed Roman because I might have missed a more elegant solution.
+
+--- linux-2.6.13-rc1-mm1-full/net/ipv4/Kconfig.old	2005-07-02 20:07:25.000000000 +0200
++++ linux-2.6.13-rc1-mm1-full/net/ipv4/Kconfig	2005-07-02 20:13:05.000000000 +0200
+@@ -58,8 +58,9 @@
+ 	depends on IP_ADVANCED_ROUTER
+ 	default IP_FIB_HASH
+ 
+-config IP_FIB_HASH
++config ASK_IP_FIB_HASH
+ 	bool "FIB_HASH"
++	select IP_FIB_HASH
+ 	---help---
+ 	Current FIB is very proven and good enough for most users.
+ 
+@@ -84,12 +85,9 @@
+        
+ endchoice
+ 
+-# If the user does not enable advanced routing, he gets the safe
+-# default of the fib-hash algorithm.
+ config IP_FIB_HASH
+ 	bool
+-	depends on !IP_ADVANCED_ROUTER
+-	default y
++	default y if !IP_ADVANCED_ROUTER
+ 
+ config IP_MULTIPLE_TABLES
+ 	bool "IP: policy routing"
