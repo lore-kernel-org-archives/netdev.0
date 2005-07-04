@@ -1,35 +1,36 @@
-From: "David S. Miller" <davem@davemloft.net>
+From: Eric Dumazet <dada1@cosmosbay.com>
 Subject: Re: [TG3]: About hw coalescing infrastructure.
-Date: Mon, 04 Jul 2005 15:47:12 -0700 (PDT)
-Message-ID: <20050704.154712.63128211.davem@davemloft.net>
-References: <20050704.142604.18592223.davem@davemloft.net>
-	<42C9AC97.1020902@cosmosbay.com>
-	<42C9B8DB.7020403@cosmosbay.com>
+Date: Tue, 05 Jul 2005 00:47:56 +0200
+Message-ID: <42C9BC9C.9070700@cosmosbay.com>
+References: <42B982D4.9040704@cosmosbay.com>	<1119467012.5325.15.camel@rh4>	<42C9A884.1030906@cosmosbay.com> <20050704.142604.18592223.davem@davemloft.net> <42C9AC97.1020902@cosmosbay.com> <42C9B8DB.7020403@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mchan@broadcom.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: quoted-printable
+Cc: "David S. Miller" <davem@davemloft.net>, mchan@broadcom.com,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: dada1@cosmosbay.com
+To: Eric Dumazet <dada1@cosmosbay.com>
 In-Reply-To: <42C9B8DB.7020403@cosmosbay.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Tue, 05 Jul 2005 00:31:55 +0200
-
-> Oops, I forgot to tell you I applied the patch  : [TG3]: Eliminate all hw IRQ handler spinlocks.
+Eric Dumazet a =E9crit :
+>
+>=20
+> Oops, I forgot to tell you I applied the patch  : [TG3]: Eliminate all=20
+> hw IRQ handler spinlocks.
 > (Date: Fri, 03 Jun 2005 12:25:58 -0700 (PDT))
-> 
+>=20
 > Maybe I should revert to stock 2.6.12 tg3 driver ?
+>=20
+> Eric
+>=20
+>=20
 
-Please don't ever do stuff like that :-(  That makes the driver
-version, and any other information you report completely meaningless
-and useless.  You've just wasted a lot of our time.
+Oh well, I checked 2.6.13-rc1 and it contains this line in tg3_netif_stop=
+() :
 
-I have no idea to even know _WHICH_ IRQ spinlock patch you applied.
++   tp->dev->trans_start =3D jiffies; /* prevent tx timeout */
 
-The one that ended up in Linus's tree has many bug fixes and
-refinements.  The ones which were posted on netdev had many bugs and
-deadlocks which needed to be cured before pushing the change upstream.
+So I am trying driver 3.32 June 24, 2005, included in 2.6.13-rc1
