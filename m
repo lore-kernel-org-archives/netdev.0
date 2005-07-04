@@ -1,51 +1,29 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] fix IP_FIB_HASH kconfig warning
-Date: Mon, 4 Jul 2005 00:20:02 +0200
-Message-ID: <20050703222002.GQ5346@stusta.de>
+From: Zhu Yi <yi.zhu@intel.com>
+Subject: Re: ipw2100: more cleanups
+Date: Mon, 04 Jul 2005 13:49:05 +0800
+Message-ID: <1120456146.27821.85.camel@debian.sh.intel.com>
+References: <20050513214025.GA1863@elf.ucw.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, zippel@linux-m68k.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261552AbVGCWUQ@vger.kernel.org>
-To: netdev@vger.kernel.org
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: jketreno@linux.intel.com, netdev@oss.sgi.com, jbohac@suse.cz,
+        jbenc@suse.cz
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Pavel Machek <pavel@ucw.cz>
+In-Reply-To: <20050513214025.GA1863@elf.ucw.cz>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-[ This time with a subject... ]
+On Fri, 2005-05-13 at 23:40 +0200, Pavel Machek wrote:
+> More cleanups (relative to ipw2100-1.1.0 version). Highlights include
+> removing of two printk wrappers.
 
-This patch fixes the following kconfig warning:
-  net/ipv4/Kconfig:92:warning: defaults for choice values not supported
+[snip]
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> -static DEVICE_ATTR(bssinfo, S_IRUGO, show_bssinfo, NULL);
 
----
+Any special reason to remove these driver sysfs entries?
 
-I've Cc'ed Roman because I might have missed a more elegant solution.
-
---- linux-2.6.13-rc1-mm1-full/net/ipv4/Kconfig.old	2005-07-02 20:07:25.000000000 +0200
-+++ linux-2.6.13-rc1-mm1-full/net/ipv4/Kconfig	2005-07-02 20:13:05.000000000 +0200
-@@ -58,8 +58,9 @@
- 	depends on IP_ADVANCED_ROUTER
- 	default IP_FIB_HASH
- 
--config IP_FIB_HASH
-+config ASK_IP_FIB_HASH
- 	bool "FIB_HASH"
-+	select IP_FIB_HASH
- 	---help---
- 	Current FIB is very proven and good enough for most users.
- 
-@@ -84,12 +85,9 @@
-        
- endchoice
- 
--# If the user does not enable advanced routing, he gets the safe
--# default of the fib-hash algorithm.
- config IP_FIB_HASH
- 	bool
--	depends on !IP_ADVANCED_ROUTER
--	default y
-+	default y if !IP_ADVANCED_ROUTER
- 
- config IP_MULTIPLE_TABLES
- 	bool "IP: policy routing"
+Thanks,
+-yi
