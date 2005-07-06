@@ -1,74 +1,81 @@
-From: Zdenek Radouch <zdenek@rcn.com>
+From: Henrik Nordstrom <hno@marasystems.com>
 Subject: Re: controlling ARP Proxy scope?
-Date: Tue, 05 Jul 2005 21:55:29 -0400
-Message-ID: <3u3gb7$1no73u__30675.3272460357$1120615680$gmane$org@smtp05.mrf.mail.rcn.net>
-References: <3u3gb7$1mhk2i@smtp05.mrf.mail.rcn.net>
- <3u3gb7$1mhk2i@smtp05.mrf.mail.rcn.net> <Pine.LNX.4.61.0507022316310.26953@filer.marasystems.com>
+Date: Wed, 6 Jul 2005 04:20:32 +0200 (CEST)
+Message-ID: <Pine.LNX.4.61.0507060405300.26027@filer.marasystems.com>
+References: <3u3gb7$1mhk2i@smtp05.mrf.mail.rcn.net> <3u3gb7$1mhk2i@smtp05.mrf.mail.rcn.net>
+ <3u3gb7$1no73u@smtp05.mrf.mail.rcn.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
 Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Henrik Nordstrom <hno@marasystems.com>
-In-Reply-To: <Pine.LNX.4.61.0507022316310.26953@filer.marasystems.com>
-References: <3u3gb7$1mhk2i@smtp05.mrf.mail.rcn.net>
- <3u3gb7$1mhk2i@smtp05.mrf.mail.rcn.net>
+To: Zdenek Radouch <zdenek@rcn.com>
+In-Reply-To: <3u3gb7$1no73u@smtp05.mrf.mail.rcn.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-At 11:21 PM 7/2/05 +0200, Henrik Nordstrom wrote:
->On Fri, 1 Jul 2005, Zdenek Radouch wrote:
+On Tue, 5 Jul 2005, Zdenek Radouch wrote:
+
+>> proxy_arp simply ARPs if there is a route for the requested destination
+>> going out on another interface than where the ARP was seen.
 >
->> So, left with only a binary flag in /proc,  and network definition on the
->> interface,
->> I assumed (perhaps naively) that the arp would proxy only for the addresses
->> within the subnet defined for the interface (on which the proxy arp is
->> turned on).
->> However, that does not seem to be the case.
->
->You may be able to tune this with either arp_filter or arp_ignore.
+> In my case, the proxy replies to a request seen on the very same interface
+> to which the route points to.
 
-Unfortunately I can't.  Not without adding more code to what is quite
-obviously a bunch of kludgy patches for an ill-conceived ARP proxy design.
+Are you really sure on this? This part has always worked fine for me with 
+Linux proxy-arp and a large variety of different kernels.
 
->
->> I have an interface with address 10.1.2.219 and mask 255.255.255.248 with
->> proxy arp turned on on this interface, and the machine is responding
->> (I see that with tcpdump) to arp requests for address 10.1.2.1, i.e.,
->> an address outside of the proxy interface's subnet.
->
->Correct.
->
->> Can anyone explain the behavior?
->
->proxy_arp simply ARPs if there is a route for the requested destination 
->going out on another interface than where the ARP was seen.
+> I find the idea to proxy based on routing tables quite questionable.
 
-In my case, the proxy replies to a request seen on the very same interface
-to which the route points to.  That's wrong no matter how you look at it;
-this is a route to which this node will be routing, i.e., this node will be
-ARPing
-for this route address - it itself should not reply to such requests, nor
-could
-it ever successfully do so.
+So do I. The manual proxy-arp entries method suits me much better, but is 
+a pain due to lack of range support (probably why it got removed in 2.4)
 
-I find the idea to proxy based on routing tables quite questionable.  It
-may work
-is some pretty trivial cases, but will very obviously fail with a more complex
-configuration. I have seven or eight networks attached to the node, and I
-certainly do not want to proxy for every single address one may find in the
-routing tables.
+> It may work is some pretty trivial cases, but will very obviously fail 
+> with a more complex configuration.
 
-It is equally mind boggling to me how this could ever  work with a stack
-allowing
-source-based routing, that is, a stack allowing coexistence of multiple,
-possibly
-conflicting routing tables.  
+Haven't managed to find a single situation not solveable yet.. and this 
+involves pretty complex configurations..  I don't remember which of the 
+sysctls mentioned earlier did the trick, but once enabled things starts to 
+behave quite sanely even when there is multiple foreign networks 
+unexpectedly carried on the same Ethernet. IIRC the settings I settled for 
+was
 
-Sounds to me like I am going to have to rewrite the module.  It needs to be
-configured manually - the notion that it could work automagically, without
-external configuration is quite unrealistic, as one can see from the code
-in arp_filter and arp_ignore.
+   arp_ignore = 1
+   arp_announce = 1
 
-Thanks for the pointers.
--Zdenek
+> I have seven or eight networks attached to the node, and I certainly do 
+> not want to proxy for every single address one may find in the routing 
+> tables.
+
+Then don't.
+
+> It is equally mind boggling to me how this could ever work with a stack 
+> allowing source-based routing, that is, a stack allowing coexistence of 
+> multiple, possibly conflicting routing tables.
+
+Why not?
+
+> Sounds to me like I am going to have to rewrite the module.  It needs to be
+> configured manually
+
+Well, for most setups it does work automagically. Just bring up the 
+interfaces with the same IP, route the network out on the "main" interface 
+having most hosts and host (or subnet) route the other out the other 
+interface. ARP then follows automatically.
+
+But in messy networks or when your routing table is not correct then 
+sysctls is needed to restrict when to respond to stop you from responding 
+to ARP requests to outside/foreign networks.
+
+Probably isn't very hard to bring back the support for published proxy-arp 
+entries if needed. But without range support it's a pain to maitain in 
+most setups requiring proxy-arp as you then need an ARP entry for every 
+"other" station on each interface involved in proxy-arp, meaning that if 
+you proxy-arp a /24 network then you need 253 proxy-arp entries (one per 
+station, defining which interface it belongs on). In the normal situation 
+that you only act as a proxy-arp gateway for less than a handful stations 
+this is a significant administrative overhead compared to just configuring 
+routing which is required anyway.
+
+Regards
+Henrik
