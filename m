@@ -1,82 +1,50 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH 2.6.13-rc1 8/17] bonding: SYSFS INTERFACE (large)
-Date: Wed, 6 Jul 2005 12:52:32 -0700
-Message-ID: <20050706195232.GB18359@kroah.com>
-References: <Pine.LNX.4.61.0507011347060.17459@localhost.localdomain> <20050702081346.GA20789@kroah.com> <Pine.CYG.4.58.0507061138030.1208@mawilli1-desk2.amr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Radheka Godse <radheka.godse@intel.com>, netdev@oss.sgi.com
+From: Stuart Zilm <szilm@presinet.com>
+Subject: policy routing inconsistency
+Date: Wed, 6 Jul 2005 15:27:19 -0700
+Message-ID: <B98BE941-7E4B-47D9-AAB5-355E340BD3F9@presinet.com>
+Mime-Version: 1.0 (Apple Message framework v730)
+Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Mitch Williams <mitch.a.williams@intel.com>
-Content-Disposition: inline
-In-Reply-To: <Pine.CYG.4.58.0507061138030.1208@mawilli1-desk2.amr.corp.intel.com>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 06, 2005 at 11:53:13AM -0700, Mitch Williams wrote:
-> 
-> 
-> On Sat, 2 Jul 2005, Greg KH wrote:
-> 
-> >
-> > This violates the 1-value-per-sysfs file rule.  Please fix this up.
-> >
-> 
-> Thanks for looking at our patch, Greg.  We're aware of the "one value"
-> rule, but we really couldn't find any way to do what we wanted to do
-> any other way.  The kernel docs do indicate that it is "socially
-> acceptable to express an array of values of values of the same type",
-> which this certainly is.
-> 
-> In this particular case, the file /sys/class/net/bonding_masters contains
-> the names of all of the bonds in the system.  By default, the module
-> creates a single bond when it loads, thus:
-> 
-> $ cat bonding_masters
-> bond0
+While trying to do some policy routing recently I discovered an  
+inconsistency in the behavior that selects the source address by  
+route for locally generated outgoing packets.
+It seems that while routing occurs through the full policy database  
+(rules and routes), the routes source address is always looked up in  
+the main routing table.
 
-And, if you have a _lot_ of bonds, you will not show them all, right?
-That would not work well if you read the file, and then append a new one
-and write it back.
+For example:
 
-> You can add and remove bonds just by writing to the file.  In keeping with
-> the "array of types" concept, you must write the names of all active bonds
-> back to the file.  Thus,
-> 
-> $ echo "bond0 bond1" > bonding_masters
-> 
-> retains bond0 and adds bond1.  Likewise,
-> 
-> $ echo "bond1 bond2" > bonding_masters
-> 
-> retains bond1, deletes bond0, and adds bond2.
-> 
-> The slaves file in each bond's directory acts the same way, and is used to
-> add or remove slaves from each individual bond.
-> 
-> We discussed this design extensively before implementation, but really
-> couldn't come up with anything as elegant or easy to understand as this
-> scheme.  Since it really is an array of similar values, we are hoping that
-> it will be viewed as socially acceptable.
+DST=10.10.1.1
+SRC=10.10.1.2
 
-No.
+ip address add $SRC dev eth0 # this is a secondary address on the  
+interface
 
-How about this:
-	bond_add - write to this to add a new bond, one value only.
-	bond_remove - write to this to remove a bond that is present.
-	bonds/bond0
-	bonds/bond1
-	bonds/bond2
-	...
-		- list of bonds currently present.  If you want, you
-		  could make those bondX files directories, and put
-		  other info about the individual bonds in there, if you
-		  need it (I know nothing about the bonding intrerface,
-		  sorry.)
+# this works - the source selected is $SRC
+ip route add $DST dev eth0 src $SRC # implicit table main
 
-Would that work?
+# this fails - the source selected is chosen from main
+ip route del $DST dev eth0 src $SRC # implicit table main - NOTE: if  
+this route remains, this source address will be chosen (from table  
+main!)
+ip route add $SRC dev eth0 src $SRC table 1
+ip rule add fwmark 1 table 1
+iptables -t mangle -A OUTPUT -d $DST -j MARK --set-mark 1
 
-thanks,
+I expected my source to come from the route that matches and routes  
+my packets.  Instead, it seems like there is a separate lookup done  
+on table main directly to select the source.
+The behavior is the same on linux 2.4.30 and 2.6.8 kernels.
+Is this done intentionally?
+What I hoped to achieve was the ability to have two routes to the  
+same host, using different source addresses and select routes based  
+on packet marks.  Is that possible?
 
-greg k-h
+Stuart Zilm
+PresiNET Systems
