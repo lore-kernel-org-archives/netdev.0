@@ -1,17 +1,13 @@
-From: Stephen Hemminger <shemminger@osdl.org>
+From: Dmitry Torokhov <dtor_core@ameritech.net>
 Subject: Re: [PATCH 2.6.13-rc1 8/17] bonding: SYSFS INTERFACE (large)
-Date: Wed, 6 Jul 2005 12:02:02 -0700
-Message-ID: <20050706120202.6a048b14@dxpl.pdx.osdl.net>
-References: <Pine.LNX.4.61.0507011347060.17459@localhost.localdomain>
-	<200507020030.03635.dtor_core@ameritech.net>
-	<Pine.CYG.4.58.0507061126090.1208@mawilli1-desk2.amr.corp.intel.com>
+Date: Wed, 6 Jul 2005 12:09:06 -0700 (PDT)
+Message-ID: <20050706190906.74128.qmail@web81301.mail.yahoo.com>
+References: <Pine.CYG.4.58.0507061126090.1208@mawilli1-desk2.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Dmitry Torokhov <dtor_core@ameritech.net>, netdev@oss.sgi.com,
-        Radheka
- Godse <radheka.godse@intel.com>, fubar@us.ibm.com,
-        bonding-devel@lists.sourceforge.net
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: netdev@oss.sgi.com, Radheka Godse <radheka.godse@intel.com>,
+        fubar@us.ibm.com, bonding-devel@lists.sourceforge.net
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Mitch Williams <mitch.a.williams@intel.com>
 In-Reply-To: <Pine.CYG.4.58.0507061126090.1208@mawilli1-desk2.amr.corp.intel.com>
@@ -19,11 +15,7 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 6 Jul 2005 11:37:49 -0700
 Mitch Williams <mitch.a.williams@intel.com> wrote:
-
-> 
-> 
 > On Sat, 2 Jul 2005, Dmitry Torokhov wrote:
 > 
 > >
@@ -32,7 +24,8 @@ Mitch Williams <mitch.a.williams@intel.com> wrote:
 > 
 > > > +
 > > > +static struct class *netdev_class;
-> > > +/*--------------------------- Data Structures -----------------------------*/
+> > > +/*--------------------------- Data Structures
+> -----------------------------*/
 > > > +
 > > > +/* Bonding sysfs lock.  Why can't we just use the subsytem lock?
 > > > + * Because kobject_register tries to acquire the subsystem lock.  If
@@ -60,5 +53,20 @@ Mitch Williams <mitch.a.williams@intel.com> wrote:
 > 5) Boom.  Or rather, oops.
 > 
 > Thus, we have this lock.  I don't think that klists will help here.
+> 
 
-You need to use kobject ref counting then, not the semaphore.
+Semaphore will not help in scenario you described:
+
+1) process 'bar' opens /sys/class/net/bonding_masters
+2) process 'foo' opens /sys/class/net/bond1/mode
+3) process 'bar' starts to write to bonding_masters and
+   acquires semaphore
+3) process 'foo' tries to write and waits for semaphore
+   to become available
+3) process 'bar' finishes writing and removes bond1
+4) process 'foo' acquires the semaphore and continues with
+   write
+5) Boom.  Or rather, oops.
+
+-- 
+Dmitry 
