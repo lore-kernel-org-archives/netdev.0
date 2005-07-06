@@ -1,88 +1,79 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH] loop unrolling in net/sched/sch_generic.c
-Date: Wed, 6 Jul 2005 14:42:06 +0200
-Message-ID: <20050706124206.GW16076@postel.suug.ch>
-References: <20050705173411.GK16076@postel.suug.ch> <20050705.142210.14973612.davem@davemloft.net> <20050705213355.GM16076@postel.suug.ch> <20050705.143548.28788459.davem@davemloft.net> <42CB14B2.5090601@cosmosbay.com> <20050705234104.GR16076@postel.suug.ch> <42CB2698.2080904@cosmosbay.com> <42CB2B84.50702@cosmosbay.com>
+From: Henrik Nordstrom <hno@marasystems.com>
+Subject: Re: controlling ARP Proxy scope?
+Date: Wed, 6 Jul 2005 17:32:16 +0200 (CEST)
+Message-ID: <Pine.LNX.4.61.0507061718500.6628__18890.3774520897$1120664341$gmane$org@filer.marasystems.com>
+References: <3u3gb7$1no73u@smtp05.mrf.mail.rcn.net> <3u3gb7$1mhk2i@smtp05.mrf.mail.rcn.net>
+ <3u3gb7$1mhk2i@smtp05.mrf.mail.rcn.net> <3u3gb7$1no73u@smtp05.mrf.mail.rcn.net>
+ <3u3gb7$1npg80@smtp05.mrf.mail.rcn.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Eric Dumazet <dada1@cosmosbay.com>
-Content-Disposition: inline
-In-Reply-To: <42CB2B84.50702@cosmosbay.com>
+To: Zdenek Radouch <zdenek@rcn.com>
+In-Reply-To: <3u3gb7$1npg80@smtp05.mrf.mail.rcn.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Eric Dumazet <42CB2B84.50702@cosmosbay.com> 2005-07-06 02:53
+On Wed, 6 Jul 2005, Zdenek Radouch wrote:
 
-A short recap after some coffee and sleep:
+> Well, how do I tell it that I want to proxy for all machines on the
+> 192.168.13.128/29 net attached to eth0.5, but not for any of
+> the machines on 192.168.2.0/24 attached to eth0.6 ?
 
-The inital issue you brought up which you backed up with numbers
-is probably the cause of multiple wrong branch predictions due
-to the fact that I wrote skb = dequeue(); if (skb) which was
-assumed to be likely by the compiler. In your patch you fixed
-this with !skb_queue_empty() which fixed this wrong prediction
-and also acts as a little optimization due to skb_queue_empty()
-being really simple to implement for the compiler. The patch
-I posted should result in almost the same result, despite of
-the additional wrong branch prediction for the loop it always
-has one wrong prediction which is when we hit a non-empty queue.
-In your unrolled version you could optimize it even more by
-taking advantage that prio=2 is the most likely non-empty queue
-so you could change the check to likely and save a wrong branch
-prediction for the common case at the cost of a branch misprediction
-if all queues are empty.
+For whom going where?
 
-The patch I posted results in something like this:
+What is eth0.5? A tagged 802.1q vlan on eth0, or something else? (i.e. is 
+it a interface of it's own according to ip link show, or just an alias?)
 
-pfifo_fast_dequeue:
-	pushl	%ebx
-	xorl	%ecx, %ecx
-	movl	8(%esp), %ebx
-	leal	128(%ebx), %edx
-.L129:
-	movl	(%edx), %eax
-	cmpl	%edx, %eax
-	jne	.L132		; if (!skb_queue_empty())
-	incl	%ecx
-	addl	$20, %edx
-	cmpl	$2, %ecx
-	jle	.L129		; end of loop
-	xorl	%eax, %eax	; all queues empty
-.L117:
-	popl	%ebx
-	ret
+> It just occured to me that if I misunderstood the semantics, the setup
+> may be wrong.  I assumed that turning the proxy arp on on interface X
+> would make the interface X answer (proxy) the ARP queries.
+> Is that correct?
 
-I regard the miss here as acceptable for the increased flexibility
-we get. It can be optimized with a loop unrolling but my opinion
-is to try and avoid it if possible.
+Yes.
 
-Now your second thought is quite interesting, although it heavly
-depends on the fact that prio=2 is the most often used band. It
-will be interesting to see some numbers.
+>>> It is equally mind boggling to me how this could ever work with a stack
+>>> allowing source-based routing, that is, a stack allowing coexistence of
+>>> multiple, possibly conflicting routing tables.
+>>
+>> Why not?
+>
+> Because in rule-based routing, a table entries are only valid when the
+> corresponding
+> rule hits, based on the source address.  In the absence of a source address
+> as is the case of an ARP request, how could you possibly determine which
+> of the routing tables should be consulted to decide whether the ARP query
+> should be answered?
 
-> static struct sk_buff *
-> pfifo_fast_dequeue(struct Qdisc* qdisc)
-> {
->         struct sk_buff_head *list = qdisc_priv(qdisc);
->         struct sk_buff_head *best = NULL;
-> 
-> 	list += 2;
->         if (!skb_queue_empty(list))
->                 best = list;
->         list--;
->         if (!skb_queue_empty(list))
->                 best = list;
->         list--;
->         if (!skb_queue_empty(list))
->                 best = list;
+ARP requests do have valid source addresses, at least the normal ARP 
+queries. The duplicate IP check ARP requests and a few other obscure cases 
+don't.
 
-Here is what I mean, a likely() should be even better.
+> I agree that you wouldn't want to enter discrete addresses.
+> But it could be a simple command using the standard subnet notation:
+>
+> arp_proxy --add 10.1.2.0/24 [11:22:33:44:55:66]
+> (optional Eth address for 3rd party proxy ARP).
 
->         if (best) {
->                 qdisc->q.qlen--;
->                 return __skb_dequeue(best);
->                 }
->         return NULL;
-> }
+Which to my experience is all automatic from the routing table. But I do 
+remember some slight complications in source routed networks but nothing 
+major. Before arp_ignore existed I often used source routing as a 
+substitute for keeping proxy-ARP at bay but I don't remember the exact 
+details.
+
+I only experienced problems when there was other IP networks on the same 
+Ethernet but not known to the box. In this case I had to enable the 
+arp_ignore sysctl to stop answering "other" ARP queries for networks not 
+defined on the same Ethernet interface. I also used the arp_announce to 
+keep the source address of ARP responses under control.
+
+In addition in a setup which involved stations with IP addresses identical 
+to that of one of my own other Ethernet interfaces I had to hack the 
+kernel slightly to make it possible to ignore ARP duplicate IP check 
+packets on the relevant interfaces. But this is very special setup 
+involving NAT and other nastinesses which shouldn't be encountered in any 
+reasonably normal network situation.
+
+Regards
+Henrik
