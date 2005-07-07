@@ -1,7 +1,7 @@
 From: raghavendra.koushik@neterion.com
-Subject: [PATCH 2.6.12.1 6/12] S2io: Support for runtime MTU change
-Date: Thu,  7 Jul 2005 15:30:02 -0700 (PDT)
-Message-ID: <20050707223002.E452789826@linux.site>
+Subject: [PATCH 2.6.12.1 7/12] S2io: Timer based slow path handling
+Date: Thu,  7 Jul 2005 15:32:46 -0700 (PDT)
+Message-ID: <20050707223246.5D6FA89828@linux.site>
 Cc: raghavendra.koushik@neterion.com, ravinandan.arakali@neterion.com,
         leonid.grossman@neterion.com, rapuru.sriram@neterion.com
 Return-path: <netdev-bounce@oss.sgi.com>
@@ -11,62 +11,99 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 Hi,
-Patch below supports MTU change on-the-fly(without bringing interface
-down)
+This patch implements the slow-path handling functions(link
+state change, hardware errors) as a timer. It is not 
+handled in interrupt handler as was done previously.
+
 
 Signed-off-by: Ravinandan Arakali <ravinandan.arakali@neterion.com>
 Signed-off-by: Raghavendra Koushik <raghavendra.koushik@neterion.com>
 ---
-diff -uprN vanilla_kernel/drivers/net/s2io.c linux-2.6.12-rc6/drivers/net/s2io.c
---- vanilla_kernel/drivers/net/s2io.c	2005-06-28 02:04:52.000000000 -0700
-+++ linux-2.6.12-rc6/drivers/net/s2io.c	2005-06-28 02:07:26.000000000 -0700
-@@ -2850,6 +2850,7 @@ int s2io_xmit(struct sk_buff *skb, struc
- 	}
+diff -urpN vanilla_kernel/drivers/net/s2io.c linux-2.6.12-rc6/drivers/net/s2io.c
+--- vanilla_kernel/drivers/net/s2io.c	2005-06-28 02:59:46.000000000 -0700
++++ linux-2.6.12-rc6/drivers/net/s2io.c	2005-06-28 02:59:54.000000000 -0700
+@@ -167,6 +167,12 @@ static char ethtool_stats_keys[][ETH_GST
+ #define S2IO_TEST_LEN	sizeof(s2io_gstrings) / ETH_GSTRING_LEN
+ #define S2IO_STRINGS_LEN	S2IO_TEST_LEN * ETH_GSTRING_LEN
  
- 	txdp->Control_2 |= config->tx_intr_type;
++#define S2IO_TIMER_CONF(timer, handle, arg, exp)		\
++			init_timer(&timer);			\
++			timer.function = handle;		\
++			timer.data = (unsigned long) arg;	\
++			mod_timer(&timer, (jiffies + exp))	\
 +
- 	txdp->Control_1 |= (TXD_BUFFER0_SIZE(frg_len) |
- 			    TXD_GATHER_CODE_FIRST);
- 	txdp->Control_1 |= TXD_LIST_OWN_XENA;
-@@ -4247,14 +4248,6 @@ int s2io_ioctl(struct net_device *dev, s
- int s2io_change_mtu(struct net_device *dev, int new_mtu)
- {
- 	nic_t *sp = dev->priv;
--	XENA_dev_config_t __iomem *bar0 = sp->bar0;
--	register u64 val64;
--
--	if (netif_running(dev)) {
--		DBG_PRINT(ERR_DBG, "%s: Must be stopped to ", dev->name);
--		DBG_PRINT(ERR_DBG, "change its MTU\n");
--		return -EBUSY;
--	}
- 
- 	if ((new_mtu < MIN_MTU) || (new_mtu > S2IO_JUMBO_SIZE)) {
- 		DBG_PRINT(ERR_DBG, "%s: MTU size is invalid.\n",
-@@ -4262,11 +4255,22 @@ int s2io_change_mtu(struct net_device *d
- 		return -EPERM;
- 	}
- 
--	/* Set the new MTU into the PYLD register of the NIC */
--	val64 = new_mtu;
--	writeq(vBIT(val64, 2, 14), &bar0->rmac_max_pyld_len);
--
- 	dev->mtu = new_mtu;
-+	if (netif_running(dev)) {
-+		s2io_card_down(sp);
-+		netif_stop_queue(dev);
-+		if (s2io_card_up(sp)) {
-+			DBG_PRINT(ERR_DBG, "%s: Device bring up failed\n",
-+				  __FUNCTION__);
-+		}
-+		if (netif_queue_stopped(dev))
-+			netif_wake_queue(dev);
-+	} else { /* Device is down */
-+		XENA_dev_config_t __iomem *bar0 = sp->bar0;
-+		u64 val64 = new_mtu;
-+
-+		writeq(vBIT(val64, 2, 14), &bar0->rmac_max_pyld_len);
-+	}
- 
+ /*
+  * Constants to be programmed into the Xena's registers, to configure
+  * the XAUI.
+@@ -2742,6 +2748,7 @@ int s2io_open(struct net_device *dev)
+ setting_mac_address_failed:
+ 	free_irq(sp->pdev->irq, dev);
+ isr_registration_failed:
++	del_timer_sync(&sp->alarm_timer);
+ 	s2io_reset(sp);
+ hw_init_failed:
+ 	return err;
+@@ -2899,6 +2906,15 @@ int s2io_xmit(struct sk_buff *skb, struc
  	return 0;
  }
+ 
++static void
++s2io_alarm_handle(unsigned long data)
++{
++	nic_t *sp = (nic_t *)data;
++
++	alarm_intr_handler(sp);
++	mod_timer(&sp->alarm_timer, jiffies + HZ / 2);
++}
++
+ /**
+  *  s2io_isr - ISR handler of the device .
+  *  @irq: the irq of the device.
+@@ -2943,9 +2959,6 @@ static irqreturn_t s2io_isr(int irq, voi
+ 		return IRQ_NONE;
+ 	}
+ 
+-	if (reason & (GEN_ERROR_INTR))
+-		alarm_intr_handler(sp);
+-
+ #ifdef CONFIG_S2IO_NAPI
+ 	if (reason & GEN_INTR_RXTRAFFIC) {
+ 		if (netif_rx_schedule_prep(dev)) {
+@@ -4395,6 +4408,7 @@ static void s2io_card_down(nic_t * sp)
+ 	unsigned long flags;
+ 	register u64 val64 = 0;
+ 
++	del_timer_sync(&sp->alarm_timer);
+ 	/* If s2io_set_link task is executing, wait till it completes. */
+ 	while (test_and_set_bit(0, &(sp->link_state))) {
+ 		msleep(50);
+@@ -4497,6 +4511,8 @@ static int s2io_card_up(nic_t * sp)
+ 		return -ENODEV;
+ 	}
+ 
++	S2IO_TIMER_CONF(sp->alarm_timer, s2io_alarm_handle, sp, (HZ/2));
++
+ 	atomic_set(&sp->card_state, CARD_UP);
+ 	return 0;
+ }
+diff -urpN vanilla_kernel/drivers/net/s2io.h linux-2.6.12-rc6/drivers/net/s2io.h
+--- vanilla_kernel/drivers/net/s2io.h	2005-06-28 02:59:46.000000000 -0700
++++ linux-2.6.12-rc6/drivers/net/s2io.h	2005-06-28 02:59:54.000000000 -0700
+@@ -624,6 +624,9 @@ struct s2io_nic {
+ 	struct tasklet_struct task;
+ 	volatile unsigned long tasklet_status;
+ 
++	/* Timer that handles I/O errors/exceptions */
++	struct timer_list alarm_timer;
++
+ 	/* Space to back up the PCI config space */
+ 	u32 config_space[256 / sizeof(u32)];
+ 
+@@ -819,6 +822,7 @@ static int s2io_poll(struct net_device *
+ #endif
+ static void s2io_init_pci(nic_t * sp);
+ int s2io_set_mac_addr(struct net_device *dev, u8 * addr);
++static void s2io_alarm_handle(unsigned long data);
+ static irqreturn_t s2io_isr(int irq, void *dev_id, struct pt_regs *regs);
+ static int verify_xena_quiescence(nic_t *sp, u64 val64, int flag);
+ static struct ethtool_ops netdev_ethtool_ops;
