@@ -1,74 +1,66 @@
-From: "Ravinandan Arakali" <ravinandan.arakali@neterion.com>
-Subject: RE: [PATCH 2.6.12.1 5/12] S2io: Performance improvements
-Date: Fri, 8 Jul 2005 11:17:29 -0700
-Message-ID: <000201c583e9$4dad0350$3910100a@pc.s2io.com>
-References: <Pine.LNX.4.61.0507080816070.24321@resonance.WorkGroup>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [-mm patch] is_broadcast_ether_addr() is still required
+Date: Fri, 8 Jul 2005 22:07:04 +0200
+Message-ID: <20050708200704.GH3671@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: <jgarzik@pobox.com>, <netdev@oss.sgi.com>, <netdev@vger.kernel.org>,
-        <leonid.grossman@neterion.com>, <rapuru.sriram@neterion.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "'Arthur Kepner'" <akepner@sgi.com>,
-        "'Raghavendra Koushik'" <raghavendra.koushik@neterion.com>
-In-Reply-To: <Pine.LNX.4.61.0507080816070.24321@resonance.WorkGroup>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Bernhard Rosenkraenzer <bero@arklinux.org>,
+	linux-kernel@vger.kernel.org, jgarzik@pobox.com,
+	netdev@vger.kernel.org, ipw2100-admin@linux.intel.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262855AbVGHUML@vger.kernel.org>
+To: akpm@osdl.org
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Arthur/David/Jeff,
-Thanks for pointing that out. We will wait for any other comments
-on our 12 patches. If there are no other, will send out a patch13
-to include the mmiowb() change.
+This patch by Bernhard Rosenkraenzer <bero@arklinux.org> is still 
+required to fix the following compile error:
 
-Thanks,
-Ravi
+<--  snip  -->
 
------Original Message-----
-From: Arthur Kepner [mailto:akepner@sgi.com]
-Sent: Friday, July 08, 2005 8:31 AM
-To: Raghavendra Koushik
-Cc: jgarzik@pobox.com; netdev@oss.sgi.com; netdev@vger.kernel.org;
-ravinandan.arakali@neterion.com; leonid.grossman@neterion.com;
-rapuru.sriram@neterion.com
-Subject: RE: [PATCH 2.6.12.1 5/12] S2io: Performance improvements
+...
+  CC      drivers/net/wireless/ipw2200.o
+...
+drivers/net/wireless/ipw2200.c: In function `ipw_rx':
+drivers/net/wireless/ipw2200.c:4937: warning: implicit declaration of function `is_broadcast_ether_addr'
+...
+  CC      net/ieee80211/ieee80211_tx.o
+net/ieee80211/ieee80211_tx.c: In function `ieee80211_xmit':
+net/ieee80211/ieee80211_tx.c:341: warning: implicit declaration of function `is_broadcast_ether_addr'
+...
+  LD      .tmp_vmlinux1
+drivers/built-in.o(.text+0x422abc): In function `ipw_rx':
+: undefined reference to `is_broadcast_ether_addr'
+drivers/built-in.o(.text+0x4233f6): In function `ipw_rx':
+: undefined reference to `is_broadcast_ether_addr'
+drivers/built-in.o(.text+0x426b9f): In function 
+`ipw_net_hard_start_xmit':
+: undefined reference to `is_broadcast_ether_addr'
+drivers/built-in.o(.text+0x426f9d): In function 
+`ipw_net_hard_start_xmit':
+: undefined reference to `is_broadcast_ether_addr'
+net/built-in.o(.text+0x1e73c6): In function `ieee80211_xmit':
+: undefined reference to `is_broadcast_ether_addr'
+make: *** [.tmp_vmlinux1] Error 1
+
+<--  snip  -->
 
 
-On Thu, 7 Jul 2005, Raghavendra Koushik wrote:
+is_broadcast_ether_addr() was removed but it's still used.
 
-> ....
-> On an Altix machine I believe the readq was necessary to flush 
-> the PIO writes. How long did you run the tests? I had seen
-> in long duration tests that an occasional write 
-> (TXDL control word and the address) would be missed and the xmit
-> Get's stuck.
-> 
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-The most recent tests I did used pktgen, and they ran for a total 
-time of ~.5 hours (changing pkt_size every 30 seconds or so). The 
-pktgen tests and other tests (like nttcp) have been run several times, 
-so I've exercised the card for a total of several hours without 
-any problems.
-
-> 
-> > 
-> > FWIW, I've done quite a few performance measurements with the patch 
-> > I posted earlier, and it's worked well. For 1500 byte mtus throughput 
-> > goes up by ~20%. Is even the mmiowb() unnecessary?
-> > 
-> 
-> Was this on 2.4 kernel because I think the readq would not have a 
-> significant impact on 2.6 kernels due to TSO.
-> (with TSO on the number of packets that actually enter the 
-> Xmit routine would be reduced apprx 40 times).
-> .....
-
-This was with a 2.6 kernel (with TSO on). PIO reads are pretty 
-expensive on Altix, so eliminating them really helps us. 
-
-For big mtus (>=4KBytes) the benefit of replacing the readq()
-with mmiowb() in s2io_xmit() is negligible. 
-
---
-Arthur
+--- linux-2.6.13-rc1/include/net/ieee80211.h.ark	2005-07-01 17:46:22.000000000 +0200
++++ linux-2.6.13-rc1/include/net/ieee80211.h	2005-07-01 17:47:26.000000000 +0200
+@@ -627,6 +627,11 @@
+ #define MAC_FMT "%02x:%02x:%02x:%02x:%02x:%02x"
+ #define MAC_ARG(x) ((u8*)(x))[0],((u8*)(x))[1],((u8*)(x))[2],((u8*)(x))[3],((u8*)(x))[4],((u8*)(x))[5]
+ 
++extern inline int is_broadcast_ether_addr(const u8 *addr)
++{
++	return ((addr[0] == 0xff) && (addr[1] == 0xff) && (addr[2] == 0xff) &&
++		(addr[3] == 0xff) && (addr[4] == 0xff) && (addr[5] == 0xff));
++}
+ 
+ #define CFG_IEEE80211_RESERVE_FCS (1<<0)
+ #define CFG_IEEE80211_COMPUTE_FCS (1<<1)
