@@ -1,66 +1,24 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [-mm patch] is_broadcast_ether_addr() is still required
-Date: Fri, 8 Jul 2005 22:07:04 +0200
-Message-ID: <20050708200704.GH3671@stusta.de>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [-mm patch] is_broadcast_ether_addr() is still required
+Date: Fri, 8 Jul 2005 13:45:43 -0700
+Message-ID: <20050708134543.1e5fa440.akpm@osdl.org>
+References: <20050708200704.GH3671@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Bernhard Rosenkraenzer <bero@arklinux.org>,
-	linux-kernel@vger.kernel.org, jgarzik@pobox.com,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bero@arklinux.org, linux-kernel@vger.kernel.org, jgarzik@pobox.com,
 	netdev@vger.kernel.org, ipw2100-admin@linux.intel.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262855AbVGHUML@vger.kernel.org>
-To: akpm@osdl.org
-Content-Disposition: inline
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262893AbVGHUvZ@vger.kernel.org>
+To: Adrian Bunk <bunk@stusta.de>
+In-Reply-To: <20050708200704.GH3671@stusta.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch by Bernhard Rosenkraenzer <bero@arklinux.org> is still 
-required to fix the following compile error:
+Adrian Bunk <bunk@stusta.de> wrote:
+>
+> This patch by Bernhard Rosenkraenzer <bero@arklinux.org> is still 
+> required to fix the following compile error:
 
-<--  snip  -->
-
-...
-  CC      drivers/net/wireless/ipw2200.o
-...
-drivers/net/wireless/ipw2200.c: In function `ipw_rx':
-drivers/net/wireless/ipw2200.c:4937: warning: implicit declaration of function `is_broadcast_ether_addr'
-...
-  CC      net/ieee80211/ieee80211_tx.o
-net/ieee80211/ieee80211_tx.c: In function `ieee80211_xmit':
-net/ieee80211/ieee80211_tx.c:341: warning: implicit declaration of function `is_broadcast_ether_addr'
-...
-  LD      .tmp_vmlinux1
-drivers/built-in.o(.text+0x422abc): In function `ipw_rx':
-: undefined reference to `is_broadcast_ether_addr'
-drivers/built-in.o(.text+0x4233f6): In function `ipw_rx':
-: undefined reference to `is_broadcast_ether_addr'
-drivers/built-in.o(.text+0x426b9f): In function 
-`ipw_net_hard_start_xmit':
-: undefined reference to `is_broadcast_ether_addr'
-drivers/built-in.o(.text+0x426f9d): In function 
-`ipw_net_hard_start_xmit':
-: undefined reference to `is_broadcast_ether_addr'
-net/built-in.o(.text+0x1e73c6): In function `ieee80211_xmit':
-: undefined reference to `is_broadcast_ether_addr'
-make: *** [.tmp_vmlinux1] Error 1
-
-<--  snip  -->
-
-
-is_broadcast_ether_addr() was removed but it's still used.
-
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
-
---- linux-2.6.13-rc1/include/net/ieee80211.h.ark	2005-07-01 17:46:22.000000000 +0200
-+++ linux-2.6.13-rc1/include/net/ieee80211.h	2005-07-01 17:47:26.000000000 +0200
-@@ -627,6 +627,11 @@
- #define MAC_FMT "%02x:%02x:%02x:%02x:%02x:%02x"
- #define MAC_ARG(x) ((u8*)(x))[0],((u8*)(x))[1],((u8*)(x))[2],((u8*)(x))[3],((u8*)(x))[4],((u8*)(x))[5]
- 
-+extern inline int is_broadcast_ether_addr(const u8 *addr)
-+{
-+	return ((addr[0] == 0xff) && (addr[1] == 0xff) && (addr[2] == 0xff) &&
-+		(addr[3] == 0xff) && (addr[4] == 0xff) && (addr[5] == 0xff));
-+}
- 
- #define CFG_IEEE80211_RESERVE_FCS (1<<0)
- #define CFG_IEEE80211_COMPUTE_FCS (1<<1)
+I think this problem is due to my failure to navigate the miasma of Jeff's
+git trees.  I need to go in and look at all his branches and work out
+what's missing.
