@@ -1,109 +1,44 @@
-From: Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>
-Subject: Re: [PATCH] loop unrolling in net/sched/sch_generic.c
-Date: Fri, 8 Jul 2005 08:08:54 -0300
-Message-ID: <39e6f6c7050708040877702f6f@mail.gmail.com>
-References: <20050706124206.GW16076@postel.suug.ch>
-	 <20050707.141718.85410359.davem@davemloft.net>
-	 <42CE22CE.7030902@cosmosbay.com>
-	 <20050708.003014.125896217.davem@davemloft.net>
-	 <42CE3722.3070208@cosmosbay.com>
-Reply-To: Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>
+From: Paul Mackerras <paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>
+Subject: Re: [Fwd: [patch 02/15] ppp_mppe: add PPP MPPE encryption module]
+Date: Fri, 8 Jul 2005 22:57:15 +1000
+Message-ID: <17102.30763.326707.473425@cargo.ozlabs.ibm.com>
+References: <42B747C9.7060901@pobox.com>
+	<17102.26269.264419.345257@cargo.ozlabs.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="----=_Part_1221_18469590.1120820934586"
-Cc: "David S. Miller" <davem@davemloft.net>, tgraf@suug.ch, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Eric Dumazet <dada1@cosmosbay.com>
-In-Reply-To: <42CE3722.3070208@cosmosbay.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm-3NddpPZAyC0@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Matt_Domsch-8PEkshWhKlo@public.gmane.org, Brice.Goglin-vYW+cPY1g1pg9hUCZPvPmw@public.gmane.org,
+	james.cameron-VXdhtT5mjnY@public.gmane.org, pptpclient-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Return-path: <pptpclient-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
+In-Reply-To: <17102.26269.264419.345257-UYQwCShxghk5kJ7NmlRacFaTQe2KTcn/@public.gmane.org>
+Sender: pptpclient-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Errors-To: pptpclient-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/pptpclient-devel>,
+	<mailto:pptpclient-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Post: <mailto:pptpclient-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:pptpclient-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/pptpclient-devel>,
+	<mailto:pptpclient-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=pptpclient-devel>
 List-Id: netdev.vger.kernel.org
 
-------=_Part_1221_18469590.1120820934586
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+To follow up on my comments on the mppe patch, it still misses the
+most important thing, which is to make sure you don't send unencrypted
+data if CCP should go down.  A received CCP TermReq or TermAck will
+clear the SC_DECOMP_RUN flag and the code will then ignore the
+xcomp->must_compress flag.
 
-On 7/8/05, Eric Dumazet <dada1@cosmosbay.com> wrote:
->=20
-> David S. Miller a =E9crit :
-> > From: Eric Dumazet <dada1@cosmosbay.com>
-> > Date: Fri, 08 Jul 2005 08:53:02 +0200
-> >
-> >
-> >>About making sk_buff smaller, I use this patch to declare 'struct
-> >>sec_path *sp' only ifdef CONFIG_XFRM, what do you think ? I also
-> >>use a patch to declare nfcache, nfctinfo and nfct only if
-> >>CONFIG_NETFILTER_CONNTRACK or CONFIG_NETFILTER_CONNTRACK_MODULE are
-> >>defined, but thats more intrusive. Also, tc_index is not used if
-> >>CONFIG_NET_SCHED only is declared but none of CONFIG_NET_SCH_* In my
-> >>case, I am using CONFIG_NET_SCHED only to be able to do : tc -s -d
-> >>qdisc
-> >
-> >
-> > Distributions enable all of the ifdefs, and that is thus the
-> > size and resultant performance most users see.
->=20
-> Well, I had this idea because I found another similar use in=20
-> include/linux/ip.h
->=20
-> struct inet_sock {
-> /* sk and pinet6 has to be the first two members of inet_sock */
-> struct sock sk;
-> #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-> struct ipv6_pinfo *pinet6;
-> #endif
+I really think there should be another flag bit set by pppd to say
+"must compress" rather than relying on the compressor telling you
+that.
+
+Paul.
 
 
-
-/me pleads guilty, Dave, any problem with removing this #ifdef? Humm, I'll=
-=20
-think about using
-the skb_alloc_extension() idea for struct sock, but this pinet6 sucker is a=
-=20
-bit more difficult I guess...
-
-- Arnaldo
-
-------=_Part_1221_18469590.1120820934586
-Content-Type: text/html; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
-
-<br><br><div><span class=3D"gmail_quote">On 7/8/05, <b class=3D"gmail_sende=
-rname">Eric Dumazet</b> &lt;<a href=3D"mailto:dada1@cosmosbay.com">dada1@co=
-smosbay.com</a>&gt; wrote:</span><blockquote class=3D"gmail_quote" style=3D=
-"border-left: 1px solid rgb(204, 204, 204); margin: 0pt 0pt 0pt 0.8ex; padd=
-ing-left: 1ex;">
-David S. Miller a =E9crit :<br>&gt; From: Eric Dumazet &lt;<a href=3D"mailt=
-o:dada1@cosmosbay.com">dada1@cosmosbay.com</a>&gt;<br>&gt; Date: Fri, 08 Ju=
-l 2005 08:53:02 +0200<br>&gt;<br>&gt;<br>&gt;&gt;About making sk_buff small=
-er, I use this patch to declare 'struct
-<br>&gt;&gt;sec_path *sp' only ifdef CONFIG_XFRM, what do you think ?&nbsp;=
-&nbsp;I also<br>&gt;&gt;use a patch to declare nfcache, nfctinfo and nfct o=
-nly if<br>&gt;&gt;CONFIG_NETFILTER_CONNTRACK or CONFIG_NETFILTER_CONNTRACK_=
-MODULE are
-<br>&gt;&gt;defined, but thats more intrusive.&nbsp;&nbsp;Also, tc_index is=
- not used if<br>&gt;&gt;CONFIG_NET_SCHED only is declared but none of CONFI=
-G_NET_SCH_* In my<br>&gt;&gt;case, I am using CONFIG_NET_SCHED only to be a=
-ble to do : tc -s -d
-<br>&gt;&gt;qdisc<br>&gt;<br>&gt;<br>&gt; Distributions enable all of the i=
-fdefs, and that is thus the<br>&gt; size and resultant performance most use=
-rs see.<br><br>Well, I had this idea because I found another similar use in=
- include/linux/ip.h
-<br><br>struct inet_sock {<br>&nbsp;&nbsp;&nbsp;&nbsp; /* sk and pinet6 has=
- to be the first two members of inet_sock */<br>&nbsp;&nbsp;&nbsp;&nbsp; st=
-ruct sock&nbsp;&nbsp;&nbsp;&nbsp; sk;<br>#if defined(CONFIG_IPV6) || define=
-d(CONFIG_IPV6_MODULE)<br>&nbsp;&nbsp;&nbsp;&nbsp; struct ipv6_pinfo&nbsp;&n=
-bsp; *pinet6;
-<br>#endif</blockquote><div><br>
-<br>
-/me pleads guilty, Dave, any problem with removing this #ifdef? Humm, I'll =
-think about using<br>
-the skb_alloc_extension() idea for struct sock, but this pinet6 sucker is a=
- bit more difficult I guess...<br>
-<br>
-- Arnaldo<br>
-</div><br></div>
-
-------=_Part_1221_18469590.1120820934586--
+-------------------------------------------------------
+This SF.Net email is sponsored by the 'Do More With Dual!' webinar happening
+July 14 at 8am PDT/11am EDT. We invite you to explore the latest in dual
+core and dual graphics technology at this free one hour event hosted by HP, 
+AMD, and NVIDIA.  To register visit http://www.hp.com/go/dualwebinar
