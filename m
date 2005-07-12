@@ -1,63 +1,32 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [-mm patch] net/ieee80211/: remove pci.h #include's
-Date: Tue, 12 Jul 2005 22:27:40 +0200
-Message-ID: <20050712202740.GL4034@stusta.de>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [PATCH 2.6.12.1 5/12] S2io: Performance improvements
+Date: Tue, 12 Jul 2005 21:27:54 +0100
+Message-ID: <20050712202754.GA10768@infradead.org>
+References: <20050707222741.71C3E89826@linux.site>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, jkmaline@cc.hut.fi, hostap@shmoo.com,
-        netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com, ravinandan.arakali@neterion.com,
+        leonid.grossman@neterion.com, rapuru.sriram@neterion.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>
+To: raghavendra.koushik@neterion.com
 Content-Disposition: inline
+In-Reply-To: <20050707222741.71C3E89826@linux.site>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I was wondering why editing pci.h triggered the rebuild of three files 
-under net/, and as far as I can see, there's no reason for these three 
-files to #include pci.h .
+> 3. Enable two-buffer mode(for Rx path) automatically for SGI
+>    systems. This improves Rx performance dramatically on 
+>    SGI systems.
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> +/* Enable 2 buffer mode by default for SGI system */
+> +#ifdef CONFIG_IA64_SGI_SN2
+> +#define CONFIG_2BUFF_MODE
+> +#endif
 
----
+this enabled it only on kernel that are built to only run on SN2
+hardware, which is completely useless in practice.  Besides that defining
+a CONFIG_ symbol from source files is a big no-go.
 
-This patch was already sent on:
-- 3 Jul 2005
-- 30 May 2005
-- 1 May 2005
-
- net/ieee80211/ieee80211_module.c |    1 -
- net/ieee80211/ieee80211_rx.c     |    1 -
- net/ieee80211/ieee80211_tx.c     |    1 -
- 3 files changed, 3 deletions(-)
-
---- linux-2.6.12-rc3-mm1-full/net/ieee80211/ieee80211_module.c.old	2005-04-30 23:23:14.000000000 +0200
-+++ linux-2.6.12-rc3-mm1-full/net/ieee80211/ieee80211_module.c	2005-04-30 23:23:18.000000000 +0200
-@@ -40,7 +40,6 @@
- #include <linux/kernel.h>
- #include <linux/module.h>
- #include <linux/netdevice.h>
--#include <linux/pci.h>
- #include <linux/proc_fs.h>
- #include <linux/skbuff.h>
- #include <linux/slab.h>
---- linux-2.6.12-rc3-mm1-full/net/ieee80211/ieee80211_tx.c.old	2005-04-30 23:23:25.000000000 +0200
-+++ linux-2.6.12-rc3-mm1-full/net/ieee80211/ieee80211_tx.c	2005-04-30 23:23:32.000000000 +0200
-@@ -33,7 +33,6 @@
- #include <linux/kernel.h>
- #include <linux/module.h>
- #include <linux/netdevice.h>
--#include <linux/pci.h>
- #include <linux/proc_fs.h>
- #include <linux/skbuff.h>
- #include <linux/slab.h>
---- linux-2.6.12-rc3-mm1-full/net/ieee80211/ieee80211_rx.c.old	2005-04-30 23:23:42.000000000 +0200
-+++ linux-2.6.12-rc3-mm1-full/net/ieee80211/ieee80211_rx.c	2005-04-30 23:23:46.000000000 +0200
-@@ -23,7 +23,6 @@
- #include <linux/kernel.h>
- #include <linux/module.h>
- #include <linux/netdevice.h>
--#include <linux/pci.h>
- #include <linux/proc_fs.h>
- #include <linux/skbuff.h>
- #include <linux/slab.h>
+What exactly is the 2buff mode, and more specific what are the downsides
+of  enabling it on non-SGI hardware?
