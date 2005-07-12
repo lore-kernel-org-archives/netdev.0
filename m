@@ -1,26 +1,47 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [PATCH 2.6.12.1 5/12] S2io: Performance improvements
-Date: 12 Jul 2005 23:26:41 +0200
-Message-ID: <p73irzf1zse.fsf@bragg.suse.de>
-References: <20050712.133404.52118192.davem@davemloft.net>
-	<000a01c58724$ca41a7c0$4f10100a@pc.s2io.com>
-	<20050712.140411.41107257.davem@davemloft.net>
-	<20050712210704.GA11622@infradead.org>
+From: "Ravinandan Arakali" <ravinandan.arakali@neterion.com>
+Subject: RE: [PATCH 2.6.12.1 5/12] S2io: Performance improvements
+Date: Tue, 12 Jul 2005 14:54:28 -0700
+Message-ID: <000c01c5872c$47829c60$4f10100a@pc.s2io.com>
+References: <20050712.140411.41107257.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <hch@infradead.org>, <raghavendra.koushik@neterion.com>,
+        <jgarzik@pobox.com>, <netdev@oss.sgi.com>,
+        <leonid.grossman@neterion.com>, <rapuru.sriram@neterion.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Christoph Hellwig <hch@infradead.org>
-In-Reply-To: <20050712210704.GA11622@infradead.org>
+To: "'David S. Miller'" <davem@davemloft.net>
+In-Reply-To: <20050712.140411.41107257.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Christoph Hellwig <hch@infradead.org> writes:
-> 
-> And that doesn't help either, CONFIG_IA64_SGI_SN2 isn't used in practice,
-> any production Altix with 26 kernels runs CONFIG_IA64_GENERIC kernels.
+Okay, got it. Will submit patch on Kconfig file after the macro
+for SGI platforms is confirmed.
 
-At least SLES9/ia64 has a SN2 kernel.
+Ravi
 
--Andi
+-----Original Message-----
+From: David S. Miller [mailto:davem@davemloft.net]
+Sent: Tuesday, July 12, 2005 2:04 PM
+To: ravinandan.arakali@neterion.com
+Cc: hch@infradead.org; raghavendra.koushik@neterion.com;
+jgarzik@pobox.com; netdev@oss.sgi.com; leonid.grossman@neterion.com;
+rapuru.sriram@neterion.com
+Subject: Re: [PATCH 2.6.12.1 5/12] S2io: Performance improvements
+
+
+From: "Ravinandan Arakali" <ravinandan.arakali@neterion.com>
+Subject: RE: [PATCH 2.6.12.1 5/12] S2io: Performance improvements
+Date: Tue, 12 Jul 2005 14:00:52 -0700
+
+> The two-buffer mode was added as a configurable option
+> to Kconfig file several months ago. Hence the macro
+> is CONFIG_2BUFF_MODE.
+
+We're saying that you should choose CONFIG_2BUFF_MODE, when
+CONFIG_IA64_SGI_SN2 is set, inside the Kconfig file using the
+"default" Kconfig directive.
+
+You should never change the setting of CONFIG_* macros in C source.
