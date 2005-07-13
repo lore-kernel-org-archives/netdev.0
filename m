@@ -1,69 +1,34 @@
-From: David Hollis <dhollis@davehollis.com>
-Subject: Re: [PATCH] forcedeth: Additional ethtool support
-Date: Wed, 13 Jul 2005 08:39:21 -0400
-Message-ID: <1121258362.5023.1.camel@dhollis-lnx.sunera.com>
-References: <42D101EC.6000608@colorfullife.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-Z/rD2cz0FCO9rdb3WWp/"
-Cc: Jeff Garzik <jgarzik@pobox.com>, Netdev <netdev@oss.sgi.com>,
-        renaud.lienhart@free.fr
+From: "Lyris ListManager" <lyris-admin@list.pta.org>
+Subject: re: your email message
+Date: Wed, 13 Jul 2005 08:34:51 -0500
+Message-ID: <LYRIS0-1121261691--379-lyris-admin@list.pta.org>
+Reply-To: "Lyris ListManager" <lyris-admin@list.pta.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Manfred Spraul <manfred@colorfullife.com>
-In-Reply-To: <42D101EC.6000608@colorfullife.com>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+The following lines in your email message did not appear to be
+Lyris ListManager commands and were skipped:
 
---=-Z/rD2cz0FCO9rdb3WWp/
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+> This is a multi-part message in MIME format.
+> ------=_NextPart_000_0006_CA98A22F.3D416EC6
+> Content-Type: text/plain;
+> 	charset=us-ascii
+> Content-Transfer-Encoding: 7bit
+> Message could not be delivered
+> ------=_NextPart_000_0006_CA98A22F.3D416EC6
+> Content-Type: plain/text;
+> 	name="DELETED0.TXT"
+> Content-Transfer-Encoding: base64
+> Content-Disposition: attachment;
+> 	filename="DELETED0.TXT"
+> RmlsZSBhdHRhY2htZW50OiBsZ2t4YnhuLnppcA0KDQpUaGUgZmlsZSBhdHRhY2hlZCB0byB0
+> aGlzIGVtYWlsIHdhcyByZW1vdmVkIGJlY2F1c2UgZmlsZXMgb2YgdGhpcyB0eXBlIGFyZSBu
+> b3QgYWNjZXB0ZWQgZm9yIGRlbGl2ZXJ5IGJ5IHlvdXIgZW1haWwgZ2F0ZXdheS4NCg==
+> ------=_NextPart_000_0006_CA98A22F.3D416EC6--
 
-On Sun, 2005-07-10 at 13:09 +0200, Manfred Spraul wrote:
-
-> +
-> +static int nv_nway_reset(struct net_device *dev)
-> +{
-> +	struct fe_priv *np =3D get_nvpriv(dev);
-> +	int ret;
-> +
-> +	spin_lock_irq(&np->lock);
-> +	if (np->autoneg) {
-> +		int bmcr;
-> +
-> +		bmcr =3D mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ);
-> +		bmcr |=3D (BMCR_ANENABLE | BMCR_ANRESTART);
-> +		mii_rw(dev, np->phyaddr, MII_BMCR, bmcr);
-> +
-> +		ret =3D 0;
-> +	} else {
-> +		ret =3D -EINVAL;
-> +	}
-> +	spin_unlock_irq(&np->lock);
-> +
-> +	return ret;
-> +}
-> +
-
-This seems almost completely generic-ified (except for the np->autoneg
-part) and should be able to operate on any NIC.  Do you think there'd be
-some way to whip up a stock ethtool_nway_reset() type of function that
-drivers can use if they don't need to do anything fancy?  Would help
-save a lot of code duplication.
-
---=20
-David Hollis <dhollis@davehollis.com>
-
---=-Z/rD2cz0FCO9rdb3WWp/
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.1 (GNU/Linux)
-
-iD8DBQBC1Qt5xasLqOyGHncRAp8jAJ9XLG/8d8Dkspyk3dgkxE4DLdsbogCguIYg
-0GiUeyFb1vikkowDrHfdktg=
-=69hb
------END PGP SIGNATURE-----
-
---=-Z/rD2cz0FCO9rdb3WWp/--
+This email message is simply a notification of how Lyris ListManager understood
+your email message.  If you want to resend your commands, send
+them to lyris@list.pta.org
