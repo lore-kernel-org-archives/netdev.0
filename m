@@ -1,81 +1,224 @@
-From: Grant Coady <x0x0x@dodo.com.au>
-Subject: Re: eepro100/e100 broken in 2.6.13-rc3
-Date: Thu, 14 Jul 2005 17:26:59 +1000
-Message-ID: <5p4cd190d9l39tcvt28j69p84747u1crfb@4ax.com>
-References: <20050714034954.52947263@laska> <4807377b05071323286963bf3a@mail.gmail.com>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: [PATCH] [SCTP] Fix potential null pointer dereference while
+	handling an icmp error
+Date: Wed, 13 Jul 2005 17:54:45 -0700
+Message-ID: <1121302485.5841.30.camel@w-sridhar2.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Mikhail Kshevetskiy <kl@laska.dorms.spbu.ru>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262941AbVGNH1Q@vger.kernel.org>
-To: Jesse Brandeburg <jesse.brandeburg@gmail.com>
-In-Reply-To: <4807377b05071323286963bf3a@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: lksctp-developers@lists.sourceforge.net, netdev@oss.sgi.com,
+        cdeboys@stevens.edu
+Return-path: <netdev-bounce@oss.sgi.com>
+To: davem@davemloft.net
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 13 Jul 2005 23:28:15 -0700, Jesse Brandeburg <jesse.brandeburg@gmail.com> wrote:
+Dave,
 
->On 7/13/05, Mikhail Kshevetskiy <kl@laska.dorms.spbu.ru> wrote:
->> symptom
->> =======
->> modprobe e100
->> ifconfig eth0 <ip> netmask <netmask>
->> 
->> result:
->> =======
->> SIOCADDRT: Network is unreachable
->> 
->> There were no such error in 2.6.13-rc2
->
-peetoo:~$ uname -r
-2.6.13-rc3-a
-peetoo:~$ lspci
-00:00.0 Host bridge: Intel Corporation 440BX/ZX/DX - 82443BX/ZX/DX Host bridge (rev 03)
-00:01.0 PCI bridge: Intel Corporation 440BX/ZX/DX - 82443BX/ZX/DX AGP bridge (rev 03)
-00:07.0 ISA bridge: Intel Corporation 82371AB/EB/MB PIIX4 ISA (rev 02)
-00:07.1 IDE interface: Intel Corporation 82371AB/EB/MB PIIX4 IDE (rev 01)
-00:07.2 USB Controller: Intel Corporation 82371AB/EB/MB PIIX4 USB (rev 01)
-00:07.3 Bridge: Intel Corporation 82371AB/EB/MB PIIX4 ACPI (rev 02)
-00:0d.0 Ethernet controller: Intel Corporation 82557/8/9 [Ethernet Pro 100] (rev 08)
-00:0e.0 Ethernet controller: Intel Corporation 82557/8/9 [Ethernet Pro 100] (rev 08)
-00:0f.0 Ethernet controller: Digital Equipment Corporation DECchip 21140 [FasterNet] (rev 22)
-01:00.0 VGA compatible controller: ATI Technologies Inc 3D Rage IIC AGP (rev 7a)
-peetoo:~$ lsmod
-Module                  Size  Used by
-adm9240                16056  0
-i2c_sensor              2816  1 adm9240
-radio_aztech            4316  0
-nfsd                   92296  5
-exportfs                4576  1 nfsd
-tulip                  42496  0
-e100                   30656  0
-usb_storage            30276  0
-peetoo:~$ ifconfig
-eth0      Link encap:Ethernet  HWaddr 00:90:27:58:EC:6F
-          inet addr:192.168.1.24  Bcast:192.168.1.255  Mask:255.255.255.0
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:3454075 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:1759340 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000
-          RX bytes:826224238 (787.9 Mb)  TX bytes:99642515 (95.0 Mb)
+Please apply the following patch which fixes a potential null pointer
+dereference while handling an icmp error in sctp_icmp_* routines. These
+routines assume that we are passing a valid asoc.
 
-eth1      Link encap:Ethernet  HWaddr 00:04:AC:F3:4B:84
-          inet addr:192.168.3.24  Bcast:192.168.3.255  Mask:255.255.255.0
-          UP BROADCAST MULTICAST  MTU:1500  Metric:1
-          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000
-          RX bytes:0 (0.0 b)  TX bytes:0 (0.0 b)
+Reported by Charles-Henri de Boysson <cdeboys@stevens.edu>
 
-eth2      Link encap:Ethernet  HWaddr 00:00:E8:4A:A0:C8
-          inet addr:192.168.4.24  Bcast:192.168.4.255  Mask:255.255.255.0
-          UP BROADCAST MULTICAST  MTU:1500  Metric:1
-          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000
-          RX bytes:0 (0.0 b)  TX bytes:0 (0.0 b)
-          Interrupt:5 Base address:0x8000
+Thanks
+Sridhar
 
-Not broken here :)
---Grant.
+---------------------------------------------------------------------
+[SCTP] Fix potential null pointer dereference while handling an icmp
+error
+
+Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+
+diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+--- a/include/net/sctp/sctp.h
++++ b/include/net/sctp/sctp.h
+@@ -167,15 +167,12 @@ void sctp_unhash_established(struct sctp
+ void sctp_hash_endpoint(struct sctp_endpoint *);
+ void sctp_unhash_endpoint(struct sctp_endpoint *);
+ struct sock *sctp_err_lookup(int family, struct sk_buff *,
+-			     struct sctphdr *, struct sctp_endpoint **,
+-			     struct sctp_association **,
++			     struct sctphdr *, struct sctp_association **,
+ 			     struct sctp_transport **);
+-void sctp_err_finish(struct sock *, struct sctp_endpoint *,
+-			    struct sctp_association *);
++void sctp_err_finish(struct sock *, struct sctp_association *);
+ void sctp_icmp_frag_needed(struct sock *, struct sctp_association *,
+ 			   struct sctp_transport *t, __u32 pmtu);
+ void sctp_icmp_proto_unreachable(struct sock *sk,
+-				 struct sctp_endpoint *ep,
+ 				 struct sctp_association *asoc,
+ 				 struct sctp_transport *t);
+ 
+diff --git a/net/sctp/input.c b/net/sctp/input.c
+--- a/net/sctp/input.c
++++ b/net/sctp/input.c
+@@ -351,7 +351,6 @@ void sctp_icmp_frag_needed(struct sock *
+  *
+  */
+ void sctp_icmp_proto_unreachable(struct sock *sk,
+-                           struct sctp_endpoint *ep,
+                            struct sctp_association *asoc,
+                            struct sctp_transport *t)
+ {
+@@ -367,7 +366,6 @@ void sctp_icmp_proto_unreachable(struct 
+ /* Common lookup code for icmp/icmpv6 error handler. */
+ struct sock *sctp_err_lookup(int family, struct sk_buff *skb,
+ 			     struct sctphdr *sctphdr,
+-			     struct sctp_endpoint **epp,
+ 			     struct sctp_association **app,
+ 			     struct sctp_transport **tpp)
+ {
+@@ -375,11 +373,10 @@ struct sock *sctp_err_lookup(int family,
+ 	union sctp_addr daddr;
+ 	struct sctp_af *af;
+ 	struct sock *sk = NULL;
+-	struct sctp_endpoint *ep = NULL;
+ 	struct sctp_association *asoc = NULL;
+ 	struct sctp_transport *transport = NULL;
+ 
+-	*app = NULL; *epp = NULL; *tpp = NULL;
++	*app = NULL; *tpp = NULL;
+ 
+ 	af = sctp_get_af_specific(family);
+ 	if (unlikely(!af)) {
+@@ -394,26 +391,15 @@ struct sock *sctp_err_lookup(int family,
+ 	 * packet.
+ 	 */
+ 	asoc = __sctp_lookup_association(&saddr, &daddr, &transport);
+-	if (!asoc) {
+-		/* If there is no matching association, see if it matches any
+-		 * endpoint. This may happen for an ICMP error generated in
+-		 * response to an INIT_ACK.
+-		 */
+-		ep = __sctp_rcv_lookup_endpoint(&daddr);
+-		if (!ep) {
+-			return NULL;
+-		}
+-	}
++	if (!asoc)
++		return NULL;
+ 
+-	if (asoc) {
+-		sk = asoc->base.sk;
++	sk = asoc->base.sk;
+ 
+-		if (ntohl(sctphdr->vtag) != asoc->c.peer_vtag) {
+-			ICMP_INC_STATS_BH(ICMP_MIB_INERRORS);
+-			goto out;
+-		}
+-	} else
+-		sk = ep->base.sk;
++	if (ntohl(sctphdr->vtag) != asoc->c.peer_vtag) {
++		ICMP_INC_STATS_BH(ICMP_MIB_INERRORS);
++		goto out;
++	}
+ 
+ 	sctp_bh_lock_sock(sk);
+ 
+@@ -423,7 +409,6 @@ struct sock *sctp_err_lookup(int family,
+ 	if (sock_owned_by_user(sk))
+ 		NET_INC_STATS_BH(LINUX_MIB_LOCKDROPPEDICMPS);
+ 
+-	*epp = ep;
+ 	*app = asoc;
+ 	*tpp = transport;
+ 	return sk;
+@@ -432,21 +417,16 @@ out:
+ 	sock_put(sk);
+ 	if (asoc)
+ 		sctp_association_put(asoc);
+-	if (ep)
+-		sctp_endpoint_put(ep);
+ 	return NULL;
+ }
+ 
+ /* Common cleanup code for icmp/icmpv6 error handler. */
+-void sctp_err_finish(struct sock *sk, struct sctp_endpoint *ep,
+-		     struct sctp_association *asoc)
++void sctp_err_finish(struct sock *sk, struct sctp_association *asoc)
+ {
+ 	sctp_bh_unlock_sock(sk);
+ 	sock_put(sk);
+ 	if (asoc)
+ 		sctp_association_put(asoc);
+-	if (ep)
+-		sctp_endpoint_put(ep);
+ }
+ 
+ /*
+@@ -471,7 +451,6 @@ void sctp_v4_err(struct sk_buff *skb, __
+ 	int type = skb->h.icmph->type;
+ 	int code = skb->h.icmph->code;
+ 	struct sock *sk;
+-	struct sctp_endpoint *ep;
+ 	struct sctp_association *asoc;
+ 	struct sctp_transport *transport;
+ 	struct inet_sock *inet;
+@@ -488,7 +467,7 @@ void sctp_v4_err(struct sk_buff *skb, __
+ 	savesctp  = skb->h.raw;
+ 	skb->nh.iph = iph;
+ 	skb->h.raw = (char *)sh;
+-	sk = sctp_err_lookup(AF_INET, skb, sh, &ep, &asoc, &transport);
++	sk = sctp_err_lookup(AF_INET, skb, sh, &asoc, &transport);
+ 	/* Put back, the original pointers. */
+ 	skb->nh.raw = saveip;
+ 	skb->h.raw = savesctp;
+@@ -515,7 +494,7 @@ void sctp_v4_err(struct sk_buff *skb, __
+ 		}
+ 		else {
+ 			if (ICMP_PROT_UNREACH == code) {
+-				sctp_icmp_proto_unreachable(sk, ep, asoc,
++				sctp_icmp_proto_unreachable(sk, asoc,
+ 							    transport);
+ 				goto out_unlock;
+ 			}
+@@ -544,7 +523,7 @@ void sctp_v4_err(struct sk_buff *skb, __
+ 	}
+ 
+ out_unlock:
+-	sctp_err_finish(sk, ep, asoc);
++	sctp_err_finish(sk, asoc);
+ }
+ 
+ /*
+diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+--- a/net/sctp/ipv6.c
++++ b/net/sctp/ipv6.c
+@@ -91,7 +91,6 @@ SCTP_STATIC void sctp_v6_err(struct sk_b
+ 	struct ipv6hdr *iph = (struct ipv6hdr *)skb->data;
+ 	struct sctphdr *sh = (struct sctphdr *)(skb->data + offset);
+ 	struct sock *sk;
+-	struct sctp_endpoint *ep;
+ 	struct sctp_association *asoc;
+ 	struct sctp_transport *transport;
+ 	struct ipv6_pinfo *np;
+@@ -105,7 +104,7 @@ SCTP_STATIC void sctp_v6_err(struct sk_b
+ 	savesctp  = skb->h.raw;
+ 	skb->nh.ipv6h = iph;
+ 	skb->h.raw = (char *)sh;
+-	sk = sctp_err_lookup(AF_INET6, skb, sh, &ep, &asoc, &transport);
++	sk = sctp_err_lookup(AF_INET6, skb, sh, &asoc, &transport);
+ 	/* Put back, the original pointers. */
+ 	skb->nh.raw = saveip;
+ 	skb->h.raw = savesctp;
+@@ -124,7 +123,7 @@ SCTP_STATIC void sctp_v6_err(struct sk_b
+ 		goto out_unlock;
+ 	case ICMPV6_PARAMPROB:
+ 		if (ICMPV6_UNK_NEXTHDR == code) {
+-			sctp_icmp_proto_unreachable(sk, ep, asoc, transport);
++			sctp_icmp_proto_unreachable(sk, asoc, transport);
+ 			goto out_unlock;
+ 		}
+ 		break;
+@@ -142,7 +141,7 @@ SCTP_STATIC void sctp_v6_err(struct sk_b
+ 	}
+ 
+ out_unlock:
+-	sctp_err_finish(sk, ep, asoc);
++	sctp_err_finish(sk, asoc);
+ out:
+ 	if (likely(idev != NULL))
+ 		in6_dev_put(idev);
