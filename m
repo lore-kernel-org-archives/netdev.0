@@ -1,40 +1,36 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [05/11] SMP fix for 6pack driver
-Date: Thu, 14 Jul 2005 00:01:23 +0200
-Message-ID: <20050713220123.GA3292@electric-eye.fr.zoreil.com>
-References: <20050713184130.GA9330@kroah.com> <20050713184331.GG9330@kroah.com>
+From: Jesse Brandeburg <jesse.brandeburg@gmail.com>
+Subject: Re: eepro100/e100 broken in 2.6.13-rc3
+Date: Wed, 13 Jul 2005 23:28:15 -0700
+Message-ID: <4807377b05071323286963bf3a@mail.gmail.com>
+References: <20050714034954.52947263@laska>
+Reply-To: Jesse Brandeburg <jesse.brandeburg@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ralf@linux-mips.org, netdev@vger.kernel.org, jgarzik@pobox.com,
-        linux-kernel@vger.kernel.org, stable@kernel.org,
-        Justin Forbes <jmforbes@linuxtx.org>,
-        Zwane Mwaikambo <zwane@arm.linux.org.uk>,
-        "Theodore Ts'o" <tytso@mit.edu>, "Randy.Dunlap" <rdunlap@xenotime.net>,
-        Chuck Wolber <chuckw@quantumlinux.com>, torvalds@osdl.org,
-        akpm@osdl.org, alan@lxorguk.ukuu.org.uk
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262224AbVGMWYE@vger.kernel.org>
-To: Greg KH <gregkh@suse.de>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262926AbVGNG3O@vger.kernel.org>
+To: Mikhail Kshevetskiy <kl@laska.dorms.spbu.ru>
+In-Reply-To: <20050714034954.52947263@laska>
 Content-Disposition: inline
-In-Reply-To: <20050713184331.GG9330@kroah.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Greg KH <gregkh@suse.de> :
-> -stable review patch.  If anyone has any objections, please let us know.
+On 7/13/05, Mikhail Kshevetskiy <kl@laska.dorms.spbu.ru> wrote:
+> symptom
+> =======
+> modprobe e100
+> ifconfig eth0 <ip> netmask <netmask>
 > 
-> ------------------
+> result:
+> =======
+> SIOCADDRT: Network is unreachable
 > 
-> 
-> Drivers really only work well in SMP if they actually can be selected.
-> This is a leftover from the time when the 6pack drive only used to be
-> a bitrotten variant of the slip driver.
+> There were no such error in 2.6.13-rc2
 
-Is the guideline above from 28/04/2005 obsoleted ?
+odd, both e100 and eepro100 are broken?  This might indicate something
+wierd with the pci layer.  Don't know what might cause the Network is
+unreachable...
 
- - It must fix a problem that causes a build error (but not for things
-   marked CONFIG_BROKEN), an oops, a hang, data corruption, a real
-   security issue, or some "oh, that's not good" issue.  In short,
-   something critical.
+please send lspci -vvv of the e100 device in question and any output from dmesg
 
---
-Ueimor
+added netdev in case someone has an idea there.
