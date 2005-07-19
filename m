@@ -1,76 +1,31 @@
-From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
-Subject: [PATCH 8/8][ATM]: [speedtch] cure atm_printk() macro gcc-2.95 compile error
-Date: Tue, 19 Jul 2005 16:47:42 -0400
-Message-ID: <200507192047.j6JKle4w027287@ginger.cmf.nrl.navy.mil>
-Cc: davem@davemloft.net
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [2.6 patch] BRIDGE_EBT_ARPREPLY must depend on INET
+Date: Tue, 19 Jul 2005 14:00:24 -0700 (PDT)
+Message-ID: <20050719.140024.131914996.davem@davemloft.net>
+References: <20050719135529.GH5031@stusta.de>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	linux-kernel@vger.kernel.org, coreteam@netfilter.org,
+	bridge@osdl.org, shemminger@osdl.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: bunk@stusta.de
+In-Reply-To: <20050719135529.GH5031@stusta.de>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-please apply to 2.6 -- thanks!
+From: Adrian Bunk <bunk@stusta.de>
+Date: Tue, 19 Jul 2005 15:55:29 +0200
 
-[ATM]: [speedtch] cure atm_printk() macro gcc-2.95 compile error
+> BRIDGE_EBT_ARPREPLY=y and INET=n results in the following compile error:
 
-  Signed-off-by: Duncan Sands <baldrick@free.fr>
-  Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
-
-
----
-commit 73500df545c8763d662192d9749fd8d64209c819
-tree 0f73d33200e626e8ef0af506dbed40a3850c609b
-parent 4932248439d20412610ffaade625cbde0e001e37
-author chas williams <chas@relax.(none)> Wed, 06 Jul 2005 13:22:52 -0400
-committer chas williams <chas@relax.(none)> Wed, 06 Jul 2005 13:22:52 -0400
-
- drivers/usb/atm/speedtch.c |   12 ++++++------
- 1 files changed, 6 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/usb/atm/speedtch.c b/drivers/usb/atm/speedtch.c
---- a/drivers/usb/atm/speedtch.c
-+++ b/drivers/usb/atm/speedtch.c
-@@ -448,19 +448,19 @@ static void speedtch_check_status(struct
- 		case 0:
- 			atm_dev->signal = ATM_PHY_SIG_LOST;
- 			if (instance->last_status)
--				atm_info(usbatm, "ADSL line is down\n");
-+				atm_info(usbatm, "%s\n", "ADSL line is down");
- 			/* It may never resync again unless we ask it to... */
- 			ret = speedtch_start_synchro(instance);
- 			break;
- 
- 		case 0x08:
- 			atm_dev->signal = ATM_PHY_SIG_UNKNOWN;
--			atm_info(usbatm, "ADSL line is blocked?\n");
-+			atm_info(usbatm, "%s\n", "ADSL line is blocked?");
- 			break;
- 
- 		case 0x10:
- 			atm_dev->signal = ATM_PHY_SIG_LOST;
--			atm_info(usbatm, "ADSL line is synchronising\n");
-+			atm_info(usbatm, "%s\n", "ADSL line is synchronising");
- 			break;
- 
- 		case 0x20:
-@@ -502,7 +502,7 @@ static void speedtch_status_poll(unsigne
- 	if (instance->poll_delay < MAX_POLL_DELAY)
- 		mod_timer(&instance->status_checker.timer, jiffies + msecs_to_jiffies(instance->poll_delay));
- 	else
--		atm_warn(instance->usbatm, "Too many failures - disabling line status polling\n");
-+		atm_warn(instance->usbatm, "%s\n", "Too many failures - disabling line status polling");
- }
- 
- static void speedtch_resubmit_int(unsigned long data)
-@@ -545,9 +545,9 @@ static void speedtch_handle_int(struct u
- 
- 	if ((count == 6) && !memcmp(up_int, instance->int_data, 6)) {
- 		del_timer(&instance->status_checker.timer);
--		atm_info(usbatm, "DSL line goes up\n");
-+		atm_info(usbatm, "%s\n", "DSL line goes up");
- 	} else if ((count == 6) && !memcmp(down_int, instance->int_data, 6)) {
--		atm_info(usbatm, "DSL line goes down\n");
-+		atm_info(usbatm, "%s\n", "DSL line goes down");
- 	} else {
- 		int i;
- 
+Applied, thanks Adrian.
