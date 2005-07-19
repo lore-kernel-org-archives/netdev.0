@@ -1,28 +1,32 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] [SCTP] Fix potential null pointer dereference while
- handling an icmp error
-Date: Mon, 18 Jul 2005 13:44:27 -0700 (PDT)
-Message-ID: <20050718.134427.112314130.davem@davemloft.net>
-References: <1121302485.5841.30.camel@w-sridhar2.beaverton.ibm.com>
+Subject: Re: [PATCH] convert nfmark and conntrack mark to 32bit
+Date: Mon, 18 Jul 2005 20:29:07 -0700 (PDT)
+Message-ID: <20050718.202907.89039929.davem@davemloft.net>
+References: <20050717214223.GA13434@rama.risq.ericsson.ca>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: lksctp-developers@lists.sourceforge.net, netdev@oss.sgi.com,
-        cdeboys@stevens.edu
-Return-path: <netdev-bounce@oss.sgi.com>
-To: sri@us.ibm.com
-In-Reply-To: <1121302485.5841.30.camel@w-sridhar2.beaverton.ibm.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: laforge@netfilter.org
+In-Reply-To: <20050717214223.GA13434@rama.risq.ericsson.ca>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-From: Sridhar Samudrala <sri@us.ibm.com>
-Date: Wed, 13 Jul 2005 17:54:45 -0700
+From: Harald Welte <laforge@netfilter.org>
+Date: Sun, 17 Jul 2005 23:42:23 +0200
 
-> Please apply the following patch which fixes a potential null pointer
-> dereference while handling an icmp error in sctp_icmp_* routines. These
-> routines assume that we are passing a valid asoc.
+> As discussed at netconf'05, we convert nfmark and conntrack-mark to be
+> 32bits even on 64bit architectures. 
 > 
-> Reported by Charles-Henri de Boysson <cdeboys@stevens.edu>
+> Signed-off-by: Harald Welte <laforge@netfilter.org>
 
-Applied, thanks Sridhar.
+Applied, thanks Harald.
