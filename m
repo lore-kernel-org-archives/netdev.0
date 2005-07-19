@@ -1,7 +1,7 @@
 From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
-Subject: [PATCH 7/8][ATM]: Trivial spelling fix patch for net/Kconfig
-Date: Tue, 19 Jul 2005 16:46:15 -0400
-Message-ID: <200507192046.j6JKkEc2027235@ginger.cmf.nrl.navy.mil>
+Subject: [PATCH 5/8][ATM]: [firestream] fix the sparse warning "implicit cast to nocast type"
+Date: Tue, 19 Jul 2005 16:45:43 -0400
+Message-ID: <200507192045.j6JKjgHO027216@ginger.cmf.nrl.navy.mil>
 Cc: davem@davemloft.net
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
@@ -11,40 +11,43 @@ List-Id: netdev.vger.kernel.org
 
 please apply to 2.6 -- thanks!
 
-[ATM]: Trivial spelling fix patch for net/Kconfig
+[ATM]: [firestream] fix the sparse warning "implicit cast to nocast type"
 
-Signed-off-by: Jesper Juhl <juhl-lkml@dif.dk>
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+Signed-off-by: Victor Fusco <victor@cetuc.puc-rio.br>
+Signed-off-by: Domen Puncer <domen@coderock.org>
 Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
 
 
 ---
-commit eefc05048924978c1e28835bf5085c5de2e653d2
-tree b453e78b3eca05558e5c3ff8d9cf9ab9f2ee9bd9
-parent ac4755cc8eefb198945e76d4069184454c0819ce
-author chas williams <chas@relax.(none)> Tue, 19 Jul 2005 14:58:08 -0400
-committer chas williams <chas@relax.(none)> Tue, 19 Jul 2005 14:58:08 -0400
+commit 6e59c9c1673a7b31f00cc8dd79f1e11abf91be9a
+tree 962d15261cc88a8b094461689bcc122896508333
+parent 9c893a8cd5716416ee719a57e04e01aeb2c68bd3
+author chas williams <chas@relax.(none)> Tue, 19 Jul 2005 15:07:01 -0400
+committer chas williams <chas@relax.(none)> Tue, 19 Jul 2005 15:07:01 -0400
 
- net/atm/Kconfig |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/atm/firestream.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/net/atm/Kconfig b/net/atm/Kconfig
---- a/net/atm/Kconfig
-+++ b/net/atm/Kconfig
-@@ -60,7 +60,7 @@ config ATM_BR2684
- 	tristate "RFC1483/2684 Bridged protocols"
- 	depends on ATM && INET
- 	help
--	  ATM PVCs can carry ethernet PDUs according to rfc2684 (formerly 1483)
-+	  ATM PVCs can carry ethernet PDUs according to RFC2684 (formerly 1483)
- 	  This device will act like an ethernet from the kernels point of view,
- 	  with the traffic being carried by ATM PVCs (currently 1 PVC/device).
- 	  This is sometimes used over DSL lines.  If in doubt, say N.
-@@ -69,6 +69,6 @@ config ATM_BR2684_IPFILTER
- 	bool "Per-VC IP filter kludge"
- 	depends on ATM_BR2684
- 	help
--	  This is an experimental mechanism for users who need to terminating a
-+	  This is an experimental mechanism for users who need to terminate a
- 	  large number of IP-only vcc's.  Do not enable this unless you are sure
- 	  you know what you are doing.
+diff --git a/drivers/atm/firestream.c b/drivers/atm/firestream.c
+--- a/drivers/atm/firestream.c
++++ b/drivers/atm/firestream.c
+@@ -1374,7 +1374,8 @@ static void reset_chip (struct fs_dev *d
+ 	}
+ }
+ 
+-static void __devinit *aligned_kmalloc (int size, int flags, int alignment)
++static void __devinit *aligned_kmalloc (int size, unsigned int __nocast flags,
++					int alignment)
+ {
+ 	void  *t;
+ 
+@@ -1464,7 +1465,8 @@ static inline int nr_buffers_in_freepool
+    does. I've seen "receive abort: no buffers" and things started
+    working again after that...  -- REW */
+ 
+-static void top_off_fp (struct fs_dev *dev, struct freepool *fp, int gfp_flags)
++static void top_off_fp (struct fs_dev *dev, struct freepool *fp,
++			unsigned int __nocast gfp_flags)
+ {
+ 	struct FS_BPENTRY *qe, *ne;
+ 	struct sk_buff *skb;
