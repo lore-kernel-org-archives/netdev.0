@@ -1,7 +1,7 @@
 From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
-Subject: [PATCH 2/8][ATM]: allow bind() on point-to-multpoint svcs (from Martin Whitaker <martin_whitaker@ntlworld.com>)
-Date: Tue, 19 Jul 2005 16:45:08 -0400
-Message-ID: <200507192045.j6JKj7kf027191@ginger.cmf.nrl.navy.mil>
+Subject: [PATCH 4/8][ATM]: [he] remove linux/version.h include
+Date: Tue, 19 Jul 2005 16:45:31 -0400
+Message-ID: <200507192045.j6JKjUpV027205@ginger.cmf.nrl.navy.mil>
 Cc: davem@davemloft.net
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
@@ -11,32 +11,30 @@ List-Id: netdev.vger.kernel.org
 
 please apply to 2.6 -- thanks!
 
-[ATM]: allow bind() on point-to-multpoint svcs (from Martin Whitaker <martin_whitaker@ntlworld.com>)
+[ATM]: [he] remove linux/version.h include
 
+  Signed-off-by: Olaf Hering <olh@suse.de>
   Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
 
 
 ---
-commit c4029a0d6294a1052353346235320a678add4f41
-tree e6de8b582d908c7943242e8725d435f0b1fda20a
-parent 73500df545c8763d662192d9749fd8d64209c819
-author chas williams <chas@relax.(none)> Tue, 19 Jul 2005 14:50:33 -0400
-committer chas williams <chas@relax.(none)> Tue, 19 Jul 2005 14:50:33 -0400
+commit 9c893a8cd5716416ee719a57e04e01aeb2c68bd3
+tree ae99b267a7f35cec41df7ccdfb9aa3695a3e2b67
+parent eefc05048924978c1e28835bf5085c5de2e653d2
+author chas williams <chas@relax.(none)> Tue, 19 Jul 2005 15:06:23 -0400
+committer chas williams <chas@relax.(none)> Tue, 19 Jul 2005 15:06:23 -0400
 
- net/atm/svc.c |    4 ----
- 1 files changed, 0 insertions(+), 4 deletions(-)
+ drivers/atm/he.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-diff --git a/net/atm/svc.c b/net/atm/svc.c
---- a/net/atm/svc.c
-+++ b/net/atm/svc.c
-@@ -118,10 +118,6 @@ static int svc_bind(struct socket *sock,
- 		goto out;
- 	}
- 	vcc = ATM_SD(sock);
--	if (test_bit(ATM_VF_SESSION, &vcc->flags)) {
--		error = -EINVAL;
--		goto out;
--	}
- 	addr = (struct sockaddr_atmsvc *) sockaddr;
- 	if (addr->sas_family != AF_ATMSVC) {
- 		error = -EAFNOSUPPORT;
+diff --git a/drivers/atm/he.c b/drivers/atm/he.c
+--- a/drivers/atm/he.c
++++ b/drivers/atm/he.c
+@@ -57,7 +57,6 @@
+ 
+ #include <linux/config.h>
+ #include <linux/module.h>
+-#include <linux/version.h>
+ #include <linux/kernel.h>
+ #include <linux/skbuff.h>
+ #include <linux/pci.h>
