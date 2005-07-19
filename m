@@ -1,41 +1,42 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] NETCONSOLE must depend on INET
-Date: Tue, 19 Jul 2005 20:29:19 +0200
-Message-ID: <20050719182919.GA5531@stusta.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261604AbVGSS32@vger.kernel.org>
-To: jgarzik@pobox.com
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
+Subject: [PATCH 2/8][ATM]: allow bind() on point-to-multpoint svcs (from Martin Whitaker <martin_whitaker@ntlworld.com>)
+Date: Tue, 19 Jul 2005 16:45:08 -0400
+Message-ID: <200507192045.j6JKj7kf027191@ginger.cmf.nrl.navy.mil>
+Cc: davem@davemloft.net
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-NETCONSOLE=y and INET=n results in the following compile error:
+please apply to 2.6 -- thanks!
 
-<--  snip  -->
+[ATM]: allow bind() on point-to-multpoint svcs (from Martin Whitaker <martin_whitaker@ntlworld.com>)
 
-...
-  LD      .tmp_vmlinux1
-net/built-in.o: In function `netpoll_parse_options':
-: undefined reference to `in_aton'
-net/built-in.o: In function `netpoll_parse_options':
-: undefined reference to `in_aton'
-make: *** [.tmp_vmlinux1] Error 1
-
-<--  snip  -->
+  Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
 
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+---
+commit c4029a0d6294a1052353346235320a678add4f41
+tree e6de8b582d908c7943242e8725d435f0b1fda20a
+parent 73500df545c8763d662192d9749fd8d64209c819
+author chas williams <chas@relax.(none)> Tue, 19 Jul 2005 14:50:33 -0400
+committer chas williams <chas@relax.(none)> Tue, 19 Jul 2005 14:50:33 -0400
 
---- linux-2.6.13-rc3/drivers/net/Kconfig.old	2005-07-19 19:29:25.000000000 +0200
-+++ linux-2.6.13-rc3/drivers/net/Kconfig	2005-07-19 19:29:37.000000000 +0200
-@@ -2544,7 +2544,7 @@
- 
- config NETCONSOLE
- 	tristate "Network console logging support (EXPERIMENTAL)"
--	depends on NETDEVICES && EXPERIMENTAL
-+	depends on NETDEVICES && INET && EXPERIMENTAL
- 	---help---
- 	If you want to log kernel messages over the network, enable this.
- 	See <file:Documentation/networking/netconsole.txt> for details.
+ net/atm/svc.c |    4 ----
+ 1 files changed, 0 insertions(+), 4 deletions(-)
+
+diff --git a/net/atm/svc.c b/net/atm/svc.c
+--- a/net/atm/svc.c
++++ b/net/atm/svc.c
+@@ -118,10 +118,6 @@ static int svc_bind(struct socket *sock,
+ 		goto out;
+ 	}
+ 	vcc = ATM_SD(sock);
+-	if (test_bit(ATM_VF_SESSION, &vcc->flags)) {
+-		error = -EINVAL;
+-		goto out;
+-	}
+ 	addr = (struct sockaddr_atmsvc *) sockaddr;
+ 	if (addr->sas_family != AF_ATMSVC) {
+ 		error = -EAFNOSUPPORT;
