@@ -1,31 +1,19 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [2.6 patch] VIA_VELOCITY must depend on INET
-Date: Wed, 20 Jul 2005 12:26:26 +0100
-Message-ID: <1121858786.11024.25.camel@localhost.localdomain>
-References: <20050719135523.GF5031@stusta.de>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261160AbVGTLEY@vger.kernel.org>
-To: Adrian Bunk <bunk@stusta.de>
-In-Reply-To: <20050719135523.GF5031@stusta.de>
-Sender: linux-kernel-owner@vger.kernel.org
+From: chas@cmf.nrl.navy.mil
+Subject: Re: [patch linux-2.6.13-rc2-gitXX 1/1] zatm: mailbox converted to pci_alloc_consistent()
+Date: Wed, 20 Jul 2005 11:07:12 -0400
+Message-ID: <200507201507.j6KF7Buk009484@ginger.cmf.nrl.navy.mil>
+References: <20050719223655.GA27724@electric-eye.fr.zoreil.com>
+Reply-To: chas3@users.sourceforge.net
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-reply-to: <20050719223655.GA27724@electric-eye.fr.zoreil.com> 
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Maw, 2005-07-19 at 15:55 +0200, Adrian Bunk wrote:
-> VIA_VELOCITY=y and INET=n results in the following compile error:
-> 
-> <--  snip  -->
-> 
-> ...
->   LD      .tmp_vmlinux1
-> drivers/built-in.o: In function `velocity_register_notifier':
-> via-velocity.c:(.text+0x3462c6): undefined reference to `register_inetaddr_notifier'
-> drivers/built-in.o: In function `velocity_unregister_notifier':
-> via-velocity.c:(.text+0x3462d6): undefined reference to `unregister_inetaddr_notifier'
-> make: *** [.tmp_vmlinux1] Error 1
+In message <20050719223655.GA27724@electric-eye.fr.zoreil.com>,Francois Romieu 
+writes:
+>+		mbx = pci_alloc_consistent(pdev, 2*MBX_SIZE(i), &mbx_dma);
 
-Alternatively you could drop those functions when CONFIG_INET is n as
-they are only used for wake on arp
+you might want a pci_set_dma_mask(,DMA_32BIT_MASK) before you call this.
