@@ -1,33 +1,25 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [patch linux-2.6.13-rc2-gitXX 1/1] zatm: mailbox converted to
- pci_alloc_consistent()
-Date: Wed, 20 Jul 2005 12:02:19 -0700 (PDT)
-Message-ID: <20050720.120219.75429205.davem@davemloft.net>
-References: <200507192044.j6JKirFb027183@ginger.cmf.nrl.navy.mil>
-	<20050719223134.GA24535@electric-eye.fr.zoreil.com>
-	<20050719223655.GA27724@electric-eye.fr.zoreil.com>
+Subject: Re: [PATCH 3/*] re-add NFC_ defines
+Date: Wed, 20 Jul 2005 12:05:51 -0700 (PDT)
+Message-ID: <20050720.120551.45179781.davem@davemloft.net>
+References: <20050720133137.GD4077@rama>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: chas@cmf.nrl.navy.mil, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: romieu@fr.zoreil.com
-In-Reply-To: <20050719223655.GA27724@electric-eye.fr.zoreil.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: laforge@netfilter.org
+In-Reply-To: <20050720133137.GD4077@rama>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Wed, 20 Jul 2005 00:36:55 +0200
 
-> mailbox converted to pci_alloc_consistent()
-> 
-> - request_region() is not needed: zatm_init_one() issues
->   pci_request_regions();
-> - the warning related to kfree(zatm_dev->mbx_start) disappears;
-> 
-> Compiled with i386 and sparc64 as target.
-> 
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-
-This looks great, applied.
+All 3 patches applied, thanks Harald.
