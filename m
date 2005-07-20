@@ -1,19 +1,34 @@
-From: chas@cmf.nrl.navy.mil
-Subject: Re: [patch linux-2.6.13-rc2-gitXX 1/1] zatm: mailbox converted to pci_alloc_consistent()
-Date: Wed, 20 Jul 2005 11:07:12 -0400
-Message-ID: <200507201507.j6KF7Buk009484@ginger.cmf.nrl.navy.mil>
-References: <20050719223655.GA27724@electric-eye.fr.zoreil.com>
-Reply-To: chas3@users.sourceforge.net
-Cc: netdev@oss.sgi.com
+From: "Ravinandan Arakali" <ravinandan.arakali@neterion.com>
+Subject: Seeing problem on 2.6.13-rc3
+Date: Wed, 20 Jul 2005 10:04:36 -0700
+Message-ID: <001201c58d4d$1c1f78f0$4f10100a@pc.s2io.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "Leonid. Grossman \(E-mail\)" <leonid.grossman@neterion.com>,
+        "Raghavendra. Koushik \(E-mail\)" <raghavendra.koushik@neterion.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-reply-to: <20050719223655.GA27724@electric-eye.fr.zoreil.com> 
+To: <netdev@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In message <20050719223655.GA27724@electric-eye.fr.zoreil.com>,Francois Romieu 
-writes:
->+		mbx = pci_alloc_consistent(pdev, 2*MBX_SIZE(i), &mbx_dma);
+Hi,
+I am facing the following problem with loading S2io 10GbE driver on 
+2.6.13-rc3.
+Just wondering if anybody else is having similar problems with S2io
+driver or other drivers.
 
-you might want a pci_set_dma_mask(,DMA_32BIT_MASK) before you call this.
+When trying to load s2io driver, I see the following message:
+
+eth%d: 1:Endian settings are wrong, feedback read ffffffffffffffff
+eth%d:swapper settings are wrong
+
+Basically, we try to configure the card for correct access on
+both endian systems. This seems to fail.
+But on a somewhat similar kernel(2.6.13-rc2-mm2), with the same
+system, card and driver, it works fine.
+
+Thanks,
+Ravi
