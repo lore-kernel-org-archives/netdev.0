@@ -1,29 +1,44 @@
-From: Daniel Drake <dsd@gentoo.org>
-Subject: Re: [PATCH] forcedeth: TX handler changes (experimental)
-Date: Wed, 20 Jul 2005 22:16:09 +0100
-Message-ID: <42DEBF19.7000207__23430.3043493584$1121894373$gmane$org@gentoo.org>
-References: <42D913D6.5050902@colorfullife.com> <42D9658B.7020907@gentoo.org> <42D97B29.4050400@gentoo.org> <42D97DD0.6030207@colorfullife.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] reduce netfilte sk_buff enlargement
+Date: Wed, 20 Jul 2005 23:35:09 +0200
+Message-ID: <42DEC38D.8070102@trash.net>
+References: <20050717220451.GB13434@rama.risq.ericsson.ca>
+	<20050718.203145.105430424.davem@davemloft.net>
+	<20050720132305.GA4077@rama>
+	<Pine.LNX.4.63.0507202335530.1564@penguin.linux-vs.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Netdev <netdev@oss.sgi.com>, Ayaz Abdulla <AAbdulla@nvidia.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Manfred Spraul <manfred@colorfullife.com>
-In-Reply-To: <42D97DD0.6030207@colorfullife.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: Harald Welte <laforge@netfilter.org>, netdev@vger.kernel.org,
+	Marcel Holtmann <marcel@holtmann.org>, netfilter-devel@lists.netfilter.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Wensong Zhang <wensong@linux-vs.org>
+In-Reply-To: <Pine.LNX.4.63.0507202335530.1564@penguin.linux-vs.org>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Manfred Spraul wrote:
-> Autsch.
-> Yes, you are right. Sorry for that, I should have reread the patch once 
-> more.
+Wensong Zhang wrote:
+>> Well, I hope IPVS people will take care of this.  I don't really know
+>> that code too well...
+>>
+> This bit is only to indicate that the sk_buff is already mangled by 
+> IPVS/NAT, so that when both iptables/NAT and IPVS/NAT are enabled, 
+> iptables/NAT will not mangle sk_buff again. I am not sure if there is 
+> more elegant way to work around this issue, will investigate it.
 
-No problem :)
+For new connections you could set the IPS_SRC_NAT_DONE and
+IPS_DST_NAT_DONE bits in conntrack->status to avoid NAT setting up
+new mappings. But this doesn't work if IPVS is loaded when NAT
+has already set up the mappings. In this case you could refuse
+to NAT in IPVS.
 
-I've been running v0.38 since my last mail. No problems at all.
-
-Thanks for your continued work on the driver.
-
-Daniel
+Regards
+Patrick
