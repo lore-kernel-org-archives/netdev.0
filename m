@@ -1,23 +1,29 @@
-From: iamthemonk@bluebottle.com
-Subject: RE: Delivery reports about your e-mail
-Date: Wed, 20 Jul 2005 14:31:11 -0500
-Message-ID: <200507201931.j6KJVB1I009337@bluebottle-fe1.bluebottle.com>
-Content-Type: text/plain; charset=us-ascii
+From: Daniel Drake <dsd@gentoo.org>
+Subject: Re: [PATCH] forcedeth: TX handler changes (experimental)
+Date: Wed, 20 Jul 2005 22:16:09 +0100
+Message-ID: <42DEBF19.7000207__23430.3043493584$1121894373$gmane$org@gentoo.org>
+References: <42D913D6.5050902@colorfullife.com> <42D9658B.7020907@gentoo.org> <42D97B29.4050400@gentoo.org> <42D97DD0.6030207@colorfullife.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Netdev <netdev@oss.sgi.com>, Ayaz Abdulla <AAbdulla@nvidia.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Manfred Spraul <manfred@colorfullife.com>
+In-Reply-To: <42D97DD0.6030207@colorfullife.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Your message was received at Wed, 20 Jul 2005 19:31:11 +0000:
+Manfred Spraul wrote:
+> Autsch.
+> Yes, you are right. Sorry for that, I should have reread the patch once 
+> more.
 
-To: iamthemonk@bluebottle.com
-Subject: Delivery reports about your e-mail
+No problem :)
 
-This account is protected by Bluebottle.  Please click on the
-following link to have your address added to the recipient's allowed
-list and to ensure delivery of your email.
+I've been running v0.38 since my last mail. No problems at all.
 
-http://www.bluebottle.com/verification/6c63b99816f766f1785ff85235f3a38b
+Thanks for your continued work on the driver.
 
-Bluebottle is a trademark of Bluebottle Solutions Pty Ltd
+Daniel
