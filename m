@@ -1,76 +1,42 @@
-From: "Ravinandan Arakali" <ravinandan.arakali@neterion.com>
-Subject: RE: [PATCH 2.6.12-rc4] IPv4/IPv6: USO v2, Scatter-gather approach
-Date: Thu, 21 Jul 2005 11:42:10 -0700
-Message-ID: <000c01c58e23$e81ea850$4810100a@pc.s2io.com>
-References: <20050719.142320.52167011.davem@davemloft.net>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] reduce netfilte sk_buff enlargement
+Date: Thu, 21 Jul 2005 13:12:50 -0700 (PDT)
+Message-ID: <20050721.131250.55509013.davem@davemloft.net>
+References: <20050718.203145.105430424.davem@davemloft.net>
+	<20050720132305.GA4077@rama> <1121970035.5904.6.camel@notepaq>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <jgarzik@pobox.com>, <netdev@oss.sgi.com>,
-        <raghavendra.koushik@neterion.com>, <leonid.grossman@neterion.com>,
-        <ananda.raju@neterion.com>, <rapuru.sriram@neterion.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "'David S. Miller'" <davem@davemloft.net>
-In-Reply-To: <20050719.142320.52167011.davem@davemloft.net>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: laforge@netfilter.org, netdev@vger.kernel.org,
+	netfilter-devel@lists.netfilter.org, wensong@linux-vs.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: marcel@holtmann.org
+In-Reply-To: <1121970035.5904.6.camel@notepaq>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-David,
-We are working on your comments. Will get back to you before end of
-next week.
+From: Marcel Holtmann <marcel@holtmann.org>
+Date: Thu, 21 Jul 2005 20:20:35 +0200
 
-Thanks,
-Ravi
+> However after a look trough the Bluetooth core it should be quite
+> easy too move the pkt_type into the control buffer. We already use
+> it for a direction bit. The nasty thing is that I have to modify all
+> the drivers. So when you finally decided to shrink the pkt_type, I
+> think that I can come up with a patch for it quiet quickly.
 
------Original Message-----
-From: David S. Miller [mailto:davem@davemloft.net]
-Sent: Tuesday, July 19, 2005 2:23 PM
-To: ravinandan.arakali@neterion.com
-Cc: jgarzik@pobox.com; netdev@oss.sgi.com;
-raghavendra.koushik@neterion.com; leonid.grossman@neterion.com;
-ananda.raju@neterion.com; rapuru.sriram@neterion.com
-Subject: Re: [PATCH 2.6.12-rc4] IPv4/IPv6: USO v2, Scatter-gather
-approach
+We are trimming SKB madly right now, so if you could work on
+the bluetooth patch so we can trim the pkt_type size ASAP
+that would be much appreciated.  You can send diffs against
+my net-2.6.14 tree at:
 
+   rsync://rsync.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6.14.git
 
-From: ravinandan.arakali@neterion.com
-Date: Thu,  2 Jun 2005 17:41:06 -0700 (PDT)
-
-> Attached below is version 2 of kernel patch for UDP Large send offload 
-> feature. This patch uses the "Scatter-Gather" approach.
-> It also incorporates David Miller's comments on the first version.
-
-I've reviewed this patches, and I think there is a problem
-with the sock_append_data() scheme.  You disallow the case
-where there is an SKB on the write queue already.
-
-This breaks NFS, and other things using MSG_MORE and UDP_CORK.
-They do a two step packet building:
-
-1) Send protocol headers, f.e. NFS
-
-2) Send file contents via sendfile()
-
-3) Uncork socket so packet gets emitted
-
-and due to this check:
-
-+	if (skb_queue_len(&sk->sk_write_queue)) {
-+		*err = -EOPNOTSUPP;
-+		return NULL;
-+	}
-
-you end up not supporting this correctly.
-
-So we have two options, either add support for corked socket
-handling to sock_append_data() or we go with the frag_list
-patch which doesn't have this problem.
-
-I prefer the frag_list patch from a cleanliness perspective,
-however I remember you saying that the sock_append_data()
-approach obtained better performance.  And that seems clear
-since there will be less TX descriptors needed to send such
-frames unless the driver does coalescing as it walks the
-frag_list chain.
+Thanks.
