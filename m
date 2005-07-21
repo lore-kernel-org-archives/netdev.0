@@ -1,19 +1,18 @@
 From: Marcel Holtmann <marcel@holtmann.org>
 Subject: Re: [PATCH] reduce netfilte sk_buff enlargement
-Date: Fri, 22 Jul 2005 01:49:51 +0200
-Message-ID: <1121989791.5892.8.camel@notepaq>
-References: <1121970035.5904.6.camel@notepaq>
-	<20050721.131250.55509013.davem@davemloft.net>
-	<1121982131.5886.2.camel@notepaq>
-	<20050721.152941.56567834.davem@davemloft.net>
+Date: Thu, 21 Jul 2005 20:20:35 +0200
+Message-ID: <1121970035.5904.6.camel@notepaq>
+References: <20050717220451.GB13434@rama.risq.ericsson.ca>
+	<20050718.203145.105430424.davem@davemloft.net>
+	<20050720132305.GA4077@rama>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: laforge@netfilter.org, netdev@vger.kernel.org,
-	netfilter-devel@lists.netfilter.org, wensong@linux-vs.org
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	wensong@linux-vs.org
 Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050721.152941.56567834.davem@davemloft.net>
+To: Harald Welte <laforge@netfilter.org>
+In-Reply-To: <20050720132305.GA4077@rama>
 List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
 	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
 List-Archive: </pipermail/netfilter-devel>
@@ -25,32 +24,22 @@ Sender: netfilter-devel-bounces@lists.netfilter.org
 Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+Hi Harald,
 
-> > unfortunatly it is not that straight forward as I thought. The attached
-> > patch which modifies the Bluetooth core and the hci_usb driver is not
-> > working on my machine.
+> I just ran into Marcel Holtmann earlier today.  He thinks moving that
+> data into the cb is fine, though he has to double-check that.
 > 
-> This probably has nothing to do with why the patch doesn't
-> work for you, but the transformation of "incoming" to a "u8"
-> from an "int" is not fully correct, because hci_sock.c
-> does this:
-> 
-> 	put_cmsg(msg, SOL_HCI, HCI_CMSG_DIR, sizeof(int), &bt_cb(skb)->incoming);
-> 
-> I haven't found any other problems though...
+> He also said that he really only needs 5 bits, so even if the current
+> pkt_type overloading would persist, we could probably shrink it to make
+> space for the IPVS bit.
 
-actually I overlooked it. Thanks for spotting it. I fixed it by copying
-it into an int first. However this is only used when you really request
-the direction bit and this happens only with hcidump from userspace as
-far as I know.
-
-> Maybe the bluetooth code was somehow depending upon the initial
-> value of skb->pkt_type or something like that?
-
-The pkt_type zero is not a valid one. We only use 1-4 and 0xff. So this
-can't be the problem. I assume that the cb is not copied from the driver
-into the core at some point.
+please forget about the 5 bits thingy, I told you. Splitting it up into
+bitlevel will screw up the HCI filter completly. However after a look
+trough the Bluetooth core it should be quite easy too move the pkt_type
+into the control buffer. We already use it for a direction bit. The
+nasty thing is that I have to modify all the drivers. So when you
+finally decided to shrink the pkt_type, I think that I can come up with
+a patch for it quiet quickly.
 
 Regards
 
