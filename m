@@ -1,31 +1,44 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] ctnetlink
-Date: Fri, 22 Jul 2005 12:48:51 -0700 (PDT)
-Message-ID: <20050722.124851.82053896.davem@davemloft.net>
-References: <20050722131130.GA26783@rama>
+Subject: Re: slow tcp acks on loopback device
+Date: Fri, 22 Jul 2005 13:08:16 -0700 (PDT)
+Message-ID: <20050722.130816.91445335.davem@davemloft.net>
+References: <1122062219.29258.12.camel@stevef95.austin.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: laforge@netfilter.org
-In-Reply-To: <20050722131130.GA26783@rama>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Cc: netdev@vger.kernel.org, samba-technical@lists.samba.org,
+	linux-kernel@vger.kernel.org
+Return-path: <samba-technical-bounces+gnsi-samba-technical=m.gmane.org@lists.samba.org>
+To: smfltc@us.ibm.com
+In-Reply-To: <1122062219.29258.12.camel@stevef95.austin.ibm.com>
+List-Unsubscribe: <https://lists.samba.org/mailman/listinfo/samba-technical>,
+	<mailto:samba-technical-request@lists.samba.org?subject=unsubscribe>
+List-Archive: <http://lists.samba.org/archive/samba-technical>
+List-Post: <mailto:samba-technical@lists.samba.org>
+List-Help: <mailto:samba-technical-request@lists.samba.org?subject=help>
+List-Subscribe: <https://lists.samba.org/mailman/listinfo/samba-technical>,
+	<mailto:samba-technical-request@lists.samba.org?subject=subscribe>
+Sender: samba-technical-bounces+gnsi-samba-technical=m.gmane.org@lists.samba.org
+Errors-To: samba-technical-bounces+gnsi-samba-technical=m.gmane.org@lists.samba.org
 List-Id: netdev.vger.kernel.org
 
-From: Harald Welte <laforge@netfilter.org>
-Date: Fri, 22 Jul 2005 09:11:30 -0400
+From: Steve French <smfltc@us.ibm.com>
+Date: 22 Jul 2005 14:56:59 -0500
 
-> This is a patch for your net-2.6.14 tree (incremental to the
-> expect-double-free fix).  It adds the ctnetlink code, and all the
-> required core conntrack/nat changes that it needs.
+> Noticing that the loopback device (at least on RHEL4) has an unfortunate
+> mtu size 16384 (which is about 50 bytes too small for SMB read
+> responses), I did try increasing the MTU slightly.  Changing that to
+> 18000 did avoid the fragmentation and the 40ms delay - but what puzzled
+> me was why setting TCP_NODELAY after the socket was created did not
+> eliminate the delay on the ack and if there is a way to avoid the huge
+> tcp ack delay by either doing something else to force client acking
+> immediately or to do something on the client side of the stack to get
+> the server to send the whole 16K+ frame - it looks like the tcp windows
+> is 32K if the value in the tcp acks in the network trace is to be
+> trusted.
 
-Applied and pushed to net-2.6.14
+TCP_NODELAY does not control ACK generation, instead it modifies
+the Nagle algorithm behavior when sending data packets.
+
+Please take networking discussions to netdev@vger.kernel.org which
+is where the networking developers are.
