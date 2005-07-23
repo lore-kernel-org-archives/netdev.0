@@ -1,51 +1,102 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: Re: [2.6 patch] drivers/net/hamradio/: cleanups
-Date: Sat, 23 Jul 2005 19:08:04 +0200
-Message-ID: <20050723170804.GG3160@stusta.de>
-References: <20050502014637.GQ3592@stusta.de> <42BF2BA9.8060502@pobox.com> <20050626155318.7f065d5b.rdunlap@xenotime.net> <42BF337D.1050904@pobox.com>
+From: Andrew McDonald <andrew@mcdonald.org.uk>
+Subject: [PATCH 2.6.13rc3] IPv6: Check interface bindings on IPv6 raw socket reception
+Date: Sat, 23 Jul 2005 19:04:43 +0100
+Message-ID: <20050723180442.GB6731@mcdonald.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: randy_dunlap <rdunlap@xenotime.net>, akpm@osdl.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262360AbVGWRIM@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
+Cc: yoshfuji@linux-ipv6.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262387AbVGWSEv@vger.kernel.org>
+To: netdev@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <42BF337D.1050904@pobox.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jun 26, 2005 at 07:00:13PM -0400, Jeff Garzik wrote:
-> randy_dunlap wrote:
-> >On Sun, 26 Jun 2005 18:26:49 -0400 Jeff Garzik wrote:
-> >
-> >| Adrian Bunk wrote:
-> >| > This patch contains the following cleanups:
-> >| > - dmascc.c: remove the unused global function dmascc_setup
-> >| 
-> >| Better to use it, then remove it.
-> >
-> >                    than ??
-> 
-> Yes.  Use it via __setup() or similar.
+Take account of whether a socket is bound to a particular device when
+selecting an IPv6 raw socket to receive a packet. Also perform this
+check when receiving IPv6 packets with router alert options.
 
-Hi Jeff,
+Signed-off-by: Andrew McDonald <andrew@mcdonald.org.uk>
 
-I still haven't gotten any answer from you regarding the following 
-question:
-
-Can you give me a hint how it should be used?
-
-Why doesn't dmascc_init together with the MODULE_PARM(io,...) work in
-the non-modular case?
-
-> 	Jeff
-
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+diff -uprN linux-2.6.13-rc3.orig/include/net/rawv6.h linux-2.6.13-rc3/include/net/rawv6.h
+--- linux-2.6.13-rc3.orig/include/net/rawv6.h	2004-10-18 22:53:52.000000000 +0100
++++ linux-2.6.13-rc3/include/net/rawv6.h	2005-07-23 13:18:46.000000000 +0100
+@@ -10,7 +10,8 @@ extern rwlock_t raw_v6_lock;
+ extern void ipv6_raw_deliver(struct sk_buff *skb, int nexthdr);
+ 
+ extern struct sock *__raw_v6_lookup(struct sock *sk, unsigned short num,
+-				    struct in6_addr *loc_addr, struct in6_addr *rmt_addr);
++				    struct in6_addr *loc_addr, struct in6_addr *rmt_addr,
++				    int dif);
+ 
+ extern int			rawv6_rcv(struct sock *sk,
+ 					  struct sk_buff *skb);
+diff -uprN linux-2.6.13-rc3.orig/net/ipv6/icmp.c linux-2.6.13-rc3/net/ipv6/icmp.c
+--- linux-2.6.13-rc3.orig/net/ipv6/icmp.c	2005-07-23 10:28:47.000000000 +0100
++++ linux-2.6.13-rc3/net/ipv6/icmp.c	2005-07-23 13:23:03.000000000 +0100
+@@ -551,7 +551,8 @@ static void icmpv6_notify(struct sk_buff
+ 
+ 	read_lock(&raw_v6_lock);
+ 	if ((sk = sk_head(&raw_v6_htable[hash])) != NULL) {
+-		while((sk = __raw_v6_lookup(sk, nexthdr, daddr, saddr))) {
++		while((sk = __raw_v6_lookup(sk, nexthdr, daddr, saddr,
++					    skb->dev->ifindex))) {
+ 			rawv6_err(sk, skb, NULL, type, code, inner_offset, info);
+ 			sk = sk_next(sk);
+ 		}
+diff -uprN linux-2.6.13-rc3.orig/net/ipv6/ip6_output.c linux-2.6.13-rc3/net/ipv6/ip6_output.c
+--- linux-2.6.13-rc3.orig/net/ipv6/ip6_output.c	2005-07-23 10:29:40.000000000 +0100
++++ linux-2.6.13-rc3/net/ipv6/ip6_output.c	2005-07-23 12:37:34.000000000 +0100
+@@ -321,7 +321,9 @@ static int ip6_call_ra_chain(struct sk_b
+ 	read_lock(&ip6_ra_lock);
+ 	for (ra = ip6_ra_chain; ra; ra = ra->next) {
+ 		struct sock *sk = ra->sk;
+-		if (sk && ra->sel == sel) {
++		if (sk && ra->sel == sel &&
++		    (!sk->sk_bound_dev_if ||
++		     sk->sk_bound_dev_if == skb->dev->ifindex)) {
+ 			if (last) {
+ 				struct sk_buff *skb2 = skb_clone(skb, GFP_ATOMIC);
+ 				if (skb2)
+diff -uprN linux-2.6.13-rc3.orig/net/ipv6/raw.c linux-2.6.13-rc3/net/ipv6/raw.c
+--- linux-2.6.13-rc3.orig/net/ipv6/raw.c	2005-07-23 10:29:40.000000000 +0100
++++ linux-2.6.13-rc3/net/ipv6/raw.c	2005-07-23 17:07:58.000000000 +0100
+@@ -81,7 +81,8 @@ static void raw_v6_unhash(struct sock *s
+ 
+ /* Grumble... icmp and ip_input want to get at this... */
+ struct sock *__raw_v6_lookup(struct sock *sk, unsigned short num,
+-			     struct in6_addr *loc_addr, struct in6_addr *rmt_addr)
++			     struct in6_addr *loc_addr, struct in6_addr *rmt_addr,
++			     int dif)
+ {
+ 	struct hlist_node *node;
+ 	int is_multicast = ipv6_addr_is_multicast(loc_addr);
+@@ -94,6 +95,9 @@ struct sock *__raw_v6_lookup(struct sock
+ 			    !ipv6_addr_equal(&np->daddr, rmt_addr))
+ 				continue;
+ 
++			if (sk->sk_bound_dev_if && sk->sk_bound_dev_if != dif)
++				continue;
++
+ 			if (!ipv6_addr_any(&np->rcv_saddr)) {
+ 				if (ipv6_addr_equal(&np->rcv_saddr, loc_addr))
+ 					goto found;
+@@ -160,7 +164,7 @@ void ipv6_raw_deliver(struct sk_buff *sk
+ 	if (sk == NULL)
+ 		goto out;
+ 
+-	sk = __raw_v6_lookup(sk, nexthdr, daddr, saddr);
++	sk = __raw_v6_lookup(sk, nexthdr, daddr, saddr, skb->dev->ifindex);
+ 
+ 	while (sk) {
+ 		if (nexthdr != IPPROTO_ICMPV6 || !icmpv6_filter(sk, skb)) {
+@@ -170,7 +174,8 @@ void ipv6_raw_deliver(struct sk_buff *sk
+ 			if (clone)
+ 				rawv6_rcv(sk, clone);
+ 		}
+-		sk = __raw_v6_lookup(sk_next(sk), nexthdr, daddr, saddr);
++		sk = __raw_v6_lookup(sk_next(sk), nexthdr, daddr, saddr,
++				     skb->dev->ifindex);
+ 	}
+ out:
+ 	read_unlock(&raw_v6_lock);
