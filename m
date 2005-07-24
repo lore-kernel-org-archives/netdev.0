@@ -1,47 +1,64 @@
-From: Kumar Gala <kumar.gala@freescale.com>
-Subject: Re: [PATCH RFC]: PHY Abstraction Layer III
-Date: Sun, 24 Jul 2005 09:20:50 -0500
-Message-ID: <2A1209AF-773C-4F35-8A85-887257A2EA64@freescale.com>
-References: <20050723215913.GA777@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0 (Apple Message framework v733)
-Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Embedded PPC Linux list <linuxppc-embedded@ozlabs.org>
-Return-path: <linuxppc-embedded-bounces@ozlabs.org>
-In-Reply-To: <20050723215913.GA777@electric-eye.fr.zoreil.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
-List-Post: <mailto:linuxppc-embedded@ozlabs.org>
-List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-embedded-bounces@ozlabs.org
-Errors-To: linuxppc-embedded-bounces@ozlabs.org
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: [stable] Re: [05/11] SMP fix for 6pack driver
+Date: Sun, 24 Jul 2005 18:08:05 +0200
+Message-ID: <20050724160805.GS3160@stusta.de>
+References: <20050713184130.GA9330@kroah.com> <20050713184331.GG9330@kroah.com> <20050713220123.GA3292@electric-eye.fr.zoreil.com> <20050713221311.GA30039@kroah.com> <20050715193556.GB18059@stusta.de> <20050717210939.GA11884@linux-mips.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Greg KH <greg@kroah.com>, Francois Romieu <romieu@fr.zoreil.com>,
+	Greg KH <gregkh@suse.de>, torvalds@osdl.org, akpm@osdl.org,
+	Theodore Ts'o <tytso@mit.edu>,
+	Zwane Mwaikambo <zwane@arm.linux.org.uk>,
+	netdev@vger.kernel.org, Justin Forbes <jmforbes@linuxtx.org>,
+	linux-kernel@vger.kernel.org,
+	"Randy.Dunlap" <rdunlap@xenotime.net>,
+	Chuck Wolber <chuckw@quantumlinux.com>, jgarzik@pobox.com,
+	stable@kernel.org, alan@lxorguk.ukuu.org.uk
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261381AbVGXQIP@vger.kernel.org>
+To: Ralf Baechle <ralf@linux-mips.org>
+Content-Disposition: inline
+In-Reply-To: <20050717210939.GA11884@linux-mips.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Because the patch is all new code.  drivers/net/phy/phy.c doesn't  
-exist in any kernel tree.  The patch is adding it.
+On Sun, Jul 17, 2005 at 05:09:39PM -0400, Ralf Baechle wrote:
+> On Fri, Jul 15, 2005 at 09:35:56PM +0200, Adrian Bunk wrote:
+> 
+> > I do agree with Francois regarding this issue:
+> > 
+> > AFAIR, there has been not one 2.6 kernel where this driver was available 
+> > for SMP kernels.
+> 
+> Eh...  That after all is the raison d'etre for this patch :)
+> 
+> > It's therefore untested which problems might arise with 
+> > this driver on SMP systems. I'm not arguing against including this 
+> > driver in 2.6.13, but 2.6.12.3 isn't the right place.
+> 
+> Nonsense.  Most development activity for this stuff happens not on the
+> internet and you won't be able to follow it unless you're a licensed ham.
+> I've been circulating things patch since a while and nobody has been unhappy.
 
-- kumar
+So why was it important to get it into 2.6.12.3?
 
-On Jul 23, 2005, at 4:59 PM, Francois Romieu wrote:
+I must have missed the announcement that the original -stable goals have 
+been declared obsolete.
 
-> Andy Fleming <afleming@freescale.com> :
->
->> Here's the latest version of the patch, done against a cogito
->> linux-2.6 branch.
->>
->
-> The patch includes a diff against drivers/net/phy/phy.c which does not
-> seem to exist in my -rc3-git4 local tree. Where can it be found ?
->
-> --
-> Ueimor
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+> > What surprises me most is that you accepted this patch is neither in 
+> > 2.6.13-rc3 nor in 2.6.13-rc3-mm1. There seems to be either an
+> > (IMHO unfortunate) change in your policy of what patches to accept,
+> > or there's a serious problem in your patch review process.
+> 
+> I've sent it to jgarzik so it's somewhere on it's long way there.
+> 
+>   Ralf
+
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
