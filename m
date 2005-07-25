@@ -1,19 +1,19 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH] reduce netfilte sk_buff enlargement
-Date: Sat, 23 Jul 2005 03:36:20 +0200
-Message-ID: <1122082580.5878.3.camel@notepaq>
-References: <1121989791.5892.8.camel@notepaq>
-	<20050721.165207.35016196.davem@davemloft.net>
-	<1121991994.5892.15.camel@notepaq>
-	<20050722.155411.32722751.davem@davemloft.net>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Netlink connector
+Date: Mon, 25 Jul 2005 11:06:04 +0400
+Message-ID: <20050725070603.GA28023@2ka.mipt.ru>
+References: <20050723125427.GA11177@rama> <20050723091455.GA12015@2ka.mipt.ru>
+	<20050724.191756.105797967.davem@davemloft.net>
+	<Lynx.SEL.4.62.0507250154000.21934@thoron.boston.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: laforge@netfilter.org, netdev@vger.kernel.org,
-	netfilter-devel@lists.netfilter.org, wensong@linux-vs.org
+Content-Type: text/plain; charset=koi8-r
+Cc: Andrew Morton <akpm@osdl.org>, Harald Welte <laforge@netfilter.org>,
+	netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	linux-kernel@vger.kernel.org, netdev@redhat.com
 Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050722.155411.32722751.davem@davemloft.net>
+To: James Morris <jmorris@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <Lynx.SEL.4.62.0507250154000.21934@thoron.boston.redhat.com>
 List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
 	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
 List-Archive: </pipermail/netfilter-devel>
@@ -25,25 +25,35 @@ Sender: netfilter-devel-bounces@lists.netfilter.org
 Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+On Mon, Jul 25, 2005 at 02:02:10AM -0400, James Morris (jmorris@redhat.com) wrote:
+> On Sun, 24 Jul 2005, David S. Miller wrote:
+> >From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+> >Date: Sat, 23 Jul 2005 13:14:55 +0400
+> >
+> >>Andrew has no objection against connector and it lives in -mm
+> >
+> >A patch sitting in -mm has zero significance.
 
-> > I found the problem. The hci_usb is using the cb[] by itself and so
-> > overwriting the pkt_type value. The attached patch works for me with the
-> > hci_usb driver. However I haven't converted all other drivers and
-> > checked them. This won't happen until I am back home, because I don't
-> > have any of these devices with me around. However it looks like this
-> > seems to work without any problems.
+That is why I'm asking netdev@ people again...
+
+> The significance I think is that Andrew is trying to gently encourage some 
+> further progress in the area.
+>
+> I recall some netconf discussion about TIPC over Netlink, or more likely a 
+> variation thereof, which may be a better way forward.
 > 
-> Great.  I'll wait until you get back and code up an updated
-> patch that takes care of all of the drivers.
+> It's cool stuff http://tipc.sourceforge.net/
 
-actually the patch is ready by now and hci_usb and hci_vhci are tested.
-The tests for the other drivers have to wait at least until first week
-of August. However since it seems to work even with 2.6.13-rc3, I don't
-see any reason to wait with the inclusion. If you are serious with the
-shrinking of the sk_buff, I can send you the final patch along with my
-pending patches for 2.6.13.
+I read it quite long ago - I'm sure you do not want to use that monster
+for event bus.
+It was designed and implemented for heavy intermachine communications,
+and it is quite hard to setup for userspace <-> kernelspace message bus.
 
-Regards
+> 
+> - James
+> -- 
+> James Morris
+> <jmorris@redhat.com>
 
-Marcel
+-- 
+	Evgeniy Polyakov
