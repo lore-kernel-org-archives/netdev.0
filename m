@@ -1,8 +1,8 @@
 From: Andy Fleming <afleming@freescale.com>
-Subject: [RFC PATCH 2/4]: PHY Abstraction Layer III (now with more
+Subject: [RFC PATCH 3/4]: PHY Abstraction Layer III (now with more
 	splitiness)
-Date: Mon, 25 Jul 2005 14:51:01 -0500 (CDT)
-Message-ID: <Pine.LNX.4.61.0507251448000.15537@cde-tx32-ldt113.sps.mot.com>
+Date: Mon, 25 Jul 2005 14:56:32 -0500 (CDT)
+Message-ID: <Pine.LNX.4.61.0507251451030.15537@cde-tx32-ldt113.sps.mot.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <linuxppc-embedded-bounces@ozlabs.org>
@@ -19,1134 +19,2151 @@ Sender: linuxppc-embedded-bounces@ozlabs.org
 Errors-To: linuxppc-embedded-bounces@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-This patch contains the PHY drivers
+This patch contains the changes to the gianfar driver as an example of how 
+to change a driver to use the PHY Abstraction Layer.  Note that the patch, 
+while large, contains mostly deletions.  The "hard" work is all in 
+gianfar_mii.c, which implements an MDIO bus interface.
 
+This is the 3rd and final patch (of four).  The fourth patch contains 
+platform changes for the MPC85xx systems, and is probably not relevant to 
+the understanding of the first 3 patches.  Certainly it is not relevant to 
+the netdev community, as it consists of board-specific structures and 
+code.
 
-diff --git a/drivers/net/phy/cicada.c b/drivers/net/phy/cicada.c
-new file mode 100644
---- /dev/null
-+++ b/drivers/net/phy/cicada.c
-@@ -0,0 +1,134 @@
-+/*
-+ * drivers/net/phy/cicada.c
-+ *
-+ * Driver for Cicada PHYs
-+ *
-+ * Author: Andy Fleming
-+ *
-+ * Copyright (c) 2004 Freescale Semiconductor, Inc.
-+ *
-+ * This program is free software; you can redistribute  it and/or modify it
-+ * under  the terms of  the GNU General  Public License as published by the
-+ * Free Software Foundation;  either version 2 of the  License, or (at your
-+ * option) any later version.
-+ *
-+ */
-+#include <linux/config.h>
-+#include <linux/kernel.h>
-+#include <linux/sched.h>
-+#include <linux/string.h>
-+#include <linux/errno.h>
-+#include <linux/unistd.h>
-+#include <linux/slab.h>
-+#include <linux/interrupt.h>
-+#include <linux/init.h>
-+#include <linux/delay.h>
-+#include <linux/netdevice.h>
-+#include <linux/etherdevice.h>
-+#include <linux/skbuff.h>
-+#include <linux/spinlock.h>
-+#include <linux/mm.h>
-+#include <linux/module.h>
-+#include <linux/version.h>
-+#include <linux/mii.h>
-+#include <linux/ethtool.h>
-+#include <linux/phy.h>
-+
-+#include <asm/io.h>
-+#include <asm/irq.h>
-+#include <asm/uaccess.h>
-+
-+/* Cicada Extended Control Register 1 */
-+#define MII_CIS8201_EXT_CON1           0x17
-+#define MII_CIS8201_EXTCON1_INIT       0x0000
-+
-+/* Cicada Interrupt Mask Register */
-+#define MII_CIS8201_IMASK		0x19
-+#define MII_CIS8201_IMASK_IEN		0x8000
-+#define MII_CIS8201_IMASK_SPEED	0x4000
-+#define MII_CIS8201_IMASK_LINK		0x2000
-+#define MII_CIS8201_IMASK_DUPLEX	0x1000
-+#define MII_CIS8201_IMASK_MASK		0xf000
-+
-+/* Cicada Interrupt Status Register */
-+#define MII_CIS8201_ISTAT		0x1a
-+#define MII_CIS8201_ISTAT_STATUS	0x8000
-+#define MII_CIS8201_ISTAT_SPEED	0x4000
-+#define MII_CIS8201_ISTAT_LINK		0x2000
-+#define MII_CIS8201_ISTAT_DUPLEX	0x1000
-+
-+/* Cicada Auxiliary Control/Status Register */
-+#define MII_CIS8201_AUX_CONSTAT        0x1c
-+#define MII_CIS8201_AUXCONSTAT_INIT    0x0004
-+#define MII_CIS8201_AUXCONSTAT_DUPLEX  0x0020
-+#define MII_CIS8201_AUXCONSTAT_SPEED   0x0018
-+#define MII_CIS8201_AUXCONSTAT_GBIT    0x0010
-+#define MII_CIS8201_AUXCONSTAT_100     0x0008
-+
-+MODULE_DESCRIPTION("Cicadia PHY driver");
-+MODULE_AUTHOR("Andy Fleming");
-+MODULE_LICENSE("GPL");
-+
-+static int cis820x_config_init(struct phy_device *phydev)
-+{
-+	int err;
-+
-+	err = phy_write(phydev, MII_CIS8201_AUX_CONSTAT,
-+			MII_CIS8201_AUXCONSTAT_INIT);
-+
-+	if (err < 0)
-+		return err;
-+
-+	err = phy_write(phydev, MII_CIS8201_EXT_CON1,
-+			MII_CIS8201_EXTCON1_INIT);
-+
-+	return err;
-+}
-+
-+static int cis820x_ack_interrupt(struct phy_device *phydev)
-+{
-+	int err = phy_read(phydev, MII_CIS8201_ISTAT);
-+
-+	return (err < 0) ? err : 0;
-+}
-+
-+static int cis820x_config_intr(struct phy_device *phydev)
-+{
-+	int err;
-+
-+	if(phydev->interrupts == PHY_INTERRUPT_ENABLED)
-+		err = phy_write(phydev, MII_CIS8201_IMASK, 
-+				MII_CIS8201_IMASK_MASK);
-+	else
-+		err = phy_write(phydev, MII_CIS8201_IMASK, 0);
-+
-+	return err;
-+}
-+
-+/* Cicada 820x */
-+static struct phy_driver cis8204_driver = {
-+	.phy_id		= 0x000fc440,
-+	.name		= "Cicada Cis8204",
-+	.phy_id_mask	= 0x000fffc0,
-+	.features	= PHY_GBIT_FEATURES,
-+	.flags		= PHY_HAS_INTERRUPT,
-+	.config_init	= &cis820x_config_init,
-+	.config_aneg	= &genphy_config_aneg,
-+	.read_status	= &genphy_read_status,
-+	.ack_interrupt	= &cis820x_ack_interrupt,
-+	.config_intr	= &cis820x_config_intr,
-+	.driver 	= { .owner = THIS_MODULE,},
-+};
-+
-+static int __init cis8204_init(void)
-+{
-+	return phy_driver_register(&cis8204_driver);
-+}
-+
-+static void __exit cis8204_exit(void)
-+{
-+	phy_driver_unregister(&cis8204_driver);
-+}
-+
-+module_init(cis8204_init);
-+module_exit(cis8204_exit);
-diff --git a/drivers/net/phy/davicom.c b/drivers/net/phy/davicom.c
-new file mode 100644
---- /dev/null
-+++ b/drivers/net/phy/davicom.c
-@@ -0,0 +1,195 @@
-+/*
-+ * drivers/net/phy/davicom.c
-+ *
-+ * Driver for Davicom PHYs
-+ *
-+ * Author: Andy Fleming
-+ *
-+ * Copyright (c) 2004 Freescale Semiconductor, Inc.
-+ *
-+ * This program is free software; you can redistribute  it and/or modify it
-+ * under  the terms of  the GNU General  Public License as published by the
-+ * Free Software Foundation;  either version 2 of the  License, or (at your
-+ * option) any later version.
-+ *
-+ */
-+#include <linux/config.h>
-+#include <linux/kernel.h>
-+#include <linux/sched.h>
-+#include <linux/string.h>
-+#include <linux/errno.h>
-+#include <linux/unistd.h>
-+#include <linux/slab.h>
-+#include <linux/interrupt.h>
-+#include <linux/init.h>
-+#include <linux/delay.h>
-+#include <linux/netdevice.h>
-+#include <linux/etherdevice.h>
-+#include <linux/skbuff.h>
-+#include <linux/spinlock.h>
-+#include <linux/mm.h>
-+#include <linux/module.h>
-+#include <linux/version.h>
-+#include <linux/mii.h>
-+#include <linux/ethtool.h>
-+#include <linux/phy.h>
-+
-+#include <asm/io.h>
-+#include <asm/irq.h>
-+#include <asm/uaccess.h>
-+
-+#define MII_DM9161_SCR		0x10
-+#define MII_DM9161_SCR_INIT	0x0610
-+
-+/* DM9161 Interrupt Register */
-+#define MII_DM9161_INTR	0x15
-+#define MII_DM9161_INTR_PEND		0x8000
-+#define MII_DM9161_INTR_DPLX_MASK	0x0800
-+#define MII_DM9161_INTR_SPD_MASK	0x0400
-+#define MII_DM9161_INTR_LINK_MASK	0x0200
-+#define MII_DM9161_INTR_MASK		0x0100
-+#define MII_DM9161_INTR_DPLX_CHANGE	0x0010
-+#define MII_DM9161_INTR_SPD_CHANGE	0x0008
-+#define MII_DM9161_INTR_LINK_CHANGE	0x0004
-+#define MII_DM9161_INTR_INIT 		0x0000
-+#define MII_DM9161_INTR_STOP	\
-+(MII_DM9161_INTR_DPLX_MASK | MII_DM9161_INTR_SPD_MASK \
-+ | MII_DM9161_INTR_LINK_MASK | MII_DM9161_INTR_MASK)
-+
-+/* DM9161 10BT Configuration/Status */
-+#define MII_DM9161_10BTCSR	0x12
-+#define MII_DM9161_10BTCSR_INIT	0x7800
-+
-+MODULE_DESCRIPTION("Davicom PHY driver");
-+MODULE_AUTHOR("Andy Fleming");
-+MODULE_LICENSE("GPL");
-+
-+
-+#define DM9161_DELAY 1
-+static int dm9161_config_intr(struct phy_device *phydev)
-+{
-+	int temp;
-+
-+	temp = phy_read(phydev, MII_DM9161_INTR);
-+
-+	if (temp < 0)
-+		return temp;
-+
-+	if(PHY_INTERRUPT_ENABLED == phydev->interrupts )
-+		temp &= ~(MII_DM9161_INTR_STOP);
-+	else
-+		temp |= MII_DM9161_INTR_STOP;
-+
-+	temp = phy_write(phydev, MII_DM9161_INTR, temp);
-+
-+	return temp;
-+}
-+
-+static int dm9161_config_aneg(struct phy_device *phydev)
-+{
-+	int err;
-+
-+	/* Isolate the PHY */
-+	err = phy_write(phydev, MII_BMCR, BMCR_ISOLATE);
-+
-+	if (err < 0)
-+		return err;
-+
-+	/* Configure the new settings */
-+	err = genphy_config_aneg(phydev);
-+
-+	if (err < 0)
-+		return err;
-+
-+	return 0;
-+}
-+
-+static int dm9161_config_init(struct phy_device *phydev)
-+{
-+	int err;
-+
-+	/* Isolate the PHY */
-+	err = phy_write(phydev, MII_BMCR, BMCR_ISOLATE);
-+
-+	if (err < 0)
-+		return err;
-+
-+	/* Do not bypass the scrambler/descrambler */
-+	err = phy_write(phydev, MII_DM9161_SCR, MII_DM9161_SCR_INIT);
-+
-+	if (err < 0)
-+		return err;
-+
-+	/* Clear 10BTCSR to default */
-+	err = phy_write(phydev, MII_DM9161_10BTCSR, MII_DM9161_10BTCSR_INIT);
-+
-+	if (err < 0)
-+		return err;
-+
-+	/* Reconnect the PHY, and enable Autonegotiation */
-+	err = phy_write(phydev, MII_BMCR, BMCR_ANENABLE);
-+
-+	if (err < 0)
-+		return err;
-+
-+	return 0;
-+}
-+
-+static int dm9161_ack_interrupt(struct phy_device *phydev)
-+{
-+	int err = phy_read(phydev, MII_DM9161_INTR);
-+
-+	return (err < 0) ? err : 0;
-+}
-+
-+static struct phy_driver dm9161_driver = {
-+	.phy_id		= 0x0181b880,
-+	.name		= "Davicom DM9161E",
-+	.phy_id_mask	= 0x0ffffff0,
-+	.features	= PHY_BASIC_FEATURES,
-+	.config_init	= dm9161_config_init,
-+	.config_aneg	= dm9161_config_aneg,
-+	.read_status	= genphy_read_status,
-+	.driver 	= { .owner = THIS_MODULE,},
-+};
-+
-+static struct phy_driver dm9131_driver = {
-+	.phy_id		= 0x00181b80,
-+	.name		= "Davicom DM9131",
-+	.phy_id_mask	= 0x0ffffff0,
-+	.features	= PHY_BASIC_FEATURES,
-+	.flags		= PHY_HAS_INTERRUPT,
-+	.config_aneg	= genphy_config_aneg,
-+	.read_status	= genphy_read_status,
-+	.ack_interrupt	= dm9161_ack_interrupt,
-+	.config_intr	= dm9161_config_intr,
-+	.driver 	= { .owner = THIS_MODULE,},
-+};
-+
-+static int __init davicom_init(void)
-+{
-+	int ret;
-+
-+	ret = phy_driver_register(&dm9161_driver);
-+	if (ret)
-+		goto err1;
-+
-+	ret = phy_driver_register(&dm9131_driver);
-+	if (ret)
-+		goto err2;
-+	return 0;
-+
-+ err2:	
-+	phy_driver_unregister(&dm9161_driver);
-+ err1:
-+	return ret;
-+}
-+
-+static void __exit davicom_exit(void)
-+{
-+	phy_driver_unregister(&dm9161_driver);
-+	phy_driver_unregister(&dm9131_driver);
-+}
-+
-+module_init(davicom_init);
-+module_exit(davicom_exit);
-diff --git a/drivers/net/phy/lxt.c b/drivers/net/phy/lxt.c
-new file mode 100644
---- /dev/null
-+++ b/drivers/net/phy/lxt.c
-@@ -0,0 +1,179 @@
-+/*
-+ * drivers/net/phy/lxt.c
-+ *
-+ * Driver for Intel LXT PHYs
-+ *
-+ * Author: Andy Fleming
-+ *
-+ * Copyright (c) 2004 Freescale Semiconductor, Inc.
-+ *
-+ * This program is free software; you can redistribute  it and/or modify it
-+ * under  the terms of  the GNU General  Public License as published by the
-+ * Free Software Foundation;  either version 2 of the  License, or (at your
-+ * option) any later version.
-+ *
-+ */
-+#include <linux/config.h>
-+#include <linux/kernel.h>
-+#include <linux/sched.h>
-+#include <linux/string.h>
-+#include <linux/errno.h>
-+#include <linux/unistd.h>
-+#include <linux/slab.h>
-+#include <linux/interrupt.h>
-+#include <linux/init.h>
-+#include <linux/delay.h>
-+#include <linux/netdevice.h>
-+#include <linux/etherdevice.h>
-+#include <linux/skbuff.h>
-+#include <linux/spinlock.h>
-+#include <linux/mm.h>
-+#include <linux/module.h>
-+#include <linux/version.h>
-+#include <linux/mii.h>
-+#include <linux/ethtool.h>
-+#include <linux/phy.h>
-+
-+#include <asm/io.h>
-+#include <asm/irq.h>
-+#include <asm/uaccess.h>
-+
-+/* The Level one LXT970 is used by many boards				     */
-+
-+#define MII_LXT970_IER       17  /* Interrupt Enable Register */
-+
-+#define MII_LXT970_IER_IEN	0x0002
-+
-+#define MII_LXT970_ISR       18  /* Interrupt Status Register */
-+
-+#define MII_LXT970_CONFIG    19  /* Configuration Register    */
-+
-+/* ------------------------------------------------------------------------- */
-+/* The Level one LXT971 is used on some of my custom boards                  */
-+
-+/* register definitions for the 971 */
-+#define MII_LXT971_IER		18  /* Interrupt Enable Register */
-+#define MII_LXT971_IER_IEN	0x00f2
-+
-+#define MII_LXT971_ISR		19  /* Interrupt Status Register */
-+
-+
-+MODULE_DESCRIPTION("Intel LXT PHY driver");
-+MODULE_AUTHOR("Andy Fleming");
-+MODULE_LICENSE("GPL");
-+
-+static int lxt970_ack_interrupt(struct phy_device *phydev)
-+{
-+	int err;
-+
-+	err = phy_read(phydev, MII_BMSR);
-+
-+	if (err < 0)
-+		return err;
-+
-+	err = phy_read(phydev, MII_LXT970_ISR);
-+
-+	if (err < 0)
-+		return err;
-+
-+	return 0;
-+}
-+
-+static int lxt970_config_intr(struct phy_device *phydev)
-+{
-+	int err;
-+
-+	if(phydev->interrupts == PHY_INTERRUPT_ENABLED)
-+		err = phy_write(phydev, MII_LXT970_IER, MII_LXT970_IER_IEN);
-+	else
-+		err = phy_write(phydev, MII_LXT970_IER, 0);
-+
-+	return err;
-+}
-+
-+static int lxt970_config_init(struct phy_device *phydev)
-+{
-+	int err;
-+
-+	err = phy_write(phydev, MII_LXT970_CONFIG, 0);
-+
-+	return err;
-+}
-+
-+
-+static int lxt971_ack_interrupt(struct phy_device *phydev)
-+{
-+	int err = phy_read(phydev, MII_LXT971_ISR);
-+
-+	if (err < 0)
-+		return err;
-+
-+	return 0;
-+}
-+
-+static int lxt971_config_intr(struct phy_device *phydev)
-+{
-+	int err;
-+
-+	if(phydev->interrupts == PHY_INTERRUPT_ENABLED)
-+		err = phy_write(phydev, MII_LXT971_IER, MII_LXT971_IER_IEN);
-+	else
-+		err = phy_write(phydev, MII_LXT971_IER, 0);
-+
-+	return err;
-+}
-+
-+static struct phy_driver lxt970_driver = {
-+	.phy_id		= 0x07810000,
-+	.name		= "LXT970",
-+	.phy_id_mask	= 0x0fffffff,
-+	.features	= PHY_BASIC_FEATURES,
-+	.flags		= PHY_HAS_INTERRUPT,
-+	.config_init	= lxt970_config_init,
-+	.config_aneg	= genphy_config_aneg,
-+	.read_status	= genphy_read_status,
-+	.ack_interrupt	= lxt970_ack_interrupt,
-+	.config_intr	= lxt970_config_intr,
-+	.driver 	= { .owner = THIS_MODULE,},
-+};
-+
-+static struct phy_driver lxt971_driver = {
-+	.phy_id		= 0x0001378e,
-+	.name		= "LXT971",
-+	.phy_id_mask	= 0x0fffffff,
-+	.features	= PHY_BASIC_FEATURES,
-+	.flags		= PHY_HAS_INTERRUPT,
-+	.config_aneg	= genphy_config_aneg,
-+	.read_status	= genphy_read_status,
-+	.ack_interrupt	= lxt971_ack_interrupt,
-+	.config_intr	= lxt971_config_intr,
-+	.driver 	= { .owner = THIS_MODULE,},
-+};
-+
-+static int __init lxt_init(void)
-+{
-+	int ret;
-+
-+	ret = phy_driver_register(&lxt970_driver);
-+	if (ret)
-+		goto err1;
-+
-+	ret = phy_driver_register(&lxt971_driver);
-+	if (ret)
-+		goto err2;
-+	return 0;
-+
-+ err2:	
-+	phy_driver_unregister(&lxt970_driver);
-+ err1:
-+	return ret;
-+}
-+
-+static void __exit lxt_exit(void)
-+{
-+	phy_driver_unregister(&lxt970_driver);
-+	phy_driver_unregister(&lxt971_driver);
-+}
-+
-+module_init(lxt_init);
-+module_exit(lxt_exit);
-diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-new file mode 100644
---- /dev/null
-+++ b/drivers/net/phy/marvell.c
-@@ -0,0 +1,140 @@
-+/*
-+ * drivers/net/phy/marvell.c
-+ *
-+ * Driver for Marvell PHYs
-+ *
-+ * Author: Andy Fleming
-+ *
-+ * Copyright (c) 2004 Freescale Semiconductor, Inc.
-+ *
-+ * This program is free software; you can redistribute  it and/or modify it
-+ * under  the terms of  the GNU General  Public License as published by the
-+ * Free Software Foundation;  either version 2 of the  License, or (at your
-+ * option) any later version.
-+ *
-+ */
-+#include <linux/config.h>
-+#include <linux/kernel.h>
-+#include <linux/sched.h>
-+#include <linux/string.h>
-+#include <linux/errno.h>
-+#include <linux/unistd.h>
-+#include <linux/slab.h>
-+#include <linux/interrupt.h>
-+#include <linux/init.h>
-+#include <linux/delay.h>
-+#include <linux/netdevice.h>
-+#include <linux/etherdevice.h>
-+#include <linux/skbuff.h>
-+#include <linux/spinlock.h>
-+#include <linux/mm.h>
-+#include <linux/module.h>
-+#include <linux/version.h>
-+#include <linux/mii.h>
-+#include <linux/ethtool.h>
-+#include <linux/phy.h>
-+
-+#include <asm/io.h>
-+#include <asm/irq.h>
-+#include <asm/uaccess.h>
-+
-+#define MII_M1011_IEVENT		0x13
-+#define MII_M1011_IEVENT_CLEAR		0x0000
-+
-+#define MII_M1011_IMASK			0x12
-+#define MII_M1011_IMASK_INIT		0x6400
-+#define MII_M1011_IMASK_CLEAR		0x0000
-+
-+MODULE_DESCRIPTION("Marvell PHY driver");
-+MODULE_AUTHOR("Andy Fleming");
-+MODULE_LICENSE("GPL");
-+
-+static int marvell_ack_interrupt(struct phy_device *phydev)
-+{
-+	int err;
-+
-+	/* Clear the interrupts by reading the reg */
-+	err = phy_read(phydev, MII_M1011_IEVENT);
-+
-+	if (err < 0)
-+		return err;
-+
-+	return 0;
-+}
-+
-+static int marvell_config_intr(struct phy_device *phydev)
-+{
-+	int err;
-+
-+	if(phydev->interrupts == PHY_INTERRUPT_ENABLED)
-+		err = phy_write(phydev, MII_M1011_IMASK, MII_M1011_IMASK_INIT);
-+	else
-+		err = phy_write(phydev, MII_M1011_IMASK, MII_M1011_IMASK_CLEAR);
-+
-+	return err;
-+}
-+
-+static int marvell_config_aneg(struct phy_device *phydev)
-+{
-+	int err;
-+
-+	/* The Marvell PHY has an errata which requires
-+	 * that certain registers get written in order
-+	 * to restart autonegotiation */
-+	err = phy_write(phydev, MII_BMCR, BMCR_RESET);
-+
-+	if (err < 0)
-+		return err;
-+
-+	err = phy_write(phydev, 0x1d, 0x1f);
-+	if (err < 0)
-+		return err;
-+
-+	err = phy_write(phydev, 0x1e, 0x200c);
-+	if (err < 0)
-+		return err;
-+
-+	err = phy_write(phydev, 0x1d, 0x5);
-+	if (err < 0)
-+		return err;
-+
-+	err = phy_write(phydev, 0x1e, 0);
-+	if (err < 0)
-+		return err;
-+
-+	err = phy_write(phydev, 0x1e, 0x100);
-+	if (err < 0)
-+		return err;
-+
-+
-+	err = genphy_config_aneg(phydev);
-+
-+	return err;
-+}
-+
-+
-+static struct phy_driver m88e1101_driver = {
-+	.phy_id		= 0x01410c00,
-+	.phy_id_mask	= 0xffffff00,
-+	.name		= "Marvell 88E1101",
-+	.features	= PHY_GBIT_FEATURES,
-+	.flags		= PHY_HAS_INTERRUPT,
-+	.config_aneg	= &marvell_config_aneg,
-+	.read_status	= &genphy_read_status,
-+	.ack_interrupt	= &marvell_ack_interrupt,
-+	.config_intr	= &marvell_config_intr,
-+	.driver 	= { .owner = THIS_MODULE,},
-+};
-+
-+static int __init marvell_init(void)
-+{
-+	return phy_driver_register(&m88e1101_driver);
-+}
-+
-+static void __exit marvell_exit(void)
-+{
-+	phy_driver_unregister(&m88e1101_driver);
-+}
-+
-+module_init(marvell_init);
-+module_exit(marvell_exit);
-diff --git a/drivers/net/phy/qsemi.c b/drivers/net/phy/qsemi.c
-new file mode 100644
---- /dev/null
-+++ b/drivers/net/phy/qsemi.c
-@@ -0,0 +1,143 @@
-+/*
-+ * drivers/net/phy/qsemi.c
-+ *
-+ * Driver for Quality Semiconductor PHYs
-+ *
-+ * Author: Andy Fleming
-+ *
-+ * Copyright (c) 2004 Freescale Semiconductor, Inc.
-+ *
-+ * This program is free software; you can redistribute  it and/or modify it
-+ * under  the terms of  the GNU General  Public License as published by the
-+ * Free Software Foundation;  either version 2 of the  License, or (at your
-+ * option) any later version.
-+ *
-+ */
-+#include <linux/config.h>
-+#include <linux/kernel.h>
-+#include <linux/sched.h>
-+#include <linux/string.h>
-+#include <linux/errno.h>
-+#include <linux/unistd.h>
-+#include <linux/slab.h>
-+#include <linux/interrupt.h>
-+#include <linux/init.h>
-+#include <linux/delay.h>
-+#include <linux/netdevice.h>
-+#include <linux/etherdevice.h>
-+#include <linux/skbuff.h>
-+#include <linux/spinlock.h>
-+#include <linux/mm.h>
-+#include <linux/module.h>
-+#include <linux/version.h>
-+#include <linux/mii.h>
-+#include <linux/ethtool.h>
-+#include <linux/phy.h>
-+
-+#include <asm/io.h>
-+#include <asm/irq.h>
-+#include <asm/uaccess.h>
-+
-+/* ------------------------------------------------------------------------- */
-+/* The Quality Semiconductor QS6612 is used on the RPX CLLF                  */
-+
-+/* register definitions */
-+
-+#define MII_QS6612_MCR		17  /* Mode Control Register      */
-+#define MII_QS6612_FTR		27  /* Factory Test Register      */
-+#define MII_QS6612_MCO		28  /* Misc. Control Register     */
-+#define MII_QS6612_ISR		29  /* Interrupt Source Register  */
-+#define MII_QS6612_IMR		30  /* Interrupt Mask Register    */
-+#define MII_QS6612_IMR_INIT	0x003a
-+#define MII_QS6612_PCR		31  /* 100BaseTx PHY Control Reg. */
-+
-+#define QS6612_PCR_AN_COMPLETE	0x1000
-+#define QS6612_PCR_RLBEN	0x0200
-+#define QS6612_PCR_DCREN	0x0100
-+#define QS6612_PCR_4B5BEN	0x0040
-+#define QS6612_PCR_TX_ISOLATE	0x0020
-+#define QS6612_PCR_MLT3_DIS	0x0002
-+#define QS6612_PCR_SCRM_DESCRM	0x0001
-+
-+MODULE_DESCRIPTION("Quality Semiconductor PHY driver");
-+MODULE_AUTHOR("Andy Fleming");
-+MODULE_LICENSE("GPL");
-+
-+/* Returns 0, unless there's a write error */
-+static int qs6612_config_init(struct phy_device *phydev)
-+{
-+	/* The PHY powers up isolated on the RPX,
-+	 * so send a command to allow operation.
-+	 * XXX - My docs indicate this should be 0x0940
-+	 * ...or something.  The current value sets three
-+	 * reserved bits, bit 11, which specifies it should be
-+	 * set to one, bit 10, which specifies it should be set
-+	 * to 0, and bit 7, which doesn't specify.  However, my
-+	 * docs are preliminary, and I will leave it like this
-+	 * until someone more knowledgable corrects me or it.
-+	 * -- Andy Fleming
-+	 */
-+	return phy_write(phydev, MII_QS6612_PCR, 0x0dc0);
-+}
-+
-+static int qs6612_ack_interrupt(struct phy_device *phydev)
-+{
-+	int err;
-+
-+	err = phy_read(phydev, MII_QS6612_ISR);
-+
-+	if (err < 0)
-+		return err;
-+
-+	err = phy_read(phydev, MII_BMSR);
-+
-+	if (err < 0)
-+		return err;
-+
-+	err = phy_read(phydev, MII_EXPANSION);
-+
-+	if (err < 0)
-+		return err;
-+
-+	return 0;
-+}
-+
-+static int qs6612_config_intr(struct phy_device *phydev)
-+{
-+	int err;
-+	if (phydev->interrupts == PHY_INTERRUPT_ENABLED)
-+		err = phy_write(phydev, MII_QS6612_IMR,
-+				MII_QS6612_IMR_INIT);
-+	else
-+		err = phy_write(phydev, MII_QS6612_IMR, 0);
-+
-+	return err;
-+
-+}
-+
-+static struct phy_driver qs6612_driver = {
-+	.phy_id		= 0x00181440,
-+	.name		= "QS6612",
-+	.phy_id_mask	= 0xfffffff0,
-+	.features	= PHY_BASIC_FEATURES,
-+	.flags		= PHY_HAS_INTERRUPT,
-+	.config_init	= qs6612_config_init,
-+	.config_aneg	= genphy_config_aneg,
-+	.read_status	= genphy_read_status,
-+	.ack_interrupt	= qs6612_ack_interrupt,
-+	.config_intr	= qs6612_config_intr,
-+	.driver 	= { .owner = THIS_MODULE,},
-+};
-+
-+static int __init qs6612_init(void)
-+{
-+	return phy_driver_register(&qs6612_driver);
-+}
-+
-+static void __exit qs6612_exit(void)
-+{
-+	phy_driver_unregister(&qs6612_driver);
-+}
-+
-+module_init(qs6612_init);
-+module_exit(qs6612_exit);
-diff --git a/Documentation/networking/phy.txt b/Documentation/networking/phy.txt
-new file mode 100644
---- /dev/null
-+++ b/Documentation/networking/phy.txt
-@@ -0,0 +1,288 @@
-+
-+-------
-+PHY Abstraction Layer
-+(Updated 2005-07-21)
-+
-+Purpose
-+
-+ Most network devices consist of set of registers which provide an interface
-+ to a MAC layer, which communicates with the physical connection through a
-+ PHY.  The PHY concerns itself with negotiating link parameters with the link
-+ partner on the other side of the network connection (typically, an ethernet
-+ cable), and provides a register interface to allow drivers to determine what
-+ settings were chosen, and to configure what settings are allowed.
-+
-+ While these devices are distinct from the network devices, and conform to a
-+ standard layout for the registers, it has been common practice to integrate
-+ the PHY management code with the network driver.  This has resulted in large
-+ amounts of redundant code.  Also, on embedded systems with multiple (and
-+ sometimes quite different) ethernet controllers connected to the same 
-+ management bus, it is difficult to ensure safe use of the bus.
-+
-+ Since the PHYs are devices, and the management busses through which they are
-+ accessed are, in fact, busses, the PHY Abstraction Layer treats them as such.
-+ In doing so, it has these goals:
-+
-+   1) Increase code-reuse
-+   2) Increase overall code-maintainability
-+   3) Speed development time for new network drivers, and for new systems
-+ 
-+ Basically, this layer is meant to provide an interface to PHY devices which
-+ allows network driver writers to write as little code as possible, while
-+ still providing a full feature set.
-+
-+The MDIO bus
-+
-+ Most network devices are connected to a PHY by means of a management bus.
-+ Different devices use different busses (though some share common interfaces).
-+ In order to take advantage of the PAL, each bus interface needs to be
-+ registered as a distinct device.
-+
-+ 1) read and write functions must be implemented.  Their prototypes are:
-+
-+     int write(struct mii_bus *bus, int mii_id, int regnum, u16 value);
-+     int read(struct mii_bus *bus, int mii_id, int regnum);
-+
-+   mii_id is the address on the bus for the PHY, and regnum is the register
-+   number.  These functions are guaranteed not to be called from interrupt
-+   time, so it is safe for them to block, waiting for an interrupt to signal
-+   the operation is complete
-+ 
-+ 2) A reset function is necessary.  This is used to return the bus to an
-+   initialized state.
-+
-+ 3) A probe function is needed.  This function should set up anything the bus
-+   driver needs, setup the mii_bus structure, and register with the PAL using
-+   mdiobus_register.  Similarly, there's a remove function to undo all of
-+   that (use mdiobus_unregister).
-+ 
-+ 4) Like any driver, the device_driver structure must be configured, and init
-+   exit functions are used to register the driver.
-+
-+ 5) The bus must also be declared somewhere as a device, and registered.
-+
-+ As an example for how one driver implemented an mdio bus driver, see
-+ drivers/net/gianfar_mii.c and arch/ppc/syslib/mpc85xx_devices.c
-+
-+Connecting to a PHY
-+
-+ Sometime during startup, the network driver needs to establish a connection
-+ between the PHY device, and the network device.  At this time, the PHY's bus
-+ and drivers need to all have been loaded, so it is ready for the connection.
-+ At this point, there are several ways to connect to the PHY:
-+
-+ 1) The PAL handles everything, and only calls the network driver when
-+   the link state changes, so it can react.
-+
-+ 2) The PAL handles everything except interrupts (usually because the
-+   controller has the interrupt registers).
-+
-+ 3) The PAL handles everything, but checks in with the driver every second,
-+   allowing the network driver to react first to any changes before the PAL
-+   does.
-+ 
-+ 4) The PAL serves only as a library of functions, with the network device
-+   manually calling functions to update status, and configure the PHY
-+
-+
-+Letting the PHY Abstraction Layer do Everything
-+
-+ If you choose option 1 (The hope is that every driver can, but to still be
-+ useful to drivers that can't), connecting to the PHY is simple:
-+
-+ First, you need a function to react to changes in the link state.  This
-+ function follows this protocol:
-+
-+   static void adjust_link(struct net_device *dev);
-+ 
-+ Next, you need to know the device name of the PHY connected to this device. 
-+ The name will look something like, "phy0:0", where the first number is the
-+ bus id, and the second is the PHY's address on that bus.
-+ 
-+ Now, to connect, just call this function:
-+ 
-+   phydev = phy_connect(dev, phy_name, &adjust_link, flags);
-+
-+ phydev is a pointer to the phy_device structure which represents the PHY.  If
-+ phy_connect is successful, it will return the pointer.  dev, here, is the
-+ pointer to your net_device.  Once done, this function will have started the
-+ PHY's software state machine, and registered for the PHY's interrupt, if it
-+ has one.  The phydev structure will be populated with information about the
-+ current state, though the PHY will not yet be truly operational at this
-+ point.
-+
-+ flags is a u32 which can optionally contain phy-specific flags.
-+ This is useful if the system has put hardware restrictions on
-+ the PHY/controller, of which the PHY needs to be aware.
-+
-+ Now just make sure that phydev->supported and phydev->advertising have any
-+ values pruned from them which don't make sense for your controller (a 10/100
-+ controller may be connected to a gigabit capable PHY, so you would need to
-+ mask off SUPPORTED_1000baseT*).  See include/linux/ethtool.h for definitions
-+ for these bitfields. Note that you should not SET any bits, or the PHY may
-+ get put into an unsupported state.
-+
-+ Lastly, once the controller is ready to handle network traffic, you call
-+ phy_start(phydev).  This tells the PAL that you are ready, and configures the
-+ PHY to connect to the network.  If you want to handle your own interrupts,
-+ just set phydev->irq to PHY_IGNORE_INTERRUPT before you call phy_start.
-+ Similarly, if you don't want to use interrupts, set phydev->irq to PHY_POLL.
-+
-+ When you want to disconnect from the network (even if just briefly), you call
-+ phy_stop(phydev).
-+
-+Keeping Close Tabs on the PAL
-+
-+ It is possible that the PAL's built-in state machine needs a little help to
-+ keep your network device and the PHY properly in sync.  If so, you can
-+ register a helper function when connecting to the PHY, which will be called
-+ every second before the state machine reacts to any changes.  To do this, you
-+ need to manually call phy_attach() and phy_prepare_link(), and then call
-+ phy_start_machine() with the second argument set to point to your special
-+ handler.
-+
-+ Currently there are no examples of how to use this functionality, and testing
-+ on it has been limited because the author does not have any drivers which use
-+ it (they all use option 1).  So Caveat Emptor.
-+
-+Doing it all yourself
-+
-+ There's a remote chance that the PAL's built-in state machine cannot track
-+ the complex interactions between the PHY and your network device.  If this is
-+ so, you can simply call phy_attach(), and not call phy_start_machine or
-+ phy_prepare_link().  This will mean that phydev->state is entirely yours to
-+ handle (phy_start and phy_stop toggle between some of the states, so you
-+ might need to avoid them).
-+
-+ An effort has been made to make sure that useful functionality can be
-+ accessed without the state-machine running, and most of these functions are
-+ descended from functions which did not interact with a complex state-machine.
-+ However, again, no effort has been made so far to test running without the
-+ state machine, so tryer beware.
-+
-+ Here is a brief rundown of the functions:
-+
-+ int phy_read(struct phy_device *phydev, u16 regnum);
-+ int phy_write(struct phy_device *phydev, u16 regnum, u16 val);
-+
-+   Simple read/write primitives.  They invoke the bus's read/write function
-+   pointers.
-+
-+ void phy_print_status(struct phy_device *phydev);
-+ 
-+   A convenience function to print out the PHY status neatly.
-+
-+ int phy_clear_interrupt(struct phy_device *phydev);
-+ int phy_config_interrupt(struct phy_device *phydev, u32 interrupts);
-+   
-+   Clear the PHY's interrupt, and configure which ones are allowed,
-+   respectively.  Currently only supports all on, or all off.
-+ 
-+ int phy_enable_interrupts(struct phy_device *phydev);
-+ int phy_disable_interrupts(struct phy_device *phydev);
-+
-+   Functions which enable/disable PHY interrupts, clearing them
-+   before and after, respectively.
-+
-+ int phy_start_interrupts(struct phy_device *phydev);
-+ int phy_stop_interrupts(struct phy_device *phydev);
-+
-+   Requests the IRQ for the PHY interrupts, then enables them for
-+   start, or disables then frees them for stop.
-+
-+ struct phy_device * phy_attach(struct net_device *dev, const char *phy_id,
-+		 u32 flags);
-+
-+   Attaches a network device to a particular PHY, binding the PHY to a generic
-+   driver if none was found during bus initialization.  Passes in
-+   any phy-specific flags as needed.
-+
-+ int phy_start_aneg(struct phy_device *phydev);
-+   
-+   Using variables inside the phydev structure, either configures advertising
-+   and resets autonegotiation, or disables autonegotiation, and configures
-+   forced settings.
-+
-+ static inline int phy_read_status(struct phy_device *phydev);
-+
-+   Fills the phydev structure with up-to-date information about the current
-+   settings in the PHY.
-+
-+ void phy_sanitize_settings(struct phy_device *phydev)
-+   
-+   Resolves differences between currently desired settings, and
-+   supported settings for the given PHY device.  Does not make
-+   the changes in the hardware, though.
-+
-+ int phy_ethtool_sset(struct phy_device *phydev, struct ethtool_cmd *cmd);
-+ int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd *cmd);
-+
-+   Ethtool convenience functions.
-+
-+ int phy_mii_ioctl(struct phy_device *phydev,
-+                 struct mii_ioctl_data *mii_data, int cmd);
-+
-+   The MII ioctl.  Note that this function will completely screw up the state
-+   machine if you write registers like BMCR, BMSR, ADVERTISE, etc.  Best to
-+   use this only to write registers which are not standard, and don't set off
-+   a renegotiation.
-+
-+
-+PHY Device Drivers
-+
-+ With the PHY Abstraction Layer, adding support for new PHYs is
-+ quite easy.  In some cases, no work is required at all!  However,
-+ many PHYs require a little hand-holding to get up-and-running.
-+
-+Generic PHY driver
-+
-+ If the desired PHY doesn't have any errata, quirks, or special
-+ features you want to support, then it may be best to not add
-+ support, and let the PHY Abstraction Layer's Generic PHY Driver
-+ do all of the work.  
-+
-+Writing a PHY driver
-+
-+ If you do need to write a PHY driver, the first thing to do is
-+ make sure it can be matched with an appropriate PHY device.
-+ This is done during bus initialization by reading the device's
-+ UID (stored in registers 2 and 3), then comparing it to each
-+ driver's phy_id field by ANDing it with each driver's
-+ phy_id_mask field.  Also, it needs a name.  Here's an example:
-+
-+   static struct phy_driver dm9161_driver = {
-+         .phy_id         = 0x0181b880,
-+	 .name           = "Davicom DM9161E",
-+	 .phy_id_mask    = 0x0ffffff0,
-+	 ...
-+   }
-+
-+ Next, you need to specify what features (speed, duplex, autoneg,
-+ etc) your PHY device and driver support.  Most PHYs support
-+ PHY_BASIC_FEATURES, but you can look in include/mii.h for other
-+ features.
-+
-+ Each driver consists of a number of function pointers:
-+
-+   config_init: configures PHY into a sane state after a reset.
-+     For instance, a Davicom PHY requires descrambling disabled.
-+   probe: Does any setup needed by the driver
-+   suspend/resume: power management
-+   config_aneg: Changes the speed/duplex/negotiation settings
-+   read_status: Reads the current speed/duplex/negotiation settings
-+   ack_interrupt: Clear a pending interrupt
-+   config_intr: Enable or disable interrupts
-+   remove: Does any driver take-down
-+
-+ Of these, only config_aneg and read_status are required to be
-+ assigned by the driver code.  The rest are optional.  Also, it is
-+ preferred to use the generic phy driver's versions of these two
-+ functions if at all possible: genphy_read_status and
-+ genphy_config_aneg.  If this is not possible, it is likely that
-+ you only need to perform some actions before and after invoking
-+ these functions, and so your functions will wrap the generic
-+ ones.
-+
-+ Feel free to look at the Marvell, Cicada, and Davicom drivers in
-+ drivers/net/phy/ for examples (the lxt and qsemi drivers have
-+ not been tested as of this writing)
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -504,6 +504,7 @@ int phy_enable_interrupts(struct phy_dev
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -2047,6 +2047,8 @@ config BNX2
+ config GIANFAR
+ 	tristate "Gianfar Ethernet"
+ 	depends on 85xx || 83xx
++	select PHYLIB
++	select PHYCONTROL
+ 	help
+ 	  This driver supports the Gigabit TSEC on the MPC85xx 
+ 	  family of chips, and the FEC on the 8540
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -12,7 +12,7 @@ obj-$(CONFIG_IXGB) += ixgb/
+ obj-$(CONFIG_BONDING) += bonding/
+ obj-$(CONFIG_GIANFAR) += gianfar_driver.o
  
- 	return err;
- }
-+EXPORT_SYMBOL(phy_enable_interrupts);
+-gianfar_driver-objs := gianfar.o gianfar_ethtool.o gianfar_phy.o
++gianfar_driver-objs := gianfar.o gianfar_ethtool.o gianfar_mii.o
  
- /* Disable the PHY interrupts from the PHY side */
- int phy_disable_interrupts(struct phy_device *phydev)
-@@ -529,6 +530,7 @@ phy_err:
- 
- 	return err;
- }
-+EXPORT_SYMBOL(phy_disable_interrupts);
- 
- /* phy_start_interrupts
+ #
+ # link order important here
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -29,12 +29,7 @@
+  *  define the configuration needed by the board are defined in a
+  *  board structure in arch/ppc/platforms (though I do not
+  *  discount the possibility that other architectures could one
+- *  day be supported.  One assumption the driver currently makes
+- *  is that the PHY is configured in such a way to advertise all
+- *  capabilities.  This is a sensible default, and on certain
+- *  PHYs, changing this default encounters substantial errata
+- *  issues.  Future versions may remove this requirement, but for
+- *  now, it is best for the firmware to ensure this is the case.
++ *  day be supported.
   *
+  *  The Gianfar Ethernet Controller uses a ring of buffer
+  *  descriptors.  The beginning is indicated by a register
+@@ -47,7 +42,7 @@
+  *  corresponding bit in the IMASK register is also set (if
+  *  interrupt coalescing is active, then the interrupt may not
+  *  happen immediately, but will wait until either a set number
+- *  of frames or amount of time have passed.).  In NAPI, the
++ *  of frames or amount of time have passed).  In NAPI, the
+  *  interrupt handler will signal there is work to be done, and
+  *  exit.  Without NAPI, the packet(s) will be handled
+  *  immediately.  Both methods will start at the last known empty
+@@ -75,6 +70,7 @@
+ #include <linux/sched.h>
+ #include <linux/string.h>
+ #include <linux/errno.h>
++#include <linux/unistd.h>
+ #include <linux/slab.h>
+ #include <linux/interrupt.h>
+ #include <linux/init.h>
+@@ -97,9 +93,11 @@
+ #include <linux/version.h>
+ #include <linux/dma-mapping.h>
+ #include <linux/crc32.h>
++#include <linux/mii.h>
++#include <linux/phy.h>
+ 
+ #include "gianfar.h"
+-#include "gianfar_phy.h"
++#include "gianfar_mii.h"
+ 
+ #define TX_TIMEOUT      (1*HZ)
+ #define SKB_ALLOC_TIMEOUT 1000000
+@@ -113,9 +111,8 @@
+ #endif
+ 
+ const char gfar_driver_name[] = "Gianfar Ethernet";
+-const char gfar_driver_version[] = "1.1";
++const char gfar_driver_version[] = "1.2";
+ 
+-int startup_gfar(struct net_device *dev);
+ static int gfar_enet_open(struct net_device *dev);
+ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev);
+ static void gfar_timeout(struct net_device *dev);
+@@ -126,17 +123,13 @@ static int gfar_set_mac_address(struct n
+ static int gfar_change_mtu(struct net_device *dev, int new_mtu);
+ static irqreturn_t gfar_error(int irq, void *dev_id, struct pt_regs *regs);
+ static irqreturn_t gfar_transmit(int irq, void *dev_id, struct pt_regs *regs);
+-static irqreturn_t gfar_receive(int irq, void *dev_id, struct pt_regs *regs);
+ static irqreturn_t gfar_interrupt(int irq, void *dev_id, struct pt_regs *regs);
+-static irqreturn_t phy_interrupt(int irq, void *dev_id, struct pt_regs *regs);
+-static void gfar_phy_change(void *data);
+-static void gfar_phy_timer(unsigned long data);
+ static void adjust_link(struct net_device *dev);
+ static void init_registers(struct net_device *dev);
+ static int init_phy(struct net_device *dev);
+ static int gfar_probe(struct device *device);
+ static int gfar_remove(struct device *device);
+-void free_skb_resources(struct gfar_private *priv);
++static void free_skb_resources(struct gfar_private *priv);
+ static void gfar_set_multi(struct net_device *dev);
+ static void gfar_set_hash_for_addr(struct net_device *dev, u8 *addr);
+ #ifdef CONFIG_GFAR_NAPI
+@@ -144,7 +137,6 @@ static int gfar_poll(struct net_device *
+ #endif
+ int gfar_clean_rx_ring(struct net_device *dev, int rx_work_limit);
+ static int gfar_process_frame(struct net_device *dev, struct sk_buff *skb, int length);
+-static void gfar_phy_startup_timer(unsigned long data);
+ static void gfar_vlan_rx_register(struct net_device *netdev,
+ 		                struct vlan_group *grp);
+ static void gfar_vlan_rx_kill_vid(struct net_device *netdev, uint16_t vid);
+@@ -162,6 +154,9 @@ int gfar_uses_fcb(struct gfar_private *p
+ 	else
+ 		return 0;
+ }
++
++/* Set up the ethernet device structure, private data,
++ * and anything else we need before we start */
+ static int gfar_probe(struct device *device)
+ {
+ 	u32 tempval;
+@@ -175,7 +170,7 @@ static int gfar_probe(struct device *dev
+ 
+ 	einfo = (struct gianfar_platform_data *) pdev->dev.platform_data;
+ 
+-	if (einfo == NULL) {
++	if (NULL == einfo) {
+ 		printk(KERN_ERR "gfar %d: Missing additional data!\n",
+ 		       pdev->id);
+ 
+@@ -185,7 +180,7 @@ static int gfar_probe(struct device *dev
+ 	/* Create an ethernet device instance */
+ 	dev = alloc_etherdev(sizeof (*priv));
+ 
+-	if (dev == NULL)
++	if (NULL == dev)
+ 		return -ENOMEM;
+ 
+ 	priv = netdev_priv(dev);
+@@ -207,20 +202,11 @@ static int gfar_probe(struct device *dev
+ 	priv->regs = (struct gfar *)
+ 		ioremap(r->start, sizeof (struct gfar));
+ 
+-	if (priv->regs == NULL) {
++	if (NULL == priv->regs) {
+ 		err = -ENOMEM;
+ 		goto regs_fail;
+ 	}
+ 
+-	/* Set the PHY base address */
+-	priv->phyregs = (struct gfar *)
+-	    ioremap(einfo->phy_reg_addr, sizeof (struct gfar));
+-
+-	if (priv->phyregs == NULL) {
+-		err = -ENOMEM;
+-		goto phy_regs_fail;
+-	}
+-
+ 	spin_lock_init(&priv->lock);
+ 
+ 	dev_set_drvdata(device, dev);
+@@ -386,12 +372,10 @@ static int gfar_probe(struct device *dev
+ 	return 0;
+ 
+ register_fail:
+-	iounmap((void *) priv->phyregs);
+-phy_regs_fail:
+ 	iounmap((void *) priv->regs);
+ regs_fail:
+ 	free_netdev(dev);
+-	return -ENOMEM;
++	return err;
+ }
+ 
+ static int gfar_remove(struct device *device)
+@@ -402,108 +386,41 @@ static int gfar_remove(struct device *de
+ 	dev_set_drvdata(device, NULL);
+ 
+ 	iounmap((void *) priv->regs);
+-	iounmap((void *) priv->phyregs);
+ 	free_netdev(dev);
+ 
+ 	return 0;
+ }
+ 
+ 
+-/* Configure the PHY for dev.
+- * returns 0 if success.  -1 if failure
++/* Initializes driver's PHY state, and attaches to the PHY.
++ * Returns 0 on success, errno on failure to attach.
+  */
+ static int init_phy(struct net_device *dev)
+ {
+ 	struct gfar_private *priv = netdev_priv(dev);
+-	struct phy_info *curphy;
+-	unsigned int timeout = PHY_INIT_TIMEOUT;
+-	struct gfar *phyregs = priv->phyregs;
+-	struct gfar_mii_info *mii_info;
+-	int err;
++	uint gigabit_support =
++		priv->einfo->device_flags & FSL_GIANFAR_DEV_HAS_GIGABIT ?
++		SUPPORTED_1000baseT_Full : 0;
++	struct phy_device *phydev;
+ 
+ 	priv->oldlink = 0;
+ 	priv->oldspeed = 0;
+ 	priv->oldduplex = -1;
+ 
+-	mii_info = kmalloc(sizeof(struct gfar_mii_info),
+-			GFP_KERNEL);
+-
+-	if(NULL == mii_info) {
+-		if (netif_msg_ifup(priv))
+-			printk(KERN_ERR "%s: Could not allocate mii_info\n",
+-					dev->name);
+-		return -ENOMEM;
+-	}
+-
+-	mii_info->speed = SPEED_1000;
+-	mii_info->duplex = DUPLEX_FULL;
+-	mii_info->pause = 0;
+-	mii_info->link = 1;
+-
+-	mii_info->advertising = (ADVERTISED_10baseT_Half |
+-			ADVERTISED_10baseT_Full |
+-			ADVERTISED_100baseT_Half |
+-			ADVERTISED_100baseT_Full |
+-			ADVERTISED_1000baseT_Full);
+-	mii_info->autoneg = 1;
++	phydev = phy_connect(dev, priv->einfo->bus_id, &adjust_link, 0);
+ 
+-	spin_lock_init(&mii_info->mdio_lock);
+-
+-	mii_info->mii_id = priv->einfo->phyid;
+-
+-	mii_info->dev = dev;
+-
+-	mii_info->mdio_read = &read_phy_reg;
+-	mii_info->mdio_write = &write_phy_reg;
+-
+-	priv->mii_info = mii_info;
+-
+-	/* Reset the management interface */
+-	gfar_write(&phyregs->miimcfg, MIIMCFG_RESET);
+-
+-	/* Setup the MII Mgmt clock speed */
+-	gfar_write(&phyregs->miimcfg, MIIMCFG_INIT_VALUE);
+-
+-	/* Wait until the bus is free */
+-	while ((gfar_read(&phyregs->miimind) & MIIMIND_BUSY) &&
+-			timeout--)
+-		cpu_relax();
+-
+-	if(timeout <= 0) {
+-		printk(KERN_ERR "%s: The MII Bus is stuck!\n",
+-				dev->name);
+-		err = -1;
+-		goto bus_fail;
+-	}
+-
+-	/* get info for this PHY */
+-	curphy = get_phy_info(priv->mii_info);
+-
+-	if (curphy == NULL) {
+-		if (netif_msg_ifup(priv))
+-			printk(KERN_ERR "%s: No PHY found\n", dev->name);
+-		err = -1;
+-		goto no_phy;
++	if(NULL == phydev) {
++		printk(KERN_ERR "%s: Could not attach to PHY\n", dev->name);
++		return errno;
+ 	}
+ 
+-	mii_info->phyinfo = curphy;
++	/* Remove any features not supported by the controller */
++	phydev->supported &= (GFAR_SUPPORTED | gigabit_support);
++	phydev->advertising = phydev->supported;
+ 
+-	/* Run the commands which initialize the PHY */
+-	if(curphy->init) {
+-		err = curphy->init(priv->mii_info);
+-
+-		if (err)
+-			goto phy_init_fail;
+-	}
++	priv->phydev = phydev;
+ 
+ 	return 0;
+-
+-phy_init_fail:
+-no_phy:
+-bus_fail:
+-	kfree(mii_info);
+-
+-	return err;
+ }
+ 
+ static void init_registers(struct net_device *dev)
+@@ -603,24 +520,13 @@ void stop_gfar(struct net_device *dev)
+ 	struct gfar *regs = priv->regs;
+ 	unsigned long flags;
+ 
++	phy_stop(priv->phydev);
++
+ 	/* Lock it down */
+ 	spin_lock_irqsave(&priv->lock, flags);
+ 
+-	/* Tell the kernel the link is down */
+-	priv->mii_info->link = 0;
+-	adjust_link(dev);
+-
+ 	gfar_halt(dev);
+ 
+-	if (priv->einfo->board_flags & FSL_GIANFAR_BRD_HAS_PHY_INTR) {
+-		/* Clear any pending interrupts */
+-		mii_clear_phy_interrupt(priv->mii_info);
+-
+-		/* Disable PHY Interrupts */
+-		mii_configure_phy_interrupt(priv->mii_info,
+-				MII_INTERRUPT_DISABLED);
+-	}
+-
+ 	spin_unlock_irqrestore(&priv->lock, flags);
+ 
+ 	/* Free the IRQs */
+@@ -629,13 +535,7 @@ void stop_gfar(struct net_device *dev)
+ 		free_irq(priv->interruptTransmit, dev);
+ 		free_irq(priv->interruptReceive, dev);
+ 	} else {
+-		free_irq(priv->interruptTransmit, dev);
+-	}
+-
+-	if (priv->einfo->board_flags & FSL_GIANFAR_BRD_HAS_PHY_INTR) {
+-		free_irq(priv->einfo->interruptPHY, dev);
+-	} else {
+-		del_timer_sync(&priv->phy_info_timer);
++ 		free_irq(priv->interruptTransmit, dev);
+ 	}
+ 
+ 	free_skb_resources(priv);
+@@ -649,7 +549,7 @@ void stop_gfar(struct net_device *dev)
+ 
+ /* If there are any tx skbs or rx skbs still around, free them.
+  * Then free tx_skbuff and rx_skbuff */
+-void free_skb_resources(struct gfar_private *priv)
++static void free_skb_resources(struct gfar_private *priv)
+ {
+ 	struct rxbd8 *rxbdp;
+ 	struct txbd8 *txbdp;
+@@ -770,7 +670,7 @@ int startup_gfar(struct net_device *dev)
+ 	    (struct sk_buff **) kmalloc(sizeof (struct sk_buff *) *
+ 					priv->tx_ring_size, GFP_KERNEL);
+ 
+-	if (priv->tx_skbuff == NULL) {
++	if (NULL == priv->tx_skbuff) {
+ 		if (netif_msg_ifup(priv))
+ 			printk(KERN_ERR "%s: Could not allocate tx_skbuff\n",
+ 					dev->name);
+@@ -785,7 +685,7 @@ int startup_gfar(struct net_device *dev)
+ 	    (struct sk_buff **) kmalloc(sizeof (struct sk_buff *) *
+ 					priv->rx_ring_size, GFP_KERNEL);
+ 
+-	if (priv->rx_skbuff == NULL) {
++	if (NULL == priv->rx_skbuff) {
+ 		if (netif_msg_ifup(priv))
+ 			printk(KERN_ERR "%s: Could not allocate rx_skbuff\n",
+ 					dev->name);
+@@ -879,13 +779,7 @@ int startup_gfar(struct net_device *dev)
+ 		}
+ 	}
+ 
+-	/* Set up the PHY change work queue */
+-	INIT_WORK(&priv->tq, gfar_phy_change, dev);
+-
+-	init_timer(&priv->phy_info_timer);
+-	priv->phy_info_timer.function = &gfar_phy_startup_timer;
+-	priv->phy_info_timer.data = (unsigned long) priv->mii_info;
+-	mod_timer(&priv->phy_info_timer, jiffies + HZ);
++	phy_start(priv->phydev);
+ 
+ 	/* Configure the coalescing support */
+ 	if (priv->txcoalescing)
+@@ -933,11 +827,6 @@ tx_skb_fail:
+ 			priv->tx_bd_base,
+ 			gfar_read(&regs->tbase0));
+ 
+-	if (priv->mii_info->phyinfo->close)
+-		priv->mii_info->phyinfo->close(priv->mii_info);
+-
+-	kfree(priv->mii_info);
+-
+ 	return err;
+ }
+ 
+@@ -1035,7 +924,7 @@ static int gfar_start_xmit(struct sk_buf
+ 	txbdp->status &= TXBD_WRAP;
+ 
+ 	/* Set up checksumming */
+-	if ((dev->features & NETIF_F_IP_CSUM) 
++	if ((dev->features & NETIF_F_IP_CSUM)
+ 			&& (CHECKSUM_HW == skb->ip_summed)) {
+ 		fcb = gfar_add_fcb(skb, txbdp);
+ 		gfar_tx_checksum(skb, fcb);
+@@ -1103,11 +992,9 @@ static int gfar_close(struct net_device 
+ 	struct gfar_private *priv = netdev_priv(dev);
+ 	stop_gfar(dev);
+ 
+-	/* Shutdown the PHY */
+-	if (priv->mii_info->phyinfo->close)
+-		priv->mii_info->phyinfo->close(priv->mii_info);
+-
+-	kfree(priv->mii_info);
++	/* Disconnect from the PHY */
++	phy_disconnect(priv->phydev);
++	priv->phydev = NULL;
+ 
+ 	netif_stop_queue(dev);
+ 
+@@ -1343,7 +1230,7 @@ struct sk_buff * gfar_new_skb(struct net
+ 	while ((!skb) && timeout--)
+ 		skb = dev_alloc_skb(priv->rx_buffer_size + RXBUF_ALIGNMENT);
+ 
+-	if (skb == NULL)
++	if (NULL == skb)
+ 		return NULL;
+ 
+ 	/* We need the data buffer to be aligned properly.  We will reserve
+@@ -1490,7 +1377,7 @@ static int gfar_process_frame(struct net
+ 	struct gfar_private *priv = netdev_priv(dev);
+ 	struct rxfcb *fcb = NULL;
+ 
+-	if (skb == NULL) {
++	if (NULL == skb) {
+ 		if (netif_msg_rx_err(priv))
+ 			printk(KERN_WARNING "%s: Missing skb!!.\n", dev->name);
+ 		priv->stats.rx_dropped++;
+@@ -1718,131 +1605,9 @@ static irqreturn_t gfar_interrupt(int ir
+ 	return IRQ_HANDLED;
+ }
+ 
+-static irqreturn_t phy_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+-{
+-	struct net_device *dev = (struct net_device *) dev_id;
+-	struct gfar_private *priv = netdev_priv(dev);
+-
+-	/* Clear the interrupt */
+-	mii_clear_phy_interrupt(priv->mii_info);
+-
+-	/* Disable PHY interrupts */
+-	mii_configure_phy_interrupt(priv->mii_info,
+-			MII_INTERRUPT_DISABLED);
+-
+-	/* Schedule the phy change */
+-	schedule_work(&priv->tq);
+-
+-	return IRQ_HANDLED;
+-}
+-
+-/* Scheduled by the phy_interrupt/timer to handle PHY changes */
+-static void gfar_phy_change(void *data)
+-{
+-	struct net_device *dev = (struct net_device *) data;
+-	struct gfar_private *priv = netdev_priv(dev);
+-	int result = 0;
+-
+-	/* Delay to give the PHY a chance to change the
+-	 * register state */
+-	msleep(1);
+-
+-	/* Update the link, speed, duplex */
+-	result = priv->mii_info->phyinfo->read_status(priv->mii_info);
+-
+-	/* Adjust the known status as long as the link
+-	 * isn't still coming up */
+-	if((0 == result) || (priv->mii_info->link == 0))
+-		adjust_link(dev);
+-
+-	/* Reenable interrupts, if needed */
+-	if (priv->einfo->board_flags & FSL_GIANFAR_BRD_HAS_PHY_INTR)
+-		mii_configure_phy_interrupt(priv->mii_info,
+-				MII_INTERRUPT_ENABLED);
+-}
+-
+-/* Called every so often on systems that don't interrupt
+- * the core for PHY changes */
+-static void gfar_phy_timer(unsigned long data)
+-{
+-	struct net_device *dev = (struct net_device *) data;
+-	struct gfar_private *priv = netdev_priv(dev);
+-
+-	schedule_work(&priv->tq);
+-
+-	mod_timer(&priv->phy_info_timer, jiffies +
+-			GFAR_PHY_CHANGE_TIME * HZ);
+-}
+-
+-/* Keep trying aneg for some time
+- * If, after GFAR_AN_TIMEOUT seconds, it has not
+- * finished, we switch to forced.
+- * Either way, once the process has completed, we either
+- * request the interrupt, or switch the timer over to
+- * using gfar_phy_timer to check status */
+-static void gfar_phy_startup_timer(unsigned long data)
+-{
+-	int result;
+-	static int secondary = GFAR_AN_TIMEOUT;
+-	struct gfar_mii_info *mii_info = (struct gfar_mii_info *)data;
+-	struct gfar_private *priv = netdev_priv(mii_info->dev);
+-
+-	/* Configure the Auto-negotiation */
+-	result = mii_info->phyinfo->config_aneg(mii_info);
+-
+-	/* If autonegotiation failed to start, and
+-	 * we haven't timed out, reset the timer, and return */
+-	if (result && secondary--) {
+-		mod_timer(&priv->phy_info_timer, jiffies + HZ);
+-		return;
+-	} else if (result) {
+-		/* Couldn't start autonegotiation.
+-		 * Try switching to forced */
+-		mii_info->autoneg = 0;
+-		result = mii_info->phyinfo->config_aneg(mii_info);
+-
+-		/* Forcing failed!  Give up */
+-		if(result) {
+-			if (netif_msg_link(priv))
+-				printk(KERN_ERR "%s: Forcing failed!\n",
+-						mii_info->dev->name);
+-			return;
+-		}
+-	}
+-
+-	/* Kill the timer so it can be restarted */
+-	del_timer_sync(&priv->phy_info_timer);
+-
+-	/* Grab the PHY interrupt, if necessary/possible */
+-	if (priv->einfo->board_flags & FSL_GIANFAR_BRD_HAS_PHY_INTR) {
+-		if (request_irq(priv->einfo->interruptPHY,
+-					phy_interrupt,
+-					SA_SHIRQ,
+-					"phy_interrupt",
+-					mii_info->dev) < 0) {
+-			if (netif_msg_intr(priv))
+-				printk(KERN_ERR "%s: Can't get IRQ %d (PHY)\n",
+-						mii_info->dev->name,
+-					priv->einfo->interruptPHY);
+-		} else {
+-			mii_configure_phy_interrupt(priv->mii_info,
+-					MII_INTERRUPT_ENABLED);
+-			return;
+-		}
+-	}
+-
+-	/* Start the timer again, this time in order to
+-	 * handle a change in status */
+-	init_timer(&priv->phy_info_timer);
+-	priv->phy_info_timer.function = &gfar_phy_timer;
+-	priv->phy_info_timer.data = (unsigned long) mii_info->dev;
+-	mod_timer(&priv->phy_info_timer, jiffies +
+-			GFAR_PHY_CHANGE_TIME * HZ);
+-}
+-
+ /* Called every time the controller might need to be made
+  * aware of new link state.  The PHY code conveys this
+- * information through variables in the priv structure, and this
++ * information through variables in the phydev structure, and this
+  * function converts those variables into the appropriate
+  * register values, and can bring down the device if needed.
+  */
+@@ -1850,84 +1615,68 @@ static void adjust_link(struct net_devic
+ {
+ 	struct gfar_private *priv = netdev_priv(dev);
+ 	struct gfar *regs = priv->regs;
+-	u32 tempval;
+-	struct gfar_mii_info *mii_info = priv->mii_info;
++	unsigned long flags;
++	struct phy_device *phydev = priv->phydev;
++	int new_state = 0;
++
++	spin_lock_irqsave(&priv->lock, flags);
++	if (phydev->link) {
++		u32 tempval = gfar_read(&regs->maccfg2);
+ 
+-	if (mii_info->link) {
+ 		/* Now we make sure that we can be in full duplex mode.
+ 		 * If not, we operate in half-duplex mode. */
+-		if (mii_info->duplex != priv->oldduplex) {
+-			if (!(mii_info->duplex)) {
+-				tempval = gfar_read(&regs->maccfg2);
++		if (phydev->duplex != priv->oldduplex) {
++			new_state = 1;
++			if (!(phydev->duplex))
+ 				tempval &= ~(MACCFG2_FULL_DUPLEX);
+-				gfar_write(&regs->maccfg2, tempval);
+-
+-				if (netif_msg_link(priv))
+-					printk(KERN_INFO "%s: Half Duplex\n",
+-							dev->name);
+-			} else {
+-				tempval = gfar_read(&regs->maccfg2);
++			else
+ 				tempval |= MACCFG2_FULL_DUPLEX;
+-				gfar_write(&regs->maccfg2, tempval);
+ 
+-				if (netif_msg_link(priv))
+-					printk(KERN_INFO "%s: Full Duplex\n",
+-							dev->name);
+-			}
+-
+-			priv->oldduplex = mii_info->duplex;
++			priv->oldduplex = phydev->duplex;
+ 		}
+ 
+-		if (mii_info->speed != priv->oldspeed) {
+-			switch (mii_info->speed) {
++		if (phydev->speed != priv->oldspeed) {
++			new_state = 1;
++			switch (phydev->speed) {
+ 			case 1000:
+-				tempval = gfar_read(&regs->maccfg2);
+ 				tempval =
+ 				    ((tempval & ~(MACCFG2_IF)) | MACCFG2_GMII);
+-				gfar_write(&regs->maccfg2, tempval);
+ 				break;
+ 			case 100:
+ 			case 10:
+-				tempval = gfar_read(&regs->maccfg2);
+ 				tempval =
+ 				    ((tempval & ~(MACCFG2_IF)) | MACCFG2_MII);
+-				gfar_write(&regs->maccfg2, tempval);
+ 				break;
+ 			default:
+ 				if (netif_msg_link(priv))
+ 					printk(KERN_WARNING
+-							"%s: Ack!  Speed (%d) is not 10/100/1000!\n",
+-							dev->name, mii_info->speed);
++						"%s: Ack!  Speed (%d) is not 10/100/1000!\n",
++						dev->name, phydev->speed);
+ 				break;
+ 			}
+ 
+-			if (netif_msg_link(priv))
+-				printk(KERN_INFO "%s: Speed %dBT\n", dev->name,
+-						mii_info->speed);
+-
+-			priv->oldspeed = mii_info->speed;
++			priv->oldspeed = phydev->speed;
+ 		}
+ 
++		gfar_write(&regs->maccfg2, tempval);
++
+ 		if (!priv->oldlink) {
+-			if (netif_msg_link(priv))
+-				printk(KERN_INFO "%s: Link is up\n", dev->name);
++			new_state = 1;
+ 			priv->oldlink = 1;
+-			netif_carrier_on(dev);
+ 			netif_schedule(dev);
+ 		}
+-	} else {
+-		if (priv->oldlink) {
+-			if (netif_msg_link(priv))
+-				printk(KERN_INFO "%s: Link is down\n",
+-						dev->name);
+-			priv->oldlink = 0;
+-			priv->oldspeed = 0;
+-			priv->oldduplex = -1;
+-			netif_carrier_off(dev);
+-		}
++	} else if (priv->oldlink) {
++		new_state = 1;
++		priv->oldlink = 0;
++		priv->oldspeed = 0;
++		priv->oldduplex = -1;
+ 	}
+-}
+ 
++	if (new_state && netif_msg_link(priv))
++		phy_print_status(phydev);
++
++	spin_unlock_irqrestore(&priv->lock, flags);
++}
+ 
+ /* Update the hash table based on the current list of multicast
+  * addresses we subscribe to.  Also, change the promiscuity of
+@@ -2122,12 +1871,23 @@ static struct device_driver gfar_driver 
+ 
+ static int __init gfar_init(void)
+ {
+-	return driver_register(&gfar_driver);
++	int err = gfar_mdio_init();
++
++	if (err)
++		return err;
++
++	err = driver_register(&gfar_driver);
++
++	if (err)
++		gfar_mdio_exit();
++	
++	return err;
+ }
+ 
+ static void __exit gfar_exit(void)
+ {
+ 	driver_unregister(&gfar_driver);
++	gfar_mdio_exit();
+ }
+ 
+ module_init(gfar_init);
+diff --git a/drivers/net/gianfar.h b/drivers/net/gianfar.h
+--- a/drivers/net/gianfar.h
++++ b/drivers/net/gianfar.h
+@@ -17,7 +17,6 @@
+  *
+  *  Still left to do:
+  *      -Add support for module parameters
+- *	-Add support for ethtool -s
+  *	-Add patch for ethtool phys id
+  */
+ #ifndef __GIANFAR_H
+@@ -37,7 +36,8 @@
+ #include <linux/skbuff.h>
+ #include <linux/spinlock.h>
+ #include <linux/mm.h>
+-#include <linux/fsl_devices.h>
++#include <linux/mii.h>
++#include <linux/phy.h>
+ 
+ #include <asm/io.h>
+ #include <asm/irq.h>
+@@ -48,7 +48,8 @@
+ #include <linux/workqueue.h>
+ #include <linux/ethtool.h>
+ #include <linux/netdevice.h>
+-#include "gianfar_phy.h"
++#include <linux/fsl_devices.h>
++#include "gianfar_mii.h"
+ 
+ /* The maximum number of packets to be handled in one call of gfar_poll */
+ #define GFAR_DEV_WEIGHT 64
+@@ -73,7 +74,7 @@
+ #define PHY_INIT_TIMEOUT 100000
+ #define GFAR_PHY_CHANGE_TIME 2
+ 
+-#define DEVICE_NAME "%s: Gianfar Ethernet Controller Version 1.1, "
++#define DEVICE_NAME "%s: Gianfar Ethernet Controller Version 1.2, "
+ #define DRV_NAME "gfar-enet"
+ extern const char gfar_driver_name[];
+ extern const char gfar_driver_version[];
+@@ -578,12 +579,7 @@ struct gfar {
+ 	u32	hafdup;		/* 0x.50c - Half Duplex Register */
+ 	u32	maxfrm;		/* 0x.510 - Maximum Frame Length Register */
+ 	u8	res18[12];
+-	u32	miimcfg;	/* 0x.520 - MII Management Configuration Register */
+-	u32	miimcom;	/* 0x.524 - MII Management Command Register */
+-	u32	miimadd;	/* 0x.528 - MII Management Address Register */
+-	u32	miimcon;	/* 0x.52c - MII Management Control Register */
+-	u32	miimstat;	/* 0x.530 - MII Management Status Register */
+-	u32	miimind;	/* 0x.534 - MII Management Indicator Register */
++	u8	gfar_mii_regs[24];	/* See gianfar_phy.h */
+ 	u8	res19[4];
+ 	u32	ifstat;		/* 0x.53c - Interface Status Register */
+ 	u32	macstnaddr1;	/* 0x.540 - Station Address Part 1 Register */
+@@ -688,9 +684,6 @@ struct gfar_private {
+ 	struct gfar *regs;	/* Pointer to the GFAR memory mapped Registers */
+ 	u32 *hash_regs[16];
+ 	int hash_width;
+-	struct gfar *phyregs;
+-	struct work_struct tq;
+-	struct timer_list phy_info_timer;
+ 	struct net_device_stats stats; /* linux network statistics */
+ 	struct gfar_extra_stats extra_stats;
+ 	spinlock_t lock;
+@@ -710,7 +703,8 @@ struct gfar_private {
+ 	unsigned int interruptError;
+ 	struct gianfar_platform_data *einfo;
+ 
+-	struct gfar_mii_info *mii_info;
++	struct phy_device *phydev;
++	struct mii_bus *mii_bus;
+ 	int oldspeed;
+ 	int oldduplex;
+ 	int oldlink;
+@@ -731,5 +725,13 @@ extern inline void gfar_write(volatile u
+ }
+ 
+ extern struct ethtool_ops *gfar_op_array[];
++
++extern irqreturn_t gfar_receive(int irq, void *dev_id, struct pt_regs *regs);
++extern int startup_gfar(struct net_device *dev);
++extern void stop_gfar(struct net_device *dev);
++extern void gfar_halt(struct net_device *dev);
++extern void gfar_phy_test(struct mii_bus *bus, struct phy_device *phydev,
++		int enable, u32 regnum, u32 read);
++void gfar_setup_stashing(struct net_device *dev);
+ 
+ #endif /* __GIANFAR_H */
+diff --git a/drivers/net/gianfar_ethtool.c b/drivers/net/gianfar_ethtool.c
+--- a/drivers/net/gianfar_ethtool.c
++++ b/drivers/net/gianfar_ethtool.c
+@@ -39,17 +39,18 @@
+ #include <asm/types.h>
+ #include <asm/uaccess.h>
+ #include <linux/ethtool.h>
++#include <linux/mii.h>
++#include <linux/phy.h>
+ 
+ #include "gianfar.h"
+ 
+ #define is_power_of_2(x)        ((x) != 0 && (((x) & ((x) - 1)) == 0))
+ 
+-extern int startup_gfar(struct net_device *dev);
+-extern void stop_gfar(struct net_device *dev);
+-extern void gfar_halt(struct net_device *dev);
+ extern void gfar_start(struct net_device *dev);
+ extern int gfar_clean_rx_ring(struct net_device *dev, int rx_work_limit);
+ 
++#define GFAR_MAX_COAL_USECS 0xffff
++#define GFAR_MAX_COAL_FRAMES 0xff
+ static void gfar_fill_stats(struct net_device *dev, struct ethtool_stats *dummy,
+ 		     u64 * buf);
+ static void gfar_gstrings(struct net_device *dev, u32 stringset, u8 * buf);
+@@ -182,38 +183,32 @@ static void gfar_gdrvinfo(struct net_dev
+ 	drvinfo->eedump_len = 0;
+ }
+ 
++
++static int gfar_ssettings(struct net_device *dev, struct ethtool_cmd *cmd)
++{
++	struct gfar_private *priv = netdev_priv(dev);
++	struct phy_device *phydev = priv->phydev;
++
++	if (NULL == phydev)
++		return -ENODEV;
++
++	return phy_ethtool_sset(phydev, cmd);
++}
++
++
+ /* Return the current settings in the ethtool_cmd structure */
+ static int gfar_gsettings(struct net_device *dev, struct ethtool_cmd *cmd)
+ {
+ 	struct gfar_private *priv = netdev_priv(dev);
+-	uint gigabit_support = 
+-		priv->einfo->device_flags & FSL_GIANFAR_DEV_HAS_GIGABIT ?
+-			SUPPORTED_1000baseT_Full : 0;
+-	uint gigabit_advert = 
+-		priv->einfo->device_flags & FSL_GIANFAR_DEV_HAS_GIGABIT ?
+-			ADVERTISED_1000baseT_Full: 0;
+-
+-	cmd->supported = (SUPPORTED_10baseT_Half
+-			  | SUPPORTED_100baseT_Half
+-			  | SUPPORTED_100baseT_Full
+-			  | gigabit_support | SUPPORTED_Autoneg);
+-
+-	/* For now, we always advertise everything */
+-	cmd->advertising = (ADVERTISED_10baseT_Half
+-			    | ADVERTISED_100baseT_Half
+-			    | ADVERTISED_100baseT_Full
+-			    | gigabit_advert | ADVERTISED_Autoneg);
+-
+-	cmd->speed = priv->mii_info->speed;
+-	cmd->duplex = priv->mii_info->duplex;
+-	cmd->port = PORT_MII;
+-	cmd->phy_address = priv->mii_info->mii_id;
+-	cmd->transceiver = XCVR_EXTERNAL;
+-	cmd->autoneg = AUTONEG_ENABLE;
++	struct phy_device *phydev = priv->phydev;
++
++	if (NULL == phydev)
++		return -ENODEV;
++	
+ 	cmd->maxtxpkt = priv->txcount;
+ 	cmd->maxrxpkt = priv->rxcount;
+ 
+-	return 0;
++	return phy_ethtool_gset(phydev, cmd);
+ }
+ 
+ /* Return the length of the register structure */
+@@ -241,14 +236,14 @@ static unsigned int gfar_usecs2ticks(str
+ 	unsigned int count;
+ 
+ 	/* The timer is different, depending on the interface speed */
+-	switch (priv->mii_info->speed) {
+-	case 1000:
++	switch (priv->phydev->speed) {
++	case SPEED_1000:
+ 		count = GFAR_GBIT_TIME;
+ 		break;
+-	case 100:
++	case SPEED_100:
+ 		count = GFAR_100_TIME;
+ 		break;
+-	case 10:
++	case SPEED_10:
+ 	default:
+ 		count = GFAR_10_TIME;
+ 		break;
+@@ -265,14 +260,14 @@ static unsigned int gfar_ticks2usecs(str
+ 	unsigned int count;
+ 
+ 	/* The timer is different, depending on the interface speed */
+-	switch (priv->mii_info->speed) {
+-	case 1000:
++	switch (priv->phydev->speed) {
++	case SPEED_1000:
+ 		count = GFAR_GBIT_TIME;
+ 		break;
+-	case 100:
++	case SPEED_100:
+ 		count = GFAR_100_TIME;
+ 		break;
+-	case 10:
++	case SPEED_10:
+ 	default:
+ 		count = GFAR_10_TIME;
+ 		break;
+@@ -292,6 +287,9 @@ static int gfar_gcoalesce(struct net_dev
+ 	if (!(priv->einfo->device_flags & FSL_GIANFAR_DEV_HAS_COALESCE))
+ 		return -EOPNOTSUPP;
+ 
++	if (NULL == priv->phydev)
++		return -ENODEV;
++
+ 	cvals->rx_coalesce_usecs = gfar_ticks2usecs(priv, priv->rxtime);
+ 	cvals->rx_max_coalesced_frames = priv->rxcount;
+ 
+@@ -348,6 +346,22 @@ static int gfar_scoalesce(struct net_dev
+ 	else
+ 		priv->rxcoalescing = 1;
+ 
++	if (NULL == priv->phydev)
++		return -ENODEV;
++
++	/* Check the bounds of the values */
++	if (cvals->rx_coalesce_usecs > GFAR_MAX_COAL_USECS) {
++		pr_info("Coalescing is limited to %d microseconds\n",
++				GFAR_MAX_COAL_USECS);
++		return -EINVAL;
++	}
++
++	if (cvals->rx_max_coalesced_frames > GFAR_MAX_COAL_FRAMES) {
++		pr_info("Coalescing is limited to %d frames\n",
++				GFAR_MAX_COAL_FRAMES);
++		return -EINVAL;
++	}
++
+ 	priv->rxtime = gfar_usecs2ticks(priv, cvals->rx_coalesce_usecs);
+ 	priv->rxcount = cvals->rx_max_coalesced_frames;
+ 
+@@ -358,6 +372,19 @@ static int gfar_scoalesce(struct net_dev
+ 	else
+ 		priv->txcoalescing = 1;
+ 
++	/* Check the bounds of the values */
++	if (cvals->tx_coalesce_usecs > GFAR_MAX_COAL_USECS) {
++		pr_info("Coalescing is limited to %d microseconds\n",
++				GFAR_MAX_COAL_USECS);
++		return -EINVAL;
++	}
++
++	if (cvals->tx_max_coalesced_frames > GFAR_MAX_COAL_FRAMES) {
++		pr_info("Coalescing is limited to %d frames\n",
++				GFAR_MAX_COAL_FRAMES);
++		return -EINVAL;
++	}
++
+ 	priv->txtime = gfar_usecs2ticks(priv, cvals->tx_coalesce_usecs);
+ 	priv->txcount = cvals->tx_max_coalesced_frames;
+ 
+@@ -536,6 +563,7 @@ static void gfar_set_msglevel(struct net
+ 
+ struct ethtool_ops gfar_ethtool_ops = {
+ 	.get_settings = gfar_gsettings,
++	.set_settings = gfar_ssettings,
+ 	.get_drvinfo = gfar_gdrvinfo,
+ 	.get_regs_len = gfar_reglen,
+ 	.get_regs = gfar_get_regs,
+diff --git a/drivers/net/gianfar_mii.c b/drivers/net/gianfar_mii.c
+new file mode 100644
+--- /dev/null
++++ b/drivers/net/gianfar_mii.c
+@@ -0,0 +1,220 @@
++/* 
++ * drivers/net/gianfar_mii.c
++ *
++ * Gianfar Ethernet Driver -- MIIM bus implementation
++ * Provides Bus interface for MIIM regs
++ *
++ * Author: Andy Fleming
++ * Maintainer: Kumar Gala (kumar.gala@freescale.com)
++ *
++ * Copyright (c) 2002-2004 Freescale Semiconductor, Inc.
++ *
++ * This program is free software; you can redistribute  it and/or modify it
++ * under  the terms of  the GNU General  Public License as published by the
++ * Free Software Foundation;  either version 2 of the  License, or (at your
++ * option) any later version.
++ *
++ */
++
++#include <linux/config.h>
++#include <linux/kernel.h>
++#include <linux/sched.h>
++#include <linux/string.h>
++#include <linux/errno.h>
++#include <linux/unistd.h>
++#include <linux/slab.h>
++#include <linux/interrupt.h>
++#include <linux/init.h>
++#include <linux/delay.h>
++#include <linux/netdevice.h>
++#include <linux/etherdevice.h>
++#include <linux/skbuff.h>
++#include <linux/spinlock.h>
++#include <linux/mm.h>
++#include <linux/module.h>
++#include <linux/version.h>
++#include <asm/ocp.h>
++#include <linux/crc32.h>
++#include <linux/mii.h>
++#include <linux/phy.h>
++
++#include <asm/io.h>
++#include <asm/irq.h>
++#include <asm/uaccess.h>
++
++#include "gianfar.h"
++#include "gianfar_mii.h"
++
++/* Write value to the PHY at mii_id at register regnum,
++ * on the bus, waiting until the write is done before returning.
++ * All PHY configuration is done through the TSEC1 MIIM regs */
++int gfar_mdio_write(struct mii_bus *bus, int mii_id, int regnum, u16 value)
++{
++	struct gfar_mii *regs = bus->priv;
++
++	/* Set the PHY address and the register address we want to write */
++	gfar_write(&regs->miimadd, (mii_id << 8) | regnum);
++
++	/* Write out the value we want */
++	gfar_write(&regs->miimcon, value);
++
++	/* Wait for the transaction to finish */
++	while (gfar_read(&regs->miimind) & MIIMIND_BUSY)
++		cpu_relax();
++
++	return 0;
++}
++
++/* Read the bus for PHY at addr mii_id, register regnum, and
++ * return the value.  Clears miimcom first.  All PHY
++ * configuration has to be done through the TSEC1 MIIM regs */
++int gfar_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
++{
++	struct gfar_mii *regs = bus->priv;
++	u16 value;
++
++	/* Set the PHY address and the register address we want to read */
++	gfar_write(&regs->miimadd, (mii_id << 8) | regnum);
++
++	/* Clear miimcom, and then initiate a read */
++	gfar_write(&regs->miimcom, 0);
++	gfar_write(&regs->miimcom, MII_READ_COMMAND);
++
++	/* Wait for the transaction to finish */
++	while (gfar_read(&regs->miimind) & (MIIMIND_NOTVALID | MIIMIND_BUSY))
++		cpu_relax();
++
++	/* Grab the value of the register from miimstat */
++	value = gfar_read(&regs->miimstat);
++
++	return value;
++}
++
++
++/* Reset the MIIM registers, and wait for the bus to free */
++int gfar_mdio_reset(struct mii_bus *bus)
++{
++	struct gfar_mii *regs = bus->priv;
++	unsigned int timeout = PHY_INIT_TIMEOUT;
++
++	spin_lock_bh(&bus->mdio_lock);
++
++	/* Reset the management interface */
++	gfar_write(&regs->miimcfg, MIIMCFG_RESET);
++
++	/* Setup the MII Mgmt clock speed */
++	gfar_write(&regs->miimcfg, MIIMCFG_INIT_VALUE);
++
++	/* Wait until the bus is free */
++	while ((gfar_read(&regs->miimind) & MIIMIND_BUSY) &&
++			timeout--)
++		cpu_relax();
++
++	spin_unlock_bh(&bus->mdio_lock);
++
++	if(timeout <= 0) {
++		printk(KERN_ERR "%s: The MII Bus is stuck!\n",
++				bus->name);
++		return -EBUSY;
++	}
++
++	return 0;
++}
++
++
++int gfar_mdio_probe(struct device *dev)
++{
++	struct platform_device *pdev = to_platform_device(dev);
++	struct gianfar_mdio_data *pdata;
++	struct gfar_mii *regs;
++	struct mii_bus *new_bus;
++	int err = 0;
++
++	printk("probing\n");
++	if (NULL == dev)
++		return -EINVAL;
++
++	new_bus = kmalloc(sizeof(struct mii_bus), GFP_KERNEL);
++
++	if (NULL == new_bus)
++		return -ENOMEM;
++
++	new_bus->name = "Gianfar MII Bus",
++	new_bus->read = &gfar_mdio_read,
++	new_bus->write = &gfar_mdio_write,
++	new_bus->reset = &gfar_mdio_reset,
++	new_bus->id = pdev->id;
++
++	pdata = (struct gianfar_mdio_data *)pdev->dev.platform_data;
++
++	if (NULL == pdata) {
++		printk(KERN_ERR "gfar mdio %d: Missing platform data!\n", pdev->id);
++		return -ENODEV;
++	}
++
++	/* Set the PHY base address */
++	regs = (struct gfar_mii *) ioremap(pdata->paddr, 
++			sizeof (struct gfar_mii));
++
++	if (NULL == regs) {
++		err = -ENOMEM;
++		goto reg_map_fail;
++	}
++
++	new_bus->priv = regs;
++
++	new_bus->irq = pdata->irq;
++
++	new_bus->dev = dev;
++	dev_set_drvdata(dev, new_bus);
++
++	err = mdiobus_register(new_bus);
++
++	if (0 != err) {
++		printk (KERN_ERR "%s: Cannot register as MDIO bus\n", 
++				new_bus->name);
++		goto bus_register_fail;
++	}
++
++	return 0;
++
++bus_register_fail:
++	iounmap((void *) regs);
++reg_map_fail:
++	kfree(new_bus);
++
++	return err;
++}
++
++
++int gfar_mdio_remove(struct device *dev)
++{
++	struct mii_bus *bus = dev_get_drvdata(dev);
++
++	mdiobus_unregister(bus);
++
++	dev_set_drvdata(dev, NULL);
++
++	iounmap((void *) (&bus->priv));
++	bus->priv = NULL;
++	kfree(bus);
++
++	return 0;
++}
++
++static struct device_driver gianfar_mdio_driver = {
++	.name = "fsl-gianfar_mdio",
++	.bus = &platform_bus_type,
++	.probe = gfar_mdio_probe,
++	.remove = gfar_mdio_remove,
++};
++
++int __init gfar_mdio_init(void)
++{
++	return driver_register(&gianfar_mdio_driver);
++}
++
++void __exit gfar_mdio_exit(void)
++{
++	driver_unregister(&gianfar_mdio_driver);
++}
+diff --git a/drivers/net/gianfar_mii.h b/drivers/net/gianfar_mii.h
+new file mode 100644
+--- /dev/null
++++ b/drivers/net/gianfar_mii.h
+@@ -0,0 +1,45 @@
++/* 
++ * drivers/net/gianfar_mii.h
++ *
++ * Gianfar Ethernet Driver -- MII Management Bus Implementation
++ * Driver for the MDIO bus controller in the Gianfar register space
++ *
++ * Author: Andy Fleming
++ * Maintainer: Kumar Gala (kumar.gala@freescale.com)
++ *
++ * Copyright (c) 2002-2004 Freescale Semiconductor, Inc.
++ *
++ * This program is free software; you can redistribute  it and/or modify it
++ * under  the terms of  the GNU General  Public License as published by the
++ * Free Software Foundation;  either version 2 of the  License, or (at your
++ * option) any later version.
++ *
++ */
++#ifndef __GIANFAR_MII_H
++#define __GIANFAR_MII_H
++
++#define MIIMIND_BUSY            0x00000001
++#define MIIMIND_NOTVALID        0x00000004
++
++#define MII_READ_COMMAND       0x00000001
++
++#define GFAR_SUPPORTED (SUPPORTED_10baseT_Half \
++		| SUPPORTED_100baseT_Half \
++		| SUPPORTED_100baseT_Full \
++		| SUPPORTED_Autoneg \
++		| SUPPORTED_MII)
++
++struct gfar_mii {
++	u32	miimcfg;	/* 0x.520 - MII Management Config Register */
++	u32	miimcom;	/* 0x.524 - MII Management Command Register */
++	u32	miimadd;	/* 0x.528 - MII Management Address Register */
++	u32	miimcon;	/* 0x.52c - MII Management Control Register */
++	u32	miimstat;	/* 0x.530 - MII Management Status Register */
++	u32	miimind;	/* 0x.534 - MII Management Indicator Register */
++};
++
++int gfar_mdio_read(struct mii_bus *bus, int mii_id, int regnum);
++int gfar_mdio_write(struct mii_bus *bus, int mii_id, int regnum, u16 value);
++int __init gfar_mdio_init(void);
++void __exit gfar_mdio_exit(void);
++#endif /* GIANFAR_PHY_H */
+diff --git a/drivers/net/gianfar_phy.c b/drivers/net/gianfar_phy.c
+deleted file mode 100644
+--- a/drivers/net/gianfar_phy.c
++++ /dev/null
+@@ -1,661 +0,0 @@
+-/* 
+- * drivers/net/gianfar_phy.c
+- *
+- * Gianfar Ethernet Driver -- PHY handling
+- * Driver for FEC on MPC8540 and TSEC on MPC8540/MPC8560
+- * Based on 8260_io/fcc_enet.c
+- *
+- * Author: Andy Fleming
+- * Maintainer: Kumar Gala (kumar.gala@freescale.com)
+- *
+- * Copyright (c) 2002-2004 Freescale Semiconductor, Inc.
+- *
+- * This program is free software; you can redistribute  it and/or modify it
+- * under  the terms of  the GNU General  Public License as published by the
+- * Free Software Foundation;  either version 2 of the  License, or (at your
+- * option) any later version.
+- *
+- */
+-
+-#include <linux/config.h>
+-#include <linux/kernel.h>
+-#include <linux/sched.h>
+-#include <linux/string.h>
+-#include <linux/errno.h>
+-#include <linux/slab.h>
+-#include <linux/interrupt.h>
+-#include <linux/init.h>
+-#include <linux/delay.h>
+-#include <linux/netdevice.h>
+-#include <linux/etherdevice.h>
+-#include <linux/skbuff.h>
+-#include <linux/spinlock.h>
+-#include <linux/mm.h>
+-
+-#include <asm/io.h>
+-#include <asm/irq.h>
+-#include <asm/uaccess.h>
+-#include <linux/module.h>
+-#include <linux/version.h>
+-#include <linux/crc32.h>
+-#include <linux/mii.h>
+-
+-#include "gianfar.h"
+-#include "gianfar_phy.h"
+-
+-static void config_genmii_advert(struct gfar_mii_info *mii_info);
+-static void genmii_setup_forced(struct gfar_mii_info *mii_info);
+-static void genmii_restart_aneg(struct gfar_mii_info *mii_info);
+-static int gbit_config_aneg(struct gfar_mii_info *mii_info);
+-static int genmii_config_aneg(struct gfar_mii_info *mii_info);
+-static int genmii_update_link(struct gfar_mii_info *mii_info);
+-static int genmii_read_status(struct gfar_mii_info *mii_info);
+-u16 phy_read(struct gfar_mii_info *mii_info, u16 regnum);
+-void phy_write(struct gfar_mii_info *mii_info, u16 regnum, u16 val);
+-
+-/* Write value to the PHY for this device to the register at regnum, */
+-/* waiting until the write is done before it returns.  All PHY */
+-/* configuration has to be done through the TSEC1 MIIM regs */
+-void write_phy_reg(struct net_device *dev, int mii_id, int regnum, int value)
+-{
+-	struct gfar_private *priv = netdev_priv(dev);
+-	struct gfar *regbase = priv->phyregs;
+-
+-	/* Set the PHY address and the register address we want to write */
+-	gfar_write(&regbase->miimadd, (mii_id << 8) | regnum);
+-
+-	/* Write out the value we want */
+-	gfar_write(&regbase->miimcon, value);
+-
+-	/* Wait for the transaction to finish */
+-	while (gfar_read(&regbase->miimind) & MIIMIND_BUSY)
+-		cpu_relax();
+-}
+-
+-/* Reads from register regnum in the PHY for device dev, */
+-/* returning the value.  Clears miimcom first.  All PHY */
+-/* configuration has to be done through the TSEC1 MIIM regs */
+-int read_phy_reg(struct net_device *dev, int mii_id, int regnum)
+-{
+-	struct gfar_private *priv = netdev_priv(dev);
+-	struct gfar *regbase = priv->phyregs;
+-	u16 value;
+-
+-	/* Set the PHY address and the register address we want to read */
+-	gfar_write(&regbase->miimadd, (mii_id << 8) | regnum);
+-
+-	/* Clear miimcom, and then initiate a read */
+-	gfar_write(&regbase->miimcom, 0);
+-	gfar_write(&regbase->miimcom, MII_READ_COMMAND);
+-
+-	/* Wait for the transaction to finish */
+-	while (gfar_read(&regbase->miimind) & (MIIMIND_NOTVALID | MIIMIND_BUSY))
+-		cpu_relax();
+-
+-	/* Grab the value of the register from miimstat */
+-	value = gfar_read(&regbase->miimstat);
+-
+-	return value;
+-}
+-
+-void mii_clear_phy_interrupt(struct gfar_mii_info *mii_info)
+-{
+-	if(mii_info->phyinfo->ack_interrupt)
+-		mii_info->phyinfo->ack_interrupt(mii_info);
+-}
+-
+-
+-void mii_configure_phy_interrupt(struct gfar_mii_info *mii_info, u32 interrupts)
+-{
+-	mii_info->interrupts = interrupts;
+-	if(mii_info->phyinfo->config_intr)
+-		mii_info->phyinfo->config_intr(mii_info);
+-}
+-
+-
+-/* Writes MII_ADVERTISE with the appropriate values, after
+- * sanitizing advertise to make sure only supported features
+- * are advertised 
+- */
+-static void config_genmii_advert(struct gfar_mii_info *mii_info)
+-{
+-	u32 advertise;
+-	u16 adv;
+-
+-	/* Only allow advertising what this PHY supports */
+-	mii_info->advertising &= mii_info->phyinfo->features;
+-	advertise = mii_info->advertising;
+-
+-	/* Setup standard advertisement */
+-	adv = phy_read(mii_info, MII_ADVERTISE);
+-	adv &= ~(ADVERTISE_ALL | ADVERTISE_100BASE4);
+-	if (advertise & ADVERTISED_10baseT_Half)
+-		adv |= ADVERTISE_10HALF;
+-	if (advertise & ADVERTISED_10baseT_Full)
+-		adv |= ADVERTISE_10FULL;
+-	if (advertise & ADVERTISED_100baseT_Half)
+-		adv |= ADVERTISE_100HALF;
+-	if (advertise & ADVERTISED_100baseT_Full)
+-		adv |= ADVERTISE_100FULL;
+-	phy_write(mii_info, MII_ADVERTISE, adv);
+-}
+-
+-static void genmii_setup_forced(struct gfar_mii_info *mii_info)
+-{
+-	u16 ctrl;
+-	u32 features = mii_info->phyinfo->features;
+-	
+-	ctrl = phy_read(mii_info, MII_BMCR);
+-
+-	ctrl &= ~(BMCR_FULLDPLX|BMCR_SPEED100|BMCR_SPEED1000|BMCR_ANENABLE);
+-	ctrl |= BMCR_RESET;
+-
+-	switch(mii_info->speed) {
+-		case SPEED_1000:
+-			if(features & (SUPPORTED_1000baseT_Half
+-						| SUPPORTED_1000baseT_Full)) {
+-				ctrl |= BMCR_SPEED1000;
+-				break;
+-			}
+-			mii_info->speed = SPEED_100;
+-		case SPEED_100:
+-			if (features & (SUPPORTED_100baseT_Half
+-						| SUPPORTED_100baseT_Full)) {
+-				ctrl |= BMCR_SPEED100;
+-				break;
+-			}
+-			mii_info->speed = SPEED_10;
+-		case SPEED_10:
+-			if (features & (SUPPORTED_10baseT_Half
+-						| SUPPORTED_10baseT_Full))
+-				break;
+-		default: /* Unsupported speed! */
+-			printk(KERN_ERR "%s: Bad speed!\n", 
+-					mii_info->dev->name);
+-			break;
+-	}
+-
+-	phy_write(mii_info, MII_BMCR, ctrl);
+-}
+-
+-
+-/* Enable and Restart Autonegotiation */
+-static void genmii_restart_aneg(struct gfar_mii_info *mii_info)
+-{
+-	u16 ctl;
+-
+-	ctl = phy_read(mii_info, MII_BMCR);
+-	ctl |= (BMCR_ANENABLE | BMCR_ANRESTART);
+-	phy_write(mii_info, MII_BMCR, ctl);
+-}
+-
+-
+-static int gbit_config_aneg(struct gfar_mii_info *mii_info)
+-{
+-	u16 adv;
+-	u32 advertise;
+-
+-	if(mii_info->autoneg) {
+-		/* Configure the ADVERTISE register */
+-		config_genmii_advert(mii_info);
+-		advertise = mii_info->advertising;
+-
+-		adv = phy_read(mii_info, MII_1000BASETCONTROL);
+-		adv &= ~(MII_1000BASETCONTROL_FULLDUPLEXCAP |
+-				MII_1000BASETCONTROL_HALFDUPLEXCAP);
+-		if (advertise & SUPPORTED_1000baseT_Half)
+-			adv |= MII_1000BASETCONTROL_HALFDUPLEXCAP;
+-		if (advertise & SUPPORTED_1000baseT_Full)
+-			adv |= MII_1000BASETCONTROL_FULLDUPLEXCAP;
+-		phy_write(mii_info, MII_1000BASETCONTROL, adv);
+-
+-		/* Start/Restart aneg */
+-		genmii_restart_aneg(mii_info);
+-	} else
+-		genmii_setup_forced(mii_info);
+-
+-	return 0;
+-}
+-
+-static int marvell_config_aneg(struct gfar_mii_info *mii_info)
+-{
+-	/* The Marvell PHY has an errata which requires
+-	 * that certain registers get written in order
+-	 * to restart autonegotiation */
+-	phy_write(mii_info, MII_BMCR, BMCR_RESET);
+-
+-	phy_write(mii_info, 0x1d, 0x1f);
+-	phy_write(mii_info, 0x1e, 0x200c);
+-	phy_write(mii_info, 0x1d, 0x5);
+-	phy_write(mii_info, 0x1e, 0);
+-	phy_write(mii_info, 0x1e, 0x100);
+-
+-	gbit_config_aneg(mii_info);
+-
+-	return 0;
+-}
+-static int genmii_config_aneg(struct gfar_mii_info *mii_info)
+-{
+-	if (mii_info->autoneg) {
+-		config_genmii_advert(mii_info);
+-		genmii_restart_aneg(mii_info);
+-	} else
+-		genmii_setup_forced(mii_info);
+-
+-	return 0;
+-}
+-
+-
+-static int genmii_update_link(struct gfar_mii_info *mii_info)
+-{
+-	u16 status;
+-
+-	/* Do a fake read */
+-	phy_read(mii_info, MII_BMSR);
+-
+-	/* Read link and autonegotiation status */
+-	status = phy_read(mii_info, MII_BMSR);
+-	if ((status & BMSR_LSTATUS) == 0)
+-		mii_info->link = 0;
+-	else
+-		mii_info->link = 1;
+-
+-	/* If we are autonegotiating, and not done, 
+-	 * return an error */
+-	if (mii_info->autoneg && !(status & BMSR_ANEGCOMPLETE))
+-		return -EAGAIN;
+-
+-	return 0;
+-}
+-
+-static int genmii_read_status(struct gfar_mii_info *mii_info)
+-{
+-	u16 status;
+-	int err;
+-
+-	/* Update the link, but return if there
+-	 * was an error */
+-	err = genmii_update_link(mii_info);
+-	if (err)
+-		return err;
+-
+-	if (mii_info->autoneg) {
+-		status = phy_read(mii_info, MII_LPA);
+-
+-		if (status & (LPA_10FULL | LPA_100FULL))
+-			mii_info->duplex = DUPLEX_FULL;
+-		else
+-			mii_info->duplex = DUPLEX_HALF;
+-		if (status & (LPA_100FULL | LPA_100HALF))
+-			mii_info->speed = SPEED_100;
+-		else
+-			mii_info->speed = SPEED_10;
+-		mii_info->pause = 0;
+-	}
+-	/* On non-aneg, we assume what we put in BMCR is the speed,
+-	 * though magic-aneg shouldn't prevent this case from occurring
+-	 */
+-
+-	return 0;
+-}
+-static int marvell_read_status(struct gfar_mii_info *mii_info)
+-{
+-	u16 status;
+-	int err;
+-
+-	/* Update the link, but return if there
+-	 * was an error */
+-	err = genmii_update_link(mii_info);
+-	if (err)
+-		return err;
+-
+-	/* If the link is up, read the speed and duplex */
+-	/* If we aren't autonegotiating, assume speeds 
+-	 * are as set */
+-	if (mii_info->autoneg && mii_info->link) {
+-		int speed;
+-		status = phy_read(mii_info, MII_M1011_PHY_SPEC_STATUS);
+-
+-#if 0
+-		/* If speed and duplex aren't resolved,
+-		 * return an error.  Isn't this handled
+-		 * by checking aneg?
+-		 */
+-		if ((status & MII_M1011_PHY_SPEC_STATUS_RESOLVED) == 0)
+-			return -EAGAIN;
+-#endif
+-
+-		/* Get the duplexity */
+-		if (status & MII_M1011_PHY_SPEC_STATUS_FULLDUPLEX)
+-			mii_info->duplex = DUPLEX_FULL;
+-		else
+-			mii_info->duplex = DUPLEX_HALF;
+-
+-		/* Get the speed */
+-		speed = status & MII_M1011_PHY_SPEC_STATUS_SPD_MASK;
+-		switch(speed) {
+-			case MII_M1011_PHY_SPEC_STATUS_1000:
+-				mii_info->speed = SPEED_1000;
+-				break;
+-			case MII_M1011_PHY_SPEC_STATUS_100:
+-				mii_info->speed = SPEED_100;
+-				break;
+-			default:
+-				mii_info->speed = SPEED_10;
+-				break;
+-		}
+-		mii_info->pause = 0;
+-	}
+-
+-	return 0;
+-}
+-
+-
+-static int cis820x_read_status(struct gfar_mii_info *mii_info)
+-{
+-	u16 status;
+-	int err;
+-
+-	/* Update the link, but return if there
+-	 * was an error */
+-	err = genmii_update_link(mii_info);
+-	if (err)
+-		return err;
+-
+-	/* If the link is up, read the speed and duplex */
+-	/* If we aren't autonegotiating, assume speeds 
+-	 * are as set */
+-	if (mii_info->autoneg && mii_info->link) {
+-		int speed;
+-
+-		status = phy_read(mii_info, MII_CIS8201_AUX_CONSTAT);
+-		if (status & MII_CIS8201_AUXCONSTAT_DUPLEX)
+-			mii_info->duplex = DUPLEX_FULL;
+-		else
+-			mii_info->duplex = DUPLEX_HALF;
+-
+-		speed = status & MII_CIS8201_AUXCONSTAT_SPEED;
+-
+-		switch (speed) {
+-		case MII_CIS8201_AUXCONSTAT_GBIT:
+-			mii_info->speed = SPEED_1000;
+-			break;
+-		case MII_CIS8201_AUXCONSTAT_100:
+-			mii_info->speed = SPEED_100;
+-			break;
+-		default:
+-			mii_info->speed = SPEED_10;
+-			break;
+-		}
+-	}
+-
+-	return 0;
+-}
+-
+-static int marvell_ack_interrupt(struct gfar_mii_info *mii_info)
+-{
+-	/* Clear the interrupts by reading the reg */
+-	phy_read(mii_info, MII_M1011_IEVENT);
+-
+-	return 0;
+-}
+-
+-static int marvell_config_intr(struct gfar_mii_info *mii_info)
+-{
+-	if(mii_info->interrupts == MII_INTERRUPT_ENABLED)
+-		phy_write(mii_info, MII_M1011_IMASK, MII_M1011_IMASK_INIT);
+-	else
+-		phy_write(mii_info, MII_M1011_IMASK, MII_M1011_IMASK_CLEAR);
+-
+-	return 0;
+-}
+-
+-static int cis820x_init(struct gfar_mii_info *mii_info)
+-{
+-	phy_write(mii_info, MII_CIS8201_AUX_CONSTAT, 
+-			MII_CIS8201_AUXCONSTAT_INIT);
+-	phy_write(mii_info, MII_CIS8201_EXT_CON1,
+-			MII_CIS8201_EXTCON1_INIT);
+-
+-	return 0;
+-}
+-
+-static int cis820x_ack_interrupt(struct gfar_mii_info *mii_info)
+-{
+-	phy_read(mii_info, MII_CIS8201_ISTAT);
+-
+-	return 0;
+-}
+-
+-static int cis820x_config_intr(struct gfar_mii_info *mii_info)
+-{
+-	if(mii_info->interrupts == MII_INTERRUPT_ENABLED)
+-		phy_write(mii_info, MII_CIS8201_IMASK, MII_CIS8201_IMASK_MASK);
+-	else
+-		phy_write(mii_info, MII_CIS8201_IMASK, 0);
+-
+-	return 0;
+-}
+-
+-#define DM9161_DELAY 10
+-
+-static int dm9161_read_status(struct gfar_mii_info *mii_info)
+-{
+-	u16 status;
+-	int err;
+-
+-	/* Update the link, but return if there
+-	 * was an error */
+-	err = genmii_update_link(mii_info);
+-	if (err)
+-		return err;
+-
+-	/* If the link is up, read the speed and duplex */
+-	/* If we aren't autonegotiating, assume speeds 
+-	 * are as set */
+-	if (mii_info->autoneg && mii_info->link) {
+-		status = phy_read(mii_info, MII_DM9161_SCSR);
+-		if (status & (MII_DM9161_SCSR_100F | MII_DM9161_SCSR_100H))
+-			mii_info->speed = SPEED_100;
+-		else
+-			mii_info->speed = SPEED_10;
+-
+-		if (status & (MII_DM9161_SCSR_100F | MII_DM9161_SCSR_10F))
+-			mii_info->duplex = DUPLEX_FULL;
+-		else
+-			mii_info->duplex = DUPLEX_HALF;
+-	}
+-
+-	return 0;
+-}
+-
+-
+-static int dm9161_config_aneg(struct gfar_mii_info *mii_info)
+-{
+-	struct dm9161_private *priv = mii_info->priv;
+-
+-	if(0 == priv->resetdone)
+-		return -EAGAIN;
+-
+-	return 0;
+-}
+-
+-static void dm9161_timer(unsigned long data)
+-{
+-	struct gfar_mii_info *mii_info = (struct gfar_mii_info *)data;
+-	struct dm9161_private *priv = mii_info->priv;
+-	u16 status = phy_read(mii_info, MII_BMSR);
+-
+-	if (status & BMSR_ANEGCOMPLETE) {
+-		priv->resetdone = 1;
+-	} else
+-		mod_timer(&priv->timer, jiffies + DM9161_DELAY * HZ);
+-}
+-
+-static int dm9161_init(struct gfar_mii_info *mii_info)
+-{
+-	struct dm9161_private *priv;
+-
+-	/* Allocate the private data structure */
+-	priv = kmalloc(sizeof(struct dm9161_private), GFP_KERNEL);
+-
+-	if (NULL == priv)
+-		return -ENOMEM;
+-
+-	mii_info->priv = priv;
+-
+-	/* Reset is not done yet */
+-	priv->resetdone = 0;
+-
+-	/* Isolate the PHY */
+-	phy_write(mii_info, MII_BMCR, BMCR_ISOLATE);
+-
+-	/* Do not bypass the scrambler/descrambler */
+-	phy_write(mii_info, MII_DM9161_SCR, MII_DM9161_SCR_INIT);
+-
+-	/* Clear 10BTCSR to default */
+-	phy_write(mii_info, MII_DM9161_10BTCSR, MII_DM9161_10BTCSR_INIT);
+-
+-	/* Reconnect the PHY, and enable Autonegotiation */
+-	phy_write(mii_info, MII_BMCR, BMCR_ANENABLE);
+-
+-	/* Start a timer for DM9161_DELAY seconds to wait
+-	 * for the PHY to be ready */
+-	init_timer(&priv->timer);
+-	priv->timer.function = &dm9161_timer;
+-	priv->timer.data = (unsigned long) mii_info;
+-	mod_timer(&priv->timer, jiffies + DM9161_DELAY * HZ);
+-
+-	return 0;
+-}
+-
+-static void dm9161_close(struct gfar_mii_info *mii_info)
+-{
+-	struct dm9161_private *priv = mii_info->priv;
+-
+-	del_timer_sync(&priv->timer);
+-	kfree(priv);
+-}
+-
+-#if 0
+-static int dm9161_ack_interrupt(struct gfar_mii_info *mii_info)
+-{
+-	phy_read(mii_info, MII_DM9161_INTR);
+-
+-	return 0;
+-}
+-#endif
+-
+-/* Cicada 820x */
+-static struct phy_info phy_info_cis820x = {
+-	0x000fc440,
+-	"Cicada Cis8204",
+-	0x000fffc0,
+-	.features	= MII_GBIT_FEATURES,
+-	.init		= &cis820x_init,
+-	.config_aneg	= &gbit_config_aneg,
+-	.read_status	= &cis820x_read_status,
+-	.ack_interrupt	= &cis820x_ack_interrupt,
+-	.config_intr	= &cis820x_config_intr,
+-};
+-
+-static struct phy_info phy_info_dm9161 = {
+-	.phy_id		= 0x0181b880,
+-	.name		= "Davicom DM9161E",
+-	.phy_id_mask	= 0x0ffffff0,
+-	.init		= dm9161_init,
+-	.config_aneg	= dm9161_config_aneg,
+-	.read_status	= dm9161_read_status,
+-	.close		= dm9161_close,
+-};
+-
+-static struct phy_info phy_info_marvell = {
+-	.phy_id		= 0x01410c00,
+-	.phy_id_mask	= 0xffffff00,
+-	.name		= "Marvell 88E1101/88E1111",
+-	.features	= MII_GBIT_FEATURES,
+-	.config_aneg	= &marvell_config_aneg,
+-	.read_status	= &marvell_read_status,
+-	.ack_interrupt	= &marvell_ack_interrupt,
+-	.config_intr	= &marvell_config_intr,
+-};
+-
+-static struct phy_info phy_info_genmii= {
+-	.phy_id		= 0x00000000,
+-	.phy_id_mask	= 0x00000000,
+-	.name		= "Generic MII",
+-	.features	= MII_BASIC_FEATURES,
+-	.config_aneg	= genmii_config_aneg,
+-	.read_status	= genmii_read_status,
+-};
+-
+-static struct phy_info *phy_info[] = {
+-	&phy_info_cis820x,
+-	&phy_info_marvell,
+-	&phy_info_dm9161,
+-	&phy_info_genmii,
+-	NULL
+-};
+-
+-u16 phy_read(struct gfar_mii_info *mii_info, u16 regnum)
+-{
+-	u16 retval;
+-	unsigned long flags;
+-
+-	spin_lock_irqsave(&mii_info->mdio_lock, flags);
+-	retval = mii_info->mdio_read(mii_info->dev, mii_info->mii_id, regnum);
+-	spin_unlock_irqrestore(&mii_info->mdio_lock, flags);
+-
+-	return retval;
+-}
+-
+-void phy_write(struct gfar_mii_info *mii_info, u16 regnum, u16 val)
+-{
+-	unsigned long flags;
+-
+-	spin_lock_irqsave(&mii_info->mdio_lock, flags);
+-	mii_info->mdio_write(mii_info->dev, 
+-			mii_info->mii_id, 
+-			regnum, val);
+-	spin_unlock_irqrestore(&mii_info->mdio_lock, flags);
+-}
+-
+-/* Use the PHY ID registers to determine what type of PHY is attached
+- * to device dev.  return a struct phy_info structure describing that PHY
+- */
+-struct phy_info * get_phy_info(struct gfar_mii_info *mii_info)
+-{
+-	u16 phy_reg;
+-	u32 phy_ID;
+-	int i;
+-	struct phy_info *theInfo = NULL;
+-	struct net_device *dev = mii_info->dev;
+-
+-	/* Grab the bits from PHYIR1, and put them in the upper half */
+-	phy_reg = phy_read(mii_info, MII_PHYSID1);
+-	phy_ID = (phy_reg & 0xffff) << 16;
+-
+-	/* Grab the bits from PHYIR2, and put them in the lower half */
+-	phy_reg = phy_read(mii_info, MII_PHYSID2);
+-	phy_ID |= (phy_reg & 0xffff);
+-
+-	/* loop through all the known PHY types, and find one that */
+-	/* matches the ID we read from the PHY. */
+-	for (i = 0; phy_info[i]; i++)
+-		if (phy_info[i]->phy_id == 
+-				(phy_ID & phy_info[i]->phy_id_mask)) {
+-			theInfo = phy_info[i];
+-			break;
+-		}
+-
+-	/* This shouldn't happen, as we have generic PHY support */
+-	if (theInfo == NULL) {
+-		printk("%s: PHY id %x is not supported!\n", dev->name, phy_ID);
+-		return NULL;
+-	} else {
+-		printk("%s: PHY is %s (%x)\n", dev->name, theInfo->name,
+-		       phy_ID);
+-	}
+-
+-	return theInfo;
+-}
+diff --git a/drivers/net/gianfar_phy.h b/drivers/net/gianfar_phy.h
+deleted file mode 100644
+--- a/drivers/net/gianfar_phy.h
++++ /dev/null
+@@ -1,213 +0,0 @@
+-/* 
+- * drivers/net/gianfar_phy.h
+- *
+- * Gianfar Ethernet Driver -- PHY handling
+- * Driver for FEC on MPC8540 and TSEC on MPC8540/MPC8560
+- * Based on 8260_io/fcc_enet.c
+- *
+- * Author: Andy Fleming
+- * Maintainer: Kumar Gala (kumar.gala@freescale.com)
+- *
+- * Copyright (c) 2002-2004 Freescale Semiconductor, Inc.
+- *
+- * This program is free software; you can redistribute  it and/or modify it
+- * under  the terms of  the GNU General  Public License as published by the
+- * Free Software Foundation;  either version 2 of the  License, or (at your
+- * option) any later version.
+- *
+- */
+-#ifndef __GIANFAR_PHY_H
+-#define __GIANFAR_PHY_H
+-
+-#define MII_end ((u32)-2)
+-#define MII_read ((u32)-1)
+-
+-#define MIIMIND_BUSY            0x00000001
+-#define MIIMIND_NOTVALID        0x00000004
+-
+-#define GFAR_AN_TIMEOUT         2000
+-
+-/* 1000BT control (Marvell & BCM54xx at least) */
+-#define MII_1000BASETCONTROL			0x09
+-#define MII_1000BASETCONTROL_FULLDUPLEXCAP	0x0200
+-#define MII_1000BASETCONTROL_HALFDUPLEXCAP	0x0100
+-
+-/* Cicada Extended Control Register 1 */
+-#define MII_CIS8201_EXT_CON1           0x17
+-#define MII_CIS8201_EXTCON1_INIT       0x0000
+-
+-/* Cicada Interrupt Mask Register */
+-#define MII_CIS8201_IMASK		0x19
+-#define MII_CIS8201_IMASK_IEN		0x8000
+-#define MII_CIS8201_IMASK_SPEED	0x4000
+-#define MII_CIS8201_IMASK_LINK		0x2000
+-#define MII_CIS8201_IMASK_DUPLEX	0x1000
+-#define MII_CIS8201_IMASK_MASK		0xf000
+-
+-/* Cicada Interrupt Status Register */
+-#define MII_CIS8201_ISTAT		0x1a
+-#define MII_CIS8201_ISTAT_STATUS	0x8000
+-#define MII_CIS8201_ISTAT_SPEED	0x4000
+-#define MII_CIS8201_ISTAT_LINK		0x2000
+-#define MII_CIS8201_ISTAT_DUPLEX	0x1000
+-
+-/* Cicada Auxiliary Control/Status Register */
+-#define MII_CIS8201_AUX_CONSTAT        0x1c
+-#define MII_CIS8201_AUXCONSTAT_INIT    0x0004
+-#define MII_CIS8201_AUXCONSTAT_DUPLEX  0x0020
+-#define MII_CIS8201_AUXCONSTAT_SPEED   0x0018
+-#define MII_CIS8201_AUXCONSTAT_GBIT    0x0010
+-#define MII_CIS8201_AUXCONSTAT_100     0x0008
+-                                                                                
+-/* 88E1011 PHY Status Register */
+-#define MII_M1011_PHY_SPEC_STATUS		0x11
+-#define MII_M1011_PHY_SPEC_STATUS_1000		0x8000
+-#define MII_M1011_PHY_SPEC_STATUS_100		0x4000
+-#define MII_M1011_PHY_SPEC_STATUS_SPD_MASK	0xc000
+-#define MII_M1011_PHY_SPEC_STATUS_FULLDUPLEX	0x2000
+-#define MII_M1011_PHY_SPEC_STATUS_RESOLVED	0x0800
+-#define MII_M1011_PHY_SPEC_STATUS_LINK		0x0400
+-
+-#define MII_M1011_IEVENT		0x13
+-#define MII_M1011_IEVENT_CLEAR		0x0000
+-
+-#define MII_M1011_IMASK			0x12
+-#define MII_M1011_IMASK_INIT		0x6400
+-#define MII_M1011_IMASK_CLEAR		0x0000
+-
+-#define MII_DM9161_SCR		0x10
+-#define MII_DM9161_SCR_INIT	0x0610
+-
+-/* DM9161 Specified Configuration and Status Register */
+-#define MII_DM9161_SCSR	0x11
+-#define MII_DM9161_SCSR_100F	0x8000
+-#define MII_DM9161_SCSR_100H	0x4000
+-#define MII_DM9161_SCSR_10F	0x2000
+-#define MII_DM9161_SCSR_10H	0x1000
+-
+-/* DM9161 Interrupt Register */
+-#define MII_DM9161_INTR	0x15
+-#define MII_DM9161_INTR_PEND		0x8000
+-#define MII_DM9161_INTR_DPLX_MASK	0x0800
+-#define MII_DM9161_INTR_SPD_MASK	0x0400
+-#define MII_DM9161_INTR_LINK_MASK	0x0200
+-#define MII_DM9161_INTR_MASK		0x0100
+-#define MII_DM9161_INTR_DPLX_CHANGE	0x0010
+-#define MII_DM9161_INTR_SPD_CHANGE	0x0008
+-#define MII_DM9161_INTR_LINK_CHANGE	0x0004
+-#define MII_DM9161_INTR_INIT 		0x0000
+-#define MII_DM9161_INTR_STOP	\
+-(MII_DM9161_INTR_DPLX_MASK | MII_DM9161_INTR_SPD_MASK \
+- | MII_DM9161_INTR_LINK_MASK | MII_DM9161_INTR_MASK)
+-
+-/* DM9161 10BT Configuration/Status */
+-#define MII_DM9161_10BTCSR	0x12
+-#define MII_DM9161_10BTCSR_INIT	0x7800
+-
+-#define MII_BASIC_FEATURES	(SUPPORTED_10baseT_Half | \
+-				 SUPPORTED_10baseT_Full | \
+-				 SUPPORTED_100baseT_Half | \
+-				 SUPPORTED_100baseT_Full | \
+-				 SUPPORTED_Autoneg | \
+-				 SUPPORTED_TP | \
+-				 SUPPORTED_MII)
+-
+-#define MII_GBIT_FEATURES	(MII_BASIC_FEATURES | \
+-				 SUPPORTED_1000baseT_Half | \
+-				 SUPPORTED_1000baseT_Full)
+-
+-#define MII_READ_COMMAND       0x00000001
+-
+-#define MII_INTERRUPT_DISABLED 0x0
+-#define MII_INTERRUPT_ENABLED 0x1
+-/* Taken from mii_if_info and sungem_phy.h */
+-struct gfar_mii_info {
+-	/* Information about the PHY type */
+-	/* And management functions */
+-	struct phy_info *phyinfo;
+-
+-	/* forced speed & duplex (no autoneg)
+-	 * partner speed & duplex & pause (autoneg)
+-	 */
+-	int speed;
+-	int duplex;
+-	int pause;
+-
+-	/* The most recently read link state */
+-	int link;
+-
+-	/* Enabled Interrupts */
+-	u32 interrupts;
+-
+-	u32 advertising;
+-	int autoneg;
+-	int mii_id;
+-
+-	/* private data pointer */
+-	/* For use by PHYs to maintain extra state */
+-	void *priv;
+-
+-	/* Provided by host chip */
+-	struct net_device *dev;
+-
+-	/* A lock to ensure that only one thing can read/write
+-	 * the MDIO bus at a time */
+-	spinlock_t mdio_lock;
+-
+-	/* Provided by ethernet driver */
+-	int (*mdio_read) (struct net_device *dev, int mii_id, int reg);
+-	void (*mdio_write) (struct net_device *dev, int mii_id, int reg, int val);
+-};
+-
+-/* struct phy_info: a structure which defines attributes for a PHY
+- *
+- * id will contain a number which represents the PHY.  During
+- * startup, the driver will poll the PHY to find out what its
+- * UID--as defined by registers 2 and 3--is.  The 32-bit result
+- * gotten from the PHY will be ANDed with phy_id_mask to
+- * discard any bits which may change based on revision numbers
+- * unimportant to functionality
+- *
+- * There are 6 commands which take a gfar_mii_info structure.
+- * Each PHY must declare config_aneg, and read_status.
+- */
+-struct phy_info {
+-	u32 phy_id;
+-	char *name;
+-	unsigned int phy_id_mask;
+-	u32 features;
+-
+-	/* Called to initialize the PHY */
+-	int (*init)(struct gfar_mii_info *mii_info);
+-
+-	/* Called to suspend the PHY for power */
+-	int (*suspend)(struct gfar_mii_info *mii_info);
+-
+-	/* Reconfigures autonegotiation (or disables it) */
+-	int (*config_aneg)(struct gfar_mii_info *mii_info);
+-
+-	/* Determines the negotiated speed and duplex */
+-	int (*read_status)(struct gfar_mii_info *mii_info);
+-
+-	/* Clears any pending interrupts */
+-	int (*ack_interrupt)(struct gfar_mii_info *mii_info);
+-
+-	/* Enables or disables interrupts */
+-	int (*config_intr)(struct gfar_mii_info *mii_info);
+-
+-	/* Clears up any memory if needed */
+-	void (*close)(struct gfar_mii_info *mii_info);
+-};
+-
+-struct phy_info *get_phy_info(struct gfar_mii_info *mii_info);
+-int read_phy_reg(struct net_device *dev, int mii_id, int regnum);
+-void write_phy_reg(struct net_device *dev, int mii_id, int regnum, int value);
+-void mii_clear_phy_interrupt(struct gfar_mii_info *mii_info);
+-void mii_configure_phy_interrupt(struct gfar_mii_info *mii_info, u32 interrupts);
+-
+-struct dm9161_private {
+-	struct timer_list timer;
+-	int resetdone;
+-};
+-
+-#endif /* GIANFAR_PHY_H */
