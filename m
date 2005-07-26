@@ -1,85 +1,74 @@
-From: P@draigBrady.com
-Subject: Re: Re: drop counts
-Date: Tue, 26 Jul 2005 09:36:34 +0100
-Message-ID: <42E5F612.2010405@draigBrady.com>
-References: <42DCDCAF.1060005@draigBrady.com> <42DCF0F7.6000704@draigBrady.com> <Pine.WNT.4.63.0507201505370.1936@jbrandeb-desk.amr.corp.intel.com> <42DFA4E9.5060602@draigBrady.com> <Pine.WNT.4.63.0507251041150.832@jbrandeb-desk.amr.corp.intel.com>
+From: Harald Welte <laforge@netfilter.org>
+Subject: Re: Netlink connector
+Date: Tue, 26 Jul 2005 04:45:41 -0400
+Message-ID: <20050726084541.GH7925@rama>
+References: <20050723125427.GA11177@rama> <20050723091455.GA12015@2ka.mipt.ru>
+	<20050724.191756.105797967.davem@davemloft.net>
+	<Lynx.SEL.4.62.0507250154000.21934@thoron.boston.redhat.com>
+	<20050725070603.GA28023@2ka.mipt.ru> <42E4F800.1010908@trash.net>
+	<1122302623.29940.20.camel@localhost.localdomain>
+	<20050725193351.GB30567@2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
-Return-path: <e1000-devel-admin@lists.sourceforge.net>
-To: Jesse Brandeburg <jesse.brandeburg@intel.com>
-In-Reply-To: <Pine.WNT.4.63.0507251041150.832@jbrandeb-desk.amr.corp.intel.com>
-Sender: e1000-devel-admin@lists.sourceforge.net
-Errors-To: e1000-devel-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="IuhbYIxU28t+Kd57"
+Cc: Andrew Morton <akpm@osdl.org>, Eric Leblond <eleblond@inl.fr>,
+	netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	linux-kernel@vger.kernel.org, Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Content-Disposition: inline
+In-Reply-To: <20050725193351.GB30567@2ka.mipt.ru>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Jesse Brandeburg wrote:
-> On Thu, 21 Jul 2005, P@draigBrady.com wrote:
->=20
->> In 2.6.12 this changed to:
->>
->> packets =3D gprc
->> dropped =3D mpc
->> fifo =3D mpc
->> missed =3D mpc
->>
->> I think there still is a problem. Notice that /proc/net/dev
->> reports rx_dropped + rx_missed_errors for the drop column,
->> and so will be double counting drops currently.
->> Therefore I think we should be doing:
->>
->> packets =3D gprc
->> dropped =3D 0
->> fifo =3D rnbc
->> missed =3D mpc
->=20
->=20
-> Double counting drops may be an issue, and I believe we should make tha=
-t=20
-> change.
 
-great.
+--IuhbYIxU28t+Kd57
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> but I don't think its the right thing to report rnbc in fifo=20
-> errors (there was actually no error).
->=20
->> I'm putting rnbc in fifo as it's not accumulated into
->> anything else in the kernel. Also it's good to have
->> it reported as one can see when there is pressure on
->> the e1000 driver buffer. This is useful for tuning its size
->> to protect against drops and latency.
->=20
->=20
-> Whenever I want the RNBC numbers I simply look into ethtool -S eth0, an=
-d=20
-> that allows me to tune.  I see no reason to "reuse" the fifo errors sta=
-t=20
-> with misleading data.
+On Mon, Jul 25, 2005 at 11:33:51PM +0400, Evgeniy Polyakov wrote:
 
-Fair enough if rnbc is actually reported.
-ethtool -S doesn't report it with my driver,
-but I see this stat has been added to the
-latest driver at least.
+> Netlink is transport protocol - no need to add complexity into it,=20
+> it must be as simple as possible and thus extensible.
 
-So I agree on both points.
+yes.  but when you run into a serious addressing shortage (like the
+internet does with ipv4), you develop something that provides more
+addresses (such as ipv6).  That's why support for more groups than 32
+(per family) is something that should be put in the netlink protocol.
 
-thanks!
+I totally agree that we need a higher-level api on top of that, in order
+to hide the details of the networking stack for those not interested in
+it.
 
 --=20
-P=E1draig Brady - http://www.pixelbeat.org
---
+- Harald Welte <laforge@netfilter.org>                 http://netfilter.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+  "Fragmentation is like classful addressing -- an interesting early
+   architectural error that shows how much experimentation was going
+   on while IP was being designed."                    -- Paul Vixie
 
+--IuhbYIxU28t+Kd57
+Content-Type: application/pgp-signature
+Content-Disposition: inline
 
--------------------------------------------------------
-SF.Net email is sponsored by: Discover Easy Linux Migration Strategies
-from IBM. Find simple to follow Roadmaps, straightforward articles,
-informative Webcasts and more! Get everything you need to get up to
-speed, fast. http://ads.osdn.com/?ad_id=7477&alloc_id=16492&op=click
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.1 (GNU/Linux)
+
+iD4DBQFC5fg1XaXGVTD0i/8RArphAJ9n8AMiYjcDTDkqHzPOWoz3hxPSrACXTdkM
+3dK9CwuPtTghvc9QWV4A9g==
+=mP2X
+-----END PGP SIGNATURE-----
+
+--IuhbYIxU28t+Kd57--
