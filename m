@@ -1,21 +1,21 @@
-From: Thomas Graf <tgraf@suug.ch>
+From: Patrick McHardy <kaber@trash.net>
 Subject: Re: Netlink connector
-Date: Tue, 26 Jul 2005 01:56:26 +0200
-Message-ID: <20050725235626.GX10481@postel.suug.ch>
-References: <20050723125427.GA11177@rama> <20050723091455.GA12015@2ka.mipt.ru>
-	<20050724.191756.105797967.davem@davemloft.net>
-	<Lynx.SEL.4.62.0507250154000.21934@thoron.boston.redhat.com>
-	<20050725070603.GA28023@2ka.mipt.ru> <42E4F800.1010908@trash.net>
-	<20050725192853.GA30567@2ka.mipt.ru> <42E579BC.8000701@trash.net>
+Date: Tue, 26 Jul 2005 02:16:15 +0200
+Message-ID: <42E580CF.4010800@trash.net>
+References: <20050723125427.GA11177@rama>
+	<20050723091455.GA12015@2ka.mipt.ru>	<20050724.191756.105797967.davem@davemloft.net>	<Lynx.SEL.4.62.0507250154000.21934@thoron.boston.redhat.com>	<20050725070603.GA28023@2ka.mipt.ru>
+	<42E4F800.1010908@trash.net>	<20050725192853.GA30567@2ka.mipt.ru>
+	<42E579BC.8000701@trash.net>
+	<20050725235626.GX10481@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, Andrew Morton <akpm@osdl.org>,
 	Harald Welte <laforge@netfilter.org>, netdev@vger.kernel.org,
 	netfilter-devel@lists.netfilter.org, linux-kernel@vger.kernel.org
 Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <42E579BC.8000701@trash.net>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050725235626.GX10481@postel.suug.ch>
 List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
 	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
 List-Archive: </pipermail/netfilter-devel>
@@ -27,37 +27,37 @@ Sender: netfilter-devel-bounces@lists.netfilter.org
 Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-* Patrick McHardy <42E579BC.8000701@trash.net> 2005-07-26 01:46
-> Netlink users don't have to care about shared or cloned skbs. I don't
-> think its a big issue to use alloc_skb and then the usual netlink
-> macros. Thomas added a number of macros that simplfiy use a lot.
+Thomas Graf wrote:
+> * Patrick McHardy <42E579BC.8000701@trash.net> 2005-07-26 01:46
+>
+>>You still have to take care of mixed 64/32 bit environments, u64 fields
+>>for example are differently alligned.
+> 
+> My solution to this (in the same patchset) is that we never
+> derference u64s but instead copy them.
 
-Once I've finished the generic netlink attribute macros the
-usage will be even simpler. I wrote down all the things I want
-to do today in a park and I intend to write the code once I'm
-back from my vacation.
+I don't understand. The problem is mainly u64 embedded in structures,
+the structs have different sizes if the u64 is not 8 byte aligned
+and the structure size padded to a multiple of 8.
 
-> But my main objection is that it sends everything to userspace even
-> if noone is listening. This can't be used for things that generate
-> lots of events, and also will get problematic is the number of users
-> increases.
+>>Then fix it so we can use more families and groups. I started some work
+>>on this, but I'm not sure if I have time to complete it.
+>  
+> Great, this is one of the remaining issues I haven't solved yet.
+> If you want me to take over just hand over your unfinished work
+> and I'll integrate it into my patchset.
 
-My patches will include a new function netlink_nr_subscribers()
-taking the socket and a mask of groups. I posted something
-simliar during an earlier connector discussion already.
+I started working on it after the OLS party, so no postable code yet :)
+The idea for more groups is basically to remove the fixed groups
+bitmask from struct sockaddr_nl and use setsockopt to add/remove
+multicast subscriptions. If we add the limitation that a packet
+can only be multicasted to a single group we can support an arbitary
+number of groups, otherwise we would still be limited by size of
+skb->cb. This limitation shouldn't be a problem, AFAIK nothing is
+multicasting to multiple groups at once right now and the increased
+number of groups will allow a better granularity anyway. The main
+problem is keeping it backwards-compatible for current netlink users.
+If this isn't possible we may need to call it netlink2.
 
-> You still have to take care of mixed 64/32 bit environments, u64 fields
-> for example are differently alligned.
-
-My solution to this (in the same patchset) is that we never
-derference u64s but instead copy them.
-
-> Then fix it so we can use more families and groups. I started some work
-> on this, but I'm not sure if I have time to complete it.
-
-Great, this is one of the remaining issues I haven't solved yet.
-If you want me to take over just hand over your unfinished work
-and I'll integrate it into my patchset.
-
-I'm sorry to not being able to provide any code yet, it's
-one of the first things I'll do once I'm back.
+Regards
+Patrick
