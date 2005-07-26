@@ -1,193 +1,85 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Netlink connector
-Date: Tue, 26 Jul 2005 10:31:30 +0400
-Message-ID: <20050726063130.GA32087@2ka.mipt.ru>
-References: <20050723125427.GA11177@rama> <20050723091455.GA12015@2ka.mipt.ru>
-	<20050724.191756.105797967.davem@davemloft.net>
-	<Lynx.SEL.4.62.0507250154000.21934@thoron.boston.redhat.com>
-	<20050725070603.GA28023@2ka.mipt.ru> <42E4F800.1010908@trash.net>
-	<20050725192853.GA30567@2ka.mipt.ru> <42E579BC.8000701@trash.net>
-	<20050726044547.GA32006@2ka.mipt.ru>
-	<20050726061447.GZ10481@postel.suug.ch>
+From: P@draigBrady.com
+Subject: Re: Re: drop counts
+Date: Tue, 26 Jul 2005 09:36:34 +0100
+Message-ID: <42E5F612.2010405@draigBrady.com>
+References: <42DCDCAF.1060005@draigBrady.com> <42DCF0F7.6000704@draigBrady.com> <Pine.WNT.4.63.0507201505370.1936@jbrandeb-desk.amr.corp.intel.com> <42DFA4E9.5060602@draigBrady.com> <Pine.WNT.4.63.0507251041150.832@jbrandeb-desk.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: Andrew Morton <akpm@osdl.org>, Harald Welte <laforge@netfilter.org>,
-	netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
-	linux-kernel@vger.kernel.org, Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Thomas Graf <tgraf@suug.ch>
-Content-Disposition: inline
-In-Reply-To: <20050726061447.GZ10481@postel.suug.ch>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
+Return-path: <e1000-devel-admin@lists.sourceforge.net>
+To: Jesse Brandeburg <jesse.brandeburg@intel.com>
+In-Reply-To: <Pine.WNT.4.63.0507251041150.832@jbrandeb-desk.amr.corp.intel.com>
+Sender: e1000-devel-admin@lists.sourceforge.net
+Errors-To: e1000-devel-admin@lists.sourceforge.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=e1000-devel>
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 26, 2005 at 08:14:47AM +0200, Thomas Graf (tgraf@suug.ch) wrote:
-> * Evgeniy Polyakov <20050726044547.GA32006@2ka.mipt.ru> 2005-07-26 08:45
-> > On Tue, Jul 26, 2005 at 01:46:04AM +0200, Patrick McHardy (kaber@trash.net) wrote:
-> > > Usually netlink is easily extendable by using nested TLVs. By hiding
-> > > this you basically remove this extensibility.
-> > 
-> > Current netlink is not extensible for _many_ different users.
-> 
-> Patrick's key point was that by hiding some of the functionality
-> you remove a lot of the flexbility.
-> 
-> > It has only 32 sockets.
-> 
-> You mean MAX_LINKS? That is the current number of reserved
-> netlink protocols. The ethertaps are obsolete and can be
-> reused so we're currently using 16 out of 256 possible
-> protocols. If that is not enough there are ways to work
-> around this. However, I also see a need for a generic protocol
-> providing a simplified interface for small applications.
-> Nevertheless we should take the time and work things out on
-> the netlink level first, netlink has issues and we should not
-> work around them in a upper layer.
-> 
-> > > But my main objection is that it sends everything to userspace even
-> > > if noone is listening. This can't be used for things that generate
-> > > lots of events, and also will get problematic is the number of users
-> > > increases.
-> > 
-> > It is a problem for existing netlink - either check in bind time, 
-> > what could be done for connector, or in socket creation time.
-> 
-> No, I think you are misunderstanding something. As I said, we can
-> easly add a function netlink_nr_subscribers(sk, groups) so the
-> check can be done before starting to build the message. This is
-> no problem, it simply didn't make sense so far because netlink
-> event messages were mostly used for rare events.
+Jesse Brandeburg wrote:
+> On Thu, 21 Jul 2005, P@draigBrady.com wrote:
+>=20
+>> In 2.6.12 this changed to:
+>>
+>> packets =3D gprc
+>> dropped =3D mpc
+>> fifo =3D mpc
+>> missed =3D mpc
+>>
+>> I think there still is a problem. Notice that /proc/net/dev
+>> reports rx_dropped + rx_missed_errors for the drop column,
+>> and so will be double counting drops currently.
+>> Therefore I think we should be doing:
+>>
+>> packets =3D gprc
+>> dropped =3D 0
+>> fifo =3D rnbc
+>> missed =3D mpc
+>=20
+>=20
+> Double counting drops may be an issue, and I believe we should make tha=
+t=20
+> change.
 
-Yep.
+great.
 
-> > Actually it is not even a problem, since checking is being done, 
-> > but after allocation and message filling, such check can be moved into
-> > cn_netlink_send() in connector, but different netlink users, 
-> > who prefers to use different sockets, must perform it by itself in each
-> > place, where skb is allocated...
-> 
-> Sure, which is the right thing, it makes perfect sense to check
-> before starting the process of building and event and sending it.
-> 
-> > Connector is a solution for current situation, 
-> > it can be deployed with few casualties.
-> 
-> The problem is that netlink is likely to change in order
-> to cope with some recent needs, e.g. ctnetlink but also other
-> current issues which need to be addressed.  Therefore I suggest
-> to build connector on top of the updated netlink so you we have
-> one thing less to worry about when thinking about compatibility.
-> 
-> > Creating a new netlink2 socket for device, which wants to replace ioctl
-> > controlling or broadcast it's state is a wrong way.
-> 
-> Slowly, we might need netlink2 _in case_ we cannot work things
-> out without breaking compatibility. This has nothing to do with
-> the connector, there are netlink users which have new needs such
-> as more groups, at least some of them need the flexibility of
-> netlink itself so we have to work things out for them.
-> 
-> > Different sockets/flows does not allow easy flow control.
-> 
-> I'm not sure what you mean.
+> but I don't think its the right thing to report rnbc in fifo=20
+> errors (there was actually no error).
+>=20
+>> I'm putting rnbc in fifo as it's not accumulated into
+>> anything else in the kernel. Also it's good to have
+>> it reported as one can see when there is pressure on
+>> the e1000 driver buffer. This is useful for tuning its size
+>> to protect against drops and latency.
+>=20
+>=20
+> Whenever I want the RNBC numbers I simply look into ethtool -S eth0, an=
+d=20
+> that allows me to tune.  I see no reason to "reuse" the fifo errors sta=
+t=20
+> with misleading data.
 
-Concider socket overrun - message will be dropped, 
-using special flags in connector [it's size field was selected to be 4
-bytes, and thus has big reserve] this subsystem can requeue message
-later after timeout or something similar...
+Fair enough if rnbc is actually reported.
+ethtool -S doesn't report it with my driver,
+but I see this stat has been added to the
+latest driver at least.
 
-> > We have one pipe - ethernet, and many protocols inside this pipe
-> > with different headers - it is the same here - netlink is such a pipe,
-> > and with connector it allows to have different protocols in it.
-> 
-> At least parts of your connector is just a redudant implementation
-> of what netlink is already capable of doing. Sure, some of them
-> have issues but there is no reason to just build a new protocol on
-> top of another one if the protocol beneath has issues which can be
-> resolved.
-> 
-> > > You still have to take care of mixed 64/32 bit environments, u64 fields
-> > > for example are differently alligned.
-> > 
-> > Connector has a size in it's header - ioctl does not.
-> 
-> You have exactly the same issues as netlink as soon as you transfer
-> structs, believe it or not.
-> 
-> > It does not "fix" the "problem" of skb management knowledge, which I
-> > described.
-> 
-> Yes ok, this is a different issue and as Patrick stated already
-> those have been mostly worked out by providing a new set of
-> macros. Except for a few leftovers, which will be addressed, there
-> is no need to call skb functions anymore. The reason the plain
-> skb interface was used is simply that the authors of most of the
-> netlink using code are in fact very familiar with the skb interface,
-> that's it.
+So I agree on both points.
 
-I saw your changes - theay are very usefull, but _only_ for sending
-part. Kernel receiver still needs dequeuing, freeing and NLKMSG macros.
-In first netlink days it also needed skb_recv_msg() or something
-similar...
+thanks!
 
-> > > You can still built this stuff on top, but the workarounds for netlink
-> > > limitations need to be fixed in netlink.
-> > 
-> > I could not call it workaround, I think it is a management layer,
-> > which allows :
-> 
-> Listen, nobody wants to take away your baby. ;-> There are some
+--=20
+P=E1draig Brady - http://www.pixelbeat.org
+--
 
-Yeah :)
 
-> objections of things which would rather be fixed in the netlink
-> layer first and the remaining part that is missing goes into the
-> connector. I see a lot of replicated netlink code in the connector
-> which is no necessary. I perfectly agree with you that we require
-> some form of simplified addressing and easier message handling
-> for simple applications but just building another layer on top
-> of netlink without respecting the capabilities of netlink itself
-> is not the way to go as I see it. For example, we'll probably add
-> a new group subscription mechanism to netlink which might perfectly
-> suit the needs of your connector.
-
-That is why I raise this question again and againg to see, what ideas should
-be moved from connector into netlink and vice versa... :)
-
-> > 1. easy usage. Just register a callback and that is all. Callback will
-> > be invoced each time new message arrives. No need to
-> > dequeue/free/anything.
-> 
-> Good point, also doable in netlink directly. Just get rid of the
-> usual family_rcv -> family_rcv_skb -> family_rcv_msg process and
-> do a callback registration interface instead. However, often the
-> processing of a message and the resulting ack must be done as an
-> atomic operation, e.g. rtnetlink.
-
-It also better to move into workqueue - just to be sure users will not
-do some wrong things...
-
-> > 2. easy usage. Call one function for message delivering, which can
-> > care of nonexistent users, perform flow control, congestion control,
-> > guarantee delivery and any other.
-> 
-> I don't understand what exactly you mean but netlink itself
-> is not reliable under memory pressure.
-
-Connector has cn_netlink_send() which is a wrapper on top
-of skb allocation,  queuing and so on.
-by flow/congestion control I mean here, that this function
-can check for remote peer existing, requeue message if socket
-overrun is caught, guarantee that no OOM condition was caught, and
-requeue if it was the case and so on.
-
--- 
-	Evgeniy Polyakov
+-------------------------------------------------------
+SF.Net email is sponsored by: Discover Easy Linux Migration Strategies
+from IBM. Find simple to follow Roadmaps, straightforward articles,
+informative Webcasts and more! Get everything you need to get up to
+speed, fast. http://ads.osdn.com/?ad_id=7477&alloc_id=16492&op=click
