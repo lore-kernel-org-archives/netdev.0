@@ -1,24 +1,21 @@
-From: Thomas Graf <tgraf@suug.ch>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Subject: Re: Netlink connector
-Date: Tue, 26 Jul 2005 02:30:06 +0200
-Message-ID: <20050726003006.GY10481@postel.suug.ch>
+Date: Tue, 26 Jul 2005 08:45:47 +0400
+Message-ID: <20050726044547.GA32006@2ka.mipt.ru>
 References: <20050723125427.GA11177@rama> <20050723091455.GA12015@2ka.mipt.ru>
 	<20050724.191756.105797967.davem@davemloft.net>
 	<Lynx.SEL.4.62.0507250154000.21934@thoron.boston.redhat.com>
 	<20050725070603.GA28023@2ka.mipt.ru> <42E4F800.1010908@trash.net>
 	<20050725192853.GA30567@2ka.mipt.ru> <42E579BC.8000701@trash.net>
-	<20050725235626.GX10481@postel.suug.ch>
-	<42E580CF.4010800@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, Andrew Morton <akpm@osdl.org>,
-	Harald Welte <laforge@netfilter.org>, netdev@vger.kernel.org,
-	netfilter-devel@lists.netfilter.org,
-	Jamal Hadi Salim <hadi@cyberus.ca>, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=koi8-r
+Cc: Andrew Morton <akpm@osdl.org>, Harald Welte <laforge@netfilter.org>,
+	netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netfilter-devel-bounces@lists.netfilter.org>
 To: Patrick McHardy <kaber@trash.net>
 Content-Disposition: inline
-In-Reply-To: <42E580CF.4010800@trash.net>
+In-Reply-To: <42E579BC.8000701@trash.net>
 List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
 	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
 List-Archive: </pipermail/netfilter-devel>
@@ -30,47 +27,116 @@ Sender: netfilter-devel-bounces@lists.netfilter.org
 Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-* Patrick McHardy <42E580CF.4010800@trash.net> 2005-07-26 02:16
-> Thomas Graf wrote:
-> >* Patrick McHardy <42E579BC.8000701@trash.net> 2005-07-26 01:46
+On Tue, Jul 26, 2005 at 01:46:04AM +0200, Patrick McHardy (kaber@trash.net) wrote:
+> Evgeniy Polyakov wrote:
+> >On Mon, Jul 25, 2005 at 04:32:32PM +0200, Patrick McHardy 
+> >(kaber@trash.net) wrote:
 > >
-> >>You still have to take care of mixed 64/32 bit environments, u64 fields
-> >>for example are differently alligned.
+> >>If I understand correctly it tries to workaround some netlink
+> >>limitations (limited number of netlink families and multicast groups)
+> >>by sending everything to userspace and demultiplexing it there.
+> >>Same in the other direction, an additional layer on top of netlink
+> >>does basically the same thing netlink already does. This looks like
+> >>a step in the wrong direction to me, netlink should instead be fixed
+> >>to support what is needed.
 > >
-> >My solution to this (in the same patchset) is that we never
-> >derference u64s but instead copy them.
+> >Not only it.
+> >The main _first_ idea was to simplify userspace mesasge handling as much
+> >as possible.
+> >In first releases I called it ioctl-ng - any module that want ot
+> >communicate with userspace in the way ioctl does, 
 > 
-> I don't understand. The problem is mainly u64 embedded in structures,
-> the structs have different sizes if the u64 is not 8 byte aligned
-> and the structure size padded to a multiple of 8.
+> Usually netlink is easily extendable by using nested TLVs. By hiding
+> this you basically remove this extensibility.
 
-Like in gnet_stats, yes. I thought you meant usages like *(u64 *)
-which we shouldn't do either.
+Current netlink is not extensible for _many_ different users.
+It has only 32 sockets.
 
-> I started working on it after the OLS party, so no postable code yet :)
-> The idea for more groups is basically to remove the fixed groups
-> bitmask from struct sockaddr_nl and use setsockopt to add/remove
-> multicast subscriptions. If we add the limitation that a packet
-> can only be multicasted to a single group we can support an arbitary
-> number of groups, otherwise we would still be limited by size of
-> skb->cb.
+> >requires skb allocation/freeing/handling.
+> >Does RTC driver writer need to know what is the difference between
+> >shared and cloned skb? Should kernel user of such message bus
+> >have to know about skb at all?
+> 
+> Netlink users don't have to care about shared or cloned skbs. I don't
+> think its a big issue to use alloc_skb and then the usual netlink
+> macros. Thomas added a number of macros that simplfiy use a lot.
 
-I was thinking of subscription messages over netlink itself for
-the advantage that we could use it within the distributed netlink
-protocol that has to come up sometime soon. Well, both ways
-are ok I guess, the ease of distributive usage is my only argument.
+Kernel user also must know about difference between unicast/broadcast,
+how to dequeue the skb, how to free it and in what context.
+ioctl users do not need to know how file_operations is bound to file.
 
-> This limitation shouldn't be a problem, AFAIK nothing is
-> multicasting to multiple groups at once right now and the increased
-> number of groups will allow a better granularity anyway.
+> But my main objection is that it sends everything to userspace even
+> if noone is listening. This can't be used for things that generate
+> lots of events, and also will get problematic is the number of users
+> increases.
 
-I'm not aware of any and I agree. We don't need n<->n subscriptions,
-1<->n is perfectly fine as I see it.
+It is a problem for existing netlink - either check in bind time, 
+what could be done for connector, or in socket creation time.
 
-> The main
-> problem is keeping it backwards-compatible for current netlink users.
-> If this isn't possible we may need to call it netlink2.
+Actually it is not even a problem, since checking is being done, 
+but after allocation and message filling, such check can be moved into
+cn_netlink_send() in connector, but different netlink users, 
+who prefers to use different sockets, must perform it by itself in each
+place, where skb is allocated...
 
-I think Jamal has a moral patent on the name netlink2 so be careful ;->
-It should be possible to remain compatible, I don't see any
-unresolveable issues right now.
+Connector is a solution for current situation, 
+it can be deployed with few casualties.
+Creating a new netlink2 socket for device, which wants to replace ioctl
+controlling or broadcast it's state is a wrong way.
+Different sockets/flows does not allow easy flow control.
+
+We have one pipe - ethernet, and many protocols inside this pipe
+with different headers - it is the same here - netlink is such a pipe,
+and with connector it allows to have different protocols in it.
+
+> >With char device I only need to register my callback - with kernel
+> >connector it is the same, but allows to use the whole power of netlink,
+> >especially without nice ioctl features like different pointer size 
+> >in userspace and kernelspace.
+> 
+> You still have to take care of mixed 64/32 bit environments, u64 fields
+> for example are differently alligned.
+
+Connector has a size in it's header - ioctl does not.
+
+> >And number of free netlink sockets is _very_ small, especially
+> >if allocate new one for simple notifications, which can be easily done
+> >using connector.
+> 
+> Then fix it so we can use more families and groups. I started some work
+> on this, but I'm not sure if I have time to complete it.
+
+It does not "fix" the "problem" of skb management knowledge, which I
+described.
+Netlink is a transport protocol, some general logic must be created on
+top of it, like it is done in TCP/IP.
+
+> >And netlink can be extended to support it - netlink is a transport
+> >protocol, it should not care about higher layer message handling,
+> >connector instead will deliver message to the end user in a very
+> >convenient form.
+> 
+> You can still built this stuff on top, but the workarounds for netlink
+> limitations need to be fixed in netlink.
+
+I could not call it workaround, I think it is a management layer,
+which allows :
+1. easy usage. Just register a callback and that is all. Callback will
+be invoced each time new message arrives. No need to
+dequeue/free/anything.
+2. easy usage. Call one function for message delivering, which can
+care of nonexistent users, perform flow control, congestion control,
+guarantee delivery and any other.
+3. Easily deployable - current implementation is so simple, and it does
+work with existing netlink.
+4. It is logical level on top of transport protocol, it is UDP/IP over
+ethernet :)
+
+> >P.S. I've removed netdev@redhat.com - please do not add subscribers-only
+> >private mail lists.
+> 
+> Wasn't me :)
+
+Yep :)
+-- 
+	Evgeniy Polyakov
