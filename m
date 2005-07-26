@@ -1,30 +1,33 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] move ip[6]_queue rerouting up to nf_queue
-Date: Tue, 26 Jul 2005 16:13:00 -0700 (PDT)
-Message-ID: <20050726.161300.12130036.davem@davemloft.net>
-References: <20050726164505.GD4279@rama.de.gnumonks.org>
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: [2.6 patch] NETCONSOLE must depend on INET
+Date: Tue, 26 Jul 2005 16:20:43 -0700
+Message-ID: <20050726232043.GB7425@waste.org>
+References: <20050719182919.GA5531@stusta.de> <20050719.140104.68160812.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: laforge@netfilter.org
-In-Reply-To: <20050726164505.GD4279@rama.de.gnumonks.org>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: text/plain; charset=us-ascii
+Cc: bunk@stusta.de, jgarzik@pobox.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262339AbVGZXVG@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20050719.140104.68160812.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Harald Welte <laforge@netfilter.org>
-Date: Tue, 26 Jul 2005 18:45:05 +0200
+On Tue, Jul 19, 2005 at 02:01:04PM -0700, David S. Miller wrote:
+> From: Adrian Bunk <bunk@stusta.de>
+> Date: Tue, 19 Jul 2005 20:29:19 +0200
+> 
+> > NETCONSOLE=y and INET=n results in the following compile error:
+> 
+> Also applied, thanks Adrian.
 
-> please apply.  If you dislike the yet-another-NPROTO nature of it, I'll
-> prepare one with kmalloc-at-startup.
+I should have been cc:ed on this.
 
-Please do, thanks.
+This problem also exists in PKTGEN. And this fix is incorrect as
+neither is dependent on the IP part of the networking stack in any
+substantive way. The right fix is to make inet_aton available outside
+of CONFIG_INET (preferred) or making private copies of inet_aton.
+
+-- 
+Mathematics is the supreme nostalgia of our time.
