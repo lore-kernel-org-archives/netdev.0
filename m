@@ -1,36 +1,118 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: [2.6 patch] NETCONSOLE must depend on INET
-Date: Wed, 27 Jul 2005 13:46:22 -0700
-Message-ID: <20050727204622.GI12006@waste.org>
-References: <20050726235824.GN12006@waste.org> <20050726.170349.10935659.davem@davemloft.net> <20050727023636.GP12006@waste.org> <20050727.131900.59654701.davem@davemloft.net>
+From: "Randy Dunlap" <rdunlap@xenotime.net>
+Subject: Re: [RFC PATCH 1/4] PHY Abstraction Layer III (now with more
+	splitiness)
+Date: Wed, 27 Jul 2005 14:34:19 -0700
+Message-ID: <1122500059.28777@shark.he.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: bunk@stusta.de, jgarzik@pobox.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, shemminger@osdl.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262433AbVG0UtH@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20050727.131900.59654701.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Return-path: <linuxppc-embedded-bounces@ozlabs.org>
+To: Andy Fleming <afleming@freescale.com>, Randy Dunlap <rdunlap@xenotime.net>,
+	Francois Romieu <romieu@fr.zoreil.com>, Netdev <netdev@vger.kernel.org>,
+	linuxppc-embedded <linuxppc-embedded@ozlabs.org>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
+	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
+List-Post: <mailto:linuxppc-embedded@ozlabs.org>
+List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
+	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-embedded-bounces@ozlabs.org
+Errors-To: linuxppc-embedded-bounces@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 27, 2005 at 01:19:00PM -0700, David S. Miller wrote:
-> From: Matt Mackall <mpm@selenic.com>
-> Date: Tue, 26 Jul 2005 19:36:37 -0700
-> 
-> > # HG changeset patch
-> > # User mpm@selenic.com
-> > # Node ID 6cdd6f36d53678a016cfbf5ce667cbd91504d538
-> > # Parent  75716ae25f9d87ee2a5ef7c4df2d8f86e0f3f762
-> > Move in_aton from net/ipv4/utils.c to net/core/utils.c
-> 
-> This patch doesn't apply, in the current 2.6.x GIT tree
-> NETCONSOLE does not depend on NETDEVICES.
 
-Odd, gitweb of Linus' tree seems to disagree. I see it depends on
-NETDEVICES && INET && EXPERIMENTAL. NETDEVICES has been there since
-the beginning of git history and according to my Mercurial import from
-BKCVS, it's been dependent on NETDEVICES since I first submitted it.
+> On Jul 27, 2005, at 13:08, Randy Dunlap wrote:
+> 
+> >
+> >
+> >> On Jul 25, 2005, at 16:06, Francois Romieu wrote:
+> >>
+> >>
+> >>
+> >>>> +int mdiobus_register(struct mii_bus *bus)
+> >>>> +{
+> >>>> +    int i;
+> >>>> +    int err = 0;
+> >>>> +
+> >>>> +    spin_lock_init(&bus->mdio_lock);
+> >>>> +
+> >>>> +    if (NULL == bus || NULL == bus->name ||
+> >>>> +            NULL == bus->read ||
+> >>>> +            NULL == bus->write)
+> >>>>
+> >>>>
+> >>>
+> >>> Be spartan:
+> >>>     if (!bus || !bus->name || !bus->read || !bus->write)
+> >>>
+> >>
+> >>
+> >> I think we have to agree to disagree here.  I could be convinced, but
+> >> I'm partial to using NULL explicitly.
+> >>
+> >
+> > But there are 2 issues here (at least).  One is to use NULL or
+> > not.  The other is using (constant == var) or (var == constant).
+> >
+> > It's not described in CodingStlye afaik, but most recent email
+> > on the subject strongly prefers (var == constant) [in my
+> > unscientific survey -- of bits in my head].
+> >
+> > So using the suggested style will fix both of these.  :)
+> 
+> 
+> Ok, here I won't agree to disagree with you.  !foo as a check for  
+> NULL is a reasonable idea, but not my style.  If that's the preferred  
+> style for the kernel, I will do that.
+> 
+> But (var == constant) is a style that asks for errors.  By putting  
+> the constant first in these checks, you never run the risk of leaving  
+> a bug like this:
+> 
+> if (dev = NULL)
+>      ...
+> 
+> This kind of error is quite frustrating to detect, and the eye will  
+> often miss it when scanning for errors.  If you follow constant ==  
+> var, though, then the bug looks like this:
+> 
+> if (NULL = dev)
+> 
+> which is instantly caught by the compiler.
+> 
+> Just my 32 cents
 
--- 
-Mathematics is the supreme nostalgia of our time.
+Yes, we know about that argument.  :)
+
+> >>>> +    /* Otherwise, we allocate the device, and initialize the
+> >>>> +     * default values */
+> >>>> +    dev = kmalloc(sizeof(*dev), GFP_KERNEL);
+> >>>> +
+> >>>> +    if (NULL == dev) {
+> >>>> +        errno = -ENOMEM;
+> >>>> +        return NULL;
+> >>>> +    }
+> >>>> +
+> >>>> +    memset(dev, 0, sizeof(*dev));
+> >>>>
+> >>>>
+> >>>
+> >>> The kernel provides kcalloc.
+> >>>
+> >>
+> >>
+> >> I went looking for it, and found it in fs/cifs/misc.c.  I'm hesitant
+> >> to link to a function defined in the filesystem code just to save 1
+> >> line of code
+> >>
+> >
+> > It's more global than that.
+> 
+> 
+> Should we move the function, then, to include/linux/slab.h?  Or  
+> somewhere else?
+
+It's there, like Francois said.  Get use a current tree.
+
+---
+~Randy
