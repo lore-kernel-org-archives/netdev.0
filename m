@@ -1,18 +1,18 @@
-From: Andy Fleming <afleming@freescale.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
 Subject: Re: [RFC PATCH 1/4] PHY Abstraction Layer III (now with more
 	splitiness)
-Date: Wed, 27 Jul 2005 13:46:19 -0500
-Message-ID: <EDA214E7-5655-4900-AF1A-FC736681DC74@freescale.com>
+Date: Wed, 27 Jul 2005 21:56:03 +0200
+Message-ID: <20050727195603.GA29148@electric-eye.fr.zoreil.com>
 References: <1122487708.20267@shark.he.net>
-Mime-Version: 1.0 (Apple Message framework v733)
-Content-Type: text/plain; charset=US-ASCII; delsp=yes; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>,
-	linuxppc-embedded <linuxppc-embedded@ozlabs.org>,
-	Francois Romieu <romieu@fr.zoreil.com>
+	<EDA214E7-5655-4900-AF1A-FC736681DC74@freescale.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Netdev <netdev@vger.kernel.org>, Randy Dunlap <rdunlap@xenotime.net>,
+	linuxppc-embedded <linuxppc-embedded@ozlabs.org>
 Return-path: <linuxppc-embedded-bounces@ozlabs.org>
-In-Reply-To: <1122487708.20267@shark.he.net>
-To: Randy Dunlap <rdunlap@xenotime.net>
+To: Andy Fleming <afleming@freescale.com>
+Content-Disposition: inline
+In-Reply-To: <EDA214E7-5655-4900-AF1A-FC736681DC74@freescale.com>
 List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
 	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
 List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
@@ -24,95 +24,34 @@ Sender: linuxppc-embedded-bounces@ozlabs.org
 Errors-To: linuxppc-embedded-bounces@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
+Andy Fleming <afleming@freescale.com> :
+[kcalloc]
+> Should we move the function, then, to include/linux/slab.h?  Or  
+> somewhere else?
 
-On Jul 27, 2005, at 13:08, Randy Dunlap wrote:
+It is already in mm/slab.c
 
->
->
->> On Jul 25, 2005, at 16:06, Francois Romieu wrote:
->>
->>
->>
->>>> +int mdiobus_register(struct mii_bus *bus)
->>>> +{
->>>> +    int i;
->>>> +    int err = 0;
->>>> +
->>>> +    spin_lock_init(&bus->mdio_lock);
->>>> +
->>>> +    if (NULL == bus || NULL == bus->name ||
->>>> +            NULL == bus->read ||
->>>> +            NULL == bus->write)
->>>>
->>>>
->>>
->>> Be spartan:
->>>     if (!bus || !bus->name || !bus->read || !bus->write)
->>>
->>
->>
->> I think we have to agree to disagree here.  I could be convinced, but
->> I'm partial to using NULL explicitly.
->>
->
-> But there are 2 issues here (at least).  One is to use NULL or
-> not.  The other is using (constant == var) or (var == constant).
->
-> It's not described in CodingStlye afaik, but most recent email
-> on the subject strongly prefers (var == constant) [in my
-> unscientific survey -- of bits in my head].
->
-> So using the suggested style will fix both of these.  :)
+[rc = request_irq(...)]
 
+It appears in drivers/net/*c. Jeff Garzik used to suggest something
+similar but it does not matter as long as you do not need to return
+an error status (KERN_ERR is probably a bit too strong then).
 
-Ok, here I won't agree to disagree with you.  !foo as a check for  
-NULL is a reasonable idea, but not my style.  If that's the preferred  
-style for the kernel, I will do that.
+[initialization of struct phy_setting settings]
 
-But (var == constant) is a style that asks for errors.  By putting  
-the constant first in these checks, you never run the risk of leaving  
-a bug like this:
+#define	NITZ(d,t,s)	{ .speed = s, .duplex = d, .setting = t }
 
-if (dev = NULL)
-     ...
+static struct phy_setting settings[] = {
+       NITZ(DUPLEX_FULL, SUPPORTED_10000baseT_Full,	10000),
+       NITZ(DUPLEX_FULL, SUPPORTED_1000baseT_Full,	SPEED_1000),
+       NITZ(DUPLEX_HALF, SUPPORTED_1000baseT_Half,	SPEED_1000),
+       NITZ(DUPLEX_FULL, SUPPORTED_100baseT_Full,	SPEED_100),
+       NITZ(DUPLEX_HALF, SUPPORTED_100baseT_Half,	SPEED_100),
+       NITZ(DUPLEX_FULL, SUPPORTED_10baseT_Full,	SPEED_10),
+       NITZ(DUPLEX_HALF, SUPPORTED_10baseT_Half,	SPEED_10),
+};
 
-This kind of error is quite frustrating to detect, and the eye will  
-often miss it when scanning for errors.  If you follow constant ==  
-var, though, then the bug looks like this:
+#undef NITZ
 
-if (NULL = dev)
-
-which is instantly caught by the compiler.
-
-Just my 32 cents
-
-
->
->
->>>> +    /* Otherwise, we allocate the device, and initialize the
->>>> +     * default values */
->>>> +    dev = kmalloc(sizeof(*dev), GFP_KERNEL);
->>>> +
->>>> +    if (NULL == dev) {
->>>> +        errno = -ENOMEM;
->>>> +        return NULL;
->>>> +    }
->>>> +
->>>> +    memset(dev, 0, sizeof(*dev));
->>>>
->>>>
->>>
->>> The kernel provides kcalloc.
->>>
->>
->>
->> I went looking for it, and found it in fs/cifs/misc.c.  I'm hesitant
->> to link to a function defined in the filesystem code just to save 1
->> line of code
->>
->
-> It's more global than that.
-
-
-Should we move the function, then, to include/linux/slab.h?  Or  
-somewhere else?
+--
+Ueimor
