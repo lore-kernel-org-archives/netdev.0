@@ -1,57 +1,51 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [RFC PATCH 1/4] PHY Abstraction Layer III (now with more
-	splitiness)
-Date: Wed, 27 Jul 2005 21:56:03 +0200
-Message-ID: <20050727195603.GA29148@electric-eye.fr.zoreil.com>
-References: <1122487708.20267@shark.he.net>
-	<EDA214E7-5655-4900-AF1A-FC736681DC74@freescale.com>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [-mm patch] include/net/ieee80211.h must #include <linux/wireless.h>
+Date: Wed, 27 Jul 2005 21:51:00 +0200
+Message-ID: <20050727195100.GA29092@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev@vger.kernel.org>, Randy Dunlap <rdunlap@xenotime.net>,
-	linuxppc-embedded <linuxppc-embedded@ozlabs.org>
-Return-path: <linuxppc-embedded-bounces@ozlabs.org>
-To: Andy Fleming <afleming@freescale.com>
+Cc: jgarzik@pobox.com, jkmaline@cc.hut.fi, hostap@shmoo.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262043AbVG0TyP@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>
 Content-Disposition: inline
-In-Reply-To: <EDA214E7-5655-4900-AF1A-FC736681DC74@freescale.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
-List-Post: <mailto:linuxppc-embedded@ozlabs.org>
-List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-embedded-bounces@ozlabs.org
-Errors-To: linuxppc-embedded-bounces@ozlabs.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andy Fleming <afleming@freescale.com> :
-[kcalloc]
-> Should we move the function, then, to include/linux/slab.h?  Or  
-> somewhere else?
+gcc found an (although perhaps harmless) bug:
 
-It is already in mm/slab.c
+<--  snip  -->
 
-[rc = request_irq(...)]
+...
+  CC      net/ieee80211/ieee80211_crypt.o
+In file included from net/ieee80211/ieee80211_crypt.c:21:
+include/net/ieee80211.h:26:5: warning: "WIRELESS_EXT" is not defined
+  CC      net/ieee80211/ieee80211_crypt_wep.o
+In file included from net/ieee80211/ieee80211_crypt_wep.c:20:
+include/net/ieee80211.h:26:5: warning: "WIRELESS_EXT" is not defined
+  CC      net/ieee80211/ieee80211_crypt_ccmp.o
+  CC      net/ieee80211/ieee80211_crypt_tkip.o
+In file included from net/ieee80211/ieee80211_crypt_tkip.c:23:
+include/net/ieee80211.h:26:5: warning: "WIRELESS_EXT" is not defined
+...
 
-It appears in drivers/net/*c. Jeff Garzik used to suggest something
-similar but it does not matter as long as you do not need to return
-an error status (KERN_ERR is probably a bit too strong then).
+<--  snip  -->
 
-[initialization of struct phy_setting settings]
 
-#define	NITZ(d,t,s)	{ .speed = s, .duplex = d, .setting = t }
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-static struct phy_setting settings[] = {
-       NITZ(DUPLEX_FULL, SUPPORTED_10000baseT_Full,	10000),
-       NITZ(DUPLEX_FULL, SUPPORTED_1000baseT_Full,	SPEED_1000),
-       NITZ(DUPLEX_HALF, SUPPORTED_1000baseT_Half,	SPEED_1000),
-       NITZ(DUPLEX_FULL, SUPPORTED_100baseT_Full,	SPEED_100),
-       NITZ(DUPLEX_HALF, SUPPORTED_100baseT_Half,	SPEED_100),
-       NITZ(DUPLEX_FULL, SUPPORTED_10baseT_Full,	SPEED_10),
-       NITZ(DUPLEX_HALF, SUPPORTED_10baseT_Half,	SPEED_10),
-};
+---
 
-#undef NITZ
+This patch was already sent on:
+- 22 Jul 2005
 
---
-Ueimor
+--- linux-2.6.13-rc3-mm1-full/include/net/ieee80211.h.old	2005-07-22 18:37:57.000000000 +0200
++++ linux-2.6.13-rc3-mm1-full/include/net/ieee80211.h	2005-07-22 18:38:10.000000000 +0200
+@@ -22,6 +22,7 @@
+ #define IEEE80211_H
+ #include <linux/if_ether.h> /* ETH_ALEN */
+ #include <linux/kernel.h>   /* ARRAY_SIZE */
++#include <linux/wireless.h>
+ 
+ #if WIRELESS_EXT < 17
+ #define IW_QUAL_QUAL_INVALID   0x10
