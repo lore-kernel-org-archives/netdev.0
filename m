@@ -1,28 +1,17 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [2.6 patch] NETCONSOLE must depend on INET
-Date: Tue, 26 Jul 2005 19:53:20 -0700 (PDT)
-Message-ID: <20050726.195320.89085462.davem@davemloft.net>
-References: <20050726235824.GN12006@waste.org>
-	<20050726.170349.10935659.davem@davemloft.net>
-	<20050727023636.GP12006@waste.org>
+From: "»¨»¨" <ovmxtwn@123-4.com>
+Subject: =?gb2312?B?we7E+s/6u+q1xNHeKM28KQ==?=
+Date: Wed, 27 Jul 2005 16:04:47 +0800
+Message-ID: <200507270806.j6R85qH9019451@oss.sgi.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: bunk@stusta.de, jgarzik@pobox.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, shemminger@osdl.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262298AbVG0CxG@vger.kernel.org>
-To: mpm@selenic.com
-In-Reply-To: <20050727023636.GP12006@waste.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain;
+      charset="gb2312"
+Content-Transfer-Encoding: base64
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "Reader" <netdev@oss.sgi.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Matt Mackall <mpm@selenic.com>
-Date: Tue, 26 Jul 2005 19:36:37 -0700
-
-> [sch added to cc: as I think he's the effective pktgen maintainer]
-
-No, that would be Robert Olsson.
-
-> Move in_aton from net/ipv4/utils.c to net/core/utils.c
-
-Fair enough.
+we7E+s/6u+q1xNHeKM28KTrP6sfpvfjI6y4uLg0KaHR0cDovL3Nza2ttLmt1dy5jbiANCg0K
+DQogICAgICAgICAgICAgICAgICAgILuou6gNCiAgICAgICAgICAgICAgICAgICAgDQogICAg
+ICAgICAgICAgICAgICAgIDIwMDXE6jA31MIyN8jVDQoNCg0K
