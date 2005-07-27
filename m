@@ -1,31 +1,33 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] move ip[6]_queue rerouting up to nf_queue
-Date: Tue, 26 Jul 2005 17:08:14 -0700 (PDT)
-Message-ID: <20050726.170814.28770798.davem@davemloft.net>
-References: <20050726164505.GD4279@rama.de.gnumonks.org>
-	<20050726.161300.12130036.davem@davemloft.net>
-	<20050726235223.GD4673@rama.de.gnumonks.org>
+Subject: Re: [2.6 patch] NETCONSOLE must depend on INET
+Date: Tue, 26 Jul 2005 17:03:49 -0700 (PDT)
+Message-ID: <20050726.170349.10935659.davem@davemloft.net>
+References: <20050726232043.GB7425@waste.org>
+	<20050726.163202.119887768.davem@davemloft.net>
+	<20050726235824.GN12006@waste.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: laforge@netfilter.org
-In-Reply-To: <20050726235223.GD4673@rama.de.gnumonks.org>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Cc: bunk@stusta.de, jgarzik@pobox.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262425AbVG0AFB@vger.kernel.org>
+To: mpm@selenic.com
+In-Reply-To: <20050726235824.GN12006@waste.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Harald Welte <laforge@netfilter.org>
-Date: Wed, 27 Jul 2005 01:52:23 +0200
+From: Matt Mackall <mpm@selenic.com>
+Date: Tue, 26 Jul 2005 16:58:24 -0700
 
-> See attached file "12-queue-reroute.patch.2".
+> On Tue, Jul 26, 2005 at 04:32:02PM -0700, David S. Miller wrote:
+> > More seriously, please submit a version of whatever you
+> > believe to be the more correct fix so it can be reviewed
+> > and integrated.
+> 
+> Do you have a preferred location to put this function or
+> shall I invent one?
 
-All patches applied to net-2.6.14, thanks Harald.
+I actually can't wait to see where you're going to
+to put a function that transforms "IPV4 addresses"
+from ascii other than some place protected by CONFIG_INET.
+:-)
