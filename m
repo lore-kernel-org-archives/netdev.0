@@ -1,79 +1,80 @@
-From: =?iso-8859-1?Q?J=F6rn?= Engel <joern@wohnheim.fh-wedel.de>
-Subject: Re: [RFC PATCH 1/4] PHY Abstraction Layer III (now with more
-	splitiness)
-Date: Thu, 28 Jul 2005 11:18:37 +0200
-Message-ID: <20050728091837.GC25033@wohnheim.fh-wedel.de>
-References: <1122500059.28777@shark.he.net>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [PATCH] Add prefetches in net/ipv4/route.c
+Date: Thu, 28 Jul 2005 17:52:04 +0200
+Message-ID: <42E8FF24.9070009@cosmosbay.com>
+References: <20050704.154712.63128211.davem@davemloft.net>	<42C9BE69.2070008@cosmosbay.com>	<42C9BEF6.4080402@cosmosbay.com> <20050704.160140.21591849.davem@davemloft.net> <42CA390C.9000801@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: Netdev <netdev@vger.kernel.org>,
-	linuxppc-embedded <linuxppc-embedded@ozlabs.org>,
-	Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <linuxppc-embedded-bounces@ozlabs.org>
-To: Randy Dunlap <rdunlap@xenotime.net>
-Content-Disposition: inline
-In-Reply-To: <1122500059.28777@shark.he.net>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
-List-Post: <mailto:linuxppc-embedded@ozlabs.org>
-List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-embedded-bounces@ozlabs.org
-Errors-To: linuxppc-embedded-bounces@ozlabs.org
+Content-Type: multipart/mixed;
+ boundary="------------060607040500090607010609"
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <42CA390C.9000801@cosmosbay.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 27 July 2005 14:34:19 -0700, Randy Dunlap wrote:
-> >=20
-> > Ok, here I won't agree to disagree with you.  !foo as a check for =20
-> > NULL is a reasonable idea, but not my style.  If that's the preferred=
- =20
-> > style for the kernel, I will do that.
-> >=20
-> > But (var =3D=3D constant) is a style that asks for errors.  By puttin=
-g =20
-> > the constant first in these checks, you never run the risk of leaving=
- =20
-> > a bug like this:
-> >=20
-> > if (dev =3D NULL)
-> >      ...
-> >=20
-> > This kind of error is quite frustrating to detect, and the eye will =20
-> > often miss it when scanning for errors.  If you follow constant =3D=3D=
- =20
-> > var, though, then the bug looks like this:
-> >=20
-> > if (NULL =3D dev)
-> >=20
-> > which is instantly caught by the compiler.
-> >=20
-> > Just my 32 cents
->=20
-> Yes, we know about that argument.  :)
+This is a multi-part message in MIME format.
+--------------060607040500090607010609
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-The counter-argument basically goes like this:
+[NET] : Adds prefetches in route hash list traversals.
 
-1. All relevant compilers (GCC) warn on "if (dev =3D NULL)", so you will
-only miss the bug if you ignore compiler warnings.  Ignoring compiler
-warnings is not generally endorsed by the kernel crowd.
+The actual code doesnt use a prefetch enabled macro like list_for_each_rcu(), so manually
+add prefetch() hints.
 
-2. Very hard to read, "if (NULL =3D dev)" is.  Reversing the order is a
-fun thing to do for small green characters in fantasy and scifi
-stories and fairly popular in peotry as well.  But understanding the
-meaning of reverse order sentences takes more time.  In the kernel,
-peer review is an important aspect and making the code hard to read
-hurts peer review.
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
 
-And maybe you can add another one:
+--------------060607040500090607010609
+Content-Type: text/plain;
+ name="route.prefetches"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="route.prefetches"
 
-3. Im my personal experience, reverse order comparisons were a good
-indicator of buggy code.
+diff -Nru linux-2.6.13-rc3/net/ipv4/route.c linux-2.6.13-rc3-ed/net/ipv4/route.c
+--- linux-2.6.13-rc3/net/ipv4/route.c	2005-07-13 06:46:46.000000000 +0200
++++ linux-2.6.13-rc3-ed/net/ipv4/route.c	2005-07-28 17:20:21.000000000 +0200
+@@ -1148,6 +1148,7 @@
+ 			while ((rth = rcu_dereference(*rthp)) != NULL) {
+ 				struct rtable *rt;
+ 
++				prefetch(rth->u.rt_next);
+ 				if (rth->fl.fl4_dst != daddr ||
+ 				    rth->fl.fl4_src != skeys[i] ||
+ 				    rth->fl.fl4_tos != tos ||
+@@ -1401,6 +1402,7 @@
+ 		rcu_read_lock();
+ 		for (rth = rcu_dereference(rt_hash_table[hash].chain); rth;
+ 		     rth = rcu_dereference(rth->u.rt_next)) {
++			prefetch(rth->u.rt_next);
+ 			if (rth->fl.fl4_dst == daddr &&
+ 			    rth->fl.fl4_src == skeys[i] &&
+ 			    rth->rt_dst  == daddr &&
+@@ -2094,6 +2096,7 @@
+ 	rcu_read_lock();
+ 	for (rth = rcu_dereference(rt_hash_table[hash].chain); rth;
+ 	     rth = rcu_dereference(rth->u.rt_next)) {
++		prefetch(rth->u.rt_next);
+ 		if (rth->fl.fl4_dst == daddr &&
+ 		    rth->fl.fl4_src == saddr &&
+ 		    rth->fl.iif == iif &&
+@@ -2565,6 +2568,7 @@
+ 	rcu_read_lock_bh();
+ 	for (rth = rcu_dereference(rt_hash_table[hash].chain); rth;
+ 		rth = rcu_dereference(rth->u.rt_next)) {
++		prefetch(rth->u.rt_next);
+ 		if (rth->fl.fl4_dst == flp->fl4_dst &&
+ 		    rth->fl.fl4_src == flp->fl4_src &&
+ 		    rth->fl.iif == 0 &&
+@@ -2819,6 +2823,7 @@
+ 		rcu_read_lock_bh();
+ 		for (rt = rcu_dereference(rt_hash_table[h].chain), idx = 0; rt;
+ 		     rt = rcu_dereference(rt->u.rt_next), idx++) {
++			prefetch(rt->u.rt_next);
+ 			if (idx < s_idx)
+ 				continue;
+ 			skb->dst = dst_clone(&rt->u.dst);
 
-J=F6rn
-
---=20
-Schr=F6dinger's cat is <BLINK>not</BLINK> dead.
--- Illiad
+--------------060607040500090607010609--
