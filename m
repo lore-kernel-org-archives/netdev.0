@@ -1,28 +1,46 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] Add prefetches in net/ipv4/route.c
-Date: Thu, 28 Jul 2005 15:44:20 -0700 (PDT)
-Message-ID: <20050728.154420.21594218.davem@davemloft.net>
-References: <42E94680.8060309@cosmosbay.com>
-	<20050728.135826.63129319.davem@davemloft.net>
-	<42E94D11.4090002@cosmosbay.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 2.6.12.2] XFRM: BEET IPsec mode for Linux
+Date: Thu, 28 Jul 2005 21:36:25 +1000
+Message-ID: <E1Dy6gb-00044G-00@gondolin.me.apana.org.au>
+References: <1122295307.14873.37.camel@odysse>
+Cc: netdev@oss.sgi.com, infrahip@HIIT.FI, gurtov@cs.helsinki.fi,
+        jeffrey.m.ahrenholz@boeing.com, kristian.slavov@nomadiclab.com,
+        hipl-users@freelists.org, hipsec@ietf.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: dada1@cosmosbay.com
-In-Reply-To: <42E94D11.4090002@cosmosbay.com>
+To: diego.beltrami@HIIT.FI
+In-Reply-To: <1122295307.14873.37.camel@odysse>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Thu, 28 Jul 2005 23:24:33 +0200
-
-> On a dual opteron machine, this thing from ip_route_input() is very expensive :
+Diego Beltrami <diego.beltrami@hiit.fi> wrote:
 > 
->   RT_CACHE_STAT_INC(in_hlist_search);
+> we have been working for three months to implement a new IPsec mode,
+> the "BEET" mode, for Linux. Below is a link to the BEET specification
+> and
+> the abstract:
+> 
+> http://www.ietf.org/internet-drafts/draft-nikander-esp-beet-mode-03.txt
 
-That's amazing since it's per-cpu.  I don't have any suggestions
-besides your idea to increment it once using an accumulation local
-variable.
+Thanks for the patch guys, this is really interesting.
+
+> extern int xfrm4_rcv_encap(struct sk_buff *skb, __u16 encap_type);
+> diff -urN linux-2.6.12.2/net/ipv4/esp4.c
+> linux-beet-2.6.12.2/net/ipv4/esp4.c
+> --- linux-2.6.12.2/net/ipv4/esp4.c      2005-06-30 02:00:53.000000000 +0300
+> +++ linux-beet-2.6.12.2/net/ipv4/esp4.c 2005-07-25 14:39:11.000000000
+
+Although the document only talks about ESP, as far as I can see
+the encapsulation can be applied to AH/IPComp just as well.
+So how about moving this stuff to the generic xfrm_input/xfrm_output
+functions?
+
+Also, if you're going to do cross-family transforms, it should be
+done for both BEET and plain tunnel-mode.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
