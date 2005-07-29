@@ -1,45 +1,33 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH RFC]: PHY Abstraction Layer III
-Date: Fri, 29 Jul 2005 17:46:29 -0400
-Message-ID: <42EAA3B5.70902@pobox.com>
-References: <23F9076F-9FBB-43C8-83CD-F630E694203D@freescale.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [Infrahip] Re: [hipl-users] Re: [PATCH 2.6.12.2] XFRM: BEET IPsec mode for Linux
+Date: Sat, 30 Jul 2005 09:48:59 +1000
+Message-ID: <20050729234859.GA27325@gondor.apana.org.au>
+References: <E1Dy6gb-00044G-00@gondolin.me.apana.org.au> <1122651216.25842.67.camel@odysse> <B9CA81E3-5A80-4629-8D32-42A8C37142E2@nomadiclab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Embedded PPC Linux list <linuxppc-embedded@ozlabs.org>
-Return-path: <linuxppc-embedded-bounces@ozlabs.org>
-To: Andy Fleming <afleming@freescale.com>
-In-Reply-To: <23F9076F-9FBB-43C8-83CD-F630E694203D@freescale.com>
-List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
-List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
-List-Post: <mailto:linuxppc-embedded@ozlabs.org>
-List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
-List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
-	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
-Sender: linuxppc-embedded-bounces@ozlabs.org
-Errors-To: linuxppc-embedded-bounces@ozlabs.org
+Content-Type: text/plain; charset=us-ascii
+Cc: diego.beltrami@HIIT.FI, netdev@oss.sgi.com, infrahip@HIIT.FI
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Pekka Nikander <pekka.nikander@nomadiclab.com>
+Content-Disposition: inline
+In-Reply-To: <B9CA81E3-5A80-4629-8D32-42A8C37142E2@nomadiclab.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andy Fleming wrote:
-> Here's the latest version of the patch, done against a cogito  linux-2.6 
-> branch.  It has a handful of small changes, which I hope  will speed 
-> acceptance:
+On Fri, Jul 29, 2005 at 05:45:24PM +0200, Pekka Nikander wrote:
+> >Surely BEET will work also for AH with minor changes, even though we
+> >only tried the ESP encapsulation.
 > 
-> * Interrupts are no longer requested at interrupt time
-> * There is a function to print out PHY status
-> * The PHY drivers' probe function now serves only to initialize  driver 
-> state
-> * A new config_init functor has been created to configure PHY state  
-> just after reset (so that the PHYs will be returned to a sane state  if 
-> they don't start up that way)
-> * Stephen Hemminger's patch to allow better module support in the  
-> drivers has been included
+> I wouldn't be so sure.  IIRC, tunnel mode is not specified for AH but  
+> for ESP only.  Consequently, defining BEET mode for AH might be  
 
-OK, DaveM and I are OK with merging this.
+Well plain tunnel mode certainly is specified for AH as well as IPComp.
+But you're right the semantics of BEET mode for AH needs to be thought
+out.
 
-Send me a single One Big Patch which adds all the new files and such, 
-I'll give it a final review, and queue it for 2.6.14.
-
-	Jeff
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
