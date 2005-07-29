@@ -1,55 +1,45 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [patch] net/tulip: LAN driver for ULI M5261/M5263
-Date: Fri, 29 Jul 2005 15:37:31 -0400
-Message-ID: <42EA857B.5080608@pobox.com>
-References: <OF9922119A.7A6623CD-ON4825704D.0040B00E@uli.com.tw>
+Subject: Re: [PATCH RFC]: PHY Abstraction Layer III
+Date: Fri, 29 Jul 2005 17:46:29 -0400
+Message-ID: <42EAA3B5.70902@pobox.com>
+References: <23F9076F-9FBB-43C8-83CD-F630E694203D@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: alan@redhat.com, Clear.Zhang@uli.com.tw,
-	linux-kernel@vger.kernel.org, Emily.Jiang@uli.com.tw,
-	Netdev List <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262778AbVG2Tlh@vger.kernel.org>
-To: Peer.Chen@uli.com.tw
-In-Reply-To: <OF9922119A.7A6623CD-ON4825704D.0040B00E@uli.com.tw>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org,
+	Embedded PPC Linux list <linuxppc-embedded@ozlabs.org>
+Return-path: <linuxppc-embedded-bounces@ozlabs.org>
+To: Andy Fleming <afleming@freescale.com>
+In-Reply-To: <23F9076F-9FBB-43C8-83CD-F630E694203D@freescale.com>
+List-Unsubscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
+	<mailto:linuxppc-embedded-request@ozlabs.org?subject=unsubscribe>
+List-Archive: <http://ozlabs.org/pipermail/linuxppc-embedded>
+List-Post: <mailto:linuxppc-embedded@ozlabs.org>
+List-Help: <mailto:linuxppc-embedded-request@ozlabs.org?subject=help>
+List-Subscribe: <https://ozlabs.org/mailman/listinfo/linuxppc-embedded>,
+	<mailto:linuxppc-embedded-request@ozlabs.org?subject=subscribe>
+Sender: linuxppc-embedded-bounces@ozlabs.org
+Errors-To: linuxppc-embedded-bounces@ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-Peer.Chen@uli.com.tw wrote:
-> We want to extract our LAN card driver from tulip core driver and make a
-> new file uli526x.c at tulip folder,
-> because we have added some ethtool interface support and non-eprom support
-> in our driver and may be other change
-> in the futher. If our controllers support are still contained in the tulip
-> core driver, I think it'll increase the
-> complexity of maintenance,
+Andy Fleming wrote:
+> Here's the latest version of the patch, done against a cogito  linux-2.6 
+> branch.  It has a handful of small changes, which I hope  will speed 
+> acceptance:
+> 
+> * Interrupts are no longer requested at interrupt time
+> * There is a function to print out PHY status
+> * The PHY drivers' probe function now serves only to initialize  driver 
+> state
+> * A new config_init functor has been created to configure PHY state  
+> just after reset (so that the PHYs will be returned to a sane state  if 
+> they don't start up that way)
+> * Stephen Hemminger's patch to allow better module support in the  
+> drivers has been included
 
+OK, DaveM and I are OK with merging this.
 
-After some thought, I agree with this assessment.
-
-It has been my goal for a long time to separate out the various chips 
-from the tulip driver, for easier maintenance.  One of the reasons I 
-have not applied a "fix tulip for ULi" patch is that it changes PHY 
-details that I am not sure are OK for the myriad tulip clones.  A 
-separate driver eliminates this objection.
-
-I have applied your patch to the new 'uli-tulip' branch of git 
-repository 
-rsync://rsync.kernel.org/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git
-
-Please now do the following tasks:
-
-1) Submit an incremental patch addressing Alexey Dobriyan's minor complaints
-
-2) Submit a patch removing all ULi support from the 'tulip' driver
-
-
-I will then conduct a final review, and probably request another patch, 
-with more updates.
-
-After that, your driver will be sent upstream, to be included in the 
-official 2.6.x kernel.
-
-Thanks and regards,
+Send me a single One Big Patch which adds all the new files and such, 
+I'll give it a final review, and queue it for 2.6.14.
 
 	Jeff
