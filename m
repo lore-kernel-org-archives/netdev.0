@@ -1,59 +1,46 @@
-From: "Ravinandan Arakali" <ravinandan.arakali@neterion.com>
-Subject: RE: [PATCH 2.6.12.1 5/12] S2io: Performance improvements
-Date: Fri, 29 Jul 2005 09:37:55 -0700
-Message-ID: <001001c5945b$df8afd90$4810100a@pc.s2io.com>
-References: <20050712.140411.41107257.davem@davemloft.net>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH] Add prefetches in net/ipv4/route.c
+Date: Fri, 29 Jul 2005 10:06:10 -0700
+Message-ID: <42EA6202.703@hp.com>
+References: <42E8FF24.9070009@cosmosbay.com>	<20050728.123922.126777020.davem@davemloft.net>	<42E94680.8060309@cosmosbay.com>	<20050728.135826.63129319.davem@davemloft.net>	<42E94D11.4090002@cosmosbay.com> <17130.16951.581026.863431@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <hch@infradead.org>, <raghavendra.koushik@neterion.com>,
-        <jgarzik@pobox.com>, <netdev@oss.sgi.com>,
-        <leonid.grossman@neterion.com>, <rapuru.sriram@neterion.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'David S. Miller'" <davem@davemloft.net>
-In-Reply-To: <20050712.140411.41107257.davem@davemloft.net>
+To: netdev@oss.sgi.com
+In-Reply-To: <17130.16951.581026.863431@robur.slu.se>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David,
-We are trying to use the "default" directive in Kconfig. We tried
-using an unconditional directive(just to test it out) such as
-"default y" and a conditional one such as "default y if
-CONFIG_IA64_SGI_SN2".
+Robert Olsson wrote:
+> Eric Dumazet writes:
+> 
+>  > I have no profiling info for this exact patch, I'm sorry David.
+>  > On a dual opteron machine, this thing from ip_route_input() is very expensive :
+>  > 
+>  >   RT_CACHE_STAT_INC(in_hlist_search);
+>  > 
+>  > ip_route_input() use a total of 3.4563 % of one cpu, but this 'increment' takes 1.20 % !!!
+> 
+>  Very weird if the statscounter taking a third of ip_route_input.
+> 
+>  > Sometime I wonder if oprofile can be trusted :(
+>  > 
+>  > Maybe we should increment a counter on the stack and do a final
+>  >     if (counter != 0)
+>  >         RT_CACHE_STAT_ADD(in_hlist_search, counter);
+> 
+>  My experiences from playing with prefetching eth_type_trans in this 
+>  case. One must look in the total performance not just were the 
+>  prefetching is done. In this case I was able to get eth_type_trans
+>  down in the profile list but other functions increased so performance
+>  was the same or lower. This needs to be sorted out... 
 
-But when we run "make menuconfig", it does not seem to pickup any of these
-changes from Kconfig.
-Any idea what we might be missing ?
+How many of the architectures have PMU's that can give us cache miss statistics? 
+  Itanium does, and can go so far as to tell us which addresses and instructions 
+are involved - do the others?
 
-Once this is fixed, we'll send out a patch to address comments from
-previous 12 patches as well as couple of issues we found in the
-meantime.
+That sort of data would seem to be desirable in this sort of situation.
 
-Thanks,
-Ravi
-
------Original Message-----
-From: David S. Miller [mailto:davem@davemloft.net]
-Sent: Tuesday, July 12, 2005 2:04 PM
-To: ravinandan.arakali@neterion.com
-Cc: hch@infradead.org; raghavendra.koushik@neterion.com;
-jgarzik@pobox.com; netdev@oss.sgi.com; leonid.grossman@neterion.com;
-rapuru.sriram@neterion.com
-Subject: Re: [PATCH 2.6.12.1 5/12] S2io: Performance improvements
-
-
-From: "Ravinandan Arakali" <ravinandan.arakali@neterion.com>
-Subject: RE: [PATCH 2.6.12.1 5/12] S2io: Performance improvements
-Date: Tue, 12 Jul 2005 14:00:52 -0700
-
-> The two-buffer mode was added as a configurable option
-> to Kconfig file several months ago. Hence the macro
-> is CONFIG_2BUFF_MODE.
-
-We're saying that you should choose CONFIG_2BUFF_MODE, when
-CONFIG_IA64_SGI_SN2 is set, inside the Kconfig file using the
-"default" Kconfig directive.
-
-You should never change the setting of CONFIG_* macros in C source.
+rick jones
