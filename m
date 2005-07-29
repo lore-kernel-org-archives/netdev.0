@@ -1,77 +1,46 @@
-From: Baruch Even <baruch@ev-en.org>
-Subject: Re: [2.6 patch] net: Spelling mistakes threshoulds -> thresholds
-Date: Fri, 29 Jul 2005 11:21:58 +0100
-Message-ID: <42EA0346.8070703@ev-en.org>
-References: <20050728220410.GG4790@stusta.de> <20050728.203021.35467760.davem@davemloft.net>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: [PATCH] Add prefetches in net/ipv4/route.c
+Date: Fri, 29 Jul 2005 16:50:31 +0200
+Message-ID: <17130.16951.581026.863431@robur.slu.se>
+References: <42E8FF24.9070009@cosmosbay.com>
+	<20050728.123922.126777020.davem@davemloft.net>
+	<42E94680.8060309@cosmosbay.com>
+	<20050728.135826.63129319.davem@davemloft.net>
+	<42E94D11.4090002@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040001040802060706010407"
-Cc: bunk@stusta.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262578AbVG2KXe@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050728.203021.35467760.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Eric Dumazet <dada1@cosmosbay.com>
+In-Reply-To: <42E94D11.4090002@cosmosbay.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------040001040802060706010407
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
 
-Just simple spelling mistake fixes.
+Eric Dumazet writes:
 
-Signed-Off-By: Baruch Even <baruch@ev-en.org>
+ > I have no profiling info for this exact patch, I'm sorry David.
+ > On a dual opteron machine, this thing from ip_route_input() is very expensive :
+ > 
+ >   RT_CACHE_STAT_INC(in_hlist_search);
+ > 
+ > ip_route_input() use a total of 3.4563 % of one cpu, but this 'increment' takes 1.20 % !!!
 
+ Very weird if the statscounter taking a third of ip_route_input.
 
---------------040001040802060706010407
-Content-Type: text/plain;
- name="threshould.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="threshould.diff"
+ > Sometime I wonder if oprofile can be trusted :(
+ > 
+ > Maybe we should increment a counter on the stack and do a final
+ >     if (counter != 0)
+ >         RT_CACHE_STAT_ADD(in_hlist_search, counter);
 
-diff -Nurp 2.6.13-rc4-orig/include/net/tcp.h 2.6.13-rc4/include/net/tcp.h
---- 2.6.13-rc4-orig/include/net/tcp.h	2005-07-29 11:17:25.000000000 +0100
-+++ 2.6.13-rc4/include/net/tcp.h	2005-07-29 11:14:28.000000000 +0100
-@@ -1236,7 +1236,7 @@ static inline void tcp_sync_left_out(str
- 	tp->left_out = tp->sacked_out + tp->lost_out;
- }
- 
--/* Set slow start threshould and cwnd not falling to slow start */
-+/* Set slow start threshold and cwnd not falling to slow start */
- static inline void __tcp_enter_cwr(struct tcp_sock *tp)
- {
- 	tp->undo_marker = 0;
-diff -Nurp 2.6.13-rc4-orig/net/ipv4/ipmr.c 2.6.13-rc4/net/ipv4/ipmr.c
---- 2.6.13-rc4-orig/net/ipv4/ipmr.c	2005-07-29 11:17:25.000000000 +0100
-+++ 2.6.13-rc4/net/ipv4/ipmr.c	2005-07-29 11:14:28.000000000 +0100
-@@ -362,7 +362,7 @@ out:
- 
- /* Fill oifs list. It is called under write locked mrt_lock. */
- 
--static void ipmr_update_threshoulds(struct mfc_cache *cache, unsigned char *ttls)
-+static void ipmr_update_thresholds(struct mfc_cache *cache, unsigned char *ttls)
- {
- 	int vifi;
- 
-@@ -727,7 +727,7 @@ static int ipmr_mfc_add(struct mfcctl *m
- 	if (c != NULL) {
- 		write_lock_bh(&mrt_lock);
- 		c->mfc_parent = mfc->mfcc_parent;
--		ipmr_update_threshoulds(c, mfc->mfcc_ttls);
-+		ipmr_update_thresholds(c, mfc->mfcc_ttls);
- 		if (!mrtsock)
- 			c->mfc_flags |= MFC_STATIC;
- 		write_unlock_bh(&mrt_lock);
-@@ -744,7 +744,7 @@ static int ipmr_mfc_add(struct mfcctl *m
- 	c->mfc_origin=mfc->mfcc_origin.s_addr;
- 	c->mfc_mcastgrp=mfc->mfcc_mcastgrp.s_addr;
- 	c->mfc_parent=mfc->mfcc_parent;
--	ipmr_update_threshoulds(c, mfc->mfcc_ttls);
-+	ipmr_update_thresholds(c, mfc->mfcc_ttls);
- 	if (!mrtsock)
- 		c->mfc_flags |= MFC_STATIC;
- 
+ My experiences from playing with prefetching eth_type_trans in this 
+ case. One must look in the total performance not just were the 
+ prefetching is done. In this case I was able to get eth_type_trans
+ down in the profile list but other functions increased so performance
+ was the same or lower. This needs to be sorted out... 
 
---------------040001040802060706010407--
+ Cheers.
+					--ro
