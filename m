@@ -1,45 +1,55 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH] Add prefetches in net/ipv4/route.c
-Date: Fri, 29 Jul 2005 11:25:21 -0700
-Message-ID: <42EA7491.1010207@hp.com>
-References: <42E8FF24.9070009@cosmosbay.com>	<20050728.123922.126777020.davem@davemloft.net>	<42E94680.8060309@cosmosbay.com>	<20050728.135826.63129319.davem@davemloft.net>	<42E94D11.4090002@cosmosbay.com>	<17130.16951.581026.863431@robur.slu.se> <42EA6202.703@hp.com> <42EA6E0F.8060705@cosmosbay.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [patch] net/tulip: LAN driver for ULI M5261/M5263
+Date: Fri, 29 Jul 2005 15:37:31 -0400
+Message-ID: <42EA857B.5080608@pobox.com>
+References: <OF9922119A.7A6623CD-ON4825704D.0040B00E@uli.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, "David S. Miller" <davem@redhat.com>,
-        Robert Olsson <Robert.Olsson@data.slu.se>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Eric Dumazet <dada1@cosmosbay.com>
-In-Reply-To: <42EA6E0F.8060705@cosmosbay.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: alan@redhat.com, Clear.Zhang@uli.com.tw,
+	linux-kernel@vger.kernel.org, Emily.Jiang@uli.com.tw,
+	Netdev List <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262778AbVG2Tlh@vger.kernel.org>
+To: Peer.Chen@uli.com.tw
+In-Reply-To: <OF9922119A.7A6623CD-ON4825704D.0040B00E@uli.com.tw>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Peer.Chen@uli.com.tw wrote:
+> We want to extract our LAN card driver from tulip core driver and make a
+> new file uli526x.c at tulip folder,
+> because we have added some ethtool interface support and non-eprom support
+> in our driver and may be other change
+> in the futher. If our controllers support are still contained in the tulip
+> core driver, I think it'll increase the
+> complexity of maintenance,
 
-> oprofile on AMD64 can gather lots of data, DATA_CACHE_MISSES for example...
-> 
-> But I think I know what happens...
-> 
-> nm -v /usr/src/linux/vmlinux | grep -5 rt_cache_stat
-> 
-> ffffffff804c6a80 b rover.5
-> ffffffff804c6a88 b last_gc.2
-> ffffffff804c6a90 b rover.3
-> ffffffff804c6a94 b equilibrium.4
-> ffffffff804c6a98 b ip_fallback_id.7
-> ffffffff804c6aa0 B rt_cache_stat
-> ffffffff804c6aa8 b ip_rt_max_size
-> ffffffff804c6aac b ip_rt_debug
-> ffffffff804c6ab0 b rt_deadline
-> 
-> So rt_cache_stat (which is a read only pointer) is in the middle of a 
-> hot cache line (some parts of it are written over and over), that 
-> probably ping pong between CPUS.
-> 
-> Time to provide a patch to carefully place all the static data from 
-> net/ipv4/route.c into 2 parts : mostly readonly, and others... :)
 
-Which of course begs the question - what cache line size should be ass-u-me-d 
-when blocking these things?  I'll put-forth 128 bytes.
+After some thought, I agree with this assessment.
 
-rick jones
+It has been my goal for a long time to separate out the various chips 
+from the tulip driver, for easier maintenance.  One of the reasons I 
+have not applied a "fix tulip for ULi" patch is that it changes PHY 
+details that I am not sure are OK for the myriad tulip clones.  A 
+separate driver eliminates this objection.
+
+I have applied your patch to the new 'uli-tulip' branch of git 
+repository 
+rsync://rsync.kernel.org/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git
+
+Please now do the following tasks:
+
+1) Submit an incremental patch addressing Alexey Dobriyan's minor complaints
+
+2) Submit a patch removing all ULi support from the 'tulip' driver
+
+
+I will then conduct a final review, and probably request another patch, 
+with more updates.
+
+After that, your driver will be sent upstream, to be included in the 
+official 2.6.x kernel.
+
+Thanks and regards,
+
+	Jeff
