@@ -1,46 +1,83 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: [PATCH] Add prefetches in net/ipv4/route.c
-Date: Fri, 29 Jul 2005 16:50:31 +0200
-Message-ID: <17130.16951.581026.863431@robur.slu.se>
-References: <42E8FF24.9070009@cosmosbay.com>
-	<20050728.123922.126777020.davem@davemloft.net>
-	<42E94680.8060309@cosmosbay.com>
-	<20050728.135826.63129319.davem@davemloft.net>
-	<42E94D11.4090002@cosmosbay.com>
+From: Diego Beltrami <diego.beltrami@HIIT.FI>
+Subject: Re: [hipl-users] Re: [PATCH 2.6.12.2] XFRM: BEET IPsec mode for
+	Linux
+Date: Fri, 29 Jul 2005 18:33:36 +0300
+Message-ID: <1122651216.25842.67.camel@odysse>
+References: <E1Dy6gb-00044G-00@gondolin.me.apana.org.au>
+Reply-To: diego.beltrami@HIIT.FI
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Cc: infrahip@HIIT.FI, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Eric Dumazet <dada1@cosmosbay.com>
-In-Reply-To: <42E94D11.4090002@cosmosbay.com>
+To: herbert@gondor.apana.org.au
+In-Reply-To: <E1Dy6gb-00044G-00@gondolin.me.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+> Diego Beltrami <diego.beltrami@hiit.fi> wrote:
+> > 
+> > we have been working for three months to implement a new IPsec mode,
+> > the "BEET" mode, for Linux. Below is a link to the BEET specification
+> > and
+> > the abstract:
+> > 
+> > http://www.ietf.org/internet-drafts/draft-nikander-esp-beet-mode-03.txt
+> 
+> Thanks for the patch guys, this is really interesting.
 
-Eric Dumazet writes:
+Thanks Herbert for your feedback!
 
- > I have no profiling info for this exact patch, I'm sorry David.
- > On a dual opteron machine, this thing from ip_route_input() is very expensive :
- > 
- >   RT_CACHE_STAT_INC(in_hlist_search);
- > 
- > ip_route_input() use a total of 3.4563 % of one cpu, but this 'increment' takes 1.20 % !!!
 
- Very weird if the statscounter taking a third of ip_route_input.
+> > extern int xfrm4_rcv_encap(struct sk_buff *skb, __u16 encap_type);
+> > diff -urN linux-2.6.12.2/net/ipv4/esp4.c
+> > linux-beet-2.6.12.2/net/ipv4/esp4.c
+> > --- linux-2.6.12.2/net/ipv4/esp4.c      2005-06-30 02:00:53.000000000 +0300
+> > +++ linux-beet-2.6.12.2/net/ipv4/esp4.c 2005-07-25 14:39:11.000000000
+> 
+> Although the document only talks about ESP, as far as I can see
+> the encapsulation can be applied to AH/IPComp just as well.
+> So how about moving this stuff to the generic xfrm_input/xfrm_output
+> functions?
 
- > Sometime I wonder if oprofile can be trusted :(
- > 
- > Maybe we should increment a counter on the stack and do a final
- >     if (counter != 0)
- >         RT_CACHE_STAT_ADD(in_hlist_search, counter);
+The BEET code is already present in xfrm_input/xfrm_output functions and
+it applies ESP encapsulation merely because of SA and SP set by means
+setkey. As a consequence, if SA and SP are correctly set for AH the flow
+goes through the AH functions. 
 
- My experiences from playing with prefetching eth_type_trans in this 
- case. One must look in the total performance not just were the 
- prefetching is done. In this case I was able to get eth_type_trans
- down in the profile list but other functions increased so performance
- was the same or lower. This needs to be sorted out... 
+The modifications in the ESP functions are due to the hybrid cases when
+Inner and Outer address families are different; in those cases the
+values returned by espX functions are not coherent.
 
- Cheers.
-					--ro
+I tried to change SA and SP so that AH is used and the flow correctly
+goes through AH functions but the problem has been revealed to be
+something else. In particular, it seems that the AH functions deal with
+the pointers contained in skb (skb->data, skb->nh, skb->h etc) in a
+slightly different way than ESP functions. (Can anyone say more?)
+
+Surely BEET will work also for AH with minor changes, even though we
+only tried the ESP encapsulation.
+This will require some time to inspect and analyze the exact situation.
+
+In any case, as a result, I would say the code is already generic
+itself.
+
+
+On the other hand I don't know about IPComp, so I wouldn't say anything.
+Hence if You could please give some hints, they will be more than
+appreciated.
+
+> 
+> Also, if you're going to do cross-family transforms, it should be
+> done for both BEET and plain tunnel-mode.
+
+Potentially it could be possible also for plain tunnel-mode: this will
+require further analysis.
+
+For further discussion and advice, please give feedback.
+Thank You very much!
+
+Cheers,
+
+--Diego
