@@ -1,18 +1,15 @@
 From: Harald Welte <laforge@netfilter.org>
-Subject: Re: [PATCH] add new nfnetlink_log subsystem
-Date: Sat, 30 Jul 2005 19:33:15 +0200
-Message-ID: <20050730173315.GG6620@rama.de.gnumonks.org>
-References: <20050730103005.GB6620@rama.de.gnumonks.org>
-	<20050730164121.GA14794@zion.homelinux.com>
+Subject: [PATCH] MASQUERADE: inherit masq_index to slave connections
+Date: Sat, 30 Jul 2005 16:00:43 +0200
+Message-ID: <20050730140043.GF6620@rama.de.gnumonks.org>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="ncX6roZrNNHXnAbh"
+	protocol="application/pgp-signature"; boundary="HL3CiL6n73+IAdG4"
 Cc: Linux Netdev List <netdev@vger.kernel.org>,
 	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
 Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Sven Schuster <schuster.sven@gmx.de>
+To: Marcelo Tossati <marcelo@conectiva.com.br>
 Content-Disposition: inline
-In-Reply-To: <20050730164121.GA14794@zion.homelinux.com>
 List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
 	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
 List-Archive: </pipermail/netfilter-devel>
@@ -25,20 +22,22 @@ Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
 
---ncX6roZrNNHXnAbh
-Content-Type: multipart/mixed; boundary="fpolVoprVozDR81Y"
+--HL3CiL6n73+IAdG4
+Content-Type: multipart/mixed; boundary="4e5ZDkbgLEOfWmLx"
 Content-Disposition: inline
 
 
---fpolVoprVozDR81Y
+--4e5ZDkbgLEOfWmLx
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-Thanks for your comments, Sven.
+Hi Marcelo!
 
-Dave: Please apply the attached patch on top of all other patches I sent
-you. It also fixes the same bug in nfnetlink_queue. Thanks!
+Pleae apply the following trivial fix to your 2.4.x tree.  I've already
+submitted a 2.6.x fix for this to davem.
+
+Thanks!
 
 --=20
 - Harald Welte <laforge@netfilter.org>                 http://netfilter.org/
@@ -50,74 +49,48 @@ you. It also fixes the same bug in nfnetlink_queue. Thanks!
    architectural error that shows how much experimentation was going
    on while IP was being designed."                    -- Paul Vixie
 
---fpolVoprVozDR81Y
+--4e5ZDkbgLEOfWmLx
 Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="20-proc_net_remove.patch"
-Content-Transfer-Encoding: quoted-printable
+Content-Disposition: attachment; filename="19-masq_index-inheritance.patch"
 
-[NETFILTER] add proc_net_remove() to nfnetlink_queue and nfnetlink_log
+[NETFILTER] Inherit masq_index to slave connections
 
-Also fixes a typo inside a comment.
-Thanks to Sven Schuster <schuster.sven@gmx.de>
+masq_index is used for cleanup in case the interface address changes
+(such as a dialup ppp link with dynamic addreses).  Without this patch,
+slave connections are not evicted in such a case, since they don't inherit
+masq_index.
 
 Signed-off-by: Harald Welte <laforge@netfilter.org>
 
----
-commit a04a82e4fe4be531383909217bcb2d4ad096ecda
-tree 1424e9d687c2b5217d82bcf04abb97a2f8aced69
-parent bd4123d85f932f9bd60da9d2ed3523dc7b792075
-author laforge <laforge@netfilter.org> Sa, 30 Jul 2005 19:30:32 +0200
-committer laforge <laforge@netfilter.org> Sa, 30 Jul 2005 19:30:32 +0200
+Index: linux-2.4.31/net/ipv4/netfilter/ip_conntrack_core.c
+===================================================================
+--- linux-2.4.31.orig/net/ipv4/netfilter/ip_conntrack_core.c	2005-04-04 03:42:20.000000000 +0200
++++ linux-2.4.31/net/ipv4/netfilter/ip_conntrack_core.c	2005-07-30 15:59:41.000000000 +0200
+@@ -741,6 +741,11 @@
+ 		/* Welcome, Mr. Bond.  We've been expecting you... */
+ 		__set_bit(IPS_EXPECTED_BIT, &conntrack->status);
+ 		conntrack->master = expected;
++#if defined(CONFIG_IP_NF_TARGET_MASQUERADE) || \
++    defined(CONFIG_IP_NF_TARGET_MASQUERADE_MODULE)
++		/* this is ugly, but there is no other place where to put it */
++		conntrack->nat.masq_index = expected->expectant->nat.masq_index;
++#endif
+ 		expected->sibling = conntrack;
+ 		LIST_DELETE(&ip_conntrack_expect_list, expected);
+ 		expected->expectant->expecting--;
 
- net/netfilter/nfnetlink_log.c   |    3 ++-
- net/netfilter/nfnetlink_queue.c |    1 +
- 2 files changed, 3 insertions(+), 1 deletions(-)
+--4e5ZDkbgLEOfWmLx--
 
-diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
---- a/net/netfilter/nfnetlink_log.c
-+++ b/net/netfilter/nfnetlink_log.c
-@@ -314,7 +314,7 @@ static struct sk_buff *nfulnl_alloc_skb(
-=20
- 	UDEBUG("entered (%u, %u)\n", inst_size, pkt_size);
-=20
--	/* alloc skb whihc should be big enough for a whole multipart
-+	/* alloc skb which should be big enough for a whole multipart
- 	 * message.  WARNING: has to be <=3D 128k due to slab restrictions */
-=20
- 	skb =3D alloc_skb(inst_size, GFP_ATOMIC);
-@@ -965,6 +965,7 @@ init_or_cleanup(int init)
- cleanup:
- 	nf_log_unregister_logger(&nfulnl_logger);
- #ifdef CONFIG_PROC_FS
-+	remove_proc_entry("nfnetlink_log", proc_net_netfilter);
- cleanup_subsys:
- #endif
- 	nfnetlink_subsys_unregister(&nfulnl_subsys);
-diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queu=
-e.c
---- a/net/netfilter/nfnetlink_queue.c
-+++ b/net/netfilter/nfnetlink_queue.c
-@@ -1041,6 +1041,7 @@ cleanup:
- 	nf_unregister_queue_handlers(nfqnl_enqueue_packet);
- 	unregister_netdevice_notifier(&nfqnl_dev_notifier);
- #ifdef CONFIG_PROC_FS
-+	remove_proc_entry("nfnetlink_queue", proc_net_netfilter);
- cleanup_subsys:
- #endif=09
- 	nfnetlink_subsys_unregister(&nfqnl_subsys);
-
---fpolVoprVozDR81Y--
-
---ncX6roZrNNHXnAbh
+--HL3CiL6n73+IAdG4
 Content-Type: application/pgp-signature
 Content-Disposition: inline
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.1 (GNU/Linux)
 
-iD8DBQFC67naXaXGVTD0i/8RAhtVAJ4m/adRzL9Hf0JewyIdbKIeC3ucDgCgo6VZ
-ZvCwlfz93xRqvUSV5Yrk4d8=
-=1YDf
+iD8DBQFC64gKXaXGVTD0i/8RAj9tAJ0UUWe5ztFMTt2VnJzXGyTBGiKC/gCghCeo
+hpC1MaDBTgU7lO/64io56p0=
+=20ro
 -----END PGP SIGNATURE-----
 
---ncX6roZrNNHXnAbh--
+--HL3CiL6n73+IAdG4--
