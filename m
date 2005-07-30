@@ -1,50 +1,44 @@
-From: Diego Beltrami <diego.beltrami@HIIT.FI>
-Subject: Re: [PATCH 2.6.12.2] XFRM: BEET IPsec mode for Linux
-Date: Sat, 30 Jul 2005 14:01:18 +0300
-Message-ID: <1122721278.3696.28.camel__49106.3119647608$1122721625$gmane$org@odysse>
-References: <E1Dy6gb-00044G-00@gondolin.me.apana.org.au>
-	 <1122651216.25842.67.camel@odysse>
-	 <B9CA81E3-5A80-4629-8D32-42A8C37142E2@nomadiclab.com>
-	 <20050729234859.GA27325@gondor.apana.org.au>
-Reply-To: diego.beltrami@HIIT.FI
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Pekka Nikander <pekka.nikander@nomadiclab.com>, netdev@oss.sgi.com,
-        infrahip@HIIT.FI, hipl-users@freelists.org, hipsec@ietf.org
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [hipl-users] Re: [PATCH 2.6.12.2] XFRM: BEET IPsec mode for	Linux
+Date: Sat, 30 Jul 2005 21:15:00 +1000
+Message-ID: <E1DypIy-00037K-00@gondolin.me.apana.org.au>
+References: <1122651216.25842.67.camel@odysse>
+Cc: herbert@gondor.apana.org.au, infrahip@HIIT.FI, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050729234859.GA27325@gondor.apana.org.au>
+To: diego.beltrami@HIIT.FI
+In-Reply-To: <1122651216.25842.67.camel@odysse>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> On Fri, Jul 29, 2005 at 05:45:24PM +0200, Pekka Nikander wrote:
-> > >Surely BEET will work also for AH with minor changes, even though we
-> > >only tried the ESP encapsulation.
-> > 
-> > I wouldn't be so sure.  IIRC, tunnel mode is not specified for AH but  
-> > for ESP only.  Consequently, defining BEET mode for AH might be  
+Diego Beltrami <diego.beltrami@hiit.fi> wrote:
 > 
-> Well plain tunnel mode certainly is specified for AH as well as IPComp.
-> But you're right the semantics of BEET mode for AH needs to be thought
-> out.
+> The modifications in the ESP functions are due to the hybrid cases when
+> Inner and Outer address families are different; in those cases the
+> values returned by espX functions are not coherent.
+
+I see.  However, this is really a consequence of us not implementing
+interfamily transforms for plain old tunnel mode.  Had we implemented
+that, it would be a piece of cake to extend this to BEET without
+touching ESP.
+
+>> Also, if you're going to do cross-family transforms, it should be
+>> done for both BEET and plain tunnel-mode.
 > 
+> Potentially it could be possible also for plain tunnel-mode: this will
+> require further analysis.
 
-The Linux patch which has been presented (see URL: 
-http://infrahip.hiit.fi/beet/beet-patch-v1.0-2.6.12.2 ), has been
-developed based upon the design given by the draft
+It definitely does need further analysis even for BEET mode.  The rcv
+path for interfamily transforms is straightforward since we pass through
+netif_rx.  However, on the outbound path things aren't that simple.
 
-http://www.ietf.org/internet-drafts/draft-nikander-esp-beet-mode-03.txt
+I suggest that you remove the interfamily support for the initial merge
+of the BEET implementation.  We can then readd it for both plain tunnel
+and BEET mode.
 
-As a result BEET patch considers the ESP encapsulation as it has been
-designed.
-
-OTOH we believe the implementation is usable more or less as it is now
-for AH and perhaps IPComp in the future. But, as already mentioned both
-by Pekka and Herbert, this would need more thinking and designing.
-
-The implementation is flexible enough to finetune once the semantics for
-similar optimizations have been considered for AH and IPComp.
-
---Diego
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
