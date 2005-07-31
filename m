@@ -1,49 +1,30 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [git patches] new wireless stuffs
-Date: Sun, 31 Jul 2005 15:04:07 +0200
-Message-ID: <20050731130407.GA14550@elf.ucw.cz>
-References: <42EC0C3E.7030705@pobox.com>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [PATCH 2.6.12.1 5/12] S2io: Performance improvements
+Date: Sun, 31 Jul 2005 15:05:15 +0100
+Message-ID: <20050731140515.GA6261@infradead.org>
+References: <20050712.140411.41107257.davem@davemloft.net> <001001c5945b$df8afd90$4810100a@pc.s2io.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	Netdev List <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S263221AbVGaNEO@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
+Cc: "'David S. Miller'" <davem@davemloft.net>, hch@infradead.org,
+        raghavendra.koushik@neterion.com, jgarzik@pobox.com,
+        netdev@oss.sgi.com, leonid.grossman@neterion.com,
+        rapuru.sriram@neterion.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Ravinandan Arakali <ravinandan.arakali@neterion.com>
 Content-Disposition: inline
-In-Reply-To: <42EC0C3E.7030705@pobox.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <001001c5945b$df8afd90$4810100a@pc.s2io.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi!
+On Fri, Jul 29, 2005 at 09:37:55AM -0700, Ravinandan Arakali wrote:
+> David,
+> We are trying to use the "default" directive in Kconfig. We tried
+> using an unconditional directive(just to test it out) such as
+> "default y" and a conditional one such as "default y if
+> CONFIG_IA64_SGI_SN2".
 
-> If this is post-2.6.13 material, that's fine.
-> 
-> I've been getting tired of the slow movement of wireless.  A little bit 
-> of that is my fault, certainly.  I've also been wanting to get these net 
-> drivers out to Linux users.
-> 
-> This adds HostAP, ipw2100, ipw2200, and the generic ieee80211 code.  The 
-> only -changes- in this set are cosmetic.
-> 
-> Further work is pending from SuSE and Intel [*poke* *poke* to them], but 
-> these should be working, and have been in -mm for quite a while.
-> 
-> One big thing I'm still hoping for is that someone will merge HostAP 
-> (where ieee80211 code came from) with the ieee80211 generic code.  The 
-> HostAP maintainer has been unwilling to do it, even though he has been 
-> good about keeping HostAP updated, so hopefully a volunteer will step up.
-> 
-> Please pull from branch 'ieee80211-wifi' of
-> rsync://rsync.kernel.org/pub/scm/linux/kernel/git/jgarzik/netdev-2.6.git
-> 
-> to obtain the changes described by the attached diffstat/changelog.  The 
-> file additions were too large to attach, so I only attached the changes 
-> to existing files.  Existing drivers merely had some struct renames (for 
-> new ieee80211 header), and some 'add "static" attribute' changes.
-
-Wow, thanks!
-								Pavel
-
--- 
-if you have sharp zaurus hardware you don't need... you know my address
+Again, please make this a module option, CONFIG_IA64_SGI_SN2 does not
+mean runs on Altix but that this is a kernel that only supports Altix,
+which is a non-standard case that doesn't cover 90% or more of actual
+Altix systems in the field and running 2.6.
