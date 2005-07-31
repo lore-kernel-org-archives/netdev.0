@@ -1,28 +1,32 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 2.6.13-rc1 0/17] bonding: Sysfs Support
-Date: Sun, 31 Jul 2005 01:28:05 -0400
-Message-ID: <42EC6165.2080809@pobox.com>
-References: <Pine.LNX.4.61.0507011313500.17459@localhost.localdomain>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] add refcounting and /proc to nfnetlink_queue
+Date: Sat, 30 Jul 2005 21:00:07 -0700 (PDT)
+Message-ID: <20050730.210007.35443118.davem@davemloft.net>
+References: <20050730103226.GC6620@rama.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: fubar@us.ibm.com, bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Radheka Godse <radheka.godse@intel.com>, mitch.a.williams@intel.com
-In-Reply-To: <Pine.LNX.4.61.0507011313500.17459@localhost.localdomain>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: laforge@gnumonks.org
+In-Reply-To: <20050730103226.GC6620@rama.de.gnumonks.org>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Radheka Godse wrote:
->   This patch set is an updated sysfs bonding patch to the one sent
-> previously in April. The patch is upto date with all recent bonding
-> and kernel changes and applies cleanly to linux-2.6.13-rc1. It adds
-> sysfs entry for the "Xmit Hash Policy" for new bonding module param;
-> incorporates feedback and bug fixes on all known issues and has been
-> tested on linux-2.6.13-rc1.
+From: Harald Welte <laforge@gnumonks.org>
+Date: Sat, 30 Jul 2005 12:32:26 +0200
 
-Will we be seeing a resend of this patch series, incorporating the 
-comments from GregKH and others?
+> [NETFILTER] Add refcounting and /proc/net/netfilter interface to
+> 	    nfnetlink_queue
+> 
+> Signed-off-by: Harald Welte <laforge@netfilter.org>
 
-	Jeff
+Applied, thanks Harald.
