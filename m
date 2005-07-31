@@ -1,43 +1,41 @@
 From: "David S. Miller" <davem@davemloft.net>
 Subject: Re: [PATCH] Add prefetches in net/ipv4/route.c
-Date: Sat, 30 Jul 2005 20:51:05 -0700 (PDT)
-Message-ID: <20050730.205105.125871032.davem@davemloft.net>
-References: <17130.16951.581026.863431@robur.slu.se>
-	<42EA6202.703@hp.com>
-	<42EA6E0F.8060705@cosmosbay.com>
+Date: Sat, 30 Jul 2005 20:44:48 -0700 (PDT)
+Message-ID: <20050730.204448.85713599.davem@davemloft.net>
+References: <20050728.135826.63129319.davem@davemloft.net>
+	<42E94D11.4090002@cosmosbay.com>
+	<17130.16951.581026.863431@robur.slu.se>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rick.jones2@hp.com, netdev@oss.sgi.com, davem@redhat.com,
-        Robert.Olsson@data.slu.se
+Cc: dada1@cosmosbay.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: dada1@cosmosbay.com
-In-Reply-To: <42EA6E0F.8060705@cosmosbay.com>
+To: Robert.Olsson@data.slu.se
+In-Reply-To: <17130.16951.581026.863431@robur.slu.se>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Fri, 29 Jul 2005 19:57:35 +0200
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Date: Fri, 29 Jul 2005 16:50:31 +0200
 
-> nm -v /usr/src/linux/vmlinux | grep -5 rt_cache_stat
-> 
-> ffffffff804c6a80 b rover.5
-> ffffffff804c6a88 b last_gc.2
-> ffffffff804c6a90 b rover.3
-> ffffffff804c6a94 b equilibrium.4
-> ffffffff804c6a98 b ip_fallback_id.7
-> ffffffff804c6aa0 B rt_cache_stat
-> ffffffff804c6aa8 b ip_rt_max_size
-> ffffffff804c6aac b ip_rt_debug
-> ffffffff804c6ab0 b rt_deadline
-> 
-> So rt_cache_stat (which is a read only pointer) is in the middle of a hot cache line (some parts of it are written over and over), that 
-> probably ping pong between CPUS.
+>  My experiences from playing with prefetching eth_type_trans in this 
+>  case. One must look in the total performance not just were the 
+>  prefetching is done. In this case I was able to get eth_type_trans
+>  down in the profile list but other functions increased so performance
+>  was the same or lower. This needs to be sorted out... 
 
-One cure for this would be to declare it as "__read_mostly", that
-should help a lot.  But it's not the best idea, I think.
+The problem is that if you just barely fit in the cache for a
+workload, prefetches can hurt if done too early.  Let's say that your
+code path needs to access data items A, B, and C, in that order.  If
+you need to access A in order to know C, and subsequently if you
+prefetch C before you use B, you might kick out B and end up making
+performance worse (since you'll thus need to bring in C twice).
 
-Instead, we can do away with the pointer and use DECLARE_PERCPU() and
-__get_cpu_var() for rt_cache_stat.  That would emit the most efficient
-code on every architecture.
+I really do not want to merge in any prefetch patches until
+there is hard data showing an improvement, instead of some
+shamanistic justification :-)
+
+When the witch doctor comes to town and starts adding prefetches
+all over the place without performance metrics, I become rightly
+concerned.
