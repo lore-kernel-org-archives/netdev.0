@@ -1,34 +1,48 @@
 From: Jouni Malinen <jkmaline@cc.hut.fi>
-Subject: Re: [git patches] new wireless stuffs
-Date: Sat, 30 Jul 2005 18:04:47 -0700
-Message-ID: <20050731010447.GF8195@jm.kir.nu>
-References: <42EC0C3E.7030705@pobox.com>
+Subject: Re: [-mm patch] include/net/ieee80211.h must #include
+	<linux/wireless.h>
+Date: Sat, 30 Jul 2005 19:24:22 -0700
+Message-ID: <20050731022422.GH8195@jm.kir.nu>
+References: <20050727195100.GA29092@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	Netdev List <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262971AbVGaBFz@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@osdl.org>, hostap@shmoo.com,
+	jgarzik@pobox.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com>
+To: Adrian Bunk <bunk@stusta.de>
 Content-Disposition: inline
-In-Reply-To: <42EC0C3E.7030705@pobox.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20050727195100.GA29092@stusta.de>
+List-Unsubscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
+	<mailto:hostap-request@shmoo.com?subject=unsubscribe>
+List-Archive: <http://lists.shmoo.com/pipermail/hostap>
+List-Post: <mailto:hostap@shmoo.com>
+List-Help: <mailto:hostap-request@shmoo.com?subject=help>
+List-Subscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
+	<mailto:hostap-request@shmoo.com?subject=subscribe>
+Sender: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
+Errors-To: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jul 30, 2005 at 07:24:46PM -0400, Jeff Garzik wrote:
+On Wed, Jul 27, 2005 at 09:51:00PM +0200, Adrian Bunk wrote:
 
-> One big thing I'm still hoping for is that someone will merge HostAP 
-> (where ieee80211 code came from) with the ieee80211 generic code.  The 
-> HostAP maintainer has been unwilling to do it, even though he has been 
-> good about keeping HostAP updated, so hopefully a volunteer will step up.
+> gcc found an (although perhaps harmless) bug:
+> 
+>   CC      net/ieee80211/ieee80211_crypt.o
+> In file included from net/ieee80211/ieee80211_crypt.c:21:
+> include/net/ieee80211.h:26:5: warning: "WIRELESS_EXT" is not defined
 
-I would say this has been more due to lack of time than unwillingness on
-my part. Finally, I got git set up yesterday and got back to working
-with the wireless-2.6/netdev-2.6 code and I'm planning on working with
-the Host AP and ieee80211 code merge. I would expect the client side
-functionality to be relatively easy merge, but the AP side functionality
-may require considerable amount of work due to the current ieee80211
-code being more focused on the client side.
+> +++ linux-2.6.13-rc3-mm1-full/include/net/ieee80211.h	2005-07-22 18:38:10.000000000 +0200
+> +#include <linux/wireless.h>
+
+>  #if WIRELESS_EXT < 17
+>  #define IW_QUAL_QUAL_INVALID   0x10
+
+Wouldn't the proper fix be to just remove this backwards compatibility
+code since WIRELESS_EXT is actually 18 in this tree anyway.. Is there
+valid need to keep this header file compatible with older kernel
+versions?
 
 -- 
 Jouni Malinen                                            PGP id EFC895FA
