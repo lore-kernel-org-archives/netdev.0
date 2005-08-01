@@ -1,7 +1,7 @@
 From: cartoline@webdimension.it
 Subject: Re: Hello
 Date: 1 Aug 2005 10:39:43 +0200
-Message-ID: <20050801083943.85282.qmail@w409.widhost.net>
+Message-ID: <20050801083943.85275.qmail@w409.widhost.net>
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
