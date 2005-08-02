@@ -1,41 +1,56 @@
-From: "Simon Barber" <simon@devicescape.com>
-Subject: RE: Why is packet socket checked before bridge in netif_receive_skb?
-Date: Tue, 2 Aug 2005 11:30:40 -0700
-Message-ID: <C86180A8C204554D8A3323D8F6B0A29F776D30@dhost002-46.dex002.intermedia.net>
+From: Mateusz Berezecki <mateuszb@gmail.com>
+Subject: Fwd: opensource atheros driver almost done
+Date: Wed, 3 Aug 2005 00:11:58 +0200
+Message-ID: <aec8d6fc050802151125284155@mail.gmail.com>
+References: <aec8d6fc05080215084f955d44@mail.gmail.com>
+Reply-To: Mateusz Berezecki <mateuszb@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 8bit
-Cc: <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-Content-class: urn:content-classes:message
-To: "David S. Miller" <davem@davemloft.net>
+To: netdev@oss.sgi.com
+In-Reply-To: <aec8d6fc05080215084f955d44@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Ah - OK, so I guess it is an artifact of the reuse of the protocol
-handler structures that means that some packet sockets see frames before
-the bridge and others after. I guess this doesn't cause any problems.
+Hi everyone,
 
-Simon
+I just thought I could have CC'ed that e-mail to netdev list as well
+so I am forwarding the original here.
+
+And yes, I am looking for some kind of assistance ;-)
+
+all the best,
+Mateusz
+
+---------- Forwarded message ----------
+From: Mateusz Berezecki <mateuszb@gmail.com>
+Date: Aug 3, 2005 12:08 AM
+Subject: opensource atheros driver almost done
+To: kernel-mentors@selenic.com
 
 
------Original Message-----
-From: David S. Miller [mailto:davem@davemloft.net] 
-Sent: Tuesday, July 26, 2005 12:59 PM
-To: Simon Barber
-Cc: netdev@oss.sgi.com
-Subject: Re: Why is packet socket checked before bridge in
-netif_receive_skb?
+Hi list members,
 
-From: "Simon Barber" <simon@devicescape.com>
-Subject: Why is packet socket checked before bridge in
-netif_receive_skb?
-Date: Tue, 26 Jul 2005 11:03:17 -0700
+I am about 85 percent done with opensource atheros driver (for 5212
+combo chips at the moment) and I am seeking some help in order to
+connect the driver with kernel routines and
+expose entrypoints so the driver could be used by applications and i
+could finally begin testing.
 
-> The protocol handlers are also used to implement packet sockets. - Why
-> is the all handler checked before the bridge hook?
+the driver source code is located at http://mateusz.agrest.org/atheros/
 
-Because we want packet sniffers to see the packet before the
-bridging layer decapsulates it.
+I am developing that driver using ieee80211 branch of netdev kernel
+tree, and I am not so confident I do things right using new ieee80211
+api. I would appreciate any suggestion
+and review of the source code.
+
+
+thanks a lot,
+Mateusz
+
+--
+Mateusz Berezecki
+http://mateusz.agrest.org
