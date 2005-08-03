@@ -1,7 +1,7 @@
 From: raghavendra.koushik@neterion.com
-Subject: [PATCH 2.6.13-rc4 6/13] S2io: Support for runtime MTU change
-Date: Wed,  3 Aug 2005 12:33:12 -0700 (PDT)
-Message-ID: <20050803193312.5173C98336@linux.site>
+Subject: [PATCH 2.6.13-rc4 8/13] S2io: VLAN support
+Date: Wed,  3 Aug 2005 12:35:55 -0700 (PDT)
+Message-ID: <20050803193555.9E77A98336@linux.site>
 Cc: raghavendra.koushik@neterion.com, ravinandan.arakali@neterion.com,
         leonid.grossman@neterion.com, rapuru.sriram@neterion.com
 Return-path: <netdev-bounce@oss.sgi.com>
@@ -11,62 +11,134 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 Hi,
-Patch below supports MTU change on-the-fly(without bringing interface
-down)
+Patch below adds VLAN support to the driver.
+
 
 Signed-off-by: Ravinandan Arakali <ravinandan.arakali@neterion.com>
 Signed-off-by: Raghavendra Koushik <raghavendra.koushik@neterion.com>
 ---
 diff -uprN vanilla_linux/drivers/net/s2io.c linux-2.6.13-rc4/drivers/net/s2io.c
---- vanilla_linux/drivers/net/s2io.c	2005-08-02 06:03:44.000000000 -0700
-+++ linux-2.6.13-rc4/drivers/net/s2io.c	2005-08-02 06:03:51.000000000 -0700
-@@ -2849,6 +2849,7 @@ int s2io_xmit(struct sk_buff *skb, struc
- 	}
+--- vanilla_linux/drivers/net/s2io.c	2005-08-02 06:31:23.000000000 -0700
++++ linux-2.6.13-rc4/drivers/net/s2io.c	2005-08-02 06:31:39.000000000 -0700
+@@ -55,6 +55,7 @@
+ #include <linux/ethtool.h>
+ #include <linux/version.h>
+ #include <linux/workqueue.h>
++#include <linux/if_vlan.h>
+ 
+ #include <asm/system.h>
+ #include <asm/uaccess.h>
+@@ -174,6 +175,30 @@ static char ethtool_stats_keys[][ETH_GST
+ 			timer.data = (unsigned long) arg;	\
+ 			mod_timer(&timer, (jiffies + exp))	\
+ 
++/* Add the vlan */
++static void s2io_vlan_rx_register(struct net_device *dev,
++					struct vlan_group *grp)
++{
++	nic_t *nic = dev->priv;
++	unsigned long flags;
++
++	spin_lock_irqsave(&nic->tx_lock, flags);
++	nic->vlgrp = grp;
++	spin_unlock_irqrestore(&nic->tx_lock, flags);
++}
++
++/* Unregister the vlan */
++static void s2io_vlan_rx_kill_vid(struct net_device *dev, unsigned long vid)
++{
++	nic_t *nic = dev->priv;
++	unsigned long flags;
++
++	spin_lock_irqsave(&nic->tx_lock, flags);
++	if (nic->vlgrp)
++		nic->vlgrp->vlan_devices[vid] = NULL;
++	spin_unlock_irqrestore(&nic->tx_lock, flags);
++}
++
+ /*
+  * Constants to be programmed into the Xena's registers, to configure
+  * the XAUI.
+@@ -2803,6 +2828,8 @@ int s2io_xmit(struct sk_buff *skb, struc
+ #ifdef NETIF_F_TSO
+ 	int mss;
+ #endif
++	u16 vlan_tag = 0;
++	int vlan_priority = 0;
+ 	mac_info_t *mac_control;
+ 	struct config_param *config;
+ 
+@@ -2821,6 +2848,13 @@ int s2io_xmit(struct sk_buff *skb, struc
+ 
+ 	queue = 0;
+ 
++	/* Get Fifo number to Transmit based on vlan priority */
++	if (sp->vlgrp && vlan_tx_tag_present(skb)) {
++		vlan_tag = vlan_tx_tag_get(skb);
++		vlan_priority = vlan_tag >> 13;
++		queue = config->fifo_mapping[vlan_priority];
++	}
++
+ 	put_off = (u16) mac_control->fifos[queue].tx_curr_put_info.offset;
+ 	get_off = (u16) mac_control->fifos[queue].tx_curr_get_info.offset;
+ 	txdp = (TxD_t *) mac_control->fifos[queue].list_info[put_off].
+@@ -2857,6 +2891,11 @@ int s2io_xmit(struct sk_buff *skb, struc
  
  	txdp->Control_2 |= config->tx_intr_type;
+ 
++	if (sp->vlgrp && vlan_tx_tag_present(skb)) {
++		txdp->Control_2 |= TXD_VLAN_ENABLE;
++		txdp->Control_2 |= TXD_VLAN_TAG(vlan_tag);
++	}
 +
  	txdp->Control_1 |= (TXD_BUFFER0_SIZE(frg_len) |
  			    TXD_GATHER_CODE_FIRST);
  	txdp->Control_1 |= TXD_LIST_OWN_XENA;
-@@ -4246,14 +4247,6 @@ int s2io_ioctl(struct net_device *dev, s
- int s2io_change_mtu(struct net_device *dev, int new_mtu)
- {
- 	nic_t *sp = dev->priv;
--	XENA_dev_config_t __iomem *bar0 = sp->bar0;
--	register u64 val64;
--
--	if (netif_running(dev)) {
--		DBG_PRINT(ERR_DBG, "%s: Must be stopped to ", dev->name);
--		DBG_PRINT(ERR_DBG, "change its MTU\n");
--		return -EBUSY;
--	}
+@@ -4653,10 +4692,23 @@ static int rx_osm_handler(ring_info_t *r
  
- 	if ((new_mtu < MIN_MTU) || (new_mtu > S2IO_JUMBO_SIZE)) {
- 		DBG_PRINT(ERR_DBG, "%s: MTU size is invalid.\n",
-@@ -4261,11 +4254,22 @@ int s2io_change_mtu(struct net_device *d
- 		return -EPERM;
- 	}
- 
--	/* Set the new MTU into the PYLD register of the NIC */
--	val64 = new_mtu;
--	writeq(vBIT(val64, 2, 14), &bar0->rmac_max_pyld_len);
--
- 	dev->mtu = new_mtu;
-+	if (netif_running(dev)) {
-+		s2io_card_down(sp);
-+		netif_stop_queue(dev);
-+		if (s2io_card_up(sp)) {
-+			DBG_PRINT(ERR_DBG, "%s: Device bring up failed\n",
-+				  __FUNCTION__);
-+		}
-+		if (netif_queue_stopped(dev))
-+			netif_wake_queue(dev);
-+	} else { /* Device is down */
-+		XENA_dev_config_t __iomem *bar0 = sp->bar0;
-+		u64 val64 = new_mtu;
-+
-+		writeq(vBIT(val64, 2, 14), &bar0->rmac_max_pyld_len);
+ 	skb->protocol = eth_type_trans(skb, dev);
+ #ifdef CONFIG_S2IO_NAPI
+-	netif_receive_skb(skb);
++	if (sp->vlgrp && RXD_GET_VLAN_TAG(rxdp->Control_2)) {
++		/* Queueing the vlan frame to the upper layer */
++		vlan_hwaccel_receive_skb(skb, sp->vlgrp,
++			RXD_GET_VLAN_TAG(rxdp->Control_2));
++	} else {
++		netif_receive_skb(skb);
 +	}
+ #else
+-	netif_rx(skb);
++	if (sp->vlgrp && RXD_GET_VLAN_TAG(rxdp->Control_2)) {
++		/* Queueing the vlan frame to the upper layer */
++		vlan_hwaccel_rx(skb, sp->vlgrp,
++			RXD_GET_VLAN_TAG(rxdp->Control_2));
++	} else {
++		netif_rx(skb);
++	}
+ #endif
++
+ 	dev->last_rx = jiffies;
+ 	atomic_dec(&sp->rx_bufs_left[ring_no]);
+ 	return SUCCESS;
+@@ -4954,6 +5006,9 @@ s2io_init_nic(struct pci_dev *pdev, cons
+ 	dev->do_ioctl = &s2io_ioctl;
+ 	dev->change_mtu = &s2io_change_mtu;
+ 	SET_ETHTOOL_OPS(dev, &netdev_ethtool_ops);
++	dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
++	dev->vlan_rx_register = s2io_vlan_rx_register;
++	dev->vlan_rx_kill_vid = (void *)s2io_vlan_rx_kill_vid;
  
- 	return 0;
- }
+ 	/*
+ 	 * will use eth_mac_addr() for  dev->set_mac_address
+diff -uprN vanilla_linux/drivers/net/s2io.h linux-2.6.13-rc4/drivers/net/s2io.h
+--- vanilla_linux/drivers/net/s2io.h	2005-08-02 06:31:23.000000000 -0700
++++ linux-2.6.13-rc4/drivers/net/s2io.h	2005-08-02 06:31:39.000000000 -0700
+@@ -689,6 +689,8 @@ struct s2io_nic {
+ #define CARD_UP 2
+ 	atomic_t card_state;
+ 	volatile unsigned long link_state;
++	struct vlan_group *vlgrp;
++
+ 	spinlock_t	rx_lock;
+ 	atomic_t	isr_cnt;
+ };
