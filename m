@@ -1,38 +1,49 @@
-From: Prarit Bhargava <prarit@sgi.com>
-Subject: Re: [PATCH 2.6.12.1 5/12] S2io: Performance improvements
-Date: Wed, 03 Aug 2005 08:48:30 -0400
-Message-ID: <42F0BD1E.7070006@sgi.com>
+From: "DuBuisson, Thomas" <tmdubui@tycho.ncsc.mil>
+Subject: PF_KEY not RCF2367 compliant
+Date: Wed, 3 Aug 2005 11:47:44 -0400
+Message-ID: <0D2F5426C26FD511A1C400B0D0D059680156922E@deliverance.tycho.ncsc.mil>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "'Christoph Hellwig'" <hch@infradead.org>,
-        "'David S. Miller'" <davem@davemloft.net>,
-        raghavendra.koushik@neterion.com, jgarzik@pobox.com,
-        netdev@oss.sgi.com, leonid.grossman@neterion.com,
-        rapuru.sriram@neterion.com
+Content-Type: text/plain;
+	charset="iso-8859-1"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ravinandan.arakali@neterion.com
+To: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> On Tue, Aug 02, 2005 at 04:13:57PM -0700, Ravinandan Arakali wrote:
->> Hi Christoph,
->> Following is SGI's stand on this issue:
->> 
->> SGI recommends that customers use the -sn2 kernel. This is the kernel 
->> that is installed by our factory when we ship systems. The -sn2 
->> kernel is also the kernel that must be run if the Altix has more that 
->> 128 CPUs. So I'd be surprised it the majority of the Altix systems in 
->> the field are not running the -sn2 kernel.
-> 
-> The my argument is wrong for SuSE ;-)  This still needs to be a runtime
-> switch though, not just for this reason.  Platform ifdefs are not the
-> way to go.
+Section 3.1.6 of RFC 2367 clearly indicates there are two cases in which
+user space programs can send the kernel PF_KEY messages.  The first case is
+just the 'struct sadb_msg' header that should specify an error relating to a
+previous acquire message.  I don't think the other case is implemented in
+the Linux kernel - I have reprinted the relevant portion of the RFC below:
 
-Hi Ravinandan,
+------------------
+   The third is where an application-layer consumer of security
+   associations (e.g.  an OSPFv2 or RIPv2 daemon) needs a security
+   association.
 
-Ditto for SGI Altix on Red Hat -- platform specific ifdefs are not the proper 
-way to do this.
+        Send an SADB_ACQUIRE message from a user process to the kernel.
 
-P.
+        <base, address(SD), (address(P),) (identity(SD),) (sensitivity,)
+          proposal>
+
+        The kernel returns an SADB_ACQUIRE message to registered
+          sockets.
+
+        <base, address(SD), (address(P),) (identity(SD),) (sensitivity,)
+          proposal>
+
+        The user-level consumer waits for an SADB_UPDATE or SADB_ADD
+        message for its particular type, and then can use that
+        association by using SADB_GET messages.
+----------
+
+Now for the barrage of questions:
+Was this omitted for a reason?
+Are we aware this was omitted?
+Does someone already have a patch?
+Would a patch be accepted for 2.6.13 if it is sent in time?  This is a bug
+after all.
+
+Cheers,
+Thomas
