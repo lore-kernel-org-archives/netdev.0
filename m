@@ -1,7 +1,7 @@
 From: raghavendra.koushik@neterion.com
-Subject: [PATCH 2.6.13-rc4 5/13] S2io: Performance improvements
-Date: Wed,  3 Aug 2005 12:32:00 -0700 (PDT)
-Message-ID: <20050803193200.4F3E598336@linux.site>
+Subject: [PATCH 2.6.13-rc4 7/13] S2io: Timer based slowpath handling
+Date: Wed,  3 Aug 2005 12:34:11 -0700 (PDT)
+Message-ID: <20050803193411.54C9498336@linux.site>
 Cc: raghavendra.koushik@neterion.com, ravinandan.arakali@neterion.com,
         leonid.grossman@neterion.com, rapuru.sriram@neterion.com
 Return-path: <netdev-bounce@oss.sgi.com>
@@ -11,168 +11,99 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 Hi,
-This patch relates to mostly performance related changes.
-1. Fixed incorrect computation of PANIC level in rx_buffer_level().
-2. Removed unnecessary PIOs(read/write of tx_traffic_int and 
-   rx_traffic_int) from interrupt handler and removed read of
-   general_int_status register from xmit routine.			    
-3. Enable two-buffer mode(for Rx path) automatically for SGI
-   systems. This improves Rx performance dramatically on 
-   SGI systems.
+This patch implements the slow-path handling functions(link
+state change, hardware errors) as a timer. It is not 
+handled in interrupt handler as was done previously.
+
 
 Signed-off-by: Ravinandan Arakali <ravinandan.arakali@neterion.com>
 Signed-off-by: Raghavendra Koushik <raghavendra.koushik@neterion.com>
 ---
 diff -uprN vanilla_linux/drivers/net/s2io.c linux-2.6.13-rc4/drivers/net/s2io.c
---- vanilla_linux/drivers/net/s2io.c	2005-08-02 05:57:48.000000000 -0700
-+++ linux-2.6.13-rc4/drivers/net/s2io.c	2005-08-02 05:58:08.000000000 -0700
-@@ -100,8 +100,7 @@ static inline int rx_buffer_level(nic_t 
- 	mac_control = &sp->mac_control;
- 	if ((mac_control->rings[ring].pkt_cnt - rxb_size) > 16) {
- 		level = LOW;
--		if ((mac_control->rings[ring].pkt_cnt - rxb_size) <
--				MAX_RXDS_PER_BLOCK) {
-+		if (rxb_size <= MAX_RXDS_PER_BLOCK) {
- 			level = PANIC;
- 		}
- 	}
-@@ -2193,7 +2192,6 @@ static void rx_intr_handler(ring_info_t 
- {
- 	nic_t *nic = ring_data->nic;
- 	struct net_device *dev = (struct net_device *) nic->dev;
--	XENA_dev_config_t __iomem *bar0 = nic->bar0;
- 	int get_block, get_offset, put_block, put_offset, ring_bufs;
- 	rx_curr_get_info_t get_info, put_info;
- 	RxD_t *rxdp;
-@@ -2201,8 +2199,6 @@ static void rx_intr_handler(ring_info_t 
- #ifndef CONFIG_S2IO_NAPI
- 	int pkt_cnt = 0;
- #endif
--	register u64 val64;
--
- 	spin_lock(&nic->rx_lock);
- 	if (atomic_read(&nic->card_state) == CARD_DOWN) {
- 		DBG_PRINT(ERR_DBG, "%s: %s going down for reset\n",
-@@ -2210,13 +2206,6 @@ static void rx_intr_handler(ring_info_t 
- 		spin_unlock(&nic->rx_lock);
- 	}
+--- vanilla_linux/drivers/net/s2io.c	2005-08-02 06:25:21.000000000 -0700
++++ linux-2.6.13-rc4/drivers/net/s2io.c	2005-08-02 06:25:31.000000000 -0700
+@@ -168,6 +168,12 @@ static char ethtool_stats_keys[][ETH_GST
+ #define S2IO_TEST_LEN	sizeof(s2io_gstrings) / ETH_GSTRING_LEN
+ #define S2IO_STRINGS_LEN	S2IO_TEST_LEN * ETH_GSTRING_LEN
  
--	/*
--	 * rx_traffic_int reg is an R1 register, hence we read and write
--	 * back the same value in the register to clear it
--	 */
--	val64 = readq(&bar0->tx_traffic_int);
--	writeq(val64, &bar0->tx_traffic_int);
--
- 	get_info = ring_data->rx_curr_get_info;
- 	get_block = get_info.block_index;
- 	put_info = ring_data->rx_curr_put_info;
-@@ -2312,20 +2301,11 @@ static void rx_intr_handler(ring_info_t 
- static void tx_intr_handler(fifo_info_t *fifo_data)
- {
- 	nic_t *nic = fifo_data->nic;
--	XENA_dev_config_t __iomem *bar0 = nic->bar0;
- 	struct net_device *dev = (struct net_device *) nic->dev;
- 	tx_curr_get_info_t get_info, put_info;
- 	struct sk_buff *skb;
- 	TxD_t *txdlp;
- 	u16 j, frg_cnt;
--	register u64 val64 = 0;
--
--	/*
--	 * tx_traffic_int reg is an R1 register, hence we read and write
--	 * back the same value in the register to clear it
--	 */
--	val64 = readq(&bar0->tx_traffic_int);
--	writeq(val64, &bar0->tx_traffic_int);
- 
- 	get_info = fifo_data->tx_curr_get_info;
- 	put_info = fifo_data->tx_curr_put_info;
-@@ -2818,7 +2798,6 @@ int s2io_xmit(struct sk_buff *skb, struc
- #endif
- 	mac_info_t *mac_control;
- 	struct config_param *config;
--	XENA_dev_config_t __iomem *bar0 = sp->bar0;
- 
- 	mac_control = &sp->mac_control;
- 	config = &sp->config;
-@@ -2870,7 +2849,6 @@ int s2io_xmit(struct sk_buff *skb, struc
- 	}
- 
- 	txdp->Control_2 |= config->tx_intr_type;
--
- 	txdp->Control_1 |= (TXD_BUFFER0_SIZE(frg_len) |
- 			    TXD_GATHER_CODE_FIRST);
- 	txdp->Control_1 |= TXD_LIST_OWN_XENA;
-@@ -2890,6 +2868,8 @@ int s2io_xmit(struct sk_buff *skb, struc
- 	val64 = mac_control->fifos[queue].list_info[put_off].list_phy_addr;
- 	writeq(val64, &tx_fifo->TxDL_Pointer);
- 
-+	wmb();
++#define S2IO_TIMER_CONF(timer, handle, arg, exp)		\
++			init_timer(&timer);			\
++			timer.function = handle;		\
++			timer.data = (unsigned long) arg;	\
++			mod_timer(&timer, (jiffies + exp))	\
 +
- 	val64 = (TX_FIFO_LAST_TXD_NUM(frg_cnt) | TX_FIFO_FIRST_LIST |
- 		 TX_FIFO_LAST_LIST);
+ /*
+  * Constants to be programmed into the Xena's registers, to configure
+  * the XAUI.
+@@ -2741,6 +2747,7 @@ int s2io_open(struct net_device *dev)
+ setting_mac_address_failed:
+ 	free_irq(sp->pdev->irq, dev);
+ isr_registration_failed:
++	del_timer_sync(&sp->alarm_timer);
+ 	s2io_reset(sp);
+ hw_init_failed:
+ 	return err;
+@@ -2898,6 +2905,15 @@ int s2io_xmit(struct sk_buff *skb, struc
+ 	return 0;
+ }
  
-@@ -2899,9 +2879,6 @@ int s2io_xmit(struct sk_buff *skb, struc
- #endif
- 	writeq(val64, &tx_fifo->List_Control);
++static void
++s2io_alarm_handle(unsigned long data)
++{
++	nic_t *sp = (nic_t *)data;
++
++	alarm_intr_handler(sp);
++	mod_timer(&sp->alarm_timer, jiffies + HZ / 2);
++}
++
+ /**
+  *  s2io_isr - ISR handler of the device .
+  *  @irq: the irq of the device.
+@@ -2942,9 +2958,6 @@ static irqreturn_t s2io_isr(int irq, voi
+ 		return IRQ_NONE;
+ 	}
  
--	/* Perform a PCI read to flush previous writes */
--	val64 = readq(&bar0->general_int_status);
+-	if (reason & (GEN_ERROR_INTR))
+-		alarm_intr_handler(sp);
 -
- 	put_off++;
- 	put_off %= mac_control->fifos[queue].tx_curr_put_info.fifo_len + 1;
- 	mac_control->fifos[queue].tx_curr_put_info.offset = put_off;
-@@ -2940,7 +2917,7 @@ static irqreturn_t s2io_isr(int irq, voi
- 	nic_t *sp = dev->priv;
- 	XENA_dev_config_t __iomem *bar0 = sp->bar0;
- 	int i;
--	u64 reason = 0;
-+	u64 reason = 0, val64;
- 	mac_info_t *mac_control;
- 	struct config_param *config;
- 
-@@ -2978,6 +2955,13 @@ static irqreturn_t s2io_isr(int irq, voi
- #else
- 	/* If Intr is because of Rx Traffic */
+ #ifdef CONFIG_S2IO_NAPI
  	if (reason & GEN_INTR_RXTRAFFIC) {
-+		/*
-+		 * rx_traffic_int reg is an R1 register, writing all 1's
-+		 * will ensure that the actual interrupt causing bit get's
-+		 * cleared and hence a read can be avoided.
-+		 */
-+		val64 = 0xFFFFFFFFFFFFFFFFULL;
-+		writeq(val64, &bar0->rx_traffic_int);
- 		for (i = 0; i < config->rx_ring_num; i++) {
- 			rx_intr_handler(&mac_control->rings[i]);
- 		}
-@@ -2986,6 +2970,14 @@ static irqreturn_t s2io_isr(int irq, voi
+ 		if (netif_rx_schedule_prep(dev)) {
+@@ -4394,6 +4407,7 @@ static void s2io_card_down(nic_t * sp)
+ 	unsigned long flags;
+ 	register u64 val64 = 0;
  
- 	/* If Intr is because of Tx Traffic */
- 	if (reason & GEN_INTR_TXTRAFFIC) {
-+		/*
-+		 * tx_traffic_int reg is an R1 register, writing all 1's
-+		 * will ensure that the actual interrupt causing bit get's
-+		 * cleared and hence a read can be avoided.
-+		 */
-+		val64 = 0xFFFFFFFFFFFFFFFFULL;
-+		writeq(val64, &bar0->tx_traffic_int);
-+
- 		for (i = 0; i < config->tx_fifo_num; i++)
- 			tx_intr_handler(&mac_control->fifos[i]);
++	del_timer_sync(&sp->alarm_timer);
+ 	/* If s2io_set_link task is executing, wait till it completes. */
+ 	while (test_and_set_bit(0, &(sp->link_state))) {
+ 		msleep(50);
+@@ -4496,6 +4510,8 @@ static int s2io_card_up(nic_t * sp)
+ 		return -ENODEV;
  	}
-diff -uprN vanilla_linux/drivers/net/s2io.h linux-2.6.13-rc4/drivers/net/s2io.h
---- vanilla_linux/drivers/net/s2io.h	2005-08-02 05:57:48.000000000 -0700
-+++ linux-2.6.13-rc4/drivers/net/s2io.h	2005-08-02 05:58:08.000000000 -0700
-@@ -13,6 +13,11 @@
- #ifndef _S2IO_H
- #define _S2IO_H
  
-+/* Enable 2 buffer mode by default for SGI system */
-+#ifdef CONFIG_IA64_SGI_SN2
-+#define CONFIG_2BUFF_MODE
-+#endif
++	S2IO_TIMER_CONF(sp->alarm_timer, s2io_alarm_handle, sp, (HZ/2));
 +
- #define TBD 0
- #define BIT(loc)		(0x8000000000000000ULL >> (loc))
- #define vBIT(val, loc, sz)	(((u64)val) << (64-loc-sz))
+ 	atomic_set(&sp->card_state, CARD_UP);
+ 	return 0;
+ }
+diff -uprN vanilla_linux/drivers/net/s2io.h linux-2.6.13-rc4/drivers/net/s2io.h
+--- vanilla_linux/drivers/net/s2io.h	2005-08-02 06:25:21.000000000 -0700
++++ linux-2.6.13-rc4/drivers/net/s2io.h	2005-08-02 06:25:31.000000000 -0700
+@@ -624,6 +624,9 @@ struct s2io_nic {
+ 	struct tasklet_struct task;
+ 	volatile unsigned long tasklet_status;
+ 
++	/* Timer that handles I/O errors/exceptions */
++	struct timer_list alarm_timer;
++
+ 	/* Space to back up the PCI config space */
+ 	u32 config_space[256 / sizeof(u32)];
+ 
+@@ -819,6 +822,7 @@ static int s2io_poll(struct net_device *
+ #endif
+ static void s2io_init_pci(nic_t * sp);
+ int s2io_set_mac_addr(struct net_device *dev, u8 * addr);
++static void s2io_alarm_handle(unsigned long data);
+ static irqreturn_t s2io_isr(int irq, void *dev_id, struct pt_regs *regs);
+ static int verify_xena_quiescence(nic_t *sp, u64 val64, int flag);
+ static struct ethtool_ops netdev_ethtool_ops;
