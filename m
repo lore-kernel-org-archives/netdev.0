@@ -1,7 +1,7 @@
 From: raghavendra.koushik@neterion.com
-Subject: [PATCH 2.6.13-rc4 10/13] S2io: Support for bimodal interrupts
-Date: Wed,  3 Aug 2005 12:38:01 -0700 (PDT)
-Message-ID: <20050803193801.1649298336@linux.site>
+Subject: [PATCH 2.6.13-rc4 11/13] S2io: New link handling scheme for Xframe II
+Date: Wed,  3 Aug 2005 12:38:59 -0700 (PDT)
+Message-ID: <20050803193859.C556A98336@linux.site>
 Cc: raghavendra.koushik@neterion.com, ravinandan.arakali@neterion.com,
         leonid.grossman@neterion.com, rapuru.sriram@neterion.com
 Return-path: <netdev-bounce@oss.sgi.com>
@@ -11,201 +11,278 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 Hi,
-This is a patch to provide bimodal interrupt moderation support for
-Xframe II adapter. Basically, in this moderation scheme, the adapter
-raises a traffic interrupt if the no. of packets transmitted and/or
-received reaches a programmable threshold.
-
+The below patch implements a new "Link state change handling"
+scheme supported by the Xframe II adapter. It also bumps up the
+driver version to 2.0.2.0.
 
 Signed-off-by: Ravinandan Arakali <ravinandan.arakali@neterion.com>
 Signed-off-by: Raghavendra Koushik <raghavendra.koushik@neterion.com>
 ---
+diff -uprN vanilla_linux/drivers/net/s2io-regs.h linux-2.6.13-rc4/drivers/net/s2io-regs.h
+--- vanilla_linux/drivers/net/s2io-regs.h	2005-08-02 06:59:35.000000000 -0700
++++ linux-2.6.13-rc4/drivers/net/s2io-regs.h	2005-08-02 06:59:45.000000000 -0700
+@@ -167,7 +167,11 @@ typedef struct _XENA_dev_config {
+ 	u8 unused4[0x08];
+ 
+ 	u64 gpio_int_reg;
++#define GPIO_INT_REG_LINK_DOWN                 BIT(1)
++#define GPIO_INT_REG_LINK_UP                   BIT(2)
+ 	u64 gpio_int_mask;
++#define GPIO_INT_MASK_LINK_DOWN                BIT(1)
++#define GPIO_INT_MASK_LINK_UP                  BIT(2)
+ 	u64 gpio_alarms;
+ 
+ 	u8 unused5[0x38];
+@@ -279,8 +283,10 @@ typedef struct _XENA_dev_config {
+ 
+ 	u64 gpio_control;
+ #define GPIO_CTRL_GPIO_0		BIT(8)
++	u64 misc_control;
++#define MISC_LINK_STABILITY_PRD(val)   vBIT(val,29,3)
+ 
+-	u8 unused7_1[0x240 - 0x200];
++	u8 unused7_1[0x240 - 0x208];
+ 
+ 	u64 wreq_split_mask;
+ #define	WREQ_SPLIT_MASK_SET_MASK(val)	vBIT(val, 52, 12)
 diff -uprN vanilla_linux/drivers/net/s2io.c linux-2.6.13-rc4/drivers/net/s2io.c
---- vanilla_linux/drivers/net/s2io.c	2005-08-02 06:50:49.000000000 -0700
-+++ linux-2.6.13-rc4/drivers/net/s2io.c	2005-08-02 06:54:23.000000000 -0700
-@@ -297,6 +297,7 @@ static unsigned int mc_pause_threshold_q
- static unsigned int shared_splits;
- static unsigned int tmac_util_period = 5;
- static unsigned int rmac_util_period = 5;
-+static unsigned int bimodal = 0;
- #ifndef CONFIG_S2IO_NAPI
- static unsigned int indicate_max_pkts;
- #endif
-@@ -1306,52 +1307,86 @@ static int init_nic(struct s2io_nic *nic
- 		time++;
+--- vanilla_linux/drivers/net/s2io.c	2005-08-02 06:59:35.000000000 -0700
++++ linux-2.6.13-rc4/drivers/net/s2io.c	2005-08-02 06:59:45.000000000 -0700
+@@ -67,7 +67,7 @@
+ 
+ /* S2io Driver name & version. */
+ static char s2io_driver_name[] = "Neterion";
+-static char s2io_driver_version[] = "Version 1.7.7";
++static char s2io_driver_version[] = "Version 2.0.2.0";
+ 
+ static inline int RXD_IS_UP2DT(RxD_t *rxdp)
+ {
+@@ -1456,8 +1456,28 @@ static int init_nic(struct s2io_nic *nic
+ 		writeq(val64, &bar0->wreq_split_mask);
  	}
  
-+	if (nic->config.bimodal) {
-+		int k = 0;
-+		for (k = 0; k < config->rx_ring_num; k++) {
-+			val64 = TTI_CMD_MEM_WE | TTI_CMD_MEM_STROBE_NEW_CMD;
-+			val64 |= TTI_CMD_MEM_OFFSET(0x38+k);
-+			writeq(val64, &bar0->tti_command_mem);
- 
--	/* RTI Initialization */
--	if (nic->device_type == XFRAME_II_DEVICE) {
- 		/*
--		 * Programmed to generate Apprx 500 Intrs per
--		 * second
--		 */
--		int count = (nic->config.bus_speed * 125)/4;
--		val64 = RTI_DATA1_MEM_RX_TIMER_VAL(count);
-+		 * Once the operation completes, the Strobe bit of the command
-+		 * register will be reset. We poll for this particular condition
-+		 * We wait for a maximum of 500ms for the operation to complete,
-+		 * if it's not complete by then we return error.
-+		*/
-+			time = 0;
-+			while (TRUE) {
-+				val64 = readq(&bar0->tti_command_mem);
-+				if (!(val64 & TTI_CMD_MEM_STROBE_NEW_CMD)) {
-+					break;
-+				}
-+				if (time > 10) {
-+					DBG_PRINT(ERR_DBG,
-+						"%s: TTI init Failed\n",
-+					dev->name);
-+					return -1;
-+				}
-+				time++;
-+				msleep(50);
-+			}
-+		}
- 	} else {
--		val64 = RTI_DATA1_MEM_RX_TIMER_VAL(0xFFF);
--	}
--	val64 |= RTI_DATA1_MEM_RX_URNG_A(0xA) |
--	    RTI_DATA1_MEM_RX_URNG_B(0x10) |
--	    RTI_DATA1_MEM_RX_URNG_C(0x30) | RTI_DATA1_MEM_RX_TIMER_AC_EN;
--
--	writeq(val64, &bar0->rti_data1_mem);
- 
--	val64 = RTI_DATA2_MEM_RX_UFC_A(0x1) |
--	    RTI_DATA2_MEM_RX_UFC_B(0x2) |
--	    RTI_DATA2_MEM_RX_UFC_C(0x40) | RTI_DATA2_MEM_RX_UFC_D(0x80);
--	writeq(val64, &bar0->rti_data2_mem);
-+		/* RTI Initialization */
-+		if (nic->device_type == XFRAME_II_DEVICE) {
-+			/*
-+			 * Programmed to generate Apprx 500 Intrs per
-+			 * second
-+			 */
-+			int count = (nic->config.bus_speed * 125)/4;
-+			val64 = RTI_DATA1_MEM_RX_TIMER_VAL(count);
-+		} else {
-+			val64 = RTI_DATA1_MEM_RX_TIMER_VAL(0xFFF);
-+		}
-+		val64 |= RTI_DATA1_MEM_RX_URNG_A(0xA) |
-+		    RTI_DATA1_MEM_RX_URNG_B(0x10) |
-+		    RTI_DATA1_MEM_RX_URNG_C(0x30) | RTI_DATA1_MEM_RX_TIMER_AC_EN;
-+
-+		writeq(val64, &bar0->rti_data1_mem);
-+
-+		val64 = RTI_DATA2_MEM_RX_UFC_A(0x1) |
-+		    RTI_DATA2_MEM_RX_UFC_B(0x2) |
-+		    RTI_DATA2_MEM_RX_UFC_C(0x40) | RTI_DATA2_MEM_RX_UFC_D(0x80);
-+		writeq(val64, &bar0->rti_data2_mem);
- 
--	val64 = RTI_CMD_MEM_WE | RTI_CMD_MEM_STROBE_NEW_CMD;
--	writeq(val64, &bar0->rti_command_mem);
-+		for (i = 0; i < config->rx_ring_num; i++) {
-+			val64 = RTI_CMD_MEM_WE | RTI_CMD_MEM_STROBE_NEW_CMD
-+					| RTI_CMD_MEM_OFFSET(i);
-+			writeq(val64, &bar0->rti_command_mem);
- 
--	/*
--	 * Once the operation completes, the Strobe bit of the
--	 * command register will be reset. We poll for this
--	 * particular condition. We wait for a maximum of 500ms
--	 * for the operation to complete, if it's not complete
--	 * by then we return error.
--	 */
--	time = 0;
--	while (TRUE) {
--		val64 = readq(&bar0->rti_command_mem);
--		if (!(val64 & RTI_CMD_MEM_STROBE_NEW_CMD)) {
--			break;
--		}
--		if (time > 10) {
--			DBG_PRINT(ERR_DBG, "%s: RTI init Failed\n",
--				  dev->name);
--			return -1;
-+			/*
-+			 * Once the operation completes, the Strobe bit of the
-+			 * command register will be reset. We poll for this
-+			 * particular condition. We wait for a maximum of 500ms
-+			 * for the operation to complete, if it's not complete
-+			 * by then we return error.
-+			 */
-+			time = 0;
-+			while (TRUE) {
-+				val64 = readq(&bar0->rti_command_mem);
-+				if (!(val64 & RTI_CMD_MEM_STROBE_NEW_CMD)) {
-+					break;
-+				}
-+				if (time > 10) {
-+					DBG_PRINT(ERR_DBG, "%s: RTI init Failed\n",
-+						  dev->name);
-+					return -1;
-+				}
-+				time++;
-+				msleep(50);
-+			}
- 		}
--		time++;
--		msleep(50);
- 	}
- 
- 	/*
-@@ -1789,6 +1824,8 @@ static int start_nic(struct s2io_nic *ni
- 		       &bar0->prc_rxd0_n[i]);
- 
- 		val64 = readq(&bar0->prc_ctrl_n[i]);
-+		if (nic->config.bimodal)
-+			val64 |= PRC_CTRL_BIMODAL_INTERRUPT;
- #ifndef CONFIG_2BUFF_MODE
- 		val64 |= PRC_CTRL_RC_ENABLED;
- #else
-@@ -5030,6 +5067,7 @@ module_param(mc_pause_threshold_q4q7, in
- module_param(shared_splits, int, 0);
- module_param(tmac_util_period, int, 0);
- module_param(rmac_util_period, int, 0);
-+module_param(bimodal, bool, 0);
- #ifndef CONFIG_S2IO_NAPI
- module_param(indicate_max_pkts, int, 0);
- #endif
-@@ -5397,6 +5435,14 @@ s2io_init_nic(struct pci_dev *pdev, cons
- 	else
- 		strcat(sp->name, ": Neterion Xframe I 10GbE adapter");
- 
-+	/* Initialize bimodal Interrupts */
-+	sp->config.bimodal = bimodal;
-+	if (!(sp->device_type & XFRAME_II_DEVICE) && bimodal) {
-+		sp->config.bimodal = 0;
-+		DBG_PRINT(ERR_DBG,"%s:Bimodal intr not supported by Xframe I\n",
-+			dev->name);
++	/* Setting Link stability period to 64 ms */ 
++	if (nic->device_type == XFRAME_II_DEVICE) {
++		val64 = MISC_LINK_STABILITY_PRD(3);
++		writeq(val64, &bar0->misc_control);
 +	}
 +
- 	/*
- 	 * Make Link state as off at this point, when the Link change
- 	 * interrupt comes the state will be automatically changed to
-diff -uprN vanilla_linux/drivers/net/s2io.h linux-2.6.13-rc4/drivers/net/s2io.h
---- vanilla_linux/drivers/net/s2io.h	2005-08-02 06:50:49.000000000 -0700
-+++ linux-2.6.13-rc4/drivers/net/s2io.h	2005-08-02 06:54:23.000000000 -0700
-@@ -261,8 +261,6 @@ typedef struct stat_block {
- 	u32 rmac_accepted_ip_oflow;
- 	u32 reserved_14;
- 	u32 link_fault_cnt;
+ 	return SUCCESS;
+ }
++#define LINK_UP_DOWN_INTERRUPT		1
++#define MAC_RMAC_ERR_TIMER		2
++
++#if defined(CONFIG_MSI_MODE) || defined(CONFIG_MSIX_MODE)
++#define s2io_link_fault_indication(x) MAC_RMAC_ERR_TIMER
++#else
++int s2io_link_fault_indication(nic_t *nic)
++{
++	if (nic->device_type == XFRAME_II_DEVICE)
++		return LINK_UP_DOWN_INTERRUPT;
++	else
++		return MAC_RMAC_ERR_TIMER;
++}
++#endif
+ 
+ /**
+  *  en_dis_able_nic_intrs - Enable or Disable the interrupts
+@@ -1485,11 +1505,22 @@ static void en_dis_able_nic_intrs(struct
+ 			temp64 &= ~((u64) val64);
+ 			writeq(temp64, &bar0->general_int_mask);
+ 			/*
+-			 * Disabled all PCIX, Flash, MDIO, IIC and GPIO
++			 * If Hercules adapter enable GPIO otherwise
++			 * disabled all PCIX, Flash, MDIO, IIC and GPIO
+ 			 * interrupts for now.
+ 			 * TODO
+ 			 */
+-			writeq(DISABLE_ALL_INTRS, &bar0->pic_int_mask);
++			if (s2io_link_fault_indication(nic) ==
++					LINK_UP_DOWN_INTERRUPT ) {
++				temp64 = readq(&bar0->pic_int_mask);
++				temp64 &= ~((u64) PIC_INT_GPIO);
++				writeq(temp64, &bar0->pic_int_mask);
++				temp64 = readq(&bar0->gpio_int_mask);
++				temp64 &= ~((u64) GPIO_INT_MASK_LINK_UP);
++				writeq(temp64, &bar0->gpio_int_mask);
++			} else {
++				writeq(DISABLE_ALL_INTRS, &bar0->pic_int_mask);
++			}
+ 			/*
+ 			 * No MSI Support is available presently, so TTI and
+ 			 * RTI interrupts are also disabled.
+@@ -1580,17 +1611,8 @@ static void en_dis_able_nic_intrs(struct
+ 			writeq(temp64, &bar0->general_int_mask);
+ 			/*
+ 			 * All MAC block error interrupts are disabled for now
+-			 * except the link status change interrupt.
+ 			 * TODO
+ 			 */
+-			val64 = MAC_INT_STATUS_RMAC_INT;
+-			temp64 = readq(&bar0->mac_int_mask);
+-			temp64 &= ~((u64) val64);
+-			writeq(temp64, &bar0->mac_int_mask);
 -
--/* Software statistics maintained by driver */
- 	swStat_t sw_stat;
- } StatInfo_t;
+-			val64 = readq(&bar0->mac_rmac_err_mask);
+-			val64 &= ~((u64) RMAC_LINK_STATE_CHANGE_INT);
+-			writeq(val64, &bar0->mac_rmac_err_mask);
+ 		} else if (flag == DISABLE_INTRS) {
+ 			/*
+ 			 * Disable MAC Intrs in the general intr mask register
+@@ -1879,8 +1901,10 @@ static int start_nic(struct s2io_nic *ni
+ 	}
  
-@@ -349,6 +347,7 @@ struct config_param {
- #define MAX_RX_BLOCKS_PER_RING  150
+ 	/*  Enable select interrupts */
+-	interruptible = TX_TRAFFIC_INTR | RX_TRAFFIC_INTR | TX_MAC_INTR |
+-	    RX_MAC_INTR | MC_INTR;
++	interruptible = TX_TRAFFIC_INTR | RX_TRAFFIC_INTR | MC_INTR;
++	interruptible |= TX_PIC_INTR | RX_PIC_INTR;
++	interruptible |= TX_MAC_INTR | RX_MAC_INTR;
++
+ 	en_dis_able_nic_intrs(nic, interruptible, ENABLE_INTRS);
  
- 	rx_ring_config_t rx_cfg[MAX_RX_RINGS];	/*Per-Rx Ring config */
-+	u8 bimodal;		/*Flag for setting bimodal interrupts*/
+ 	/*
+@@ -2004,8 +2028,9 @@ static void stop_nic(struct s2io_nic *ni
+ 	config = &nic->config;
  
- #define HEADER_ETHERNET_II_802_3_SIZE 14
- #define HEADER_802_2_SIZE              3
+ 	/*  Disable all interrupts */
+-	interruptible = TX_TRAFFIC_INTR | RX_TRAFFIC_INTR | TX_MAC_INTR |
+-	    RX_MAC_INTR | MC_INTR;
++	interruptible = TX_TRAFFIC_INTR | RX_TRAFFIC_INTR | MC_INTR;
++	interruptible |= TX_PIC_INTR | RX_PIC_INTR;
++	interruptible |= TX_MAC_INTR | RX_MAC_INTR;
+ 	en_dis_able_nic_intrs(nic, interruptible, DISABLE_INTRS);
+ 
+ 	/*  Disable PRCs */
+@@ -2618,10 +2643,12 @@ static void alarm_intr_handler(struct s2
+ 	register u64 val64 = 0, err_reg = 0;
+ 
+ 	/* Handling link status change error Intr */
+-	err_reg = readq(&bar0->mac_rmac_err_reg);
+-	writeq(err_reg, &bar0->mac_rmac_err_reg);
+-	if (err_reg & RMAC_LINK_STATE_CHANGE_INT) {
+-		schedule_work(&nic->set_link_task);
++	if (s2io_link_fault_indication(nic) == MAC_RMAC_ERR_TIMER) {
++		err_reg = readq(&bar0->mac_rmac_err_reg);
++		writeq(err_reg, &bar0->mac_rmac_err_reg);
++		if (err_reg & RMAC_LINK_STATE_CHANGE_INT) {
++			schedule_work(&nic->set_link_task);
++		}
+ 	}
+ 
+ 	/* Handling Ecc errors */
+@@ -2947,7 +2974,7 @@ int s2io_open(struct net_device *dev)
+ 	 * Nic is initialized
+ 	 */
+ 	netif_carrier_off(dev);
+-	sp->last_link_state = 0; /* Unkown link state */
++	sp->last_link_state = LINK_DOWN;
+ 
+ 	/* Initialize H/W and enable interrupts */
+ 	if (s2io_card_up(sp)) {
+@@ -3159,6 +3186,53 @@ s2io_alarm_handle(unsigned long data)
+ 	mod_timer(&sp->alarm_timer, jiffies + HZ / 2);
+ }
+ 
++static void s2io_txpic_intr_handle(nic_t *sp)
++{
++	XENA_dev_config_t *bar0 = (XENA_dev_config_t *) sp->bar0;
++	u64 val64;
++
++	val64 = readq(&bar0->pic_int_status);
++	if (val64 & PIC_INT_GPIO) {
++		val64 = readq(&bar0->gpio_int_reg);
++		if ((val64 & GPIO_INT_REG_LINK_DOWN) &&
++		    (val64 & GPIO_INT_REG_LINK_UP)) {
++			val64 |=  GPIO_INT_REG_LINK_DOWN;
++			val64 |= GPIO_INT_REG_LINK_UP;
++			writeq(val64, &bar0->gpio_int_reg);
++			goto masking;
++		}
++
++		if (((sp->last_link_state == LINK_UP) &&
++			(val64 & GPIO_INT_REG_LINK_DOWN)) ||
++		((sp->last_link_state == LINK_DOWN) &&
++		(val64 & GPIO_INT_REG_LINK_UP))) {
++			val64 = readq(&bar0->gpio_int_mask);
++			val64 |=  GPIO_INT_MASK_LINK_DOWN;
++			val64 |= GPIO_INT_MASK_LINK_UP;
++			writeq(val64, &bar0->gpio_int_mask);
++			s2io_set_link((unsigned long)sp);
++		}
++masking:
++		if (sp->last_link_state == LINK_UP) {
++			/*enable down interrupt */
++			val64 = readq(&bar0->gpio_int_mask);
++			/* unmasks link down intr */
++			val64 &=  ~GPIO_INT_MASK_LINK_DOWN;
++			/* masks link up intr */
++			val64 |= GPIO_INT_MASK_LINK_UP;
++			writeq(val64, &bar0->gpio_int_mask);
++		} else {
++			/*enable UP Interrupt */
++			val64 = readq(&bar0->gpio_int_mask);
++			/* unmasks link up interrupt */
++			val64 &= ~GPIO_INT_MASK_LINK_UP;
++			/* masks link down interrupt */
++			val64 |=  GPIO_INT_MASK_LINK_DOWN;
++			writeq(val64, &bar0->gpio_int_mask);
++		}
++	}
++}
++
+ /**
+  *  s2io_isr - ISR handler of the device .
+  *  @irq: the irq of the device.
+@@ -3241,6 +3315,8 @@ static irqreturn_t s2io_isr(int irq, voi
+ 			tx_intr_handler(&mac_control->fifos[i]);
+ 	}
+ 
++	if (reason & GEN_INTR_TXPIC)
++		s2io_txpic_intr_handle(sp);
+ 	/*
+ 	 * If the Rx buffer count is below the panic threshold then
+ 	 * reallocate the buffers from the interrupt handler itself,
+@@ -4644,11 +4720,13 @@ static void s2io_set_link(unsigned long 
+ 	}
+ 
+ 	subid = nic->pdev->subsystem_device;
+-	/*
+-	 * Allow a small delay for the NICs self initiated
+-	 * cleanup to complete.
+-	 */
+-	msleep(100);
++	if (s2io_link_fault_indication(nic) == MAC_RMAC_ERR_TIMER) {
++		/*
++		 * Allow a small delay for the NICs self initiated
++		 * cleanup to complete.
++		 */
++		msleep(100);
++	}
+ 
+ 	val64 = readq(&bar0->adapter_status);
+ 	if (verify_xena_quiescence(nic, val64, nic->device_enabled_once)) {
+@@ -4666,13 +4744,16 @@ static void s2io_set_link(unsigned long 
+ 				val64 |= ADAPTER_LED_ON;
+ 				writeq(val64, &bar0->adapter_control);
+ 			}
+-			val64 = readq(&bar0->adapter_status);
+-			if (!LINK_IS_UP(val64)) {
+-				DBG_PRINT(ERR_DBG, "%s:", dev->name);
+-				DBG_PRINT(ERR_DBG, " Link down");
+-				DBG_PRINT(ERR_DBG, "after ");
+-				DBG_PRINT(ERR_DBG, "enabling ");
+-				DBG_PRINT(ERR_DBG, "device \n");
++			if (s2io_link_fault_indication(nic) ==
++						MAC_RMAC_ERR_TIMER) {
++				val64 = readq(&bar0->adapter_status);
++				if (!LINK_IS_UP(val64)) {
++					DBG_PRINT(ERR_DBG, "%s:", dev->name);
++					DBG_PRINT(ERR_DBG, " Link down");
++					DBG_PRINT(ERR_DBG, "after ");
++					DBG_PRINT(ERR_DBG, "enabling ");
++					DBG_PRINT(ERR_DBG, "device \n");
++				}
+ 			}
+ 			if (nic->device_enabled_once == FALSE) {
+ 				nic->device_enabled_once = TRUE;
