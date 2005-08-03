@@ -1,7 +1,7 @@
 From: raghavendra.koushik@neterion.com
-Subject: [PATCH 2.6.13-rc4 11/13] S2io: New link handling scheme for Xframe II
-Date: Wed,  3 Aug 2005 12:38:59 -0700 (PDT)
-Message-ID: <20050803193859.C556A98336@linux.site>
+Subject: [PATCH 2.6.13-rc4 12/13] S2io: Miscellaneous fixes
+Date: Wed,  3 Aug 2005 12:39:56 -0700 (PDT)
+Message-ID: <20050803193956.E293198336@linux.site>
 Cc: raghavendra.koushik@neterion.com, ravinandan.arakali@neterion.com,
         leonid.grossman@neterion.com, rapuru.sriram@neterion.com
 Return-path: <netdev-bounce@oss.sgi.com>
@@ -11,278 +11,146 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 Hi,
-The below patch implements a new "Link state change handling"
-scheme supported by the Xframe II adapter. It also bumps up the
-driver version to 2.0.2.0.
+The last patch in this series fixes the following issues found during
+testing.
+1. Ensure we don't pass zero sized buffers to the card(which can lockup) 
+2. Restore the PCI-X parameters(in case of Xframe I adapter) after a reset.
+3. Make sure total size of all FIFOs does not exceed 8192.
 
 Signed-off-by: Ravinandan Arakali <ravinandan.arakali@neterion.com>
 Signed-off-by: Raghavendra Koushik <raghavendra.koushik@neterion.com>
 ---
-diff -uprN vanilla_linux/drivers/net/s2io-regs.h linux-2.6.13-rc4/drivers/net/s2io-regs.h
---- vanilla_linux/drivers/net/s2io-regs.h	2005-08-02 06:59:35.000000000 -0700
-+++ linux-2.6.13-rc4/drivers/net/s2io-regs.h	2005-08-02 06:59:45.000000000 -0700
-@@ -167,7 +167,11 @@ typedef struct _XENA_dev_config {
- 	u8 unused4[0x08];
- 
- 	u64 gpio_int_reg;
-+#define GPIO_INT_REG_LINK_DOWN                 BIT(1)
-+#define GPIO_INT_REG_LINK_UP                   BIT(2)
- 	u64 gpio_int_mask;
-+#define GPIO_INT_MASK_LINK_DOWN                BIT(1)
-+#define GPIO_INT_MASK_LINK_UP                  BIT(2)
- 	u64 gpio_alarms;
- 
- 	u8 unused5[0x38];
-@@ -279,8 +283,10 @@ typedef struct _XENA_dev_config {
- 
- 	u64 gpio_control;
- #define GPIO_CTRL_GPIO_0		BIT(8)
-+	u64 misc_control;
-+#define MISC_LINK_STABILITY_PRD(val)   vBIT(val,29,3)
- 
--	u8 unused7_1[0x240 - 0x200];
-+	u8 unused7_1[0x240 - 0x208];
- 
- 	u64 wreq_split_mask;
- #define	WREQ_SPLIT_MASK_SET_MASK(val)	vBIT(val, 52, 12)
 diff -uprN vanilla_linux/drivers/net/s2io.c linux-2.6.13-rc4/drivers/net/s2io.c
---- vanilla_linux/drivers/net/s2io.c	2005-08-02 06:59:35.000000000 -0700
-+++ linux-2.6.13-rc4/drivers/net/s2io.c	2005-08-02 06:59:45.000000000 -0700
-@@ -67,7 +67,7 @@
- 
- /* S2io Driver name & version. */
- static char s2io_driver_name[] = "Neterion";
--static char s2io_driver_version[] = "Version 1.7.7";
-+static char s2io_driver_version[] = "Version 2.0.2.0";
- 
- static inline int RXD_IS_UP2DT(RxD_t *rxdp)
- {
-@@ -1456,8 +1456,28 @@ static int init_nic(struct s2io_nic *nic
- 		writeq(val64, &bar0->wreq_split_mask);
+--- vanilla_linux/drivers/net/s2io.c	2005-08-02 07:05:12.000000000 -0700
++++ linux-2.6.13-rc4/drivers/net/s2io.c	2005-08-02 07:05:24.000000000 -0700
+@@ -365,10 +365,9 @@ static int init_shared_mem(struct s2io_n
+ 		size += config->tx_cfg[i].fifo_len;
+ 	}
+ 	if (size > MAX_AVAILABLE_TXDS) {
+-		DBG_PRINT(ERR_DBG, "%s: Total number of Tx FIFOs ",
+-			  dev->name);
+-		DBG_PRINT(ERR_DBG, "exceeds the maximum value ");
+-		DBG_PRINT(ERR_DBG, "that can be used\n");
++		DBG_PRINT(ERR_DBG, "%s: Requested TxDs too high, ",
++			  __FUNCTION__);
++		DBG_PRINT(ERR_DBG, "Requested: %d, max supported: 8192\n", size);
+ 		return FAILURE;
  	}
  
-+	/* Setting Link stability period to 64 ms */ 
-+	if (nic->device_type == XFRAME_II_DEVICE) {
-+		val64 = MISC_LINK_STABILITY_PRD(3);
-+		writeq(val64, &bar0->misc_control);
-+	}
-+
- 	return SUCCESS;
- }
-+#define LINK_UP_DOWN_INTERRUPT		1
-+#define MAC_RMAC_ERR_TIMER		2
-+
-+#if defined(CONFIG_MSI_MODE) || defined(CONFIG_MSIX_MODE)
-+#define s2io_link_fault_indication(x) MAC_RMAC_ERR_TIMER
-+#else
-+int s2io_link_fault_indication(nic_t *nic)
-+{
-+	if (nic->device_type == XFRAME_II_DEVICE)
-+		return LINK_UP_DOWN_INTERRUPT;
-+	else
-+		return MAC_RMAC_ERR_TIMER;
-+}
-+#endif
+@@ -611,8 +610,9 @@ static void free_shared_mem(struct s2io_
+ 						lst_per_page);
+ 		for (j = 0; j < page_num; j++) {
+ 			int mem_blks = (j * lst_per_page);
+-			if (!mac_control->fifos[i].list_info[mem_blks].
+-			    list_virt_addr)
++			if ((!mac_control->fifos[i].list_info) ||
++				(!mac_control->fifos[i].list_info[mem_blks].
++				 list_virt_addr))
+ 				break;
+ 			pci_free_consistent(nic->pdev, PAGE_SIZE,
+ 					    mac_control->fifos[i].
+@@ -2594,6 +2594,8 @@ static void tx_intr_handler(fifo_info_t 
+ 			for (j = 0; j < frg_cnt; j++, txdlp++) {
+ 				skb_frag_t *frag =
+ 				    &skb_shinfo(skb)->frags[j];
++				if (!txdlp->Buffer_Pointer)
++					break;
+ 				pci_unmap_page(nic->pdev,
+ 					       (dma_addr_t)
+ 					       txdlp->
+@@ -2744,6 +2746,10 @@ void s2io_reset(nic_t * sp)
+ 	u64 val64;
+ 	u16 subid, pci_cmd;
  
- /**
-  *  en_dis_able_nic_intrs - Enable or Disable the interrupts
-@@ -1485,11 +1505,22 @@ static void en_dis_able_nic_intrs(struct
- 			temp64 &= ~((u64) val64);
- 			writeq(temp64, &bar0->general_int_mask);
- 			/*
--			 * Disabled all PCIX, Flash, MDIO, IIC and GPIO
-+			 * If Hercules adapter enable GPIO otherwise
-+			 * disabled all PCIX, Flash, MDIO, IIC and GPIO
- 			 * interrupts for now.
- 			 * TODO
- 			 */
--			writeq(DISABLE_ALL_INTRS, &bar0->pic_int_mask);
-+			if (s2io_link_fault_indication(nic) ==
-+					LINK_UP_DOWN_INTERRUPT ) {
-+				temp64 = readq(&bar0->pic_int_mask);
-+				temp64 &= ~((u64) PIC_INT_GPIO);
-+				writeq(temp64, &bar0->pic_int_mask);
-+				temp64 = readq(&bar0->gpio_int_mask);
-+				temp64 &= ~((u64) GPIO_INT_MASK_LINK_UP);
-+				writeq(temp64, &bar0->gpio_int_mask);
-+			} else {
-+				writeq(DISABLE_ALL_INTRS, &bar0->pic_int_mask);
-+			}
- 			/*
- 			 * No MSI Support is available presently, so TTI and
- 			 * RTI interrupts are also disabled.
-@@ -1580,17 +1611,8 @@ static void en_dis_able_nic_intrs(struct
- 			writeq(temp64, &bar0->general_int_mask);
- 			/*
- 			 * All MAC block error interrupts are disabled for now
--			 * except the link status change interrupt.
- 			 * TODO
- 			 */
--			val64 = MAC_INT_STATUS_RMAC_INT;
--			temp64 = readq(&bar0->mac_int_mask);
--			temp64 &= ~((u64) val64);
--			writeq(temp64, &bar0->mac_int_mask);
--
--			val64 = readq(&bar0->mac_rmac_err_mask);
--			val64 &= ~((u64) RMAC_LINK_STATE_CHANGE_INT);
--			writeq(val64, &bar0->mac_rmac_err_mask);
- 		} else if (flag == DISABLE_INTRS) {
- 			/*
- 			 * Disable MAC Intrs in the general intr mask register
-@@ -1879,8 +1901,10 @@ static int start_nic(struct s2io_nic *ni
++	/* Back up  the PCI-X CMD reg, dont want to lose MMRBC, OST settings */
++	if (sp->device_type == XFRAME_I_DEVICE)
++		pci_read_config_word(sp->pdev, PCIX_COMMAND_REGISTER, &(pci_cmd));
++
+ 	val64 = SW_RESET_ALL;
+ 	writeq(val64, &bar0->sw_reset);
+ 
+@@ -2762,8 +2768,10 @@ void s2io_reset(nic_t * sp)
+ 	msleep(250);
+ 
+ 	if (!(sp->device_type & XFRAME_II_DEVICE)) {
+-	/* Restore the PCI state saved during initializarion. */
++		/* Restore the PCI state saved during initializarion. */
+ 		pci_restore_state(sp->pdev);
++		pci_write_config_word(sp->pdev, PCIX_COMMAND_REGISTER,
++				     pci_cmd);
+ 	} else {
+ 		pci_set_master(sp->pdev);
  	}
- 
- 	/*  Enable select interrupts */
--	interruptible = TX_TRAFFIC_INTR | RX_TRAFFIC_INTR | TX_MAC_INTR |
--	    RX_MAC_INTR | MC_INTR;
-+	interruptible = TX_TRAFFIC_INTR | RX_TRAFFIC_INTR | MC_INTR;
-+	interruptible |= TX_PIC_INTR | RX_PIC_INTR;
-+	interruptible |= TX_MAC_INTR | RX_MAC_INTR;
-+
- 	en_dis_able_nic_intrs(nic, interruptible, ENABLE_INTRS);
- 
- 	/*
-@@ -2004,8 +2028,9 @@ static void stop_nic(struct s2io_nic *ni
- 	config = &nic->config;
- 
- 	/*  Disable all interrupts */
--	interruptible = TX_TRAFFIC_INTR | RX_TRAFFIC_INTR | TX_MAC_INTR |
--	    RX_MAC_INTR | MC_INTR;
-+	interruptible = TX_TRAFFIC_INTR | RX_TRAFFIC_INTR | MC_INTR;
-+	interruptible |= TX_PIC_INTR | RX_PIC_INTR;
-+	interruptible |= TX_MAC_INTR | RX_MAC_INTR;
- 	en_dis_able_nic_intrs(nic, interruptible, DISABLE_INTRS);
- 
- 	/*  Disable PRCs */
-@@ -2618,10 +2643,12 @@ static void alarm_intr_handler(struct s2
- 	register u64 val64 = 0, err_reg = 0;
- 
- 	/* Handling link status change error Intr */
--	err_reg = readq(&bar0->mac_rmac_err_reg);
--	writeq(err_reg, &bar0->mac_rmac_err_reg);
--	if (err_reg & RMAC_LINK_STATE_CHANGE_INT) {
--		schedule_work(&nic->set_link_task);
-+	if (s2io_link_fault_indication(nic) == MAC_RMAC_ERR_TIMER) {
-+		err_reg = readq(&bar0->mac_rmac_err_reg);
-+		writeq(err_reg, &bar0->mac_rmac_err_reg);
-+		if (err_reg & RMAC_LINK_STATE_CHANGE_INT) {
-+			schedule_work(&nic->set_link_task);
-+		}
- 	}
- 
- 	/* Handling Ecc errors */
-@@ -2947,7 +2974,7 @@ int s2io_open(struct net_device *dev)
+@@ -2974,7 +2982,7 @@ int s2io_open(struct net_device *dev)
  	 * Nic is initialized
  	 */
  	netif_carrier_off(dev);
--	sp->last_link_state = 0; /* Unkown link state */
-+	sp->last_link_state = LINK_DOWN;
+-	sp->last_link_state = LINK_DOWN;
++	sp->last_link_state = 0;
  
  	/* Initialize H/W and enable interrupts */
  	if (s2io_card_up(sp)) {
-@@ -3159,6 +3186,53 @@ s2io_alarm_handle(unsigned long data)
- 	mod_timer(&sp->alarm_timer, jiffies + HZ / 2);
- }
- 
-+static void s2io_txpic_intr_handle(nic_t *sp)
-+{
-+	XENA_dev_config_t *bar0 = (XENA_dev_config_t *) sp->bar0;
-+	u64 val64;
-+
-+	val64 = readq(&bar0->pic_int_status);
-+	if (val64 & PIC_INT_GPIO) {
-+		val64 = readq(&bar0->gpio_int_reg);
-+		if ((val64 & GPIO_INT_REG_LINK_DOWN) &&
-+		    (val64 & GPIO_INT_REG_LINK_UP)) {
-+			val64 |=  GPIO_INT_REG_LINK_DOWN;
-+			val64 |= GPIO_INT_REG_LINK_UP;
-+			writeq(val64, &bar0->gpio_int_reg);
-+			goto masking;
-+		}
-+
-+		if (((sp->last_link_state == LINK_UP) &&
-+			(val64 & GPIO_INT_REG_LINK_DOWN)) ||
-+		((sp->last_link_state == LINK_DOWN) &&
-+		(val64 & GPIO_INT_REG_LINK_UP))) {
-+			val64 = readq(&bar0->gpio_int_mask);
-+			val64 |=  GPIO_INT_MASK_LINK_DOWN;
-+			val64 |= GPIO_INT_MASK_LINK_UP;
-+			writeq(val64, &bar0->gpio_int_mask);
-+			s2io_set_link((unsigned long)sp);
-+		}
-+masking:
-+		if (sp->last_link_state == LINK_UP) {
-+			/*enable down interrupt */
-+			val64 = readq(&bar0->gpio_int_mask);
-+			/* unmasks link down intr */
-+			val64 &=  ~GPIO_INT_MASK_LINK_DOWN;
-+			/* masks link up intr */
-+			val64 |= GPIO_INT_MASK_LINK_UP;
-+			writeq(val64, &bar0->gpio_int_mask);
-+		} else {
-+			/*enable UP Interrupt */
-+			val64 = readq(&bar0->gpio_int_mask);
-+			/* unmasks link up interrupt */
-+			val64 &= ~GPIO_INT_MASK_LINK_UP;
-+			/* masks link down interrupt */
-+			val64 |=  GPIO_INT_MASK_LINK_DOWN;
-+			writeq(val64, &bar0->gpio_int_mask);
-+		}
-+	}
-+}
-+
- /**
-  *  s2io_isr - ISR handler of the device .
-  *  @irq: the irq of the device.
-@@ -3241,6 +3315,8 @@ static irqreturn_t s2io_isr(int irq, voi
- 			tx_intr_handler(&mac_control->fifos[i]);
+@@ -3102,6 +3110,15 @@ int s2io_xmit(struct sk_buff *skb, struc
+ 		spin_unlock_irqrestore(&sp->tx_lock, flags);
+ 		return 0;
  	}
- 
-+	if (reason & GEN_INTR_TXPIC)
-+		s2io_txpic_intr_handle(sp);
- 	/*
- 	 * If the Rx buffer count is below the panic threshold then
- 	 * reallocate the buffers from the interrupt handler itself,
-@@ -4644,11 +4720,13 @@ static void s2io_set_link(unsigned long 
- 	}
- 
- 	subid = nic->pdev->subsystem_device;
--	/*
--	 * Allow a small delay for the NICs self initiated
--	 * cleanup to complete.
--	 */
--	msleep(100);
-+	if (s2io_link_fault_indication(nic) == MAC_RMAC_ERR_TIMER) {
-+		/*
-+		 * Allow a small delay for the NICs self initiated
-+		 * cleanup to complete.
-+		 */
-+		msleep(100);
++
++	/* A buffer with no data will be dropped */
++	if (!skb->len) {
++		DBG_PRINT(TX_DBG, "%s:Buffer has no data..\n", dev->name);
++		dev_kfree_skb(skb);
++		spin_unlock_irqrestore(&sp->tx_lock, flags);
++		return 0;
 +	}
++
+ #ifdef NETIF_F_TSO
+ 	mss = skb_shinfo(skb)->tso_size;
+ 	if (mss) {
+@@ -3136,6 +3153,9 @@ int s2io_xmit(struct sk_buff *skb, struc
+ 	/* For fragmented SKB. */
+ 	for (i = 0; i < frg_cnt; i++) {
+ 		skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
++		/* A '0' length fragment will be ignored */
++		if (!frag->size)
++			continue;
+ 		txdp++;
+ 		txdp->Buffer_Pointer = (u64) pci_map_page
+ 		    (sp->pdev, frag->page, frag->page_offset,
+@@ -5257,7 +5277,8 @@ s2io_init_nic(struct pci_dev *pdev, cons
+ 	config = &sp->config;
  
- 	val64 = readq(&bar0->adapter_status);
- 	if (verify_xena_quiescence(nic, val64, nic->device_enabled_once)) {
-@@ -4666,13 +4744,16 @@ static void s2io_set_link(unsigned long 
- 				val64 |= ADAPTER_LED_ON;
- 				writeq(val64, &bar0->adapter_control);
- 			}
--			val64 = readq(&bar0->adapter_status);
--			if (!LINK_IS_UP(val64)) {
--				DBG_PRINT(ERR_DBG, "%s:", dev->name);
--				DBG_PRINT(ERR_DBG, " Link down");
--				DBG_PRINT(ERR_DBG, "after ");
--				DBG_PRINT(ERR_DBG, "enabling ");
--				DBG_PRINT(ERR_DBG, "device \n");
-+			if (s2io_link_fault_indication(nic) ==
-+						MAC_RMAC_ERR_TIMER) {
-+				val64 = readq(&bar0->adapter_status);
-+				if (!LINK_IS_UP(val64)) {
-+					DBG_PRINT(ERR_DBG, "%s:", dev->name);
-+					DBG_PRINT(ERR_DBG, " Link down");
-+					DBG_PRINT(ERR_DBG, "after ");
-+					DBG_PRINT(ERR_DBG, "enabling ");
-+					DBG_PRINT(ERR_DBG, "device \n");
-+				}
- 			}
- 			if (nic->device_enabled_once == FALSE) {
- 				nic->device_enabled_once = TRUE;
+ 	/* Tx side parameters. */
+-	tx_fifo_len[0] = DEFAULT_FIFO_LEN;	/* Default value. */
++	if (tx_fifo_len[0] == 0)
++		tx_fifo_len[0] = DEFAULT_FIFO_LEN; /* Default value. */
+ 	config->tx_fifo_num = tx_fifo_num;
+ 	for (i = 0; i < MAX_TX_FIFOS; i++) {
+ 		config->tx_cfg[i].fifo_len = tx_fifo_len[i];
+@@ -5280,7 +5301,8 @@ s2io_init_nic(struct pci_dev *pdev, cons
+ 	config->max_txds = MAX_SKB_FRAGS;
+ 
+ 	/* Rx side parameters. */
+-	rx_ring_sz[0] = SMALL_BLK_CNT;	/* Default value. */
++	if (rx_ring_sz[0] == 0)
++		rx_ring_sz[0] = SMALL_BLK_CNT; /* Default value. */
+ 	config->rx_ring_num = rx_ring_num;
+ 	for (i = 0; i < MAX_RX_RINGS; i++) {
+ 		config->rx_cfg[i].num_rxd = rx_ring_sz[i] *
+@@ -5310,7 +5332,7 @@ s2io_init_nic(struct pci_dev *pdev, cons
+ 	/*  initialize the shared memory used by the NIC and the host */
+ 	if (init_shared_mem(sp)) {
+ 		DBG_PRINT(ERR_DBG, "%s: Memory allocation failed\n",
+-			  dev->name);
++			  __FUNCTION__);
+ 		ret = -ENOMEM;
+ 		goto mem_alloc_failed;
+ 	}
+@@ -5488,7 +5510,7 @@ s2io_init_nic(struct pci_dev *pdev, cons
+ 			  sp->def_mac_addr[0].mac_addr[3],
+ 			  sp->def_mac_addr[0].mac_addr[4],
+ 			  sp->def_mac_addr[0].mac_addr[5]);
+-		int mode = s2io_print_pci_mode(sp);
++		mode = s2io_print_pci_mode(sp);
+ 		if (mode < 0) {
+ 			DBG_PRINT(ERR_DBG, " Unsupported PCI bus mode ");
+ 			ret = -EBADSLT;
