@@ -1,40 +1,54 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: Diego Beltrami <diego.beltrami@hiit.fi>
 Subject: Re: [PATCH 2.6.12.2] XFRM: BEET IPsec mode for Linux
-Date: Thu, 4 Aug 2005 09:40:52 +1000
-Message-ID: <20050803234052.GA13216@gondor.apana.org.au>
-References: <1122984099.1214.142.camel@odysse>
+Date: Thu, 04 Aug 2005 17:38:31 +0300
+Message-ID: <42F22867.9050804@hiit.fi>
+References: <1122984099.1214.142.camel@odysse> <Pine.GSO.4.58.0508032319000.3957@kekkonen.cs.hut.fi> <20050804131519.GB5831@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, infrahip@HIIT.FI, hipl-users@freelists.org,
-        hipsec@ietf.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Miika Komu <miika@iki.fi>, netdev@oss.sgi.com, infrahip@hiit.fi,
+        hipl-users@freelists.org, hipsec@ietf.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Diego Beltrami <diego.beltrami@HIIT.FI>
-Content-Disposition: inline
-In-Reply-To: <1122984099.1214.142.camel@odysse>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050804131519.GB5831@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 02, 2005 at 03:01:39PM +0300, Diego Beltrami wrote:
+
+> Well to me it's more of an issue of maintainability.  BEET mode is
+> more akin to transport/tunnel mode than AH/ESP/IPcomp.  As such its
+> implementation would be most at home where the existing encapsulation
+> and decapsulation for transport/tunnel mode is done.  That is, in
+> xfrm[46]_input.c and xfrm[46]_output.c.
 > 
-> after sending the first version of BEET patch and having received a
-> valuable feedback and after the discussion based upon the BEET design,
-> we now send the new BEET patch which allows for BEET to work without the
-> inter-family transform (i.e. inner address family different than outer
-> address family).
+> For instance, the reason the current patch has to touch esp4.c at
+> all is really because the patch to xfrm4_output.c isn't right.
+> It should do what the comment says and set skb->h to the start
+> of the payload, not the start of the ESP header.  If it did that,
+> then esp_output doesn't have to care about BEET at all.
 
-Thanks for the new patch.  Unfortunately it really looks quite similar
-to the previous patch :)
+This is totally true, and I agree with you but then this is somehow a 
+controversial thing with respect to the esp6_output. In fact the 
+esp6_output has the same purpose of esp_output, but it requires the 
+skb->h to be set at the beginning of ESP header.
 
-> --- linux-2.6.12.2-orig/net/ipv4/esp4.c
-> +++ linux-2.6.12.2/net/ipv4/esp4.c
+> 
+> Also, the outer header generation should be done before
+> x->type->output is called, not after.  That way, the AH
+> semantics falls out quite naturally.
 
-I thought getting rid of the interfamily stuff would remove the
-need to touch this file, no?
+BEET has been designed to be compatible with HIP. This means that the 
+ESP header should be computed with respect to the inner addresses.
+In a very first implementation of BEET we were converting the inner 
+addresses to the outer addresses before x->type->output, but we couldn't 
+make interoperate BEET with HIP.
+That's the reason why the outer header generation has been after 
+x->type->output.
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+This is one of the reasons why the AH, as Pekka Nikader said, is a bit 
+trickier with respect to ESP (the AH protocol protects the IP datagram 
+including immutable parts of the IP header like the IP addresses whereas 
+for ESP the IP header is not included in the calculation process).
+
+--Diego
