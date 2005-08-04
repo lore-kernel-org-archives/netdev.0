@@ -1,32 +1,39 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: atheros driver (1/8)
-Date: Thu, 4 Aug 2005 21:09:23 -0700
-Message-ID: <20050805040923.GR8074@waste.org>
-References: <42F2D58D.8040807@gmail.com>
+From: Jirka Bohac <jbohac@suse.cz>
+Subject: Re: Fwd: opensource atheros driver almost done
+Date: Thu, 4 Aug 2005 14:09:14 +0200
+Message-ID: <20050804120914.GA1905@dwarf.suse.cz>
+References: <aec8d6fc05080215084f955d44@mail.gmail.com> <aec8d6fc050802151125284155@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: kernel-mentors@selenic.com, netdev <netdev@vger.kernel.org>
-Return-path: <kernel-mentors-bounces@selenic.com>
+Cc: netdev@oss.sgi.com, jbenc@suse.cz
+Return-path: <netdev-bounce@oss.sgi.com>
 To: Mateusz Berezecki <mateuszb@gmail.com>
 Content-Disposition: inline
-In-Reply-To: <42F2D58D.8040807@gmail.com>
-List-Unsubscribe: <http://selenic.com/mailman/listinfo/kernel-mentors>,
-	<mailto:kernel-mentors-request@selenic.com?subject=unsubscribe>
-List-Archive: <http://www.selenic.com/pipermail/kernel-mentors>
-List-Post: <mailto:kernel-mentors@selenic.com>
-List-Help: <mailto:kernel-mentors-request@selenic.com?subject=help>
-List-Subscribe: <http://selenic.com/mailman/listinfo/kernel-mentors>,
-	<mailto:kernel-mentors-request@selenic.com?subject=subscribe>
-Sender: kernel-mentors-bounces@selenic.com
-Errors-To: kernel-mentors-bounces@selenic.com
+In-Reply-To: <aec8d6fc050802151125284155@mail.gmail.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Some initial comments:
+Hi,
 
-- you should include a description of each patch in the message
-- you should use more descriptive subjects, eg
+> I am developing that driver using ieee80211 branch of netdev
+> kernel tree, and I am not so confident I do things right using
+> new ieee80211 api. I would appreciate any suggestion and review
+> of the source code.
 
-[PATCH 1/8] atheros: Kconfig bits
+please have a look at
+http://forge.novell.com/modules/xfmod/cvs/cvsbrowse.php/ieee80211/patches-upstream/
+These patches are likely to be merged by Jeff soon (apply using
+quilt or use the order in the series file)
+
+Also, you can have a look at
+http://forge.novell.com/modules/xfmod/cvs/cvsbrowse.php/ieee80211/patches-netdev/
+These patches break a lot of things, but can tell you more about
+the ongoing development of the ieee80211 layer.
+
+
+Regards,
 
 -- 
-Mathematics is the supreme nostalgia of our time.
+Jirka Bohac <jbohac@suse.cz>
+SUSE Labs, SUSE CR
