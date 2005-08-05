@@ -1,54 +1,92 @@
-From: Sam Ravnborg <sam@ravnborg.org>
-Subject: error about rp_filter
-Date: Fri, 5 Aug 2005 23:02:37 +0200
-Message-ID: <20050805210237.GA17639@mars.ravnborg.org>
-References: <35e353d505080508444dbb7189@mail.gmail.com>
+From: Wade Farnsworth <wfarnsworth@mvista.com>
+Subject: [PATCH] emac: add support for platform-specific unsupported PHY
+	features
+Date: 05 Aug 2005 16:32:05 -0700
+Message-ID: <1123284725.27880.26.camel@rhino.az.mvista.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kbuild-devel@lists.sourceforge.net
-Return-path: <kbuild-devel-admin@lists.sourceforge.net>
-To: Adrian Buciuman <adibuciuman@gmail.com>, netdev@vger.kernel.org
-Content-Disposition: inline
-In-Reply-To: <35e353d505080508444dbb7189@mail.gmail.com>
-Sender: kbuild-devel-admin@lists.sourceforge.net
-Errors-To: kbuild-devel-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/kbuild-devel>,
-	<mailto:kbuild-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:kbuild-devel@lists.sourceforge.net>
-List-Help: <mailto:kbuild-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/kbuild-devel>,
-	<mailto:kbuild-devel-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=kbuild-devel>
+Content-Type: multipart/mixed; boundary="=-H6kjIo0tyo+58bZb74rl"
+Cc: Eugene Surovegin <ebs@ebshome.net>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: jgarzik@pobox.com, netdev@oss.sgi.com,
+        Matt Porter <mporter@kernel.crashing.org>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Adrian.
-This is better suited for netdev, so I've forwarded your mail there.
-[It was originally sent to kbuild-devel]
-
-	Sam
-
-On Fri, Aug 05, 2005 at 06:44:59PM +0300, Adrian Buciuman wrote:
-> Hello,
-> 
-> rp-filter is default off (see ip-sysctl.txt and proc.txt or test it),
-> but comments in
-> 
-> 
-> Documentation/Configure/help    --- 2.4 kernels
-> net/ipv4/Kconfig --- 2.6 kernels
-> 
-> 
-> have led some (look at /etc/rc.d/rc.ip_forward on Slackware)  to
-> believe it is default on.
-> 
-> 
-> Regards,
-> Adrian Buciuman
-> 
 
 
--------------------------------------------------------
-SF.Net email is Sponsored by the Better Software Conference & EXPO
-September 19-22, 2005 * San Francisco, CA * Development Lifecycle Practices
-Agile & Plan-Driven Development * Managing Projects & Teams * Testing & QA
-Security * Process Improvement & Measurement * http://www.sqe.com/bsce5sf
+--=-H6kjIo0tyo+58bZb74rl
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+
+Hello,
+
+This patch adds support to the ibm_emac driver for platform-specific
+unsupported PHY features.
+
+The patch attempts to determine the highest speed and duplex when
+autonegotiation is unsupported.
+
+-Wade Farnsworth
+
+Signed-off-by: Wade Farnsworth <wfarnsworth@mvista.com>
+
+--=-H6kjIo0tyo+58bZb74rl
+Content-Disposition: attachment; filename=ibm-emac-phy-feat-unsupp-core.patch
+Content-Type: text/x-patch; name=ibm-emac-phy-feat-unsupp-core.patch; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+
+diff -upr linux-2.6/drivers/net/ibm_emac/ibm_emac_core.c linux-2.6-dev/drivers/net/ibm_emac/ibm_emac_core.c
+--- linux-2.6/drivers/net/ibm_emac/ibm_emac_core.c	2005-08-03 13:33:42.000000000 -0700
++++ linux-2.6-dev/drivers/net/ibm_emac/ibm_emac_core.c	2005-08-02 10:42:59.000000000 -0700
+@@ -1876,6 +1876,9 @@ static int emac_init_device(struct ocp_d
+ 		rc = -ENODEV;
+ 		goto bail;
+ 	}
++	
++	/* Disable any PHY features not supported by the platform */
++	ep->phy_mii.def->features &= ~emacdata->feat_unsupp;
+ 
+ 	/* Setup initial PHY config & startup aneg */
+ 	if (ep->phy_mii.def->ops->init)
+@@ -1883,6 +1886,38 @@ static int emac_init_device(struct ocp_d
+ 	netif_carrier_off(ndev);
+ 	if (ep->phy_mii.def->features & SUPPORTED_Autoneg)
+ 		ep->want_autoneg = 1;
++	else {
++		ep->want_autoneg = 0;
++		
++		/* Select highest supported speed/duplex */
++		if (ep->phy_mii.def->features & SUPPORTED_10000baseT_Full) {
++			ep->phy_mii.speed = SPEED_10000;
++			ep->phy_mii.duplex = DUPLEX_FULL;
++		} else if (ep->phy_mii.def->features & 
++			   SUPPORTED_1000baseT_Full) {
++			ep->phy_mii.speed = SPEED_1000;
++			ep->phy_mii.duplex = DUPLEX_FULL;
++		} else if (ep->phy_mii.def->features & 
++			   SUPPORTED_1000baseT_Half) {
++			ep->phy_mii.speed = SPEED_1000;
++			ep->phy_mii.duplex = DUPLEX_HALF;
++		} else if (ep->phy_mii.def->features & 
++			   SUPPORTED_100baseT_Full) {
++			ep->phy_mii.speed = SPEED_100;
++			ep->phy_mii.duplex = DUPLEX_FULL;
++		} else if (ep->phy_mii.def->features & 
++			   SUPPORTED_100baseT_Half) {
++			ep->phy_mii.speed = SPEED_100;
++			ep->phy_mii.duplex = DUPLEX_HALF;
++		} else if (ep->phy_mii.def->features & 
++			   SUPPORTED_10baseT_Full) {
++			ep->phy_mii.speed = SPEED_10;
++			ep->phy_mii.duplex = DUPLEX_FULL;
++		} else {
++			ep->phy_mii.speed = SPEED_10;
++			ep->phy_mii.duplex = DUPLEX_HALF;
++		}
++	}
+ 	emac_start_link(ep, NULL);
+ 
+ 	/* read the MAC Address */
+
+--=-H6kjIo0tyo+58bZb74rl--
