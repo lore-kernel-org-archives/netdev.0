@@ -1,10 +1,10 @@
 From: Harald Welte <laforge@netfilter.org>
-Subject: [PATCH] ctnetlink: make sure event order is correct
-Date: Fri, 5 Aug 2005 18:27:38 +0200
-Message-ID: <20050805162738.GD4033@rama.de.gnumonks.org>
+Subject: [PATCH] ctnetlink: fix list traversal order
+Date: Fri, 5 Aug 2005 18:26:50 +0200
+Message-ID: <20050805162650.GC4033@rama.de.gnumonks.org>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="T7mxYSe680VjQnyC"
+	protocol="application/pgp-signature"; boundary="z4+8/lEcDcG5Ke9S"
 Cc: Linux Netdev List <netdev@vger.kernel.org>,
 	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
 Return-path: <netfilter-devel-bounces@lists.netfilter.org>
@@ -22,58 +22,77 @@ Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
 
---T7mxYSe680VjQnyC
+--z4+8/lEcDcG5Ke9S
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
 Hi Dave, please apply.
 
-[NETFILTER] ctnetlink: make sure event order is correct
+[NETFILTER] fix list traversal order in ctnetlink
 
-The following sequence is displayed during events dumping of an ICMP
-connection: [NEW] [DESTROY] [UPDATE]
+Currently conntracks are inserted after the head. That means that
+conntracks are sorted from the biggest to the smallest id. This happens
+because we use list_prepend (list_add) instead list_add_tail. This can
+result in problems during the list iteration.
 
-This happens because the event IPCT_DESTROY is delivered in
-death_by_timeout(), that is called from the icmp protocol helper
-(ct->timeout.function) once we see the reply.
+                 list_for_each(i, &ip_conntrack_hash[cb->args[0]]) {
+                         h =3D (struct ip_conntrack_tuple_hash *) i;
+                         if (DIRECTION(h) !=3D IP_CT_DIR_ORIGINAL)
+                                 continue;
+                         ct =3D tuplehash_to_ctrack(h);
+                         if (ct->id <=3D *id)
+                                 continue;
 
-To fix this, we move this event to destroy_conntrack().
+In that case just the first conntrack in the bucket will be dumped. To
+fix this, we iterate the list from the tail to the head via
+list_for_each_prev. Same thing for the list of expectations.
 
 Signed-off-by: Pablo Neira Ayuso <pablo@eurodev.net>
 Signed-off-by: Harald Welte <laforge@netfilter.org>
 
 ---
-commit cb90ab7c56471a733f5a91a3ec2cfbd45093e8a0
-tree cf84842a1e41dcaefd9934f9752df2ca977831d7
-parent 570b2053cc2c68da90b71add2a4f4366673b48d8
-author Harald Welte <laforge@netfilter.org> Fr, 05 Aug 2005 14:28:31 +0200
-committer Harald Welte <laforge@netfilter.org> Fr, 05 Aug 2005 14:28:31 +02=
+commit 570b2053cc2c68da90b71add2a4f4366673b48d8
+tree bbcf496f0fb3fc468db26a03ccf1455e206a2251
+parent 76596b57e2fe552da8beef4a59d5b559dfc3d0e5
+author Harald Welte <laforge@netfilter.org> Fr, 05 Aug 2005 14:25:50 +0200
+committer Harald Welte <laforge@netfilter.org> Fr, 05 Aug 2005 14:25:50 +02=
 00
 
- net/ipv4/netfilter/ip_conntrack_core.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ net/ipv4/netfilter/ip_conntrack_netlink.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/net/ipv4/netfilter/ip_conntrack_core.c b/net/ipv4/netfilter/ip=
-_conntrack_core.c
---- a/net/ipv4/netfilter/ip_conntrack_core.c
-+++ b/net/ipv4/netfilter/ip_conntrack_core.c
-@@ -327,6 +327,7 @@ destroy_conntrack(struct nf_conntrack *n
- 	IP_NF_ASSERT(atomic_read(&nfct->use) =3D=3D 0);
- 	IP_NF_ASSERT(!timer_pending(&ct->timeout));
+diff --git a/net/ipv4/netfilter/ip_conntrack_netlink.c b/net/ipv4/netfilter=
+/ip_conntrack_netlink.c
+--- a/net/ipv4/netfilter/ip_conntrack_netlink.c
++++ b/net/ipv4/netfilter/ip_conntrack_netlink.c
+@@ -404,7 +404,7 @@ ctnetlink_dump_table(struct sk_buff *skb
 =20
-+	ip_conntrack_event(IPCT_DESTROY, ct);
- 	set_bit(IPS_DYING_BIT, &ct->status);
+ 	read_lock_bh(&ip_conntrack_lock);
+ 	for (; cb->args[0] < ip_conntrack_htable_size; cb->args[0]++, *id =3D 0) {
+-		list_for_each(i, &ip_conntrack_hash[cb->args[0]]) {
++		list_for_each_prev(i, &ip_conntrack_hash[cb->args[0]]) {
+ 			h =3D (struct ip_conntrack_tuple_hash *) i;
+ 			if (DIRECTION(h) !=3D IP_CT_DIR_ORIGINAL)
+ 				continue;
+@@ -441,7 +441,7 @@ ctnetlink_dump_table_w(struct sk_buff *s
 =20
- 	/* To make sure we don't get any weird locking issues here:
-@@ -366,7 +367,6 @@ static void death_by_timeout(unsigned lo
- {
- 	struct ip_conntrack *ct =3D (void *)ul_conntrack;
-=20
--	ip_conntrack_event(IPCT_DESTROY, ct);
  	write_lock_bh(&ip_conntrack_lock);
- 	/* Inside lock so preempt is disabled on module removal path.
- 	 * Otherwise we can get spurious warnings. */
+ 	for (; cb->args[0] < ip_conntrack_htable_size; cb->args[0]++, *id =3D 0) {
+-		list_for_each(i, &ip_conntrack_hash[cb->args[0]]) {
++		list_for_each_prev(i, &ip_conntrack_hash[cb->args[0]]) {
+ 			h =3D (struct ip_conntrack_tuple_hash *) i;
+ 			if (DIRECTION(h) !=3D IP_CT_DIR_ORIGINAL)
+ 				continue;
+@@ -1214,7 +1214,7 @@ ctnetlink_exp_dump_table(struct sk_buff=20
+ 	DEBUGP("entered %s, last id=3D%llu\n", __FUNCTION__, *id);
+=20
+ 	read_lock_bh(&ip_conntrack_lock);
+-	list_for_each(i, &ip_conntrack_expect_list) {
++	list_for_each_prev(i, &ip_conntrack_expect_list) {
+ 		exp =3D (struct ip_conntrack_expect *) i;
+ 		if (exp->id <=3D *id)
+ 			continue;
 --=20
 - Harald Welte <laforge@netfilter.org>                 http://netfilter.org/
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
@@ -84,16 +103,16 @@ _conntrack_core.c
    architectural error that shows how much experimentation was going
    on while IP was being designed."                    -- Paul Vixie
 
---T7mxYSe680VjQnyC
+--z4+8/lEcDcG5Ke9S
 Content-Type: application/pgp-signature
 Content-Disposition: inline
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.1 (GNU/Linux)
 
-iD8DBQFC85N6XaXGVTD0i/8RArZAAJ0TrF0WD6M2PZiQ5HME9HV8Nht/RQCgtV/6
-cUtrn+ffkm+bLujs4cmqtZY=
-=E+Fm
+iD8DBQFC85NJXaXGVTD0i/8RAkRiAJ9Me58wuXBY0hiXtcIb/tkUxX2NvgCeJinE
+rcruNMClcXBOHsnt0KH9mpY=
+=6TTW
 -----END PGP SIGNATURE-----
 
---T7mxYSe680VjQnyC--
+--z4+8/lEcDcG5Ke9S--
