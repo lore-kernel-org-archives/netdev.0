@@ -1,10 +1,10 @@
-From: Michael Renzmann <netdev@nospam.otaku42.de>
+From: "Bryan O'Sullivan" <bos@serpentine.com>
 Subject: Re: atheros driver - desc
-Date: Fri, 05 Aug 2005 12:14:05 +0200
-Message-ID: <42F33BED.70000@otaku42.de>
+Date: Fri, 05 Aug 2005 09:46:13 -0700
+Message-ID: <1123260373.19707.11.camel@camp4.serpentine.com>
 References: <42F2D523.9020702@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: kernel-mentors@selenic.com, netdev <netdev@vger.kernel.org>
 Return-path: <kernel-mentors-bounces@selenic.com>
@@ -21,16 +21,13 @@ Sender: kernel-mentors-bounces@selenic.com
 Errors-To: kernel-mentors-bounces@selenic.com
 List-Id: netdev.vger.kernel.org
 
-Hi.
+On Fri, 2005-08-05 at 04:55 +0200, Mateusz Berezecki wrote:
 
-Mateusz Berezecki wrote:
-> Im sending a series of 8 patches splitted and diffed as in
-> SubmittingPatches documentation.
+> The driver is not yet fully working because I didn't finish kernel 
+> integration yet.
 
-Patch 4/8 is missing here.
+How far from working is it?  I have a miniPCI Atheros card and would be
+interested in helping out with bringing the driver up, but it would be
+good to know what to expect first :-)
 
-Bye, Mike
--- 
-Use PGP/GPG!
-My key: http://keys.indymedia.org/cgi-bin/lookup?op=get&search=62C29B94
-Fingerprint: BC2E 79BF 0C8F 0282 864B 9CEC 8343 5169 62C2 9B94
+	<b
