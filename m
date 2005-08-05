@@ -1,15 +1,15 @@
-From: "Bryan O'Sullivan" <bos@serpentine.com>
-Subject: Re: atheros driver - desc
-Date: Fri, 05 Aug 2005 09:46:13 -0700
-Message-ID: <1123260373.19707.11.camel@camp4.serpentine.com>
-References: <42F2D523.9020702@gmail.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: argh... ;/
+Date: Fri, 5 Aug 2005 13:20:59 -0400
+Message-ID: <20050805172055.GB5641@tuxdriver.com>
+References: <42F2D749.70306@gmail.com> <200508060241.30507.phillips@istop.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: kernel-mentors@selenic.com, netdev <netdev@vger.kernel.org>
 Return-path: <kernel-mentors-bounces@selenic.com>
-To: Mateusz Berezecki <mateuszb@gmail.com>
-In-Reply-To: <42F2D523.9020702@gmail.com>
+To: Daniel Phillips <phillips@istop.com>
+Content-Disposition: inline
+In-Reply-To: <200508060241.30507.phillips@istop.com>
 List-Unsubscribe: <http://selenic.com/mailman/listinfo/kernel-mentors>,
 	<mailto:kernel-mentors-request@selenic.com?subject=unsubscribe>
 List-Archive: <http://www.selenic.com/pipermail/kernel-mentors>
@@ -21,13 +21,14 @@ Sender: kernel-mentors-bounces@selenic.com
 Errors-To: kernel-mentors-bounces@selenic.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2005-08-05 at 04:55 +0200, Mateusz Berezecki wrote:
+On Sat, Aug 06, 2005 at 02:41:30AM +1000, Daniel Phillips wrote:
+> On Friday 05 August 2005 13:04, Mateusz Berezecki wrote:
+> > I accidentaly posted the patches as MIME attachments... its 5:03 am here
 
-> The driver is not yet fully working because I didn't finish kernel 
-> integration yet.
+> Does anybody still care if patches are posted as attachments, particularly for 
+> review as opposed to submission?
 
-How far from working is it?  I have a miniPCI Atheros card and would be
-interested in helping out with bringing the driver up, but it would be
-good to know what to expect first :-)
-
-	<b
+Yes.  Opening attachments makes them harder to review.
+-- 
+John W. Linville
+linville@tuxdriver.com
