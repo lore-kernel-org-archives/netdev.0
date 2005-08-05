@@ -1,29 +1,47 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] ctnetlink: fix list traversal order
-Date: Fri, 05 Aug 2005 09:39:10 -0700 (PDT)
-Message-ID: <20050805.093910.71107250.davem@davemloft.net>
-References: <20050805162650.GC4033@rama.de.gnumonks.org>
+From: Daniel Phillips <phillips@istop.com>
+Subject: Re: argh... ;/
+Date: Sat, 6 Aug 2005 02:41:30 +1000
+Message-ID: <200508060241.30507.phillips@istop.com>
+References: <42F2D749.70306@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-2"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: laforge@netfilter.org
-In-Reply-To: <20050805162650.GC4033@rama.de.gnumonks.org>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Cc: kernel-mentors@selenic.com, netdev <netdev@vger.kernel.org>
+Return-path: <kernel-mentors-bounces@selenic.com>
+To: Mateusz Berezecki <mateuszb@gmail.com>
+In-Reply-To: <42F2D749.70306@gmail.com>
+Content-Disposition: inline
+List-Unsubscribe: <http://selenic.com/mailman/listinfo/kernel-mentors>,
+	<mailto:kernel-mentors-request@selenic.com?subject=unsubscribe>
+List-Archive: <http://www.selenic.com/pipermail/kernel-mentors>
+List-Post: <mailto:kernel-mentors@selenic.com>
+List-Help: <mailto:kernel-mentors-request@selenic.com?subject=help>
+List-Subscribe: <http://selenic.com/mailman/listinfo/kernel-mentors>,
+	<mailto:kernel-mentors-request@selenic.com?subject=subscribe>
+Sender: kernel-mentors-bounces@selenic.com
+Errors-To: kernel-mentors-bounces@selenic.com
 List-Id: netdev.vger.kernel.org
 
-From: Harald Welte <laforge@netfilter.org>
-Date: Fri, 5 Aug 2005 18:26:50 +0200
+On Friday 05 August 2005 13:04, Mateusz Berezecki wrote:
+> I accidentaly posted the patches as MIME attachments... its 5:03 am here
+> already. Sorry guys.
+> I can resubmit if you want. I just dont want do that now and not trash
+> your mailboxes
 
-> [NETFILTER] fix list traversal order in ctnetlink
+Does anybody still care if patches are posted as attachments, particularly for 
+review as opposed to submission?
 
-Applied.
+I will make the standard comment about C99 // comments, but add that I use 
+them myself to mean "this comment will definitely be gone by the time it gets 
+officially submitted", in other words, work in progress.
+
+Heroic work!  And nicely lindented at least.  Some long lines, but in the same 
+kinds of places I write them myself.
+
+Only commenting on the form, not substance.  Best of luck.  I have one of 
+these things here so when you declare it ready I will try it.
+
+Regards,
+
+Daniel
