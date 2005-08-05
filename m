@@ -1,13 +1,15 @@
-From: Mateusz Berezecki <mateuszb@gmail.com>
-Subject: argh... ;/
-Date: Fri, 05 Aug 2005 05:04:41 +0200
-Message-ID: <42F2D749.70306@gmail.com>
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: atheros driver (1/8)
+Date: Thu, 4 Aug 2005 21:09:23 -0700
+Message-ID: <20050805040923.GR8074@waste.org>
+References: <42F2D58D.8040807@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: kernel-mentors@selenic.com, netdev <netdev@vger.kernel.org>
 Return-path: <kernel-mentors-bounces@selenic.com>
-To: kernel-mentors@selenic.com
+To: Mateusz Berezecki <mateuszb@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <42F2D58D.8040807@gmail.com>
 List-Unsubscribe: <http://selenic.com/mailman/listinfo/kernel-mentors>,
 	<mailto:kernel-mentors-request@selenic.com?subject=unsubscribe>
 List-Archive: <http://www.selenic.com/pipermail/kernel-mentors>
@@ -19,9 +21,12 @@ Sender: kernel-mentors-bounces@selenic.com
 Errors-To: kernel-mentors-bounces@selenic.com
 List-Id: netdev.vger.kernel.org
 
-I accidentaly posted the patches as MIME attachments... its 5:03 am here 
-already. Sorry guys.
-I can resubmit if you want. I just dont want do that now and not trash 
-your mailboxes
+Some initial comments:
 
-Mateusz
+- you should include a description of each patch in the message
+- you should use more descriptive subjects, eg
+
+[PATCH 1/8] atheros: Kconfig bits
+
+-- 
+Mathematics is the supreme nostalgia of our time.
