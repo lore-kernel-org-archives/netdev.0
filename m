@@ -1,9 +1,9 @@
 From: Mateusz Berezecki <mateuszb@gmail.com>
-Subject: atheros driver (7/8)
-Date: Fri, 05 Aug 2005 05:00:54 +0200
-Message-ID: <42F2D666.2090602@gmail.com>
+Subject: atheros driver (8/8)
+Date: Fri, 05 Aug 2005 05:01:40 +0200
+Message-ID: <42F2D694.4040000@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------000705030305080808020607"
+Content-Type: multipart/mixed; boundary="------------010809010300060901030803"
 Cc: netdev <netdev@vger.kernel.org>
 Return-path: <kernel-mentors-bounces@selenic.com>
 To: kernel-mentors@selenic.com
@@ -19,23 +19,23 @@ Errors-To: kernel-mentors-bounces@selenic.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------000705030305080808020607
+--------------010809010300060901030803
 Content-Type: text/plain; charset=ISO-8859-2; format=flowed
 Content-Transfer-Encoding: 7bit
 
 
 
---------------000705030305080808020607
+--------------010809010300060901030803
 Content-Type: text/x-patch;
- name="atheros5212-7.patch"
+ name="atheros5212-8.patch"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="atheros5212-7.patch"
+ filename="atheros5212-8.patch"
 
-diff -uprN -X 'netdev-2.6.git#ieee80211/Documentation/dontdiff' netdev-2.6.git#ieee80211/drivers/net/wireless/atheros/atheros5212/keys.c netdev-atheros/drivers/net/wireless/atheros/atheros5212/keys.c
---- netdev-2.6.git#ieee80211/drivers/net/wireless/atheros/atheros5212/keys.c	1970-01-01 01:00:00.000000000 +0100
-+++ netdev-atheros/drivers/net/wireless/atheros/atheros5212/keys.c	2005-08-05 03:48:36.000000000 +0200
-@@ -0,0 +1,268 @@
+diff -uprN -X 'netdev-2.6.git#ieee80211/Documentation/dontdiff' netdev-2.6.git#ieee80211/drivers/net/wireless/atheros/atheros5212/other.c netdev-atheros/drivers/net/wireless/atheros/atheros5212/other.c
+--- netdev-2.6.git#ieee80211/drivers/net/wireless/atheros/atheros5212/other.c	1970-01-01 01:00:00.000000000 +0100
++++ netdev-atheros/drivers/net/wireless/atheros/atheros5212/other.c	2005-08-05 03:48:36.000000000 +0200
+@@ -0,0 +1,57 @@
 +/*
 + * All the work was created by reverse engineering and porting
 + * for interoperability. The creator is Mateusz Berezecki,
@@ -64,6 +64,69 @@ diff -uprN -X 'netdev-2.6.git#ieee80211/Documentation/dontdiff' netdev-2.6.git#i
 + * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 + *
 + */
++
++
++#include <linux/config.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/version.h>
++#include <linux/init.h>
++#include <linux/delay.h>
++#include <linux/pci.h>
++#include <linux/netdevice.h>
++
++#include <net/ieee80211.h>
++
++#include <linux/wireless.h>
++#include <net/iw_handler.h>
++
++#include "atheros_id.h"
++#include "atheros_dev.h"
++#include "atheros_defs.h"
++#include "atheros_registers.h"
++#include "atheros.h"
++
++
++int ath_phy_disable(struct net_device *netdev)
++{
++	return ath_set_reset_register(netdev, AR5212_RC_BB);
++}
++
++
+diff -uprN -X 'netdev-2.6.git#ieee80211/Documentation/dontdiff' netdev-2.6.git#ieee80211/drivers/net/wireless/atheros/atheros5212/powermodes.c netdev-atheros/drivers/net/wireless/atheros/atheros5212/powermodes.c
+--- netdev-2.6.git#ieee80211/drivers/net/wireless/atheros/atheros5212/powermodes.c	1970-01-01 01:00:00.000000000 +0100
++++ netdev-atheros/drivers/net/wireless/atheros/atheros5212/powermodes.c	2005-08-05 03:48:36.000000000 +0200
+@@ -0,0 +1,155 @@
++/*
++ * All the work was created by reverse engineering and porting
++ * for interoperability. The creator is Mateusz Berezecki,
++ * unless explicitly marked ( some parts are derived
++ * from GPL'ed parts of madwifi project located at http://madwifi.sf.net)
++ *
++ * derived or copied parts of code licensed under
++ * dual GPL/BSD license
++ * Copyright (c) 2002-2005 Sam Leffler, Errno Consulting
++ * All rights reserved.
++ * 
++ * rest of the code has been reversed by me and is under copyright too
++ * Copyright (C) 2005  Mateusz Berezecki
++ * 
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version 2
++ * of the License, or (at your option) any later version.
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ * 
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
++ *
++ */
++
++
 +#include <linux/config.h>
 +#include <linux/kernel.h>
 +#include <linux/module.h>
@@ -87,234 +150,334 @@ diff -uprN -X 'netdev-2.6.git#ieee80211/Documentation/dontdiff' netdev-2.6.git#i
 +#include "atheros.h"
 +
 +
-+unsigned int ath_keycache_valid(struct net_device *netdev,
-+		unsigned short entry)
++/* don return power mode from private device data.
++ * use hardware instead. thats better */
++POWER_MODE ath_get_power_mode(struct net_device *netdev)
 +{
-+	struct atheros_priv *pdata;
-+	unsigned int val;
-+	
-+	pdata = ieee80211_priv(netdev);
-+	
-+	if (entry > pdata->max_keycache)
-+		return 0;
-+	
-+	val = ath_reg_read(netdev, 0x8800 + entry * 32 + 28);
-+
-+	if (val & 0x8000)
-+		return 1;
-+	
-+	return 0;
++	unsigned int mode = ath_reg_read(netdev, AR5212_SCR);
++	mode &= (AR5212_SCR_SLE >> 16);
++	return mode;
 +}
 +
-+unsigned int ath_reset_keycache(struct net_device *netdev,
-+		unsigned short entry)
++/* zZzZ... */
++void ath_pmode_fullsleep(struct net_device *netdev, int set)
 +{
-+	struct atheros_priv *pdata;
-+	unsigned int keytype;
++	ath_reg_enable(netdev, AR5212_STA_ID1, AR5212_STA_ID1_PWR_SV);
 +	
-+	pdata = ieee80211_priv(netdev);
-+	
-+	if (entry > pdata->keycache_size)
-+		return 0;
-+
-+	keytype = ath_reg_read(netdev, (entry * 32) + 0x8814);
-+
-+	ath_reg_write(netdev, (entry * 32) + 0x8800, 0);
-+	ath_reg_write(netdev, (entry * 32) + 0x8804, 0);
-+	ath_reg_write(netdev, (entry * 32) + 0x8808, 0);
-+	ath_reg_write(netdev, (entry * 32) + 0x880c, 0);
-+	ath_reg_write(netdev, (entry * 32) + 0x8810, 0);
-+	ath_reg_write(netdev, (entry * 32) + 0x8814, 7);
-+	ath_reg_write(netdev, (entry * 32) + 0x8818, 0);
-+	ath_reg_write(netdev, (entry * 32) + 0x881c, 0);
-+	
-+	if (keytype != 4)
-+		return 1;
-+
-+	if (!pdata->ext_keycache)
-+		return 1;
-+
-+	ath_reg_write(netdev, ((entry + 64) * 32) + 0x8800, 0);
-+	ath_reg_write(netdev, ((entry + 64) * 32) + 0x8804, 0);
-+	ath_reg_write(netdev, ((entry + 64) * 32) + 0x8808, 0);
-+	ath_reg_write(netdev, ((entry + 64) * 32) + 0x880c, 0);
-+
-+	return 1;
++	if (set)
++		ath_reg_write(netdev, AR5212_SCR, 
++				AR5212_SCR_SLE_SLP);
++	return;
 +}
 +
-+unsigned int ath_set_keycache_entry_mac(struct net_device *netdev,
-+		unsigned short entry, unsigned char *mac)
++/* oh, my god, its 6 am already... */
++unsigned int ath_pmode_awake(struct net_device *netdev, int set)
 +{
-+	struct atheros_priv *pdata;
-+	unsigned int mac1, mac2;
++	int i;
++	unsigned int tmp;
 +	
-+	pdata = ieee80211_priv(netdev);
-+
-+	if (entry > pdata->max_keycache)
-+		return 0;
-+
-+	if (mac == NULL) {
-+		mac1 = 0;
-+		mac2 = 0;
-+	} else {
-+		mac1  = mac[5] << 8;
-+		mac1 |= mac[4];
++	if (set) {
++		ath_reg_write(netdev, 0x4004, 0);
++		udelay(10);
 +		
-+		mac2  = mac[3] << 24;
-+		mac2 |= mac[2] << 16;
-+		mac2 |= mac[1] << 8;
-+		mac2 |= mac[0];
-+		
-+		mac2 = mac2 >> 1;
-+		mac2 |= ((mac1 & 1)<< 31);
-+		
-+		mac1 = mac1 >> 1;
-+	}
-+
-+	ath_reg_write(netdev, (entry * 32) + 0x8800 + 24, mac2);
-+	ath_reg_write(netdev, (entry * 32) + 0x8800 + 28, mac1 | 0x80);
-+
-+	return 1;
-+}
-+
-+unsigned int ath_set_keycache_entry(struct net_device *netdev,
-+		unsigned short entry, struct keyval *kv,
-+		unsigned char *mac, int num)
-+{
-+	int flg = (num == 1) ? 0xffffffff : 0;
-+	int cipher_opt;
-+	int newentry;
-+	struct atheros_priv *pdata = ieee80211_priv(netdev);
-+	unsigned int part1, part2, part3, part4, part5;
-+
-+
-+	flg &= 0xaaaaaaaa;
-+
-+	if (entry > pdata->max_keycache)
-+		return 0;
-+
-+	switch (kv->kv_type) {
-+		case CIPHER_AES_OCB:
-+			cipher_opt = 5;
-+			break;
-+
-+		case CIPHER_AES_CCM:
-+			/* fixme TODO FIXME */
-+			return 0;
-+//			break;
-+
-+		case CIPHER_TKIP:
-+			cipher_opt = 4;
-+
-+			if ((entry + 0x40) > pdata->max_keycache)
-+				return 0;
-+
-+			break;
-+
-+		case CIPHER_WEP:
-+			if (kv->kv_len <= 4)
-+				return 0;
-+			
-+			cipher_opt = 0;
-+
-+			if (kv->kv_len <= 5) 
++		for (i = 10; i != 0; i--) {
++			tmp = ath_reg_read(netdev, 0x4010);
++			if ((tmp & 0x00010000) == 0)
 +				break;
++			udelay(200);
++			ath_reg_write(netdev, 0x4004, 0);
++		}
++		
++		if (i == 0) {
++			printk(KERN_DEBUG"atheros_pci: we are unlucky ;-(\n");
++			return 0;
++		}
++	}
++	
++	ath_reg_disable(netdev, 0x8004, 0x00040000);
++	return 1;
++}
 +
-+			cipher_opt = (kv->kv_len == 14) ? 0 : 0xffffffff;
-+			cipher_opt &= 0xfffffffe;
-+			cipher_opt += 3;
++/* i dont know how it differs from fullsleep but OpenBSD doesnt have it:D
++ *
++ * note: thats probably used in power saving situations... */
++void ath_pmode_netsleep(struct net_device *netdev, 
++		int set, unsigned short sleepduration)
++{
++	ath_reg_enable(netdev, AR5212_STA_ID1, 
++		AR5212_STA_ID1_PWR_SV);
++	
++	if (set) 
++		ath_reg_write(netdev, AR5212_SCR, 
++			AR5212_SCR_SLE_ALLOW | sleepduration);
++	return;
++}
 +
++
++/* set some power mode. nothing magical happens here */
++unsigned int ath_set_power_mode(struct net_device *netdev, 
++		POWER_MODE mode, int set, 
++		unsigned short sleep_duration)
++{
++	unsigned int ret = 0;
++	struct atheros_priv *pdata = ieee80211_priv(netdev);
++	
++	switch (mode) {
++		case PMODE_FULL_SLEEP:
++			ret = 1;
++			ath_pmode_fullsleep(netdev, set);
 +			break;
-+
-+		case CIPHER_CLR:
-+			cipher_opt = 7;
++			
++		case PMODE_AWAKE:
++			ret = ath_pmode_awake(netdev, set);
++			break;
++			
++		case PMODE_NETWORK_SLEEP:
++			ath_pmode_netsleep(netdev, 
++				set, sleep_duration);
++			ret = 1;
 +			break;
 +			
 +		default:
 +			return 0;
 +	}
 +
-+	part1 = (kv->kv_val[0] | (kv->kv_val[1] << 8) | 
-+		(kv->kv_val[2] << 16) | (kv->kv_val[3] << 24)) ^ flg;
-+
-+
-+	part2 = ((kv->kv_val[4] | (kv->kv_val[5] << 8)) ^ flg) & 0xffff;
-+	
-+	part4 = ((kv->kv_val[6] | (kv->kv_val[7] << 8) |
-+	  (kv->kv_val[8] << 16) | (kv->kv_val[9] << 24)) ^ flg);
-+
-+	part3 = ((kv->kv_val[10] | (kv->kv_val[11] << 8)) ^ flg) & 0xffff;
-+
-+	part5 = (kv->kv_val[12] | (kv->kv_val[13] << 8) | 
-+	      (kv->kv_val[14] << 16) | (kv->kv_val[15] << 24)) ^ flg;
-+
-+	if (kv->kv_len <= 13)
-+		 part5 &= 0xff;
-+
-+
-+	/* if statement needs fixing */
-+	if (cipher_opt == 4 && pdata->turbo != 0) {
-+		newentry = (entry << 5);
-+
-+		ath_reg_write(netdev, 0x8800 + (entry << 5), ~part1);
-+		ath_reg_write(netdev, 0x8804 + newentry,  ~part2);
-+		ath_reg_write(netdev, 0x8808 + newentry, part4);
-+		ath_reg_write(netdev, 0x880c + newentry, part3);
-+		ath_reg_write(netdev, 0x8810 + newentry, part5);
-+		ath_reg_write(netdev, 0x8814 + newentry, 4);
-+
-+		ath_set_keycache_entry_mac(netdev, entry, mac);
-+
-+		ath_reg_write(netdev, 0x8800 + ((entry + 0x40) << 5), 
-+			(kv->kv_mic[0] | (kv->kv_mic[1] << 8) |
-+			(kv->kv_mic[2] << 16) | (kv->kv_mic[3] << 24)));
-+		
-+		ath_reg_write(netdev, 0x8804 + ((entry + 0x40) << 5), 0);
-+		
-+		ath_reg_write(netdev, 0x8808 + ((entry + 0x40) << 5), 
-+			( kv->kv_mic[4] | (kv->kv_mic[5] << 8) |
-+			  (kv->kv_mic[6] << 16) | (kv->kv_mic[7] << 24) ) );
-+		
-+		ath_reg_write(netdev, 0x880c + ((entry + 0x40) << 5), 0);
-+		ath_reg_write(netdev, 0x8810 + ((entry + 0x40) << 5), 0);
-+		ath_reg_write(netdev, 0x8814 + ((entry + 0x40) << 5), 7);
-+		ath_reg_write(netdev, 0x8818 + ((entry + 0x40) << 5), 0);
-+		ath_reg_write(netdev, 0x881c + ((entry + 0x40) << 5), 0);
-+		
-+		ath_reg_write(netdev, 0x8800 + newentry, part1);
-+		ath_reg_write(netdev, 0x8800 + newentry, part2);
-+
-+		return 1;
-+	} else {
-+		ath_reg_write(netdev, 0x8800 + (entry << 5), part1);
-+		ath_reg_write(netdev, 0x8804 + (entry << 5), part2);
-+		ath_reg_write(netdev, 0x8808 + (entry << 5), part4);
-+		ath_reg_write(netdev, 0x880c + (entry << 5), part3);
-+		ath_reg_write(netdev, 0x8810 + (entry << 5), part5);
-+		ath_reg_write(netdev, 0x8814 + (entry << 5), cipher_opt);
-+
-+		ath_set_keycache_entry_mac(netdev, entry, mac);
-+		return 1;
-+	}
-+		
-+	return 0;
++	pdata->pmode = mode;
++	return ret;
 +}
-+unsigned int ath_get_keycache_size(struct net_device *netdev)
++
++void ath_update_txpow(struct net_device *netdev)
 +{
-+	return 128;
++
 +}
 +
-diff -uprN -X 'netdev-2.6.git#ieee80211/Documentation/dontdiff' netdev-2.6.git#ieee80211/drivers/net/wireless/atheros/atheros5212/mode_tables.c netdev-atheros/drivers/net/wireless/atheros/atheros5212/mode_tables.c
---- netdev-2.6.git#ieee80211/drivers/net/wireless/atheros/atheros5212/mode_tables.c	1970-01-01 01:00:00.000000000 +0100
-+++ netdev-atheros/drivers/net/wireless/atheros/atheros5212/mode_tables.c	2005-08-05 03:48:36.000000000 +0200
-@@ -0,0 +1,309 @@
++
+diff -uprN -X 'netdev-2.6.git#ieee80211/Documentation/dontdiff' netdev-2.6.git#ieee80211/drivers/net/wireless/atheros/atheros5212/powermodes.h netdev-atheros/drivers/net/wireless/atheros/atheros5212/powermodes.h
+--- netdev-2.6.git#ieee80211/drivers/net/wireless/atheros/atheros5212/powermodes.h	1970-01-01 01:00:00.000000000 +0100
++++ netdev-atheros/drivers/net/wireless/atheros/atheros5212/powermodes.h	2005-08-05 03:48:36.000000000 +0200
+@@ -0,0 +1,57 @@
 +/*
 + * All the work was created by reverse engineering and porting
 + * for interoperability. The creator is Mateusz Berezecki,
 + * unless explicitly marked ( some parts are derived
 + * from GPL'ed parts of madwifi project located at http://madwifi.sf.net)
 + *
-+ * the original binary and source code created by
++ * derived or copied parts of code licensed under
++ * dual GPL/BSD license
++ * Copyright (c) 2002-2005 Sam Leffler, Errno Consulting
++ * All rights reserved.
++ * 
++ * rest of the code has been reversed by me and is under copyright too
++ * Copyright (C) 2005  Mateusz Berezecki
++ * 
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version 2
++ * of the License, or (at your option) any later version.
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ * 
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
++ *
++ */
++#ifndef _POWERMODE_H
++#define _POWERMODE_H
++
++#include <linux/config.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/version.h>
++#include <linux/init.h>
++#include <linux/delay.h>
++#include <linux/pci.h>
++#include <linux/netdevice.h>
++
++#include <net/ieee80211.h>
++
++#include <linux/wireless.h>
++#include <net/iw_handler.h>
++
++#include "atheros_id.h"
++#include "atheros_dev.h"
++#include "atheros_defs.h"
++#include "regops.h"
++#include "atheros_registers.h"
++#include "atheros.h"
++
++POWER_MODE ath_get_power_mode(struct net_device *);
++unsigned int ath_set_power_mode(struct net_device *, 
++		POWER_MODE, int, unsigned short);
++
++#endif
+diff -uprN -X 'netdev-2.6.git#ieee80211/Documentation/dontdiff' netdev-2.6.git#ieee80211/drivers/net/wireless/atheros/atheros5212/regops.c netdev-atheros/drivers/net/wireless/atheros/atheros5212/regops.c
+--- netdev-2.6.git#ieee80211/drivers/net/wireless/atheros/atheros5212/regops.c	1970-01-01 01:00:00.000000000 +0100
++++ netdev-atheros/drivers/net/wireless/atheros/atheros5212/regops.c	2005-08-05 03:48:36.000000000 +0200
+@@ -0,0 +1,83 @@
++/*
++ * All the work was created by reverse engineering and porting
++ * for interoperability. The creator is Mateusz Berezecki,
++ * unless explicitly marked ( some parts are derived
++ * from GPL'ed parts of madwifi project located at http://madwifi.sf.net)
++ *
++ * derived or copied parts of code licensed under
++ * dual GPL/BSD license
++ * Copyright (c) 2002-2005 Sam Leffler, Errno Consulting
++ * All rights reserved.
++ * 
++ * rest of the code has been reversed by me and is under copyright too
++ * Copyright (C) 2005  Mateusz Berezecki
++ * 
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version 2
++ * of the License, or (at your option) any later version.
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ * 
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
++ *
++ */
++
++
++#include <linux/config.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/version.h>
++#include <linux/init.h>
++#include <linux/delay.h>
++#include <linux/pci.h>
++#include <linux/netdevice.h>
++
++#include <net/ieee80211.h>
++
++#include <linux/wireless.h>
++#include <net/iw_handler.h>
++
++#include "atheros_id.h"
++#include "atheros_dev.h"
++#include "atheros_defs.h"
++#include "atheros_registers.h"
++#include "atheros.h"
++
++
++/* write to hardware register. thats for little endian hosts
++ * right now. I/or someone else has to add  support for big endians */
++void ath_reg_write(struct net_device *netdev, 
++		unsigned int reg, unsigned int val)
++{       
++	*((volatile unsigned int *)(netdev->mem_start + reg)) = val;
++	return;
++}
++
++/* reads from hw. same note as above */
++unsigned int ath_reg_read(struct net_device *netdev, unsigned int reg)
++{       
++	return (*((volatile u_int32_t *)(netdev->mem_start + reg)));
++}       
++
++/* just a wrapper. look above */
++void ath_reg_enable(struct net_device *netdev, 
++		unsigned int reg, unsigned int flags)
++{       
++	unsigned int tmp = ath_reg_read(netdev, reg);
++	ath_reg_write(netdev, reg, tmp | flags);
++}
++
++/* look above */
++void ath_reg_disable(struct net_device *netdev,
++		unsigned int reg, unsigned int flags)
++{
++	unsigned int val = ath_reg_read(netdev, reg);
++	val = val & ~flags;
++	ath_reg_write(netdev, reg, val);
++}
++
+diff -uprN -X 'netdev-2.6.git#ieee80211/Documentation/dontdiff' netdev-2.6.git#ieee80211/drivers/net/wireless/atheros/atheros5212/regops.h netdev-atheros/drivers/net/wireless/atheros/atheros5212/regops.h
+--- netdev-2.6.git#ieee80211/drivers/net/wireless/atheros/atheros5212/regops.h	1970-01-01 01:00:00.000000000 +0100
++++ netdev-atheros/drivers/net/wireless/atheros/atheros5212/regops.h	2005-08-05 03:48:36.000000000 +0200
+@@ -0,0 +1,62 @@
++/*
++ * All the work was created by reverse engineering and porting
++ * for interoperability. The creator is Mateusz Berezecki,
++ * unless explicitly marked ( some parts are derived
++ * from GPL'ed parts of madwifi project located at http://madwifi.sf.net)
++ *
++ * derived or copied parts of code licensed under
++ * dual GPL/BSD license
++ * Copyright (c) 2002-2005 Sam Leffler, Errno Consulting
++ * All rights reserved.
++ * 
++ * rest of the code has been reversed by me and is under copyright too
++ * Copyright (C) 2005  Mateusz Berezecki
++ * 
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version 2
++ * of the License, or (at your option) any later version.
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ * 
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
++ *
++ */
++
++
++#ifndef _REGOPS_H
++#define _REGOPS_H
++
++#include <linux/config.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/version.h>
++#include <linux/init.h>
++#include <linux/delay.h>
++#include <linux/pci.h>
++#include <linux/netdevice.h>
++
++#include <net/ieee80211.h>
++
++#include <linux/wireless.h>
++#include <net/iw_handler.h>
++
++#include "atheros_id.h"
++#include "atheros_dev.h"
++#include "atheros_defs.h"
++#include "atheros_registers.h"
++#include "atheros.h"
++
++void ath_reg_write(struct net_device *, unsigned int, unsigned int);
++unsigned int ath_reg_read(struct net_device *, unsigned int);
++void ath_reg_enable(struct net_device *, unsigned int, unsigned int);
++void ath_reg_disable(struct net_device *,unsigned int, unsigned int);
++
++
++
++
++#endif
+diff -uprN -X 'netdev-2.6.git#ieee80211/Documentation/dontdiff' netdev-2.6.git#ieee80211/drivers/net/wireless/atheros/atheros5212/transmit_receive.c netdev-atheros/drivers/net/wireless/atheros/atheros5212/transmit_receive.c
+--- netdev-2.6.git#ieee80211/drivers/net/wireless/atheros/atheros5212/transmit_receive.c	1970-01-01 01:00:00.000000000 +0100
++++ netdev-atheros/drivers/net/wireless/atheros/atheros5212/transmit_receive.c	2005-08-05 03:48:36.000000000 +0200
+@@ -0,0 +1,433 @@
++/*
++ * All the work was created by reverse engineering and porting
++ * for interoperability. The creator is Mateusz Berezecki,
++ * unless explicitly marked ( some parts are derived
++ * from GPL'ed parts of madwifi project located at http://madwifi.sf.net)
++ *
++ * derived or copied parts of code licensed under
++ * dual GPL/BSD license
 + * Copyright (c) 2002-2005 Sam Leffler, Errno Consulting
 + * All rights reserved.
 + * 
@@ -350,277 +513,400 @@ diff -uprN -X 'netdev-2.6.git#ieee80211/Documentation/dontdiff' netdev-2.6.git#i
 +#include <linux/wireless.h>
 +#include <net/iw_handler.h>
 +
-+#include "mode_tables.h"
-+#include "chans.h"
-+#include "atheros_defs.h"
-+#include "atheros.h"
++#include "atheros_id.h"
 +#include "atheros_dev.h"
++#include "atheros_defs.h"
++//#include "atheros_devops.h"
++//#include "atheros_regops.h"
++#include "atheros_registers.h"
++#include "atheros.h"
++#include "eeprom.h"
 +
-+
-+/*
-+ * ripping it out from madwifi is ... @#*$&@#&@%#$*$@# HARD!!! 
-+ */
-+
-+struct rate_table mode_a = {
-+	.rate_count	=	8,
-+        .code_to_idx    =       {
-+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-+	},
-+	.info[0]	=	{		/* 6 MB */
-+		.valid		=	1,
-+		.phy		=	IEEE80211_OFDM_MODULATION,
-+		.rateKbps	=	6000,
-+		.rateCode	=	11,
-+		.shortPreamble	=	0,
-+		.dot11Rate	=	(12 | 0x80),
-+		.controlRate	=	0,
-+		.lpAckDuration	=	0,
-+		.spAckDuration	=	0,
-+	},
-+	.info[1]	=	{		/* 9 MB */
-+		.valid		=	1,
-+		.phy		=	IEEE80211_OFDM_MODULATION,
-+		.rateKbps	=	9000,
-+		.rateCode	=	15,
-+		.shortPreamble	=	0,
-+		.dot11Rate	=	18,
-+		.controlRate	=	0,
-+		.lpAckDuration	=	0,
-+		.spAckDuration	=	0,
-+	},
-+	.info[2]	=	{		/* 12 MB */
-+		.valid		=	1,
-+		.phy		=	IEEE80211_OFDM_MODULATION,
-+		.rateKbps	=	12000,
-+		.rateCode	=	10,
-+		.shortPreamble	=	0,
-+		.dot11Rate	=	(0x80|24),
-+		.controlRate	=	2,
-+		.lpAckDuration	=	0,
-+		.spAckDuration	=	0,
-+	},
-+	.info[3]	=	{		/* 18 MB */
-+		.valid		=	1,
-+		.phy		=	IEEE80211_OFDM_MODULATION,
-+		.rateKbps	=	18000,
-+		.rateCode	=	14,
-+		.shortPreamble	=	0,
-+		.dot11Rate	=	36,
-+		.controlRate	=	2,
-+		.lpAckDuration	=	0,
-+		.spAckDuration	=	0,
-+	},
-+	.info[4]	=	{		/* 24 MB */
-+		.valid		=	1,
-+		.phy		=	IEEE80211_OFDM_MODULATION,
-+		.rateKbps	=	24000,
-+		.rateCode	=	9,
-+		.shortPreamble	=	0,
-+		.dot11Rate	=	(0x80|48),
-+		.controlRate	=	4,
-+		.lpAckDuration	=	0,
-+		.spAckDuration	=	0,
-+	},
-+	.info[5]	=	{		/* 36 MB */
-+		.valid		=	1,
-+		.phy		=	IEEE80211_OFDM_MODULATION,
-+		.rateKbps	=	36000,
-+		.rateCode	=	13,
-+		.shortPreamble	=	0,
-+		.dot11Rate	=	72,
-+		.controlRate	=	4,
-+		.lpAckDuration	=	0,
-+		.spAckDuration	=	0,
-+	},
-+	.info[6]	=	{		/* 48 MB */
-+		.valid		=	1,
-+		.phy		=	IEEE80211_OFDM_MODULATION,
-+		.rateKbps	=	48000,
-+		.rateCode	=	8,
-+		.shortPreamble	=	0,
-+		.dot11Rate	=	96,
-+		.controlRate	=	4,
-+		.lpAckDuration	=	0,
-+		.spAckDuration	=	0,
-+	},
-+	.info[7]	=	{
-+		.valid		=	1,	/* 54 MB */
-+		.phy		=	IEEE80211_OFDM_MODULATION,
-+		.rateKbps	=	54000,
-+		.rateCode	=	12,
-+		.shortPreamble	=	0,
-+		.dot11Rate	=	108,
-+		.controlRate	=	4,
-+		.lpAckDuration	=	0,
-+		.spAckDuration	=	0,
-+	},
-+};
-+
-+struct rate_table mode_b = {
-+	.rate_count     =       4,		/* +0 */
-+	.code_to_idx    =       {		/* +4 */
-+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-+	},
-+	.info[0]	=	{		/* +32 */
-+		.valid		=	1,	/* 0 - 1 */
-+		.phy		=	0,	/* 1 - 2 */
-+		.rateKbps	=	1000,	/* 2 - 4 */
-+		.rateCode	=	27,	/* 4 - 5 */
-+		.shortPreamble	=	0,	/* 5 - 6 */    /* 12 bytes */
-+		.dot11Rate	=	130,	/* 6 - 7 */
-+		.controlRate	=	0,	/* 7 - 8 */
-+		.lpAckDuration	=	0,	/* 8 - 10 */
-+		.spAckDuration	=	0,	/* 10 - 12 */
-+	},
-+	.info[1]	=	{
-+		.valid		=	1,
-+		.phy            =       0,
-+		.rateKbps       =       2000,	/* 2 MBps */
-+		.rateCode       =       26,
-+		.shortPreamble  =       4,
-+		.dot11Rate      =       132,
-+		.controlRate    =       1,
-+		.lpAckDuration  =       0,
-+		.spAckDuration  =       0,
-+	},
-+	.info[2]	=	{
-+		.valid		=	1,
-+		.phy		=	0,
-+		.rateKbps	=	5500,	/* 5.5 MBps */
-+		.rateCode	=	25,
-+		.shortPreamble	=	4,
-+		.dot11Rate	=	139,
-+		.controlRate	=	1,
-+		.lpAckDuration 	=	0,
-+		.spAckDuration	=	0,
-+	},
-+	.info[3]	=	{
-+		.valid		=	1,
-+		.phy		=	0,
-+		.rateKbps	=	11000,	/* 11 MBps */
-+		.rateCode	=	24,
-+		.shortPreamble	=	4,
-+		.dot11Rate	=	150,
-+		.controlRate	=	1,
-+		.lpAckDuration	=	0,
-+		.spAckDuration	=	0
-+	},
-+};
-+
-+
-+struct rate_table mode_g = {
-+	.rate_count		=	12,
-+	.code_to_idx		=	{ 0 },
-+	.info[0]		=	{ 1, IEEE80211_CCK_MODULATION,     1000, 0x1b, 0,  2, 0 },
-+	.info[1]		=	{ 1, IEEE80211_CCK_MODULATION,     2000, 0x1a, 4,  4, 1 },
-+	.info[2]		=	{ 1, IEEE80211_CCK_MODULATION,     5500, 0x19, 4, 11, 1 },
-+	.info[3]		=	{ 1, IEEE80211_CCK_MODULATION,    11000, 0x18, 4, 22, 1 },
-+	.info[4]		=	{ 0, IEEE80211_OFDM_MODULATION,   6000, 0x0b, 0, 12, 4 },
-+	.info[5] 		=	{ 0, IEEE80211_OFDM_MODULATION,   9000, 0x0f, 0, 18, 4 },
-+	.info[6]		=	{ 1, IEEE80211_OFDM_MODULATION,  12000, 0x0a, 0, 24, 6 },
-+	.info[7]		=	{ 1, IEEE80211_OFDM_MODULATION,  18000, 0x0e, 0, 36, 6 },
-+	.info[8]		=	{ 1, IEEE80211_OFDM_MODULATION,  24000, 0x09, 0, 48, 8 },
-+	.info[9]		=	{ 1, IEEE80211_OFDM_MODULATION,  36000, 0x0d, 0, 72, 8 },
-+	.info[10]		=	{ 1, IEEE80211_OFDM_MODULATION,  48000, 0x08, 0, 96, 8 },
-+	.info[11]		=	{ 1, IEEE80211_OFDM_MODULATION,  54000, 0x0c, 0,108, 8 },
-+};
-+
-+
-+/* TODO: add Atheros eXtended Range rate table and also turbo g rates */
-+
-+
-+struct rate_table *ath_get_rates(struct net_device *netdev, unsigned int mode)
++int ath_stopdmarecv(struct net_device *netdev)
 +{
-+	struct rate_table *rates = NULL;
-+		
-+	switch (mode) {
-+		case MODE_11A:
-+			rates = &mode_a;
-+			break;
-+		case MODE_11B:
-+			rates = &mode_b;
-+			break;
-+		case MODE_11G:
-+			rates = &mode_g;
-+
-+		default:
-+			printk(KERN_DEBUG"atheros: unsupported rate\n");
-+			return NULL;
++	ath_reg_write(netdev, AR5212_CR, AR5212_CR_RXD);
++	if (ath_timed_read(netdev, AR5212_CR, AR5212_CR_RXE, 0) == 0) {
++		printk(KERN_DEBUG"atheros: failed to stop DMA engine.\n");
++		return 0;
 +	}
 +
-+	ath_setup_rates(netdev, rates);
-+	return rates;	
-+}
-+
-+void ath_setup_rates(struct net_device *netdev,struct rate_table  *r)
-+{
-+	int i;
-+	
-+	if (r->code_to_idx[0] != 0)
-+		return;
-+	
-+	for (i = 0; i < 32; i++)
-+		r->code_to_idx[i] = 0xff;
-+	
-+	for (i = 0; i < r->rate_count; i++) {
-+		unsigned char code = r->info[i].rateCode;
-+		r->code_to_idx[code] = i;
-+		r->code_to_idx[code | r->info[i].shortPreamble] = i;
-+	}
-+}
-+
-+int ath_rate_setup(struct net_device *netdev, unsigned int mode)
-+{
-+	struct atheros_priv *p = ieee80211_priv(netdev);
-+	struct rate_table *rt;
-+	int i, maxrates;
-+	
-+	switch (mode) {
-+		case MODE_11A:
-+			p->rates[mode] = ath_get_rates(netdev, MODE_11A);
-+			break;
-+		case MODE_11B:
-+			printk(KERN_DEBUG"MODE 802.11B\n");
-+			p->rates[mode] = ath_get_rates(netdev, MODE_11B);
-+			break;
-+			
-+		case MODE_11G:
-+			p->rates[mode] = ath_get_rates(netdev, MODE_11G);
-+			break;
-+	/*
-+		case IEEE80211_MODE_TURBO_A:
-+			p->rates[mode] = ath_getratetable(netdev, HAL_MODE_TURBO);
-+			break;
-+		case IEEE80211_MODE_TURBO_G: 
-+			p->rates[mode] = ath_getratetable(netdev, HAL_MODE_108G);
-+			break; */
-+		default:
-+			return 0;
-+	}
-+	rt = p->rates[mode];
-+	
-+	if (rt == NULL)
-+		return 0; 
-+	
-+	if (rt->rate_count > IEEE80211_RATE_MAXSIZE) {
-+		maxrates = IEEE80211_RATE_MAXSIZE;
-+	} else  
-+		maxrates = rt->rate_count;
-+	/*
-+	rs = &ic->ic_sup_rates[mode];
-+	for (i = 0; i < maxrates; i++)
-+		rs->rs_rates[i] = rt->info[i].dot11Rate;
-+	rs->rs_nrates = maxrates;
-+	*/
 +	return 1;
 +}
 +
-diff -uprN -X 'netdev-2.6.git#ieee80211/Documentation/dontdiff' netdev-2.6.git#ieee80211/drivers/net/wireless/atheros/atheros5212/mode_tables.h netdev-atheros/drivers/net/wireless/atheros/atheros5212/mode_tables.h
---- netdev-2.6.git#ieee80211/drivers/net/wireless/atheros/atheros5212/mode_tables.h	1970-01-01 01:00:00.000000000 +0100
-+++ netdev-atheros/drivers/net/wireless/atheros/atheros5212/mode_tables.h	2005-08-05 03:48:36.000000000 +0200
-@@ -0,0 +1,60 @@
++void ath_stoppcurecv(struct net_device *netdev)
++{
++	ath_reg_enable(netdev, AR5212_DIAG_SW, AR5212_DIAG_SW_DIS_RX); 
++}
++
++/* TODO: add routines for starting dma/pcu recv */
++
++
++int ath_startrecv(struct net_device *netdev)
++{
++	/* XXX TODO fix it asap ;-) that one comes directly
++	 * from madwifi source */
++#if 0
++	struct atheros_priv *p = ieee80211_priv(netdev);
++	struct ath_buf *bf;
++
++	if (sc->sc_ic.ic_opmode == IEEE80211_M_MONITOR) {
++		sc->sc_rxbufsize = roundup(IEEE80211_MAX_LEN, sc->sc_cachelsz);
++	} else {
++		sc->sc_rxbufsize = roundup(sizeof(struct ieee80211_frame) +
++				dev->mtu + IEEE80211_CRC_LEN +
++				(IEEE80211_WEP_IVLEN + IEEE80211_WEP_KIDLEN +
++				 IEEE80211_WEP_CRCLEN), sc->sc_cachelsz);
++	}
++
++	p->rxlink = NULL;
++	STAILQ_FOREACH(bf, &p->rxbuf, bf_list) {
++		int error = ath_rxbuf_init(sc, bf);
++		if (error != 0) {
++			printk(KERN_DEBUG"atheros: startrecv failed\n");
++			return error;
++		}
++	}
++	
++	bf = STAILQ_FIRST(&p->rxbuf);
++	ath_putrxbuf(netdev, bf->bf_daddr);
++	ath_rxena(ah);              /* enable recv descriptors */
++	ath_mode_init(dev);             /* set filters, etc. */
++	ath_startpcurecv(ah);       /* re-enable PCU/DMA engine */
++#endif	
++	return 0;
++}
++
++void ath_setrxfilter(struct net_device *netdev, unsigned int mask)
++{
++	unsigned int val;
++
++	ath_reg_write(netdev, AR5212_RX_FILTER, mask & 0xff);
++	val = 0;
++
++	if (mask & 0x200)
++		val |= 0x20;
++
++	if (mask & 0x100)
++		val |= 0x10;
++
++	ath_reg_write(netdev, AR5212_PHY_ERR_FIL, val);
++
++	if (val)
++		ath_reg_enable(netdev, AR5212_RXCFG, AR5212_RXCFG_ZLFDMA);  
++	else
++		ath_reg_disable(netdev, AR5212_RXCFG, AR5212_RXCFG_ZLFDMA);
++
++}
++
++void ath_draintxq(struct net_device *netdev)
++{
++	struct atheros_priv *p = ieee80211_priv(netdev);
++	int i;
++	
++	/* XXX return value */
++	if (!p->invalid) {
++		/* don't touch the hardware if marked invalid */
++		/*
++		(void) ath_stoptxdma(netdev, p->bhalq);
++		
++		for (i = 0; i < HAL_NUM_TX_QUEUES; i++) {
++			if (ATH_TXQ_SETUP(sc, i))
++				ath_tx_stopdma(netdev, &p->txq[i]);
++		}
++		*/
++	}
++	netdev->trans_start = jiffies;
++	
++	netif_start_queue(netdev); 
++	/* XXX
++	for (i = 0; i < HAL_NUM_TX_QUEUES; i++) {
++		if (ATH_TXQ_SETUP(netdev, i))
++			ath_tx_draintxq(netdev, &p->txq[i]);
++	}
++	sc->sc_tx_timer = 0;
++	*/
++}
++
++void ath_stoprecv(struct net_device *netdev)
++{
++	struct atheros_priv *p = ieee80211_priv(netdev);
++	
++	ath_stoppcurecv(netdev);        /* disable PCU */
++	ath_setrxfilter(netdev, 0);     /* clear recv filter */
++	ath_stopdmarecv(netdev);        /* disable DMA engine */
++	udelay(3);                      /* 3ms is long enough for 1 frame */
++
++	p->rxlink = NULL;
++}
++
++
++unsigned int ath_setup_xtx_desc(struct net_device *netdev, struct ath_desc *desc,
++			unsigned int txrate1, unsigned int txtries1,
++			unsigned int txrate2, unsigned int txtries2,
++			unsigned int txrate3, unsigned int txtries3)
++{
++	if (txtries1 != 0) {
++		desc->u.tx.ctl2 |= (txtries1 << 20) & 0xf00000;
++		desc->u.tx.ctl3 |= (txrate1 << 5);
++	}
++	if (txtries2 != 0) {
++		desc->u.tx.ctl2 |= (txtries2 << 24) & 0xf000000;
++		desc->u.tx.ctl3 |= (txrate2 << 10);
++	}
++	if (txtries3 != 0) {
++		desc->u.tx.ctl2 |= (txtries3 << 28);
++		desc->u.tx.ctl3 |= (txrate3 << 15); 
++	}
++
++	return 1;
++}
++
++unsigned int ath_set_tx_queue_params(struct net_device *netdev,
++		unsigned int q, struct tx_queue_info *txi)
++{
++	struct atheros_priv *p = ieee80211_priv(netdev);
++
++	if (p->txq_info[q].tqi_type == 0)
++		return 0;
++
++	/* Q: why just do not memcopy it ? */
++	p->txq_info[q].tqi_ver = txi->tqi_ver;
++	p->txq_info[q].tqi_subtype = txi->tqi_subtype;
++	p->txq_info[q].tqi_qflags = txi->tqi_qflags;
++	p->txq_info[q].tqi_priority = txi->tqi_priority;
++	p->txq_info[q].tqi_aifs = txi->tqi_aifs;
++	p->txq_info[q].tqi_cwmin = txi->tqi_cwmin;
++	p->txq_info[q].tqi_cwmax = txi->tqi_cwmax;
++	p->txq_info[q].tqi_cbrPeriod = txi->tqi_cbrPeriod;
++	p->txq_info[q].tqi_cbrOverflowLimit = txi->tqi_cbrOverflowLimit;
++	p->txq_info[q].tqi_burstTime = txi->tqi_burstTime;
++	p->txq_info[q].tqi_readyTime = txi->tqi_readyTime;
++
++	switch (txi->tqi_subtype) {
++		case WME_AC_VI:
++		case WME_AC_VO:
++		case WME_UPSD:
++			if (p->txq_info[q].tqi_type == TX_QUEUE_DATA)
++				p->txq_info[q].tqi_flags = 1;
++			break;
++		default:
++			break;
++	}
++
++	return 1;
++}
++
++unsigned int ath_setup_tx_queue(struct net_device *netdev,
++		unsigned int type, struct tx_queue_info *txi)
++{
++	struct atheros_priv *p = ieee80211_priv(netdev);
++	int q;
++	
++	switch (type) {
++		case 2:
++			q = 9;		
++			break;
++		default:
++			return 0;
++	}
++
++	memset(&p->tx_queues[q], 0, sizeof(struct tx_queue_info));
++	p->txq_info[q].tqi_type = type;
++	
++	if (txi != NULL) {
++		ath_set_tx_queue_params(netdev, q, txi);
++	}
++
++	p->intr_mask |= 1 << q;
++	return q;
++}
++
++struct tx_queue *ath_txq_setup(struct net_device *netdev,
++		int qtype, int subtype)
++{
++	struct atheros_priv *p = ieee80211_priv(netdev);
++	struct tx_queue_info qi;
++	int qnum;
++
++	memset(&qi, 0, sizeof(qi));
++	qi.tqi_subtype = subtype;
++	qi.tqi_aifs = 0xffffffff;
++	qi.tqi_cwmin = 0xffffffff;
++	qi.tqi_cwmax = 0xffffffff;
++	qi.tqi_qflags = TXQ_FLAG_TXEOLINT_ENABLE | TXQ_FLAG_TXDESCINT_ENABLE;
++	qnum = ath_setup_tx_queue(netdev, qtype, &qi);
++	if (qnum == -1) {
++		return NULL;
++	}
++	
++	if (p->tx_setup & (1 << qnum)) {
++		struct tx_queue *txq = &p->tx_queues[qnum];
++
++		txq->axq_qnum = qnum;
++		txq->axq_depth = 0;
++		txq->axq_intrcnt = 0;
++		txq->axq_link = NULL;
++		/* XXX 
++		STAILQ_INIT(&txq->axq_q);
++		ATH_TXQ_LOCK_INIT(sc, txq);
++		*/
++		p->tx_setup |= 1<<qnum;
++	}
++	return &p->tx_queues[qnum];
++}
++
++
++/*
++ * RECEIVE PART
++ */
++
++unsigned int ath_get_rx_desc(struct net_device *netdev, 
++		unsigned int descriptor)
++{
++	return ath_reg_read(netdev, AR5212_RXDP); 
++}
++
++void ath_set_rx_desc(struct net_device *netdev,
++		unsigned int descriptor)
++{
++	ath_reg_write(netdev, AR5212_RXDP, descriptor);
++	ath_reg_read(netdev, AR5212_RXDP);
++}
++
++void ath_enable_receive(struct net_device *netdev)
++{
++	ath_reg_write(netdev, AR5212_CR, AR5212_CR_RXE);  
++}
++
++
++unsigned int ath_stop_dma_recv(struct net_device *netdev)
++{
++	ath_reg_write(netdev, AR5212_CR, AR5212_CR_RXD);
++	if (!ath_timed_read(netdev, AR5212_CR, AR5212_CR_RXE, 0)) {
++		printk(KERN_DEBUG"atheros: failed to stop DMA\n");
++		return 0;
++	}
++	return 1;
++}
++
++
++void ath_set_multicast_fltr(struct net_device *netdev, 
++		unsigned int fil0, unsigned int fil1)
++{
++	ath_reg_write(netdev, AR5212_MCAST_FIL0, fil0);
++	ath_reg_write(netdev, AR5212_MCAST_FIL1, fil1);	
++}
++
++unsigned int ath_set_multicast_filter_idx(struct net_device *netdev, unsigned int idx)
++{
++	unsigned int val;
++	
++	if (idx >= 64)
++		return 0;
++	
++	if (idx >= 32) {
++		val = ath_reg_read(netdev, AR5212_MCAST_FIL1);
++		ath_reg_write(netdev, AR5212_MCAST_FIL1, (val | (1<<(idx-32))));
++	} else {
++		val = ath_reg_read(netdev, AR5212_MCAST_FIL0);
++		ath_reg_write(netdev, AR5212_MCAST_FIL0, (val | (1<<idx)));
++	}
++	return 1;
++}
++
++unsigned int ath_clr_multicast_fltr_idx(struct net_device *netdev, unsigned int idx)
++{
++	unsigned int val;
++	
++	if (idx >= 64)
++		return 0;
++	
++	if (idx >= 32) {
++		val = ath_reg_read(netdev, AR5212_MCAST_FIL1);
++		ath_reg_write(netdev, AR5212_MCAST_FIL1, (val &~ (1<<(idx-32))));
++	} else {
++		val = ath_reg_read(netdev, AR5212_MCAST_FIL0);
++		ath_reg_write(netdev, AR5212_MCAST_FIL0, (val &~ (1<<idx)));
++	}
++	return 1;
++}
++
++unsigned int ath_get_rx_filter(struct net_device *netdev)
++{
++	unsigned int bits = ath_reg_read(netdev, AR5212_RX_FILTER);
++	unsigned int phy = ath_reg_read(netdev, AR5212_PHY_ERR_FIL);
++	
++	if (phy & AR5212_PHY_ERR_FIL_RADAR)
++		bits |= RX_FILTER_PHYRADAR;
++	if (phy & (AR5212_PHY_ERR_FIL_OFDM|AR5212_PHY_ERR_FIL_CCK))
++		bits |= RX_FILTER_PHYERR;
++	return bits;
++}
++
++unsigned int ath_setup_rx_desc(struct net_device *netdev, struct ath_desc *ds,
++		unsigned int size, unsigned int flags)
++{
++	ds->ctl0 = 0;
++	ds->ctl1 = size & 0xfff;
++	if (ds->ctl1 != size) {
++		return 0;
++	}
++	
++	if (flags & 0x20)
++		ds->ctl1 |= 0x2000;
++	
++	ds->u.rx.status0 = ds->u.rx.status1 = 0;
++	
++	return 1;
++}
++
++int ath_proc_rx_desc(struct net_device *netdev, struct ath_desc *ds,
++		unsigned int cx, struct ath_desc *nds)
++{
++	if ((ds->u.rx.status1 & 1) == 0)
++		return EINPROGRESS;
++	
++	if ((nds->u.rx.status1 & 1) == 0 && ath_reg_read(netdev, AR5212_RXDP) == cx)
++		return EINPROGRESS;
++	
++	ds->s.rxstat.rs_datalen = ds->u.rx.status0 & 0xfff;
++	ds->s.rxstat.rs_tstamp = (ds->u.rx.status1 & 0x7fff0000) >> 16;
++	ds->s.rxstat.rs_status = 0;
++	
++	if ((ds->u.rx.status1 & 2) == 0) {
++		if (ds->u.rx.status1 & 4) /* CRC Error */
++			ds->s.rxstat.rs_status |= RXERR_CRC;
++		if (ds->u.rx.status1 & 8) /* crc decrypt error */
++			ds->s.rxstat.rs_status |= RXERR_DECRYPT;
++		if (ds->u.rx.status1 & 32) /* MIC error */
++			ds->s.rxstat.rs_status |= RXERR_MIC;
++		if (ds->u.rx.status1 & 16) { /* PHY error */
++			unsigned int phyerr;
++			//ds->s.rxstat.rs_status |= RXERR_PHY;
++			//phyerr = MS(ads->ds_rxstatus1, AR_PHYErrCode);
++			//ds->s.rxstat.rs_phyerr = phyerr;
++		}
++	}
++
++
++	ds->s.rxstat.rs_rssi = (ds->u.rx.status0 & 0x0ff00000) >> 20;
++	if (ds->u.rx.status1 & 0x100)
++		ds->s.rxstat.rs_keyix = (ds->u.rx.status1 & 0xfe00) >> 9; 
++	else
++		ds->s.rxstat.rs_keyix = 0xff;
++	
++	
++	ds->s.rxstat.rs_rate = (ds->u.rx.status0 & 0xf8000) >> 15;
++	ds->s.rxstat.rs_antenna  = (ds->u.rx.status0 & 0xf0000000) >> 28;
++	ds->s.rxstat.rs_more = (ds->u.rx.status0 & 0x1000) ? 1 : 0;
++	
++	return 1;
++}
++
+diff -uprN -X 'netdev-2.6.git#ieee80211/Documentation/dontdiff' netdev-2.6.git#ieee80211/drivers/net/wireless/atheros/atheros5212/transmit_receive.h netdev-atheros/drivers/net/wireless/atheros/atheros5212/transmit_receive.h
+--- netdev-2.6.git#ieee80211/drivers/net/wireless/atheros/atheros5212/transmit_receive.h	1970-01-01 01:00:00.000000000 +0100
++++ netdev-atheros/drivers/net/wireless/atheros/atheros5212/transmit_receive.h	2005-08-05 03:48:36.000000000 +0200
+@@ -0,0 +1,62 @@
 +/*
 + * All the work was created by reverse engineering and porting
 + * for interoperability. The creator is Mateusz Berezecki,
@@ -651,39 +937,40 @@ diff -uprN -X 'netdev-2.6.git#ieee80211/Documentation/dontdiff' netdev-2.6.git#i
 + */
 +
 +
-+#ifndef _MODE_TABLES_H
-+#define _MODE_TABLES_H
++#ifndef _TRANSMIT_RECEIVE_H
++#define _TRANSMIT_RECEIVE_H
 +
-+struct rate_info {
-+	unsigned char        valid;
-+	unsigned char        phy;
-+	unsigned short       rateKbps;
-+	unsigned char        rateCode;
-+	unsigned char        shortPreamble;
-+	unsigned char        dot11Rate;
-+	unsigned char        controlRate;
-+	unsigned short       lpAckDuration;
-+	unsigned short       spAckDuration;
-+};
++#include <linux/config.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/version.h>
++#include <linux/init.h>
++#include <linux/delay.h>
++#include <linux/pci.h>
++#include <linux/netdevice.h>
 +
-+struct rate_table {
-+	int              rate_count;
-+	unsigned char    code_to_idx[32];    /* back mapping */
-+	struct rate_info info[32];
-+};
++#include <net/ieee80211.h>
 +
-+extern struct rate_table mode_a;
-+extern struct rate_table mode_b;
++#include <linux/wireless.h>
++#include <net/iw_handler.h>
 +
-+void ath_setup_rates(struct net_device *,struct rate_table *);
-+struct rate_table *ath_get_rates(struct net_device *, unsigned int);
-+int ath_rate_setup(struct net_device *, unsigned int);
++#include "atheros_id.h"
++#include "atheros_dev.h"
++#include "atheros_defs.h"
++//#include "atheros_devops.h"
++//#include "atheros_regops.h"
++#include "atheros_registers.h"
++#include "atheros.h"
++#include "eeprom.h"
++
++unsigned int ath_setup_xtx_desc(struct net_device *, struct ath_desc *,
++			unsigned int, unsigned int, unsigned int,
++			unsigned int, unsigned int, unsigned int);
++
++
 +#endif
-+
-+
 
-
---------------000705030305080808020607
+--------------010809010300060901030803
 Content-Type: text/plain; charset="us-ascii"
 MIME-Version: 1.0
 Content-Transfer-Encoding: 7bit
@@ -694,4 +981,4 @@ Kernel-mentors mailing list
 Kernel-mentors@selenic.com
 http://selenic.com/mailman/listinfo/kernel-mentors
 
---------------000705030305080808020607--
+--------------010809010300060901030803--
