@@ -1,15 +1,18 @@
-From: Jeff Garzik <jgarzik@pobox.com>
+From: Mateusz Berezecki <mateuszb@gmail.com>
 Subject: Re: atheros driver - desc
-Date: Fri, 05 Aug 2005 14:39:53 -0400
-Message-ID: <42F3B279.2010200@pobox.com>
+Date: Fri, 5 Aug 2005 20:54:24 +0200
+Message-ID: <aec8d6fc05080511547e27cfe8@mail.gmail.com>
 References: <20050805180709.GD3067@ntjohd.mshome.net>
+	<42F3B279.2010200@pobox.com>
+Reply-To: Mateusz Berezecki <mateuszb@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
 Cc: kernel-mentors@selenic.com, netdev@vger.kernel.org
 Return-path: <kernel-mentors-bounces@selenic.com>
-To: Mateusz Berezecki <mateuszb@gmail.com>
-In-Reply-To: <20050805180709.GD3067@ntjohd.mshome.net>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <42F3B279.2010200@pobox.com>
+Content-Disposition: inline
 List-Unsubscribe: <http://selenic.com/mailman/listinfo/kernel-mentors>,
 	<mailto:kernel-mentors-request@selenic.com?subject=unsubscribe>
 List-Archive: <http://www.selenic.com/pipermail/kernel-mentors>
@@ -21,15 +24,15 @@ Sender: kernel-mentors-bounces@selenic.com
 Errors-To: kernel-mentors-bounces@selenic.com
 List-Id: netdev.vger.kernel.org
 
-Mateusz Berezecki wrote:
-> And regarding that ieee80211 API, I would be very excited if
-> anyone could explain the general overview of how new wireless
-> API works. I read the source but sometimes a quick answer from
-> experienced kernel coder would do more good. 
+On 8/5/05, Jeff Garzik <jgarzik@pobox.com> wrote:
+ 
+> There is no document describing the API AFAIK.
+> 
+> The best thing to do is read over the ipw2[12]00 drivers.
+> 
+>         Jeff
 
+Ok, thanks for pointing me there. 
 
-There is no document describing the API AFAIK.
-
-The best thing to do is read over the ipw2[12]00 drivers.
-
-	Jeff
+best
+Mateusz
