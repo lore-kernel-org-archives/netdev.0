@@ -1,39 +1,35 @@
-From: Jirka Bohac <jbohac@suse.cz>
-Subject: Re: Fwd: opensource atheros driver almost done
-Date: Thu, 4 Aug 2005 14:09:14 +0200
-Message-ID: <20050804120914.GA1905@dwarf.suse.cz>
-References: <aec8d6fc05080215084f955d44@mail.gmail.com> <aec8d6fc050802151125284155@mail.gmail.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH 0/6] nfnetlink / ctnetlink fixes + updates
+Date: Fri, 05 Aug 2005 02:13:06 -0700 (PDT)
+Message-ID: <20050805.021306.41643339.davem@davemloft.net>
+References: <20050802105427.GG4158@rama.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, jbenc@suse.cz
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Mateusz Berezecki <mateuszb@gmail.com>
-Content-Disposition: inline
-In-Reply-To: <aec8d6fc050802151125284155@mail.gmail.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: laforge@netfilter.org
+In-Reply-To: <20050802105427.GG4158@rama.de.gnumonks.org>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+From: Harald Welte <laforge@netfilter.org>
+Date: Tue, 2 Aug 2005 12:54:27 +0200
 
-> I am developing that driver using ieee80211 branch of netdev
-> kernel tree, and I am not so confident I do things right using
-> new ieee80211 api. I would appreciate any suggestion and review
-> of the source code.
+> I know you're travelling, but I already have this pile of patches/fixes
+> for nfnetlink and ctnetlink.  I'm sorry to keep patch-bombing you, but
+> I think it's better we find those issues right now (before it is in mainline)
+> rather than later, when it already is in the mainline tree.
+> 
+> Please apply in sequential order (and also apply the nf_log patch you
+> seem to have missed a short time ago).
 
-please have a look at
-http://forge.novell.com/modules/xfmod/cvs/cvsbrowse.php/ieee80211/patches-upstream/
-These patches are likely to be merged by Jeff soon (apply using
-quilt or use the order in the series file)
-
-Also, you can have a look at
-http://forge.novell.com/modules/xfmod/cvs/cvsbrowse.php/ieee80211/patches-netdev/
-These patches break a lot of things, but can tell you more about
-the ongoing development of the ieee80211 layer.
-
-
-Regards,
-
--- 
-Jirka Bohac <jbohac@suse.cz>
-SUSE Labs, SUSE CR
+Applied to net-2.6.14, thanks.
