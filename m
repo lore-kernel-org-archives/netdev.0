@@ -1,99 +1,35 @@
-From: Hal Rosenstock <halr@voltaire.com>
-Subject: [PATCH] sockaddr_ll change for IPoIB interfaces
-Date: 05 Aug 2005 14:25:57 -0400
-Message-ID: <1123266356.4451.243.camel@hal.voltaire.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: atheros driver - desc
+Date: Fri, 05 Aug 2005 14:39:53 -0400
+Message-ID: <42F3B279.2010200@pobox.com>
+References: <20050805180709.GD3067@ntjohd.mshome.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-To: netdev@vger.kernel.org
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Cc: kernel-mentors@selenic.com, netdev@vger.kernel.org
+Return-path: <kernel-mentors-bounces@selenic.com>
+To: Mateusz Berezecki <mateuszb@gmail.com>
+In-Reply-To: <20050805180709.GD3067@ntjohd.mshome.net>
+List-Unsubscribe: <http://selenic.com/mailman/listinfo/kernel-mentors>,
+	<mailto:kernel-mentors-request@selenic.com?subject=unsubscribe>
+List-Archive: <http://www.selenic.com/pipermail/kernel-mentors>
+List-Post: <mailto:kernel-mentors@selenic.com>
+List-Help: <mailto:kernel-mentors-request@selenic.com?subject=help>
+List-Subscribe: <http://selenic.com/mailman/listinfo/kernel-mentors>,
+	<mailto:kernel-mentors-request@selenic.com?subject=subscribe>
+Sender: kernel-mentors-bounces@selenic.com
+Errors-To: kernel-mentors-bounces@selenic.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Mateusz Berezecki wrote:
+> And regarding that ieee80211 API, I would be very excited if
+> anyone could explain the general overview of how new wireless
+> API works. I read the source but sometimes a quick answer from
+> experienced kernel coder would do more good. 
 
-The patch below is to accomodate IPoIB link layer address in the
-sockaddr_ll struct so that user space can send and receive IPoIB link
-later packets. Unfortunately, IPoIB has 20 bytes LL addresses rather
-than the 8 byte MAC addresses (or under) used by other LLs.
 
-There is a similar change to both:
-/usr/include/linux/if_packet.h
-/usr/include/netpacket/packet.h
-as in:
-include/linux/if_packet.h below
-to increase sll_addr from 8 to 20 bytes.
+There is no document describing the API AFAIK.
 
-Thanks.
+The best thing to do is read over the ipw2[12]00 drivers.
 
--- Hal
-
-sockaddr_ll changes to accomodate IPoIB interfaces.
-This is due to the fact that the IPoIB link layer
-address is 20 bytes rather than 8 bytes. With the current 8 byte
-address, it is not possible to send ARPs and RARPs from userspace as the
-broadcast and unicast IPoIB addresses cannot be supplied properly.
-There is backward compatibility support for those applications built
-with the existing structure (prior to this patch).
-
-Signed-off-by: Hal Rosenstock <halr@voltaire.com>
-
---- include/linux/if_packet.h.orig	2005-06-29 19:00:53.000000000 -0400
-+++ include/linux/if_packet.h	2005-08-05 10:04:06.000000000 -0400
-@@ -8,6 +8,7 @@ struct sockaddr_pkt
- 	unsigned short spkt_protocol;
- };
- 
-+#define SOCKADDR_LL_COMPAT	12
- struct sockaddr_ll
- {
- 	unsigned short	sll_family;
-@@ -16,7 +17,7 @@ struct sockaddr_ll
- 	unsigned short	sll_hatype;
- 	unsigned char	sll_pkttype;
- 	unsigned char	sll_halen;
--	unsigned char	sll_addr[8];
-+	unsigned char	sll_addr[20];
- };
- 
- /* Packet types */
-
---- af_packet.c.orig	2005-06-29 19:00:53.000000000 -0400
-+++ af_packet.c	2005-08-05 13:28:49.000000000 -0400
-@@ -708,8 +708,12 @@ static int packet_sendmsg(struct kiocb *
- 		addr	= NULL;
- 	} else {
- 		err = -EINVAL;
--		if (msg->msg_namelen < sizeof(struct sockaddr_ll))
--			goto out;
-+		if (msg->msg_namelen < sizeof(struct sockaddr_ll)) {
-+			/* Support for older sockaddr_ll structs */
-+			if ((msg->msg_namelen != sizeof(struct sockaddr_ll) - SOCKADDR_LL_COMPAT) ||
-+			    (saddr->sll_hatype == ARPHRD_INFINIBAND))
-+				goto out;
-+		}
- 		ifindex	= saddr->sll_ifindex;
- 		proto	= saddr->sll_protocol;
- 		addr	= saddr->sll_addr;
-@@ -937,7 +941,11 @@ static int packet_bind(struct socket *so
- 	 */
- 	 
- 	if (addr_len < sizeof(struct sockaddr_ll))
--		return -EINVAL;
-+		/* Support for older sockaddr_ll structs */
-+		if ((addr_len != sizeof(struct sockaddr_ll) -
-+				 SOCKADDR_LL_COMPAT) || 
-+		    (sll->sll_hatype == ARPHRD_INFINIBAND))
-+			return -EINVAL;
- 	if (sll->sll_family != AF_PACKET)
- 		return -EINVAL;
- 
+	Jeff
