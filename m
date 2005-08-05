@@ -1,38 +1,54 @@
-From: Mateusz Berezecki <mateuszb@gmail.com>
-Subject: Re: atheros driver - desc
-Date: Fri, 5 Aug 2005 20:54:24 +0200
-Message-ID: <aec8d6fc05080511547e27cfe8@mail.gmail.com>
-References: <20050805180709.GD3067@ntjohd.mshome.net>
-	<42F3B279.2010200@pobox.com>
-Reply-To: Mateusz Berezecki <mateuszb@gmail.com>
+From: Sam Ravnborg <sam@ravnborg.org>
+Subject: error about rp_filter
+Date: Fri, 5 Aug 2005 23:02:37 +0200
+Message-ID: <20050805210237.GA17639@mars.ravnborg.org>
+References: <35e353d505080508444dbb7189@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: kernel-mentors@selenic.com, netdev@vger.kernel.org
-Return-path: <kernel-mentors-bounces@selenic.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <42F3B279.2010200@pobox.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: kbuild-devel@lists.sourceforge.net
+Return-path: <kbuild-devel-admin@lists.sourceforge.net>
+To: Adrian Buciuman <adibuciuman@gmail.com>, netdev@vger.kernel.org
 Content-Disposition: inline
-List-Unsubscribe: <http://selenic.com/mailman/listinfo/kernel-mentors>,
-	<mailto:kernel-mentors-request@selenic.com?subject=unsubscribe>
-List-Archive: <http://www.selenic.com/pipermail/kernel-mentors>
-List-Post: <mailto:kernel-mentors@selenic.com>
-List-Help: <mailto:kernel-mentors-request@selenic.com?subject=help>
-List-Subscribe: <http://selenic.com/mailman/listinfo/kernel-mentors>,
-	<mailto:kernel-mentors-request@selenic.com?subject=subscribe>
-Sender: kernel-mentors-bounces@selenic.com
-Errors-To: kernel-mentors-bounces@selenic.com
+In-Reply-To: <35e353d505080508444dbb7189@mail.gmail.com>
+Sender: kbuild-devel-admin@lists.sourceforge.net
+Errors-To: kbuild-devel-admin@lists.sourceforge.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/kbuild-devel>,
+	<mailto:kbuild-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Post: <mailto:kbuild-devel@lists.sourceforge.net>
+List-Help: <mailto:kbuild-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/kbuild-devel>,
+	<mailto:kbuild-devel-request@lists.sourceforge.net?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=kbuild-devel>
 List-Id: netdev.vger.kernel.org
 
-On 8/5/05, Jeff Garzik <jgarzik@pobox.com> wrote:
- 
-> There is no document describing the API AFAIK.
-> 
-> The best thing to do is read over the ipw2[12]00 drivers.
-> 
->         Jeff
+Hi Adrian.
+This is better suited for netdev, so I've forwarded your mail there.
+[It was originally sent to kbuild-devel]
 
-Ok, thanks for pointing me there. 
+	Sam
 
-best
-Mateusz
+On Fri, Aug 05, 2005 at 06:44:59PM +0300, Adrian Buciuman wrote:
+> Hello,
+> 
+> rp-filter is default off (see ip-sysctl.txt and proc.txt or test it),
+> but comments in
+> 
+> 
+> Documentation/Configure/help    --- 2.4 kernels
+> net/ipv4/Kconfig --- 2.6 kernels
+> 
+> 
+> have led some (look at /etc/rc.d/rc.ip_forward on Slackware)  to
+> believe it is default on.
+> 
+> 
+> Regards,
+> Adrian Buciuman
+> 
+
+
+-------------------------------------------------------
+SF.Net email is Sponsored by the Better Software Conference & EXPO
+September 19-22, 2005 * San Francisco, CA * Development Lifecycle Practices
+Agile & Plan-Driven Development * Managing Projects & Teams * Testing & QA
+Security * Process Improvement & Measurement * http://www.sqe.com/bsce5sf
