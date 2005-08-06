@@ -1,62 +1,68 @@
-From: Mateusz Berezecki <mateuszb@gmail.com>
-Subject: Re: atheros driver - desc
-Date: Sat, 6 Aug 2005 23:38:41 +0200
-Message-ID: <20050806213841.GA22383@ntjohd.mshome.net>
-References: <42F2D523.9020702@gmail.com> <8764uig7nm.fsf@litku.valo.iki.fi>
-Reply-To: Mateusz Berezecki <mateuszb@gmail.com>
+From: Manfred Spraul <manfred@colorfullife.com>
+Subject: [PATCH] forcedeth: Initialize link settings in every nv_open()
+Date: Sat, 06 Aug 2005 23:47:55 +0200
+Message-ID: <42F5300B.3070909@colorfullife.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kalle.Valo@iki.fi
-Return-path: <kernel-mentors-bounces@selenic.com>
-To: kernel-mentors@selenic.com, netdev <netdev@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <8764uig7nm.fsf@litku.valo.iki.fi>
-List-Unsubscribe: <http://selenic.com/mailman/listinfo/kernel-mentors>,
-	<mailto:kernel-mentors-request@selenic.com?subject=unsubscribe>
-List-Archive: <http://www.selenic.com/pipermail/kernel-mentors>
-List-Post: <mailto:kernel-mentors@selenic.com>
-List-Help: <mailto:kernel-mentors-request@selenic.com?subject=help>
-List-Subscribe: <http://selenic.com/mailman/listinfo/kernel-mentors>,
-	<mailto:kernel-mentors-request@selenic.com?subject=subscribe>
-Sender: kernel-mentors-bounces@selenic.com
-Errors-To: kernel-mentors-bounces@selenic.com
+Content-Type: multipart/mixed;
+ boundary="------------070304080809040805050905"
+Cc: Ayaz Abdulla <AAbdulla@nvidia.com>, Netdev <netdev@oss.sgi.com>,
+        cOzmIc.FI@gmx.net
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Kalle Valo <Kalle.Valo@iki.fi> wrote:
-| 
-| This is great news. An open source Atheros driver which could be
-| included to Linux is really needed.
-| 
-| But how was the reverse engineering done? I noticed that forcedeth
-| driver was implemented using the clean room design[1] and Linux
-| Broadcom 4301 driver project[2] seems to be using the same method.
+This is a multi-part message in MIME format.
+--------------070304080809040805050905
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: quoted-printable
+X-MIME-Autoconverted: from 8bit to quoted-printable by oss.sgi.com id j76LtXH9010831
 
-  Reverse engineering was done by dissassemblying binary HAL
-  and in harder parts by running it in userspace(yes, that is possible)
-  and analysing input and produced output. The crucial part was to
-  discover the meaning of hidden part of the structure describing
-  device state. Once this was done it will be a little if no problem to me
-  to provide updates for this driver, unless the whole binary HAL
-  changes dramatically. That's one of the reasons I do this work myself.
-  
-| 
-| The reason I'm asking this is that I just wouldn't want see the same
-| happening this with this driver as happened during reverse engineering
-| of pwc Philips Webcam driver (some parts of the driver were removed
-| from kernel, but I believe the situation is now solved).
+R=FCdiger found a bug in nv_open that explains some of the reports
+with duplex mismatches:
+nv_open calls nv_update_link_speed for initializing the hardware link spe=
+ed
+registers. If current link setting matches the values in np->linkspeed an=
+d
+np->duplex, then the function does nothing.
+Usually, doing nothing is the right thing, but not in nv_open: During
+nv_open, the registers must be initialized because the nic was reset.
 
-  If get into trouble I write documentation :-) I promise.
+The attached patch fixes that by setting np->linkspeed to an invalid valu=
+e
+before calling nv_update_link_speed from nv_open.
+
+Signed-Off-By: Manfred Spraul <manfred@colorfullife.com>
 
 
-| Actually, what are requirements to get a reverse engineered driver
-| included to Linux? Is clean room design an absolute must? It seems
-| that reverse engineering is needed if we want Linux support for most
-| of the WLAN cards on the market :(
-| 
+--------------070304080809040805050905
+Content-Type: text/plain;
+ name="patch-forcedeth-042-forcelinkinit"
+Content-Disposition: inline;
+ filename="patch-forcedeth-042-forcelinkinit"
+Content-Transfer-Encoding: 7bit
 
-   Sad but true. The problem is not at vendors' side though.
-   Look at FCC regulations... :/
+--- 2.6/drivers/net/forcedeth.c	2005-08-06 19:59:56.000000000 +0200
++++ build-2.6/drivers/net/forcedeth.c	2005-08-06 19:59:06.000000000 +0200
+@@ -93,6 +93,8 @@
+  *      0.40: 19 Jul 2005: Add support for mac address change.
+  *      0.41: 30 Jul 2005: Write back original MAC in nv_close instead
+  *			   of nv_remove
++ *      0.42: 06 Aug 2005: Fix lack of link speed initialization
++ *			   in the second (and later) nv_open call
+  *
+  * Known bugs:
+  * We suspect that on some hardware no TX done interrupts are generated.
+@@ -2178,6 +2180,9 @@
+ 		writel(NVREG_MIISTAT_MASK, base + NvRegMIIStatus);
+ 		dprintk(KERN_INFO "startup: got 0x%08x.\n", miistat);
+ 	}
++	/* set linkspeed to invalid value, thus force nv_update_linkspeed
++	 * to init hw */
++	np->linkspeed = 0;
+ 	ret = nv_update_linkspeed(dev);
+ 	nv_start_rx(dev);
+ 	nv_start_tx(dev);
 
-
-   kind regards
-   Mateusz
+--------------070304080809040805050905--
