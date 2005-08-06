@@ -1,18 +1,15 @@
-From: Daniel Phillips <phillips@istop.com>
-Subject: Re: argh... ;/
-Date: Sat, 6 Aug 2005 04:56:34 +1000
-Message-ID: <200508060456.34616.phillips@istop.com>
-References: <42F2D749.70306@gmail.com> <20050805172055.GB5641@tuxdriver.com>
-	<20050805174946.GK2241@redhat.com>
+From: Kalle Valo <Kalle.Valo@iki.fi>
+Subject: Re: atheros driver - desc
+Date: Sat, 06 Aug 2005 22:57:49 +0300
+Message-ID: <8764uig7nm.fsf@litku.valo.iki.fi>
+References: <42F2D523.9020702@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: kernel-mentors@selenic.com, netdev <netdev@vger.kernel.org>
 Return-path: <kernel-mentors-bounces@selenic.com>
-To: Dave Jones <davej@redhat.com>
-In-Reply-To: <20050805174946.GK2241@redhat.com>
-Content-Disposition: inline
+To: Mateusz Berezecki <mateuszb@gmail.com>
+In-Reply-To: <42F2D523.9020702@gmail.com> (Mateusz Berezecki's message of
+	"Fri, 05 Aug 2005 04:55:31 +0200")
 List-Unsubscribe: <http://selenic.com/mailman/listinfo/kernel-mentors>,
 	<mailto:kernel-mentors-request@selenic.com?subject=unsubscribe>
 List-Archive: <http://www.selenic.com/pipermail/kernel-mentors>
@@ -24,28 +21,35 @@ Sender: kernel-mentors-bounces@selenic.com
 Errors-To: kernel-mentors-bounces@selenic.com
 List-Id: netdev.vger.kernel.org
 
-On Saturday 06 August 2005 03:49, Dave Jones wrote:
-> On Fri, Aug 05, 2005 at 01:20:59PM -0400, John W. Linville wrote:
->  > On Sat, Aug 06, 2005 at 02:41:30AM +1000, Daniel Phillips wrote:
->  > > On Friday 05 August 2005 13:04, Mateusz Berezecki wrote:
->  > > > I accidentaly posted the patches as MIME attachments... its 5:03 am
->  > > > here
->  > >
->  > > Does anybody still care if patches are posted as attachments,
->  > > particularly for review as opposed to submission?
->  >
->  > Yes.  Opening attachments makes them harder to review.
+Mateusz Berezecki <mateuszb@gmail.com> writes:
+
+> The driver is not yet fully working because I didn't finish kernel
+> integration yet. Almost all
+> driver I/O ops are reverse engineered independently of openbsd openhal
+> which is missing just too much.
 >
-> Indeed. Replying to such mails ends up looking like..
-
 >
+> Ok, enough talking. Most of the atheros 5212 hal is now open :)
 
-Hi, sorry, about the misfired "test" mail... the _real_ issue for me was that 
-Kmail was turning tabs into spaces for the longest time, so forcing me either 
-to switch mailers (and you know how appealing that is) or send patches as 
-attachments.  It's finally fixed, so I'll happily join in with dumping on the 
-poor misguided folks who insist on posting their patches as attachments.
+This is great news. An open source Atheros driver which could be
+included to Linux is really needed.
 
-Regards,
+But how was the reverse engineering done? I noticed that forcedeth
+driver was implemented using the clean room design[1] and Linux
+Broadcom 4301 driver project[2] seems to be using the same method.
 
-Daniel "the flexible" Phillips
+The reason I'm asking this is that I just wouldn't want see the same
+happening this with this driver as happened during reverse engineering
+of pwc Philips Webcam driver (some parts of the driver were removed
+from kernel, but I believe the situation is now solved).
+
+Actually, what are requirements to get a reverse engineered driver
+included to Linux? Is clean room design an absolute must? It seems
+that reverse engineering is needed if we want Linux support for most
+of the WLAN cards on the market :(
+
+[1] http://en.wikipedia.org/wiki/Clean_room_design
+[2] http://linux-bcom4301.sourceforge.net/go/progress
+
+-- 
+Kalle Valo
