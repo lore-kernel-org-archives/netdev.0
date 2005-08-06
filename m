@@ -1,67 +1,29 @@
-From: Eugene Surovegin <ebs@ebshome.net>
-Subject: Re: [PATCH] emac: add support for platform-specific unsupported PHY features
-Date: Fri, 5 Aug 2005 17:05:16 -0700
-Message-ID: <20050806000516.GA19218@gate.ebshome.net>
-References: <1123284725.27880.26.camel@rhino.az.mvista.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: atheros driver - desc
+Date: Sat, 6 Aug 2005 16:53:08 -0400
+Message-ID: <20050806205308.GA25208@havoc.gtf.org>
+References: <42F2D523.9020702@gmail.com> <8764uig7nm.fsf@litku.valo.iki.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com,
-        Matt Porter <mporter@kernel.crashing.org>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Wade Farnsworth <wfarnsworth@mvista.com>
+Cc: kernel-mentors@selenic.com, netdev <netdev@vger.kernel.org>
+Return-path: <kernel-mentors-bounces@selenic.com>
+To: Kalle Valo <Kalle.Valo@iki.fi>
 Content-Disposition: inline
-In-Reply-To: <1123284725.27880.26.camel@rhino.az.mvista.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <8764uig7nm.fsf@litku.valo.iki.fi>
+List-Unsubscribe: <http://selenic.com/mailman/listinfo/kernel-mentors>,
+	<mailto:kernel-mentors-request@selenic.com?subject=unsubscribe>
+List-Archive: <http://www.selenic.com/pipermail/kernel-mentors>
+List-Post: <mailto:kernel-mentors@selenic.com>
+List-Help: <mailto:kernel-mentors-request@selenic.com?subject=help>
+List-Subscribe: <http://selenic.com/mailman/listinfo/kernel-mentors>,
+	<mailto:kernel-mentors-request@selenic.com?subject=subscribe>
+Sender: kernel-mentors-bounces@selenic.com
+Errors-To: kernel-mentors-bounces@selenic.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 05, 2005 at 04:32:05PM -0700, Wade Farnsworth wrote:
-> Hello,
-> 
-> This patch adds support to the ibm_emac driver for platform-specific
-> unsupported PHY features.
-> 
-> The patch attempts to determine the highest speed and duplex when
-> autonegotiation is unsupported.
 
-Looks good.
+It is certainly preferred that someone write a document describing the
+hardware, and then a totally separate team write the driver, based on
+that document.
 
-> 
-> -Wade Farnsworth
-> 
-> Signed-off-by: Wade Farnsworth <wfarnsworth@mvista.com>
-
-> diff -upr linux-2.6/drivers/net/ibm_emac/ibm_emac_core.c linux-2.6-dev/drivers/net/ibm_emac/ibm_emac_core.c
-> --- linux-2.6/drivers/net/ibm_emac/ibm_emac_core.c	2005-08-03 13:33:42.000000000 -0700
-> +++ linux-2.6-dev/drivers/net/ibm_emac/ibm_emac_core.c	2005-08-02 10:42:59.000000000 -0700
-> @@ -1876,6 +1876,9 @@ static int emac_init_device(struct ocp_d
->  		rc = -ENODEV;
->  		goto bail;
->  	}
-> +	
-> +	/* Disable any PHY features not supported by the platform */
-> +	ep->phy_mii.def->features &= ~emacdata->feat_unsupp;
->  
->  	/* Setup initial PHY config & startup aneg */
->  	if (ep->phy_mii.def->ops->init)
-> @@ -1883,6 +1886,38 @@ static int emac_init_device(struct ocp_d
->  	netif_carrier_off(ndev);
->  	if (ep->phy_mii.def->features & SUPPORTED_Autoneg)
->  		ep->want_autoneg = 1;
-> +	else {
-> +		ep->want_autoneg = 0;
-> +		
-> +		/* Select highest supported speed/duplex */
-> +		if (ep->phy_mii.def->features & SUPPORTED_10000baseT_Full) {
-> +			ep->phy_mii.speed = SPEED_10000;
-> +			ep->phy_mii.duplex = DUPLEX_FULL;
-
-I think you are being too optimistic here :). EMAC doesn't support 10G 
-Ethernet and will never will (at least sanely) given it's 
-brain-damaged design. So I think it's safe to drop 
-SUPPORTED_10000baseT_Full test.
-
-I'll update my NAPI tree with similar code.
-
--- 
-Eugene
+	Jeff
