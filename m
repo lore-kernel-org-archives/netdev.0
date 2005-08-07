@@ -1,55 +1,61 @@
-From: Kalle Valo <Kalle.Valo@iki.fi>
-Subject: Re: atheros driver - desc
-Date: Sat, 06 Aug 2005 22:57:49 +0300
-Message-ID: <8764uig7nm.fsf@litku.valo.iki.fi>
-References: <42F2D523.9020702@gmail.com>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: 2.6.13-rc4-mm1: iptables DROP crashes the computer
+Date: Sun, 7 Aug 2005 19:23:33 +0200
+Message-ID: <20050807172333.GF3513@stusta.de>
+References: <7aaed091050807100843454603@mail.gmail.com>
+	<7aaed09105080710121bba1b5b@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kernel-mentors@selenic.com, netdev <netdev@vger.kernel.org>
-Return-path: <kernel-mentors-bounces@selenic.com>
-To: Mateusz Berezecki <mateuszb@gmail.com>
-In-Reply-To: <42F2D523.9020702@gmail.com> (Mateusz Berezecki's message of
-	"Fri, 05 Aug 2005 04:55:31 +0200")
-List-Unsubscribe: <http://selenic.com/mailman/listinfo/kernel-mentors>,
-	<mailto:kernel-mentors-request@selenic.com?subject=unsubscribe>
-List-Archive: <http://www.selenic.com/pipermail/kernel-mentors>
-List-Post: <mailto:kernel-mentors@selenic.com>
-List-Help: <mailto:kernel-mentors-request@selenic.com?subject=help>
-List-Subscribe: <http://selenic.com/mailman/listinfo/kernel-mentors>,
-	<mailto:kernel-mentors-request@selenic.com?subject=subscribe>
-Sender: kernel-mentors-bounces@selenic.com
-Errors-To: kernel-mentors-bounces@selenic.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	linux <linux-kernel@vger.kernel.org>, discuss@x86-64.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Espen =?iso-8859-1?Q?Fjellv=E6r?= Olsen <espenfjo@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <7aaed09105080710121bba1b5b@mail.gmail.com>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Mateusz Berezecki <mateuszb@gmail.com> writes:
+On Sun, Aug 07, 2005 at 07:12:00PM +0200, Espen Fjellvær Olsen wrote:
 
-> The driver is not yet fully working because I didn't finish kernel
-> integration yet. Almost all
-> driver I/O ops are reverse engineered independently of openbsd openhal
-> which is missing just too much.
->
->
-> Ok, enough talking. Most of the atheros 5212 hal is now open :)
+> After execing "iptables -A INPUT -j DROP" my computer crashes hard. It
+> dosent hang immediately, but after a couple of seconds.
+> The machine is an amd64, running a clean x86_64 environment.
+> uname -a: Linux gentoo 2.6.13-rc4-mm1 #1 PREEMPT Thu Aug 4 01:01:44
+> CEST 2005 x86_64 AMD Athlon(tm) 64 Processor 3400+ AuthenticAMD
+>...
 
-This is great news. An open source Atheros driver which could be
-included to Linux is really needed.
+Is this reproducible or did it happen only once?
 
-But how was the reverse engineering done? I noticed that forcedeth
-driver was implemented using the clean room design[1] and Linux
-Broadcom 4301 driver project[2] seems to be using the same method.
+Are there any messages that might give a hint where to search for the 
+problem?
 
-The reason I'm asking this is that I just wouldn't want see the same
-happening this with this driver as happened during reverse engineering
-of pwc Philips Webcam driver (some parts of the driver were removed
-from kernel, but I believe the situation is now solved).
+You are reporting this against 2.6.13-rc4-mm1, but are attaching a 
+.config of 2.6.13-rc5-mm1. Which kernels are affected, and which are 
+not?
 
-Actually, what are requirements to get a reverse engineered driver
-included to Linux? Is clean room design an absolute must? It seems
-that reverse engineering is needed if we want Linux support for most
-of the WLAN cards on the market :(
+Does it still happen if you compile your kernel with preemption 
+disabled?
 
-[1] http://en.wikipedia.org/wiki/Clean_room_design
-[2] http://linux-bcom4301.sourceforge.net/go/progress
+Please send the output of ./scripts/ver_linux .
+
+> Mvh / Best regards
+> Espen Fjellvær Olsen
+
+cu
+Adrian
 
 -- 
-Kalle Valo
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
