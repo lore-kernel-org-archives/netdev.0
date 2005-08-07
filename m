@@ -1,74 +1,248 @@
-From: Harald Welte <laforge@netfilter.org>
-Subject: Re: [PATCH] add new nfnetlink_log subsystem
-Date: Sun, 7 Aug 2005 17:03:58 +0200
-Message-ID: <20050807150358.GD4855@rama.de.gnumonks.org>
-References: <20050730103005.GB6620@rama.de.gnumonks.org>
-	<20050807112039.GF10481@postel.suug.ch>
+From: Geoff <senson@spamarrest.com>
+Subject: RE: {Spam?} {Virus?} Geoff@senson.net (verification)
+Date: Sun,  7 Aug 2005 09:58:59 -0700 (PDT)
+Message-ID: <26304905.1123433786912.JavaMail.root@m32>
+References: <200508071656.j77GucFk015692@host2.lifetimewebsites.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="llIrKcgUOe3dCx0c"
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Thomas Graf <tgraf@suug.ch>
-Content-Disposition: inline
-In-Reply-To: <20050807112039.GF10481@postel.suug.ch>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: multipart/alternative;
+	boundary="----=_Part_2504468_2800596.1123433786911"
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+In-reply-to: <200508071656.j77GucFk015692@host2.lifetimewebsites.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
---llIrKcgUOe3dCx0c
+------=_Part_2504468_2800596.1123433786911
 Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Content-Transfer-Encoding: 7bit
 
-On Sun, Aug 07, 2005 at 01:20:39PM +0200, Thomas Graf wrote:
-> * Harald Welte <20050730103005.GB6620@rama.de.gnumonks.org> 2005-07-30 12=
-:30
-> > This (long-awaited) patch adds the generic nfnetlink-based userspace
-> > logging.  nfnetlink_log can be used for any protocol family, and
-> > supports upt to 65535 logging groups (that could go to separate logging
-> > daemons, e.g.).
->=20
-> Same very minor issues as nfnetlink regarding some of the
-> new netlink message construction policies. I'll "fix" them
-> during the conversion to the generic netlink attributes.
+Geoff here,
 
-is this supposed to happen soon?  I also need to update the userspace
-side in case you make any changes, so I'd appreciate any changes going
-in ASAP.  Alternatively just tell me what needs to change and I'll
-change it even before the generalization.
+I'm protecting myself from receiving junk mail.
 
-thanks
 
---=20
-- Harald Welte <laforge@netfilter.org>                 http://netfilter.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-  "Fragmentation is like classful addressing -- an interesting early
-   architectural error that shows how much experimentation was going
-   on while IP was being designed."                    -- Paul Vixie
+Just this once, click the link below so I can receive your emails.
+You won't have to do this again.
 
---llIrKcgUOe3dCx0c
-Content-Type: application/pgp-signature
-Content-Disposition: inline
+http://spamarrest.com/a2?BGRjBGN1BwchMKExMKMNo3AmYaAanF5wo20j
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.1 (GNU/Linux)
 
-iD8DBQFC9iLeXaXGVTD0i/8RAhwpAKCLiKxxfNlyKw/sfSzQikQ+iWldYwCdEzyU
-j2owmMcsKcD7FSlj2CzV4Pg=
-=l5Bi
------END PGP SIGNATURE-----
 
---llIrKcgUOe3dCx0c--
+
+Spam Arrest - Take control of your inbox!
+http://spamarrest.com/affl?910905
+
+------------------------------------------------------------
+You are receiving this message in response to your email to
+Geoff, a Spam Arrest customer.
+
+Spam Arrest requests that senders verify themselves before
+their email is delivered.
+
+When you click the above link, you will be taken to a page
+with a graphic on it. Simply read the word in the graphic,
+type it into the form, and you're verified.
+
+You will only need to do this once per Spam Arrest customer.
+------------------------------------------------------------
+Below are the complete headers of the message that this email 
+was generated in response to.
+
+Return-Path: <netdev@oss.sgi.com>
+Received: from host2.lifetimewebsites.com (root@localhost)
+	by senson.net (8.12.10/8.12.10) with ESMTP id j77Gulna015725
+	for <geoff@senson.net>; Sun, 7 Aug 2005 12:56:47 -0400
+X-ClientAddr: 68.82.191.214
+Received: from oss.sgi.com (pcp01494310pcs.tybout01.de.comcast.net [68.82.191.214])
+	by host2.lifetimewebsites.com (8.12.10/8.12.10) with ESMTP id j77GucFk015692
+	for <geoff@senson.net>; Sun, 7 Aug 2005 12:56:39 -0400
+Message-Id: <200508071656.j77GucFk015692@host2.lifetimewebsites.com>
+From: netdev@oss.sgi.com
+To: geoff@senson.net
+Subject: {Spam?} {Virus?} Geoff@senson.net
+Date: Sun, 7 Aug 2005 12:56:48 -0400
+MIME-Version: 1.0
+Content-Type: multipart/mixed;
+	boundary="----=_NextPart_000_0002_AB2ECEEE.C24A2913"
+X-Priority: 3
+X-MSMail-Priority: Normal
+X-Mailer: Microsoft Outlook Express 6.00.2600.0000
+X-MIMEOLE: Produced By Microsoft MimeOLE V6.00.2600.0000
+X-Lifetime-Websites-MailScanner-Information: Please contact Lifetime Websites for more information
+X-Lifetime-Websites-MailScanner: Infected with a virus
+X-Lifetime-Websites-MailScanner-SpamCheck: spam, SBL+XBL,
+	SpamAssassin (score=9.799, required 7, FORGED_MUA_OUTLOOK 1.58,
+	MIME_BASE64_ILLEGAL 1.72, MSGID_FROM_MTA_SHORT 3.31,
+	NO_REAL_NAME 0.28, RCVD_IN_DYNABLOCK 2.55, RCVD_IN_SORBS 0.10,
+	UPPERCASE_25_50 0.26)
+X-Lifetime-Websites-MailScanner-SpamScore: 9
+X-MailScanner-From: netdev@oss.sgi.com
+X-Spam-Checker-Version: SpamAssassin 2.63 (2004-01-11) on 
+	host2.lifetimewebsites.com
+X-Spam-Level: ****
+X-Spam-Status: No, hits=4.5 required=5.0 tests=FORGED_MUA_OUTLOOK,
+	NO_REAL_NAME,RCVD_IN_DYNABLOCK,RCVD_IN_SORBS autolearn=no version=2.63
+Status: 
+X-SA-Poll-Id: 4083cedb0000492b..1..1123433808000
+X-SA-USERIDNR: 900805
+Received-SPF: none(oss.sgi.com: oss.sgi.com does not designate permitted sender hosts)
+
+
+
+------------------------------------------------------------
+Webmasters help stop spam and make 50%.
+http://spamarrest.com/affl?910905/affiliates/index.jsp 
+
+------------------------------------------------------------
+
+------=_Part_2504468_2800596.1123433786911
+Content-Type: text/html; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+
+<html>
+<head>
+
+<!--
+
+Geoff here,
+
+I'm protecting myself from receiving junk mail.
+
+
+Just this once, click the link below so I can receive your emails.
+You won't have to do this again.
+
+http://spamarrest.com/a2?BGRjBGN1BwchMKExMKMNo3AmYaAanF5wo20j
+
+
+
+Spam Arrest - Take control of your inbox!
+http://spamarrest.com/affl?910905
+
+------------------------------------------------------------
+You are receiving this message in response to your email to 
+Geoff, a Spam Arrest customer.
+
+Spam Arrest requests that senders verify themselves before 
+their email is delivered.  
+
+When you click the above link, you will be taken to a page 
+with a graphic on it. Simply read the word in the graphic, 
+type it into the form, and you're verified.
+
+You will only need to do this once per Spam Arrest customer.
+------------------------------------------------------------
+
+Webmasters help stop spam and make 50%.
+http://spamarrest.com/affl?910905/affiliates/index.jsp 
+
+------------------------------------------------------------
+
+
+-->
+
+
+<title>Spam Arrest Sender Verification</title>
+<style type='text/css'>
+body, p, td {
+    font-family : Verdana, Arial, Geneva, Helvetica, sans-serif;
+    font-size : 12px;
+}
+
+.smallgray {
+    font-family : Verdana, Arial, Geneva, Helvetica, sans-serif;
+    font-size : 9px;
+    color: #333333;
+}
+
+.formtip {
+    font-family : Verdana, Arial, Geneva, Helvetica, sans-serif;
+    font-size : 10px;
+    color: #999999;
+}
+</style>
+</head>
+<body bgcolor="#ffffff">
+Geoff here,<br><br>I'm protecting myself from receiving junk mail.<br>
+<br><br>
+Just this once, click the link below so I can receive your emails.
+You won't have to do this again.
+<br><br>
+<a href="http://spamarrest.com/a2?BGRjBGN1BwchMKExMKMNo3AmYaAanF5wo206E2IiMzLj">http://spamarrest.com/a2?BGRjBGN1BwchMKExMKMNo3AmYaAanF5wo206E2IiMzLj</a>
+<p>&nbsp;</p>
+<img src="http://img.spamarrest.com/img/emailfooter.gif" height=33 width=122 border=0>
+<!-- http://spamarrest.com/affl?910905 -->
+<p class="smallgray">
+You are receiving this message in response to your email to 
+Geoff, a Spam Arrest customer.
+</p>
+<p class="smallgray">
+Spam Arrest requests that senders verify themselves before 
+their email is delivered.  
+</p>
+<p class="smallgray">
+When you click the above link, you will be taken to a page 
+with a graphic on it. Simply read the word in the graphic, 
+type it into the form, and you're verified.
+</p>
+<p class="smallgray">
+You will only need to do this once per Spam Arrest customer.
+</p>
+<p class="smallgray">
+------------------------------------------------------------
+<br>
+Below are the complete headers of the message that this email 
+was generated in response to. 
+<pre class="smallgray">
+Return-Path: <netdev@oss.sgi.com>
+Received: from host2.lifetimewebsites.com (root@localhost)
+	by senson.net (8.12.10/8.12.10) with ESMTP id j77Gulna015725
+	for <geoff@senson.net>; Sun, 7 Aug 2005 12:56:47 -0400
+X-ClientAddr: 68.82.191.214
+Received: from oss.sgi.com (pcp01494310pcs.tybout01.de.comcast.net [68.82.191.214])
+	by host2.lifetimewebsites.com (8.12.10/8.12.10) with ESMTP id j77GucFk015692
+	for <geoff@senson.net>; Sun, 7 Aug 2005 12:56:39 -0400
+Message-Id: <200508071656.j77GucFk015692@host2.lifetimewebsites.com>
+From: netdev@oss.sgi.com
+To: geoff@senson.net
+Subject: {Spam?} {Virus?} Geoff@senson.net
+Date: Sun, 7 Aug 2005 12:56:48 -0400
+MIME-Version: 1.0
+Content-Type: multipart/mixed;
+	boundary="----=_NextPart_000_0002_AB2ECEEE.C24A2913"
+X-Priority: 3
+X-MSMail-Priority: Normal
+X-Mailer: Microsoft Outlook Express 6.00.2600.0000
+X-MIMEOLE: Produced By Microsoft MimeOLE V6.00.2600.0000
+X-Lifetime-Websites-MailScanner-Information: Please contact Lifetime Websites for more information
+X-Lifetime-Websites-MailScanner: Infected with a virus
+X-Lifetime-Websites-MailScanner-SpamCheck: spam, SBL+XBL,
+	SpamAssassin (score=9.799, required 7, FORGED_MUA_OUTLOOK 1.58,
+	MIME_BASE64_ILLEGAL 1.72, MSGID_FROM_MTA_SHORT 3.31,
+	NO_REAL_NAME 0.28, RCVD_IN_DYNABLOCK 2.55, RCVD_IN_SORBS 0.10,
+	UPPERCASE_25_50 0.26)
+X-Lifetime-Websites-MailScanner-SpamScore: 9
+X-MailScanner-From: netdev@oss.sgi.com
+X-Spam-Checker-Version: SpamAssassin 2.63 (2004-01-11) on 
+	host2.lifetimewebsites.com
+X-Spam-Level: ****
+X-Spam-Status: No, hits=4.5 required=5.0 tests=FORGED_MUA_OUTLOOK,
+	NO_REAL_NAME,RCVD_IN_DYNABLOCK,RCVD_IN_SORBS autolearn=no version=2.63
+Status: 
+X-SA-Poll-Id: 4083cedb0000492b..1..1123433808000
+X-SA-USERIDNR: 900805
+Received-SPF: none(oss.sgi.com: oss.sgi.com does not designate permitted sender hosts)
+
+</pre>
+</p>
+<p>
+------------------------------------------------------------
+<br>
+Webmasters help stop spam and make 50%.<br>
+<a href="http://spamarrest.com/affl?910905/affiliates/index.jsp">http://spamarrest.com/affiliates</a>
+</p>
+</body>
+</html>
+
+------=_Part_2504468_2800596.1123433786911--
