@@ -1,68 +1,33 @@
-From: Manfred Spraul <manfred@colorfullife.com>
-Subject: [PATCH] forcedeth: Initialize link settings in every nv_open()
-Date: Sat, 06 Aug 2005 23:47:55 +0200
-Message-ID: <42F5300B.3070909@colorfullife.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH] add new nfnetlink_log subsystem
+Date: Sun, 7 Aug 2005 13:20:39 +0200
+Message-ID: <20050807112039.GF10481@postel.suug.ch>
+References: <20050730103005.GB6620@rama.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070304080809040805050905"
-Cc: Ayaz Abdulla <AAbdulla@nvidia.com>, Netdev <netdev@oss.sgi.com>,
-        cOzmIc.FI@gmx.net
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Harald Welte <laforge@gnumonks.org>, David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
+Content-Disposition: inline
+In-Reply-To: <20050730103005.GB6620@rama.de.gnumonks.org>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------070304080809040805050905
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: quoted-printable
-X-MIME-Autoconverted: from 8bit to quoted-printable by oss.sgi.com id j76LtXH9010831
+* Harald Welte <20050730103005.GB6620@rama.de.gnumonks.org> 2005-07-30 12:30
+> This (long-awaited) patch adds the generic nfnetlink-based userspace
+> logging.  nfnetlink_log can be used for any protocol family, and
+> supports upt to 65535 logging groups (that could go to separate logging
+> daemons, e.g.).
 
-R=FCdiger found a bug in nv_open that explains some of the reports
-with duplex mismatches:
-nv_open calls nv_update_link_speed for initializing the hardware link spe=
-ed
-registers. If current link setting matches the values in np->linkspeed an=
-d
-np->duplex, then the function does nothing.
-Usually, doing nothing is the right thing, but not in nv_open: During
-nv_open, the registers must be initialized because the nic was reset.
-
-The attached patch fixes that by setting np->linkspeed to an invalid valu=
-e
-before calling nv_update_link_speed from nv_open.
-
-Signed-Off-By: Manfred Spraul <manfred@colorfullife.com>
-
-
---------------070304080809040805050905
-Content-Type: text/plain;
- name="patch-forcedeth-042-forcelinkinit"
-Content-Disposition: inline;
- filename="patch-forcedeth-042-forcelinkinit"
-Content-Transfer-Encoding: 7bit
-
---- 2.6/drivers/net/forcedeth.c	2005-08-06 19:59:56.000000000 +0200
-+++ build-2.6/drivers/net/forcedeth.c	2005-08-06 19:59:06.000000000 +0200
-@@ -93,6 +93,8 @@
-  *      0.40: 19 Jul 2005: Add support for mac address change.
-  *      0.41: 30 Jul 2005: Write back original MAC in nv_close instead
-  *			   of nv_remove
-+ *      0.42: 06 Aug 2005: Fix lack of link speed initialization
-+ *			   in the second (and later) nv_open call
-  *
-  * Known bugs:
-  * We suspect that on some hardware no TX done interrupts are generated.
-@@ -2178,6 +2180,9 @@
- 		writel(NVREG_MIISTAT_MASK, base + NvRegMIIStatus);
- 		dprintk(KERN_INFO "startup: got 0x%08x.\n", miistat);
- 	}
-+	/* set linkspeed to invalid value, thus force nv_update_linkspeed
-+	 * to init hw */
-+	np->linkspeed = 0;
- 	ret = nv_update_linkspeed(dev);
- 	nv_start_rx(dev);
- 	nv_start_tx(dev);
-
---------------070304080809040805050905--
+Same very minor issues as nfnetlink regarding some of the
+new netlink message construction policies. I'll "fix" them
+during the conversion to the generic netlink attributes.
