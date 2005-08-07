@@ -1,14 +1,20 @@
-From: "bdschuym@pandora.be" <bdschuym@telenet.be>
-Subject: Re:  [RFC PATCH] convert ebt_ulog to nfnetlink_log
-Date: Mon, 08 Aug 2005 09:06:19 +0000
-Message-ID: <W911141491296841123491979@kostunerix.telenet-ops.be>
+From: =?ISO-8859-1?Q?Espen_Fjellv=E6r_Olsen?= <espenfjo@gmail.com>
+Subject: Re: 2.6.13-rc4-mm1: iptables DROP crashes the computer
+Date: Sun, 7 Aug 2005 23:40:53 +0200
+Message-ID: <7aaed09105080714402bcbddc6@mail.gmail.com>
+References: <7aaed091050807100843454603@mail.gmail.com>
+	<7aaed09105080710121bba1b5b@mail.gmail.com>
+	<20050807172333.GF3513@stusta.de> <42F65513.3080409@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
+	linux <linux-kernel@vger.kernel.org>, discuss@x86-64.org,
+	Adrian Bunk <bunk@stusta.de>
 Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: "Harald Welte" <laforge@netfilter.org>
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <42F65513.3080409@trash.net>
+Content-Disposition: inline
 List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
 	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
 List-Archive: </pipermail/netfilter-devel>
@@ -20,48 +26,16 @@ Sender: netfilter-devel-bounces@lists.netfilter.org
 Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-(using webmail)
+On 07/08/05, Patrick McHardy <kaber@trash.net> wrote:
+> Could be related to the refcnt underflow with conntrack event
+> notifications enabled. If you have CONFIG_IP_NF_CONNTRACK_EVENTS
+> enabled please try this patch.
+>=20
 
->----- Oorspronkelijk bericht -----
->Van: Harald Welte [mailto:laforge@netfilter.org]
->Ok, so this is actually the opposite problem of the ipt_physdev.c
->problem.  Here we have the physical device, but not the bridge group.
->
->This means we have to handle two separate cases:
->
->1) when nf_log_packet() gets called from the bridging code
->	indev == eth0
->	outdev == eth1
->		-> we need to resolve br0 from dev->br_port member
->
->2) when nf_log_packet() gets called from the ipv4 code:
->	indev == br0
->	outdev == br0
->		-> we need to resolve ethX from skb->nf_bridge member
->
->If I'm now correct, what about the following [reverse] patch (also
->attached the whole resulting file for your reference, since you don't
->have access to the tree).
+I can confirm that that patch solved my problems, thank you :)
 
-There is one case missing: the brouter case. If br0=eth0+eth1 and a packet arrives at eth0 (not br0) in the IP code (not the bridge code), then the indev must be eth0, not br0.
-How about something like this?
-
-if (pf == PF_BRIDGE) { /* Called from ebtables */
-	NFA_PUT(inst->skb, NFULA_IFINDEX_PHYSINDEV,
-		sizeof(tmp_uint), &tmp_uint);
-	tmp_uint = htonl(indev->br_port->br->dev->ifindex);
-	NFA_PUT(inst->skb, NFULA_IFINDEX_INDEV,
-		sizeof(tmp_uint), &tmp_uint);
-} else {
-	NFA_PUT(inst->skb, NFULA_IFINDEX_INDEV,
-		sizeof(tmp_uint), &tmp_uint);
-
-	if (skb->nf_bridge && skb->nf_bridge->physindev)
-		/* Called inside bridge code, but not from ebtables. */
-		tmp_uint = htonl(skb->nf_bridge->physindev->ifindex);
-	NFA_PUT(inst->skb, NFULA_IFINDEX_PHYSINDEV,
-		sizeof(tmp_uint), &tmp_uint);
-}
-
-cheers,
-Bart
+--=20
+Mvh / Best regards
+Espen Fjellv=E6r Olsen
+espenfjo@gmail.com
+Norway
