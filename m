@@ -1,98 +1,360 @@
-From: Harald Welte <laforge@gnumonks.org>
-Subject: Re: atheros driver - desc
-Date: Sun, 7 Aug 2005 17:01:34 +0200
-Message-ID: <20050807150134.GB4855@rama.de.gnumonks.org>
-References: <42F2D523.9020702@gmail.com> <8764uig7nm.fsf@litku.valo.iki.fi>
-	<20050806205308.GA25208@havoc.gtf.org>
-	<20050806214544.GA4594@rama.de.gnumonks.org>
-	<87pssqp5hk.fsf@litku.valo.iki.fi>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: 2.6.13-rc4-mm1: iptables DROP crashes the computer
+Date: Sun, 07 Aug 2005 20:38:11 +0200
+Message-ID: <42F65513.3080409@trash.net>
+References: <7aaed091050807100843454603@mail.gmail.com>
+	<7aaed09105080710121bba1b5b@mail.gmail.com>
+	<20050807172333.GF3513@stusta.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1224521817=="
-Cc: kernel-mentors@selenic.com, netdev <netdev@vger.kernel.org>,
-        Jeff Garzik <jgarzik@pobox.com>
-Return-path: <kernel-mentors-bounces@selenic.com>
-To: Kalle Valo <Kalle.Valo@iki.fi>
-In-Reply-To: <87pssqp5hk.fsf@litku.valo.iki.fi>
-List-Unsubscribe: <http://selenic.com/mailman/listinfo/kernel-mentors>,
-	<mailto:kernel-mentors-request@selenic.com?subject=unsubscribe>
-List-Archive: <http://www.selenic.com/pipermail/kernel-mentors>
-List-Post: <mailto:kernel-mentors@selenic.com>
-List-Help: <mailto:kernel-mentors-request@selenic.com?subject=help>
-List-Subscribe: <http://selenic.com/mailman/listinfo/kernel-mentors>,
-	<mailto:kernel-mentors-request@selenic.com?subject=subscribe>
-Mime-version: 1.0
-Sender: kernel-mentors-bounces@selenic.com
-Errors-To: kernel-mentors-bounces@selenic.com
+Content-Type: multipart/mixed; boundary="------------050700090205050803070402"
+Cc: =?ISO-8859-1?Q?Espen_Fjellv=E6r_Olsen?= <espenfjo@gmail.com>,
+	netfilter-devel@lists.netfilter.org,
+	linux <linux-kernel@vger.kernel.org>, discuss@x86-64.org,
+	netdev@vger.kernel.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Adrian Bunk <bunk@stusta.de>
+In-Reply-To: <20050807172333.GF3513@stusta.de>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
+This is a multi-part message in MIME format.
+--------------050700090205050803070402
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
 
---===============1224521817==
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="NDin8bjvE/0mNLFQ"
-Content-Disposition: inline
+Adrian Bunk wrote:
+> On Sun, Aug 07, 2005 at 07:12:00PM +0200, Espen Fjellvær Olsen wrote:
+> 
+> 
+>>After execing "iptables -A INPUT -j DROP" my computer crashes hard. It
+>>dosent hang immediately, but after a couple of seconds.
+>>The machine is an amd64, running a clean x86_64 environment.
+>>uname -a: Linux gentoo 2.6.13-rc4-mm1 #1 PREEMPT Thu Aug 4 01:01:44
+>>CEST 2005 x86_64 AMD Athlon(tm) 64 Processor 3400+ AuthenticAMD
+>>...
+
+Could be related to the refcnt underflow with conntrack event
+notifications enabled. If you have CONFIG_IP_NF_CONNTRACK_EVENTS
+enabled please try this patch.
 
 
---NDin8bjvE/0mNLFQ
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Sun, Aug 07, 2005 at 10:32:07AM +0300, Kalle Valo wrote:
-> Harald Welte <laforge@gnumonks.org> writes:
->=20
-> > I don't want to turn this list into a list of legal discussion, but
-> > since I'm heavily dealing with exactly those issues during my
-> > gpl-violations.org efforts, I thought I share some of the facts.
->=20
-> Thanks for your answer, it cleared up things. I also don't want to
-> discuss legal things here, we can discuss it more privately. But I'll
-> just ask one more question in public:
->=20
-> > So in general, at least if you're doing that kind of work within the EU,
-> > I wouldn't be worried all that much.
->=20
-> That's good news. But what about inclusion to the official Linux
-> kernel? Can a driver reverse-engineered in EU be included to the
-> kernel? (Big part of Linux is developed in US, I guess.)
-
-I will consult my legal counsel about this.  My current naive position
-on this is that only the actuall process of the re-engineering matters,
-not the result.
-
-I'll get back as soon as I have a reply from my legal counsel.
-
---=20
-- Harald Welte <laforge@gnumonks.org>          	        http://gnumonks.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-"Privacy in residential applications is a desirable marketing option."
-                                                  (ETSI EN 300 175-7 Ch. A6)
-
---NDin8bjvE/0mNLFQ
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.1 (GNU/Linux)
-
-iD8DBQFC9iJOXaXGVTD0i/8RAqHaAJ0QFzXNlUiKJXHSYlooCDdQ8HcaOACdEtab
-yWTvq5VUssyjmqRCQmsaM7w=
-=+zsa
------END PGP SIGNATURE-----
-
---NDin8bjvE/0mNLFQ--
-
---===============1224521817==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
+--------------050700090205050803070402
+Content-Type: text/plain;
+ name="x"
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Content-Disposition: inline;
+ filename="x"
 
-_______________________________________________
-Kernel-mentors mailing list
-Kernel-mentors@selenic.com
-http://selenic.com/mailman/listinfo/kernel-mentors
+[NETFILTER]: Fix multiple problems with the conntrack event cache
 
---===============1224521817==--
+refcnt underflow: the reference count is decremented when a conntrack
+entry is removed from the hash but it is not incremented when entering
+new entries.
+
+missing protection of process context against softirq context: all
+cache operations need to locally disable softirqs to avoid races.
+Additionally the event cache can't be initialized when a packet enteres
+the conntrack code but needs to be initialized whenever we cache an event
+and the stored conntrack entry doesn't match the current one.
+
+incorrect flushing of the event cache in ip_ct_iterate_cleanup: without
+real locking we can't flush the cache for different CPUs without incurring
+races. The cache for different CPUs can only be flushed when no packets
+are going through the code. ip_ct_iterate_cleanup doesn't need to drop
+all references, so flushing is moved to the cleanup path.
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+---
+commit d20d18715b8425060334e879ebb4835202457b3e
+tree 3279243f59162c14f8ac145473e1c3f4c586b2fa
+parent df2e0392536ecdd6385f4319f746045fd6fae38f
+author Patrick McHardy <kaber@trash.net> Wed, 03 Aug 2005 20:33:25 +0200
+committer Patrick McHardy <kaber@trash.net> Wed, 03 Aug 2005 20:33:25 +0200
+
+ include/linux/netfilter_ipv4/ip_conntrack.h      |   29 +++---
+ include/linux/netfilter_ipv4/ip_conntrack_core.h |   14 +--
+ net/ipv4/netfilter/ip_conntrack_core.c           |  107 ++++++++--------------
+ net/ipv4/netfilter/ip_conntrack_standalone.c     |    3 -
+ 4 files changed, 58 insertions(+), 95 deletions(-)
+
+diff --git a/include/linux/netfilter_ipv4/ip_conntrack.h b/include/linux/netfilter_ipv4/ip_conntrack.h
+--- a/include/linux/netfilter_ipv4/ip_conntrack.h
++++ b/include/linux/netfilter_ipv4/ip_conntrack.h
+@@ -411,6 +411,7 @@ struct ip_conntrack_stat
+ 
+ #ifdef CONFIG_IP_NF_CONNTRACK_EVENTS
+ #include <linux/notifier.h>
++#include <linux/interrupt.h>
+ 
+ struct ip_conntrack_ecache {
+ 	struct ip_conntrack *ct;
+@@ -445,26 +446,24 @@ ip_conntrack_expect_unregister_notifier(
+ 	return notifier_chain_unregister(&ip_conntrack_expect_chain, nb);
+ }
+ 
++extern void ip_ct_deliver_cached_events(const struct ip_conntrack *ct);
++extern void __ip_ct_event_cache_init(struct ip_conntrack *ct);
++
+ static inline void 
+ ip_conntrack_event_cache(enum ip_conntrack_events event,
+ 			 const struct sk_buff *skb)
+ {
+-	struct ip_conntrack_ecache *ecache = 
+-					&__get_cpu_var(ip_conntrack_ecache);
+-
+-	if (unlikely((struct ip_conntrack *) skb->nfct != ecache->ct)) {
+-		if (net_ratelimit()) {
+-			printk(KERN_ERR "ctevent: skb->ct != ecache->ct !!!\n");
+-			dump_stack();
+-		}
+-	}
++	struct ip_conntrack *ct = (struct ip_conntrack *)skb->nfct;
++	struct ip_conntrack_ecache *ecache;
++	
++	local_bh_disable();
++	ecache = &__get_cpu_var(ip_conntrack_ecache);
++	if (ct != ecache->ct)
++		__ip_ct_event_cache_init(ct);
+ 	ecache->events |= event;
++	local_bh_enable();
+ }
+ 
+-extern void 
+-ip_conntrack_deliver_cached_events_for(const struct ip_conntrack *ct);
+-extern void ip_conntrack_event_cache_init(const struct sk_buff *skb);
+-
+ static inline void ip_conntrack_event(enum ip_conntrack_events event,
+ 				      struct ip_conntrack *ct)
+ {
+@@ -483,9 +482,7 @@ static inline void ip_conntrack_event_ca
+ 					    const struct sk_buff *skb) {}
+ static inline void ip_conntrack_event(enum ip_conntrack_events event, 
+ 				      struct ip_conntrack *ct) {}
+-static inline void ip_conntrack_deliver_cached_events_for(
+-						struct ip_conntrack *ct) {}
+-static inline void ip_conntrack_event_cache_init(const struct sk_buff *skb) {}
++static inline void ip_ct_deliver_cached_events(const struct ip_conntrack *ct) {}
+ static inline void 
+ ip_conntrack_expect_event(enum ip_conntrack_expect_events event, 
+ 			  struct ip_conntrack_expect *exp) {}
+diff --git a/include/linux/netfilter_ipv4/ip_conntrack_core.h b/include/linux/netfilter_ipv4/ip_conntrack_core.h
+--- a/include/linux/netfilter_ipv4/ip_conntrack_core.h
++++ b/include/linux/netfilter_ipv4/ip_conntrack_core.h
+@@ -44,18 +44,14 @@ static inline int ip_conntrack_confirm(s
+ 	struct ip_conntrack *ct = (struct ip_conntrack *)(*pskb)->nfct;
+ 	int ret = NF_ACCEPT;
+ 
+-	if (ct && !is_confirmed(ct))
+-		ret = __ip_conntrack_confirm(pskb);
+-	ip_conntrack_deliver_cached_events_for(ct);
+-
++	if (ct) {
++		if (!is_confirmed(ct))
++			ret = __ip_conntrack_confirm(pskb);
++		ip_ct_deliver_cached_events(ct);
++	}
+ 	return ret;
+ }
+ 
+-#ifdef CONFIG_IP_NF_CONNTRACK_EVENTS
+-struct ip_conntrack_ecache;
+-extern void __ip_ct_deliver_cached_events(struct ip_conntrack_ecache *ec);
+-#endif
+-
+ extern void __ip_ct_expect_unlink_destroy(struct ip_conntrack_expect *exp);
+ 
+ extern struct list_head *ip_conntrack_hash;
+diff --git a/net/ipv4/netfilter/ip_conntrack_core.c b/net/ipv4/netfilter/ip_conntrack_core.c
+--- a/net/ipv4/netfilter/ip_conntrack_core.c
++++ b/net/ipv4/netfilter/ip_conntrack_core.c
+@@ -85,73 +85,62 @@ struct notifier_block *ip_conntrack_expe
+ 
+ DEFINE_PER_CPU(struct ip_conntrack_ecache, ip_conntrack_ecache);
+ 
+-static inline void __deliver_cached_events(struct ip_conntrack_ecache *ecache)
++/* deliver cached events and clear cache entry - must be called with locally
++ * disabled softirqs */
++static inline void
++__ip_ct_deliver_cached_events(struct ip_conntrack_ecache *ecache)
+ {
++	DEBUGP("ecache: delivering events for %p\n", ecache->ct);
+ 	if (is_confirmed(ecache->ct) && !is_dying(ecache->ct) && ecache->events)
+ 		notifier_call_chain(&ip_conntrack_chain, ecache->events,
+ 				    ecache->ct);
+ 	ecache->events = 0;
+-}
+-
+-void __ip_ct_deliver_cached_events(struct ip_conntrack_ecache *ecache)
+-{
+-	__deliver_cached_events(ecache);
++	ip_conntrack_put(ecache->ct);
++	ecache->ct = NULL;
+ }
+ 
+ /* Deliver all cached events for a particular conntrack. This is called
+  * by code prior to async packet handling or freeing the skb */
+-void 
+-ip_conntrack_deliver_cached_events_for(const struct ip_conntrack *ct)
++void ip_ct_deliver_cached_events(const struct ip_conntrack *ct)
+ {
+-	struct ip_conntrack_ecache *ecache = 
+-					&__get_cpu_var(ip_conntrack_ecache);
+-
+-	if (!ct)
+-		return;
+-
+-	if (ecache->ct == ct) {
+-		DEBUGP("ecache: delivering event for %p\n", ct);
+-		__deliver_cached_events(ecache);
+-	} else {
+-		if (net_ratelimit())
+-			printk(KERN_WARNING "ecache: want to deliver for %p, "
+-				"but cache has %p\n", ct, ecache->ct);
+-	}
+-
+-	/* signalize that events have already been delivered */
+-	ecache->ct = NULL;
++	struct ip_conntrack_ecache *ecache;
++	
++	local_bh_disable();
++	ecache = &__get_cpu_var(ip_conntrack_ecache);
++	if (ecache->ct == ct)
++		__ip_ct_deliver_cached_events(ecache);
++	local_bh_enable();
+ }
+ 
+-/* Deliver cached events for old pending events, if current conntrack != old */
+-void ip_conntrack_event_cache_init(const struct sk_buff *skb)
++void __ip_ct_event_cache_init(struct ip_conntrack *ct)
+ {
+-	struct ip_conntrack *ct = (struct ip_conntrack *) skb->nfct;
+-	struct ip_conntrack_ecache *ecache = 
+-					&__get_cpu_var(ip_conntrack_ecache);
++	struct ip_conntrack_ecache *ecache;
+ 
+ 	/* take care of delivering potentially old events */
+-	if (ecache->ct != ct) {
+-		enum ip_conntrack_info ctinfo;
+-		/* we have to check, since at startup the cache is NULL */
+-		if (likely(ecache->ct)) {
+-			DEBUGP("ecache: entered for different conntrack: "
+-			       "ecache->ct=%p, skb->nfct=%p. delivering "
+-			       "events\n", ecache->ct, ct);
+-			__deliver_cached_events(ecache);
++	ecache = &__get_cpu_var(ip_conntrack_ecache);
++	BUG_ON(ecache->ct == ct);
++	if (ecache->ct)
++		__ip_ct_deliver_cached_events(ecache);
++	/* initialize for this conntrack/packet */
++	ecache->ct = ct;
++	nf_conntrack_get(&ct->ct_general);
++}
++
++/* flush the event cache - touches other CPU's data and must not be called while
++ * packets are still passing through the code */
++static void ip_ct_event_cache_flush(void)
++{
++	struct ip_conntrack_ecache *ecache;
++	int cpu;
++
++	for_each_cpu(cpu) {
++		ecache = &per_cpu(ip_conntrack_ecache, cpu);
++		if (ecache->ct)
+ 			ip_conntrack_put(ecache->ct);
+-		} else {
+-			DEBUGP("ecache: entered for conntrack %p, "
+-				"cache was clean before\n", ct);
+-		}
+-
+-		/* initialize for this conntrack/packet */
+-		ecache->ct = ip_conntrack_get(skb, &ctinfo);
+-		/* ecache->events cleared by __deliver_cached_devents() */
+-	} else {
+-		DEBUGP("ecache: re-entered for conntrack %p.\n", ct);
+ 	}
+ }
+-
++#else
++static inline void ip_ct_event_cache_flush(void) {}
+ #endif /* CONFIG_IP_NF_CONNTRACK_EVENTS */
+ 
+ DEFINE_PER_CPU(struct ip_conntrack_stat, ip_conntrack_stat);
+@@ -873,8 +862,6 @@ unsigned int ip_conntrack_in(unsigned in
+ 
+ 	IP_NF_ASSERT((*pskb)->nfct);
+ 
+-	ip_conntrack_event_cache_init(*pskb);
+-
+ 	ret = proto->packet(ct, *pskb, ctinfo);
+ 	if (ret < 0) {
+ 		/* Invalid: inverse of the return code tells
+@@ -1273,23 +1260,6 @@ ip_ct_iterate_cleanup(int (*iter)(struct
+ 
+ 		ip_conntrack_put(ct);
+ 	}
+-
+-#ifdef CONFIG_IP_NF_CONNTRACK_EVENTS
+-	{
+-		/* we need to deliver all cached events in order to drop
+-		 * the reference counts */
+-		int cpu;
+-		for_each_cpu(cpu) {
+-			struct ip_conntrack_ecache *ecache = 
+-					&per_cpu(ip_conntrack_ecache, cpu);
+-			if (ecache->ct) {
+-				__ip_ct_deliver_cached_events(ecache);
+-				ip_conntrack_put(ecache->ct);
+-				ecache->ct = NULL;
+-			}
+-		}
+-	}
+-#endif
+ }
+ 
+ /* Fast function for those who don't want to parse /proc (and I don't
+@@ -1376,6 +1346,7 @@ void ip_conntrack_flush()
+            delete... */
+ 	synchronize_net();
+ 
++	ip_ct_event_cache_flush();
+  i_see_dead_people:
+ 	ip_ct_iterate_cleanup(kill_all, NULL);
+ 	if (atomic_read(&ip_conntrack_count) != 0) {
+diff --git a/net/ipv4/netfilter/ip_conntrack_standalone.c b/net/ipv4/netfilter/ip_conntrack_standalone.c
+--- a/net/ipv4/netfilter/ip_conntrack_standalone.c
++++ b/net/ipv4/netfilter/ip_conntrack_standalone.c
+@@ -401,7 +401,6 @@ static unsigned int ip_confirm(unsigned 
+ 			       const struct net_device *out,
+ 			       int (*okfn)(struct sk_buff *))
+ {
+-	ip_conntrack_event_cache_init(*pskb);
+ 	/* We've seen it coming out the other side: confirm it */
+ 	return ip_conntrack_confirm(pskb);
+ }
+@@ -419,7 +418,6 @@ static unsigned int ip_conntrack_help(un
+ 	ct = ip_conntrack_get(*pskb, &ctinfo);
+ 	if (ct && ct->helper) {
+ 		unsigned int ret;
+-		ip_conntrack_event_cache_init(*pskb);
+ 		ret = ct->helper->help(pskb, ct, ctinfo);
+ 		if (ret != NF_ACCEPT)
+ 			return ret;
+@@ -978,6 +976,7 @@ EXPORT_SYMBOL_GPL(ip_conntrack_chain);
+ EXPORT_SYMBOL_GPL(ip_conntrack_expect_chain);
+ EXPORT_SYMBOL_GPL(ip_conntrack_register_notifier);
+ EXPORT_SYMBOL_GPL(ip_conntrack_unregister_notifier);
++EXPORT_SYMBOL_GPL(__ip_ct_event_cache_init);
+ EXPORT_PER_CPU_SYMBOL_GPL(ip_conntrack_ecache);
+ #endif
+ EXPORT_SYMBOL(ip_conntrack_protocol_register);
+
+--------------050700090205050803070402--
