@@ -1,115 +1,66 @@
-From: Harald Welte <laforge@netfilter.org>
-Subject: [PATCH] ip_conntrack: fix handling of OOM
-Date: Mon, 8 Aug 2005 22:05:59 +0200
-Message-ID: <20050808200559.GW25303@rama.de.gnumonks.org>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Netlink allocation for iSCSI and others
+Date: Mon, 08 Aug 2005 13:47:31 -0700 (PDT)
+Message-ID: <20050808.134731.74751192.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="FIfSo9pyi3Jhph90"
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: James.Bottomley@SteelEye.com, itn780@yahoo.com,
+	linux-scsi@vger.kernel.org, hch@lst.de, kaber@trash.net,
+	akpm@osdl.org
+Return-path: <linux-scsi-owner@vger.kernel.org>
+To: netdev@vger.kernel.org
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---FIfSo9pyi3Jhph90
-Content-Type: multipart/mixed; boundary="+Pu8h6CsJtbukPM9"
-Content-Disposition: inline
+Ok, here is what I'm going to do for 2.6.13 and in the longer
+term.
 
+First, we can give the current NETLINK_ARPD value to iSCSI
+as it is unused since before I can even remember.
 
---+Pu8h6CsJtbukPM9
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Second, ROUTE6 and TAPBASE we can kill from the header file
+as both are unused as well.
 
-Hi Dave, please apply to net-2.6.14,
+In the longer term, Patrick is right in that there is no
+connection between MAX_LINKS and NPROTO as I had claimed.
 
-[ok, now back to vdev]
---=20
-- Harald Welte <laforge@netfilter.org>                 http://netfilter.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-  "Fragmentation is like classful addressing -- an interesting early
-   architectural error that shows how much experimentation was going
-   on while IP was being designed."                    -- Paul Vixie
+So we can increase MAX_LINKS to 256 and that's what I think I will do
+for 2.6.14 unless there is a very serious objection.  The tables sized
+by MAX_LINKS in af_netlink.c are dynamically allocated, and the only
+linear iterations over MAX_LINKS are for the netlink socket procfs
+seq-file dumper, so it's not a performance issue either.
 
---+Pu8h6CsJtbukPM9
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="41-conntrack_alloc-errptr.patch"
-Content-Transfer-Encoding: quoted-printable
+So, for 2.6.13 I'm going to push the following to Linus so that
+everyone gets what they need for the time being.
 
-[NETFILTER] return ENOMEM when ip_conntrack_alloc() fails.
+[NETLINK]: Allocate and kill some netlink numbers.
 
-This patch fixes the bug which doesn't return ERR_PTR(-ENOMEM) if it failed
-to allocate memory space from slab cache.  This bug leads to erroneously
-not dropped packets under stress, and wrong statistic counters ('invalid'
-is incremented instead of 'drop').  It was introduced during the ctnetlink
-merge in the net-2.6.14 tree, so no stable or mainline releases affected.
+NETLINK_ARPD is unused, allocate it to the Open-iSCSI folks.
 
-Signed-off-by: Yasuyuki Kozakai <yasuyuki.kozakai@toshiba.co.jp>
-Signed-off-by: Harald Welte <laforge@netfilter.org>
+NETLINK_ROUTE6 and NETLINK_TAPBASE are no longer used, delete
+them.
 
----
-commit 5fd482be95fb5c0f60e1dc51bcd956ed535c33cb
-tree 64c3930d4f4e701db945b27ebfe972d83ee1ed30
-parent 041cf7f2c1158ae8e9b6d8173b77cbcc878cb54c
-author Harald Welte <laforge@netfilter.org> Mo, 08 Aug 2005 21:57:59 +0200
-committer Harald Welte <laforge@netfilter.org> Mo, 08 Aug 2005 21:57:59 +02=
-00
+Signed-off-by: David S. Miller <davem@davemloft.net>
 
- net/ipv4/netfilter/ip_conntrack_core.c |    7 ++++---
- 1 files changed, 4 insertions(+), 3 deletions(-)
-
-diff --git a/net/ipv4/netfilter/ip_conntrack_core.c b/net/ipv4/netfilter/ip=
-_conntrack_core.c
---- a/net/ipv4/netfilter/ip_conntrack_core.c
-+++ b/net/ipv4/netfilter/ip_conntrack_core.c
-@@ -655,7 +655,7 @@ struct ip_conntrack *ip_conntrack_alloc(
- 	conntrack =3D kmem_cache_alloc(ip_conntrack_cachep, GFP_ATOMIC);
- 	if (!conntrack) {
- 		DEBUGP("Can't allocate conntrack.\n");
--		return NULL;
-+		return ERR_PTR(-ENOMEM);
- 	}
-=20
- 	memset(conntrack, 0, sizeof(*conntrack));
-@@ -696,8 +696,9 @@ init_conntrack(struct ip_conntrack_tuple
- 		return NULL;
- 	}
-=20
--	if (!(conntrack =3D ip_conntrack_alloc(tuple, &repl_tuple)))
--		return NULL;
-+	conntrack =3D ip_conntrack_alloc(tuple, &repl_tuple);
-+	if (conntrack =3D=3D NULL || IS_ERR(conntrack))
-+		return (struct ip_conntrack_tuple_hash *)conntrack;
-=20
- 	if (!protocol->new(conntrack, skb)) {
- 		ip_conntrack_free(conntrack);
-
---+Pu8h6CsJtbukPM9--
-
---FIfSo9pyi3Jhph90
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.1 (GNU/Linux)
-
-iD8DBQFC97snXaXGVTD0i/8RAixMAKCKxwAi1UQGjNm3cUK6XRCj7VleBQCgq36f
-KRK1t16IegWBnjN7mj/zzPI=
-=7lJg
------END PGP SIGNATURE-----
-
---FIfSo9pyi3Jhph90--
+diff --git a/include/linux/netlink.h b/include/linux/netlink.h
+--- a/include/linux/netlink.h
++++ b/include/linux/netlink.h
+@@ -12,15 +12,13 @@
+ #define NETLINK_NFLOG		5	/* netfilter/iptables ULOG */
+ #define NETLINK_XFRM		6	/* ipsec */
+ #define NETLINK_SELINUX		7	/* SELinux event notifications */
+-#define NETLINK_ARPD		8
++#define NETLINK_ISCSI		8	/* Open-iSCSI */
+ #define NETLINK_AUDIT		9	/* auditing */
+ #define NETLINK_FIB_LOOKUP	10	
+-#define NETLINK_ROUTE6		11	/* af_inet6 route comm channel */
+ #define NETLINK_NETFILTER	12	/* netfilter subsystem */
+ #define NETLINK_IP6_FW		13
+ #define NETLINK_DNRTMSG		14	/* DECnet routing messages */
+ #define NETLINK_KOBJECT_UEVENT	15	/* Kernel messages to userspace */
+-#define NETLINK_TAPBASE		16	/* 16 to 31 are ethertap */
+ 
+ #define MAX_LINKS 32		
+ 
