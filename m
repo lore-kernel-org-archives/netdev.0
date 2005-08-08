@@ -1,15 +1,24 @@
-From: Harald Welte <laforge@gnumonks.org>
-Subject: [PATCH] add autoloading support to nfnetlink_log
-Date: Mon, 8 Aug 2005 00:15:35 +0200
-Message-ID: <20050807221535.GC4508@rama.de.gnumonks.org>
+From: Bart De Schuymer <bdschuym@pandora.be>
+Subject: Re: [RFC PATCH] convert ebt_ulog to nfnetlink_log
+Date: Mon, 08 Aug 2005 06:57:40 +0000
+Message-ID: <1123484260.3686.1.camel@localhost.localdomain>
+References: <20050730110353.GD6620@rama.de.gnumonks.org>
+	<20050730.210423.111177162.davem@davemloft.net>
+	<20050731070509.GD3835@rama.de.gnumonks.org>
+	<1123241167.3377.15.camel@localhost.localdomain>
+	<20050805163709.GF4033@rama.de.gnumonks.org>
+	<20050805171028.GA7855@rama.de.gnumonks.org>
+	<1123450076.3378.18.camel@localhost.localdomain>
+	<20050807213340.GA4508@rama.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="VIOdPewhitSMo36n"
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
+	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>,
+	kaber@trash.net
 Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: David Miller <davem@davemloft.net>
-Content-Disposition: inline
+To: Harald Welte <laforge@netfilter.org>
+In-Reply-To: <20050807213340.GA4508@rama.de.gnumonks.org>
 List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
 	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
 List-Archive: </pipermail/netfilter-devel>
@@ -21,75 +30,51 @@ Sender: netfilter-devel-bounces@lists.netfilter.org
 Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
+Op zo, 07-08-2005 te 23:33 +0200, schreef Harald Welte: 
+> > indev->br_port->br->dev->ifindex points to the ifindex of the bridge br0
+> > when indev is a bridge port (eth0). So you need this to fill in the
+> > input device (assuming we agree that the bridge is called the input
+> > device, and the bridge port is called the physical input device).
+> > Filling in the physical input device is done with indev (in case
+> > indev->br_port is not NULL).
+> 
+> I'm not sure if I can follow you.  What basically happens is:
+> 
+> ebt_ulog calls nf_log_packet(PF_BRIDGE, hooknr, skb, in, out, ...) where
+> "in" and "out" are struct net_device as passed to the ebt_ulog function
+> (which is part of the ebt_watcher).  
+> 
+> [...]
+> 
+> the code ends up at the function you are quoting above.  "indev"
+> is "in" and "outdev" is "out", transparently passed from
+> nf_log_packet().
+> 
+> So I think it should reflect exactly what you currently do in ebt_ulog.
+> The only diference is that you now get the ifindex and not the device
+> name string.
 
---VIOdPewhitSMo36n
-Content-Type: multipart/mixed; boundary="7SrMUQONj8Rl9QNG"
-Content-Disposition: inline
+ebt_ulog code snippet:
+strcpy(pm->physindev, in->name);
+/* If in isn't a bridge, then physindev==indev */
+if (in->br_port)
+strcpy(pm->indev, in->br_port->br->dev->name);
+else
+strcpy(pm->indev, in->name);
 
+Your code snippet:
+if (indev->br_port) {
+tmp_uint = htonl(indev->br_port->br->dev->ifindex);
+NFA_PUT(inst->skb, NFULA_IFINDEX_PHYSINDEV,
+        sizeof(tmp_uint), &tmp_uint);
+}
 
---7SrMUQONj8Rl9QNG
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+These two code fragments do not do the same thing. If indev is a bridge
+port (meaning indev->br_port != NULL), then the NFULA_IFINDEX_PHYSINDEV
+must be indev, while the NFULA_IFINDEX_INDEV must be in->br_port->br-
+>dev->name.
+If indev is not a bridge port, the ebt_ulog code makes
+NFULA_IFINDEX_PHYSINDEV and NFULA_IFINDEX_INDEV the same (indev).
 
-Please apply, thanks
-
---=20
-- Harald Welte <laforge@gnumonks.org>          	        http://gnumonks.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-"Privacy in residential applications is a desirable marketing option."
-                                                  (ETSI EN 300 175-7 Ch. A6)
-
---7SrMUQONj8Rl9QNG
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="33-nfnetlink_log-autoload.patch"
-Content-Transfer-Encoding: quoted-printable
-
-[NETFILTER] fix autoloading of nfnetlink_log
-
-This patch adds the MODULE_ALIAS required for netnlink autoloading of
-nfnetlink_log.
-
-Signed-off-by: Harald Welte <laforge@netfilter.org>
-
----
-commit 7e42bac6926c9ab54033ddc4695e9a3d30b6b453
-tree aae33467661ea95482d218e22ceadfa448cc8a0d
-parent c16fd4ffed6349d0888cd97a75d04394dac42021
-author Harald Welte <laforge@netfilter.org> So, 07 Aug 2005 19:24:43 +0200
-committer Harald Welte <laforge@netfilter.org> So, 07 Aug 2005 19:24:43 +02=
-00
-
- net/netfilter/nfnetlink_log.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
---- a/net/netfilter/nfnetlink_log.c
-+++ b/net/netfilter/nfnetlink_log.c
-@@ -1013,6 +1013,7 @@ static void __exit fini(void)
- MODULE_DESCRIPTION("netfilter userspace logging");
- MODULE_AUTHOR("Harald Welte <laforge@netfilter.org>");
- MODULE_LICENSE("GPL");
-+MODULE_ALIAS_NFNL_SUBSYS(NFNL_SUBSYS_ULOG);
-=20
- module_init(init);
- module_exit(fini);
-
---7SrMUQONj8Rl9QNG--
-
---VIOdPewhitSMo36n
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.1 (GNU/Linux)
-
-iD8DBQFC9ogEXaXGVTD0i/8RAs2qAKCTTK3YsTlr49kfv+2c8lq2NuRD9gCgkil+
-b3iujk95ZC0BKC8soxSoSiE=
-=YhRg
------END PGP SIGNATURE-----
-
---VIOdPewhitSMo36n--
+cheers,
+Bart
