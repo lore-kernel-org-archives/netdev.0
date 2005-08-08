@@ -1,10 +1,10 @@
 From: Harald Welte <laforge@netfilter.org>
-Subject: [PATCH] nf_log: check function arguments
-Date: Mon, 8 Aug 2005 19:04:31 +0200
-Message-ID: <20050808170431.GK25303@rama.de.gnumonks.org>
+Subject: [PATCH] nf_{log,queue}: more verbose error reporting
+Date: Mon, 8 Aug 2005 19:03:05 +0200
+Message-ID: <20050808170304.GJ25303@rama.de.gnumonks.org>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="PkEWctFf+8E2rcii"
+	protocol="application/pgp-signature"; boundary="IjNIXuzrMEaOuFwn"
 Cc: Linux Netdev List <netdev@vger.kernel.org>,
 	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
 Return-path: <netfilter-devel-bounces@lists.netfilter.org>
@@ -22,12 +22,12 @@ Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
 
---PkEWctFf+8E2rcii
-Content-Type: multipart/mixed; boundary="nQUlLD2FJeKEtFpv"
+--IjNIXuzrMEaOuFwn
+Content-Type: multipart/mixed; boundary="N5iGxCIPT7YMRg16"
 Content-Disposition: inline
 
 
---nQUlLD2FJeKEtFpv
+--N5iGxCIPT7YMRg16
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
@@ -35,9 +35,6 @@ Content-Transfer-Encoding: quoted-printable
 Hi Dave!
 
 Please apply to your net-2.6.14, thanks
-
-Ok, this will be my last patch for some time, I promise.  Guess you must
-be bored by now...
 
 --=20
 - Harald Welte <laforge@netfilter.org>                 http://netfilter.org/
@@ -49,88 +46,92 @@ be bored by now...
    architectural error that shows how much experimentation was going
    on while IP was being designed."                    -- Paul Vixie
 
---nQUlLD2FJeKEtFpv
+--N5iGxCIPT7YMRg16
 Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="40-nf_log-nproto-check.patch"
+Content-Disposition: attachment; filename="39-nf_log_register-EBUSY.patch"
 Content-Transfer-Encoding: quoted-printable
 
-[NETFILTER] check nf_log function call arguments
+[NETFILTER] more verbose return codes from nf_{log,queue}
 
-Check whether pf is too large in order to prevent array overflow.
+This adds EEXIST to distinguish between the following return values:
+0: 	nobody was registered, registration successful
+EEXIST:	the exact same handler was already registered, no registration
+	required
+EBUSY:	somebody else is registered, registration unsuccessful.
 
 Signed-off-by: Harald Welte <laforge@netfilter.org>
 
 ---
-commit 041cf7f2c1158ae8e9b6d8173b77cbcc878cb54c
-tree dd3f91ef47ed9867f4baaaa240161f9ee2210d3c
-parent 2f20e47c7aaf09749b1bb0684fbd30a1921d2de2
-author Harald Welte <laforge@netfilter.org> Mo, 08 Aug 2005 19:02:07 +0200
-committer Harald Welte <laforge@netfilter.org> Mo, 08 Aug 2005 19:02:07 +02=
+commit 2f20e47c7aaf09749b1bb0684fbd30a1921d2de2
+tree d8bf732f6a40d56f1a1e8b54a421473e2d40df98
+parent 5f748d529c9bf1f0f52453d02a5e3aa9eca351e3
+author Harald Welte <laforge@netfilter.org> Mo, 08 Aug 2005 18:55:39 +0200
+committer Harald Welte <laforge@netfilter.org> Mo, 08 Aug 2005 18:55:39 +02=
 00
 
- include/linux/netfilter.h |    2 +-
- net/netfilter/nf_log.c    |   10 +++++++++-
+ net/netfilter/nf_log.c   |    6 +++++-
+ net/netfilter/nf_queue.c |    6 +++++-
  2 files changed, 10 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
---- a/include/linux/netfilter.h
-+++ b/include/linux/netfilter.h
-@@ -157,7 +157,7 @@ struct nf_logger {
-=20
- /* Function to register/unregister log function. */
- int nf_log_register(int pf, struct nf_logger *logger);
--void nf_log_unregister_pf(int pf);
-+int nf_log_unregister_pf(int pf);
- void nf_log_unregister_logger(struct nf_logger *logger);
-=20
- /* Calls the registered backend logging function */
 diff --git a/net/netfilter/nf_log.c b/net/netfilter/nf_log.c
 --- a/net/netfilter/nf_log.c
 +++ b/net/netfilter/nf_log.c
-@@ -23,6 +23,9 @@ int nf_log_register(int pf, struct nf_lo
+@@ -17,6 +17,8 @@
+ static struct nf_logger *nf_logging[NPROTO]; /* =3D NULL */
+ static DEFINE_SPINLOCK(nf_log_lock);
+=20
++/* return EBUSY if somebody else is registered, EEXIST if the same logger
++ * is registred, 0 on success. */
+ int nf_log_register(int pf, struct nf_logger *logger)
  {
  	int ret =3D -EBUSY;
-=20
-+	if (pf >=3D NPROTO)
-+		return -EINVAL;
+@@ -27,7 +29,9 @@ int nf_log_register(int pf, struct nf_lo
+ 	if (!nf_logging[pf]) {
+ 		rcu_assign_pointer(nf_logging[pf], logger);
+ 		ret =3D 0;
+-	}
++	} else if (nf_logging[pf] =3D=3D logger)
++		ret =3D -EEXIST;
 +
- 	/* Any setup of logging members must be done before
- 	 * substituting pointer. */
- 	spin_lock(&nf_log_lock);
-@@ -37,14 +40,19 @@ int nf_log_register(int pf, struct nf_lo
- }	=09
- EXPORT_SYMBOL(nf_log_register);
-=20
--void nf_log_unregister_pf(int pf)
-+int nf_log_unregister_pf(int pf)
- {
-+	if (pf >=3D NPROTO)
-+		return -EINVAL;
-+
- 	spin_lock(&nf_log_lock);
- 	nf_logging[pf] =3D NULL;
  	spin_unlock(&nf_log_lock);
+ 	return ret;
+ }	=09
+diff --git a/net/netfilter/nf_queue.c b/net/netfilter/nf_queue.c
+--- a/net/netfilter/nf_queue.c
++++ b/net/netfilter/nf_queue.c
+@@ -19,6 +19,8 @@ static struct nf_queue_rerouter *queue_r
 =20
- 	/* Give time to concurrent readers. */
- 	synchronize_net();
-+
-+	return 0;
- }
- EXPORT_SYMBOL(nf_log_unregister_pf);
+ static DEFINE_RWLOCK(queue_handler_lock);
 =20
++/* return EBUSY when somebody else is registered, return EEXIST if the
++ * same handler is registered, return 0 in case of success. */
+ int nf_register_queue_handler(int pf, struct nf_queue_handler *qh)
+ {     =20
+ 	int ret;
+@@ -27,7 +29,9 @@ int nf_register_queue_handler(int pf, st
+ 		return -EINVAL;
+=20
+ 	write_lock_bh(&queue_handler_lock);
+-	if (queue_handler[pf])
++	if (queue_handler[pf] =3D=3D qh)
++		ret =3D -EEXIST;
++	else if (queue_handler[pf])
+ 		ret =3D -EBUSY;
+ 	else {
+ 		queue_handler[pf] =3D qh;
 
---nQUlLD2FJeKEtFpv--
+--N5iGxCIPT7YMRg16--
 
---PkEWctFf+8E2rcii
+--IjNIXuzrMEaOuFwn
 Content-Type: application/pgp-signature
 Content-Disposition: inline
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.1 (GNU/Linux)
 
-iD8DBQFC95CeXaXGVTD0i/8RAjbDAJkBo/n+Jyd7pLUEgjK4OsjW7CBxIgCgqkZ7
-dUtRSYm0m6NbjR70P7MRLeI=
-=dFQn
+iD8DBQFC95BIXaXGVTD0i/8RAuiWAJ9PcIXT4/yRUcfXLd8AndhCQjd7ewCeNxvU
+tntr2x8zW8LgX/CLXYjWWS8=
+=rM/7
 -----END PGP SIGNATURE-----
 
---PkEWctFf+8E2rcii--
+--IjNIXuzrMEaOuFwn--
