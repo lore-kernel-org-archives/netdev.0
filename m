@@ -1,34 +1,77 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: Netlink allocation for iSCSI and others
-Date: Mon, 08 Aug 2005 14:21:22 -0700 (PDT)
-Message-ID: <20050808.142122.104034267.davem@davemloft.net>
-References: <20050808.134731.74751192.davem@davemloft.net>
-	<42F7CC69.3060808@trash.net>
+From: "Ravinandan Arakali" <ravinandan.arakali@neterion.com>
+Subject: default directive in Kconfig(subject modified)
+Date: Mon, 8 Aug 2005 17:40:45 -0700
+Message-ID: <002801c59c7a$fb660ec0$4810100a@pc.s2io.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, James.Bottomley@SteelEye.com,
-	itn780@yahoo.com, linux-scsi@vger.kernel.org, hch@lst.de,
-	akpm@osdl.org
-Return-path: <linux-scsi-owner@vger.kernel.org>
-To: kaber@trash.net
-In-Reply-To: <42F7CC69.3060808@trash.net>
-Sender: linux-scsi-owner@vger.kernel.org
+Cc: <hch@infradead.org>, <raghavendra.koushik@neterion.com>,
+        <jgarzik@pobox.com>, <netdev@oss.sgi.com>,
+        <leonid.grossman@neterion.com>, <rapuru.sriram@neterion.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "'David S. Miller'" <davem@davemloft.net>
+In-Reply-To: 
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Mon, 08 Aug 2005 23:19:37 +0200
+Hi,
+Can somebody throw light on the below subject ?
+We have S2io configured as a module and 2buff mode is
+one of the suboptions under S2io. But a directive such
+as "default y" does not seem to enable 2buff mode.
 
-> David S. Miller wrote:
-> > So we can increase MAX_LINKS to 256 and that's what I think I will do
-> > for 2.6.14 unless there is a very serious objection.  The tables sized
-> > by MAX_LINKS in af_netlink.c are dynamically allocated, and the only
-> > linear iterations over MAX_LINKS are for the netlink socket procfs
-> > seq-file dumper, so it's not a performance issue either.
-> 
-> I think we should increase it when allocating new numbers to save the
-> unused memory for the larger nltable and additional pid hashes.
-> Userspace shouldn't care if we change it.
+Thanks,
+Ravi
 
-Agreed.  So we have 17 netlink numbers to allocate at this
-point, and that should be good for a while.
+-----Original Message-----
+From: Ravinandan Arakali [mailto:ravinandan.arakali@neterion.com]
+Sent: Friday, July 29, 2005 9:38 AM
+To: 'David S. Miller'
+Cc: 'hch@infradead.org'; 'raghavendra.koushik@neterion.com';
+'jgarzik@pobox.com'; 'netdev@oss.sgi.com';
+'leonid.grossman@neterion.com'; 'rapuru.sriram@neterion.com'
+Subject: RE: [PATCH 2.6.12.1 5/12] S2io: Performance improvements
+
+
+David,
+We are trying to use the "default" directive in Kconfig. We tried
+using an unconditional directive(just to test it out) such as
+"default y" and a conditional one such as "default y if
+CONFIG_IA64_SGI_SN2".
+
+But when we run "make menuconfig", it does not seem to pickup any of these
+changes from Kconfig.
+Any idea what we might be missing ?
+
+Once this is fixed, we'll send out a patch to address comments from
+previous 12 patches as well as couple of issues we found in the
+meantime.
+
+Thanks,
+Ravi
+
+-----Original Message-----
+From: David S. Miller [mailto:davem@davemloft.net]
+Sent: Tuesday, July 12, 2005 2:04 PM
+To: ravinandan.arakali@neterion.com
+Cc: hch@infradead.org; raghavendra.koushik@neterion.com;
+jgarzik@pobox.com; netdev@oss.sgi.com; leonid.grossman@neterion.com;
+rapuru.sriram@neterion.com
+Subject: Re: [PATCH 2.6.12.1 5/12] S2io: Performance improvements
+
+
+From: "Ravinandan Arakali" <ravinandan.arakali@neterion.com>
+Subject: RE: [PATCH 2.6.12.1 5/12] S2io: Performance improvements
+Date: Tue, 12 Jul 2005 14:00:52 -0700
+
+> The two-buffer mode was added as a configurable option
+> to Kconfig file several months ago. Hence the macro
+> is CONFIG_2BUFF_MODE.
+
+We're saying that you should choose CONFIG_2BUFF_MODE, when
+CONFIG_IA64_SGI_SN2 is set, inside the Kconfig file using the
+"default" Kconfig directive.
+
+You should never change the setting of CONFIG_* macros in C source.
