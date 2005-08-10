@@ -1,17 +1,17 @@
 From: "Mrs.Myriam Van Haris." <daveca111@netscape.net>
 Subject: FINAL WINNING NOTIFICATIO!!!
-Date: Wed, 10 Aug 2005 15:01:00 +0200
-Message-ID: <200508120803.j7C83MHG004519@oss.sgi.com>
+Date: Wed, 10 Aug 2005 13:28:26 +0200
+Message-ID: <200508120803.j7C83MH9004519@oss.sgi.com>
 Reply-To: sunglomeglott@netscape.net
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=926da565-dc81-4136-a4eb-647593061c57
+Content-Type: multipart/mixed; boundary=035beedc-8275-4a9b-a329-2e64f00b179f
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---926da565-dc81-4136-a4eb-647593061c57
+--035beedc-8275-4a9b-a329-2e64f00b179f
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: quoted-printable
 
@@ -67,7 +67,7 @@ disqualified.
 Sincerely yours,
 Mrs.Myriam Van Haris.
 Lottery Co-ordinator.  
---926da565-dc81-4136-a4eb-647593061c57
+--035beedc-8275-4a9b-a329-2e64f00b179f
 Content-Type: text/plain; x-avg=cert; charset=us-ascii
 Content-Transfer-Encoding: quoted-printable
 Content-Disposition: inline
@@ -77,4 +77,4 @@ Internal Virus Database is out-of-date.
 Checked by AVG Anti-Virus.
 Version: 7.0.323 / Virus Database: 267.9.2/55 - Release Date: 21/07/2005
 
---926da565-dc81-4136-a4eb-647593061c57--
+--035beedc-8275-4a9b-a329-2e64f00b179f--
