@@ -1,60 +1,50 @@
-From: MRS VERONICA REGINA AHMED <veronica4christ@netscape.net>
-Subject: God bless your fate
-Date: Fri, 12 Aug 2005 14:05:30 +0200
-Message-ID: <200508121207.j7CC7fH9015082@oss.sgi.com>
-Reply-To: veronica4christ@netscape.net
+From: Ingo Oeser <netdev@axxeo.de>
+Subject: Re: [PATCH 2/2] fix NF_QUEUE_NR() macro
+Date: Thu, 11 Aug 2005 16:31:24 +0200
+Message-ID: <200508111631.24785.netdev@axxeo.de>
+References: <20050811071320.GB4137@rama.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="e7a330f5-534b-4972-9514-01fb69c1160e"
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Harald Welte <laforge@gnumonks.org>, David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
+In-Reply-To: <20050811071320.GB4137@rama.de.gnumonks.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
+Harald Welte wrote:
+> Hi Dave, please apply!
 
-This is a multi-part message in MIME format
---e7a330f5-534b-4972-9514-01fb69c1160e
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
+What about using a brace more:
 
-Greetings,
-My name is Mrs.Veronica Ahmed,widow to late
-Mr.Hassan Ahmed fomer owner of Petroleum and
-Gas company ,here in kuwait.I am 78years old,
-suffering from long time cancer of the breast. 
->From all indications my condition is really 
-deteriorating and it's quite obvious that I 
-won't live more than 2 months according to my
-doctors.This is because the cancer stage has
-gotten to a very bad stage.i dont want your 
-pity but i need your trust.
-My late husband died early last year from heart
-attack, and during the period of our marriage we
-couldn't produce any child. My late husband was
-very wealthy and after his death,I inherited all
-his business and wealth.The doctor has advised 
-me that I will not live for more than 2 months,
-so I have now decided to spread all my wealth,
-to contribute mainly to the development of 
-charity in Africa, America, Asia and Europe.
-am sorry if you are embarrased by my mail.
-i found your e-mail address in the web 
-directory,and i have decided to contact you,
-but if for any reason you find this mail 
-offensive,you can ignore it and please 
-accept my appology.
-before my late husband died he was a major oil 
-tycoon,in kuwait and deposited the sum of 25 
-million dollars (Twenty Five million dollars)
-in a company in europe some years ago,thats all
-i have left now,i need you to collect this funds
-and distribute it yourself to charity .
-so that when i die my soul can rest in peace.the
-funds will be entirely in hands and management.
-i hope God gives you the wisdom to touch very 
-many lives,that is my main concern.
-20% of this money will be for your time and 
-effort,while 80% goes to charity.
-God bless you.
-Mrs.Veronica Ahmed.  
---e7a330f5-534b-4972-9514-01fb69c1160e--
+>diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
+>--- a/include/linux/netfilter.h
+>+++ b/include/linux/netfilter.h
+>@@ -29,7 +29,7 @@
+> #define NF_VERDICT_QMASK 0xffff0000
+> #define NF_VERDICT_QBITS 16
+> 
+>-#define NF_QUEUE_NR(x) ((x << NF_VERDICT_QBITS) & NF_VERDICT_QMASK || NF_QUEUE)
+>+#define NF_QUEUE_NR(x) ((x << NF_VERDICT_QBITS) & NF_VERDICT_QMASK | NF_QUEUE)
+
+#define NF_QUEUE_NR(x) ((x << NF_VERDICT_QBITS) & (NF_VERDICT_QMASK | NF_QUEUE))
+
+I know we are cool and know operator precedence even after 10 beer, but some people
+consider it difficult to understand without :-)
+
+
+Regards
+
+Ingo Oeser
