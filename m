@@ -1,44 +1,65 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] sockaddr_ll change for IPoIB interface
-Date: Thu, 11 Aug 2005 12:49:16 -0700 (PDT)
-Message-ID: <20050811.124916.77057824.davem@davemloft.net>
-References: <1123786117.4403.5835.camel@hal.voltaire.com>
+From: Harald Welte <laforge@netfilter.org>
+Subject: Re: [PATCH 2/2] fix NF_QUEUE_NR() macro
+Date: Thu, 11 Aug 2005 21:26:57 +0200
+Message-ID: <20050811192657.GJ5353@rama.de.gnumonks.org>
+References: <20050811071320.GB4137@rama.de.gnumonks.org>
+	<200508111631.24785.netdev@axxeo.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-To: halr@voltaire.com
-In-Reply-To: <1123786117.4403.5835.camel@hal.voltaire.com>
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="Q59ABw34pTSIagmi"
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Ingo Oeser <netdev@axxeo.de>
+Content-Disposition: inline
+In-Reply-To: <200508111631.24785.netdev@axxeo.de>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-From: Hal Rosenstock <halr@voltaire.com>
-Date: 11 Aug 2005 14:48:37 -0400
 
-> The patch below is to accomodate IPoIB link layer address in the
-> sockaddr_ll struct so that user space can send and receive IPoIB link
-> later packets. Unfortunately, IPoIB has 20 bytes LL addresses rather
-> than the 8 byte MAC addresses (or under) used by other LLs.
+--Q59ABw34pTSIagmi
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Two problems.  1) it's a really ugly IPoIB specific hack to extend the
-sockaddr_ll structure, it won't work for anything else without adding
-more special tests to that af_packet.c code and 2) you inproperly
-rooted your patch, so we get stuff like this:
+On Thu, Aug 11, 2005 at 04:31:24PM +0200, Ingo Oeser wrote:
+> Harald Welte wrote:
+> > Hi Dave, please apply!
+>=20
+> What about using a brace more:
 
-> --- af_packet.c.orig	2005-06-29 19:00:53.000000000 -0400
-> +++ af_packet.c	2005-08-05 13:28:49.000000000 -0400
+I wouldn't mind the extra brace, but I don't want to make this more
+difficult for Dave.  So it's his call whether he would manually edit the
+line before applying the patch ;)
 
-Please find another way to extend the structure.
+--=20
+- Harald Welte <laforge@netfilter.org>                 http://netfilter.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+  "Fragmentation is like classful addressing -- an interesting early
+   architectural error that shows how much experimentation was going
+   on while IP was being designed."                    -- Paul Vixie
 
-That's why I didn't respond, this patch was too ugly for words
-so it went to the bottom of my prioritized list of things to
-do.
+--Q59ABw34pTSIagmi
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.1 (GNU/Linux)
+
+iD8DBQFC+6aBXaXGVTD0i/8RAk6IAKCldCMTQd9ASocgm2L6vfTqe2rH+gCfSr24
+0YzuGHPrIr/ByC5sH2TyU1U=
+=mQ78
+-----END PGP SIGNATURE-----
+
+--Q59ABw34pTSIagmi--
