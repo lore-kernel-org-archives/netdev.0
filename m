@@ -1,23 +1,102 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [ANNOUNCE] Experimental Driver for Neterion/S2io 10GbE Adapters
-Date: Thu, 11 Aug 2005 13:48:20 -0400
-Message-ID: <42FB8F64.4020001@pobox.com>
-References: <200503222330.j2MNU2DD028953@guinness.s2io.com>
+From: Hal Rosenstock <halr@voltaire.com>
+Subject: [PATCH] sockaddr_ll change for IPoIB interface
+Date: 11 Aug 2005 14:48:37 -0400
+Message-ID: <1123786117.4403.5835.camel@hal.voltaire.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, davem@davemloft.net, ak@muc.de
-Return-path: <netdev-bounce@oss.sgi.com>
-To: alex@neterion.com
-In-Reply-To: <200503222330.j2MNU2DD028953@guinness.s2io.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-Alex Aizman wrote:
-> This is our 2nd attempt to submit "xge", the experimental driver for
-> Neterion, Inc (formerly S2io, Inc) family of 10GbE adapters. 
+Hi,
 
-Can you send a link to the latest version of this driver, for review?
+This is a repost of a patch which was posted last week which appears to
+have been lost in the shuffle.
 
-	Jeff
+The patch below is to accomodate IPoIB link layer address in the
+sockaddr_ll struct so that user space can send and receive IPoIB link
+later packets. Unfortunately, IPoIB has 20 bytes LL addresses rather
+than the 8 byte MAC addresses (or under) used by other LLs.
+
+There is a similar change to both:
+/usr/include/linux/if_packet.h
+/usr/include/netpacket/packet.h
+as in:
+include/linux/if_packet.h below
+to increase sll_addr from 8 to 20 bytes.
+
+Thanks.
+
+-- Hal
+
+sockaddr_ll changes to accomodate IPoIB interfaces.
+This is due to the fact that the IPoIB link layer
+address is 20 bytes rather than 8 bytes. With the current 8 byte
+address, it is not possible to send ARPs and RARPs from userspace as the
+broadcast and unicast IPoIB addresses cannot be supplied properly.
+There is backward compatibility support for those applications built
+with the existing structure (prior to this patch).
+
+Signed-off-by: Hal Rosenstock <halr@voltaire.com>
+
+--- include/linux/if_packet.h.orig	2005-06-29 19:00:53.000000000 -0400
++++ include/linux/if_packet.h	2005-08-05 10:04:06.000000000 -0400
+@@ -8,6 +8,7 @@ struct sockaddr_pkt
+ 	unsigned short spkt_protocol;
+ };
+ 
++#define SOCKADDR_LL_COMPAT	12
+ struct sockaddr_ll
+ {
+ 	unsigned short	sll_family;
+@@ -16,7 +17,7 @@ struct sockaddr_ll
+ 	unsigned short	sll_hatype;
+ 	unsigned char	sll_pkttype;
+ 	unsigned char	sll_halen;
+-	unsigned char	sll_addr[8];
++	unsigned char	sll_addr[20];
+ };
+ 
+ /* Packet types */
+
+--- af_packet.c.orig	2005-06-29 19:00:53.000000000 -0400
++++ af_packet.c	2005-08-05 13:28:49.000000000 -0400
+@@ -708,8 +708,12 @@ static int packet_sendmsg(struct kiocb *
+ 		addr	= NULL;
+ 	} else {
+ 		err = -EINVAL;
+-		if (msg->msg_namelen < sizeof(struct sockaddr_ll))
+-			goto out;
++		if (msg->msg_namelen < sizeof(struct sockaddr_ll)) {
++			/* Support for older sockaddr_ll structs */
++			if ((msg->msg_namelen != sizeof(struct sockaddr_ll) - SOCKADDR_LL_COMPAT) ||
++			    (saddr->sll_hatype == ARPHRD_INFINIBAND))
++				goto out;
++		}
+ 		ifindex	= saddr->sll_ifindex;
+ 		proto	= saddr->sll_protocol;
+ 		addr	= saddr->sll_addr;
+@@ -937,7 +941,11 @@ static int packet_bind(struct socket *so
+ 	 */
+ 	 
+ 	if (addr_len < sizeof(struct sockaddr_ll))
+-		return -EINVAL;
++		/* Support for older sockaddr_ll structs */
++		if ((addr_len != sizeof(struct sockaddr_ll) -
++				 SOCKADDR_LL_COMPAT) || 
++		    (sll->sll_hatype == ARPHRD_INFINIBAND))
++			return -EINVAL;
+ 	if (sll->sll_family != AF_PACKET)
+ 		return -EINVAL;
+ 
