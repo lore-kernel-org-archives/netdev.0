@@ -1,50 +1,141 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 2/2] fix NF_QUEUE_NR() macro
-Date: Fri, 12 Aug 2005 07:46:55 +1000
-Message-ID: <E1E3Kt5-0006jy-00@gondolin.me.apana.org.au>
-References: <200508111631.24785.netdev@axxeo.de>
-Cc: netdev@vger.kernel.org, netfilter-devel@lists.netfilter.org,
-	laforge@gnumonks.org
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: netdev@axxeo.de (Ingo Oeser)
-In-Reply-To: <200508111631.24785.netdev@axxeo.de>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+From: Arthur Kepner <akepner@sgi.com>
+Subject: [RESEND] [PATCH] bond inherits zero-copy flags of slaves
+Date: Thu, 11 Aug 2005 14:55:24 -0700 (PDT)
+Message-ID: <Pine.LNX.4.61.0508111447370.14105@resonance.WorkGroup>
+Mime-Version: 1.0
+Content-Type: MULTIPART/MIXED; BOUNDARY="32512-514941971-1123797007=:14105"
+Cc: netdev@oss.sgi.com, bonding-devel@lists.sourceforge.net
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@davemloft.net>
+Content-ID: <Pine.LNX.4.61.0508111454060.14105@resonance.WorkGroup>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Ingo Oeser <netdev@axxeo.de> wrote:
-> 
-> What about using a brace more:
-> 
->>diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
->>--- a/include/linux/netfilter.h
->>+++ b/include/linux/netfilter.h
->>@@ -29,7 +29,7 @@
->> #define NF_VERDICT_QMASK 0xffff0000
->> #define NF_VERDICT_QBITS 16
->> 
->>-#define NF_QUEUE_NR(x) ((x << NF_VERDICT_QBITS) & NF_VERDICT_QMASK || NF_QUEUE)
->>+#define NF_QUEUE_NR(x) ((x << NF_VERDICT_QBITS) & NF_VERDICT_QMASK | NF_QUEUE)
-> 
-> #define NF_QUEUE_NR(x) ((x << NF_VERDICT_QBITS) & (NF_VERDICT_QMASK | NF_QUEUE))
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Actually, these two versions are different.  & is higher than | so
-Harald's version is actually 
+--32512-514941971-1123797007=:14105
+Content-Type: TEXT/PLAIN; CHARSET=US-ASCII
+Content-ID: <Pine.LNX.4.61.0508111454061.14105@resonance.WorkGroup>
 
-#define NF_QUEUE_NR(x) (((x << NF_VERDICT_QBITS) & NF_VERDICT_QMASK) | NF_QUEUE)
 
-Which is it?
+The attached patch allows a bonding device to inherit the "zero-copy" 
+features of its slave devices.
 
-Cheers,
+It was inspired by a couple of previous postings on this topic:
+http://marc.theaimsgroup.com/?l=bonding-devel&m=111924607327794&w=2
+http://marc.theaimsgroup.com/?l=bonding-devel&m=111925242706297&w=2
+and it's largely a combination of the patches that appear in those
+emails.
+
+Patch is against net-2.6.git
+
+Signed-off-by: Arthur Kepner <akepner@sgi.com>
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Arthur
+--32512-514941971-1123797007=:14105
+Content-Type: TEXT/PLAIN; CHARSET=US-ASCII; NAME="bonding_features.git.patch"
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.LNX.4.61.0508111450070.14105@resonance.WorkGroup>
+Content-Description: bonding_features.git.patch
+Content-Disposition: ATTACHMENT; FILENAME="bonding_features.git.patch"
+
+ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2JvbmRpbmcvYm9uZF9tYWluLmMg
+Yi9kcml2ZXJzL25ldC9ib25kaW5nL2JvbmRfbWFpbi5jDQotLS0gYS9kcml2
+ZXJzL25ldC9ib25kaW5nL2JvbmRfbWFpbi5jDQorKysgYi9kcml2ZXJzL25l
+dC9ib25kaW5nL2JvbmRfbWFpbi5jDQpAQCAtMTYwNCw2ICsxNjA0LDQ0IEBA
+IHN0YXRpYyBpbnQgYm9uZF9zZXRod2FkZHIoc3RydWN0IG5ldF9kZXYNCiAJ
+cmV0dXJuIDA7DQogfQ0KIA0KKyNkZWZpbmUgQk9ORF9JTlRFUlNFQ1RfRkVB
+VFVSRVMgXA0KKwkoTkVUSUZfRl9TR3xORVRJRl9GX0lQX0NTVU18TkVUSUZf
+Rl9OT19DU1VNfE5FVElGX0ZfSFdfQ1NVTSkNCisNCisvKiANCisgKiBDb21w
+dXRlIHRoZSBmZWF0dXJlcyBhdmFpbGFibGUgdG8gdGhlIGJvbmRpbmcgZGV2
+aWNlIGJ5IA0KKyAqIGludGVyc2VjdGlvbiBvZiBhbGwgb2YgdGhlIHNsYXZl
+IGRldmljZXMnIEJPTkRfSU5URVJTRUNUX0ZFQVRVUkVTLg0KKyAqIENhbGwg
+dGhpcyBhZnRlciBhdHRhY2hpbmcgb3IgZGV0YWNoaW5nIGEgc2xhdmUgdG8g
+dXBkYXRlIHRoZSANCisgKiBib25kJ3MgZmVhdHVyZXMuDQorICovDQorc3Rh
+dGljIGludCBib25kX2NvbXB1dGVfZmVhdHVyZXMoc3RydWN0IGJvbmRpbmcg
+KmJvbmQpDQorew0KKwlpbnQgaTsNCisJc3RydWN0IHNsYXZlICpzbGF2ZTsN
+CisJc3RydWN0IG5ldF9kZXZpY2UgKmJvbmRfZGV2ID0gYm9uZC0+ZGV2Ow0K
+KwlpbnQgZmVhdHVyZXMgPSBib25kLT5ib25kX2ZlYXR1cmVzOw0KKw0KKwli
+b25kX2Zvcl9lYWNoX3NsYXZlKGJvbmQsIHNsYXZlLCBpKSB7DQorCQlzdHJ1
+Y3QgbmV0X2RldmljZSAqIHNsYXZlX2RldiA9IHNsYXZlLT5kZXY7DQorCQlp
+ZiAoaSA9PSAwKSB7DQorCQkJZmVhdHVyZXMgfD0gQk9ORF9JTlRFUlNFQ1Rf
+RkVBVFVSRVM7DQorCQl9DQorCQlmZWF0dXJlcyAmPQ0KKwkJCX4ofnNsYXZl
+X2Rldi0+ZmVhdHVyZXMgJiBCT05EX0lOVEVSU0VDVF9GRUFUVVJFUyk7DQor
+CX0NCisNCisJLyogdHVybiBvZmYgTkVUSUZfRl9TRyBpZiB3ZSBuZWVkIGEg
+Y3N1bSBhbmQgaC93IGNhbid0IGRvIGl0ICovDQorCWlmICgoZmVhdHVyZXMg
+JiBORVRJRl9GX1NHKSAmJiANCisJCSEoZmVhdHVyZXMgJiAoTkVUSUZfRl9J
+UF9DU1VNIHwNCisJCQkgICAgICBORVRJRl9GX05PX0NTVU0gfA0KKwkJCSAg
+ICAgIE5FVElGX0ZfSFdfQ1NVTSkpKSB7DQorCQlmZWF0dXJlcyAmPSB+TkVU
+SUZfRl9TRzsNCisJfQ0KKw0KKwlib25kX2Rldi0+ZmVhdHVyZXMgPSBmZWF0
+dXJlczsNCisNCisJcmV0dXJuIDA7DQorfQ0KKw0KIC8qIGVuc2xhdmUgZGV2
+aWNlIDxzbGF2ZT4gdG8gYm9uZCBkZXZpY2UgPG1hc3Rlcj4gKi8NCiBzdGF0
+aWMgaW50IGJvbmRfZW5zbGF2ZShzdHJ1Y3QgbmV0X2RldmljZSAqYm9uZF9k
+ZXYsIHN0cnVjdCBuZXRfZGV2aWNlICpzbGF2ZV9kZXYpDQogew0KQEAgLTE4
+MTEsNiArMTg0OSw4IEBAIHN0YXRpYyBpbnQgYm9uZF9lbnNsYXZlKHN0cnVj
+dCBuZXRfZGV2aWMNCiAJbmV3X3NsYXZlLT5kZWxheSA9IDA7DQogCW5ld19z
+bGF2ZS0+bGlua19mYWlsdXJlX2NvdW50ID0gMDsNCiANCisJYm9uZF9jb21w
+dXRlX2ZlYXR1cmVzKGJvbmQpOw0KKw0KIAlpZiAoYm9uZC0+cGFyYW1zLm1p
+aW1vbiAmJiAhYm9uZC0+cGFyYW1zLnVzZV9jYXJyaWVyKSB7DQogCQlsaW5r
+X3JlcG9ydGluZyA9IGJvbmRfY2hlY2tfZGV2X2xpbmsoYm9uZCwgc2xhdmVf
+ZGV2LCAxKTsNCiANCkBAIC0yMDE1LDcgKzIwNTUsNyBAQCBlcnJfZnJlZToN
+CiANCiBlcnJfdW5kb19mbGFnczoNCiAJYm9uZF9kZXYtPmZlYXR1cmVzID0g
+b2xkX2ZlYXR1cmVzOw0KLQ0KKyANCiAJcmV0dXJuIHJlczsNCiB9DQogDQpA
+QCAtMjEwMCw2ICsyMTQwLDggQEAgc3RhdGljIGludCBib25kX3JlbGVhc2Uo
+c3RydWN0IG5ldF9kZXZpYw0KIAkvKiByZWxlYXNlIHRoZSBzbGF2ZSBmcm9t
+IGl0cyBib25kICovDQogCWJvbmRfZGV0YWNoX3NsYXZlKGJvbmQsIHNsYXZl
+KTsNCiANCisJYm9uZF9jb21wdXRlX2ZlYXR1cmVzKGJvbmQpOw0KKw0KIAlp
+ZiAoYm9uZC0+cHJpbWFyeV9zbGF2ZSA9PSBzbGF2ZSkgew0KIAkJYm9uZC0+
+cHJpbWFyeV9zbGF2ZSA9IE5VTEw7DQogCX0NCkBAIC0yMjQzLDYgKzIyODUs
+OCBAQCBzdGF0aWMgaW50IGJvbmRfcmVsZWFzZV9hbGwoc3RydWN0IG5ldF9k
+DQogCQkJYm9uZF9hbGJfZGVpbml0X3NsYXZlKGJvbmQsIHNsYXZlKTsNCiAJ
+CX0NCiANCisJCWJvbmRfY29tcHV0ZV9mZWF0dXJlcyhib25kKTsNCisNCiAJ
+CS8qIG5vdyB0aGF0IHRoZSBzbGF2ZSBpcyBkZXRhY2hlZCwgdW5sb2NrIGFu
+ZCBwZXJmb3JtDQogCQkgKiBhbGwgdGhlIHVuZG8gc3RlcHMgdGhhdCBzaG91
+bGQgbm90IGJlIGNhbGxlZCBmcm9tDQogCQkgKiB3aXRoaW4gYSBsb2NrLg0K
+QEAgLTM1ODgsNiArMzYzMiw3IEBAIHN0YXRpYyBpbnQgYm9uZF9tYXN0ZXJf
+bmV0ZGV2X2V2ZW50KHVuc2kNCiBzdGF0aWMgaW50IGJvbmRfc2xhdmVfbmV0
+ZGV2X2V2ZW50KHVuc2lnbmVkIGxvbmcgZXZlbnQsIHN0cnVjdCBuZXRfZGV2
+aWNlICpzbGF2ZV9kZXYpDQogew0KIAlzdHJ1Y3QgbmV0X2RldmljZSAqYm9u
+ZF9kZXYgPSBzbGF2ZV9kZXYtPm1hc3RlcjsNCisJc3RydWN0IGJvbmRpbmcg
+KmJvbmQgPSBib25kX2Rldi0+cHJpdjsNCiANCiAJc3dpdGNoIChldmVudCkg
+ew0KIAljYXNlIE5FVERFVl9VTlJFR0lTVEVSOg0KQEAgLTM2MjYsNiArMzY3
+MSw5IEBAIHN0YXRpYyBpbnQgYm9uZF9zbGF2ZV9uZXRkZXZfZXZlbnQodW5z
+aWcNCiAJCSAqIFRPRE86IGhhbmRsZSBjaGFuZ2luZyB0aGUgcHJpbWFyeSdz
+IG5hbWUNCiAJCSAqLw0KIAkJYnJlYWs7DQorCWNhc2UgTkVUREVWX0ZFQVRf
+Q0hBTkdFOg0KKwkJYm9uZF9jb21wdXRlX2ZlYXR1cmVzKGJvbmQpOw0KKwkJ
+YnJlYWs7DQogCWRlZmF1bHQ6DQogCQlicmVhazsNCiAJfQ0KQEAgLTQ1MjYs
+NiArNDU3NCwxMSBAQCBzdGF0aWMgaW5saW5lIHZvaWQgYm9uZF9zZXRfbW9k
+ZV9vcHMoc3RyDQogCX0NCiB9DQogDQorc3RhdGljIHN0cnVjdCBldGh0b29s
+X29wcyBib25kX2V0aHRvb2xfb3BzID0gew0KKwkuZ2V0X3R4X2NzdW0JCT0g
+ZXRodG9vbF9vcF9nZXRfdHhfY3N1bSwNCisJLmdldF9zZwkJCT0gZXRodG9v
+bF9vcF9nZXRfc2csDQorfTsNCisNCiAvKg0KICAqIERvZXMgbm90IGFsbG9j
+YXRlIGJ1dCBjcmVhdGVzIGEgL3Byb2MgZW50cnkuDQogICogQWxsb3dlZCB0
+byBmYWlsLg0KQEAgLTQ1NTUsNiArNDYwOCw3IEBAIHN0YXRpYyBpbnQgX19p
+bml0IGJvbmRfaW5pdChzdHJ1Y3QgbmV0X2QNCiAJYm9uZF9kZXYtPnN0b3Ag
+PSBib25kX2Nsb3NlOw0KIAlib25kX2Rldi0+Z2V0X3N0YXRzID0gYm9uZF9n
+ZXRfc3RhdHM7DQogCWJvbmRfZGV2LT5kb19pb2N0bCA9IGJvbmRfZG9faW9j
+dGw7DQorCWJvbmRfZGV2LT5ldGh0b29sX29wcyA9ICZib25kX2V0aHRvb2xf
+b3BzOw0KIAlib25kX2Rldi0+c2V0X211bHRpY2FzdF9saXN0ID0gYm9uZF9z
+ZXRfbXVsdGljYXN0X2xpc3Q7DQogCWJvbmRfZGV2LT5jaGFuZ2VfbXR1ID0g
+Ym9uZF9jaGFuZ2VfbXR1Ow0KIAlib25kX2Rldi0+c2V0X21hY19hZGRyZXNz
+ID0gYm9uZF9zZXRfbWFjX2FkZHJlc3M7DQpAQCAtNDU5MSw2ICs0NjQ1LDgg
+QEAgc3RhdGljIGludCBfX2luaXQgYm9uZF9pbml0KHN0cnVjdCBuZXRfZA0K
+IAkJCSAgICAgICBORVRJRl9GX0hXX1ZMQU5fUlggfA0KIAkJCSAgICAgICBO
+RVRJRl9GX0hXX1ZMQU5fRklMVEVSKTsNCiANCisJYm9uZC0+Ym9uZF9mZWF0
+dXJlcyA9IGJvbmRfZGV2LT5mZWF0dXJlczsNCisNCiAjaWZkZWYgQ09ORklH
+X1BST0NfRlMNCiAJYm9uZF9jcmVhdGVfcHJvY19lbnRyeShib25kKTsNCiAj
+ZW5kaWYNCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ib25kaW5nL2JvbmRp
+bmcuaCBiL2RyaXZlcnMvbmV0L2JvbmRpbmcvYm9uZGluZy5oDQotLS0gYS9k
+cml2ZXJzL25ldC9ib25kaW5nL2JvbmRpbmcuaA0KKysrIGIvZHJpdmVycy9u
+ZXQvYm9uZGluZy9ib25kaW5nLmgNCkBAIC0yMTEsNiArMjExLDkgQEAgc3Ry
+dWN0IGJvbmRpbmcgew0KIAlzdHJ1Y3QgICBib25kX3BhcmFtcyBwYXJhbXM7
+DQogCXN0cnVjdCAgIGxpc3RfaGVhZCB2bGFuX2xpc3Q7DQogCXN0cnVjdCAg
+IHZsYW5fZ3JvdXAgKnZsZ3JwOw0KKwkvKiB0aGUgZmVhdHVyZXMgdGhlIGJv
+bmRpbmcgZGV2aWNlIHN1cHBvcnRzLCBpbmRlcGVuZGVudGx5IA0KKwkgKiBv
+ZiBhbnkgc2xhdmVzICovDQorCWludAkgYm9uZF9mZWF0dXJlczsgDQogfTsN
+CiANCiAvKioNCg==
+
+--32512-514941971-1123797007=:14105--
